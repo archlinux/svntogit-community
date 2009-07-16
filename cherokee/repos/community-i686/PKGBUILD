@@ -1,0 +1,58 @@
+# $Id: PKGBUILD,v 1.57 2009/07/01 22:50:03 foutrelis Exp $
+# Maintainer: Evangelos Foutras <foutrelis@gmail.com>
+# Contributor: Link Dupont <link@subpop.net>
+
+pkgname=cherokee
+pkgver=0.99.20
+pkgrel=1
+pkgdesc="A very fast, flexible and easy to configure Web Server"
+arch=('i686' 'x86_64')
+url="http://www.cherokee-project.com/"
+license=('GPL2')
+depends=('openssl' 'pcre')
+makedepends=('gettext' 'libldap' 'pam' 'libmysqlclient' 'ffmpeg' 'geoip')
+optdepends=('python: cherokee-admin (administrative web interface)'
+            'libldap: ldap validator'
+            'pam: pam validator'
+            'libmysqlclient: mysql validator'
+            'ffmpeg: Audio/Video streaming handler'
+            'geoip: GeoIP rule module')
+backup=('etc/cherokee/cherokee.conf'
+        'etc/logrotate.d/cherokee')
+install=cherokee.install
+source=(http://www.cherokee-project.com/download/0.99/$pkgver/cherokee-$pkgver.tar.gz
+        cherokee.rc
+        cherokee.logrotate
+        cherokee-user-group.patch
+        use-log-subdirectory.patch)
+options=('!libtool')
+md5sums=('78a370f7b012e77ea2278c1048bae754'
+         '87f16f9e807275248bf252af17099974'
+         '213069423f1c4a6abbb6e13a5b261bcf'
+         '08495b3bb151cec73cb7404f7ce5e6b2'
+         '7d5cdf855a1fdad525c1d9dddc9eae79')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  patch -p1 -i "$srcdir/cherokee-user-group.patch" || return 1
+  patch -p1 -i "$srcdir/use-log-subdirectory.patch" || return 1
+
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
+              --with-wwwroot=/srv/http --disable-static \
+              --enable-os-string="Arch Linux"
+  make || return 1
+  make DESTDIR="$pkgdir" install
+
+  # PAM configuration file for cherokee
+  install -D -m644 pam.d_cherokee "$pkgdir/etc/pam.d/$pkgname"
+
+  # Copy configuration converters
+  for converter in contrib/*to*.py; do
+    install -D -m755 $converter "$pkgdir/usr/share/$pkgname/converters/$(basename $converter)"
+  done
+
+  install -d -m755 -o http -g http "$pkgdir/var/log/$pkgname"
+  install -D -m755 "$srcdir/$pkgname.rc" "$pkgdir/etc/rc.d/$pkgname"
+  install -D -m644 "$srcdir/$pkgname.logrotate" "$pkgdir/etc/logrotate.d/$pkgname"
+}

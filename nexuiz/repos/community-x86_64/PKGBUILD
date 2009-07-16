@@ -1,0 +1,73 @@
+# Contributor: Xyne
+# Contributor: Jaroslaw Swierczynski <swiergot@aur.archlinux.org>
+# Contributor: Roman Kyrylych <Roman.Kyrylych@gmail.com>
+# Contributor: Camille Moncelier <pix@devlife.org>
+
+pkgname=nexuiz
+pkgver=2.5.1
+_zipver=$(echo $pkgver | sed 's/\.//g')
+pkgrel=2
+arch=('i686' 'x86_64')
+pkgdesc="a free, open-source first person shooter"
+url="http://www.nexuiz.com/"
+license=("GPL")
+depends=('alsa-lib' 'curl' 'libjpeg>=7' 'libmodplug' 'libvorbis' 'libxpm' 'libxxf86dga' 'libxxf86vm' 'sdl')
+makedepends=('mesa')
+source=(http://downloads.sourceforge.net/$pkgname/$pkgname-$_zipver.zip \
+        nexuiz-dedicated nexuiz-glx nexuiz-sdl nexuiz-glx.desktop \
+	nexuiz-libjpeg-fix.patch
+        nexuiz-sdl.desktop nexuiz.png)
+md5sums=('8e945f71a922f1f87ab406bafadde93f'
+         '19bfaa6e891d3309783e8366db485474'
+         '4d0ee9282a6fe153f82f7797decfd585'
+         '3e5ea741e8d55df8e7691c797c81ffa7'
+         '310f0577c39391f2d2f17cea446ce269'
+         '26a9ca7c3329d22e85aba54349c9ba9f'
+         '4561d3c5be4801399af515faf82ebcba'
+         '442fb62670bbe0a1b5370461052051a3')
+
+build() {
+  _nexdir="$pkgdir/opt/nexuiz"
+  _enginesource_date="20090501"
+  
+  _install_dir $srcdir/Nexuiz/Docs $_nexdir/docs
+  _install_dir $srcdir/Nexuiz/data $_nexdir/data
+  _install_dir $srcdir/Nexuiz/havoc $_nexdir/havoc
+  _install_dir $srcdir/Nexuiz/server $_nexdir/server
+  
+  find $_nexdir/server -name "*_windows.bat" -exec rm {} \;
+  find $_nexdir/server -name "*_mac.sh" -exec rm {} \;
+  
+  cd $srcdir/Nexuiz
+  bsdtar -x -f sources/enginesource${_enginesource_date}.zip || return 1
+  cd darkplaces
+  patch -p1 < "$srcdir/nexuiz-libjpeg-fix.patch" || return 1
+  
+  # here's a working kludge to build all three binaries at once but don't use it ;)
+  # make CPUOPTIMIZATIONS="${CFLAGS}" nexuiz || make CPUOPTIMIZATIONS="${CFLAGS}" nexuiz || return 1
+  
+  # build the binaries separately instead to avoid truncated files
+  make CPUOPTIMIZATIONS="${CFLAGS}" cl-nexuiz || return 1
+  make CPUOPTIMIZATIONS="${CFLAGS}" sdl-nexuiz || return 1
+  make CPUOPTIMIZATIONS="${CFLAGS}" sv-nexuiz || return 1
+  
+
+  # install the compiled binaries
+  install -Dm755 nexuiz-glx nexuiz-sdl nexuiz-dedicated -t $_nexdir
+
+  install -dm755 $pkgdir/usr/{bin,share/applications}
+  install -Dm755 $srcdir/nexuiz-{glx,sdl,dedicated} -t $pkgdir/usr/bin
+  install -Dm644 $srcdir/*.desktop -t $pkgdir/usr/share/applications
+  install -Dm644 $srcdir/nexuiz.png $pkgdir/usr/share/pixmaps/nexuiz.png
+}
+
+function _install_dir {
+  _src_dir=$1
+  _dest_dir=$2
+  _n=${#_src_dir}
+  for _file in $(find $_src_dir -type f)
+  do
+    _dest_file=${_dest_dir}${_file:$_n}
+    install -Dm644 $_file $_dest_file
+  done
+}

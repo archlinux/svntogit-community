@@ -1,0 +1,346 @@
+#!/bin/bash
+###############################################################################
+# RPM SpecFile to ArchLinux PKGBUILD converter             (c) 2008 by IzzySoft
+#------------------------------------------------------------------------------
+# This script does a raw "convert" from a given .spec file to an ArchLinux
+# PKGBUILD file. The resulting file still should be reviewed!
+#------------------------------------------------------------------------------
+# Syntax:
+#    spec2arch <specfile> <outfile>
+###############################################################################
+
+#==========================================================[ Configuration ]===
+# Since this script is used in different packages (pkgmake, pkgtools), we need
+# to point it to the right directory
+CONFNAME="pkgtools"
+# These are the internal defaults. Don't change them here - use the
+# /etc/${CONFNAME}/spec2arch.conf or $HOME/.${CONFNAME}/spec2arch.conf instead!
+SRC_BASEURL=""
+USE_WARNING=1
+OVERWRITE_TARGET=0
+DO_BUILD_REPLACE=0
+EDIT_PKGBUILD=1
+USE_NAMCAP=1
+
+#=========================================================[ Initialization ]===
+#-----------------------------------------------------------[ Syntax Check ]---
+function syntax() {
+  if [ -n "$1" ]; then
+    EL=$1
+  else
+    EL=0
+  fi
+  echo
+  echo "Syntax:"
+  echo "   spec2arch <specfile> <outfile> [options]"
+  echo
+  echo "where <specfile> is the RPM .spec file to process, and <outfile> the"
+  echo "resulting PKGBUILD file. Available options:"
+  echo
+  echo "-b	don't run the BUILD_REPLACE"
+  echo "+b	force running the BUILD_REPLACE"
+  echo "-e	do not call the editor on the created PKGBUILD file"
+  echo "+e	call the editor on the PKGBUILD file when it's created"
+  echo "-n	don't check with namcap.py"
+  echo "+n	check with namcap.py"
+  echo "-o	don't overwrite target if exists"
+  echo "+o	overwrite target if exists"
+  echo "-w	do not put the warning in the PKGBUILD file"
+  echo "+w	put the warning in the PKGBUILD file"
+  echo "--baseurl <baseurl>	set SRC_BASEURL to <baseurl>"
+  echo "--editor <editor>	use <editor> to manually edit the PKGBUILD file"
+  echo "--md5of <file>		create md5sum of specified (colon-separated) file(s)"
+  echo
+  exit $EL
+}
+
+#------------------------------------------------------------[ Read Config ]---
+[ -e /etc/${CONFNAME}/spec2arch.conf ] && . /etc/${CONFNAME}/spec2arch.conf
+[ -e $HOME/.${CONFNAME}/spec2arch.conf ] && . $HOME/.${CONFNAME}/spec2arch.conf
+
+#-----------------------------------------------------[ parse command line ]---
+case "$1" in
+  -h|--help) syntax;;
+esac
+[ -z "$2" ] && syntax 5
+SPECFILE=$1
+OUTFILE=$2
+
+while [ "$1" != "" ] ; do
+  case "$1" in
+    -b) DO_BUILD_REPLACE=0;;
+    +b) DO_BUILD_REPLACE=1;;
+    -e) EDIT_PKGBUILD=0;;
+    +e) EDIT_PKGBUILD=1;;
+    -n) USE_NAMCAP=0;;
+    +n) USE_NAMCAP=1;;
+    -o) OVERWRITE_TARGET=0;;
+    +o) OVERWRITE_TARGET=1;;
+    -w) USE_WARNING=0;;
+    +w) USE_WARNING=1;;
+    --baseurl) shift; SRC_BASEURL="$1";;
+    --editor) shift; EDITOR="$1";;
+    --md5of) shift; MD5OF="$1";;
+  esac
+  shift
+done
+
+[ ! -e $SPECFILE ] && {
+  echo
+  echo "Sorry, but the specified .spec file '$SPECFILE' does not exits."
+  echo
+  exit 2
+}
+[ -e $OUTFILE -a $OVERWRITE_TARGET -eq 0 ] && {
+  echo
+  echo "WARNING: The specified target PKGBUILD file '$OUTFILE' already exists!"
+  echo
+  exit 17
+}
+
+#===================================================[ Pre-Check .spec file ]===
+#--------------------------------------------[ Package unsupported for us? ]---
+#excludeos
+EXCLOS=$(cat "$SPECFILE"|tr [:upper:] [:lower:]|sed -n '/^excludeos.*linux/p')
+[ -n "$EXCLOS" ] && {
+  echo "Sorry - but this package seems not to be supported for ArchLinux:"
+  echo "'$EXCLOS'"
+  exit 22
+}
+#exclusiveos
+EXCLUS=$(cat "$SPECFILE"|tr [:upper:] [:lower:]|sed -n '/^exclusiveos/p')
+[ -n "$EXCLUS" ] && {
+  EXCLUSLX=$(cat "$SPECFILE"|tr [:upper:] [:lower:]|sed -n '/^exclusiveos.*linux/p')
+  [ -z "$EXCLUSLX" ] && {
+    echo "Sorry - but this package seems not to be supported for ArchLinux:"
+    echo "'$EXCLUS'"
+    echo "'$EXCLUSLX'"
+    exit 22
+  }
+}
+#excludearch
+#exclusivearch
+
+#===========================================================[ Helper Funcs ]===
+#---------------------------------------------------------[ Read Y/N input ]---
+function readyn() {
+  read -n 1 rd
+  echo
+  rd=`echo $rd|tr [:upper:] [:lower:]`
+  if [ "$rd" = "y" -o "$rd" = "j" ]; then
+    rd=1
+  elif [ "$rd" = "n" ]; then
+    rd=0
+  else
+    echo -n "Please enter 'y' for 'yes', 'n' for 'no' - or press Ctrl-C to abort: "
+    readyn
+  fi
+}
+
+#-------------------------------[ Remove leading and trailing white spaces ]---
+function trim() {
+  echo "$1"|sed 's/^\s*//;s/\s*$//'
+}
+
+#------------------------------------------------[ Output PKGBUILD content ]---
+function output() {
+  if [ -n "$PACKAGER" ]; then
+    echo "# Contributor: $PACKAGER"
+  elif [ -n "$VENDOR" ]; then
+    echo "# Contributor: $VENDOR"
+  else
+    echo "# Contributor: unknown"
+  fi
+  [ -n "$VENDOR" ] && echo "# Maintainer: $VENDOR"
+  [ $USE_WARNING -ne 0 ] && echo "# This PKGBUILD file was autogenerated and should be verified before use!"
+  echo "pkgname=$PKGNAME"
+  echo "pkgver=$PKGVER"
+  echo "pkgrel=$PKGREL"
+  echo "pkgdesc=\"$PKGDESC\""
+  echo "arch=$ARCH"
+  [ -n "$URL" ] && echo "url=\"$URL\""
+  [ -n "$LICENSE" ] && echo "license=('$LICENSE')"
+  echo "groups=('$GROUP')"
+  [ -n "$DEPENDS" ] && {
+    DEPENDS=$(echo "$DEPENDS"|sed 's/,/ /g')
+    echo "depends=($(trim "$DEPENDS"))"
+  }
+  [ -n "$PROVIDES" ] && {
+    PROVIDES=$(echo "$PROVIDES"|sed 's/,/ /g')
+    echo "provides=($(trim "$PROVIDES"))"
+  }
+  [ -n "$CONFLICTS" ] && {
+    CONFLICTS=$(echo "$CONFLICTS"|sed 's/,/ /g')
+    echo "conflicts=($(trim "$CONFLICTS"))"
+  }
+  [ -n "$REPLACES" ] && {
+    REPLACES=$(echo "$REPLACES"|sed 's/,/ /g')
+    echo "replaces=($(trim "$REPLACES"))"
+  }
+  [ -n "$BACKUP" ] && echo "backup=($(trim "$BACKUP"))"
+  [ -n "$SRC_BASEURL" -a "${SRC_BASEURL:${#SRC_BASEURL}-1}" != "/" ] && SRC_BASEURL="${SRC_BASEURL}/"
+  echo "source=($SRC_BASEURL\$pkgname-\$pkgver.tar.gz)"
+  if [ -n "$MD5OF" ]; then
+    MD5OF=$(echo $MD5OF|sed 's/:/ /g')
+    MDSUM=""
+    for FILEN in $MD5OF; do
+      [ -f $FILEN ] && MDSUM="$MDSUM '$(md5sum $FILEN|awk '{print $1}')'"
+    done
+    echo "md5sums=(${MDSUM:1})"
+  else
+    echo "md5sums=()"
+  fi
+  [ -n "$BUILD" ] && {
+    echo
+    echo "build() {"
+    echo -e "  cd \$startdir/src/\$pkgname-\$pkgver${BUILD}"
+    echo "}"
+  }
+  echo "# vim: set ts=2 sw=2 et:"
+}
+
+#----------------------------------------------------[ Setup BuildReplaces ]---
+function buildPrep() {
+  local i
+  typeset -i i=0
+  BUILD_REP_SED=""
+  BUILD_REM_SED=""
+  while [ -n "${BUILD_REPLACE[$i]}" ]; do
+    BUILD_REP_SED="${BUILD_REP_SED};s/${BUILD_REPLACE[$i]}/${BUILD_REPLACED[$i]}/g"
+    i+=1
+  done
+  i=0
+  while [ -n "${BUILD_REMOVE[$i]}" ]; do
+    BUILD_REM_SED="${BUILD_REM_SED};/${BUILD_REMOVE[$i]}/d"
+    i+=1
+  done
+  [ -n "$BUILD_REP_SED" ] && BUILD_REP_SED=${BUILD_REP_SED:1}
+  [ -n "$BUILD_REM_SED" ] && BUILD_REM_SED=${BUILD_REM_SED:1}
+}
+function buildReplace() {
+  echo "$1"|sed "$BUILD_REM_SED"|sed "$BUILD_REP_SED"
+}
+
+#---------------------------------------------------[ Check with namcap.py ]---
+function check_namcap() {
+  local CHECK_OK=0
+  [ -n "$(which namcap.py)" ] && {
+    CHECK=$(namcap.py $OUTFILE 2>/dev/null)
+    RC=$?
+    echo
+    if [ -n "$CHECK" ]; then
+      cat<<ENDCHECK
+$CHECK
+ENDCHECK
+    elif [ $RC -ne 0 ]; then
+      echo "Looks like namcap crashed. Better check the PKGBUILD file again for typos!"
+      sleep 3
+    else
+      CHECK_OK=1
+      echo "PKGBUILD file looks OK - no errors reported by namcap."
+    fi
+    echo
+    [ $CHECK_OK -ne 1 -a $EDIT_PKGBUILD -ne 0 ] && {
+      echo "We could invoke the editor again for you to fix the issue, and re-run the"
+      echo -n "check. Would you like to do so (y/n)? "
+      readyn
+      if [ $rd -eq 1 ]; then
+        $EDITOR $OUTFILE
+	check_namcap
+      else
+        echo "The generated PKGBUILD file seems to have errors. Do you still want to"
+	echo -n "keep it (y/n)? Otherwise it will be removed. "
+	readyn
+	[ $rd -eq 0 ] && rm -f $OUTFILE
+      fi
+    }
+  }
+}
+
+#=======================================================[ Parse Input File ]===
+buildPrep
+DEPENDS=""
+PROVIDES=""
+CONFLICTS=""
+REPLACES=""
+BACKUP=""
+BUILD=""
+LICENSE=""
+BUILDBLOCK=0
+while read line; do
+  [ $BUILDBLOCK -eq 1 ] && {
+    [ $DO_BUILD_REPLACE -ne 0 ] && {
+      line=$(buildReplace "$line")
+    }
+    if [ "${line:0:1}" == "%" ]; then
+      VAR=$(echo $line|awk '{print $1}'|tr [:upper:] [:lower:])
+      case "$VAR" in
+        "%prep"|"%setup"|"%build"|"%install"|"%pre"|"%post") continue;;
+	"%if"|"%else"|"%endif")
+	  VAL=$(echo $line|sed 's/%if/if/g;s/%else/else/g;s/%endif/fi/g;s/%/\$/g');
+          BUILD="${BUILD}\n  $VAL"
+	  continue;;
+	*) BUILDBLOCK=0; continue;;
+      esac
+    else
+      VAL=$(trim "$line")
+      [ -z "$VAL" -o  "${VAL:0:1}" = "#" ] && continue
+      VAL=$(echo "$VAL"|sed 's/%/\$/g')
+      BUILD="${BUILD}\n  $VAL"
+      continue
+    fi
+  }
+  if [ "${line:0:1}" == "%" ]; then
+    VAR=$(echo $line|awk '{print $1}'|tr [:upper:] [:lower:])
+    case "$VAR" in
+      "%prep"|"%setup"|"%build"|"%install"|"%pre"|"%post") BUILDBLOCK=1; continue;;
+      *) continue;;
+    esac
+  fi
+  pat=$(echo "$line"|egrep -i "^\w+:")
+  [ -n "$pat" ] && {
+    VAR=$(echo "$line"|awk -F: '{print $1}')
+    VARL=$(echo "$VAR"|tr [:upper:] [:lower:])
+    VLEN=${#VAR}
+    VAL=$(trim "${line:$VLEN+1}")
+    case "$VARL" in
+      "summary") PKGDESC="$VAL";;
+      "version") PKGVER=$VAL;;
+      "name") PKGNAME=$VAL;;
+      "release") PKGREL=$(echo $VAL|sed 's/[^0-9]//g');;
+      "license") LICENSE="$VAL";;
+      #"group") GROUP="$VAL";; # Arch's group tag is not used in the same way. Arch groups are similar in concept to metapackages.
+      # "source") SOURCE="${SRC_BASEURL}/$VAL";;
+      "vendor") VENDOR="$VAL";;
+      "packager") PACKAGER="$VAL";;
+      "url") URL="$VAL";;
+      "buildarchitectures"|"buildarch")
+        if [ "$VAL" = "noarch" ]; then
+	  ARCH="('any')"
+	else
+	  ARCH="('$VAL')"
+       fi
+	;;
+      "requires"|"buildrequires") DEPENDS="${DEPENDS} '$VAL'";; # Should we have logic here to check for versioned requirements?
+      "provides") PROVIDES="${PROVIDES} '$VAL'";;
+      "conflicts") CONFLICTS="${CONFLICTS} '$VAL'";;
+      "replaces") REPLACES="${REPLACES} '$VAL'";;
+      "copyright") LICENSE="${LICENSE} '$VAL'";;
+    esac
+    continue
+  }
+done<$SPECFILE
+BACKS=$(sed -n '/^%config/p' $SPECFILE|sed 's/%config(noreplace//;s/%config(replace//;s/%config//')
+for BAK in $BACKS; do
+  BAK=$(trim "$BAK")
+  [ "${BAK:0:1}" = "/" ] && BAK=${BAK:1}
+  BACKUP="${BACKUP} '$BAK'"
+done
+BACKUP=$(trim "$BACKUP")
+
+#----------------------------------------[ Create and verify PKGBUILD file ]---
+output >$OUTFILE
+[ $EDIT_PKGBUILD -ne 0 ] && $EDITOR $OUTFILE
+[ $USE_NAMCAP -ne 0 ] && check_namcap
+
+#------------------------------------------------------------------[ Done. ]---
