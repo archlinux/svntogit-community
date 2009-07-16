@@ -1,0 +1,21 @@
+# $Id: PKGBUILD,v 1.4 2009/04/09 09:51:57 sergej Exp $
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Alois Belaska <lloyd@centrum.cz>
+
+pkgname=xsettings-client
+pkgver=0.10
+pkgrel=4
+pkgdesc="Provides cross toolkit configuration settings such as theme parameters"
+arch=('i686' 'x86_64')
+license=('GPL')
+url="http://projects.o-hand.com/matchbox/sources"
+source=(http://projects.o-hand.com/matchbox/sources/optional-dependencies/Xsettings-client-$pkgver.tar.gz)
+md5sums=('c14aa9db6c097e0306dac97fb7da1add')
+options=('!libtool')
+
+build() {
+  cd $startdir/src/Xsettings-client-$pkgver
+  ./configure --prefix=/usr
+  make || return 1
+  make DESTDIR=$startdir/pkg install
+}
