@@ -1,4 +1,4 @@
-# $Id: PKGBUILD,v 1.4 2008/10/28 14:42:59 abhidg Exp $
+# $Id$
 # Contributor: dibblethewrecker <dibblethewrecker.at.jiwe.org>
 
 pkgname=gquilt
