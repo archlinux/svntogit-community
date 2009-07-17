@@ -1,0 +1,74 @@
+# $Id$
+# Maintainer: Evangelos Foutras <foutrelis@gmail.com>
+
+pkgname=frostwire
+pkgver=4.18.0
+pkgrel=2
+pkgdesc="P2P Gnutella/Bittorrent client"
+arch=('i686' 'x86_64')
+url="http://www.frostwire.com"
+license=('GPL')
+depends=('java-runtime' 'desktop-file-utils' 'hicolor-icon-theme')
+makedepends=('java-environment' 'apache-ant' 'subversion')
+conflicts=('java-gcj-compat')
+install=$pkgname.install
+source=(http://main2.frostwire.com/$pkgname/$pkgver/$pkgname-$pkgver.noarch.tar.gz
+        $pkgname
+        $pkgname.desktop
+        icons.tar.gz
+        update-manager-seenMessages.patch
+        java-version-detection.patch)
+md5sums=('29bd7d7b036e9dc9b0b73d4c47008fbd'
+         '88647e1dbbd3a86472739546b7107949'
+         '89684c639a868fd0352a20fc1e81996c'
+         'dbea03ff4e35cc6c190976282682c2cf'
+         '24b2555ca3cd9130a31f5fdf95325f84'
+         'b1e6c951e218886c7f6f7511bf722871')
+
+__svntrunk=http://frostwire.svn.sourceforge.net/svnroot/frostwire/trunk
+__svnmod=frostwire-src
+__svnrev=1177
+
+build() {
+  cd "$srcdir"
+
+  # Download frostwire source code in order to patch FrostWire.jar
+  if [ -d $__svnmod/.svn ]; then
+    (cd $__svnmod && svn up -r $__svnrev)
+  else
+    svn co $__svntrunk --config-dir ./ -r $__svnrev $__svnmod
+  fi
+
+  rm -rf "$srcdir/$__svnmod-build"
+  cp -r "$srcdir/$__svnmod" "$srcdir/$__svnmod-build"
+  cd "$srcdir/$__svnmod-build"
+
+  patch -p0 -i "$srcdir/update-manager-seenMessages.patch" || return 1
+  cp "$srcdir/$pkgname-$pkgver.noarch/themes.jar" "lib/jars/other"
+  # Build patched FrostWire.jar
+  ant jar || return 1
+
+  cd "$srcdir/$pkgname-$pkgver.noarch"
+
+  # FS#15544 (Java version detection fails when _JAVA_OPTIONS is set)
+  patch -p1 -i "$srcdir/java-version-detection.patch"
+
+  install -d "$pkgdir/usr/share/$pkgname"
+  cp -r * "$pkgdir/usr/share/$pkgname"
+  cp -r "$srcdir/icons" "$pkgdir/usr/share"
+
+  # Replace FrostWire.jar with our own version
+  install -Dm644 "$srcdir/$__svnmod-build/dist/FrostWire.jar" "$pkgdir/usr/share/$pkgname/FrostWire.jar"
+  # And update the hash
+  local FrostWire_jar_hash=$(md5sum "$pkgdir/usr/share/$pkgname/FrostWire.jar" | cut -c-32 | tr 'a-z' 'A-Z')
+  sed -i "s|^FrostWire\.jar=.*|FrostWire\.jar=$FrostWire_jar_hash|" \
+         "$pkgdir/usr/share/$pkgname/hashes"
+
+  install -D "$srcdir/$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm644 $pkgname.desktop "$pkgdir/usr/share/applications/$pkgname.desktop"
+  install -Dm644 "$srcdir/icons/hicolor/16x16/apps/$pkgname.png" \
+                 "$pkgdir/usr/share/pixmaps/$pkgname.png"
+
+  # Remove uneeded files
+  rm -rf "$pkgdir"/usr/share/frostwire/{runFrostwireOSX.sh,root/{.svn,magnet10/.svn}}
+}
