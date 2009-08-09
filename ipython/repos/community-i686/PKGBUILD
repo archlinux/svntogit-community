@@ -1,7 +1,7 @@
 # Maintainer : Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=0.9.1
+pkgver=0.10
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('i686' 'x86_64')
@@ -20,4 +20,4 @@ build() {
 
   rm -rf $startdir/pkg/usr/share/doc
 }
-md5sums=('8a1bd1a9be272f4ddf4de99e5c1ad0dc')
+md5sums=('dd10cd1b622c16c1afca2239fcc0dfdf')
