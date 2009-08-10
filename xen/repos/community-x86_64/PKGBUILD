@@ -3,7 +3,7 @@
 # Contributor: Gergely Tamas <dice@mfa.kfki.hu>
 
 pkgname=xen
-pkgver=3.4.0
+pkgver=3.4.1
 
 _kxenver=3.4.0
 _kernver=2.6.18
@@ -23,6 +23,7 @@ install=xen.install
 depends=('iproute' 'bridge-utils' 'python' 'sdl' 'zlib' 'e2fsprogs')
 makedepends=('dev86')
 source=(http://bits.xensource.com/oss-xen/release/$pkgver/xen-$pkgver.tar.gz \
+	http://bits.xensource.com/oss-xen/release/${_kxenver}/linux-${_kernver}-xen-${_kxenver}.tar.gz \
 	ftp://sources.redhat.com/pub/newlib/newlib-${_newlibver}.tar.gz \
 	http://www.kernel.org/pub/software/utils/pciutils/pciutils-${_pciutilsver}.tar.bz2 \
 	http://download.savannah.gnu.org/releases/lwip/lwip-${_lwipver}.tar.gz \
@@ -34,7 +35,8 @@ noextract=(newlib-${_newlibver}.tar.gz
 	   lwip-${_lwipver}.tar.gz
 	   zlib-${_zlibver}.tar.gz
 	   grub-${_grubver}.tar.gz)
-md5sums=('bf1b29f07ec2c12673779600aea183b2'
+md5sums=('c3f8dbcf833140825b1e2f16b64655f3'
+         '7630b0c8607f976eea4d478920ee6662'
          'bf8f1f9e3ca83d732c00a79a6ef29bc4'
          'cec05e7785497c5e19da2f114b934ffd'
          '36cc57650cffda9a0269493be2a169bb'
@@ -59,14 +61,15 @@ build() {
   sed -i 's#override##' tools/firmware/Rules.mk || return 1
   sed -i 's#x86_32#x86_64#' tools/firmware/Rules.mk || return 1
 
-  touch $startdir/src/linux-${_kernver}-xen-${_kxenver}/.valid-src
+  touch $startdir/src/linux-${_kernver}-xen-${_kxenver}/.valid-src || return 1
 
   msg "make dist"
   [ $CARCH == "x86_64" ] && _arch="XEN_TARGET_ARCH=x86_64"
-  make CC=gcc LINUX_SRCDIR="$startdir/src/xen-$pkgver/linux-${_kernver}" KERNELS="linux-2.6-xen0 linux-2.6-xenU" ${_arch} || msg "FAILED"
+  [ $CARCH == "i686" ]   && _arch="XEN_TARGET_ARCH=x86_32"
+  make CC=gcc LINUX_SRCDIR="$startdir/src/linux-${_kernver}-xen-${_kxenver}" KERNELS="linux-2.6-xen0 linux-2.6-xenU" ${_arch} || msg "FAILED"
 
   msg "make install"
-  make CC=gcc LINUX_SRCDIR="$startdir/src/xen-$pkgver/linux-${_kernver}" KERNELS="linux-2.6-xen0 linux-2.6-xenU" ${_arch} DESTDIR=$startdir/pkg install || msg "FAILED"
+  make CC=gcc LINUX_SRCDIR="$startdir/src/linux-${_kernver}-xen-${_kxenver}" KERNELS="linux-2.6-xen0 linux-2.6-xenU" ${_arch} DESTDIR=$startdir/pkg install || msg "FAILED"
 
   msg "copy xen0"
   install -m644 -D $startdir/src/xen0.preset $startdir/pkg/etc/mkinitcpio.d/xen0.preset || return 1
@@ -80,9 +83,11 @@ build() {
   install -m644 -D $startdir/src/xen-fallback.conf $startdir/pkg/etc/mkinitcpio.d/xen-fallback.conf || return 1
 
   msg "fix and cleanup"
-  ( cd $startdir/pkg/etc && mv init.d rc.d ) || return 1
-  rm -f $startdir/pkg/usr/share/man/man1/qemu-img.1* \
-	$startdir/pkg/usr/share/man/man1/qemu.1*
+  ( cd $pkgdir/etc && mv init.d rc.d ) || return 1
 
-  [ -d $pkgdir/usr/lib64 ] && mv $pkgdir/usr/lib64 $pkgdir/usr/lib
+  rm -rf $pkgdir/usr/share/man/man1/qemu-img.1* \
+	$pkgdir/usr/share/man/man1/qemu.1* \
+	$pkgdir/home
+
+  [ -d $pkgdir/usr/lib64 ] && mv $pkgdir/usr/lib64 $pkgdir/usr/lib || true
 }
