@@ -5,6 +5,7 @@
 PROGRAM = fotoxx
 VERSION = 8.2.2
 
+
 ifeq "$(PREFIX)" ""
 	PREFIX = /usr/local
 endif
