@@ -3,7 +3,7 @@
 # replace CFLAGS and LFLAGS -O (oh) with -g for GDB debugging
 
 PROGRAM = fotoxx
-VERSION = 8.2.2
+VERSION = 8.3
 
 
 ifeq "$(PREFIX)" ""
