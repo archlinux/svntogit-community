@@ -1,13 +1,15 @@
-# Maintainer : Douglas Soares de Andrade <dsa@aur.archlinux.org>
+# Maintainer: Chris Brannon <cmbrannon79@gmail.com>
+# Contributor : Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
 pkgver=0.10
-pkgrel=1
+pkgrel=2
 pkgdesc="An enhanced Interactive Python shell."
-arch=('i686' 'x86_64')
+arch=('any')
 url="http://ipython.scipy.org/"
 depends=('python')
-optdepends=('wxpython: needed for ipythonx and ipython-wx')
+optdepends=('wxpython: needed for ipythonx and ipython-wx'
+            'twisted: networking-related tasks')
 license=('custom')
 source=(http://ipython.scipy.org/dist/$pkgname-$pkgver.tar.gz)
 
