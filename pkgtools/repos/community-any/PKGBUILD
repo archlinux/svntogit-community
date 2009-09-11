@@ -1,7 +1,7 @@
 # Maintainer: Daenyth <Daenyth+Arch AT gmail DOT com>
 # Contributor: Daenyth <Daenyth+Arch AT gmail DOT com>
 pkgname=pkgtools
-pkgver=14
+pkgver=15
 pkgrel=1
 pkgdesc="A collection of scripts for Arch Linux packages"
 arch=(any)
@@ -14,7 +14,7 @@ provides=(newpkg pkgfile)
 depends=('bash>=4')
 optdepends=('cron: For pkgfile --update entry'
             'python: For pkgconflict')
-md5sums=('75908075abf8cd1565f63deed17d7c91')
+md5sums=('313b936c7003bb028daf4640dfd24157')
 
 
 build() {
