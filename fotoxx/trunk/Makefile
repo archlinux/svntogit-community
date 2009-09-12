@@ -3,8 +3,7 @@
 # replace CFLAGS and LFLAGS -O (oh) with -g for GDB debugging
 
 PROGRAM = fotoxx
-VERSION = 8.3
-
+VERSION = 8.4
 
 ifeq "$(PREFIX)" ""
 	PREFIX = /usr/local
