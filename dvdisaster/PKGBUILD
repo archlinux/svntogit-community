@@ -1,0 +1,27 @@
+# Contributor: Luke McCarthy <luke@iogopro.co.uk>
+
+pkgname=dvdisaster
+pkgver=0.72.1
+pkgrel=1
+pkgdesc="Provides a margin of safety against data loss on CD and DVD media caused by aging or scratches"
+url="http://www.dvdisaster.com/"
+license=('GPL')
+depends=('gtk2')
+arch=('i686' 'x86_64')
+source=(http://downloads.sourceforge.net/sourceforge/dvdisaster/$pkgname-$pkgver.tar.bz2 dvdisaster.desktop)
+md5sums=('4da96566bc003be93d9dfb0109b4aa1d' '3a0d6657c47b20a43b93c0e5d58d755a')
+
+build() {
+  cd $startdir/src/$pkgname-$pkgver
+  local root=$startdir/pkg/usr
+
+  ./configure --prefix=/usr --mandir=/usr/share/man --localedir=/usr/share/locale --with-nls=yes || return 1
+  make || return 1
+  make BUILDROOT=$startdir/pkg install || return 1
+  rm -f $root/bin/dvdisaster-uninstall.sh
+  install -d $root/share/applications
+  install -d $root/share/pixmaps
+  install -m 644 $startdir/src/dvdisaster.desktop $root/share/applications
+  install -m 644 icons/create.png $root/share/pixmaps/dvdisaster.png
+  mv ${pkgdir}/usr/doc ${pkgdir}/usr/share/doc
+}
