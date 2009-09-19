@@ -1,0 +1,54 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: William Rea <sillywilly@gmail.com>
+
+pkgname=dspam
+pkgver=3.8.0
+pkgrel=4
+pkgdesc="A scalable, open-source statistical anti-spam filter"
+arch=('i686' 'x86_64')
+url="http://dspam.nuclearelephant.com/"
+options=('!libtool')
+backup=(etc/dspam/dspam.conf)
+license=("GPL")
+depends=('libmysqlclient')
+makedepends=('postgresql' 'db' 'sqlite3')
+#source=(http://dspam.nuclearelephant.com/sources/dspam-$pkgver.tar.gz \
+source=(http://ftp.eu.openbsd.org/pub/buildit/source-archive/dspam-$pkgver.tar.gz \
+	dspam.logrotated dspam)
+install=$pkgname.install
+md5sums=('056b8c8b3ad9415a52c01b22ff1e64cf' '2163ca41de383f09f4d754e2d35cb158'\
+         'b7f4630c5e5d7c464072507cca5dbb27')
+
+build() {
+OPTS="--enable-delivery-to-stdout --with-dspam-owner=dspam --with-dspam-group=dspam --enable-daemon --enable-virtual-users \
+--with-mysql-includes=/usr/include/mysql --with-mysql-libraries=/usr/lib/mysql \
+--with-storage-driver="mysql_drv,libdb4_drv,pgsql_drv,sqlite3_drv,hash_drv" --with-dspam-home=/var/lib/dspam \
+--with-logdir=/var/log/dspam --enable-preferences-extension --enable-large-scale"
+
+  cd $startdir/src/$pkgname-$pkgver
+  ./configure --prefix=/usr --sysconfdir=/etc/dspam --localstatedir=/var ${OPTS}
+  make || return 1
+  make DESTDIR=$startdir/pkg install || return 1
+
+  mkdir -p $startdir/pkg/srv/www/dspam && \
+  cp -a webui/* $startdir/pkg/srv/www/dspam/ && \
+  find $startdir/pkg/srv/www/dspam/ -type f -name 'Makefile*' -exec rm -f {} \; && \
+  find $startdir/pkg/srv/www/dspam/ -type f -name '*.in' -exec rm -f {} \; || return 1
+
+  install -d $startdir/pkg/var/run/dspam $startdir/pkg/etc/logrotate.d \
+	     $startdir/pkg/etc/rc.d $startdir/pkg/var/lib/dspam/{mysql,pgsql} && \
+  install -m644 ../dspam.logrotated $startdir/pkg/etc/logrotate.d && \
+  install -m755 ../dspam $startdir/pkg/etc/rc.d || return 1
+ 
+  sed -i 's|#ServerPID|ServerPID|' $startdir/pkg/etc/dspam/dspam.conf || return 1
+
+  sed -e 's:^#*\(ServerDomainSocketPath[\t ]\{1,\}\).*:\1\"/var/run/dspam/dspam.sock\":gI' \
+				-e 's:^#*\(ServerPID[\t ]\{1,\}\).*:\1/var/run/dspam/dspam.pid:gI' \
+				-i $startdir/pkg/etc/dspam/dspam.conf || return 1
+
+  sed -i 's|/var/lib/mysql/mysql.sock|/tmp/mysql.sock|' $startdir/pkg/etc/dspam/dspam.conf || return 1
+
+  mv src/tools.mysql_drv/*.sql $startdir/pkg/var/lib/dspam/mysql && \
+  mv src/tools.pgsql_drv/*.sql $startdir/pkg/var/lib/dspam/pgsql
+}
