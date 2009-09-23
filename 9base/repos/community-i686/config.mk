@@ -1,11 +1,13 @@
 # Customize to fit your system
 
+OBJTYPE     = x86_64
+
 # paths
 PREFIX      = /opt/plan9
 MANPREFIX   = ${PREFIX}/man
 
 # flags
-VERSION     = 1
+VERSION     = 4
 CFLAGS      = -c -I. -DPREFIX="\"${PREFIX}\"" %CFLAGS%
 LDFLAGS     = -static %LDFLAGS%
 
