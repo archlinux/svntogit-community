@@ -1,9 +1,5 @@
-# fotoxx makefile 
-# use $PREFIX if defined, else assume /usr/local
-# replace CFLAGS and LFLAGS -O (oh) with -g for GDB debugging
-
 PROGRAM = fotoxx
-VERSION = 8.5.1
+VERSION = 8.5.2
 
 ifeq "$(PREFIX)" ""
 	PREFIX = /usr/local
