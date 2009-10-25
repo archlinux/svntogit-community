@@ -1,5 +1,5 @@
 PROGRAM = fotoxx
-VERSION = 8.6
+VERSION = 8.6.1
 
 ifeq "$(PREFIX)" ""
 	PREFIX = /usr/local
