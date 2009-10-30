@@ -3,7 +3,7 @@
 # replace CFLAGS and LFLAGS -O (oh) with -g for GDB debugging
 
 PROGRAM = printoxx
-VERSION = 2.0.2
+VERSION = 2.1.1
 
 ifeq "$(PREFIX)" ""
 	PREFIX = /usr/local
