@@ -1,5 +1,6 @@
 # $Id$
 # Maintainer: Evangelos Foutras <foutrelis@gmail.com>
+# Contributor: Sebastian Nowicki <sebnow@gmail.com>
 # Contributor: Devin Cofer <ranguvar{AT]archlinux[DOT}us>
 # Contributor: Tobias Kieslich <tobias@justdreams.de>
 # Contributor: Geoffroy Carrier <geoffroy.carrier@aur.archlinux.org>
@@ -7,19 +8,23 @@
 # Contributor: Roberto Alsina <ralsina@kde.org>
 # Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
 
-pkgname=llvm
+pkgname=('llvm' 'clang' 'clang-analyzer')
 pkgver=2.6
 pkgrel=2
-pkgdesc="Low Level Virtual Machine"
 arch=('i686' 'x86_64')
-url="http://llvm.org/"
-license=('custom:University of Illinois/NCSA Open Source License')
-depends=('perl')
-source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tar.gz)
-md5sums=('34a11e807add0f4555f691944e1a404a')
+makedepends=('gcc-libs' 'python')
+source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tar.gz
+        http://llvm.org/releases/$pkgver/clang-$pkgver.tar.gz)
+md5sums=('34a11e807add0f4555f691944e1a404a'
+         '09d696bf23bb4a3cf6af3c7341cdd946')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
+
+  # At the present, clang must reside inside the LLVM source code tree to build
+  # See http://llvm.org/bugs/show_bug.cgi?id=4840
+  rm -rf tools/clang
+  cp -r "$srcdir/clang-$pkgver" tools/clang
 
   # Fix installation directories
   sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
@@ -48,10 +53,19 @@ build() {
   make || return 1
 }
 
-package() {
+package_llvm() {
+  pkgdesc="Low Level Virtual Machine"
+  url="http://llvm.org/"
+  license=('custom:University of Illinois/NCSA Open Source License')
+  depends=('perl')
+
   cd "$srcdir/$pkgname-$pkgver"
 
+  # We move the clang directory out of the tree so it won't get installed and
+  # then we bring it back in for the clang package
+  mv tools/clang "$srcdir"
   make DESTDIR="$pkgdir" install
+  mv "$srcdir/clang" tools
 
   # Fix permissions of static libs
   chmod -x "$pkgdir"/usr/lib/llvm/*.a
@@ -59,7 +73,53 @@ package() {
   # Fix libdir in llvm-config (http://bugs.archlinux.org/task/14487)
   sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' "$pkgdir/usr/bin/llvm-config"
 
+  # Get rid of example thingy .-.
+  rm "$pkgdir"/usr/lib/llvm/*LLVMHello.*
+
   install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_clang() {
+  pkgdesc="C language family frontend for LLVM"
+  url="http://clang.llvm.org/"
+  license=('custom:University of Illinois/NCSA Open Source License')
+  depends=('gcc-libs')
+
+  # Fix installation path for clang docs
+  sed -i 's:$(PROJ_prefix)/share/doc/llvm:$(PROJ_prefix)/share/doc/clang:' \
+         "$srcdir/llvm-$pkgver/Makefile.config" || return 1
+
+  cd "$srcdir/llvm-$pkgver/tools/clang"
+  make DESTDIR="$pkgdir" install
+
+  # Revert the path change in case we want to do a repackage later
+  sed -i 's:$(PROJ_prefix)/share/doc/clang:$(PROJ_prefix)/share/doc/llvm:' \
+         "$srcdir/llvm-$pkgver/Makefile.config" || return 1
+
+  install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/clang/LICENSE"
+}
+
+package_clang-analyzer() {
+  pkgdesc="A source code analysis framework"
+  url="http://clang-analyzer.llvm.org/"
+  license=('custom:University of Illinois/NCSA Open Source License')
+  depends=("clang=$pkgver" 'python')
+
+  cd "$srcdir/llvm-$pkgver/tools/clang"
+
+  install -d "$pkgdir"/usr/{bin,lib/clang-analyzer}
+  install utils/{scan-build,ccc-analyzer} "$pkgdir/usr/lib/clang-analyzer"
+  install -m644 utils/{scanview.css,sorttable.js} "$pkgdir/usr/lib/clang-analyzer"
+  ln -s /usr/lib/clang-analyzer/scan-build "$pkgdir/usr/bin"
+  ln -s /usr/lib/clang-analyzer/scan-view "$pkgdir/usr/bin"
+  ln -s /usr/libexec/clang-cc "$pkgdir/usr/lib/clang-analyzer"
+  cp -r tools/scan-view/* "$pkgdir/usr/lib/clang-analyzer"
+
+  # Compile Python scripts
+  python -m compileall "$pkgdir/usr/lib/clang-analyzer" || return 1
+  python -O -m compileall "$pkgdir/usr/lib/clang-analyzer" || return 1
+
+  install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/clang-analyzer/LICENSE"
 }
 
 # vim:set ts=2 sw=2 et:
