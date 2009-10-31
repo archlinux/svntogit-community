@@ -1,0 +1,65 @@
+# $Id$
+# Maintainer: Evangelos Foutras <foutrelis@gmail.com>
+# Contributor: Devin Cofer <ranguvar{AT]archlinux[DOT}us>
+# Contributor: Tobias Kieslich <tobias@justdreams.de>
+# Contributor: Geoffroy Carrier <geoffroy.carrier@aur.archlinux.org>
+# Contributor: Tomas Lindquist Olsen <tomas@famolsen.dk>
+# Contributor: Roberto Alsina <ralsina@kde.org>
+# Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
+
+pkgname=llvm
+pkgver=2.6
+pkgrel=1
+pkgdesc="Low Level Virtual Machine"
+arch=('i686' 'x86_64')
+url="http://llvm.org/"
+license=('GPL')
+depends=('perl')
+source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tar.gz)
+md5sums=('34a11e807add0f4555f691944e1a404a')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Fix installation directories
+  sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
+         -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib/llvm:' \
+         -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
+         Makefile.config.in || return 1
+
+  # Fix insecure rpath (http://bugs.archlinux.org/task/14017)
+  sed -i 's:$(RPATH) -Wl,$(\(ToolDir\|LibDir\|ExmplDir\))::g' \
+         Makefile.rules || return 1
+
+  # Fix path that points to the build directory
+  sed -i 's:^TOOLDIR.*:TOOLDIR=/usr/bin:' \
+         tools/{gccas/gccas,gccld/gccld}.sh || return 1
+
+  # 64-bit needs PIC
+  _pic_flag="--disable-pic"
+  [ "$CARCH" = "x86_64" ] && _pic_flag="--enable-pic"
+
+  # Apply strip option to configure
+  _optimize_flag="--enable-optimize"
+  [ "$(check_option strip)" = "n" ] && _optimize_flag="--disable-optimize"
+
+  ./configure --prefix=/usr --enable-bindings=none --enable-targets=host-only \
+              --disable-assertions $_pic_flag $_optimize_flag
+  make || return 1
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  # Fix permissions of static libs
+  chmod -x "$pkgdir"/usr/lib/llvm/*.a
+
+  # Fix libdir in llvm-config (http://bugs.archlinux.org/task/14487)
+  sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' "$pkgdir/usr/bin/llvm-config"
+
+  install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+# vim:set ts=2 sw=2 et:
