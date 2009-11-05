@@ -2,7 +2,7 @@
 # Contributor: Grigorios Bouzakis <grbzks[at]gmail[dot]com>
 
 pkgname=tmux
-pkgver=1.0
+pkgver=1.1
 pkgrel=1
 pkgdesc="A terminal multiplexer"
 url="http://tmux.sourceforge.net/"
@@ -11,7 +11,7 @@ license=('BSD')
 depends=('ncurses')
 source=(http://downloads.sourceforge.net/tmux/tmux-$pkgver.tar.gz
 	LICENSE)
-md5sums=('716b12d9ea052f57d917bf2869d419df'
+md5sums=('faf2fc52ac3ae63d899f6fece2c112cd'
          '71601bc37fa44e4395580b321963018e')
 
 build() {
@@ -23,5 +23,5 @@ build() {
   install -Dm644 examples/tmux.vim "$pkgdir/usr/share/vim/vimfiles/syntax/tmux.vim"
   install -Dm644 ../LICENSE "$pkgdir/usr/share/licenses/tmux/LICENSE"
   install -dm755 "$pkgdir/usr/share/tmux/"
-  install -m644 examples/*.{c,s}* "$pkgdir/usr/share/tmux/"
+  install -m644 examples/* "$pkgdir/usr/share/tmux/"
 }
