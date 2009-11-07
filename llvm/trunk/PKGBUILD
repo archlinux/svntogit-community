@@ -10,7 +10,7 @@
 
 pkgname=('llvm' 'clang' 'clang-analyzer')
 pkgver=2.6
-pkgrel=2
+pkgrel=3
 arch=('i686' 'x86_64')
 makedepends=('gcc-libs' 'python')
 source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tar.gz
@@ -26,7 +26,11 @@ build() {
   rm -rf tools/clang
   cp -r "$srcdir/clang-$pkgver" tools/clang
 
-  # Fix installation directories
+  # Leave clang-cc in /usr/bin
+  sed -i '/^PROJ_bindir/d' \
+         tools/clang/tools/clang-cc/Makefile || return 1
+
+  # Fix installation directories, ./configure doesn't seem to set them right
   sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
          -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib/llvm:' \
          -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
@@ -40,7 +44,7 @@ build() {
   sed -i 's:^TOOLDIR.*:TOOLDIR=/usr/bin:' \
          tools/{gccas/gccas,gccld/gccld}.sh || return 1
 
-  # 64-bit needs PIC
+  # Enable PIC on x86_64
   _pic_flag="--disable-pic"
   [ "$CARCH" = "x86_64" ] && _pic_flag="--enable-pic"
 
@@ -48,7 +52,9 @@ build() {
   _optimize_flag="--enable-optimize"
   [ "$(check_option strip)" = "n" ] && _optimize_flag="--disable-optimize"
 
-  ./configure --prefix=/usr --enable-bindings=none --enable-targets=host-only \
+  ./configure --prefix=/usr --libdir=/usr/lib/llvm --sysconfdir=/etc \
+              --enable-bindings=none --enable-targets=host-only \
+              --disable-expensive-checks --disable-debug-runtime \
               --disable-assertions $_pic_flag $_optimize_flag
   make || return 1
 }
@@ -71,9 +77,10 @@ package_llvm() {
   chmod -x "$pkgdir"/usr/lib/llvm/*.a
 
   # Fix libdir in llvm-config (http://bugs.archlinux.org/task/14487)
-  sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' "$pkgdir/usr/bin/llvm-config"
+  sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' \
+         "$pkgdir/usr/bin/llvm-config" || return 1
 
-  # Get rid of example thingy .-.
+  # Get rid of example Hello transformation
   rm "$pkgdir"/usr/lib/llvm/*LLVMHello.*
 
   install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
@@ -112,7 +119,6 @@ package_clang-analyzer() {
   install -m644 utils/{scanview.css,sorttable.js} "$pkgdir/usr/lib/clang-analyzer"
   ln -s /usr/lib/clang-analyzer/scan-build "$pkgdir/usr/bin"
   ln -s /usr/lib/clang-analyzer/scan-view "$pkgdir/usr/bin"
-  ln -s /usr/libexec/clang-cc "$pkgdir/usr/lib/clang-analyzer"
   cp -r tools/scan-view/* "$pkgdir/usr/lib/clang-analyzer"
 
   # Compile Python scripts
