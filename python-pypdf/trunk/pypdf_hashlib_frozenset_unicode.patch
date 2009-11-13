@@ -1,0 +1,174 @@
+diff -Naur pyPdf-1.12/pyPdf/generic.py src/pyPdf-1.12/pyPdf/generic.py
+--- pyPdf-1.12/pyPdf/generic.py	2009-08-03 19:11:12.000000000 +0200
++++ pyPdf-1.12/pyPdf/generic.py	2009-08-03 20:40:22.000000000 +0200
+@@ -212,8 +212,6 @@
+ 
+ 
+ class NumberObject(int, PdfObject):
+-    def __init__(self, value):
+-        int.__init__(self, value)
+ 
+     def writeToStream(self, stream, encryption_key):
+         stream.write(repr(self))
+@@ -402,9 +400,6 @@
+ class NameObject(str, PdfObject):
+     delimiterCharacters = "(", ")", "<", ">", "[", "]", "{", "}", "/", "%"
+ 
+-    def __init__(self, data):
+-        str.__init__(self, data)
+-
+     def writeToStream(self, stream, encryption_key):
+         stream.write(self)
+ 
+diff -Naur pyPdf-1.12/pyPdf/pdf.py src/pyPdf-1.12/pyPdf/pdf.py
+--- pyPdf-1.12/pyPdf/pdf.py	2008-09-02 23:19:48.000000000 +0200
++++ pyPdf-1.12/pyPdf/pdf.py.fixed	2009-11-11 13:28:03.000000000 +0100
+@@ -49,7 +49,6 @@
+ import warnings
+ from generic import *
+ from utils import readNonWhitespace, readUntilWhitespace, ConvertFunctionsToVirtualList
+-from sets import ImmutableSet
+ 
+ ##
+ # This class supports writing PDF files out, given pages produced by another
+@@ -119,7 +118,7 @@
+     # encryption.  When false, 40bit encryption will be used.  By default, this
+     # flag is on.
+     def encrypt(self, user_pwd, owner_pwd = None, use_128bit = True):
+-        import md5, time, random
++        import hashlib, time, random
+         if owner_pwd == None:
+             owner_pwd = user_pwd
+         if use_128bit:
+@@ -133,8 +132,8 @@
+         # permit everything:
+         P = -1
+         O = ByteStringObject(_alg33(owner_pwd, user_pwd, rev, keylen))
+-        ID_1 = md5.new(repr(time.time())).digest()
+-        ID_2 = md5.new(repr(random.random())).digest()
++        ID_1 = hashlib.md5(repr(time.time())).digest()
++        ID_2 = hashlib.md5(repr(random.random())).digest()
+         self._ID = ArrayObject((ByteStringObject(ID_1), ByteStringObject(ID_2)))
+         if rev == 2:
+             U, key = _alg34(user_pwd, O, P, ID_1)
+@@ -160,7 +159,7 @@
+     # @param stream An object to write the file to.  The object must support
+     # the write method, and the tell method, similar to a file object.
+     def write(self, stream):
+-        import struct, md5
++        import struct, hashlib
+ 
+         externalReferenceMap = {}
+         self.stack = []
+@@ -181,7 +180,7 @@
+                 pack2 = struct.pack("<i", 0)[:2]
+                 key = self._encrypt_key + pack1 + pack2
+                 assert len(key) == (len(self._encrypt_key) + 5)
+-                md5_hash = md5.new(key).digest()
++                md5_hash = hashlib.md5(key).digest()
+                 key = md5_hash[:min(16, len(self._encrypt_key) + 5)]
+             obj.writeToStream(stream, key)
+             stream.write("\nendobj\n")
+@@ -554,12 +553,12 @@
+             if not hasattr(self, '_decryption_key'):
+                 raise Exception, "file has not been decrypted"
+             # otherwise, decrypt here...
+-            import struct, md5
++            import struct, hashlib
+             pack1 = struct.pack("<i", indirectReference.idnum)[:3]
+             pack2 = struct.pack("<i", indirectReference.generation)[:2]
+             key = self._decryption_key + pack1 + pack2
+             assert len(key) == (len(self._decryption_key) + 5)
+-            md5_hash = md5.new(key).digest()
++            md5_hash = hashlib.md5(key).digest()
+             key = md5_hash[:min(16, len(self._decryption_key) + 5)]
+             retval = self._decryptObject(retval, key)
+ 
+@@ -986,8 +985,8 @@
+ 
+         # Combine /ProcSet sets.
+         newResources[NameObject("/ProcSet")] = ArrayObject(
+-            ImmutableSet(originalResources.get("/ProcSet", ArrayObject()).getObject()).union(
+-                ImmutableSet(page2Resources.get("/ProcSet", ArrayObject()).getObject())
++            frozenset(originalResources.get("/ProcSet", ArrayObject()).getObject()).union(
++                frozenset(page2Resources.get("/ProcSet", ArrayObject()).getObject())
+             )
+         )
+ 
+@@ -1369,18 +1368,24 @@
+     password = (password + _encryption_padding)[:32]
+     # 2. Initialize the MD5 hash function and pass the result of step 1 as
+     # input to this function.
+-    import md5, struct
+-    m = md5.new(password)
++    import hashlib, struct
++    m = hashlib.md5(password)
+     # 3. Pass the value of the encryption dictionary's /O entry to the MD5 hash
+     # function.
+-    m.update(owner_entry)
++    if isinstance(owner_entry, str):
++        m.update(owner_entry.original_bytes)
++    else:
++        m.update(owner_entry.original_bytes)
+     # 4. Treat the value of the /P entry as an unsigned 4-byte integer and pass
+     # these bytes to the MD5 hash function, low-order byte first.
+     p_entry = struct.pack('<i', p_entry)
+     m.update(p_entry)
+     # 5. Pass the first element of the file's file identifier array to the MD5
+     # hash function.
+-    m.update(id1_entry)
++    if isinstance(id1_entry, str):
++        m.update(id1_entry)
++    else:
++        m.update(id1_entry.original_bytes)
+     # 6. (Revision 3 or greater) If document metadata is not being encrypted,
+     # pass 4 bytes with the value 0xFFFFFFFF to the MD5 hash function.
+     if rev >= 3 and not metadata_encrypt:
+@@ -1394,7 +1399,7 @@
+     # /Length entry.
+     if rev >= 3:
+         for i in range(50):
+-            md5_hash = md5.new(md5_hash[:keylen]).digest()
++            md5_hash = hashlib.md5(md5_hash[:keylen]).digest()
+     # 9. Set the encryption key to the first n bytes of the output from the
+     # final MD5 hash, where n is always 5 for revision 2 but, for revision 3 or
+     # greater, depends on the value of the encryption dictionary's /Length
+@@ -1436,14 +1441,14 @@
+     password = (password + _encryption_padding)[:32]
+     # 2. Initialize the MD5 hash function and pass the result of step 1 as
+     # input to this function.
+-    import md5
+-    m = md5.new(password)
++    import hashlib
++    m = hashlib.md5(password)
+     # 3. (Revision 3 or greater) Do the following 50 times: Take the output
+     # from the previous MD5 hash and pass it as input into a new MD5 hash.
+     md5_hash = m.digest()
+     if rev >= 3:
+         for i in range(50):
+-            md5_hash = md5.new(md5_hash).digest()
++            md5_hash = hashlib.md5(md5_hash).digest()
+     # 4. Create an RC4 encryption key using the first n bytes of the output
+     # from the final MD5 hash, where n is always 5 for revision 2 but, for
+     # revision 3 or greater, depends on the value of the encryption
+@@ -1473,14 +1478,17 @@
+     key = _alg32(password, rev, keylen, owner_entry, p_entry, id1_entry)
+     # 2. Initialize the MD5 hash function and pass the 32-byte padding string
+     # shown in step 1 of Algorithm 3.2 as input to this function. 
+-    import md5
+-    m = md5.new()
++    import hashlib
++    m = hashlib.md5()
+     m.update(_encryption_padding)
+     # 3. Pass the first element of the file's file identifier array (the value
+     # of the ID entry in the document's trailer dictionary; see Table 3.13 on
+     # page 73) to the hash function and finish the hash.  (See implementation
+     # note 25 in Appendix H.) 
+-    m.update(id1_entry)
++    if isinstance(id1_entry, str):
++        m.update(id1_entry)
++    else:
++        m.update(id1_entry.original_bytes)
+     md5_hash = m.digest()
+     # 4. Encrypt the 16-byte result of the hash, using an RC4 encryption
+     # function with the encryption key from step 1. 
