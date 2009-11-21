@@ -12,7 +12,7 @@ case "$1" in
     if [ $? -gt 0 ]; then
       stat_fail
     else
-      echo $PID > /var/run/$_DAEMON.pid
+      echo `pidof -o %PPID /usr/bin/${_DAEMON}2` > /var/run/$_DAEMON.pid
       add_daemon $_DAEMON
       stat_done
     fi
