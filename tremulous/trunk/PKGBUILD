@@ -1,91 +1,69 @@
 # $Id$
 # Contributor: Slash <demodevil5[at]yahoo[dot]com>
-# Maintainer: Vesa Kaihlavirta <vegai@iki.fi>
+# Contributor: Vesa Kaihlavirta <vegai@iki.fi>
+# Maintainer:  Daenyth <Daenyth+Arch AT gmail DOT com>
 
 pkgname=tremulous
-pkgver=1.1.0                   
-pkgrel=5
+pkgver=1.1.0
+pkgrel=6
 pkgdesc="A completely free online team based FPS/RTS hybrid game based on the ioquake3 engine."
 url="http://tremulous.net/"
 license=("GPL")
 arch=('i686' 'x86_64')
-depends=('sdl' 'openal>=1.7.411')
-makedepends=('unzip')
-conflicts=()
-provides=()
-install=
-source=('tremulous.launcher' 'tremded.launcher' 'tremulous.desktop' \
-"http://downloads.sourceforge.net/tremulous/$pkgname-$pkgver.zip")
-md5sums=('4bc8841ebfbb2eae54c24bbc8c6be616' '4bc8841ebfbb2eae54c24bbc8c6be616'\
-         '9974bde01b95b6d967beb76c31c0e742' '3df5f7565571fb9524656308347bce1b')
+depends=("sdl" "openal>=1.7.411" "tremulous-data=$pkgver")
+makedepends=(subversion)
+source=('tremulous.launcher' 'tremded.launcher' 'tremulous.desktop' 'tremulous.xpm'
+        "backport.patch::http://source.mercenariesguild.net/client/trunk/patches/backport-client-r1112.patch?revision=2"
+        "fixfavorites.patch::http://source.mercenariesguild.net/client/trunk/patches/slacker-fixfavorites.patch?revision=15"
+        "resolution.patch::http://source.mercenariesguild.net/client/trunk/patches/Lakitu7-backport_resolution_cvars.patch?revision=71"
+        "sortping.patch::http://source.mercenariesguild.net/client/trunk/patches/Amanieu_sortping_fix_client.patch?revision=3")
+md5sums=('904caf5e6d30c5d7e9b8eb58f2f8a454'
+         '932183f854bbf12bfa34cf7ba9afc1a2'
+         '9974bde01b95b6d967beb76c31c0e742'
+         '7e3a881608f1c7c0ccece1e07fcf92d8'
+         '7b3bf98d1ae3ea89da58e3c7775bf452'
+         '510384ba8699aceac13aaa15d722ced7'
+         '4d39ef28a0924bdc33234a01fb54f846'
+         '85315bd6d35519bd231e9771552a8e49')
 
-build()
-{
-    # Move Source and Extract
-    cd $startdir/src
-    mv tremulous/tremulous-$pkgver-src.tar.gz .
-    tar zxvf tremulous-$pkgver-src.tar.gz
+build() {
+  cd $srcdir
 
-    # Remove Junk from Game Directory
-    cd $startdir/src/tremulous
-    rm {CC,COPYING,ChangeLog,GPL,tremulous.exe,tremded.x86,tremulous.x86}
+  # Check out the revision recommended by the developers
+  svn co svn://svn.icculus.org/tremulous/trunk/ --config-dir ./ -r 1114 tremulous-src || return 1
 
-    # Move Game Directory to Package Directory
-    cd $startdir/src
-    install -d $startdir/pkg/opt/
-    mv tremulous/ $startdir/pkg/opt/
+  # Compile Source
+  cd tremulous-src
 
-    # Compile Source
-    cd $startdir/src/tremulous-$pkgver-src
+  # Add patches recommended by the developers
+  patch -Np0 -i $srcdir/backport.patch     || return 1
+  patch -Np0 -i $srcdir/fixfavorites.patch || return 1
+  patch -Np0 -i $srcdir/resolution.patch   || return 1
+  patch -Np0 -i $srcdir/sortping.patch     || return 1
 
-    # they make silly mistakes that don't pass -Werror
-    sed -i 's/-Werror//' src/tools/asm/Makefile 
-
-    make || return 1
-
-    if [ "$CARCH" = "x86_64" ]; then
-        #
-        # x86_64 Systems
-        #
-
-        # Install Binaries
-        install -m755 build/release-linux-x86_64/*.x86_64 \
-            $startdir/pkg/opt/tremulous
-
-        # Modify Launcher Scripts to use x86_64 Binaries
-        /bin/sed -i "s:TREM_BINARY:tremulous.x86_64:" \
-            $startdir/src/tremulous.launcher
-        /bin/sed -i "s:TREM_BINARY:tremded.x86_64:" \
-            $startdir/src/tremded.launcher
-
-    else
-        #
-        # i686 Systems
-        #
-
-        # Install Binaries
-        install -m755 build/release-linux-x86/*.x86 \
-            $startdir/pkg/opt/tremulous
-
-        # Modify Launcher Scripts to use i686 Binaries
-        /bin/sed -i "s:TREM_BINARY:tremulous.x86:" \
-            $startdir/src/tremulous.launcher
-        /bin/sed -i "s:TREM_BINARY:tremded.x86:" \
-            $startdir/src/tremded.launcher
-
-    fi
-
-    # Install Client Launcher
-    install -D -m755 $startdir/src/tremulous.launcher \
-        $startdir/pkg/usr/bin/tremulous
-
-    # Install Server Launcher
-    install -D -m755 $startdir/src/tremded.launcher \
-        $startdir/pkg/usr/bin/tremded
-
-    # Install Desktop Icons
-    install -D -m644 $startdir/src/tremulous.desktop \
-        $startdir/pkg/usr/share/applications/tremulous.desktop
-    install -D -m644 $startdir/pkg/opt/tremulous/tremulous.xpm \
-        $startdir/pkg/usr/share/pixmaps/tremulous.xpm
+  make || return 1
 }
+
+package() {
+  cd $srcdir/tremulous-src
+
+  install -dm755 $pkgdir/opt/tremulous/
+
+  # Install Binaries
+  local _arch=${CARCH/i686/x86}
+  install -m755 build/release-linux-$_arch/*.$_arch $pkgdir/opt/tremulous
+
+  cd $srcdir
+
+  # Install Client Launcher
+  install -D -m755 tremulous.launcher $pkgdir/usr/bin/tremulous
+
+  # Install Server Launcher
+  install -D -m755 tremded.launcher   $pkgdir/usr/bin/tremded
+
+  # Install Desktop Icons
+  install -D -m644 tremulous.desktop  $pkgdir/usr/share/applications/tremulous.desktop
+  install -D -m644 tremulous.xpm    $pkgdir/usr/share/pixmaps/tremulous.xpm
+}
+
+# vim:set ts=2 sw=2 et:

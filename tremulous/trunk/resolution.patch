@@ -1,0 +1,139 @@
+Index: src/renderer/tr_local.h
+===================================================================
+--- src/renderer/tr_local.h	(revision 1140)
++++ src/renderer/tr_local.h	(working copy)
+@@ -1038,6 +1038,10 @@
+ extern cvar_t	*r_height;
+ extern cvar_t	*r_pixelAspect;
+ 
++extern cvar_t	*r_mode;
++extern cvar_t	*r_customwidth;
++extern cvar_t	*r_customheight;
++
+ extern cvar_t	*r_fullscreen;
+ extern cvar_t	*r_gamma;
+ extern cvar_t	*r_displayRefresh;		// optional display refresh option
+Index: src/renderer/tr_init.c
+===================================================================
+--- src/renderer/tr_init.c	(revision 1140)
++++ src/renderer/tr_init.c	(working copy)
+@@ -138,6 +138,10 @@
+ cvar_t	*r_overBrightBits;
+ cvar_t	*r_mapOverBrightBits;
+ 
++cvar_t	*r_mode;
++cvar_t	*r_customheight;
++cvar_t	*r_customwidth;
++
+ cvar_t	*r_debugSurface;
+ cvar_t	*r_simpleMipMaps;
+ 
+@@ -928,6 +932,11 @@
+ 	r_ignoreFastPath = ri.Cvar_Get( "r_ignoreFastPath", "1", CVAR_ARCHIVE | CVAR_LATCH );
+ 	r_greyscale = ri.Cvar_Get("r_greyscale", "0", CVAR_ARCHIVE | CVAR_LATCH);
+ 
++  	// legacy variables
++ 	r_mode = ri.Cvar_Get( "r_mode", "-1", 0 );
++ 	r_customwidth = ri.Cvar_Get( "r_customwidth", r_width->string, 0 );
++ 	r_customheight = ri.Cvar_Get( "r_customheight", r_height->string, 0 );
++
+ 	//
+ 	// temporary latched variables that can only change over a restart
+ 	//
+Index: src/qcommon/cvar.c
+===================================================================
+--- src/qcommon/cvar.c	(revision 1140)
++++ src/qcommon/cvar.c	(working copy)
+@@ -432,6 +432,31 @@
+ 	}
+ }
+ 
++
++//legacy mode cvar support hacks 
++typedef struct vidmode_s
++{
++    const char *description;
++    int         width, height;
++	float		pixelAspect;		// pixel width / height
++} vidmode_t;
++
++vidmode_t r_vidModes[] =
++{
++    { "Mode  0: 320x240",		320,	240,	1 },
++    { "Mode  1: 400x300",		400,	300,	1 },
++    { "Mode  2: 512x384",		512,	384,	1 },
++    { "Mode  3: 640x480",		640,	480,	1 },
++    { "Mode  4: 800x600",		800,	600,	1 },
++    { "Mode  5: 960x720",		960,	720,	1 },
++    { "Mode  6: 1024x768",		1024,	768,	1 },
++    { "Mode  7: 1152x864",		1152,	864,	1 },
++    { "Mode  8: 1280x1024",		1280,	1024,	1 },
++    { "Mode  9: 1600x1200",		1600,	1200,	1 },
++    { "Mode 10: 2048x1536",		2048,	1536,	1 },
++    { "Mode 11: 856x480 (wide)",856,	480,	1 }
++};
++
+ /*
+ ============
+ Cvar_Set2
+@@ -454,6 +479,31 @@
+ 	}
+ #endif
+ 
++
++	//legacy mode cvar support hacks 
++	if( !Q_stricmp(var_name, "r_customheight" ) )
++		var_name = "r_height";
++	if( !Q_stricmp(var_name, "r_customwidth" ) )
++		var_name = "r_width";
++
++	if( !Q_stricmp( var_name, "r_mode" ) )
++	{
++		int mode = atoi( value );
++		if( mode > 0 && mode < 12 )
++		{
++			char modevalue[10];
++			Com_sprintf( modevalue, sizeof(modevalue), "%d", r_vidModes[mode].width );
++			Cvar_Set2( "r_width", modevalue, qfalse );
++			Com_sprintf( modevalue, sizeof(modevalue), "%d", r_vidModes[mode].height );
++			Cvar_Set2( "r_height", modevalue, qfalse );
++		}
++		else
++		{
++			value = "-1";
++		}
++	}
++    
++
+ 	var = Cvar_FindVar (var_name);
+ 	if (!var) {
+ 		if ( !value ) {
+@@ -640,8 +690,15 @@
+ qboolean Cvar_Command( void ) {
+ 	cvar_t	*v;
+ 
++    char* cvarname = Cmd_Argv(0);
++
++    if(!Q_stricmp(cvarname, "r_customheight"))
++        cvarname = "r_height";
++    if(!Q_stricmp(cvarname, "r_customwidth"))
++        cvarname = "r_width";
++
+ 	// check variables
+-	v = Cvar_FindVar (Cmd_Argv(0));
++	v = Cvar_FindVar (cvarname);
+ 	if (!v) {
+ 		return qfalse;
+ 	}
+@@ -750,6 +807,11 @@
+ 	if( !v ) {
+ 		return;
+ 	}
++
++	//don't make these old vars archive even if the client's old autogen told us to
++	if( !Q_stricmp( Cmd_Argv(1), "r_mode" ) || !Q_stricmp( Cmd_Argv(1), "r_customheight" ) || !Q_stricmp( Cmd_Argv(1), "r_customwidth" ) ) 
++		return;
++
+ 	switch( cmd[3] ) {
+ 		default:
+ 		case '\0':
