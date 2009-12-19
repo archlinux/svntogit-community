@@ -8,12 +8,12 @@
 # Contributor: Roberto Alsina <ralsina@kde.org>
 # Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
 
-pkgname=('llvm' 'clang' 'clang-analyzer')
+pkgname=('llvm' 'llvm-ocaml' 'clang' 'clang-analyzer')
 pkgver=2.6
-pkgrel=3
+pkgrel=4
 arch=('i686' 'x86_64')
 license=('custom:University of Illinois/NCSA Open Source License')
-makedepends=('gcc-libs' 'python')
+makedepends=('gcc-libs' 'python' 'ocaml')
 source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tar.gz
         http://llvm.org/releases/$pkgver/clang-$pkgver.tar.gz)
 md5sums=('34a11e807add0f4555f691944e1a404a'
@@ -54,7 +54,7 @@ build() {
   [ "$(check_option strip)" = "n" ] && _optimize_flag="--disable-optimize"
 
   ./configure --prefix=/usr --libdir=/usr/lib/llvm --sysconfdir=/etc \
-              --enable-bindings=none --enable-targets=host-only \
+              --enable-bindings=ocaml --enable-targets=host-only \
               --disable-expensive-checks --disable-debug-runtime \
               --disable-assertions $_pic_flag $_optimize_flag
   make || return 1
@@ -70,8 +70,16 @@ package_llvm() {
   # We move the clang directory out of the tree so it won't get installed and
   # then we bring it back in for the clang package
   mv tools/clang "$srcdir"
-  make DESTDIR="$pkgdir" install
+  # -j1 is due to race conditions during the installation of the OCaml bindings
+  make -j1 DESTDIR="$pkgdir" install || return 1
   mv "$srcdir/clang" tools
+
+  # OCaml bindings go to a separate package
+  rm -rf "$srcdir"/{ocaml,ocamldoc}
+  mv "$pkgdir"/usr/{lib/ocaml,share/doc/llvm/ocamldoc} "$srcdir"
+
+  # Remove duplicate files installed by the OCaml bindings
+  rm "$pkgdir"/usr/{lib/llvm/libllvm*,share/doc/llvm/ocamldoc.tar.gz}
 
   # Fix permissions of static libs
   chmod -x "$pkgdir"/usr/lib/llvm/*.a
@@ -86,6 +94,19 @@ package_llvm() {
   install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
+package_llvm-ocaml() {
+  pkgdesc="OCaml bindings for LLVM"
+  depends=("llvm=$pkgver" 'ocaml')
+
+  cd "$srcdir/llvm-$pkgver"
+
+  install -d "$pkgdir"/{usr/lib,usr/share/doc/llvm}
+  mv "$srcdir/ocaml" "$pkgdir/usr/lib"
+  mv "$srcdir/ocamldoc" "$pkgdir/usr/share/doc/llvm"
+
+  install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/llvm-ocaml/LICENSE"
+}
+
 package_clang() {
   pkgdesc="C language family frontend for LLVM"
   url="http://clang.llvm.org/"
@@ -96,7 +117,7 @@ package_clang() {
          "$srcdir/llvm-$pkgver/Makefile.config" || return 1
 
   cd "$srcdir/llvm-$pkgver/tools/clang"
-  make DESTDIR="$pkgdir" install
+  make DESTDIR="$pkgdir" install || return 1
 
   # Revert the path change in case we want to do a repackage later
   sed -i 's:$(PROJ_prefix)/share/doc/clang:$(PROJ_prefix)/share/doc/llvm:' \
