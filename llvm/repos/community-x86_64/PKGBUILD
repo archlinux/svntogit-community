@@ -10,7 +10,7 @@
 
 pkgname=('llvm' 'llvm-ocaml' 'clang' 'clang-analyzer')
 pkgver=2.6
-pkgrel=4
+pkgrel=5
 arch=('i686' 'x86_64')
 license=('custom:University of Illinois/NCSA Open Source License')
 makedepends=('gcc-libs' 'python' 'ocaml')
@@ -31,6 +31,10 @@ build() {
   sed -i '/^PROJ_bindir/d' \
          tools/clang/tools/clang-cc/Makefile || return 1
 
+  # Fix symbolic links from OCaml bindings to LLVM libraries
+  sed -i 's:\$(PROJ_libdir):/usr/lib/llvm:' \
+         bindings/ocaml/Makefile.ocaml || return 1
+
   # Fix installation directories, ./configure doesn't seem to set them right
   sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
          -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib/llvm:' \
@@ -45,18 +49,14 @@ build() {
   sed -i 's:^TOOLDIR.*:TOOLDIR=/usr/bin:' \
          tools/{gccas/gccas,gccld/gccld}.sh || return 1
 
-  # Enable PIC on x86_64
-  _pic_flag="--disable-pic"
-  [ "$CARCH" = "x86_64" ] && _pic_flag="--enable-pic"
-
   # Apply strip option to configure
   _optimize_flag="--enable-optimize"
   [ "$(check_option strip)" = "n" ] && _optimize_flag="--disable-optimize"
 
   ./configure --prefix=/usr --libdir=/usr/lib/llvm --sysconfdir=/etc \
-              --enable-bindings=ocaml --enable-targets=host-only \
+              --enable-bindings=ocaml --enable-targets=all \
               --disable-expensive-checks --disable-debug-runtime \
-              --disable-assertions $_pic_flag $_optimize_flag
+              --disable-assertions $_optimize_flag
   make || return 1
 }
 
@@ -103,6 +103,9 @@ package_llvm-ocaml() {
   install -d "$pkgdir"/{usr/lib,usr/share/doc/llvm}
   mv "$srcdir/ocaml" "$pkgdir/usr/lib"
   mv "$srcdir/ocamldoc" "$pkgdir/usr/share/doc/llvm"
+
+  # Remove execute bit from static libraries
+  chmod -x "$pkgdir"/usr/lib/ocaml/libllvm*.a
 
   install -D -m644 LICENSE.TXT "$pkgdir/usr/share/licenses/llvm-ocaml/LICENSE"
 }
