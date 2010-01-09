@@ -1,0 +1,918 @@
+diff -up gcompris-9.0/src/photohunter-activity/photohunter.c.patch gcompris-9.0/src/photohunter-activity/photohunter.c
+--- gcompris-9.0/src/photohunter-activity/photohunter.c.patch	2009-12-31 19:17:51.000000000 +0100
++++ gcompris-9.0/src/photohunter-activity/photohunter.c	2010-01-08 07:41:59.000000000 +0100
+@@ -34,22 +34,22 @@ static gboolean		 is_our_board (Gcompris
+ #define NBR_OF_PHOTOS_PER_SESSION 9
+ #define FRAME_OFFSET 2
+ typedef struct StructGame
+-{
+-	int PhotoWidth;
+-	int PhotoHeight;
+-	int SpaceX;
+-	int SpaceY;
+-
+-	int NbrOfPhotosAvailable;
+-	int * PhotoNbrForThisLevel; // random photo to play for each level
+-}StructGame;
++  {
++    int PhotoWidth;
++    int PhotoHeight;
++    int SpaceX;
++    int SpaceY;
++
++    int NbrOfPhotosAvailable;
++    int * PhotoNbrForThisLevel; // random photo to play for each level
++  }StructGame;
+ typedef struct StructDiffCoor
+-{
+-	int x1;
+-	int y1;
+-	int x2;
+-	int y2;
+-}StructDiffCoor;
++  {
++    int x1;
++    int y1;
++    int x2;
++    int y2;
++  }StructDiffCoor;
+ 
+ GooCanvasItem *ItemPhoto[2] = {NULL, NULL };
+ GooCanvasItem *ItemFrame[2] = {NULL, NULL };
+@@ -62,7 +62,8 @@ int LoadNextLevelAfterEndOfBonusDisplay;
+ static void CleanLevelDatas( void );
+ static gchar * ScanAndPickRandomFile( int  * pNbrOfFiles, int RandomSelection );
+ static void StartLevel( );
+-static gint MouseClick(GooCanvasItem *item, GdkEvent *event, gpointer data);
++static gint MouseClick(GooCanvasItem *item, GooCanvasItem *target,
++		       GdkEvent *event, gpointer data);
+ static void LoadCsvDiffFile( char * pFilename );
+ 
+ 
+@@ -97,23 +98,23 @@ static BoardPlugin menu_bp =
+ GET_BPLUGIN_INFO(photohunter)
+ 
+ /* =====================================================================
+- * (ALSO CALLED AFTER END OF BONUS DISPLAY WHEN A LEVEL IS COMPLETED) 
++ * (ALSO CALLED AFTER END OF BONUS DISPLAY WHEN A LEVEL IS COMPLETED)
+  * =====================================================================*/
+ static void pause_board (gboolean pause)
+ {
+-	if(gcomprisBoard==NULL)
+-		return;
+-printf("pause_board() called with value=%d\n",pause);
+-	if ( LoadNextLevelAfterEndOfBonusDisplay==TRUE && pause==FALSE )
+-	{
+-		LoadNextLevelAfterEndOfBonusDisplay = FALSE;
+-		gcomprisBoard->level++;
+-		if ( gcomprisBoard->level>gcomprisBoard->maxlevel )
+-			gcomprisBoard->level = 1;
+-		StartLevel( );
+-	}
++  if(gcomprisBoard==NULL)
++    return;
++  printf("pause_board() called with value=%d\n",pause);
++  if ( LoadNextLevelAfterEndOfBonusDisplay==TRUE && pause==FALSE )
++    {
++      LoadNextLevelAfterEndOfBonusDisplay = FALSE;
++      gcomprisBoard->level++;
++      if ( gcomprisBoard->level>gcomprisBoard->maxlevel )
++	gcomprisBoard->level = 1;
++      StartLevel( );
++    }
+ 
+-	board_paused = pause;
++  board_paused = pause;
+ }
+ 
+ /* =====================================================================
+@@ -121,59 +122,66 @@ printf("pause_board() called with value=
+  * =====================================================================*/
+ static void start_board (GcomprisBoard *agcomprisBoard)
+ {
+-	if(agcomprisBoard!=NULL)
+-	{
+-		char * PhotoSelectedMark;
+-		int InitScan;
+-		int StorePhotoLevel;
+-		gcomprisBoard = agcomprisBoard;
+-
+-		gc_set_default_background(goo_canvas_get_root_item(gcomprisBoard->canvas));
+-
+-		// get nbr of photos available, and init as none found for now
+-		ScanAndPickRandomFile( &Game.NbrOfPhotosAvailable, -1 );
+-		if ( Game.NbrOfPhotosAvailable==0 )
+-			gc_dialog(_("Error: Absolutely no photo found in the data directory"), gc_board_stop);
+-
+-		gcomprisBoard->level = 1;
+-		// limit to "N" photos to play per game session (in case of more photos in the directory...)
+-		gcomprisBoard->maxlevel=Game.NbrOfPhotosAvailable>NBR_OF_PHOTOS_PER_SESSION?NBR_OF_PHOTOS_PER_SESSION:Game.NbrOfPhotosAvailable;
+-		gcomprisBoard->sublevel = 0;
+-		gcomprisBoard->number_of_sublevel = 0;
+-
+-		gc_bar_set(GC_BAR_LEVEL);
+-
+-		Game.PhotoNbrForThisLevel = malloc( (gcomprisBoard->maxlevel+1)*sizeof(int) );
+-		PhotoSelectedMark = malloc( Game.NbrOfPhotosAvailable*sizeof(char) );
+-		if ( Game.PhotoNbrForThisLevel && PhotoSelectedMark )
+-		{
+-			// precalc a list of photos to play for each level
+-			for( InitScan=0; InitScan<Game.NbrOfPhotosAvailable ; InitScan++ )
+-				PhotoSelectedMark[ InitScan ] = FALSE;
+-			for( StorePhotoLevel=1; StorePhotoLevel<=gcomprisBoard->maxlevel; StorePhotoLevel++ )
+-			{ 
+-				int RandVal;
+-				// we never give the same photo...
+-				do
+-				{
+-					RandVal = (int)g_random_int_range( 0, Game.NbrOfPhotosAvailable );
+-				}
+-				while( PhotoSelectedMark[ RandVal ]!=FALSE );
+-				PhotoSelectedMark[ RandVal ] = TRUE;
+-				Game.PhotoNbrForThisLevel[ StorePhotoLevel ] = RandVal;
+-			}
+-			free( PhotoSelectedMark );
+-	
+-			boardRootItem = goo_canvas_group_new (goo_canvas_get_root_item(gcomprisBoard->canvas), NULL);
+-			gtk_signal_connect(GTK_OBJECT(gcomprisBoard->canvas), "event",  (GtkSignalFunc) MouseClick, NULL);
+-		
+-			gDiffCoorArray = g_array_new( FALSE, FALSE, sizeof(StructDiffCoor) );
+-			gDiffFoundArray =  g_array_new( FALSE, FALSE, sizeof(StructDiffCoor) );
+-			LoadNextLevelAfterEndOfBonusDisplay = FALSE;
+-			StartLevel( );
+-			pause_board(FALSE);
+-		}
++  if(agcomprisBoard!=NULL)
++    {
++      char * PhotoSelectedMark;
++      int InitScan;
++      int StorePhotoLevel;
++      gcomprisBoard = agcomprisBoard;
++
++      gc_set_default_background(goo_canvas_get_root_item(gcomprisBoard->canvas));
++
++      // get nbr of photos available, and init as none found for now
++      ScanAndPickRandomFile( &Game.NbrOfPhotosAvailable, -1 );
++      if ( Game.NbrOfPhotosAvailable==0 )
++	gc_dialog(_("Error: Absolutely no photo found in the data directory"),
++		  gc_board_stop);
++
++      gcomprisBoard->level = 1;
++      // limit to "N" photos to play per game session (in case of more photos in the directory...)
++      gcomprisBoard->maxlevel = (Game.NbrOfPhotosAvailable > NBR_OF_PHOTOS_PER_SESSION
++				 ? NBR_OF_PHOTOS_PER_SESSION : Game.NbrOfPhotosAvailable);
++      gcomprisBoard->sublevel = 0;
++      gcomprisBoard->number_of_sublevel = 0;
++
++      gc_bar_set(GC_BAR_LEVEL);
++
++      Game.PhotoNbrForThisLevel = malloc( (gcomprisBoard->maxlevel+1) * sizeof(int) );
++      PhotoSelectedMark = malloc( Game.NbrOfPhotosAvailable*sizeof(char) );
++      if ( Game.PhotoNbrForThisLevel && PhotoSelectedMark )
++	{
++	  // precalc a list of photos to play for each level
++	  for( InitScan=0; InitScan<Game.NbrOfPhotosAvailable ; InitScan++ )
++	    PhotoSelectedMark[ InitScan ] = FALSE;
++	  for( StorePhotoLevel=1; StorePhotoLevel<=gcomprisBoard->maxlevel;
++	       StorePhotoLevel++ )
++	    {
++	      int RandVal;
++	      // we never give the same photo...
++	      do
++		{
++		  RandVal = (int)g_random_int_range( 0,
++						     Game.NbrOfPhotosAvailable );
++		}
++	      while( PhotoSelectedMark[ RandVal ]!=FALSE );
++	      PhotoSelectedMark[ RandVal ] = TRUE;
++	      Game.PhotoNbrForThisLevel[ StorePhotoLevel ] = RandVal;
++	    }
++	  free( PhotoSelectedMark );
++
++	  g_signal_connect(goo_canvas_get_root_item(gcomprisBoard->canvas),
++			   "button_press_event",
++			   (GtkSignalFunc) MouseClick, NULL);
++
++	  boardRootItem =
++	    goo_canvas_group_new (goo_canvas_get_root_item(gcomprisBoard->canvas), NULL);
++	  gDiffCoorArray = g_array_new( FALSE, FALSE, sizeof(StructDiffCoor) );
++	  gDiffFoundArray =  g_array_new( FALSE, FALSE, sizeof(StructDiffCoor) );
++	  LoadNextLevelAfterEndOfBonusDisplay = FALSE;
++	  StartLevel( );
++	  pause_board(FALSE);
+ 	}
++    }
+ }
+ 
+ /* =====================================================================
+@@ -181,22 +189,26 @@ static void start_board (GcomprisBoard *
+  * =====================================================================*/
+ static void end_board ()
+ {
+-printf("End Board!\n");
+-	if(gcomprisBoard!=NULL)
+-	{
+-		pause_board(TRUE);
+-		gc_score_end();
+-	}
+-	CleanLevelDatas( );
+-	gcomprisBoard = NULL;
+-	if(boardRootItem!=NULL)
+-		goo_canvas_item_remove( boardRootItem );
+-	if ( Game.PhotoNbrForThisLevel!=NULL )
+-		free( Game.PhotoNbrForThisLevel );
+-	if ( gDiffCoorArray!=NULL )
+-		g_array_free( gDiffCoorArray, TRUE );
+-	if ( gDiffFoundArray!=NULL )
+-		g_array_free( gDiffFoundArray, TRUE );
++  if(gcomprisBoard!=NULL)
++    {
++      pause_board(TRUE);
++      gc_score_end();
++    }
++  CleanLevelDatas( );
++
++  g_signal_handlers_disconnect_by_func(goo_canvas_get_root_item(gcomprisBoard->canvas),
++				       (GtkSignalFunc) MouseClick, NULL);
++
++  gcomprisBoard = NULL;
++  if(boardRootItem!=NULL)
++    goo_canvas_item_remove( boardRootItem );
++  if ( Game.PhotoNbrForThisLevel!=NULL )
++    free( Game.PhotoNbrForThisLevel );
++  if ( gDiffCoorArray!=NULL )
++    g_array_free( gDiffCoorArray, TRUE );
++  if ( gDiffFoundArray!=NULL )
++    g_array_free( gDiffFoundArray, TRUE );
++
+ }
+ 
+ /* =====================================================================
+@@ -204,13 +216,13 @@ printf("End Board!\n");
+  * =====================================================================*/
+ static void set_level(guint level)
+ {
+-	if(gcomprisBoard!=NULL)
+-	{
+-		gcomprisBoard->level = level;
+-		if ( gcomprisBoard->level>gcomprisBoard->maxlevel )
+-			gcomprisBoard->level = 1;
+-		StartLevel();
+-	}
++  if(gcomprisBoard!=NULL)
++    {
++      gcomprisBoard->level = level;
++      if ( gcomprisBoard->level>gcomprisBoard->maxlevel )
++	gcomprisBoard->level = 1;
++      StartLevel();
++    }
+ }
+ 
+ /* =====================================================================
+@@ -218,352 +230,354 @@ static void set_level(guint level)
+  * =====================================================================*/
+ static gboolean is_our_board (GcomprisBoard *gcomprisBoard)
+ {
+-	if (gcomprisBoard)
+-	{
+-		if(g_strcasecmp(gcomprisBoard->type, "photohunter")==0)
+-		{
+-			/* Set the plugin entry */
+-			gcomprisBoard->plugin=&menu_bp;
+-			return TRUE;
+-		}
++  if (gcomprisBoard)
++    {
++      if(g_strcasecmp(gcomprisBoard->type, "photohunter")==0)
++	{
++	  /* Set the plugin entry */
++	  gcomprisBoard->plugin=&menu_bp;
++	  return TRUE;
+ 	}
+-	return FALSE;
++    }
++  return FALSE;
+ }
+ 
+ static void CleanLevelDatas( void )
+ {
+-	int ScanPhoto;
+-printf("CleaningUp\n");
+-	if ( gDiffCoorArray!=NULL )
+-	{
+-		if ( gDiffCoorArray->len>0 )
+-			g_array_remove_range( gDiffCoorArray, 0, gDiffCoorArray->len );
+-	}
+-	if ( gDiffFoundArray!=NULL )
+-	{
+-		if ( gDiffFoundArray->len>0 )
+-			g_array_remove_range( gDiffFoundArray, 0, gDiffFoundArray->len );
++  int ScanPhoto;
++  if ( gDiffCoorArray!=NULL )
++    {
++      if ( gDiffCoorArray->len>0 )
++	g_array_remove_range( gDiffCoorArray, 0, gDiffCoorArray->len );
++    }
++  if ( gDiffFoundArray!=NULL )
++    {
++      if ( gDiffFoundArray->len>0 )
++	g_array_remove_range( gDiffFoundArray, 0, gDiffFoundArray->len );
++    }
++  for( ScanPhoto=0; ScanPhoto<2; ScanPhoto++ )
++    {
++      if ( ItemPhoto[ ScanPhoto ]!=NULL )
++	{
++	  goo_canvas_item_remove( ItemPhoto[ ScanPhoto ] );
++	  ItemPhoto[ ScanPhoto ] = NULL;
+ 	}
+-	for( ScanPhoto=0; ScanPhoto<2; ScanPhoto++ )
++      if ( ItemFrame[ ScanPhoto ]!=NULL )
+ 	{
+-		if ( ItemPhoto[ ScanPhoto ]!=NULL )
+-		{
+-			goo_canvas_item_remove( ItemPhoto[ ScanPhoto ] );
+-			ItemPhoto[ ScanPhoto ] = NULL;
+-		}
+-		if ( ItemFrame[ ScanPhoto ]!=NULL )
+-		{
+-			goo_canvas_item_remove( ItemFrame[ ScanPhoto ] );
+-			ItemFrame[ ScanPhoto ] = NULL;
+-		}
++	  goo_canvas_item_remove( ItemFrame[ ScanPhoto ] );
++	  ItemFrame[ ScanPhoto ] = NULL;
+ 	}
+-printf("EndOfClean\n");
++    }
+ }
+ 
+ static GooCanvasItem * LoadPhoto( char * file, int PhotoNbr )
+ {
+-	GooCanvasItem * item = NULL;
+-	GdkPixbuf * pixmap = gc_pixmap_load(file);
+-	if(pixmap)
+-	{
+-		int PosiX,PosiY;
+-		if ( PhotoNbr==0 )
+-		{
+-			Game.PhotoWidth = gdk_pixbuf_get_width( pixmap );
+-			Game.PhotoHeight = gdk_pixbuf_get_height( pixmap );
+-			Game.SpaceX = (BOARDWIDTH-2*Game.PhotoWidth)/3;
+-			Game.SpaceY = (BOARDHEIGHT-Game.PhotoHeight)/2;
+-			PosiX = Game.SpaceX;
+-			PosiY = Game.SpaceY;
+-		}
+-		else
+-		{
+-			PosiX = 2*Game.SpaceX+Game.PhotoWidth;
+-			PosiY = Game.SpaceY;
+-		}
+-		item = goo_canvas_image_new (boardRootItem,
+-					       pixmap,
+-					       PosiX,
+-					       PosiY,
+-					       NULL);
+-		gdk_pixbuf_unref(pixmap);
+-	}
+-	return item;
++  GooCanvasItem * item = NULL;
++  GdkPixbuf * pixmap = gc_pixmap_load(file);
++  if(pixmap)
++    {
++      int PosiX,PosiY;
++      if ( PhotoNbr==0 )
++	{
++	  Game.PhotoWidth = gdk_pixbuf_get_width( pixmap );
++	  Game.PhotoHeight = gdk_pixbuf_get_height( pixmap );
++	  Game.SpaceX = (BOARDWIDTH-2*Game.PhotoWidth)/3;
++	  Game.SpaceY = (BOARDHEIGHT-Game.PhotoHeight)/2;
++	  PosiX = Game.SpaceX;
++	  PosiY = Game.SpaceY;
++	}
++      else
++	{
++	  PosiX = 2*Game.SpaceX+Game.PhotoWidth;
++	  PosiY = Game.SpaceY;
++	}
++      item = goo_canvas_image_new (boardRootItem,
++				   pixmap,
++				   PosiX,
++				   PosiY,
++				   NULL);
++      gdk_pixbuf_unref(pixmap);
++    }
++  return item;
+ }
+ 
+ static void DrawCircle( int x1, int y1, int x2, int y2, char * color )
+ {
+-	int wid2=(x2-x1)/2;
+-	int hei2=(y2-y1)/2;
+-	goo_canvas_ellipse_new (boardRootItem,
+-			 x1+wid2,
+-			 y1+hei2,
+-			 wid2,
+-			 hei2,
+-			 "stroke-color", color,
+-			 "line-width", (double)1,
+-			 NULL);
++  int wid2=(x2-x1)/2;
++  int hei2=(y2-y1)/2;
++  goo_canvas_ellipse_new (boardRootItem,
++			  x1+wid2,
++			  y1+hei2,
++			  wid2,
++			  hei2,
++			  "stroke-color", color,
++			  "line-width", (double)1,
++			  NULL);
+ }
+ static GooCanvasItem * DrawPhotoFrame( int PhotoNbr, char * color )
+ {
+-	int x1, y1;
+-	GooCanvasItem * item = NULL;
+-	if ( PhotoNbr==0 )
+-	{
+-		x1 = Game.SpaceX-FRAME_OFFSET;
+-		y1 = Game.SpaceY-FRAME_OFFSET;
+-	}
+-	else
+-	{
+-		x1 = 2*Game.SpaceX+Game.PhotoWidth-FRAME_OFFSET;
+-		y1 = Game.SpaceY-FRAME_OFFSET;
+-	}
+-	item = goo_canvas_rect_new( boardRootItem,
+-			x1, y1,
+-			Game.PhotoWidth+FRAME_OFFSET +2, Game.PhotoHeight+FRAME_OFFSET +2,
+-			/*"fill_color"*/"stroke_color", color,
+-			NULL );
+-	return item;
++  int x1, y1;
++  GooCanvasItem * item = NULL;
++  if ( PhotoNbr==0 )
++    {
++      x1 = Game.SpaceX-FRAME_OFFSET;
++      y1 = Game.SpaceY-FRAME_OFFSET;
++    }
++  else
++    {
++      x1 = 2*Game.SpaceX+Game.PhotoWidth-FRAME_OFFSET;
++      y1 = Game.SpaceY-FRAME_OFFSET;
++    }
++  item = goo_canvas_rect_new( boardRootItem,
++			      x1, y1,
++			      Game.PhotoWidth+FRAME_OFFSET +2, Game.PhotoHeight+FRAME_OFFSET +2,
++			      /*"fill_color"*/"stroke_color", color,
++			      NULL );
++  return item;
+ }
+ 
+ static void StartLevel( )
+ {
+-	{
+-		int ScanPhoto;
+-		char * str;
+-		int RandVal = Game.PhotoNbrForThisLevel[ gcomprisBoard->level ];
+-printf("Random nbr = %d (for level=%d)\n", RandVal, gcomprisBoard->level);
+-
+-		CleanLevelDatas( );
+-
+-		// get base filename datas to play
+-		gchar * RandomFileToLoad = ScanAndPickRandomFile( NULL, RandVal );
+-printf("Random file choosed = %s\n", RandomFileToLoad );
+-		for( ScanPhoto=0; ScanPhoto<2; ScanPhoto++ )
+-		{
+-			str = g_strdup_printf("%s/%s%c.jpg", gcomprisBoard->boarddir, RandomFileToLoad, ScanPhoto==0?'a':'b' );
+-			ItemPhoto[ ScanPhoto ] = LoadPhoto( str, ScanPhoto );
+-			g_free(str);
+-			ItemFrame[ ScanPhoto ] = DrawPhotoFrame( ScanPhoto, "black" );
+-		}
+-		str = gc_file_find_absolute("%s/%s.csv", gcomprisBoard->boarddir, RandomFileToLoad);
+-		LoadCsvDiffFile( str );
+-		g_free(str);
+-		g_free(RandomFileToLoad);
++  {
++    int ScanPhoto;
++    char * str;
++    int RandVal = Game.PhotoNbrForThisLevel[ gcomprisBoard->level ];
++    printf("Random nbr = %d (for level=%d)\n", RandVal, gcomprisBoard->level);
++
++    CleanLevelDatas( );
++
++    // get base filename datas to play
++    gchar * RandomFileToLoad = ScanAndPickRandomFile( NULL, RandVal );
++    printf("Random file choosed = %s\n", RandomFileToLoad );
++    for( ScanPhoto=0; ScanPhoto<2; ScanPhoto++ )
++      {
++	str = g_strdup_printf("%s/%s%c.jpg", gcomprisBoard->boarddir, RandomFileToLoad, ScanPhoto==0?'a':'b' );
++	ItemPhoto[ ScanPhoto ] = LoadPhoto( str, ScanPhoto );
++	g_free(str);
++	ItemFrame[ ScanPhoto ] = DrawPhotoFrame( ScanPhoto, "black" );
++      }
++    str = gc_file_find_absolute("%s/%s.csv", gcomprisBoard->boarddir, RandomFileToLoad);
++    LoadCsvDiffFile( str );
++    g_free(str);
++    g_free(RandomFileToLoad);
+ 
+ #ifdef GAME_DEBUG
+-		int scanposi;
+-		for( scanposi=0; scanposi<gDiffCoorArray->len; scanposi++)
+-		{
+-			StructDiffCoor * pDiff = &g_array_index (gDiffCoorArray, StructDiffCoor, scanposi);
+-			DrawCircle( Game.SpaceX+pDiff->x1, Game.SpaceY+pDiff->y1, Game.SpaceX+pDiff->x2, Game.SpaceY+pDiff->y2, "green" );
+-			DrawCircle( (2*Game.SpaceX+Game.PhotoWidth)+pDiff->x1, Game.SpaceY+pDiff->y1, (2*Game.SpaceX+Game.PhotoWidth)+pDiff->x2, Game.SpaceY+pDiff->y2, "green" );
+-		}
++    int scanposi;
++    for( scanposi=0; scanposi<gDiffCoorArray->len; scanposi++)
++      {
++	StructDiffCoor * pDiff = &g_array_index (gDiffCoorArray, StructDiffCoor, scanposi);
++	DrawCircle( Game.SpaceX+pDiff->x1, Game.SpaceY+pDiff->y1, Game.SpaceX+pDiff->x2, Game.SpaceY+pDiff->y2, "green" );
++	DrawCircle( (2*Game.SpaceX+Game.PhotoWidth)+pDiff->x1, Game.SpaceY+pDiff->y1, (2*Game.SpaceX+Game.PhotoWidth)+pDiff->x2, Game.SpaceY+pDiff->y2, "green" );
++      }
+ #endif
+ 
+-		gcomprisBoard->sublevel = 0;
+-		gcomprisBoard->number_of_sublevel = gDiffCoorArray->len;
+-		gc_score_start(SCORESTYLE_NOTE,
++    gcomprisBoard->sublevel = 0;
++    gcomprisBoard->number_of_sublevel = gDiffCoorArray->len;
++    gc_score_start(SCORESTYLE_NOTE,
+ 		   BOARDWIDTH - 195,
+ 		   BOARDHEIGHT - 30,
+ 		   gcomprisBoard->number_of_sublevel);
+-		gc_score_set(gcomprisBoard->sublevel);
+-		gc_bar_set_level(gcomprisBoard);
+-printf("Start level=%d, total=%d\n", gcomprisBoard->level, gcomprisBoard->maxlevel );
+-	}
++    gc_score_set(gcomprisBoard->sublevel);
++    gc_bar_set_level(gcomprisBoard);
++    printf("Start level=%d, total=%d\n", gcomprisBoard->level, gcomprisBoard->maxlevel );
++  }
+ }
+ 
+ static int TestIfClickedOnDiff( int ClickX, int ClickY )
+ {
+-	int NumDiff = -1;
+-	int ScanPosi,ScanPhoto;
+-	for( ScanPhoto=0; ScanPhoto<2; ScanPhoto++ )
+-	{
+-		for( ScanPosi=0; ScanPosi<gDiffCoorArray->len; ScanPosi++)
+-		{
+-			int OffsetX = (ScanPhoto==0)?Game.SpaceX:(Game.SpaceX*2+Game.PhotoWidth);
+-			int OffsetY = Game.SpaceY;
+-			StructDiffCoor * pDiff = &g_array_index (gDiffCoorArray, StructDiffCoor, ScanPosi);
+-			if ( OffsetX+pDiff->x1 <= ClickX && ClickX<= OffsetX+pDiff->x2
+-					&& OffsetY+pDiff->y1 <= ClickY && ClickY<= OffsetY+pDiff->y2 )
+-			{
+-				NumDiff = ScanPosi;
+-printf("CLICKED ON DIFF%d: coords x1=%d, y1=%d, x2=%d, y2=%d\n", ScanPosi, pDiff->x1, pDiff->y1, pDiff->x2, pDiff->y2 );
+-			}
+-		}
++  int NumDiff = -1;
++  int ScanPosi,ScanPhoto;
++  for( ScanPhoto=0; ScanPhoto<2; ScanPhoto++ )
++    {
++      for( ScanPosi=0; ScanPosi<gDiffCoorArray->len; ScanPosi++)
++	{
++	  int OffsetX = (ScanPhoto==0)?Game.SpaceX:(Game.SpaceX*2+Game.PhotoWidth);
++	  int OffsetY = Game.SpaceY;
++	  StructDiffCoor * pDiff = &g_array_index (gDiffCoorArray, StructDiffCoor, ScanPosi);
++	  if ( OffsetX+pDiff->x1 <= ClickX && ClickX<= OffsetX+pDiff->x2
++	       && OffsetY+pDiff->y1 <= ClickY && ClickY<= OffsetY+pDiff->y2 )
++	    {
++	      NumDiff = ScanPosi;
++	      printf("CLICKED ON DIFF%d: coords x1=%d, y1=%d, x2=%d, y2=%d\n", ScanPosi, pDiff->x1, pDiff->y1, pDiff->x2, pDiff->y2 );
++	    }
+ 	}
+-	return NumDiff;
++    }
++  return NumDiff;
+ }
+ static void TestClick( int ClickX, int ClickY )
+ {
+-	int DiffFound = TestIfClickedOnDiff( ClickX, ClickY );
+-	// a diff found ?
+-	if ( DiffFound!=-1 )
+-	{
+-		StructDiffCoor * pClickedDiffFound = &g_array_index (gDiffCoorArray, StructDiffCoor, DiffFound);
+-		// not already found ?
+-		if ( gDiffFoundArray->len>0 )
+-		{
+-			int ScanAlreadyFound;
+-			for( ScanAlreadyFound=0; ScanAlreadyFound<gDiffFoundArray->len; ScanAlreadyFound++)
+-			{
+-				StructDiffCoor * pScanDiffFound = &g_array_index (gDiffFoundArray, StructDiffCoor, ScanAlreadyFound);
+-				if ( pScanDiffFound->x1==pClickedDiffFound->x1 && pScanDiffFound->y1==pClickedDiffFound->y1
+-					&& pScanDiffFound->x2==pClickedDiffFound->x2 && pScanDiffFound->y2==pClickedDiffFound->y2 )
+-				{
+-					DiffFound = -1;
+-printf("THIS DIFF IS ALREADY FOUND!\n");
+-				}
+-			}
+-		}
+-		if ( DiffFound!=-1 )
+-		{
+-			g_array_append_val( gDiffFoundArray, *pClickedDiffFound );
+-			// draw the found difference on the photos
+-			DrawCircle( Game.SpaceX+pClickedDiffFound->x1, Game.SpaceY+pClickedDiffFound->y1, Game.SpaceX+pClickedDiffFound->x2, Game.SpaceY+pClickedDiffFound->y2, "yellow" );
+-			DrawCircle( (2*Game.SpaceX+Game.PhotoWidth)+pClickedDiffFound->x1, Game.SpaceY+pClickedDiffFound->y1, (2*Game.SpaceX+Game.PhotoWidth)+pClickedDiffFound->x2, Game.SpaceY+pClickedDiffFound->y2, "yellow" );
+-			gcomprisBoard->sublevel++;
+-			gc_score_set(gcomprisBoard->sublevel);
+-			// end ???
+-			if ( gDiffFoundArray->len==gDiffCoorArray->len )
+-			{
+-printf("END OF LEVEL!!!!!!!!!\n");
+-				gc_bonus_display( GC_BOARD_WIN, GC_BONUS_SMILEY );
+-				LoadNextLevelAfterEndOfBonusDisplay = TRUE;
+-			}
+-		}
+-	}
++  int DiffFound = TestIfClickedOnDiff( ClickX, ClickY );
++  // a diff found ?
++  if ( DiffFound!=-1 )
++    {
++      StructDiffCoor * pClickedDiffFound = &g_array_index (gDiffCoorArray, StructDiffCoor, DiffFound);
++      // not already found ?
++      if ( gDiffFoundArray->len>0 )
++	{
++	  int ScanAlreadyFound;
++	  for( ScanAlreadyFound=0; ScanAlreadyFound<gDiffFoundArray->len; ScanAlreadyFound++)
++	    {
++	      StructDiffCoor * pScanDiffFound = &g_array_index (gDiffFoundArray, StructDiffCoor, ScanAlreadyFound);
++	      if ( pScanDiffFound->x1==pClickedDiffFound->x1 && pScanDiffFound->y1==pClickedDiffFound->y1
++		   && pScanDiffFound->x2==pClickedDiffFound->x2 && pScanDiffFound->y2==pClickedDiffFound->y2 )
++		{
++		  DiffFound = -1;
++		  printf("THIS DIFF IS ALREADY FOUND!\n");
++		}
++	    }
++	}
++      if ( DiffFound!=-1 )
++	{
++	  g_array_append_val( gDiffFoundArray, *pClickedDiffFound );
++	  // draw the found difference on the photos
++	  DrawCircle( Game.SpaceX+pClickedDiffFound->x1, Game.SpaceY+pClickedDiffFound->y1, Game.SpaceX+pClickedDiffFound->x2, Game.SpaceY+pClickedDiffFound->y2, "yellow" );
++	  DrawCircle( (2*Game.SpaceX+Game.PhotoWidth)+pClickedDiffFound->x1, Game.SpaceY+pClickedDiffFound->y1, (2*Game.SpaceX+Game.PhotoWidth)+pClickedDiffFound->x2, Game.SpaceY+pClickedDiffFound->y2, "yellow" );
++	  gcomprisBoard->sublevel++;
++	  gc_score_set(gcomprisBoard->sublevel);
++	  // end ???
++	  if ( gDiffFoundArray->len==gDiffCoorArray->len )
++	    {
++	      printf("END OF LEVEL!!!!!!!!!\n");
++	      gc_bonus_display( GC_BOARD_WIN, GC_BONUS_SMILEY );
++	      LoadNextLevelAfterEndOfBonusDisplay = TRUE;
++	    }
++	}
++    }
++}
++static gint
++MouseClick(GooCanvasItem *item, GooCanvasItem *target,
++	   GdkEvent *event, gpointer data)
++{
++  double x, y;
++
++  if (!gcomprisBoard || board_paused)
++    return FALSE;
++
++  x = event->button.x;
++  y = event->button.y;
++  switch (event->type)
++    {
++    case GDK_BUTTON_PRESS:
++      goo_canvas_convert_from_item_space(goo_canvas_item_get_canvas(item),
++					 item, &x, &y);
++      TestClick( (int)x, (int)y );
++      break;
++    default:
++      break;
++    }
++  return FALSE;
+ }
+-static gint MouseClick(GooCanvasItem *item, GdkEvent *event, gpointer data)
+-{
+-	double x, y;
+-
+-	if (!gcomprisBoard || board_paused)
+-		return FALSE;
+ 
+-	x = event->button.x;
+-	y = event->button.y;
+-	switch (event->type)
+-	{
+-		case GDK_BUTTON_PRESS:
+-//			goo_canvas_c2w (gcomprisBoard->canvas, x, y, &x, &y);
+-			TestClick( (int)x, (int)y );
+-			break;
+-		default:
+-			break;
+-	}
+-	return FALSE;
+-}
+ 
+-
+ // Two call methods, firstly to know how many files are available (with RandomSelection to -1),
+ // secondly to return the random file selected.
+ gchar * ScanAndPickRandomFile( int  * pNbrOfFiles, int RandomSelection )
+ {
+-	int NbrOfFilesFound = 0;
+-	char SelectionFound = FALSE;
+-	gchar * FileChoosen = NULL;
+-	char * str = gc_file_find_absolute("%s", gcomprisBoard->boarddir );
+-printf("opening dir : %s\n", str);
+-	GDir * FilesDir = g_dir_open( str, 0, NULL );
+-	if ( FilesDir )
+-	{
+-		const gchar * File;
+-		do
+-		{
+-			File = g_dir_read_name( FilesDir );
+-			if ( File!=NULL )
+-			{
+-				if ( g_str_has_suffix(File, ".csv") )
+-				{
+-printf("filtered file found : %s (select=%d, scan=%d)\n", File, RandomSelection, NbrOfFilesFound );
+-					if ( RandomSelection==NbrOfFilesFound )
+-					{
+-						FileChoosen = g_strdup( File );
+-						FileChoosen[ strlen(FileChoosen)-4 ] = '\0';
+-printf("filtered file found, after cleanup : %s\n", FileChoosen );
+-						SelectionFound = TRUE;
+-					}
+-					NbrOfFilesFound++;
+-				}
+-			}
+-		}
+-		while( File!=NULL && !SelectionFound );
+-		g_dir_close( FilesDir );
+-	}
+-	g_free( str );
+-	if ( pNbrOfFiles!=NULL )
+-		*pNbrOfFiles = NbrOfFilesFound;
+-	return FileChoosen;
++  int NbrOfFilesFound = 0;
++  char SelectionFound = FALSE;
++  gchar * FileChoosen = NULL;
++  char * str = gc_file_find_absolute("%s", gcomprisBoard->boarddir );
++  printf("opening dir : %s\n", str);
++  GDir * FilesDir = g_dir_open( str, 0, NULL );
++  if ( FilesDir )
++    {
++      const gchar * File;
++      do
++	{
++	  File = g_dir_read_name( FilesDir );
++	  if ( File!=NULL )
++	    {
++	      if ( g_str_has_suffix(File, ".csv") )
++		{
++		  printf("filtered file found : %s (select=%d, scan=%d)\n", File, RandomSelection, NbrOfFilesFound );
++		  if ( RandomSelection==NbrOfFilesFound )
++		    {
++		      FileChoosen = g_strdup( File );
++		      FileChoosen[ strlen(FileChoosen)-4 ] = '\0';
++		      printf("filtered file found, after cleanup : %s\n", FileChoosen );
++		      SelectionFound = TRUE;
++		    }
++		  NbrOfFilesFound++;
++		}
++	    }
++	}
++      while( File!=NULL && !SelectionFound );
++      g_dir_close( FilesDir );
++    }
++  g_free( str );
++  if ( pNbrOfFiles!=NULL )
++    *pNbrOfFiles = NbrOfFilesFound;
++  return FileChoosen;
+ }
+ // return nbr of fields found
+-int SplitCommasFieldsInPointersArray( char * LineDatas, char * PtrFieldsDatasFound[], int NbrMaxFields )
++int SplitCommasFieldsInPointersArray( char * LineDatas, char * PtrFieldsDatasFound[], int NbrMaxFields )
+ {
+-	int ScanField;
+-	for( ScanField=0; ScanField<NbrMaxFields; ScanField++ )
+-		PtrFieldsDatasFound[ ScanField ] = NULL;
+-	ScanField = 0;
+-	PtrFieldsDatasFound[ ScanField++ ] = LineDatas;
+-	do
+-	{
+-		do
+-		{
+-			// comma ?
+-			if ( *LineDatas==',' && *(LineDatas+1)!='\0' )
+-			{
+-				// test if not an empty field...
+-				if ( *(LineDatas+1)!=',' )
+-				{
+-					PtrFieldsDatasFound[ ScanField ] = LineDatas+1;
+-					*LineDatas = '\0';
+-				}
+-				ScanField++;
+-			}
+-			LineDatas++;
+-		}
+-		while( ScanField<NbrMaxFields-1 && *LineDatas!='\0' );
+-	}
+-	while( ScanField<NbrMaxFields-1 && *LineDatas!='\0' );
+-	return ScanField;
++  int ScanField;
++  for( ScanField=0; ScanField<NbrMaxFields; ScanField++ )
++    PtrFieldsDatasFound[ ScanField ] = NULL;
++  ScanField = 0;
++  PtrFieldsDatasFound[ ScanField++ ] = LineDatas;
++  do
++    {
++      do
++	{
++	  // comma ?
++	  if ( *LineDatas==',' && *(LineDatas+1)!='\0' )
++	    {
++	      // test if not an empty field...
++	      if ( *(LineDatas+1)!=',' )
++		{
++		  PtrFieldsDatasFound[ ScanField ] = LineDatas+1;
++		  *LineDatas = '\0';
++		}
++	      ScanField++;
++	    }
++	  LineDatas++;
++	}
++      while( ScanField<NbrMaxFields-1 && *LineDatas!='\0' );
++    }
++  while( ScanField<NbrMaxFields-1 && *LineDatas!='\0' );
++  return ScanField;
+ }
+ void ConvertCsvLine( char * FileLineDatas )
+ {
+-	char * PtrArraysCsv[20];
+-	int NbrInfos = SplitCommasFieldsInPointersArray( FileLineDatas, PtrArraysCsv, 20 );
+-	if ( NbrInfos>=4 )
+-	{
+-		StructDiffCoor Diff;
+-		Diff.x1 = atoi( PtrArraysCsv[ 0 ] );
+-		Diff.y1 = atoi( PtrArraysCsv[ 1 ] );
+-		Diff.x2 = atoi( PtrArraysCsv[ 2 ] );
+-		Diff.y2 = atoi( PtrArraysCsv[ 3 ] );
+-printf("fields size = %d - diff coords x1=%d, y1=%d, x2=%d, y2=%d\n", NbrInfos, Diff.x1, Diff.y1, Diff.x2, Diff.y2 );
+-		g_array_append_val( gDiffCoorArray, Diff );
+-	}
++  char * PtrArraysCsv[20];
++  int NbrInfos = SplitCommasFieldsInPointersArray( FileLineDatas, PtrArraysCsv, 20 );
++  if ( NbrInfos>=4 )
++    {
++      StructDiffCoor Diff;
++      Diff.x1 = atoi( PtrArraysCsv[ 0 ] );
++      Diff.y1 = atoi( PtrArraysCsv[ 1 ] );
++      Diff.x2 = atoi( PtrArraysCsv[ 2 ] );
++      Diff.y2 = atoi( PtrArraysCsv[ 3 ] );
++      printf("fields size = %d - diff coords x1=%d, y1=%d, x2=%d, y2=%d\n", NbrInfos, Diff.x1, Diff.y1, Diff.x2, Diff.y2 );
++      g_array_append_val( gDiffCoorArray, Diff );
++    }
+ }
+ void LoadCsvDiffFile( char * pFilename )
+ {
+-	char LineBuff[ 50 ];
+-printf("opening csv file %s...\n", pFilename);
+-	FILE * pFileDiffDesc = fopen( pFilename, "rt" );
+-	if ( pFileDiffDesc )
+-	{ 
+-		while( !feof( pFileDiffDesc ) )
+-		{
+-			if ( fgets( LineBuff, 50, pFileDiffDesc )!=NULL )
+-			{
+-//printf("fgets %s\n", LineBuff );
+-				if ( strlen( LineBuff )>=7 )
+-					ConvertCsvLine( LineBuff );
+-			}
+-		}
+-		fclose( pFileDiffDesc );
+-	}
+-	else
+-	{
+-		gc_dialog(_("Error: Abnormally failed to load a data file"), gc_board_stop);
+-	}
++  char LineBuff[ 50 ];
++  printf("opening csv file %s...\n", pFilename);
++  FILE * pFileDiffDesc = fopen( pFilename, "rt" );
++  if ( pFileDiffDesc )
++    {
++      while( !feof( pFileDiffDesc ) )
++	{
++	  if ( fgets( LineBuff, 50, pFileDiffDesc )!=NULL )
++	    {
++	      //printf("fgets %s\n", LineBuff );
++	      if ( strlen( LineBuff )>=7 )
++		ConvertCsvLine( LineBuff );
++	    }
++	}
++      fclose( pFileDiffDesc );
++    }
++  else
++    {
++      gc_dialog(_("Error: Abnormally failed to load a data file"), gc_board_stop);
++    }
+ }
+-
++
++
+ 
+ 
