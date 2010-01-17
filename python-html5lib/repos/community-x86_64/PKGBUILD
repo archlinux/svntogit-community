@@ -4,7 +4,7 @@
 pkgname=python-html5lib
 _pkgname=html5lib
 pkgver=0.11.1
-pkgrel=2
+pkgrel=3
 pkgdesc="A HTML parser/tokenizer based on the WHATWG HTML5 spec"
 arch=('i686' 'x86_64')
 url="http://code.google.com/p/html5lib/"
