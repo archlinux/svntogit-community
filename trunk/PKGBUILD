@@ -2,7 +2,6 @@
 # Maintainer: Daniel J Griffiths <ghost1227@archlinux.us>
 
 pkgname=python-html5lib
-_pkgname=html5lib
 pkgver=0.11.1
 pkgrel=3
 pkgdesc="A HTML parser/tokenizer based on the WHATWG HTML5 spec"
@@ -11,11 +10,11 @@ url="http://code.google.com/p/html5lib/"
 license=('MIT')
 depends=('python')
 makedepends=('unzip' 'setuptools')
-source=(http://html5lib.googlecode.com/files/${_pkgname}-${pkgver}.zip
+source=(http://html5lib.googlecode.com/files/html5lib-${pkgver}.zip
 	LICENSE)
 
 build() {
-        cd ${srcdir}/${_pkgname}-${pkgver}
+        cd ${srcdir}/html5lib-${pkgver}
         python setup.py install --root=${pkgdir} || return 1
 	install -dm755 LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE	
 }
