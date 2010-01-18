@@ -4,7 +4,7 @@
 # Contributor: Christian Himpel <chressie at gmail dot com>
 pkgname=go
 pkgver=4623
-pkgrel=1
+pkgrel=2
 pkgdesc='Google Go compiler and tools'
 arch=(i686 x86_64)
 url=http://golang.org/
@@ -30,6 +30,7 @@ build() {
   [ "$ARCH" == "i686" ]   && GOARCH=386
   [ "$ARCH" == "arm" ]    && GOARCH=arm
   [ "$ARCH" == "x86_64" ] && GOARCH=amd64
+  export GOARCH
 
   GOOS=linux \
   GOROOT=$srcdir/build \
@@ -53,4 +54,4 @@ build() {
 }
 
 md5sums=('6055b666a95133e75abaa3e19d47eba8'
-         '95b2ddb38efd5b616fd19b41ef9044ff')
+         '3ae671065d5184defa8bfeb7659600f1')
