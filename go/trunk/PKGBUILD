@@ -61,7 +61,11 @@ build() {
   cp -r bin $pkgdir/usr
   cp -r doc misc -t $pkgdir/usr/share/go
   cp -r pkg $pkgdir/usr/lib/go
-  cp -r src $pkgdir/usr/lib/go
+
+  # Headers for C modules
+  install -Dm644 src/Make.{$GOARCH,cmd,pkg,conf} $pkgdir/usr/lib/go/src
+  install -Dm644 src/pkg/runtime/runtime.h $pkgdir/usr/lib/go/src/pkg/runtime/runtime.h
+  install -Dm644 src/pkg/runtime/cgocall.h $pkgdir/usr/lib/go/src/pkg/runtime/cgocall.h
   install  $srcdir/go.sh $pkgdir/etc/profile.d/ 
   
   echo export GOARCH=$GOARCH >> $pkgdir/etc/profile.d/go.sh
