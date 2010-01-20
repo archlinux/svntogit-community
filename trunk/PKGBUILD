@@ -5,30 +5,30 @@
 pkgname=go
 pkgver=2010_01_13
 _pkgver=2010-01-13
-pkgrel=1
+pkgrel=1.1
 pkgdesc='Google Go compiler and tools (release version)'
 arch=(i686 x86_64)
 url=http://golang.org/
 license=(custom)
 depends=(perl)
 makedepends=(mercurial)
-options=(!strip !makeflags force holdver)
+options=(!strip !makeflags)
 install=$pkgname.install
 source=($pkgname.install $pkgname.sh)
 
-_hgroot=https://go.googlecode.com/hg/
-_hgrepo=release
-
 build() {
+  hgroot=https://go.googlecode.com/hg/
+  hgrepo=release
+
   cd $srcdir
 
   msg "Connecting to Mercurial server..."
-  if [ -d $_hgrepo ]; then
-    cd $_hgrepo
+  if [ -d $hgrepo ]; then
+    cd $hgrepo
     hg pull -u || return 1
     msg2 "The local files have been updated"
   else
-    hg clone $_hgroot $_hgrepo || return 1
+    hg clone $hgroot $hgrepo || return 1
     msg2 "Mercurial checkout done"
   fi
 
@@ -38,7 +38,7 @@ build() {
   [ "$ARCH" == "x86_64" ] && GOARCH=amd64
   export GOARCH
  
-  export GOROOT=$srcdir/$_hgrepo
+  export GOROOT=$srcdir/$hgrepo
   export GOOS=linux
   export GOBIN=$GOROOT/bin
   export PATH=$PATH:$GOBIN
