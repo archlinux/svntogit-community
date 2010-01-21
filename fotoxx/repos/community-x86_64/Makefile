@@ -42,7 +42,7 @@ install: $(PROGRAM)
 	@echo "Categories=Graphics" >> $(DESTDIR)/$(DESKTOP)
 	@echo "Type=Application" >> $(DESTDIR)/$(DESKTOP)
 	@echo "Terminal=false" >> $(DESTDIR)/$(DESKTOP)
-	@echo "Exec=$(BINDIR)/$(PROGRAM)" >> $(DESTDIR)/$(DESKTOP)
+	@echo "Exec=/usr/bin/$(PROGRAM)" >> $(DESTDIR)/$(DESKTOP)
 	@echo "Icon=$(DATADIR)/icons/$(PROGRAM).png" >> $(DESTDIR)/$(DESKTOP)
 	@echo "GenericName=Digital Photo Editor" >> $(DESTDIR)/$(DESKTOP)
 #  install man page
