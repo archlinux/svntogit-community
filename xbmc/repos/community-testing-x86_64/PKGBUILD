@@ -1,0 +1,117 @@
+# Contributor: [vEX] <niechift.dot.vex.at.gmail.dot.com>
+# Contributor: Zeqadious <zeqadious.at.gmail.dot.com>
+# Contributor: BlackEagle < ike DOT devolder AT herecura DOT be >
+
+# python dependency or not
+_ext_python="disable"
+
+pkgname=xbmc
+pkgver=9.11
+pkgrel=9
+pkgdesc="XBMC Media Center"
+arch=('i686' 'x86_64')
+url="http://xbmc.org"
+license=('GPL' 'custom')
+depends=('alsa-lib' 'curl' 'enca' 'faac' 'freetype2' 'fribidi' 'gawk' 'glew'
+         'hal' 'jasper' 'libgl' 'libjpeg>=7' 'libmad' 'libmysqlclient' 'ffmpeg'
+         'libxinerama' 'libxrandr' 'lzo2' 'sdl_image>=1.2.10-2' 'sdl_mixer' 'sqlite3'
+         'tre' 'unzip' 'xorg-server' 'libcdio' 'wavpack' 'libmpeg2' 'a52dec'
+         'libdca' 'smbclient' 'faad2' 'libsamplerate' 'libmms' 'xorg-utils')
+if [ "$_ext_python" != "disable" ]; then
+  depends=( '${depends[@]}' 'python' )
+fi
+makedepends=('autoconf' 'automake' 'boost' 'cmake' 'gcc' 'gperf'
+            'libtool>=2.2.6a-1' 'make' 'nasm' 'patch' 'pkgconfig' 'zip'
+            'libvdpau')
+optdepends=('lirc: remote controller support'
+	    'smbclient: access windows shares'
+	    'unrar: access compressed files without unpacking them'
+	    'devicekit-power: used to trigger suspend functionality')
+install=${pkgname}.install
+options=(force)
+source=(http://downloads.sourceforge.net/project/xbmc/XBMC%20Source%20Code/Camelot%20-%20$pkgver/xbmc-${pkgver/_/-}.tar.gz
+        use_cdio_system_headers_on_non_win32.patch
+        FEH.sh libpng14.patch)
+md5sums=('9a68ac1e2f44a54cc3803fcdb1265767'
+        '7b7403cdde791330b5ab70697d2054f2'
+        '0aa669eebaaf2a9f6e000e1f43869a7b'
+	'3f93cfc8aa21723ca3246dc5f9122177')
+
+build() {
+  cd "${srcdir}/xbmc-${pkgver/_/-}"
+  _xbmcprefix=/usr
+  patch -N -p1 -i  ../use_cdio_system_headers_on_non_win32.patch || return 1
+  patch -Np1 -i ${srcdir}/libpng14.patch || return 1
+  # fix lsb_release dependency
+  sed -i -e 's:/usr/bin/lsb_release -d:cat /etc/arch-release:' xbmc/utils/SystemInfo.cpp || return 1
+  # fix faulty declaration in DllLaoder wrapper
+  sed -i 's: ftell64: dll_ftell64:' xbmc/cores/DllLoader/exports/wrapper.c || return 1
+  # fix libjpeg7 delays
+  sed -i 's|cinfo.scale_denom = GetJpegScale();|cinfo.scale_denom = GetJpegScale(); cinfo.scale_num = 1;|' xbmc/lib/cximage-6.0/CxImage/ximajpg.cpp || return 1
+
+  if [ $NOEXTRACT -ne 1 ]; then
+    # Archlinux Branding by SVN_REV
+    export SVN_REV="-ARCH"
+
+    ./bootstrap
+    ./configure --prefix=${_xbmcprefix} \
+    --enable-vdpau \
+    --disable-pulse \
+    --disable-avahi \
+    --enable-external-liba52 \
+    --enable-external-libdts \
+    --enable-external-libmpeg2 \
+    --enable-external-libogg \
+    --enable-external-libwavpack \
+    --disable-external-libass \
+    --enable-external-ffmpeg \
+    --${_ext_python}-external-python \
+    --disable-debug || return 1
+  fi
+
+  make || return 1
+  make prefix=${pkgdir}${_xbmcprefix} install || return 1
+
+  # Fix the shell script
+  sed -i '3iexport SDL_AUDIODRIVER=alsa' ${pkgdir}${_xbmcprefix}/bin/xbmc
+
+  # if disabled external python install bash script and fix startup script
+  if [ "$_ext_python" = "disable" ]; then
+    install -Dm755 ${srcdir}/FEH.sh \
+    ${pkgdir}${_xbmcprefix}/share/xbmc/FEH.sh || return 1
+    sed -i -e "s/python \\${_xbmcprefix}\/share\/xbmc\/FEH.py \"\$@\"/\\${_xbmcprefix}\/share\/xbmc\/FEH.sh/g" ${pkgdir}${_xbmcprefix}/bin/xbmc || return 1
+  fi
+
+  # bin/xbmc lsb_release fix in xmbc startup script
+  sed -i -e 's/which lsb_release &> \/dev\/null/\[ -f \/etc\/arch-release ]/g' ${pkgdir}${_xbmcprefix}/bin/xbmc || return 1
+  sed -i -e "s/lsb_release -a 2> \/dev\/null | sed -e 's\/\^\/    \/'/cat \/etc\/arch-release/g" ${pkgdir}${_xbmcprefix}/bin/xbmc || return 1
+
+  # Menu item
+  install -Dm644 ${srcdir}/xbmc-${pkgver/_/-}/tools/Linux/xbmc.desktop \
+  ${pkgdir}/usr/share/applications/xbmc.desktop || return 1
+  install -Dm644 ${srcdir}/xbmc-${pkgver/_/-}/tools/Linux/xbmc.png \
+  ${pkgdir}/usr/share/pixmaps/xbmc.png || return 1
+
+  # XBMCTex
+  #    install -Dm755 ${srcdir}/xbmc-${pkgver/_/-}/tools/XBMCTex/XBMCTex \
+  #                   ${pkgdir}${_xbmcprefix}/share/xbmc/tools/xbmctex || return 1
+
+  # License(s)
+  install -dm755 ${pkgdir}/usr/share/licenses/${pkgname}
+  for licensef in LICENSE.GPL README.linux copying.txt; do
+    mv ${pkgdir}${_xbmcprefix}/share/xbmc/${licensef} \
+    ${pkgdir}/usr/share/licenses/${pkgname} || return 1
+  done
+
+  # profile.d
+  mkdir -p $pkgdir/etc/profile.d/ && \
+  echo "export PATH=\$PATH:${_xbmcprefix}/bin" >$pkgdir/etc/profile.d/xbmc.sh && \
+  chmod 0755 $pkgdir/etc/profile.d/xbmc.sh || return 1
+
+  # fix .desktop
+  sed -i "s#Exec=xbmc#Exec=${_xbmcprefix}/bin/xbmc#" $pkgdir/usr/share/xsessions/XBMC.desktop $pkgdir/usr/share/applications/xbmc.desktop || return 1
+
+  # strip
+  find $pkgdir -type f -exec strip {} \; >/dev/null 2>/dev/null
+}
+
