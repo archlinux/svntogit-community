@@ -12,11 +12,16 @@ depends=('python')
 makedepends=('unzip' 'setuptools')
 source=(http://html5lib.googlecode.com/files/html5lib-${pkgver}.zip
 	LICENSE)
+md5sums=('f0981fcec3d69789f12f52779c55fa29'
+         '838c366f69b72c5df05c96dff79b35f2')
 
 build() {
+	/bin/true
+}
+
+package() {
         cd ${srcdir}/html5lib-${pkgver}
+
         python setup.py install --root=${pkgdir} || return 1
 	install -dm755 LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE	
 }
-md5sums=('f0981fcec3d69789f12f52779c55fa29'
-	 '838c366f69b72c5df05c96dff79b35f2')
