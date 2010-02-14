@@ -1,27 +1,28 @@
+# $Id$
 #Maintainer: Biru Ionut <ionut@archlinux.ro>
 pkgbase=('virtualbox-ose')
 pkgname=('virtualbox-ose' 'virtualbox-modules' 'virtualbox-ose-additions' 'virtualbox-ose-additions-modules')
-pkgver=3.1.2
-pkgrel=3
-arch=('i686')
+pkgver=3.1.4
+pkgrel=1
+arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
 makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2'
              'libxcursor' 'qt' 'libidl2' 'sdl_ttf' 'alsa-lib' 'pulseaudio'
-             'hal' 'libxtst' 'xalan-c' 'sdl' 'libxmu' 'curl' 'python' 'kernel26-headers>=2.6.32.3')
+             'hal' 'libxtst' 'xalan-c' 'sdl' 'libxmu' 'curl' 'python' 'kernel26-headers>=2.6.32.3' 'mesa')
 source=(http://download.virtualbox.org/virtualbox/$pkgver/VirtualBox-$pkgver-OSE.tar.bz2
-        '60-virtualbox.rules' 'LocalConfig.kmk' 'disable-update.patch')
+        '60-virtualbox.rules' '60-vboxguest.rules' 'LocalConfig.kmk')
 
 build() {
     cd "$srcdir/VirtualBox-${pkgver}_OSE"
 
     cp "$srcdir/LocalConfig.kmk" .
-    sed -i 's/python2.5/python2.6/g' configure
-    patch -Np1 -i $srcdir/disable-update.patch || return 1
+    sed -i 's/python2.4/python2.6/g' configure
 
-    ./configure
+    ./configure || return 1
     source ./env.sh
     kmk all || return 1
+
     #build modules
     cd out/linux.$BUILD_PLATFORM_ARCH/release/bin/src
     make || return 1
@@ -41,13 +42,11 @@ package_virtualbox-ose() {
                 'libgl: For Shared OpenGL'
                 'libxt: For Shared Clipboard'
 	        'pulseaudio: For PulseAudio Support'
-	        'python: For Python Support'
-		'consolekit: for acl support')
-    install=virtualbox.install
+	        'python: For Python Support')
     provides=("virtualbox=${pkgver}")
+    install=virtualbox.install
 
     cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
-    rm -rf sdk tst* testcase SUPInstall SUPUninstall
     mkdir -p "$pkgdir"/usr/{bin,lib/virtualbox/components,share/virtualbox/nls}
 
     #Binaries and Wrapper with Launchers
@@ -57,31 +56,32 @@ package_virtualbox-ose() {
     ln -sf VBox "$pkgdir/usr/bin/VBoxSDL"
     ln -sf VBox "$pkgdir/usr/bin/VirtualBox"
 
-    install -m 0755 VBoxTunctl "$pkgdir/usr/bin"
+    install -m 0755 VBoxTunctl "$pkgdir/usr/bin" || return 1
 
     #components
-    install -m 0755 components/* -t "$pkgdir/usr/lib/virtualbox/components"
+    install -m 0755 components/* -t "$pkgdir/usr/lib/virtualbox/components" || return 1
 
     #lib
-    install -m 0755 *.so "$pkgdir/usr/lib/virtualbox"
-    install -m 0644 *.gc *.r0 "$pkgdir/usr/lib/virtualbox"
+    install -m 0755 *.so "$pkgdir/usr/lib/virtualbox" || return 1
+    install -m 0644 *.gc *.r0  VBoxEFI*.fd "$pkgdir/usr/lib/virtualbox" || return 1
+
 
     #setuid root binaries
     install -m 4755 VBoxHeadless VBoxSDL VBoxNetDHCP VBoxNetAdpCtl VirtualBox VBoxBFE \
-	    -t "$pkgdir/usr/lib/virtualbox"
+	    -t "$pkgdir/usr/lib/virtualbox" || return 1
     #other binaries
     install -m 0755 VBoxManage VBoxSVC VBoxXPCOMIPCD VBoxSysInfo.sh xpidl \
-                    VBoxTestOGL vboxshell.py \
-	    -t "$pkgdir/usr/lib/virtualbox"
+                    VBoxTestOGL EfiThunk \
+	    -t "$pkgdir/usr/lib/virtualbox" || return 1
 
     #language
-    install -m 0755 nls/* -t "$pkgdir/usr/share/virtualbox/nls"
+    install -m 0755 nls/* -t "$pkgdir/usr/share/virtualbox/nls" || return 1
 
     #icon
-    install -D -m 0644 VBox.png "$pkgdir/usr/share/pixmaps/VBox.png"
+    install -D -m 0644 VBox.png "$pkgdir/usr/share/pixmaps/VBox.png" || return 1
 
     #desktop
-    install -D -m 0644 virtualbox.desktop "$pkgdir/usr/share/applications/virtualbox.desktop"
+    install -D -m 0644 virtualbox.desktop "$pkgdir/usr/share/applications/virtualbox.desktop" || return 1
 
     #install configuration
     mkdir -p "$pkgdir/etc/vbox"
@@ -89,9 +89,9 @@ package_virtualbox-ose() {
 
     #udev and licence
     install -D -m 0644 "$srcdir/VirtualBox-${pkgver}_OSE/COPYING" \
-            "$pkgdir/usr/share/licenses/virtualbox-ose/LICENSE"
+            "$pkgdir/usr/share/licenses/virtualbox-ose/LICENSE" || return 1
     install -D -m 0644 "$srcdir/60-virtualbox.rules" \
-            "$pkgdir/lib/udev/rules.d/60-virtualbox.rules"
+            "$pkgdir/lib/udev/rules.d/60-virtualbox.rules" || return 1
 }
 
 package_virtualbox-modules(){
@@ -126,12 +126,12 @@ package_virtualbox-ose-additions(){
     install -m755 -D "$srcdir"/VirtualBox-${pkgver}_OSE/src/VBox/Additions/x11/Installer/vboxclient.desktop \
 	   "$pkgdir"/etc/xdg/autostart/vboxclient.desktop || return 1
     install -D vboxmouse_drv_17.so \
-	   "$pkgdir/usr/lib/xorg/modules/drivers/vboxmouse.so" || return 1
+	   "$pkgdir/usr/lib/xorg/modules/input/vboxmouse.so" || return 1
     install -D vboxvideo_drv_17.so \
 	  "$pkgdir/usr/lib/xorg/modules/drivers/vboxvideo.so" || return 1
     install -m755 -D $srcdir/VirtualBox-${pkgver}_OSE/src/VBox/Additions/linux/installer/90-vboxguest.fdi \
 	  "$pkgdir/usr/share/hal/fdi/policy/20thirdparty/90-vboxguest.fdi"  || return 1
-    install -d "$pkgdir/usr/lib/dri"
+    install -d "$pkgdir/usr/lib/"
     install -m755 VBoxOGL*.so "$pkgdir/usr/lib" || return 1
 }
 package_virtualbox-ose-additions-modules(){
@@ -155,9 +155,12 @@ package_virtualbox-ose-additions-modules(){
     install -D -m644 vboxvideo.ko \
 	"$pkgdir/lib/modules/$_kernver/misc/vboxvideo.ko" || return 1
 
+    install -D -m 0644 "$srcdir/60-vboxguest.rules" \
+        "$pkgdir/lib/udev/rules.d/60-vboxguest.rules" || return 1
+
     sed -i -e "s/KERNEL_VERSION='.*'/KERNEL_VERSION='${_kernver}'/" "$startdir/virtualbox-ose-additions-modules.install" || return 1
 }
-md5sums=('e7808f16114f5b1a65aa2df1aa33e1a7'
-         '519d32d8c2408e0ed9d643f412117644'
-         '58e19502c2d461ad239608337a2e693a'
-         'ca1c043c4015e8e145af34b5ba09547a')
+md5sums=('d32066cb9ebfa4930a2c5ad6227de26f'
+         '641bd2d65f0183ef5897d8dd0322f7bc'
+         'ed1341881437455d9735875ddf455fbe'
+         '2d65145285050d9e0e47fed01f4001bf')
