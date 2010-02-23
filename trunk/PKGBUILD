@@ -3,8 +3,8 @@
 # Contributor: Matthew Bauer <mjbauer95@gmail.com>
 # Contributor: Christian Himpel <chressie at gmail dot com>
 pkgname=go
-pkgver=2010_01_13
-_pkgver=2010-01-13
+pkgver=2010_02_17
+_pkgver=2010-02-17
 pkgrel=1.1
 pkgdesc='Google Go compiler and tools (release version)'
 arch=(i686 x86_64)
@@ -21,6 +21,8 @@ build() {
   hgrepo=release
 
   cd $srcdir
+
+  msg "Note: the build currently fails if you have an older version of go installed."
 
   msg "Connecting to Mercurial server..."
   if [ -d $hgrepo ]; then
@@ -41,13 +43,14 @@ build() {
   export GOROOT=$srcdir/$hgrepo
   export GOOS=linux
   export GOBIN=$GOROOT/bin
-  export PATH=$PATH:$GOBIN
+  export PATH=$GOBIN:$PATH
 
   mkdir $GOROOT/bin &> /dev/null
   cd $GOROOT/src || return 1
   hg update release.$_pkgver || return 1
 
-  make all || return 1
+  cd $GOROOT/src
+  ./all.bash || return 1
  
   cd $GOROOT || return 1
   install -Dm644 LICENSE $pkgdir/usr/share/licenses/go/LICENSE
