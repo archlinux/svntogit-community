@@ -1,25 +1,49 @@
 # Maintainer: Chris Brannon <cmbrannon79@gmail.com>
 # Contributor : Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
-pkgname=ipython
+pkgbase=ipython
+pkgname=(ipython ipython-docs)
 pkgver=0.10
-pkgrel=2
-pkgdesc="An enhanced Interactive Python shell."
+pkgrel=3
 arch=('any')
 url="http://ipython.scipy.org/"
-depends=('python')
-optdepends=('wxpython: needed for ipythonx and ipython-wx'
-            'twisted: networking-related tasks')
 license=('custom')
-source=(http://ipython.scipy.org/dist/$pkgname-$pkgver.tar.gz)
+  makedepends=('python') # for setup.py
+source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz")
+md5sums=('dd10cd1b622c16c1afca2239fcc0dfdf')
 
 build() {
-  cd $startdir/src/$pkgname-$pkgver
-  mkdir -p $startdir/pkg/usr/share/licenses/ipython/
-  install -m644 docs/source/license_and_copyright.txt $startdir/pkg/usr/share/licenses/ipython/license.txt
-
-  python setup.py install --root=$startdir/pkg
-
-  rm -rf $startdir/pkg/usr/share/doc
+  true
+  # There's nothing to do here.  No configure, make, et cetera.  setup.py
+  # does it all.
 }
-md5sums=('dd10cd1b622c16c1afca2239fcc0dfdf')
+
+package_ipython() {
+  pkgdesc="An enhanced Interactive Python shell."
+  depends=('python')
+  optdepends=("wxpython: needed for ipythonx and ipython-wx"
+              "twisted: networking-related tasks"
+              "python-foolscap: for IPython's parallel computing features"
+              "python-pexpect: for irunner"
+              "python-nose: if you want to run IPython's test suite")
+
+  cd "$srcdir/$pkgbase-$pkgver"
+
+  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython/license.txt" || return 1
+  python setup.py install --prefix=/usr --root="$pkgdir" || return 1
+  rm -rf "$pkgdir/usr/share/doc"
+}
+
+package_ipython-docs() {
+  pkgdesc='Documentation and examples for IPython'
+
+  cd "$srcdir/$pkgbase-$pkgver"
+
+  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython-docs/license.txt" || return 1
+  # Can I use $pkgname in that install command?
+
+  python setup.py install --prefix=/usr --root="$pkgdir" || return 1
+  rm -rf "$pkgdir/usr/lib" "$pkgdir/usr/bin" "$pkgdir/usr/share/man"
+  # This seems wrong.  We're running setup.py for both
+  # packages, and removing different things in each.
+}
