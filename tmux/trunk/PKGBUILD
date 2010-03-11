@@ -3,12 +3,12 @@
 
 pkgname=tmux
 pkgver=1.2
-pkgrel=1
+pkgrel=2
 pkgdesc="A terminal multiplexer"
 url="http://tmux.sourceforge.net/"
 arch=('i686' 'x86_64')
 license=('BSD')
-depends=('ncurses')
+depends=('ncurses' 'libevent')
 source=(http://downloads.sourceforge.net/tmux/tmux-$pkgver.tar.gz
 	LICENSE)
 md5sums=('748fbe7bb5f86812e19bd6005ff21a5a'
