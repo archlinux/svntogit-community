@@ -1,9 +1,10 @@
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
+
 pkgname=virt-manager
 pkgver=0.8.3
 pkgrel=1
 pkgdesc="A desktop user interface for managing virtual machines."
-arch=('i686' 'x86_64')
+arch=('any')
 url="http://virt-manager.et.redhat.com"
 license=('GPL')
 depends=('dbus-python' 'gnome-python-desktop' 'libvirt' 'libxml2' 'vte' 'virtinst' 'gtk-vnc' 'rarian' 'gconf')
@@ -11,6 +12,7 @@ makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 optdepends=('x11-ssh-askpass: for ssh authentication to remote servers')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz")
+md5sums=('2994055bd83b7fe621f0258089e171f4')
 
 build() {
 	cd $srcdir/$pkgname-$pkgver || return 1
@@ -29,4 +31,3 @@ build() {
 	rm -rf $pkgdir/etc/gconf/schemas
 	rmdir --ignore-fail-on-non-empty $pkgdir/etc/gconf $pkgdir/etc || return 1
 }
-md5sums=('2994055bd83b7fe621f0258089e171f4')
