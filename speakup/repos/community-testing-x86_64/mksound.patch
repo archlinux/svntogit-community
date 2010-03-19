@@ -1,0 +1,86 @@
+diff --git a/src/main.c b/src/main.c
+index 2f4ff7f..322f0d3 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -220,6 +220,7 @@ ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA, ALPHA /* 248-255 */
+ };
+ 
+ struct task_struct *speakup_task;
++struct bleep unprocessed_sound;
+ static int spk_keydown;
+ static u_char spk_lastkey, spk_close_press, keymap_flags;
+ static u_char last_keycode, this_speakup_key;
+@@ -267,7 +268,10 @@ static void bleep(u_short val)
+ 	freq = vals[val%12];
+ 	if (val > 11)
+ 		freq *= (1 << (val/12));
+-	kd_mksound(freq, msecs_to_jiffies(time));
++	unprocessed_sound.freq = freq;
++	unprocessed_sound.jiffies = msecs_to_jiffies(time);
++	unprocessed_sound.active = 1;
++	/* We can only have 1 active sound at a time. */
+ }
+ 
+ static void speakup_shut_up(struct vc_data *vc)
+diff --git a/src/speakup.h b/src/speakup.h
+index 1cea5a6..b09c1dc 100644
+--- a/src/speakup.h
++++ b/src/speakup.h
+@@ -120,5 +120,6 @@ extern short punc_mask;
+ extern short pitch_shift, synth_flags;
+ extern int quiet_boot;
+ extern char *synth_name;
++extern struct bleep unprocessed_sound;
+ 
+ #endif
+diff --git a/src/spk_types.h b/src/spk_types.h
+index 3d55239..840bddb 100644
+--- a/src/spk_types.h
++++ b/src/spk_types.h
+@@ -185,4 +185,9 @@ struct speakup_info_t {
+ 	int flushing;
+ };
+ 
++struct bleep {
++	short freq;
++	unsigned long jiffies;
++	int active;
++};
+ #endif
+diff --git a/src/thread.c b/src/thread.c
+index 0d1ab6a..84531e7 100644
+--- a/src/thread.c
++++ b/src/thread.c
+@@ -12,14 +12,22 @@ int speakup_thread(void *data)
+ {
+ 	unsigned long flags;
+ 	int should_break;
++	struct bleep our_sound;
++
++	our_sound.active = 0;
++	our_sound.freq = 0;
++	our_sound.jiffies = 0;
+ 
+ 	mutex_lock(&spk_mutex);
+ 	while (1) {
+ 		DEFINE_WAIT(wait);
+ 		while(1) {
+ 			spk_lock(flags);
++			our_sound = unprocessed_sound;
++			unprocessed_sound.active = 0;
+ 			prepare_to_wait(&speakup_event, &wait, TASK_INTERRUPTIBLE);
+ 			should_break = kthread_should_stop() ||
++				our_sound.active ||
+ 				(synth && synth->catch_up && synth->alive &&
+ 					(speakup_info.flushing ||
+ 					!synth_buffer_empty()));
+@@ -34,6 +42,9 @@ int speakup_thread(void *data)
+ 		if (kthread_should_stop())
+ 			break;
+ 
++		if (our_sound.active) {
++			kd_mksound(our_sound.freq, our_sound.jiffies);
++		}
+ 		if (synth && synth->catch_up && synth->alive) {
+ 			/* It is up to the callee to take the lock, so that it
+ 			 * can sleep whenever it likes */
