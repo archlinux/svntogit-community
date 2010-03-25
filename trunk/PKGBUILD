@@ -3,8 +3,8 @@
 # Contributor: Matthew Bauer <mjbauer95@gmail.com>
 # Contributor: Christian Himpel <chressie at gmail dot com>
 pkgname=go
-pkgver=2010_02_17
-_pkgver=2010-02-17
+pkgver=2010_03_22
+_pkgver=2010-03-22
 pkgrel=1.1
 pkgdesc='Google Go compiler and tools (release version)'
 arch=(i686 x86_64)
