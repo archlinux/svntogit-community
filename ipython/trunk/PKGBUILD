@@ -4,13 +4,13 @@
 pkgbase=ipython
 pkgname=(ipython ipython-docs)
 pkgver=0.10
-pkgrel=3
+pkgrel=4
 arch=('any')
 url="http://ipython.scipy.org/"
 license=('custom')
   makedepends=('python') # for setup.py
-source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz")
-md5sums=('dd10cd1b622c16c1afca2239fcc0dfdf')
+source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz"
+            warning.patch)
 
 build() {
   true
@@ -29,8 +29,14 @@ package_ipython() {
 
   cd "$srcdir/$pkgbase-$pkgver"
 
+  # Apply a patch to get rid of a useless warning.
+  # This is the same code that is in upstream's VCS, so the patch can
+  # go away with the next release.
+# Thanks to Andrzej Giniewicz for the patch against 0.10.
+  patch -p1 < "$srcdir/warning.patch" || return 1
+
   install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython/license.txt" || return 1
-  python setup.py install --prefix=/usr --root="$pkgdir" || return 1
+  python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1 || return 1
   rm -rf "$pkgdir/usr/share/doc"
 }
 
@@ -47,3 +53,5 @@ package_ipython-docs() {
   # This seems wrong.  We're running setup.py for both
   # packages, and removing different things in each.
 }
+md5sums=('dd10cd1b622c16c1afca2239fcc0dfdf'
+         '45f16a0133b8e8714722c212fe5dfc87')
