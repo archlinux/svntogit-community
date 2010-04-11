@@ -1,7 +1,7 @@
 # Maintainer: Thorsten Töpper <atsutane-tu@freethoughts.de>
 
 pkgname=i3-wm
-_pkgname=i3
+_pkgsourcename=i3
 pkgver=3.e
 pkgrel=1
 pkgdesc="An improved dynamic tiling window manager"
@@ -15,17 +15,17 @@ makedepends=('bison' 'flex')
 optdepends=('rxvt-unicode: The terminal emulator used in the default config.'
             'dmenu: As menu.')
 options=('docs' '!strip')
-source=(http://i3.zekjur.net/downloads/$_pkgname-$pkgver.tar.bz2)
+source=(http://i3.zekjur.net/downloads/$_pkgsourcename-$pkgver.tar.bz2)
 md5sums=('28b70cc287e2c6607576171c3c6b3fdf')
 
 build() {
-  cd "$srcdir/$_pkgname-$pkgver"
+  cd "$srcdir/$_pkgsourcename-$pkgver"
   
   make || return 1
 }
 
 package() {
-  cd "$srcdir/$_pkgname-$pkgver"
+  cd "$srcdir/$_pkgsourcename-$pkgver"
   make DESTDIR="$pkgdir/" install || return 1
   
   install -Dm644 man/i3.man \
