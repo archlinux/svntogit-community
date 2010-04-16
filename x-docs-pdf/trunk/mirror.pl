@@ -16,7 +16,6 @@ sub http_list
 	{
 	    system("mkdir -p $url");
 	    print "$baseurl$url$1\n";
-#	    system("curl -z $url$1 $baseurl$url$1 -o $url$1");
 	    system("wget -c $baseurl$url$1 -O $url$1");
 	}
     }
