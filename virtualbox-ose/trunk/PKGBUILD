@@ -1,9 +1,9 @@
 # $Id$
 #Maintainer: Ionut Biru <ibiru@archlinux.org>
 pkgbase=('virtualbox-ose')
-pkgname=('virtualbox-ose' 'virtualbox-modules' 'virtualbox-ose-additions' 'virtualbox-ose-additions-modules')
+pkgname=('virtualbox-ose' 'virtualbox-ose-additions' 'virtualbox-ose-additions-modules')
 pkgver=3.1.6
-pkgrel=2
+pkgrel=3
 arch=('i686')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
@@ -11,10 +11,11 @@ makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2'
              'libxcursor' 'qt' 'libidl2' 'sdl_ttf' 'alsa-lib' 'pulseaudio'
              'hal' 'libxtst' 'xalan-c' 'sdl' 'libxmu' 'curl' 'python' 'kernel26-headers>=2.6.33' 'mesa')
 source=(http://download.virtualbox.org/virtualbox/$pkgver/VirtualBox-$pkgver-OSE.tar.bz2
-        '60-virtualbox.rules' '60-vboxguest.rules' 'LocalConfig.kmk')
+        '60-virtualbox.rules' '60-vboxguest.rules' 'LocalConfig.kmk' 'vboxdrv.sh' 'gcc45.patch')
 
 build() {
     cd "$srcdir/VirtualBox-${pkgver}_OSE"
+    patch -Np0 -i ${srcdir}/gcc45.patch || return 1
 
     cp "$srcdir/LocalConfig.kmk" .
     sed -i 's/python2.4/python2.6/g' configure
@@ -23,10 +24,6 @@ build() {
     source ./env.sh
     kmk all || return 1
 
-    #build modules
-    cd out/linux.$BUILD_PLATFORM_ARCH/release/bin/src
-    make || return 1
-    #build guest additions modules
     cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions/src"
     make || return 1
     cd vboxvideo
@@ -35,15 +32,15 @@ build() {
 
 package_virtualbox-ose() {
     pkgdesc="Powerful x86 virtualization for enterprise as well as home use (Open Source Edition)"
-    provides=('virtualbox')
-    conflicts=('virtualbox')
-    depends=('virtualbox-modules' 'libxcursor' 'libidl2' 'libxslt' 'sdl' 'libxmu' 'curl')
+    depends=('libxcursor' 'libidl2' 'libxslt' 'sdl' 'libxmu' 'curl' 'kernel26-headers')
     optdepends=('qt: For VirtualBox GUI'
                 'libgl: For Shared OpenGL'
                 'libxt: For Shared Clipboard'
 	        'pulseaudio: For PulseAudio Support'
 	        'python: For Python Support')
     provides=("virtualbox=${pkgver}")
+    replaces=('virtualbox-modules')
+    conflicts=('virtualbox-modules<=3.1.6-2')
     install=virtualbox.install
 
     cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
@@ -91,21 +88,23 @@ package_virtualbox-ose() {
             "$pkgdir/usr/share/licenses/virtualbox-ose/LICENSE" || return 1
     install -D -m 0644 "$srcdir/60-virtualbox.rules" \
             "$pkgdir/lib/udev/rules.d/60-virtualbox.rules" || return 1
-}
 
-package_virtualbox-modules(){
-    _kernver=2.6.33-ARCH
-    pkgdesc="Kernel modules for VirtualBox"
-    license=('GPL')
-    depends=('kernel26>=2.6.33' 'kernel26<2.6.34')
-    install=virtualbox-modules.install
+    #python sdk
+    mkdir -p ${pkgdir}/usr/lib/virtualbox/sdk/bindings/xpcom/python/
+    pushd sdk/installer
+    VBOX_INSTALL_PATH="/usr/lib/virtualBox" python vboxapisetup.py install --root "${pkgdir}" || return 1
+    popd
+    pushd sdk/bindings/xpcom/python
+    cp -r xpcom ${pkgdir}/usr/lib/virtualbox/sdk/bindings/xpcom/python/
+    chmod 644 ${pkgdir}/usr/lib/virtualbox/sdk/bindings/xpcom/python/xpcom/*.py
+    chmod 644 ${pkgdir}/usr/lib/virtualbox/sdk/bindings/xpcom/python/xpcom/server/*.py
+    chmod 644 ${pkgdir}/usr/lib/virtualbox/sdk/bindings/xpcom/python/xpcom/client/*.py
+    popd
 
-    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin/src"
-
-    install -D -m644 vboxdrv.ko "$pkgdir/lib/modules/${_kernver}/misc/vboxdrv.ko"
-    install -D -m644 vboxnetflt.ko "$pkgdir/lib/modules/${_kernver}/misc/vboxnetflt.ko"
-    install -D -m644 vboxnetadp.ko "$pkgdir/lib/modules/${_kernver}/misc/vboxnetadp.ko"
-    sed -i -e "s/KERNEL_VERSION='.*'/KERNEL_VERSION='${_kernver}'/" "$startdir/virtualbox-modules.install"
+    #sources for modules
+    cp -r src ${pkgdir}/usr/lib/virtualbox
+    #install compilation script
+    install -D -m 755 "${srcdir}/vboxdrv.sh" "${pkgdir}/etc/rc.d/vboxdrv" || return 1
 }
 
 package_virtualbox-ose-additions(){
@@ -162,4 +161,12 @@ package_virtualbox-ose-additions-modules(){
 md5sums=('6cb3c8161ad878c2a2732137c1621dc4'
          '641bd2d65f0183ef5897d8dd0322f7bc'
          'ed1341881437455d9735875ddf455fbe'
-         '2d65145285050d9e0e47fed01f4001bf')
+         '2d65145285050d9e0e47fed01f4001bf'
+         'e17eea803dcf9d8eed271fc923ba0033'
+         'd6f441a8e0e6aec995a240d2c664b754')
+sha256sums=('840148f879c8ef1e6d2a54586fdddf3df389e9de91ada4c6d10ebc0da37ea016'
+            '1e392ab1f812a51442df6e64bead6a8f534f3c419403764f54b8ef494054297b'
+            '033c597e0f5285d2ddb0490868e5b6f945f45c7b1b1152a02a9e6fea438b2c95'
+            '61120489c0b9b6fc6180368d5679060776114a42dfcefe23e45a06ba76346315'
+            '4846e632a3bc1886f0df44fcaf237d83b298f6b2e1d2a22a0302a851c7ef5569'
+            '088f9a97f865305cb27a3a9e44797b8630d289124f2daecc4b05ff902bb3bc58')
