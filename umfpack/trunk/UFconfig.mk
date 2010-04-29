@@ -220,7 +220,7 @@ RTLIB =
 
 # Using default compilers:
 # CC = gcc
-CFLAGS = -O3 -fexceptions
+CFLAGS = -O3 -fexceptions -DNCHOLMOD
 
 # alternatives:
 # CFLAGS = -g -fexceptions \
