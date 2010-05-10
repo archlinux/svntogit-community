@@ -10,16 +10,18 @@
 
 pkgname=('llvm' 'llvm-ocaml' 'clang' 'clang-analyzer')
 pkgver=2.7
-pkgrel=2
+pkgrel=3
 arch=('i686' 'x86_64')
 license=('custom:University of Illinois/NCSA Open Source License')
 makedepends=('gcc-libs' 'libffi' 'python' 'ocaml')
 source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tgz
         http://llvm.org/releases/$pkgver/clang-$pkgver.tgz
-        cpp-headers.patch)
+        cpp-headers.patch
+        clang-plugin-loader-registry.patch)
 md5sums=('ac322661f20e7d6c810b1869f886ad9b'
          'b83260aa8c13494adf8978b5f238bf1b'
-         '82aa348a8b568210618001d5c0593e9e')
+         '82aa348a8b568210618001d5c0593e9e'
+         '02c23b4aaca3445b8bf39fddb2f9906e')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
@@ -46,6 +48,10 @@ build() {
   # Update hardcoded path to C++ header files
   patch -d tools/clang -p1 -i "$srcdir/cpp-headers.patch" || return 1
 
+  # Get the correct list of symbols to export
+  # See http://lists.cs.uiuc.edu/pipermail/cfe-dev/2010-April/008559.html
+  patch -p1 -i "$srcdir/clang-plugin-loader-registry.patch" || return 1
+
   # Apply strip option to configure
   _optimize_flag="--enable-optimize"
   [ "$(check_option strip)" = "n" ] && _optimize_flag="--disable-optimize"
@@ -54,7 +60,7 @@ build() {
   export CPPFLAGS="$CPPFLAGS $(pkg-config --cflags libffi)"
 
   ./configure --prefix=/usr --libdir=/usr/lib/llvm --sysconfdir=/etc \
-              --enable-libffi \
+              --enable-shared --enable-libffi \
               --enable-bindings=ocaml --enable-targets=all \
               --disable-expensive-checks --disable-debug-runtime \
               --disable-assertions $_optimize_flag
@@ -92,12 +98,16 @@ package_llvm() {
   # Get rid of example Hello transformation
   rm "$pkgdir"/usr/lib/llvm/*LLVMHello.*
 
+  # Add ld.so.conf.d entry
+  install -d "$pkgdir/etc/ld.so.conf.d"
+  echo /usr/lib/llvm >"$pkgdir/etc/ld.so.conf.d/llvm.conf"
+
   install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 package_llvm-ocaml() {
   pkgdesc="OCaml bindings for LLVM"
-  depends=("llvm=$pkgver" 'ocaml')
+  depends=("llvm=$pkgver-$pkgrel" 'ocaml')
 
   cd "$srcdir/llvm-$pkgver"
 
@@ -116,7 +126,7 @@ package_clang() {
   url="http://clang.llvm.org/"
   # It looks like clang still needs GCC to assemble and link object files
   # See http://old.nabble.com/%22clang--v%22-shows-a-GCC-call-td28378453.html
-  depends=('gcc')
+  depends=("llvm=$pkgver-$pkgrel" 'gcc')
 
   # Fix installation path for clang docs
   sed -i 's:$(PROJ_prefix)/share/doc/llvm:$(PROJ_prefix)/share/doc/clang:' \
@@ -138,7 +148,7 @@ package_clang() {
 package_clang-analyzer() {
   pkgdesc="A source code analysis framework"
   url="http://clang-analyzer.llvm.org/"
-  depends=("clang=$pkgver" 'python')
+  depends=("clang=$pkgver-$pkgrel" 'python')
 
   cd "$srcdir/llvm-$pkgver/tools/clang"
 
