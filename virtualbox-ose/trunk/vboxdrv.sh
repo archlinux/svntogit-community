@@ -31,7 +31,7 @@ case "$1" in
 	    find /lib/modules/`uname -r` -name "vboxdrv\.*" 2>/dev/null|xargs rm -f 2>/dev/null
 	    stat_done
 	fi
-	stat_busy "Recompiling VirtualBox kernel module"
+	stat_busy "Recompiling VirtualBox kernel modules"
 	if ! $BUILDVBOXDRV \
 	    --save-module-symvers /tmp/vboxdrv-Module.symvers \
 	    --no-print-directory install > $LOG 2>&1; then
