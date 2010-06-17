@@ -1,0 +1,74 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Maintainer: Ondrej Jirman <megous@megous.com>
+
+pkgname=mingw32-gcc-base
+pkgver=4.5.0
+_w32apiver=3.14
+_runtimever=3.18
+pkgrel=2
+arch=(i686 x86_64)
+pkgdesc="A C cross-compiler for building Windows executables on Linux"
+depends=(mingw32-binutils)
+makedepends=(p7zip mingw32-runtime mingw32-w32api)
+conflicts=(mingw32-gcc)
+options=(!strip force)
+license=(GPL LGPL)
+url="http://mingw.sf.net"
+source=(gcc-$pkgver-1-mingw32-src.tar.xz::http://downloads.sourceforge.net/project/mingw/GCC%20Version%204/gcc-$pkgver-1/gcc-$pkgver-1-mingw32-src.tar.lzma
+	http://switch.dl.sf.net/sourceforge/mingw/w32api-${_w32apiver}-mingw32-src.tar.gz
+	http://switch.dl.sf.net/sourceforge/mingw/mingwrt-${_runtimever}-mingw32-src.tar.gz)
+md5sums=('f279430018dc379b8184c0a18b280298'
+         'c31baedaf2a8d38874e056a112a4fbc8'
+         '34b54cb3379f871f0dcd5c20b69b0350')
+
+build()
+{
+  if [ $NOEXTRACT -ne 1 ]; then
+  # prepare headers
+  mkdir -p $srcdir/mingw/include/
+  cp -r $srcdir/w32api-${_w32apiver}-mingw32/include/* \
+    $srcdir/mingwrt-${_runtimever}-mingw32/include/* \
+    $srcdir/mingw/include/
+
+  unset CFLAGS CXXFLAGS
+
+  tar xJf gcc-$pkgver-1-mingw32-src.tar.xz
+  tar xjf gcc-$pkgver.tar.bz2
+
+  mkdir -p $srcdir/build
+  cd $srcdir/build
+
+  chmod ugo+x $srcdir/gcc-$pkgver/configure
+  chmod ugo+x $srcdir/gcc-$pkgver/move-if-change
+
+  $srcdir/gcc-$pkgver/configure \
+    --target=i486-mingw32 \
+    --host=$CHOST \
+    --build=$CHOST \
+    --prefix=/usr \
+    --enable-languages=c \
+    --enable-sjlj-exceptions \
+    --enable-hash-synchronization \
+    --disable-nls \
+    --disable-shared \
+    --disable-libssp \
+    --disable-libgomp \
+    --with-build-sysroot=$srcdir \
+    --with-headers=$srcdir/include \
+    || return 1
+  else
+    cd $srcdir/build
+  fi
+
+  make || return 1
+  make install DESTDIR=$pkgdir || return 1
+
+  cd $pkgdir
+  rm -rf usr/bin/i486-mingw32-{gcov,gccbug,gcc-*} \
+    usr/{include,lib/libiberty.a} usr/i486-mingw32 \
+    usr/share/{info,man} usr/i486-mingw32
+  strip usr/bin/*
+  strip usr/libexec/gcc/i486-mingw32/$pkgver/{cc1*,collect2}
+  i486-mingw32-strip -g usr/lib/gcc/i486-mingw32/$pkgver/*.a
+}
