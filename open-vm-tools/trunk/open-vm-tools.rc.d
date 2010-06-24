@@ -31,28 +31,18 @@ case "$1" in
 	    exit 1
 	fi
     fi
-    
-    VMHGFS=`grep -q -w vmhgfs /proc/modules`
-    [ -z "$VMHGFS" ] && modprobe vmhgfs
-    if [ $? -gt 0 ]; then
-        stat_fail
-        exit 1
-    fi
-    
-    VMMEMCTL=`grep -q -w vmmemctl /proc/modules`
-    [ -z "$VMMEMCTL" ] && modprobe vmmemctl
-    if [ $? -gt 0 ]; then
-        stat_fail
-        exit 1
-    fi
 
-    VMSYNC=`grep -q -w vmsync /proc/modules`
-    [ -z "$VMSYNC" ] && modprobe vmsync
-    if [ $? -gt 0 ]; then
-        stat_fail
-        exit 1
-    fi
-    
+
+    for m in vmhgfs vmsync; do
+	VMMOD=`grep -q -w $m /proc/modules`
+	[ -z "$VMMOD" ] && modprobe $m
+	if [ $? -gt 0 ]; then
+	    stat_fail
+	    exit 1
+	fi
+    done
+
+
     [ -z "$PID" ] && /usr/bin/vmtoolsd --background $PIDFILE
     if [ $? -gt 0 ]; then
       stat_fail
@@ -69,26 +59,14 @@ case "$1" in
       exit 1
     fi
 
-    VMSYNC=`grep -q -w vmsync /proc/modules`
-    [ -z "$VMSYNC" ] && rmmod vmsync
-    if [ $? -gt 0 ]; then
-      stat_fail
-      exit 2
-    fi
-    
-    VMMEMCTL=`grep -q -w vmmemctl /proc/modules`
-    [ -z "$VMMEMCTL" ] && rmmod vmmemctl
-    if [ $? -gt 0 ]; then
-      stat_fail
-      exit 3
-    fi
-
-    VMHGFS=`grep -q -w vmhgfs /proc/modules`
-    [ -z "$VMHGFS" ] && rmmod vmhgfs
-    if [ $? -gt 0 ]; then
-      stat_fail
-      exit 4
-    fi
+    for m in vmhgfs vmsync; do
+	VMMOD=`grep -q -w $m /proc/modules`
+	[ ! -z "$VMMOD" ] && rmmod $m
+	if [ $? -gt 0 ]; then
+	  stat_fail
+	  exit 4
+	fi
+    done
 
     if [ "$VM_DRAG_AND_DROP" == "yes" ]; then
 	MOUNTPOINT=`grep -q -w "none /proc/fs/vmblock/mountPoint vmblock" /proc/modules`
