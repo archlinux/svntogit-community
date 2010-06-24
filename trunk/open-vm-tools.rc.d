@@ -12,7 +12,7 @@ case "$1" in
     stat_busy "Starting Open Virtual Machine Tools"
 
     if [ "$VM_DRAG_AND_DROP" == "yes" ]; then
-	VMBLOCK=`grep -q -w vmblock /proc/modules`
+	VMBLOCK=`grep -w vmblock /proc/modules`
 	[ -z "$VMBLOCK" ] && modprobe vmblock
 	if [ $? -gt 0 ]; then
     	    stat_fail
@@ -34,7 +34,7 @@ case "$1" in
 
 
     for m in vmhgfs vmsync; do
-	VMMOD=`grep -q -w $m /proc/modules`
+	VMMOD=`grep -w $m /proc/modules`
 	[ -z "$VMMOD" ] && modprobe $m
 	if [ $? -gt 0 ]; then
 	    stat_fail
@@ -54,13 +54,13 @@ case "$1" in
   stop)
     stat_busy "Stopping Open Virtual Machine Tools"
     [ ! -z "$PID" ]  && kill $PID &>/dev/null
-    if [ $? -gt 0 ]; then
-      stat_fail
-      exit 1
-    fi
+#    if [ $? -gt 0 ]; then
+#      stat_fail
+#      exit 1
+#    fi
 
-    for m in vmhgfs vmsync; do
-	VMMOD=`grep -q -w $m /proc/modules`
+    for m in vmhgfs vmsync vmci; do
+	VMMOD=`grep -w $m /proc/modules`
 	[ ! -z "$VMMOD" ] && rmmod $m
 	if [ $? -gt 0 ]; then
 	  stat_fail
@@ -69,7 +69,7 @@ case "$1" in
     done
 
     if [ "$VM_DRAG_AND_DROP" == "yes" ]; then
-	MOUNTPOINT=`grep -q -w "none /proc/fs/vmblock/mountPoint vmblock" /proc/modules`
+	MOUNTPOINT=`grep -w "none /proc/fs/vmblock/mountPoint vmblock" /proc/modules`
 	[ -z "$MOUNTPOINT" ] && umount /proc/fs/vmblock/mountPoint
         if [ $? -gt 0 ]; then
 	  stat_fail
@@ -79,8 +79,8 @@ case "$1" in
 	DND_TMPDIR="/tmp/VMwareDnD"
 	rm -r $DND_TMPDIR
 	
-	VMBLOCK=`grep -q -w vmblock /proc/modules`
-	[ -z "$VMBLOCK" ] && rmmod vmblock
+	VMBLOCK=`grep -w vmblock /proc/modules`
+	[ ! -z "$VMBLOCK" ] && rmmod vmblock
         if [ $? -gt 0 ]; then
 	  stat_fail
     	  exit 6
