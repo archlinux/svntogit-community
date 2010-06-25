@@ -21,7 +21,7 @@ case "$1" in
   start)
     stat_busy "Starting OSS userspace bridge"
     if [ -z "$PID" ]; then 
-        if [[ -r $preclaim_oss && "$(cat $preclaim_oss)" -eq 1 ]]; then
+      if [[ -r $preclaim_oss && "$(cat $preclaim_oss)" -eq 1 ]]; then
         echo "Must boot with soundcore.preclaim_oss=0"
         stat_die
       fi
