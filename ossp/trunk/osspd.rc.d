@@ -14,16 +14,23 @@ if [[ -z "$DSP_SLAVE" ]]; then
   fi
 fi
 
+preclaim_oss=/sys/module/soundcore/parameters/preclaim_oss
+
 PID=`pidof -o %PPID /usr/sbin/osspd`
 case "$1" in
   start)
     stat_busy "Starting OSS userspace bridge"
     if [ -z "$PID" ]; then 
+        if [[ -r $preclaim_oss && "$(cat $preclaim_oss)" -eq 1 ]]; then
+        echo "Must boot with soundcore.preclaim_oss=0"
+        stat_die
+      fi
       modprobe cuse &>/dev/null
+      modprobe -r snd-pcm-oss snd-mixer-oss &>/dev/null
       sleep 0.1
       /usr/sbin/osspd --dsp-slave="$DSP_SLAVE"
     fi
-    if [ ! -z "$PID" -o $? -gt 0 ]; then
+    if [ -n "$PID" -o $? -gt 0 ]; then
       stat_fail
     else
       add_daemon osspd
@@ -32,7 +39,7 @@ case "$1" in
     ;;
   stop)
     stat_busy "Stopping OSS userspace bridge"
-    [ ! -z "$PID" ]  && kill $PID &> /dev/null
+    [ -n "$PID" ] && kill $PID &>/dev/null
     if [ $? -gt 0 ]; then
       stat_fail
     else
