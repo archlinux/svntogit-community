@@ -2,6 +2,7 @@
 # Contributor: Andres Perera <andres87p gmail>
 # Contributor: Matthew Bauer <mjbauer95@gmail.com>
 # Contributor: Christian Himpel <chressie at gmail dot com>
+
 pkgname=go
 pkgver=2010_03_22
 _pkgver=2010-03-22
@@ -14,7 +15,8 @@ depends=(perl)
 makedepends=(mercurial)
 options=(!strip !makeflags)
 install=$pkgname.install
-source=($pkgname.install $pkgname.sh)
+source=($pkgname.sh)
+md5sums=('67c472bfcfdb760d1d1f0a87cfe3661f')
 
 build() {
   hgroot=https://go.googlecode.com/hg/
@@ -73,5 +75,3 @@ build() {
   
   echo export GOARCH=$GOARCH >> $pkgdir/etc/profile.d/go.sh
 }
-md5sums=('6055b666a95133e75abaa3e19d47eba8'
-         '67c472bfcfdb760d1d1f0a87cfe3661f')
