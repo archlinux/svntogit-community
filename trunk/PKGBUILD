@@ -1,3 +1,4 @@
+# $Id: PKGBUILD 20664 2010-07-10 01:52:05Z angvp $
 # Maintainer: Angel 'angvp' Velasquez <angvp[at]archlinux.com.ve>  
 # Contributor: Andrew Antle <andrew dot antle at gmail dot com>
 # Contributor: Thomas Dziedzic < gostrc at gmail >
