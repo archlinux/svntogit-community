@@ -1,0 +1,74 @@
+--- a/tabbed
++++ src/perl/tabbed
+@@ -20,10 +20,12 @@ sub refresh {
+    for my $tab (@{ $self->{tabs} }) {
+       $idx++;
+ 
++      my $name = $tab->{name} ? $tab->{name} : $idx;
++
+       my $act = $tab->{activity} && $tab != $self->{cur}
+                 ? "*" : " ";
+ 
+-      my $txt = "$act$idx$act";
++      my $txt = "$act$name$act";
+       my $len = length $txt;
+ 
+       substr $text, $ofs, $len + 1, "$txt|";
+@@ -306,6 +308,26 @@ sub tab_destroy {
+ sub tab_key_press {
+    my ($self, $tab, $event, $keysym, $str) = @_;
+ 
++   if ($tab->{in_name}) {
++       if ($keysym == 0xff0d || $keysym == 0xff8d) { # enter
++           $tab->{name} = $tab->{new_name};
++           $tab->{in_name} = 0;
++       } elsif ($keysym == 0xff1b) { # escape
++           $tab->{name} = $tab->{old_name};
++           $tab->{in_name} = 0;
++       } elsif ($keysym == 0xff08) { # backspace
++           substr $tab->{new_name}, -1, 1, "";
++           $tab->{name} = "$tab->{new_name}█";
++       } elsif ($str !~ /[\x00-\x1f\x80-\xaf]/) {
++           $tab->{new_name} .= $str;
++           $tab->{name} = "$tab->{new_name}█";
++       }
++
++       $self->refresh;
++
++       return 1;
++   }
++
+    if ($event->{state} & urxvt::ShiftMask) {
+       if ($keysym == 0xff51 || $keysym == 0xff53) {
+          my ($idx) = grep $self->{tabs}[$_] == $tab, 0 .. $#{ $self->{tabs} };
+@@ -320,6 +342,14 @@ sub tab_key_press {
+          $self->new_tab;
+ 
+          return 1;
++      } elsif ($keysym == 0xff52) {
++         $tab->{in_name} = 1;
++         $tab->{old_name} = $tab->{name} ? $tab->{name} : "";
++         $tab->{new_name} = "";
++         $tab->{name} = "█";
++         $self->refresh;
++
++         return 1;
+       }
+    }
+    elsif ($event->{state} & urxvt::ControlMask) {
+--- a/urxvt.pm	2010-06-11 19:52:26.379832794 +0100
++++ src/urxvt.pm	2010-06-11 20:08:40.096397003 +0100
+@@ -231,7 +231,12 @@
+ 
+ Clicking a button will activate that tab. Pressing B<Shift-Left> and
+ B<Shift-Right> will switch to the tab left or right of the current one,
+-while B<Shift-Down> creates a new tab.
++while B<Shift-Down> creates a new tab. B<Control-Left> and B<Control-Right>
++transposes the current tab with the tab on its left or right.
++
++Press B<Shift-Up> to name a tab. Press B<Enter> to confirm or
++B<Escape> to cancel. An empty name causes the tab to revert to the default
++numbered naming scheme.
+ 
+ The tabbar itself can be configured similarly to a normal terminal, but
+ with a resource class of C<URxvt.tabbed>. In addition, it supports the
