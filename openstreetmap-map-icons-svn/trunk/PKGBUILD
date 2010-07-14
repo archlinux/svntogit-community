@@ -1,0 +1,79 @@
+# Contributor: orbisvicis <orbisvicis at gmail dot com>
+pkgname=openstreetmap-map-icons-svn
+pkgver=21934
+pkgrel=1
+pkgdesc="A set of public domain licensed map icons for general OSM use"
+arch=("any")
+url="http://wiki.openstreetmap.org/wiki/Map_Icons"
+license=('CCPL:by-sa' 'LGPL')
+groups=()
+depends=()
+optdepends=()
+makedepends=('subversion' 'perl' 'perl-file-slurp' 'perl-image-info' 'perl-xml-simple' 'perl-dbi' 'perl-xml-twig' 'imagemagick')
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+source=()
+noextract=()
+md5sums=() #generate with 'makepkg -g'
+
+_svntrunk="http://svn.openstreetmap.org/applications/share/map-icons/"
+_svnmod="map-icons"
+
+build() {
+  cd "$srcdir"
+
+  if [ -d "${_svnmod}/.svn" ]; then
+    (cd "$_svnmod" && svn up -r "$pkgver")
+  else
+    svn co "$_svntrunk" --config-dir ./ -r "$pkgver" "$_svnmod"
+  fi
+
+  msg "SVN checkout done or server timeout"
+  msg "Starting make..."
+
+  rm -rf "${srcdir}/${_svnmod}-build"
+  cp -a "${srcdir}/${_svnmod}" "${srcdir}/${_svnmod}-build"
+  cd "${srcdir}/${_svnmod}-build"
+
+  {
+    #
+    # BUILD
+    #
+    install -dm755 "${pkgdir}/usr/share/icons/map-icons/" &&
+    install -Dm644 icons.xml "${pkgdir}/usr/share/icons/map-icons/" &&
+    install -Dm644 icons.dtd "${pkgdir}/usr/share/icons/map-icons/" &&
+    ( cd "${pkgdir}/usr/share/icons/map-icons/" && perl "${srcdir}/${_svnmod}-build/tools/create_geoinfo-db.pl" --lang=en --source=icons.xml ) &&
+    ( cd "${pkgdir}/usr/share/icons/map-icons/" && perl "${srcdir}/${_svnmod}-build/tools/create_geoinfo-db.pl" --lang=de --source=icons.xml ) &&
+    perl "${srcdir}/${_svnmod}-build/tools/compile_icons.pl" --dst-dir "${pkgdir}/usr/share/icons/map-icons/" &&
+    ( cd "${pkgdir}/usr/share/icons/map-icons/" && perl "${srcdir}/${_svnmod}-build/tools/create_overview.pl" -l -r -P "overview_lic" ) &&
+    ( cd "${pkgdir}/usr/share/icons/map-icons/" && perl "${srcdir}/${_svnmod}-build/create_icons_index.pl" -r ) &&
+
+    #
+    # Documentation
+    #
+    install -dm755 "${pkgdir}/usr/share/doc/${pkgname%-svn}/" &&
+    install -Dm644 README README.icons "${pkgdir}/usr/share/doc/${pkgname%-svn}/" &&
+    mv "${pkgdir}/usr/share/icons/map-icons/"*.html "${pkgdir}/usr/share/doc/${pkgname%-svn}/" &&
+
+    #
+    # Licenses
+    #
+    install -dm755 "${pkgdir}/usr/share/licenses/${pkgname%-svn}/" &&
+    # License file included with svg-twotone
+    install -dm755 "${pkgdir}/usr/share/licenses/${pkgname%-svn}/svg-twotone/" &&
+    install -Dm644 "svg-twotone/LICENSE.txt" "${pkgdir}/usr/share/licenses/${pkgname%-svn}/svg-twotone/";
+    # Licensing information:
+    # Many included svg/png images contain licensing metadata
+
+    # should not be necessary, already taken care of by compile_icons.pl
+    #find  "${pkgdir}" -type f -execdir chmod 644 '{}' \; &&
+    #find  "${pkgdir}" -type d -execdir chmod 755 '{}' \; &&
+    #find  "${pkgdir}" -type d -empty -delete 
+  } || return 1
+}
+
+# vim:set ts=2 sw=2 et:
