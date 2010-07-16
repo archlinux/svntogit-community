@@ -1,0 +1,63 @@
+# Maintainer:  Devin Cofer <ranguvar@archlinux.us>
+# Contributor: Clement Siuchung Cheung <clement.cheung@umich.edu>
+# Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi>
+# Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
+
+pkgname=bin32-wine
+_pkgname32=wine
+pkgver=1.2
+pkgrel=1
+_pkgrel32=1
+pkgdesc="Windows API implementation and interpreter, enabling the use of Windows apps in other OSes"
+arch=('x86_64')
+url="http://www.winehq.org/"
+license=('LGPL')
+
+depends=('lib32-fontconfig' 'lib32-libxxf86dga' 'lib32-mesa' 'lib32-libxcursor'
+         'lib32-libxrandr' 'lib32-libxdamage' 'lib32-libldap' 'lib32-libxslt'
+         'lib32-lcms' 'lib32-mesa' 'lib32-libpng>=1.4.0')
+optdepends=('lib32-cups: Print support via CUPS'
+            'lib32-sane: Scanner support via SANE'
+	    'lib32-gphoto2: Digital camera support, may not be necessary'
+            'lib32-jack: JACK audio driver'
+            'lib32-esound: EsounD audio driver'
+            'lib32-nvidia-utils: Accelerated 3D with the NVIDIA non-free video driver'
+            'lib32-catalyst-utils: Accelerated 3D with the AMD non-free video driver')
+provides=("wine=$pkgver")
+
+source=("ftp://mirrors.kernel.org/archlinux/community/os/i686/$_pkgname32-$pkgver-$_pkgrel32-i686.pkg.tar.xz")
+#source=("http://rang.twilightlair.net/pkgs/$_pkgname32-$pkgver-$_pkgrel32-i686.pkg.tar.xz")
+md5sums=('06b9dce6846634492388483389f85f3c')
+install="$pkgname.install"
+
+_binnames=(widl wine wine-kthread winebuild winecpp winedump wineg++ winegcc wineserver wmc wrc)
+
+# Don't strip the package, that was already decided on packaging of the original package
+options=('!strip')
+build() {
+	rm "$_pkgname32-$pkgver-$_pkgrel32-i686.pkg.tar.xz" || return 1  # Delete symbolic link to the now-extracted source that we don't want to copy
+	cp -rfpP * "$pkgdir" || return 1        # Copy 32-bit files
+	install -d "$pkgdir"/opt/lib32/usr/lib/
+	mv "$pkgdir"/usr/lib/libwine.so* "$pkgdir"/opt/lib32/usr/lib/ || return 1
+	cd "$pkgdir"/usr/bin/
+
+	# DIRTY PKGBUILD TOUCHING YOUR /bin (force loading old LD_LIBRARY_PATH without moving wine binaries, as they seem to break)
+	install -d "$pkgdir"/opt/wine/bin/ "$srcdir"/tmpscripts/
+	for binfile in ${_binnames[*]}; do
+		echo -e \
+			'#!/bin/sh\n#wrapper for replacename\nPATH="/opt/wine/bin/:$PATH"\nLD_LIBRARY_PATH="/opt/lib32/usr/lib/:/opt/lib32/lib/:$LD_LIBRARY_PATH" linux32 /usr/bin/replacename "$@"' \
+			> "$srcdir/tmpscripts/$binfile" || return 1
+		sed -re "s/replacename/$binfile/" -i "$srcdir/tmpscripts/$binfile" || return 1
+		install -m755 "$srcdir/tmpscripts/$binfile" "$pkgdir/opt/wine/bin/$binfile" || return 1
+	done
+	rm -rf "$srcdir"/tmpscripts
+
+	# PPD fix
+	mkdir -p "$pkgdir"/opt/lib32/usr/share/
+	ln -s /usr/share/wine "$pkgdir"/opt/lib32/usr/share/wine || return 1
+
+	echo "export WINELOADER=/opt/wine/bin/wine" > "$srcdir"/wine.sh || return 1
+	echo '#export LD_LIBRARY_PATH="/opt/lib32/lib/:/opt/lib32/usr/lib/:$LD_LIBRARY_PATH"' >> "$srcdir"/wine.sh || return 1
+	echo 'export PATH="/opt/wine/bin:$PATH"' >> "$srcdir"/wine.sh || return 1
+	install -Dm755 "$srcdir"/wine.sh "$pkgdir"/etc/profile.d/wine.sh || return 1
+}
