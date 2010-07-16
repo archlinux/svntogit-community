@@ -15,7 +15,7 @@ build() {
   cd ${pkgname}-${pkgver}
 
   # change install path to /usr instead of /usr/local
-  sed -i "s#local/##" Makefile
+  sed -i 's#local/##' Makefile
 
   make
 }
@@ -25,11 +25,14 @@ package() {
 
   # Install Data
   install -d ${pkgdir}/usr/lib/${pkgname}
-  install -m644 raw.data/* ${pkgdir}/usr/lib/${pkgname}/
+  install -m644 raw.data/* \
+    ${pkgdir}/usr/lib/${pkgname}/
 
   # Install Binary
-  install -D ${pkgname} ${pkgdir}/usr/bin/${pkgname}
+  install -D ${pkgname} \
+    ${pkgdir}/usr/bin/${pkgname}
 
   # Install Man Page
-  install -D -m644 ${pkgname}.1 ${pkgdir}/usr/share/man/man1/${pkgname}.1
+  install -D -m644 ${pkgname}.1 \
+    ${pkgdir}/usr/share/man/man1/${pkgname}.1
 }
