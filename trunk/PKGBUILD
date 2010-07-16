@@ -3,8 +3,7 @@
 # Contributor: Eduardo Romero <eduardo@archlinux.org>
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 pkgname=wine
-pkgver=1.2rc7
-realver=1.2-rc7
+pkgver=1.2
 pkgrel=1
 pkgdesc="A compatibility layer for running Windows programs"
 url="http://www.winehq.com"
@@ -17,11 +16,11 @@ makedepends=('cups' 'sane' 'fontforge' 'flex' 'bison' 'libgphoto2'
              'libxslt' 'libldap' 'lcms' 'mpg123' 'prelink')
 optdepends=('cups' 'sane' 'libgphoto2' 'alsa-lib' 'giflib' 'libpng' 'jack' 
             'libldap' 'lcms' 'mpg123')
-source=(http://ibiblio.org/pub/linux/system/emulators/${pkgname}/${pkgname}-${realver}.tar.bz2)
-md5sums=('05cc63418e603f3d689bcaa7c7768d01')
+source=(http://ibiblio.org/pub/linux/system/emulators/${pkgname}/${pkgname}-${pkgver}.tar.bz2)
+md5sums=('eb4e5423b277fc1e77807b04f366f7b7')
 
 build() {
-  cd "${srcdir}/${pkgname}-${realver}"
+  cd "${srcdir}/${pkgname}-${pkgver}"
 
   ./configure --prefix=/usr \
               --sysconfdir=/etc \
