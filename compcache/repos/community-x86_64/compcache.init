@@ -1,0 +1,106 @@
+#!/bin/bash
+
+. /etc/rc.conf
+. /etc/rc.d/functions
+
+swap_arg=""
+size_arg=""
+
+if [ -f /etc/conf.d/compcache ] ; then
+  . /etc/conf.d/compcache
+
+fi
+
+# Check status
+enabled=0
+grep -q /dev/ramzswap /proc/swaps && enabled=1
+
+# do we need a module? 
+load_module=1
+zgrep -q "^CONFIG_RAMZSWAP=y" /proc/config.gz && load_module=0
+
+start_ramz() {
+  if (( load_module )); then 
+    modprobe ramzswap num_devices=${NUM_DEVICES:=1} || return 1
+  else
+    : ${NUM_DEVICES:=1}
+  fi
+
+  sleep 0.1
+
+  for ((i=0; i<NUM_DEVICES; i++)); do
+    dev=/dev/ramzswap$i
+
+    if [[ ! -b $dev ]]; then
+      echo "Device $dev doesn't exist!"
+      return 1
+    fi
+
+    # Prepare arguments
+    if [[ -n ${SWAP[$i]} ]]; then
+      swap_arg="--backing_swap=${SWAP[$i]}"
+      [[ -n $SIZE ]] && size_arg="--memlimit_kb=$SIZE"
+    else
+      [[ -n $SIZE ]] && size_arg="--disksize_kb=$SIZE"
+    fi
+
+    rzscontrol $dev $swap_arg $size_arg --init || return 1
+    swapon -p 10 $dev
+  done
+}
+
+stop_ramz() {
+  for dev in /dev/ramzswap*; do
+    swapoff $dev
+    rzscontrol $dev --reset
+  done
+
+  sleep 0.1
+
+  (( load_module )) && modprobe -r ramzswap
+}
+
+# Cleanup in case of failed start
+cleanup_ramz() {
+  for dev in /dev/ramzswap*; do
+    rzscontrol $dev --reset
+  done
+
+  sleep 0.1
+
+  (( load_module )) && modprobe -r ramzswap
+}
+
+case "$1" in
+  start)
+    stat_busy "Starting Compcache"
+
+    (( !enabled )) && start_ramz
+    if [ $? -gt 0 ];then
+      cleanup_ramz
+      stat_fail
+    else
+      add_daemon compcache
+      stat_done
+    fi
+    ;;
+  stop)
+    stat_busy "Stopping Compcache" 
+    (( enabled )) && stop_ramz
+    if [ $? -gt 0 ];then
+      stat_fail
+    else
+      rm_daemon compcache
+      stat_done
+    fi
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart}"
+    ;;
+esac
+exit 0
