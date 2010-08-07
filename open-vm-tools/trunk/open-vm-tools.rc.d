@@ -35,11 +35,12 @@ case "$1" in
 
     for m in vmhgfs vmsync; do
 	VMMOD=`grep -w $m /proc/modules`
-	[ -z "$VMMOD" ] && modprobe $m
-	if [ $? -gt 0 ]; then
-	    stat_fail
-	    exit 1
-	fi
+	[ -z "$VMMOD" ] && \
+		{ modprobe $m
+		if [ $? -gt 0 ]; then
+		    stat_fail
+		    exit 1
+		fi; }
     done
 
 
