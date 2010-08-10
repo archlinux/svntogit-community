@@ -1,4 +1,3 @@
 #!/bin/sh
 
-cd /usr/share/astromenace
-./AstroMenace $*
+astromenace_bin --dir=/usr/share/astromenace "$@"
