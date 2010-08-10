@@ -4,9 +4,9 @@
 
 pkgname=beautiful-soup
 pkgver=3.1.0.1
-pkgrel=2
+pkgrel=3
 pkgdesc="A Python HTML/XML parser designed for quick turnaround projects like screen-scraping"
-arch=('i686' 'x86_64')
+arch=('any')
 url="http://www.crummy.com/software/BeautifulSoup/index.html"
 license=('PSF')
 depends=('python')
