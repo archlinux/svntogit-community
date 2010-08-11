@@ -1,0 +1,78 @@
+# Maintainer: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: Mikhail Vorozhtsov <mikhail.vorozhtsov@gmail.com>
+
+pkgname=cross32-gcc
+pkgver=4.5.1
+pkgrel=1
+#_snapshot=4.5-20100610
+pkgdesc="The GNU Compiler Collection (i686 version)"
+arch=('x86_64')
+_target=i686-unknown-linux-gnu
+url="http://gcc.gnu.org"
+license=('GPL' 'LGPL' 'custom')
+depends=('cross32-binutils' 'lib32-glibc>=2.12-5'
+         "lib32-gcc-libs=$pkgver" 'libmpc>=0.8.2-2' 'cloog-ppl>=0.15.9-2'
+         'zlib' 'elfutils')
+options=('!libtool')
+source=(http://www.mirrorservice.org/sites/sourceware.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
+        #http://www.mirrorservice.org/sites/sourceware.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.bz2
+        gcc-hash-style-both.patch)
+
+_dirver=$pkgver
+test -n "$_snapshot" && _dirver=$_snapshot
+
+build() {
+  cd "$srcdir/gcc-$_dirver"
+
+  # "Add" ppl-0.11 compatibility
+  sed -i "/ppl_minor_version=/s#10#11#" configure
+  # Do not install libiberty
+  sed -i 's/install_to_$(INSTALL_DEST) //' libiberty/Makefile.in
+  # Do not run fixincludes
+  sed -i 's@\./fixinc\.sh@-c true@' gcc/Makefile.in
+
+  patch -Np0 -i "$srcdir/gcc-hash-style-both.patch"
+
+  echo $pkgver > gcc/BASE-VER
+
+  rm -rf build
+  mkdir build
+  cd build      
+
+  ../configure \
+    --prefix=/usr \
+    --mandir=/usr/share/man \
+    --infodir=/usr/share/info \
+    --libexecdir=/usr/lib \
+    --target=$_target \
+    --with-sysroot=/opt/lib32 \
+    --enable-languages=c,c++,fortran,objc,obj-c++ \
+    --enable-shared \
+    --enable-threads=posix \
+    --enable-__cxa_atexit \
+    --enable-clocale=gnu \
+    --enable-gnu-unique-object \
+    --enable-lto \
+    --enable-plugin \
+    --disable-multilib \
+    --disable-libstdcxx-pch \
+    --with-cloog \
+    --with-ppl \
+    --with-system-zlib
+  make
+}
+
+package() {
+  cd "$srcdir/gcc-$_dirver/build"
+
+  make DESTDIR="$pkgdir" install
+  rm -rf "$pkgdir"/usr/$_target/lib/*
+  rm -rf "$pkgdir"/usr/{include,share}
+
+  # Install Runtime Library Exception
+  install -Dm644 ../COPYING.RUNTIME \
+    "$pkgdir/usr/share/licenses/$pkgname/RUNTIME.LIBRARY.EXCEPTION"
+}
+
+md5sums=('48231a8e33ed6e058a341c53b819de1a'
+         '6fd395bacbd7b6e47c7b74854b478363')
