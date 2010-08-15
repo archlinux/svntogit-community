@@ -4,9 +4,9 @@
 # Contributor: Christian Himpel <chressie at gmail dot com>
 
 pkgname=go
-pkgver=2010_03_22
-_pkgver=2010-03-22
-pkgrel=1.1
+pkgver=2010_08_11
+_pkgver=2010-08-11
+pkgrel=1
 pkgdesc='Google Go compiler and tools (release version)'
 arch=(i686 x86_64)
 url=http://golang.org/
@@ -59,7 +59,7 @@ build() {
   install -Dm644 misc/bash/go $pkgdir/etc/bash_completion.d/go
   install -Dm644 misc/emacs/go-mode-load.el $pkgdir/usr/share/emacs/site-lisp/go-mode-load.el
   install -Dm644 misc/emacs/go-mode.el $pkgdir/usr/share/emacs/site-lisp/go-mode.el
-  install -Dm644 misc/vim/go.vim $pkgdir/usr/share/vim/vimfiles/syntax/go.vim
+  install -Dm644 misc/vim/syntax/go.vim $pkgdir/usr/share/vim/vimfiles/syntax/go.vim
 
   mkdir -p $pkgdir/{etc/profile.d,usr/{share/go,lib/go,lib/go/src}}
 
