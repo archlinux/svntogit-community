@@ -29,10 +29,10 @@ build() {
   msg "Connecting to Mercurial server..."
   if [ -d $hgrepo ]; then
     cd $hgrepo
-    hg pull -u || return 1
+    hg pull -u
     msg2 "The local files have been updated"
   else
-    hg clone $hgroot $hgrepo || return 1
+    hg clone $hgroot $hgrepo
     msg2 "Mercurial checkout done"
   fi
 
@@ -41,26 +41,25 @@ build() {
   [ "$ARCH" == "arm" ]    && GOARCH=arm
   [ "$ARCH" == "x86_64" ] && GOARCH=amd64
   export GOARCH
- 
+
   export GOROOT=$srcdir/$hgrepo
   export GOOS=linux
   export GOBIN=$GOROOT/bin
   export PATH=$GOBIN:$PATH
 
-  mkdir $GOROOT/bin &> /dev/null
-  cd $GOROOT/src || return 1
-  hg update release.$_pkgver || return 1
+  mkdir -p $GOROOT/bin
+  cd $GOROOT/src
+  hg update release.$_pkgver
 
   cd $GOROOT/src
-  ./all.bash || return 1
- 
-  cd $GOROOT || return 1
+  ./all.bash
+
+  cd $GOROOT
   install -Dm644 LICENSE $pkgdir/usr/share/licenses/go/LICENSE
   install -Dm644 misc/bash/go $pkgdir/etc/bash_completion.d/go
   install -Dm644 misc/emacs/go-mode-load.el $pkgdir/usr/share/emacs/site-lisp/go-mode-load.el
   install -Dm644 misc/emacs/go-mode.el $pkgdir/usr/share/emacs/site-lisp/go-mode.el
   install -Dm644 misc/vim/syntax/go.vim $pkgdir/usr/share/vim/vimfiles/syntax/go.vim
-  install -Dm644 src/Make.common $pkgdir/usr/lib/go/src/Make.common
 
   mkdir -p $pkgdir/{etc/profile.d,usr/{share/go,lib/go,lib/go/src}}
 
@@ -68,10 +67,12 @@ build() {
   cp -r doc misc -t $pkgdir/usr/share/go
   cp -r pkg $pkgdir/usr/lib/go
 
+  install -Dm644 src/Make.{$GOARCH,common,cmd,pkg,conf} $pkgdir/usr/lib/go/src
+
   # Headers for C modules
-  install -Dm644 src/Make.{$GOARCH,cmd,pkg,conf} $pkgdir/usr/lib/go/src
   install -Dm644 src/pkg/runtime/runtime.h $pkgdir/usr/lib/go/src/pkg/runtime/runtime.h
   install -Dm644 src/pkg/runtime/cgocall.h $pkgdir/usr/lib/go/src/pkg/runtime/cgocall.h
+
   install  $srcdir/go.sh $pkgdir/etc/profile.d/ 
   
   echo export GOARCH=$GOARCH >> $pkgdir/etc/profile.d/go.sh
