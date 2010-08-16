@@ -6,7 +6,7 @@
 pkgname=go
 pkgver=2010_08_11
 _pkgver=2010-08-11
-pkgrel=1
+pkgrel=2
 pkgdesc='Google Go compiler and tools (release version)'
 arch=(i686 x86_64)
 url=http://golang.org/
@@ -60,6 +60,7 @@ build() {
   install -Dm644 misc/emacs/go-mode-load.el $pkgdir/usr/share/emacs/site-lisp/go-mode-load.el
   install -Dm644 misc/emacs/go-mode.el $pkgdir/usr/share/emacs/site-lisp/go-mode.el
   install -Dm644 misc/vim/syntax/go.vim $pkgdir/usr/share/vim/vimfiles/syntax/go.vim
+  install -Dm644 src/Make.common $pkgdir/usr/lib/go/src/Make.common
 
   mkdir -p $pkgdir/{etc/profile.d,usr/{share/go,lib/go,lib/go/src}}
 
