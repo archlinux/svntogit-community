@@ -1,46 +1,95 @@
 # $Id$
-# Maintainer: Biru Ionut <ionut@archlinux.ro>
-# Contributor: Pierre Schmitz <pierre@archlinux.de>
-# Contributor: Clement Siuchung Cheung <clement.cheung@umich.edu>
-# Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi>
-_pkgsourcename=glibc
-pkgname=lib32-$_pkgsourcename
-pkgver=2.12
-pkgrel=5
-_pkgrel32=4
+# Maintainer: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+# Contributor: Allan McRae <allan@archlinux.org>
+
+# toolchain build order: linux-api-headers->glibc->binutils->gcc->binutils->glibc
+# NOTE: valgrind requires rebuild with each new glibc version
+
+_pkgbasename=glibc
+pkgname=lib32-$_pkgbasename
+pkgver=2.12.1
+pkgrel=3
+_glibcdate=20100811
+pkgdesc="GNU C Library for multilib"
 arch=('x86_64')
-groups=('lib32')
-pkgdesc="GNU C Library (32 Bit)"
 url="http://www.gnu.org/software/libc"
 license=('GPL' 'LGPL')
-install=$pkgname.install
-provides=("lib32-glibc-devel=$pkgver-$pkgrel" "lib32-glibc-devel-il=$pkgver-$pkgrel")
-conflicts=(lib32-glibc-devel lib32-glibc-devel-il)
-replaces=(lib32-glibc-devel lib32-glibc-devel-il)
-source=(http://mir.archlinux.fr/core/os/i686/$_pkgsourcename-$pkgver-$_pkgrel32-i686.pkg.tar.xz)
+depends=('glibc>=$pkgver')
+makedepends=('gcc-multilib>=4.4')
+options=('!strip' '!emptydirs')
+install=lib32-glibc.install
+source=(ftp://ftp.archlinux.org/other/glibc/${_pkgbasename}-${pkgver}_${_glibcdate}.tar.xz
+        lib32-glibc.conf
+        glibc-2.10-dont-build-timezone.patch
+        glibc-2.10-bz4781.patch
+        glibc-__i686.patch)
+md5sums=('3f0d64de5a9fc5614d8acc0f1d5846ed'
+         '4460c97d1a83af4a4f2f11b8418b9ce7'
+         '4dadb9203b69a3210d53514bb46f41c3'
+         '0c5540efc51c0b93996c51b57a8540ae'
+         '40cd342e21f71f5e49e32622b25acc52')
 
 build() {
-	cd "$srcdir"
+  cd ${srcdir}/glibc
 
-	mkdir -p "$pkgdir/opt/lib32/lib"
-	mkdir -p "$pkgdir/opt/lib32/usr/lib/gconv"
+  # timezone data is in separate package (tzdata)
+  patch -Np1 -i ${srcdir}/glibc-2.10-dont-build-timezone.patch
 
-	cp -dp lib/*.so* "$pkgdir/opt/lib32/lib"
-	cp -dp usr/lib/*.so* usr/lib/*.o usr/lib/*.a "$pkgdir/opt/lib32/usr/lib"
-	cp -dp usr/lib/gconv/* "$pkgdir/opt/lib32/usr/lib/gconv"
+  # http://sources.redhat.com/bugzilla/show_bug.cgi?id=4781
+  patch -Np1 -i ${srcdir}/glibc-2.10-bz4781.patch
 
-        ln -s /usr/include "$pkgdir/opt/lib32/usr/include"
-        install -Dm644 {,"$pkgdir/"}usr/include/gnu/stubs-32.h
+  # http://sources.redhat.com/bugzilla/show_bug.cgi?id=411
+  # http://sourceware.org/ml/libc-alpha/2009-07/msg00072.html
+  patch -Np1 -i ${srcdir}/glibc-__i686.patch
 
-	cat /usr/bin/ldd | sed 's/\/lib\/ld-linux-x86-64.so.2/\/lib\/ld-linux-x86-32.so.2/' > "$srcdir/ldd32"
-	install -D -m755 "$srcdir/ldd32" "$pkgdir/usr/bin/ldd32"
+  mkdir glibc-build
+  cd glibc-build
 
-	mkdir -p "$pkgdir/lib"
-	ln -s /opt/lib32/lib/ld-linux.so.2 "$pkgdir/lib/ld-linux-x86-32.so.2"
+  # Hack to fix NPTL issues with Xen, only required on 32bit platforms
+  export CFLAGS="${CFLAGS} -mno-tls-direct-seg-refs"
 
-	install -d -m755 "$pkgdir/etc/ld.so.conf.d/"
-	echo '/opt/lib32/lib' > "$pkgdir/etc/ld.so.conf.d/lib32-glibc.conf"
-	echo '/opt/lib32/usr/lib' >> "$pkgdir/etc/ld.so.conf.d/lib32-glibc.conf"
+  echo "slibdir=/usr/lib32" >> configparms
+
+  export CC="gcc -m32"
+
+  ../configure --prefix=/usr \
+      --enable-add-ons=nptl,libidn --without-cvs \
+      --enable-kernel=2.6.18 --disable-profile \
+      --with-headers=/usr/include --libexecdir=/usr/lib32 \
+      --enable-bind-now --with-tls --with-__thread \
+      --libdir=/usr/lib32 --without-gd --disable-multi-arch \
+      i686-unknown-linux-gnu
+        
+  make
 }
 
-md5sums=('0cc5649017481616caa370a8a07d0fb1')
+package() {
+  cd ${srcdir}/glibc/glibc-build
+  make install_root=${pkgdir} install
+
+  rm -rf ${pkgdir}/{etc,sbin,usr/{bin,sbin,share}}
+  find ${pkgdir}/usr/include -type f -not -name stubs-32.h -delete
+
+  # manually strip files as stripping libpthread-*.so and libthread_db.so
+  # with the default $STRIP_SHARED breaks gdb and stripping ld-*.so breaks
+  # valgrind on x86_64
+
+  cd $pkgdir
+  strip $STRIP_BINARIES usr/lib32/getconf/*
+
+  strip $STRIP_STATIC usr/lib32/*.a \
+                      usr/lib32/{{ld,libpthread}-${pkgver},libthread_db-1.0}.so
+
+  strip $STRIP_SHARED usr/lib32/{libanl,libBrokenLocale,libc,libcidn,libcrypt}-${pkgver}.so \
+                      usr/lib32/libnss_{compat,dns,files,hesiod,nis,nisplus}-${pkgver}.so \
+                      usr/lib32/{libdl,libm,libnsl,libresolv,librt,libutil}-${pkgver}.so \
+                      usr/lib32/{libmemusage,libpcprofile,libSegFault}.so \
+                      usr/lib32/{pt_chown,gconv/*.so}
+
+  # Dynamic linker
+  install -d -m755 ${pkgdir}/lib
+  ln -s ../usr/lib32/ld-linux.so.2 ${pkgdir}/lib/
+
+  install -Dm644 "$srcdir/lib32-glibc.conf" "$pkgdir/etc/ld.so.conf.d/lib32-glibc.conf"
+}
