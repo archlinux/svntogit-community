@@ -1,8 +1,10 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
 
 pkgname=virt-manager
-pkgver=0.8.4
-pkgrel=3
+pkgver=0.8.5
+pkgrel=1
 pkgdesc="A desktop user interface for managing virtual machines."
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -13,7 +15,7 @@ makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 optdepends=('x11-ssh-askpass: for ssh authentication to remote servers')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz")
-md5sums=('133723a0495b79669b0903533d4a4671')
+md5sums=('038668be9e5edcb86ebae2495240b6ff')
 
 build() {
 	cd $srcdir/$pkgname-$pkgver || return 1
