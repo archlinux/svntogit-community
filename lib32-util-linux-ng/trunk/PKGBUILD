@@ -1,22 +1,50 @@
-# $Id: $
-# Maintainer:  Ionut Biru <ibiru@archlinux.org>
-
-pkgname=lib32-util-linux-ng
-pkgver=2.17.2
+# $Id: PKGBUILD 86506 2010-08-02 14:22:19Z tpowa $
+# Maintainer: judd <jvinet@zeroflux.org>
+_pkgbasename=util-linux-ng
+pkgname=lib32-$_pkgbasename
+pkgver=2.18
 pkgrel=2
-pkgdesc="Miscellaneous system utilities for Linux"
-arch=('x86_64')
+pkgdesc="Miscellaneous system utilities for Linux (32-bit)"
 url="http://userweb.kernel.org/~kzak/util-linux-ng/"
+arch=('x86_64')
+depends=('lib32-glibc' $_pkgbasename)
+makedepends=('gcc-multilib')
 license=('GPL2')
-depends=('lib32-glibc')
-source=(http://mir.archlinux.fr/core/os/i686/${pkgname/lib32-/}-${pkgver}-${pkgrel}-i686.pkg.tar.xz)
+options=('!libtool' '!emptydirs')
+source=(ftp://ftp.kernel.org/pub/linux/utils/${_pkgbasename}/v2.18/${_pkgbasename}-${pkgver}.tar.bz2
+        fix-findmnt.patch
+        util-linux-ng-nilfs2.patch)
+optdepends=('perl: for chkdupexe support')
+md5sums=('2f5f71e6af969d041d73ab778c141a77'
+         '7346673932b165faadde2fa2a9c1cd3a'
+         'aa1f210aa22363605363b7b14b8f7a78')
 
 build() {
-  install -d $pkgdir/opt/lib32/lib/
-  cp -dp $srcdir/lib/* $pkgdir/opt/lib32/lib/
-  install -d $pkgdir/opt/lib32/usr/lib
-  cp -dp $srcdir/usr/lib/*.so $pkgdir/opt/lib32/usr/lib
+  cd "${srcdir}/${_pkgbasename}-${pkgver}"
 
+  # hardware clock
+  sed -e 's%etc/adjtime%var/lib/hwclock/adjtime%' -i hwclock/hwclock.c
+  mkdir -p "${pkgdir}/var/lib/hwclock"
+  # fix findmnt
+  patch -p1 -i "${srcdir}/fix-findmnt.patch"
+  # add nilfs2 support, included in next upstream release
+  patch -Np1 -i "${srcdir}/util-linux-ng-nilfs2.patch"
+
+  export CC="gcc -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  autoreconf
+  automake
+  ./configure --without-ncurses --libdir=/usr/lib32
+
+  make -C shlibs
 }
-md5sums=('b104160bf2a6061649c29722568e1755')
-sha256sums=('535243782a22512a174889bf0095fd0c67aaf239a03f773ca3c5646f1e7df111')
+
+package() {
+  cd "${srcdir}/${_pkgbasename}-${pkgver}"
+
+  make -C shlibs DESTDIR="${pkgdir}" install
+
+  # remove files
+  rm -rf "${pkgdir}"/usr/{include,share}
+}
