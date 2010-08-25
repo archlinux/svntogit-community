@@ -6,7 +6,7 @@
 
 pkgname=wine
 pkgver=1.3.1
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -29,9 +29,7 @@ depends=(
 )
 
 makedepends=(autoconf ncurses bison perl fontforge flex prelink
-  'gcc>=4.5.0-2'  cross32-gcc
-                  'lib32-glibc>=2.12-5'
-  libgphoto2
+  'gcc>=4.5.0-2'  'gcc-multilib>=4.5.0-2'
   giflib          lib32-giflib
   libxpm          lib32-libxpm
   libpng          lib32-libpng
@@ -47,13 +45,13 @@ makedepends=(autoconf ncurses bison perl fontforge flex prelink
   openal          lib32-openal
   esound          lib32-esound
   jack            lib32-jack
-  cups            lib32-libcups
+  libcups         lib32-libcups
+  libgphoto2
   sane
-  samba
+  smbclient 
 )
   
 optdepends=(
-  libgphoto2
   giflib        lib32-giflib
   libpng        lib32-libpng
   libldap       lib32-libldap
@@ -63,22 +61,22 @@ optdepends=(
   openal        lib32-openal
   esound        lib32-esound
   jack          lib32-jack
-  cups          lib32-libcups
+  libcups       lib32-libcups
+  libgphoto2
   sane
-  samba
+  smbclient
 )
 
 if [[ $CARCH == i686 ]]; then
   # Strip lib32 etc. on i686
   depends=(${depends[@]/*32-*/})
   makedepends=(${makedepends[@]/*32-*/})
+  makedepends=(${makedepends[@]/*-multilib*/})
   optdepends=(${optdepends[@]/*32-*/})
 else
   provides=("bin32-wine=$pkgver" "wine-wow64=$pkgver")
   conflicts=('bin32-wine' 'wine-wow64')
   replaces=('bin32-wine')
-  _libdir32=/opt/lib32/usr/lib
-  _libdir64=/usr/lib
 fi
 
 
@@ -88,85 +86,54 @@ build() {
   # Allow ccache to work
   mv $pkgname-$_pkgbasever $pkgname
 
-  # (Re)create build dirs
+  # Get rid of old build dirs
   rm -rf $pkgname-{32,64}-build
-  mkdir $pkgname-{32,64}-build
+  mkdir $pkgname-32-build
 
-  if [[ $CARCH == i686 ]]; then
+  if [[ $CARCH == x86_64 ]]; then
+    msg2 "Building Wine-64..."
 
-msg2 "Building Wine..."
-
-    cd "$srcdir/$pkgname-32-build"
-    ../$pkgname/configure \
-      --prefix=/usr \
-      --sysconfdir=/etc \
-      --with-x
-
-    make
-
-  else
-
-msg2 "Building Wine-64..."
-
+    mkdir $pkgname-64-build
     cd "$srcdir/$pkgname-64-build"
     ../$pkgname/configure \
       --prefix=/usr \
-      --libdir="$_libdir64" \
       --sysconfdir=/etc \
       --with-x \
       --enable-win64
 
     make
 
-msg2 "Building Wine-32..."
+    # Wine32 build needs a patched ldd
+    # Do it here until it's patched in glibc
+    cp /usr/bin/ldd "$srcdir/ldd"
+    sed -i '/^RTLDLIST=/s:/lib/ld-linux-x86-64\.so:& /lib/ld-linux.so.2:' "$srcdir/ldd"
 
-    cd "$srcdir/$pkgname-32-build"
-    ../$pkgname/configure \
-       CFLAGS="${CFLAGS/x86-64/i686}" \
-       CXXFLAGS="${CXXFLAGS/x86-64/i686}" \
-       LDFLAGS="$LDFLAGS -L/opt/lib32/lib -L/opt/lib32/usr/lib" \
-       LDD=/usr/bin/ldd32 \
-       --host=i686-unknown-linux-gnu \
-       --prefix=/usr \
-       --libdir="$_libdir32" \
-       --sysconfdir=/etc \
-       --with-x \
-       --with-wine64="$srcdir/$pkgname-64-build"
-
-    make
+    _wine32opts=(LDD="$srcdir/ldd" --with-wine64="$srcdir/$pkgname-64-build")
   fi
+
+  msg2 "Building Wine-32..."
+  cd "$srcdir/$pkgname-32-build"
+  ../$pkgname/configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --with-x \
+    "${_wine32opts[@]}"
+
+  make
 }
 
 package() {
-  if [[ $CARCH == i686 ]]; then
+  msg2 "Packaging Wine-32..."
+  cd "$srcdir/$pkgname-32-build"
+  make prefix="$pkgdir/usr" install
 
-msg2 "Packaging Wine..."
-
-    cd "$srcdir/$pkgname-32-build"
-
-    make prefix="$pkgdir/usr" install
-
-  else
-
-msg2 "Packaging Wine-32..."
-
-    cd "$srcdir/$pkgname-32-build"
-
-    make prefix="$pkgdir/usr" \
-      libdir="$pkgdir$_libdir32" \
-      dlldir="$pkgdir$_libdir32/wine" install
-
-msg2 "Packaging Wine-64..."
-
+  if [[ $CARCH == x86_64 ]]; then
+    msg2 "Packaging Wine-64..."
     cd "$srcdir/$pkgname-64-build"
-
-    make prefix="$pkgdir/usr" \
-      libdir="$pkgdir$_libdir64" \
-      dlldir="$pkgdir$_libdir64/wine" install
+    make prefix="$pkgdir/usr" install
   fi
 
   mkdir -p "$pkgdir/etc/wine"
 }
 
 # vim:set ts=8 sts=2 sw=2 et:
-
