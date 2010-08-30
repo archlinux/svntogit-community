@@ -22,7 +22,7 @@ case "$1" in
 	DND_TMPDIR="/tmp/VMwareDnD"
 	if [ ! -d "$DND_TMPDIR" ]; then
 	    mkdir $DND_TMPDIR
-	    chown 1777 $DND_TMPDIR
+	    chmod 1777 $DND_TMPDIR
 	fi
 	
 	mount -t vmblock none /proc/fs/vmblock/mountPoint
