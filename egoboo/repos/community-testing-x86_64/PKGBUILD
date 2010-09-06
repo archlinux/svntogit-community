@@ -1,0 +1,65 @@
+# $Id$
+# Maintainer: Laurent Carlier <lordheavym@gmail.com>
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Arkham <arkham at archlinux dot us>
+# Contributor: rabyte <rabyte*gmail>
+# Contributor: Andres Blanc <andresblanc@gmail.com>
+
+pkgname=egoboo
+pkgver=2.8.0
+pkgrel=3
+arch=('i686' 'x86_64')
+license=('GPL')
+pkgdesc="An open-source action RPG/dungeon crawling adventure with OpenGL 3D graphics"
+url="http://egoboo.sourceforge.net/"
+depends=('sdl_image' 'sdl_mixer' 'sdl_ttf' 'physfs' 'enet')
+makedepends=('mesa')
+source=(http://downloads.sourceforge.net/$pkgname/$pkgname-$pkgver.tar.gz
+        $pkgname.png
+        $pkgname.desktop
+        vfs_fix_infinite_loop.patch)
+md5sums=('587b0ae0a4733f0fa72704f17c01f31f'
+         '7019f17b607fd45acf0d48ade746326a'
+         'b81e0c8f3e0b9d8640d0cfc9b6d320a8'
+         'f881eb68102b59408eab42f2b88e982d')
+
+build() {
+    cd "$srcdir/Egoboo $pkgver"
+
+    # fix data paths
+    sed -i -e 's#/etc/egoboo-2.x/#/share/egoboo/#g' \
+        -e 's#/share/games/egoboo-2.x/#/share/egoboo/#g' \
+        -e 's#/games/#/bin/#g' \
+        -e 's#.egoboo-2.x#.egoboo#g' \
+        game/platform/file_linux.c
+
+    # fix a bug in fs_copyFile() function, merged upstream
+    sed -i 's#destf = fopen( source, "wb" );#destf = fopen( dest, "wb" );#g' \
+        game/platform/file_linux.c
+    # fix an infinite loop, merged upstream
+    patch -Np2 < ../vfs_fix_infinite_loop.patch
+
+    make egoboo
+}
+
+package() {
+    cd "$srcdir/Egoboo $pkgver"
+
+    # Patch default depth to 24 and sound
+    sed -i -e 's/\[COLOR_DEPTH\] : "32"/\[COLOR_DEPTH\] : "24"/g' \
+        -e 's/\[Z_DEPTH\] : "32"/\[Z_DEPTH\] : "24"/g' \
+        -e 's/\[OUTPUT_BUFFER_SIZE\] : "2548/\[OUTPUT_BUFFER_SIZE\] : "2048/g' \
+        setup.txt
+
+    # Copy data and fix permissions
+    install -Dm755 game/egoboo-2.x $pkgdir/usr/bin/egoboo
+    install -d $pkgdir/usr/share/{doc/,$pkgname}
+    cp -rf controls.txt setup.txt basicdat/ modules/ players/ $pkgdir/usr/share/$pkgname/
+    cp -rf doc/ $pkgdir/usr/share/doc/$pkgname/
+    find $pkgdir/usr/share/$pkgname -type f -exec chmod 644 {} +
+
+    # Install icon and desktop files
+    install -Dm 644 $srcdir/$pkgname.png $pkgdir/usr/share/pixmaps/$pkgname.png
+    install -Dm 644 $srcdir/$pkgname.desktop $pkgdir/usr/share/applications/$pkgname.desktop
+}
+
