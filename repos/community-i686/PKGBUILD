@@ -1,0 +1,106 @@
+# Maintainer: Thomas Dziedzic < gostrc at gmail >
+# Contributor: Michele Mocciola <mickele>
+# Contributor: Simon Zilliken <simon____AT____zilliken____DOT____name>
+
+pkgname=paraview
+pkgver=3.8.0
+pkgrel=1
+pkgdesc='Parallel Visualization Application using VTK.'
+arch=('i686' 'x86_64')
+url='http://www.paraview.org'
+license=('custom')
+depends=('qt>=4.3.0' 'python' 'libgl' 'hdf5' 'libxml2' 'unixodbc' 'postgresql-libs' 'libxt' 'libmysqlclient' 'mesa')
+makedepends=('cmake' 'desktop-file-utils')
+source=("http://www.paraview.org/files/v${pkgver:0:3}/ParaView-${pkgver}.tar.gz"
+        "${pkgname}.profile"
+        "${pkgname}.png"
+        "${pkgname}.desktop")
+md5sums=('4f371631c373452b202a3d91f2cca12f'
+         '534ef49689a7f630c98380f5ab4bf915'
+         'db623002bc71a257ddfdd0c9c7b14c3f'
+         'e8dd2923eaf662f0ca8dab442406a6c9')
+
+build() {
+  cd ParaView-${pkgver}
+
+  # Necessary to compile with libpng >= 1.4
+  for _FILE in `grep -Rl "png_set_gray_1_2_4_to_8" *`
+  do
+    sed -i 's|png_set_gray_1_2_4_to_8|png_set_expand_gray_1_2_4_to_8|' $_FILE
+  done
+
+  # We add a missing DESTDIR in CMakeList.txt
+  sed -e 's|COMMAND tar -xC \\\${CMAKE_INSTALL_PREFIX}|COMMAND tar -xC \\\$ENV{DESTDIR}\\\${CMAKE_INSTALL_PREFIX}|g' \
+       -i CMake/ParaViewMacros.cmake
+  sed -e 's|COMMAND tar -xC \\\${CMAKE_INSTALL_PREFIX}|COMMAND tar -xC \\\$ENV{DESTDIR}\\\${CMAKE_INSTALL_PREFIX}|g' \
+       -i CMake/ParaViewBrandingCPack.cmake
+  sed -e 's|DESTINATION \${PROJECT_BINARY_DIR}|DESTINATION \${PV_INSTALL_BIN_DIR}|' \
+      -i Plugins/PointSprite/Examples/Rendering/Cxx/CMakeLists.txt
+
+  # changes necessary to compile with gcc-4.5
+  sed -e "s|#include \"XdmfArrayCopyMacro.h\"|#include \"XdmfArrayCopyMacro.h\"\n#include <cstring>|" \
+      -i Utilities/Xdmf2/libsrc/XdmfArray.cxx
+  sed -e "s|#include \"XdmfHDFSupport.h\"|#include \"XdmfHDFSupport.h\"\n#include <cstring>|" \
+      -i Utilities/Xdmf2/libsrc/XdmfDataDesc.h
+  sed -e "s|#include \"XdmfDataDesc.h\"|#include \"XdmfDataDesc.h\"\n#include <cstring>|" \
+      -i Utilities/Xdmf2/libsrc/XdmfArray.h
+  sed -e "s|#include <stdlib.h>|#include <stdlib.h>\n#include <cstring>|" \
+      -i Utilities/Xdmf2/libsrc/XdmfH5Driver.cxx
+
+  # changes necessary to solve some issue with hdf5
+  sed -e "s|#include \"vtkH5PartReader.h\"|#define H5_USE_16_API\n\n#include \"vtkH5PartReader.h\"|" \
+      -i Plugins/H5PartReader/vtkH5PartReader.cxx
+  sed -e "s|#include <stdio.h>|#define H5_USE_16_API\n\n#include <stdio.h>|" \
+      -i Plugins/H5PartReader/H5Part/src/H5Part.c
+  sed -e "s|#include <stdlib.h>|#define H5_USE_16_API\n\n#include <stdlib.h>|" \
+      -i Plugins/H5PartReader/H5Part/src/H5Block.c
+
+  # Paraview wants to be built out of source
+  mkdir -p "build"
+  cd "build"
+
+  cmake \
+    -DCMAKE_INSTALL_PREFIX:PATH=/opt/${pkgname} \
+    -DCMAKE_USE_PTHREADS:BOOL=ON \
+    -DCMAKE_SKIP_RPATH:BOOL=YES \
+    -DCMAKE_VERBOSE_MAKEFILE:BOOL=OFF \
+    -DCMAKE_COLOR_MAKEFILE:BOOL=TRUE \
+    -DBUILD_SHARED_LIBS:BOOL=ON \
+    -DBUILD_DOCUMENTATION:BOOL=OFF \
+    -DBUILD_EXAMPLES:BOOL=OFF \
+    -DVTK_USE_RPATH:BOOL=OFF \
+    -DVTK_USE_SYSTEM_FREETYPE:BOOL=ON \
+    -DVTK_USE_SYSTEM_JPEG:BOOL=ON \
+    -DVTK_USE_SYSTEM_PNG:BOOL=ON \
+    -DVTK_USE_SYSTEM_TIFF:BOOL=ON \
+    -DVTK_USE_SYSTEM_ZLIB:BOOL=ON \
+    -DVTK_USE_SYSTEM_EXPAT:BOOL=ON \
+    -DVTK_USE_SYSTEM_LIBXML2:BOOL=ON \
+    -DVTK_USE_BOOST:BOOL=OFF \
+    -DVTK_USE_OFFSCREEN=TRUE \
+    -DPARAVIEW_USE_SYSTEM_HDF5:BOOL=ON \
+    -DPARAVIEW_ENABLE_PYTHON:BOOL=ON \
+    -DPARAVIEW_BUILD_QT_GUI:BOOL=ON \
+    ..
+
+  make
+}
+
+package() {
+  cd ParaView-${pkgver}/build
+
+  make DESTDIR=${pkgdir} install
+
+  # Install file to set PATH
+  install -D ${srcdir}/${pkgname}.profile ${pkgdir}/etc/profile.d/${pkgname}.sh
+
+  # Install license
+  install -Dm644 ${srcdir}/ParaView-${pkgver}/License_v1.2.txt ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE
+
+  # Install desktop shortcuts
+  install -Dm644 ${srcdir}/paraview.png ${pkgdir}/usr/share/pixmaps/paraview.png
+  desktop-file-install --dir=${pkgdir}/usr/share/applications ${srcdir}/${pkgname}.desktop
+
+  # Removes VTK plugin for designer - if you need, you can install vtk
+  rm -rf ${pkgdir}/opt/${pkgname}/plugins
+}
