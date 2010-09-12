@@ -10,10 +10,10 @@
 
 pkgname=('llvm' 'llvm-ocaml' 'clang' 'clang-analyzer')
 pkgver=2.7
-pkgrel=4
+pkgrel=5
 arch=('i686' 'x86_64')
 license=('custom:University of Illinois/NCSA Open Source License')
-makedepends=('gcc-libs' 'libffi' 'python' 'ocaml')
+makedepends=('gcc-libs' 'libffi' 'python2' 'ocaml')
 source=(http://llvm.org/releases/$pkgver/$pkgname-$pkgver.tgz
         http://llvm.org/releases/$pkgver/clang-$pkgver.tgz
         cpp-headers.patch
@@ -32,25 +32,23 @@ build() {
   cp -r "$srcdir/clang-$pkgver" tools/clang
 
   # Fix symbolic links from OCaml bindings to LLVM libraries
-  sed -i 's:\$(PROJ_libdir):/usr/lib/llvm:' \
-         bindings/ocaml/Makefile.ocaml || return 1
+  sed -i 's:\$(PROJ_libdir):/usr/lib/llvm:' bindings/ocaml/Makefile.ocaml
 
   # Fix installation directories, ./configure doesn't seem to set them right
   sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
          -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib/llvm:' \
          -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
-         Makefile.config.in || return 1
+         Makefile.config.in
 
   # Fix insecure rpath (http://bugs.archlinux.org/task/14017)
-  sed -i 's:$(RPATH) -Wl,$(\(ToolDir\|LibDir\|ExmplDir\))::g' \
-         Makefile.rules || return 1
+  sed -i 's:$(RPATH) -Wl,$(\(ToolDir\|LibDir\|ExmplDir\))::g' Makefile.rules
 
   # Update hardcoded path to C++ header files
-  patch -d tools/clang -p1 -i "$srcdir/cpp-headers.patch" || return 1
+  patch -d tools/clang -p1 -i "$srcdir/cpp-headers.patch"
 
   # Get the correct list of symbols to export
   # See http://lists.cs.uiuc.edu/pipermail/cfe-dev/2010-April/008559.html
-  patch -p1 -i "$srcdir/clang-plugin-loader-registry.patch" || return 1
+  patch -p1 -i "$srcdir/clang-plugin-loader-registry.patch"
 
   # Apply strip option to configure
   _optimize_flag="--enable-optimize"
@@ -64,7 +62,7 @@ build() {
               --enable-bindings=ocaml --enable-targets=all \
               --disable-expensive-checks --disable-debug-runtime \
               --disable-assertions $_optimize_flag
-  make || return 1
+  make
 }
 
 package_llvm() {
@@ -78,7 +76,7 @@ package_llvm() {
   # then we bring it back in for the clang package
   mv tools/clang "$srcdir"
   # -j1 is due to race conditions during the installation of the OCaml bindings
-  make -j1 DESTDIR="$pkgdir" install || return 1
+  make -j1 DESTDIR="$pkgdir" install
   mv "$srcdir/clang" tools
 
   # OCaml bindings go to a separate package
@@ -92,8 +90,7 @@ package_llvm() {
   chmod -x "$pkgdir"/usr/lib/llvm/*.a
 
   # Fix libdir in llvm-config (http://bugs.archlinux.org/task/14487)
-  sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' \
-         "$pkgdir/usr/bin/llvm-config" || return 1
+  sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' "$pkgdir/usr/bin/llvm-config"
 
   # Get rid of example Hello transformation
   rm "$pkgdir"/usr/lib/llvm/*LLVMHello.*
@@ -130,17 +127,17 @@ package_clang() {
 
   # Fix installation path for clang docs
   sed -i 's:$(PROJ_prefix)/share/doc/llvm:$(PROJ_prefix)/share/doc/clang:' \
-         "$srcdir/llvm-$pkgver/Makefile.config" || return 1
+         "$srcdir/llvm-$pkgver/Makefile.config"
 
   cd "$srcdir/llvm-$pkgver/tools/clang"
-  make DESTDIR="$pkgdir" install || return 1
+  make DESTDIR="$pkgdir" install
 
   # Fix permissions of static libs
   chmod -x "$pkgdir"/usr/lib/llvm/*.a
 
   # Revert the path change in case we want to do a repackage later
   sed -i 's:$(PROJ_prefix)/share/doc/clang:$(PROJ_prefix)/share/doc/llvm:' \
-         "$srcdir/llvm-$pkgver/Makefile.config" || return 1
+         "$srcdir/llvm-$pkgver/Makefile.config"
 
   install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/clang/LICENSE"
 }
@@ -148,7 +145,7 @@ package_clang() {
 package_clang-analyzer() {
   pkgdesc="A source code analysis framework"
   url="http://clang-analyzer.llvm.org/"
-  depends=("clang=$pkgver-$pkgrel" 'python')
+  depends=("clang=$pkgver-$pkgrel" 'python2')
 
   cd "$srcdir/llvm-$pkgver/tools/clang"
 
@@ -158,9 +155,14 @@ package_clang-analyzer() {
     ln -s /usr/lib/clang-analyzer/$tool/$tool "$pkgdir/usr/bin"
   done
 
+  # Point Python scripts to the python2 binary
+  sed -i 's/env python/env python2/' \
+    "$pkgdir/usr/lib/clang-analyzer/scan-view/scan-view" \
+    "$pkgdir/usr/lib/clang-analyzer/scan-build/set-xcode-analyzer"
+
   # Compile Python scripts
-  python -m compileall "$pkgdir/usr/lib/clang-analyzer" || return 1
-  python -O -m compileall "$pkgdir/usr/lib/clang-analyzer" || return 1
+  python2 -m compileall "$pkgdir/usr/lib/clang-analyzer"
+  python2 -O -m compileall "$pkgdir/usr/lib/clang-analyzer"
 
   install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/clang-analyzer/LICENSE"
 }
