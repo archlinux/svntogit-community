@@ -1,0 +1,73 @@
+# $Id$
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Otto Allmendinger <otto.allmendinger@googlemail.com>
+# Contributor: Malte Rabenseifner <malte@zearan.de> 
+
+pkgname=murmur
+pkgver=1.2.2
+pkgrel=3
+pkgdesc="The voice chat application server for Mumble"
+arch=('i686' 'x86_64')
+url="http://mumble.sourceforge.net"
+license=('GPL')
+depends=('avahi' 'lsb-release' 'protobuf' 'qt>=4.4.0')
+makedepends=('boost')
+conflicts=('murmur-ice' 'murmur-static' 'murmur-git')
+backup=("etc/murmur.ini"
+    "etc/logrotate.d/murmur"
+    "etc/conf.d/murmur" )
+install="murmur.install"
+source=("http://downloads.sourceforge.net/mumble/mumble-$pkgver.tar.gz"
+    "murmur.rc.d"
+    "murmur.conf.d"
+    "murmur.dbus.conf"
+    "murmur.logrotate.d"
+	"0003-fix-long-username-query.patch"
+	"0004-fix-username-validation.patch"
+)
+md5sums=('de30ee85170e183b66568b53b04c5727'
+         'b99061be67c54bf0bb4a061fd1280281'
+         '11c1cc875e8021739ec2087252cf0533'
+         'eddea4cdbd0bde4b960a67e16b5d5478'
+         'c56726cb267ead68f37f35c28e36e6fa'
+         '6285045568457cd4858232d9c2b23616'
+         '088ade43d532f37c3d989590c0e428ab')
+
+build() {
+    cd ${srcdir}/mumble-$pkgver
+
+    # Le security fixes. Thanks Debian, you are good for something!
+    patch -Np1 < "${srcdir}/0003-fix-long-username-query.patch"
+    patch -Np1 < "${srcdir}/0004-fix-username-validation.patch"
+
+    qmake main.pro CONFIG+="no-client no-ice"
+    make
+}
+
+package() {
+    cd ${srcdir}/mumble-$pkgver
+
+    sed -e "1i# vi:ft=cfg" \
+        -e "s|database=|database=/var/lib/murmur/murmur.sqlite|" \
+        -e "s|dbus=session|#dbus=system|" \
+        -e "s|#logfile=murmur.log|logfile=/var/log/murmur/murmur.log|" \
+        -e "s|#pidfile=|pidfile=/var/run/murmur/murmur.pid|" \
+        -e "s|#uname=|uname=murmur|" \
+        -i scripts/murmur.ini
+
+    install -dm755 ${pkgdir}/var/lib/murmur
+    install -dm755 ${pkgdir}/var/log/murmur
+    install -dm755 ${pkgdir}/var/run/murmur
+    install -Dm755 release/murmurd ${pkgdir}/usr/sbin/murmurd
+    install -Dm644 scripts/murmur.ini ${pkgdir}/etc/murmur.ini
+    install -Dm755 ${srcdir}/murmur.rc.d ${pkgdir}/etc/rc.d/murmur
+    install -Dm644 ${srcdir}/murmur.conf.d ${pkgdir}/etc/conf.d/murmur
+    install -Dm644 ${srcdir}/murmur.dbus.conf \
+                      ${pkgdir}/etc/dbus-1/system.d/murmur.conf
+    install -Dm644 ${srcdir}/murmur.logrotate.d \
+                      ${pkgdir}/etc/logrotate.d/murmur
+    install -Dm644 README ${pkgdir}/usr/share/doc/murmur/README
+    install -Dm644 man/murmurd.1 ${pkgdir}/usr/share/man/man1/murmurd.1
+}
+
+# vim: sw=2:ts=2 et:
