@@ -4,11 +4,11 @@
 pkgbase=ipython
 pkgname=(ipython ipython-docs)
 pkgver=0.10
-pkgrel=4
+pkgrel=5
 arch=('any')
 url="http://ipython.scipy.org/"
 license=('custom')
-  makedepends=('python') # for setup.py
+  makedepends=('python2') # for setup.py
 source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz"
             warning.patch)
 
@@ -20,7 +20,7 @@ build() {
 
 package_ipython() {
   pkgdesc="An enhanced Interactive Python shell."
-  depends=('python')
+  depends=('python2')
   optdepends=("wxpython: needed for ipythonx and ipython-wx"
               "twisted: networking-related tasks"
               "python-foolscap: for IPython's parallel computing features"
@@ -33,11 +33,14 @@ package_ipython() {
   # This is the same code that is in upstream's VCS, so the patch can
   # go away with the next release.
 # Thanks to Andrzej Giniewicz for the patch against 0.10.
-  patch -p1 < "$srcdir/warning.patch" || return 1
+  patch -p1 < "$srcdir/warning.patch"
 
-  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython/license.txt" || return 1
-  python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1 || return 1
+  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython/license.txt"
+  python2 setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
   rm -rf "$pkgdir/usr/share/doc"
+  find "$pkgdir" -name '*.py' -print0 |xargs -0 \
+    sed -i -e 's,^#!/usr/bin/env python$,#!/usr/bin/env python2,' \
+    -e 's,^#!/usr/bin/python$,#!/usr/bin/python2,'
 }
 
 package_ipython-docs() {
@@ -45,10 +48,10 @@ package_ipython-docs() {
 
   cd "$srcdir/$pkgbase-$pkgver"
 
-  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython-docs/license.txt" || return 1
+  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython-docs/license.txt"
   # Can I use $pkgname in that install command?
 
-  python setup.py install --prefix=/usr --root="$pkgdir" || return 1
+  python2 setup.py install --prefix=/usr --root="$pkgdir"
   rm -rf "$pkgdir/usr/lib" "$pkgdir/usr/bin" "$pkgdir/usr/share/man"
   # This seems wrong.  We're running setup.py for both
   # packages, and removing different things in each.
