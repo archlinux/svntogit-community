@@ -1,0 +1,180 @@
+diff --git a/hostapd/Makefile b/hostapd/Makefile
+index 3b3d7fe..291d96a 100644
+--- a/hostapd/Makefile
++++ b/hostapd/Makefile
+@@ -580,11 +580,11 @@ install: all
+ 	for i in $(ALL); do cp $$i /usr/local/bin/$$i; done
+ 
+ hostapd: $(OBJS)
+-	$(CC) -o hostapd $(OBJS) $(LIBS)
++	$(CC) $(LDFLAGS) -o hostapd $(OBJS) $(LIBS)
+ 
+ OBJS_c = hostapd_cli.o ../src/common/wpa_ctrl.o ../src/utils/os_$(CONFIG_OS).o
+ hostapd_cli: $(OBJS_c)
+-	$(CC) -o hostapd_cli $(OBJS_c)
++	$(CC) $(LDFLAGS) -o hostapd_cli $(OBJS_c)
+ 
+ NOBJS = nt_password_hash.o ../src/crypto/ms_funcs.o ../src/crypto/sha1.o ../src/crypto/rc4.o ../src/crypto/md5.o
+ NOBJS += ../src/crypto/crypto_openssl.o ../src/utils/os_$(CONFIG_OS).o
+@@ -593,10 +593,10 @@ LIBS_n += -lcrypto
+ endif
+ 
+ nt_password_hash: $(NOBJS)
+-	$(CC) -o nt_password_hash $(NOBJS) $(LIBS_n)
++	$(CC) $(LDFLAGS) -o nt_password_hash $(NOBJS) $(LIBS_n)
+ 
+ hlr_auc_gw: $(HOBJS)
+-	$(CC) -o hlr_auc_gw $(HOBJS) $(LIBS_h)
++	$(CC) $(LDFLAGS) -o hlr_auc_gw $(HOBJS) $(LIBS_h)
+ 
+ clean:
+ 	$(MAKE) -C ../src clean
+@@ -626,7 +626,7 @@ clean-docs:
+ 
+ TEST_SRC_MILENAGE = ../src/hlr_auc_gw/milenage.c ../src/crypto/aes_wrap.c ../src/crypto/aes.c ../src/utils/common.c ../src/utils/wpa_debug.o ../src/utils/os_$(CONFIG_OS).c
+ test-milenage: $(TEST_SRC_MILENAGE)
+-	$(CC) -o test-milenage -Wall -Werror $(TEST_SRC_MILENAGE) \
++	$(CC) $(LDFLAGS) -o test-milenage -Wall -Werror $(TEST_SRC_MILENAGE) \
+ 		-DTEST_MAIN_MILENAGE -I. -DINTERNAL_AES \
+ 		-I../src/crypto -I../src/utils
+ 	./test-milenage
+diff --git a/hostapd/beacon.c b/hostapd/beacon.c
+index 1f82d9c..0a192fe 100644
+--- a/hostapd/beacon.c
++++ b/hostapd/beacon.c
+@@ -434,6 +434,10 @@ void ieee802_11_set_beacon(struct hostapd_data *hapd)
+ 	os_free(tail);
+ 	os_free(head);
+ 
++	if (hostapd_set_dtim_period(hapd, hapd->conf->dtim_period))
++		wpa_printf(MSG_ERROR, "Could not set DTIM period for kernel "
++			   "driver");
++
+ 	if (hostapd_set_cts_protect(hapd, cts_protection))
+ 		wpa_printf(MSG_ERROR, "Failed to set CTS protect in kernel "
+ 			   "driver");
+diff --git a/hostapd/hostapd.c b/hostapd/hostapd.c
+index 3fbd3d0..7ed1720 100644
+--- a/hostapd/hostapd.c
++++ b/hostapd/hostapd.c
+@@ -1376,12 +1376,6 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
+ 		return -1;
+ 	}
+ 
+-	if (hostapd_set_dtim_period(hapd, hapd->conf->dtim_period)) {
+-		wpa_printf(MSG_ERROR, "Could not set DTIM period for kernel "
+-			   "driver");
+-		return -1;
+-	}
+-
+ 	/* Set SSID for the kernel driver (to be used in beacon and probe
+ 	 * response frames) */
+ 	if (set_ssid && hostapd_set_ssid(hapd, (u8 *) conf->ssid.ssid,
+diff --git a/src/drivers/driver_wext.c b/src/drivers/driver_wext.c
+index e771d37..10d2d5e 100644
+--- a/src/drivers/driver_wext.c
++++ b/src/drivers/driver_wext.c
+@@ -1,6 +1,6 @@
+ /*
+- * WPA Supplicant - driver interaction with generic Linux Wireless Extensions
+- * Copyright (c) 2003-2007, Jouni Malinen <j@w1.fi>
++ * Driver interaction with generic Linux Wireless Extensions
++ * Copyright (c) 2003-2010, Jouni Malinen <j@w1.fi>
+  *
+  * This program is free software; you can redistribute it and/or modify
+  * it under the terms of the GNU General Public License version 2 as
+@@ -20,6 +20,7 @@
+ 
+ #include "includes.h"
+ #include <sys/ioctl.h>
++#include <sys/stat.h>
+ #include <net/if_arp.h>
+ 
+ #include "wireless_copy.h"
+@@ -905,6 +906,8 @@ void * wpa_driver_wext_init(void *ctx, const char *ifname)
+ 	int s;
+ 	struct sockaddr_nl local;
+ 	struct wpa_driver_wext_data *drv;
++	char path[128];
++	struct stat buf;
+ 
+ 	drv = os_zalloc(sizeof(*drv));
+ 	if (drv == NULL)
+@@ -912,6 +915,12 @@ void * wpa_driver_wext_init(void *ctx, const char *ifname)
+ 	drv->ctx = ctx;
+ 	os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname));
+ 
++	os_snprintf(path, sizeof(path), "/sys/class/net/%s/phy80211", ifname);
++	if (stat(path, &buf) == 0) {
++		wpa_printf(MSG_DEBUG, "WEXT: cfg80211-based driver detected");
++		drv->cfg80211 = 1;
++	}
++
+ 	drv->ioctl_sock = socket(PF_INET, SOCK_DGRAM, 0);
+ 	if (drv->ioctl_sock < 0) {
+ 		perror("socket(PF_INET,SOCK_DGRAM)");
+@@ -1929,6 +1938,19 @@ static void wpa_driver_wext_disconnect(struct wpa_driver_wext_data *drv)
+ 	}
+ 
+ 	if (iwr.u.mode == IW_MODE_INFRA) {
++		if (drv->cfg80211) {
++			/*
++			 * cfg80211 supports SIOCSIWMLME commands, so there is
++			 * no need for the random SSID hack, but clear the
++			 * BSSID and SSID.
++			 */
++			if (wpa_driver_wext_set_bssid(drv, null_bssid) < 0 ||
++			    wpa_driver_wext_set_ssid(drv, (u8 *) "", 0) < 0) {
++				wpa_printf(MSG_DEBUG, "WEXT: Failed to clear "
++					   "to disconnect");
++			}
++			return;
++		}
+ 		/*
+ 		 * Clear the BSSID selection and set a random SSID to make sure
+ 		 * the driver will not be trying to associate with something
+@@ -2076,6 +2098,14 @@ int wpa_driver_wext_associate(void *priv,
+ 
+ 	wpa_printf(MSG_DEBUG, "%s", __FUNCTION__);
+ 
++	if (drv->cfg80211) {
++		/*
++		 * Stop cfg80211 from trying to associate before we are done
++		 * with all parameters.
++		 */
++		wpa_driver_wext_set_ssid(drv, (u8 *) "", 0);
++	}
++
+ 	/*
+ 	 * If the driver did not support SIOCSIWAUTH, fallback to
+ 	 * SIOCSIWENCODE here.
+@@ -2155,11 +2185,15 @@ int wpa_driver_wext_associate(void *priv,
+ #endif /* CONFIG_IEEE80211W */
+ 	if (params->freq && wpa_driver_wext_set_freq(drv, params->freq) < 0)
+ 		ret = -1;
+-	if (wpa_driver_wext_set_ssid(drv, params->ssid, params->ssid_len) < 0)
++	if (!drv->cfg80211 &&
++	    wpa_driver_wext_set_ssid(drv, params->ssid, params->ssid_len) < 0)
+ 		ret = -1;
+ 	if (params->bssid &&
+ 	    wpa_driver_wext_set_bssid(drv, params->bssid) < 0)
+ 		ret = -1;
++	if (drv->cfg80211 &&
++	    wpa_driver_wext_set_ssid(drv, params->ssid, params->ssid_len) < 0)
++		ret = -1;
+ 
+ 	return ret;
+ }
+diff --git a/src/drivers/driver_wext.h b/src/drivers/driver_wext.h
+index b89c2cb..328f22e 100644
+--- a/src/drivers/driver_wext.h
++++ b/src/drivers/driver_wext.h
+@@ -43,6 +43,8 @@ struct wpa_driver_wext_data {
+ 	char mlmedev[IFNAMSIZ + 1];
+ 
+ 	int scan_complete_events;
++
++	int cfg80211; /* whether driver is using cfg80211 */
+ };
+ 
+ int wpa_driver_wext_get_ifflags(struct wpa_driver_wext_data *drv, int *flags);
