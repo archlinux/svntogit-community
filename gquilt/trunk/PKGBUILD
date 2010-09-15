@@ -3,7 +3,7 @@
 
 pkgname=gquilt
 pkgver=0.22
-pkgrel=1
+pkgrel=2
 pkgdesc='A PyGTK GUI wrapper for quilt'
 arch=('i686' 'x86_64')
 url='http://users.bigpond.net.au/Peter-Williams/'
@@ -16,6 +16,12 @@ build() {
   cd ${pkgname}-${pkgver}
 
   sed -i 's|PREFIX=/usr/local|PREFIX=/usr|g' Makefile
+
+  # Point Python scripts to the python2 binary
+  sed -i -e 's/env python/env python2/' \
+         -e 's/exec python/exec python2/' \
+         -e 's/python -/python2 -/' \
+    Makefile gquilt.sh {gquilt,compile}.py
 
   make
 }
