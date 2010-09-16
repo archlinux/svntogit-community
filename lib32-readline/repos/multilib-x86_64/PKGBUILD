@@ -1,0 +1,50 @@
+# $Id$
+# Maintainer: Andreas Radke <andyrtr@archlinux.org>
+# Contributor: judd <jvinet@zeroflux.org>
+
+_pkgbasename=readline
+pkgname=lib32-$_pkgbasename
+_patchlevel=002 #prepare for some patches
+pkgver=6.1.$_patchlevel
+pkgrel=3
+pkgdesc="GNU readline library (32-bit)"
+arch=(x86_64)
+url="http://tiswww.case.edu/php/chet/readline/rltop.html"
+license=('GPL')
+depends=('lib32-glibc' 'lib32-ncurses' $_pkgbasename)
+makedepends=('gcc-multilib')
+source=(http://ftp.gnu.org/gnu/readline/readline-6.1.tar.gz)
+if [ $_patchlevel -gt 00 ]; then
+    for (( p=1; p<=$_patchlevel; p++ )); do
+        source=(${source[@]} http://ftp.gnu.org/gnu/readline/readline-6.1-patches/readline61-$(printf "%03d" $p))
+    done
+fi
+md5sums=('fc2f7e714fe792db1ce6ddc4c9fb4ef3'
+         'c642f2e84d820884b0bf9fd176bc6c3f'
+         '1a76781a1ea734e831588285db7ec9b1')
+
+build() {
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  cd ${srcdir}/${_pkgbasename}-6.1
+  for p in ../readline61-*; do
+    [ -e "$p" ] || continue
+    msg "applying patch ${p}"
+    patch -Np0 -i ${p}
+  done
+
+  # Remove RPATH from shared objects (FS#14366)
+  sed -i 's|-Wl,-rpath,$(libdir) ||g' support/shobj-conf
+
+  ./configure --prefix=/usr --libdir=/usr/lib32
+  make SHLIB_LIBS=-lncurses
+}
+
+package() {
+  cd ${srcdir}/${_pkgbasename}-6.1
+
+  make DESTDIR=${pkgdir} install
+  rm -rf "${pkgdir}"/usr/{include,share,bin}
+}
