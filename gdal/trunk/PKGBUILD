@@ -5,13 +5,13 @@
 
 pkgname=gdal
 pkgver=1.7.2
-pkgrel=2
+pkgrel=3
 pkgdesc="A translator library for raster geospatial data formats"
 arch=('i686' 'x86_64')
 url="http://www.gdal.org/"
 license=('custom')
 depends=('curl' 'geos' 'giflib' 'hdf5' 'libgeotiff' 'libjpeg>=8' 'libpng' 'libtiff'
-         'mysql' 'netcdf' 'postgresql' 'python' 'python-numpy' 'sqlite3')
+         'mysql' 'netcdf' 'postgresql' 'python2' 'python-numpy' 'sqlite3')
 makedepends=('cfitsio')
 options=('!libtool' '!makeflags')
 source=(http://download.osgeo.org/${pkgname}/${pkgname}-${pkgver}.tar.gz
@@ -23,21 +23,27 @@ build() {
   export CFLAGS="$CFLAGS -fno-strict-aliasing"
 
   cd ${srcdir}/$pkgname-$pkgver
-  patch -Np0 -i ${srcdir}/gdal-1.5.1-python-install.patch || return 1
+  patch -Np0 -i ${srcdir}/gdal-1.5.1-python-install.patch
+
+  # python2 fixes
+  sed -i 's_python python1.5_python2 python python1.5_' configure
+  for file in swig/python/{,osgeo/,samples/,scripts/}*.py; do
+      sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' $file
+  done
 
   ./configure --prefix=/usr --with-netcdf --with-libtiff --with-sqlite3 \
               --with-geotiff --with-mysql --with-python --without-libtool --with-curl
 
   # workaround for bug #13646
-  sed -i 's/PY_HAVE_SETUPTOOLS=1/PY_HAVE_SETUPTOOLS=/g' ./GDALmake.opt || return 1
-  sed -i 's/EXE_DEP_LIBS/KILL_EXE_DEP_LIBS/' apps/GNUmakefile || return 1
-  install -d ${pkgdir}/usr/lib/python2.6/site-packages/ || return 1
+  sed -i 's/PY_HAVE_SETUPTOOLS=1/PY_HAVE_SETUPTOOLS=/g' ./GDALmake.opt
+  sed -i 's/EXE_DEP_LIBS/KILL_EXE_DEP_LIBS/' apps/GNUmakefile
+  install -d ${pkgdir}/usr/lib/python2.7/site-packages/
 
-  make || return 1
-  make DESTDIR=${pkgdir} install || return 1
+  make
+  make DESTDIR=${pkgdir} install
 
   # install license
-  install -D -m644 LICENSE.TXT ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE || return 1
+  install -D -m644 LICENSE.TXT ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE
 
   #FS#15477 clean up junks
   rm -f ${pkgdir}/usr/bin/gdal_sieve.dox
