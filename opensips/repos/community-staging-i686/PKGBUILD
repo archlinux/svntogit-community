@@ -1,0 +1,66 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+
+pkgname=opensips
+pkgver=1.6.3
+pkgrel=2
+pkgdesc="An Open Source SIP Server able to act as a SIP proxy, registrar, location server, redirect server ..."
+url="http://www.opensips.org"
+depends=('gcc-libs' 'openssl' 'db' 'attr' 'kernel-headers' 'libxml2')
+makedepends=('postgresql-libs>=8.4.1' 'unixodbc' 'libldap>=2.4.18' 'libmysqlclient')
+optdepends=('postgresql-libs'
+	    'unixodbc'
+	    'libldap'
+	    'libmysqlclient'
+	    'libsasl'
+	    'python2'
+	    'pcre')
+backup=("etc/opensips/opensips.cfg"
+	"etc/opensips/dictionary.radius"
+	"etc/opensips/opensipsctlrc")
+arch=('i686' 'x86_64')
+license=('GPL')
+install=opensips.install
+options=('!emptydirs' 'zipman' '!makeflags' 'docs')
+source=(http://switch.dl.sourceforge.net/sourceforge/opensips/opensips-$pkgver-tls_src.tar.gz
+	opensips.init)
+md5sums=('3f1dcd38ab401ff4b01ed7700dac9ef0'
+         '685fbe00826df1285b410d4610dcbb0c')
+
+build()
+{
+  cd $srcdir/$pkgname-$pkgver-tls/
+
+  # python2 fix
+  for file in $(find . -name '*.py' -print); do
+    sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' $file
+    sed -i 's_^#!.*/usr/bin/env.*python_#!/usr/bin/env python2_' $file
+  done
+
+  make \
+	include_modules="ldap db_mysql db_postgres db_unixodbc presence presence_xml h350" \
+	TLS=1 DESTDIR=$pkgdir/usr LIBDIR=lib install
+
+  # Conforms to the arch packaging standards (http://wiki.archlinux.org/index.php/Arch_Packaging_Standards)
+  mkdir -p $pkgdir/etc/
+  mv $pkgdir/usr/etc/opensips/ $pkgdir/etc/
+  sed -i 's#mpath=".*lib/opensips/modules/"#mpath="/usr/lib/opensips/modules/"#' $pkgdir/etc/opensips/opensips.cfg
+
+  # Install starting script
+  mkdir -p $pkgdir/etc/rc.d/
+  cp ../opensips.init $pkgdir/etc/rc.d/opensips
+  chmod 755 $pkgdir/etc/rc.d/opensips
+
+  # fix bad paths
+  cd $pkgdir/usr/share
+  find -type f -exec sed -i "s#$pkgdir##" {} \;
+
+  cd $pkgdir/usr/lib/opensips/opensipsctl
+  find -type f -exec sed -i "s#$pkgdir##" {} \;
+
+  cd $pkgdir/usr/sbin
+  sed -i "s#$pkgdir##" opensipsctl opensipsdbctl osipsconsole
+
+  cd $pkgdir/etc
+  find -type f -exec sed -i "s#$pkgdir##" {} \;
+}
