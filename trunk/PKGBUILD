@@ -4,24 +4,37 @@
 
 pkgname=python-scipy
 pkgver=0.8.0
-pkgrel=3
+pkgrel=4
 pkgdesc="SciPy (pronounced 'Sigh Pie') is open-source software for mathematics, science, and engineering."
 arch=('i686' 'x86_64')
 url="http://www.scipy.org"
 license=('BSD')
-depends=('lapack' 'blas' 'python' 'python-numpy')
+depends=('lapack' 'blas' 'python2' 'python-numpy')
 makedepends=('gcc' 'gcc-fortran')
 conflicts=('scipy' 'scipy_core')
-source=("http://downloads.sourceforge.net/scipy/scipy-${pkgver}.tar.gz")
-md5sums=('f0bfc6141b90e6a31555b31486602251')
+source=("http://downloads.sourceforge.net/scipy/scipy-${pkgver}.tar.gz"
+        '0001-FIX-define-macro-to-access-C99-extensions-from-C.patch')
+md5sums=('f0bfc6141b90e6a31555b31486602251'
+         '609759549d0571fc04d52c89b16258ed')
 
 build() {
     unset LDFLAGS
     unset FFLAGS
+
     cd ${srcdir}/scipy-${pkgver}
     #Changing the arithmetic parameter (Thanks to Fabrizio Castellano)
     sed -i "s/\#define\ UNK\ 1/\#define\ IBMPC\ 1/" $srcdir/scipy-$pkgver/scipy/special/cephes/mconf.h
-    python setup.py config_fc --fcompiler=gnu95 build || return 1
-    python setup.py config_fc --fcompiler=gnu95 install --prefix=/usr --root=${pkgdir}
+
+    # fix build with python 2.7 (see http://projects.scipy.org/scipy/ticket/1180)
+    patch -p1 < ${srcdir}/0001-FIX-define-macro-to-access-C99-extensions-from-C.patch
+
+    # python2 fix
+    for file in $(find . -name '*.py' -print); do
+        sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' $file
+        sed -i 's_^#!.*/usr/bin/env.*python_#!/usr/bin/env python2_' $file
+    done
+
+    python2 setup.py config_fc --fcompiler=gnu95 build
+    python2 setup.py config_fc --fcompiler=gnu95 install --prefix=/usr --root=${pkgdir}
     install -D -m644 LICENSE.txt ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt
 }
