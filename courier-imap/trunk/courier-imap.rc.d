@@ -1,13 +1,14 @@
 CI_DAEMONS=
 [ -f /etc/conf.d/courier-imap ] && . /etc/conf.d/courier-imap
 [ -z $AUTO_AUTHDAEMON_LAG ]   && AUTO_AUTHDAEMON_LAG=2
+[ -z $AUTO_AUTHDAEMON ]       && AUTO_AUTHDAEMON="false"
 
 . /etc/rc.conf
 . /etc/rc.d/functions
 
 case "$1" in
   start)
-    if [ $AUTO_AUTHDAEMON == "true" ]; then
+    if [ "$AUTO_AUTHDAEMON" == "true" ]; then
       /etc/rc.d/authdaemond start
       sleep ${AUTO_AUTHDAEMON_LAG}
     fi
@@ -38,7 +39,7 @@ case "$1" in
         stat_done
       fi
     done
-    if [ $AUTO_AUTHDAEMON == "true" ]; then
+    if [ "$AUTO_AUTHDAEMON" == "true" ]; then
       /etc/rc.d/authdaemond stop
     fi
     ;;
