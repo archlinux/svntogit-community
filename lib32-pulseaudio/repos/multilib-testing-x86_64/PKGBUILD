@@ -1,0 +1,79 @@
+# $Id$
+# Maintainer: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Corrado Primier <bardo@aur.archlinux.org>
+# Contributor: William Rea <sillywilly@gmail.com>
+
+_pkgbasename=pulseaudio
+pkgname=lib32-$_pkgbasename
+pkgver=0.9.21
+pkgrel=14
+__gitcommit=a21b832
+pkgdesc="A networked sound server (32-bit)"
+arch=(x86_64)
+url="http://pulseaudio.org/"
+license=(GPL LGPL)
+depends=(lib32-{attr,dbus-core,xcb-util}
+         lib32-lib{asyncns,cap,xtst,sm,sndfile,tool}
+         udev $_pkgbasename)
+makedepends=(autoconf pkgconfig git rsync gcc-multilib libtool-multilib intltool lib32-glib2)
+optdepends=('lib32-alsa-plugins: ALSA support')
+options=(emptydirs !libtool !makeflags !strip)
+md5sums=('d4a7d4ad51b406588ba7ac7931c5dd88'
+         'c5aa09c1d3e2217dc3bb23138e2a5a1d')
+
+__gitroot=git://git.0pointer.de/pulseaudio.git
+__gitname=pulseaudio
+__gitbranch=stable-queue
+
+_libs="libpulsecommon-$pkgver.la libpulse.la libpulse-simple.la libpulse-mainloop-glib.la libpulsedsp.la"
+
+build() {
+  cd "$srcdir"
+
+  msg2 "Checking out source from git..."
+
+  [[ ! -d $__gitname ]] && git clone $__gitroot $__gitname
+
+  cd $__gitname
+  git fetch origin $__gitbranch || warning 'git fetch failed!'
+
+  if [[ $(git rev-parse $__gitcommit) != $(git rev-parse origin/$__gitbranch) ]]; then
+    warning 'You are not building the latest revision!'
+    warning "Consider updating __gitcommit to $(git rev-parse --short origin/$__gitbranch)."
+    sleep 10
+  fi
+
+  git checkout $__gitcommit
+  cd ..
+
+  rm -rf $__gitname-build
+  rsync -a --exclude='.git/' $__gitname/ $__gitname-build
+  cd "$__gitname-build"
+
+  msg2 "Building..."
+
+  # Fix linking dependency cycle between libpulse and libpulsecommon
+  LDFLAGS="${LDFLAGS//-Wl,--as-needed}"
+  LDFLAGS="${LDFLAGS//,--as-needed}"
+  LDFLAGS="${LDFLAGS//--as-needed}"
+
+  # Fix strict aliasing warnings
+  CFLAGS+=" -fno-strict-aliasing"
+
+  export CC="gcc -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  echo "$pkgver" > .tarball-version
+  sh autogen.sh --disable-hal --disable-rpath \
+    --libdir=/usr/lib32 --libexecdir=/usr/lib32 \
+    --localstatedir=/var --prefix=/usr \
+    --sysconfdir=/etc
+  make -C src $_libs
+}
+
+package() {
+  cd "$srcdir/$__gitname-build"
+  make -C src lib_LTLIBRARIES="$_libs" DESTDIR="$pkgdir" install-libLTLIBRARIES
+  make DESTDIR="$pkgdir" install-pkgconfigDATA
+}
