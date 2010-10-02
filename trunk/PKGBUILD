@@ -1,60 +1,61 @@
+# $Id$
 # Maintainer: Vesa Kaihlavirta <vegai@iki.fi>
 # Contributor: Andres Perera <andres87p gmail>
 # Contributor: Matthew Bauer <mjbauer95@gmail.com>
 # Contributor: Christian Himpel <chressie at gmail dot com>
 
 pkgname=go
-pkgver=2010_08_11
-_pkgver=2010-08-11
-pkgrel=2
+pkgver=2010_09_29
+_pkgver=2010-09-29
+pkgrel=1
 pkgdesc='Google Go compiler and tools (release version)'
-arch=(i686 x86_64)
-url=http://golang.org/
-license=(custom)
-depends=(perl)
-makedepends=(mercurial)
-options=(!strip !makeflags)
+arch=('i686' 'x86_64')
+url="http://golang.org/"
+license=('custom')
+depends=('perl')
+makedepends=('mercurial')
+options=('!strip')
 install=$pkgname.install
 source=($pkgname.sh)
 md5sums=('67c472bfcfdb760d1d1f0a87cfe3661f')
 
 build() {
-  hgroot=https://go.googlecode.com/hg/
-  hgrepo=release
+  _hgroot="https://go.googlecode.com/hg/"
+  _hgrepo="release"
 
-  cd $srcdir
+  cd "$srcdir"
+  msg "Connecting to Mercurial server...."
 
-  msg "Note: the build currently fails if you have an older version of go installed."
-
-  msg "Connecting to Mercurial server..."
-  if [ -d $hgrepo ]; then
-    cd $hgrepo
+  if [ -d $_hgrepo ] ; then
+    cd $_hgrepo
     hg pull -u
-    msg2 "The local files have been updated"
+    msg "The local files are updated."
   else
-    hg clone $hgroot $hgrepo
-    msg2 "Mercurial checkout done"
+    hg clone $_hgroot $_hgrepo
   fi
 
-  ARCH=$(uname -m)
-  [ "$ARCH" == "i686" ]   && GOARCH=386
-  [ "$ARCH" == "arm" ]    && GOARCH=arm
-  [ "$ARCH" == "x86_64" ] && GOARCH=amd64
-  export GOARCH
+  msg "Mercurial checkout done or server timeout"
+  msg "Starting make..."
 
-  export GOROOT=$srcdir/$hgrepo
+  rm -rf "$srcdir/$_hgrepo-build"
+  cp -r "$srcdir/$_hgrepo" "$srcdir/$_hgrepo-build"
+  cd "$srcdir/$_hgrepo-build"
+
+  export GOROOT="$srcdir/$_hgrepo-build"
   export GOOS=linux
-  export GOBIN=$GOROOT/bin
-  export PATH=$GOBIN:$PATH
+  export GOBIN="$GOROOT/bin"
+  export PATH="$GOBIN:$PATH"
 
-  mkdir -p $GOROOT/bin
-  cd $GOROOT/src
+  mkdir -p "$GOROOT/bin"
+  cd "$GOROOT/src"
   hg update release.$_pkgver
 
-  cd $GOROOT/src
   ./all.bash
+}
 
-  cd $GOROOT
+package() {
+  cd "$srcdir/release-build"
+
   install -Dm644 LICENSE $pkgdir/usr/share/licenses/go/LICENSE
   install -Dm644 misc/bash/go $pkgdir/etc/bash_completion.d/go
   install -Dm644 misc/emacs/go-mode-load.el $pkgdir/usr/share/emacs/site-lisp/go-mode-load.el
@@ -67,13 +68,17 @@ build() {
   cp -r doc misc -t $pkgdir/usr/share/go
   cp -r pkg $pkgdir/usr/lib/go
 
-  install -Dm644 src/Make.{$GOARCH,common,cmd,pkg,conf} $pkgdir/usr/lib/go/src
+  install -Dm644 src/Make.* $pkgdir/usr/lib/go/src
 
   # Headers for C modules
   install -Dm644 src/pkg/runtime/runtime.h $pkgdir/usr/lib/go/src/pkg/runtime/runtime.h
   install -Dm644 src/pkg/runtime/cgocall.h $pkgdir/usr/lib/go/src/pkg/runtime/cgocall.h
 
-  install  $srcdir/go.sh $pkgdir/etc/profile.d/ 
-  
-  echo export GOARCH=$GOARCH >> $pkgdir/etc/profile.d/go.sh
+  install $srcdir/go.sh $pkgdir/etc/profile.d/
+
+  # Point Python scripts to the python2 binary
+  cd $pkgdir/usr/share/go/misc/dashboard
+  sed -i 's/python$/\02/' {buildcontrol,googlecode_upload}.py godashboard/app.yaml
+  sed -i 's/python"/python2"/' builder/main.go
+  sed -i 's/python /python2 /' builder.sh
 }
