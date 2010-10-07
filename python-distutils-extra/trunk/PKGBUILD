@@ -3,7 +3,7 @@
 # Contributor: Abhishek Dasgupta <abhidg@gmail.com>
 
 pkgname=python-distutils-extra
-pkgver=2.20
+pkgver=2.22
 pkgrel=1
 pkgdesc="Enhancements to the Python build system"
 arch=(any)
@@ -11,14 +11,15 @@ license=("GPL")
 url="http://packages.qa.debian.org/p/python-distutils-extra.html"
 depends=('intltool' 'python2')
 makedepends=('setuptools')
-source=(http://ftp.de.debian.org/debian/pool/main/p/${pkgname}/${pkgname}_${pkgver}.tar.gz)
-md5sums=('0b0939579047ee256e77e4f8fe345c3b')
+source=(http://launchpad.net/$pkgname/trunk/$pkgver/+download/$pkgname-$pkgver.tar.gz)
+md5sums=('c085b71263c37af48824f8a353475181')
 
 build() {
-  cd "${srcdir}/debian"
+  cd "${srcdir}/$pkgname-$pkgver"
 
   # python2 fix
-  sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' DistUtilsExtra/command/build_extra.py
+  sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' setup.py
+  sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' test/auto.py
 
   python2 setup.py install --root="${pkgdir}"
 }
