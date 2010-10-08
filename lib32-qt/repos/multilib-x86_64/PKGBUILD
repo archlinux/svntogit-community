@@ -1,0 +1,99 @@
+# $Id$
+# Maintainer: Florian Pritz <flo@xssn.at>
+# Contributor: Andrea Scarpino <andrea@archlinux.org>
+# Contributor: Pierre Schmitz <pierre@archlinux.de>
+
+_pkgbasename=qt
+pkgname=lib32-$_pkgbasename
+pkgver=4.7.0
+pkgrel=3
+pkgdesc='A cross-platform application and UI framework (32-bit)'
+arch=('x86_64')
+url='http://qt.nokia.com/'
+license=('GPL3' 'LGPL')
+depends=(lib32-{fontconfig,sqlite3,alsa-lib,glib2,dbus-core,openssl}
+         lib32-lib{png,tiff,mng,gl,sm,xrandr,xv,xi} $_pkgbasename)
+optdepends=('lib32-libxinerama: Xinerama support'
+            'lib32-libxcursor: Xcursor support'
+            'lib32-libxfixes: Xfixes support')
+makedepends=(cups gcc-multilib lib32-{mesa,libcups,libxfixes,gtk2})
+options=('!libtool')
+_pkgfqn="qt-everywhere-opensource-src-${pkgver}"
+source=("ftp://ftp.qt.nokia.com/qt/source/${_pkgfqn}.tar.gz"
+	'fix-scroll-when-last-item-is-removed.patch')
+md5sums=('3a2f25b9b115037277f4fb759194a7a5'
+         'ef20c34afc5be5ed62f2935be66d9402')
+
+build() {
+  unset QMAKESPEC
+  export QT4DIR=$srcdir/$_pkgfqn
+  export PATH=${QT4DIR}/bin:${PATH}
+  export LD_LIBRARY_PATH=${QT4DIR}/lib:${LD_LIBRARY_PATH}
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  cd $srcdir/$_pkgfqn
+
+  # Already fixed in 4.7.1
+  patch -Np1 -i ${srcdir}/fix-scroll-when-last-item-is-removed.patch
+
+  sed -e "s|-O2|$CXXFLAGS -m32|" \
+      -e "/^QMAKE_RPATH/s| -Wl,-rpath,||g" \
+      -e "/^QMAKE_LINK\s/s|g++|g++ -m32|g" \
+      -e "/^QMAKE_LFLAGS\s/s|+=|+= $LDFLAGS|g" \
+      -i mkspecs/common/g++.conf
+
+  ./configure -confirm-license -opensource -v -platform linux-g++-32 \
+    -prefix /usr \
+    -libdir /usr/lib32 \
+    -plugindir /usr/lib32/qt/plugins \
+    -importdir /usr/lib32/qt/imports \
+    -datadir /usr/share/qt \
+    -translationdir /usr/share/qt/translations \
+    -sysconfdir /etc \
+    -largefile \
+    -system-sqlite \
+    -xmlpatterns \
+    -no-phonon \
+    -no-phonon-backend \
+    -svg \
+    -webkit \
+    -script \
+    -scripttools \
+    -system-zlib \
+    -system-libtiff \
+    -system-libpng \
+    -system-libmng \
+    -system-libjpeg \
+    -nomake demos \
+    -nomake examples \
+    -nomake docs \
+    -nomake tools \
+    -no-rpath \
+    -openssl-linked \
+    -optimized-qmake \
+    -dbus \
+    -reduce-relocations \
+    -no-separate-debug-info \
+    -gtkstyle \
+    -opengl \
+    -no-openvg \
+    -glib
+
+  make
+}
+
+package() {
+  cd $srcdir/$_pkgfqn
+  make INSTALL_ROOT=$pkgdir install
+
+  # Fix wrong path in pkgconfig files
+  find ${pkgdir}/usr/lib32/pkgconfig -type f -name '*.pc' \
+    -exec perl -pi -e "s, -L${srcdir}/?\S+,,g" {} \;
+  # Fix wrong path in prl files
+  find ${pkgdir}/usr/lib32 -type f -name '*.prl' \
+    -exec sed -i -e '/^QMAKE_PRL_BUILD_DIR/d;s/\(QMAKE_PRL_LIBS =\).*/\1/' {} \;
+
+  rm -rf "${pkgdir}"/usr/{include,share,bin}
+  mkdir -p "$pkgdir/usr/share/licenses"
+  ln -s $_pkgbasename "$pkgdir/usr/share/licenses/$pkgname"
+}
