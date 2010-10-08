@@ -1,0 +1,116 @@
+# $Id$
+# Maintainer: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+# Contributor: Allan McRae <allan@archlinux.org>
+
+# toolchain build order: linux-api-headers->glibc->binutils->gcc->binutils->glibc
+# NOTE: valgrind requires rebuild with each new glibc version
+
+_pkgbasename=glibc
+pkgname=lib32-$_pkgbasename
+pkgver=2.12.1
+pkgrel=6
+_glibcdate=20101007
+pkgdesc="GNU C Library for multilib"
+arch=('x86_64')
+url="http://www.gnu.org/software/libc"
+license=('GPL' 'LGPL')
+depends=("glibc>=$pkgver")
+makedepends=('gcc-multilib>=4.4')
+options=('!strip' '!emptydirs')
+install=lib32-glibc.install
+source=(ftp://mirrors.kernel.org/archlinux/other/glibc/${_pkgbasename}-${pkgver}_${_glibcdate}.tar.xz
+        lib32-glibc.conf
+        glibc-2.10-dont-build-timezone.patch
+        glibc-2.10-bz4781.patch
+        glibc-__i686.patch
+        glibc-2.12.1-make-3.82-compatibility.patch
+        glibc-2.12.1-static-shared-getpagesize.patch
+        glibc-2.12.1-but-I-am-an-i686.patch)
+md5sums=('17189b123cebeb71cf7b7e7416b601a6'
+         '6e052f1cb693d5d3203f50f9d4e8c33b'
+         '4dadb9203b69a3210d53514bb46f41c3'
+         '0c5540efc51c0b93996c51b57a8540ae'
+         '40cd342e21f71f5e49e32622b25acc52'
+         '1deecaa78c0909f7175732da2af796b5'
+         '3215ed6996e7ecdd35bc105937c6e0dc'
+         'de17165e3fa721c4e056dacfc9ee1e52')
+
+build() {
+  cd ${srcdir}/glibc
+
+  # timezone data is in separate package (tzdata)
+  patch -Np1 -i ${srcdir}/glibc-2.10-dont-build-timezone.patch
+
+  # http://sources.redhat.com/bugzilla/show_bug.cgi?id=4781
+  patch -Np1 -i ${srcdir}/glibc-2.10-bz4781.patch
+
+  # http://sources.redhat.com/bugzilla/show_bug.cgi?id=411
+  # http://sourceware.org/ml/libc-alpha/2009-07/msg00072.html
+  patch -Np1 -i ${srcdir}/glibc-__i686.patch
+
+  # http://sourceware.org/git/?p=glibc.git;a=patch;h=32cf4069
+  patch -Np1 -i ${srcdir}/glibc-2.12.1-make-3.82-compatibility.patch
+
+  # http://sourceware.org/bugzilla/show_bug.cgi?id=11929
+  patch -Np1 -i ${srcdir}/glibc-2.12.1-static-shared-getpagesize.patch
+  
+  # fedora "fix" for excess linker optimization on i686
+  # proper fix will be in binutils-2.21
+  patch -Np1 -i ${srcdir}/glibc-2.12.1-but-I-am-an-i686.patch
+
+  mkdir glibc-build
+  cd glibc-build
+
+  # Hack to fix NPTL issues with Xen, only required on 32bit platforms
+  export CFLAGS="${CFLAGS} -mno-tls-direct-seg-refs"
+
+  echo "slibdir=/usr/lib32" >> configparms
+
+  export CC="gcc -m32"
+
+  ../configure --prefix=/usr \
+      --enable-add-ons=nptl,libidn --without-cvs \
+      --enable-kernel=2.6.18 --disable-profile \
+      --with-headers=/usr/include --libexecdir=/usr/lib32 \
+      --enable-bind-now --with-tls --with-__thread \
+      --libdir=/usr/lib32 --without-gd --disable-multi-arch \
+      i686-unknown-linux-gnu
+        
+  make
+}
+
+package() {
+  cd ${srcdir}/glibc/glibc-build
+  make install_root=${pkgdir} install
+
+  rm -rf ${pkgdir}/{etc,sbin,usr/{bin,sbin,share}}
+  # We need one 32 bit specific header file
+  find ${pkgdir}/usr/include -type f -not -name stubs-32.h -delete
+
+  # manually strip files as stripping libpthread-*.so and libthread_db.so
+  # with the default $STRIP_SHARED breaks gdb and stripping ld-*.so breaks
+  # valgrind on x86_64
+
+  cd $pkgdir
+  strip $STRIP_BINARIES usr/lib32/getconf/*
+
+  strip $STRIP_STATIC usr/lib32/*.a \
+                      usr/lib32/{{ld,libpthread}-${pkgver},libthread_db-1.0}.so
+
+  strip $STRIP_SHARED usr/lib32/{libanl,libBrokenLocale,libc,libcidn,libcrypt}-${pkgver}.so \
+                      usr/lib32/libnss_{compat,dns,files,hesiod,nis,nisplus}-${pkgver}.so \
+                      usr/lib32/{libdl,libm,libnsl,libresolv,librt,libutil}-${pkgver}.so \
+                      usr/lib32/{libmemusage,libpcprofile,libSegFault}.so \
+                      usr/lib32/{pt_chown,gconv/*.so}
+
+  # Dynamic linker
+  install -d -m755 ${pkgdir}/lib
+  ln -s ../usr/lib32/ld-linux.so.2 ${pkgdir}/lib/
+
+  # Add /usr/lib32 to the default library search path
+  install -Dm644 "$srcdir/lib32-glibc.conf" "$pkgdir/etc/ld.so.conf.d/lib32-glibc.conf"
+
+  # Symlink /usr/lib/locale to /usr/lib32/locale
+  ln -s ../lib/locale "$pkgdir/usr/lib32/locale"
+}
