@@ -1,16 +1,15 @@
-# Maintainer: Chris Brannon <cmbrannon79@gmail.com>
+# Maintainer: Chris Brannon <chris@the-brannons.com>
 # Contributor : Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgbase=ipython
 pkgname=(ipython ipython-docs)
-pkgver=0.10
-pkgrel=5
+pkgver=0.10.1
+pkgrel=1
 arch=('any')
 url="http://ipython.scipy.org/"
 license=('custom')
   makedepends=('python2') # for setup.py
-source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz"
-            warning.patch)
+source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz")
 
 build() {
   true
@@ -28,12 +27,6 @@ package_ipython() {
               "python-nose: if you want to run IPython's test suite")
 
   cd "$srcdir/$pkgbase-$pkgver"
-
-  # Apply a patch to get rid of a useless warning.
-  # This is the same code that is in upstream's VCS, so the patch can
-  # go away with the next release.
-# Thanks to Andrzej Giniewicz for the patch against 0.10.
-  patch -p1 < "$srcdir/warning.patch"
 
   install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython/license.txt"
   python2 setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
@@ -56,5 +49,4 @@ package_ipython-docs() {
   # This seems wrong.  We're running setup.py for both
   # packages, and removing different things in each.
 }
-md5sums=('dd10cd1b622c16c1afca2239fcc0dfdf'
-         '45f16a0133b8e8714722c212fe5dfc87')
+md5sums=('54ae47079b0e9a0998593a99ce76ec1f')
