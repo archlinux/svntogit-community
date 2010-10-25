@@ -6,4 +6,4 @@ then
 fi
 
 export HSOCONF=/usr/share/hsoconnect/hsoconf
-python /usr/share/hsoconnect/hsoc/HSOconnect.py
+python2 /usr/share/hsoconnect/hsoc/HSOconnect.py
