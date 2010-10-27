@@ -1,3 +1,3 @@
 #!/bin/bash
 cd /usr/share/fretsonfire/bin
-python FretsOnFire.py
+python2 FretsOnFire.py
