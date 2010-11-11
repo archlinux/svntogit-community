@@ -4,18 +4,17 @@
 # Contributor: Corrado Primier <bardo@aur.archlinux.org>
 # Contributor: William Rea <sillywilly@gmail.com>
 
-pkgname=pulseaudio
+pkgbase=pulseaudio
+pkgname=(pulseaudio libpulse)
 pkgver=0.9.21
-pkgrel=13
-__gitcommit=a21b832
-pkgdesc="A networked sound server"
+pkgrel=14
+pkgdesc="A featureful, general-purpose sound server"
 arch=(i686 x86_64)
-url="http://pulseaudio.org/"
+url="http://$pkgbase.org/"
 license=(GPL LGPL)
-depends=(libasyncns libcap attr libxtst libsm tcp_wrappers libsndfile
-         libtool rtkit speex libsamplerate tdb udev dbus-core xcb-util)
-makedepends=(autoconf avahi bluez doxygen gconf intltool jack lirc-utils pkgconfig
-             git rsync openssl)
+makedepends=(libasyncns libcap attr libxtst libsm tcp_wrappers libsndfile
+             libtool rtkit speex libsamplerate tdb udev dbus-core xcb-util
+             avahi bluez gconf intltool jack lirc-utils pkgconfig openssl)
 optdepends=('alsa-plugins: ALSA support'
             'avahi: zeroconf support'
             'bluez: bluetooth support'
@@ -23,69 +22,74 @@ optdepends=('alsa-plugins: ALSA support'
             'jack: jack support'
             'lirc-utils: infra-red support'
             'openssl: RAOP support')
-options=(emptydirs !libtool !makeflags !strip)
-backup=(etc/pulse/{client.conf,daemon.conf,default.pa,system.pa})
-install=pulseaudio.install
-source=(pulseaudio.conf pulseaudio.rc)
-md5sums=('d4a7d4ad51b406588ba7ac7931c5dd88'
-         'c5aa09c1d3e2217dc3bb23138e2a5a1d')
-
-__gitroot=git://git.0pointer.de/pulseaudio.git
-__gitname=pulseaudio
-__gitbranch=stable-queue
+options=(!emptydirs !libtool !makeflags)
+source=("http://mirrors.kernel.org/archlinux/other/$pkgbase/$pkgbase-$pkgver.tar.xz"
+        $pkgbase.xinit)
+md5sums=('d54a4889f002b964d0f3533b89f28cbb'
+         'eb1cfae28eb2e4d3fdbe45a90e4318ab')
 
 build() {
-  cd "$srcdir"
+  cd "$srcdir/$pkgbase-$pkgver"
 
-  msg2 "Checking out source from git..."
-
-  [[ ! -d $__gitname ]] && git clone $__gitroot $__gitname
-
-  cd $__gitname
-  git fetch origin $__gitbranch || warning 'git fetch failed!'
-
-  if [[ $(git rev-parse $__gitcommit) != $(git rev-parse origin/$__gitbranch) ]]; then
-    warning 'You are not building the latest revision!'
-    warning "Consider updating __gitcommit to $(git rev-parse --short origin/$__gitbranch)."
-    sleep 10
-  fi
-
-  git checkout $__gitcommit
-  cd ..
-
-  rm -rf $__gitname-build
-  rsync -a --exclude='.git/' $__gitname/ $__gitname-build
-  cd "$__gitname-build"
-
-  msg2 "Building..."
-
-  # Fix linking dependency cycle between libpulse and libpulsecommon
+  # Don't break circular dependency between libpulse and libpulsecommon
   LDFLAGS="${LDFLAGS//-Wl,--as-needed}"
-  LDFLAGS="${LDFLAGS//,--as-needed}"
-  LDFLAGS="${LDFLAGS//--as-needed}"
 
-  # Fix strict aliasing warnings
-  CFLAGS+=" -fno-strict-aliasing"
+  ./configure --prefix=/usr \
+    --sysconfdir=/etc \
+    --libexecdir=/usr/lib \
+    --localstatedir=/var \
+    --disable-hal \
+    --disable-rpath \
+    --with-database=tdb
 
-  echo "$pkgver" > .tarball-version
-
-  sh autogen.sh --disable-hal --disable-rpath \
-    --libexecdir=/usr/lib --localstatedir=/var \
-    --prefix=/usr --sysconfdir=/etc --with-database=tdb
   make
-  make doxygen
 }
 
-package() {
-  cd "$srcdir/$__gitname-build"
+package_pulseaudio() {
+  depends=(libasyncns libcap attr libxtst libsm tcp_wrappers libsndfile
+           libtool rtkit speex libsamplerate tdb udev dbus-core xcb-util)
+  backup=(etc/pulse/{daemon.conf,default.pa,system.pa})
+  install=pulseaudio.install
+  cd "$srcdir/$pkgbase-$pkgver"
   make DESTDIR="$pkgdir" install
 
-  install -Dm755 "$srcdir/pulseaudio.rc" "$pkgdir/etc/rc.d/pulseaudio"
-  install -Dm644 "$srcdir/pulseaudio.conf" "$pkgdir/etc/conf.d/pulseaudio"
-  install -dm755 "$pkgdir/var/run/pulse"
+  # Lower resample quality
+  sed -e '/resample-method/iresample-method=speex-float-0' \
+      -i "$pkgdir/etc/pulse/daemon.conf"
 
-  # Ugly fix for pulseaudio system users
-  install -dm755 "$pkgdir/var/pulse"
-  echo -e '\n### Automatically restore volumes\nload-module module-volume-restore table="/var/pulse/volume-restore.table"' \
-    >> "$pkgdir/etc/pulse/system.pa"
+  sed -e 's|/usr/bin/pactl load-module module-x11-cork-request|#&|' \
+      -i "$pkgdir/usr/bin/start-$pkgbase-x11"
+
+  install -Dm755 "$srcdir/$pkgbase.xinit" "$pkgdir/etc/X11/xinit/xinitrc.d/$pkgbase"
+
+  rm "$pkgdir/etc/dbus-1/system.d/$pkgbase-system.conf"
+
+### Split libpulse
+
+  mkdir -p "$srcdir"/libpulse/{etc/pulse,usr/{bin,lib,share/{man/man{1,5},vala/vapi}}}
+
+  mv {"$pkgdir","$srcdir/libpulse"}/etc/pulse/client.conf
+
+  mv "$pkgdir"/usr/bin/{esdcompat,pa{cat,cmd,ctl,dsp,mon,play,rec*,suspender}} \
+     "$srcdir/libpulse/usr/bin"
+
+  mv "$pkgdir"/usr/lib/libpulse{,dsp,-simple,-browse,-mainloop-glib}.so* \
+     "$pkgdir"/usr/lib/libpulse{core,common}-*.so \
+     "$srcdir/libpulse/usr/lib"
+
+  mv {"$pkgdir","$srcdir/libpulse"}/usr/lib/pkgconfig
+  mv {"$pkgdir","$srcdir/libpulse"}/usr/include
+
+  mv "$pkgdir"/usr/share/man/man1/pa{cat,cmd,ctl,dsp,play,suspender}.1 \
+     "$srcdir/libpulse/usr/share/man/man1/"
+
+  mv {"$pkgdir","$srcdir/libpulse"}/usr/share/man/man5/pulse-client.conf.5
+  mv {"$pkgdir","$srcdir/libpulse"}/usr/share/vala/vapi/libpulse.vapi
+}
+
+package_libpulse() {
+  depends=(libasyncns libcap attr libxtst libsm tcp_wrappers libsndfile
+           libtool rtkit speex libsamplerate tdb udev dbus-core xcb-util)
+  backup=(etc/pulse/client.conf)
+  mv "$srcdir"/libpulse/* "$pkgdir"
 }
