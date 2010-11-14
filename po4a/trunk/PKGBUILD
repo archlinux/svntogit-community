@@ -1,3 +1,4 @@
+# $Id
 # Maintainer: Thorsten Töpper <atsutane-tu@freethoughts.de>
 # Contributor: Francois Boulogne <fboulogne at april dot org>
 # Contributor: Andre Klitzing <aklitzing () online () de>
@@ -22,7 +23,7 @@ build()
   cd "${srcdir}/${pkgname}-v${pkgver}"
   perl Build.PL
   perl Build
-  make
+  LANG=en_US.UTF-8 make
 }
 
 package() {
