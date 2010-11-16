@@ -1,0 +1,38 @@
+#!/bin/bash
+
+. /etc/rc.conf
+. /etc/rc.d/functions
+
+# source application-specific settings
+[ -f /etc/conf.d/ntop ] && . /etc/conf.d/ntop
+
+case "$1" in
+  start)
+    stat_busy "Starting ntop daemon"
+    /usr/bin/ntop -d ${NTOP_ARGS} 2>&1 >> ${NTOP_LOG}
+    if [ $? -gt 0 ]; then
+      stat_fail
+    else
+      add_daemon ntop
+      stat_done
+    fi
+    ;;
+  stop)
+    stat_busy "Stopping ntop daemon"
+    killall /usr/bin/ntop &> /dev/null
+    if [ $? -gt 0 ]; then
+      stat_fail
+    else
+      rm_daemon ntop
+      stat_done
+    fi
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "usage: $0 {start|stop|restart}"  
+esac
+exit 0
