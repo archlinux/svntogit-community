@@ -4,7 +4,15 @@ TARGETDIR=$2
 
 mkdir -p $TARGETDIR
 
-echo "<HTML><BODY>" > $TARGETDIR/index.html
+cat > $TARGETDIR/index.html <<EOF
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<HTML>
+	<HEAD>
+		<TITLE>ArchWiki index</TITLE>
+		<META http-equiv="content-type" content="text/html; charset=utf-8"/>
+	</HEAD>
+	<BODY>
+EOF
 
 $1/index.pl http://wiki.archlinux.org | while read A; do
     TITLE=`echo $A | cut -d \  -f 2- | tr ' ' '_'`
