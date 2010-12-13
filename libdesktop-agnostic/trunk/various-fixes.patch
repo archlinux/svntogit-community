@@ -1,26 +1,96 @@
 diff -u -Nr libdesktop-agnostic-0.3.90/debian/control various-fixes/debian/control
---- libdesktop-agnostic-0.3.90/debian/control	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/debian/control	2010-10-02 04:42:20.187222000 +0200
-@@ -6,6 +6,7 @@
+--- libdesktop-agnostic-0.3.90/debian/control	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/debian/control	2010-12-13 00:25:43.443333360 -0800
+@@ -6,11 +6,12 @@
  # for waf
                 python,
  # "real" deps
 +               intltool,
                 valac (>= 0.7.10),
                 gobject-introspection (>= 0.6.3),
-                gobject-introspection-glib-2.0,
+-               gobject-introspection-glib-2.0,
+-               gobject-introspection-freedesktop,
+-               gobject-introspection-repository,
++               gir-repository-dev (>= 0.6.3) | gobject-introspection-glib-2.0,
++               gir-repository-dev (>= 0.6.3) | gobject-introspection-freedesktop,
++               gir-repository-dev (>= 0.6.3) | gobject-introspection-repository,
+                libgirepository1.0-dev (>= 0.6.3),
+                libglib2.0-dev (>= 2.16.0),
+                libgtk2.0-dev,
+@@ -29,6 +30,8 @@
+                libdbus-glib-1-dev,
+                libgnomevfs2-dev,
+                libgnome-desktop-dev,
++# For Debian packaging
++               lsb-release,
+ Standards-Version: 3.8.3
+ Homepage: https://launchpad.net/libdesktop-agnostic
+ 
+diff -u -Nr libdesktop-agnostic-0.3.90/debian/gir1.0-desktopagnostic-1.0.install various-fixes/debian/gir1.0-desktopagnostic-1.0.install
+--- libdesktop-agnostic-0.3.90/debian/gir1.0-desktopagnostic-1.0.install	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/debian/gir1.0-desktopagnostic-1.0.install	2010-12-13 00:25:43.453333373 -0800
+@@ -1,2 +1,2 @@
+-usr/lib/girepository-1.0
+-usr/share/gir-1.0
++#usr/lib/girepository-1.0
++#usr/share/gir-1.0
 diff -u -Nr libdesktop-agnostic-0.3.90/debian/libdesktop-agnostic0.install various-fixes/debian/libdesktop-agnostic0.install
---- libdesktop-agnostic-0.3.90/debian/libdesktop-agnostic0.install	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/debian/libdesktop-agnostic0.install	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/debian/libdesktop-agnostic0.install	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/debian/libdesktop-agnostic0.install	2010-12-13 00:25:36.616666713 -0800
 @@ -1,4 +1,5 @@
  usr/lib/desktop-agnostic/modules/libda-cfg-type-color.so
  usr/lib/desktop-agnostic/modules/libda-module-guesser.so
  usr/lib/*.so.0*
 +usr/share/locale/
  usr/etc/xdg etc/
+diff -u -Nr libdesktop-agnostic-0.3.90/debian/rules various-fixes/debian/rules
+--- libdesktop-agnostic-0.3.90/debian/rules	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/debian/rules	2010-12-13 00:25:43.453333373 -0800
+@@ -1,5 +1,8 @@
+ #!/usr/bin/make -f
+ 
++DISTRO = "$(shell lsb_release -si)"
++NUM = "$(shell lsb_release -sr)"
++
+ #Workaround a segfault on amd64 when optimization are O2
+ ifeq (amd64,$(shell dpkg-architecture -qDEB_HOST_ARCH))
+ 	CFLAGS += -O0
+@@ -11,12 +14,32 @@
+ 	dh $@
+ 
+ override_dh_auto_configure:
++#Suport for Karmic (9.10)
++ifeq ($(NUM),"9.10")
++	LINKFLAGS="${LDFLAGS} -Wl,--as-needed" ./waf --nocache configure --prefix=/usr --enable-debug --config-backends=gconf,keyfile --vfs-backends=gio,gnome-vfs,thunar-vfs --desktop-entry-backends=glib,gnome --with-glade --enable-docs --disable-gi
++#Suport for Lucid (10.04)
++else ifeq ($(NUM),"10.04")
++	LINKFLAGS="${LDFLAGS} -Wl,--as-needed" ./waf --nocache configure --prefix=/usr --enable-debug --config-backends=gconf,keyfile --vfs-backends=gio,gnome-vfs,thunar-vfs --desktop-entry-backends=glib,gnome --with-glade --enable-docs --disable-gi
++else
+ 	LINKFLAGS="${LDFLAGS} -Wl,--as-needed" ./waf --nocache configure --prefix=/usr --enable-debug --config-backends=gconf,keyfile --vfs-backends=gio,gnome-vfs,thunar-vfs --desktop-entry-backends=glib,gnome --with-glade --enable-docs
++endif
+ 	./waf --nocache build
+ 
+ override_dh_auto_install:
+ 	./waf --nocache install --destdir=$(CURDIR)/debian/tmp
+ 
++#Keep this until 10.04 and 9.10 are maintained
++override_dh_install:
++	dh_install
++ifeq ($(NUM),"10.10")
++	dh_install -pgir1.0-desktopagnostic-1.0 usr/lib/girepository-1.0
++	dh_install -pgir1.0-desktopagnostic-1.0 usr/share/gir-1.0
++endif
++ifeq ($(NUM),"11.04")
++	dh_install -pgir1.0-desktopagnostic-1.0 usr/lib/girepository-1.0
++	dh_install -pgir1.0-desktopagnostic-1.0 usr/share/gir-1.0
++endif
++
+ override_dh_strip:
+ 	dh_strip --dbg-package=libdesktop-agnostic0-dbg
+ 
 diff -u -Nr libdesktop-agnostic-0.3.90/docs/install.rst various-fixes/docs/install.rst
---- libdesktop-agnostic-0.3.90/docs/install.rst	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/docs/install.rst	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/docs/install.rst	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/docs/install.rst	2010-12-13 00:25:36.616666713 -0800
 @@ -51,6 +51,7 @@
  * GObject Introspection 0.6.3 or later (requires the development files, to
    properly detect the correct version)
@@ -30,8 +100,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/docs/install.rst various-fixes/docs/insta
  Build/Runtime (*required*)
  ~~~~~~~~~~~~~~~~~~~~~~~~~~
 diff -u -Nr libdesktop-agnostic-0.3.90/docs/known-issues.rst various-fixes/docs/known-issues.rst
---- libdesktop-agnostic-0.3.90/docs/known-issues.rst	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/docs/known-issues.rst	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/docs/known-issues.rst	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/docs/known-issues.rst	2010-12-13 00:25:36.616666713 -0800
 @@ -19,7 +19,7 @@
      config-bridge.vala:164: warning: pointer targets in passing argument 2 of ‘g_object_class_list_properties’ differ in signedness
      desktop-entry-impl-glib.c:306: warning: pointer targets in passing argument 4 of ‘g_key_file_get_string_list’ differ in signedness
@@ -42,8 +112,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/docs/known-issues.rst various-fixes/docs/
  .. [3] See `GNOME Bug #592108`_ (fixed in Vala 0.7.6).
  
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-bridge.vala various-fixes/libdesktop-agnostic/config-bridge.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-bridge.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-bridge.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-bridge.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-bridge.vala	2010-12-13 00:25:36.616666713 -0800
 @@ -202,14 +202,13 @@
                                          string key, ParamSpec spec,
                                          NotifyFuncHandler func) throws GLib.Error
@@ -73,8 +143,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-bridge.vala va
        bindings_list = this.bindings.get_data (binding_key);
        bindings_to_remove = new SList<uint> ();
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-client.vala various-fixes/libdesktop-agnostic/config-client.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-client.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-client.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-client.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-client.vala	2010-12-13 00:25:36.616666713 -0800
 @@ -101,13 +101,12 @@
      // constructors
      public Client (string schema_filename)
@@ -92,8 +162,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-client.vala va
      /**
       * Auto-determines whether an instance config object should be created.
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-gconf.vala various-fixes/libdesktop-agnostic/config-impl-gconf.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-gconf.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-impl-gconf.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-gconf.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-impl-gconf.vala	2010-12-13 00:25:36.616666713 -0800
 @@ -654,7 +654,6 @@
    }
  }
@@ -103,8 +173,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-gconf.val
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-keyfile.vala various-fixes/libdesktop-agnostic/config-impl-keyfile.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-keyfile.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-impl-keyfile.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-keyfile.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-impl-keyfile.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -697,6 +697,10 @@
  
        if (value.n_values == 0)
@@ -125,8 +195,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-keyfile.v
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-memory.vala various-fixes/libdesktop-agnostic/config-impl-memory.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-memory.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-impl-memory.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-memory.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-impl-memory.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -226,7 +226,6 @@
      }
    }
@@ -136,8 +206,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-memory.va
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-null.vala various-fixes/libdesktop-agnostic/config-impl-null.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-null.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-impl-null.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-null.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-impl-null.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -121,7 +121,6 @@
      }
    }
@@ -147,8 +217,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-impl-null.vala
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-schema.vala various-fixes/libdesktop-agnostic/config-schema.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-schema.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-schema.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-schema.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-schema.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -188,7 +188,8 @@
       */
      public Schema (string filename) throws GLib.Error
@@ -160,8 +230,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-schema.vala va
        this.options = Datalist<SchemaOption> ();
        this.keys = new HashTable<string,List<string>> (str_hash, str_equal);
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-type-color.vala various-fixes/libdesktop-agnostic/config-type-color.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-type-color.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/config-type-color.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-type-color.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/config-type-color.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -120,7 +120,6 @@
      dest_value = ct.deserialize ((string)src_value);
    }
@@ -171,8 +241,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/config-type-color.val
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gio.vala various-fixes/libdesktop-agnostic/desktop-entry-impl-gio.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gio.vala	1970-01-01 01:00:00.000000000 +0100
-+++ various-fixes/libdesktop-agnostic/desktop-entry-impl-gio.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gio.vala	1969-12-31 16:00:00.000000000 -0800
++++ various-fixes/libdesktop-agnostic/desktop-entry-impl-gio.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -0,0 +1,394 @@
 +/*
 + * Desktop Agnostic Library: Desktop Entry implementation using GLib.
@@ -569,8 +639,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gi
 +
 +// vim: set ts=2 sts=2 sw=2 et ai cindent :
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-glib.vala various-fixes/libdesktop-agnostic/desktop-entry-impl-glib.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-glib.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/desktop-entry-impl-glib.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-glib.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/desktop-entry-impl-glib.vala	2010-12-13 00:25:36.620000103 -0800
 @@ -531,6 +531,59 @@
          throw new DesktopEntryError.NOT_LAUNCHABLE ("Could not parse Exec key.");
        }
@@ -640,8 +710,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gl
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gnome.vala various-fixes/libdesktop-agnostic/desktop-entry-impl-gnome.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gnome.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/desktop-entry-impl-gnome.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gnome.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/desktop-entry-impl-gnome.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -305,7 +305,6 @@
    }
  }
@@ -651,8 +721,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/desktop-entry-impl-gn
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-icon-chooser-dialog.vala various-fixes/libdesktop-agnostic/ui-icon-chooser-dialog.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-icon-chooser-dialog.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/ui-icon-chooser-dialog.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-icon-chooser-dialog.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/ui-icon-chooser-dialog.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -35,13 +35,40 @@
      FILE
    }
@@ -988,11 +1058,42 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-icon-chooser-dialo
            dialog.run ();
            dialog.destroy ();
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-launcher-editor-dialog.vala various-fixes/libdesktop-agnostic/ui-launcher-editor-dialog.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-launcher-editor-dialog.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/ui-launcher-editor-dialog.vala	2010-10-02 04:42:20.187222000 +0200
-@@ -70,20 +70,9 @@
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-launcher-editor-dialog.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/ui-launcher-editor-dialog.vala	2010-12-13 00:25:43.453333373 -0800
+@@ -53,37 +53,38 @@
+       this.attach (widget, left_attach, right_attach, top_attach, bottom_attach,
+                    AttachOptions.FILL, 0, 0, 0);
+     }
++
++    public void
++    attach_expand (Widget widget, uint left_attach, uint right_attach,
++                   uint top_attach, uint bottom_attach)
++    {
++      this.attach (widget, left_attach, right_attach, top_attach, bottom_attach,
++                   AttachOptions.FILL | AttachOptions.EXPAND, 0, 0, 0);
++    }
+   }
  
-     public LauncherEditorDialog (VFS.File file, VFS.File? output, bool standalone)
+   public class LauncherEditorDialog : Dialog
+   {
++    private ComboBox _type_combo;
+     private IconButton _icon;
+     private Entry _name;
+     private Entry _desc;
+     private Entry _exec;
++    private Expander _advanced;
+     private CheckButton _terminal;
+     private CheckButton _startup_notification;
++    private unowned Label _command_label;
+     public unowned VFS.File file { get; construct; }
+     public VFS.File? output { get; construct; }
+-    private bool _standalone;
++    public bool entry_type_sensitive { get; construct set; default = false; }
+     private DesktopEntry _entry;
+ 
+-    public LauncherEditorDialog (VFS.File file, VFS.File? output, bool standalone)
++    public LauncherEditorDialog (VFS.File file, VFS.File? output = null,
++                                 bool entry_type_sensitive = true)
      {
 -      WindowType type;
 -
@@ -1005,32 +1106,271 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/ui-launcher-editor-di
 -        type = WindowType.POPUP;
 -      }
 -      this.type = type;
-+      GLib.Object (type: standalone ? WindowType.TOPLEVEL : WindowType.POPUP,
-+                   file: file, output: output);
-       this._standalone = standalone;
+-      this._standalone = standalone;
 -      this.file = file;
 -      this.output = output;
++      GLib.Object (file: file, output: output,
++                   border_width: 4,
++                   entry_type_sensitive: entry_type_sensitive);
      }
  
      private override void
-@@ -210,6 +199,14 @@
-       advanced.add (advanced_vbox);
-       table.attach_fill (advanced, 0, 3, 3, 4);
+@@ -91,13 +92,6 @@
+     {
+       this.title = _ ("Desktop Entry Editor");
+       this.icon_name = "gtk-preferences";
+-      if (this._standalone)
+-      {
+-        this.delete_event.connect((widget, event) => {
+-          main_quit ();
+-          return true;
+-        });
+-      }
+       if (this._output == null)
+       {
+         this._output = file;
+@@ -113,10 +107,10 @@
+       string icon;
+       Button exec_button;
+       Image exec_image;
+-      Label name_label, desc_label, exec_label;
++      Label type_label, name_label, desc_label, exec_label;
+       HBox exec_hbox;
+-      Expander advanced;
+       VBox advanced_vbox;
++      bool is_application = true;
  
+       // Action bar
+       this.add_buttons (STOCK_CANCEL, ResponseType.CANCEL,
+@@ -125,12 +119,12 @@
+       this.response.connect (this.on_response);
+ 
+       // Form container
+-      table = new FixedTable (4, 3);
++      table = new FixedTable (3, 5);
+       // FIXME Table.row_spacing needs [NoAccessorMethod] in the VAPI, in
+       // Vala 0.7.6
+       //table.row_spacing = 5;
+       table.set_row_spacings (5);
+-      table.column_spacing = 5;
++      table.column_spacing = 6;
+ 
+       // Icon
+       if (this._entry.key_exists ("Icon"))
+@@ -143,11 +137,48 @@
+       }
+       this._icon = new IconButton (icon);
+       this._icon.icon_selected.connect (this.on_icon_changed);
+-      table.attach_defaults (this._icon, 0, 1, 0, 3);
++      table.attach_defaults (this._icon, 0, 1, 0, 4);
++
++      // Entry Type
++      if (this._entry.key_exists ("Type"))
++      {
++        is_application = this._entry.entry_type == DesktopEntryType.APPLICATION;
++      }
++      else
++      {
++        // if type is unset, use application
++        this._entry.entry_type = DesktopEntryType.APPLICATION;
++      }
++      type_label = new Label.with_mnemonic (_ ("T_ype:"));
++      type_label.xalign = 1.0f;
++      table.attach_defaults (type_label, 1, 2, 0, 1);
++      this._type_combo = new ComboBox.text ();
++      this._type_combo.append_text (_ ("Application"));
++      this._type_combo.append_text (_ ("Location"));
++      type_label.set_mnemonic_widget (this._type_combo);
++
++      int active_index = -1;
++      switch (this._entry.entry_type)
++      {
++        case DesktopEntryType.APPLICATION:
++          active_index = 0;
++          break;
++        case DesktopEntryType.LINK:
++          active_index = 1;
++          break;
++      }
++      this._type_combo.set_active (active_index);
++      this._type_combo.set_sensitive (entry_type_sensitive);
++      this.notify["entry-type-sensitive"].connect (
++        () => { this._type_combo.set_sensitive (this.entry_type_sensitive); }
++      );
++      this._type_combo.changed.connect (this.on_type_changed);
++      table.attach_expand (this._type_combo, 2, 3, 0, 1);
+ 
+       // Name
+       name_label = new Label.with_mnemonic (_ ("_Name:"));
+-      table.attach_defaults (name_label, 1, 2, 0, 1);
++      name_label.xalign = 1.0f;
++      table.attach_defaults (name_label, 1, 2, 1, 2);
+       this._name = new Entry ();
+       name_label.set_mnemonic_widget (this._name);
+       if (this._entry.key_exists ("Name"))
+@@ -155,11 +186,12 @@
+         this._name.set_text (this._entry.name);
+       }
+       this._name.changed.connect (this.on_name_changed);
+-      table.attach_defaults (this._name, 2, 3, 0, 1);
++      table.attach_expand (this._name, 2, 3, 1, 2);
+ 
+       // Description
+       desc_label = new Label.with_mnemonic (_ ("_Description:"));
+-      table.attach_defaults (desc_label, 1, 2, 1, 2);
++      desc_label.xalign = 1.0f;
++      table.attach_defaults (desc_label, 1, 2, 2, 3);
+       this._desc = new Entry ();
+       desc_label.set_mnemonic_widget (this._desc);
+       if (this._entry.key_exists ("Comment"))
+@@ -167,31 +199,36 @@
+         this._desc.set_text (this._entry.get_string ("Comment"));
+       }
+       this._desc.changed.connect (this.on_desc_changed);
+-      table.attach_defaults (this._desc, 2, 3, 1, 2);
++      table.attach_expand (this._desc, 2, 3, 2, 3);
+ 
+       // Exec
+       exec_label = new Label.with_mnemonic (_ ("_Command:"));
+-      table.attach_defaults (exec_label, 1, 2, 2, 3);
++      _command_label = exec_label;
++      exec_label.xalign = 1.0f;
++      table.attach_defaults (exec_label, 1, 2, 3, 4);
+       exec_hbox = new HBox (false, 5);
+       this._exec = new Entry ();
+       exec_label.set_mnemonic_widget (this._exec);
+-      if (this._entry.key_exists ("Exec"))
++
++      string key_name = is_application ? "Exec" : "URL";
++      if (this._entry.key_exists (key_name))
+       {
+-        this._exec.set_text (this._entry.get_string ("Exec"));
++        this._exec.set_text (this._entry.get_string (key_name));
+       }
++
+       this._exec.changed.connect (this.on_exec_changed);
+-      exec_hbox.add (this._exec);
++      exec_hbox.pack_start (this._exec, true);
+       exec_button = new Button.with_mnemonic (_ ("_Browse..."));
+       exec_image = new Image.from_stock (STOCK_OPEN, IconSize.BUTTON);
+       exec_button.set_image (exec_image);
+       exec_button.clicked.connect (this.on_exec_browse);
+-      exec_hbox.add (exec_button);
+-      table.attach_defaults (exec_hbox, 2, 3, 2, 3);
++      exec_hbox.pack_start (exec_button, false);
++      table.attach_expand (exec_hbox, 2, 3, 3, 4);
+ 
+       // Advanced options
+       // TODO look into ResizeMode so that the window shrinks when the expander
+       // is un-expanded.
+-      advanced = new Expander.with_mnemonic (_ ("_Advanced"));
++      this._advanced = new Expander.with_mnemonic (_ ("_Advanced"));
+       advanced_vbox = new VBox (false, 5);
+       this._terminal = new CheckButton.with_mnemonic (_ ("Run in _terminal"));
+       if (this._entry.key_exists ("Terminal"))
+@@ -207,8 +244,20 @@
+       }
+       this._startup_notification.toggled.connect (this.on_startup_notification_toggled);
+       advanced_vbox.add (this._startup_notification);
+-      advanced.add (advanced_vbox);
+-      table.attach_fill (advanced, 0, 3, 3, 4);
++      this._advanced.add (advanced_vbox);
++      table.attach_expand (this._advanced, 0, 3, 4, 5);
++
++      // make sure widgets are properly set up
++      on_type_changed (this._type_combo);
++
 +      List<unowned Widget> focus_chain_list = new List<unowned Widget> ();
++      focus_chain_list.append (this._type_combo);
 +      focus_chain_list.append (this._name);
 +      focus_chain_list.append (this._desc);
 +      focus_chain_list.append (exec_hbox);
 +      focus_chain_list.append (this._icon);
-+      focus_chain_list.append (advanced);
++      focus_chain_list.append (this._advanced);
 +      table.set_focus_chain (focus_chain_list);
-+
+ 
        this.vbox.add (table);
      }
+@@ -220,6 +269,29 @@
+     }
  
+     private void
++    on_type_changed (ComboBox combo)
++    {
++      switch (combo.get_active ())
++      {
++        case 0: this._entry.entry_type = DesktopEntryType.APPLICATION; break;
++        case 1: this._entry.entry_type = DesktopEntryType.LINK; break;
++      }
++
++      if (this._entry.entry_type == DesktopEntryType.LINK)
++      {
++        this._command_label.set_markup_with_mnemonic (_ ("_Location:"));
++        this._advanced.hide ();
++        this._advanced.set_no_show_all (true);
++      }
++      else
++      {
++        this._command_label.set_markup_with_mnemonic (_ ("_Command:"));
++        this._advanced.set_no_show_all (false);
++        this._advanced.show ();
++      }
++    }
++
++    private void
+     on_name_changed (Editable editable)
+     {
+       Entry entry = editable as Entry;
+@@ -237,7 +309,9 @@
+     on_exec_changed (Editable editable)
+     {
+       Entry entry = editable as Entry;
+-      this._entry.set_string ("Exec", entry.text);
++      string key_name =
++        this._entry.entry_type == DesktopEntryType.LINK ? "URL" : "Exec";
++      this._entry.set_string (key_name, entry.text);
+     }
+ 
+     private void
+@@ -246,14 +320,17 @@
+       FileChooserDialog dialog;
+       int response;
+ 
+-      dialog = new FileChooserDialog (_ ("Locate Command"), this,
++      bool is_link = this._entry.entry_type == DesktopEntryType.LINK;
++      string title = is_link ? _ ("Locate a file") : _ ("Locate Command");
++
++      dialog = new FileChooserDialog (title, this,
+                                       FileChooserAction.OPEN,
+                                       STOCK_CANCEL, ResponseType.CANCEL,
+                                       STOCK_OK, ResponseType.OK);
+       response = dialog.run ();
+       if (response == ResponseType.OK)
+       {
+-        this._exec.text = dialog.get_filename ();
++        this._exec.text = is_link ? dialog.get_uri () : dialog.get_filename ();
+       }
+       dialog.destroy ();
+     }
+@@ -345,14 +422,7 @@
+           }
+         }
+       }
+-      if (this._standalone)
+-      {
+-        main_quit ();
+-      }
+-      else
+-      {
+-        this.hide ();
+-      }
++      this.hide ();
+     }
+   }
+ }
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-bookmarks-gtk.vala various-fixes/libdesktop-agnostic/vfs-bookmarks-gtk.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-bookmarks-gtk.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-bookmarks-gtk.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-bookmarks-gtk.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-bookmarks-gtk.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -77,7 +77,7 @@
       */
      public GtkBookmarks (File? file = null, bool monitor = true)
@@ -1040,9 +1380,199 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-bookmarks-gtk.val
        if (this._file.exists ())
        {
          this.parse ();
+diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file-impl-gio.vala various-fixes/libdesktop-agnostic/vfs-file-impl-gio.vala
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file-impl-gio.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-file-impl-gio.vala	2010-12-13 00:25:43.456666706 -0800
+@@ -239,6 +239,71 @@
+       }
+       return this._file.delete (null);
+     }
++
++    public override bool is_native ()
++    {
++      return this._file.is_native ();
++    }
++
++    public override string get_mime_type () throws Error
++    {
++      var fi = this._file.query_info (FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE,
++                                      0, null);
++      return fi.get_content_type ();
++    }
++
++    public override string[] get_icon_names () throws Error
++    {
++      var fi = this._file.query_info (FILE_ATTRIBUTE_STANDARD_ICON,
++                                      0, null);
++      GLib.Icon icon = fi.get_icon ();
++      if (icon != null)
++      {
++        if (icon is ThemedIcon)
++        {
++          // wow! Vala sucks!
++          Value v = Value (typeof (string[]));
++          icon.get_property ("names", ref v);
++          string[] names = (string[]) v;
++          
++          // this should be fixed in vala 0.12
++          //names = (icon as ThemedIcon).get_names ();
++
++          return names;
++        }
++
++        if (icon is FileIcon)
++        {
++          string path = (icon as FileIcon).get_file ().get_path ();
++          string[] result = { path };
++
++          return result;
++        }
++      }
++
++      // hmm... what now?
++      string[] unknown = {};
++      return unknown;
++    }
++
++    public override string?
++    get_thumbnail_path ()
++    {
++      try
++      {
++        var fi = this._file.query_info (FILE_ATTRIBUTE_THUMBNAIL_PATH,
++                                        0, null);
++        if (fi.has_attribute (FILE_ATTRIBUTE_THUMBNAIL_PATH))
++        {
++          return fi.get_attribute_byte_string (FILE_ATTRIBUTE_THUMBNAIL_PATH);
++        }
++      }
++      catch (GLib.Error err)
++      {
++        warning ("%s", err.message);
++      }
++      return null;
++    }
+   }
+ }
+ 
+diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file-impl-gnome-vfs.vala various-fixes/libdesktop-agnostic/vfs-file-impl-gnome-vfs.vala
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file-impl-gnome-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-file-impl-gnome-vfs.vala	2010-12-13 00:25:43.456666706 -0800
+@@ -322,6 +322,24 @@
+       }
+       return (GnomeVFS.unlink_from_uri (this._uri) == GnomeVFS.Result.OK);
+     }
++
++    public override bool
++    is_native ()
++    {
++      return this._uri_str.has_prefix ("file:");
++    }
++
++    public override string
++    get_mime_type () throws Error
++    {
++      return GnomeVFS.get_mime_type_from_uri (this._uri);
++    }
++
++    public override string[]
++    get_icon_names () throws Error
++    {
++      return get_icon_names_for_mime_type (this.get_mime_type ());
++    }
+   }
+ }
+ 
+diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file-impl-thunar-vfs.vala various-fixes/libdesktop-agnostic/vfs-file-impl-thunar-vfs.vala
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file-impl-thunar-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-file-impl-thunar-vfs.vala	2010-12-13 00:25:43.456666706 -0800
+@@ -247,6 +247,24 @@
+       }
+       return (FileUtils.unlink (this.impl_path) == 0);
+     }
++
++    public override bool
++    is_native ()
++    {
++      return this._uri.has_prefix ("file:");
++    }
++
++    public override string
++    get_mime_type () throws Error
++    {
++      return this._info.mime_info.get_name ();
++    }
++
++    public override string[]
++    get_icon_names () throws Error
++    {
++      return get_icon_names_for_mime_type (this.get_mime_type ());
++    }
+   }
+ }
+ 
+diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file.vala various-fixes/libdesktop-agnostic/vfs-file.vala
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-file.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-file.vala	2010-12-13 00:25:43.456666706 -0800
+@@ -190,6 +190,34 @@
+      * @return %TRUE on success, %FALSE on failure.
+      */
+     public abstract bool remove () throws Error;
++
++    /**
++     * Checks to see if a file is native to the platform.
++     * @return %TRUE if file is native, %FALSE otherwise.
++     */
++    public abstract bool is_native ();
++
++    /**
++     * Gets the file's mime type. (might block)
++     * @return String containing file's mime type.
++     */
++    public abstract string get_mime_type () throws Error;
++
++    /**
++     * Gets list of possible icon names representing this file. (might block)
++     * @return List of possible icon names.
++     */
++    public abstract string[] get_icon_names () throws Error;
++
++    /**
++     * Get path to thumbnail representing this file. (might block)
++     * @return Path to file with thumbnail or %null if thumbnail cannot be
++     * found or backend doesn't support it.
++     */
++    public virtual string? get_thumbnail_path ()
++    {
++      return null;
++    }
+   }
+ 
+   public File?
+@@ -219,6 +247,20 @@
+       return (File)Object.new (vfs.file_type, "uri", uri);
+     }
+   }
++
++  public static string[]
++  get_icon_names_for_mime_type (string mime_type)
++  {
++    string[] names = null;
++
++    return_val_if_fail (mime_type != "", null);
++
++    names += mime_type.replace ("/", "-");
++    names += "gnome-mime-%s".printf (names[0]);
++    names += "%s-x-generic".printf (Regex.split_simple ("/.*", mime_type)[0]);
++
++    return names;
++  }
+ }
+ 
+ // vim: set et ts=2 sts=2 sw=2 ai :
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gio.vala various-fixes/libdesktop-agnostic/vfs-impl-gio.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gio.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-impl-gio.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gio.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-impl-gio.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -89,7 +89,6 @@
      }
    }
@@ -1052,8 +1582,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gio.vala var
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gnome-vfs.vala various-fixes/libdesktop-agnostic/vfs-impl-gnome-vfs.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gnome-vfs.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-impl-gnome-vfs.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gnome-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-impl-gnome-vfs.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -92,7 +92,6 @@
      }
    }
@@ -1063,8 +1593,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-gnome-vfs.va
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-thunar-vfs.vala various-fixes/libdesktop-agnostic/vfs-impl-thunar-vfs.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-thunar-vfs.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-impl-thunar-vfs.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-thunar-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-impl-thunar-vfs.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -92,7 +92,6 @@
      }
    }
@@ -1074,8 +1604,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-impl-thunar-vfs.v
  register_plugin ()
  {
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-gio.vala various-fixes/libdesktop-agnostic/vfs-trash-impl-gio.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-gio.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-trash-impl-gio.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-gio.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-trash-impl-gio.vala	2010-12-13 00:25:36.623333420 -0800
 @@ -77,7 +77,7 @@
  
        try
@@ -1086,8 +1616,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-gio.va
          this.file_count_changed ();
        }
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-thunar-vfs.vala various-fixes/libdesktop-agnostic/vfs-trash-impl-thunar-vfs.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-thunar-vfs.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-trash-impl-thunar-vfs.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-thunar-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-trash-impl-thunar-vfs.vala	2010-12-13 00:25:36.626666732 -0800
 @@ -53,7 +53,7 @@
      {
        Monitor monitor;
@@ -1098,8 +1628,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-trash-impl-thunar
          (Xfce.Trash)this.dbus.get_object ("org.xfce.Thunar",
                                            "/org/xfce/FileManager");
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gio.vala various-fixes/libdesktop-agnostic/vfs-volume-impl-gio.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gio.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-volume-impl-gio.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gio.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-volume-impl-gio.vala	2010-12-13 00:25:36.626666732 -0800
 @@ -121,7 +121,7 @@
        bool result = false;
        try
@@ -1137,8 +1667,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gio.v
        {
          VFS.Volume vol = this.create_volume (gvol);
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gnome-vfs.vala various-fixes/libdesktop-agnostic/vfs-volume-impl-gnome-vfs.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gnome-vfs.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-volume-impl-gnome-vfs.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gnome-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-volume-impl-gnome-vfs.vala	2010-12-13 00:25:36.626666732 -0800
 @@ -190,8 +190,7 @@
        this.monitor = GnomeVFS.get_volume_monitor ();
        this._volumes = new HashTable<GnomeVFS.Drive,VFS.Volume> (direct_hash,
@@ -1150,8 +1680,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-gnome
        {
          VFS.Volume vol = this.create_volume (drive);
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-thunar-vfs.vala various-fixes/libdesktop-agnostic/vfs-volume-impl-thunar-vfs.vala
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-thunar-vfs.vala	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/vfs-volume-impl-thunar-vfs.vala	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-thunar-vfs.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/vfs-volume-impl-thunar-vfs.vala	2010-12-13 00:25:36.626666732 -0800
 @@ -63,7 +63,7 @@
      }
      public VolumeThunarVFS.for_implementation (ThunarVfs.Volume impl)
@@ -1162,8 +1692,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/vfs-volume-impl-thuna
      public bool
      is_mounted ()
 diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/wscript various-fixes/libdesktop-agnostic/wscript
---- libdesktop-agnostic-0.3.90/libdesktop-agnostic/wscript	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/libdesktop-agnostic/wscript	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/libdesktop-agnostic/wscript	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/libdesktop-agnostic/wscript	2010-12-13 00:25:36.626666732 -0800
 @@ -34,6 +34,10 @@
          }
      },
@@ -1221,8 +1751,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/libdesktop-agnostic/wscript various-fixes
      ui.uselib_local = 'desktop-agnostic-fdo'
      ui.vapi_dirs = '. ../vapi'
 diff -u -Nr libdesktop-agnostic-0.3.90/po/en_US@piglatin.po various-fixes/po/en_US@piglatin.po
---- libdesktop-agnostic-0.3.90/po/en_US@piglatin.po	1970-01-01 01:00:00.000000000 +0100
-+++ various-fixes/po/en_US@piglatin.po	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/po/en_US@piglatin.po	1969-12-31 16:00:00.000000000 -0800
++++ various-fixes/po/en_US@piglatin.po	2010-12-13 00:25:36.626666732 -0800
 @@ -0,0 +1,103 @@
 +# Translatable strings for libdesktop-agnostic.
 +# Copyright (C) 2009, 2010 Mark Lee
@@ -1328,8 +1858,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/po/en_US@piglatin.po various-fixes/po/en_
 +"%s"
 +
 diff -u -Nr libdesktop-agnostic-0.3.90/po/libdesktop-agnostic.pot various-fixes/po/libdesktop-agnostic.pot
---- libdesktop-agnostic-0.3.90/po/libdesktop-agnostic.pot	1970-01-01 01:00:00.000000000 +0100
-+++ various-fixes/po/libdesktop-agnostic.pot	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/po/libdesktop-agnostic.pot	1969-12-31 16:00:00.000000000 -0800
++++ various-fixes/po/libdesktop-agnostic.pot	2010-12-13 00:25:36.626666732 -0800
 @@ -0,0 +1,96 @@
 +# Translatable strings for libdesktop-agnostic.
 +# Copyright (C) 2009, 2010 Mark Lee
@@ -1428,14 +1958,14 @@ diff -u -Nr libdesktop-agnostic-0.3.90/po/libdesktop-agnostic.pot various-fixes/
 +"%s"
 +msgstr ""
 diff -u -Nr libdesktop-agnostic-0.3.90/po/LINGUAS various-fixes/po/LINGUAS
---- libdesktop-agnostic-0.3.90/po/LINGUAS	1970-01-01 01:00:00.000000000 +0100
-+++ various-fixes/po/LINGUAS	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/po/LINGUAS	1969-12-31 16:00:00.000000000 -0800
++++ various-fixes/po/LINGUAS	2010-12-13 00:25:36.626666732 -0800
 @@ -0,0 +1,2 @@
 +# please keep this list sorted alphabetically
 +en_US@piglatin
 diff -u -Nr libdesktop-agnostic-0.3.90/po/POTFILES.in various-fixes/po/POTFILES.in
---- libdesktop-agnostic-0.3.90/po/POTFILES.in	1970-01-01 01:00:00.000000000 +0100
-+++ various-fixes/po/POTFILES.in	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/po/POTFILES.in	1969-12-31 16:00:00.000000000 -0800
++++ various-fixes/po/POTFILES.in	2010-12-13 00:25:36.626666732 -0800
 @@ -0,0 +1,5 @@
 +# List of source files containing translatable strings.
 +# Please keep this file sorted alphabetically.
@@ -1443,8 +1973,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/po/POTFILES.in various-fixes/po/POTFILES.
 +libdesktop-agnostic/ui-icon-chooser-dialog.vala
 +libdesktop-agnostic/ui-launcher-editor-dialog.vala
 diff -u -Nr libdesktop-agnostic-0.3.90/po/wscript various-fixes/po/wscript
---- libdesktop-agnostic-0.3.90/po/wscript	1970-01-01 01:00:00.000000000 +0100
-+++ various-fixes/po/wscript	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/po/wscript	1969-12-31 16:00:00.000000000 -0800
++++ various-fixes/po/wscript	2010-12-13 00:25:36.626666732 -0800
 @@ -0,0 +1,6 @@
 +# -*- coding: utf-8 -*-
 +# vim: set ft=python
@@ -1453,8 +1983,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/po/wscript various-fixes/po/wscript
 +def build(bld):
 +    bld.new_task_gen(features='intltool_po', appname='libdesktop-agnostic')
 diff -u -Nr libdesktop-agnostic-0.3.90/python/desktopagnostic.override various-fixes/python/desktopagnostic.override
---- libdesktop-agnostic-0.3.90/python/desktopagnostic.override	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/python/desktopagnostic.override	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/python/desktopagnostic.override	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/python/desktopagnostic.override	2010-12-13 00:25:36.630000048 -0800
 @@ -98,19 +98,23 @@
  _wrap_desktop_agnostic_color_from_values (PyObject *self, PyObject *args,
                                            PyObject *kwargs)
@@ -1511,8 +2041,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/python/desktopagnostic.override various-f
  %%
  override-slot DesktopAgnosticColor.tp_str
 diff -u -Nr libdesktop-agnostic-0.3.90/python/fdo.override various-fixes/python/fdo.override
---- libdesktop-agnostic-0.3.90/python/fdo.override	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/python/fdo.override	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/python/fdo.override	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/python/fdo.override	2010-12-13 00:25:36.630000048 -0800
 @@ -197,6 +197,7 @@
  {
    DesktopAgnosticFDODesktopEntry *ret;
@@ -1574,8 +2104,8 @@ diff -u -Nr libdesktop-agnostic-0.3.90/python/fdo.override various-fixes/python/
  %%
  define DesktopAgnosticFDODesktopEntry.type_to_string onearg staticmethod
 diff -u -Nr libdesktop-agnostic-0.3.90/python/ui.override various-fixes/python/ui.override
---- libdesktop-agnostic-0.3.90/python/ui.override	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/python/ui.override	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/python/ui.override	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/python/ui.override	2010-12-13 00:25:36.630000048 -0800
 @@ -46,9 +46,13 @@
                                                      PyGObject *color)
  {
@@ -1591,9 +2121,64 @@ diff -u -Nr libdesktop-agnostic-0.3.90/python/ui.override various-fixes/python/u
 +        g_object_unref (ret);
 +    return py_ret;
  }
+diff -u -Nr libdesktop-agnostic-0.3.90/python/vfs.defs various-fixes/python/vfs.defs
+--- libdesktop-agnostic-0.3.90/python/vfs.defs	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/python/vfs.defs	2010-12-13 00:25:43.456666706 -0800
+@@ -199,6 +199,36 @@
+   )
+ )
+ 
++(define-method is_native
++  (of-object "DesktopAgnosticVFSFile")
++  (c-name "desktop_agnostic_vfs_file_is_native")
++  (return-type "gboolean")
++)
++
++(define-method get_mime_type
++  (of-object "DesktopAgnosticVFSFile")
++  (c-name "desktop_agnostic_vfs_file_get_mime_type")
++  (return-type "char*")
++  (parameters
++    '("GError**" "error")
++  )
++)
++
++(define-method get_icon_names
++  (of-object "DesktopAgnosticVFSFile")
++  (c-name "desktop_agnostic_vfs_file_get_icon_names")
++  (return-type "GStrv")
++  (parameters
++    '("GError**" "error")
++  )
++)
++
++(define-method get_thumbnail_path
++  (of-object "DesktopAgnosticVFSFile")
++  (c-name "desktop_agnostic_vfs_file_get_thumbnail_path")
++  (return-type "char*")
++)
++
+ (define-function file_new_for_path
+   (c-name "desktop_agnostic_vfs_file_new_for_path")
+   (return-type "DesktopAgnosticVFSFile*")
+@@ -217,6 +247,14 @@
+   )
+ )
+ 
++(define-function get_icon_names_for_mime_type
++  (c-name "desktop_agnostic_vfs_get_icon_names_for_mime_type")
++  (return-type "char*")
++  (parameters
++    '("const-char*" "mime_type")
++  )
++)
++
+ (define-method changed
+   (of-object "DesktopAgnosticVFSFileMonitor")
+   (c-name "desktop_agnostic_vfs_file_monitor_emit")
 diff -u -Nr libdesktop-agnostic-0.3.90/python/vfs.override various-fixes/python/vfs.override
---- libdesktop-agnostic-0.3.90/python/vfs.override	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/python/vfs.override	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/python/vfs.override	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/python/vfs.override	2010-12-13 00:25:43.456666706 -0800
 @@ -117,6 +117,7 @@
  {
    char *path;
@@ -1627,7 +2212,7 @@ diff -u -Nr libdesktop-agnostic-0.3.90/python/vfs.override various-fixes/python/
  
    if (!PyString_Check (arg))
    {
-@@ -164,7 +169,10 @@
+@@ -164,9 +169,40 @@
    }
  
    /* pygobject_new handles NULL checking */
@@ -1638,10 +2223,75 @@ diff -u -Nr libdesktop-agnostic-0.3.90/python/vfs.override various-fixes/python/
 +  return py_ret;
  }
  %%
++override desktop_agnostic_vfs_get_icon_names_for_mime_type kwargs
++static PyObject *
++_wrap_desktop_agnostic_vfs_get_icon_names_for_mime_type(PyObject *self, PyObject *args, PyObject *kwargs)
++{
++    static char *kwlist[] = { "mime_type", NULL };
++    char *mime_type;
++    gchar **ret;
++    int ret_length = 0;
++    int i;
++    PyObject *py_ret;
++
++    if (!PyArg_ParseTupleAndKeywords(args, kwargs,"s:get_icon_names_for_mime_type", kwlist, &mime_type))
++        return NULL;
++
++    ret = desktop_agnostic_vfs_get_icon_names_for_mime_type(mime_type, &ret_length);
++
++    py_ret = PyList_New (ret_length);
++    if (ret) {
++        for (i=0; i<ret_length; i++) {
++            PyList_SetItem (py_ret, i, PyString_FromString (ret[i]));
++            g_free (ret[i]);
++        }
++        g_free(ret);
++    }
++    return py_ret;
++}
++
++%%
  override desktop_agnostic_vfs_file_enumerate_children noargs
+ static PyObject *
+ _wrap_desktop_agnostic_vfs_file_enumerate_children (PyGObject *self)
+@@ -209,6 +245,34 @@
+   return PyString_FromStringAndSize (data, length);
+ }
+ %%
++override desktop_agnostic_vfs_file_get_icon_names noargs
++static PyObject *
++_wrap_desktop_agnostic_vfs_file_get_icon_names (PyGObject *self)
++{
++  int i, res_length;
++  char **result;
++  PyObject *py_result;
++  GError *error = NULL;
++
++  result = desktop_agnostic_vfs_file_get_icon_names (DESKTOP_AGNOSTIC_VFS_FILE (self->obj),
++                                                     &res_length, &error);
++
++  if (pyg_error_check (&error))
++  {
++    return NULL;
++  }
++
++  py_result = PyList_New (res_length);
++  for (i=0; i<res_length; i++)
++  {
++    PyList_SetItem (py_result, i, PyString_FromString (result[i]));
++    g_free (result[i]);
++  }
++  if (result != NULL) g_free (result);
++
++  return py_result;
++}
++%%
+ define DesktopAgnosticVFSTrash.get_default noargs staticmethod
+ static PyObject *
+ _wrap_desktop_agnostic_v_f_s_trash_get_default (PyObject *self)
 diff -u -Nr libdesktop-agnostic-0.3.90/sphinx.py various-fixes/sphinx.py
---- libdesktop-agnostic-0.3.90/sphinx.py	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/sphinx.py	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/sphinx.py	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/sphinx.py	2010-12-13 00:25:36.630000048 -0800
 @@ -72,8 +72,15 @@
                               for x in glob.split()])
          glob_base = generate_glob('*', True)
@@ -1658,9 +2308,24 @@ diff -u -Nr libdesktop-agnostic-0.3.90/sphinx.py various-fixes/sphinx.py
  
  
  @TaskGen.extension('.rst')
+diff -u -Nr libdesktop-agnostic-0.3.90/tools/lda-desktop-entry-editor.vala various-fixes/tools/lda-desktop-entry-editor.vala
+--- libdesktop-agnostic-0.3.90/tools/lda-desktop-entry-editor.vala	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/tools/lda-desktop-entry-editor.vala	2010-12-13 00:25:43.456666706 -0800
+@@ -51,9 +51,9 @@
+     {
+       output = VFS.file_new_for_path (args[2]);
+     }
+-    editor = new LauncherEditorDialog (file, output, true);
++    editor = new LauncherEditorDialog (file, output);
+     editor.show_all ();
+-    Gtk.main ();
++    editor.run ();
+ 
+     VFS.shutdown ();
+   }
 diff -u -Nr libdesktop-agnostic-0.3.90/wscript various-fixes/wscript
---- libdesktop-agnostic-0.3.90/wscript	2010-04-11 09:32:01.000000000 +0200
-+++ various-fixes/wscript	2010-10-02 04:42:20.187222000 +0200
+--- libdesktop-agnostic-0.3.90/wscript	2010-04-11 00:32:01.000000000 -0700
++++ various-fixes/wscript	2010-12-13 00:25:43.460000039 -0800
 @@ -1,6 +1,7 @@
  #! /usr/bin/env python
  # encoding: utf-8
@@ -1669,6 +2334,15 @@ diff -u -Nr libdesktop-agnostic-0.3.90/wscript various-fixes/wscript
  import Options
  import os
  import Scripting
+@@ -14,7 +15,7 @@
+ API_VERSION = '1.0'
+ 
+ # the following two variables are used by the target "waf dist"
+-VERSION = '0.3.90'
++VERSION = '0.3.91'
+ VNUM = '0.4.0'
+ 
+ CFG_BACKENDS = ','.join(['gconf', 'keyfile'])
 @@ -69,6 +70,8 @@
                     dest='profiling', default=False,
                     help='Enables the library to be built so that it is '
