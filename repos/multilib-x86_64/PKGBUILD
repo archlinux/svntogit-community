@@ -1,0 +1,81 @@
+# $Id$
+# Maintainer : Ionut Biru <ibiru@archlinux.org>
+
+_pkgbasename=nss
+pkgname=lib32-$_pkgbasename
+pkgver=3.12.8
+pkgrel=1
+pkgdesc="Mozilla's Netscape Security Services Library that implements PKI support (32-bit)"
+arch=('x86_64')
+url="http://www.mozilla.org/projects/security/pki/nss/"
+license=('MPL' 'GPL')
+_nsprver=4.8.6
+depends=("lib32-nspr>=${_nsprver}" 'lib32-sqlite3>=3.6.17' "$_pkgbasename" 'lib32-zlib')
+makedepends=('gcc-multilib' 'perl')
+source=(ftp://ftp.mozilla.org/pub/security/nss/releases/NSS_${pkgver//./_}_RTM/src/${_pkgbasename}-${pkgver}.tar.gz
+        nss-no-rpath.patch
+        nss.pc.in
+        add_spi+cacert_ca_certs.patch
+        ssl-renegotiate-transitional.patch)
+options=('!strip')
+md5sums=('40bf1bb0c7567827d3768d1fc6081100'
+         'e5c97db0c884d5f4cfda21e562dc9bba'
+         'c547b030c57fe1ed8b77c73bf52b3ded'
+         '7f39c19b1dfd62d7db7d8bf19f156fed'
+         'd83c7b61abb7e9f8f7bcd157183d1ade')
+
+build() {
+  cd "${srcdir}/${_pkgbasename}-${pkgver}"
+  # Adds the SPI Inc. and CAcert.org CA certificates - patch from Debian
+  patch -Np1 -i "${srcdir}/add_spi+cacert_ca_certs.patch"
+  # Adds transitional SSL renegotiate support - patch from Debian
+  patch -Np1 -i "${srcdir}/ssl-renegotiate-transitional.patch"
+  # Removes rpath
+  patch -Np0 -i "${srcdir}/nss-no-rpath.patch"
+
+  make -C mozilla/security/nss/lib/ckfw/builtins generate
+  
+  unset CFLAGS
+  unset CXXFLAGS
+  export PKG_CONFIG_PATH=/usr/lib32/pkgconfig
+  export BUILD_OPT=1
+  export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
+  export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=1
+  export NSS_USE_SYSTEM_SQLITE=1
+  export NSPR_INCLUDE_DIR=`pkg-config --cflags-only-I nspr | sed 's/-I//'`
+  export NSPR_LIB_DIR=`pkg-config --libs-only-L nspr | sed 's/-L.//'`
+
+  make -j 1 -C mozilla/security/coreconf
+  make -j 1 -C mozilla/security/dbm
+  make -j 1 -C mozilla/security/nss
+
+  NSS_VMAJOR=`grep "#define.*NSS_VMAJOR" mozilla/security/nss/lib/nss/nss.h | awk '{print $3}'`
+  NSS_VMINOR=`grep "#define.*NSS_VMINOR" mozilla/security/nss/lib/nss/nss.h | awk '{print $3}'`
+  NSS_VPATCH=`grep "#define.*NSS_VPATCH" mozilla/security/nss/lib/nss/nss.h | awk '{print $3}'`
+
+  sed "${srcdir}/nss.pc.in" -e "s,%libdir%,/usr/lib32,g" \
+  				-e "s,%prefix%,/usr,g" \
+				-e "s,%exec_prefix%,/usr/bin,g" \
+				-e "s,%includedir%,/usr/include/nss,g" \
+				-e "s,%NSPR_VERSION%,${_nsprver},g" \
+				-e "s,%NSS_VERSION%,${pkgver},g" > \
+			"${srcdir}/nss.pc"
+}
+
+package() {
+  cd "${srcdir}/${_pkgbasename}-${pkgver}"
+  install -m755 -d "${pkgdir}/usr/lib32/pkgconfig"
+  install -m644 "${srcdir}"/nss.pc "${pkgdir}/usr/lib32/pkgconfig/nss.pc"
+  ln -sf nss.pc "${pkgdir}/usr/lib32/pkgconfig/mozilla-nss.pc"
+  chmod 644 ${pkgdir}/usr/lib32/pkgconfig/*.pc
+
+  for file in libsoftokn3.so libfreebl3.so libnss3.so libnssutil3.so \
+              libssl3.so libsmime3.so libnssckbi.so libnssdbm3.so
+  do
+    install -m755 mozilla/dist/*.OBJ/lib/${file} "${pkgdir}/usr/lib32/"
+  done
+
+  install -m644 mozilla/dist/*.OBJ/lib/libcrmf.a "${pkgdir}/usr/lib32/"
+  install -m644 mozilla/dist/*.OBJ/lib/*.chk "${pkgdir}/usr/lib32/"
+
+}
