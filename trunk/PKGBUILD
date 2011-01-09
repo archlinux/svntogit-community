@@ -3,15 +3,15 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=python-pytz
-pkgver=2010h
-pkgrel=2
+pkgver=2010o
+pkgrel=1
 pkgdesc="Cross platform time zone library for Python"
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 depends=('python2')
 source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.bz2)
-md5sums=('3c24fd25971b730d6db0426487a21ae0')
+md5sums=('88b641aafc6025acf5368766b51b00d3')
 
 build() {
     cd $srcdir/pytz-$pkgver
