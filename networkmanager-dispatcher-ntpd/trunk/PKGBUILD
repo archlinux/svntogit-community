@@ -7,7 +7,7 @@ arch=(any)
 license=('BSD')
 url="http://www.gnome.org/projects/NetworkManager"
 depends=('networkmanager' 'ntp')
-source=("100ntpd")
+source=("10-ntpd")
 md5sums=('634640886979278dc3a74dbae342d3e7')
 
 package() {
