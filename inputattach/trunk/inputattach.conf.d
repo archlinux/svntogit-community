@@ -1,11 +1,10 @@
 #
 # Configuration for inputattach
 #
+# IAPARAMS is an array of inputattach arguments, see 'inputattach --help'.
+# An inputattach instance will be started for each element.
 
-# inputattach mode - see 'inputattach --help' for list e.g. "--microsoft" for
-# 2 button Microsoft mouse
-IAMODE="--microsoft"
-
-# inputattach device - /dev file entry where device is attached e.g.
-# "/dev/ttyS0" for device attached to first system serial port
-IADEV="/dev/ttyS0"
+IAPARAMS=(
+  "--microsoft /dev/ttyS0"
+  #"--baud 9600 --w8001 /dev/ttyS1"
+)
