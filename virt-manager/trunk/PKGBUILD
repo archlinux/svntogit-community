@@ -3,8 +3,8 @@
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
 
 pkgname=virt-manager
-pkgver=0.8.5
-pkgrel=7
+pkgver=0.8.6
+pkgrel=1
 pkgdesc="A desktop user interface for managing virtual machines."
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -16,7 +16,7 @@ optdepends=('x11-ssh-askpass: for ssh authentication to remote servers')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz"
 	"openbsd-netcat-default.patch")
-md5sums=('038668be9e5edcb86ebae2495240b6ff'
+md5sums=('456812517c9c595de3c358865db0e465'
          'd4aad201758c2275e4237f5239d7ffb2')
 
 build() {
