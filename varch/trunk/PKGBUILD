@@ -1,7 +1,7 @@
 # Contributor: Thomas S Hatch <thatch45@gmail.com>
 
 pkgname=varch
-pkgver=0.8.3
+pkgver=0.8.4
 pkgrel=1
 pkgdesc="ArchLinux virtual machine builder"
 arch=(any)
@@ -16,7 +16,7 @@ optdepends=('virtualbox: To enable support for virtualbox vdi images'
             'qemu-kvm: Run kvm virtual machines')
 options=(!emptydirs)
 source=("http://varch.googlecode.com/files/${pkgname}-${pkgver}.tar.gz")
-md5sums=('2b1b490bf326c9ea5d416c2cb676eb3d')
+md5sums=('366909e966ccff0593c4df0664559c45')
 
 package() {
   cd ${srcdir}/${pkgname}-${pkgver}
