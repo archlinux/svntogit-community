@@ -1,0 +1,97 @@
+# Maintainer: Thomas S Hatch <thatch45@gmail.com>
+pkgbase=mfs
+pkgname=('mfs-client' 'mfs-chunkserver' 'mfs-master')
+pkgver=1.6.20
+pkgrel=7
+pkgdesc="MooseFS, fault tolerant, network distributed file system"
+license=("GPL3")
+arch=('i686' 'x86_64')
+options=('!libtool')
+depends=('zlib' 'fuse')
+url="http://www.moosefs.com/"
+source=("http://www.moosefs.org/tl_files/mfscode/mfs-$pkgver.tar.gz"
+        "mfsmaster"
+        "mfschunkserver"
+        "mfsmetalogger"
+        "mfscgiserv")
+md5sums=('c57bdb9d7d41eec57c2bee9a1ff872c2'
+         '5504cab151a1658489e5ece7ea9204c7'
+         '69c7e2d2bcaba94fecb4120272e7caf4'
+         '7e3da2f8015d54a202de99e52c88358c'
+         'babe045a94bf8bfaea602fe515a860b0')
+
+build() {
+  cd "$srcdir"
+
+  # Build the client
+  cp -r $pkgbase-$pkgver $pkgbase-client
+  cd $pkgbase-client
+  ./configure \
+      --prefix=/usr \
+      --sysconfdir=/etc \
+      --localstatedir=/var/lib \
+      --disable-mfschunkserver \
+      --disable-mfsmaster \
+      --disable-mfscgi \
+      --disable-mfscgiserv
+  make
+  
+  cd ..
+  
+  # Build the chunkserver
+  cp -r $pkgbase-$pkgver $pkgbase-chunk
+  cd $pkgbase-chunk
+  ./configure \
+      --prefix=/usr \
+      --sysconfdir=/etc \
+      --localstatedir=/var/lib \
+      --disable-mfsmaster \
+      --disable-mfsmount \
+      --disable-mfscgi \
+      --disable-mfscgiserv
+  make
+
+  cd ..
+  
+  # Build the Master
+  cp -r $pkgbase-$pkgver $pkgbase-master
+  cd $pkgbase-master
+  ./configure \
+      --prefix=/usr \
+      --sysconfdir=/etc \
+      --localstatedir=/var/lib \
+      --disable-mfschunkserver \
+      --disable-mfsmount
+  make
+}
+
+package_mfs-client() {
+  cd "$srcdir/$pkgbase-client"
+  make DESTDIR="$pkgdir" install
+  rm -rf $pkgdir/usr/share/man/man7
+}
+
+package_mfs-chunkserver() {
+  depends=('zlib')
+  cd "$srcdir/$pkgbase-chunk"
+  make DESTDIR="$pkgdir" install
+  rm -rf $pkgdir/usr/share/man/man7
+  install -m 755 -D $srcdir/mfschunkserver $pkgdir/etc/rc.d/mfschunkserver
+}
+
+package_mfs-master() {
+  depends=('zlib' 'python2')
+  cd "$srcdir/$pkgbase-master"
+  make DESTDIR="$pkgdir" install
+  install -D -m0644 README $pkgdir/usr/share/doc/$pkgbase/README
+  install -D -m0644 INSTALL $pkgdir/usr/share/doc/$pkgbase/INSTALL
+  install -D -m0644 NEWS $pkgdir/usr/share/doc/$pkgbase/NEWS
+  install -D -m0644 UPGRADE $pkgdir/usr/share/doc/$pkgbase/UPGRADE
+  install -m 755 -D $srcdir/mfsmaster $pkgdir/etc/rc.d/mfsmaster
+  install -m 755 -D $srcdir/mfsmetalogger $pkgdir/etc/rc.d/mfsmetalogger
+  install -m 755 -D $srcdir/mfscgiserv $pkgdir/etc/rc.d/mfscgiserv
+  find "$pkgdir" -name 'mfscgiserv' -print0 |xargs -0 \
+    sed -i -e 's,^#!/usr/bin/env python$,#!/usr/bin/env python2,' \
+    -e 's,^#!/usr/bin/python$,#!/usr/bin/python2,'
+}
+
