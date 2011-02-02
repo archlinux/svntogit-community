@@ -4,7 +4,7 @@
 
 pkgname=virt-manager
 pkgver=0.8.6
-pkgrel=2
+pkgrel=3
 pkgdesc="A desktop user interface for managing virtual machines."
 arch=('any')
 url="http://virt-manager.et.redhat.com"
