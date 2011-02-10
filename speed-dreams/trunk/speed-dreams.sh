@@ -1,2 +1,3 @@
 #!/bin/bash
-export PATH=$PATH:/opt/speed-dreams/bin
+cd /opt/speed-dreams/bin
+./speed-dreams
