@@ -2,14 +2,14 @@
 # Contributor: Slash <demodevil5 [at] yahoo [dot] com>
 
 pkgname=nut
-pkgver=16.7
+pkgver=16.8
 pkgrel=1
 pkgdesc='Records what you eat and analyzes your meals for nutrient levels in terms of the Daily Value or DV which is the standard for food labeling in the US.'
 url='http://nut.sourceforge.net/'
 license=('GPL')
 arch=('i686' 'x86_64')
 source=("http://downloads.sourceforge.net/project/${pkgname}/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
-md5sums=('db608dce11be0b817d9f7b2eaa37c5b1')
+md5sums=('35f720596c866e4585f117ecd508ca75')
 
 build() {
   cd ${pkgname}-${pkgver}
