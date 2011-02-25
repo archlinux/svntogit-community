@@ -4,7 +4,7 @@
 
 pkgname=unbound
 pkgver=1.4.8
-pkgrel=1
+pkgrel=2
 pkgdesc='Validating, recursive, and caching DNS resolver'
 arch=('i686' 'x86_64')
 url='http://unbound.net/'
@@ -29,6 +29,7 @@ build() {
 		--prefix=/usr \
 		--sysconfdir=/etc \
 		--localstatedir=/var \
+		--enable-static=no \
 		--disable-rpath \
 		--with-conf-file=/etc/unbound/unbound.conf \
 		--with-pidfile=/var/run/unbound.pid
