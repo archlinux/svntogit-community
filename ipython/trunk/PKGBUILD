@@ -4,7 +4,7 @@
 pkgbase=ipython
 pkgname=(ipython ipython-docs)
 pkgver=0.10.1
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="http://ipython.scipy.org/"
 license=('custom')
@@ -24,7 +24,7 @@ package_ipython() {
               "twisted: networking-related tasks"
               "python-foolscap: for IPython's parallel computing features"
               "python-pexpect: for irunner"
-              "python-nose: if you want to run IPython's test suite")
+              "python2-nose: if you want to run IPython's test suite")
 
   cd "$srcdir/$pkgbase-$pkgver"
 
