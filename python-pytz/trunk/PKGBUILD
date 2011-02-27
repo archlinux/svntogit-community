@@ -4,7 +4,7 @@
 
 pkgname=python-pytz
 pkgver=2011b
-pkgrel=1
+pkgrel=2
 pkgdesc="Cross platform time zone library for Python"
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
