@@ -1,74 +1,131 @@
-diff -upr mplayer-vaapi-20101115.orig/patches/mplayer-vaapi.patch mplayer-vaapi-20101115/patches/mplayer-vaapi.patch
---- mplayer-vaapi-20101115.orig/patches/mplayer-vaapi.patch	2010-11-15 11:14:06.000000000 +0200
-+++ mplayer-vaapi-20101115/patches/mplayer-vaapi.patch	2011-01-23 22:41:12.000000000 +0200
-@@ -689,20 +689,20 @@ index bdf4d2f..65f0bd1 100644
- --- a/libmpcodecs/img_format.c
- +++ b/libmpcodecs/img_format.c
- @@ -96,6 +96,14 @@ const char *vo_format_name(int format)
-- 	case IMGFMT_ZRMJPEGIB: return "Zoran MJPEG bottom field first";
-- 	case IMGFMT_XVMC_MOCO_MPEG2: return "MPEG1/2 Motion Compensation";
-- 	case IMGFMT_XVMC_IDCT_MPEG2: return "MPEG1/2 Motion Compensation and IDCT";
--+	case IMGFMT_VAAPI_MPEG2: return "MPEG-2 VA-API Acceleration";
--+	case IMGFMT_VAAPI_MPEG2_IDCT: return "MPEG-2 VA-API Acceleration (Motion Compensation and IDCT)";
--+	case IMGFMT_VAAPI_MPEG2_MOCO: return "MPEG-2 VA-API Acceleration (Motion Compensation)";
--+	case IMGFMT_VAAPI_MPEG4: return "MPEG-4 VA-API Acceleration";
--+	case IMGFMT_VAAPI_H263:  return "H.263 VA-API Acceleration";
--+	case IMGFMT_VAAPI_H264:  return "H.264 VA-API Acceleration";
--+	case IMGFMT_VAAPI_WMV3:  return "WMV3 VA-API Acceleration";
--+	case IMGFMT_VAAPI_VC1:   return "VC-1 VA-API Acceleration";
-- 	case IMGFMT_VDPAU_MPEG1: return "MPEG1 VDPAU acceleration";
-- 	case IMGFMT_VDPAU_MPEG2: return "MPEG2 VDPAU acceleration";
-- 	case IMGFMT_VDPAU_H264: return "H.264 VDPAU acceleration";
-+     case IMGFMT_ZRMJPEGIB: return "Zoran MJPEG bottom field first";
-+     case IMGFMT_XVMC_MOCO_MPEG2: return "MPEG1/2 Motion Compensation";
-+     case IMGFMT_XVMC_IDCT_MPEG2: return "MPEG1/2 Motion Compensation and IDCT";
-++    case IMGFMT_VAAPI_MPEG2: return "MPEG-2 VA-API Acceleration";
-++    case IMGFMT_VAAPI_MPEG2_IDCT: return "MPEG-2 VA-API Acceleration (Motion Compensation and IDCT)";
-++    case IMGFMT_VAAPI_MPEG2_MOCO: return "MPEG-2 VA-API Acceleration (Motion Compensation)";
-++    case IMGFMT_VAAPI_MPEG4: return "MPEG-4 VA-API Acceleration";
-++    case IMGFMT_VAAPI_H263:  return "H.263 VA-API Acceleration";
-++    case IMGFMT_VAAPI_H264:  return "H.264 VA-API Acceleration";
-++    case IMGFMT_VAAPI_WMV3:  return "WMV3 VA-API Acceleration";
-++    case IMGFMT_VAAPI_VC1:   return "VC-1 VA-API Acceleration";
-+     case IMGFMT_VDPAU_MPEG1: return "MPEG1 VDPAU acceleration";
-+     case IMGFMT_VDPAU_MPEG2: return "MPEG2 VDPAU acceleration";
-+     case IMGFMT_VDPAU_H264: return "H.264 VDPAU acceleration";
- diff --git a/libmpcodecs/img_format.h b/libmpcodecs/img_format.h
- index c95ed4d..403690e 100644
- --- a/libmpcodecs/img_format.h
-@@ -1259,9 +1259,9 @@ index 6d3ee7d..ac9371f 100644
- +// void *get_hwaccel_context(void);
- +#define VOCTRL_GET_HWACCEL_CONTEXT 33
- +
-- #define VO_TRUE		1
-- #define VO_FALSE	0
-- #define VO_ERROR	-1
-+ #define VO_TRUE      1
-+ #define VO_FALSE     0
-+ #define VO_ERROR    -1
- diff --git a/libvo/vo_vaapi.c b/libvo/vo_vaapi.c
- new file mode 100644
- index 0000000..f920d91
-@@ -3688,10 +3688,10 @@ index 0000000..f920d91
- +    enable_osd();
- +}
- +
--+static void draw_eosd(EOSD_ImageList *imgs)
-++static void draw_eosd(struct mp_eosd_image_list *imgs)
- +{
--+    ASS_Image *img = imgs->imgs;
--+    ASS_Image *i;
-++    struct mp_eosd_image_list *img = eosd_image_first(imgs);
-++    struct mp_eosd_image *i;
- +    VAStatus status;
- +
- +    if (!va_eosd_draw_alpha)
-@@ -3717,7 +3717,7 @@ index 0000000..f920d91
- +
- +    memset(va_eosd_image_data, 0, va_eosd_image.data_size);
- +
--+    for (i = img; i; i = i->next)
-++    for (i = img; i; i = eosd_image_next(imgs))
- +        va_eosd_draw_alpha(i->bitmap, i->w, i->h, i->stride,
- +                           i->dst_x, i->dst_y, i->color);
- +
+diff -upr mplayer-vaapi-20110127.orig/patches/mplayer-vaapi.patch mplayer-vaapi-20110127/patches/mplayer-vaapi.patch
+--- mplayer-vaapi-20110127.orig/patches/mplayer-vaapi.patch	2011-01-27 17:15:29.000000000 +0200
++++ mplayer-vaapi-20110127/patches/mplayer-vaapi.patch	2011-03-05 06:47:20.000000000 +0200
+@@ -449,14 +449,15 @@ diff --git a/fmt-conversion.c b/fmt-conv
+ index 9e88100..bd32ce8 100644
+ --- a/fmt-conversion.c
+ +++ b/fmt-conversion.c
+-@@ -18,12 +18,14 @@
++@@ -18,6 +18,7 @@
+  
+  #include "mp_msg.h"
+  #include "libavutil/avutil.h"
+ +#include "libavcodec/avcodec.h"
+  #include "libmpcodecs/img_format.h"
+- #include "fmt-conversion.h"
+- 
++ #include "libavutil/samplefmt.h"
++ #include "libaf/af_format.h"
++@@ -26,6 +27,7 @@
+  static const struct {
+      int fmt;
+      enum PixelFormat pix_fmt;
+@@ -503,14 +504,15 @@ diff --git a/fmt-conversion.h b/fmt-conv
+ index 9e133a8..962ca4e 100644
+ --- a/fmt-conversion.h
+ +++ b/fmt-conversion.h
+-@@ -23,6 +23,6 @@
+- #include "libavutil/avutil.h"
++@@ -24,7 +24,7 @@
++ #include "libavutil/samplefmt.h"
+  
+  enum PixelFormat imgfmt2pixfmt(int fmt);
+ -int pixfmt2imgfmt(enum PixelFormat pix_fmt);
+ +int pixfmt2imgfmt(enum PixelFormat pix_fmt, int codec_id);
++ enum AVSampleFormat affmt2samplefmt(int fmt);
++ int samplefmt2affmt(enum AVSampleFormat sample_fmt);
+  
+- #endif /* MPLAYER_FMT_CONVERSION_H */
+ diff --git a/gui/mplayer/gtk/opts.c b/gui/mplayer/gtk/opts.c
+ index 4f7ffb2..0da5434 100644
+ --- a/gui/mplayer/gtk/opts.c
+diff -upr mplayer-vaapi-20110127.orig/patches/mplayer-vdpau.patch mplayer-vaapi-20110127/patches/mplayer-vdpau.patch
+--- mplayer-vaapi-20110127.orig/patches/mplayer-vdpau.patch	2010-11-15 08:41:19.000000000 +0200
++++ mplayer-vaapi-20110127/patches/mplayer-vdpau.patch	2011-03-05 07:07:15.000000000 +0200
+@@ -133,7 +133,7 @@ index b0d00f4..745d3e4 100644
+  
+  videocodec ffh264
+    info "FFmpeg H.264"
+-@@ -993,19 +947,8 @@ videocodec ffh264
++@@ -993,21 +947,8 @@ videocodec ffh264
+    driver ffmpeg
+    dll h264
+    out VAAPI_H264
+@@ -146,6 +146,8 @@ index b0d00f4..745d3e4 100644
+ -  fourcc X264,x264
+ -  fourcc avc1,AVC1
+ -  fourcc davc,DAVC
++-  fourcc ai55,ai15 ; flip4mac avc intra
++-  fourcc ai1q,ai5q ; flip4mac avc intra
+ -  format 0x10000005
+ -  driver ffmpeg
+ -  dll h264_vdpau
+@@ -362,13 +364,13 @@ index f99f7ea..faafa97 100644
+                      context_count++;
+              }
+              break;
+-@@ -3408,20 +3392,3 @@ AVCodec h264_decoder = {
++@@ -3408,21 +3392,3 @@ AVCodec h264_decoder = {
+      .flush= flush_dpb,
+      .long_name = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10"),
+  };
+ -
+ -#if CONFIG_H264_VDPAU_DECODER
+--AVCodec h264_vdpau_decoder = {
++-AVCodec ff_h264_vdpau_decoder = {
+ -    "h264_vdpau",
+ -    AVMEDIA_TYPE_VIDEO,
+ -    CODEC_ID_H264,
+@@ -381,6 +383,7 @@ index f99f7ea..faafa97 100644
+ -    .flush= flush_dpb,
+ -    .long_name = NULL_IF_CONFIG_SMALL("H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10 (VDPAU acceleration)"),
+ -    .pix_fmts = (const enum PixelFormat[]){PIX_FMT_VDPAU_H264, PIX_FMT_NONE},
++-    .profiles = NULL_IF_CONFIG_SMALL(profiles),
+ -};
+ -#endif
+ diff --git a/ffmpeg/libavcodec/mpeg12.c b/ffmpeg/libavcodec/mpeg12.c
+@@ -458,7 +461,7 @@ index 6a331eb..c226797 100644
+  #endif
+ -
+ -#if CONFIG_MPEG_VDPAU_DECODER
+--AVCodec mpeg_vdpau_decoder = {
++-AVCodec ff_mpeg_vdpau_decoder = {
+ -    "mpegvideo_vdpau",
+ -    AVMEDIA_TYPE_VIDEO,
+ -    CODEC_ID_MPEG2VIDEO,
+@@ -474,7 +477,7 @@ index 6a331eb..c226797 100644
+ -#endif
+ -
+ -#if CONFIG_MPEG1_VDPAU_DECODER
+--AVCodec mpeg1_vdpau_decoder = {
++-AVCodec ff_mpeg1_vdpau_decoder = {
+ -    "mpeg1video_vdpau",
+ -    AVMEDIA_TYPE_VIDEO,
+ -    CODEC_ID_MPEG1VIDEO,
+@@ -500,7 +503,7 @@ index b339f78..1928d03 100644
+ -
+ -
+ -#if CONFIG_MPEG4_VDPAU_DECODER
+--AVCodec mpeg4_vdpau_decoder = {
++-AVCodec ff_mpeg4_vdpau_decoder = {
+ -    "mpeg4_vdpau",
+ -    AVMEDIA_TYPE_VIDEO,
+ -    CODEC_ID_MPEG4,
+@@ -588,7 +591,7 @@ index c9a547b..71c50e7 100644
+  #endif
+ -
+ -#if CONFIG_WMV3_VDPAU_DECODER
+--AVCodec wmv3_vdpau_decoder = {
++-AVCodec ff_wmv3_vdpau_decoder = {
+ -    "wmv3_vdpau",
+ -    AVMEDIA_TYPE_VIDEO,
+ -    CODEC_ID_WMV3,
+@@ -605,7 +608,7 @@ index c9a547b..71c50e7 100644
+ -#endif
+ -
+ -#if CONFIG_VC1_VDPAU_DECODER
+--AVCodec vc1_vdpau_decoder = {
++-AVCodec ff_vc1_vdpau_decoder = {
+ -    "vc1_vdpau",
+ -    AVMEDIA_TYPE_VIDEO,
+ -    CODEC_ID_VC1,
