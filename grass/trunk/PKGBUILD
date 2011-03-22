@@ -2,8 +2,8 @@
 # Contributor: dibblethewrecker dibblethewrecker.at.jiwe.dot.org
 
 pkgname=grass
-pkgver=6.4.0
-pkgrel=7
+pkgver=6.4.1RC2
+pkgrel=1
 pkgdesc='Geographic Information System (GIS) used for geospatial data management and analysis, image processing, graphics/maps production, spatial modeling, and visualization.'
 arch=('i686' 'x86_64')
 url='http://grass.itc.it/index.php'
@@ -17,25 +17,33 @@ optdepends=('fftw: required for i.fft and i.ifft modules'
             'blas: required for GMATH library'
             'xorg-server: required for the graphical interface')
 options=('!libtool' '!makeflags')
-install=grass.install
-source=("http://grass.itc.it/grass64/source/${pkgname}-${pkgver}.tar.gz"
-        "${pkgname}.desktop"
-        "${pkgname}.sh"
-        "${pkgname}.png")
-md5sums=('ac3233aa3351f8e060ea48246aa01c7f'
+install='grass.install'
+source=("http://grass.itc.it/grass64/source/grass-${pkgver}.tar.gz"
+        "grass.desktop"
+        "grass.sh"
+        "grass.png")
+md5sums=('e994fab74279cf19a9d7cff6440535c3'
          'c0d669c77f60f8544a34a55c5e9e087c'
          'a0e0ac6275e09a272f8ec38d3c0b4b3a'
          'ae778ed261a40b078a8465994a0eb25e')
 
 build() {
-  cd ${pkgname}-${pkgver}
+  cd grass-${pkgver}
 
   # python2 fix
   sed -i 's_python $< $(GISBASE) > $@_python2 $< $(GISBASE) > $@_' gui/wxpython/Makefile
-  for file in $(find . -name '*.py' -print) gui/wxpython/scripts/d.rast3d; do
+  for file in $(find . -name '*.py' -print); do
     sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' $file
     sed -i 's_^#!.*/usr/bin/env.*python_#!/usr/bin/env python2_' $file
   done
+
+  # the following exports are probably not needed
+  export PYTHON=python2
+  export DOXNAME=python2
+  export GRASS_python=python2
+
+  # fix wxpython error
+  sed -i 's/python/&2/' ./include/Make/Platform.make.in
 
   # see ${srcdir}/grass-6.4.0/REQUIREMENTS.html for options
   ./configure \
@@ -46,21 +54,29 @@ build() {
     --with-postgres \
     --with-fftw \
     --with-gdal=/usr/bin/gdal-config \
-    --with-python=/usr/bin/python2-config \
     --with-blas \
     --with-lapack \
     --with-proj-libs=/usr/lib \
     --with-proj-includes=/usr/include \
     --with-proj-share=/usr/share/proj \
     --with-fftw-includes=/usr/include \
-    --with-fftw-libs=/usr/lib
+    --with-fftw-libs=/usr/lib \
+    --with-python=/usr/bin/python2-config
+
+    #--without-wxwidgets \
+    #--without-python
     #--with-freetype-includes=/usr/include
 
   make
+
+  # some more potential problems nvm, works without, but save for future use if problems arrise
+  #cd ${pkgdir}/opt/grass-${pkgver}
+  #sed -i 's/PYTHON = python/PYTHON = python2/' include/Make/Python.make
+  #sed -i 's/GRASS_PYTHON=python/GRASS_PYTHON=python2/' etc/Init.sh
 }
 
 package() {
-  cd ${pkgname}-${pkgver}
+  cd grass-${pkgver}
 
   make \
     INST_DIR=${pkgdir}/opt/grass-${pkgver} \
@@ -71,28 +87,23 @@ package() {
   sed -i "s|GISBASE=${pkgdir}/opt/grass-${pkgver}|GISBASE=/opt/grass-${pkgver}|g" \
     ${pkgdir}/usr/bin/grass64
 
-  # strip html docs
-  #rm -r ${pkgdir}/opt/grass-${pkgver}/docs/html
-
   # install profile.d file
   install -D ${srcdir}/grass.sh \
     ${pkgdir}/etc/profile.d/grass.sh
 
   # install some freedesktop.org compatibility
-  install -D -m644 ${srcdir}/${pkgname}.desktop \
-    ${pkgdir}/usr/share/applications/${pkgname}.desktop
+  install -D -m644 gui/icons/grass.desktop \
+    ${pkgdir}/usr/share/applications/grass.desktop
 
-  install -D -m644 ${srcdir}/${pkgname}.png \
-    ${pkgdir}/usr/share/pixmaps/${pkgname}.png
+  install -D -m644 gui/icons/grass-48x48.png \
+    ${pkgdir}/usr/share/pixmaps/grass-48x48.png
+
+  sed -i -e 's/grass65/grass64/' -e 's_/usr/share/icons_/usr/share/pixmaps_' \
+    ${pkgdir}/usr/share/applications/grass.desktop
 
   # create a symlink for version work around
   ln -sf /opt/grass-${pkgver} ${pkgdir}/opt/grass
 
   install -d ${pkgdir}/etc/ld.so.conf.d/
   echo '/opt/grass/lib' > ${pkgdir}/etc/ld.so.conf.d/grass.conf
-
-  # some more potential problems nvm, works without, but save for future use if problems arrise
-  #cd ${pkgdir}/opt/${pkgname}-${pkgver}
-  #sed -i 's/PYTHON = python/PYTHON = python2/' include/Make/Python.make
-  #sed -i 's/GRASS_PYTHON=python/GRASS_PYTHON=python2/' etc/Init.sh
 }
