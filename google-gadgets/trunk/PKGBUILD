@@ -1,51 +1,61 @@
 # $Id$
-# Maintainer: Ray Rashif <schivmeister@gmail.com>
+# Maintainer: Ray Rashif <schiv@archlinux.org>
 
 pkgbase=google-gadgets
 pkgname=('google-gadgets-common' 'google-gadgets-gtk' 'google-gadgets-qt')
-_pkgbasename=$pkgbase-for-linux
-_pkgbasedir=$startdir/pkg
+_realname=$pkgbase-for-linux
+_basedir="$startdir/pkg/base"
 pkgver=0.11.2
 _sover=1.0
 _sobump=0.0.0
-pkgrel=2
-arch=(i686 x86_64)
+pkgrel=3
+arch=('i686' 'x86_64')
 url="http://code.google.com/p/google-gadgets-for-linux/"
 license=('APACHE')
 makedepends=('gstreamer0.10-base-plugins' 'libwebkit'
              'desktop-file-utils' 'xdg-utils'
-             'xulrunner' 'librsvg' 'curl' 'libsoup-gnome'
+             'librsvg' 'curl' 'libsoup-gnome'
              'qt'
              'networkmanager'
              'zip' 'flex')
 options=('!libtool')
-source=(http://google-gadgets-for-linux.googlecode.com/files/$_pkgbasename-$pkgver.tar.bz2)
+source=("http://google-gadgets-for-linux.googlecode.com/files/$_realname-$pkgver.tar.bz2")
 md5sums=('279305553bcbf74f3e3615f6abc36a5e')
 
 build() {
-  cd "$srcdir/$_pkgbasename-$pkgver"
+  cd "$srcdir/$_realname-$pkgver"
 
-  ./configure	--prefix=/usr \
-                --disable-werror \
-                --disable-update-desktop-database \
-                --disable-update-mime-database \
-                --with-oem-brand=Arch \
-                --with-ssl-ca-file=/etc/ssl/certs/ca-certificates.crt \
-                --with-browser-plugins-dir=/usr/lib/mozilla/plugins
+  # Building thrice is expensive;
+  #   we move files around instead
+  #
+  # xulrunner 2.0 is incompatible;
+  #   we build without smjs-script/browser-element
 
-  make || return 1
-  make -j1 DESTDIR="$pkgdir/" install
+  ./configure --prefix=/usr \
+              --disable-werror \
+              --disable-update-desktop-database \
+              --disable-update-mime-database \
+              --with-oem-brand=Arch \
+              --with-ssl-ca-file=/etc/ssl/certs/ca-certificates.crt \
+              --with-browser-plugins-dir=/usr/lib/mozilla/plugins \
+              --disable-gtkmoz-browser-element \
+              --disable-smjs-script-runtime
+  make
 }
 
 package_google-gadgets-common() {
   pkgdesc="Desktop widgets from Google (common files)"
-  install=$pkgname.install
+  install=$pkgbase-common.install
   depends=('hicolor-icon-theme' 'shared-mime-info')
-  optdepends=('google-gadgets-gtk: GTK+ UI'
-              'google-gadgets-qt: Qt UI')
+  optdepends=('google-gadgets-gtk: GTK+ (full) UI'
+              'google-gadgets-qt: Qt (partial) UI')
+
+  cd "$srcdir/$_realname-$pkgver"
+
+  make DESTDIR="$pkgdir/" install
 
   # we need to remove stuff in this package
-  cp -a "$_pkgbasedir/usr" "$pkgdir/"
+  cp -a "$pkgdir" "$_basedir"
 
   # do not force any removal; we want to know in case files change
   cd "$pkgdir/usr"
@@ -55,7 +65,7 @@ package_google-gadgets-common() {
   cd "$pkgdir/usr/lib/$pkgbase"
 
   # gtk-related
-  rm gtkmoz-browser-child
+  #rm gtkmoz-browser-child
   rm ../lib*gtk*
   rm modules/gtk*.so
 
@@ -65,25 +75,25 @@ package_google-gadgets-common() {
 }
 
 package_google-gadgets-gtk() {
-  pkgdesc="Desktop widgets from Google (GTK+ front-end)"
-  groups=("$pkgbase")
+  pkgdesc="Desktop widgets from Google (full GTK+ front-end)"
+  groups=('google-gadgets')
   install=$pkgbase.install
-  depends=('google-gadgets-common' 'xulrunner'
+  depends=('google-gadgets-common'
            'desktop-file-utils' 'xdg-utils'
            'gstreamer0.10-base-plugins' 'libwebkit' 'libsoup-gnome'
            'librsvg' 'curl')
   optdepends=('networkmanager: desktop integration')
 
   # install the gtk binary
-  cd "$_pkgbasedir"
+  cd "$_basedir"
   install -Dm755 "usr/bin/ggl-gtk" "$pkgdir/usr/bin/ggl-gtk"
 
   # gtk-only browser stuff
-  install -Dm755 usr/lib/$pkgbase/gtkmoz-browser-child \
-    "$pkgdir/usr/lib/$pkgbase/gtkmoz-browser-child"
+  #install -Dm755 usr/lib/$pkgbase/gtkmoz-browser-child \
+  #  "$pkgdir/usr/lib/$pkgbase/gtkmoz-browser-child"
 
   # now the gtk libraries
-  mkdir "$pkgdir/usr/lib/$pkgbase/modules"
+  mkdir -p "$pkgdir/usr/lib/$pkgbase/modules"
 
   install -m755 usr/lib/$pkgbase/modules/gtk*.so \
     "$pkgdir/usr/lib/$pkgbase/modules/"
@@ -108,8 +118,8 @@ package_google-gadgets-gtk() {
 }
 
 package_google-gadgets-qt() {
-  pkgdesc="Desktop widgets from Google (Qt front-end)"
-  groups=("$pkgbase")
+  pkgdesc="Desktop widgets from Google (partial Qt front-end)"
+  groups=('google-gadgets')
   install=$pkgbase.install
   depends=('google-gadgets-common' 'qt'
            'desktop-file-utils' 'xdg-utils'
@@ -117,7 +127,7 @@ package_google-gadgets-qt() {
   optdepends=('networkmanager: desktop integration')
 
   # install the qt binary
-  cd "$_pkgbasedir"
+  cd "$_basedir"
   install -Dm755 usr/bin/ggl-qt "$pkgdir/usr/bin/ggl-qt"
 
   # the qt libraries
