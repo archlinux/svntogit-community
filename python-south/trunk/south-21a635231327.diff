@@ -1,0 +1,72 @@
+diff -r 5bc35f14338f -r 21a635231327 south/hacks/django_1_0.py
+--- a/south/hacks/django_1_0.py	Tue Mar 08 21:33:24 2011 +0000
++++ b/south/hacks/django_1_0.py	Mon Mar 14 16:43:15 2011 -0500
+@@ -4,9 +4,17 @@
+ 
+ from django.conf import settings
+ from django.db import models
++from django.db.backends.creation import BaseDatabaseCreation
+ from django.db.models.loading import AppCache, cache
++from django.core import management
++from django.core.management.commands.flush import Command as FlushCommand
+ from django.utils.datastructures import SortedDict
+ 
++class SkipFlushCommand(FlushCommand):
++    def handle_noargs(self, **options):
++        # no-op to avoid calling flush
++        return
++
+ class Hacks:
+     
+     def set_installed_apps(self, apps):
+@@ -72,4 +80,24 @@
+         Rebuilds AppCache with the real model definitions.
+         """
+         cache._populate()
+-    
+\ No newline at end of file
++
++    def patch_flush_during_test_db_creation(self):
++        """
++        Patches BaseDatabaseCreation.create_test_db to not flush database
++        """
++
++        def patch(f):
++            def wrapper(*args, **kwargs):
++                # hold onto the original and replace flush command with a no-op
++                original_flush_command = management._commands['flush']
++                try:
++                    management._commands['flush'] = SkipFlushCommand()
++                    # run create_test_db
++                    f(*args, **kwargs)
++                finally:
++                    # unpatch flush back to the original
++                    management._commands['flush'] = original_flush_command
++            return wrapper
++            
++        BaseDatabaseCreation.create_test_db = patch(BaseDatabaseCreation.create_test_db)
++
+diff -r 5bc35f14338f -r 21a635231327 south/management/commands/__init__.py
+--- a/south/management/commands/__init__.py	Tue Mar 08 21:33:24 2011 +0000
++++ b/south/management/commands/__init__.py	Mon Mar 14 16:43:15 2011 -0500
+@@ -9,6 +9,7 @@
+ # Make sure the template loader cache is fixed _now_ (#448)
+ import django.template.loaders.app_directories
+ 
++from south.hacks import hacks
+ from south.management.commands.syncdb import Command as SyncCommand
+ 
+ class MigrateAndSyncCommand(SyncCommand):
+@@ -30,4 +31,10 @@
+         # tests should always be up to date with the most recent model structure
+         management._commands['syncdb'] = 'django.core'
+     else:
+-        management._commands['syncdb'] = MigrateAndSyncCommand()
+\ No newline at end of file
++        management._commands['syncdb'] = MigrateAndSyncCommand()
++        # Avoid flushing data migrations.
++        # http://code.djangoproject.com/ticket/14661 introduced change that flushed custom
++        # sql during the test database creation (thus flushing the data migrations).
++        # we patch flush to be no-op during create_test_db, but still allow flushing
++        # after each test for non-transactional backends.
++        hacks.patch_flush_during_test_db_creation()
