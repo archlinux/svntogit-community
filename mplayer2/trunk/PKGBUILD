@@ -4,14 +4,13 @@
 
 pkgname=mplayer2
 pkgver=2.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A movie player"
 arch=('i686' 'x86_64')
 license=('GPL')
 url="http://www.mplayer2.org/"
-depends=('ffmpeg' 'gettext' 'libass' 'libcss' 'libgl' 'libxvmc' 'libxss' 'libxxf86dga' 'libxxf86vm' 'sdl' 'ttf-dejavu')
+depends=('ffmpeg' 'gettext' 'libass' 'libcss' 'libgl' 'libxvmc' 'libxss' 'libxxf86dga' 'libxxf86vm' 'sdl' 'ttf-dejavu' 'libvdpau')
 makedepends=('live-media' 'mesa' 'unzip' 'yasm')
-optdepends=('libvdpau')
 backup=('etc/mplayer/codecs.conf' 'etc/mplayer/input.conf')
 replaces=('mplayer')
 provides=('mplayer')
