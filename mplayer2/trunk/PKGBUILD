@@ -1,3 +1,4 @@
+# $Id$
 # Maintainer: Stéphane Gaudreault <stephane@archlinux.org>
 # Contributor: Bartek Piotrowski <barthalion@gmail.com>
 
