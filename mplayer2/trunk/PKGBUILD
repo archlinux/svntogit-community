@@ -4,12 +4,14 @@
 
 pkgname=mplayer2
 pkgver=2.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A movie player"
 arch=('i686' 'x86_64')
 license=('GPL')
 url="http://www.mplayer2.org/"
-depends=('ffmpeg' 'gettext' 'libass' 'libcss' 'libgl' 'libxvmc' 'libxss' 'libxxf86dga' 'libxxf86vm' 'sdl' 'ttf-dejavu' 'libvdpau')
+depends=('ffmpeg' 'libass' 'libxxf86dga' 'libxxf86vm' 'libmad' 'cdparanoia' 'libxinerama' 'sdl' 'libtheora' 'xvidcore' 'libmng' 'libxss'
+         'libgl' 'smbclient' 'aalib' 'jack' 'libcaca' 'x264' 'faac' 'lirc-utils' 'ttf-dejavu' 'libxvmc' 'enca' 'libvdpau'
+         'opencore-amr' 'libdca' 'a52dec' 'schroedinger' 'libvpx' 'libpulse' 'ncurses' 'freetype2')
 makedepends=('live-media' 'mesa' 'unzip' 'yasm')
 backup=('etc/mplayer/codecs.conf' 'etc/mplayer/input.conf')
 replaces=('mplayer')
@@ -23,25 +25,28 @@ build() {
     # Custom CFLAGS break the mplayer build
     unset CFLAGS LDFLAGS
 
-    cd "${srcdir}/${pkgname}-build-${pkgver}/${pkgname/2/}"
+    cd "${srcdir}/${pkgname}-build-${pkgver}"
+
+    # Use system ffmpeg
+    sed -i -e '/^mplayer: /s/ffmpeg//' Makefile
+    rm -r ffmpeg-mt
+
+    cd ${pkgname/2/}
 
     ./configure --prefix=/usr \
                 --enable-runtime-cpudetection \
+                --disable-gui \
                 --disable-arts \
+                --disable-fribidi \
                 --disable-speex \
                 --disable-openal \
                 --disable-libdv \
                 --disable-musepack \
                 --disable-esd \
                 --disable-mga \
-                --disable-fribidi \
                 --enable-xvmc \
-                --enable-translation \
-                --language-doc=all \
-                --language-man=all \
-                --language-msg=all \
+                --language=all \
                 --confdir=/etc/mplayer
-
     make
 }
 
