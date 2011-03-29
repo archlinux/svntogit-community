@@ -3,8 +3,8 @@
 # Contributor: Massimiliano Torromeo <massimiliano DOT torromeo AT google mail service>
 
 pkgname=unbound
-pkgver=1.4.8
-pkgrel=2
+pkgver=1.4.9
+pkgrel=1
 pkgdesc='Validating, recursive, and caching DNS resolver'
 arch=('i686' 'x86_64')
 url='http://unbound.net/'
@@ -17,7 +17,7 @@ backup=('etc/unbound/unbound.conf')
 source=("http://unbound.net/downloads/$pkgname-$pkgver.tar.gz"
         'unbound.conf'
         'rc.d')
-sha1sums=('557a9c10de9a83f88cd7c66d44488f1cb65de4fa'
+sha1sums=('f2ac7b4ef1d1b330e2dd5e2eedeb6fd2bbad8478'
           '5d473ec2943fd85367cdb653fcd58e186f07383f'
           'a0c8c496d71d43ed9e09b170d3df836dfb096480')
 
