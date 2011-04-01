@@ -4,7 +4,7 @@
 
 pkgname=mplayer2
 pkgver=2.0
-pkgrel=8
+pkgrel=9
 pkgdesc="A movie player"
 arch=('i686' 'x86_64')
 license=('GPL')
@@ -45,6 +45,7 @@ build() {
                 --disable-mga \
                 --enable-xvmc \
                 --language=all \
+                --enable-translation \
                 --confdir=/etc/mplayer
     make
 }
