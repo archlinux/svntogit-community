@@ -4,7 +4,7 @@
 
 pkgname=virt-manager
 pkgver=0.8.7
-pkgrel=1
+pkgrel=2
 pkgdesc="A desktop user interface for managing virtual machines."
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -24,7 +24,7 @@ md5sums=('9b1f3ead125d53bf506216c4bc7c4a84'
 build() {
   cd $srcdir/$pkgname-$pkgver
   export LDFLAGS=-lX11
-  sed -i 's#python#python2#' src/virt-manager.in
+  sed -i 's#python#python2#' src/virt-manager.in src/virt-manager-tui.in
   patch -p1 <$srcdir/openbsd-netcat-default.patch
 #  patch -p1 <$srcdir/startup.patch
   ./configure --prefix=/usr \
