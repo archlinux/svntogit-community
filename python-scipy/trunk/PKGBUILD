@@ -1,40 +1,74 @@
-#$Id$
+# $Id$
 # Maintainer: Angel 'angvp' Velasquez <angvp[at]archlinux.com.ve>
-# Maintainer: Douglas Soares de Andrade <dsa@aur.archlinux.org>
+# Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
-pkgname=python-scipy
-pkgver=0.8.0
-pkgrel=4
-pkgdesc="SciPy (pronounced 'Sigh Pie') is open-source software for mathematics, science, and engineering."
+pkgbase=python-scipy
+_app=scipy
+pkgname=('python-scipy' 'python2-scipy')
+pkgver=0.9.0
+_theapp=$_app-$pkgver
+pkgrel=1
+pkgdesc="SciPy is open-source software for mathematics, science, and engineering."
 arch=('i686' 'x86_64')
-url="http://www.scipy.org"
+url="http://www.scipy.org/"
 license=('BSD')
-depends=('lapack' 'blas' 'python2' 'python-numpy')
-makedepends=('gcc' 'gcc-fortran')
-conflicts=('scipy' 'scipy_core')
-source=("http://downloads.sourceforge.net/scipy/scipy-${pkgver}.tar.gz"
-        '0001-FIX-define-macro-to-access-C99-extensions-from-C.patch')
-md5sums=('f0bfc6141b90e6a31555b31486602251'
-         '609759549d0571fc04d52c89b16258ed')
+depends=('python3-numpy')
+makedepends=('gcc-fortran' 'python2-numpy')
+changelog=$pkgbase.changelog
+source=("http://downloads.sourceforge.net/$_app/$_theapp.tar.gz")
+md5sums=('ebfef6e8e82d15c875a4ee6a46d4e1cd')
 
 build() {
-    unset LDFLAGS
-    unset FFLAGS
+	cd "$srcdir"
 
-    cd ${srcdir}/scipy-${pkgver}
-    #Changing the arithmetic parameter (Thanks to Fabrizio Castellano)
-    sed -i "s/\#define\ UNK\ 1/\#define\ IBMPC\ 1/" $srcdir/scipy-$pkgver/scipy/special/cephes/mconf.h
+	unset LDFLAGS
+	unset FFLAGS
 
-    # fix build with python 2.7 (see http://projects.scipy.org/scipy/ticket/1180)
-    patch -p1 < ${srcdir}/0001-FIX-define-macro-to-access-C99-extensions-from-C.patch
+	# Changing the arithmetic parameter (Thanks to Fabrizio Castellano)
+	sed -i "s/\#define\ UNK\ 1/\#define\ IBMPC\ 1/" \
+		$_theapp/$_app/special/cephes/mconf.h
 
-    # python2 fix
-    for file in $(find . -name '*.py' -print); do
-        sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' $file
-        sed -i 's_^#!.*/usr/bin/env.*python_#!/usr/bin/env python2_' $file
-    done
+	# 2 builds
+	cp -r $_theapp $_theapp-py2
 
-    python2 setup.py config_fc --fcompiler=gnu95 build
-    python2 setup.py config_fc --fcompiler=gnu95 install --prefix=/usr --root=${pkgdir}
-    install -D -m644 LICENSE.txt ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt
+	# build for python3
+	cd $_theapp
+	python setup.py config_fc --fcompiler=gnu95 build
+
+	# build for python2
+	cd ../$_theapp-py2
+
+	for file in $(find . -name '*.py' -print); do
+			 sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' $file
+			 sed -i 's_^#!.*/usr/bin/env.*python_#!/usr/bin/env python2_' $file
+	done
+
+	python2 setup.py config_fc --fcompiler=gnu95 build
 }
+
+package_python-scipy() {
+	provides=('python3-scipy' 'scipy')
+
+	cd "$srcdir/$_theapp"
+
+	python setup.py config_fc --fcompiler=gnu95 install \
+		--prefix=/usr --root="$pkgdir" --optimize=1
+
+	install -Dm644 LICENSE.txt \
+		"$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_python2-scipy() {
+	depends=('python2-numpy')
+	conflicts=('python-scipy<0.9.0')
+
+	cd "$srcdir/$_theapp-py2"
+
+	python2 setup.py config_fc --fcompiler=gnu95 install \
+		--prefix=/usr --root="$pkgdir" --optimize=1
+
+	install -Dm644 LICENSE.txt \
+		"$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+# vim:set ts=2 sw=2 et:
