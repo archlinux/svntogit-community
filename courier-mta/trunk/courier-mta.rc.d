@@ -10,6 +10,10 @@
 
 case "$1" in
   start)
+
+    [ -d /var/run/courier ] || mkdir -p /var/run/courier
+	chown courier:courier /var/run/courier
+    
     if [ "$AUTO_AUTHDAEMON" == "true" ]; then
       /etc/rc.d/authdaemond start
       sleep ${AUTO_AUTHDAEMON_LAG}
