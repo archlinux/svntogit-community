@@ -11,6 +11,9 @@ PID=$(pidof -o %PPID /usr/sbin/murmurd)
 case "$1" in
   start)
     stat_busy "Starting murmur"
+
+    [ -d /var/run/murmur ] || mkdir -p /var/run/murmur
+
     [ -z "$PID" ] && /usr/sbin/murmurd $PARAMS
     if [ $? -gt 0 ]; then
       stat_fail
