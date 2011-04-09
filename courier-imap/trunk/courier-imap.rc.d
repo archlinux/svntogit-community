@@ -1,3 +1,5 @@
+#!/bin/bash
+
 CI_DAEMONS=
 [ -f /etc/conf.d/courier-imap ] && . /etc/conf.d/courier-imap
 [ -z $AUTO_AUTHDAEMON_LAG ]   && AUTO_AUTHDAEMON_LAG=2
