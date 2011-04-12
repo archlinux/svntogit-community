@@ -4,39 +4,30 @@
 
 pkgname=mplayer2
 pkgver=2.0
-pkgrel=9
+pkgrel=10
 pkgdesc="A movie player"
 arch=('i686' 'x86_64')
 license=('GPL')
 url="http://www.mplayer2.org/"
-depends=('ffmpeg' 'libass' 'libxxf86dga' 'libxxf86vm' 'libmad' 'cdparanoia' 'libxinerama' 'sdl' 'libtheora' 'xvidcore' 'libmng' 'libxss'
-         'libgl' 'aalib' 'jack' 'libcaca' 'x264' 'faac' 'lirc-utils' 'ttf-dejavu' 'libxvmc' 'enca' 'libvdpau'
-         'opencore-amr' 'libdca' 'a52dec' 'schroedinger' 'libvpx' 'libpulse' 'ncurses' 'freetype2' 'libdvdcss' 'libdvdread' 'libdvdnav')
+depends=('libgl' 'libvdpau' 'ffmpeg' 'libdvdcss' 'libdvdread' 'libdvdnav' 'libxvmc' 'libass' 'fontconfig' 'freetype2' 'ttf-dejavu'
+         'sdl' 'aalib' 'libcaca' 'faad2' 'libpulse' 'jack' 'ncurses' 'libxxf86vm' 'cdparanoia' 'libmad' 'a52dec' 'libdca' 'libxxf86dga')
 makedepends=('live-media' 'mesa' 'unzip' 'yasm')
 backup=('etc/mplayer/codecs.conf' 'etc/mplayer/input.conf')
 provides=('mplayer')
 conflicts=('mplayer')
-source=(http://ftp.mplayer2.org/pub/release/${pkgname}-build-${pkgver/_/-}.tar.xz)
-md5sums=('05b93784de995235e2758f182de15f73')
+source=(http://ftp.mplayer2.org/pub/release/${pkgname}-${pkgver/_/-}.tar.xz)
+sha1sums=('0df8d4e5484128b7b28029273b7704ab5d5419bc')
 options=('!emptydirs')
 
 build() {
     # Custom CFLAGS break the mplayer build
     unset CFLAGS LDFLAGS
 
-    cd "${srcdir}/${pkgname}-build-${pkgver}"
-
-    # Use system ffmpeg
-    sed -i -e '/^mplayer: /s/ffmpeg//' Makefile
-    rm -r ffmpeg-mt
-
-    cd ${pkgname/2/}
+    cd "${srcdir}/${pkgname}-${pkgver}"
 
     ./configure --prefix=/usr \
                 --enable-runtime-cpudetection \
-                --disable-gui \
                 --disable-arts \
-                --disable-fribidi \
                 --disable-speex \
                 --disable-openal \
                 --disable-libdv \
@@ -51,7 +42,7 @@ build() {
 }
 
 package() {
-    cd "${srcdir}/${pkgname}-build-${pkgver}/${pkgname/2/}"
+    cd "${srcdir}/${pkgname}-${pkgver}"
 
     make DESTDIR="${pkgdir}" install
     install -Dm644 etc/{codecs.conf,input.conf,example.conf} "${pkgdir}"/etc/mplayer/
