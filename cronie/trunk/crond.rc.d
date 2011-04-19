@@ -9,6 +9,8 @@ PID=`pidof -o %PPID /usr/sbin/crond`
 case "$1" in
   start)
     stat_busy "Starting Cron Daemon"
+    [ -d /var/spool/anacron ] ||
+      install -dm755 /var/spool/anacron
     [ -z "$PID" ] && \
       /usr/sbin/crond &> /dev/null
     if [ $? -gt 0 ]; then
