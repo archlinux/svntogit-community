@@ -3,8 +3,8 @@
 
 pkgbase=ipython
 pkgname=(ipython ipython-docs)
-pkgver=0.10.1
-pkgrel=2
+pkgver=0.10.2
+pkgrel=1
 arch=('any')
 url="http://ipython.scipy.org/"
 license=('custom')
@@ -49,4 +49,4 @@ package_ipython-docs() {
   # This seems wrong.  We're running setup.py for both
   # packages, and removing different things in each.
 }
-md5sums=('54ae47079b0e9a0998593a99ce76ec1f')
+md5sums=('dda59bfc6e256ce786c4bc4aadb220a4')
