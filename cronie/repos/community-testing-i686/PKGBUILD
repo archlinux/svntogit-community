@@ -1,0 +1,64 @@
+# $Id$
+# Maintainer: Kaiting Chen <kaiting.chen@kiwilight.com>
+
+pkgname=cronie
+pkgver=1.4.7
+pkgrel=3
+pkgdesc='Fedora fork of vixie-cron with PAM support'
+arch=('i686' 'x86_64')
+url='https://fedorahosted.org/cronie/'
+license=('custom:ISC')
+backup=('etc/crontab' 'etc/anacrontab'
+  'etc/cron.deny' 'etc/pam.d/crond')
+provides=('cron')
+depends=('pam')
+conflicts=('dcron')
+source=("https://fedorahosted.org/releases/c/r/$pkgname/$pkgname-$pkgver.tar.gz"
+  'crontab' 'anacrontab' 'cron.deny' 'crond.pam.d' 'crond.rc.d' 'run-cron')
+md5sums=('dfc26c47756d0c40ee27ae3c7ee98e0d'
+         '213994f8404ad2d2da18a9e0ce878a16'
+         'b87041532eb123a3194b95dbe7fb284c'
+         'd41d8cd98f00b204e9800998ecf8427e'
+         'd688904def891b8037dc3a06ab047f03'
+         '7ddf74b741721f05ece6a74b4ff2bfac'
+         '00ede56aadf073c839e600033fbd6cb4')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  ./configure --prefix=/usr \
+    --sysconfdir=/etc \
+    --localstatedir=/var \
+    --enable-anacron \
+    --without-audit \
+    --without-selinux \
+    --with-pam --with-inotify
+  make; make DESTDIR=$pkgdir install
+
+  # Must create the spool directories by hand; set mode to 0700
+  install -dm700 $pkgdir/var/spool/{ana,}cron
+
+  # Must set suid bit on file manually
+  chmod u+s $pkgdir/usr/bin/crontab
+
+  # Install run-cron script shamelessly copied from vixie-cron
+  install -Dm755 $srcdir/run-cron $pkgdir/usr/bin/run-cron
+
+  # Install system crontab and anacrontab and directories
+  install -Dm644 $srcdir/crontab $pkgdir/etc/crontab
+  install -Dm644 $srcdir/anacrontab $pkgdir/etc/anacrontab
+  install -d $pkgdir/etc/cron.d
+  install -d $pkgdir/etc/cron.{hour,dai,week,month}ly
+
+  # Copy over cron.deny so that users can crontab -e
+  install -Dm644 $srcdir/cron.deny $pkgdir/etc/cron.deny
+
+  # Replace Fedora PAM configuration
+  install -Dm644 $srcdir/crond.pam.d $pkgdir/etc/pam.d/crond
+
+  # Install crond initscript
+  install -Dm755 $srcdir/crond.rc.d $pkgdir/etc/rc.d/crond
+
+  # Install custom:ISC license
+  install -Dm644 COPYING $pkgdir/usr/share/licenses/cronie/COPYING
+}
