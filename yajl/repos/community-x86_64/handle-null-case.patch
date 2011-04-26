@@ -1,0 +1,78 @@
+From 615924b7bf68791c166149a9f76bec740dacefd6 Mon Sep 17 00:00:00 2001
+From: Lloyd Hilaiel <lloyd@hilaiel.com>
+Date: Tue, 26 Apr 2011 09:47:13 -0600
+Subject: [PATCH] crash fix, handle the case where yajl_alloc() is followed by
+ yajl_complete_parse() without a call to yajl_parse() in the
+ middle.  closes #27.
+
+---
+ src/yajl.c        |   18 +++++++++++++++---
+ src/yajl_parser.c |    2 +-
+ 2 files changed, 16 insertions(+), 4 deletions(-)
+
+diff --git a/src/yajl.c b/src/yajl.c
+index 793eea3..293e545 100644
+--- a/src/yajl.c
++++ b/src/yajl.c
+@@ -49,7 +49,7 @@ yajl_alloc(const yajl_callbacks * callbacks,
+ {
+     yajl_handle hand = NULL;
+     yajl_alloc_funcs afsBuffer;
+-    
++
+     /* first order of business is to set up memory allocation routines */
+     if (afs != NULL) {
+         if (afs->malloc == NULL || afs->realloc == NULL || afs->free == NULL)
+@@ -73,7 +73,7 @@ yajl_alloc(const yajl_callbacks * callbacks,
+     hand->decodeBuf = yajl_buf_alloc(&(hand->alloc));
+     hand->flags	    = 0;
+     yajl_bs_init(hand->stateStack, &(hand->alloc));
+-    yajl_bs_push(hand->stateStack, yajl_state_start);    
++    yajl_bs_push(hand->stateStack, yajl_state_start);
+ 
+     return hand;
+ }
+@@ -120,7 +120,7 @@ yajl_parse(yajl_handle hand, const unsigned char * jsonText,
+ {
+     yajl_status status;
+ 
+-    // lazy allocate the lexer
++    /* lazy allocation of the lexer */
+     if (hand->lexer == NULL) {
+         hand->lexer = yajl_lex_alloc(&(hand->alloc),
+                                      hand->flags & yajl_allow_comments,
+@@ -135,6 +135,18 @@ yajl_parse(yajl_handle hand, const unsigned char * jsonText,
+ yajl_status
+ yajl_complete_parse(yajl_handle hand)
+ {
++    /* The lexer is lazy allocated in the first call to parse.  if parse is
++     * never called, then no data was provided to parse at all.  This is a
++     * "premature EOF" error unless yajl_allow_partial_values is specified.
++     * allocating the lexer now is the simplest possible way to handle this
++     * case while preserving all the other semantics of the parser
++     * (multiple values, partial values, etc). */
++    if (hand->lexer == NULL) {
++        hand->lexer = yajl_lex_alloc(&(hand->alloc),
++                                     hand->flags & yajl_allow_comments,
++                                     !(hand->flags & yajl_dont_validate_strings));
++    }
++
+     return yajl_do_finish(hand);
+ }
+ 
+diff --git a/src/yajl_parser.c b/src/yajl_parser.c
+index 20d73bf..3903b38 100644
+--- a/src/yajl_parser.c
++++ b/src/yajl_parser.c
+@@ -155,7 +155,7 @@ yajl_status
+ yajl_do_finish(yajl_handle hand)
+ {
+     yajl_status stat;
+-    stat = yajl_do_parse(hand,(const unsigned char *)" ",1);
++    stat = yajl_do_parse(hand,(const unsigned char *) " ",1);
+ 
+     if (stat != yajl_status_ok) return stat;
+ 
+-- 
+1.7.4.4
+
