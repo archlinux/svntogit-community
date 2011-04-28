@@ -1,0 +1,238 @@
+=== added file 'tests/gtk.py'
+--- tests/gtk.py	1970-01-01 00:00:00 +0000
++++ tests/gtk.py	2011-04-27 18:05:21 +0000
+@@ -0,0 +1,68 @@
++# -*- coding: utf-8 -*-
++
++# Copyright 2011 Jaap Karssenberg <jaap.karssenberg@gmail.com>
++
++'''Helper classes and functions for testing Gtk interaction'''
++
++import types
++
++
++class TestDialogContext(object):
++	'''Context manager to catch dialogs being opened
++
++	Inteded to be used like this::
++
++		def myCustomTest(dialog):
++			self.assertTrue(isinstance(dialog, CustomDialogClass))
++			# ...
++			dialog.assert_response_ok()
++
++		with DialogContext(
++			myCustomTest,
++			SomeOtherDialogClass
++		):
++			gui.show_dialogs()
++
++	In this example the first dialog that is run by C{gui.show_dialogs()}
++	is checked by the function C{myCustomTest()} while the second dialog
++	just needs to be of class C{SomeOtherDialogClass} and will then
++	be closed with C{assert_response_ok()} by the context manager.
++
++	This context only works for dialogs derived from zim's Dialog class
++	as it uses a special hook in L{zim.gui.widgets}.
++	'''
++
++	def __init__(self, *definitions):
++		'''Constructor
++		@param definitions: list of either classes or methods
++		'''
++		self.stack = list(definitions)
++		self.old_test_mode = None
++
++	def __enter__(self):
++		import zim.gui.widgets
++		self.old_test_mode = zim.gui.widgets.TEST_MODE
++		self.old_callback = zim.gui.widgets.TEST_MODE_RUN_CB
++		zim.gui.widgets.TEST_MODE = True
++		zim.gui.widgets.TEST_MODE_RUN_CB = self._callback
++
++	def _callback(self, dialog):
++		#~ print '>>>', dialog
++		if not self.stack:
++			raise AssertionError, 'Unexpected dialog run: %s' % dialog
++
++		handler = self.stack.pop(0)
++
++		if isinstance(handler, (type, types.ClassType)): # is a class
++			if not isinstance(dialog, handler):
++				raise AssertionError, 'Expected dialog of class %s, but got %s instead' % (handler, dialog.__class__)
++			dialog.assert_response_ok()
++		else: # assume a function
++			handler(dialog)
++
++	def __exit__(self, *error):
++		#~ print 'ERROR', error
++		import zim.gui.widgets
++		zim.gui.widgets.TEST_MODE = self.old_test_mode
++		zim.gui.widgets.TEST_MODE_RUN_CB = self.old_callback
++		return False # Raise any errors again outside context
+
+=== modified file 'tests/gui.py'
+--- tests/gui.py	2011-04-14 20:01:02 +0000
++++ tests/gui.py	2011-04-27 18:05:21 +0000
+@@ -1,9 +1,13 @@
+ 
++from __future__ import with_statement
++
+ from tests import TestCase, get_test_notebook, create_tmp_dir, MockObject
++from tests.gtk import TestDialogContext
+ 
+ from zim.errors import Error
+-from zim.notebook import Path
++from zim.notebook import get_notebook_list, Path, NotebookInfo
+ from zim.fs import File, Dir
++from zim.config import config_file
+ 
+ import zim.gui
+ 
+@@ -476,6 +480,7 @@
+ 
+ 
+ 	# Test for ExportDialog can be found in test/export.py
++	# Test for NotebookDialog is in separate class below
+ 
+ 
+ class TestGtkInterface(TestCase):
+@@ -492,6 +497,91 @@
+ 		self.assertTrue(len(items) > 3)
+ 
+ 
++class TestNotebookDialog(TestCase):
++
++	def setUp(self):
++		list = config_file('notebooks.list')
++		file = list.file
++		if file.exists():
++			file.remove()
++
++	def runTest(self):
++		from zim.gui.notebookdialog import prompt_notebook, \
++			AddNotebookDialog, NotebookDialog
++
++		tmpdir = create_tmp_dir('gui_TestNotebookDialog')
++		dir1 = Dir(tmpdir + '/mynotebook1')
++		dir2 = Dir(tmpdir + '/mynotebook2')
++
++		# First time we get directly the AddNotebookDialog
++		def doAddNotebook(dialog):
++			self.assertTrue(isinstance(dialog, AddNotebookDialog))
++			dialog.form['name'] = 'Foo'
++			dialog.form['folder'] = dir1.path
++			dialog.assert_response_ok()
++
++		with TestDialogContext(doAddNotebook):
++			self.assertEqual(prompt_notebook(), dir1.uri)
++
++		# Second time we get the list
++		def testNotebookDialog(dialog):
++			self.assertTrue(isinstance(dialog, NotebookDialog))
++			selection = dialog.treeview.get_selection()
++			selection.select_path((0,)) # select first and only notebook
++			dialog.assert_response_ok()
++
++		with TestDialogContext(testNotebookDialog):
++			self.assertEqual(prompt_notebook(), dir1.uri)
++
++		# Third time we add a notebook and set the default
++		def doAddNotebook(dialog):
++			self.assertTrue(isinstance(dialog, AddNotebookDialog))
++			dialog.form['name'] = 'Bar'
++			dialog.form['folder'] = dir2.path
++			dialog.assert_response_ok()
++
++		def testAddNotebook(dialog):
++			self.assertTrue(isinstance(dialog, NotebookDialog))
++
++			with TestDialogContext(doAddNotebook):
++				dialog.do_add_notebook()
++
++			dialog.combobox.set_active(0)
++
++			selection = dialog.treeview.get_selection()
++			selection.select_path((1,)) # select newly added notebook
++			dialog.assert_response_ok()
++
++		with TestDialogContext(testAddNotebook):
++			self.assertEqual(prompt_notebook(), dir2.uri)
++
++		# Check the notebook exists and the notebook list looks like it should
++		for dir in (dir1, dir2):
++			self.assertTrue(dir.exists())
++			self.assertTrue(dir.file('notebook.zim').exists())
++
++		list = get_notebook_list()
++		self.assertTrue(len(list) == 2)
++		self.assertEqual(list[0], NotebookInfo(dir1.uri, name='Foo'))
++		self.assertEqual(list[1], NotebookInfo(dir2.uri, name='Bar'))
++		self.assertEqual(list.default, NotebookInfo(dir1.uri, name='Foo'))
++
++		# Now unset the default and again check the notebook list
++		def unsetDefault(dialog):
++			self.assertTrue(isinstance(dialog, NotebookDialog))
++			dialog.combobox.set_active(-1)
++			selection = dialog.treeview.get_selection()
++			selection.select_path((1,)) # select newly added notebook
++			dialog.assert_response_ok()
++
++		with TestDialogContext(unsetDefault):
++			self.assertEqual(prompt_notebook(), dir2.uri)
++
++		list = get_notebook_list()
++		self.assertTrue(len(list) == 2)
++		self.assertTrue(list.default is None)
++
++
+ class MockUI(MockObject):
+ 
+ 	tmp_dir = create_tmp_dir('gui_MockUI')
+
+=== modified file 'zim/gui/notebookdialog.py'
+--- zim/gui/notebookdialog.py	2011-04-14 17:41:49 +0000
++++ zim/gui/notebookdialog.py	2011-04-27 18:05:21 +0000
+@@ -43,9 +43,9 @@
+ 		if fields:
+ 			dir = Dir(fields['folder'])
+ 			init_notebook(dir, name=fields['name'])
+-			list.append(dir.uri)
++			list.append(NotebookInfo(dir.uri, name=fields['name']))
+ 			list.write()
+-			return dir
++			return dir.uri
+ 		else:
+ 			return None # User cancelled the dialog ?
+ 	else:
+
+=== modified file 'zim/gui/widgets.py'
+--- zim/gui/widgets.py	2011-04-14 20:01:02 +0000
++++ zim/gui/widgets.py	2011-04-27 18:05:21 +0000
+@@ -28,8 +28,10 @@
+ 
+ if os.environ.get('ZIM_TEST_RUNNING'):
+ 	TEST_MODE = True
++	TEST_MODE_RUN_CB = None
+ else:
+ 	TEST_MODE = False
++	TEST_MODE_RUN_CB = None
+ 
+ 
+ # Check the (undocumented) list of constants in gtk.keysyms to see all names
+@@ -1861,8 +1863,12 @@
+ 		Returns the 'result' attribute of the dialog if any.
+ 		'''
+ 		self.show_all()
+-		while not self.destroyed:
+-			gtk.Dialog.run(self)
++		if TEST_MODE:
++			assert TEST_MODE_RUN_CB, 'Dialog run without test callback'
++			TEST_MODE_RUN_CB(self)
++		else:
++			while not self.destroyed:
++				gtk.Dialog.run(self)
+ 		return self.result
+ 
+ 	def present(self):
+
