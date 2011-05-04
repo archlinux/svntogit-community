@@ -79,7 +79,7 @@ fi
 #
 #	we also need to add some form of ld.so, here are some good guesses.
 #
-LDSO_LIST="/lib/ld.so /libexec/ld-elf.so /libexec/ld-elf.so.1 /usr/libexec/ld.so /lib64/ld-linux-x86-64.so.2 /lib/ld-linux.so.2 /usr/libexec/ld-elf.so.1"
+LDSO_LIST="/lib/ld.so /libexec/ld-elf.so /libexec/ld-elf.so.1 /usr/libexec/ld.so /lib64/ld-linux-x86-64.so.2 /lib/ld-linux-x86-64.so.2 /lib/ld-linux.so.2 /usr/libexec/ld-elf.so.1"
 for lib in $LDSO_LIST; do
 	if [ -f $lib ]; then
 		LDSOFOUND=1;
@@ -93,6 +93,11 @@ done
 ls /lib/libnss_compat* > /dev/null 2>&1 
 if [ $? -eq 0 ]; then
 	LIB_LIST="$LIB_LIST /lib/libnss_compat*"
+fi
+
+ls /lib/libnss_files* > /dev/null 2>&1 
+if [ $? -eq 0 ]; then
+	LIB_LIST="$LIB_LIST /lib/libnss_files*"
 fi
 
 # check that the configure options are correct for chrooted operation:
