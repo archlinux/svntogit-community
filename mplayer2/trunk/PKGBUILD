@@ -4,7 +4,7 @@
 
 pkgname=mplayer2
 pkgver=2.0
-pkgrel=10
+pkgrel=11
 pkgdesc="A movie player"
 arch=('i686' 'x86_64')
 license=('GPL')
