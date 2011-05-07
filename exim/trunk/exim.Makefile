@@ -924,7 +924,7 @@ USE_TCP_WRAPPERS=yes
 # aliases). The following setting can be changed to specify a different
 # location for the system alias file.
 
-SYSTEM_ALIASES_FILE=/home/angvp/pkgs/community/exim/trunk/pkg/etc/mail/aliases
+SYSTEM_ALIASES_FILE=/etc/mail/aliases
 
 
 #------------------------------------------------------------------------------
