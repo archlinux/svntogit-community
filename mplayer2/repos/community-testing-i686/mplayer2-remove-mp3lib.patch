@@ -1,0 +1,297 @@
+diff -Naur mplayer2-2.0.ori/configure mplayer2-2.0/configure
+--- mplayer2-2.0.ori/configure	2011-03-24 17:40:29.000000000 -0400
++++ mplayer2-2.0/configure	2011-05-09 14:11:10.717630210 -0400
+@@ -376,7 +376,6 @@
+   --disable-mad             disable libmad (MPEG audio) support [autodetect]
+   --enable-xmms             enable XMMS input plugin support [disabled]
+   --enable-libdca           enable libdca support [autodetect]
+-  --disable-mp3lib          disable builtin mp3lib [autodetect]
+   --disable-liba52          disable liba52 [autodetect]
+   --enable-musepack         enable libmpcdec support (deprecated, libavcodec
+                             Musepack decoder is preferred) [disabled]
+@@ -610,7 +609,6 @@
+ _speex=auto
+ _theora=auto
+ _mpg123=auto
+-_mp3lib=auto
+ _liba52=auto
+ _libdca=auto
+ _faad=auto
+@@ -965,8 +963,6 @@
+   --disable-theora)     _theora=no      ;;
+   --enable-mpg123)      _mpg123=yes     ;;
+   --disable-mpg123)     _mpg123=no      ;;
+-  --enable-mp3lib)      _mp3lib=yes     ;;
+-  --disable-mp3lib)     _mp3lib=no      ;;
+   --enable-liba52)      _liba52=yes     ;;
+   --disable-liba52)     _liba52=no      ;;
+   --enable-libdca)      _libdca=yes     ;;
+@@ -5731,19 +5727,6 @@
+ fi
+ echores "$_theora"
+ 
+-echocheck "mp3lib support"
+-if test "$_mp3lib" = auto ; then
+-  test "$cc_vendor" = intel && test "$_cc_major" -le 10 -o "$_cc_major" -eq 11 -a "$_cc_minor" -eq 0 && _mp3lib=no || _mp3lib=yes
+-fi
+-if test "$_mp3lib" = yes ; then
+-  def_mp3lib='#define CONFIG_MP3LIB 1'
+-  codecmodules="mp3lib(internal) $codecmodules"
+-else
+-  def_mp3lib='#undef CONFIG_MP3LIB'
+-  nocodecmodules="mp3lib(internal) $nocodecmodules"
+-fi
+-echores "$_mp3lib"
+-
+ # Any version of libmpg123 shall be fine.
+ echocheck "mpg123 support"
+ def_mpg123='#undef CONFIG_MPG123'
+@@ -6823,7 +6806,6 @@
+ MD5SUM = $_md5sum
+ MGA = $_mga
+ MNG = $_mng
+-MP3LIB = $_mp3lib
+ MPG123 = $_mpg123
+ MUSEPACK = $_musepack
+ NAS = $_nas
+@@ -7084,7 +7066,6 @@
+ $def_libdca
+ $def_libdv
+ $def_mad
+-$def_mp3lib
+ $def_mpg123
+ $def_musepack
+ $def_speex
+diff -Naur mplayer2-2.0.ori/etc/codecs.conf mplayer2-2.0/etc/codecs.conf
+--- mplayer2-2.0.ori/etc/codecs.conf	2011-03-24 17:40:29.000000000 -0400
++++ mplayer2-2.0/etc/codecs.conf	2011-05-09 14:11:10.717630210 -0400
+@@ -4220,23 +4220,6 @@
+   driver ffmpeg
+   dll "sonic"
+ 
+-audiocodec mp3
+-  ; this is preferred over ffmp2/ffmp3 since it is faster due to using
+-  ; floating point and there are even broken mkv files where the audio
+-  ; needs to be parsed, making this codec work more reliably
+-  info "mp3lib MPEG layer-2, layer-3"
+-  status working
+-  comment "Optimized to MMX/SSE/3Dnow!"
+-  format 0x50        ; layer-1 && layer-2
+-  format 0x55        ; layer-3
+-  format 0x5500736d  ; "ms\0\x55" older mp3 fcc (MOV files)
+-  format 0x5000736d  ; "ms\0\x50" older mp2 fcc (MOV files)
+-  format 0x55005354  ;  broken file
+-  fourcc ".mp3"      ; CBR/VBR MP3 (MOV files)
+-  fourcc "MP3 "      ; used in .nsv files
+-  fourcc "LAME"      ; used in mythtv .nuv files
+-  driver mp3lib
+-
+ audiocodec mpg123
+   ; this is preferred over ffmp2/ffmp3 since it is faster, generally
+   info "MPEG 1.0/2.0/2.5 layers I, II, III"
+diff -Naur mplayer2-2.0.ori/libmpcodecs/ad.c mplayer2-2.0/libmpcodecs/ad.c
+--- mplayer2-2.0.ori/libmpcodecs/ad.c	2011-03-24 17:40:29.000000000 -0400
++++ mplayer2-2.0/libmpcodecs/ad.c	2011-05-09 14:11:10.717630210 -0400
+@@ -32,7 +32,6 @@
+ /* Missed vorbis, mad, dshow */
+ 
+ extern const ad_functions_t mpcodecs_ad_mpg123;
+-extern const ad_functions_t mpcodecs_ad_mp3lib;
+ extern const ad_functions_t mpcodecs_ad_ffmpeg;
+ extern const ad_functions_t mpcodecs_ad_liba52;
+ extern const ad_functions_t mpcodecs_ad_hwac3;
+@@ -63,9 +62,6 @@
+ #ifdef CONFIG_MPG123
+   &mpcodecs_ad_mpg123,
+ #endif
+-#ifdef CONFIG_MP3LIB
+-  &mpcodecs_ad_mp3lib,
+-#endif
+ #ifdef CONFIG_LIBA52
+   &mpcodecs_ad_liba52,
+ #endif
+diff -Naur mplayer2-2.0.ori/libmpcodecs/ad_mp3lib.c mplayer2-2.0/libmpcodecs/ad_mp3lib.c
+--- mplayer2-2.0.ori/libmpcodecs/ad_mp3lib.c	2011-03-24 17:40:29.000000000 -0400
++++ mplayer2-2.0/libmpcodecs/ad_mp3lib.c	2011-05-09 14:11:10.717630210 -0400
+@@ -1,100 +0,0 @@
+-/*
+- * This file is part of MPlayer.
+- *
+- * MPlayer is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * MPlayer is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with MPlayer; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+- */
+-
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <unistd.h>
+-
+-#include "config.h"
+-
+-#include "ad_internal.h"
+-#include "ad_mp3lib.h"
+-
+-static const ad_info_t info =
+-{
+-	"MPEG layer-2, layer-3",
+-	"mp3lib",
+-	"Nick Kurshev",
+-	"mpg123",
+-	"Optimized to MMX/SSE/3Dnow!"
+-};
+-
+-LIBAD_EXTERN(mp3lib)
+-
+-#include "mp3lib/mp3.h"
+-
+-extern int fakemono;
+-
+-static sh_audio_t* dec_audio_sh=NULL;
+-
+-// MP3 decoder buffer callback:
+-int mplayer_audio_read(char *buf,int size){
+-  return demux_read_data(dec_audio_sh->ds,buf,size);
+-}
+-
+-static int preinit(sh_audio_t *sh)
+-{
+-  sh->audio_out_minsize=32*36*2*2; //4608;
+-  return 1;
+-}
+-
+-static int init(sh_audio_t *sh)
+-{
+-  // MPEG Audio:
+-  dec_audio_sh=sh; // save sh_audio for the callback:
+-//  MP3_Init(fakemono,mplayer_accel,&mplayer_audio_read); // TODO!!!
+-#ifdef CONFIG_FAKE_MONO
+-  MP3_Init(fakemono);
+-#else
+-  MP3_Init();
+-#endif
+-  MP3_samplerate=MP3_channels=0;
+-  sh->a_buffer_len=MP3_DecodeFrame(sh->a_buffer,-1);
+-  if(!sh->a_buffer_len) return 0; // unsupported layer/format
+-  sh->channels=2; // hack
+-  sh->samplesize=2;
+-  sh->samplerate=MP3_samplerate;
+-  sh->i_bps=MP3_bitrate*(1000/8);
+-  MP3_PrintHeader();
+-  return 1;
+-}
+-
+-static void uninit(sh_audio_t *sh)
+-{
+-}
+-
+-static int control(sh_audio_t *sh,int cmd,void* arg, ...)
+-{
+-    switch(cmd)
+-    {
+-      case ADCTRL_RESYNC_STREAM:
+-          MP3_DecodeFrame(NULL,-2); // resync
+-          MP3_DecodeFrame(NULL,-2); // resync
+-          MP3_DecodeFrame(NULL,-2); // resync
+-	  return CONTROL_TRUE;
+-      case ADCTRL_SKIP_FRAME:
+-	  MP3_DecodeFrame(NULL,-2); // skip MPEG frame
+-	  return CONTROL_TRUE;
+-    }
+-  return CONTROL_UNKNOWN;
+-}
+-
+-static int decode_audio(sh_audio_t *sh_audio,unsigned char *buf,int minlen,int maxlen)
+-{
+-   return MP3_DecodeFrame(buf,-1);
+-}
+diff -Naur mplayer2-2.0.ori/libmpcodecs/ad_mp3lib.h mplayer2-2.0/libmpcodecs/ad_mp3lib.h
+--- mplayer2-2.0.ori/libmpcodecs/ad_mp3lib.h	2011-03-24 17:40:29.000000000 -0400
++++ mplayer2-2.0/libmpcodecs/ad_mp3lib.h	2011-05-09 14:11:10.717630210 -0400
+@@ -1,24 +0,0 @@
+-/*
+- * This file is part of MPlayer.
+- *
+- * MPlayer is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * MPlayer is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License along
+- * with MPlayer; if not, write to the Free Software Foundation, Inc.,
+- * 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+- */
+-
+-#ifndef MPLAYER_AD_MP3LIB_H
+-#define MPLAYER_AD_MP3LIB_H
+-
+-int mplayer_audio_read(char *buf, int size);
+-
+-#endif /* MPLAYER_AD_MP3LIB_H */
+diff -Naur mplayer2-2.0.ori/Makefile mplayer2-2.0/Makefile
+--- mplayer2-2.0.ori/Makefile	2011-03-24 17:40:29.000000000 -0400
++++ mplayer2-2.0/Makefile	2011-05-09 14:11:10.714296876 -0400
+@@ -122,21 +122,6 @@
+ SRCS_COMMON-$(MNG)                   += libmpdemux/demux_mng.c
+ SRCS_COMMON-$(MPG123)                += libmpcodecs/ad_mpg123.c
+ 
+-SRCS_MP3LIB-X86-$(HAVE_AMD3DNOW)     += mp3lib/dct36_3dnow.c \
+-                                        mp3lib/dct64_3dnow.c
+-SRCS_MP3LIB-X86-$(HAVE_AMD3DNOWEXT)  += mp3lib/dct36_k7.c \
+-                                        mp3lib/dct64_k7.c
+-SRCS_MP3LIB-X86-$(HAVE_MMX)          += mp3lib/dct64_mmx.c
+-SRCS_MP3LIB-$(ARCH_X86_32)           += mp3lib/decode_i586.c \
+-                                        $(SRCS_MP3LIB-X86-yes)
+-SRCS_MP3LIB-$(HAVE_ALTIVEC)          += mp3lib/dct64_altivec.c
+-SRCS_MP3LIB-$(HAVE_MMX)              += mp3lib/decode_mmx.c
+-SRCS_MP3LIB-$(HAVE_SSE)              += mp3lib/dct64_sse.c
+-SRCS_MP3LIB                          += mp3lib/sr1.c \
+-                                        $(SRCS_MP3LIB-yes)
+-SRCS_COMMON-$(MP3LIB)                += libmpcodecs/ad_mp3lib.c \
+-                                        $(SRCS_MP3LIB)
+-
+ SRCS_COMMON-$(MUSEPACK)              += libmpcodecs/ad_mpc.c \
+                                         libmpdemux/demux_mpc.c
+ SRCS_COMMON-$(NATIVE_RTSP)           += stream/stream_rtsp.c \
+@@ -578,7 +563,6 @@
+         loader/dshow \
+         loader/dmo \
+         loader/wine \
+-        mp3lib \
+         osdep \
+         stream \
+         stream/freesdp \
+@@ -675,8 +659,6 @@
+ #loader/%: CFLAGS += -Ddbg_printf=__vprintf -DTRACE=__vprintf -DDETAILED_OUT
+ loader/win32%: CFLAGS += $(CFLAGS_STACKREALIGN)
+ 
+-mp3lib/decode_i586%: CFLAGS += -fomit-frame-pointer
+-
+ stream/stream_dvdnav%: CFLAGS := $(CFLAGS_LIBDVDNAV) $(CFLAGS)
+ 
+ 
+@@ -767,9 +749,7 @@
+ loader/qtx/list$(EXESUF) loader/qtx/qtxload$(EXESUF): CFLAGS += -g
+ loader/qtx/list$(EXESUF) loader/qtx/qtxload$(EXESUF): $(LOADER_TEST_OBJS)
+ 
+-mp3lib/test$(EXESUF) mp3lib/test2$(EXESUF): $(SRCS_MP3LIB:.c=.o) libvo/aclib.o cpudetect.o $(TEST_OBJS)
+-
+-TESTS = codecs2html codec-cfg-test libvo/aspecttest mp3lib/test mp3lib/test2
++TESTS = codecs2html codec-cfg-test libvo/aspecttest
+ 
+ ifdef ARCH_X86
+ TESTS += loader/qtx/list loader/qtx/qtxload
