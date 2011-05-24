@@ -1,0 +1,132 @@
+commit fa7cd65e480d80ba1cd196bdcec8f4714e361e8e
+Author: Mathias Stearn <redbeard0531@gmail.com>
+Date:   Sun Apr 3 19:10:36 2011 -0400
+
+    g++ 4.6 compile (new -Wunused-but-set-variable warning)
+
+diff --git a/db/btree.cpp b/db/btree.cpp
+index 2758f72..4162d6a 100644
+--- a/db/btree.cpp
++++ b/db/btree.cpp
+@@ -1226,8 +1226,6 @@ namespace mongo {
+             out() << "   " << thisLoc.toString() << ".insertHere " << key.toString() << '/' << recordLoc.toString() << ' '
+                   << lchild.toString() << ' ' << rchild.toString() << " keypos:" << keypos << endl;
+ 
+-        DiskLoc oldLoc = thisLoc;
+-
+         if ( !basicInsert(thisLoc, keypos, recordLoc, key, order) ) {
+             // If basicInsert() fails, the bucket will be packed as required by split().
+             thisLoc.btreemod()->split(thisLoc, keypos, recordLoc, key, order, lchild, rchild, idx);
+diff --git a/db/dbcommands.cpp b/db/dbcommands.cpp
+index 2580f86..56c0fce 100644
+--- a/db/dbcommands.cpp
++++ b/db/dbcommands.cpp
+@@ -1460,7 +1460,7 @@ namespace mongo {
+             uassert( 13049, "godinsert must specify a collection", !coll.empty() );
+             string ns = dbname + "." + coll;
+             BSONObj obj = cmdObj[ "obj" ].embeddedObjectUserCheck();
+-            DiskLoc loc = theDataFileMgr.insertWithObjMod( ns.c_str(), obj, true );
++            theDataFileMgr.insertWithObjMod( ns.c_str(), obj, true );
+             return true;
+         }
+     } cmdGodInsert;
+diff --git a/db/index.cpp b/db/index.cpp
+index c696e27..218ecb3 100644
+--- a/db/index.cpp
++++ b/db/index.cpp
+@@ -127,7 +127,6 @@ namespace mongo {
+     void getIndexChanges(vector<IndexChanges>& v, NamespaceDetails& d, BSONObj newObj, BSONObj oldObj, bool &changedId) {
+         int z = d.nIndexesBeingBuilt();
+         v.resize(z);
+-        NamespaceDetails::IndexIterator i = d.ii();
+         for( int i = 0; i < z; i++ ) {
+             IndexDetails& idx = d.idx(i);
+             BSONObj idxKey = idx.info.obj().getObjectField("key"); // eg { ts : 1 }
+diff --git a/db/update.cpp b/db/update.cpp
+index e173902..85c3f9c 100644
+--- a/db/update.cpp
++++ b/db/update.cpp
+@@ -992,7 +992,7 @@ namespace mongo {
+                 BSONObj newObj = mss->createNewFromMods();
+                 checkTooLarge(newObj);
+                 assert(nsdt);
+-                DiskLoc newLoc = theDataFileMgr.updateRecord(ns, d, nsdt, r, loc , newObj.objdata(), newObj.objsize(), debug);
++                theDataFileMgr.updateRecord(ns, d, nsdt, r, loc , newObj.objdata(), newObj.objsize(), debug);
+             }
+ 
+             if ( logop ) {
+diff --git a/dbtests/queryoptimizertests.cpp b/dbtests/queryoptimizertests.cpp
+index acf9217..2d6f752 100644
+--- a/dbtests/queryoptimizertests.cpp
++++ b/dbtests/queryoptimizertests.cpp
+@@ -1558,7 +1558,6 @@ namespace QueryOptimizerTests {
+                     theDataFileMgr.insertWithObjMod( ns(), temp );
+                 }
+                 BSONObj hint = fromjson( "{$hint:{a:1,b:1}}" );
+-                BSONElement hintElt = hint.firstElement();
+                 auto_ptr< FieldRangeSet > frs( new FieldRangeSet( ns(), fromjson( "{a:5,b:{$in:[2,3,6,9,11]}}" ) ) );
+                 QueryPlan qp( nsd(), 1, *frs, *frs, fromjson( "{a:5,b:{$in:[2,3,6,9,11]}}" ), BSONObj() );
+                 boost::shared_ptr<Cursor> c = qp.newCursor();
+@@ -1581,7 +1580,6 @@ namespace QueryOptimizerTests {
+                     theDataFileMgr.insertWithObjMod( ns(), temp );
+                 }
+                 BSONObj hint = fromjson( "{$hint:{a:1,b:1}}" );
+-                BSONElement hintElt = hint.firstElement();
+                 auto_ptr< FieldRangeSet > frs( new FieldRangeSet( ns(), fromjson( "{a:{$gte:5},b:{$in:[2,3,6,9,11]}}" ) ) );
+                 QueryPlan qp( nsd(), 1, *frs, *frs, fromjson( "{a:{$gte:5},b:{$in:[2,3,6,9,11]}}" ), BSONObj() );
+                 boost::shared_ptr<Cursor> c = qp.newCursor();
+diff --git a/shell/shell_utils.cpp b/shell/shell_utils.cpp
+index 6c398ef..53484fd 100644
+--- a/shell/shell_utils.cpp
++++ b/shell/shell_utils.cpp
+@@ -260,7 +260,7 @@ namespace mongo {
+             BSONElement e = oneArg(args);
+             bool found = false;
+ 
+-            path root( args.firstElement().valuestrsafe() );
++            path root( e.valuestrsafe() );
+             if ( boost::filesystem::exists( root ) ) {
+                 found = true;
+                 boost::filesystem::remove_all( root );
+diff --git a/tools/tool.cpp b/tools/tool.cpp
+index 92a4bd4..150481b 100644
+--- a/tools/tool.cpp
++++ b/tools/tool.cpp
+@@ -413,14 +413,14 @@ namespace mongo {
+         ProgressMeter m( fileLength );
+ 
+         while ( read < fileLength ) {
+-            int readlen = fread(buf, 4, 1, file);
++            fread(buf, 4, 1, file);
+             int size = ((int*)buf)[0];
+             if ( size >= BUF_SIZE ) {
+                 cerr << "got an object of size: " << size << "  terminating..." << endl;
+             }
+             uassert( 10264 ,  "invalid object size" , size < BUF_SIZE );
+ 
+-            readlen = fread(buf+4, size-4, 1, file);
++            fread(buf+4, size-4, 1, file);
+ 
+             BSONObj o( buf );
+             if ( _objcheck && ! o.valid() ) {
+diff --git a/util/ramlog.h b/util/ramlog.h
+index fc588e6..b2f3aa0 100644
+--- a/util/ramlog.h
++++ b/util/ramlog.h
+@@ -108,7 +108,6 @@ namespace mongo {
+             vector<const char*> v;
+             get( v );
+ 
+-            bool first = true;
+             s << "<pre>\n";
+             for( int i = 0; i < (int)v.size(); i++ ) {
+                 assert( strlen(v[i]) > 20 );
+@@ -126,7 +125,7 @@ namespace mongo {
+                         stringstream r;
+                         if( nr == 1 ) r << "repeat last line";
+                         else r << "repeats last " << nr << " lines; ends " << string(v[last]+4,0,15);
+-                        first = false; s << html::a("", r.str(), clean(v,i,x.str()));
++                        s << html::a("", r.str(), clean(v,i,x.str()));
+                     }
+                     else s << x.str();
+                     s << '\n';
