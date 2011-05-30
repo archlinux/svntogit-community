@@ -3,7 +3,7 @@
 
 pkgname=sxiv
 pkgver=0.8.1
-pkgrel=2
+pkgrel=3
 pkgdesc='simple x image viewer'
 arch=('i686' 'x86_64')
 license=('GPL2')
@@ -14,7 +14,7 @@ source=("https://github.com/downloads/muennich/sxiv/sxiv-${pkgver}.tar.gz"
         'sxiv.desktop'
         'config.h')
 md5sums=('23006a1900690d46c0ff126c76cdbd02'
-         '0b6d43bd356aadc12537c010950e2272'
+         '1dda85ff6bed4de337f8fb303075ed11'
          '8018e9f2f63b155098428be9dbaf8b5c')
 
 build() {
