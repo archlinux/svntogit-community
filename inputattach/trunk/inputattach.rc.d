@@ -7,7 +7,7 @@
 case "$1" in
   start)
     stat_busy "Starting inputattach"
-    for param in ${IAPARAMS[@]}; do
+    for param in "${IAPARAMS[@]}"; do
       if ! /usr/sbin/inputattach --daemon $param; then
         stat_fail
         exit 1
@@ -35,6 +35,6 @@ case "$1" in
     $0 start
     ;;
   *)
-    echo "usage: $0 {start|stop|restart}"  
+    echo "usage: $0 {start|stop|restart}"
 esac
 exit 0
