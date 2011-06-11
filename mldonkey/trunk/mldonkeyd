@@ -9,6 +9,15 @@ if [ -z $MLDUSER ] ; then
 	exit 2
 fi
 
+if [ -z "$(getent passwd "$MLDUSER")" ]; then
+	# Perhaps we should create the account for the user?
+	echo "You must create the account $MLDUSER in order to run mldonkey."
+	echo "Please create the account manually, and try again."
+	exit 2
+fi
+
+MLDGROUPID=$(getent passwd "$MLDUSER" |cut -d':' -f4)
+MLDGROUP=$(getent group $MLDGROUPID |cut -d':' -f1)
 USERDIR=$(getent passwd $MLDUSER | cut -d: -f6)
 
 if [ ! -d $USERDIR ]; then
@@ -16,12 +25,20 @@ if [ ! -d $USERDIR ]; then
 	exit 2
 fi
 
-PID=$(cat $USERDIR/.mldonkey/mlnet.pid 2>/dev/null)
+PIDDIR="/var/run/mldonkey"
+PIDFILE="$PIDDIR/mlnet.pid"
+PID=$(cat $PIDFILE 2>/dev/null)
 
 case "$1" in
     	start)
         	stat_busy "Starting MLDonkey"
-		[ -z $PID ] && su $MLDUSER -s /bin/sh -c "/usr/bin/mlnet $PARAMS -log_to_syslog true &> /tmp/mldonkey.log &"
+		if [ ! -d $PIDDIR ]; then
+			install -d -m755 -o "$MLDUSER" -g "$MLDGROUP" $PIDDIR
+		fi
+		if [ "$(stat -c %U $PIDDIR)" != "$MLDUSER" ]; then
+			chown -R "$MLDUSER:$MLDGROUP" $PIDDIR
+		fi
+		[ -z $PID ] && su $MLDUSER -s /bin/sh -c "/usr/bin/mlnet -pid $PIDDIR  $PARAMS -log_to_syslog true &> /tmp/mldonkey.log &"
 		if [ $? -gt 0 ]; then
 			stat_fail
 		else
