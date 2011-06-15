@@ -1,0 +1,47 @@
+#!/bin/bash
+
+. /etc/rc.conf
+. /etc/rc.d/functions
+
+case "$1" in
+  start)
+
+    [ -d /var/run/courier ] || mkdir -p /var/run/courier
+	chown courier:courier /var/run/courier
+
+    if [ ! -f /var/run/daemons/authdaemond ]; then
+      echo "ERROR: authdaemond is not running"
+      stat_fail
+      exit 1
+    fi
+
+    stat_busy "Starting Courier pop3d-ssl"
+    /usr/lib/courier-imap/pop3d-ssl.rc start
+    if [ $? -gt 0 ]; then
+      stat_fail
+    else
+      add_daemon pop3d-ssl
+      stat_done
+    fi
+    ;;
+  stop)
+    stat_busy "Stopping Courier pop3d-ssl"
+    /usr/lib/courier-imap/pop3d-ssl.rc stop > /dev/null
+    if [ $? -gt 0 ]; then
+      stat_fail
+    else
+      rm_daemon pop3d-ssl
+      stat_done
+    fi
+    ;;
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+  *)
+    echo "usage: $0 {start|stop|restart}"  
+esac
+exit 0
+~                                                                                                                                                         
+~         
