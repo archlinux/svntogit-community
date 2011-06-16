@@ -3,23 +3,23 @@
 # Contributor: Abhishek Dasgupta <abhidg@gmail.com>
 
 pkgname=python-distutils-extra
-pkgver=2.22
-pkgrel=2
+pkgver=2.28
+pkgrel=1
 pkgdesc='Enhancements to the Python build system'
 arch=('any')
 license=('GPL')
-url='http://packages.qa.debian.org/p/python-distutils-extra.html'
+url='https://launchpad.net/python-distutils-extra'
 depends=('intltool' 'python2')
 makedepends=('setuptools')
 source=(http://launchpad.net/$pkgname/trunk/$pkgver/+download/$pkgname-$pkgver.tar.gz)
-md5sums=('c085b71263c37af48824f8a353475181')
+md5sums=('6f4bd56233161fe8ce29a1b344f99da6')
 
 build() {
   cd "${srcdir}/$pkgname-$pkgver"
 
   # python2 fix
   sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' setup.py test/auto.py
-  sed -i 's_\(subprocess.call.*\)python_\1python2_' DistUtilsExtra/command/build_kdeui.py
+  #sed -i 's_\(subprocess.call.*\)python_\1python2_' DistUtilsExtra/command/build_kdeui.py
 
   python2 setup.py install --root="${pkgdir}"
 }
