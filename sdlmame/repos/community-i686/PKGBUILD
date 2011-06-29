@@ -1,0 +1,102 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: robb_force <robb_force@holybuffalo.net>
+# Maintainer: JJDaNiMoTh <jjdanimoth@gmail.com>
+
+_patchlevel=0
+_basever=0.143
+
+pkgname=sdlmame
+if [ ${_patchlevel} -ne 0 ]; then
+  pkgver=${_basever}u${_patchlevel}
+else
+  pkgver=${_basever}
+fi
+pkgrel=2
+pkgdesc="A port of the popular Multiple Arcade Machine Emulator using SDL with OpenGL support."
+url="http://mamedev.org/"
+license=('custom:MAME License')
+arch=('i686' 'x86_64')
+depends=('sdl>=1.2.11' 'libxinerama' 'gconf' 'sdl_ttf' 'gtk2')
+makedepends=('unzip' 'nasm' 'mesa')
+DLAGENTS=('http::/usr/bin/wget -U "Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.1.2) Gecko/20090804 Shiretoko/3.5.2" -c -t 3 --waitretry=3 -O %o %u')
+install=sdlmame.install
+
+for i in `seq 1 ${_patchlevel}`; do
+	_patches="${_patches} sdlmame-${_basever/./}u${i}_diff.zip::http://mamedev.org/updates/${_basever/./}u${i}_diff.zip"
+done
+
+source=("mame${_basever/./}s.zip::http://mamedev.org/downloader.php?file=releases/mame${_basever/./}s.zip"
+	"sdlmame.sh"
+	"extras.tar.gz"
+	${_patches})
+md5sums=('2d95b9d9f79a97a690f62284e4db0e7e'
+         '3119ccfa1e970eba4467df31208adaf0'
+         '420b61240bf5ae11615ba7c6100ee00d')
+
+build() {
+  cd $srcdir/
+
+  if [ $NOEXTRACT -eq 0 ]; then
+    unzip mame.zip
+    find . -type f -not -name \*.png | xargs perl -pi -e 's/\r\n?/\n/g'
+    for i in `seq 1 ${_patchlevel}`; do
+      patch -p0 -E <${_basever/./}u$i.diff
+    done
+    sed -i 's/-Werror//' makefile
+    sed -i 's/LDFLAGS = -Wl,--warn-common/LDFLAGS = -Wl,--warn-common -Wl,-zmuldefs/' makefile
+  fi
+
+  # Modify the make options based on the user's architecture
+  if [ "$CARCH" == "x86_64" ]; then
+    echo "Compiling for AMD64..."
+    make AMD64=1 PTR64=1
+    make tools AMD64=1 PTR64=1
+  elif [ "$CARCH" == "i686" ]; then
+    make I686=1
+    make tools I686=1
+  else
+    echo "Compiling for i386..."
+    make PM=1
+    make tools PM=1
+  fi
+
+}
+package() {
+  cd $srcdir/
+  # Install the sdlmame script
+  install -Dm755 $srcdir/${pkgname}.sh $pkgdir/usr/bin/${pkgname}
+
+  # Install the applications and the UI font in /usr/share
+  install -Dm755 mame $pkgdir/usr/share/${pkgname}/${pkgname} || \
+  install -Dm755 mame64 $pkgdir/usr/share/${pkgname}/${pkgname}
+
+  install -m755 chdman $pkgdir/usr/share/${pkgname}/chdman
+  install -m755 jedutil $pkgdir/usr/share/${pkgname}/jedutil
+  install -m755 regrep $pkgdir/usr/share/${pkgname}/regrep
+  install -m755 romcmp $pkgdir/usr/share/${pkgname}/romcmp
+  install -m755 testkeys $pkgdir/usr/share/${pkgname}/testkeys
+  install -m755 src2html $pkgdir/usr/share/${pkgname}/src2html
+  install -m755 srcclean $pkgdir/usr/share/${pkgname}/srcclean
+  install -m755 ldverify $pkgdir/usr/share/${pkgname}/ldverify
+  install -m755 ldresample $pkgdir/usr/share/${pkgname}/ldresample
+
+#  install -m755 makemeta $pkgdir/usr/share/${pkgname}/makemeta
+#  install -m755 runtest $pkgdir/usr/share/${pkgname}/runtest
+#  install -m644 ui.bdf $pkgdir/usr/share/${pkgname}/ui.bdf
+
+  # Install the extra bits
+  install -d $pkgdir/usr/share/${pkgname}/{artwork,ctrlr,keymaps,shader}
+  install -d $pkgdir/usr/share/man/man1
+  install -m644 src/osd/sdl/shader/glsl*.*h $pkgdir/usr/share/${pkgname}/shader/
+  install -m644 src/osd/sdl/man/* $pkgdir/usr/share/man/man1/
+
+  install -m644 $srcdir/artwork/* $pkgdir/usr/share/${pkgname}/artwork/
+  install -m644 $srcdir/ctrlr/* $pkgdir/usr/share/${pkgname}/ctrlr/
+  install -m644 src/osd/sdl/keymaps/* $pkgdir/usr/share/${pkgname}/keymaps/
+
+  # Include the license
+  install -Dm644 docs/license.txt $pkgdir/usr/share/licenses/${pkgname}/license.txt
+
+  find $pkgdir -type f -exec strip {} \;
+}
