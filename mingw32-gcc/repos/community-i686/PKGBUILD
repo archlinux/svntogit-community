@@ -1,0 +1,72 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Maintainer: Ondrej Jirman <megous@megous.com>
+
+pkgname=mingw32-gcc
+pkgver=4.5.2
+pkgrel=4
+arch=(i686 x86_64)
+pkgdesc="A C and C++ cross-compilers for building Windows executables on Linux"
+depends=('mingw32-pthreads' 'mingw32-runtime' 'mingw32-binutils' 'mingw32-w32api'
+	 'libmpc' 'elfutils' 'gmp')
+replaces=('mingw32-gcc-base')
+provides=('mingw32-gcc-base')
+options=(!strip)
+url="http://sourceforge.net/projects/mingw/files/MinGW/BaseSystem/GCC/Version4/"
+license=(GPL LGPL)
+source=(gcc-$pkgver-1-mingw32-src.tar.xz::http://downloads.sourceforge.net/project/mingw/MinGW/BaseSystem/GCC/Version4/gcc-$pkgver-1/gcc-$pkgver-1-mingw32-src.tar.lzma)
+md5sums=('6df4174d78285ec58910f86217b8acb1')
+
+build()
+{
+  [ $NOEXTRACT -eq 1 ] || tar xJf gcc-$pkgver-1-mingw32-src.tar.xz
+  [ $NOEXTRACT -eq 1 ] || tar xjf gcc-$pkgver.tar.bz2
+
+  mkdir -p $srcdir/build
+  cd $srcdir/build
+
+  unset CFLAGS CXXFLAGS
+
+  chmod ugo+x $srcdir/gcc-$pkgver/configure
+  chmod ugo+x $srcdir/gcc-$pkgver/move-if-change
+
+  msg "gcc"
+  [ -f Makefile ] || $srcdir/gcc-$pkgver/configure \
+     --target=i486-mingw32 \
+     --host=$CHOST \
+     --build=$CHOST \
+     --prefix=/usr \
+     --libexecdir=/usr/lib \
+     --with-bugurl=https://bugs.archlinux.org/ \
+     --enable-languages=c,c++ \
+     --enable-shared \
+     --enable-sjlj-exceptions \
+     --enable-hash-synchronization \
+     --disable-nls \
+     --disable-libssp \
+     --enable-libgomp
+
+  make
+  make install DESTDIR=$pkgdir
+
+  msg "libgcc"
+  make -j1 -C i486-mingw32/libgcc DESTDIR=${pkgdir} libgcc_eh.a install
+
+  msg "libstdc++"
+  make -j1 -C i486-mingw32/libstdc++-v3 DESTDIR=${pkgdir} install
+
+  msg "fixes"
+  mkdir -p $pkgdir/usr/i486-mingw32/bin/
+  mv $pkgdir/usr/bin/*.dll $pkgdir/usr/i486-mingw32/bin/
+  mv $pkgdir/*.dll $pkgdir/usr/i486-mingw32/bin/
+
+  cd $pkgdir
+  rm -rf usr/bin/i486-mingw32-{gcov,gccbug,gcc-*} \
+    usr/{include,lib/libiberty.a} \
+    usr/share/{info,man} \
+    usr/share/gcc-$pkgver/python
+
+  strip usr/bin/*
+  strip usr/lib/gcc/i486-mingw32/$pkgver/{cc1*,collect2}
+  i486-mingw32-strip -g usr/lib/gcc/i486-mingw32/$pkgver/*.a
+}
