@@ -1,0 +1,1502 @@
+--- mongodb-src-r1.8.0/SConstruct.mozjs185~	2011-03-16 16:33:30.000000000 +0100
++++ mongodb-src-r1.8.0/SConstruct	2011-04-01 22:16:43.411100876 +0200
+@@ -671,7 +671,6 @@ if nix:
+     env.Append( CPPFLAGS="-fPIC -fno-strict-aliasing -ggdb -pthread -Wall -Wsign-compare -Wno-unknown-pragmas -Winvalid-pch" )
+     # env.Append( " -Wconversion" ) TODO: this doesn't really work yet
+     if linux:
+-        env.Append( CPPFLAGS=" -Werror " )
+         env.Append( CPPFLAGS=" -fno-builtin-memcmp " ) # glibc's memcmp is faster than gcc's
+     env.Append( CXXFLAGS=" -Wnon-virtual-dtor " )
+     env.Append( LINKFLAGS=" -fPIC -pthread -rdynamic" )
+@@ -893,11 +892,11 @@ def doConfigure( myenv , needPcre=True ,
+     if usesm:
+ 
+         # see http://www.mongodb.org/pages/viewpageattachments.action?pageId=12157032
+-        J = [ "mozjs" , "js", "js_static" ]
++        J = [ "mozjs185" , "js", "js_static" ]
+         if windows:
+             if msarch == "amd64":
+                 if release:
+-                    J = [ "js64r", "js", "mozjs" , "js_static" ]
++                    J = [ "js64r", "js", "mozjs185" , "js_static" ]
+                 else:
+                     J = "js64d"
+                     print( "looking for js64d.lib for spidermonkey. (available at mongodb.org prebuilt)" );
+@@ -905,14 +904,12 @@ def doConfigure( myenv , needPcre=True ,
+                 if not force32:
+                     print( "Assuming a 32 bit build is desired" )
+                 if release:
+-                    J = [ "js32r", "js", "mozjs" , "js_static" ]
++                    J = [ "js32r", "js", "mozjs185" , "js_static" ]
+                 else:
+-                    J = [ "js32d", "js", "mozjs" , "js_static" ]
++                    J = [ "js32d", "js", "mozjs185" , "js_static" ]
+                 
+         myCheckLib( J , True )
+         mozHeader = "js"
+-        if bigLibString(myenv).find( "mozjs" ) >= 0:
+-            mozHeader = "mozjs"
+ 
+         if not conf.CheckHeader( mozHeader + "/jsapi.h" ):
+             if conf.CheckHeader( "jsapi.h" ):
+@@ -921,6 +918,13 @@ def doConfigure( myenv , needPcre=True ,
+                 print( "no spider monkey headers!" )
+                 Exit(1)
+ 
++    if conf.CheckFunc( 'JS_NewCompartmentAndGlobalObject' ):
++        myenv.Append( CPPDEFINES=[ "HAVE_COMPARTMENTS" ] )
++    if conf.CheckFunc( 'JS_GetStringCharsAndLength' ):
++        myenv.Append( CPPDEFINES=[ "HAVE_JS_GET_STRING_CHARS_AND_LENGTH" ] )
++    if conf.CheckFunc( 'JS_NewRegExpObjectNoStatics' ):
++        myenv.Append( CPPDEFINES=[ "JS_NEW_REG_EXP_OBJECT_NO_STATISTICS" ] )
++
+     if usev8:
+         if debugBuild:
+             myCheckLib( [ "v8_g" , "v8" ] , True )
+--- mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp.mozjs185~	2011-03-16 16:33:30.000000000 +0100
++++ mongodb-src-r1.8.0/scripting/engine_spidermonkey.cpp	2011-04-01 22:42:19.780233492 +0200
+@@ -192,8 +192,13 @@ namespace mongo {
+         }
+ 
+         string toString( JSString * so ) {
++#ifdef HAVE_JS_GET_STRING_CHARS_AND_LENGTH
++            size_t srclen;
++            const jschar * s = JS_GetStringCharsAndLength( _context , so , &srclen );
++#else
+             jschar * s = JS_GetStringChars( so );
+             size_t srclen = JS_GetStringLength( so );
++#endif
+             if( srclen == 0 )
+                 return "";
+ 
+@@ -360,7 +365,7 @@ namespace mongo {
+ 
+             case JSTYPE_OBJECT: {
+                 JSObject * o = JSVAL_TO_OBJECT( val );
+-                if ( ! o || o == JSVAL_NULL ) {
++                if ( ! o || o == (JSObject *)JSVAL_NULL ){
+                     b.appendNull( name );
+                 }
+                 else if ( ! appendSpecialDBObject( this , b , name , val , o ) ) {
+@@ -419,16 +424,15 @@ namespace mongo {
+             return true;
+         }
+ 
+-        void addRoot( JSFunction * f , const char * name );
++        void addRoot( JSFunction * f );
+ 
+         JSFunction * compileFunction( const char * code, JSObject * assoc = 0 ) {
+-            const char * gcName = "unknown";
+-            JSFunction * f = _compileFunction( code , assoc , gcName );
+-            //addRoot( f , gcName );
++            JSFunction * f = _compileFunction( code , assoc );
++            //addRoot( f );
+             return f;
+         }
+ 
+-        JSFunction * _compileFunction( const char * raw , JSObject * assoc , const char *& gcName ) {
++        JSFunction * _compileFunction( const char * raw , JSObject * assoc ) {
+             if ( ! assoc )
+                 assoc = JS_GetGlobalObject( _context );
+ 
+@@ -447,7 +451,6 @@ namespace mongo {
+                 if ( isSimpleStatement( s ) ) {
+                     s = "return " + s;
+                 }
+-                gcName = "cf anon";
+                 fname << "anon";
+                 return JS_CompileFunction( _context , assoc , fname.str().c_str() , 0 , 0 , s.c_str() , s.size() , "nofile_a" , 0 );
+             }
+@@ -488,7 +491,6 @@ namespace mongo {
+                 log() << "compile failed for: " << raw << endl;
+                 return 0;
+             }
+-            gcName = "cf normal";
+             return func;
+         }
+ 
+@@ -630,7 +632,11 @@ namespace mongo {
+                     flags++;
+                 }
+ 
++#ifdef JS_NEW_REG_EXP_OBJECT_NO_STATISTICS
++                JSObject * r = JS_NewRegExpObjectNoStatics( _context , (char*)e.regex() , strlen( e.regex() ) , flagNumber);
++#else
+                 JSObject * r = JS_NewRegExpObject( _context , (char*)e.regex() , strlen( e.regex() ) , flagNumber );
++#endif
+                 assert( r );
+                 return OBJECT_TO_JSVAL( r );
+             }
+@@ -791,7 +797,7 @@ namespace mongo {
+ 
+         BSONFieldIterator * it = (BSONFieldIterator*)JSVAL_TO_PRIVATE( *statep );
+         if ( ! it ) {
+-            *statep = 0;
++            *statep = JSVAL_NULL;
+             return JS_TRUE;
+         }
+ 
+@@ -803,7 +809,7 @@ namespace mongo {
+             }
+             else {
+                 delete it;
+-                *statep = 0;
++                *statep = JSVAL_NULL;
+             }
+             return JS_TRUE;
+         }
+@@ -818,7 +824,7 @@ namespace mongo {
+         return JS_FALSE;
+     }
+ 
+-    JSBool noaccess( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
++    JSBool noaccess( JSContext *cx, JSObject *obj, jsid id, jsval *vp){
+         BSONHolder * holder = GETHOLDER( cx , obj );
+         if ( ! holder ) {
+             // in init code still
+@@ -830,24 +836,37 @@ namespace mongo {
+         return JS_FALSE;
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
++    JSBool strict_noaccess( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp){
++        return noaccess( cx , obj , id , vp );
++    }
++
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp, JSResolveOp)
+     JSClass bson_ro_class = {
+         "bson_ro_object" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE | JSCLASS_NEW_ENUMERATE ,
+-        noaccess, noaccess, JS_PropertyStub, noaccess,
+-        (JSEnumerateOp)bson_enumerate, (JSResolveOp)(&resolveBSONField) , JS_ConvertStub, bson_finalize ,
++        noaccess, noaccess, JS_PropertyStub, strict_noaccess,
++        (JSEnumerateOp)bson_enumerate, (JSResolveOp)resolveBSONField , JS_ConvertStub, bson_finalize ,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool bson_cons( JSContext* cx, uintN argc, jsval* vp ){
++#else
+     JSBool bson_cons( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         cerr << "bson_cons : shouldn't be here!" << endl;
+         JS_ReportError( cx , "can't construct bson object" );
+         return JS_FALSE;
+     }
+ 
+     JSFunctionSpec bson_functions[] = {
+-        { 0 }
++        JS_FS_END
+     };
+ 
+-    JSBool bson_add_prop( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSPropertyOp)
++    JSBool bson_add_prop( JSContext *cx, JSObject *obj, jsid id, jsval *vp){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         BSONHolder * holder = GETHOLDER( cx , obj );
+         if ( ! holder ) {
+             // static init
+@@ -864,8 +883,10 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
+-
+-    JSBool mark_modified( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSPropertyOp)
++    JSBool mark_modified( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         Convertor c(cx);
+         BSONHolder * holder = GETHOLDER( cx , obj );
+         if ( !holder ) // needed when we're messing with DBRef.prototype
+@@ -877,7 +898,10 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
+-    JSBool mark_modified_remove( JSContext *cx, JSObject *obj, jsval idval, jsval *vp) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSPropertyOp)
++    JSBool mark_modified_remove( JSContext *cx, JSObject *obj, jsid id, jsval *vp){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         Convertor c(cx);
+         BSONHolder * holder = GETHOLDER( cx , obj );
+         if ( holder->_inResolve )
+@@ -887,23 +911,26 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp, JSResolveOp)
+     JSClass bson_class = {
+         "bson_object" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE | JSCLASS_NEW_ENUMERATE ,
+         bson_add_prop, mark_modified_remove, JS_PropertyStub, mark_modified,
+-        (JSEnumerateOp)bson_enumerate, (JSResolveOp)(&resolveBSONField) , JS_ConvertStub, bson_finalize ,
++        (JSEnumerateOp)bson_enumerate, (JSResolveOp)resolveBSONField , JS_ConvertStub, bson_finalize ,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     static JSClass global_class = {
+         "global", JSCLASS_GLOBAL_FLAGS,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub, JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     // --- global helpers ---
+ 
+-    JSBool native_print( JSContext * cx , JSObject * obj , uintN argc, jsval *argv, jsval *rval ) {
++    JSBool native_print( JSContext * cx , uintN argc , jsval *vp ){
++        jsval *argv = JS_ARGV( cx , vp);
+         stringstream ss;
+         Convertor c( cx );
+         for ( uintN i=0; i<argc; i++ ) {
+@@ -913,10 +940,13 @@ namespace mongo {
+         }
+         ss << "\n";
+         Logstream::logLockless( ss.str() );
++        JS_SET_RVAL( cx , vp , JSVAL_VOID );
+         return JS_TRUE;
+     }
+ 
+-    JSBool native_helper( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
++    JSBool native_helper( JSContext *cx , uintN argc, jsval *vp){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_THIS_OBJECT( cx , vp );
+         Convertor c(cx);
+ 
+         NativeFunction func = (NativeFunction)((long long)c.getNumber( obj , "x" ) );
+@@ -942,35 +972,37 @@ namespace mongo {
+         }
+ 
+         if ( out.isEmpty() ) {
+-            *rval = JSVAL_VOID;
++            JS_SET_RVAL( cx , vp , JSVAL_VOID );
+         }
+         else {
+-            *rval = c.toval( out.firstElement() );
++            JS_SET_RVAL( cx , vp , c.toval( out.firstElement() ) );
+         }
+ 
+         return JS_TRUE;
+     }
+ 
+-    JSBool native_load( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval );
++    JSBool native_load( JSContext *cx , uintN argc, jsval *vp );
+ 
+-    JSBool native_gc( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
++    JSBool native_gc( JSContext *cx , uintN argc, jsval *vp ){
+         JS_GC( cx );
++        JS_SET_RVAL( cx , vp , JSVAL_VOID );
+         return JS_TRUE;
+     }
+ 
+     JSFunctionSpec globalHelpers[] = {
+-        { "print" , &native_print , 0 , 0 , 0 } ,
+-        { "nativeHelper" , &native_helper , 1 , 0 , 0 } ,
+-        { "load" , &native_load , 1 , 0 , 0 } ,
+-        { "gc" , &native_gc , 1 , 0 , 0 } ,
+-        { 0 , 0 , 0 , 0 , 0 }
++        JS_FS( "print" , &native_print , 0 , JSFUN_FAST_NATIVE ) ,
++        JS_FS( "nativeHelper" , &native_helper , 1 , JSFUN_FAST_NATIVE ) ,
++        JS_FS( "load" , &native_load , 1 , JSFUN_FAST_NATIVE ) ,
++        JS_FS( "gc" , &native_gc , 1 , JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
+     // ----END global helpers ----
+ 
+     // Object helpers
+ 
+-    JSBool bson_get_size(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool bson_get_size(JSContext *cx, uintN argc, jsval *vp){
++        jsval *argv = JS_ARGV( cx , vp );
+         if ( argc != 1 || !JSVAL_IS_OBJECT( argv[ 0 ] ) ) {
+             JS_ReportError( cx , "bsonsize requires one valid object" );
+             return JS_FALSE;
+@@ -979,7 +1011,7 @@ namespace mongo {
+         Convertor c(cx);
+ 
+         if ( argv[0] == JSVAL_VOID || argv[0] == JSVAL_NULL ) {
+-            *rval = c.toval( 0.0 );
++	    JS_SET_RVAL( cx , vp , c.toval( 0.0 ) );
+             return JS_TRUE;
+         }
+ 
+@@ -999,18 +1031,21 @@ namespace mongo {
+             size = temp.objsize();
+         }
+ 
+-        *rval = c.toval( size );
++        JS_SET_RVAL( cx , vp , c.toval( size ) );
+         return JS_TRUE;
+     }
+ 
+     JSFunctionSpec objectHelpers[] = {
+-        { "bsonsize" , &bson_get_size , 1 , 0 , 0 } ,
+-        { 0 , 0 , 0 , 0 , 0 }
++        JS_FS( "bsonsize" , &bson_get_size , 1 , JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
+     // end Object helpers
+ 
+-    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSResolveOp)
++    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         assert( JS_EnterLocalRootScope( cx ) );
+         Convertor c( cx );
+ 
+@@ -1023,7 +1058,7 @@ namespace mongo {
+         }
+         holder->check();
+ 
+-        string s = c.toString( id );
++        string s = c.toString( idval );
+ 
+         BSONElement e = holder->_obj[ s.c_str() ];
+ 
+@@ -1139,9 +1174,15 @@ namespace mongo {
+             //JS_SetVersion( _context , JSVERSION_LATEST); TODO
+             JS_SetErrorReporter( _context , errorReporter );
+ 
++#ifdef HAVE_COMPARTMENTS
++            _global = JS_NewCompartmentAndGlobalObject( _context , &global_class , NULL);
++            massert( 13442 ,  "JS_NewCompartmentAndGlobalObject failed for global" , _global );
++            _call = JS_EnterCrossCompartmentCall( _context , _global);
++#else
+             _global = JS_NewObject( _context , &global_class, NULL, NULL);
+             massert( 10432 ,  "JS_NewObject failed for global" , _global );
+             JS_SetGlobalObject( _context , _global );
++#endif
+             massert( 10433 ,  "js init failed" , JS_InitStandardClasses( _context , _global ) );
+ 
+             JS_SetOptions( _context , JS_GetOptions( _context ) | JSOPTION_VAROBJFIX );
+@@ -1159,13 +1200,14 @@ namespace mongo {
+             smlock;
+             uassert( 10223 ,  "deleted SMScope twice?" , _convertor );
+ 
+-            for ( list<void*>::iterator i=_roots.begin(); i != _roots.end(); i++ ) {
+-                JS_RemoveRoot( _context , *i );
++            for ( list<JSObject*>::iterator i=_roots.begin(); i != _roots.end(); i++ ){
++                JSObject * obj = (JSObject *)*i;
++                JS_RemoveObjectRoot( _context , &obj );
+             }
+             _roots.clear();
+ 
+             if ( _this ) {
+-                JS_RemoveRoot( _context , &_this );
++                JS_RemoveObjectRoot( _context , &_this );
+                 _this = 0;
+             }
+ 
+@@ -1174,6 +1216,13 @@ namespace mongo {
+                 _convertor = 0;
+             }
+ 
++#ifdef HAVE_COMPARTMENTS
++            if ( _call ) {
++                JS_LeaveCrossCompartmentCall( _call );
++                _call = 0;
++            }
++#endif
++
+             if ( _context ) {
+                 // This is expected to reclaim _global as well.
+                 JS_DestroyContext( _context );
+@@ -1187,16 +1236,16 @@ namespace mongo {
+             assert( _convertor );
+             return;
+             if ( _this ) {
+-                JS_RemoveRoot( _context , &_this );
++                JS_RemoveObjectRoot( _context , &_this );
+                 _this = 0;
+             }
+             currentScope.reset( this );
+             _error = "";
+         }
+ 
+-        void addRoot( void * root , const char * name ) {
+-            JS_AddNamedRoot( _context , root , name );
+-            _roots.push_back( root );
++        void addRoot( JSObject * obj ){
++            JS_AddObjectRoot( _context , &obj );
++            _roots.push_back( obj );
+         }
+ 
+         void init( const BSONObj * data ) {
+@@ -1336,13 +1385,13 @@ namespace mongo {
+         void setThis( const BSONObj * obj ) {
+             smlock;
+             if ( _this ) {
+-                JS_RemoveRoot( _context , &_this );
++                JS_RemoveObjectRoot( _context , &_this );
+                 _this = 0;
+             }
+ 
+             if ( obj ) {
+                 _this = _convertor->toJSObject( obj );
+-                JS_AddNamedRoot( _context , &_this , "scope this" );
++                JS_AddObjectRoot( _context , &_this );
+             }
+         }
+ 
+@@ -1402,7 +1451,7 @@ namespace mongo {
+                 spec->start = boost::posix_time::microsec_clock::local_time();
+                 spec->count = 0;
+                 JS_SetContextPrivate( _context, (void*)spec );
+-#if defined(SM181) && !defined(XULRUNNER190)
++#if JS_VERSION >= 181 && !defined(XULRUNNER190)
+                 JS_SetOperationCallback( _context, _interrupt );
+ #else
+                 JS_SetBranchCallback( _context, interrupt );
+@@ -1412,7 +1461,7 @@ namespace mongo {
+ 
+         void uninstallInterrupt( int timeoutMs ) {
+             if ( timeoutMs != 0 || ScriptEngine::haveCheckInterruptCallback() ) {
+-#if defined(SM181) && !defined(XULRUNNER190)
++#if JS_VERSION >= 181 && !defined(XULRUNNER190)
+                 JS_SetOperationCallback( _context , 0 );
+ #else
+                 JS_SetBranchCallback( _context, 0 );
+@@ -1548,9 +1597,12 @@ namespace mongo {
+ 
+         JSObject * _global;
+         JSObject * _this;
++#ifdef HAVE_COMPARTMENTS
++        JSCrossCompartmentCall * _call;
++#endif
+ 
+         string _error;
+-        list<void*> _roots;
++        list<JSObject*> _roots;
+ 
+         bool _externalSetup;
+         bool _localConnect;
+@@ -1579,7 +1631,8 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool native_load( JSContext *cx , JSObject *obj , uintN argc, jsval *argv , jsval *rval ) {
++    JSBool native_load( JSContext *cx , uintN argc, jsval *vp ){
++        jsval *argv = JS_ARGV( cx , vp );
+         Convertor c(cx);
+ 
+         Scope * s = currentScope.get();
+@@ -1594,6 +1647,7 @@ namespace mongo {
+             }
+         }
+ 
++        JS_SET_RVAL( cx , vp , JSVAL_VOID );
+         return JS_TRUE;
+     }
+ 
+@@ -1633,7 +1687,7 @@ namespace mongo {
+         return new SMScope();
+     }
+ 
+-    void Convertor::addRoot( JSFunction * f , const char * name ) {
++    void Convertor::addRoot( JSFunction * f ){
+         if ( ! f )
+             return;
+ 
+@@ -1642,7 +1696,7 @@ namespace mongo {
+ 
+         JSObject * o = JS_GetFunctionObject( f );
+         assert( o );
+-        scope->addRoot( &o , name );
++        scope->addRoot( o );
+     }
+ 
+ }
+--- mongodb-src-r1.8.0/scripting/engine_spidermonkey.h.mozjs185~	2011-03-16 16:33:30.000000000 +0100
++++ mongodb-src-r1.8.0/scripting/engine_spidermonkey.h	2011-04-01 21:29:15.697678508 +0200
+@@ -21,6 +21,9 @@
+ 
+ // START inc hacking
+ 
++#undef malloc
++#undef realloc
++
+ #if defined( MOZJS )
+ 
+ #define MOZILLA_1_8_BRANCH
+@@ -55,6 +58,9 @@
+ 
+ #endif
+ 
++#define malloc MONGO_malloc
++#define realloc MONGO_realloc
++
+ // END inc hacking
+ 
+ // -- SM 1.6 hacks ---
+@@ -81,6 +87,10 @@ JSBool JS_CStringsAreUTF8() {
+ #define SM181
+ #endif
+ 
++#ifndef JSFUN_FAST_NATIVE
++#define JSFUN_FAST_NATIVE 0
++#endif
++
+ namespace mongo {
+ 
+     class SMScope;
+@@ -104,7 +114,7 @@ namespace mongo {
+     extern boost::thread_specific_ptr<SMScope> currentScope;
+ 
+     // bson
+-    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp );
++    JSBool resolveBSONField( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp );
+ 
+ 
+     // mongo
+--- mongodb-src-r1.8.0/scripting/sm_db.cpp.mozjs185~	2011-03-16 16:33:30.000000000 +0100
++++ mongodb-src-r1.8.0/scripting/sm_db.cpp	2011-04-01 22:51:59.701652521 +0200
+@@ -79,13 +79,25 @@ namespace mongo {
+         return holder->get();
+     }
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool internal_cursor_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool internal_cursor_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         uassert( 10236 ,  "no args to internal_cursor_constructor" , argc == 0 );
+         assert( JS_SetPrivate( cx , obj , 0 ) ); // just for safety
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+     }
+ 
+-    void internal_cursor_finalize( JSContext * cx , JSObject * obj ) {
++    void internal_cursor_finalize( JSContext * cx, JSObject * obj ){
+         CursorHolder * holder = (CursorHolder*)JS_GetPrivate( cx , obj );
+         if ( holder ) {
+             delete holder;
+@@ -93,10 +105,11 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool internal_cursor_hasNext(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool internal_cursor_hasNext(JSContext *cx , uintN argc , jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
+         DBClientCursor *cursor = getCursor( cx, obj );
+         try {
+-            *rval = cursor->more() ? JSVAL_TRUE : JSVAL_FALSE;
++            JS_SET_RVAL( cx , vp , cursor->more() ? JSVAL_TRUE : JSVAL_FALSE );
+         }
+         catch ( std::exception& e ) {
+             JS_ReportError( cx , e.what() );
+@@ -105,14 +118,16 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
+-    JSBool internal_cursor_objsLeftInBatch(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool internal_cursor_objsLeftInBatch(JSContext *cx, uintN argc, jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
+         DBClientCursor *cursor = getCursor( cx, obj );
+         Convertor c(cx);
+-        *rval = c.toval((double) cursor->objsLeftInBatch() );
++        JS_SET_RVAL( cx , vp , c.toval((double) cursor->objsLeftInBatch()) );
+         return JS_TRUE;
+     }
+ 
+-    JSBool internal_cursor_next(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool internal_cursor_next(JSContext *cx, uintN argc, jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
+         DBClientCursor *cursor = getCursor( cx, obj );
+ 
+         BSONObj n;
+@@ -131,20 +146,21 @@ namespace mongo {
+         }
+ 
+         Convertor c(cx);
+-        *rval = c.toval( &n );
++        JS_SET_RVAL( cx , vp , c.toval( &n ) );
+         return JS_TRUE;
+     }
+ 
+     JSFunctionSpec internal_cursor_functions[] = {
+-        { "hasNext" , internal_cursor_hasNext , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "objsLeftInBatch" , internal_cursor_objsLeftInBatch , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "next" , internal_cursor_next , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { 0 }
++        JS_FS( "hasNext" , internal_cursor_hasNext , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "objsLeftInBatch" , internal_cursor_objsLeftInBatch , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "next" , internal_cursor_next , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass internal_cursor_class = {
+         "InternalCursor" , JSCLASS_HAS_PRIVATE  ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, internal_cursor_finalize,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+@@ -157,7 +173,16 @@ namespace mongo {
+         throw -1;
+     }
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool mongo_local_constructor( JSContext* cx, uintN argc, jsval* vp ){
++    JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++    if( ! obj ) {
++        JS_ReportError( cx , "Failed to create 'this' object" );
++        return JS_FALSE;
++    }
++#else
+     JSBool mongo_local_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         shared_ptr< DBClientWithCommands > client( createDirectClient() );
+@@ -166,10 +191,23 @@ namespace mongo {
+         jsval host = c.toval( "EMBEDDED" );
+         assert( JS_SetProperty( cx , obj , "host" , &host ) );
+ 
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+     }
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool mongo_external_constructor( JSContext* cx, uintN argc, jsval* vp ){
++   jsval *argv = JS_ARGV( cx , vp );
++    JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++    if( ! obj ) {
++        JS_ReportError( cx , "Failed to create 'this' object" );
++        return JS_FALSE;
++    }
++#else
+     JSBool mongo_external_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         smuassert( cx ,  "0 or 1 args to Mongo" , argc <= 1 );
+@@ -197,6 +235,9 @@ namespace mongo {
+         assert( JS_SetPrivate( cx , obj , (void*)( new shared_ptr< DBClientWithCommands >( conn ) ) ) );
+         jsval host_val = c.toval( host.c_str() );
+         assert( JS_SetProperty( cx , obj , "host" , &host_val ) );
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+ 
+     }
+@@ -215,14 +256,18 @@ namespace mongo {
+         }
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass mongo_class = {
+         "Mongo" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, mongo_finalize,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+-    JSBool mongo_find(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool mongo_find(JSContext *cx, uintN argc, jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
++        jsval* argv = JS_ARGV( cx , vp );
++
+         smuassert( cx , "mongo_find needs 7 args" , argc == 7 );
+         shared_ptr< DBClientWithCommands > * connHolder = (shared_ptr< DBClientWithCommands >*)JS_GetPrivate( cx , obj );
+         smuassert( cx ,  "no connection!" , connHolder && connHolder->get() );
+@@ -252,7 +297,8 @@ namespace mongo {
+             JSObject * mycursor = JS_NewObject( cx , &internal_cursor_class , 0 , 0 );
+             CHECKNEWOBJECT( mycursor, cx, "internal_cursor_class" );
+             assert( JS_SetPrivate( cx , mycursor , new CursorHolder( cursor, *connHolder ) ) );
+-            *rval = OBJECT_TO_JSVAL( mycursor );
++            
++            JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( mycursor ));
+             return JS_TRUE;
+         }
+         catch ( ... ) {
+@@ -261,7 +307,10 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool mongo_update(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool mongo_update(JSContext *cx, uintN argc, jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
++        jsval* argv = JS_ARGV( cx , vp );
++
+         smuassert( cx ,  "mongo_find needs at elast 3 args" , argc >= 3 );
+         smuassert( cx ,  "2nd param to update has to be an object" , JSVAL_IS_OBJECT( argv[1] ) );
+         smuassert( cx ,  "3rd param to update has to be an object" , JSVAL_IS_OBJECT( argv[2] ) );
+@@ -282,6 +331,7 @@ namespace mongo {
+ 
+         try {
+             conn->update( ns , c.toObject( argv[1] ) , c.toObject( argv[2] ) , upsert , multi );
++            JS_SET_RVAL( cx , vp , JSVAL_VOID );
+             return JS_TRUE;
+         }
+         catch ( ... ) {
+@@ -290,7 +340,10 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool mongo_insert(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool mongo_insert(JSContext *cx, uintN argc, jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
++        jsval* argv = JS_ARGV( cx , vp );
++
+         smuassert( cx ,  "mongo_insert needs 2 args" , argc == 2 );
+         smuassert( cx ,  "2nd param to insert has to be an object" , JSVAL_IS_OBJECT( argv[1] ) );
+ 
+@@ -310,6 +363,7 @@ namespace mongo {
+             // TODO: add _id
+ 
+             conn->insert( ns , o );
++            JS_SET_RVAL( cx, vp, JSVAL_VOID );
+             return JS_TRUE;
+         }
+         catch ( std::exception& e ) {
+@@ -325,7 +379,10 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool mongo_remove(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool mongo_remove(JSContext *cx, uintN argc, jsval *vp) {
++        JSObject* obj = JS_THIS_OBJECT( cx , vp );
++        jsval* argv = JS_ARGV( cx , vp );
++
+         smuassert( cx ,  "mongo_remove needs 2 or 3 arguments" , argc == 2 || argc == 3 );
+         smuassert( cx ,  "2nd param to insert has to be an object" , JSVAL_IS_OBJECT( argv[1] ) );
+ 
+@@ -346,6 +403,7 @@ namespace mongo {
+ 
+         try {
+             conn->remove( ns , o , justOne );
++            JS_SET_RVAL( cx , vp , JSVAL_VOID );
+             return JS_TRUE;
+         }
+         catch ( std::exception& e ) {
+@@ -361,16 +419,26 @@ namespace mongo {
+     }
+ 
+     JSFunctionSpec mongo_functions[] = {
+-        { "find" , mongo_find , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "update" , mongo_update , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "insert" , mongo_insert , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "remove" , mongo_remove , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { 0 }
++        JS_FS( "find" , mongo_find , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "update" , mongo_update , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "insert" , mongo_insert , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "remove" , mongo_remove , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
+     // -------------  db_collection -------------
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool db_collection_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool db_collection_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         smuassert( cx ,  "db_collection_constructor wrong args" , argc == 4 );
+         assert( JS_SetProperty( cx , obj , "_mongo" , &(argv[0]) ) );
+         assert( JS_SetProperty( cx , obj , "_db" , &(argv[1]) ) );
+@@ -382,16 +450,22 @@ namespace mongo {
+             JS_ReportError( cx , "can't use sharded collection from db.eval" );
+             return JS_FALSE;
+         }
+-
++#ifdef JSFUN_CONSTRUCTOR
++         JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+     }
+ 
+-    JSBool db_collection_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSResolveOp)
++     JSBool db_collection_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ){
++         jsval idval;
++         JS_IdToValue( cx , id , &idval );
++
+         if ( flags & JSRESOLVE_ASSIGNING )
+             return JS_TRUE;
+ 
+         Convertor c( cx );
+-        string collname = c.toString( id );
++        string collname = c.toString( idval );
+ 
+         if ( isSpecialName( collname ) )
+             return JS_TRUE;
+@@ -419,10 +493,11 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp, JSResolveOp)
+     JSClass db_collection_class = {
+         "DBCollection" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
+-        JS_EnumerateStub, (JSResolveOp)(&db_collection_resolve) , JS_ConvertStub, JS_FinalizeStub,
++         JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
++         JS_EnumerateStub, (JSResolveOp)db_collection_resolve , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+@@ -454,15 +529,32 @@ namespace mongo {
+     // --------------  DB ---------------
+ 
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool db_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool db_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         smuassert( cx,  "wrong number of arguments to DB" , argc == 2 );
+         assert( JS_SetProperty( cx , obj , "_mongo" , &(argv[0]) ) );
+         assert( JS_SetProperty( cx , obj , "_name" , &(argv[1]) ) );
+ 
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
++
+         return JS_TRUE;
+     }
+ 
+-    JSBool db_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSResolveOp)
++    JSBool db_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         if ( flags & JSRESOLVE_ASSIGNING )
+             return JS_TRUE;
+ 
+@@ -471,7 +563,7 @@ namespace mongo {
+         if ( obj == c.getGlobalPrototype( "DB" ) )
+             return JS_TRUE;
+ 
+-        string collname = c.toString( id );
++        string collname = c.toString( idval );
+ 
+         if ( isSpecialName( collname ) )
+             return JS_TRUE;
+@@ -489,17 +581,28 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp, JSResolveOp)
+     JSClass db_class = {
+         "DB" , JSCLASS_HAS_PRIVATE | JSCLASS_NEW_RESOLVE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
+-        JS_EnumerateStub, (JSResolveOp)(&db_resolve) , JS_ConvertStub, JS_FinalizeStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
++        JS_EnumerateStub, (JSResolveOp)db_resolve , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+ 
+     // -------------- object id -------------
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool object_id_constructor( JSContext* cx, uintN argc, jsval* vp ){
++    jsval *argv = JS_ARGV( cx , vp );
++    JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++    if( ! obj ) {
++        JS_ReportError( cx , "Failed to create 'this' object" );
++        return JS_FALSE;
++    }
++#else
+     JSBool object_id_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         OID oid;
+@@ -524,35 +627,48 @@ namespace mongo {
+         if ( ! JS_InstanceOf( cx , obj , &object_id_class , 0 ) ) {
+             obj = JS_NewObject( cx , &object_id_class , 0 , 0 );
+             CHECKNEWOBJECT( obj, cx, "object_id_constructor" );
+-            *rval = OBJECT_TO_JSVAL( obj );
+         }
+ 
+         jsval v = c.toval( oid.str().c_str() );
+         assert( JS_SetProperty( cx , obj , "str" , &v  ) );
+ 
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
+         return JS_TRUE;
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass object_id_class = {
+         "ObjectId" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+-    JSBool object_id_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool object_id_tostring(JSContext *cx, uintN argc, jsval *vp){    
++        JSObject *obj = JS_THIS_OBJECT( cx , vp );
+         Convertor c(cx);
+-        return (JSBool) (*rval = c.getProperty( obj , "str" ));
++        JS_SET_RVAL( cx , vp , c.getProperty( obj , "str" ));
++        return JS_TRUE;
+     }
+ 
+     JSFunctionSpec object_id_functions[] = {
+-        { "toString" , object_id_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { 0 }
++        JS_FS( "toString" , object_id_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
+     // dbpointer
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool dbpointer_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool dbpointer_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         if ( argc == 2 ) {
+@@ -564,6 +680,9 @@ namespace mongo {
+ 
+             assert( JS_SetProperty( cx , obj , "ns" , &(argv[0]) ) );
+             assert( JS_SetProperty( cx , obj , "id" , &(argv[1]) ) );
++#ifdef JSFUN_CONSTRUCTOR
++            JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+             return JS_TRUE;
+         }
+         else {
+@@ -572,19 +691,30 @@ namespace mongo {
+         }
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass dbpointer_class = {
+         "DBPointer" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     JSFunctionSpec dbpointer_functions[] = {
+-        { 0 }
++        JS_FS_END
+     };
+ 
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool dbref_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool dbref_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         if ( argc == 2 ) {
+@@ -594,6 +724,9 @@ namespace mongo {
+             assert( JS_SetProperty( cx, o , "$id" , &argv[ 1 ] ) );
+             BSONObj bo = c.toObject( o );
+             assert( JS_SetPrivate( cx , obj , (void*)(new BSONHolder( bo.getOwned() ) ) ) );
++#ifdef JSFUN_CONSTRUCTOR
++            JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+             return JS_TRUE;
+         }
+         else {
+@@ -607,7 +740,17 @@ namespace mongo {
+ 
+     // UUID **************************
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool uuid_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool uuid_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         if( argc == 0 ) {
+@@ -635,6 +778,9 @@ namespace mongo {
+             c.setProperty( obj, "len", c.toval( (double)16 ) );
+             c.setProperty( obj, "type", c.toval( (double)3 ) );
+ 
++#ifdef JSFUN_CONSTRUCTOR
++            JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+             return JS_TRUE;
+         }
+         else {
+@@ -643,7 +789,8 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool uuid_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++  JSBool uuid_tostring(JSContext *cx, uintN argc, jsval *vp){    
++        JSObject *obj = JS_THIS_OBJECT( cx , vp );
+         Convertor c(cx);
+         void *holder = JS_GetPrivate( cx, obj );
+         assert( holder );
+@@ -652,7 +799,8 @@ namespace mongo {
+         ss << "UUID(\"" << toHex(data, 16);
+         ss << "\")";
+         string ret = ss.str();
+-        return *rval = c.toval( ret.c_str() );
++        JS_SET_RVAL( cx , vp , c.toval( ret.c_str() ) );
++        return JS_TRUE;
+     }
+ 
+     void uuid_finalize( JSContext * cx , JSObject * obj ) {
+@@ -664,21 +812,32 @@ namespace mongo {
+         }
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass uuid_class = {
+         "UUID" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, uuid_finalize,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     JSFunctionSpec uuid_functions[] = {
+-        { "toString" , uuid_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { 0 }
++        JS_FS( "toString" , uuid_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
+     // BinData **************************
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool bindata_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool bindata_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         Convertor c( cx );
+ 
+         if ( argc == 2 ) {
+@@ -702,6 +861,9 @@ namespace mongo {
+             c.setProperty( obj, "len", c.toval( (double)decoded.length() ) );
+             c.setProperty( obj, "type", c.toval( (double)type ) );
+ 
++#ifdef JSFUN_CONSTRUCTOR
++            JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+             return JS_TRUE;
+         }
+         else {
+@@ -710,7 +872,8 @@ namespace mongo {
+         }
+     }
+ 
+-    JSBool bindata_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool bindata_tostring(JSContext *cx, uintN argc, jsval *vp){  
++        JSObject *obj = JS_THIS_OBJECT( cx , vp );  
+         Convertor c(cx);
+         int type = (int)c.getNumber( obj , "type" );
+         int len = (int)c.getNumber( obj, "len" );
+@@ -722,10 +885,12 @@ namespace mongo {
+         base64::encode( ss, (const char *)data, len );
+         ss << "\")";
+         string ret = ss.str();
+-        return *rval = c.toval( ret.c_str() );
++        JS_SET_RVAL( cx , vp , c.toval( ret.c_str() ) );
++        return JS_TRUE;
+     }
+ 
+-    JSBool bindataBase64(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool bindataBase64(JSContext *cx, uintN argc, jsval *vp){
++        JSObject *obj = JS_THIS_OBJECT( cx , vp ); 
+         Convertor c(cx);
+         int len = (int)c.getNumber( obj, "len" );
+         void *holder = JS_GetPrivate( cx, obj );
+@@ -734,10 +899,12 @@ namespace mongo {
+         stringstream ss;
+         base64::encode( ss, (const char *)data, len );
+         string ret = ss.str();
+-        return *rval = c.toval( ret.c_str() );
++        JS_SET_RVAL( cx , vp , c.toval( ret.c_str() ) );
++        return JS_TRUE;
+     }
+ 
+-    JSBool bindataAsHex(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool bindataAsHex(JSContext *cx, uintN argc, jsval *vp){   
++        JSObject *obj = JS_THIS_OBJECT( cx , vp ); 
+         Convertor c(cx);
+         int len = (int)c.getNumber( obj, "len" );
+         void *holder = JS_GetPrivate( cx, obj );
+@@ -750,19 +917,24 @@ namespace mongo {
+             ss << v;
+         }
+         string ret = ss.str();
+-        return *rval = c.toval( ret.c_str() );
++        JS_SET_RVAL( cx , vp , c.toval( ret.c_str() ) );
++        return JS_TRUE;
+     }
+ 
+-    JSBool bindataLength(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool bindataLength(JSContext *cx, uintN argc, jsval *vp){
++        JSObject *obj = JS_THIS_OBJECT( cx , vp );  
+         Convertor c(cx);
+         int len = (int)c.getNumber( obj, "len" );
+-        return *rval = c.toval((double) len);
++        JS_SET_RVAL( cx , vp , c.toval((double) len) );
++        return JS_TRUE;
+     }
+ 
+-    JSBool bindataSubtype(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool bindataSubtype(JSContext *cx, uintN argc, jsval *vp){
++        JSObject *obj = JS_THIS_OBJECT( cx , vp ); 
+         Convertor c(cx);
+         int t = (int)c.getNumber( obj, "type" );
+-        return *rval = c.toval((double) t);
++        JS_SET_RVAL( cx , vp , c.toval((double) t) );
++        return JS_TRUE;
+     }
+ 
+     void bindata_finalize( JSContext * cx , JSObject * obj ) {
+@@ -774,20 +946,21 @@ namespace mongo {
+         }
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass bindata_class = {
+         "BinData" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, bindata_finalize,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     JSFunctionSpec bindata_functions[] = {
+-        { "toString" , bindata_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "hex", bindataAsHex, 0, JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "base64", bindataBase64, 0, JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "length", bindataLength, 0, JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "subtype", bindataSubtype, 0, JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { 0 }
++        JS_FS( "toString" , bindata_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "hex", bindataAsHex, 0, JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "base64", bindataBase64, 0, JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "length", bindataLength, 0, JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "subtype", bindataSubtype, 0, JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
+     // Map
+@@ -796,7 +969,16 @@ namespace mongo {
+         return s == "put" || s == "get" || s == "_get" || s == "values" || s == "_data" || s == "constructor" ;
+     }
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool map_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool map_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         if ( argc > 0 ) {
+             JS_ReportError( cx , "Map takes no arguments" );
+             return JS_FALSE;
+@@ -808,10 +990,16 @@ namespace mongo {
+         jsval a = OBJECT_TO_JSVAL( array );
+         JS_SetProperty( cx , obj , "_data" , &a );
+ 
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+     }
+ 
+-    JSBool map_prop( JSContext *cx, JSObject *obj, jsval idval, jsval *vp ) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSPropertyOp)
++    JSBool map_prop( JSContext *cx, JSObject *obj, jsid id, jsval *vp ){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         Convertor c(cx);
+         if ( specialMapString( c.toString( idval ) ) )
+             return JS_TRUE;
+@@ -821,34 +1009,49 @@ namespace mongo {
+         return JS_FALSE;
+     }
+ 
++    JSBool strict_map_prop( JSContext *cx, JSObject *obj, jsid id, JSBool strict, jsval *vp ){
++        return map_prop( cx , obj , id , vp );
++    }
++
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass map_class = {
+         "Map" , JSCLASS_HAS_PRIVATE ,
+-        map_prop, JS_PropertyStub, map_prop, map_prop,
++        map_prop, JS_PropertyStub, map_prop, strict_map_prop,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     JSFunctionSpec map_functions[] = {
+-        { 0 }
++        JS_FS_END
+     };
+ 
+ 
+     // -----
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass timestamp_class = {
+         "Timestamp" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool timestamp_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool timestamp_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         smuassert( cx , "Timestamp needs 0 or 2 args" , argc == 0 || argc == 2 );
+ 
+         if ( ! JS_InstanceOf( cx , obj , &timestamp_class , 0 ) ) {
+             obj = JS_NewObject( cx , &timestamp_class , 0 , 0 );
+             CHECKNEWOBJECT( obj, cx, "timestamp_constructor" );
+-            *rval = OBJECT_TO_JSVAL( obj );
+         }
+ 
+         Convertor c( cx );
+@@ -864,21 +1067,30 @@ namespace mongo {
+         return JS_TRUE;
+     }
+ 
+-
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass numberlong_class = {
+         "NumberLong" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool numberlong_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool numberlong_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         smuassert( cx , "NumberLong needs 0 or 1 args" , argc == 0 || argc == 1 );
+ 
+         if ( ! JS_InstanceOf( cx , obj , &numberlong_class , 0 ) ) {
+             obj = JS_NewObject( cx , &numberlong_class , 0 , 0 );
+             CHECKNEWOBJECT( obj, cx, "numberlong_constructor" );
+-            *rval = OBJECT_TO_JSVAL( obj );
+         }
+ 
+         Convertor c( cx );
+@@ -903,19 +1115,25 @@ namespace mongo {
+             c.makeLongObj( n, obj );
+         }
+ 
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+     }
+ 
+-    JSBool numberlong_valueof(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool numberlong_valueof(JSContext *cx, uintN argc, jsval *vp){   
++        JSObject *obj = JS_THIS_OBJECT( cx , vp ); 
+         Convertor c(cx);
+-        return *rval = c.toval( double( c.toNumberLongUnsafe( obj ) ) );
++        JS_SET_RVAL( cx , vp , c.toval( double( c.toNumberLongUnsafe( obj ) ) ) );
++        return JS_TRUE;        
+     }
+ 
+-    JSBool numberlong_tonumber(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
+-        return numberlong_valueof( cx, obj, argc, argv, rval );
++    JSBool numberlong_tonumber(JSContext *cx, uintN argc, jsval *vp){    
++        return numberlong_valueof( cx, argc, vp );
+     }
+ 
+-    JSBool numberlong_tostring(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval) {
++    JSBool numberlong_tostring(JSContext *cx, uintN argc, jsval *vp){    
++        JSObject *obj = JS_THIS_OBJECT( cx , vp );
+         Convertor c(cx);
+         stringstream ss;
+         long long val = c.toNumberLongUnsafe( obj );
+@@ -927,33 +1145,45 @@ namespace mongo {
+             ss << "NumberLong(" << val << ")";
+ 
+         string ret = ss.str();
+-        return *rval = c.toval( ret.c_str() );
++        JS_SET_RVAL( cx , vp , c.toval( ret.c_str() ) );
++        return JS_TRUE;
+     }
+ 
+     JSFunctionSpec numberlong_functions[] = {
+-        { "valueOf" , numberlong_valueof , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "toNumber" , numberlong_tonumber , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { "toString" , numberlong_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT, 0 } ,
+-        { 0 }
++        JS_FS( "valueOf" , numberlong_valueof , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "toNumber" , numberlong_tonumber , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS( "toString" , numberlong_tostring , 0 , JSPROP_READONLY | JSPROP_PERMANENT | JSFUN_FAST_NATIVE ) ,
++        JS_FS_END
+     };
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp)
+     JSClass minkey_class = {
+         "MinKey" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     JSClass maxkey_class = {
+         "MaxKey" , JSCLASS_HAS_PRIVATE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
+         JS_EnumerateStub, JS_ResolveStub , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+     // dbquery
+ 
++#ifdef JSFUN_CONSTRUCTOR
++    JSBool dbquery_constructor( JSContext* cx, uintN argc, jsval* vp ){
++        jsval *argv = JS_ARGV( cx , vp );
++        JSObject *obj = JS_NewObjectForConstructor( cx , vp );
++        if( ! obj ) {
++            JS_ReportError( cx , "Failed to create 'this' object" );
++            return JS_FALSE;
++        }
++#else
+     JSBool dbquery_constructor( JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval ) {
++#endif
+         smuassert( cx ,  "DDQuery needs at least 4 args" , argc >= 4 );
+ 
+         Convertor c(cx);
+@@ -1001,28 +1231,35 @@ namespace mongo {
+         c.setProperty( obj , "_numReturned" , JSVAL_ZERO );
+         c.setProperty( obj , "_special" , JSVAL_FALSE );
+ 
++#ifdef JSFUN_CONSTRUCTOR
++        JS_SET_RVAL( cx , vp , OBJECT_TO_JSVAL( obj ) );
++#endif
+         return JS_TRUE;
+     }
+ 
+-    JSBool dbquery_resolve( JSContext *cx, JSObject *obj, jsval id, uintN flags, JSObject **objp ) {
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSResolveOp)
++    JSBool dbquery_resolve( JSContext *cx, JSObject *obj, jsid id, uintN flags, JSObject **objp ){
++        jsval idval;
++        JS_IdToValue( cx , id , &idval );
+         if ( flags & JSRESOLVE_ASSIGNING )
+             return JS_TRUE;
+ 
+-        if ( ! JSVAL_IS_NUMBER( id ) )
++        if ( ! JSVAL_IS_NUMBER( idval ) )
+             return JS_TRUE;
+ 
+         jsval val = JSVAL_VOID;
+-        assert( JS_CallFunctionName( cx , obj , "arrayAccess" , 1 , &id , &val ) );
++        assert( JS_CallFunctionName( cx , obj , "arrayAccess" , 1 , &idval , &val ) );
+         Convertor c(cx);
+-        c.setProperty( obj , c.toString( id ).c_str() , val );
++        c.setProperty( obj , c.toString( idval ).c_str() , val );
+         *objp = obj;
+         return JS_TRUE;
+     }
+ 
++    // FIXME: This won't build on spidermonkey < 1.8.5 (JSStrictPropertyOp, JSResolveOp)
+     JSClass dbquery_class = {
+         "DBQuery" , JSCLASS_NEW_RESOLVE ,
+-        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_PropertyStub,
+-        JS_EnumerateStub, (JSResolveOp)(&dbquery_resolve) , JS_ConvertStub, JS_FinalizeStub,
++        JS_PropertyStub, JS_PropertyStub, JS_PropertyStub, JS_StrictPropertyStub,
++        JS_EnumerateStub, (JSResolveOp)dbquery_resolve , JS_ConvertStub, JS_FinalizeStub,
+         JSCLASS_NO_OPTIONAL_MEMBERS
+     };
+ 
+@@ -1102,7 +1339,7 @@ namespace mongo {
+             return true;
+         }
+ 
+-#if defined( SM16 ) || defined( MOZJS )
++#if defined( SM16 ) || JS_VERSION >= 181
+ #warning dates do not work in your version of spider monkey
+         {
+             jsdouble d = js_DateGetMsecSinceEpoch( c->_context , o );
+@@ -1150,7 +1387,7 @@ namespace mongo {
+     }
+ 
+     bool isDate( JSContext * cx , JSObject * o ) {
+-#if defined( SM16 ) || defined( MOZJS ) || defined( XULRUNNER )
++#if defined( SM16 ) || JS_VERSION >= 181 || defined( XULRUNNER )
+         return js_DateGetMsecSinceEpoch( cx , o ) != 0;
+ #else
+         return JS_InstanceOf( cx , o, &js_DateClass, 0 );
