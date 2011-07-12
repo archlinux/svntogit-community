@@ -1,0 +1,253 @@
+Once again, mysql can't manage to ship a mysql-connector-odbc release
+on time ... mysql 5.5 changed the my_free() function and the released
+connector version is not up to speed.  Can't use NEAR anymore, either.
+
+
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/catalog.c mysql-connector-odbc-5.1.8/driver/catalog.c
+--- mysql-connector-odbc-5.1.8.orig/driver/catalog.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/catalog.c	2010-12-23 17:50:52.916552525 -0500
+@@ -94,11 +94,11 @@
+   {
+     if (stmt->result)
+     {
+-      my_free((char *)stmt->result, MYF(0));
++      my_free((char *)stmt->result);
+     }
+     if (stmt->result_array)
+     {
+-      my_free((char *)stmt->result_array, MYF(0));
++      my_free((char *)stmt->result_array);
+     }
+     set_mem_error(&stmt->dbc->mysql);
+     return handle_connection_error(stmt);
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/catalog_no_i_s.c mysql-connector-odbc-5.1.8/driver/catalog_no_i_s.c
+--- mysql-connector-odbc-5.1.8.orig/driver/catalog_no_i_s.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/catalog_no_i_s.c	2010-12-23 17:51:41.493551970 -0500
+@@ -269,13 +269,13 @@
+     pthread_mutex_lock(&dbc->lock);
+     if (mysql_query(mysql, select))
+     {
+-      my_free(select, MYF(0));
++      my_free(select);
+       pthread_mutex_unlock(&dbc->lock);
+       return NULL;
+     }
+     result= mysql_store_result(&dbc->mysql);
+     pthread_mutex_unlock(&dbc->lock);
+-    my_free(select, MYF(0));
++    my_free(select);
+ 
+     return result;
+   }
+@@ -1094,7 +1094,7 @@
+                                            SQLFORE_KEYS_FIELDS *
+                                            row_count,
+                                            MYF(0));
+-  my_free((char *)tempdata, MYF(0));
++  my_free((char *)tempdata);
+ 
+   if (!stmt->result_array)
+   {
+@@ -1323,12 +1323,12 @@
+          && (j != mypcREMARKS)
+          && (j != mypcCOLUMN_DEF)
+          && (j != mypcIS_NULLABLE))
+-          my_free(((char**)cur_params->data)[j], MYF(0));
++          my_free(((char**)cur_params->data)[j]);
+       }
+       /* cleanup the list */
+       params= list_delete_forward(params);
+-      my_free(cur_params->data, MYF(0));
+-      my_free(cur_params, MYF(0));
++      my_free(cur_params->data);
++      my_free(cur_params);
+     }
+   }
+ }
+@@ -1675,7 +1675,7 @@
+   }
+ 
+   dynstr_free(&dynQuery);
+-  my_free(params_r, MYF(0));
++  my_free(params_r);
+ 
+   return nReturn;
+ }
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/desc.c mysql-connector-odbc-5.1.8/driver/desc.c
+--- mysql-connector-odbc-5.1.8.orig/driver/desc.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/desc.c	2010-12-23 17:51:06.532607921 -0500
+@@ -65,7 +65,7 @@
+   */
+   if (my_init_dynamic_array(&desc->records, sizeof(DESCREC), 0, 0))
+   {
+-    my_free((char *)desc, MYF(0));
++    my_free((char *)desc);
+     return NULL;
+   }
+   desc->desc_type= desc_type;
+@@ -111,7 +111,7 @@
+     if (aprec->par.alloced)
+     {
+       aprec->par.alloced= FALSE;
+-      my_free(aprec->par.value, MYF(0));
++      my_free(aprec->par.value);
+     }
+   }
+ }
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/driver.h mysql-connector-odbc-5.1.8/driver/driver.h
+--- mysql-connector-odbc-5.1.8.orig/driver/driver.h	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/driver.h	2010-12-23 17:50:43.017608761 -0500
+@@ -113,7 +113,7 @@
+ /* Max Primary keys in a cursor * WHERE clause */
+ #define MY_MAX_PK_PARTS 32
+ 
+-#define x_free(A) { void *tmp= (A); if (tmp) my_free((char *) tmp,MYF(MY_WME+MY_FAE)); }
++#define x_free(A) { void *tmp= (A); if (tmp) my_free((char *) tmp); }
+ 
+ 
+ /* We don't make any assumption about what the default may be. */
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/execute.c mysql-connector-odbc-5.1.8/driver/execute.c
+--- mysql-connector-odbc-5.1.8.orig/driver/execute.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/execute.c	2010-12-23 17:49:52.799552481 -0500
+@@ -96,7 +96,7 @@
+     exit:
+     pthread_mutex_unlock(&stmt->dbc->lock);
+     if ( query != stmt->query )
+-        my_free(query,MYF(0));
++        my_free(query);
+ 
+     /*
+       If the original query was modified, we reset stmt->query so that the
+@@ -104,7 +104,7 @@
+     */
+     if (stmt->orig_query)
+     {
+-        my_free(stmt->query,MYF(0));
++        my_free(stmt->query);
+         stmt->query= stmt->orig_query;
+         stmt->query_end= stmt->orig_query_end;
+         stmt->orig_query= NULL;
+@@ -625,7 +625,7 @@
+ 
+ out:
+     if (free_data)
+-      my_free(data, MYF(0));
++      my_free(data);
+ 
+     *toptr= to;
+     return SQL_SUCCESS;
+@@ -1060,7 +1060,7 @@
+     if ( cbValue == SQL_NULL_DATA )
+     {
+         if ( aprec->par.alloced )
+-            my_free(aprec->par.value,MYF(0));
++            my_free(aprec->par.value);
+         aprec->par.alloced= FALSE;
+         aprec->par.value= NULL;
+         return SQL_SUCCESS;
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/handle.c mysql-connector-odbc-5.1.8/driver/handle.c
+--- mysql-connector-odbc-5.1.8.orig/driver/handle.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/handle.c	2010-12-23 17:50:17.425586339 -0500
+@@ -112,7 +112,7 @@
+     GlobalUnlock(GlobalHandle((HGLOBAL) henv));
+     GlobalFree(GlobalHandle((HGLOBAL) henv));
+ #else
+-    if (henv) my_free((char*) henv,MYF(0));
++    if (henv) my_free((char*) henv);
+     myodbc_end();
+ #endif /* _UNIX_ */
+     return(SQL_SUCCESS);
+@@ -251,7 +251,8 @@
+     LIST *next;
+ 
+     dbc->env->connections= list_delete(dbc->env->connections,&dbc->list);
+-    my_free(dbc->database,MYF(MY_ALLOW_ZERO_PTR));
++    if (dbc->database)
++      my_free(dbc->database);
+     if (dbc->ds)
+       ds_delete(dbc->ds);
+     pthread_mutex_destroy(&dbc->lock);
+@@ -268,7 +269,7 @@
+     GlobalUnlock(GlobalHandle((HGLOBAL) hdbc));
+     GlobalFree(GlobalHandle((HGLOBAL) hdbc));
+ #else
+-    my_free((char*) hdbc,MYF(0));
++    my_free((char*) hdbc);
+ #endif
+     return SQL_SUCCESS;
+ }
+@@ -513,7 +514,7 @@
+     GlobalUnlock(GlobalHandle ((HGLOBAL) hstmt));
+     GlobalFree(GlobalHandle((HGLOBAL) hstmt));
+ #else
+-    my_free((char*) hstmt,MYF(0));
++    my_free((char*) hstmt);
+ #endif /* _UNIX_*/
+     return SQL_SUCCESS;
+ }
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/options.c mysql-connector-odbc-5.1.8/driver/options.c
+--- mysql-connector-odbc-5.1.8.orig/driver/options.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/options.c	2010-12-23 17:50:28.864604596 -0500
+@@ -301,7 +301,7 @@
+                         return SQL_ERROR;
+                     }
+                 }
+-                my_free(dbc->database,MYF(0));
++                my_free(dbc->database);
+                 dbc->database= my_strdup(db,MYF(MY_WME));
+                 pthread_mutex_unlock(&dbc->lock);
+             }
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/prepare.c mysql-connector-odbc-5.1.8/driver/prepare.c
+--- mysql-connector-odbc-5.1.8.orig/driver/prepare.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/prepare.c	2010-12-23 17:51:17.175676805 -0500
+@@ -93,7 +93,7 @@
+   CLEAR_STMT_ERROR(stmt);
+ 
+   if (stmt->query)
+-    my_free(stmt->query, MYF(0));
++    my_free(stmt->query);
+ 
+   if (dupe && szSqlStr)
+     stmt->query= (char *)szSqlStr;
+@@ -223,7 +223,7 @@
+     {
+         aprec->par.alloced= FALSE;
+         assert(aprec->par.value);
+-        my_free(aprec->par.value,MYF(0));
++        my_free(aprec->par.value);
+         aprec->par.value = NULL;
+     }
+ 
+diff -Naur mysql-connector-odbc-5.1.8.orig/driver/utility.c mysql-connector-odbc-5.1.8/driver/utility.c
+--- mysql-connector-odbc-5.1.8.orig/driver/utility.c	2010-10-28 14:33:18.000000000 -0400
++++ mysql-connector-odbc-5.1.8/driver/utility.c	2010-12-23 17:49:05.498552376 -0500
+@@ -930,7 +930,7 @@
+     ulong max_length= stmt->stmt_options.max_length;
+     ulong *offset= &stmt->getdata.src_offset;
+ #if MYSQL_VERSION_ID >= 40100
+-    char NEAR _dig_vec[] =
++    char _dig_vec[] =
+     "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+ #endif
+ 
+@@ -2154,7 +2154,7 @@
+ 
+ my_bool reget_current_catalog(DBC FAR *dbc)
+ {
+-    my_free(dbc->database,MYF(0));
++    my_free(dbc->database);
+     dbc->database= NULL;
+ 
+     if ( odbc_stmt(dbc, "select database()") )
+diff -Naur mysql-connector-odbc-5.1.8.orig/util/stringutil.h mysql-connector-odbc-5.1.8/util/stringutil.h
+--- mysql-connector-odbc-5.1.8.orig/util/stringutil.h	2010-10-28 14:33:17.000000000 -0400
++++ mysql-connector-odbc-5.1.8/util/stringutil.h	2010-12-23 17:51:51.848676475 -0500
+@@ -41,7 +41,7 @@
+ #include <sqlext.h>
+ 
+ #ifndef x_free
+-#define x_free(A) { void *tmp= (A); if (tmp) my_free((char *) tmp,MYF(MY_WME+MY_FAE)); }
++#define x_free(A) { void *tmp= (A); if (tmp) my_free((char *) tmp); }
+ #endif
+ 
+ #define myodbc_min(a, b) ((a) < (b) ? (a) : (b))
