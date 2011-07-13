@@ -3,7 +3,7 @@
 
 pkgname=nut
 pkgver=16.13
-pkgrel=1
+pkgrel=2
 pkgdesc='Records what you eat and analyzes your meals for nutrient levels in terms of the Daily Value or DV which is the standard for food labeling in the US.'
 url='http://nut.sourceforge.net/'
 license=('GPL')
@@ -15,7 +15,9 @@ build() {
   cd ${pkgname}-${pkgver}
 
   # change install path to /usr instead of /usr/local
-  sed -i 's#local/##' Makefile
+  sed \
+    -e 's#/local##' \
+    -i Makefile
 
   make
 }
