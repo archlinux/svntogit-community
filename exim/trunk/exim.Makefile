@@ -371,7 +371,7 @@ WITH_CONTENT_SCAN=yes
 
 # If you want to use the deprecated "demime" condition in the DATA ACL,
 # uncomment the line below. Doing so will also explicitly turn on the
-WITH_CONTENT_SCAN=yes
+# WITH_CONTENT_SCAN option. If possible, use the MIME ACL instead of
 # the "demime" condition.
 
 WITH_OLD_DEMIME=yes
@@ -528,7 +528,7 @@ FIXED_NEVER_USERS=root
 #
 # As a strictly transient measure to ease migration to 4.73, the
 # WHITELIST_D_MACROS value definies a colon-separated list of macro-names
-# which are permitted to be overriden from the command-line which will be
+# which are permitted to be overridden from the command-line which will be
 # honoured by the Exim user.  So these are macros that can persist to delivery
 # time.
 # Examples might be -DTLS or -DSPOOL=/some/dir.  The values on the
@@ -658,11 +658,11 @@ HEADERS_CHARSET="ISO-8859-1"
 SUPPORT_TLS=yes
 
 # Uncomment this setting if you are using OpenSSL
-TLS_LIBS=-L/usr/lib -lssl -lcrypto
+TLS_LIBS=-lssl -lcrypto
 
 # Uncomment these settings if you are using GnuTLS
 # USE_GNUTLS=yes
-TLS_LIBS=-L/usr/lib -lssl -lcrypto
+# TLS_LIBS=-lgnutls -ltasn1 -lgcrypt
 
 # If you are running Exim as a server, note that just building it with TLS
 # support is not all you need to do. You also need to set up a suitable
@@ -677,17 +677,17 @@ TLS_LIBS=-L/usr/lib -lssl -lcrypto
 # with all your other libraries. If they are in a special directory, you may
 # need something like
 
-TLS_LIBS=-L/usr/lib -lssl -lcrypto
+# TLS_LIBS=-L/usr/local/openssl/lib -lssl -lcrypto
 # or
-TLS_LIBS=-L/usr/lib -lssl -lcrypto
+# TLS_LIBS=-L/opt/gnu/lib -lgnutls -ltasn1 -lgcrypt
 
-TLS_LIBS=-L/usr/lib -lssl -lcrypto
+# TLS_LIBS is included only on the command for linking Exim itself, not on any
 # auxiliary programs. If the include files are not in a standard place, you can
 # set TLS_INCLUDE to specify where they are, for example:
 
-TLS_INCLUDE=-I/usr/include/openssl
+# TLS_INCLUDE=-I/usr/local/openssl/include/
 # or
-TLS_INCLUDE=-I/usr/include/openssl
+# TLS_INCLUDE=-I/opt/gnu/include
 
 # You don't need to set TLS_INCLUDE if the relevant directories are already
 # specified in INCLUDE.
@@ -884,12 +884,12 @@ SUPPORT_PAM=yes
 # this setting. See the manual section entitled "Use of tcpwrappers" in the
 # chapter on building and installing Exim.
 #
-USE_TCP_WRAPPERS=yes
+# USE_TCP_WRAPPERS=yes
 #
 # You may well also have to specify a local "include" file and an additional
 # library for TCP wrappers, so you probably need something like this:
 #
-USE_TCP_WRAPPERS=yes
+# USE_TCP_WRAPPERS=yes
 # CFLAGS=-O -I/usr/local/include
 # EXTRALIBS_EXIM=-L/usr/local/lib -lwrap
 #
@@ -1223,5 +1223,5 @@ PID_FILE_PATH=/var/run/exim.pid
 
 HAVE_IPV6=YES
 LOOKUP_LIBS=-lldap
-EXTRALIBS_EXIM=-lwrap -lpam
+EXTRALIBS_EXIM=-lpam
 # End of EDITME for Exim 4.
