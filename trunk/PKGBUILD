@@ -3,8 +3,8 @@
 # Generator  : CPANPLUS::Dist::Arch 1.12
 
 pkgname='perl-cpanplus-dist-arch'
-pkgver='1.13'
-pkgrel='1'
+pkgver=1.15
+pkgrel=1
 pkgdesc="CPANPLUS backend for building Archlinux pacman packages"
 arch=('any')
 license=('PerlArtistic' 'GPL')
@@ -12,9 +12,9 @@ options=('!emptydirs')
 depends=('perl')
 makedepends=()
 url='http://search.cpan.org/dist/CPANPLUS-Dist-Arch'
-source=('http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-1.13.tar.gz')
-md5sums=('a1634ec1d8cea872e3a6b2220c57c0f4')
-_distdir="${srcdir}/CPANPLUS-Dist-Arch-1.13"
+source=("http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-$pkgver.tar.gz")
+md5sums=('49c500d5a0f3e5bb61fd01405ca4f927')
+_distdir="${srcdir}/CPANPLUS-Dist-Arch-$pkgver"
 
 build() {
   ( export PERL_MM_USE_DEFAULT=1 PERL5LIB=""                 \
