@@ -12,6 +12,7 @@ if [ -n "$INSTALL_DIR" ]; then
   BUILDVBOXDRV="$INSTALL_DIR/src/vboxdrv/build_in_tmp"
   BUILDVBOXNETFLT="$INSTALL_DIR/src/vboxnetflt/build_in_tmp"
   BUILDVBOXNETADP="$INSTALL_DIR/src/vboxnetadp/build_in_tmp"
+  BUILDVBOXPCI="$INSTALL_DIR/src/vboxpci/build_in_tmp"
 else
   echo "missing vbox.cfg"
   exit 0
@@ -31,7 +32,7 @@ case "$1" in
       if [ ! -d "$p/kernel" ]; then
         if [ -e "$p/misc/vboxdrv.ko" ]; then
           stat_busy "Removing old VirtualBox kernel modules from $p"
-          rm -f "$p/misc/vbox"{drv,netadp,netflt}.ko 2>/dev/null
+          rm -f "$p/misc/vbox"{drv,netadp,netflt,pci}.ko 2>/dev/null
           rmdir -p --ignore-fail-on-non-empty "$p/misc/" 2>/dev/null
           stat_done
         fi
@@ -52,6 +53,12 @@ case "$1" in
       find /lib/modules/`uname -r` -name "vboxdrv\.*" 2>/dev/null|xargs rm -f 2>/dev/null
       stat_done
     fi
+    if find /lib/modules/`uname -r` -name "vboxpci\.*" 2>/dev/null|grep -q vboxpci; then
+      stat_busy "Removing old VirtualBox pci kernel module"
+      find /lib/modules/`uname -r` -name "vboxpci\.*" 2>/dev/null|xargs rm -f 2>/dev/null
+      stat_done
+    fi
+
     stat_busy "Recompiling VirtualBox kernel modules"
     if ! $BUILDVBOXDRV \
       --save-module-symvers /tmp/vboxdrv-Module.symvers \
@@ -64,6 +71,11 @@ case "$1" in
       echo "Look at $LOG to find out what went wrong"
     fi
     if ! $BUILDVBOXNETADP \
+      --use-module-symvers /tmp/vboxdrv-Module.symvers \
+      --no-print-directory install >> $LOG 2>&1; then
+      echo "Look at $LOG to find out what went wrong"
+    fi
+    if ! $BUILDVBOXPCI \
       --use-module-symvers /tmp/vboxdrv-Module.symvers \
       --no-print-directory install >> $LOG 2>&1; then
       echo "Look at $LOG to find out what went wrong"
