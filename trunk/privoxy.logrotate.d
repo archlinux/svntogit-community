@@ -1,4 +1,4 @@
-/var/log/privoxy/jarfile /var/log/privoxy/logfile {
+/var/log/privoxy/* {
    create 660 root privoxy
    notifempty
    compress
