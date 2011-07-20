@@ -1,0 +1,64 @@
+# $Id$
+# Maintainer: Lukas Fleischer <archlinux at cryptocrack dot de>
+# Contributor: Juergen Hoetzel <juergen@hoetzel.info>
+# Contributor: basilburn (basilburn), Paul Bredbury (brebs) 
+
+pkgname=privoxy
+pkgver=3.0.17
+pkgrel=3
+pkgdesc='A web proxy with advanced filtering capabilities.'
+arch=('i686' 'x86_64')
+url='http://www.privoxy.org'
+license=('GPL')
+depends=('pcre' 'zlib')
+makedepends=('autoconf')
+backup=('etc/conf.d/privoxy'
+        'etc/privoxy/'{config,trust,default.action,user.filter,default.filter}
+        'etc/privoxy/'{match-all,user}.action
+        'etc/logrotate.d/privoxy')
+install='privoxy.install'
+source=("http://downloads.sourceforge.net/ijbswa/${pkgname}-${pkgver}-stable-src.tar.gz"
+        'privoxy'
+        'privoxy.logrotate.d'
+        'privoxy.conf.d')
+md5sums=('9d363d738a3f3d73e774d6dfeafdb15f'
+         '1b4ed8c4e7e5b04b10ef41b597dc3f3b'
+         '79480f311313cc43974f6cbe6b672927'
+         '27830ef79418e277b90c1c1fa933f876')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}-stable"
+
+  autoheader
+  autoconf
+  ./configure --prefix=/usr --sysconfdir=/etc/privoxy
+
+  make
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}-stable"
+
+  make prefix="${pkgdir}/usr" MAN_DEST="${pkgdir}/usr/share/man/man1" GROUP=42 \
+    CONF_BASE="${pkgdir}/etc/privoxy" VAR_DEST="${pkgdir}/var" install
+
+  # Don't overwrite existing log files!
+  rm "${pkgdir}/var/log/privoxy/"*
+
+  install -Dm0755 "${srcdir}/privoxy" "${pkgdir}/etc/rc.d/privoxy"
+  install -Dm0644 "${srcdir}/privoxy.logrotate.d" "${pkgdir}/etc/logrotate.d/privoxy"
+  install -Dm0644 "${srcdir}/privoxy.conf.d" "${pkgdir}/etc/conf.d/privoxy"
+
+  # Fix config paths.
+  sed -i -e 's#^confdir.*$#confdir /etc/privoxy#' -e 's#^logdir.*$#logdir /var/log/privoxy#' \
+    -e '/^user-manual/s#.*#\#user-manual /usr/share/doc/privoxy/user-manual/#' \
+    "${pkgdir}/etc/privoxy/config"
+
+  # Fix group ownership and permissions.
+  chgrp -R 42 "${pkgdir}/etc/privoxy/"
+  chgrp -R 42 "${pkgdir}/var/log/privoxy/"
+
+  find "${pkgdir}/etc/privoxy/" -type d | xargs chmod 0770
+  find "${pkgdir}/etc/privoxy/" -type f | xargs chmod 0660
+  chmod 0700 "${pkgdir}/var/log/privoxy"
+}
