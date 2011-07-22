@@ -13,8 +13,9 @@ my $from = "";
 my $ret;
 again:
 my $count = 0;
-#print STDERR "wget -q \"$URL/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects&apfrom=$from\" -O -\n";
-$text=`wget -q \"$URL/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects&apfrom=$from\" -O -`;
+$cmd="wget --no-check-certificate -q \"$URL/api.php?action=query&list=allpages&aplimit=500&format=json&apfilterredir=nonredirects&apfrom=$from\" -O -";
+#print STDERR $cmd."\n";
+$text=`$cmd`;
 $ret = JSON::XS->new->utf8->decode($text);
 $H = $ret->{query}->{allpages};
 foreach $i (@$H)
