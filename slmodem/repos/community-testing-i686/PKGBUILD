@@ -1,0 +1,99 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Maintainer: Tobias Powalowski <tpowa@archlinux.org>
+
+pkgname=slmodem
+pkgver=2.9.11
+pkgrel=59
+pkgdesc="Drivers for the Smartlink winmodems. For stock arch kernel "
+arch=(i686)
+license=('custom:"Smartlink"')
+url="http://linmodems.technion.ac.il/packages/smartlink/"
+install=slmodem.install
+depends=("linux" "slmodem-utils")
+makedepends=("linux-headers")
+source=(http://linmodems.technion.ac.il/packages/smartlink/slmodem-$pkgver-20080126.tar.gz
+	http://linmodems.technion.ac.il/packages/smartlink/ungrab-winmodem-20080126.tar.gz
+	kernel-2.6.24.patch
+	kernel-2.6.33.patch
+	kernel-2.6.34.patch
+	kernel-2.6.36.patch
+	kernel-2.6.39.patch)
+md5sums=('8670dd7e1e1a46296ac4c80f7ac0471d'
+         '25244ef3924566866f4fae2feca78218'
+         '5a5e313a5040fcff7bf11c33f008e61e'
+         'c03b607c7c4819bf693da4fa71324691'
+         '4401b7353fa5894be28e217d4396af99'
+         '1cd248732b9bca04fcd73734ab701047'
+         'cea1f9326ecb1e87646d542e5fb5cede')
+
+build() {
+  _kernver=`pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -`
+  depends=("linux>=3.${_kernver}" "linux<3.`expr ${_kernver} + 1`" "slmodem-utils")
+
+  cd $srcdir/
+  patch -Np0 -i $srcdir/kernel-2.6.34.patch
+  cd $srcdir/ungrab-winmodem-20080126
+  make KERNEL_DIR=/lib/modules/`uname -r`/build
+  install -D -m644 ungrab-winmodem.ko $pkgdir/lib/modules/`uname -r`/kernel/drivers/net/ungrab-winmodem.ko
+  cd $srcdir/$pkgname-$pkgver-20080126
+  patch -Np0 -i $srcdir/kernel-2.6.24.patch
+  patch -Np0 -i $srcdir/kernel-2.6.33.patch
+  patch -Np0 -i $srcdir/kernel-2.6.36.patch
+  patch -Np0 -i $srcdir/kernel-2.6.39.patch
+  sed 's|^obj-m := slamr.o slusb.o|obj-m := slamr.o|' -i drivers/Makefile
+  make KERNEL_DIR=/lib/modules/`uname -r`/build SUPPORT_ALSA=1 DESTDIR=$pkgdir drivers
+  # Install kernel modules
+  install -D -m 644 drivers/slamr.ko $pkgdir/lib/modules/`uname -r`/kernel/drivers/net/slamr.ko
+  #install -D -m 644 drivers/slusb.ko $pkgdir/lib/modules/`uname -r`/kernel/drivers/usb/net/slusb.ko
+  sed -i -e "s/KERNEL_VERSION=.*/KERNEL_VERSION=`uname -r`/g" $startdir/slmodem.install
+
+  # license
+  mkdir -p $pkgdir/usr/share/licenses/slmodem/
+  cat >$pkgdir/usr/share/licenses/slmodem/license.txt <<EOF
+******************************************************************************
+
+TERMS AND CONDITIONS OF USE FOR SMART LINK LINUX SOFTWARE DRIVERS
+
+By using the Linux software provided by Smart Link, YOU ARE CONSENTING TO
+BE BOUND BY AND ARE BECOMING A PARTY TO THIS AGREEMENT. IF YOU DO NOT AGREE
+TO ALL THE TERMS OF THIS AGREEMENT, PLEASE UNINSTALL THE SOFTWARE FROM YOUR
+SYSTEM. For manufacturers, these Terms and Conditions modify the existing
+Master Contract with Smart Link.
+
+1. PRODUCT: Smart Link's product herein, (the "Product"), included as part
+of this Linux driver package and as specified on Smart Link's website
+www.smlink.com , comprises Smart Link's Linux software drivers (the
+"Software") which are available for download by end-users and manufacturers
+("Users")
+
+2. LICENSE: The scope of the license granted herein shall be limited to
+granting the User the right to download the Software from Smart Link's
+website, free of charge, for the sole purpose of upgrading the User's
+existing Smart Link chipset based modems ("Modems") in conjunction with
+the User's right to use, make, reproduce, distribute and sublicense the
+Software solely for distribution and support of the Modems and shall not
+include the right to otherwise sell or sub-license the Software.
+
+3. LIMITATION OF REMEDIES AND DAMAGES: In no event shall Smart Link or
+any of the licensors, directors, officers, employees or affiliates of
+the foregoing be liable to User for any direct, indirect, consequential,
+incidental, special or similar damages whatsoever (including, without
+limitation, damages for loss of business profits, business interruption,
+loss of business information and the like), whether foreseeable or
+unforeseeable, arising out of the use or inability to use the Software,
+regardless of the basis of the claim and even if Smart Link or a Smart
+Link representative has been advised of the possibility of such damage.
+SOME JURISDICTIONS MAY NOT ALLOW THE LIMITATION OR EXCLUSION OF INCIDENTAL
+OR CONSEQUENTIAL DAMAGES FOR CONSUMER PRODUCTS, SO THE ABOVE LIMITATIONS OR
+EXCLUSIONS MAY NOT APPLY TO USER.
+
+4. SOFTWARE CHANGES: Smart Link shall have the right, in its sole discretion,
+without liability to User, to (a) change the design, or discontinue
+developing, producing, licensing or distributing any Software covered by
+this Agreement, and (b) announce new Software to which the terms and
+conditions of this Agreement do not apply.
+
+Signed: Smart Link, Ltd. , www.smlink.com
+EOF
+}
