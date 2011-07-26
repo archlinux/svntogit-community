@@ -1,0 +1,69 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Tom Newsom <Jeepster@gmx.co.uk>
+# Maintainer: damir <damir@archlinux.org>
+
+pkgname=gpsdrive
+pkgver=2.11
+pkgrel=9
+pkgdesc="A car (bike, ship, plane) navigation system"
+arch=("i686" "x86_64")
+url="http://www.gpsdrive.de/"
+license=('GPL2')
+depends=('gtk2' 'gpsd' 'libxml2' 'curl' 'python2' 'boost-libs' 'gdal' 'mapnik' 'postgresql-libs' 'openstreetmap-map-icons-svn'
+         'perl-date-manip' 'perl-timedate' 'perl-dbi' 'perl-file-slurp' 'perl-www-mechanize' 'perl-libwww' 'perl-uri'
+         'perl-text-query' 'perl-www-curl' 'perl-xml-parser' 'perl-xml-simple' 'perl-xml-twig' 'perl-xml-writer'
+        ) # already in core ('sqlite3')
+makedepends=('cmake>=2.4.4' 'boost' 'cfitsio')
+install="gpsdrive.install"
+source=("http://www.gpsdrive.de/packages/${pkgname}-${pkgver}.tar.gz"
+	"gpsd-2.96.patch")
+md5sums=('6eeeca8e5c647115bea836d1f8fb6e0c'
+         '5769e12c6d8932fb721212434c64f505')
+
+build() {
+  cd "$srcdir"
+
+  # python2 fix
+  for file in $(find . -name '*.py' -print); do
+    sed -i 's_#!/usr/bin/python_#!/usr/bin/python2_' $file
+    sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' $file
+  done
+
+  rm -rf build
+  mkdir build
+  cd build
+
+  # fix the mapnik default values
+  sed -i 's|"/usr/lib/mapnik/0.7/input/"|"/usr/lib/mapnik/input/"|' "${srcdir}/gpsdrive-${pkgver}/src/gpsdrive_config.c"
+  sed -i 's|"/usr/share/fonts/truetype/ttf-dejavu/"|"/usr/share/fonts/TTF/"|' "${srcdir}/gpsdrive-${pkgver}/src/gpsdrive_config.c"
+
+  export CFLAGS=-I/usr/include/gdk-pixbuf-2.0/
+  export CPPFLAGS=-I/usr/include/gdk-pixbuf-2.0/
+  export CXXFLAGS=-I/usr/include/gdk-pixbuf-2.0/
+
+  export CXXFLAGS="${CXXFLAGS} -DBOOST_FILESYSTEM_VERSION=2"
+
+  # see DefineOptions.cmake for a list of common options and defaults
+  # cmake -L for a more in-depth listing
+  cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX="/usr" \
+    -DWITH_SCRIPTS=ON \
+    -DWITH_MAPNIK=ON \
+    -DWITH_POSTGIS=ON \
+    -DWITH_GDAL=ON \
+    -DWITH_BASEMAPS=ON \
+    -DWITH_FRIENDSD=ON \
+    -DWITH_KISMET=ON \
+    -DWITH_NAVIGATION=ON \
+    -DWITH_SPEECH=OFF \
+    -DWITH_DBUS=OFF \
+    -DLIBGPS_OLD=OFF \
+    "$srcdir/gpsdrive-$pkgver"
+  (cd "$srcdir/gpsdrive-$pkgver" && patch -p1 <$srcdir/gpsd-2.96.patch)
+  make
+}
+
+package() {
+  cd "$srcdir/build"
+  make DESTDIR="$pkgdir" install
+}
