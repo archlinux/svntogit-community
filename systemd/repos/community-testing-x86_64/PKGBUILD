@@ -1,0 +1,79 @@
+# $Id$
+# Maintainer: Dave Reisner <dreisner@archlinux.org>
+
+pkgname=systemd
+pkgver=32
+pkgrel=1
+pkgdesc="Session and Startup manager"
+arch=('i686' 'x86_64')
+url="http://www.freedesktop.org/wiki/Software/systemd"
+license=('GPL2')
+depends=('dbus-core' 'libcap' 'util-linux>=2.19' 'udev>=172')
+makedepends=('docbook-xsl' 'libxslt' 'cryptsetup' 'gtk2' 'intltool' 'libnotify')
+optdepends=('cryptsetup: required for encrypted block devices'
+            'dbus-python: systemd-analyze'
+            'gtk2: systemadm'
+            'initscripts: legacy support for hostname and vconsole setup'
+            'initscripts-systemd: native boot and initialization scripts'
+            'libnotify: systemadm'
+            'python2-cairo: systemd-analyze'
+            'systemd-arch-units: collection of native unit files for Arch daemon/init scripts')
+groups=('systemd')
+options=('!libtool')
+backup=(etc/dbus-1/system.d/org.freedesktop.systemd1.conf
+        etc/dbus-1/system.d/org.freedesktop.hostname1.conf
+        etc/dbus-1/system.d/org.freedesktop.login1.conf
+        etc/dbus-1/system.d/org.freedesktop.locale1.conf
+        etc/dbus-1/system.d/org.freedesktop.timedate1.conf
+        etc/systemd/system.conf
+        etc/systemd/user.conf
+        etc/systemd/systemd-logind.conf)
+install=systemd.install
+source=("http://www.freedesktop.org/software/$pkgname/$pkgname-$pkgver.tar.bz2"
+        "os-release")
+md5sums=('d8d4b42034be8ef403e72d7d2d1d1150'
+         '752636def0db3c03f121f8b4f44a63cd')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Don't unset locale in getty
+  # https://bugzilla.redhat.com/show_bug.cgi?id=663900
+  sed -i -e '/^Environ.*LANG/s/^/#/' \
+         -e '/^ExecStart/s/agetty/& -8/' units/getty@.service.m4
+
+  ./configure --prefix=/usr \
+              --sysconfdir=/etc \
+              --libexecdir=/usr/lib \
+              --libdir=/usr/lib \
+              --localstatedir=/var \
+              --with-rootdir= \
+              --with-rootlibdir=/lib \
+              --disable-audit \
+              --disable-tcpwrap
+
+  make
+
+  # fix .so links in manpages
+  sed -i 's|\.so halt\.8|.so systemd.halt.8|' man/{halt,poweroff}.8
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  install -Dm644 "$srcdir/os-release" "$pkgdir/etc/os-release"
+  printf "d /run/console 755 root root\n" > "$pkgdir/usr/lib/tmpfiles.d/console.conf"
+
+  # fix systemd-analyze for python2
+  sed -i '1s/python$/python2/' "$pkgdir/usr/bin/systemd-analyze"
+
+  # rename man pages to avoid conflicts with sysvinit
+  cd "$pkgdir/usr/share/man/man8"
+  for manpage in telinit halt reboot poweroff runlevel shutdown; do
+    mv {,systemd.}"$manpage.8"
+  done
+
+}
+
