@@ -1,13 +1,13 @@
 #!/bin/sh
 
 checkgroups() {
-  getent group lock >/dev/null || groupadd -g 54 lock
+  usr/bin/getent group lock >/dev/null || usr/sbin/groupadd -g 54 lock
 }
 
 post_install() {
   checkgroups
 
-  [ -f etc/machine-id ] || systemd-machine-id-setup
+  [ -f etc/machine-id ] || bin/systemd-machine-id-setup
 
   echo "systemd has been installed to /bin/systemd. Please ensure you append"
   echo "init=/bin/systemd to your kernel command line in your bootloader."
@@ -16,16 +16,27 @@ post_install() {
 post_upgrade() {
   checkgroups
 
-  [ -f etc/machine-id ] || systemd-machine-id-setup
-  systemctl daemon-reexec >/dev/null || :
+  [ -f etc/machine-id ] || bin/systemd-machine-id-setup
+  bin/systemctl daemon-reexec >/dev/null || :
+
+  newpkgver=${1%-*}
+  oldpkgver=${2%-*}
+
+  # catch v31 need for restarting systemd-logind.service
+  if [ "$newpkgver" -ge 31 ] && [ "$oldpkgver" -lt 31 ]; then
+    # but only if systemd is running
+    if [ -d sys/fs/cgroup/systemd ]; then
+      bin/systemctl try-restart systemd-logind.service
+    fi
+  fi
 }
 
 pre_remove() {
-  rm -f /etc/systemd/system/default.target
+  bin/rm -f etc/systemd/system/default.target
 }
 
 post_remove() {
-  getent group lock >/dev/null && groupdel lock
+  usr/bin/getent group lock >/dev/null && usr/sbin/groupdel lock
 }
 
 # vim:set ts=2 sw=2 et:
