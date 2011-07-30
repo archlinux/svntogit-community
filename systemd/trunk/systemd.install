@@ -1,13 +1,21 @@
 #!/bin/sh
 
 checkgroups() {
-  usr/bin/getent group lock >/dev/null || usr/sbin/groupadd -g 54 lock
+  if usr/bin/getent group lock >/dev/null; then
+    usr/sbin/groupadd -g 54 lock
+  fi
+}
+
+sd_booted() {
+  [ -e sys/fs/cgroups/systemd ]
 }
 
 post_install() {
   checkgroups
 
-  [ -f etc/machine-id ] || bin/systemd-machine-id-setup
+  if [ -f etc/machine-id ]; then
+    bin/systemd-machine-id-setup
+  fi
 
   echo "systemd has been installed to /bin/systemd. Please ensure you append"
   echo "init=/bin/systemd to your kernel command line in your bootloader."
@@ -16,8 +24,13 @@ post_install() {
 post_upgrade() {
   checkgroups
 
-  [ -f etc/machine-id ] || bin/systemd-machine-id-setup
-  bin/systemctl daemon-reexec >/dev/null || :
+  if [ -f etc/machine-id ]; then
+    bin/systemd-machine-id-setup
+  fi
+
+  if sd_booted; then
+    bin/systemctl daemon-reexec >/dev/null
+  fi
 
   newpkgver=${1%-*}
   oldpkgver=${2%-*}
@@ -25,14 +38,10 @@ post_upgrade() {
   # catch v31 need for restarting systemd-logind.service
   if [ "$newpkgver" -ge 31 ] && [ "$oldpkgver" -lt 31 ]; then
     # but only if systemd is running
-    if [ -d sys/fs/cgroup/systemd ]; then
+    if sd_booted; then
       bin/systemctl try-restart systemd-logind.service
     fi
   fi
-}
-
-pre_remove() {
-  bin/rm -f etc/systemd/system/default.target
 }
 
 post_remove() {
