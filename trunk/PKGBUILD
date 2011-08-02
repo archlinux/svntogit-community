@@ -1,15 +1,17 @@
-# Maintainer: Chris Brannon <chris@the-brannons.com>
+# Maintainer: Kyle Keen <keenerd@gmail.com>
+# Contributor: Chris Brannon <chris@the-brannons.com>
 # Contributor : Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgbase=ipython
 pkgname=(ipython ipython-docs)
-pkgver=0.10.2
+pkgver=0.11
 pkgrel=1
 arch=('any')
-url="http://ipython.scipy.org/"
-license=('custom')
-  makedepends=('python2') # for setup.py
-source=("http://ipython.scipy.org/dist/$pkgver/$pkgbase-$pkgver.tar.gz")
+url="http://ipython.org"
+license=('Modified BSD')
+makedepends=('python2') # for setup.py
+source=("http://archive.ipython.org/release/$pkgver/ipython-$pkgver.tar.gz")
+md5sums=('efc899e752a4a4a67a99575cea1719ef')
 
 build() {
   true
@@ -18,7 +20,7 @@ build() {
 }
 
 package_ipython() {
-  pkgdesc="An enhanced Interactive Python shell."
+  pkgdesc="An enhanced Interactive Python2 shell."
   depends=('python2')
   optdepends=("wxpython: needed for ipythonx and ipython-wx"
               "twisted: networking-related tasks"
@@ -28,7 +30,6 @@ package_ipython() {
 
   cd "$srcdir/$pkgbase-$pkgver"
 
-  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython/license.txt"
   python2 setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
   rm -rf "$pkgdir/usr/share/doc"
   find "$pkgdir" -name '*.py' -print0 |xargs -0 \
@@ -41,12 +42,9 @@ package_ipython-docs() {
 
   cd "$srcdir/$pkgbase-$pkgver"
 
-  install -Dm644 docs/source/license_and_copyright.txt "$pkgdir/usr/share/licenses/ipython-docs/license.txt"
-  # Can I use $pkgname in that install command?
-
   python2 setup.py install --prefix=/usr --root="$pkgdir"
   rm -rf "$pkgdir/usr/lib" "$pkgdir/usr/bin" "$pkgdir/usr/share/man"
   # This seems wrong.  We're running setup.py for both
   # packages, and removing different things in each.
 }
-md5sums=('dda59bfc6e256ce786c4bc4aadb220a4')
+
