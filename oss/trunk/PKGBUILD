@@ -1,32 +1,37 @@
 # $Id$
+# Maintainer: Florian Pritz <bluewind@xinu.at>
 # Contributor: Paulo Matias <matiasΘarchlinux-br·org>
-# Maintainer: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
 
 pkgname=oss
 pkgver=4.2_2004
-pkgrel=1
+pkgrel=2
 pkgdesc="Open Sound System UNIX audio architecture"
 arch=('i686' 'x86_64')
 url="http://developer.opensound.com/"
 license=('GPL2')
 depends=('gcc' 'make' 'kernel26-headers' 'module-init-tools' 'libtool' 'sed')
 makedepends=('pkgconfig' 'gawk' 'gtk2' 'findutils')
-optdepends=('gtk2: for graphical mixer (ossxmix)'
-            'hal: for automatic USB audio configuration')
+optdepends=('gtk2: for graphical mixer (ossxmix)')
 conflicts=('oss-linux' 'oss-linux-free' 'oss-testing' 'libflashsupport' 'libflashsupport-pulse' 'libflashsupport-oss')
 replaces=('libflashsupport-oss')
 install=oss.install
 backup=('usr/lib/oss/soundon.user')
 source=("http://www.4front-tech.com/developer/sources/stable/gpl/oss-v${pkgver/_*}-build${pkgver/*_}-src-gpl.tar.bz2"
-	'oss.rm-init-scripts.patch' 'oss.rc' 'oss.soundon.patch')
+	"rm-init-scripts.patch"
+	"rc-script"
+	"soundon.patch"
+	"remove-hal.patch"
+	)
 md5sums=('256aba264d523fb8ee444aaacfb8d3da'
          'b9a380a0ac8896390d71ac13676f27e1'
-         '8ca7cdf94c56ab02890eb4aba6a4995f'
-         '65f07fe241bfbf912f76d8b6d8f276b5')
+         'cbcbce5c03b127df5eafa8faa091492c'
+         '65f07fe241bfbf912f76d8b6d8f276b5'
+         'cd7f1dc6166bba8c94d96f3a28e948a5')
 
 build() {
 	_dir=oss-v${pkgver/_*}-build${pkgver/*_}-src-gpl
-	cd ${srcdir}/${_dir}
+	cd "${srcdir}/${_dir}"
 
 	# Avoid these flags conflicting with OSS build system.
 	unset CFLAGS
@@ -42,43 +47,44 @@ build() {
 	gcc -shared -fPIC -O2 -Wall -Werror flashsupport.c -o libflashsupport.so
 
 	msg "Preparing the build environment."
-	cd ${srcdir}
+	cd "${srcdir}"
 
-	if [ ! -d build ]; then
-		# Create build directory and configure
-		mkdir build && cd build
-		${srcdir}/${_dir}/configure --enable-libsalsa=NO
-	else
-		# Change to existing build directory
-		cd build
-	fi
+	# Create build directory and configure
+	rm -rf build
+	mkdir build && cd build
+	"${srcdir}/${_dir}/configure" --enable-libsalsa=NO
 
 	msg "Building OSS."
 	make build
 
 	msg "Patching init scripts."
-	cd ${srcdir}/build/prototype
+	cd "${srcdir}/build/prototype"
 	rm usr/lib/oss/etc/S89oss
-	patch -b -p0 < ${srcdir}/oss.rm-init-scripts.patch
-	patch -b -p0 < ${srcdir}/oss.soundon.patch
-
+	patch -p0 -i "${srcdir}/rm-init-scripts.patch"
+	patch -p0 -i "${srcdir}/soundon.patch"
+	# remove hal dependency
+	patch -p0 -i "${srcdir}/remove-hal.patch"
+	rm -rf usr/lib/oss/scripts/oss_usb-create-devices usr/lib/oss/scripts/90-oss_usb-create-device.fdi
 }
 
 package() {
 	_dir=oss-v${pkgver/_*}-build${pkgver/*_}-src-gpl
-	cd ${srcdir}/${_dir}
+	cd "${srcdir}/${_dir}"
 
 	msg "Copying files."
 
 	# Install libflashsupport.so
-	install -Dm755 oss/lib/libflashsupport.so \
-		${pkgdir}/usr/lib/libflashsupport.so
-	rm -f oss/lib/{flashsupport.c,libflashsupport.so}
+	install -dm755 "$pkgdir/usr/lib"
+	ln -s oss/lib/libflashsupport.so "$pkgdir/usr/lib/libflashsupport.so"
 
-	cd ${srcdir}/build/prototype
-	cp -a * ${pkgdir}
-	chmod -R a+r ${pkgdir} # All files can have read permission (FS#13815)
-	find ${pkgdir} -type d -exec chmod a+x '{}' \; # Make namcap happy
-	install -Dm755 ${srcdir}/oss.rc ${pkgdir}/etc/rc.d/oss
+	cd "${srcdir}/build/prototype"
+	cp -a * "${pkgdir}"
+
+	# COFNIG_REGPARM has been default for years...
+	rm -rf "$pkgdir/usr/lib/oss/"{objects,modules}".noregparm"
+
+	chmod -R a+r "${pkgdir}" # All files can have read permission (FS#13815)
+	find "${pkgdir}" -type d -exec chmod a+x '{}' \; # Make namcap happy
+	install -Dm755 "${srcdir}/rc-script" "${pkgdir}/etc/rc.d/oss"
 }
 
