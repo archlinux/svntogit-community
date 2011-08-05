@@ -26,7 +26,10 @@ package_ipython() {
               "twisted: networking-related tasks"
               "python-foolscap: for IPython's parallel computing features"
               "python-pexpect: for irunner"
-              "python2-nose: if you want to run IPython's test suite")
+              "python2-nose: if you want to run IPython's test suite"
+              "python2-pyqt: for ipython-qtconsole"
+              "python2-sip: for ipython-qtconsole"
+              "python2-pyzmq: for ipython-qtconsole")
 
   cd "$srcdir/$pkgbase-$pkgver"
 
