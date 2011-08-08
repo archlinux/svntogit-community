@@ -21,7 +21,7 @@ fi
 case "$1" in
   setup)
     stat_busy "Unloading VirtualBox kernel modules"
-    for module in vbox{netflt,netadp,drv,pci}; do
+    for module in vbox{pci,netflt,netadp,drv}; do
       if grep -q "^${module}" /proc/modules; then
         MODLIST+=($module)
         modprobe -r $module
