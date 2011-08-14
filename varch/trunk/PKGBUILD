@@ -1,7 +1,7 @@
 # Maintainer: Thomas S Hatch <thatch45@gmail.com>
 
 pkgname=varch
-pkgver=0.9.0
+pkgver=0.9.1
 pkgrel=1
 pkgdesc="ArchLinux virtual machine builder"
 arch=(any)
@@ -16,7 +16,7 @@ optdepends=('virtualbox: To enable support for virtualbox vdi images'
             'qemu-kvm: Run kvm virtual machines')
 options=(!emptydirs)
 source=("https://github.com/downloads/thatch45/varch/$pkgname-$pkgver.tar.gz")
-md5sums=('0cd33a9e5411fc5b0c17683119381bf5')
+md5sums=('66c0c8f045085b079b6df6aeab929fbd')
 
 package() {
   cd $srcdir/$pkgname-$pkgver
