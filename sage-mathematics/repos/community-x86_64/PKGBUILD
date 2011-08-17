@@ -1,0 +1,103 @@
+# Maintainer: Thomas Dziedzic < gostrc at gmail >
+# Contributor: Osman Ugus <ugus11@yahoo.com>
+# Contributor: Stefan Husmann <stefan-husmann@t-online.de>
+# Special thanks to Nareto for moving the compile from the .install to the PKGBUILD
+
+pkgname=sage-mathematics
+pkgver=4.7.1
+pkgrel=1
+pkgdesc='SAGE: Open Source Mathematics Software, a viable free alternative to Magma, Maple, Mathematica, and Matlab.'
+url='http://www.sagemath.org'
+arch=('i686' 'x86_64')
+license=('GPL')
+#depends=('readline')
+depends=('ppl')
+makedepends=('gcc-fortran' 'gcc-libs' 'desktop-file-utils' 'imagemagick' 'texlive-core')
+optdepends=('imagemagick: some plotting functionality benefits from it'
+            'texlive-core: some plotting functionality benefits from it, also to use SageTeX'
+            'sage-mathematics-spkgs: original packages used to build additional packages')
+options=('!makeflags')
+install="${pkgname}.install"
+source=("http://sage.math.washington.edu/home/release/sage-${pkgver}/sage-${pkgver}.tar"
+        'SAGE-notebook.desktop')
+md5sums=('4d82c6719d14a1c2d403024d989faac7'
+         'dc391f12b7d17dd37326343ec0e99bbd')
+
+build() {
+  cd sage-${pkgver}
+
+  # modularization of sage, sort of :)
+  # fixes the following error:
+  # bash: symbol lookup error: bash: undefined symbol: rl_filename_rewrite_hook
+  # remove this hack when sage uses a readline 6.1 or greater, or when sage uses its own internal bash
+  # this is for people who have custom kernels (sage works this around by checking uname -r)
+  #mkdir -p spkg/installed
+  #touch spkg/installed/readline-6.1
+  mkdir -p spkg/installed
+  touch spkg/installed/ppl-0.11.2
+
+  # fix "missing sage.all error" during build
+  unset CFLAGS
+  unset CXXFLAGS
+
+  # fix build errors
+  unset LDFLAGS
+
+  # enable multiple threads while building, is this really needed? check if uses MAKEFLAGS
+  export SAGE_BUILD_THREADS=$(lscpu | awk '/^CPU\(s\):/ { print $2 }')
+  export MAKE="make -j${SAGE_BUILD_THREADS}"
+
+  # use archlinux's fortran rather then the one that ships with sage to compile sage's fortran
+  export SAGE_FORTRAN='/usr/bin/gfortran'
+  export SAGE_FORTRAN_LIB='/usr/lib/libgfortran.so'
+
+  # disable building with debugging support
+  export SAGE_DEBUG='no'
+
+  # enable fat binaries (disables processor specific optimizations)
+  # comment out if you're only building it for yourself
+  export SAGE_FAT_BINARY='yes'
+
+  # can't write to root in a clean chroot
+  export DOT_SAGE='/build/src/'
+
+  # only build sage, no documents
+  #make build
+  make
+}
+
+check() {
+  cd sage-${pkgver}
+
+  # uncomment if we want to run all the tests (warning: very long)
+  #make ptestlong
+}
+
+package() {
+  cd sage-${pkgver}
+
+  # cp because make install is experimental and will corrupt the install
+  install -d ${pkgdir}/opt/sage
+  cp -r * ${pkgdir}/opt/sage
+
+  # move SageTeX files to more appropriate directory
+  install -d ${pkgdir}/usr/share
+  mv ${pkgdir}/opt/sage/local/share/texmf \
+    ${pkgdir}/usr/share
+
+  desktop-file-install ${srcdir}/SAGE-notebook.desktop \
+    --dir ${pkgdir}/usr/share/applications 
+
+  # create link to main binary
+  install -d ${pkgdir}/usr/bin
+  ln -s /opt/sage/sage ${pkgdir}/usr/bin/sage
+
+  # remove build logs
+  rm -f ${pkgdir}/opt/sage/install.log
+  rm -rf ${pkgdir}/opt/sage/spkg/logs
+
+  # remove source packages, since they are rarely needed, they are 300mb in size (compressed)
+  # no need to package them together, put into sage-mathematics-spkgs
+  rm -f ${pkgdir}/opt/sage/spkg/base/*spkg
+  rm -f ${pkgdir}/opt/sage/spkg/standard/*spkg
+}
