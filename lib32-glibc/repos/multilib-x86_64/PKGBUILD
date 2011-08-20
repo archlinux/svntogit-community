@@ -9,14 +9,14 @@
 _pkgbasename=glibc
 pkgname=lib32-$_pkgbasename
 pkgver=2.14
-pkgrel=4
+pkgrel=5
 _glibcdate=20110617
 pkgdesc="GNU C Library for multilib"
 arch=('x86_64')
 url="http://www.gnu.org/software/libc"
 license=('GPL' 'LGPL')
 depends=("glibc>=$pkgver")
-makedepends=('gcc-multilib>=4.4')
+makedepends=('gcc-multilib>=4.6')
 options=('!strip' '!emptydirs')
 source=(http://mirrors.kernel.org/archlinux/other/glibc/${_pkgbasename}-${pkgver}_${_glibcdate}.tar.xz
         glibc-2.10-dont-build-timezone.patch
@@ -88,12 +88,16 @@ build() {
   mkdir glibc-build
   cd glibc-build
 
+  export CC="gcc -m32"
+
   # Hack to fix NPTL issues with Xen, only required on 32bit platforms
   export CFLAGS="${CFLAGS} -mno-tls-direct-seg-refs"
 
   echo "slibdir=/usr/lib32" >> configparms
 
-  export CC="gcc -m32"
+  # remove hardening options from CFLAGS for building libraries
+  CFLAGS=${CFLAGS/-fstack-protector/}
+  CFLAGS=${CFLAGS/-D_FORTIFY_SOURCE=2/}
 
   ${srcdir}/glibc/configure --prefix=/usr \
       --libdir=/usr/lib32 --libexecdir=/usr/lib32 \
@@ -104,8 +108,19 @@ build() {
       --enable-bind-now --without-gd \
       --without-cvs --disable-profile \
       --disable-multi-arch i686-unknown-linux-gnu
-        
+
+  # build libraries with hardening disabled
+  echo "build-programs=no" >> configparms
   make
+  
+  # re-enable hardening for programs
+  sed -i "s#=no#=yes#" configparms
+  echo "CC += -fstack-protector -D_FORTIFY_SOURCE=2" >> configparms
+  echo "CXX += -fstack-protector -D_FORTIFY_SOURCE=2" >> configparms
+  make
+
+  # remove harding in preparation to run test-suite
+  sed -i '2,4d' configparms
 }
 
 check() {
