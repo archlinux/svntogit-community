@@ -1,20 +1,18 @@
-# Maintainer: Florian Pritz <bluewind@xinu.at>
-# Contributor: Justin Davis <jrcd83@gmail.com>
-# Generator  : CPANPLUS::Dist::Arch 1.12
+# Maintainer : Justin "juster" Davis <jrcd83@gmail.com>
+# Generator  : pbjam 0.01
 
-pkgname='perl-cpanplus-dist-arch'
-pkgver=1.15
+pkgname=perl-cpanplus-dist-arch
+pkgver=1.18
 pkgrel=1
 pkgdesc="CPANPLUS backend for building Archlinux pacman packages"
-arch=('any')
-license=('PerlArtistic' 'GPL')
-options=('!emptydirs')
+arch=(any)
+license=(PerlArtistic GPL)
 depends=('perl')
-makedepends=()
-url='http://search.cpan.org/dist/CPANPLUS-Dist-Arch'
-source=("http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-$pkgver.tar.gz")
-md5sums=('49c500d5a0f3e5bb61fd01405ca4f927')
-_distdir="${srcdir}/CPANPLUS-Dist-Arch-$pkgver"
+url=http://search.cpan.org/dist/CPANPLUS-Dist-Arch
+source=(http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-1.18.tar.gz)
+md5sums=(0bb9183ea50c3e8d6f1903ba2016bc65)
+sha512sums=(77760064154561f568e4fd02585b66b2f634a597b8366eba1a12e75de7d6c6fada82321b638308ad5910b10557cd7c404037e09d35747576e923baa8c51125ad)
+_distdir="$srcdir/CPANPLUS-Dist-Arch-1.18"
 
 build() {
   ( export PERL_MM_USE_DEFAULT=1 PERL5LIB=""                 \
@@ -24,22 +22,22 @@ build() {
       MODULEBUILDRC=/dev/null
 
     cd "$_distdir"
-    /usr/bin/perl Makefile.PL
-    make
+    /usr/bin/perl Build.PL
+    ./Build
   )
 }
 
 check() {
-  cd "$_distdir"
   ( export PERL_MM_USE_DEFAULT=1 PERL5LIB=""
-    make test
+    cd "$_distdir"
+    ./Build test
   )
 }
 
 package() {
-  cd "$_distdir"
-  make install
-  find "$pkgdir" -name .packlist -o -name perllocal.pod -delete
+    cd "$_distdir"
+    ./Build install
+    find "$pkgdir" -name .packlist -o -name perllocal.pod -delete
 }
 
 # Local Variables:
