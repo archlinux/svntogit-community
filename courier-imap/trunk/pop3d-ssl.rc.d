@@ -9,7 +9,7 @@ case "$1" in
     [ -d /var/run/courier ] || mkdir -p /var/run/courier
 	chown courier:courier /var/run/courier
 
-    if [ ! -f /var/run/daemons/authdaemond ]; then
+    if ck_daemon authdaemond; then
       echo "ERROR: authdaemond is not running"
       stat_fail
       exit 1

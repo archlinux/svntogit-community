@@ -18,7 +18,7 @@ case "$1" in
       /etc/rc.d/authdaemond start
       sleep ${AUTO_AUTHDAEMON_LAG}
     fi
-    if [ ! -f /run/daemons/authdaemond ]; then
+    if ck_daemon authdaemond; then
       echo "ERROR: authdaemond is not running"
       stat_fail
       exit 1
