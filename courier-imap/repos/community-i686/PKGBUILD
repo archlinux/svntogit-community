@@ -1,0 +1,94 @@
+# $Id$
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: tobias <tobias@archlinux.org>
+# Committer: Manolis Tzanidakis <manolis@archlinux.org>
+
+pkgname=courier-imap
+pkgver=4.9.3
+pkgrel=4
+pkgdesc="IMAP(s)/POP3(s) Server"
+arch=('i686' 'x86_64')
+license=('GPL2')
+url="http://www.courier-mta.org/imap/"
+depends=('courier-maildrop>=2.5.0' 'gcc-libs' 'gamin' 'gdbm' 'openssl')
+backup=('etc/courier-imap/imapd.cnf' 'etc/courier-imap/pop3d.cnf' \
+        'etc/courier-imap/imapd' 'etc/courier-imap/imapd-ssl' \
+        'etc/courier-imap/pop3d' 'etc/courier-imap/pop3d-ssl'\
+        'etc/conf.d/courier-imap')
+conflicts=('courier-mta')
+provides=('imap-server' 'pop3-server')
+options=('!libtool')
+install=$pkgname.install
+source=(http://downloads.sourceforge.net/project/courier/imap/${pkgver}/${pkgname}-${pkgver}.tar.bz2
+        courier-imap.conf.d
+		courier-imap.rc.d
+        imapd.rc.d
+        imapd-ssl.rc.d
+        pop3d.rc.d
+        pop3d-ssl.rc.d)
+md5sums=('703ddbb090569436dbda61d0d62b1eb8'
+         '3e08f017f6c5a52dea28f6f0dbd50b86'
+         '500c37831974f4676b67e650c67a59f6'
+         '6574c8046e44698efa7452c4b445d88e'
+         '437167a58efddc523f25180df284da20'
+         '1be23fb224bde93b23da6e771bd1cf01'
+         'a326309b02fed3d7226d9aac88add7f2')
+
+# MIGRATION NOTE:
+# In 2012, support for courier-imap.conf.d and courier-imap.rc.d will be removed.
+# Remove those files and this note and also courier-imap.install
+
+build() {
+  cd ${srcdir}/${pkgname}-${pkgver}
+
+  # fix a tiny bug
+  sed -i -e \
+    's|--with-authchangepwdir=/var/tmp/dev/null|--with-authchangepwdir=$libexecdir/authlib|' \
+    configure && chmod 755 configure
+
+  ./configure --prefix=/usr \
+    --sysconfdir=/etc/courier-imap \
+    --libexecdir=/usr/lib/courier-imap \
+    --localstatedir=/var/spool/courier-imap \
+    --disable-root-check \
+    --enable-unicode \
+    --enable-workarounds-for-imap-client-bugs \
+    --with-piddir=/var/run/courier \
+    --with-trashquota \
+    --with-db=gdbm \
+    --with-trashquota \
+    --with-mailuser=courier --with-mailgroup=courier
+  make
+}
+
+package() {
+  cd ${srcdir}/${pkgname}-${pkgver}
+
+  make DESTDIR=${pkgdir} install
+
+  # cleanup - provided by courier-maildrop
+  rm ${pkgdir}/usr/bin/{deliverquota,maildirmake}
+  rm ${pkgdir}/usr/share/man/man1/maildirmake*
+  rm ${pkgdir}/usr/share/man/man8/deliverquota*
+  find ${pkgdir} -name '*\.a' -exec -rm -f {} \;
+  ###############################################################################
+  # this is what usually "make install-configure" does
+  # *.dist files get rid of "dist"
+  for distfile in ${pkgdir}/etc/courier-imap/*.dist; do
+    mv ${distfile} ${pkgdir}/etc/courier-imap/$(basename ${distfile} .dist)
+  done
+  sed -i 's|TLS_CERTFILE=/usr/share/|TLS_CERTFILE=/etc/courier-imap/|' \
+    ${pkgdir}/etc/courier-imap/*-ssl
+  for pamfile in imap/*.pam; do
+    sed -i "s|/lib/security/||;s|pam_pwdb|pam_unix|" ${pamfile}
+    install -Dm 644 ${pamfile} \
+      ${pkgdir}/etc/pam.d/$(basename ${pamfile} .pam | sed "s/d$//")
+  done
+  # install thingies
+  install -D -m 755 ${srcdir}/courier-imap.rc.d ${pkgdir}/etc/rc.d/courier-imap
+  install -D -m 755 ${srcdir}/imapd.rc.d ${pkgdir}/etc/rc.d/imapd
+  install -D -m 755 ${srcdir}/imapd-ssl.rc.d ${pkgdir}/etc/rc.d/imapd-ssl
+  install -D -m 755 ${srcdir}/pop3d.rc.d ${pkgdir}/etc/rc.d/pop3d
+  install -D -m 755 ${srcdir}/pop3d-ssl.rc.d ${pkgdir}/etc/rc.d/pop3d-ssl
+  install -D -m 644 ${srcdir}/courier-imap.conf.d ${pkgdir}/etc/conf.d/courier-imap
+}
