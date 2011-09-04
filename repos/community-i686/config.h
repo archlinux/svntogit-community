@@ -22,7 +22,7 @@
 #define NORMAL_FG       -1
 #define NORMAL_BG       -1
 /* status bar (command line option -s) position */
-#define BARPOS		BarTop /* BarBot, BarOff */
+#define BAR_POS		BAR_TOP /* BAR_BOTTOM, BAR_OFF */
 /* curses attributes for the status bar */
 #define BAR_ATTR        A_NORMAL
 #define BAR_FG          BLUE
@@ -36,9 +36,9 @@
  * the SEPARATOR, %d stands for the window number */
 #define TITLE "[%s%s#%d]"
 /* master width factor [0.1 .. 0.9] */
-#define MWFACT  0.5
+#define MFACT 0.5
 /* scroll back buffer size in lines */
-#define SCROLL_BUF_SIZE 500
+#define SCROLL_HISTORY 500
 
 #include "tile.c"
 #include "grid.c"
@@ -68,15 +68,11 @@ Key keys[] = {
 	{ MOD, 'b',       { setlayout,      { "TTT" }                   } },
 	{ MOD, 'm',       { setlayout,      { "[ ]" }                   } },
 	{ MOD, ' ',       { setlayout,      { NULL }                    } },
-	{ MOD, 'h',       { setmwfact,      { "-0.05" }                 } },
-	{ MOD, 'l',       { setmwfact,      { "+0.05" }                 } },
+	{ MOD, 'h',       { setmfact,       { "-0.05" }                 } },
+	{ MOD, 'l',       { setmfact,       { "+0.05" }                 } },
 	{ MOD, '.',       { toggleminimize, { NULL }                    } },
-#ifdef CONFIG_STATUSBAR
 	{ MOD, 's',       { togglebar,      { NULL }                    } },
-#endif
-#ifdef CONFIG_MOUSE
-	{ MOD, 'M',       { mouse_toggle,   { NULL }                    } },
-#endif
+	{ MOD, 'M',       { togglemouse,    { NULL }                    } },
 	{ MOD, '\n',      { zoom ,          { NULL }                    } },
 	{ MOD, '1',       { focusn,         { "1" }                     } },
 	{ MOD, '2',       { focusn,         { "2" }                     } },
@@ -96,6 +92,13 @@ Key keys[] = {
 	{ MOD, KEY_PPAGE, { scrollback,     { "-1" }                    } },
 	{ MOD, KEY_NPAGE, { scrollback,     { "1"  }                    } },
 	{ MOD, '?',       { create,         { "man dvtm", "dvtm help" } } },
+};
+
+static const ColorRule colorrules[] = {
+	/* title attrs     fgcolor      bgcolor */
+#if 0
+	{ "ssh", A_NORMAL, COLOR_BLACK, 224      },
+#endif
 };
 
 /* possible values for the mouse buttons are listed below:
@@ -127,6 +130,12 @@ Key keys[] = {
  * REPORT_MOUSE_POSITION    report mouse movement
  */
 
+#ifdef NCURSES_MOUSE_VERSION
+# define CONFIG_MOUSE /* compile in mouse support if we build against ncurses */
+#endif
+
+#define ENABLE_MOUSE true /* whether to enable mouse events by default */
+
 #ifdef CONFIG_MOUSE
 Button buttons[] = {
 	{ BUTTON1_CLICKED,        { mouse_focus,      { NULL  } } },
@@ -136,11 +145,9 @@ Button buttons[] = {
 };
 #endif /* CONFIG_MOUSE */
 
-#ifdef CONFIG_CMDFIFO
 Cmd commands[] = {
 	{ "create", { create,	{ NULL } } },
 };
-#endif /* CONFIG_CMDFIFO */
 
 /* gets executed when dvtm is started */
 Action actions[] = {
