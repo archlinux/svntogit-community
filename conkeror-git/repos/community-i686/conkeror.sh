@@ -1,4 +1,2 @@
 #!/bin/sh
-cd /usr/share/conkeror/
-xulrunner application.ini $1
-cd -
+exec xulrunner /usr/share/conkeror/application.ini "$@"
