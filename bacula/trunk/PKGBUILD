@@ -1,0 +1,68 @@
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Xavion <Xavion (dot) 0 (at) Gmail (dot) com>
+# Contributor: Calogero Lo Leggio <kalos@autistici.org>
+# Contributor: Matias Hernandez <msdark@archlinux.cl>
+
+pkgname=bacula
+pkgver=5.0.3
+pkgrel=4
+pkgdesc="An advanced backup tool with network and tape changer support (MySQL backend)"
+arch=("i686" "x86_64")
+url="http://www.${pkgname}.org"
+license=("GPL")
+depends=("libmysqlclient")
+makedepends=("qt" "wxgtk" "gtk2")
+optdepends=("qt: for bat"
+            "wxgtk: for bwx console"
+            "gtk2: for tray monitor")
+options=(!buildflags)
+conflicts=("${pkgname}-sqlite" "${pkgname}-postgresql" "${pkgname}-client")
+backup=("etc/${pkgname}/bconsole.conf"
+		"etc/${pkgname}/${pkgname}-dir.conf"
+		"etc/${pkgname}/${pkgname}-fd.conf"
+		"etc/${pkgname}/${pkgname}-sd.conf")
+install="${pkgname}.install"
+source=(http://downloads.sourceforge.net/project/bacula/bacula/${pkgver}/${pkgname}-${pkgver}.tar.gz
+        ${pkgname}-sd.rc.d
+        ${pkgname}-fd.rc.d
+        ${pkgname}-dir.rc.d)
+md5sums=('9de254ae39cab0587fdb2f5d8d90b03b'
+         'e7be4c9fb3c7ce334f9ee24d71652d3e'
+         'a9a070a862e9cf39ae4bc374409c721d'
+         '55619ae3094c698541a3bfedc87bdb48')
+
+build() {
+	cd ${srcdir}/${pkgname}-${pkgver}
+
+	# Build
+	./configure --prefix=/usr \
+		--enable-build-dird --enable-build-stored --enable-smartalloc \
+		--enable-bat --enable-tray-monitor --enable-bwx-console \
+		--with-mysql --without-openssl \
+		--with-dir-user=${pkgname} --with-dir-group=${pkgname} \
+		--with-sd-user=${pkgname} --with-sd-group=${pkgname} \
+		--sysconfdir=/etc/${pkgname} --with-scriptdir=/etc/${pkgname}/scripts \
+		--with-working-dir=/var/cache/${pkgname}/working \
+		--with-subsys-dir=/var/cache/${pkgname}/working \
+		--with-archivedir=/var/cache/${pkgname}/archive
+
+	make
+}
+
+package() {
+	cd ${srcdir}/${pkgname}-${pkgver}
+
+	make DESTDIR=${pkgdir} install
+
+	# Permissions
+	chmod a+x ${pkgdir}/etc/${pkgname}/scripts/{update_${pkgname}_tables,delete_catalog_backup,update_mysql_tables,make_catalog_backup,bconsole}
+
+	# Daemons
+	mkdir -p ${pkgdir}/etc/rc.d/
+    install -Dm755 ${srcdir}/*.rc.d ${pkgdir}/etc/rc.d/
+
+	# Logs
+	install -D -m644 ${srcdir}/${pkgname}-${pkgver}/scripts/logrotate ${pkgdir}/etc/logrotate.d/${pkgname}
+	sed -i "s|/var/cache/${pkgname}/working/log|/var/log/${pkgname}.log|g" ${pkgdir}/etc/{${pkgname}/${pkgname}-dir.conf,logrotate.d/${pkgname}}
+}
+
