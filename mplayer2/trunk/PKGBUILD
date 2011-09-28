@@ -4,7 +4,7 @@
 
 pkgname=mplayer2
 pkgver=2.0
-pkgrel=13
+pkgrel=14
 pkgdesc="A movie player"
 arch=('i686' 'x86_64')
 license=('GPL')
@@ -56,4 +56,7 @@ package() {
     install -Dm644 etc/{codecs.conf,input.conf,example.conf} "${pkgdir}"/etc/mplayer/
     install -dm755 "${pkgdir}"/usr/share/mplayer/
     ln -s /usr/share/fonts/TTF/DejaVuSans.ttf "${pkgdir}"/usr/share/mplayer/subfont.ttf
+
+    install -dm755 "${pkgdir}"/usr/share/applications/
+    install -m 644 etc/mplayer.desktop "${pkgdir}"/usr/share/applications/
 }
