@@ -3,7 +3,7 @@
 # Contributor: Massimiliano Torromeo <massimiliano DOT torromeo AT google mail service>
 
 pkgname=unbound
-pkgver=1.4.12
+pkgver=1.4.13
 pkgrel=1
 pkgdesc='Validating, recursive, and caching DNS resolver'
 arch=('i686' 'x86_64')
@@ -14,17 +14,17 @@ depends=('openssl' 'ldns')
 makedepends=('expat')
 optdepends=('expat: unbound-anchor')
 backup=('etc/unbound/unbound.conf')
-source=("http://unbound.net/downloads/$pkgname-$pkgver.tar.gz"
+source=("http://unbound.net/downloads/${pkgname}-${pkgver}.tar.gz"
         'unbound.conf'
         'rc.d')
-sha1sums=('c46c05d1fa2402a59c10f51864fd4c62d10a472f'
+sha1sums=('834ccfd1cb41a44f53b33f8338a8f9cc68febaf7'
           '5d473ec2943fd85367cdb653fcd58e186f07383f'
           'a0c8c496d71d43ed9e09b170d3df836dfb096480')
 
 install=install
 
 build() {
-	cd "$srcdir/$pkgname-$pkgver"
+	cd "${srcdir}/${pkgname}-${pkgver}"
 	./configure \
 		--prefix=/usr \
 		--sysconfdir=/etc \
@@ -37,10 +37,10 @@ build() {
 }
 
 package() {
-	cd "$srcdir/$pkgname-$pkgver"
-	make DESTDIR="$pkgdir" install
-	install -D -m644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-	install -D -m755 ../rc.d "$pkgdir/etc/rc.d/$pkgname"
-	install -D -m644 ../unbound.conf "$pkgdir/etc/unbound/unbound.conf"
-	install -D -m644 doc/example.conf.in "$pkgdir/etc/unbound/unbound.conf.example"
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	make DESTDIR="${pkgdir}" install
+	install -D -m644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+	install -D -m755 ../rc.d "${pkgdir}/etc/rc.d/${pkgname}"
+	install -D -m644 ../unbound.conf "${pkgdir}/etc/unbound/unbound.conf"
+	install -D -m644 doc/example.conf.in "${pkgdir}/etc/unbound/unbound.conf.example"
 }
