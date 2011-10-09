@@ -1,9 +1,9 @@
 # Maintainer: Aaron Schaefer <aaron@elasticdog.com>
 pkgname=python-pexpect
 pkgver=2.3
-pkgrel=4
+pkgrel=5
 pkgdesc='A pure Python Expect-like module'
-arch=('i686' 'x86_64')
+arch=('any')
 url='http://pexpect.sourceforge.net/'
 license=('MIT')
 depends=('python2')
