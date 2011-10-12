@@ -5,19 +5,19 @@
 
 pkgname=mysql-workbench
 epoch=1
-pkgver=5.2.34
-pkgrel=2
+pkgver=5.2.35
+pkgrel=1
 pkgdesc="A cross-platform, visual database design tool developed by MySQL"
 arch=('i686' 'x86_64')
 url="http://wb.mysql.com/"
 license=('GPL2')
 depends=('libzip' 'libmysqlclient' 'lua' 'gtkmm' 'libgl'
          'libsigc++' 'python-paramiko' 'python-pexpect' 'libgnome-keyring')
-makedepends=('boost' 'curl' 'mesa')
+makedepends=('boost' 'curl' 'mesa' 'python-sphinx')
 options=('!libtool')
 source=(ftp://ftp.gwdg.de/pub/misc/mysql/Downloads/MySQLGUITools/${pkgname}-gpl-${pkgver}-src.tar.gz
         ArchLinux.xml arch.patch python27.patch gcc46.patch)
-md5sums=('781a4e9f6b5573b06a838d53ddb9136d'
+md5sums=('e8b158d2ba0413f5659cda7da9cec63e'
          'c2f986cd5737413d020c55db32713c48'
          '23430d24400fd65c9fd872bd8e2411e5'
          '47bc4cdfaa035a0132392e94c462ebf7'
@@ -38,17 +38,32 @@ build() {
   rm -rf ext/boost
   rm -rf ext/libsigc++
 
-  export CPPFLAGS=$(pkg-config --cflags sigc++-2.0)
-  export CXXFLAGS="$CXXFLAGS -fpermissive"
-
   ./autogen.sh --prefix=/usr --disable-debug --disable-static
   make
+
+  pushd ext/mysql-utilities
+  python2 setup.py build
+  popd
+
+  pushd ext/connector-python
+  python2 setup.py build
+  popd
 }
 
 package() {
   cd "${srcdir}/${pkgname}-gpl-${pkgver}-src"
 
   make DESTDIR="${pkgdir}" install
-  sed -i -e "s|#![ ]*/usr/bin/python$|#!/usr/bin/python2|" $pkgdir/usr/share/mysql-workbench/sshtunnel.py
-  sed -i -e "s|python|python2|" $pkgdir/usr/lib/mysql-workbench/modules/wb_utils_grt.py
+
+  pushd ext/mysql-utilities
+  python2 setup.py install --skip-profile --root $pkgdir --prefix=/usr --optimize=1
+  popd
+
+  pushd ext/connector-python
+  python2 setup.py install --root $pkgdir --prefix=/usr --optimize=1
+
+  sed -i -e "s|#![ ]*/usr/bin/python$|#!/usr/bin/python2|" \
+      -e "s|#![ ]*/usr/bin/env python$|#!/usr/bin/env python2|" \
+      -e "s|#![ ]*/bin/env python$|#!/usr/bin/env python2|" \
+      $(find ${pkgdir} -name '*.py')
 }
