@@ -4,19 +4,45 @@
 
 pkgname=drupal
 pkgver=7.8
-pkgrel=1
+pkgrel=2
 pkgdesc="A PHP-based content management platform"
 arch=('any')
 url="http://www.drupal.org/"
 license=('GPL')
 depends=('php')
 install=('drupal.install')
-backup=(srv/http/drupal/.htaccess)
+options=(!strip)
+backup=(etc/webapps/drupal/.htaccess
+	var/lib/drupal/sites/default/default.settings.php)
 source=(http://www.drupal.org/files/projects/$pkgname-$pkgver.tar.gz)
 md5sums=('e0226b56e8d5c57c6b126e8ed5866b1f')
 
 build() {
-  mkdir -p $pkgdir/srv/http/drupal
-  cp -r $srcdir/$pkgname-$pkgver/{*,.htaccess} $pkgdir/srv/http/drupal
-  sed -i '1,1ideny from all' $pkgdir/srv/http/drupal/.htaccess
+  _instdir=$pkgdir/usr/share/webapps/drupal
+  mkdir -p ${_instdir}
+  cd ${_instdir}
+  cp -r $srcdir/$pkgname-$pkgver/{*,.htaccess} ${_instdir}
+
+  # move .htaccess
+  mkdir -p $pkgdir/etc/webapps/drupal
+  sed -i '1,1ideny from all' ${_instdir}/.htaccess
+  mv ${_instdir}/.htaccess $pkgdir/etc/webapps/drupal/.htaccess
+  ln -s /etc/webapps/drupal/.htaccess ${_instdir}/.htaccess
+
+  # move sites/
+  mkdir -p $pkgdir/var/lib/drupal/
+  mv ${_instdir}/sites $pkgdir/var/lib/drupal/sites
+  ln -s /var/lib/drupal/sites ${_instdir}/sites
+
+  # apache config example
+  cat >$pkgdir/etc/webapps/drupal/apache.example.conf <<EOF
+	Alias /drupal "/usr/share/webapps/drupal"
+	<Directory "/usr/share/webapps/drupal">
+		AllowOverride All
+		Options FollowSymlinks
+		Order allow,deny
+		Allow from all
+		php_admin_value open_basedir "/srv/:/tmp/:/usr/share/webapps/:/etc/webapps:/usr/share/pear/:/var/lib/drupal"
+	</Directory>
+EOF
 }
