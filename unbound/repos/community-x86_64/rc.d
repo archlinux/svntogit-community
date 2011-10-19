@@ -21,6 +21,12 @@ stop)
 	&& { rm_daemon $name; stat_done; } \
 	|| { stat_fail; exit 1; }
 	;;
+reload)
+	stat_busy "Reloading $name daemon"
+	[[ -n "$PID" ]] && kill -SIGHUP $PID &>/dev/null \
+	&& { stat_done; } \
+	|| { stat_fail; exit 1; }
+	;;
 restart)
 	$0 stop
 	sleep 2
