@@ -2,17 +2,17 @@
 # Generator  : pbjam 0.01
 
 pkgname=perl-cpanplus-dist-arch
-pkgver=1.18
+pkgver=1.19
 pkgrel=1
 pkgdesc="CPANPLUS backend for building Archlinux pacman packages"
 arch=(any)
 license=(PerlArtistic GPL)
 depends=('perl')
 url=http://search.cpan.org/dist/CPANPLUS-Dist-Arch
-source=(http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-1.18.tar.gz)
-md5sums=(0bb9183ea50c3e8d6f1903ba2016bc65)
-sha512sums=(77760064154561f568e4fd02585b66b2f634a597b8366eba1a12e75de7d6c6fada82321b638308ad5910b10557cd7c404037e09d35747576e923baa8c51125ad)
-_distdir="$srcdir/CPANPLUS-Dist-Arch-1.18"
+source=(http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-${pkgver}.tar.gz)
+md5sums=('6bb154b435128f37c35b6980e6858189')
+sha512sums=('63b9ac5342bd7f74c9c80e9eaa60749a8540472691a8ead1941160a7387761b5e79340ef40dd23dcda4b2e142b97e582a2f8362b0fab05f759a5109b3d7db379')
+_distdir="$srcdir/CPANPLUS-Dist-Arch-${pkgver}"
 
 build() {
   ( export PERL_MM_USE_DEFAULT=1 PERL5LIB=""                 \
