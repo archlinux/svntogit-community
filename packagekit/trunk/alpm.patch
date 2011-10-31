@@ -1,253 +1,2991 @@
+diff --git a/backends/alpm/Makefile.am b/backends/alpm/Makefile.am
+index 5a5468a..d8c3dfc 100644
+--- a/backends/alpm/Makefile.am
++++ b/backends/alpm/Makefile.am
+@@ -5,6 +5,7 @@ PK_BACKEND_REPO_FILE = $(confdir)/repos.list
+ PK_BACKEND_DEFAULT_PATH = "/bin:/usr/bin:/sbin:/usr/sbin"
+ PK_BACKEND_DEFAULT_ROOT = "/"
+ PK_BACKEND_DEFAULT_DBPATH = $(localstatedir)/lib/pacman/
++PK_BACKEND_DEFAULT_GPGDIR = $(sysconfdir)/pacman.d/gnupg/
+ PK_BACKEND_DEFAULT_CACHEDIR = $(localstatedir)/cache/pacman/pkg/
+ PK_BACKEND_DEFAULT_LOGFILE = $(localstatedir)/log/pacman.log
+ 
+@@ -17,6 +18,7 @@ DEFS = -DPK_BACKEND_CONFIG_FILE=\"$(PK_BACKEND_CONFIG_FILE)\" \
+        -DPK_BACKEND_DEFAULT_PATH=\"$(PK_BACKEND_DEFAULT_PATH)\" \
+        -DPK_BACKEND_DEFAULT_ROOT=\"$(PK_BACKEND_DEFAULT_ROOT)\" \
+        -DPK_BACKEND_DEFAULT_DBPATH=\"$(PK_BACKEND_DEFAULT_DBPATH)\" \
++       -DPK_BACKEND_DEFAULT_GPGDIR=\"$(PK_BACKEND_DEFAULT_GPGDIR)\" \
+        -DPK_BACKEND_DEFAULT_CACHEDIR=\"$(PK_BACKEND_DEFAULT_CACHEDIR)\" \
+        -DPK_BACKEND_DEFAULT_LOGFILE=\"$(PK_BACKEND_DEFAULT_LOGFILE)\" \
+        -DALPM_CACHE_PATH=\"$(ALPM_CACHE_PATH)\" \
 diff --git a/backends/alpm/pk-backend-alpm.c b/backends/alpm/pk-backend-alpm.c
-index 0077329..ba993f0 100644
+index ba993f0..417714c 100644
 --- a/backends/alpm/pk-backend-alpm.c
 +++ b/backends/alpm/pk-backend-alpm.c
-@@ -29,6 +29,7 @@
+@@ -26,6 +26,7 @@
+ #include <sys/utsname.h>
+ 
+ #include "pk-backend-alpm.h"
++#include "pk-backend-config.h"
  #include "pk-backend-databases.h"
  #include "pk-backend-error.h"
  #include "pk-backend-groups.h"
-+#include "pk-backend-transaction.h"
- 
- PkBackend *backend = NULL;
+@@ -35,7 +36,8 @@ PkBackend *backend = NULL;
  GCancellable *cancellable = NULL;
-diff --git a/backends/alpm/pk-backend-error.c b/backends/alpm/pk-backend-error.c
-index 6383175..255f1fb 100644
---- a/backends/alpm/pk-backend-error.c
-+++ b/backends/alpm/pk-backend-error.c
-@@ -25,20 +25,6 @@
+ static GStaticMutex mutex = G_STATIC_MUTEX_INIT;
  
- #include "pk-backend-error.h"
+-pmdb_t *localdb = NULL;
++alpm_handle_t *alpm = NULL;
++alpm_db_t *localdb = NULL;
  
--static void
--pk_backend_output_locked (PkBackend *self)
--{
--	gchar *output;
--
--	g_return_if_fail (self != NULL);
--
--	output = g_strdup_printf ("If you are certain no other package manager "
--				  "is running, you can remove %s\n",
--				  alpm_option_get_lockfile ());
--	pk_backend_output (self, output);
--	g_free (output);
--}
--
- void
- pk_backend_error (PkBackend *self, GError *error)
- {
-@@ -86,7 +72,6 @@ pk_backend_error (PkBackend *self, GError *error)
- 
- 			case PM_ERR_HANDLE_LOCK:
- 				code = PK_ERROR_ENUM_CANNOT_GET_LOCK;
--				pk_backend_output_locked (self);
- 				break;
- 
- 			case PM_ERR_DB_OPEN:
-@@ -187,15 +172,6 @@ pk_backend_error (PkBackend *self, GError *error)
- 	pk_backend_error_code (self, code, "%s", error->message);
- }
- 
--void
--pk_backend_output (PkBackend *self, const gchar *output)
--{
--	g_return_if_fail (self != NULL);
--	g_return_if_fail (output != NULL);
--
--	pk_backend_message (self, PK_MESSAGE_ENUM_UNKNOWN, "%s", output);
--}
--
- GQuark
- alpm_error_quark (void)
- {
-diff --git a/backends/alpm/pk-backend-error.h b/backends/alpm/pk-backend-error.h
-index b01b06d..83fe4a5 100644
---- a/backends/alpm/pk-backend-error.h
-+++ b/backends/alpm/pk-backend-error.h
-@@ -32,6 +32,4 @@ enum {
- 
- void	 pk_backend_error	(PkBackend *self, GError *error);
- 
--void	 pk_backend_output	(PkBackend *self, const gchar *output);
--
- GQuark	 alpm_error_quark	(void);
-diff --git a/backends/alpm/pk-backend-transaction.c b/backends/alpm/pk-backend-transaction.c
-index f919309..fdb840e 100644
---- a/backends/alpm/pk-backend-transaction.c
-+++ b/backends/alpm/pk-backend-transaction.c
-@@ -32,6 +32,9 @@ static off_t dtotal = 0;
- static pmpkg_t *dpkg = NULL;
- static GString *dfiles = NULL;
- 
-+static pmpkg_t *tpkg = NULL;
-+static GString *toutput = NULL;
-+
- static gchar *
- pk_backend_resolve_path (PkBackend *self, const gchar *basename)
- {
-@@ -332,6 +335,53 @@ pk_backend_transaction_conv_cb (pmtransconv_t question, gpointer data1,
+ gchar *xfercmd = NULL;
+ alpm_list_t *holdpkgs = NULL;
+@@ -162,7 +164,7 @@ out:
  }
  
  static void
-+pk_backend_output_end (PkBackend *self)
-+{
-+	g_return_if_fail (self != NULL);
+-pk_backend_logcb (pmloglevel_t level, const gchar *format, va_list args)
++pk_backend_logcb (alpm_loglevel_t level, const gchar *format, va_list args)
+ {
+ 	gchar *output;
+ 
+@@ -176,12 +178,12 @@ pk_backend_logcb (pmloglevel_t level, const gchar *format, va_list args)
+ 
+ 	/* report important output to PackageKit */
+ 	switch (level) {
+-		case PM_LOG_DEBUG:
+-		case PM_LOG_FUNCTION:
++		case ALPM_LOG_DEBUG:
++		case ALPM_LOG_FUNCTION:
+ 			g_debug ("%s", output);
+ 			break;
+ 
+-		case PM_LOG_WARNING:
++		case ALPM_LOG_WARNING:
+ 			g_warning ("%s", output);
+ 			pk_backend_output (backend, output);
+ 			break;
+@@ -212,26 +214,21 @@ pk_backend_initialize_alpm (PkBackend *self, GError **error)
+ 	g_setenv ("HTTP_USER_AGENT", user_agent, FALSE);
+ 	g_free (user_agent);
+ 
+-	g_debug ("initializing");
+-	if (alpm_initialize () < 0) {
+-		g_set_error_literal (error, ALPM_ERROR, pm_errno,
+-				     alpm_strerrorlast ());
++	alpm = pk_backend_configure (PK_BACKEND_CONFIG_FILE, error);
++	if (alpm == NULL) {
+ 		return FALSE;
+ 	}
+ 
+ 	backend = self;
+-	localdb = alpm_option_get_localdb ();
++	alpm_option_set_logcb (alpm, pk_backend_logcb);
 +
-+	tpkg = NULL;
-+
-+	if (toutput != NULL) {
-+		pk_backend_output (self, toutput->str);
-+		g_string_free (toutput, TRUE);
-+		toutput = NULL;
-+	}
-+}
-+
-+static void
-+pk_backend_output_start (PkBackend *self, pmpkg_t *pkg)
-+{
-+	g_return_if_fail (self != NULL);
-+	g_return_if_fail (pkg != NULL);
-+
-+	if (tpkg != NULL) {
-+		pk_backend_output_end (self);
-+	}
-+
-+	tpkg = pkg;
-+}
-+
-+void
-+pk_backend_output (PkBackend *self, const gchar *output)
-+{
-+	g_return_if_fail (self != NULL);
-+	g_return_if_fail (output != NULL);
-+
-+	if (tpkg != NULL) {
-+		if (toutput == NULL) {
-+			toutput = g_string_new ("<b>");
-+			g_string_append (toutput, alpm_pkg_get_name (tpkg));
-+			g_string_append (toutput, "</b>\n");
-+		}
-+
-+		g_string_append (toutput, output);
-+	} else {
-+		PkMessageEnum type = PK_MESSAGE_ENUM_UNKNOWN;
-+		pk_backend_message (self, type, "%s", output);
-+	}
-+}
-+
-+static void
- pk_backend_transaction_dep_resolve (PkBackend *self)
++	localdb = alpm_option_get_localdb (alpm);
+ 	if (localdb == NULL) {
+-		g_set_error (error, ALPM_ERROR, pm_errno, "[%s]: %s", "local",
+-			     alpm_strerrorlast ());
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error (error, ALPM_ERROR, errno, "[%s]: %s", "local",
++			     alpm_strerror (errno));
+ 	}
+ 
+-	/* set some sane defaults */
+-	alpm_option_set_logcb (pk_backend_logcb);
+-	alpm_option_set_root (PK_BACKEND_DEFAULT_ROOT);
+-	alpm_option_set_dbpath (PK_BACKEND_DEFAULT_DBPATH);
+-	alpm_option_set_logfile (PK_BACKEND_DEFAULT_LOGFILE);
+-
+ 	return TRUE;
+ }
+ 
+@@ -240,17 +237,20 @@ pk_backend_destroy_alpm (PkBackend *self)
  {
  	g_return_if_fail (self != NULL);
-@@ -355,6 +405,7 @@ pk_backend_transaction_add_start (PkBackend *self, pmpkg_t *pkg)
  
- 	pk_backend_set_status (self, PK_STATUS_ENUM_INSTALL);
- 	pk_backend_pkg (self, pkg, PK_INFO_ENUM_INSTALLING);
-+	pk_backend_output_start (self, pkg);
+-	if (backend != NULL) {
+-		if (alpm_trans_get_flags () != -1) {
+-			alpm_trans_release ();
++	if (alpm != NULL) {
++		if (alpm_trans_get_flags (alpm) < 0) {
++			alpm_trans_release (alpm);
+ 		}
+-		alpm_release ();
++		alpm_release (alpm);
++
++		alpm = NULL;
+ 		backend = NULL;
+ 	}
+ 
+ 	FREELIST (syncfirsts);
+ 	FREELIST (holdpkgs);
+ 	g_free (xfercmd);
++	xfercmd = NULL;
+ }
+ 
+ void
+diff --git a/backends/alpm/pk-backend-alpm.h b/backends/alpm/pk-backend-alpm.h
+index 23a2724..ecd6d0f 100644
+--- a/backends/alpm/pk-backend-alpm.h
++++ b/backends/alpm/pk-backend-alpm.h
+@@ -28,7 +28,8 @@
+ extern PkBackend *backend;
+ extern GCancellable *cancellable;
+ 
+-extern pmdb_t *localdb;
++extern alpm_handle_t *alpm;
++extern alpm_db_t *localdb;
+ 
+ extern gchar *xfercmd;
+ extern alpm_list_t *holdpkgs;
+diff --git a/backends/alpm/pk-backend-config.c b/backends/alpm/pk-backend-config.c
+index 21a4c54..a51a984 100644
+--- a/backends/alpm/pk-backend-config.c
++++ b/backends/alpm/pk-backend-config.c
+@@ -28,29 +28,44 @@
+ 
+ #include "pk-backend-alpm.h"
+ #include "pk-backend-config.h"
++#include "pk-backend-databases.h"
+ #include "pk-backend-error.h"
+ 
+-typedef struct {
+-	gboolean checkspace, ilovecandy, showsize, totaldl, usedelta, usesyslog;
++typedef struct
++{
++	 gboolean	 checkspace, ilovecandy, totaldl, usedelta, usesyslog,
++			 verbosepkglists;
+ 
+-	gchar *arch, *cleanmethod, *dbpath, *logfile, *root, *xfercmd;
++	 gchar		*arch, *cleanmethod, *dbpath, *gpgdir, *logfile, *root,
++			*xfercmd;
+ 
+-	alpm_list_t *cachedirs, *holdpkgs, *ignoregrps, *ignorepkgs,
+-		    *noextracts, *noupgrades, *syncfirsts;
++	 alpm_list_t	*cachedirs, *holdpkgs, *ignoregroups, *ignorepkgs,
++			*noextracts, *noupgrades, *syncfirsts;
+ 
+-	alpm_list_t *repos;
+-	GHashTable *servers;
+-	GRegex *xrepo, *xarch;
++	 alpm_list_t	*repos;
++	 GHashTable	*servers;
++	 GHashTable	*levels;
++	 GRegex		*xrepo, *xarch;
+ } PkBackendConfig;
+ 
+ static PkBackendConfig *
+ pk_backend_config_new (void)
+ {
+ 	PkBackendConfig *config = g_new0 (PkBackendConfig, 1);
++	alpm_siglevel_t *level = g_new0 (alpm_siglevel_t, 1);
++
+ 	config->servers = g_hash_table_new_full (g_str_hash, g_str_equal,
+ 						 g_free, NULL);
++	config->levels = g_hash_table_new_full (g_str_hash, g_str_equal, g_free,
++						g_free);
++
++	*level |= ALPM_SIG_PACKAGE | ALPM_SIG_PACKAGE_OPTIONAL;
++	*level |= ALPM_SIG_DATABASE | ALPM_SIG_DATABASE_OPTIONAL;
++	g_hash_table_insert (config->levels, g_strdup ("options"), level);
++
+ 	config->xrepo = g_regex_new ("\\$repo", 0, 0, NULL);
+ 	config->xarch = g_regex_new ("\\$arch", 0, 0, NULL);
++
+ 	return config;
+ }
+ 
+@@ -76,13 +91,14 @@ pk_backend_config_free (PkBackendConfig *config)
+ 	g_free (config->arch);
+ 	g_free (config->cleanmethod);
+ 	g_free (config->dbpath);
++	g_free (config->gpgdir);
+ 	g_free (config->logfile);
+ 	g_free (config->root);
+ 	g_free (config->xfercmd);
+ 
+ 	FREELIST (config->cachedirs);
+ 	FREELIST (config->holdpkgs);
+-	FREELIST (config->ignoregrps);
++	FREELIST (config->ignoregroups);
+ 	FREELIST (config->ignorepkgs);
+ 	FREELIST (config->noextracts);
+ 	FREELIST (config->noupgrades);
+@@ -92,6 +108,8 @@ pk_backend_config_free (PkBackendConfig *config)
+ 	g_hash_table_foreach_remove (config->servers,
+ 				     pk_backend_config_servers_free, NULL);
+ 	g_hash_table_unref (config->servers);
++	g_hash_table_unref (config->levels);
++
+ 	g_regex_unref (config->xrepo);
+ 	g_regex_unref (config->xarch);
+ }
+@@ -113,14 +131,6 @@ pk_backend_config_set_ilovecandy (PkBackendConfig *config)
  }
  
  static void
-@@ -374,20 +425,16 @@ pk_backend_transaction_add_done (PkBackend *self, pmpkg_t *pkg)
+-pk_backend_config_set_showsize (PkBackendConfig *config)
+-{
+-	g_return_if_fail (config != NULL);
+-
+-	config->showsize = TRUE;
+-}
+-
+-static void
+ pk_backend_config_set_totaldl (PkBackendConfig *config)
+ {
+ 	g_return_if_fail (config != NULL);
+@@ -144,19 +154,28 @@ pk_backend_config_set_usesyslog (PkBackendConfig *config)
+ 	config->usesyslog = TRUE;
+ }
+ 
+-typedef struct {
+-	const gchar *name;
+-	void (*func) (PkBackendConfig *config);
++static void
++pk_backend_config_set_verbosepkglists (PkBackendConfig *config)
++{
++	g_return_if_fail (config != NULL);
++
++	config->verbosepkglists = TRUE;
++}
++
++typedef struct
++{
++	 const gchar	*name;
++	 void		(*func) (PkBackendConfig *config);
+ } PkBackendConfigBoolean;
+ 
+ /* keep this in alphabetical order */
+ static const PkBackendConfigBoolean pk_backend_config_boolean_options[] = {
+ 	{ "CheckSpace", pk_backend_config_set_checkspace },
+ 	{ "ILoveCandy", pk_backend_config_set_ilovecandy },
+-	{ "ShowSize", pk_backend_config_set_showsize },
+ 	{ "TotalDownload", pk_backend_config_set_totaldl },
+ 	{ "UseDelta", pk_backend_config_set_usedelta },
+ 	{ "UseSyslog", pk_backend_config_set_usesyslog },
++	{ "VerbosePkgLists", pk_backend_config_set_verbosepkglists },
+ 	{ NULL, NULL }
+ };
+ 
+@@ -234,6 +253,17 @@ pk_backend_config_set_dbpath (PkBackendConfig *config, const gchar *path)
+ }
+ 
+ static void
++pk_backend_config_set_gpgdir (PkBackendConfig *config, const gchar *path)
++{
++	g_return_if_fail (config != NULL);
++	g_return_if_fail (path != NULL);
++
++	g_free (config->gpgdir);
++	config->gpgdir = g_strdup (path);
++}
++
++
++static void
+ pk_backend_config_set_logfile (PkBackendConfig *config, const gchar *filename)
+ {
+ 	g_return_if_fail (config != NULL);
+@@ -263,9 +293,10 @@ pk_backend_config_set_xfercmd (PkBackendConfig *config, const gchar *command)
+ 	config->xfercmd = g_strdup (command);
+ }
+ 
+-typedef struct {
+-	const gchar *name;
+-	void (*func) (PkBackendConfig *config, const gchar *s);
++typedef struct
++{
++	 const gchar	*name;
++	 void		(*func) (PkBackendConfig *config, const gchar *s);
+ } PkBackendConfigString;
+ 
+ /* keep this in alphabetical order */
+@@ -274,6 +305,7 @@ static const PkBackendConfigString pk_backend_config_string_options[] = {
+ 	{ "CacheDir", pk_backend_config_add_cachedir },
+ 	{ "CleanMethod", pk_backend_config_set_cleanmethod },
+ 	{ "DBPath", pk_backend_config_set_dbpath },
++	{ "GPGDir", pk_backend_config_set_gpgdir },
+ 	{ "LogFile", pk_backend_config_set_logfile },
+ 	{ "RootDir", pk_backend_config_set_root },
+ 	{ "XferCommand", pk_backend_config_set_xfercmd },
+@@ -313,12 +345,12 @@ pk_backend_config_add_holdpkg (PkBackendConfig *config, gchar *package)
+ }
+ 
+ static void
+-pk_backend_config_add_ignoregrp (PkBackendConfig *config, gchar *group)
++pk_backend_config_add_ignoregroup (PkBackendConfig *config, gchar *group)
+ {
+ 	g_return_if_fail (config != NULL);
+ 	g_return_if_fail (group != NULL);
+ 
+-	config->ignoregrps = alpm_list_add (config->ignoregrps, group);
++	config->ignoregroups = alpm_list_add (config->ignoregroups, group);
+ }
+ 
+ static void
+@@ -357,15 +389,16 @@ pk_backend_config_add_syncfirst (PkBackendConfig *config, gchar *package)
+ 	config->syncfirsts = alpm_list_add (config->syncfirsts, package);
+ }
+ 
+-typedef struct {
+-	const gchar *name;
+-	void (*func) (PkBackendConfig *config, gchar *value);
++typedef struct
++{
++	const gchar	*name;
++	void		(*func) (PkBackendConfig *config, gchar *value);
+ } PkBackendConfigList;
+ 
+ /* keep this in alphabetical order */
+ static const PkBackendConfigList pk_backend_config_list_options[] = {
+ 	{ "HoldPkg", pk_backend_config_add_holdpkg },
+-	{ "IgnoreGroup", pk_backend_config_add_ignoregrp },
++	{ "IgnoreGroup", pk_backend_config_add_ignoregroup },
+ 	{ "IgnorePkg", pk_backend_config_add_ignorepkg },
+ 	{ "NoExtract", pk_backend_config_add_noextract },
+ 	{ "NoUpgrade", pk_backend_config_add_noupgrade },
+@@ -451,7 +484,7 @@ pk_backend_config_repo_add_server (PkBackendConfig *config, const gchar *repo,
+ 			return FALSE;
+ 		}
+ 	} else if (strstr (url, "$arch") != NULL) {
+-		g_set_error (e, ALPM_ERROR, PM_ERR_CONFIG_INVALID,
++		g_set_error (e, ALPM_ERROR, ALPM_ERR_CONFIG_INVALID,
+ 			     "url contained $arch, which is not set");
+ 	}
+ 
+@@ -463,6 +496,95 @@ pk_backend_config_repo_add_server (PkBackendConfig *config, const gchar *repo,
+ }
+ 
+ static gboolean
++pk_backend_config_set_siglevel (PkBackendConfig *config, const gchar *section,
++				const gchar *list, GError **error)
++{
++	alpm_siglevel_t *level;
++
++	g_return_val_if_fail (config != NULL, FALSE);
++	g_return_val_if_fail (section != NULL, FALSE);
++	g_return_val_if_fail (list != NULL, FALSE);
++
++	level = g_hash_table_lookup (config->levels, section);
++	if (level == NULL) {
++		level = g_hash_table_lookup (config->levels, "options");
++		level = g_memdup (level, sizeof (alpm_siglevel_t));
++		g_hash_table_insert (config->levels, g_strdup (section), level);
++	}
++
++	while (TRUE) {
++		gboolean package = TRUE, database = TRUE;
++
++		if (g_str_has_prefix (list, "Package")) {
++			database = FALSE;
++			list += 7;
++		} else if (g_str_has_prefix (list, "Database")) {
++			package = FALSE;
++			list += 8;
++		}
++
++		/* this also allows e.g. NeverEver, so put prefixes last */
++		if (g_str_has_prefix (list, "Never") == 0) {
++			if (package) {
++				*level &= ~ALPM_SIG_PACKAGE;
++			}
++			if (database) {
++				*level &= ~ALPM_SIG_DATABASE;
++			}
++		} else if (g_str_has_prefix (list, "Optional") == 0) {
++			if (package) {
++				*level |= ALPM_SIG_PACKAGE;
++				*level |= ALPM_SIG_PACKAGE_OPTIONAL;
++			}
++			if (database) {
++				*level |= ALPM_SIG_DATABASE;
++				*level |= ALPM_SIG_DATABASE_OPTIONAL;
++			}
++		} else if (g_str_has_prefix (list, "Required") == 0) {
++			if (package) {
++				*level |= ALPM_SIG_PACKAGE;
++				*level &= ~ALPM_SIG_PACKAGE_OPTIONAL;
++			}
++			if (database) {
++				*level |= ALPM_SIG_DATABASE;
++				*level &= ~ALPM_SIG_DATABASE_OPTIONAL;
++			}
++		} else if (g_str_has_prefix (list, "TrustedOnly") == 0) {
++			if (package) {
++				*level &= ~ALPM_SIG_PACKAGE_MARGINAL_OK;
++				*level &= ~ALPM_SIG_PACKAGE_UNKNOWN_OK;
++			}
++			if (database) {
++				*level &= ~ALPM_SIG_DATABASE_MARGINAL_OK;
++				*level &= ~ALPM_SIG_DATABASE_UNKNOWN_OK;
++			}
++		} else if (g_str_has_prefix (list, "TrustAll") == 0) {
++			if (package) {
++				*level |= ALPM_SIG_PACKAGE_MARGINAL_OK;
++				*level |= ALPM_SIG_PACKAGE_UNKNOWN_OK;
++			}
++			if (database) {
++				*level |= ALPM_SIG_DATABASE_MARGINAL_OK;
++				*level |= ALPM_SIG_DATABASE_UNKNOWN_OK;
++			}
++		} else {
++			g_set_error (error, ALPM_ERROR, ALPM_ERR_CONFIG_INVALID,
++				     "invalid SigLevel value: %s", list);
++			return FALSE;
++		}
++
++		list = strchr (list, ' ');
++		if (list == NULL) {
++			break;
++		} else {
++			++list;
++		}
++	}
++
++	return TRUE;
++}
++
++static gboolean
+ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
+ 			 gchar *section, GError **error)
+ {
+@@ -515,7 +637,7 @@ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
+ 
+ 			if (*str == '\0') {
+ 				g_set_error (&e, ALPM_ERROR,
+-					     PM_ERR_CONFIG_INVALID,
++					     ALPM_ERR_CONFIG_INVALID,
+ 					     "empty section name");
+ 				break;
+ 			}
+@@ -532,7 +654,7 @@ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
+ 
+ 		/* parse a directive */
+ 		if (section == NULL) {
+-			g_set_error (&e, ALPM_ERROR, PM_ERR_CONFIG_INVALID,
++			g_set_error (&e, ALPM_ERROR, ALPM_ERR_CONFIG_INVALID,
+ 				     "directive must belong to a section");
+ 			break;
+ 		}
+@@ -590,9 +712,18 @@ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
+ 				continue;
+ 			}
+ 		}
++	
++		if (g_strcmp0 (key, "SigLevel") == 0 && str != NULL) {
++			if (!pk_backend_config_set_siglevel (config, section,
++							     str, &e)) {
++				break;
++			} else {
++				continue;
++			}
++		}
+ 
+ 		/* report errors from above */
+-		g_set_error (&e, ALPM_ERROR, PM_ERR_CONFIG_INVALID,
++		g_set_error (&e, ALPM_ERROR, ALPM_ERR_CONFIG_INVALID,
+ 			     "unrecognised directive '%s'", key);
+ 		break;
+ 	}
+@@ -611,107 +742,100 @@ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
+ 	}
+ }
+ 
+-static gboolean
+-pk_backend_config_configure_paths (PkBackendConfig *config, GError **error)
++static alpm_handle_t *
++pk_backend_config_initialize_alpm (PkBackendConfig *config, GError **error)
+ {
++	alpm_handle_t *handle;
++	enum _alpm_errno_t errno;
++	gsize dir = 1;
++
+ 	g_return_val_if_fail (config != NULL, FALSE);
+ 
+-	if (config->root == NULL) {
++	if (config->root == NULL || *config->root == '\0') {
+ 		config->root = g_strdup (PK_BACKEND_DEFAULT_ROOT);
++	} else if (!g_str_has_suffix (config->root, G_DIR_SEPARATOR_S)) {
++		dir = 0;
+ 	}
+ 
+-	if (alpm_option_set_root (config->root) < 0) {
+-		g_set_error (error, ALPM_ERROR, pm_errno, "RootDir: %s",
+-			     alpm_strerrorlast ());
+-		return FALSE;
++	if (config->dbpath == NULL) {
++		config->dbpath = g_strconcat (config->root,
++					      PK_BACKEND_DEFAULT_DBPATH + dir,
++					      NULL);
+ 	}
+ 
+-	if (config->dbpath == NULL) {
+-		config->dbpath = g_strconcat (alpm_option_get_root (),
+-					      PK_BACKEND_DEFAULT_DBPATH + 1,
++	g_debug ("initializing alpm");
++	handle = alpm_initialize (config->root, config->dbpath, &errno);
++	if (handle == NULL) {
++		g_set_error_literal (error, ALPM_ERROR, errno,
++				     alpm_strerror (errno));
++		return handle;
++	}
++
++	if (config->gpgdir == NULL) {
++		config->gpgdir = g_strconcat (config->root,
++					      PK_BACKEND_DEFAULT_GPGDIR + dir,
+ 					      NULL);
+ 	}
+ 
+-	if (alpm_option_set_dbpath (config->dbpath) < 0) {
+-		g_set_error (error, ALPM_ERROR, pm_errno, "DBPath: %s",
+-			     alpm_strerrorlast ());
+-		return FALSE;
++	if (alpm_option_set_gpgdir (handle, config->gpgdir) < 0) {
++		errno = alpm_errno (handle);
++		g_set_error (error, ALPM_ERROR, errno, "GPGDir: %s",
++			     alpm_strerror (errno));
++		return handle;
+ 	}
+ 
+ 	if (config->logfile == NULL) {
+-		config->logfile = g_strconcat (alpm_option_get_root (),
+-					       PK_BACKEND_DEFAULT_LOGFILE + 1,
++		config->logfile = g_strconcat (config->root,
++					       PK_BACKEND_DEFAULT_LOGFILE + dir,
+ 					       NULL);
+ 	}
+ 
+-	alpm_option_set_logfile (config->logfile);
++	if (alpm_option_set_logfile (handle, config->logfile) < 0) {
++		errno = alpm_errno (handle);
++		g_set_error (error, ALPM_ERROR, errno, "LogFile: %s",
++			     alpm_strerror (errno));
++		return handle;
++	}
+ 
+ 	if (config->cachedirs == NULL) {
+-		gchar *path = g_strconcat (alpm_option_get_root (),
+-					   PK_BACKEND_DEFAULT_CACHEDIR + 1,
++		gchar *path = g_strconcat (config->root,
++					   PK_BACKEND_DEFAULT_CACHEDIR + dir,
+ 					   NULL);
+ 		config->cachedirs = alpm_list_add (NULL, path);
+ 	}
+ 
+ 	/* alpm takes ownership */
+-	alpm_option_set_cachedirs (config->cachedirs);
++	if (alpm_option_set_cachedirs (handle, config->cachedirs) < 0) {
++		errno = alpm_errno (handle);
++		g_set_error (error, ALPM_ERROR, errno, "CacheDir: %s",
++			     alpm_strerror (errno));
++		return handle;
++	}
+ 	config->cachedirs = NULL;
+ 
+-	return TRUE;
++	return handle;
+ }
+ 
+-static gboolean
+-pk_backend_config_configure_repos (PkBackendConfig *config, GError **error)
++static alpm_handle_t *
++pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
+ {
+-	const alpm_list_t *i;
++	alpm_handle_t *handle;
++	alpm_siglevel_t *level;
+ 
+ 	g_return_val_if_fail (config != NULL, FALSE);
+ 
+-	for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
+-		if (alpm_db_unregister (i->data) < 0) {
+-			g_set_error_literal (error, ALPM_ERROR, pm_errno,
+-					     alpm_strerrorlast ());
+-			return FALSE;
+-		}
+-	}
+-
+-	for (i = config->repos; i != NULL; i = i->next) {
+-		const gchar *key;
+-		gpointer value;
+-		pmdb_t *db;
+-		alpm_list_t *j;
+-
+-		key = (const gchar *) i->data;
+-		value = g_hash_table_lookup (config->servers, key);
+-
+-		db = alpm_db_register_sync (key);
+-		if (db == NULL) {
+-			g_set_error (error, ALPM_ERROR, pm_errno, "[%s]: %s",
+-				     key, alpm_strerrorlast ());
+-			return FALSE;
+-		}
+-
+-		for (j = (alpm_list_t *) value; j != NULL; j = j->next) {
+-			alpm_db_setserver (db, (const gchar *) j->data);
+-		}
++	handle = pk_backend_config_initialize_alpm (config, error);
++	if (handle == NULL) {
++		return NULL;
+ 	}
+ 
+-	return TRUE;
+-}
+-
+-static gboolean
+-pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
+-{
+-	g_return_val_if_fail (config != NULL, FALSE);
+-
+-	if (!pk_backend_config_configure_paths (config, error)) {
+-		return FALSE;
+-	}
++	alpm_option_set_checkspace (handle, config->checkspace);
++	alpm_option_set_usedelta (handle, config->usedelta);
++	alpm_option_set_usesyslog (handle, config->usesyslog);
++	alpm_option_set_arch (handle, config->arch);
+ 
+-	alpm_option_set_checkspace (config->checkspace);
+-	alpm_option_set_usedelta (config->usedelta);
+-	alpm_option_set_usesyslog (config->usesyslog);
+-	alpm_option_set_arch (config->arch);
++	level = g_hash_table_lookup (config->levels, "options");
++	alpm_option_set_default_siglevel (handle, *level);
+ 
+ 	/* backend takes ownership */
+ 	g_free (xfercmd);
+@@ -719,9 +843,9 @@ pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
+ 	config->xfercmd = NULL;
+ 
+ 	if (xfercmd != NULL) {
+-		alpm_option_set_fetchcb (pk_backend_fetchcb);
++		alpm_option_set_fetchcb (handle, pk_backend_fetchcb);
+ 	} else {
+-		alpm_option_set_fetchcb (NULL);
++		alpm_option_set_fetchcb (handle, NULL);
+ 	}
+ 
+ 	/* backend takes ownership */
+@@ -735,41 +859,53 @@ pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
+ 	config->syncfirsts = NULL;
+ 
+ 	/* alpm takes ownership */
+-	alpm_option_set_ignoregrps (config->ignoregrps);
+-	config->ignoregrps = NULL;
++	alpm_option_set_ignoregroups (handle, config->ignoregroups);
++	config->ignoregroups = NULL;
+ 
+ 	/* alpm takes ownership */
+-	alpm_option_set_ignorepkgs (config->ignorepkgs);
++	alpm_option_set_ignorepkgs (handle, config->ignorepkgs);
+ 	config->ignorepkgs = NULL;
+ 
+ 	/* alpm takes ownership */
+-	alpm_option_set_noextracts (config->noextracts);
++	alpm_option_set_noextracts (handle, config->noextracts);
+ 	config->noextracts = NULL;
+ 
+ 	/* alpm takes ownership */
+-	alpm_option_set_noupgrades (config->noupgrades);
++	alpm_option_set_noupgrades (handle, config->noupgrades);
+ 	config->noupgrades = NULL;
+ 
+-	if (!pk_backend_config_configure_repos (config, error)) {
+-		return FALSE;
+-	}
++	pk_backend_configure_repos (config->repos, config->servers,
++				    config->levels);
+ 
+-	return TRUE;
++	return handle;
+ }
+ 
+-gboolean
++alpm_handle_t *
+ pk_backend_configure (const gchar *filename, GError **error)
+ {
+ 	PkBackendConfig *config;
+-	gboolean result;
++	alpm_handle_t *handle;
++	GError *e = NULL;
+ 
+ 	g_return_val_if_fail (filename != NULL, FALSE);
+ 
++	g_debug ("reading config from %s", filename);
+ 	config = pk_backend_config_new ();
+ 
+-	result = pk_backend_config_parse (config, filename, NULL, error) &&
+-		 pk_backend_config_configure_alpm (config, error);
++	if (pk_backend_config_parse (config, filename, NULL, &e)) {
++		handle = pk_backend_config_configure_alpm (config, &e);
++	} else {
++		handle = NULL;
++	}
+ 
+ 	pk_backend_config_free (config);
+-	return result;
++	if (e != NULL) {
++		g_propagate_error (error, e);
++		if (handle != NULL) {
++			alpm_release (handle);
++		}
++		return NULL;
++	} else {
++		return handle;
++	}
+ }
+diff --git a/backends/alpm/pk-backend-config.h b/backends/alpm/pk-backend-config.h
+index cb8b8dc..412f59c 100644
+--- a/backends/alpm/pk-backend-config.h
++++ b/backends/alpm/pk-backend-config.h
+@@ -21,6 +21,7 @@
+  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+  */
+ 
++#include <alpm.h>
+ #include <glib.h>
+ 
+-gboolean	 pk_backend_configure	(const gchar *filename, GError **error);
++alpm_handle_t	*pk_backend_configure	(const gchar *filename, GError **error);
+diff --git a/backends/alpm/pk-backend-databases.c b/backends/alpm/pk-backend-databases.c
+index f6ab06e..ac530c7 100644
+--- a/backends/alpm/pk-backend-databases.c
++++ b/backends/alpm/pk-backend-databases.c
+@@ -26,7 +26,15 @@
+ #include "pk-backend-databases.h"
+ #include "pk-backend-error.h"
+ 
++typedef struct
++{
++	gchar *name;
++	alpm_list_t *servers;
++	alpm_siglevel_t level;
++} PkBackendRepo;
++
+ static GHashTable *disabled = NULL;
++static alpm_list_t *configured = NULL;
+ 
+ static GHashTable *
+ disabled_repos_new (GError **error)
+@@ -113,8 +121,8 @@ disabled_repos_free (GHashTable *table)
+ 
+ 	/* write all disabled repos line by line */
+ 	while (g_hash_table_iter_next (&iter, (gpointer *) &line, NULL) &&
+-		g_data_output_stream_put_string (output, line, NULL, NULL) &&
+-		g_data_output_stream_put_byte (output, '\n', NULL, NULL));
++	       g_data_output_stream_put_string (output, line, NULL, NULL) &&
++	       g_data_output_stream_put_byte (output, '\n', NULL, NULL));
+ 
+ 	g_object_unref (output);
+ 	g_object_unref (os);
+@@ -128,37 +136,65 @@ disabled_repos_configure (GHashTable *table, GError **error)
+ {
+ 	const alpm_list_t *i;
+ 
+-	g_debug ("reading config from %s", PK_BACKEND_CONFIG_FILE);
++	g_return_val_if_fail (table != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+-	/* read configuration from pacman.conf file */
+-	if (!pk_backend_configure (PK_BACKEND_CONFIG_FILE, error)) {
++	if (alpm_db_unregister_all (alpm) < 0) {
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error_literal (error, ALPM_ERROR, errno,
++				     alpm_strerror (errno));
+ 		return FALSE;
+ 	}
+ 
+-	/* disable disabled repos */
+-	for (i = alpm_option_get_syncdbs (); i != NULL;) {
+-		pmdb_t *db = (pmdb_t *) i->data;
+-		const gchar *repo = alpm_db_get_name (db);
++	for (i = configured; i != NULL; i = i->next) {
++		PkBackendRepo *repo = (PkBackendRepo *) i->data;
++		alpm_db_t *db;
+ 
+-		if (g_hash_table_lookup (table, repo) == NULL) {
+-			/* repo is not disabled */
+-			i = i->next;
++		if (g_hash_table_lookup (table, repo->name) != NULL) {
++			/* repo is disabled */
+ 			continue;
+ 		}
+ 
+-		if (alpm_db_unregister (db) < 0) {
+-			g_set_error (error, ALPM_ERROR, pm_errno, "[%s]: %s",
+-				     repo, alpm_strerrorlast ());
++		db = alpm_db_register_sync (alpm, repo->name, repo->level);
++		if (db == NULL) {
++			enum _alpm_errno_t errno = alpm_errno (alpm);
++			g_set_error (error, ALPM_ERROR, errno, "[%s]: %s",
++				     repo->name, alpm_strerror (errno));
+ 			return FALSE;
+ 		}
+ 
+-		/* start again because the list gets invalidated */
+-		i = alpm_option_get_syncdbs ();
++		alpm_db_set_servers (db, alpm_list_strdup (repo->servers));
+ 	}
+ 
+ 	return TRUE;
+ }
+ 
++void
++pk_backend_configure_repos (alpm_list_t *repos, GHashTable *servers,
++			    GHashTable *levels)
++{
++	alpm_list_t *i;
++
++	g_return_if_fail (servers != NULL);
++
++	for (i = repos; i != NULL; i = i->next) {
++		PkBackendRepo *repo = g_new (PkBackendRepo, 1);
++		gpointer value = g_hash_table_lookup (servers, i->data);
++
++		repo->name = g_strdup ((const gchar *) i->data);
++		repo->servers = alpm_list_strdup ((alpm_list_t *) value);
++
++		value = g_hash_table_lookup (levels, i->data);
++		if (value != NULL) {
++			repo->level = *(alpm_siglevel_t *)value;
++		} else {
++			repo->level = ALPM_SIG_USE_DEFAULT;
++		}
++
++		configured = alpm_list_add (configured, repo);
++	}
++}
++
+ gboolean
+ pk_backend_initialize_databases (PkBackend *self, GError **error)
+ {
+@@ -179,11 +215,21 @@ pk_backend_initialize_databases (PkBackend *self, GError **error)
+ void
+ pk_backend_destroy_databases (PkBackend *self)
+ {
++	alpm_list_t *i;
++
+ 	g_return_if_fail (self != NULL);
+ 
+ 	if (disabled != NULL) {
+ 		disabled_repos_free (disabled);
+ 	}
++
++	for (i = configured; i != NULL; i = i->next) {
++		PkBackendRepo *repo = (PkBackendRepo *) i->data;
++		g_free (repo->name);
++		FREELIST (repo->servers);
++		g_free (repo);
++	}
++	alpm_list_free (configured);
+ }
+ 
+ static gboolean
+@@ -210,11 +256,12 @@ pk_backend_get_repo_list_thread (PkBackend *self)
+ 	gpointer key, value;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (disabled != NULL, FALSE);
+ 
+ 	/* emit enabled repos */
+-	for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
+-		pmdb_t *db = (pmdb_t *) i->data;
++	for (i = alpm_option_get_syncdbs (alpm); i != NULL; i = i->next) {
++		alpm_db_t *db = (alpm_db_t *) i->data;
+ 		const gchar *repo = alpm_db_get_name (db);
+ 
+ 		if (pk_backend_cancelled (self)) {
+@@ -269,7 +316,7 @@ pk_backend_repo_enable_thread (PkBackend *self)
+ 			pk_backend_repo_list_changed (self);
+ 		}
+ 	} else {
+-		int code = PM_ERR_DB_NOT_NULL;
++		int code = ALPM_ERR_DB_NOT_NULL;
+ 		g_set_error (&error, ALPM_ERROR, code, "[%s]: %s",
+ 			     repo, alpm_strerror (code));
+ 	}
+@@ -292,21 +339,23 @@ pk_backend_repo_disable_thread (PkBackend *self)
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (disabled != NULL, FALSE);
+ 
+ 	repo = pk_backend_get_string (self, "repo_id");
+ 
+ 	g_return_val_if_fail (repo != NULL, FALSE);
+ 
+-	for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
+-		pmdb_t *db = (pmdb_t *) i->data;
++	for (i = alpm_option_get_syncdbs (alpm); i != NULL; i = i->next) {
++		alpm_db_t *db = (alpm_db_t *) i->data;
+ 		const gchar *name = alpm_db_get_name (db);
+ 
+ 		if (g_strcmp0 (repo, name) == 0) {
+ 			if (alpm_db_unregister (db) < 0) {
+-				g_set_error (&error, ALPM_ERROR, pm_errno,
++				enum _alpm_errno_t errno = alpm_errno (alpm);
++				g_set_error (&error, ALPM_ERROR, errno,
+ 					     "[%s]: %s", repo,
+-					     alpm_strerrorlast ());
++					     alpm_strerror (errno));
+ 			} else {
+ 				g_hash_table_insert (disabled, g_strdup (repo),
+ 						     GINT_TO_POINTER (1));
+@@ -316,7 +365,7 @@ pk_backend_repo_disable_thread (PkBackend *self)
+ 	}
+ 
+ 	if (i == NULL) {
+-		int code = PM_ERR_DB_NULL;
++		int code = ALPM_ERR_DB_NULL;
+ 		g_set_error (&error, ALPM_ERROR, code, "[%s]: %s", repo,
+ 			     alpm_strerror (code));
+ 	}
+diff --git a/backends/alpm/pk-backend-databases.h b/backends/alpm/pk-backend-databases.h
+index f9eb2f9..2636cae 100644
+--- a/backends/alpm/pk-backend-databases.h
++++ b/backends/alpm/pk-backend-databases.h
+@@ -24,6 +24,10 @@
+ #include <alpm.h>
+ #include <pk-backend.h>
+ 
++void		 pk_backend_configure_repos		(alpm_list_t *repos,
++							 GHashTable *servers,
++							 GHashTable *levels);
++
+ gboolean	 pk_backend_initialize_databases	(PkBackend *self,
+ 							 GError **error);
+ 
+diff --git a/backends/alpm/pk-backend-depends.c b/backends/alpm/pk-backend-depends.c
+index 8bb8567..7c7b45a 100644
+--- a/backends/alpm/pk-backend-depends.c
++++ b/backends/alpm/pk-backend-depends.c
+@@ -29,7 +29,7 @@
+ #include "pk-backend-error.h"
+ #include "pk-backend-packages.h"
+ 
+-static pmpkg_t *
++static alpm_pkg_t *
+ alpm_list_find_pkg (const alpm_list_t *pkgs, const gchar *name)
+ {
+ 	g_return_val_if_fail (name != NULL, NULL);
+@@ -50,11 +50,12 @@ pk_backend_find_provider (PkBackend *self, alpm_list_t *pkgs,
+ 	PkBitfield filters;
+ 	gboolean recursive, skip_local, skip_remote;
+ 
+-	pmpkg_t *provider;
++	alpm_pkg_t *provider;
+ 	alpm_list_t *pkgcache, *syncdbs;
+ 
+ 	g_return_val_if_fail (self != NULL, pkgs);
+ 	g_return_val_if_fail (depend != NULL, pkgs);
++	g_return_val_if_fail (alpm != NULL, pkgs);
+ 	g_return_val_if_fail (localdb != NULL, pkgs);
+ 
+ 	recursive = pk_backend_get_bool (self, "recursive");
+@@ -84,8 +85,8 @@ pk_backend_find_provider (PkBackend *self, alpm_list_t *pkgs,
+ 	}
+ 
+ 	/* look for remote dependencies */
+-	syncdbs = alpm_option_get_syncdbs ();
+-	provider = alpm_find_dbs_satisfier (syncdbs, depend);
++	syncdbs = alpm_option_get_syncdbs (alpm);
++	provider = alpm_find_dbs_satisfier (alpm, syncdbs, depend);
+ 
+ 	if (provider != NULL) {
+ 		if (!skip_remote) {
+@@ -96,7 +97,7 @@ pk_backend_find_provider (PkBackend *self, alpm_list_t *pkgs,
+ 			pkgs = alpm_list_add (pkgs, provider);
+ 		}
+ 	} else {
+-		int code = PM_ERR_UNSATISFIED_DEPS;
++		int code = ALPM_ERR_UNSATISFIED_DEPS;
+ 		g_set_error (error, ALPM_ERROR, code, "%s: %s", depend,
+ 			     alpm_strerror (code));
+ 	}
+@@ -108,7 +109,7 @@ static alpm_list_t *
+ pk_backend_find_requirer (PkBackend *self, alpm_list_t *pkgs, const gchar *name,
+ 			  GError **error)
+ {
+-	pmpkg_t *requirer;
++	alpm_pkg_t *requirer;
+ 
+ 	g_return_val_if_fail (self != NULL, pkgs);
+ 	g_return_val_if_fail (name != NULL, pkgs);
+@@ -127,7 +128,7 @@ pk_backend_find_requirer (PkBackend *self, alpm_list_t *pkgs, const gchar *name,
+ 			pkgs = alpm_list_add (pkgs, requirer);
+ 		}
+ 	} else {
+-		int code = PM_ERR_PKG_NOT_FOUND;
++		int code = ALPM_ERR_PKG_NOT_FOUND;
+ 		g_set_error (error, ALPM_ERROR, code, "%s: %s", name,
+ 			     alpm_strerror (code));
+ 	}
+@@ -150,7 +151,7 @@ pk_backend_get_depends_thread (PkBackend *self)
+ 
+ 	/* construct an initial package list */
+ 	for (; *packages != NULL; ++packages) {
+-		pmpkg_t *pkg;
++		alpm_pkg_t *pkg;
+ 
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
+@@ -206,7 +207,7 @@ pk_backend_get_requires_thread (PkBackend *self)
+ 
+ 	/* construct an initial package list */
+ 	for (; *packages != NULL; ++packages) {
+-		pmpkg_t *pkg;
++		alpm_pkg_t *pkg;
+ 
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
+diff --git a/backends/alpm/pk-backend-error.c b/backends/alpm/pk-backend-error.c
+index 255f1fb..57c4b4b 100644
+--- a/backends/alpm/pk-backend-error.c
++++ b/backends/alpm/pk-backend-error.c
+@@ -33,140 +33,159 @@ pk_backend_error (PkBackend *self, GError *error)
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (error != NULL);
+ 
+-	if (error->domain == ALPM_ERROR) {
+-		switch (error->code) {
+-			case PM_ERR_MEMORY:
+-			case PM_ERR_SYSTEM:
+-				code = PK_ERROR_ENUM_OOM;
+-				break;
++	if (error->domain != ALPM_ERROR) {
++		pk_backend_error_code (self, code, "%s", error->message);
++		return;
++	}
++
++	switch (error->code) {
++		case ALPM_ERR_MEMORY:
++		case ALPM_ERR_SYSTEM:
++			code = PK_ERROR_ENUM_OOM;
++			break;
++
++		case ALPM_ERR_BADPERMS:
++			code = PK_ERROR_ENUM_NOT_AUTHORIZED;
++			break;
++
++		case ALPM_ERR_NOT_A_FILE:
++		case ALPM_ERR_NOT_A_DIR:
++			code = PK_ERROR_ENUM_FILE_NOT_FOUND;
++			break;
++
++		case ALPM_ERR_WRONG_ARGS:
++		case ALPM_ERR_HANDLE_NULL:
++		case ALPM_ERR_DB_NULL:
++		case ALPM_ERR_TRANS_NULL:
++		case ALPM_ERR_TRANS_NOT_INITIALIZED:
++		case ALPM_ERR_TRANS_NOT_PREPARED:
++		case ALPM_ERR_TRANS_NOT_LOCKED:
++		case ALPM_ERR_INVALID_REGEX:
++			code = PK_ERROR_ENUM_INTERNAL_ERROR;
++			break;
+ 
+-			case PM_ERR_BADPERMS:
+-				code = PK_ERROR_ENUM_NOT_AUTHORIZED;
+-				break;
++		case ALPM_ERR_DISK_SPACE:
++			code = PK_ERROR_ENUM_NO_SPACE_ON_DEVICE;
++			break;
+ 
+-			case PM_ERR_NOT_A_FILE:
+-			case PM_ERR_NOT_A_DIR:
+-				code = PK_ERROR_ENUM_FILE_NOT_FOUND;
+-				break;
++		case ALPM_ERR_HANDLE_NOT_NULL:
++		case ALPM_ERR_DB_NOT_NULL:
++		case ALPM_ERR_TRANS_NOT_NULL:
++			code = PK_ERROR_ENUM_FAILED_INITIALIZATION;
++			break;
+ 
+-			case PM_ERR_WRONG_ARGS:
+-			case PM_ERR_HANDLE_NULL:
+-			case PM_ERR_DB_NULL:
+-			case PM_ERR_TRANS_NULL:
+-			case PM_ERR_TRANS_NOT_INITIALIZED:
+-			case PM_ERR_TRANS_NOT_PREPARED:
+-			case PM_ERR_TRANS_NOT_LOCKED:
+-			case PM_ERR_INVALID_REGEX:
+-				code = PK_ERROR_ENUM_INTERNAL_ERROR;
+-				break;
++		case ALPM_ERR_HANDLE_LOCK:
++			code = PK_ERROR_ENUM_CANNOT_GET_LOCK;
++			break;
+ 
+-			case PM_ERR_DISK_SPACE:
+-				code = PK_ERROR_ENUM_NO_SPACE_ON_DEVICE;
+-				break;
++		case ALPM_ERR_DB_OPEN:
++		case ALPM_ERR_DB_NOT_FOUND:
++		case ALPM_ERR_PKG_REPO_NOT_FOUND:
++			code = PK_ERROR_ENUM_REPO_NOT_FOUND;
++			break;
+ 
+-			case PM_ERR_HANDLE_NOT_NULL:
+-			case PM_ERR_DB_NOT_NULL:
+-			case PM_ERR_TRANS_NOT_NULL:
+-				code = PK_ERROR_ENUM_FAILED_INITIALIZATION;
+-				break;
++		case ALPM_ERR_DB_CREATE:
++			code = PK_ERROR_ENUM_CANNOT_WRITE_REPO_CONFIG;
++			break;
+ 
+-			case PM_ERR_HANDLE_LOCK:
+-				code = PK_ERROR_ENUM_CANNOT_GET_LOCK;
+-				break;
++		case ALPM_ERR_DB_INVALID:
++		case ALPM_ERR_DB_VERSION:
++		case ALPM_ERR_DB_REMOVE:
++		case ALPM_ERR_SERVER_BAD_URL:
++			code = PK_ERROR_ENUM_REPO_CONFIGURATION_ERROR;
++			break;
+ 
+-			case PM_ERR_DB_OPEN:
+-			case PM_ERR_DB_NOT_FOUND:
+-			case PM_ERR_PKG_REPO_NOT_FOUND:
+-				code = PK_ERROR_ENUM_REPO_NOT_FOUND;
+-				break;
++		case ALPM_ERR_DB_INVALID_SIG:
++		case ALPM_ERR_PKG_INVALID_SIG:
++		case ALPM_ERR_SIG_INVALID:
++			code = PK_ERROR_ENUM_BAD_GPG_SIGNATURE;
++			break;
+ 
+-			case PM_ERR_DB_CREATE:
+-				code = PK_ERROR_ENUM_CANNOT_WRITE_REPO_CONFIG;
+-				break;
++		case ALPM_ERR_DB_WRITE:
++			code = PK_ERROR_ENUM_REPO_NOT_AVAILABLE;
++			break;
+ 
+-			case PM_ERR_DB_VERSION:
+-			case PM_ERR_DB_REMOVE:
+-				code = PK_ERROR_ENUM_REPO_CONFIGURATION_ERROR;
+-				break;
++		case ALPM_ERR_SERVER_NONE:
++			code = PK_ERROR_ENUM_NO_MORE_MIRRORS_TO_TRY;
++			break;
+ 
+-			case PM_ERR_DB_WRITE:
+-				code = PK_ERROR_ENUM_REPO_NOT_AVAILABLE;
+-				break;
++		case ALPM_ERR_TRANS_DUP_TARGET:
++		case ALPM_ERR_TRANS_ABORT:
++			code = PK_ERROR_ENUM_TRANSACTION_ERROR;
++			break;
+ 
+-			case PM_ERR_SERVER_BAD_URL:
+-				code = PK_ERROR_ENUM_REPO_CONFIGURATION_ERROR;
+-				break;
++		case ALPM_ERR_TRANS_TYPE:
++			code = PK_ERROR_ENUM_CANNOT_CANCEL;
++			break;
+ 
+-			case PM_ERR_SERVER_NONE:
+-				code = PK_ERROR_ENUM_NO_MORE_MIRRORS_TO_TRY;
+-				break;
++		case ALPM_ERR_PKG_NOT_FOUND:
++			code = PK_ERROR_ENUM_PACKAGE_NOT_FOUND;
++			break;
+ 
+-			case PM_ERR_TRANS_DUP_TARGET:
+-			case PM_ERR_TRANS_ABORT:
+-				code = PK_ERROR_ENUM_TRANSACTION_ERROR;
+-				break;
++		case ALPM_ERR_PKG_IGNORED:
++			code = PK_ERROR_ENUM_PACKAGE_INSTALL_BLOCKED;
++			break;
+ 
+-			case PM_ERR_TRANS_TYPE:
+-				code = PK_ERROR_ENUM_CANNOT_CANCEL;
+-				break;
++		case ALPM_ERR_PKG_INVALID:
++		case ALPM_ERR_PKG_OPEN:
++		case ALPM_ERR_PKG_INVALID_NAME:
++		case ALPM_ERR_DLT_INVALID:
++			code = PK_ERROR_ENUM_INVALID_PACKAGE_FILE;
++			break;
+ 
+-			case PM_ERR_PKG_NOT_FOUND:
+-				code = PK_ERROR_ENUM_PACKAGE_NOT_FOUND;
+-				break;
++		case ALPM_ERR_PKG_INVALID_CHECKSUM:
++			code = PK_ERROR_ENUM_PACKAGE_CORRUPT;
++			break;
+ 
+-			case PM_ERR_PKG_IGNORED:
+-				code = PK_ERROR_ENUM_PACKAGE_INSTALL_BLOCKED;
+-				break;
++		case ALPM_ERR_PKG_CANT_REMOVE:
++			code = PK_ERROR_ENUM_PACKAGE_FAILED_TO_REMOVE;
++			break;
+ 
+-			case PM_ERR_PKG_INVALID:
+-			case PM_ERR_PKG_OPEN:
+-			case PM_ERR_PKG_INVALID_NAME:
+-			case PM_ERR_DLT_INVALID:
+-				code = PK_ERROR_ENUM_INVALID_PACKAGE_FILE;
+-				break;
++		case ALPM_ERR_PKG_INVALID_ARCH:
++			code = PK_ERROR_ENUM_INCOMPATIBLE_ARCHITECTURE;
++			break;
+ 
+-			case PM_ERR_PKG_CANT_REMOVE:
+-				code = PK_ERROR_ENUM_PACKAGE_FAILED_TO_REMOVE;
+-				break;
++		case ALPM_ERR_SIG_MISSING:
++			code = PK_ERROR_ENUM_MISSING_GPG_SIGNATURE;
++			break;
+ 
+-			case PM_ERR_PKG_INVALID_ARCH:
+-				code = PK_ERROR_ENUM_INCOMPATIBLE_ARCHITECTURE;
+-				break;
++		case ALPM_ERR_DLT_PATCHFAILED:
++			code = PK_ERROR_ENUM_PACKAGE_FAILED_TO_BUILD;
++			break;
+ 
+-			case PM_ERR_DLT_PATCHFAILED:
+-				code = PK_ERROR_ENUM_PACKAGE_FAILED_TO_BUILD;
+-				break;
++		case ALPM_ERR_UNSATISFIED_DEPS:
++			code = PK_ERROR_ENUM_DEP_RESOLUTION_FAILED;
++			break;
+ 
+-			case PM_ERR_UNSATISFIED_DEPS:
+-				code = PK_ERROR_ENUM_DEP_RESOLUTION_FAILED;
+-				break;
++		case ALPM_ERR_CONFLICTING_DEPS:
++			code = PK_ERROR_ENUM_PACKAGE_CONFLICTS;
++			break;
+ 
+-			case PM_ERR_CONFLICTING_DEPS:
+-				code = PK_ERROR_ENUM_PACKAGE_CONFLICTS;
+-				break;
++		case ALPM_ERR_FILE_CONFLICTS:
++			code = PK_ERROR_ENUM_FILE_CONFLICTS;
++			break;
+ 
+-			case PM_ERR_FILE_CONFLICTS:
+-				code = PK_ERROR_ENUM_FILE_CONFLICTS;
+-				break;
++		case ALPM_ERR_RETRIEVE:
++		case ALPM_ERR_LIBCURL:
++		case ALPM_ERR_EXTERNAL_DOWNLOAD:
++			code = PK_ERROR_ENUM_PACKAGE_DOWNLOAD_FAILED;
++			break;
+ 
+-			case PM_ERR_RETRIEVE:
+-			case PM_ERR_LIBFETCH:
+-			case PM_ERR_EXTERNAL_DOWNLOAD:
+-				code = PK_ERROR_ENUM_PACKAGE_DOWNLOAD_FAILED;
+-				break;
++		case ALPM_ERR_LIBARCHIVE:
++			code = PK_ERROR_ENUM_LOCAL_INSTALL_FAILED;
++			break;
+ 
+-			case PM_ERR_LIBARCHIVE:
+-				code = PK_ERROR_ENUM_LOCAL_INSTALL_FAILED;
+-				break;
++		case ALPM_ERR_GPGME:
++			code = PK_ERROR_ENUM_GPG_FAILURE;
++			break;
+ 
+-			case PM_ERR_CONFIG_INVALID:
+-				code = PK_ERROR_ENUM_CANNOT_REMOVE_SYSTEM_PACKAGE;
+-				break;
++		case ALPM_ERR_CONFIG_INVALID:
++			code = PK_ERROR_ENUM_FAILED_CONFIG_PARSING;
++			break;
+ 
+-			case PM_ERR_PKG_HELD:
+-				code = PK_ERROR_ENUM_CANNOT_REMOVE_SYSTEM_PACKAGE;
+-				break;
+-		}
++		case ALPM_ERR_PKG_HELD:
++			code = PK_ERROR_ENUM_CANNOT_REMOVE_SYSTEM_PACKAGE;
++			break;
+ 	}
+ 
+ 	pk_backend_error_code (self, code, "%s", error->message);
+diff --git a/backends/alpm/pk-backend-error.h b/backends/alpm/pk-backend-error.h
+index 83fe4a5..0a029e4 100644
+--- a/backends/alpm/pk-backend-error.h
++++ b/backends/alpm/pk-backend-error.h
+@@ -26,8 +26,8 @@
+ #define	 ALPM_ERROR		(alpm_error_quark ())
+ 
+ enum {
+-	PM_ERR_CONFIG_INVALID = 0x10000,
+-	PM_ERR_PKG_HELD
++	ALPM_ERR_CONFIG_INVALID = 0x10000,
++	ALPM_ERR_PKG_HELD
+ };
+ 
+ void	 pk_backend_error	(PkBackend *self, GError *error);
+diff --git a/backends/alpm/pk-backend-groups.c b/backends/alpm/pk-backend-groups.c
+index 59e304d..6056c54 100644
+--- a/backends/alpm/pk-backend-groups.c
++++ b/backends/alpm/pk-backend-groups.c
+@@ -125,7 +125,7 @@ pk_backend_destroy_groups (PkBackend *self)
+ }
+ 
+ const gchar *
+-alpm_pkg_get_group (pmpkg_t *pkg)
++alpm_pkg_get_group (alpm_pkg_t *pkg)
+ {
+ 	const alpm_list_t *i;
+ 
+diff --git a/backends/alpm/pk-backend-groups.h b/backends/alpm/pk-backend-groups.h
+index 28dcf65..d736e37 100644
+--- a/backends/alpm/pk-backend-groups.h
++++ b/backends/alpm/pk-backend-groups.h
+@@ -29,4 +29,4 @@ gboolean	 pk_backend_initialize_groups	(PkBackend *self,
+ 
+ void		 pk_backend_destroy_groups	(PkBackend *self);
+ 
+-const gchar	*alpm_pkg_get_group		(pmpkg_t *pkg);
++const gchar	*alpm_pkg_get_group		(alpm_pkg_t *pkg);
+diff --git a/backends/alpm/pk-backend-install.c b/backends/alpm/pk-backend-install.c
+index 65a6c11..5b5e2b2 100644
+--- a/backends/alpm/pk-backend-install.c
++++ b/backends/alpm/pk-backend-install.c
+@@ -32,15 +32,19 @@
+ static gint
+ alpm_add_file (const gchar *filename)
+ {
+-	pmpkg_t *pkg;
++	alpm_pkg_t *pkg;
++	alpm_siglevel_t level;
+ 
+ 	g_return_val_if_fail (filename != NULL, -1);
++	g_return_val_if_fail (alpm != NULL, -1);
+ 
+-	if (alpm_pkg_load (filename, 1, &pkg) < 0) {
++	level = alpm_option_get_default_siglevel (alpm);
++
++	if (alpm_pkg_load (alpm, filename, 1, level, &pkg) < 0) {
+ 		return -1;
+ 	}
+ 
+-	if (alpm_add_pkg (pkg) < 0) {
++	if (alpm_add_pkg (alpm, pkg) < 0) {
+ 		alpm_pkg_free (pkg);
+ 		return -1;
+ 	}
+@@ -61,8 +65,9 @@ pk_backend_transaction_add_targets (PkBackend *self, GError **error)
+ 
+ 	for (; *paths != NULL; ++paths) {
+ 		if (alpm_add_file (*paths) < 0) {
+-			g_set_error (error, ALPM_ERROR, pm_errno, "%s: %s",
+-				     *paths, alpm_strerrorlast ());
++			enum _alpm_errno_t errno = alpm_errno (alpm);
++			g_set_error (error, ALPM_ERROR, errno, "%s: %s",
++				     *paths, alpm_strerror (errno));
+ 			return FALSE;
+ 		}
+ 	}
+diff --git a/backends/alpm/pk-backend-packages.c b/backends/alpm/pk-backend-packages.c
+index e9a7c94..2d057aa 100644
+--- a/backends/alpm/pk-backend-packages.c
++++ b/backends/alpm/pk-backend-packages.c
+@@ -27,13 +27,11 @@
+ #include "pk-backend-packages.h"
+ 
+ gchar *
+-alpm_pkg_build_id (pmpkg_t *pkg)
++alpm_pkg_build_id (alpm_pkg_t *pkg)
+ {
+ 	const gchar *name, *version, *arch, *repo;
+-	pmdb_t *db;
+ 
+ 	g_return_val_if_fail (pkg != NULL, NULL);
+-	g_return_val_if_fail (localdb != NULL, NULL);
+ 
+ 	name = alpm_pkg_get_name (pkg);
+ 	version = alpm_pkg_get_version (pkg);
+@@ -43,19 +41,18 @@ alpm_pkg_build_id (pmpkg_t *pkg)
+ 		arch = "any";
+ 	}
+ 
+-	db = alpm_pkg_get_db (pkg);
+-	/* TODO: check */
+-	if (db == NULL || db == localdb) {
+-		repo = "installed";
++	/* TODO: check correctness */
++	if (alpm_pkg_get_origin (pkg) == PKG_FROM_SYNCDB) {
++		repo = alpm_db_get_name (alpm_pkg_get_db (pkg));
+ 	} else {
+-		repo = alpm_db_get_name (db);
++		repo = "installed";
+ 	}
+ 
+ 	return pk_package_id_build (name, version, arch, repo);
+ }
+ 
+ void
+-pk_backend_pkg (PkBackend *self, pmpkg_t *pkg, PkInfoEnum info)
++pk_backend_pkg (PkBackend *self, alpm_pkg_t *pkg, PkInfoEnum info)
+ {
+ 	gchar *package;
+ 
+@@ -67,16 +64,17 @@ pk_backend_pkg (PkBackend *self, pmpkg_t *pkg, PkInfoEnum info)
+ 	g_free (package);
+ }
+ 
+-pmpkg_t *
++alpm_pkg_t *
+ pk_backend_find_pkg (PkBackend *self, const gchar *package_id, GError **error)
+ {
+ 	gchar **package;
+ 	const gchar *repo_id;
+-	pmdb_t *db = NULL;
+-	pmpkg_t *pkg;
++	alpm_db_t *db = NULL;
++	alpm_pkg_t *pkg;
+ 
+ 	g_return_val_if_fail (self != NULL, NULL);
+ 	g_return_val_if_fail (package_id != NULL, NULL);
++	g_return_val_if_fail (alpm != NULL, NULL);
+ 	g_return_val_if_fail (localdb != NULL, NULL);
+ 
+ 	package = pk_package_id_split (package_id);
+@@ -86,8 +84,8 @@ pk_backend_find_pkg (PkBackend *self, const gchar *package_id, GError **error)
+ 	if (g_strcmp0 (repo_id, "installed") == 0) {
+ 		db = localdb;
+ 	} else {
+-		const alpm_list_t *i;
+-		for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
++		const alpm_list_t *i = alpm_option_get_syncdbs (alpm);
++		for (; i != NULL; i = i->next) {
+ 			const gchar *repo = alpm_db_get_name (i->data);
+ 
+ 			if (g_strcmp0 (repo, repo_id) == 0) {
+@@ -111,7 +109,7 @@ pk_backend_find_pkg (PkBackend *self, const gchar *package_id, GError **error)
+ 	}
+ 
+ 	if (pkg == NULL) {
+-		int code = PM_ERR_PKG_NOT_FOUND;
++		int code = ALPM_ERR_PKG_NOT_FOUND;
+ 		g_set_error (error, ALPM_ERROR, code, "%s: %s", package_id,
+ 			     alpm_strerror (code));
+ 	}
+@@ -123,7 +121,7 @@ static gboolean
+ pk_backend_resolve_package (PkBackend *self, const gchar *package,
+ 			    GError **error)
+ {
+-	pmpkg_t *pkg;
++	alpm_pkg_t *pkg;
+ 	
+ 	PkBitfield filters;
+ 	gboolean skip_local, skip_remote;
+@@ -142,7 +140,7 @@ pk_backend_resolve_package (PkBackend *self, const gchar *package,
+ 					  PK_FILTER_ENUM_NOT_INSTALLED);
+ 	skip_remote = pk_bitfield_contain (filters, PK_FILTER_ENUM_INSTALLED);
+ 
+-	if (alpm_pkg_get_db (pkg) == localdb) {
++	if (alpm_pkg_get_origin (pkg) == PKG_FROM_LOCALDB) {
+ 		if (!skip_local) {
+ 			pk_backend_pkg (self, pkg, PK_INFO_ENUM_INSTALLED);
+ 		}
+@@ -158,7 +156,7 @@ pk_backend_resolve_package (PkBackend *self, const gchar *package,
+ static gboolean
+ pk_backend_resolve_name (PkBackend *self, const gchar *name, GError **error)
+ {
+-	pmpkg_t *pkg;
++	alpm_pkg_t *pkg;
+ 	int code;
+ 	
+ 	PkBitfield filters;
+@@ -166,6 +164,7 @@ pk_backend_resolve_name (PkBackend *self, const gchar *name, GError **error)
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
+ 	g_return_val_if_fail (name != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (localdb != NULL, FALSE);
+ 
+ 	filters = pk_backend_get_uint (self, "filters");
+@@ -180,8 +179,8 @@ pk_backend_resolve_name (PkBackend *self, const gchar *name, GError **error)
+ 			return TRUE;
+ 		}
+ 	} else if (!skip_remote) {
+-		const alpm_list_t *i;
+-		for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
++		const alpm_list_t *i = alpm_option_get_syncdbs (alpm);
++		for (; i != NULL; i = i->next) {
+ 			pkg = alpm_db_get_pkg (i->data, name);
+ 			if (pkg != NULL) {
+ 				pk_backend_pkg (self, pkg,
+@@ -191,7 +190,7 @@ pk_backend_resolve_name (PkBackend *self, const gchar *name, GError **error)
+ 		}
+ 	}
+ 
+-	code = PM_ERR_PKG_NOT_FOUND;
++	code = ALPM_ERR_PKG_NOT_FOUND;
+ 	g_set_error (error, ALPM_ERROR, code, "%s: %s", name,
+ 		     alpm_strerror (code));
+ 	return FALSE;
+@@ -254,7 +253,7 @@ pk_backend_get_details_thread (PkBackend *self)
+ 	g_return_val_if_fail (packages != NULL, FALSE);
+ 
+ 	for (; *packages != NULL; ++packages) {
+-		pmpkg_t *pkg;
++		alpm_pkg_t *pkg;
+ 		const alpm_list_t *i;
+ 
+ 		GString *licenses;
+@@ -286,7 +285,7 @@ pk_backend_get_details_thread (PkBackend *self)
+ 		desc = alpm_pkg_get_desc (pkg);
+ 		url = alpm_pkg_get_url (pkg);
+ 
+-		if (alpm_pkg_get_db (pkg) == localdb) {
++		if (alpm_pkg_get_origin (pkg) == PKG_FROM_LOCALDB) {
+ 			size = alpm_pkg_get_isize (pkg);
+ 		} else {
+ 			size = alpm_pkg_download_size (pkg);
+@@ -317,17 +316,19 @@ pk_backend_get_files_thread (PkBackend *self)
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+ 	packages = pk_backend_get_strv (self, "package_ids");
+ 
+ 	g_return_val_if_fail (packages != NULL, FALSE);
+ 
+ 	for (; *packages != NULL; ++packages) {
+-		pmpkg_t *pkg;
+-		const alpm_list_t *i;
++		alpm_pkg_t *pkg;
++		const gchar *root;
+ 
+ 		GString *files;
+-		const gchar *root;
++		alpm_filelist_t *filelist;
++		gsize i;
+ 
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
+@@ -338,11 +339,13 @@ pk_backend_get_files_thread (PkBackend *self)
+ 			break;
+ 		}
+ 
++		root = alpm_option_get_root (alpm);
+ 		files = g_string_new ("");
+-		root = alpm_option_get_root ();
+-		for (i = alpm_pkg_get_files (pkg); i != NULL; i = i->next) {
+-			g_string_append_printf (files, ";%s%s", root,
+-						(const gchar *) i->data);
++
++		filelist = alpm_pkg_get_files (pkg);
++		for (i = 0; i < filelist->count; ++i) {
++			const gchar *file = filelist->files[i].name;
++			g_string_append_printf (files, ";%s%s", root, file);
+ 		}
+ 
+ 		pk_backend_files (self, *packages, files->str + 1);
+diff --git a/backends/alpm/pk-backend-packages.h b/backends/alpm/pk-backend-packages.h
+index 4b2d7f8..2d54684 100644
+--- a/backends/alpm/pk-backend-packages.h
++++ b/backends/alpm/pk-backend-packages.h
+@@ -24,10 +24,11 @@
+ #include <alpm.h>
+ #include <pk-backend.h>
+ 
+-gchar	*alpm_pkg_build_id	(pmpkg_t *pkg);
++gchar		*alpm_pkg_build_id	(alpm_pkg_t *pkg);
+ 
+-void	 pk_backend_pkg		(PkBackend *self, pmpkg_t *pkg,
+-				 PkInfoEnum info);
++void		 pk_backend_pkg		(PkBackend *self, alpm_pkg_t *pkg,
++					 PkInfoEnum info);
+ 
+-pmpkg_t	*pk_backend_find_pkg	(PkBackend *self, const gchar *package_id,
+-				 GError **error);
++alpm_pkg_t	*pk_backend_find_pkg	(PkBackend *self,
++					 const gchar *package_id,
++					 GError **error);
+diff --git a/backends/alpm/pk-backend-remove.c b/backends/alpm/pk-backend-remove.c
+index 03329b1..1993061 100644
+--- a/backends/alpm/pk-backend-remove.c
++++ b/backends/alpm/pk-backend-remove.c
+@@ -29,29 +29,14 @@
+ #include "pk-backend-remove.h"
+ #include "pk-backend-transaction.h"
+ 
+-static gint
+-alpm_remove_local (const gchar *name)
+-{
+-	pmpkg_t *pkg;
+-
+-	g_return_val_if_fail (name != NULL, -1);
+-	g_return_val_if_fail (localdb != NULL, -1);
+-
+-	pkg = alpm_db_get_pkg (localdb, name);
+-	if (pkg == NULL) {
+-		pm_errno = PM_ERR_PKG_NOT_FOUND;
+-		return -1;
+-	}
+-
+-	return alpm_remove_pkg (pkg);
+-}
+-
+ static gboolean
+ pk_backend_transaction_remove_targets (PkBackend *self, GError **error)
+ {
+ 	gchar **packages;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
++	g_return_val_if_fail (localdb != NULL, FALSE);
+ 
+ 	packages = pk_backend_get_strv (self, "package_ids");
+ 
+@@ -61,9 +46,11 @@ pk_backend_transaction_remove_targets (PkBackend *self, GError **error)
+ 		gchar **package = pk_package_id_split (*packages);
+ 		gchar *name = package[PK_PACKAGE_ID_NAME];
+ 
+-		if (alpm_remove_local (name) < 0) {
+-			g_set_error (error, ALPM_ERROR, pm_errno, "%s: %s",
+-				     name, alpm_strerrorlast ());
++		alpm_pkg_t *pkg = alpm_db_get_pkg (localdb, name);
++		if (pkg == NULL || alpm_remove_pkg (alpm, pkg) < 0) {
++			enum _alpm_errno_t errno = alpm_errno (alpm);
++			g_set_error (error, ALPM_ERROR, errno, "%s: %s", name,
++				     alpm_strerror (errno));
+ 			g_strfreev (package);
+ 			return FALSE;
+ 		}
+@@ -79,14 +66,17 @@ pk_backend_transaction_remove_simulate (PkBackend *self, GError **error)
+ {
+ 	const alpm_list_t *i;
+ 
++	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
++
+ 	if (!pk_backend_transaction_simulate (self, error)) {
+ 		return FALSE;
+ 	}
+ 
+-	for (i = alpm_trans_get_remove (); i != NULL; i = i->next) {
++	for (i = alpm_trans_get_remove (alpm); i != NULL; i = i->next) {
+ 		const gchar *name = alpm_pkg_get_name (i->data);
+ 		if (alpm_list_find_str (holdpkgs, name)) {
+-			g_set_error (error, ALPM_ERROR, PM_ERR_PKG_HELD,
++			g_set_error (error, ALPM_ERROR, ALPM_ERR_PKG_HELD,
+ 				     "%s: %s", name,
+ 				     "could not remove HoldPkg");
+ 			return FALSE;
+@@ -99,14 +89,14 @@ pk_backend_transaction_remove_simulate (PkBackend *self, GError **error)
+ static gboolean
+ pk_backend_simulate_remove_packages_thread (PkBackend *self)
+ {
+-	pmtransflag_t flags = PM_TRANS_FLAG_CASCADE;
++	alpm_transflag_t flags = ALPM_TRANS_FLAG_CASCADE;
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
+ 
+ 	/* remove unneeded packages that were required by those to be removed */
+ 	if (pk_backend_get_bool (self, "autoremove")) {
+-		flags |= PM_TRANS_FLAG_RECURSE;
++		flags |= ALPM_TRANS_FLAG_RECURSE;
+ 	}
+ 
+ 	if (pk_backend_transaction_initialize (self, flags, &error) &&
+@@ -121,18 +111,18 @@ pk_backend_simulate_remove_packages_thread (PkBackend *self)
+ static gboolean
+ pk_backend_remove_packages_thread (PkBackend *self)
+ {
+-	pmtransflag_t flags = 0;
++	alpm_transflag_t flags = 0;
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
+ 
+ 	/* remove packages that depend on those to be removed */
+ 	if (pk_backend_get_bool (self, "allow_deps")) {
+-		flags |= PM_TRANS_FLAG_CASCADE;
++		flags |= ALPM_TRANS_FLAG_CASCADE;
+ 	}
+ 	/* remove unneeded packages that were required by those to be removed */
+ 	if (pk_backend_get_bool (self, "autoremove")) {
+-		flags |= PM_TRANS_FLAG_RECURSE;
++		flags |= ALPM_TRANS_FLAG_RECURSE;
+ 	}
+ 
+ 	if (pk_backend_transaction_initialize (self, flags, &error) &&
+diff --git a/backends/alpm/pk-backend-search.c b/backends/alpm/pk-backend-search.c
+index 592472d..c4e80ae 100644
+--- a/backends/alpm/pk-backend-search.c
++++ b/backends/alpm/pk-backend-search.c
+@@ -55,9 +55,10 @@ static gpointer
+ pk_backend_pattern_chroot (const gchar *needle, GError **error)
+ {
+ 	g_return_val_if_fail (needle != NULL, NULL);
++	g_return_val_if_fail (alpm != NULL, NULL);
+ 
+ 	if (G_IS_DIR_SEPARATOR (*needle)) {
+-		const gchar *file = needle, *root = alpm_option_get_root ();
++		const gchar *file = needle, *root = alpm_option_get_root (alpm);
+ 
+ 		/* adjust needle to the correct prefix */
+ 		for (; *file == *root; ++file, ++root) {
+@@ -74,7 +75,7 @@ pk_backend_pattern_chroot (const gchar *needle, GError **error)
+ }
+ 
+ static gboolean
+-pk_backend_match_all (pmpkg_t *pkg, gpointer pattern)
++pk_backend_match_all (alpm_pkg_t *pkg, gpointer pattern)
+ {
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 	g_return_val_if_fail (pattern != NULL, FALSE);
+@@ -84,10 +85,10 @@ pk_backend_match_all (pmpkg_t *pkg, gpointer pattern)
+ }
+ 
+ static gboolean
+-pk_backend_match_details (pmpkg_t *pkg, GRegex *regex)
++pk_backend_match_details (alpm_pkg_t *pkg, GRegex *regex)
+ {
+ 	const gchar *desc;
+-	pmdb_t *db;
++	alpm_db_t *db;
+ 	const alpm_list_t *i;
+ 
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+@@ -123,32 +124,38 @@ pk_backend_match_details (pmpkg_t *pkg, GRegex *regex)
+ }
+ 
+ static gboolean
+-pk_backend_match_file (pmpkg_t *pkg, const gchar *needle)
++pk_backend_match_file (alpm_pkg_t *pkg, const gchar *needle)
+ {
+-	const alpm_list_t *i;
++	alpm_filelist_t *files;
++	gsize i;
+ 
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 	g_return_val_if_fail (needle != NULL, FALSE);
+ 
++	files = alpm_pkg_get_files (pkg);
++
+ 	/* match any file the package contains */
+ 	if (G_IS_DIR_SEPARATOR (*needle)) {
+-		for (i = alpm_pkg_get_files (pkg); i != NULL; i = i->next) {
++		for (i = 0; i < files->count; ++i) {
++			const gchar *file = files->files[i].name;
+ 			/* match the full path of file */
+-			if (g_strcmp0 (i->data, needle + 1) == 0) {
++			if (g_strcmp0 (file, needle + 1) == 0) {
+ 				return TRUE;
+ 			}
+ 		}
+ 	} else {
+-		for (i = alpm_pkg_get_files (pkg); i != NULL; i = i->next) {
+-			const gchar *file = strrchr (i->data, G_DIR_SEPARATOR);
+-			if (file == NULL) {
+-				file = i->data;
++		for (i = 0; i < files->count; ++i) {
++			const gchar *file = files->files[i].name;
++			const gchar *name = strrchr (file, G_DIR_SEPARATOR);
++
++			if (name == NULL) {
++				name = file;
+ 			} else {
+-				++file;
++				++name;
+ 			}
+ 
+ 			/* match the basename of file */
+-			if (g_strcmp0 (file, needle) == 0) {
++			if (g_strcmp0 (name, needle) == 0) {
+ 				return TRUE;
+ 			}
+ 		}
+@@ -158,7 +165,7 @@ pk_backend_match_file (pmpkg_t *pkg, const gchar *needle)
+ }
+ 
+ static gboolean
+-pk_backend_match_group (pmpkg_t *pkg, const gchar *needle)
++pk_backend_match_group (alpm_pkg_t *pkg, const gchar *needle)
+ {
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 	g_return_val_if_fail (needle != NULL, FALSE);
+@@ -168,7 +175,7 @@ pk_backend_match_group (pmpkg_t *pkg, const gchar *needle)
+ }
+ 
+ static gboolean
+-pk_backend_match_name (pmpkg_t *pkg, GRegex *regex)
++pk_backend_match_name (alpm_pkg_t *pkg, GRegex *regex)
+ {
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 	g_return_val_if_fail (regex != NULL, FALSE);
+@@ -178,7 +185,7 @@ pk_backend_match_name (pmpkg_t *pkg, GRegex *regex)
+ }
+ 
+ static gboolean
+-pk_backend_match_provides (pmpkg_t *pkg, gpointer pattern)
++pk_backend_match_provides (alpm_pkg_t *pkg, gpointer pattern)
+ {
+ 	/* TODO: implement GStreamer codecs, Pango fonts, etc. */
+ 	const alpm_list_t *i;
+@@ -215,7 +222,7 @@ typedef enum {
+ } SearchType;
+ 
+ typedef gpointer (*PatternFunc) (const gchar *needle, GError **error);
+-typedef gboolean (*MatchFunc) (pmpkg_t *pkg, gpointer pattern);
++typedef gboolean (*MatchFunc) (alpm_pkg_t *pkg, gpointer pattern);
+ 
+ static PatternFunc pattern_funcs[] = {
+ 	pk_backend_pattern_needle,
+@@ -245,9 +252,9 @@ static MatchFunc match_funcs[] = {
+ };
+ 
+ static gboolean
+-alpm_pkg_is_local (pmpkg_t *pkg)
++alpm_pkg_is_local (alpm_pkg_t *pkg)
+ {
+-	pmpkg_t *local;
++	alpm_pkg_t *local;
+ 
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 	g_return_val_if_fail (localdb != NULL, FALSE);
+@@ -274,7 +281,7 @@ alpm_pkg_is_local (pmpkg_t *pkg)
+ }
+ 
+ static void
+-pk_backend_search_db (PkBackend *self, pmdb_t *db, MatchFunc match,
++pk_backend_search_db (PkBackend *self, alpm_db_t *db, MatchFunc match,
+ 		      const alpm_list_t *patterns)
+ {
+ 	const alpm_list_t *i, *j;
+@@ -326,6 +333,7 @@ pk_backend_search_thread (PkBackend *self)
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (localdb != NULL, FALSE);
+ 
+ 	needles = pk_backend_get_strv (self, "search");
+@@ -366,7 +374,7 @@ pk_backend_search_thread (PkBackend *self)
+ 		goto out;
+ 	}
+ 
+-	for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
++	for (i = alpm_option_get_syncdbs (alpm); i != NULL; i = i->next) {
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
+ 		}
+diff --git a/backends/alpm/pk-backend-sync.c b/backends/alpm/pk-backend-sync.c
+index 9e1e02b..c770159 100644
+--- a/backends/alpm/pk-backend-sync.c
++++ b/backends/alpm/pk-backend-sync.c
+@@ -30,41 +30,13 @@
+ #include "pk-backend-sync.h"
+ #include "pk-backend-transaction.h"
+ 
+-static gint
+-alpm_add_dbtarget (const gchar *repo, const gchar *name)
+-{
+-	const alpm_list_t *i;
+-	pmpkg_t *pkg;
+-
+-	g_return_val_if_fail (repo != NULL, -1);
+-	g_return_val_if_fail (name != NULL, -1);
+-
+-	for (i = alpm_option_get_syncdbs (); i != NULL; i = i->next) {
+-		if (g_strcmp0 (alpm_db_get_name (i->data), repo) == 0) {
+-			break;
+-		}
+-	}
+-
+-	if (i == NULL) {
+-		pm_errno = PM_ERR_DB_NOT_FOUND;
+-		return -1;
+-	}
+-
+-	pkg = alpm_db_get_pkg (i->data, name);
+-	if (pkg == NULL) {
+-		pm_errno = PM_ERR_PKG_NOT_FOUND;
+-		return -1;
+-	}
+-
+-	return alpm_add_pkg (pkg);
+-}
+-
+ static gboolean
+ pk_backend_transaction_sync_targets (PkBackend *self, GError **error)
+ {
+ 	gchar **packages;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+ 	packages = pk_backend_get_strv (self, "package_ids");
+ 
+@@ -75,9 +47,28 @@ pk_backend_transaction_sync_targets (PkBackend *self, GError **error)
+ 		gchar *repo = package[PK_PACKAGE_ID_DATA];
+ 		gchar *name = package[PK_PACKAGE_ID_NAME];
+ 
+-		if (alpm_add_dbtarget (repo, name) < 0) {
+-			g_set_error (error, ALPM_ERROR, pm_errno, "%s/%s: %s",
+-				     repo, name, alpm_strerrorlast ());
++		const alpm_list_t *i = alpm_option_get_syncdbs (alpm);
++		alpm_pkg_t *pkg;
++
++		for (; i != NULL; i = i->next) {
++			if (g_strcmp0 (alpm_db_get_name (i->data), repo) == 0) {
++				break;
++			}
++		}
++
++		if (i == NULL) {
++			enum _alpm_errno_t errno = ALPM_ERR_DB_NOT_FOUND;
++			g_set_error (error, ALPM_ERROR, errno, "%s/%s: %s",
++				     repo, name, alpm_strerror (errno));
++			g_strfreev (package);
++			return FALSE;
++		}
++
++		pkg = alpm_db_get_pkg (i->data, name);
++		if (pkg == NULL || alpm_add_pkg (alpm, pkg) < 0) {
++			enum _alpm_errno_t errno = alpm_errno (alpm);
++			g_set_error (error, ALPM_ERROR, errno, "%s/%s: %s",
++				     repo, name, alpm_strerror (errno));
+ 			g_strfreev (package);
+ 			return FALSE;
+ 		}
+@@ -93,23 +84,27 @@ pk_backend_download_packages_thread (PkBackend *self)
+ {
+ 	alpm_list_t *cachedirs;
+ 	const gchar *directory;
+-	pmtransflag_t flags = 0;
++	alpm_transflag_t flags = 0;
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+ 	directory = pk_backend_get_string (self, "directory");
+ 
+ 	if (directory != NULL) {
+ 		/* download files to a PackageKit directory */
+ 		gchar *cachedir = strdup (directory);
+-		cachedirs = alpm_list_strdup (alpm_option_get_cachedirs ());
+-		alpm_option_set_cachedirs (alpm_list_add (NULL, cachedir));
++		const alpm_list_t *old = alpm_option_get_cachedirs (alpm);
++		alpm_list_t *new = alpm_list_add (NULL, cachedir);
++
++		cachedirs = alpm_list_strdup (old);
++		alpm_option_set_cachedirs (alpm, new);
+ 	}
+ 
+-	flags |= PM_TRANS_FLAG_NODEPS;
+-	flags |= PM_TRANS_FLAG_NOCONFLICTS;
+-	flags |= PM_TRANS_FLAG_DOWNLOADONLY;
++	flags |= ALPM_TRANS_FLAG_NODEPS;
++	flags |= ALPM_TRANS_FLAG_NOCONFLICTS;
++	flags |= ALPM_TRANS_FLAG_DOWNLOADONLY;
+ 
+ 	if (pk_backend_transaction_initialize (self, flags, &error) &&
+ 	    pk_backend_transaction_sync_targets (self, &error) &&
+@@ -118,7 +113,7 @@ pk_backend_download_packages_thread (PkBackend *self)
+ 	}
+ 
+ 	if (directory != NULL) {
+-		alpm_option_set_cachedirs (cachedirs);
++		alpm_option_set_cachedirs (alpm, cachedirs);
+ 	}
+ 
+ 	return pk_backend_transaction_finish (self, error);
+@@ -190,16 +185,17 @@ pk_backend_install_packages (PkBackend *self, gboolean only_trusted,
+ }
+ 
+ static gboolean
+-pk_backend_replaces_dependencies (PkBackend *self, pmpkg_t *pkg)
++pk_backend_replaces_dependencies (PkBackend *self, alpm_pkg_t *pkg)
+ {
+ 	const alpm_list_t *i, *replaces;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+ 	replaces = alpm_pkg_get_replaces (pkg);
+-	for (i = alpm_trans_get_remove (); i != NULL; i = i->next) {
+-		pmpkg_t *rpkg = (pmpkg_t *) i->data;
++	for (i = alpm_trans_get_remove (alpm); i != NULL; i = i->next) {
++		alpm_pkg_t *rpkg = (alpm_pkg_t *) i->data;
+ 		const gchar *rname = alpm_pkg_get_name (rpkg);
+ 
+ 		if (pk_backend_cancelled (self)) {
+@@ -208,7 +204,7 @@ pk_backend_replaces_dependencies (PkBackend *self, pmpkg_t *pkg)
+ 			continue;
+ 		}
+ 
+-		if (alpm_pkg_get_reason (rpkg) == PM_PKG_REASON_EXPLICIT) {
++		if (alpm_pkg_get_reason (rpkg) == ALPM_PKG_REASON_EXPLICIT) {
+ 			return FALSE;
+ 		}
+ 	}
+@@ -224,6 +220,7 @@ pk_backend_update_packages_thread (PkBackend *self)
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (localdb != NULL, FALSE);
+ 
+ 	if (!pk_backend_transaction_initialize (self, 0, &error) ||
+@@ -233,8 +230,8 @@ pk_backend_update_packages_thread (PkBackend *self)
+ 	}
+ 
+ 	/* change the install reason of packages that replace dependencies */
+-	for (i = alpm_trans_get_add (); i != NULL; i = i->next) {
+-		pmpkg_t *pkg = (pmpkg_t *) i->data;
++	for (i = alpm_trans_get_add (alpm); i != NULL; i = i->next) {
++		alpm_pkg_t *pkg = (alpm_pkg_t *) i->data;
+ 		const gchar *name = alpm_pkg_get_name (pkg);
+ 
+ 		if (pk_backend_cancelled (self)) {
+@@ -254,7 +251,8 @@ pk_backend_update_packages_thread (PkBackend *self)
+ 
+ 	for (i = asdeps; i != NULL; i = i->next) {
+ 		const gchar *name = (const gchar *) i->data;
+-		alpm_db_set_pkgreason (localdb, name, PM_PKG_REASON_DEPEND);
++		alpm_pkg_t *pkg = alpm_db_get_pkg (localdb, name);
++		alpm_db_set_pkgreason (alpm, pkg, ALPM_PKG_REASON_DEPEND);
+ 	}
+ 
+ out:
+diff --git a/backends/alpm/pk-backend-transaction.c b/backends/alpm/pk-backend-transaction.c
+index fdb840e..f812766 100644
+--- a/backends/alpm/pk-backend-transaction.c
++++ b/backends/alpm/pk-backend-transaction.c
+@@ -29,10 +29,10 @@
+ static off_t dcomplete = 0;
+ static off_t dtotal = 0;
+ 
+-static pmpkg_t *dpkg = NULL;
++static alpm_pkg_t *dpkg = NULL;
+ static GString *dfiles = NULL;
+ 
+-static pmpkg_t *tpkg = NULL;
++static alpm_pkg_t *tpkg = NULL;
+ static GString *toutput = NULL;
+ 
+ static gchar *
+@@ -51,25 +51,26 @@ pk_backend_resolve_path (PkBackend *self, const gchar *basename)
+ }
+ 
+ static gboolean
+-alpm_pkg_has_basename (pmpkg_t *pkg, const gchar *basename)
++alpm_pkg_has_basename (alpm_pkg_t *pkg, const gchar *basename)
+ {
+ 	const alpm_list_t *i;
+ 
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 	g_return_val_if_fail (basename != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+ 	if (g_strcmp0 (alpm_pkg_get_filename (pkg), basename) == 0) {
+ 		return TRUE;
+ 	}
+ 
+-	if (alpm_option_get_usedelta () == 0) {
++	if (alpm_option_get_usedelta (alpm) == 0) {
+ 		return FALSE;
+ 	}
+ 
+ 	for (i = alpm_pkg_get_deltas (pkg); i != NULL; i = i->next) {
+-		const gchar *patch = alpm_delta_get_filename (i->data);
++		alpm_delta_t *delta = (alpm_delta_t *) i->data;
+ 
+-		if (g_strcmp0 (patch, basename) == 0) {
++		if (g_strcmp0 (delta->delta, basename) == 0) {
+ 			return TRUE;
+ 		}
+ 	}
+@@ -109,6 +110,7 @@ pk_backend_transaction_download_start (PkBackend *self, const gchar *basename)
+ 
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (basename != NULL);
++	g_return_if_fail (alpm != NULL);
+ 
+ 	/* continue or finish downloading the current package */
+ 	if (dpkg != NULL) {
+@@ -127,8 +129,8 @@ pk_backend_transaction_download_start (PkBackend *self, const gchar *basename)
+ 	}
+ 
+ 	/* figure out what the next package is */
+-	for (i = alpm_trans_get_add (); i != NULL; i = i->next) {
+-		pmpkg_t *pkg = (pmpkg_t *) i->data;
++	for (i = alpm_trans_get_add (alpm); i != NULL; i = i->next) {
++		alpm_pkg_t *pkg = (alpm_pkg_t *) i->data;
+ 
+ 		if (alpm_pkg_has_basename (pkg, basename)) {
+ 			dpkg = pkg;
+@@ -202,16 +204,17 @@ pk_backend_transaction_dlcb (const gchar *basename, off_t complete, off_t total)
+ }
+ 
+ static void
+-pk_backend_transaction_progress_cb (pmtransprog_t type, const gchar *target,
++pk_backend_transaction_progress_cb (alpm_progress_t type, const gchar *target,
+ 				    gint percent, gsize targets, gsize current)
+ {
+ 	static gint recent = 101;
+ 	gsize overall = percent + (current - 1) * 100;
+ 
+ 	/* TODO: revert when fixed upstream */
+-	if (type == PM_TRANS_PROGRESS_CONFLICTS_START ||
+-	    type == PM_TRANS_PROGRESS_DISKSPACE_START ||
+-	    type == PM_TRANS_PROGRESS_INTEGRITY_START) {
++	if (type == ALPM_PROGRESS_CONFLICTS_START ||
++	    type == ALPM_PROGRESS_DISKSPACE_START ||
++	    type == ALPM_PROGRESS_INTEGRITY_START ||
++	    type == ALPM_PROGRESS_LOAD_START) {
+ 		if (current < targets) {
+ 			overall = percent + current++ * 100;
+ 		}
+@@ -228,12 +231,13 @@ pk_backend_transaction_progress_cb (pmtransprog_t type, const gchar *target,
+ 
+ 	/* update transaction progress */
+ 	switch (type) {
+-		case PM_TRANS_PROGRESS_ADD_START:
+-		case PM_TRANS_PROGRESS_UPGRADE_START:
+-		case PM_TRANS_PROGRESS_REMOVE_START:
+-		case PM_TRANS_PROGRESS_CONFLICTS_START:
+-		case PM_TRANS_PROGRESS_DISKSPACE_START:
+-		case PM_TRANS_PROGRESS_INTEGRITY_START:
++		case ALPM_PROGRESS_ADD_START:
++		case ALPM_PROGRESS_UPGRADE_START:
++		case ALPM_PROGRESS_REMOVE_START:
++		case ALPM_PROGRESS_CONFLICTS_START:
++		case ALPM_PROGRESS_DISKSPACE_START:
++		case ALPM_PROGRESS_INTEGRITY_START:
++		case ALPM_PROGRESS_LOAD_START:
+ 			if (percent == recent) {
+ 				break;
+ 			}
+@@ -253,7 +257,7 @@ pk_backend_transaction_progress_cb (pmtransprog_t type, const gchar *target,
+ }
+ 
+ static void
+-pk_backend_install_ignorepkg (PkBackend *self, pmpkg_t *pkg, gint *result)
++pk_backend_install_ignorepkg (PkBackend *self, alpm_pkg_t *pkg, gint *result)
+ {
+ 	gchar *output;
+ 
+@@ -280,50 +284,52 @@ pk_backend_install_ignorepkg (PkBackend *self, pmpkg_t *pkg, gint *result)
+ }
+ 
+ static void
+-pk_backend_select_provider (PkBackend *self, pmdepend_t *dep,
++pk_backend_select_provider (PkBackend *self, alpm_depend_t *depend,
+ 			    const alpm_list_t *providers)
+ {
+ 	gchar *output;
+ 
+ 	g_return_if_fail (self != NULL);
+-	g_return_if_fail (dep != NULL);
++	g_return_if_fail (depend != NULL);
+ 	g_return_if_fail (providers != NULL);
+ 
+ 	output = g_strdup_printf ("provider package was selected "
+ 				  "(%s provides %s)\n",
+ 				  alpm_pkg_get_name (providers->data),
+-				  alpm_dep_get_name (dep));
++				  depend->name);
+ 	pk_backend_output (self, output);
+ 	g_free (output);
+ }
+ 
+ static void
+-pk_backend_transaction_conv_cb (pmtransconv_t question, gpointer data1,
++pk_backend_transaction_conv_cb (alpm_question_t question, gpointer data1,
+ 				gpointer data2, gpointer data3, gint *result)
+ {
+ 	g_return_if_fail (result != NULL);
+ 	g_return_if_fail (backend != NULL);
+ 
+ 	switch (question) {
+-		case PM_TRANS_CONV_INSTALL_IGNOREPKG:
++		case ALPM_QUESTION_INSTALL_IGNOREPKG:
+ 			pk_backend_install_ignorepkg (backend, data1, result);
+ 			break;
+ 
+-		case PM_TRANS_CONV_REPLACE_PKG:
+-		case PM_TRANS_CONV_CONFLICT_PKG:
+-		case PM_TRANS_CONV_CORRUPTED_PKG:
+-		case PM_TRANS_CONV_LOCAL_NEWER:
++		case ALPM_QUESTION_REPLACE_PKG:
++		case ALPM_QUESTION_CONFLICT_PKG:
++		case ALPM_QUESTION_CORRUPTED_PKG:
++		case ALPM_QUESTION_LOCAL_NEWER:
+ 			/* these actions are mostly harmless */
+ 			g_debug ("safe question %d", question);
+ 			*result = 1;
+ 			break;
+ 
+-		case PM_TRANS_CONV_REMOVE_PKGS:
++		case ALPM_QUESTION_REMOVE_PKGS:
++		/* TODO: handle keys better */
++		case ALPM_QUESTION_IMPORT_KEY:
+ 			g_debug ("unsafe question %d", question);
+ 			*result = 0;
+ 			break;
+ 
+-		case PM_TRANS_CONV_SELECT_PROVIDER:
++		case ALPM_QUESTION_SELECT_PROVIDER:
+ 			pk_backend_select_provider (backend, data1, data2);
+ 			*result = 0;
+ 			break;
+@@ -349,7 +355,7 @@ pk_backend_output_end (PkBackend *self)
+ }
+ 
+ static void
+-pk_backend_output_start (PkBackend *self, pmpkg_t *pkg)
++pk_backend_output_start (PkBackend *self, alpm_pkg_t *pkg)
+ {
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (pkg != NULL);
+@@ -398,7 +404,7 @@ pk_backend_transaction_test_commit (PkBackend *self)
+ }
+ 
+ static void
+-pk_backend_transaction_add_start (PkBackend *self, pmpkg_t *pkg)
++pk_backend_transaction_add_start (PkBackend *self, alpm_pkg_t *pkg)
+ {
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (pkg != NULL);
+@@ -409,18 +415,19 @@ pk_backend_transaction_add_start (PkBackend *self, pmpkg_t *pkg)
+ }
+ 
+ static void
+-pk_backend_transaction_add_done (PkBackend *self, pmpkg_t *pkg)
++pk_backend_transaction_add_done (PkBackend *self, alpm_pkg_t *pkg)
+ {
+ 	const gchar *name, *version;
+ 	const alpm_list_t *i, *optdepends;
+ 
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (pkg != NULL);
++	g_return_if_fail (alpm != NULL);
+ 
+ 	name = alpm_pkg_get_name (pkg);
+ 	version = alpm_pkg_get_version (pkg);
+ 
+-	alpm_logaction ("installed %s (%s)\n", name, version);
++	alpm_logaction (alpm, "installed %s (%s)\n", name, version);
+ 	pk_backend_pkg (self, pkg, PK_INFO_ENUM_FINISHED);
  
  	optdepends = alpm_pkg_get_optdepends (pkg);
- 	if (optdepends != NULL) {
--		GString *depends = g_string_new ("");
--
--		g_string_append_printf (depends,
--					"Optional dependencies for %s:\n",
--					name);
-+		pk_backend_output (self, "Optional dependencies:\n");
- 
- 		for (i = optdepends; i != NULL; i = i->next) {
--			g_string_append_printf (depends, "%s\n",
--						(const gchar *) i->data);
-+			const gchar *depend = i->data;
-+			gchar *output = g_strdup_printf ("%s\n", depend);
-+			pk_backend_output (self, output);
-+			g_free (output);
- 		}
--
--		pk_backend_output (self, depends->str);
--		g_string_free (depends, TRUE);
- 	}
-+	pk_backend_output_end (self);
+@@ -438,7 +445,7 @@ pk_backend_transaction_add_done (PkBackend *self, pmpkg_t *pkg)
  }
  
  static void
-@@ -398,6 +445,7 @@ pk_backend_transaction_remove_start (PkBackend *self, pmpkg_t *pkg)
- 
- 	pk_backend_set_status (self, PK_STATUS_ENUM_REMOVE);
- 	pk_backend_pkg (self, pkg, PK_INFO_ENUM_REMOVING);
-+	pk_backend_output_start (self, pkg);
+-pk_backend_transaction_remove_start (PkBackend *self, pmpkg_t *pkg)
++pk_backend_transaction_remove_start (PkBackend *self, alpm_pkg_t *pkg)
+ {
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (pkg != NULL);
+@@ -449,24 +456,25 @@ pk_backend_transaction_remove_start (PkBackend *self, pmpkg_t *pkg)
  }
  
  static void
-@@ -413,6 +461,7 @@ pk_backend_transaction_remove_done (PkBackend *self, pmpkg_t *pkg)
+-pk_backend_transaction_remove_done (PkBackend *self, pmpkg_t *pkg)
++pk_backend_transaction_remove_done (PkBackend *self, alpm_pkg_t *pkg)
+ {
+ 	const gchar *name, *version;
  
- 	alpm_logaction ("removed %s (%s)\n", name, version);
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (pkg != NULL);
++	g_return_if_fail (alpm != NULL);
+ 
+ 	name = alpm_pkg_get_name (pkg);
+ 	version = alpm_pkg_get_version (pkg);
+ 
+-	alpm_logaction ("removed %s (%s)\n", name, version);
++	alpm_logaction (alpm, "removed %s (%s)\n", name, version);
  	pk_backend_pkg (self, pkg, PK_INFO_ENUM_FINISHED);
-+	pk_backend_output_end (self);
+ 	pk_backend_output_end (self);
  }
  
  static void
-@@ -438,6 +487,7 @@ pk_backend_transaction_upgrade_start (PkBackend *self, pmpkg_t *pkg,
- 
- 	pk_backend_set_status (self, state);
- 	pk_backend_pkg (self, pkg, info);
-+	pk_backend_output_start (self, pkg);
+-pk_backend_transaction_upgrade_start (PkBackend *self, pmpkg_t *pkg,
+-				      pmpkg_t *old)
++pk_backend_transaction_upgrade_start (PkBackend *self, alpm_pkg_t *pkg,
++				      alpm_pkg_t *old)
+ {
+ 	PkRoleEnum role;
+ 	PkStatusEnum state;
+@@ -491,8 +499,8 @@ pk_backend_transaction_upgrade_start (PkBackend *self, pmpkg_t *pkg,
  }
  
  static void
-@@ -463,22 +513,18 @@ pk_backend_transaction_upgrade_done (PkBackend *self, pmpkg_t *pkg,
- 				     alpm_pkg_get_optdepends (old),
- 				     (alpm_list_fn_cmp) g_strcmp0);
- 	if (optdepends != NULL) {
--		GString *depends = g_string_new ("");
--
--		g_string_append_printf (depends,
--					"New optional dependencies for %s\n",
--					name);
-+		pk_backend_output (self, "New optional dependencies:\n");
+-pk_backend_transaction_upgrade_done (PkBackend *self, pmpkg_t *pkg,
+-				     pmpkg_t *old)
++pk_backend_transaction_upgrade_done (PkBackend *self, alpm_pkg_t *pkg,
++				     alpm_pkg_t *old)
+ {
+ 	const gchar *name, *pre, *post;
+ 	const alpm_list_t *i;
+@@ -501,12 +509,13 @@ pk_backend_transaction_upgrade_done (PkBackend *self, pmpkg_t *pkg,
+ 	g_return_if_fail (self != NULL);
+ 	g_return_if_fail (pkg != NULL);
+ 	g_return_if_fail (old != NULL);
++	g_return_if_fail (alpm != NULL);
  
- 		for (i = optdepends; i != NULL; i = i->next) {
--			g_string_append_printf (depends, "%s\n",
--						(const gchar *) i->data);
-+			const gchar *depend = i->data;
-+			gchar *output = g_strdup_printf ("%s\n", depend);
-+			pk_backend_output (self, output);
-+			g_free (output);
- 		}
+ 	name = alpm_pkg_get_name (pkg);
+ 	pre = alpm_pkg_get_version (old);
+ 	post = alpm_pkg_get_version (pkg);
  
--		pk_backend_output (self, depends->str);
--
--		g_string_free (depends, TRUE);
- 		alpm_list_free (optdepends);
- 	}
-+	pk_backend_output_end (self);
+-	alpm_logaction ("upgraded %s (%s -> %s)\n", name, pre, post);
++	alpm_logaction (alpm, "upgraded %s (%s -> %s)\n", name, pre, post);
+ 	pk_backend_pkg (self, pkg, PK_INFO_ENUM_FINISHED);
+ 
+ 	optdepends = alpm_list_diff (alpm_pkg_get_optdepends (pkg),
+@@ -528,53 +537,65 @@ pk_backend_transaction_upgrade_done (PkBackend *self, pmpkg_t *pkg,
  }
  
  static void
-@@ -896,6 +942,13 @@ pk_backend_transaction_end (PkBackend *self, GError **error)
- 	alpm_option_set_dlcb (NULL);
- 	alpm_option_set_totaldlcb (NULL);
- 
-+	if (dpkg != NULL) {
-+		pk_backend_transaction_download_end (self);
-+	}
-+	if (tpkg != NULL) {
-+		pk_backend_output_end (self);
-+	}
+-pk_backend_transaction_event_cb (pmtransevt_t event, gpointer data,
++pk_backend_transaction_setup (PkBackend *self)
++{
++	g_return_if_fail (self != NULL);
 +
- 	if (alpm_trans_release () < 0) {
- 		g_set_error_literal (error, ALPM_ERROR, pm_errno,
- 				     alpm_strerrorlast ());
++	pk_backend_set_status (self, PK_STATUS_ENUM_SETUP);
++}
++
++static void
++pk_backend_transaction_event_cb (alpm_event_t event, gpointer data,
+ 				 gpointer old)
+ {
+ 	g_return_if_fail (backend != NULL);
+ 
+ 	/* figure out the backend status and package info */
+ 	switch (event) {
+-		case PM_TRANS_EVT_CHECKDEPS_START:
+-		case PM_TRANS_EVT_RESOLVEDEPS_START:
++		case ALPM_EVENT_CHECKDEPS_START:
++		case ALPM_EVENT_RESOLVEDEPS_START:
+ 			pk_backend_transaction_dep_resolve (backend);
+ 			break;
+ 
+-		case PM_TRANS_EVT_FILECONFLICTS_START:
+-		case PM_TRANS_EVT_INTERCONFLICTS_START:
+-		case PM_TRANS_EVT_INTEGRITY_START:
+-		case PM_TRANS_EVT_DELTA_INTEGRITY_START:
+-		case PM_TRANS_EVT_DISKSPACE_START:
++		case ALPM_EVENT_FILECONFLICTS_START:
++		case ALPM_EVENT_INTERCONFLICTS_START:
++		case ALPM_EVENT_INTEGRITY_START:
++		case ALPM_EVENT_DELTA_INTEGRITY_START:
++		case ALPM_EVENT_DISKSPACE_START:
+ 			pk_backend_transaction_test_commit (backend);
+ 			break;
+ 
+-		case PM_TRANS_EVT_ADD_START:
++		case ALPM_EVENT_ADD_START:
+ 			pk_backend_transaction_add_start (backend, data);
+ 			break;
+ 
+-		case PM_TRANS_EVT_ADD_DONE:
++		case ALPM_EVENT_ADD_DONE:
+ 			pk_backend_transaction_add_done (backend, data);
+ 			break;
+ 
+-		case PM_TRANS_EVT_REMOVE_START:
++		case ALPM_EVENT_REMOVE_START:
+ 			pk_backend_transaction_remove_start (backend, data);
+ 			break;
+ 
+-		case PM_TRANS_EVT_REMOVE_DONE:
++		case ALPM_EVENT_REMOVE_DONE:
+ 			pk_backend_transaction_remove_done (backend, data);
+ 			break;
+ 
+-		case PM_TRANS_EVT_UPGRADE_START:
++		case ALPM_EVENT_UPGRADE_START:
+ 			pk_backend_transaction_upgrade_start (backend, data,
+ 							      old);
+ 			break;
+ 
+-		case PM_TRANS_EVT_UPGRADE_DONE:
++		case ALPM_EVENT_UPGRADE_DONE:
+ 			pk_backend_transaction_upgrade_done (backend, data,
+ 							     old);
+ 			break;
+ 
+-		case PM_TRANS_EVT_SCRIPTLET_INFO:
++		case ALPM_EVENT_LOAD_START:
++			pk_backend_transaction_setup (backend);
++			break;
++
++		case ALPM_EVENT_SCRIPTLET_INFO:
+ 			pk_backend_output (backend, data);
+ 			break;
+ 
+@@ -588,27 +609,32 @@ static void
+ transaction_cancelled_cb (GCancellable *object, gpointer data)
+ {
+ 	g_return_if_fail (data != NULL);
++	g_return_if_fail (alpm != NULL);
+ 
+-	alpm_trans_interrupt ();
++	alpm_trans_interrupt (alpm);
+ }
+ 
+ gboolean
+-pk_backend_transaction_initialize (PkBackend *self, pmtransflag_t flags,
++pk_backend_transaction_initialize (PkBackend *self, alpm_transflag_t flags,
+ 				   GError **error)
+ {
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (cancellable != NULL, FALSE);
+ 
+-	if (alpm_trans_init (flags, pk_backend_transaction_event_cb,
+-			     pk_backend_transaction_conv_cb,
+-			     pk_backend_transaction_progress_cb) < 0) {
+-		g_set_error_literal (error, ALPM_ERROR, pm_errno,
+-				     alpm_strerrorlast ());
++	if (alpm_trans_init (alpm, flags) < 0) {
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error_literal (error, ALPM_ERROR, errno,
++				     alpm_strerror (errno));
+ 		return FALSE;
+ 	}
+ 
+-	alpm_option_set_dlcb (pk_backend_transaction_dlcb);
+-	alpm_option_set_totaldlcb (pk_backend_transaction_totaldlcb);
++	alpm_option_set_eventcb (alpm, pk_backend_transaction_event_cb);
++	alpm_option_set_questioncb (alpm, pk_backend_transaction_conv_cb);
++	alpm_option_set_progresscb (alpm, pk_backend_transaction_progress_cb);
++
++	alpm_option_set_dlcb (alpm, pk_backend_transaction_dlcb);
++	alpm_option_set_totaldlcb (alpm, pk_backend_transaction_totaldlcb);
+ 
+ 	g_cancellable_connect (cancellable,
+ 			       G_CALLBACK (transaction_cancelled_cb),
+@@ -649,10 +675,11 @@ alpm_miss_build_list (const alpm_list_t *i)
+ 	}
+ 
+ 	for (; i != NULL; i = i->next) {
+-		pmdepend_t *dep = alpm_miss_get_dep (i->data);
+-		gchar *depend = alpm_dep_compute_string (dep);
++		alpm_depmissing_t *miss = (alpm_depmissing_t *) i->data;
++		gchar *depend = alpm_dep_compute_string (miss->depend);
++
+ 		g_string_append_printf (list, "%s <- %s, ", depend,
+-					alpm_miss_get_target (i->data));
++					miss->target);
+ 		free (depend);
+ 	}
+ 
+@@ -661,25 +688,21 @@ alpm_miss_build_list (const alpm_list_t *i)
+ }
+ 
+ static void
+-alpm_dep_free (gpointer dep)
++alpm_depend_free (alpm_depend_t *depend)
+ {
+-	/* TODO: remove when implemented in libalpm */
+-	free ((gpointer) alpm_dep_get_name (dep));
+-	free ((gpointer) alpm_dep_get_version (dep));
+-	free (dep);
++	free (depend->name);
++	free (depend->version);
++	free (depend);
+ }
+ 
+ static void
+-alpm_miss_free (gpointer miss)
++alpm_depmissing_free (gpointer miss)
+ {
+-	/* TODO: remove when implemented in libalpm */
+-	const gchar *temp = alpm_miss_get_causingpkg (miss);
+-	if (temp != NULL) {
+-		free ((gpointer) temp);
+-	}
++	alpm_depmissing_t *self = (alpm_depmissing_t *) miss;
+ 
+-	free ((gpointer) alpm_miss_get_target (miss));
+-	alpm_dep_free (alpm_miss_get_dep (miss));
++	free (self->target);
++	alpm_depend_free (self->depend);
++	free (self->causingpkg);
+ 	free (miss);
+ }
+ 
+@@ -695,17 +718,20 @@ alpm_conflict_build_list (const alpm_list_t *i)
+ 	}
+ 
+ 	for (; i != NULL; i = i->next) {
+-		const gchar *first = alpm_conflict_get_package1 (i->data);
+-		const gchar *second = alpm_conflict_get_package2 (i->data);
+-		const gchar *reason = alpm_conflict_get_reason (i->data);
++		alpm_conflict_t *conflict = (alpm_conflict_t *) i->data;
++		alpm_depend_t *depend = conflict->reason;
+ 
+-		if (g_strcmp0 (first, reason) == 0 ||
+-		    g_strcmp0 (second, reason) == 0) {
+-			g_string_append_printf (list, "%s <-> %s, ", first,
+-						second);
++		if (g_strcmp0 (conflict->package1, depend->name) == 0 ||
++		    g_strcmp0 (conflict->package2, depend->name) == 0) {
++			g_string_append_printf (list, "%s <-> %s, ",
++						conflict->package1,
++						conflict->package2);
+ 		} else {
+-			g_string_append_printf (list, "%s <-> %s (%s), ", first,
+-						second, reason);
++			gchar *reason = alpm_dep_compute_string (depend);
++			g_string_append_printf (list, "%s <-> %s (%s), ",
++						conflict->package1,
++						conflict->package2, reason);
++			g_free (reason);
+ 		}
+ 	}
+ 
+@@ -716,10 +742,10 @@ alpm_conflict_build_list (const alpm_list_t *i)
+ static void
+ alpm_conflict_free (gpointer conflict)
+ {
+-	/* TODO: remove when implemented in libalpm */
+-	free ((gpointer) alpm_conflict_get_package1 (conflict));
+-	free ((gpointer) alpm_conflict_get_package2 (conflict));
+-	free ((gpointer) alpm_conflict_get_reason (conflict));
++	alpm_conflict_t *self = (alpm_conflict_t *) conflict;
++
++	free (self->package1);
++	free (self->package2);
+ 	free (conflict);
+ }
+ 
+@@ -735,15 +761,17 @@ alpm_fileconflict_build_list (const alpm_list_t *i)
+ 	}
+ 
+ 	for (; i != NULL; i = i->next) {
+-		const gchar *target = alpm_fileconflict_get_target (i->data);
+-		const gchar *file = alpm_fileconflict_get_file (i->data);
+-		const gchar *ctarget = alpm_fileconflict_get_ctarget (i->data);
+-		if (*ctarget != '\0') {
++		alpm_fileconflict_t *conflict = (alpm_fileconflict_t *) i->data;
++
++		if (*conflict->ctarget != '\0') {
+ 			g_string_append_printf (list, "%s <-> %s (%s), ",
+-						target, ctarget, file);
++						conflict->target,
++						conflict->ctarget,
++						conflict->file);
+ 		} else {
+-			g_string_append_printf (list, "%s (%s), ", target,
+-						file);
++			g_string_append_printf (list, "%s (%s), ",
++						conflict->target,
++						conflict->file);
+ 		}
+ 	}
+ 
+@@ -754,14 +782,11 @@ alpm_fileconflict_build_list (const alpm_list_t *i)
+ static void
+ alpm_fileconflict_free (gpointer conflict)
+ {
+-	/* TODO: remove when implemented in libalpm */
+-	const gchar *temp = alpm_fileconflict_get_ctarget (conflict);
+-	if (*temp != '\0') {
+-		free ((gpointer) temp);
+-	}
++	alpm_fileconflict_t *self = (alpm_fileconflict_t *) conflict;
+ 
+-	free ((gpointer) alpm_fileconflict_get_target (conflict));
+-	free ((gpointer) alpm_fileconflict_get_file (conflict));
++	free (self->target);
++	free (self->file);
++	free (self->ctarget);
+ 	free (conflict);
+ }
+ 
+@@ -771,29 +796,32 @@ pk_backend_transaction_simulate (PkBackend *self, GError **error)
+ 	alpm_list_t *data = NULL;
+ 	gchar *prefix;
+ 
+-	if (alpm_trans_prepare (&data) >= 0) {
++	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
++
++	if (alpm_trans_prepare (alpm, &data) >= 0) {
+ 		return TRUE;
+ 	}
+ 
+-	switch (pm_errno) {
+-		case PM_ERR_PKG_INVALID_ARCH:
++	switch (alpm_errno (alpm)) {
++		case ALPM_ERR_PKG_INVALID_ARCH:
+ 			prefix = alpm_pkg_build_list (data);
+ 			alpm_list_free (data);
+ 			break;
+ 
+-		case PM_ERR_UNSATISFIED_DEPS:
++		case ALPM_ERR_UNSATISFIED_DEPS:
+ 			prefix = alpm_miss_build_list (data);
+-			alpm_list_free_inner (data, alpm_miss_free);
++			alpm_list_free_inner (data, alpm_depmissing_free);
+ 			alpm_list_free (data);
+ 			break;
+ 
+-		case PM_ERR_CONFLICTING_DEPS:
++		case ALPM_ERR_CONFLICTING_DEPS:
+ 			prefix = alpm_conflict_build_list (data);
+ 			alpm_list_free_inner (data, alpm_conflict_free);
+ 			alpm_list_free (data);
+ 			break;
+ 
+-		case PM_ERR_FILE_CONFLICTS:
++		case ALPM_ERR_FILE_CONFLICTS:
+ 			prefix = alpm_fileconflict_build_list (data);
+ 			alpm_list_free_inner (data, alpm_fileconflict_free);
+ 			alpm_list_free (data);
+@@ -802,18 +830,21 @@ pk_backend_transaction_simulate (PkBackend *self, GError **error)
+ 		default:
+ 			prefix = NULL;
+ 			if (data != NULL) {
+-				g_warning ("unhandled error %d", pm_errno);
++				g_warning ("unhandled error %d",
++					   alpm_errno (alpm));
+ 			}
+ 			break;
+ 	}
+ 
+ 	if (prefix != NULL) {
+-		g_set_error (error, ALPM_ERROR, pm_errno, "%s: %s", prefix,
+-			     alpm_strerrorlast ());
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error (error, ALPM_ERROR, errno, "%s: %s", prefix,
++			     alpm_strerror (errno));
+ 		g_free (prefix);
+ 	} else {
+-		g_set_error_literal (error, ALPM_ERROR, pm_errno,
+-				     alpm_strerrorlast ());
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error_literal (error, ALPM_ERROR, errno,
++				     alpm_strerror (errno));
+ 	}
+ 
+ 	return FALSE;
+@@ -826,10 +857,11 @@ pk_backend_transaction_packages (PkBackend *self)
+ 	PkInfoEnum info;
+ 
+ 	g_return_if_fail (self != NULL);
++	g_return_if_fail (alpm != NULL);
+ 	g_return_if_fail (localdb != NULL);
+ 
+ 	/* emit packages that would have been installed */
+-	for (i = alpm_trans_get_add (); i != NULL; i = i->next) {
++	for (i = alpm_trans_get_add (alpm); i != NULL; i = i->next) {
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
+ 		} else {
+@@ -856,7 +888,7 @@ pk_backend_transaction_packages (PkBackend *self)
+ 	}
+ 
+ 	/* emit packages that would have been removed */
+-	for (i = alpm_trans_get_remove (); i != NULL; i = i->next) {
++	for (i = alpm_trans_get_remove (alpm); i != NULL; i = i->next) {
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
+ 		} else {
+@@ -890,6 +922,9 @@ pk_backend_transaction_commit (PkBackend *self, GError **error)
+ 	alpm_list_t *data = NULL;
+ 	gchar *prefix;
+ 
++	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
++
+ 	if (pk_backend_cancelled (self)) {
+ 		return TRUE;
+ 	}
+@@ -897,19 +932,19 @@ pk_backend_transaction_commit (PkBackend *self, GError **error)
+ 	pk_backend_set_allow_cancel (self, FALSE);
+ 	pk_backend_set_status (self, PK_STATUS_ENUM_RUNNING);
+ 
+-	if (alpm_trans_commit (&data) >= 0) {
++	if (alpm_trans_commit (alpm, &data) >= 0) {
+ 		return TRUE;
+ 	}
+ 
+-	switch (pm_errno) {
+-		case PM_ERR_FILE_CONFLICTS:
++	switch (alpm_errno (alpm)) {
++		case ALPM_ERR_FILE_CONFLICTS:
+ 			prefix = alpm_fileconflict_build_list (data);
+ 			alpm_list_free_inner (data, alpm_fileconflict_free);
+ 			alpm_list_free (data);
+ 			break;
+ 
+-		case PM_ERR_PKG_INVALID:
+-		case PM_ERR_DLT_INVALID:
++		case ALPM_ERR_PKG_INVALID:
++		case ALPM_ERR_DLT_INVALID:
+ 			prefix = alpm_string_build_list (data);
+ 			alpm_list_free (data);
+ 			break;
+@@ -917,18 +952,21 @@ pk_backend_transaction_commit (PkBackend *self, GError **error)
+ 		default:
+ 			prefix = NULL;
+ 			if (data != NULL) {
+-				g_warning ("unhandled error %d", pm_errno);
++				g_warning ("unhandled error %d",
++					   alpm_errno (alpm));
+ 			}
+ 			break;
+ 	}
+ 
+ 	if (prefix != NULL) {
+-		g_set_error (error, ALPM_ERROR, pm_errno, "%s: %s", prefix,
+-			     alpm_strerrorlast ());
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error (error, ALPM_ERROR, errno, "%s: %s", prefix,
++			     alpm_strerror (errno));
+ 		g_free (prefix);
+ 	} else {
+-		g_set_error_literal (error, ALPM_ERROR, pm_errno,
+-				     alpm_strerrorlast ());
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error_literal (error, ALPM_ERROR, errno,
++				     alpm_strerror (errno));
+ 	}
+ 
+ 	return FALSE;
+@@ -938,9 +976,14 @@ gboolean
+ pk_backend_transaction_end (PkBackend *self, GError **error)
+ {
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
++
++	alpm_option_set_eventcb (alpm, NULL);
++	alpm_option_set_questioncb (alpm, NULL);
++	alpm_option_set_progresscb (alpm, NULL);
+ 
+-	alpm_option_set_dlcb (NULL);
+-	alpm_option_set_totaldlcb (NULL);
++	alpm_option_set_dlcb (alpm, NULL);
++	alpm_option_set_totaldlcb (alpm, NULL);
+ 
+ 	if (dpkg != NULL) {
+ 		pk_backend_transaction_download_end (self);
+@@ -949,9 +992,10 @@ pk_backend_transaction_end (PkBackend *self, GError **error)
+ 		pk_backend_output_end (self);
+ 	}
+ 
+-	if (alpm_trans_release () < 0) {
+-		g_set_error_literal (error, ALPM_ERROR, pm_errno,
+-				     alpm_strerrorlast ());
++	if (alpm_trans_release (alpm) < 0) {
++		enum _alpm_errno_t errno = alpm_errno (alpm);
++		g_set_error_literal (error, ALPM_ERROR, errno,
++				     alpm_strerror (errno));
+ 		return FALSE;
+ 	}
+ 
 diff --git a/backends/alpm/pk-backend-transaction.h b/backends/alpm/pk-backend-transaction.h
-index 7bc1af0..6bb1d69 100644
+index 6bb1d69..e3733d6 100644
 --- a/backends/alpm/pk-backend-transaction.h
 +++ b/backends/alpm/pk-backend-transaction.h
-@@ -41,3 +41,6 @@ gboolean	 pk_backend_transaction_end		(PkBackend *self,
+@@ -25,7 +25,7 @@
+ #include <pk-backend.h>
  
- gboolean	 pk_backend_transaction_finish		(PkBackend *self,
- 							 GError *error);
+ gboolean	 pk_backend_transaction_initialize	(PkBackend *self,
+-							 pmtransflag_t flags,
++							 alpm_transflag_t flags,
+ 							 GError **error);
+ 
+ gboolean	 pk_backend_transaction_simulate	(PkBackend *self,
+diff --git a/backends/alpm/pk-backend-update.c b/backends/alpm/pk-backend-update.c
+index a281953..37ade1e 100644
+--- a/backends/alpm/pk-backend-update.c
++++ b/backends/alpm/pk-backend-update.c
+@@ -34,7 +34,7 @@
+ #include "pk-backend-update.h"
+ 
+ static gchar *
+-alpm_pkg_build_replaces (pmpkg_t *pkg)
++alpm_pkg_build_replaces (alpm_pkg_t *pkg)
+ {
+ 	const alpm_list_t *i;
+ 	GString *string = NULL;
+@@ -44,7 +44,7 @@ alpm_pkg_build_replaces (pmpkg_t *pkg)
+ 
+ 	/* make a list of the packages that package replaces */
+ 	for (i = alpm_pkg_get_replaces (pkg); i != NULL; i = i->next) {
+-		pmpkg_t *replaces = alpm_db_get_pkg (localdb, i->data);
++		alpm_pkg_t *replaces = alpm_db_get_pkg (localdb, i->data);
+ 
+ 		if (replaces != NULL) {
+ 			gchar *package = alpm_pkg_build_id (replaces);
+@@ -65,7 +65,7 @@ alpm_pkg_build_replaces (pmpkg_t *pkg)
+ }
+ 
+ static gchar *
+-alpm_pkg_build_urls (pmpkg_t *pkg)
++alpm_pkg_build_urls (alpm_pkg_t *pkg)
+ {
+ 	GString *string = g_string_new ("");
+ #ifdef ALPM_PACKAGE_URL
+@@ -97,7 +97,7 @@ alpm_pkg_build_urls (pmpkg_t *pkg)
+ }
+ 
+ static gboolean
+-alpm_pkg_same_pkgver (pmpkg_t *a, pmpkg_t *b)
++alpm_pkg_same_pkgver (alpm_pkg_t *a, alpm_pkg_t *b)
+ {
+ 	const gchar *version_a, *version_b, *last_a, *last_b;
+ 	gsize length_a, length_b;
+@@ -145,8 +145,8 @@ pk_backend_get_update_detail_thread (PkBackend *self)
+ 
+ 	/* collect details about updates */
+ 	for (; *packages != NULL; ++packages) {
+-		pmpkg_t *pkg, *old;
+-		pmdb_t *db;
++		alpm_pkg_t *pkg, *old;
++		alpm_db_t *db;
+ 
+ 		gchar *upgrades, *replaces, *urls;
+ 		const gchar *reason;
+@@ -245,18 +245,19 @@ pk_backend_update_databases (PkBackend *self, gint force, GError **error) {
+ 	const alpm_list_t *i;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 
+ 	if (!pk_backend_transaction_initialize (self, 0, error)) {
+ 		return FALSE;
+ 	}
+ 
+-	alpm_logaction ("synchronizing package lists\n");
++	alpm_logaction (alpm, "synchronizing package lists\n");
+ 
+-	dlcb = alpm_option_get_dlcb ();
+-	totaldlcb = alpm_option_get_totaldlcb ();
++	dlcb = alpm_option_get_dlcb (alpm);
++	totaldlcb = alpm_option_get_totaldlcb (alpm);
+ 
+ 	/* set total size to minus the number of databases */
+-	i = alpm_option_get_syncdbs ();
++	i = alpm_option_get_syncdbs (alpm);
+ 	totaldlcb (-alpm_list_count (i));
+ 
+ 	for (; i != NULL; i = i->next) {
+@@ -274,9 +275,10 @@ pk_backend_update_databases (PkBackend *self, gint force, GError **error) {
+ 			/* fake the download when already up to date */
+ 			dlcb ("", 1, 1);
+ 		} else if (result < 0) {
+-			g_set_error (error, ALPM_ERROR, pm_errno, "[%s]: %s",
++			enum _alpm_errno_t errno = alpm_errno (alpm);
++			g_set_error (error, ALPM_ERROR, errno, "[%s]: %s",
+ 				     alpm_db_get_name (i->data),
+-				     alpm_strerrorlast ());
++				     alpm_strerror (errno));
+ 			break;
+ 		}
+ 	}
+@@ -292,20 +294,21 @@ pk_backend_update_databases (PkBackend *self, gint force, GError **error) {
+ }
+ 
+ static gboolean
+-alpm_pkg_is_ignorepkg (pmpkg_t *pkg)
++alpm_pkg_is_ignorepkg (alpm_pkg_t *pkg)
+ {
+-	const alpm_list_t *ignorepkgs, *ignoregrps, *i;
++	const alpm_list_t *ignorepkgs, *ignoregroups, *i;
+ 
+ 	g_return_val_if_fail (pkg != NULL, TRUE);
++	g_return_val_if_fail (alpm != NULL, TRUE);
+ 
+-	ignorepkgs = alpm_option_get_ignorepkgs ();
++	ignorepkgs = alpm_option_get_ignorepkgs (alpm);
+ 	if (alpm_list_find_str (ignorepkgs, alpm_pkg_get_name (pkg)) != NULL) {
+ 		return TRUE;
+ 	}
+ 
+-	ignoregrps = alpm_option_get_ignoregrps ();
++	ignoregroups = alpm_option_get_ignoregroups (alpm);
+ 	for (i = alpm_pkg_get_groups (pkg); i != NULL; i = i->next) {
+-		if (alpm_list_find_str (ignoregrps, i->data) != NULL) {
++		if (alpm_list_find_str (ignoregroups, i->data) != NULL) {
+ 			return TRUE;
+ 		}
+ 	}
+@@ -314,7 +317,7 @@ alpm_pkg_is_ignorepkg (pmpkg_t *pkg)
+ }
+ 
+ static gboolean
+-alpm_pkg_is_syncfirst (pmpkg_t *pkg)
++alpm_pkg_is_syncfirst (alpm_pkg_t *pkg)
+ {
+ 	g_return_val_if_fail (pkg != NULL, FALSE);
+ 
+@@ -325,8 +328,18 @@ alpm_pkg_is_syncfirst (pmpkg_t *pkg)
+ 	return FALSE;
+ }
+ 
+-static pmpkg_t *
+-alpm_pkg_find_update (pmpkg_t *pkg, const alpm_list_t *dbs)
++static gboolean
++alpm_pkg_replaces (alpm_pkg_t *pkg, const gchar *name)
++{
++	g_return_val_if_fail (pkg != NULL, FALSE);
++	g_return_val_if_fail (name != NULL, FALSE);
 +
-+void		 pk_backend_output			(PkBackend *self,
-+							 const gchar *output);
++	return alpm_list_find_str (alpm_pkg_get_replaces (pkg), name) != NULL;
++}
++
++
++static alpm_pkg_t *
++alpm_pkg_find_update (alpm_pkg_t *pkg, const alpm_list_t *dbs)
+ {
+ 	const gchar *name;
+ 	const alpm_list_t *i;
+@@ -336,7 +349,7 @@ alpm_pkg_find_update (pmpkg_t *pkg, const alpm_list_t *dbs)
+ 	name = alpm_pkg_get_name (pkg);
+ 
+ 	for (; dbs != NULL; dbs = dbs->next) {
+-		pmpkg_t *update = alpm_db_get_pkg (dbs->data, name);
++		alpm_pkg_t *update = alpm_db_get_pkg (dbs->data, name);
+ 
+ 		if (update != NULL) {
+ 			if (alpm_pkg_vercmp (alpm_pkg_get_version (update),
+@@ -349,8 +362,7 @@ alpm_pkg_find_update (pmpkg_t *pkg, const alpm_list_t *dbs)
+ 
+ 		i = alpm_db_get_pkgcache (dbs->data);
+ 		for (; i != NULL; i = i->next) {
+-			if (alpm_list_find_str (alpm_pkg_get_replaces (i->data),
+-						name) != NULL) {
++			if (alpm_pkg_replaces (i->data, name)) {
+ 				return i->data;
+ 			}
+ 		}
+@@ -367,6 +379,7 @@ pk_backend_get_updates_thread (PkBackend *self)
+ 	const alpm_list_t *i, *syncdbs;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
++	g_return_val_if_fail (alpm != NULL, FALSE);
+ 	g_return_val_if_fail (localdb != NULL, FALSE);
+ 
+ 	time (&one_hour_ago);
+@@ -385,9 +398,9 @@ pk_backend_get_updates_thread (PkBackend *self)
+ 	}
+ 
+ 	/* find outdated and replacement packages */
+-	syncdbs = alpm_option_get_syncdbs ();
++	syncdbs = alpm_option_get_syncdbs (alpm);
+ 	for (i = alpm_db_get_pkgcache (localdb); i != NULL; i = i->next) {
+-		pmpkg_t *upgrade = alpm_pkg_find_update (i->data, syncdbs);
++		alpm_pkg_t *upgrade = alpm_pkg_find_update (i->data, syncdbs);
+ 
+ 		if (pk_backend_cancelled (self)) {
+ 			break;
