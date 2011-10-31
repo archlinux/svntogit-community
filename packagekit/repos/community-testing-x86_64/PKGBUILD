@@ -1,0 +1,105 @@
+# $Id$
+# Maintainer: Jonathan Conder <jonno.conder@gmail.com>
+pkgbase='packagekit'
+pkgname=('packagekit' 'packagekit-qt' 'packagekit-qt2' 'packagekit-python')
+pkgver=0.6.19
+pkgrel=2
+pkgdesc="A system designed to make installation and updates of packages easier."
+arch=('i686' 'x86_64')
+url="http://www.packagekit.org"
+license=('GPL')
+makedepends=('dbus-glib' 'gobject-introspection' 'gtk-doc' 'intltool'
+             'networkmanager' 'pacman'  'pm-utils' 'polkit' 'python2' 'qt'
+	     'shared-mime-info' 'sqlite3' 'udev')
+options=('!libtool')
+source=("http://www.packagekit.org/releases/PackageKit-$pkgver.tar.xz"
+        'alpm.patch')
+sha256sums=('961c6408de08ebaf15c09e74afd06918d699be8974b5c35c2c9663e5b12b5223'
+            '5ae3330f28d98c2369fad2a1fb6f8c1edd95c096b8fb4f1b170de6e8b2b134d8')
+
+build() {
+  cd "$srcdir/PackageKit-$pkgver"
+
+  patch -Np1 -i "$srcdir/alpm.patch"
+
+  # TODO: remove when this is fixed upstream
+  find -name '*.moc' -print0 | xargs -0 rm
+
+  sed -i 's@SUBDIRS = test@SUBDIRS =@' 'backends/Makefile.in'
+  sed -i 's@python @python2 @' 'lib/python/packagekit/Makefile.in'
+  sed -i 's@bin/python@bin/python2@' 'lib/python/packagekit/'*.py
+
+  export PYTHON=/usr/bin/python2
+  ./configure --prefix=/usr \
+	      --sysconfdir=/etc \
+	      --localstatedir=/var \
+	      --libexecdir=/usr/lib/PackageKit \
+	      --disable-static \
+	      --disable-gtk-doc \
+	      --disable-tests \
+	      --disable-local \
+	      --disable-browser-plugin \
+	      --disable-gstreamer-plugin \
+	      --disable-gtk-module \
+	      --disable-command-not-found \
+	      --disable-cron \
+	      --disable-debuginfo-install \
+	      --enable-pm-utils \
+	      --disable-dummy \
+	      --enable-alpm \
+	      --with-default-backend=alpm
+  make -s
+}
+
+package_packagekit() {
+  backup=('var/lib/PackageKit/transactions.db'
+          'etc/PackageKit/alpm.d/pacman.conf'
+          'etc/PackageKit/alpm.d/repos.list')
+  depends=('dbus-glib' 'pacman>=4.0.0' 'pacman<4.1.0' 'polkit'
+           'shared-mime-info' 'sqlite3' 'udev')
+  optdepends=('networkmanager')
+  install='packagekit.install'
+
+  cd "$srcdir/PackageKit-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  rm -rf "$pkgdir/usr/include/PackageKit/packagekit-qt"*
+  rm -rf "$pkgdir/usr/lib/libpackagekit-qt"*
+  rm -rf "$pkgdir/usr/lib/pkgconfig/packagekit-qt"*
+  rm -rf "$pkgdir/usr/share/cmake"
+
+  rm -rf "$pkgdir/usr/lib/python"*
+  rm -rf "$pkgdir/usr/share/PackageKit/website"
+
+  mv "$pkgdir/etc/bash_completion.d/pk-completion.bash" \
+     "$pkgdir/etc/bash_completion.d/pkcon"
+  touch "$pkgdir/var/log/PackageKit"
+}
+
+package_packagekit-qt() {
+  depends=('packagekit' 'qt')
+  pkgdesc=('Qt bindings for PackageKit')
+
+  cd "$srcdir/PackageKit-$pkgver/lib/packagekit-qt"
+
+  make DESTDIR="$pkgdir" install
+}
+
+package_packagekit-qt2() {
+  depends=('packagekit' 'qt')
+  pkgdesc=('Qt bindings for PackageKit')
+
+  cd "$srcdir/PackageKit-$pkgver/lib/packagekit-qt2"
+
+  make DESTDIR="$pkgdir" install
+}
+
+package_packagekit-python() {
+  depends=('packagekit' 'python2')
+  pkgdesc=('Python bindings for PackageKit')
+
+  cd "$srcdir/PackageKit-$pkgver/lib/python"
+
+  make DESTDIR="$pkgdir" install
+}
