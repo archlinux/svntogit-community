@@ -1,0 +1,204 @@
+diff -u -Nr gnash-0.8.9/libmedia/ffmpeg/AudioDecoderFfmpeg.cpp gnash-0.8.9-ff/libmedia/ffmpeg/AudioDecoderFfmpeg.cpp
+--- gnash-0.8.9/libmedia/ffmpeg/AudioDecoderFfmpeg.cpp	2011-02-26 19:11:08.000000000 +0100
++++ gnash-0.8.9-ff/libmedia/ffmpeg/AudioDecoderFfmpeg.cpp	2011-10-31 17:25:56.057379760 +0100
+@@ -29,7 +29,7 @@
+ 
+ //#define GNASH_DEBUG_AUDIO_DECODING
+ 
+-#define AVCODEC_DECODE_AUDIO avcodec_decode_audio2
++#define AVCODEC_DECODE_AUDIO avcodec_decode_audio3
+ 
+ namespace gnash {
+ namespace media {
+@@ -549,8 +549,12 @@
+ #endif
+ 
+     // older ffmpeg versions didn't accept a const input..
++    AVPacket pkt;
++    av_init_packet(&pkt);
++    pkt.data = (uint8_t*) input;
++    pkt.size = inputSize;
+     int tmp = AVCODEC_DECODE_AUDIO(_audioCodecCtx, outPtr, &outSize,
+-                                   input, inputSize);
++                                   &pkt);
+ 
+ #ifdef GNASH_DEBUG_AUDIO_DECODING
+     log_debug(" avcodec_decode_audio[2](ctx, bufptr, %d, input, %d) "
+@@ -658,13 +662,13 @@
+ {
+     if ( _needsParsing )
+     {
+-        return av_parser_parse(_parser, _audioCodecCtx,
++        return av_parser_parse2(_parser, _audioCodecCtx,
+                     // as of 2008-10-28 SVN, ffmpeg doesn't
+                     // accept a pointer to pointer to const..
+                     const_cast<boost::uint8_t**>(outFrame),
+                     outFrameSize,
+                     input, inputSize,
+-                    0, 0); // pts & dts
++                    0, 0, AV_NOPTS_VALUE); // pts & dts
+     }
+     else
+     {
+diff -u -Nr gnash-0.8.9/libmedia/ffmpeg/AudioResamplerFfmpeg.cpp gnash-0.8.9-ff/libmedia/ffmpeg/AudioResamplerFfmpeg.cpp
+--- gnash-0.8.9/libmedia/ffmpeg/AudioResamplerFfmpeg.cpp	2011-02-26 19:11:08.000000000 +0100
++++ gnash-0.8.9-ff/libmedia/ffmpeg/AudioResamplerFfmpeg.cpp	2011-10-31 17:25:51.210668136 +0100
+@@ -46,8 +46,10 @@
+ {
+   if ( (ctx->sample_rate != 44100) || (ctx->channels != 2) ) {
+     if ( ! _context ) {
+-      _context = audio_resample_init( 
+-		2, ctx->channels, 44100, ctx->sample_rate 
++      _context = av_audio_resample_init( 
++		2, ctx->channels, 44100, ctx->sample_rate,
++		AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_S16,
++		16, 10, 0, 0.8
+ 	);
+     }
+ 
+diff -u -Nr gnash-0.8.9/libmedia/ffmpeg/MediaParserFfmpeg.cpp gnash-0.8.9-ff/libmedia/ffmpeg/MediaParserFfmpeg.cpp
+--- gnash-0.8.9/libmedia/ffmpeg/MediaParserFfmpeg.cpp	2011-03-13 17:47:36.000000000 +0100
++++ gnash-0.8.9-ff/libmedia/ffmpeg/MediaParserFfmpeg.cpp	2011-10-31 17:25:57.720728522 +0100
+@@ -387,7 +387,7 @@
+     
+     log_debug("Parsing FFMPEG media file: format:%s; nstreams:%d",
+         _inputFmt->name, _formatCtx->nb_streams);
+-    
++    /*
+     if ( _formatCtx->title[0] )
+         log_debug(_("  Title:'%s'"), _formatCtx->title);
+     if ( _formatCtx->author[0] )
+@@ -398,7 +398,7 @@
+         log_debug(_("  Comment:'%s'"), _formatCtx->comment);
+     if ( _formatCtx->album[0] )
+         log_debug(_("  Album:'%s'"), _formatCtx->album);
+-    
++    */
+     // Find first audio and video stream
+     for (unsigned int i = 0; i < static_cast<unsigned int>(_formatCtx->nb_streams); i++)
+ 	{
+@@ -415,7 +415,7 @@
+ 	    }
+ 	    
+ 	    switch (enc->codec_type) {
+-	    case CODEC_TYPE_AUDIO:
++	    case AVMEDIA_TYPE_AUDIO:
+ 		if (_audioStreamIndex < 0) {
+ 		    _audioStreamIndex = i;
+ 		    _audioStream = _formatCtx->streams[i];
+@@ -425,7 +425,7 @@
+ 		}
+ 		break;
+ 		
+-	    case CODEC_TYPE_VIDEO:
++	    case AVMEDIA_TYPE_VIDEO:
+ 		if (_videoStreamIndex < 0) {
+ 		    _videoStreamIndex = i;
+ 		    _videoStream = _formatCtx->streams[i];
+diff -u -Nr gnash-0.8.9/libmedia/ffmpeg/VideoDecoderFfmpeg.cpp gnash-0.8.9-ff/libmedia/ffmpeg/VideoDecoderFfmpeg.cpp
+--- gnash-0.8.9/libmedia/ffmpeg/VideoDecoderFfmpeg.cpp	2011-03-13 17:47:36.000000000 +0100
++++ gnash-0.8.9-ff/libmedia/ffmpeg/VideoDecoderFfmpeg.cpp	2011-10-31 17:25:54.590699488 +0100
+@@ -356,8 +356,12 @@
+ 
+     int bytes = 0;    
+     // no idea why avcodec_decode_video wants a non-const input...
+-    avcodec_decode_video(_videoCodecCtx->getContext(), frame, &bytes,
+-            input, input_size);
++    AVPacket pkt;
++    av_init_packet(&pkt);
++    pkt.data = (uint8_t*) input;
++    pkt.size = input_size;
++    avcodec_decode_video2(_videoCodecCtx->getContext(), frame, &bytes,
++            &pkt);
+     
+     if (!bytes) {
+         log_error("Decoding of a video frame failed");
+diff -u -Nr gnash-0.8.9/macros/ffmpeg.m4 gnash-0.8.9-ff/macros/ffmpeg.m4
+--- gnash-0.8.9/macros/ffmpeg.m4	2011-02-26 19:11:08.000000000 +0100
++++ gnash-0.8.9-ff/macros/ffmpeg.m4	2011-10-31 17:25:49.700654130 +0100
+@@ -22,6 +22,7 @@
+   backupLIBS="$LIBS"
+   backupCFLAGS="$CFLAGS"
+   avcodec_h=""
++  avcodec_version_h=""
+   ffmpeg_top_incl=""
+ 
+   dnl If the user specify an path to include headers from, we assume it's the full
+@@ -46,6 +47,9 @@
+       else
+         AC_MSG_ERROR([${with_ffmpeg_incl} directory does not contain the avcodec.h header])
+       fi
++      if test -f ${with_ffmpeg_incl}/version.h; then
++        avcodec_version_h=${with_ffmpeg_incl}/version.h
++      fi
+     fi
+   ])
+ 
+@@ -66,6 +70,9 @@
+           if test -f ${ffmpeg_top_incl}/${i}/avcodec.h; then
+             ac_cv_path_ffmpeg_incl="-I`(cd ${ffmpeg_top_incl}; pwd)`"
+             avcodec_h="${ffmpeg_top_incl}/${i}/avcodec.h"
++            if test -f ${ffmpeg_top_incl}/${i}/version.h; then
++              avcodec_version_h=${ffmpeg_top_incl}/${i}/version.h
++            fi
+             break
+           fi
+         done
+@@ -83,6 +90,9 @@
+         if test -f ${ffmpeg_top_incl}/${i}/avcodec.h; then
+           ac_cv_path_ffmpeg_incl="-I`(cd ${ffmpeg_top_incl}/${i}; pwd)`"
+           avcodec_h=${ffmpeg_top_incl}/${i}/avcodec.h
++          if test -f ${ffmpeg_top_incl}/${i}/version.h; then
++            avcodec_version_h=${ffmpeg_top_incl}/${i}/version.h
++          fi
+           break
+         fi
+       done
+@@ -182,14 +192,24 @@
+   dnl a modified form of grepping may be better, making sure all old kinds of
+   dnl version numbering fail gracefully.
+ 
++  versionfile=""
++
+   dnl Check avcodec version number, if it was found
+-  if test x"${avcodec_h}" != x; then
++  if test x"${avcodec_version_h}" != x; then
++    versionfile=${avcodec_version_h}
++  else
++    if test x"${avcodec_h}" != x; then
++      versionfile=${avcodec_h}
++    fi
++  fi
++
++  if test x"${versionfile}" != x; then
+ 
+     AC_MSG_CHECKING([ffmpeg version])
+ 
+-    ffmpeg_major_version=`$EGREP "define LIBAVCODEC_VERSION_MAJOR " ${avcodec_h} | sed -e "s%[[^0-9]]%%g"`
+-    ffmpeg_minor_version=`$EGREP "define LIBAVCODEC_VERSION_MINOR " ${avcodec_h} | sed -e "s%[[^0-9]]%%g"`
+-    ffmpeg_micro_version=`$EGREP "define LIBAVCODEC_VERSION_MICRO " ${avcodec_h} | sed -e "s%[[^0-9]]%%g"`
++    ffmpeg_major_version=`$EGREP "define LIBAVCODEC_VERSION_MAJOR " ${versionfile} | sed -e "s%[[^0-9]]%%g"`
++    ffmpeg_minor_version=`$EGREP "define LIBAVCODEC_VERSION_MINOR " ${versionfile} | sed -e "s%[[^0-9]]%%g"`
++    ffmpeg_micro_version=`$EGREP "define LIBAVCODEC_VERSION_MICRO " ${versionfile} | sed -e "s%[[^0-9]]%%g"`
+ 
+     if test x"${ffmpeg_major_version}" != x ; then
+ 
+@@ -198,15 +218,15 @@
+     else
+ 
+       dnl #define LIBAVCODEC_VERSION_TRIPLET 51,50,1
+-      ffmpeg_version=`$EGREP "define LIBAVCODEC_VERSION_TRIPLET " ${avcodec_h} | awk '{print $'3'}' | sed -e "s%,%.%g"`
++      ffmpeg_version=`$EGREP "define LIBAVCODEC_VERSION_TRIPLET " ${versionfile} | awk '{print $'3'}' | sed -e "s%,%.%g"`
+ 
+       if test x"${ffmpeg_version}" = x ; then
+ 
+         dnl NOTE: the [0-9]*d. pattern discards deb-heads rubbish prefix
+-        ffmpeg_version=`$EGREP "define LIBAVCODEC_VERSION " ${avcodec_h} | awk '{print $'3'}' | sed -e "s%^[[0-9]]d\.%%"` 
++        ffmpeg_version=`$EGREP "define LIBAVCODEC_VERSION " ${versionfile} | awk '{print $'3'}' | sed -e "s%^[[0-9]]d\.%%"` 
+ 
+         if test x"${ffmpeg_version}" = x ; then
+-          ffmpeg_version=`$EGREP "define LIBAVCODEC_BUILD " ${avcodec_h} | awk '{print $'3'}'`
++          ffmpeg_version=`$EGREP "define LIBAVCODEC_BUILD " ${versionfile} | awk '{print $'3'}'`
+         fi
+       fi
+ 
