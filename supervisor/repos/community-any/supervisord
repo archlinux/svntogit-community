@@ -1,0 +1,71 @@
+#!/bin/bash
+
+. /etc/rc.conf
+. /etc/rc.d/functions
+
+PIDFILE=/var/run/supervisord.pid
+
+getPID() {
+	local PID
+	[ -f "$PIDFILE" ] || return
+	PID=$(cat "$PIDFILE" 2>/dev/null)
+	if [ -d "/proc/$PID" ]; then
+		echo $PID
+	else
+		rm -f "$PIDFILE" &>/dev/null
+	fi
+}
+
+case "$1" in
+	start)
+		stat_busy "Starting Supervisor Daemon"
+		if [ -z "$(getPID)" ]; then
+			/usr/bin/supervisord -j "$PIDFILE" -c /etc/supervisord.conf &> /dev/null
+			if [ $? -gt 0 ]; then
+				stat_fail
+				exit 1
+			else
+				add_daemon supervisord
+				stat_done
+			fi
+		else
+			stat_fail
+			exit 1
+		fi
+		;;
+
+	stop)
+		stat_busy "Stopping Supervisor Daemon"
+		if [ ! -z "$(getPID)" ]; then
+			timeo=30
+			kill $(getPID) &> /dev/null
+			if [ $? -gt 0 ]; then
+				stat_fail
+				exit 1
+			fi
+			while [ ! -z "$(getPID)" -a $timeo -gt 0 ]; do
+				sleep 1
+				let timeo=${timeo}-1
+			done
+			if [ -z "$(getPID)" ]; then
+				rm_daemon supervisor
+				stat_done
+			else
+				stat_fail
+				exit 1
+			fi
+		else
+			stat_fail
+			exit 1
+		fi
+		;;
+
+	restart)
+		$0 stop
+		$0 start
+		;;
+
+	*)
+		echo "usage: $0 {start|stop|restart}"
+esac
+exit 0
