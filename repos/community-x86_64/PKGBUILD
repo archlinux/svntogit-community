@@ -1,28 +1,27 @@
 # $Id$
 #Maintainer: Ionut Biru <ibiru@archlinux.org>
 pkgbase=virtualbox
-pkgname=('virtualbox' 'virtualbox-archlinux-additions' 'virtualbox-archlinux-modules' 'virtualbox-sdk')
-pkgver=4.1.4
+pkgname=('virtualbox' 'virtualbox-archlinux-additions' 'virtualbox-sdk' 'virtualbox-source')
+pkgver=4.1.6
 pkgrel=2
 arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
-makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2' 'libxcursor' 'qt' 'libidl2' 'sdl_ttf' 'alsa-lib' 'libpulse' 'libxtst'
-'xalan-c' 'sdl' 'libxmu' 'curl' 'python2' 'linux-headers' 'mesa' 'libxrandr' 'libxinerama' 'libvncserver' 'openjdk6' 'gsoap' 'vde2'
-'xorg-server-devel' 'xf86driproto' 'libxcomposite')
+makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2' 'libxcursor' 'qt=4.7.4-3' 'libidl2' 'sdl_ttf' 'alsa-lib' 'libpulse' 'libxtst'
+'xalan-c' 'sdl' 'libxmu' 'curl' 'python2' 'linux-headers' 'mesa' 'libxrandr' 'libxinerama' 'libvncserver' 'openjdk6' 'gsoap' 'vde2')
+#'xorg-server-devel' 'xf86driproto' 'libxcomposite')
 [[ $CARCH == "x86_64" ]] && makedepends=("${makedepends[@]}" 'gcc-multilib' 'lib32-glibc')
 source=(http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver}.tar.bz2
         UserManual-$pkgver.pdf::http://download.virtualbox.org/virtualbox/${pkgver}/UserManual.pdf
-        virtualbox-4-makeself-check.patch virtualbox-4-mkisofs-check.patch
-        10-vboxdrv.rules 60-vboxguest.rules vboxdrv-reference.patch LocalConfig.kmk vboxbuild
+        10-vboxdrv.rules  vboxdrv-reference.patch LocalConfig.kmk vboxbuild
         change_default_driver_dir.patch vbox-service.conf vbox-service.rc)
-_kernver=3.0-ARCH
+
+_extramodules=extramodules-3.1-ARCH
+_kernver="$(cat /lib/modules/${_extramodules}/version || true)"
 
 build() {
     cd "$srcdir/VirtualBox-${pkgver}_OSE"
 
-    patch -Np1 -i "$srcdir/virtualbox-4-makeself-check.patch"
-    patch -Np1 -i "$srcdir/virtualbox-4-mkisofs-check.patch"
     patch -Np1 -i "$srcdir/vboxdrv-reference.patch"
     patch -Np1 -i "$srcdir/change_default_driver_dir.patch"
 
@@ -31,23 +30,23 @@ build() {
     ./configure --disable-docs \
         --enable-webservice \
         --enable-vde \
+        --enable-vnc \
+        --nofatal \
         --with-linux=/usr/src/linux-${_kernver}
     source ./env.sh
     kmk all
-
-    export KERN_DIR=/usr/src/linux-${_kernver}
-    make -C "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions/src"
-    make -C "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions/src/vboxvideo"
     sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' "out/linux.$BUILD_PLATFORM_ARCH/release/bin/vboxshell.py"
 }
 
 package_virtualbox() {
     pkgdesc="Powerful x86 virtualization for enterprise as well as home use"
-    depends=('libxml2' 'libxcursor' 'libidl2' 'libxinerama' 'sdl' 'libxmu' 'curl' 'libvncserver' 'libpng' 'linux-headers' 'gcc' 'make')
+    depends=('virtualbox-modules' 'libxml2' 'libxcursor' 'libidl2' 'libxinerama' 'sdl' 'libxmu' 'curl' 'libvncserver' 'libpng')
     optdepends=('qt: for VirtualBox GUI'
                 'vde2: Virtual Distributed Ethernet support'
-                'virtualbox-sdk: developer kit')
+                'virtualbox-sdk: developer kit'
+                'virtualbox-source: host kernel source modules for non-stock kernels')
 
+    backup=('etc/vbox/vbox.cfg')
     replaces=('virtualbox-ose')
     conflicts=('virtualbox-ose')
     install=virtualbox.install
@@ -109,6 +108,20 @@ package_virtualbox() {
         "$pkgdir/usr/share/licenses/virtualbox/LICENSE"
     install -D -m 0644 "$srcdir/10-vboxdrv.rules" \
         "$pkgdir/lib/udev/rules.d/10-vboxdrv.rules"
+}
+
+package_virtualbox-source() {
+    pkgdesc="VirtualBox kernel modules source"
+    depends=(gcc make)
+    provides=(virtualbox-modules)
+    optdepends=('linux-headers'
+                'kernel26-lts-headers')
+    install=virtualbox-source.install
+
+    source "$srcdir/VirtualBox-${pkgver}_OSE/env.sh"
+    mkdir -p $pkgdir/usr/lib/virtualbox
+
+    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
 
     #sources for modules
     cp -r src ${pkgdir}/usr/lib/virtualbox
@@ -117,7 +130,7 @@ package_virtualbox() {
 }
 
 package_virtualbox-sdk() {
-    pkgdesc=" VirtualBox Software Developer Kit (SDK)"
+    pkgdesc="VirtualBox Software Developer Kit (SDK)"
     depends=('python2')
 
     mkdir -p "$pkgdir/usr/lib/virtualbox"
@@ -165,42 +178,12 @@ package_virtualbox-archlinux-additions(){
     # install sample config
     install -D -m644 "${srcdir}/vbox-service.conf" "${pkgdir}/etc/conf.d/vbox-service"
 }
-
-package_virtualbox-archlinux-modules(){
-    pkgdesc="Additions only for Arch Linux guests (kernel modules)"
-    license=('GPL')
-    install=virtualbox-archlinux-modules.install
-    depends=('linux>=3.0' 'linux<3.1')
-    replaces=('virtualbox-guest-modules')
-    conflicts=('virtualbox-guest-modules')
-
-    source "$srcdir/VirtualBox-${pkgver}_OSE/env.sh"
-
-    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions/src"
-
-    install -D -m644 vboxguest.ko \
-        "$pkgdir/lib/modules/$_kernver/misc/vboxguest.ko"
-
-    install -D -m644 vboxsf.ko \
-        "$pkgdir/lib/modules/$_kernver/misc/vboxsf.ko"
-
-    install -D -m644 vboxvideo.ko \
-        "$pkgdir/lib/modules/$_kernver/misc/vboxvideo.ko"
-
-    install -D -m 0644 "$srcdir/60-vboxguest.rules" \
-        "$pkgdir/lib/udev/rules.d/60-vboxguest.rules"
-
-    sed -i -e "s/KERNEL_VERSION='.*'/KERNEL_VERSION='${_kernver}'/" "$startdir/virtualbox-archlinux-modules.install"
-}
-md5sums=('dc6e6801b3823332b6ca2e9915221aae'
-         'bc048d1e58d84ece4a186199ee48d4c8'
-         '44efb3c4be214daa453a317d527f1f30'
-         '32a232b43852b9a08cb11a7bcd64b347'
+md5sums=('89b979d1b817242c7cdcb489898f166a'
+         'af534f713993eb077df26ff9a44fb080'
          '5f85710e0b8606de967716ded7b2d351'
-         'ed1341881437455d9735875ddf455fbe'
-         'cc3f278bc273011aa95277500a76f677'
+         '6ab2455c391d8cc005e2f4461ae26a3b'
          '78ffa67ff131680f1d2b6f06d4325c5b'
-         'dda3811f7d94ac55f12b4de707a7c2c2'
+         'a82d698e7868315cdf876cfb02fd2268'
          '97e193f050574dd272a38e5ee5ebe62b'
          '3c08ad30b89add47d3f45121200a5360'
-         '778d865e56e31cc592fbfa257fdcfce7')
+         'e7416331d0bc331f3b5aae3e5d104642')
