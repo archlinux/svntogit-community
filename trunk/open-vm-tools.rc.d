@@ -13,7 +13,7 @@ case "$1" in
 
     if [ "$VM_DRAG_AND_DROP" == "yes" ]; then
 	VMBLOCK=`grep -w vmblock /proc/modules`
-	[ -z "$VMBLOCK" ] && modprobe vmblock
+	[ -z "$VMBLOCK" ] && modprobe -f vmblock
 	if [ $? -gt 0 ]; then
     	    stat_fail
 	    exit 1
@@ -36,7 +36,7 @@ case "$1" in
     for m in vmhgfs vmsync; do
 	VMMOD=`grep -w $m /proc/modules`
 	[ -z "$VMMOD" ] && \
-		{ modprobe $m
+		{ modprobe -f $m
 		if [ $? -gt 0 ]; then
 		    stat_fail
 		    exit 1
