@@ -14,7 +14,6 @@ depends=('python2')
 provides=('beautiful-soup')
 conflicts=('beautiful-soup')
 replaces=('beautiful-soup')
-options=('force')
 source=(http://www.crummy.com/software/BeautifulSoup/download/3.x/BeautifulSoup-$pkgver.tar.gz)
 md5sums=('ef1e78f7689ea61314f7bddebcfde88c')
 
