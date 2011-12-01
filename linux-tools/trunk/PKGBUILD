@@ -10,6 +10,8 @@ arch=('i686' 'x86_64')
 url='http://www.kernel.org'
 options=('!strip')
 makedepends=('asciidoc' 'xmlto')
+# split packages need all package dependencies set manually in makedepends
+makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/linux-$pkgver.tar.xz"
         'cpupower.rc'
         'cpupower.conf') 
