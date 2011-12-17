@@ -47,7 +47,6 @@ package_cpupower() {
   backup=('etc/conf.d/cpupower')
   depends=('pciutils')
   conflicts=('cpufrequtils')
-  provides=("cpufrequtils=$pkgver")
 
   # install rc.d script
   install -D -m 755 cpupower.rc "$pkgdir/etc/rc.d/cpupower"
