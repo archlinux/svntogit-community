@@ -14,7 +14,7 @@ cat >$TARGETDIR/index.html <<EOF
 	<BODY>
 EOF
 
-$1/index.pl https://wiki.archlinux.org | while read A; do
+perl $1/index.pl https://wiki.archlinux.org | while read A; do
     TITLE=`echo $A | cut -d \  -f 2- | tr ' ' '_'`
     ID=`echo $A | cut -d \  -f 1`
     echo "$ID => $TITLE"
