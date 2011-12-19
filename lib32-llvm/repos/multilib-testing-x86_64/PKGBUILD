@@ -1,0 +1,115 @@
+# $Id$
+# Maintainer: Evangelos Foutras <foutrelis@gmail.com>
+# Contributor: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: Sebastian Nowicki <sebnow@gmail.com>
+# Contributor: Devin Cofer <ranguvar{AT]archlinux[DOT}us>
+# Contributor: Tobias Kieslich <tobias@justdreams.de>
+# Contributor: Geoffroy Carrier <geoffroy.carrier@aur.archlinux.org>
+# Contributor: Tomas Lindquist Olsen <tomas@famolsen.dk>
+# Contributor: Roberto Alsina <ralsina@kde.org>
+# Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
+
+pkgname=('lib32-llvm')
+pkgver=3.0
+pkgrel=1
+arch=('x86_64')
+url="http://llvm.org/"
+license=('custom:University of Illinois/NCSA Open Source License')
+makedepends=('lib32-libffi' 'python2' 'gcc-multilib')
+source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.tar.gz
+        http://llvm.org/releases/$pkgver/clang-$pkgver.tar.gz
+        clang-plugin-loader-registry.patch)
+sha256sums=('519eb11d3499ce99c6ffdb8718651fc91425ed7690eac91c8d6853474f7c0477'
+            'b64e72da356d7c3428cfd7ac620d49ec042c84eaee13c26024879f555f4e126d'
+            'a0a4494f2a692789670be37fd390906dcaa37b1824f740bdaaea21182f2f3a9c')
+
+build() {
+  cd "$srcdir/llvm-$pkgver.src"
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  # Fix symbolic links from OCaml bindings to LLVM libraries
+  sed -i 's:\$(PROJ_libdir):/usr/lib/llvm:' bindings/ocaml/Makefile.ocaml
+
+  # Fix installation directories, ./configure doesn't seem to set them right
+  sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
+         -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib32/llvm:' \
+         -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
+    Makefile.config.in
+
+  # Fix insecure rpath (http://bugs.archlinux.org/task/14017)
+  sed -i 's:$(RPATH) -Wl,$(\(ToolDir\|LibDir\|ExmplDir\))::g' Makefile.rules
+
+  # Get the correct list of symbols to export
+  # See http://lists.cs.uiuc.edu/pipermail/cfe-dev/2010-April/008559.html
+  patch -Np1 -i "$srcdir/clang-plugin-loader-registry.patch"
+
+  # Apply strip option to configure
+  _optimized_switch="enable"
+  [[ $(check_option strip) == n ]] && _optimized_switch="disable"
+
+  # Include location of libffi headers in CPPFLAGS
+  export CPPFLAGS="$CPPFLAGS $(pkg-config --cflags libffi)"
+
+  _cxx_headers="/usr/include/c++/clang-$pkgver"
+
+  _32bit_headers=""
+  if [[ $CARCH == x86_64 ]]; then
+    # Important for multilib
+    _32bit_headers="32"
+  fi
+
+  ./configure \
+    --prefix=/usr \
+    --libdir=/usr/lib32/llvm \
+    --sysconfdir=/etc \
+    --enable-shared \
+    --enable-libffi \
+    --enable-targets=all \
+    --disable-expensive-checks \
+    --disable-debug-runtime \
+    --disable-assertions \
+    --with-binutils-include=/usr/include \
+    --with-cxx-include-root=$_cxx_headers \
+    --with-cxx-include-arch=$CHOST \
+    --with-cxx-include-32bit-dir=$_32bit_headers \
+    --$_optimized_switch-optimized
+
+  make REQUIRES_RTTI=1
+}
+
+package() {
+  pkgdesc="Low Level Virtual Machine (32 bits version)"
+  depends=('perl' 'lib32-libffi' 'llvm')
+
+  cd "$srcdir/llvm-$pkgver.src"
+
+  # We move the clang directory out of the tree so it won't get installed and
+  # then we bring it back in for the clang package
+  # mv tools/clang "$srcdir"
+  # -j1 is due to race conditions during the installation of the OCaml bindings
+  make -j1 DESTDIR="$pkgdir" install
+
+  # Fix permissions of static libs
+  chmod -x "$pkgdir"/usr/lib32/llvm/*.a
+
+  # Fix libdir in llvm-config (http://bugs.archlinux.org/task/14487)
+  #sed -i 's:\(ABS_RUN_DIR/lib\):\1/llvm:' "$pkgdir/usr/bin/llvm-config"
+  sed -i 's:ABS_RUN_DIR/lib:ABS_RUN_DIR/llvm:' "$pkgdir/usr/bin/llvm-config"
+  mv "$pkgdir/usr/bin/llvm-config" "$pkgdir/usr/lib32/llvm/llvm-config"
+  # Get rid of example Hello transformation
+  rm "$pkgdir"/usr/lib32/llvm/*LLVMHello.*
+
+  # Symlink the gold plugin where clang expects it
+  ln -s llvm/LLVMgold.so "$pkgdir/usr/lib32/LLVMgold.so"
+
+  # Add ld.so.conf.d entry
+  install -d "$pkgdir/etc/ld.so.conf.d"
+  echo /usr/lib32/llvm >"$pkgdir/etc/ld.so.conf.d/llvm32.conf"
+
+  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  rm -r "$pkgdir"/usr/{bin,include,share/{doc,man}}
+}
