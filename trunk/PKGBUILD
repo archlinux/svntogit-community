@@ -3,8 +3,9 @@
 
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower')
-pkgver=3.1
-kernver=$pkgver.4
+pkgver=3.2
+kernver=${pkgver}-rc7
+[[ ${kernver##*rc} ]] && testing='testing'
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
@@ -13,10 +14,10 @@ options=('!strip')
 makedepends=('asciidoc' 'xmlto')
 # split packages need all package dependencies set manually in makedepends
 makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
-source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/linux-$kernver.tar.xz"
+source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/$testing/linux-$kernver.tar.xz"
         'cpupower.rc'
         'cpupower.conf') 
-md5sums=('e48e246675a3e790062d4fecf36cd6e3'
+md5sums=('315d830a42b977fb7831c105d3f52615'
          'd8b119eff7dc1a2d655eb71a47fa6215'
          '218fd36a7957d3170ed8bd1a0be1f62f')
 
