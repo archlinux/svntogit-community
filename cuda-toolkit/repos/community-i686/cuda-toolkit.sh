@@ -1,1 +1,1 @@
-PATH="/opt/cuda-toolkit/bin:$PATH"
+export PATH=$PATH:/opt/cuda-toolkit/bin
