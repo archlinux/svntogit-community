@@ -4,7 +4,7 @@
 
 pkgname=virt-manager
 pkgver=0.9.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A desktop user interface for managing virtual machines."
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -15,7 +15,8 @@ makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 optdepends=('x11-ssh-askpass: for ssh authentication to remote servers'
 	    'libuser: for virt-manager-tui'
 	    'python2-ipy: for virt-manager-tui'
-	    'newt-syrup: for virt-manager-tui')
+	    'newt-syrup: for virt-manager-tui'
+	    'openbsd-netcat: for remote server access')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz"
 	"openbsd-netcat-default.patch")
