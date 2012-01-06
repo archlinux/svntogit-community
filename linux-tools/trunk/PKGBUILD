@@ -4,8 +4,8 @@
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower')
 pkgver=3.2
-kernver=${pkgver}-rc7
-[[ ${kernver##*rc} ]] && testing='testing'
+kernver=${pkgver}
+[[ ${kernver##*rc} != $kernver ]] && testing='testing'
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
@@ -17,7 +17,7 @@ makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/$testing/linux-$kernver.tar.xz"
         'cpupower.rc'
         'cpupower.conf') 
-md5sums=('315d830a42b977fb7831c105d3f52615'
+md5sums=('364066fa18767ec0ae5f4e4abcf9dc51'
          'd8b119eff7dc1a2d655eb71a47fa6215'
          '218fd36a7957d3170ed8bd1a0be1f62f')
 
