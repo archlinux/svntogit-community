@@ -1222,6 +1222,6 @@ PID_FILE_PATH=/var/run/exim.pid
 # ENABLE_DISABLE_FSYNC=yes
 
 HAVE_IPV6=YES
-LOOKUP_LIBS=-lldap
+LOOKUP_LIBS=-lldap -llber
 EXTRALIBS_EXIM=-lpam
 # End of EDITME for Exim 4.
