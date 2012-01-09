@@ -4,12 +4,14 @@
 . /etc/rc.d/functions
 
 start() {
+  [ -d /var/run/authdaemon ] || mkdir -p /var/run/authdaemon
+  chown courier:courier /var/run/authdaemon
+
   stat_busy "Starting Authdaemond"
   /usr/sbin/authdaemond start &> /dev/null
   if [ $? -gt 0 ]; then
     stat_fail
   else
-    ln -s /var/spool/authdaemon/pid /var/run/authdaemond.pid
     add_daemon authdaemond
     stat_done
   fi
@@ -21,10 +23,13 @@ stop() {
   if [ $? -gt 0 ]; then
     stat_fail
   else
-    rm -f /var/run/authdaemond.pid
-    rm_daemon authdaemond
-    # housecleaning; just like kids'n toys - don't care when it's needed anymore
+    rm -f /var/run/authdaemon/{pid.lock,pid,socket} &> /dev/null
+
+    # TODO: Take these out at some point, they're only cleanup for old way
+    rm -f /var/run/authdaemond.pid &> /dev/null
     rm -f /var/spool/authdaemon/{pid.lock,pid,socket} &> /dev/null
+
+    rm_daemon authdaemond
     stat_done
   fi
 }
