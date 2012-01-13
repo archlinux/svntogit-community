@@ -1,5 +1,5 @@
 # $Id$
-# Maintainer: Sebastien Luttringer <seblu+arch@seblu.net>
+# Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org>
 # Contributor: Anton Bazhenov <anton.bazhenov at gmail>
 # Contributor: Lone_Wolf <lonewolf@xs4all.nl>
 
