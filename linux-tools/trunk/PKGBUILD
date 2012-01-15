@@ -6,7 +6,7 @@ pkgname=('perf' 'cpupower')
 pkgver=3.2
 kernver=${pkgver}.1
 [[ ${kernver##*rc} != $kernver ]] && testing='testing'
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
