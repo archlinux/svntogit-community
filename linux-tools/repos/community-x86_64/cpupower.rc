@@ -8,19 +8,29 @@
 case "$1" in
   start|restart)
     stat_busy "Setting cpupower rules"
+    declare -i fail=0
 
-    declare params=''
-    if [[ "$governor" ]]; then
-      params="-g $governor "
-      params+="${min_freq:+-d $min_freq} "
-      params+="${max_freq:+-u $max_freq} "
-      params+="${freq:+-f $freq} "
-      cpupower frequency-set $params >/dev/null || { stat_fail; exit 1; }
-      stat_done
-    else
-      stat_append ': Invalid configuration'
-      stat_fail 
+    # frequency-set options
+    declare -a params=()
+    params+=(${governor:+-g $governor})
+    params+=(${min_freq:+-d $min_freq})
+    params+=(${max_freq:+-u $max_freq})
+    params+=(${freq:+-f $freq})
+    if ((${#params[@]} > 0)); then
+      cpupower frequency-set "${params[@]}" >/dev/null || fail=1
     fi
+
+    # set options
+    declare -a params=()
+    params+=(${mc_scheduler:+-m $mc_scheduler})
+    params+=(${smp_scheduler:+-s $smp_scheduler})
+    params+=(${perf_bias:+-b $perf_bias})
+    if ((${#params[@]} > 0)); then
+      cpupower set "${params[@]}" >/dev/null || fail=1
+    fi
+
+    # print failure if any
+    (($fail > 0)) && stat_fail && exit 1 || stat_done
   ;;
   *)
   echo "usage: $0 {start|restart}"  
