@@ -4,41 +4,63 @@
 # Contributor: Anders Bergh <anders1@gmail.com>
 # Contributor: Alexander Fehr <pizzapunk gmail com>
 
-pkgname=dmd
-pkgver=1.072
+pkgname=('dmd' 'libphobos')
+pkgbase=dmd
+pkgver=2.057
 pkgrel=1
-pkgdesc="The Digital Mars D compiler."
-arch=('i686' x86_64)
-url="http://www.digitalmars.com/d/1.0/"
+pkgdesc="The Digital Mars D compiler"
+arch=('i686' 'x86_64')
+url="http://www.digitalmars.com/d/2.0/"
 source=(http://ftp.digitalmars.com/$pkgname.$pkgver.zip)
-install='dmd.install'
-provides=('d-compiler')
 license=('custom')
-options=('!strip')
-depends=(gcc-libs)
-optdepends=('libphobos: D standard runtime library'
-            'libtango: Alternative runtime library')
+md5sums=('531c4b60eb002ea8abbe5c80b2eb677d')
 
-[[ $CARCH == "x86_64" ]] && makedepends=("${makedepends[@]}" 'gcc-multilib' 'lib32-glibc')
+[[ $CARCH == "x86_64" ]] && _archbits="64"
+[[ $CARCH == "i686" ]] && _archbits="32"
 
 build() {
-  # Copy the license.
-  install -Dm644 "$srcdir/dmd/license.txt" "$pkgdir/usr/share/licenses/dmd/LICENSE" || return 1
+    cd $srcdir/dmd2/src/
 
-  if [ $CARCH == x86_64 ]; then
-    cd "$srcdir/dmd/linux/bin64"
-  else
-    cd "$srcdir/dmd/linux/bin32"
-  fi
-  install -dm755 "$pkgdir/usr/bin"
-  install -m755 dmd rdmd dumpobj obj2asm "$pkgdir/usr/bin"
+    cd dmd
+    make -f posix.mak MODEL=$_archbits
 
-  for x in "$srcdir"/dmd/man/man1/*.1; do
-    install -Dm644 "$x" "$pkgdir/usr/share/man/man1/$(basename "$x")" || return 1
-  done
+    cd ../druntime
+    make -f posix.mak MODEL=$_archbits DMD=../dmd/dmd
 
-  for x in "$srcdir"/dmd/man/man1/*.5; do
-    install -Dm644 "$x" "$pkgdir/usr/share/man/man5/$(basename "$x")" || return 1
-  done
+    cd ../phobos
+    make -f posix.mak MODEL=$_archbits DMD=../dmd/dmd
 }
-md5sums=('d5489b94f06c7ca2f4b5de62f7e6815a')
+
+package_dmd() {
+  depends=('libphobos' 'gcc-libs')
+
+  install -Dm755 $srcdir/dmd2/src/dmd/dmd $pkgdir/usr/bin/dmd
+
+  mkdir -p $pkgdir/etc
+  echo -e "[Environment]\nDFLAGS=-I/usr/include/d -I/usr/include/d/druntime/import -L-L/usr/lib -L-lrt" > $pkgdir/etc/dmd.conf
+
+  install -Dm644 $srcdir/dmd2/man/man1/dmd.1 $pkgdir/usr/share/man/man1/dmd.1
+  install -Dm644 $srcdir/dmd2/man/man1/dmd.conf.5 $pkgdir/usr/share/man/man5/dmd.conf.5
+
+  install -Dm644 $srcdir/dmd2/license.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
+
+  mkdir -p $pkgdir/usr/share/d/samples/
+  cp -r $srcdir/dmd2/samples/d/* $pkgdir/usr/share/d/samples/
+}
+
+package_libphobos() {
+  install -Dm644 $srcdir/dmd2/src/druntime/lib/libdruntime.a $pkgdir/usr/lib/libdruntime.a
+  install -Dm644 $srcdir/dmd2/src/phobos/generated/linux/release/$_archbits/libphobos2.a $pkgdir/usr/lib/libphobos2.a
+
+  mkdir -p $pkgdir/usr/include/d
+  cp -r $srcdir/dmd2/src/phobos/{*.d,etc,std} $pkgdir/usr/include/d
+
+  mkdir -p $pkgdir/usr/include/d/druntime
+  cp -r $srcdir/dmd2/src/druntime/import $pkgdir/usr/include/d/druntime
+
+  mkdir -p $pkgdir/usr/share/doc/d/
+  cp -r $srcdir/dmd2/html $pkgdir/usr/share/doc/d/
+
+  install -Dm644 $srcdir/dmd2/src/druntime/LICENSE_1_0.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE-druntime
+  install -Dm644 $srcdir/dmd2/src/phobos/phoboslicense.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE-phobos
+}
