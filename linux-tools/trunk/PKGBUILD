@@ -16,16 +16,18 @@ makedepends=('asciidoc' 'xmlto')
 makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/$testing/linux-$kernver.tar.xz"
         'cpupower.rc'
-        'cpupower.conf') 
+        'cpupower.conf'
+        'cpupower.service') 
 md5sums=('cd2f8b7752c85c337af809391f4afb94'
          '26af384ca282bc0dc38ff65acc7bb4b9'
-         '857ccdd0598511e3bf4b63522754dc48')
+         '857ccdd0598511e3bf4b63522754dc48'
+         '20870541e88109d2f153be3c58a277f1')
 
 build() {
   msg2 'Build perf'
   cd linux-$kernver/tools/perf
-  make PYTHON=python2 DESTDIR="${pkgdir}/usr" perfexecdir="lib/$pkgname" PERF_VERSION=$pkgver-$pkgrel \
-    all man
+  make PYTHON=python2 DESTDIR="${pkgdir}/usr" perfexecdir="lib/$pkgname" \
+    PERF_VERSION=$pkgver-$pkgrel all man
 
   msg2 'Build cpupower'
   # we cannot use --as-needed
@@ -39,8 +41,8 @@ package_perf() {
   depends=('python2' 'libnewt' 'elfutils')
 
   cd linux-${kernver}/tools/perf
-  make PYTHON=python2 DESTDIR="${pkgdir}/usr" perfexecdir="lib/$pkgname" PERF_VERSION=$pkgver \
-    install install-man
+  make PYTHON=python2 DESTDIR="${pkgdir}/usr" perfexecdir="lib/$pkgname" \
+    PERF_VERSION=$pkgver install install-man
 }
 
 package_cpupower() {
@@ -52,6 +54,7 @@ package_cpupower() {
   # install rc.d script
   install -D -m 755 cpupower.rc "$pkgdir/etc/rc.d/cpupower"
   install -D -m 644 cpupower.conf "$pkgdir/etc/conf.d/cpupower"
+  install -D -m 644 cpupower.service "$pkgdir/lib/systemd/system/cpupower.service"
 
   cd linux-$kernver/tools/power/cpupower
   make \
