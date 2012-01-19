@@ -1,0 +1,78 @@
+# Maintainer: Thomas Dziedzic < gostrc at gmail >
+# Contributor: Michele Mocciola <mickele>
+# Contributor: Simon Zilliken <simon____AT____zilliken____DOT____name>
+
+pkgname=paraview
+pkgver=3.12.0
+pkgrel=3
+pkgdesc='Parallel Visualization Application using VTK'
+arch=('i686' 'x86_64')
+url='http://www.paraview.org'
+license=('custom')
+depends=('qt' 'python2' 'libgl' 'libxml2' 'unixodbc' 'postgresql-libs' 'libxt' 'qtwebkit' 'libmysqlclient' 'mesa' 'openmpi' 'boost-libs' 'hdf5' 'libcgns2' 'libtiff' 'libtheora')
+makedepends=('cmake' 'desktop-file-utils' 'boost')
+source=("http://paraview.org/files/v${pkgver:0:4}/ParaView-${pkgver}.tar.gz"
+        'paraview.png'
+        'paraview.desktop'
+        'fix-boost-graph-api-changes.diff'
+        '12859-VisItBrige-external-tiff-support.diff')
+md5sums=('8feabc6261e2060648eaac593d85b1de'
+         'db623002bc71a257ddfdd0c9c7b14c3f'
+         '4e4b7172ed18171c37446fd7c4f1e8f5'
+         '2aa5b98288cadd201ffbd057f18929b0'
+         '9321279c8fc6f289a7cf228648edcb5f')
+
+build() {
+  cd ParaView-${pkgver}/VTK
+  # fix http://www.vtk.org/Bug/view.php?id=12772 remove on next pkgver bump
+  patch -Np1 -i ${srcdir}/fix-boost-graph-api-changes.diff
+
+
+  cd ${srcdir}/ParaView-${pkgver}/Utilities/VisItBridge
+  # fix http://paraview.org/Bug/view.php?id=12849 remove on next pkgver bump
+  patch -Np1 -i ${srcdir}/12859-VisItBrige-external-tiff-support.diff
+
+  mkdir ${srcdir}/build
+  cd ${srcdir}/build
+
+  # flags to enable using system libs
+  local cmake_system_flags=""
+  for lib in HDF5 FREETYPE JPEG PNG TIFF ZLIB EXPAT LIBXML2 OGGTHEORA; do
+    cmake_system_flags+="-DVTK_USE_SYSTEM_${lib}:BOOL=ON "
+  done
+
+  # flags to use python2 instead of python which is 3.x.x on archlinux
+  local cmake_system_python_flags="-DPYTHON_EXECUTABLE:PATH=/usr/bin/python2 -DPYTHON_INCLUDE_DIR:PATH=/usr/include/python2.7 -DPYTHON_LIBRARY:PATH=/usr/lib/libpython2.7.so"
+
+  # enable when http://paraview.org/Bug/view.php?id=12718 gets fixed
+  #-DCMAKE_SKIP_RPATH:BOOL=YES \
+  # the following flags enable the feature request at https://bugs.archlinux.org/task/27525
+  # -DPARAVIEW_USE_VISITBRIDGE:BOOL=ON -DVISIT_BUILD_READER_CGNS:BOOL=ON
+  cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DVTK_USE_BOOST:BOOL=ON \
+    -DPARAVIEW_USE_MPI:BOOL=ON \
+    -DPARAVIEW_ENABLE_PYTHON:BOOL=ON \
+    -DPARAVIEW_BUILD_QT_GUI:BOOL=ON \
+    -DPARAVIEW_USE_VISITBRIDGE:BOOL=ON \
+    -DVISIT_BUILD_READER_CGNS:BOOL=ON \
+    ${cmake_system_flags} \
+    ${cmake_system_python_flags} \
+    ../ParaView-${pkgver}
+
+  make
+}
+
+package() {
+  cd build
+
+  make DESTDIR=${pkgdir} install
+
+  # Install license
+  install -Dm644 ${srcdir}/ParaView-${pkgver}/License_v1.2.txt ${pkgdir}/usr/share/licenses/paraview/LICENSE
+
+  # Install desktop shortcuts
+  install -Dm644 ${srcdir}/paraview.png ${pkgdir}/usr/share/pixmaps/paraview.png
+  desktop-file-install --dir=${pkgdir}/usr/share/applications ${srcdir}/paraview.desktop
+}
