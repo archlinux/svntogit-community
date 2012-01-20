@@ -1,0 +1,94 @@
+# $Id$
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Hilton Medeiros <medeiros.hilton AT gmail DOT com>
+# Contributor: Ali H. Caliskan <ali.h.caliskan AT gmail DOT com>
+# Contributor: Paolo Fagni <paolo.fagni AT mail DOT com>
+# Contributor: Lukas Kropatschek <lukas.krop AT gmail DOT com>
+
+pkgname=irrlicht
+pkgver=1.7.2
+pkgrel=4
+pkgdesc="An open source high performance realtime 3D graphics engine."
+arch=('i686' 'x86_64')
+url="http://irrlicht.sourceforge.net/"
+license=('ZLIB')
+depends=('libgl' 'libjpeg' 'bzip2' 'libpng')
+makedepends=('mesa' 'unzip')
+source=("http://downloads.sourceforge.net/irrlicht/$pkgname-$pkgver.zip"
+        "irrlicht-1.7.2-libpng15.patch")
+md5sums=('eb627d4c432bf73f12bc6d9ddc700b07'
+         'a7f8d4aa1bc2880bbeaf3449e09f69a5')
+noextract=($pkgname-$pkgver.zip)
+
+build() {
+  unzip $pkgname-$pkgver.zip
+
+  cd $srcdir/$pkgname-$pkgver
+
+  patch -Np0 < $srcdir/irrlicht-1.7.2-libpng15.patch
+
+  sed -i -e '/^#.*NON_SYSTEM_ZLIB/d' \
+         -e '/^#.*NON_SYSTEM_JPEG/d' \
+         -e '/^#.*NON_SYSTEM_LIB_PNG/d' \
+         -e '/^#.*NON_SYSTEM_BZLIB/d' \
+         include/IrrCompileConfig.h
+
+  cd source/Irrlicht
+  sed -i -e '/^CXXFLAGS/s:-g.*::' \
+	 -e '/^CXXFLAGS/s:-Wall::' \
+	 -e '/^CFLAGS/s/:= -O3 -fexpensive-optimizations/+=/' \
+	 -e '/^CXXINCS/s:-Izlib -Ijpeglib -Ilibpng::' \
+	 -e '/^ZLIBOBJ/d' \
+	 -e '/^JPEGLIBOBJ/d' \
+	 -e '/^BZIP2OBJ/d' \
+	 -e '/^LIBPNGOBJ/d' \
+	 -e '/.o=.d/d' \
+	 -e '/^staticlib sharedlib: LDFLAGS/s:+=.*:+= -lGL -lXxf86vm -lpng -ljpeg -lbz2 -lz:' \
+	 -e "/^INSTALL_DIR/s:=.*:=$pkgdir/usr/lib:" \
+	 -e 's/0-SVN/1/' \
+	 -e 's/.$(VERSION_MINOR) -o/ -o/' \
+	 Makefile
+
+  sed -i "s/png_set_gray_1_2_4_to_8/png_set_expand_gray_1_2_4_to_8/" \
+      CImageLoaderPNG.cpp
+
+  make sharedlib
+
+  make
+
+  install -d $pkgdir/usr/lib \
+             $pkgdir/usr/share/licenses/$pkgname \
+             $pkgdir/usr/share/$pkgname/examples/bin \
+             $pkgdir/usr/share/doc/$pkgname
+
+  make install
+
+  cd $srcdir/$pkgname-$pkgver/
+  install -m644 readme.txt $pkgdir/usr/share/licenses/$pkgname
+
+  # Install static library and fix headers permissions
+  install -m644 lib/Linux/libIrrlicht.a $pkgdir/usr/lib
+  chmod 644 $pkgdir/usr/include/$pkgname/*
+
+  # Install media files for examples
+  cp -r media $pkgdir/usr/share/$pkgname
+
+  # Install documentation
+  cp -r doc/* $pkgdir/usr/share/doc/$pkgname
+  rm -f $pkgdir/usr/share/doc/$pkgname/*.txt
+
+  cd $pkgdir/usr/lib
+  ln -s libIrrlicht.so.$pkgver libIrrlicht.so.1
+
+  # Just a helper for examples compilation
+  ln -s libIrrlicht.so.$pkgver $srcdir/$pkgname-$pkgver/lib/Linux/libIrrlicht.so
+
+  # Edit, build and install the examples
+  cd $srcdir/$pkgname-$pkgver/examples
+  sed -i '/define USE_IRRKLANG/s:.*://&:' ./Demo/CDemo.h
+  sed -i '/^CXXFLAGS/d' $(grep -Rl "^CXXFLAGS =" *)
+
+  make
+
+  install -m755  ../bin/Linux/* /$pkgdir/usr/share/$pkgname/examples/bin/
+}
