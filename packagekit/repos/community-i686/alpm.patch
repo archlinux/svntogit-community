@@ -19,7 +19,7 @@ index 5a5468a..d8c3dfc 100644
         -DPK_BACKEND_DEFAULT_LOGFILE=\"$(PK_BACKEND_DEFAULT_LOGFILE)\" \
         -DALPM_CACHE_PATH=\"$(ALPM_CACHE_PATH)\" \
 diff --git a/backends/alpm/pk-backend-alpm.c b/backends/alpm/pk-backend-alpm.c
-index ba993f0..93f6d95 100644
+index ba993f0..5c6b629 100644
 --- a/backends/alpm/pk-backend-alpm.c
 +++ b/backends/alpm/pk-backend-alpm.c
 @@ -22,10 +22,13 @@
@@ -219,6 +219,18 @@ index ba993f0..93f6d95 100644
  }
  
  void
+@@ -380,3 +442,11 @@ pk_backend_finish (PkBackend *self, GError *error)
+ 	pk_backend_thread_finished (self);
+ 	return (error == NULL);
+ }
++
++void
++pk_backend_transaction_start (PkBackend *self)
++{
++	g_return_if_fail (self != NULL);
++
++	pk_backend_configure_environment (self);
++}
 diff --git a/backends/alpm/pk-backend-alpm.h b/backends/alpm/pk-backend-alpm.h
 index 23a2724..ecd6d0f 100644
 --- a/backends/alpm/pk-backend-alpm.h
@@ -234,7 +246,7 @@ index 23a2724..ecd6d0f 100644
  extern gchar *xfercmd;
  extern alpm_list_t *holdpkgs;
 diff --git a/backends/alpm/pk-backend-config.c b/backends/alpm/pk-backend-config.c
-index 21a4c54..a51a984 100644
+index 21a4c54..d62b927 100644
 --- a/backends/alpm/pk-backend-config.c
 +++ b/backends/alpm/pk-backend-config.c
 @@ -28,29 +28,44 @@
@@ -480,14 +492,14 @@ index 21a4c54..a51a984 100644
 +		}
 +
 +		/* this also allows e.g. NeverEver, so put prefixes last */
-+		if (g_str_has_prefix (list, "Never") == 0) {
++		if (g_str_has_prefix (list, "Never")) {
 +			if (package) {
 +				*level &= ~ALPM_SIG_PACKAGE;
 +			}
 +			if (database) {
 +				*level &= ~ALPM_SIG_DATABASE;
 +			}
-+		} else if (g_str_has_prefix (list, "Optional") == 0) {
++		} else if (g_str_has_prefix (list, "Optional")) {
 +			if (package) {
 +				*level |= ALPM_SIG_PACKAGE;
 +				*level |= ALPM_SIG_PACKAGE_OPTIONAL;
@@ -496,7 +508,7 @@ index 21a4c54..a51a984 100644
 +				*level |= ALPM_SIG_DATABASE;
 +				*level |= ALPM_SIG_DATABASE_OPTIONAL;
 +			}
-+		} else if (g_str_has_prefix (list, "Required") == 0) {
++		} else if (g_str_has_prefix (list, "Required")) {
 +			if (package) {
 +				*level |= ALPM_SIG_PACKAGE;
 +				*level &= ~ALPM_SIG_PACKAGE_OPTIONAL;
@@ -505,7 +517,7 @@ index 21a4c54..a51a984 100644
 +				*level |= ALPM_SIG_DATABASE;
 +				*level &= ~ALPM_SIG_DATABASE_OPTIONAL;
 +			}
-+		} else if (g_str_has_prefix (list, "TrustedOnly") == 0) {
++		} else if (g_str_has_prefix (list, "TrustedOnly")) {
 +			if (package) {
 +				*level &= ~ALPM_SIG_PACKAGE_MARGINAL_OK;
 +				*level &= ~ALPM_SIG_PACKAGE_UNKNOWN_OK;
@@ -514,7 +526,7 @@ index 21a4c54..a51a984 100644
 +				*level &= ~ALPM_SIG_DATABASE_MARGINAL_OK;
 +				*level &= ~ALPM_SIG_DATABASE_UNKNOWN_OK;
 +			}
-+		} else if (g_str_has_prefix (list, "TrustAll") == 0) {
++		} else if (g_str_has_prefix (list, "TrustAll")) {
 +			if (package) {
 +				*level |= ALPM_SIG_PACKAGE_MARGINAL_OK;
 +				*level |= ALPM_SIG_PACKAGE_UNKNOWN_OK;
@@ -843,7 +855,7 @@ index cb8b8dc..412f59c 100644
 -gboolean	 pk_backend_configure	(const gchar *filename, GError **error);
 +alpm_handle_t	*pk_backend_configure	(const gchar *filename, GError **error);
 diff --git a/backends/alpm/pk-backend-databases.c b/backends/alpm/pk-backend-databases.c
-index f6ab06e..ac530c7 100644
+index f6ab06e..a123297 100644
 --- a/backends/alpm/pk-backend-databases.c
 +++ b/backends/alpm/pk-backend-databases.c
 @@ -26,7 +26,15 @@
@@ -873,7 +885,13 @@ index f6ab06e..ac530c7 100644
  
  	g_object_unref (output);
  	g_object_unref (os);
-@@ -128,37 +136,65 @@ disabled_repos_configure (GHashTable *table, GError **error)
+@@ -124,41 +132,91 @@ disabled_repos_free (GHashTable *table)
+ }
+ 
+ static gboolean
+-disabled_repos_configure (GHashTable *table, GError **error)
++disabled_repos_configure (GHashTable *table, gboolean only_trusted,
++			  GError **error)
  {
  	const alpm_list_t *i;
  
@@ -896,6 +914,7 @@ index f6ab06e..ac530c7 100644
 -		const gchar *repo = alpm_db_get_name (db);
 +	for (i = configured; i != NULL; i = i->next) {
 +		PkBackendRepo *repo = (PkBackendRepo *) i->data;
++		alpm_siglevel_t level = repo->level;
 +		alpm_db_t *db;
  
 -		if (g_hash_table_lookup (table, repo) == NULL) {
@@ -904,12 +923,16 @@ index f6ab06e..ac530c7 100644
 +		if (g_hash_table_lookup (table, repo->name) != NULL) {
 +			/* repo is disabled */
  			continue;
++		} else if (!only_trusted) {
++			level &= ~ALPM_SIG_PACKAGE;
++			level &= ~ALPM_SIG_DATABASE;
++			level &= ~ALPM_SIG_USE_DEFAULT;
  		}
  
 -		if (alpm_db_unregister (db) < 0) {
 -			g_set_error (error, ALPM_ERROR, pm_errno, "[%s]: %s",
 -				     repo, alpm_strerrorlast ());
-+		db = alpm_db_register_sync (alpm, repo->name, repo->level);
++		db = alpm_db_register_sync (alpm, repo->name, level);
 +		if (db == NULL) {
 +			enum _alpm_errno_t errno = alpm_errno (alpm);
 +			g_set_error (error, ALPM_ERROR, errno, "[%s]: %s",
@@ -942,7 +965,7 @@ index f6ab06e..ac530c7 100644
 +
 +		value = g_hash_table_lookup (levels, i->data);
 +		if (value != NULL) {
-+			repo->level = *(alpm_siglevel_t *)value;
++			repo->level = *(alpm_siglevel_t *) value;
 +		} else {
 +			repo->level = ALPM_SIG_USE_DEFAULT;
 +		}
@@ -951,10 +974,35 @@ index f6ab06e..ac530c7 100644
 +	}
 +}
 +
++gboolean
++pk_backend_disable_signatures (PkBackend *self, GError **error)
++{
++	g_return_val_if_fail (self != NULL, FALSE);
++
++	return disabled_repos_configure (disabled, FALSE, error);
++}
++
++gboolean
++pk_backend_enable_signatures (PkBackend *self, GError **error)
++{
++	g_return_val_if_fail (self != NULL, FALSE);
++
++	return disabled_repos_configure (disabled, TRUE, error);
++}
++
  gboolean
  pk_backend_initialize_databases (PkBackend *self, GError **error)
  {
-@@ -179,11 +215,21 @@ pk_backend_initialize_databases (PkBackend *self, GError **error)
+@@ -169,7 +227,7 @@ pk_backend_initialize_databases (PkBackend *self, GError **error)
+ 		return FALSE;
+ 	}
+ 
+-	if (!disabled_repos_configure (disabled, error)) {
++	if (!disabled_repos_configure (disabled, TRUE, error)) {
+ 		return FALSE;
+ 	}
+ 
+@@ -179,11 +237,21 @@ pk_backend_initialize_databases (PkBackend *self, GError **error)
  void
  pk_backend_destroy_databases (PkBackend *self)
  {
@@ -976,7 +1024,7 @@ index f6ab06e..ac530c7 100644
  }
  
  static gboolean
-@@ -210,11 +256,12 @@ pk_backend_get_repo_list_thread (PkBackend *self)
+@@ -210,11 +278,12 @@ pk_backend_get_repo_list_thread (PkBackend *self)
  	gpointer key, value;
  
  	g_return_val_if_fail (self != NULL, FALSE);
@@ -991,7 +1039,12 @@ index f6ab06e..ac530c7 100644
  		const gchar *repo = alpm_db_get_name (db);
  
  		if (pk_backend_cancelled (self)) {
-@@ -269,7 +316,7 @@ pk_backend_repo_enable_thread (PkBackend *self)
+@@ -265,11 +334,11 @@ pk_backend_repo_enable_thread (PkBackend *self)
+ 
+ 	if (g_hash_table_remove (disabled, repo)) {
+ 		/* reload configuration to preserve ordering */
+-		if (disabled_repos_configure (disabled, &error)) {
++		if (disabled_repos_configure (disabled, TRUE, &error)) {
  			pk_backend_repo_list_changed (self);
  		}
  	} else {
@@ -1000,7 +1053,7 @@ index f6ab06e..ac530c7 100644
  		g_set_error (&error, ALPM_ERROR, code, "[%s]: %s",
  			     repo, alpm_strerror (code));
  	}
-@@ -292,21 +339,23 @@ pk_backend_repo_disable_thread (PkBackend *self)
+@@ -292,21 +361,23 @@ pk_backend_repo_disable_thread (PkBackend *self)
  	GError *error = NULL;
  
  	g_return_val_if_fail (self != NULL, FALSE);
@@ -1028,7 +1081,7 @@ index f6ab06e..ac530c7 100644
  			} else {
  				g_hash_table_insert (disabled, g_strdup (repo),
  						     GINT_TO_POINTER (1));
-@@ -316,7 +365,7 @@ pk_backend_repo_disable_thread (PkBackend *self)
+@@ -316,7 +387,7 @@ pk_backend_repo_disable_thread (PkBackend *self)
  	}
  
  	if (i == NULL) {
@@ -1038,16 +1091,22 @@ index f6ab06e..ac530c7 100644
  			     alpm_strerror (code));
  	}
 diff --git a/backends/alpm/pk-backend-databases.h b/backends/alpm/pk-backend-databases.h
-index f9eb2f9..2636cae 100644
+index f9eb2f9..d9b9e78 100644
 --- a/backends/alpm/pk-backend-databases.h
 +++ b/backends/alpm/pk-backend-databases.h
-@@ -24,6 +24,10 @@
+@@ -24,6 +24,16 @@
  #include <alpm.h>
  #include <pk-backend.h>
  
 +void		 pk_backend_configure_repos		(alpm_list_t *repos,
 +							 GHashTable *servers,
 +							 GHashTable *levels);
++
++gboolean	 pk_backend_disable_signatures		(PkBackend *self,
++							 GError **error);
++
++gboolean	 pk_backend_enable_signatures		(PkBackend *self,
++							 GError **error);
 +
  gboolean	 pk_backend_initialize_databases	(PkBackend *self,
  							 GError **error);
@@ -1472,10 +1531,18 @@ index 28dcf65..d736e37 100644
 -const gchar	*alpm_pkg_get_group		(pmpkg_t *pkg);
 +const gchar	*alpm_pkg_get_group		(alpm_pkg_t *pkg);
 diff --git a/backends/alpm/pk-backend-install.c b/backends/alpm/pk-backend-install.c
-index 65a6c11..5b5e2b2 100644
+index 65a6c11..d0cbca2 100644
 --- a/backends/alpm/pk-backend-install.c
 +++ b/backends/alpm/pk-backend-install.c
-@@ -32,15 +32,19 @@
+@@ -25,6 +25,7 @@
+ #include <pk-backend.h>
+ 
+ #include "pk-backend-alpm.h"
++#include "pk-backend-databases.h"
+ #include "pk-backend-error.h"
+ #include "pk-backend-install.h"
+ #include "pk-backend-transaction.h"
+@@ -32,15 +33,19 @@
  static gint
  alpm_add_file (const gchar *filename)
  {
@@ -1498,7 +1565,7 @@ index 65a6c11..5b5e2b2 100644
  		alpm_pkg_free (pkg);
  		return -1;
  	}
-@@ -61,8 +65,9 @@ pk_backend_transaction_add_targets (PkBackend *self, GError **error)
+@@ -61,8 +66,9 @@ pk_backend_transaction_add_targets (PkBackend *self, GError **error)
  
  	for (; *paths != NULL; ++paths) {
  		if (alpm_add_file (*paths) < 0) {
@@ -1510,6 +1577,40 @@ index 65a6c11..5b5e2b2 100644
  			return FALSE;
  		}
  	}
+@@ -89,17 +95,32 @@ pk_backend_simulate_install_files_thread (PkBackend *self)
+ static gboolean
+ pk_backend_install_files_thread (PkBackend *self)
+ {
++	gboolean only_trusted;
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
+ 
++	only_trusted = pk_backend_get_bool (self, "only_trusted");
++
++	if (!only_trusted && !pk_backend_disable_signatures (self, &error)) {
++		goto out;
++	}
++
+ 	if (pk_backend_transaction_initialize (self, 0, &error) &&
+ 	    pk_backend_transaction_add_targets (self, &error) &&
+ 	    pk_backend_transaction_simulate (self, &error)) {
+ 		pk_backend_transaction_commit (self, &error);
+ 	}
+ 
+-	return pk_backend_transaction_finish (self, error);
++out:
++	pk_backend_transaction_end (self, (error == NULL) ? &error : NULL);
++
++	if (!only_trusted) {
++		GError **e = (error == NULL) ? &error : NULL;
++		pk_backend_enable_signatures (self, e);
++	}
++
++	return pk_backend_finish (self, error);
+ }
+ 
+ void
 diff --git a/backends/alpm/pk-backend-packages.c b/backends/alpm/pk-backend-packages.c
 index e9a7c94..2d057aa 100644
 --- a/backends/alpm/pk-backend-packages.c
@@ -2002,10 +2103,15 @@ index 592472d..c4e80ae 100644
  			break;
  		}
 diff --git a/backends/alpm/pk-backend-sync.c b/backends/alpm/pk-backend-sync.c
-index 9e1e02b..c770159 100644
+index 9e1e02b..d2f363b 100644
 --- a/backends/alpm/pk-backend-sync.c
 +++ b/backends/alpm/pk-backend-sync.c
-@@ -30,41 +30,13 @@
+@@ -26,45 +26,18 @@
+ #include <string.h>
+ 
+ #include "pk-backend-alpm.h"
++#include "pk-backend-databases.h"
+ #include "pk-backend-error.h"
  #include "pk-backend-sync.h"
  #include "pk-backend-transaction.h"
  
@@ -2048,7 +2154,7 @@ index 9e1e02b..c770159 100644
  
  	packages = pk_backend_get_strv (self, "package_ids");
  
-@@ -75,9 +47,28 @@ pk_backend_transaction_sync_targets (PkBackend *self, GError **error)
+@@ -75,9 +48,28 @@ pk_backend_transaction_sync_targets (PkBackend *self, GError **error)
  		gchar *repo = package[PK_PACKAGE_ID_DATA];
  		gchar *name = package[PK_PACKAGE_ID_NAME];
  
@@ -2080,7 +2186,7 @@ index 9e1e02b..c770159 100644
  			g_strfreev (package);
  			return FALSE;
  		}
-@@ -93,23 +84,27 @@ pk_backend_download_packages_thread (PkBackend *self)
+@@ -93,23 +85,27 @@ pk_backend_download_packages_thread (PkBackend *self)
  {
  	alpm_list_t *cachedirs;
  	const gchar *directory;
@@ -2114,7 +2220,7 @@ index 9e1e02b..c770159 100644
  
  	if (pk_backend_transaction_initialize (self, flags, &error) &&
  	    pk_backend_transaction_sync_targets (self, &error) &&
-@@ -118,7 +113,7 @@ pk_backend_download_packages_thread (PkBackend *self)
+@@ -118,7 +114,7 @@ pk_backend_download_packages_thread (PkBackend *self)
  	}
  
  	if (directory != NULL) {
@@ -2123,7 +2229,40 @@ index 9e1e02b..c770159 100644
  	}
  
  	return pk_backend_transaction_finish (self, error);
-@@ -190,16 +185,17 @@ pk_backend_install_packages (PkBackend *self, gboolean only_trusted,
+@@ -155,17 +151,31 @@ pk_backend_simulate_install_packages_thread (PkBackend *self)
+ static gboolean
+ pk_backend_install_packages_thread (PkBackend *self)
+ {
++	gboolean only_trusted;
+ 	GError *error = NULL;
+ 
+ 	g_return_val_if_fail (self != NULL, FALSE);
+ 
++	only_trusted = pk_backend_get_bool (self, "only_trusted");
++
++	if (!only_trusted && !pk_backend_disable_signatures (self, &error)) {
++		goto out;
++	}
++
+ 	if (pk_backend_transaction_initialize (self, 0, &error) &&
+ 	    pk_backend_transaction_sync_targets (self, &error) &&
+ 	    pk_backend_transaction_simulate (self, &error)) {
+ 		pk_backend_transaction_commit (self, &error);
+ 	}
+ 
+-	return pk_backend_transaction_finish (self, error);
++	pk_backend_transaction_end (self, (error == NULL) ? &error : NULL);
++out:
++	if (!only_trusted) {
++		GError **e = (error == NULL) ? &error : NULL;
++		pk_backend_enable_signatures (self, e);
++	}
++
++	return pk_backend_finish (self, error);
+ }
+ 
+ void
+@@ -190,16 +200,17 @@ pk_backend_install_packages (PkBackend *self, gboolean only_trusted,
  }
  
  static gboolean
@@ -2144,7 +2283,7 @@ index 9e1e02b..c770159 100644
  		const gchar *rname = alpm_pkg_get_name (rpkg);
  
  		if (pk_backend_cancelled (self)) {
-@@ -208,7 +204,7 @@ pk_backend_replaces_dependencies (PkBackend *self, pmpkg_t *pkg)
+@@ -208,7 +219,7 @@ pk_backend_replaces_dependencies (PkBackend *self, pmpkg_t *pkg)
  			continue;
  		}
  
@@ -2153,15 +2292,29 @@ index 9e1e02b..c770159 100644
  			return FALSE;
  		}
  	}
-@@ -224,6 +220,7 @@ pk_backend_update_packages_thread (PkBackend *self)
+@@ -219,13 +230,21 @@ pk_backend_replaces_dependencies (PkBackend *self, pmpkg_t *pkg)
+ static gboolean
+ pk_backend_update_packages_thread (PkBackend *self)
+ {
++	gboolean only_trusted;
+ 	const alpm_list_t *i;
+ 	alpm_list_t *asdeps = NULL;
  	GError *error = NULL;
  
  	g_return_val_if_fail (self != NULL, FALSE);
 +	g_return_val_if_fail (alpm != NULL, FALSE);
  	g_return_val_if_fail (localdb != NULL, FALSE);
  
++	only_trusted = pk_backend_get_bool (self, "only_trusted");
++
++	if (!only_trusted && !pk_backend_disable_signatures (self, &error)) {
++		goto out;
++	}
++
  	if (!pk_backend_transaction_initialize (self, 0, &error) ||
-@@ -233,8 +230,8 @@ pk_backend_update_packages_thread (PkBackend *self)
+ 	    !pk_backend_transaction_sync_targets (self, &error) ||
+ 	    !pk_backend_transaction_simulate (self, &error)) {
+@@ -233,8 +252,8 @@ pk_backend_update_packages_thread (PkBackend *self)
  	}
  
  	/* change the install reason of packages that replace dependencies */
@@ -2172,7 +2325,7 @@ index 9e1e02b..c770159 100644
  		const gchar *name = alpm_pkg_get_name (pkg);
  
  		if (pk_backend_cancelled (self)) {
-@@ -254,7 +251,8 @@ pk_backend_update_packages_thread (PkBackend *self)
+@@ -254,14 +273,22 @@ pk_backend_update_packages_thread (PkBackend *self)
  
  	for (i = asdeps; i != NULL; i = i->next) {
  		const gchar *name = (const gchar *) i->data;
@@ -2182,6 +2335,21 @@ index 9e1e02b..c770159 100644
  	}
  
  out:
++	pk_backend_transaction_end (self, (error == NULL) ? &error : NULL);
++
++	if (!only_trusted) {
++		GError **e = (error == NULL) ? &error : NULL;
++		pk_backend_enable_signatures (self, e);
++	}
++
+ 	alpm_list_free_inner (asdeps, g_free);
+ 	alpm_list_free (asdeps);
+ 
+-	return pk_backend_transaction_finish (self, error);
++	return pk_backend_finish (self, error);
+ }
+ 
+ void
 diff --git a/backends/alpm/pk-backend-transaction.c b/backends/alpm/pk-backend-transaction.c
 index fdb840e..76402f0 100644
 --- a/backends/alpm/pk-backend-transaction.c
