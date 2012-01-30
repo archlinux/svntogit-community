@@ -1,15 +1,15 @@
 # Maintainer: Thomas Dziedzic < gostrc at gmail >
 
 pkgname=('python-tornado' 'python2-tornado')
-pkgver=2.1.1
-pkgrel=2
+pkgver=2.2
+pkgrel=1
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('any')
 url='http://www.tornadoweb.org/'
 license=('Apache')
 makedepends=('python-distribute' 'python2-distribute')
 source=("https://github.com/downloads/facebook/tornado/tornado-${pkgver}.tar.gz")
-md5sums=('3cfa12efec87a26e013128388e1e6aa7')
+md5sums=('0b2c9d822e213d7ea2b7ebebca357623')
 
 build() {
   cp -r tornado-${pkgver} python2-tornado-${pkgver}
