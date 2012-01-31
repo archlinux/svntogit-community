@@ -10,7 +10,8 @@ url="http://virt-manager.et.redhat.com"
 license=('GPL')
 depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'virtinst' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
-         'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass')
+         'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
+         'hicolor-icon-theme')
 makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 
 # When executables that comes with the package crash, are deps optional?
