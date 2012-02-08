@@ -1,8 +1,8 @@
 #!/bin/bash
 
 . /etc/rc.conf
-. /etc/conf.d/mldonkey
 . /etc/rc.d/functions
+. /etc/conf.d/mldonkey
 
 if [ -z $MLDUSER ] ; then
 	echo "Unable to run MLDonkey. You must set a user in /etc/conf.d/mldonkey ."
@@ -27,7 +27,10 @@ fi
 
 PIDDIR="/var/run/mldonkey"
 PIDFILE="$PIDDIR/mlnet.pid"
-PID=$(cat $PIDFILE 2>/dev/null)
+
+getPID() {
+   echo $(pgrep -u "$MLDUSER" mlnet 2>/dev/null);
+}
 
 case "$1" in
     	start)
@@ -46,19 +49,34 @@ case "$1" in
 			stat_done
 		fi
 	;;
-    	stop)
-        	stat_busy "Stopping MLDonkey"
-		[ ! -z $PID ] && kill $PID &> /dev/null
-		if [ $? -gt 0 ]; then
-			stat_fail
-		else
-			rm_daemon mldonkey
-			stat_done
-		fi
-	;;
+  stop)
+    stat_busy "Stopping MLDonkey"
+    if [ ! -z "$(getPID)" ]; then
+      timeo=30
+      kill $(getPID) &> /dev/null
+      if [ $? -gt 0 ]; then
+        stat_fail
+        exit 1
+      fi
+      while [ ! -z "$(getPID)" -a $timeo -gt 0 ]; do
+        sleep 1
+        let timeo=${timeo}-1
+      done
+      if [ -z "$(getPID)" ]; then
+        rm -f $PIDFILE &>/dev/null
+        rm_daemon mldonkey
+        stat_done
+      else
+        stat_fail
+        exit 1
+      fi
+    else
+      stat_fail
+      exit 1
+    fi
+    ;;
     	restart)
         	$0 stop
-		sleep 1
         	$0 start
         ;;
     	*)
