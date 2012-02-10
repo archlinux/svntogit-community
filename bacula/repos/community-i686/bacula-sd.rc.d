@@ -3,6 +3,9 @@
 . /etc/rc.conf
 . /etc/rc.d/functions
 
+PIDFILE=/var/run/bacula/bacula-sd.*.pid
+PID=$(cat $PIDFILE 2>/dev/null)
+
 case "$1" in
   start)
 
@@ -20,11 +23,12 @@ case "$1" in
     ;;
   stop)
     stat_busy "Stopping Bacula Storage Daemon"
-    killall bacula-sd > /dev/null
+    kill $PID &> /dev/null
     if [ $? -gt 0 ]; then
       stat_fail
     else
       rm_daemon bacula-sd
+      rm $PIDFILE &> /dev/null
       stat_done
     fi
     ;;
@@ -37,5 +41,3 @@ case "$1" in
     echo "usage: $0 {start|stop|restart}"  
 esac
 exit 0
-~                                                                                                                                                         
-~         
