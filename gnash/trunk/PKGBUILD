@@ -1,49 +1,39 @@
-# $Id: PKGBUILD 82896 2010-06-18 18:30:20Z ibiru $
+# $Id$
 # Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 
 pkgbase=gnash
 pkgname=(gnash-common gnash-gtk)
-pkgver=0.8.9
-pkgrel=9
+pkgver=0.8.10
+pkgrel=1
 arch=(i686 x86_64)
 url="http://www.gnu.org/software/gnash/"
 license=(GPL3)
 makedepends=(curl giflib libldap sdl agg libjpeg libpng libtool
-             speex fontconfig libva ffmpeg libxinerama
+             speex fontconfig ffmpeg
              gstreamer0.10-base gstreamer0.10-ffmpeg
-             gtk2 libldap xulrunner hicolor-icon-theme desktop-file-utils
+             gtk2 libldap xulrunner hicolor-icon-theme desktop-file-utils gconf
              pkgconfig boost)
 options=(!libtool !emptydirs)
 source=(http://ftp.gnu.org/gnu/gnash/${pkgver}/gnash-${pkgver}.tar.bz2
-        gentoo-ffmpeg-0.8.patch xul8.patch nodebug.patch)
-sha256sums=('f90dbdc6f03d787b239b9edacbea077b46d69ae9d85f08af23f256af389c48bd'
-            '5e6b9c2ccb0f6dda70745712dddf302d2b42895feda850f2ed126bf53d8815ca'
-            'd484f1c21ef71847a2d4b3dd254d1fa93a58719d45bc9df8b8deabee388ce4e9'
+        nodebug.patch)
+sha256sums=('9625072e45df92baa2c28fc9999d4e2deb66bc827530baedfad2e4e2292d1224'
             '0ebb104a7632af997c7e6b268755949fa0c1eea5e32015b95a22d63d0e431551')
 
 build() {
   cd "$srcdir/gnash-$pkgver"
 
-  # Consolidated gentoo patches for ffmpeg compatibility
-  # as of 2011-10-31
-  patch -Np1 -i "$srcdir/gentoo-ffmpeg-0.8.patch"
-
-  # Patch for compatibility with newer xulrunner headers
-  patch -Np1 -i "$srcdir/xul8.patch"
-
   # Disable very, very verbose debugging (gigabytes of logs)
   patch -Np1 -i "$srcdir/nodebug.patch"
 
-  ./autogen.sh
   ./configure \
     --prefix=/usr \
     --sysconfdir=/etc \
     --with-plugins-install=system \
     --with-npapi-plugindir=/usr/lib/mozilla/plugins \
-    --enable-gui=sdl,gtk \
-    --enable-renderer=agg \
+    --enable-gui=sdl,gtk,dump \
     --enable-media=gst,ffmpeg \
-    --enable-hwaccel=vaapi
+    --enable-renderer=agg,cairo \
+    --enable-device=x11
 
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
 
@@ -52,38 +42,40 @@ build() {
 
 package_gnash-common() {
   pkgdesc="A GNU Flash movie player"
-  depends=(curl giflib libldap sdl agg libjpeg libpng libtool
-           speex fontconfig libva ffmpeg libxinerama
+  depends=(curl giflib sdl agg libjpeg libpng libltdl
+           speex fontconfig ffmpeg cairo
            gstreamer0.10-base gstreamer0.10-ffmpeg
            boost-libs)
-  backup=(etc/gnashrc)
+  backup=(etc/gnashrc etc/gnashthumbnailrc)
 
   cd "$srcdir/gnash-$pkgver"
 
-  make DESTDIR="$pkgdir" install
+  make GCONF_DISABLE_MAKEFILE_SCHEMA_INSTALL=1 DESTDIR="$pkgdir" install
 
   # Split gnash-gtk
-  mkdir -p "$srcdir"/gtk/{bin,man1,share}
-  mv "$pkgdir"/usr/bin/{gtk-gnash,gnash-gtk-launcher} "$srcdir/gtk/bin/"
-  mv "$pkgdir"/usr/share/man/man1/{gtk-gnash,gnash-gtk-launcher}.1 "$srcdir/gtk/man1/"
-  mv "$pkgdir"/usr/share/{applications,icons} "$srcdir/gtk/share/"
-  mv "$pkgdir/etc/gnashpluginrc" "$srcdir/gtk/"
+  mkdir -p "$srcdir"/gtk/{etc,usr/{bin,share/man/man1}}
+  mv "$pkgdir"/usr/bin/{gtk-gnash,gnash-gtk-launcher} \
+    "$srcdir/gtk/usr/bin/"
+  mv "$pkgdir"/usr/share/man/man1/{gtk-gnash,gnash-gtk-launcher}.1 \
+    "$srcdir/gtk/usr/share/man/man1/"
+  mv "$pkgdir"/usr/share/{applications,icons} "$srcdir/gtk/usr/share/"
+  mv "$pkgdir"/etc/gnashpluginrc "$srcdir/gtk/etc/"
 }
 
 package_gnash-gtk() {
   pkgdesc="A GNU Flash movie player"
   depends=("gnash-common=$pkgver"
-            gtk2 libldap hicolor-icon-theme desktop-file-utils)
+            gtk2 libldap hicolor-icon-theme desktop-file-utils gconf)
   install=gnash-gtk.install
   backup=(etc/gnashpluginrc)
 
+  mv "$srcdir"/gtk/* "$pkgdir"
+  
   cd "$srcdir/gnash-$pkgver"
-
   make DESTDIR="$pkgdir" install-plugin
 
-  install -d "$pkgdir"/{etc,usr/{bin,share/man/man1}}
-  mv "$srcdir"/gtk/bin/* "$pkgdir/usr/bin/"
-  mv "$srcdir"/gtk/man1/* "$pkgdir/usr/share/man/man1/"
-  mv "$srcdir"/gtk/share/* "$pkgdir/usr/share/"
-  mv "$srcdir/gtk/gnashpluginrc" "$pkgdir/etc/"
+  install -m755 -d "$pkgdir/usr/share/gconf/schemas"
+  gconf-merge-schema "$pkgdir/usr/share/gconf/schemas/gnash.schemas" --domain gnash \
+    "$pkgdir"/usr/share/applications/*.schemas
+  rm -f "$pkgdir"/usr/share/applications/*.schemas
 }
