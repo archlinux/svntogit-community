@@ -1,5 +1,5 @@
 #!/bin/bash
-# baraction.sh for scrotwm status bar
+# baraction.sh for spectrwm status bar
 # From http://wiki.archlinux.org/index.php/Scrotwm
 
 SLEEP_SEC=5
@@ -53,7 +53,7 @@ while :; do
 		;;
 	esac
 
-	#scrotwm bar_print can't handle UTF-8 characters, such as degree symbol
+	#spectrwm bar_print can't handle UTF-8 characters, such as degree symbol
 	#Core 0:      +67.0°C  (crit = +100.0°C)
 	eval $(sensors 2>/dev/null | sed s/[°+]//g | awk '/^Core 0/ {printf "CORE0TEMP=%s;", $3}; /^Core 1/ {printf "CORE1TEMP=%s;",$3}; /^fan1/ {printf "FANSPD=%s;",$2};' -)
 	TEMP_STR="Tcpu=$CORE0TEMP,$CORE1TEMP F=$FANSPD"
