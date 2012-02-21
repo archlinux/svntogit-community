@@ -3,7 +3,7 @@
 
 pkgname=backuppc
 pkgver=3.2.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Enterprise-grade system for backing up Linux, Windows and MacOS PCs'
 url='http://backuppc.sourceforge.net/'
 license=('GPL2')
@@ -22,6 +22,8 @@ optdepends=(
   'rsync: used by rsync transfert method'
   'perl-file-rsyncp: used by rsync transfert method'
   'perl-io-dirent'
+  'apache: used by web admin interface'
+  'mod_perl: used by web admin interface'
 )
 source=("http://downloads.sourceforge.net/project/$pkgname/$pkgname/$pkgver/BackupPC-$pkgver.tar.gz"
         "$pkgname.conf"
@@ -29,7 +31,9 @@ source=("http://downloads.sourceforge.net/project/$pkgname/$pkgname/$pkgver/Back
         "$pkgname.service")
 install=$pkgname.install
 backup=("etc/$pkgname/config.pl"
-        "etc/$pkgname/hosts")
+        "etc/$pkgname/hosts"
+        "etc/httpd/conf/extra/$pkgname.conf"
+        "etc/$pkgname/$pkgname.users")
 md5sums=('2334fafb8e03284225a9b8a7fb230012'
          '0fb4c20f7f4872b6d3994cd1e56080c0'
          'ab1ebc8ae2cd19737f6e711846bd4eb3'
@@ -55,25 +59,30 @@ package() {
     --data-dir /var/lib/$pkgname \
     --log-dir /var/log/$pkgname
 
-  # set correct permissions
-  chown 91 -R "$pkgdir"/etc/$pkgname
-  chown 91 -R "$pkgdir"/var/{log,lib}/$pkgname
-  chmod 755 "$pkgdir/etc"
-  chmod 640 "$pkgdir"/etc/$pkgname/{config.pl,hosts}
-  chmod 755 -R "$pkgdir"/usr/share/$pkgname/{cgi-,}bin "$pkgdir/var/"
-
   # create symlinks for binaries
   install -d -m 755 "$pkgdir/usr/bin"
   for _f in "$pkgdir"/usr/share/$pkgname/bin/*; do
     ln -s "/usr/share/$pkgname/bin/$(basename $_f)" "$pkgdir/usr/bin/$(basename $_f)"
   done
 
+  # install apache http
+  sed -i "s/BackupPC.users/$pkgname.users/" httpd/BackupPC.conf
+  install -D -m 644 httpd/BackupPC.conf "$pkgdir/etc/httpd/conf/extra/backuppc.conf"
+  install -D -m 640 /dev/null "$pkgdir/etc/$pkgname/$pkgname.users"
+
   # install rc script
   install -D -m 755 ../$pkgname.rc "$pkgdir/etc/rc.d/$pkgname"
   install -D -m 755 ../$pkgname.conf "$pkgdir/etc/conf.d/$pkgname"
 
   # install systemd unit
-  install -D -m 644 ../$pkgname.service "${pkgdir}/lib/systemd/system/$pkgname.service"
+  install -D -m 644 ../$pkgname.service "$pkgdir/lib/systemd/system/$pkgname.service"
+
+  # set correct permissions
+  chown 91 -R "$pkgdir"/etc/$pkgname
+  chown 91 -R "$pkgdir"/var/{log,lib}/$pkgname
+  chmod 755 "$pkgdir/etc"
+  chmod 640 "$pkgdir"/etc/$pkgname/{config.pl,hosts}
+  chmod 755 -R "$pkgdir"/usr/share/$pkgname/{cgi-,}bin "$pkgdir/var/"
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
