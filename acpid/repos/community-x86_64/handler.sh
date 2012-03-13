@@ -17,7 +17,7 @@ case "$1" in
         ;;
     button/sleep)
         case "$2" in
-            SLPB)   echo -n mem >/sys/power/state ;;
+            SLPB|SBTN)   echo -n mem >/sys/power/state ;;
             *)      logger "ACPI action undefined: $2" ;;
         esac
         ;;
