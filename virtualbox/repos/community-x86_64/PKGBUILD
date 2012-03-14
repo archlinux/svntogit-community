@@ -2,28 +2,30 @@
 #Maintainer: Ionut Biru <ibiru@archlinux.org>
 pkgbase=virtualbox
 pkgname=('virtualbox' 'virtualbox-archlinux-additions' 'virtualbox-sdk' 'virtualbox-source')
-pkgver=4.1.8
-pkgrel=2
+pkgver=4.1.10
+pkgrel=1
 arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
 makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2' 'libxcursor' 'qt' 'libidl2' 'sdl_ttf' 'alsa-lib' 'libpulse' 'libxtst'
-'xalan-c' 'sdl' 'libxmu' 'curl' 'python2' 'linux-headers' 'mesa' 'libxrandr' 'libxinerama' 'libvncserver' 'openjdk6' 'gsoap' 'vde2')
+'xalan-c' 'sdl' 'libxmu' 'curl' 'python2' 'linux-headers' 'mesa' 'libxrandr' 'libxinerama' 'libvncserver' 'jdk7-openjdk' 'gsoap' 'vde2')
 #'xorg-server-devel' 'xf86driproto' 'libxcomposite')
 [[ $CARCH == "x86_64" ]] && makedepends=("${makedepends[@]}" 'gcc-multilib' 'lib32-glibc')
 source=(http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver}.tar.bz2
         UserManual-$pkgver.pdf::http://download.virtualbox.org/virtualbox/${pkgver}/UserManual.pdf
-        10-vboxdrv.rules  vboxdrv-reference.patch LocalConfig.kmk vboxbuild
-        change_default_driver_dir.patch vbox-service.conf vbox-service.rc)
+        10-vboxdrv.rules  vboxdrv-reference.patch gsoap.patch LocalConfig.kmk vboxbuild
+        change_default_driver_dir.patch vbox-service.conf vbox-service.rc
+        vboxweb.conf vboxweb.rc)
 
 _extramodules=extramodules-3.2-ARCH
 _kernver="$(cat /lib/modules/${_extramodules}/version)"
 
 build() {
-    cd "$srcdir/VirtualBox-${pkgver}_OSE"
+    cd "$srcdir/VirtualBox-${pkgver}"
 
     patch -Np1 -i "$srcdir/vboxdrv-reference.patch"
     patch -Np1 -i "$srcdir/change_default_driver_dir.patch"
+    patch -Np0 -i "$srcdir//gsoap.patch"
 
     cp "$srcdir/LocalConfig.kmk" .
 
@@ -44,16 +46,17 @@ package_virtualbox() {
     optdepends=('qt: for VirtualBox GUI'
                 'vde2: Virtual Distributed Ethernet support'
                 'virtualbox-sdk: developer kit'
-                'virtualbox-source: host kernel source modules for non-stock kernels')
+                'virtualbox-source: host kernel source modules for non-stock kernels'
+                'net-tools: for host-only or bridged networking')
 
     backup=('etc/vbox/vbox.cfg')
     replaces=('virtualbox-ose')
     conflicts=('virtualbox-ose')
     install=virtualbox.install
 
-    source "$srcdir/VirtualBox-${pkgver}_OSE/env.sh"
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
 
-    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
     mkdir -p "$pkgdir"/usr/{bin,lib/virtualbox/components,lib/virtualbox/ExtensionPacks,share/virtualbox/nls}
 
     #doc
@@ -104,10 +107,16 @@ package_virtualbox() {
     echo 'INSTALL_DIR=/usr/lib/virtualbox' > "$pkgdir/etc/vbox/vbox.cfg"
 
     #udev and licence
-    install -D -m 0644 "$srcdir/VirtualBox-${pkgver}_OSE/COPYING" \
+    install -D -m 0644 "$srcdir/VirtualBox-${pkgver}/COPYING" \
         "$pkgdir/usr/share/licenses/virtualbox/LICENSE"
     install -D -m 0644 "$srcdir/10-vboxdrv.rules" \
         "$pkgdir/lib/udev/rules.d/10-vboxdrv.rules"
+
+    # install rc.d script
+    install -D -m755 "$srcdir/vboxweb.rc" "$pkgdir/etc/rc.d/vboxweb"
+    # install sample config
+    install -D -m644 "$srcdir/vboxweb.conf" "$pkgdir/etc/conf.d/vboxweb"
+
 }
 
 package_virtualbox-source() {
@@ -118,10 +127,10 @@ package_virtualbox-source() {
                 'kernel26-lts-headers')
     install=virtualbox-source.install
 
-    source "$srcdir/VirtualBox-${pkgver}_OSE/env.sh"
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
     mkdir -p $pkgdir/usr/lib/virtualbox
 
-    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
 
     #sources for modules
     cp -r src ${pkgdir}/usr/lib/virtualbox
@@ -135,8 +144,8 @@ package_virtualbox-sdk() {
 
     mkdir -p "$pkgdir/usr/lib/virtualbox"
 
-    source "$srcdir/VirtualBox-${pkgver}_OSE/env.sh"
-    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
 
     install -D -m 0755 vboxshell.py "$pkgdir/usr/lib/virtualbox/vboxshell.py"
     #python sdk
@@ -153,19 +162,19 @@ package_virtualbox-archlinux-additions(){
     replaces=('virtualbox-guest-additions')
     conflicts=('virtualbox-guest-additions')
 
-    source "$srcdir/VirtualBox-${pkgver}_OSE/env.sh"
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
 
-    cd "$srcdir/VirtualBox-${pkgver}_OSE/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
 
     install -d "$pkgdir"/{usr/bin,sbin}
     install -m755 VBoxClient VBoxControl VBoxService "$pkgdir/usr/bin"
     install -m755 mount.vboxsf "$pkgdir/sbin"
 
-    install -m755 -D "$srcdir"/VirtualBox-${pkgver}_OSE/src/VBox/Additions/x11/Installer/98vboxadd-xclient \
+    install -m755 -D "$srcdir"/VirtualBox-${pkgver}/src/VBox/Additions/x11/Installer/98vboxadd-xclient \
         "$pkgdir"/usr/bin/VBoxClient-all
-    install -m755 -D "$srcdir"/VirtualBox-${pkgver}_OSE/src/VBox/Additions/x11/Installer/vboxclient.desktop \
+    install -m755 -D "$srcdir"/VirtualBox-${pkgver}/src/VBox/Additions/x11/Installer/vboxclient.desktop \
         "$pkgdir"/etc/xdg/autostart/vboxclient.desktop
-    install -D vboxvideo_drv_111.so \
+    install -D vboxvideo_drv_112.so \
         "$pkgdir/usr/lib/xorg/modules/drivers/vboxvideo.so"
     install -d "$pkgdir/usr/lib/xorg/modules/dri"
     install -m755 VBoxOGL*.so "$pkgdir/usr/lib"
@@ -173,17 +182,32 @@ package_virtualbox-archlinux-additions(){
     install -m755 -D pam_vbox.so "$pkgdir/lib/security/pam_vbox.so"
 
     # install rc.d script
-    install -D -m755 "${srcdir}/vbox-service.rc" "${pkgdir}/etc/rc.d/vbox-service"
+    install -D -m755 "$srcdir/vbox-service.rc" "$pkgdir/etc/rc.d/vbox-service"
 
     # install sample config
-    install -D -m644 "${srcdir}/vbox-service.conf" "${pkgdir}/etc/conf.d/vbox-service"
+    install -D -m644 "$srcdir/vbox-service.conf" "$pkgdir/etc/conf.d/vbox-service"
 }
-md5sums=('2092bba46baa62fab5520d67dee2ece8'
-         '2f6b36ff143eb8da55ee92676708e757'
+md5sums=('263e495ef3a7ab75943af28d446ee702'
+         '94409076d9f98fbfa41e5519dbf533d8'
          '5f85710e0b8606de967716ded7b2d351'
          '6ab2455c391d8cc005e2f4461ae26a3b'
-         '78ffa67ff131680f1d2b6f06d4325c5b'
+         'c248bb3a173362a8e6cacc83f56baa14'
+         'a1ff1d1b4423556887e48a32978226a6'
          '67688bff176d3c6fac5664dc282fea52'
          '97e193f050574dd272a38e5ee5ebe62b'
          '3c08ad30b89add47d3f45121200a5360'
-         'e7416331d0bc331f3b5aae3e5d104642')
+         '208cf5f842eb2e3a5b6dcfc59080d26c'
+         '3ac185709bfe688bb753c46e170d0546'
+         'c159d683ba1947290fc2ad2c64194150')
+md5sums=('263e495ef3a7ab75943af28d446ee702'
+         '94409076d9f98fbfa41e5519dbf533d8'
+         '5f85710e0b8606de967716ded7b2d351'
+         '6ab2455c391d8cc005e2f4461ae26a3b'
+         'b9f4da759d23b60b69b12005213c3aa7'
+         'a1ff1d1b4423556887e48a32978226a6'
+         '67688bff176d3c6fac5664dc282fea52'
+         '97e193f050574dd272a38e5ee5ebe62b'
+         '3c08ad30b89add47d3f45121200a5360'
+         '208cf5f842eb2e3a5b6dcfc59080d26c'
+         '3ac185709bfe688bb753c46e170d0546'
+         'c159d683ba1947290fc2ad2c64194150')
