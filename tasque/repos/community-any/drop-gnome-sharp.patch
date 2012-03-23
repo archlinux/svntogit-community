@@ -1,0 +1,140 @@
+diff -Naur tasque-0.1.9.orig/configure.ac tasque-0.1.9/configure.ac
+--- tasque-0.1.9.orig/configure.ac	2010-01-12 20:45:49.000000000 +0100
++++ tasque-0.1.9/configure.ac	2012-01-12 02:55:51.862579809 +0100
+@@ -37,7 +37,6 @@
+ AM_GCONF_SOURCE_2
+ 
+ PKG_CHECK_MODULES([GLIB_SHARP_20], [glib-sharp-2.0])
+-PKG_CHECK_MODULES([GNOME_SHARP_20], [gnome-sharp-2.0])
+ PKG_CHECK_MODULES([GTK_DOTNET_20], [gtk-dotnet-2.0])
+ PKG_CHECK_MODULES([GTK_SHARP_20], [gtk-sharp-2.0 >= 2.10.0])
+ PKG_CHECK_MODULES([GTK_SHARP_2_12], gtk-sharp-2.0 >= 2.12.0, GTK_2_12="yes", GTK_2_12="no")
+diff -Naur tasque-0.1.9.orig/src/Backends/IceCore/Makefile.am tasque-0.1.9/src/Backends/IceCore/Makefile.am
+--- tasque-0.1.9.orig/src/Backends/IceCore/Makefile.am	2010-01-12 20:45:49.000000000 +0100
++++ tasque-0.1.9/src/Backends/IceCore/Makefile.am	2012-01-12 02:55:51.869246068 +0100
+@@ -8,7 +8,6 @@
+ ASSMS = \
+ 	-r:$(top_builddir)/src/Tasque.exe \
+ 	$(GLIB_SHARP_20_LIBS) \
+-	$(GNOME_SHARP_20_LIBS) \
+ 	$(GTK_DOTNET_20_LIBS) \
+ 	$(ICE_DESKTOP_LIBS) \
+ 	$(NDESK_DBUS_10_LIBS) \
+diff -Naur tasque-0.1.9.orig/src/GnomeApplication.cs tasque-0.1.9/src/GnomeApplication.cs
+--- tasque-0.1.9.orig/src/GnomeApplication.cs	2010-01-12 20:45:49.000000000 +0100
++++ tasque-0.1.9/src/GnomeApplication.cs	2012-01-12 02:55:51.869246068 +0100
+@@ -12,7 +12,6 @@
+ {
+ 	public class GnomeApplication : INativeApplication
+ 	{
+-		private Gnome.Program program;
+ 		private string confDir;
+ 
+ 		public GnomeApplication ()
+@@ -36,10 +35,6 @@
+ 			} catch {} // Ignore exception if fail (not needed to run)
+ 
+ 			Gtk.Application.Init ();
+-			program = new Gnome.Program (display_name,
+-			                             Defines.Version,
+-			                             Gnome.Modules.UI,
+-			                             args);
+ 		}
+ 
+ 		public void InitializeIdle ()
+@@ -56,7 +51,7 @@
+ 
+ 		public void StartMainLoop ()
+ 		{
+-			program.Run ();
++			Gtk.Application.Run ();
+ 		}
+ 
+ 		public void QuitMainLoop ()
+@@ -95,7 +90,7 @@
+ 		
+ 		public void OpenUrl (string url)
+ 		{
+-			Gnome.Url.Show (url);
++			GtkBeans.Global.ShowUri (null, url);
+ 		}
+ 		
+ 		public string ConfDir {
+diff -Naur tasque-0.1.9.orig/src/gtk-sharp-beans/Global.cs tasque-0.1.9/src/gtk-sharp-beans/Global.cs
+--- tasque-0.1.9.orig/src/gtk-sharp-beans/Global.cs	1970-01-01 01:00:00.000000000 +0100
++++ tasque-0.1.9/src/gtk-sharp-beans/Global.cs	2012-01-12 02:55:51.905910494 +0100
+@@ -0,0 +1,46 @@
++// GtkBeans.Global.cs
++//
++// Author(s):
++//      Stephane Delcroix <stephane@delcroix.org>
++//
++// Copyright (c) 2009 Novell, Inc.
++//
++// This program is free software; you can redistribute it and/or
++// modify it under the terms of version 2 of the Lesser GNU General 
++// Public License as published by the Free Software Foundation.
++//
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++// Lesser General Public License for more details.
++//
++// You should have received a copy of the GNU Lesser General Public
++// License along with this program; if not, write to the
++// Free Software Foundation, Inc., 59 Temple Place - Suite 330,
++// Boston, MA 02111-1307, USA.
++
++using System;
++using System.Collections;
++using System.Runtime.InteropServices;
++
++namespace GtkBeans {
++	public static class Global {
++		[DllImport("libgtk-win32-2.0-0.dll")]
++		static extern unsafe bool gtk_show_uri(IntPtr screen, IntPtr uri, uint timestamp, out IntPtr error);
++
++		public static unsafe bool ShowUri(Gdk.Screen screen, string uri, uint timestamp) {
++			IntPtr native_uri = GLib.Marshaller.StringToPtrGStrdup (uri);
++			IntPtr error = IntPtr.Zero;
++			bool raw_ret = gtk_show_uri(screen == null ? IntPtr.Zero : screen.Handle, native_uri, timestamp, out error);
++			bool ret = raw_ret;
++			GLib.Marshaller.Free (native_uri);
++			if (error != IntPtr.Zero) throw new GLib.GException (error);
++			return ret;
++		}
++
++		public static bool ShowUri (Gdk.Screen screen, string uri)
++		{
++			return ShowUri (screen, uri, Gdk.EventHelper.GetTime (new Gdk.Event(IntPtr.Zero)));
++		}
++	}
++}
+diff -Naur tasque-0.1.9.orig/src/Makefile.am tasque-0.1.9/src/Makefile.am
+--- tasque-0.1.9.orig/src/Makefile.am	2010-01-12 20:45:49.000000000 +0100
++++ tasque-0.1.9/src/Makefile.am	2012-01-12 02:55:51.909243624 +0100
+@@ -89,6 +89,7 @@
+ 	$(srcdir)/TaskWindow.cs \
+ 	$(srcdir)/TaskTreeView.cs \
+ 	$(srcdir)/Utilities.cs \
++	$(srcdir)/gtk-sharp-beans/*.cs \
+ 	\
+ 	$(DUMMY_CSFILES) \
+ 	\
+@@ -130,7 +131,6 @@
+ 	-r:System.Web \
+ 	-r:$(top_builddir)/RtmNet/RtmNet \
+ 	$(GLIB_SHARP_20_LIBS) \
+-	$(GNOME_SHARP_20_LIBS) \
+ 	$(GTK_DOTNET_20_LIBS) \
+ 	$(NOTIFY_SHARP_LIBS) \
+ 	$(NDESK_DBUS_10_LIBS) \
+diff -Naur tasque-0.1.9.orig/src/Tasque.exe.config.in tasque-0.1.9/src/Tasque.exe.config.in
+--- tasque-0.1.9.orig/src/Tasque.exe.config.in	2010-01-12 20:45:49.000000000 +0100
++++ tasque-0.1.9/src/Tasque.exe.config.in	2012-01-12 02:56:39.739653991 +0100
+@@ -1,4 +1,5 @@
+ <configuration>
+   <dllmap dll="libX11" target="libX11.so.6" />
+   <dllmap dll="gdk-x11-2.0" target="libgdk-x11-2.0.so.0" />
++  <dllmap dll="libgtk-win32-2.0-0.dll" target="libgtk-x11-2.0.so" />
+ </configuration>
