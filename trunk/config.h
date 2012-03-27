@@ -7,7 +7,7 @@
 /* load all frames from gif files and support gif animations?
  * (requires giflib [-lgif] to be installed)
  */
-#define GIF_SUPPORT  0
+#define GIF_SUPPORT  1
 
 #endif
 #ifdef _WINDOW_CONFIG
