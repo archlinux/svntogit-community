@@ -5,19 +5,19 @@
 
 pkgname=sxiv
 pkgver=1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='simple x image viewer'
 arch=('i686' 'x86_64')
 license=('GPL2')
 install=sxiv.install
 url='https://github.com/muennich/sxiv'
-depends=('libx11' 'xproto' 'imlib2' 'desktop-file-utils')
+depends=('libx11' 'xproto' 'imlib2' 'giflib' 'desktop-file-utils')
 source=("https://github.com/downloads/muennich/sxiv/sxiv-${pkgver}.tar.gz"
         'sxiv.desktop'
 	    'config.h')
 md5sums=('c887e0af1e4d5a101b285a46d288c419'
          '1dda85ff6bed4de337f8fb303075ed11'
-         '78c71ef924095d7d6fb75222047de0bd')
+         '67c470b605eae732aed4a8119a70832b')
 
 build() {
   	cd "sxiv-${pkgver}"
