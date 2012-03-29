@@ -3,7 +3,7 @@
 /* auto-orientate jpeg files according to their exif tags?
  * (requires libexif [-lexif] to be installed)
  */
-#define EXIF_SUPPORT 0
+#define EXIF_SUPPORT 1
 /* load all frames from gif files and support gif animations?
  * (requires giflib [-lgif] to be installed)
  */
