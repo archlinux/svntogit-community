@@ -3,20 +3,20 @@
 # Contributor: mpie <michael.kyne-phillips1@ntlworld.com>
 
 pkgname=parrot
-pkgver=4.1.0
+pkgver=4.2.0
 #_rel=stable
 _rel=devel
-pkgrel=2
+pkgrel=1
 pkgdesc="Standalone VM that can execute bytecode compiled dynamic languages"
 arch=('x86_64' 'i686')
 url="http://www.parrotcode.org/"
 license=('GPL')
-depends=('gmp' 'gdbm' 'readline' 'icu' 'openssl' 'libffi')
+depends=('icu' 'openssl' 'libffi')
 makedepends=('perl-json')
 optdepends=('freeglut')
-options=(!emptydirs !makeflags)
-source=("ftp://ftp.parrot.org/pub/parrot/releases/$_rel/$pkgver/parrot-$pkgver.tar.gz")
-md5sums=('23c37c82aeac2d5bf9fd00a7873dab0d')
+options=(!makeflags)
+source=("ftp://ftp.parrot.org/pub/parrot/releases/$_rel/$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('69ee93d9f81babcff67b747cc614358958a32f274e407b65771ca5a056d4c3d4')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
@@ -24,29 +24,26 @@ build() {
   sed -i 's#auto::sha1##' lib/Parrot/Configure/Step/List.pm
   sed -i 's#auto::git_describe##' lib/Parrot/Configure/Step/List.pm
 
-  [ $NOEXTRACT -eq 1 ] || perl Configure.pl --prefix=/usr --parrot_is_shared
+  perl Configure.pl --prefix=/usr \
+    --parrot_is_shared \
+    --disable-rpath
 
   find -type f -name Makefile | while read F; do
     grep "$srcdir" $F  && sed -i \
-      "s#-Wl,-rpath=$srcdir/parrot-$pkgver/blib/lib##" $F || true
+      "s#-Wl,-rpath=$srcdir/$pkgname-$pkgver/blib/lib##" $F
     grep "$srcdir" $F  && sed -i \
-      "s#-rpath=$srcdir/parrot-$pkgver/blib/lib##" $F || true
+      "s#-rpath=$srcdir/$pkgname-$pkgver/blib/lib##" $F
   done
+
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:$(pwd)/blib/lib"
+  make all parrot_utils docs html
 }
 
 package() {
   cd "$srcdir/$pkgname-$pkgver"
 
-  OLD_LIB_PATH=$LD_LIBRARY_PATH
-  export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$srcdir/parrot-$pkgver/blib/lib
-  make -j1 all parrot_utils docs html RPATH_BLIB=
+  make DESTDIR="$pkgdir" install-dev
 
-  export LD_LIBRARY_PATH=`pwd`/blib/lib
-  make -j1 DESTDIR="$pkgdir" install-dev
-
-  sed -i "s#$srcdir#/usr/src#" $pkgdir/usr/lib/parrot/$pkgver/tools/lib/Parrot/Config/Generated.pm
-
-  export LD_LIBRARY_PATH=$OLD_LIB_PATH
+  sed -i "s#$srcdir#/usr/src#" \
+    $pkgdir/usr/lib/parrot/$pkgver/tools/lib/Parrot/Config/Generated.pm
 }
-
-# vim:set ts=2 sw=2 et:
