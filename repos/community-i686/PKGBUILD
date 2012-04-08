@@ -6,7 +6,7 @@ pkgname=('perf' 'cpupower')
 pkgver=3.3
 kernver=${pkgver}
 [[ ${kernver##*rc} != $kernver ]] && testing='testing'
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -51,18 +51,18 @@ package_cpupower() {
   depends=('pciutils')
   conflicts=('cpufrequtils')
 
-  # install rc.d script
-  install -D -m 755 cpupower.rc "$pkgdir/etc/rc.d/cpupower"
-  install -D -m 644 cpupower.conf "$pkgdir/etc/conf.d/cpupower"
-  install -D -m 644 cpupower.service "$pkgdir/lib/systemd/system/cpupower.service"
-
   cd linux-$kernver/tools/power/cpupower
   make \
     DESTDIR="$pkgdir" \
-    INSTALL='/bin/install -c' \
     mandir='/usr/share/man' \
     docdir='/usr/share/doc/cpupower' \
     install install-man
+  # install rc.d script
+  cd "$srcdir"
+  install -D -m 755 cpupower.rc "$pkgdir/etc/rc.d/cpupower"
+  install -D -m 644 cpupower.conf "$pkgdir/etc/conf.d/cpupower"
+  install -D -m 644 cpupower.service "$pkgdir/usr/lib/systemd/system/cpupower.service"
+
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
