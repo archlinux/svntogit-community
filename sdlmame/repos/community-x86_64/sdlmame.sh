@@ -4,13 +4,13 @@
 home=('$HOME')
 
 if [ "$1" != "" ] && [ "$1" = "--newini" ]; then
-  echo "Rebuilding the ini file at $HOME/.mame/sdlmame.ini"
+  echo "Rebuilding the ini file at $HOME/.mame/mame.ini"
   echo "Modify this file for permanent changes to your SDLMAME"
   echo "options and paths before running SDLMAME again."
   cd $HOME/.mame
-  if [ -e sdlmame.ini ]; then
-    echo "Your old ini file has been renamed to sdlmameini.bak"
-    mv sdlmame.ini sdlmameini.bak
+  if [ -e mame.ini ]; then
+    echo "Your old ini file has been renamed to mameini.bak"
+    mv mame.ini mameini.bak
   fi
   /usr/share/sdlmame/sdlmame \
     -artpath "$home/.mame/artwork;artwork" \
@@ -30,7 +30,7 @@ if [ "$1" != "" ] && [ "$1" = "--newini" ]; then
     -createconfig
 elif [ ! -e $HOME/.mame ]; then
   echo "Running SDLMAME for the first time..."
-  echo "Creating an ini file for SDLMAME at $HOME/.mame/sdlmame.ini"
+  echo "Creating an ini file for SDLMAME at $HOME/.mame/mame.ini"
   echo "Modify this file for permanent changes to your SDLMAME"
   echo "options and paths before running SDLMAME again."
   mkdir $HOME/.mame
