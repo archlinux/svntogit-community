@@ -246,7 +246,7 @@ index 23a2724..ecd6d0f 100644
  extern gchar *xfercmd;
  extern alpm_list_t *holdpkgs;
 diff --git a/backends/alpm/pk-backend-config.c b/backends/alpm/pk-backend-config.c
-index 21a4c54..d62b927 100644
+index 21a4c54..c8fd13b 100644
 --- a/backends/alpm/pk-backend-config.c
 +++ b/backends/alpm/pk-backend-config.c
 @@ -28,29 +28,44 @@
@@ -594,7 +594,7 @@ index 21a4c54..d62b927 100644
  			     "unrecognised directive '%s'", key);
  		break;
  	}
-@@ -611,107 +742,100 @@ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
+@@ -611,107 +742,101 @@ pk_backend_config_parse (PkBackendConfig *config, const gchar *filename,
  	}
  }
  
@@ -611,6 +611,7 @@ index 21a4c54..d62b927 100644
  
 -	if (config->root == NULL) {
 +	if (config->root == NULL || *config->root == '\0') {
++		g_free (config->root);
  		config->root = g_strdup (PK_BACKEND_DEFAULT_ROOT);
 +	} else if (!g_str_has_suffix (config->root, G_DIR_SEPARATOR_S)) {
 +		dir = 0;
@@ -761,7 +762,7 @@ index 21a4c54..d62b927 100644
  
  	/* backend takes ownership */
  	g_free (xfercmd);
-@@ -719,9 +843,9 @@ pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
+@@ -719,9 +844,9 @@ pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
  	config->xfercmd = NULL;
  
  	if (xfercmd != NULL) {
@@ -773,7 +774,7 @@ index 21a4c54..d62b927 100644
  	}
  
  	/* backend takes ownership */
-@@ -735,41 +859,53 @@ pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
+@@ -735,41 +860,53 @@ pk_backend_config_configure_alpm (PkBackendConfig *config, GError **error)
  	config->syncfirsts = NULL;
  
  	/* alpm takes ownership */
@@ -1612,7 +1613,7 @@ index 65a6c11..d0cbca2 100644
  
  void
 diff --git a/backends/alpm/pk-backend-packages.c b/backends/alpm/pk-backend-packages.c
-index e9a7c94..2d057aa 100644
+index e9a7c94..c90cd7d 100644
 --- a/backends/alpm/pk-backend-packages.c
 +++ b/backends/alpm/pk-backend-packages.c
 @@ -27,13 +27,11 @@
@@ -1760,7 +1761,32 @@ index e9a7c94..2d057aa 100644
  		const alpm_list_t *i;
  
  		GString *licenses;
-@@ -286,7 +285,7 @@ pk_backend_get_details_thread (PkBackend *self)
+@@ -271,28 +270,30 @@ pk_backend_get_details_thread (PkBackend *self)
+ 			break;
+ 		}
+ 
+-		licenses = g_string_new ("");
+ 		i = alpm_pkg_get_licenses (pkg);
+-		for (; i != NULL; i = i->next) {
+-			/* assume OR although it may not be correct */
+-			g_string_append_printf (licenses, " or %s",
+-						(const gchar *) i->data);
+-		}
+-		if (licenses->len == 0) {
+-			g_string_append (licenses, " or Unknown");
++		if (i == NULL) {
++			licenses = g_string_new ("Unknown");
++		} else {
++			licenses = g_string_new ((const gchar *) i->data);
++			while ((i = i->next) != NULL) {
++				const gchar *license = (const gchar *) i->data;
++				/* assume OR although it may not be correct */
++				g_string_append_printf (licenses, " or %s",
++							license);
++			}
+ 		}
+ 
+ 		group = pk_group_enum_from_string (alpm_pkg_get_group (pkg));
  		desc = alpm_pkg_get_desc (pkg);
  		url = alpm_pkg_get_url (pkg);
  
@@ -1769,7 +1795,14 @@ index e9a7c94..2d057aa 100644
  			size = alpm_pkg_get_isize (pkg);
  		} else {
  			size = alpm_pkg_download_size (pkg);
-@@ -317,17 +316,19 @@ pk_backend_get_files_thread (PkBackend *self)
+ 		}
+ 
+-		pk_backend_details (self, *packages, licenses->str + 4, group,
++		pk_backend_details (self, *packages, licenses->str, group,
+ 				    desc, url, size);
+ 		g_string_free (licenses, TRUE);
+ 	}
+@@ -317,17 +318,19 @@ pk_backend_get_files_thread (PkBackend *self)
  	GError *error = NULL;
  
  	g_return_val_if_fail (self != NULL, FALSE);
@@ -1792,7 +1825,7 @@ index e9a7c94..2d057aa 100644
  
  		if (pk_backend_cancelled (self)) {
  			break;
-@@ -338,11 +339,13 @@ pk_backend_get_files_thread (PkBackend *self)
+@@ -338,14 +341,17 @@ pk_backend_get_files_thread (PkBackend *self)
  			break;
  		}
  
@@ -1806,10 +1839,15 @@ index e9a7c94..2d057aa 100644
 +		filelist = alpm_pkg_get_files (pkg);
 +		for (i = 0; i < filelist->count; ++i) {
 +			const gchar *file = filelist->files[i].name;
-+			g_string_append_printf (files, ";%s%s", root, file);
++			g_string_append_printf (files, "%s%s;", root, file);
  		}
  
- 		pk_backend_files (self, *packages, files->str + 1);
+-		pk_backend_files (self, *packages, files->str + 1);
++		g_string_truncate (files, MAX (files->len, 1) - 1);
++		pk_backend_files (self, *packages, files->str);
+ 		g_string_free (files, TRUE);
+ 	}
+ 
 diff --git a/backends/alpm/pk-backend-packages.h b/backends/alpm/pk-backend-packages.h
 index 4b2d7f8..2d54684 100644
 --- a/backends/alpm/pk-backend-packages.h
