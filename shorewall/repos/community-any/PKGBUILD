@@ -5,17 +5,27 @@
 # Contributor: FUBAR <mrfubar@gmail.com>
 
 pkgname=('shorewall' 'shorewall6' 'shorewall-core')
-pkgver=4.5.1.2
+pkgver=4.5.2
 pkgrel=1
 arch=('any')
 url="http://www.shorewall.net/"
 license=('GPL')
-source=(http://www.shorewall.net/pub/$pkgname/4.5/$pkgname-4.5.1/$pkgname-$pkgver.tar.bz2
-        http://www.shorewall.net/pub/$pkgname/4.5/$pkgname-4.5.1/shorewall6-$pkgver.tar.bz2
-        http://www.shorewall.net/pub/$pkgname/4.5/$pkgname-4.5.1/shorewall-core-$pkgver.tar.bz2)
-sha256sums=('89e9d7e9ca92283a715f233dca9c2f22fdb48da97ab4c324b74b57300014760e'
-            '700173d6866f84ed2f9dd748d9131e924a9b2140e9fb4f3e3286f9d3c29571b7'
-            'dd305b601e2b35184c7636805d3b28f2f3fa9bff224bd55b13a0bfa59ea847b5')
+makedepends=('perl-digest-sha1')
+source=(http://www.shorewall.net/pub/$pkgname/4.5/$pkgname-4.5.2/$pkgname-$pkgver.tar.bz2
+        http://www.shorewall.net/pub/$pkgname/4.5/$pkgname-4.5.2/shorewall6-$pkgver.tar.bz2
+        http://www.shorewall.net/pub/$pkgname/4.5/$pkgname-4.5.2/shorewall-core-$pkgver.tar.bz2)
+sha256sums=('4eb6395ae580cb140e94d283d9744c159fe4ffd117410a34df2de141f83f7ae1'
+            '1e7d92219088ddcb82dd3c1c1533f4c66e5f138144ecc1bc328b72d7997f686f'
+            '35bc7f5368ba8c0d62e73b587cd8a62a61255376f422748817148a9f6918b9eb')
+
+build() {
+  for product in shorewall{,6,-core}; do
+    pushd "$srcdir/$product-$pkgver"
+    ./configure HOST=archlinux SBINDIR=/usr/sbin INITSOURCE=init.archlinux.sh \
+      SYSTEMD=/usr/lib/systemd/system
+    popd
+  done
+}
 
 package_shorewall() {
   pkgdesc="An iptables-based firewall for Linux systems"
@@ -43,7 +53,7 @@ package_shorewall-core() {
 
   cd "$srcdir/$pkgname-$pkgver"
 
-  PREFIX="$pkgdir" ./install.sh
+  DESTDIR="$pkgdir" ./install.sh
 }
 
 do_install() {
@@ -53,8 +63,10 @@ do_install() {
          -e 's|/subsys||' \
       "configfiles/shorewall$_name_suffix.conf"
 
-  cp init.archlinux.sh init.sh
-  DEST=/etc/rc.d INIT=shorewall$_name_suffix PREFIX="$pkgdir" ./install.sh
+  DESTDIR="$pkgdir" ./install.sh
+
+  # Fix /sbin path reference in init script
+  sed -i 's|/sbin|/usr/sbin|' "$pkgdir/etc/rc.d/shorewall$_name_suffix"
 
   install -d "$pkgdir/usr/share/doc/shorewall$_name_suffix/"
   cp -r Samples$_name_suffix "$pkgdir/usr/share/doc/shorewall$_name_suffix/"
@@ -65,9 +77,8 @@ do_install() {
   chmod 644 "$pkgdir/usr/share/shorewall$_name_suffix/modules"
   chmod 644 "$pkgdir/usr/share/shorewall$_name_suffix/helpers"
 
-  # systemd service file
-  install -Dm644 shorewall$_name_suffix.service \
-    "$pkgdir/lib/systemd/system/shorewall$_name_suffix.service"
+  # Fix systemd service file permissions
+  chmod 644 "$pkgdir/usr/lib/systemd/system/shorewall$_name_suffix.service"
 }
 
 # vim:set ts=2 sw=2 et:
