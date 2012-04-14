@@ -7,9 +7,11 @@
 
 case "$1" in
     start)
+	mkdir -p /var/run/dbmail
+	chown -R nobody:nobody /var/run/dbmail
 	for daemon in $DBMAIL_DAEMONS; do
 	    stat_busy "Starting DbMail ${daemon}"
-	    /usr/sbin/${daemon}
+	    /usr/sbin/${daemon} -p /var/run/dbmail/${daemon}.pid
 	    if [ $? -gt 0 ]; then
 		stat_fail
 	    else
@@ -21,7 +23,7 @@ case "$1" in
     stop)
 	for daemon in $DBMAIL_DAEMONS; do
 	    stat_busy "Stopping DbMail ${daemon}"
-	    pid=$(cat /var/run/${daemon}.pid)
+	    pid=$(cat /var/run/dbmail/${daemon}.pid)
 	    kill $pid
 	    sleep 4
 	    stat_done
