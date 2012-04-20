@@ -3,7 +3,7 @@
 . /etc/rc.conf
 . /etc/rc.d/functions
 
-pidfile=/var/run/stunnel.pid
+pidfile=/var/run/stunnel/stunnel.pid
 if [[ -r $pidfile ]]; then
   read -r PID < "$pidfile"
   if [[ $PID && ! -d /proc/$PID ]]; then
