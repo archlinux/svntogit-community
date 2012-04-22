@@ -17,9 +17,9 @@ makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/$testing/linux-$kernver.tar.xz"
         'cpupower.rc'
         'cpupower.conf'
-        'cpupower.service') 
+        'cpupower.service')
 md5sums=('7133f5a2086a7d7ef97abac610c094f5'
-         '26af384ca282bc0dc38ff65acc7bb4b9'
+         '73dbc931e86b3b73d6e2338dcbee81a4'
          '857ccdd0598511e3bf4b63522754dc48'
          '20870541e88109d2f153be3c58a277f1')
 
