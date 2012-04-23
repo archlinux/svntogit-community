@@ -12,6 +12,9 @@ PIDFILE=/var/run/redis.pid
 WORKDIR=/var/lib/redis
 CONF="/etc/redis.conf"
 
+PID=$(cat $PIDFILE)
+[ -d /proc/${PID} ] || rm -f $PIDFILE
+
 case "$1" in
   start)
     stat_busy "Starting $daemon_name"
