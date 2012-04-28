@@ -3,8 +3,8 @@
 
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower')
-pkgver=3.3.4
-kernver=${pkgver}
+pkgver=3.3
+kernver=${pkgver}.4
 [[ ${kernver##*rc} != $kernver ]] && testing='testing'
 pkgrel=4
 license=('GPL2')
