@@ -12,8 +12,13 @@ PIDFILE=/var/run/redis.pid
 WORKDIR=/var/lib/redis
 CONF="/etc/redis.conf"
 
-PID=$(cat $PIDFILE)
+# Check if process exists
+PID=$(cat $PIDFILE 2>/dev/null)
 [ -d /proc/${PID} ] || rm -f $PIDFILE
+
+# Grab the server password, if exists
+REDISPASS=`egrep -o '^requirepass ([^#]+)' $CONF | cut -d\  -f 2`
+[ -n "$REDISPASS" ] && CLIEXEC="$CLIEXEC -a $REDISPASS"
 
 case "$1" in
   start)
