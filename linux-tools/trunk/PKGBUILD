@@ -3,10 +3,10 @@
 
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower')
-pkgver=3.3
+pkgver=3.3.4
 kernver=${pkgver}
 [[ ${kernver##*rc} != $kernver ]] && testing='testing'
-pkgrel=2
+pkgrel=4
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -18,7 +18,7 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.0/$testing/linux-$kernver.tar
         'cpupower.rc'
         'cpupower.conf'
         'cpupower.service')
-md5sums=('7133f5a2086a7d7ef97abac610c094f5'
+md5sums=('1cf9bbadf579734c57ed2e2081895692'
          '73dbc931e86b3b73d6e2338dcbee81a4'
          '857ccdd0598511e3bf4b63522754dc48'
          '20870541e88109d2f153be3c58a277f1')
