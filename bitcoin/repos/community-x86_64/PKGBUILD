@@ -4,7 +4,8 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.6.0
+pkgver=0.6.1
+_commit=dbb656f
 pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
@@ -12,21 +13,18 @@ makedepends=('boost' 'automoc4' 'miniupnpc')
 conflicts=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 replaces=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 license=('MIT')
-source=("http://downloads.sourceforge.net/sourceforge/${pkgbase}/${pkgbase}-${pkgver}-linux.tar.gz")
-sha256sums=('13faa8b7c8c9ce3518ebe31ff2d97920f4feb4f06c1d08455b272fdaaeeb1f97')
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/bitcoin/$pkgbase/tarball/v$pkgver")
+sha256sums=('bc37bc3c91ff39754cee511047d9ff7e8f76e06ac35bb345bcb1c0935e2b2eee')
 
 build() {
-  cd "$srcdir/$pkgbase-$pkgver-linux/src"
-
-  # FIXME GCC 4.7.0 is too strict
-  echo "QMAKE_CXXFLAGS += $CXXFLAGS -fpermissive" >> bitcoin-qt.pro
+  cd "$srcdir/bitcoin-$pkgbase-$_commit"
 
   # and make qt gui
   qmake
   make
 
   # make bitcoind
-  make -f makefile.unix -C src CXXFLAGS="$CXXFLAGS -fpermissive" USE_UPNP=1
+  make -f makefile.unix -C src  CXXFLAGS="$CXXFLAGS" USE_UPNP=1
 }
 
 
@@ -35,7 +33,7 @@ package_bitcoin-qt() {
   depends=(boost-libs qt miniupnpc)
   install=bitcoin-qt.install
 
-  cd "$srcdir/$pkgbase-$pkgver-linux/src"
+  cd "$srcdir/bitcoin-$pkgbase-$_commit"
   install -Dm755 bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
   install -Dm644 contrib/debian/bitcoin-qt.desktop \
     "$pkgdir"/usr/share/applications/bitcoin.desktop
@@ -49,7 +47,7 @@ package_bitcoin-daemon() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - daemon"
   depends=(boost-libs miniupnpc openssl)
 
-  cd "$srcdir/$pkgbase-$pkgver-linux/src"
+  cd "$srcdir/bitcoin-$pkgbase-$_commit"
   install -Dm755 src/bitcoind "$pkgdir"/usr/bin/bitcoind
   install -Dm644 contrib/debian/examples/bitcoin.conf \
     "$pkgdir/usr/share/doc/$pkgname/examples/bitcoin.conf"
