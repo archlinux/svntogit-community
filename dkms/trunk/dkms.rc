@@ -2,21 +2,41 @@
 
 . /etc/rc.conf
 . /etc/rc.d/functions
+. /etc/conf.d/dkms
 
-DKMS=/usr/sbin/dkms
+load_dkms_modules() {
+  shopt -s nullglob
+  local ret=0
+  local modules_path=($(dkms status|sed -rn 's#(.*), (.*), (.*), (.*): installed#\1/\2/\3/\4#p'))
+  for p in "${modules_path[@]}"; do
+    for m in /var/lib/dkms/"$p"/module/*.ko{,gz}; do
+      m=${m##*/}
+      m=${m%.gz}
+      m=${m%.ko}
+      modprobe "$m"
+      ret+=$?
+    done
+  done
+  return $ret
+}
 
 case "$1" in
-	start)
-		status 'Starting DKMS autoinstall' $DKMS autoinstall --kernelver $(uname -r)
-	;;
+  start)
+    status 'Starting DKMS autoinstall' dkms autoinstall
+    [[ $AUTOLOAD =~ [Yy][Ee][Ss] ]] &&
+      status 'Loading DKMS modules' load_dkms_modules
+  ;;
   stop)
-		stat_busy "Stopping DKMS"
-		stat_done
-	;;
+    if [[ $AUTOLOAD =~ [Yy][Ee][Ss] ]]; then
+      status 'Loading DKMS modules' load_dkms_modules
+    else
+      status 'Stopping DKMS'
+    fi
+  ;;
   *)
-		echo "usage: ${0##*/} {start|stop}" >&2
-	;;
+    echo "usage: ${0##*/} {start|stop}" >&2
+  ;;
 esac
 
 :
-# vim:set ts=2 sw=2 ft=sh noet:
+# vim:set ts=2 sw=2 ft=sh et:
