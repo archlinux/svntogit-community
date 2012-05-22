@@ -4,15 +4,15 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2012b
+pkgver=2012c
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
 source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.bz2{,.asc})
-md5sums=('071855259574db4d87e29df673b98a12'
-         '1240c395b5d311b9269003963c95c1b3')
+md5sums=('660e0cee7f6c419ca2665db460f65131'
+         '1df919ab7f3987d03bc043d3fbfb8d07')
 
 
 
