@@ -1,3 +1,2 @@
 #!/bin/sh
-cd /usr/share/java/jabref
-${JAVA_HOME}/bin/java -jar JabRef-VERSION.jar
+exec ${JAVA_HOME}/bin/java -jar /usr/share/java/jabref/JabRef-VERSION.jar "$@"
