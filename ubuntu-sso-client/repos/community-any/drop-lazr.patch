@@ -1,0 +1,89 @@
+=== modified file 'ubuntu_sso/account.py'
+--- ubuntu_sso/account.py	2012-04-09 17:38:24 +0000
++++ ubuntu_sso/account.py	2012-05-24 02:57:21 +0000
+@@ -38,7 +38,6 @@
+ import os
+ import re
+ 
+-from lazr.restfulclient.authorize.oauth import OAuthAuthorizer
+ from oauth import oauth
+ from twisted.internet import defer
+ 
+@@ -54,27 +53,6 @@
+ SSO_STATUS_ERROR = 'error'
+ 
+ 
+-class TimestampedAuthorizer(OAuthAuthorizer):
+-    """Includes a custom timestamp on OAuth signatures."""
+-
+-    def __init__(self, get_timestamp, *args, **kwargs):
+-        """Store the get_timestamp method, and move on."""
+-        super(TimestampedAuthorizer, self).__init__(*args, **kwargs)
+-        self.get_timestamp = get_timestamp
+-
+-    # pylint: disable=C0103
+-    def authorizeRequest(self, absolute_uri, method, body, headers):
+-        """Override authorizeRequest including the timestamp."""
+-        parameters = {"oauth_timestamp": self.get_timestamp()}
+-        oauth_request = oauth.OAuthRequest.from_consumer_and_token(
+-            self.consumer, self.access_token, http_url=absolute_uri,
+-            parameters=parameters)
+-        oauth_request.sign_request(
+-            oauth.OAuthSignatureMethod_PLAINTEXT(),
+-            self.consumer, self.access_token)
+-        headers.update(oauth_request.to_header(self.oauth_realm))
+-
+-
+ class InvalidEmailError(Exception):
+     """The email is not valid."""
+ 
+
+=== modified file 'ubuntu_sso/tests/test_account.py'
+--- ubuntu_sso/tests/test_account.py	2012-04-09 17:38:24 +0000
++++ ubuntu_sso/tests/test_account.py	2012-05-24 02:57:21 +0000
+@@ -51,7 +51,6 @@
+     ResetPasswordTokenError,
+     SSO_STATUS_OK,
+     SSO_STATUS_ERROR,
+-    TimestampedAuthorizer,
+ )
+ from ubuntu_sso.tests import (
+     APP_NAME,
+@@ -203,36 +202,6 @@
+             return defer.fail(e)
+ 
+ 
+-class TimestampedAuthorizerTestCase(TestCase):
+-    """Test suite for the TimestampedAuthorizer."""
+-
+-    def test_authorize_request_includes_timestamp(self):
+-        """The authorizeRequest method includes the timestamp."""
+-        fromcandt_call = []
+-        fake_uri = "http://protocultura.net"
+-        fake_timestamp = 1234
+-        get_fake_timestamp = lambda: fake_timestamp
+-        original_oauthrequest = oauth.OAuthRequest
+-
+-        class FakeOAuthRequest(oauth.OAuthRequest):
+-            """A Fake OAuthRequest class."""
+-
+-            @staticmethod
+-            def from_consumer_and_token(*args, **kwargs):
+-                """A fake from_consumer_and_token."""
+-                fromcandt_call.append((args, kwargs))
+-                builder = original_oauthrequest.from_consumer_and_token
+-                return builder(*args, **kwargs)
+-
+-        self.patch(oauth, "OAuthRequest", FakeOAuthRequest)
+-
+-        authorizer = TimestampedAuthorizer(get_fake_timestamp, "ubuntuone")
+-        authorizer.authorizeRequest(fake_uri, "POST", None, {})
+-        call_kwargs = fromcandt_call[0][1]
+-        parameters = call_kwargs["parameters"]
+-        self.assertEqual(parameters["oauth_timestamp"], fake_timestamp)
+-
+-
+ class AccountTestCase(TestCase):
+     """Test suite for the SSO login processor."""
+ 
+
