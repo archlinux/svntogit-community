@@ -2,57 +2,33 @@
 
 . /etc/rc.conf
 . /etc/rc.d/functions
-
-[[ -x /usr/sbin/arptables ]] || exit 1
-[[ -x /usr/sbin/arptables-save ]] || exit 1
-[[ -x /usr/sbin/arptables-restore ]] || exit 1
-
-do_start() {
-  stat_busy "Restore arptables rules"
-  if [[ -r /etc/arptables/arptables ]]; then
-    /usr/sbin/arptables-restore </etc/arptables/arptables
-    (( $? == 0 )) && stat_done && add_daemon arptables && return
-  fi
-  stat_fail
-}
-
-do_stop() {
-  stat_busy "Flushing arptables rules"
-  /usr/sbin/arptables-restore </dev/null
-  if (( $? == 0 )); then
-    stat_done
-    rm_daemon arptables
-  else
-    stat_fail
-  fi
-}
-
-do_save() {
-  stat_busy "Saving arptables rules"
-  /usr/sbin/arptables-save >/etc/arptables/arptables
-  (( $? == 0 )) && stat_done || stat_fail
-}
+. /etc/conf.d/${0##*/}
 
 case "$1" in
   start)
-    do_start
-  ;;
+    stat_busy 'Loading arptables rules'
+    arptables-restore < "$CONFIG_FILE" &&
+      add_daemon ${0##*/} && stat_done || stat_die
+    ;;
   stop)
-    do_stop
-  ;;
+    [[ $SAVE_ON_STOP =~ [yY][eE][sS] ]] && $0 save
+    stat_busy 'Clearing arptables rules'
+    arptables-restore < /dev/null &&
+      rm_daemon ${0##*/} && stat_done || stat_die
+    ;;
   restart)
-    do_stop
-    do_start
-  ;;
+    $0 start
+    $0 stop
+    ;;
   save)
-    do_save
-  ;;
-  status)
-    /usr/sbin/arptables-save
-  ;;
+    stat_busy 'Saving arptables rules'
+    arptables-save > "$CONFIG_FILE" &&
+      stat_done || stat_die
+    ;;
   *)
-    echo "Usage $0 {start|stop|restart|save|status}" >&2
+    echo "usage: ${0##*/} {start|stop|restart|save}" >&2
     exit 1
+    ;;
 esac
 
 # vim:set ts=2 sw=2 ft=sh et:
