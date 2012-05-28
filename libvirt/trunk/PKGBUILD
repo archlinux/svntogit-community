@@ -4,7 +4,7 @@
 
 pkgname=libvirt
 pkgver=0.9.12
-pkgrel=4
+pkgrel=5
 pkgdesc="API for controlling virtualization engines (openvz,kvm,qemu,virtualbox,xen,etc)"
 arch=('i686' 'x86_64')
 url="http://libvirt.org/"
@@ -65,8 +65,8 @@ build() {
   export LDFLAGS=-lX11
   export RADVD=/usr/sbin/radvd
   [ -f Makefile ] || ./configure --prefix=/usr --libexec=/usr/lib/"$pkgname" \
-	--with-storage-lvm --without-xen --with-udev --without-hal --disable-static
-  find -name Makefile -exec sed -i 's#-L /usr#-L/usr#' {} \;
+	--with-storage-lvm --without-xen --with-udev --without-hal --disable-static \
+	--with-init-script=systemd
   make -j1
 }
 
@@ -81,5 +81,6 @@ package() {
   install -D -m755 "$srcdir"/libvirtd-guests.rc.d "$pkgdir"/etc/rc.d/libvirtd-guests
   install -D -m644 "$srcdir"/libvirtd-guests.conf.d "$pkgdir"/etc/conf.d/libvirtd-guests
 
-  rm -rf $pkgdir/var/run
+#  mv $pkgdir/lib/* $pkgdir/usr/lib/
+  rm -rf $pkgdir/var/run $pkgdir/etc/rc.d/init.d $pkgdir/etc/sysconfig $pkgdir/lib
 }
