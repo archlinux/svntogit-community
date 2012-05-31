@@ -2,25 +2,30 @@
 # Maintainer: Angel 'angvp' Velasquez <angvp[at]archlinux.com.ve>
 # Contributor: Abhishek Dasgupta <abhidg@gmail.com>
 
-pkgname=python-distutils-extra
-pkgver=2.29
+pkgbase=python-distutils-extra
+pkgname=('python-distutils-extra' 'python2-distutils-extra')
+pkgver=2.32
 pkgrel=1
 pkgdesc='Enhancements to the Python build system'
 arch=('any')
 license=('GPL')
 url='https://launchpad.net/python-distutils-extra'
-depends=('intltool' 'python2')
-makedepends=('setuptools')
-source=(http://launchpad.net/$pkgname/trunk/$pkgver/+download/$pkgname-$pkgver.tar.gz)
-md5sums=('e6ad3ae8d45a2427b5c6628bfa134d9e')
+makedepends=('python2-distribute' 'python-distribute' 'intltool')
+source=(http://launchpad.net/$pkgbase/trunk/$pkgver/+download/$pkgbase-$pkgver.tar.gz
+        $pkgbase-$pkgver.tar.gz.asc::http://launchpad.net/$pkgbase/trunk/$pkgver/+download/dist-$pkgbase-$pkgver.tar.gz.asc)
+md5sums=('034b6594d10084bb49d99c1511b30187'
+         '5ca60bd4f88fcd025d8cf23f14f6c693')
 
-build() {
-  cd "${srcdir}/$pkgname-$pkgver"
+package_python2-distutils-extra() {
+  depends=('intltool' 'python2')
 
-  # python2 fix
-  sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' setup.py test/auto.py
-  #sed -i 's_\(subprocess.call.*\)python_\1python2_' DistUtilsExtra/command/build_kdeui.py
-
+  cd "${srcdir}/$pkgbase-$pkgver"
   python2 setup.py install --root="${pkgdir}"
 }
-# vim:set ts=2 sw=2 et:
+
+package_python-distutils-extra() {
+  depends=('intltool' 'python')
+
+  cd "${srcdir}/$pkgbase-$pkgver"
+  python setup.py install --root="${pkgdir}"
+}
