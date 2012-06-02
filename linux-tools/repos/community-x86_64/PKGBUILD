@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower')
 pkgver=3.4
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
