@@ -25,7 +25,9 @@ case "$1" in
 	    stat_busy "Stopping DbMail ${daemon}"
 	    pid=$(cat /var/run/dbmail/${daemon}.pid)
 	    kill $pid
-	    sleep 4
+	    while kill -0 "$pid" 2>/dev/null; do
+	        sleep 0.2
+	    done
 	    stat_done
 	done
 	rm_daemon dbmail
