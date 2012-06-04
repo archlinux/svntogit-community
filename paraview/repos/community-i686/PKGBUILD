@@ -1,17 +1,19 @@
-# Maintainer: Thomas Dziedzic < gostrc at gmail >
+# Maintainer: Stéphane Gaudreault <stephane@archlinux.org>
+# Contributor: Thomas Dziedzic < gostrc at gmail >
 # Contributor: Michele Mocciola <mickele>
 # Contributor: Simon Zilliken <simon____AT____zilliken____DOT____name>
 
 pkgname=paraview
-pkgver=3.14.0
-pkgrel=2
+pkgver=3.14.1
+pkgrel=1
 pkgdesc='Parallel Visualization Application using VTK'
 arch=('i686' 'x86_64')
 url='http://www.paraview.org'
 license=('custom')
-depends=('qt' 'python2' 'libgl' 'unixodbc' 'postgresql-libs' 'libxt' 'qtwebkit' 'libmysqlclient' 'mesa' 'openmpi' 'boost-libs' 'libcgns2'
+depends=('qt' 'python2' 'libgl' 'unixodbc' 'postgresql-libs' 'libxt' 'qtwebkit'
+         'libmysqlclient' 'mesa' 'openmpi' 'boost-libs' 'libcgns2'
          # export as avi support
-         'ffmpeg'
+         #'ffmpeg'
          # The following is a list of libraries we explicitly tell cmake to use the system library of
          'hdf5' 'freetype2' 'libjpeg' 'libpng' 'libtiff' 'zlib' 'expat' 'libxml2' 'libtheora'
         )
@@ -19,26 +21,32 @@ makedepends=('cmake' 'desktop-file-utils' 'boost')
 source=("http://paraview.org/files/v${pkgver:0:4}/ParaView-${pkgver}-Source.tar.gz"
         'paraview.png'
         'paraview.desktop'
-        'fix-build-with-zlib-1.2.6.diff'
-        'ffmpeg-0.8.diff')
-md5sums=('a260bd891fd75d0e276a581a3603edff'
-         'db623002bc71a257ddfdd0c9c7b14c3f'
-         '4e4b7172ed18171c37446fd7c4f1e8f5'
-         'e4506b4ed0d2ae60072388f098be6c33'
-         'e992321c9d1def6034d0fa6607b40c5a')
+        'paraview-3.14.1-gcc47.patch'
+        'doubletostring.patch'
+        'fix_FTBFS_boost149.patch'
+        'kwprocessxml_rpath.patch')
+sha1sums=('1326c6e941fb9d12c548b14ca10932b49b5e3ffd'
+          'a2dff014e1235dfaa93cd523286f9c97601d3bbc'
+          '9cd5b19b4072d8d5512bb97a141eb878adf73ab5'
+          'dd8486082733bb6d13a741b52f4bbea804862295'
+          '9e85e47337ef66de7263b3d2f80a56e0cc307d61'
+          'a9982155202b2cc93597e1fa66d12f2ffbbf287a'
+          '9e04dc858f0e8f30ce4595d6e5691f0463a02ea7')
 
 build() {
-  cd ${srcdir}/ParaView-${pkgver}-Source
+  cd "${srcdir}"/ParaView-${pkgver}-Source
+  
+  patch -Np1 -i ../paraview-3.14.1-gcc47.patch
 
-  # fix http://paraview.org/Bug/view.php?id=12924
-  patch -Np0 -i ${srcdir}/fix-build-with-zlib-1.2.6.diff
+  # http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=640305
+  patch -Np1 -i ../kwprocessxml_rpath.patch
 
-  # fix http://www.vtk.org/Bug/view.php?id=12691
-  cd VTK
-  patch -Np1 -i ${srcdir}/ffmpeg-0.8.diff
+  patch -Np1 -i ../fix_FTBFS_boost149.patch
 
-  mkdir ${srcdir}/build
-  cd ${srcdir}/build
+  patch -Np1 -i ../doubletostring.patch
+
+  mkdir "${srcdir}"/build
+  cd "${srcdir}"/build
 
   # flags to enable using system libs
   local cmake_system_flags=""
@@ -47,13 +55,15 @@ build() {
   done
 
   # flags to use python2 instead of python which is 3.x.x on archlinux
-  local cmake_system_python_flags="-DPYTHON_EXECUTABLE:PATH=/usr/bin/python2 -DPYTHON_INCLUDE_DIR:PATH=/usr/include/python2.7 -DPYTHON_LIBRARY:PATH=/usr/lib/libpython2.7.so"
+  local cmake_system_python_flags="-DPYTHON_EXECUTABLE:PATH=/usr/bin/python2 \
+     -DPYTHON_INCLUDE_DIR:PATH=/usr/include/python2.7 -DPYTHON_LIBRARY:PATH=/usr/lib/libpython2.7.so"
 
-  # enable when http://paraview.org/Bug/view.php?id=12718 gets fixed
+  # enable when http://paraview.org/Bug/view.php?id=12852 gets fixed
   #-DCMAKE_SKIP_RPATH:BOOL=YES \
   # the following flags enable the feature request at https://bugs.archlinux.org/task/27525
   # -DPARAVIEW_USE_VISITBRIDGE:BOOL=ON -DVISIT_BUILD_READER_CGNS:BOOL=ON
   cmake \
+    -DCMAKE_SKIP_RPATH:BOOL=YES \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX:PATH=/usr \
     -DVTK_USE_BOOST:BOOL=ON \
@@ -62,7 +72,7 @@ build() {
     -DPARAVIEW_BUILD_QT_GUI:BOOL=ON \
     -DPARAVIEW_USE_VISITBRIDGE:BOOL=ON \
     -DVISIT_BUILD_READER_CGNS:BOOL=ON \
-    -DVTK_USE_FFMPEG_ENCODER:BOOL=ON \
+    -DVTK_USE_FFMPEG_ENCODER:BOOL=OFF \
     ${cmake_system_flags} \
     ${cmake_system_python_flags} \
     ../ParaView-${pkgver}-Source
@@ -71,14 +81,14 @@ build() {
 }
 
 package() {
-  cd build
+  cd "${srcdir}"/build
 
-  make DESTDIR=${pkgdir} install
+  make DESTDIR="${pkgdir}" install
 
   # Install license
-  install -Dm644 ${srcdir}/ParaView-${pkgver}-Source/License_v1.2.txt ${pkgdir}/usr/share/licenses/paraview/LICENSE
+  install -Dm644 "${srcdir}"/ParaView-${pkgver}-Source/License_v1.2.txt "${pkgdir}"/usr/share/licenses/paraview/LICENSE
 
   # Install desktop shortcuts
-  install -Dm644 ${srcdir}/paraview.png ${pkgdir}/usr/share/pixmaps/paraview.png
-  desktop-file-install --dir=${pkgdir}/usr/share/applications ${srcdir}/paraview.desktop
+  install -Dm644 "${srcdir}"/paraview.png ${pkgdir}/usr/share/pixmaps/paraview.png
+  desktop-file-install --dir="${pkgdir}"/usr/share/applications "${srcdir}"/paraview.desktop
 }
