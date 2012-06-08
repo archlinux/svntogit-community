@@ -1,0 +1,444 @@
+Index: intern/audaspace/ffmpeg/AUD_FFMPEGReader.cpp
+===================================================================
+--- intern/audaspace/ffmpeg/AUD_FFMPEGReader.cpp	(revision 47422)
++++ intern/audaspace/ffmpeg/AUD_FFMPEGReader.cpp	(working copy)
+@@ -143,23 +143,23 @@
+ 
+ 	switch(m_codecCtx->sample_fmt)
+ 	{
+-	case SAMPLE_FMT_U8:
++	case AV_SAMPLE_FMT_U8:
+ 		m_convert = AUD_convert_u8_float;
+ 		m_specs.format = AUD_FORMAT_U8;
+ 		break;
+-	case SAMPLE_FMT_S16:
++	case AV_SAMPLE_FMT_S16:
+ 		m_convert = AUD_convert_s16_float;
+ 		m_specs.format = AUD_FORMAT_S16;
+ 		break;
+-	case SAMPLE_FMT_S32:
++	case AV_SAMPLE_FMT_S32:
+ 		m_convert = AUD_convert_s32_float;
+ 		m_specs.format = AUD_FORMAT_S32;
+ 		break;
+-	case SAMPLE_FMT_FLT:
++	case AV_SAMPLE_FMT_FLT:
+ 		m_convert = AUD_convert_copy<float>;
+ 		m_specs.format = AUD_FORMAT_FLOAT32;
+ 		break;
+-	case SAMPLE_FMT_DBL:
++	case AV_SAMPLE_FMT_DBL:
+ 		m_convert = AUD_convert_double_float;
+ 		m_specs.format = AUD_FORMAT_FLOAT64;
+ 		break;
+@@ -189,7 +189,7 @@
+ 	}
+ 	catch(AUD_Exception&)
+ 	{
+-		av_close_input_file(m_formatCtx);
++		avformat_close_input(&m_formatCtx);
+ 		throw;
+ 	}
+ }
+@@ -227,7 +227,7 @@
+ 	}
+ 	catch(AUD_Exception&)
+ 	{
+-		av_close_input_stream(m_formatCtx);
++		avformat_close_input(&m_formatCtx);
+ 		av_free(m_aviocontext);
+ 		throw;
+ 	}
+@@ -239,7 +239,7 @@
+ 
+ 	if(m_aviocontext)
+ 	{
+-		av_close_input_stream(m_formatCtx);
++		avformat_close_input(&m_formatCtx);
+ 		av_free(m_aviocontext);
+ 	}
+ 	else
+Index: intern/audaspace/ffmpeg/AUD_FFMPEGWriter.cpp
+===================================================================
+--- intern/audaspace/ffmpeg/AUD_FFMPEGWriter.cpp	(revision 47422)
++++ intern/audaspace/ffmpeg/AUD_FFMPEGWriter.cpp	(working copy)
+@@ -133,23 +133,23 @@
+ 		{
+ 		case AUD_FORMAT_U8:
+ 			m_convert = AUD_convert_float_u8;
+-			m_codecCtx->sample_fmt = SAMPLE_FMT_U8;
++			m_codecCtx->sample_fmt = AV_SAMPLE_FMT_U8;
+ 			break;
+ 		case AUD_FORMAT_S16:
+ 			m_convert = AUD_convert_float_s16;
+-			m_codecCtx->sample_fmt = SAMPLE_FMT_S16;
++			m_codecCtx->sample_fmt = AV_SAMPLE_FMT_S16;
+ 			break;
+ 		case AUD_FORMAT_S32:
+ 			m_convert = AUD_convert_float_s32;
+-			m_codecCtx->sample_fmt = SAMPLE_FMT_S32;
++			m_codecCtx->sample_fmt = AV_SAMPLE_FMT_S32;
+ 			break;
+ 		case AUD_FORMAT_FLOAT32:
+ 			m_convert = AUD_convert_copy<float>;
+-			m_codecCtx->sample_fmt = SAMPLE_FMT_FLT;
++			m_codecCtx->sample_fmt = AV_SAMPLE_FMT_FLT;
+ 			break;
+ 		case AUD_FORMAT_FLOAT64:
+ 			m_convert = AUD_convert_float_double;
+-			m_codecCtx->sample_fmt = SAMPLE_FMT_DBL;
++			m_codecCtx->sample_fmt = AV_SAMPLE_FMT_DBL;
+ 			break;
+ 		default:
+ 			AUD_THROW(AUD_ERROR_FFMPEG, format_error);
+Index: intern/ffmpeg/ffmpeg_compat.h
+===================================================================
+--- intern/ffmpeg/ffmpeg_compat.h	(revision 47422)
++++ intern/ffmpeg/ffmpeg_compat.h	(working copy)
+@@ -76,6 +76,10 @@
+ #define FFMPEG_FFV1_ALPHA_SUPPORTED
+ #endif
+ 
++#if ((LIBAVFORMAT_VERSION_MAJOR < 53) || ((LIBAVFORMAT_VERSION_MAJOR == 53) && (LIBAVFORMAT_VERSION_MINOR < 24)) || ((LIBAVFORMAT_VERSION_MAJOR == 53) && (LIBAVFORMAT_VERSION_MINOR < 24) && (LIBAVFORMAT_VERSION_MICRO < 2)))
++#define avformat_close_input(x) av_close_input_file(*(x))
++#endif
++
+ #ifndef FFMPEG_HAVE_AVIO
+ #define AVIO_FLAG_WRITE URL_WRONLY
+ #define avio_open url_fopen
+Index: source/blender/blenkernel/intern/writeffmpeg.c
+===================================================================
+--- source/blender/blenkernel/intern/writeffmpeg.c	(revision 47422)
++++ source/blender/blenkernel/intern/writeffmpeg.c	(working copy)
+@@ -42,6 +42,7 @@
+ #include <libavformat/avformat.h>
+ #include <libavcodec/avcodec.h>
+ #include <libavutil/rational.h>
++#include <libavutil/samplefmt.h>
+ #include <libswscale/swscale.h>
+ #include <libavcodec/opt.h>
+ 
+@@ -615,7 +616,7 @@
+ 
+ 	c->sample_rate = rd->ffcodecdata.audio_mixrate;
+ 	c->bit_rate = ffmpeg_audio_bitrate * 1000;
+-	c->sample_fmt = SAMPLE_FMT_S16;
++	c->sample_fmt = AV_SAMPLE_FMT_S16;
+ 	c->channels = rd->ffcodecdata.audio_channels;
+ 	codec = avcodec_find_encoder(c->codec_id);
+ 	if (!codec) {
+@@ -657,11 +658,21 @@
+ }
+ /* essential functions -- start, append, end */
+ 
++static void ffmpeg_dict_set_int(AVDictionary **dict, const char *key, int value)
++{
++	char buffer[32];
++
++	BLI_snprintf(buffer, sizeof(buffer), "%d", value);
++
++	av_dict_set(dict, key, buffer, 0);
++}
++
+ static int start_ffmpeg_impl(struct RenderData *rd, int rectx, int recty, ReportList *reports)
+ {
+ 	/* Handle to the output file */
+ 	AVFormatContext *of;
+ 	AVOutputFormat *fmt;
++	AVDictionary *opts = NULL;
+ 	char name[256];
+ 	const char **exts;
+ 
+@@ -707,13 +718,14 @@
+ 	of->oformat = fmt;
+ 	of->packet_size = rd->ffcodecdata.mux_packet_size;
+ 	if (ffmpeg_audio_codec != CODEC_ID_NONE) {
+-		of->mux_rate = rd->ffcodecdata.mux_rate;
++		ffmpeg_dict_set_int(&opts, "muxrate", rd->ffcodecdata.mux_rate);
+ 	}
+ 	else {
+-		of->mux_rate = 0;
++		av_dict_set(&opts, "muxrate", "0", 0);
+ 	}
+ 
+-	of->preload = (int)(0.5 * AV_TIME_BASE);
++	ffmpeg_dict_set_int(&opts, "preload", (int)(0.5 * AV_TIME_BASE));
++
+ 	of->max_delay = (int)(0.7 * AV_TIME_BASE);
+ 
+ 	fmt->audio_codec = ffmpeg_audio_codec;
+@@ -776,6 +788,7 @@
+ 		fmt->audio_codec = CODEC_ID_PCM_S16LE;
+ 		if (ffmpeg_audio_codec != CODEC_ID_NONE && rd->ffcodecdata.audio_mixrate != 48000 && rd->ffcodecdata.audio_channels != 2) {
+ 			BKE_report(reports, RPT_ERROR, "FFMPEG only supports 48khz / stereo audio for DV!");
++			av_dict_free(&opts);
+ 			return 0;
+ 		}
+ 	}
+@@ -785,6 +798,7 @@
+ 		printf("alloc video stream %p\n", video_stream);
+ 		if (!video_stream) {
+ 			BKE_report(reports, RPT_ERROR, "Error initializing video stream.");
++			av_dict_free(&opts);
+ 			return 0;
+ 		}
+ 	}
+@@ -793,27 +807,26 @@
+ 		audio_stream = alloc_audio_stream(rd, fmt->audio_codec, of);
+ 		if (!audio_stream) {
+ 			BKE_report(reports, RPT_ERROR, "Error initializing audio stream.");
++			av_dict_free(&opts);
+ 			return 0;
+ 		}
+ 	}
+-	if (av_set_parameters(of, NULL) < 0) {
+-		BKE_report(reports, RPT_ERROR, "Error setting output parameters.");
+-		return 0;
+-	}
+ 	if (!(fmt->flags & AVFMT_NOFILE)) {
+ 		if (avio_open(&of->pb, name, AVIO_FLAG_WRITE) < 0) {
+ 			BKE_report(reports, RPT_ERROR, "Could not open file for writing.");
++			av_dict_free(&opts);
+ 			return 0;
+ 		}
+ 	}
+-
+-	if (av_write_header(of) < 0) {
++	if (avformat_write_header(of, NULL) < 0) {
+ 		BKE_report(reports, RPT_ERROR, "Could not initialize streams. Probably unsupported codec combination.");
++			av_dict_free(&opts);
+ 		return 0;
+ 	}
+ 
+ 	outfile = of;
+ 	av_dump_format(of, 0, name, 1);
++	av_dict_free(&opts);
+ 
+ 	return 1;
+ }
+Index: source/blender/imbuf/intern/anim_movie.c
+===================================================================
+--- source/blender/imbuf/intern/anim_movie.c	(revision 47422)
++++ source/blender/imbuf/intern/anim_movie.c	(working copy)
+@@ -445,7 +445,7 @@
+ 	int i, videoStream;
+ 
+ 	AVCodec *pCodec;
+-	AVFormatContext *pFormatCtx;
++	AVFormatContext *pFormatCtx = NULL;
+ 	AVCodecContext *pCodecCtx;
+ 	int frs_num;
+ 	double frs_den;
+@@ -464,7 +464,7 @@
+ 
+ 	do_init_ffmpeg();
+ 
+-	if (av_open_input_file(&pFormatCtx, anim->name, NULL, 0, NULL) != 0) {
++	if (avformat_open_input(&pFormatCtx, anim->name, NULL, NULL) != 0) {
+ 		return -1;
+ 	}
+ 
+@@ -998,7 +998,8 @@
+ 				ret = av_seek_frame(anim->pFormatCtx, 
+ 				                    -1,
+ 				                    pos, AVSEEK_FLAG_BYTE);
+-				av_update_cur_dts(anim->pFormatCtx, v_st, dts);
++				// XXX: need double verification
++				// av_update_cur_dts(anim->pFormatCtx, v_st, dts);
+ 			}
+ 			else {
+ 				av_log(anim->pFormatCtx, AV_LOG_DEBUG, 
+Index: source/blender/imbuf/intern/indexer.c
+===================================================================
+--- source/blender/imbuf/intern/indexer.c	(revision 47422)
++++ source/blender/imbuf/intern/indexer.c	(working copy)
+@@ -531,13 +531,6 @@
+ 		rv->c->flags |= CODEC_FLAG_GLOBAL_HEADER;
+ 	}
+ 
+-	if (av_set_parameters(rv->of, NULL) < 0) {
+-		fprintf(stderr, "Couldn't set output parameters? "
+-		        "Proxy not built!\n");
+-		av_free(rv->of);
+-		return 0;
+-	}
+-
+ 	if (avio_open(&rv->of->pb, fname, AVIO_FLAG_WRITE) < 0) {
+ 		fprintf(stderr, "Couldn't open outputfile! "
+ 		        "Proxy not built!\n");
+@@ -574,7 +567,12 @@
+ 		        NULL, NULL, NULL);
+ 	}
+ 
+-	av_write_header(rv->of);
++	if (avformat_write_header(rv->of, NULL) < 0) {
++		fprintf(stderr, "Couldn't set output parameters? "
++		        "Proxy not built!\n");
++		av_free(rv->of);
++		return 0;
++	}
+ 
+ 	return rv;
+ }
+@@ -737,7 +735,7 @@
+ 	memset(context->proxy_ctx, 0, sizeof(context->proxy_ctx));
+ 	memset(context->indexer, 0, sizeof(context->indexer));
+ 
+-	if (av_open_input_file(&context->iFormatCtx, anim->name, NULL, 0, NULL) != 0) {
++	if (avformat_open_input(&context->iFormatCtx, anim->name, NULL, NULL) != 0) {
+ 		MEM_freeN(context);
+ 		return NULL;
+ 	}
+Index: source/blender/imbuf/intern/util.c
+===================================================================
+--- source/blender/imbuf/intern/util.c	(revision 47422)
++++ source/blender/imbuf/intern/util.c	(working copy)
+@@ -247,7 +247,7 @@
+ 
+ static int isffmpeg(const char *filename)
+ {
+-	AVFormatContext *pFormatCtx;
++	AVFormatContext *pFormatCtx = NULL;
+ 	unsigned int i;
+ 	int videoStream;
+ 	AVCodec *pCodec;
+@@ -268,7 +268,7 @@
+ 		return 0;
+ 	}
+ 
+-	if (av_open_input_file(&pFormatCtx, filename, NULL, 0, NULL) != 0) {
++	if (avformat_open_input(&pFormatCtx, filename, NULL, NULL) != 0) {
+ 		if (UTIL_DEBUG) fprintf(stderr, "isffmpeg: av_open_input_file failed\n");
+ 		return 0;
+ 	}
+Index: source/gameengine/VideoTexture/VideoFFmpeg.cpp
+===================================================================
+--- source/gameengine/VideoTexture/VideoFFmpeg.cpp	(revision 47422)
++++ source/gameengine/VideoTexture/VideoFFmpeg.cpp	(working copy)
+@@ -162,14 +162,14 @@
+ }
+ 
+ 
+-int VideoFFmpeg::openStream(const char *filename, AVInputFormat *inputFormat, AVFormatParameters *formatParams)
++int VideoFFmpeg::openStream(const char *filename, AVInputFormat *inputFormat, AVDictionary **formatParams)
+ {
+-	AVFormatContext *formatCtx;
++	AVFormatContext *formatCtx = NULL;
+ 	int				i, videoStream;
+ 	AVCodec			*codec;
+ 	AVCodecContext	*codecCtx;
+ 
+-	if (av_open_input_file(&formatCtx, filename, inputFormat, 0, formatParams)!=0)
++	if (avformat_open_input(&formatCtx, filename, inputFormat, formatParams)!=0)
+ 		return -1;
+ 
+ 	if (av_find_stream_info(formatCtx)<0) 
+@@ -545,11 +545,7 @@
+ 		// but it is really not desirable to seek on http file, so force streaming.
+ 		// It would be good to find this information from the context but there are no simple indication
+ 		!strncmp(filename, "http://", 7) ||
+-#ifdef FFMPEG_PB_IS_POINTER
+-		(m_formatCtx->pb && m_formatCtx->pb->is_streamed)
+-#else
+-		m_formatCtx->pb.is_streamed
+-#endif
++		(m_formatCtx->pb && !m_formatCtx->pb->seekable)
+ 		)
+ 	{
+ 		// the file is in fact a streaming source, treat as cam to prevent seeking
+@@ -586,14 +582,12 @@
+ {
+ 	// open camera source
+ 	AVInputFormat		*inputFormat;
+-	AVFormatParameters	formatParams;
+-	AVRational			frameRate;
++	AVDictionary		*formatParams = NULL;
+ 	char				filename[28], rateStr[20];
+ 	char                *p;
+ 
+ 	do_init_ffmpeg();
+ 
+-	memset(&formatParams, 0, sizeof(formatParams));
+ #ifdef WIN32
+ 	// video capture on windows only through Video For Windows driver
+ 	inputFormat = av_find_input_format("vfwcap");
+@@ -623,7 +617,13 @@
+ 		sprintf(filename, "/dev/dv1394/%d", camIdx);
+ 	} else 
+ 	{
+-		inputFormat = av_find_input_format("video4linux");
++		const char *formats[] = {"video4linux2,v4l2", "video4linux2", "video4linux"};
++		int i, formatsCount = sizeof(formats) / sizeof(char*);
++		for (i = 0; i < formatsCount; i++) {
++			inputFormat = av_find_input_format(formats[i]);
++			if (inputFormat)
++				break;
++		}
+ 		sprintf(filename, "/dev/video%d", camIdx);
+ 	}
+ 	if (!inputFormat)
+@@ -637,20 +637,22 @@
+ 		if ((p = strchr(filename, ':')) != 0)
+ 			*p = 0;
+ 	}
+-	if (file && (p = strchr(file, ':')) != NULL)
+-		formatParams.standard = p+1;
++	if (file && (p = strchr(file, ':')) != NULL) {
++		av_dict_set(&formatParams, "standard", p+1, 0);
++	}
+ #endif
+ 	//frame rate
+ 	if (m_captRate <= 0.f)
+ 		m_captRate = defFrameRate;
+ 	sprintf(rateStr, "%f", m_captRate);
+-	av_parse_video_rate(&frameRate, rateStr);
+-	// populate format parameters
+-	// need to specify the time base = inverse of rate
+-	formatParams.time_base.num = frameRate.den;
+-	formatParams.time_base.den = frameRate.num;
+-	formatParams.width = m_captWidth;
+-	formatParams.height = m_captHeight;
++
++	av_dict_set(&formatParams, "framerate", rateStr, 0);
++
++	if (m_captWidth > 0 && m_captHeight > 0) {
++		char video_size[64];
++		BLI_snprintf(video_size, sizeof(video_size), "%dx%d", m_captWidth, m_captHeight);
++		av_dict_set(&formatParams, "video_size", video_size, 0);
++	}
+ 
+ 	if (openStream(filename, inputFormat, &formatParams) != 0)
+ 		return;
+@@ -665,6 +667,8 @@
+ 		// no need to thread if the system has a single core
+ 		m_isThreaded =  true;
+ 	}
++
++	av_dict_free(&formatParams);
+ }
+ 
+ // play video
+Index: source/gameengine/VideoTexture/VideoFFmpeg.h
+===================================================================
+--- source/gameengine/VideoTexture/VideoFFmpeg.h	(revision 47422)
++++ source/gameengine/VideoTexture/VideoFFmpeg.h	(working copy)
+@@ -46,10 +46,6 @@
+ #  define FFMPEG_CODEC_IS_POINTER 1
+ #endif
+ 
+-#if LIBAVFORMAT_VERSION_INT >= (52 << 16)
+-#  define FFMPEG_PB_IS_POINTER 1
+-#endif
+-
+ #ifdef FFMPEG_CODEC_IS_POINTER
+ static inline AVCodecContext* get_codec_from_stream(AVStream* stream)
+ {
+@@ -172,7 +168,7 @@
+ 	double actFrameRate (void) { return m_frameRate * m_baseFrameRate; }
+ 
+ 	/// common function to video file and capture
+-	int openStream(const char *filename, AVInputFormat *inputFormat, AVFormatParameters *formatParams);
++	int openStream(const char *filename, AVInputFormat *inputFormat, AVDictionary **formatParams);
+ 
+ 	/// check if a frame is available and load it in pFrame, return true if a frame could be retrieved
+ 	AVFrame* grabFrame(long frame);
