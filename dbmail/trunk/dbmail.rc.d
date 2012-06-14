@@ -23,8 +23,8 @@ case "$1" in
     stop)
 	for daemon in $DBMAIL_DAEMONS; do
 	    stat_busy "Stopping DbMail ${daemon}"
-	    pid=$(cat /var/run/dbmail/${daemon}.pid)
-	    kill $pid
+	    pid=$(cat /var/run/dbmail/${daemon}.pid 2>/dev/null)
+	    kill $pid 2>/dev/null
 	    while kill -0 "$pid" 2>/dev/null; do
 	        sleep 0.2
 	    done
