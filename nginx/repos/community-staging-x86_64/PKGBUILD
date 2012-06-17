@@ -1,0 +1,103 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Maintainer: Bartłomiej Piotrowski <barthalion@gmal.com>
+# Contributor: Miroslaw Szot <mss@czlug.icis.pcz.pl>
+
+pkgname=nginx
+pkgver=1.2.1
+pkgrel=5
+pkgdesc="lightweight HTTP server and IMAP/POP3 proxy server"
+arch=('i686' 'x86_64')
+depends=('pcre' 'zlib' 'openssl')
+makedepends=('passenger')
+optdepends=('passenger')
+url="http://nginx.org"
+license=('custom')
+install=nginx.install
+backup=('etc/nginx/fastcgi.conf'
+        'etc/nginx/fastcgi_params'
+        'etc/nginx/koi-win'
+        'etc/nginx/koi-utf'
+        'etc/nginx/mime.types'
+        'etc/nginx/nginx.conf'
+        'etc/nginx/scgi_params'
+        'etc/nginx/uwsgi_params'
+        'etc/nginx/win-utf'
+        'etc/logrotate.d/nginx')
+source=(http://nginx.org/download/nginx-$pkgver.tar.gz
+        rc.d service
+        nginx.logrotate)
+md5sums=('ceacae12d66d1f021bf3737a0269b6f4'
+         'f62c7c9b5a53471d4666a4c49ad363fb'
+         '16c6b4cbe24001a3f4f58b9d5f4e3d4c'
+         'b38744739022876554a0444d92e6603b')
+
+_cfgdir=/etc/nginx
+_tmpdir=/var/tmp/nginx
+
+build() {
+	cd "$srcdir"/$pkgname-$pkgver
+
+	./configure \
+        --prefix=$_cfgdir \
+        --conf-path=$_cfgdir/nginx.conf \
+        --sbin-path=/usr/sbin/nginx \
+        --pid-path=/var/run/nginx.pid \
+        --lock-path=/var/lock/nginx.lock \
+        --user=http --group=http \
+        --http-log-path=/var/log/nginx/access.log \
+        --error-log-path=/var/log/nginx/error.log \
+        --http-client-body-temp-path=$_tmpdir/client-body \
+        --http-proxy-temp-path=$_tmpdir/proxy \
+        --http-fastcgi-temp-path=$_tmpdir/fastcgi \
+        --http-scgi-temp-path=$_tmpdir/scgi \
+        --http-uwsgi-temp-path=$_tmpdir/uwsgi \
+        --with-imap --with-imap_ssl_module \
+        --with-ipv6 --with-pcre-jit \
+        --with-file-aio \
+        --with-http_dav_module \
+        --with-http_gzip_static_module \
+        --with-http_realip_module \
+        --with-http_ssl_module \
+        --with-http_stub_status_module \
+        --add-module=/usr/lib/passenger/ext/nginx \
+        #--with-http_mp4_module \
+        #--with-http_realip_module \
+        #--with-http_addition_module \
+        #--with-http_xslt_module \
+        #--with-http_image_filter_module \
+        #--with-http_geoip_module \
+        #--with-http_sub_module \
+        #--with-http_flv_module \
+        #--with-http_random_index_module \
+        #--with-http_secure_link_module \
+        #--with-http_degradation_module \
+        #--with-http_perl_module \
+
+	make
+}
+
+package() {
+	cd "$srcdir/nginx-${pkgver}"
+	make DESTDIR="$pkgdir" install
+
+	install -d "$pkgdir"/etc/logrotate.d
+    install -m644 $srcdir/nginx.logrotate $pkgdir/etc/logrotate.d/nginx
+    
+	sed -e 's|\<user\s\+\w\+;|user html;|g' \
+	    -e '44s|html|/usr/share/nginx/html|' \
+	    -e '54s|html|/usr/share/nginx/html|' \
+	    -i $pkgdir/etc/nginx/nginx.conf
+	rm $pkgdir/etc/nginx/*.default
+
+	install -dm1777 $pkgdir/var/tmp
+	install -d $pkgdir/$_tmpdir
+
+    install -d $pkgdir/usr/share/nginx
+    mv $pkgdir/etc/nginx/html/ $pkgdir/usr/share/nginx
+
+	install -D -m755 $srcdir/rc.d $pkgdir/etc/rc.d/nginx
+	install -Dm644 $srcdir/service $pkgdir/usr/lib/systemd/system/nginx.service
+	install -D -m644 LICENSE $pkgdir/usr/share/licenses/nginx/LICENSE
+	rm -rf $pkgdir/var/run
+}
