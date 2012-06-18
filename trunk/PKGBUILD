@@ -3,35 +3,73 @@
 
 pkgname=motion
 pkgver=3.2.12
-pkgrel=4
+pkgrel=5
 pkgdesc="A software motion detector which grabs images from video4linux devices and/or from webcams"
 arch=('i686' 'x86_64')
 license=('GPL')
 url="http://www.lavrsen.dk/twiki/bin/view/Motion/WebHome"
-depends=('ffmpeg' 'libjpeg' 'v4l-utils')
+depends=('libjpeg' 'v4l-utils')
+
+# ffmpeg workaround
+depends=(${depends[@]} speex libpulse bzip2 lame xvidcore opencore-amr libvpx libva sdl openjpeg rtmpdump gsm schroedinger libtheora x264)
+makedepends=(alsa-lib bzip2 gsm lame libpulse libtheora libva libvorbis libvpx opencore-amr openjpeg
+	     rtmpdump schroedinger sdl speex x264 xvidcore zlib yasm libvdpau)
+
 backup=('etc/motion/motion.conf')
 options=('!makeflags')
 source=(http://downloads.sourceforge.net/${pkgname}/${pkgname}-${pkgver}.tar.gz
 	rc.motion
 	ffmpeg-0.8.patch
-	linux-headers.patch)
+	linux-headers.patch
+	ftp://ftp.archlinux.org/other/ffmpeg/ffmpeg-20120509.tar.xz)
 md5sums=('1ba0065ed50509aaffb171594c689f46'
          '2e8c53c4980edddd420f08fdd572c9be'
          'd36687710837d69fbce4608b1345fa34'
-         'd8c3c4fdded5cfbd729710475559a21d')
-sha1sums=('dc59b36e45e7626baa65ce62c961af918fea76bd'
-          '47536a115d4df7497f6e6c616b76ea98e3372e29'
-          '6912448db0711f85322505ee6f8052f8f98ae634'
-          '6f33dab895ae398cc5e7017cbf5dc5d728f3ca9e')
+         'd8c3c4fdded5cfbd729710475559a21d'
+         'a35359e424608f369d380f03e4dc9966')
 
 build() {
+  cd $srcdir/ffmpeg
+  ./configure \
+    --prefix=$srcdir/ffmpeg \
+    --enable-libmp3lame \
+    --enable-libvorbis \
+    --enable-libxvid \
+    --enable-libx264 \
+    --enable-libvpx \
+    --enable-libtheora \
+    --enable-libgsm \
+    --enable-libspeex \
+    --enable-postproc \
+    --enable-x11grab \
+    --enable-libopencore_amrnb \
+    --enable-libopencore_amrwb \
+    --enable-libschroedinger \
+    --enable-libopenjpeg \
+    --enable-librtmp \
+    --enable-libpulse \
+    --enable-gpl \
+    --enable-version3 \
+    --enable-runtime-cpudetect \
+    --disable-debug \
+    --enable-static \
+    --disable-shared
+  make
+  make install
+
+
   cd "${srcdir}/${pkgname}-${pkgver}"
   patch -Np1 -i $srcdir/ffmpeg-0.8.patch
   patch -Np1 -i $srcdir/linux-headers.patch
+
+  # ffmpeg workaround
+  export LDFLAGS="-ldl -lX11 -lXext -lXfixes -lva -lasound -lSDL -lpthread -lxvidcore -lx264 -lvpx -lvpx -lvorbisenc -lvorbis -logg -ltheoraenc -ltheoradec -logg -lspeex -lschroedinger-1.0 -lrtmp -lz -lssl -lcrypto -lpulse-simple -lpulse -lopenjpeg -lopencore-amrwb -lopencore-amrnb -lmp3lame -lgsm -lm -pthread -lbz2 -lz"
+
   ./configure --prefix=/usr \
     --without-pgsql \
     --without-mysql \
-    --sysconfdir=/etc/motion
+    --sysconfdir=/etc/motion \
+    --with-ffmpeg=$srcdir/ffmpeg
   make
 }
 
@@ -39,6 +77,5 @@ package(){
   cd "${srcdir}/${pkgname}-${pkgver}"
   make DESTDIR="${pkgdir}" install
   mv "${pkgdir}/etc/motion/motion-dist.conf" "${pkgdir}/etc/motion/motion.conf"
-
   install -Dm755 "${srcdir}/rc.motion" "${pkgdir}/etc/rc.d/motion"
 }
