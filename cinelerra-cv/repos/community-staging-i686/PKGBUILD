@@ -1,0 +1,86 @@
+# $Id$
+# Maintainer: Ray Rashif <schiv@archlinux.org>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Jaroslaw Swierczynski <swiergot@aur.archlinux.org>
+# Contributor: Alexander Rødseth <rodseth@gmail.com>
+pkgname=cinelerra-cv
+pkgver=2.2
+_gitrel=2.2.0
+pkgrel=7
+epoch=1
+pkgdesc="Professional video editing and compositing environment"
+arch=('x86_64' 'i686')
+url="http://cinelerra.org/"
+license=('GPL')
+depends=('e2fsprogs' 'libavc1394' 'libiec61883' 'freetype2'
+         'libsndfile' 'libtiff' 'mjpegtools>=2.0.0' 'fftw' 'a52dec'
+         'ffmpeg' 'libxv' 'faad2' 'faac' 'mesa' 'openexr')
+makedepends=('git' 'nasm')
+options=('!libtool')
+source=('v4l1_removal.patch'
+        'ffmpeg_api.patch')
+sha256sums=('50f232fb034bb8aba496e2fb078cdb33d27bb09ba7cb33d99715e171811cff12'
+            'd7614ab75d7b0c58142fc762d8dcc3120c3bac6003d18e81fb26b06fd665e629')
+_gituri="git://git.cinelerra.org/CinelerraCV.git"
+_gitdir="cinelerra"
+
+confit() {
+  ./configure --prefix=/usr \
+              --with-buildinfo=git/recompile \
+              --with-external-ffmpeg \
+              --enable-opengl \
+              --disable-esd $@
+}
+
+build() {
+  msg "Connecting to GIT server...."
+
+  if [ -d $_gitdir ] ; then
+    cd $_gitdir && git pull origin
+    msg "The local files are updated."
+  else
+    git clone $_gituri -b rel$_gitrel $_gitdir
+  fi
+
+  msg "GIT checkout done or server timeout"
+  msg "Starting make..."
+
+  rm -rf "$srcdir/$_gitdir-build"
+  cp -r "$srcdir/$_gitdir" "$srcdir/$_gitdir-build"
+  cd "$srcdir/$_gitdir-build"
+
+  # gcc 4.6 workaround
+  export CFLAGS="$CFLAGS -Wwrite-strings"
+
+  unset LDFLAGS
+  export CPPFLAGS="-D__STDC_CONSTANT_MACROS"
+
+  # v4l1 removal patch
+  patch -Np1 -i "$srcdir/v4l1_removal.patch"
+
+  # new ffmpeg api patch
+  patch -Np1 -i "$srcdir/ffmpeg_api.patch"
+
+  sed -i -e '/Debian/d' admin/nasm
+
+  # if you don't need OpenGL comment out the next line (and no mesa dep)
+  sed -i '/\/X11R6/s///' configure.in
+
+  ./autogen.sh
+
+  if [ "$CARCH" = 'x86_64' ]; then
+    confit --disable-mmx
+  else
+    confit --enable-mmx
+  fi
+
+  make
+}
+
+package() {
+  cd "$srcdir/$_gitdir-build"
+
+  make DESTDIR="$pkgdir" install
+}
+
+# vim:set ts=2 sw=2 et:
