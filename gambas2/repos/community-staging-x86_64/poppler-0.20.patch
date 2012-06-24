@@ -1,0 +1,100 @@
+Index: src/CPdfDocument.cpp
+===================================================================
+--- src/CPdfDocument.cpp	(révision 4732)
++++ src/CPdfDocument.cpp	(copie de travail)
+@@ -407,7 +407,11 @@
+ 	white[0] = 0xFF; white[1] = 0xFF; white[2] = 0xFF;
+ 	THIS->dev=new SplashOutputDev(splashModeRGB8, 3, gFalse, white);
+ 		
++	#if POPPLER_VERSION_0_20
++	THIS->dev->startDoc(THIS->doc);
++	#else
+ 	THIS->dev->startDoc(THIS->doc->getXRef ());
++	#endif
+ 
+ 	outline=THIS->doc->getOutline();
+ 	if (outline) THIS->index=outline->getItems();
+@@ -833,13 +837,22 @@
+ 
+ 	if ( (w<0) || (h<0) ) return NULL;
+ 
++	#if POPPLER_VERSION_0_20
+ 	THIS->page->displaySlice(THIS->dev,72.0*scale,72.0*scale,
+ 			   rotation,
+ 			   gFalse,
+ 			   gTrue,
+ 			   x,y,w,h,
++			   gFalse);
++	#else
++	THIS->page->displaySlice(THIS->dev,72.0*scale,72.0*scale,
++			   rotation,
+ 			   gFalse,
++			   gTrue,
++			   x,y,w,h,
++			   gFalse,
+ 			   THIS->doc->getCatalog ());
++	#endif
+ 
+ 	map=THIS->dev->getBitmap();
+ 	
+@@ -929,9 +942,14 @@
+ 	w = VARGOPT(W, (int32_t)THIS->page->getMediaWidth());
+ 	h = VARGOPT(H, (int32_t)THIS->page->getMediaHeight());
+ 
++	#if POPPLER_VERSION_0_20
++	dev = new TextOutputDev (NULL, gTrue, 0, gFalse, gFalse);
++	gfx = THIS->page->createGfx(dev,72.0,72.0,0,gFalse,gTrue,-1, -1, -1, -1, gFalse, NULL, NULL);
++	#else
+ 	dev = new TextOutputDev (NULL, gTrue, gFalse, gFalse);
+ 	gfx = THIS->page->createGfx(dev,72.0,72.0,0,gFalse,gTrue,-1, -1, -1, -1, \
+                                 gFalse,THIS->doc->getCatalog (),NULL, NULL, NULL, NULL);
++	#endif
+ 	
+ 	THIS->page->display(gfx);
+ 	dev->endPage();
+@@ -960,7 +978,9 @@
+ 
+ void aux_fill_links(void *_object)
+ {
+-	#if POPPLER_VERSION_0_17
++	#if POPPLER_VERSION_0_20
++	THIS->links = new Links (THIS->page->getAnnots ());
++	#elif POPPLER_VERSION_0_17
+ 	THIS->links = new Links (THIS->page->getAnnots (THIS->doc->getCatalog()));
+ 	#else
+ 	Object obj;
+@@ -1200,12 +1220,21 @@
+ 
+ 	if (!MISSING(Sensitive)) sensitive=VARG(Sensitive);
+ 
++	#if POPPLER_VERSION_0_20
++	textdev = new TextOutputDev (NULL, true, 0, false, false);
++	THIS->page->display (textdev, 72, 72, 0, false, false, false);
++	#else
+ 	textdev = new TextOutputDev (NULL, true, false, false);
+ 	THIS->page->display (textdev, 72, 72, 0, false, false, false, THIS->doc->getCatalog());
++	#endif
+ 
+ 	if (THIS->Found) { GB.FreeArray(POINTER(&THIS->Found)); THIS->Found=NULL; }
+ 
++	#if POPPLER_VERSION_0_20
++	while (textdev->findText (block,nlen,gFalse,gTrue,gTrue,gFalse,sensitive,gFalse,gFalse,&x0,&y0,&x1,&y1))
++	#else
+ 	while (textdev->findText (block,nlen,gFalse,gTrue,gTrue,gFalse,sensitive,gFalse,&x0,&y0,&x1,&y1))
++	#endif
+ 	{
+ 		if (!THIS->Found) {
+ 			GB.NewArray(POINTER(&THIS->Found),sizeof(FoundRect),1);
+Index: configure.ac
+===================================================================
+--- configure.ac	(révision 4732)
++++ configure.ac	(copie de travail)
+@@ -25,6 +25,8 @@
+   AC_DEFINE_UNQUOTED(POPPLER_VERSION_0_11_3, $((1-$?)), Poppler version >= 0.11.3)
+   pkg-config --atleast-version=0.17.0 poppler
+   AC_DEFINE_UNQUOTED(POPPLER_VERSION_0_17, $((1-$?)), Poppler version >= 0.17)
++  pkg-config --atleast-version=0.20.0 poppler
++  AC_DEFINE_UNQUOTED(POPPLER_VERSION_0_20, $((1-$?)), Poppler version >= 0.20)
+ fi
+ 
+ AC_OUTPUT( \
