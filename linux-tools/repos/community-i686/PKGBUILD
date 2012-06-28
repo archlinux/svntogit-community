@@ -2,9 +2,9 @@
 # Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org>
 
 pkgbase=linux-tools
-pkgname=('perf' 'cpupower')
+pkgname=('perf' 'cpupower' 'x86_energy_perf_policy')
 pkgver=3.4
-pkgrel=2
+pkgrel=3
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -41,10 +41,16 @@ build() {
   popd
 
   msg2 'Build cpupower'
-  cd linux-$pkgver/tools/power/cpupower
+  pushd linux-$pkgver/tools/power/cpupower
   # we cannot use --as-needed
   LDFLAGS=${LDFLAGS:+"$LDFLAGS,--no-as-needed"}
   make VERSION=$pkgver-$pkgrel
+  popd
+
+  msg2 'Build x86_energy_perf_policy'
+  pushd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
+  make
+  popd
 }
 
 package_perf() {
@@ -78,6 +84,14 @@ package_cpupower() {
   install -D -m 755 cpupower.rc "$pkgdir/etc/rc.d/cpupower"
   install -D -m 644 cpupower.conf "$pkgdir/etc/conf.d/cpupower"
   install -D -m 644 cpupower.service "$pkgdir/usr/lib/systemd/system/cpupower.service"
+}
+
+package_x86_energy_perf_policy() {
+  pkgdesc='Read or write MSR_IA32_ENERGY_PERF_BIAS'
+
+  cd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
+  install -D -m 755 x86_energy_perf_policy "$pkgdir/usr/bin/x86_energy_perf_policy"
+  install -D -m 644 x86_energy_perf_policy.8 "$pkgdir/usr/share/man/man8/x86_energy_perf_policy.8"
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
