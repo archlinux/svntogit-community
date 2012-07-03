@@ -3,17 +3,9 @@
 # Maintainer: Bartłomiej Piotrowski <barthalion@gmal.com>
 # Contributor: Miroslaw Szot <mss@czlug.icis.pcz.pl>
 
-_doc_root=/usr/share/nginx/http
-_server_root=/etc/nginx
-_conf_path=${_server_root}/conf
-_tmp_path=/var/spool/nginx
-_log_path=/var/log/nginx
-_user=http
-_group=http
-
 pkgname=nginx
 pkgver=1.2.1
-pkgrel=1
+pkgrel=6
 pkgdesc="lightweight HTTP server and IMAP/POP3 proxy server"
 arch=('i686' 'x86_64')
 depends=('pcre' 'zlib' 'openssl')
@@ -21,47 +13,54 @@ makedepends=('passenger')
 optdepends=('passenger')
 url="http://nginx.org"
 license=('custom')
-backup=("etc/nginx/conf/fastcgi.conf"
-        "etc/nginx/conf/fastcgi_params"
-        "etc/nginx/conf/koi-win"
-        "etc/nginx/conf/koi-utf"
-        "etc/nginx/conf/mime.types"
-        "etc/nginx/conf/nginx.conf"
-        "etc/nginx/conf/scgi_params"
-        "etc/nginx/conf/uwsgi_params"
-        "etc/nginx/conf/win-utf"
-        "etc/logrotate.d/nginx"
-        "etc/conf.d/nginx")
-source=("http://nginx.org/download/nginx-$pkgver.tar.gz"
-        'nginx')
+install=nginx.install
+backup=('etc/nginx/fastcgi.conf'
+        'etc/nginx/fastcgi_params'
+        'etc/nginx/koi-win'
+        'etc/nginx/koi-utf'
+        'etc/nginx/mime.types'
+        'etc/nginx/nginx.conf'
+        'etc/nginx/scgi_params'
+        'etc/nginx/uwsgi_params'
+        'etc/nginx/win-utf'
+        'etc/logrotate.d/nginx')
+source=(http://nginx.org/download/nginx-$pkgver.tar.gz
+        rc.d service
+        nginx.logrotate)
 md5sums=('ceacae12d66d1f021bf3737a0269b6f4'
-         '0e8032d3ba26c3276e8c7c30588d375f')
+         'f62c7c9b5a53471d4666a4c49ad363fb'
+         '16c6b4cbe24001a3f4f58b9d5f4e3d4c'
+         'b38744739022876554a0444d92e6603b')
+
+_cfgdir=/etc/nginx
+_tmpdir=/var/tmp/nginx
 
 build() {
-	cd "$srcdir/nginx-${pkgver}"
+	cd "$srcdir"/$pkgname-$pkgver
 
 	./configure \
-        --prefix=${_server_root} \
+        --prefix=$_cfgdir \
+        --conf-path=$_cfgdir/nginx.conf \
         --sbin-path=/usr/sbin/nginx \
         --pid-path=/var/run/nginx.pid \
         --lock-path=/var/lock/nginx.lock \
-        --http-client-body-temp-path=${_tmp_path}/client_body_temp \
-        --http-proxy-temp-path=${_tmp_path}/proxy_temp \
-        --http-fastcgi-temp-path=${_tmp_path}/fastcgi_temp \
-        --http-log-path=${_log_path}/access.log \
-        --error-log-path=${_log_path}/error.log \
-        --user=${_user} --group=${_group} \
-        --with-imap --with-imap_ssl_module --with-http_ssl_module \
-        --with-http_stub_status_module \
+        --user=http --group=http \
+        --http-log-path=/var/log/nginx/access.log \
+        --error-log-path=/var/log/nginx/error.log \
+        --http-client-body-temp-path=$_tmpdir/client-body \
+        --http-proxy-temp-path=$_tmpdir/proxy \
+        --http-fastcgi-temp-path=$_tmpdir/fastcgi \
+        --http-scgi-temp-path=$_tmpdir/scgi \
+        --http-uwsgi-temp-path=$_tmpdir/uwsgi \
+        --with-imap --with-imap_ssl_module \
+        --with-ipv6 --with-pcre-jit \
+        --with-file-aio \
         --with-http_dav_module \
         --with-http_gzip_static_module \
-        --with-ipv6 \
+        --with-http_realip_module \
+        --with-http_ssl_module \
+        --with-http_stub_status_module \
         --add-module=/usr/lib/passenger/ext/nginx \
-        --conf-path=${_conf_path}/nginx.conf \
-        --http-scgi-temp-path=${_tmp_path} \
-        --http-uwsgi-temp-path=${_tmp_path} \
-        --with-pcre-jit \
-        --with-http_realip_module --with-file-aio
         #--with-http_mp4_module \
         #--with-http_realip_module \
         #--with-http_addition_module \
@@ -82,34 +81,23 @@ package() {
 	cd "$srcdir/nginx-${pkgver}"
 	make DESTDIR="$pkgdir" install
 
-	install -d "$pkgdir"/etc/logrotate.d/
-	cat <<EOF > $pkgdir/etc/logrotate.d/nginx
-	$_log_path/*log {
-		create 640 http log
-		compress
-		postrotate
-			/bin/kill -USR1 \`cat /var/run/nginx.pid 2>/dev/null\` 2> /dev/null || true
-		endscript
-	}
-EOF
+	install -d "$pkgdir"/etc/logrotate.d
+    install -m644 $srcdir/nginx.logrotate $pkgdir/etc/logrotate.d/nginx
+    
+	sed -e 's|\<user\s\+\w\+;|user html;|g' \
+	    -e '44s|html|/usr/share/nginx/html|' \
+	    -e '54s|html|/usr/share/nginx/html|' \
+	    -i $pkgdir/etc/nginx/nginx.conf
+	rm $pkgdir/etc/nginx/*.default
 
-	sed -i -e "s/\<user\s\+\w\+;/user $_user;/g" $pkgdir/${_conf_path}/nginx.conf
+	install -dm1777 $pkgdir/var/tmp
+	install -d $pkgdir/$_tmpdir
 
-	install -d $pkgdir/$_tmp_path
+    install -d $pkgdir/usr/share/nginx
+    mv $pkgdir/etc/nginx/html/ $pkgdir/usr/share/nginx
 
-	# move default document root outside server root
-	install -d $pkgdir/$_doc_root
-	mv $pkgdir/$_server_root/html/* $pkgdir/$_doc_root/
-	rm -rf $pkgdir/$_server_root/html
-	rm -f $pkgdir/$_doc_root/index.html
-
-	# let's create links for relative paths in config file
-	ln -s $_log_path $pkgdir/$_server_root/logs
-	ln -s $_doc_root $pkgdir/$_server_root/html
-
-	install -D -m755 $srcdir/nginx $pkgdir/etc/rc.d/nginx
+	install -D -m755 $srcdir/rc.d $pkgdir/etc/rc.d/nginx
+	install -Dm644 $srcdir/service $pkgdir/usr/lib/systemd/system/nginx.service
 	install -D -m644 LICENSE $pkgdir/usr/share/licenses/nginx/LICENSE
-	mkdir -p $pkgdir/etc/conf.d
-	echo "NGINX_CONFIG=/etc/nginx/conf/nginx.conf" >$pkgdir/etc/conf.d/nginx
 	rm -rf $pkgdir/var/run
 }
