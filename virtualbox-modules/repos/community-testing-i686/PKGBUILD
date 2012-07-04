@@ -1,0 +1,101 @@
+# $Id$
+#Maintainer: Ionut Biru <ibiru@archlinux.org>
+
+pkgbase=virtualbox-modules
+pkgname=('virtualbox-modules' 'virtualbox-archlinux-modules')
+pkgver=4.1.18
+pkgrel=2
+arch=('i686' 'x86_64')
+url='http://virtualbox.org'
+license=('GPL')
+makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2' 'libpng' 'libidl2' 'xalan-c' 'sdl' 'linux-headers')
+[[ $CARCH == "x86_64" ]] && makedepends=("${makedepends[@]}" 'gcc-multilib' 'lib32-glibc')
+source=(http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver}.tar.bz2
+        LocalConfig.kmk 60-vboxguest.rules)
+md5sums=('38db0a87cba659b484af868b0c2bd3ac'
+         '4c88bd122677a35f68abd76eb01b378b'
+         'ed1341881437455d9735875ddf455fbe')
+
+_extramodules=extramodules-3.4-ARCH
+_kernver="$(cat /usr/lib/modules/${_extramodules}/version || true)"
+
+export KERN_DIR=/usr/lib/modules/${_kernver}/build
+export KERN_INCL=/usr/src/linux-${_kernver}/include/
+
+build() {
+    cd "$srcdir/VirtualBox-${pkgver}"
+
+    cp "$srcdir/LocalConfig.kmk" .
+
+    ./configure \
+        --with-linux=/usr/src/linux-${_kernver} \
+        --disable-java \
+        --disable-docs \
+        --disable-xpcom \
+        --disable-python \
+        --disable-sdl-ttf \
+        --disable-alsa \
+        --disable-pulse \
+        --disable-dbus  \
+        --disable-opengl \
+        --build-headless \
+        --nofatal
+    source ./env.sh
+    kmk all
+
+    make -C "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/src"
+    make -C "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions/src"
+}
+
+package_virtualbox-archlinux-modules(){
+    pkgdesc="Additions only for Arch Linux guests (kernel modules)"
+    license=('GPL')
+    install=virtualbox-archlinux-modules.install
+    depends=('linux>=3.4' 'linux<3.5')
+    replaces=('virtualbox-guest-modules')
+    conflicts=('virtualbox-guest-modules')
+
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
+
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions/src"
+
+    for module in vboxguest.ko vboxsf.ko vboxvideo.ko; do
+        install -D -m644 ${module} \
+            "$pkgdir/usr/lib/modules/${_extramodules}/${module}"
+    done
+
+    install -D -m 0644 "$srcdir/60-vboxguest.rules" \
+        "$pkgdir/usr/lib/udev/rules.d/60-vboxguest.rules"
+
+    find "${pkgdir}" -name '*.ko' -exec gzip -9 {} \;
+
+    sed -i -e "s/EXTRAMODULES='.*'/EXTRAMODULES='${_extramodules}'/" "$startdir/virtualbox-archlinux-modules.install"
+}
+
+package_virtualbox-modules(){
+    pkgdesc="Kernel modules for VirtualBox"
+    license=('GPL')
+    install=virtualbox-modules.install
+    depends=('linux>=3.4' 'linux<3.5')
+
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
+
+
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/src"
+
+    install -D -m644 vboxdrv.ko \
+        "$pkgdir/usr/lib/modules/${_extramodules}/vboxdrv.ko"
+
+    install -D -m644 vboxnetadp.ko \
+        "$pkgdir/usr/lib/modules/${_extramodules}/vboxnetadp.ko"
+
+    install -D -m644 vboxnetflt.ko \
+        "$pkgdir/usr/lib/modules/${_extramodules}/vboxnetflt.ko"
+
+    install -D -m644 vboxpci.ko \
+        "$pkgdir/usr/lib/modules/${_extramodules}/vboxpci.ko"
+
+    find "${pkgdir}" -name '*.ko' -exec gzip -9 {} +
+
+    sed -i -e "s/EXTRAMODULES='.*'/EXTRAMODULES='${_extramodules}'/" "$startdir/virtualbox-modules.install"
+}
