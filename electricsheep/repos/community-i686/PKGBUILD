@@ -2,36 +2,51 @@
 # Maintainer: Eric Bélanger <eric@archlinux.org>
 
 pkgname=electricsheep
-pkgver=2.7b12
-pkgrel=5
+pkgver=2.7b33
+pkgrel=1
 pkgdesc="A screensaver that realize the collective dream of sleeping computers from all over the internet"
 arch=('i686' 'x86_64')
 url="http://community.electricsheep.org/"
 license=('GPL')
-depends=('curl' 'flam3' 'ffmpeg' 'mplayer' 'libglade')
-makedepends=('xscreensaver')
+depends=('curl' 'flam3' 'ffmpeg' 'wxgtk2.9' 'lua' 'libgtop' 'boost-libs' 'freeglut' 'glee')
+makedepends=('boost' 'tinyxml')
 optdepends=('xscreensaver: to use electricsheep with xscreensaver')
-source=(ftp://ftp.archlinux.org/other/community/${pkgname}/${pkgname}-${pkgver}.tar.bz2
-        electricsheep-ffmpeg.patch electricsheep-pref-segfault.patch)
-sha1sums=('fd1c307912905ba456189efbb546ef0fe336fa32'
-          'd6816e27c2a2f6c74ae61c99ad2d7fb28b1d1825'
-          'bdf0f66fdbb5741671e8bb127bd76ef236d0e44a')
+options=('!emptydirs')
+source=(ftp://ftp.archlinux.org/other/community/${pkgname}/${pkgname}-${pkgver}.tar.xz{,.sig})
+sha1sums=('d86607d97accad8519df2a21d67253abe45f5fdd'
+          'fda3aae435507d03973f0c4d1ed3509067657f06')
+
+# source PKGBUILD && mksource
+mksource() {
+  [[ -x /usr/bin/svn ]] || (echo "svn not found. Install subversion." && return 1)
+  _svnver=r125
+  _svntrunk="http://electricsheep.googlecode.com/svn/trunk/client_generic"
+  _svnmod="${pkgname}-${pkgver}"
+  mkdir ${pkgname}-${pkgver}
+  pushd ${pkgname}-${pkgver}
+  svn co ${_svntrunk} --config-dir ./ -r ${_svnver} ${_svnmod}
+  find . -depth -type d -name .svn -exec rm -rf {} \;
+  (cd ${pkgname}-${pkgver} ; rm -r boost Build_guides curlTest ffmpeg InstallerMSVC \
+    Launcher libpng libxml lua5.1 MacBuild RuntimeMSVC wxConfig)
+  tar -cJf ../${pkgname}-${pkgver}.tar.xz ${pkgname}-${pkgver}/*
+  popd
+  rm -r ${pkgname}-${pkgver}
+  gpg --detach-sign --use-agent -u ${GPGKEY} ${pkgname}-${pkgver}.tar.xz
+}
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
-  patch -p1 -i "${srcdir}/electricsheep-ffmpeg.patch"
-  patch -p1 -i "${srcdir}/electricsheep-pref-segfault.patch"
+  sed -i 's/wx-config/wx-config-2.9/g' configure.ac
+  sed -i '12 i\
+#include <cstdio>' Common/Singleton.h
+  ./autogen.sh
   ./configure --prefix=/usr
-  make
+  make CXXFLAGS+="-DUSE_NEW_FFMPEG_API=1"
 }
 
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
-  install -d "${pkgdir}/usr/share/applications/screensavers"
-  install -d "${pkgdir}/usr/lib/gnome-screensaver/gnome-screensaver"
-  make DESTDIR="${pkgdir}" GNOME_SCREENSAVER_DATADIR="${pkgdir}/usr/share/applications/screensavers" \
-    GNOME_SCREENSAVER_PRIVEXEDIR="${pkgdir}/usr/lib/gnome-screensaver/gnome-screensaver" install
-  install -D -m644 electricsheep.desktop.kde "${pkgdir}/usr/share/kde4/services/ScreenSavers/electricsheep.desktop"
-  install -D -m644 electricsheep.xml "${pkgdir}/usr/share/xscreensaver/config/electricsheep.xml"
-  install -D -m755 electricsheep-saver "${pkgdir}/usr/bin/electricsheep-saver"
+  make DESTDIR="${pkgdir}" install
+  install -D -m644 menu-entries/ElectricSheep.desktop.kde "${pkgdir}/usr/share/kde4/services/ScreenSavers/electricsheep.desktop"
+  install -D -m644 Runtime/logo.png "${pkgdir}/usr/share/icons/electricsheep.png"
 }
