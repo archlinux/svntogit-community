@@ -9,12 +9,11 @@
 # look for release numbers only, we make a messy PKGBUILD that can checkout svn
 # release if necessary.
 
-#_svn=true
-_svn=false
+_svn=true
 
 pkgname=blender
-pkgver=2.63a
-pkgrel=1
+true && pkgver=2.63a # Hack for svn
+true && pkgrel=2
 epoch=4
 pkgdesc="A fully integrated 3D graphics creation suite"
 arch=('i686' 'x86_64')
@@ -24,61 +23,73 @@ depends=('libpng' 'libtiff' 'openexr' 'python' 'desktop-file-utils'
          'shared-mime-info' 'hicolor-icon-theme' 'xdg-utils' 'glew'
          'freetype2' 'openal' 'ffmpeg' 'fftw' 'boost-libs' 'opencollada'
          'openimageio' 'libsndfile' 'jack')
-makedepends=('cmake' 'boost' 'cuda-toolkit')
+makedepends=('cmake' 'boost' 'cuda-toolkit' 'subversion')
 optdepends=('cuda-toolkit: cycles renderer cuda support')
 options=(!strip)
 install=blender.install
-if [ $_svn = false ]; then
+if [[ $_svn = false ]]; then
   source=(http://download.blender.org/source/$pkgname-$pkgver.tar.gz)
   md5sums=('31a60b3ce5466d965cb7e2648995e092')
 else
-  source=(ftp://ftp.archlinux.org/other/${pkgname}/$pkgname-$pkgver.tar.xz)
-  md5sums=('7579d1139d0d6025df8afcfca64a65c4')
+  source=(ffmpeg-0.11.patch)
+  md5sums=('04b1c181f7b3e780aa610becb088ca42')
 fi
 
-# source PKGBUILD && mksource
-mksource() {
-  [[ -x /usr/bin/svn ]] || (echo "svn not found. Install subversion." && return 1)
-  _svnver=38016
-  _svntrunk="https://svn.blender.org/svnroot/bf-blender/trunk/blender"
-  _svnmod="$pkgname-$pkgver"
-  mkdir ${pkgname}-$pkgver
-  pushd ${pkgname}-$pkgver
-  svn co $_svntrunk --config-dir ./ -r $_svnver $_svnmod
-  find . -depth -type d -name .svn -exec rm -rf {} \;
-  tar -cJf ../${pkgname}-$pkgver.tar.xz ${pkgname}-$pkgver/*
-  popd
-}
+_svntrunk="https://svn.blender.org/svnroot/bf-blender/trunk/blender"
+_svnmod="blender"
 
 build() {
+if [[ $_svn = true ]]; then
+  cd "$srcdir"
+  msg "Connecting to SVN server...."
+
+  if [[ -d "$_svnmod/.svn" ]]; then
+    (cd "$_svnmod" && svn up )
+  else
+    svn co "$_svntrunk" --config-dir ./ "$_svnmod"
+  fi
+
+  msg "SVN checkout done or server timeout"
+  msg "Starting build..."
+
+  rm -rf "$srcdir/$_svnmod-build"
+  cp -r "$srcdir/$_svnmod" "$srcdir/$_svnmod-build"
+  cd "$srcdir/$_svnmod-build"
+else
   cd "$srcdir/$pkgname-$pkgver"
+fi
+
+  patch -Np0 < "$srcdir"/ffmpeg-0.11.patch
+  sed -i "/<libavcodec\/opt.h>/d" intern/ffmpeg/ffmpeg_compat.h
+  sed -i "/<libavcodec\/opt.h>/d" source/blender/blenkernel/intern/writeffmpeg.c
+
   mkdir build
   cd build
 
-  [[ $CARCH == i686 ]] && ENABLESSE2="-DSUPPORT_SSE2_BUILD:BOOL=OFF"
+  [[ $CARCH == i686 ]] && ENABLESSE2="-DSUPPORT_SSE2_BUILD=OFF"
 
   cmake .. \
-    -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-    -DCMAKE_BUILD_TYPE:STRING=Release \
-    -DWITH_INSTALL_PORTABLE:BOOL=OFF \
-    -DWITH_PYTHON_INSTALL:BOOL=OFF \
-    -DWITH_OPENCOLLADA:BOOL=ON \
-    -DOPENIMAGEIO_ROOT_DIR:STRING=/usr \
-    -DWITH_GAMEENGINE:BOOL=ON \
-    -DWITH_JACK:BOOL=ON \
-    -DWITH_PLAYER:BOOL=ON \
-    -DWITH_BUILTIN_GLEW:BOOL=OFF \
-    -DWITH_CODEC_FFMPEG:BOOL=ON \
-    -DWITH_CODEC_SNDFILE:BOOL=ON \
-    -DWITH_CYCLES:BOOL=ON \
-    -DWITH_CYCLES_CUDA_BINARIES:BOOL=ON \
-    -DCUDA_TOOLKIT_ROOT_DIR:STRING=/opt/cuda-toolkit/ \
-    -DWITH_FFTW3:BOOL=ON \
-    -DWITH_MOD_OCEANSIM:BOOL=ON \
-    -DPYTHON_VERSION:STRING=3.2 \
-    -DPYTHON_LIBPATH:STRING=/usr/lib \
-    -DPYTHON_LIBRARY:STRING=python3.2mu \
-    -DPYTHON_INCLUDE_DIRS:STRING=/usr/include/python3.2mu \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWITH_INSTALL_PORTABLE=OFF \
+    -DWITH_PYTHON_INSTALL=OFF \
+    -DWITH_OPENCOLLADA=ON \
+    -DOPENIMAGEIO_ROOT_DIR=/usr \
+    -DWITH_GAMEENGINE=ON \
+    -DWITH_JACK=ON \
+    -DWITH_PLAYER=ON \
+    -DWITH_BUILTIN_GLEW=OFF \
+    -DWITH_CODEC_FFMPEG=ON \
+    -DWITH_CODEC_SNDFILE=ON \
+    -DWITH_CYCLES=ON \
+    -DWITH_CYCLES_CUDA_BINARIES=ON \
+    -DCUDA_TOOLKIT_ROOT_DIR=/opt/cuda-toolkit/ \
+    -DWITH_FFTW3=ON \
+    -DWITH_MOD_OCEANSIM=ON \
+    -DPYTHON_VERSION=3.2 \
+    -DPYTHON_LIBPATH=/usr/lib \
+    -DPYTHON_LIBRARY=python3.2mu \
+    -DPYTHON_INCLUDE_DIRS=/usr/include/python3.2mu \
     $ENABLESSE2
 
   make $MAKEFLAGS
@@ -91,7 +102,11 @@ build() {
 }
 
 package() {
-  cd "$srcdir/$pkgname-$pkgver/build"
+  if [[ $_svn = true ]]; then
+    cd "$srcdir/$_svnmod-build/build"
+  else
+    cd "$srcdir/$pkgname-$pkgver/build"
+  fi
   make DESTDIR="${pkgdir}" install
   python -m compileall "${pkgdir}/usr/share/blender"
 
