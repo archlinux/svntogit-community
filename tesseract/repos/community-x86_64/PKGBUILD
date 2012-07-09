@@ -2,51 +2,28 @@
 # Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Andreas Hauser <andy-aur@splashground.de>
 
-pkgname=tesseract
+# chinese requires two files
+_langs=(ind swe ron slv srp tgl tur hun fin ita nld jpn vie spa ukr fra slk
+kor ell rus por bul lav lit pol dan-frak deu dan ces cat eng chi_tra chi_sim)
+
+pkgbase=tesseract
+pkgname=(tesseract $(for l in ${_langs[@]}; do echo tesseract-data-${l}; done))
 pkgver=3.01
-pkgrel=1
+pkgrel=2
 pkgdesc="An OCR programm"
-arch=(x86_64 i686)
+arch=(i686 x86_64)
 url="http://code.google.com/p/tesseract-ocr"
 license=("APACHE")
 depends=(libpng libtiff libjpeg zlib giflib gcc-libs leptonica)
 source=(http://tesseract-ocr.googlecode.com/files/$pkgname-$pkgver.tar.gz
-        http://tesseract-ocr.googlecode.com/files/chi_tra.traineddata.gz
         http://tesseract-ocr.googlecode.com/files/chi_sim.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/ind.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/swe.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/ron.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/slv.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/srp.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/tgl.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/tur.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/hun.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/fin.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/ita.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/nld.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/jpn.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/vie.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/spa.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/ukr.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/fra.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/slk.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/kor.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/ell.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/rus.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/por.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/bul.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/lav.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/lit.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/pol.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/dan-frak.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/deu.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/dan.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/ces.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/cat.traineddata.gz
-        http://tesseract-ocr.googlecode.com/files/eng.traineddata.gz)
+        http://tesseract-ocr.googlecode.com/files/chi_tra.traineddata.gz
+        $(for l in ${_langs[@]}; do
+        echo http://tesseract-ocr.googlecode.com/files/${l}.traineddata.gz
+        done))
 md5sums=('1ba496e51a42358fb9d3ffe781b2d20a'
-         '06fce5f5c0221286eab591819406d91e'
          '127e0b742b615d81c3b97a555acd8285'
+         '06fce5f5c0221286eab591819406d91e'
          'f4ae2e5668f693cc51c6e3c3f57a8f1d'
          '3787ff0fc1a07517203466830f6f868e'
          '7b50075692e7a07ac8f59e0cde51cfb9'
@@ -77,19 +54,37 @@ md5sums=('1ba496e51a42358fb9d3ffe781b2d20a'
          '7aaeb321dbf069d14d2601dc36d3dddc'
          '2e97c952075064834f1cad6a133970fa'
          '308099b2b95834916ec410191c86cd48'
-         'd91041ad156cf2db36664e91ef799451')
+         'd91041ad156cf2db36664e91ef799451'
+         '06fce5f5c0221286eab591819406d91e'
+         '127e0b742b615d81c3b97a555acd8285')
 
 build() {
   cd $srcdir/$pkgname-$pkgver
-  [ -f Makefile.in ] || automake
+  sed -i '1,1i#include <unistd.h>' viewer/svutil.cpp
+  [ -f Makefile.in ] || { aclocal && automake; }
   [ -f Makefile ] || ./configure --prefix=/usr
   make
 }
 
-package() {
+package_tesseract() {
   cd $srcdir/$pkgname-$pkgver
+
   make DESTDIR=$pkgdir install
+
   mkdir -p $pkgdir/usr/share/tessdata
-  cp $srcdir/*.traineddata $pkgdir/usr/share/tessdata/
-  find $pkgdir/usr/share/tessdata -type f -exec chmod 0644 {} \;
 }
+
+# Declare the package functions for data
+for l in ${_langs[@]}; do
+    eval "
+package_tesseract-data-${l}(){
+    pkgdesc=\"Tesseract OCR data ($l)\"
+    depends=('tesseract')
+    groups=('tesseract-data')
+
+    mkdir -p \$pkgdir/usr/share/tessdata
+    cp \$srcdir/${l}.traineddata \$pkgdir/usr/share/tessdata/
+    find \$pkgdir/usr/share/tessdata -type f -exec chmod 0644 {} \;
+}
+    "
+done
