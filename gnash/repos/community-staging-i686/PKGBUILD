@@ -1,0 +1,86 @@
+# $Id$
+# Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+
+pkgbase=gnash
+pkgname=(gnash-common gnash-gtk)
+pkgver=0.8.10
+pkgrel=4
+arch=(i686 x86_64)
+url="http://www.gnu.org/software/gnash/"
+license=(GPL3)
+makedepends=(curl giflib libldap sdl agg libjpeg libpng libtool mesa
+             speex fontconfig
+             gstreamer0.10-base
+             gtk2 libldap xulrunner hicolor-icon-theme desktop-file-utils gconf gtkglext
+             pkgconfig boost)
+options=(!libtool !emptydirs)
+source=(http://ftp.gnu.org/gnu/gnash/${pkgver}/gnash-${pkgver}.tar.bz2
+        nodebug.patch gnash-0.8.10-boost-1.50.patch)
+sha256sums=('9625072e45df92baa2c28fc9999d4e2deb66bc827530baedfad2e4e2292d1224'
+            '0ebb104a7632af997c7e6b268755949fa0c1eea5e32015b95a22d63d0e431551'
+            'ac3e7dbcb2ea30b8a263168462e739aa07706e0e3cdc672410a42a4357dbf54c')
+
+build() {
+  cd gnash-$pkgver
+
+  # Disable very, very verbose debugging (gigabytes of logs)
+  patch -Np1 -i ../nodebug.patch
+
+  # Link to libboost_system.so
+  patch -Np1 -i ../gnash-0.8.10-boost-1.50.patch
+
+  ./autogen.sh
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --with-plugins-install=system \
+    --with-npapi-plugindir=/usr/lib/mozilla/plugins \
+    --enable-gui=sdl,gtk,dump \
+    --enable-media=gst \
+    --enable-renderer=all \
+    --enable-device=x11
+
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
+
+  make
+}
+
+package_gnash-common() {
+  pkgdesc="A GNU Flash movie player"
+  depends=(curl giflib sdl agg libjpeg libpng libltdl mesa
+           speex fontconfig cairo
+           gstreamer0.10-base
+           boost-libs)
+  backup=(etc/gnashrc etc/gnashthumbnailrc)
+
+  cd gnash-$pkgver
+
+  make GCONF_DISABLE_MAKEFILE_SCHEMA_INSTALL=1 DESTDIR="$pkgdir" install
+
+  # Split gnash-gtk
+  mkdir -p "$srcdir"/gtk/{etc,usr/{bin,share/man/man1}}
+  mv "$pkgdir"/usr/bin/{gtk-gnash,gnash-gtk-launcher} \
+    "$srcdir/gtk/usr/bin/"
+  mv "$pkgdir"/usr/share/man/man1/{gtk-gnash,gnash-gtk-launcher}.1 \
+    "$srcdir/gtk/usr/share/man/man1/"
+  mv "$pkgdir"/usr/share/{applications,icons} "$srcdir/gtk/usr/share/"
+  mv "$pkgdir"/etc/gnashpluginrc "$srcdir/gtk/etc/"
+}
+
+package_gnash-gtk() {
+  pkgdesc="A GNU Flash movie player"
+  depends=("gnash-common=$pkgver"
+            gtk2 libldap hicolor-icon-theme desktop-file-utils gconf gtkglext)
+  install=gnash-gtk.install
+  backup=(etc/gnashpluginrc)
+
+  mv gtk/* "$pkgdir"
+
+  cd gnash-$pkgver
+  make DESTDIR="$pkgdir" install-plugin
+
+  install -m755 -d "$pkgdir/usr/share/gconf/schemas"
+  gconf-merge-schema "$pkgdir/usr/share/gconf/schemas/gnash.schemas" --domain gnash \
+    "$pkgdir"/usr/share/applications/*.schemas
+  rm -f "$pkgdir"/usr/share/applications/*.schemas
+}
