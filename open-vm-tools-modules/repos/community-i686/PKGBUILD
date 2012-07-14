@@ -5,7 +5,7 @@
 pkgname=open-vm-tools-modules
 pkgver=2012.05.21
 _pkgsubver=724730
-pkgrel=1
+pkgrel=2
 pkgdesc="kernel modules for the open source implementation of VMware Tools"
 arch=('i686' 'x86_64')
 url="http://open-vm-tools.sourceforge.net/"
@@ -13,38 +13,40 @@ license=('GPL')
 makedepends=('libdnet' 'icu' 'uriparser' 'linux-headers')
 depends=("linux")
 install=$pkgname.install
-options=('!strip')
+options=('!strip' '!makeflags')
 source=("http://downloads.sourceforge.net/open-vm-tools/open-vm-tools-$pkgver-${_pkgsubver}.tar.gz"
 	"modprobe.conf")
 md5sums=('91affb5b23db8abceff930613845f434'
-         'ac9b8e3cb798f5056ca92767ec705117')
+         'bc5518489077e91655489bd04b868584')
 
 build() {
-  _kernver=`pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -`
-  KERNEL_RELEASE=`cat /lib/modules/extramodules-3.${_kernver}-ARCH/version`
+  _kernver=$(pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -)
+  KERNEL_RELEASE=$(cat /usr/lib/modules/extramodules-3.${_kernver}-ARCH/version)
 
   cd "$srcdir/open-vm-tools-${pkgver}-${_pkgsubver}"
   sed -i 's|proc-3.2.8|procps|g' configure
-  [ $NOEXTRACT -eq 1 ] || ./configure --prefix=/usr \
-	--without-x --with-kernel-release=$KERNEL_RELEASE
+  [ $NOEXTRACT -eq 1 ] || ./configure \
+      --prefix=/usr \
+      --without-x \
+      --with-linuxdir=/usr/lib/modules/$KERNEL_RELEASE
 
-  cd modules
-  make modules -j1
+  make -C modules modules
 }
 
 package() {
-  _kernver=`pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -`
-  depends=("linux>=3.${_kernver}" "linux<3.`expr ${_kernver} + 1`")
-  KERNEL_VERSION=`cat /lib/modules/extramodules-3.${_kernver}-ARCH/version`
+  _kernver=$(pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -)
+  depends=("linux>=3.${_kernver}" "linux<3.$(expr ${_kernver} + 1)")
+  KERNEL_VERSION=$(cat /usr/lib/modules/extramodules-3.${_kernver}-ARCH/version)
   msg "Kernel = $KERNEL_VERSION"
 
   cd "$srcdir/open-vm-tools-${pkgver}-${_pkgsubver}"
-  mkdir -p $pkgdir/lib/modules/extramodules-3.${_kernver}-ARCH/
-  for MOD in `find -type f -name '*.ko'`; do
-    install -Dm644 $MOD $pkgdir/lib/modules/extramodules-3.${_kernver}-ARCH/
-  done
-  gzip $pkgdir/lib/modules/extramodules-3.${_kernver}-ARCH/*.ko
+  mkdir -p $pkgdir/usr/lib/modules/extramodules-3.${_kernver}-ARCH/
 
-  install -D -m 644 ${srcdir}/modprobe.conf ${pkgdir}/etc/modprobe.d/${pkgname}.conf
+  find -type f -name '*.ko' \
+    -exec install -t "$pkgdir/usr/lib/modules/extramodules-3.$_kernver-ARCH" {} +
+
+  gzip "$pkgdir/usr/lib/modules/extramodules-3.$_kernver-ARCH"/*.ko
+
+  install -D -m 644 ${srcdir}/modprobe.conf ${pkgdir}/usr/lib/modprobe.d/${pkgname}.conf
   sed -i "s|extramodules-.*-ARCH|extramodules-3.${_kernver}-ARCH|" $startdir/$pkgname.install
 }
