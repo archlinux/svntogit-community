@@ -3,7 +3,7 @@
 
 pkgname=quagga
 pkgver=0.99.21
-pkgrel=1
+pkgrel=2
 pkgdesc='BGP/OSPF/ISIS/RIP/RIPNG routing daemon suite'
 arch=('i686' 'x86_64')
 url='http://www.quagga.net'
@@ -15,16 +15,41 @@ install=quagga.install
 source=("http://download.savannah.gnu.org/releases/$pkgname/$pkgname-$pkgver.tar.gz"
         'quagga.rc'
         'quagga.conf'
-        '0001-isisd-fix-typo-in-topology-generator-BZ-731.patch')
+        'babeld.service'
+        'bgpd.service'
+        'isisd.service'
+        'ospf6d.service'
+        'ospfd.service'
+        'ripd.service'
+        'ripngd.service'
+        'zebra.service'
+        '0001-isisd-fix-typo-in-topology-generator-BZ-731.patch'
+        '0002-CVE-2012-1820.patch')
 md5sums=('99840adbe57047c90dfba6b6ed9aec7f'
          '71d474228a1e02d698cd24e9fd55ca38'
          '0c4f2dd13c7dac1b73de923d1d5e4e17'
-         'c80174f7bdd32cd84550d52451e8f495')
+         '45d8bf56a426b0e7ebe429547be8a27a'
+         'ab31ed8dafd7a92137f4f00ad0937b4f'
+         '4c05d0105cd0db23a2583bd75a1bde4d'
+         'd087dce5eeba78ac64541157c7e04dfd'
+         'c5f8a729685cebf8fc5b1a1552d37b6d'
+         'e721b334bb0b31983642b307033c63d0'
+         'effeb26ff78ffcafe7808596ddc5d3fc'
+         'a4bf0a090747bd7dc4094a1e6e96e6ad'
+         'c80174f7bdd32cd84550d52451e8f495'
+         '44f39016d81f3b13b2744f7dcd93289d')
 
 build() {
   cd $pkgname-$pkgver
-  patch -p 1 -i "$srcdir/0001-isisd-fix-typo-in-topology-generator-BZ-731.patch"
-  ./configure --prefix=/usr --sysconfdir=/etc/quagga --localstatedir=/run/quagga \
+  shopt -s nullglob
+  for _p in "$srcdir"/*.patch; do
+    msg2 "Applying ${_p##*/}"
+    patch -p 1 -i "$_p"
+  done
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc/quagga \
+    --localstatedir=/run/quagga \
     --enable-exampledir=/usr/share/doc/quagga/examples \
     --enable-vtysh \
     --enable-isisd \
@@ -35,28 +60,37 @@ build() {
     --enable-irdp \
     --enable-pcreposix \
     --enable-multipath=64 \
-    --enable-user=nobody \
-    --enable-group=nobody \
+    --enable-user=quagga \
+    --enable-group=quagga \
     --enable-configfile-mask=0640 \
     --enable-logfile-mask=0640
   make
 }
 
 package() {
+  # upstream install
+  cd $pkgname-$pkgver
+  make DESTDIR="$pkgdir" install
+
+  # logrotate stuff
+  install -D -m 644 redhat/$pkgname.logrotate "$pkgdir/etc/logrotate.d/$pkgname"
+  sed -ri 's,/var/run/quagga,/run/quagga,g' "$pkgdir/etc/logrotate.d/$pkgname"
+
   # initscripts files
-  for d in zebra ripd ripngd bgpd ospfd ospf6d isisd; do
+  cd "$srcdir"
+  for d in zebra ripd ripngd bgpd ospfd ospf6d isisd babeld; do
     install -D -m 755 $pkgname.rc "$pkgdir/etc/rc.d/$d"
     install -D -m 644 $pkgname.conf "$pkgdir/etc/conf.d/$d"
     backup+=("etc/conf.d/$d")
   done
 
-  # create /run/quagga directory at startup
+  # systemd stuff
+  for d in zebra ripd ripngd bgpd ospfd ospf6d isisd babeld; do
+    install -D -m 644 $d.service "$pkgdir/usr/lib/systemd/system/$d.service"
+  done
   install -D -m 644 /dev/null "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
   echo "d /run/$pkgname 0750 $pkgname $pkgname" > "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
 
-  # soft
-  cd $pkgname-$pkgver
-  make DESTDIR="$pkgdir" install
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
