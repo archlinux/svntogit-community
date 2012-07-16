@@ -1,40 +1,30 @@
 #!/bin/bash
 
+DAEMON=/usr/bin/${0##*/}
+DAEMON_USER=nobody
+DAEMON_OPTS=/etc/exabgp.conf
+PIDFILE=${PIDFILE:-/run/${0##*/}.pid}
+
 . /etc/rc.conf
 . /etc/rc.d/functions
 . /etc/conf.d/${0##*/}
 
-DAEMON=/usr/bin/exabgp
-PIDFILE=/var/run/${0##*/}.pid
-
-DAEMON_USER=${DAEMON_USER:-nobody}
-DAEMON_GROUP=${DAEMON_GROUP:-nobody}
+# check pid file
+[[ -r "$PIDFILE" ]] &&
+  read PID < "$PIDFILE" && [[ -n $PID ]] && kill -0 $PID || unset PID
 
 case "$1" in
   start)
     stat_busy "Starting ${0##*/} daemon"
-    if start-stop-daemon --start --quiet --make-pidfile --pidfile "$PIDFILE" --background \
-      -c $DAEMON_USER -g $DAEMON_GROUP --startas $DAEMON -- $DAEMON_OPTS; then
-        stat_done
-        add_daemon ${0##*/}
-    else
-        stat_fail
-    fi
+    [[ ! $PID ]] &&
+      SYSLOG= DAEMONIZE= USER="$DAEMON_USER" PID="$PIDFILE" "$DAEMON" $DAEMON_OPTS &&
+      add_daemon ${0##*/} && stat_done && exit 0
+    stat_fail
   ;;
   stop)
     stat_busy "Stopping ${0##*/} daemon"
-    if start-stop-daemon --stop --quiet --pidfile "$PIDFILE"; then
-      rm_daemon ${0##*/}
-      rm "$PIDFILE"
-      stat_done
-    else
-      stat_fail
-    fi
-  ;;
-  reload)
-    stat_busy "Reloading ${0##*/} dameon"
-    start-stop-daemon --stop --signal HUP --quiet --pidfile "$PIDFILE" \
-      && stat_done || stat_fail
+    [[ $PID ]] && kill $PID &> /dev/null && rm_daemon ${0##*/} && stat_done && exit 0
+    stat_fail
   ;;
   restart)
     $0 stop
