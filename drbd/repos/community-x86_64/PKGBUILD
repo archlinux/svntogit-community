@@ -3,23 +3,25 @@
 
 pkgname=drbd
 pkgver=8.3.11
-pkgrel=3
+pkgrel=4
 arch=('i686' 'x86_64')
 pkgdesc='Userland tools for drbd block devices'
 url='http://www.drbd.org'
 license=('GPL2')
 source=("http://oss.linbit.com/drbd/8.3/$pkgname-$pkgver.tar.gz"
         "$pkgname.rc"
+        "$pkgname.service"
         '01-remove-old-sanity-check.diff')
 backup=('etc/drbd.conf' 'etc/drbd.d/global_common.conf')
 md5sums=('e47a35a80143b72e9708844efbe2e608'
-         '6a91609fcd69b435a2a96599f07ad856'
+         '8902a2f7aca6245c27e9566a1509312c'
+         'afbb345094db49b0a474c0b4e51c0acd'
          '24144d23b31f9ce66929fe989247c779')
 
 build() {
   cd $pkgname-$pkgver
   # patch bad sanity check in makefile
-  patch -p1 -i ../01-remove-old-sanity-check.diff
+  patch -p1 -i "$srcdir/01-remove-old-sanity-check.diff"
   ./configure \
     --prefix=/usr \
     --localstatedir=/var \
@@ -41,21 +43,28 @@ build() {
 package() {
   cd $pkgname-$pkgver
   make DESTDIR="$pkgdir" install
-  # move forced /sbin binaries and fix harcoded path
-  mv "$pkgdir/sbin"/* "$pkgdir/usr/sbin"
-  rmdir "$pkgdir/sbin"
-  sed -i 's,/sbin/drbdadm,/usr/sbin/drbdadm,' \
-    "$pkgdir/etc/udev/rules.d/65-drbd.rules"
+  # move forced /sbin binaries
+  cd "$pkgdir"
+  mv sbin/* usr/sbin
+  rmdir sbin
+  # fix hardcoded path in udev rules
+  sed -i 's,/sbin/drbdadm,/usr/sbin/drbdadm,' etc/udev/rules.d/65-drbd.rules
   # move udev files
-  mv "$pkgdir/etc/udev" "$pkgdir/usr/lib"
+  mv etc/udev usr/lib
   # move bash completion
-  install -d -m 755 "$pkgdir/usr/share/bash-completion"
-  mv "$pkgdir/etc/bash_completion.d" \
-    "$pkgdir/usr/share/bash-completion/completions"
+  install -dm 755 usr/share/bash-completion
+  mv etc/bash_completion.d usr/share/bash-completion/completions
   # remove /var/lock
-  rmdir "$pkgdir/var/lock"
+  rmdir var/lock
+  # autoload module
+  install -Dm 644 /dev/null usr/lib/modules-load.d/$pkgname.conf
+  echo 'drbd' > usr/lib/modules-load.d/$pkgname.conf
   # setup initscript (replace)
-  install -D -m 755 ../$pkgname.rc "$pkgdir/etc/rc.d/$pkgname"
+  cd "$srcdir"
+  install -Dm 755 $pkgname.rc "$pkgdir/etc/rc.d/$pkgname"
+  # install systemd stuff
+  install -Dm 644 $pkgname.service \
+    "$pkgdir/usr/lib/systemd/system/$pkgname.service"
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
