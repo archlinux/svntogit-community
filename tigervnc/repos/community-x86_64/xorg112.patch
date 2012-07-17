@@ -1,0 +1,447 @@
+diff -ur tigervnc-1.2.0.orig/unix/xserver/hw/vnc/Makefile.am tigervnc-1.2.0/unix/xserver/hw/vnc/Makefile.am
+--- tigervnc-1.2.0.orig/unix/xserver/hw/vnc/Makefile.am	2011-10-31 09:14:40.000000000 +0100
++++ tigervnc-1.2.0/unix/xserver/hw/vnc/Makefile.am	2012-04-15 12:19:00.995517546 +0200
+@@ -63,7 +63,7 @@
+ BUILT_SOURCES = $(nodist_Xvnc_SOURCES)
+ 
+ fb.h: $(top_srcdir)/fb/fb.h
+-	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > $(srcdir)/fb.h
++	cat $(top_srcdir)/fb/fb.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > $(srcdir)/fb.h
+ 
+ pixman.h:
+ 	for i in ${XSERVERLIBS_CFLAGS}; do \
+@@ -78,4 +78,4 @@
+ 	fi
+ 
+ fbrop.h: $(top_srcdir)/fb/fbrop.h
+-	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,' -e 's,xor,c_xor,' > $(srcdir)/fbrop.h
++	cat $(top_srcdir)/fb/fbrop.h | sed -e 's,and,c_and,g' -e 's,xor,c_xor,g' > $(srcdir)/fbrop.h
+diff -ur tigervnc-1.2.0.orig/unix/xserver/hw/vnc/vncExtInit.cc tigervnc-1.2.0/unix/xserver/hw/vnc/vncExtInit.cc
+--- tigervnc-1.2.0.orig/unix/xserver/hw/vnc/vncExtInit.cc	2011-11-07 13:51:34.000000000 +0100
++++ tigervnc-1.2.0/unix/xserver/hw/vnc/vncExtInit.cc	2012-04-15 12:18:57.819557251 +0200
+@@ -59,6 +59,7 @@
+ #include "XserverDesktop.h"
+ #include "vncHooks.h"
+ #include "vncExtInit.h"
++#include "xorg-version.h"
+ 
+ extern "C" {
+ 
+@@ -449,10 +450,16 @@
+       ev.window = cur->window;
+       ev.time = GetTimeInMillis();
+       if (cur->client->swapped) {
++#if XORG < 112
+         int n;
+         swaps(&ev.sequenceNumber, n);
+         swapl(&ev.window, n);
+         swapl(&ev.time, n);
++#else
++        swaps(&ev.sequenceNumber);
++        swapl(&ev.window);
++        swapl(&ev.time);
++#endif
+       }
+       WriteToClient(cur->client, sizeof(xVncExtClientCutTextNotifyEvent),
+                     (char *)&ev);
+@@ -495,9 +502,14 @@
+       ev.sequenceNumber = cur->client->sequence;
+       ev.window = cur->window;
+       if (cur->client->swapped) {
++#if XORG < 112
+         int n;
+         swaps(&ev.sequenceNumber, n);
+         swapl(&ev.window, n);
++#else
++        swaps(&ev.sequenceNumber);
++        swapl(&ev.window);
++#endif
+       }
+       WriteToClient(cur->client, sizeof(xVncExtQueryConnectNotifyEvent),
+                     (char *)&ev);
+@@ -538,10 +550,16 @@
+       ev.window = cur->window;
+       ev.selection = selection;
+       if (cur->client->swapped) {
++#if XORG < 112
+         int n;
+         swaps(&ev.sequenceNumber, n);
+         swapl(&ev.window, n);
+         swapl(&ev.selection, n);
++#else
++        swaps(&ev.sequenceNumber);
++        swapl(&ev.window);
++        swapl(&ev.selection);
++#endif
+       }
+       WriteToClient(cur->client, sizeof(xVncExtSelectionChangeNotifyEvent),
+                     (char *)&ev);
+@@ -562,7 +580,6 @@
+   param.buf[stuff->paramLen] = 0;
+ 
+   xVncExtSetParamReply rep;
+-  int n;
+   rep.type = X_Reply;
+   rep.length = 0;
+   rep.success = 0;
+@@ -603,8 +620,14 @@
+ 
+ deny:
+   if (client->swapped) {
++#if XORG < 112
++    int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.length, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.length);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtSetParamReply), (char *)&rep);
+   return (client->noClientException);
+@@ -612,9 +635,13 @@
+ 
+ static int SProcVncExtSetParam(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtSetParamReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_AT_LEAST_SIZE(xVncExtSetParamReq);
+   return ProcVncExtSetParam(client);
+ }
+@@ -628,7 +655,6 @@
+   param.buf[stuff->paramLen] = 0;
+ 
+   xVncExtGetParamReply rep;
+-  int n;
+   rep.type = X_Reply;
+   rep.sequenceNumber = client->sequence;
+   rep.success = 0;
+@@ -646,9 +672,16 @@
+   rep.length = (len + 3) >> 2;
+   rep.valueLen = len;
+   if (client->swapped) {
++#if XORG < 112
++    int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.length, n);
+     swaps(&rep.valueLen, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.length);
++    swaps(&rep.valueLen);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtGetParamReply), (char *)&rep);
+   if (value)
+@@ -659,9 +692,13 @@
+ 
+ static int SProcVncExtGetParam(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtGetParamReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_AT_LEAST_SIZE(xVncExtGetParamReq);
+   return ProcVncExtGetParam(client);
+ }
+@@ -675,7 +712,6 @@
+   param.buf[stuff->paramLen] = 0;
+ 
+   xVncExtGetParamDescReply rep;
+-  int n;
+   rep.type = X_Reply;
+   rep.sequenceNumber = client->sequence;
+   rep.success = 0;
+@@ -690,9 +726,16 @@
+   rep.length = (len + 3) >> 2;
+   rep.descLen = len;
+   if (client->swapped) {
++#if XORG < 112
++    int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.length, n);
+     swaps(&rep.descLen, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.length);
++    swaps(&rep.descLen);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtGetParamDescReply), (char *)&rep);
+   if (desc)
+@@ -702,9 +745,13 @@
+ 
+ static int SProcVncExtGetParamDesc(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtGetParamDescReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_AT_LEAST_SIZE(xVncExtGetParamDescReq);
+   return ProcVncExtGetParamDesc(client);
+ }
+@@ -715,7 +762,6 @@
+   REQUEST_SIZE_MATCH(xVncExtListParamsReq);
+ 
+   xVncExtListParamsReply rep;
+-  int n;
+   rep.type = X_Reply;
+   rep.sequenceNumber = client->sequence;
+ 
+@@ -731,9 +777,16 @@
+   rep.length = (len + 3) >> 2;
+   rep.nParams = nParams;
+   if (client->swapped) {
++#if XORG < 112
++    int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.length, n);
+     swaps(&rep.nParams, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.length);
++    swaps(&rep.nParams);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtListParamsReply), (char *)&rep);
+   rdr::U8* data = new rdr::U8[len];
+@@ -753,9 +806,13 @@
+ 
+ static int SProcVncExtListParams(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtListParamsReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_SIZE_MATCH(xVncExtListParamsReq);
+   return ProcVncExtListParams(client);
+ }
+@@ -778,11 +835,19 @@
+ 
+ static int SProcVncExtSetServerCutText(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtSetServerCutTextReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_AT_LEAST_SIZE(xVncExtSetServerCutTextReq);
++#if XORG < 112
+   swapl(&stuff->textLen, n);
++#else
++  swapl(&stuff->textLen);
++#endif
+   return ProcVncExtSetServerCutText(client);
+ }
+ 
+@@ -792,15 +857,21 @@
+   REQUEST_SIZE_MATCH(xVncExtGetClientCutTextReq);
+ 
+   xVncExtGetClientCutTextReply rep;
+-  int n;
+   rep.type = X_Reply;
+   rep.length = (clientCutTextLen + 3) >> 2;
+   rep.sequenceNumber = client->sequence;
+   rep.textLen = clientCutTextLen;
+   if (client->swapped) {
++#if XORG < 112
++    int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.length, n);
+     swapl(&rep.textLen, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.length);
++    swapl(&rep.textLen);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtGetClientCutTextReply), (char *)&rep);
+   if (clientCutText)
+@@ -810,9 +881,13 @@
+ 
+ static int SProcVncExtGetClientCutText(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtGetClientCutTextReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_SIZE_MATCH(xVncExtGetClientCutTextReq);
+   return ProcVncExtGetClientCutText(client);
+ }
+@@ -842,12 +917,21 @@
+ 
+ static int SProcVncExtSelectInput(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtSelectInputReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_SIZE_MATCH(xVncExtSelectInputReq);
++#if XORG < 112
+   swapl(&stuff->window, n);
+   swapl(&stuff->mask, n);
++#else
++  swapl(&stuff->window);
++  swapl(&stuff->mask);
++#endif
+   return ProcVncExtSelectInput(client);
+ }
+ 
+@@ -893,9 +977,14 @@
+   rep.length = 0;
+   rep.sequenceNumber = client->sequence;
+   if (client->swapped) {
++#if XORG < 112
+     int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.length, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.length);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtConnectReply), (char *)&rep);
+   return (client->noClientException);
+@@ -903,9 +992,13 @@
+ 
+ static int SProcVncExtConnect(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtConnectReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_AT_LEAST_SIZE(xVncExtConnectReq);
+   return ProcVncExtConnect(client);
+ }
+@@ -925,7 +1018,6 @@
+     qcTimeout = 0;
+ 
+   xVncExtGetQueryConnectReply rep;
+-  int n;
+   rep.type = X_Reply;
+   rep.sequenceNumber = client->sequence;
+   rep.timeout = qcTimeout;
+@@ -934,11 +1026,20 @@
+   rep.opaqueId = (CARD32)(long)queryConnectId;
+   rep.length = (rep.userLen + rep.addrLen + 3) >> 2;
+   if (client->swapped) {
++#if XORG < 112
++    int n;
+     swaps(&rep.sequenceNumber, n);
+     swapl(&rep.userLen, n);
+     swapl(&rep.addrLen, n);
+     swapl(&rep.timeout, n);
+     swapl(&rep.opaqueId, n);
++#else
++    swaps(&rep.sequenceNumber);
++    swapl(&rep.userLen);
++    swapl(&rep.addrLen);
++    swapl(&rep.timeout);
++    swapl(&rep.opaqueId);
++#endif
+   }
+   WriteToClient(client, sizeof(xVncExtGetQueryConnectReply), (char *)&rep);
+   if (qcTimeout)
+@@ -950,9 +1051,13 @@
+ 
+ static int SProcVncExtGetQueryConnect(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtGetQueryConnectReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
++#else
++  swaps(&stuff->length);
++#endif
+   REQUEST_SIZE_MATCH(xVncExtGetQueryConnectReq);
+   return ProcVncExtGetQueryConnect(client);
+ }
+@@ -977,10 +1082,15 @@
+ 
+ static int SProcVncExtApproveConnect(ClientPtr client)
+ {
+-  register char n;
+   REQUEST(xVncExtApproveConnectReq);
++#if XORG < 112
++  register char n;
+   swaps(&stuff->length, n);
+   swapl(&stuff->opaqueId, n);
++#else
++  swaps(&stuff->length);
++  swapl(&stuff->opaqueId);
++#endif
+   REQUEST_SIZE_MATCH(xVncExtApproveConnectReq);
+   return ProcVncExtApproveConnect(client);
+ }
+diff -ur tigervnc-1.2.0.orig/unix/xserver/hw/vnc/xf86vncModule.cc tigervnc-1.2.0/unix/xserver/hw/vnc/xf86vncModule.cc
+--- tigervnc-1.2.0.orig/unix/xserver/hw/vnc/xf86vncModule.cc	2010-04-23 15:55:10.000000000 +0200
++++ tigervnc-1.2.0/unix/xserver/hw/vnc/xf86vncModule.cc	2012-04-15 12:18:57.820557239 +0200
+@@ -26,6 +26,8 @@
+ #include <rfb/Logger_stdio.h>
+ #include <rfb/LogWriter.h>
+ 
++#include "xorg-version.h"
++
+ extern "C" {
+ #define class c_class
+ #define private c_private
+@@ -89,7 +91,12 @@
+     ScrnInfoPtr pScrn = xf86Screens[scr];
+ 
+     for (ParameterIterator i(Configuration::global()); i.param; i.next()) {
+-      char* val = xf86FindOptionValue(pScrn->options, i.param->getName());
++      const char *val;
++#if XORG < 112
++      val = xf86FindOptionValue(pScrn->options, i.param->getName());
++#else
++      val = xf86FindOptionValue((XF86OptionPtr)pScrn->options, i.param->getName());
++#endif
+       if (val)
+         i.param->setParam(val);
+     }
+diff -ur tigervnc-1.2.0.orig/unix/xserver/hw/vnc/xorg-version.h tigervnc-1.2.0/unix/xserver/hw/vnc/xorg-version.h
+--- tigervnc-1.2.0.orig/unix/xserver/hw/vnc/xorg-version.h	2012-04-15 12:18:21.272014160 +0200
++++ tigervnc-1.2.0/unix/xserver/hw/vnc/xorg-version.h	2012-04-15 12:18:57.821557227 +0200
+@@ -38,6 +38,8 @@
+ #define XORG 110
+ #elif XORG_VERSION_CURRENT < ((1 * 10000000) + (11 * 100000) + (99 * 1000))
+ #define XORG 111
++#elif XORG_VERSION_CURRENT < ((1 * 10000000) + (12 * 100000) + (99 * 1000))
++#define XORG 112
+ #else
+ #error "X.Org newer than 1.10 is not supported"
+ #endif
