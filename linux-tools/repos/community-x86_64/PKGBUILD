@@ -3,8 +3,8 @@
 
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower' 'x86_energy_perf_policy')
-pkgver=3.4
-pkgrel=3
+pkgver=3.5
+pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -17,14 +17,14 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         'cpupower.rc'
         'cpupower.conf'
         'cpupower.service')
-md5sums=('967f72983655e2479f951195953e8480'
+md5sums=('24153eaaa81dedc9481ada8cd9c3b83d'
          '73dbc931e86b3b73d6e2338dcbee81a4'
          '857ccdd0598511e3bf4b63522754dc48'
          '20870541e88109d2f153be3c58a277f1')
 
 build() {
   # apply stable patching set
-  if [[ -e "$srcdir"/patch-* ]]; then
+  if (( NOEXTRACT == 0 )) && [[ -e "$srcdir"/patch-* ]]; then
     msg2 'Applying stable patch set'
     patch -N -p1 -i "$srcdir"/patch-*
   fi
@@ -32,8 +32,9 @@ build() {
   msg2 'Build perf'
   pushd linux-$pkgver/tools/perf
   make \
+    WERROR=0 \
     DESTDIR="$pkgdir/usr" \
-    perfexecdir="lib/$pkgname" \
+    perfexecdir='lib/perf' \
     PYTHON=python2 \
     NO_GTK2=1 \
     PERF_VERSION=$pkgver-$pkgrel \
@@ -59,8 +60,9 @@ package_perf() {
 
   cd linux-$pkgver/tools/perf
   make \
+    WERROR=0 \
     DESTDIR="$pkgdir/usr" \
-    perfexecdir="lib/$pkgname" \
+    perfexecdir='lib/perf' \
     PYTHON=python2 \
     NO_GTK2=1 \
     PERF_VERSION=$pkgver-$pkgrel \
