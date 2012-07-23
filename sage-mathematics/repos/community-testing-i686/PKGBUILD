@@ -1,0 +1,103 @@
+# $Id$
+# Maintainer: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: Antonio Rojas < nqn1976 @ gmail.com >
+# Contributor: Thomas Dziedzic < gostrc at gmail >
+# Contributor: Osman Ugus <ugus11@yahoo.com>
+# Contributor: Stefan Husmann <stefan-husmann@t-online.de>
+# Special thanks to Nareto for moving the compile from the .install to the PKGBUILD
+
+pkgname=sage-mathematics
+pkgver=5.1
+pkgrel=3
+pkgdesc='SAGE: Open Source Mathematics Software, a viable free alternative to Magma, Maple, Mathematica, and Matlab.'
+url='http://www.sagemath.org'
+arch=('i686' 'x86_64')
+license=('GPL')
+#depends=('readline')
+makedepends=('gcc-fortran' 'desktop-file-utils')
+optdepends=('imagemagick: some plotting functionality benefits from it'
+            'texlive-core: some plotting functionality benefits from it, also to use SageTeX'
+            'openssh: to use the notebook in secure mode'
+            'ffmpeg: to show animations'
+            'jsmath-fonts: native TeX fonts for the notebook')
+options=('!makeflags')
+install="${pkgname}.install"
+source=("http://sage.math.washington.edu/home/release/sage-${pkgver}/sage-${pkgver}.tar"
+        'SAGE-notebook.desktop')
+
+build() {
+  cd sage-${pkgver}
+
+  # fix "missing sage.all error" during build
+  unset CFLAGS
+  unset CXXFLAGS
+
+  # fix build errors
+  unset LDFLAGS
+
+  # don't build GCC
+  export SAGE_INSTALL_GCC='no'
+
+  # enable multiple threads while building, is this really needed? check if uses MAKEFLAGS
+  export SAGE_BUILD_THREADS=$(lscpu | awk '/^CPU\(s\):/ { print $2 }')
+  export MAKE="make -j${SAGE_BUILD_THREADS}"
+
+  # use archlinux's fortran rather then the one that ships with sage to compile sage's fortran
+  export SAGE_FORTRAN='/usr/bin/gfortran'
+  export SAGE_FORTRAN_LIB='/usr/lib/libgfortran.so'
+
+  # disable building with debugging support
+  export SAGE_DEBUG='no'
+
+  # enable fat binaries (disables processor specific optimizations)
+  # comment out if you're only building it for yourself
+  export SAGE_FAT_BINARY='yes'
+
+  # can't write to root in a clean chroot
+  export DOT_SAGE='/build/src/'
+
+  # only build sage, no documents
+  #make build
+  make
+}
+
+<< COMMENT
+check() {
+  cd sage-${pkgver}
+
+  # uncomment if we want to run all the tests (warning: very long)
+  #make ptestlong
+}
+COMMENT
+
+package() {
+  cd sage-${pkgver}
+
+  # cp because make install is experimental and will corrupt the install
+  install -d ${pkgdir}/opt/sage
+  cp -dpr --no-preserve=ownership * ${pkgdir}/opt/sage
+
+  # move SageTeX files to more appropriate directory
+  install -d ${pkgdir}/usr/share
+  mv ${pkgdir}/opt/sage/local/share/texmf \
+    ${pkgdir}/usr/share
+
+  desktop-file-install ${srcdir}/SAGE-notebook.desktop \
+    --dir ${pkgdir}/usr/share/applications 
+
+  # create link to main binary
+  install -d ${pkgdir}/usr/bin
+  ln -s /opt/sage/sage ${pkgdir}/usr/bin/sage
+
+  # remove build logs
+  rm -f ${pkgdir}/opt/sage/*.log
+  rm -rf ${pkgdir}/opt/sage/spkg/logs
+
+  # remove source packages, since they are rarely needed, they are 300mb in size (compressed)
+  rm -f ${pkgdir}/opt/sage/spkg/base/*spkg
+  rm -f ${pkgdir}/opt/sage/spkg/standard/*spkg
+}
+
+# vim :set ts=2 sw=2 et:
+md5sums=('fa612f36387218d07b84f76995914c93'
+         'dc391f12b7d17dd37326343ec0e99bbd')
