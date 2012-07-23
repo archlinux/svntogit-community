@@ -19,7 +19,7 @@ case "$1" in
 			[[ -f /run/$daemon_name.pid ]] &&
 				rm -f /run/$daemon_name.pid
 		# RUN
-		sudo -u nobody /usr/bin/$daemon_name ${POLIPO_ARGS}
+		su -c "/usr/bin/$daemon_name ${POLIPO_ARGS}" -s /bin/sh - nobody
 		#
 		if [[ $? -gt 0 ]]; then
 			stat_fail
