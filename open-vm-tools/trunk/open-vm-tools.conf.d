@@ -2,6 +2,8 @@
 VM_DRAG_AND_DROP="yes"
 
 # Load these modules on startup
+# They must be listed in proper dependency order
+# vmblock module loading is switched by VM_DRAG_AND_DROP variable above
 VM_MODULES=('vmci' 'vsock' 'vmhgfs' 'vmsync')
 
 # vmware-guestd settings
