@@ -15,7 +15,7 @@ case "$1" in
 	VMBLOCK=`grep -w vmblock /proc/modules`
 	[ -z "$VMBLOCK" ] && modprobe vmblock
 	if [ $? -gt 0 ]; then
-    	    stat_fail
+	    stat_fail
 	    exit 1
 	fi
 	
@@ -27,13 +27,13 @@ case "$1" in
 	
 	mount -t vmblock none /proc/fs/vmblock/mountPoint
 	if [ $? -gt 0 ]; then
-    	    stat_fail
+	    stat_fail
 	    exit 1
 	fi
     fi
 
 
-    for m in vmhgfs vmsync; do
+    for m in ${VM_MODULES[@]}; do
 	VMMOD=`grep -w $m /proc/modules`
 	[ -z "$VMMOD" ] && \
 		{ modprobe $m
@@ -60,7 +60,12 @@ case "$1" in
 #      exit 1
 #    fi
 
-    for m in vmhgfs vmsync vmci; do
+    VM_MODULES_RM=()
+    for m in ${VM_MODULES[@]}; do
+	VM_MODULES_RM=($m ${VM_MODULES_RM[@]})
+    done
+
+    for m in ${VM_MODULES_RM[@]}; do
 	VMMOD=`grep -w $m /proc/modules`
 	[ ! -z "$VMMOD" ] && rmmod $m
 	if [ $? -gt 0 ]; then
@@ -74,7 +79,7 @@ case "$1" in
 	[ -z "$MOUNTPOINT" ] && umount /proc/fs/vmblock/mountPoint
         if [ $? -gt 0 ]; then
 	  stat_fail
-    	  exit 5
+	  exit 5
 	fi
 	
 	DND_TMPDIR="/tmp/VMwareDnD"
@@ -84,10 +89,10 @@ case "$1" in
 	[ ! -z "$VMBLOCK" ] && rmmod vmblock
         if [ $? -gt 0 ]; then
 	  stat_fail
-    	  exit 6
+	  exit 6
 	fi
     fi
-        
+
     rm_daemon open-vm-tools
     stat_done
     ;;
@@ -96,6 +101,6 @@ case "$1" in
     $0 start
     ;;
   *)
-    echo "usage: $0 {start|stop|restart}"  
+    echo "usage: $0 {start|stop|restart}"
 esac
 exit 0
