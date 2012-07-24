@@ -1,9 +1,13 @@
 # $Id$
 #Maintainer: Ionut Biru <ibiru@archlinux.org>
 pkgbase=virtualbox
-pkgname=('virtualbox' 'virtualbox-archlinux-additions' 'virtualbox-sdk' 'virtualbox-source')
+pkgname=('virtualbox'
+         'virtualbox-archlinux-additions'
+         'virtualbox-sdk'
+         'virtualbox-source'
+         'virtualbox-archlinux-source')
 pkgver=4.1.18
-pkgrel=2
+pkgrel=3
 arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
@@ -13,9 +17,9 @@ makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2' 'libxcursor
 [[ $CARCH == "x86_64" ]] && makedepends=("${makedepends[@]}" 'gcc-multilib' 'lib32-glibc')
 source=(http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver}.tar.bz2
         UserManual-$pkgver.pdf::http://download.virtualbox.org/virtualbox/${pkgver}/UserManual.pdf
-        10-vboxdrv.rules  vboxdrv-reference.patch  LocalConfig.kmk vboxbuild
-        change_default_driver_dir.patch vbox-service.conf vbox-service.rc
-        vboxweb.conf vboxweb.rc)
+        10-vboxdrv.rules  vboxdrv-reference.patch  LocalConfig.kmk ipv6_vnc.patch
+        change_default_driver_dir.patch vboxservice.conf vboxservice.rc vboxservice.service
+        vboxweb.conf vboxweb.rc vboxweb.service)
 
 _extramodules=extramodules-3.4-ARCH
 _kernver="$(cat /usr/lib/modules/${_extramodules}/version)" || true
@@ -25,6 +29,8 @@ build() {
 
     patch -Np1 -i "$srcdir/vboxdrv-reference.patch"
     patch -Np1 -i "$srcdir/change_default_driver_dir.patch"
+    # FS#30401
+    patch -Np2 -i  "$srcdir/ipv6_vnc.patch"
 
     cp "$srcdir/LocalConfig.kmk" .
 
@@ -56,7 +62,7 @@ package_virtualbox() {
     source "$srcdir/VirtualBox-${pkgver}/env.sh"
 
     cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
-    mkdir -p "$pkgdir"/usr/{bin,lib/virtualbox/components,lib/virtualbox/ExtensionPacks,share/virtualbox/nls}
+    install -dm755 "$pkgdir"/usr/{bin,lib/virtualbox/components,lib/virtualbox/ExtensionPacks,share/virtualbox/nls}
 
     #doc
     install -m 0644 "$srcdir/UserManual-$pkgver.pdf" "$pkgdir/usr/share/virtualbox/UserManual.pdf"
@@ -113,6 +119,9 @@ package_virtualbox() {
 
     # install rc.d script
     install -D -m755 "$srcdir/vboxweb.rc" "$pkgdir/etc/rc.d/vboxweb"
+    # install systemd service
+    install -D -m644 "$srcdir/vboxweb.service" \
+        "$pkgdir/usr/lib/systemd/system/vboxweb.service"
     # install sample config
     install -D -m644 "$srcdir/vboxweb.conf" "$pkgdir/etc/conf.d/vboxweb"
 
@@ -120,28 +129,23 @@ package_virtualbox() {
 
 package_virtualbox-source() {
     pkgdesc="VirtualBox kernel modules source"
-    depends=(gcc make)
+    depends=(dkms gcc make)
     provides=(virtualbox-modules)
     optdepends=('linux-headers'
-                'kernel26-lts-headers')
+                'linux-lts-headers')
     install=virtualbox-source.install
 
+    install -dm755 "$pkgdir/var/lib/dkms/vboxhost/$pkgver"
     source "$srcdir/VirtualBox-${pkgver}/env.sh"
-    mkdir -p $pkgdir/usr/lib/virtualbox
-
     cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
-
-    #sources for modules
-    cp -r src ${pkgdir}/usr/lib/virtualbox
-    #install compilation script
-    install -D -m 755 "${srcdir}/vboxbuild" "${pkgdir}/usr/bin/vboxbuild"
+    cp -r src "$pkgdir/var/lib/dkms/vboxhost/$pkgver/source"
 }
 
 package_virtualbox-sdk() {
     pkgdesc="VirtualBox Software Developer Kit (SDK)"
     depends=('python2')
 
-    mkdir -p "$pkgdir/usr/lib/virtualbox"
+    install -dm755 "$pkgdir/usr/lib/virtualbox"
 
     source "$srcdir/VirtualBox-${pkgver}/env.sh"
     cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
@@ -157,9 +161,11 @@ package_virtualbox-sdk() {
 
 package_virtualbox-archlinux-additions(){
     pkgdesc="Additions only for Arch Linux guests (userspace tools)"
-    depends=("virtualbox-archlinux-modules=$pkgver" 'gcc-libs' 'libxmu' 'xorg-xrandr' 'libxfixes')
+    depends=('virtualbox-archlinux-modules' 'gcc-libs' 'libxmu' 'xorg-xrandr' 'libxfixes')
     replaces=('virtualbox-guest-additions')
     conflicts=('virtualbox-guest-additions')
+    backup=('etc/conf.d/vboxservice')
+    install=virtualbox-archlinux-additions.install
 
     source "$srcdir/VirtualBox-${pkgver}/env.sh"
 
@@ -181,19 +187,40 @@ package_virtualbox-archlinux-additions(){
     install -m755 -D pam_vbox.so "$pkgdir/usr/lib/security/pam_vbox.so"
 
     # install rc.d script
-    install -D -m755 "$srcdir/vbox-service.rc" "$pkgdir/etc/rc.d/vbox-service"
+    install -D -m755 "$srcdir/vboxservice.rc" "$pkgdir/etc/rc.d/vboxservice"
 
     # install sample config
-    install -D -m644 "$srcdir/vbox-service.conf" "$pkgdir/etc/conf.d/vbox-service"
+    install -D -m644 "$srcdir/vboxservice.conf" "$pkgdir/etc/conf.d/vboxservice"
+
+    # install systemd service file
+    install -D -m644 "$srcdir/vboxservice.service" \
+        "$pkgdir/usr/lib/systemd/system/vboxservice.service"
 }
+
+package_virtualbox-archlinux-source() {
+    pkgdesc='VirtualBox Additions kernel modules source'
+    depends=(dkms gcc make)
+    provides=(virtualbox-archlinux-modules)
+    optdepends=('linux-headers'
+                'linux-lts-headers')
+    install=virtualbox-archlinux-source.install
+
+    install -dm755 "$pkgdir/var/lib/dkms/vboxguest/$pkgver"
+    source "$srcdir/VirtualBox-${pkgver}/env.sh"
+    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    cp -r src "$pkgdir/var/lib/dkms/vboxguest/$pkgver/source"
+}
+
 md5sums=('38db0a87cba659b484af868b0c2bd3ac'
          'e16f5999b53656d23828d9f2d63bd633'
          '5f85710e0b8606de967716ded7b2d351'
          '6ab2455c391d8cc005e2f4461ae26a3b'
          'a1ff1d1b4423556887e48a32978226a6'
-         '4c7a4f41bd45cbd390f7e50c2c1fee8f'
+         '4ff559f2bea335d59c4012048983ca91'
          '97e193f050574dd272a38e5ee5ebe62b'
          '3c08ad30b89add47d3f45121200a5360'
-         '208cf5f842eb2e3a5b6dcfc59080d26c'
+         '7d9823507206de9b8528a72af2f18d74'
+         '07c5f6d86c4b7839d719c8ee0c53653b'
          '3ac185709bfe688bb753c46e170d0546'
-         'c159d683ba1947290fc2ad2c64194150')
+         'c159d683ba1947290fc2ad2c64194150'
+         'bc9efed88e0469cd7fc460d5a5cd7b4b')
