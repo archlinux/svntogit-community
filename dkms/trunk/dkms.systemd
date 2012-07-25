@@ -1,0 +1,61 @@
+#!/bin/bash
+
+. /etc/conf.d/dkms
+
+# list dkms modules for the current running kernel
+list_dkms_modules() {
+  shopt -s nullglob
+  declare -a DKMS_MOULES
+  # dkms status needs uname -r to list correctly intalled version for current kernel
+  local modules_path=($(dkms status -k "$(uname -r)"|sed -rn 's#(.*), (.*), (.*), (.*): installed#\1/\2/\3/\4#p'))
+  for p in "${modules_path[@]}"; do
+    for m in /var/lib/dkms/"$p"/module/*.ko{,gz}; do
+      m=${m##*/}
+      m=${m%.gz}
+      m=${m%.ko}
+      DKMS_MODULES+=("$m")
+    done
+  done
+}
+
+# load installed kernel modules for the current kernel version
+load_dkms_modules() {
+  local ret=0
+  list_dkms_modules
+  for m in "${DKMS_MODULES[@]}"; do
+    modprobe "$m"
+    ret+=$?
+  done
+  return $ret
+}
+
+# unload installed kernel modules for the current kernel version
+unload_dkms_modules() {
+  list_dkms_modules
+  # ask for removal
+  for m in "${DKMS_MODULES[@]}"; do
+    modprobe --remove --quiet "$m"
+  done
+  # check modules are unloaded
+  # sometimes modprobe -r fail but modules are removed
+  for m in "${DKMS_MODULES[@]}"; do
+    [[ -e /sys/modules/$m ]] && return 1
+  done
+  return 0
+}
+
+case "$1" in
+  start)
+    dkms autoinstall -k "$(uname -r)"
+    [[ $LOAD =~ [Yy][Ee][Ss] ]] && load_dkms_modules
+  ;;
+  stop)
+    [[ $UNLOAD =~ [Yy][Ee][Ss] ]] && unload_dkms_modules
+  ;;
+  *)
+    echo "usage: $0 {start|stop}" >&2
+  ;;
+esac
+
+:
+# vim:set ts=2 sw=2 ft=sh et:
