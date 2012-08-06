@@ -2,16 +2,22 @@
 # Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org>
 
 pkgbase=linux-tools
-pkgname=('perf' 'cpupower' 'x86_energy_perf_policy')
+pkgname=('perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.5
 pkgrel=2.1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
 options=('!strip')
-makedepends=('asciidoc' 'xmlto')
 # split packages need all package dependencies set manually in makedepends
-makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
+# kernel source deps
+makedepends=('asciidoc' 'xmlto')
+# perf deps
+makedepends+=('perl' 'python2' 'libnewt' 'elfutils')
+# cpupower deps
+makedepends+=('pciutils')
+# usbip deps
+makedepends+=('glib2' 'sysfsutils')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
 #        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.4.xz"
@@ -53,6 +59,13 @@ build() {
 
   msg2 'Build x86_energy_perf_policy'
   pushd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
+  make
+  popd
+
+  msg2 'Build usbip'
+  pushd linux-$pkgver/drivers/staging/usbip/userspace
+  ./autogen.sh
+  ./configure --prefix=/usr
   make
   popd
 }
@@ -99,6 +112,15 @@ package_x86_energy_perf_policy() {
   cd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
   install -Dm 755 x86_energy_perf_policy "$pkgdir/usr/bin/x86_energy_perf_policy"
   install -Dm 644 x86_energy_perf_policy.8 "$pkgdir/usr/share/man/man8/x86_energy_perf_policy.8"
+}
+
+package_usbip() {
+  pkgdesc='An USB device sharing system over IP network'
+  depends=('glib2' 'sysfsutils')
+  options=('!libtool')
+
+  cd linux-$pkgver/drivers/staging/usbip/userspace
+  make install DESTDIR="$pkgdir"
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
