@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower' 'x86_energy_perf_policy')
 pkgver=3.5
-pkgrel=2
+pkgrel=2.1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -12,6 +12,7 @@ options=('!strip')
 makedepends=('asciidoc' 'xmlto')
 # split packages need all package dependencies set manually in makedepends
 makedepends+=('python2' 'libnewt' 'elfutils' 'pciutils')
+groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
 #        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.4.xz"
         'cpupower.rc'
@@ -58,7 +59,7 @@ build() {
 
 package_perf() {
   pkgdesc='Linux kernel performance auditing tool'
-  depends=('python2' 'libnewt' 'elfutils')
+  depends=('perl' 'python2' 'libnewt' 'elfutils')
 
   cd linux-$pkgver/tools/perf
   make \
@@ -74,7 +75,7 @@ package_perf() {
 package_cpupower() {
   pkgdesc='Linux kernel tool to examine and tune power saving related features of your processor'
   backup=('etc/conf.d/cpupower')
-  depends=('pciutils')
+  depends=('bash' 'pciutils')
   conflicts=('cpufrequtils')
 
   pushd linux-$pkgver/tools/power/cpupower
@@ -93,6 +94,7 @@ package_cpupower() {
 
 package_x86_energy_perf_policy() {
   pkgdesc='Read or write MSR_IA32_ENERGY_PERF_BIAS'
+  depends=('glibc')
 
   cd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
   install -Dm 755 x86_energy_perf_policy "$pkgdir/usr/bin/x86_energy_perf_policy"
