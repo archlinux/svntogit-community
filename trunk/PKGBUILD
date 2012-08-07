@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.5
-pkgrel=2.1
+pkgrel=3
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
