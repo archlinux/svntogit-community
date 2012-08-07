@@ -21,15 +21,21 @@ makedepends+=('glib2' 'sysfsutils')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
 #        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.4.xz"
-        'cpupower.rc'
         'cpupower.conf'
+        'cpupower.rc'
         'cpupower.systemd'
-        'cpupower.service')
+        'cpupower.service'
+        'usbipd.conf'
+        'usbipd.rc'
+        'usbipd.service')
 md5sums=('24153eaaa81dedc9481ada8cd9c3b83d'
-         '1d9214637968b91706b6e616a100d44b'
          '857ccdd0598511e3bf4b63522754dc48'
+         '1d9214637968b91706b6e616a100d44b'
          'c0d17b5295fe964623c772a2dd981771'
-         '2450e8ff41b30eb58d43b5fffbfde1f4')
+         '2450e8ff41b30eb58d43b5fffbfde1f4'
+         'e8fac9c45a628015644b4150b139278a'
+         '8a3831d962ff6a9968c0c20fd601cdec'
+         'ba7c1c513314dd21fb2334fb8417738f')
 
 build() {
   # apply stable patching set
@@ -98,7 +104,7 @@ package_cpupower() {
     docdir='/usr/share/doc/cpupower' \
     install install-man
   popd
-  # install rc.d script
+  # install daemon scripts
   install -Dm 755 $pkgname.rc "$pkgdir/etc/rc.d/$pkgname"
   install -Dm 644 $pkgname.conf "$pkgdir/etc/conf.d/$pkgname"
   install -Dm 644 $pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
@@ -119,8 +125,16 @@ package_usbip() {
   depends=('glib2' 'sysfsutils')
   options=('!libtool')
 
-  cd linux-$pkgver/drivers/staging/usbip/userspace
+  pushd linux-$pkgver/drivers/staging/usbip/userspace
   make install DESTDIR="$pkgdir"
+  popd
+  # module loading
+  install -Dm 644 /dev/null "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
+  printf 'usbip-core\nusbip-host\n' > "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
+  # install daemon scripts
+  install -Dm 755 usbipd.rc "$pkgdir/etc/rc.d/usbipd"
+  install -Dm 644 usbipd.conf "$pkgdir/etc/conf.d/usbipd"
+  install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
 }
 
 # vim:set ts=2 sw=2 ft=sh et:
