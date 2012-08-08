@@ -7,7 +7,7 @@ pkgname=('virtualbox'
          'virtualbox-source'
          'virtualbox-archlinux-source')
 pkgver=4.1.18
-pkgrel=4
+pkgrel=5
 arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
@@ -25,7 +25,7 @@ _extramodules=extramodules-3.4-ARCH
 _kernver="$(cat /usr/lib/modules/${_extramodules}/version)" || true
 
 build() {
-    cd "$srcdir/VirtualBox-${pkgver}"
+    cd "VirtualBox-$pkgver"
 
     patch -Np1 -i "$srcdir/vboxdrv-reference.patch"
     patch -Np1 -i "$srcdir/change_default_driver_dir.patch"
@@ -43,6 +43,10 @@ build() {
     source ./env.sh
     kmk all
     sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' "out/linux.$BUILD_PLATFORM_ARCH/release/bin/vboxshell.py"
+    # build rdesktop-vrdp (broken from LocalConfig.kmk)
+    cd src/VBox/RDP/client
+    cp "$srcdir/LocalConfig.kmk" .
+    kmk all
 }
 
 package_virtualbox() {
@@ -54,15 +58,14 @@ package_virtualbox() {
                 'virtualbox-source: host kernel source modules for non-stock kernels'
                 'net-tools: for host-only or bridged networking')
 
-    backup=('etc/vbox/vbox.cfg')
+    backup=('etc/vbox/vbox.cfg' 'etc/conf.d/vboxweb')
     replaces=('virtualbox-ose')
     conflicts=('virtualbox-ose')
     install=virtualbox.install
 
-    source "$srcdir/VirtualBox-${pkgver}/env.sh"
-
-    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
-    install -dm755 "$pkgdir"/usr/{bin,lib/virtualbox/components,lib/virtualbox/ExtensionPacks,share/virtualbox/nls}
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    install -dm755 "$pkgdir"/usr/{bin,lib/virtualbox/components,lib/virtualbox/ExtensionPacks,share/virtualbox/nls,share/virtualbox/rdesktop-vrdp-keymaps}
 
     #doc
     install -m 0644 "$srcdir/UserManual-$pkgver.pdf" "$pkgdir/usr/share/virtualbox/UserManual.pdf"
@@ -70,10 +73,12 @@ package_virtualbox() {
     #Binaries and Wrapper with Launchers
     install -m 0755 VBox.sh "$pkgdir/usr/bin/VBox"
 
-    for i in VBoxHeadless vboxheadless VBoxManage vboxmanage VBoxSDL vboxsdl VirtualBox virtualbox vboxwebsrv VBoxBalloonCtrl vboxballoonctrl; do
+    for i in VBoxHeadless VBoxManage VBoxSDL VirtualBox vboxwebsrv VBoxBalloonCtrl; do
         ln -sf VBox "$pkgdir/usr/bin/$i"
+        ln -sf VBox "$pkgdir/usr/bin/${i,,}"
     done
     install -m 0755 VBoxTunctl "$pkgdir/usr/bin"
+    install -m 0755 rdesktop-vrdp "$pkgdir/usr/bin"
 
     #components
     install -m 0755 components/* -t "$pkgdir/usr/lib/virtualbox/components"
@@ -89,6 +94,9 @@ package_virtualbox() {
 
     #language
     install -m 0755 nls/*.qm -t "$pkgdir/usr/share/virtualbox/nls"
+
+    #rdesktop keymaps
+    install -m 0644 rdesktop-vrdp-keymaps/* "$pkgdir/usr/share/virtualbox/rdesktop-vrdp-keymaps"
 
     #useless scripts
     install -m 0755 VBoxCreateUSBNode.sh VBoxSysInfo.sh -t "$pkgdir/usr/share/virtualbox"
@@ -136,8 +144,8 @@ package_virtualbox-source() {
     install=virtualbox-source.install
 
     install -dm755 "$pkgdir/var/lib/dkms/vboxhost/$pkgver"
-    source "$srcdir/VirtualBox-${pkgver}/env.sh"
-    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
     cp -r src "$pkgdir/var/lib/dkms/vboxhost/$pkgver/source"
 }
 
@@ -147,8 +155,8 @@ package_virtualbox-sdk() {
 
     install -dm755 "$pkgdir/usr/lib/virtualbox"
 
-    source "$srcdir/VirtualBox-${pkgver}/env.sh"
-    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
 
     install -D -m 0755 vboxshell.py "$pkgdir/usr/lib/virtualbox/vboxshell.py"
     #python sdk
@@ -167,17 +175,17 @@ package_virtualbox-archlinux-additions(){
     backup=('etc/conf.d/vboxservice')
     install=virtualbox-archlinux-additions.install
 
-    source "$srcdir/VirtualBox-${pkgver}/env.sh"
+    source "VirtualBox-$pkgver/env.sh"
 
-    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
 
     install -d "$pkgdir"/{usr/bin,sbin}
     install -m755 VBoxClient VBoxControl VBoxService "$pkgdir/usr/bin"
     install -m755 mount.vboxsf "$pkgdir/sbin"
 
-    install -m755 -D "$srcdir"/VirtualBox-${pkgver}/src/VBox/Additions/x11/Installer/98vboxadd-xclient \
+    install -m755 -D "$srcdir"/VirtualBox-$pkgver/src/VBox/Additions/x11/Installer/98vboxadd-xclient \
         "$pkgdir"/usr/bin/VBoxClient-all
-    install -m755 -D "$srcdir"/VirtualBox-${pkgver}/src/VBox/Additions/x11/Installer/vboxclient.desktop \
+    install -m755 -D "$srcdir"/VirtualBox-$pkgver/src/VBox/Additions/x11/Installer/vboxclient.desktop \
         "$pkgdir"/etc/xdg/autostart/vboxclient.desktop
     install -D vboxvideo_drv_112.so \
         "$pkgdir/usr/lib/xorg/modules/drivers/vboxvideo.so"
@@ -206,8 +214,8 @@ package_virtualbox-archlinux-source() {
     install=virtualbox-archlinux-source.install
 
     install -dm755 "$pkgdir/var/lib/dkms/vboxguest/$pkgver"
-    source "$srcdir/VirtualBox-${pkgver}/env.sh"
-    cd "$srcdir/VirtualBox-${pkgver}/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
     cp -r src "$pkgdir/var/lib/dkms/vboxguest/$pkgver/source"
 }
 
@@ -221,6 +229,6 @@ md5sums=('38db0a87cba659b484af868b0c2bd3ac'
          '3c08ad30b89add47d3f45121200a5360'
          '7d9823507206de9b8528a72af2f18d74'
          '07c5f6d86c4b7839d719c8ee0c53653b'
-         '3ac185709bfe688bb753c46e170d0546'
+         '7e9483b1069a54f181546083ac7e5469'
          'c159d683ba1947290fc2ad2c64194150'
          'bc9efed88e0469cd7fc460d5a5cd7b4b')
