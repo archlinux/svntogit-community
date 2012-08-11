@@ -1,0 +1,831 @@
+From 1d73e538d1f3dde1cfc594b401cbda58c84e00c0 Mon Sep 17 00:00:00 2001
+From: Cameron White <cameronwhite91@gmail.com>
+Date: Fri, 10 Aug 2012 18:53:51 -0400
+Subject: [PATCH] [Fixes bug #956195] Fix broken effects due to a change in
+ Gtk# 2.12.11.
+
+The implementations of Rectangle.Right and Rectangle.Bottom were
+changed, which caused most effects to do nothing if a rectangle had
+height 1 (in particular, the AsyncEffectRender class generates tiles of
+that height).
+
+I added a GetBottom function and a GetRight function that use the new
+implementation, since that will make the eventual transition easier once
+all distros have the latest version.
+---
+ Pinta.Core/Classes/AsyncEffectRenderer.cs            |    4 ++--
+ Pinta.Core/Classes/GradientRenderer.cs               |   16 ++++++++--------
+ Pinta.Core/Classes/SurfaceDiff.cs                    |   12 ++++++------
+ Pinta.Core/Effects/BaseEffect.cs                     |    2 +-
+ Pinta.Core/Effects/BitVector2DSurfaceAdapter.cs      |    8 ++++----
+ Pinta.Core/Effects/HistogramRGB.cs                   |    6 +++---
+ Pinta.Core/Effects/UnaryPixelOp.cs                   |    4 ++--
+ Pinta.Core/Effects/Utility.cs                        |   12 ++++++------
+ Pinta.Core/Extensions/CairoExtensions.cs             |    2 +-
+ Pinta.Core/Extensions/GdkExtensions.cs               |   18 ++++++++++++++++++
+ Pinta.Core/Managers/LivePreviewManager.cs            |    4 ++--
+ .../Adjustments/BrightnessContrastEffect.cs          |    2 +-
+ Pinta.Effects/Effects/AddNoiseEffect.cs              |    2 +-
+ Pinta.Effects/Effects/BulgeEffect.cs                 |    6 +++---
+ Pinta.Effects/Effects/CloudsEffect.cs                |    4 ++--
+ Pinta.Effects/Effects/EmbossEffect.cs                |    4 ++--
+ Pinta.Effects/Effects/FragmentEffect.cs              |    4 ++--
+ Pinta.Effects/Effects/FrostedGlassEffect.cs          |    8 ++++----
+ Pinta.Effects/Effects/GaussianBlurEffect.cs          |    4 ++--
+ Pinta.Effects/Effects/GlowEffect.cs                  |    2 +-
+ Pinta.Effects/Effects/InkSketchEffect.cs             |    4 ++--
+ Pinta.Effects/Effects/JuliaFractalEffect.cs          |    4 ++--
+ Pinta.Effects/Effects/LocalHistogramEffect.cs        |    8 ++++----
+ Pinta.Effects/Effects/MandelbrotFractalEffect.cs     |    8 ++++----
+ Pinta.Effects/Effects/MotionBlurEffect.cs            |    4 ++--
+ Pinta.Effects/Effects/OilPaintingEffect.cs           |    8 ++++----
+ Pinta.Effects/Effects/PencilSketchEffect.cs          |    4 ++--
+ Pinta.Effects/Effects/PixelateEffect.cs              |   16 ++++++++--------
+ Pinta.Effects/Effects/RadialBlurEffect.cs            |    4 ++--
+ Pinta.Effects/Effects/SoftenPortraitEffect.cs        |    4 ++--
+ Pinta.Effects/Effects/TileEffect.cs                  |    4 ++--
+ Pinta.Effects/Effects/TwistEffect.cs                 |    4 ++--
+ Pinta.Effects/Effects/WarpEffect.cs                  |    4 ++--
+ Pinta.Effects/Effects/ZoomBlurEffect.cs              |    4 ++--
+ Pinta.Tools/Tools/ColorPickerTool.cs                 |    4 ++--
+ Pinta.Tools/Tools/RecolorTool.cs                     |    4 ++--
+ 36 files changed, 115 insertions(+), 97 deletions(-)
+
+diff --git a/Pinta.Core/Classes/AsyncEffectRenderer.cs b/Pinta.Core/Classes/AsyncEffectRenderer.cs
+index 2902264..a1ca9be 100644
+--- a/Pinta.Core/Classes/AsyncEffectRenderer.cs
++++ b/Pinta.Core/Classes/AsyncEffectRenderer.cs
+@@ -301,8 +301,8 @@ Gdk.Rectangle GetTileBounds (int tileIndex)
+ 			
+             int x = ((tileIndex % horizTileCount) * settings.TileWidth) + render_bounds.X;
+             int y = ((tileIndex / horizTileCount) * settings.TileHeight) + render_bounds.Y;
+-            int w = Math.Min(settings.TileWidth, render_bounds.Right - x);
+-            int h = Math.Min(settings.TileHeight, render_bounds.Bottom - y);
++            int w = Math.Min(settings.TileWidth, render_bounds.GetRight () + 1 - x);
++            int h = Math.Min(settings.TileHeight, render_bounds.GetBottom () + 1 - y);
+ 			
+ 			return new Gdk.Rectangle (x, y, w, h);			
+ 		}
+diff --git a/Pinta.Core/Classes/GradientRenderer.cs b/Pinta.Core/Classes/GradientRenderer.cs
+index b93132b..ca86d10 100644
+--- a/Pinta.Core/Classes/GradientRenderer.cs
++++ b/Pinta.Core/Classes/GradientRenderer.cs
+@@ -133,10 +133,10 @@ unsafe public void Render (ImageSurface surface, Gdk.Rectangle[] rois)
+ 				
+ 				if (this.startPoint.X == this.endPoint.X && this.startPoint.Y == this.endPoint.Y) {
+ 					// Start and End point are the same ... fill with solid color.
+-					for (int y = rect.Top; y < rect.Bottom; ++y) {
++					for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 						ColorBgra* pixelPtr = surface.GetPointAddress(rect.Left, y);
+ 						
+-						for (int x = rect.Left; x < rect.Right; ++x) {
++						for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 							ColorBgra result;
+ 							
+ 							if (this.alphaOnly && this.alphaBlending) {
+@@ -159,7 +159,7 @@ unsafe public void Render (ImageSurface surface, Gdk.Rectangle[] rois)
+ 					}
+ 				} else {
+ 					var mainrect = rect;
+-					var list = new List<int>(new Utility.RangeEnumerable(rect.Top, rect.Bottom));
++					var list = new List<int>(new Utility.RangeEnumerable(rect.Top, rect.GetBottom() + 1));
+ 					Parallel.ForEach(list.ToArray(),
+ 						(y) => ProcessGradientLine(startAlpha, endAlpha, y, mainrect, surface, src_data_ptr, src_width));
+ 				}
+@@ -172,10 +172,10 @@ unsafe public void Render (ImageSurface surface, Gdk.Rectangle[] rois)
+ 		private unsafe bool ProcessGradientLine (byte startAlpha, byte endAlpha, int y, Rectangle rect, ImageSurface surface, ColorBgra* src_data_ptr, int src_width)
+ 		{
+ 			var pixelPtr = surface.GetPointAddressUnchecked(src_data_ptr, src_width, rect.Left, y);
+-			var right = rect.Right;
++			var right = rect.GetRight ();
+ 			if (alphaOnly && alphaBlending)
+ 			{
+-				for (var x = rect.Left; x < right; ++x)
++				for (var x = rect.Left; x <= right; ++x)
+ 				{
+ 					var lerpByte = ComputeByteLerp(x, y);
+ 					var lerpAlpha = lerpAlphas[lerpByte];
+@@ -186,7 +186,7 @@ private unsafe bool ProcessGradientLine (byte startAlpha, byte endAlpha, int y,
+ 			}
+ 			else if (alphaOnly && !alphaBlending)
+ 			{
+-				for (var x = rect.Left; x < right; ++x)
++				for (var x = rect.Left; x <= right; ++x)
+ 				{
+ 					var lerpByte = ComputeByteLerp(x, y);
+ 					var lerpAlpha = lerpAlphas[lerpByte];
+@@ -197,7 +197,7 @@ private unsafe bool ProcessGradientLine (byte startAlpha, byte endAlpha, int y,
+ 			else if (!alphaOnly && (alphaBlending && (startAlpha != 255 || endAlpha != 255)))
+ 			{
+ 				// If we're doing all color channels, and we're doing alpha blending, and if alpha blending is necessary
+-				for (var x = rect.Left; x < right; ++x)
++				for (var x = rect.Left; x <= right; ++x)
+ 				{
+ 					var lerpByte = ComputeByteLerp(x, y);
+ 					var lerpColor = lerpColors[lerpByte];
+@@ -209,7 +209,7 @@ private unsafe bool ProcessGradientLine (byte startAlpha, byte endAlpha, int y,
+ 			}
+ 			else
+ 			{
+-				for (var x = rect.Left; x < right; ++x)
++				for (var x = rect.Left; x <= right; ++x)
+ 				{
+ 					var lerpByte = ComputeByteLerp(x, y);
+ 					var lerpColor = lerpColors[lerpByte];
+diff --git a/Pinta.Core/Effects/BaseEffect.cs b/Pinta.Core/Effects/BaseEffect.cs
+index 475ff21..eabfbf4 100644
+--- a/Pinta.Core/Effects/BaseEffect.cs
++++ b/Pinta.Core/Effects/BaseEffect.cs
+@@ -112,7 +112,7 @@ protected unsafe virtual void Render (ImageSurface src, ImageSurface dst, Gdk.Re
+ 			ColorBgra* dst_data_ptr = (ColorBgra*)dst.DataPtr;
+ 			int dst_width = dst.Width;
+ 
+-			for (int y = roi.Y; y < roi.Bottom; ++y) {
++			for (int y = roi.Y; y <= roi.GetBottom (); ++y) {
+ 				ColorBgra* srcPtr = src.GetPointAddressUnchecked (src_data_ptr, src_width, roi.X, y);
+ 				ColorBgra* dstPtr = dst.GetPointAddressUnchecked (dst_data_ptr, dst_width, roi.X, y);
+ 				Render (srcPtr, dstPtr, roi.Width);
+diff --git a/Pinta.Core/Effects/BitVector2DSurfaceAdapter.cs b/Pinta.Core/Effects/BitVector2DSurfaceAdapter.cs
+index 270a9fa..af6f853 100644
+--- a/Pinta.Core/Effects/BitVector2DSurfaceAdapter.cs
++++ b/Pinta.Core/Effects/BitVector2DSurfaceAdapter.cs
+@@ -112,8 +112,8 @@ public void Set (Point pt, bool newValue)
+ 
+ 		public void Set (Gdk.Rectangle rect, bool newValue)
+ 		{
+-			for (int y = rect.Y; y < rect.Bottom; ++y) {
+-				for (int x = rect.X; x < rect.Right; ++x) {
++			for (int y = rect.Y; y <= rect.GetBottom (); ++y) {
++				for (int x = rect.X; x <= rect.GetRight (); ++x) {
+ 					Set (x, y, newValue);
+ 				}
+ 			}
+@@ -167,8 +167,8 @@ public void Invert (Point pt)
+ 
+ 		public void Invert (Gdk.Rectangle rect)
+ 		{
+-			for (int y = rect.Y; y < rect.Bottom; ++y) {
+-				for (int x = rect.X; x < rect.Right; ++x) {
++			for (int y = rect.Y; y <= rect.GetBottom (); ++y) {
++				for (int x = rect.X; x <= rect.GetRight (); ++x) {
+ 					Invert (x, y);
+ 				}
+ 			}
+diff --git a/Pinta.Core/Effects/HistogramRGB.cs b/Pinta.Core/Effects/HistogramRGB.cs
+index 6717d79..b74d035 100644
+--- a/Pinta.Core/Effects/HistogramRGB.cs
++++ b/Pinta.Core/Effects/HistogramRGB.cs
+@@ -47,12 +47,12 @@ protected override unsafe void AddSurfaceRectangleToHistogram(ImageSurface surfa
+             long[] histogramG = histogram[1];
+             long[] histogramR = histogram[2];
+             
+-            int rect_right = rect.Right;
++            int rect_right = rect.GetRight ();
+             
+-            for (int y = rect.Y; y < rect.Bottom; ++y)
++            for (int y = rect.Y; y <= rect.GetBottom (); ++y)
+             {
+                 ColorBgra* ptr = surface.GetPointAddressUnchecked(rect.X, y);
+-				for (int x = rect.X; x < rect_right; ++x)
++		for (int x = rect.X; x <= rect_right; ++x)
+                 {
+                     ++histogramB[ptr->B];
+                     ++histogramG[ptr->G];
+diff --git a/Pinta.Core/Effects/UnaryPixelOp.cs b/Pinta.Core/Effects/UnaryPixelOp.cs
+index 8b173bf..0bbea80 100644
+--- a/Pinta.Core/Effects/UnaryPixelOp.cs
++++ b/Pinta.Core/Effects/UnaryPixelOp.cs
+@@ -50,7 +50,7 @@ public unsafe virtual void Apply (ColorBgra* ptr, int length)
+ 
+ 		private unsafe void ApplyRectangle (ImageSurface surface, Gdk.Rectangle rect)
+ 		{
+-			for (int y = rect.Left; y < rect.Bottom; ++y) {
++			for (int y = rect.Left; y <= rect.GetBottom (); ++y) {
+ 				ColorBgra* ptr = surface.GetPointAddress (rect.Left, y);
+ 				Apply (ptr, rect.Width);
+ 			}
+@@ -91,7 +91,7 @@ public void Apply (ImageSurface dst, ImageSurface src, Gdk.Rectangle roi)
+ 			ColorBgra* dst_data_ptr = (ColorBgra*)dst.DataPtr;
+ 			int dst_width = dst.Width;
+ 
+-			for (int y = roi.Y; y < roi.Bottom; ++y) {
++			for (int y = roi.Y; y <= roi.GetBottom(); ++y) {
+ 				ColorBgra* dstPtr = dst.GetPointAddressUnchecked (dst_data_ptr, dst_width, roi.X, y);
+ 				ColorBgra* srcPtr = src.GetPointAddressUnchecked (src_data_ptr, src_width, roi.X, y);
+ 				Apply (dstPtr, srcPtr, roi.Width);
+diff --git a/Pinta.Core/Effects/Utility.cs b/Pinta.Core/Effects/Utility.cs
+index b4f22dc..c138457 100644
+--- a/Pinta.Core/Effects/Utility.cs
++++ b/Pinta.Core/Effects/Utility.cs
+@@ -183,8 +183,8 @@ public static Gdk.Rectangle GetRegionBounds (Gdk.Rectangle[] rects, int startInd
+ 
+ 			int left = rects[startIndex].Left;
+ 			int top = rects[startIndex].Top;
+-			int right = rects[startIndex].Right;
+-			int bottom = rects[startIndex].Bottom;
++			int right = rects[startIndex].GetRight ();
++			int bottom = rects[startIndex].GetBottom ();
+ 
+ 			for (int i = startIndex + 1; i < startIndex + length; ++i) {
+ 				Gdk.Rectangle rect = rects[i];
+@@ -197,12 +197,12 @@ public static Gdk.Rectangle GetRegionBounds (Gdk.Rectangle[] rects, int startInd
+ 					top = rect.Top;
+ 				}
+ 
+-				if (rect.Right > right) {
+-					right = rect.Right;
++				if (rect.GetRight () > right) {
++					right = rect.GetRight ();
+ 				}
+ 
+-				if (rect.Bottom > bottom) {
+-					bottom = rect.Bottom;
++				if (rect.GetBottom () > bottom) {
++					bottom = rect.GetBottom ();
+ 				}
+ 			}
+ 
+diff --git a/Pinta.Core/Extensions/CairoExtensions.cs b/Pinta.Core/Extensions/CairoExtensions.cs
+index 08a9b9c..6268f51 100644
+--- a/Pinta.Core/Extensions/CairoExtensions.cs
++++ b/Pinta.Core/Extensions/CairoExtensions.cs
+@@ -990,7 +990,7 @@ public static Gdk.Size GetSize (this ImageSurface surf)
+ 		/// </summary>
+ 		public static bool ContainsCorrect (this Gdk.Rectangle r, int x, int y)
+ 		{
+-			return ((((x >= r.Left) && (x < r.Right)) && (y >= r.Top)) && (y < r.Bottom));
++			return ((((x >= r.Left) && (x <= r.GetRight ())) && (y >= r.Top)) && (y <= r.GetBottom ()));
+ 		}
+ 
+ 		/// <summary>
+diff --git a/Pinta.Core/Extensions/GdkExtensions.cs b/Pinta.Core/Extensions/GdkExtensions.cs
+index e6841b0..8a5ab48 100644
+--- a/Pinta.Core/Extensions/GdkExtensions.cs
++++ b/Pinta.Core/Extensions/GdkExtensions.cs
+@@ -102,5 +102,23 @@ public static Cairo.PointD GetPoint (this EventButton ev)
+ 		{
+ 			return new Cairo.PointD (ev.X, ev.Y);
+ 		}
++
++		/// <summary>
++		/// The implementation of Rectangle.Bottom was changed in 2.12.11 to fix an off-by-one error,
++		/// and this function provides the newer behaviour for backwards compatibility with older versions.
++		/// </summary>
++		public static int GetBottom(this Rectangle r)
++		{
++			return r.Y + r.Height - 1;
++		}
++
++		/// <summary>
++		/// The implementation of Rectangle.Right was changed in 2.12.11 to fix an off-by-one error,
++		/// and this function provides the newer behaviour for backwards compatibility with older versions.
++		/// </summary>
++		public static int GetRight(this Rectangle r)
++		{
++			return r.X + r.Width - 1;
++		}
+ 	}
+ }
+diff --git a/Pinta.Core/Managers/LivePreviewManager.cs b/Pinta.Core/Managers/LivePreviewManager.cs
+index a2c2d76..d71f2e9 100644
+--- a/Pinta.Core/Managers/LivePreviewManager.cs
++++ b/Pinta.Core/Managers/LivePreviewManager.cs
+@@ -355,8 +355,8 @@ private void LivePreview_RenderUpdated (object o, LivePreviewRenderUpdatedEventA
+ 			// Calculate canvas bounds.
+ 			double x1 = bounds.Left * scale;
+ 			double y1 = bounds.Top * scale;
+-			double x2 = bounds.Right * scale;
+-			double y2 = bounds.Bottom * scale;
++			double x2 = (bounds.GetRight () + 1) * scale;
++			double y2 = (bounds.GetBottom () + 1) * scale;
+ 
+ 			// TODO Figure out why when scale > 1 that I need add on an
+ 			// extra pixel of padding.
+diff --git a/Pinta.Effects/Adjustments/BrightnessContrastEffect.cs b/Pinta.Effects/Adjustments/BrightnessContrastEffect.cs
+index 153cf34..ffa4a6c 100644
+--- a/Pinta.Effects/Adjustments/BrightnessContrastEffect.cs
++++ b/Pinta.Effects/Adjustments/BrightnessContrastEffect.cs
+@@ -64,7 +64,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 				Calculate ();
+ 
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					ColorBgra* srcRowPtr = src.GetPointAddressUnchecked (rect.Left, y);
+ 					ColorBgra* dstRowPtr = dest.GetPointAddressUnchecked (rect.Left, y);
+ 					ColorBgra* dstRowEndPtr = dstRowPtr + rect.Width;
+diff --git a/Pinta.Effects/Effects/AddNoiseEffect.cs b/Pinta.Effects/Effects/AddNoiseEffect.cs
+index 20c0390..a3cad71 100644
+--- a/Pinta.Effects/Effects/AddNoiseEffect.cs
++++ b/Pinta.Effects/Effects/AddNoiseEffect.cs
+@@ -129,7 +129,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			int[] localLookup = lookup;
+ 
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; ++y) {
++				for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (rect.Left, y);
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 
+diff --git a/Pinta.Effects/Effects/BulgeEffect.cs b/Pinta.Effects/Effects/BulgeEffect.cs
+index c7631d8..c917075 100644
+--- a/Pinta.Effects/Effects/BulgeEffect.cs
++++ b/Pinta.Effects/Effects/BulgeEffect.cs
+@@ -66,14 +66,14 @@ unsafe public override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			ColorBgra* src_data_ptr = (ColorBgra*)src.DataPtr;
+ 			
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (src_data_ptr, src_width, rect.Left, y);
+ 					float v = y - hh;
+ 					
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						float u = x - hw;
+ 						float r = (float)Math.Sqrt (u * u + v * v);
+ 						float rscale1 = (1f - (r / maxrad));
+diff --git a/Pinta.Effects/Effects/CloudsEffect.cs b/Pinta.Effects/Effects/CloudsEffect.cs
+index 16715e3..6ed3cfc 100644
+--- a/Pinta.Effects/Effects/CloudsEffect.cs
++++ b/Pinta.Effects/Effects/CloudsEffect.cs
+@@ -129,12 +129,12 @@ private unsafe static void RenderClouds(ImageSurface surface, Gdk.Rectangle rect
+             int w = surface.Width;
+             int h = surface.Height;
+ 
+-            for (int y = rect.Top; y < rect.Bottom; ++y)
++            for (int y = rect.Top; y <= rect.GetBottom (); ++y)
+             {
+                 ColorBgra* ptr = surface.GetPointAddressUnchecked(rect.Left, y);
+                 int dy = 2 * y - h;
+ 
+-                for (int x = rect.Left; x < rect.Right; ++x)
++                for (int x = rect.Left; x <= rect.GetRight (); ++x)
+                 {
+                     int dx = 2 * x - w;
+                     double val = 0;
+diff --git a/Pinta.Effects/Effects/EmbossEffect.cs b/Pinta.Effects/Effects/EmbossEffect.cs
+index 414db42..545ead3 100644
+--- a/Pinta.Effects/Effects/EmbossEffect.cs
++++ b/Pinta.Effects/Effects/EmbossEffect.cs
+@@ -56,7 +56,7 @@ public class EmbossEffect : BaseEffect
+ 			
+ 			foreach (var rect in rois) {
+ 				// loop through each line of target rectangle
+-				for (int y = rect.Top; y < rect.Bottom; ++y) {
++				for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 					int fyStart = 0;
+ 					int fyEnd = 3;
+ 
+@@ -69,7 +69,7 @@ public class EmbossEffect : BaseEffect
+ 					// loop through each point in the line 
+ 					ColorBgra* dstPtr = dst.GetPointAddress (rect.Left, y);
+ 
+-					for (int x = rect.Left; x < rect.Right; ++x) {
++					for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 						int fxStart = 0;
+ 						int fxEnd = 3;
+ 
+diff --git a/Pinta.Effects/Effects/FragmentEffect.cs b/Pinta.Effects/Effects/FragmentEffect.cs
+index e3e5cfb..3253574 100644
+--- a/Pinta.Effects/Effects/FragmentEffect.cs
++++ b/Pinta.Effects/Effects/FragmentEffect.cs
+@@ -83,10 +83,10 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			ColorBgra* src_data_ptr = (ColorBgra*)src.DataPtr;
+ 
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						int sampleCount = 0;
+ 
+ 						for (int i = 0; i < poLength; ++i) {
+diff --git a/Pinta.Effects/Effects/FrostedGlassEffect.cs b/Pinta.Effects/Effects/FrostedGlassEffect.cs
+index db8aaee..bba98fe 100644
+--- a/Pinta.Effects/Effects/FrostedGlassEffect.cs
++++ b/Pinta.Effects/Effects/FrostedGlassEffect.cs
+@@ -66,11 +66,11 @@ public class FrostedGlassEffect : BaseEffect
+ 			
+ 			foreach (var rect in rois) {
+ 				int rectTop = rect.Top;
+-				int rectBottom = rect.Bottom;
++				int rectBottom = rect.GetBottom ();
+ 				int rectLeft = rect.Left;
+-				int rectRight = rect.Right;
++				int rectRight = rect.GetRight ();
+ 				
+-				for (int y = rectTop; y < rectBottom; ++y) {
++				for (int y = rectTop; y <= rectBottom; ++y) {
+ 					ColorBgra* dstPtr = dst.GetPointAddress (rect.Left, y);
+ 
+ 					int top = y - r;
+@@ -84,7 +84,7 @@ public class FrostedGlassEffect : BaseEffect
+ 						bottom = height;
+ 					}
+ 					
+-					for (int x = rectLeft; x < rectRight; ++x) {
++					for (int x = rectLeft; x <= rectRight; ++x) {
+ 						int intensityChoicesIndex = 0;
+ 						
+ 						for (int i = 0; i < 256; ++i) {
+diff --git a/Pinta.Effects/Effects/GaussianBlurEffect.cs b/Pinta.Effects/Effects/GaussianBlurEffect.cs
+index 177af84..600f686 100644
+--- a/Pinta.Effects/Effects/GaussianBlurEffect.cs
++++ b/Pinta.Effects/Effects/GaussianBlurEffect.cs
+@@ -102,7 +102,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 			
+ 			foreach (Gdk.Rectangle rect in rois) {
+ 				if (rect.Height >= 1 && rect.Width >= 1) {
+-					for (int y = rect.Top; y < rect.Bottom; ++y) {
++					for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 						//Memory.SetToZero (localStore, (ulong)localStoreSize);
+ 
+ 						long waSum = 0;
+@@ -168,7 +168,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 
+ 						++dstPtr;
+ 
+-						for (int x = rect.Left + 1; x < rect.Right; ++x) {
++						for (int x = rect.Left + 1; x <= rect.GetRight (); ++x) {
+ 							for (int i = 0; i < wlen - 1; ++i) {
+ 								waSums[i] = waSums[i + 1];
+ 								wcSums[i] = wcSums[i + 1];
+diff --git a/Pinta.Effects/Effects/GlowEffect.cs b/Pinta.Effects/Effects/GlowEffect.cs
+index 7d62a05..772b3c0 100644
+--- a/Pinta.Effects/Effects/GlowEffect.cs
++++ b/Pinta.Effects/Effects/GlowEffect.cs
+@@ -65,7 +65,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 			contrastEffect.Render (dest, dest, rois);
+ 
+ 			foreach (Gdk.Rectangle roi in rois) {
+-				for (int y = roi.Top; y < roi.Bottom; ++y) {
++				for (int y = roi.Top; y <= roi.GetBottom (); ++y) {
+ 					ColorBgra* dstPtr = dest.GetPointAddressUnchecked (roi.Left, y);
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (roi.Left, y);
+ 
+diff --git a/Pinta.Effects/Effects/InkSketchEffect.cs b/Pinta.Effects/Effects/InkSketchEffect.cs
+index 7404faf..c35c6f3 100644
+--- a/Pinta.Effects/Effects/InkSketchEffect.cs
++++ b/Pinta.Effects/Effects/InkSketchEffect.cs
+@@ -83,7 +83,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 
+ 			// Create black outlines by finding the edges of objects 
+ 			foreach (Gdk.Rectangle roi in rois) {
+-				for (int y = roi.Top; y < roi.Bottom; ++y) {
++				for (int y = roi.Top; y <= roi.GetBottom (); ++y) {
+ 					int top = y - radius;
+ 					int bottom = y + radius + 1;
+ 
+@@ -98,7 +98,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 					ColorBgra* srcPtr = src.GetPointAddress (roi.X, y);
+ 					ColorBgra* dstPtr = dest.GetPointAddress (roi.X, y);
+ 
+-					for (int x = roi.Left; x < roi.Right; ++x) {
++					for (int x = roi.Left; x <= roi.GetRight (); ++x) {
+ 						int left = x - radius;
+ 						int right = x + radius + 1;
+ 
+diff --git a/Pinta.Effects/Effects/JuliaFractalEffect.cs b/Pinta.Effects/Effects/JuliaFractalEffect.cs
+index 48234bd..ea015a2 100644
+--- a/Pinta.Effects/Effects/JuliaFractalEffect.cs
++++ b/Pinta.Effects/Effects/JuliaFractalEffect.cs
+@@ -83,10 +83,10 @@ unsafe public override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			int dst_width = dst.Width;
+ 			
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (dst_dataptr, dst_width, rect.Left, y);
+ 					
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						int r = 0;
+ 						int g = 0;
+ 						int b = 0;
+diff --git a/Pinta.Effects/Effects/LocalHistogramEffect.cs b/Pinta.Effects/Effects/LocalHistogramEffect.cs
+index 172f416..19b473e 100644
+--- a/Pinta.Effects/Effects/LocalHistogramEffect.cs
++++ b/Pinta.Effects/Effects/LocalHistogramEffect.cs
+@@ -156,7 +156,7 @@ public static unsafe ColorBgra GetPercentile(int percentile, int area, int* hb,
+             int* ha = stackalloc int[hLength];
+             uint hSize = (uint)(sizeof(int) * hLength);
+ 
+-            for (int y = rect.Top; y < rect.Bottom; y++)
++            for (int y = rect.Top; y <= rect.GetBottom (); ++y)
+             {
+                 SetToZero(hb, hSize);
+                 SetToZero(hg, hSize);
+@@ -199,7 +199,7 @@ public static unsafe ColorBgra GetPercentile(int percentile, int area, int* hb,
+                     }
+                 }
+ 
+-                for (int x = rect.Left; x < rect.Right; x++)
++                for (int x = rect.Left; x <= rect.GetRight (); x++)
+                 {
+                     *pd = Apply(*ps, area, hb, hg, hr, ha);
+ 
+@@ -363,7 +363,7 @@ public static unsafe ColorBgra GetPercentile(int percentile, int area, int* hb,
+             int* hr = stackalloc int[hLength];
+             uint hSize = (uint)(sizeof(int) * hLength);
+ 
+-            for (int y = rect.Top; y < rect.Bottom; y++)
++            for (int y = rect.Top; y <= rect.GetBottom (); y++)
+             {
+                 SetToZero(hb, hSize);
+                 SetToZero(hg, hSize);
+@@ -407,7 +407,7 @@ public static unsafe ColorBgra GetPercentile(int percentile, int area, int* hb,
+                     }
+                 }
+ 
+-                for (int x = rect.Left; x < rect.Right; x++)
++                for (int x = rect.Left; x <= rect.GetRight (); x++)
+                 {
+                     *pd = ApplyWithAlpha(*ps, area, sum, hb, hg, hr);
+ 
+diff --git a/Pinta.Effects/Effects/MandelbrotFractalEffect.cs b/Pinta.Effects/Effects/MandelbrotFractalEffect.cs
+index b64c837..704c883 100644
+--- a/Pinta.Effects/Effects/MandelbrotFractalEffect.cs
++++ b/Pinta.Effects/Effects/MandelbrotFractalEffect.cs
+@@ -95,10 +95,10 @@ unsafe public override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			int dst_width = dst.Width;
+ 			
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (dst_dataptr, dst_width, rect.Left, y);
+ 					
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						int r = 0;
+ 						int g = 0;
+ 						int b = 0;
+@@ -133,10 +133,10 @@ unsafe public override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 				}
+ 				
+ 				if (Data.InvertColors) {
+-					for (int y = rect.Top; y < rect.Bottom; y++) {
++					for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 						ColorBgra* dstPtr = dst.GetPointAddressUnchecked (dst_dataptr, dst_width, rect.Left, y);
+ 						
+-						for (int x = rect.Left; x < rect.Right; ++x) {
++						for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 							ColorBgra c = *dstPtr;
+ 							
+ 							c.B = (byte)(255 - c.B);
+diff --git a/Pinta.Effects/Effects/MotionBlurEffect.cs b/Pinta.Effects/Effects/MotionBlurEffect.cs
+index bc510ac..2816d20 100644
+--- a/Pinta.Effects/Effects/MotionBlurEffect.cs
++++ b/Pinta.Effects/Effects/MotionBlurEffect.cs
+@@ -80,10 +80,10 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 
+ 			foreach (Gdk.Rectangle rect in rois) {
+ 
+-				for (int y = rect.Top; y < rect.Bottom; ++y) {
++				for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 
+-					for (int x = rect.Left; x < rect.Right; ++x) {
++					for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 						int sampleCount = 0;
+ 
+ 						PointD a = new PointD ((float)x + points[0].X, (float)y + points[0].Y);
+diff --git a/Pinta.Effects/Effects/OilPaintingEffect.cs b/Pinta.Effects/Effects/OilPaintingEffect.cs
+index 81462a8..42d2d98 100644
+--- a/Pinta.Effects/Effects/OilPaintingEffect.cs
++++ b/Pinta.Effects/Effects/OilPaintingEffect.cs
+@@ -78,16 +78,16 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 			foreach (Gdk.Rectangle rect in rois) {
+ 
+ 				int rectTop = rect.Top;
+-				int rectBottom = rect.Bottom;
++				int rectBottom = rect.GetBottom ();
+ 				int rectLeft = rect.Left;
+-				int rectRight = rect.Right;
++				int rectRight = rect.GetRight ();
+ 
+ 				ColorBgra* dst_dataptr = (ColorBgra*)dest.DataPtr;
+ 				int dst_width = dest.Width;
+ 				ColorBgra* src_dataptr = (ColorBgra*)src.DataPtr;
+ 				int src_width = src.Width;
+ 				
+-				for (int y = rectTop; y < rectBottom; ++y) {
++				for (int y = rectTop; y <= rectBottom; ++y) {
+ 					ColorBgra* dstPtr = dest.GetPointAddressUnchecked (dst_dataptr, dst_width, rect.Left, y);
+ 
+ 					int top = y - Data.BrushSize;
+@@ -101,7 +101,7 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 						bottom = height;
+ 					}
+ 
+-					for (int x = rectLeft; x < rectRight; ++x) {
++					for (int x = rectLeft; x <= rectRight; ++x) {
+ 						SetToZero (localStore, (ulong)localStoreSize);
+ 
+ 						int left = x - Data.BrushSize;
+diff --git a/Pinta.Effects/Effects/PencilSketchEffect.cs b/Pinta.Effects/Effects/PencilSketchEffect.cs
+index a8c5769..bbd2f37 100644
+--- a/Pinta.Effects/Effects/PencilSketchEffect.cs
++++ b/Pinta.Effects/Effects/PencilSketchEffect.cs
+@@ -77,11 +77,11 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+ 			int src_width = src.Width;
+ 		
+ 			foreach (Gdk.Rectangle roi in rois) {
+-				for (int y = roi.Top; y < roi.Bottom; ++y) {
++				for (int y = roi.Top; y <= roi.GetBottom (); ++y) {
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (src_dataptr, src_width, roi.X, y);
+ 					ColorBgra* dstPtr = dest.GetPointAddressUnchecked (dst_dataptr, dst_width, roi.X, y);
+ 
+-					for (int x = roi.Left; x < roi.Right; ++x) {
++					for (int x = roi.Left; x <= roi.GetRight (); ++x) {
+ 						ColorBgra srcGrey = desaturateOp.Apply (*srcPtr);
+ 						ColorBgra sketched = colorDodgeOp.Apply (srcGrey, *dstPtr);
+ 						*dstPtr = sketched;
+diff --git a/Pinta.Effects/Effects/PixelateEffect.cs b/Pinta.Effects/Effects/PixelateEffect.cs
+index 4ff73ea..913b3f9 100644
+--- a/Pinta.Effects/Effects/PixelateEffect.cs
++++ b/Pinta.Effects/Effects/PixelateEffect.cs
+@@ -51,8 +51,8 @@ public class PixelateEffect : BaseEffect
+ 			cell.Intersect (srcBounds);
+ 			
+ 			int left = cell.Left;
+-			int right = cell.Right - 1;
+-			int bottom = cell.Bottom - 1;
++			int right = cell.GetRight ();
++			int bottom = cell.GetBottom ();
+ 			int top = cell.Top;
+ 			
+ 			ColorBgra colorTopLeft = src.GetColorBgra (left, top);
+@@ -83,30 +83,30 @@ public class PixelateEffect : BaseEffect
+ 			Gdk.Rectangle dest_bounds = dest.GetBounds ();
+ 			
+ 			foreach (var rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; ++y) {
++				for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 					int yEnd = y + 1;
+ 					
+-					for (int x = rect.Left; x < rect.Right; ++x) {
++					for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 						var cellRect = GetCellBox (x, y, cellSize);
+ 						cellRect.Intersect (dest_bounds);
+ 						var color = ComputeCellColor (x, y, src, cellSize, src_bounds);
+ 						
+-						int xEnd = Math.Min (rect.Right, cellRect.Right);
+-						yEnd = Math.Min (rect.Bottom, cellRect.Bottom);
++						int xEnd = Math.Min (rect.GetRight (), cellRect.GetRight ());
++						yEnd = Math.Min (rect.GetBottom (), cellRect.GetBottom ());
+ 						
+-						for (int y2 = y; y2 < yEnd; ++y2) {
++						for (int y2 = y; y2 <= yEnd; ++y2) {
+ 							ColorBgra* ptr = dest.GetPointAddressUnchecked (x, y2);
+ 							
+-							for (int x2 = x; x2 < xEnd; ++x2) {
++							for (int x2 = x; x2 <= xEnd; ++x2) {
+ 								ptr->Bgra = color.Bgra;
+ 								++ptr;
+ 							}
+ 						}
+ 						
+-						x = xEnd - 1;
++						x = xEnd;
+ 					}
+ 					
+-					y = yEnd - 1;
++					y = yEnd;
+ 				}
+ 			}
+ 		}
+diff --git a/Pinta.Effects/Effects/RadialBlurEffect.cs b/Pinta.Effects/Effects/RadialBlurEffect.cs
+index 51db050..86d9cd1 100644
+--- a/Pinta.Effects/Effects/RadialBlurEffect.cs
++++ b/Pinta.Effects/Effects/RadialBlurEffect.cs
+@@ -74,11 +74,11 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			int fr = (int)(Data.Angle * Math.PI * 65536.0 / 181.0);
+ 
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; ++y) {
++				for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (rect.Left, y);
+ 
+-					for (int x = rect.Left; x < rect.Right; ++x) {
++					for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 						int fx = (x << 16) - fcx;
+ 						int fy = (y << 16) - fcy;
+ 
+diff --git a/Pinta.Effects/Effects/SoftenPortraitEffect.cs b/Pinta.Effects/Effects/SoftenPortraitEffect.cs
+index ded4dd9..dc9518f 100644
+--- a/Pinta.Effects/Effects/SoftenPortraitEffect.cs
++++ b/Pinta.Effects/Effects/SoftenPortraitEffect.cs
+@@ -93,11 +93,11 @@ public unsafe override void Render (ImageSurface src, ImageSurface dest, Gdk.Rec
+             this.bacAdjustment.Render(src, dest, rois);
+ 
+ 			foreach (Gdk.Rectangle roi in rois) {
+-                for (int y = roi.Top; y < roi.Bottom; ++y) {
++                for (int y = roi.Top; y <= roi.GetBottom (); ++y) {
+                     ColorBgra* srcPtr = src.GetPointAddress(roi.X, y);
+                     ColorBgra* dstPtr = dest.GetPointAddress(roi.X, y);
+ 
+-                    for (int x = roi.Left; x < roi.Right; ++x) {
++                    for (int x = roi.Left; x <= roi.GetRight (); ++x) {
+                         ColorBgra srcGrey = this.desaturateOp.Apply(*srcPtr);
+ 
+                         srcGrey.R = Utility.ClampToByte((int)((float)srcGrey.R * redAdjust));
+diff --git a/Pinta.Effects/Effects/TileEffect.cs b/Pinta.Effects/Effects/TileEffect.cs
+index a862267..8e3d8c9 100644
+--- a/Pinta.Effects/Effects/TileEffect.cs
++++ b/Pinta.Effects/Effects/TileEffect.cs
+@@ -76,11 +76,11 @@ public class TileEffect : BaseEffect
+ 			ColorBgra* src_data_ptr = (ColorBgra*)src.DataPtr;
+ 
+ 			foreach (var rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					float j = y - hh;
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 					
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						int b = 0;
+ 						int g = 0;
+ 						int r = 0;
+diff --git a/Pinta.Effects/Effects/TwistEffect.cs b/Pinta.Effects/Effects/TwistEffect.cs
+index 8ddbca7..7db41be 100644
+--- a/Pinta.Effects/Effects/TwistEffect.cs
++++ b/Pinta.Effects/Effects/TwistEffect.cs
+@@ -73,12 +73,12 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			ColorBgra* src_data_ptr = (ColorBgra*)src.DataPtr;
+ 
+ 			foreach (var rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					float j = y - hh;
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (src_data_ptr, src_width, rect.Left, y);
+ 
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						float i = x - hw;
+ 
+ 						if (i * i + j * j > (maxrad + 1) * (maxrad + 1)) {
+diff --git a/Pinta.Effects/Effects/WarpEffect.cs b/Pinta.Effects/Effects/WarpEffect.cs
+index 148ef78..bab111b 100644
+--- a/Pinta.Effects/Effects/WarpEffect.cs
++++ b/Pinta.Effects/Effects/WarpEffect.cs
+@@ -73,12 +73,12 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			
+ 			foreach (Gdk.Rectangle rect in rois) {
+ 				
+-				for (int y = rect.Top; y < rect.Bottom; y++) {
++				for (int y = rect.Top; y <= rect.GetBottom (); y++) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (rect.Left, y);
+ 					
+ 					double relativeY = y - Data.CenterOffset.Y;
+ 					
+-					for (int x = rect.Left; x < rect.Right; x++) {
++					for (int x = rect.Left; x <= rect.GetRight (); x++) {
+ 						double relativeX = x - Data.CenterOffset.X;
+ 						
+ 						int sampleCount = 0;
+diff --git a/Pinta.Effects/Effects/ZoomBlurEffect.cs b/Pinta.Effects/Effects/ZoomBlurEffect.cs
+index 833be23..099d740 100644
+--- a/Pinta.Effects/Effects/ZoomBlurEffect.cs
++++ b/Pinta.Effects/Effects/ZoomBlurEffect.cs
+@@ -70,11 +70,11 @@ public unsafe override void Render (ImageSurface src, ImageSurface dst, Gdk.Rect
+ 			const int n = 64;
+ 			
+ 			foreach (Gdk.Rectangle rect in rois) {
+-				for (int y = rect.Top; y < rect.Bottom; ++y) {
++				for (int y = rect.Top; y <= rect.GetBottom (); ++y) {
+ 					ColorBgra* dstPtr = dst.GetPointAddressUnchecked (dst_data_ptr, dst_width, rect.Left, y);
+ 					ColorBgra* srcPtr = src.GetPointAddressUnchecked (src_data_ptr, src_width, rect.Left, y);
+ 
+-					for (int x = rect.Left; x < rect.Right; ++x) {
++					for (int x = rect.Left; x <= rect.GetRight (); ++x) {
+ 						long fx = (x << 16) - fcx;
+ 						long fy = (y << 16) - fcy;
+ 
+diff --git a/Pinta.Tools/Tools/RecolorTool.cs b/Pinta.Tools/Tools/RecolorTool.cs
+index 5aa9d9d..02a5626 100644
+--- a/Pinta.Tools/Tools/RecolorTool.cs
++++ b/Pinta.Tools/Tools/RecolorTool.cs
+@@ -137,8 +137,8 @@ protected unsafe override void OnMouseMove (object o, Gtk.MotionNotifyEventArgs
+ 			// The stencil lets us know if we've already checked this
+ 			// pixel, providing a nice perf boost
+ 			// Maybe this should be changed to a BitVector2DSurfaceAdapter?
+-			for (int i = roi.X; i < roi.Right; i++)
+-				for (int j = roi.Y; j < roi.Bottom; j++) {
++			for (int i = roi.X; i <= roi.GetRight (); i++)
++				for (int j = roi.Y; j <= roi.GetBottom (); j++) {
+ 					if (stencil[i, j])
+ 						continue;
+ 						
+-- 
+1.7.10
+
