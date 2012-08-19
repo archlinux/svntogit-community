@@ -3,21 +3,30 @@
 # Contributor: Thomas S Hatch <thatch45@gmail.com>
 
 pkgbase=mfs
-pkgname=('mfs-client' 'mfs-chunkserver' 'mfs-master')
-pkgver=1.6.25
+pkgname=('mfs-master' 'mfs-chunkserver' 'mfs-client')
+pkgver=1.6.26
 pkgrel=1
-pkgdesc="MooseFS, fault tolerant, network distributed file system"
-license=("GPL3")
+pkgdesc='MooseFS, fault tolerant, network distributed file system'
+license=('GPL3')
 arch=('x86_64' 'i686')
 options=('!libtool')
-depends=('zlib' 'fuse' 'python2' 'bash')
-url="http://www.moosefs.com/"
+depends=('zlib' 'fuse' 'python2' 'bash' 'xfsprogs')
+url='http://www.moosefs.com/'
+install=mfs.install
 source=("http://www.moosefs.org/tl_files/mfscode/mfs-$pkgver.tar.gz"
-        "mfsmaster"
-        "mfschunkserver"
-        "mfsmetalogger"
-        "mfscgiserv")
-sha256sums=('64b7ce749699e437f47e1561e8044362ea714a8dd2d3bad0c6a7165e9ad142ee'
+        'mfsmaster.service'
+        'mfschunkserver.service'
+        'mfsmetalogger.service'
+        'mfscgiserv.service'
+        'mfsmaster'
+        'mfschunkserver'
+        'mfsmetalogger'
+        'mfscgiserv')
+sha256sums=('f250f97c6f2a229277fdbf9fe96036873fd6c95a38f484f06e6b87a404c01885'
+            'b24fc4f699e7d11fcda00d83a1feb45aa0e6f4f448e675a1857edcf315427fe0'
+            '19262bde4dbefb1d3eba09ba7d507595aed9647328a0a7822bbc1915ae3201a7'
+            'bf92e93be68308d53f649de84dc5bbb0fb433e33306b8d0c303be6c6c3e59a55'
+            '6725a732c6294ee8817be6c24e3811481bf05e97a0a64108908e2312d7687f1a'
             '7c307f7be520644ac5d9c71e39ff7ec7e26800aa77c8a18c51a2d0087e5b2f48'
             '2d07e544f4bfeb497c24276936d3a8ce9f906597d6b9c898dc491426b21e74e0'
             'd9c072cbb9d9645e5131d08b08628ccc2a2bef0a4e9c6fd8c3c33e50efce39f3'
@@ -26,42 +35,40 @@ sha256sums=('64b7ce749699e437f47e1561e8044362ea714a8dd2d3bad0c6a7165e9ad142ee'
 build() {
   cd "$srcdir"
 
-  msg2 "Building client..."
+  msg2 'Building client...'
   cp -r $pkgbase-$pkgver $pkgbase-client
   cd $pkgbase-client
   ./configure \
       --prefix=/usr \
-      --sysconfdir=/etc \
+      --sysconfdir=/etc/mfs \
       --localstatedir=/var/lib \
       --disable-mfschunkserver \
       --disable-mfsmaster \
       --disable-mfscgi \
       --disable-mfscgiserv
   make
-  
   cd ..
   
-  msg2 "Building chunkserver..."
+  msg2 'Building chunkserver...'
   cp -r $pkgbase-$pkgver $pkgbase-chunk
   cd $pkgbase-chunk
   ./configure \
       --prefix=/usr \
-      --sysconfdir=/etc \
+      --sysconfdir=/etc/mfs \
       --localstatedir=/var/lib \
       --disable-mfsmaster \
       --disable-mfsmount \
       --disable-mfscgi \
       --disable-mfscgiserv
   make
-
   cd ..
   
-  msg2 "Building master..."
+  msg2 'Building master...'
   cp -r $pkgbase-$pkgver $pkgbase-master
   cd $pkgbase-master
   ./configure \
       --prefix=/usr \
-      --sysconfdir=/etc \
+      --sysconfdir=/etc/mfs \
       --localstatedir=/var/lib \
       --disable-mfschunkserver \
       --disable-mfsmount
@@ -71,7 +78,11 @@ build() {
 package_mfs-client() {
   depends=('zlib' 'fuse' 'bash')
   cd "$srcdir/$pkgbase-client"
+
+  msg2 'Packaging client...'
   make DESTDIR="$pkgdir" install
+
+  msg2 'Cleaning up...'
   rm -rf "$pkgdir/usr/share/man/man7"
   rmdir "$pkgdir/usr/share/man/man5"
 }
@@ -79,27 +90,52 @@ package_mfs-client() {
 package_mfs-chunkserver() {
   depends=('zlib' 'bash')
   cd "$srcdir/$pkgbase-chunk"
+
+  msg2 'Packaging chunkserver...'
   make DESTDIR="$pkgdir" install
+
+  msg2 'Packaging Systemd service...'
+  install -Dm644 "$srcdir/mfschunkserver.service" \
+    "$pkgdir/usr/lib/systemd/system/mfschunkserver.service"
+
+  msg2 'Packaging initscript...'
+  install -Dm755 "$srcdir/mfschunkserver" "$pkgdir/etc/rc.d/mfschunkserver"
+
+  msg2 'Cleaning up...'
   rm -rf "$pkgdir/usr/share/man/man7"
   rmdir "$pkgdir/usr/share/man/man1"
-  install -Dm755 "$srcdir/mfschunkserver" "$pkgdir/etc/rc.d/mfschunkserver"
   mv "$pkgdir/usr/sbin" "$pkgdir/usr/bin"
 }
 
 package_mfs-master() {
   depends=('zlib' 'python2')
   cd "$srcdir/$pkgbase-master"
+
+  msg2 'Packaging master, metalogger and web interface...'
   make DESTDIR="$pkgdir" install
+
+  msg2 'Packaging various text files...'
   install -Dm644 README "$pkgdir/usr/share/doc/$pkgbase/README"
   install -Dm644 INSTALL "$pkgdir/usr/share/doc/$pkgbase/INSTALL"
   install -Dm644 NEWS "$pkgdir/usr/share/doc/$pkgbase/NEWS"
   install -Dm644 UPGRADE "$pkgdir/usr/share/doc/$pkgbase/UPGRADE"
-  install -Dm755 "$srcdir/mfsmaster" "$pkgdir/etc/rc.d/mfsmaster"
-  install -Dm755 "$srcdir/mfsmetalogger" "$pkgdir/etc/rc.d/mfsmetalogger"
-  install -Dm755 "$srcdir/mfscgiserv" "$pkgdir/etc/rc.d/mfscgiserv"
+
+  msg2 'Packaging Systemd services and initscripts...'
+  for fn in master metalogger cgiserv; do
+    install -Dm755 "$srcdir/mfs$fn" "$pkgdir/etc/rc.d/mfs$fn"
+    install -Dm644 "$srcdir/mfs$fn.service" \
+      "$pkgdir/usr/lib/systemd/system/mfs$fn.service"
+  done
+
+  msg2 'Python2 fix...'
+  sed -i '0,/on/s//on2/' \
+    "$pkgdir/usr/sbin/mfscgiserv" \
+    "$pkgdir/usr/share/mfscgi/chart.cgi" \
+    "$pkgdir/usr/share/mfscgi/mfs.cgi"
+
+  msg2 'Cleaning up...'
   rmdir "$pkgdir/usr/share/man/man1"
   mv "$pkgdir/usr/sbin" "$pkgdir/usr/bin"
-  sed -i '0,/on/s//on2/' "$pkgdir/usr/bin/mfscgiserv"
 }
 
 # vim:set ts=2 sw=2 et:
