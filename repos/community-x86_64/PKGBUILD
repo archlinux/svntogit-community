@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.5
-pkgrel=3
+pkgrel=4
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -25,6 +25,7 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         'cpupower.rc'
         'cpupower.systemd'
         'cpupower.service'
+        'cpupower.pmutils'
         'usbipd.conf'
         'usbipd.rc'
         'usbipd.service')
@@ -33,6 +34,7 @@ md5sums=('24153eaaa81dedc9481ada8cd9c3b83d'
          '1d9214637968b91706b6e616a100d44b'
          'c0d17b5295fe964623c772a2dd981771'
          '2450e8ff41b30eb58d43b5fffbfde1f4'
+         '1c2743ce57b56e16feec86a8b49f3391'
          'e8fac9c45a628015644b4150b139278a'
          '8a3831d962ff6a9968c0c20fd601cdec'
          'ba7c1c513314dd21fb2334fb8417738f')
@@ -104,11 +106,13 @@ package_cpupower() {
     docdir='/usr/share/doc/cpupower' \
     install install-man
   popd
-  # install daemon scripts
+  # install startup scripts
   install -Dm 755 $pkgname.rc "$pkgdir/etc/rc.d/$pkgname"
   install -Dm 644 $pkgname.conf "$pkgdir/etc/conf.d/$pkgname"
   install -Dm 644 $pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
   install -Dm 755 $pkgname.systemd "$pkgdir/usr/lib/systemd/scripts/$pkgname"
+  # install pm-utils hook
+  install -Dm 755 $pkgname.pmutils "$pkgdir/usr/lib/pm-utils/power.d/$pkgname"
 }
 
 package_x86_energy_perf_policy() {
