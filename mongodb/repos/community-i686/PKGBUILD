@@ -5,25 +5,25 @@
 # Contributor: Alec Thomas
 
 pkgname=mongodb
-pkgver=2.0.6
-pkgrel=2
+pkgver=2.0.7
+pkgrel=1
 pkgdesc='A high-performance, open source, schema-free document-oriented database'
 arch=('i686' 'x86_64')
 url='http://www.mongodb.org'
 license=('AGPL3')
 depends=('boost-libs')
-makedepends=('scons' 'boost')
-#checkdepends=('python2-pymongo')
+makedepends=('scons' 'boost' 'libpcap')
+checkdepends=('python2-pymongo')
 optdepends=('libpcap: needed for mongosniff')
 backup=('etc/mongodb.conf')
 install="mongodb.install"
 source=("http://downloads.mongodb.org/src/mongodb-src-r${pkgver}.tar.gz"
-        'mongodb.rc'
-        'mongodb.conf'
+        'mongodb.rc' 'mongodb.conf' 'mongodb.service'
         'boost-1.50.patch')
-md5sums=('b3b32fecdcbe8e8068ec2989be9d2da4'
+md5sums=('420660f67c0dfaefac3ec3164fc2e096'
          '9c67e00f4626ad761a8f7d4e037a54d7'
          '4839fe1d638187ca3226e8267b947318'
+         '96ab4517b48974ce0e566d9746a75a4f'
          '5d22fd2c0ae869218488cd7c0dbc3903')
 
 build() {
@@ -31,11 +31,10 @@ build() {
 
   cd mongodb-src-r${pkgver}
 
-  patch -Np1 -i ${srcdir}/boost-1.50.patch
+  patch -Np1 -i $srcdir/boost-1.50.patch
+  sed -i '/nixLibPrefix/s/lib64/lib/' SConstruct
 
-  scons \
-    all \
-    --full
+  scons all --full --sharedclient # --use-system-sm --use-system-pcre
 }
 
 <<COMMENT
@@ -44,9 +43,7 @@ check() {
 
   cd mongodb-src-r${pkgver}
 
-  scons \
-    smokeAll \
-    --smokedbprefix=${srcdir}
+  scons smokeAll --smokedbprefix=$srcdir
 }
 COMMENT
 
@@ -55,19 +52,11 @@ package() {
 
   cd mongodb-src-r${pkgver}
 
-  scons \
-    install \
-    --full \
-    --prefix=${pkgdir}/usr
+  scons install --full --sharedclient --prefix=$pkgdir/usr # --use-system-sm --use-system-pcre
 
-  install -D -m755 ${srcdir}/mongodb.rc \
-    ${pkgdir}/etc/rc.d/mongodb
-  install -D -m644 ${srcdir}/mongodb.conf \
-    ${pkgdir}/etc/mongodb.conf
-  install -d -m700 ${pkgdir}/var/lib/mongodb
-  install -d -m755 ${pkgdir}/var/log/mongodb
-
-  if [ -d ${pkgdir}/usr/lib64 ]; then
-    mv ${pkgdir}/usr/lib64 ${pkgdir}/usr/lib
-  fi
+  install -D -m755 $srcdir/mongodb.rc $pkgdir/etc/rc.d/mongodb
+  install -D -m644 $srcdir/mongodb.conf $pkgdir/etc/mongodb.conf
+  install -D -m644 $srcdir/mongodb.service $pkgdir/usr/lib/systemd/system/mongodb.service
+  install -d -m700 $pkgdir/var/lib/mongodb
+  install -d -m755 $pkgdir/var/log/mongodb
 }
