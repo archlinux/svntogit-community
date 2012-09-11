@@ -1,0 +1,50 @@
+# Maintainer: Alexander Rødseth <rodseth@gmail.com>
+# Contributor: Vesa Kaihlavirta <vesa@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=haddock
+pkgver=2.12.0
+pkgrel=1
+pkgdesc="Tool for generating documentation for Haskell libraries"
+url="http://hackage.haskell.org/package/haddock"
+license=('custom:BSD3')
+arch=('x86_64' 'i686')
+makedepends=('alex=3.0.2-2' 'happy=1.18.9-6')
+depends=('ghc=7.6.1-1' 'haskell-xhtml=3000.2.1-2' 'haskell-ghc-paths=0.1.0.8-9')
+install=$pkgname.install
+source=("http://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz"
+        '0001-fix-incorrect-types-in-documentation-haddock.patch')
+sha256sums=('b6c53c3c2dcfc7604941f81acd8954c7deb101b1341003d2e9c6c26dd4ad6d02'
+            'a260b828ddf6e56440209d9631efcd6e1530b8996859528feee37638cc26e92a')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  patch -Np1 -i ${srcdir}/0001-fix-incorrect-types-in-documentation-haddock.patch
+  
+  runhaskell Setup configure -O -p --enable-split-objs --enable-shared \
+    --prefix=/usr --docdir=/usr/share/doc/"$pkgname" \
+    --libsubdir=\$compiler/site-local/\$pkgid
+  runhaskell Setup build
+  runhaskell Setup haddock
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  
+  install -Dm744 register.sh "$pkgdir/usr/share/haskell/$pkgname/register.sh"
+  install -m744 unregister.sh \
+    "$pkgdir/usr/share/haskell/$pkgname/unregister.sh"
+  install -dm755 "$pkgdir/usr/share/doc/ghc/html/libraries"
+  ln -s "/usr/share/doc/$pkgname/html" \
+    "$pkgdir/usr/share/doc/ghc/html/libraries/$pkgname"
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  rm -f "$pkgdir/usr/share/doc/$pkgname/LICENSE"
+  mv "$pkgdir/usr/bin/haddock" "$pkgdir/usr/bin/haddock-cabal"
+}
+
+# vim:set ts=2 sw=2 et:
