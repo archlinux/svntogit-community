@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.5
-pkgrel=5
+pkgrel=5.1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -96,6 +96,7 @@ package_cpupower() {
   backup=('etc/conf.d/cpupower')
   depends=('bash' 'pciutils')
   conflicts=('cpufrequtils')
+  replaces=('cpufrequtils')
 
   pushd linux-$pkgver/tools/power/cpupower
   make \
@@ -137,4 +138,4 @@ package_usbip() {
   install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
 }
 
-# vim:set ts=2 sw=2 ft=sh et:
+# vim:set ts=2 sw=2 et:
