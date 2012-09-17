@@ -6,7 +6,7 @@
 
 pkgname=mongodb
 pkgver=2.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A high-performance, open source, schema-free document-oriented database'
 arch=('i686' 'x86_64')
 url='http://www.mongodb.org'
@@ -19,12 +19,13 @@ backup=('etc/mongodb.conf')
 install="mongodb.install"
 source=("http://downloads.mongodb.org/src/mongodb-src-r${pkgver}.tar.gz"
         'mongodb.rc' 'mongodb.conf' 'mongodb.service'
-        'SConscript.client.patch')
+        'SConscript.client.patch' 'boost1.50.patch')
 md5sums=('832bdb6cc659176fd8d6b16a660ccfc6'
          '9c67e00f4626ad761a8f7d4e037a54d7'
          '4839fe1d638187ca3226e8267b947318'
          '96ab4517b48974ce0e566d9746a75a4f'
-         'a9529e2a6e392ffecef7a9178394c814')
+         'a9529e2a6e392ffecef7a9178394c814'
+         'da8a9d78e4a38d1ed8e92a210d4b5ba7')
 
 build() {
   export SCONSFLAGS="$MAKEFLAGS"
@@ -34,11 +35,10 @@ build() {
   # fix https://jira.mongodb.org/browse/SERVER-5575
   patch -Np1 -i ${srcdir}/SConscript.client.patch
 
-  sed -i '/nixLibPrefix/s/lib64/lib/' SConstruct
+  # fix boost incompatibility
+  patch -Np1 -i ${srcdir}/boost1.50.patch
 
-  # --sharedclient generates an error that the source .so could not be found
-  # --use-system-sm --use-system-pcre
-  scons all --full
+  scons all --use-system-boost # --sharedclient currently fails
 }
 
 <<COMMENT
@@ -56,11 +56,12 @@ package() {
 
   cd mongodb-src-r${pkgver}
 
-  scons install --full --prefix=$pkgdir/usr
+  scons install --use-system-boost --full --prefix=$pkgdir/usr # --sharedclient currently fails
 
-  install -D -m755 $srcdir/mongodb.rc $pkgdir/etc/rc.d/mongodb
-  install -D -m644 $srcdir/mongodb.conf $pkgdir/etc/mongodb.conf
-  install -D -m644 $srcdir/mongodb.service $pkgdir/usr/lib/systemd/system/mongodb.service
-  install -d -m700 $pkgdir/var/lib/mongodb
-  install -d -m755 $pkgdir/var/log/mongodb
+  install -Dm755 $srcdir/mongodb.rc $pkgdir/etc/rc.d/mongodb
+  install -Dm644 $srcdir/mongodb.conf $pkgdir/etc/mongodb.conf
+  [[ -f $pkgdir/usr/lib ]] && rm $pkgdir/usr/lib # wtf mongo
+  install -Dm644 $srcdir/mongodb.service $pkgdir/usr/lib/systemd/system/mongodb.service
+  install -dm700 $pkgdir/var/lib/mongodb
+  install -dm755 $pkgdir/var/log/mongodb
 }
