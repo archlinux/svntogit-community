@@ -1,23 +1,25 @@
 # $Id$
-#Maintainer: Ionut Biru <ibiru@archlinux.org>
+# Maintainer: Ionut Biru <ibiru@archlinux.org>
+# Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org>
+
 pkgbase=virtualbox
 pkgname=('virtualbox'
-         'virtualbox-archlinux-additions'
          'virtualbox-sdk'
-         'virtualbox-source'
-         'virtualbox-archlinux-source')
+         'virtualbox-host-source'
+         'virtualbox-guest-additions'
+         'virtualbox-guest-source')
 pkgver=4.2.0
 pkgrel=1
 arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
 makedepends=('libstdc++5' 'bin86' 'dev86' 'iasl' 'libxslt' 'libxml2' 'libxcursor' 'qt' 'libidl2' 'sdl_ttf' 'alsa-lib' 'libpulse' 'libxtst'
-'xalan-c' 'sdl' 'libxmu' 'curl' 'python2' 'linux-headers' 'mesa' 'libxrandr' 'libxinerama' 'libvncserver' 'jdk7-openjdk' 'gsoap' 'vde2')
+'xalan-c' 'sdl' 'libxmu' 'curl' 'python2' 'linux-headers' 'mesa' 'libxrandr' 'libxinerama' 'libvncserver' 'jdk7-openjdk' 'gsoap' 'vde2' 'cdrkit')
 #'xorg-server-devel' 'xf86driproto' 'libxcomposite')
 [[ $CARCH == "x86_64" ]] && makedepends=("${makedepends[@]}" 'gcc-multilib' 'lib32-glibc')
 source=(http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver}.tar.bz2
         UserManual-$pkgver.pdf::http://download.virtualbox.org/virtualbox/${pkgver}/UserManual.pdf
-        10-vboxdrv.rules  vboxdrv-reference.patch  LocalConfig.kmk ipv6_vnc.patch
+        10-vboxdrv.rules  vboxdrv-reference.patch  LocalConfig.kmk
         change_default_driver_dir.patch vboxservice.conf vboxservice.rc vboxservice.service
         vboxweb.conf vboxweb.rc vboxweb.service)
 
@@ -32,11 +34,14 @@ build() {
 
     cp "$srcdir/LocalConfig.kmk" .
 
+    # fake makeself binary to compile without nofatal
+    ln -s /bin/echo makeself
+    export PATH="$CWD:$PATH"
+
     ./configure --disable-docs \
         --enable-webservice \
         --enable-vde \
         --enable-vnc \
-        --nofatal \
         --with-linux=/usr/src/linux-${_kernver}
     source ./env.sh
     kmk all
@@ -49,11 +54,11 @@ build() {
 
 package_virtualbox() {
     pkgdesc="Powerful x86 virtualization for enterprise as well as home use"
-    depends=('virtualbox-modules' 'libxml2' 'libxcursor' 'libxinerama' 'sdl' 'libxmu' 'curl' 'libvncserver' 'libpng')
+    depends=('virtualbox-host-modules' 'libxml2' 'libxcursor' 'libxinerama' 'sdl' 'libxmu' 'curl' 'libvncserver' 'libpng')
     optdepends=('qt: for VirtualBox GUI'
                 'vde2: Virtual Distributed Ethernet support'
                 'virtualbox-sdk: developer kit'
-                'virtualbox-source: host kernel source modules for non-stock kernels'
+                'virtualbox-host-source: host kernel source modules for non-stock kernels'
                 'net-tools: for host-only or bridged networking')
 
     backup=('etc/vbox/vbox.cfg' 'etc/conf.d/vboxweb')
@@ -133,22 +138,8 @@ package_virtualbox() {
 
 }
 
-package_virtualbox-source() {
-    pkgdesc="VirtualBox kernel modules source"
-    depends=(dkms gcc make)
-    provides=(virtualbox-modules)
-    optdepends=('linux-headers'
-                'linux-lts-headers')
-    install=virtualbox-source.install
-
-    install -dm755 "$pkgdir/var/lib/dkms/vboxhost/$pkgver"
-    source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
-    cp -r src "$pkgdir/var/lib/dkms/vboxhost/$pkgver/source"
-}
-
 package_virtualbox-sdk() {
-    pkgdesc="VirtualBox Software Developer Kit (SDK)"
+    pkgdesc='VirtualBox Software Developer Kit (SDK)'
     depends=('python2')
 
     install -dm755 "$pkgdir/usr/lib/virtualbox"
@@ -165,13 +156,45 @@ package_virtualbox-sdk() {
     mv sdk "$pkgdir/usr/lib/virtualbox"
 }
 
-package_virtualbox-archlinux-additions(){
-    pkgdesc="Additions only for Arch Linux guests (userspace tools)"
-    depends=('virtualbox-archlinux-modules' 'gcc-libs' 'libxmu' 'xorg-xrandr' 'libxfixes')
-    replaces=('virtualbox-guest-additions')
-    conflicts=('virtualbox-guest-additions')
+package_virtualbox-host-source() {
+    pkgdesc='VirtualBox kernel modules source'
+    depends=('dkms' 'gcc' 'make')
+    provides=('virtualbox-host-modules')
+    replaces=('virtualbox-source')
+    conflicts=('virtualbox-source')
+    optdepends=('linux-headers'
+                'linux-lts-headers')
+    install=virtualbox-host-source.install
+
+    install -dm755 "$pkgdir/var/lib/dkms/vboxhost/$pkgver"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cp -r src "$pkgdir/var/lib/dkms/vboxhost/$pkgver/source"
+}
+
+package_virtualbox-guest-source() {
+    pkgdesc='VirtualBox Additions kernel modules source'
+    depends=('dkms' 'gcc' 'make')
+    provides=('virtualbox-guest-modules')
+    replaces=('virtualbox-archlinux-source')
+    conflicts=('virtualbox-archlinux-source')
+    optdepends=('linux-headers'
+                'linux-lts-headers')
+    install=virtualbox-guest-source.install
+
+    install -dm755 "$pkgdir/var/lib/dkms/vboxguest/$pkgver"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    cp -r src "$pkgdir/var/lib/dkms/vboxguest/$pkgver/source"
+}
+
+package_virtualbox-guest-additions() {
+    pkgdesc='Additions for guests only (userspace tools)'
+    depends=('virtualbox-guest-modules' 'gcc-libs' 'libxmu' 'xorg-xrandr' 'libxfixes')
+    replaces=('virtualbox-archlinux-additions')
+    conflicts=('virtualbox-archlinux-additions')
     backup=('etc/conf.d/vboxservice')
-    install=virtualbox-archlinux-additions.install
+    install=virtualbox-guest-additions.install
 
     source "VirtualBox-$pkgver/env.sh"
 
@@ -203,26 +226,11 @@ package_virtualbox-archlinux-additions(){
         "$pkgdir/usr/lib/systemd/system/vboxservice.service"
 }
 
-package_virtualbox-archlinux-source() {
-    pkgdesc='VirtualBox Additions kernel modules source'
-    depends=(dkms gcc make)
-    provides=(virtualbox-archlinux-modules)
-    optdepends=('linux-headers'
-                'linux-lts-headers')
-    install=virtualbox-archlinux-source.install
-
-    install -dm755 "$pkgdir/var/lib/dkms/vboxguest/$pkgver"
-    source "VirtualBox-$pkgver/env.sh"
-    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
-    cp -r src "$pkgdir/var/lib/dkms/vboxguest/$pkgver/source"
-}
-
 md5sums=('691b4134983ce7d89b9fb683305cb647'
          '261f6bd46bdeb05039396b6dbec76341'
          '5f85710e0b8606de967716ded7b2d351'
-         '6ab2455c391d8cc005e2f4461ae26a3b'
+         'fdaecf7dd5796c052599e8f2bf48da64'
          '58d6e5bb4b4c1c6f3f0b3daa6aaeed03'
-         '4ff559f2bea335d59c4012048983ca91'
          '97e193f050574dd272a38e5ee5ebe62b'
          '3c08ad30b89add47d3f45121200a5360'
          '7d9823507206de9b8528a72af2f18d74'
