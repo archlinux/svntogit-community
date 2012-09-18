@@ -4,20 +4,19 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.6.3
-_commit=bbe1084
-pkgrel=2
+pkgver=0.7.0
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
 makedepends=('boost' 'automoc4' 'miniupnpc')
 conflicts=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 replaces=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 license=('MIT')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/bitcoin/$pkgbase/tarball/v$pkgver")
-sha256sums=('3f1a0df5d713c9e4f54f00a8f3f75c6828041afd826e16976b00229de0aecb70')
+source=(http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-$pkgver/bitcoin-$pkgver-linux.tar.gz)
+sha256sums=('4b7a44fec28cbd9194a1303dd65bba8f13aa2facd4e06e4a3d1df6d66bc1deb5')
 
 build() {
-  cd "$srcdir/bitcoin-$pkgbase-$_commit"
+  cd "$srcdir/$pkgbase-$pkgver-linux/src"
 
   # and make qt gui
   qmake
@@ -33,7 +32,7 @@ package_bitcoin-qt() {
   depends=(boost-libs qt miniupnpc)
   install=bitcoin-qt.install
 
-  cd "$srcdir/bitcoin-$pkgbase-$_commit"
+  cd "$srcdir/$pkgbase-$pkgver-linux/src"
   install -Dm755 bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
   install -Dm644 contrib/debian/bitcoin-qt.desktop \
     "$pkgdir"/usr/share/applications/bitcoin.desktop
@@ -47,7 +46,7 @@ package_bitcoin-daemon() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - daemon"
   depends=(boost-libs miniupnpc openssl)
 
-  cd "$srcdir/bitcoin-$pkgbase-$_commit"
+  cd "$srcdir/$pkgbase-$pkgver-linux/src"
   install -Dm755 src/bitcoind "$pkgdir"/usr/bin/bitcoind
   install -Dm644 contrib/debian/examples/bitcoin.conf \
     "$pkgdir/usr/share/doc/$pkgname/examples/bitcoin.conf"
