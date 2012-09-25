@@ -1,0 +1,103 @@
+# Maintainer: Alexander Rødseth <rodseth@gmail.com>
+# Contributor: Stefano Baldan <singintime@gmail.com>
+# Contributor: Anh Hai Trinh <anh.hai.trinh@gmail.com>
+
+pkgname=pd-extended
+pkgver=0.42.5
+pkgrel=3
+pkgdesc='PureData: a real-time music and multimedia environment, extended edition'
+url='http://puredata.info/'
+arch=('x86_64' 'i686')
+license=('BSD')
+depends=('libv4l' 'fftw' 'jack' 'tk' 'freeglut' 'libquicktime' 'libdv' 'gsl' 'imagemagick' 'ftgl' 'libgl' 'dssi')
+makedepends=('swig' 'automake' 'curl' 'rsync')
+conflicts=('pd' 'pd-gem' 'pdp' 'zexy')
+provides=('pd' 'pd-extended' 'pd-gem' 'pdp' 'zexy')
+options=('!makeflags')
+source=("http://downloads.sourceforge.net/pure-data/Pd-$pkgver-extended.tar.gz"
+        'pidip_configure.patch'
+        'pdp_vloopback.patch')
+sha256sums=(54c20a51d4d07396f6a806ab46b31b18
+         d44ce422afd37995b15be5f4c911e18e
+         aadce51a3a7c5eeb65c0775c3bdf7b5f)
+_realsrcdir="$srcdir/Pd-$pkgver-extended"
+
+build() {
+  unset CFLAGS
+  unset LDFLAGS
+  unset INCLUDES
+
+  cd "$_realsrcdir"
+  
+  # Build GEM with v4l2 support
+  sed -e "s|cd \$(gem_src)\/src \&\& .\/configure |cd \$(gem_src)\/src \&\& .\/configure --without-v4l --with-v4l2 |g" -i packages/Makefile
+
+  # Fix -export-dynamic option (mainly in pdp)
+  for i in $(find . -name Makefile)
+    do
+    sed -e "s|---export-dynamic|-export-dynamic|" -i $i
+    sed -e "s|--export-dynamic|-export-dynamic|" -i $i
+  done
+
+  # Patches for pidip (yeah, DEFINITELY in pieces! :P)
+  patch -p0 externals/pidip/configure.ac $srcdir/pidip_configure.patch
+  patch -p0 externals/pidip/modules/pdp_vloopback.c $srcdir/pdp_vloopback.patch
+  sed -e "s|#include <linux/videodev.h>||g" -i externals/pidip/modules/pdp_v4l2.c
+
+  if [ "$CARCH" = "x86_64" ]; then
+    # fix -fPIC issue in PDP
+    sed -e "s|CFLAGS =|CFLAGS = -fPIC|" \
+      -i externals/pdp/opengl/Makefile.config
+    # fix -fPIC issue in pddp
+    sed -e "s|DEFINES =|DEFINES = -fPIC|" \
+      -i externals/miXed/Makefile.common
+    # setting additional variable
+    FPIC_FLAG="-fPIC"
+  else
+    FPIC_FLAG=""
+  fi
+
+  # build and install
+  cd $_realsrcdir/packages/linux_make
+  make \
+    -C $_realsrcdir/packages \
+    GEM_EXTRA_CXXFLAGS="$FPIC_FLAG" \
+    BUILDLAYOUT_DIR=$_realsrcdir/packages \
+    DESTDIR=$pkgdir \
+    prefix=/usr \
+    install
+}
+
+package () {
+  cd "$_realsrcdir"
+
+  install -Dm644 pd/LICENSE.txt \
+    $pkgdir/usr/share/licenses/pd-extended-$pkgver/LICENSE.txt
+
+  cd packages
+  mkdir -p $pkgdir/usr/lib/pd-extended
+  install -p linux_make/default.pdextended $pkgdir/usr/lib/pd-extended
+
+  # Menu support
+  install -d $pkgdir/usr/share/icons/hicolor/128x128/apps
+  install -p -m0644 linux_make/pd.png \
+    $pkgdir/usr/share/icons/hicolor/128x128/apps/
+  install -d $pkgdir/usr/share/icons/hicolor/48x48/apps
+  install -p -m0644 linux_make/pd-48x48.png \
+    $pkgdir/usr/share/icons/hicolor/48x48/apps/pd.png
+  install -d $pkgdir/usr/share/applications/ 
+  install -p linux_make/pd-extended.desktop \
+    $pkgdir/usr/share/applications/
+
+  # files for /etc
+  cd $_realsrcdir
+  install -d $pkgdir/etc/bash_completion.d/
+  install -p scripts/bash_completion/pd $pkgdir/etc/bash_completion.d
+  
+  # Pd-related scripts
+  mkdir -p $pkgdir/usr/bin
+  install -p scripts/pd-diff $pkgdir/usr/bin/
+  install -p scripts/config-switcher.sh $pkgdir/usr/bin/
+}
+
+# vim:set ts=2 sw=2 et:
