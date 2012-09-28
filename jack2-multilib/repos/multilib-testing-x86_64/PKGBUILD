@@ -1,0 +1,158 @@
+# $Id$
+# Maintainer: Ray Rashif <schiv@archlinux.org>
+# Contributor: SpepS <dreamspepser at yahoo dot it>
+
+# This one is in response to a need for an equivalent to lib32-jack for
+# jack2. A lib32-jack2 would require much patching and invading the pure
+# jack2 package, and what's more, the buildsystem provides a flag just to
+# build a hybrid jack2 in full. As such, we have opted to provide multilib
+# users with a replacement package instead of the usual lib32 add-on.
+#
+# See http://mailman.archlinux.org/pipermail/arch-multilib/2011-December/000251.html
+
+pkgbase=jack2-multilib
+pkgname=('jack2-multilib' 'jack2-dbus-multilib')
+#pkgname= # single build (overrides split)
+_tarname=jack
+pkgver=1.9.8
+pkgrel=4
+arch=('x86_64')
+url="http://jackaudio.org/"
+backup=(etc/security/limits.d/99-audio.conf)
+license=('GPL')
+makedepends=('python2' 'doxygen' 'libffado'
+             'libsamplerate' 'lib32-dbus-core' 'lib32-celt'
+             'gcc-multilib')
+source=("http://www.grame.fr/~letz/$_tarname-$pkgver.tgz"
+        '99-audio.conf'
+        '40-hpet-permissions.rules'
+        'ffado_setbuffsize-jack2.patch')
+md5sums=('1dd2ff054cab79dfc11d134756f27165'
+         'ae65b7c9ebe0fff6c918ba9d97ae342d'
+         '471aad533ff56c5d3cbbf65ce32cadef'
+         '1502d82fe2276d6f224fff6467a0b6f9')
+
+_pyfix() {
+  sed -i 's:bin/env python:bin/env python2:' \
+    "$pkgdir/usr/bin/jack_control"
+}
+
+_wafconf() {
+  python2 waf configure --prefix=/usr \
+                        --alsa \
+                        --firewire \
+                        --mixed \
+                        --doxygen $@
+}
+
+_isbuild() {
+  printf "%s\n" ${pkgname[@]} | grep -qx $1
+}
+
+_mklinks() {
+  ln -s /usr/lib32/libjack.so.0.1.0 "$pkgdir/usr/lib32/libjack.so.0"
+  ln -s /usr/lib32/libjack.so.0 "$pkgdir/usr/lib32/libjack.so"
+}
+
+build() {
+  cd "$srcdir/$_tarname-$pkgver"
+
+  export LINKFLAGS="$LDFLAGS"
+
+  # backport firewire stuff
+  #   - needed for setbuffsize feature in latest stable ffado
+  # from https://github.com/jackaudio/jack2/commit/96e0251
+  (
+  cd $_tarname-$pkgver
+  patch -Np1 -i "$srcdir/ffado_setbuffsize-jack2.patch"
+  )
+
+  # Some optimisation bug exists for current GCC
+  # see http://gcc.gnu.org/bugzilla/show_bug.cgi?id=53663
+  export CFLAGS="${CFLAGS/-O[0-9]/-O0}"
+  export CXXFLAGS="$CFLAGS"
+
+  # fix doxygen building
+  sed -i 's:build/default/html:html:' $_tarname-$pkgver/wscript
+
+  # we may do 2 different builds
+  cp -r $_tarname-$pkgver $_tarname-dbus-$pkgver
+
+  # mixed dbus/classic build
+  if _isbuild jack2-multilib; then
+    cd $_tarname-$pkgver
+    msg2 "Running Mixed D-Bus/Classic build"
+    _wafconf --classic --dbus
+    python2 waf build $MAKEFLAGS
+    cd ..
+  fi
+
+  # dbus-ONLY build
+  if _isbuild jack2-dbus-multilib; then
+    cd $_tarname-dbus-$pkgver
+    msg2 "Running D-Bus-only build"
+    _wafconf --dbus
+    python2 waf build $MAKEFLAGS
+    cd ..
+  fi
+}
+
+package_jack2-multilib() {
+  ! _isbuild jack2-multilib && return 0
+
+  pkgdesc="The next-generation JACK with SMP support & mixed mode"
+  depends=('libsamplerate' 'lib32-celt' 'lib32-gcc-libs')
+  optdepends=('libffado: FireWire support'
+              'lib32-dbus-core: jackdbus'
+              'python2: jack_control')
+  conflicts=('jack' 'jack2' 'lib32-jack')
+  provides=('jack' 'jackmp' 'jackdmp' 'jackdbus'
+            'jack2' 'lib32-jack' 'lib32-jack2')
+
+  cd "$srcdir/$_tarname-$pkgver/$_tarname-$pkgver"
+
+  python2 waf install --destdir="$pkgdir"
+
+  # fix for major python transition
+  _pyfix
+
+  # configure realtime access/scheduling
+  # see https://bugs.archlinux.org/task/26343
+  install -Dm644 "$srcdir/99-audio.conf" \
+    "$pkgdir/etc/security/limits.d/99-audio.conf"
+
+  install -Dm644 "$srcdir/40-hpet-permissions.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/40-hpet-permissions.rules"
+
+  # should be done by upstream
+  # see http://trac.jackaudio.org/ticket/200
+  _mklinks
+}
+
+package_jack2-dbus-multilib() {
+  ! _isbuild jack2-dbus-multilib && return 0
+
+  pkgdesc="The next-generation JACK with SMP support & mixed mode (for D-BUS interaction only)"
+  depends=('libsamplerate' 'lib32-celt' 'lib32-dbus-core' 'lib32-gcc-libs')
+  optdepends=('libffado: FireWire support'
+              'python2: jack_control')
+  conflicts=('jack' 'jack2' 'lib32-jack' 'jack2-multilib')
+  provides=('jack' 'jack2' 'jackmp' 'jackdmp' 'jackdbus'
+            'jack2-dbus' 'jack2-multilib' 'lib32-jack' 'lib32-jack2')
+
+  cd "$srcdir/$_tarname-$pkgver/$_tarname-dbus-$pkgver"
+
+  python2 waf install --destdir="$pkgdir"
+
+  _pyfix
+
+  install -Dm644 "$srcdir/99-audio.conf" \
+    "$pkgdir/etc/security/limits.d/99-audio.conf"
+
+  install -Dm644 "$srcdir/40-hpet-permissions.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/40-hpet-permissions.rules"
+
+  _mklinks
+}
+
+# vim:set ts=2 sw=2 et:
