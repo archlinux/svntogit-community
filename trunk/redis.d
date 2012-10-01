@@ -48,6 +48,11 @@ case "$1" in
       exit 1
     else
       PID=$(cat $PIDFILE)
+
+      # And grab the server address
+      REDISADDR=`egrep -o '^bind ([^#]+)' $CONF | cut -d' ' -f2`
+      [ -n "$REDISADDR" ] && CLIEXEC="$CLIEXEC -h $REDISADDR"
+
       $CLIEXEC -p $REDISPORT shutdown
       [ -d /proc/${PID} ] && sleep 1
       [ -d /proc/${PID} ] && sleep 5
