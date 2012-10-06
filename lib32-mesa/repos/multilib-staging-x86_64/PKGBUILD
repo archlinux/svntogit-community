@@ -3,10 +3,10 @@
 # Contributor: Andreas Radke <andyrtr@archlinux.org>
 
 pkgbase=lib32-mesa
-pkgname=('lib32-libglapi' 'lib32-libgl' 'lib32-mesa' 'lib32-osmesa' 'lib32-libgles' 'lib32-ati-dri' 'lib32-intel-dri' 'lib32-nouveau-dri') # lib32-libgbm needs udev
-
+pkgname=('lib32-libglapi' 'lib32-libgl' 'lib32-mesa' 'lib32-osmesa' 'lib32-libgles' 'lib32-ati-dri' 'lib32-intel-dri'
+         'lib32-nouveau-dri') # lib32-libgbm needs udev
 _git=true
-_gitdate=20121002
+_gitdate=20121005
 #_git=false
 
 if [ "${_git}" = "true" ]; then
@@ -17,21 +17,22 @@ fi
 
 pkgrel=1
 arch=('x86_64')
-makedepends=('glproto>=1.4.16' 'lib32-libdrm>=2.4.39' 'lib32-libxxf86vm>=1.1.2' 'lib32-libxdamage>=1.1.3' 'lib32-expat>=2.1.0' 'lib32-libx11>=1.5.0'
-  'lib32-libxt>=1.1.3' 'lib32-gcc-libs>=4.7.1-6' 'dri2proto>=2.8' 'python2' 'libxml2' 'gcc-multilib' 'imake' 'lib32-llvm')
+makedepends=('glproto>=1.4.16' 'lib32-libdrm>=2.4.39' 'lib32-libxxf86vm>=1.1.2' 'lib32-libxdamage>=1.1.3' 'lib32-expat>=2.1.0'
+             'lib32-libx11>=1.5.0' 'lib32-libxt>=1.1.3' 'lib32-gcc-libs>=4.7.1-6' 'dri2proto>=2.8' 'python2' 'libxml2'
+             'gcc-multilib' 'imake' 'lib32-llvm')
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 options=('!libtool')
-source=(mesa-radeon-parallel-make.diff)
+source=(pthread_fix.diff)
 if [ "${_git}" = "true" ]; then
   # mesa git shot from 9.0 branch - see for state: http://cgit.freedesktop.org/mesa/mesa/log/?h=9.0
   #source=(${source[@]} 'ftp://ftp.archlinux.org/other/mesa/mesa-41d14eaf193c6b1eb87fe1998808a887f1c6c698.tar.gz')
-  source=(${source[@]} "MesaLib-git${_gitdate}.zip"::"http://cgit.freedesktop.org/mesa/mesa/snapshot/mesa-604cd6b966d060334fdaa11ae8444797d54d3142.tar.gz")
+  source=(${source[@]} "MesaLib-git${_gitdate}.zip"::"http://cgit.freedesktop.org/mesa/mesa/snapshot/mesa-542f6feda9bf18267dbd337943a5e871400d425a.tar.gz")
 else
   source=(${source[@]} "ftp://ftp.freedesktop.org/pub/mesa/${pkgver}/MesaLib-${pkgver}.tar.bz2")
 fi
-md5sums=('549f6a106686ecab7ec9f9c3602d64c3'
-         'e9fedcc48587dfa14a242bbf339c228e')
+md5sums=('03956ac54a44467678120f485b626633'
+         '107b77be1fbe64b4f0d87dfb441218b5')
 
 build() {
   export CC="gcc -m32"
@@ -46,9 +47,8 @@ build() {
 
   cd ${srcdir}/?esa-*
 
-  # fix parallel build - http://cgit.freedesktop.org/mesa/mesa/commit/src/gallium/drivers/radeon/Makefile?id=cebbdd4ac23725963207bf6f8fc7101150e6065f
-  # and the next commit - http://cgit.freedesktop.org/mesa/mesa/commit/?id=2baaa5c7eb21517f0197bfd91154e9b4886fbb1b
-  patch -Np1 -i ${srcdir}/mesa-radeon-parallel-make.diff
+  # build fix from master http://cgit.freedesktop.org/mesa/mesa/commit/?id=dd4fde8f674f5e3efa19e929f97de4ecfd82391b
+  patch -Np1 -i ${srcdir}/pthread_fix.diff
 
   COMMONOPTS="--prefix=/usr \
     --sysconfdir=/etc \
@@ -94,7 +94,8 @@ package_lib32-libglapi() {
 }
 
 package_lib32-libgl() {
-  depends=('lib32-libdrm>=2.4.39' 'lib32-libxxf86vm>=1.1.2' 'lib32-libxdamage>=1.1.3' 'lib32-expat>=2.1.0' 'lib32-libglapi' 'libgl')
+  depends=('lib32-libdrm>=2.4.39' 'lib32-libxxf86vm>=1.1.2' 'lib32-libxdamage>=1.1.3' 'lib32-expat>=2.1.0' 'lib32-libglapi'
+           'libgl')
   pkgdesc="Mesa 3-D graphics library and DRI software rasterizer (32-bit)"
   # currently disabled so force the remove
   conflicts=('lib32-libgbm')
@@ -120,7 +121,9 @@ package_lib32-libgl() {
 }
 
 package_lib32-mesa() {
-  depends=('lib32-libgl' 'lib32-libx11>=1.5.0' 'lib32-libxt>=1.1.3' 'lib32-gcc-libs>=4.7.1-6' 'mesa')
+  # check also gl.pc
+  depends=('lib32-libgl' 'lib32-libx11>=1.5.0' 'lib32-libxext>=1.3.1' 'lib32-libxdamage' 'lib32-libxfixes' 'lib32-libxcb'
+           'lib32-libxxf86vm' 'mesa')
   pkgdesc="Mesa 3-D graphics libraries and include files (32-bit)"
 
   cd ${srcdir}/?esa-*
@@ -134,30 +137,36 @@ package_lib32-mesa() {
 }
 
 package_lib32-osmesa() {
-  depends=('lib32-mesa')
+  depends=('lib32-libglapi' 'lib32-gcc-libs' 'osmesa')
   optdepends=('opengl-man-pages: for the OpenGL API man pages')
   pkgdesc="Mesa 3D off-screen rendering library (32-bits)"
 
-  make -C ${srcdir}/?esa-*/src/mesa/drivers/osmesa DESTDIR="${pkgdir}" install
-}
-
-package_lib32-libgbm() {
-  depends=('lib32-libglapi' 'lib32-libdrm' 'libgbm')
-  pkgdesc="Mesa gbm library (32-bit)"
-
-  cd ${srcdir}/?esa-*
-
   # fix linking because of splitted package
-  make -C src/mapi/shared-glapi DESTDIR="${pkgdir}" install
+  make -C ${srcdir}/?esa-*/src/mapi/shared-glapi DESTDIR="${pkgdir}" install
 
-  make -C src/gbm DESTDIR="${pkgdir}" install
-
+  make -C ${srcdir}/?esa-*/src/mesa/drivers/osmesa DESTDIR="${pkgdir}" install
+  
   # fix linking because of splitted package - cleanup
-  make -C src/mapi/shared-glapi DESTDIR="${pkgdir}" uninstall
-
-  install -m755 -d "${pkgdir}/usr/share/licenses/libgbm"
-  ln -s libgbm "$pkgdir/usr/share/licenses/libgbm/lib32-libgbm"
+  make -C ${srcdir}/?esa-*/src/mapi/shared-glapi DESTDIR="${pkgdir}" uninstall
 }
+
+# package_lib32-libgbm() {
+#   depends=('lib32-libglapi' 'lib32-libdrm' 'libgbm')
+#   pkgdesc="Mesa gbm library (32-bit)"
+# 
+#   cd ${srcdir}/?esa-*
+# 
+#   # fix linking because of splitted package
+#   make -C src/mapi/shared-glapi DESTDIR="${pkgdir}" install
+# 
+#   make -C src/gbm DESTDIR="${pkgdir}" install
+# 
+#   # fix linking because of splitted package - cleanup
+#   make -C src/mapi/shared-glapi DESTDIR="${pkgdir}" uninstall
+# 
+#   install -m755 -d "${pkgdir}/usr/share/licenses/libgbm"
+#   ln -s libgbm "$pkgdir/usr/share/licenses/libgbm/lib32-libgbm"
+# }
 
 package_lib32-libgles() {
   depends=('lib32-libglapi' 'lib32-libdrm' 'libgles')
