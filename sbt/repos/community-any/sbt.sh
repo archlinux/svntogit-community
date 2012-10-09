@@ -15,4 +15,4 @@ if [[ -z "$SBT_OPTS" ]]; then
     SBT_OPTS=$(get_mem_opts)
 fi
 
-"$JAVA_HOME/bin/java" $SBT_OPTS -jar /usr/share/java/sbt-launch.jar "$@"
+"$JAVA_HOME/bin/java" $SBT_OPTS -jar /usr/share/java/sbt/sbt-launch.jar "$@"
