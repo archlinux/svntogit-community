@@ -3,4 +3,4 @@
 # This should almost certainly include at least the current compatability
 # level, e.g. -c4
 #
-RSYSLOGD_ARGS="-c4"
+RSYSLOGD_ARGS="-c6"
