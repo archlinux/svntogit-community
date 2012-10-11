@@ -1,0 +1,1345 @@
+diff -wbBurN pam_mount-2.13/configure.ac pam-mount/configure.ac
+--- pam_mount-2.13/configure.ac	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/configure.ac	2012-10-11 15:28:24.848220631 +0400
+@@ -13,9 +13,10 @@
+ AC_CONFIG_HEADERS([config.h])
+ AC_CONFIG_MACRO_DIR([m4])
+ AC_PROG_INSTALL
+-AM_INIT_AUTOMAKE([-Wall no-dist foreign subdir-objects])
++AM_INIT_AUTOMAKE([-Wall foreign subdir-objects tar-pax no-dist-gzip dist-xz])
+ AC_PROG_CC
+ AM_PROG_CC_C_O
++m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+ AC_DISABLE_STATIC
+ AM_PROG_LIBTOOL
+ AC_PROG_LN_S
+diff -wbBurN pam_mount-2.13/doc/changelog.txt pam-mount/doc/changelog.txt
+--- pam_mount-2.13/doc/changelog.txt	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/doc/changelog.txt	2012-10-11 15:28:24.851553965 +0400
+@@ -3,6 +3,15 @@
+ 
+ HEAD
+ ====
++Fixes:
++- fix "feature 1 already set to zero"
++- pmt-ehd: avoid miscalculating blockdev size obtained from BLKGETSIZE64
++- pam_mount: give more verbose output on "unknown digest/cipher"
++- pam_mount: fix crash when an unknown digest/cipher was specified
++- pam_mount: correctly mkdir mountpoint if requested
++- pam_mount: only remove mountpoint if actually created
++Changes:
++- Complain louder when EUID is not 0
+ 
+ 
+ v2.13 (2011-12-15)
+diff -wbBurN pam_mount-2.13/doc/Makefile.am pam-mount/doc/Makefile.am
+--- pam_mount-2.13/doc/Makefile.am	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/doc/Makefile.am	2012-10-11 15:28:24.848220631 +0400
+@@ -5,8 +5,9 @@
+ 		pmvarrun.8 pmt-ehd.8 \
+ 		umount.crypt.8 umount.crypt_LUKS.8 \
+ 		umount.crypto_LUKS.8
+-dist_noinst_DATA = pam_mount.txt
+-EXTRA_DIST = bugs.txt changelog.txt faq.txt install.txt options.txt todo.txt
++EXTRA_DIST = bugs.txt changelog.txt faq.txt install.txt options.txt todo.txt \
++	pam_mount.8.in pam_mount.conf.5.in
++DISTCLEANFILES = pam_mount.txt
+ CLEANFILES = ${man_MANS}
+ 
+ replcmd = perl -lpe 's/\@''PACKAGE\@/@PACKAGE@/g;s/\@''PACKAGE_VERSION\@/@PACKAGE_VERSION@/g;s/\@''PACKAGE_RELDATE\@/@PACKAGE_RELDATE@/g;'
+diff -wbBurN pam_mount-2.13/doc/mount.crypt.8 pam-mount/doc/mount.crypt.8
+--- pam_mount-2.13/doc/mount.crypt.8	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/doc/mount.crypt.8	2012-10-11 15:28:24.851553965 +0400
+@@ -37,10 +37,6 @@
+ Select the name for the crypto device (optional). This option is currently
+ only usable with dm-crypt systems.
+ .TP
+-\fBdm\-timeout=\fP\fIseconds\fP
+-Wait at most this many seconds for udev to create /dev/mapper/\fIname\fP after
+-calling cryptsetup(8). The default value is 0 seconds.
+-.TP
+ \fBfsck\fP
+ Run fsck on the container before mounting it.
+ .TP
+diff -wbBurN pam_mount-2.13/doc/options.txt pam-mount/doc/options.txt
+--- pam_mount-2.13/doc/options.txt	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/doc/options.txt	2012-10-11 15:28:24.851553965 +0400
+@@ -4,6 +4,11 @@
+ 
+ 	auth	optional	pam_mount.so	debug
+ 
++Options are to be separated by whitespace, hence specifying more than
++one is to look like:
++
++	auth	optional	pam_mount.so	debug disable_interactive
++
+ 
+ enable_pam_password (default)
+ disable_pam_password
+diff -wbBurN pam_mount-2.13/doc/pam_mount.conf.5.in pam-mount/doc/pam_mount.conf.5.in
+--- pam_mount-2.13/doc/pam_mount.conf.5.in	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/doc/pam_mount.conf.5.in	2012-10-11 15:28:24.851553965 +0400
+@@ -171,35 +171,33 @@
+ processes and optionally wait before sending signals.
+ .TP
+ \fB<luserconf name="\fP\fI.pam_mount.conf.xml\fP\fB" />\fP
+-Individual users may define additional volumes (usually in
+-~/.pam_mount.conf.xml) to mount if allowed by the master configuration file by
+-the presence of the \fB<luserconf>\fP element. With it, users may mount and
+-unmount any volumes they specify that they have ownership of (in case of
+-local mounts) - the mount process is called \fBas
+-superuser\fP. On some filesystem configurations this may be a security risk so
+-user-defined volumes are not allowed by the default pam_mount.conf.xml
+-distributed with pam_mount. Luserconfigs are parsed after any volumes from
+-the global configuration file are mounted, so mounting home directories with a
+-global config and then mounting further volumes from luserconfigs is possible.
++Individual users may define additional volumes in a file by the specified
++\fIname\fP relative to their home directory. The presence of \fB<luserconf>\fP
++in the master config file enables this feature. If turned on, users may mount
++and unmount any volumes they specify and that they have ownership of (in case
++of local mounts). The mount process is executed \fBas superuser\fP. This may
++have security implications, so this feature is disabled by default.
++Luserconfigs are parsed after any volumes from the global configuration file
++have been mounted, so that first mounting home directories with a global config
++and then mounting further volumes from luserconfigs is possible.
+ .TP
+ \fB<mntoptions allow="\fP\fIoptions,...\fP\fB" />\fP
+-The <mntoptions> elements determine which options may be specified in per\-user
+-configuration files (see <luserconf>). It does not apply to the master file.
+-Specifying <mntoptions> is forbidden and ignored in per\-user configs.
+-It defaults to \fIallow="nosuid,nodev"\fP, and the default is cleared when the
+-first <mntoptions allow="..."> tag is seen. All further <mntoptions> are
+-additive, though.
++The <mntoptions> elements determine which options may be specified in <volumes>
++in per-user configuration files (see <luserconf>). It does not apply to the
++master file. Specifying <mntoptions> is forbidden and ignored in per-user
++configs. The default allowed list consists of "\fInosuid,nodev\fP", and this
++default is cleared when the first allow="..." attribute is seen by the config
++parser. All further allow="..." are additive, though.
+ .TP
+ \fB<mntoptions deny="\fP\fIoptions,...\fP\fB" />\fP
+-Any options listed in deny may not appear in the option list of per\-user
+-mounts. (Does not apply to the master file.)
++Any options listed in deny may not appear in the option list of per-user
++mounts. The default deny list is empty.
+ .TP
+ \fB<mntoptions require="\fP\fIoptions,...\fP\fB" />\fP
+-All options listed in require must appear in the option list of per\-user
+-mounts. (Does not apply to the master file.)
+-It defaults to \fInosuid,nodev\fP, and the default is cleared when the
+-first <mntoptions require="..."> tag is seen. All further <mntoptions> are
+-additive, though.
++All options listed in require must appear in the option list of per-user
++mounts. The default require list consists of "\fInosuid,nodev\fP", and like
++allow="", is cleared when first encountered by the parser, and is otherwise
++additive.
+ .TP
+ \fB<path>\fP\fIdirectories...\fP\fB</path>\fP
+ The default for the PATH environmental variable is not consistent across
+diff -wbBurN pam_mount-2.13/Makefile.am pam-mount/Makefile.am
+--- pam_mount-2.13/Makefile.am	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/Makefile.am	2012-10-11 15:28:24.848220631 +0400
+@@ -24,14 +24,11 @@
+ 	tar --use=${packer} -C ${tmpdir} -cf ${PACKAGE_NAME}-${PACKAGE_VERSION}${packext} --owner=root --group=root ${PACKAGE_NAME}-${PACKAGE_VERSION}/;
+ 	rm -Rf ${tmpdir};
+ 
+-dist-hook:
+-	tar --use=${packer} -cf ${PACKAGE_NAME}-${PACKAGE_VERSION}${packext} --owner=root --group=root ${distdir}
+-
+ DISTCHECK_CONFIGURE_FLAGS = \
+ 	--with-ssbindir='$${abs_builddir}/ssbin' \
+ 	--with-slibdir='$${abs_builddir}/slib' \
+ 	--enable-la
+ 
+ DISTCLEANFILES = ${PACKAGE_NAME}-${PACKAGE_VERSION}${packext}
+-EXTRA_DIST = autogen.sh dist/pam_mount.spec LICENSE.GPL2 LICENSE.GPL3 \
++EXTRA_DIST = LICENSE.GPL2 LICENSE.GPL3 \
+ 	LICENSE.LGPL2 LICENSE.LGPL3
+diff -wbBurN pam_mount-2.13/src/cmt-internal.h pam-mount/src/cmt-internal.h
+--- pam_mount-2.13/src/cmt-internal.h	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/cmt-internal.h	2012-10-11 15:28:24.851553965 +0400
+@@ -3,6 +3,7 @@
+ 
+ #include <stdbool.h>
+ #include <libHX/string.h>
++#include "libcryptmount.h"
+ 
+ /**
+  * struct ehd_mount - EHD mount info
+@@ -12,6 +13,7 @@
+  * @loop_device:	loop device that was created, if any
+  * @crypto_name:	crypto device that was created (basename only)
+  * @crypto_device:	full path to the crypto device
++ * @mountpoint:		assigned mountpoint
+  */
+ struct ehd_mount_info {
+ 	char *container;
+@@ -19,25 +21,36 @@
+ 	char *loop_device;
+ 	hxmc_t *crypto_name;
+ 	hxmc_t *crypto_device;
++	hxmc_t *mountpoint;
+ };
+ 
+ /**
+  * struct ehd_mount_request - mapping and mount request for EHD
+  * @container:		path to disk image
++ * @fstype:		filesystem type
++ * @mount_opts:		mount options for fs
+  * @mountpoint:		where to mount the volume on
+  * @fs_cipher:		cipher used for filesystem, if any. (cryptsetup name)
+  * @fs_hash:		hash used for filesystem, if any. (cryptsetup name)
+  * @key_data:		key material/password
+  * @key_size:		size of key data, in bytes
+  * @trunc_keysize:	extra cryptsetup instruction for truncation (in bytes)
++ * @loop_hook:		hook function to run after loop device setup
++ * @crypto_hook:	hook function to run after crypto device setup
++ * @hook_priv:		user data
+++ * @last_stage:		stop after setup of given component
+  * @readonly:		whether to create a readonly vfsmount
++ * @allow_discards:	allow fs trim requests
+  */
+ struct ehd_mount_request {
+-	char *container, *crypto_name, *mountpoint;
++	char *container, *crypto_name, *fstype, *mount_opts, *mountpoint;
+ 	char *fs_cipher, *fs_hash;
+ 	void *key_data;
++	ehd_hook_fn_t loop_hook, crypto_hook;
++	void *hook_priv;
+ 	unsigned int key_size, trunc_keysize;
+-	bool readonly;
++	enum ehd_mtreq_stage last_stage;
++	bool readonly, allow_discards;
+ };
+ 
+ struct ehd_crypto_ops {
+diff -wbBurN pam_mount-2.13/src/crypto.c pam-mount/src/crypto.c
+--- pam_mount-2.13/src/crypto.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/crypto.c	2012-10-11 15:28:24.851553965 +0400
+@@ -100,6 +100,9 @@
+ 	case EHD_MTINFO_LOOPDEV:
+ 		*static_cast(const char **, ptr) = mt->loop_device;
+ 		break;
++	case EHD_MTINFO_LOWERDEV:
++		*static_cast(const char **, ptr) = mt->lower_device;
++		break;
+ 	default:
+ 		return 0;
+ 	}
+@@ -129,6 +132,7 @@
+ 	rq = calloc(1, sizeof(*rq));
+ 	if (rq == NULL)
+ 		return NULL;
++	rq->last_stage = EHD_MTREQ_STAGE_MOUNT;
+ 	return rq;
+ }
+ 
+@@ -147,7 +151,7 @@
+ {
+ 	va_list args;
+ 	const void *orig;
+-	void *nv;
++	void *nv = NULL;
+ 
+ 	va_start(args, opt);
+ 	switch (opt) {
+@@ -156,6 +160,8 @@
+ 	case EHD_MTREQ_MOUNTPOINT:
+ 	case EHD_MTREQ_FS_CIPHER:
+ 	case EHD_MTREQ_FS_HASH:
++	case EHD_MTREQ_FSTYPE:
++	case EHD_MTREQ_MOUNT_OPTS:
+ 		orig = va_arg(args, const char *);
+ 		nv = HX_strdup(orig);
+ 		if (nv == NULL && orig != NULL)
+@@ -178,6 +184,21 @@
+ 	case EHD_MTREQ_READONLY:
+ 		rq->readonly = va_arg(args, unsigned int);
+ 		break;
++	case EHD_MTREQ_LOOP_HOOK:
++		rq->loop_hook = va_arg(args, ehd_hook_fn_t);
++		break;
++	case EHD_MTREQ_HOOK_PRIV:
++		rq->hook_priv = va_arg(args, void *);
++		break;
++	case EHD_MTREQ_CRYPTO_HOOK:
++		rq->crypto_hook = va_arg(args, ehd_hook_fn_t);
++		break;
++	case EHD_MTREQ_LAST_STAGE:
++		rq->last_stage = va_arg(args, enum ehd_mtreq_stage);
++		break;
++	case EHD_MTREQ_ALLOW_DISCARDS:
++		rq->allow_discards = va_arg(args, unsigned int);
++		break;
+ 	}
+ 	switch (opt) {
+ 	case EHD_MTREQ_CONTAINER:
+@@ -200,6 +221,14 @@
+ 		free(rq->fs_hash);
+ 		rq->fs_hash = nv;
+ 		break;
++	case EHD_MTREQ_FSTYPE:
++		free(rq->fstype);
++		rq->fstype = nv;
++		break;
++	case EHD_MTREQ_MOUNT_OPTS:
++		free(rq->mount_opts);
++		rq->mount_opts = nv;
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -210,25 +239,52 @@
+ 	return -errno;
+ }
+ 
++static int ehd_wait_for_file(const char *path)
++{
++	static const struct timespec delay = {0, 100000000};
++	unsigned int retries = 50;
++	struct stat sb;
++	bool done = false;
++	int ret;
++
++	/* Nicer way to do these wait loops? libudev? */
++	while (retries-- > 0) {
++		ret = stat(path, &sb);
++		if (ret == 0)
++			break;
++		ret = -errno;
++		if (ret != -ENOENT)
++			return -errno;
++		if (!done) {
++			w4rn("Waiting for %s to appear\n", path);
++			done = true;
++		}
++		fprintf(stderr, ".");
++		nanosleep(&delay, NULL);
++	}
++	if (ret == -ENOENT)
++		w4rn("Device node %s was not created\n", path);
++	return (ret == 0) ? 1 : ret;
++}
++
+ /**
+  * ehd_load - set up crypto device for an EHD container
+  * @req:	parameters for setting up the mount
+  * @mt:		EHD mount state
+  */
+-EXPORT_SYMBOL int ehd_load(const struct ehd_mount_request *req,
++EXPORT_SYMBOL int ehd_load(struct ehd_mount_request *req,
+     struct ehd_mount_info **mtp)
+ {
+ 	struct stat sb;
+ 	int saved_errno, ret;
+ 	struct ehd_mount_info *mt;
+ 
+-	*mtp = mt = malloc(sizeof(*mt));
+ 	if (stat(req->container, &sb) < 0) {
+ 		l0g("Could not stat %s: %s\n", req->container, strerror(errno));
+ 		return -errno;
+ 	}
+ 
+-	*mtp = mt = malloc(sizeof(*mt));
++	*mtp = mt = calloc(1, sizeof(*mt));
+ 	if (mt == NULL)
+ 		goto out_err;
+ 	if ((mt->container = HX_strdup(req->container)) == NULL)
+@@ -252,7 +308,19 @@
+ 			w4rn("Using %s\n", mt->loop_device);
+ 			mt->lower_device = mt->loop_device;
+ 		}
++
++		ret = ehd_wait_for_file(mt->loop_device);
++		if (ret <= 0)
++			goto out_ser;
++	}
++
++	if (req->loop_hook != NULL) {
++		ret = req->loop_hook(req, mt, req->hook_priv);
++		if (ret <= 0)
++			goto out_ser;
+ 	}
++	if (req->last_stage == EHD_MTREQ_STAGE_LOOP)
++		return 1;
+ 
+ #ifdef HAVE_LIBCRYPTSETUP
+ 	ret = ehd_dmcrypt_ops.load(req, mt);
+@@ -264,6 +332,18 @@
+ 	if (ret <= 0)
+ 		goto out_ser;
+ 
++	ret = ehd_wait_for_file(mt->crypto_device);
++	if (ret <= 0)
++		goto out_ser;
++
++	if (req->crypto_hook != NULL) {
++		ret = req->crypto_hook(req, mt, req->hook_priv);
++		if (ret <= 0)
++			goto out_ser;
++	}
++	if (req->last_stage == EHD_MTREQ_STAGE_CRYPTO)
++		return 1;
++
+ 	return ret;
+ 
+  out_err:
+@@ -294,6 +374,7 @@
+ {
+ 	int ret, ret2;
+ 
++	if (mt->crypto_device != NULL) {
+ #ifdef HAVE_LIBCRYPTSETUP
+ 	ret = ehd_dmcrypt_ops.unload(mt);
+ #elif defined(HAVE_DEV_CGDVAR_H)
+@@ -301,6 +382,9 @@
+ #else
+ 	ret = -EOPNOTSUPP;
+ #endif
++	} else {
++		ret = 1;
++	}
+ 	/* Try to free loop device even if cryptsetup remove failed */
+ 	if (mt->loop_device != NULL) {
+ 		ret2 = ehd_loop_release(mt->loop_device);
+@@ -445,7 +529,7 @@
+ {
+ 	va_list args;
+ 	const void *orig;
+-	void *nv;
++	void *nv = NULL;
+ 
+ 	va_start(args, opt);
+ 	switch (opt) {
+diff -wbBurN pam_mount-2.13/src/crypto-dmc.c pam-mount/src/crypto-dmc.c
+--- pam_mount-2.13/src/crypto-dmc.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/crypto-dmc.c	2012-10-11 15:28:24.851553965 +0400
+@@ -97,6 +97,14 @@
+ 	}
+ 	if (req->readonly)
+ 		flags |= CRYPT_ACTIVATE_READONLY;
++	if (req->allow_discards) {
++#ifdef CRYPT_ACTIVATE_ALLOW_DISCARDS
++		flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
++#else
++		fprintf(stderr, "CRYPT_ACTIVATE_ALLOW_DISCARDS requested, "
++		        "but not provided by your libcryptsetup.\n");
++#endif
++	}
+ 
+ 	ret = crypt_load(cd, CRYPT_LUKS1, NULL);
+ 	if (ret == 0) {
+diff -wbBurN pam_mount-2.13/src/ehd.c pam-mount/src/ehd.c
+--- pam_mount-2.13/src/ehd.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/ehd.c	2012-10-11 15:28:24.851553965 +0400
+@@ -41,8 +41,6 @@
+ /**
+  * @size:		container size in bytes
+  * @path:		store container at this path
+- * @loop_dev:		loop device in use (may be %NULL)
+- * @device:		pointer to either @path or @loop_dev as crypto demands
+  * @fstype:		initialize container with this filesystem
+  * @cipher:		cipher specification as understood by cryptsetup
+  * @keybits:		block size, as understood by cryptsetup and the cipher
+@@ -51,7 +49,7 @@
+  */
+ struct container_ctl {
+ 	unsigned long long size;
+-	char *path, *loop_dev, *device, *fstype, *cipher, *hash, *user;
++	char *path, *fstype, *cipher, *hash, *user;
+ 	unsigned int keybits, skip_random, uid;
+ 	bool blkdev;
+ };
+@@ -61,11 +59,12 @@
+  * @force_level:	number of "-f"s passed
+  * @interactive:	if stdin is a tty
+  * @cont:		container control substructure
+- * @fskey:		fskey control substructure
++ * @password:		master key password
+  */
+ struct ehd_ctl {
+ 	unsigned int force_level;
+ 	struct container_ctl cont;
++	const char *password;
+ 	bool interactive;
+ };
+ 
+@@ -239,16 +238,23 @@
+ 	return ret;
+ }
+ 
+-static bool ehd_mkfs(const struct ehd_ctl *pg, const hxmc_t *crypto_device)
++static bool ehd_mkfs(struct ehd_mount_request *rq,
++    struct ehd_mount_info *mtinfo, void *priv)
+ {
++	const struct ehd_ctl *pg = priv;
+ 	const struct container_ctl *cont = &pg->cont;
++	const char *crypto_device = NULL;
++	int ret;
++
++	ehd_mtinfo_get(mtinfo, EHD_MTINFO_CRYPTODEV, &crypto_device);
++	if (!cont->skip_random)
++		ehd_xfer2(crypto_device, cont->size);
+ 
+ 	hxmc_t *fsprog = HXmc_strinit("mkfs.");
+ 	HXmc_strcat(&fsprog, cont->fstype);
+ 	const char *const argv[] = {fsprog, crypto_device, NULL};
+-	int ret;
+ 
+-	fprintf(stderr, "-- Calling %s\n", fsprog);
++	fprintf(stderr, "-- Calling %s %s\n", fsprog, crypto_device);
+ 	if ((ret = HXproc_run_sync(argv, HXPROC_VERBOSE)) < 0 || ret != 0)
+ 		fprintf(stderr, "%s failed with run_sync status %d\n",
+ 		        fsprog, ret);
+@@ -273,24 +279,34 @@
+ 	HX_strlcpy(cipher_mode, p, cm_size);
+ }
+ 
+-static int ehd_init_volume_luks(struct ehd_ctl *pg, const char *password)
++static int ehd_init_volume_luks(struct ehd_mount_request *rq,
++    struct ehd_mount_info *mtinfo, void *priv)
+ {
+ 	/*
+ 	 * Pick what? WP specifies that XTS has a wider support range than
+ 	 * ESSIV. But XTS is also double complexity due to the double key,
+ 	 * without adding anything of value.
+ 	 */
++	struct ehd_ctl *pg = priv;
+ 	struct container_ctl *cont = &pg->cont;
+ 	char cipher[32], cipher_mode[32];
+ 	struct crypt_params_luks1 format_params = {.hash = cont->hash};
+ 	struct crypt_device *cd = NULL;
++	const char *lower_dev = NULL;
+ 	int ret;
+ 
++	BUILD_BUG_ON(!__builtin_types_compatible_p(
++		__typeof__(&ehd_init_volume_luks), ehd_hook_fn_t));
++
+ 	ehd_parse_name(cont->cipher, cipher, sizeof(cipher),
+ 	               cipher_mode, sizeof(cipher_mode));
+-	ret = crypt_init(&cd, cont->device);
++	ret = ehd_mtinfo_get(mtinfo, EHD_MTINFO_LOWERDEV, &lower_dev);
++	if (ret <= 0 || lower_dev == NULL)
++		goto out;
++	ret = crypt_init(&cd, lower_dev);
+ 	if (ret < 0) {
+-		fprintf(stderr, "crypt_init: %s\n", strerror(-ret));
++		fprintf(stderr, "crypt_init: %s: %s\n",
++		        lower_dev, strerror(-ret));
+ 		goto out;
+ 	}
+ 	ret = crypt_format(cd, CRYPT_LUKS1, cipher, cipher_mode, NULL, NULL,
+@@ -300,7 +316,7 @@
+ 		goto out2;
+ 	}
+ 	ret = crypt_keyslot_add_by_volume_key(cd, CRYPT_ANY_SLOT, NULL, 0,
+-	      password, strlen(password));
++	      pg->password, strlen(pg->password));
+ 	if (ret < 0) {
+ 		fprintf(stderr, "add_by_volume_key: %s\n", strerror(-ret));
+ 		goto out2;
+@@ -315,70 +331,53 @@
+ /**
+  * ehd_init_volume - set up loop device association if necessary
+  */
+-static bool ehd_init_volume(struct ehd_ctl *pg, const char *password)
++static bool ehd_init_volume(struct ehd_ctl *pg)
+ {
+ 	struct container_ctl *cont = &pg->cont;
+ 	struct ehd_mount_info *mount_info;
+ 	struct ehd_mount_request *mount_request;
+-	bool f_ret = false;
+ 	int ret;
+ 
+-	if (cont->blkdev) {
+-		cont->device = cont->path;
+-	} else {
+-		/*
+-		 * Need manual setup of loop device here, since ehd_load
+-		 * always does a crypt mount too, which we do not have yet.
+-		 */
+-		ret = ehd_loop_setup(cont->path, &cont->loop_dev, EHD_LOSETUP_RW);
+-		if (ret == 0) {
+-			fprintf(stderr, "loop_setup: error: no free loop "
+-			        "devices\n");
+-			return false;
+-		} else if (ret < 0) {
+-			fprintf(stderr, "loop_setup: error: %s\n",
+-			        strerror(-ret));
+-			return false;
+-		}
+-		cont->device = cont->loop_dev;
+-	}
+-
+-	ehd_init_volume_luks(pg, password);
+-	ret = ehd_loop_release(cont->device);
+-	if (ret <= 0)
+-		fprintf(stderr, "loop_release: warning: %s\n", strerror(-ret));
+-
+ 	mount_request = ehd_mtreq_new();
+ 	if (mount_request == NULL)
+ 		return -errno;
+ 	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_CONTAINER, cont->path);
+ 	if (ret < 0)
+ 		goto out;
+-	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_KEY_SIZE, strlen(password));
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_KEY_SIZE,
++	                    strlen(pg->password));
+ 	if (ret < 0)
+ 		goto out;
+-	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_KEY_DATA, password);
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_KEY_DATA, pg->password);
+ 	if (ret < 0)
+ 		goto out;
+ 	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_READONLY, EHD_LOSETUP_RW);
+ 	if (ret < 0)
+ 		goto out;
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_LOOP_HOOK,
++	                    ehd_init_volume_luks);
++	if (ret < 0)
++		goto out;
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_HOOK_PRIV, pg);
++	if (ret < 0)
++		goto out;
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_CRYPTO_HOOK, ehd_mkfs);
++	if (ret < 0)
++		goto out;
++	/* We don't need to mount it */
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_LAST_STAGE,
++	                    EHD_MTREQ_STAGE_CRYPTO);
++	if (ret < 0)
++		goto out;
+ 
+-	if (ehd_load(mount_request, &mount_info) > 0) {
+-		const char *crypto_device = NULL;
+-		ehd_mtinfo_get(mount_info, EHD_MTINFO_CRYPTODEV, &crypto_device);
+-		if (!cont->skip_random)
+-			ehd_xfer2(crypto_device, cont->size);
+-		f_ret = ehd_mkfs(pg, crypto_device);
++	ret = ehd_load(mount_request, &mount_info);
++	if (ret > 0) {
+ 		ret   = ehd_unload(mount_info);
+-		/* If mkfs failed, use its code. */
+ 		ehd_mtinfo_free(mount_info);
+-		if (f_ret)
+-			f_ret = ret > 0;
+ 	}
+  out:
+ 	ehd_mtreq_free(mount_request);
+-	return f_ret;
++	return ret > 0;
+ }
+ 
+ static void ehd_final_printout(const struct ehd_ctl *pg)
+@@ -463,16 +462,15 @@
+ 			HX_getl(&tmp, stdin);
+ 			HX_chomp(tmp);
+ 			s = strtoul(tmp, NULL, 0);
++			s <<= 20; /* megabytes -> bytes */
+ 		} while (*tmp == '\0' || s == 0);
+ 		cont->size = s;
+ 	}
+ 
+-	if (strcmp(cont->fstype, "xfs") == 0 && cont->size < 16)
++	if (strcmp(cont->fstype, "xfs") == 0 && cont->size < 16*1048576)
+ 		fprintf(stderr, "Warning: XFS volumes need to be "
+ 		        "at least 16 MB\n");
+ 
+-	cont->size <<= 20; /* megabytes -> bytes */
+-
+ 	if (cont->cipher == NULL) {
+ 		cont->cipher = HX_strdup(ehd_default_dmcipher);
+ 		if (cont->keybits == 0)
+@@ -544,6 +542,7 @@
+ 	    HXOPT_ERR_SUCCESS)
+ 		return false;
+ 
++	cont->size <<= 20; /* mb -> b */
+ 	pg->interactive = isatty(fileno(stdin));
+ 	return ehd_fill_options_container(pg);
+ }
+@@ -574,8 +573,8 @@
+ 		goto out;
+ 	}
+ 
+-	ret = ehd_init_volume(pg, password != NULL ? password : "") ?
+-	      EXIT_SUCCESS : EXIT_FAILURE;
++	pg->password = (password != NULL) ? password : "";
++	ret = ehd_init_volume(pg) ? EXIT_SUCCESS : EXIT_FAILURE;
+ 	if (ret == EXIT_SUCCESS)
+ 		ehd_final_printout(pg);
+ 
+diff -wbBurN pam_mount-2.13/src/ismnt.c pam-mount/src/ismnt.c
+--- pam_mount-2.13/src/ismnt.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/ismnt.c	1970-01-01 03:00:00.000000000 +0300
+@@ -1,45 +0,0 @@
+-/*
+- *	Internal diagnostic tool to debug pmt mtab.c
+- *	Copyright © Jan Engelhardt, 2009
+- *
+- *	This file is part of pam_mount; you can redistribute it and/or
+- *	modify it under the terms of the GNU Lesser General Public License
+- *	as published by the Free Software Foundation; either version 2.1
+- *	of the License, or (at your option) any later version.
+- */
+-#include <errno.h>
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <libHX/init.h>
+-#include "pam_mount.h"
+-
+-int main(int argc, const char **argv)
+-{
+-	int ret;
+-
+-	ret = HX_init();
+-	if (ret <= 0) {
+-		fprintf(stderr, "HX_init: %s\n", strerror(errno));
+-		abort();
+-	}
+-
+-	if (argc < 3) {
+-		fprintf(stderr, "Usage: %s dev mountpoint\n", *argv);
+-		return EXIT_FAILURE;
+-	}
+-
+-	ret = pmt_cmtab_mounted(argv[1], argv[2]);
+-	if (ret < 0) {
+-		fprintf(stderr, "%s\n", strerror(-ret));
+-		ret = 2;
+-	} else if (ret == 0) {
+-		printf("Not mounted\n");
+-		ret = EXIT_FAILURE;
+-	} else {
+-		printf("Mounted\n");
+-		ret = EXIT_SUCCESS;
+-	}
+-	HX_exit();
+-	return ret;
+-}
+diff -wbBurN pam_mount-2.13/src/libcryptmount.h pam-mount/src/libcryptmount.h
+--- pam_mount-2.13/src/libcryptmount.h	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/libcryptmount.h	2012-10-11 15:28:24.851553965 +0400
+@@ -69,6 +69,13 @@
+ 	EHD_MTREQ_TRUNC_KEYSIZE,
+ 	EHD_MTREQ_READONLY,
+ 	EHD_MTREQ_CRYPTONAME,
++	EHD_MTREQ_LOOP_HOOK,
++	EHD_MTREQ_HOOK_PRIV,
++	EHD_MTREQ_CRYPTO_HOOK,
++	EHD_MTREQ_LAST_STAGE,
++	EHD_MTREQ_FSTYPE,
++	EHD_MTREQ_MOUNT_OPTS,
++	EHD_MTREQ_ALLOW_DISCARDS,
+ };
+ 
+ enum ehd_mtinfo_opt {
+@@ -76,11 +83,22 @@
+ 	EHD_MTINFO_CRYPTONAME,
+ 	EHD_MTINFO_CRYPTODEV,
+ 	EHD_MTINFO_LOOPDEV,
++	EHD_MTINFO_LOWERDEV,
++};
++
++enum ehd_mtreq_stage {
++	EHD_MTREQ_STAGE_NONE,
++	EHD_MTREQ_STAGE_LOOP,
++	EHD_MTREQ_STAGE_CRYPTO,
++	EHD_MTREQ_STAGE_MOUNT,
+ };
+ 
+ struct ehd_mount_info;
+ struct ehd_mount_request;
+ 
++typedef int (*ehd_hook_fn_t)(struct ehd_mount_request *,
++	struct ehd_mount_info *, void *);
++
+ extern int cryptmount_init(void);
+ extern void cryptmount_exit(void);
+ 
+@@ -91,7 +109,7 @@
+ extern int ehd_mtinfo_get(struct ehd_mount_info *, enum ehd_mtinfo_opt, void *);
+ extern void ehd_mtinfo_free(struct ehd_mount_info *);
+ 
+-extern int ehd_load(const struct ehd_mount_request *, struct ehd_mount_info **);
++extern int ehd_load(struct ehd_mount_request *, struct ehd_mount_info **);
+ extern int ehd_unload(struct ehd_mount_info *);
+ extern int ehd_is_luks(const char *, bool);
+ 
+diff -wbBurN pam_mount-2.13/src/Makefile.am pam-mount/src/Makefile.am
+--- pam_mount-2.13/src/Makefile.am	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/Makefile.am	2012-10-11 15:28:24.851553965 +0400
+@@ -8,9 +8,11 @@
+ moduledir		= @PAM_MODDIR@
+ module_LTLIBRARIES	= pam_mount.la
+ sbin_PROGRAMS		= pmvarrun
++if HAVE_LIBCRYPTSETUP
+ sbin_PROGRAMS		+= pmt-ehd
++endif
+ ssbin_PROGRAMS		= mount.crypt
+-noinst_PROGRAMS		= autoloop ismnt
++noinst_PROGRAMS		= autoloop
+ noinst_SCRIPTS 		= umount.crypt
+ 
+ lib_LTLIBRARIES		= libcryptmount.la
+@@ -64,10 +66,6 @@
+ autoloop_SOURCES	= autoloop.c
+ autoloop_LDADD		= libcryptmount.la ${libHX_LIBS}
+ 
+-ismnt_SOURCES		= ismnt.c log.c
+-ismnt_CFLAGS		= ${AM_CFLAGS}
+-ismnt_LDADD		= libpmt_mtab.la
+-
+ #
+ # mount helpers
+ #
+@@ -75,7 +73,7 @@
+ mount_crypt_LDADD	= libcryptmount.la libpmt_mtab.la ${libHX_LIBS}
+ 
+ pmt_ehd_SOURCES		= ehd.c bdev.c misc.c spawn.c
+-pmt_ehd_LDADD		= libcryptmount.la ${libHX_LIBS}
++pmt_ehd_LDADD		= libcryptmount.la ${libHX_LIBS} ${libcryptsetup_LIBS}
+ 
+ #
+ # runtime helpers
+@@ -83,10 +81,10 @@
+ pmvarrun_SOURCES = pmvarrun.c
+ pmvarrun_LDADD   = libcryptmount.la ${libHX_LIBS}
+ 
+-EXTRA_DIST = misc.h mount.h pam_mount.h readconfig.h spawn.h
++EXTRA_DIST = cmt-internal.h libcryptmount.h pam_mount.h libcryptmount.map
+ 
+ umount.crypt${EXEEXT}: mount.crypt${EXEEXT}
+-	-${LN_S} $^ $@;
++	-${LN_S} -f $^ $@;
+ 
+ if !KEEP_LA
+ install-data-hook:
+diff -wbBurN pam_mount-2.13/src/misc.c pam-mount/src/misc.c
+--- pam_mount-2.13/src/misc.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/misc.c	2012-10-11 15:28:24.851553965 +0400
+@@ -28,18 +28,6 @@
+ struct HXbtree;
+ 
+ /**
+- * misc_dump_id - print user IDs
+- */
+-void misc_dump_id(const char *where)
+-{
+-	w4rn("%s: (ruid/rgid=%u/%u, e=%u/%u)\n", where,
+-	     static_cast(unsigned int, getuid()),
+-	     static_cast(unsigned int, getgid()),
+-	     static_cast(unsigned int, geteuid()),
+-	     static_cast(unsigned int, getegid()));
+-}
+-
+-/**
+  * pmt_fileop_exists -
+  * @file:	file to check
+  *
+@@ -47,7 +35,7 @@
+  * non-zero if that was successful. Returns 0 for error. %errno will be set
+  * in case of error.
+  */
+-int pmt_fileop_exists(const char *file)
++bool pmt_fileop_exists(const char *file)
+ {
+ 	struct stat sb;
+ 	assert(file != NULL);
+@@ -61,7 +49,7 @@
+  * Check if a path is a regular file and return positive non-zero if that was
+  * successful. Returns 0 for error. %errno will be set in case of error.
+  */
+-int pmt_fileop_isreg(const char *path)
++bool pmt_fileop_isreg(const char *path)
+ {
+ 	struct stat sb;
+ 
+@@ -75,11 +63,10 @@
+  * @user:	user to check for
+  * @file:	file to check
+  *
+- * Checks whether @user owns @file. Returns positive non-zero if this is the
+- * case, otherwise zero. If an error occurred, zero is returned and %errno
+- * is set. (For the success case, %errno is undefined.)
++ * Checks whether @user owns @file. If an error occurred, false is returned and
++ * %errno is set. (For the success case, %errno is undefined.)
+  */
+-int pmt_fileop_owns(const char *user, const char *file)
++bool pmt_fileop_owns(const char *user, const char *file)
+ {
+ 	struct stat filestat;
+ 	struct passwd *userinfo;
+@@ -90,12 +77,12 @@
+ 	if ((userinfo = getpwnam(user)) == NULL) {
+ 		l0g("user %s could not be translated to UID\n",
+ 		    user);
+-		return 0;
++		return false;
+ 	}
+ 
+ 	if (stat(file, &filestat) != 0) {
+ 		w4rn("file %s could not be stat'ed\n", file);
+-		return 0;
++		return false;
+ 	}
+ 
+ 	return filestat.st_uid == userinfo->pw_uid &&
+diff -wbBurN pam_mount-2.13/src/mount.c pam-mount/src/mount.c
+--- pam_mount-2.13/src/mount.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/mount.c	2012-10-11 15:28:24.851553965 +0400
+@@ -295,6 +295,7 @@
+ 	dtmp = HXmc_strinit(d);
+ 	if (dtmp == NULL || (!is_file && HXmc_strcat(&dtmp, "/") == NULL)) {
+ 		l0g("HXmc_strinit: %s\n", strerror(errno));
++		HXmc_free(dtmp);
+ 		return false;
+ 	}
+ 
+@@ -350,6 +351,7 @@
+ 		w4rn("chown %s -> %ld:%ld\n", dtmp,
+ 		     static_cast(long, pe->pw_uid),
+ 		     static_cast(long, pe->pw_gid));
++		*last = '/';
+ 	}
+ 	HXmc_free(dtmp);
+ 
+@@ -435,10 +437,11 @@
+ 		ret = proc.p_exited && proc.p_status == 0;
+ 
+  out:
+-	if (config->mkmntpoint && config->rmdir_mntpt && vpt->created_mntpt)
++	if (vpt->created_mntpt && config->rmdir_mntpt)
+ 		if (rmdir(vpt->mountpoint) < 0)
+ 			/* non-fatal, but warn */
+-			w4rn("could not remove %s\n", vpt->mountpoint);
++			w4rn("could not remove %s: %s\n", vpt->mountpoint,
++			     strerror(errno));
+ 	return ret;
+ }
+ 
+@@ -577,9 +580,14 @@
+ 	if (ret < 0)
+ 		goto out;
+ 	ret = ehd_keydec_run(dp, result);
+-	if (ret != EHD_KEYDEC_SUCCESS)
+-		l0g("ehd_keydec_run: %s\n",
+-		    ehd_keydec_strerror(ret));
++	if (ret == EHD_KEYDEC_NODIGEST)
++		l0g("ehd_keydec_run: %s: \"%s\"\n", ehd_keydec_strerror(ret),
++		    vol->fs_key_hash);
++	else if (ret == EHD_KEYDEC_NOCIPHER)
++		l0g("ehd_keydec_run: %s: \"%s\"\n", ehd_keydec_strerror(ret),
++		    vol->fs_key_cipher);
++	else if (ret != EHD_KEYDEC_SUCCESS)
++		l0g("ehd_keydec_run: %s\n", ehd_keydec_strerror(ret));
+  out:
+ 	ehd_kdreq_free(dp);
+ 	return ret;
+@@ -601,7 +609,7 @@
+ 	struct HXdeque *argv;
+ 	struct HXproc proc;
+ 	const char *mount_user;
+-	hxmc_t *ll_password;
++	hxmc_t *ll_password = NULL;
+ 	int ret;
+ 
+ 	assert(vinfo != NULL);
+@@ -642,8 +650,11 @@
+ 		 * any openssl decryption. Without %CMD_CRYPTMOUNT however,
+ 		 * we have to do this ourselves.
+ 		 */
++		w4rn("Not a crypto-type volume. Will decode OpenSSL key.\n");
+ 		ret = pmt_decrypt_keyfile(vpt, password, &ll_password);
+ 	} else {
++		w4rn("This is a crypto-type volume. "
++		     "Key decoding deferred to mount.crypt.\n");
+ 		ll_password = HXmc_strinit(password);
+ 	}
+ 	if (ll_password == NULL)
+@@ -698,7 +709,8 @@
+ 		return 0;
+ 	}
+ 
+-	if (!proc.p_exited || proc.p_status != 0) {
++	if ((!proc.p_exited || proc.p_status != 0) &&
++	    vpt->created_mntpt && config->rmdir_mntpt) {
+ 		/*
+ 		 * Remove mountpoint if mount failed, to flag unavailability
+ 		 * of service (e.g. when mntpt is the user's home directory).
+diff -wbBurN pam_mount-2.13/src/mtab.c pam-mount/src/mtab.c
+--- pam_mount-2.13/src/mtab.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/mtab.c	2012-10-11 15:28:24.851553965 +0400
+@@ -35,6 +35,7 @@
+ #include <libHX/defs.h>
+ #include <libHX/io.h>
+ #include <libHX/string.h>
++#include "cmt-internal.h"
+ #include "libcryptmount.h"
+ #include "pam_mount.h"
+ 
+@@ -191,28 +192,27 @@
+ 	return ret;
+ }
+ 
+-int pmt_cmtab_add(const char *mountpoint, const char *container,
+-    const char *loop_device, const char *crypto_device)
++int pmt_cmtab_add(struct ehd_mount_info *mt)
+ {
++	const char *loop_device, *crypto_device;
+ 	hxmc_t *line;
+ 	int ret;
+ 
+-	if (container == NULL)
++	if (mt->container == NULL)
+ 		return -EINVAL;
+-	if (loop_device == NULL)
+-		loop_device = "-";
+-	if (crypto_device == NULL)
+-		crypto_device = "-";
++	loop_device = (mt->loop_device == NULL) ? "-" : mt->loop_device;
++	crypto_device = (mt->crypto_device == NULL) ? "-" : mt->crypto_device;
+ 
+ 	/* Preallocate just the normal size */
+-	line = HXmc_meminit(NULL, strlen(mountpoint) + strlen(container) +
+-	       strlen(loop_device) + strlen(crypto_device) + 5);
++	line = HXmc_meminit(NULL, strlen(mt->mountpoint) +
++	       strlen(mt->container) + strlen(loop_device) +
++	       strlen(crypto_device) + 5);
+ 	if (line == NULL)
+ 		return -errno;
+ 
+-	mt_esccat(&line, mountpoint);
++	mt_esccat(&line, mt->mountpoint);
+ 	HXmc_strcat(&line, "\t");
+-	mt_esccat(&line, container);
++	mt_esccat(&line, mt->container);
+ 	HXmc_strcat(&line, "\t");
+ 	mt_esccat(&line, loop_device);
+ 	HXmc_strcat(&line, "\t");
+diff -wbBurN pam_mount-2.13/src/mtcrypt.c pam-mount/src/mtcrypt.c
+--- pam_mount-2.13/src/mtcrypt.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/mtcrypt.c	2012-10-11 15:28:24.851553965 +0400
+@@ -44,6 +44,7 @@
+  * @blkdev:		true if @container is a block device
+  * @fsck:		true if fsck should be performed
+  * @remount:		issue a remount
++ * @allow_discards:	allow fs trim requests
+  */
+ struct mount_options {
+ 	hxmc_t *object, *container, *mountpoint;
+@@ -53,11 +54,11 @@
+ 	hxmc_t *fsk_password, *extra_opts, *crypto_device;
+ 	char *loop_device;
+ 	unsigned int no_update, readonly, trunc_keysize;
+-	int dm_timeout;
+ 	bool is_cont;
+ 	bool blkdev;
+ 	bool fsck;
+ 	bool remount;
++	bool allow_discards;
+ };
+ 
+ /**
+@@ -120,9 +121,7 @@
+ 			else if (ret < EHD_SECURITY_UNSPEC)
+ 				fprintf(stderr, "Hash \"%s\" is considered "
+ 				        "insecure.\n", value);
+-		} else if (strcmp(key, "dm-timeout") == 0)
+-			mo->dm_timeout = strtoul(value, NULL, 0);
+-		else if (strcmp(key, "fstype") == 0)
++		} else if (strcmp(key, "fstype") == 0)
+ 			mo->fstype = value;
+ 		else if (strcmp(key, "keyfile") == 0)
+ 			mo->fsk_file = value;
+@@ -165,6 +164,8 @@
+ 			mo->readonly = EHD_LOSETUP_RO;
+ 		else if (strcmp(key, "rw") == 0)
+ 			mo->readonly = EHD_LOSETUP_RW;
++		else if (strcmp(key, "discard") == 0)
++			mo->allow_discards = true;
+ 	}
+ 
+ 	if (*passthru != '\0') {
+@@ -397,6 +398,26 @@
+ 	return ret;
+ }
+ 
++static int mtcr_fsck(struct ehd_mount_request *rq,
++    struct ehd_mount_info *mtinfo)
++{
++	const char *const fsck_args[4] =
++		{"fsck", "-p", mtinfo->crypto_device, NULL};
++	int ret;
++
++	arglist_llog(fsck_args);
++	ret = HXproc_run_sync(fsck_args, HXPROC_VERBOSE);
++	/*
++	 * Return codes higher than 1 indicate that manual intervention
++	 * is required, therefore abort the mount/login.
++	 * Lower than 0: internal error (e.g. fork).
++	 */
++	if (ret != 0 && ret != 1)
++		fprintf(stderr, "Automatic fsck failed, manual intervention "
++		        "required, run_status/exit status %d\n", ret);
++	return ret == 0;
++}
++
+ /**
+  * mtcr_mount
+  *
+@@ -405,8 +426,6 @@
+ static int mtcr_mount(struct mount_options *opt)
+ {
+ 	const char *mount_args[8];
+-	const char *fsck_args[4];
+-	struct stat sb;
+ 	hxmc_t *key = NULL;
+ 	int ret, argk;
+ 	struct ehd_mount_info *mount_info;
+@@ -433,6 +452,10 @@
+ 	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_READONLY, opt->readonly);
+ 	if (ret < 0)
+ 		goto out_r;
++	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_ALLOW_DISCARDS,
++	      opt->allow_discards);
++	if (ret < 0)
++		goto out_r;
+ 	/* Hack for CRYPT_PLAIN: default to 256 */
+ 	trunc_keysize = 256 / CHAR_BIT;
+ 	ret = ehd_mtreq_set(mount_request, EHD_MTREQ_TRUNC_KEYSIZE, trunc_keysize);
+@@ -482,6 +505,12 @@
+ 		if (ret < 0)
+ 			goto out_r;
+ 	}
++	if (opt->fsck) {
++		ret = ehd_mtreq_set(mount_request, EHD_MTREQ_CRYPTO_HOOK,
++		      mtcr_fsck);
++		if (ret < 0)
++			goto out_r;
++	}
+ 
+ 	w4rn("keysize=%u trunc_keysize=%u\n", key_size, trunc_keysize);
+ 	if ((ret = ehd_load(mount_request, &mount_info)) < 0) {
+@@ -490,44 +519,6 @@
+ 	} else if (ret == 0) {
+ 		goto out_z;
+ 	}
+-	if (mount_info->crypto_device == NULL) {
+-		if (mtcr_debug)
+-			fprintf(stderr, "No crypto device assigned\n");
+-		ehd_unload(mount_info);
+-		ehd_mtinfo_free(mount_info);
+-		goto out_z;
+-	}
+-
+-	opt->dm_timeout *= 3;
+-	while (stat(mount_info->crypto_device, &sb) < 0 && errno == ENOENT &&
+-	    opt->dm_timeout-- > 0)
+-		usleep(333333);
+-
+-	if (opt->fsck) {
+-		argk = 0;
+-		fsck_args[argk++] = "fsck";
+-		fsck_args[argk++] = "-p";
+-		fsck_args[argk++] = mount_info->crypto_device;
+-		fsck_args[argk] = NULL;
+-		assert(argk < ARRAY_SIZE(fsck_args));
+-
+-		arglist_llog(fsck_args);
+-		ret = HXproc_run_sync(fsck_args, HXPROC_VERBOSE);
+-
+-		/*
+-		 * Return codes higher than 1 indicate that manual intervention
+-		 * is required, therefore abort the mount/login.
+-		 * Lower than 0: internal error (e.g. fork).
+-		 */
+-		if (ret != 0 && ret != 1) {
+-			fprintf(stderr, "Automatic fsck failed, manual "
+-			        "intervention required, run_sync status %d\n",
+-			        ret);
+-			ehd_unload(mount_info);
+-			ehd_mtinfo_free(mount_info);
+-			goto out_z;
+-		}
+-	}
+ 
+ 	/* candidate for replacement by some libmount calls, I guess. */
+ 	argk = 0;
+@@ -550,19 +541,24 @@
+ 		fprintf(stderr, "mount failed with run_sync status %d\n", ret);
+ 		ehd_unload(mount_info);
+ 		ret = 0;
+-	} else if ((ret = pmt_cmtab_add(opt->mountpoint,
+-	    mount_info->container, mount_info->loop_device,
+-	    mount_info->crypto_device)) <= 0) {
++		goto out_i;
++	}
++	ret = HX_realpath(&mount_info->mountpoint, opt->mountpoint,
++	      HX_REALPATH_DEFAULT | HX_REALPATH_ABSOLUTE);
++	if (ret <= 0)
++		goto out_i;
++	if ((ret = pmt_cmtab_add(mount_info)) <= 0) {
+ 		fprintf(stderr, "pmt_cmtab_add: %s\n", strerror(errno));
+ 		/* ignore error on cmtab - let user have his crypto */
+ 	} else if (opt->no_update) {
+ 		/* awesome logic */;
+ 	} else {
+-		pmt_smtab_add(mount_info->container, opt->mountpoint,
++		pmt_smtab_add(mount_info->container, mount_info->mountpoint,
+ 			"crypt", (opt->extra_opts != NULL) ?
+ 			opt->extra_opts : "defaults");
+ 	}
+ 
++ out_i:
+ 	ehd_mtinfo_free(mount_info);
+ 	return ret;
+ 
+diff -wbBurN pam_mount-2.13/src/pam_mount.c pam-mount/src/pam_mount.c
+--- pam_mount-2.13/src/pam_mount.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/pam_mount.c	2012-10-11 15:28:24.851553965 +0400
+@@ -526,6 +526,20 @@
+ 	return ret;
+ }
+ 
++static void assert_root(void)
++{
++	/*
++	 * I know checking for 0 is rather unflexible, but it does - so far -
++	 * account for all the bugreports involving insufficient permissions.
++	 */
++	if (geteuid() == 0)
++		return;
++	l0g("*** PAM_MOUNT WAS INVOKED WITH INSUFFICIENT PRIVILEGES. (euid=%ld)\n",
++	    static_cast(long, geteuid()));
++	l0g("*** THIS IS A BUG OF THE CALLER. CONSULT YOUR DISTRO.\n");
++	l0g("*** Also see bugs.txt in the pam_mount source tarball/website documentation.\n");
++}
++
+ /**
+  * pam_sm_open_session -
+  * @pamh:	PAM handle
+@@ -589,7 +603,7 @@
+ 		/* There are some volumes, so grab a password. */
+ 		system_authtok = ses_grab_authtok(pamh);
+ 
+-	misc_dump_id("Session open");
++	assert_root();
+ 	envpath_init(Config.path);
+ 	ret = process_volumes(&Config, system_authtok);
+ 
+@@ -690,12 +704,12 @@
+ 		l0g("libHX init failed: %s\n", strerror(errno));
+ 	ret = PAM_SUCCESS;
+ 	w4rn("received order to close things\n");
++	assert_root();
+ 	if (Config.volume_list.items == 0) {
+ 		w4rn("No volumes to umount\n");
+ 		goto out;
+ 	}
+ 
+-	misc_dump_id("Session close");
+ 	/*
+ 	 * call pam_get_user() again because ssh calls PAM fns from seperate
+  	 * processes.
+diff -wbBurN pam_mount-2.13/src/pam_mount.h pam-mount/src/pam_mount.h
+--- pam_mount-2.13/src/pam_mount.h	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/pam_mount.h	2012-10-11 15:28:24.851553965 +0400
+@@ -156,10 +156,9 @@
+ extern void kvplist_genocide(struct HXclist_head *);
+ extern hxmc_t *kvplist_to_str(const struct HXclist_head *);
+ extern void misc_add_ntdom(struct HXformat_map *, const char *);
+-extern void misc_dump_id(const char *);
+-extern int pmt_fileop_exists(const char *);
+-extern int pmt_fileop_isreg(const char *);
+-extern int pmt_fileop_owns(const char *, const char *);
++extern bool pmt_fileop_exists(const char *);
++extern bool pmt_fileop_isreg(const char *);
++extern bool pmt_fileop_owns(const char *, const char *);
+ extern char *relookup_user(const char *);
+ extern long str_to_long(const char *);
+ extern char *xstrdup(const char *);
+@@ -187,13 +186,14 @@
+ 	PMT_BY_CRYPTODEV = 1 << 1,
+ };
+ 
++struct ehd_mount_info;
++
+ extern int pmt_smtab_add(const char *, const char *,
+ 	const char *, const char *);
+ extern int pmt_smtab_remove(const char *, enum smtab_field);
+ extern int pmt_smtab_mounted(const char *, const char *,
+ 	int (*)(const char *, const char *));
+-extern int pmt_cmtab_add(const char *, const char *,
+-	const char *, const char *);
++extern int pmt_cmtab_add(struct ehd_mount_info *);
+ extern int pmt_cmtab_get(const char *, enum cmtab_field,
+ 	char **, char **, char **, char **);
+ extern int pmt_cmtab_remove(const char *);
+diff -wbBurN pam_mount-2.13/src/rdconf1.c pam-mount/src/rdconf1.c
+--- pam_mount-2.13/src/rdconf1.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/rdconf1.c	2012-10-11 15:28:24.851553965 +0400
+@@ -340,6 +340,7 @@
+ 	char options_require[] = "nosuid,nodev";
+ 
+ 	memset(config, 0, sizeof(*config));
++	ehd_logctl(EHD_LOGFT_DEBUG, EHD_LOG_SET);
+ 	config->debug      = true;
+ 	config->mkmntpoint = true;
+ 
+@@ -1355,6 +1356,10 @@
+ }
+ 
+ //-----------------------------------------------------------------------------
++/*
++ * This list has no linear relation to vpt->command. Instead, what is done:
++ *   config->command[default_command[i].type] = <command>
++ */
+ static const struct pmt_command default_command[] = {
+ 	{CMD_SMBMOUNT,   "smbfs", {"smbmount", "%(COMBOPATH)", "%(MNTPT)", "-o", "username=%(USER),uid=%(USERUID),gid=%(USERGID)%(if %(OPTIONS),\",%(OPTIONS)\")", NULL}},
+ 	{CMD_SMBUMOUNT,  "smbfs", {"smbumount", "%(MNTPT)", NULL}},
+@@ -1368,6 +1373,8 @@
+ 	{CMD_NFSMOUNT,    "nfs4"},
+ 	{CMD_LCLMOUNT,    NULL,    {"mount", "-p0", "%(if %(OPTIONS),-o%(OPTIONS))", "-t%(FSTYPE)", "%(VOLUME)", "%(MNTPT)", NULL}},
+ 	{CMD_CRYPTMOUNT,  "crypt", {"mount", "-t", "crypt", "%(if %(CIPHER),-ocipher=%(CIPHER))", "%(if %(FSKEYCIPHER),-ofsk_cipher=%(FSKEYCIPHER))", "%(if %(FSKEYHASH),-ofsk_hash=%(FSKEYHASH))", "%(if %(FSKEYPATH),-okeyfile=%(FSKEYPATH))", "%(if %(OPTIONS),-o%(OPTIONS))", "%(VOLUME)", "%(MNTPT)", NULL}},
++	{CMD_CRYPTMOUNT,  "crypt_LUKS"},
++	{CMD_CRYPTMOUNT,  "crypto_LUKS"},
+ 	{CMD_CRYPTUMOUNT, "crypt", {"umount.crypt", "%(MNTPT)", NULL}},
+ 	{CMD_UMOUNT,     NULL,     {"umount", "%(MNTPT)", NULL}},
+ 	{CMD_FSCK,       NULL,     {"fsck", "-p", "%(FSCKTARGET)", NULL}},
+diff -wbBurN pam_mount-2.13/src/spawn.c pam-mount/src/spawn.c
+--- pam_mount-2.13/src/spawn.c	2011-12-15 16:12:10.000000000 +0400
++++ pam-mount/src/spawn.c	2012-10-11 15:28:24.851553965 +0400
+@@ -6,10 +6,12 @@
+  *	as published by the Free Software Foundation; either version 2.1
+  *	of the License, or (at your option) any later version.
+  */
++#include <errno.h>
+ #include <pthread.h>
+ #include <signal.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#include <string.h>
+ #include <unistd.h>
+ #include <libHX/defs.h>
+ #include <libHX/deque.h>
+@@ -124,9 +126,8 @@
+ 	if (chdir("/") < 0)
+ 		;
+ 	if (user == NULL) {
+-		misc_dump_id("set_myuid<pre>");
+ 		if (setuid(0) < 0) {
+-			l0g("error setting uid to 0\n");
++			l0g("error setting uid to 0: %s\n", strerror(errno));
+ 			return;
+ 		}
+ 	} else {
+@@ -151,7 +152,6 @@
+ 		setenv("HOME", real_user->pw_dir, 1);
+ 		setenv("USER", real_user->pw_name, 1);
+ 	}
+-	misc_dump_id("set_myuid<post>");
+ }
+ 
+ const struct HXproc_ops pmt_dropprivs_ops = {
