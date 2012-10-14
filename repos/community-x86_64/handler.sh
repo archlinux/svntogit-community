@@ -1,12 +1,6 @@
 #!/bin/bash
 # Default acpi script that takes an entry for all actions
 
-minspeed=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq)
-maxspeed=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq)
-setspeed='/sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed'
-
-set $*
-
 case "$1" in
     button/power)
         case "$2" in
