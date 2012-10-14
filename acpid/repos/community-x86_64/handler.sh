@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 # Default acpi script that takes an entry for all actions
 
-minspeed=`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq`
-maxspeed=`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq`
-setspeed="/sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed"
+minspeed=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq)
+maxspeed=$(cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq)
+setspeed='/sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed'
 
 set $*
 
@@ -11,8 +11,7 @@ case "$1" in
     button/power)
         case "$2" in
             PBTN|PWRF)
-                logger "PowerButton pressed: $2"
-                poweroff
+                logger 'PowerButton pressed'
                 ;;
             *)
                 logger "ACPI action undefined: $2"
@@ -22,7 +21,7 @@ case "$1" in
     button/sleep)
         case "$2" in
             SLPB|SBTN)
-                echo -n mem >/sys/power/state
+                logger 'SleepButton pressed'
                 ;;
             *)
                 logger "ACPI action undefined: $2"
@@ -34,12 +33,10 @@ case "$1" in
             AC|ACAD|ADP0)
                 case "$4" in
                     00000000)
-                        echo -n $minspeed >$setspeed
-                        #/etc/laptop-mode/laptop-mode start
+                        logger 'AC unpluged'
                         ;;
                     00000001)
-                        echo -n $maxspeed >$setspeed
-                        #/etc/laptop-mode/laptop-mode stop
+                        logger 'AC pluged'
                         ;;
                 esac
                 ;;
