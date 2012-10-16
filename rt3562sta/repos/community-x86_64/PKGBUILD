@@ -4,12 +4,12 @@
 
 pkgname=rt3562sta
 pkgver=2.4.1.1
-pkgrel=17
+pkgrel=18
 pkgdesc="Ralink RT3562 PCI WLAN adaptors kernel module"
 arch=(i686 x86_64)
 url="http://www.mediatek.com/en/Products/support.php?sn=501"
 license=('GPL')
-depends=('linux>=3.6' 'linux<3.7')
+depends=('linux')
 makedepends=('linux-headers')
 install=$pkgname.install
 source=(
@@ -24,10 +24,10 @@ source=(
 	$pkgname-$pkgver-remove_date_time.patch
 )
 
-_extramodules=extramodules-3.6-ARCH
-_kernver="$(cat /usr/lib/modules/$_extramodules/version || true)"
-
 build() {
+	_kernver=$(pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -)
+	KERNEL_RELEASE=$(cat /usr/lib/modules/extramodules-3.$_kernver-ARCH/version)
+
 	cd "$srcdir/DPO_RT3562_3592_3062_LinuxSTA_V2.4.1.1_20101217"
 	patch -p0 -i "$srcdir/$pkgname-$pkgver-config.patch"
 	[ "$CARCH" == "x86_64" ] && patch -p0 -i "$srcdir/$pkgname-$pkgver-gcc-warnings-x86_64.patch"
@@ -52,20 +52,26 @@ build() {
 	export EXTRA_CFLAGS="-DVERSION=$pkgver"
 
 	# this Makefile is far too strict...
-	echo "LINUX_SRC = /usr/lib/modules/$_kernver/build" >> Makefile
+	echo "LINUX_SRC = /usr/lib/modules/$KERNEL_RELEASE/build" >> Makefile
 
 	make
 }
 
 package() {
+	_kernver=$(pacman -Q linux | cut -d . -f 2 | cut -f 1 -d -)
+	depends=("linux>=3.${_kernver}" "linux<3.$(expr ${_kernver} + 1)")
+	KERNEL_VERSION=$(cat /usr/lib/modules/extramodules-3.$_kernver-ARCH/version)
+	msg "Kernel = $KERNEL_VERSION"
+
 	cd "$srcdir/DPO_RT3562_3592_3062_LinuxSTA_V2.4.1.1_20101217"
 
 	install -Dm 0640 RT3562STA.dat "$pkgdir/etc/Wireless/RT3562STA/RT3562STA.dat"
-	install -Dm 0644 os/linux/$pkgname.ko "$pkgdir/usr/lib/modules/$_extramodules/$pkgname.ko"
+	install -Dm 0644 os/linux/$pkgname.ko "$pkgdir/usr/lib/modules/extramodules-3.$_kernver-ARCH/$pkgname.ko"
 	install -dm 0755 "$pkgdir/usr/share/doc/$pkgname"
 	install -m 0644 iwpriv_usage.txt README* RT3562STA* sta_ate_iwpriv_usage.txt "$pkgdir/usr/share/doc/$pkgname"
 
 	find "$pkgdir" -name '*.ko' -exec gzip -9 {} \;
+	sed -i "s|extramodules-.*-ARCH|extramodules-3.$_kernver-ARCH|" "$startdir/$pkgname.install"
 }
 
 sha256sums=('71cd27784009894198f03470ec88e77f2cd176bf5f8d93b4dd984d3a3e543d5a'
