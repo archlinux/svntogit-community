@@ -5,7 +5,7 @@
 
 pkgname=('python-pytz' 'python2-pytz')
 pkgver=2012d
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
@@ -14,23 +14,28 @@ source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.bz2{,.asc
 md5sums=('040e9733a1875055bd8c123686ca63ac'
          '1e50cdb12d876ef703e2427774a57abc')
 
+check(){
+    cd $srcdir/pytz-$pkgver/pytz/tests
+
+    python3 test_tzinfo.py
+
+    python2 test_tzinfo.py
+
+}
+
 package_python-pytz(){
     depends=('python')
     pkgdesc="Cross platform time zone library for Python"
 
     cd $srcdir/pytz-$pkgver
 
-    python setup.py install --root=$pkgdir/
+    python3 setup.py install --root=$pkgdir/
+
+
 
     install -D LICENSE.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
-check(){
-    cd $srcdir/pytz-$pkgver/pytz/tests
-    python test_tzinfo.py
-    python2 test_tzinfo.py
-
-}
 
 package_python2-pytz(){
     depends=('python2')
