@@ -1,0 +1,52 @@
+# $Id$
+# Maintainer: Jonathan Conder <jonno.conder@gmail.com>
+
+_pkgname=gnome-settings-daemon
+pkgname=$_pkgname-updates
+pkgver=3.6.1
+pkgrel=1
+pkgdesc="Updates plugin for the GNOME Settings daemon"
+arch=('i686' 'x86_64')
+license=('GPL')
+depends=('gnome-packagekit' "$_pkgname")
+makedepends=('intltool' 'gtk-doc' 'gnome-desktop' 'gnome-common' 'xf86-input-wacom')
+options=('!emptydirs' '!libtool')
+install=$_pkgname.install
+url="http://www.gnome.org"
+source=("http://ftp.gnome.org/pub/gnome/sources/$_pkgname/${pkgver%.*}/$_pkgname-$pkgver.tar.xz"
+        'screensaver.patch'
+        '0001-power-and-media-keys-Use-logind-for-suspending-and-r.patch'
+        'arch.patch')
+sha256sums=('1fe96e0709d7c618d90cc1bfcddc46eede3c2cdb305f5e7f4cb388d43dd5526a'
+            'd2c32fa0262e4d0e97fc07fb631ad2627b4f2ae273e2cb3028236d9725711880'
+            'f23db348593f58da755889928d7fa75817479d9ad5be67cc7a2f8cbc5db23632'
+            '32f18a02698bb24aa8ae293eb7bf74a8261e3ce2c5149d259a87bd14500089ea')
+
+build() {
+  cd "$srcdir/$_pkgname-$pkgver"
+
+  patch -Np1 -i "$srcdir/screensaver.patch"
+  patch -Np1 -i "$srcdir/0001-power-and-media-keys-Use-logind-for-suspending-and-r.patch"
+  patch -Np1 -i "$srcdir/arch.patch"
+
+  aclocal
+  automake
+  ./configure --prefix=/usr \
+              --sysconfdir=/etc \
+              --localstatedir=/var \
+              --libexecdir=/usr/lib/gnome-settings-daemon \
+              --disable-static \
+              --enable-systemd
+
+  #https://bugzilla.gnome.org/show_bug.cgi?id=656231
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make -s
+}
+
+package() {
+  cd "$srcdir/$_pkgname-$pkgver"
+  make -C 'plugins/updates' DESTDIR="${pkgdir}" install
+
+  _schema='org.gnome.settings-daemon.plugins.updates.gschema.xml'
+  install -D -m644 "data/$_schema" "$pkgdir/usr/share/glib-2.0/schemas/$_schema"
+}
