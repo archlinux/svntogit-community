@@ -4,7 +4,7 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.7.0
+pkgver=0.7.1
 pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
@@ -13,7 +13,7 @@ conflicts=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 replaces=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 license=('MIT')
 source=(http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-$pkgver/bitcoin-$pkgver-linux.tar.gz)
-sha256sums=('4b7a44fec28cbd9194a1303dd65bba8f13aa2facd4e06e4a3d1df6d66bc1deb5')
+sha256sums=('431d28cedc76999131fcb34fd7fac2be72e8fa0d0817f1af025569cb3dff7c55')
 
 build() {
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
