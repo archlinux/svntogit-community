@@ -1,11 +1,13 @@
 # $Id$
+# Maintainer: Alexander Rødseth <rodseth@gmail.com>
 # Contributor: phrakture <aaronmgriffin--gmail--com>
 # Contributor: Fazlul Shahriar
 # Contributor: Chris Brannon <cmbrannon79@gmail.com>
+
 pkgname=plan9port
-pkgver=20120715
+pkgver=20121022
 pkgrel=1
-pkgdesc='Port of many programs from Plan 9 to Unix-like operating systems'
+pkgdesc='Port of many programs from Plan 9'
 arch=('i686' 'x86_64')
 url="http://swtch.com/plan9port/"
 license=('custom')
@@ -14,17 +16,28 @@ optdepends=('python2: for the codereview script')
 provides=('plan9')
 install=plan9.install
 source=(http://swtch.com/$pkgname/$pkgname-$pkgver.tgz plan9.sh)
+sha256sums=('1293b5d2e46d0d6f7be2adbdb285ce278a25c77e88b5cd7c230e16a47d0f8638'
+            '0247c4446497359d305aaec069b07180fbf79ce4fa5191464cd9ebb8c7f0228d')
 
-build()
-{
-  install -Dm755 "$srcdir/plan9.sh" "$pkgdir/etc/profile.d/plan9.sh" || return 1
+build() {
+  cd "$srcdir/plan9"
 
-  install -dm755 "$pkgdir/opt" "$pkgdir/usr/share/doc/$pkgname" || return 1
-  mv "$srcdir/plan9" "$pkgdir/opt"
+  ./INSTALL -b
+}
 
+package() {
+  cd "$srcdir/plan9"
+
+  install -Dm755 ../plan9.sh $pkgdir/etc/profile.d/plan9.sh
+
+  mkdir -p "$pkgdir/opt"
+  cp -r $srcdir/plan9 $pkgdir/opt/
+
+  mkdir -p $pkgdir/usr/share/doc/$pkgname
   cd "$pkgdir/opt/plan9"
-  ./INSTALL || return 1
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE" || return 1
+  ./INSTALL -c -r "$pkgdir/opt/plan9"
+
+  install -Dm644 LICENSE $pkgdir/usr/share/licenses/$pkgname/LICENSE
 
   # Don't need these under /opt/plan9.
   rm -rf .hg/
@@ -33,21 +46,18 @@ build()
   rm -f config install.log install.sum install.txt configure Makefile INSTALL \
     LICENSE
 
-  borkedfiles=`grep -r "$pkgdir"/opt/plan9 * | grep -v Binary | cut -d\: -f1`
-  for f in $borkedfiles; do
-    echo "fixing hardcoded paths in $f"
-    sed -i "s@$pkgdir/opt/plan9@/opt/plan9@" $f || return 1
+  msg2 "Fixing hardcoded paths..."
+  for f in `grep -H -r "$pkgdir/opt/plan9" | cut -d: -f1`; do
+    echo -n "\t$f"
+    [ -e "$f" ] && sed -i "s:$pkgdir/opt/plan9:/opt/plan9:" "$f" || true
   done
 
   find "$pkgdir" -name '*.py' -print0 |xargs -0 \
-    sed -i -e 's,^#!/usr/bin/env python$,#!/usr/bin/env python2,' \
+    sed -i -e 's,^#!/usr/bin/env python$,#!/usr/bin/python2,' \
     -e 's,^#!/usr/bin/python$,#!/usr/bin/python2,'
 
-  for i in CHANGES CONTRIBUTORS README TODO
-    do
-    install -m644 $i "$pkgdir/usr/share/doc/$pkgname" || return 1
+  for i in CHANGES CONTRIBUTORS README TODO; do
+    install -m644 $i "$pkgdir/usr/share/doc/$pkgname"
     rm -f $i
   done
 }
-md5sums=('1e0698aa5f652a1a47227be2b25fa8fd'
-         '9695eb15a247e23140e8a35ff52a5c20')
