@@ -5,7 +5,7 @@
 pkgname=virt-manager
 pkgver=0.9.4
 pkgrel=1
-pkgdesc="Desktop user interface for managing virtual machines"
+pkgdesc='Desktop user interface for managing virtual machines'
 arch=('any')
 url="http://virt-manager.et.redhat.com"
 license=('GPL')
