@@ -77,7 +77,7 @@ build() {
 }
 
 package_perf() {
-pkgdesc='Linux kernel performance auditing tool'
+  pkgdesc='Linux kernel performance auditing tool'
   depends=('perl' 'python2' 'libnewt' 'elfutils')
 
   cd linux-$pkgver/tools/perf
@@ -92,7 +92,7 @@ pkgdesc='Linux kernel performance auditing tool'
 }
 
 package_cpupower() {
-pkgdesc='Linux kernel tool to examine and tune power saving related features of your processor'
+  pkgdesc='Linux kernel tool to examine and tune power saving related features of your processor'
   backup=('etc/conf.d/cpupower')
   depends=('bash' 'pciutils')
   conflicts=('cpufrequtils')
@@ -113,7 +113,7 @@ pkgdesc='Linux kernel tool to examine and tune power saving related features of 
 }
 
 package_x86_energy_perf_policy() {
-pkgdesc='Read or write MSR_IA32_ENERGY_PERF_BIAS'
+  pkgdesc='Read or write MSR_IA32_ENERGY_PERF_BIAS'
   depends=('glibc')
 
   cd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
@@ -122,7 +122,7 @@ pkgdesc='Read or write MSR_IA32_ENERGY_PERF_BIAS'
 }
 
 package_usbip() {
-pkgdesc='USB device sharing system over IP network'
+  pkgdesc='An USB device sharing system over IP network'
   depends=('glib2' 'sysfsutils')
   options=('!libtool')
 

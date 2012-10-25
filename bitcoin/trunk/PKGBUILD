@@ -28,7 +28,7 @@ build() {
 
 
 package_bitcoin-qt() {
-pkgdesc='Peer-to-peer network based digital currency - QT'
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - QT"
   depends=(boost-libs qt miniupnpc)
   install=bitcoin-qt.install
 
@@ -43,7 +43,7 @@ pkgdesc='Peer-to-peer network based digital currency - QT'
 }
 
 package_bitcoin-daemon() {
-pkgdesc='Peer-to-peer network based digital currency - daemon'
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - daemon"
   depends=(boost-libs miniupnpc openssl)
 
   cd "$srcdir/$pkgbase-$pkgver-linux/src"

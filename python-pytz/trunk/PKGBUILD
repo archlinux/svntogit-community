@@ -25,7 +25,7 @@ check(){
 
 package_python-pytz(){
     depends=('python')
-pkgdesc='Cross platform time zone library for Python'
+    pkgdesc="Cross platform time zone library for Python"
 
     cd $srcdir/pytz-$pkgver
 
@@ -39,7 +39,7 @@ pkgdesc='Cross platform time zone library for Python'
 
 package_python2-pytz(){
     depends=('python2')
-pkgdesc='Cross platform time zone library for Python'
+    pkgdesc="Cross platform time zone library for Python"
 
     cd $srcdir/pytz-$pkgver
 
