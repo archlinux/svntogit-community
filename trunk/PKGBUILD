@@ -37,6 +37,12 @@ package() {
   ./cudatoolkit_${pkgver}_linux_${_arch}_fedora16.run -prefix=$pkgdir/opt/cuda -noprompt
   ./cuda-samples_${pkgver}_linux.run -cudaprefix=$pkgdir/opt/cuda -prefix=$pkgdir/opt/cuda/samples -noprompt
 
+  # allow gcc 4.7 to work
+  sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
+
+  # fix nvidia path fuckup
+  sed -i "s|/build/pkg||g" $pkgdir/opt/cuda/bin/nvvp
+
   install -Dm755 cuda.sh $pkgdir/etc/profile.d/cuda.sh
   install -Dm644 cuda.conf $pkgdir/etc/ld.so.conf.d/cuda.conf
 
