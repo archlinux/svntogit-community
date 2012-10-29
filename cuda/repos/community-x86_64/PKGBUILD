@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=5.0.35
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('i686' 'x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -14,17 +14,17 @@ optdepends=('gdb: for cuda-gdb')
 options=(!strip)
 if [ "$CARCH" = "i686" ]; then
   _arch=32
-  md5sums=('eeae7f67ba6b3513d5676885b74ea1db'
+  md5sums=('40c514acb750902c54656b97a6deded6'
            '7e5990e03eea90075f5a500e91a0c3d3'
            'c0781c63e726eaf03e10135b42b85729')
 else
   _arch=64
-  md5sums=('0ffd4b374c9974b1045ef58839dfea7c'
+  md5sums=('df796fb9ab66075b5c346b3fd0bf596b'
            '7e5990e03eea90075f5a500e91a0c3d3'
            'c0781c63e726eaf03e10135b42b85729')
 fi
 install=cuda.install
-source=(http://developer.download.nvidia.com/compute/cuda/5_0/rel/installers/cuda_${pkgver}_linux_${_arch}_fedora16.run
+source=(http://developer.download.nvidia.com/compute/cuda/5_0/rel-update-1/installers/cuda_${pkgver}_linux_${_arch}_fedora16-1.run
         cuda.sh
         cuda.conf)
 
@@ -33,7 +33,7 @@ build() {
 }
 
 package() {
-  sh cuda_${pkgver}_linux_${_arch}_fedora16.run -toolkitpath=$PWD -samplespath=$PWD -extract=$srcdir
+  sh cuda_${pkgver}_linux_${_arch}_fedora16-1.run -toolkitpath=$PWD -samplespath=$PWD -extract=$srcdir
   ./cudatoolkit_${pkgver}_linux_${_arch}_fedora16.run -prefix=$pkgdir/opt/cuda -noprompt
   ./cuda-samples_${pkgver}_linux.run -cudaprefix=$pkgdir/opt/cuda -prefix=$pkgdir/opt/cuda/samples -noprompt
 
