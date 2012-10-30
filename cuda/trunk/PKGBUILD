@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=5.0.35
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('i686' 'x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -16,12 +16,12 @@ if [ "$CARCH" = "i686" ]; then
   _arch=32
   md5sums=('40c514acb750902c54656b97a6deded6'
            '7e5990e03eea90075f5a500e91a0c3d3'
-           'c0781c63e726eaf03e10135b42b85729')
+           'ffe1e6fb7f97b23da28fd94a5fd7356d')
 else
   _arch=64
   md5sums=('df796fb9ab66075b5c346b3fd0bf596b'
            '7e5990e03eea90075f5a500e91a0c3d3'
-           'c0781c63e726eaf03e10135b42b85729')
+           'ffe1e6fb7f97b23da28fd94a5fd7356d')
 fi
 install=cuda.install
 source=(http://developer.download.nvidia.com/compute/cuda/5_0/rel-update-1/installers/cuda_${pkgver}_linux_${_arch}_fedora16-1.run
@@ -42,13 +42,18 @@ package() {
 
   # fix nvidia path fuckup
   sed -i "s|/build/pkg||g" $pkgdir/opt/cuda/bin/nvvp
+  sed -i "s|/build/pkg||g" $pkgdir/opt/cuda/bin/nsight
 
-  install -Dm755 cuda.sh $pkgdir/etc/profile.d/cuda.sh
-  install -Dm644 cuda.conf $pkgdir/etc/ld.so.conf.d/cuda.conf
-
+  install -Dm755 $srcdir/cuda.sh $pkgdir/etc/profile.d/cuda.sh
+  install -Dm644 $srcdir/cuda.conf $pkgdir/etc/ld.so.conf.d/cuda.conf
   install -Dm644 $pkgdir/opt/cuda/doc/EULA.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
 
   # correct cuda path in samples
   cd $pkgdir/opt/cuda/samples
   find . -type f | egrep -v '(ppm|pgm)' | xargs grep -lI "$pkgdir/opt/cuda" | xargs sed -i "s|$pkgdir/opt/cuda|/opt/cuda|g"
+
+  # make cuda-gdk work
+  mkdir -p $pkgdir/usr/lib
+  cd $pkgdir/usr/lib
+  ln -s /usr/lib/libncurses.so.5 libtinfo.so.5
 }
