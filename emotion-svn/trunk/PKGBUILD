@@ -1,8 +1,9 @@
-# $Id: PKGBUILD 70361 2012-05-05 07:40:39Z rvanharen $
-# Maintainer: Ronald van Haren <ronald.archlinux.org>
+# $Id: $
+# Maintainer: Ronald van Haren <ronald@archlinux.org>
+# Contributor: Gustavo Sverzut Barbieri <barbieri@gmail.com>
 
 pkgname=emotion-svn
-pkgver=76438
+pkgver=78409
 pkgrel=1
 pkgdesc="Library to easily integrate media playback into EFL applications"
 arch=('i686' 'x86_64')
@@ -13,7 +14,7 @@ depends=('gstreamer0.10' 'edje-svn' 'eeze-svn')
 makedepends=('subversion')
 conflicts=('emotion')
 provides=('emotion')
-options=(!libtool)
+options=('!libtool' '!emptydirs')
 source=()
 md5sums=()
 
@@ -21,33 +22,48 @@ _svntrunk="http://svn.enlightenment.org/svn/e/trunk/emotion"
 _svnmod="emotion"
 
 build() {
-   cd $srcdir
+  cd $srcdir
 
-msg "Connecting to $_svntrunk SVN server...."
-  if [ -d $_svnmod/.svn ]; then
-    (cd $_svnmod && svn up -r $pkgver)
-  else
-    svn co $_svntrunk --config-dir ./ -r $pkgver $_svnmod
+  if [ $NOEXTRACT -eq 0 ]; then
+    msg "Connecting to $_svntrunk SVN server...."
+    if [ -d $_svnmod/.svn ]; then
+      (cd $_svnmod && svn up -r $pkgver)
+    else
+      svn co $_svntrunk --config-dir ./ -r $pkgver $_svnmod
+    fi
+
+    msg "SVN checkout done or server timeout"
+    msg "Starting make..."
+
   fi
-
-  msg "SVN checkout done or server timeout"
-  msg "Starting make..."
 
   cp -r $_svnmod $_svnmod-build
   cd $_svnmod-build
 
-  ./autogen.sh --prefix=/usr
+  export CFLAGS="-fvisibility=hidden -ffunction-sections -fdata-sections ${CFLAGS}"
+  export CXXFLAGS="-fvisibility=hidden -ffunction-sections -fdata-sections ${CXXFLAGS}"
+  export LDFLAGS="-fvisibility=hidden -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,--as-needed  ${LDFLAGS}"
+
+  ./autogen.sh \
+    --prefix=/usr \
+    --disable-static \
+    --enable-generic \
+    --enable-gstreamer \
+    --disable-generic-vlc \
+    --disable-xine \
+    --disable-install-examples \
+    --disable-doc
   make
 }
 
 package(){
-  cd $_svnmod-build
+  cd $srcdir/$_svnmod-build
   make DESTDIR=$pkgdir install
-  
-  # install license files
+
+# install license files
   install -Dm644 $srcdir/$_svnmod-build/COPYING \
-  	$pkgdir/usr/share/licenses/$pkgname/COPYING
-  
+        $pkgdir/usr/share/licenses/$pkgname/COPYING
+
   rm -r $srcdir/$_svnmod-build
 
 }
