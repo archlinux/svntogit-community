@@ -1,14 +1,15 @@
 # $Id$
-# Maintainer: Jan de Groot <jgc@archlinux.org>
+# Maintainer: Alexander Rødseth <rodseth@gmail.com>
+# Contributor: Jan de Groot <jgc@archlinux.org>
 
 pkgname=pdns
-pkgver=2.9.22.6
+pkgver=3.1
 pkgrel=1
-pkgdesc="A modern, advanced and high performance authoritative-only nameserver"
-arch=('i686' 'x86_64')
-url="http://www.powerdns.com"
+pkgdesc="Modern, advanced and high performance authoritative-only nameserver"
+arch=('x86_64' 'i686')
+url='http://www.powerdns.com/'
 license=('GPL')
-depends=('gcc-libs' 'zlib' 'postgresql-libs' 'libmysqlclient' 'sqlite' 'libldap')
+depends=('gcc-libs' 'zlib' 'postgresql-libs' 'libmysqlclient' 'sqlite' 'libldap' 'lua' 'boost-libs')
 makedepends=('boost')
 provides=('pdns-ldap' 'pdns-mysql' 'pdns-sqlite' 'pdns-pgsql')
 replaces=('pdns-ldap' 'pdns-mysql' 'pdns-sqlite' 'pdns-pgsql')
@@ -16,28 +17,27 @@ conflicts=('pdns-ldap' 'pdns-mysql' 'pdns-sqlite' 'pdns-pgsql')
 install=pdns.install
 options=('!makeflags' '!libtool')
 backup=('etc/powerdns/pdns.conf')
-source=("http://downloads.powerdns.com/releases/${pkgname}-${pkgver}.tar.gz"
-        '2.9.18-default-mysql-options.patch'
-        'pdns-2.9.22-gcc44.patch'
+source=("http://downloads.powerdns.com/releases/$pkgname-$pkgver.tar.gz"
+        'pdns.service'
         'pdns.rc'
         'pdns.conf')
-md5sums=('ff97ba980b322adb61c3e9c9e9c4adef'
-         '90fb32e843326d14359c508cef855929'
-         '530642273005bdabae27792098834ea6'
-         '16e2d32e9781be7afa8f1700740bcdb0'
-         'a390ab49c4fcde205629be33bddc2e6c')
+sha256sums=('1400f7bd659207c0b1f4b8296092e559a7b7bf6a2434951970217d9af06922a1'
+            '2a60c4407bcfe19026ae77d3e3b7b477d5a0c6323c0bc78892e9d907003b442a'
+            '0457ffa2baa40518a03393e4f76964d9452c16aebbcb925582814f88367d62c2'
+            'e3de30584436a063cdff4b4ca77044da06a0737fc333847b3da89370cf763c0c')
 
 build() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
-  patch -p1 -i "${srcdir}/2.9.18-default-mysql-options.patch"
-  patch -p1 -i "${srcdir}/pdns-2.9.22-gcc44.patch"
+  cd "$srcdir/$pkgname-$pkgver"
+
   touch AUTHORS NEWS
   libtoolize --force --copy
   aclocal
   autoconf
   automake --add-missing
+  sed -i 's/BOOST/#BOOST/g' configure
   ./configure --prefix=/usr \
     --sysconfdir=/etc/powerdns \
+    --with-boost \
     --libexecdir=/usr/lib \
     --libdir=/usr/lib/powerdns \
     --mandir=/usr/share/man \
@@ -45,14 +45,20 @@ build() {
     --with-dynmodules="ldap pipe gmysql gpgsql gsqlite3 geo" \
     --disable-recursor \
     --disable-static
-  make
+  make \
+    CXXFLAGS="-lboost_graph_parallel -lboost_serialization -lboost_program_options $CXXFLAGS"
 }
 
 package() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
-  make DESTDIR="${pkgdir}" install
-  install -m755 -d "${pkgdir}/etc/rc.d"
-  rm "${pkgdir}/etc/powerdns/pdns.conf-dist"
-  install -m644 "${srcdir}/pdns.conf" "${pkgdir}/etc/powerdns/"
-  install -m755 "${srcdir}/pdns.rc" "${pkgdir}/etc/rc.d/pdns"
+  cd "$srcdir/$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+  install -m755 -d "$pkgdir/etc/rc.d"
+  rm "$pkgdir/etc/powerdns/pdns.conf-dist"
+  install -m644 "$srcdir/pdns.conf" "$pkgdir/etc/powerdns/"
+  install -m755 "$srcdir/pdns.rc" "$pkgdir/etc/rc.d/pdns"
+  install -Dm644 "$srcdir/pdns.service" \
+    "$pkgdir/usr/lib/systemd/system/pdns.service"
 }
+
+# vim:set ts=2 sw=2 et:
