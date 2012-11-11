@@ -1,30 +1,78 @@
 # $Id$
-# Maintainer: Thomas Dziedzic < gostrc at gmail >
+# Maintainer: Felix Yan <felixonmars@gmail.com>
+# Contributor: Thomas Dziedzic < gostrc at gmail >
 
-pkgname=sunpinyin
-pkgver=2.0.3
-pkgrel=2
-pkgdesc="Statistical Language Model based pinyin IME by Sun"
+pkgname=('sunpinyin' 'sunpinyin-data')
+pkgbase=sunpinyin
+pkgver=2.0.3.20121107
+_commit=cf3fe3d7aa5bb7aa6aa5b870a759af468b6d5b2b
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://sunpinyin.googlecode.com"
-license=('LGPL')
-depends=('sqlite3' 'gcc-libs')
-makedepends=('scons')
-source=("http://sunpinyin.googlecode.com/files/sunpinyin-${pkgver}.tar.gz")
-md5sums=('bc1cd4d7d48a73276dfe4c9f5a434cc7')
+license=('LGPL' 'APACHE')
+makedepends=('git' 'scons' 'intltool')
+source=('http://open-gram.googlecode.com/files/lm_sc.t3g.arpa-20121025.tar.bz2'
+        'http://open-gram.googlecode.com/files/dict.utf8-20120830.tar.bz2')
+
+__gitroot=git://github.com/sunpinyin/sunpinyin.git
+__gitname=$pkgname
 
 build() {
-  cd sunpinyin-${pkgver}
+  cd "$srcdir"
+  msg "Connecting to GIT server...."
+
+  if [ -d $__gitname ] ; then
+    cd $__gitname && git pull origin
+    msg "The local files are updated."
+  else
+    git clone $__gitroot
+  fi
+
+  msg "GIT checkout done or server timeout"
+  msg "Starting make..."
+
+  rm -rf "$srcdir/$__gitname-build"
+  git clone "$srcdir/$__gitname" "$srcdir/$__gitname-build"
+  cd "$srcdir/$__gitname-build"
+  git checkout "$_commit"
+
+  # Build sunpinyin
+  sed -i -e "1s|python|python2|" python/*.py python/importer/*.py
 
   scons \
     --prefix=/usr
+
+  # Build sunpinyin-data
+  mkdir -p "$srcdir/$__gitname-build/raw"
+  ln -sf "$srcdir/lm_sc.t3g.arpa" "$srcdir/$__gitname-build/raw/lm_sc.t3g.arpa"
+  ln -sf "$srcdir/dict.utf8" "$srcdir/$__gitname-build/raw/dict.utf8"
+
+  ln -sf "$srcdir/$__gitname-build/doc/SLM-inst.mk" "$srcdir/$__gitname-build/raw/Makefile"
+  cd "$srcdir/$__gitname-build/raw"
+  PATH="$srcdir/$__gitname-build/src:$PATH"
+  make
 }
 
-package() {
-  cd sunpinyin-${pkgver}
+package_sunpinyin() {
+  pkgdesc="Statistical Language Model based pinyin IME by Sun"
+  depends=('sqlite' 'make' 'gcc-libs' "sunpinyin-data")
+  arch=('i686' 'x86_64')
+  cd "$srcdir/$__gitname-build"
 
   scons \
     --prefix=/usr \
-    --install-sandbox=${pkgdir} \
+    --install-sandbox="$pkgdir" \
     install
 }
+
+package_sunpinyin-data() {
+  pkgver=2.0.3.20121025
+  pkgdesc="Statistical Language Model based pinyin IME by Sun - Data files"
+  depends=("sunpinyin")
+  arch=('any')
+  cd "$srcdir/$__gitname-build/raw"
+  make DESTDIR="$pkgdir" install
+}
+
+md5sums=('0586241ca33359ad176c842c90bf563e'
+         '52b9a47861bef707f65b682d52e8117f')
