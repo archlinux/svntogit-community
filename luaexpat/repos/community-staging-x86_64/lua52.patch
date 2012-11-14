@@ -1,0 +1,372 @@
+diff -wbBur luaexpat-1.2.0/config lua-expat-b4e6b167e020/config
+--- luaexpat-1.2.0/config	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/config	2012-07-28 04:59:45.000000000 +0400
+@@ -17,8 +17,7 @@
+ # (according to Lua 5.1 definition:
+ # first version digit * 100 + second version digit
+ # e.g. Lua 5.0.2 => 500, Lua 5.1 => 501, Lua 5.1.1 => 501)
+-LUA_VERSION_NUM= 500
+-COMPAT_DIR= ../compat/src
++LUA_VERSION_NUM= 502
+ 
+ # Compilation parameters
+ CWARNS = -Wall -pedantic \
+@@ -31,6 +30,6 @@
+         -Wshadow \
+         -Wwrite-strings
+ 
+-CFLAGS = $(CWARNS) -ansi -O2 -I$(LUA_INC) \
+-   -I$(COMPAT_DIR) -I$(EXPAT_INC)
++CFLAGS = $(CWARNS) -ansi -O2 -fPIC -I$(LUA_INC) \
++   -I$(EXPAT_INC)
+ CC = gcc
+diff -wbBur luaexpat-1.2.0/.hg_archival.txt lua-expat-b4e6b167e020/.hg_archival.txt
+--- luaexpat-1.2.0/.hg_archival.txt	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/.hg_archival.txt	2012-07-28 04:59:45.000000000 +0400
+@@ -1,4 +1,5 @@
+ repo: 24d141cb2d1e66a1bb42b445f049fcc037972f2b
+-node: 30c2491fe44a485caf2dd24643052670c91b91e3
++node: b4e6b167e020ba1bd9402acd0a142ef6e91d912a
+ branch: default
+-tag: 1.2.0
++latesttag: 1.2.0
++latesttagdistance: 7
+diff -wbBur luaexpat-1.2.0/makefile lua-expat-b4e6b167e020/makefile
+--- luaexpat-1.2.0/makefile	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/makefile	2012-07-28 04:59:45.000000000 +0400
+@@ -1,22 +1,15 @@
+ T= lxp
+-V= 1.2.0
++V= 1.3.0
+ CONFIG= ./config
+ 
+ include $(CONFIG)
+ 
+-ifeq "$(LUA_VERSION_NUM)" "500"
+-COMPAT_O= $(COMPAT_DIR)/compat-5.1.o
+-endif
+-
+-OBJS= src/lxplib.o $(COMPAT_O)
++OBJS= src/lxplib.o
+ lib: src/$(LIBNAME)
+ 
+ src/$(LIBNAME) : $(OBJS)
+ 	export MACOSX_DEPLOYMENT_TARGET="10.3"; $(CC) -o src/$(LIBNAME) $(LIB_OPTION) $(OBJS) -lexpat
+ 
+-$(COMPAT_DIR)/compat-5.1.o: $(COMPAT_DIR)/compat-5.1.c
+-	$(CC) -c $(CFLAGS) -o $@ $(COMPAT_DIR)/compat-5.1.c
+-
+ install:
+ 	mkdir -p $(LUA_LIBDIR)
+ 	cp src/$(LIBNAME) $(LUA_LIBDIR)
+diff -wbBur luaexpat-1.2.0/README lua-expat-b4e6b167e020/README
+--- luaexpat-1.2.0/README	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/README	2012-07-28 04:59:45.000000000 +0400
+@@ -47,11 +47,11 @@
+ 
+ Credits
+ 
+-Version 1.0 was designed by Roberto Ierusalimschy, AndrÈ Carregal and Tom·s Guisasola
++Version 1.0 was designed by Roberto Ierusalimschy, Andr√© Carregal and Tom√°s Guisasola
+ as part of the Kepler Project which holds its copyright. The implementation was coded
+ by Roberto Ierusalimschy, based on a previous design by Jay Carlson.
+ 
+-LuaExpat development was sponsored by F·brica Digital and FINEP.
++LuaExpat development was sponsored by F√°brica Digital and FINEP.
+ 
+ Contact
+ 
+diff -wbBur luaexpat-1.2.0/src/lxp/lom.lua lua-expat-b4e6b167e020/src/lxp/lom.lua
+--- luaexpat-1.2.0/src/lxp/lom.lua	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/src/lxp/lom.lua	2012-07-28 04:59:45.000000000 +0400
+@@ -1,13 +1,11 @@
+ -- See Copyright Notice in license.html
+ -- $Id: lom.lua,v 1.6 2005/06/09 19:18:40 tuler Exp $
+ 
+-require "lxp"
++local lxp = require "lxp"
+ 
+-local tinsert, tremove, getn = table.insert, table.remove, table.getn
++local tinsert, tremove = table.insert, table.remove
+ local assert, type, print = assert, type, print
+-local lxp = lxp
+ 
+-module ("lxp.lom")
+ 
+ local function starttag (p, tag, attr)
+   local stack = p:getcallbacks().stack
+@@ -19,14 +17,14 @@
+   local stack = p:getcallbacks().stack
+   local element = tremove(stack)
+   assert(element.tag == tag)
+-  local level = getn(stack)
++  local level = #stack
+   tinsert(stack[level], element)
+ end
+ 
+ local function text (p, txt)
+   local stack = p:getcallbacks().stack
+-  local element = stack[getn(stack)]
+-  local n = getn(element)
++  local element = stack[#stack]
++  local n = #element
+   if type(element[n]) == "string" then
+     element[n] = element[n] .. txt
+   else
+@@ -34,7 +32,7 @@
+   end
+ end
+ 
+-function  parse (o)
++local function parse (o)
+   local c = { StartElement = starttag,
+               EndElement = endtag,
+               CharacterData = text,
+@@ -47,7 +45,7 @@
+     status, err = p:parse(o)
+     if not status then return nil, err end
+   else
+-    for l in o do
++    for l in pairs(o) do
+       status, err = p:parse(l)
+       if not status then return nil, err end
+     end
+@@ -58,3 +56,4 @@
+   return c.stack[1][1]
+ end
+ 
++return { parse = parse }
+diff -wbBur luaexpat-1.2.0/src/lxplib.c lua-expat-b4e6b167e020/src/lxplib.c
+--- luaexpat-1.2.0/src/lxplib.c	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/src/lxplib.c	2012-07-28 04:59:45.000000000 +0400
+@@ -13,14 +13,16 @@
+ 
+ #include "lua.h"
+ #include "lauxlib.h"
+-#if ! defined (LUA_VERSION_NUM) || LUA_VERSION_NUM < 501
+-#include "compat-5.1.h"
+-#endif
+ 
+ 
+ #include "lxplib.h"
+ 
+ 
++#if !defined(lua_pushliteral)
++#define lua_pushliteral(L, s)	\
++	lua_pushstring(L, "" s, (sizeof(s)/sizeof(char))-1)
++#endif
++
+ 
+ enum XPState {
+   XPSpre,  /* parser just initialized */
+@@ -66,7 +68,7 @@
+ 
+ 
+ static void lxpclose (lua_State *L, lxp_userdata *xpu) {
+-  lua_unref(L, xpu->tableref);
++  luaL_unref(L, LUA_REGISTRYINDEX, xpu->tableref);
+   xpu->tableref = LUA_REFNIL;
+   if (xpu->parser)
+     XML_ParserFree(xpu->parser);
+@@ -225,7 +227,7 @@
+   child->parser = XML_ExternalEntityParserCreate(p, context, NULL);
+   if (!child->parser)
+     luaL_error(L, "XML_ParserCreate failed");
+-  lua_getref(L, xpu->tableref);  /* child uses the same table of its father */
++  lua_rawgeti(L, LUA_REGISTRYINDEX, xpu->tableref); /*lua_getref(L, xpu->tableref); */ /* child uses the same table of its father */
+   child->tableref = luaL_ref(L, LUA_REGISTRYINDEX);
+   lua_pushstring(L, base);
+   lua_pushstring(L, systemId);
+@@ -449,7 +451,7 @@
+   xpu->state = XPSok;
+   xpu->b = &b;
+   lua_settop(L, 2);
+-  lua_getref(L, xpu->tableref);  /* to be used by handlers */
++  lua_rawgeti(L, LUA_REGISTRYINDEX, xpu->tableref); /*lua_getref(L, xpu->tableref);*/  /* to be used by handlers */
+   status = XML_Parse(xpu->parser, s, (int)len, s == NULL);
+   if (xpu->state == XPSstring) dischargestring(xpu);
+   if (xpu->state == XPSerror) {  /* callback error? */
+@@ -517,7 +519,12 @@
+   return 1;
+ }
+ 
+-static const struct luaL_reg lxp_meths[] = {
++#if !defined LUA_VERSION_NUM
++/* Lua 5.0 */
++#define luaL_Reg luaL_reg
++#endif
++
++static const struct luaL_Reg lxp_meths[] = {
+   {"parse", lxp_parse},
+   {"close", lxp_close},
+   {"__gc", parser_gc},
+@@ -530,7 +537,7 @@
+   {NULL, NULL}
+ };
+ 
+-static const struct luaL_reg lxp_funcs[] = {
++static const struct luaL_Reg lxp_funcs[] = {
+   {"new", lxp_make_parser},
+   {NULL, NULL}
+ };
+@@ -541,19 +548,39 @@
+ */
+ static void set_info (lua_State *L) {
+ 	lua_pushliteral (L, "_COPYRIGHT");
+-	lua_pushliteral (L, "Copyright (C) 2003-2007 Kepler Project");
++	lua_pushliteral (L, "Copyright (C) 2003-2012 Kepler Project");
+ 	lua_settable (L, -3);
+ 	lua_pushliteral (L, "_DESCRIPTION");
+ 	lua_pushliteral (L, "LuaExpat is a SAX XML parser based on the Expat library");
+ 	lua_settable (L, -3);
+ 	lua_pushliteral (L, "_VERSION");
+-	lua_pushliteral (L, "LuaExpat 1.2.0");
++	lua_pushliteral (L, "LuaExpat 1.3.0");
+ 	lua_settable (L, -3);
+ }
+ 
+ 
++#if !defined LUA_VERSION_NUM || LUA_VERSION_NUM==501
++/*
++** Adapted from Lua 5.2.0
++*/
++static void luaL_setfuncs (lua_State *L, const luaL_Reg *l, int nup) {
++  luaL_checkstack(L, nup, "too many upvalues");
++  for (; l->name != NULL; l++) {  /* fill the table with given functions */
++    int i;
++    for (i = 0; i < nup; i++)  /* copy upvalues to the top */
++      lua_pushvalue(L, -nup);
++    lua_pushstring(L, l->name);
++    lua_pushcclosure(L, l->func, nup);  /* closure with those upvalues */
++    lua_settable(L, -(nup + 3));
++  }
++  lua_pop(L, nup);  /* remove upvalues */
++}
++#endif
++
++
+ int luaopen_lxp (lua_State *L) {
+   luaL_newmetatable(L, ParserType);
++
+   lua_pushliteral(L, "__index");
+   lua_pushvalue(L, -2);
+   lua_rawset(L, -3);
+@@ -557,9 +584,12 @@
+   lua_pushliteral(L, "__index");
+   lua_pushvalue(L, -2);
+   lua_rawset(L, -3);
+-  luaL_openlib (L, NULL, lxp_meths, 0);
+-  luaL_openlib (L, "lxp", lxp_funcs, 0);
+-  set_info (L);
+ 
++	luaL_setfuncs (L, lxp_meths, 0);
++	lua_pop (L, 1); /* remove metatable */
++
++	lua_newtable (L);
++	luaL_setfuncs (L, lxp_funcs, 0);
++	set_info (L);
+   return 1;
+ }
+diff -wbBur luaexpat-1.2.0/tests/test.lua lua-expat-b4e6b167e020/tests/test.lua
+--- luaexpat-1.2.0/tests/test.lua	2011-06-03 18:17:04.000000000 +0400
++++ lua-expat-b4e6b167e020/tests/test.lua	2012-07-28 04:59:45.000000000 +0400
+@@ -2,8 +2,14 @@
+ -- See Copyright Notice in license.html
+ -- $Id: test.lua,v 1.6 2006/06/08 20:34:52 tomas Exp $
+ 
+-require"lxp"
++if string.find(_VERSION, " 5.0") then
++	lxp = assert(loadlib("./lxp.so", "luaopen_lxp"))()
++else
++	lxp = require"lxp"
++	gcinfo = function () return collectgarbage"count" end
++end
+ print (lxp._VERSION)
++assert(lxp.new, "Cannot find function lxp.new ("..tostring(lxp.new)..")")
+ 
+ -- basic test with no preamble
+ local p = lxp.new{}
+@@ -35,9 +41,9 @@
+ ]>
+ ]]
+ 
+-local X
++X = {}
++if string.find(_VERSION, " 5.0") then
+ function getargs (...) X = arg end
+-
+ function xgetargs (c)
+   return function (...)
+     table.insert(arg, 1, c)
+@@ -44,6 +50,35 @@
+     table.insert(X, arg)
+   end
+ end
++else
++	(loadstring or load)[[
++	function getargs (...)
++		X = { ... }
++		X.n = select('#', ...)
++	end
++	function xgetargs (c)
++	  return function (...)
++	    local arg = { ... }
++	    arg.n = select('#', ...) + 1
++	    table.insert(arg, 1, c)
++	    table.insert(X, arg)
++	  end
++	end
++	table.getn = function (t)
++		if t.n then
++			return t.n
++		else
++			local n = 0
++			for i in pairs(t) do
++				if type(i) == "number" then
++					n = math.max(n, i)
++				end
++			end
++			return n
++		end
++	end]]()
++end
++
+ 
+ 
+ -------------------------------
+@@ -61,7 +96,7 @@
+ assert(X.n == 3 and X[1] == p and X[2] == "to")
+ x = X[3]
+ assert(x.priority=="10" and x.xu=="hi" and x.method=="POST")
+-assert(x[1] == "priority" and x[2] == "xu" and table.getn(x) == 2)
++assert(x[1] == "priority" and x[2] == "xu" and table.getn(x) == 2, "x[1] == "..tostring(x[1])..", x[2] == "..tostring(x[2])..", #x == "..tostring(table.getn(x)))
+ assert(p:parse("</to>"))
+ assert(p:parse())
+ p:close()
+@@ -95,7 +130,7 @@
+ assert(p:parse"<to>")
+ assert(p:parse"<![CDATA[hi]]>")
+ assert(table.getn(X) == 3)
+-assert(X[1][1] == "s" and X[1][2] == p)
++assert(X[1][1] == "s" and X[1][2] == p, "X[1][1] == "..tostring(X[1][1])..", X[1][2] == "..tostring(X[1][2])..", p == "..tostring(p))
+ assert(X[2][1] == "c" and X[2][2] == p and X[2][3] == "hi")
+ assert(X[3][1] == "e" and X[3][2] == p)
+ assert(p:parse"</to>")
+@@ -220,7 +255,7 @@
+ ]])
+ p:close()
+ x = X[1]
+-assert(x[1] == "sn" and x[3] == "space" and x[4] == "a/namespace" and table.getn(x) == 4)
++assert(x[1] == "sn" and x[3] == "space" and x[4] == "a/namespace" and table.getn(x) == 4, "x[1] == "..tostring(x[1])..", x[3] == "..tostring(x[3])..", x[4] == "..tostring(x[4])..", #x == "..tostring(table.getn(x)))
+ x = X[3]
+ assert(x[1] == "s" and x[3] == "a/namespace?a")
+ x = X[4]
+@@ -316,7 +351,7 @@
+ local x = gcinfo()
+ for i=1,100000 do
+   -- due to a small bug in Lua...
+-  if math.mod(i, 100) == 0 then collectgarbage() end
++  if (math.mod or math.fmod)(i, 100) == 0 then collectgarbage() end
+   lxp.new({})
+ end
+ collectgarbage(); collectgarbage()
