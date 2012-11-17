@@ -1,33 +1,81 @@
 # $Id$
-# Maintainer: Lukas Fleischer <archlinux at cryptocrack dot de>
+# Maintainer: Kyle Keen <keenerd@gmail.com>
+# Contributor: Lukas Fleischer <archlinux at cryptocrack dot de>
 # Contributor: Eric Johnson <eric@coding-zone.com>
-
 pkgname=words
-pkgver=2.0
-pkgrel=4
+pkgver=2.1
+pkgrel=1
 pkgdesc="A collection of International 'words' files for /usr/share/dict."
 arch=('any')
-url='http://www.archlinux.org'
+url="ftp://ftp.gnu.org/gnu/aspell/dict/0index.html"
 license=('GPL' 'GPL2' 'custom')
-depends=('util-linux')
-install=${pkgname}.install
-source=("ftp://ftp.archlinux.org/other/community/${pkgname}/${pkgname}-${pkgver}.tar.bz2")
-md5sums=('cc73f9dd1fb5fb358badcfc23f7963bf')
+depends=()
+makedepends=('glibc' 'aspell')
+install=words.install
+source=('ftp://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-7.1-0.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/ca/aspell6-ca-2.1.5-1.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/fi/aspell6-fi-0.7-0.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/fr/aspell-fr-0.50-3.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/de-alt/aspell6-de-alt-2.1-1.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/it/aspell6-it-2.2_20050523-0.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/de/aspell-de-0.50-2.tar.bz2'
+        'ftp://ftp.gnu.org/gnu/aspell/dict/es/aspell6-es-1.11-2.tar.bz2')
+md5sums=('beba5e8f3afd3ed1644653bb685b2dfb'
+         '153d26f724866909c6faf49eecefe8b3'
+         '6d1032116982c0efab1af8fce83259c0'
+         '53a2d05c4e8f7fabd3cefe24db977be7'
+         '13245374b03088608d729fd15c58cd7a'
+         'b1217299a0b67d1e121494d7ec18a88d'
+         '204a9737ff0110fb8c7d284bd7200f7d'
+         '8406336a89c64e47e96f4153d0af70c4')
+
+build() {
+    mkdir -p "$srcdir/$pkgname"
+    cd "$srcdir/$pkgname"
+
+    find "$srcdir" -name '*.cwl' -exec cp '{}' './' \;
+    preunzip *.cwl
+    for wl in *.wl; do
+        iconv --from-code=ISO-8859-1 --to-code=UTF-8 $wl | \
+        cut -d '/' -f 1 > $wl.utf8
+    done
+    rm *.wl
+
+    mkdir -p copy
+    while read cr; do
+        ver=$(cut -d '-' -f 2 <<< "$cr")
+        cp "$cr" "copy/copyright-$ver"
+    done <<< "$(find "$srcdir" -name 'Copyright')"
+    chmod 644 copy/*
+
+    # locale specific sort?
+    cat en-common.wl.utf8 en_US* | sort -u > us-merged
+    cat en-common.wl.utf8 en_GB* | sort -u > gb-merged
+    cat de-only.wl.utf8   de_*   | sort -u > de-merged
+}
 
 package() {
-  cd "$srcdir/$pkgname-$pkgver"
+    cd "$srcdir/$pkgname"
 
-  install -d "${pkgdir}/usr/share/dict"
-  install -m0644 dict/* "${pkgdir}/usr/share/dict"
+    install -Dm644 us-merged "$pkgdir/usr/share/dict/american-english"
+    install -Dm644 gb-merged "$pkgdir/usr/share/dict/british-english"
+    ln -s american-english   "$pkgdir/usr/share/dict/usa"
+    ln -s british-english    "$pkgdir/usr/share/dict/british"
 
-  ln -s catala "${pkgdir}/usr/share/dict/catalan"
-  ln -s british-english "${pkgdir}/usr/share/dict/british"
-  ln -s american-english "${pkgdir}/usr/share/dict/usa"
-  ln -s ogerman "${pkgdir}/usr/share/dict/german"
+    install -Dm644 ca-common.wl.utf8 "$pkgdir/usr/share/dict/catala"
+    ln -s catala "$pkgdir/usr/share/dict/catalan"
 
-  # Licenses:
-  cd doc/
-  for i in *; do
-    install -Dm0644 "$i/copyright" "${pkgdir}/usr/share/licenses/${pkgname}/$i.copyright"
-  done
+    install -Dm644 de-merged       "$pkgdir/usr/share/dict/ngerman"
+    install -Dm644 de-alt.wl.utf8  "$pkgdir/usr/share/dict/ogerman"
+    ln -s ngerman "$pkgdir/usr/share/dict/german"
+
+    install -Dm644 fr-40-only.wl.utf8 "$pkgdir/usr/share/dict/french"
+
+    install -Dm644 es.wl.utf8 "$pkgdir/usr/share/dict/spanish"
+    install -Dm644 fi.wl.utf8 "$pkgdir/usr/share/dict/finnish"
+    install -Dm644 it.wl.utf8 "$pkgdir/usr/share/dict/italian"
+
+    install -d "$pkgdir/usr/share/licenses/$pkgname/"
+    cp copy/*  "$pkgdir/usr/share/licenses/$pkgname/"
 }
+
