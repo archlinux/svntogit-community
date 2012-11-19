@@ -4,14 +4,14 @@
 
 pkgname=virt-manager
 pkgver=0.9.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
 license=('GPL')
 depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'virtinst' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
-         'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
+         'python2-ipy' 'newt-syrup' 'gnu-netcat' 'x11-ssh-askpass'
          'hicolor-icon-theme')
 makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 
@@ -34,7 +34,7 @@ build() {
 
   export LDFLAGS=-lX11
   sed -i 's#python#python2#' src/virt-manager.in src/virt-manager-tui.in
-  patch -p1 < "$srcdir/openbsd-netcat-default.patch"
+#  patch -p1 < "$srcdir/openbsd-netcat-default.patch"
   [ -f install-sh ] || automake --add-missing || true
   ./configure --prefix=/usr \
 	--sysconfdir=/etc \
