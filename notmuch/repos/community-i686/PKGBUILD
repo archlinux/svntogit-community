@@ -5,14 +5,13 @@
 # Contributor: Richard Murri <admin@richardmurri.com>
 
 pkgbase=notmuch
-pkgname=('notmuch' 'notmuch-mutt')
+pkgname=('notmuch' 'notmuch-mutt' 'notmuch-runtime')
 pkgver=0.14
-pkgrel=3
+pkgrel=4
 arch=('i686' 'x86_64')
 url="http://notmuchmail.org/"
 license=('GPL3')
-depends=('xapian-core' 'gmime' 'talloc')
-makedepends=('python2' 'python' 'emacs' 'gnupg' 'ruby' 'pkgconfig')
+makedepends=('python2' 'python' 'emacs' 'gnupg' 'ruby' 'pkgconfig' 'xapian-core' 'gmime' 'talloc')
 options=(!distcc !makeflags)
 source=("http://notmuchmail.org/releases/${pkgname}-${pkgver}.tar.gz")
 md5sums=('5eb3f225d3eb37862932f6baa5780d15')
@@ -22,8 +21,10 @@ build() {
 
     ./configure --prefix=/usr --sysconfdir=/etc
     make 
+    (cd "${srcdir}/$pkgname-${pkgver}/contrib/${pkgname}-mutt"
+    make ${pkgname}-mutt.1)
 
-    cp -dpr --no-preserve=ownership "$srcdir/$pkgname-$pkgver" "$srcdir/$pkgname-mutt-$pkgver"
+    cp -dpr --no-preserve=ownership "$srcdir/$pkgname-$pkgver" "$srcdir/$pkgname-runtime-$pkgver"
 
     cd bindings/ruby
     ruby extconf.rb
@@ -42,33 +43,35 @@ build() {
 
 }
 
-check() {
-    cd "$srcdir/${pkgname}-"*
-    make test
-}
+package_notmuch-runtime(){
+    pkgdesc="Runtime for notmuch and notmuch-mutt"
+    depends=('xapian-core' 'gmime' 'talloc')
+    cd "$srcdir/${pkgname}-$pkgver"
+    make DESTDIR="$pkgdir/" LIBDIR_IN_LDCONFIG=0 install
 
+    install -Dm644 notmuch "$pkgdir/usr/sbin/notmuch"
+
+    mkdir -p "$pkgdir"/usr/share/vim/vimfiles/{plugin,syntax}
+
+    make -C vim prefix="$pkgdir/usr/share/vim/vimfiles" install
+
+    # Remove conflicting zsh completion
+    rm -r ${pkgdir}/usr/share/zsh
+}
 
 
 package_notmuch(){
     pkgdesc="Notmuch is not much of an email program"
+    depends=('notmuch-runtime')
     optdepends=('emacs: for using the emacs interface'
                 'vim: for using the vim interface'
                 'python2: for using the python2 bindings'
                 'ruby: for using the ruby bindings'
                 'gnupg: for email encryption')
-    provides=(notmuch-mutt)
+
     cd "$srcdir/${pkgname}-$pkgver"
-    make DESTDIR="$pkgdir/" LIBDIR_IN_LDCONFIG=0 install
-
-    install -D notmuch "$pkgdir/usr/sbin/notmuch"
-    install -D contrib/notmuch-mutt/notmuch-mutt "$pkgdir/usr/bin/"
-
-    mkdir -p "$pkgdir"/usr/share/vim/vimfiles/{plugin,syntax}
-
-    make -C vim PREFIX="$pkgdir/usr/share/vim/vimfiles" install
 
     # Install python bindings
-
     cd "$srcdir/${pkgname}-${pkgver}/bindings/python2"
     env LD_LIBRARY_PATH="." python2 setup.py install --prefix=/usr --root="$pkgdir"
 
@@ -80,26 +83,15 @@ package_notmuch(){
     sed -i -e 's,/site_ruby,,g' Makefile
     make prefix="${pkgdir}/usr" install
 
-    # Remove conflicting zsh completion
-    rm -r "${pkgdir}/usr/share/zsh"
 }
 
 package_notmuch-mutt(){
     pkgdesc="The mail indexer"
-    conflicts=('notmuch')
-    provides=('notmuch')
-    cd "$srcdir/$pkgbase-mutt-$pkgver"
-    make DESTDIR="$pkgdir/" LIBDIR_IN_LDCONFIG=0 install
+    depends=('notmuch-runtime' 'perl-mailtools' 'perl-mail-box' 'perl-term-readline-gnu' 'perl-string-shellquote' 'perl-file-which')
+    cd "$srcdir/$pkgbase-runtime-$pkgver"
 
-    install -D notmuch "$pkgdir/usr/sbin/notmuch"
-    install -D contrib/notmuch-mutt/notmuch-mutt "$pkgdir/usr/bin/"
-
-    mkdir -p "$pkgdir"/usr/share/vim/vimfiles/{plugin,syntax}
-
-    make -C vim PREFIX="$pkgdir/usr/share/vim/vimfiles" install
-
-    # Remove conflicting zsh completion
-    rm -r "${pkgdir}/usr/share/zsh"
+    install -Dm755 "contrib/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
+    install -Dm644 "contrib/$pkgname/${pkgname}.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1.gz"
 }
 
 #vim: set filetype=PKGBUILD sw=4 ts=4 et
