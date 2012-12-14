@@ -2,8 +2,8 @@
 # Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org>
 
 pkgbase=linux-tools
-pkgname=('perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
-pkgver=3.6
+pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
+pkgver=3.7
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
@@ -13,7 +13,7 @@ options=('!strip')
 # kernel source deps
 makedepends=('asciidoc' 'xmlto')
 # perf deps
-makedepends+=('perl' 'python2' 'libnewt' 'elfutils')
+makedepends+=('perl' 'python2' 'libnewt' 'elfutils' 'audit' 'libunwind')
 # cpupower deps
 makedepends+=('pciutils')
 # usbip deps
@@ -28,7 +28,7 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         'usbipd.conf'
         'usbipd.rc'
         'usbipd.service')
-md5sums=('1a1760420eac802c541a20ab51a093d1'
+md5sums=('21223369d682bcf44bcdfe1521095983'
          '56883c159381ba89e50ab8ea65efec77'
          '5fc1fcda4cef93f16e752b1931db23e3'
          'c0d17b5295fe964623c772a2dd981771'
@@ -43,6 +43,11 @@ build() {
     msg2 'Applying stable patch set'
     patch -N -p1 -i "$srcdir"/patch-*
   fi
+
+  msg2 'Build libtraceevent'
+  pushd linux-$pkgver/tools/lib/traceevent
+  make
+  popd
 
   msg2 'Build perf'
   pushd linux-$pkgver/tools/perf
@@ -70,15 +75,29 @@ build() {
 
   msg2 'Build usbip'
   pushd linux-$pkgver/drivers/staging/usbip/userspace
+  # fix missing man page
+  sed -i 's/usbip_bind_driver.8//' Makefile.am
   ./autogen.sh
   ./configure --prefix=/usr
   make
   popd
+
+#  msg2 'Build lguest'
+#  pushd linux-$pkgver/tools/lguest
+#  make
+#  popd
+}
+
+package_libtraceevent() {
+  pkgdesc='Linux kernel trace event library'
+
+  cd linux-$pkgver/tools/lib/traceevent
+  make DESTDIR="$pkgdir"
 }
 
 package_perf() {
   pkgdesc='Linux kernel performance auditing tool'
-  depends=('perl' 'python2' 'libnewt' 'elfutils')
+  depends=('perl' 'python2' 'libnewt' 'elfutils' 'audit' 'libunwind')
 
   cd linux-$pkgver/tools/perf
   make \
@@ -137,5 +156,12 @@ package_usbip() {
   install -Dm 644 usbipd.conf "$pkgdir/etc/conf.d/usbipd"
   install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
 }
+
+#package_lguest() {
+#  pkgdesc='The simple x86 hypervisor'
+#
+#  cd linux-$pkgver/tools/lguest
+#  install -Dm 755 lguest "$pkgdir/usr/bin/lguest"
+#}
 
 # vim:set ts=2 sw=2 et:
