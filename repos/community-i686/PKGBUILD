@@ -3,8 +3,9 @@
 
 pkgbase=linux-tools
 pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
+[[ $CARCH == i686 ]] && pkgname+=('lguest')
 pkgver=3.7
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -82,17 +83,20 @@ build() {
   make
   popd
 
-#  msg2 'Build lguest'
-#  pushd linux-$pkgver/tools/lguest
-#  make
-#  popd
+  if [[ $CARCH == i686 ]]; then
+    msg2 'Build lguest'
+    pushd linux-$pkgver/tools/lguest
+    make
+    popd
+  fi
 }
 
 package_libtraceevent() {
   pkgdesc='Linux kernel trace event library'
 
   cd linux-$pkgver/tools/lib/traceevent
-  make DESTDIR="$pkgdir"
+  install -dm 755 "$pkgdir/usr/lib"
+  install -m 644 libtraceevent.a libtraceevent.so "$pkgdir/usr/lib"
 }
 
 package_perf() {
@@ -157,11 +161,11 @@ package_usbip() {
   install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
 }
 
-#package_lguest() {
-#  pkgdesc='The simple x86 hypervisor'
-#
-#  cd linux-$pkgver/tools/lguest
-#  install -Dm 755 lguest "$pkgdir/usr/bin/lguest"
-#}
+package_lguest() {
+  pkgdesc='The simple x86 hypervisor'
+
+  cd linux-$pkgver/tools/lguest
+  install -Dm 755 lguest "$pkgdir/usr/bin/lguest"
+}
 
 # vim:set ts=2 sw=2 et:
