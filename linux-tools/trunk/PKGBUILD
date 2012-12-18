@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.7
-pkgrel=2
+pkgrel=3
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -20,7 +20,7 @@ makedepends+=('pciutils')
 makedepends+=('glib2' 'sysfsutils')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
-#        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.4.xz"
+        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.1.xz"
         'cpupower.conf'
         'cpupower.rc'
         'cpupower.systemd'
@@ -29,6 +29,7 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         'usbipd.rc'
         'usbipd.service')
 md5sums=('21223369d682bcf44bcdfe1521095983'
+         '48f5f530b048e387e978e3e49de7742a'
          '56883c159381ba89e50ab8ea65efec77'
          '5fc1fcda4cef93f16e752b1931db23e3'
          'c0d17b5295fe964623c772a2dd981771'
@@ -85,6 +86,7 @@ build() {
 
 package_libtraceevent() {
   pkgdesc='Linux kernel trace event library'
+  depends=('glibc')
 
   cd linux-$pkgver/tools/lib/traceevent
   install -dm 755 "$pkgdir/usr/lib"
