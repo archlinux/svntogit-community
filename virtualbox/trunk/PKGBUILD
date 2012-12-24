@@ -4,10 +4,11 @@
 
 pkgbase=virtualbox
 pkgname=('virtualbox'
+         'virtualbox-host-dkms'
+         'virtualbox-guest-dkms'
          'virtualbox-sdk'
-         'virtualbox-host-source'
          'virtualbox-guest-utils'
-         'virtualbox-guest-source')
+         'virtualbox-ext-vnc')
 pkgver=4.2.6
 pkgrel=1
 arch=('i686' 'x86_64')
@@ -92,20 +93,28 @@ build() {
         --disable-kmods
     source ./env.sh
     kmk all
+
+    # fix python2
     sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' "out/linux.$BUILD_PLATFORM_ARCH/release/bin/vboxshell.py"
+
     # build rdesktop-vrdp (broken from LocalConfig.kmk)
-    cd src/VBox/RDP/client
+    pushd src/VBox/RDP/client
     cp "$srcdir/LocalConfig.kmk" .
     # fix keymap path FS#32548
     sed -i 's:/opt/VirtualBox:/usr/share/virtualbox:' Makefile.kmk
     kmk all
+    popd
+
+    # build VNC pack
+    pushd src/VBox/ExtPacks/VNC
+    kmk packing
+    popd
 }
 
 package_virtualbox() {
     pkgdesc='Powerful x86 virtualization for enterprise as well as home use'
     depends=('curl'
              'libpng'
-             'libvncserver'
              'libxcursor'
              'libxinerama'
              'libxml2'
@@ -116,7 +125,7 @@ package_virtualbox() {
     optdepends=('qt: VirtualBox GUI support'
                 'vde2: Virtual Distributed Ethernet support'
                 'virtualbox-sdk: Developer kit'
-                'virtualbox-host-source: Host kernel source modules for non-stock kernels'
+                'virtualbox-host-dkms: Host kernel source modules for non-stock kernels'
                 'net-tools: Host-only or bridged networking support')
     backup=('etc/vbox/vbox.cfg' 'etc/conf.d/vboxweb')
     replaces=('virtualbox-ose')
@@ -213,15 +222,15 @@ package_virtualbox-sdk() {
     mv sdk "$pkgdir/usr/lib/virtualbox"
 }
 
-package_virtualbox-host-source() {
-    pkgdesc='VirtualBox Host kernel modules source (DKMS)'
+package_virtualbox-host-dkms() {
+    pkgdesc='VirtualBox Host kernel modules sources'
     depends=('dkms' 'gcc' 'make')
     provides=('virtualbox-host-modules')
-    replaces=('virtualbox-source')
-    conflicts=('virtualbox-source')
+    replaces=('virtualbox-source' 'virtualbox-host-source')
+    conflicts=('virtualbox-source' 'virtualbox-host-source')
     optdepends=('linux-headers'
                 'linux-lts-headers')
-    install=virtualbox-host-source.install
+    install=virtualbox-host-dkms.install
 
     install -dm755 "$pkgdir/usr/src"
     source "VirtualBox-$pkgver/env.sh"
@@ -229,15 +238,15 @@ package_virtualbox-host-source() {
     cp -r src "$pkgdir/usr/src/vboxhost-$pkgver"
 }
 
-package_virtualbox-guest-source() {
-    pkgdesc='VirtualBox Guest kernel modules source (DKMS)'
+package_virtualbox-guest-dkms() {
+    pkgdesc='VirtualBox Guest kernel modules sources'
     depends=('dkms' 'gcc' 'make')
     provides=('virtualbox-guest-modules')
-    replaces=('virtualbox-archlinux-source')
-    conflicts=('virtualbox-archlinux-source')
+    replaces=('virtualbox-archlinux-source' 'virtualbox-guest-source')
+    conflicts=('virtualbox-archlinux-source' 'virtualbox-guest-source')
     optdepends=('linux-headers'
                 'linux-lts-headers')
-    install=virtualbox-guest-source.install
+    install=virtualbox-guest-dkms.install
 
     install -dm755 "$pkgdir/usr/src"
     source "VirtualBox-$pkgver/env.sh"
@@ -248,7 +257,7 @@ package_virtualbox-guest-source() {
 package_virtualbox-guest-utils() {
     pkgdesc='VirtualBox Guest userspace utilities'
     depends=('virtualbox-guest-modules' 'gcc-libs' 'libxmu' 'xorg-xrandr' 'libxfixes')
-    optdepends=('virtualbox-guest-source: Guest kernel source modules for non-stock kernels')
+    optdepends=('virtualbox-guest-dkms: Guest kernel source modules for non-stock kernels')
     replaces=('virtualbox-archlinux-additions' 'virtualbox-guest-additions')
     conflicts=('virtualbox-archlinux-additions' 'virtualbox-guest-additions')
     backup=('etc/conf.d/vboxservice')
@@ -280,6 +289,17 @@ package_virtualbox-guest-utils() {
     # install systemd service file
     install -D -m644 vboxservice.service \
         "$pkgdir/usr/lib/systemd/system/vboxservice.service"
+}
+
+package_virtualbox-ext-vnc() {
+    pkgdesc='VirtualBox VNC extension pack'
+    depends=('virtualbox' 'libvncserver')
+    optdepends=('vncviewver: vnc client')
+    install=virtualbox-ext-vnc.install
+
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/packages"
+    install -Dm644 VNC-*.vbox-extpack "$pkgdir/usr/share/virtualbox/extensions/VNC-${pkgver}.vbox-extpack"
 }
 
 # vim:set ts=4 sw=4 et:
