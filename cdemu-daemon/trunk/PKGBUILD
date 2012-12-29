@@ -1,11 +1,12 @@
 # $Id$
-# Maintainer: Ray Rashif <schiv@archlinux.org>
+# Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+# Contributor: Ray Rashif <schiv@archlinux.org>
 # Contributor: Mateusz Herych <heniekk@gmail.com>
 # Contributor: Charles Lindsay <charles@chaoslizard.org>
 
 pkgname=cdemu-daemon
-pkgver=1.5.0
-pkgrel=6
+pkgver=2.0.0
+pkgrel=1
 pkgdesc="CD/DVD-ROM device emulator daemon"
 arch=('i686' 'x86_64')
 url="http://cdemu.sourceforge.net/"
@@ -13,51 +14,59 @@ license=('GPL')
 depends=('dbus' 'vhba-module>=20110915-5' 'libao' "libmirage=$pkgver")
 optdepends=('alsa-lib: to enable the ALSA audio driver'
             'pulseaudio: to enable the PA audio driver')
-backup=('etc/conf.d/cdemud'
-        'etc/dbus-1/system.d/cdemud-dbus.conf')
+backup=('etc/conf.d/cdemu-daemon'
+        'etc/dbus-1/system.d/cdemu-daemon-dbus.conf')
 install=$pkgname.install
 source=("http://downloads.sourceforge.net/cdemu/$pkgname-$pkgver.tar.bz2"
-        'cdemud.conf' 'cdemud.rc' 'system.patch' 'cdemu-daemon.service'
-        'cdemud-dbus.conf')
-md5sums=('5ba780caa26d855942512b5b3c22405a'
+        'cdemu-daemon.conf' 'system.patch' 'cdemu-daemon.service'
+        'cdemu-daemon-dbus.conf')
+md5sums=('8f6ad3a9f758938e1572046bccc30417'
          '6f31ad7a64d320cf4d6820432184070b'
-         'cbc0937ef4ac50db3ce5cdbbe2e17a3b'
-         '90a2516639c05737fa10a110a1cba467'
+         '60c41731d4dce7b67e1a30dc42d2f274'
          'be9a8f50da3f42129c0a0e3dea8cd56c'
-         'afbf24bcdec382f58d95ba5de29bff71')
+         '55619a492de4ef06b0759b5e4358bcbb')
 
 build() {
-  cd "$srcdir/$pkgname-$pkgver"
+  cd $pkgname-$pkgver
 
-  # make things Arch-friendly
-  patch -Np1 -i "$srcdir/system.patch"
-
-  ./configure --prefix=/usr \
-              --sysconfdir=/etc \
-              --libexecdir=/usr/lib/$pkgname
+  mkdir build; cd build
+  cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+    -DCMAKE_INSTALL_LIBEXECDIR=lib/$pkgname \
+    -DSYSTEM_BUS_SERVICE=on  # This is disabled by default. Should we even ship it?
   make
 }
 
 package() {
-  cd "$srcdir/$pkgname-$pkgver"
-
+  cd $pkgname-$pkgver/build
   make DESTDIR="$pkgdir" install
 
-  # Custom dbus policy, tightening security to console and 'cdemu' group
-  install -m644 "$srcdir/cdemud-dbus.conf" \
-    "$pkgdir/etc/dbus-1/system.d/cdemud-dbus.conf"
-
-  # the init stuff
-  install -Dm644 "$srcdir/cdemud.conf" "$pkgdir/etc/conf.d/cdemud"
-  install -Dm755 "$srcdir/cdemud.rc" "$pkgdir/etc/rc.d/cdemud"
   install -d "$pkgdir/usr/lib/modules-load.d"
-  echo "vhba" > "$pkgdir/usr/lib/modules-load.d/cdemu.conf"
+  echo vhba > "$pkgdir/usr/lib/modules-load.d/cdemu.conf"
+
+  #
+  # All the following stuff concerns the system bus service
+  #
+
+  cd ../..
+
+  # make things Arch-friendly
+  patch "$pkgdir/usr/lib/cdemu-daemon/cdemu-daemon-system.sh" system.patch
+
+  # Custom dbus policy, tightening security to console and 'cdemu' group
+  install -m644 cdemu-daemon-dbus.conf \
+    "$pkgdir/etc/dbus-1/system.d/cdemu-daemon-dbus.conf"
+
+  # the system daemon configuration
+  install -Dm644 cdemu-daemon.conf "$pkgdir/etc/conf.d/cdemu-daemon"
 
   # for systemd
-  install -Dm644 "$srcdir/cdemu-daemon.service" \
+  install -Dm644 cdemu-daemon.service \
     "$pkgdir/usr/lib/systemd/system/cdemu-daemon.service"
-  echo "SystemdService=cdemu-daemon.service" >> \
-    "$pkgdir/usr/share/dbus-1/system-services/net.sf.cdemu.CDEMUD_Daemon.service"
+  echo SystemdService=cdemu-daemon.service >> \
+    "$pkgdir/usr/share/dbus-1/system-services/net.sf.cdemu.CDEmuDaemon.service"
 }
 
 # vim:set ts=2 sw=2 et:
