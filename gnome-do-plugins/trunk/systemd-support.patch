@@ -1,0 +1,138 @@
+diff -Naur gnome-do-plugins-0.8.4.orig/GNOME-Session/src/PowerManagement.cs gnome-do-plugins-0.8.4/GNOME-Session/src/PowerManagement.cs
+--- gnome-do-plugins-0.8.4.orig/GNOME-Session/src/PowerManagement.cs	2012-12-30 09:31:54.017436179 +0100
++++ gnome-do-plugins-0.8.4/GNOME-Session/src/PowerManagement.cs	2012-12-30 08:44:51.859932149 +0100
+@@ -129,7 +129,7 @@
+ 		public static void Logout ()
+ 		{
+ 			try {
+-				Process.Start ("gnome-session-save", "--kill --silent");
++				Process.Start ("gnome-session-quit", "--logout --no-prompt");
+ 			} catch (Exception e) {
+ 				Log<PowerManagement>.Error ("Could not logout: {0}", e.Message);
+ 				Log<PowerManagement>.Debug (e.StackTrace);
+diff -Naur gnome-do-plugins-0.8.4.orig/GNOME-Session/src/SessionCommandsItemSource.cs gnome-do-plugins-0.8.4/GNOME-Session/src/SessionCommandsItemSource.cs
+--- gnome-do-plugins-0.8.4.orig/GNOME-Session/src/SessionCommandsItemSource.cs	2012-12-30 09:31:54.017436179 +0100
++++ gnome-do-plugins-0.8.4/GNOME-Session/src/SessionCommandsItemSource.cs	2012-12-30 08:40:30.874228757 +0100
+@@ -53,31 +53,31 @@
+ 				yield return new SessionCommandItem (
+ 					AddinManager.CurrentLocalizer.GetString ("Log Out"),
+ 					AddinManager.CurrentLocalizer.GetString ("Close your session and return to the login screen."),
+-					"gnome-session-logout",
++					"system-log-out",
+ 					PowerManagement.Logout);
+ 
+ 				yield return new SessionCommandItem (
+ 					AddinManager.CurrentLocalizer.GetString ("Shutdown"),
+ 					AddinManager.CurrentLocalizer.GetString ("Turn your computer off."),
+-					"gnome-session-halt",
++					"system-shutdown",
+ 					SystemManagement.Shutdown);
+ 
+ 				yield return new SessionCommandItem (
+ 					AddinManager.CurrentLocalizer.GetString ("Hibernate"),
+ 					AddinManager.CurrentLocalizer.GetString ("Put your computer into hibernation mode."),
+-					"gnome-session-hibernate",
++					"system-shutdown",
+ 					PowerManagement.Hibernate);
+ 
+ 				yield return new SessionCommandItem (
+ 					AddinManager.CurrentLocalizer.GetString ("Suspend"),
+ 					AddinManager.CurrentLocalizer.GetString ("Put your computer into suspend mode."),
+-					"gnome-session-suspend",
++					"system-shutdown",
+ 					PowerManagement.Suspend);
+ 
+ 				yield return new SessionCommandItem (
+ 					AddinManager.CurrentLocalizer.GetString ("Restart"),
+ 					AddinManager.CurrentLocalizer.GetString ("Restart your computer."),
+-					"gnome-session-reboot",
++					"system-shutdown",
+ 					SystemManagement.Restart);
+ 
+ 				yield return new SessionCommandItem (
+diff -Naur gnome-do-plugins-0.8.4.orig/GNOME-Session/src/SystemManagement.cs gnome-do-plugins-0.8.4/GNOME-Session/src/SystemManagement.cs
+--- gnome-do-plugins-0.8.4.orig/GNOME-Session/src/SystemManagement.cs	2012-12-30 09:31:54.017436179 +0100
++++ gnome-do-plugins-0.8.4/GNOME-Session/src/SystemManagement.cs	2012-12-31 05:55:38.592628306 +0100
+@@ -31,24 +31,48 @@
+ 	class SystemManagement
+ 	{
+ 		[Interface ("org.freedesktop.ConsoleKit.Manager")]
+-		interface ISystemManagementProxy
++		interface IConsoleKit
+ 		{
+ 			void Stop ();
+ 			void Restart ();
+ 		}
+ 
+-		const string BusName = "org.freedesktop.ConsoleKit";
+-		const string ObjectPath = "/org/freedesktop/ConsoleKit/Manager";
++		[Interface ("org.freedesktop.login1.Manager")]
++		interface ISystemd
++		{
++			void PowerOff (bool interactive);
++			void Reboot (bool interactive);
++		}
+ 
+-		static ISystemManagementProxy BusInstance
++		const string ConsoleKitName = "org.freedesktop.ConsoleKit";
++		const string ConsoleKitPath = "/org/freedesktop/ConsoleKit/Manager";
++		const string SystemdName = "org.freedesktop.login1";
++		const string SystemdPath = "/org/freedesktop/login1";
++
++		static SystemManagement ()
++		{
++			try {
++				BusG.Init ();
++			} catch (Exception e) {
++				Log<SystemManagement>.Error ("Could not initialize the bus: {0}", e.Message);
++				Log<SystemManagement>.Debug (e.StackTrace);
++			}
++		}
++
++		static object BusInstance
+ 		{
+ 			get {
+ 				try {
+-					return Bus.System.GetObject<ISystemManagementProxy> (BusName, new ObjectPath (ObjectPath));
++					if (Bus.System.NameHasOwner (SystemdName)) {
++						return Bus.System.GetObject<ISystemd> (SystemdName, new ObjectPath (SystemdPath));
++					} else if (Bus.System.NameHasOwner (ConsoleKitName)) {
++						return Bus.System.GetObject<IConsoleKit> (ConsoleKitName, new ObjectPath (ConsoleKitPath));
++					}
+ 				} catch (Exception e) {
+-					Log<SystemManagement>.Error ("Could not get ConsoleKit bus object: {0}", e.Message);
++					Log<SystemManagement>.Error ("Could not get SystemManagement bus object: {0}", e.Message);
+ 					Log<SystemManagement>.Debug (e.StackTrace);
+ 				}
++
+ 				return null;
+ 			}
+ 		}
+@@ -56,7 +80,12 @@
+ 		public static void Shutdown ()
+ 		{
+ 			try {
+-				BusInstance.Stop ();
++				object instance = BusInstance;
++				if (instance is ISystemd) {
++					(instance as ISystemd).PowerOff (true);
++				} else if (instance is IConsoleKit) {
++					(instance as IConsoleKit).Stop ();
++				}
+ 			} catch (Exception e) {
+ 				Log<SystemManagement>.Error ("Could not shutdown: {0}", e.Message);
+ 				Log<SystemManagement>.Debug (e.StackTrace);
+@@ -66,7 +95,12 @@
+ 		public static void Restart ()
+ 		{
+ 			try {
+-				BusInstance.Restart ();
++				object instance = BusInstance;
++				if (instance is ISystemd) {
++					(instance as ISystemd).Reboot (true);
++				} else if (instance is IConsoleKit) {
++					(instance as IConsoleKit).Restart ();
++				}
+ 			} catch (Exception e) {
+ 				Log<SystemManagement>.Error ("Could not reboot: {0}", e.Message);
+ 				Log<SystemManagement>.Debug (e.StackTrace);
