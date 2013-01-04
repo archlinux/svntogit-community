@@ -11,7 +11,7 @@ if [ -z "$KDE_FULL_SESSION" ]; then
   if [ -e /usr/bin/gksu ]; then
       gksu $ELF && exit 0
   fi
-  echo "Could not use pkexec, gksudo or gksu"
+  echo 'Could not use pkexec, gksudo or gksu'
   $ELF && exit 0 || exit 1
 fi  
 if [ -e /usr/bin/kdesudo ]; then
@@ -20,5 +20,5 @@ fi
 if [ -e /usr/bin/kdesu ]; then
   kdesu $ELF && exit 0
 fi
-echo "Could not use kdesudo or kdesu"
-$ELF && exit 0 || exit 1
+echo 'Could not use kdesudo or kdesu'
+$ELF
