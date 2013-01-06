@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.7
-pkgrel=3
+pkgrel=3.1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -21,21 +21,15 @@ makedepends+=('glib2' 'sysfsutils')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.1.xz"
-        'cpupower.conf'
-        'cpupower.rc'
+        'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
-        'usbipd.conf'
-        'usbipd.rc'
         'usbipd.service')
 md5sums=('21223369d682bcf44bcdfe1521095983'
          '48f5f530b048e387e978e3e49de7742a'
          '56883c159381ba89e50ab8ea65efec77'
-         '5fc1fcda4cef93f16e752b1931db23e3'
-         'c0d17b5295fe964623c772a2dd981771'
+         '7e0710c2f31c1eb1e1417a7972e676b1'
          '2450e8ff41b30eb58d43b5fffbfde1f4'
-         'e8fac9c45a628015644b4150b139278a'
-         '8a3831d962ff6a9968c0c20fd601cdec'
          'ba7c1c513314dd21fb2334fb8417738f')
 
 build() {
@@ -110,7 +104,7 @@ package_perf() {
 
 package_cpupower() {
   pkgdesc='Linux kernel tool to examine and tune power saving related features of your processor'
-  backup=('etc/conf.d/cpupower')
+  backup=('etc/default/cpupower')
   depends=('bash' 'pciutils')
   conflicts=('cpufrequtils')
   replaces=('cpufrequtils')
@@ -123,8 +117,7 @@ package_cpupower() {
     install install-man
   popd
   # install startup scripts
-  install -Dm 755 $pkgname.rc "$pkgdir/etc/rc.d/$pkgname"
-  install -Dm 644 $pkgname.conf "$pkgdir/etc/conf.d/$pkgname"
+  install -Dm 644 $pkgname.default "$pkgdir/etc/default/$pkgname"
   install -Dm 644 $pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
   install -Dm 755 $pkgname.systemd "$pkgdir/usr/lib/systemd/scripts/$pkgname"
 }
@@ -149,9 +142,7 @@ package_usbip() {
   # module loading
   install -Dm 644 /dev/null "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
   printf 'usbip-core\nusbip-host\n' > "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
-  # install daemon scripts
-  install -Dm 755 usbipd.rc "$pkgdir/etc/rc.d/usbipd"
-  install -Dm 644 usbipd.conf "$pkgdir/etc/conf.d/usbipd"
+  # systemd
   install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
 }
 
