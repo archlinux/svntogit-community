@@ -1,0 +1,155 @@
+From: Andrea Diamantini <adjam7@gmail.com>
+Date: Tue, 08 Jan 2013 16:09:03 +0000
+Subject: Workaround to fix Google Bookmarks sync + minor speed improvement
+X-Git-Url: http://quickgit.kde.org/?p=rekonq.git&a=commitdiff&h=58bd0c195b60c3cf597a8d9296e5725dc4be7c9b
+---
+Workaround to fix Google Bookmarks sync + minor speed improvement
+
+Courtesy patch by "Francesco". Thanks :)
+
+BUG: 312824
+---
+
+
+--- a/src/sync/googlesynchandler.cpp
++++ b/src/sync/googlesynchandler.cpp
+@@ -3,7 +3,7 @@
+ * This file is a part of the rekonq project
+ *
+ * Copyright (C) 2012 by Siteshwar Vashisht <siteshwar at gmail dot com>
+-* Copyright (C) 2011 by Andrea Diamantini <adjam7 at gmail dot com>
++* Copyright (C) 2011-2013 by Andrea Diamantini <adjam7 at gmail dot com>
+ *
+ *
+ * This program is free software; you can redistribute it and/or
+@@ -172,24 +172,24 @@
+ 
+     QString path = _webPage.mainFrame()->url().path();
+ 
+-    if (path == "/ServiceLogin" && _doLogin == true)
++    if ( (path == QL1S("/ServiceLogin") || path == QL1S("/Login")) && _doLogin == true)
+     {
+         // Let's login to our Google account
+         QWebFrame *frame = _webPage.mainFrame();
+ 
+-        QWebElement email = frame->findFirstElement("#Email");
+-        QWebElement passwd = frame->findFirstElement("#Passwd");
+-        QWebElement form = frame->findFirstElement("#gaia_loginform");
+-
+-        email.setAttribute("value", ReKonfig::syncUser());
+-        passwd.setAttribute("value", ReKonfig::syncPass());
+-        form.evaluateJavaScript("this.submit();");
++        QWebElement email = frame->findFirstElement( QL1S("#Email") );
++        QWebElement passwd = frame->findFirstElement( QL1S("#Passwd") );
++        QWebElement form = frame->findFirstElement( QL1S("#gaia_loginform") );
++
++        email.setAttribute( QL1S("value"), ReKonfig::syncUser());
++        passwd.setAttribute( QL1S("value"), ReKonfig::syncPass());
++        form.evaluateJavaScript( QL1S("this.submit();") );
+         emit syncStatus(Rekonq::Bookmarks, true, i18n("Signing in..."));
+ 
+         // Login only once
+         _doLogin = false;
+     }
+-    else if (path == "/bookmarks/")
++    else if (path == QL1S("/bookmarks/") )
+     {
+         // We get to this page after successful login, let's fetch the bookmark list in Xml format.
+         QNetworkAccessManager *qnam = _webPage.networkAccessManager();
+@@ -199,16 +199,16 @@
+         emit syncStatus(Rekonq::Bookmarks, true, i18n("Fetching bookmarks from server..."));
+         connect(_reply, SIGNAL(finished()), this, SLOT(fetchingBookmarksFinished()));
+     }
+-    else if (path == "/ServiceLoginAuth")
++    else if (path == QL1S("/ServiceLoginAuth") )
+     {
+         emit syncStatus(Rekonq::Bookmarks, false, i18n("Login failed!"));
+         _isSyncing = false;
+     }
+-    else if (path == "/bookmarks/mark")
++    else if (path == QL1S("/bookmarks/mark") )
+     {
+         QWebFrame *frame = _webPage.mainFrame();
+ 
+-        QString sigKey = frame->findFirstElement("input[name=sig]").attribute("value");
++        QString sigKey = frame->findFirstElement( QL1S("input[name=sig]") ).attribute( QL1S("value") );
+         kDebug() << "Signature Key is : " << sigKey;
+ 
+         QNetworkAccessManager *qnam = _webPage.networkAccessManager();
+@@ -219,7 +219,7 @@
+             for (QSet<QString>::const_iterator iter = _bookmarksToDelete.constBegin(); iter != _bookmarksToDelete.end(); ++iter)
+             {
+                 QNetworkRequest request;
+-                request.setUrl(QUrl("https://www.google.com/bookmarks/mark?dlq=" + *iter + "&sig=" + sigKey));
++                request.setUrl(QUrl( QL1S("https://www.google.com/bookmarks/mark?dlq=") + *iter + QL1S("&sig=") + sigKey));
+ 
+                 kDebug() << "Delete url is : " << request.url();
+                 QNetworkReply *r = qnam->get(request);
+@@ -243,7 +243,7 @@
+                 postData.append("&sig=" + sigKey.toUtf8());
+ 
+                 QNetworkRequest request;
+-                request.setUrl(QUrl("https://www.google.com/bookmarks/mark?sig=" + sigKey + "&btnA"));
++                request.setUrl(QUrl("https://www.google.com/bookmarks/mark?sig=" + sigKey + QL1S("&btnA") ));
+                 request.setHeader(QNetworkRequest::ContentTypeHeader, "application/x-www-form-urlencoded");
+                 kDebug() << "Url: " << request.url();
+                 kDebug() << "Post data is :" << postData;
+@@ -257,7 +257,7 @@
+         _bookmarksToAdd.clear();
+ 
+     }
+-    else if (path == "/Logout")
++    else if (path == QL1S("/Logout") )
+     {
+         //Session finished
+         emit syncStatus(Rekonq::Bookmarks, true, i18n("Done!"));
+@@ -277,10 +277,10 @@
+ {
+     QString data = _reply->readAll();
+ 
+-    QDomDocument doc("bookmarks");
++    QDomDocument doc( QL1S("bookmarks") );
+     doc.setContent(data);
+ 
+-    QDomNodeList bookmarksOnServer = doc.elementsByTagName("bookmark");
++    QDomNodeList bookmarksOnServer = doc.elementsByTagName( QL1S("bookmark") );
+     emit syncStatus(Rekonq::Bookmarks, true, i18n("Reading bookmarks..."));
+ 
+     BookmarkManager *manager = BookmarkManager::self();
+@@ -291,8 +291,8 @@
+ 
+         for (int i = 0; i < bookmarksOnServer.size(); ++i)
+         {
+-            QString title = getChildElement(bookmarksOnServer.at(i), "title");
+-            QString url = getChildElement(bookmarksOnServer.at(i), "url");
++            QString title = getChildElement(bookmarksOnServer.at(i), QL1S("title") );
++            QString url = getChildElement(bookmarksOnServer.at(i), QL1S("url") );
+ 
+             KBookmark bookmark = manager->bookmarkForUrl(KUrl(url));
+             if (bookmark.isNull())
+@@ -377,7 +377,7 @@
+                 found = true;
+                 break;
+             }
+-            else if (current.url().url() == getChildElement(bookmarksOnServer.at(i), "url"))
++            else if (current.url().url() == getChildElement(bookmarksOnServer.at(i), QL1S("url")) )
+             {
+                 found = true;
+             }
+@@ -398,13 +398,13 @@
+ 
+     for (int i = 0; i < bookmarksOnServer.count(); ++i)
+     {
+-        QString url = getChildElement(bookmarksOnServer.at(i), "url");
++        QString url = getChildElement(bookmarksOnServer.at(i), QL1S("url") );
+ 
+         KBookmark result = manager->bookmarkForUrl(KUrl(url));
+         if (result.isNull())
+         {
+             kDebug() <<  "Deleting from Google Bookmarks: " << url;
+-            _bookmarksToDelete.insert(getChildElement(bookmarksOnServer.at(i), "id"));
++            _bookmarksToDelete.insert(getChildElement(bookmarksOnServer.at(i), QL1S("id") ));
+         }
+     }
+ 
+
