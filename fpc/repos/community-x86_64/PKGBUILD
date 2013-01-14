@@ -9,7 +9,8 @@
 
 pkgname=fpc
 pkgver=2.6.0
-pkgrel=2
+_gdbver=6.4
+pkgrel=3
 pkgdesc="The Free Pascal Compiler is a Turbo Pascal 7.0 and Delphi compatible 32bit Pascal Compiler. It comes with fully TP 7.0 compatible run-time library."
 arch=('i686' 'x86_64')
 url="http://www.freepascal.org/"
@@ -18,15 +19,31 @@ backup=("etc/fpc.cfg")
 depends=(ncurses)
 makedepends=(fpc)
 options=(zipman)
-source=(ftp://ftp.freepascal.org/pub/fpc/dist/$pkgver/source/fpcbuild-$pkgver.tar.gz)
-md5sums=('17375e665a4e1311f85812fe2754f609')
+source=(ftp://ftp.freepascal.org/pub/fpc/dist/$pkgver/source/fpcbuild-$pkgver.tar.gz
+	http://ftp.gnu.org/gnu/gdb/gdb-${_gdbver}a.tar.bz2)
+md5sums=('17375e665a4e1311f85812fe2754f609'
+         '1357acd58f196c42a3bc3fd12a23080e')
 
 build() {
+  # python must not be installed for libgda.a
+#  pacman -Q python 2>/dev/null && return 1
+#  pacman -Q python2 2>/dev/null && return 1
+
+  cd ${srcdir}/gdb-${_gdbver}
+  ./configure --prefix=/usr \
+	--disable-nls --with-python=no --disable-werror --disable-tui \
+	--enable-static --disable-shared
+  make
+  make -C gdb libgdb.a
+  cp bfd/.libs/libbfd.a gdb/
+
   cd ${srcdir}/fpcbuild-$pkgver
+  export GDBLIBDIR=${srcdir}/gdb-${_gdbver}/gdb
+  export LIBGDBFILE=$GDBLIBDIR/libgdb.a
   pushd fpcsrc/compiler
   fpcmake -Tall
   popd
-  make NOGDB=1 build
+  make build
 }
 
 package() {
@@ -34,7 +51,7 @@ package() {
 
   export HOME=$srcdir
 
-  make -j1 NOGDB=1 PREFIX=${pkgdir}/usr install
+  make -j1 PREFIX=${pkgdir}/usr install
 
   export PATH=$pkgdir/usr/bin:$PATH
 
