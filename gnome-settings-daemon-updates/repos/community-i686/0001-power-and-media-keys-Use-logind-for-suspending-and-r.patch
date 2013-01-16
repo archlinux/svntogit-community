@@ -31,16 +31,16 @@ index 7e50db4..b0e907c 100644
 --- a/plugins/common/Makefile.am
 +++ b/plugins/common/Makefile.am
 @@ -6,9 +6,7 @@ libcommon_la_SOURCES = \
- 	gsd-keygrab.c		\
- 	gsd-keygrab.h		\
- 	gsd-input-helper.c	\
+	gsd-keygrab.c		\
+	gsd-keygrab.h		\
+	gsd-input-helper.c	\
 -	gsd-input-helper.h	\
 -	gsd-power-helper.c	\
 -	gsd-power-helper.h
 +	gsd-input-helper.h
- 
+
  libcommon_la_CPPFLAGS = \
- 	$(AM_CPPFLAGS)
+	$(AM_CPPFLAGS)
 diff --git a/plugins/common/gsd-power-helper.c b/plugins/common/gsd-power-helper.c
 deleted file mode 100644
 index 27d0eda..0000000
@@ -300,7 +300,7 @@ index 9c84d7f..a2f277e 100644
  #include <gtk/gtk.h>
  #include <gio/gdesktopappinfo.h>
 +#include <gio/gunixfdlist.h>
- 
+
  #ifdef HAVE_GUDEV
  #include <gudev/gudev.h>
 @@ -51,7 +52,6 @@
@@ -309,27 +309,27 @@ index 9c84d7f..a2f277e 100644
  #include "gsd-input-helper.h"
 -#include "gsd-power-helper.h"
  #include "gsd-enums.h"
- 
+
  #include <canberra.h>
 @@ -105,6 +105,10 @@ static const gchar introspection_xml[] =
  #define KEY_CURRENT_INPUT_SOURCE "current"
  #define KEY_INPUT_SOURCES        "sources"
- 
+
 +#define SYSTEMD_DBUS_NAME                       "org.freedesktop.login1"
 +#define SYSTEMD_DBUS_PATH                       "/org/freedesktop/login1"
 +#define SYSTEMD_DBUS_INTERFACE                  "org.freedesktop.login1.Manager"
 +
  #define GSD_MEDIA_KEYS_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GSD_TYPE_MEDIA_KEYS_MANAGER, GsdMediaKeysManagerPrivate))
- 
+
  typedef struct {
 @@ -148,10 +152,13 @@ struct GsdMediaKeysManagerPrivate
- 
+
          /* Power stuff */
          GSettings       *power_settings;
 -        GDBusProxy      *upower_proxy;
          GDBusProxy      *power_screen_proxy;
          GDBusProxy      *power_keyboard_proxy;
- 
+
 +        /* systemd stuff */
 +        GDBusProxy      *logind_proxy;
 +        gint             inhibit_keys_fd;
@@ -339,7 +339,7 @@ index 9c84d7f..a2f277e 100644
          GSList          *screens;
 @@ -1618,6 +1625,38 @@ do_toggle_contrast_action (GsdMediaKeysManager *manager)
  }
- 
+
  static void
 +power_action_suspend (GsdMediaKeysManager *manager)
 +{
@@ -396,7 +396,7 @@ index 9c84d7f..a2f277e 100644
 @@ -2248,6 +2287,7 @@ gsd_media_keys_manager_stop (GsdMediaKeysManager *manager)
          }
  #endif /* HAVE_GUDEV */
- 
+
 +        g_clear_object (&priv->logind_proxy);
          if (priv->settings) {
                  g_object_unref (priv->settings);
@@ -404,7 +404,7 @@ index 9c84d7f..a2f277e 100644
 @@ -2268,11 +2308,6 @@ gsd_media_keys_manager_stop (GsdMediaKeysManager *manager)
                  priv->power_keyboard_proxy = NULL;
          }
- 
+
 -        if (priv->upower_proxy) {
 -                g_object_unref (priv->upower_proxy);
 -                priv->upower_proxy = NULL;
@@ -415,7 +415,7 @@ index 9c84d7f..a2f277e 100644
                  g_object_unref (priv->cancellable);
 @@ -2363,9 +2398,85 @@ gsd_media_keys_manager_class_init (GsdMediaKeysManagerClass *klass)
  }
- 
+
  static void
 +inhibit_done (GObject      *source,
 +              GAsyncResult *result,
@@ -497,20 +497,20 @@ index 9c84d7f..a2f277e 100644
 +                                             manager);
 +
  }
- 
+
  static void
 @@ -2382,6 +2493,8 @@ gsd_media_keys_manager_finalize (GObject *object)
- 
+
          if (media_keys_manager->priv->start_idle_id != 0)
                  g_source_remove (media_keys_manager->priv->start_idle_id);
 +        if (media_keys_manager->priv->inhibit_keys_fd != -1)
 +                close (media_keys_manager->priv->inhibit_keys_fd);
- 
+
          G_OBJECT_CLASS (gsd_media_keys_manager_parent_class)->finalize (object);
  }
 @@ -2401,21 +2514,6 @@ xrandr_ready_cb (GObject             *source_object,
  }
- 
+
  static void
 -upower_ready_cb (GObject             *source_object,
 -                 GAsyncResult        *res,
@@ -545,7 +545,7 @@ index 9c84d7f..a2f277e 100644
 -                                  (GAsyncReadyCallback) upower_ready_cb,
 -                                  manager);
  }
- 
+
  GsdMediaKeysManager *
 diff --git a/plugins/power/gsd-power-manager.c b/plugins/power/gsd-power-manager.c
 index 1c594d8..bb7224c 100644
@@ -565,7 +565,7 @@ index 1c594d8..bb7224c 100644
  #include <libnotify/notify.h>
  #include <canberra-gtk.h>
 +#include <gio/gunixfdlist.h>
- 
+
  #define GNOME_DESKTOP_USE_UNSTABLE_API
  #include <libgnome-desktop/gnome-rr.h>
 @@ -43,7 +44,6 @@
@@ -573,20 +573,20 @@ index 1c594d8..bb7224c 100644
  #include "gsd-enums.h"
  #include "gsd-power-manager.h"
 -#include "gsd-power-helper.h"
- 
+
  #define GNOME_SESSION_DBUS_NAME                 "org.gnome.SessionManager"
  #define GNOME_SESSION_DBUS_PATH                 "/org/gnome/SessionManager"
 @@ -78,6 +78,10 @@
  #define GSD_POWER_MANAGER_RECALL_DELAY                  30 /* seconds */
  #define GSD_POWER_MANAGER_LID_CLOSE_SAFETY_TIMEOUT      30 /* seconds */
- 
+
 +#define SYSTEMD_DBUS_NAME                       "org.freedesktop.login1"
 +#define SYSTEMD_DBUS_PATH                       "/org/freedesktop/login1"
 +#define SYSTEMD_DBUS_INTERFACE                  "org.freedesktop.login1.Manager"
 +
  /* Keep this in sync with gnome-shell */
  #define SCREENSAVER_FADE_TIME                           10 /* seconds */
- 
+
 @@ -193,15 +197,21 @@ struct GsdPowerManagerPrivate
          ca_context              *canberra_context;
          ca_proplist             *critical_alert_loop_props;
@@ -609,7 +609,7 @@ index 1c594d8..bb7224c 100644
 +        gboolean                 inhibit_suspend_taken;
 +        guint                    inhibit_lid_switch_timer_id;
  };
- 
+
  enum {
 @@ -218,8 +228,8 @@ static GIcon    *engine_get_icon (GsdPowerManager *manager);
  static gchar    *engine_get_summary (GsdPowerManager *manager);
@@ -619,12 +619,12 @@ index 1c594d8..bb7224c 100644
 -static void      kill_lid_close_safety_timer (GsdPowerManager *manager);
 +static void      uninhibit_lid_switch (GsdPowerManager *manager);
 +static gboolean  external_monitor_is_connected (GnomeRRScreen *screen);
- 
+
  G_DEFINE_TYPE (GsdPowerManager, gsd_power_manager, G_TYPE_OBJECT)
- 
+
 @@ -2049,6 +2059,57 @@ gnome_session_shutdown (void)
  }
- 
+
  static void
 +action_poweroff (GsdPowerManager *manager)
 +{
@@ -681,7 +681,7 @@ index 1c594d8..bb7224c 100644
                        GsdPowerActionType action_type)
  {
 @@ -2057,19 +2118,19 @@ do_power_action_type (GsdPowerManager *manager,
- 
+
          switch (action_type) {
          case GSD_POWER_ACTION_SUSPEND:
 -                gsd_power_suspend (manager->priv->upower_proxy);
@@ -706,7 +706,7 @@ index 1c594d8..bb7224c 100644
 @@ -2141,85 +2202,20 @@ upower_kbd_toggle (GsdPowerManager *manager,
          return ret;
  }
- 
+
 -static void
 -do_lid_open_action (GsdPowerManager *manager)
 -{
@@ -777,7 +777,7 @@ index 1c594d8..bb7224c 100644
 +                manager->priv->inhibit_lid_switch_timer_id = 0;
 +                return G_SOURCE_REMOVE;
          }
- 
+
 -        return TRUE;
 -}
 -
@@ -797,7 +797,7 @@ index 1c594d8..bb7224c 100644
 +        g_debug ("external monitor still there; trying again later");
 +        return G_SOURCE_CONTINUE;
  }
- 
+
  /* Sets up a timer to be triggered some seconds after closing the laptop lid
 @@ -2227,82 +2223,73 @@ lid_close_safety_timer_cb (GsdPowerManager *manager)
   * again in the timeout handler to see if we can suspend then.
@@ -813,7 +813,7 @@ index 1c594d8..bb7224c 100644
 +        }
 +
 +        g_debug ("setting up lid close safety timer");
- 
+
 -        manager->priv->lid_close_safety_timer_id = g_timeout_add_seconds (GSD_POWER_MANAGER_LID_CLOSE_SAFETY_TIMEOUT,
 -                                                                          (GSourceFunc) lid_close_safety_timer_cb,
 +        manager->priv->inhibit_lid_switch_timer_id = g_timeout_add_seconds (GSD_POWER_MANAGER_LID_CLOSE_SAFETY_TIMEOUT,
@@ -822,7 +822,7 @@ index 1c594d8..bb7224c 100644
 -        g_source_set_name_by_id (manager->priv->lid_close_safety_timer_id, "[GsdPowerManager] lid close safety timer");
 +        g_source_set_name_by_id (manager->priv->inhibit_lid_switch_timer_id, "[GsdPowerManager] lid close safety timer");
  }
- 
+
  static void
 -kill_lid_close_safety_timer (GsdPowerManager *manager)
 +restart_inhibit_lid_switch_timer (GsdPowerManager *manager)
@@ -837,7 +837,7 @@ index 1c594d8..bb7224c 100644
 +                setup_inhibit_lid_switch_timer (manager);
          }
  }
- 
+
  static void
 -suspend_with_lid_closed (GsdPowerManager *manager)
 +do_lid_open_action (GsdPowerManager *manager)
@@ -845,7 +845,7 @@ index 1c594d8..bb7224c 100644
          gboolean ret;
          GError *error = NULL;
 -        GsdPowerActionType action_type;
- 
+
 -        /* maybe lock the screen if the lid is closed */
 -        lock_screensaver (manager);
 -
@@ -873,7 +873,7 @@ index 1c594d8..bb7224c 100644
 +                         /* TRANSLATORS: this is the sound description */
 +                         CA_PROP_EVENT_DESCRIPTION, _("Lid has been opened"),
 +                         NULL);
- 
+
 -        /* ensure we turn the panel back on after resume */
 +        /* ensure we turn the panel back on after lid open */
          ret = gnome_rr_screen_set_dpms_mode (manager->priv->x11_screen,
@@ -886,7 +886,7 @@ index 1c594d8..bb7224c 100644
                             error->message);
                  g_clear_error (&error);
          }
- 
+
 -        /* only toggle keyboard if present and not already toggled */
 -        if (manager->priv->upower_kdb_proxy &&
 -            manager->priv->kbd_brightness_old == -1) {
@@ -904,7 +904,7 @@ index 1c594d8..bb7224c 100644
 -
 -        do_power_action_type (manager, action_type);
  }
- 
+
  static void
  do_lid_closed_action (GsdPowerManager *manager)
  {
@@ -917,7 +917,7 @@ index 1c594d8..bb7224c 100644
 @@ -2310,21 +2297,22 @@ do_lid_closed_action (GsdPowerManager *manager)
                           CA_PROP_EVENT_DESCRIPTION, _("Lid has been closed"),
                           NULL);
- 
+
 +        /* turn the panel off if the lid is closed (mainly for Dells...) */
 +        ret = gnome_rr_screen_set_dpms_mode (manager->priv->x11_screen,
 +                                             GNOME_RR_DPMS_OFF,
@@ -930,7 +930,7 @@ index 1c594d8..bb7224c 100644
 +
          /* refresh RANDR so we get an accurate view of what monitors are plugged in when the lid is closed */
          gnome_rr_screen_refresh (manager->priv->x11_screen, NULL); /* NULL-GError */
- 
+
 -        /* perform policy action */
 -        if (g_settings_get_boolean (manager->priv->settings, "lid-close-suspend-with-external-monitor")
 -            || non_laptop_outputs_are_all_off (manager->priv->x11_screen)) {
@@ -942,7 +942,7 @@ index 1c594d8..bb7224c 100644
 -        }
 +        restart_inhibit_lid_switch_timer (manager);
  }
- 
+
 -
  static void
  up_client_changed_cb (UpClient *client, GsdPowerManager *manager)
@@ -952,12 +952,12 @@ index 1c594d8..bb7224c 100644
                  return;
          manager->priv->lid_is_closed = tmp;
 +        g_debug ("up changed: lid is now %s", tmp ? "closed" : "open");
- 
+
          /* fake a keypress */
          if (tmp)
 @@ -3302,30 +3291,6 @@ gsd_power_manager_class_init (GsdPowerManagerClass *klass)
  }
- 
+
  static void
 -sleep_cb_screensaver_proxy_ready_cb (GObject *source_object,
 -                            GAsyncResult *res,
@@ -988,14 +988,14 @@ index 1c594d8..bb7224c 100644
                       const gchar *signal_name,
 @@ -3477,75 +3442,38 @@ out:
  }
- 
+
  static void
 -lock_screensaver (GsdPowerManager *manager)
 +lock_screensaver (GsdPowerManager *manager,
 +                  GSourceFunc      done_cb)
  {
          gboolean do_lock;
- 
+
          do_lock = g_settings_get_boolean (manager->priv->settings_screensaver,
                                            "lock-enabled");
 -        if (!do_lock)
@@ -1048,7 +1048,7 @@ index 1c594d8..bb7224c 100644
 -                                   G_DBUS_CALL_FLAGS_NONE,
 -                                   -1, NULL, NULL, NULL);
          }
- 
+
 -        /* close existing notifications on resume, the system power
 -         * state is probably different now */
 -        notify_close_if_showing (manager->priv->notification_low);
@@ -1084,12 +1084,12 @@ index 1c594d8..bb7224c 100644
 +         */
 +        g_timeout_add (500, done_cb, manager);
  }
- 
+
  static void
 @@ -3755,6 +3683,287 @@ out:
          return ret;
  }
- 
+
 +static void
 +inhibit_lid_switch_done (GObject      *source,
 +                         GAsyncResult *result,
@@ -1377,7 +1377,7 @@ index 1c594d8..bb7224c 100644
 @@ -3764,6 +3973,25 @@ gsd_power_manager_start (GsdPowerManager *manager,
          g_debug ("Starting power manager");
          gnome_settings_profile_start (NULL);
- 
+
 +        manager->priv->logind_proxy =
 +                g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SYSTEM,
 +                                               0,
@@ -1412,19 +1412,19 @@ index 1c594d8..bb7224c 100644
          g_signal_connect (manager->priv->up_client, "device-added",
                            G_CALLBACK (engine_device_added_cb), manager);
 @@ -3895,6 +4119,9 @@ gsd_power_manager_start (GsdPowerManager *manager,
-         manager->priv->x11_screen = gnome_rr_screen_new (gdk_screen_get_default (), error);
-         if (manager->priv->x11_screen == NULL)
-                 return FALSE;
+                           G_CALLBACK (idle_idletime_reset_cb), manager);
+         g_signal_connect (manager->priv->idletime, "alarm-expired",
+                           G_CALLBACK (idle_idletime_alarm_expired_cb), manager);
 +        g_signal_connect (manager->priv->x11_screen, "changed", G_CALLBACK (on_randr_event), manager);
 +        /* set up initial state */
 +        on_randr_event (manager->priv->x11_screen, manager);
- 
+
          /* ensure the default dpms timeouts are cleared */
          ret = gnome_rr_screen_set_dpms_mode (manager->priv->x11_screen,
 @@ -3927,6 +4154,11 @@ gsd_power_manager_stop (GsdPowerManager *manager)
  {
          g_debug ("Stopping power manager");
- 
+
 +        if (manager->priv->inhibit_lid_switch_timer_id != 0) {
 +                g_source_remove (manager->priv->inhibit_lid_switch_timer_id);
 +                manager->priv->inhibit_lid_switch_timer_id = 0;
@@ -1436,11 +1436,11 @@ index 1c594d8..bb7224c 100644
 @@ -3938,8 +4170,6 @@ gsd_power_manager_stop (GsdPowerManager *manager)
                  manager->priv->introspection_data = NULL;
          }
- 
+
 -        kill_lid_close_safety_timer (manager);
 -
          g_signal_handlers_disconnect_by_data (manager->priv->up_client, manager);
- 
+
          g_clear_object (&manager->priv->connection);
 @@ -3947,6 +4177,19 @@ gsd_power_manager_stop (GsdPowerManager *manager)
          g_clear_object (&manager->priv->settings);
@@ -1460,7 +1460,7 @@ index 1c594d8..bb7224c 100644
 +
 +        g_clear_object (&manager->priv->logind_proxy);
          g_clear_object (&manager->priv->x11_screen);
- 
+
          g_ptr_array_unref (manager->priv->devices_array);
 @@ -3980,6 +4223,8 @@ static void
  gsd_power_manager_init (GsdPowerManager *manager)
@@ -1469,8 +1469,8 @@ index 1c594d8..bb7224c 100644
 +        manager->priv->inhibit_lid_switch_fd = -1;
 +        manager->priv->inhibit_suspend_fd = -1;
  }
- 
+
  static void
--- 
+--
 1.8.0
 
