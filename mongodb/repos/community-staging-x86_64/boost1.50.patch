@@ -1,0 +1,237 @@
+diff --git a/src/mongo/db/db.cpp b/src/mongo/db/db.cpp
+index 6a80fe9..4a42e73 100644
+--- a/src/mongo/db/db.cpp
++++ b/src/mongo/db/db.cpp
+@@ -18,6 +18,7 @@
+ 
+ #include "mongo/pch.h"
+ 
++#include <boost/version.hpp>
+ #include <boost/thread/thread.hpp>
+ #include <boost/filesystem/operations.hpp>
+ #include <fstream>
+@@ -348,7 +349,7 @@ namespace mongo {
+         boost::filesystem::path path( dbpath );
+         for ( boost::filesystem::directory_iterator i( path );
+                 i != boost::filesystem::directory_iterator(); ++i ) {
+-            string fileName = boost::filesystem::path(*i).leaf();
++            string fileName = boost::filesystem::path(*i).leaf().string();
+             if ( boost::filesystem::is_directory( *i ) &&
+                     fileName.length() && fileName[ 0 ] == '$' )
+                 boost::filesystem::remove_all( *i );
+@@ -748,11 +749,6 @@ static int mongoDbMain(int argc, char* argv[]) {
+     dbExecCommand = argv[0];
+ 
+     srand(curTimeMicros());
+-#if( BOOST_VERSION >= 104500 )
+-    boost::filesystem::path::default_name_check( boost::filesystem2::no_check );
+-#else
+-    boost::filesystem::path::default_name_check( boost::filesystem::no_check );
+-#endif
+ 
+     {
+         unsigned x = 0x12345678;
+@@ -1083,7 +1079,7 @@ static int mongoDbMain(int argc, char* argv[]) {
+         if (params.count("shutdown")){
+             bool failed = false;
+ 
+-            string name = ( boost::filesystem::path( dbpath ) / "mongod.lock" ).native_file_string();
++            string name = ( boost::filesystem::path( dbpath ) / "mongod.lock" ).string();
+             if ( !boost::filesystem::exists( name ) || boost::filesystem::file_size( name ) == 0 )
+                 failed = true;
+ 
+diff --git a/src/mongo/db/dur.cpp b/src/mongo/db/dur.cpp
+index b83957b..242fe00 100644
+--- a/src/mongo/db/dur.cpp
++++ b/src/mongo/db/dur.cpp
+@@ -770,7 +770,7 @@ namespace mongo {
+ 
+             bool samePartition = true;
+             try {
+-                const string dbpathDir = boost::filesystem::path(dbpath).native_directory_string();
++                const string dbpathDir = boost::filesystem::path(dbpath).string();
+                 samePartition = onSamePartition(getJournalDir().string(), dbpathDir);
+             }
+             catch(...) {
+diff --git a/src/mongo/db/dur_journal.cpp b/src/mongo/db/dur_journal.cpp
+index 9957d41..9f693b9 100644
+--- a/src/mongo/db/dur_journal.cpp
++++ b/src/mongo/db/dur_journal.cpp
+@@ -176,7 +176,7 @@ namespace mongo {
+                 for ( boost::filesystem::directory_iterator i( getJournalDir() );
+                         i != boost::filesystem::directory_iterator();
+                         ++i ) {
+-                    string fileName = boost::filesystem::path(*i).leaf();
++                    string fileName = boost::filesystem::path(*i).leaf().string();
+                     if( anyFiles || str::startsWith(fileName, "j._") )
+                         return true;
+                 }
+@@ -194,7 +194,7 @@ namespace mongo {
+                 for ( boost::filesystem::directory_iterator i( getJournalDir() );
+                         i != boost::filesystem::directory_iterator();
+                         ++i ) {
+-                    string fileName = boost::filesystem::path(*i).leaf();
++                    string fileName = boost::filesystem::path(*i).leaf().string();
+                     if( str::startsWith(fileName, "j._") ) {
+                         try {
+                             removeOldJournalFile(*i);
+diff --git a/src/mongo/db/dur_recover.cpp b/src/mongo/db/dur_recover.cpp
+index a7efd4d..e352db6 100644
+--- a/src/mongo/db/dur_recover.cpp
++++ b/src/mongo/db/dur_recover.cpp
+@@ -72,7 +72,7 @@ namespace mongo {
+                     i != boost::filesystem::directory_iterator();
+                     ++i ) {
+                 boost::filesystem::path filepath = *i;
+-                string fileName = boost::filesystem::path(*i).leaf();
++                string fileName = boost::filesystem::path(*i).leaf().string();
+                 if( str::startsWith(fileName, "j._") ) {
+                     unsigned u = str::toUnsigned( str::after(fileName, '_') );
+                     if( m.count(u) ) {
+@@ -85,7 +85,7 @@ namespace mongo {
+                 if( i != m.begin() && m.count(i->first - 1) == 0 ) {
+                     uasserted(13532,
+                     str::stream() << "unexpected file in journal directory " << dir.string()
+-                      << " : " << boost::filesystem::path(i->second).leaf() << " : can't find its preceeding file");
++                      << " : " << boost::filesystem::path(i->second).leaf().string() << " : can't find its preceeding file");
+                 }
+                 files.push_back(i->second);
+             }
+diff --git a/src/mongo/db/instance.cpp b/src/mongo/db/instance.cpp
+index 218fb9e..42794f0 100644
+--- a/src/mongo/db/instance.cpp
++++ b/src/mongo/db/instance.cpp
+@@ -833,13 +833,13 @@ namespace mongo {
+                 i != boost::filesystem::directory_iterator(); ++i ) {
+             if ( directoryperdb ) {
+                 boost::filesystem::path p = *i;
+-                string dbName = p.leaf();
++                string dbName = p.leaf().string();
+                 p /= ( dbName + ".ns" );
+                 if ( exists( p ) )
+                     names.push_back( dbName );
+             }
+             else {
+-                string fileName = boost::filesystem::path(*i).leaf();
++                string fileName = boost::filesystem::path(*i).leaf().string();
+                 if ( fileName.length() > 3 && fileName.substr( fileName.length() - 3, 3 ) == ".ns" )
+                     names.push_back( fileName.substr( 0, fileName.length() - 3 ) );
+             }
+@@ -1102,7 +1102,7 @@ namespace mongo {
+     }
+ 
+     void acquirePathLock(bool doingRepair) {
+-        string name = ( boost::filesystem::path( dbpath ) / "mongod.lock" ).native_file_string();
++        string name = ( boost::filesystem::path( dbpath ) / "mongod.lock" ).string();
+ 
+         bool oldFile = false;
+ 
+diff --git a/src/mongo/db/pdfile.cpp b/src/mongo/db/pdfile.cpp
+index 0c424f0..9fbbde7 100644
+--- a/src/mongo/db/pdfile.cpp
++++ b/src/mongo/db/pdfile.cpp
+@@ -1675,7 +1675,7 @@ namespace mongo {
+             virtual bool apply( const Path &p ) {
+                 if ( !boost::filesystem::exists( p ) )
+                     return false;
+-                boostRenameWrapper( p, newPath_ / ( p.leaf() + ".bak" ) );
++                boostRenameWrapper( p, newPath_ / ( p.leaf().string() + ".bak" ) );
+                 return true;
+             }
+             virtual const char * op() const {
+@@ -1783,7 +1783,7 @@ namespace mongo {
+             uniqueReservedPath( ( preserveClonedFilesOnFailure || backupOriginalFiles ) ?
+                                 "backup" : "_tmp" );
+         MONGO_ASSERT_ON_EXCEPTION( boost::filesystem::create_directory( reservedPath ) );
+-        string reservedPathString = reservedPath.native_directory_string();
++        string reservedPathString = reservedPath.string();
+ 
+         bool res;
+         {
+diff --git a/src/mongo/dbtests/framework.cpp b/src/mongo/dbtests/framework.cpp
+index 813705a..d0a3ba4 100644
+--- a/src/mongo/dbtests/framework.cpp
++++ b/src/mongo/dbtests/framework.cpp
+@@ -199,7 +199,7 @@ namespace mongo {
+                 boost::filesystem::create_directory(p);
+             }
+ 
+-            string dbpathString = p.native_directory_string();
++            string dbpathString = p.string();
+             dbpath = dbpathString.c_str();
+ 
+             cmdLine.prealloc = false;
+diff --git a/src/mongo/pch.h b/src/mongo/pch.h
+index 7044097..6bb9df6 100644
+--- a/src/mongo/pch.h
++++ b/src/mongo/pch.h
+@@ -44,7 +44,7 @@
+ #include "string.h"
+ #include "limits.h"
+ 
+-#define BOOST_FILESYSTEM_VERSION 2
++#define BOOST_FILESYSTEM_VERSION 3
+ #include <boost/shared_ptr.hpp>
+ #include <boost/smart_ptr.hpp>
+ #include <boost/function.hpp>
+diff --git a/src/mongo/shell/shell_utils_launcher.cpp b/src/mongo/shell/shell_utils_launcher.cpp
+index 60af4f3..fa0d6ad 100644
+--- a/src/mongo/shell/shell_utils_launcher.cpp
++++ b/src/mongo/shell/shell_utils_launcher.cpp
+@@ -184,7 +184,7 @@ namespace mongo {
+             }
+ #endif
+ 
+-            _argv.push_back( programPath.native_file_string() );
++            _argv.push_back( programPath.string() );
+ 
+             _port = -1;
+ 
+diff --git a/src/mongo/tools/restore.cpp b/src/mongo/tools/restore.cpp
+index d7779e6..5c68bde 100644
+--- a/src/mongo/tools/restore.cpp
++++ b/src/mongo/tools/restore.cpp
+@@ -174,7 +174,7 @@ public:
+         log(2) << "drillDown: " << root.string() << endl;
+ 
+         // skip hidden files and directories
+-        if (root.leaf()[0] == '.' && root.leaf() != ".")
++        if (root.leaf().string()[0] == '.' && root.leaf().string() != ".")
+             return;
+ 
+         if ( is_directory( root ) ) {
+@@ -255,7 +255,7 @@ public:
+ 
+         verify( ns.size() );
+ 
+-        string oldCollName = root.leaf(); // Name of the collection that was dumped from
++        string oldCollName = root.leaf().string(); // Name of the collection that was dumped from
+         oldCollName = oldCollName.substr( 0 , oldCollName.find_last_of( "." ) );
+         if (use_coll) {
+             ns += "." + _coll;
+@@ -287,7 +287,7 @@ public:
+             if (!boost::filesystem::exists(metadataFile.string())) {
+                 // This is fine because dumps from before 2.1 won't have a metadata file, just print a warning.
+                 // System collections shouldn't have metadata so don't warn if that file is missing.
+-                if (!startsWith(metadataFile.leaf(), "system.")) {
++                if (!startsWith(metadataFile.leaf().string(), "system.")) {
+                     log() << metadataFile.string() << " not found. Skipping." << endl;
+                 }
+             } else {
+diff --git a/src/mongo/tools/tool.cpp b/src/mongo/tools/tool.cpp
+index c092cdb..76834fa 100644
+--- a/src/mongo/tools/tool.cpp
++++ b/src/mongo/tools/tool.cpp
+@@ -118,12 +118,6 @@ namespace mongo {
+         // we want durability to be disabled.
+         cmdLine.dur = false;
+ 
+-#if( BOOST_VERSION >= 104500 )
+-    boost::filesystem::path::default_name_check( boost::filesystem2::no_check );
+-#else
+-    boost::filesystem::path::default_name_check( boost::filesystem::no_check );
+-#endif
+-
+         _name = argv[0];
+ 
+         /* using the same style as db.cpp */
