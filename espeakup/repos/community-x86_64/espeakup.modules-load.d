@@ -1,1 +1,0 @@
-speakup_soft
