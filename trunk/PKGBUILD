@@ -1,10 +1,10 @@
 # $Id$
-# Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org>
+# Maintainer: Sébastien Luttringer <seblu@archlinux.org>
 
 pkgbase=linux-tools
 pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.7
-pkgrel=3.1
+pkgrel=4
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -30,7 +30,7 @@ md5sums=('21223369d682bcf44bcdfe1521095983'
          '56883c159381ba89e50ab8ea65efec77'
          '7e0710c2f31c1eb1e1417a7972e676b1'
          '2450e8ff41b30eb58d43b5fffbfde1f4'
-         'ba7c1c513314dd21fb2334fb8417738f')
+         'a8fb0c6159bee1b9e345a87cabb3ba27')
 
 build() {
   # apply stable patching set
@@ -89,7 +89,7 @@ package_libtraceevent() {
 
 package_perf() {
   pkgdesc='Linux kernel performance auditing tool'
-  depends=('perl' 'python2' 'libnewt' 'elfutils' 'audit' 'libunwind')
+  depends=('perl' 'python2' 'libnewt' 'elfutils' 'audit' 'libunwind' 'binutils')
 
   cd linux-$pkgver/tools/perf
   make \
