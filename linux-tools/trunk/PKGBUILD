@@ -4,7 +4,7 @@
 pkgbase=linux-tools
 pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 pkgver=3.7
-pkgrel=4
+pkgrel=5
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -108,6 +108,7 @@ package_cpupower() {
   depends=('bash' 'pciutils')
   conflicts=('cpufrequtils')
   replaces=('cpufrequtils')
+  install=cpupower.install
 
   pushd linux-$pkgver/tools/power/cpupower
   make \
