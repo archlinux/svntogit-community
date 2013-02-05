@@ -1,10 +1,16 @@
 # $Id$
-# Maintainer: Sébastien Luttringer <seblu@archlinux.org>
+# Maintainer: Sébastien Luttringer
 
 pkgbase=linux-tools
-pkgname=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
+pkgname=('linux-tools-meta'
+         'libtraceevent'
+         'perf'
+         'cpupower'
+         'x86_energy_perf_policy'
+         'usbip')
+[[ $CARCH == i686 ]] && pkgname+=('lguest')
 pkgver=3.7
-pkgrel=5
+pkgrel=6
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -20,13 +26,13 @@ makedepends+=('pciutils')
 makedepends+=('glib2' 'sysfsutils')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
-        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.1.xz"
+        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.6.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service')
 md5sums=('21223369d682bcf44bcdfe1521095983'
-         '48f5f530b048e387e978e3e49de7742a'
+         'ec61c44f37585a768d41c0439101ef9c'
          '56883c159381ba89e50ab8ea65efec77'
          '7e0710c2f31c1eb1e1417a7972e676b1'
          '2450e8ff41b30eb58d43b5fffbfde1f4'
@@ -76,6 +82,19 @@ build() {
   ./configure --prefix=/usr
   make
   popd
+
+  if [[ $CARCH == i686 ]]; then
+    msg2 'Build lguest'
+    pushd linux-$pkgver/tools/lguest
+    make
+    popd
+  fi
+}
+
+package_linux-tools-meta() {
+  pkgdesc='Linux kernel tools meta package'
+  groups=()
+  depends=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip' 'lguest')
 }
 
 package_libtraceevent() {
@@ -100,6 +119,10 @@ package_perf() {
     NO_GTK2=1 \
     PERF_VERSION=$pkgver-$pkgrel \
     install install-man
+  # move completion in new directory
+  cd "$pkgdir"
+  install -Dm644 usr/etc/bash_completion.d/perf usr/share/bash-completion/perf
+  rm -r usr/etc
 }
 
 package_cpupower() {
@@ -145,6 +168,17 @@ package_usbip() {
   printf 'usbip-core\nusbip-host\n' > "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
   # systemd
   install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
+}
+
+package_lguest() {
+  pkgdesc='Linux kernel x86 virtualization hypervisor'
+  depends=('glibc')
+
+  cd linux-$pkgver
+  install -Dm 755 tools/lguest/lguest "$pkgdir/usr/bin/lguest"
+  install -dm 755 "$pkgdir/usr/share/doc/$pkgname/"
+  install -m 644 tools/lguest/lguest.txt "$pkgdir/usr/share/doc/$pkgname/"
+  install -m 644 drivers/lguest/README "$pkgdir/usr/share/doc/$pkgname/"
 }
 
 # vim:set ts=2 sw=2 et:
