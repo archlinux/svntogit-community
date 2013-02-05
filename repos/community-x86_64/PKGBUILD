@@ -8,9 +8,8 @@ pkgname=('linux-tools-meta'
          'cpupower'
          'x86_energy_perf_policy'
          'usbip')
-[[ $CARCH == i686 ]] && pkgname+=('lguest')
 pkgver=3.7
-pkgrel=6
+pkgrel=7
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -82,19 +81,12 @@ build() {
   ./configure --prefix=/usr
   make
   popd
-
-  if [[ $CARCH == i686 ]]; then
-    msg2 'Build lguest'
-    pushd linux-$pkgver/tools/lguest
-    make
-    popd
-  fi
 }
 
 package_linux-tools-meta() {
   pkgdesc='Linux kernel tools meta package'
   groups=()
-  depends=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip' 'lguest')
+  depends=('libtraceevent' 'perf' 'cpupower' 'x86_energy_perf_policy' 'usbip')
 }
 
 package_libtraceevent() {
@@ -168,17 +160,6 @@ package_usbip() {
   printf 'usbip-core\nusbip-host\n' > "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
   # systemd
   install -Dm 644 usbipd.service "$pkgdir/usr/lib/systemd/system/usbipd.service"
-}
-
-package_lguest() {
-  pkgdesc='Linux kernel x86 virtualization hypervisor'
-  depends=('glibc')
-
-  cd linux-$pkgver
-  install -Dm 755 tools/lguest/lguest "$pkgdir/usr/bin/lguest"
-  install -dm 755 "$pkgdir/usr/share/doc/$pkgname/"
-  install -m 644 tools/lguest/lguest.txt "$pkgdir/usr/share/doc/$pkgname/"
-  install -m 644 drivers/lguest/README "$pkgdir/usr/share/doc/$pkgname/"
 }
 
 # vim:set ts=2 sw=2 et:
