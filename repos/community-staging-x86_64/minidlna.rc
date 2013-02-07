@@ -1,0 +1,76 @@
+#!/bin/bash
+
+. /etc/rc.conf
+. /etc/rc.d/functions
+. /etc/conf.d/minidlna
+. /etc/minidlna.conf
+
+daemon_name=minidlna
+
+get_pid() {
+    pidof -o %PPID /usr/sbin/minidlna
+}
+
+case "$1" in
+  start)
+    stat_busy "Starting minidlna"
+    PID=$(get_pid)
+    if [[ -z "$PID" ]]; then
+      rm -f /var/run/$daemon_name.pid
+      touch /var/run/$daemon_name.pid && chown $MINIDLNA_USER:$MINIDLNA_USER /var/run/$daemon_name.pid
+      mkdir -p /var/cache/minidlna
+      chown -R $MINIDLNA_USER /var/cache/minidlna
+      su -s /bin/sh -l -c "/usr/sbin/minidlna ${MINIDLNA_OPTS} $2" - $MINIDLNA_USER
+      if [[ $? -gt 0 ]]; then
+        stat_fail
+        exit 1
+      else
+        add_daemon $daemon_name
+        stat_done
+      fi
+    else
+      stat_fail
+      exit 1
+    fi
+    ;;
+
+  stop)
+    stat_busy "Stopping minidlna"
+    PID=$(get_pid)
+    [[ -n $PID ]] && kill $PID &> /dev/null
+    if [ $? -gt 0 ]; then
+      stat_fail
+      exit 1
+    else
+      rm -f /var/run/$daemon_name.pid &> /dev/null
+      rm_daemon minidlna
+      stat_done
+    fi
+    ;;
+
+  clean)
+    $0 stop
+    sleep 1
+    stat_busy "Cleaning minidlna cache"
+    [ -z $db_dir ] || rm -r $db_dir/*
+    stat_done
+    sleep 1
+    $0 start
+    ;;
+
+  restart)
+    $0 stop
+    sleep 1
+    $0 start
+    ;;
+
+  rescan)
+    $0 stop
+    sleep 1
+    $0 start -R
+    ;;
+
+  *)
+    echo "usage: $0 {start|stop|restart|clean}"
+esac
+exit 0
