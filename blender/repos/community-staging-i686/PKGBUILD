@@ -1,0 +1,101 @@
+# $Id$
+# Contributor: John Sowiak <john@archlinux.org>
+# Contributor: tobias <tobias@archlinux.org>
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+
+# Sometimes blender.org takes some time to release patch releases and because Arch users
+# are impatient, we sometimes need to build from svn directly.
+
+_svn=false
+
+pkgname=blender
+true && pkgver=2.65a # Hack for svn
+true && pkgrel=6
+epoch=6
+pkgdesc="A fully integrated 3D graphics creation suite"
+arch=('i686' 'x86_64')
+license=('GPL')
+url="http://www.blender.org"
+depends=('libpng' 'libtiff' 'openexr' 'python' 'desktop-file-utils'
+         'shared-mime-info' 'hicolor-icon-theme' 'xdg-utils' 'glew'
+         'freetype2' 'openal' 'ffmpeg' 'fftw' 'boost-libs' 'opencollada'
+         'openimageio' 'libsndfile' 'jack' 'opencolorio') #'openshadinglanguage')
+makedepends=('cmake' 'boost' 'cuda' 'subversion' 'mesa')
+optdepends=('cuda: cycles renderer cuda support')
+options=(!strip)
+install=blender.install
+if [[ $_svn = false ]]; then
+  source=(http://download.blender.org/source/$pkgname-$pkgver.tar.gz)
+  md5sums=('3bbe18060c5c9c2ad600c8bfe8ee4786')
+else
+  source=()
+  md5sums=()
+fi
+
+_svntrunk="https://svn.blender.org/svnroot/bf-blender/trunk/blender"
+_svnmod="blender"
+
+build() {
+if [[ $_svn = true ]]; then
+  cd "$srcdir"
+  msg "Connecting to SVN server...."
+
+  if [[ -d "$_svnmod/.svn" ]]; then
+    (cd "$_svnmod" && svn up )
+  else
+    svn co "$_svntrunk" --config-dir ./ "$_svnmod"
+  fi
+
+  msg "SVN checkout done or server timeout"
+  msg "Starting build..."
+
+  rm -rf "$srcdir/$_svnmod-build"
+  cp -r "$srcdir/$_svnmod" "$srcdir/$_svnmod-build"
+  cd "$srcdir/$_svnmod-build"
+else
+  cd "$srcdir/$pkgname-$pkgver"
+fi
+
+  mkdir build
+  cd build
+
+  [[ $CARCH == i686 ]] && ENABLESSE2="-DSUPPORT_SSE2_BUILD=OFF"
+
+  cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWITH_INSTALL_PORTABLE=OFF \
+    -DWITH_PYTHON_INSTALL=OFF \
+    -DWITH_OPENCOLLADA=ON \
+    -DOPENIMAGEIO_ROOT_DIR=/usr \
+    -DWITH_GAMEENGINE=ON \
+    -DWITH_JACK=ON \
+    -DWITH_PLAYER=ON \
+    -DWITH_CODEC_FFMPEG=ON \
+    -DWITH_CODEC_SNDFILE=ON \
+    -DWITH_CYCLES=ON \
+    -DWITH_CYCLES_CUDA_BINARIES=ON \
+    -DCUDA_TOOLKIT_ROOT_DIR=/opt/cuda-toolkit/ \
+    -DWITH_FFTW3=ON \
+    -DWITH_MOD_OCEANSIM=ON \
+    -DPYTHON_VERSION=3.3 \
+    -DPYTHON_LIBPATH=/usr/lib \
+    -DPYTHON_LIBRARY=python3.3m \
+    -DPYTHON_INCLUDE_DIRS=/usr/include/python3.3m \
+    $ENABLESSE2
+
+    #-DWITH_CYCLES_OSL=ON \
+  make $MAKEFLAGS
+
+  make
+}
+
+package() {
+  if [[ $_svn = true ]]; then
+    cd "$srcdir/$_svnmod-build/build"
+  else
+    cd "$srcdir/$pkgname-$pkgver/build"
+  fi
+  make DESTDIR="${pkgdir}" install
+  python -m compileall "${pkgdir}/usr/share/blender"
+}
