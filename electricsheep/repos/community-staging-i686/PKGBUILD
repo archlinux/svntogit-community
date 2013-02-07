@@ -1,0 +1,55 @@
+# $Id$
+# Maintainer: Eric Bélanger <eric@archlinux.org>
+
+pkgname=electricsheep
+pkgver=2.7b33
+pkgrel=6
+pkgdesc="A screensaver that realize the collective dream of sleeping computers from all over the internet"
+arch=('i686' 'x86_64')
+url="http://community.electricsheep.org/"
+license=('GPL')
+depends=('curl' 'flam3' 'ffmpeg' 'wxgtk2.9' 'lua51' 'libgtop' 'boost-libs' 'freeglut' 'glee')
+makedepends=('boost' 'mesa' 'glu' 'tinyxml')
+optdepends=('xscreensaver: to use electricsheep with xscreensaver')
+options=('!emptydirs')
+source=(ftp://ftp.archlinux.org/other/community/${pkgname}/${pkgname}-${pkgver}.tar.xz{,.sig})
+sha1sums=('d86607d97accad8519df2a21d67253abe45f5fdd'
+          'fda3aae435507d03973f0c4d1ed3509067657f06')
+
+# source PKGBUILD && mksource
+mksource() {
+  [[ -x /usr/bin/svn ]] || (echo "svn not found. Install subversion." && return 1)
+  _svnver=r125
+  _svntrunk="http://electricsheep.googlecode.com/svn/trunk/client_generic"
+  _svnmod="${pkgname}-${pkgver}"
+  mkdir ${pkgname}-${pkgver}
+  pushd ${pkgname}-${pkgver}
+  svn co ${_svntrunk} --config-dir ./ -r ${_svnver} ${_svnmod}
+  find . -depth -type d -name .svn -exec rm -rf {} \;
+  (cd ${pkgname}-${pkgver} ; rm -r boost Build_guides curlTest ffmpeg InstallerMSVC \
+    Launcher libpng libxml lua5.1 MacBuild RuntimeMSVC wxConfig)
+  tar -cJf ../${pkgname}-${pkgver}.tar.xz ${pkgname}-${pkgver}/*
+  popd
+  rm -r ${pkgname}-${pkgver}
+  gpg --detach-sign --use-agent -u ${GPGKEY} ${pkgname}-${pkgver}.tar.xz
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  sed -i 's/wx-config/wx-config-2.9/g' configure.ac
+  sed -i -e 's/AM_PROG_CC_STDC/AC_PROG_CC/' configure.ac
+  sed -i '12 i\
+#include <cstdio>' Common/Singleton.h
+  mkdir m4
+  ./autogen.sh
+  CPPFLAGS+="-I/usr/include/lua5.1" ./configure --prefix=/usr
+  sed -i 's|-I /usr/include/libavutil||' MSVC/SettingsGUI/Makefile 
+  make CXXFLAGS+="-DUSE_NEW_FFMPEG_API=1"
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  make DESTDIR="${pkgdir}" install
+  install -D -m644 menu-entries/ElectricSheep.desktop.kde "${pkgdir}/usr/share/kde4/services/ScreenSavers/electricsheep.desktop"
+  install -D -m644 Runtime/logo.png "${pkgdir}/usr/share/icons/electricsheep.png"
+}
