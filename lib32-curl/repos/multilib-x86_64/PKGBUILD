@@ -1,0 +1,83 @@
+# $Id$
+# Maintainer: Daniel Wallace <danielwallace@aur.archlinux.org>
+# Contributor: Dave Reisner <dreisner@archlinux.org>
+# Contributor: Angel Velasquez <angvp@archlinux.org>
+# Contributor: Eric Belanger <eric@archlinux.org>
+# Contributor: Lucien Immink <l.immink@student.fnt.hvu.nl>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+
+pkgname=lib32-curl
+_pkgname=curl
+pkgver=7.29.0
+pkgrel=2
+pkgdesc="An URL retrieval utility and library"
+arch=('i686' 'x86_64')
+url="http://curl.haxx.se"
+license=('MIT')
+
+depends=('lib32-libssh2' 'ca-certificates')
+options=('!libtool')
+source=("http://curl.haxx.se/download/$_pkgname-$pkgver.tar.gz"{,.asc}
+        0001-Fix-NULL-pointer-reference-when-closing-an-unused-mu.patch
+        curlbuild.h)
+md5sums=('4f57d3b4a3963038bd5e04dbff385390'
+         '6283fbb36933cf8720acc34c43169f1d'
+         '5bfd1899e8b19cfdd78774f6337f8b47'
+         '751bd433ede935c8fae727377625a8ae')
+
+ptrsize=$(cpp <<<'__SIZEOF_POINTER__' | sed '/^#/d')
+case $ptrsize in
+  8) _curlbuild=curlbuild-64.h ;;
+  4) _curlbuild=curlbuild-32.h ;;
+  *) error "unknown pointer size for architecture: %s bytes" "$ptrsize"
+    exit 1
+    ;;
+esac
+
+build() {
+  cd "$_pkgname-$pkgver"
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+  
+  # workaround to avoid error during ./configure
+  
+  CFLAGS=${CFLAGS/-D_FORTIFY_SOURCE=2/}
+  CPPFLAGS="$CPPFLAGS -D_FORTIFY_SOURCE=2"
+
+  patch -Np1 <"$srcdir/0001-Fix-NULL-pointer-reference-when-closing-an-unused-mu.patch"
+
+  ./configure \
+      --prefix=/usr \
+      --mandir=/usr/share/man \
+      --disable-dependency-tracking \
+      --disable-ldap \
+      --disable-ldaps \
+      --enable-ipv6 \
+      --enable-manual \
+      --enable-versioned-symbols \
+      --enable-threaded-resolver \
+      --without-libidn \
+      --with-random=/dev/urandom \
+      --with-ca-bundle=/etc/ssl/certs/ca-certificates.crt \
+      --libdir=/usr/lib32
+
+  make
+}
+
+package() {
+  cd "$_pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  rm -rf "${pkgdir}"/usr/{share,bin}
+  
+  # license
+  install -d "$pkgdir/usr/share/licenses"
+  ln -s "$_pkgname" "$pkgdir/usr/share/licenses/$pkgname"
+
+  # devel
+  find "${pkgdir}/usr/include/curl" -type f -not -name curlbuild.h -delete
+  mv "$pkgdir/usr/include/curl/curlbuild.h" "$pkgdir/usr/include/$_pkgname/curlbuild-32.h"
+}
