@@ -8,8 +8,8 @@ pkgname=('linux-tools-meta'
          'cpupower'
          'x86_energy_perf_policy'
          'usbip')
-pkgver=3.7
-pkgrel=7
+pkgver=3.8
+pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -25,17 +25,16 @@ makedepends+=('pciutils')
 makedepends+=('glib2' 'sysfsutils')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
-        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.6.xz"
+#        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.6.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service')
-md5sums=('21223369d682bcf44bcdfe1521095983'
-         'ec61c44f37585a768d41c0439101ef9c'
-         '56883c159381ba89e50ab8ea65efec77'
-         '7e0710c2f31c1eb1e1417a7972e676b1'
-         '2450e8ff41b30eb58d43b5fffbfde1f4'
-         'a8fb0c6159bee1b9e345a87cabb3ba27')
+sha256sums=('e070d1bdfbded5676a4f374721c63565f1c969466c5a3e214004a136b583184b'
+            '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
+            'fbf6e0ce6eb0ef15703fe212958de6ca46e62188900b5e9f9272ed3cc9cfd54e'
+            'a89284d0ecb556ca53a66d1c2087b5fd6d0a901ab2769cd3aebb93f4478905dc'
+            '8053a6bcd0776a7fefccc5012f93a1710653529e0eab59afcc39f24361c64869')
 
 build() {
   # apply stable patching set
