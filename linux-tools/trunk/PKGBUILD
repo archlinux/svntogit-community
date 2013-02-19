@@ -30,6 +30,7 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service')
+# http://www.kernel.org/pub/linux/kernel/v3.0/sha256sums.asc
 sha256sums=('e070d1bdfbded5676a4f374721c63565f1c969466c5a3e214004a136b583184b'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'fbf6e0ce6eb0ef15703fe212958de6ca46e62188900b5e9f9272ed3cc9cfd54e'
