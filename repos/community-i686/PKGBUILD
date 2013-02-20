@@ -4,32 +4,32 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.7.2
-pkgrel=2
+pkgver=0.8.0
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
-makedepends=('boost' 'automoc4' 'miniupnpc')
+makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc')
 conflicts=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 replaces=('bitcoin' 'bitcoin-bin' 'bitcoin-git')
 license=('MIT')
 source=(http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-$pkgver/bitcoin-$pkgver-linux.tar.gz)
-sha256sums=('23d44161670c521f2aba64f9351b42260baa6bb2981640617c8e2e7683e5855c')
+sha256sums=('e31529147d307b2240e08af3a5a4606fe2c112d1b0e91e3cce4a2bac2583cecc')
 
 build() {
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
 
   # and make qt gui
-  qmake
+  qmake USE_QRCODE=1
   make
 
   # make bitcoind
-  make -f makefile.unix -C src  CXXFLAGS="$CXXFLAGS" USE_UPNP=1
+  make -f makefile.unix -C src  CXXFLAGS="$CXXFLAGS"
 }
 
 
 package_bitcoin-qt() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - QT"
-  depends=(boost-libs qt miniupnpc)
+  depends=(boost-libs qt miniupnpc qrencode)
   install=bitcoin-qt.install
 
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
