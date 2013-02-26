@@ -1,0 +1,123 @@
+# $Id$
+# Maintainer: Alexander Rødseth <rodseth@gmail.com>
+# Contributor: Elmo Todurov <todurov@gmail.com>
+# Contributor: guini <sidtrun@googlemail.com>
+# Contributor: Forrest Loomis <cybercyst@gmail.com>
+# Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: fana-m <geminin@gmx.net>
+
+pkgname=freeorion
+pkgver=0.4.2
+pkgrel=1
+pkgdesc='Turn-based galactic conquest game inspired by Master of Orion'
+arch=('x86_64' 'i686')
+url='http://www.freeorion.org/'
+license=('GPL')
+if [ "$CARCH" == "x86_64" ]
+then
+  depends=('lib32-nvidia-cg-toolkit')
+else
+  depends=('nvidia-cg-toolkit')
+fi
+depends=('bullet>=2.81' 'freealut' 'libvorbis' 'python2' 'gigi' 'desktop-file-utils' 'libgl')
+makedepends=('boost>=1.49.0' 'ogre' 'sdl' 'gigi>=0.8.0-12' 'graphviz' 'mesa-libgl'
+             'desktop-file-utils' 'setconf' 'cmake' 'gendesk' 'subversion'
+             'libogg')
+options=('!strip' '!emptydirs')
+install=$pkgname.install
+source=("$pkgname.sh"
+        "$pkgname.png::https://a.fsdn.com/con/icons/fr/freeorion@sf.net/FO_Icon_256x256.png"
+        "cmake_python.patch")
+sha256sums=('111532e460aec847ff455ee67dd64f46e2fa5ceba39a0349d25a84b69c646eaf'
+            'a6a253eed31b77b00bf4f721f4b1c6bbd95505b9e4b38b736101e551dd12ff5f'
+            '3dbe8df9c3a4a0d6451f42727ebf9bcb21fed41a08d1181d1cf77ef4ab5ee81a')
+_svnrepo='https://freeorion.svn.sourceforge.net/svnroot/freeorion/trunk/FreeOrion/'
+_pyversion=2.7
+_revision=5771
+
+build() {
+  cd "$srcdir"
+  gendesk -n
+
+  #msg2 'Looking up revision from version number...'
+  #_releaserevision=`curl --progress-bar -o- ${url}index.php/Compile | grep "$pkgver" | cut -d':' -f2 | cut -d' ' -f10 | tail -1`
+  #msg2 'The revision for the latest official release is $_releaserevision"
+  ## _revision=$_releaserevision
+
+  msg2 'Compiling with revision $_revision'
+
+  msg2 'Checking out svn revision $_revision...'
+  if [[ -d "$pkgname/.svn" ]]; then
+    (cd "$pkgname" && svn up -r "$_revision")
+  else
+    svn co "$_svnrepo" --config-dir ./ -r "$_revision" "$pkgname"
+  fi
+
+  msg2 'Setting up build directory...'
+  rm -rf "$srcdir/$pkgname-build"
+  cp -r "$srcdir/$pkgname" "$srcdir/$pkgname-build"
+  cd "$srcdir/$pkgname-build"
+
+  msg2 'CMake/Python fix...'
+  patch -N -p1 -i "$srcdir/cmake_python.patch"
+
+  msg2 'Generating makefiles...'
+  cmake \
+    -DPYTHON_INCLUDE_DIR:PATH="/usr/include/python$_pyversion" \
+    -DPYTHON_LIBRARY:FILEPATH="/usr/lib/libpython$_pyversion.so" \
+    -G "Unix Makefiles"
+  
+  msg2 'GLU fix...'
+  setconf CMakeCache.txt CMAKE_CXX_FLAGS:STRING \
+    "'-march=x86-64 -mtune=generic -O2 -fno-var-tracking -pipe -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -lGL -lGLU '"
+
+  #msg2 'Boost fix...'
+  #sed -i 's:TIME_UTC:TIME_UTC_:' util/MultiplayerCommon.cpp
+  
+  msg2 'Compiling...'
+  make -j1
+
+  msg2 'OGRE fix...'
+  sed -i 's:PluginFolder=.:PluginFolder=/usr/lib/OGRE/:g' \
+    "$srcdir/$pkgname-build/ogre_plugins.cfg"
+}
+
+package() {
+  cd "$srcdir/$pkgname-build"
+
+  msg2 'Packaging documentation...'
+  install -Dm644 loki_setup/README.txt \
+    "$pkgdir/usr/share/doc/$pkgname/README.txt"
+
+  msg2 'Packaging binaries...'
+  install -Dm 755 "$srcdir/$pkgname.sh" "$pkgdir/usr/bin/freeorion"
+  install -Dm 755 freeorion "$pkgdir/usr/bin/freeorion.elf"
+  install -Dm 755 freeorionca "$pkgdir/usr/bin/freeorionca"
+  install -Dm 755 freeoriond "$pkgdir/usr/bin/freeoriond"
+
+  msg2 'Packaging data...'
+  mkdir -p "$pkgdir/usr/share/$pkgname" "$pkgdir/usr/lib/$pkgname"
+  cp -r default "$pkgdir/usr/share/$pkgname"
+  install -Dm 644 OISInput.cfg "$pkgdir/usr/share/$pkgname/OISInput.cfg"
+
+  msg2 'Packaging license...'
+  install -Dm 644 default/COPYING \
+    "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+
+  cd "$srcdir"
+
+  msg2 'Packaging icon and shortcut...'
+  install -Dm 644 "$pkgname.png" \
+    "$pkgdir/usr/share/pixmaps/freeorion.png"
+  install -Dm 644 "$pkgname.desktop" \
+    "$pkgdir/usr/share/applications/freeorion.desktop"
+
+  msg2 'Packaging OGRE plugins configuration...'
+  install -Dm 644 "$srcdir/$pkgname-build/ogre_plugins.cfg" \
+    "$pkgdir/usr/share/freeorion/ogre_plugins.cfg"
+
+  msg2 'Cleaning up...'
+  find "$pkgdir" -name ".svn" -print0 | xargs -0 rm -rf
+}
+
+# vim:set ts=2 sw=2 et:
