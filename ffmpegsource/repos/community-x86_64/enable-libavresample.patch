@@ -1,0 +1,970 @@
+# enable-libavresample.patch
+#
+# Adds libavresample support. Created by diffing Thomas Goyne's GIT repo
+# with official ffms SVN.
+#
+
+diff -ru ffmpegsource/configure.ac ffms2/configure.ac
+--- ffmpegsource/configure.ac	2013-02-27 16:53:39.230691825 +0100
++++ ffms2/configure.ac	2013-02-27 16:53:31.737713841 +0100
+@@ -181,6 +181,25 @@
+               AC_MSG_RESULT([no])
+             ])
+ 
++AC_ARG_ENABLE(avresample,
++              AS_HELP_STRING([--enable-avresample],
++                             [use libavresample for audio resampling]))
++AS_IF([test x$enable_avresample != xno], [
++  PKG_CHECK_MODULES(AVRESAMPLE, [libavresample >= 1.0.0], [enable_avresample=yes], [
++    AS_IF([test x$enable_avresample = xyes],
++          [AC_MSG_ERROR([--enable-avresample was specified, but avresample 1.0.0+ could not be found.])])
++    enable_avresample=no
++  ])
++])
++
++AS_IF([test x$enable_avresample],
++      [libavresample="libavresample"
++       AC_DEFINE([WITH_AVRESAMPLE], [1], [Use avresample])])
++
++AC_SUBST([AVRESAMPLE_CFLAGS])
++AC_SUBST([AVRESAMPLE_LIBS])
++AC_SUBST([libavresample])
++
+ AC_MSG_CHECKING([whether -Wl,-Bsymbolic is needed])
+ if test "$enable_shared" = yes; then
+     _LDFLAGS="$LDFLAGS"
+diff -ru ffmpegsource/ffms2.pc.in ffms2/ffms2.pc.in
+--- ffmpegsource/ffms2.pc.in	2013-02-27 16:53:38.924039701 +0100
++++ ffms2/ffms2.pc.in	2013-02-27 16:53:31.737713841 +0100
+@@ -7,7 +7,7 @@
+ 
+ Name: ffms2
+ Description: The Fabulous FM Library 2
+-Requires.private: libavformat libavcodec libswscale libavutil
++Requires.private: libavformat libavcodec libswscale libavutil @libavresample@
+ Version: @FFMS_VERSION@
+ Libs.private: @ZLIB_LDFLAGS@ -lz
+ Libs: -L${libdir} -lffms2
+diff -ru ffmpegsource/include/ffmscompat.h ffms2/include/ffmscompat.h
+--- ffmpegsource/include/ffmscompat.h	2013-02-27 16:53:38.920706525 +0100
++++ ffms2/include/ffmscompat.h	2013-02-27 16:53:31.737713841 +0100
+@@ -71,6 +71,15 @@
+ #       define FFMS_CodecID AVCodecID
+ #       undef CodecID
+ #   endif
++#   if VERSION_CHECK(LIBAVCODEC_VERSION_INT, <, 54, 28, 0, 54, 59, 100)
++#       define avcodec_free_frame av_free
++#   endif
++#endif
++
++#ifdef LIBAVUTIL_VERSION_INT
++#	if VERSION_CHECK(LIBAVUTIL_VERSION_INT, <, 51, 27, 0, 51, 46, 100)
++#		define av_get_packed_sample_fmt(fmt) (fmt < AV_SAMPLE_FMT_U8P ? fmt : fmt - (AV_SAMPLE_FMT_U8P - AV_SAMPLE_FMT_U8))
++#	endif
+ #endif
+ 
+ #endif // FFMSCOMPAT_H
+diff -ru ffmpegsource/include/ffms.h ffms2/include/ffms.h
+--- ffmpegsource/include/ffms.h	2013-02-27 16:53:38.920706525 +0100
++++ ffms2/include/ffms.h	2013-02-27 16:53:31.737713841 +0100
+@@ -113,6 +113,7 @@
+ 	FFMS_ERROR_TRACK,				// track handling
+ 	FFMS_ERROR_WAVE_WRITER,			// WAVE64 file writer
+ 	FFMS_ERROR_CANCELLED,			// operation aborted
++	FFMS_ERROR_RESAMPLING,			// audio resampling (libavresample)
+ 
+ 	// Subtypes - what caused the error
+ 	FFMS_ERROR_UNKNOWN = 20,		// unknown error
+@@ -237,6 +238,53 @@
+ 	FFMS_CR_JPEG		= 2 // 2^n-1, or "fullrange"
+ } FFMS_ColorRanges;
+ 
++typedef enum FFMS_MixingCoefficientType {
++	FFMS_MIXING_COEFFICIENT_Q8  = 0,
++	FFMS_MIXING_COEFFICIENT_Q15 = 1,
++	FFMS_MIXING_COEFFICIENT_FLT = 2
++} FFMS_MixingCoefficientType;
++
++typedef enum FFMS_MatrixEncoding {
++	FFMS_MATRIX_ENCODING_NONE         = 0,
++	FFMS_MATRIX_ENCODING_DOBLY        = 1,
++	FFMS_MATRIX_ENCODING_PRO_LOGIC_II = 2
++} FFMS_MatrixEncoding;
++
++typedef enum FFMS_ResampleFilterType {
++	FFMS_RESAMPLE_FILTER_CUBIC  = 0,
++	FFMS_RESAMPLE_FILTER_SINC   = 1,
++	FFMS_RESAMPLE_FILTER_KAISER = 2
++} FFMS_ResampleFilterType;
++
++typedef enum FFMS_AudioDitherMethod {
++	FFMS_RESAMPLE_DITHER_NONE                    = 0,
++	FFMS_RESAMPLE_DITHER_RECTANGULAR             = 1,
++	FFMS_RESAMPLE_DITHER_TRIANGULAR              = 2,
++	FFMS_RESAMPLE_DITHER_TRIANGULAR_HIGHPASS     = 3,
++	FFMS_RESAMPLE_DITHER_TRIANGULAR_NOISESHAPING = 4
++} FFMS_AudioDitherMethod;
++
++typedef struct FFMS_ResampleOptions {
++	int64_t ChannelLayout;
++	FFMS_SampleFormat SampleFormat;
++	int SampleRate;
++	FFMS_MixingCoefficientType MixingCoefficientType;
++	double CenterMixLevel;
++	double SurroundMixLevel;
++	double LFEMixLevel;
++	int Normalize;
++	int ForceResample;
++	int ResampleFilterSize;
++	int ResamplePhaseShift;
++	int LinearInterpolation;
++	double CutoffFrequencyRatio;
++	FFMS_MatrixEncoding MatrixedStereoEncoding;
++	FFMS_ResampleFilterType FilterType;
++	int KaiserBeta;
++	FFMS_AudioDitherMethod DitherMethod;
++} FFMS_ResampleOptions;
++
++
+ typedef struct FFMS_Frame {
+ 	uint8_t *Data[4];
+ 	int Linesize[4];
+@@ -319,6 +367,9 @@
+ FFMS_API(void) FFMS_ResetOutputFormatV(FFMS_VideoSource *V);
+ FFMS_API(int) FFMS_SetInputFormatV(FFMS_VideoSource *V, int ColorSpace, int ColorRange, int Format, FFMS_ErrorInfo *ErrorInfo); /* Introduced in FFMS_VERSION ((2 << 24) | (17 << 16) | (1 << 8) | 0) */
+ FFMS_API(void) FFMS_ResetInputFormatV(FFMS_VideoSource *V);
++FFMS_API(FFMS_ResampleOptions *) FFMS_CreateResampleOptions(FFMS_AudioSource *A); /* Introduced in FFMS_VERSION ((2 << 24) | (15 << 16) | (4 << 8) | 0) */
++FFMS_API(int) FFMS_SetOutputFormatA(FFMS_AudioSource *A, const FFMS_ResampleOptions*options, FFMS_ErrorInfo *ErrorInfo); /* Introduced in FFMS_VERSION ((2 << 24) | (15 << 16) | (4 << 8) | 0) */
++FFMS_API(void) FFMS_DestroyResampleOptions(FFMS_ResampleOptions *options); /* Introduced in FFMS_VERSION ((2 << 24) | (15 << 16) | (4 << 8) | 0) */
+ FFMS_API(void) FFMS_DestroyIndex(FFMS_Index *Index);
+ FFMS_API(int) FFMS_GetSourceType(FFMS_Index *Index);
+ FFMS_API(int) FFMS_GetSourceTypeI(FFMS_Indexer *Indexer);
+diff -ru ffmpegsource/Makefile.am ffms2/Makefile.am
+--- ffmpegsource/Makefile.am	2013-02-27 16:53:39.310688030 +0100
++++ ffms2/Makefile.am	2013-02-27 16:53:31.724381141 +0100
+@@ -9,7 +9,7 @@
+ INCLUDES = -I. -I$(top_srcdir)/include -I$(top_srcdir)/src/config @LIBAV_CFLAGS@ @ZLIB_CPPFLAGS@ -include config.h
+ 
+ lib_LTLIBRARIES = src/core/libffms2.la
+-src_core_libffms2_la_LIBADD = @LIBAV_LIBS@ @ZLIB_LDFLAGS@ -lz @LTUNDEF@
++src_core_libffms2_la_LIBADD = @LIBAV_LIBS@ @AVRESAMPLE_LIBS@ @ZLIB_LDFLAGS@ -lz @LTUNDEF@
+ src_core_libffms2_la_SOURCES = \
+ 	src/core/audiosource.h \
+ 	src/core/audiosource.cpp \
+diff -ru ffmpegsource/src/config/config.h.in ffms2/src/config/config.h.in
+--- ffmpegsource/src/config/config.h.in	2013-02-27 16:53:39.017368608 +0100
++++ ffms2/src/config/config.h.in	2013-02-27 16:53:31.744380192 +0100
+@@ -90,5 +90,8 @@
+ /* Version number of package */
+ #undef VERSION
+ 
++/* Use avresample */
++#undef WITH_AVRESAMPLE
++
+ /* Define to `unsigned int' if <sys/types.h> does not define. */
+ #undef size_t
+diff -ru ffmpegsource/src/config/libs.cpp ffms2/src/config/libs.cpp
+--- ffmpegsource/src/config/libs.cpp	2013-02-27 16:53:39.017368608 +0100
++++ ffms2/src/config/libs.cpp	2013-02-27 16:53:31.744380192 +0100
+@@ -45,6 +45,9 @@
+ #pragma comment(lib, "libavcodec.a")
+ #pragma comment(lib, "libavformat.a")
+ #pragma comment(lib, "libswscale.a")
++#ifdef WITH_AVRESAMPLE
++#pragma comment(lib, "libavresample.a")
++#endif
+ 
+ #ifdef WITH_OPENCORE_AMR_NB
+ #ifdef WITH_GCC_LIBAV
+diff -ru ffmpegsource/src/core/audiosource.cpp ffms2/src/core/audiosource.cpp
+--- ffmpegsource/src/core/audiosource.cpp	2013-02-27 16:53:39.137362917 +0100
++++ ffms2/src/core/audiosource.cpp	2013-02-27 16:53:31.744380192 +0100
+@@ -23,17 +23,45 @@
+ #include <algorithm>
+ #include <cassert>
+ 
++namespace {
++
++	int64_t ChannelLayout;
++	FFMS_SampleFormat SampleFormat;
++	int SampleRate;
++#define MAPPER(m, n) OptionMapper<FFMS_ResampleOptions>(n, &FFMS_ResampleOptions::m)
++OptionMapper<FFMS_ResampleOptions> resample_options[] = {
++	MAPPER(ChannelLayout,          "out_channel_layout"),
++	MAPPER(SampleFormat,           "out_sample_fmt"),
++	MAPPER(SampleRate,             "out_sample_rate"),
++	MAPPER(MixingCoefficientType,  "mix_coeff_type"),
++	MAPPER(CenterMixLevel,         "center_mix_level"),
++	MAPPER(SurroundMixLevel,       "surround_mix_level"),
++	MAPPER(LFEMixLevel,            "lfe_mix_level"),
++	MAPPER(Normalize,              "normalize_mix_level"),
++	MAPPER(ForceResample,          "force_resampling"),
++	MAPPER(ResampleFilterSize,     "filter_size"),
++	MAPPER(ResamplePhaseShift,     "phase_shift"),
++	MAPPER(LinearInterpolation,    "linear_interp"),
++	MAPPER(CutoffFrequencyRatio,   "cutoff"),
++	MAPPER(MatrixedStereoEncoding, "matrix_encoding"),
++	MAPPER(FilterType,             "filter_type"),
++	MAPPER(KaiserBeta,             "kaiser_beta"),
++	MAPPER(DitherMethod,           "dither_method")
++};
++#undef MAPPER
++
++}
++
+ FFMS_AudioSource::FFMS_AudioSource(const char *SourceFile, FFMS_Index &Index, int Track)
+ : Delay(0)
+ , MaxCacheBlocks(50)
+ , BytesPerSample(0)
+-, Decoded(0)
++, NeedsResample(false)
+ , CurrentSample(-1)
+ , PacketNumber(0)
+ , CurrentFrame(NULL)
+ , TrackNumber(Track)
+ , SeekOffset(0)
+-, DecodingBuffer(AVCODEC_MAX_AUDIO_FRAME_SIZE * 10)
+ , Index(Index)
+ {
+ 	if (Track < 0 || Track >= static_cast<int>(Index.size()))
+@@ -57,44 +85,14 @@
+ 	Index.AddRef();
+ }
+ 
+-
+ #define EXCESSIVE_CACHE_SIZE 400
+ 
+ void FFMS_AudioSource::Init(const FFMS_Index &Index, int DelayMode) {
+-	// The first packet after a seek is often decoded incorrectly, which
+-	// makes it impossible to ever correctly seek back to the beginning, so
+-	// store the first block now
+-
+-	// In addition, anything with the same PTS as the first packet can't be
+-	// distinguished from the first packet and so can't be seeked to, so
+-	// store those as well
+-
+-	// Some of LAVF's splitters don't like to seek to the beginning of the
+-	// file (ts and?), so cache a few blocks even if PTSes are unique
+-	// Packet 7 is the last packet I've had be unseekable to, so cache up to
+-	// 10 for a bit of an extra buffer
+-	CacheIterator end = Cache.end();
+-	while (PacketNumber < Frames.size() &&
+-		((Frames[0].PTS != ffms_av_nopts_value && Frames[PacketNumber].PTS == Frames[0].PTS) ||
+-		 Cache.size() < 10)) {
+-
+-		// Vorbis in particular seems to like having 60+ packets at the start of the file with a PTS of 0,
+-		// so we might need to expand the search range to account for that.
+-		if (Cache.size() >= MaxCacheBlocks - 1) {
+-			 if (MaxCacheBlocks >= EXCESSIVE_CACHE_SIZE)
+-				 throw FFMS_Exception(FFMS_ERROR_DECODING, FFMS_ERROR_ALLOCATION_FAILED, "Exceeded the search range for an initial valid audio PTS");
+-			MaxCacheBlocks *= 2;
+-		}
+-
++	// Decode the first packet to ensure all properties are initialized
++	// Don't cache it since it might be in the wrong format
++	// Instead, leave it in DecodeFrame and it'll get cached later
++	while (DecodeFrame->nb_samples == 0)
+ 		DecodeNextBlock();
+-		if (Decoded)
+-			CacheBlock(end, CurrentSample, Decoded, &DecodingBuffer[0]);
+-	}
+-	// Store the iterator to the last element of the cache which is used for
+-	// correctness rather than speed, so that when looking for one to delete
+-	// we know how much to skip
+-	CacheNoDelete = Cache.end();
+-	--CacheNoDelete;
+ 
+ 	// Read properties of the audio which may not be available until the first
+ 	// frame has been decoded
+@@ -104,6 +102,11 @@
+ 		throw FFMS_Exception(FFMS_ERROR_DECODING, FFMS_ERROR_CODEC,
+ 			"Codec returned zero size audio");
+ 
++	if (av_sample_fmt_is_planar(CodecContext->sample_fmt)) {
++		std::auto_ptr<FFMS_ResampleOptions> opt(CreateResampleOptions());
++		SetOutputFormat(opt.get());
++	}
++
+ 	if (DelayMode < FFMS_DELAY_NO_SHIFT)
+ 		throw FFMS_Exception(FFMS_ERROR_INDEX, FFMS_ERROR_INVALID_ARGUMENT,
+ 			"Bad audio delay compensation mode");
+@@ -146,8 +149,133 @@
+ 	AP.NumSamples += Delay;
+ }
+ 
+-void FFMS_AudioSource::CacheBlock(CacheIterator &pos, int64_t Start, size_t Samples, uint8_t *SrcData) {
+-	Cache.insert(pos, AudioBlock(Start, Samples, SrcData, Samples * BytesPerSample));
++void FFMS_AudioSource::CacheBeginning() {
++	// Nothing to do if the cache is already populated
++	if (!Cache.empty()) return;
++
++	// The first frame is already decoded, so add it to the cache
++	CacheBlock(Cache.end());
++
++	// The first packet after a seek is often decoded incorrectly, which
++	// makes it impossible to ever correctly seek back to the beginning, so
++	// store the first block now
++
++	// In addition, anything with the same PTS as the first packet can't be
++	// distinguished from the first packet and so can't be seeked to, so
++	// store those as well
++
++	// Some of LAVF's splitters don't like to seek to the beginning of the
++	// file (ts and?), so cache a few blocks even if PTSes are unique
++	// Packet 7 is the last packet I've had be unseekable to, so cache up to
++	// 10 for a bit of an extra buffer
++	CacheIterator end = Cache.end();
++	while (PacketNumber < Frames.size() &&
++		((Frames[0].PTS != ffms_av_nopts_value && Frames[PacketNumber].PTS == Frames[0].PTS) ||
++		 Cache.size() < 10)) {
++
++		// Vorbis in particular seems to like having 60+ packets at the start
++		// of the file with a PTS of 0, so we might need to expand the search
++		// range to account for that.
++		// Expanding slightly before it's strictly needed to ensure there's a
++		// bit of space for an actual cache
++		if (Cache.size() >= MaxCacheBlocks - 5) {
++			 if (MaxCacheBlocks >= EXCESSIVE_CACHE_SIZE)
++				throw FFMS_Exception(FFMS_ERROR_DECODING, FFMS_ERROR_ALLOCATION_FAILED,
++					"Exceeded the search range for an initial valid audio PTS");
++			MaxCacheBlocks *= 2;
++		}
++
++		DecodeNextBlock(&end);
++	}
++	// Store the iterator to the last element of the cache which is used for
++	// correctness rather than speed, so that when looking for one to delete
++	// we know how much to skip
++	CacheNoDelete = Cache.end();
++	--CacheNoDelete;
++}
++
++void FFMS_AudioSource::SetOutputFormat(const FFMS_ResampleOptions *opt) {
++	if (!Cache.empty())
++		throw FFMS_Exception(FFMS_ERROR_RESAMPLING, FFMS_ERROR_USER,
++			"Cannot change the output format after audio decoding has begun");
++
++	BytesPerSample = av_get_bytes_per_sample(static_cast<AVSampleFormat>(opt->SampleFormat)) * av_get_channel_layout_nb_channels(opt->ChannelLayout);
++
++	NeedsResample =
++		opt->SampleFormat != (int)CodecContext->sample_fmt ||
++		opt->SampleRate != AP.SampleRate ||
++		opt->ChannelLayout != AP.ChannelLayout ||
++		opt->ForceResample;
++	if (!NeedsResample) return;
++
++	if (opt->SampleRate != AP.SampleRate)
++		throw FFMS_Exception(FFMS_ERROR_RESAMPLING, FFMS_ERROR_UNSUPPORTED,
++			"Sample rate changes are currently unsupported.");
++
++#ifdef WITH_AVRESAMPLE
++	if (opt->SampleRate != AP.SampleRate)
++		throw FFMS_Exception(FFMS_ERROR_RESAMPLING, FFMS_ERROR_UNSUPPORTED,
++			"Changing the audio sample rate is currently not supported");
++
++	std::auto_ptr<FFMS_ResampleOptions> oldOptions(ReadOptions(ResampleContext, resample_options));
++	SetOptions(opt, ResampleContext, resample_options);
++	av_opt_set_int(ResampleContext, "in_sample_rate", AP.SampleRate, 0);
++	av_opt_set_int(ResampleContext, "in_sample_fmt", CodecContext->sample_fmt, 0);
++	av_opt_set_int(ResampleContext, "in_channel_layout", AP.ChannelLayout, 0);
++
++	if (avresample_open(ResampleContext)) {
++		SetOptions(oldOptions.get(), ResampleContext, resample_options);
++		avresample_open(ResampleContext);
++		throw FFMS_Exception(FFMS_ERROR_RESAMPLING, FFMS_ERROR_UNKNOWN,
++			"Could not open avresample context");
++	}
++#else
++	if (opt->SampleFormat != AP.SampleFormat || opt->SampleRate != AP.SampleRate || opt->ChannelLayout != AP.ChannelLayout)
++		throw FFMS_Exception(FFMS_ERROR_RESAMPLING, FFMS_ERROR_UNSUPPORTED,
++			"FFMS was not built with resampling enabled. The only supported conversion is interleaving planar audio.");
++#endif
++}
++
++FFMS_ResampleOptions *FFMS_AudioSource::CreateResampleOptions() const {
++#ifdef WITH_AVRESAMPLE
++	FFMS_ResampleOptions *ret = ReadOptions(ResampleContext, resample_options);
++#else
++	FFMS_ResampleOptions *ret = new FFMS_ResampleOptions;
++	memset(ret, 0, sizeof(FFMS_ResampleOptions));
++#endif
++	ret->SampleRate = AP.SampleRate;
++	ret->SampleFormat = static_cast<FFMS_SampleFormat>(AP.SampleFormat);
++	ret->ChannelLayout = AP.ChannelLayout;
++	return ret;
++}
++
++void FFMS_AudioSource::ResampleAndCache(CacheIterator pos) {
++	AudioBlock& block = *Cache.insert(pos, AudioBlock(CurrentSample, DecodeFrame->nb_samples));
++	block.Data.reserve(DecodeFrame->nb_samples * BytesPerSample);
++
++#ifdef WITH_AVRESAMPLE
++	block.Data.resize(block.Data.capacity());
++
++	uint8_t *OutPlanes[1] = { static_cast<uint8_t *>(&block.Data[0]) };
++	avresample_convert(ResampleContext,
++		OutPlanes, block.Data.size(), DecodeFrame->nb_samples,
++		DecodeFrame->extended_data, DecodeFrame->nb_samples * av_get_bytes_per_sample(CodecContext->sample_fmt), DecodeFrame->nb_samples);
++#else
++	int width = av_get_bytes_per_sample(CodecContext->sample_fmt);
++	uint8_t **Data = DecodeFrame->extended_data;
++
++	for (int s = 0; s < DecodeFrame->nb_samples; ++s) {
++		for (int c = 0; c < CodecContext->channels; ++c)
++			block.Data.insert(block.Data.end(), &Data[c][s * width], &Data[c][(s + 1) * width]);
++	}
++#endif
++}
++
++void FFMS_AudioSource::CacheBlock(CacheIterator pos) {
++	if (NeedsResample)
++		ResampleAndCache(pos);
++	else
++		Cache.insert(pos, AudioBlock(CurrentSample, DecodeFrame->nb_samples, DecodeFrame->extended_data[0], DecodeFrame->nb_samples * BytesPerSample));
+ 
+ 	if (Cache.size() >= MaxCacheBlocks) {
+ 		// Kill the oldest one
+@@ -162,45 +290,45 @@
+ 	}
+ }
+ 
+-void FFMS_AudioSource::DecodeNextBlock() {
+-	if (BytesPerSample == 0) BytesPerSample = av_get_bytes_per_sample(CodecContext->sample_fmt) * CodecContext->channels;
+-
++void FFMS_AudioSource::DecodeNextBlock(CacheIterator *pos) {
+ 	CurrentFrame = &Frames[PacketNumber];
+ 
+ 	AVPacket Packet;
+ 	if (!ReadPacket(&Packet))
+-		throw FFMS_Exception(FFMS_ERROR_PARSER, FFMS_ERROR_UNKNOWN, "ReadPacket unexpectedly failed to read a packet");
++		throw FFMS_Exception(FFMS_ERROR_PARSER, FFMS_ERROR_UNKNOWN,
++			"ReadPacket unexpectedly failed to read a packet");
+ 
+ 	// ReadPacket may have changed the packet number
+ 	CurrentFrame = &Frames[PacketNumber];
+ 	CurrentSample = CurrentFrame->SampleStart;
+-	++PacketNumber;
+ 
+-	uint8_t *Buf = &DecodingBuffer[0];
++	bool GotSamples = false;
+ 	uint8_t *Data = Packet.data;
+ 	while (Packet.size > 0) {
+-		int TempOutputBufSize = AVCODEC_MAX_AUDIO_FRAME_SIZE * 10 - (Buf - &DecodingBuffer[0]);
+-		int Ret = avcodec_decode_audio3(CodecContext, (int16_t *)Buf, &TempOutputBufSize, &Packet);
++		DecodeFrame.reset();
++		int GotFrame = 0;
++		int Ret = avcodec_decode_audio4(CodecContext, DecodeFrame, &GotFrame, &Packet);
+ 
+ 		// Should only ever happen if the user chose to ignore decoding errors
+ 		// during indexing, so continue to just ignore decoding errors
+ 		if (Ret < 0) break;
+ 
+-		if (Ret > 0) {
++		if (Ret > 0 && GotFrame) {
+ 			Packet.size -= Ret;
+ 			Packet.data += Ret;
+-			Buf += TempOutputBufSize;
++			if (DecodeFrame->nb_samples > 0) {
++				GotSamples = true;
++				if (pos)
++					CacheBlock(*pos);
++			}
+ 		}
+ 	}
+ 	Packet.data = Data;
+ 	FreePacket(&Packet);
+ 
+-	Decoded = (Buf - &DecodingBuffer[0]) / BytesPerSample;
+-	if (Decoded == 0) {
+-		// zero sample packets aren't included in the index so we didn't
+-		// actually move to the next packet
+-		--PacketNumber;
+-	}
++	// Zero sample packets aren't included in the index
++	if (GotSamples)
++		++PacketNumber;
+ }
+ 
+ static bool SampleStartComp(const TFrameInfo &a, const TFrameInfo &b) {
+@@ -216,6 +344,8 @@
+ 		throw FFMS_Exception(FFMS_ERROR_DECODING, FFMS_ERROR_INVALID_ARGUMENT,
+ 			"Out of bounds audio samples requested");
+ 
++	CacheBeginning();
++
+ 	uint8_t *Dst = static_cast<uint8_t*>(Buf);
+ 
+ 	// Apply audio delay (if any) and fill any samples before the start time with zero
+@@ -253,10 +383,12 @@
+ 		}
+ 		// Decode another block
+ 		else {
++			CacheIterator cachePos = it; --cachePos;
++
+ 			if (Start < CurrentSample && SeekOffset == -1)
+ 				throw FFMS_Exception(FFMS_ERROR_SEEKING, FFMS_ERROR_CODEC, "Audio stream is not seekable");
+ 
+-			if (SeekOffset >= 0 && (Start < CurrentSample || Start > CurrentSample + Decoded * 5)) {
++			if (SeekOffset >= 0 && (Start < CurrentSample || Start > CurrentSample + DecodeFrame->nb_samples * 5)) {
+ 				TFrameInfo f;
+ 				f.SampleStart = Start;
+ 				int NewPacketNumber = std::distance(Frames.begin(), std::lower_bound(Frames.begin(), Frames.end(), f, SampleStartComp));
+@@ -266,32 +398,22 @@
+ 				// Only seek forward if it'll actually result in moving forward
+ 				if (Start < CurrentSample || static_cast<size_t>(NewPacketNumber) > PacketNumber) {
+ 					PacketNumber = NewPacketNumber;
+-					Decoded = 0;
+ 					CurrentSample = -1;
++					DecodeFrame.reset();
+ 					avcodec_flush_buffers(CodecContext);
+ 					Seek();
+ 				}
+ 			}
+ 
+-			// Decode everything between the last keyframe and the block we want
++			// Decode until we hit the block we want
+ 			if (PacketNumber >= Frames.size())
+ 				throw FFMS_Exception(FFMS_ERROR_SEEKING, FFMS_ERROR_CODEC, "Seeking is severely broken");
+-			while (CurrentSample + Decoded <= Start && PacketNumber < Frames.size())
+-				DecodeNextBlock();
++			while (CurrentSample + DecodeFrame->nb_samples <= Start && PacketNumber < Frames.size())
++				DecodeNextBlock(&it);
+ 			if (CurrentSample > Start)
+ 				throw FFMS_Exception(FFMS_ERROR_SEEKING, FFMS_ERROR_CODEC, "Seeking is severely broken");
+ 
+-			CacheBlock(it, CurrentSample, Decoded, &DecodingBuffer[0]);
+-
+-			size_t FirstSample = static_cast<size_t>(Start - CurrentSample);
+-			size_t Samples = static_cast<size_t>(Decoded - FirstSample);
+-			size_t Bytes = FFMIN(Samples, static_cast<size_t>(Count)) * BytesPerSample;
+-
+-			memcpy(Dst, &DecodingBuffer[FirstSample * BytesPerSample], Bytes);
+-
+-			Start += Samples;
+-			Count -= Samples;
+-			Dst += Bytes;
++			it = cachePos;
+ 		}
+ 	}
+ }
+diff -ru ffmpegsource/src/core/audiosource.h ffms2/src/core/audiosource.h
+--- ffmpegsource/src/core/audiosource.h	2013-02-27 16:53:39.130696566 +0100
++++ ffms2/src/core/audiosource.h	2013-02-27 16:53:31.744380192 +0100
+@@ -46,7 +46,6 @@
+ #endif
+ 
+ struct FFMS_AudioSource {
+-private:
+ 	struct AudioBlock {
+ 		int64_t Age;
+ 		int64_t Start;
+@@ -54,9 +53,17 @@
+ 		std::vector<uint8_t> Data;
+ 
+ 		AudioBlock(int64_t Start, int64_t Samples, uint8_t *SrcData, size_t SrcBytes)
+-			: Start(Start)
+-			, Samples(Samples)
+-			, Data(SrcData, SrcData + SrcBytes)
++		: Start(Start)
++		, Samples(Samples)
++		, Data(SrcData, SrcData + SrcBytes)
++		{
++			static int64_t Now = 0;
++			Age = Now++;
++		}
++
++		AudioBlock(int64_t Start, int64_t Samples)
++		: Start(Start)
++		, Samples(Samples)
+ 		{
+ 			static int64_t Now = 0;
+ 			Age = Now++;
+@@ -74,11 +81,18 @@
+ 	CacheIterator CacheNoDelete;
+ 	// bytes per sample * number of channels
+ 	size_t BytesPerSample;
+-	// Number of samples stored in the decoding buffer
+-	size_t Decoded;
+ 
+-	// Insert a block into the cache
+-	void CacheBlock(CacheIterator &pos, int64_t Start, size_t Samples, uint8_t *SrcData);
++	bool NeedsResample;
++	FFResampleContext ResampleContext;
++
++	// Insert the current audio frame into the cache
++	void CacheBlock(CacheIterator pos);
++
++	// Interleave the current audio frame and insert it into the cache
++	void ResampleAndCache(CacheIterator pos);
++
++	// Cache the unseekable beginning of the file once the output format is set
++	void CacheBeginning();
+ 
+ 	// Called after seeking
+ 	virtual void Seek() { };
+@@ -99,13 +113,13 @@
+ 	int SeekOffset;
+ 
+ 	// Buffer which audio is decoded into
+-	AlignedBuffer<uint8_t> DecodingBuffer;
++	ScopedFrame DecodeFrame;
+ 	FFMS_Index &Index;
+ 	FFMS_Track Frames;
+ 	FFCodecContext CodecContext;
+ 	FFMS_AudioProperties AP;
+ 
+-	void DecodeNextBlock();
++	void DecodeNextBlock(CacheIterator *cachePos = 0);
+ 	// Initialization which has to be done after the codec is opened
+ 	void Init(const FFMS_Index &Index, int DelayMode);
+ 
+@@ -116,6 +130,9 @@
+ 	FFMS_Track *GetTrack() { return &Frames; }
+ 	const FFMS_AudioProperties& GetAudioProperties() const { return AP; }
+ 	void GetAudio(void *Buf, int64_t Start, int64_t Count);
++
++	FFMS_ResampleOptions *CreateResampleOptions() const;
++	void SetOutputFormat(const FFMS_ResampleOptions *opt);
+ };
+ 
+ class FFLAVFAudio : public FFMS_AudioSource {
+diff -ru ffmpegsource/src/core/ffms.cpp ffms2/src/core/ffms.cpp
+--- ffmpegsource/src/core/ffms.cpp	2013-02-27 16:53:39.137362917 +0100
++++ ffms2/src/core/ffms.cpp	2013-02-27 16:53:31.744380192 +0100
+@@ -256,6 +256,24 @@
+ 	V->ResetInputFormat();
+ }
+ 
++FFMS_API(FFMS_ResampleOptions *) FFMS_CreateResampleOptions(FFMS_AudioSource *A) {
++	return A->CreateResampleOptions();
++}
++
++FFMS_API(void) FFMS_DestroyResampleOptions(FFMS_ResampleOptions *options) {
++	delete options;
++}
++
++FFMS_API(int) FFMS_SetOutputFormatA(FFMS_AudioSource *A, const FFMS_ResampleOptions *options, FFMS_ErrorInfo *ErrorInfo) {
++	ClearErrorInfo(ErrorInfo);
++	try {
++		A->SetOutputFormat(options);
++	} catch (FFMS_Exception &e) {
++		return e.CopyOut(ErrorInfo);
++	}
++	return FFMS_ERROR_SUCCESS;
++}
++
+ FFMS_API(void) FFMS_DestroyIndex(FFMS_Index *Index) {
+ 	assert(Index != NULL);
+ 	if (Index == NULL)
+diff -ru ffmpegsource/src/core/indexing.cpp ffms2/src/core/indexing.cpp
+--- ffmpegsource/src/core/indexing.cpp	2013-02-27 16:53:39.134029741 +0100
++++ ffms2/src/core/indexing.cpp	2013-02-27 16:53:31.744380192 +0100
+@@ -693,7 +693,6 @@
+ , ANC(0)
+ , ANCPrivate(0)
+ , SourceFile(Filename)
+-, DecodingBuffer(AVCODEC_MAX_AUDIO_FRAME_SIZE * 10)
+ {
+ 	FFMS_Index::CalculateFileSignature(Filename, &Filesize, Digest);
+ }
+@@ -702,9 +701,9 @@
+ 
+ }
+ 
+-void FFMS_Indexer::WriteAudio(SharedAudioContext &AudioContext, FFMS_Index *Index, int Track, int DBSize) {
++void FFMS_Indexer::WriteAudio(SharedAudioContext &AudioContext, FFMS_Index *Index, int Track) {
+ 	// Delay writer creation until after an audio frame has been decoded. This ensures that all parameters are known when writing the headers.
+-	if (DBSize <= 0) return;
++	if (DecodeFrame->nb_samples) return;
+ 
+ 	if (!AudioContext.W64Writer) {
+ 		FFMS_AudioProperties AP;
+@@ -715,6 +714,8 @@
+ 			return;
+ 		}
+ 
++		int Format = av_get_packed_sample_fmt(AudioContext.CodecContext->sample_fmt);
++
+ 		std::vector<char> WName(FNSize);
+ 		(*ANC)(SourceFile.c_str(), Track, &AP, &WName[0], FNSize, ANCPrivate);
+ 		std::string WN(&WName[0]);
+@@ -724,14 +725,14 @@
+ 					av_get_bytes_per_sample(AudioContext.CodecContext->sample_fmt),
+ 					AudioContext.CodecContext->channels,
+ 					AudioContext.CodecContext->sample_rate,
+-					(AudioContext.CodecContext->sample_fmt == AV_SAMPLE_FMT_FLT) || (AudioContext.CodecContext->sample_fmt == AV_SAMPLE_FMT_DBL));
++					(Format == AV_SAMPLE_FMT_FLT) || (Format == AV_SAMPLE_FMT_DBL));
+ 		} catch (...) {
+ 			throw FFMS_Exception(FFMS_ERROR_WAVE_WRITER, FFMS_ERROR_FILE_WRITE,
+ 				"Failed to write wave data");
+ 		}
+ 	}
+ 
+-	AudioContext.W64Writer->WriteData(&DecodingBuffer[0], DBSize);
++	AudioContext.W64Writer->WriteData(*DecodeFrame);
+ }
+ 
+ int64_t FFMS_Indexer::IndexAudioPacket(int Track, AVPacket *Packet, SharedAudioContext &Context, FFMS_Index &TrackIndices) {
+@@ -739,8 +740,10 @@
+ 	int64_t StartSample = Context.CurrentSample;
+ 	int Read = 0;
+ 	while (Packet->size > 0) {
+-		int dbsize = AVCODEC_MAX_AUDIO_FRAME_SIZE*10;
+-		int Ret = avcodec_decode_audio3(CodecContext, (int16_t *)&DecodingBuffer[0], &dbsize, Packet);
++		DecodeFrame.reset();
++
++		int GotFrame = 0;
++		int Ret = avcodec_decode_audio4(CodecContext, DecodeFrame, &GotFrame, Packet);
+ 		if (Ret < 0) {
+ 			if (ErrorHandling == FFMS_IEH_ABORT) {
+ 				throw FFMS_Exception(FFMS_ERROR_CODEC, FFMS_ERROR_DECODING, "Audio decoding error");
+@@ -756,13 +759,14 @@
+ 		Packet->data += Ret;
+ 		Read += Ret;
+ 
+-		CheckAudioProperties(Track, CodecContext);
++		if (GotFrame) {
++			CheckAudioProperties(Track, CodecContext);
+ 
+-		if (dbsize > 0)
+-			Context.CurrentSample += dbsize / (av_get_bytes_per_sample(CodecContext->sample_fmt) * CodecContext->channels);
++			Context.CurrentSample += DecodeFrame->nb_samples;
+ 
+-		if (DumpMask & (1 << Track))
+-			WriteAudio(Context, &TrackIndices, Track, dbsize);
++			if (DumpMask & (1 << Track))
++				WriteAudio(Context, &TrackIndices, Track);
++		}
+ 	}
+ 	Packet->size += Read;
+ 	Packet->data -= Read;
+diff -ru ffmpegsource/src/core/indexing.h ffms2/src/core/indexing.h
+--- ffmpegsource/src/core/indexing.h	2013-02-27 16:53:39.127363391 +0100
++++ ffms2/src/core/indexing.h	2013-02-27 16:53:31.744380192 +0100
+@@ -155,7 +155,6 @@
+ };
+ 
+ struct FFMS_Indexer {
+-private:
+ 	std::map<int, FFMS_AudioProperties> LastAudioProperties;
+ protected:
+ 	int IndexMask;
+@@ -166,12 +165,12 @@
+ 	TAudioNameCallback ANC;
+ 	void *ANCPrivate;
+ 	std::string SourceFile;
+-	AlignedBuffer<uint8_t> DecodingBuffer;
++	ScopedFrame DecodeFrame;
+ 
+ 	int64_t Filesize;
+ 	uint8_t Digest[20];
+ 
+-	void WriteAudio(SharedAudioContext &AudioContext, FFMS_Index *Index, int Track, int DBSize);
++	void WriteAudio(SharedAudioContext &AudioContext, FFMS_Index *Index, int Track);
+ 	void CheckAudioProperties(int Track, AVCodecContext *Context);
+ 	int64_t IndexAudioPacket(int Track, AVPacket *Packet, SharedAudioContext &Context, FFMS_Index &TrackIndices);
+ 	void ParseVideoPacket(SharedVideoContext &VideoContext, AVPacket &pkt, int *RepeatPict, int *FrameType, bool *Invisible);
+diff -ru ffmpegsource/src/core/utils.cpp ffms2/src/core/utils.cpp
+--- ffmpegsource/src/core/utils.cpp	2013-02-27 16:53:39.134029741 +0100
++++ ffms2/src/core/utils.cpp	2013-02-27 16:53:31.744380192 +0100
+@@ -214,10 +214,32 @@
+ 	pkt.size = 0;
+ }
+ 
++extern "C" {
++#if VERSION_CHECK(LIBAVUTIL_VERSION_INT, >=, 52, 2, 0, 52, 6, 100)
++#include <libavutil/channel_layout.h>
++#elif VERSION_CHECK(LIBAVUTIL_VERSION_INT, >=, 51, 26, 0, 51, 45, 100)
++#include <libavutil/audioconvert.h>
++#else
++static int64_t av_get_default_channel_layout(int nb_channels) {
++	switch(nb_channels) {
++		case 1: return AV_CH_LAYOUT_MONO;
++		case 2: return AV_CH_LAYOUT_STEREO;
++		case 3: return AV_CH_LAYOUT_SURROUND;
++		case 4: return AV_CH_LAYOUT_QUAD;
++		case 5: return AV_CH_LAYOUT_5POINT0;
++		case 6: return AV_CH_LAYOUT_5POINT1;
++		case 7: return AV_CH_LAYOUT_6POINT1;
++		case 8: return AV_CH_LAYOUT_7POINT1;
++		default: return 0;
++	}
++}
++#endif
++}
++
+ void FillAP(FFMS_AudioProperties &AP, AVCodecContext *CTX, FFMS_Track &Frames) {
+-	AP.SampleFormat = static_cast<FFMS_SampleFormat>(CTX->sample_fmt);
++	AP.SampleFormat = static_cast<FFMS_SampleFormat>(av_get_packed_sample_fmt(CTX->sample_fmt));
+ 	AP.BitsPerSample = av_get_bytes_per_sample(CTX->sample_fmt) * 8;
+-	AP.Channels = CTX->channels;;
++	AP.Channels = CTX->channels;
+ 	AP.ChannelLayout = CTX->channel_layout;
+ 	AP.SampleRate = CTX->sample_rate;
+ 	if (!Frames.empty()) {
+@@ -225,6 +247,9 @@
+ 		AP.FirstTime = ((Frames.front().PTS * Frames.TB.Num) / (double)Frames.TB.Den) / 1000;
+ 		AP.LastTime = ((Frames.back().PTS * Frames.TB.Num) / (double)Frames.TB.Den) / 1000;
+ 	}
++
++	if (AP.ChannelLayout == 0)
++		AP.ChannelLayout = av_get_default_channel_layout(AP.Channels);
+ }
+ 
+ #ifdef HAALISOURCE
+diff -ru ffmpegsource/src/core/utils.h ffms2/src/core/utils.h
+--- ffmpegsource/src/core/utils.h	2013-02-27 16:53:39.127363391 +0100
++++ ffms2/src/core/utils.h	2013-02-27 16:53:31.744380192 +0100
+@@ -31,9 +31,13 @@
+ extern "C" {
+ #include "stdiostream.h"
+ #include <libavutil/mem.h>
++#include <libavutil/opt.h>
+ #include <libavformat/avformat.h>
+ #include <libavcodec/avcodec.h>
+ #include <libswscale/swscale.h>
++#ifdef WITH_AVRESAMPLE
++#include <libavresample/avresample.h>
++#endif
+ }
+ 
+ // must be included after ffmpeg headers
+@@ -133,6 +137,34 @@
+ 	}
+ };
+ 
++template<typename T, T *(*Alloc)(), void (*Del)(T **)>
++class unknown_size {
++	T *ptr;
++
++	unknown_size(unknown_size const&);
++	unknown_size& operator=(unknown_size const&);
++public:
++	operator T*() const { return ptr; }
++	operator void*() const { return ptr; }
++	T *operator->() const { return ptr; }
++
++	unknown_size() : ptr(Alloc()) { }
++	~unknown_size() { Del(&ptr); }
++};
++
++class ScopedFrame : public unknown_size<AVFrame, avcodec_alloc_frame, avcodec_free_frame> {
++public:
++	void reset() {
++		avcodec_get_frame_defaults(*this);
++	}
++};
++
++#ifdef WITH_AVRESAMPLE
++typedef unknown_size<AVAudioResampleContext, avresample_alloc_context, avresample_free> FFResampleContext;
++#else
++typedef struct {} FFResampleContext;
++#endif
++
+ inline void DeleteHaaliCodecContext(AVCodecContext *CodecContext) {
+ 	av_freep(&CodecContext->extradata);
+ 	av_freep(&CodecContext);
+@@ -228,4 +240,68 @@
+ 
+ void FlushBuffers(AVCodecContext *CodecContext);
+ 
++namespace optdetail {
++	template<typename T>
++	T get_av_opt(void *v, const char *name) {
++		return static_cast<T>(av_get_int(v, name, 0));
++	}
++
++	template<>
++	inline double get_av_opt<double>(void *v, const char *name) {
++		return av_get_double(v, name, 0);
++	}
++
++	template<typename T>
++	void set_av_opt(void *v, const char *name, T value) {
++		av_opt_set_int(v, name, value, 0);
++	}
++
++	template<>
++	inline void set_av_opt<double>(void *v, const char *name, double value) {
++		av_opt_set_double(v, name, value, 0);
++	}
++}
++
++template<typename FFMS_Struct>
++class OptionMapper {
++	struct OptionMapperBase {
++		virtual void ToOpt(const FFMS_Struct *src, void *dst) const=0;
++		virtual void FromOpt(FFMS_Struct *dst, void *src) const=0;
++	};
++
++	template<typename T>
++	class OptionMapperImpl : public OptionMapperBase {
++		T (FFMS_Struct::*ptr);
++		const char *name;
++
++	public:
++		OptionMapperImpl(T (FFMS_Struct::*ptr), const char *name) : ptr(ptr), name(name) { }
++		void ToOpt(const FFMS_Struct *src, void *dst) const { optdetail::set_av_opt(dst, name, src->*ptr); }
++		void FromOpt(FFMS_Struct *dst, void *src) const { dst->*ptr = optdetail::get_av_opt<T>(src, name); }
++	};
++
++	OptionMapperBase *impl;
++
++public:
++	template<typename T>
++	OptionMapper(const char *opt_name, T (FFMS_Struct::*member)) : impl(new OptionMapperImpl<T>(member, opt_name)) { }
++
++	void ToOpt(const FFMS_Struct *src, void *dst) const { impl->ToOpt(src, dst); }
++	void FromOpt(FFMS_Struct *dst, void *src) const { impl->FromOpt(dst, src); }
++};
++
++template<typename T, int N>
++T *ReadOptions(void *opt, OptionMapper<T> (&options)[N]) {
++	T *ret = new T;
++	for (int i = 0; i < N; ++i)
++		options[i].FromOpt(ret, opt);
++	return ret;
++}
++
++template<typename T, int N>
++void SetOptions(const T* src, void *opt, OptionMapper<T> (&options)[N]) {
++	for (int i = 0; i < N; ++i)
++		options[i].ToOpt(src, opt);
++}
++
+ #endif
+diff -ru ffmpegsource/src/core/wave64writer.cpp ffms2/src/core/wave64writer.cpp
+--- ffmpegsource/src/core/wave64writer.cpp	2013-02-27 16:53:39.134029741 +0100
++++ ffms2/src/core/wave64writer.cpp	2013-02-27 16:53:31.744380192 +0100
+@@ -106,7 +106,16 @@
+ 		WavFile.seekp(CPos, std::ios::beg);
+ }
+ 
+-void Wave64Writer::WriteData(void *Data, std::streamsize Length) {
+-	WavFile.write(reinterpret_cast<char *>(Data), Length);
++void Wave64Writer::WriteData(AVFrame const& Frame) {
++	uint64_t Length = Frame.nb_samples * BytesPerSample * Channels;
++	if (Channels > 1 && av_sample_fmt_is_planar(static_cast<AVSampleFormat>(Frame.format))) {
++		for (int32_t sample = 0; sample < Frame.nb_samples; ++sample) {
++			for (int32_t channel = 0; channel < Channels; ++channel)
++				WavFile.write(reinterpret_cast<char *>(&Frame.extended_data[channel][sample * BytesPerSample]), BytesPerSample);
++		}
++	}
++	else {
++		WavFile.write(reinterpret_cast<char *>(Frame.extended_data[0]), Length);
++	}
+ 	BytesWritten += Length;
+ }
+diff -ru /tmp/ffmpegsource/src/ffmpegsource/src/core/wave64writer.h ffms2/src/core/wave64writer.h
+--- /tmp/ffmpegsource/src/ffmpegsource/src/core/wave64writer.h	2013-02-27 16:53:39.127363391 +0100
++++ ffms2/src/core/wave64writer.h	2013-02-27 16:53:31.744380192 +0100
+@@ -28,8 +28,8 @@
+ class Wave64Writer {
+ public:
+ 	Wave64Writer(const char *Filename, uint16_t BitsPerSample, uint16_t Channels, uint32_t SamplesPerSec, bool IsFloat);
+ 	~Wave64Writer();
+-	void WriteData(void *Data, std::streamsize Length);
++	void WriteData(AVFrame const& Frame);
+ private:
+ 	ffms_fstream WavFile;
+ 	int32_t BytesPerSample;
