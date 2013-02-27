@@ -1,0 +1,164 @@
+# $Id$
+# Maintainer: Ray Rashif <schiv@archlinux.org>
+
+pkgbase=google-gadgets
+pkgname=('google-gadgets-common' 'google-gadgets-gtk' 'google-gadgets-qt')
+_realname=$pkgbase-for-linux
+_basedir="$startdir/pkg/base"
+pkgver=0.11.2
+_sover=1.0
+_sobump=0.0.0
+pkgrel=6
+arch=('i686' 'x86_64')
+url="http://code.google.com/p/google-gadgets-for-linux/"
+license=('APACHE')
+makedepends=('gstreamer0.10-base-plugins' 'libwebkit'
+             'desktop-file-utils' 'xdg-utils'
+             'librsvg' 'curl' 'libsoup-gnome'
+             'qtwebkit'
+             'networkmanager'
+             'zip' 'flex')
+options=('!libtool')
+source=("http://google-gadgets-for-linux.googlecode.com/files/$_realname-$pkgver.tar.bz2"
+	"wifi-types.patch"
+  'gcc47.patch'
+  'glibc231.patch')
+md5sums=('279305553bcbf74f3e3615f6abc36a5e'
+         'f0df71c60a174e9d629db87b8bd9e102'
+         'b62bc8592b5a44cb34cb7a7e4a6cf62e'
+         '4b96d1da79a375ef2fb58ff01a76f684')
+
+build() {
+  cd "$srcdir/$_realname-$pkgver"
+
+  # Building thrice is expensive;
+  #   we move files around instead
+  #
+  # xulrunner 2.0 is incompatible;
+  #   we build without smjs-script/browser-element
+
+  patch -p1 <$srcdir/wifi-types.patch
+  patch -p1 -i "${srcdir}"/gcc47.patch
+  patch -p0 -i "${srcdir}"/glibc231.patch
+  ./configure --prefix=/usr \
+              --disable-werror \
+              --disable-update-desktop-database \
+              --disable-update-mime-database \
+              --with-oem-brand=Arch \
+              --with-ssl-ca-file=/etc/ssl/certs/ca-certificates.crt \
+              --with-browser-plugins-dir=/usr/lib/mozilla/plugins \
+              --disable-gtkmoz-browser-element \
+              --disable-smjs-script-runtime
+  make
+}
+
+package_google-gadgets-common() {
+  pkgdesc="Desktop widgets from Google (common files)"
+  install=$pkgbase-common.install
+  depends=('hicolor-icon-theme' 'shared-mime-info')
+  optdepends=('google-gadgets-gtk: GTK+ (full) UI'
+              'google-gadgets-qt: Qt (partial) UI')
+
+  cd "$srcdir/$_realname-$pkgver"
+
+  make -j1 DESTDIR="$pkgdir/" install
+
+  # we need to remove stuff in this package
+  cp -a "$pkgdir" "$_basedir"
+
+  # do not force any removal; we want to know in case files change
+  cd "$pkgdir/usr"
+  rm -r bin
+  rm -r share/applications
+
+  cd "$pkgdir/usr/lib/$pkgbase"
+
+  # gtk-related
+  #rm gtkmoz-browser-child
+  rm ../lib*gtk*
+  rm modules/gtk*.so
+
+  # qt-related
+  rm ../lib*qt*
+  rm modules/qt*.so
+}
+
+package_google-gadgets-gtk() {
+  pkgdesc="Desktop widgets from Google (full GTK+ front-end)"
+  groups=('google-gadgets')
+  install=$pkgbase.install
+  depends=('google-gadgets-common'
+           'desktop-file-utils' 'xdg-utils'
+           'gstreamer0.10-base-plugins' 'libwebkit' 'libsoup-gnome'
+           'librsvg' 'curl')
+  optdepends=('networkmanager: desktop integration')
+
+  # install the gtk binary
+  cd "$_basedir"
+  install -Dm755 "usr/bin/ggl-gtk" "$pkgdir/usr/bin/ggl-gtk"
+
+  # gtk-only browser stuff
+  #install -Dm755 usr/lib/$pkgbase/gtkmoz-browser-child \
+  #  "$pkgdir/usr/lib/$pkgbase/gtkmoz-browser-child"
+
+  # now the gtk libraries
+  mkdir -p "$pkgdir/usr/lib/$pkgbase/modules"
+
+  install -m755 usr/lib/$pkgbase/modules/gtk*.so \
+    "$pkgdir/usr/lib/$pkgbase/modules/"
+
+  install -m755 usr/lib/lib*gtk* "$pkgdir/usr/lib"
+
+  # fix permissions and symlinks
+  find "$pkgdir/usr/lib" -name *.a -exec chmod 644 {} \;
+
+  ln -sf /usr/lib/libggadget-gtk-$_sover.so.$_sobump \
+    "$pkgdir/usr/lib/libggadget-gtk-$_sover.so"
+
+  ln -sf /usr/lib/libggadget-gtk-$_sover.so.$_sobump \
+    "$pkgdir/usr/lib/libggadget-gtk-$_sover.so.0"
+
+  # freedesktop.org for gtk
+  install -Dm644 usr/share/applications/ggl-gtk.desktop \
+    "$pkgdir/usr/share/applications/ggl-gtk.desktop"
+
+  install -m644 usr/share/applications/ggl-designer.desktop \
+    "$pkgdir/usr/share/applications/"
+}
+
+package_google-gadgets-qt() {
+  pkgdesc="Desktop widgets from Google (partial Qt front-end)"
+  groups=('google-gadgets')
+  install=$pkgbase.install
+  depends=('google-gadgets-common' 'qtwebkit'
+           'desktop-file-utils' 'xdg-utils'
+           'gstreamer0.10-base-plugins' 'libwebkit')
+  optdepends=('networkmanager: desktop integration')
+
+  # install the qt binary
+  cd "$_basedir"
+  install -Dm755 usr/bin/ggl-qt "$pkgdir/usr/bin/ggl-qt"
+
+  # the qt libraries
+  mkdir -p "$pkgdir/usr/lib/$pkgbase/modules"
+
+  install -m755 usr/lib/$pkgbase/modules/qt*.so \
+    "$pkgdir/usr/lib/$pkgbase/modules/"
+
+  install -m755 usr/lib/lib*qt* "$pkgdir/usr/lib/"
+
+  # fix permissions and symlinks
+  find "$pkgdir/usr/lib" -name *.a -exec chmod 644 {} \;
+
+  ln -sf /usr/lib/libggadget-qt-$_sover.so.$_sobump \
+    "$pkgdir/usr/lib/libggadget-qt-$_sover.so"
+
+  ln -sf /usr/lib/libggadget-qt-$_sover.so.$_sobump \
+    "$pkgdir/usr/lib/libggadget-qt-$_sover.so.0"
+
+  # freedesktop.org for qt
+  install -Dm644 usr/share/applications/ggl-qt.desktop \
+    "$pkgdir/usr/share/applications/ggl-qt.desktop"
+}
+
+# vim:set ts=2 sw=2 et:
