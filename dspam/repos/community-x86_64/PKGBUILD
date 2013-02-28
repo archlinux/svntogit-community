@@ -4,7 +4,7 @@
 
 pkgname=dspam
 pkgver=3.10.2
-pkgrel=2
+pkgrel=3
 pkgdesc="A scalable, open-source statistical anti-spam filter"
 arch=('i686' 'x86_64')
 url="http://dspam.nuclearelephant.com/"
@@ -13,29 +13,35 @@ backup=('etc/dspam/dspam.conf'
 	'srv/http/dspam/cgi-bin/subadmins')
 license=("GPL")
 depends=(readline libcap ncurses zlib openssl)
-makedepends=('libmysqlclient' 'postgresql-libs' 'db' 'sqlite')
+makedepends=('libmysqlclient' 'postgresql-libs' 'db' 'sqlite' 'libldap')
 optdepends=('libmysqlclient: MySQL support'
 	    'postgresql-libs: PostgreSQL support'
 	    'db: BerkeleyDB support'
-	    'sqlite: SQLite support')
+	    'sqlite: SQLite support'
+	    'clamav: ClamAV support'
+	    'libldap: external lookup support')
 options=('zipman' 'docs' '!libtool')
 install=$pkgname.install
 source=(http://downloads.sourceforge.net/project/dspam/dspam/dspam-$pkgver/dspam-$pkgver.tar.gz
 	dspam.logrotated
 	dspam
 	dspam.service
-	dspam.tmpfiles)
+	dspam.tmpfiles
+	dspam_maintenance.cron)
 md5sums=('0e0e405d3284485b2a43f47eaf6b09bb'
-         '2163ca41de383f09f4d754e2d35cb158'
+         'cec7e3df4cbc6feca387fb516a5b3490'
          'bb2300eff5b2a6eb987750c71a2c2169'
          '1581a94598cec370b66f37b118970676'
-         '933643f2204ccbd7e451a439f83db1ea')
+         '933643f2204ccbd7e451a439f83db1ea'
+         'ebfb0fec16a56f6e1a3a61ced2d5015d')
 
 build() {
-  OPTS="--with-dspam-owner=dspam --with-dspam-group=dspam --enable-daemon --enable-virtual-users \
+  OPTS="--with-dspam-owner=dspam --with-dspam-group=dspam --with-dspam-home-group=dspam --with-dspam-mode=2510 \
+	--enable-daemon --enable-virtual-users --enable-large-scale --enable-long-usernames --enable-external-lookup \
+	--enable-split-configuration --enable-syslog --enable-clamav \
+	--with-dspam-home=/var/lib/dspam --with-logdir=/var/log/dspam --with-logfile=/var/log/dspam/dspam.log \
 	--with-mysql-includes=/usr/include/mysql --with-mysql-libraries=/usr/lib \
-	--with-storage-driver="mysql_drv,libdb4_drv,pgsql_drv,sqlite3_drv,hash_drv" --with-dspam-home=/var/lib/dspam \
-	--with-logdir=/var/log/dspam --enable-preferences-extension --enable-large-scale"
+	--with-storage-driver="mysql_drv,libdb4_drv,pgsql_drv,sqlite3_drv,hash_drv" --enable-preferences-extension"
 
   cd $srcdir/$pkgname-$pkgver
   [ $NOEXTRACT -eq 1 ] || ./configure --prefix=/usr --sysconfdir=/etc/dspam --localstatedir=/var ${OPTS}
@@ -52,25 +58,32 @@ package() {
   find $pkgdir/srv/http/dspam/ -type f -name '*.in' -exec rm -f {} \;
 
   install -d $pkgdir/etc/logrotate.d \
-	     $pkgdir/etc/rc.d $pkgdir/var/lib/dspam/{mysql,pgsql}
+	     $pkgdir/etc/rc.d \
+	     $pkgdir/usr/share/dspam/{mysql,pgsql}
   install -m644 ../dspam.logrotated $pkgdir/etc/logrotate.d/dspam
   install -m755 ../dspam $pkgdir/etc/rc.d
 
   sed -i 's|#ServerPID|ServerPID|' $pkgdir/etc/dspam/dspam.conf
 
-  sed -e 's:^#*\(ServerDomainSocketPath[\t ]\{1,\}\).*:\1\"/var/run/dspam/dspam.sock\":gI' \
-				-e 's:^#*\(ServerPID[\t ]\{1,\}\).*:\1/var/run/dspam/dspam.pid:gI' \
+  sed -e 's:^#*\(ServerDomainSocketPath[\t ]\{1,\}\).*:\1\"/run/dspam/dspam.sock\":gI' \
+				-e 's:^#*\(ServerPID[\t ]\{1,\}\).*:\1/run/dspam/dspam.pid:gI' \
 				-i $pkgdir/etc/dspam/dspam.conf
 
   sed -i 's|/var/lib/mysql/mysql.sock|/tmp/mysql.sock|' $pkgdir/etc/dspam/dspam.conf
 
-  cp -r src/tools.mysql_drv/*.sql $pkgdir/var/lib/dspam/mysql
-  cp -r src/tools.pgsql_drv/*.sql $pkgdir/var/lib/dspam/pgsql
+  cp -r src/tools.mysql_drv/*.sql $pkgdir/usr/share/dspam/mysql
+  cp -r src/tools.pgsql_drv/*.sql $pkgdir/usr/share/dspam/pgsql
+
+  # install dspam_maintenance from contrib/
+  install -Dm0755 contrib/dspam_maintenance/dspam_maintenance.sh $pkgdir/usr/bin/dspam_maintenance
+  install -Dm0644 contrib/dspam_maintenance/dspam_maintenance.1 $pkgdir/usr/share/man/man1/dspam_maintenance.1
+  install -Dm0755 $srcdir/dspam_maintenance.cron $pkgdir/etc/cron.daily/dspam_maintenance
 
   cd $pkgdir/usr/share/man/man3
   find -type l -exec ln -sf libdspam.3 {} \;
 
-  chmod 0755 $pkgdir/usr/bin/*
+  # make logrotate happy
+  chmod 750 $pkgdir/var/log/dspam
 
   install -Dm0644 $srcdir/$pkgname.service $pkgdir/usr/lib/systemd/system/$pkgname.service
   install -Dm0644 $srcdir/$pkgname.tmpfiles $pkgdir/usr/lib/tmpfiles.d/$pkgname.conf
