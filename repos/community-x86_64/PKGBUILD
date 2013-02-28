@@ -1,0 +1,65 @@
+# Maintainer: Alexandre Filgueira <alexfilgueira@cinnarch.com>
+# Based on gnome-screensaver package:
+# Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+# Jan de Groot <jgc@archlinux.org>
+
+pkgname=cinnamon-screensaver
+pkgver=1.7.1
+pkgrel=4
+pkgdesc="Screensaver designed to integrate well with the Cinnamon desktop."
+arch=('i686' 'x86_64')
+license=('GPL')
+url="https://github.com/linuxmint/cinnamon-screensaver"
+backup=(etc/pam.d/cinnamon-screensaver)
+depends=('cinnamon' 'gnome-screensaver')
+makedepends=('intltool' 'gnome-common')
+options=(!emptydirs)
+source=($pkgname-$pkgver.tar.gz::https://github.com/linuxmint/cinnamon-screensaver/archive/$pkgver.tar.gz
+       cinnamon-screensaver.desktop
+       cinnamon2d-screensaver.desktop
+       cinnamon-screensaver.pam
+       gnome-autogen.sh
+       configure.patch
+       fix-dbus-compatibility.patch)
+
+sha256sums=('055abbc24305dad5efa609b354e01fdc367792ccac5383df4b28090ab0bf64e1'
+            '2f29a72991deb5cc2b44da06f49d1115148fee6a0a22b1abfecee1c1661abcaa'
+            '335df8f2fb270484829d94995622521f0a42a12d6887f7de827db34fc81f583a'
+            'c19870c4f2d6e91ba0eea2603753a74e0c5c82ff5fa3cacb1198027a38d0a6cb'
+            '827276b01e658afb8045fb0dcbebb54f679ef47dac482f4399e1839369277ccc'
+            'fed5f1f94404fab13c5369f4106b0b498cff2bb71351cae4f3d9c27f417f5e6a'
+            '9013004395a401e99ce6685abb8319eb1e9ddd888c4fa6a7e45729fb93d285d1')
+
+build() {
+  cd $pkgname-$pkgver
+
+  cp ${srcdir}/gnome-autogen.sh .
+  sed -i 's/\ --warn-all\ --warn-error//' src/Makefile.am
+  sed -i 's/gnome-autogen.sh/.\/gnome-autogen.sh/g' autogen.sh
+  chmod +x gnome-autogen.sh
+
+  patch -uNp2 -r- -i ${srcdir}/configure.patch
+
+  # Fix compatibility with gnome-screensaver's D-Bus interface and various fixes
+  patch -Np1 -i ${srcdir}/fix-dbus-compatibility.patch
+
+  ./autogen.sh --prefix=/usr --sysconfdir=/etc \
+               --libexecdir=/usr/lib/cinnamon-screensaver \
+               --localstatedir=/var \
+               --with-mit-ext --with-systemd
+
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+  make DESTDIR="$pkgdir" install
+  install -Dm644 ../cinnamon-screensaver.pam "$pkgdir/etc/pam.d/cinnamon-screensaver"
+
+  # Remove conflicts with gnome-screensaver
+  rm "$pkgdir"/usr/bin/gnome-screensaver{,-command}
+
+  # Autostart only in Cinnamon
+  install -m644 "$srcdir/cinnamon-screensaver.desktop" "$pkgdir/etc/xdg/autostart/cinnamon-screensaver.desktop"
+  install -m644 "$srcdir/cinnamon2d-screensaver.desktop" "$pkgdir/etc/xdg/autostart/cinnamon2d-screensaver.desktop"
+}
