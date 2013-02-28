@@ -1,0 +1,86 @@
+diff --git a/src/cinnamon-screensaver-command.c b/src/cinnamon-screensaver-command.c
+index 4267bd0..5c90916 100644
+--- a/src/cinnamon-screensaver-command.c
++++ b/src/cinnamon-screensaver-command.c
+@@ -311,11 +311,11 @@ do_command (GDBusConnection *connection)
+ 
+         if (do_lock) {
+ 				if (g_strcmp0 (away_message, "DEFAULT") == 0) {
+-					reply = screensaver_send_message_string (connection, "Lock", away_message);
++					reply = screensaver_send_message_string (connection, "LockMessage", away_message);
+ 				}
+ 				else {
+ 					gchar * custom_message = g_strdup_printf("CUSTOM###%s", away_message);
+-					reply = screensaver_send_message_string (connection, "Lock", custom_message);
++					reply = screensaver_send_message_string (connection, "LockMessage", custom_message);
+ 					g_free (custom_message);
+ 				}
+                 if (reply == NULL) {
+diff --git a/src/gs-listener-dbus.c b/src/gs-listener-dbus.c
+index 2a98aee..6dbf12d 100644
+--- a/src/gs-listener-dbus.c
++++ b/src/gs-listener-dbus.c
+@@ -653,6 +653,8 @@ do_introspect (DBusConnection *connection,
+         xml = g_string_append (xml,
+                                "  <interface name=\""GS_INTERFACE"\">\n"
+                                "    <method name=\"Lock\">\n"
++                               "    </method>\n"
++                               "    <method name=\"LockMessage\">\n"
+                                "      <arg name=\"body\" direction=\"in\" type=\"s\"/>\n"
+                                "    </method>\n"
+                                "    <method name=\"SimulateUserActivity\">\n"
+@@ -744,6 +746,10 @@ listener_dbus_handle_session_message (DBusConnection *connection,
+         g_return_val_if_fail (message != NULL, DBUS_HANDLER_RESULT_NOT_YET_HANDLED);
+ 
+         if (dbus_message_is_method_call (message, GS_SERVICE, "Lock")) {
++                g_signal_emit (listener, signals [LOCK], 0);
++                return send_success_reply (connection, message);
++        }
++        if (dbus_message_is_method_call (message, GS_SERVICE, "LockMessage")) {
+                 return listener_lock (listener, connection, message);
+         }
+         if (dbus_message_is_method_call (message, GS_SERVICE, "Quit")) {
+@@ -906,7 +912,7 @@ listener_dbus_handle_system_message (DBusConnection *connection,
+                 } else if (dbus_message_is_signal (message, SYSTEMD_LOGIND_SESSION_INTERFACE, "Lock")) {
+                         if (_listener_message_path_is_our_session (listener, message)) {
+                                 gs_debug ("systemd requested session lock");
+-                                return listener_lock (listener, connection, message);
++                                g_signal_emit (listener, signals [LOCK], 0);
+                         }
+ 
+                         return DBUS_HANDLER_RESULT_HANDLED;
+@@ -948,7 +954,7 @@ listener_dbus_handle_system_message (DBusConnection *connection,
+         } else if (dbus_message_is_signal (message, CK_SESSION_INTERFACE, "Lock")) {
+                 if (_listener_message_path_is_our_session (listener, message)) {
+                         gs_debug ("ConsoleKit requested session lock");
+-                        return listener_lock (listener, connection, message);
++                        g_signal_emit (listener, signals [LOCK], 0);
+                 }
+ 
+                 return DBUS_HANDLER_RESULT_HANDLED;
+diff --git a/src/gs-manager.c b/src/gs-manager.c
+index 1544921..bc09cb9 100644
+--- a/src/gs-manager.c
++++ b/src/gs-manager.c
+@@ -1275,10 +1275,18 @@ void
+ gs_manager_set_away_message (GSManager   *manager,
+                              const char  *message)
+ {
+-        g_free (manager->priv->logout_command);
+-
+-        manager->priv->away_message = g_strdup(message);
+         GSList *l;
++
++        g_return_if_fail (GS_IS_MANAGER (manager));
++
++        g_free (manager->priv->away_message);
++
++        if (message) {
++                manager->priv->away_message = g_strdup (message);
++        } else {
++                manager->priv->away_message = NULL;
++        }
++
+         for (l = manager->priv->windows; l; l = l->next) {
+                 gs_window_set_away_message (l->data, manager->priv->away_message);
+         }
