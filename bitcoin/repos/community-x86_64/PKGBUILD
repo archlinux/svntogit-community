@@ -19,7 +19,7 @@ build() {
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
 
   # and make qt gui
-  qmake4 USE_QRCODE=1
+  qmake-qt4 USE_QRCODE=1
   make
 
   # make bitcoind
