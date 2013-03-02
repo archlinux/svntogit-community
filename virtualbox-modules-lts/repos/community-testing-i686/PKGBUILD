@@ -1,0 +1,70 @@
+# $Id$
+# Maintainer: Bartłomiej Piotrowski <nospam@bpiotrowski.pl>
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+# Contributor: Sébastien Luttringer
+
+pkgbase=virtualbox-modules-lts
+pkgname=('virtualbox-host-modules-lts' 'virtualbox-guest-modules-lts')
+pkgver=4.2.8
+pkgrel=2
+arch=('i686' 'x86_64')
+url='http://virtualbox.org'
+license=('GPL')
+makedepends=('linux-lts-headers'
+             "virtualbox-host-dkms>=$pkgver"
+             "virtualbox-guest-dkms>=$pkgver"
+             'expac'
+             'bc')
+
+build() {
+  _kernver=$(expac -Q '%v' linux-lts-headers)-lts
+
+  # dkms need modification to be run as user
+  cp -r /var/lib/dkms .
+  echo "dkms_tree='$srcdir/dkms'" > dkms.conf
+  # build host modules
+  msg2 'Host modules'
+  dkms --dkmsframework dkms.conf build "vboxhost/$pkgver" -k "$_kernver"
+  # build guest modules
+  msg2 'Guest modules'
+  dkms --dkmsframework dkms.conf build "vboxguest/$pkgver" -k "$_kernver"
+}
+
+package_virtualbox-host-modules-lts(){
+  _kernver=$(expac -Q '%v' linux-lts-headers)-lts
+  _extraver=extramodules-${_kernver%.*}-lts
+
+  pkgdesc='Host kernel modules for VirtualBox'
+  depends=("linux-lts>=${_kernver%.*}" "linux-lts<$(echo "${_kernver%.*}+0.1"|bc)")
+  replaces=('virtualbox-modules-lts')
+  conflicts=('virtualbox-modules-lts')
+  provides=("virtualbox-host-modules=$pkgver")
+  install=virtualbox-host-modules-lts.install
+
+  install -dm755 "$pkgdir/usr/lib/modules/$_extraver"
+  cd "dkms/vboxhost/$pkgver/$_kernver/$CARCH/module"
+  install -m644 * "$pkgdir/usr/lib/modules/$_extraver"
+  find "$pkgdir" -name '*.ko' -exec gzip -9 {} +
+  sed -ie "s/EXTRAMODULES='.*'/EXTRAMODULES='$_extraver'/" "$startdir/virtualbox-host-modules-lts.install"
+}
+
+package_virtualbox-guest-modules-lts(){
+  _kernver=$(expac -Q '%v' linux-lts-headers)-lts
+  _extraver=extramodules-${_kernver%.*}-lts
+
+  pkgdesc='Guest kernel modules for VirtualBox'
+  license=('GPL')
+  depends=("linux-lts>=${_kernver%.*}" "linux-lts<$(echo "${_kernver%.*}+0.1"|bc)")
+  replaces=('virtualbox-archlinux-modules-lts')
+  conflicts=('virtualbox-archlinux-modules-lts')
+  provides=("virtualbox-host-modules=$pkgver")
+  install=virtualbox-guest-modules-lts.install
+
+  install -dm755 "$pkgdir/usr/lib/modules/$_extraver"
+  cd "dkms/vboxguest/$pkgver/$_kernver/$CARCH/module"
+  install -m644 * "$pkgdir/usr/lib/modules/$_extraver"
+  find "$pkgdir" -name '*.ko' -exec gzip -9 {} +
+  sed -ie "s/EXTRAMODULES='.*'/EXTRAMODULES='$_extraver'/" "$startdir/virtualbox-guest-modules-lts.install"
+}
+
+# vim:set ts=2 sw=2 et:
