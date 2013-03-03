@@ -1,0 +1,83 @@
+# $Id$
+# Maintainer: Alexandre Filgueira <alexfilgueira@cinnarch.com
+# Based on gnome-control-center:
+# Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+# Jan de Groot <jgc@archlinux.org>
+
+pkgname=cinnamon-control-center
+pkgver=1.7.1
+pkgrel=3
+pkgdesc="The Control Center for Cinnamon"
+arch=('i686' 'x86_64')
+depends=('cinnamon' 'cheese' 'libgtop' 'network-manager-applet')
+optdepends=('mesa-demos: provides glxinfo for graphics information'
+            'gnome-color-manager: for color management tasks')
+makedepends=('intltool' 'gnome-common' 'libgnomekbd')
+url="https://github.com/linuxmint/cinnamon-control-center"
+install=cinnamon-control-center.install
+license=('GPL')
+options=('!libtool' '!emptydirs')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxmint/cinnamon-control-center/archive/$pkgver.tar.gz"
+        "pulse3.0.patch"
+        "sound-nua-rename.patch"
+        "fix-audio-input-icons.patch"
+        "fix-faces-location.patch")
+sha256sums=('eab36af1accfce7b4d5eaf07a865d7290add07b875ed5e52072c1ad2e8570c1e'
+            'ddf7c99a1d45a7be54e69e90f194e33f3e56a7f294aa369bfb2e541d8241156e'
+            '2f49543e4ccabf5c8ce1cd9e4c37e5b291c23cff494eaa671857b2dcf7af4c5b'
+            '2cefa2764db206c9c6258e3f374988056907dda0c5bbeedbc249fc7c058a0d6b'
+            '7360f3e018765e80a7afc5a469c1d54ec3fdeb7e58c867596ef26773fb8e7a8a')
+
+build() {
+  cd $pkgname-$pkgver
+
+  patch -Np1 -i ../pulse3.0.patch
+
+  # Upstream patch: Change sound module registered name from sound-nua to 'sound'
+  patch -Np1 -i ../sound-nua-rename.patch
+
+  # Fix icons on Sound preferences dialog
+  patch -Np1 -i ../fix-audio-input-icons.patch
+
+  # Fix faces location on User accounts dialog
+  patch -Np1 -i ../fix-faces-location.patch
+
+  # Use freedesktop as default sound theme instead of ubuntu (otherwise the Sound panel craches)
+  patch -RNp1 -i debian/patches/98_default_sound_theme.patch
+
+  autoreconf -fi
+
+  ./configure --prefix=/usr --sysconfdir=/etc \
+      --localstatedir=/var --disable-static \
+      --enable-systemd \
+      --disable-update-mimedb
+
+  #https://bugzilla.gnome.org/show_bug.cgi?id=656229
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  make DESTDIR="$pkgdir" install
+
+  # Remove unused stuff
+  make -C panels/datetime DESTDIR="$pkgdir" uninstall
+  make -C panels/printers DESTDIR="$pkgdir" uninstall
+  make -C panels/sound DESTDIR="$pkgdir" uninstall
+  make -C panels/sound/data DESTDIR="$pkgdir" install
+  make -C shell DESTDIR="$pkgdir" uninstall
+  make -C shell DESTDIR="$pkgdir" install-libLTLIBRARIES
+
+  # Remove Region panel, because it's not compatible with gnome-settings-daemon 3.6
+  make -C panels/region DESTDIR="$pkgdir" uninstall
+
+  # Remove broken desktop files
+  rm -R "$pkgdir/usr/share/applications"
+  rm -R "$pkgdir/etc"
+
+  # Fix a warning
+  chown 102:0 "$pkgdir/usr/share/polkit-1/rules.d"
+  chmod 700 "$pkgdir/usr/share/polkit-1/rules.d"
+}
