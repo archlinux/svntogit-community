@@ -1,0 +1,57 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+
+pkgname=rsyslog
+pkgver=7.2.4
+pkgrel=2
+pkgdesc="An enhanced multi-threaded syslogd with a focus on security and reliability"
+url="http://www.rsyslog.com/"
+arch=('i686' 'x86_64')
+license=('GPL3')
+depends=('zlib' 'libestr' 'libee' 'json-c')
+makedepends=('postgresql-libs>=8.4.1' 'libmariadbclient' 'net-snmp' 'gnutls')
+optdepends=('postgresql-libs: PostgreSQL Database Support'
+	    'libmariadbclient: MySQL Database Support'
+	    'net-snmp'
+	    'gnutls')
+backup=('etc/rsyslog.conf'
+	'etc/logrotate.d/rsyslog'
+	'etc/conf.d/rsyslog')
+options=('strip' 'zipman' '!libtool')
+source=("http://www.rsyslog.com/files/download/rsyslog/rsyslog-$pkgver.tar.gz"
+	'rsyslog'
+	'rsyslog.logrotate'
+	'rsyslog.conf.d')
+md5sums=('7fb607313ec534a4352da7aa2e0084ec'
+         'a18bbcbb6ebdaa13a6ec6d9f3d9eb2da'
+         '8065db4bef3061a4f000ba58779f6829'
+         '18565f38a4445136446a31a3c95ffc3e')
+
+build() {
+  cd ${srcdir}/${pkgname}-${pkgver}
+  ./configure --prefix=/usr \
+              --enable-mysql \
+              --enable-pgsql \
+              --enable-mail \
+              --enable-imfile \
+              --enable-snmp \
+              --enable-gnutls \
+              --enable-inet \
+              --with-systemdsystemunitdir=/usr/lib/systemd/system
+  echo "rsyslogd_LDADD += \$(LIBESTR_LIBS) -lm" >>tools/Makefile
+  make
+}
+package() {
+  cd ${srcdir}/${pkgname}-${pkgver}
+  make install DESTDIR=${pkgdir}
+  # Install Daemons and Configuration Files
+  install -D -m755 ${srcdir}/${pkgname} ${pkgdir}/etc/rc.d/${pkgname}d
+  install -D -m644 ${pkgname}.conf ${pkgdir}/etc/${pkgname}.conf
+  install -D -m644 $srcdir/${pkgname}.logrotate ${pkgdir}/etc/logrotate.d/${pkgname}
+  install -D -m644 ${srcdir}/${pkgname}.conf.d ${pkgdir}/etc/conf.d/${pkgname}
+
+  # fix location of systemctl and remove start precondition
+  sed -i "$pkgdir/usr/lib/systemd/system/rsyslog.service" \
+    -e 's@/bin/systemctl@/usr&@' \
+    -e '/^ExecStartPre/d'
+}
