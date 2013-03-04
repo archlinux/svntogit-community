@@ -1,0 +1,120 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Brad Fanella <bradfanella@archlinux.us>
+# Contributor: [vEX] <niechift.dot.vex.at.gmail.dot.com>
+# Contributor: Zeqadious <zeqadious.at.gmail.dot.com>
+# Contributor: BlackIkeEagle < ike DOT devolder AT gmail DOT com >
+
+_prefix=/usr
+
+pkgname=xbmc
+pkgver=12.0
+pkgrel=2
+pkgdesc="A software media player and entertainment hub for digital media"
+arch=('i686' 'x86_64')
+url="http://xbmc.org"
+license=('GPL' 'custom')
+depends=('libpulse' 'hicolor-icon-theme' 'fribidi' 'lzo2' 'smbclient' 'libtiff' 'libva'
+	 'libpng' 'libcdio' 'yajl' 'libmariadbclient' 'libjpeg-turbo' 'libsamplerate'
+	 'glew' 'libssh' 'libmicrohttpd' 'libxrandr' 'sdl_mixer' 'sdl_image' 'python2'
+	 'libass' 'libmpeg2' 'libmad' 'libmodplug' 'jasper' 'rtmpdump' 'unzip' 'mesa-demos'
+	 'xorg-xdpyinfo' 'libbluray' 'libnfs' 'afpfs-ng' 'libshairport' 'avahi' 'bluez' 'glu'
+	 'tinyxml' 'taglib')
+makedepends=('boost' 'cmake' 'gperf' 'nasm' 'libxinerama' 'zip' 'libvdpau' 'libcec'
+	     'udisks' 'upower' 'bluez' 'mesa' 'doxygen' 'swig' 'java-environment')
+optdepends=('libcec: support for Pulse-Eight USB-CEC adapter'
+	    'vdpau-video: accelerated video playback for nvidia cards'
+	    'xvba-video: accelerated video playback for amd cards'
+	    'pulseaudio: pulseaudio support'
+	    'lirc: remote controller support'
+	    'udisks: automount external drives'
+	    'upower: used to trigger suspend functionality'
+	    'unrar: access compressed files without unpacking them'
+	    'xorg-xinit: autostart xbmc')
+install="${pkgname}.install"
+source=("http://mirrors.xbmc.org/releases/source/xbmc-$pkgver.tar.gz"
+	"xbmc.service"
+	"http://trac.xbmc.org/attachment/ticket/13903/0001-AE-Pulse-Audio-fix-crash-on-player-stop.patch"
+	"http://trac.xbmc.org/attachment/ticket/13902/0002-AE-Pulse-Audio-fix-buffer-underruns.patch")
+md5sums=('a79128b9d094a046947bfd9bb4550809'
+         '76fae229ebc3bcfaab7e7f27e4fb51f5'
+         '28877c98b28d85e28c0e20ce36bf9ec7'
+         '3788667ba89318aace4e0901380d0a35')
+
+build() {
+  cd "${srcdir}/xbmc-$pkgver"
+
+  # fix lsb_release dependency
+  sed -i -e 's:/usr/bin/lsb_release -d:cat /etc/arch-release:' xbmc/utils/SystemInfo.cpp
+
+  patch -p1 <$srcdir/0001-AE-Pulse-Audio-fix-crash-on-player-stop.patch
+  patch -p1 <$srcdir/0002-AE-Pulse-Audio-fix-buffer-underruns.patch
+
+  # Bootstrapping XBMC
+  ./bootstrap
+
+  # Configuring XBMC
+  export PYTHON_VERSION=2  # external python v2
+  ./configure --prefix=$_prefix --exec-prefix=$_prefix \
+    --disable-debug \
+    --enable-optimizations \
+    --enable-gl \
+    --enable-sdl \
+    --enable-vaapi \
+    --enable-vdpau \
+    --enable-xvba \
+    --enable-joystick \
+    --enable-xrandr \
+    --enable-rsxs \
+    --enable-projectm \
+    --enable-x11 \
+    --enable-pulse \
+    --enable-rtmp \
+    --enable-samba \
+    --enable-nfs \
+    --enable-afpclient \
+    --enable-airplay \
+    --enable-airtunes \
+    --enable-ffmpeg-libvorbis \
+    --enable-dvdcss \
+    --disable-hal \
+    --enable-avahi \
+    --enable-webserver \
+    --enable-optical-drive \
+    --enable-libbluray \
+    --enable-texturepacker \
+    --enable-udev \
+    --enable-libusb \
+    --enable-libcec \
+    --enable-external-libraries \
+    --disable-external-ffmpeg
+  # Now (finally) build
+  make
+}
+
+package() {
+  cd "${srcdir}/xbmc-$pkgver"
+  # Running make install
+  make DESTDIR="${pkgdir}" install
+
+  # run feh with python2
+  sed -i -e 's/python/python2/g' ${pkgdir}${_prefix}/bin/xbmc
+
+  # lsb_release fix
+  sed -i -e 's/which lsb_release &> \/dev\/null/\[ -f \/etc\/arch-release ]/g' "${pkgdir}${_prefix}/bin/xbmc"
+  sed -i -e "s/lsb_release -a 2> \/dev\/null | sed -e 's\/\^\/    \/'/cat \/etc\/arch-release/g" "${pkgdir}${_prefix}/bin/xbmc"
+
+  # Tools
+  install -D -m 0755 "${srcdir}/xbmc-$pkgver/xbmc-xrandr" "${pkgdir}${_prefix}/share/xbmc/xbmc-xrandr"
+  install -D -m 0755 "${srcdir}/xbmc-$pkgver/tools/TexturePacker/TexturePacker" "${pkgdir}${_prefix}/share/xbmc/"
+
+  # Licenses
+  install -d -m 0755 "${pkgdir}${_prefix}/share/licenses/${pkgname}"
+  for licensef in LICENSE.GPL copying.txt; do
+    mv "${pkgdir}${_prefix}/share/doc/xbmc/${licensef}" "${pkgdir}${_prefix}/share/licenses/${pkgname}"
+  done
+
+  # systemd stuff
+  install -Dm0644 $srcdir/xbmc.service $pkgdir/usr/lib/systemd/system/xbmc.service
+}
+# vim:set ts=2 sw=2 et:
