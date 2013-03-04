@@ -1,0 +1,53 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Jason R Begley (jayray@digitalgoat.com>
+
+pkgname=freeradius
+pkgver=2.2.0
+pkgrel=5
+pkgdesc="The premier open source RADIUS server"
+arch=('i686' 'x86_64')
+url="http://www.freeradius.org/"
+license=('GPL')
+depends=('krb5' 'pth' 'net-snmp' 'postgresql-libs' 'libmariadbclient')
+makedepends=('libpcap' 'unixodbc' 'python2')
+optdepends=('libpcap' 'unixodbc' 'python2')
+options=('!libtool' '!makeflags')
+install=$pkgname.install
+source=("ftp://ftp.freeradius.org/pub/radius/freeradius-server-$pkgver.tar.bz2"{,.sig}
+	radiusd
+	freeradius.tmpfiles
+	freeradius.service
+	krb5-build-fix.patch)
+md5sums=('0fb333fe6a64eb2b1dd6ef67f7bca119'
+         '5dd57af81ba075102581fec45316ba7b'
+         'f1a6530b1b69d2fa793aa45b2de379bb'
+         'f959e89812bedfc9f8308076f78cd74e'
+         '39eba6d34f8249781e9e917646465632'
+         'c6a61de7576933f59154a53bfc12a2d2')
+
+build() {
+  cd $srcdir/freeradius-server-$pkgver
+  export CFLAGS="$CFLAGS -fno-strict-aliasing"
+  sed -i 's/ -DKRB5_DEPRECATED//' src/modules/rlm_krb5/Makefile.in
+  patch -p1 <$srcdir/krb5-build-fix.patch
+  ./configure --with-system-libtool --with-system-libltdl \
+	      --prefix=/usr --enable-heimdal-krb5 \
+	      --localstatedir=/var \
+	      --sysconfdir=/etc \
+	      --libdir=/usr/lib/freeradius \
+	      --with-udpfromto
+  make
+}
+
+package() {
+  cd $srcdir/freeradius-server-$pkgver
+  make install R=$pkgdir
+  install -D -m755 ../radiusd $pkgdir/etc/rc.d/radiusd
+  chmod o+r $pkgdir/etc/raddb/*
+  mv $pkgdir/etc/raddb $pkgdir/etc/raddb.default
+  rm -rf $pkgdir/var/run
+
+  install -Dm0644 $srcdir/$pkgname.service $pkgdir/usr/lib/systemd/system/$pkgname.service
+  install -Dm0644 $srcdir/$pkgname.tmpfiles $pkgdir/usr/lib/tmpfiles.d/$pkgname.conf
+}
