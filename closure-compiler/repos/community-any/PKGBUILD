@@ -2,7 +2,7 @@
 # Maintainer: BlackEagle < ike DOT devolder AT gmail DOT com >
 # Contributor: Bram Schoenmakers <me@bramschoenmakers.nl>
 pkgname=closure-compiler
-pkgver=20121212
+pkgver=20130227
 pkgrel=1
 pkgdesc="Performs checking, instrumentation and optimizations on Javascript code."
 arch=('any')
@@ -20,4 +20,5 @@ package() {
 	"$JAVA_HOME/bin/java" -jar /usr/share/java/closure-compiler/closure-compiler.jar $@' > "$pkgdir/usr/bin/closure"
 	chmod +x "$pkgdir/usr/bin/closure"
 }
-sha256sums=('a78280bfe585be69648c0777d97bd33d9374d035463125521ca532d203974f60')
+
+sha256sums=('c8ac4796e61919a4112ed616cc1734caf69b5aa5e777d5b0428defb21c253537')
