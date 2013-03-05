@@ -1,0 +1,154 @@
+From 05c10b9c6107dc785808732216498ef5f3f6b87d Mon Sep 17 00:00:00 2001
+From: Clint Rogers <clinton@yorba.org>
+Date: Wed, 16 Jan 2013 00:09:42 +0000
+Subject: Causes video thumbnails to get regenerated if lost; closes #6152.
+
+Also moves some code around so regeneration for both stills and videos happens in the same spot, improving code navigability.
+---
+diff --git a/src/PhotoMonitor.vala b/src/PhotoMonitor.vala
+index 40416d1..3dcc481 100644
+--- a/src/PhotoMonitor.vala
++++ b/src/PhotoMonitor.vala
+@@ -287,16 +287,7 @@ private class PhotoMonitor : MediaMonitor {
+             
+             return MediaMonitor.DiscoveredFile.UNKNOWN;
+         }
+-        
+-        if (!ThumbnailCache.exists(photo)) {
+-            try {
+-                ThumbnailCache.import_from_source(photo, true);
+-                photo.notify_altered(new Alteration("image","thumbnail"));
+-            } catch (Error e) {
+-                // thumbnail for this object was already broken, so nothing got worse.
+-            }
+-        }
+-        
++
+         switch (state) {
+             case LibraryPhotoSourceCollection.State.ONLINE:
+             case LibraryPhotoSourceCollection.State.OFFLINE:
+diff --git a/src/ThumbnailCache.vala b/src/ThumbnailCache.vala
+index be97183..2a2c716 100644
+--- a/src/ThumbnailCache.vala
++++ b/src/ThumbnailCache.vala
+@@ -1,7 +1,7 @@
+-/* Copyright 2009-2012 Yorba Foundation
++/* Copyright 2009-2013 Yorba Foundation
+  *
+  * This software is licensed under the GNU LGPL (version 2.1 or later).
+- * See the COPYING file in this distribution. 
++ * See the COPYING file in this distribution.
+  */
+ 
+ public class Thumbnails {
+@@ -74,6 +74,7 @@ public class ThumbnailCache : Object {
+     private class AsyncFetchJob : BackgroundJob {
+         public ThumbnailCache cache;
+         public string thumbnail_name;
++        public ThumbnailSource source;
+         public PhotoFileFormat source_format;
+         public Dimensions dim;
+         public Gdk.InterpType interp;
+@@ -84,13 +85,14 @@ public class ThumbnailCache : Object {
+         public bool fetched = false;
+         
+         public AsyncFetchJob(ThumbnailCache cache, string thumbnail_name,
+-            PhotoFileFormat source_format, Gdk.Pixbuf? prefetched, Dimensions dim,
++            ThumbnailSource source, Gdk.Pixbuf? prefetched, Dimensions dim,
+             Gdk.InterpType interp, AsyncFetchCallback callback, Cancellable? cancellable) {
+             base(cache, async_fetch_completion_callback, cancellable);
+             
+             this.cache = cache;
+             this.thumbnail_name = thumbnail_name;
+-            this.source_format = source_format;
++            this.source = source;
++            this.source_format = source.get_preferred_thumbnail_format();
+             this.unscaled = prefetched;
+             this.dim = dim;
+             this.interp = interp;
+@@ -126,11 +128,42 @@ public class ThumbnailCache : Object {
+                 // scale if specified
+                 scaled = dim.has_area() ? resize_pixbuf(unscaled, dim, interp) : unscaled;
+             } catch (Error err) {
++                // Is the problem that the thumbnail couldn't be read? If so, it's recoverable;
++                // we'll just create it and leave this.err as null if creation works.
++                if (err is FileError) {
++                    try {
++                        Photo photo = source as Photo;
++                        Video video = source as Video;
++
++                        if (photo != null) {
++                            unscaled = photo.get_pixbuf(Scaling.for_best_fit(dim.width, true));
++                            photo.notify_altered(new Alteration("image","thumbnail"));
++                            return;
++                        }
++
++                        if (video != null) {
++                            unscaled = video.create_thumbnail(dim.width);
++                            scaled = resize_pixbuf(unscaled, dim, interp);
++                            cache.save_thumbnail(cache.get_source_cached_file(source),
++                                unscaled, source);
++                            replace(source, cache.size, unscaled);
++                            return;
++                        }
++
++                    } catch (Error e) {
++                        // Creating the thumbnail failed; tell the rest of the app.
++                        this.err = e;
++                        return;
++                    }
++                }
++
++                // ...the original error wasn't from reading the file, but something else;
++                // tell the rest of the app.
+                 this.err = err;
+             }
+         }
+     }
+-        
++
+     private static Workers fetch_workers = null;
+     
+     public const ulong MAX_BIG_CACHED_BYTES = 40 * 1024 * 1024;
+@@ -230,13 +263,13 @@ public class ThumbnailCache : Object {
+     
+     public static void fetch_async(ThumbnailSource source, int scale, AsyncFetchCallback callback,
+         Cancellable? cancellable = null) {
+-        get_best_cache(scale)._fetch_async(source.get_source_id(), source.get_preferred_thumbnail_format(),
++        get_best_cache(scale)._fetch_async(source, source.get_preferred_thumbnail_format(),
+             Dimensions(), DEFAULT_INTERP, callback, cancellable);
+     }
+     
+-    public static void fetch_async_scaled(ThumbnailSource source, int scale, Dimensions dim, 
++    public static void fetch_async_scaled(ThumbnailSource source, int scale, Dimensions dim,
+         Gdk.InterpType interp, AsyncFetchCallback callback, Cancellable? cancellable = null) {
+-        get_best_cache(scale)._fetch_async(source.get_source_id(),
++        get_best_cache(scale)._fetch_async(source,
+             source.get_preferred_thumbnail_format(), dim, interp, callback, cancellable);
+     }
+     
+@@ -343,9 +376,10 @@ public class ThumbnailCache : Object {
+         return pixbuf;
+     }
+     
+-    private void _fetch_async(string thumbnail_name, PhotoFileFormat format, Dimensions dim, 
++    private void _fetch_async(ThumbnailSource source, PhotoFileFormat format, Dimensions dim,
+         Gdk.InterpType interp, AsyncFetchCallback callback, Cancellable? cancellable) {
+         // check if the pixbuf is already in memory
++        string thumbnail_name = source.get_source_id();
+         Gdk.Pixbuf pixbuf = fetch_from_memory(thumbnail_name);
+         if (pixbuf != null && (!dim.has_area() || Dimensions.for_pixbuf(pixbuf).equals(dim))) {
+             // if no scaling operation required, callback in this context and done (otherwise,
+@@ -365,8 +399,8 @@ public class ThumbnailCache : Object {
+         // situation.  This may change in the future, and the caching situation will need to be 
+         // handled.
+         
+-        fetch_workers.enqueue(new AsyncFetchJob(this, thumbnail_name, format, pixbuf, dim, interp, 
+-            callback, cancellable));
++        fetch_workers.enqueue(new AsyncFetchJob(this, thumbnail_name, source, pixbuf, dim,
++            interp, callback, cancellable));
+     }
+     
+     // Called within Gtk.main's thread context
+--
+cgit v0.9
