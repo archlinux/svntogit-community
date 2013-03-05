@@ -1,17 +1,11 @@
-From 9cb0726dd0873e3664f3589aabadea8bb7c8ff37 Mon Sep 17 00:00:00 2001
-From: =?UTF-8?q?Olivier=20Cr=C3=AAte?= <olivier.crete@collabora.com>
-Date: Tue, 25 Sep 2012 18:15:02 -0400
-Subject: [PATCH] Port to GStreamer 1.0
+From 4db67e385c9c2d89947077f1520aa31af2538d65 Mon Sep 17 00:00:00 2001
+From: Alban Browaeys <prahal@yahoo.com>
+Date: Wed, 09 Jan 2013 01:11:27 +0000
+Subject: Ports Shotwell to GStreamer 1.0. Closes #6055.
 
 ---
- Makefile                                    | 21 +++++++++++----------
- src/VideoSupport.vala                       |  8 ++++----
- src/libshotwell.deps                        |  5 +++--
- thumbnailer/shotwell-video-thumbnailer.vala | 18 ++++++++----------
- 4 files changed, 26 insertions(+), 26 deletions(-)
-
 diff --git a/Makefile b/Makefile
-index 1bd09e0..06059e3 100644
+index 2488f82..5a7e262 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -37,7 +37,7 @@ EXTRAS_SUPPORTED_LANGUAGES=fr de it es pl et sv sk lv pt bg bn nl da zh_CN el ru
@@ -19,7 +13,7 @@ index 1bd09e0..06059e3 100644
  SYSTEM_LANG_DIR := $(DESTDIR)$(PREFIX)/share/locale
  
 -VALAFLAGS := -g --enable-checking --thread --fatal-warnings --enable-deprecated $(USER_VALAFLAGS)
-+VALAFLAGS := -g --enable-checking --thread --enable-deprecated $(USER_VALAFLAGS)
++VALAFLAGS := -g --enable-checking --thread --fatal-warnings --enable-deprecated --enable-experimental $(USER_VALAFLAGS)
  ifdef UNITY_SUPPORT
  VALAFLAGS := $(VALAFLAGS) --define UNITY_SUPPORT
  endif
@@ -36,19 +30,18 @@ index 1bd09e0..06059e3 100644
  	gtk+-3.0 \
  	gudev-1.0 \
  	libexif \
-@@ -314,8 +314,9 @@ endif
+@@ -314,8 +314,8 @@ endif
  THUMBNAILER_PKGS = \
      gtk+-3.0 \
      gee-1.0 \
 -    gstreamer-0.10 \
 -    gstreamer-base-0.10
 +    gstreamer-1.0 \
-+    gstreamer-base-1.0 \
-+    gstreamer-app-1.0 \
++    gstreamer-base-1.0
  
  DIRECT_LIBS =
  
-@@ -325,10 +326,10 @@ EXT_PKG_VERSIONS = \
+@@ -325,10 +325,10 @@ EXT_PKG_VERSIONS = \
  	gio-unix-2.0 >= 2.20 \
  	glib-2.0 >= $(MIN_GLIB_VERSION) \
  	gmodule-2.0 >= 2.24.0 \
@@ -63,6 +56,15 @@ index 1bd09e0..06059e3 100644
  	gtk+-3.0 >= 3.0.11 \
  	gudev-1.0 >= 145 \
  	libexif >= 0.6.16 \
+@@ -683,7 +683,7 @@ $(VALA_STAMP): $(EXPANDED_SRC_FILES) $(EXPANDED_VAPI_FILES) $(GPHOTO_VAPI_FILE)
+ 	$(call check_valac_version)
+ 	@echo Compiling Vala code...
+ 	@mkdir -p $(BUILD_DIR)
+-	@$(VALAC) --ccode --directory=$(BUILD_DIR) --basedir=src \
++	$(VALAC) --ccode --directory=$(BUILD_DIR) --basedir=src \
+ 		$(foreach pkg,$(VALA_PKGS),--pkg=$(pkg)) \
+ 		$(foreach vapidir,$(VAPI_DIRS),--vapidir=$(vapidir)) \
+ 		$(foreach def,$(DEFINES),-X -D$(def)) \
 diff --git a/src/VideoSupport.vala b/src/VideoSupport.vala
 index deb45e2..f679bd0 100644
 --- a/src/VideoSupport.vala
@@ -97,10 +99,10 @@ index deb45e2..f679bd0 100644
              message("interpreter state cookie not found; assuming all video thumbnails are out of date");
              interpreter_state_changed = true;
 diff --git a/thumbnailer/shotwell-video-thumbnailer.vala b/thumbnailer/shotwell-video-thumbnailer.vala
-index a4d7dc2..c12784e 100644
+index 79a2d7e..ae1e537 100644
 --- a/thumbnailer/shotwell-video-thumbnailer.vala
 +++ b/thumbnailer/shotwell-video-thumbnailer.vala
-@@ -10,11 +10,7 @@
+@@ -10,22 +10,15 @@
  // Shotwell Thumbnailer takes in a video file and returns a thumbnail to stdout.  This is
  // a replacement for totem-video-thumbnailer
  class ShotwellThumbnailer {
@@ -109,51 +111,109 @@ index a4d7dc2..c12784e 100644
 -                                      red_mask = (int)   0xFF000000,
 -                                      green_mask = (int) 0x00FF0000,
 -                                      blue_mask = (int)  0x0000FF00,
-+    const string caps_string = """video/x-raw, format=RGBA,
-                                       width = (int) [ 1, max ],
-                                       height = (int) [ 1, max ],
-                                       framerate = (fraction) [ 0, max ]""";
-@@ -36,7 +32,7 @@ class ShotwellThumbnailer {
+-                                      width = (int) [ 1, max ],
+-                                      height = (int) [ 1, max ],
+-                                      framerate = (fraction) [ 0, max ]""";
++    const string caps_string = """video/x-raw,format=RGB,bpp=32,depth=32,pixel-aspect-ratio=1/1""";
+     
+     public static int main(string[] args) {
+         Gst.Element pipeline, sink;
+         int width, height;
+-        Gst.Buffer buffer;
++        Gst.Sample sample;
+         string descr;
+         Gdk.Pixbuf pixbuf;
+-        int64 position;
++        int64 duration, position;
+         Gst.StateChangeReturn ret;
+         bool res;
+         
+@@ -36,7 +29,7 @@ class ShotwellThumbnailer {
              return 1;
          }
          
 -        descr = "filesrc location=\"%s\" ! decodebin2 ! ffmpegcolorspace ! ".printf(args[1]) + 
-+        descr = "filesrc location=\"%s\" ! decodebin ! videoconvert ! ".printf(args[1]) + 
++        descr = "filesrc location=\"%s\" ! decodebin ! videoconvert ! videoscale ! ".printf(args[1]) +
              "appsink name=sink caps=\"%s\"".printf(caps_string);
          
          try {
-@@ -69,7 +65,7 @@ class ShotwellThumbnailer {
-             // by seeking to somewhere else we have a bigger chance of getting something
-             // more interesting. An optimization would be to detect black images and then
-             // seek a little more.
+@@ -64,29 +57,41 @@ class ShotwellThumbnailer {
+                 stderr.printf("Failed to play the file: couldn't get state.\n");
+                 return 3;
+             }
+-            
+-            // Seek to the a position in the file. Most files have a black first frame so
+-            // by seeking to somewhere else we have a bigger chance of getting something
+-            // more interesting. An optimization would be to detect black images and then
+-            // seek a little more.
 -            position = (int64) (Gst.Format.PERCENT_MAX * 0.05);
-+            position = (int64) (Gst.FORMAT_PERCENT_MAX * 0.05);
-             pipeline.seek_simple(Gst.Format.PERCENT, Gst.SeekFlags.KEY_UNIT | Gst.SeekFlags.FLUSH , position);
-             
-             // Get the preroll buffer from appsink, this block untils appsink really
-@@ -86,7 +82,7 @@ class ShotwellThumbnailer {
+-            pipeline.seek_simple(Gst.Format.PERCENT, Gst.SeekFlags.KEY_UNIT | Gst.SeekFlags.FLUSH , position);
+-            
+-            // Get the preroll buffer from appsink, this block untils appsink really
+-            // prerolls.
+-            GLib.Signal.emit_by_name(sink, "pull-preroll", out buffer, null);
+-            
++
++            /* get the duration */
++            pipeline.query_duration (Gst.Format.TIME, out duration);
++
++            if (duration != -1) {
++                /* we have a duration, seek to 5% */
++                position = duration * 5 / 100;
++            } else {
++                /* no duration, seek to 1 second, this could EOS */
++                position = 1 * Gst.SECOND;
++            }
++
++            /* seek to the a position in the file. Most files have a black first frame so
++             * by seeking to somewhere else we have a bigger chance of getting something
++             * more interesting. An optimisation would be to detect black images and then
++             * seek a little more */
++            pipeline.seek_simple (Gst.Format.TIME, Gst.SeekFlags.KEY_UNIT | Gst.SeekFlags.FLUSH, position);
++
++            /* get the preroll buffer from appsink, this block untils appsink really
++             * prerolls */
++            GLib.Signal.emit_by_name (sink, "pull-preroll", out sample, null);
++
+             // if we have a buffer now, convert it to a pixbuf. It's possible that we
+             // don't have a buffer because we went EOS right away or had an error.
+-            if (buffer != null) {
++            if (sample != null) {
++                Gst.Buffer buffer;
+                 Gst.Caps caps;
+                 Gst.Structure s;
++                Gst.MapInfo mapinfo;
+ 
+                 // Get the snapshot buffer format now. We set the caps on the appsink so
                  // that it can only be an rgb buffer. The only thing we have not specified
                  // on the caps is the height, which is dependant on the pixel-aspect-ratio
                  // of the source material.
 -                caps = buffer.get_caps();
-+                caps = (sink as Gst.App.Sink).caps;
++                caps = sample.get_caps();
                  if (caps == null) {
                      stderr.printf("could not get snapshot format\n");
                      return 5;
-@@ -104,9 +100,11 @@ class ShotwellThumbnailer {
-                 
+@@ -101,14 +106,18 @@ class ShotwellThumbnailer {
+                     stderr.printf("Could not get snapshot dimension\n");
+                     return 6;
+                 }
+-                
++
++                buffer = sample.get_buffer();
++                buffer.map(out mapinfo, Gst.MapFlags.READ);
++
                  // Create pixmap from buffer and save, gstreamer video buffers have a stride
                  // that is rounded up to the nearest multiple of 4.
 -                pixbuf = new Gdk.Pixbuf.from_data(buffer.data, Gdk.Colorspace.RGB, true, 8, 
-+		Gst.MapInfo info;
-+		buffer.map(out info, Gst.MapFlags.READ);
-+                pixbuf = new Gdk.Pixbuf.from_data(info.data, Gdk.Colorspace.RGB, true, 8, 
-                     width, height, width * 4, null);
--                
-+                buffer.unmap(info);
+-                    width, height, width * 4, null);
++                pixbuf = new Gdk.Pixbuf.from_data(mapinfo.data, Gdk.Colorspace.RGB, false, 8,
++                    width, height, (((width * 3)+3)&~3), null);
+                 
                  // Save the pixbuf.
                  pixbuf.save("/dev/stdout", "png");
++                buffer.unmap(mapinfo);
              } else {
--- 
-1.7.11.4
-
+                 stderr.printf("Could not make snapshot\n");
+                 return 10;
+--
+cgit v0.9
