@@ -1,0 +1,69 @@
+# $Id$
+# Maintainer: Jaroslav Lichtblau <dragonlord@aur.archlinux.org>
+# Contributor: dibblethewrecker dibblethewrecker.at.jiwe.dot.org
+# Contributor: William Rea <sillywilly@gmail.com>
+
+pkgname=gdal
+pkgver=1.9.2
+pkgrel=1
+pkgdesc="A translator library for raster geospatial data formats"
+arch=('i686' 'x86_64')
+url="http://www.gdal.org/"
+license=('custom')
+depends=('curl' 'geos' 'giflib' 'hdf5' 'libgeotiff' 'libjpeg' 'libpng' 'libtiff' 'netcdf'  'python2' 'python2-numpy' 'cfitsio' 'sqlite' 'libmariadbclient' 'postgresql-libs')
+makedepends=('perl' 'swig' 'chrpath')
+optdepends=('postgresql: postgresql database support'
+            'mariadb: mariab database support'
+            'perl:  perl binding support'
+            'swig:  perl binding support')
+options=('!libtool')
+changelog=$pkgname.changelog
+source=(http://download.osgeo.org/${pkgname}/${pkgname}-${pkgver}.tar.gz
+        gdal-1.5.1-python-install.patch)
+md5sums=('3f39db89f4710269b3a8bf94178e07aa'
+         '81afc1c26d29cee84aadb6924fe33861')
+
+build() {
+  export CFLAGS="$CFLAGS -fno-strict-aliasing"
+
+  # bug 23654
+  export LDFLAGS="$LDFLAGS -Wl,--as-needed" 
+
+  cd ${srcdir}/$pkgname-$pkgver
+  patch -Np0 -i ${srcdir}/gdal-1.5.1-python-install.patch
+
+# python2 fixes
+  sed -i 's_python python1.5_python2 python python1.5_' configure
+  for file in swig/python/{,osgeo/,samples/,scripts/}*.py; do
+      sed -i 's_#!/usr/bin/env python_#!/usr/bin/env python2_' $file
+  done
+
+  ./configure --prefix=/usr --with-netcdf --with-libtiff --with-sqlite3 \
+              --with-geotiff --with-mysql --with-python --without-libtool --with-curl \
+              --with-hdf5 --with-perl --with-geos --with-png
+
+# workaround for bug #13646
+  sed -i 's/PY_HAVE_SETUPTOOLS=1/PY_HAVE_SETUPTOOLS=/g' ./GDALmake.opt
+  sed -i 's/EXE_DEP_LIBS/KILL_EXE_DEP_LIBS/' apps/GNUmakefile
+  install -d ${pkgdir}/usr/lib/python2.7/site-packages/
+
+  make
+}
+
+package () {
+  cd ${srcdir}/$pkgname-$pkgver
+
+  make DESTDIR=${pkgdir} install
+
+# install license
+  install -D -m644 LICENSE.TXT ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE
+
+#FS15477 clean up junks
+  rm -f ${pkgdir}/usr/bin/*.dox
+
+  # Remove RPATH
+  chrpath --delete "${pkgdir}"/usr/lib/perl5/${CARCH}-linux-thread-multi/auto/Geo/OSR/OSR.so
+  chrpath --delete "${pkgdir}"/usr/lib/perl5/${CARCH}-linux-thread-multi/auto/Geo/OGR/OGR.so
+  chrpath --delete "${pkgdir}"/usr/lib/perl5/${CARCH}-linux-thread-multi/auto/Geo/GDAL/GDAL.so
+  chrpath --delete "${pkgdir}"/usr/lib/perl5/${CARCH}-linux-thread-multi/auto/Geo/GDAL/Const/Const.so
+}
