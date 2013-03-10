@@ -6,7 +6,7 @@
 
 pkgname=wine
 pkgver=1.5.25
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -20,13 +20,14 @@ arch=(i686 x86_64)
 license=(LGPL)
 install=wine.install
 
-depends=(
+_depends=(
   fontconfig      lib32-fontconfig
   libxcursor      lib32-libxcursor
   libxrandr       lib32-libxrandr
   libxdamage      lib32-libxdamage
   libxi           lib32-libxi
   gettext         lib32-gettext
+  freetype2       lib32-freetype2
   glu             lib32-glu
   libsm           lib32-libsm
   gcc-libs        lib32-gcc-libs
@@ -51,6 +52,7 @@ makedepends=(autoconf ncurses bison perl fontforge flex prelink
   alsa-lib        lib32-alsa-lib
   libxcomposite   lib32-libxcomposite
   mesa            lib32-mesa
+  mesa-libgl      lib32-mesa-libgl
   oss
   samba
 )
@@ -77,11 +79,12 @@ optdepends=(
 
 if [[ $CARCH == i686 ]]; then
   # Strip lib32 etc. on i686
-  depends=(${depends[@]/*32-*/})
-  makedepends=(${makedepends[@]/*32-*/})
+  _depends=(${_depends[@]/*32-*/})
+  makedepends=(${makedepends[@]/*32-*/} ${_depends[@]})
   makedepends=(${makedepends[@]/*-multilib*/})
   optdepends=(${optdepends[@]/*32-*/})
 else
+  makedepends=(${makedepends[@]} ${_depends[@]})
   provides=("bin32-wine=$pkgver" "wine-wow64=$pkgver")
   conflicts=('bin32-wine' 'wine-wow64')
   replaces=('bin32-wine')
@@ -96,6 +99,10 @@ build() {
   # Get rid of old build dirs
   rm -rf $pkgname-{32,64}-build
   mkdir $pkgname-32-build
+
+  # These additional CFLAGS solve FS#27662 and FS#34195
+  export CFLAGS="${CFLAGS/-D_FORTIFY_SOURCE=2/} -D_FORTIFY_SOURCE=0"
+  export CXXFLAGS="${CXXFLAGS/-D_FORTIFY_SOURCE=2/} -D_FORTIFY_SOURCE=0"
 
   if [[ $CARCH == x86_64 ]]; then
     msg2 "Building Wine-64..."
@@ -133,6 +140,8 @@ build() {
 }
 
 package() {
+  depends=(${_depends[@]})
+
   msg2 "Packaging Wine-32..."
   cd "$srcdir/$pkgname-32-build"
 
