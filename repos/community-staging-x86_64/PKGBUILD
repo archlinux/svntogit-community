@@ -1,0 +1,100 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Krzysztof Raczkowski <raczkow@gmail.com>
+
+pkgbase=open-vm-tools
+pkgname=('open-vm-tools' 'open-vm-tools-dkms')
+epoch=1
+pkgver=9.2.2
+_pkgsubver=893683
+pkgrel=7
+pkgdesc="The Open Virtual Machine Tools (open-vm-tools) are the open source implementation of VMware Tools"
+arch=('i686' 'x86_64')
+url="http://open-vm-tools.sourceforge.net/"
+license=('LGPL')
+depends=('libdnet' 'icu' 'procps-ng' 'uriparser' 'libsigc++' 'libxss' 'iproute2')
+makedepends=('chrpath' 'doxygen' 'gtkmm' 'fuse' 'libxtst')
+optdepends=('gtkmm' 'libnotify' 'libxtst' 'fuse' 'libsm'
+	    'open-vm-tools-modules: for linux kernel'
+	    'open-vm-tools-dkms: for linux-lts and other kernels')
+backup=('etc/conf.d/open-vm-tools'
+	'etc/pam.d/vmware-guestd')
+options=('docs' '!libtool')
+install=$pkgname.install
+source=(http://downloads.sourceforge.net/$pkgname/$pkgname-$pkgver-${_pkgsubver}.tar.gz
+	scripts-network.patch
+	scripts-network-FS19541.patch
+	open-vm-tools-X11Bool.patch
+	open-vm-tools.conf.d
+	open-vm-tools.rc.d
+	tools.conf
+	vmware-guestd
+	xautostart.conf
+	modprobe.conf
+	vmtoolsd.service)
+md5sums=('7af505681d736d4c9ee6493b1166689f'
+         'b8f68fef3d388489e40dba581b6da18a'
+         '507ead54854e49762ca2a6893529c484'
+         '8c333a979578bdc0c3134c1dd6bb7353'
+         '6567ca1b465854f832fc94a4e9faf876'
+         '0848618fa6310294db2752c77ae99865'
+         'b55d15e2c4be396aad709aeca91033d3'
+         '1b9ae908fce4c623269f100ee9bdfdef'
+         '75a25d83417e683957321f97a00f8465'
+         'bc5518489077e91655489bd04b868584'
+         'a6c53243d31c765580f6dded7d5fa98f')
+
+build() {
+  cd "$srcdir/$pkgname-${pkgver}-${_pkgsubver}"
+  export CFLAGS="-DGLIB_DISABLE_DEPRECATION_WARNINGS ${CFLAGS}"
+  [ -f Makefile ] || CUSTOM_PROCPS_NAME="procps" ./configure --prefix=/usr --without-kernel-modules
+  make
+}
+
+package_open-vm-tools() {
+  cd "$srcdir/$pkgname-${pkgver}-${_pkgsubver}"
+
+  make install DESTDIR="$pkgdir"
+  install -Dm0644 vmware-user-suid-wrapper/vmware-user.desktop $pkgdir/usr/share/applications/vmware-user.desktop
+
+  # vmware-user XDG autostart
+  mkdir -p $pkgdir/etc/xdg/autostart
+  ln -s /usr/share/applications/vmware-user.desktop $pkgdir/etc/xdg/autostart/vmware-user.desktop
+
+  install -D -m 755 scripts/common/vmware-xdg-detect-de "$pkgdir"/usr/bin/vmware-xdg-detect-de
+  chmod 07755 "$pkgdir"/usr/bin/vmware-user-suid-wrapper
+
+  cd "$pkgdir"
+  patch -p1 -i "$srcdir"/scripts-network.patch etc/vmware-tools/scripts/vmware/network
+  patch -p1 -i "$srcdir"/scripts-network-FS19541.patch etc/vmware-tools/scripts/vmware/network
+
+  install -Dm0755 "$srcdir"/open-vm-tools.rc.d "$pkgdir"/etc/rc.d/open-vm-tools
+  install -Dm0644 "$srcdir"/open-vm-tools.conf.d "$pkgdir"/etc/conf.d/open-vm-tools
+  install -Dm0644 "$srcdir"/tools.conf "$pkgdir"/etc/vmware-tools/tools.conf
+  install -Dm0644 "$srcdir"/xautostart.conf "$pkgdir"/etc/vmware-tools/xautostart.conf
+  install -Dm0644 "$srcdir"/vmware-guestd "$pkgdir"/etc/pam.d/vmware-guestd
+  rm -rf "$pkgdir"/usr/etc
+
+  ln -fs /usr/sbin/mount.vmhgfs "$pkgdir"/sbin/mount.vmhgfs
+
+  cd "$pkgdir" && find -type f -exec sh -c "file {} | grep ELF >/dev/null && echo {} && chrpath -d {}" \;
+  install -Dm644 ${srcdir}/vmtoolsd.service ${pkgdir}/usr/lib/systemd/system/vmtoolsd.service
+
+  rm -f $pkgdir/etc/vmware-tools/scripts/vmware/*.orig
+}
+
+package_open-vm-tools-dkms() {
+  pkgdesc="kernel modules for the open source implementation of VMware Tools"
+  depends=('dkms')
+  provides=('open-vm-tools-modules')
+  conflicts=('open-vm-tools-modules')
+  optdepends=()
+  backup=()
+  install=open-vm-tools-dkms.install
+
+  install -d -m755 ${pkgdir}/usr/src/
+  sh ${srcdir}/open-vm-tools-${pkgver}-${_pkgsubver}/modules/linux/dkms.sh \
+	${srcdir}/open-vm-tools-${pkgver}-${_pkgsubver}/ \
+	${pkgdir}/usr/src/
+  install -Dm644 ${srcdir}/modprobe.conf ${pkgdir}/usr/lib/modprobe.d/${pkgname}.conf
+}
