@@ -5,7 +5,7 @@
 
 pkgname=meteorjs
 pkgver=0.5.9
-pkgrel=1
+pkgrel=2
 pkgdesc="Open-source platform for building top-quality web apps in a fraction of the time."
 arch=('i686' 'x86_64')
 url="https://github.com/meteor/meteor"
@@ -14,7 +14,8 @@ depends=('nodejs' 'mongodb')
 options=('!strip')
 
 sha256sums=('43e228e09c66bc167108c2a8375e23e472d19e82b216ad0875efed94073ef5ba'
-            'a3ac659c52b652676da0530f2148025e0f8bfa84bccf63431c20eb72d3bc5cb7')
+            'a3ac659c52b652676da0530f2148025e0f8bfa84bccf63431c20eb72d3bc5cb7'
+            'af74a9bd6fa7c8c556f7ed17e76983ff416309b02c0e86c97d1606236f2dd39e')
 
 if [ "$CARCH" = "x86_64" ]; then
     _arch="amd64"
@@ -23,19 +24,31 @@ else
     sha256sums[0]='f28ca14d923e19e1035adff506cac8f839c1ec97410d4617a2c2a20cc733d879'
 fi
 
-source=("http://d3sqy0vbqsdhku.cloudfront.net/meteor_$pkgver-1_$_arch.deb" meteor)
+source=("http://d3sqy0vbqsdhku.cloudfront.net/meteor_$pkgver-1_$_arch.deb" meteor node010.patch)
+
+build() {
+    [ -d build ] && rm -rf build
+    mkdir build
+    tar xf data.tar.gz -C build ./usr/lib/meteor
+    cd build/usr/lib/meteor
+
+    patch -p0 -i "$srcdir/node010.patch"
+
+    # rebuild fibers
+    cd lib/node_modules/fibers/
+    rm -rf bin/*
+    PATH="/usr/lib/node_modules/npm/bin/node-gyp-bin:$PATH" node build.js
+    rm -rf build
+}
 
 package() {
-    tar xf data.tar.gz -C "$pkgdir" ./usr/lib/meteor
+    cp -a "$srcdir/build/"* "$pkgdir"
+    cd "$pkgdir/usr/lib/meteor"
 
-    install -Dm644 "$pkgdir/usr/lib/meteor/LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
+    install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
     install -Dm755 "$srcdir/meteor" "$pkgdir/usr/bin/meteor"
 
-    cd "$pkgdir/usr/lib/meteor"
-    rm -rf LICENSE.txt lib/node lib/dtrace lib/node_modules/npm share include \
-           lib/node_modules/mongodb/node_modules/bson/build/Release/obj.target/bson.node \
-           lib/node_modules/websocket/build/Release/obj.target/xor.node \
-           lib/node_modules/websocket/build/Release/obj.target/validation.node
+    rm -rf LICENSE.txt lib/node lib/dtrace lib/node_modules/npm share include
 
     # mongodb links
     rm -rf mongodb
@@ -49,4 +62,7 @@ package() {
     ln -s /usr/bin/node bin/node
     ln -s /usr/bin/node-waf bin/node-waf
     ln -s /usr/bin/npm bin/npm
+
+    # remove build dirs
+    find -type d -name build -exec rm -rf {} +
 }
