@@ -5,7 +5,7 @@
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
 pkgver=0.8.1
-pkgrel=1
+pkgrel=2
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
 makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc')
