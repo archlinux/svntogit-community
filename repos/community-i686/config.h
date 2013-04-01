@@ -1,15 +1,3 @@
-#ifdef _FEATURE_CONFIG
-
-/* auto-orientate jpeg files according to their exif tags?
- * (requires libexif [-lexif] to be installed)
- */
-#define EXIF_SUPPORT 1
-/* load all frames from gif files and support gif animations?
- * (requires giflib [-lgif] to be installed)
- */
-#define GIF_SUPPORT  1
-
-#endif
 #ifdef _WINDOW_CONFIG
 
 /* default window dimensions (overwritten via -g option): */
@@ -18,11 +6,19 @@ enum {
 	WIN_HEIGHT = 600
 };
 
-/* default color for window background: */
-static const char * const BG_COLOR  = "#777777";
-/* default color for thumbnail selection: */
-static const char * const SEL_COLOR = "#DDDDDD";
-/* (see X(7) section "COLOR NAMES" for valid values) */
+/* bar font:
+ * (see X(7) section "FONT NAMES" for valid values)
+ */
+static const char * const BAR_FONT = "-*-fixed-medium-r-*-*-13-*-*-*-*-60-*-*";
+
+/* colors:
+ * (see X(7) section "COLOR NAMES" for valid values)
+ */
+static const char * const WIN_BG_COLOR = "#777777";
+static const char * const WIN_FS_COLOR = "#000000";
+static const char * const SEL_COLOR    = "#DDDDDD";
+static const char * const BAR_BG_COLOR = "#222222";
+static const char * const BAR_FG_COLOR = "#EEEEEE";
 
 #endif
 #ifdef _IMAGE_CONFIG
@@ -42,9 +38,6 @@ static const float zoom_levels[] = {
 	 12.5,  25.0,  50.0,  75.0,
 	100.0, 150.0, 200.0, 400.0, 800.0
 };
-
-/* default slideshow delay (in sec, overwritten via -S option): */
-enum { SLIDESHOW_DELAY = 5 };
 
 /* default settings for multi-frame gif images: */
 enum {
@@ -68,8 +61,10 @@ static const keymap_t keys[] = {
 	{ false,  XK_q,             it_quit,              (arg_t) None },
 	{ false,  XK_Return,        it_switch_mode,       (arg_t) None },
 	{ false,  XK_f,             it_toggle_fullscreen, (arg_t) None },
+	{ false,  XK_b,             it_toggle_bar,        (arg_t) None },
 
 	{ false,  XK_r,             it_reload_image,      (arg_t) None },
+	{ false,  XK_R,             t_reload_all,         (arg_t) None },
 	{ false,  XK_D,             it_remove_image,      (arg_t) None },
 
 	{ false,  XK_n,             i_navigate,           (arg_t) +1 },
@@ -78,6 +73,7 @@ static const keymap_t keys[] = {
 	{ false,  XK_BackSpace,     i_navigate,           (arg_t) -1 },
 	{ false,  XK_bracketright,  i_navigate,           (arg_t) +10 },
 	{ false,  XK_bracketleft,   i_navigate,           (arg_t) -10 },
+	{ true,   XK_6,             i_alternate,          (arg_t) None },
 	{ false,  XK_g,             it_first,             (arg_t) None },
 	{ false,  XK_G,             it_n_or_last,         (arg_t) None },
 
@@ -113,16 +109,16 @@ static const keymap_t keys[] = {
 	{ false,  XK_minus,         i_zoom,               (arg_t) -1 },
 	{ false,  XK_KP_Subtract,   i_zoom,               (arg_t) -1 },
 	{ false,  XK_equal,         i_set_zoom,           (arg_t) 100 },
-	{ false,  XK_w,             i_fit_to_win,         (arg_t) None },
+	{ false,  XK_w,             i_fit_to_win,         (arg_t) SCALE_FIT },
+	{ false,  XK_e,             i_fit_to_win,         (arg_t) SCALE_WIDTH },
+	{ false,  XK_E,             i_fit_to_win,         (arg_t) SCALE_HEIGHT },
 	{ false,  XK_W,             i_fit_to_img,         (arg_t) None },
 
 	{ false,  XK_less,          i_rotate,             (arg_t) DIR_LEFT },
 	{ false,  XK_greater,       i_rotate,             (arg_t) DIR_RIGHT },
 
-	{ false,  XK_s,             i_toggle_slideshow,   (arg_t) None },
-	{ true,   XK_plus,          i_adjust_slideshow,   (arg_t) +1 },
-	{ true,   XK_minus,         i_adjust_slideshow,   (arg_t) -1 },
-	{ true,   XK_equal,         i_reset_slideshow,    (arg_t) None },
+	{ false,  XK_backslash,     i_flip,               (arg_t) FLIP_HORIZONTAL },
+	{ false,  XK_bar,           i_flip,               (arg_t) FLIP_VERTICAL },
 
 	{ false,  XK_a,             i_toggle_antialias,   (arg_t) None },
 	{ false,  XK_A,             it_toggle_alpha,      (arg_t) None },
