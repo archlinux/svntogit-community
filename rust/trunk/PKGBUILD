@@ -1,38 +1,46 @@
-# Maintainer: Boris Shomodjvarac <spam AT shomodj DOT com>
-# Contributor: <s.astanin AT gmail DOT com>
-# Contributor: Chris Bolton <chris AT pixelgen DOT co>
-# Contributor: Thomas Dziedzic <gostrc AT gmail DOT com>
+# $Id$
+# Maintainer: Daniel Micay <danielmicay@gmail.com>
 pkgname=rust
-pkgver=0.4
+pkgver=0.6
 pkgrel=1
 arch=('i686' 'x86_64')
-pkgdesc='A safe, concurrent, practical language from Mozilla.'
+pkgdesc='A safe, concurrent, practical language'
 url='http://www.rust-lang.org/'
-license=('MIT')
+license=('MIT' 'Apache')
 depends=('gcc-libs')
-makedepends=('libffi' 'perl' 'python2' 'curl')
-source=("http://dl.rust-lang.org/dist/rust-${pkgver}.tar.gz")
-sha256sums=('150685f07e4d605cadf9fba25b05e9cc1b009364dd744131cf4230d64981d093')
+makedepends=(libffi perl python2 curl chrpath)
+source=("http://static.rust-lang.org/dist/rust-${pkgver}.tar.gz")
+sha256sums=('e11cb529a1e20f27d99033181a9e0e131817136b46d2742f0fa1afa1210053e5')
 
 build() {
-  cd rust-${pkgver}
+  cd rust-$pkgver
 
- ./configure --prefix=${pkgdir}/usr --disable-docs
+  ./configure --prefix=/usr --disable-docs
 
-  msg 's/python$/python2/'
-  find . -executable -exec grep -qe 'env python$' '{}' ';' -exec sed -i 's/env python$/env python2/' '{}' ';' -print
+  # avoid python makedepend (force fallback to python2)
+  sed -i 's/^PYTHONVERSION.*/PYTHONVERSION := 3/' src/llvm/Makefile.rules
 
   make
 }
 
 package() {
   cd rust-${pkgver}
+  make DESTDIR="$pkgdir" install
 
-  make install
+  mkdir -p "$pkgdir/usr/share/vim" "$pkgdir/usr/share/licenses/rust"
 
-  install -d ${pkgdir}/usr/share/licenses/rust
-  install -m644 LICENSE.txt ${pkgdir}/usr/share/licenses/rust
-
-  mkdir -p "$pkgdir/usr/share/vim"
+  # should be globally readable
   cp -a src/etc/vim "$pkgdir/usr/share/vim/vimfiles"
+  find "$pkgdir/usr/share/vim" -type f -exec chmod 644 {} +
+  find "$pkgdir/usr/share/vim" -type d -exec chmod 755 {} +
+
+  install -m644 LICENSE-APACHE "$pkgdir/usr/share/licenses/rust"
+  install -m644 LICENSE-MIT "$pkgdir/usr/share/licenses/rust"
+
+  cd "$pkgdir/usr"
+
+  # https://github.com/mozilla/rust/issues/5219
+  chrpath -d bin/* lib/*.so lib/rustc/*/lib/*.so
+
+  cp lib/rustc/*/lib/{librustdoc-*-0.6.so,librustpkg-*-0.6.so} lib/
 }
