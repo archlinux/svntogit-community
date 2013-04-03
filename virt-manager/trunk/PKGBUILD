@@ -3,8 +3,8 @@
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
 
 pkgname=virt-manager
-pkgver=0.9.4
-pkgrel=4
+pkgver=0.9.5
+pkgrel=1
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -26,7 +26,7 @@ makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz"
         "openbsd-netcat-default.patch")
-md5sums=('7f724839749f6d8d2e57ce8bb8a6a76f'
+md5sums=('2b622a0f4cd53f83665d9841b5a3cefa'
          '76d5a0d6c3bf60e98df3ffe76248745e')
 
 build() {
