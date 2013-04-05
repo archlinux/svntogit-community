@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=5.0.35
-pkgrel=3
+pkgrel=4
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('i686' 'x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -39,6 +39,9 @@ package() {
 
   # allow gcc 4.7 to work
   sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
+
+  # allow gcc 4.8 to work
+  sed -i "1 i #define __STRICT_ANSI__" $pkgdir/opt/cuda/include/cuda_runtime.h
 
   # fix nvidia path fuckup
   sed -i "s|/build/pkg||g" $pkgdir/opt/cuda/bin/nvvp
