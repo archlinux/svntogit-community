@@ -35,6 +35,6 @@ package() {
   install -d -m755 "$pkgdir/usr/share/doc/ghc/html/libraries"
   ln -s /usr/share/doc/$pkgname/html "$pkgdir/usr/share/doc/ghc/html/libraries/$_hkgname"
   runhaskell Setup copy --destdir="$pkgdir"
-  install -D -m644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  rm -f "$pkgdir/usr/share/doc/$pkgname/LICENSE"
+  install -D -m644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+  rm -f "$pkgdir/usr/share/doc/$pkgname/COPYING"
 }
