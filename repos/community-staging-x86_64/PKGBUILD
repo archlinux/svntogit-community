@@ -1,0 +1,53 @@
+# $Id$
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Ner0
+
+pkgname=activity-log-manager
+pkgver=0.9.4
+pkgrel=4
+pkgdesc="A graphical user interface which lets you easily control what gets logged by Zeitgeist"
+arch=('i686' 'x86_64')
+url="https://launchpad.net/activity-log-manager"
+license=('GPL2')
+depends=('gtk3' 'libgee06' 'libzeitgeist' 'zeitgeist' 'hicolor-icon-theme' 'xdg-utils')
+makedepends=('vala' 'intltool')
+install=$pkgname.install
+source=(https://launchpad.net/$pkgname/${pkgver%.*}/$pkgver/+download/$pkgname-$pkgver.tar.gz
+        http://pkgbuild.com/~bgyorgy/sources/$pkgname-translations-20121021.tar.gz
+        fix-crash.patch
+        config.vapi)
+md5sums=('cf85aecdaa6c0188a53d659709e1f8cd'
+         '6167df74ce44659aa94a89f31ff4d351'
+         '1052dec3691826f01fa3d4fd84284ccc'
+         'fecc5ac50dfcd79c4c8d54599760d225')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Fix docdir location
+  sed -i 's/almdocdir =.*/almdocdir = ${docdir}/' Makefile.{am,in}
+
+  # Install updated language files
+  rename $pkgname- '' ../po/$pkgname-*.po
+  mv -f -t po ../po/*
+  printf "%s\n" po/*.po | sed -e 's/po\///g' -e 's/\.po//g' >po/LINGUAS
+
+  # Fix crash with GTK+ 3.6
+  # https://bugs.launchpad.net/activity-log-manager/+bug/1058037
+  patch -Np1 -i "$srcdir/fix-crash.patch"
+
+  # We need this file for build
+  mv "$srcdir/config.vapi" "$srcdir/$pkgname-$pkgver/src"
+
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  # We don't have Whoopsie on Arch Linux
+  rm -r "$pkgdir/etc" "$pkgdir"/usr/share/{applications/activity-log-manager-ccpanel.desktop,dbus-1,gnome-control-center,polkit-1}
+}
