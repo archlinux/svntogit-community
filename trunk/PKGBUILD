@@ -1,38 +1,45 @@
 # $Id$
-# Maintainer: Jan de Groot <jgc@archlinux.org>
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Jan de Groot <jgc@archlinux.org>
 
 pkgname=gnome-panel
 pkgver=3.6.2
-pkgrel=1
+pkgrel=2
 arch=('i686' 'x86_64')
 license=('GPL')
-pkgdesc="The GNOME Panel"
-url="http://www.gnome.org"
-depends=('gnome-menus' 'gnome-desktop' 'evolution-data-server' 'librsvg' 'libwnck3' 'libsm' 'dconf'
-         'gconf' 'telepathy-glib')
-makedepends=('yelp-tools' 'intltool' 'gobject-introspection' 'networkmanager' 'libcanberra')
-install=gnome-panel.install
-groups=('gnome')
-provides=("gnome-panel-bonobo=${pkgver}")
-options=('!libtool' '!emptydirs')
-source=(http://ftp.gnome.org/pub/gnome/sources/$pkgname/${pkgver:0:3}/$pkgname-$pkgver.tar.xz)
-sha256sums=('a41c45c5512e796b8602ce50bf0d205993eab364c860aae31afa582d77b77079')
+pkgdesc="Provides the window list, workspace switcher, menus, and other features for GNOME"
+url="https://git.gnome.org/browse/gnome-panel/"
+depends=('dconf' 'evolution-data-server' 'gconf' 'gnome-desktop' 'gnome-menus' 'librsvg'
+         'libwnck3' 'telepathy-glib')
+makedepends=('gobject-introspection' 'intltool' 'itstool' 'networkmanager')
+install=$pkgname.install
+options=('!libtool')
+source=(http://ftp.gnome.org/pub/gnome/sources/$pkgname/${pkgver:0:3}/$pkgname-$pkgver.tar.xz
+        gnome-desktop-3.8.patch
+        drop-gweather-xml-include.patch)
+sha256sums=('a41c45c5512e796b8602ce50bf0d205993eab364c860aae31afa582d77b77079'
+            '3a67f4b07a7dd356fad6b40a43983f3945123ed40080eb153396a481b34efc0c'
+            'e3298c62bc577969817c5d6752be83a5129004fd344e4f7998a0d8aa61874305')
 
 build() {
   cd "$pkgname-$pkgver"
-  PYTHON=/usr/bin/python2 ./configure --prefix=/usr --sysconfdir=/etc \
-      --localstatedir=/var --disable-static \
-      --libexecdir=/usr/lib/gnome-panel \
-      --disable-scrollkeeper \
-      --disable-schemas-compile
+
+  # Port to gnome-desktop 3.8
+  patch -Np1 -i "$srcdir/gnome-desktop-3.8.patch"
+
+  # Fix build with libgweather 3.8
+  patch -Np0 -i "$srcdir/drop-gweather-xml-include.patch"
+
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/$pkgname \
+              --disable-static --disable-schemas-compile \
+              PYTHON=/usr/bin/python2 
   make
 }
 
 package() {
   cd "$pkgname-$pkgver"
-  make GCONF_DISABLE_MAKEFILE_SCHEMA_INSTALL=1 DESTDIR="$pkgdir" install
+  make DESTDIR="$pkgdir" install
 
-  install -m755 -d "$pkgdir/usr/share/gconf/schemas"
-  gconf-merge-schema "$pkgdir/usr/share/gconf/schemas/$pkgname.schemas" --domain gnome-panel-3.0 "$pkgdir"/etc/gconf/schemas/*.schemas
-  rm -f "$pkgdir"/etc/gconf/schemas/*.schemas
+  # Remove unneeded script
+  rm "$pkgdir/usr/lib/gnome-panel/gnome-panel-add"
 }
