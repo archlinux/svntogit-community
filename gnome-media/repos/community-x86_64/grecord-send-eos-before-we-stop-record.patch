@@ -1,0 +1,41 @@
+From 99e7a41b2e4c217aca7faffb7668b1ac84ae1ed2 Mon Sep 17 00:00:00 2001
+From: Oleksij Rempel <bug-track@fisher-privat.net>
+Date: Thu, 07 Jun 2012 17:11:02 +0000
+Subject: grecord: send eos before we stop record.
+
+Current grecord produces files without EOS. This can be tested
+with tool "ogginfo".
+
+accodrding to this documentation:
+http://gstreamer.freedesktop.org/data/doc/gstreamer/head/gstreamer-libs/html/GstBaseSrc.html
+"Controlled shutdown of live sources in applications"
+"Since GStreamer 0.10.16 an application may send an EOS event to a source element to make it perform the EOS logic".
+
+So this patch make sure we send EOS before we stop recording.
+
+Signed-off-by: Oleksij Rempel <bug-track@fisher-privat.net>
+
+https://bugzilla.gnome.org/show_bug.cgi?id=677644
+---
+diff --git a/grecord/src/gsr-window.c b/grecord/src/gsr-window.c
+index bd802d6..850ebf0 100644
+--- a/grecord/src/gsr-window.c
++++ b/grecord/src/gsr-window.c
+@@ -1279,8 +1279,14 @@ stop_cb (GtkAction *action,
+ 		GST_DEBUG ("Stopping play pipeline");
+ 		set_pipeline_state_to_null (priv->play->pipeline);
+ 	} else if (priv->record && priv->record->state == GST_STATE_PLAYING) {
++		GstMessage *msg;
++
+ 		GST_DEBUG ("Stopping recording source");
+-		/* GstBaseSrc will automatically send an EOS when stopping */
++		gst_element_send_event (priv->record->src, gst_event_new_eos ());
++		/* wait one second for EOS message on the pipeline bus */
++		msg = gst_bus_timed_pop_filtered (GST_ELEMENT_BUS (priv->record->pipeline), GST_SECOND, GST_MESSAGE_EOS | GST_MESSAGE_ERROR);
++		gst_message_unref (msg);
++
+ 		gst_element_set_state (priv->record->src, GST_STATE_NULL);
+ 		gst_element_get_state (priv->record->src, NULL, NULL, -1);
+ 		gst_element_set_locked_state (priv->record->src, TRUE);
+--
+cgit v0.9.1
