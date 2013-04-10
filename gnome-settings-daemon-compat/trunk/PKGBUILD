@@ -1,0 +1,61 @@
+# $Id$
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+
+pkgname=gnome-settings-daemon-compat
+_pkgname=gnome-settings-daemon
+pkgver=3.6.4
+pkgrel=1
+pkgdesc="Compatibility package that provides background and mount helpers for the Gnome Flashback session"
+arch=('i686' 'x86_64')
+license=('GPL')
+depends=('gnome-desktop')
+makedepends=('docbook-xsl' 'ibus' 'intltool' 'libcanberra' 'libnotify' 'libpulse' 'libwacom' 'nss' 'upower' 'xf86-input-wacom')
+url="https://live.gnome.org/GnomeFlashback"
+source=(http://ftp.gnome.org/pub/gnome/sources/$_pkgname/${pkgver%.*}/$_pkgname-$pkgver.tar.xz
+        standalone-background-helper.patch
+        draw-background-unconditionally.patch
+        sessionisactive-port.patch
+        flashback-rename.patch
+        remove-libgsd-dependency.patch)
+sha256sums=('3db993f2dbabc0c9d06a309bb12c9a7104b9cdda414ac4b1c301f5114a441c15'
+            '4c2206b9654bd2b2729297870696c87906e2386b492bae1052b94148e5ea370f'
+            '1b6b8216434b766e1389e876cba5d6ab61498c5824f6d2cc5d67dcf58a07842a'
+            '0821f469cd168f3a131da513a5f9dd352c06f9bc31d57d79de4dc063fa2de915'
+            '57c66068f06599ea682325e9f5b92b751d8f0a4322b53371698f8539f709b101'
+            '730f11d5689892fbab9aa2896f3720e813d17e2455f34fd3a0751e49f5b4c26c')
+
+build() {
+  cd $_pkgname-$pkgver
+
+  # Build background helper as a stand alone binary
+  patch -Np1 -i ../standalone-background-helper.patch
+
+  # Always draw background
+  patch -Np1 -i ../draw-background-unconditionally.patch
+
+  # Port to gnome-session's SessionIsActive property
+  patch -Np1 -i ../sessionisactive-port.patch
+
+  # Remove libgsd dependency
+  patch -Np1 -i ../remove-libgsd-dependency.patch
+
+  # GNOME Fallback renamed to Flashback
+  patch -Np1 -i ../flashback-rename.patch
+
+  autoreconf -fi
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/$_pkgname \
+              --disable-static --enable-systemd
+
+  # https://bugzilla.gnome.org/show_bug.cgi?id=656231
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+
+  make -C plugins/automount
+  make -C plugins/background
+}
+
+package() {
+  cd $_pkgname-$pkgver
+  make -C plugins/automount DESTDIR="$pkgdir" install
+  make -C plugins/background DESTDIR="$pkgdir" install
+}
