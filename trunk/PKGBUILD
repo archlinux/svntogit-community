@@ -2,27 +2,36 @@
 # Maintainer: Balló György <ballogyor+arch at gmail dot com>
 # Contributor: Jan de Groot <jgc@archlinux.org>
 
-pkgname=gnome-panel
+pkgbase=gnome-panel
+pkgname=('gnome-panel' 'gnome-flashback-session')
 pkgver=3.6.2
-pkgrel=2
+pkgrel=3
 arch=('i686' 'x86_64')
 license=('GPL')
 pkgdesc="Legacy GNOME panel"
 url="https://live.gnome.org/GnomePanel"
 depends=('dconf' 'evolution-data-server' 'gconf' 'gnome-desktop' 'gnome-menus' 'librsvg'
          'libwnck3' 'telepathy-glib')
-makedepends=('gobject-introspection' 'intltool' 'itstool' 'networkmanager')
-install=$pkgname.install
+makedepends=('gobject-introspection' 'intltool' 'yelp-tools' 'networkmanager' 'gnome-common')
+install=$pkgbase.install
 options=('!libtool')
-source=(http://ftp.gnome.org/pub/gnome/sources/$pkgname/${pkgver:0:3}/$pkgname-$pkgver.tar.xz
+source=(http://ftp.gnome.org/pub/gnome/sources/$pkgbase/${pkgver:0:3}/$pkgbase-$pkgver.tar.xz
         gnome-desktop-3.8.patch
-        drop-gweather-xml-include.patch)
+        drop-gweather-xml-include.patch
+        18_fix_force_quit_applet.patch
+        logout-hang-workaround.patch
+        0001-Add-the-GNOME-Flashback-session.patch
+        fix-autoconf.patch)
 sha256sums=('a41c45c5512e796b8602ce50bf0d205993eab364c860aae31afa582d77b77079'
             '3a67f4b07a7dd356fad6b40a43983f3945123ed40080eb153396a481b34efc0c'
-            'e3298c62bc577969817c5d6752be83a5129004fd344e4f7998a0d8aa61874305')
+            'e3298c62bc577969817c5d6752be83a5129004fd344e4f7998a0d8aa61874305'
+            '9d742f675d9e09a032bfe00e0523a4ef7e234589a74a6086243bf335ce212775'
+            'e98391114fe618d3c9530cd5ad88e5d0d0e3b62890e4494f7db6a76ec3613a47'
+            'f313791d246749f18764ad4af13c4efe54483bc327fab371c47f9fbfc25b20a9'
+            '6828c097505d2dbbf465ed7ff694adbd646a0af2105c8dd864d1061bf0afea71')
 
 build() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgbase-$pkgver"
 
   # Port to gnome-desktop 3.8
   patch -Np1 -i "$srcdir/gnome-desktop-3.8.patch"
@@ -30,16 +39,46 @@ build() {
   # Fix build with libgweather 3.8
   patch -Np0 -i "$srcdir/drop-gweather-xml-include.patch"
 
-  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/$pkgname \
+  # Fix force quit applet to avoid freeze
+  patch -Np1 -i "$srcdir/18_fix_force_quit_applet.patch"
+
+  # Apply a workaround to avoid hang on logout for 15-20 sec
+  patch -Np1 -i "$srcdir/logout-hang-workaround.patch"
+
+  # Add GNOME Flashback session
+  # https://bugzilla.gnome.org/show_bug.cgi?id=694625
+  patch -Np1 -i "$srcdir/0001-Add-the-GNOME-Flashback-session.patch"
+
+  # Fix build
+  patch -Np1 -i "$srcdir/fix-autoconf.patch"
+
+  autoreconf -fi
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/$pkgbase \
               --disable-static --disable-schemas-compile \
               PYTHON=/usr/bin/python2 
   make
 }
 
-package() {
-  cd "$pkgname-$pkgver"
+package_gnome-panel() {
+  cd "$pkgbase-$pkgver"
   make DESTDIR="$pkgdir" install
 
   # Remove unneeded script
   rm "$pkgdir/usr/lib/gnome-panel/gnome-panel-add"
+
+  # Split out the session files
+  rm -r "$pkgdir"/usr/share/{gnome-session,xsessions}
+}
+
+package_gnome-flashback-session() {
+  pkgdesc="Shell for Gnome 3 which was initially called Gnome Fallback"
+  url="https://live.gnome.org/GnomeFlashback"
+  depends=('gnome-screensaver' 'gnome-panel' 'gnome-session' 'gnome-settings-daemon'
+           'gnome-settings-daemon-compat' 'gnome-themes-standard' 'metacity' 'nautilus'
+           'notification-daemon' 'polkit-gnome')
+  install=
+
+  cd "$pkgbase-$pkgver"
+  make -C data DESTDIR="$pkgdir" install-sessionDATA
+  make -C data DESTDIR="$pkgdir" install-xsessionDATA
 }
