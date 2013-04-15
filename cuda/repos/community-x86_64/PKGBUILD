@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=5.0.35
-pkgrel=5
+pkgrel=6
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('i686' 'x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -48,8 +48,7 @@ package() {
   echo "#define _GLIBCXX_GTHREAD_USE_WEAK 0" >> $pkgdir/opt/cuda/include/cuda_runtime.h
 
   # fix nvidia path fuckup
-  sed -i "s|/build/pkg||g" $pkgdir/opt/cuda/bin/nvvp
-  sed -i "s|/build/pkg||g" $pkgdir/opt/cuda/bin/nsight
+  sed -i "s|/build/pkg/cuda||g" $pkgdir/opt/cuda/bin/nvvp $pkgdir/opt/cuda/bin/nsight
 
   install -Dm755 $srcdir/cuda.sh $pkgdir/etc/profile.d/cuda.sh
   install -Dm644 $srcdir/cuda.conf $pkgdir/etc/ld.so.conf.d/cuda.conf
