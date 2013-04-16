@@ -1,0 +1,2277 @@
+From 6bf82edbe9f9adc480915f710f4c4fa1d4d82cb4 Mon Sep 17 00:00:00 2001
+From: dalcde <dalcde@yahoo.com.hk>
+Date: Mon, 15 Apr 2013 18:34:48 +0800
+Subject: [PATCH 1/2] [GDbus] Port DBus to GDBus (AltLinux patch)
+
+---
+ .../applets/brightness@cinnamon.org/applet.js      |  39 ++--
+ .../cinnamon/applets/power@cinnamon.org/applet.js  |  93 ++++----
+ .../cinnamon/applets/sound@cinnamon.org/applet.js  | 244 +++++----------------
+ .../cinnamon/applets/xrandr@cinnamon.org/applet.js |  19 +-
+ js/misc/gnomeSession.js                            | 147 ++++---------
+ js/misc/modemManager.js                            |  79 ++++---
+ js/misc/screenSaver.js                             |  89 ++++----
+ js/ui/appletManager.js                             |   1 -
+ js/ui/automountManager.js                          | 106 +++++----
+ js/ui/autorunManager.js                            |  27 +--
+ js/ui/calendar.js                                  |  71 +++---
+ js/ui/cinnamonDBus.js                              |  96 ++++----
+ js/ui/endSessionDialog.js                          |  79 ++++---
+ js/ui/keyboard.js                                  |  48 ++--
+ js/ui/layout.js                                    |  14 +-
+ js/ui/magnifierDBus.js                             | 134 +++++++----
+ js/ui/main.js                                      |   6 -
+ js/ui/messageTray.js                               |  13 +-
+ js/ui/notificationDaemon.js                        | 193 ++++++++--------
+ js/ui/scripting.js                                 |  34 ++-
+ 20 files changed, 683 insertions(+), 849 deletions(-)
+
+diff --git a/files/usr/share/cinnamon/applets/brightness@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/brightness@cinnamon.org/applet.js
+index 9cbda80..9087b25 100644
+--- a/files/usr/share/cinnamon/applets/brightness@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/brightness@cinnamon.org/applet.js
+@@ -5,7 +5,6 @@ const St = imports.gi.St;
+ const PopupMenu = imports.ui.popupMenu;
+ const GLib = imports.gi.GLib;
+ const Gio = imports.gi.Gio;
+-const DBus = imports.dbus;
+ 
+ /* constants */
+ const DimSettingsSchema = "org.gnome.settings-daemon.plugins.power";
+@@ -14,24 +13,25 @@ const DimSettingsBattery = "idle-dim-battery";
+ const PowerBusName = 'org.gnome.SettingsDaemon';
+ const PowerObjectPath = '/org/gnome/SettingsDaemon/Power';
+ 
+-/* DBus interface */
+-const PowerManagerInterface = {
+-    name: 'org.gnome.SettingsDaemon.Power.Screen',
+-    methods:
+-        [
+-            { name: 'GetPercentage', inSignature: '', outSignature: 'u' },
+-            { name: 'SetPercentage', inSignature: 'u', outSignature: 'u' },
+-            { name: 'StepUp', inSignature: '', outSignature: 'u' },
+-            { name: 'StepDown', inSignature: '', outSignature: 'u' },
+-        ],
+-    signals:
+-        [
+-            { name: 'Changed', inSignature: '', outSignature: '' },
+-        ]
+-};
++const PowerManagerInterface = <interface name="org.gnome.SettingsDaemon.Power.Screen">
++<method name="GetPercentage">
++    <arg type="u" direction="out"/>
++</method>
++<method name="SetPercentage">
++    <arg type="u" direction="in"/>
++    <arg type="u" direction="out"/>
++</method>
++<method name="StepUp">
++    <arg type="u" direction="out"/>
++</method>
++<method name="StepDown">
++    <arg type="u" direction="out"/>
++</method>
++<signal name="Changed" />
++</interface>;
+ 
+ /* DBus magic */
+-let PowerManagerProxy = DBus.makeProxyClass(PowerManagerInterface);
++const PowerManagerProxy = Gio.DBusProxy.makeProxyWrapper(PowerManagerInterface);
+ 
+ /* TextImageMenuItem taken from sound@cinnamon.org applet */
+ let icon_path = "/usr/share/cinnamon/theme/";
+@@ -100,7 +100,7 @@ MyApplet.prototype = {
+         Applet.IconApplet.prototype._init.call(this, orientation, panel_height);
+         
+         try {
+-            this._proxy = new PowerManagerProxy(DBus.session, PowerBusName, PowerObjectPath);
++            this._proxy = new PowerManagerProxy(Gio.DBus.session, PowerBusName, PowerObjectPath);
+             
+             this.menuManager = new PopupMenu.PopupMenuManager(this);
+             this.menu = new Applet.AppletPopupMenu(this, orientation);
+@@ -137,7 +137,8 @@ MyApplet.prototype = {
+                     this.menu.addMenuItem(this._settingsMenu);
+                 
+                     //get notified
+-                    this._proxy.connect('Changed', Lang.bind(this, this._getBrightness));
++                    this._proxy.connectSignal('Changed', Lang.bind(this, this._getBrightness));
++                    
+                     this.actor.connect('scroll-event', Lang.bind(this, this._onScrollEvent));
+                 } else {
+                     this.set_applet_tooltip(_("Brightness"));
+diff --git a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+index 466ba5f..a199e04 100644
+--- a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+@@ -1,6 +1,5 @@
+ const Applet = imports.ui.applet;
+ const Gio = imports.gi.Gio;
+-const DBus = imports.dbus;
+ const Lang = imports.lang;
+ const St = imports.gi.St;
+ const PopupMenu = imports.ui.popupMenu;
+@@ -42,34 +41,46 @@ const LabelDisplay = {
+     TIME: 'time'
+ };
+ 
+-const PowerManagerInterface = {
+-    name: 'org.gnome.SettingsDaemon.Power',
+-    methods: [
+-        { name: 'GetDevices', inSignature: '', outSignature: 'a(susdut)' },
+-        { name: 'GetPrimaryDevice', inSignature: '', outSignature: '(susdut)' },
+-        ],
+-    signals: [
+-        { name: 'PropertiesChanged', inSignature: 's,a{sv},a[s]' },
+-        ],
+-    properties: [
+-        { name: 'Icon', signature: 's', access: 'read' },
+-        ]
+-};
+-let PowerManagerProxy = DBus.makeProxyClass(PowerManagerInterface);
+-
+-const SettingsManagerInterface = {
+-	name: 'org.freedesktop.DBus.Properties',
+-	methods: [
+-		{ name: 'Get', inSignature: 's,s', outSignature: 'v' },
+-		{ name: 'GetAll', inSignature: 's', outSignature: 'a{sv}' },
+-		{ name: 'Set', inSignature: 's,s,v', outSignature: '' }
+-	],
+-	signals: [
+-	{name: 'PropertiesChanged', inSignature:'s,a{sv},a[s]', outSignature:''}
+-	]
+-};
+-
+-let SettingsManagerProxy = DBus.makeProxyClass(SettingsManagerInterface);
++const PowerManagerInterface = <interface name="org.gnome.SettingsDaemon.Power">
++<method name="GetDevices">
++    <arg type="a(susdut)" direction="out"/>
++</method>
++<method name="GetPrimaryDevice">
++    <arg type="(susdut)" direction="out"/>
++</method>
++<signal name="PropertiesChanged">
++    <arg type="s"/>
++    <arg type="a{sv}"/>
++    <arg type="a[s]"/>
++</signal>
++<property name="Icon" type="s" access="read" />
++</interface>;
++
++const PowerManagerProxy = Gio.DBusProxy.makeProxyWrapper(PowerManagerInterface);
++
++const SettingsManagerInterface = <interface name="org.freedesktop.DBus.Properties">
++<method name="Get">
++    <arg type="s" direction="in"/>
++    <arg type="s" direction="in"/>
++    <arg type="v" direction="out"/>
++</method>
++<method name="GetAll">
++    <arg type="s" direction="in"/>
++    <arg type="a{sv}" direction="out"/>
++</method>
++<method name="Set">
++    <arg type="s" direction="in"/>
++    <arg type="s" direction="in"/>
++    <arg type="v" direction="in"/>
++</method>
++<signal name="PropertiesChanged">
++    <arg type="s"/>
++    <arg type="a{sv}"/>
++    <arg type="a[s]"/>
++</signal>
++</interface>;
++
++const SettingsManagerProxy = Gio.DBusProxy.makeProxyWrapper(SettingsManagerInterface);
+ 
+ function DeviceItem() {
+     this._init.apply(this, arguments);
+@@ -145,8 +156,8 @@ MyApplet.prototype = {
+             this.menuManager.addMenu(this.menu);            
+             
+             this.set_applet_icon_symbolic_name('battery-missing');            
+-            this._proxy = new PowerManagerProxy(DBus.session, BUS_NAME, OBJECT_PATH);
+-            this._smProxy = new SettingsManagerProxy(DBus.session, BUS_NAME, OBJECT_PATH);
++            this._proxy = new PowerManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
++            this._smProxy = new SettingsManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
+             
+             let icon = this.actor.get_children()[0];
+             this.actor.remove_actor(icon);
+@@ -308,16 +319,16 @@ MyApplet.prototype = {
+ 
+     _devicesChanged: function() {
+         this.set_applet_icon_symbolic_name('battery-missing');
+-        this._proxy.GetRemote('Icon', Lang.bind(this, function(icon, error) {
+-            if (icon) {    
+-                let gicon = Gio.icon_new_for_string(icon);
+-                this._applet_icon.gicon = gicon;
+-                this.actor.show();
+-            } else {
+-                this.menu.close();
+-                this.actor.hide();
+-            }
+-        }));
++        let icon = this._proxy.Icon;
++        if (icon) {
++            let gicon = Gio.icon_new_for_string(icon);
++            this.setGIcon(gicon);
++            this.actor.show();
++        } else {
++            this.menu.close();
++            this.actor.hide();
++        }
++
+         this._readPrimaryDevice();
+         this._readOtherDevices();
+         this._updateLabel();
+diff --git a/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
+index 1113b1e..5bfaf26 100644
+--- a/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
+@@ -1,7 +1,6 @@
+ const Applet = imports.ui.applet;
+ const Mainloop = imports.mainloop;
+ const Gio = imports.gi.Gio;
+-const DBus = imports.dbus;
+ const Lang = imports.lang;
+ const Cinnamon = imports.gi.Cinnamon;
+ const Clutter = imports.gi.Clutter;
+@@ -12,90 +11,45 @@ const Gvc = imports.gi.Gvc;
+ const Pango = imports.gi.Pango;
+ const Tooltips = imports.ui.tooltips;
+ 
+-const PropIFace = {
+-    name: 'org.freedesktop.DBus.Properties',
+-    signals: [{ name: 'PropertiesChanged',
+-                inSignature: 'a{sv}'}]
+-};
+-
+-const MediaServer2IFace = {
+-    name: 'org.mpris.MediaPlayer2',
+-    methods: [{ name: 'Raise',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'Quit',
+-                inSignature: '',
+-                outSignature: '' }],
+-    properties: [{ name: 'CanRaise',
+-                   signature: 'b',
+-                   access: 'read'},
+-                 { name: 'CanQuit',
+-                   signature: 'b',
+-                   access: 'read'}],
+-};
+-
+-const MediaServer2PlayerIFace = {
+-    name: 'org.mpris.MediaPlayer2.Player',
+-    methods: [{ name: 'PlayPause',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'Pause',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'Play',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'Stop',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'Next',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'Previous',
+-                inSignature: '',
+-                outSignature: '' },
+-              { name: 'SetPosition',
+-                inSignature: 'a{ov}',
+-                outSignature: '' }],
+-    properties: [{ name: 'Metadata',
+-                   signature: 'a{sv}',
+-                   access: 'read'},
+-                 { name: 'Shuffle',
+-                   signature: 'b',
+-                   access: 'readwrite'},
+-                 { name: 'Rate',
+-                   signature: 'd',
+-                   access: 'readwrite'},
+-                 { name: 'LoopStatus',
+-                   signature: 'b',
+-                   access: 'readwrite'},
+-                 { name: 'Volume',
+-                   signature: 'd',
+-                   access: 'readwrite'},
+-                 { name: 'PlaybackStatus',
+-                   signature: 's',
+-                   access: 'read'},
+-                 { name: 'Position',
+-                   signature: 'x',
+-                   access: 'read'},
+-                 { name: 'CanGoNext',
+-                   signature: 'b',
+-                   access: 'read'},
+-                 { name: 'CanGoPrevious',
+-                   signature: 'b',
+-                   access: 'read'},
+-                 { name: 'CanPlay',
+-                   signature: 'b',
+-                   access: 'read'},
+-                 { name: 'CanPause',
+-                   signature: 'b',
+-                   access: 'read'},
+-                 { name: 'CanSeek',
+-                   signature: 'b',
+-                   access: 'read'}],
+-    signals: [{ name: 'Seeked',
+-                inSignature: 'x' }]
+-};
++const PropIFace = <interface name="org.freedesktop.DBus.Properties">
++<signal name="PropertiesChanged">
++    <arg type="a{sv}"/>
++</signal>
++</interface>;
++
++const MediaServer2IFace = <interface name="org.mpris.MediaPlayer2">
++<method name="Raise" />
++<method name="Quit" />
++<property name="CanRaise" type="b" access="read" />
++<property name="CanQuit" type="b" access="read" />
++</interface>;
++
++const MediaServer2PlayerIFace = <interface name="org.mpris.MediaPlayer2.Player">
++<method name="PlayPause" />
++<method name="Pause" />
++<method name="Play" />
++<method name="Stop" />
++<method name="Next" />
++<method name="Previous" />
++<method name="SetPosition">
++    <arg type="a{ov}" direction="in"/>
++</method>
++<property name='Metadata' access='read' type='a{sv}' />
++<property name='Shuffle' access='readwrite' type='b' />
++<property name='Rate' access='readwrite' type='d' />
++<property name='LoopStatus' access='readwrite' type='b' />
++<property name='Volume' access='readwrite' type='d' />
++<property name='PlaybackStatus' access='read' type='s' />
++<property name='Position' access='read' type='x' />
++<property name="CanGoNext" type="b" access="read" />
++<property name="CanGoPrevious" type="b" access="read" />
++<property name="CanPlay" type="b" access="read" />
++<property name="CanPause" type="b" access="read" />
++<property name="CanSeek" type="b" access="read" />
++<signal name="Seeked">
++    <arg type="x"/>
++</signal>
++</interface>;
+ 
+ /* global values */
+ let icon_path = "/usr/share/cinnamon/theme/";
+@@ -112,120 +66,20 @@ const VOLUME_ADJUSTMENT_STEP = 0.05; /* Volume adjustment step in % */
+ const ICON_SIZE = 28;
+ 
+ 
+-function Prop() {
+-    this._init.apply(this, arguments);
++var PropProxy = Gio.DBusProxy.makeProxyWrapper(PropIFace);
++function Prop(owner, initCallback, cancellable) {
++    return new PropProxy(Gio.DBus.session, owner, '/org/mpris/MediaPlayer2', initCallback, cancellable);
+ }
+ 
+-Prop.prototype = {
+-    _init: function(owner) {
+-        DBus.session.proxifyObject(this, owner, '/org/mpris/MediaPlayer2', this);
+-    }
++var MediaServer2Proxy = Gio.DBusProxy.makeProxyWrapper(MediaServer2IFace);
++function MediaServer2(owner, initCallback, cancellable) {
++    return new MediaServer2Proxy(Gio.DBus.session, owner, '/org/mpris/MediaPlayer2', initCallback, cancellable);
+ }
+-DBus.proxifyPrototype(Prop.prototype, PropIFace)
+ 
+-function MediaServer2() {
+-    this._init.apply(this, arguments);
+-}
+-
+-MediaServer2.prototype = {
+-    _init: function(owner) {
+-        DBus.session.proxifyObject(this, owner, '/org/mpris/MediaPlayer2', this);
+-    },
+-    getRaise: function(callback) {
+-        this.GetRemote('CanRaise', Lang.bind(this,
+-            function(raise, ex) {
+-                if (!ex)
+-                    callback(this, raise);
+-            }));
+-    },
+-    getQuit: function(callback) {
+-        this.GetRemote('CanQuit', Lang.bind(this,
+-            function(quit, ex) {
+-                if (!ex)
+-                    callback(this, quit);
+-            }));
+-    }
+-}
+-DBus.proxifyPrototype(MediaServer2.prototype, MediaServer2IFace)
+-
+-function MediaServer2Player() {
+-    this._init.apply(this, arguments);
+-}
+-
+-MediaServer2Player.prototype = {
+-    _init: function(owner) {
+-        this._owner = owner;
+-        DBus.session.proxifyObject(this, owner, '/org/mpris/MediaPlayer2', this);
+-    },
+-    getMetadata: function(callback) {
+-        this.GetRemote('Metadata', Lang.bind(this,
+-            function(metadata, ex) {
+-                if (!ex)
+-                    callback(this, metadata);
+-            }));
+-    },
+-    getPlaybackStatus: function(callback) {
+-        this.GetRemote('PlaybackStatus', Lang.bind(this,
+-            function(status, ex) {
+-                if (!ex)
+-                    callback(this, status);
+-            }));
+-    },
+-    getRate: function(callback) {
+-        this.GetRemote('Rate', Lang.bind(this,
+-            function(rate, ex) {
+-                if (!ex)
+-                    callback(this, rate);
+-            }));
+-    },
+-    getPosition: function(callback) {
+-        this.GetRemote('Position', Lang.bind(this,
+-            function(position, ex) {
+-                if (!ex)
+-                    callback(this, position);
+-            }));
+-    },
+-    getShuffle: function(callback) {
+-        this.GetRemote('Shuffle', Lang.bind(this,
+-            function(shuffle, ex) {
+-                if (!ex)
+-                    callback(this, shuffle);
+-            }));
+-    },
+-    setShuffle: function(value) {
+-        this.SetRemote('Shuffle', value);
+-    },
+-    getVolume: function(callback) {
+-        this.GetRemote('Volume', Lang.bind(this,
+-            function(volume, ex) {
+-                if (!ex)
+-                    callback(this, volume);
+-            }));
+-    },
+-    setVolume: function(value) {
+-        this.SetRemote('Volume', parseFloat(value));
+-    },
+-    getRepeat: function(callback) {
+-        this.GetRemote('LoopStatus', Lang.bind(this,
+-            function(repeat, ex) {
+-                if (!ex) {
+-                    if (repeat == "None")
+-                        repeat = false
+-                    else
+-                        repeat = true
+-                    callback(this, repeat);
+-                }
+-            }));
+-    },
+-    setRepeat: function(value) {
+-        if (value)
+-            value = "Playlist"
+-        else
+-            value = "None"
+-        this.SetRemote('LoopStatus', value);
+-    }
++var MediaServer2PlayerProxy = Gio.DBusProxy.makeProxyWrapper(MediaServer2PlayerIFace);
++function MediaServer2Player(owner, initCallback, cancellable) {
++    return new MediaServer2PlayerProxy(Gio.DBus.session, owner, '/org/mpris/MediaPlayer2', initCallback, cancellable);
+ }
+-DBus.proxifyPrototype(MediaServer2Player.prototype, MediaServer2PlayerIFace)
+ 
+ function TrackInfo() {
+     this._init.apply(this, arguments);
+@@ -715,7 +569,7 @@ MyApplet.prototype = {
+             this._players = {};
+             // watch players
+             for (var p=0; p<compatible_players.length; p++) {
+-                DBus.session.watch_name('org.mpris.MediaPlayer2.'+compatible_players[p], false,
++                Gio.DBus.session.watch_name('org.mpris.MediaPlayer2.'+compatible_players[p], false,
+                     Lang.bind(this, this._addPlayer),
+                     Lang.bind(this, this._removePlayer)
+                 );
+diff --git a/files/usr/share/cinnamon/applets/xrandr@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/xrandr@cinnamon.org/applet.js
+index 0dcf74d..c2d152a 100644
+--- a/files/usr/share/cinnamon/applets/xrandr@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/xrandr@cinnamon.org/applet.js
+@@ -1,6 +1,6 @@
+ /* -*- mode: js2; js2-basic-offset: 4; indent-tabs-mode: nil -*- */
+ 
+-const DBus = imports.dbus;
++const Gio = imports.gi.Gio;
+ const Gdk = imports.gi.Gdk;
+ const GLib = imports.gi.GLib;
+ const GnomeDesktop = imports.gi.GnomeDesktop;
+@@ -22,13 +22,14 @@ let rotations = [ [ GnomeDesktop.RRRotation.ROTATION_0, N_("Normal") ],
+ 		  [ GnomeDesktop.RRRotation.ROTATION_180, N_("Upside-down") ]
+ 		];
+ 
+-const XRandr2Iface = {
+-    name: 'org.gnome.SettingsDaemon.XRANDR_2',
+-    methods: [
+-	{ name: 'ApplyConfiguration', inSignature: 'xx', outSignature: '' },
+-    ]
+-};
+-let XRandr2 = DBus.makeProxyClass(XRandr2Iface);
++const XRandr2Iface = <interface name="org.gnome.SettingsDaemon.XRANDR_2">
++<method name="ApplyConfiguration">
++    <arg type="x" direction="in"/>
++    <arg type="x" direction="in"/>
++</method>
++</interface>;
++
++const XRandr2 = Gio.DBusProxy.makeProxyWrapper(XRandr2Iface);
+ 
+ function MyApplet(orientation, panel_height) {
+     this._init(orientation, panel_height);
+@@ -48,7 +49,7 @@ MyApplet.prototype = {
+             this.menu = new Applet.AppletPopupMenu(this, orientation);
+             this.menuManager.addMenu(this.menu);            
+                                 
+-            this._proxy = new XRandr2(DBus.session, 'org.gnome.SettingsDaemon', '/org/gnome/SettingsDaemon/XRANDR');
++            this._proxy = new XRandr2(Gio.DBus.session, 'org.gnome.SettingsDaemon', '/org/gnome/SettingsDaemon/XRANDR');
+ 
+             try {
+                 this._screen = new GnomeDesktop.RRScreen({ gdk_screen: Gdk.Screen.get_default() });
+diff --git a/js/misc/gnomeSession.js b/js/misc/gnomeSession.js
+index a2b61fd..e21d3a8 100644
+--- a/js/misc/gnomeSession.js
++++ b/js/misc/gnomeSession.js
+@@ -1,20 +1,18 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
++const Gio = imports.gi.Gio;
+ const Lang = imports.lang;
+ const Signals = imports.signals;
+ 
+-const PresenceIface = {
+-    name: 'org.gnome.SessionManager.Presence',
+-    methods: [{ name: 'SetStatus',
+-                inSignature: 'u',
+-                outSignature: '' }],
+-    properties: [{ name: 'status',
+-                   signature: 'u',
+-                   access: 'readwrite' }],
+-    signals: [{ name: 'StatusChanged',
+-                inSignature: 'u' }]
+-};
++const PresenceIface = <interface name="org.gnome.SessionManager.Presence">
++<method name="SetStatus">
++    <arg type="u" direction="in"/>
++</method>
++<property name="status" type="u" access="readwrite"/>
++<signal name="StatusChanged">
++    <arg type="u" direction="out"/>
++</signal>
++</interface>;
+ 
+ const PresenceStatus = {
+     AVAILABLE: 0,
+@@ -23,104 +21,37 @@ const PresenceStatus = {
+     IDLE: 3
+ };
+ 
+-function Presence() {
+-    this._init();
++var PresenceProxy = Gio.DBusProxy.makeProxyWrapper(PresenceIface);
++function Presence(initCallback, cancellable) {
++    return new PresenceProxy(Gio.DBus.session, 'org.gnome.SessionManager',
++                             '/org/gnome/SessionManager/Presence', initCallback, cancellable);
+ }
+ 
+-Presence.prototype = {
+-    _init: function() {
+-        DBus.session.proxifyObject(this, 'org.gnome.SessionManager', '/org/gnome/SessionManager/Presence', this);
+-    },
+-
+-    getStatus: function(callback) {
+-        this.GetRemote('status', Lang.bind(this,
+-            function(status, ex) {
+-                if (!ex)
+-                    callback(this, status);
+-            }));
+-    },
+-
+-    setStatus: function(status) {
+-        this.SetStatusRemote(status);
+-    }
+-};
+-DBus.proxifyPrototype(Presence.prototype, PresenceIface);
+-
+-// Note inhibitors are immutable objects, so they don't
+-// change at runtime (changes always come in the form
+-// of new inhibitors)
+-const InhibitorIface = {
+-    name: 'org.gnome.SessionManager.Inhibitor',
+-    properties: [{ name: 'app_id',
+-                   signature: 's',
+-                   access: 'readonly' },
+-                 { name: 'client_id',
+-                   signature: 's',
+-                   access: 'readonly' },
+-                 { name: 'reason',
+-                   signature: 's',
+-                   access: 'readonly' },
+-                 { name: 'flags',
+-                   signature: 'u',
+-                   access: 'readonly' },
+-                 { name: 'toplevel_xid',
+-                   signature: 'u',
+-                   access: 'readonly' },
+-                 { name: 'cookie',
+-                   signature: 'u',
+-                   access: 'readonly' }],
+-};
+-
+-function Inhibitor(objectPath) {
+-    this._init(objectPath);
++const InhibitorIface = <interface name="org.gnome.SessionManager.Inhibitor">
++<property name="app_id" type="s" access="read" />
++<property name="client_id" type="s" access="read" />
++<property name="reason" type="s" access="read" />
++<property name="flags" type="u" access="read" />
++<property name="toplevel_xid" type="u" access="read" />
++<property name="cookie" type="u" access="read" />
++</interface>;
++
++var InhibitorProxy = Gio.DBusProxy.makeProxyWrapper(InhibitorIface);
++function Inhibitor(objectPath, initCallback, cancellable) {
++    return new InhibitorProxy(Gio.DBus.session, 'org.gnome.SessionManager', objectPath, initCallback, cancellable);
+ }
+ 
+-Inhibitor.prototype = {
+-    _init: function(objectPath) {
+-        DBus.session.proxifyObject(this,
+-                                   'org.gnome.SessionManager',
+-                                   objectPath);
+-        this.isLoaded = false;
+-        this._loadingPropertiesCount = InhibitorIface.properties.length;
+-        for (let i = 0; i < InhibitorIface.properties.length; i++) {
+-            let propertyName = InhibitorIface.properties[i].name;
+-            this.GetRemote(propertyName, Lang.bind(this,
+-                function(value, exception) {
+-                    if (exception)
+-                        return;
+-
+-                    this[propertyName] = value;
+-                    this._loadingPropertiesCount--;
+-
+-                    if (this._loadingPropertiesCount == 0) {
+-                        this.isLoaded = true;
+-                        this.emit('is-loaded');
+-                    }
+-                }));
+-        }
+-    },
+-};
+-DBus.proxifyPrototype(Inhibitor.prototype, InhibitorIface);
+-Signals.addSignalMethods(Inhibitor.prototype);
+-
+-
+-// Not the full interface, only the methods we use
+-const SessionManagerIface = {
+-    name: 'org.gnome.SessionManager',
+-    methods: [
+-        { name: 'Logout', inSignature: 'u', outSignature: '' },
+-        { name: 'Shutdown', inSignature: '', outSignature: '' },
+-        { name: 'CanShutdown', inSignature: '', outSignature: 'b' }
+-    ]
+-};
+-
+-function SessionManager() {
+-    this._init();
++const SessionManagerIface = <interface name="org.gnome.SessionManager">
++<method name="Logout">
++    <arg type="u" direction="in" />
++</method>
++<method name="Shutdown" />
++<method name="CanShutdown">
++    <arg type="b" direction="out" />
++</method>
++</interface>;
++
++var SessionManagerProxy = Gio.DBusProxy.makeProxyWrapper(SessionManagerIface);
++function SessionManager(initCallback, cancellable) {
++    return new SessionManagerProxy(Gio.DBus.session, 'org.gnome.SessionManager', '/org/gnome/SessionManager', initCallback, cancellable);
+ }
+-
+-SessionManager.prototype = {
+-    _init: function() {
+-        DBus.session.proxifyObject(this, 'org.gnome.SessionManager', '/org/gnome/SessionManager');
+-    }
+-};
+-DBus.proxifyPrototype(SessionManager.prototype, SessionManagerIface);
+\ No newline at end of file
+diff --git a/js/misc/modemManager.js b/js/misc/modemManager.js
+index befd142..f35f925 100644
+--- a/js/misc/modemManager.js
++++ b/js/misc/modemManager.js
+@@ -1,6 +1,6 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
++const Gio = imports.gi.Gio;
+ const Lang = imports.lang;
+ const Cinnamon = imports.gi.Cinnamon;
+ const Signals = imports.signals;
+@@ -8,33 +8,43 @@ const Signals = imports.signals;
+ // The following are not the complete interfaces, just the methods we need
+ // (or may need in the future)
+ 
+-const ModemGsmNetworkInterface = {
+-    name: 'org.freedesktop.ModemManager.Modem.Gsm.Network',
+-    methods: [
+-        { name: 'GetRegistrationInfo', inSignature: '', outSignature: 'uss' },
+-        { name: 'GetSignalQuality', inSignature: '', outSignature: 'u' }
+-    ],
+-    properties: [
+-        { name: 'AccessTechnology', signature: 'u', access: 'read' }
+-    ],
+-    signals: [
+-        { name: 'SignalQuality', inSignature: 'u' },
+-        { name: 'RegistrationInfo', inSignature: 'uss' }
+-    ]
+-};
+-const ModemGsmNetworkProxy = DBus.makeProxyClass(ModemGsmNetworkInterface);
+-
+-const ModemCdmaInterface = {
+-    name: 'org.freedesktop.ModemManager.Modem.Cdma',
+-    methods: [
+-        { name: 'GetSignalQuality', inSignature: '', outSignature: 'u' },
+-        { name: 'GetServingSystem', inSignature: '', outSignature: 'usu' }
+-    ],
+-    signals: [
+-        { name: 'SignalQuality', inSignature: 'u' }
+-    ]
+-};
+-const ModemCdmaProxy = DBus.makeProxyClass(ModemCdmaInterface);
++const ModemGsmNetworkInterface = <interface name="org.freedesktop.ModemManager.Modem.Gsm.Network">
++<method name="GetRegistrationInfo">
++    <arg type="u" direction="out" />
++    <arg type="s" direction="out" />
++    <arg type="s" direction="out" />
++</method>
++<method name="GetSignalQuality">
++    <arg type="u" direction="out" />
++</method>
++<property name="AccessTechnology" type="u" access="read" />
++<signal name="SignalQuality">
++    <arg type="u" direction="out" />
++</signal>
++<signal name="RegistrationInfo">
++    <arg type="u" direction="out" />
++    <arg type="s" direction="out" />
++    <arg type="s" direction="out" />
++</signal>
++</interface>;
++
++const ModemGsmNetworkProxy = Gio.DBusProxy.makeProxyWrapper(ModemGsmNetworkInterface);
++
++const ModemCdmaInterface = <interface name="org.freedesktop.ModemManager.Modem.Cdma">
++<method name="GetSignalQuality">
++    <arg type="u" direction="out" />
++</method>
++<method name="GetServingSystem">
++    <arg type="u" direction="out" />
++    <arg type="s" direction="out" />
++    <arg type="u" direction="out" />
++</method>
++<signal name="SignalQuality">
++    <arg type="u" direction="out" />
++</signal>
++</interface>;
++
++const ModemCdmaProxy = Gio.DBusProxy.makeProxyWrapper(ModemCdmaInterface);
+ 
+ let _providersTable;
+ function _getProvidersTable() {
+@@ -50,17 +60,17 @@ function ModemGsm() {
+ 
+ ModemGsm.prototype = {
+     _init: function(path) {
+-        this._proxy = new ModemGsmNetworkProxy(DBus.system, 'org.freedesktop.ModemManager', path);
++        this._proxy = new ModemGsmNetworkProxy(Gio.DBus.system, 'org.freedesktop.ModemManager', path);
+ 
+         this.signal_quality = 0;
+         this.operator_name = null;
+ 
+         // Code is duplicated because the function have different signatures
+-        this._proxy.connect('SignalQuality', Lang.bind(this, function(proxy, quality) {
++        this._proxy.connectSignal('SignalQuality', Lang.bind(this, function(proxy, sender, [quality]) {
+             this.signal_quality = quality;
+             this.emit('notify::signal-quality');
+         }));
+-        this._proxy.connect('RegistrationInfo', Lang.bind(this, function(proxy, status, code, name) {
++        this._proxy.connectSignal('RegistrationInfo', Lang.bind(this, function(proxy, sender, [status, code, name]) {
+             this.operator_name = this._findOperatorName(name, code);
+             this.emit('notify::operator-name');
+         }));
+@@ -154,12 +164,13 @@ function ModemCdma() {
+ }
+ 
+ ModemCdma.prototype = {
+-    _init: function(path) {
+-        this._proxy = new ModemCdmaProxy(DBus.system, 'org.freedesktop.ModemManager', path);
++    _init: function(path) {        
++        this._proxy = new ModemCdmaProxy(Gio.DBus.system, 'org.freedesktop.ModemManager', path);
+ 
+         this.signal_quality = 0;
+         this.operator_name = null;
+-        this._proxy.connect('SignalQuality', Lang.bind(this, function(proxy, quality) {
++        this._proxy.connect('SignalQuality', Lang.bind(this, function(proxy, sender, params) {
++            this.signal_quality = params[0];
+             this.signal_quality = quality;
+             this.emit('notify::signal-quality');
+ 
+diff --git a/js/misc/screenSaver.js b/js/misc/screenSaver.js
+index c471856..aec883f 100644
+--- a/js/misc/screenSaver.js
++++ b/js/misc/screenSaver.js
+@@ -1,53 +1,48 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
+ const Lang = imports.lang;
+-
+-const ScreenSaverIface = {
+-    name: 'org.gnome.ScreenSaver',
+-    methods: [{ name: 'GetActive',
+-                inSignature: '',
+-                outSignature: 'b' },
+-              { name: 'Lock',
+-                inSignature: '' },
+-              { name: 'SetActive',
+-                inSignature: 'b' }],
+-    signals: [{ name: 'ActiveChanged',
+-                inSignature: 'b' }]
+-};
++const Gio = imports.gi.Gio;
++
++const ScreenSaverIface = <interface name="org.gnome.ScreenSaver">
++<method name="GetActive">
++    <arg type="b" direction="out" />
++</method>
++<method name="Lock" />
++<method name="SetActive">
++    <arg type="b" direction="in" />
++</method>
++<signal name="ActiveChanged">
++    <arg type="b" direction="out" />
++</signal>
++</interface>;
++
++const ScreenSaverInfo = Gio.DBusInterfaceInfo.new_for_xml(ScreenSaverIface);
+ 
+ function ScreenSaverProxy() {
+-    this._init();
++    var self = new Gio.DBusProxy({ g_connection: Gio.DBus.session,
++                                  g_interface_name: ScreenSaverInfo.name,
++                                  g_interface_info: ScreenSaverInfo,
++                                  g_name: 'org.gnome.ScreenSaver',
++                                  g_object_path: '/org/gnome/ScreenSaver',
++                                   g_flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
++                                             Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES) });
++    self.init(null);
++    self.screenSaverActive = false;
++
++    self.connectSignal('ActiveChanged', function(proxy, senderName, [isActive]) {
++        self.screenSaverActive = isActive;
++    });
++    self.connect('notify::g-name-owner', function() {
++        if (self.g_name_owner) {
++            self.GetActiveRemote(function(result, excp) {
++                if (result) {
++                    let [isActive] = result;
++                    self.screenSaverActive = isActive;
++                }
++            });
++        } else
++            self.screenSaverActive = false;
++    });
++
++    return self;
+ }
+-
+-ScreenSaverProxy.prototype = {
+-    _init: function() {
+-        DBus.session.proxifyObject(this,
+-                                   'org.gnome.ScreenSaver',
+-                                   '/org/gnome/ScreenSaver');
+-
+-        DBus.session.watch_name('org.gnome.ScreenSaver',
+-                                false, // do not launch a name-owner if none exists
+-                                Lang.bind(this, this._onSSAppeared),
+-                                Lang.bind(this, this._onSSVanished));
+-
+-        this.screenSaverActive = false;
+-        this.connect('ActiveChanged',
+-                     Lang.bind(this, this._onActiveChanged));
+-    },
+-
+-    _onSSAppeared: function(owner) {
+-        this.GetActiveRemote(Lang.bind(this, function(isActive) {
+-            this.screenSaverActive = isActive;
+-        }))
+-    },
+-
+-    _onSSVanished: function(oldOwner) {
+-        this.screenSaverActive = false;
+-    },
+-
+-    _onActiveChanged: function(object, isActive) {
+-        this.screenSaverActive = isActive;
+-    }
+-};
+-DBus.proxifyPrototype(ScreenSaverProxy.prototype, ScreenSaverIface);
+diff --git a/js/ui/appletManager.js b/js/ui/appletManager.js
+index abf8136..830d80d 100644
+--- a/js/ui/appletManager.js
++++ b/js/ui/appletManager.js
+@@ -7,7 +7,6 @@ const Cinnamon = imports.gi.Cinnamon;
+ const Main = imports.ui.main;
+ const Applet = imports.ui.applet;
+ const Extension = imports.ui.extension;
+-const DBus = imports.dbus;
+ 
+ // Maps uuid -> metadata object
+ var appletMeta;
+diff --git a/js/ui/automountManager.js b/js/ui/automountManager.js
+index fa73bfe..f29f9f3 100644
+--- a/js/ui/automountManager.js
++++ b/js/ui/automountManager.js
+@@ -1,7 +1,6 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+ const Lang = imports.lang;
+-const DBus = imports.dbus;
+ const Mainloop = imports.mainloop;
+ const Gio = imports.gi.Gio;
+ const Params = imports.misc.params;
+@@ -15,63 +14,57 @@ const SETTING_ENABLE_AUTOMOUNT = 'automount';
+ 
+ const AUTORUN_EXPIRE_TIMEOUT_SECS = 10;
+ 
+-const ConsoleKitSessionIface = {
+-    name: 'org.freedesktop.ConsoleKit.Session',
+-    methods: [{ name: 'IsActive',
+-                inSignature: '',
+-                outSignature: 'b' }],
+-    signals: [{ name: 'ActiveChanged',
+-                inSignature: 'b' }]
+-};
++const ConsoleKitSessionIface = <interface name="org.freedesktop.ConsoleKit.Session">
++<method name="isActive">
++    <arg type="b" direction="out" />
++</method>
++<method name="ActiveChanged">
++    <arg type="b" direction="in" />
++</method>
++</interface>;
+ 
+-const ConsoleKitSessionProxy = DBus.makeProxyClass(ConsoleKitSessionIface);
++const ConsoleKitSessionProxy = Gio.DBusProxy.makeProxyWrapper(ConsoleKitSessionIface);
+ 
+-const ConsoleKitManagerIface = {
+-    name: 'org.freedesktop.ConsoleKit.Manager',
+-    methods: [{ name: 'GetCurrentSession',
+-                inSignature: '',
+-                outSignature: 'o' }]
+-};
++const ConsoleKitManagerIface = <interface name="org.freedesktop.ConsoleKit.Manager">
++<method name="GetCurrentSession">
++    <arg type="o" direction="out" />
++</method>
++</interface>;
+ 
+-function ConsoleKitManager() {
+-    this._init();
+-};
+-
+-ConsoleKitManager.prototype = {
+-    _init: function() {
+-        this.sessionActive = true;
+-
+-        DBus.system.proxifyObject(this,
+-                                  'org.freedesktop.ConsoleKit',
+-                                  '/org/freedesktop/ConsoleKit/Manager');
++const ConsoleKitManagerInfo = Gio.DBusInterfaceInfo.new_for_xml(ConsoleKitManagerIface);
+ 
+-        DBus.system.watch_name('org.freedesktop.ConsoleKit',
+-                               false, // do not launch a name-owner if none exists
+-                               Lang.bind(this, this._onManagerAppeared),
+-                               Lang.bind(this, this._onManagerVanished));
+-    },
+-
+-    _onManagerAppeared: function(owner) {
+-        this.GetCurrentSessionRemote(Lang.bind(this, this._onCurrentSession));
+-    },
+-
+-    _onManagerVanished: function(oldOwner) {
+-        this.sessionActive = true;
+-    },
+-
+-    _onCurrentSession: function(session) {
+-        this._ckSession = new ConsoleKitSessionProxy(DBus.system, 'org.freedesktop.ConsoleKit', session);
+-
+-        this._ckSession.connect
+-            ('ActiveChanged', Lang.bind(this, function(object, isActive) {
+-                this.sessionActive = isActive;            
+-            }));
+-        this._ckSession.IsActiveRemote(Lang.bind(this, function(isActive) {
+-            this.sessionActive = isActive;            
+-        }));
++function ConsoleKitManager() {
++    var self = new Gio.DBusProxy({ g_connection: Gio.DBus.system,
++                                  g_interface_name: ConsoleKitManagerInfo.name,
++                                  g_interface_info: ConsoleKitManagerInfo,
++                                  g_name: 'org.freedesktop.ConsoleKit',
++                                  g_object_path: '/org/freedesktop/ConsoleKit/Manager',
++                                   g_flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
++                                             Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES) });
++    
++    self._updateSessionActive = function() {
++        if (self.g_name_owner) {
++            self.GetCurrentSessionRemote(function([session]) {
++                self._ckSession = new ConsoleKitSessionProxy(Gio.DBus.system, 'org.freedesktop.ConsoleKit', session);
++
++                self._ckSession.connectSignal('ActiveChanged', function(object, senderName, [isActive]) {
++                    self.sessionActive = isActive;
++                });
++                self._ckSession.IsActiveRemote(function([isActive]) {
++                    self.sessionActive = isActive;
++                });
++            });
++        } else {
++            self.sessionActive = true;
++        }
+     }
+-};
+-DBus.proxifyPrototype(ConsoleKitManager.prototype, ConsoleKitManagerIface);
++    self.connect('notify::g-name-owner',
++                 Lang.bind(self, self._updateSessionActive));
++ 
++    self._updateSessionActive();
++    self.init(null);
++    return self;
++}
+ 
+ function AutomountManager() {
+     this._init();
+@@ -85,9 +78,8 @@ AutomountManager.prototype = {
+         this.ckListener = new ConsoleKitManager();
+ 
+         this._ssProxy = new ScreenSaver.ScreenSaverProxy();
+-        this._ssProxy.connect('ActiveChanged',
+-                              Lang.bind(this,
+-                                        this._screenSaverActiveChanged));
++        this._ssProxy.connectSignal('ActiveChanged',
++                                    Lang.bind(this, this._screenSaverActiveChanged));
+ 
+         this._volumeMonitor = Gio.VolumeMonitor.get();
+ 
+@@ -110,7 +102,7 @@ AutomountManager.prototype = {
+         Mainloop.idle_add(Lang.bind(this, this._startupMountAll));
+     },
+ 
+-    _screenSaverActiveChanged: function(object, isActive) {
++    _screenSaverActiveChanged: function(object, senderName, [isActive]) {
+         if (!isActive) {
+             this._volumeQueue.forEach(Lang.bind(this, function(volume) {
+                 this._checkAndMountVolume(volume);
+diff --git a/js/ui/autorunManager.js b/js/ui/autorunManager.js
+index 02cd4da..99b6fbe 100644
+--- a/js/ui/autorunManager.js
++++ b/js/ui/autorunManager.js
+@@ -1,7 +1,6 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+ const Lang = imports.lang;
+-const DBus = imports.dbus;
+ const Gio = imports.gi.Gio;
+ const St = imports.gi.St;
+ 
+@@ -61,25 +60,19 @@ function startAppForMount(app, mount) {
+ 
+ /******************************************/
+ 
+-const HotplugSnifferIface = {
+-    name: 'org.Cinnamon.HotplugSniffer',
+-    methods: [{ name: 'SniffURI',
+-                inSignature: 's',
+-                outSignature: 'as' }]
+-};
+-
+-const HotplugSniffer = function() {
+-    this._init();
+-};
++const HotplugSnifferIface = <interface name="org.Cinnamon.HotplugSniffer">
++<method name="SniffURI">
++    <arg type="s" direction="in" />
++    <arg type="as" direction="out" />
++</method>
++</interface>;
+ 
+-HotplugSniffer.prototype = {
+-    _init: function() {
+-        DBus.session.proxifyObject(this,
++const HotplugSnifferProxy = Gio.DBusProxy.makeProxyWrapper(HotplugSnifferIface);
++function HotplugSniffer() {
++    return new HotplugSnifferProxy(Gio.DBus.session,
+                                    'org.Cinnamon.HotplugSniffer',
+                                    '/org/Cinnamon/HotplugSniffer');
+-    },
+-};
+-DBus.proxifyPrototype(HotplugSniffer.prototype, HotplugSnifferIface);
++}
+ 
+ function ContentTypeDiscoverer(callback) {
+     this._init(callback);
+diff --git a/js/ui/calendar.js b/js/ui/calendar.js
+index ff4777a..a97e2a9 100644
+--- a/js/ui/calendar.js
++++ b/js/ui/calendar.js
+@@ -1,6 +1,5 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
+ const Clutter = imports.gi.Clutter;
+ const Gio = imports.gi.Gio;
+ const Lang = imports.lang;
+@@ -194,30 +193,34 @@ EmptyEventSource.prototype = {
+ };
+ Signals.addSignalMethods(EmptyEventSource.prototype);
+ 
+-const CalendarServerIface = {
+-    name: 'org.Cinnamon.CalendarServer',
+-    methods: [{ name: 'GetEvents',
+-                inSignature: 'xxb',
+-                outSignature: 'a(sssbxxa{sv})' }],
+-    signals: [{ name: 'Changed',
+-                inSignature: '' }]
+-};
+-
+-const CalendarServer = function () {
+-    this._init();
+-};
+-
+-CalendarServer.prototype = {
+-     _init: function() {
+-         DBus.session.proxifyObject(this, 'org.Cinnamon.CalendarServer', '/org/Cinnamon/CalendarServer');
+-     }
+-};
+-
+-DBus.proxifyPrototype(CalendarServer.prototype, CalendarServerIface);
++const CalendarServerIface = <interface name="org.Cinnamon.CalendarServer">
++<method name="GetEvents">
++    <arg type="x" direction="in" />
++    <arg type="x" direction="in" />
++    <arg type="b" direction="in" />
++    <arg type="a(sssbxxa{sv})" direction="out" />
++</method>
++<signal name="Changed" />
++</interface>;
++
++const CalendarServerInfo  = Gio.DBusInterfaceInfo.new_for_xml(CalendarServerIface);
++
++function CalendarServer() {
++    var self = new Gio.DBusProxy({ g_connection: Gio.DBus.session,
++				   g_interface_name: CalendarServerInfo.name,
++				   g_interface_info: CalendarServerInfo,
++				   g_name: 'org.Cinnamon.CalendarServer',
++				   g_object_path: '/org/Cinnamon/CalendarServer',
++                                   g_flags: (Gio.DBusProxyFlags.DO_NOT_AUTO_START |
++                                             Gio.DBusProxyFlags.DO_NOT_LOAD_PROPERTIES) });
++
++    self.init(null);
++    return self;
++}
+ 
+ // an implementation that reads data from a session bus service
+-function DBusEventSource(owner) {
+-    this._init(owner);
++function DBusEventSource() {
++    this._init();
+ }
+ 
+ function _datesEqual(a, b) {
+@@ -240,16 +243,18 @@ function _dateIntervalsOverlap(a0, a1, b0, b1)
+ 
+ 
+ DBusEventSource.prototype = {
+-    _init: function(owner) {
++    _init: function() {
+         this._resetCache();
+ 
+-        this._dbusProxy = new CalendarServer(owner);
+-        this._dbusProxy.connect('Changed', Lang.bind(this, this._onChanged));
++        this._dbusProxy = new CalendarServer();
++        this._dbusProxy.connectSignal('Changed', Lang.bind(this, this._onChanged));
+ 
+-        DBus.session.watch_name('org.Cinnamon.CalendarServer',
+-                                false, // do not launch a name-owner if none exists
+-                                Lang.bind(this, this._onNameAppeared),
+-                                Lang.bind(this, this._onNameVanished));
++        this._dbusProxy.connect('notify::g-name-owner', Lang.bind(this, function() {
++            if (this._dbusProxy.g_name_owner)
++                this._onNameAppeared();
++            else
++                this._onNameVanished();
++        }));
+     },
+ 
+     _resetCache: function() {
+@@ -272,7 +277,7 @@ DBusEventSource.prototype = {
+         this._loadEvents(false);
+     },
+ 
+-    _onEventsReceived: function(appointments) {
++    _onEventsReceived: function([appointments]) {
+         let newEvents = [];
+         if (appointments != null) {
+             for (let n = 0; n < appointments.length; n++) {
+@@ -295,9 +300,9 @@ DBusEventSource.prototype = {
+ 
+     _loadEvents: function(forceReload) {
+         if (this._curRequestBegin && this._curRequestEnd){
+-            let callFlags = 0;
++            let callFlags = Gio.DBusCallFlags.NO_AUTO_START;
+             if (forceReload)
+-                callFlags |= DBus.CALL_FLAG_START;
++                callFlags = Gio.DBusCallFlags.NONE;
+             this._dbusProxy.GetEventsRemote(this._curRequestBegin.getTime() / 1000,
+                                             this._curRequestEnd.getTime() / 1000,
+                                             forceReload,
+diff --git a/js/ui/cinnamonDBus.js b/js/ui/cinnamonDBus.js
+index 600e92f..5d4eb1c 100644
+--- a/js/ui/cinnamonDBus.js
++++ b/js/ui/cinnamonDBus.js
+@@ -1,7 +1,7 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
+ const Lang = imports.lang;
++const Gio = imports.gi.Gio;
+ 
+ const Config = imports.misc.config;
+ const Flashspot = imports.ui.flashspot;
+@@ -9,48 +9,53 @@ const Main = imports.ui.main;
+ const AppletManager = imports.ui.appletManager;
+ const DeskletManager = imports.ui.deskletManager;
+ 
+-const CinnamonIface = {
+-    name: 'org.Cinnamon',
+-    methods: [{ name: 'Eval',
+-                inSignature: 's',
+-                outSignature: 'bs'
+-              },
+-              { name: 'ScreenshotArea',
+-                inSignature: 'biiiibs',
+-                outSignature: ''
+-              },
+-              { name: 'ScreenshotWindow',
+-                inSignature: 'bbbs',
+-                outSignature: ''
+-              },
+-              { name: 'Screenshot',
+-                inSignature: 'bbs',
+-                outSignature: ''
+-              },
+-              {
+-                name: 'FlashArea',
+-                inSignature: 'iiii',
+-                outSignature: ''
+-              },
+-              {
+-                name: 'highlightApplet',
+-                inSignature: 'sb',
+-                outSignature: ''
+-              },
+-              {
+-                name: 'activateCallback',
+-                inSignature: 'ssb',
+-                outSignature: ''
+-              }
+-             ],
+-    signals: [],
+-    properties: [{ name: 'OverviewActive',
+-                   signature: 'b',
+-                   access: 'readwrite' },
+-                 { name: 'CinnamonVersion',
+-                   signature: 's',
+-                   access: 'read' }]
+-};
++
++const CinnamonIface = <interface name="org.Cinnamon">
++<method name="Eval">
++    <arg type="s" direction="in" name="script" />
++    <arg type="b" direction="out" name="success" />
++    <arg type="s" direction="out" name="result" />
++</method>
++<method name="ScreenshotArea">
++include_cursor
++    <arg type="b" direction="in" name="include_cursor"/>
++    <arg type="i" direction="in" name="x"/>
++    <arg type="i" direction="in" name="y"/>
++    <arg type="i" direction="in" name="width"/>
++    <arg type="i" direction="in" name="height"/>
++    <arg type="b" direction="in" name="flash"/>
++    <arg type="s" direction="in" name="filename"/>
++</method>
++<method name="ScreenshotWindow">
++    <arg type="b" direction="in" name="include_frame"/>
++    <arg type="b" direction="in" name="include_cursor"/>
++    <arg type="b" direction="in" name="flash"/>
++    <arg type="s" direction="in" name="filename"/>
++</method>
++<method name="Screenshot">
++    <arg type="b" direction="in" name="include_frame"/>
++    <arg type="b" direction="in" name="flash"/>
++    <arg type="s" direction="in" name="filename"/>
++</method>
++<method name="FlashArea">
++include_cursor
++    <arg type="i" direction="in" name="x"/>
++    <arg type="i" direction="in" name="y"/>
++    <arg type="i" direction="in" name="width"/>
++    <arg type="i" direction="in" name="height"/>
++</method>
++<method name="highlightApplet">
++    <arg type="s" direction="in" />
++    <arg type="b" direction="in" />
++</method>
++<method name="activateCallback">
++    <arg type="s" direction="in" />
++    <arg type="s" direction="in" />
++    <arg type="b" direction="in" />
++</method>
++<property name="OverviewActive" type="b" access="readwrite" />
++<property name="CinnamonVersion" type="s" access="read" />
++</interface>;
+ 
+ function Cinnamon() {
+     this._init();
+@@ -58,7 +63,8 @@ function Cinnamon() {
+ 
+ Cinnamon.prototype = {
+     _init: function() {
+-        DBus.session.exportObject('/org/Cinnamon', this);
++        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(CinnamonIface, this);
++        this._dbusImpl.export(Gio.DBus.session, '/org/Cinnamon');
+     },
+ 
+     /**
+@@ -215,5 +221,3 @@ Cinnamon.prototype = {
+     CinnamonVersion: Config.PACKAGE_VERSION
+ };
+ 
+-DBus.conformExport(Cinnamon.prototype, CinnamonIface);
+-
+diff --git a/js/ui/endSessionDialog.js b/js/ui/endSessionDialog.js
+index e909f5f..4f1f7d0 100644
+--- a/js/ui/endSessionDialog.js
++++ b/js/ui/endSessionDialog.js
+@@ -18,19 +18,19 @@
+  * 02110-1335, USA.
+  */
+ 
+-const DBus = imports.dbus;
+ const Lang = imports.lang;
+ const Signals = imports.signals;
+ 
+ const AccountsService = imports.gi.AccountsService;
+ const Clutter = imports.gi.Clutter;
++const Gio = imports.gi.Gio;
+ const GLib = imports.gi.GLib;
+ const Gtk = imports.gi.Gtk;
+ const Pango = imports.gi.Pango;
+ const St = imports.gi.St;
+ const Cinnamon = imports.gi.Cinnamon;
+ 
+-const GnomeSession = imports.misc.gnomeSession
++const GnomeSession = imports.misc.gnomeSession;
+ const ModalDialog = imports.ui.modalDialog;
+ const Tweener = imports.ui.tweener;
+ 
+@@ -40,20 +40,20 @@ const _ITEM_ICON_SIZE = 48;
+ const _DIALOG_ICON_SIZE = 32;
+ 
+ const GSM_SESSION_MANAGER_LOGOUT_FORCE = 2;
+-
+-const EndSessionDialogIface = {
+-    name: 'org.gnome.SessionManager.EndSessionDialog',
+-    methods: [{ name: 'Open',
+-                inSignature: 'uuuao',
+-                outSignature: ''
+-              }
+-             ],
+-    signals: [{ name: 'Canceled',
+-                inSignature: '',
+-              }],
+-    properties: []
+-};
+-
++const EndSessionDialogIface = <interface name="org.gnome.SessionManager.EndSessionDialog">
++<method name="Open">
++    <arg type="u" direction="in" />
++    <arg type="u" direction="in" />
++    <arg type="u" direction="in" />
++    <arg type="ao" direction="in" />
++</method>
++<signal name="ConfirmedLogout" />
++<signal name="ConfirmedReboot" />
++<signal name="ConfirmedShutdown" />
++<signal name="Canceled" />
++<signal name="Closed" />
++</interface>;
++ 
+ const logoutDialogContent = {
+     subjectWithUser: _("Log Out %s"),
+     subject: _("Log Out"),
+@@ -230,8 +230,6 @@ function _setLabelText(label, text) {
+ function EndSessionDialog() {
+     if (_endSessionDialog == null) {
+         this._init();
+-        DBus.session.exportObject('/org/gnome/SessionManager/EndSessionDialog',
+-                                  this);
+         _endSessionDialog = this;
+     }
+ 
+@@ -328,6 +326,9 @@ EndSessionDialog.prototype = {
+                                           if (this._applicationList.get_children().length == 0)
+                                               scrollView.hide();
+                                       }));
++
++        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(EndSessionDialogIface, this);
++        this._dbusImpl.export(Gio.DBus.session, '/org/gnome/SessionManager/EndSessionDialog');
+     },
+ 
+     _onDestroy: function() {
+@@ -442,25 +443,19 @@ EndSessionDialog.prototype = {
+ 
+     close: function() {
+         ModalDialog.ModalDialog.prototype.close.call(this);
+-        DBus.session.emit_signal('/org/gnome/SessionManager/EndSessionDialog',
+-                                 'org.gnome.SessionManager.EndSessionDialog',
+-                                 'Closed', '', []);
++        this._dbusImpl.emit_signal('Closed', null);
+     },
+ 
+     cancel: function() {
+         this._stopTimer();
+-        DBus.session.emit_signal('/org/gnome/SessionManager/EndSessionDialog',
+-                                 'org.gnome.SessionManager.EndSessionDialog',
+-                                 'Canceled', '', []);
++        this._dbusImpl.emit_signal('Canceled', null);
+         this.close(global.get_current_time());
+     },
+ 
+     _confirm: function(signal) {
+         this._fadeOutDialog();
+         this._stopTimer();
+-        DBus.session.emit_signal('/org/gnome/SessionManager/EndSessionDialog',
+-                                 'org.gnome.SessionManager.EndSessionDialog',
+-                                 signal, '', []);
++        this._dbusImpl.emit_signal(signal, null);
+     },
+ 
+     _onOpened: function() {
+@@ -512,39 +507,41 @@ EndSessionDialog.prototype = {
+         this._updateContent();
+     },
+ 
+-    OpenAsync: function(type, timestamp, totalSecondsToStayOpen, inhibitorObjectPaths, callback) {
++    OpenAsync: function(parameters, invocation) {
++        let [type, timestamp, totalSecondsToStayOpen, inhibitorObjectPaths] = parameters;
+         this._totalSecondsToStayOpen = totalSecondsToStayOpen;
+         this._inhibitors = [];
+         this._applicationList.destroy_children();
+         this._type = type;
+ 
+-        if (!(this._type in DialogContent))
+-            throw new DBus.DBusError('org.Cinnamon.ModalDialog.TypeError',
+-                                     "Unknown dialog type requested");
++        if (!(this._type in DialogContent)) {
++            invocation.report_dbus_error('org.Cinnamon.ModalDialog.TypeError',
++                                         "Unknown dialog type requested");
++            return;
++        }
+ 
+         for (let i = 0; i < inhibitorObjectPaths.length; i++) {
+-            let inhibitor = new GnomeSession.Inhibitor(inhibitorObjectPaths[i]);
++            let inhibitor = new GnomeSession.Inhibitor(inhibitorObjectPaths[i], Lang.bind(this, function(proxy, error) {
++                this._onInhibitorLoaded(proxy);
++            }));
+ 
+-            inhibitor.connect('is-loaded',
+-                              Lang.bind(this, function() {
+-                                  this._onInhibitorLoaded(inhibitor);
+-                              }));
+             this._inhibitors.push(inhibitor);
+         }
+ 
+         this._updateButtons();
+ 
+-        if (!this.open(timestamp))
+-            throw new DBus.DBusError('org.Cinnamon.ModalDialog.GrabError',
+-                                     "Cannot grab pointer and keyboard");
++        if (!this.open(timestamp)) {
++            invocation.report_dbus_error('org.Cinnamon.ModalDialog.GrabError',
++                                         "Cannot grab pointer and keyboard");
++            return;
++        }
+ 
+         this._updateContent();
+ 
+         let signalId = this.connect('opened',
+                                     Lang.bind(this, function() {
+-                                        callback();
++                                        invocation.return_value(null);
+                                         this.disconnect(signalId);
+                                     }));
+     }
+ };
+-DBus.conformExport(EndSessionDialog.prototype, EndSessionDialogIface);
+diff --git a/js/ui/keyboard.js b/js/ui/keyboard.js
+index f55cf93..69edb51 100644
+--- a/js/ui/keyboard.js
++++ b/js/ui/keyboard.js
+@@ -2,7 +2,6 @@
+ 
+ const Caribou = imports.gi.Caribou;
+ const Clutter = imports.gi.Clutter;
+-const DBus = imports.dbus;
+ const Gdk = imports.gi.Gdk;
+ const Gio = imports.gi.Gio;
+ const GLib = imports.gi.GLib;
+@@ -38,28 +37,27 @@ const PRETTY_KEYS = {
+     'Alt_L': 'Alt'
+ };
+ 
+-const CaribouKeyboardIface = {
+-    name: 'org.gnome.Caribou.Keyboard',
+-    methods:    [ { name: 'Show',
+-                    inSignature: 'u',
+-                    outSignature: ''
+-                  },
+-                  { name: 'Hide',
+-                    inSignature: 'u',
+-                    outSignature: ''
+-                  },
+-                  { name: 'SetCursorLocation',
+-                    inSignature: 'iiii',
+-                    outSignature: ''
+-                  },
+-                  { name: 'SetEntryLocation',
+-                    inSignature: 'iiii',
+-                    outSignature: ''
+-                  } ],
+-    properties: [ { name: 'Name',
+-                    signature: 's',
+-                    access: 'read' } ]
+-};
++const CaribouKeyboardIface = <interface name='org.gnome.Caribou.Keyboard'>
++<method name='Show'>
++    <arg type='u' direction='in' />
++</method>
++<method name='Hide'>
++    <arg type='u' direction='in' />
++</method>
++<method name='SetCursorLocation'>
++    <arg type='i' direction='in' />
++    <arg type='i' direction='in' />
++    <arg type='i' direction='in' />
++    <arg type='i' direction='in' />
++</method>
++<method name='SetEntryLocation'>
++    <arg type='i' direction='in' />
++    <arg type='i' direction='in' />
++    <arg type='i' direction='in' />
++    <arg type='i' direction='in' />
++</method>
++<property name='Name' access='read' type='s' />
++</interface>;
+ 
+ function Key() {
+     this._init.apply(this, arguments);
+@@ -199,7 +197,8 @@ function Keyboard() {
+ 
+ Keyboard.prototype = {
+     _init: function () {
+-        DBus.session.exportObject('/org/gnome/Caribou/Keyboard', this);
++        this._impl = Gio.DBusExportedObject.wrapJSObject(CaribouKeyboardIface, this);
++        this._impl.export(Gio.DBus.session, '/org/gnome/Caribou/Keyboard');
+ 
+         this.actor = null;
+ 
+@@ -541,7 +540,6 @@ Keyboard.prototype = {
+         return 'cinnamon';
+     }
+ };
+-DBus.conformExport(Keyboard.prototype, CaribouKeyboardIface);
+ 
+ function KeyboardSource() {
+     this._init.apply(this, arguments);
+diff --git a/js/ui/layout.js b/js/ui/layout.js
+index 76303b9..b97459e 100644
+--- a/js/ui/layout.js
++++ b/js/ui/layout.js
+@@ -488,12 +488,14 @@ Chrome.prototype = {
+ 
+         this._screenSaverActive = false;
+         this._screenSaverProxy = new ScreenSaver.ScreenSaverProxy();
+-        this._screenSaverProxy.connect('ActiveChanged', Lang.bind(this, this._onScreenSaverActiveChanged));
+-        this._screenSaverProxy.GetActiveRemote(Lang.bind(this,
+-            function(result, err) {
+-                if (!err)
+-                    this._onScreenSaverActiveChanged(this._screenSaverProxy, result);
+-            }));
++        this._screenSaverProxy.connectSignal('ActiveChanged', Lang.bind(this, function(proxy, senderName, [isActive]) {
++            this._onScreenSaverActiveChanged(isActive);
++        }));
++        this._screenSaverProxy.GetActiveRemote(Lang.bind(this, function(result, err) {
++            if (!err)
++                this._onScreenSaverActiveChanged(result[0]);
++        }));
++
+ 
+         this._relayout();
+     },
+diff --git a/js/ui/magnifierDBus.js b/js/ui/magnifierDBus.js
+index 72bba26..4d21797 100644
+--- a/js/ui/magnifierDBus.js
++++ b/js/ui/magnifierDBus.js
+@@ -1,6 +1,6 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
++const Gio = imports.gi.Gio;
+ const Main = imports.ui.main;
+ 
+ const MAG_SERVICE_NAME = 'org.gnome.Magnifier';
+@@ -10,47 +10,85 @@ const ZOOM_SERVICE_PATH = '/org/gnome/Magnifier/ZoomRegion';
+ 
+ // Subset of gnome-mag's Magnifier dbus interface -- to be expanded.  See:
+ // http://git.gnome.org/browse/gnome-mag/tree/xml/...Magnifier.xml
+-const MagnifierIface = {
+-    name: MAG_SERVICE_NAME,
+-    methods: [
+-                { name: 'setActive', inSignature: 'b', outSignature: '' },
+-                { name: 'isActive', inSignature: '', outSignature: 'b' },
+-                { name: 'showCursor', inSignature: '', outSignature: '' },
+-                { name: 'hideCursor', inSignature: '', outSignature: ''  },
+-                { name: 'createZoomRegion', inSignature: 'ddaiai', outSignature: 'o' },
+-                { name: 'addZoomRegion', inSignature: 'o', outSignature: 'b' },
+-                { name: 'getZoomRegions', inSignature: '', outSignature: 'ao' },
+-                { name: 'clearAllZoomRegions', inSignature: '', outSignature: '' },
+-                { name: 'fullScreenCapable', inSignature: '', outSignature: 'b' },
+-
+-                { name: 'setCrosswireSize', inSignature: 'i', outSignature: '' },
+-                { name: 'getCrosswireSize', inSignature: '', outSignature: 'i' },
+-                { name: 'setCrosswireLength', inSignature: 'i', outSignature: '' },
+-                { name: 'getCrosswireLength', inSignature: '', outSignature: 'i' },
+-                { name: 'setCrosswireClip', inSignature: 'b', outSignature: '' },
+-                { name: 'getCrosswireClip', inSignature: '', outSignature: 'b' },
+-                { name: 'setCrosswireColor', inSignature: 'u', outSignature: '' },
+-                { name: 'getCrosswireColor', inSignature: '', outSignature: 'u' }
+-             ],
+-    signals: [],
+-    properties: []
+-};
++const MagnifierIface = <interface name={MAG_SERVICE_NAME}>
++<method name="setActive">
++    <arg type="b" direction="in" />
++</method>
++<method name="isActive">
++    <arg type="b" direction="out" />
++</method>
++<method name="showCursor" />
++<method name="hideCursor" />
++<method name="createZoomRegion">
++    <arg type="d" direction="in" />
++    <arg type="d" direction="in" />
++    <arg type="ai" direction="in" />
++    <arg type="ai" direction="in" />
++    <arg type="o" direction="out" />
++</method>
++<method name="addZoomRegion">
++    <arg type="o" direction="in" />
++    <arg type="b" direction="out" />
++</method>
++<method name="getZoomRegions">
++    <arg type="ao" direction="out" />
++</method>
++<method name="clearAllZoomRegions" />
++<method name="fullScreenCapable">
++    <arg type="b" direction="out" />
++</method>
++<method name="setCrosswireSize">
++    <arg type="i" direction="in" />
++</method>
++<method name="getCrosswireSize">
++    <arg type="i" direction="out" />
++</method>
++<method name="setCrosswireLength">
++    <arg type="i" direction="in" />
++</method>
++<method name="getCrosswireLength">
++    <arg type="i" direction="out" />
++</method>
++<method name="setCrosswireClip">
++    <arg type="b" direction="in" />
++</method>
++<method name="getCrosswireClip">
++    <arg type="b" direction="out" />
++</method>
++<method name="setCrosswireColor">
++    <arg type="u" direction="in" />
++</method>
++<method name="getCrosswireColor">
++    <arg type="u" direction="out" />
++</method>
++</interface>;
+ 
+ // Subset of gnome-mag's ZoomRegion dbus interface -- to be expanded.  See:
+ // http://git.gnome.org/browse/gnome-mag/tree/xml/...ZoomRegion.xml
+-const ZoomRegionIface = {
+-    name: ZOOM_SERVICE_NAME,
+-    methods: [
+-                { name: 'setMagFactor', inSignature: 'dd', outSignature: ''},
+-                { name: 'getMagFactor', inSignature: '', outSignature: 'dd' },
+-                { name: 'setRoi', inSignature: 'ai', outSignature: '' },
+-                { name: 'getRoi', inSignature: '', outSignature: 'ai' },
+-                { name: 'shiftContentsTo', inSignature: 'ii', outSignature: 'b' },
+-                { name: 'moveResize', inSignature: 'ai', outSignature: '' }
+-             ],
+-    signals: [],
+-    properties: []
+-};
++const ZoomRegionIface = <interface name={ZOOM_SERVICE_NAME}>
++<method name="setMagFactor">
++    <arg type="d" direction="in" />
++    <arg type="d" direction="in" />
++</method>
++<method name="getMagFactor">
++    <arg type="d" direction="out" />
++    <arg type="d" direction="out" />
++</method>
++<method name="setRoi">
++    <arg type="ai" direction="in" />
++</method>
++<method name="getRoi">
++    <arg type="ai" direction="out" />
++</method>
++<method name="shiftContentsTo">
++    <arg type="i" direction="in" />
++    <arg type="i" direction="in" />
++    <arg type="b" direction="out" />
++</method>
++<method name="moveResize">
++    <arg type="ai" direction="in" />
++</method>
++</interface>;
+ 
+ // For making unique ZoomRegion DBus proxy object paths of the form:
+ // '/org/gnome/Magnifier/ZoomRegion/zoomer0',
+@@ -64,7 +102,9 @@ function CinnamonMagnifier() {
+ CinnamonMagnifier.prototype = {
+     _init: function() {
+         this._zoomers = {};
+-        DBus.session.exportObject(MAG_SERVICE_PATH, this);
++
++        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(MagnifierIface, this);
++        this._dbusImpl.export(Gio.DBus.session, MAG_SERVICE_PATH);
+     },
+ 
+     /**
+@@ -195,10 +235,10 @@ CinnamonMagnifier.prototype = {
+         Main.magnifier.clearAllZoomRegions();
+         for (let objectPath in this._zoomers) {
+             let proxyAndZoomer = this._zoomers[objectPath];
++            proxyAndZoomer.proxy.destroy();
+             proxyAndZoomer.proxy = null;
+             proxyAndZoomer.zoomRegion = null;
+             delete this._zoomers[objectPath];
+-            DBus.session.unexportObject(proxyAndZoomer);
+         }
+         this._zoomers = {};
+     },
+@@ -300,8 +340,9 @@ function CinnamonMagnifierZoomRegion(zoomerObjectPath, zoomRegion) {
+ CinnamonMagnifierZoomRegion.prototype = {
+     _init: function(zoomerObjectPath, zoomRegion) {
+         this._zoomRegion = zoomRegion;
+-        DBus.session.proxifyObject(this, ZOOM_SERVICE_NAME, zoomerObjectPath);
+-        DBus.session.exportObject(zoomerObjectPath, this);
++
++        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(ZoomRegionIface, this);
++        this._dbusImpl.export(Gio.DBus.session, zoomerObjectPath);
+     },
+ 
+     /**
+@@ -376,8 +417,9 @@ CinnamonMagnifierZoomRegion.prototype = {
+     moveResize: function(viewPort) {
+         let viewRect = { x: viewPort[0], y: viewPort[1], width: viewPort[2] - viewPort[0], height: viewPort[3] - viewPort[1] };
+         this._zoomRegion.setViewPort(viewRect);
++    },
++
++    destroy: function() {
++        this._dbusImpl.unexport();
+     }
+ };
+-
+-DBus.conformExport(CinnamonMagnifier.prototype, MagnifierIface);
+-DBus.conformExport(CinnamonMagnifierZoomRegion.prototype, ZoomRegionIface);
+diff --git a/js/ui/main.js b/js/ui/main.js
+index ba240d2..da4eb76 100644
+--- a/js/ui/main.js
++++ b/js/ui/main.js
+@@ -1,7 +1,6 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+ const Clutter = imports.gi.Clutter;
+-const DBus = imports.dbus;
+ const Gio = imports.gi.Gio;
+ const GLib = imports.gi.GLib;
+ const Gtk = imports.gi.Gtk;
+@@ -196,11 +195,6 @@ function start() {
+ 
+     cinnamonDBusService = new CinnamonDBus.Cinnamon();
+     lookingGlassDBusService = new LookingGlassDBus.CinnamonLookingGlass();
+-    // Force a connection now; dbus.js will do this internally
+-    // if we use its name acquisition stuff but we aren't right
+-    // now; to do so we'd need to convert from its async calls
+-    // back into sync ones.
+-    DBus.session.flush();
+ 
+     // Ensure CinnamonWindowTracker and CinnamonAppUsage are initialized; this will
+     // also initialize CinnamonAppSystem first.  CinnamonAppSystem
+diff --git a/js/ui/messageTray.js b/js/ui/messageTray.js
+index d6e08f6..8a8da54 100644
+--- a/js/ui/messageTray.js
++++ b/js/ui/messageTray.js
+@@ -1388,12 +1388,17 @@ function MessageTray() {
+ 
+ MessageTray.prototype = {
+     _init: function() {
+-        this._presence = new GnomeSession.Presence();
++        this._presence = new GnomeSession.Presence(Lang.bind(this, function(proxy, error) {
++            this._onStatusChanged(proxy.status);
++        }));
++
+         this._userStatus = GnomeSession.PresenceStatus.AVAILABLE;
+         this._busy = false;
+         this._backFromAway = false;
+-        this._presence.connect('StatusChanged', Lang.bind(this, this._onStatusChanged));
+-        this._presence.getStatus(Lang.bind(this, this._onStatusChanged));
++        this._presence.connectSignal('StatusChanged', Lang.bind(this, function(proxy, senderName, [status]) {
++            this._onStatusChanged(status);
++        }));
++
+ 
+         this._notificationBin = new St.Bin();
+         this._notificationBin.hide();
+@@ -1571,7 +1576,7 @@ MessageTray.prototype = {
+         this._updateState();
+     },
+ 
+-    _onStatusChanged: function(presence, status) {
++    _onStatusChanged: function(status) {
+         this._backFromAway = (this._userStatus == GnomeSession.PresenceStatus.IDLE && this._userStatus != status);
+         this._userStatus = status;
+ 
+diff --git a/js/ui/notificationDaemon.js b/js/ui/notificationDaemon.js
+index bee8ffd..b037e07 100644
+--- a/js/ui/notificationDaemon.js
++++ b/js/ui/notificationDaemon.js
+@@ -1,7 +1,7 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+ const Clutter = imports.gi.Clutter;
+-const DBus = imports.dbus;
++const Gio = imports.gi.Gio;
+ const GLib = imports.gi.GLib;
+ const Lang = imports.lang;
+ const Cinnamon = imports.gi.Cinnamon;
+@@ -14,49 +14,52 @@ const Params = imports.misc.params;
+ 
+ let nextNotificationId = 1;
+ 
+-// Should really be defined in dbus.js
+-const BusIface = {
+-    name: 'org.freedesktop.DBus',
+-    methods: [{ name: 'GetConnectionUnixProcessID',
+-                inSignature: 's',
+-                outSignature: 'i' }]
+-};
+-
+-const Bus = function () {
+-    this._init();
+-};
+-
+-Bus.prototype = {
+-     _init: function() {
+-         DBus.session.proxifyObject(this, 'org.freedesktop.DBus', '/org/freedesktop/DBus');
+-     }
+-};
++// Should really be defined in Gio.js
++const BusIface = <interface name="org.freedesktop.DBus">
++<method name="GetConnectionUnixProcessID">
++    <arg type="s" direction="in" />
++    <arg type="u" direction="out" />
++</method>
++</interface>;
++
++var BusProxy = Gio.DBusProxy.makeProxyWrapper(BusIface);
++function Bus() {
++    return new BusProxy(Gio.DBus.session, 'org.freedesktop.DBus', '/org/freedesktop/DBus');
++}
+ 
+-DBus.proxifyPrototype(Bus.prototype, BusIface);
+-
+-const NotificationDaemonIface = {
+-    name: 'org.freedesktop.Notifications',
+-    methods: [{ name: 'Notify',
+-                inSignature: 'susssasa{sv}i',
+-                outSignature: 'u'
+-              },
+-              { name: 'CloseNotification',
+-                inSignature: 'u',
+-                outSignature: ''
+-              },
+-              { name: 'GetCapabilities',
+-                inSignature: '',
+-                outSignature: 'as'
+-              },
+-              { name: 'GetServerInformation',
+-                inSignature: '',
+-                outSignature: 'ssss'
+-              }],
+-    signals: [{ name: 'NotificationClosed',
+-                inSignature: 'uu' },
+-              { name: 'ActionInvoked',
+-                inSignature: 'us' }]
+-};
++const NotificationDaemonIface = <interface name="org.freedesktop.Notifications">
++<method name="Notify">
++    <arg type="s" direction="in"/>
++    <arg type="u" direction="in"/>
++    <arg type="s" direction="in"/>
++    <arg type="s" direction="in"/>
++    <arg type="s" direction="in"/>
++    <arg type="as" direction="in"/>
++    <arg type="a{sv}" direction="in"/>
++    <arg type="i" direction="in"/>
++    <arg type="u" direction="out"/>
++</method>
++<method name="CloseNotification">
++    <arg type="u" direction="in"/>
++</method>
++<method name="GetCapabilities">
++    <arg type="as" direction="out"/>
++</method>
++<method name="GetServerInformation">
++    <arg type="s" direction="out"/>
++    <arg type="s" direction="out"/>
++    <arg type="s" direction="out"/>
++    <arg type="s" direction="out"/>
++</method>
++<signal name="NotificationClosed">
++    <arg type="u"/>
++    <arg type="u"/>
++</signal>
++<signal name="ActionInvoked">
++    <arg type="u"/>
++    <arg type="s"/>
++</signal>
++</interface>;
+ 
+ const NotificationClosedReason = {
+     EXPIRED: 1,
+@@ -88,7 +91,8 @@ function NotificationDaemon() {
+ 
+ NotificationDaemon.prototype = {
+     _init: function() {
+-        DBus.session.exportObject('/org/freedesktop/Notifications', this);
++        this._dbusImpl = Gio.DBusExportedObject.wrapJSObject(NotificationDaemonIface, this);
++        this._dbusImpl.export(Gio.DBus.session, '/org/freedesktop/Notifications');
+ 
+         this._sources = [];
+         this._senderToPid = {};
+@@ -213,8 +217,8 @@ NotificationDaemon.prototype = {
+         return source;
+     },
+ 
+-    Notify: function(appName, replacesId, icon, summary, body,
+-                     actions, hints, timeout) {
++    NotifyAsync: function(params, invocation) {
++        let [appName, replacesId, icon, summary, body, actions, hints, timeout] = params;
+         let id;
+         
+         let rewrites = rewriteRules[appName];
+@@ -257,51 +261,55 @@ NotificationDaemon.prototype = {
+         }
+         this._notifications[id] = ndata;
+ 
+-        let sender = DBus.getCurrentMessageContext().sender;
++        let sender = invocation.get_sender();
+         let pid = this._senderToPid[sender];
+ 
+         let source = this._getSource(appName, pid, ndata, sender, null);
+ 
+         if (source) {
+             this._notifyForSource(source, ndata);
+-            return id;
++            return invocation.return_value(GLib.Variant.new('(u)', [id]));
+         }
+ 
+         if (replacesId) {
+             // There's already a pending call to GetConnectionUnixProcessID,
+             // which will see the new notification data when it finishes,
+             // so we don't have to do anything.
+-            return id;
++            return invocation.return_value(GLib.Variant.new('(u)', [id]));
+         }
+ 
+-        this._busProxy.GetConnectionUnixProcessIDRemote(sender, Lang.bind(this,
+-            function (pid, ex) {
+-                // The app may have updated or removed the notification
+-                ndata = this._notifications[id];
+-                if (!ndata)
+-                    return;
+-
+-                source = this._getSource(appName, pid, ndata, sender, null);
+-
+-                // We only store sender-pid entries for persistent sources.
+-                // Removing the entries once the source is destroyed
+-                // would result in the entries associated with transient
+-                // sources removed once the notification is shown anyway.
+-                // However, keeping these pairs would mean that we would
+-                // possibly remove an entry associated with a persistent
+-                // source when a transient source for the same sender is
+-                // distroyed.
+-                if (!source.isTransient) {
+-                    this._senderToPid[sender] = pid;
+-                    source.connect('destroy', Lang.bind(this,
+-                        function() {
+-                            delete this._senderToPid[sender];
+-                        }));
+-                }
+-                this._notifyForSource(source, ndata);
+-            }));
++        this._busProxy.GetConnectionUnixProcessIDRemote(sender, Lang.bind(this, function (result, excp) {
++            // The app may have updated or removed the notification
++            ndata = this._notifications[id];
++            if (!ndata)
++                return;
+ 
+-        return id;
++            if (excp) {
++                logError(excp, 'Call to GetConnectionUnixProcessID failed');
++                return;
++            }
++
++            let [pid] = result;
++            source = this._getSource(appName, pid, ndata, sender);
++
++            // We only store sender-pid entries for persistent sources.
++            // Removing the entries once the source is destroyed
++            // would result in the entries associated with transient
++            // sources removed once the notification is shown anyway.
++            // However, keeping these pairs would mean that we would
++            // possibly remove an entry associated with a persistent
++            // source when a transient source for the same sender is
++            // distroyed.
++            if (!source.isTransient) {
++                this._senderToPid[sender] = pid;
++                source.connect('destroy', Lang.bind(this, function() {
++                    delete this._senderToPid[sender];
++                }));
++            }
++            this._notifyForSource(source, ndata);
++        }));
++
++        return invocation.return_value(GLib.Variant.new('(u)', [id]));
+     },
+ 
+     _notifyForSource: function(source, ndata) {
+@@ -441,17 +449,13 @@ NotificationDaemon.prototype = {
+     },
+ 
+     _emitNotificationClosed: function(id, reason) {
+-        DBus.session.emit_signal('/org/freedesktop/Notifications',
+-                                 'org.freedesktop.Notifications',
+-                                 'NotificationClosed', 'uu',
+-                                 [id, reason]);
++        this._dbusImpl.emit_signal('NotificationClosed',
++                                   GLib.Variant.new('(uu)', [id, reason]));
+     },
+ 
+     _emitActionInvoked: function(id, action) {
+-        DBus.session.emit_signal('/org/freedesktop/Notifications',
+-                                 'org.freedesktop.Notifications',
+-                                 'ActionInvoked', 'us',
+-                                 [id, action]);
++        this._dbusImpl.emit_signal('ActionInvoked',
++                                   GLib.Variant.new('(us)', [id, action]));
+     },
+ 
+     _onTrayIconAdded: function(o, icon) {
+@@ -465,8 +469,6 @@ NotificationDaemon.prototype = {
+     }
+ };
+ 
+-DBus.conformExport(NotificationDaemon.prototype, NotificationDaemonIface);
+-
+ function Source(title, pid, sender, trayIcon) {
+     this._init(title, pid, sender, trayIcon);
+ }
+@@ -481,15 +483,12 @@ Source.prototype = {
+ 
+         this.pid = pid;
+         if (sender)
+-            // TODO: dbus-glib implementation of watch_name() doesn’t return an id to be used for
+-            // unwatch_name() or implement unwatch_name(), however when we move to using GDBus implementation,
+-            // we should save the id here and call unwatch_name() with it in destroy().
+-            // Moving to GDBus is the work in progress: https://bugzilla.gnome.org/show_bug.cgi?id=648651
+-            // and https://bugzilla.gnome.org/show_bug.cgi?id=622921 .
+-            DBus.session.watch_name(sender,
+-                                    false,
+-                                    null,
+-                                    Lang.bind(this, this._onNameVanished));
++            this._nameWatcherId = Gio.DBus.session.watch_name(sender,
++                                                              Gio.BusNameWatcherFlags.NONE,
++                                                              null,
++                                                              Lang.bind(this, this._onNameVanished));
++        else
++            this._nameWatcherId = 0;
+ 
+         this._setApp();
+         if (this.app)
+@@ -596,6 +595,10 @@ Source.prototype = {
+     },
+ 
+     destroy: function() {
++        if (this._nameWatcherId) {
++            Gio.DBus.session.unwatch_name(this._nameWatcherId);
++            this._nameWatcherId = 0;
++        }
+         MessageTray.Source.prototype.destroy.call(this);
+     }
+ };
+diff --git a/js/ui/scripting.js b/js/ui/scripting.js
+index 42c4f6d..9163d29 100644
+--- a/js/ui/scripting.js
++++ b/js/ui/scripting.js
+@@ -1,6 +1,5 @@
+ // -*- mode: js; js-indent-level: 4; indent-tabs-mode: nil -*-
+ 
+-const DBus = imports.dbus;
+ const Gio = imports.gi.Gio;
+ const Mainloop = imports.mainloop;
+ const Meta = imports.gi.Meta;
+@@ -70,24 +69,21 @@ function waitLeisure() {
+     };
+ }
+ 
+-const PerfHelperIface = {
+-    name: 'org.Cinnamon.PerfHelper',
+-    methods: [{ name: 'CreateWindow', inSignature: 'iibb', outSignature: '' },
+-              { name: 'WaitWindows', inSignature: '', outSignature: '' },
+-              { name: 'DestroyWindows', inSignature: '', outSignature: ''}]
+-};
+-
+-const PerfHelper = function () {
+-    this._init();
+-};
+-
+-PerfHelper.prototype = {
+-     _init: function() {
+-         DBus.session.proxifyObject(this, 'org.Cinnamon.PerfHelper', '/org/Cinnamon/PerfHelper');
+-     }
+-};
+-
+-DBus.proxifyPrototype(PerfHelper.prototype, PerfHelperIface);
++const PerfHelperIface = <interface name="org.gnome.Shell.PerfHelper">
++<method name="CreateWindow">
++    <arg type="i" direction="in" />
++    <arg type="i" direction="in" />
++    <arg type="b" direction="in" />
++    <arg type="b" direction="in" />
++</method>
++<method name="WaitWindows" />
++<method name="DestroyWindows" />
++</interface>;
++
++var PerfHelperProxy = Gio.DBusProxy.makeProxyWrapper(PerfHelperIface);
++function PerfHelper() {
++    return new PerfHelperProxy(Gio.DBus.session, 'org.gnome.Shell.PerfHelper', '/org/gnome/Shell/PerfHelper');
++}
+ 
+ let _perfHelper = null;
+ function _getPerfHelper() {
+-- 
+1.8.1.5
+
+
+From 445762899b4e31332f82c3d852f16e7f59711273 Mon Sep 17 00:00:00 2001
+From: dalcde <dalcde@yahoo.com.hk>
+Date: Tue, 16 Apr 2013 16:58:30 +0800
+Subject: [PATCH 2/2] [GDBus][Sound/Power Applet] Fix dbus port issues
+
+---
+ files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js | 2 +-
+ files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+index a199e04..50bc85f 100644
+--- a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+@@ -212,7 +212,7 @@ MyApplet.prototype = {
+             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+             this.menu.addSettingsAction(_("Power Settings"), 'power');
+ 
+-            this._smProxy.connect('PropertiesChanged', Lang.bind(this, this._devicesChanged));
++            this._smProxy.connectSignal('PropertiesChanged', Lang.bind(this, this._devicesChanged));
+             this._devicesChanged();            
+         }
+         catch (e) {
+diff --git a/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
+index 5bfaf26..924936f 100644
+--- a/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
+@@ -283,7 +283,7 @@ Player.prototype = {
+         this._currentTime = 0;
+         this._getPosition();
+ 
+-        this._prop.connect('PropertiesChanged', Lang.bind(this, function(sender, iface, value) {
++        this._prop.connectSignal('PropertiesChanged', Lang.bind(this, function(sender, iface, value) {
+             if (value["PlaybackStatus"])
+                 this._setStatus(iface, value["PlaybackStatus"]);
+             if (value["Metadata"])
+@@ -569,7 +569,7 @@ MyApplet.prototype = {
+             this._players = {};
+             // watch players
+             for (var p=0; p<compatible_players.length; p++) {
+-                Gio.DBus.session.watch_name('org.mpris.MediaPlayer2.'+compatible_players[p], false,
++                Gio.DBus.session.watch_name('org.mpris.MediaPlayer2.'+compatible_players[p], Gio.BusNameWatcherFlags.NONE,
+                     Lang.bind(this, this._addPlayer),
+                     Lang.bind(this, this._removePlayer)
+                 );
+-- 
+1.8.1.5
+
