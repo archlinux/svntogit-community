@@ -1,0 +1,69 @@
+# $Id$
+# Maintainer: Sébastien Luttringer
+
+pkgname=opensmtpd
+pkgver=5.3.1p1
+pkgrel=1
+pkgdesc='Free implementation of the server-side SMTP protocol'
+arch=('i686' 'x86_64')
+url='http://www.opensmtpd.org/'
+license=('custom')
+depends=('libevent')
+provides=('smtp-server' 'smtp-forwarder')
+conflicts=('smtp-server' 'smtp-forwarder')
+backup=('etc/smtpd.conf' 'etc/aliases')
+install=opensmtpd.install
+source=("http://www.opensmtpd.org/archives/$pkgname-$pkgver.tar.gz"
+        'smtpd.service'
+        'smtpd.socket')
+md5sums=('0ee036a473f19fe27012cda0068cd287'
+         'a278f272d97a9fe5a8aac784a7c98d67'
+         'c2c01e9ca78df3f65efe40a7c0e17ee0')
+
+build() {
+  cd $pkgname-$pkgver
+  ./bootstrap
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --sbindir=/usr/bin \
+    --libexecdir=/usr/bin \
+    --with-maildir=/var/spool/mail \
+    --with-privsep-path=/var/empty \
+    --with-sock-dir=/run \
+    --with-privsep-user=mail \
+    --with-filter-user=mail \
+    --with-queue-user=mail \
+    --with-pam
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+  make DESTDIR="$pkgdir/" install
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  cd "$pkgdir"
+  # working directory
+  install -dm711 var/spool/smtpd
+  # license
+  install -Dm644 "$srcdir/smtpd.service" usr/lib/systemd/system/smtpd.service
+  install -Dm644 "$srcdir/smtpd.socket" usr/lib/systemd/system/smtpd.socket
+  # remove duplicate hardlink into a subfolder
+  rm -r usr/bin/opensmtpd
+  # empty aliases file
+  install -Dm644 /dev/null "$pkgdir/etc/aliases"
+  install -Dm644 /dev/null "$pkgdir/etc/virtual"
+  install -Dm644 /dev/null "$pkgdir/etc/secrets"
+  # fake sendmail binary (used to be smtp-forwarder)
+  # use hardlink as upstream does...
+  cd "$pkgdir/usr/bin"
+  ln smtpctl "$pkgdir/usr/bin/sendmail"
+  # symlink binary from usr/bin to usr/sbin (waiting /usr merge)
+  install -dm755 "$pkgdir/usr/sbin"
+  for _p in *; do
+    ln -s "../bin/$_p" "$pkgdir/usr/sbin/$_p"
+  done
+}
+
+# vim:set ts=2 sw=2 et:
