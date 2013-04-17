@@ -2,8 +2,8 @@
 # Maintainer: Sébastien Luttringer
 
 pkgname=backuppc
-pkgver=3.2.1
-pkgrel=10
+pkgver=3.3.0
+pkgrel=1
 pkgdesc='Enterprise-grade system for backing up Linux, Windows and MacOS PCs'
 url='http://backuppc.sourceforge.net/'
 license=('GPL2')
@@ -26,32 +26,42 @@ optdepends=(
 )
 source=("http://downloads.sourceforge.net/project/$pkgname/$pkgname/$pkgver/BackupPC-$pkgver.tar.gz"
         "$pkgname.service"
+        "$pkgname.socket"
         "$pkgname.profile.sh"
         "$pkgname.profile.csh"
         "$pkgname.httpd"
-        '01-fix-parenthesis-warnings.patch'
-        '02-fix-cve-2011-4923.patch'
-        '03-fix-FS#32642.patch')
+        '01-move-socket-into-run.patch'
+        '02-move-socket-into-run.patch'
+        '03-fix-FS#32642.patch'
+        '04-fix-cve-2011-4923.patch'
+)
 install=$pkgname.install
 backup=("etc/$pkgname/config.pl"
         "etc/$pkgname/hosts"
         "etc/httpd/conf/extra/$pkgname.conf"
         "etc/$pkgname/$pkgname.users")
-md5sums=('2334fafb8e03284225a9b8a7fb230012'
-         'fa5da622f87d8801065ba312f4d547b6'
+md5sums=('2942a31daeec7c7bb227d843b7846f38'
+         'ffb8827bbefcf5f0cd959d08fdf64fc1'
+         '88344dbc5f8777e04fc8e0d250a2db82'
          '67a939aa63740c52d12bbdca72d37891'
          'ef09e4dae5b4197998f5c3a74e0ec86d'
          'c61dea98b2a2a0c944a0a6be44e4caf3'
-         'dff7ae1530929ae49f8b34a240a04131'
-         'aca8392c5dea60c3cceeb02ebcc63497'
-         '3917c474a275e262fde246daf59ffe31')
+         'ec087e8b899450e9e7ab18bff77cb1f3'
+         'b468820ed542023e1fec7ce8c88a0c3b'
+         '3917c474a275e262fde246daf59ffe31'
+         'aca8392c5dea60c3cceeb02ebcc63497')
+
+prepare() {
+  pwd
+ls
+  for _p in *.patch; do
+    msg2 "Applying patch $_p"
+    patch -p1 -d BackupPC-$pkgver < "$_p"
+  done
+}
 
 package() {
   cd BackupPC-$pkgver
-  for _p in "$srcdir"/*.patch; do
-    msg2 "Applying patch $_p"
-    patch -p1 -N -i "$_p"
-  done
   perl configure.pl \
     --batch \
     --no-set-perms \
@@ -71,6 +81,9 @@ package() {
   cd "$srcdir"
   # systemd
   install -D -m 644 $pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -D -m 644 $pkgname.socket "$pkgdir/usr/lib/systemd/system/$pkgname.socket"
+  install -D -m 644 /dev/null "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+  echo 'd /run/backuppc 0750 backuppc backuppc' > "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
   # install shell profiles
   install -D -m 755 $pkgname.profile.sh "$pkgdir/etc/profile.d/$pkgname.sh"
   install -D -m 755 $pkgname.profile.csh "$pkgdir/etc/profile.d/$pkgname.csh"
@@ -83,7 +96,8 @@ package() {
   chown 126:126 -R var/{log,lib}/$pkgname
   chmod 755 etc
   chmod 755 -R var usr/share/$pkgname/{cgi-,}bin
-  chmod 750 var/log/$pkgname etc/$pkgname var/lib/$pkgname
+  chmod 750 var/log/$pkgname etc/$pkgname
+  chmod 750 -R var/lib/$pkgname
   chmod 640 etc/$pkgname/{config.pl,hosts}
 }
 
