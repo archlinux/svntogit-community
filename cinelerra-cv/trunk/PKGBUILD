@@ -7,24 +7,23 @@
 pkgname=cinelerra-cv
 pkgver=2.2
 _gitrel=2.2.0
-pkgrel=13
+pkgrel=14
 epoch=1
 pkgdesc="Professional video editing and compositing environment"
 arch=('x86_64' 'i686')
 url="http://cinelerra.org/"
 license=('GPL')
-depends=('e2fsprogs' 'libavc1394' 'libiec61883' 'freetype2'
+depends=('e2fsprogs' 'libavc1394' 'libiec61883' 'libxv'
          'libtiff' 'mjpegtools' 'fftw' 'a52dec' 'glu'
-         'ffmpeg' 'libxv' 'faad2' 'faac' 'openexr' 'ilmbase>=1.0.3')
+         'ffmpeg' 'faad2' 'faac' 'openexr>=2.0.0')
 makedepends=('git' 'nasm' 'mesa')
 options=('!libtool')
-source=('v4l1_removal.patch'
+source=("$pkgname::git+git://git.cinelerra.org/CinelerraCV.git#branch=rel$_gitrel"
+        'v4l1_removal.patch'
         'ffmpeg_api.patch')
-md5sums=('bfa85e20809429d88eba4ab83e569612'
+md5sums=('SKIP'
+         'bfa85e20809429d88eba4ab83e569612'
          'b05ec2fb54e7d02f6167525417802111')
-
-_gituri="git://git.cinelerra.org/CinelerraCV.git"
-_gitdir="cinelerra"
 
 _confit() {
   ./configure --prefix=/usr \
@@ -34,22 +33,25 @@ _confit() {
               --disable-esd $@
 }
 
+prepare() {
+  cd "$srcdir/$pkgname"
+
+  # v4l1 removal patch
+  patch -Np1 -i "$srcdir/v4l1_removal.patch"
+
+  # new ffmpeg api patch
+  patch -Np1 -i "$srcdir/ffmpeg_api.patch"
+
+  # TODO: check if this is still needed (not sure what it does) --schiv
+  sed -i -e '/Debian/d' admin/nasm
+
+  # if you don't need OpenGL comment out the next line (and no glu/mesa dep)
+  # TODO: kind of forgot about the specifics of this one, recheck --schiv
+  sed -i '/\/X11R6/s///' configure.in
+}
+
 build() {
-  msg "Connecting to GIT server...."
-
-  if [ -d $_gitdir ] ; then
-    cd $_gitdir && git pull origin
-    msg "The local files are updated."
-  else
-    git clone $_gituri -b rel$_gitrel $_gitdir
-  fi
-
-  msg "GIT checkout done or server timeout"
-  msg "Starting make..."
-
-  rm -rf "$srcdir/$_gitdir-build"
-  cp -r "$srcdir/$_gitdir" "$srcdir/$_gitdir-build"
-  cd "$srcdir/$_gitdir-build"
+  cd "$srcdir/$pkgname"
 
   # gcc 4.6 workaround
   export CFLAGS+=" -Wwrite-strings -D__STDC_CONSTANT_MACROS"
@@ -58,19 +60,9 @@ build() {
   # remove executable stack
   export LDFLAGS+=" -Wl,-z,noexecstack"
 
-  # v4l1 removal patch
-  patch -Np1 -i "$srcdir/v4l1_removal.patch"
-
-  # new ffmpeg api patch
-  patch -Np1 -i "$srcdir/ffmpeg_api.patch"
-
-  sed -i -e '/Debian/d' admin/nasm
-
-  # if you don't need OpenGL comment out the next line (and no glu/mesa dep)
-  sed -i '/\/X11R6/s///' configure.in
-
   ./autogen.sh
 
+  # TODO: check if this is still needed (forgot why at all) --schiv
   if [ "$CARCH" = 'x86_64' ]; then
     _confit --disable-mmx
   else
@@ -81,7 +73,7 @@ build() {
 }
 
 package() {
-  cd "$srcdir/$_gitdir-build"
+  cd "$srcdir/$pkgname"
 
   make DESTDIR="$pkgdir" install
 }
