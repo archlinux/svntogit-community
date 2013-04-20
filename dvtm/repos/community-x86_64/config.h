@@ -1,4 +1,3 @@
-/* curses attributes for the currently focused window */
 /* valid curses attributes are listed below they can be ORed
  *
  * A_NORMAL        Normal display (no highlight)
@@ -10,23 +9,16 @@
  * A_BOLD          Extra bright or bold
  * A_PROTECT       Protected mode
  * A_INVIS         Invisible or blank mode
- *
  */
 #define BLUE            (COLORS==256 ? 68 : COLOR_BLUE)
-
-#define SELECTED_ATTR   A_NORMAL
-#define SELECTED_FG     BLUE
-#define SELECTED_BG     -1
+/* curses attributes for the currently focused window */
+#define SELECTED_ATTR   COLOR(BLUE, -1) | A_NORMAL
 /* curses attributes for normal (not selected) windows */
-#define NORMAL_ATTR     A_NORMAL
-#define NORMAL_FG       -1
-#define NORMAL_BG       -1
+#define NORMAL_ATTR     COLOR(-1, -1) | A_NORMAL
+/* curses attributes for the status bar */
+#define BAR_ATTR        COLOR(BLUE, -1) | A_NORMAL
 /* status bar (command line option -s) position */
 #define BAR_POS		BAR_TOP /* BAR_BOTTOM, BAR_OFF */
-/* curses attributes for the status bar */
-#define BAR_ATTR        A_NORMAL
-#define BAR_FG          BLUE
-#define BAR_BG          -1
 /* determines whether the statusbar text should be right or left aligned */
 #define BAR_ALIGN       ALIGN_RIGHT
 /* separator between window title and window number */
@@ -46,7 +38,7 @@
 #include "fullscreen.c"
 
 /* by default the first layout entry is used */
-Layout layouts[] = {
+static Layout layouts[] = {
 	{ "[]=", tile },
 	{ "+++", grid },
 	{ "TTT", bstack },
@@ -55,9 +47,10 @@ Layout layouts[] = {
 
 #define MOD CTRL('g')
 
-/* you can at most specifiy MAX_ARGS (2) number of arguments */
-Key keys[] = {
+/* you can at most specifiy MAX_ARGS (3) number of arguments */
+static Key keys[] = {
 	{ MOD, 'c',       { create,         { NULL }                    } },
+	{ MOD, 'C',       { create,         { NULL, NULL, "$CWD" }      } },
 	{ MOD, 'x',       { killclient,     { NULL }                    } },
 	{ MOD, 'j',       { focusnext,      { NULL }                    } },
 	{ MOD, 'u',       { focusnextnm,    { NULL }                    } },
@@ -89,14 +82,19 @@ Key keys[] = {
 	{ MOD, 'r',       { redraw,         { NULL }                    } },
 	{ MOD, 'X',       { lock,           { NULL }                    } },
 	{ MOD, 'B',       { togglebell,     { NULL }                    } },
+	{ MOD, 'v',       { copymode,       { NULL }                    } },
+	{ MOD, '/',       { copymode,       { "/" }                     } },
+	{ MOD, '?',       { copymode,       { "?" }                     } },
+	{ MOD, 'p',       { paste,          { NULL }                    } },
 	{ MOD, KEY_PPAGE, { scrollback,     { "-1" }                    } },
 	{ MOD, KEY_NPAGE, { scrollback,     { "1"  }                    } },
-	{ MOD, '?',       { create,         { "man dvtm", "dvtm help" } } },
+	{ MOD, KEY_F(1),  { create,         { "man dvtm", "dvtm help" } } },
 };
 
 static const ColorRule colorrules[] = {
-	/* title attrs     fgcolor      bgcolor */
+	{ "", A_NORMAL, -1, -1 }, /* default */
 #if 0
+	/* title attrs     fgcolor      bgcolor */
 	{ "ssh", A_NORMAL, COLOR_BLACK, 224      },
 #endif
 };
@@ -137,7 +135,7 @@ static const ColorRule colorrules[] = {
 #define ENABLE_MOUSE true /* whether to enable mouse events by default */
 
 #ifdef CONFIG_MOUSE
-Button buttons[] = {
+static Button buttons[] = {
 	{ BUTTON1_CLICKED,        { mouse_focus,      { NULL  } } },
 	{ BUTTON1_DOUBLE_CLICKED, { mouse_fullscreen, { "[ ]" } } },
 	{ BUTTON2_CLICKED,        { mouse_zoom,       { NULL  } } },
@@ -145,11 +143,15 @@ Button buttons[] = {
 };
 #endif /* CONFIG_MOUSE */
 
-Cmd commands[] = {
+static Cmd commands[] = {
 	{ "create", { create,	{ NULL } } },
 };
 
 /* gets executed when dvtm is started */
-Action actions[] = {
+static Action actions[] = {
 	{ create, { NULL } },
+};
+
+static char const * const keytable[] = {
+	/* add your custom key escape sequences */
 };
