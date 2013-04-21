@@ -5,16 +5,17 @@
 # Contributor: CReimer
 
 pkgname=cinnamon
-pkgver=1.7.3
-pkgrel=2
+pkgver=1.7.4
+pkgrel=1
 pkgdesc="Linux desktop which provides advanced innovative features and a traditional user experience"
 arch=('i686' 'x86_64')
 url="http://cinnamon.linuxmint.com/"
 license=('GPL2')
 depends=('accountsservice' 'caribou' 'clutter-gtk' 'gjs' 'gnome-bluetooth'
          'gnome-icon-theme' 'gnome-menus' 'gnome-settings-daemon' 'gnome-session'
-         'gnome-themes-standard' 'gstreamer0.10' 'networkmanager' 'muffin' 'python2-dbus'
-         'python2-gconf' 'python2-imaging' 'python2-pyinotify' 'python2-lxml' 'webkitgtk3')
+         'gnome-themes-standard' 'gstreamer0.10' 'libgnome-keyring' 'librsvg'
+         'networkmanager' 'muffin' 'pygtk' 'python2-dbus' 'python2-imaging'
+         'python2-pyinotify' 'python2-lxml' 'webkitgtk3')
 makedepends=('gnome-common' 'intltool')
 optdepends=('cinnamon-control-center: extended configurations for Cinnamon'
             'cinnamon-screensaver: lock screen'
@@ -26,14 +27,22 @@ install=${pkgname}.install
 source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxmint/Cinnamon/tarball/$pkgver"
         "keyboard_applet.patch"
         "fix-control-center-check.patch"
-        "fix-keyboard-settings.patch")
-md5sums=('c733e2a2280508aecf3ee010587e6743'
+        "gdbus-port.patch"
+        "add-backgroundmanager.patch")
+md5sums=('95260dc968ca9be32c265b35df2dd49d'
          '2b1ece84416c3e4de030be15f1774d82'
          'c3f25b06d345d9d36c197cd96e08f496'
-         'c36138eddde544b5c27b66d19451e7a5')
+         '43d1b40883ca8ba241e8b4df7e6c3e6a'
+         '385558b411f00755ec9151758f718165')
 
 build() {
   cd ${srcdir}/linuxmint-Cinnamon*
+
+  # Python2 fix
+  sed -i 's|#! /usr/bin/python|#! /usr/bin/python2|' \
+    files/usr/bin/$pkgname-menu-editor \
+    files/usr/share/$pkgname/applets/panel-launchers@$pkgname.org/$pkgname-add-panel-launcher.py
+  find -type f | xargs sed -i 's@^#!.*python$@#!/usr/bin/python2@'
 
   # Fix Keyboard applet
   # https://github.com/linuxmint/Cinnamon/issues/1337
@@ -42,9 +51,11 @@ build() {
   # Check for the cc-panel path, not for the unneeded binary
   patch -Np1 -i ${srcdir}/fix-control-center-check.patch
 
-  # Fix Keyboard settings (https://bugs.archlinux.org/task/34472)
-  patch -Np1 -i ${srcdir}/fix-keyboard-settings.patch
+  # https://github.com/linuxmint/Cinnamon/pull/1872
+  patch -Np1 -i ${srcdir}/gdbus-port.patch
 
+  # https://github.com/linuxmint/Cinnamon/pull/1875
+  patch -Np1 -i ${srcdir}/add-backgroundmanager.patch
 
   ./autogen.sh --prefix=/usr \
                --sysconfdir=/etc \
@@ -54,31 +65,10 @@ build() {
                --disable-schemas-compile \
                --enable-compile-warnings=yes \
                --with-session-tracking=systemd
- 
   make
 }
 
 package() {
   cd ${srcdir}/linuxmint-Cinnamon*
   make DESTDIR="${pkgdir}" install
-
-  # Install autostart files for gnome-fallback-mount-helper
-  install -Dm644 /etc/xdg/autostart/gnome-fallback-mount-helper.desktop \
-    "${pkgdir}/etc/xdg/autostart/gnome-fallback-mount-helper-cinnamon.desktop"
-  sed -i 's/^AutostartCondition=.*/AutostartCondition=GNOME3 if-session cinnamon/' \
-    "${pkgdir}/etc/xdg/autostart/gnome-fallback-mount-helper-cinnamon.desktop"
-
-  install -Dm644 /etc/xdg/autostart/gnome-fallback-mount-helper.desktop \
-    "${pkgdir}/etc/xdg/autostart/gnome-fallback-mount-helper-cinnamon2d.desktop"
-  sed -i 's/^AutostartCondition=.*/AutostartCondition=GNOME3 if-session cinnamon2d/' \
-    "${pkgdir}/etc/xdg/autostart/gnome-fallback-mount-helper-cinnamon2d.desktop"
-
-  # Python2 fix
-  sed -i 's|#! /usr/bin/python|#! /usr/bin/python2|' \
-    "${pkgdir}/usr/bin/$pkgname-menu-editor" \
-    "${pkgdir}/usr/share/$pkgname/applets/panel-launchers@$pkgname.org/$pkgname-add-panel-launcher.py"
-
-  find "${pkgdir}" -type f | xargs sed -i 's@^#!.*python$@#!/usr/bin/python2@'
 }
-
-
