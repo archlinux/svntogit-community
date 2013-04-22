@@ -1,11 +1,885 @@
-From 6bf82edbe9f9adc480915f710f4c4fa1d4d82cb4 Mon Sep 17 00:00:00 2001
+From f4020d3960fa96a101bdb1c3ac1e1a452dbbf48c Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Fri, 19 Apr 2013 13:19:50 -0400
+Subject: [PATCH 01/15] Disable XInput on cinnamon startup (for 3.8 compat)
+ This has no effect on < 1.14 clutter
+
+---
+ src/main.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/main.c b/src/main.c
+index 418fb60..ac90d91 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -260,6 +260,7 @@
+   meta_plugin_type_register (gnome_cinnamon_plugin_get_type ());
+ 
+   /* Prevent meta_init() from causing gtk to load gail and at-bridge */
++  g_setenv ("CLUTTER_DISABLE_XINPUT", "1", TRUE);
+   g_setenv ("NO_GAIL", "1", TRUE);
+   g_setenv ("NO_AT_BRIDGE", "1", TRUE);
+   meta_init ();
+-- 
+1.8.1.6
+
+
+From cc68659ecdd9e43128ec2b4555479f930c0d1ccd Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Fri, 19 Apr 2013 13:21:40 -0400
+Subject: [PATCH 02/15] Explain change
+
+---
+ src/main.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/main.c b/src/main.c
+index ac90d91..9d37975 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -257,10 +257,12 @@
+ 
+   g_option_context_free (ctx);
+ 
++  /* Disable XInput extension - required for 3.8 compatibility */
++  g_setenv ("CLUTTER_DISABLE_XINPUT", "1", TRUE);
++
+   meta_plugin_type_register (gnome_cinnamon_plugin_get_type ());
+ 
+   /* Prevent meta_init() from causing gtk to load gail and at-bridge */
+-  g_setenv ("CLUTTER_DISABLE_XINPUT", "1", TRUE);
+   g_setenv ("NO_GAIL", "1", TRUE);
+   g_setenv ("NO_AT_BRIDGE", "1", TRUE);
+   meta_init ();
+-- 
+1.8.1.6
+
+
+From f3777b3b2733b965bd348c7175ee67ee268aee06 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Tue, 16 Apr 2013 17:01:30 -0400
+Subject: [PATCH 03/15] Add backgroundManager - this is needed for gnome 3.8
+ compatibility, as gnome-settings-daemon no longer handles the desktop
+ background.
+
+---
+ configure.ac                                       |   7 +-
+ data/org.cinnamon.gschema.xml.in                   |  71 +++-
+ .../cinnamon-settings/modules/cs_backgrounds.py    |  31 +-
+ js/ui/main.js                                      |   3 +-
+ src/Makefile.am                                    |   2 +
+ src/cinnamon-background-manager.c                  | 411 +++++++++++++++++++++
+ src/cinnamon-background-manager.h                  |  57 +++
+ 7 files changed, 562 insertions(+), 20 deletions(-)
+ create mode 100644 src/cinnamon-background-manager.c
+ create mode 100644 src/cinnamon-background-manager.h
+
+diff --git a/configure.ac b/configure.ac
+index 0aa47c5..a2a9479 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -68,6 +68,7 @@ GTK_MIN_VERSION=3.0.0
+ GIO_MIN_VERSION=2.29.10
+ POLKIT_MIN_VERSION=0.100
+ STARTUP_NOTIFICATION_MIN_VERSION=0.11
++GNOME_DESKTOP_MIN_VERSION=3.0.0
+ 
+ # Collect more than 20 libraries for a prize!
+ PKG_CHECK_MODULES(CINNAMON, gio-2.0 >= $GIO_MIN_VERSION
+@@ -82,7 +83,8 @@ PKG_CHECK_MODULES(CINNAMON, gio-2.0 >= $GIO_MIN_VERSION
+                                gobject-introspection-1.0 >= $GOBJECT_INTROSPECTION_MIN_VERSION
+ 			       libcanberra
+                                polkit-agent-1 >= $POLKIT_MIN_VERSION xfixes
+-                               libnm-glib libnm-util gnome-keyring-1)
++                               libnm-glib libnm-util gnome-keyring-1
++                               gnome-desktop-3.0 >= GNOME_DESKTOP_MIN_VERSION)
+ 
+ PKG_CHECK_MODULES(CINNAMON_PERF_HELPER, gtk+-3.0 gio-2.0)
+ 
+@@ -106,7 +108,8 @@ AC_CHECK_FUNCS(JS_NewGlobalObject XFixesCreatePointerBarrier)
+ CFLAGS=$saved_CFLAGS
+ LIBS=$saved_LIBS
+ 
+-PKG_CHECK_MODULES(ST, clutter-1.0 gtk+-3.0 libcroco-0.6 >= 0.6.2 gnome-desktop-3.0 >= 2.90.0 x11)
++PKG_CHECK_MODULES(ST, clutter-1.0 gtk+-3.0 libcroco-0.6 >= 0.6.2 
++                      gnome-desktop-3.0 >= GNOME_DESKTOP_MIN_VERSION x11)
+ PKG_CHECK_MODULES(GDMUSER, dbus-glib-1 gtk+-3.0)
+ PKG_CHECK_MODULES(TRAY, gtk+-3.0)
+ PKG_CHECK_MODULES(GVC, libpulse libpulse-mainloop-glib gobject-2.0)
+diff --git a/data/org.cinnamon.gschema.xml.in b/data/org.cinnamon.gschema.xml.in
+index ffbad92..6f55477 100644
+--- a/data/org.cinnamon.gschema.xml.in
++++ b/data/org.cinnamon.gschema.xml.in
+@@ -720,6 +720,23 @@
+     </key>
+   </schema>
+ 
++
++  <enum id="bg_style">
++    <value nick="none" value="0"/>
++    <value nick="wallpaper" value="1"/>
++    <value nick="centered" value="2"/>
++    <value nick="scaled" value="3"/>
++    <value nick="stretched" value="4"/>
++    <value nick="zoom" value="5"/>
++    <value nick="spanned" value="6"/>
++  </enum>
++
++  <enum id="bg_shading">
++    <value nick="solid" value="0"/>
++    <value nick="vertical" value="1"/>
++    <value nick="horizontal" value="2"/>
++  </enum>
++
+   <schema id="org.cinnamon.background" path="/org/cinnamon/background/">
+     <key name="mode" type="s">
+       <default>"wallpaper"</default>
+@@ -750,8 +767,60 @@
+         This key defines the delay for the slideshow.
+       </description>
+     </key>
++    <key name="draw-background" type="b">
++      <default>true</default>
++      <_summary>Draw Desktop Background</_summary>
++      <_description>Have GNOME draw the desktop background.</_description>
++    </key>
++    <key name="picture-options" enum="bg_style">
++      <default>'zoom'</default>
++      <_summary>Picture Options</_summary>
++      <_description>
++        Determines how the image set by wallpaper_filename is rendered.
++        Possible values are "none", "wallpaper", "centered", "scaled",
++        "stretched", "zoom", "spanned".
++      </_description>
++    </key>
++    <key name="picture-uri" type="s">
++      <default>'file://@datadir@/themes/Adwaita/backgrounds/adwaita-timed.xml'</default>
++      <_summary>Picture URI</_summary>
++      <_description>
++        URI to use for the background image. Not that the backend only supports
++        local (file://) URIs.
++      </_description>
++    </key>
++    <key name="picture-opacity" type="i">
++      <range min="0" max="100"/>
++      <default>100</default>
++      <_summary>Picture Opacity</_summary>
++      <_description>
++        Opacity with which to draw the background picture.
++      </_description>
++    </key>
++    <key name="primary-color" type="s">
++      <default>'#023c88'</default>
++      <_summary>Primary Color</_summary>
++      <_description>
++        Left or Top color when drawing gradients, or the solid color.
++      </_description>
++    </key>
++    <key name="secondary-color" type="s">
++      <default>'#5789ca'</default>
++      <_summary>Secondary Color</_summary>
++      <_description>
++        Right or Bottom color when drawing gradients, not used for solid color.
++      </_description>
++    </key>
++    <key name="color-shading-type" enum="bg_shading">
++      <default>'solid'</default>
++      <_summary>Color Shading Type</_summary>
++      <_description>
++        How to shade the background color. Possible values are "horizontal",
++        "vertical", and "solid".
++      </_description>
++    </key>
+   </schema>
+-  
++
+   <schema id="org.cinnamon.screensaver" path="/org/cinnamon/screensaver/">
+     <key name="default-message" type="s">
+       <default>""</default>
+diff --git a/files/usr/lib/cinnamon-settings/modules/cs_backgrounds.py b/files/usr/lib/cinnamon-settings/modules/cs_backgrounds.py
+index f964aed..4a38c84 100644
+--- a/files/usr/lib/cinnamon-settings/modules/cs_backgrounds.py
++++ b/files/usr/lib/cinnamon-settings/modules/cs_backgrounds.py
+@@ -232,11 +232,11 @@ def getFirstFileFromBackgroundXml(self, filename):
+     
+ 
+ class BackgroundWallpaperPane (Gtk.VBox):
+-    def __init__(self, sidepage, gnome_background_schema):
++    def __init__(self, sidepage, cinnamon_background_schema):
+         Gtk.VBox.__init__(self)
+         self.set_spacing(5)
+         
+-        self._gnome_background_schema = gnome_background_schema
++        self._cinnamon_background_schema = cinnamon_background_schema
+         self._sidepage = sidepage
+         
+         scw = Gtk.ScrolledWindow()
+@@ -263,15 +263,15 @@ def _on_selection_changed(self, iconview):
+         if wallpaper:
+             for key in wallpaper:
+                 if key == "filename":
+-                    self._gnome_background_schema.set_string("picture-uri", "file://" + wallpaper[key])
++                    self._cinnamon_background_schema.set_string("picture-uri", "file://" + wallpaper[key])
+                 elif key == "pcolor":
+-                    self._gnome_background_schema.set_string("primary-color", wallpaper[key])
++                    self._cinnamon_background_schema.set_string("primary-color", wallpaper[key])
+                 elif key == "scolor":
+-                    self._gnome_background_schema.set_string("secondary-color", wallpaper[key])
++                    self._cinnamon_background_schema.set_string("secondary-color", wallpaper[key])
+                 elif key == "shade_type":
+-                    self._gnome_background_schema.set_string("color-shading-type", wallpaper[key])
++                    self._cinnamon_background_schema.set_string("color-shading-type", wallpaper[key])
+                 elif key == "options":
+-                    self._gnome_background_schema.set_string("picture-options", wallpaper[key])
++                    self._cinnamon_background_schema.set_string("picture-options", wallpaper[key])
+             if (not "metadataFile" in wallpaper) or (wallpaper["metadataFile"] == ""):
+                 self._sidepage.remove_wallpaper_button.set_sensitive(True)
+     
+@@ -364,7 +364,7 @@ def run(self):
+         return res
+ 
+ class BackgroundSlideshowPane(Gtk.Table):
+-    def __init__(self, sidepage, gnome_background_schema, cinnamon_background_schema):
++    def __init__(self, sidepage, cinnamon_background_schema):
+         Gtk.Table.__init__(self)
+         self.set_col_spacings(5)
+         self.set_row_spacings(5)
+@@ -445,12 +445,11 @@ def _do_update_list(self, folder, recursive, delay, transition_duration = 0):
+             f = open(filename, "w")
+             f.write(xml_data)
+             f.close()
+-            Gio.Settings("org.gnome.desktop.background").set_string("picture-uri", "file://" + filename)
++            Gio.Settings("org.cinnamon.background").set_string("picture-uri", "file://" + filename)
+ 
+ class BackgroundSidePage (SidePage):
+     def __init__(self, name, icon, keywords, advanced, content_box):
+         SidePage.__init__(self, name, icon, keywords, advanced, content_box)
+-        self._gnome_background_schema = Gio.Settings("org.gnome.desktop.background")
+         self._cinnamon_background_schema = Gio.Settings("org.cinnamon.background")
+         self._add_wallpapers_dialog = AddWallpapersDialog()
+         
+@@ -515,8 +514,8 @@ def build(self, advanced):
+         self.mainbox.set_visible_window(False)
+         self.content_box.pack_start(self.mainbox, True, True, 3)
+         
+-        self.wallpaper_pane = BackgroundWallpaperPane(self, self._gnome_background_schema)
+-        self.slideshow_pane = BackgroundSlideshowPane(self, self._gnome_background_schema, self._cinnamon_background_schema)
++        self.wallpaper_pane = BackgroundWallpaperPane(self, self._cinnamon_background_schema)
++        self.slideshow_pane = BackgroundSlideshowPane(self, self._cinnamon_background_schema)
+         if self._cinnamon_background_schema["mode"] == "slideshow":
+             self.mainbox.add(self.slideshow_pane)
+         else:
+@@ -536,21 +535,21 @@ def build(self, advanced):
+         l = Gtk.Label(_("Picture aspect"))
+         l.set_alignment(0, 0.5)
+         advanced_options_box.pack_start(l, False, False, 0)
+-        self.picture_options = GSettingsComboBox("", "org.gnome.desktop.background", "picture-options", None, BACKGROUND_PICTURE_OPTIONS)
++        self.picture_options = GSettingsComboBox("", "org.cinnamon.background", "picture-options", None, BACKGROUND_PICTURE_OPTIONS)
+         advanced_options_box.pack_start(self.picture_options, False, False, 0)
+         
+         l = Gtk.Label(_("Gradient"))
+         l.set_alignment(0, 0.5)
+         advanced_options_box.pack_start(l, False, False, 0)
+-        self.color_shading_type = GSettingsComboBox("", "org.gnome.desktop.background", "color-shading-type", None, BACKGROUND_COLOR_SHADING_TYPES)
++        self.color_shading_type = GSettingsComboBox("", "org.cinnamon.background", "color-shading-type", None, BACKGROUND_COLOR_SHADING_TYPES)
+         advanced_options_box.pack_start(self.color_shading_type, False, False, 0)
+         
+         hbox = Gtk.HBox()
+         l = Gtk.Label(_("Colors"))
+         hbox.pack_start(l, False, False, 2)
+-        self.primary_color = GSettingsColorChooser("org.gnome.desktop.background", "primary-color", None)
++        self.primary_color = GSettingsColorChooser("org.cinnamon.background", "primary-color", None)
+         hbox.pack_start(self.primary_color, False, False, 2)
+-        self.secondary_color = GSettingsColorChooser("org.gnome.desktop.background", "secondary-color", None)
++        self.secondary_color = GSettingsColorChooser("org.cinnamon.background", "secondary-color", None)
+         hbox.pack_start(self.secondary_color, False, False, 2)
+         advanced_options_box.pack_start(hbox, False, False, 0)
+         self.content_box.show_all()
+diff --git a/js/ui/main.js b/js/ui/main.js
+index 11920a4..5cae372 100644
+--- a/js/ui/main.js
++++ b/js/ui/main.js
+@@ -86,6 +86,7 @@ let _cssStylesheet = null;
+ let dynamicWorkspaces = null;
+ let nWorks = null;
+ let tracker = null;
++let backgroundManager = null;
+ let desktopShown;
+ 
+ let workspace_names = [];
+@@ -214,7 +215,7 @@ function start() {
+     // be predictable anyways.
+     tracker = Cinnamon.WindowTracker.get_default();
+     Cinnamon.AppUsage.get_default();
+-
++    backgroundManager = Cinnamon.BackgroundManager.get_default();
+     // The stage is always covered so Clutter doesn't need to clear it; however
+     // the color is used as the default contents for the Muffin root background
+     // actor so set it anyways.
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 51413aa..6efce18 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -105,6 +105,7 @@ cinnamon_public_headers_h =		\
+ 	cinnamon-app-system.h		\
+ 	cinnamon-app-usage.h		\
+ 	cinnamon-arrow.h			\
++	cinnamon-background-manager.h	\
+ 	cinnamon-doc-system.h		\
+ 	cinnamon-embedded-window.h		\
+ 	cinnamon-generic-container.h	\
+@@ -142,6 +143,7 @@ libcinnamon_la_SOURCES =		\
+ 	cinnamon-app-system.c		\
+ 	cinnamon-app-usage.c		\
+ 	cinnamon-arrow.c			\
++	cinnamon-background-manager.c	\
+ 	cinnamon-doc-system.c		\
+ 	cinnamon-embedded-window.c		\
+ 	cinnamon-generic-container.c	\
+diff --git a/src/cinnamon-background-manager.c b/src/cinnamon-background-manager.c
+new file mode 100644
+index 0000000..9d95250
+--- /dev/null
++++ b/src/cinnamon-background-manager.c
+@@ -0,0 +1,411 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 8 -*-
++ *
++ * Copyright © 2001 Ximian, Inc.
++ * Copyright (C) 2007 William Jon McCann <mccann@jhu.edu>
++ * Copyright 2007 Red Hat, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#include "config.h"
++
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <string.h>
++#include <errno.h>
++
++#include <locale.h>
++
++#include <glib.h>
++#include <glib/gi18n.h>
++#include <gio/gio.h>
++#include <gdk/gdk.h>
++#include <gdk/gdkx.h>
++
++#define GNOME_DESKTOP_USE_UNSTABLE_API
++#include <libgnome-desktop/gnome-bg.h>
++#include <X11/Xatom.h>
++
++#include "cinnamon-background-manager.h"
++
++#define CINNAMON_BACKGROUND_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), CINNAMON_TYPE_BACKGROUND_MANAGER, CinnamonBackgroundManagerPrivate))
++
++struct CinnamonBackgroundManagerPrivate
++{
++        GSettings   *settings;
++        GnomeBG     *bg;
++
++        GnomeBGCrossfade *fade;
++
++        GDBusProxy  *proxy;
++        guint        proxy_signal_id;
++};
++
++static void     cinnamon_background_manager_class_init  (CinnamonBackgroundManagerClass *klass);
++static void     cinnamon_background_manager_init        (CinnamonBackgroundManager      *background_manager);
++static void     cinnamon_background_manager_finalize    (GObject             *object);
++
++static void setup_bg (CinnamonBackgroundManager *manager);
++static void connect_screen_signals (CinnamonBackgroundManager *manager);
++
++G_DEFINE_TYPE (CinnamonBackgroundManager, cinnamon_background_manager, G_TYPE_OBJECT)
++
++static gpointer manager_object = NULL;
++
++static gboolean
++dont_draw_background (CinnamonBackgroundManager *manager)
++{
++        return !g_settings_get_boolean (manager->priv->settings,
++                                        "draw-background");
++}
++
++static void
++on_crossfade_finished (CinnamonBackgroundManager *manager)
++{
++        g_object_unref (manager->priv->fade);
++        manager->priv->fade = NULL;
++}
++
++static void
++draw_background (CinnamonBackgroundManager *manager,
++                 gboolean              use_crossfade)
++{
++        GdkDisplay *display;
++        int         n_screens;
++        int         i;
++
++        display = gdk_display_get_default ();
++        n_screens = gdk_display_get_n_screens (display);
++
++        for (i = 0; i < n_screens; ++i) {
++                GdkScreen *screen;
++                GdkWindow *root_window;
++                cairo_surface_t *surface;
++
++                screen = gdk_display_get_screen (display, i);
++
++                root_window = gdk_screen_get_root_window (screen);
++
++                surface = gnome_bg_create_surface (manager->priv->bg,
++                                                   root_window,
++                                                   gdk_screen_get_width (screen),
++                                                   gdk_screen_get_height (screen),
++                                                   TRUE);
++
++                if (use_crossfade) {
++
++                        if (manager->priv->fade != NULL) {
++                                g_object_unref (manager->priv->fade);
++                        }
++
++                        manager->priv->fade = gnome_bg_set_surface_as_root_with_crossfade (screen, surface);
++                        g_signal_connect_swapped (manager->priv->fade, "finished",
++                                                  G_CALLBACK (on_crossfade_finished),
++                                                  manager);
++                } else {
++                        gnome_bg_set_surface_as_root (screen, surface);
++                }
++
++                cairo_surface_destroy (surface);
++        }
++}
++
++static void
++on_bg_transitioned (GnomeBG              *bg,
++                    CinnamonBackgroundManager *manager)
++{
++        draw_background (manager, FALSE);
++}
++
++static gboolean
++settings_change_event_cb (GSettings            *settings,
++                          gpointer              keys,
++                          gint                  n_keys,
++                          CinnamonBackgroundManager *manager)
++{
++        gnome_bg_load_from_preferences (manager->priv->bg,
++                                        manager->priv->settings);
++        return FALSE;
++}
++
++static void
++on_screen_size_changed (GdkScreen            *screen,
++                        CinnamonBackgroundManager *manager)
++{
++        draw_background (manager, FALSE);
++}
++
++static void
++watch_bg_preferences (CinnamonBackgroundManager *manager)
++{
++        g_signal_connect (manager->priv->settings,
++                          "change-event",
++                          G_CALLBACK (settings_change_event_cb),
++                          manager);
++}
++
++static void
++on_bg_changed (GnomeBG              *bg,
++               CinnamonBackgroundManager *manager)
++{
++        draw_background (manager, TRUE);
++}
++
++static void
++setup_bg (CinnamonBackgroundManager *manager)
++{
++        g_return_if_fail (manager->priv->bg == NULL);
++
++        manager->priv->bg = gnome_bg_new ();
++
++        g_signal_connect (manager->priv->bg,
++                          "changed",
++                          G_CALLBACK (on_bg_changed),
++                          manager);
++
++        g_signal_connect (manager->priv->bg,
++                          "transitioned",
++                          G_CALLBACK (on_bg_transitioned),
++                          manager);
++
++        connect_screen_signals (manager);
++        watch_bg_preferences (manager);
++        gnome_bg_load_from_preferences (manager->priv->bg,
++                                        manager->priv->settings);
++}
++
++static void
++setup_bg_and_draw_background (CinnamonBackgroundManager *manager)
++{
++        setup_bg (manager);
++        draw_background (manager, FALSE);
++}
++
++static void
++disconnect_session_manager_listener (CinnamonBackgroundManager *manager)
++{
++        if (manager->priv->proxy && manager->priv->proxy_signal_id) {
++                g_signal_handler_disconnect (manager->priv->proxy,
++                                             manager->priv->proxy_signal_id);
++                manager->priv->proxy_signal_id = 0;
++        }
++}
++
++static void
++on_session_manager_signal (GDBusProxy   *proxy,
++                           const gchar  *sender_name,
++                           const gchar  *signal_name,
++                           GVariant     *parameters,
++                           gpointer      user_data)
++{
++        CinnamonBackgroundManager *manager = CINNAMON_BACKGROUND_MANAGER (user_data);
++
++        if (g_strcmp0 (signal_name, "SessionRunning") == 0) {
++                setup_bg_and_draw_background (manager);
++                disconnect_session_manager_listener (manager);
++        }
++}
++
++static void
++draw_background_after_session_loads (CinnamonBackgroundManager *manager)
++{
++        GError *error = NULL;
++        GDBusProxyFlags flags;
++
++        flags = G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
++                G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START;
++        manager->priv->proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
++                                                              flags,
++                                                              NULL, /* GDBusInterfaceInfo */
++                                                              "org.gnome.SessionManager",
++                                                              "/org/gnome/SessionManager",
++                                                              "org.gnome.SessionManager",
++                                                              NULL, /* GCancellable */
++                                                              &error);
++        if (manager->priv->proxy == NULL) {
++                g_warning ("Could not listen to session manager: %s",
++                           error->message);
++                g_error_free (error);
++                return;
++        }
++
++        manager->priv->proxy_signal_id = g_signal_connect (manager->priv->proxy,
++                                                           "g-signal",
++                                                           G_CALLBACK (on_session_manager_signal),
++                                                           manager);
++}
++
++
++static void
++disconnect_screen_signals (CinnamonBackgroundManager *manager)
++{
++        GdkDisplay *display;
++        int         i;
++        int         n_screens;
++
++        display = gdk_display_get_default ();
++        n_screens = gdk_display_get_n_screens (display);
++
++        for (i = 0; i < n_screens; ++i) {
++                GdkScreen *screen;
++                screen = gdk_display_get_screen (display, i);
++                g_signal_handlers_disconnect_by_func (screen,
++                                                      G_CALLBACK (on_screen_size_changed),
++                                                      manager);
++        }
++}
++
++static void
++connect_screen_signals (CinnamonBackgroundManager *manager)
++{
++        GdkDisplay *display;
++        int         i;
++        int         n_screens;
++
++        display = gdk_display_get_default ();
++        n_screens = gdk_display_get_n_screens (display);
++
++        for (i = 0; i < n_screens; ++i) {
++                GdkScreen *screen;
++                screen = gdk_display_get_screen (display, i);
++                g_signal_connect (screen,
++                                  "monitors-changed",
++                                  G_CALLBACK (on_screen_size_changed),
++                                  manager);
++                g_signal_connect (screen,
++                                  "size-changed",
++                                  G_CALLBACK (on_screen_size_changed),
++                                  manager);
++        }
++}
++
++static void
++draw_background_changed (GSettings            *settings,
++                         const char           *key,
++                         CinnamonBackgroundManager *manager)
++{
++        if (dont_draw_background (manager) == FALSE)
++                setup_bg_and_draw_background (manager);
++}
++
++gboolean
++cinnamon_background_manager_start (CinnamonBackgroundManager *manager)
++{
++        manager->priv->settings = g_settings_new ("org.cinnamon.background");
++        g_signal_connect (manager->priv->settings, "changed::draw-background",
++                          G_CALLBACK (draw_background_changed), manager);
++
++        setup_bg_and_draw_background (manager);
++            //draw_background_after_session_loads (manager);
++
++
++        return TRUE;
++}
++
++void
++cinnamon_background_manager_stop (CinnamonBackgroundManager *manager)
++{
++        CinnamonBackgroundManagerPrivate *p = manager->priv;
++
++        g_debug ("Stopping background manager");
++
++        disconnect_screen_signals (manager);
++
++        if (manager->priv->proxy) {
++                disconnect_session_manager_listener (manager);
++                g_object_unref (manager->priv->proxy);
++        }
++
++        g_signal_handlers_disconnect_by_func (manager->priv->settings,
++                                              settings_change_event_cb,
++                                              manager);
++
++        if (p->settings != NULL) {
++                g_object_unref (p->settings);
++                p->settings = NULL;
++        }
++
++        if (p->bg != NULL) {
++                g_object_unref (p->bg);
++                p->bg = NULL;
++        }
++}
++
++/**
++ * cinnamon_background_manager_get_default:
++ *
++ * Return Value: (transfer none): The global #CinnamonBackgroundManager singleton
++ */
++CinnamonBackgroundManager *
++cinnamon_background_manager_get_default ()
++{
++  static CinnamonBackgroundManager *instance = NULL;
++
++  if (instance == NULL)
++    instance = g_object_new (CINNAMON_TYPE_BACKGROUND_MANAGER, NULL);
++
++  return instance;
++}
++
++static GObject *
++cinnamon_background_manager_constructor (GType                  type,
++                                    guint                  n_construct_properties,
++                                    GObjectConstructParam *construct_properties)
++{
++        CinnamonBackgroundManager      *background_manager;
++
++        background_manager = CINNAMON_BACKGROUND_MANAGER (G_OBJECT_CLASS (cinnamon_background_manager_parent_class)->constructor (type,
++                                                                                                                        n_construct_properties,
++                                                                                                                        construct_properties));
++
++        return G_OBJECT (background_manager);
++}
++
++static void
++cinnamon_background_manager_class_init (CinnamonBackgroundManagerClass *klass)
++{
++        GObjectClass   *object_class = G_OBJECT_CLASS (klass);
++
++        object_class->constructor = cinnamon_background_manager_constructor;
++        object_class->finalize = cinnamon_background_manager_finalize;
++
++        g_type_class_add_private (klass, sizeof (CinnamonBackgroundManagerPrivate));
++}
++
++static void
++cinnamon_background_manager_init (CinnamonBackgroundManager *manager)
++{
++        manager->priv = CINNAMON_BACKGROUND_MANAGER_GET_PRIVATE (manager);
++        cinnamon_background_manager_start (manager);
++}
++
++static void
++cinnamon_background_manager_finalize (GObject *object)
++{
++        CinnamonBackgroundManager *background_manager;
++
++        g_return_if_fail (object != NULL);
++        g_return_if_fail (CINNAMON_IS_BACKGROUND_MANAGER (object));
++
++        background_manager = CINNAMON_BACKGROUND_MANAGER (object);
++
++        g_return_if_fail (background_manager->priv != NULL);
++
++        G_OBJECT_CLASS (cinnamon_background_manager_parent_class)->finalize (object);
++}
+diff --git a/src/cinnamon-background-manager.h b/src/cinnamon-background-manager.h
+new file mode 100644
+index 0000000..9a56e32
+--- /dev/null
++++ b/src/cinnamon-background-manager.h
+@@ -0,0 +1,57 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2007 William Jon McCann <mccann@jhu.edu>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#ifndef __CINNAMON_BACKGROUND_MANAGER_H
++#define __CINNAMON_BACKGROUND_MANAGER_H
++
++#include <glib-object.h>
++
++G_BEGIN_DECLS
++
++#define CINNAMON_TYPE_BACKGROUND_MANAGER         (cinnamon_background_manager_get_type ())
++#define CINNAMON_BACKGROUND_MANAGER(o)           (G_TYPE_CHECK_INSTANCE_CAST ((o), CINNAMON_TYPE_BACKGROUND_MANAGER, CinnamonBackgroundManager))
++#define CINNAMON_BACKGROUND_MANAGER_CLASS(k)     (G_TYPE_CHECK_CLASS_CAST((k), CINNAMON_TYPE_BACKGROUND_MANAGER, CinnamonBackgroundManagerClass))
++#define CINNAMON_IS_BACKGROUND_MANAGER(o)        (G_TYPE_CHECK_INSTANCE_TYPE ((o), CINNAMON_TYPE_BACKGROUND_MANAGER))
++#define CINNAMON_IS_BACKGROUND_MANAGER_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE ((k), CINNAMON_TYPE_BACKGROUND_MANAGER))
++#define CINNAMON_BACKGROUND_MANAGER_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS ((o), CINNAMON_TYPE_BACKGROUND_MANAGER, CinnamonBackgroundManagerClass))
++
++typedef struct CinnamonBackgroundManagerPrivate CinnamonBackgroundManagerPrivate;
++
++typedef struct
++{
++        GObject                     parent;
++        CinnamonBackgroundManagerPrivate *priv;
++} CinnamonBackgroundManager;
++
++typedef struct
++{
++        GObjectClass   parent_class;
++} CinnamonBackgroundManagerClass;
++
++GType                   cinnamon_background_manager_get_type            (void);
++
++CinnamonBackgroundManager *cinnamon_background_manager_get_default (void);
++
++gboolean                cinnamon_background_manager_start               (CinnamonBackgroundManager *manager);
++void                    cinnamon_background_manager_stop                (CinnamonBackgroundManager *manager);
++
++G_END_DECLS
++
++#endif /* __CINNAMON_BACKGROUND_MANAGER_H */
+-- 
+1.8.1.6
+
+
+From 590a48961f2c7a1b18fb914a1d7212ffcdf03017 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Tue, 16 Apr 2013 18:28:16 -0400
+Subject: [PATCH 04/15] Change default background
+
+---
+ data/org.cinnamon.gschema.xml.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data/org.cinnamon.gschema.xml.in b/data/org.cinnamon.gschema.xml.in
+index 6f55477..35b0972 100644
+--- a/data/org.cinnamon.gschema.xml.in
++++ b/data/org.cinnamon.gschema.xml.in
+@@ -782,7 +782,7 @@
+       </_description>
+     </key>
+     <key name="picture-uri" type="s">
+-      <default>'file://@datadir@/themes/Adwaita/backgrounds/adwaita-timed.xml'</default>
++      <default>'file:///usr/share/backgrounds/linuxmint/default_background.jpg'</default>
+       <_summary>Picture URI</_summary>
+       <_description>
+         URI to use for the background image. Not that the backend only supports
+-- 
+1.8.1.6
+
+
+From ac8b0954c7506ae88059e488539f88d55329f070 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Tue, 16 Apr 2013 18:41:16 -0400
+Subject: [PATCH 05/15] Use distro-agnostic background..
+
+---
+ data/org.cinnamon.gschema.xml.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/data/org.cinnamon.gschema.xml.in b/data/org.cinnamon.gschema.xml.in
+index 35b0972..0d01089 100644
+--- a/data/org.cinnamon.gschema.xml.in
++++ b/data/org.cinnamon.gschema.xml.in
+@@ -782,7 +782,7 @@
+       </_description>
+     </key>
+     <key name="picture-uri" type="s">
+-      <default>'file:///usr/share/backgrounds/linuxmint/default_background.jpg'</default>
++      <default>'file:///usr/share/themes/Adwaita/backgrounds/adwaita-timed.xml'</default>
+       <_summary>Picture URI</_summary>
+       <_description>
+         URI to use for the background image. Not that the backend only supports
+-- 
+1.8.1.6
+
+
+From 81dbccb60231744999463a5b84c7c36358570929 Mon Sep 17 00:00:00 2001
 From: dalcde <dalcde@yahoo.com.hk>
 Date: Mon, 15 Apr 2013 18:34:48 +0800
-Subject: [PATCH 1/2] [GDbus] Port DBus to GDBus (AltLinux patch)
+Subject: [PATCH 06/15] [GDbus] Port DBus to GDBus (AltLinux patch)
 
 ---
  .../applets/brightness@cinnamon.org/applet.js      |  39 ++--
- .../cinnamon/applets/power@cinnamon.org/applet.js  |  93 ++++----
+ .../cinnamon/applets/power@cinnamon.org/applet.js  | 102 +++++----
  .../cinnamon/applets/sound@cinnamon.org/applet.js  | 244 +++++----------------
  .../cinnamon/applets/xrandr@cinnamon.org/applet.js |  19 +-
  js/misc/gnomeSession.js                            | 147 ++++---------
@@ -24,7 +898,7 @@ Subject: [PATCH 1/2] [GDbus] Port DBus to GDBus (AltLinux patch)
  js/ui/messageTray.js                               |  13 +-
  js/ui/notificationDaemon.js                        | 193 ++++++++--------
  js/ui/scripting.js                                 |  34 ++-
- 20 files changed, 683 insertions(+), 849 deletions(-)
+ 20 files changed, 688 insertions(+), 853 deletions(-)
 
 diff --git a/files/usr/share/cinnamon/applets/brightness@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/brightness@cinnamon.org/applet.js
 index 9cbda80..9087b25 100644
@@ -100,7 +974,7 @@ index 9cbda80..9087b25 100644
                  } else {
                      this.set_applet_tooltip(_("Brightness"));
 diff --git a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
-index 466ba5f..a199e04 100644
+index c342fe7..b6b2bcd 100644
 --- a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
 +++ b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
 @@ -1,6 +1,5 @@
@@ -185,21 +1059,29 @@ index 466ba5f..a199e04 100644
  
  function DeviceItem() {
      this._init.apply(this, arguments);
-@@ -145,8 +156,8 @@ MyApplet.prototype = {
+@@ -143,11 +154,11 @@ MyApplet.prototype = {
+             this.menuManager = new PopupMenu.PopupMenuManager(this);
+             this.menu = new Applet.AppletPopupMenu(this, orientation);
              this.menuManager.addMenu(this.menu);            
-             
-             this.set_applet_icon_symbolic_name('battery-missing');            
+-            
+-            this.set_applet_icon_symbolic_name('battery-missing');            
 -            this._proxy = new PowerManagerProxy(DBus.session, BUS_NAME, OBJECT_PATH);
 -            this._smProxy = new SettingsManagerProxy(DBus.session, BUS_NAME, OBJECT_PATH);
+-            
++
++            //this.set_applet_icon_symbolic_name('battery-missing');            
 +            this._proxy = new PowerManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
 +            this._smProxy = new SettingsManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
-             
++
              let icon = this.actor.get_children()[0];
              this.actor.remove_actor(icon);
-@@ -308,16 +319,16 @@ MyApplet.prototype = {
+             let box = new St.BoxLayout({ name: 'batteryBox' });
+@@ -306,18 +317,19 @@ MyApplet.prototype = {
+         this._devicesChanged();
+     },
  
-     _devicesChanged: function() {
-         this.set_applet_icon_symbolic_name('battery-missing');
+-    _devicesChanged: function() {
+-        this.set_applet_icon_symbolic_name('battery-missing');
 -        this._proxy.GetRemote('Icon', Lang.bind(this, function(icon, error) {
 -            if (icon) {    
 -                let gicon = Gio.icon_new_for_string(icon);
@@ -210,6 +1092,9 @@ index 466ba5f..a199e04 100644
 -                this.actor.hide();
 -            }
 -        }));
++
++    _devicesChanged: function() {
++        this.set_applet_icon_symbolic_name('battery-missing');
 +        let icon = this._proxy.Icon;
 +        if (icon) {
 +            let gicon = Gio.icon_new_for_string(icon);
@@ -1836,7 +2721,7 @@ index 72bba26..4d21797 100644
 -DBus.conformExport(CinnamonMagnifier.prototype, MagnifierIface);
 -DBus.conformExport(CinnamonMagnifierZoomRegion.prototype, ZoomRegionIface);
 diff --git a/js/ui/main.js b/js/ui/main.js
-index ba240d2..da4eb76 100644
+index 5cae372..180db5c 100644
 --- a/js/ui/main.js
 +++ b/js/ui/main.js
 @@ -1,7 +1,6 @@
@@ -1847,7 +2732,7 @@ index ba240d2..da4eb76 100644
  const Gio = imports.gi.Gio;
  const GLib = imports.gi.GLib;
  const Gtk = imports.gi.Gtk;
-@@ -196,11 +195,6 @@ function start() {
+@@ -199,11 +198,6 @@ function start() {
  
      cinnamonDBusService = new CinnamonDBus.Cinnamon();
      lookingGlassDBusService = new LookingGlassDBus.CinnamonLookingGlass();
@@ -1860,7 +2745,7 @@ index ba240d2..da4eb76 100644
      // Ensure CinnamonWindowTracker and CinnamonAppUsage are initialized; this will
      // also initialize CinnamonAppSystem first.  CinnamonAppSystem
 diff --git a/js/ui/messageTray.js b/js/ui/messageTray.js
-index d6e08f6..8a8da54 100644
+index 18d6615..8bed028 100644
 --- a/js/ui/messageTray.js
 +++ b/js/ui/messageTray.js
 @@ -1388,12 +1388,17 @@ function MessageTray() {
@@ -1884,7 +2769,7 @@ index d6e08f6..8a8da54 100644
  
          this._notificationBin = new St.Bin();
          this._notificationBin.hide();
-@@ -1571,7 +1576,7 @@ MessageTray.prototype = {
+@@ -1548,7 +1553,7 @@ MessageTray.prototype = {
          this._updateState();
      },
  
@@ -2224,21 +3109,21 @@ index 42c4f6d..9163d29 100644
  let _perfHelper = null;
  function _getPerfHelper() {
 -- 
-1.8.1.5
+1.8.1.6
 
 
-From 445762899b4e31332f82c3d852f16e7f59711273 Mon Sep 17 00:00:00 2001
+From d85e078c0ed09a8b9f8d3ea2ebec1043b6d150c1 Mon Sep 17 00:00:00 2001
 From: dalcde <dalcde@yahoo.com.hk>
 Date: Tue, 16 Apr 2013 16:58:30 +0800
-Subject: [PATCH 2/2] [GDBus][Sound/Power Applet] Fix dbus port issues
+Subject: [PATCH 07/15] [GDBus][Sound/Power Applet] Fix dbus port issues
 
 ---
- files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js | 2 +-
- files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+ .../cinnamon/applets/power@cinnamon.org/applet.js  |  2 +-
+ .../cinnamon/applets/sound@cinnamon.org/applet.js  | 83 ++++++++++------------
+ 2 files changed, 37 insertions(+), 48 deletions(-)
 
 diff --git a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
-index a199e04..50bc85f 100644
+index b6b2bcd..fad39ab 100644
 --- a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
 +++ b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
 @@ -212,7 +212,7 @@ MyApplet.prototype = {
@@ -2251,19 +3136,163 @@ index a199e04..50bc85f 100644
          }
          catch (e) {
 diff --git a/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
-index 5bfaf26..924936f 100644
+index 5bfaf26..52b8cde 100644
 --- a/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
 +++ b/files/usr/share/cinnamon/applets/sound@cinnamon.org/applet.js
-@@ -283,7 +283,7 @@ Player.prototype = {
+@@ -37,7 +37,7 @@ const MediaServer2PlayerIFace = <interface name="org.mpris.MediaPlayer2.Player">
+ <property name='Metadata' access='read' type='a{sv}' />
+ <property name='Shuffle' access='readwrite' type='b' />
+ <property name='Rate' access='readwrite' type='d' />
+-<property name='LoopStatus' access='readwrite' type='b' />
++<property name='LoopStatus' access='readwrite' type='s' />
+ <property name='Volume' access='readwrite' type='d' />
+ <property name='PlaybackStatus' access='read' type='s' />
+ <property name='Position' access='read' type='x' />
+@@ -256,23 +256,20 @@ Player.prototype = {
+         this._trackControls.set_child(this.controls);
+         this.addActor(this._trackControls);
+ 
+-        this._mediaServer.getRaise(Lang.bind(this, function(sender, raise) {
+-            if (raise) {
+-                this._raiseButton = new ControlButton('go-up',
+-                    Lang.bind(this, function () { this._mediaServer.RaiseRemote(); this._system_status_button.menu.actor.hide(); }));
+-                this._raiseButtonTooltip = new Tooltips.Tooltip(this._raiseButton.button, _("Open Player"));
+-                this.controls.add_actor(this._raiseButton.getActor());
+-            }
+-        }));
+-
+-        this._mediaServer.getQuit(Lang.bind(this, function(sender, quit) {
+-            if (quit) {
+-                this._quitButton = new ControlButton('window-close',
+-                    Lang.bind(this, function () { this._mediaServer.QuitRemote(); }));
+-                this.controls.add_actor(this._quitButton.getActor());
+-                this._quitButtonTooltip = new Tooltips.Tooltip(this._quitButton.button, _("Quit Player"));
+-            }
+-        }));
++	let CanRaise = this._mediaServer.CanRaise;
++	let CanQuit = this._mediaServer.CanQuit;
++	if (CanRaise) {
++            this._raiseButton = new ControlButton('go-up',
++						  Lang.bind(this, function () { this._mediaServer.RaiseRemote(); this._system_status_button.menu.actor.hide(); }));
++            this._raiseButtonTooltip = new Tooltips.Tooltip(this._raiseButton.button, _("Open Player"));
++            this.controls.add_actor(this._raiseButton.getActor());
++	}
++	if (CanQuit) {
++            this._quitButton = new ControlButton('window-close',
++						 Lang.bind(this, function () { this._mediaServer.QuitRemote(); }));
++            this.controls.add_actor(this._quitButton.getActor());
++            this._quitButtonTooltip = new Tooltips.Tooltip(this._quitButton.button, _("Quit Player"));
++	}
+ 
+         /* this players don't support seek */
+         if (support_seek.indexOf(this._name) == -1)
+@@ -283,14 +280,14 @@ Player.prototype = {
          this._currentTime = 0;
          this._getPosition();
  
 -        this._prop.connect('PropertiesChanged', Lang.bind(this, function(sender, iface, value) {
 +        this._prop.connectSignal('PropertiesChanged', Lang.bind(this, function(sender, iface, value) {
              if (value["PlaybackStatus"])
-                 this._setStatus(iface, value["PlaybackStatus"]);
+-                this._setStatus(iface, value["PlaybackStatus"]);
++                this._setStatus(value["PlaybackStatus"]);
              if (value["Metadata"])
-@@ -569,7 +569,7 @@ MyApplet.prototype = {
+-                this._setMetadata(iface, value["Metadata"]);
++                this._setMetadata(value["Metadata"]);
+         }));
+ 
+-        this._mediaServerPlayer.connect('Seeked', Lang.bind(this, function(sender, value) {
++        this._mediaServerPlayer.connectSignal('Seeked', Lang.bind(this, function(sender, iface, [value]) {
+             this._setPosition(sender, value);
+         }));
+ 
+@@ -315,19 +312,17 @@ Player.prototype = {
+     },
+ 
+     _getPosition: function() {
+-        this._mediaServerPlayer.getPosition(Lang.bind(this,
+-            this._setPosition
+-        ));
++	this._setPosition(this._mediaServerPlayer.Position);
+         Mainloop.timeout_add(1000, Lang.bind(this, this._getPosition));
+     },
+ 
+-    _setMetadata: function(sender, metadata) {
++    _setMetadata: function(metadata) {
+         if (metadata["mpris:length"]) {
+             // song length in secs
+-            this._songLength = metadata["mpris:length"] / 1000000;
++            this._songLength = metadata["mpris:length"].unpack() / 1000000;
+             // FIXME upstream
+             if (this._name == "quodlibet")
+-                this._songLength = metadata["mpris:length"] / 1000;
++                this._songLength = metadata["mpris:length"].unpack() / 1000;
+             // reset timer
+             this._stopTimer();
+             if (this._playerStatus == "Playing")
+@@ -338,15 +333,15 @@ Player.prototype = {
+             this._stopTimer();
+         }
+         if (metadata["xesam:artist"])
+-            this._artist.setLabel(metadata["xesam:artist"].toString());
++            this._artist.setLabel(metadata["xesam:artist"].unpack());
+         else
+             this._artist.setLabel(_("Unknown Artist"));
+         if (metadata["xesam:album"])
+-            this._album.setLabel(metadata["xesam:album"].toString());
++            this._album.setLabel(metadata["xesam:album"].unpack());
+         else
+             this._album.setLabel(_("Unknown Album"));
+         if (metadata["xesam:title"])
+-            this._title.setLabel(metadata["xesam:title"].toString());
++            this._title.setLabel(metadata["xesam:title"].unpack());
+         else
+             this._title.setLabel(_("Unknown Title"));
+         /*if (metadata["mpris:trackid"]) {
+@@ -359,8 +354,8 @@ Player.prototype = {
+ 
+         let change = false;
+         if (metadata["mpris:artUrl"]) {
+-            if (this._trackCoverFile != metadata["mpris:artUrl"].toString()) {
+-                this._trackCoverFile = metadata["mpris:artUrl"].toString();
++            if (this._trackCoverFile != metadata["mpris:artUrl"].unpack()) {
++                this._trackCoverFile = metadata["mpris:artUrl"].unpack();
+                 change = true;
+             }
+         }
+@@ -392,12 +387,10 @@ Player.prototype = {
+     },
+ 
+     _getMetadata: function() {
+-        this._mediaServerPlayer.getMetadata(Lang.bind(this,
+-            this._setMetadata
+-        ));
++	this._setMetadata(this._mediaServerPlayer.Metadata);
+     },
+ 
+-    _setStatus: function(sender, status) {
++    _setStatus: function(status) {
+         this._playerStatus = status;
+         if (status == "Playing") {
+             this._playButton.setIcon("media-playback-pause");
+@@ -416,15 +409,11 @@ Player.prototype = {
+     },
+ 
+     _getStatus: function() {
+-        this._mediaServerPlayer.getPlaybackStatus(Lang.bind(this,
+-            this._setStatus
+-        ));
++	this._setStatus(this._mediaServerPlayer.PlaybackStatus);
+     },
+ 
+     _updateRate: function() {
+-        this._mediaServerPlayer.getRate(Lang.bind(this, function(sender, rate) {
+-            this._rate = rate;
+-        }));
++	this._rate = this._mediaServerPlayer.Rate;
+     },
+ 
+     _updateTimer: function() {
+@@ -569,7 +558,7 @@ MyApplet.prototype = {
              this._players = {};
              // watch players
              for (var p=0; p<compatible_players.length; p++) {
@@ -2272,6 +3301,369 @@ index 5bfaf26..924936f 100644
                      Lang.bind(this, this._addPlayer),
                      Lang.bind(this, this._removePlayer)
                  );
+@@ -700,7 +689,7 @@ MyApplet.prototype = {
+         return Object.keys(this._players).length;
+     },
+ 
+-    _addPlayer: function(owner) {
++    _addPlayer: function(connection, owner) {
+         // ensure menu is empty
+         this._cleanup();
+         this._volumeControlShown = false;
+@@ -715,12 +704,12 @@ MyApplet.prototype = {
+         this._readOutput();
+     },
+ 
+-    _removePlayer: function(owner) {
++    _removePlayer: function(connection, owner) {
+         delete this._players[owner];
+         this._cleanup();
+         this._volumeControlShown = false;
+         for (owner in this._players) {
+-            this._addPlayer(owner);
++            this._addPlayer(connection, owner);
+         }
+         this.menu.emit('players-loaded', true);
+ 
 -- 
-1.8.1.5
+1.8.1.6
+
+
+From 02da490ff9d33b050e7a10171b5795aee67d1645 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Fri, 19 Apr 2013 19:09:18 -0400
+Subject: [PATCH 08/15] Fix gicon error - power applet
+
+---
+ files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+index fad39ab..3a13eab 100644
+--- a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+@@ -323,7 +323,7 @@ MyApplet.prototype = {
+         let icon = this._proxy.Icon;
+         if (icon) {
+             let gicon = Gio.icon_new_for_string(icon);
+-            this.setGIcon(gicon);
++            this._applet_icon.gicon = gicon
+             this.actor.show();
+         } else {
+             this.menu.close();
+-- 
+1.8.1.6
+
+
+From 3d78b5c929e7e3b0ee24d4b537492740e7bebf2f Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Fri, 19 Apr 2013 19:44:33 -0400
+Subject: [PATCH 09/15] Remove unused
+
+---
+ src/cinnamon-background-manager.c | 34 ----------------------------------
+ 1 file changed, 34 deletions(-)
+
+diff --git a/src/cinnamon-background-manager.c b/src/cinnamon-background-manager.c
+index 9d95250..67427ed 100644
+--- a/src/cinnamon-background-manager.c
++++ b/src/cinnamon-background-manager.c
+@@ -66,8 +66,6 @@ struct CinnamonBackgroundManagerPrivate
+ 
+ G_DEFINE_TYPE (CinnamonBackgroundManager, cinnamon_background_manager, G_TYPE_OBJECT)
+ 
+-static gpointer manager_object = NULL;
+-
+ static gboolean
+ dont_draw_background (CinnamonBackgroundManager *manager)
+ {
+@@ -223,36 +221,6 @@ struct CinnamonBackgroundManagerPrivate
+ }
+ 
+ static void
+-draw_background_after_session_loads (CinnamonBackgroundManager *manager)
+-{
+-        GError *error = NULL;
+-        GDBusProxyFlags flags;
+-
+-        flags = G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES |
+-                G_DBUS_PROXY_FLAGS_DO_NOT_AUTO_START;
+-        manager->priv->proxy = g_dbus_proxy_new_for_bus_sync (G_BUS_TYPE_SESSION,
+-                                                              flags,
+-                                                              NULL, /* GDBusInterfaceInfo */
+-                                                              "org.gnome.SessionManager",
+-                                                              "/org/gnome/SessionManager",
+-                                                              "org.gnome.SessionManager",
+-                                                              NULL, /* GCancellable */
+-                                                              &error);
+-        if (manager->priv->proxy == NULL) {
+-                g_warning ("Could not listen to session manager: %s",
+-                           error->message);
+-                g_error_free (error);
+-                return;
+-        }
+-
+-        manager->priv->proxy_signal_id = g_signal_connect (manager->priv->proxy,
+-                                                           "g-signal",
+-                                                           G_CALLBACK (on_session_manager_signal),
+-                                                           manager);
+-}
+-
+-
+-static void
+ disconnect_screen_signals (CinnamonBackgroundManager *manager)
+ {
+         GdkDisplay *display;
+@@ -312,8 +280,6 @@ struct CinnamonBackgroundManagerPrivate
+                           G_CALLBACK (draw_background_changed), manager);
+ 
+         setup_bg_and_draw_background (manager);
+-            //draw_background_after_session_loads (manager);
+-
+ 
+         return TRUE;
+ }
+-- 
+1.8.1.6
+
+
+From d08b882470b135591fb99bd9ff7c63619fcaea82 Mon Sep 17 00:00:00 2001
+From: dalcde <dalcde@yahoo.com.hk>
+Date: Sat, 20 Apr 2013 15:42:13 +0800
+Subject: [PATCH 10/15] [GDBus][Power applet] Some fixes and cleanup
+
+---
+ .../cinnamon/applets/power@cinnamon.org/applet.js  | 52 ++++++----------------
+ 1 file changed, 14 insertions(+), 38 deletions(-)
+
+diff --git a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+index 3a13eab..5f81d91 100644
+--- a/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
++++ b/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+@@ -48,40 +48,11 @@ const PowerManagerInterface = <interface name="org.gnome.SettingsDaemon.Power">
+ <method name="GetPrimaryDevice">
+     <arg type="(susdut)" direction="out"/>
+ </method>
+-<signal name="PropertiesChanged">
+-    <arg type="s"/>
+-    <arg type="a{sv}"/>
+-    <arg type="a[s]"/>
+-</signal>
+ <property name="Icon" type="s" access="read" />
+ </interface>;
+ 
+ const PowerManagerProxy = Gio.DBusProxy.makeProxyWrapper(PowerManagerInterface);
+ 
+-const SettingsManagerInterface = <interface name="org.freedesktop.DBus.Properties">
+-<method name="Get">
+-    <arg type="s" direction="in"/>
+-    <arg type="s" direction="in"/>
+-    <arg type="v" direction="out"/>
+-</method>
+-<method name="GetAll">
+-    <arg type="s" direction="in"/>
+-    <arg type="a{sv}" direction="out"/>
+-</method>
+-<method name="Set">
+-    <arg type="s" direction="in"/>
+-    <arg type="s" direction="in"/>
+-    <arg type="v" direction="in"/>
+-</method>
+-<signal name="PropertiesChanged">
+-    <arg type="s"/>
+-    <arg type="a{sv}"/>
+-    <arg type="a[s]"/>
+-</signal>
+-</interface>;
+-
+-const SettingsManagerProxy = Gio.DBusProxy.makeProxyWrapper(SettingsManagerInterface);
+-
+ function DeviceItem() {
+     this._init.apply(this, arguments);
+ }
+@@ -156,8 +127,16 @@ MyApplet.prototype = {
+             this.menuManager.addMenu(this.menu);            
+ 
+             //this.set_applet_icon_symbolic_name('battery-missing');            
+-            this._proxy = new PowerManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
+-            this._smProxy = new SettingsManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH);
++            this._proxy = new PowerManagerProxy(Gio.DBus.session, BUS_NAME, OBJECT_PATH,
++                                               Lang.bind(this, function(proxy, error) {
++                                                             if (error) {
++                                                                 global.log(error.message);
++
++                                                                 return;
++                                                             }
++                                                             this._proxy.connect('g-properties-changed', Lang.bind(this, this._devicesChanged));
++                                                             this._devicesChanged();
++                                               }));
+ 
+             let icon = this.actor.get_children()[0];
+             this.actor.remove_actor(icon);
+@@ -211,9 +190,6 @@ MyApplet.prototype = {
+ 
+             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+             this.menu.addSettingsAction(_("Power Settings"), 'power');
+-
+-            this._smProxy.connectSignal('PropertiesChanged', Lang.bind(this, this._devicesChanged));
+-            this._devicesChanged();            
+         }
+         catch (e) {
+             global.logError(e);
+@@ -245,14 +221,14 @@ MyApplet.prototype = {
+     },
+     
+     _readPrimaryDevice: function() {
+-        this._proxy.GetPrimaryDeviceRemote(Lang.bind(this, function(device, error) {
++        this._proxy.GetPrimaryDeviceRemote(Lang.bind(this, function(result, error) {
+             if (error) {
+                 this._hasPrimary = false;
+                 this._primaryDeviceId = null;
+                 this._batteryItem.actor.hide();                
+                 return;
+             }
+-            let [device_id, device_type, icon, percentage, state, seconds] = device;
++            let [[device_id, device_type, icon, percentage, state, seconds]] = result;
+             if (device_type == UPDeviceType.BATTERY) {
+                 this._hasPrimary = true;
+                 let time = Math.round(seconds / 60);
+@@ -290,7 +266,7 @@ MyApplet.prototype = {
+     },
+ 
+     _readOtherDevices: function() {
+-        this._proxy.GetDevicesRemote(Lang.bind(this, function(devices, error) {
++        this._proxy.GetDevicesRemote(Lang.bind(this, function([devices], error) {
+             this._deviceItems.forEach(function(i) { i.destroy(); });
+             this._deviceItems = [];
+ 
+@@ -336,7 +312,7 @@ MyApplet.prototype = {
+     },
+     
+     _updateLabel: function() {
+-        this._proxy.GetDevicesRemote(Lang.bind(this, function(devices, error) {
++        this._proxy.GetDevicesRemote(Lang.bind(this, function([devices], error) {
+             if (error) {
+                 this._mainLabel.set_text("");
+                 return;
+-- 
+1.8.1.6
+
+
+From c93e9746b321ad6d0aa38ec28c15fe7b3f18f8f7 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Sat, 20 Apr 2013 10:59:54 -0400
+Subject: [PATCH 11/15] Move CLUTTER_DISABLE_XINPUT to session startup file
+
+---
+ files/usr/bin/gnome-session-cinnamon | 2 +-
+ src/main.c                           | 3 ---
+ 2 files changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/files/usr/bin/gnome-session-cinnamon b/files/usr/bin/gnome-session-cinnamon
+index 315f135..56c37f5 100755
+--- a/files/usr/bin/gnome-session-cinnamon
++++ b/files/usr/bin/gnome-session-cinnamon
+@@ -1,3 +1,3 @@
+ #! /bin/sh
+-exec gnome-session --session cinnamon "$@"
++exec CLUTTER_DISABLE_XINPUT=1 gnome-session --session cinnamon "$@"
+ 
+diff --git a/src/main.c b/src/main.c
+index 9d37975..418fb60 100644
+--- a/src/main.c
++++ b/src/main.c
+@@ -257,9 +257,6 @@
+ 
+   g_option_context_free (ctx);
+ 
+-  /* Disable XInput extension - required for 3.8 compatibility */
+-  g_setenv ("CLUTTER_DISABLE_XINPUT", "1", TRUE);
+-
+   meta_plugin_type_register (gnome_cinnamon_plugin_get_type ());
+ 
+   /* Prevent meta_init() from causing gtk to load gail and at-bridge */
+-- 
+1.8.1.6
+
+
+From de1719e63518884cad6c9d63d508f737eab35d49 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Sat, 20 Apr 2013 12:23:29 -0400
+Subject: [PATCH 12/15] Add Xinput disable to cinnamon2d
+
+---
+ files/usr/bin/cinnamon2d | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/files/usr/bin/cinnamon2d b/files/usr/bin/cinnamon2d
+index 1eced99..7f42517 100755
+--- a/files/usr/bin/cinnamon2d
++++ b/files/usr/bin/cinnamon2d
+@@ -1,2 +1,2 @@
+ #!/bin/bash
+-CLUTTER_PAINT=disable-clipped-redraws:disable-culling LIBGL_ALWAYS_SOFTWARE=1 CINNAMON_SOFTWARE_RENDERING=1 CINNAMON_SLOWDOWN_FACTOR=0.0001 MUFFIN_NO_SHADOWS=1 CLUTTER_DEFAULT_FPS=15 cinnamon $@
++CLUTTER_DISABLE_XINPUT=1 CLUTTER_PAINT=disable-clipped-redraws:disable-culling LIBGL_ALWAYS_SOFTWARE=1 CINNAMON_SOFTWARE_RENDERING=1 CINNAMON_SLOWDOWN_FACTOR=0.0001 MUFFIN_NO_SHADOWS=1 CLUTTER_DEFAULT_FPS=15 cinnamon $@
+-- 
+1.8.1.6
+
+
+From 15d57d1c15f34d44b23f74b21929d996d4465afb Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Sat, 20 Apr 2013 12:29:43 -0400
+Subject: [PATCH 13/15] Fix session file
+
+---
+ files/usr/bin/gnome-session-cinnamon | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/files/usr/bin/gnome-session-cinnamon b/files/usr/bin/gnome-session-cinnamon
+index 56c37f5..31c9eff 100755
+--- a/files/usr/bin/gnome-session-cinnamon
++++ b/files/usr/bin/gnome-session-cinnamon
+@@ -1,3 +1,3 @@
+ #! /bin/sh
+-exec CLUTTER_DISABLE_XINPUT=1 gnome-session --session cinnamon "$@"
++CLUTTER_DISABLE_XINPUT=1 exec gnome-session --session cinnamon "$@"
+ 
+-- 
+1.8.1.6
+
+
+From 03436393c322fd97d8216c3481d28cd34833c656 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Sat, 20 Apr 2013 12:36:45 -0400
+Subject: [PATCH 14/15] Add cinnamon3d command
+
+---
+ files/usr/bin/cinnamon3d | 2 ++
+ 1 file changed, 2 insertions(+)
+ create mode 100644 files/usr/bin/cinnamon3d
+
+diff --git a/files/usr/bin/cinnamon3d b/files/usr/bin/cinnamon3d
+new file mode 100644
+index 0000000..4891783
+--- /dev/null
++++ b/files/usr/bin/cinnamon3d
+@@ -0,0 +1,2 @@
++#!/bin/bash
++CLUTTER_DISABLE_XINPUT=1 cinnamon $@
+-- 
+1.8.1.6
+
+
+From 850da270967622b95be9e0c5edd8e230eb4be5a1 Mon Sep 17 00:00:00 2001
+From: Michael Webster <miketwebster@gmail.com>
+Date: Sat, 20 Apr 2013 12:37:26 -0400
+Subject: [PATCH 15/15] Fix perms
+
+---
+ files/usr/bin/cinnamon3d | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ mode change 100644 => 100755 files/usr/bin/cinnamon3d
+
+diff --git a/files/usr/bin/cinnamon3d b/files/usr/bin/cinnamon3d
+old mode 100644
+new mode 100755
+-- 
+1.8.1.6
 
