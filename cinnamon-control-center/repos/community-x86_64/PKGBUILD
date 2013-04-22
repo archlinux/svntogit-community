@@ -1,0 +1,68 @@
+# $Id$
+# Maintainer: Alexandre Filgueira <alexfilgueira@cinnarch.com
+# Based on gnome-control-center:
+# Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+# Jan de Groot <jgc@archlinux.org>
+
+pkgname=cinnamon-control-center
+pkgver=1.7.3
+pkgrel=3
+pkgdesc="The Control Center for Cinnamon"
+arch=('i686' 'x86_64')
+depends=('cinnamon' 'cheese' 'libgnomekbd' 'libgtop' 'network-manager-applet')
+optdepends=('mesa-demos: provides glxinfo for graphics information'
+            'gnome-color-manager: for color management tasks')
+makedepends=('intltool' 'gnome-common')
+url="https://github.com/linuxmint/cinnamon-control-center"
+install=cinnamon-control-center.install
+license=('GPL')
+options=('!libtool' '!emptydirs')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxmint/cinnamon-control-center/archive/$pkgver.tar.gz"
+        "gnomerrlabeler.patch"
+        "idle-delay.patch")
+sha256sums=('44a4484238c2b9e9060d062028438df589fc29c9e3da45edad068198a990c8be'
+            '826de61fa60349a99c6895f2ffb0ea1c7f71031b17dd80bb245e3834b30b6ff6'
+            '42ea92628dc234d65e582592a66c0011d5bb2c2eac14854a06f7a9dc923c8d67')
+
+build() {
+  cd $pkgname-$pkgver
+
+  # Build fix for GNOME 3.8
+  patch -Np1 -i "$srcdir/gnomerrlabeler.patch"
+
+  # Runtime fix for GNOME 3.8
+  patch -Np1 -i "$srcdir/idle-delay.patch"
+
+  autoreconf -fi
+
+  ./configure --prefix=/usr --sysconfdir=/etc \
+      --localstatedir=/var --disable-static \
+      --enable-systemd \
+      --disable-update-mimedb
+
+  #https://bugzilla.gnome.org/show_bug.cgi?id=656229
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  make DESTDIR="$pkgdir" install
+
+  # Remove unused stuff
+  make -C panels/datetime DESTDIR="$pkgdir" uninstall
+  make -C panels/printers DESTDIR="$pkgdir" uninstall
+  make -C panels/sound DESTDIR="$pkgdir" uninstall
+  make -C panels/sound/data DESTDIR="$pkgdir" install
+  make -C shell DESTDIR="$pkgdir" uninstall
+  make -C shell DESTDIR="$pkgdir" install-libLTLIBRARIES
+
+  # Remove broken desktop files
+  rm -R "$pkgdir/usr/share/applications"
+  rm -R "$pkgdir/etc"
+
+  # Fix a warning
+  chown 102:0 "$pkgdir/usr/share/polkit-1/rules.d"
+  chmod 700 "$pkgdir/usr/share/polkit-1/rules.d"
+}
