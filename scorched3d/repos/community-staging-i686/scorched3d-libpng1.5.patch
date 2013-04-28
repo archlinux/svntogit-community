@@ -1,0 +1,74 @@
+--- ./src/common/image/ImagePngFactory.cpp.old	2011-09-12 12:34:30.114461019 +0200
++++ ./src/common/image/ImagePngFactory.cpp	2011-09-12 12:39:28.566425593 +0200
+@@ -104,7 +104,7 @@
+ 
+ static void user_png_error(png_structp png_ptr, png_const_charp msg) 
+ {
+-	longjmp(png_ptr->jmpbuf,1);
++	longjmp(png_jmpbuf(png_ptr),1);
+ }
+ 
+ static void user_png_warning(png_structp png_ptr, png_const_charp msg) 
+--- ./src/client/client/LoadPNG.cpp.old	2011-09-12 12:45:49.167380419 +0200
++++ ./src/client/client/LoadPNG.cpp	2011-09-12 14:11:14.961772024 +0200
+@@ -28,6 +28,8 @@
+ 	int row, i;
+ 	volatile int ckey = -1;
+ 	png_color_16 *transv;
++	png_colorp  png_palette;
++	int         num_palette;
+ 
+ 	if ( !src ) {
+ 		/* The error message has been set in SDL_RWFromFile */
+@@ -58,7 +60,7 @@
+ 	 * the normal method of doing things with libpng).  REQUIRED unless you
+ 	 * set up your own error handlers in png_create_read_struct() earlier.
+ 	 */
+-	if ( setjmp(png_ptr->jmpbuf) ) {
++	if ( setjmp(png_jmpbuf(png_ptr)) ) {
+ 		error = "Error reading the PNG file.";
+ 		goto done;
+ 	}
+@@ -127,9 +129,9 @@
+ 			Rmask = 0x000000FF;
+ 			Gmask = 0x0000FF00;
+ 			Bmask = 0x00FF0000;
+-			Amask = (info_ptr->channels == 4) ? 0xFF000000 : 0;
++			Amask = (png_get_channels(png_ptr, info_ptr) == 4) ? 0xFF000000 : 0;
+ 		} else {
+-		        int s = (info_ptr->channels == 4) ? 0 : 8;
++		        int s = (png_get_channels(png_ptr, info_ptr) == 4) ? 0 : 8;
+ 			Rmask = 0xFF000000 >> s;
+ 			Gmask = 0x00FF0000 >> s;
+ 			Bmask = 0x0000FF00 >> s;
+@@ -137,7 +139,7 @@
+ 		}
+ 	}
+ 	surface = SDL_AllocSurface(SDL_SWSURFACE, width, height,
+-			bit_depth*info_ptr->channels, Rmask,Gmask,Bmask,Amask);
++			bit_depth*png_get_channels(png_ptr, info_ptr), Rmask,Gmask,Bmask,Amask);
+ 	if ( surface == NULL ) {
+ 		error = "Out of memory";
+ 		goto done;
+@@ -185,12 +187,15 @@
+ 		    palette->colors[i].g = i;
+ 		    palette->colors[i].b = i;
+ 		}
+-	    } else if (info_ptr->num_palette > 0 ) {
+-		palette->ncolors = info_ptr->num_palette; 
+-		for( i=0; i<info_ptr->num_palette; ++i ) {
+-		    palette->colors[i].b = info_ptr->palette[i].blue;
+-		    palette->colors[i].g = info_ptr->palette[i].green;
+-		    palette->colors[i].r = info_ptr->palette[i].red;
++	    } else {
++	    	png_get_PLTE(png_ptr, info_ptr, &png_palette, &num_palette);
++	    	if (num_palette > 0 ) {
++			palette->ncolors = num_palette; 
++			for( i=0; i<num_palette; ++i ) {
++			    palette->colors[i].b = png_palette[i].blue;
++			    palette->colors[i].g = png_palette[i].green;
++			    palette->colors[i].r = png_palette[i].red;
++			}
+ 		}
+ 	    }
+ 	}
