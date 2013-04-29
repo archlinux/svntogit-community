@@ -1,0 +1,155 @@
+From: Julian Ospald <hasufell@gentoo.org>
+Date: Thu Jan 24 13:13:50 UTC 2013
+Subject: build system
+
+	- fix opencv module to prefer pkg-config results
+	- fix some module and macro names and try to use
+	system modules as much as possible (ALSA Boost Gettext Jpeg Png Tiff Z)
+
+--- cmake/Modules/FindOpenCV.cmake
++++ cmake/Modules/FindOpenCV.cmake
+@@ -57,13 +57,21 @@
+     include(FindPkgConfig)
+     if(PKG_CONFIG_FOUND)
+       pkg_check_modules(OPENCV_PKGCONF opencv)
+-      set(OpenCV_DIR ${OPENCV_PKGCONF_PREFIX})
+-      if(EXISTS "${OpenCV_DIR}")
+-	set(OpenCV_configScript_DIR "${OpenCV_DIR}/share/opencv")
+-	if(EXISTS "${OpenCV_configScript_DIR}")
+-	  set(OpenCV_configScript "${OpenCV_configScript_DIR}/OpenCVConfig.cmake")
+-	endif(EXISTS "${OpenCV_configScript_DIR}")
+-      endif(EXISTS "${OpenCV_DIR}")
++      # prefer pkg-config values
++      if(OPENCV_PKGCONF_FOUND)
++        set(OpenCV_LIBS ${OPENCV_PKGCONF_LDFLAGS})
++	set(OpenCV_FOUND true)
++	set(OpenCV_INCLUDE_DIR ${OPENCV_PKGCONF_INCLUDE_DIRS})
++	set(OpenCV_VERSION ${OPENCV_PKGCONF_VERSION})
++      else(OPENCV_PKGCONF_FOUND)
++        set(OpenCV_DIR ${OPENCV_PKGCONF_PREFIX})
++        if(EXISTS "${OpenCV_DIR}")
++  	  set(OpenCV_configScript_DIR "${OpenCV_DIR}/share/opencv")
++	  if(EXISTS "${OpenCV_configScript_DIR}")
++	    set(OpenCV_configScript "${OpenCV_configScript_DIR}/OpenCVConfig.cmake")
++	  endif(EXISTS "${OpenCV_configScript_DIR}")
++        endif(EXISTS "${OpenCV_DIR}")
++      endif(OPENCV_PKGCONF_FOUND)
+     endif(PKG_CONFIG_FOUND)
+   endif(NOT WIN32)
+ endif(NOT EXISTS "${OpenCV_DIR}")
+@@ -72,7 +80,7 @@
+ ##====================================================
+ ## Find OpenCV libraries
+ ##----------------------------------------------------
+-if(EXISTS "${OpenCV_DIR}")
++if(EXISTS "${OpenCV_DIR}" AND NOT OpenCV_FOUND)
+ 
+   #When its possible to use the Config script use it.
+   if(EXISTS "${OpenCV_configScript}")
+@@ -257,9 +265,9 @@
+   endif(${OpenCV_VERSION} VERSION_GREATER 2.1.0)
+ 
+ 
+-else(EXISTS "${OpenCV_DIR}")
++else(EXISTS "${OpenCV_DIR}" AND NOT OpenCV_FOUND)
+   set(ERR_MSG "Please specify OpenCV directory using OpenCV_DIR env. variable")
+-endif(EXISTS "${OpenCV_DIR}")
++endif(EXISTS "${OpenCV_DIR}" AND NOT OpenCV_FOUND)
+ ##====================================================
+ 
+ ##====================================================
+--- CMakeLists.txt
++++ CMakeLists.txt
+@@ -33,7 +33,7 @@
+ 
+ #need to put here do setting LOCALE_DIR variable
+ find_package(Gettext)
+-if(Gettext_FOUND)
++if(GETTEXT_FOUND)
+ 	if(NOT LOCALE_DIR)
+ 		if(WIN32)
+ 			SET(LOCALE_DIR "bin/locale")
+@@ -55,7 +55,7 @@
+ 			message(STATUS "Cannot find msgfmt to convert language file. Translation won't be enabled")
+ 		endif()
+ 	endif(NOT LOCALE_DIR)
+-endif(Gettext_FOUND)
++endif(GETTEXT_FOUND)
+ add_subdirectory(themes)
+ add_subdirectory(data)
+ add_subdirectory(game)
+--- game/CMakeLists.txt
++++ game/CMakeLists.txt
+@@ -71,7 +71,7 @@
+ list(APPEND LIBS ${Boost_LIBRARIES})
+ 
+ # Find all the libs that don't require extra parameters
+-foreach(lib ${OUR_LIBS} SDL PangoCairo LibRSVG LibXML++ GLEW AVFormat SWScale OpenGL Z Jpeg Png PortAudio)
++foreach(lib ${OUR_LIBS} SDL PangoCairo LibRSVG LibXML++ GLEW AVFormat SWScale OpenGL ZLIB JPEG PNG PortAudio)
+ 	find_package(${lib} REQUIRED)
+ 	include_directories(${${lib}_INCLUDE_DIRS})
+ 	list(APPEND LIBS ${${lib}_LIBRARIES})
+@@ -79,7 +79,7 @@
+ endforeach(lib)
+ 
+ find_package(Gettext)
+-if(Gettext_FOUND)
++if(GETTEXT_FOUND)
+ 	include_directories(${Gettext_INCLUDE_DIRS})
+ 	list(APPEND LIBS ${Gettext_LIBRARIES})
+ 	add_definitions("-DUSE_GETTEXT")
+--- tools/CMakeLists.txt
++++ tools/CMakeLists.txt
+@@ -6,7 +6,7 @@
+ include_directories(${Boost_INCLUDE_DIRS})
+ 
+ # Find all the libs that don't require extra parameters
+-foreach(lib LibXML++ Magick++ Z Jpeg Tiff Png Freetype Z)
++foreach(lib LibXML++ Magick++ ZLIB JPEG TIFF PNG Freetype ZLIB)
+ 	find_package(${lib})
+ 	if (${lib}_FOUND)
+ 		include_directories(${${lib}_INCLUDE_DIRS})
+@@ -24,13 +24,13 @@
+ if (LibXML++_FOUND)
+ 	if (Boost_FOUND)
+ 		if (Magick++_FOUND)
+-			if (Z_FOUND)
++			if (ZLIB_FOUND)
+ 				add_executable(ss_extract ss_extract.cpp pak.cpp ipu_conv.cpp ss_cover.cpp)
+-				target_link_libraries(ss_extract ${LibXML++_LIBRARIES} ${Boost_LIBRARIES} ${Magick++_LIBRARIES} ${Z_LIBRARIES} ${Jpeg_LIBRARIES} ${Tiff_LIBRARIES} ${Png_LIBRARIES} ${Freetype_LIBRARY} ${Magick++_LIBRARIES})
++				target_link_libraries(ss_extract ${LibXML++_LIBRARIES} ${Boost_LIBRARIES} ${Magick++_LIBRARIES} ${ZLIB_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${PNG_LIBRARIES} ${Freetype_LIBRARY} ${Magick++_LIBRARIES})
+ 				set(targets ${targets} ss_extract)
+-			else (Z_FOUND)
++			else (ZLIB_FOUND)
+ 				message("No zlib found, not building ss_extract")
+-			endif (Z_FOUND)
++			endif (ZLIB_FOUND)
+ 		else (Magick++_FOUND)
+ 			message("No Magick++ found, not building ss_extract")
+ 		endif (Magick++_FOUND)
+@@ -40,7 +40,7 @@
+ 
+ 	if (Magick++_FOUND)
+ 		add_executable(ss_cover_conv cover_conv.cpp pak.cpp ss_cover.cpp)
+-		target_link_libraries(ss_cover_conv ${Magick++_LIBRARIES} ${LibXML++_LIBRARIES} ${Z_LIBRARIES} ${Jpeg_LIBRARIES} ${Tiff_LIBRARIES} ${Png_LIBRARIES} ${Freetype_LIBRARY} ${Magick++_LIBRARIES})
++		target_link_libraries(ss_cover_conv ${Magick++_LIBRARIES} ${LibXML++_LIBRARIES} ${ZLIB_LIBRARIES} ${JPEG_LIBRARIES} ${TIFF_LIBRARIES} ${PNG_LIBRARIES} ${Freetype_LIBRARY} ${Magick++_LIBRARIES})
+ 		set(targets ${targets} ss_cover_conv)
+ 	else (Magick++_FOUND)
+ 		message("No Magick++ found, not building ss_cover_conv")
+@@ -58,13 +58,13 @@
+ 	target_link_libraries(ss_archive_extract ${Boost_LIBRARIES})
+ 	set(targets ${targets} ss_archive_extract)
+ 
+-	if (Z_FOUND)
++	if (ZLIB_FOUND)
+ 		add_executable(itg_pck itg_pck.cc)
+-		target_link_libraries(itg_pck ${Boost_LIBRARIES} ${Z_LIBRARIES})
++		target_link_libraries(itg_pck ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})
+ 		set(targets ${targets} itg_pck)
+ 
+ 		add_executable(ss_chc_decode ss_chc_decode.cpp)
+-		target_link_libraries(ss_chc_decode ${Boost_LIBRARIES} ${Z_LIBRARIES})
++		target_link_libraries(ss_chc_decode ${Boost_LIBRARIES} ${ZLIB_LIBRARIES})
+ 		set(targets ${targets} ss_chc_decode)
+ 	endif()
+ endif (Boost_FOUND)
