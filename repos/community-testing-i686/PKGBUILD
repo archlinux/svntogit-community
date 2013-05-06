@@ -6,23 +6,22 @@
 
 pkgname=fcron
 pkgver=3.1.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Feature-rich cron implementation'
 arch=(i686 x86_64)
 url="http://fcron.free.fr"
 license=('GPL')
 depends=('pam')
-makedepends=('smtp-server')
+makedepends=('smtp-server' 'vi')
 optdepends=('smtp-server: to receive mails from cron jobs')
 provides=('cron')
 conflicts=('dcron')
 backup=(etc/fcron/fcron.conf etc/fcron/fcron.allow etc/fcron/fcron.deny \
         var/spool/fcron/systab var/spool/fcron/systab.orig)
 options=('emptydirs' '!makeflags')
-source=(http://fcron.free.fr/archives/$pkgname-$pkgver.src.tar.gz fcron.rc \
+source=(http://fcron.free.fr/archives/$pkgname-$pkgver.src.tar.gz \
         systab systab.orig run-cron)
 md5sums=('36bf213e15f3a480f2274f8e46cced0a'
-         'e0c3f0bdc3c98fbbe46eff19001c18f2'
          '938722c6654ef7b07f4aa10001905ba1'
          'bfb7daa22ebe22b9917e455c1ca4a382'
          '5ff0cdcb9ec99778938ac6ef26800327')
@@ -46,23 +45,22 @@ build() {
   make
 
   # Temporary bugfix make install expects the file in the files directory.
-  cp script/fcron.init.systemd files
+  # cp script/fcron.init.systemd files
 }
 
 package() {
   cd "$srcdir/$pkgname-$pkgver"
   
   make DESTDIR="$pkgdir/" install
-  install -D -m755 "$srcdir/fcron.rc" "$pkgdir/etc/rc.d/fcron"
   install -D -m644 "$srcdir/$pkgname-$pkgver/files/fcron.pam" "$pkgdir/etc/pam.d/fcron"
   
   install -D -m644 "$srcdir/$pkgname-$pkgver/files/fcrontab.pam" "$pkgdir/etc/pam.d/fcrontab"
   # Install default fcrontab so that fcron can completely replace dcron
   
-  install -D -m600 "$srcdir/systab" "$pkgdir/var/spool/fcron/systab"
+  install -D -m644 "$srcdir/systab" "$pkgdir/var/spool/fcron/systab"
   # In order to preserve the systab crontab in any case it is better to have
   # it in non-binary form too
-  install -D -m600 "$srcdir/systab.orig" "$pkgdir/var/spool/fcron/systab.orig"
+  install -D -m644 "$srcdir/systab.orig" "$pkgdir/var/spool/fcron/systab.orig"
 
   # Add cron.* directories
   install -d -m755 "$pkgdir/etc/cron.daily"
@@ -70,11 +68,23 @@ package() {
   install -d -m755 "$pkgdir/etc/cron.monthly"
   install -d -m755 "$pkgdir/etc/cron.weekly"
   
+  # Make files readable for all users - #35088
+  chmod 644 "$pkgdir/etc/fcron/fcron.allow"
+  chmod 644 "$pkgdir/etc/fcron/fcron.conf"
+  chmod 644 "$pkgdir/etc/fcron/fcron.deny"
+  chmod 755 "$pkgdir/usr/bin/fcrondyn"
+  chmod 755 "$pkgdir/usr/bin/fcronsighup"
+  chmod 755 "$pkgdir/usr/bin/fcrontab"
+  chmod 755 "$pkgdir/usr/sbin/fcron"
+  chmod 755 "$pkgdir/var/spool/fcron"
+
+
   # Install run-cron script to make fcron run without dcron
   install -D -m755 "$srcdir/run-cron" "$pkgdir/usr/sbin/run-cron"
 
   # avoid conflict with filesystem>=2012.06
-  rmdir "$pkgdir/var/run"
+  rmdir "$pkgdir/var/run" || true
+  rmdir "$pkgdir/run" || true
 
   # avoid conflict with libbsd - #31259
   rm "$pkgdir/usr/share/man/man3/bitstring.3" \
