@@ -9,15 +9,17 @@ pkgrel=5
 arch=('i686' 'x86_64')
 url='http://virtualbox.org'
 license=('GPL')
-makedepends=('linux-headers'
+makedepends=('linux'
+             'linux-headers'
              "virtualbox-host-dkms>=$pkgver"
              "virtualbox-guest-dkms>=$pkgver"
              'expac'
+             'sed'
              'bc')
 
 build() {
-  _kernver=$(expac -Q '%v' linux-headers)-ARCH
-  #_kernver=3.9.0-1-ARCH
+  _kernmaj=$(expac -Q '%v' linux|sed -r 's/([[:digit:]]+\.[[:digit:]]+).*/\1/')
+  _kernver=$(< /usr/lib/modules/extramodules-$_kernmaj-ARCH/version)
   # dkms need modification to be run as user
   cp -r /var/lib/dkms .
   echo "dkms_tree='$srcdir/dkms'" > dkms.conf
@@ -30,39 +32,36 @@ build() {
 }
 
 package_virtualbox-host-modules(){
-  _kernver=$(expac -Q '%v' linux-headers)-ARCH
-  #_kernver=3.9.0-1-ARCH
-  _extraver=extramodules-${_kernver%.*}-ARCH
+  _kernmaj=$(expac -Q '%v' linux|sed -r 's/([[:digit:]]+\.[[:digit:]]+).*/\1/')
+  _kernver=$(< /usr/lib/modules/extramodules-$_kernmaj-ARCH/version)
   pkgdesc='Host kernel modules for VirtualBox'
-  depends=("linux>=${_kernver%.*}" "linux<$(echo "${_kernver%.*}+0.1"|bc)")
+  depends=("linux>=$_kernmaj" "linux<$(echo "$_kernmaj+0.1"|bc)")
   replaces=('virtualbox-modules')
   conflicts=('virtualbox-modules')
   install=virtualbox-host-modules.install
 
-  install -dm755 "$pkgdir/usr/lib/modules/$_extraver"
   cd "dkms/vboxhost/$pkgver/$_kernver/$CARCH/module"
-  install -m644 * "$pkgdir/usr/lib/modules/$_extraver"
+  install -dm755 "$pkgdir/usr/lib/modules/extramodules-$_kernmaj-ARCH/"
+  install -m644 * "$pkgdir/usr/lib/modules/extramodules-$_kernmaj-ARCH/"
   find "$pkgdir" -name '*.ko' -exec gzip -9 {} +
-  sed -ie "s/EXTRAMODULES='.*'/EXTRAMODULES='$_extraver'/" "$startdir/virtualbox-host-modules.install"
+  sed -ie "s/VERSION='.*'/VERSION='$_kernver'/" "$startdir/virtualbox-host-modules.install"
 }
 
 package_virtualbox-guest-modules(){
-  _kernver=$(expac -Q '%v' linux-headers)-ARCH
-  #_kernver=3.9.0-1-ARCH
-  _extraver=extramodules-${_kernver%.*}-ARCH
-
+  _kernmaj=$(expac -Q '%v' linux|sed -r 's/([[:digit:]]+\.[[:digit:]]+).*/\1/')
+  _kernver=$(< /usr/lib/modules/extramodules-$_kernmaj-ARCH/version)
   pkgdesc='Guest kernel modules for VirtualBox'
   license=('GPL')
-  depends=("linux>=${_kernver%.*}" "linux<$(echo "${_kernver%.*}+0.1"|bc)")
+  depends=("linux>=$_kernmaj" "linux<$(echo "$_kernmaj+0.1"|bc)")
   replaces=('virtualbox-archlinux-modules')
   conflicts=('virtualbox-archlinux-modules')
   install=virtualbox-guest-modules.install
 
-  install -dm755 "$pkgdir/usr/lib/modules/$_extraver"
   cd "dkms/vboxguest/$pkgver/$_kernver/$CARCH/module"
-  install -m644 * "$pkgdir/usr/lib/modules/$_extraver"
+  install -dm755 "$pkgdir/usr/lib/modules/extramodules-$_kernmaj-ARCH/"
+  install -m644 * "$pkgdir/usr/lib/modules/extramodules-$_kernmaj-ARCH/"
   find "$pkgdir" -name '*.ko' -exec gzip -9 {} +
-  sed -ie "s/EXTRAMODULES='.*'/EXTRAMODULES='$_extraver'/" "$startdir/virtualbox-guest-modules.install"
+  sed -ie "s/VERSION='.*'/VERSION='$_kernver'/" "$startdir/virtualbox-guest-modules.install"
 }
 
 # vim:set ts=2 sw=2 et:
