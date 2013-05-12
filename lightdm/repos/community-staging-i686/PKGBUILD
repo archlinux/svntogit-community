@@ -1,0 +1,118 @@
+# $Id$
+# Maintainer: Maxime Gauduin <alucryd@gmail.com>
+# Contributor: Morfeo <morfeo89@hotmail.it>
+
+pkgbase=lightdm
+pkgname=('lightdm' 'liblightdm-qt4' 'liblightdm-qt5')
+pkgver=1.6.0
+pkgrel=2
+epoch=1
+pkgdesc="A lightweight display manager"
+arch=('i686' 'x86_64')
+url="https://launchpad.net/lightdm"
+license=('GPL3' 'LGPL3')
+groups=('lightdm')
+makedepends=('gobject-introspection' 'gtk-doc' 'intltool' 'itstool' 'libxklavier' 'qt4' 'qt5-base' 'yelp-tools')
+options=('!emptydirs' '!libtool')
+source=("https://launchpad.net/lightdm/1.6/${pkgver}/+download/${pkgbase}-${pkgver}.tar.xz"
+        'lightdm.service'
+        'lightdm.tmpfiles'
+        'lightdm.pam'
+        'lightdm-autologin.pam'
+        'lightdm.rules'
+        'lightdm-default-config.patch'
+        'lightdm-lock-screen-before-switch.patch'
+        'xsession')
+sha256sums=('882ece568df0d81c0b6e399ff00b3f89eee6d50efc09ad1c52c61d8753efb419'
+            '3daf2f7e1b751415eab9b2aa92d78d8e00c3447a77fa31f7e75863136286a86f'
+            'b29521fbd7a48a8f60b93ecca3b30c30bcb71560de8033c8d39b25c22c6f696f'
+            'e8c4c5fd3b801a390d201166fd1fb9730e78a5c62928768103b870b6bd980ea0'
+            '33e3c3d6e16c8d30756754ea3f31f5457c5be0343686aad287692be34958984a'
+            'a89566307e1c81c24f037d854cbd472d2f94f8a4b759877a01563a332319f7d6'
+            '6d5a754f41e9c7e52c51d2ff018b926ddaabb807e9a0b88c4a7bde1acffa3b1c'
+            '4793eaee5915f5c519f569a4cd9158822d4c57c8b6e405895d2eddf82fa00822'
+            '7fb85a1b54406032a922e8fd6f45d869fcfe5681df630e74e8e50c040b786ee4')
+
+prepare() {
+  cd "${srcdir}"/${pkgbase}-${pkgver}
+
+  patch -Np1 -i ../lightdm-default-config.patch
+  patch -Np1 -i ../lightdm-lock-screen-before-switch.patch
+  sed -i 's/MOC5 --qt=qt5/MOC5/' configure
+}
+
+build() {
+  cd "${srcdir}"/${pkgbase}-${pkgver}
+
+   ./configure --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/${pkgbase} --with-greeter-user=lightdm --with-greeter-session=lightdm-gtk-greeter --disable-{static,tests}
+   make
+}
+
+package_lightdm() {
+depends=('libxklavier' 'systemd')
+optdepends=('xorg-server-xephyr: LightDM test mode'
+            'accountsservice: limit visible accounts')
+backup=('etc/apparmor.d/lightdm-guest-session'
+        'etc/lightdm/keys.conf'
+        'etc/lightdm/lightdm.conf'
+        'etc/lightdm/users.conf')
+install=${pkgbase}.install
+
+  cd "${srcdir}"/${pkgbase}-${pkgver}
+
+  make DESTDIR="${pkgdir}" install
+  make DESTDIR="${pkgdir}" -C liblightdm-qt uninstall
+  rm -rf "${pkgdir}"/etc/init
+
+# Persistent home
+  install -dm 770 "${pkgdir}"/var/lib/lightdm
+  chmod +t "${pkgdir}"/var/lib/lightdm
+  echo 'GDK_CORE_DEVICE_EVENTS=true' > "${pkgdir}"/var/lib/lightdm/.pam_environment
+  chmod 644 "${pkgdir}"/var/lib/lightdm/.pam_environment
+
+# Session wrapper
+  install -m 755 ../xsession "${pkgdir}"/etc/lightdm/xsession
+
+# PAM
+  install -m 644 ../lightdm.pam "${pkgdir}"/etc/pam.d/lightdm
+  install -m 644 ../lightdm-autologin.pam "${pkgdir}"/etc/pam.d/lightdm-autologin
+
+# PolicyKit
+  install -dm 700 "${pkgdir}"/usr/share/polkit-1/rules.d
+  install -m 644 ../lightdm.rules "${pkgdir}"/usr/share/polkit-1/rules.d/lightdm.rules
+
+# Systemd
+  install -dm 755 "${pkgdir}"/usr/lib/{systemd/system,tmpfiles.d}
+  install -m 644 ../lightdm.service "${pkgdir}"/usr/lib/systemd/system/lightdm.service
+  install -m 644 ../lightdm.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/lightdm.conf
+}
+
+package_liblightdm-qt4() {
+pkgdesc=('LightDM Qt client library')
+depends=('lightdm' 'qt4')
+
+  cd "${srcdir}"/${pkgbase}-${pkgver}
+
+  make DESTDIR="${pkgdir}" -C liblightdm-gobject install
+  make DESTDIR="${pkgdir}" -C liblightdm-qt install
+  make DESTDIR="${pkgdir}" -C liblightdm-gobject uninstall
+  find "${pkgdir}" -type d -name *qt5* -exec rm -rf {} +
+  find "${pkgdir}" -type f  -name *qt5* -exec rm {} +
+  find "${pkgdir}" -type l  -name *qt5* -exec rm {} +
+}
+
+package_liblightdm-qt5() {
+pkgdesc=('LightDM Qt client library')
+depends=('lightdm' 'qt5-base')
+
+  cd "${srcdir}"/${pkgbase}-${pkgver}
+
+  make DESTDIR="${pkgdir}" -C liblightdm-gobject install
+  make DESTDIR="${pkgdir}" -C liblightdm-qt install
+  make DESTDIR="${pkgdir}" -C liblightdm-gobject uninstall
+  find "${pkgdir}" -type d -name *qt[!5]* -exec rm -rf {} +
+  find "${pkgdir}" -type f  -name *qt[!5]* -exec rm {} +
+  find "${pkgdir}" -type l  -name *qt[!5]* -exec rm {} +
+}
+
+# vim: ts=2 sw=2 et:
