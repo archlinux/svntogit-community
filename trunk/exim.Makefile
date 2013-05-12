@@ -100,7 +100,7 @@
 # /usr/local/sbin. The installation script will try to create this directory,
 # and any superior directories, if they do not exist.
 
-BIN_DIRECTORY=/usr/sbin
+BIN_DIRECTORY=/usr/bin
 
 
 #------------------------------------------------------------------------------
