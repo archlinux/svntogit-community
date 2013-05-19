@@ -4,31 +4,60 @@
 # Contributor: Sebastien Piccand <sebcactus gmail com>
 
 pkgname=('handbrake' 'handbrake-cli')
-pkgver=0.9.8
+pkgver=0.9.9
 pkgrel=1
 arch=('i686' 'x86_64')
 url="http://handbrake.fr/"
 license=('GPL')
 makedepends=('intltool' 'python2' 'yasm' 'wget' 'bzip2' 'gcc-libs' 'libnotify'
-             'gstreamer0.10-base' 'gtk2' 'dbus-glib' 'fribidi')
+             'gst-plugins-base' 'gtk3' 'dbus-glib' 'fribidi' 'libass'
+             'fontconfig' 'freetype2' 'libxml2' 'libogg' 'libvorbis'
+             'libtheora' 'libsamplerate' 'libbluray' 'ffmpeg')
 source=(http://downloads.sourceforge.net/project/handbrake/$pkgver/HandBrake-$pkgver.tar.bz2)
-sha256sums=('dba75a9ff772e419c01d75532c1bf0d7253e73d7ead184eee755cd4c133dc798')
+sha256sums=('a71dd774104cda00cfb51a813550351d638253791f2f419d04a66f3158a835b3')
 
-build() {
+prepare() {
   cd "$srcdir/HandBrake-$pkgver"
 
   # Use Python 2
   sed -i 's/python /python2 /' gtk/src/Makefile.am
 
-  ./configure --prefix=/usr --force --disable-gtk-update-checks
+  # Use more system libs
+  sed -i \
+    -e '/MODULES += contrib\/libbluray/d' \
+    -e '/MODULES += contrib\/ffmpeg/d' \
+    -e '/MODULES += contrib\/x264/d' \
+    make/include/main.defs
+
+  # Fix configure.ac to work with automake 1.13
+  cd gtk
+  sed -i \
+    -e 's/AM_CONFIG_HEADER/AC_CONFIG_HEADERS/' \
+    -e '/AM_PROG_CC_STDC/d' \
+    configure.ac
+
+  autoreconf -vi
+}
+
+build() {
+  cd "$srcdir/HandBrake-$pkgver"
+
+  ./configure \
+    --prefix=/usr \
+    --force \
+    --disable-gtk-update-checks
   cd build
   make
 }
 
 package_handbrake() {
   pkgdesc="Multithreaded video transcoder"
-  depends=('bzip2' 'gcc-libs' 'gstreamer0.10-base' 'libnotify' 'dbus-glib'
-           'fribidi' 'gtk2' 'desktop-file-utils' 'hicolor-icon-theme')
+  depends=('bzip2' 'gcc-libs' 'gst-plugins-base' 'libnotify' 'dbus-glib'
+           'fribidi' 'libass' 'gtk3' 'fontconfig' 'freetype2' 'libxml2'
+           'libogg' 'libvorbis' 'libtheora' 'libsamplerate' 'libbluray'
+           'ffmpeg' 'desktop-file-utils' 'hicolor-icon-theme')
+  optdepends=('gst-plugins-good: for video previews'
+              'gst-libav: for video previews')
   install=$pkgname.install
 
   cd "$srcdir/HandBrake-$pkgver/build"
@@ -39,7 +68,8 @@ package_handbrake() {
 
 package_handbrake-cli() {
   pkgdesc="Multithreaded video transcoder (CLI)"
-  depends=('bzip2' 'gcc-libs' 'zlib' 'fribidi')
+  depends=('bzip2' 'gcc-libs' 'zlib' 'fribidi' 'libass' 'libxml2' 'libtheora'
+           'libsamplerate' 'libbluray' 'ffmpeg')
 
   cd "$srcdir/HandBrake-$pkgver/build"
   install -D HandBrakeCLI "$pkgdir/usr/bin/HandBrakeCLI"
