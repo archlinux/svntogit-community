@@ -4,17 +4,23 @@
 # Contributor: Anders Bergh <anders@archlinuxppc.org>
 # Contributor: Tomas Wilhelmsson <tomas.wilhelmsson@gmail.com>
 
-pkgname=lib32-llvm-amdgpu-snapshot
+pkgbase=lib32-llvm-amdgpu-snapshot
+pkgname=('lib32-llvm-amdgpu-snapshot' 'lib32-llvm-amdgpu-lib-snapshot')
 pkgver=20130403
-pkgrel=1
+pkgrel=2
 pkgdesc='Low Level Virtual Machine with AMDGPU enabled to build r600g shader llvm support (32-bits)'
 arch=('x86_64')
 url="http://llvm.org"
 license=('custom:University of Illinois/NCSA Open Source License')
 makedepends=('lib32-libffi' 'python2' 'gcc-multilib')
-conflicts=('lib32-llvm')
-source=(ftp://ftp.archlinux.org/other/community/llvm-amdgpu/llvm-amdgpu-master.${pkgver}.tar.gz)
+source=(ftp://ftp.archlinux.org/other/packages/llvm-amdgpu/llvm-amdgpu-master.${pkgver}.tar.gz)
 md5sums=('4baa7b8da9eff4811952b6f855c141ca')
+
+prepare() {
+  cd "$srcdir"/llvm-c*
+
+  sed -i 's/python$/python2/' utils/llvm-build/llvm-build
+}
 
 build() {
   cd "$srcdir"/llvm-c*
@@ -26,19 +32,16 @@ build() {
   rm -rf tools/clang
   rm -rf projects/compiler-rt
 
-  sed -i 's/python$/python2/' utils/llvm-build/llvm-build
-
   # Include location of libffi headers in CPPFLAGS
   export CPPFLAGS="$CPPFLAGS $(pkg-config --cflags libffi)"
 
   # Fix installation directories, ./configure doesn't seem to set them right
   sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
-         -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib32/llvm:' \
-         -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
+         -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib32:' \
     Makefile.config.in
-  sed -i '/ActiveLibDir = ActivePrefix/s:lib:lib32/llvm:' \
+  sed -i '/ActiveLibDir = ActivePrefix/s:lib:lib32:' \
     tools/llvm-config/llvm-config.cpp
-  sed -i 's:LLVM_LIBDIR="${prefix}/lib":LLVM_LIBDIR="${prefix}/lib32/llvm":' \
+  sed -i 's:LLVM_LIBDIR="${prefix}/lib":LLVM_LIBDIR="${prefix}/lib32":' \
     autoconf/configure.ac \
     configure
 
@@ -54,7 +57,7 @@ build() {
 
   PYTHON=python2 ./configure \
     --prefix=/usr \
-    --libdir=/usr/lib32/llvm \
+    --libdir=/usr/lib32 \
     --sysconfdir=/etc \
     --enable-shared \
     --enable-libffi \
@@ -69,36 +72,46 @@ build() {
   make REQUIRES_RTTI=1
 }
 
-package() {
-  depends=('lib32-libffi' 'llvm-amdgpu-snapshot')
+package_lib32-llvm-amdgpu-snapshot() {
+  depends=('lib32-libffi' 'lib32-llvm-amdgpu-lib-snapshot' 'llvm-amdgpu-snapshot')
+  conflicts=('lib32-llvm')
 
   cd "$srcdir"/llvm-c*
 
   make DESTDIR="$pkgdir" install
 
-  # Fix permissions of static libs
-  chmod -x "$pkgdir"/usr/lib32/llvm/*.a
-
   mv "$pkgdir/usr/bin/i386-pc-linux-gnu-llvm-config" "$pkgdir/usr/lib32/llvm-config"
 
-  # Get rid of example Hello transformation
-  rm "$pkgdir"/usr/lib32/llvm/*LLVMHello.*
-
-  # Symlink the gold plugin where clang expects it
-  ln -s llvm/LLVMgold.so "$pkgdir/usr/lib32/LLVMgold.so"
-
-  # Add ld.so.conf.d entry
-  install -d "$pkgdir/etc/ld.so.conf.d"
-  echo /usr/lib32/llvm >"$pkgdir/etc/ld.so.conf.d/llvm32.conf"
+  # Fix permissions of static libs
+  chmod -x "$pkgdir"/usr/lib32/*.a
+  # moved to lib32-llvm-amdgpu-lib-snapshot
+  rm "$pkgdir"/usr/lib32/libLLVM-3.2svn.so
 
   install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
   mv "$pkgdir"/usr/include/llvm/Config/*config.h "$pkgdir/"
-  rm -rf "$pkgdir"/usr/{bin,include,lib,share/doc}
+  rm -rf "$pkgdir"/usr/{bin,include,docs}
   install -d "$pkgdir/usr/include/llvm/Config"
   mv "$pkgdir/config.h" "$pkgdir/usr/include/llvm/Config/config-32.h"
   mv "$pkgdir/llvm-config.h" "$pkgdir/usr/include/llvm/Config/llvm-config-32.h"
 
   install -d "$pkgdir"/usr/bin
   mv "$pkgdir/usr/lib32/llvm-config" "$pkgdir/usr/bin/llvm-config32"
+}
+
+package_lib32-llvm-amdgpu-lib-snapshot() {
+  depends=('lib32-libffi' 'lib32-gcc-libs')
+
+  cd "$srcdir"/llvm-c*
+
+  make DESTDIR="$pkgdir" install
+
+  mv -v "$pkgdir"/usr/lib32/libLLVM-3.2svn.so "$pkgdir"/
+
+  # Remove useless files
+  rm -r "$pkgdir"/usr/{bin,include,docs,lib32/*}
+
+  mv "$pkgdir"/libLLVM-3.2svn.so "$pkgdir"/usr/lib32/
+
+  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
