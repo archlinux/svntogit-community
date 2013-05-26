@@ -9,7 +9,7 @@ pkgname=('linux-tools-meta'
          'x86_energy_perf_policy'
          'usbip')
 pkgver=3.9
-pkgrel=2
+pkgrel=3
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
