@@ -2,49 +2,89 @@
 # Maintainer: Vesa Kaihlavirta <vegai@iki.fi>
 # Maintainer: Jaroslav Lichtblau <dragonlord@aur.archlinux.org>
 
-pkgname=quassel
-pkgver=0.8.0
-pkgrel=2
+pkgbase=quassel
+pkgname=('quassel-client' 'quassel-core')
+pkgver=0.9.0
+pkgrel=1
 pkgdesc="QT4 irc client with a separated core"
 arch=('i686' 'x86_64')
 url="http://quassel-irc.org/"
 license=('GPL')
-depends=('kdebase-runtime')
-makedepends=('cmake' 'automoc4')
-install=quassel.install
-backup=(etc/conf.d/quassel)
-source=("http://quassel-irc.org/pub/$pkgname-$pkgver.tar.bz2"
+makedepends=('cmake' 'automoc4' 'qt4' 'icu')
+source=("http://quassel-irc.org/pub/quassel-$pkgver.tar.bz2"
         'quassel.service'
-        'rc.quassel'
         'quassel.conf')
-sha256sums=('a3515bd18e2b100eb9a72480e76b1faefaa5e84cdb236b6af1f05b477a1e9071'
-            '91a1aaae47d41c11aa418dd560039ddbbfb659e02b86379d8c4789c5ada362d3'
-            '845e621448a51ec181554e9327bfcc3a3de1501ae8f70410f0b9b8991ac171b0'
-            'f3031ea8217e01ba42cea14606169e3e27affa5918968ffd5a03c21ae92fe2b8')
 
+sha256sums=('2e3fe06ae3731c829aa3c2f6bb5320619bad264c831f322985c3aa3fe58b6027'
+            '91a1aaae47d41c11aa418dd560039ddbbfb659e02b86379d8c4789c5ada362d3'
+            'f3031ea8217e01ba42cea14606169e3e27affa5918968ffd5a03c21ae92fe2b8')
 build() {
+  cd $srcdir
   [[ ! -d build ]] && mkdir build
+  mkdir build-client
+
+  # Core
   cd build
 
   cmake \
     -DCMAKE_INSTALL_PREFIX=/usr/ \
-    -DWITH_KDE=1 \
+    -DWITH_KDE=0 \
     -DCMAKE_BUILD_TYPE="Release" \
-    ../${pkgname}-${pkgver}/ \
+    -DWITH_OPENSSL=ON \
+    -DWANT_CORE=ON \
+    -DWANT_MONO=OFF \
+    -DWANT_QTCLIENT=OFF \
+    -DWITH_DBUS=OFF \
+    -DWITH_OXYGEN=OFF \
+    -DWITH_PHONON=OFF \
+    -DWITH_WEBKIT=OFF \
+    -DCMAKE_BUILD_TYPE="Release" \
+    ../quassel-${pkgver}/ \
     -Wno-dev
 
   make
+
+  # Client
+  cd $srcdir/build-client
+  cmake \
+    -DCMAKE_INSTALL_PREFIX=/usr/ \
+    -DWITH_KDE=0 \
+    -DWITH_OPENSSL=ON \
+    -DCMAKE_BUILD_TYPE="Release" \
+    -DWANT_CORE=OFF \
+    -DWANT_QTCLIENT=ON \
+    -DWANT_MONO=ON \
+    ../quassel-${pkgver}/ \
+    -Wno-dev
+
+  make
+  
 }
 
-package() {
-  cd build
+package_quassel-core() {
+pkgdesc="Qt4 IRC client with a separated core - core only"
+depends=('qt4' 'icu')
+backup=(etc/conf.d/quassel)
+install=quassel.install
+  cd $srcdir/build
 
   make DESTDIR="${pkgdir}" install
+  
+  # Remove unneeded pixmap icons
+  rm -r $pkgdir/usr/share
 
-  install -Dm644 "${srcdir}"/$pkgname.service \
-    "${pkgdir}"/usr/lib/systemd/system/$pkgname.service
-  install -D "${srcdir}"/rc.$pkgname \
-    "${pkgdir}"/etc/rc.d/$pkgname
-  install -Dm644 "${srcdir}"/$pkgname.conf \
-    "${pkgdir}"/etc/conf.d/$pkgname
+
+  install -Dm644 "${srcdir}"/$pkgbase.service \
+    "${pkgdir}"/usr/lib/systemd/system/$pkgbase.service
+  install -Dm644 "${srcdir}"/$pkgbase.conf \
+    "${pkgdir}"/etc/conf.d/$pkgbase
+}
+
+package_quassel-client() {
+pkgdesc="Qt4 IRC client with a separated core - client only"
+depends=('qt4')
+install=quassel-client.install
+  cd $srcdir/build-client
+
+  make DESTDIR=${pkgdir} install
 }
