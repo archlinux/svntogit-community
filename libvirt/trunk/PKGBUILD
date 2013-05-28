@@ -50,7 +50,7 @@ build() {
   done
 
   export LDFLAGS=-lX11
-  export RADVD=/usr/sbin/radvd
+  export RADVD=/usr/bin/radvd
   [ -f Makefile ] || ./configure --prefix=/usr --libexec=/usr/lib/"$pkgname" \
 	--with-storage-lvm --without-xen --with-udev --without-hal --disable-static \
 	--with-init-script=systemd --with-audit \
