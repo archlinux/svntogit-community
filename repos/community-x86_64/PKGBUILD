@@ -2,56 +2,68 @@
 # Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Stefan Husmann <stefan-husmann@t-online.de>
 # Contributor: Giovanni Scafora <linuxmania@gmail.com>
-# Maintainer: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
 
 pkgname=qcad
-pkgver=2.0.5.0
-pkgrel=12
+pkgver=3.0.14.0
+pkgrel=1
 pkgdesc="A 2D CAD package based upon Qt"
 arch=('i686' 'x86_64')
 url="http://www.ribbonsoft.com/qcad.html"
 license=('GPL2')
-depends=('qt3')
+depends=('qtwebkit')
 makedepends=('glu')
 options=(libtool)
-source=(http://www.ribbonsoft.com/archives/$pkgname/$pkgname-$pkgver-1-community.src.tar.gz
-        qcad.xpm
-        QCad.desktop
-        qcad-intptr.patch
-        qcad.patch)
-md5sums=('96b6a56027782aec953c9c4e64c5998c'
-         'da32fec0d2fb85d96126bf28bb0ab9ff'
-         'b4d1eb6724b4b41f191f1ab6fd859c39'
-         '92f900fe1fd3a8f841232b587b49c7da'
-         '7e6779b1e3b10da1eb4daf36d93f8479')
-# http://ghost1227.com/files/misc/qm.tar.gz)
+#source=(https://github.com/qcad/qcad/archive/v${pkgver}.zip
+source=(http://cl.ly/1u1Y3H290M1S/download/qcad-v${pkgver}.zip
+        QCad.desktop)
+md5sums=('6f52fe016e915850ba942fa760909d4c'
+         '8c4288986b78b14a813b005e81b6ba53')
+
+prepare() {
+  cd ${srcdir}
+
+  sed -i '1,1i#include <unistd.h>' src/core/{RLocalPeer,RS}.cpp
+  sed -i '1,1i#include <sys/sysinfo.h>' src/core/{RScriptHandler,RS}.cpp
+}
 
 build() {
-  cd ${srcdir}/${pkgname}-2.0.5.0-1-community.src
+  cd ${srcdir}
 
-  [ "$CARCH" = "x86_64" ] && {
-    patch -p1 < ../qcad-intptr.patch;
-    sed -i '1,1i#include <stdint.h>' qcadlib/src/engine/rs_layer.cpp qcadlib/src/engine/rs_entity.cpp;
-  }
-  patch -p1 < ../qcad.patch
-  sed -i "s:"-pedantic"::g" mkspecs/defs.pro
-
-  cd scripts
-  sed -i "s|INCLUDEPATH += ../include|INCLUDEPATH += ../include /usr/include/qt3|" ../*/src/*.pro
-  sed -i "s|../../qcadlib/include|../../qcadlib/include /usr/include/qt3|" ../qcad/src/qcad.pro
-  sed -i "s/qmake/qmake-qt3/" build_qcad.sh
-  sed -i 's|eval $MAKE|sed -i "s/-lqt/-lqt-mt/" ../qcad/src/Makefile;eval $MAKE|'  build_qcad.sh
-  QTDIR=/usr/lib/qt3 ./build_qcad.sh notrans
+  qmake-qt4
+  make PREFIX=/usr CXX="g++ -fpermissive"
 }
 
 package() {
-  cd ${srcdir}/${pkgname}-2.0.5.0-1-community.src/qcad
+  cd ${srcdir}
 
-  install -D -m755 qcad ${pkgdir}/usr/bin/qcad
-  install -d ${pkgdir}/usr/share/{qcad,pixmaps,applications}
-  install -m644 ../../qcad.xpm ${pkgdir}/usr/share/pixmaps/qcad.xpm
-  install -m644 ../../QCad.desktop \
-    ${pkgdir}/usr/share/applications/QCad.desktop
-  cp -r fonts patterns data library machines ${pkgdir}/usr/share/qcad
-  #cp -r ${srcdir}/qm ${pkgdir}/usr/share/qcad/
+  # remove project files
+  find . \( -name '*.pri' -or -name '.pro' -or -name '*.ts' \) -delete
+  find . \( -name 'Makefile' -name '.gitignore' \) -delete
+
+  install -dm755 ${pkgdir}/usr/share/{qcad,pixmaps,applications}
+  cp -r examples fonts libraries patterns plugins scripts ts ${pkgdir}/usr/share/qcad
+  cp release/* ${pkgdir}/usr/share/qcad
+
+  install -m755 qcad ${pkgdir}/usr/share/qcad/qcad
+  install -m755 readme.txt ${pkgdir}/usr/share/qcad/readme.txt
+
+  # qtwebkit
+  ln -s /usr/lib/qt4/plugins/designer/libqwebview.so ${pkgdir}/usr/share/qcad/plugins/designer/libqwebview.so
+  # qt
+  for sofiles in /usr/lib/qt4/plugins/imageformats/*.so
+  do
+    ln -s ${sofiles} ${pkgdir}/usr/share/qcad/plugins/imageformats/${sofiles##/*/}
+  done
+  for sofiles in /usr/lib/qt4/plugins/sqldrivers/*.so
+  do
+    ln -s ${sofiles} ${pkgdir}/usr/share/qcad/plugins/sqldrivers/${sofiles##/*/}
+  done
+
+  install -Dm644 scripts/qcad_icon.png ${pkgdir}/usr/share/pixmaps/qcad_icon.png
+  install -Dm644 QCad.desktop ${pkgdir}/usr/share/applications/QCad.desktop
+
+  install -dm0755 $pkgdir/usr/bin
+  echo -e '#!/bin/sh\ncd /usr/share/qcad\nexec ./qcad' >$pkgdir/usr/bin/qcad
+  chmod 0755 $pkgdir/usr/bin/qcad
 }
