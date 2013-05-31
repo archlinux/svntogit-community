@@ -1,0 +1,56 @@
+# $Id$
+# Maintainer:  Thorsten Töpper <atsutane-tu@freethoughts.de>
+# Contributor: SpepS <dreamspepser at yahoo dot it>
+# Contributor: Tobias Powalowski <tpowa@archlinux.org>
+
+_extramodules=extramodules-3.9-ARCH
+pkgname=ndiswrapper
+pkgver=1.58
+pkgrel=10
+pkgdesc="Module for NDIS (Windows Network Drivers) drivers supplied by vendors."
+license=('GPL')
+arch=('i686' 'x86_64')
+url="http://ndiswrapper.sourceforge.net"
+install=ndiswrapper.install
+depends=('linux>=3.9' 'linux<3.10' 'wireless_tools' 'perl')
+makedepends=('linux-headers')
+provides=("$pkgname-utils" "$pkgname-bin")
+replaces=("$pkgname-utils" "$pkgname-bin")
+source=("http://downloads.sourceforge.net/sourceforge/$pkgname/$pkgname-$pkgver.tar.gz"
+        ndiswrapper-1.58-add_taint.patch)
+options=('!strip')
+sha1sums=('a256812b3136648ed93e04146d2276a3ca70957c'
+          'f2c8bd7553f87a647b2e221b01fbd5d0d07eff8c')
+
+prepare() {
+  cd "$srcdir/$pkgname-$pkgver"
+  # https://bugs.gentoo.org/show_bug.cgi?id=467956 3.9 kernels
+  patch -Np1 -i "$srcdir/ndiswrapper-1.58-add_taint.patch"
+}
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  _kver="$(cat /usr/lib/modules/${_extramodules}/version)"
+
+  # modinfo path fix
+  sed -i "/modinfo/s/s/usr\//" driver/Makefile
+
+  # make sure we point to the right build directory
+  sed -i "/^KBUILD/ s,.*,KBUILD = $(readlink -f /usr/lib/modules/$_kver/build)," driver/Makefile
+
+  make KVERS=$_kver
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  _kver="$(cat /usr/lib/modules/${_extramodules}/version)"
+
+  make INST_DIR="usr/lib/modules/$_extramodules" \
+    KVERS=$_kver DESTDIR="$pkgdir/" sbindir=/usr/bin usrsbindir=/usr/bin install
+
+  gzip "$pkgdir/usr/lib/modules/$_extramodules/$pkgname.ko"
+}
+
+# vim:set ts=2 sw=2 et:
