@@ -7,7 +7,7 @@
 pkgbase=notmuch
 pkgname=('notmuch' 'notmuch-vim' 'notmuch-mutt' 'notmuch-runtime')
 pkgver=0.15.2
-pkgrel=3
+pkgrel=4
 arch=('i686' 'x86_64')
 url="http://notmuchmail.org/"
 license=('GPL3')
@@ -31,9 +31,15 @@ build() {
 		--without-zsh-completion
 
     make 
-
-    (cd "${srcdir}/$pkgname-${pkgver}/contrib/${pkgname}-mutt"
-    make ${pkgname}-mutt.1)
+    ( pushd "contrib/$pkgbase-deliver"
+    export CPPFLAGS="-I ../../lib"
+    ./autogen.sh
+    ./configure --prefix=/usr --sysconfdir=/etc \
+		--includedir=/usr/include \
+        LDFLAGS="-L$srcdir/$pkgname-$pkgver/lib" \
+        CPPFLAGS="-I$srcdir/$pkgname-$pkgver/lib"
+    make)
+    make -C "contrib/${pkgbase}-mutt" "${pkgname}-mutt.1"
 
     cd bindings/ruby
     ruby extconf.rb
@@ -50,7 +56,7 @@ package_notmuch-runtime(){
     depends=('xapian-core' 'gmime' 'talloc')
     cd "$srcdir/${pkgbase}-$pkgver"
     make DESTDIR="$pkgdir/" LIBDIR_IN_LDCONFIG=0 install
-	chmod 755 $pkgdir/usr/bin/notmuch
+	install -Dm755 notmuch $pkgdir/usr/bin/notmuch
 }
 
 
@@ -72,21 +78,19 @@ package_notmuch(){
                 'gnupg: for email encryption')
 
     cd "$srcdir/${pkgname}-$pkgver"
+    # Install ruby bindings
+    sed -i -e 's,/site_ruby,,g' bindings/ruby/Makefile
+    make -C bindings/ruby exec_prefix=$pkgdir/usr prefix=/usr install
+
+    # Install notmuch-deliver
+    make -C "contrib/${pkgbase}-deliver" DESTDIR="$pkgdir" install
 
     # Install python bindings
     cd "$srcdir/${pkgname}-${pkgver}/bindings/python2"
-    #env LD_LIBRARY_PATH="." python2 setup.py install --prefix=/usr --root="$pkgdir"
 	python2 setup.py install --prefix=/usr --root="$pkgdir"
 
     cd "$srcdir/${pkgname}-${pkgver}/bindings/python"
-    #env LD_LIBRARY_PATH="." python setup.py install --prefix=/usr --root="$pkgdir"
 	python setup.py install --prefix=/usr --root="$pkgdir"
-
-    # Install ruby bindings
-    cd "$srcdir/${pkgname}-${pkgver}/bindings/ruby"
-    sed -i -e 's,/site_ruby,,g' Makefile
-    make exec_prefix=$pkgdir/usr prefix=/usr install
-
 }
 
 package_notmuch-mutt(){
@@ -95,7 +99,7 @@ package_notmuch-mutt(){
     cd "$srcdir/$pkgbase-$pkgver"
 
     install -Dm755 "contrib/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
-    install -Dm644 "contrib/$pkgname/${pkgname}.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1.gz"
+    install -Dm644 "contrib/$pkgname/${pkgname}.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1"
 }
 
 #vim: set filetype=PKGBUILD sw=4 ts=4 et
