@@ -4,14 +4,14 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.8.1
-pkgrel=2
+pkgver=0.8.2
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
 makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc')
 license=('MIT')
 source=(http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-$pkgver/bitcoin-$pkgver-linux.tar.gz)
-sha256sums=('6d7f023a9df1a436c51de83f7cd751f162be9b4fb1c06da05545f9fba7cb2a98')
+sha256sums=('e15d3134f4efd8d60e243c7177edba06ac471619674ca07a42a1dced5f498728')
 
 build() {
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
@@ -34,8 +34,8 @@ package_bitcoin-qt() {
   install -Dm755 bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
   install -Dm644 contrib/debian/bitcoin-qt.desktop \
     "$pkgdir"/usr/share/applications/bitcoin.desktop
-  install -Dm644 share/pixmaps/bitcoin80.xpm \
-    "$pkgdir"/usr/share/pixmaps/bitcoin80.xpm
+  install -Dm644 share/pixmaps/bitcoin128.png \
+    "$pkgdir"/usr/share/pixmaps/bitcoin128.png
 
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
