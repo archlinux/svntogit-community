@@ -1,0 +1,121 @@
+diff -u -rN cdemu-daemon-2.1.0/CMakeLists.txt cdemu-daemon-2.1.0-arch/CMakeLists.txt
+--- cdemu-daemon-2.1.0/CMakeLists.txt	2013-06-07 21:33:53.000000000 +0200
++++ cdemu-daemon-2.1.0-arch/CMakeLists.txt	2013-06-08 02:20:15.948655947 +0200
+@@ -18,7 +18,7 @@
+ include (FileList)
+ 
+ # Options
+-option (SYSTEM_BUS_SERVICE "Install CDEmu daemon as D-Bus system bus service" off)
++option (SYSTEM_BUS_SERVICE "Install CDEmu daemon as D-Bus system bus service" on)
+ option (SESSION_BUS_SERVICE "Install CDEmu daemon as D-Bus session bus service" on)
+ 
+ # If install prefix is /usr, override the sysconf dir to be /etc instead of /usr/etc
+@@ -46,6 +46,10 @@
+     ${PROJECT_SOURCE_DIR}/system/net.sf.cdemu.CDEmuDaemon.service.in
+     ${PROJECT_BINARY_DIR}/system/net.sf.cdemu.CDEmuDaemon.service
+ )
++configure_file (
++    ${PROJECT_SOURCE_DIR}/system/cdemu-daemon.service.in
++    ${PROJECT_BINARY_DIR}/system/cdemu-daemon.service
++)
+ 
+ # Global definitions
+ add_definitions (-std=gnu99) #NOTE: Compilation bugs out on using signals and -std=c99
+@@ -104,6 +108,10 @@
+         DESTINATION ${CMAKE_INSTALL_LIBEXECDIR}
+     )
+     install (
++        FILES ${PROJECT_BINARY_DIR}/system/cdemu-daemon.service
++        DESTINATION ${CMAKE_INSTALL_LIBDIR}/systemd/system/
++    )
++    install (
+         FILES ${PROJECT_BINARY_DIR}/system/net.sf.cdemu.CDEmuDaemon.service
+         DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system-services/
+     )
+@@ -111,5 +119,10 @@
+         FILES system/cdemu-daemon-dbus.conf
+         DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/dbus-1/system.d
+     )
++    install (
++        FILES system/cdemu-daemon.conf
++        RENAME cdemu-daemon
++        DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/conf.d
++    )
+ endif ()
+ 
+diff -u -rN cdemu-daemon-2.1.0/system/cdemu-daemon.conf cdemu-daemon-2.1.0-arch/system/cdemu-daemon.conf
+--- cdemu-daemon-2.1.0/system/cdemu-daemon.conf	1970-01-01 01:00:00.000000000 +0100
++++ cdemu-daemon-2.1.0-arch/system/cdemu-daemon.conf	2013-06-08 02:12:19.032035389 +0200
+@@ -0,0 +1,8 @@
++# how many optical drives to emulate
++#NUM_DEVICES=1
++
++# audio backend (null, default, alsa, or pulse)
++#AUDIO_DRIVER=null
++
++# log file
++#LOG_FILE=/var/log/cdemu-daemon.log
+diff -u -rN cdemu-daemon-2.1.0/system/cdemu-daemon-dbus.conf cdemu-daemon-2.1.0-arch/system/cdemu-daemon-dbus.conf
+--- cdemu-daemon-2.1.0/system/cdemu-daemon-dbus.conf	2013-06-07 21:33:53.000000000 +0200
++++ cdemu-daemon-2.1.0-arch/system/cdemu-daemon-dbus.conf	2013-06-08 02:11:52.922220389 +0200
+@@ -11,8 +11,13 @@
+         <allow own="net.sf.cdemu.CDEmuDaemon"/>
+     </policy>
+ 
+-    <!-- Allow anyone to invoke methods on the interface -->
+-    <policy context="default">
++    <!-- Allow users at the console to invoke methods on the interface -->
++    <policy at_console="true">
++        <allow send_destination="net.sf.cdemu.CDEmuDaemon"/>
++    </policy>
++
++    <!-- Allow users in the 'cdemu' group to invoke methods on the interface -->
++    <policy group="cdemu">
+         <allow send_destination="net.sf.cdemu.CDEmuDaemon"/>
+     </policy>
+ </busconfig>
+diff -u -rN cdemu-daemon-2.1.0/system/cdemu-daemon.service.in cdemu-daemon-2.1.0-arch/system/cdemu-daemon.service.in
+--- cdemu-daemon-2.1.0/system/cdemu-daemon.service.in	1970-01-01 01:00:00.000000000 +0100
++++ cdemu-daemon-2.1.0-arch/system/cdemu-daemon.service.in	2013-06-08 02:13:08.331686074 +0200
+@@ -0,0 +1,10 @@
++[Unit]
++Description=CDEmu Daemon
++
++[Service]
++Type=dbus
++BusName=net.sf.cdemu.CDEmuDaemon
++ExecStart=@CMAKE_INSTALL_FULL_LIBEXECDIR@/cdemu-daemon-system.sh
++
++[Install]
++WantedBy=multi-user.target
+diff -u -rN cdemu-daemon-2.1.0/system/cdemu-daemon-system.sh cdemu-daemon-2.1.0-arch/system/cdemu-daemon-system.sh
+--- cdemu-daemon-2.1.0/system/cdemu-daemon-system.sh	2013-06-07 21:33:53.000000000 +0200
++++ cdemu-daemon-2.1.0-arch/system/cdemu-daemon-system.sh	2013-06-08 02:11:53.152218760 +0200
+@@ -1,15 +1,15 @@
+ #!/bin/sh
+ # Starts the CDEmu daemon instance on D-Bus *system* bus. Optional
+ # configuration (number of devices, audio driver, log file) are read
+-# from /etc/sysconfig/cdemu-daemon
++# from /etc/conf.d/cdemu-daemon
+ 
+ # Default settings
+ NUM_DEVICES=1
+ AUDIO_DRIVER=null
+-LOG_FILE=/tmp/cdemu-daemon.log
++LOG_FILE=/var/log/cdemu-daemon.log
+ 
+ # Read the settings
+-CONFIG_FILE=/etc/sysconfig/cdemu-daemon
++CONFIG_FILE=/etc/conf.d/cdemu-daemon
+ 
+ if [ -f ${CONFIG_FILE} ]; then
+     . ${CONFIG_FILE};
+diff -u -rN cdemu-daemon-2.1.0/system/net.sf.cdemu.CDEmuDaemon.service.in cdemu-daemon-2.1.0-arch/system/net.sf.cdemu.CDEmuDaemon.service.in
+--- cdemu-daemon-2.1.0/system/net.sf.cdemu.CDEmuDaemon.service.in	2013-06-07 21:33:53.000000000 +0200
++++ cdemu-daemon-2.1.0-arch/system/net.sf.cdemu.CDEmuDaemon.service.in	2013-06-08 02:14:26.824463231 +0200
+@@ -2,4 +2,4 @@
+ Name=net.sf.cdemu.CdemuDaemon
+ Exec=@CMAKE_INSTALL_FULL_LIBEXECDIR@/cdemu-daemon-system.sh
+ User=root
+-
++SystemdService=cdemu-daemon.service
