@@ -9,15 +9,39 @@
 # Contributor: Roberto Alsina <ralsina@kde.org>
 # Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
 
-pkgname=('lib32-llvm')
-pkgver=3.2
+pkgname=('lib32-llvm' 'lib32-llvm-libs')
+pkgver=3.3
 pkgrel=1
 arch=('x86_64')
 url="http://llvm.org/"
 license=('custom:University of Illinois/NCSA Open Source License')
-makedepends=('lib32-libffi' 'python2' 'gcc-multilib')
-source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.gz)
-sha256sums=('125090c4d26740f1d5e9838477c931ed7d9ad70d599ba265f46f3a42cb066343')
+makedepends=('lib32-libffi' 'lib32-zlib' 'python2' 'gcc-multilib')
+source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.gz
+        http://llvm.org/releases/$pkgver/compiler-rt-$pkgver.src.tar.gz)
+sha256sums=('68766b1e70d05a25e2f502e997a3cb3937187a3296595cf6e0977d5cd6727578'
+            '0e2f3180d6316e6c43f064fdd406c5c6515e682c5f31c57c28335b68c7525423')
+
+prepare() {
+  cd "$srcdir/llvm-$pkgver.src"
+
+  rm -rf tools/clang
+  
+  rm -rf projects/compiler-rt
+  mv "$srcdir/compiler-rt-$pkgver.src" projects/compiler-rt
+
+  # Fix installation directories, ./configure doesn't seem to set them right
+  sed -i -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib32:' \
+         -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
+    Makefile.config.in
+  sed -i '/ActiveLibDir = ActivePrefix/s:lib:lib32:' \
+    tools/llvm-config/llvm-config.cpp
+  sed -i 's:LLVM_LIBDIR="${prefix}/lib":LLVM_LIBDIR="${prefix}/lib32":' \
+    autoconf/configure.ac \
+    configure
+
+  # Fix insecure rpath (http://bugs.archlinux.org/task/14017)
+  sed -i 's:$(RPATH) -Wl,$(\(ToolDir\|LibDir\|ExmplDir\))::g' Makefile.rules
+}
 
 build() {
   cd "$srcdir/llvm-$pkgver.src"
@@ -26,52 +50,29 @@ build() {
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
-  rm -rf tools/clang
-  rm -rf projects/compiler-rt
-
-  # Fix installation directories, ./configure doesn't seem to set them right
-  sed -i -e 's:\$(PROJ_prefix)/etc/llvm:/etc/llvm:' \
-         -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib32/llvm:' \
-         -e 's:\$(PROJ_prefix)/docs/llvm:$(PROJ_prefix)/share/doc/llvm:' \
-    Makefile.config.in
-  sed -i '/ActiveLibDir = ActivePrefix/s:lib:lib32/llvm:' \
-    tools/llvm-config/llvm-config.cpp
-  sed -i 's:LLVM_LIBDIR="${prefix}/lib":LLVM_LIBDIR="${prefix}/lib32/llvm":' \
-    autoconf/configure.ac \
-    configure
-
-  # Fix insecure rpath (http://bugs.archlinux.org/task/14017)
-  sed -i 's:$(RPATH) -Wl,$(\(ToolDir\|LibDir\|ExmplDir\))::g' Makefile.rules
-
-  # Drop "svn" suffix from version string
-  sed -i 's/3\.2svn/3.2/g' configure
-
   # Apply strip option to configure
   _optimized_switch="enable"
   [[ $(check_option strip) == n ]] && _optimized_switch="disable"
 
   # Include location of libffi headers in CPPFLAGS
-  export CPPFLAGS="$CPPFLAGS $(pkg-config --cflags libffi)"
-
-  # Use Python 2
-  mkdir "$srcdir/python2-path"
-  ln -s /usr/bin/python2 "$srcdir/python2-path/python"
-  export PATH="$srcdir/python2-path:$PATH"
+  CPPFLAGS+=" $(pkg-config --cflags libffi)"
 
   # We had to force host and target to get
   # a proper triplet reported by llvm
 
   ./configure \
     --prefix=/usr \
-    --libdir=/usr/lib32/llvm \
+    --libdir=/usr/lib32 \
     --sysconfdir=/etc \
     --enable-shared \
     --enable-libffi \
     --enable-targets=all \
+    --enable-experimental-targets=R600 \
     --disable-expensive-checks \
     --disable-debug-runtime \
     --disable-assertions \
     --with-binutils-include=/usr/include \
+    --with-python=/usr/bin/python2 \
     --host=i386-pc-linux-gnu \
     --target=i386-pc-linux-gnu \
     --$_optimized_switch-optimized
@@ -79,41 +80,51 @@ build() {
   make REQUIRES_RTTI=1
 }
 
-package() {
-  pkgdesc="Low Level Virtual Machine (32 bits version)"
-  depends=('lib32-libffi' 'llvm')
+package_lib32-llvm() {
+  pkgdesc="Low Level Virtual Machine (32-bit)"
+  depends=('lib32-llvm-libs' 'llvm')
 
   cd "$srcdir/llvm-$pkgver.src"
 
-  # We move the clang directory out of the tree so it won't get installed and
-  # then we bring it back in for the clang package
-  # mv tools/clang "$srcdir"
-  # -j1 is due to race conditions during the installation of the OCaml bindings
-  make -j1 DESTDIR="$pkgdir" install
+  make DESTDIR="$pkgdir" install
+
+  # The runtime library goes into lib32-llvm-libs
+  mv "$pkgdir/usr/lib32/libLLVM-3.3.so" "$srcdir"
 
   # Fix permissions of static libs
-  chmod -x "$pkgdir"/usr/lib32/llvm/*.a
+  chmod -x "$pkgdir"/usr/lib32/*.a
 
   mv "$pkgdir/usr/bin/i386-pc-linux-gnu-llvm-config" "$pkgdir/usr/lib32/llvm-config"
 
   # Get rid of example Hello transformation
-  rm "$pkgdir"/usr/lib32/llvm/*LLVMHello.*
+  rm "$pkgdir"/usr/lib32/*LLVMHello.*
 
-  # Symlink the gold plugin where clang expects it
-  ln -s llvm/LLVMgold.so "$pkgdir/usr/lib32/LLVMgold.so"
-
-  # Add ld.so.conf.d entry
-  install -d "$pkgdir/etc/ld.so.conf.d"
-  echo /usr/lib32/llvm >"$pkgdir/etc/ld.so.conf.d/llvm32.conf"
+  # Symlink LLVMgold.so into /usr/lib/bfd-plugins
+  # (https://bugs.archlinux.org/task/28479)
+  install -d "$pkgdir/usr/lib32/bfd-plugins"
+  ln -s ../LLVMgold.so "$pkgdir/usr/lib32/bfd-plugins/LLVMgold.so"
 
   mv "$pkgdir"/usr/include/llvm/Config/*config.h "$pkgdir/"
   rm -rf "$pkgdir"/usr/{bin,include,share/{doc,man}}
 
-  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -d "$pkgdir/usr/include/llvm/Config"
   mv "$pkgdir/config.h" "$pkgdir/usr/include/llvm/Config/config-32.h"
   mv "$pkgdir/llvm-config.h" "$pkgdir/usr/include/llvm/Config/llvm-config-32.h"
 
   mkdir "$pkgdir"/usr/bin
   mv "$pkgdir/usr/lib32/llvm-config" "$pkgdir/usr/bin/llvm-config32"
+
+  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
+
+package_lib32-llvm-libs() {
+  pkgdesc="Low Level Virtual Machine (runtime library)(32-bit) "
+  depends=('lib32-libffi' 'lib32-zlib' 'lib32-gcc-libs')
+
+  cd "$srcdir"
+
+  install -D libLLVM-3.3.so "$pkgdir/usr/lib32/libLLVM-3.3.so"
+
+  install -Dm644 llvm-$pkgver.src/LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
