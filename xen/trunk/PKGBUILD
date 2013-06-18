@@ -1,0 +1,142 @@
+# $Id$
+# Maintainer: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: Shanmu Thiagaraja <sthiagaraja+AUR@prshanmu.com>
+# Contributor: Limao Luo
+# Contributor: Luceo
+# Contributor: Revellion
+
+pkgname=xen
+pkgver=4.2.2
+pkgrel=1
+pkgdesc="Xen Hypervisor & Tools"
+arch=(i686 x86_64)
+url=http://xen.org
+license=(GPL2)
+depends=(bin86 bluez bridge-utils glib2 gnutls libaio libjpeg-turbo libpng lzo2 sdl wget vde2 yajl python2)
+[[ "$CARCH" == "x86_64" ]] && depends+=(lib32-glibc)
+makedepends=(dev86 git iasl markdown ocaml-findlib)
+optdepends=('xen-docs: Official Xen Documentation')
+conflicts=(xen-4.2{,-testing-hg} xen-{gdbsx,hg-unstable,rc})
+backup=(etc/$pkgname/xend-{config,pci-{permissive,quirks}}.sxp etc/modules-load.d/$pkgname.conf etc/$pkgname/xl.conf)
+options=(!buildflags !strip)
+install=$pkgname.install
+source=(http://bits.xensource.com/oss-xen/release/$pkgver/$pkgname-$pkgver.tar.gz
+    09_xen
+    gdbsx-glibc-2.17.patch
+    texi2html.patch
+    timer-add-lrt-lm.patch
+    qemu-makefile.patch
+    proc-xen.mount
+    var-lib-xenstored.mount
+    xenconsoled.service
+    xendomains.service
+    xendomU@.service
+    xenstored.service
+    tmpfiles.d-$pkgname.conf
+    $pkgname.conf)
+
+prepare() {
+    cd $pkgname-$pkgver/
+    patch -Np1 -i ../gdbsx-glibc-2.17.patch
+    patch -Np1 -i ../texi2html.patch
+    patch -Np1 -i ../timer-add-lrt-lm.patch
+    patch -Np1 -i ../qemu-makefile.patch
+    sed -i '203i\\t\t--disable-docs \\' tools/Makefile # disable qemu doc generation b/c of an error
+}
+
+build() {
+    export CFLAGS+='-Wall -Wstrict-prototypes -Wno-unused-local-typedefs -Wno-sizeof-pointer-memaccess'
+    cd $pkgname-$pkgver/
+    ./autogen.sh
+    ./configure PYTHON=/usr/bin/python2
+    unset CFLAGS
+}
+
+package() {
+    cd $pkgname-$pkgver/
+
+    make DESTDIR="$pkgdir" LANG=C PYTHON=python2 install-{xen,tools,stubdom}
+
+    cd ../
+    for f in ${source[@]}; do
+        [[ $f =~ .mount || $f =~ .service ]] && install -Dm644 $f "$pkgdir"/usr/lib/systemd/system/$f
+    done
+    install -Dm644 tmpfiles.d-$pkgname.conf "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+    install -Dm644 $pkgname.conf "$pkgdir"/etc/modules-load.d/$pkgname.conf
+    install -Dm755 09_xen "$pkgdir"/etc/grub.d/09_xen
+
+    cd "$pkgdir"
+    sed -i ':XENDOM_CONFIG=/etc/:s:sysconfig/xendomains:conf.d/xendomains:' etc/init.d/xendomains
+    sed -i 's:touch /var/lock/subsys/xend:mkdir -p /var/lock/subsys\n       &:' etc/init.d/xend
+
+    if [[ -d usr/lib64 ]]; then
+        cd usr/
+        cp -r lib64/* lib/
+        rm -rf lib64
+    fi
+
+    mv etc/{init,rc}.d
+
+    mv usr/local/etc/qemu/ etc/
+    rm -rf usr/local/share/
+    mv etc/rc.d/xendomains etc/xen/scripts/xendomains
+
+    ##### Kill unwanted stuff #####
+    # stubdom: newlib
+    rm -rf usr/*-xen-elf
+
+    # hypervisor symlinks
+    rm -f boot/xen{,-4,-4.2}.gz
+
+    # silly doc dir fun
+    rm -rf usr/share/doc/xen
+    rm -rf usr/share/doc/qemu
+
+    # Pointless helper
+    rm -f usr/sbin/xen-python-path
+
+    # qemu stuff (unused or available from upstream)
+    rm -rf usr/share/xen/man
+    rm -rf usr/bin/qemu-*-xen
+    for file in bamboo.dtb bios.bin openbios-ppc openbios-sparc32 openbios-sparc64 \
+        ppc_rom.bin pxe-e1000.bin pxe-ne2k_pci.bin pxe-pcnet.bin pxe-rtl8139.bin \
+        vgabios-cirrus.bin vgabios.bin video.x; do
+        rm -f usr/share/xen/qemu/$file
+    done
+
+    # adhere to Static Library Packaging Guidelines
+    rm -rf usr/lib/*.a
+
+    # Fix errors from deprecated xend
+    rm etc/udev/rules.d/xend.rules
+
+    rmdir usr/local/etc etc/xen/auto var/xen/dump var/lock/subsys usr/share/doc var/lib/xen/xenpaging var/run/xend/boot var/log/xen
+}
+sha256sums=('c9bfe91a5e72f8545acebad9889d64368020359bfe18044c0e683133e55ae005'
+            '89f0076485d3f253b55aa6bb067003e74b4a6d6d559a87258fcaa8f93123693e'
+            'f78593f1b3b4d6201644ecce77c6dd5bb7378dc53eff7cc940a80e3cd1bf72f4'
+            '08e5bf65c833a608470ad118ce369e32f9c267e1787f2900c06708af321225e6'
+            '4d55132a8e47fbfe415bf3c88824b6dcf48e4da1fff86d2b07e0c2c9e42c0a63'
+            '247fbfacf3212c26b673e1d7c3cc29eb0d1e903c217f16ef9dab5ed667ee139d'
+            '139eed988bfaf8edc8ccdfd0b668382bd63db48ce17be91776182a7e28e9d88c'
+            'c19146931c6ab8e53092bd9b2ebbfda5c76fd22ad3b1d42dcda3dd1b61f123ff'
+            'ba8f1c10b3f3df1f9fda0782a691fed67661e36f49be74471c86850639fee3ba'
+            '0bd45d9de6456c4f9adf32e726f2db3a3cd0423c1d161b442e8a1666d2e68e3f'
+            '1862a14607582d14247b74435dfb16411fd68904aa19e2a93c5e6ac301169d3c'
+            'a0ad5a7d9262c2d22a8875a47cff2c821885ddb65c0c9eb7518befb0f42fcce7'
+            '6bddcea43922f72a1c8ab556c3f20067d7f817220bcd9c1c61d18f3a58dfaa9d'
+            '50a9b7fd19e8beb1dea09755f07318f36be0b7ec53d3c9e74f3266a63e682c0c')
+sha512sums=('4943b18016ed8c2b194a3b55e6655b3b734b39ffb8cb7ee0a0580f2f4460a1d0e92e1de8ac23f5186272914fad1650586af51fd7c3644d0310eb16f2e11c5e80'
+            'd8d5bdc64632e5cc3430d5c65adaaf0befc36c5825225d42fb04d4f69a989319de76f65cf3277d60cde516c7bfc559d5c78f6bdd7d6ec7606d9cccb28eb76c1d'
+            'fb7dbd3d9ca610c0b476cf7202e4bd051d85de2de8e92c0c3ac59dc327bc47820eddfa67a8dc01fde21d1a3209f83b6f8533bdc7ecd0634ff503f2fac61fee6d'
+            '562f12e723116c705fc9d0fd4a2afd382a93465be7f616d1e20e87daf39c11029fbc57ec46e38d3ff61c482fdc9ac4df9e07600a77515867d9da6f0faf3da7f9'
+            'a0baec71e9240fa9a72aa67e0783fe1200afb2ff61c625f5e96e536a8839213ada9908e776ed243a866065084f61a06d286ae2488c158730c1dd2d424cf4b0dc'
+            '738bfe72ab6c03d6b84c8f594fb8a63adc148edc4f9eb7beb279aa06002171fd957dbcee3b850bfbb5672f3d740047f41f59b5fdea0970a2de1a24b178fd5972'
+            '6afdf16e32bb837faf6333334f86855a746f1f46fee9673a4fddc62eecf41f9856bc34397807203c6f5071f0b1ce74532214084042154585c0d39514450db25c'
+            '00e340f4d3635e3850ca24baea1da08467523c17815feb74161e18397b607fef904db2165fd9bf4632a6e8a6e37aeddad4e56965e1c99b5213c98b3f9afc6aad'
+            '27d7289a8bf6e15bddcb360287001429205b57ee4d791b0337328879ffd76b8e375e3c1dd0de0ab57dd4bd1e2a2bc1748c44cc05b2528632a3e6af60f626de9d'
+            'f00034f8b826b828659a0177f0a6454113c625e69a817dfe32e461767f6643e0288bfc2a22d23358504240df627af6e3b8f5ffa0077e241e590b33d3f252e74c'
+            '31fefc739f0f0e568df03dcf9aa02e0265ff4fbf77e7ae62d6a318fcc34e87a0ffd3fc4b84ff8c9cc95511e2e74b7b61e6b5471cd0b3cd47ee0da86b1ea90268'
+            'd93509c53a3f80ab266f75a54633bba070a7ef48f629168f074c7c37d36ee9c98d2d30703bed41b1c163d960f2a3ac9f435b335db6e7b8a6e9c97044ede8b76e'
+            '97fb10771fad1c59c1168ede6e4a37710937821c0a053e77df7907b0a33137a190731b0130fb1d373c196a04450360a9cd3202617a77b1726613c523613cd194'
+            'ccaa2ff82e4203b11e5dec9aeccac2e165721d8067e0094603ecaa7a70b78c9eb9e2287a32687883d26b6ceae6f8d2ad7636ddf949eb658637b3ceaa6999711b')

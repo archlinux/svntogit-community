@@ -1,0 +1,121 @@
+#! /bin/sh -e
+
+if [ -f /usr/share/grub/grub-mkconfig_lib ]; then
+    . /usr/share/grub/grub-mkconfig_lib
+else
+  # no grub file, so we notify and exit gracefully
+    echo "Cannot find grub config file, exiting." >&2
+    exit 0
+fi
+
+XEN_HYPERVISOR_CMDLINE="xsave=1"
+XEN_LINUX_CMDLINE="console=tty0"
+[ -r /etc/xen/grub.conf ] && . /etc/xen/grub.conf
+
+CLASS="--class gnu-linux --class gnu --class os"
+
+if [ "x${GRUB_DISTRIBUTOR}" = "x" ] ; then
+    OS=GNU/Linux
+else
+    OS="${GRUB_DISTRIBUTOR} GNU/Linux"
+    CLASS="--class $(echo ${GRUB_DISTRIBUTOR} | tr '[A-Z]' '[a-z]' | cut -d' ' -f1) ${CLASS}"
+fi
+
+# loop-AES arranges things so that /dev/loop/X can be our root device, but
+# the initrds that Linux uses don't like that.
+case ${GRUB_DEVICE} in
+    /dev/loop/*|/dev/loop[0-9])
+            GRUB_DEVICE=`losetup ${GRUB_DEVICE} | sed -e "s/^[^(]*(\([^)]\+\)).*/\1/"`
+            ;;
+esac
+
+if [ "x${GRUB_DEVICE_UUID}" = "x" ] || [ "x${GRUB_DISABLE_LINUX_UUID}" = "xtrue" ] \
+    || ! test -e "/dev/disk/by-uuid/${GRUB_DEVICE_UUID}" \
+    || [ "`grub-probe -t abstraction --device ${GRUB_DEVICE} | sed -e 's,.*\(lvm\).*,\1,'`" = "lvm"  ] ; then
+    LINUX_ROOT_DEVICE=${GRUB_DEVICE}
+else
+    LINUX_ROOT_DEVICE=UUID=${GRUB_DEVICE_UUID}
+fi
+
+xen_entry ()
+{
+    os="$1"
+    xen_version="$2"
+    version="$3"
+    xen_args="$4"
+    args="$5"
+    printf "menuentry 'Xen %s / %s, with Linux %s' --class xen ${CLASS} {\n" "${xen_version}" "${os}" "${version}"
+    save_default_entry | sed -e "s/^/\t/"
+
+    if [ -z "${prepare_boot_cache}" ]; then
+        prepare_boot_cache="$(prepare_grub_to_access_device ${GRUB_DEVICE_BOOT} | sed -e "s/^/\t/")"
+    fi
+    printf '%s\n' "${prepare_boot_cache}"
+    cat << EOF
+       echo    '$(printf "Loading Xen %s ..." ${xen_version})'
+       multiboot       ${rel_dirname}/${xen_basename} ${rel_dirname}/${xen_basename} ${xen_args}
+       echo    $(printf "$(gettext "Loading Linux %s ...")" ${version})
+       module  ${rel_dirname}/${basename} ${rel_dirname}/${basename} root=${linux_root_device_thisversion} ro ${args}
+EOF
+    if test -n "${initrd}" ; then
+        cat << EOF
+       echo    "Loading initial ramdisk ..."
+       module  ${rel_dirname}/${initrd}
+EOF
+    fi
+    cat << EOF
+}
+EOF
+}
+
+xen_list=`for i in /boot/xen-*.gz /xen-*.gz ; do
+       if grub_file_is_not_garbage "$i" ; then echo -n "$i "; fi
+done`
+prepare_boot_cache=
+
+while [ "x$xen_list" != "x" ] ; do
+    xen=`version_find_latest $xen_list`
+    echo "Found Xen hypervisor image: $xen" >&2
+    xen_basename=`basename $xen`
+    xen_dirname=`dirname $xen`
+    rel_xen_dirname=`make_system_path_relative_to_its_root $xen_dirname`
+    xen_version=`echo $xen_basename | sed -e "s,^[^0-9]*-,,g" | sed -e "s,.gz,,g"`
+    alt_xen_version=`echo $xen_version | sed -e "s,\.old$,,g"`
+
+    list="/boot/vmlinuz-linux";
+
+    while [ "x$list" != "x" ] ; do
+        linux=`version_find_latest $list`
+        echo -e "\tFound linux image: $linux" >&2
+        basename=`basename $linux`
+        dirname=`dirname $linux`
+        rel_dirname=`make_system_path_relative_to_its_root $dirname`
+        version=`echo $basename | sed -e "s,^[^0-9]*-,,g"`
+        base_init=`echo $basename | sed -e "s,vmlinuz,initramfs,g"`
+        alt_version="${base_init}-fallback"
+        linux_root_device_thisversion="${LINUX_ROOT_DEVICE}"
+        initrd=
+
+        for i in "${base_init}.img"; do
+            if test -e "${dirname}/${i}" ; then
+                initrd="$i"
+                break
+            fi
+        done
+        if test -n "${initrd}" ; then
+            echo -e "\tFound initrd image: ${dirname}/${initrd}" >&2
+        else
+      # "UUID=" magic is parsed by initrds.  Since there's no initrd, it can't work here.
+            linux_root_device_thisversion=${GRUB_DEVICE}
+        fi
+
+        xen_entry "${OS}" "${xen_version}" "${version}" \
+            "${XEN_HYPERVISOR_CMDLINE}" \
+            "${XEN_LINUX_CMDLINE}"
+
+        list=`echo $list | tr ' ' '\n' | grep -vx $linux | tr '\n' ' '`
+    done
+
+    xen_list=`echo $xen_list | tr ' ' '\n' | grep -vx $xen | tr '\n' ' '`
+done
+
