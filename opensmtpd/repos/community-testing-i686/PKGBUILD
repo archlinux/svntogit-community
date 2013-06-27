@@ -1,0 +1,72 @@
+# $Id$
+# Maintainer: Sébastien Luttringer
+
+pkgname=opensmtpd
+pkgver=5.3.3p1
+pkgrel=1
+pkgdesc='Free implementation of the server-side SMTP protocol'
+arch=('i686' 'x86_64')
+url='http://www.opensmtpd.org/'
+license=('custom')
+depends=('libevent')
+provides=('smtp-server' 'smtp-forwarder')
+conflicts=('smtp-server' 'smtp-forwarder')
+backup=('etc/smtpd/smtpd.conf' 'etc/smtpd/aliases')
+install=opensmtpd.install
+source=("http://www.opensmtpd.org/archives/$pkgname-$pkgver.tar.gz"
+        'smtpd.service'
+        'smtpd.socket')
+md5sums=('795982f9b0b45c7645f897ba2ead0024'
+         'a278f272d97a9fe5a8aac784a7c98d67'
+         'c2c01e9ca78df3f65efe40a7c0e17ee0')
+
+prepare() {
+  cd $pkgname-$pkgver
+  sed -i 's,etc/aliases,etc/smtpd/aliases,' smtpd/smtpd.conf
+  # regen configure. don't use bootstrap script (doesn't support automake 1.14)
+  libtoolize --copy --force
+  aclocal -I m4
+  autoconf
+  autoheader
+  automake --foreign --add-missing --copy
+}
+
+build() {
+  cd $pkgname-$pkgver
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc/smtpd \
+    --sbindir=/usr/bin \
+    --libexecdir=/usr/bin \
+    --with-maildir=/var/spool/mail \
+    --with-privsep-path=/var/empty \
+    --with-sock-dir=/run \
+    --with-privsep-user=smtpd \
+    --with-lookup-user=smtpd \
+    --with-queue-user=smtpq \
+    --with-filter-user=smtpf \
+    --with-pam
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+  make DESTDIR="$pkgdir/" install
+  # license
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  # working directory
+  cd "$pkgdir"
+  install -dm711 var/spool/smtpd
+  install -Dm644 "$srcdir/smtpd.service" usr/lib/systemd/system/smtpd.service
+  install -Dm644 "$srcdir/smtpd.socket" usr/lib/systemd/system/smtpd.socket
+  # remove duplicate hardlink into a subfolder
+  rm -vr usr/bin/opensmtpd
+  # empty aliases file (used by default config)
+  install -Dm644 /dev/null "$pkgdir/etc/smtpd/aliases"
+  # fake sendmail binary (used to be smtp-forwarder)
+  # use hardlink as upstream does
+  cd "$pkgdir/usr/bin"
+  ln smtpctl "$pkgdir/usr/bin/sendmail"
+}
+
+# vim:set ts=2 sw=2 et:
