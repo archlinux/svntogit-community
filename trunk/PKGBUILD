@@ -12,7 +12,7 @@ license=('GPL')
 depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
          'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
-         'hicolor-icon-theme' 'graphite' 'python2-ipaddr')
+         'hicolor-icon-theme' 'graphite' 'python2-ipaddr' 'spice-gtk3')
 makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 conflicts=('virtinst')
 replaces=('virtinst')
@@ -28,11 +28,6 @@ prepare() {
 build() {
   cd "$srcdir/$pkgname-$pkgver"
   python2 setup.py build
-}
-
-check() {
-  cd "$srcdir/$pkgname-$pkgver"
-#  python2 setup.py test
 }
 
 package() {
