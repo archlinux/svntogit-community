@@ -3,57 +3,36 @@
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
 
 pkgname=virt-manager
-pkgver=0.9.5
+pkgver=0.10.0
 pkgrel=1
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
 license=('GPL')
-depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'virtinst' 'gtk-vnc' 'rarian'
+depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
          'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
          'hicolor-icon-theme' 'graphite')
 makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
-
-# When executables that comes with the package crash, are deps optional?
-# It may be a matter of taste, but we got at least one crash bug report.
-#optdepends=('x11-ssh-askpass: for ssh authentication to remote servers'
-#	    'libuser: for virt-manager-tui'
-#	    'python2-ipy: for virt-manager-tui'
-#	    'newt-syrup: for virt-manager-tui'
-#	    'openbsd-netcat: for remote server access')
-
+conflicts=('virtinst')
+replaces=('virtinst')
 install=virt-manager.install
-source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz"
-        "openbsd-netcat-default.patch")
-md5sums=('2b622a0f4cd53f83665d9841b5a3cefa'
-         '76d5a0d6c3bf60e98df3ffe76248745e')
+source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz")
+md5sums=('e23b8d2a7623b4e8e256c25735f332c8')
 
-build() {
+prepare() {
   cd "$srcdir/$pkgname-$pkgver"
-
-  export LDFLAGS=-lX11
-  sed -i 's#python#python2#' src/virt-manager.in src/virt-manager-tui.in
-#  patch -p1 < "$srcdir/openbsd-netcat-default.patch"
-  [ -f install-sh ] || automake --add-missing || true
-  ./configure --prefix=/usr \
-	--sysconfdir=/etc \
-	--libexec="/usr/lib/$pkgname" \
-	--localstatedir=/var
-  make
+  sed -i 's#bin/python#bin/python2#' virt-*
 }
 
 package() {
   cd "$srcdir/$pkgname-$pkgver"
-
-  make GCONF_DISABLE_MAKEFILE_SCHEMA_INSTALL=1 DESTDIR="$pkgdir" install
+  python2 setup.py install --root "$pkgdir"
   # Set-up schema file in correct location
-  install -m755 -d "$pkgdir/usr/share/gconf/schemas"
-  gconf-merge-schema \
-	"$pkgdir/usr/share/gconf/schemas/$pkgname.schemas" \
-	"$pkgdir/etc/gconf/schemas/"*.schemas
-  rm -rf "$pkgdir/etc/gconf/schemas"
-  rmdir --ignore-fail-on-non-empty "$pkgdir/etc/gconf" "$pkgdir/etc"
+#  install -m755 -d "$pkgdir/usr/share/gconf/schemas"
+#  gconf-merge-schema \
+#	"$pkgdir/usr/share/gconf/schemas/$pkgname.schemas" \
+#	"$pkgdir/etc/gconf/schemas/"*.schemas
 }
 
 # vim:set ts=2 sw=2 et:
