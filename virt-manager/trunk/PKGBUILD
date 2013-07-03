@@ -12,7 +12,7 @@ license=('GPL')
 depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
          'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
-         'hicolor-icon-theme' 'graphite')
+         'hicolor-icon-theme' 'graphite' 'python2-ipaddr')
 makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 conflicts=('virtinst')
 replaces=('virtinst')
@@ -25,14 +25,19 @@ prepare() {
   sed -i 's#bin/python#bin/python2#' virt-*
 }
 
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  python2 setup.py build
+}
+
+check() {
+  cd "$srcdir/$pkgname-$pkgver"
+#  python2 setup.py test
+}
+
 package() {
   cd "$srcdir/$pkgname-$pkgver"
   python2 setup.py install --root "$pkgdir"
-  # Set-up schema file in correct location
-#  install -m755 -d "$pkgdir/usr/share/gconf/schemas"
-#  gconf-merge-schema \
-#	"$pkgdir/usr/share/gconf/schemas/$pkgname.schemas" \
-#	"$pkgdir/etc/gconf/schemas/"*.schemas
 }
 
 # vim:set ts=2 sw=2 et:
