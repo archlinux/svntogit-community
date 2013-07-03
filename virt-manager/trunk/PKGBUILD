@@ -9,7 +9,7 @@ pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
 license=('GPL')
-depends=('dbus-python' 'libvirt' 'libxml2' 'vte' 'gtk-vnc' 'rarian'
+depends=('dbus-python' 'libvirt' 'libxml2' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
          'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
          'hicolor-icon-theme' 'graphite' 'python2-ipaddr' 'spice-gtk3'
