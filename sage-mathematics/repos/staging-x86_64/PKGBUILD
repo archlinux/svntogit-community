@@ -1,0 +1,108 @@
+# $Id$
+# Maintainer: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: Antonio Rojas < nqn1976 @ gmail.com >
+# Contributor: Thomas Dziedzic < gostrc at gmail >
+# Contributor: Osman Ugus <ugus11@yahoo.com>
+# Contributor: Stefan Husmann <stefan-husmann@t-online.de>
+# Special thanks to Nareto for moving the compile from the .install to the PKGBUILD
+
+pkgname=sage-mathematics
+pkgver=5.9
+pkgrel=2
+pkgdesc='SAGE: Open Source Mathematics Software, a viable free alternative to Magma, Maple, Mathematica, and Matlab.'
+url='http://www.sagemath.org'
+arch=('i686' 'x86_64')
+license=('GPL')
+#depends=('xz' 'java-environment=7' 'desktop-file-utils' 'libxmu' 'libtiff' 'sqlite' 'libjpeg-turbo')
+depends=('desktop-file-utils')
+makedepends=('gcc-fortran' 'freetype2')
+optdepends=('imagemagick: some plotting functionality benefits from it'
+            'texlive-core: some plotting functionality benefits from it, also to use SageTeX'
+            'openssh: to use the notebook in secure mode'
+            'ffmpeg: to show animations'
+            'cairo: R plots')
+install="${pkgname}.install"
+source=("http://sage.math.washington.edu/home/release/sage-${pkgver}/sage-${pkgver}.tar"
+        'SAGE-notebook.desktop'
+        'sage.service')
+
+build() {
+  cd sage-${pkgver}
+
+  # fix "missing sage.all error" during build
+  unset CFLAGS
+  unset CXXFLAGS
+
+  # fix build errors
+  unset LDFLAGS
+
+  # enable multiple threads while building, is this really needed? check if uses MAKEFLAGS
+  export MAKE="make -j$(nproc)"
+
+  # use archlinux's fortran rather then the one that ships with sage to compile sage's fortran
+  export FC=/usr/bin/gfortran
+
+  # disable building with debugging support
+  export SAGE_DEBUG='no'
+
+  # enable fat binaries (disables processor specific optimizations)
+  # comment out if you're only building it for yourself
+  export SAGE_FAT_BINARY='yes'
+
+  # can't write to root in a clean chroot
+  mkdir "$srcdir/buiild"
+  export DOT_SAGE="$srcdir/build"
+
+  # Singular is broken
+  export CPP='/usr/bin/cpp'
+
+  # only build sage, no documents
+  #make build
+  make
+  ./sage --bdist "$pkgver"
+}
+
+<< COMMENT
+check() {
+  cd sage-${pkgver}
+
+  # uncomment if we want to run all the tests (warning: very long)
+  #make ptestlong
+}
+COMMENT
+
+package() {
+  cd sage-${pkgver}
+
+  # cp because make install is experimental and will corrupt the install
+  install -d ${pkgdir}/opt/sage
+  cp -dpr --no-preserve=ownership dist/sage-"$pkgver-$CARCH-Linux/"* ${pkgdir}/opt/sage/
+
+  # move SageTeX files to more appropriate directory
+  install -d ${pkgdir}/usr/share
+  mv ${pkgdir}/opt/sage/local/share/texmf \
+    ${pkgdir}/usr/share
+
+  desktop-file-install ${srcdir}/SAGE-notebook.desktop \
+    --dir ${pkgdir}/usr/share/applications 
+
+  # create link to main binary
+  install -d ${pkgdir}/usr/bin
+  ln -s /opt/sage/sage ${pkgdir}/usr/bin/sage
+
+  # remove build logs
+  rm -f ${pkgdir}/opt/sage/*.log
+  rm -rf ${pkgdir}/opt/sage/spkg/logs
+
+  # remove source packages, since they are rarely needed, they are 300mb in size (compressed)
+  rm -f ${pkgdir}/opt/sage/spkg/base/*spkg
+  rm -f ${pkgdir}/opt/sage/spkg/standard/*spkg
+
+  # install a systemd user unit
+  install -Dm755 $srcdir/sage.service $pkgdir/usr/lib/systemd/user/sage.service
+}
+
+# vim :set ts=2 sw=2 et:
+md5sums=('708520904f2d42039c714ac72a631948'
+         'b82f94383829eee26648feb977e2d89b'
+         '985da1c1d1dcdc3ea9aa73035cb7996b')
