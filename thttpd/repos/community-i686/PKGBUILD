@@ -1,0 +1,67 @@
+# $Id$
+# Maintainer: Gaetan Bisson <bisson@archlinux.org>
+# Contributor: Damir Perisa <damir.perisa@bluewin.ch>
+# Contributor: Stewart Starbuck <stewart@stewartstarbuck.co.uk>
+
+pkgname=thttpd
+pkgver=2.25b
+pkgrel=10
+pkgdesc='Simple, small, portable, fast, and secure HTTP server'
+url='http://www.acme.com/software/thttpd/'
+license=('custom:BSD')
+arch=('i686' 'x86_64')
+backup=('etc/thttpd.conf')
+source=("http://www.acme.com/software/thttpd/${pkgname}-${pkgver}.tar.gz"
+        'forwarded-for.patch'
+        'discreet.patch'
+        'getline.patch'
+        'logrotate.d'
+        'service'
+        'config')
+sha1sums=('cd0e823233ad73e34ee1c9b871b01050feb9db52'
+          '1293fbaf83a489c65d6d2b107d797c687233d96a'
+          '1e73fca7d9ac2579da317f985c8666a181dc37c1'
+          '5ac14035a10b9155d813b363520e9aa74c5d91fc'
+          '36ffeefd1675ca4920605b1b5ca32dd5141a8f23'
+          '73bd76de0e89a9cc31e5605659837d83b3c8dfde'
+          '16640870a69cfc48021ee3acfea7c95834549d46')
+
+prepare() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	patch -p1 -i ../forwarded-for.patch
+	patch -p1 -i ../discreet.patch
+	patch -p1 -i ../getline.patch
+	echo 'mkv	video/x-matroska' >> mime_types.txt
+}
+
+build() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	CPPFLAGS= ./configure --prefix=/usr --mandir=/usr/share/man
+	sed \
+		-e 's/^CFLAGS =/CFLAGS +=/' \
+		-e '/^STATICFLAG =/c STATICFLAG =' \
+		-i Makefile */Makefile
+	make
+}
+
+package() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	install -d "${pkgdir}"/usr/share/man/man{1,8}
+	make \
+		BINDIR="${pkgdir}"/usr/bin \
+		WEBDIR="${pkgdir}"/srv/http \
+		MANDIR="${pkgdir}"/usr/share/man \
+		WEBGROUP=root install
+
+	rm -fr "${pkgdir}"/srv
+	chown root:root -R "${pkgdir}"
+	chmod 755 -R "${pkgdir}"/usr/bin # strip needs u+w
+
+	install -Dm644 ../config "${pkgdir}"/etc/thttpd.conf
+	install -Dm644 ../service "${pkgdir}"/usr/lib/systemd/system/thttpd.service
+	install -Dm644 ../logrotate.d "${pkgdir}"/etc/logrotate.d/thttpd
+
+	install -d "${pkgdir}"/var/log/thttpd
+	install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
+	head -n 26 thttpd.c > "${pkgdir}"/usr/share/licenses/"${pkgname}"/LICENSE
+}
