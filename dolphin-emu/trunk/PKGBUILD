@@ -3,7 +3,7 @@
 
 pkgname=dolphin-emu
 pkgver=3.5
-pkgrel=4
+pkgrel=5
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce Emulator'
 arch=('i686' 'x86_64')
