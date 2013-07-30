@@ -54,17 +54,17 @@
 # If this is a symlink, then we
 # need to change into the dir of symlink-target.
 if [ -h $0 ]; then
-  echo "I am Symlink. Following into my targets basedir"
+  #echo "I am Symlink. Following into my targets basedir"
   ME=`readlink $0`
 else
-  echo "Following into my basedir"
+  #echo "Following into my basedir"
   ME=$0
 fi
 
 # This is important! Script won't work outside its installation dir
 ROOT=/usr/share/freeorion
 cd ${ROOT}
-echo -n "CWD: "
+#echo -n "CWD: "
 pwd
 
 
@@ -86,7 +86,7 @@ if [ "$PYTHON_USE_SHIPPED" = "1" ]; then
     export PYTHONPATH=${PYTHONHOME}
     export PYTHONDEBUG=1
     export PYTHONVERBOSE=1
-    echo "PYTHONHOME=${PYTHONHOME}"
+    #echo "PYTHONHOME=${PYTHONHOME}"
     
     export LD_LIBRARY_PATH=${PYTHONHOME}:${LD_LIBRARY_PATH}
     export LD_PRELOAD=${PYTHONHOME}/libutil.so.1:${PYTHONHOME}/libpython2.5.so
