@@ -4,7 +4,7 @@
 
 pkgname=libvirt
 pkgver=1.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc="API for controlling virtualization engines (openvz,kvm,qemu,virtualbox,xen,etc)"
 arch=('i686' 'x86_64')
 url="http://libvirt.org/"
@@ -24,7 +24,7 @@ optdepends=('bridge-utils: for briged networking (default)'
 	    'ebtables')
 options=('emptydirs' '!libtool')
 backup=('etc/conf.d/libvirtd'
-	'etc/conf.d/libvirtd-guests'
+	'etc/conf.d/libvirt-guests'
 	'etc/libvirt/libvirtd.conf'
 	'etc/libvirt/libvirt.conf'
 	'etc/libvirt/qemu.conf'
@@ -69,7 +69,7 @@ package() {
   make DESTDIR="$pkgdir" install
 
   install -D -m644 "$srcdir"/libvirtd.conf.d "$pkgdir"/etc/conf.d/libvirtd
-  install -D -m644 "$srcdir"/libvirtd-guests.conf.d "$pkgdir"/etc/conf.d/libvirtd-guests
+  install -D -m644 "$srcdir"/libvirtd-guests.conf.d "$pkgdir"/etc/conf.d/libvirt-guests
 
   # systemd stuff
   install -D -m644 "$srcdir"/libvirt.tmpfiles.d "$pkgdir"/usr/lib/tmpfiles.d/libvirt.conf
