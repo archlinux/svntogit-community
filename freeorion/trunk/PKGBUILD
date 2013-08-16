@@ -8,13 +8,13 @@
 
 pkgname=freeorion
 pkgver=0.4.3
-pkgrel=1
+pkgrel=2
 _svnrev=6281
 _pyversion=2.7
 pkgdesc='Turn-based galactic conquest game inspired by Master of Orion'
 arch=('x86_64' 'i686')
 url='http://www.freeorion.org/'
-license=('GPL')
+license=('GPL2')
 if [ "$CARCH" == "x86_64" ]
 then
   depends=('lib32-nvidia-cg-toolkit')
@@ -28,7 +28,7 @@ options=('!strip' '!emptydirs')
 install=$pkgname.install
 source=("$pkgname.sh"
         "$pkgname.png::https://a.fsdn.com/con/icons/fr/freeorion@sf.net/FO_Icon_256x256.png"
-        "cmake_python.patch"
+        'cmake_python.patch'
         "$pkgname::svn+https://freeorion.svn.sourceforge.net/svnroot/freeorion/trunk/FreeOrion/#revision=$_svnrev")
 sha256sums=('25b574af5397226373e24510ce59de94c5df5b31d94562fc0de387fd70731707'
             'a6a253eed31b77b00bf4f721f4b1c6bbd95505b9e4b38b736101e551dd12ff5f'
@@ -36,41 +36,44 @@ sha256sums=('25b574af5397226373e24510ce59de94c5df5b31d94562fc0de387fd70731707'
             'SKIP')
 
 pkgver() {
+  _releaserevision=`curl --progress-bar -o- ${url}index.php/Compile | grep "$pkgver" | cut -d':' -f2 | cut -d' ' -f10 | tail -1`
+  echo "Release revision for $pkgname $pkgver: $_releaserevision"
+
   svn upgrade
   svn up -r "$_svnrev"
   echo "$pkgver"
 }
 
 prepare() {
-  #msg2 'Looking up revision from version number...'
-  #_releaserevision=`curl --progress-bar -o- ${url}index.php/Compile | grep "$pkgver" | cut -d':' -f2 | cut -d' ' -f10 | tail -1`
+  cd "$pkgname"
 
+  # CMake/Python fix...
+  patch -N -p1 -i "$srcdir/cmake_python.patch"
+
+  # Generate desktop shortcut
   gendesk -n --pkgname "$pkgname" --pkgdesc "$pkgdesc"
 }
 
 build() {
-  cd "$srcdir/$pkgname"
+  cd "$pkgname"
 
-  msg2 'CMake/Python fix...'
-  patch -N -p1 -i "$srcdir/cmake_python.patch"
-
-  msg2 'Generating makefiles...'
+  # Generating makefiles
   cmake \
     -DPYTHON_INCLUDE_DIR:PATH="/usr/include/python$_pyversion" \
     -DPYTHON_LIBRARY:FILEPATH="/usr/lib/libpython$_pyversion.so" \
     -G "Unix Makefiles"
   
-  msg2 'GLU fix...'
+  # GLU fix
   if [ "$CARCH" == "x86_64" ]
   then
     setconf CMakeCache.txt CMAKE_CXX_FLAGS:STRING \
       "'-march=native -mtune=generic -O2 -fno-var-tracking -pipe -fstack-protector --param=ssp-buffer-size=4 -D_FORTIFY_SOURCE=2 -lGL -lGLU -rpath=/usr/lib '"
   fi
 
-  msg2 'Compiling...'
+  # Compiling
   make -j1
 
-  msg2 'OGRE fix...'
+  # OGRE fix
   sed -i 's:PluginFolder=.:PluginFolder=/usr/lib/OGRE/:g' \
     "$srcdir/$pkgname/ogre_plugins.cfg"
 }
@@ -78,38 +81,33 @@ build() {
 package() {
   cd "$srcdir/$pkgname"
 
-  msg2 'Packaging documentation...'
+  # Binaries
+  install -Dm755 "$srcdir/$pkgname.sh" "$pkgdir/usr/bin/freeorion"
+  install -Dm755 freeorion "$pkgdir/usr/bin/freeorion.elf"
+  install -Dm755 freeorionca "$pkgdir/usr/bin/freeorionca"
+  install -Dm755 freeoriond "$pkgdir/usr/bin/freeoriond"
+
+  # Data
+  install -d "$pkgdir/usr/share/$pkgname"
+  install -d "$pkgdir/usr/lib/$pkgname"
+  cp -r default "$pkgdir/usr/share/$pkgname"
+  install -Dm644 OISInput.cfg "$pkgdir/usr/share/$pkgname/OISInput.cfg"
+
+  # Desktop shortcut and icon
+  install -Dm644 "$pkgname.desktop" \
+    "$pkgdir/usr/share/applications/freeorion.desktop"
+  install -Dm644 "$srcdir/$pkgname.png" \
+    "$pkgdir/usr/share/pixmaps/freeorion.png"
+
+  # OGRE plugin configuration
+  install -Dm644 "$srcdir/$pkgname/ogre_plugins.cfg" \
+    "$pkgdir/usr/share/freeorion/ogre_plugins.cfg"
+
+  # Documentation
   install -Dm644 loki_setup/README.txt \
     "$pkgdir/usr/share/doc/$pkgname/README.txt"
 
-  msg2 'Packaging binaries...'
-  install -Dm 755 "$srcdir/$pkgname.sh" "$pkgdir/usr/bin/freeorion"
-  install -Dm 755 freeorion "$pkgdir/usr/bin/freeorion.elf"
-  install -Dm 755 freeorionca "$pkgdir/usr/bin/freeorionca"
-  install -Dm 755 freeoriond "$pkgdir/usr/bin/freeoriond"
-
-  msg2 'Packaging data...'
-  mkdir -p "$pkgdir/usr/share/$pkgname" "$pkgdir/usr/lib/$pkgname"
-  cp -r default "$pkgdir/usr/share/$pkgname"
-  install -Dm 644 OISInput.cfg "$pkgdir/usr/share/$pkgname/OISInput.cfg"
-
-  msg2 'Packaging license...'
-  install -Dm 644 default/COPYING \
-    "$pkgdir/usr/share/licenses/$pkgname/COPYING"
-
-  cd "$srcdir"
-
-  msg2 'Packaging icon and shortcut...'
-  install -Dm 644 "$pkgname.png" \
-    "$pkgdir/usr/share/pixmaps/freeorion.png"
-  install -Dm 644 "$pkgname.desktop" \
-    "$pkgdir/usr/share/applications/freeorion.desktop"
-
-  msg2 'Packaging OGRE plugins configuration...'
-  install -Dm 644 "$srcdir/$pkgname/ogre_plugins.cfg" \
-    "$pkgdir/usr/share/freeorion/ogre_plugins.cfg"
-
-  msg2 'Cleaning up...'
+  # Cleanup
   find "$pkgdir" -name ".svn" -print0 | xargs -0 rm -rf
 }
 
