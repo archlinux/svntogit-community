@@ -1,5 +1,5 @@
 #!/bin/sh
-ELF=/usr/bin/liteide
+ELF=/usr/bin/liteide.elf
 if [ ! -z $GOROOT -a -e $GOROOT ]; then
   $ELF $@
 else
