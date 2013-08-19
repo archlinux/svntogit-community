@@ -16,7 +16,6 @@ depends=('e2fsprogs' 'gnutls' 'iptables' 'libxml2' 'parted' 'polkit' 'python2'
 makedepends=('pkgconfig' 'lvm2' 'linux-api-headers' 'dnsmasq')
 optdepends=('bridge-utils: for briged networking (default)'
 	    'dnsmasq: for NAT/DHCP for guests'
-	    'kvm'
 	    'openbsd-netcat: for remote management over ssh'
 	    'qemu'
 	    'radvd'
