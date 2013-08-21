@@ -3,29 +3,28 @@
 
 pkgname=higan-gtk
 pkgver=093
-pkgrel=1
+pkgrel=2
 pkgdesc="Nintendo multi-system emulator - GTK version"
 arch=('i686' 'x86_64')
 url="http://code.google.com/p/higan/"
 license=('GPL3')
 depends=('libao' 'libpulse' 'libxv' 'openal' 'sdl' 'xdialog')
-makedepends=('mesa')
+makedepends=('gendesk' 'mesa')
 optdepends=('beat: Delta patcher')
 conflicts=('higan-qt')
 source=("http://byuu.org/higan/release/higan_v${pkgver}-source.tar.xz"
         "http://higan.googlecode.com/files/purify_v03-source.tar.xz"
-        'higan'
-        'higan.desktop'
-        'purify.desktop')
+        'higan')
 sha256sums=('6ad526ab7ac16a5b814f84235fbcd48946310af8645c42980b0063e3270ec538'
             '2020f0b5a744f08c24085a15a6c2ec1d7c4424bba6727f244e513b95c4247e38'
-            'c799232a0f67c4b7f40fc6ad05325a6c04e86d78e40f361d02f168a16d11d048'
-            'e9daf06d65fc95e3bfca4e9b9953dcc16830014ba895053c5553d5972031ffbc'
-            '5f24cc7884d19721b6f9ad14c14a98347de209a2791f4c830be83bd032f693f8')
+            'c799232a0f67c4b7f40fc6ad05325a6c04e86d78e40f361d02f168a16d11d048')
 
 _profiles="accuracy balanced performance"
 
 prepare() {
+  gendesk -n --pkgname "higan" --pkgdesc "${pkgdesc}" --name='higan' --exec='higan %u'
+  gendesk -n --pkgname "purify" --pkgdesc "ROM Purifier - GTK version" --name='purify' --exec='purify'
+
   cd higan_v${pkgver}-source
 
   sed -i "s/flags   += -I. -O3 -fomit-frame-pointer/flags   += -I. -fomit-frame-pointer -std=gnu++11/
@@ -33,46 +32,48 @@ prepare() {
 }
 
 build() {
-# Compile libananke
-  cd "${srcdir}"/higan_v${pkgver}-source/ananke
-  make compiler=g++ platform=x phoenix=gtk flags="$CXXFLAGS -I.. -fomit-frame-pointer -std=gnu++11"
-
-# Compile higan
   cd "${srcdir}"/higan_v${pkgver}-source
+
+# libananke
+  make compiler=g++ platform=x phoenix=gtk flags="$CXXFLAGS -I.. -fomit-frame-pointer -std=gnu++11" -C ananke
+
+# higan
   for _profile in ${_profiles}; do
     make compiler=g++ platform=x target=ethos phoenix=gtk profile=${_profile}
-    mv out/higan out/higan-${_profile}
+    mv out/higan{,-${_profile}}
     make clean
   done
 
-# Compile purify
+# purify
   cd "${srcdir}"/purify_v03-source/purify
   make compiler=g++ platform=x phoenix=gtk flags="$CXXFLAGS -I. -fomit-frame-pointer -std=gnu++11" link='-s -lX11 -ldl -Wl,-export-dynamic'
 }
 
 package() {
-# Install common files
   cd "${srcdir}"/higan_v${pkgver}-source
+
+# Common files
   install -dm 755 "${pkgdir}"/usr/{bin,lib,share/{applications,pixmaps,higan/Video\ Shaders}}
-  install -m 755 ../higan "${pkgdir}"/usr/bin/higan
-  install -m 644 ../higan.desktop "${pkgdir}"/usr/share/applications/higan.desktop
+  install -m 755 {..,"${pkgdir}"/usr/bin}/higan
+  install -m 644 {..,"${pkgdir}"/usr/share/applications}/higan.desktop
   install -m 644 data/higan512.png "${pkgdir}"/usr/share/pixmaps/higan.png
   cp -dr --no-preserve=ownership profile/* data/cheats.bml "${pkgdir}"/usr/share/higan/
   cp -dr --no-preserve=ownership shaders/*.shader "${pkgdir}"/usr/share/higan/Video\ Shaders/
 
-# Install libananke
+# libananke
   install -m 644 ananke/libananke.so "${pkgdir}"/usr/lib/libananke.so.1
-  ln -s /usr/lib/libananke.so.1 "${pkgdir}"/usr/lib/libananke.so
+  ln -s libananke.so.1 "${pkgdir}"/usr/lib/libananke.so
 
-# Install higan
+# higan
   for _profile in ${_profiles}; do
-    install -m 755 out/higan-${_profile} "${pkgdir}"/usr/bin/higan-${_profile}
+    install -m 755 {out,"${pkgdir}"/usr/bin}/higan-${_profile}
   done
 
-# Install purify
+# purify
   cd "${srcdir}"/purify_v03-source/purify
-  install -m 755 purify "${pkgdir}"/usr/bin/purify
-  install -m 644 "${srcdir}"/purify.desktop "${pkgdir}"/usr/share/applications/purify.desktop
+  install -m 755 {,"${pkgdir}"/usr/bin/}purify
+  install -m 644 {../..,"${pkgdir}"/usr/share/applications}/purify.desktop
+  ln -s higan.png "${pkgdir}"/usr/share/pixmaps/purify.png
 
 # Fix permissions
   find "${pkgdir}"/usr/share/higan/ -type d -exec chmod 755 {} +
