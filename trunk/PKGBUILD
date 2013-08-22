@@ -1,59 +1,66 @@
 # $Id$
 # Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
-# Maintainer: Dwayne Bent <dbb.0@liqd.org>
+# Maintainer: Dwayne Bent <dbb@dbb.io>
 # Contributor: Paul-Sebastian Manole <brokenthorn@gmail.com>
+# Contributor: Timothée Ravier <tim@siosm.fr>
 
 pkgname=prosody
 pkgver=0.9.0
-pkgrel=1
-pkgdesc="Lightweight and extensible Jabber/XMPP server written in Lua."
+pkgrel=2
+pkgdesc="Lightweight and extensible Jabber/XMPP server written in Lua"
 arch=('i686' 'x86_64')
 url="http://prosody.im/"
 license=('MIT')
-depends=('lua51' 'lua51-socket' 'lua51-expat' 'lua51-filesystem' 'libidn' 'openssl')
+depends=('lua51' 'lua51-socket' 'lua51-expat' 'lua51-filesystem' 'libidn'
+         'openssl')
 optdepends=('lua51-sec: TLS encryption support')
 install=prosody.install
 backup=('etc/logrotate.d/prosody'
-	'etc/prosody/prosody.cfg.lua')
-source=("http://prosody.im/depot/${pkgver}/prosody-${pkgver}.tar.gz"
-	'prosody.logrotated'
-	'fix-config.patch'
-	'prosody.tmpfile.d'
-	'prosody.service')
-md5sums=('cf0dd4f3389ab666d2d2b3a43464afc4'
-         '5b44aee99f1fa9e7f055e067688cafbd'
-         'a21d6a6efef8a08ae21109c2aa9c2fc7'
-         'e2f5a1df410b05696a30dcb058841084'
-         'e74045f27cb60908d535969906781f75')
+        'etc/prosody/prosody.cfg.lua')
+source=("http://prosody.im/downloads/source/${pkgname}-${pkgver}.tar.gz"{,.asc}
+        'prosody.logrotated'
+        'fix-config.patch'
+        'prosody.tmpfile.d'
+        'prosody.service')
+sha256sums=('f0e5e5fa27aa3ffec326b6c212adf2d86fb438133739d45e1232082ff0fbe06f'
+            'SKIP'
+            '5a2466b73bd069fb73be97a4e23b24e4c8dd1adb7db871cb8f5ab4094c1f967f'
+            '1b461d860b584c09ba4c16300a245f2580f1d0b74d774ae7567b7aac0f249587'
+            '3f5cc5db2cfe74c4edf91f60e692e04c3504025e893d0880114d52728a2c4bc4'
+            '16fbfb54bf21bb73ce9d9acacb60d47f237c35e842c5a00f1153f72f0d2f7f6b')
+
+prepare() {
+  cd ${pkgname}-${pkgver}
+  patch -p1 < ../fix-config.patch
+  find . -type f -exec \
+    sed -i '1s,^#! \?/usr/bin/\(env \|\)lua$,#!/usr/bin/lua5.1,' {} \;
+}
 
 build() {
-    cd "$srcdir/prosody-$pkgver"
-    patch -p1 <$srcdir/fix-config.patch
-    find . -type f -exec \
-      sed -i '1s,^#! \?/usr/bin/\(env \|\)lua$,#!/usr/bin/lua5.1,' {} \;
-    ./configure --prefix=/usr --sysconfdir=/etc/prosody \
-        --datadir=/var/lib/prosody --with-lua-include=/usr/include/lua5.1
-    make
+  cd ${pkgname}-${pkgver}
+  ./configure --ostype=linux --prefix=/usr --sysconfdir=/etc/prosody \
+    --datadir=/var/lib/prosody --with-lua-include=/usr/include/lua5.1 \
+    --cflags="${CFLAGS} -fPIC -Wall -Wextra -D_GNU_SOURCE" \
+    --ldflags="${LDFLAGS} -shared"
+  make
 }
 
 package() {
-    cd "$srcdir/prosody-$pkgver"
+  cd ${pkgname}-${pkgver}
+  make DESTDIR="${pkgdir}" install
+  make DESTDIR="${pkgdir}" install -C tools/migration
 
-    make DESTDIR="$pkgdir" install
-    make DESTDIR="$pkgdir" install -C tools/migration
+  install -Dm 0644 $srcdir/prosody.logrotated "${pkgdir}"/etc/logrotate.d/prosody
+  install -Dm 0644 $srcdir/prosody.tmpfile.d "${pkgdir}"/usr/lib/tmpfiles.d/prosody.conf
+  install -Dm 0644 $srcdir/prosody.service "${pkgdir}"/usr/lib/systemd/system/prosody.service
 
-    rm $pkgdir/etc/prosody/certs/*
+  for i in tools/*.lua; do
+    install -Dm 0644 ${i} "${pkgdir}"/usr/share/prosody/${i}
+  done
 
-    install -d "$pkgdir/etc/logrotate.d"
-    install -d "$pkgdir/var/log/prosody"
-    for i in tools/*.lua; do
-      install -Dm0644 $i $pkgdir/usr/share/prosody/$i
-    done
-
-    install -o root -g root -m 644 "$srcdir/prosody.logrotated" \
-        "$pkgdir/etc/logrotate.d/prosody"
-
-    install -Dm0644 COPYING $pkgdir/usr/share/licenses/$pkgname/COPYING
-    install -Dm0644 $srcdir/prosody.tmpfile.d $pkgdir/usr/lib/tmpfiles.d/prosody.conf
-    install -Dm0644 $srcdir/prosody.service $pkgdir/usr/lib/systemd/system/prosody.service
+  install -Dm 0644 COPYING "${pkgdir}"/usr/share/licenses/${pkgname}/COPYING
+  install -dm 755 "${pkgdir}"/var/log/prosody
+  rm "${pkgdir}"/etc/prosody/certs/*
 }
+
+# vim: ft=sh syn=sh ts=2 sw=2
