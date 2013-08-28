@@ -7,13 +7,17 @@
 
 pkgname=fcron
 pkgver=3.1.2
-pkgrel=7
+pkgrel=8
 pkgdesc='Feature-rich cron implementation'
 arch=(i686 x86_64)
 url='http://fcron.free.fr'
 license=('GPL')
 depends=('pam' 'run-parts')
-makedepends=('smtp-forwarder' 'vi')
+makedepends=('smtp-forwarder' 'vi' 'fcron')
+# use fcron as recursive deps to have user fcron installed during installation
+# else add the following in build chroot
+# groupadd -g 23 fcron
+# useradd -r -d /var/spool/fcron -u 23 -g 23 fcron
 optdepends=('smtp-forwarder: to send mails from cron jobs'
             'vi: default editor for fcrontab')
 provides=('cron')
@@ -30,13 +34,14 @@ md5sums=('36bf213e15f3a480f2274f8e46cced0a'
 
 build() {
   cd $pkgname-$pkgver
+  # Don't use --username=root and --groupname=root, this completly break
+  # fcron security and allow local root escalation.
+  # Thanks to Anh K. Huynh <kyanh@theslinux.org> for reporting it.
   ./configure --prefix=/usr \
               --sbindir=/usr/bin \
               --sysconfdir=/etc/fcron \
               --with-answer-all=no \
               --with-boot-install=no \
-              --with-username=root \
-              --with-groupname=root \
               --datarootdir=/usr/share \
               --datadir=/usr/share \
               --with-docdir=/usr/share/doc \
@@ -44,22 +49,20 @@ build() {
               --with-systemdsystemunitdir=/usr/lib/systemd/system \
               --with-piddir=/run \
               --with-editor=/usr/bin/vi \
-              --with-sendmail=/usr/sbin/sendmail
+              --with-sendmail=/usr/bin/sendmail
   make
 }
 
 package() {
   cd $pkgname-$pkgver
-
   make DESTDIR="$pkgdir/" install
-  install -D -m644 "$srcdir/$pkgname-$pkgver/files/fcron.pam" "$pkgdir/etc/pam.d/fcron"
-
-  install -D -m644 "$srcdir/$pkgname-$pkgver/files/fcrontab.pam" "$pkgdir/etc/pam.d/fcrontab"
+  install -Dm644 files/fcron.pam "$pkgdir/etc/pam.d/fcron"
+  install -Dm644 files/fcrontab.pam "$pkgdir/etc/pam.d/fcrontab"
 
   # Install a default fcrontab so that fcron can completely replace dcron
   # We doesn't use binary format which is incompatible between arch and may cause crash
   # We regenerate the binary format at each update
-  install -D -m640 "$srcdir/systab.orig" "$pkgdir/var/spool/fcron/systab.orig"
+  install -Dm640 "$srcdir/systab.orig" "$pkgdir/var/spool/fcron/systab.orig"
 
   # Add cron.* directories
   install -d -m755 "$pkgdir/etc/cron.daily"
