@@ -26,7 +26,7 @@ build() {
 
 
 package_bitcoin-qt() {
-  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - QT"
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - Qt"
   depends=(boost-libs qt4 miniupnpc qrencode)
   install=bitcoin-qt.install
 
