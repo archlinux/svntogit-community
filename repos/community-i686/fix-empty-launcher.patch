@@ -1,0 +1,89 @@
+From 56a244f2aa3c474b2506847ba9a2f5a21cb8efc2 Mon Sep 17 00:00:00 2001
+From: Julien Lavergne <julien.lavergne@gmail.com>
+Date: Tue, 26 Jul 2011 01:21:04 +0200
+Subject: [PATCH] Fix GtkAllocation to fix empty lxlauncher
+
+---
+ src/exo-wrap-table.c |   26 ++++++++++++++++----------
+ 1 files changed, 16 insertions(+), 10 deletions(-)
+
+diff --git a/src/exo-wrap-table.c b/src/exo-wrap-table.c
+index c691434..f48322f 100644
+--- a/src/exo-wrap-table.c
++++ b/src/exo-wrap-table.c
+@@ -326,14 +326,14 @@ exo_wrap_table_size_request (GtkWidget      *widget,
+   if (G_LIKELY (num_children > 0))
+     {
+ #if GTK_CHECK_VERSION(2,18,0)
+-      GtkAllocation allocation;
+-      gtk_widget_set_allocation(widget, &allocation);
+-      num_cols = exo_wrap_table_get_num_fitting (allocation.width
++      GtkAllocation *allocation = g_new0 (GtkAllocation, 1);
++      gtk_widget_get_allocation(GTK_WIDGET(widget), allocation);
++      num_cols = exo_wrap_table_get_num_fitting (allocation->width
+                                                  - gtk_container_get_border_width(GTK_CONTAINER (widget)) * 2,
+                                                  table->priv->col_spacing, max_width);
+ #else
+       num_cols = exo_wrap_table_get_num_fitting (widget->allocation.width
+-                                                 - gtk_container_get_border_width(GTK_CONTAINER (widget)) * 2,
++                                                 - GTK_CONTAINER (widget)->border_width * 2,
+                                                  table->priv->col_spacing, max_width);
+ #endif
+       num_rows = num_children / num_cols;
+@@ -345,7 +345,12 @@ exo_wrap_table_size_request (GtkWidget      *widget,
+       requisition->width = -1;
+       requisition->height = (num_rows * max_height)
+                          + (num_rows - 1) * table->priv->col_spacing
++#if GTK_CHECK_VERSION(2,18,0)
+                          + gtk_container_get_border_width(GTK_CONTAINER (widget)) * 2;
++      g_free (allocation);
++#else
++                         + GTK_CONTAINER (widget)->border_width * 2;
++#endif
+     }
+   else
+     {
+@@ -479,8 +484,8 @@ exo_wrap_table_layout (ExoWrapTable *table)
+   gint           max_height;
+   gint           max_width;
+ #if GTK_CHECK_VERSION(2,18,0)
+-  GtkAllocation allocation;
+-  gtk_widget_set_allocation(GTK_WIDGET(table), &allocation);
++  GtkAllocation *allocation = g_new0 (GtkAllocation, 1);
++  gtk_widget_get_allocation(GTK_WIDGET(table), allocation);
+ #endif
+ 
+   /* determine the number of visible children and the max size */
+@@ -490,7 +495,7 @@ exo_wrap_table_layout (ExoWrapTable *table)
+ 
+   /* determine the number of columns */
+ #if GTK_CHECK_VERSION(2,18,0)
+-  num_cols = exo_wrap_table_get_num_fitting (allocation.width
++  num_cols = exo_wrap_table_get_num_fitting (allocation->width
+                                              - gtk_container_get_border_width(GTK_CONTAINER (table)) * 2,
+                                              table->priv->col_spacing, max_width);
+ #else
+@@ -509,8 +514,8 @@ exo_wrap_table_layout (ExoWrapTable *table)
+ 
+   /* determine the horizontal bounds */
+ #if GTK_CHECK_VERSION(2,18,0)
+-  x0 = allocation.x + gtk_container_get_border_width(GTK_CONTAINER (table));
+-  x1 = x0 + allocation.width - gtk_container_get_border_width(GTK_CONTAINER (table));
++  x0 = allocation->x + gtk_container_get_border_width(GTK_CONTAINER (table));
++  x1 = x0 + allocation->width - gtk_container_get_border_width(GTK_CONTAINER (table));
+ #else
+   x0 = GTK_WIDGET (table)->allocation.x + GTK_CONTAINER (table)->border_width;
+   x1 = x0 + GTK_WIDGET (table)->allocation.width - GTK_CONTAINER (table)->border_width;
+@@ -519,7 +524,8 @@ exo_wrap_table_layout (ExoWrapTable *table)
+   /* initialize the position */
+   x = x0;
+ #if GTK_CHECK_VERSION(2,18,0)
+-  y = allocation.y + gtk_container_get_border_width(GTK_CONTAINER (table));
++  y = allocation->y + gtk_container_get_border_width(GTK_CONTAINER (table));
++  g_free (allocation);
+ #else
+   y = GTK_WIDGET (table)->allocation.y + GTK_CONTAINER (table)->border_width;
+ #endif
+-- 
+1.7.4.1
+
