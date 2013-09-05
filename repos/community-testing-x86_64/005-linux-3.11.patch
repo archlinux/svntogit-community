@@ -1,0 +1,71 @@
+diff -Nur VirtualBox-4.2.16.orig/src/VBox/Additions/linux/sharedfolders/dirops.c VirtualBox-4.2.16/src/VBox/Additions/linux/sharedfolders/dirops.c
+--- VirtualBox-4.2.16.orig/src/VBox/Additions/linux/sharedfolders/dirops.c	2013-07-04 13:59:34.000000000 +0000
++++ VirtualBox-4.2.16/src/VBox/Additions/linux/sharedfolders/dirops.c	2013-09-03 13:21:25.314389481 +0000
+@@ -233,7 +233,11 @@
+  * b. failure to compute fake inode number
+  * c. filldir returns an error (see comment on that)
+  */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0)
++static int sf_dir_iterate(struct file *dir, struct dir_context *ctx)
++#else 
+ static int sf_dir_read (struct file *dir, void *opaque, filldir_t filldir)
++#endif 
+ {
+     TRACE();
+     for (;;)
+@@ -257,12 +261,18 @@
+                 /* skip erroneous entry and proceed */
+                 LogFunc(("sf_getdent error %d\n", err));
+                 dir->f_pos += 1;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0) 
++                ctx->pos += 1; 
++#endif 
+                 continue;
+         }
+ 
+         /* d_name now contains a valid entry name */
+-
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0) 
++	sanity = ctx->pos + 0xbeef;
++#else 
+         sanity = dir->f_pos + 0xbeef;
++#endif 
+         fake_ino = sanity;
+         if (sanity - fake_ino)
+         {
+@@ -270,8 +280,12 @@
+             return -EINVAL;
+         }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0) 
++        err = dir_emit(ctx, d_name, strlen(d_name), fake_ino, DT_UNKNOWN); 
++#else 
+         err = filldir(opaque, d_name, strlen(d_name),
+                       dir->f_pos, fake_ino, DT_UNKNOWN);
++#endif 
+         if (err)
+         {
+             LogFunc(("filldir returned error %d\n", err));
+@@ -289,7 +303,11 @@
+ struct file_operations sf_dir_fops =
+ {
+     .open    = sf_dir_open,
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0) 
++ .iterate = sf_dir_iterate,
++#else 
+     .readdir = sf_dir_read,
++#endif 
+     .release = sf_dir_release,
+     .read    = generic_read_dir
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 37)
+--- a/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c
++++ b/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c
+@@ -1805,5 +1805,9 @@
+ {
+     PVBOXNETFLTINS      pThis = VBOX_FLT_NB_TO_INST(self);
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 11, 0)
++    struct net_device  *pDev  = netdev_notifier_info_to_dev(ptr);
++#else
+     struct net_device  *pDev  = (struct net_device *)ptr;
++#endif
+     int                 rc    = NOTIFY_OK;
