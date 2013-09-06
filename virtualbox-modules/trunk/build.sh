@@ -23,11 +23,12 @@ update() {
 }
 
 # $1: repo
+# $2: arch
 build() {
   _pwd=$PWD
   cd /var/empty
-  makechrootpkg -cu -I "$_pwd"/../../virtualbox/trunk/virtualbox-host-dkms-*-i686.pkg.tar.xz -r "$1"
-  makechrootpkg -I "$_pwd"/../../virtualbox/trunk/virtualbox-guest-dkms-*-i686.pkg.tar.xz  -r "$1"
+  makechrootpkg -cu -I "$_pwd"/../../virtualbox/trunk/virtualbox-host-dkms-*-$arch.pkg.tar.xz -r "$1"
+  makechrootpkg -I "$_pwd"/../../virtualbox/trunk/virtualbox-guest-dkms-*-$arch.pkg.tar.xz  -r "$1"
   cd "$_pwd"
   makechrootpkg -n -r "$1"
 }
@@ -38,13 +39,13 @@ case $1 in
   extra)
     update core/linux-headers
     for arch in i686 x86_64; do
-      build /var/lib/archbuild/extra-$arch
+      build /var/lib/archbuild/extra-$arch $arch
     done
   ;;
   testing)
     update testing/linux-headers
     for arch in i686 x86_64; do
-      build /var/lib/archbuild/testing-$arch
+      build /var/lib/archbuild/testing-$arch $arch
     done
   ;;
   *)
