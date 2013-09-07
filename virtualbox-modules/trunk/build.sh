@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash
 # lazyness can be enhanced everyday
 
 usage() {
@@ -9,14 +9,15 @@ usage() {
 
 # $1: reference package
 update() {
-  # expac is required
-  type -p expac >/dev/null
-
-  curkernel=$(expac -S '%v' "$1"|sed -r 's/([0-9]+)\.([0-9]+).*/\1.\2/')
+  url="https://www.archlinux.org/packages/$1/x86_64/$2/"
+  curkernel=$(wget -qO- "$url"|sed -nr "s/.*<h2>$2 ([0-9]+)\.([0-9]+).*<\/h2>.*/\1.\2/p")
   nextkernel=${curkernel%.*}.$(( ${curkernel#*.}+1))
 
+  echo "** Current kernel: $curkernel"
+  echo "** Next kernel: $nextkernel"
+
   sed -ri \
-    -e "s/(_?extramodules=).*/\1extramodules-$curkernel-ARCH/i" \
+    -e "s/(_?extramodules=).*-(ARCH|lts).*/\1extramodules-$curkernel-\2/i" \
     -e "s/(linux.*>=)[0-9]+.[0-9]+/\1$curkernel/" \
     -e "s/(linux.*<)[0-9]+.[0-9]+/\1$nextkernel/" \
     PKGBUILD *.install
@@ -35,15 +36,18 @@ build() {
 
 (( $# == 1 )) || usage
 
+# detect lts case
+grep -q linux-lts PKGBUILD && suf=-lts
+
 case $1 in
   extra)
-    update core/linux-headers
+    update core linux$suf-headers
     for arch in i686 x86_64; do
       build /var/lib/archbuild/extra-$arch $arch
     done
   ;;
   testing)
-    update testing/linux-headers
+    update testing linux$suf-headers
     for arch in i686 x86_64; do
       build /var/lib/archbuild/testing-$arch $arch
     done
