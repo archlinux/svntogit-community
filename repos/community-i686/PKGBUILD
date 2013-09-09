@@ -3,8 +3,8 @@
 # Contributor: Sebastian Faltoni <sebastian.faltoni@gmail.com>
 
 pkgname=dbmail
-pkgver=3.1.4
-pkgrel=2
+pkgver=3.1.5
+pkgrel=1
 pkgdesc="Fast and scalable sql based mail services"
 arch=('i686' 'x86_64')
 depends=('gmime' 'libzdb' 'mhash' 'libevent')
@@ -20,51 +20,57 @@ backup=(etc/xinetd.d/dbmail-imapd
 	etc/xinetd.d/dbmail-pop3d
 	etc/xinetd.d/dbmail-lmtpd
 	etc/xinetd.d/dbmail-timsieved)
-source=(http://www.dbmail.org/download/3.1/dbmail-${pkgver/_/-}.tar.gz
-	dbmail.tmpfiles
-	dbmail-imapd.service
-	dbmail-lmtpd.service
-	dbmail-pop3d.service
-	dbmail-timsieved.service
+source=(http://www.dbmail.org/download/3.1/dbmail-${pkgver}.tar.gz
 	dbmail-imapd.xinetd
 	dbmail-lmtpd.xinetd
 	dbmail-pop3d.xinetd
 	dbmail-timsieved.xinetd
-	"boundary.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=fd742e39b13ec45e4ecf2e175113a6a0120af27b"
-	"crlf.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=17a2e61917ae64b1f20039f49b70b9130b678c87")
-md5sums=('0090bb7998469e963d2eb49b7d16ea3f'
-         'c4b5793c5422b62a675d4c66ff7e9300'
-         '5a6297cb03c8d0b424f978ea1d7402de'
-         '070db88538af9833f003f4cb516d337b'
-         '422f0399f97a780b7cab84443e8f429a'
-         '15c7d367d4242aebac5f87649a2250aa'
+	"dbmail-1.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=45d83009e2d989e62af384432f2d71b133fecf4c"
+	"dbmail-2.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=d645222c7145127ed7f505e6b8325b5a996d1a74"
+	"dbmail-3.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=f294d43d0aa115e4c4b6c1dbcf72e6cd00badfd1"
+	"dbmail-4.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=10c9cb29ea92030b257937d3c49e0b45d15214c3"
+	"dbmail-5.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=4c23432cc270554557f9e130331214d81164131b"
+	"dbmail-6-sieve.patch::http://git.dbmail.eu/paul/dbmail/patch/?id=92b98094a01eda5efe3ba3080e529482d08945a2"
+	"dbmail-7-systemd.diff")
+md5sums=('033e7de6acff49d68beab93632a77761'
          '890de13361afbdf4fed12d6d7eb53e66'
          '961593658cd596297d03d25eb9c9e98f'
          '4cb764894abd3914802e90602bf90a0c'
          'e78dc86355f9aaf24590bc7c6611162f'
-         'e9f9c1140e77e3714fd2c3905b1760f1'
-         'c86c4c2a4e9171ae8c0ad5692262b393')
+         'ea647952c0a66d36146b6d71c7b459b7'
+         '8dac89125d01885df97847537733d3dc'
+         '027bae99982dfe5ef69c598a24d0cd81'
+         '6a3b8ddbb162894d97d1d9cd3c5b8c4d'
+         '2679407f6290494ccc18b135d50dee6e'
+         'b1063893dd0e74bc0ddee454bb65bf01'
+         'a781a4ebe2dd75ed635c9b4a239b38d8')
 
 prepare() {
-  cd $srcdir/dbmail-${pkgver/_/-}/
-  patch -p1 <$srcdir/boundary.patch
-  patch -p1 <$srcdir/crlf.patch
+  cd $srcdir/dbmail-${pkgver}/
+  ls -1 $srcdir/*.patch | while read p; do
+    msg "Patch: $p"
+    patch -p1 <$p
+  done
+  patch -Rp1 <$srcdir/dbmail-7-systemd.diff
+  aclocal
+  automake --add-missing
+  autoreconf
 }
 
 build() {
-  cd $srcdir/dbmail-${pkgver/_/-}/
+  cd $srcdir/dbmail-${pkgver}/
+  automake
   [ -f Makefile ] || ./configure \
     --prefix=/usr --sbindir=/usr/bin --sysconfdir=/etc \
-    --with-ldap --with-sieve
+    --with-ldap --with-sieve \
+    --enable-systemd --enable-manpages
   make
 }
 
 package() {
-  cd $srcdir/dbmail-${pkgver/_/-}/
+  cd $srcdir/dbmail-${pkgver}/
   make DESTDIR=$pkgdir install
-  (cd man && make && make install DESTDIR=$pkgdir)
 
-  mkdir $pkgdir/etc
   install -Dm644 dbmail.conf $pkgdir/etc/dbmail.conf.sample
   mkdir $pkgdir/usr/share/dbmail
   cp -r sql/* $pkgdir/usr/share/dbmail/
@@ -72,9 +78,6 @@ package() {
   cp dbmail.schema $pkgdir/usr/share/dbmail/
 
   for i in dbmail-imapd dbmail-lmtpd dbmail-pop3d dbmail-timsieved; do
-    install -Dm0644 $srcdir/$i.service $pkgdir/usr/lib/systemd/system/$i.service
     install -Dm0644 $srcdir/$i.xinetd $pkgdir/etc/xinetd.d/$i
   done
-
-  install -Dm0644 $srcdir/dbmail.tmpfiles $pkgdir/usr/lib/tmpfiles.d/dbmail.conf
 }
