@@ -2192,7 +2192,7 @@ index 0000000..24a6c38
 +#endif /*_LXCOMMON_H_*/
 +
 diff --git a/src/lxdm.c b/src/lxdm.c
-index 5c279af..85ef3be 100644
+index 5c279af..8ac8478 100644
 --- a/src/lxdm.c
 +++ b/src/lxdm.c
 @@ -24,9 +24,6 @@
@@ -2256,9 +2256,38 @@ index 5c279af..85ef3be 100644
  static GSList *session_list;
  
  static void lxdm_startx(LXSession *s);
-@@ -153,18 +159,6 @@ void stop_pid(int pid)
-     while( waitpid(-1, 0, WNOHANG) > 0 ) ;
+@@ -128,7 +134,7 @@ static void set_active_vt(int vt)
+ 	if( fd < 0 )
+ 		fd = 0;
+ 	ioctl(fd, VT_ACTIVATE, vt);
+-	if( fd != 0 )
++	if(fd!=0)
+ 		close(fd);
  }
+ 
+@@ -142,28 +148,19 @@ void stop_pid(int pid)
+     {
+         if( kill(pid, SIGTERM) )
+             kill(pid, SIGKILL);
+-        while( 1 )
+-        {
+-            int wpid, status;
+-            wpid = waitpid(pid,&status,0);
+-            if(wpid<0 || pid == wpid)
+-            	break;
+-        }
+     }
+-    while( waitpid(-1, 0, WNOHANG) > 0 ) ;
+-}
++    while( 1 )
++    {
++        int wpid, status;
++        wpid = waitpid(pid,&status,0);
++        if(pid == wpid)
++            break;
++	if(wpid<0 && errno!=EINTR)
++		break;
++    }
  
 -#if HAVE_LIBPAM
 -static void close_pam_session(pam_handle_t *pamh)
@@ -2269,13 +2298,13 @@ index 5c279af..85ef3be 100644
 -    //err=pam_setcred(pamh, PAM_DELETE_CRED);
 -    pam_end(pamh, err);
 -    pamh = NULL;
--}
++    while( waitpid(-1, 0, WNOHANG) > 0 ) ;
+ }
 -#endif
--
+ 
  static LXSession *lxsession_find_greeter(void)
  {
- 	GSList *p;
-@@ -271,7 +265,7 @@ static int lxsession_alloc_tty(void)
+@@ -271,7 +268,7 @@ static int lxsession_alloc_tty(void)
  static int lxsession_alloc_display(void)
  {
  	int i;
@@ -2284,7 +2313,7 @@ index 5c279af..85ef3be 100644
  	{
  		if(!display_is_used(i))
  			return i;
-@@ -299,6 +293,7 @@ static LXSession *lxsession_add(void)
+@@ -299,6 +296,7 @@ static LXSession *lxsession_add(void)
  		return NULL;
  	}
  	s->env=NULL;
@@ -2292,7 +2321,7 @@ index 5c279af..85ef3be 100644
  	session_list=g_slist_prepend(session_list,s);
  	lxdm_startx(s);
  	return s;
-@@ -354,10 +349,7 @@ static void lxsession_stop(LXSession *s)
+@@ -354,10 +352,7 @@ static void lxsession_stop(LXSession *s)
  	{
  		xconn_clean(s->dpy);
  	}
@@ -2304,7 +2333,24 @@ index 5c279af..85ef3be 100644
  #if HAVE_LIBCK_CONNECTOR
  	if( s->ckc != NULL )
  	{
-@@ -467,7 +459,7 @@ static char *lxsession_xserver_command(LXSession *s)
+@@ -427,6 +422,7 @@ static char *lxsession_xserver_command(LXSession *s)
+ 	int arc;
+ 	char **arg;
+ 	int i;
++	int novtswitch=0;
+ 	
+ 	if(s->option)
+ 	{
+@@ -462,12 +458,16 @@ static char *lxsession_xserver_command(LXSession *s)
+ 			g_free(arg[i]);
+ 			arc--;memcpy(arg+i,arg+i+1,(arc-i)*sizeof(char*));
+ 		}
++		else if(!strcmp(p,"-novtswitch"))
++		{
++			novtswitch=1;
++		}
+ 		else
+ 		{
  			i++;
  		}
  	}
@@ -2313,7 +2359,7 @@ index 5c279af..85ef3be 100644
  	arg = g_renew(char *, arg, arc + 10);
  	if(nr_tty)
  	{
-@@ -477,8 +469,11 @@ printf("arc %d\n",arc);
+@@ -477,8 +477,15 @@ printf("arc %d\n",arc);
  	arg[arc++] = g_strdup_printf(":%d",s->display);
  	if(s->tty>0)
  		arg[arc++] = g_strdup_printf("vt%02d", s->tty);
@@ -2324,10 +2370,14 @@ index 5c279af..85ef3be 100644
 +		arg[arc++] = g_strdup("-nolisten");
 +		arg[arc++] = g_strdup("tcp");
 +	}
++	if(!novtswitch)
++	{
++		arg[arc++] = g_strdup("-novtswitch");
++	}
  	arg[arc] = NULL;
  	p=g_strjoinv(" ", arg);
  	g_strfreev(arg);
-@@ -518,15 +513,17 @@ void lxdm_get_tty(void)
+@@ -518,15 +525,17 @@ void lxdm_get_tty(void)
  		{
  			nr_tty=1;
  		}
@@ -2348,7 +2398,7 @@ index 5c279af..85ef3be 100644
  		if(plymouth)
  		{
  			nr_tty=1;
-@@ -550,13 +547,13 @@ void lxdm_quit_self(int code)
+@@ -550,13 +559,13 @@ void lxdm_quit_self(int code)
  static void log_init(void)
  {
  	int fd_log;
@@ -2363,7 +2413,7 @@ index 5c279af..85ef3be 100644
  }
  
  static void log_ignore(const gchar *log_domain, GLogLevelFlags log_level,
-@@ -647,6 +644,19 @@ static void replace_env(char** env, const char* name, const char* new_val)
+@@ -647,6 +656,19 @@ static void replace_env(char** env, const char* name, const char* new_val)
      *(penv + 1) = NULL;
  }
  
@@ -2383,7 +2433,7 @@ index 5c279af..85ef3be 100644
  #ifndef DISABLE_XAUTH
  
  static inline void xauth_write_uint16(int fd,uint16_t data)
-@@ -665,15 +675,20 @@ static inline void xauth_write_string(int fd,const char *s)
+@@ -665,15 +687,20 @@ static inline void xauth_write_string(int fd,const char *s)
  	write(fd,s,len);
  }
  
@@ -2408,7 +2458,7 @@ index 5c279af..85ef3be 100644
  	xauth_write_string(fd,"MIT-MAGIC-COOKIE-1");
  	xauth_write_uint16(fd,16);
  	write(fd,data,16);
-@@ -695,139 +710,55 @@ static void create_server_auth(LXSession *s)
+@@ -695,139 +722,55 @@ static void create_server_auth(LXSession *s)
  
  	authfile = g_strdup_printf("/var/run/lxdm/lxdm-:%d.auth",s->display);
  
@@ -2475,7 +2525,8 @@ index 5c279af..85ef3be 100644
 -static char *user_pass[2];
 -
 -static int do_conv(int num, const struct pam_message **msg,struct pam_response **resp, void *arg)
--{
++int lxdm_auth_user(int type,char *user, char *pass, struct passwd **ppw)
+ {
 -	int result = PAM_SUCCESS;
 -	int i;
 -	*resp = (struct pam_response *) calloc(num, sizeof(struct pam_response));
@@ -2504,8 +2555,7 @@ index 5c279af..85ef3be 100644
 -#endif
 -
 -int lxdm_auth_user(char *user, char *pass, struct passwd **ppw)
-+int lxdm_auth_user(int type,char *user, char *pass, struct passwd **ppw)
- {
+-{
 -    struct passwd *pw;
 -#if !HAVE_LIBPAM
 -    struct spwd *sp;
@@ -2572,7 +2622,7 @@ index 5c279af..85ef3be 100644
      s=lxsession_find_greeter();
      if(!s) s=lxsession_find_idle();
      if(!s) s=lxsession_add();
-@@ -836,97 +767,12 @@ int lxdm_auth_user(char *user, char *pass, struct passwd **ppw)
+@@ -836,97 +779,12 @@ int lxdm_auth_user(char *user, char *pass, struct passwd **ppw)
          g_critical("lxsession_add fail\n");
          exit(0);
      }
@@ -2606,8 +2656,12 @@ index 5c279af..85ef3be 100644
 -    *ppw = pw;
 -    g_debug("user %s auth ok\n",pw->pw_name);
 -    return AUTH_SUCCESS;
--}
--
++	ret=lxdm_auth_user_authenticate(&s->auth,user,pass,type);
++	if(ret==AUTH_SUCCESS)
++		*ppw=&s->auth.pw;
++	return ret;
+ }
+ 
 -#if HAVE_LIBPAM
 -void setup_pam_session(LXSession *s,struct passwd *pw,char *session_name)
 -{
@@ -2663,18 +2717,14 @@ index 5c279af..85ef3be 100644
 -		free(penv[i]);
 -	}
 -	free(penv);
-+	ret=lxdm_auth_user_authenticate(&s->auth,user,pass,type);
-+	if(ret==AUTH_SUCCESS)
-+		*ppw=&s->auth.pw;
-+	return ret;
- }
- 
+-}
+-
 -#endif
 -
  static void close_left_fds(void)
  {
  	struct dirent **list;
-@@ -945,9 +791,15 @@ static void close_left_fds(void)
+@@ -945,9 +803,15 @@ static void close_left_fds(void)
  		close(fd);
  	}
  	free(list);
@@ -2691,7 +2741,7 @@ index 5c279af..85ef3be 100644
  {
      int fd;
      
-@@ -968,9 +820,6 @@ void switch_user(struct passwd *pw, char *run, char **env)
+@@ -968,9 +832,6 @@ void switch_user(struct passwd *pw, char *run, char **env)
          dup2(fd,STDERR_FILENO);
          close(fd);
      }
@@ -2701,7 +2751,7 @@ index 5c279af..85ef3be 100644
  
  	/* reset signal */
  	signal(SIGCHLD, SIG_DFL);
-@@ -1114,7 +963,7 @@ void lxdm_startx(LXSession *s)
+@@ -1114,7 +975,7 @@ void lxdm_startx(LXSession *s)
  	g_strfreev(args);
  	lxcom_add_child_watch(s->server, on_xserver_stop, s);
  
@@ -2710,7 +2760,7 @@ index 5c279af..85ef3be 100644
  	for( i = 0; i < 100; i++ )
  	{
  		if(lxcom_last_sig==SIGINT || lxcom_last_sig==SIGTERM)
-@@ -1124,6 +973,7 @@ void lxdm_startx(LXSession *s)
+@@ -1124,6 +985,7 @@ void lxdm_startx(LXSession *s)
  		g_usleep(50 * 1000);
  		//g_message("retry %d\n",i);
  	}
@@ -2718,7 +2768,7 @@ index 5c279af..85ef3be 100644
  	if(s->dpy==NULL)
  		exit(EXIT_FAILURE);
  	
-@@ -1200,6 +1050,11 @@ static void on_session_stop(void *data,int pid, int status)
+@@ -1200,6 +1062,11 @@ static void on_session_stop(void *data,int pid, int status)
  	{
  		lxsession_free(s);
  	}
@@ -2730,7 +2780,7 @@ index 5c279af..85ef3be 100644
  	gchar *argv[] = { "/etc/lxdm/PostLogout", NULL };
  	g_spawn_async(NULL, argv, s->env, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL);
  }
-@@ -1212,7 +1067,7 @@ gboolean lxdm_get_session_info(char *session,char **pname,char **pexec)
+@@ -1212,7 +1079,7 @@ gboolean lxdm_get_session_info(char *session,char **pname,char **pexec)
  		name=g_key_file_get_string(config, "base", "session", 0);
  		if(!name && getenv("PREFERRED"))
  			name = g_strdup(getenv("PREFERRED"));
@@ -2739,7 +2789,7 @@ index 5c279af..85ef3be 100644
  			name = g_strdup(getenv("DESKTOP"));
  		if(!name) name=g_strdup("LXDE");
  	}
-@@ -1291,7 +1146,7 @@ static void lxdm_save_login(char *session,char *lang)
+@@ -1291,7 +1158,7 @@ static void lxdm_save_login(char *session,char *lang)
  		lang="";
  	var=g_key_file_new();
  	g_key_file_set_list_separator(var, ' ');
@@ -2748,7 +2798,7 @@ index 5c279af..85ef3be 100644
  	old=g_key_file_get_string(var,"base","last_session",0);
  	if(0!=g_strcmp0(old,session))
  	{
-@@ -1343,7 +1198,7 @@ static void lxdm_save_login(char *session,char *lang)
+@@ -1343,7 +1210,7 @@ static void lxdm_save_login(char *session,char *lang)
          char* data = g_key_file_to_data(var, &len, NULL);
  		mkdir("/var/lib/lxdm",0755);
  		chmod("/var/lib/lxdm",0755);
@@ -2757,7 +2807,16 @@ index 5c279af..85ef3be 100644
          g_free(data);
  	}
  	g_key_file_free(var);
-@@ -1423,12 +1278,10 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
+@@ -1357,6 +1224,8 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
+ 	LXSession *s,*prev;
+ 	
+ 	lxdm_save_login(session,lang);
++	if(!strcmp(session,"__default__"))
++		session=NULL;
+ 
+ 	if(!session ||!session[0] || !lang || !lang[0])
+ 	{
+@@ -1423,12 +1292,10 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
  		s->ckc=NULL;
  	}
  #endif
@@ -2772,7 +2831,7 @@ index 5c279af..85ef3be 100644
  #else
  	if(!s->ckc)
  #endif
-@@ -1451,9 +1304,20 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
+@@ -1451,9 +1318,20 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
  							  "x11-display", &n,
  							  "is-local",&is_local,
  							  NULL))
@@ -2794,7 +2853,7 @@ index 5c279af..85ef3be 100644
  	char** env, *path;
  	int n_env,i;
  	n_env  = g_strv_length(environ);
-@@ -1483,17 +1347,22 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
+@@ -1483,17 +1361,22 @@ void lxdm_do_login(struct passwd *pw, char *session, char *lang, char *option)
  		replace_env(env, "LANGUAGE=", lang);
  	}
  	s->env = env;
@@ -2823,7 +2882,7 @@ index 5c279af..85ef3be 100644
  	g_free(session_name);
  	g_free(session_exec);
  	if(alloc_session)
-@@ -1519,7 +1388,7 @@ void lxdm_do_shutdown(void)
+@@ -1519,7 +1402,7 @@ void lxdm_do_shutdown(void)
  	char *cmd;
  	cmd = g_key_file_get_string(config, "cmd", "shutdown", 0);
  	if( !cmd ) cmd = g_strdup("shutdown -h now");
@@ -2832,7 +2891,7 @@ index 5c279af..85ef3be 100644
  	g_spawn_command_line_async(cmd,0);
  	g_free(cmd);
  	lxdm_quit_self(0);
-@@ -1548,10 +1417,30 @@ int lxdm_do_auto_login(void)
+@@ -1548,10 +1431,30 @@ int lxdm_do_auto_login(void)
  	if(count==1)
  		pass = g_key_file_get_string(config, "base", "password", 0);
  	#endif
@@ -2863,7 +2922,7 @@ index 5c279af..85ef3be 100644
  		if(p[0]=='@')	
  		{
  			option=p+1;
-@@ -1559,11 +1448,16 @@ int lxdm_do_auto_login(void)
+@@ -1559,11 +1462,16 @@ int lxdm_do_auto_login(void)
  			session=g_key_file_get_string(config,option,"session",0);
  			lang=g_key_file_get_string(config,option,"lang",0);
  		}
@@ -2881,7 +2940,7 @@ index 5c279af..85ef3be 100644
  		if(ret==AUTH_SUCCESS)
  		{
  			lxdm_do_login(pw,session,lang,option);
-@@ -1571,9 +1465,11 @@ int lxdm_do_auto_login(void)
+@@ -1571,9 +1479,11 @@ int lxdm_do_auto_login(void)
  		}
  		g_free(user);g_free(session);g_free(lang);
  	}
@@ -2894,7 +2953,7 @@ index 5c279af..85ef3be 100644
  }
  
  static void log_sigsegv(void)
-@@ -1677,8 +1573,23 @@ GKeyFile *lxdm_user_list(void)
+@@ -1677,8 +1587,23 @@ GKeyFile *lxdm_user_list(void)
  	g_key_file_set_comment(kf,NULL,NULL,"lxdm user list",NULL);
  	while((pw=getpwent())!=NULL)
  	{
@@ -2918,6 +2977,37 @@ index 5c279af..85ef3be 100644
  		if(strncmp(pw->pw_dir,"/home/",6))
  		{
  			if(!strv_find(white,pw->pw_name))
+@@ -1780,21 +1705,21 @@ int main(int arc, char *arg[])
+ 			return res?0:-1;
+ 		}
+ 	}
+-	if( getuid() != 0 )
++	if(getuid() != 0)
+ 	{
+ 		fprintf(stderr, "only root is allowed to use this program\n");
+ 		exit(EXIT_FAILURE);
+ 	}
+ 
+-	if( daemonmode )
++	if(daemonmode)
+ 	{
+ 		(void)daemon(1, 1);
+ 	}
+ 	log_init();
+ 
+-	if( debugmode )
++	if(!debugmode)
+ 	{
+-		/* turn of debug output */
++		/* turn off debug output */
+ 		g_log_set_handler(NULL, G_LOG_LEVEL_DEBUG, log_ignore, NULL);
+ 	}
+ 
+@@ -1832,3 +1757,4 @@ int main(int arc, char *arg[])
+ 
+ 	return 0;
+ }
++
 diff --git a/src/lxdm.h b/src/lxdm.h
 index 4c79ca3..568573f 100644
 --- a/src/lxdm.h
