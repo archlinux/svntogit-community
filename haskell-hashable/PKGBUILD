@@ -9,11 +9,11 @@ url="http://hackage.haskell.org/package/${_hkgname}"
 license=('custom:BSD3')
 arch=('i686' 'x86_64')
 makedepends=()
-depends=('ghc')
+depends=('ghc' haskell-text)
 options=('strip')
 source=(http://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
 install=${pkgname}.install
-md5sums=('59b972d0a1ccc0fc08f7d681a1497a19')
+md5sums=('74f7cadb836e63f4d4b1a24be401228d')
 
 build() {
   cd "${srcdir}/${_hkgname}-${pkgver}"
