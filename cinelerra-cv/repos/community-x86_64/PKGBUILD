@@ -7,7 +7,7 @@
 pkgname=cinelerra-cv
 pkgver=2.2
 _gitrel=2.2.0
-pkgrel=17
+pkgrel=18
 epoch=1
 pkgdesc="Professional video editing and compositing environment"
 arch=('x86_64' 'i686')
@@ -16,17 +16,18 @@ license=('GPL')
 depends=('e2fsprogs' 'libavc1394' 'libiec61883' 'libxv'
          'libtiff' 'mjpegtools' 'fftw' 'a52dec' 'glu'
          'ffmpeg' 'faad2' 'faac' 'openexr>=2.0.0')
-makedepends=('git' 'nasm' 'mesa' 'optipng')
+makedepends=('git' 'nasm' 'mesa')
 options=('!libtool')
 source=("$pkgname::git+git://git.cinelerra.org/CinelerraCV.git#branch=rel$_gitrel"
         'v4l1_removal.patch'
+        'ffmpeg_api.patch'
         'ffmpeg2.0.patch'
-        'cinelerra-std_and_str_h.patch'
-        'ffmpeg_api.patch')
+        'cinelerra-std_and_str_h.patch')
 md5sums=('SKIP'
          'bfa85e20809429d88eba4ab83e569612'
-         '02d8222e596133bbc05eaad15bef242c'
-         'b05ec2fb54e7d02f6167525417802111')
+         'b05ec2fb54e7d02f6167525417802111'
+         '14dd897084d64cd0b5e9caa8a69818bd'
+         '02d8222e596133bbc05eaad15bef242c')
 
 _confit() {
   ./configure --prefix=/usr \
@@ -39,36 +40,43 @@ _confit() {
 prepare() {
   cd "$srcdir/$pkgname"
 
+  ## Patches (oldest first) ##
+
   # v4l1 removal patch
   patch -Np1 -i "$srcdir/v4l1_removal.patch"
 
-  patch -Np0 -i "$srcdir/cinelerra-std_and_str_h.patch"
-
-  # new ffmpeg api patch
+  # ffmpeg api patch update for 0.11
   patch -Np1 -i "$srcdir/ffmpeg_api.patch"
 
-  # fix avcodec_alloc_context and alloc_open 
+  # fix some missing headers
+  patch -Np0 -i "$srcdir/cinelerra-std_and_str_h.patch"
+
+  # fix avcodec_alloc_context and alloc_open
   patch -Np1 -i "$srcdir/ffmpeg2.0.patch"
 
-  # TODO: check if this is still needed (not sure what it does) --schiv
-  sed -i -e '/Debian/d' admin/nasm
+  ## Hacks ##
 
   # if you don't need OpenGL comment out the next line (and no glu/mesa dep)
-  # TODO: kind of forgot about the specifics of this one, recheck --schiv
+  # TODO: check if this is still needed (pre-svn commit) --schiv
   sed -i '/\/X11R6/s///' configure.in
+
+  # TODO: check if this is still needed (old commit; r29539 by ibiru) --schiv
+  sed -i -e '/Debian/d' admin/nasm
 
   # fix some pngs that break with newer libpng
   # see https://mailman.archlinux.org/pipermail/arch-dev-public/2013-May/024872.html
-#  msg2 "Fixing PNGs, please wait..."
-#find -name '*.png' -exec optipng -quiet -force -fix {} +
+  #msg2 "Fixing PNGs, please wait..."
+  #find -name '*.png' -exec optipng -quiet -force -fix {} +
 
-  #  FFmpeg 2.0 related replacements
-  find -type f -exec sed -i 's/AVCODEC_MAX_AUDIO_FRAME_SIZE/192000/' {} \; 
-  find -type f -exec sed -i 's/CodecID/AVCodecID/' {} \; 
+  # ffmpeg 2.0 related replacements
+  find -type f -exec sed -i 's/AVCODEC_MAX_AUDIO_FRAME_SIZE/192000/' {} \;
+  find -type f -exec sed -i 's/CodecID/AVCodecID/' {} \;
 }
 
 build() {
   cd "$srcdir/$pkgname"
+
+  ## More Hacks (must be in existing env) ##
 
   # gcc 4.6 workaround
   export CFLAGS+=" -Wwrite-strings -D__STDC_CONSTANT_MACROS"
@@ -79,7 +87,7 @@ build() {
 
   ./autogen.sh
 
-  # TODO: check if this is still needed (forgot why at all) --schiv
+  # TODO: check if this is still needed (pre-svn commit) --schiv
   if [ "$CARCH" = 'x86_64' ]; then
     _confit --disable-mmx
   else
@@ -96,8 +104,3 @@ package() {
 }
 
 # vim:set ts=2 sw=2 et:
-md5sums=('SKIP'
-         'bfa85e20809429d88eba4ab83e569612'
-         '8d003f144b1c5e1cbbf13791fabb67cc'
-         '02d8222e596133bbc05eaad15bef242c'
-         'b05ec2fb54e7d02f6167525417802111')
