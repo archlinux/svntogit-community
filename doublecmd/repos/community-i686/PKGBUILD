@@ -5,7 +5,7 @@
 
 pkgbase=doublecmd
 pkgname=('doublecmd-gtk2' 'doublecmd-qt')
-pkgver=0.5.6
+pkgver=0.5.7
 _helpver=0.5.5
 pkgrel=1
 url="http://doublecmd.sourceforge.net/"
@@ -23,7 +23,7 @@ source=(
 	"http://downloads.sourceforge.net/project/$pkgbase/Double%20Commander%20Source/$pkgbase-$pkgver-src.tar.gz"
 	"http://downloads.sourceforge.net/project/$pkgbase/Double%20Commander%20Source/$pkgbase-help-$_helpver-src.tar.gz"
 )
-sha256sums=('b909ee5c57cb2803e4393163f5c44513144cb32e304fa2e1dfee6f33d0999bc5'
+sha256sums=('8e2059f986fff26da5d7b98af95be64b12c5cef6b50fe3cacd9a2805947aa343'
             '5c5d00187df811df0734bf751a581bce7e1bdd4cf4639b2a1101f1da8743daaf')
 
 build() {
