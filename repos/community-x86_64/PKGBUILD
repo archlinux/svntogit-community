@@ -2,30 +2,24 @@
 # Contributor: Jeremy Newton (Mystro256)
 
 pkgname=dolphin-emu
-pkgver=3.5
-pkgrel=7
+pkgver=4.0
+pkgrel=1
 epoch=1
-pkgdesc='A Gamecube / Wii / Triforce Emulator'
+pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=('i686' 'x86_64')
 url='http://dolphin-emu.org'
 license=('GPL2')
 
-makedepends=('cmake' 'glproto' 'opencl-headers')
-depends=('bluez-libs' 'ffmpeg' 'glew' 'libao' 'libgl' 'libxxf86vm' 'lsb-release' 'lzo2' 'mesa' \
-         'nvidia-cg-toolkit' 'openal' 'portaudio' 'sdl' 'wxgtk2.9')
-optdepends=('pulseaudio')
+makedepends=('cmake' 'git' 'opencl-headers')
+depends=('bluez-libs' 'ffmpeg' 'glew' 'libao' 'miniupnpc' 'openal' 'portaudio' 'sdl2' 'soundtouch' 'wxgtk2.9')
+optdepends=('pulseaudio: PulseAudio backend')
 
-source=("http://dolphin-emu.googlecode.com/files/dolphin-${pkgver}-src.zip"
+source=("${pkgname%-*}::git+https://code.google.com/p/dolphin-emu/#tag=${pkgver}"
         'dolphin-emu.desktop'
-        'Dolphin_Logo.png'
-        'gcc48fix.patch')
+        'Dolphin_Logo.png')
 
 build() {
-  cd "${srcdir}/dolphin-${pkgver}"
-
-  # 'u32 __rold' redeclared as different kind of symbol
-  # Patch merged upstream, remove with next release (> 3.5)
-  patch -lNp1 < "${srcdir}/gcc48fix.patch"
+  cd "${srcdir}/${pkgname%-*}"
 
   mkdir build && cd build
   cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DwxWidgets_CONFIG_EXECUTABLE=/usr/bin/wx-config-2.9
@@ -33,7 +27,7 @@ build() {
 }
 
 package() {
-  cd "${srcdir}/dolphin-${pkgver}/build"
+  cd "${srcdir}/${pkgname%-*}/build"
 
   make DESTDIR=${pkgdir} install
 
@@ -42,7 +36,6 @@ package() {
   install -Dm644 "${srcdir}/Dolphin_Logo.png" "${pkgdir}/usr/share/pixmaps/dolphin-emu.png"
 }
 
-md5sums=('4d0429f1e10f0862256e0b4c4e2f44a3'
+md5sums=('SKIP'
          'feed4580c2e6bfbc7f6c67dad861daae'
-         'd15c51f547b4bd47e510faac40bcc9d6'
-         'ddeddc2a65042486565b4b78ad739a80')
+         'd15c51f547b4bd47e510faac40bcc9d6')
