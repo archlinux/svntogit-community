@@ -1,27 +1,38 @@
 # Contributor: Erol V. Aktay <e.aktay@gmail.com>
 # Maintainer: Daniel J Griffiths <ghost1227@archlinux.us>
 
-pkgname=python-html5lib
-pkgver=0.90
+pkgbase=python-html5lib
+pkgname=('python2-html5lib' 'python-html5lib')
+pkgver=0.99
 pkgrel=1
-pkgdesc="A HTML parser/tokenizer based on the WHATWG HTML5 spec"
-arch=('i686' 'x86_64')
+arch=('any')
 url="http://code.google.com/p/html5lib/"
 license=('MIT')
-depends=('python2')
-makedepends=('unzip' 'setuptools')
-source=(http://html5lib.googlecode.com/files/html5lib-${pkgver}.zip
+makedepends=('python2' 'python' 'unzip')
+source=(https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz
     LICENSE)
-md5sums=('691e6b9ebe15b333a28280974b2ce432'
+md5sums=('da016c908db11950cd26bfcf53f95b03'
          '838c366f69b72c5df05c96dff79b35f2')
+
 
 build() {
     /bin/true
 }
 
-package() {
-    cd ${srcdir}/html5lib-${pkgver}
+package_python-html5lib() {
+pkgdesc="A Python HTML parser/tokenizer based on the WHATWG HTML5 spec"
+depends=('python')
+    cd ${srcdir}/html5lib-python-${pkgver}
+
+    python3 setup.py install --root=${pkgdir}
+    install -Dm755 $srcdir/LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE  
+}
+
+package_python2-html5lib() {
+depends=('python2')
+pkgdesc="A Python2 HTML parser/tokenizer based on the WHATWG HTML5 spec"
+    cd ${srcdir}/html5lib-python-${pkgver}
 
     python2 setup.py install --root=${pkgdir}
-    install -dm755 LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE  
+    install -Dm755 $srcdir/LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE  
 }
