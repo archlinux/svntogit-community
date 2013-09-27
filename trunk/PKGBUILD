@@ -18,6 +18,8 @@ source=("${pkgname%-*}::git+https://code.google.com/p/dolphin-emu/#tag=${pkgver}
         'dolphin-emu.desktop'
         'Dolphin_Logo.png')
 
+# TODO: Drop the custom icon and .desktop file, apparently dolphin ships these now.
+
 build() {
   cd "${srcdir}/${pkgname%-*}"
 
