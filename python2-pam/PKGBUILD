@@ -5,7 +5,7 @@
 _modulename=pam
 pkgname=python2-${_modulename}
 pkgver=0.1.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Module that provides an authenticate function that allows the caller to authenticate a given username / password against the PAM system on Linux."
 url="http://atlee.ca/software/pam/"
 license=('MIT')
