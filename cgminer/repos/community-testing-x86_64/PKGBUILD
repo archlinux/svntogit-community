@@ -1,0 +1,78 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@gmail.com>
+# Contributor: monson <holymonson@gmail.com>
+# Contributor: Thomas Dziedzic < gostrc at gmail >
+# Contributor: David Manouchehri <david@davidmanouchehri.com>
+
+pkgname=cgminer
+pkgver=3.6.2
+pkgrel=1
+pkgdesc="Multi-threaded multi-pool GPU, FPGA and ASIC miner for bitcoin and derivative coins"
+url='http://forum.bitcoin.org/index.php?topic=28402.0'
+license=('GPL3')
+arch=('i686' 'x86_64')
+depends=('curl' 'libcl' 'libusbx' 'jansson')
+makedepends=('opencl-headers')
+optdepends=('opencl-nvidia: OpenCL implementation for NVIDIA')
+            # 'opencl-catalyst: OpenCL implementation for AMD') # catalyst currently dropped from repo
+source=("http://ck.kolivas.org/apps/$pkgname/$pkgname-${pkgver}.tar.bz2"
+        "$pkgname.conf.d"
+        "$pkgname.service")
+backup=("etc/conf.d/$pkgname" "etc/$pkgname.conf")
+
+[ "$CARCH" == "x86_64" ] && makedepends+=('yasm')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # We have latest jansson and libusb - just use them
+  sed "s|ac_subdirs_all='compat/libusb\-1.0\ncompat/jansson-2.5'||" -i ./configure
+  sed 's|subdirs="$subdirs compat/libusb\-1.0"||' -i ./configure
+  sed 's|subdirs="$subdirs compat/jansson\-2.5"||' -i ./configure
+  sed 's|LIBUSB_LIBS="compat/libusb-1.0/libusb/.libs/libusb-1.0.a"|LIBUSB_LIBS=-lusb-1.0|' -i ./configure
+  sed 's|JANSSON_LIBS="compat/jansson-2.5/src/.libs/libjansson.a"|JANSSON_LIBS=-ljansson|' -i ./configure
+  sed 's|compat/Makefile ||' -i ./configure
+
+  sed 's|JANSSON_INCLUDES = -I$(top_srcdir)/compat/jansson-2.5/src||' -i ./Makefile.in
+  sed 's|USBUTILS_INCLUDES = -I$(top_srcdir)/compat/libusb\-1.0/libusb|USBUTILS_INCLUDES = -I/usr/include/libusb-1.0|' -i ./Makefile.in
+  sed 's|SUBDIRS = lib compat ccan|SUBDIRS = lib ccan|' -i ./Makefile.in
+
+  rm -r compat
+
+  # Here you may want to use custom CFLAGS
+  #export CFLAGS="-O2 -march=native -mtune=native -msse2"
+  
+  ./configure \
+    --prefix=/usr \
+    --enable-scrypt \
+    --enable-opencl \
+    --enable-bflsc \
+    --enable-bitforce \
+    --enable-icarus \
+    --enable-modminer \
+    --enable-ztex \
+    --enable-avalon \
+    --enable-klondike \
+    --enable-bitfury \
+    --disable-adl # For license issues
+  
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  install -d "$pkgdir/usr/share/$pkgname"
+  install -m755 miner.php api-example.* "$pkgdir/usr/share/$pkgname"
+
+  install -Dm644 "$srcdir"/$pkgname.service "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+  install -Dm644 "$srcdir"/$pkgname.conf.d "$pkgdir"/etc/conf.d/$pkgname
+  sed 's#/usr/local/bin#/usr/bin#g' example.conf > $pkgname.conf
+  install -Dm644 $pkgname.conf "$pkgdir"/etc/$pkgname.conf
+}
+
+sha512sums=('50aad2956f7561b457968511d2ec9db02abdaffd3ad0f7fde9697a33cc1f4879073ef3a67f7646a80066bd69754828d01e5a0fd7cd60a0836268fca06d8becf5'
+            '99c38bc395848f9712ce172343d31f5c60f5d8ac1cfe2f48df8f3ec6c488fc275763a79c5ef36b99f32faa465b5a65284b38e8a63ef9b144075ee13971313b41'
+            '3317b60c6b1f14c47d8ee636113ef40a4023ab14054129de80a37947b381fd2b647a7053f4e1bb639efa225a514e862fa531908714c34040dda2d6221dde7f5f')
