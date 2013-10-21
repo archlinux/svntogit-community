@@ -4,7 +4,7 @@
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
 pkgver=0.99
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="http://code.google.com/p/html5lib/"
 license=('MIT')
@@ -21,7 +21,7 @@ build() {
 
 package_python-html5lib() {
 pkgdesc="A Python HTML parser/tokenizer based on the WHATWG HTML5 spec"
-depends=('python')
+depends=('python' 'python-six')
     cd ${srcdir}/html5lib-python-${pkgver}
 
     python3 setup.py install --root=${pkgdir}
