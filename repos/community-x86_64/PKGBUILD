@@ -7,7 +7,7 @@ pkgbase=doublecmd
 pkgname=('doublecmd-gtk2' 'doublecmd-qt')
 pkgver=0.5.7
 _helpver=0.5.5
-pkgrel=1
+pkgrel=2
 url="http://doublecmd.sourceforge.net/"
 arch=('i686' 'x86_64')
 license=('GPL')
@@ -49,6 +49,7 @@ build() {
 package_doublecmd-gtk2() {
 	pkgdesc="twin-panel (commander-style) file manager (GTK)"
 	depends=('gtk2')
+	conflicts=('doublecmd-qt')
 	cd "$srcdir/$pkgbase-gtk"
 	sed -e 's/LIB_SUFFIX=.*/LIB_SUFFIX=/g' -i ./install/linux/install.sh
 	./install/linux/install.sh --install-prefix="$pkgdir"
@@ -61,6 +62,7 @@ package_doublecmd-gtk2() {
 package_doublecmd-qt() {
 	pkgdesc="twin-panel (commander-style) file manager (QT)"
 	depends=('qt4pas')
+	conflicts=('doublecmd-gtk2')
 	cd "$srcdir/$pkgbase-qt"
 	sed -e 's/LIB_SUFFIX=.*/LIB_SUFFIX=/g' -i ./install/linux/install.sh
 	./install/linux/install.sh --install-prefix="$pkgdir"
