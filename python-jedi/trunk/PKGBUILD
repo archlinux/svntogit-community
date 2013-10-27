@@ -5,10 +5,10 @@
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
 pkgver=0.7.0
-pkgrel=3
+pkgrel=4
 arch=('any')
 url="https://github.com/davidhalter/jedi"
-license=('LGPL3')
+license=('MIT')
 depends=('python2')
 makedepends=('python2-distribute' 'python-distribute')
 source=("https://pypi.python.org/packages/source/j/jedi/jedi-${pkgver}.tar.gz")
@@ -24,6 +24,8 @@ package_python-jedi() {
     conflicts=('python3-jedi-git')
     cd "$srcdir/jedi-$pkgver"
     python3 setup.py install --root="$pkgdir/" --optimize=1
+
+    install -D -m644 "$srcdir/jedi-$pkgver/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
 package_python2-jedi() {
@@ -32,6 +34,8 @@ package_python2-jedi() {
     conflicts=('jedi-git' 'python2-jedi-git')
     cd "$srcdir/jedi-$pkgver"
     python2 setup.py install --root="$pkgdir/" --optimize=1
+
+    install -D -m644 "$srcdir/jedi-$pkgver/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
 # vim:set ts=2 sw=2 et
