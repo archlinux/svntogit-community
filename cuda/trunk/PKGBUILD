@@ -11,7 +11,7 @@ depends=('gcc-libs' 'opencl-nvidia')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
-options=(!strip)
+options=(!strip staticlibs)
 md5sums=('7bb06908bdf33eac0f8426821640c2fb'
          '7e5990e03eea90075f5a500e91a0c3d3'
          'ffe1e6fb7f97b23da28fd94a5fd7356d')
