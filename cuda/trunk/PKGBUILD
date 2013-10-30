@@ -48,4 +48,6 @@ package() {
   mkdir -p $pkgdir/usr/lib
   cd $pkgdir/usr/lib
   ln -s /usr/lib/libncurses.so.5 libtinfo.so.5
+
+  install -Dm644 $pkgdir/opt/cuda/doc/pdf/EULA.pdf $pkgdir/usr/share/licenses/$pkgname/EULA.pdf
 }
