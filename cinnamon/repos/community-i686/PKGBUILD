@@ -5,8 +5,8 @@
 # Contributor: CReimer
 
 pkgname=cinnamon
-pkgver=2.0.6
-pkgrel=2
+pkgver=2.0.8
+pkgrel=1
 pkgdesc="Linux desktop which provides advanced innovative features and a traditional user experience"
 arch=('i686' 'x86_64')
 url="http://cinnamon.linuxmint.com/"
@@ -27,13 +27,15 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxmint/Cinnamon/archive/
         "background.patch"
         "keyboard_applet.patch"
         "input_keybindings.patch"
+        "polkit-agent.patch"
         "org.archlinux.pkexec.cinnamon-settings-users.policy")
-sha256sums=('0acd307bb8e8d87f6083d5b112deda20967933f6c70387fee72b2a3b5143ef4f'
+sha256sums=('f7868e3321a00dd2704a270b474ad0844b7e34e6c536b1b4a9c70b4be7c1f5f4'
             '2e10ba71fd9ba40afd7e9492b2fc0d5bcc27874bcde543cfd8a47ad20c52354a'
             'ee5694bdc997ffa35a817f691b15bae13747137d35ec2aecd0da298d7edbe426'
             '373d80cdb23250fbde846ed493ba422672cc42b03a111c2ce044467ee782df7f'
             '6acb07393105ddced8a4c3c869a596350d1a7d81a808ca5307d2ad770653a9d3'
             'e28c40eb844105154fa6106f5b4de3151a22805b3a7b2f84be9ea6c15cec3de6'
+            '64492fbba34da107ba616991e87afdd86e923459ee626d35ee7cb2292a7ab059'
             '371beac9e55d36f7629d2fc5cb40d6a3e6c0f4aac014f6fefdcd6743b5194b23')
 
 prepare() {
@@ -55,6 +57,12 @@ prepare() {
   # Add input keybindings
   patch -Np1 -i ../input_keybindings.patch
 
+  # Port to GStreamer 1.0. Also backports some recorder bugfixes
+  patch -Np1 -i ../cinnamon-gstreamer1.patch
+
+  # Add back Cinnamon polkit authentication agent
+  patch -Np1 -i ../polkit-agent.patch
+
   # Prefix 'System Settings' with 'Cinnamon' to avoid confusion with gnome-control-center
   sed -i 's/^Name\(.*\)=\(.*\)/Name\1=Cinnamon \2/' files/usr/share/applications/cinnamon-settings{,-users}.desktop
 
@@ -64,11 +72,12 @@ prepare() {
   # Use pkexec instead of gksu
   sed -i 's/gksu/pkexec/' files/usr/bin/cinnamon-settings-users
 
-  # Port to GStreamer 1.0. Also backports some recorder bugfixes
-  patch -Np1 -i ../cinnamon-gstreamer1.patch
+  # Fix required components
+  sed -i 's/cinnamon-fallback-mount-helper;//
+          s/nm-applet;/cinnamon-nm-applet;/' files/usr/share/cinnamon-session/sessions/cinnamon*.session
 
-  # Remove cinnamon-fallback-mount-helper from required components
-  sed -i 's/cinnamon-fallback-mount-helper;//' files/usr/share/cinnamon-session/sessions/cinnamon*.session
+  # Remove leftover files after patching
+  find . -type f -name *.orig | xargs rm
 }
 
 build() {
@@ -82,15 +91,16 @@ build() {
                --disable-schemas-compile \
                --enable-compile-warnings=yes \
                --with-session-tracking=systemd
-  make CFLAGS="${CFLAGS} -Wno-deprecated -Wno-deprecated-declarations"
+  make
 }
 
 package() {
   cd ${srcdir}/Cinnamon*
   make DESTDIR="${pkgdir}" install
 
-  # Remove leftover files after patching
-  find "$pkgdir" -type f -name *.orig | xargs rm
+  # Install cinnamon-nm-applet.desktop file
+  sed 's/^NotShowIn=.*/OnlyShowIn=GNOME/' /usr/share/applications/nm-applet.desktop \
+    > "${pkgdir}/usr/share/applications/cinnamon-nm-applet.desktop"
 
   # Install policy file
   install -Dm644 "${srcdir}/org.archlinux.pkexec.cinnamon-settings-users.policy" \
