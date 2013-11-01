@@ -6,7 +6,7 @@
 
 pkgname=cinnamon
 pkgver=2.0.8
-pkgrel=1
+pkgrel=2
 pkgdesc="Linux desktop which provides advanced innovative features and a traditional user experience"
 arch=('i686' 'x86_64')
 url="http://cinnamon.linuxmint.com/"
@@ -17,25 +17,19 @@ depends=('accountsservice' 'caribou' 'cinnamon-settings-daemon' 'cinnamon-sessio
          'librsvg' 'networkmanager' 'muffin' 'pygtk' 'python2-dbus' 'python2-pillow'
          'python2-pam' 'python2-pexpect' 'python2-pyinotify' 'python2-lxml' 'webkitgtk'
          'cinnamon-control-center' 'cinnamon-screensaver' 'libgnomekbd'
-         'network-manager-applet' 'nemo')
+         'network-manager-applet' 'nemo' 'polkit-gnome')
 makedepends=('gnome-common' 'intltool')
 options=('!emptydirs')
 install=${pkgname}.install
 source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxmint/Cinnamon/archive/$pkgver.tar.gz"
         "cinnamon-gstreamer1.patch"
-        "fix-control-center-check.patch"
-        "background.patch"
         "keyboard_applet.patch"
         "input_keybindings.patch"
-        "polkit-agent.patch"
         "org.archlinux.pkexec.cinnamon-settings-users.policy")
 sha256sums=('f7868e3321a00dd2704a270b474ad0844b7e34e6c536b1b4a9c70b4be7c1f5f4'
             '2e10ba71fd9ba40afd7e9492b2fc0d5bcc27874bcde543cfd8a47ad20c52354a'
-            'ee5694bdc997ffa35a817f691b15bae13747137d35ec2aecd0da298d7edbe426'
-            '373d80cdb23250fbde846ed493ba422672cc42b03a111c2ce044467ee782df7f'
             '6acb07393105ddced8a4c3c869a596350d1a7d81a808ca5307d2ad770653a9d3'
             'e28c40eb844105154fa6106f5b4de3151a22805b3a7b2f84be9ea6c15cec3de6'
-            '64492fbba34da107ba616991e87afdd86e923459ee626d35ee7cb2292a7ab059'
             '371beac9e55d36f7629d2fc5cb40d6a3e6c0f4aac014f6fefdcd6743b5194b23')
 
 prepare() {
@@ -44,12 +38,6 @@ prepare() {
   # Python2 fix
   sed -i 's:/usr/bin/python :/usr/bin/python2 :' files/usr/bin/cinnamon-menu-editor
   find -type f | xargs sed -i 's@^#!.*python$@#!/usr/bin/python2@'
-
-  # Check for the cc-panel path, not for the unneeded binary
-  patch -Np1 -i ../fix-control-center-check.patch
-
-  # Fix missing backgrounds
-  patch -Np1 -i ../background.patch
 
   # Fix keyboard applet
   patch -Np1 -i ../keyboard_applet.patch
@@ -60,11 +48,9 @@ prepare() {
   # Port to GStreamer 1.0. Also backports some recorder bugfixes
   patch -Np1 -i ../cinnamon-gstreamer1.patch
 
-  # Add back Cinnamon polkit authentication agent
-  patch -Np1 -i ../polkit-agent.patch
-
-  # Prefix 'System Settings' with 'Cinnamon' to avoid confusion with gnome-control-center
-  sed -i 's/^Name\(.*\)=\(.*\)/Name\1=Cinnamon \2/' files/usr/share/applications/cinnamon-settings{,-users}.desktop
+  # Fix required components
+  sed -i 's/cinnamon-fallback-mount-helper;/polkit-gnome-authentication-agent-1;/
+          s/nm-applet;/cinnamon-nm-applet;/' files/usr/share/cinnamon-session/sessions/cinnamon*.session
 
   # fix for the python2 PAM module  
   sed -i 's:import PAM:import pam:' files/usr/lib/cinnamon-settings/modules/cs_user.py
@@ -72,12 +58,15 @@ prepare() {
   # Use pkexec instead of gksu
   sed -i 's/gksu/pkexec/' files/usr/bin/cinnamon-settings-users
 
-  # Fix required components
-  sed -i 's/cinnamon-fallback-mount-helper;//
-          s/nm-applet;/cinnamon-nm-applet;/' files/usr/share/cinnamon-session/sessions/cinnamon*.session
+  # Check for the cc-panel path, not for the unneeded binary
+  sed -i 's|/usr/bin/cinnamon-control-center|/usr/lib/cinnamon-control-center-1/panels|' files/usr/bin/cinnamon-settings
 
-  # Remove leftover files after patching
-  find . -type f -name *.orig | xargs rm
+  # Cinnamon has no upstream backgrounds, use GNOME backgrounds instead
+  sed -i 's|/usr/share/cinnamon-background-properties|/usr/share/gnome-background-properties|' \
+    files/usr/lib/cinnamon-settings/modules/cs_backgrounds.py
+
+  # Prefix 'System Settings' with 'Cinnamon' to avoid confusion with gnome-control-center
+  sed -i 's/^Name\(.*\)=\(.*\)/Name\1=Cinnamon \2/' files/usr/share/applications/cinnamon-settings{,-users}.desktop
 }
 
 build() {
