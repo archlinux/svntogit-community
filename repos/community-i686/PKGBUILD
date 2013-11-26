@@ -1,0 +1,67 @@
+# $Id$
+# Maintainer: Bartłomiej Piotrowski <nospam@bpiotrowski.pl>
+# Contributor: AndyRTR <andyrtr@archlinux.org>
+# Contributor: kiefer <jorgelmadrid@gmail.com>
+
+pkgname=lxdm
+pkgver=0.4.1
+pkgrel=29
+pkgdesc='Lightweight X11 Display Manager'
+arch=('i686' 'x86_64')
+url="http://sourceforge.net/projects/lxdm/"
+license=('GPL')
+groups=('lxde')
+depends=('gtk2' 'xorg-server')
+makedepends=('intltool' 'iso-codes')
+optdepends=('gtk-engines: default GTK+ theme'
+            'librsvg: display the default background')
+install=$pkgname.install
+backup=('etc/lxdm/lxdm.conf' 'etc/pam.d/lxdm' 'etc/lxdm/Xsession'
+        'etc/lxdm/PreLogin' 'etc/lxdm/LoginReady' 'etc/lxdm/PostLogin'
+        'etc/lxdm/PostLogout' 'etc/lxdm/PreReboot' 'etc/lxdm/PreShutdown')
+source=(http://downloads.sourceforge.net/lxde/$pkgname-$pkgver.tar.gz
+        git-fixes.patch
+        default-config.patch
+        lxdm.pam
+        Xsession)
+md5sums=('8da1cfc2be6dc9217c85a7cf51e1e821'
+         'e9367cec197fa2919531f5c623ecec47'
+         '2ba18992efef43f84061717f0550e4b6'
+         'c941ef896248bc7c03901b513490425c'
+         'd9c8f8c9e6de52dbc389696454c8f572')
+
+prepare(){
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Apply various fixes from git
+  patch -Np1 -i ../git-fixes.patch
+
+  # Adjust Arch-specific settings
+  patch -Np1 -i ../default-config.patch
+
+  # Use our custom pam and Xsession files
+  cp ../lxdm.pam pam/lxdm
+  cp ../Xsession data/Xsession
+
+  # Fix for pulseaudio
+  echo 'test -x /usr/bin/pax11publish && /usr/bin/pax11publish -r' >>data/PostLogout.in
+}
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  autoreconf -fi
+  ./configure --prefix=/usr --sbindir=/usr/bin --libexecdir=/usr/lib/lxdm \
+              --sysconfdir=/etc --localstatedir=/var
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+  chmod 644 "$pkgdir/etc/lxdm/lxdm.conf"
+
+  # Home directory
+  install -dm 755 "$pkgdir/var/lib/lxdm"
+  echo 'GDK_CORE_DEVICE_EVENTS=true' > "$pkgdir"/var/lib/lxdm/.pam_environment
+  chown -R 121:121 "$pkgdir/var/lib/lxdm"
+}
