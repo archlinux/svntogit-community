@@ -1,0 +1,74 @@
+# $Id$
+# Maintainer: Lukas Jirkovsky <l.jirkovsky@gmail.com>
+pkgname=('luxrays' 'luxmark')
+pkgver=1.3.1
+_pkgver=7459cd8a9583
+pkgrel=2
+pkgdesc="Accelerate the ray intersection process by using GPUs"
+arch=('i686' 'x86_64')
+url="http://www.luxrender.net/"
+license=('GPL')
+depends=('freeimage' 'libcl' 'libgl')
+makedepends=('cmake' 'boost' 'mesa' 'opencl-headers' 'glew' 'freeglut' 'qt4')
+options=('staticlibs')
+source=(https://bitbucket.org/luxrender/luxrays/get/$_pkgver.tar.bz2 \
+        http://www.luxrender.net/release/luxmark/room_scene_v2.1.zip \
+        luxmark_scenes_path.diff QTBUG-22829.diff)
+md5sums=('859999e5e07550553fb310a7f48530a4'
+         'ae917f025e32e20b1d20ebf8d22204cb'
+         '1fd2a6f32e2822b5e0f147304292a1b9'
+         '6e20ee7ea64c578431d51065d0871abc')
+
+prepare() {
+  cd "$srcdir/luxrender-luxrays-$_pkgver"
+
+  # change the path to luxmark scenes
+  patch -Np1 < "$srcdir/luxmark_scenes_path.diff" || true
+
+  # workaround QTBUG-22829 (moc doesn't work with boost headers)
+  patch -Np1 < "$srcdir/QTBUG-22829.diff" || true
+}
+
+build() {
+  cd "$srcdir/luxrender-luxrays-$_pkgver"
+
+  export CXXFLAGS="$CXXFLAGS -lpthread"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_SKIP_RPATH=ON \
+    -DLUXRAYS_DISABLE_OPENCL=OFF \
+    -DBUILD_LUXMARK=ON \
+    .
+  make
+}
+
+package_luxrays() {
+  optdepends=('glew: demos (SmallLuxGPU etc.)' 'freeglut: demos (SmallLuxGPU etc.)'
+              'boost-libs: demos (SmallLuxGPU etc.)')
+
+  cd "$srcdir/luxrender-luxrays-$_pkgver"
+
+  install -d -m755 "$pkgdir"/usr/{bin,include,lib}
+  install -m755 bin/* "$pkgdir"/usr/bin
+  install -m644 lib/* "$pkgdir"/usr/lib
+  cp -a include "$pkgdir"/usr
+
+  # remove luxmark (packaged separately)
+  rm "$pkgdir"/usr/bin/luxmark
+}
+
+package_luxmark() {
+  pkgdesc="OpenCL benchmark tool"
+  depends+=("${depends[@]}" 'boost-libs' 'qt4')
+
+  cd "$srcdir/luxrender-luxrays-$_pkgver"
+  install -d -m755 "$pkgdir"/usr/{bin,share}
+  install -m755 bin/luxmark "$pkgdir"/usr/bin
+
+  # install scenes
+  cp -a samples/luxmark/scenes  "$pkgdir"/usr/share/luxmark
+  cp -a "$srcdir"/samples/luxmark/scenes/room "$pkgdir"/usr/share/luxmark
+  # fix the paths
+  sed -i 's|scenes/|/usr/share/luxmark/|' "$pkgdir"/usr/share/luxmark/*/*.cfg "$pkgdir"/usr/share/luxmark/*/*.scn
+}
+
+# vim:set ts=2 sw=2 et:
