@@ -2,7 +2,7 @@
 # Contributor: Jeremy Newton (Mystro256)
 
 pkgname=dolphin-emu
-pkgver=4.0.1
+pkgver=4.0.2
 pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
