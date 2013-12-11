@@ -1,0 +1,72 @@
+# $Id$
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Marcello "mererghost" Rocha <https://github.com/mereghost>
+# Refactored by Blaž "Speed" Hrastnik <https://github.com/archSeer>
+
+pkgname=elasticsearch
+pkgver=0.90.7
+pkgrel=2
+pkgdesc="Distributed RESTful search engine built on top of Lucene"
+arch=('i686' 'x86_64')
+url="http://www.elasticsearch.org/"
+license=('APACHE')
+depends=('java-runtime')
+install='elasticsearch.install'
+source=(
+  "http://download.elasticsearch.org/$pkgname/$pkgname/$pkgname-$pkgver.tar.gz"
+  elasticsearch.service
+  elasticsearch-tmpfile.conf
+)
+
+backup=('etc/elasticsearch/elasticsearch.yml'
+        'etc/elasticsearch/logging.yml')
+
+prepare() {
+  # Remove unnecessary libraries
+  cd "$srcdir/$pkgname-$pkgver"
+  find lib/sigar -type f ! -name \*.jar ! -name \*x86-linux.so -delete
+
+  for script in plugin elasticsearch; do
+    sed 's|^ES_HOME=.*dirname.*|ES_HOME=/usr/share/elasticsearch|' \
+      -i bin/$script
+
+    for java in jre jdk; do
+      sed "/^CDPATH/i [ -f /etc/profile.d/$java.sh ] && . /etc/profile.d/$java.sh" \
+        -i bin/$script
+    done
+  done
+
+  echo 'JAVA_OPTS="$JAVA_OPTS -Des.path.conf=/etc/elasticsearch"' >> bin/elasticsearch.in.sh
+
+  # Edit the values of the config files
+  sed -e 's/# \(path\.conf: \).*$/\1\/etc\/elasticsearch/' \
+    -e '0,/# \(path\.data: \).*$/s//\1\/var\/lib\/elasticsearch/' \
+    -e 's/# \(path\.work: \).*$/\1\/tmp\/elasticsearch/' \
+    -e 's/# \(path\.logs: \).*$/\1\/var\/log\/elasticsearch/' \
+    -i config/elasticsearch.yml
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  # creates the necessary dirs
+  install -dm755 "$pkgdir/etc/elasticsearch"
+  install -dm755 "$pkgdir/var/lib/elasticsearch"
+  install -dm755 "$pkgdir/var/log/elasticsearch"
+  install -dm755 "$pkgdir/usr/share/elasticsearch"
+
+  cp config/* "$pkgdir/etc/elasticsearch/"
+  cp -r lib "$pkgdir/usr/share/elasticsearch"
+
+  install -Dm755 bin/elasticsearch "$pkgdir/usr/bin/elasticsearch"
+  install -Dm755 bin/plugin "$pkgdir/usr/bin/elasticsearch-plugin"
+  install -Dm644 bin/elasticsearch.in.sh "$pkgdir/usr/share/elasticsearch"
+
+  # install systemd script
+  install -Dm644 "$srcdir/elasticsearch.service" "$pkgdir/usr/lib/systemd/system/elasticsearch.service"
+
+  install -Dm644 "$srcdir/elasticsearch-tmpfile.conf" "$pkgdir/usr/lib/tmpfiles.d/elasticsearch.conf"
+}
+
+sha256sums=('d76e8805ba846ae4c1efd848b608d8ade6de6e538ab023c24b3315f557e71cbd'
+            '09a4027780d73103c26f311c64774dcbc47b5e1d54789c1f2d9c697f518f2eeb'
+            '48b5a876e14819270c85f8ca626a011e01d10a2728758ced9a4d5bcf5c1fd23f')
