@@ -10,7 +10,7 @@ pkgdesc="Distributed RESTful search engine built on top of Lucene"
 arch=('i686' 'x86_64')
 url="http://www.elasticsearch.org/"
 license=('APACHE')
-depends=('java-runtime')
+depends=('java-environment' 'bash')
 install='elasticsearch.install'
 source=(
   "http://download.elasticsearch.org/$pkgname/$pkgname/$pkgname-$pkgver.tar.gz"
@@ -22,9 +22,7 @@ backup=('etc/elasticsearch/elasticsearch.yml'
         'etc/elasticsearch/logging.yml')
 
 prepare() {
-  # Remove unnecessary libraries
   cd "$srcdir/$pkgname-$pkgver"
-  find lib/sigar -type f ! -name \*.jar ! -name \*x86-linux.so -delete
 
   for script in plugin elasticsearch; do
     sed 's|^ES_HOME=.*dirname.*|ES_HOME=/usr/share/elasticsearch|' \
@@ -36,9 +34,10 @@ prepare() {
     done
   done
 
+  sed 's|$ES_HOME/lib|/usr/lib/elasticsearch|g' -i bin/elasticsearch.in.sh
+
   echo 'JAVA_OPTS="$JAVA_OPTS -Des.path.conf=/etc/elasticsearch"' >> bin/elasticsearch.in.sh
 
-  # Edit the values of the config files
   sed -e 's/# \(path\.conf: \).*$/\1\/etc\/elasticsearch/' \
     -e '0,/# \(path\.data: \).*$/s//\1\/var\/lib\/elasticsearch/' \
     -e 's/# \(path\.work: \).*$/\1\/tmp\/elasticsearch/' \
@@ -48,20 +47,24 @@ prepare() {
 
 package() {
   cd "$srcdir/$pkgname-$pkgver"
-  # creates the necessary dirs
   install -dm755 "$pkgdir/etc/elasticsearch"
   install -dm755 "$pkgdir/var/lib/elasticsearch"
   install -dm755 "$pkgdir/var/log/elasticsearch"
-  install -dm755 "$pkgdir/usr/share/elasticsearch"
+
+  if [ $CARCH = 'x86_64' ]; then
+    install -Dm644 lib/sigar/libsigar-amd64-linux.so "$pkgdir/usr/lib/elasticsearch/sigar/libsigar-amd64-linux.so"
+  else
+    install -Dm644 lib/sigar/libsigar-amd64-linux.so "$pkgdir/usr/lib/elasticsearch/sigar/libsigar-x86-linux.so"
+  fi
+  cp lib/sigar/sigar*.jar "$pkgdir/usr/lib/elasticsearch/sigar/"
+  cp lib/*.jar "$pkgdir/usr/lib/elasticsearch/"
 
   cp config/* "$pkgdir/etc/elasticsearch/"
-  cp -r lib "$pkgdir/usr/share/elasticsearch"
 
   install -Dm755 bin/elasticsearch "$pkgdir/usr/bin/elasticsearch"
   install -Dm755 bin/plugin "$pkgdir/usr/bin/elasticsearch-plugin"
-  install -Dm644 bin/elasticsearch.in.sh "$pkgdir/usr/share/elasticsearch"
+  install -Dm644 bin/elasticsearch.in.sh "$pkgdir/usr/share/elasticsearch/elasticsearch.in.sh"
 
-  # install systemd script
   install -Dm644 "$srcdir/elasticsearch.service" "$pkgdir/usr/lib/systemd/system/elasticsearch.service"
 
   install -Dm644 "$srcdir/elasticsearch-tmpfile.conf" "$pkgdir/usr/lib/tmpfiles.d/elasticsearch.conf"
