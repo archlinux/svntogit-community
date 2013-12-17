@@ -4,7 +4,7 @@
 
 pkgname=afpfs-ng
 pkgver=0.8.1
-pkgrel=7
+pkgrel=8
 pkgdesc="A client for the Apple Filing Protocol (AFP)"
 url="http://alexthepuffin.googlepages.com/"
 license=('GPL')
