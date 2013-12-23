@@ -34,7 +34,7 @@ elif [ ! -e $HOME/.mame ]; then
   echo "Modify this file for permanent changes to your SDLMAME"
   echo "options and paths before running SDLMAME again."
   mkdir $HOME/.mame
-  mkdir $HOME/.mame/{artwork,cfg,comments,ctrlr,diff,ini,inp,memcard,nvram,samples,snap,sta}
+  mkdir $HOME/.mame/{artwork,cfg,comments,ctrlr,diff,ini,inp,memcard,nvram,samples,snap,sta,roms}
   cd $HOME/.mame
   /usr/share/sdlmame/sdlmame \
     -artpath "$home/.mame/artwork;artwork" \
