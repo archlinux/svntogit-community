@@ -8,33 +8,34 @@
 # Special thanks to Nareto for moving the compile from the .install to the PKGBUILD
 
 pkgname=sage-mathematics
-pkgver=5.13
+pkgver=6.0
 pkgrel=1
 pkgdesc="SAGE: Open Source Mathematics Software, a viable free alternative to Magma, Maple, Mathematica, and Matlab"
 arch=('i686' 'x86_64')
 url="http://www.sagemath.org"
 license=('GPL')
 #depends=('desktop-file-utils' 'java-environment=7' 'libjpeg-turbo' 'libtiff' 'libxmu' 'sqlite' 'xz')
-makedepends=('gcc-fortran' 'freetype2' 'gendesk' 'desktop-file-utils')
+depends=('freetype2>=2.3.5')
+makedepends=('gcc-fortran' 'gendesk' 'desktop-file-utils')
 optdepends=('imagemagick: some plotting functionality benefits from it'
             'texlive-core: some plotting functionality benefits from it, also to use SageTeX'
             'openssh: to use the notebook in secure mode'
             'ffmpeg: to show animations'
             'cairo: R plots')
 source=("http://sage.math.washington.edu/home/release/sage-${pkgver}/sage-${pkgver}.tar"
-        'fix-atlas.patch'
-        'sage.service')
+        "fix-pil.patch"
+        "sage.service")
 install="${pkgname}.install"
-md5sums=('b549c5ac6b292a2837d92ccf3740c451'
-         '527a621b19dd93941cd018d2c1559f96'
+md5sums=('da1bacf90fc291e736aaa71431e8874e'
+         'de54cb818d74c070a524fc3fd5208b2c'
          '985da1c1d1dcdc3ea9aa73035cb7996b')
 
 prepare() {
   # create *.desktop file
   gendesk -n \
-          --pkgname="SAGE-notebook" \
-          --pkgdesc="SAGE notebook" \
-          --name="SAGE" \
+          --pkgname="sage-notebook" \
+          --pkgdesc="sage notebook" \
+          --name="sage" \
           --exec="/opt/sage/sage -notebook" \
           --terminal=true \
           --categories="Science;Math" \
@@ -43,21 +44,30 @@ X-DCOP-ServiceType=
 X-KDE-SubstituteUID=false
 X-KDE-Username="
   
-  # fix ATLAS build http://sourceforge.net/p/math-atlas/discussion/75123/thread/dc45bb67/
-  cd "sage-${pkgver}/spkg/standard"
-  tar xjf atlas-3.10.1.p7.spkg
-  rm atlas-3.10.1.p7.spkg
-  cd atlas-3.10.1.p7
-  patch -p0 -i "${srcdir}/fix-atlas.patch"
-  cd ..
-  tar cjf atlas-3.10.1.p7.spkg atlas-3.10.1.p7
-  rm -r atlas-3.10.1.p7
-  
   # create DOT_SAGE directory
   if [[ -d ${srcdir}/build ]]; then
     rm -rf "${srcdir}/build"
   fi
   mkdir "${srcdir}/build"
+  
+  # according to FS#34769
+  # NOTE: there is an error in pil build (freetype/fterrors.h not found)
+  cd "${srcdir}/sage-${pkgver}/upstream/"
+  tar xjfv pil-1.1.6.tar.bz2
+  rm -r pil-1.1.6.tar.bz2
+  patch -p0 -i "${srcdir}/fix-pil.patch"
+  tar cjvf pil-1.1.6.tar.bz2 pil-1.1.6
+  rm -rf pil-1.1.6
+  # fix checksums
+  SUMS=$(md5sum pil-1.1.6.tar.bz2 | awk '{print $1}')
+  sed "s/md5=[0-9a-f]\{32\}/md5=${SUMS}/" -i "${srcdir}/sage-${pkgver}/build/pkgs/pil/checksums.ini"
+  SUMS=$(sha1sum pil-1.1.6.tar.bz2 | awk '{print $1}')
+  sed "s/sha1=[0-9a-f]\{40\}/sha1=${SUMS}/" -i "${srcdir}/sage-${pkgver}/build/pkgs/pil/checksums.ini"
+  SUMS=$(cksum pil-1.1.6.tar.bz2 | awk '{print $1}')
+  sed "s/cksum=[0-9a-f]\{10\}/cksum=${SUMS}/" -i "${srcdir}/sage-${pkgver}/build/pkgs/pil/checksums.ini"
+  # disable freetype build
+  rm -rf freetype-*
+  sed -i -e 's/FREETYPE/#FREETYPE/' "${srcdir}/sage-${pkgver}/build/install"
 }
 
 build() {
@@ -127,12 +137,20 @@ package() {
   rm -f "${pkgdir}/opt/sage/spkg/base/*spkg"
   rm -f "${pkgdir}/opt/sage/spkg/standard/*spkg"
   
+  # according to FS#37090
+  # install scripts
+  ./sage -c "install_scripts('${pkgdir}/usr/bin', ignore_existing=True)"
+  # rename scripts to avoid conflicts
+  for ITEM in $(ls "${pkgdir}/usr/bin"); do
+    mv "${pkgdir}/usr/bin/${ITEM}" "${pkgdir}/usr/bin/sage-${ITEM}"
+  done
+  
   # install a systemd user unit
   install -Dm644 "${srcdir}/sage.service" "${pkgdir}/usr/lib/systemd/user/sage.service"
   # install *.desktop and icon files
-  install -Dm644 "${srcdir}/SAGE-notebook.desktop" \
+  install -Dm644 "${srcdir}/sage-notebook.desktop" \
                  "${pkgdir}/usr/share/applications/SAGE-notebook.desktop"
-  install -Dm644 "${pkgdir}/opt/sage/devel/sagenb-main/sagenb/data/sage/images/icon128x128.png" \
+  install -Dm644 "${pkgdir}/opt/sage/local/lib/python2.7/site-packages/sagenb-0.10.7.2-py2.7.egg/sagenb/data/sage/images/icon128x128.png" \
                  "${pkgdir}/usr/share/pixmaps/SAGE-notebook.png"
 }
 
