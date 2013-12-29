@@ -3,17 +3,16 @@
 
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
-pkgver=0.99
-pkgrel=2
+pkgver=0.999
+pkgrel=1
 arch=('any')
 url="http://code.google.com/p/html5lib/"
 license=('MIT')
 makedepends=('python2' 'python' 'unzip')
 source=(https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz
     LICENSE)
-md5sums=('da016c908db11950cd26bfcf53f95b03'
+md5sums=('f74b320f10d74df9cca8a08b42cb278c'
          '838c366f69b72c5df05c96dff79b35f2')
-
 
 build() {
     /bin/true
