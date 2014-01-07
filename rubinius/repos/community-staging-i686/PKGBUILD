@@ -1,0 +1,89 @@
+# $Id$
+# Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+
+pkgbase=rubinius
+pkgname=(rubinius rubinius-ruby)
+pkgver=2.2.3
+pkgrel=2
+pkgdesc="Ruby runtime written in Ruby, designed for concurrency"
+arch=(i686 x86_64)
+url="http://rubini.us"
+license=(custom)
+depends=(llvm-libs libffi openssl libyaml)
+makedepends=(llvm rubinius-ruby)
+options=(!emptydirs)
+source=(http://releases.rubini.us/${pkgbase}-${pkgver}.tar.bz2
+        gemrc dirs.patch llvm34.patch)
+sha256sums=('b3426aa6996420f1d9d8a7926a94160b84d8bdf725793c64462b27b74f2f2acf'
+            '4bb7eb2fe66e396ed16b589cdb656831407b39ad4e138d88536754c0448ac614'
+            '93f3918dc2a5679e281e724f9b3cb712ffa784c1e52e6fa7ce75f74ce6655a66'
+            'a24850f34a8a308ce4a4e1da12d75a669095a38b6b5da5082eb4d3bd41770095')
+
+prepare() {
+  export GEM_HOME="$srcdir/gemdir" LANG="en_US.UTF-8"
+  cd $pkgbase-$pkgver
+
+  patch -Np1 -i ../dirs.patch
+  patch -Np1 -i ../llvm34.patch
+
+  mkdir -p "$GEM_HOME"
+  gem install --no-user-install -N vendor/cache/bundler-*.gem
+
+  "$GEM_HOME/bin/bundle" install --local
+}
+
+build() {
+  export GEM_HOME="$srcdir/gemdir" LANG="en_US.UTF-8"
+  cd $pkgbase-$pkgver
+
+  ./configure --prefix=/usr \
+    --mandir=/usr/share/man \
+    --includedir=/usr/include/rubinius \
+    --appdir=/usr/lib/rubinius \
+    --gemsdir=/usr/lib/rubinius/gems \
+    --preserve-prefix \
+    --llvm-shared \
+    --without-rpath
+  rake build
+}
+
+check() {
+  export GEM_HOME="$srcdir/gemdir" LANG="en_US.UTF-8"
+  cd $pkgbase-$pkgver
+
+  rake vm:test || :
+}
+
+package_rubinius() {
+  optdepends=('ruby-docs: Ruby documentation')
+
+  export GEM_HOME="$srcdir/gemdir" LANG="en_US.UTF-8"
+  cd $pkgbase-$pkgver
+
+  DESTDIR="$pkgdir" rake install
+
+  mkdir -p "$pkgdir/usr/share/ri"
+  ln -s 2.0.0 "$pkgdir/usr/share/ri/2.1"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/rubinius/LICENSE"
+
+### Split rubinius-ruby
+  mkdir -p "$srcdir/ruby/usr/bin"
+  for _f in "$pkgdir"/usr/bin/*; do
+    [[ $_f == */rbx ]] && continue
+    mv $_f "$srcdir/ruby/usr/bin"
+  done
+}
+
+package_rubinius-ruby() {
+  pkgdesc="Ruby compat for Rubinius"
+  depends=(rubinius)
+  provides=(ruby)
+  conflicts=(ruby)
+  backup=(etc/gemrc)
+
+  mv ruby/* "$pkgdir"
+  install -Dm644 gemrc "$pkgdir/etc/gemrc"
+  install -d "$pkgdir/usr/share/licenses/rubinius-ruby"
+  ln -s ../rubinius/LICENSE "$pkgdir/usr/share/licenses/rubinius-ruby/LICENSE"
+}
