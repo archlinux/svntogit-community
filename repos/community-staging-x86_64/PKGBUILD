@@ -1,0 +1,92 @@
+# $Id$
+# Contributor: John Sowiak <john@archlinux.org>
+# Contributor: tobias <tobias@archlinux.org>
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+
+# Sometimes blender.org takes some time to release patch releases and because Arch users
+# are impatient, we sometimes need to build from git directly.
+
+_gitcommit=a0dbee6e
+
+pkgname=blender
+pkgver=2.69
+[[ -n $_gitcommit ]] && pkgver=2.69.$_gitcommit
+pkgrel=3
+epoch=10
+pkgdesc="A fully integrated 3D graphics creation suite"
+arch=('i686' 'x86_64')
+license=('GPL')
+url="http://www.blender.org"
+depends=('libpng' 'libtiff' 'openexr' 'python' 'desktop-file-utils'
+         'shared-mime-info' 'hicolor-icon-theme' 'xdg-utils' 'glew'
+         'freetype2' 'openal' 'ffmpeg' 'fftw' 'boost-libs' 'opencollada' 'llvm'
+         'openimageio' 'libsndfile' 'jack' 'opencolorio' 'openshadinglanguage')
+makedepends=('cmake' 'boost' 'subversion' 'mesa' 'git')
+[[ $CARCH == x86_64 ]] && makedepends+=('cuda')
+optdepends=('cuda: cycles renderer cuda support')
+options=(!strip)
+install=blender.install
+if [[ -z $_gitcommit ]]; then
+  source=(http://download.blender.org/source/$pkgname-$pkgver.tar.gz)
+md5sums=('e77f53951fdaea69631cdd8c0f42cbcb')
+else
+  source=("${pkgname}-${pkgver}::git://git.blender.org/blender.git#commit=${_gitcommit}"
+          "git://git.blender.org/blender-addons.git"
+          "git://git.blender.org/blender-addons-contrib.git"
+          "git://git.blender.org/blender-translations.git"
+          "git://git.blender.org/scons.git")
+  true && md5sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+fi
+
+prepare() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  if [[ -n $_gitcommit ]]; then
+    git submodule update --init --recursive
+    git submodule foreach git checkout master
+    git submodule foreach git pull --rebase origin master
+  fi
+}
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  mkdir build && cd build
+
+  [[ $CARCH == i686 ]] && ENABLESSE2="-DSUPPORT_SSE2_BUILD=OFF" || ENABLESSE2=""
+  [[ $CARCH == i686 ]] && BUILDCUDA="OFF" || BUILDCUDA="ON"
+
+  cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DWITH_INSTALL_PORTABLE=OFF \
+    -DWITH_PYTHON_INSTALL=OFF \
+    -DWITH_OPENCOLLADA=ON \
+    -DOPENIMAGEIO_ROOT_DIR=/usr \
+    -DWITH_GAMEENGINE=ON \
+    -DWITH_JACK=ON \
+    -DWITH_PLAYER=ON \
+    -DWITH_CODEC_FFMPEG=ON \
+    -DWITH_CODEC_SNDFILE=ON \
+    -DWITH_CYCLES=ON \
+    -DWITH_LLVM=ON \
+    -DLLVM_VERSION=3.4 \
+    -DLLVM_STATIC=OFF \
+    -DWITH_CYCLES_CUDA_BINARIES=$BUILDCUDA \
+    -DWITH_CYCLES_OSL=ON \
+    -DWITH_FFTW3=ON \
+    -DWITH_MOD_OCEANSIM=ON \
+    -DPYTHON_VERSION=3.3 \
+    -DPYTHON_LIBPATH=/usr/lib \
+    -DPYTHON_LIBRARY=python3.3m \
+    -DPYTHON_INCLUDE_DIRS=/usr/include/python3.3m \
+    $ENABLESSE2
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver/build"
+
+  make DESTDIR="${pkgdir}" install
+  python -m compileall "${pkgdir}/usr/share/blender"
+}
