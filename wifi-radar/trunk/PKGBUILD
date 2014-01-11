@@ -7,21 +7,23 @@
 
 pkgname=wifi-radar
 pkgver=2.0.s08
-pkgrel=7
+pkgrel=8
 pkgdesc="A PyGTK2 utility for managing WiFi profiles"
 arch=('any')
 url="http://wifi-radar.berlios.de/"
 license=('GPL')
 depends=('net-tools' 'pygtk' 'wireless_tools')
-optdepends=('polkit-gnome: needed if you launch wifi-radar from menu')
+optdepends=('polkit: needed if you launch wifi-radar from menu')
 backup=('etc/wifi-radar.conf')
 source=(http://download.berlios.de/$pkgname/$pkgname-$pkgver.tar.bz2
-        org.archlinux.pkexec.wifi-radar.policy)
+        org.archlinux.pkexec.wifi-radar.policy
+        wifi-radar_polkit)
 md5sums=('cbad24805d5dc6696e38dc1df619c819'
-         'b66236233a5644a75e638ab6fdcc54fc')
+         '8a71c78f741fe0ec01929255c9edce28'
+         '7a3f018a1f163e4775b1a4e83bfcb593')
 
-build() {
-  cd ${srcdir}/$pkgname-$pkgver
+prepare() {
+  cd "${srcdir}/$pkgname-$pkgver"
 
   # python2 fix
   sed -i 's_^#!.*/usr/bin/python_#!/usr/bin/python2_' $pkgname
@@ -34,18 +36,27 @@ build() {
      -i -e 's|/sbin/dhcpcd|/usr/bin/dhcpcd|' \
      -i -e 's|/usr/sbin/wpa_supplicant|/usr/bin/wpa_supplicant|' $pkgname
 
+  # Modify desktop file
+  sed -i -e "s/Exec=gksudo -S wifi-radar/Exec=wifi-radar_polkit/" $pkgname.desktop
+}
+
+build() {
+  cd "${srcdir}/$pkgname-$pkgver"
   make
 }
+
 package() {
-  cd ${srcdir}/$pkgname-$pkgver
+  cd "${srcdir}/$pkgname-$pkgver"
   make DESTDIR="$pkgdir/usr" sysconfdir="$pkgdir/etc" sbindir="$pkgdir/usr/bin" install
 
   # remove empty /etc dir
   rmdir $pkgdir/etc
 
   # Install policy file
-  install -Dm644 "${srcdir}/org.archlinux.pkexec.wifi-radar.policy" "${pkgdir}/usr/share/polkit-1/actions/org.archlinux.pkexec.wifi-radar.policy"
+  install -Dm644 "${srcdir}/org.archlinux.pkexec.wifi-radar.policy" \
+                 "${pkgdir}/usr/share/polkit-1/actions/org.archlinux.pkexec.wifi-radar.policy"
 
-  # Modify desktop file
-  sed -i -e "s/^Exec=.*/Exec=pkexec --disable-internal-agent wifi-radar/" "${pkgdir}/usr/share/applications/wifi-radar.desktop"
+  # Install launcher script
+  install -m755 "${srcdir}/wifi-radar_polkit" \
+                "${pkgdir}/usr/bin/wifi-radar_polkit"
 }
