@@ -3,11 +3,11 @@
 
 _pkgbasename=openssl
 pkgname=lib32-$_pkgbasename
-_ver=1.0.1e
+_ver=1.0.1f
 # use a pacman compatible version scheme
 pkgver=${_ver/[a-z]/.${_ver//[0-9.]/}}
 #pkgver=$_ver
-pkgrel=2
+pkgrel=1
 pkgdesc='The Open Source toolkit for Secure Sockets Layer and Transport Layer Security (32-bit)'
 arch=('x86_64')
 url='https://www.openssl.org'
@@ -19,32 +19,36 @@ options=('!makeflags')
 source=("https://www.openssl.org/source/${_pkgbasename}-${_ver}.tar.gz"
         "https://www.openssl.org/source/${_pkgbasename}-${_ver}.tar.gz.asc"
         'no-rpath.patch'
-        'ca-dir.patch')
-md5sums=('66bf6f10f060d561929de96f9dfe5b8c'
-         'e18847df48d39416f4ca5064887a2e28'
+        'ca-dir.patch'
+        'Makefile.org-Fix-usage-of-CC-gcc-m32.patch')
+md5sums=('f26b09c028a0541cab33da697d522b25'
+         'SKIP'
          'dc78d3d06baffc16217519242ce92478'
-         '3bf51be3a1bbd262be46dc619f92aa90')
+         '3bf51be3a1bbd262be46dc619f92aa90'
+         '538d32f38705a24789c86e7a5be771d1')
 
-build() {
-	export CC="gcc -m32"
-	export CXX="g++ -m32"
-	export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
-
+prepare() {
 	cd $srcdir/$_pkgbasename-$_ver
 
 	# remove rpath: http://bugs.archlinux.org/task/14367
 	patch -p0 -i $srcdir/no-rpath.patch
 	# set ca dir to /etc/ssl by default
 	patch -p0 -i $srcdir/ca-dir.patch
+	patch -p1 -i $srcdir/Makefile.org-Fix-usage-of-CC-gcc-m32.patch
+}
+
+build() {
+ 	export CC="gcc -m32"
+	export CXX="g++ -m32"
+	export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+	cd $srcdir/$_pkgbasename-$_ver
+
 	# mark stack as non-executable: http://bugs.archlinux.org/task/12434
-	# workaround for https://rt.openssl.org/Ticket/Display.html?id=2771
-	# See Changes file "Changes between 1.0.1 and 1.0.1a [19 Apr 2012]"
 	./Configure --prefix=/usr --openssldir=/etc/ssl --libdir=lib32 \
-		shared zlib enable-md2 \
+		shared zlib \
 		linux-elf \
-		-Wa,--noexecstack "${CFLAGS}" "${LDFLAGS}" \
-		-DOPENSSL_NO_TLS1_2_CLIENT \
-		-DOPENSSL_MAX_TLS1_2_CIPHER_LENGTH=50
+		-Wa,--noexecstack "${CFLAGS}" "${LDFLAGS}"
 
 	make MAKEDEPPROG="${CC}" depend
 	make
@@ -55,17 +59,15 @@ check() {
 	# the test fails due to missing write permissions in /etc/ssl
 	# revert this patch for make test
 	patch -p0 -R -i $srcdir/ca-dir.patch
-	# Do not test TLS1.2 as we disabled it above using OPENSSL_NO_TLS1_2_CLIENT
-	sed 's/TLSv1.2 //g' -i test/testssl
 	make test
 	patch -p0 -i $srcdir/ca-dir.patch
 }
 
 package() {
 	cd $srcdir/$_pkgbasename-$_ver
-	make INSTALL_PREFIX=$pkgdir install
+	make INSTALL_PREFIX=$pkgdir install_sw
 
-	rm -rf ${pkgdir}/{usr/{include,share,bin},etc}
+	rm -rf ${pkgdir}/{usr/{include,bin},etc}
 	mkdir -p $pkgdir/usr/share/licenses
 	ln -s $_pkgbasename $pkgdir/usr/share/licenses/$pkgname
 }
