@@ -1,0 +1,271 @@
+diff --git a/mate-session/gsm-logout-dialog.c b/mate-session/gsm-logout-dialog.c
+index 2d2947c..1a79875 100644
+--- a/mate-session/gsm-logout-dialog.c
++++ b/mate-session/gsm-logout-dialog.c
+@@ -200,13 +200,29 @@ enum {
+ static gboolean
+ gsm_logout_supports_system_suspend (GsmLogoutDialog *logout_dialog)
+ {
+-        return up_client_get_can_suspend (logout_dialog->priv->up_client);
++        gboolean ret;
++#ifdef HAVE_SYSTEMD
++        if (LOGIND_RUNNING())
++            ret = gsm_systemd_can_suspend (logout_dialog->priv->systemd);
++        else
++#endif
++        ret = up_client_get_can_suspend (logout_dialog->priv->up_client);
++
++        return ret;
+ }
+ 
+ static gboolean
+ gsm_logout_supports_system_hibernate (GsmLogoutDialog *logout_dialog)
+ {
+-        return up_client_get_can_hibernate (logout_dialog->priv->up_client);
++        gboolean ret;
++#ifdef HAVE_SYSTEMD
++        if (LOGIND_RUNNING())
++            ret = gsm_systemd_can_hibernate (logout_dialog->priv->systemd);
++        else
++#endif
++        ret = up_client_get_can_hibernate (logout_dialog->priv->up_client);
++
++        return ret;
+ }
+ 
+ static gboolean
+diff --git a/mate-session/gsm-manager.c b/mate-session/gsm-manager.c
+index 8143d1f..b4986ac 100644
+--- a/mate-session/gsm-manager.c
++++ b/mate-session/gsm-manager.c
+@@ -1109,6 +1109,20 @@ enum {
+         GError   *error;
+         gboolean  ret;
+ 
++#ifdef HAVE_SYSTEMD
++        if (LOGIND_RUNNING()) {
++
++                GsmSystemd *systemd;
++
++                systemd = gsm_get_systemd ();
++
++                /* lock the screen before we suspend */
++                manager_perhaps_lock (manager);
++
++                gsm_systemd_attempt_hibernate (systemd);
++        }
++        else {
++#endif
+         can_hibernate = up_client_get_can_hibernate (manager->priv->up_client);
+         if (can_hibernate) {
+ 
+@@ -1123,6 +1137,9 @@ enum {
+                         g_error_free (error);
+                 }
+         }
++#ifdef HAVE_SYSTEMD
++        }
++#endif
+ }
+ 
+ static void
+@@ -1132,6 +1149,20 @@ enum {
+         GError   *error;
+         gboolean  ret;
+ 
++#ifdef HAVE_SYSTEMD
++        if (LOGIND_RUNNING()) {
++
++                GsmSystemd *systemd;
++
++                systemd = gsm_get_systemd ();
++
++                /* lock the screen before we suspend */
++                manager_perhaps_lock (manager);
++
++                gsm_systemd_attempt_suspend (systemd);
++        }
++        else {
++#endif
+         can_suspend = up_client_get_can_suspend (manager->priv->up_client);
+         if (can_suspend) {
+ 
+@@ -1146,6 +1177,9 @@ enum {
+                         g_error_free (error);
+                 }
+         }
++#ifdef HAVE_SYSTEMD
++        }
++#endif
+ }
+ 
+ static void
+diff --git a/mate-session/gsm-systemd.c b/mate-session/gsm-systemd.c
+index 377f026..dbe8ea0 100644
+--- a/mate-session/gsm-systemd.c
++++ b/mate-session/gsm-systemd.c
+@@ -725,6 +725,141 @@ static void     gsm_systemd_on_name_owner_changed (DBusGProxy       *bus_proxy,
+     return can_stop;
+ }
+ 
++gboolean
++gsm_systemd_can_hibernate (GsmSystemd *manager)
++{
++  gboolean res;
++  gchar   *value;
++  gboolean can_hibernate;
++  GError  *error;
++  
++  error = NULL;
++  
++  if (!gsm_systemd_ensure_sd_connection (manager, &error)) {
++    g_warning ("Could not connect to Systemd: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++  res = dbus_g_proxy_call_with_timeout (manager->priv->sd_proxy,
++					"CanHibernate",
++					INT_MAX,
++					&error,
++					G_TYPE_INVALID,
++					G_TYPE_STRING, &value,
++					G_TYPE_INVALID);
++  if (res == FALSE) {
++    g_warning ("Could not make DBUS call: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++  can_hibernate = g_strcmp0 (value, "yes") == 0 ||
++  g_strcmp0 (value, "challenge") == 0;
++  g_free (value);
++  return can_hibernate;
++}
++
++gboolean
++gsm_systemd_can_suspend (GsmSystemd *manager)
++{
++  gboolean res;
++  gchar   *value;
++  gboolean can_suspend;
++  GError  *error;
++  
++  error = NULL;
++  
++  if (!gsm_systemd_ensure_sd_connection (manager, &error)) {
++    g_warning ("Could not connect to Systemd: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++  res = dbus_g_proxy_call_with_timeout (manager->priv->sd_proxy,
++					"CanSuspend",
++					INT_MAX,
++					&error,
++					G_TYPE_INVALID,
++					G_TYPE_STRING, &value,
++					G_TYPE_INVALID);
++  if (res == FALSE) {
++    g_warning ("Could not make DBUS call: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++  can_suspend = g_strcmp0 (value, "yes") == 0 ||
++  g_strcmp0 (value, "challenge") == 0;
++  g_free (value);
++  return can_suspend;
++}
++
++void
++gsm_systemd_attempt_hibernate (GsmSystemd *manager)
++{
++  gboolean res;
++  GError  *error;
++  
++  error = NULL;
++  
++  if (!gsm_systemd_ensure_sd_connection (manager, &error)) {
++    g_warning ("Could not connect to Systemd: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++  res = dbus_g_proxy_call_with_timeout (manager->priv->sd_proxy,
++					"Hibernate",
++					INT_MAX,
++					&error,
++                                        G_TYPE_BOOLEAN, TRUE, /* interactive */
++					G_TYPE_INVALID,
++					G_TYPE_INVALID);
++  if (res == FALSE) {
++    g_warning ("Could not make DBUS call: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++}
++
++void
++gsm_systemd_attempt_suspend (GsmSystemd *manager)
++{
++  gboolean res;
++  GError  *error;
++  
++  error = NULL;
++  
++  if (!gsm_systemd_ensure_sd_connection (manager, &error)) {
++    g_warning ("Could not connect to Systemd: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++  
++  res = dbus_g_proxy_call_with_timeout (manager->priv->sd_proxy,
++					"Suspend",
++					INT_MAX,
++					&error,
++                                        G_TYPE_BOOLEAN, TRUE, /* interactive */
++                                        G_TYPE_INVALID,
++					G_TYPE_INVALID);
++  if (res == FALSE) {
++    g_warning ("Could not make DBUS call: %s",
++	       error->message);
++    g_error_free (error);
++    return FALSE;
++  }
++}
++
+ gchar *
+ gsm_systemd_get_current_session_type (GsmSystemd *manager)
+ {
+diff --git a/mate-session/gsm-systemd.h b/mate-session/gsm-systemd.h
+index 8e886ba..e0e21c4 100644
+--- a/mate-session/gsm-systemd.h
++++ b/mate-session/gsm-systemd.h
+@@ -89,10 +89,18 @@ enum _GsmSystemdError {
+ 
+ gboolean         gsm_systemd_can_restart     (GsmSystemd *manager);
+ 
++gboolean         gsm_systemd_can_hibernate     (GsmSystemd *manager);
++
++gboolean         gsm_systemd_can_suspend     (GsmSystemd *manager);
++
+ void             gsm_systemd_attempt_stop    (GsmSystemd *manager);
+ 
+ void             gsm_systemd_attempt_restart (GsmSystemd *manager);
+ 
++void             gsm_systemd_attempt_hibernate (GsmSystemd *manager);
++
++void             gsm_systemd_attempt_suspend (GsmSystemd *manager);
++
+ void             gsm_systemd_set_session_idle (GsmSystemd *manager,
+                                                   gboolean       is_idle);
+ 
