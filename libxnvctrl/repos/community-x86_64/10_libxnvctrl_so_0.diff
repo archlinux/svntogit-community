@@ -1,0 +1,55 @@
+Author: Andreas Beckmann <debian@abeckmann.de>
+Description: build a shared library for libXNVCtrl
+Bug-Debian: http://bugs.debian.org/666909
+
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -79,6 +79,9 @@
+ 
+ XNVCTRL_DIR             ?= libXNVCtrl
+ XNVCTRL_ARCHIVE         ?= $(XNVCTRL_DIR)/libXNVCtrl.a
++XNVCTRL_SHARED          ?= $(XNVCTRL_DIR)/libXNVCtrl.so.0
++#XNVCTRL_LIB            ?= $(XNVCTRL_ARCHIVE)
++XNVCTRL_LIB             ?= $(XNVCTRL_SHARED)
+ XCONFIG_PARSER_DIR      ?= XF86Config-parser
+ COMMON_UTILS_DIR        ?= common-utils
+ COMMON_UNIX_DIR         ?= common-unix
+@@ -179,9 +182,12 @@
+ 	$(MKDIR) $(BINDIR)
+ 	$(INSTALL) $(INSTALL_BIN_ARGS) $< $(BINDIR)/$(notdir $<)
+ 
+-$(NVIDIA_SETTINGS): $(OBJS) $(XNVCTRL_ARCHIVE)
++$(XNVCTRL_ARCHIVE) $(XNVCTRL_SHARED):
++	$(MAKE) -C $(XNVCTRL_DIR)
++
++$(NVIDIA_SETTINGS): $(OBJS) $(XNVCTRL_LIB)
+ 	$(call quiet_cmd,LINK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) -o $@ $(OBJS) \
+-	    $(XNVCTRL_ARCHIVE) $(LIBS)
++	    $(XNVCTRL_LIB) $(LIBS)
+ 	$(call quiet_cmd,STRIP_CMD) $@
+ 
+ # define the rule to build each object file
+--- a/src/libXNVCtrl/Makefile
++++ b/src/libXNVCtrl/Makefile
+@@ -22,12 +22,21 @@
+ RANLIB ?= ranlib
+ CFLAGS += -fPIC
+ 
++all: libXNVCtrl.a libXNVCtrl.so
++
+ libXNVCtrl.a : libXNVCtrl.a(NVCtrl.o)
+ 	$(RANLIB) $@
+ 
++libXNVCtrl.so: NVCtrl.o
++	$(RM) $@ $@.*
++	$(CC) -shared -Wl,-soname=$@.0 -o $@.0.0.0 $(LDFLAGS) $^ -lXext -lX11
++	ln -s $@.0.0.0 $@.0
++	ln -s $@.0 $@
++
+ NVCtrl.o : NVCtrl.h nv_control.h NVCtrlLib.h
+ .INTERMEDIATE: NVCtrl.o
+ 
+ clean ::
+ 	rm -f libXNVCtrl.a *.o
++	rm -f libXNVCtrl.so libXNVCtrl.so.*
+ .PHONY: clean
