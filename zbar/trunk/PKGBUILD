@@ -6,7 +6,7 @@
 
 pkgname=zbar
 pkgver=0.10
-pkgrel=4
+pkgrel=5
 pkgdesc="Application and library for reading bar codes from various sources"
 arch=('i686' 'x86_64')
 url="http://zbar.sourceforge.net/"
@@ -29,6 +29,7 @@ build() {
   msg 'Running make...'
   make
 }
+
 package() {
   cd zbar-$pkgver
   make DESTDIR="$pkgdir" install
