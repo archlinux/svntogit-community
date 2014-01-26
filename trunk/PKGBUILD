@@ -2,7 +2,7 @@
 # Maintainer: speps <speps at aur dot archlinux dot org>
 
 pkgname=jalv
-pkgver=1.4.2
+pkgver=1.4.4
 pkgrel=1
 pkgdesc="A simple but fully featured LV2 host for Jack"
 arch=('i686' 'x86_64')
@@ -15,7 +15,7 @@ optdepends=('qt4: Qt 4.x frontend'
             'gtk3: Gtk+ 3.x frontend'
             'gtkmm: Gtk++ 2.x frontend')
 source=(http://download.drobilla.net/$pkgname-$pkgver.tar.bz2{,.sig})
-md5sums=('a649bbe71ecb54563764f4acbdcc84f6'
+md5sums=('56aea296a43b2906cc930c1727b3835c'
          'SKIP')
 
 build() {
