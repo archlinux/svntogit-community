@@ -1,0 +1,135 @@
+From 60dabde18d7fe12b19da8b509bdfee9cc886aafc Mon Sep 17 00:00:00 2001
+From: =?utf8?q?Simon=20B=C3=BCnzli?= <zeniko@gmail.com>
+Date: Thu, 16 Jan 2014 22:04:51 +0100
+Subject: [PATCH] Bug 694957: fix stack buffer overflow in xps_parse_color
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf8
+Content-Transfer-Encoding: 8bit
+
+xps_parse_color happily reads more than FZ_MAX_COLORS values out of a
+ContextColor array which overflows the passed in samples array.
+Limiting the number of allowed samples to FZ_MAX_COLORS and make sure
+to use that constant for all callers fixes the problem.
+
+Thanks to Jean-Jamil KhalifÃ© for reporting and investigating the issue
+and providing a sample exploit file.
+---
+ source/xps/xps-common.c   |   22 ++++++++++++++--------
+ source/xps/xps-glyphs.c   |    2 +-
+ source/xps/xps-gradient.c |    2 +-
+ source/xps/xps-path.c     |    2 +-
+ 4 files changed, 17 insertions(+), 11 deletions(-)
+
+diff --git a/source/xps/xps-common.c b/source/xps/xps-common.c
+index b780f42..32a30ba 100644
+--- a/source/xps/xps-common.c
++++ b/source/xps/xps-common.c
+@@ -89,7 +89,7 @@ xps_begin_opacity(xps_document *doc, const fz_matrix *ctm, const fz_rect *area,
+ 		if (scb_color_att)
+ 		{
+ 			fz_colorspace *colorspace;
+-			float samples[32];
++			float samples[FZ_MAX_COLORS];
+ 			xps_parse_color(doc, base_uri, scb_color_att, &colorspace, samples);
+ 			opacity = opacity * samples[0];
+ 		}
+@@ -208,12 +208,13 @@ void
+ xps_parse_color(xps_document *doc, char *base_uri, char *string,
+ 		fz_colorspace **csp, float *samples)
+ {
++	fz_context *ctx = doc->ctx;
+ 	char *p;
+ 	int i, n;
+ 	char buf[1024];
+ 	char *profile;
+ 
+-	*csp = fz_device_rgb(doc->ctx);
++	*csp = fz_device_rgb(ctx);
+ 
+ 	samples[0] = 1;
+ 	samples[1] = 0;
+@@ -259,7 +260,7 @@ xps_parse_color(xps_document *doc, char *base_uri, char *string,
+ 		profile = strchr(buf, ' ');
+ 		if (!profile)
+ 		{
+-			fz_warn(doc->ctx, "cannot find icc profile uri in '%s'", string);
++			fz_warn(ctx, "cannot find icc profile uri in '%s'", string);
+ 			return;
+ 		}
+ 
+@@ -267,12 +268,17 @@ xps_parse_color(xps_document *doc, char *base_uri, char *string,
+ 		p = strchr(profile, ' ');
+ 		if (!p)
+ 		{
+-			fz_warn(doc->ctx, "cannot find component values in '%s'", profile);
++			fz_warn(ctx, "cannot find component values in '%s'", profile);
+ 			return;
+ 		}
+ 
+ 		*p++ = 0;
+ 		n = count_commas(p) + 1;
++		if (n > FZ_MAX_COLORS)
++		{
++			fz_warn(ctx, "ignoring %d color components (max %d allowed)", n - FZ_MAX_COLORS, FZ_MAX_COLORS);
++			n = FZ_MAX_COLORS;
++		}
+ 		i = 0;
+ 		while (i < n)
+ 		{
+@@ -292,10 +298,10 @@ xps_parse_color(xps_document *doc, char *base_uri, char *string,
+ 		/* TODO: load ICC profile */
+ 		switch (n)
+ 		{
+-		case 2: *csp = fz_device_gray(doc->ctx); break;
+-		case 4: *csp = fz_device_rgb(doc->ctx); break;
+-		case 5: *csp = fz_device_cmyk(doc->ctx); break;
+-		default: *csp = fz_device_gray(doc->ctx); break;
++		case 2: *csp = fz_device_gray(ctx); break;
++		case 4: *csp = fz_device_rgb(ctx); break;
++		case 5: *csp = fz_device_cmyk(ctx); break;
++		default: *csp = fz_device_gray(ctx); break;
+ 		}
+ 	}
+ }
+diff --git a/source/xps/xps-glyphs.c b/source/xps/xps-glyphs.c
+index b26e18d..e621257 100644
+--- a/source/xps/xps-glyphs.c
++++ b/source/xps/xps-glyphs.c
+@@ -590,7 +590,7 @@ xps_parse_glyphs(xps_document *doc, const fz_matrix *ctm,
+ 
+ 	if (fill_att)
+ 	{
+-		float samples[32];
++		float samples[FZ_MAX_COLORS];
+ 		fz_colorspace *colorspace;
+ 
+ 		xps_parse_color(doc, base_uri, fill_att, &colorspace, samples);
+diff --git a/source/xps/xps-gradient.c b/source/xps/xps-gradient.c
+index 7d03f89..76188e9 100644
+--- a/source/xps/xps-gradient.c
++++ b/source/xps/xps-gradient.c
+@@ -39,7 +39,7 @@ xps_parse_gradient_stops(xps_document *doc, char *base_uri, fz_xml *node,
+ 	struct stop *stops, int maxcount)
+ {
+ 	fz_colorspace *colorspace;
+-	float sample[8];
++	float sample[FZ_MAX_COLORS];
+ 	float rgb[3];
+ 	int before, after;
+ 	int count;
+diff --git a/source/xps/xps-path.c b/source/xps/xps-path.c
+index b97ee17..ea84a81 100644
+--- a/source/xps/xps-path.c
++++ b/source/xps/xps-path.c
+@@ -826,7 +826,7 @@ xps_parse_path(xps_document *doc, const fz_matrix *ctm, char *base_uri, xps_reso
+ 
+ 	fz_stroke_state *stroke = NULL;
+ 	fz_matrix transform;
+-	float samples[32];
++	float samples[FZ_MAX_COLORS];
+ 	fz_colorspace *colorspace;
+ 	fz_path *path = NULL;
+ 	fz_path *stroke_path = NULL;
+-- 
+1.7.9.5
+
