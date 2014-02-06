@@ -1224,4 +1224,7 @@ PID_FILE_PATH=/var/run/exim.pid
 HAVE_IPV6=YES
 LOOKUP_LIBS=-lldap -llber
 EXTRALIBS_EXIM=-lpam
+
+USE_GDBM=yes
+DBMLIB=-lgdbm
 # End of EDITME for Exim 4.
