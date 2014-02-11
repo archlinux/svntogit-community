@@ -1,41 +1,67 @@
 # $Id$
-# Maintainer: Daniel Wallace <danielwallace at gtmanfred dot com>
-# Contributor: Christer Edwards <christer.edwards@gmail.com>
+# Maintainer: Sébastien Luttringer
+# Contibutor: Christer Edwards <christer.edwards@gmail.com>
+
 pkgname=salt
 pkgver=0.17.5
-pkgrel=1
-pkgdesc="A remote execution and communication system built on zeromq"
+pkgrel=0.4
+pkgdesc='Central system and configuration manager'
 arch=('any')
-url="https://github.com/saltstack/salt"
-license=('APACHE')
+url='http://saltstack.org/'
+license=('Apache')
 depends=('python2'
-         'python2-yaml'
-         'python2-jinja'
-         'python2-pyzmq'
          'python2-crypto'
-         'python2-psutil'
+         'python2-jinja'
+         'python2-m2crypto'
          'python2-msgpack'
-         'python2-m2crypto')
-
+         'python2-psutil'
+         'python2-pyzmq'
+         'python2-yaml'
+         'sshpass')
+optdepends=('dmidecode: decode SMBIOS/DMI tables')
 backup=('etc/salt/master'
         'etc/salt/minion')
+install=salt.install
+source=("http://pypi.python.org/packages/source/s/salt/salt-$pkgver.tar.gz"
+        'salt-master.service'
+        'salt-syndic.service'
+        'salt-minion.service'
+        'salt.tmpfiles')
 
-source=('https://pypi.python.org/packages/source/s/${pkgname}/${pkgname}-${pkgver}.tar.gz')
+md5sums=('1c9647b743c83b73572206e029f1a43f'
+         'fbf73ffe2213bf8e6177f7ebde2664a4'
+         '1839f3b46e5567a91b4ef0fcf943ddb6'
+         'ac8023a1e2ab9c107cdc20658212caf4'
+         '8772c329a5a90aac495d14d5797cc0fd')
 
+prepare() {
+  # we run master as user salt
+  sed -ri 's|^#user: root|user: salt|' $pkgname-$pkgver/conf/master
+}
 
 package() {
-  cd "${srcdir}/${_gitname}"
-  
-  python2 setup.py install --root=${pkgdir}/ --optimize=1
+  # systemd
+  install -Dm644 salt-master.service "$pkgdir/usr/lib/systemd/system/salt-master.service"
+  install -Dm644 salt-syndic.service "$pkgdir/usr/lib/systemd/system/salt-syndic.service"
+  install -Dm644 salt-minion.service "$pkgdir/usr/lib/systemd/system/salt-minion.service"
+  install -Dm644 salt.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/salt.conf"
 
-  install -Dm644 ${srcdir}/salt/pkg/arch/salt-master.service ${pkgdir}/usr/lib/systemd/system/salt-master.service
-  install -Dm644 ${srcdir}/salt/pkg/arch/salt-syndic.service ${pkgdir}/usr/lib/systemd/system/salt-syndic.service
-  install -Dm644 ${srcdir}/salt/pkg/arch/salt-minion.service ${pkgdir}/usr/lib/systemd/system/salt-minion.service
+  cd $pkgname-$pkgver
+  python2 setup.py install --root="$pkgdir" --optimize=1 \
+    --salt-pidfile-dir="/run/salt"
 
-  mkdir -p ${pkgdir}/etc/salt/
-  cp ${srcdir}/salt/conf/master ${pkgdir}/etc/salt/
-  cp ${srcdir}/salt/conf/minion ${pkgdir}/etc/salt/
+  # default config
+  install -Dm644 conf/master "$pkgdir/etc/salt/master"
+  install -Dm644 conf/minion "$pkgdir/etc/salt/minion"
 
-  # remove vcs leftovers
-  find "$pkgdir" -type d -name .git -exec rm -r '{}' +
+  # salt directories (cache must be owned by salt)
+  install -dm750 -o 141 -g 141 "$pkgdir/var/cache/salt"
+  install -dm750 -o 141 -g 141 "$pkgdir/var/log/salt"
+  install -dm750 -o 141 -g 141 "$pkgdir/srv/salt"
+
+  # salt config editable by salt user
+  chown -R 141:141 "$pkgdir/etc/salt"
+  chmod 750 "$pkgdir/etc/salt"
 }
+
+# vim:set ts=2 sw=2 et:
