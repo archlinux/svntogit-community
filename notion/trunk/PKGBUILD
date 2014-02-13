@@ -4,7 +4,7 @@
 # Contributor: aunoor
 
 pkgname=notion
-pkgver=20131223
+pkgver=20140213
 pkgrel=1
 pkgdesc="Tabbed tiling, window manager. Fork of Ion3"
 url="http://sourceforge.net/projects/notion/"
@@ -17,73 +17,43 @@ makedepends=('git' 'pkgconfig' 'libxinerama' 'libxrandr'
 provides=('libtu' 'libextl')
 changelog=ChangleLog
 source=("notion::git://notion.git.sourceforge.net/gitroot/notion/notion"
-	"$pkgname-libtu::git://notion.git.sourceforge.net/gitroot/notion/libtu"
-	"$pkgname-libextl::git://notion.git.sourceforge.net/gitroot/notion/libextl"
-	"$pkgname-notion-doc::git://notion.git.sourceforge.net/gitroot/notion/notion-doc"
-	"$pkgname-mod_xinerama::git://notion.git.sourceforge.net/gitroot/notion/mod_xinerama"
-	"$pkgname-mod_xkbevents::git://notion.git.sourceforge.net/gitroot/notion/mod_xkbevents"
-	"$pkgname-mod_xrandr::git://notion.git.sourceforge.net/gitroot/notion/mod_xrandr"
-	"$pkgname-mod_notionflux::git://notion.git.sourceforge.net/gitroot/notion/mod_notionflux"
-	"$pkgname-contrib::git://notion.git.sourceforge.net/gitroot/notion/contrib")
+	"notion-doc::git://notion.git.sourceforge.net/gitroot/notion/notion-doc")
 md5sums=('SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
          'SKIP')
 
 prepare() {
   cd ${srcdir}
-  sed -i 's|lua5.2|lua|g' notion/system-autodetect.mk
-  sed -i 's|luac5.2|luac|g' notion{,-libextl}/system-autodetect.mk
-
-  for i in libextl libtu mod_xinerama mod_xkbevents mod_xrandr mod_notionflux notion-doc; do
-    mkdir -p ${srcdir}/notion/$i
-    cp -r ${srcdir}/$pkgname-$i/* ${srcdir}/notion/$i/
-  done
-
-  cd ${srcdir}/notion
-  sed -e 's/^\(PREFIX=\).*$/\1\/usr/' \
-	-e 's/^\(ETCDIR=\).*$/\1\/etc\/notion/' \
-	-e 's/^\(LUA_DIR=\).*$/\1\/usr/' \
-	-e 's/^\(X11_PREFIX=\).*/\1\/usr/' \
-	-e 's|/usr/local|/usr|g' \
-	-i system-autodetect.mk
+  cat >notion/build/lua-detect.mk <<EOF
+LUA_VERSION := 5.2
+LUA_LIBS     := $(pkg-config --libs lua)
+LUA_INCLUDES := $(pkg-config --cflags lua)
+LUA          := $(which lua)
+LUAC         := $(which luac)
+EOF
 }
 
 build() {
   cd ${srcdir}/notion
-
-  # build notion
-  make INCLUDES=-I${srcdir}/notion PREFIX=/usr ETCDIR=/etc/notion
-
-  # build doc and modules
-  for i in mod_xinerama mod_xkbevents mod_xrandr; do
-    (cd $i && make -j1 TOPDIR=.. all)
-  done
-
-  (cd notion-doc && make -j1 TOPDIR=.. all)
+  make INCLUDES=-I${srcdir}/notion LUA_VERSION=5.2 PREFIX=/usr ETCDIR=/etc/notion
+  cd ${srcdir}/notion-doc
+  make -j1 all
 }
 
 package() {
   cd ${srcdir}/notion
+  make DESTDIR=$pkgdir LUA_VERSION=5.2 PREFIX=/usr ETCDIR=/etc/notion install
 
-  # notion
-  make PREFIX=${pkgdir}/usr ETCDIR=${pkgdir}/etc/notion install
+  # doc
+  cd ${srcdir}/notion-doc
+  make PREFIX=$pkgdir/usr ETCDIR=/etc/notion install
 
   # modules
-  for i in mod_xinerama mod_xkbevents mod_xrandr notion-doc; do
-    (cd $i && make  PREFIX=${pkgdir}/usr ETCDIR=${pkgdir}/etc/notion TOPDIR=.. install)
-  done
   cp ${srcdir}/notion/mod_xinerama/*.lua $pkgdir/etc/notion/
   cp ${srcdir}/notion/mod_xkbevents/*.lua $pkgdir/etc/notion/
 
   # contrib
   mkdir -p $pkgdir/usr/share/notion/contrib
-  cp -a ${srcdir}/$pkgname-contrib/* $pkgdir/usr/share/notion/contrib
+  cp -a ${srcdir}/$pkgname/contrib/* $pkgdir/usr/share/notion/contrib
 
   # license
   install -Dm0644 LICENSE ${pkgdir}/usr/share/licenses/notion/LICENSE
