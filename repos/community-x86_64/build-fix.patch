@@ -1,0 +1,235 @@
+diff -wbBur poedit-1.6.4/src/edapp.cpp poedit-1.6.4.my/src/edapp.cpp
+--- poedit-1.6.4/src/edapp.cpp	2014-02-07 22:03:55.000000000 +0400
++++ poedit-1.6.4.my/src/edapp.cpp	2014-02-13 14:49:30.231324614 +0400
+@@ -67,7 +67,6 @@
+ 
+ #include "edapp.h"
+ #include "edframe.h"
+-#include "aboutbox.h"
+ #include "manager.h"
+ #include "prefsdlg.h"
+ #include "parser.h"
+@@ -666,7 +665,7 @@
+     about.SetCopyright(L"Copyright \u00a9 1999-2014 Václav Slavík");
+     about.SetWebSite("http://www.poedit.net");
+ 
+-    PoeditAboutBox(about);
++//    PoeditAboutBox(about);
+ }
+ 
+ 
+@@ -792,7 +791,7 @@
+ void PoeditApp::EmailSupport(const wxString& subject, const wxString& body)
+ {
+     wxString body2(body);
+-    wxString appname(HasLicense() ? "Poedit Pro" : "Poedit");
++    wxString appname("Poedit");
+ 
+ #ifdef __WXOSX__
+     NSString *s = [[NSProcessInfo processInfo] operatingSystemVersionString];
+@@ -927,31 +926,8 @@
+ 
+ void PoeditApp::OnLicense(wxCommandEvent&)
+ {
+-    ShowLicenseInformation();
+ }
+ 
+ void PoeditApp::ImportLicenseKey(const wxString& url)
+ {
+-    PoeditLicense lic = PoeditLicense::FromURL(url);
+-
+-    if (lic.IsValid())
+-    {
+-        lic.Store(); // save valid license
+-        ShowLicenseInformation(nullptr, &lic); // ...and thank the user
+-    }
+-    else if (!lic.Key().empty())
+-    {
+-        // if we at least parsed the data, even if invalid, show it and let the
+-        // user correct them
+-        ShowLicenseInformation(nullptr, &lic);
+-    }
+-    else
+-    {
+-        wxMessageDialog dlg(nullptr, _("Invalid license data."), _("Poedit"), wxOK | wxICON_ERROR);
+-        dlg.SetExtendedMessage(wxString::Format(_("The link doesn't contain valid Poedit license. Try entering it manually or contact support at help@poedit.net.\n\n(%s)"), url));
+-        dlg.ShowModal();
+-    }
+-
+-    if (wxTopLevelWindows.empty())
+-        OpenNewFile();
+ }
+diff -wbBur poedit-1.6.4/src/edapp.h poedit-1.6.4.my/src/edapp.h
+--- poedit-1.6.4/src/edapp.h	2014-02-07 22:03:55.000000000 +0400
++++ poedit-1.6.4.my/src/edapp.h	2014-02-13 14:49:08.831324860 +0400
+@@ -27,8 +27,6 @@
+ #ifndef _EDAPP_H_
+ #define _EDAPP_H_
+ 
+-#include "licensing.h"
+-
+ #include <wx/app.h>
+ #include <wx/string.h>
+ #include <wx/intl.h>
+diff -wbBur poedit-1.6.4/src/edframe.cpp poedit-1.6.4.my/src/edframe.cpp
+--- poedit-1.6.4/src/edframe.cpp	2014-02-07 22:03:55.000000000 +0400
++++ poedit-1.6.4.my/src/edframe.cpp	2014-02-13 14:49:20.301324729 +0400
+@@ -85,9 +85,7 @@
+ #include "errorbar.h"
+ #include "utility.h"
+ #include "languagectrl.h"
+-#include "statistics.h"
+ #include "welcomescreen.h"
+-#include "wordpress.h"
+ #include "errors.h"
+ 
+ #include <wx/listimpl.cpp>
+@@ -1374,8 +1372,6 @@
+ 
+ void PoeditFrame::OnNewForWordpress(wxCommandEvent&)
+ {
+-    CHECK_LICENSE(Wordpress);
+-
+     DoIfCanDiscardCurrentDoc([=]{
+         NewForWordpress();
+     });
+@@ -1466,73 +1462,6 @@
+ void PoeditFrame::NewForWordpress()
+ {
+     // TODO: share code with NewFromPOT()
+-
+-    wxDirDialog dirdlg(this,
+-                    _("Select the folder with the WordPress theme or plugin"),
+-                    "",
+-                    wxDD_DEFAULT_STYLE | wxDD_DIR_MUST_EXIST);
+-    if (dirdlg.ShowModal() != wxID_OK)
+-        return;
+-
+-    try
+-    {
+-        std::unique_ptr<ProgressInfo> progress(new ProgressInfo(this, _("WordPress")));
+-        progress->UpdateMessage(_("Analyzing WordPress code..."));
+-
+-        auto wpInfo = WordpressInfo::Analyze(dirdlg.GetPath());
+-        auto catalog = wpInfo.CreateCatalog();
+-
+-        delete m_catalog;
+-        m_catalog = catalog.release();
+-
+-        m_fileName = wpInfo.GetPOFilePath("LANG");
+-        m_catalog->SetFileName(m_fileName);
+-        m_fileExistsOnDisk = false;
+-        m_modified = true;
+-
+-        EnsureContentView(Content::PO);
+-        m_list->CatalogChanged(m_catalog);
+-
+-        UpdateTitle();
+-        UpdateMenu();
+-        UpdateStatusBar();
+-        InitSpellchecker();
+-
+-        progress.reset();
+-
+-        UpdateCatalog();
+-
+-        // Choose the language:
+-        wxWindowPtr<LanguageDialog> dlg(new LanguageDialog(this));
+-
+-        dlg->ShowWindowModalThenDo([=](int retcode){
+-            if (retcode == wxID_OK)
+-            {
+-                Language lang = dlg->GetLang();
+-                m_catalog->Header().Lang = lang;
+-                m_catalog->Header().SetHeaderNotEmpty("Plural-Forms", lang.DefaultPluralFormsExpr());
+-
+-                m_fileName = wpInfo.GetPOFilePath(lang.Code());
+-                m_catalog->SetFileName(m_fileName);
+-                m_fileExistsOnDisk = false;
+-                m_modified = true;
+-
+-                UpdateTitle();
+-                UpdateMenu();
+-                UpdateStatusBar();
+-                RecreatePluralTextCtrls();
+-                InitSpellchecker();
+-                if (m_list)
+-                    m_list->CatalogChanged(m_catalog); // refresh language column
+-            }
+-        });
+-    }
+-    catch (const WordpressException& e)
+-    {
+-        WordpressErrorDialog dlg(this, e);
+-        dlg.ShowModal();
+-        return;
+-    }
+ }
+ 
+ 
+@@ -1728,10 +1657,6 @@
+ 
+ void PoeditFrame::OnStatistics(wxCommandEvent&)
+ {
+-    CHECK_LICENSE(Statistics);
+-
+-    wxWindowPtr<wxDialog> dlg(new StatisticsWindow(this, *m_catalog));
+-    dlg->ShowWindowModalThenDo([dlg](int){});
+ }
+ 
+ 
+diff -wbBur poedit-1.6.4/src/tm/tm_migrate.cpp poedit-1.6.4.my/src/tm/tm_migrate.cpp
+--- poedit-1.6.4/src/tm/tm_migrate.cpp	2014-02-01 22:10:12.000000000 +0400
++++ poedit-1.6.4.my/src/tm/tm_migrate.cpp	2014-02-13 14:15:57.734681082 +0400
+@@ -92,7 +92,7 @@
+     return path.GetFullPath();
+   #endif
+ #else
+-    return wxStandardPaths::Get().GetInstallPrefix() + "/libexec/poedit-dump-legacy-tm";
++    return wxStandardPaths::Get().GetInstallPrefix() + "/lib/poedit/poedit-dump-legacy-tm";
+ #endif
+ }
+ 
+diff -wbBur poedit-1.6.4/src/welcomescreen.cpp poedit-1.6.4.my/src/welcomescreen.cpp
+--- poedit-1.6.4/src/welcomescreen.cpp	2014-02-07 22:03:55.000000000 +0400
++++ poedit-1.6.4.my/src/welcomescreen.cpp	2014-02-13 14:48:36.421325233 +0400
+@@ -118,11 +118,10 @@
+ #endif
+ 
+ 
+-class UpgradeSizer : public wxBoxSizer, public LicenseObserver
++class UpgradeSizer : public wxBoxSizer
+ {
+ public:
+     UpgradeSizer(int orient) : wxBoxSizer(orient) {}
+-    virtual void OnLicenseEntered() { ShowItems(false); }
+ };
+ 
+ } // anonymous namespace
+@@ -203,26 +202,6 @@
+ 
+     sizer->AddSpacer(20);
+ 
+-    if (!HasLicense())
+-    {
+-        auto upgradeSizer = new UpgradeSizer(wxHORIZONTAL);
+-        sizer->Add(upgradeSizer, wxSizerFlags().Align(wxALIGN_RIGHT).Border());
+-        auto upgradeBtn = new wxBitmapButton(this, wxID_ANY, wxArtProvider::GetBitmap("UpgradeBanner"), wxDefaultPosition, wxDefaultSize, wxNO_BORDER, wxDefaultValidator, "Upgrade to Pro");
+-        upgradeBtn->SetBitmapCurrent(wxArtProvider::GetBitmap("UpgradeBannerHighlight"));
+-        upgradeBtn->SetToolTip(_("Upgrade to the Pro version of Poedit with more features."));
+-        upgradeSizer->Add(upgradeBtn);
+-        auto upgradeInfoBtn = new wxBitmapButton(this, wxID_ANY, wxArtProvider::GetBitmap("UpgradeBannerInfo"), wxDefaultPosition, wxDefaultSize, wxNO_BORDER, wxDefaultValidator, "Upgrade to Pro Info");
+-        upgradeInfoBtn->SetBitmapCurrent(wxArtProvider::GetBitmap("UpgradeBannerInfoHighlight"));
+-        upgradeSizer->Add(upgradeInfoBtn);
+-
+-        upgradeBtn->Bind(wxEVT_BUTTON, [=](wxCommandEvent&){
+-            PurchaseUpgrade(UpgradeSource::WelcomeScreen_Upgrade, /*certain=*/false, parent);
+-        });
+-        upgradeInfoBtn->Bind(wxEVT_BUTTON, [=](wxCommandEvent&){
+-            AskUserToUpgradeIfAppliable(UpgradeSource::WelcomeScreen_Info, parent);
+-        });
+-    }
+-
+     sizer->Add(new ActionButton(
+                        this, wxID_OPEN,
+                        _("Edit a translation"),
