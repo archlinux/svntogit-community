@@ -3,8 +3,8 @@
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
 
 pkgname=virt-manager
-pkgver=0.10.0
-pkgrel=4
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -20,7 +20,7 @@ conflicts=('virtinst')
 replaces=('virtinst')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz")
-md5sums=('e23b8d2a7623b4e8e256c25735f332c8')
+md5sums=('8a0585de48d8060a5394aae912342c95')
 
 prepare() {
   cd "$srcdir/$pkgname-$pkgver"
