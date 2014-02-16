@@ -4,7 +4,7 @@
 
 pkgname=virt-manager
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -24,7 +24,6 @@ md5sums=('8a0585de48d8060a5394aae912342c95')
 
 prepare() {
   cd "$srcdir/$pkgname-$pkgver"
-  sed -i 's#bin/python#bin/python2#' virt-*
 }
 
 build() {
