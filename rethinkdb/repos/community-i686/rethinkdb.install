@@ -1,0 +1,47 @@
+post_install() {
+  groupadd rethinkdb &>/dev/null
+  useradd -g rethinkdb -d /var/lib/rethinkdb -s /bin/false rethinkdb &>/dev/null
+
+  /usr/bin/systemd-tmpfiles --create rethinkdb.conf
+
+  if [ -d /var/lib/rethinkdb ]; then
+    echo "Database directory '/var/lib/rethinkdb' already exists. If you want to recreate default database then delete the directory and run 'rethinkdb create -d /var/lib/rethinkdb/default'."
+  fi
+
+  if [ ! -d /var/lib/rethinkdb/default ]; then
+    mkdir -p /var/lib/rethinkdb
+    /usr/bin/rethinkdb create -d /var/lib/rethinkdb/default
+  fi
+  chown -R rethinkdb:rethinkdb /var/lib/rethinkdb
+}
+
+post_upgrade() {
+  IFS='.' read -a new_version <<< "$1"
+  IFS='.' read -a old_version <<< "$2"
+
+  # previously data diecotry was /var/lib/rethinkdb/
+  # now we moved to multi-instance location: /var/lib/rethinkdb/default
+  # convert from previous location, remove this check Q3'13
+  if [ -e /var/lib/rethinkdb/metadata -a ! -d /var/lib/rethinkdb/default ]; then
+    echo "You store rethinkdb data in /var/lib/rethinkdb. Moving this data to per-instance location /var/lib/rethinkdb/default."
+    mkdir /var/lib/rethinkdb/default
+    mv /var/lib/rethinkdb/* /var/lib/rethinkdb/default
+    chown -R rethinkdb:rethinkdb /var/lib/rethinkdb
+  fi
+
+  if [ "${old_version[0]}" != "${new_version[0]}" -o "${old_version[1]}" != "${new_version[1]}" ]; then
+    echo "This release changed data storage format. Please upgrade your data using following information https://github.com/rethinkdb/rethinkdb/tree/next/scripts/migration"
+  fi
+
+  getent group rethinkdb >/dev/null 2>&1 || groupadd rethinkdb &>/dev/null
+  getent passwd rethinkdb >/dev/null 2>&1 || useradd -g rethinkdb -d /var/lib/rethinkdb -s /bin/false rethinkdb &>/dev/null
+}
+
+post_remove() {
+  #/usr/bin/systemctl stop rethinkdb@default.service
+
+  getent passwd rethinkdb >/dev/null && userdel rethinkdb
+  getent group rethinkdb >/dev/null && groupdel rethinkdb
+
+  echo "RethinkDB data directory '/var/lib/rethinkdb' is left untouched. Remove it if you really sure you won't need your data in the future."
+}
