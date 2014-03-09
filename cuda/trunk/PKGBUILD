@@ -1,7 +1,7 @@
 # $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
-pkgver=5.5.22
+pkgver=6.0.26_rc
 pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
@@ -12,18 +12,18 @@ replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
 options=(!strip staticlibs)
-md5sums=('7bb06908bdf33eac0f8426821640c2fb'
+md5sums=('ea1e1235ebc17dc8e2ca2bec3febde52'
          '7e5990e03eea90075f5a500e91a0c3d3'
          'ffe1e6fb7f97b23da28fd94a5fd7356d')
 install=cuda.install
-source=(http://developer.download.nvidia.com/compute/cuda/5_5/rel/installers/cuda_${pkgver}_linux_64.run
+source=(http://developer.download.nvidia.com/compute/cuda/6_0/rc/installers/cuda_${pkgver}_linux64.run
         cuda.sh
         cuda.conf)
 
 package() {
-  sh cuda_${pkgver}_linux_64.run -extract=$srcdir
-  ./cuda-linux64-rel-${pkgver}*.run -prefix=$pkgdir/opt/cuda -noprompt
-  ./cuda-samples-linux-${pkgver}*.run -cudaprefix=$pkgdir/opt/cuda -prefix=$pkgdir/opt/cuda/samples -noprompt
+  sh cuda_${pkgver}_linux64.run -extract=$srcdir
+  ./cuda-linux64-rel-6.0.26*.run -prefix=$pkgdir/opt/cuda -noprompt
+  ./cuda-samples-linux-6.0.26*.run -cudaprefix=$pkgdir/opt/cuda -prefix=$pkgdir/opt/cuda/samples -noprompt
 
   # Now, let the hacks begin!
 
