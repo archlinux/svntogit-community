@@ -1,0 +1,753 @@
+Index: CMakeLists.txt
+--- trunk/CMakeLists.txt	2011-09-19 12:38:01.000000000 +0200
++++ trunk/CMakeLists.txt	2011-09-19 12:46:47.169791175 +0200
+@@ -27,6 +27,7 @@
+                      src
+                      src/battery
+                      src/clock
++                     src/graphs
+                      src/systray
+                      src/taskbar
+                      src/launcher
+@@ -45,6 +46,7 @@
+              src/server.c
+              src/tint.c
+              src/clock/clock.c
++             src/graphs/graphs.c
+              src/systray/systraybar.c
+              src/launcher/launcher.c
+              src/launcher/xsettings-client.c
+
+Index: trunk/src/config.c
+--- trunk/src/config.c	2011-09-19 12:38:00.000000000 +0200
++++ trunk/src/config.c	2011-09-19 12:59:08.365524951 +0200
+@@ -44,6 +44,7 @@
+ #include "systraybar.h"
+ #include "launcher.h"
+ #include "clock.h"
++#include "graphs.h"
+ #include "config.h"
+ #include "window.h"
+ #include "tooltip.h"
+@@ -127,7 +128,7 @@
+ 			// monitor specified by name, not by index
+ 			int i, j;
+ 			for (i=0; i<server.nb_monitor; ++i) {
+-				if (server.monitor[i].names == 0) 
++				if (server.monitor[i].names == 0)
+ 					// xrandr can't identify monitors
+ 					continue;
+ 				j = 0;
+@@ -220,6 +221,8 @@
+ 			}
+ 			if (panel_items_order[j] == 'C')
+ 				clock_enabled = 1;
++			if (panel_items_order[j] == 'G')
++				graphs_enabled = 1;
+ 		}
+ 	}
+ 	else if (strcmp (key, "panel_margin") == 0) {
+@@ -341,7 +344,7 @@
+ 				g_free( panel_items_order );
+ 				panel_items_order = tmp;
+ 			}
+-			else 
++			else
+ 				panel_items_order = g_strdup("C");
+ 		}
+ 		if (strlen(value) > 0) {
+@@ -401,6 +404,78 @@
+ 			clock_rclick_command = strdup(value);
+ 	}
+ 
++	/* Graphs */
++	else if (strcmp(key, "graphs_items") == 0) {
++		int j;
++		for (j = 0; j < strlen(value); j++) {
++			if (value[j] == 'C' && graphs_cpu_pos == -1) {
++				graphs_cpu_pos = graphs_ncurves;
++				graphs_curves_per_pos[graphs_ngraphs] = 2;
++				graphs_ngraphs++;
++				graphs_ncurves+=2;
++			}
++			else if (value[j] == 'M' && graphs_mem_pos == -1) {
++				graphs_mem_pos = graphs_ncurves;
++				graphs_curves_per_pos[graphs_ngraphs] = 2;
++				graphs_ngraphs++;
++				graphs_ncurves+=2;
++			}
++			else if (value[j] == 'N' && graphs_net_pos == -1) {
++				graphs_net_pos = graphs_ncurves;
++				graphs_curves_per_pos[graphs_ngraphs] = 2;
++				graphs_ngraphs++;
++				graphs_ncurves+=2;
++			}
++		}
++	}
++	else if (strcmp(key, "graphs_use_bars") == 0) {
++		graphs_use_bars = atoi(value);
++	}
++	else if (strcmp(key, "graphs_graph_width") == 0) {
++		int w = atoi(value);
++		graphs_graph_width = (w <= 200 && w >= 10) ? w : 50;
++	}
++	else if (strcmp(key, "graphs_netiface") == 0) {
++		if (strlen(value) > 0)
++			graphs_netiface = strdup(value);
++	}
++	else if (strcmp(key, "graphs_netmaxup") == 0) {
++		int s = atoi(value);
++        graphs_netmaxup = s;
++	}
++	else if (strcmp(key, "graphs_netmaxdown") == 0) {
++		int s = atoi(value);
++        graphs_netmaxdown = s;
++	}
++	else if (strncmp (key, "graphs_color", 12) == 0) {
++		int idx = key[12]-48;
++		if (idx >= 0 && idx < MAXCURVES) {
++			extract_values(value, &value1, &value2, &value3);
++			get_color (value1, panel_config.graphs.g[idx].color);
++			if (value2) panel_config.graphs.g[idx].alpha = (atoi (value2) / 100.0);
++			else panel_config.graphs.g[idx].alpha = 0.5;
++		}
++	}
++	else if (strcmp (key, "graphs_padding") == 0) {
++		extract_values(value, &value1, &value2, &value3);
++		panel_config.graphs.area.paddingxlr = panel_config.graphs.area.paddingx = atoi (value1);
++		if (value2) panel_config.graphs.area.paddingy = atoi (value2);
++		if (value3) panel_config.graphs.area.paddingx = atoi (value3);
++	}
++	else if (strcmp (key, "graphs_background_id") == 0) {
++		int id = atoi (value);
++		id = (id < backgrounds->len && id >= 0) ? id : 0;
++		panel_config.graphs.area.bg = &g_array_index(backgrounds, Background, id);
++	}
++	else if (strcmp(key, "graphs_lclick_command") == 0) {
++		if (strlen(value) > 0)
++			graphs_lclick_command = strdup(value);
++	}
++	else if (strcmp(key, "graphs_rclick_command") == 0) {
++		if (strlen(value) > 0)
++			graphs_rclick_command = strdup(value);
++	}
++
+ 	/* Taskbar */
+ 	else if (strcmp (key, "taskbar_mode") == 0) {
+ 		if (strcmp (value, "multi_desktop") == 0) panel_mode = MULTI_DESKTOP;
+@@ -752,7 +827,7 @@
+ 		}
+ 	}
+ 	fclose (fp);
+-	
++
+ 	// append Taskbar item
+ 	if (new_config_file == 0) {
+ 		taskbar_enabled = 1;
+@@ -761,7 +836,7 @@
+ 			g_free(panel_items_order);
+ 			panel_items_order = tmp;
+ 		}
+-		else 
++		else
+ 			panel_items_order = g_strdup("T");
+ 	}
+ 
+diff -ruN tint2.orig/src/graphs/graphs.c tint2.mine/src/graphs/graphs.c
+--- trunk/src/graphs/graphs.c	1970-01-01 01:00:00.000000000 +0100
++++ trunk/src/graphs/graphs.c	2011-09-19 13:54:02.833338438 +0200
+@@ -0,0 +1,426 @@
++/**************************************************************************
++*
++* Tint2 : graphs
++*
++* Copyright (C) 2011 Francisco J. Vazquez (fjvazquezaraujo@gmail.com)
++*
++* This program is free software; you can redistribute it and/or
++* modify it under the terms of the GNU General Public License version 2
++* as published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful,
++* but WITHOUT ANY WARRANTY; without even the implied warranty of
++* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++* GNU General Public License for more details.
++* You should have received a copy of the GNU General Public License
++* along with this program; if not, write to the Free Software
++* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++**************************************************************************/
++
++#include <string.h>
++#include <stdio.h>
++#include <cairo.h>
++#include <cairo-xlib.h>
++#include <pango/pangocairo.h>
++#include <stdlib.h>
++#include <ctype.h>
++
++#include "window.h"
++#include "server.h"
++#include "panel.h"
++#include "graphs.h"
++#include "timer.h"
++#include "common.h"
++
++#define CPU_SAMPLE_COUNT 5
++#define NET_SAMPLE_COUNT 5
++
++int graphs_enabled;
++int graphs_ngraphs;
++int graphs_ncurves;
++int graphs_cpu_pos;
++int graphs_mem_pos;
++int graphs_net_pos;
++int graphs_curves_per_pos[MAXGRAPHS];
++int graphs_use_bars;
++int graphs_graph_width;
++int graphs_cpu_nsamples_avg;
++int graphs_net_nsamples_avg;
++char *graphs_netiface;
++int graphs_netmaxup;
++int graphs_netmaxdown;
++char *graphs_lclick_command;
++char *graphs_rclick_command;
++
++float **graph_values;  // circular array list
++static int pos_x = 0;  // current position in graph_values
++static timeout* graphs_timeout;
++
++
++void default_graphs()
++{
++	graphs_enabled = 0;
++	graphs_ngraphs = 0;
++	graphs_ncurves = 0;
++	graphs_cpu_pos = -1;
++	graphs_mem_pos = -1;
++	graphs_net_pos = -1;
++	graphs_use_bars = 0;
++	graphs_graph_width = 50;
++	graphs_cpu_nsamples_avg = 1;
++	graphs_net_nsamples_avg = 2;
++	graphs_netiface = 0;
++    graphs_netmaxup = 0;
++    graphs_netmaxdown = 0;
++	graphs_timeout = 0;
++	graphs_lclick_command = 0;
++	graphs_rclick_command = 0;
++}
++
++void cleanup_graphs()
++{
++	if (graphs_netiface) g_free(graphs_netiface);
++	if (graphs_lclick_command) g_free(graphs_lclick_command);
++	if (graphs_rclick_command) g_free(graphs_rclick_command);
++	if (graphs_timeout) stop_timeout(graphs_timeout);
++	int i;
++	for (i = 0; i < graphs_ncurves; i++)
++	{
++		free(graph_values[i]);
++	}
++	free(graph_values);
++}
++
++int update_cpugraph()
++{
++	if (graphs_cpu_pos == -1) return 0;
++
++	struct cpu_info {
++		unsigned long long last_total;
++		unsigned long long last_active_total, last_wait_total;
++		int cur_idx;
++		double active[CPU_SAMPLE_COUNT], wait[CPU_SAMPLE_COUNT];
++		float active_perc, wait_perc;
++	};
++	static struct cpu_info cpu = { .cur_idx=0 };
++
++	FILE *fp;
++	if ((fp = fopen("/proc/stat", "r")) == NULL) {
++		return 0;
++	}
++	char buf[256];
++	while (!feof(fp)) {
++		if (fgets(buf, 255, fp) == NULL) {
++			break;
++		}
++		if (strncmp(buf, "cpu", 3) == 0) {
++			unsigned long long cpu_user;
++			unsigned long long cpu_system;
++			unsigned long long cpu_nice;
++			unsigned long long cpu_idle;
++			unsigned long long cpu_iowait;
++			unsigned long long cpu_irq;
++			unsigned long long cpu_softirq;
++			unsigned long long cpu_steal;
++			unsigned long long cpu_total;
++			unsigned long long cpu_active_total;
++			unsigned long long cpu_wait_total;
++			sscanf(buf, "%*s %llu %llu %llu %llu %llu %llu %llu %llu",
++				   &cpu_user, &cpu_nice, &cpu_system, &cpu_idle,
++				   &cpu_iowait, &cpu_irq, &cpu_softirq, &cpu_steal);
++			cpu_total = cpu_user + cpu_nice + cpu_system + cpu_idle +
++					cpu_iowait + cpu_irq + cpu_softirq + cpu_steal;
++			cpu_active_total = cpu_user + cpu_nice + cpu_system + cpu_steal;
++			cpu_wait_total = cpu_total - cpu_active_total - cpu_idle;
++			double time = (cpu_total - cpu.last_total);
++			cpu.active[cpu.cur_idx] = (cpu_active_total - cpu.last_active_total) / time;
++			cpu.wait[cpu.cur_idx] = (cpu_wait_total - cpu.last_wait_total) / time;
++			cpu.last_total = cpu_total;
++			cpu.last_active_total = cpu_active_total;
++			cpu.last_wait_total = cpu_wait_total;
++			double curtmp1 = 0;
++			double curtmp2 = 0;
++			int i;
++			// Average the samples
++			for (i = 0; i < graphs_cpu_nsamples_avg; i++) {
++				int idx2 = (cpu.cur_idx + CPU_SAMPLE_COUNT - i) % CPU_SAMPLE_COUNT;
++				curtmp1 += cpu.active[idx2];
++				curtmp2 += cpu.wait[idx2];
++			}
++			cpu.active_perc = curtmp1 / (float) graphs_cpu_nsamples_avg;
++			cpu.wait_perc = curtmp2 / (float) graphs_cpu_nsamples_avg;
++			cpu.cur_idx = (cpu.cur_idx + 1) % CPU_SAMPLE_COUNT;
++			break; // Ignore the rest
++		}
++	}
++	fclose(fp);
++
++	graph_values[graphs_cpu_pos][pos_x] = cpu.active_perc;
++	graph_values[graphs_cpu_pos+1][pos_x] = cpu.active_perc + cpu.wait_perc;
++
++	return 0;
++}
++
++int update_memgraph()
++{
++	if (graphs_mem_pos == -1) return 0;
++
++	long long unsigned int memtotal = 0, memfree = 0, buffers = 0, cached = 0;
++
++	FILE *fp;
++	if ((fp = fopen("/proc/meminfo", "r")) == NULL) {
++		return 0;
++	}
++	char buf[256];
++	while (!feof(fp)) {
++		if (fgets(buf, 255, fp) == NULL) {
++			break;
++		}
++		if (strncmp(buf, "MemTotal:", 9) == 0) {
++			sscanf(buf, "%*s %llu", &memtotal);
++		} else if (strncmp(buf, "MemFree:", 8) == 0) {
++			sscanf(buf, "%*s %llu", &memfree);
++		} else if (strncmp(buf, "Buffers:", 8) == 0) {
++			sscanf(buf, "%*s %llu", &buffers);
++		} else if (strncmp(buf, "Cached:", 7) == 0) {
++			sscanf(buf, "%*s %llu", &cached);
++		}
++	}
++	fclose(fp);
++
++	long long unsigned int used = memtotal - memfree;
++	long long unsigned int bufcach = buffers + cached;
++
++	graph_values[graphs_mem_pos][pos_x] = (used - bufcach) / (float) memtotal;
++	graph_values[graphs_mem_pos+1][pos_x] = used / (float) memtotal;
++
++	return 0;
++}
++
++int update_netgraph()
++{
++	if (graphs_net_pos == -1 || graphs_netiface == NULL) return 0;
++
++	struct net_stat {
++		long long last_down, last_up;
++		int cur_idx;
++		long long down[NET_SAMPLE_COUNT], up[NET_SAMPLE_COUNT];
++		double down_rate, up_rate;
++		double max_down, max_up;
++	};
++	static struct net_stat net = { .cur_idx=0, .max_down=0, .max_up=0 };
++
++	double max(double v1, double v2) { return v1 > v2 ? v1 : v2; }
++	double min(double v1, double v2) { return v1 < v2 ? v1 : v2; }
++
++	FILE *fp;
++	if (!(fp = fopen("/proc/net/dev", "r"))) {
++		return 0;
++	}
++	char buf[256];
++	// Ignore first two lines
++	fgets(buf, 255, fp);
++	fgets(buf, 255, fp);
++	static int first_run = 1;
++	while (!feof(fp)) {
++		if (fgets(buf, 255, fp) == NULL) {
++			break;
++		}
++		char *p = buf;
++		while (isspace((int) *p)) p++;
++		char *curdev = p;
++		while (*p && *p != ':') p++;
++		if (*p == '\0') continue;
++		*p = '\0';
++
++		if (strcmp(curdev, graphs_netiface)) continue;
++
++		long long down, up;
++		sscanf(p+1, "%lld %*d %*d %*d %*d %*d %*d %*d %lld", &down, &up);
++		if (down < net.last_down) net.last_down = 0; // Overflow
++		if (up < net.last_up) net.last_up = 0; // Overflow
++		net.down[net.cur_idx] = (down - net.last_down);
++		net.up[net.cur_idx] = (up - net.last_up);
++		net.last_down = down;
++		net.last_up = up;
++		if (first_run) {
++			first_run = 0;
++			break;
++		}
++
++		unsigned int curtmp1 = 0;
++		unsigned int curtmp2 = 0;
++		// Average the samples
++		int i;
++		for (i = 0; i < graphs_net_nsamples_avg; i++) {
++			curtmp1 += net.down[(net.cur_idx + NET_SAMPLE_COUNT - i) %
++                                NET_SAMPLE_COUNT];
++			curtmp2 += net.up[(net.cur_idx + NET_SAMPLE_COUNT - i) %
++                              NET_SAMPLE_COUNT];
++		}
++		net.down_rate = curtmp1 / (double) graphs_net_nsamples_avg;
++		net.up_rate = curtmp2 / (double) graphs_net_nsamples_avg;
++        if (graphs_netmaxdown > 0)
++        {
++            net.down_rate /= (float) graphs_netmaxdown;
++            net.down_rate = min(1.0, net.down_rate);
++        }
++        else
++            {
++            // Normalize by maximum speed (a priori unknown,
++            // so we must do this all the time).
++            if (net.max_down < net.down_rate)
++            {
++                for (i = 0; i < graphs_graph_width; i++)
++                {
++                    graph_values[graphs_net_pos][i] *= (net.max_down /
++                                                        net.down_rate);
++                }
++                net.max_down = net.down_rate;
++                net.down_rate = 1.0;
++            }
++            else if (net.max_down != 0) net.down_rate /= net.max_down;
++        }
++        if (graphs_netmaxup > 0)
++        {
++            net.up_rate /= (float) graphs_netmaxup;
++            net.up_rate = min(1.0, net.up_rate);
++        }
++        else
++        {
++            if (net.max_up < net.up_rate)
++            {
++                for (i = 0; i < graphs_graph_width; i++)
++                {
++                    graph_values[graphs_net_pos+1][i] *= (net.max_up /
++                                                          net.up_rate);
++                }
++                net.max_up = net.up_rate;
++                net.up_rate = 1.0;
++            }
++            else if (net.max_up != 0) net.up_rate /= net.max_up;
++        }
++		net.cur_idx = (net.cur_idx + 1) % NET_SAMPLE_COUNT;
++		break; // Ignore the rest
++	}
++	fclose(fp);
++
++	graph_values[graphs_net_pos][pos_x] = net.down_rate;
++	graph_values[graphs_net_pos+1][pos_x] = net.up_rate;
++
++	return 0;
++}
++
++void update_graphs(void* arg)
++{
++	update_cpugraph();
++	update_memgraph();
++	update_netgraph();
++	int i;
++	for (i=0 ; i < nb_panel ; i++)
++		panel1[i].graphs.area.redraw = 1;
++	panel_refresh = 1;
++}
++
++void init_graphs()
++{
++	if (!graphs_enabled || !graphs_ngraphs)
++		return;
++
++	graphs_timeout = add_timeout(10, 1000, update_graphs, 0);
++	int i;
++	graph_values = (float **) malloc(graphs_ncurves * sizeof(float *));
++	for (i = 0; i < graphs_ncurves; i++)
++	{
++		unsigned int gsize = graphs_graph_width * sizeof(float);
++		graph_values[i] = malloc(gsize);
++		memset(graph_values[i], 0, gsize);
++	}
++}
++
++void init_graphs_panel(void *p)
++{
++	if (!graphs_enabled || !graphs_ngraphs)
++		return;
++
++	Panel *panel =(Panel*)p;
++	Graphs *graphs = &panel->graphs;
++
++	if (graphs->area.bg == 0)
++		graphs->area.bg = &g_array_index(backgrounds, Background, 0);
++	graphs->area.parent = p;
++	graphs->area.panel = p;
++	graphs->area._draw_foreground = draw_graphs;
++	graphs->area.size_mode = SIZE_BY_CONTENT;
++	graphs->area._resize = resize_graphs;
++
++	graphs->area.resize = 1;
++	graphs->area.on_screen = 1;
++}
++
++
++void draw_graphs (void *obj, cairo_t *c)
++{
++	Graphs *graphs = obj;
++
++	cairo_set_line_width (c, 1.0);
++	int i, i2, g, cv;
++	int x = graphs->area.paddingxlr + graphs->area.bg->border.width + 1;
++	int y1 = graphs->area.height - graphs->area.bg->border.width - graphs->area.paddingy;
++	for (g = 0, cv = 0; g < graphs_ngraphs; g++)
++	{
++		for (i2 = 0; i2 < graphs_curves_per_pos[g]; i2++, cv++)
++		{
++			cairo_set_source_rgba (c, graphs->g[cv].color[0], graphs->g[cv].color[1],
++									  graphs->g[cv].color[2], graphs->g[cv].alpha);
++			for (i = 0; i < graphs_graph_width; i++)
++			{
++				int idx = (pos_x + 1 + i + graphs_graph_width) % graphs_graph_width;
++				int y2 = y1 - graph_values[cv][idx] * (y1 - graphs->area.bg->border.width -
++									graphs->area.paddingy);
++				if (graphs_use_bars) cairo_move_to (c, x + i, y1);
++				cairo_line_to (c, x + i, y2);
++			}
++			cairo_stroke (c);
++		}
++		x += graphs->area.paddingx + graphs_graph_width;
++	}
++	pos_x = (pos_x + 1) % graphs_graph_width;
++}
++
++
++int resize_graphs (void *obj)
++{
++	Graphs *graphs = obj;
++	int ret = 0;
++
++	graphs->area.redraw = 1;
++
++	if (panel_horizontal) {
++		int new_size = (2*graphs->area.paddingxlr) + (2*graphs->area.bg->border.width) +
++				   graphs_ngraphs * (graphs_graph_width) +
++				   (graphs_ngraphs - 1) * (graphs->area.paddingx);
++		if (new_size != graphs->area.width) {
++			graphs->area.width = new_size + 1;
++			ret = 1;
++		}
++	}
++
++	return ret;
++}
++
++
++void graphs_action(int button)
++{
++	char *command = 0;
++	switch (button) {
++		case 1:
++		command = graphs_lclick_command;
++		break;
++		case 3:
++		command = graphs_rclick_command;
++		break;
++	}
++	tint_exec(command);
++}
++
+diff -ruN tint2.orig/src/graphs/graphs.h tint2.mine/src/graphs/graphs.h
+--- trunk/src/graphs/graphs.h	1970-01-01 01:00:00.000000000 +0100
++++ trunk/src/graphs/graphs.h	2011-09-19 13:36:45.158311161 +0200
+@@ -0,0 +1,52 @@
++/**************************************************************************
++* Copyright (C) 2011 Francisco J. Vazquez (fjvazquezaraujo@gmail.com)
++*
++**************************************************************************/
++
++#ifndef GRAPHS_H
++#define GRAPHS_H
++
++#include <sys/time.h>
++#include "common.h"
++#include "area.h"
++
++#define MAXGRAPHS 3
++#define MAXCURVES 6
++
++typedef struct Graphs {
++	// always start with area
++	Area area;
++
++	char *netdev;
++	Color g[MAXCURVES];
++} Graphs;
++
++extern int graphs_enabled;
++extern int graphs_ngraphs;
++extern int graphs_ncurves;
++extern int graphs_cpu_pos;
++extern int graphs_mem_pos;
++extern int graphs_net_pos;
++extern int graphs_curves_per_pos[MAXGRAPHS];
++extern int graphs_use_bars;
++extern int graphs_graph_width;
++extern char *graphs_netiface;
++extern int graphs_netmaxup;
++extern int graphs_netmaxdown;
++extern char *graphs_lclick_command;
++extern char *graphs_rclick_command;
++
++void default_graphs();
++
++void cleanup_graphs();
++
++void init_graphs();
++void init_graphs_panel(void *panel);
++
++void draw_graphs (void *obj, cairo_t *c);
++
++int resize_graphs (void *obj);
++
++void graphs_action(int button);
++
++#endif
+diff -ruN tint2.orig/src/panel.c tint2.mine/src/panel.c
+--- trunk/src/panel.c	2011-09-19 12:38:00.000000000 +0200
++++ trunk/src/panel.c	2011-09-19 12:46:47.171791151 +0200
+@@ -141,6 +141,7 @@
+ 	init_systray();
+ 	init_launcher();
+ 	init_clock();
++	init_graphs();
+ #ifdef ENABLE_BATTERY
+ 	init_battery();
+ #endif
+@@ -178,6 +179,8 @@
+ 				init_launcher_panel(p);
+ 			if (panel_items_order[k] == 'T')
+ 				init_taskbar_panel(p);
++			if (panel_items_order[k] == 'G')
++				init_graphs_panel(p);
+ #ifdef ENABLE_BATTERY
+ 			if (panel_items_order[k] == 'B')
+ 				init_battery_panel(p);
+@@ -398,6 +401,8 @@
+ 			for (j=0 ; j < p->nb_desktop ; j++)
+ 				p->area.list = g_slist_append(p->area.list, &p->taskbar[j]);
+ 		}
++		if (panel_items_order[k] == 'G')
++			p->area.list = g_slist_append(p->area.list, &p->graphs);
+ #ifdef ENABLE_BATTERY
+ 		if (panel_items_order[k] == 'B') 
+ 			p->area.list = g_slist_append(p->area.list, &p->battery);
+@@ -676,6 +681,20 @@
+ }
+ 
+ 
++int click_graphs(Panel *panel, int x, int y)
++{
++	Graphs gr = panel->graphs;
++	if (panel_horizontal) {
++		if (gr.area.on_screen && x >= gr.area.posx && x <= (gr.area.posx + gr.area.width))
++			return TRUE;
++	} else {
++		if (gr.area.on_screen && y >= gr.area.posy && y <= (gr.area.posy + gr.area.height))
++			return TRUE;
++	}
++	return FALSE;
++}
++
++
+ int click_clock(Panel *panel, int x, int y)
+ {
+ 	Clock clk = panel->clock;
+diff -ruN tint2.orig/src/panel.h tint2.mine/src/panel.h
+--- trunk/src/panel.h	2011-09-19 12:38:00.000000000 +0200
++++ trunk/src/panel.h	2011-09-19 12:46:47.171791151 +0200
+@@ -16,6 +16,7 @@
+ 
+ #include "common.h"
+ #include "clock.h"
++#include "graphs.h"
+ #include "task.h"
+ #include "taskbar.h"
+ #include "systraybar.h"
+@@ -103,6 +104,8 @@
+ 	// clock
+ 	Clock clock;
+ 
++	Graphs graphs;
++
+ 	// --------------------------------------------------
+ 	// battery
+ #ifdef ENABLE_BATTERY
+@@ -151,6 +154,7 @@
+ Launcher *click_launcher (Panel *panel, int x, int y);
+ LauncherIcon *click_launcher_icon (Panel *panel, int x, int y);
+ int click_padding(Panel *panel, int x, int y);
++int click_graphs(Panel *panel, int x, int y);
+ int click_clock(Panel *panel, int x, int y);
+ Area* click_area(Panel *panel, int x, int y);
+ 
+diff -ruN tint2.orig/src/tint.c tint2.mine/src/tint.c
+--- trunk/src/tint.c	2011-09-19 12:38:00.000000000 +0200
++++ trunk/src/tint.c	2011-09-19 12:46:47.172791139 +0200
+@@ -65,6 +65,7 @@
+ 	default_battery();
+ #endif
+ 	default_clock();
++	default_graphs();
+ 	default_launcher();
+ 	default_taskbar();
+ 	default_tooltip();
+@@ -160,6 +161,7 @@
+ 	cleanup_systray();
+ 	cleanup_tooltip();
+ 	cleanup_clock();
++	cleanup_graphs();
+ 	cleanup_launcher();
+ #ifdef ENABLE_BATTERY
+ 	cleanup_battery();
+@@ -427,6 +429,14 @@
+ 			break;
+ 	}
+ 
++	if ( click_graphs(panel, e->xbutton.x, e->xbutton.y)) {
++		graphs_action(e->xbutton.button);
++		if (panel_layer == BOTTOM_LAYER)
++			XLowerWindow (server.dsp, panel->main_win);
++		task_drag = 0;
++		return;
++	}
++
+ 	if ( click_clock(panel, e->xbutton.x, e->xbutton.y)) {
+ 		clock_action(e->xbutton.button);
+ 		if (panel_layer == BOTTOM_LAYER)

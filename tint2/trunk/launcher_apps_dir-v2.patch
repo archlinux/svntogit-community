@@ -1,0 +1,100 @@
+Index: trunk/src/config.c
+===================================================================
+--- trunk/src/config.c	(revision 646)
++++ trunk/src/config.c	(working copy)
+@@ -583,6 +583,18 @@
+ 		char *app = strdup(value);
+ 		panel_config.launcher.list_apps = g_slist_append(panel_config.launcher.list_apps, app);
+ 	}
++	else if (strcmp(key, "launcher_apps_dir") == 0) {
++
++		GList *list = dir_scan_alpha(value, "*.desktop");
++
++		for (list = g_list_first(list); list; list = g_list_next(list)) {
++			fprintf(stderr, "Add launcher app: %s\n", (const char *)list->data);
++			panel_config.launcher.list_apps = g_slist_append(panel_config.launcher.list_apps, (char *)strdup((const char *)list->data));
++		}
++
++		// Cleanup
++		g_list_free_full(list, g_free);
++	}
+ 	else if (strcmp(key, "launcher_icon_theme") == 0) {
+ 		// if XSETTINGS manager running, tint2 use it.
+ 		if (!icon_theme_name)
+Index: trunk/src/util/common.c
+===================================================================
+--- trunk/src/util/common.c	(revision 646)
++++ trunk/src/util/common.c	(working copy)
+@@ -22,10 +22,13 @@
+ #include <X11/Xutil.h>
+ #include <X11/Xatom.h>
+ #include <X11/extensions/Xrender.h>
++#include <sys/types.h>
++#include <sys/stat.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ #include <unistd.h>
++#include <fnmatch.h>
+ 
+ #include "common.h"
+ #include "../server.h"
+@@ -342,3 +345,46 @@
+ 	XRenderFreePicture(server.dsp, pict_image);
+ 	XRenderFreePicture(server.dsp, pict_drawable);
+ }
++
++/**
++ * @brief
++ *  Scan given directory for files which are meet the given mask and sort them alphabetically
++ *
++ * @param path	- directory path
++ * @param mask	- filename mask
++ *
++ * @return files list
++ */
++GList *dir_scan_alpha(const char *path, const char *mask)
++{
++	GError *err = NULL;
++	GList *list = NULL;
++	const char *n;
++	gchar *fn;
++	struct stat st;
++
++	GDir *dir = g_dir_open(path, 0, &err);
++
++	if (!dir) {
++		fprintf(stderr, "%s\n", err->message);
++		g_error_free(err);
++	} else {
++		// Enumerate files
++		while ((n = g_dir_read_name(dir))) {
++			if (!fnmatch(mask, n, FNM_PATHNAME)) {
++				fn = g_build_filename(path, n, NULL);
++
++				if (stat((char *)fn, &st) < 0)
++					continue;
++
++				// Only regular files
++				if (S_ISREG(st.st_mode))
++					list = g_list_prepend(list, (gpointer)fn);
++			}
++		}
++
++		list = g_list_sort (list, (GCompareFunc) &strcmp);
++	}
++
++	return list;
++}
+Index: trunk/src/util/common.h
+===================================================================
+--- trunk/src/util/common.h	(revision 646)
++++ trunk/src/util/common.h	(working copy)
+@@ -57,5 +57,7 @@
+ void createHeuristicMask(DATA32* data, int w, int h);
+ 
+ void render_image(Drawable d, int x, int y, int w, int h);
++
++GList *dir_scan_alpha(const char *path, const char *mask);
+ #endif
+ 
