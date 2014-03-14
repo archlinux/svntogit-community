@@ -1,0 +1,213 @@
+Index: trunk/src/panel.c
+===================================================================
+--- trunk/src/panel.c	(revision 646)
++++ trunk/src/panel.c	(working copy)
+@@ -190,6 +190,9 @@
+ 			}
+ 			if (panel_items_order[k] == 'C')
+ 				init_clock_panel(p);
++
++			if (panel_items_order[k] == 'F')
++				init_freespace_panel(p);
+ 		}
+ 		set_panel_items_order(p);
+ 
+@@ -409,6 +412,9 @@
+ 		}
+ 		if (panel_items_order[k] == 'C')
+ 			p->area.list = g_slist_append(p->area.list, &p->clock);
++
++		if (panel_items_order[k] == 'F')
++			p->area.list = g_slist_append(p->area.list, &p->freespace);
+ 	}
+ 	init_rendering(&p->area, 0);
+ }
+Index: trunk/src/panel.h
+===================================================================
+--- trunk/src/panel.h	(revision 646)
++++ trunk/src/panel.h	(working copy)
+@@ -20,6 +20,7 @@
+ #include "taskbar.h"
+ #include "systraybar.h"
+ #include "launcher.h"
++#include "freespace.h"
+ 
+ #ifdef ENABLE_BATTERY
+ #include "battery.h"
+@@ -111,6 +112,8 @@
+ 
+ 	Launcher launcher;
+ 
++	FreeSpace freespace;
++
+ 	// autohide
+ 	int is_hidden;
+ 	int hidden_width, hidden_height;
+Index: trunk/src/freespace/freespace.h
+===================================================================
+--- trunk/src/freespace/freespace.h	(revision 0)
++++ trunk/src/freespace/freespace.h	(working copy)
+@@ -0,0 +1,20 @@
++/**************************************************************************
++* Copyright (C) 2011 Mishael A Sibiryakov (death@junki.org)
++**************************************************************************/
++
++#ifndef FREESPACE_H
++#define FREESPACE_H
++
++#include "common.h"
++#include "area.h"
++
++typedef struct FreeSpace {
++	Area area;
++} FreeSpace;
++
++void cleanup_freespace();
++void init_freespace_panel(void *panel);
++
++int resize_freespace(void *obj);
++
++#endif
+
+Property changes on: trunk/src/freespace/freespace.h
+___________________________________________________________________
+Added: svn:mime-type
+## -0,0 +1 ##
++text/x-csrc
+Added: svn:eol-style
+## -0,0 +1 ##
++native
+Index: trunk/src/freespace/freespace.c
+===================================================================
+--- trunk/src/freespace/freespace.c	(revision 0)
++++ trunk/src/freespace/freespace.c	(working copy)
+@@ -0,0 +1,100 @@
++/**************************************************************************
++*
++* Tint2 : freespace
++*
++* Copyright (C) 2011 Mishael A Sibiryakov (death@junki.org)
++*
++* This program is free software; you can redistribute it and/or
++* modify it under the terms of the GNU General Public License version 2
++* as published by the Free Software Foundation.
++*
++* This program is distributed in the hope that it will be useful,
++* but WITHOUT ANY WARRANTY; without even the implied warranty of
++* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++* GNU General Public License for more details.
++* You should have received a copy of the GNU General Public License
++* along with this program; if not, write to the Free Software
++* Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
++**************************************************************************/
++
++
++#include <string.h>
++#include <stdio.h>
++#include <cairo.h>
++#include <cairo-xlib.h>
++#include <pango/pangocairo.h>
++#include <stdlib.h>
++
++#include "window.h"
++#include "server.h"
++#include "panel.h"
++#include "freespace.h"
++#include "common.h"
++
++typedef enum {
++	COUNT_WIDTH,
++	COUNT_HEIGHT
++} SpaceType ;
++
++void init_freespace_panel(void *p)
++{
++	Panel *panel =(Panel*)p;
++	FreeSpace *fsp= &panel->freespace;
++
++	if (fsp->area.bg == 0)
++		fsp->area.bg = &g_array_index(backgrounds, Background, 0);
++	fsp->area.parent = p;
++	fsp->area.panel = p;
++	fsp->area.size_mode = SIZE_BY_CONTENT;
++	fsp->area.resize = 1;
++	fsp->area.on_screen = 1;
++	fsp->area._resize = resize_freespace;
++}
++
++int freespace_get_max_size(Panel *p, SpaceType t) {
++
++	GSList *walk;
++	Area *a;
++	int sz = 0;
++
++	// Get space used by every element except the freespace
++	for (walk = p->area.list; walk; walk = g_slist_next(walk)) {
++		a = (Area *)walk->data;
++
++		// Skip self
++		if (a->_resize == resize_freespace)
++			continue;
++
++		if (t == COUNT_WIDTH)
++			sz += a->width + (a->bg->border.width * 2) + p->area.paddingx;
++
++		if (t == COUNT_HEIGHT)
++			sz += a->height + (a->bg->border.width * 2) + p->area.paddingy;
++	}
++
++	if (t == COUNT_WIDTH)
++		sz = p->area.width - sz - (p->area.bg->border.width * 2) - p->area.paddingxlr;
++
++	if (t == COUNT_HEIGHT)
++		sz = p->area.height - sz - (p->area.bg->border.width * 2) - p->area.paddingxlr; // Not sure about paddingxlr
++
++	return sz;
++}
++
++int resize_freespace(void *obj) {
++
++	FreeSpace *fsp= (FreeSpace *)obj;
++	Panel *panel = (Panel *)fsp->area.panel;
++
++	fsp->area.redraw = 1;
++
++	if (panel_horizontal)
++		fsp->area.width = freespace_get_max_size(panel, COUNT_WIDTH);
++	else
++		fsp->area.height= freespace_get_max_size(panel, COUNT_HEIGHT);
++
++	// Always resize
++	fsp->area.resize = 1;
++
++	return 1;
++}
+
+Property changes on: trunk/src/freespace/freespace.c
+___________________________________________________________________
+Added: svn:mime-type
+## -0,0 +1 ##
++text/x-csrc
+Added: svn:eol-style
+## -0,0 +1 ##
++native
+Index: CMakeLists.txt
+===================================================================
+--- trunk/CMakeLists.txt	(revision 646)
++++ trunk/CMakeLists.txt	(working copy)
+@@ -31,6 +31,7 @@
+                      src/taskbar
+                      src/launcher
+                      src/tooltip
++					 src/freespace
+                      src/util
+                      ${X11_INCLUDE_DIRS}
+                      ${PANGOCAIRO_INCLUDE_DIRS}
+@@ -53,6 +54,7 @@
+              src/taskbar/taskbar.c
+              src/taskbar/taskbarname.c
+              src/tooltip/tooltip.c
++             src/freespace/freespace.c
+              src/util/area.c
+              src/util/common.c
+              src/util/timer.c
