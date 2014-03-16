@@ -20,7 +20,6 @@ md5sums=('ea1e1235ebc17dc8e2ca2bec3febde52'
          '7e5990e03eea90075f5a500e91a0c3d3'
          'ffe1e6fb7f97b23da28fd94a5fd7356d')
 
-PKGEXT='.pkg.tar' # use for test, compress cuda is a f*king pain (looong time)
 prepare() {
   sh cuda_${pkgver}_linux64.run -extract=${srcdir}
   ./cuda-linux64-rel-*.run --noexec --keep
@@ -44,13 +43,14 @@ prepare() {
 }
 
 package() {
-  cd ${pkgdir}
+  cd pkg
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
 
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
   install -Dm644 "${srcdir}/cuda.conf" "${pkgdir}/etc/ld.so.conf.d/cuda.conf"
 
+  mkdir -p "${pkgdir}/usr/share/licenses/${pkgname}"
   ln -s /opt/cuda/doc/pdf/EULA.pdf "${pkgdir}/usr/share/licenses/${pkgname}/EULA.pdf"
 
   # remove redundant man and samples
