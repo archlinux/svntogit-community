@@ -10,7 +10,7 @@ pkgdesc='Enhancements to the Python build system'
 arch=('any')
 license=('GPL')
 url='https://launchpad.net/python-distutils-extra'
-makedepends=('python2-distribute' 'python-distribute' 'intltool')
+makedepends=('python2-setuptools' 'python-setuptools' 'intltool')
 source=(http://launchpad.net/$pkgbase/trunk/$pkgver/+download/$pkgbase-$pkgver.tar.gz
         $pkgbase-$pkgver.tar.gz.asc::http://launchpad.net/$pkgbase/trunk/$pkgver/+download/dist-$pkgbase-$pkgver.tar.gz.asc)
 md5sums=('4e4c9bee92a3ca8bfd915f3adcf14648'
