@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=6.0.26_rc
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -30,7 +30,7 @@ prepare() {
   # 1rd sed line: sets right path to install man files
   # 2rd sed line: hack to lie installer, now detect launch script by root
   # 3rd sed line: sets right path in .desktop files and other .desktop stuff (warnings by desktop-file-validate)
-  sed -e "s|/usr/share|${pkgdir}/${pkgname}/usr/share|g" \
+  sed -e "s|/usr/share|${srcdir}/../pkg/${pkgname}/usr/share|g" \
       -e 's|can_add_for_all_users;|1;|g' \
       -e 's|=\\"$prefix\\\"|=/opt/cuda|g' -e 's|Terminal=No|Terminal=false|g' -e 's|ParallelComputing|ParallelComputing;|g' \
       -i pkg/install-linux.pl
