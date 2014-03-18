@@ -1,0 +1,196 @@
+From 12e5aa7b94e0a0ec37e754527e06707005d28d1c Mon Sep 17 00:00:00 2001
+From: milde <milde@929543f6-e4f2-0310-98a6-ba3bd3dd1d04>
+Date: Wed, 11 Jul 2012 12:25:14 +0000
+Subject: [PATCH] Fix [3541369] Relative __import__ also with Python 3.3.
+
+git-svn-id: https://docutils.svn.sourceforge.net/svnroot/docutils/trunk@7486 929543f6-e4f2-0310-98a6-ba3bd3dd1d04
+---
+ docutils/HISTORY.txt                               |    1 +
+ docutils/docutils/_compat.py                       |   11 +++++++++++
+ docutils/docutils/languages/__init__.py            |    8 ++++++--
+ docutils/docutils/parsers/__init__.py              |    5 ++++-
+ .../docutils/parsers/rst/directives/__init__.py    |    6 +++++-
+ .../docutils/parsers/rst/languages/__init__.py     |    6 +++++-
+ docutils/docutils/readers/__init__.py              |    5 ++++-
+ docutils/docutils/writers/__init__.py              |    7 +++++--
+ 8 files changed, 41 insertions(+), 8 deletions(-)
+
+diff --git a/docutils/docutils/_compat.py b/docutils/docutils/_compat.py
+index 1450534..19654a6 100644
+--- a/docutils/docutils/_compat.py
++++ b/docutils/docutils/_compat.py
+@@ -35,3 +35,14 @@ else:
+     # using this hack since 2to3 "fixes" the relative import
+     # when using ``from io import BytesIO``
+     BytesIO = __import__('io').BytesIO
++
++if sys.version_info < (2,5):
++    import __builtin__
++
++    def __import__(name, globals={}, locals={}, fromlist=[], level=-1):
++        """Compatibility definition for Python 2.4.
++
++        Silently ignore the `level` argument missing in Python < 2.5.
++        """
++        # we need the level arg because the default changed in Python 3.3
++        return __builtin__.__import__(name, globals, locals, fromlist)
+diff --git a/docutils/docutils/languages/__init__.py b/docutils/docutils/languages/__init__.py
+index 675bb0e..57d3ec2 100644
+--- a/docutils/docutils/languages/__init__.py
++++ b/docutils/docutils/languages/__init__.py
+@@ -11,7 +11,11 @@ This package contains modules for language-dependent features of Docutils.
+ 
+ __docformat__ = 'reStructuredText'
+ 
++import sys
++
+ from docutils.utils import normalize_language_tag
++if sys.version_info < (2,5):
++    from docutils._compat import __import__
+ 
+ _languages = {}
+ 
+@@ -26,7 +30,7 @@ def get_language(language_code, reporter=None):
+         if tag in _languages:
+             return _languages[tag]
+         try:
+-            module = __import__(tag, globals(), locals())
++            module = __import__(tag, globals(), locals(), level=1)
+         except ImportError:
+             continue
+         _languages[tag] = module
+@@ -35,6 +39,6 @@ def get_language(language_code, reporter=None):
+         reporter.warning(
+             'language "%s" not supported: ' % language_code +
+             'Docutils-generated text will be in English.')
+-    module = __import__('en', globals(), locals())
++    module = __import__('en', globals(), locals(), level=1)
+     _languages[tag] = module # warn only one time!
+     return module
+diff --git a/docutils/docutils/parsers/__init__.py b/docutils/docutils/parsers/__init__.py
+index 2683376..341e358 100644
+--- a/docutils/docutils/parsers/__init__.py
++++ b/docutils/docutils/parsers/__init__.py
+@@ -8,7 +8,10 @@ This package contains Docutils parser modules.
+ 
+ __docformat__ = 'reStructuredText'
+ 
++import sys
+ from docutils import Component
++if sys.version_info < (2,5):
++    from docutils._compat import __import__
+ 
+ 
+ class Parser(Component):
+@@ -43,5 +46,5 @@ def get_parser_class(parser_name):
+     parser_name = parser_name.lower()
+     if parser_name in _parser_aliases:
+         parser_name = _parser_aliases[parser_name]
+-    module = __import__(parser_name, globals(), locals())
++    module = __import__(parser_name, globals(), locals(), level=1)
+     return module.Parser
+diff --git a/docutils/docutils/parsers/rst/directives/__init__.py b/docutils/docutils/parsers/rst/directives/__init__.py
+index b00a676..fdc70d7 100644
+--- a/docutils/docutils/parsers/rst/directives/__init__.py
++++ b/docutils/docutils/parsers/rst/directives/__init__.py
+@@ -10,8 +10,12 @@ __docformat__ = 'reStructuredText'
+ 
+ import re
+ import codecs
++import sys
++
+ from docutils import nodes
+ from docutils.parsers.rst.languages import en as _fallback_language_module
++if sys.version_info < (2,5):
++    from docutils._compat import __import__
+ 
+ 
+ _directive_registry = {
+@@ -109,7 +113,7 @@ def directive(directive_name, language_module, document):
+         # Error handling done by caller.
+         return None, messages
+     try:
+-        module = __import__(modulename, globals(), locals())
++        module = __import__(modulename, globals(), locals(), level=1)
+     except ImportError, detail:
+         messages.append(document.reporter.error(
+             'Error importing directive module "%s" (directive "%s"):\n%s'
+diff --git a/docutils/docutils/parsers/rst/languages/__init__.py b/docutils/docutils/parsers/rst/languages/__init__.py
+index 53017d7..5a151e4 100644
+--- a/docutils/docutils/parsers/rst/languages/__init__.py
++++ b/docutils/docutils/parsers/rst/languages/__init__.py
+@@ -12,7 +12,11 @@ reStructuredText.
+ 
+ __docformat__ = 'reStructuredText'
+ 
++import sys
++
+ from docutils.utils import normalize_language_tag
++if sys.version_info < (2,5):
++    from docutils._compat import __import__
+ 
+ _languages = {}
+ 
+@@ -21,7 +25,7 @@ def get_language(language_code):
+         if tag in _languages:
+             return _languages[tag]
+         try:
+-            module = __import__(tag, globals(), locals())
++            module = __import__(tag, globals(), locals(), level=1)
+         except ImportError:
+             continue
+         _languages[tag] = module
+diff --git a/docutils/docutils/readers/__init__.py b/docutils/docutils/readers/__init__.py
+index a28248f..e3e6fb5 100644
+--- a/docutils/docutils/readers/__init__.py
++++ b/docutils/docutils/readers/__init__.py
+@@ -8,9 +8,12 @@ This package contains Docutils Reader modules.
+ 
+ __docformat__ = 'reStructuredText'
+ 
++import sys
+ 
+ from docutils import utils, parsers, Component
+ from docutils.transforms import universal
++if sys.version_info < (2,5):
++    from docutils._compat import __import__
+ 
+ 
+ class Reader(Component):
+@@ -103,5 +106,5 @@ def get_reader_class(reader_name):
+     reader_name = reader_name.lower()
+     if reader_name in _reader_aliases:
+         reader_name = _reader_aliases[reader_name]
+-    module = __import__(reader_name, globals(), locals())
++    module = __import__(reader_name, globals(), locals(), level=1)
+     return module.Reader
+diff --git a/docutils/docutils/writers/__init__.py b/docutils/docutils/writers/__init__.py
+index e30dbf6..8fcee0c 100644
+--- a/docutils/docutils/writers/__init__.py
++++ b/docutils/docutils/writers/__init__.py
+@@ -8,11 +8,14 @@ This package contains Docutils Writer modules.
+ 
+ __docformat__ = 'reStructuredText'
+ 
+-
+ import os.path
++import sys
++
+ import docutils
+ from docutils import languages, Component
+ from docutils.transforms import universal
++if sys.version_info < (2,5):
++    from docutils._compat import __import__
+ 
+ 
+ class Writer(Component):
+@@ -130,5 +133,5 @@ def get_writer_class(writer_name):
+     writer_name = writer_name.lower()
+     if writer_name in _writer_aliases:
+         writer_name = _writer_aliases[writer_name]
+-    module = __import__(writer_name, globals(), locals())
++    module = __import__(writer_name, globals(), locals(), level=1)
+     return module.Writer
+-- 
+1.6.5.GIT
+
