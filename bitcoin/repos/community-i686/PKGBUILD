@@ -4,37 +4,46 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.8.6
-pkgrel=2
+pkgver=0.9.0
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
-makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc')
+makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc' 'protobuf')
 license=('MIT')
-source=(http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-$pkgver/bitcoin-$pkgver-linux.tar.gz)
-sha256sums=('73495de53d1a30676884961e39ff46c3851ff770eeaa767331d065ff0ce8dd0c')
+source=(http://bitcoin.org/bin/$pkgver/bitcoin-$pkgver-linux.tar.gz
+	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/bitcoin-qt.desktop
+	https://raw.github.com/bitcoin/bitcoin/v$pkgver/share/pixmaps/bitcoin128.png
+	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/examples/bitcoin.conf
+	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoind.1
+	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoin.conf.5)
+sha256sums=('0f767c13b2c670939750a26558cbb40a7f89ff5ba7d42ce63da0bcc0b701642d'
+            'b65b377c0d9ecae9eea722843bca0add6bdb7e50929a7e1f751b79b6621c6073'
+            'ad880c8459ecfdb96abe6a4689af06bdd27906e0edcd39d0915482f2da91e722'
+            'e141088b07641e4e58cc750f93bbdda1ca0e8f07262fce66b73524c1ed97480e'
+            '881dcc53ebe2d2a4f8647eb206fd355c69e4186f225e2dcfce19d276381e613a'
+            'f4598dcff7056a699b62a079b76e74d54435db22e05723bab995e22ae71c7f79')
 
-build() {
+prepare() {
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
-
-  # and make qt gui
-  qmake-qt4 USE_QRCODE=1
-  make
-
-  # make bitcoind
-  make -f makefile.unix -C src  CXXFLAGS="$CXXFLAGS"
+  tar xf $pkgbase-$pkgver.tar.gz
 }
 
+build() {
+  cd "$srcdir/$pkgbase-$pkgver-linux/src/$pkgbase-$pkgver"
+  ./configure --prefix=/usr --with-incompatible-bdb --with-gui=qt4
+  make
+}
 
 package_bitcoin-qt() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - Qt"
-  depends=(boost-libs qt4 miniupnpc qrencode)
+  depends=(boost-libs qt4 miniupnpc qrencode protobuf)
   install=bitcoin-qt.install
 
-  cd "$srcdir/$pkgbase-$pkgver-linux/src"
-  install -Dm755 bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
-  install -Dm644 contrib/debian/bitcoin-qt.desktop \
+  cd "$srcdir/$pkgbase-$pkgver-linux/src/$pkgbase-$pkgver"
+  install -Dm755 src/qt/bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
+  install -Dm644 "$srcdir"/bitcoin-qt.desktop \
     "$pkgdir"/usr/share/applications/bitcoin.desktop
-  install -Dm644 share/pixmaps/bitcoin128.png \
+  install -Dm644 "$srcdir"/bitcoin128.png \
     "$pkgdir"/usr/share/pixmaps/bitcoin128.png
 
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
@@ -44,13 +53,13 @@ package_bitcoin-daemon() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - daemon"
   depends=(boost-libs miniupnpc openssl)
 
-  cd "$srcdir/$pkgbase-$pkgver-linux/src"
+  cd "$srcdir/$pkgbase-$pkgver-linux/src/$pkgbase-$pkgver"
   install -Dm755 src/bitcoind "$pkgdir"/usr/bin/bitcoind
-  install -Dm644 contrib/debian/examples/bitcoin.conf \
+  install -Dm644 "$srcdir"/bitcoin.conf \
     "$pkgdir/usr/share/doc/$pkgname/examples/bitcoin.conf"
-  install -Dm644 contrib/debian/manpages/bitcoind.1 \
+  install -Dm644 "$srcdir"/bitcoind.1 \
     "$pkgdir"/usr/share/man/man1/bitcoind.1
-  install -Dm644 contrib/debian/manpages/bitcoin.conf.5 \
+  install -Dm644 "$srcdir"/bitcoin.conf.5 \
     "$pkgdir"/usr/share/man/man5/bitcoin.conf.5
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
