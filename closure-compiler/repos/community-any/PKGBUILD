@@ -2,7 +2,7 @@
 # Maintainer: BlackEagle < ike DOT devolder AT gmail DOT com >
 # Contributor: Bram Schoenmakers <me@bramschoenmakers.nl>
 pkgname=closure-compiler
-pkgver=20140110
+pkgver=20140303
 pkgrel=1
 pkgdesc="Performs checking, instrumentation and optimizations on Javascript code."
 arch=('any')
@@ -21,4 +21,4 @@ package() {
 	chmod +x "$pkgdir/usr/bin/closure"
 }
 
-sha256sums=('fe1034b96ba59fe58deba131b39e2c3c687bf6cfce3a556c0fccb8852c2351cd')
+sha256sums=('40199c405e89525107314d66b4d5a858845526d9ac0ddb24ec764a358587d4a0')
