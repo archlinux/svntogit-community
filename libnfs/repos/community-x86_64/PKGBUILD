@@ -2,7 +2,7 @@
 # Maintainer: BlackIkeEagle <ike DOT devolder AT gmail DOT com>
 
 pkgname=libnfs
-pkgver=1.9.2
+pkgver=1.9.3
 pkgrel=1
 pkgdesc="client library for accessing NFS shares"
 arch=('i686' 'x86_64')
@@ -23,4 +23,4 @@ package() {
   cd "$pkgname-$pkgname-$pkgver"
   make DESTDIR="$pkgdir" install
 }
-sha256sums=('77d9d543eb1ae3e36497e5a3d4f37c8dd3d66def8d11817d4ed84368bbbb225b')
+sha256sums=('9d1c988065b373ea25e195aedff4c33ca949fee41c61bdb38a26908bb618315a')
