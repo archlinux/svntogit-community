@@ -5,7 +5,7 @@
 
 pkgbase=doublecmd
 pkgname=('doublecmd-gtk2' 'doublecmd-qt')
-pkgver=0.5.8
+pkgver=0.5.9
 _helpver=0.5.5
 pkgrel=1
 url="http://doublecmd.sourceforge.net/"
@@ -22,26 +22,29 @@ optdepends=(
 source=(
 	"http://downloads.sourceforge.net/project/$pkgbase/Double%20Commander%20Source/$pkgbase-$pkgver-src.tar.gz"
 	"http://downloads.sourceforge.net/project/$pkgbase/Double%20Commander%20Source/$pkgbase-help-$_helpver-src.tar.gz"
+	"http://www.herecura.be/files/lazarus-20140321-2.tar.gz"
 )
 
 build() {
 	cp -a $pkgbase-$pkgver $pkgbase-gtk
 	cp -a $pkgbase-$pkgver $pkgbase-qt
 
-	cd "$srcdir/$pkgbase-gtk"
-	if [ "$CARCH" = "i686" ]; then
-		sed -e '/fPIC/d' -i "$srcdir/$pkgbase-gtk/components/doublecmd/doublecmd_common.lpk"
-	fi
-	sed -e 's/\(export\ lazbuild=\).*/\1"$(which\ lazbuild) --lazarusdir=\/usr\/lib\/lazarus"/' -i build.sh
+	msg2 'build gtk'
+	gtkdir="$srcdir/$pkgbase-gtk"
+	cd "$gtkdir"
+	bsdtar -zxf "$srcdir/lazarus-20140321-2.tar.gz"
+	sed -e "s/\\(export\\ lazbuild=\\).*/\\1\"\$(which lazbuild) --primary-config-path=${gtkdir//\//\\\/}\/lazarus\/lazarus-$CARCH\"/" -i build.sh
+	sed -e "s/%%SRCDIR%%/${gtkdir//\//\\\/}/g" -i lazarus/packagefiles.xml
 	./build.sh beta gtk2
 
-	cd "$srcdir/$pkgbase-qt"
-	# dont use fPIC on i686
-	if [ "$CARCH" = "i686" ]; then
-		sed -e '/fPIC/d' -i "$srcdir/$pkgbase-qt/components/doublecmd/doublecmd_common.lpk"
-	fi
-	sed -e 's/\(export\ lazbuild=\).*/\1"$(which\ lazbuild) --lazarusdir=\/usr\/lib\/lazarus"/' -i build.sh
+	msg2 'build qt'
+	qtdir="$srcdir/$pkgbase-qt"
+	cd "$qtdir"
+	bsdtar -zxf "$srcdir/lazarus-20140321-2.tar.gz"
+	sed -e "s/\\(export\\ lazbuild=\\).*/\\1\"\$(which lazbuild) --primary-config-path=${qtdir//\//\\\/}\/lazarus\/lazarus-$CARCH\"/" -i build.sh
+	sed -e "s/%%SRCDIR%%/${qtdir//\//\\\/}/g" -i lazarus/packagefiles.xml
 	./build.sh beta qt
+
 }
 
 package_doublecmd-gtk2() {
@@ -49,7 +52,6 @@ package_doublecmd-gtk2() {
 	depends=('gtk2')
 	conflicts=('doublecmd-qt')
 	cd "$srcdir/$pkgbase-gtk"
-	sed -e 's/LIB_SUFFIX=.*/LIB_SUFFIX=/g' -i ./install/linux/install.sh
 	./install/linux/install.sh --install-prefix="$pkgdir"
 
 	# install doc
@@ -62,7 +64,6 @@ package_doublecmd-qt() {
 	depends=('qt4pas')
 	conflicts=('doublecmd-gtk2')
 	cd "$srcdir/$pkgbase-qt"
-	sed -e 's/LIB_SUFFIX=.*/LIB_SUFFIX=/g' -i ./install/linux/install.sh
 	./install/linux/install.sh --install-prefix="$pkgdir"
 
 	# install doc
@@ -70,5 +71,6 @@ package_doublecmd-qt() {
 	cp -a * "$pkgdir/usr/share/$pkgbase/doc/"
 }
 
-sha256sums=('bfa85693b6cc06b7fd28ec8bd443ad9fb9d79d27a541e4f4d54bb9da2fb052ea'
-            '5c5d00187df811df0734bf751a581bce7e1bdd4cf4639b2a1101f1da8743daaf')
+sha256sums=('d5b3c93b3029f4b0a45b7c9912d34f753445e031c93bc0268d4cb4c313d06ba4'
+            '5c5d00187df811df0734bf751a581bce7e1bdd4cf4639b2a1101f1da8743daaf'
+			'16560ad7403ffbee1800384768828e1fad924d03068c6248b68a78c393fc4e20')
