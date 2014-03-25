@@ -1,10 +1,11 @@
 # $Id$
 # Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Daniel Micay <danielmicay@gmail.com>
 # Contributor: Jonathan Wiersma <archaur at jonw dot org>
 
 pkgname=virt-manager
-pkgver=1.0.0
-pkgrel=2
+pkgver=1.0.1
+pkgrel=1
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -20,11 +21,7 @@ conflicts=('virtinst')
 replaces=('virtinst')
 install=virt-manager.install
 source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz")
-md5sums=('8a0585de48d8060a5394aae912342c95')
-
-prepare() {
-  cd "$srcdir/$pkgname-$pkgver"
-}
+md5sums=('4741c0d93d69cef5f936b2ea2d8348c5')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
@@ -35,5 +32,3 @@ package() {
   cd "$srcdir/$pkgname-$pkgver"
   python2 setup.py install --root "$pkgdir"
 }
-
-# vim:set ts=2 sw=2 et:
