@@ -1,7 +1,7 @@
 #!/bin/bash
 
 FC_PATH=/usr/share/java/freecol
-LOG_PATH=/tmp/freecol
+LOG_PATH=$(mktemp -d /tmp/freecol.XXX)
 
 [ ! -d "$LOG_PATH" ] && install -dm755 $LOG_PATH
 cd $LOG_PATH
