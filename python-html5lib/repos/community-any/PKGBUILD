@@ -4,9 +4,9 @@
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
 pkgver=0.999
-pkgrel=3
+pkgrel=4
 arch=('any')
-url="http://code.google.com/p/html5lib/"
+url="https://github.com/html5lib"
 license=('MIT')
 makedepends=('python2' 'python' 'unzip')
 source=(https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz
