@@ -42,13 +42,13 @@ grep -q linux-lts PKGBUILD && suf=-lts
 case $1 in
   extra)
     update core linux$suf-headers
-    for arch in i686 x86_64; do
+    for arch in x86_64 i686; do
       build /var/lib/archbuild/extra-$arch $arch
     done
   ;;
   testing)
     update testing linux$suf-headers
-    for arch in i686 x86_64; do
+    for arch in x86_64 i686; do
       build /var/lib/archbuild/testing-$arch $arch
     done
   ;;
