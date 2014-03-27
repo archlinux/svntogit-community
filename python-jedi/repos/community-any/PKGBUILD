@@ -5,12 +5,12 @@
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
 pkgver=0.7.0
-pkgrel=4
+pkgrel=5
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
 depends=('python2')
-makedepends=('python2-distribute' 'python-distribute')
+makedepends=('python2-setuptools' 'python-setuptools')
 source=("https://pypi.python.org/packages/source/j/jedi/jedi-${pkgver}.tar.gz")
 sha256sums=('01f0d070ff3852bb6325f436c87070714ccf3d6edb057d9b562a1b19a601daa9')
 
