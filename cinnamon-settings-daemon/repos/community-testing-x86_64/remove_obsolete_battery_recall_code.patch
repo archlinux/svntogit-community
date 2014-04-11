@@ -1,0 +1,242 @@
+diff -uNrp a/data/org.cinnamon.settings-daemon.plugins.power.gschema.xml.in.in b/data/org.cinnamon.settings-daemon.plugins.power.gschema.xml.in.in
+--- a/data/org.cinnamon.settings-daemon.plugins.power.gschema.xml.in.in	2013-11-03 15:50:04.000000000 +0000
++++ b/data/org.cinnamon.settings-daemon.plugins.power.gschema.xml.in.in	2013-11-09 12:39:50.907354689 +0000
+@@ -141,11 +141,6 @@
+       <_summary>Whether to use time-based notifications</_summary>
+       <_description>If time based notifications should be used. If set to false, then the percentage change is used instead, which may fix a broken ACPI BIOS.</_description>
+     </key>
+-    <key name="notify-perhaps-recall" type="b">
+-      <default>true</default>
+-      <_summary>If we should show the recalled battery warning for a broken battery</_summary>
+-      <_description>If we should show the recalled battery warning for a broken battery. Set this to false only if you know your battery is okay.</_description>
+-    </key>
+     <key name="lock-on-suspend" type="b">
+       <default>false</default>
+       <_summary>If the computer should lock when entering suspend mode</_summary>
+diff -uNrp a/plugins/power/csd-power-manager.c b/plugins/power/csd-power-manager.c
+--- a/plugins/power/csd-power-manager.c	2013-11-03 15:50:04.000000000 +0000
++++ b/plugins/power/csd-power-manager.c	2013-11-09 12:38:55.358363329 +0000
+@@ -75,7 +75,6 @@
+ #define CSD_POWER_MANAGER_NOTIFY_TIMEOUT_LONG           30 * 1000 /* ms */
+ 
+ #define CSD_POWER_MANAGER_CRITICAL_ALERT_TIMEOUT        5 /* seconds */
+-#define CSD_POWER_MANAGER_RECALL_DELAY                  30 /* seconds */
+ #define CSD_POWER_MANAGER_LID_CLOSE_SAFETY_TIMEOUT      30 /* seconds */
+ 
+ /* Keep this in sync with gnome-shell */
+@@ -930,146 +929,9 @@ out:
+         return device;
+ }
+ 
+-typedef struct {
+-        CsdPowerManager *manager;
+-        UpDevice        *device;
+-} CsdPowerManagerRecallData;
+-
+-static void
+-device_perhaps_recall_response_cb (GtkDialog *dialog,
+-                                   gint response_id,
+-                                   CsdPowerManagerRecallData *recall_data)
+-{
+-        GdkScreen *screen;
+-        GtkWidget *dialog_error;
+-        GError *error = NULL;
+-        gboolean ret;
+-        gchar *website = NULL;
+-
+-        /* don't show this again */
+-        if (response_id == GTK_RESPONSE_CANCEL) {
+-                g_settings_set_boolean (recall_data->manager->priv->settings,
+-                                        "notify-perhaps-recall",
+-                                        FALSE);
+-                goto out;
+-        }
+-
+-        /* visit recall website */
+-        if (response_id == GTK_RESPONSE_OK) {
+-
+-                g_object_get (recall_data->device,
+-                              "recall-url", &website,
+-                              NULL);
+-
+-                screen = gdk_screen_get_default();
+-                ret = gtk_show_uri (screen,
+-                                    website,
+-                                    gtk_get_current_event_time (),
+-                                    &error);
+-                if (!ret) {
+-                        dialog_error = gtk_message_dialog_new (NULL,
+-                                                               GTK_DIALOG_MODAL,
+-                                                               GTK_MESSAGE_INFO,
+-                                                               GTK_BUTTONS_OK,
+-                                                               "Failed to show url %s",
+-                                                               error->message);
+-                        gtk_dialog_run (GTK_DIALOG (dialog_error));
+-                        g_error_free (error);
+-                }
+-        }
+-out:
+-        gtk_widget_destroy (GTK_WIDGET (dialog));
+-        g_object_unref (recall_data->device);
+-        g_object_unref (recall_data->manager);
+-        g_free (recall_data);
+-        g_free (website);
+-        return;
+-}
+-
+-static gboolean
+-device_perhaps_recall_delay_cb (gpointer user_data)
+-{
+-        gchar *vendor;
+-        const gchar *title = NULL;
+-        GString *message = NULL;
+-        GtkWidget *dialog;
+-        CsdPowerManagerRecallData *recall_data = (CsdPowerManagerRecallData *) user_data;
+-
+-        g_object_get (recall_data->device,
+-                      "recall-vendor", &vendor,
+-                      NULL);
+-
+-        /* TRANSLATORS: the battery may be recalled by its vendor */
+-        title = _("Battery may be recalled");
+-        message = g_string_new ("");
+-        g_string_append_printf (message,
+-                                _("A battery in your computer may have been "
+-                                  "recalled by %s and you may be at risk."), vendor);
+-        g_string_append (message, "\n\n");
+-        g_string_append (message, _("For more information visit the battery recall website."));
+-        dialog = gtk_message_dialog_new_with_markup (NULL,
+-                                                     GTK_DIALOG_DESTROY_WITH_PARENT,
+-                                                     GTK_MESSAGE_INFO,
+-                                                     GTK_BUTTONS_CLOSE,
+-                                                     "<span size='larger'><b>%s</b></span>",
+-                                                     title);
+-        gtk_message_dialog_format_secondary_markup (GTK_MESSAGE_DIALOG (dialog),
+-                                                    "%s", message->str);
+-
+-        /* TRANSLATORS: button text, visit the manufacturers recall website */
+-        gtk_dialog_add_button (GTK_DIALOG (dialog), _("Visit recall website"),
+-                               GTK_RESPONSE_OK);
+-
+-        /* TRANSLATORS: button text, do not show this bubble again */
+-        gtk_dialog_add_button (GTK_DIALOG (dialog), _("Do not show me this again"),
+-                               GTK_RESPONSE_CANCEL);
+-
+-        gtk_widget_show (dialog);
+-        g_signal_connect (dialog, "response",
+-                          G_CALLBACK (device_perhaps_recall_response_cb),
+-                          recall_data);
+-
+-        g_string_free (message, TRUE);
+-        g_free (vendor);
+-        return FALSE;
+-}
+-
+-static void
+-device_perhaps_recall (CsdPowerManager *manager, UpDevice *device)
+-{
+-        gboolean ret;
+-        guint timer_id;
+-        CsdPowerManagerRecallData *recall_data;
+-
+-        /* don't show when running under GDM */
+-        if (g_getenv ("RUNNING_UNDER_GDM") != NULL) {
+-                g_debug ("running under gdm, so no notification");
+-                return;
+-        }
+-
+-        /* already shown, and dismissed */
+-        ret = g_settings_get_boolean (manager->priv->settings,
+-                                      "notify-perhaps-recall");
+-        if (!ret) {
+-                g_debug ("settings prevents recall notification");
+-                return;
+-        }
+-
+-        recall_data = g_new0 (CsdPowerManagerRecallData, 1);
+-        recall_data->manager = g_object_ref (manager);
+-        recall_data->device = g_object_ref (device);
+-
+-        /* delay by a few seconds so the session can load */
+-        timer_id = g_timeout_add_seconds (CSD_POWER_MANAGER_RECALL_DELAY,
+-                                          device_perhaps_recall_delay_cb,
+-                                          recall_data);
+-        g_source_set_name_by_id (timer_id, "[CsdPowerManager] perhaps-recall");
+-}
+-
+ static void
+ engine_device_add (CsdPowerManager *manager, UpDevice *device)
+ {
+-        gboolean recall_notice;
+         CsdPowerManagerWarning warning;
+         UpDeviceState state;
+         UpDeviceKind kind;
+@@ -1085,7 +947,6 @@ engine_device_add (CsdPowerManager *mana
+         g_object_get (device,
+                       "kind", &kind,
+                       "state", &state,
+-                      "recall-notice", &recall_notice,
+                       NULL);
+ 
+         /* add old state for transitions */
+@@ -1109,43 +970,6 @@ engine_device_add (CsdPowerManager *mana
+                                    "engine-state-old",
+                                    GUINT_TO_POINTER(state));
+         }
+-
+-        /* the device is recalled */
+-        if (recall_notice)
+-                device_perhaps_recall (manager, device);
+-}
+-
+-static gboolean
+-engine_check_recall (CsdPowerManager *manager, UpDevice *device)
+-{
+-        UpDeviceKind kind;
+-        gboolean recall_notice = FALSE;
+-        gchar *recall_vendor = NULL;
+-        gchar *recall_url = NULL;
+-
+-        /* get device properties */
+-        g_object_get (device,
+-                      "kind", &kind,
+-                      "recall-notice", &recall_notice,
+-                      "recall-vendor", &recall_vendor,
+-                      "recall-url", &recall_url,
+-                      NULL);
+-
+-        /* not battery */
+-        if (kind != UP_DEVICE_KIND_BATTERY)
+-                goto out;
+-
+-        /* no recall data */
+-        if (!recall_notice)
+-                goto out;
+-
+-        /* emit signal for manager */
+-        g_debug ("** EMIT: perhaps-recall");
+-        g_debug ("%s-%s", recall_vendor, recall_url);
+-out:
+-        g_free (recall_vendor);
+-        g_free (recall_url);
+-        return recall_notice;
+ }
+ 
+ static gboolean
+@@ -1177,7 +1001,6 @@ engine_coldplug (CsdPowerManager *manage
+         for (i = 0; array != NULL && i < array->len; i++) {
+                 device = g_ptr_array_index (array, i);
+                 engine_device_add (manager, device);
+-                engine_check_recall (manager, device);
+         }
+ out:
+         if (array != NULL)
+@@ -1191,8 +1014,6 @@ engine_device_added_cb (UpClient *client
+ {
+         /* add to list */
+         g_ptr_array_add (manager->priv->devices_array, g_object_ref (device));
+-        engine_check_recall (manager, device);
+-
+         engine_recalculate_state (manager);
+ }
+ 
