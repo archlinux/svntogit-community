@@ -1,0 +1,109 @@
+From 45ba88f2798dd66a289953d76cee7ea1c28fa088 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Fri, 11 Apr 2014 16:09:05 +0200
+Subject: [PATCH 1/3] Make lock-on-suspend independent form lock-enabled
+
+This was a regression in my logind support patch.
+---
+ plugins/power/csd-power-manager.c | 10 +++++++++-
+ 1 file changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/plugins/power/csd-power-manager.c b/plugins/power/csd-power-manager.c
+index 8db93b5..ea626a5 100644
+--- a/plugins/power/csd-power-manager.c
++++ b/plugins/power/csd-power-manager.c
+@@ -3678,7 +3678,15 @@ handle_suspend_actions (CsdPowerManager *manager)
+         do_lock = g_settings_get_boolean (manager->priv->settings,
+                                           "lock-on-suspend");
+         if (do_lock)
+-                lock_screensaver (manager);
++                g_dbus_proxy_new_for_bus (G_BUS_TYPE_SESSION,
++                                          G_DBUS_PROXY_FLAGS_DO_NOT_LOAD_PROPERTIES,
++                                          NULL,
++                                          GS_DBUS_NAME,
++                                          GS_DBUS_PATH,
++                                          GS_DBUS_INTERFACE,
++                                          NULL,
++                                          sleep_cb_screensaver_proxy_ready_cb,
++                                          manager);
+ 
+         /* lift the delay inhibit, so logind can proceed */
+         uninhibit_suspend (manager);
+-- 
+1.9.1
+
+
+From 898f866fed431f27b2203566b240ea2280260e83 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Fri, 11 Apr 2014 16:29:59 +0200
+Subject: [PATCH 2/3] Lock screen when lid closed
+
+This was a regression in the upower-1.0 patch.
+---
+ plugins/power/csd-power-manager.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/plugins/power/csd-power-manager.c b/plugins/power/csd-power-manager.c
+index ea626a5..e28faae 100644
+--- a/plugins/power/csd-power-manager.c
++++ b/plugins/power/csd-power-manager.c
+@@ -2146,10 +2146,10 @@ suspend_with_lid_closed (CsdPowerManager *manager)
+                                                    "lid-close-ac-action");
+         }
+ 
+-#if ! UP_CHECK_VERSION(0,99,0)
+         /* check we won't melt when the lid is closed */
+         if (action_type != CSD_POWER_ACTION_SUSPEND &&
+             action_type != CSD_POWER_ACTION_HIBERNATE) {
++#if ! UP_CHECK_VERSION(0,99,0)
+                 if (up_client_get_lid_force_sleep (manager->priv->up_client)) {
+                         g_warning ("to prevent damage, now forcing suspend");
+                         do_power_action_type (manager, CSD_POWER_ACTION_SUSPEND);
+@@ -2158,8 +2158,10 @@ suspend_with_lid_closed (CsdPowerManager *manager)
+                         /* maybe lock the screen if the lid is closed */
+                         lock_screensaver (manager);
+                 }
+-        }
++#else
++                lock_screensaver (manager);
+ #endif
++        }
+ 
+         /* ensure we turn the panel back on after resume */
+         ret = gnome_rr_screen_set_dpms_mode (manager->priv->x11_screen,
+-- 
+1.9.1
+
+
+From 5dfc5f50b762c431ed7f9da2d07d08e1fd4f1376 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Fri, 11 Apr 2014 16:46:52 +0200
+Subject: [PATCH 3/3] Really fix the error with merge
+
+---
+ plugins/power/csd-power-manager.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/plugins/power/csd-power-manager.c b/plugins/power/csd-power-manager.c
+index e28faae..a72f645 100644
+--- a/plugins/power/csd-power-manager.c
++++ b/plugins/power/csd-power-manager.c
+@@ -3730,6 +3730,7 @@ handle_resume_actions (CsdPowerManager *manager)
+         inhibit_suspend (manager);
+ }
+ 
++#if ! UP_CHECK_VERSION(0,99,0)
+ static void
+ upower_notify_sleep_cb (UpClient *client,
+                         UpSleepKind sleep_kind,
+@@ -3745,6 +3746,7 @@ upower_notify_resume_cb (UpClient *client,
+ {
+         handle_resume_actions (manager);
+ }
++#endif
+ 
+ static void
+ logind_proxy_signal_cb (GDBusProxy  *proxy,
+-- 
+1.9.1
+
