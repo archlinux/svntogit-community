@@ -1,15 +1,37 @@
 infodir=/usr/share/info
 filelist=(polipo.info)
 
+create_polipo_user() {
+  getent group polipo &>/dev/null || groupadd -g 185 polipo >/dev/null
+  getent passwd polipo &>/dev/null || useradd -u 185 -g polipo \
+                                              -d /var/cache/polipo \
+                                              -c 'Caching web proxy' \
+                                              -s /bin/nologin polipo >/dev/null
+}
+
 post_install() {
   [ -x usr/bin/install-info ] || return 0
   for file in ${filelist[@]}; do
     install-info $infodir/$file $infodir/dir 2> /dev/null
   done
-  chown -R nobody:nobody /var/cache/polipo 2> /dev/null
+  create_polipo_user
 }
 
 post_upgrade() {
+  if [[ $(vercmp $2 1.0.4.1-11) -le 0 ]]; then
+    echo Stopping polipo service in order to modify the user/group.
+    systemctl stop polipo
+
+    # in case the user/group were already created as recommended by the wiki
+    userdel polipo &>/dev/null
+    groupdel polipo &>/dev/null
+
+    create_polipo_user
+    chown -R 185:185 /var/cache/polipo
+
+    echo You may now restart the polipo service.
+  fi
+
   post_install $1
 }
 
@@ -18,6 +40,12 @@ pre_remove() {
   for file in ${filelist[@]}; do
     install-info --delete $infodir/$file $infodir/dir 2> /dev/null
   done
+}
+
+post_remove() {
+  getent passwd polipo &>/dev/null && userdel polipo >/dev/null
+  getent group polipo &>/dev/null && groupdel polipo >/dev/null
+  true
 }
 
 # vim:set ts=2 sw=2 et:
