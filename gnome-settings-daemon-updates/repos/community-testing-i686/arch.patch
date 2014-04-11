@@ -1,0 +1,336 @@
+diff --git a/data/org.gnome.settings-daemon.plugins.updates.gschema.xml.in.in b/data/org.gnome.settings-daemon.plugins.updates.gschema.xml.in.in
+index 9af2718..bb45e48 100644
+--- a/data/org.gnome.settings-daemon.plugins.updates.gschema.xml.in.in
++++ b/data/org.gnome.settings-daemon.plugins.updates.gschema.xml.in.in
+@@ -16,7 +16,7 @@
+       <_description>Use mobile broadband connections such as GSM and CDMA to check for updates.</_description>
+     </key>
+     <key name="auto-download-updates" type="b">
+-      <default>true</default>
++      <default>false</default>
+       <_summary>Automatically download updates in the background without confirmation</_summary>
+       <_description>Automatically download updates in the background without confirmation. Updates will be auto-downloaded when using wired network connnections, and mobile broadband if 'connection-use-mobile' is enabled.</_description>
+     </key>
+@@ -36,7 +36,7 @@
+       <_description>The last time we notified the user about non-critical updates. Value is in seconds since the epoch, or zero for never.</_description>
+     </key>
+     <key name="frequency-get-upgrades" type="i">
+-      <default>604800</default>
++      <default>0</default>
+       <_summary>How often to check for distribution upgrades</_summary>
+       <_description>How often to check for distribution upgrades. Value is in seconds.</_description>
+     </key>
+diff --git a/plugins/updates/Makefile.am b/plugins/updates/Makefile.am
+index 81c7179..6fd3534 100644
+--- a/plugins/updates/Makefile.am
++++ b/plugins/updates/Makefile.am
+@@ -15,7 +15,9 @@ libupdates_la_SOURCES = \
+ 	gsd-updates-firmware.h \
+ 	gsd-updates-firmware.c \
+ 	gsd-updates-manager.h \
+-	gsd-updates-manager.c
++	gsd-updates-manager.c \
++	gsd-updates-watch.h \
++	gsd-updates-watch.c
+ 
+ libupdates_la_CPPFLAGS = \
+ 	-I$(top_srcdir)/gnome-settings-daemon \
+@@ -58,7 +60,9 @@ gsd_test_updates_SOURCES =		\
+ 	gsd-updates-firmware.h		\
+ 	gsd-updates-firmware.c		\
+ 	gsd-updates-manager.h		\
+-	gsd-updates-manager.c
++	gsd-updates-manager.c		\
++	gsd-updates-watch.h		\
++	gsd-updates-watch.c
+ 
+ gsd_test_updates_CPPFLAGS =					\
+ 	-I$(top_srcdir)/data/					\
+diff --git a/plugins/updates/gsd-updates-manager.c b/plugins/updates/gsd-updates-manager.c
+index 95ee1c4..7b26c06 100644
+--- a/plugins/updates/gsd-updates-manager.c
++++ b/plugins/updates/gsd-updates-manager.c
+@@ -33,6 +33,7 @@
+ #include "gsd-updates-manager.h"
+ #include "gsd-updates-firmware.h"
+ #include "gsd-updates-refresh.h"
++#include "gsd-updates-watch.h"
+ #include "gsd-updates-common.h"
+ #include "gnome-settings-profile.h"
+ 
+@@ -47,6 +48,7 @@ struct GsdUpdatesManagerPrivate
+         GCancellable            *cancellable;
+         GsdUpdatesRefresh       *refresh;
+         GsdUpdatesFirmware      *firmware;
++        GsdUpdatesWatch         *watch;
+         GSettings               *settings_proxy;
+         GSettings               *settings_ftp;
+         GSettings               *settings_gsd;
+@@ -1360,6 +1362,9 @@ gsd_updates_manager_start (GsdUpdatesManager *manager,
+         g_signal_connect (manager->priv->refresh, "get-updates",
+                           G_CALLBACK (due_get_updates_cb), manager);
+ 
++        /* watch transaction progress */
++        manager->priv->watch = gsd_updates_watch_new ();
++
+         /* get proxy settings */
+         manager->priv->settings_proxy = g_settings_new ("org.gnome.system.proxy");
+         g_signal_connect (manager->priv->settings_proxy, "changed",
+@@ -1455,6 +1460,7 @@ gsd_updates_manager_stop (GsdUpdatesManager *manager)
+         g_clear_object (&manager->priv->task);
+         g_clear_object (&manager->priv->refresh);
+         g_clear_object (&manager->priv->firmware);
++        g_clear_object (&manager->priv->watch);
+         g_clear_object (&manager->priv->proxy_session);
+         g_clear_object (&manager->priv->volume_monitor);
+         g_clear_object (&manager->priv->cancellable);
+diff --git a/plugins/updates/gsd-updates-watch.c b/plugins/updates/gsd-updates-watch.c
+new file mode 100644
+index 0000000..d3a0202
+--- /dev/null
++++ b/plugins/updates/gsd-updates-watch.c
+@@ -0,0 +1,186 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2011-2012 Jonathan Conder <jonno.conder@gmail.com>
++ *
++ * Licensed under the GNU General Public License Version 2
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#include "config.h"
++
++#include <unistd.h>
++#include <glib/gi18n.h>
++#include <packagekit-glib2/packagekit.h>
++#include <libnotify/notify.h>
++
++#include "gsd-updates-watch.h"
++
++#define GSD_UPDATES_WATCH_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GSD_TYPE_UPDATES_WATCH, GsdUpdatesWatchPrivate))
++
++struct GsdUpdatesWatchPrivate
++{
++        PkTransactionList *tlist;
++        PkClient *client;
++};
++
++G_DEFINE_TYPE (GsdUpdatesWatch, gsd_updates_watch, G_TYPE_OBJECT)
++
++static void
++on_notification_closed (NotifyNotification *notification, gpointer data)
++{
++        g_object_unref (notification);
++}
++
++static void
++gsd_updates_watch_message_cb (PkMessage *item, GsdUpdatesWatch *watch)
++{
++        NotifyNotification *notification;
++        gchar *details = NULL;
++        const gchar *title, *message;
++        GError *error = NULL;
++
++        g_return_if_fail (PK_IS_MESSAGE (item));
++        g_return_if_fail (GSD_IS_UPDATES_WATCH (watch));
++
++        g_object_get (item, "details", &details, NULL);
++        title = _("More information");
++        message = details;
++
++        /* use a better title if available */
++        if (g_str_has_prefix (details, "<b>")) {
++                gchar *end = g_strstr_len (details, -1, "</b>\n");
++                if (end != NULL && g_strstr_len (details, end - details, "\n") == NULL) {
++                        title = details + 3;
++                        *end = '\0';
++                        message = end + 5;
++                }
++        }
++
++        /* display a notification */
++        notification = notify_notification_new (title, message, NULL);
++        notify_notification_set_app_name (notification, _("Software Updates"));
++        notify_notification_set_timeout (notification, NOTIFY_EXPIRES_NEVER);
++        notify_notification_set_urgency (notification, NOTIFY_URGENCY_NORMAL);
++
++        g_signal_connect (notification, "closed", G_CALLBACK (on_notification_closed), NULL);
++        if (!notify_notification_show (notification, &error)) {
++                g_warning ("error: %s", error->message);
++                g_error_free (error);
++        }
++
++        g_free (details);
++}
++
++static void
++gsd_updates_watch_adopt_cb (PkClient *client, GAsyncResult *res, GsdUpdatesWatch *watch)
++{
++        PkResults *results;
++        PkProgress *progress = NULL;
++        guint uid;
++        GPtrArray *array;
++        GError *error = NULL;
++
++        g_return_if_fail (PK_IS_CLIENT (client));
++        g_return_if_fail (G_IS_ASYNC_RESULT (res));
++        g_return_if_fail (GSD_IS_UPDATES_WATCH (watch));
++
++        results = pk_client_generic_finish (client, res, &error);
++        if (results == NULL) {
++                g_warning ("failed to adopt: %s", error->message);
++                g_error_free (error);
++                goto out;
++        }
++
++        g_object_get (results, "progress", &progress, NULL);
++        g_object_get (progress, "uid", &uid, NULL);
++
++        /* only display messages from the same user */
++        if (uid != getuid ()) {
++                g_printerr ("ignoring messages\n");
++                goto out;
++        }
++
++        array = pk_results_get_message_array (results);
++        g_ptr_array_foreach (array, (GFunc) gsd_updates_watch_message_cb, watch);
++        g_ptr_array_unref (array);
++
++out:
++        if (progress != NULL) {
++                g_object_unref (progress);
++        }
++        if (results != NULL) {
++                g_object_unref (results);
++        }
++}
++
++static void
++gsd_updates_watch_tlist_added_cb (PkTransactionList *tlist, const gchar *tid, GsdUpdatesWatch *watch)
++{
++        g_return_if_fail (PK_IS_TRANSACTION_LIST (tlist));
++        g_return_if_fail (tid != NULL);
++        g_return_if_fail (GSD_IS_UPDATES_WATCH (watch));
++
++        /* listen for messages */
++        pk_client_adopt_async (watch->priv->client, tid, NULL, NULL, NULL,
++                               (GAsyncReadyCallback) gsd_updates_watch_adopt_cb, watch);
++}
++
++static void
++gsd_updates_watch_init (GsdUpdatesWatch *watch)
++{
++        g_return_if_fail (GSD_IS_UPDATES_WATCH (watch));
++
++        watch->priv = GSD_UPDATES_WATCH_GET_PRIVATE (watch);
++        watch->priv->tlist = pk_transaction_list_new ();
++        watch->priv->client = pk_client_new ();
++
++        g_signal_connect (watch->priv->tlist, "added",
++                          G_CALLBACK (gsd_updates_watch_tlist_added_cb), watch);
++}
++
++static void
++gsd_updates_watch_finalize (GObject *object)
++{
++        GsdUpdatesWatch *watch;
++
++        g_return_if_fail (GSD_IS_UPDATES_WATCH (object));
++
++        watch = GSD_UPDATES_WATCH (object);
++        g_return_if_fail (watch->priv != NULL);
++
++        if (watch->priv->tlist != NULL) {
++                g_object_unref (watch->priv->tlist);
++        }
++        if (watch->priv->client != NULL) {
++                g_object_unref (watch->priv->client);
++        }
++
++        G_OBJECT_CLASS (gsd_updates_watch_parent_class)->finalize (object);
++}
++
++GsdUpdatesWatch *
++gsd_updates_watch_new (void)
++{
++        return GSD_UPDATES_WATCH (g_object_new (GSD_TYPE_UPDATES_WATCH, NULL));
++}
++
++static void
++gsd_updates_watch_class_init (GsdUpdatesWatchClass *klass)
++{
++        GObjectClass *object_class = G_OBJECT_CLASS (klass);
++        object_class->finalize = gsd_updates_watch_finalize;
++        g_type_class_add_private (klass, sizeof (GsdUpdatesWatchPrivate));
++}
+diff --git a/plugins/updates/gsd-updates-watch.h b/plugins/updates/gsd-updates-watch.h
+new file mode 100644
+index 0000000..439464f
+--- /dev/null
++++ b/plugins/updates/gsd-updates-watch.h
+@@ -0,0 +1,52 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: t; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2011-2012 Jonathan Conder <jonno.conder@gmail.com>
++ *
++ * Licensed under the GNU General Public License Version 2
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
++ */
++
++#ifndef __GSD_UPDATES_WATCH_H
++#define __GSD_UPDATES_WATCH_H
++
++#include <glib-object.h>
++
++G_BEGIN_DECLS
++
++#define GSD_TYPE_UPDATES_WATCH          (gsd_updates_watch_get_type ())
++#define GSD_UPDATES_WATCH(o)            (G_TYPE_CHECK_INSTANCE_CAST ((o), GSD_TYPE_UPDATES_WATCH, GsdUpdatesWatch))
++#define GSD_UPDATES_WATCH_CLASS(k)      (G_TYPE_CHECK_CLASS_CAST((k), GSD_TYPE_UPDATES_WATCH, GsdUpdatesWatchClass))
++#define GSD_IS_UPDATES_WATCH(o)         (G_TYPE_CHECK_INSTANCE_TYPE ((o), GSD_TYPE_UPDATES_WATCH))
++
++typedef struct GsdUpdatesWatchPrivate GsdUpdatesWatchPrivate;
++
++typedef struct
++{
++         GObject                         parent;
++         GsdUpdatesWatchPrivate         *priv;
++} GsdUpdatesWatch;
++
++typedef struct
++{
++        GObjectClass    parent_class;
++} GsdUpdatesWatchClass;
++
++GType                    gsd_updates_watch_get_type           (void);
++GsdUpdatesWatch         *gsd_updates_watch_new                (void);
++
++G_END_DECLS
++
++#endif /* __GSD_UPDATES_WATCH_H */
