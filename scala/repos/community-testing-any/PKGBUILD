@@ -1,0 +1,80 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Marcin Karpezo <sirmacik at gmail dot com>
+
+pkgbase=scala
+pkgname=(scala scala-docs scala-sources)
+pkgver=2.11.0
+pkgrel=1
+_distdate=20140415-183722
+_distsha=cac6383e66
+pkgdesc="A Java-interoperable language with object-oriented and functional features"
+arch=('any')
+url="http://www.scala-lang.org"
+license=('BSD')
+depends=('java-runtime')
+makedepends=('apache-ant' 'git')
+source=("scala-$pkgver.tar.gz::https://github.com/scala/scala/archive/v${pkgver}.tar.gz"
+	"http://www.scala-lang.org/files/archive/scala-docs-${pkgver}.txz")
+md5sums=('dc8530c254006d09ffd2d62613295927'
+         '26444d681c2d0b7d67cb1194c22a0679')
+
+prepare() {
+  cd ${srcdir}/${pkgname}-${pkgver}
+  chmod 0755 tools/*
+  echo -e "#!/bin/bash\necho ${_distdate}" >tools/get-scala-commit-date
+  echo -e "#!/bin/bash\necho ${_distsha}" >tools/get-scala-commit-sha
+}
+
+build() {
+  cd ${srcdir}/${pkgname}-${pkgver}
+
+  export ANT_OPTS="-Xms2500M -Xmx2500M -Xss8M -XX:MaxPermSize=1024M -XX:+UseParallelGC"
+
+  ant docs
+  ant dist-opt -Dbuild.release=true
+  ant distpack-opt -Dbuild.release=true
+}
+
+package_scala() {
+  depends=('java-runtime')
+  optdepends=('scala-docs' 'scala-sources' 'graphviz: generate diagrams')
+
+  cd ${srcdir}/${pkgname}-${pkgver}/build/pack
+
+  install -d ${pkgdir}/usr/{bin,share} ${pkgdir}/usr/share/man/man1 ${pkgdir}/usr/share/scala/{bin,lib}
+  cp -r lib ${pkgdir}/usr/share/scala/
+  cp -r man ${pkgdir}/usr/share/
+  install -m 755 bin/{fsc,scala,scalac,scalap,scaladoc} ${pkgdir}/usr/share/scala/bin
+  install -D -m0644 ${srcdir}/scala-${pkgver}/doc/LICENSE.md ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md
+
+  ln -s ../share/scala/bin/fsc ${pkgdir}/usr/bin/fsc
+  ln -s ../share/scala/bin/scala ${pkgdir}/usr/bin/scala
+  ln -s ../share/scala/bin/scalac ${pkgdir}/usr/bin/scalac
+  ln -s ../share/scala/bin/scalap ${pkgdir}/usr/bin/scalap
+  ln -s ../share/scala/bin/scaladoc ${pkgdir}/usr/bin/scaladoc
+}
+
+package_scala-docs() {
+  replaces=('scala-doc' 'scala-devel-docs')
+  pkgdesc="Scala documentation"
+  depends=()
+
+  cd ${srcdir}
+  mkdir -p $pkgdir/usr/share/doc/
+  cp -r scala-docs-${pkgver} $pkgdir/usr/share/doc/scala
+  install -D -m0644 ${srcdir}/scala-${pkgver}/doc/LICENSE.md ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md
+}
+
+package_scala-sources() {
+  replaces=('scala-src')
+  pkgdesc="Scala sources"
+  depends=()
+
+  cd ${srcdir}/scala-${pkgver}/dists/maven/$pkgver-${_distdate}-${_distsha}
+  mkdir -p $pkgdir/usr/share/scala/
+  find . -type f -name '*-src.jar' | while read f; do
+    install -Dm0644 $f $pkgdir/usr/share/scala/src/`basename $f`
+  done
+  install -D -m0644 ${srcdir}/scala-${pkgver}/doc/LICENSE.md ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md
+}
