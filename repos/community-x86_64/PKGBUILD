@@ -1,24 +1,17 @@
 # $Id$
 # Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
 
-pkgname=percona-server
+pkgbase=percona-server
+pkgname=('libperconaserverclient' 'percona-server-clients' 'percona-server')
 pkgver=5.6.16_64.2
-pkgrel=1
-pkgdesc="A backwards-compatible drop-in replacement for MySQL that provides improved performance, diagnostics and instrumentation"
+_pkgver=${pkgver/_/-}
+_myver=${pkgver/_rel*}
+pkgrel=2
 arch=('i686' 'x86_64')
-
-depends=('mariadb-clients' 'libaio' 'systemd-tools')
-conflicts=('mysql')
-provides=("mysql=${pkgver/_rel*}" "mariadb=${pkgver/_rel*}")
-optdepends=('perl-dbi' 'perl-dbd-mysql')
-makedepends=('cmake' 'openssl' 'zlib')
-
+makedepends=('cmake' 'openssl' 'zlib' 'libaio' 'systemd-tools')
 license=('GPL')
 url="http://www.percona.com/software/percona-server/"
-options=('emptydirs')
-backup=('etc/mysql/my.cnf')
-install=percona.install
-source=("http://www.percona.com/downloads/Percona-Server-${pkgver%.*_*}/Percona-Server-${pkgver/_/-}/source/tarball/percona-server-${pkgver/_/-}.tar.gz"
+source=("http://www.percona.com/downloads/Percona-Server-${pkgver%.*_*}/Percona-Server-$_pkgver/source/tarball/percona-server-$_pkgver.tar.gz"
         'mysqld-post.sh'
         'mysqld.service'
         'mysqld-tmpfile.conf'
@@ -26,20 +19,19 @@ source=("http://www.percona.com/downloads/Percona-Server-${pkgver%.*_*}/Percona-
         'mysql56-bison3.patch')
 
 prepare() {
-	cd "$srcdir/percona-server-${pkgver/_/-}"
-	patch -p0 -i "$srcdir/mysql56-bufsize.patch"
-	patch -p1 -i "$srcdir/mysql56-bison3.patch"
+	cd $pkgbase-$_pkgver
+	patch -p0 -i ../mysql56-bufsize.patch
+	patch -p1 -i ../mysql56-bison3.patch
 
 	rm -v sql/sql_yacc.{cc,h}
 }
 
 build() {
-	cd "${srcdir}"
 	rm -rf build
 	mkdir build
 	cd build
 
-	cmake "${srcdir}/percona-server-${pkgver/_/-}" \
+	cmake ../$pkgbase-$_pkgver \
 		-DCMAKE_BUILD_TYPE=Release \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DSYSCONFDIR=/etc/mysql \
@@ -58,12 +50,11 @@ build() {
 		-DINSTALL_MYSQLSHAREDIR=share/mysql \
 		-DINSTALL_DOCDIR=share/mysql/docs \
 		-DINSTALL_SHAREDIR=share/mysql \
-		-DWITH_READLINE=ON \
 		-DWITH_ZLIB=system \
 		-DWITH_SSL=system \
 		-DWITH_LIBWRAP=OFF \
-		-DWITH_LIBEDIT=OFF \
 		-DWITH_UNIT_TESTS=OFF \
+		-DWITH_PAM=ON \
 		-DWITH_EXTRA_CHARSETS=complex \
 		-DWITH_EMBEDDED_SERVER=ON \
 		-DWITH_INNODB_MEMCACHED=ON \
@@ -81,28 +72,76 @@ build() {
 	make
 }
 
-package() {
-	cd "${srcdir}"/build
-	make DESTDIR=${pkgdir} install
+package_libperconaserverclient() {
+	pkgdesc='Percona Server client libraries'
+	depends=('openssl')
+	conflicts=('libmysqlclient')
+	provides=("libmysqlclient=$_myver" "libmariadbclient=$_myver")
+	options=('staticlibs')
 
-	install -Dm644 "${pkgdir}"/usr/share/mysql/my-default.cnf "${pkgdir}"/etc/mysql/my.cnf
-	install -Dm755 "${srcdir}"/mysqld-post.sh "${pkgdir}"/usr/bin/mysqld-post
-	install -Dm644 "${srcdir}"/mysqld-tmpfile.conf "${pkgdir}"/usr/lib/tmpfiles.d/mysqld.conf
-	install -Dm644 "${srcdir}"/mysqld.service "${pkgdir}"/usr/lib/systemd/system/mysqld.service
+	cd build
+	for dir in include libmysql libmysqld libservices; do
+		make -C $dir DESTDIR="$pkgdir" install
+	done
 
-	# provided by libmysqlclient
-	rm ${pkgdir}/usr/bin/mysql_config
-	rm ${pkgdir}/usr/lib/lib{mysql,perconaserver}*
-	rm -r ${pkgdir}/usr/include/
-	rm ${pkgdir}/usr/share/man/man1/{mysql_config,mysql_client_test_embedded,mysqltest_embedded}.1
+	install -Dm755 scripts/mysql_config "$pkgdir"/usr/bin/mysql_config
+	install -d "$pkgdir"/usr/share/man/man1
+	for man in mysql_config mysql_client_test_embedded mysqltest_embedded; do
+		install -m644 "$srcdir"/$pkgbase-$_pkgver/man/$man.1 "$pkgdir"/usr/share/man/man1/$man.1
+	done
+}
 
-	# provided by mysql-clients
-	rm ${pkgdir}/usr/bin/{mysql,mysqladmin,mysqlcheck,mysqldump,mysqlimport,mysqlshow,mysqlslap}
-	rm ${pkgdir}/usr/share/man/man1/{mysql,mysqladmin,mysqlcheck,mysqldump,mysqlimport,mysqlshow,mysqlslap}.1
+package_percona-server-clients() {
+	pkgdesc='Percona Server client tools'
+	depends=('libperconaserverclient' 'zlib')
+	conflicts=('mysql-clients')
+	provides=("mysql-clients=$_myver" "mariadb-clients=$_myver")
+
+	cd build
+	make -C client DESTDIR="$pkgdir" install
+
+	# install man pages
+	install -d "$pkgdir"/usr/share/man/man1
+	for man in mysql mysqladmin mysqlcheck mysqldump mysqlimport mysqlshow mysqlslap; do
+		install -m644 "$srcdir"/$pkgbase-$_pkgver/man/$man.1 "$pkgdir"/usr/share/man/man1/$man.1
+	done
+
+	# provided by percona-server
+	rm "$pkgdir"/usr/bin/{mysql_{plugin,upgrade},mysqlbinlog,mysqltest,mysql_config_editor}
+}
+
+package_percona-server() {
+	pkgdesc='A backwards-compatible drop-in replacement for MySQL that provides improved performance, diagnostics and instrumentation'
+	backup=('etc/mysql/my.cnf')
+	install=percona.install
+	depends=('percona-server-clients' 'libaio' 'systemd-tools' 'pam')
+	optdepends=('perl-dbd-mysql')
+	conflicts=('mysql')
+	provides=("mysql=$_myver" "mariadb=$_myver")
+	options=('emptydirs')
+
+	cd build
+	make DESTDIR="$pkgdir" install
+
+	install -Dm644 "$pkgdir"/usr/share/mysql/my-default.cnf "$pkgdir"/etc/mysql/my.cnf
+	install -Dm755 ../mysqld-post.sh "$pkgdir"/usr/bin/mysqld-post
+	install -Dm644 ../mysqld.service "$pkgdir"/usr/lib/systemd/system/mysqld.service
+	install -Dm644 ../mysqld-tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/mysqld.conf
+
+	# provided by libperconaserverclient
+	cd "$pkgdir"
+	rm usr/bin/mysql_config
+	rm usr/lib/lib{mysql,perconaserver}*
+	rm -r usr/include/
+	rm usr/share/man/man1/{mysql_config,mysql_client_test_embedded,mysqltest_embedded}.1
+
+	# provided by percona-server-clients
+	rm usr/bin/{mysql,mysqladmin,mysqlcheck,mysqldump,mysqlimport,mysqlshow,mysqlslap}
+	rm usr/share/man/man1/{mysql,mysqladmin,mysqlcheck,mysqldump,mysqlimport,mysqlshow,mysqlslap}.1
 
 	# not needed
-	rm -r ${pkgdir}/usr/{data,mysql-test,sql-bench}
-	rm "${pkgdir}"/usr/share/man/man1/mysql-test-run.pl.1
+	rm -r usr/{data,mysql-test,sql-bench}
+	rm usr/share/man/man1/mysql-test-run.pl.1
 }
 
 sha256sums=('841eb00ac9178c56f37ef621742ffe4ca43867637236f061321bafc7e64d8e8d'
