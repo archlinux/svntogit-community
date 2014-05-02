@@ -2,38 +2,73 @@
 # Maintainer: Alexander Rødseth <rodseth@gmail.com>
 # Contributor: Dominik Picheta <morfeusz8@gmail.com>
 # Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Jesus Alvarez <jeezusjr@gmail.com>
 
 pkgname=nimrod
 pkgver=0.9.4
-pkgrel=1
+pkgrel=2
 pkgdesc='Imperative, multi-paradigm, compiled programming language'
 arch=('x86_64' 'i686')
 url='http://nimrod-code.org/'
 license=('MIT')
 makedepends=('git')
 options=('!emptydirs')
-source=("$pkgname::git://github.com/Araq/${pkgname/n/N}.git")
+#source=("$pkgname::git://github.com/Araq/${pkgname/n/N}.git#tag=v$pkgver")
+source=("$pkgname::git://github.com/Araq/${pkgname/n/N}.git#commit=a21289f5d5")
 md5sums=('SKIP')
 
 prepare() {
   cd "$pkgname"
-  git clone git://github.com/nimrod-code/csources --depth=1
+
+  rm build/empty.txt && rmdir build
+  git clone --depth=1 git://github.com/nimrod-code/csources build
 }
 
 build() {
-  cd "$pkgname/csources"
+  cd "$pkgname/build"
   sh build.sh
   cd ..
+
   ./bin/nimrod c koch
-  PATH="$PATH":./bin/nimrod ./koch boot -d:release
+  ./koch boot -d:release -d:useGnuReadline
+
+  export PATH="$srcdir/$pkgname/bin:$PATH"
+
+  cd compiler
+  nimrod c -d:release c2nim/c2nim.nim
+  nimrod c -d:release pas2nim/pas2nim.nim
+
+  cd ../lib
+  nimrod c --app:lib -d:createNimRtl -d:release nimrtl.nim
+
+  cd ../tools
+  nimrod c -d:release nimgrep.nim
 }
 
 package() {
-  install -Dm755 "$pkgname/bin/$pkgname" "$pkgdir/usr/bin/$pkgname"
-  install -Dm644 "$pkgname/copying.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -d "$pkgdir/usr/lib/$pkgname"
-  cp -r "$pkgname/" "$pkgdir/usr/lib/"
-  rm -r "$pkgdir/usr/lib/$pkgname/"{bin,csources,.git}
+  cd "$pkgname"
+  
+  export PATH="$srcdir/$pkgname/bin:$PATH"
+  
+  ./koch install "$pkgdir"
+  
+  install -d "$pkgdir/usr/share/nimrod/doc" "$pkgdir/usr/lib/nimrod" "$pkgdir/etc" "$pkgdir/usr/bin"
+  
+  cd "$pkgdir/nimrod"
+  mv "lib/"* "$pkgdir/usr/lib/nimrod/"
+  mv "config/"* "$pkgdir/etc/"
+  cp -a "$srcdir/$pkgname/lib/packages" "$pkgdir/usr/lib/nimrod/"
+  mv "doc/"* "$pkgdir/usr/share/nimrod/doc/"
+  mv "bin/"* "$pkgdir/usr/bin/"
+
+  cd "$srcdir/$pkgname"
+  rm -r "$pkgdir/nimrod"
+  mv examples web "$pkgdir/usr/share/nimrod/doc/"
+  install -m755 "compiler/c2nim/c2nim" "$pkgdir/usr/bin/"
+  install -m755 "compiler/pas2nim/pas2nim" "$pkgdir/usr/bin/"
+  install -m644 "lib/libnimrtl.so" "$pkgdir/usr/lib/libnimrtl.so"
+  install -m755 "tools/nimgrep" "$pkgdir/usr/bin/"
+  install -Dm644 "copying.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 # vim:set ts=2 sw=2 et:
