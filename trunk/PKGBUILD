@@ -21,7 +21,7 @@ optdepends=('bridge-utils: for briged networking (default)'
 	    'qemu'
 	    'radvd'
 	    'dmidecode'
-	    'ebtables'
+	    'ebtables: for networking'
 	    'pm-utils: host power management')
 options=('emptydirs')
 backup=('etc/conf.d/libvirt-guests'
