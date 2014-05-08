@@ -4,7 +4,7 @@
 
 pkgname=libvirt
 pkgver=1.2.4
-pkgrel=1
+pkgrel=2
 pkgdesc="API for controlling virtualization engines (openvz,kvm,qemu,virtualbox,xen,etc)"
 arch=('i686' 'x86_64')
 url="http://libvirt.org/"
@@ -14,7 +14,7 @@ depends=('e2fsprogs' 'gnutls' 'iptables' 'libxml2' 'parted' 'polkit' 'python2'
 	 'curl' 'libsasl' 'libgcrypt' 'libgpg-error' 'openssl' 'libxcb' 'gcc-libs'
 	 'iproute2' 'libnl' 'libx11' 'numactl')
 	# 'audit'
-makedepends=('pkgconfig' 'lvm2' 'linux-api-headers' 'dnsmasq' 'lxc')
+makedepends=('pkgconfig' 'lvm2' 'linux-api-headers' 'dnsmasq' 'lxc' 'libiscsi' 'open-iscsi')
 optdepends=('bridge-utils: for briged networking (default)'
 	    'dnsmasq: for NAT/DHCP for guests'
 	    'openbsd-netcat: for remote management over ssh'
@@ -93,7 +93,7 @@ build() {
 	--with-storage-lvm --without-xen --with-udev --without-hal --disable-static \
 	--with-init-script=systemd \
 	--with-qemu-user=nobody --with-qemu-group=nobody \
-	--without-netcf --with-interface --with-lxc
+	--without-netcf --with-interface --with-lxc --with-storage-iscsi
 	# --with-audit
   make
 }
