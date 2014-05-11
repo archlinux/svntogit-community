@@ -8,14 +8,14 @@
 # Special thanks to Nareto for moving the compile from the .install to the PKGBUILD
 
 pkgname=sage-mathematics
-pkgver=6.1.1
-pkgrel=2
+pkgver=6.2
+pkgrel=1
 pkgdesc="Open Source Mathematics Software, free alternative to Magma, Maple, Mathematica, and Matlab"
 arch=('i686' 'x86_64')
 url="http://www.sagemath.org"
 license=('GPL')
 #depends=('desktop-file-utils' 'java-environment=7' 'libjpeg-turbo' 'libtiff' 'libxmu' 'sqlite' 'xz')
-depends=('libatomic_ops')
+depends=('freetype2' 'libatomic_ops')
 makedepends=('desktop-file-utils' 'gcc-fortran' 'gendesk')
 optdepends=('imagemagick: some plotting functionality benefits from it'
             'texlive-core: some plotting functionality benefits from it, also to use SageTeX'
@@ -24,11 +24,13 @@ optdepends=('imagemagick: some plotting functionality benefits from it'
             'cairo: R plots')
 source=("http://sage.math.washington.edu/home/release/sage-${pkgver}/sage-${pkgver}.tar"
         "sage.service"
+        "gf2x-sse2-i686.patch"
         "python-readline.patch")
 install="${pkgname}.install"
-md5sums=('800c59f7cfa32c012f358ae240cdb2e6'
+md5sums=('71aa49875797c001ce0a31409f5a1762'
          '985da1c1d1dcdc3ea9aa73035cb7996b'
-         'dbfb66f38fb4d516d1078b73fd1d54a2')
+         'f9d7aba4f758f4605164eb84b9e1e3ba'
+         '9b27884ba756eb7990728baedf162665')
 
 prepare() {
   # create *.desktop file
@@ -42,73 +44,47 @@ prepare() {
           --custom="X-DCOP-ServiceType=
 X-KDE-SubstituteUID=false
 X-KDE-Username="
-  
+
   # create DOT_SAGE directory
   if [[ -d ${srcdir}/build ]]; then
     rm -rf "${srcdir}/build"
   fi
   mkdir "${srcdir}/build"
-  
+
   # according to FS#34769
   sed -e 's/FREETYPE/#FREETYPE/' -i "${srcdir}/sage-${pkgver}/build/install"
   # according to FS#39533
-  ## patching python
-  cd "${srcdir}/sage-${pkgver}/upstream"
-  tar xjf python-2.7.5.tar.bz2
-  rm -rf python-2.7.5.tar.bz2
-  patch -p0 -i "${srcdir}/python-readline.patch"
-  tar cjf python-2.7.5.tar.bz2 python-2.7.5
-  rm -rf python-2.7.5
-  ## fix checksums
-  SUMS=$(md5sum python-2.7.5.tar.bz2 | awk '{print $1}')
-  sed "s/md5=[0-9a-f]\{32\}/md5=${SUMS}/" -i "${srcdir}/sage-${pkgver}/build/pkgs/python/checksums.ini"
-  SUMS=$(sha1sum python-2.7.5.tar.bz2 | awk '{print $1}')
-  sed "s/sha1=[0-9a-f]\{40\}/sha1=${SUMS}/" -i "${srcdir}/sage-${pkgver}/build/pkgs/python/checksums.ini"
-  SUMS=$(cksum python-2.7.5.tar.bz2 | awk '{print $1}')
-  sed "s/cksum=[0-9a-f]\{10\}/cksum=${SUMS}/" -i "${srcdir}/sage-${pkgver}/build/pkgs/python/checksums.ini"
-  ## disable readline build
+  cp "${srcdir}/python-readline.patch" "${srcdir}/sage-${pkgver}/build/pkgs/python/patches/readline.patch"
   sed -e 's/READLINE/#READLINE/' -i "${srcdir}/sage-${pkgver}/build/install"
+  # disable building gf2x with sse2 for i686
+  if [ "${CARCH}" == "i686" ]; then
+    cp "${srcdir}/gf2x-sse2-i686.patch" "${srcdir}/sage-${pkgver}/build/pkgs/gf2x/patches/sse2-i686.patch"
+  fi
 }
 
 build() {
   cd "sage-${pkgver}"
-  
-  # fix "missing sage.all error" during build
-  unset CFLAGS
-  unset CXXFLAGS
-  # fix build errors
-  unset LDFLAGS
-  
-  export MAKE="make -j$(nproc)"
-  
-  # use archlinux's fortran rather then the one that ships with sage to compile sage's fortran
-  export FC=/usr/bin/gfortran
-  
-  # disable building with debugging support
+
+  ## flags
+  # do not build own gcc
+  export SAGE_INSTALL_GCC='no'
+  # disable debug
   export SAGE_DEBUG='no'
-  
-  # enable fat binaries (disables processor specific optimizations)
-  # comment out if you're only building it for yourself
+  # enable fat binaries
   export SAGE_FAT_BINARY='yes'
-  
   # can't write to root in a clean chroot
   export DOT_SAGE="${srcdir}/build"
-  
   # singular is broken
   export CPP='/usr/bin/cpp'
-  
-  # only build sage, no documents
-  #make build
+
   make
 }
 
 << COMMENT
 check() {
   cd "sage-${pkgver}"
-  
+
   make test
-  
-  # uncomment if we want to run all the tests (warning: very long)
   #make ptestlong
 }
 COMMENT
@@ -119,15 +95,15 @@ package() {
   rm -f *.log
   rm -rf "${srcdir}/sage-${pkgver}/"{logs,upstream}
   # do NOT remove build directory!
-  
+
   # cp because make install is experimental and will corrupt the install
   install -dm755 "${pkgdir}/opt/sage"
   cp -r * "${pkgdir}/opt/sage/"
-  
+
   # move SageTeX files to more appropriate directory
   install -dm755 "${pkgdir}/usr/share"
   mv "${pkgdir}/opt/sage/local/share/texmf" "${pkgdir}/usr/share"
-  
+
   # according to FS#37090
   # install scripts
   install -dm755 "${pkgdir}/usr/bin"
@@ -137,7 +113,7 @@ package() {
     mv "${pkgdir}/usr/bin/${ITEM}" "${pkgdir}/usr/bin/sage-${ITEM}"
   done
   ln -s "/opt/sage/sage" "${pkgdir}/usr/bin/sage"
-  
+
   # install a systemd user unit
   install -Dm644 "${srcdir}/sage.service" "${pkgdir}/usr/lib/systemd/user/sage.service"
   # install *.desktop and icon files
