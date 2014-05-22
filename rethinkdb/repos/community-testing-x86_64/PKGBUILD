@@ -1,0 +1,55 @@
+# $Id$
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Sigmund Lahn <sigmund@lahn.no>
+
+pkgname=rethinkdb
+pkgver=1.12.5
+pkgrel=1
+pkgdesc='An open-source distributed database built with love.'
+arch=(i686 x86_64)
+url='http://www.rethinkdb.com/'
+license=(AGPL)
+depends=(protobuf ncurses gperftools)
+makedepends=(boost python python2)
+backup=(etc/rethinkdb/instances.d/default.conf)
+install=rethinkdb.install
+options=(!emptydirs)
+source=(
+  http://download.rethinkdb.com/dist/rethinkdb-$pkgver.tgz
+  rethinkdb-tmpfile.conf
+  rethinkdb.service
+)
+sha256sums=('f86c70e680a863be106fb03d8245bd3d42df57a5635378bd70ba0eb86ff98bea'
+            '656d3a42e75d087e723f71aa320fdd91cbbb82071ef72eb11fd3e4a619b429a4'
+            'e56bffa2b9ebc3a00ef566ab2be0719a633c89d961a2461dfa2d9ffdb258c1a2')
+
+build() {
+  cd rethinkdb-$pkgver
+  ./configure --fetch v8 --disable-drivers --dynamic all --enable-precompiled-web --prefix=/usr --sysconfdir=/etc
+  make
+}
+
+check() {
+  cd rethinkdb-$pkgver
+  make build/release/rethinkdb-unittest
+  ./build/release/rethinkdb-unittest
+  # some tests might be flaky on btrfs filesystem!
+}
+
+package() {
+  cd rethinkdb-$pkgver
+  make DESTDIR="$pkgdir" install
+
+  install -Dm644 "$srcdir"/rethinkdb-tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/rethinkdb.conf
+  install -Dm644 "$srcdir"/rethinkdb.service "$pkgdir"/usr/lib/systemd/system/rethinkdb@.service
+
+  # create 'default' database instance
+  cp "$pkgdir"/etc/rethinkdb/default.conf.sample "$pkgdir"/etc/rethinkdb/instances.d/default.conf
+  sed -e 's|# directory=/var/lib/rethinkdb|directory=/var/lib/rethinkdb|' \
+      -e 's|# pid-file=/var/run/rethinkdb/rethinkdb.pid|pid-file=/var/run/rethinkdb/default.pid|' \
+      -i "$pkgdir"/etc/rethinkdb/instances.d/default.conf
+
+  # Arch uses systemd, no need for init.d scripts
+  rm -r "$pkgdir"/etc/init.d
+}
