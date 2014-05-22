@@ -4,38 +4,45 @@
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
-pkgver=0.7.0
-pkgrel=5
+pkgver=0.8.0
+_pkgver=0.8.0-final0
+pkgrel=1
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
 depends=('python2')
 makedepends=('python2-setuptools' 'python-setuptools')
-source=("https://pypi.python.org/packages/source/j/jedi/jedi-${pkgver}.tar.gz")
-sha256sums=('01f0d070ff3852bb6325f436c87070714ccf3d6edb057d9b562a1b19a601daa9')
+source=("https://pypi.python.org/packages/source/j/jedi/jedi-${_pkgver}.tar.gz")
+md5sums=('25ba4ee6160c2de751bd00c7a4f32bff')
 
 build() {
-   cd "$srcdir/jedi-$pkgver" 
+   cd "$srcdir/jedi-${_pkgver}"
+}
+
+check() {
+   cd "$srcdir/jedi-${_pkgver}"
+    python3 setup.py test
+    python2 setup.py test
 }
 
 package_python-jedi() {
     pkgdesc="Awesome autocompletion for python"
     depends=('python')
     conflicts=('python3-jedi-git')
-    cd "$srcdir/jedi-$pkgver"
+    cd "$srcdir/jedi-${_pkgver}"
     python3 setup.py install --root="$pkgdir/" --optimize=1
 
-    install -D -m644 "$srcdir/jedi-$pkgver/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
+    install -D -m644 "$srcdir/jedi-${_pkgver}/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
 package_python2-jedi() {
     pkgdesc="Awesome autocompletion for python2"
     depends=('python2')
     conflicts=('jedi-git' 'python2-jedi-git')
-    cd "$srcdir/jedi-$pkgver"
+    cd "$srcdir/jedi-${_pkgver}"
     python2 setup.py install --root="$pkgdir/" --optimize=1
 
-    install -D -m644 "$srcdir/jedi-$pkgver/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
+    install -D -m644 "$srcdir/jedi-${_pkgver}/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
 # vim:set ts=2 sw=2 et
