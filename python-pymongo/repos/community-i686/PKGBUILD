@@ -6,33 +6,71 @@
 
 pkgbase=python-pymongo
 pkgname=('python-pymongo' 'python2-pymongo')
-pkgver=2.7
+pkgver=2.7.1
 pkgrel=1
 pkgdesc='Python module for using MongoDB'
 arch=('x86_64' 'i686')
 license=('APACHE')
 url='http://pypi.python.org/pypi/pymongo/'
 makedepends=('python-setuptools' 'python2-setuptools')
+checkdepends=('python-nose' 'python2-nose' 'python2-gevent' 'mongodb' 'perl')
 optdepends=('mongodb: High-performance schema-free document-oriented database')
 source=("http://pypi.python.org/packages/source/p/pymongo/pymongo-$pkgver.tar.gz")
-sha256sums=('8320bbbb8ca76de86bd47c253cfbfc4aedae3439fc57f6a9f8fdfa15a00bd601')
+sha256sums=('4810d302b8e132b99bfb6eeabcc71490cfc9d4064d84df593feb305121ed3535')
+
+prepare() {
+  cp -a "pymongo-$pkgver" "pymongo2-$pkgver"
+}
 
 build() {
-  cp -a "pymongo-$pkgver" "pymongo2-$pkgver"
+  cd "$srcdir/pymongo-$pkgver"
+  python setup.py build
+
+  cd "$srcdir/pymongo2-$pkgver"
+  python2 setup.py build
+}
+
+check() {
+  MONGO_TMP_PORT=$(perl -MSocket -le 'socket S, PF_INET, SOCK_STREAM,getprotobyname("tcp");
+    $port = 50000;
+    ++$port until bind S, sockaddr_in($port,inet_aton("127.1"));
+    print $port')
+  echo "Picked port $MONGO_TMP_PORT to run tests with."
+
+  # Start a mongod instance for test
+  rm -rf "$srcdir/mongo_tmp"
+  mkdir "$srcdir/mongo_tmp"
+  rm -f "$srcdir/mongo_tmp.pid"
+  mongod --bind_ip localhost --port $MONGO_TMP_PORT --dbpath "$srcdir/mongo_tmp" --nojournal \
+         --nohttpinterface --noauth --smallfiles --nssize 1 --fork --pidfilepath "$srcdir/mongo_tmp.pid" --logpath "$srcdir/mongo_tmp.log"
+
+  cd "$srcdir/pymongo-$pkgver"
+  DB_PORT=$MONGO_TMP_PORT python setup.py test
+
+  cd "$srcdir/pymongo2-$pkgver"
+  DB_PORT=$MONGO_TMP_PORT python2 setup.py test
+
+  kill $(cat "$srcdir/mongo_tmp.pid")
 }
 
 package_python2-pymongo() {
   depends=('python2')
 
   cd "pymongo2-$pkgver"
-  python2 setup.py install --root="$pkgdir" --optimize=1
+  python2 setup.py install --root="$pkgdir" --skip-build --optimize=1
 }
 
 package_python-pymongo() {
   depends=('python')
 
   cd "pymongo-$pkgver"
-  python setup.py install --root="$pkgdir" --optimize=1
+  python setup.py install --root="$pkgdir" --skip-build --optimize=1
+
+  # Remove conflicting test folder
+  rm -r "$pkgdir/usr/lib/python3.4/site-packages/test"
+
+  # Remove malformed egg-info folder
+  rm -r "$pkgdir/usr/lib/python3.4/site-packages/pymongo.egg-info/"
 }
 
 # vim:set ts=2 sw=2 et:
