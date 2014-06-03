@@ -4,14 +4,14 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2014.3
+pkgver=2014.4
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
 source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.bz2{,.asc})
-md5sums=('73ec19d78ae6a0e168c7ff781bde289d'
+md5sums=('69078b2e80eeb4e74c4c93089a101bcc'
          'SKIP')
 
 build(){
