@@ -1,0 +1,111 @@
+commit 81caa6f48281a0bd9376d561fb688994f771e3c3
+Author: Jonathan Yong <10walls@gmail.com>
+Date:   Mon May 26 06:55:32 2014 +0800
+
+    Add secapi wrapper for strerror_s
+    
+    git-svn-id: svn+ssh://svn.code.sf.net/p/mingw-w64/code/trunk@6559 4407c894-4637-0410-b4f5-ada5f102cad1
+    (cherry picked from commit d710b9af4038a2c2ff7871cd6181a24a6d5c7e37)
+    
+    Conflicts:
+    
+    	mingw-w64-crt/Makefile.am
+    	mingw-w64-crt/Makefile.in
+
+diff --git a/mingw-w64-crt/Makefile.am b/mingw-w64-crt/Makefile.am
+--- a/mingw-w64-crt/Makefile.am
++++ b/mingw-w64-crt/Makefile.am
+@@ -150,6 +150,7 @@
+   secapi/asctime_s.c \
+   secapi/memcpy_s.c \
+   secapi/rand_s.c \
++  secapi/strerror_s.c \
+   secapi/sprintf_s.c \
+   secapi/vsprintf_s.c \
+   secapi/wmemcpy_s.c
+diff --git a/mingw-w64-crt/lib32/msvcrt.def.in b/mingw-w64-crt/lib32/msvcrt.def.in
+index 6c2c3cf..cf55dd7 100644
+--- a/mingw-w64-crt/lib32/msvcrt.def.in
++++ b/mingw-w64-crt/lib32/msvcrt.def.in
+@@ -1202,7 +1202,7 @@ sprintf_s
+ sscanf_s
+ strcat_s
+ strcpy_s
+-strerror_s
++; strerror_s replaced by emu
+ strncat_s
+ strncpy_s
+ ; strnlen replaced by emu
+diff --git a/mingw-w64-crt/lib64/msvcrt.def.in b/mingw-w64-crt/lib64/msvcrt.def.in
+index ed81eff..efadb80 100644
+--- a/mingw-w64-crt/lib64/msvcrt.def.in
++++ b/mingw-w64-crt/lib64/msvcrt.def.in
+@@ -1190,7 +1190,7 @@ strcpy
+ strcpy_s
+ strcspn
+ strerror
+-strerror_s
++; strerror_s replaced by emu
+ strftime
+ strlen
+ strncat
+diff --git a/mingw-w64-crt/secapi/strerror_s.c b/mingw-w64-crt/secapi/strerror_s.c
+new file mode 100644
+index 0000000..714ad9b
+--- /dev/null
++++ b/mingw-w64-crt/secapi/strerror_s.c
+@@ -0,0 +1,54 @@
++#include <windows.h>
++#include <malloc.h>
++#include <errno.h>
++#include <msvcrt.h>
++
++char * __cdecl strerror (int);
++errno_t __cdecl strerror_s (char *, size_t, int);
++int __cdecl sprintf_s (char *, size_t, const char *, ...);
++static errno_t __cdecl _int_strerror_s (char *, size_t, int);
++static errno_t __cdecl _stub (char *, size_t, int);
++
++errno_t __cdecl (*__MINGW_IMP_SYMBOL(strerror_s))(char *, size_t, int) = _stub;
++
++static errno_t __cdecl
++_stub (char *buffer, size_t numberOfElements, int errnum)
++{
++  errno_t __cdecl (*f)(char *, size_t, int) = __MINGW_IMP_SYMBOL(strerror_s);
++
++  if (f == _stub)
++    {
++      f = (errno_t __cdecl (*)(char *, size_t, int))
++            GetProcAddress (__mingw_get_msvcrt_handle (), "strerror_s");
++      if (!f)
++        f = _int_strerror_s;
++        __MINGW_IMP_SYMBOL(strerror_s) = f;
++    }
++  return (*f)(buffer, numberOfElements, errnum);
++}
++
++errno_t __cdecl
++strerror_s (char *buffer, size_t numberOfElements, int errnum)
++{
++  return _stub (buffer, numberOfElements, errnum);
++}
++
++static errno_t __cdecl
++_int_strerror_s (char *buffer, size_t numberOfElements, int errnum)
++{
++  char *errmsg = strerror(errnum);
++
++  if (!errmsg || !buffer || numberOfElements == 0)
++    {
++      errno = EINVAL;
++      return EINVAL;
++    }
++
++  if (sprintf_s(buffer, numberOfElements, "%s", errmsg) == -1)
++    {
++      errno = EINVAL;
++      return EINVAL;
++    }
++
++  return 0;
++}
