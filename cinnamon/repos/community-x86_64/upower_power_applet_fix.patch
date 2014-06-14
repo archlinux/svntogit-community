@@ -1,0 +1,300 @@
+diff -Naur Cinnamon-2.2.13.orig/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js Cinnamon-2.2.13/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js
+--- Cinnamon-2.2.13.orig/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js	2014-05-25 15:10:49.000000000 -0500
++++ Cinnamon-2.2.13/files/usr/share/cinnamon/applets/power@cinnamon.org/applet.js	2014-05-01 14:58:17.000000000 -0500
+@@ -36,21 +36,6 @@
+     PENDING_DISCHARGE: 6
+ };
+ 
+-const PowerManagerInterface = {
+-    name: 'org.cinnamon.SettingsDaemon.Power',
+-    methods: [
+-        { name: 'GetDevices', inSignature: '', outSignature: 'a(susdut)' },
+-        { name: 'GetPrimaryDevice', inSignature: '', outSignature: '(susdut)' },
+-        ],
+-    signals: [
+-        { name: 'PropertiesChanged', inSignature: 's,a{sv},a[s]' },
+-        ],
+-    properties: [
+-        { name: 'Icon', signature: 's', access: 'read' },
+-        ]
+-};
+-let PowerManagerProxy = DBus.makeProxyClass(PowerManagerInterface);
+-
+ const SettingsManagerInterface = {
+ 	name: 'org.freedesktop.DBus.Properties',
+ 	methods: [
+@@ -63,6 +48,17 @@
+ 
+ let SettingsManagerProxy = DBus.makeProxyClass(SettingsManagerInterface);
+ 
++const DisplayDeviceInterface = <interface name="org.freedesktop.UPower.Device">
++    <property name="Type" type="u" access="read"/>
++    <property name="State" type="u" access="read"/>
++    <property name="Percentage" type="d" access="read"/>
++    <property name="TimeToEmpty" type="x" access="read"/>
++    <property name="TimeToFull" type="x" access="read"/>
++    <property name="IsPresent" type="b" access="read"/>
++    <property name="IconName" type="s" access="read"/>
++    </interface>;
++let DisplayDeviceProxy = Gio.DBusProxy.makeProxyWrapper(DisplayDeviceInterface);
++
+ function DeviceItem() {
+     this._init.apply(this, arguments);
+ }
+@@ -145,7 +141,13 @@
+             this.menuManager.addMenu(this.menu);            
+             
+             //this.set_applet_icon_symbolic_name('battery-missing');            
+-            this._proxy = new PowerManagerProxy(DBus.session, BUS_NAME, OBJECT_PATH);
++            this._proxy = new DisplayDeviceProxy(Gio.DBus.system,
++            		'org.freedesktop.UPower',
++            		'/org/freedesktop/UPower/devices/DisplayDevice',
++            		Lang.bind(this, function (proxy, error) {
++            			this._proxy.connect('g-properties-changed', Lang.bind(this, this._sync));
++            			this._sync();
++            		}));
+             this._smProxy = new SettingsManagerProxy(DBus.session, BUS_NAME, OBJECT_PATH);
+             
+             let icon = this.actor.get_children()[0];
+@@ -175,153 +177,121 @@
+             this.menu.addMenuItem(new PopupMenu.PopupSeparatorMenuItem());
+             this.menu.addSettingsAction(_("Power Settings"), 'power');
+ 
+-            this._smProxy.connect('PropertiesChanged', Lang.bind(this, this._devicesChanged));
+-            this._devicesChanged();            
++            this._smProxy.connect('PropertiesChanged', Lang.bind(this, this._devicesChanged));           
+         }
+         catch (e) {
+             global.logError(e);
+         }
+     },
+     
++    _getDevice: function () {
++        // FIXME: don't know how to access device_id now, it works like a charm with this magic number
++        return [1, this._proxy.Type, this._proxy.IconName, this._proxy.Percentage, this._proxy.State, this._getSeconds()]
++    },
++    
++    _getSeconds: function () {
++        var sec = 0;
++        if (this._proxy.State == UPDeviceState.DISCHARGING) {
++            return this._proxy.TimeToEmpty;
++        } else if (this._proxy.State == UPDeviceState.CHARGING) {
++            return this._proxy.TimeToFull;
++        }
++
++        return sec;
++    },
++    
++    _sync: function () {
++        this._devicesChanged();
++    },
++    
+     on_applet_clicked: function(event) {
+         this.menu.toggle();        
+     },
+     
+     _readPrimaryDevice: function() {
+-        this._proxy.GetPrimaryDeviceRemote(Lang.bind(this, function(device, error) {
+-            if (error) {
+-                this._hasPrimary = false;
+-                this._primaryDeviceId = null;
+-                this._batteryItem.actor.hide();                
+-                return;
++        var device = this._getDevice();
++        global.logError(device);
++
++        let [device_id, device_type, icon, percentage, state, seconds] = device;
++        if (device_type == UPDeviceType.BATTERY) {
++            this._hasPrimary = true;
++            let time = Math.round(seconds / 60);
++            if (time == 0) {
++                // 0 is reported when UPower does not have enough data
++                // to estimate battery life
++                this._batteryItem.label.text = _("Estimating...");
++            } else {
++                let minutes = time % 60;
++                let hours = Math.floor(time / 60);
++                let timestring;
++                if (time > 60) {
++                    if (minutes == 0) {
++                        timestring = ngettext("%d hour remaining", "%d hours remaining", hours).format(hours);
++                    } else {
++                        let template = _("%d %s %d %s remaining");
++                        timestring = template.format (hours, ngettext("hour", "hours", hours), minutes, ngettext("minute", "minutes", minutes));
++                    }
++                } else timestring = ngettext("%d minute remaining", "%d minutes remaining", minutes).format(minutes);
++                this._batteryItem.label.text = timestring;
++                this.set_applet_tooltip(timestring);
+             }
+-            let [device_id, device_type, icon, percentage, state, seconds] = device;
+-            if (device_type == UPDeviceType.BATTERY) {
+-                this._hasPrimary = true;
+-                let time = Math.round(seconds / 60);
+-                if (time == 0) {
+-                    // 0 is reported when UPower does not have enough data
+-                    // to estimate battery life
+-                    this._batteryItem.label.text = _("Estimating...");
+-                } else {
+-                    let minutes = time % 60;
+-                    let hours = Math.floor(time / 60);
+-                    let timestring;
+-                    if (time > 60) {
+-                        if (minutes == 0) {
+-                            timestring = ngettext("%d hour remaining", "%d hours remaining", hours).format(hours);
+-                        } else {
+-                            /* TRANSLATORS: this is a time string, as in "%d hours %d minutes remaining" */
+-                            let template = _("%d %s %d %s remaining");
+-
+-                            timestring = template.format (hours, ngettext("hour", "hours", hours), minutes, ngettext("minute", "minutes", minutes));
+-                        }
+-                    } else
+-                        timestring = ngettext("%d minute remaining", "%d minutes remaining", minutes).format(minutes);
+-                    this._batteryItem.label.text = timestring;
+-                    this.set_applet_tooltip(timestring);
+-                }
+                 this._primaryPercentage.text = C_("percent of battery remaining", "%d%%").format(Math.round(percentage));
+                 this._batteryItem.actor.show();
+-            } else {
+-                this._hasPrimary = false;
+-                this._batteryItem.actor.hide();
+-            }
+-
+-            this._primaryDeviceId = device_id;
+-        }));
+-    },
+-
+-    _readOtherDevices: function() {
+-        this._proxy.GetDevicesRemote(Lang.bind(this, function(devices, error) {
+-            this._deviceItems.forEach(function(i) { i.destroy(); });
+-            this._deviceItems = [];
+-
+-            if (error) {
+-                return;
+-            }
+-
+-            let position = 0;
+-            for (let i = 0; i < devices.length; i++) {
+-                let [device_id, device_type] = devices[i];
+-
+-                if (this._hasPrimary == false) {
+-                	if (device_type == UPDeviceType.AC_POWER) {
+-                    	this.set_applet_tooltip(_("AC adapter"));
+-                	}
+-                	else if (device_type == UPDeviceType.BATTERY) {
+-                    	this.set_applet_tooltip(_("Laptop battery"));
+-               		}
+-               	}
+-
+-                if (device_type == UPDeviceType.AC_POWER || (this._hasPrimary && device_id == this._primaryDeviceId))
+-                    continue;
+-
+-                let item = new DeviceItem (devices[i]);
+-                this._deviceItems.push(item);
+-                this.menu.addMenuItem(item, this._otherDevicePosition + position);
+-                position++;
+-            }
+-        }));
++        } else {
++            this._hasPrimary = false;
++            this._batteryItem.actor.hide();
++        }
++        this._primaryDeviceId = device_id;
+     },
+ 
+     on_panel_height_changed: function() {
+         this._devicesChanged();
+     },
+ 
+-    _devicesChanged: function() {        
+-        this._proxy.GetRemote('Icon', Lang.bind(this, function(icon, error) {
+-            if (icon) {    
+-                this.set_applet_icon_symbolic_name('battery-missing');
+-                let gicon = Gio.icon_new_for_string(icon);
+-                this._applet_icon.gicon = gicon;
+-                this.actor.show();
+-            } else {
+-                this.menu.close();
+-                this.actor.hide();
+-            }
+-        }));
++    _devicesChanged: function() {           
++        let icon = this._proxy.IconName;
++        if (icon) {    
++            this.set_applet_icon_symbolic_name('battery-missing');
++            let gicon = Gio.icon_new_for_string(icon);
++            this._applet_icon.gicon = gicon;
++            this.actor.show();
++        } else {
++            this.menu.close();
++            this.actor.hide();
++        }
++
+         this._readPrimaryDevice();
+-        this._readOtherDevices();
+         this._updateLabel();
+     },
+     
+     _updateLabel: function() {
+-        this._proxy.GetDevicesRemote(Lang.bind(this, function(devices, error) {
+-            if (error) {
+-            	this._mainLabel.set_text("");
+-                return;
++        var device = this._getDevice();
++        if (this.labelinfo != "nothing") {
++            let [device_id, device_type, icon, percentage, state, time] = device;
++            let labelText = "";
++
++            if (this.labelinfo == "percentage" || time == 0) {
++                labelText = C_("percent of battery remaining", "%d%%").format(Math.round(percentage));
++            }
++            else if (this.labelinfo == "time") {
++                let seconds = Math.round(time / 60);
++                let minutes = Math.floor(seconds % 60);
++                let hours = Math.floor(seconds / 60);
++                labelText = C_("time of battery remaining", "%d:%02d").format(hours,minutes);
+             }
+-            if (this.labelinfo != "nothing") {
+-            	for (let i = 0; i < devices.length; i++) {
+-	                let [device_id, device_type, icon, percentage, state, time] = devices[i];
+-	                if (device_type == UPDeviceType.BATTERY || device_id == this._primaryDeviceId) {
+-	                    let labelText = "";
+-
+-	                    if (this.labelinfo == "percentage" || time == 0) {
+-	                        labelText = C_("percent of battery remaining", "%d%%").format(Math.round(percentage));
+-	                    }
+-	                    else if (this.labelinfo == "time") {
+-	                        let seconds = Math.round(time / 60);
+-	                        let minutes = Math.floor(seconds % 60);
+-	                        let hours = Math.floor(seconds / 60);
+-	                        labelText = C_("time of battery remaining", "%d:%02d").format(hours,minutes);
+-	                    }
+-	                    else if (this.labelinfo == "percentage_time") {
+-	                        let seconds = Math.round(time / 60);
+-	                        let minutes = Math.floor(seconds % 60);
+-	                        let hours = Math.floor(seconds / 60);
+-	                        labelText = C_("percent of battery remaining", "%d%%").format(Math.round(percentage)) + " (" +
+-	                                    C_("time of battery remaining", "%d:%02d").format(hours,minutes) + ")";
+-	                    }
+-	                    this._mainLabel.set_text(labelText);
+-	                    if (device_id == this._primaryDeviceId) {
+-	                    	return;
+-	                    }
+-	            	}
+-                }
++            else if (this.labelinfo == "percentage_time") {
++                let seconds = Math.round(time / 60);
++                let minutes = Math.floor(seconds % 60);
++                let hours = Math.floor(seconds / 60);
++                labelText = C_("percent of battery remaining", "%d%%").format(Math.round(percentage)) + " (" +
++                        C_("time of battery remaining", "%d:%02d").format(hours,minutes) + ")";
+             }
+-        }));
++
++            this._mainLabel.set_text(labelText);
++            return;
++        }
++        // Display disabled or no battery found... hot-unplugged?
++        this._mainLabel.set_text("");
+     },
+     
+     on_applet_removed_from_panel: function() {
