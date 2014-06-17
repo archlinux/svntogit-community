@@ -4,7 +4,7 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-qt')
-pkgver=0.9.1
+pkgver=0.9.2
 pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
@@ -16,12 +16,12 @@ source=(http://bitcoin.org/bin/$pkgver/bitcoin-$pkgver-linux.tar.gz
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/examples/bitcoin.conf
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoind.1
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoin.conf.5)
-sha256sums=('3fabc1c629007b465a278525883663d41a2ba62699f2773536a8bf59ca210425'
+sha256sums=('58a77aeb4c81b54d3903d85abce4f0fb580694a3611a415c5fe69a27dea5935b'
             'b65b377c0d9ecae9eea722843bca0add6bdb7e50929a7e1f751b79b6621c6073'
             'ad880c8459ecfdb96abe6a4689af06bdd27906e0edcd39d0915482f2da91e722'
             'e141088b07641e4e58cc750f93bbdda1ca0e8f07262fce66b73524c1ed97480e'
             '881dcc53ebe2d2a4f8647eb206fd355c69e4186f225e2dcfce19d276381e613a'
-            'f4598dcff7056a699b62a079b76e74d54435db22e05723bab995e22ae71c7f79')
+            'b7b232079027c41061dcfd21bca2054e349e4bed4f233733406bb3d90bd533ec')
 
 prepare() {
   cd "$srcdir/$pkgbase-$pkgver-linux/src"
