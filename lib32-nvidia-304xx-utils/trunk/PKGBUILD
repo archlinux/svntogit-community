@@ -8,7 +8,7 @@ _pkgbasename=nvidia-304xx-utils
 pkgbase=lib32-$_pkgbasename
 pkgname=('lib32-nvidia-304xx-utils' 'lib32-nvidia-304xx-libgl' 'lib32-opencl-nvidia-304xx')
 pkgver=304.121
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA drivers utilities and libraries. (32-bit)"
 arch=('x86_64')
 url="http://www.nvidia.com/"
@@ -21,6 +21,16 @@ _arch='x86'
 _pkg="NVIDIA-Linux-${_arch}-${pkgver}"
 source=("http://us.download.nvidia.com/XFree86/Linux-${_arch}/${pkgver}/${_pkg}.run")
 md5sums=('b8c950f0a30a6e1f503630fbd0ca8ab9')
+
+create_links() {
+  # create soname links
+  for _lib in $(find "${pkgdir}" -name '*.so*' | grep -v 'xorg/'); do
+    _soname=$(dirname "${_lib}")/$(readelf -d "${_lib}" | grep -Po 'SONAME.*: \[\K[^]]*' || true)
+    _base=$(echo ${_soname} | sed -r 's/(.*).so.*/\1.so/')
+    [[ -e "${_soname}" ]] || ln -s $(basename "${_lib}") "${_soname}"
+    [[ -e "${_base}" ]] || ln -s $(basename "${_soname}") "${_base}"
+  done
+}
 
 build() {
   sh ${_pkg}.run --extract-only
@@ -36,12 +46,12 @@ package_lib32-opencl-nvidia-304xx() {
 
   # OpenCL
   install -D -m755 "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so.${pkgver}"
-  ln -s "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so.1"
-  ln -s "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so"
+  install -D -m755 "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so.${pkgver}"
+  
+  create_links
 
-  install -D -m755 "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so.${pkgver}" 
-  ln -s "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so.1"
-  ln -s "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so"
+  mkdir -p "${pkgdir}/usr/share/licenses"
+  ln -s $_pkgbasename "${pkgdir}/usr/share/licenses/lib32-opencl-nvidia"
 }
 
 package_lib32-nvidia-304xx-libgl() {
@@ -53,9 +63,9 @@ package_lib32-nvidia-304xx-libgl() {
   cd ${_pkg}
 
   mkdir -p "${pkgdir}/usr/lib32"
-  ln -s nvidia/libGL.so.${pkgver} "${pkgdir}/usr/lib32/libGL.so.${pkgver}"
-  ln -s libGL.so.${pkgver} "${pkgdir}/usr/lib32/libGL.so.1"
-  ln -s libGL.so.${pkgver} "${pkgdir}/usr/lib32/libGL.so"
+  ln -s "nvidia/libGL.so.${pkgver}" "${pkgdir}/usr/lib32/libGL.so.${pkgver}"
+  ln -s "libGL.so.${pkgver}" "${pkgdir}/usr/lib32/libGL.so.1"
+  ln -s "libGL.so.${pkgver}" "${pkgdir}/usr/lib32/libGL.so"
 
   # We have to provide symlinks to mesa, as nvidia 304xx doesn't ship them
   ln -s mesa/libEGL.so.1.0.0 "${pkgdir}/usr/lib32/libEGL.so.1.0.0"
@@ -106,14 +116,7 @@ package_lib32-nvidia-304xx-utils() {
   # DEBUG
   install -D -m755 nvidia-debugdump "${pkgdir}/usr/bin/nvidia-debugdump"
 
-  # create soname links
-  for _lib in $(find "${pkgdir}" -name '*.so*'); do
-    _soname="$(dirname ${_lib})/$(LC_ALL=C readelf -d "$_lib" | sed -nr 's/.*Library soname: \[(.*)\].*/\1/p')"
-    if [ ! -e "${_soname}" ]; then
-      ln -s "$(basename ${_lib})" "${_soname}"
-      ln -s "$(basename ${_soname})" "${_soname/.[0-9]*/}"
-    fi
-  done
+  create_links
 
   rm -rf "${pkgdir}"/usr/{include,share,bin}
   mkdir -p "${pkgdir}/usr/share/licenses"
