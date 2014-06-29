@@ -6,7 +6,7 @@ _pkgbasename=nvidia-utils
 pkgbase=lib32-$_pkgbasename
 pkgname=('lib32-nvidia-utils' 'lib32-nvidia-libgl' 'lib32-opencl-nvidia')
 pkgver=337.25
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="http://www.nvidia.com/"
 license=('custom')
@@ -17,8 +17,17 @@ _pkg="NVIDIA-Linux-${_arch}-${pkgver}"
 source=("ftp://download.nvidia.com/XFree86/Linux-${_arch}/${pkgver}/${_pkg}.run")
 md5sums=('2a217632ced8952e21000a51065f85b8')
 
+create_links() {
+    # create soname links
+    for _lib in $(find "${pkgdir}" -name '*.so*' | grep -v 'xorg/'); do
+        _soname=$(dirname "${_lib}")/$(readelf -d "${_lib}" | grep -Po 'SONAME.*: \[\K[^]]*' || true)
+        _base=$(echo ${_soname} | sed -r 's/(.*).so.*/\1.so/')
+        [[ -e "${_soname}" ]] || ln -s $(basename "${_lib}") "${_soname}"
+        [[ -e "${_base}" ]] || ln -s $(basename "${_soname}") "${_base}"
+    done
+}
+
 build() {
-    cd "${srcdir}"
     sh ${_pkg}.run --extract-only
 }
 
@@ -26,16 +35,13 @@ package_lib32-opencl-nvidia() {
     pkgdesc="OpenCL implemention for NVIDIA (32-bit)"
     depends=('lib32-libcl' 'lib32-zlib' 'lib32-gcc-libs')
     optdepends=('opencl-headers: headers necessary for OpenCL development')
-    cd "${srcdir}/${_pkg}"
+    cd "${_pkg}"
 
     # OpenCL
     install -D -m755 "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so.${pkgver}"
-    ln -s "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so.1"
-    ln -s "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so"
-
     install -D -m755 "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so.${pkgver}" 
-    ln -s "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so.1"
-    ln -s "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so"
+
+    create_links
 
     mkdir -p "${pkgdir}/usr/share/licenses"
     ln -s $_pkgbasename "${pkgdir}/usr/share/licenses/lib32-opencl-nvidia"
@@ -47,7 +53,7 @@ package_lib32-nvidia-libgl() {
     replaces=('lib32-nvidia-utils<=313.26-1')
     conflicts=('lib32-libgl')
     provides=('lib32-libgl')
-    cd "${srcdir}/${_pkg}"
+    cd "${_pkg}"
 
     mkdir -p "${pkgdir}/usr/lib32"
     ln -s "/usr/lib32/nvidia/libGL.so.${pkgver}" "${pkgdir}/usr/lib32/libGL.so.${pkgver}"
@@ -74,7 +80,7 @@ package_lib32-nvidia-utils() {
     pkgdesc="NVIDIA drivers utilities (32-bit)"
     depends=('lib32-zlib' 'lib32-gcc-libs')
     optdepends=('lib32-opencl-nvidia')
-    cd "${srcdir}/${_pkg}"
+    cd "${_pkg}"
 
     # OpenGL libraries
     install -D -m755 "libGL.so.${pkgver}" "${pkgdir}/usr/lib32/nvidia/libGL.so.${pkgver}"
@@ -104,14 +110,7 @@ package_lib32-nvidia-utils() {
     install -D -m755 "libcuda.so.${pkgver}" "${pkgdir}/usr/lib32/libcuda.so.${pkgver}"
     install -D -m755 "libnvcuvid.so.${pkgver}" "${pkgdir}/usr/lib32/libnvcuvid.so.${pkgver}"
 
-    # create soname links
-    for _lib in $(find "${pkgdir}" -name '*.so*'); do
-        _soname="$(dirname ${_lib})/$(LC_ALL=C readelf -d "$_lib" | sed -nr 's/.*Library soname: \[(.*)\].*/\1/p')"
-        if [ ! -e "${_soname}" ]; then
-            ln -s "$(basename ${_lib})" "${_soname}"
-            ln -s "$(basename ${_soname})" "${_soname/.[0-9]*/}"
-        fi
-    done
+    create_links
 
     rm -rf "${pkgdir}"/usr/{include,share,bin}
     mkdir -p "${pkgdir}/usr/share/licenses"
