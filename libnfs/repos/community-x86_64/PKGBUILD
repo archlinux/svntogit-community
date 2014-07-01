@@ -2,8 +2,8 @@
 # Maintainer: BlackIkeEagle <ike DOT devolder AT gmail DOT com>
 
 pkgname=libnfs
-pkgver=1.9.3
-pkgrel=2
+pkgver=1.9.4
+pkgrel=1
 pkgdesc="client library for accessing NFS shares"
 arch=('i686' 'x86_64')
 url="https://github.com/sahlberg/libnfs"
@@ -11,14 +11,12 @@ license=('GPL')
 depends=('glibc')
 source=(
 	"https://github.com/sahlberg/$pkgname/archive/$pkgname-$pkgver.tar.gz"
-	'0001-nfs_normalize_path-don-t-strip-trailing-slash-from.patch'
 )
 
-prepare() {
-  cd "$pkgname-$pkgname-$pkgver"
+#prepare() {
+  #cd "$pkgname-$pkgname-$pkgver"
 
-  patch -p1 -i "$srcdir/0001-nfs_normalize_path-don-t-strip-trailing-slash-from.patch"
-}
+#}
 
 build() {
 	cd "$pkgname-$pkgname-$pkgver"
@@ -33,7 +31,4 @@ package() {
 	make DESTDIR="$pkgdir" install
 }
 
-sha256sums=(
-	'9d1c988065b373ea25e195aedff4c33ca949fee41c61bdb38a26908bb618315a'
-	'4a84a304a8364b89b90ef6bc43c9190e2ff600fd64fd15e6ecc20ab14eed78a5'
-)
+sha256sums=('57502aa1904c402965df40ad17ce4b71d1d98f7c2a2b31a6d6f208fa6f787d49')
