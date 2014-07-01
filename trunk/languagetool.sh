@@ -3,7 +3,7 @@
 file_present=false
 asked_for_help=false
 start_server=false
-https_server=false
+http_server=false
 
 declare -a argv=("$@")
 
@@ -14,10 +14,10 @@ for arg in "$@"; do
   fi
   if [[ $arg == --config* ]]; then
     start_server=true
-    https_server=true
   fi
   if [[ $arg == --http ]]; then
     start_server=true
+    http_server=true
     unset argv[$i]
   fi
   if [[ $arg == -h ]]; then
@@ -55,10 +55,10 @@ if $asked_for_help; then
   "$JAVA_HOME/bin/java" -cp $CP $SSRV_command -h | sed "s/HTTPSServer/languagetool/"
 else
   if $start_server; then
-    if $https_server; then
-      "$JAVA_HOME/bin/java" -cp $CP $SSRV_command "${argv[@]}"
-    else
+    if $http_server; then
       "$JAVA_HOME/bin/java" -cp $CP $NSRV_command "${argv[@]}"
+    else
+      "$JAVA_HOME/bin/java" -cp $CP $SSRV_command "${argv[@]}"
     fi
   else
     if $file_present; then
