@@ -1,0 +1,57 @@
+# $Id$
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Sigmund Lahn <sigmund@lahn.no>
+
+pkgname=rethinkdb
+pkgver=1.13.1
+pkgrel=1
+pkgdesc='An open-source distributed database built with love.'
+arch=(i686 x86_64)
+url='http://www.rethinkdb.com/'
+license=(AGPL)
+depends=(protobuf ncurses gperftools curl)
+makedepends=(boost python2 wget)
+backup=(etc/rethinkdb/instances.d/default.conf)
+install=rethinkdb.install
+options=(!emptydirs)
+source=(
+  http://download.rethinkdb.com/dist/rethinkdb-$pkgver.tgz
+  rethinkdb-tmpfile.conf
+  rethinkdb.service
+)
+sha256sums=('b53e0950df5411b3263d002ad6b24157ba1f1b25ac6b294ab2a98844f0811269'
+            '656d3a42e75d087e723f71aa320fdd91cbbb82071ef72eb11fd3e4a619b429a4'
+            'e56bffa2b9ebc3a00ef566ab2be0719a633c89d961a2461dfa2d9ffdb258c1a2')
+
+build() {
+  cd rethinkdb-$pkgver
+  export PYTHON=/usr/bin/python2
+  ./configure --fetch v8 --dynamic all --enable-precompiled-web --prefix=/usr --sysconfdir=/etc
+  make
+}
+
+check() {
+  cd rethinkdb-$pkgver
+  make build/release/rethinkdb-unittest
+  # SindexEraseRange failure https://github.com/rethinkdb/rethinkdb/issues/2042
+  ./build/release/rethinkdb-unittest --gtest_filter=-RDBBtree.SindexEraseRange
+  # some tests might be flaky on btrfs filesystem!
+}
+
+package() {
+  cd rethinkdb-$pkgver
+  make DESTDIR="$pkgdir" install
+
+  install -Dm644 "$srcdir"/rethinkdb-tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/rethinkdb.conf
+  install -Dm644 "$srcdir"/rethinkdb.service "$pkgdir"/usr/lib/systemd/system/rethinkdb@.service
+
+  # create 'default' database instance
+  cp "$pkgdir"/etc/rethinkdb/default.conf.sample "$pkgdir"/etc/rethinkdb/instances.d/default.conf
+  sed -e 's|# directory=/var/lib/rethinkdb|directory=/var/lib/rethinkdb|' \
+      -e 's|# pid-file=/var/run/rethinkdb/rethinkdb.pid|pid-file=/var/run/rethinkdb/default.pid|' \
+      -i "$pkgdir"/etc/rethinkdb/instances.d/default.conf
+
+  # Arch uses systemd, no need for init.d scripts
+  rm -r "$pkgdir"/etc/init.d
+}
