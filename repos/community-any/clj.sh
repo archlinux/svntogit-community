@@ -133,6 +133,6 @@ if [ -n "$CLOJURE_LIBRARY_PATH" ]; then
     CLOJURE_JAVA_OPTS="$CLOJURE_JAVA_OPTS -Djava.library.path=$CLOJURE_LIBRARY_PATH"
 fi
 
-cmd=`echo $rlwrap "$CLOJURE_JAVA" "$CLOJURE_JAVA_OPTS" -cp "$CLOJURE_CLASSPATH" $jline $main "$@"`
-[ $verbose -eq 1 ] && echo "$cmd"
-exec `echo $cmd`
+cmd=`echo $rlwrap "$CLOJURE_JAVA" "$CLOJURE_JAVA_OPTS" -cp "$CLOJURE_CLASSPATH" $jline $main`
+[ $verbose -eq 1 ] && echo "$cmd" "$@"
+exec `echo $cmd` "$@"
