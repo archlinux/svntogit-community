@@ -7,6 +7,7 @@ force_fPIE="${HARDENING_PIE:-1}"
 force_fortify="${HARDENING_FORTIFY:-2}"
 force_pie="${HARDENING_PIE:-1}"
 force_relro="${HARDENING_RELRO:-1}"
+force_stack_check="${HARDENING_STACK_CHECK:-0}"
 force_stack_protector="${HARDENING_STACK_PROTECTOR:-2}"
 
 error() {
@@ -74,6 +75,12 @@ case "$force_relro" in
   0) ;;
   1) (( linking )) && arguments+=(-Wl,-z,relro) ;;
   *) error 'invalid value for HARDENING_RELRO' ;;
+esac
+
+case "$force_stack_check" in
+  0) ;;
+  1) arguments+=(-fstack-check) ;;
+  *) error 'invalid value for HARDENING_STACK_CHECK' ;;
 esac
 
 case "$force_stack_protector" in
