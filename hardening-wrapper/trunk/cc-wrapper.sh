@@ -2,13 +2,15 @@
 
 set -o nounset
 
-force_bindnow="${HARDENING_BINDNOW:-1}"
-force_fPIE="${HARDENING_PIE:-1}"
-force_fortify="${HARDENING_FORTIFY:-2}"
-force_pie="${HARDENING_PIE:-1}"
-force_relro="${HARDENING_RELRO:-1}"
-force_stack_check="${HARDENING_STACK_CHECK:-0}"
-force_stack_protector="${HARDENING_STACK_PROTECTOR:-2}"
+declare -A default="($(cat /etc/hardening-wrapper.conf))"
+
+force_bindnow="${HARDENING_BINDNOW:-"${default[HARDENING_BINDNOW]:-0}"}"
+force_fPIE="${HARDENING_PIE:-"${default[HARDENING_PIE]:-1}"}"
+force_fortify="${HARDENING_FORTIFY:-"${default[HARDENING_FORTIFY]:-2}"}"
+force_pie="${HARDENING_PIE:-"${default[HARDENING_PIE]:-1}"}"
+force_relro="${HARDENING_RELRO:-"${default[HARDENING_RELRO]:-1}"}"
+force_stack_check="${HARDENING_STACK_CHECK:-"${default[HARDENING_STACK_CHECK]:-0}"}"
+force_stack_protector="${HARDENING_STACK_PROTECTOR:-${default[HARDENING_STACK_PROTECTOR]:-2}}"
 
 error() {
   echo "$1" >&2
