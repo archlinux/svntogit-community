@@ -97,6 +97,7 @@ for p in "${path[@]}"; do
   binary="$p/${0##*/}"
   if [[ "$binary" != "$0" && -x "$binary" ]]; then
     unwrapped="$binary"
+    break
   fi
 done
 
