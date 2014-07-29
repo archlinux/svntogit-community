@@ -3,10 +3,10 @@
 # Contributor: Bram Schoenmakers <me@bramschoenmakers.nl>
 pkgname=closure-compiler
 pkgver=20140625
-pkgrel=1
+pkgrel=2
 pkgdesc="Performs checking, instrumentation and optimizations on Javascript code."
 arch=('any')
-url="http://code.google.com/closure"
+url="https://developers.google.com/closure/compiler/"
 license=('APACHE')
 depends=('java-runtime')
 makedepends=('apache-ant')
