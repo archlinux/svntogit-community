@@ -4,8 +4,8 @@
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
-pkgver=0.8.0
-_pkgver=0.8.0-final0
+pkgver=0.8.1
+_pkgver="${pkgver}-final0"
 pkgrel=1
 arch=('any')
 url="https://github.com/davidhalter/jedi"
@@ -13,7 +13,7 @@ license=('MIT')
 depends=('python2')
 makedepends=('python2-setuptools' 'python-setuptools')
 source=("https://pypi.python.org/packages/source/j/jedi/jedi-${_pkgver}.tar.gz")
-md5sums=('25ba4ee6160c2de751bd00c7a4f32bff')
+md5sums=('e4db996421a640d50f559587e805412b')
 
 build() {
    cd "$srcdir/jedi-${_pkgver}"
