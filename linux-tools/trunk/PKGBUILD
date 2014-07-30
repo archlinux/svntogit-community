@@ -13,7 +13,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=3.15.7
+pkgver=3.15
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
@@ -32,7 +32,7 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 makedepends+=('ncurses')
 groups=("$pkgbase")
 source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
-#        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.3.xz"
+        "http://ftp.kernel.org/pub/linux/kernel/v3.x/patch-$pkgver.7.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -41,7 +41,8 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         '02-archlinux-paths.patch'
         '03-fix-acpidump-compile-error.patch')
 # http://www.kernel.org/pub/linux/kernel/v3.x/sha256sums.asc
-sha256sums=('d299fdff6e9eb7a9d646440a38eb5507687b048ac561db7c7458a6151f19980c'
+sha256sums=('c3927e87be4040fa8aca1b58663dc0776aaf00485604ff88a623be2f3fb07794'
+            '25f0767908e736a2388fe36810712ee3faa6c86c5255516496d5942ba1ffb451'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'fbf6e0ce6eb0ef15703fe212958de6ca46e62188900b5e9f9272ed3cc9cfd54e'
             'a89284d0ecb556ca53a66d1c2087b5fd6d0a901ab2769cd3aebb93f4478905dc'
@@ -52,7 +53,7 @@ sha256sums=('d299fdff6e9eb7a9d646440a38eb5507687b048ac561db7c7458a6151f19980c'
 
 prepare() {
   cd linux-$pkgver
-  #patch -N -p1 -i "$srcdir/patch-$pkgver.3"
+  patch -N -p1 -i "$srcdir/patch-$pkgver.7"
   patch -N -p1 -i "$srcdir/01-fix-perf-python.patch"
   patch -N -p1 -i "$srcdir/02-archlinux-paths.patch"
   # the following patch is a fix for compile error in 3.15
