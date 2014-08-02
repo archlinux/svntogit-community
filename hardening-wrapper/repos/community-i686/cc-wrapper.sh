@@ -2,7 +2,10 @@
 
 set -o nounset
 
-declare -A default="($(< /etc/hardening-wrapper.conf))"
+declare -A default
+while IFS== read key value; do
+  default["$key"]="$value"
+done < /etc/hardening-wrapper.conf
 
 force_bindnow="${HARDENING_BINDNOW:-"${default[HARDENING_BINDNOW]:-1}"}"
 force_fPIE="${HARDENING_PIE:-"${default[HARDENING_PIE]:-1}"}"
