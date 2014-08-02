@@ -16,7 +16,7 @@ force_stack_check="${HARDENING_STACK_CHECK:-"${default[HARDENING_STACK_CHECK]:-0
 force_stack_protector="${HARDENING_STACK_PROTECTOR:-${default[HARDENING_STACK_PROTECTOR]:-2}}"
 
 error() {
-  echo "$1" >&2
+  printf "%s\n" "$1" >&2
   exit 1
 }
 
