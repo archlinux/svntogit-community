@@ -1,17 +1,13 @@
 #!/bin/bash
 
-set -o nounset
-
 declare -A default
 while IFS== read key value; do
   default["$key"]="$value"
 done < /etc/hardening-wrapper.conf
 
-force_bindnow="${HARDENING_BINDNOW:-"${default[HARDENING_BINDNOW]:-1}"}"
 force_fPIE="${HARDENING_PIE:-"${default[HARDENING_PIE]:-1}"}"
 force_fortify="${HARDENING_FORTIFY:-"${default[HARDENING_FORTIFY]:-2}"}"
 force_pie="${HARDENING_PIE:-"${default[HARDENING_PIE]:-1}"}"
-force_relro="${HARDENING_RELRO:-"${default[HARDENING_RELRO]:-1}"}"
 force_stack_check="${HARDENING_STACK_CHECK:-"${default[HARDENING_STACK_CHECK]:-0}"}"
 force_stack_protector="${HARDENING_STACK_PROTECTOR:-${default[HARDENING_STACK_PROTECTOR]:-2}}"
 
@@ -20,7 +16,6 @@ error() {
   exit 1
 }
 
-linking=1
 optimizing=0
 
 for opt; do
@@ -33,7 +28,7 @@ for opt; do
       force_fPIE=0
       ;;
     -c)
-      linking=0
+      force_pie=0
       ;;
     -nostdlib|-ffreestanding)
       force_stack_protector=0
@@ -50,13 +45,7 @@ for opt; do
   esac
 done
 
-arguments=()
-
-case "$force_bindnow" in
-  0) ;;
-  1) (( linking )) && arguments+=(-Wl,-z,now) ;;
-  *) error 'invalid value for HARDENING_BINDNOW' ;;
-esac
+arguments=(-B/usr/lib/hardening-wrapper/bin)
 
 case "$force_fPIE" in
   0) ;;
@@ -72,14 +61,8 @@ esac
 
 case "$force_pie" in
   0) ;;
-  1) (( linking )) && arguments+=(-pie) ;;
+  1) arguments+=(-pie) ;;
   *) error 'invalid value for HARDENING_PIE' ;;
-esac
-
-case "$force_relro" in
-  0) ;;
-  1) (( linking )) && arguments+=(-Wl,-z,relro) ;;
-  *) error 'invalid value for HARDENING_RELRO' ;;
 esac
 
 case "$force_stack_check" in
