@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /usr/lib/hardening-wrapper/common.sh
+
 declare -A default
 while IFS== read key value; do
   default["$key"]="$value"
