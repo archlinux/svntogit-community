@@ -1,5 +1,7 @@
 #!/bin/bash
 
+. /usr/lib/hardening-wrapper/common.sh
+
 declare -A default
 while IFS== read key value; do
   default["$key"]="$value"
@@ -10,11 +12,6 @@ force_fortify="${HARDENING_FORTIFY:-"${default[HARDENING_FORTIFY]:-2}"}"
 force_pie="${HARDENING_PIE:-"${default[HARDENING_PIE]:-1}"}"
 force_stack_check="${HARDENING_STACK_CHECK:-"${default[HARDENING_STACK_CHECK]:-0}"}"
 force_stack_protector="${HARDENING_STACK_PROTECTOR:-${default[HARDENING_STACK_PROTECTOR]:-2}}"
-
-error() {
-  printf "%s\n" "$1" >&2
-  exit 1
-}
 
 optimizing=0
 
