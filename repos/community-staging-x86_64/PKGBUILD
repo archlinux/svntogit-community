@@ -1,0 +1,71 @@
+# $Id$
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: t3ddy  <t3ddy1988 "at" gmail {dot} com>
+# Contributor: AdriÃ¡n Chaves FernÃ¡ndez (Gallaecio) <adriyetichaves@gmail.com>
+pkgname=0ad
+pkgver=a16
+_pkgver=0.0.16-alpha
+pkgrel=4
+pkgdesc="Cross-platform, 3D and historically-based real-time strategy game"
+arch=('i686' 'x86_64')
+url="http://play0ad.com/"
+license=('GPL2' 'CCPL')
+depends=('binutils' 'boost-libs' 'curl' 'enet' 'libogg' 'libpng' 'libvorbis'
+         'libxml2' 'openal' 'sdl' 'wxgtk2.8' 'zlib' 'libgl' '0ad-data' 'glu'
+         'gloox' 'miniupnpc' 'icu' 'nspr')
+makedepends=('boost' 'cmake' 'mesa' 'zip' 'python2' 'libsm')
+source=("http://releases.wildfiregames.com/$pkgname-$_pkgver-unix-build.tar.xz"
+        "http://trac.wildfiregames.com/raw-attachment/ticket/2552/miniupnpc_api.patch"
+        "gcc49-${pkgname}.patch::http://trac.wildfiregames.com/changeset/15334?format=diff&new=15334")
+md5sums=('3836bbcdf4edc57c2354b4fef6023146'
+         '6981595ba4b8eb21f9503304b090c9a9'
+         '5eda18c3f81cda68983bdeb7d7e20531')
+
+prepare() {
+  cd "$srcdir/$pkgname-$_pkgver/"
+  patch -Np0 -i "../miniupnpc_api.patch"
+  sed -i "s/env python/env python2/g" libraries/source/cxxtest-4.3/bin/cxxtestgen
+
+  # Fix FS#40839
+  patch -Np3 -i "../gcc49-${pkgname}.patch"
+}
+
+build() {
+  cd "$srcdir/$pkgname-$_pkgver/build/workspaces"
+
+  unset CPPFLAGS # for le spidermonkey
+
+  export WX_CONFIG=/usr/bin/wx-config-2.8
+  ./update-workspaces.sh \
+      --with-system-enet \
+      --with-system-miniupnpc \
+      --bindir=/usr/bin \
+      --libdir=/usr/lib/0ad \
+      --datadir=/usr/share/${pkgname}/data
+
+  cd "$srcdir/$pkgname-$_pkgver/build/workspaces/gcc"
+
+  make
+}
+
+package() {
+  install -d "${pkgdir}"/usr/{bin,lib/0ad,share/"${pkgname}"/data}
+  cd "$srcdir/$pkgname-$_pkgver"
+
+  install -Dm755 binaries/system/pyrogenesis "${pkgdir}/usr/bin"
+  install -Dm755 binaries/system/*.so "${pkgdir}/usr/lib/0ad"
+
+  cp -r binaries/data/l10n/ ${pkgdir}/usr/share/${pkgname}/data/
+
+  install -Dm755 build/resources/${pkgname}.sh "${pkgdir}/usr/bin/${pkgname}"
+  install -Dm644 build/resources/${pkgname}.desktop \
+    "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+  install -Dm644 build/resources/${pkgname}.png \
+    "${pkgdir}/usr/share/pixmaps/${pkgname}.png"
+}
+
+# Fails?
+#check() {
+#  cd "$srcdir/$pkgname-$_pkgver"
+#  LD_LIBRARY_PATH=binaries/system binaries/system/test
+#}
