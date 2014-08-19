@@ -3,7 +3,7 @@
 
 pkgname=dolphin-emu
 pkgver=4.0.2
-pkgrel=4
+pkgrel=5
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=('i686' 'x86_64')
@@ -11,33 +11,36 @@ url='http://dolphin-emu.org'
 license=('GPL2')
 
 makedepends=('cmake' 'git' 'opencl-headers')
-depends=('bluez-libs' 'ffmpeg' 'glew' 'libao' 'miniupnpc' 'openal' 'portaudio' 'sdl2' 'soundtouch' 'wxgtk')
+depends=('bluez-libs' 'ffmpeg' 'glew' 'libao' 'libusbx' 'miniupnpc' 'openal' 'portaudio' 'sdl2' 'soundtouch' 'wxgtk')
 optdepends=('pulseaudio: PulseAudio backend')
 
-source=("${pkgname%-*}::git+https://code.google.com/p/dolphin-emu/#tag=${pkgver}"
-        'dolphin-emu.desktop'
-        'Dolphin_Logo.png')
+options=('!emptydirs')
 
-# TODO: Drop the custom icon and .desktop file, apparently dolphin ships these now.
+source=("${pkgname%-*}::git+https://code.google.com/p/dolphin-emu/#tag=${pkgver}"
+        'dolphin-emu-gcc49.patch')
+md5sums=('SKIP'
+         '5fead49fc3a0ff9a9d1435368b5df1f9')
+
+prepare() {
+  cd "${srcdir}/${pkgname%-*}"
+
+  patch -Np1 -i ../dolphin-emu-gcc49.patch
+}
 
 build() {
   cd "${srcdir}/${pkgname%-*}"
 
   mkdir build && cd build
-  cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DwxWidgets_CONFIG_EXECUTABLE=/usr/bin/wx-config-2.9
+  if [[ $CARCH == x86_64 ]]; then
+    cmake .. -DCMAKE_INSTALL_PREFIX='/usr' -DCMAKE_CXX_FLAGS='-fno-inline-functions'
+  else
+    cmake .. -DCMAKE_INSTALL_PREFIX='/usr'
+  fi
   make
 }
 
 package() {
   cd "${srcdir}/${pkgname%-*}/build"
 
-  make DESTDIR=${pkgdir} install
-
-  install -Dm644 "${srcdir}/dolphin-emu.desktop" \
-                 "${pkgdir}/usr/share/applications/dolphin-emu.desktop"
-  install -Dm644 "${srcdir}/Dolphin_Logo.png" "${pkgdir}/usr/share/pixmaps/dolphin-emu.png"
+  make DESTDIR="${pkgdir}" install
 }
-
-md5sums=('SKIP'
-         'feed4580c2e6bfbc7f6c67dad861daae'
-         'd15c51f547b4bd47e510faac40bcc9d6')
