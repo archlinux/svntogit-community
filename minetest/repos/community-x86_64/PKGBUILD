@@ -2,41 +2,89 @@
 # Maintainer: Laurent Carlier <lordheavym@gmail.com>
 # Contributor: Konsta Kokkinen <kray@tsundere.fi>
 
-pkgname=minetest
+pkgname=('minetest' 'minetest-server' 'minetest-common')
 pkgver=0.4.10
-pkgrel=2
-pkgdesc='An Infiniminer/Minecraft inspired game'
+pkgrel=4
 arch=('i686' 'x86_64')
 url='http://minetest.net/'
 license=('GPL')
-depends=('sqlite' 'freetype2' 'leveldb' 'openal' 'libvorbis' 'curl' 'irrlicht'
-         'hicolor-icon-theme' 'luajit')
-makedepends=('cmake')
-install=minetest.install
-source=(${pkgname}-${pkgver}.tar.gz::https://github.com/minetest/${pkgname}/tarball/${pkgver}
-	${pkgname}_game-${pkgver}.tar.gz::https://github.com/minetest/${pkgname}_game/tarball/${pkgver})
-sha256sums=('05d15c8e2c8e53ee9d3006e79c2b59200311a7b879220d8b6f6a6fd2acf806b6'
-            '7624a1e64124c4438256719ccecfc44fe5139733a076394aedad1f785e50019f')
+makedepends=('sqlite' 'freetype2' 'leveldb' 'openal' 'libvorbis' 'curl' 'irrlicht'
+             'hicolor-icon-theme' 'luajit' 'cmake')
+source=(https://github.com/minetest/minetest/archive/$pkgver.tar.gz
+        data-$pkgver.tar.gz::https://github.com/minetest/minetest_game/archive/$pkgver.tar.gz
+        minetest@.service)
+md5sums=('61bb35c9d5521f1b072bc3c3e634c863'
+         '398d83431c44fb85f02bd902b016338c'
+         'ec193b09eb85f2518aaa17506ad06c57')
+
+prepare() {
+  install -d build-{client,server}
+}
 
 build() {
-  cd "$srcdir"/minetest-minetest-*
-
-  cmake . -DCMAKE_INSTALL_PREFIX=/usr \
-    -DENABLE_GETTEXT=on \
+  cd "$srcdir"/build-client
+  cmake ../$pkgname-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SERVER=0 \
+    -DENABLE_GETTEXT=1 \
     -DENABLE_FREETYPE=1 \
-    -DENABLE_LEVELDB=on \
+    -DENABLE_LEVELDB=0 \
+    -DENABLE_REDIS=0 \
+    -DLUA_INCLUDE_DIR=/usr/include/luajit-2.0 \
+    -DLUA_LIBRARY=//usr/lib/libluajit-5.1.so.2
+  make
+
+  cd "$srcdir"/build-server
+  cmake ../$pkgname-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_CLIENT=0 \
+    -DENABLE_LEVELDB=1 \
+    -DENABLE_REDIS=1 \
     -DLUA_INCLUDE_DIR=/usr/include/luajit-2.0 \
     -DLUA_LIBRARY=//usr/lib/libluajit-5.1.so.2
   make
 }
 
-package() {
-  cd "$srcdir"/minetest-minetest-*
+package_minetest() {
+  pkgdesc='Multiplayer infinite-world block sandbox game'
+  depends=('minetest-common' 'irrlicht' 'curl' 'luajit' 'libvorbis' 'sqlite'
+           'openal' 'hicolor-icon-theme' 'desktop-file-utils' 'xdg-utils')
+  install=$pkgname.install
 
+  cd build-client
   make DESTDIR="$pkgdir" install
+  cp -r locale "$pkgdir"/usr/share/
 
-  mv -v "$srcdir"/minetest-minetest_game-* "$pkgdir"/usr/share/minetest/games/minetest
-  
-  # small cleanup
+  rm -rf "$pkgdir"/usr/share/{minetest,doc}
+  rm "$pkgdir"/usr/share/man/man6/minetestserver.6
+}
+
+package_minetest-server() {
+  pkgdesc='Server of infinite-world block sandbox game'
+  depends=('minetest-common' 'leveldb' 'luajit' 'curl' 'sqlite')
+  install=$pkgname.install
+
+  cd build-server
+  make DESTDIR="$pkgdir" install
+  install -d  "$pkgdir"/etc/minetest
+  install -Dm644 ../minetest@.service \
+    "$pkgdir"/usr/lib/systemd/system/minetest@.service
+
+  rm -rf "$pkgdir"/usr/share/{minetest,appdata,applications,icons,doc}
+  rm "$pkgdir"/usr/share/man/man6/minetest.6
+}
+
+package_minetest-common() {
+  pkgdesc='Common data files for minetest and minetest-server'
+
+  cd $pkgbase-$pkgver
+  install -d "$pkgdir"/usr/share/minetest
+
+  cp -r games builtin client fonts textures "$pkgdir"/usr/share/minetest/
+  cp -r "$srcdir"/minetest_game-$pkgver "$pkgdir"/usr/share/minetest/games/minetest
   rm "$pkgdir"/usr/share/minetest/games/minetest/.gitignore
+
+  for file in doc/{lua_api,mapformat,menu_lua_api}.txt minetest.conf.example; do
+    install -Dm644 $file "$pkgdir"/usr/share/minetest/doc/$(basename $file)
+  done
 }
