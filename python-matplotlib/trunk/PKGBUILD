@@ -1,58 +1,81 @@
 # $Id$
-# Maintainer: Stéphane Gaudreault <stephane@archlinux.org>
+# Maintainer: Felix Yan <felixonmars@gmail.com>
+# Contributor: Stéphane Gaudreault <stephane@archlinux.org>
 # Contributor: Stefan Husmann <stefan-husmann@t-online.de>
 # Contributor: Angel 'angvp' Velasquez <angvp[at]archlinux.com.ve>
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgbase=python-matplotlib
 pkgname=('python2-matplotlib' 'python-matplotlib')
-pkgver=1.3.1
-pkgrel=4
+pkgver=1.4.0
+pkgrel=1
 pkgdesc="A python plotting library, making publication quality plots"
 arch=('i686' 'x86_64')
 url='http://matplotlib.org'
 license=('custom')
-checkdepends=('python-nose' 'python2-nose')
+checkdepends=('python-nose' 'python2-nose' 'python-mock' 'python2-mock' 'xorg-server-xvfb'
+              'texlive-core' 'texlive-latexextra' 'imagemagick' 'ffmpeg' 'mencoder' 'inkscape')
 makedepends=('python2-pytz' 'python2-numpy' 'python2-pyqt4' 'python-pytz' 'python-numpy'
              'python-pyqt4' 'tk' 'python-cairo' 'python2-cairo' 'python-dateutil'
              'python2-dateutil' 'python-gobject' 'python2-gobject' 'python-pyparsing'
              'python2-pyparsing' 'pygtk' 'python-six' 'ghostscript' 'texlive-bin'
-             'python-tornado' 'python2-tornado' 'gtk3' 'wxpython')
-source=("http://sourceforge.net/projects/matplotlib/files/matplotlib/matplotlib-${pkgver}/matplotlib-${pkgver}.tar.gz"
-        "ffmpeg-2.0.patch")
-sha512sums=('04877aa15b6d52a6f813e8377098d13c432f66ae2522c544575440180944c9b73a2164ae63edd3a0eff807883bf7b39cd55f28454ccee8c76146567ff4a6fd40'
-            'f76cde48aee9819f080bc34717c9cb6270f6dfac0490e7b19673ee665392be1837621aa858435f48595fa7d095e8efaee6737c87f9d42419499f5b8b8b001129')
+             'python-tornado' 'python2-tornado' 'gtk3' 'wxpython' 'python-pyqt5' 'python2-pyqt5')
+source=("https://github.com/matplotlib/matplotlib/archive/v$pkgver.tar.gz")
+sha512sums=('1d127e3da4eb208af57b9890defc1d95f2f2b9c6d44ba2fde5dbeac6d95112a2542090fe198b31022887c5c2102710fbc11b01e0c1032c8ea9f88a8c91336830')
 
 prepare() {
-   cp -a matplotlib-${pkgver} matplotlib-${pkgver}-py3
+   cp -a matplotlib-${pkgver} matplotlib-${pkgver}-py2
 
    cd matplotlib-${pkgver}
-   patch -Np1 -i ../ffmpeg-2.0.patch
    for file in $(find . -name '*.py' -print); do
       sed -i -e "s|^#!.*/usr/bin/python|#!/usr/bin/python2|" \
-             -e "s|^#!.*/usr/bin/env *python|#!/usr/bin/env python2|" ${file}
+             -e "s|^#!.*/usr/bin/env *python|#!/usr/bin/env python3|" ${file}
    done
 
-   cd ../matplotlib-${pkgver}-py3
-   patch -Np1 -i ../ffmpeg-2.0.patch
+   cd ../matplotlib-${pkgver}-py2
    for file in $(find . -name '*.py' -print); do
       sed -i -e "s|^#!.*/usr/bin/python|#!/usr/bin/python3|" \
-             -e "s|^#!.*/usr/bin/env *python|#!/usr/bin/env python3|" ${file}
+             -e "s|^#!.*/usr/bin/env *python|#!/usr/bin/env python2|" ${file}
    done
 }
 
 build() {
-   cd matplotlib-${pkgver}
-   python2 setup.py build
+   # this seems to need to be present or gtk/gdk dies
+   # and hangs the build checking if gtk3cairo is installed
+   export XDG_RUNTIME_DIR=/tmp
 
-   cd ../matplotlib-${pkgver}-py3
+   cd matplotlib-${pkgver}
    python3 setup.py build
+
+   cd ../matplotlib-${pkgver}-py2
+   python2 setup.py build
+}
+
+check() {
+   cd matplotlib-${pkgver}
+   (
+     export PYTHONPATH="$PWD/build/lib.linux-$CARCH-3.4:$PYTHONPATH"
+     python -c "from matplotlib import font_manager"
+     rm -rf ../tmp_test_dir && mkdir ../tmp_test_dir && cd ../tmp_test_dir
+     xvfb-run -a -s "+extension GLX +extension RANDR +render -screen 0 1280x1024x24" \
+       python ../matplotlib-${pkgver}/tests.py -sv --processes=8 --process-timeout=300 || warning "Tests failed"
+   )
+
+   cd ../matplotlib-${pkgver}-py2
+   (
+     export PYTHONPATH="$PWD/build/lib.linux-$CARCH-2.7:$PYTHONPATH"
+     python2 -c "from matplotlib import font_manager"
+     rm -rf ../tmp_test_dir && mkdir ../tmp_test_dir && cd ../tmp_test_dir
+     xvfb-run -a -s "+extension GLX +extension RANDR +render -screen 0 1280x1024x24" \
+       python2 ../matplotlib-${pkgver}-py2/tests.py -sv --processes=8 --process-timeout=300 || warning "Tests failed"
+   )
 }
 
 package_python2-matplotlib() {
    depends=('python2-pytz' 'python2-numpy' 'python2-cairo' 'python2-pyqt4' 'python2-dateutil' 'python2-pyparsing')
    optdepends=('pygtk: for GTK/GTKAgg/GTKCairo backend'
                'python2-cairo: for GTKCairo/GTK3Cairo backend'
+               'python2-pyqt5: for Qt5Agg backend'
                'tk: used by the TkAgg backend'
                'ghostscript: usetex dependencies'
                'texlive-bin: usetex dependencies'
@@ -60,7 +83,7 @@ package_python2-matplotlib() {
                'python2-gobject: for GTK3Agg/GTK3Cairo backend'
                'wxpython: for WX/WXAgg backend')
 
-   cd matplotlib-${pkgver}
+   cd matplotlib-${pkgver}-py2
    python2 setup.py install -O1 --skip-build --root "${pkgdir}" --prefix=/usr
 
    install -dm755 "${pkgdir}"/usr/share/licenses/python2-matplotlib
@@ -71,12 +94,13 @@ package_python-matplotlib() {
    depends=('python-pytz' 'python-numpy' 'python-cairo' 'python-pyqt4' 'python-dateutil' 'python-pyparsing')
    optdepends=('python-gobject: for GTK3Agg/GTK3Cairo backend'
                'python-cairo: for GTK3Cairo backend'
+               'python-pyqt5: for Qt5Agg backend'
                'tk: used by the TkAgg backend'
                'ghostscript: usetex dependencies'
                'texlive-bin: usetex dependencies'
                'python-tornado: for webagg backend')
 
-   cd matplotlib-${pkgver}-py3
+   cd matplotlib-${pkgver}
    python3 setup.py install -O1 --skip-build --root "${pkgdir}" --prefix=/usr
 
    install -dm755 "${pkgdir}"/usr/share/licenses/python-matplotlib
