@@ -10,32 +10,26 @@
 # Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
 
 pkgname=('lib32-llvm' 'lib32-llvm-libs')
-pkgver=3.4.2
-_base_ver=3.4
+pkgver=3.5.0
 pkgrel=1
 arch=('x86_64')
 url="http://llvm.org/"
 license=('custom:University of Illinois/NCSA Open Source License')
 makedepends=('lib32-libffi' 'lib32-zlib' 'python2' 'gcc-multilib')
 options=('staticlibs')
-source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.gz{,.sig}
-        http://llvm.org/releases/$_base_ver/compiler-rt-$_base_ver.src.tar.gz{,.sig})
-sha256sums=('17038d47069ad0700c063caed76f0c7259628b0e79651ce2b540d506f2f1efd7'
+source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.xz{,.sig}
+        http://llvm.org/releases/$pkgver/compiler-rt-$pkgver.src.tar.xz{,.sig}
+        llvm-3.5.0-force-link-pass.o.patch)
+sha256sums=('28e199f368ef0a4666708f31c7991ad3bcc3a578342b0306526dd35f07595c03'
             'SKIP'
-            'f37c89b1383ce462d47537a0245ac798600887a9be9f63073e16b79ed536ab5c'
-            'SKIP')
+            'a4b3e655832bf8d9a357ea2c771db347237460e131988cbb96cda40ff39a8136'
+            'SKIP'
+            '5702053503d49448598eda1b8dc8c263f0df9ad7486833273e3987b5dec25a19')
 
 prepare() {
-  # Change directory names to release names so we don't need to change the
-  # whole PKGBUILD
-  mv llvm-$pkgver{.src,}
+  cd "$srcdir/llvm-$pkgver.src"
 
-  cd "$srcdir/llvm-$pkgver"
-
-  rm -rf tools/clang
-  
-  rm -rf projects/compiler-rt
-  mv "$srcdir/compiler-rt-$_base_ver" projects/compiler-rt
+  mv "$srcdir/compiler-rt-$pkgver.src" projects/compiler-rt
 
   # Fix installation directories, ./configure doesn't seem to set them right
   sed -i -e 's:\$(PROJ_prefix)/lib:$(PROJ_prefix)/lib32:' \
@@ -46,10 +40,14 @@ prepare() {
   sed -i 's:LLVM_LIBDIR="${prefix}/lib":LLVM_LIBDIR="${prefix}/lib32":' \
     autoconf/configure.ac \
     configure
+
+  # Fix build with GCC 4.9 (patch from Debian)
+  # http://llvm.org/bugs/show_bug.cgi?id=20067
+  patch -Np1 -i "$srcdir/llvm-3.5.0-force-link-pass.o.patch"
 }
 
 build() {
-  cd "$srcdir/llvm-$pkgver"
+  cd "$srcdir/llvm-$pkgver.src"
 
   export CC="gcc -m32"
   export CXX="g++ -m32"
@@ -88,29 +86,29 @@ package_lib32-llvm() {
   pkgdesc="Low Level Virtual Machine (32-bit)"
   depends=('lib32-llvm-libs' 'llvm')
 
-  cd "$srcdir/llvm-$pkgver"
+  cd "$srcdir/llvm-$pkgver.src"
 
   make DESTDIR="$pkgdir" install
 
   # The runtime library goes into lib32-llvm-libs
   mv "$pkgdir/usr/lib32/libLLVM-$pkgver.so" "$srcdir/"
-  mv "$pkgdir/usr/lib32/libLLVM-$_base_ver.so" "$srcdir/"
+  mv "$pkgdir/usr/lib32/libLLVM-${pkgver%.*}.so" "$srcdir/"
 
   # Fix permissions of static libs
   chmod -x "$pkgdir"/usr/lib32/*.a
 
-  mv "$pkgdir/usr/bin/i686-pc-linux-gnu-llvm-config" "$pkgdir/usr/lib32/llvm-config"
+  mv "$pkgdir/usr/bin/llvm-config" "$pkgdir/usr/lib32/llvm-config"
 
   # Get rid of example Hello transformation
   rm "$pkgdir"/usr/lib32/*LLVMHello.*
 
-  # Symlink LLVMgold.so into /usr/lib/bfd-plugins
-  # (https://bugs.archlinux.org/task/28479)
+  # Symlink LLVMgold.so from /usr/lib32/bfd-plugins
+  # https://bugs.archlinux.org/task/28479
   install -d "$pkgdir/usr/lib32/bfd-plugins"
   ln -s ../LLVMgold.so "$pkgdir/usr/lib32/bfd-plugins/LLVMgold.so"
 
   mv "$pkgdir"/usr/include/llvm/Config/*config.h "$pkgdir/"
-  rm -rf "$pkgdir"/usr/{bin,include,share/{doc,man}}
+  rm -rf "$pkgdir"/usr/{bin,include,share/{doc,man,llvm}}
 
   install -d "$pkgdir/usr/include/llvm/Config"
   mv "$pkgdir/config.h" "$pkgdir/usr/include/llvm/Config/config-32.h"
@@ -129,8 +127,8 @@ package_lib32-llvm-libs() {
   cd "$srcdir"
 
   install -d "$pkgdir/usr/lib32"
-  cp -P libLLVM-$pkgver.so libLLVM-$_base_ver.so "$pkgdir/usr/lib32/"
+  cp -P libLLVM-$pkgver.so libLLVM-${pkgver%.*}.so "$pkgdir/usr/lib32/"
 
-  install -Dm644 llvm-$pkgver/LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 llvm-$pkgver.src/LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
