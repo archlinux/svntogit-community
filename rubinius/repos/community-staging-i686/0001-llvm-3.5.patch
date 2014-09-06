@@ -1,0 +1,476 @@
+From f4796fe40e3d290c134d8fe8c5b6ec78ef7a59b2 Mon Sep 17 00:00:00 2001
+From: "Jan Alexander Steffens (heftig)" <jan.steffens@gmail.com>
+Date: Sat, 6 Sep 2014 00:51:53 +0200
+Subject: [PATCH] llvm 3.5
+
+---
+ configure                      | 12 ++++++++++++
+ rakelib/blueprint.rb           |  2 ++
+ vm/environment.cpp             |  2 +-
+ vm/llvm/autotypes.cpp          | 19 ++++++++++---------
+ vm/llvm/disassembler.cpp       |  8 ++++++++
+ vm/llvm/disassembler.hpp       |  6 ++++++
+ vm/llvm/jit_builder.cpp        |  4 +++-
+ vm/llvm/jit_builder.hpp        |  4 +++-
+ vm/llvm/jit_compiler.cpp       | 13 +++++++++++--
+ vm/llvm/jit_context.cpp        |  5 ++++-
+ vm/llvm/jit_memory_manager.cpp | 20 ++++++++++++++++++++
+ vm/llvm/jit_memory_manager.hpp | 37 ++++++++++++++++++++++++++++++++++++-
+ vm/llvm/passes.cpp             |  6 +++++-
+ vm/llvm/state.cpp              | 11 ++++++++---
+ 14 files changed, 129 insertions(+), 20 deletions(-)
+
+diff --git a/configure b/configure
+index bdc9f43..b845dc9 100755
+--- a/configure
++++ b/configure
+@@ -67,6 +67,7 @@ class Configure
+     @llvm_prebuilt_name     = nil
+     @llvm_system_name       = get_system_name
+     @llvm_shared            = false
++    @llvm_cxxflags          = ""
+ 
+     @llvm_version           = "3.2"
+     @llvm_api_version       = 302
+@@ -890,6 +891,12 @@ Unsupported language version requested: #{version}. Options are #{@supported_ver
+     false
+   end
+ 
++  def check_llvm_flags
++    if @llvm_api_version >= 305
++      @llvm_cxxflags << " -std=c++11"
++    end
++  end
++
+   def env(which)
+     ENV[which] || ""
+   end
+@@ -1542,6 +1549,10 @@ int main() { return tgetnum(""); }
+       @log.write "WARNING: LLVM disabled."
+     end
+ 
++    if @use_llvm
++      check_llvm_flags
++    end
++
+     @log.write ""
+ 
+     detect_sizeof("short")
+@@ -1668,6 +1679,7 @@ int main() { return tgetnum(""); }
+       :llvm_configure     => @llvm_configure,
+       :llvm_version       => @llvm_version,
+       :llvm_shared        => @llvm_shared,
++      :llvm_cxxflags      => @llvm_cxxflags,
+       :cc                 => @cc,
+       :cxx                => @cxx,
+       :ldshared           => @ldshared,
+diff --git a/rakelib/blueprint.rb b/rakelib/blueprint.rb
+index 826b37b..e6e05ed 100644
+--- a/rakelib/blueprint.rb
++++ b/rakelib/blueprint.rb
+@@ -197,6 +197,8 @@ Daedalus.blueprint do |i|
+ 
+   case Rubinius::BUILD_CONFIG[:llvm]
+   when :config, :prebuilt, :svn
++    gcc.cxxflags << Rubinius::BUILD_CONFIG[:llvm_cxxflags]
++
+     conf = Rubinius::BUILD_CONFIG[:llvm_configure]
+     flags = `#{conf} --cflags`.strip.split(/\s+/)
+     flags.delete_if { |x| x.index("-O") == 0 }
+diff --git a/vm/environment.cpp b/vm/environment.cpp
+index d0562c2..8af8c50 100644
+--- a/vm/environment.cpp
++++ b/vm/environment.cpp
+@@ -75,7 +75,7 @@ namespace rubinius {
+     , signal_handler_(NULL)
+     , finalizer_handler_(NULL)
+   {
+-#ifdef ENABLE_LLVM
++#if defined ENABLE_LLVM && RBX_LLVM_API_VER < 305
+     if(!llvm::llvm_start_multithreaded()) {
+       assert(0 && "llvm doesn't support threading!");
+     }
+diff --git a/vm/llvm/autotypes.cpp b/vm/llvm/autotypes.cpp
+index 6b2563a..b4f553e 100644
+--- a/vm/llvm/autotypes.cpp
++++ b/vm/llvm/autotypes.cpp
+@@ -8,23 +8,24 @@
+ #else
+ #include <llvm/Target/TargetData.h>
+ #endif
+-// #include <llvm/LinkAllPasses.h>
++#if RBX_LLVM_API_VER >= 305
++#include <llvm/IR/Verifier.h>
++#include <llvm/IR/CFG.h>
++#else
+ #include <llvm/Analysis/Verifier.h>
+-#include <llvm/Transforms/Scalar.h>
++#include <llvm/Support/CFG.h>
++#endif
+ #if RBX_LLVM_API_VER >= 303
+ #include <llvm/IR/CallingConv.h>
++#include <llvm/IR/Module.h>
+ #else
+ #include <llvm/CallingConv.h>
++#include <llvm/Module.h>
+ #endif
+-#include <llvm/Support/CFG.h>
++#include <llvm/Transforms/Scalar.h>
+ #include <llvm/Analysis/Passes.h>
+-
++// #include <llvm/LinkAllPasses.h>
+ #include <llvm/Target/TargetOptions.h>
+-#if RBX_LLVM_API_VER >= 303
+-#include <llvm/IR/Module.h>
+-#else
+-#include <llvm/Module.h>
+-#endif
+ 
+ using namespace llvm;
+ 
+diff --git a/vm/llvm/disassembler.cpp b/vm/llvm/disassembler.cpp
+index b3ea424..0c5ff83 100644
+--- a/vm/llvm/disassembler.cpp
++++ b/vm/llvm/disassembler.cpp
+@@ -68,7 +68,12 @@ namespace rubinius {
+ #endif
+ 
+     if(asm_info) {
++#if RBX_LLVM_API_VER > 304
++      context = new llvm::MCContext(asm_info, reg_info, 0);
++      disassembler = target->createMCDisassembler(*sub_target, *context);
++#else
+       disassembler = target->createMCDisassembler(*sub_target);
++#endif
+       memory_object = new JITMemoryObject((const uint8_t*)buffer, (uint64_t) size);
+     }
+   }
+@@ -76,6 +81,9 @@ namespace rubinius {
+   JITDisassembler::~JITDisassembler() {
+     if(memory_object) delete memory_object;
+     if(disassembler) delete disassembler;
++#if RBX_LLVM_API_VER > 304
++    if(context) delete context;
++#endif
+     if(sub_target) delete sub_target;
+     if(target_machine) delete target_machine;
+   }
+diff --git a/vm/llvm/disassembler.hpp b/vm/llvm/disassembler.hpp
+index 3e16a8c..b502a02 100644
+--- a/vm/llvm/disassembler.hpp
++++ b/vm/llvm/disassembler.hpp
+@@ -9,6 +9,9 @@
+ #include <llvm/MC/MCAsmInfo.h>
+ #include <llvm/MC/MCDisassembler.h>
+ #include <llvm/Support/MemoryObject.h>
++#if RBX_LLVM_API_VER >= 305
++#include <llvm/MC/MCContext.h>
++#endif
+ 
+ namespace rubinius {
+ 
+@@ -80,6 +83,9 @@ namespace rubinius {
+       const llvm::MCInstrInfo* instr_info;
+       const llvm::MCRegisterInfo* reg_info;
+ #endif
++#if RBX_LLVM_API_VER > 304
++      llvm::MCContext* context;
++#endif
+ 
+       llvm::MCDisassembler* disassembler;
+       const JITMemoryObject* memory_object;
+diff --git a/vm/llvm/jit_builder.cpp b/vm/llvm/jit_builder.cpp
+index c479aab..dd7f3d4 100644
+--- a/vm/llvm/jit_builder.cpp
++++ b/vm/llvm/jit_builder.cpp
+@@ -11,7 +11,9 @@
+ 
+ #include "instruments/tooling.hpp"
+ #include <llvm/Analysis/CaptureTracking.h>
+-#if RBX_LLVM_API_VER > 301
++#if RBX_LLVM_API_VER > 304
++#include <llvm/IR/DebugInfo.h>
++#elif RBX_LLVM_API_VER > 301
+ #include <llvm/DebugInfo.h>
+ #else
+ #include <llvm/Analysis/DebugInfo.h>
+diff --git a/vm/llvm/jit_builder.hpp b/vm/llvm/jit_builder.hpp
+index 77d4283..3729ae9 100644
+--- a/vm/llvm/jit_builder.hpp
++++ b/vm/llvm/jit_builder.hpp
+@@ -15,7 +15,9 @@
+ #else
+ #include <llvm/Support/IRBuilder.h>
+ #endif
+-#if RBX_LLVM_API_VER > 301
++#if RBX_LLVM_API_VER > 304
++#include <llvm/IR/DIBuilder.h>
++#elif RBX_LLVM_API_VER > 301
+ #include <llvm/DIBuilder.h>
+ #else
+ #include <llvm/Analysis/DIBuilder.h>
+diff --git a/vm/llvm/jit_compiler.cpp b/vm/llvm/jit_compiler.cpp
+index 32dbe99..5542dc1 100644
+--- a/vm/llvm/jit_compiler.cpp
++++ b/vm/llvm/jit_compiler.cpp
+@@ -21,14 +21,19 @@
+ #else
+ #include <llvm/Target/TargetData.h>
+ #endif
++#if RBX_LLVM_API_VER >= 305
++#include <llvm/IR/Verifier.h>
++#include <llvm/IR/CFG.h>
++#else
+ #include <llvm/Analysis/Verifier.h>
+-#include <llvm/Transforms/Scalar.h>
++#include <llvm/Support/CFG.h>
++#endif
+ #if RBX_LLVM_API_VER >= 303
+ #include <llvm/IR/CallingConv.h>
+ #else
+ #include <llvm/CallingConv.h>
+ #endif
+-#include <llvm/Support/CFG.h>
++#include <llvm/Transforms/Scalar.h>
+ #include <llvm/Analysis/Passes.h>
+ 
+ #include <llvm/Target/TargetOptions.h>
+@@ -97,7 +102,11 @@ namespace jit {
+         (*i)->eraseFromParent();
+       }
+ 
++#if RBX_LLVM_API_VER >= 305
++      if(Broken or llvm::verifyFunction(*function_, &llvm::outs())) {
++#else
+       if(Broken or llvm::verifyFunction(*function_, PrintMessageAction)) {
++#endif
+         llvm::outs() << "ERROR: complication error detected.\n";
+         llvm::outs() << "ERROR: Please report the above message and the\n";
+         llvm::outs() << "       code below to http://github.com/rubinius/rubinius/issues\n";
+diff --git a/vm/llvm/jit_context.cpp b/vm/llvm/jit_context.cpp
+index 594a63a..003bfe9 100644
+--- a/vm/llvm/jit_context.cpp
++++ b/vm/llvm/jit_context.cpp
+@@ -107,7 +107,10 @@ namespace rubinius {
+     builder_->OptLevel = 2;
+     passes_ = new llvm::FunctionPassManager(module_);
+ 
+-#if RBX_LLVM_API_VER >= 302
++#if RBX_LLVM_API_VER >= 305
++    module_->setDataLayout(engine_->getDataLayout()->getStringRepresentation());
++    passes_->add(new llvm::DataLayoutPass(module_));
++#elif RBX_LLVM_API_VER >= 302
+     module_->setDataLayout(engine_->getDataLayout()->getStringRepresentation());
+     passes_->add(new llvm::DataLayout(*engine_->getDataLayout()));
+ #else
+diff --git a/vm/llvm/jit_memory_manager.cpp b/vm/llvm/jit_memory_manager.cpp
+index 43bcfae..68a0933 100644
+--- a/vm/llvm/jit_memory_manager.cpp
++++ b/vm/llvm/jit_memory_manager.cpp
+@@ -216,6 +216,17 @@ TrimAllocationToSize(FreeRangeHeader *FreeList, uint64_t NewSize) {
+ // Memory Block Implementation.
+ //===----------------------------------------------------------------------===//
+ 
++#if RBX_LLVM_API_VER >= 305
++void *JITSlabAllocator::Allocate(size_t Size, size_t /*Alignment*/) {
++  sys::MemoryBlock B = JMM.allocateNewSlab(Size);
++  return (void*)B.base();
++}
++
++void JITSlabAllocator::Deallocate(void *Slab, size_t Size) {
++  sys::MemoryBlock B(Slab, Size);
++  sys::Memory::ReleaseRWX(B);
++}
++#else
+ MemSlab *JITSlabAllocator::Allocate(size_t Size) {
+   sys::MemoryBlock B = JMM.allocateNewSlab(Size);
+   MemSlab *Slab = (MemSlab*)B.base();
+@@ -228,13 +239,20 @@ void JITSlabAllocator::Deallocate(MemSlab *Slab) {
+   sys::MemoryBlock B(Slab, Slab->Size);
+   sys::Memory::ReleaseRWX(B);
+ }
++#endif
+ 
+ RubiniusJITMemoryManager::RubiniusJITMemoryManager()
+   :
++#if RBX_LLVM_API_VER >= 305
++    LastSlab(nullptr, 0),
++    StubAllocator(*this),
++    DataAllocator(*this),
++#else
+     LastSlab(0, 0),
+     BumpSlabAllocator(*this),
+     StubAllocator(DefaultSlabSize, DefaultSizeThreshold, BumpSlabAllocator),
+     DataAllocator(DefaultSlabSize, DefaultSizeThreshold, BumpSlabAllocator),
++#endif
+ #ifdef NDEBUG
+     PoisonMemory(false) {
+ #else
+@@ -532,6 +550,7 @@ void *RubiniusJITMemoryManager::getPointerToNamedFunction(const std::string &Nam
+   return 0;
+ }
+ 
++#if RBX_LLVM_API_VER < 305
+ // Allocate memory for code in 512K slabs.
+ const size_t RubiniusJITMemoryManager::DefaultCodeSlabSize = 512 * 1024;
+ 
+@@ -539,6 +558,7 @@ const size_t RubiniusJITMemoryManager::DefaultCodeSlabSize = 512 * 1024;
+ const size_t RubiniusJITMemoryManager::DefaultSlabSize = 64 * 1024;
+ 
+ const size_t RubiniusJITMemoryManager::DefaultSizeThreshold = 16 * 1024;
++#endif
+ 
+ }
+ }
+diff --git a/vm/llvm/jit_memory_manager.hpp b/vm/llvm/jit_memory_manager.hpp
+index ae83f7b..20f16cb 100644
+--- a/vm/llvm/jit_memory_manager.hpp
++++ b/vm/llvm/jit_memory_manager.hpp
+@@ -67,6 +67,15 @@ namespace jit {
+   class RubiniusJITMemoryManager;
+   class RubiniusRequestJITMemoryManager;
+ 
++#if RBX_LLVM_API_VER > 304
++  class JITSlabAllocator {
++    RubiniusJITMemoryManager &JMM;
++  public:
++    JITSlabAllocator(RubiniusJITMemoryManager &jmm) : JMM(jmm) { }
++    void *Allocate(size_t Size, size_t /*Alignment*/);
++    void Deallocate(void *Slab, size_t Size);
++  };
++#else
+   class JITSlabAllocator : public SlabAllocator {
+     RubiniusJITMemoryManager &JMM;
+   public:
+@@ -75,6 +84,7 @@ namespace jit {
+     virtual MemSlab *Allocate(size_t Size);
+     virtual void Deallocate(MemSlab *Slab);
+   };
++#endif
+ 
+   /// MemoryRangeHeader - For a range of memory, this is the header that we put
+   /// on the block of memory.  It is carefully crafted to be one word of memory.
+@@ -175,7 +185,23 @@ namespace jit {
+ 
+     friend class RubiniusRequestJITMemoryManager;
+ 
+-    // Whether to poison freed memory.
++#if RBX_LLVM_API_VER > 304
++  public:
++    /// DefaultCodeSlabSize - When we have to go map more memory, we allocate at
++    /// least this much unless more is requested. Currently, in 512k slabs.
++    static const size_t DefaultCodeSlabSize = 512 * 1024;
++
++    /// DefaultSlabSize - Allocate globals and stubs into slabs of 64K (probably
++    /// 16 pages) unless we get an allocation above SizeThreshold.
++    static const size_t DefaultSlabSize = 64 * 1024;
++
++    /// DefaultSizeThreshold - For any allocation larger than 16K (probably
++    /// 4 pages), we should allocate a separate slab to avoid wasted space at
++    /// the end of a normal slab.
++    static const size_t DefaultSizeThreshold = 16 * 1024;
++
++  private:
++#endif
+ 
+     /// LastSlab - This points to the last slab allocated and is used as the
+     /// NearBlock parameter to AllocateRWX so that we can attempt to lay out all
+@@ -187,9 +213,14 @@ namespace jit {
+     // Memory slabs allocated by the JIT.  We refer to them as slabs so we don't
+     // confuse them with the blocks of memory described above.
+     std::vector<sys::MemoryBlock> CodeSlabs;
++#if RBX_LLVM_API_VER > 304
++    BumpPtrAllocatorImpl<JITSlabAllocator, DefaultSlabSize, DefaultSizeThreshold> StubAllocator;
++    BumpPtrAllocatorImpl<JITSlabAllocator, DefaultSlabSize, DefaultSizeThreshold> DataAllocator;
++#else
+     JITSlabAllocator BumpSlabAllocator;
+     BumpPtrAllocator StubAllocator;
+     BumpPtrAllocator DataAllocator;
++#endif
+ 
+     // Circular list of free blocks.
+     FreeRangeHeader *FreeMemoryList;
+@@ -198,6 +229,8 @@ namespace jit {
+     MemoryRangeHeader *CurBlock;
+ 
+     utilities::thread::SpinLock lock_;
++
++    // Whether to poison freed memory.
+     bool PoisonMemory;
+ 
+   public:
+@@ -208,6 +241,7 @@ namespace jit {
+     /// last slab it allocated, so that subsequent allocations follow it.
+     sys::MemoryBlock allocateNewSlab(size_t size);
+ 
++#if RBX_LLVM_API_VER < 305
+     /// DefaultCodeSlabSize - When we have to go map more memory, we allocate at
+     /// least this much unless more is requested.
+     static const size_t DefaultCodeSlabSize;
+@@ -219,6 +253,7 @@ namespace jit {
+     /// DefaultSizeThreshold - For any allocation larger than this threshold, we
+     /// should allocate a separate slab.
+     static const size_t DefaultSizeThreshold;
++#endif
+ 
+     /// getPointerToNamedFunction - This method returns the address of the
+     /// specified function by using the dlsym function call.
+diff --git a/vm/llvm/passes.cpp b/vm/llvm/passes.cpp
+index 16793f1..3e9a9ec 100644
+--- a/vm/llvm/passes.cpp
++++ b/vm/llvm/passes.cpp
+@@ -3,6 +3,11 @@
+ #include "llvm/passes.hpp"
+ #include "config.h"
+ 
++#if RBX_LLVM_API_VER >= 305
++#include <llvm/IR/CallSite.h>
++#else
++#include <llvm/Support/CallSite.h>
++#endif
+ #if RBX_LLVM_API_VER >= 303
+ #include <llvm/IR/Attributes.h>
+ #include <llvm/IR/BasicBlock.h>
+@@ -21,7 +26,6 @@
+ #include <llvm/Intrinsics.h>
+ #endif
+ #include <llvm/Transforms/Utils/Cloning.h>
+-#include <llvm/Support/CallSite.h>
+ #include <llvm/ADT/APInt.h>
+ #include <llvm/Analysis/SparsePropagation.h>
+ #include <llvm/Analysis/AliasAnalysis.h>
+diff --git a/vm/llvm/state.cpp b/vm/llvm/state.cpp
+index 3117cb0..cace83c 100644
+--- a/vm/llvm/state.cpp
++++ b/vm/llvm/state.cpp
+@@ -36,19 +36,24 @@
+ #else
+ #include <llvm/Target/TargetData.h>
+ #endif
+-// #include <llvm/LinkAllPasses.h>
++#if RBX_LLVM_API_VER >= 305
++#include <llvm/IR/Verifier.h>
++#include <llvm/IR/CFG.h>
++#else
+ #include <llvm/Analysis/Verifier.h>
+-#include <llvm/Transforms/Scalar.h>
++#include <llvm/Support/CFG.h>
++#endif
+ #if RBX_LLVM_API_VER >= 303
+ #include <llvm/IR/CallingConv.h>
+ #else
+ #include <llvm/CallingConv.h>
+ #endif
+-#include <llvm/Support/CFG.h>
+ #include <llvm/Analysis/Passes.h>
++// #include <llvm/LinkAllPasses.h>
+ #include <llvm/Support/TargetSelect.h>
+ #include <llvm/Support/Format.h>
+ #include <llvm/Target/TargetOptions.h>
++#include <llvm/Transforms/Scalar.h>
+ 
+ #include "windows_compat.h"
+ 
+-- 
+2.1.0
+
