@@ -1,0 +1,43 @@
+# Maintainer: Patrice Peterson <runiq at archlinux dot us>
+# Contributor: JonnyJD <arch@JonnyJD.net>
+
+pkgbase=python-secretstorage
+pkgname=(python-secretstorage python2-secretstorage)
+pkgver=2.1.1
+pkgrel=2
+pkgdesc="Securely store passwords and other private data using the SecretService DBus API"
+arch=('any')
+url="https://pypi.python.org/pypi/SecretStorage"
+license=('BSD')
+makedepends=('python-dbus' 'python2-dbus' 'python-crypto' 'python2-crypto')
+checkdepends=('gnome-keyring' 'xorg-server-xvfb')
+source=("https://pypi.python.org/packages/source/S/SecretStorage/SecretStorage-${pkgver}.tar.gz")
+md5sums=('0c5c875104ebb6f6d45c7faf6c2943f9')
+
+prepare() {
+  cp -a SecretStorage-$pkgver{,-py2}
+}
+
+check() {
+  cd SecretStorage-$pkgver
+  xvfb-run python -m unittest discover -s tests || warning "Tests failed"
+
+  cd ../SecretStorage-$pkgver-py2
+  xvfb-run python2 -m unittest discover -s tests || warning "Tests failed"
+}
+
+package_python-secretstorage() {
+  depends=('python-dbus' 'python-crypto')
+
+  cd SecretStorage-$pkgver
+  python setup.py install -O1 --root="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_python2-secretstorage() {
+  depends=('python2-dbus' 'python2-crypto')
+
+  cd SecretStorage-$pkgver-py2
+  python2 setup.py install -O1 --root="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
