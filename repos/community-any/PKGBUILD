@@ -5,7 +5,7 @@
 
 pkgname=virt-manager
 pkgver=1.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.et.redhat.com"
@@ -15,7 +15,7 @@ depends=('dbus-python' 'libvirt' 'libxml2' 'gtk-vnc' 'rarian'
          'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
          'gnome-icon-theme' 'graphite' 'python2-ipaddr' 'spice-gtk3'
          'libvirt-glib' 'python2-gobject' 'urlgrabber' 'vte3'
-         'libvirt-python')
+         'libvirt-python' 'libosinfo')
 makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 conflicts=('virtinst')
 replaces=('virtinst')
