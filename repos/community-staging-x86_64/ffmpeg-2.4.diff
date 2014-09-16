@@ -1,0 +1,59 @@
+diff -rupN VTK5.10.1.orig/IO/vtkFFMPEGWriter.cxx VTK5.10.1/IO/vtkFFMPEGWriter.cxx
+--- VTK5.10.1.orig/IO/vtkFFMPEGWriter.cxx	2014-09-16 21:06:54.681786419 +0200
++++ VTK5.10.1/IO/vtkFFMPEGWriter.cxx	2014-09-16 21:36:23.589177218 +0200
+@@ -140,12 +140,13 @@ int vtkFFMPEGWriterInternal::Start()
+   strcpy(this->avFormatContext->filename, this->Writer->GetFileName());
+ 
+   //create a stream for that file
+-  this->avStream = av_new_stream(this->avFormatContext, 0);
++  this->avStream = avformat_new_stream(this->avFormatContext, NULL);
+   if (!this->avStream) 
+     {
+     vtkGenericWarningMacro (<< "Could not create video stream.");
+     return 0;
+     }
++  this->avStream->id = 0;
+   
+   //Set up the codec.
+   AVCodecContext *c = this->avStream->codec;
+@@ -217,7 +218,7 @@ int vtkFFMPEGWriterInternal::Start()
+     }
+ 
+   //for the output of the writer's input...
+-  this->rgbInput = avcodec_alloc_frame();
++  this->rgbInput = av_frame_alloc();
+   if (!this->rgbInput)
+     {
+     vtkGenericWarningMacro (<< "Could not make rgbInput avframe." );
+@@ -234,7 +235,7 @@ int vtkFFMPEGWriterInternal::Start()
+   avpicture_fill((AVPicture *)this->rgbInput, rgb, PIX_FMT_RGB24, c->width, c->height);
+ 
+   //and for the output to the codec's input.
+-  this->yuvOutput = avcodec_alloc_frame();
++  this->yuvOutput = av_frame_alloc();
+   if (!this->yuvOutput)
+     {
+     vtkGenericWarningMacro (<< "Could not make yuvOutput avframe." );
+@@ -314,12 +315,17 @@ int vtkFFMPEGWriterInternal::Write(vtkIm
+     }
+ #endif
+ 
+-
+   //run the encoder
+-  int toAdd = avcodec_encode_video(cc, 
+-                                   this->codecBuf, 
+-                                   this->codecBufSize, 
+-                                   this->yuvOutput);
++  AVPacket avpacket;
++  int got_packet;
++  av_init_packet(&avpacket);
++  avpacket.data = this->codecBuf;
++  avpacket.size = this->codecBufSize;
++  int toAdd = avcodec_encode_video2(cc,
++                                   &avpacket,
++                                   this->yuvOutput,
++                                   &got_packet);
++  if (!toAdd && got_packet) toAdd = avpacket.size;
+ 
+   //dump the compressed result to file
+   if (toAdd) 
