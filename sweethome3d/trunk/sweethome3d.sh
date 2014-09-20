@@ -3,11 +3,9 @@
 JAVA_EXEC="java"
 if [ -n "$JAVA_HOME" ]; then
   if [ -x "$JAVA_HOME/bin/java" ]; then
-    echo usa java home
     JAVA_EXEC="$JAVA_HOME/bin/java"
   fi
 else
-  echo usa which
   JAVA_EXEC="$(which java)"
 fi
 
