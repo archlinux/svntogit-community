@@ -1,6 +1,7 @@
 #!/bin/sh
 
-JAVA_EXEC="java"
+JAVA_EXEC=""
+
 if [ -n "$JAVA_HOME" ]; then
   if [ -x "$JAVA_HOME/bin/java" ]; then
     JAVA_EXEC="$JAVA_HOME/bin/java"
