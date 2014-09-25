@@ -136,7 +136,7 @@ package_libtraceevent() {
 
   cd linux-$pkgver/tools/lib/traceevent
   install -dm 755 "$pkgdir/usr/lib"
-  install -m 644 libtraceevent.a libtraceevent.so "$pkgdir/usr/lib"
+  install -m 644 libtraceevent.so "$pkgdir/usr/lib"
 }
 
 package_perf() {
