@@ -1,0 +1,157 @@
+commit aca6a97fc31a80b5a35ec1afbee8f45a728b8a19
+Author: Alexander Balakhnin <Croman13n3c@gmail.com>
+Date:   Sun Oct 27 19:48:38 2013 +0300
+
+    Fixing krarc support for new unrar 5
+
+diff --git a/krArc/krarc.cpp b/krArc/krarc.cpp
+index fc52ad5..c60a1f5 100644
+--- a/krArc/krarc.cpp
++++ b/krArc/krarc.cpp
+@@ -918,7 +918,7 @@ bool kio_krarcProtocol::initDirDict(const KUrl&url, bool forced)
+     }
+ 
+     extArcReady = false;
+-
++    isUnrarVersion5 = false;
+     if (!setArcFile(url))
+         return false;   /* if the archive was changed refresh the file information */
+ 
+@@ -979,6 +979,14 @@ bool kio_krarcProtocol::initDirDict(const KUrl&url, bool forced)
+     if (arcType == "rar" || arcType == "arj" || arcType == "lha" || arcType == "7z") {
+         while (temp.readLine(buf, 1000) != -1) {
+             line = decodeString(buf);
++            //detect unrar version
++            if (line.startsWith(QLatin1String("UNRAR"))) {
++                //skip line with "UNRAR"
++                nextWord(line);
++                if (nextWord(line).left(1).toInt()==5){
++                    isUnrarVersion5 = true;
++                }
++            }
+             if (line.startsWith(QLatin1String("----------"))) break;
+         }
+     }
+@@ -988,13 +996,20 @@ bool kio_krarcProtocol::initDirDict(const KUrl&url, bool forced)
+             // the rar list is ended with a ------ line.
+             if (line.startsWith(QLatin1String("----------"))) {
+                 invalidLine = !invalidLine;
++                if (isUnrarVersion5){
++                break;
++                }
++                else{
+                 continue;
++                }
+             }
+             if (invalidLine)
+                 continue;
+             else {
++                if (!isUnrarVersion5){
+                 temp.readLine(buf, 1000);
+                 line = line + decodeString(buf);
++                }
+                 if (line[0] == '*') // encrypted archives starts with '*'
+                     line[0] = ' ';
+             }
+@@ -1190,23 +1205,10 @@ void kio_krarcProtocol::parseLine(int lineNo, QString line)
+         mode = parsePermString(perm);
+     }
+     if (arcType == "rar") {
+-        // full name
+-        fullName = nextWord(line, '\n');
+-        // size
+-        size = nextWord(line).toLong();
+-        // ignore the next 2 fields
+-        nextWord(line); nextWord(line);
+-        // date & time
+-        QString d = nextWord(line);
+-        int year = 1900 + d.mid(6, 2).toInt();
+-        if (year < 1930) year += 100;
+-        QDate qdate(year, d.mid(3, 2).toInt(), d.mid(0, 2).toInt());
+-        QString t = nextWord(line);
+-        QTime qtime(t.mid(0, 2).toInt(), t.mid(3, 2).toInt(), 0);
+-        time = QDateTime(qdate, qtime).toTime_t();
++        if (isUnrarVersion5){
++
+         // permissions
+         perm = nextWord(line);
+-
+         if (perm.length() == 7) { // windows rar permission format
+             bool isDir  = (perm.at(1).toLower() == 'd');
+             bool isReadOnly = (perm.at(2).toLower() == 'r');
+@@ -1219,6 +1221,54 @@ void kio_krarcProtocol::parseLine(int lineNo, QString line)
+ 
+         if (perm.length() != 10) perm = (perm.at(0) == 'd') ? "drwxr-xr-x" : "-rw-r--r--" ;
+         mode = parsePermString(perm);
++        // size
++        size = nextWord(line).toLong();
++        // ignore the next 2 fields
++        nextWord(line); nextWord(line);
++        // date & time
++        QString d = nextWord(line);
++        int year = 1900 + d.mid(6, 2).toInt();
++        if (year < 1930) year += 100;
++        QDate qdate(year, d.mid(3, 2).toInt(), d.mid(0, 2).toInt());
++        QString t = nextWord(line);
++        QTime qtime(t.mid(0, 2).toInt(), t.mid(3, 2).toInt(), 0);
++        time = QDateTime(qdate, qtime).toTime_t();
++        // ignore the next 1 fields
++        nextWord(line);
++        fullName = nextWord(line, '\n');
++        }
++        else{
++
++            // full name
++            fullName = nextWord(line, '\n');
++            // size
++            size = nextWord(line).toLong();
++            // ignore the next 2 fields
++            nextWord(line); nextWord(line);
++            // date & time
++            QString d = nextWord(line);
++            int year = 1900 + d.mid(6, 2).toInt();
++            if (year < 1930) year += 100;
++            QDate qdate(year, d.mid(3, 2).toInt(), d.mid(0, 2).toInt());
++            QString t = nextWord(line);
++            QTime qtime(t.mid(0, 2).toInt(), t.mid(3, 2).toInt(), 0);
++            time = QDateTime(qdate, qtime).toTime_t();
++            // permissions
++            perm = nextWord(line);
++
++            if (perm.length() == 7) { // windows rar permission format
++                bool isDir  = (perm.at(1).toLower() == 'd');
++                bool isReadOnly = (perm.at(2).toLower() == 'r');
++
++                perm = isDir ? "drwxr-xr-x" : "-rw-r--r--";
++
++                if (isReadOnly)
++                    perm[ 2 ] = '-';
++            }
++
++            if (perm.length() != 10) perm = (perm.at(0) == 'd') ? "drwxr-xr-x" : "-rw-r--r--" ;
++            mode = parsePermString(perm);
++        }
+     }
+     if (arcType == "arj") {
+         nextWord(line);
+@@ -1496,6 +1546,8 @@ bool kio_krarcProtocol::initArcParameters()
+         }
+     } else if (arcType == "rar") {
+         if (KStandardDirs::findExe("rar").isEmpty()) {
++            //unrar output now ANSI
++            noencoding = true;
+             cmd     = fullPathName("unrar");
+             listCmd << fullPathName("unrar") << "-c-" << "-v" << "v";
+             getCmd  << fullPathName("unrar") << "p" << "-ierr" << "-idp" << "-c-" << "-y";
+diff --git a/krArc/krarc.h b/krArc/krarc.h
+index f6119d0..b6b7505 100644
+--- a/krArc/krarc.h
++++ b/krArc/krarc.h
+@@ -96,6 +96,7 @@ private:
+     bool archiveChanging;             //< true if the archive is currently changing.
+     bool newArchiveURL;               //< true if new archive was entered for the protocol
+     bool noencoding;                   //< 7z files use UTF-16, so encoding is unnecessary
++    bool isUnrarVersion5;             //< thue if unrar have 5th version
+     KIO::filesize_t decompressedLen;  //< the number of the decompressed bytes
+     KFileItem* arcFile;               //< the archive file item.
+     QString arcPath;                  //< the archive location
