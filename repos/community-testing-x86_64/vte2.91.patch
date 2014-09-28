@@ -1,0 +1,76 @@
+diff -u -r FreeRDP-Remmina-356c033/cmake/FindVTE.cmake FreeRDP-Remmina-356c033-vte2.91/cmake/FindVTE.cmake
+--- FreeRDP-Remmina-356c033/cmake/FindVTE.cmake	2012-02-10 19:54:23.000000000 +0100
++++ FreeRDP-Remmina-356c033-vte2.91/cmake/FindVTE.cmake	2014-09-29 00:20:35.587690451 +0200
+@@ -21,12 +21,10 @@
+ 	set(_VTE_LIB_NAME vte)
+ 	set(_VTE_VERSION vte)
+ else()
+-	set(_VTE_LIB_NAME vte${_VTE_VERSION_NUM})
++	set(_VTE_LIB_NAME vte-${_VTE_VERSION_NUM})
+ 	set(_VTE_VERSION vte-${_VTE_VERSION_NUM})
+ endif()
+ 
+-string(REPLACE . _ _VTE_LIB_NAME ${_VTE_LIB_NAME})
+-
+ pkg_check_modules(PC_VTE ${_VTE_VERSION})
+ 
+ find_path(VTE_INCLUDE_DIR NAMES vte/vte.h
+diff -u -r FreeRDP-Remmina-356c033/remmina/CMakeLists.txt FreeRDP-Remmina-356c033-vte2.91/remmina/CMakeLists.txt
+--- FreeRDP-Remmina-356c033/remmina/CMakeLists.txt	2012-02-10 19:54:23.000000000 +0100
++++ FreeRDP-Remmina-356c033-vte2.91/remmina/CMakeLists.txt	2014-09-29 00:09:44.300246827 +0200
+@@ -111,7 +111,7 @@
+ endif()
+ 
+ if(GTK3_FOUND)
+-	set(_VTE_VERSION_NUM 2.90)
++	set(_VTE_VERSION_NUM 2.91)
+ else()
+ 	set(_VTE_VERSION_NUM)
+ endif()
+diff -u -r FreeRDP-Remmina-356c033/remmina/src/remmina_ssh_plugin.c FreeRDP-Remmina-356c033-vte2.91/remmina/src/remmina_ssh_plugin.c
+--- FreeRDP-Remmina-356c033/remmina/src/remmina_ssh_plugin.c	2012-02-10 19:54:23.000000000 +0100
++++ FreeRDP-Remmina-356c033-vte2.91/remmina/src/remmina_ssh_plugin.c	2014-09-29 00:34:04.011022184 +0200
+@@ -56,6 +56,7 @@
+ 	gboolean cont = FALSE;
+ 	gint ret;
+ 	gchar *charset;
++	VtePty *pty;
+ 
+ 	pthread_setcancelstate (PTHREAD_CANCEL_ENABLE, NULL);
+ 	CANCEL_ASYNC
+@@ -122,9 +123,11 @@
+ 	THREADS_ENTER
+ 	if (charset && charset[0] != '\0')
+ 	{
+-		vte_terminal_set_encoding (VTE_TERMINAL (gpdata->vte), charset);
++		vte_terminal_set_encoding (VTE_TERMINAL (gpdata->vte), charset, NULL);
+ 	}
+-	vte_terminal_set_pty (VTE_TERMINAL (gpdata->vte), shell->slave);
++	pty = vte_pty_new_foreign_sync (shell->slave, NULL, NULL);
++	vte_terminal_set_pty (VTE_TERMINAL (gpdata->vte), pty);
++	g_object_unref (pty);
+ 	THREADS_LEAVE
+ 
+ 	remmina_plugin_service->protocol_plugin_emit_signal (gp, "connect");
+@@ -169,7 +172,11 @@
+ 	gpdata = (RemminaPluginSshData*) g_object_get_data (G_OBJECT(gp), "plugin-data");
+ 	if (remmina_pref.vte_font && remmina_pref.vte_font[0])
+ 	{
+-		vte_terminal_set_font_from_string (VTE_TERMINAL (gpdata->vte), remmina_pref.vte_font);
++		PangoFontDescription *font;
++		
++		font = pango_font_description_from_string (remmina_pref.vte_font);
++		vte_terminal_set_font (VTE_TERMINAL (gpdata->vte), font);
++		pango_font_description_free (font);
+ 	}
+ 	vte_terminal_set_allow_bold (VTE_TERMINAL (gpdata->vte), remmina_pref.vte_allow_bold_text);
+ 	if (remmina_pref.vte_lines > 0)
+@@ -205,7 +212,7 @@
+ 
+ 	remmina_plugin_service->protocol_plugin_register_hostkey (gp, vte);
+ 
+-	vscrollbar = gtk_vscrollbar_new (vte_terminal_get_adjustment (VTE_TERMINAL (vte)));
++	vscrollbar = gtk_vscrollbar_new (gtk_scrollable_get_vadjustment (GTK_SCROLLABLE (vte)));
+ 	gtk_widget_show(vscrollbar);
+ 	gtk_box_pack_start (GTK_BOX (hbox), vscrollbar, FALSE, TRUE, 0);
+ }
