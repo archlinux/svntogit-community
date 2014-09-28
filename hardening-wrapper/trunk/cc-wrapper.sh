@@ -24,7 +24,7 @@ for opt; do
     -fPIC|-fpic|-fPIE|-fpie)
       force_fPIE=0
       ;;
-    -c)
+    -c|-E|-S)
       force_pie=0
       ;;
     -nostdlib|-ffreestanding)
