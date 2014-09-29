@@ -1,34 +1,97 @@
 diff -rupN cairo-dock-plugins.orig/CMakeLists.txt cairo-dock-plugins/CMakeLists.txt
---- cairo-dock-plugins.orig/CMakeLists.txt	2014-09-28 11:56:56.841693400 +0200
-+++ cairo-dock-plugins/CMakeLists.txt	2014-09-28 11:57:14.664204700 +0200
-@@ -1345,7 +1345,7 @@ add_subdirectory (systray)
+--- cairo-dock-plugins.orig/CMakeLists.txt	2014-09-28 19:07:48.336966300 +0200
++++ cairo-dock-plugins/CMakeLists.txt	2014-09-28 19:24:58.793109500 +0200
+@@ -1345,13 +1345,20 @@ add_subdirectory (systray)
  message (STATUS "> Terminal:")
  enable_if_not_defined (enable-terminal)
  if (enable-terminal)
 -	set (TERMINAL_MODULE vte-2.90)
 +	set (TERMINAL_MODULE vte-2.91)
++	set (PANGO_MODULE pango)
  	pkg_check_modules (VTE ${TERMINAL_MODULE})
++	pkg_check_modules (PANGO ${PANGO_MODULE})
  	if (NOT VTE_FOUND)
  		message (STATUS "Could not find ${TERMINAL_MODULE}; Cairo-Dock won't be built with terminal applet.")
+ 		message (WARNING "This module is required to compile Terminal applet: ${TERMINAL_MODULE}")
+ 		set (MODULES_MISSING "${MODULES_MISSING} ${TERMINAL_MODULE}")
+ 		set (with_terminal no)
++	elseif (NOT PANGO_FOUND)
++		message (STATUS "Could not find ${PANGO_MODULE}; Cairo-Dock won't be built with terminal applet.")
++		message (WARNING "This module is required to compile Terminal applet: ${PANGO_MODULE}")
++		set (MODULES_MISSING "${MODULES_MISSING} ${PANGO_MODULE}")
++		set (with_terminal no)
+ 	else()
+ 		set (GETTEXT_TERMINAL ${GETTEXT_PLUGINS})
+ 		set (VERSION_TERMINAL "1.0.13")
+diff -rupN cairo-dock-plugins.orig/terminal/src/CMakeLists.txt cairo-dock-plugins/terminal/src/CMakeLists.txt
+--- cairo-dock-plugins.orig/terminal/src/CMakeLists.txt	2014-09-28 19:07:48.283802000 +0200
++++ cairo-dock-plugins/terminal/src/CMakeLists.txt	2014-09-28 19:27:52.496698900 +0200
+@@ -31,15 +31,18 @@ add_definitions (-DVTE_MINOR=${VTE_MINOR
+ 
+ include_directories (
+ 	${PACKAGE_INCLUDE_DIRS}
+-	${VTE_INCLUDE_DIRS})
++	${VTE_INCLUDE_DIRS}
++	${PANGO_INCLUDE_DIRS})
+ 
+ link_directories (
+ 	${PACKAGE_LIBRARY_DIRS}
+-	${VTE_LIBRARY_DIRS})
++	${VTE_LIBRARY_DIRS}
++	${PANGO_LIBRARY_DIRS})
+ 
+ target_link_libraries (${PACKAGE_TERMINAL}
+ 	${PACKAGE_LIBRARIES}
+-	${VTE_LIBRARIES})
++	${VTE_LIBRARIES}
++	${PANGO_LIBRARIES})
+ 
+ ########### install files ###############
+ 
+@@ -73,6 +76,7 @@ install(TARGETS ${PACKAGE_TERMINAL} DEST
+ #	-I$(top_srcdir)/src
+ #	$(PACKAGE_CFLAGS)
+ #	$(VTE_CFLAGS)
++#	$(PANGO_CFLAGS)
+ #	-DMY_APPLET_SHARE_DATA_DIR=""${terminaldatadir)""
+ #	-DMY_APPLET_PREVIEW_FILE=""preview.jpg""
+ #	-DMY_APPLET_CONF_FILE=""terminal.conf""
+@@ -89,6 +93,7 @@ install(TARGETS ${PACKAGE_TERMINAL} DEST
+ #libcd_terminal_la_LIBADD = 
+ #	$(PACKAGE_LIBS) -lm 
+ #	$(VTE_LIBS)
++#	$(PANGO_LIBS)
+ #
+ #
+ #libcd_terminal_la_LDFLAGS =
 diff -rupN cairo-dock-plugins.orig/terminal/src/terminal-widget.c cairo-dock-plugins/terminal/src/terminal-widget.c
---- cairo-dock-plugins.orig/terminal/src/terminal-widget.c	2014-09-28 11:56:56.788514700 +0200
-+++ cairo-dock-plugins/terminal/src/terminal-widget.c	2014-09-28 12:25:33.651331600 +0200
-@@ -263,12 +263,9 @@ static void _term_apply_settings_on_vter
+--- cairo-dock-plugins.orig/terminal/src/terminal-widget.c	2014-09-28 19:07:48.283362800 +0200
++++ cairo-dock-plugins/terminal/src/terminal-widget.c	2014-09-28 19:07:56.040701000 +0200
+@@ -27,6 +27,7 @@
+ #include <string.h>
+ #include <signal.h>
+ #include <gdk/gdk.h>
++#include <pango/pango-font.h>
+ 
+ #include <vte/vte.h>
+ 
+@@ -263,10 +264,13 @@ static void _term_apply_settings_on_vter
  {
  	g_return_if_fail (vterm != NULL);
  
 -	vte_terminal_set_colors_rgba (VTE_TERMINAL(vterm), &myConfig.forecolor.rgba, &myConfig.backcolor.rgba, NULL, 0);
 +	vte_terminal_set_colors (VTE_TERMINAL(vterm), &myConfig.forecolor.rgba, &myConfig.backcolor.rgba, NULL, 0);
  
--	if (myConfig.bCustomFont)
+ 	if (myConfig.bCustomFont)
 -		vte_terminal_set_font_from_string (VTE_TERMINAL (vterm), myConfig.cCustomFont);
--	else
--		vte_terminal_set_font (VTE_TERMINAL (vterm), NULL);
-+	vte_terminal_set_font (VTE_TERMINAL (vterm), NULL);
++	{
++		PangoFontDescription *font_desc = pango_font_description_from_string(myConfig.cCustomFont);
++		vte_terminal_set_font (VTE_TERMINAL (vterm), font_desc);
++	}
+ 	else
+ 		vte_terminal_set_font (VTE_TERMINAL (vterm), NULL);
  
- 	vte_terminal_set_scroll_on_output (VTE_TERMINAL (vterm), myConfig.bScrollOutput);
- 	vte_terminal_set_scroll_on_keystroke (VTE_TERMINAL (vterm), myConfig.bScrollKeystroke);
-@@ -324,7 +321,7 @@ static void on_terminal_child_exited(Vte
+@@ -324,7 +326,7 @@ static void on_terminal_child_exited(Vte
  		#if (GLIB_MAJOR_VERSION > 2) || (GLIB_MAJOR_VERSION == 2 && GLIB_MINOR_VERSION >= 18)  // VTE_CHECK_VERSION doesn't exist in Hardy.
  			#if VTE_CHECK_VERSION(0,26,0)
  			const gchar *argv[] = {g_getenv ("SHELL"), NULL};
@@ -37,7 +100,7 @@ diff -rupN cairo-dock-plugins.orig/terminal/src/terminal-widget.c cairo-dock-plu
  				VTE_PTY_NO_LASTLOG | VTE_PTY_NO_UTMP | VTE_PTY_NO_WTMP,
  				"~/",
  				(gchar**)argv,  // argv
-@@ -333,6 +330,7 @@ static void on_terminal_child_exited(Vte
+@@ -333,6 +335,7 @@ static void on_terminal_child_exited(Vte
  				NULL,  // GSpawnChildSetupFunc child_setup
  				NULL,  // gpointer child_setup_data
  				&pid,
@@ -45,7 +108,7 @@ diff -rupN cairo-dock-plugins.orig/terminal/src/terminal-widget.c cairo-dock-plu
  				NULL);
  			#else
  			pid = vte_terminal_fork_command (VTE_TERMINAL(vterm),
-@@ -541,12 +539,11 @@ void terminal_new_tab(void)
+@@ -541,12 +544,11 @@ void terminal_new_tab(void)
  	//\_________________ On cree un nouveau terminal.
  	GtkWidget *vterm = vte_terminal_new();
  	GTK_WIDGET_GET_CLASS (vterm)->get_accessible = _get_dummy_accessible;  // this is to prevent a bug in libvet2.90; it gives a warning, but it's better than a crash !
@@ -59,7 +122,7 @@ diff -rupN cairo-dock-plugins.orig/terminal/src/terminal-widget.c cairo-dock-plu
  			VTE_PTY_NO_LASTLOG | VTE_PTY_NO_UTMP | VTE_PTY_NO_WTMP,
  			"~/",
  			(gchar**)argv,  // argv
-@@ -555,6 +552,7 @@ void terminal_new_tab(void)
+@@ -555,6 +557,7 @@ void terminal_new_tab(void)
  			NULL,  // GSpawnChildSetupFunc child_setup
  			NULL,  // gpointer child_setup_data
  			&pid,
@@ -67,4 +130,3 @@ diff -rupN cairo-dock-plugins.orig/terminal/src/terminal-widget.c cairo-dock-plu
  			NULL);
  		#else
  		pid = vte_terminal_fork_command (VTE_TERMINAL(vterm),
-Binary files cairo-dock-plugins.orig/terminal/src/.terminal-widget.c.swp and cairo-dock-plugins/terminal/src/.terminal-widget.c.swp differ
