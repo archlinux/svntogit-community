@@ -1,0 +1,169 @@
+From 0bfcc6c97fca70de51acf06396578ddd7f03e9b1 Mon Sep 17 00:00:00 2001
+From: Andriy Grytsenko <andrej@rep.kiev.ua>
+Date: Wed, 24 Sep 2014 16:51:08 +0300
+Subject: [PATCH] [SF#679]X11 library uses unsigned long as cardinal-32 data,
+ not uint32_t.
+
+That lead to invalid strut setting after 5cc945e412002531bb349a0443c837393ce57c43
+And it might lead to other bugs on 64-bit architectures as well,
+may be just not reported yet or not reproduced yet.
+---
+ plugins/launchtaskbar.c |  2 +-
+ src/ev.c                |  4 ++--
+ src/misc.c              | 10 +++++-----
+ src/panel.c             | 12 ++++++------
+ src/private.h           |  2 +-
+ 5 files changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/plugins/launchtaskbar.c b/plugins/launchtaskbar.c
+index 804c6e5..89c9a0b 100644
+--- a/plugins/launchtaskbar.c
++++ b/plugins/launchtaskbar.c
+@@ -2690,7 +2690,7 @@ static void taskbar_button_size_allocate(GtkWidget * btn, GtkAllocation * alloc,
+ 
+ 
+         /* Send a NET_WM_ICON_GEOMETRY property change on the window. */
+-        guint32 data[4];
++        gulong data[4];
+         data[0] = x;
+         data[1] = y;
+         data[2] = alloc->width;
+diff --git a/src/ev.c b/src/ev.c
+index e4dd66e..bf47fe0 100644
+--- a/src/ev.c
++++ b/src/ev.c
+@@ -290,7 +290,7 @@ fb_ev_current_desktop(FbEv *ev)
+ {
+     ENTER;
+     if (ev->current_desktop == -1) {
+-        guint32 *data;
++        gulong *data;
+ 
+         data = get_xaproperty (GDK_ROOT_WINDOW(), a_NET_CURRENT_DESKTOP, XA_CARDINAL, 0);
+         if (data) {
+@@ -307,7 +307,7 @@ fb_ev_number_of_desktops(FbEv *ev)
+ {
+     ENTER;
+      if (ev->number_of_desktops == -1) {
+-        guint32 *data;
++        gulong *data;
+ 
+         data = get_xaproperty (GDK_ROOT_WINDOW(), a_NET_NUMBER_OF_DESKTOPS, XA_CARDINAL, 0);
+         if (data) {
+diff --git a/src/misc.c b/src/misc.c
+index fb16893..f15961b 100644
+--- a/src/misc.c
++++ b/src/misc.c
+@@ -542,7 +542,7 @@ get_xaproperty (Window win, Atom prop, Atom type, int *nitems)
+ 
+     ENTER;
+     prop_data = NULL;
+-    if (XGetWindowProperty (GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), win, prop, 0, 0x7fffffff, False,
++    if (XGetWindowProperty (GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), win, prop, 0, G_MAXLONG, False,
+               type, &type_ret, &format_ret, &items_ret,
+               &after_ret, &prop_data) != Success)
+     {
+@@ -612,7 +612,7 @@ int
+ get_net_number_of_desktops()
+ {
+     int desknum;
+-    guint32 *data;
++    gulong *data;
+ 
+     ENTER;
+     data = get_xaproperty (GDK_ROOT_WINDOW(), a_NET_NUMBER_OF_DESKTOPS,
+@@ -630,7 +630,7 @@ int
+ get_net_current_desktop ()
+ {
+     int desk;
+-    guint32 *data;
++    gulong *data;
+ 
+     ENTER;
+     data = get_xaproperty (GDK_ROOT_WINDOW(), a_NET_CURRENT_DESKTOP, XA_CARDINAL, 0);
+@@ -646,7 +646,7 @@ int
+ get_net_wm_desktop(Window win)
+ {
+     int desk = 0;
+-    guint32 *data;
++    gulong *data;
+ 
+     ENTER;
+     data = get_xaproperty (win, a_NET_WM_DESKTOP, XA_CARDINAL, 0);
+@@ -661,7 +661,7 @@ GPid
+ get_net_wm_pid(Window win)
+ {
+     GPid pid = 0;
+-    guint32 *data;
++    gulong *data;
+ 
+     ENTER;
+     data = get_xaproperty (win, a_NET_WM_PID, XA_CARDINAL, 0);
+diff --git a/src/panel.c b/src/panel.c
+index ee61197..b13a850 100644
+--- a/src/panel.c
++++ b/src/panel.c
+@@ -73,7 +73,7 @@ static void lxpanel_finalize(GObject *object)
+         lxpanel_config_save( self );
+     config_destroy(p->config);
+ 
+-    g_free(p->workarea);
++    XFree(p->workarea);
+     g_free( p->background_file );
+     g_slist_free( p->system_menus );
+ 
+@@ -380,7 +380,7 @@ void _panel_set_wm_strut(LXPanel *panel)
+         strut_size = p->height_when_hidden;
+ 
+     /* Set up strut value in property format. */
+-    guint32 desired_strut[12];
++    gulong desired_strut[12];
+     memset(desired_strut, 0, sizeof(desired_strut));
+     if (p->setstrut)
+     {
+@@ -541,7 +541,7 @@ panel_event_filter(GdkXEvent *xevent, GdkEvent *event, gpointer not_used)
+             for( l = all_panels; l; l = l->next )
+             {
+                 LXPanel* p = (LXPanel*)l->data;
+-                g_free( p->priv->workarea );
++                XFree( p->priv->workarea );
+                 p->priv->workarea = get_xaproperty (GDK_ROOT_WINDOW(), a_NET_WORKAREA, XA_CARDINAL, &p->priv->wa_len);
+                 /* print_wmdata(p); */
+             }
+@@ -1225,7 +1225,7 @@ panel_start_gui(LXPanel *panel)
+ {
+     Atom state[3];
+     XWMHints wmhints;
+-    guint32 val;
++    gulong val;
+     Display *xdisplay = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+     Panel *p = panel->priv;
+     GtkWidget *w = GTK_WIDGET(panel);
+@@ -1284,9 +1284,9 @@ panel_start_gui(LXPanel *panel)
+     _panel_establish_autohide(panel);
+ 
+     /* send it to running wm */
+-    Xclimsg(p->topxwin, a_NET_WM_DESKTOP, 0xFFFFFFFF, 0, 0, 0, 0);
++    Xclimsg(p->topxwin, a_NET_WM_DESKTOP, G_MAXULONG, 0, 0, 0, 0);
+     /* and assign it ourself just for case when wm is not running */
+-    val = 0xFFFFFFFF;
++    val = G_MAXULONG;
+     XChangeProperty(xdisplay, p->topxwin, a_NET_WM_DESKTOP, XA_CARDINAL, 32,
+           PropModeReplace, (unsigned char *) &val, 1);
+ 
+diff --git a/src/private.h b/src/private.h
+index 52f398d..fb909e3 100644
+--- a/src/private.h
++++ b/src/private.h
+@@ -113,7 +113,7 @@ struct _Panel {
+ 
+     int desknum;
+     int curdesk;
+-    guint32 *workarea;
++    gulong *workarea;
+     int wa_len;
+ 
+     char* background_file;
+-- 
+2.1.1
+
