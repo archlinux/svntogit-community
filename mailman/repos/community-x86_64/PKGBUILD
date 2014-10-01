@@ -5,36 +5,69 @@
 pkgname=mailman
 _pkgver=2.1.18-1
 pkgver=${_pkgver//-/.}
-pkgrel=1
+pkgrel=2
 pkgdesc='The GNU Mailing List Manager'
 arch=(i686 x86_64)
 license=('GPL')
 url='http://www.list.org/'
-depends=('glibc' 'python2' 'smtp-server' 'python2-dnspython')
 # we need to have the mailman user to build mailman
 makedepends=('mailman')
+depends=('glibc' 'python2' 'smtp-server' 'python2-dnspython')
 # 'Defaults.py' should not be changed by users; 'mm_cfg.py' should instead.
 backup=('usr/lib/mailman/Mailman/mm_cfg.py')
 install=$pkgname.install
 source=("http://ftp.gnu.org/gnu/$pkgname/$pkgname-$_pkgver.tgz"
-        'mailman-2.1-build.patch'
-        "$pkgname.profile.sh"
-        "$pkgname.profile.csh"
-        "$pkgname.service")
+        'mailman.profile.sh'
+        'mailman.profile.csh'
+        'mailman.sysusers'
+        'mailman.service'
+        'mailman-checkdbs.service'
+        'mailman-checkdbs.timer'
+        'mailman-cullbadshunt.service'
+        'mailman-cullbadshunt.timer'
+        'mailman-disabled.service'
+        'mailman-disabled.timer'
+        'mailman-gatenews.service'
+        'mailman-gatenews.timer'
+        'mailman-mailpasswds.service'
+        'mailman-mailpasswds.timer'
+        'mailman-nightlygzip.service'
+        'mailman-nightlygzip.timer'
+        'mailman-senddigests.service'
+        'mailman-senddigests.timer'
+        '01-mailman-2.1-build.patch')
 md5sums=('dc861ed9698a98499a951eaef7d4db9f'
-         'ed04d062379eb21e39ce1e70e6b1ade2'
          'a9c71ec940c56173415fbd49087d10b0'
          '85a8c30ffc444e677b286f54df530482'
-         'f3ea6ef02ab135274406ce52ea8bbb7b')
+         '5ced9364c38ee40046007ee9587b1228'
+         'f3ea6ef02ab135274406ce52ea8bbb7b'
+         '13b248799ec93250dca5458af842dffd'
+         'd38ca2687bc1c7ca29e4d1af441b5f17'
+         'd71b28a3d494b440fb1578364fd80236'
+         '58718e2d6b68d8df1d9ff2bd5770ff58'
+         'ecb9b0627fa3aa85ad44bb56c5f5643f'
+         '0ee3a7e6d2d3aff76a235d1afad2ac95'
+         'df24d28d015cef1fc5b1ea10b43eb92a'
+         '87dfda1767cdbc1e230963c0433988fd'
+         'ed8858c034aef43a36b5c99f0faabf36'
+         '43cb4ab9cc2c4d840a398ec4ae0a53b2'
+         '998d3d57353a0cc6d4c742a9607c2108'
+         '3af65082d3cd4d5746944890c7a72962'
+         '350dac1e350691e3d9cb8f99fd4b669a'
+         '52917f62441ac5d950789e8f8af28f09'
+         'ed04d062379eb21e39ce1e70e6b1ade2')
+
+prepare() {
+  # some files in mailman doesn't use configure parameter
+  find $pkgname-$_pkgver -type f -exec \
+    sed -i '1s,^#! \?/usr/bin/\(env \|\)python$,#!/usr/bin/python2,' {} \;
+
+  # fix directory permissions to satisfy check_perms
+  patch -p1 -d $pkgname-$_pkgver < 01-mailman-2.1-build.patch
+}
 
 build() {
   cd $pkgname-$_pkgver
-  # some files in mailman doesn't use configure parameter
-  find . -type f -exec \
-    sed -i '1s,^#! \?/usr/bin/\(env \|\)python$,#!/usr/bin/python2,' {} \;
-  # fix directory permissions to satisfy check_perms
-  patch -p1 -i "$srcdir/mailman-2.1-build.patch"
-  # set some sane defaults before the configure script has a chance to screw them up
   ./configure \
     --without-permcheck \
     --prefix=/usr/lib/mailman \
@@ -72,12 +105,21 @@ package() {
   chmod 2755 "$pkgdir"/usr/lib/mailman/cgi-bin/*
   chmod 2755 "$pkgdir"/usr/lib/mailman/mail/mailman
   cd "$srcdir"
-  # systemd
-  install -Dm 644 $pkgname.service \
-    "$pkgdir/usr/lib/systemd/system/$pkgname.service"
   # profiles
   install -Dm 755 $pkgname.profile.sh "$pkgdir/etc/profile.d/$pkgname.sh"
   install -Dm 755 $pkgname.profile.csh "$pkgdir/etc/profile.d/$pkgname.csh"
+  # systemd
+  install -Dm 644 $pkgname.service \
+    "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -Dm 644 $pkgname.sysusers \
+    "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  # timers (not enaled by default)
+  for _f in checkdbs disabled senddigests mailpasswds gatenews nightlygzip cullbadshunt; do
+    install -Dm 644 mailman-$_f.timer \
+      "$pkgdir/usr/lib/systemd/system/mailman-$_f.timer"
+    install -Dm 644 mailman-$_f.service \
+      "$pkgdir/usr/lib/systemd/system/mailman-$_f.service"
+  done
 }
 
 # vim:set ts=2 sw=2 et:
