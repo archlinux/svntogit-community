@@ -1,6 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 #
-# A launcher script for Clojure programs. These environment variables can be
+# Launcher script for Clojure programs. These environment variables can be
 # used to configure the script:
 #
 #   CLOJURE_HOME
