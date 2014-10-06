@@ -1,0 +1,56 @@
+From dffe9a095a788c879f5c8b4561516a5478361166 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bart=C5=82omiej=20Piotrowski?= <b@bpiotrowski.pl>
+Date: Mon, 6 Oct 2014 14:02:01 +0200
+Subject: [PATCH] Fix "Open With" default application with glib >= 2.41
+
+---
+ src/volume-manager.c | 26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/src/volume-manager.c b/src/volume-manager.c
+index 8df1b36..6dd4263 100644
+--- a/src/volume-manager.c
++++ b/src/volume-manager.c
+@@ -138,6 +138,30 @@ static void on_dlg_response(GtkDialog* dlg, int res, gpointer user_data)
+     pcmanfm_unref();
+ }
+ 
++static GList * pcmanfm_g_app_info_get_all_for_type(const char *content_type)
++{
++    GList    *infos, *info;
++    GAppInfo *default_info;
++
++    infos = g_app_info_get_all_for_type(content_type);
++    default_info = g_app_info_get_default_for_type(content_type, FALSE);
++
++    if (default_info == NULL)
++        return infos;
++
++    for (info = infos; info; info = info->next) {
++        if (g_app_info_equal (info->data, default_info)) {
++            g_object_unref(info->data);
++            infos = g_list_delete_link(infos, info);
++            break;
++        }
++    }
++
++    infos = g_list_prepend(infos, default_info);
++
++    return infos;
++}
++
+ static void on_content_type_finished(GObject* src_obj, GAsyncResult* res, gpointer user_data)
+ {
+     AutoRun* data = (AutoRun*)user_data;
+@@ -185,7 +209,7 @@ static void on_content_type_finished(GObject* src_obj, GAsyncResult* res, gpoint
+ _do_types:
+             for(type=types;*type;++type)
+             {
+-                l = g_app_info_get_all_for_type(*type);
++                l = pcmanfm_g_app_info_get_all_for_type(*type);
+                 if(l)
+                     apps = g_list_concat(apps, l);
+             }
+-- 
+2.1.2
+
