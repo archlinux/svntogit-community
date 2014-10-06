@@ -13,7 +13,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=3.16
+pkgver=3.17
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
@@ -23,7 +23,7 @@ options=('!strip')
 # kernel source deps
 makedepends=('asciidoc' 'xmlto')
 # perf deps
-makedepends+=('perl' 'python2' 'libnewt' 'elfutils' 'libunwind' 'numactl')
+makedepends+=('perl' 'python2' 'libnewt' 'elfutils' 'libunwind' 'numactl' 'audit')
 # cpupower deps
 makedepends+=('pciutils')
 # usbip deps
@@ -39,16 +39,18 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v3.x/linux-$pkgver.tar.xz"
         'usbipd.service'
         '01-fix-perf-python.patch'
         '02-archlinux-paths.patch'
-        '03-fix-tmon-ltinfo.patch')
+        '03-fix-tmon-ltinfo.patch'
+        '04-fix-usip-h-path.patch')
 # http://www.kernel.org/pub/linux/kernel/v3.x/sha256sums.asc
-sha256sums=('4813ad7927a7d92e5339a873ab16201b242b2748934f12cb5df9ba2cfe1d77a0'
+sha256sums=('f5153ec93c5fcd41b247950e6a9bcbc63fa87beafd112c133a622439a0f76251'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'fbf6e0ce6eb0ef15703fe212958de6ca46e62188900b5e9f9272ed3cc9cfd54e'
             'a89284d0ecb556ca53a66d1c2087b5fd6d0a901ab2769cd3aebb93f4478905dc'
             '2e187734d8aec58a3046d79883510d779aa93fb3ab20bd3132c1a607ebe5498f'
             'fce128f5e0abfa6916d5cb881456d892d1b163b9639166a4c6c1d53e4dc5086a'
             'eb866a589a26b1979ffb2fe08be09417e277a4befac34bdb279a6bb3a27b0570'
-            '7547815bb761d49d198b85f95011535713c2ed4a004f249a9cf6ba985af8c4ed')
+            '7547815bb761d49d198b85f95011535713c2ed4a004f249a9cf6ba985af8c4ed'
+            'e5543d8d6d3fbc7f8d9d25c428a882737d2e0169455f70cbc3f73076ff33dd5d')
 
 prepare() {
   cd linux-$pkgver
@@ -56,6 +58,7 @@ prepare() {
   patch -N -p1 -i "$srcdir/01-fix-perf-python.patch"
   patch -N -p1 -i "$srcdir/02-archlinux-paths.patch"
   patch -N -p1 -i "$srcdir/03-fix-tmon-ltinfo.patch"
+  patch -N -p1 -i "$srcdir/04-fix-usip-h-path.patch"
 }
 
 build() {
@@ -90,9 +93,7 @@ build() {
   popd
 
   msg2 'usbip'
-  pushd linux-$pkgver/drivers/staging/usbip/userspace
-  # fix missing man page
-  sed -i 's/usbip_bind_driver.8//' Makefile.am
+  pushd linux-$pkgver/tools/usb/usbip
   ./autogen.sh
   ./configure --prefix=/usr --sbindir=/usr/bin
   make
@@ -142,7 +143,7 @@ package_libtraceevent() {
 package_perf() {
   pkgdesc='Linux kernel performance auditing tool'
   depends=('perl' 'python2' 'libnewt' 'elfutils' 'libunwind' 'binutils'
-           'numactl')
+           'numactl' 'audit')
 
   cd linux-$pkgver/tools/perf
   make \
@@ -195,7 +196,7 @@ package_usbip() {
   pkgdesc='An USB device sharing system over IP network'
   depends=('glib2' 'sysfsutils' 'libsystemd')
 
-  pushd linux-$pkgver/drivers/staging/usbip/userspace
+  pushd linux-$pkgver/tools/usb/usbip
   make install DESTDIR="$pkgdir"
   popd
   # module loading
