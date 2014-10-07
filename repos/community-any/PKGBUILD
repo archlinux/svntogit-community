@@ -5,10 +5,10 @@
 
 pkgname=virt-manager
 pkgver=1.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Desktop user interface for managing virtual machines"
 arch=('any')
-url="http://virt-manager.et.redhat.com"
+url="http://virt-manager.org/"
 license=('GPL')
 depends=('dbus-python' 'libvirt' 'libxml2' 'gtk-vnc' 'rarian'
          'gconf' 'yajl' 'librsvg' 'python2' 'python2-gconf' 'libuser'
@@ -20,7 +20,7 @@ makedepends=('gnome-doc-utils' 'intltool>=0.35.0')
 conflicts=('virtinst')
 replaces=('virtinst')
 install=virt-manager.install
-source=("http://virt-manager.et.redhat.com/download/sources/$pkgname/$pkgname-$pkgver.tar.gz")
+source=("http://virt-manager.org/download/sources/virt-manager/virt-manager-$pkgver.tar.gz")
 md5sums=('baf6eaa88b02bdd7a3c2fdd293eeb6ac')
 
 build() {
