@@ -1,0 +1,128 @@
+From cef286903c24795e72cae8795c7b433b6baf9f57 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Wed, 8 Oct 2014 23:57:34 +0200
+Subject: [PATCH] Fix positioning notifications with long text
+
+https://bugzilla.gnome.org/show_bug.cgi?id=687724
+---
+ src/nd-bubble.c           | 13 +++++++++++++
+ src/nd-notification-box.c |  2 ++
+ src/nd-stack.c            | 16 ++++++++--------
+ 3 files changed, 23 insertions(+), 8 deletions(-)
+
+diff --git a/src/nd-bubble.c b/src/nd-bubble.c
+index 0587478..2d36003 100644
+--- a/src/nd-bubble.c
++++ b/src/nd-bubble.c
+@@ -413,6 +413,16 @@ nd_bubble_realize (GtkWidget *widget)
+         GTK_WIDGET_CLASS (nd_bubble_parent_class)->realize (widget);
+ }
+ 
++static void
++nd_bubble_get_preferred_width (GtkWidget *widget,
++                               gint *min_width,
++                               gint *nat_width)
++{
++        if (nat_width != NULL) {
++                 *nat_width = WIDTH;
++        }
++}
++
+ static gboolean
+ nd_bubble_enter_notify_event (GtkWidget        *widget,
+                               GdkEventCrossing *event)
+@@ -450,6 +460,7 @@ nd_bubble_class_init (NdBubbleClass *klass)
+         widget_class->enter_notify_event = nd_bubble_enter_notify_event;
+         widget_class->leave_notify_event = nd_bubble_leave_notify_event;
+         widget_class->realize = nd_bubble_realize;
++        widget_class->get_preferred_width = nd_bubble_get_preferred_width;
+ 
+         g_type_class_add_private (klass, sizeof (NdBubblePrivate));
+ }
+@@ -622,6 +633,7 @@ nd_bubble_init (NdBubble *bubble)
+         gtk_box_pack_start (GTK_BOX (vbox), bubble->priv->summary_label, TRUE, TRUE, 0);
+         gtk_misc_set_alignment (GTK_MISC (bubble->priv->summary_label), 0, 0);
+         gtk_label_set_line_wrap (GTK_LABEL (bubble->priv->summary_label), TRUE);
++        gtk_label_set_line_wrap_mode (GTK_LABEL (bubble->priv->summary_label), PANGO_WRAP_WORD_CHAR);
+ 
+         atkobj = gtk_widget_get_accessible (bubble->priv->summary_label);
+         atk_object_set_description (atkobj, "Notification summary text.");
+@@ -644,6 +656,7 @@ nd_bubble_init (NdBubble *bubble)
+         gtk_box_pack_start (GTK_BOX (vbox), bubble->priv->body_label, TRUE, TRUE, 0);
+         gtk_misc_set_alignment (GTK_MISC (bubble->priv->body_label), 0, 0);
+         gtk_label_set_line_wrap (GTK_LABEL (bubble->priv->body_label), TRUE);
++        gtk_label_set_line_wrap_mode (GTK_LABEL (bubble->priv->body_label), PANGO_WRAP_WORD_CHAR);
+         g_signal_connect (bubble->priv->body_label,
+                           "activate-link",
+                           G_CALLBACK (on_activate_link),
+diff --git a/src/nd-notification-box.c b/src/nd-notification-box.c
+index 352c515..12267a9 100644
+--- a/src/nd-notification-box.c
++++ b/src/nd-notification-box.c
+@@ -336,6 +336,7 @@ nd_notification_box_init (NdNotificationBox *notification_box)
+         gtk_box_pack_start (GTK_BOX (vbox), notification_box->priv->summary_label, TRUE, TRUE, 0);
+         gtk_misc_set_alignment (GTK_MISC (notification_box->priv->summary_label), 0, 0);
+         gtk_label_set_line_wrap (GTK_LABEL (notification_box->priv->summary_label), TRUE);
++        gtk_label_set_line_wrap_mode (GTK_LABEL (notification_box->priv->summary_label), PANGO_WRAP_WORD_CHAR);
+ 
+         atkobj = gtk_widget_get_accessible (notification_box->priv->summary_label);
+         atk_object_set_description (atkobj, "Notification summary text.");
+@@ -354,6 +355,7 @@ nd_notification_box_init (NdNotificationBox *notification_box)
+         gtk_box_pack_start (GTK_BOX (vbox), notification_box->priv->body_label, TRUE, TRUE, 0);
+         gtk_misc_set_alignment (GTK_MISC (notification_box->priv->body_label), 0, 0);
+         gtk_label_set_line_wrap (GTK_LABEL (notification_box->priv->body_label), TRUE);
++        gtk_label_set_line_wrap_mode (GTK_LABEL (notification_box->priv->body_label), PANGO_WRAP_WORD_CHAR);
+ 
+         atkobj = gtk_widget_get_accessible (notification_box->priv->body_label);
+         atk_object_set_description (atkobj, "Notification body text.");
+diff --git a/src/nd-stack.c b/src/nd-stack.c
+index 6c03acc..2206dad 100644
+--- a/src/nd-stack.c
++++ b/src/nd-stack.c
+@@ -357,10 +357,10 @@ nd_stack_shift_notifications (NdStack     *stack,
+ 
+         for (i = 0, l = stack->priv->bubbles; l != NULL; i++, l = l->next) {
+                 NdBubble       *nw2 = ND_BUBBLE (l->data);
+-                GtkRequisition  req;
++                GtkRequisition  minimum_size, natural_size;
+ 
+                 if (bubble == NULL || nw2 != bubble) {
+-                        gtk_widget_size_request (GTK_WIDGET (nw2), &req);
++                        gtk_widget_get_preferred_size (GTK_WIDGET (nw2), &minimum_size, &natural_size);
+ 
+                         translate_coordinates (stack->priv->location,
+                                                &workarea,
+@@ -368,8 +368,8 @@ nd_stack_shift_notifications (NdStack     *stack,
+                                                &y,
+                                                &shiftx,
+                                                &shifty,
+-                                               req.width,
+-                                               req.height + NOTIFY_STACK_SPACING);
++                                               natural_size.width,
++                                               natural_size.height + NOTIFY_STACK_SPACING);
+                         positions[i].x = x;
+                         positions[i].y = y;
+                 } else if (nw_l != NULL) {
+@@ -428,15 +428,15 @@ nd_stack_add_bubble (NdStack  *stack,
+                      NdBubble *bubble,
+                      gboolean  new_notification)
+ {
+-        GtkRequisition  req;
++        GtkRequisition  minimum_size, natural_size;
+         int             x, y;
+ 
+-        gtk_widget_size_request (GTK_WIDGET (bubble), &req);
++        gtk_widget_get_preferred_size (GTK_WIDGET (bubble), &minimum_size, &natural_size);
+         nd_stack_shift_notifications (stack,
+                                       bubble,
+                                       NULL,
+-                                      req.width,
+-                                      req.height + NOTIFY_STACK_SPACING,
++                                      natural_size.width,
++                                      natural_size.height + NOTIFY_STACK_SPACING,
+                                       &x,
+                                       &y);
+         gtk_widget_show (GTK_WIDGET (bubble));
+-- 
+2.1.2
+
