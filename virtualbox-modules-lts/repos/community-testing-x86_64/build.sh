@@ -1,6 +1,8 @@
 #!/bin/bash
 # lazyness can be enhanced everyday
 
+shopt -s nullglob
+
 usage() {
   echo "usage: $0 extra"
   echo "       $0 testing"
@@ -26,12 +28,16 @@ update() {
 # $1: repo
 # $2: arch
 build() {
-  _pwd=$PWD
-  cd /var/empty
-  makechrootpkg -cu -I "$_pwd"/../../virtualbox/trunk/virtualbox-host-dkms-*-$arch.pkg.tar.xz -r "$1"
-  makechrootpkg -I "$_pwd"/../../virtualbox/trunk/virtualbox-guest-dkms-*-$arch.pkg.tar.xz  -r "$1"
-  cd "$_pwd"
-  makechrootpkg -n -r "$1"
+  _files=("$_pwd"/../../virtualbox/trunk/virtualbox-host-dkms-*-$arch.pkg.tar.xz)
+  if (( ${#_files[*]} > 0)); then
+    _pwd=$PWD
+    cd /var/empty
+    makechrootpkg -c -u -I "${_files[@]}" -r "$1"
+    cd "$_pwd"
+    makechrootpkg -n -r "$1"
+  else
+    makechrootpkg -c -u -n -r "$1"
+  fi
 }
 
 (( $# == 1 )) || usage
