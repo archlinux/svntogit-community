@@ -1,0 +1,647 @@
+diff --git a/data/org.mate.power-manager.gschema.xml.in b/data/org.mate.power-manager.gschema.xml.in
+index adecce0..ca009b5 100644
+--- a/data/org.mate.power-manager.gschema.xml.in
++++ b/data/org.mate.power-manager.gschema.xml.in
+@@ -211,11 +211,6 @@
+       <_summary>Seconds of inactivity to spin down when on battery</_summary>
+       <_description>The number of seconds of inactivity to spin down the disks when on battery power.</_description>
+     </key>
+-    <key name="notify-perhaps-recall" type="b">
+-      <default>true</default>
+-      <_summary>If we should show the recalled battery warning for a broken battery</_summary>
+-      <_description>If we should show the recalled battery warning for a broken battery. Set this to false only if you know your battery is okay.</_description>
+-    </key>
+     <key name="notify-low-capacity" type="b">
+       <default>true</default>
+       <_summary>If we should show the low capacity warning for a broken battery</_summary>
+diff --git a/src/gpm-backlight.c b/src/gpm-backlight.c
+index 1f1d834..d2938a4 100644
+--- a/src/gpm-backlight.c
++++ b/src/gpm-backlight.c
+@@ -410,7 +410,11 @@ gpm_settings_key_changed_cb (GSettings *settings, const gchar *key, GpmBacklight
+  * Does the actions when the ac power source is inserted/removed.
+  **/
+ static void
++#if UP_CHECK_VERSION(0, 99, 0)
++gpm_backlight_client_changed_cb (UpClient *client, GParamSpec *pspec, GpmBacklight *backlight)
++#else
+ gpm_backlight_client_changed_cb (UpClient *client, GpmBacklight *backlight)
++#endif
+ {
+ 	gpm_backlight_brightness_evaluate_and_set (backlight, FALSE, TRUE);
+ }
+@@ -727,8 +731,13 @@ gpm_backlight_init (GpmBacklight *backlight)
+ 
+ 	/* we use up_client for the ac-adapter-changed signal */
+ 	backlight->priv->client = up_client_new ();
++#if UP_CHECK_VERSION(0, 99, 0)
++	g_signal_connect (backlight->priv->client, "notify",
++			  G_CALLBACK (gpm_backlight_client_changed_cb), backlight);
++#else
+ 	g_signal_connect (backlight->priv->client, "changed",
+ 			  G_CALLBACK (gpm_backlight_client_changed_cb), backlight);
++#endif
+ 
+ 	/* gets caps */
+ 	backlight->priv->can_dim = gpm_brightness_has_hw (backlight->priv->brightness);
+diff --git a/src/gpm-button.c b/src/gpm-button.c
+index 1e38173..b331cf6 100644
+--- a/src/gpm-button.c
++++ b/src/gpm-button.c
+@@ -324,7 +324,11 @@ gpm_button_reset_time (GpmButton *button)
+  * gpm_button_client_changed_cb
+  **/
+ static void
++#if UP_CHECK_VERSION(0, 99, 0)
++gpm_button_client_changed_cb (UpClient *client, GParamSpec *pspec, GpmButton *button)
++#else
+ gpm_button_client_changed_cb (UpClient *client, GpmButton *button)
++#endif
+ {
+ 	gboolean lid_is_closed;
+ 
+@@ -363,9 +367,13 @@ gpm_button_init (GpmButton *button)
+ 
+ 	button->priv->client = up_client_new ();
+ 	button->priv->lid_is_closed = up_client_get_lid_is_closed (button->priv->client);
++#if UP_CHECK_VERSION(0, 99, 0)
++	g_signal_connect (button->priv->client, "notify",
++			  G_CALLBACK (gpm_button_client_changed_cb), button);
++#else
+ 	g_signal_connect (button->priv->client, "changed",
+ 			  G_CALLBACK (gpm_button_client_changed_cb), button);
+-
++#endif
+ 	/* register the brightness keys */
+ 	gpm_button_xevent_key (button, XF86XK_PowerOff, GPM_BUTTON_POWER);
+ #ifdef HAVE_XF86XK_SUSPEND
+diff --git a/src/gpm-common.h b/src/gpm-common.h
+index ef20f88..303bdd1 100644
+--- a/src/gpm-common.h
++++ b/src/gpm-common.h
+@@ -98,7 +98,6 @@ G_BEGIN_DECLS
+ #define GPM_SETTINGS_SPINDOWN_TIMEOUT_BATT		"spindown-timeout-battery"
+ 
+ /* notify */
+-#define GPM_SETTINGS_NOTIFY_PERHAPS_RECALL		"notify-perhaps-recall"
+ #define GPM_SETTINGS_NOTIFY_LOW_CAPACITY		"notify-low-capacity"
+ #define GPM_SETTINGS_NOTIFY_DISCHARGING			"notify-discharging"
+ #define GPM_SETTINGS_NOTIFY_FULLY_CHARGED		"notify-fully-charged"
+diff --git a/src/gpm-control.c b/src/gpm-control.c
+index ec50136..0562d38 100644
+--- a/src/gpm-control.c
++++ b/src/gpm-control.c
+@@ -289,10 +289,11 @@ gpm_control_suspend (GpmControl *control, GError **error)
+ 		}
+ 		g_object_unref(proxy);
+ 	}
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	else {
+ 		ret = up_client_suspend_sync (control->priv->client, NULL, error);
+ 	}
+-
++#endif
+ 	egg_debug ("emitting resume");
+ 	g_signal_emit (control, signals [RESUME], 0, GPM_CONTROL_ACTION_SUSPEND);
+ 
+@@ -399,10 +400,11 @@ gpm_control_hibernate (GpmControl *control, GError **error)
+ 			ret = TRUE;
+ 		}
+ 	}
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	else {
+ 		ret = up_client_hibernate_sync (control->priv->client, NULL, error);
+ 	}
+-
++#endif
+ 	egg_debug ("emitting resume");
+ 	g_signal_emit (control, signals [RESUME], 0, GPM_CONTROL_ACTION_HIBERNATE);
+ 
+diff --git a/src/gpm-engine.c b/src/gpm-engine.c
+index 0f9d0c1..e6c6bf2 100644
+--- a/src/gpm-engine.c
++++ b/src/gpm-engine.c
+@@ -72,7 +72,6 @@ enum {
+ 	CHARGE_ACTION,
+ 	DISCHARGING,
+ 	LOW_CAPACITY,
+-	PERHAPS_RECALL,
+ 	LAST_SIGNAL
+ };
+ 
+@@ -761,42 +760,6 @@ gpm_engine_device_add (GpmEngine *engine, UpDevice *device)
+ }
+ 
+ /**
+- * gpm_engine_check_recall:
+- **/
+-static gboolean
+-gpm_engine_check_recall (GpmEngine *engine, UpDevice *device)
+-{
+-	UpDeviceKind kind;
+-	gboolean recall_notice = FALSE;
+-	gchar *recall_vendor = NULL;
+-	gchar *recall_url = NULL;
+-
+-	/* get device properties */
+-	g_object_get (device,
+-		      "kind", &kind,
+-		      "recall-notice", &recall_notice,
+-		      "recall-vendor", &recall_vendor,
+-		      "recall-url", &recall_url,
+-		      NULL);
+-
+-	/* not battery */
+-	if (kind != UP_DEVICE_KIND_BATTERY)
+-		goto out;
+-
+-	/* no recall data */
+-	if (!recall_notice)
+-		goto out;
+-
+-	/* emit signal for manager */
+-	egg_debug ("** EMIT: perhaps-recall");
+-	g_signal_emit (engine, signals [PERHAPS_RECALL], 0, device, recall_vendor, recall_url);
+-out:
+-	g_free (recall_vendor);
+-	g_free (recall_url);
+-	return recall_notice;
+-}
+-
+-/**
+  * gpm_engine_coldplug_idle_cb:
+  **/
+ static gboolean
+@@ -805,12 +768,14 @@ gpm_engine_coldplug_idle_cb (GpmEngine *engine)
+ 	guint i;
+ 	GPtrArray *array = NULL;
+ 	UpDevice *device;
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	gboolean ret;
+ 	GError *error = NULL;
++#endif
+ 
+ 	g_return_val_if_fail (engine != NULL, FALSE);
+ 	g_return_val_if_fail (GPM_IS_ENGINE (engine), FALSE);
+-
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	/* get devices from UPower */
+ 	ret = up_client_enumerate_devices_sync (engine->priv->client, NULL, &error);
+ 	if (!ret) {
+@@ -818,7 +783,7 @@ gpm_engine_coldplug_idle_cb (GpmEngine *engine)
+ 		g_error_free (error);
+ 		goto out;
+ 	}
+-
++#endif
+ 	/* connected mobile phones */
+ 	gpm_phone_coldplug (engine->priv->phone);
+ 
+@@ -829,9 +794,10 @@ gpm_engine_coldplug_idle_cb (GpmEngine *engine)
+ 	for (i=0;i<array->len;i++) {
+ 		device = g_ptr_array_index (array, i);
+ 		gpm_engine_device_add (engine, device);
+-		gpm_engine_check_recall (engine, device);
+ 	}
++#if !UP_CHECK_VERSION(0, 99, 0)
+ out:
++#endif
+ 	if (array != NULL)
+ 		g_ptr_array_unref (array);
+ 	/* never repeat */
+@@ -846,7 +812,6 @@ gpm_engine_device_added_cb (UpClient *client, UpDevice *device, GpmEngine *engin
+ {
+ 	/* add to list */
+ 	g_ptr_array_add (engine->priv->array, g_object_ref (device));
+-	gpm_engine_check_recall (engine, device);
+ 
+ 	gpm_engine_recalculate_state (engine);
+ }
+@@ -855,6 +820,22 @@ gpm_engine_device_added_cb (UpClient *client, UpDevice *device, GpmEngine *engin
+  * gpm_engine_device_removed_cb:
+  **/
+ static void
++#if UP_CHECK_VERSION(0, 99, 0)
++gpm_engine_device_removed_cb (UpClient *client, const char *object_path, GpmEngine *engine)
++{
++	guint i;
++
++	for (i = 0; i < engine->priv->array->len; i++) {
++		UpDevice *device = g_ptr_array_index (engine->priv->array, i);
++
++		if (g_strcmp0 (object_path, up_device_get_object_path (device)) == 0) {
++			g_ptr_array_remove_index (engine->priv->array, i);
++			break;
++		}
++	}
++	gpm_engine_recalculate_state (engine);
++}
++#else
+ gpm_engine_device_removed_cb (UpClient *client, UpDevice *device, GpmEngine *engine)
+ {
+ 	gboolean ret;
+@@ -863,12 +844,18 @@ gpm_engine_device_removed_cb (UpClient *client, UpDevice *device, GpmEngine *eng
+ 		return;
+ 	gpm_engine_recalculate_state (engine);
+ }
+-
++#endif
+ 
+ /**
+  * gpm_engine_device_changed_cb:
+  **/
+ static void
++#if UP_CHECK_VERSION(0, 99, 0)
++gpm_engine_device_changed_cb (UpClient *client, GParamSpec *pspec, GpmEngine *engine)
++{
++	gpm_engine_recalculate_state (engine);
++}
++#else
+ gpm_engine_device_changed_cb (UpClient *client, UpDevice *device, GpmEngine *engine)
+ {
+ 	UpDeviceKind kind;
+@@ -930,6 +917,7 @@ gpm_engine_device_changed_cb (UpClient *client, UpDevice *device, GpmEngine *eng
+ 
+ 	gpm_engine_recalculate_state (engine);
+ }
++#endif
+ 
+ /**
+  * gpm_engine_get_devices:
+@@ -1042,7 +1030,10 @@ phone_device_refresh_cb (GpmPhone *phone, guint idx, GpmEngine *engine)
+ static void
+ gpm_engine_init (GpmEngine *engine)
+ {
+-
++#if UP_CHECK_VERSION(0, 99, 0)
++	GPtrArray *array = NULL;
++	guint i;
++#endif
+ 	engine->priv = GPM_ENGINE_GET_PRIVATE (engine);
+ 
+ 	engine->priv->array = g_ptr_array_new_with_free_func (g_object_unref);
+@@ -1051,8 +1042,13 @@ gpm_engine_init (GpmEngine *engine)
+ 			  G_CALLBACK (gpm_engine_device_added_cb), engine);
+ 	g_signal_connect (engine->priv->client, "device-removed",
+ 			  G_CALLBACK (gpm_engine_device_removed_cb), engine);
++#if UP_CHECK_VERSION(0, 99, 0)
++	g_signal_connect (engine->priv->client, "notify",
++			  G_CALLBACK (gpm_engine_device_changed_cb), engine);
++#else
+ 	g_signal_connect (engine->priv->client, "device-changed",
+ 			  G_CALLBACK (gpm_engine_device_changed_cb), engine);
++#endif
+ 
+ 	engine->priv->settings = g_settings_new (GPM_SETTINGS_SCHEMA);
+ 	g_signal_connect (engine->priv->settings, "changed",
+@@ -1066,6 +1062,18 @@ gpm_engine_init (GpmEngine *engine)
+ 	g_signal_connect (engine->priv->phone, "device-refresh",
+ 			  G_CALLBACK (phone_device_refresh_cb), engine);
+ 
++#if UP_CHECK_VERSION(0, 99, 0)
++	/* coldplug */
++	array = up_client_get_devices(engine->priv->client);
++	if (array) {
++		for (i = 0; i < array->len; i++) {
++			UpDevice *device = g_ptr_array_index (array, i);
++			gpm_engine_device_added_cb(engine->priv->client, device, engine);
++		}
++		g_ptr_array_free (array, TRUE);
++	}
++#endif
++
+ 	/* create a fake virtual composite battery */
+ 	engine->priv->battery_composite = up_device_new ();
+ 	g_object_set (engine->priv->battery_composite,
+@@ -1134,14 +1142,6 @@ gpm_engine_class_init (GpmEngineClass *klass)
+ 			      G_STRUCT_OFFSET (GpmEngineClass, low_capacity),
+ 			      NULL, NULL, g_cclosure_marshal_VOID__POINTER,
+ 			      G_TYPE_NONE, 1, G_TYPE_POINTER);
+-	signals [PERHAPS_RECALL] =
+-		g_signal_new ("perhaps-recall",
+-			      G_TYPE_FROM_CLASS (object_class),
+-			      G_SIGNAL_RUN_LAST,
+-			      G_STRUCT_OFFSET (GpmEngineClass, perhaps_recall),
+-			      NULL, NULL, gpm_marshal_VOID__POINTER_STRING_STRING,
+-			      G_TYPE_NONE,
+-			      3, G_TYPE_POINTER, G_TYPE_STRING, G_TYPE_STRING);
+ 	signals [FULLY_CHARGED] =
+ 		g_signal_new ("fully-charged",
+ 			      G_TYPE_FROM_CLASS (object_class),
+diff --git a/src/gpm-engine.h b/src/gpm-engine.h
+index be1ccd6..43f8956 100644
+--- a/src/gpm-engine.h
++++ b/src/gpm-engine.h
+@@ -49,10 +49,6 @@ typedef struct
+ 						 gchar		*icon);
+ 	void		(* summary_changed)	(GpmEngine	*engine,
+ 						 gchar		*status);
+-	void		(* perhaps_recall)	(GpmEngine	*engine,
+-						 UpDevice	*device,
+-						 const gchar	*oem_vendor,
+-						 const gchar	*website);
+ 	void		(* low_capacity)	(GpmEngine	*engine,
+ 						 UpDevice	*device);
+ 	void		(* charge_low)		(GpmEngine	*engine,
+diff --git a/src/gpm-kbd-backlight.c b/src/gpm-kbd-backlight.c
+index 0ac6801..3a0f6e6 100644
+--- a/src/gpm-kbd-backlight.c
++++ b/src/gpm-kbd-backlight.c
+@@ -113,6 +113,9 @@ gpm_kbd_backlight_set (GpmKbdBacklight *backlight,
+    guint goal;
+ 
+    g_return_val_if_fail (GPM_IS_KBD_BACKLIGHT (backlight), FALSE);
++   /* avoid warnings if no keyboard brightness is available */
++   if (backlight->priv->max_brightness < 1)
++       return FALSE;
+    /* if we're setting the same we are, don't bother */
+    //g_return_val_if_fail (backlight->priv->brightness_percent != percentage, FALSE);
+ 
+@@ -483,6 +486,9 @@ gpm_kbd_backlight_control_resume_cb (GpmControl *control,
+  **/
+ static void
+ gpm_kbd_backlight_client_changed_cb (UpClient *client,
++#if UP_CHECK_VERSION(0, 99, 0)
++                    GParamSpec *pspec,
++#endif
+                     GpmKbdBacklight *backlight)
+ {
+    gpm_kbd_backlight_evaluate_power_source_and_set (backlight);
+@@ -752,8 +758,13 @@ gpm_kbd_backlight_init (GpmKbdBacklight *backlight)
+ 
+    /* Use upower for ac changed signal */
+    backlight->priv->client = up_client_new ();
++#if UP_CHECK_VERSION(0, 99, 0)
++   g_signal_connect (backlight->priv->client, "notify",
++             G_CALLBACK (gpm_kbd_backlight_client_changed_cb), backlight);
++#else
+    g_signal_connect (backlight->priv->client, "changed",
+              G_CALLBACK (gpm_kbd_backlight_client_changed_cb), backlight);
++#endif
+ 
+     backlight->priv->settings = g_settings_new (GPM_SETTINGS_SCHEMA);
+ 	//g_signal_connect (backlight->priv->settings, "changed", G_CALLBACK (gpm_settings_key_changed_cb), backlight);
+diff --git a/src/gpm-manager.c b/src/gpm-manager.c
+index 6ca9dea..df84cac 100644
+--- a/src/gpm-manager.c
++++ b/src/gpm-manager.c
+@@ -68,7 +68,6 @@
+ static void     gpm_manager_finalize	(GObject	 *object);
+ 
+ #define GPM_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), GPM_TYPE_MANAGER, GpmManagerPrivate))
+-#define GPM_MANAGER_RECALL_DELAY		30 /* seconds */
+ #define GPM_MANAGER_NOTIFY_TIMEOUT_NEVER	0 /* ms */
+ #define GPM_MANAGER_NOTIFY_TIMEOUT_SHORT	10 * 1000 /* ms */
+ #define GPM_MANAGER_NOTIFY_TIMEOUT_LONG		30 * 1000 /* ms */
+@@ -972,7 +971,11 @@ gpm_manager_get_spindown_timeout (GpmManager *manager)
+  * gpm_manager_client_changed_cb:
+  **/
+ static void
++#if UP_CHECK_VERSION(0, 99, 0)
++gpm_manager_client_changed_cb (UpClient *client, GParamSpec *pspec, GpmManager *manager)
++#else
+ gpm_manager_client_changed_cb (UpClient *client, GpmManager *manager)
++#endif
+ {
+ 	gboolean event_when_closed;
+ 	gint timeout;
+@@ -1092,111 +1095,6 @@ gpm_manager_settings_changed_cb (GSettings *settings, const gchar *key, GpmManag
+ }
+ 
+ /**
+- * gpm_manager_perhaps_recall_response_cb:
+- */
+-static void
+-gpm_manager_perhaps_recall_response_cb (GtkDialog *dialog, gint response_id, GpmManager *manager)
+-{
+-	GdkScreen *screen;
+-	GtkWidget *dialog_error;
+-	GError *error = NULL;
+-	gboolean ret;
+-	const gchar *website;
+-
+-	/* don't show this again */
+-	if (response_id == GTK_RESPONSE_CANCEL) {
+-		g_settings_set_boolean (manager->priv->settings, GPM_SETTINGS_NOTIFY_PERHAPS_RECALL, FALSE);
+-		goto out;
+-	}
+-
+-	/* visit recall website */
+-	if (response_id == GTK_RESPONSE_OK) {
+-		screen = gdk_screen_get_default();
+-		website = (const gchar *) g_object_get_data (G_OBJECT (manager), "recall-oem-website");
+-		ret = gtk_show_uri (screen, website, gtk_get_current_event_time (), &error);
+-		if (!ret) {
+-			dialog_error = gtk_message_dialog_new (NULL, GTK_DIALOG_MODAL, GTK_MESSAGE_INFO, GTK_BUTTONS_OK,
+-							       "Failed to show url %s", error->message);
+-			gtk_dialog_run (GTK_DIALOG (dialog_error));
+-			g_error_free (error);
+-		}
+-		goto out;
+-	}
+-out:
+-	gtk_widget_destroy (GTK_WIDGET (dialog));
+-	return;
+-}
+-
+-/**
+- * gpm_manager_perhaps_recall_delay_cb:
+- */
+-static gboolean
+-gpm_manager_perhaps_recall_delay_cb (GpmManager *manager)
+-{
+-	const gchar *oem_vendor;
+-	gchar *title = NULL;
+-	gchar *message = NULL;
+-	GtkWidget *dialog;
+-
+-	oem_vendor = (const gchar *) g_object_get_data (G_OBJECT (manager), "recall-oem-vendor");
+-
+-	/* TRANSLATORS: the battery may be recalled by it's vendor */
+-	title = g_strdup_printf ("%s: %s", GPM_NAME, _("Battery may be recalled"));
+-	message = g_strdup_printf (_("A battery in your computer may have been "
+-				     "recalled by %s and you may be at risk.\n\n"
+-				     "For more information visit the battery recall website."), oem_vendor);
+-	dialog = gtk_message_dialog_new_with_markup (NULL, GTK_DIALOG_DESTROY_WITH_PARENT,
+-						     GTK_MESSAGE_INFO, GTK_BUTTONS_CLOSE,
+-						     "<span size='larger'><b>%s</b></span>", title);
+-
+-	gtk_message_dialog_format_secondary_markup (GTK_MESSAGE_DIALOG (dialog), "%s", message);
+-
+-	/* TRANSLATORS: button text, visit the manufacturers recall website */
+-	gtk_dialog_add_button (GTK_DIALOG (dialog), _("Visit recall website"), GTK_RESPONSE_OK);
+-
+-	/* TRANSLATORS: button text, do not show this bubble again */
+-	gtk_dialog_add_button (GTK_DIALOG (dialog), _("Do not show me this again"), GTK_RESPONSE_CANCEL);
+-
+-	/* wait async for response */
+-	gtk_widget_show (dialog);
+-	g_signal_connect (dialog, "response", G_CALLBACK (gpm_manager_perhaps_recall_response_cb), manager);
+-
+-	g_free (title);
+-	g_free (message);
+-
+-	/* never repeat */
+-	return FALSE;
+-}
+-
+-/**
+- * gpm_manager_engine_perhaps_recall_cb:
+- */
+-static void
+-gpm_manager_engine_perhaps_recall_cb (GpmEngine *engine, UpDevice *device, gchar *oem_vendor, gchar *website, GpmManager *manager)
+-{
+-	gboolean ret;
+-
+-	/* don't show when running under GDM */
+-	if (g_getenv ("RUNNING_UNDER_GDM") != NULL) {
+-		egg_debug ("running under gdm, so no notification");
+-		return;
+-	}
+-
+-	/* already shown, and dismissed */
+-	ret = g_settings_get_boolean (manager->priv->settings, GPM_SETTINGS_NOTIFY_PERHAPS_RECALL);
+-	if (!ret) {
+-		egg_debug ("Gsettings prevents notification: %s", GPM_SETTINGS_NOTIFY_PERHAPS_RECALL);
+-		return;
+-	}
+-
+-	g_object_set_data_full (G_OBJECT (manager), "recall-oem-vendor", (gpointer) g_strdup (oem_vendor), (GDestroyNotify) g_free);
+-	g_object_set_data_full (G_OBJECT (manager), "recall-oem-website", (gpointer) g_strdup (website), (GDestroyNotify) g_free);
+-
+-	/* delay by a few seconds so the panel can load */
+-	g_timeout_add_seconds (GPM_MANAGER_RECALL_DELAY, (GSourceFunc) gpm_manager_perhaps_recall_delay_cb, manager);
+-}
+-
+-/**
+  * gpm_manager_engine_icon_changed_cb:
+  */
+ static void
+@@ -1959,8 +1857,13 @@ gpm_manager_init (GpmManager *manager)
+ 	g_signal_connect (manager->priv->settings, "changed",
+ 			  G_CALLBACK (gpm_manager_settings_changed_cb), manager);
+ 	manager->priv->client = up_client_new ();
++#if UP_CHECK_VERSION(0, 99, 0)
++	g_signal_connect (manager->priv->client, "notify",
++			  G_CALLBACK (gpm_manager_client_changed_cb), manager);
++#else
+ 	g_signal_connect (manager->priv->client, "changed",
+ 			  G_CALLBACK (gpm_manager_client_changed_cb), manager);
++#endif
+ 
+ 	/* use libmatenotify */
+ 	notify_init (GPM_NAME);
+@@ -2023,8 +1926,6 @@ gpm_manager_init (GpmManager *manager)
+ 	gpm_manager_sync_policy_sleep (manager);
+ 
+ 	manager->priv->engine = gpm_engine_new ();
+-	g_signal_connect (manager->priv->engine, "perhaps-recall",
+-			  G_CALLBACK (gpm_manager_engine_perhaps_recall_cb), manager);
+ 	g_signal_connect (manager->priv->engine, "low-capacity",
+ 			  G_CALLBACK (gpm_manager_engine_low_capacity_cb), manager);
+ 	g_signal_connect (manager->priv->engine, "icon-changed",
+diff --git a/src/gpm-prefs-core.c b/src/gpm-prefs-core.c
+index 7a2662d..6abb792 100644
+--- a/src/gpm-prefs-core.c
++++ b/src/gpm-prefs-core.c
+@@ -811,7 +811,9 @@ gpm_prefs_init (GpmPrefs *prefs)
+ 	UpDevice *device;
+ 	UpDeviceKind kind;
+ 	GpmBrightness *brightness;
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	gboolean ret;
++#endif
+ 	guint i;
+ 
+ 	GDBusProxy *proxy;
+@@ -897,9 +899,11 @@ gpm_prefs_init (GpmPrefs *prefs)
+ 	else {
+ 		/* are we allowed to shutdown? */
+ 		egg_console_kit_can_stop (prefs->priv->console, &prefs->priv->can_shutdown, NULL);
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 		/* get values from UpClient */
+ 		prefs->priv->can_suspend = up_client_get_can_suspend (prefs->priv->client);
+ 		prefs->priv->can_hibernate = up_client_get_can_hibernate (prefs->priv->client);
++#endif
+ 	}
+ 
+ 	if (LOGIND_RUNNING()) {
+@@ -953,14 +957,14 @@ gpm_prefs_init (GpmPrefs *prefs)
+ 	brightness = gpm_brightness_new ();
+ 	prefs->priv->has_lcd = gpm_brightness_has_hw (brightness);
+ 	g_object_unref (brightness);
+-
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	/* get device list */
+ 	ret = up_client_enumerate_devices_sync (prefs->priv->client, NULL, &error);
+ 	if (!ret) {
+ 		egg_warning ("failed to get device list: %s", error->message);
+ 		g_error_free (error);
+ 	}
+-
++#endif
+ 	devices = up_client_get_devices (prefs->priv->client);
+ 	for (i=0; i<devices->len; i++) {
+ 		device = g_ptr_array_index (devices, i);
+diff --git a/src/gpm-statistics.c b/src/gpm-statistics.c
+index 98b5632..13489dc 100644
+--- a/src/gpm-statistics.c
++++ b/src/gpm-statistics.c
+@@ -1236,6 +1236,12 @@ gpm_stats_device_added_cb (UpClient *client, UpDevice *device, gpointer user_dat
+  * gpm_stats_device_changed_cb:
+  **/
+ static void
++#if UP_CHECK_VERSION(0, 99, 0)
++gpm_stats_device_changed_cb (UpClient *client, GParamSpec *pspec, gpointer user_data)
++{
++	gpm_stats_button_update_ui();
++}
++#else
+ gpm_stats_device_changed_cb (UpClient *client, UpDevice *device, gpointer user_data)
+ {
+ 	const gchar *object_path;
+@@ -1246,6 +1252,7 @@ gpm_stats_device_changed_cb (UpClient *client, UpDevice *device, gpointer user_d
+ 	if (g_strcmp0 (current_device, object_path) == 0)
+ 		gpm_stats_update_info_data (device);
+ }
++#endif
+ 
+ /**
+  * gpm_stats_device_removed_cb:
+@@ -1794,11 +1801,12 @@ main (int argc, char *argv[])
+ 
+ 	wakeups = up_wakeups_new ();
+ 	g_signal_connect (wakeups, "data-changed", G_CALLBACK (gpm_stats_data_changed_cb), NULL);
+-
++#if !UP_CHECK_VERSION(0, 99, 0)
+ 	/* coldplug */
+ 	ret = up_client_enumerate_devices_sync (client, NULL, NULL);
+ 	if (!ret)
+ 		goto out;
++#endif
+ 	devices = up_client_get_devices (client);
+ 
+ 	/* add devices in visually pleasing order */
+@@ -1814,7 +1822,11 @@ main (int argc, char *argv[])
+ 	/* connect now the coldplug is done */
+ 	g_signal_connect (client, "device-added", G_CALLBACK (gpm_stats_device_added_cb), NULL);
+ 	g_signal_connect (client, "device-removed", G_CALLBACK (gpm_stats_device_removed_cb), NULL);
++#if UP_CHECK_VERSION(0, 99, 0)
++	g_signal_connect (client, "notify", G_CALLBACK (gpm_stats_device_changed_cb), NULL);
++#else
+ 	g_signal_connect (client, "device-changed", G_CALLBACK (gpm_stats_device_changed_cb), NULL);
++#endif
+ 
+ 	/* set current device */
+ 	if (devices->len > 0) {
+@@ -1854,8 +1866,9 @@ main (int argc, char *argv[])
+ 	gtk_widget_show (widget);
+ 
+ 	gtk_main ();
+-
++#if !UP_CHECK_VERSION(0, 99, 0)
+ out:
++#endif
+ 	g_object_unref (settings);
+ 	g_object_unref (client);
+ 	g_object_unref (wakeups);
