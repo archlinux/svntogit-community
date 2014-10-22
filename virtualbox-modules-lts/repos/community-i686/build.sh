@@ -28,12 +28,16 @@ update() {
 # $1: repo
 # $2: arch
 build() {
-  _pwd=$PWD
-  cd /var/empty
   _files=("$_pwd"/../../virtualbox/trunk/virtualbox-host-dkms-*-$arch.pkg.tar.xz)
-  (( ${#_files[*]} > 0)) && makechrootpkg -cu -I "${_files[@]}" -r "$1"
-  cd "$_pwd"
-  makechrootpkg -n -r "$1"
+  if (( ${#_files[*]} > 0)); then
+    _pwd=$PWD
+    cd /var/empty
+    makechrootpkg -c -u -I "${_files[@]}" -r "$1"
+    cd "$_pwd"
+    makechrootpkg -n -r "$1"
+  else
+    makechrootpkg -c -u -n -r "$1"
+  fi
 }
 
 (( $# == 1 )) || usage
