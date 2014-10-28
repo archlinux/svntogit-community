@@ -5,77 +5,95 @@
 # See .contrib for older/other contributors
 
 pkgbase=eric
-pkgname=('eric-common' 'eric')
-pkgver=5.4.7
+pkgname=('eric-common' 'eric' 'python2-eric')
+pkgver=5.5.0
 pkgrel=1
-pkgdesc="A full-featured Python 3.x and Ruby IDE in PyQt4"
+pkgdesc="A full-featured Python and Ruby IDE in PyQt4"
 arch=('any')
 url="http://eric-ide.python-projects.org/"
 license=('GPL3')
-depends=('python-qscintilla')
+depends=('python-qscintilla' 'python2-qscintilla')
 install=${pkgbase}.install
-source=("http://downloads.sourceforge.net/eric-ide/eric5-${pkgver}.tar.gz"
-        "${pkgbase}.desktop")
-md5sums=('774d2bd1eadd694feceb129d4556c644'
-         '8aa446c29e6de54e85410e040e754c6e')
+source=("http://downloads.sourceforge.net/eric-ide/eric5-${pkgver}.tar.gz")
+md5sums=('87a7b222269e688418e3f0d51c044508')
+changelog=ChangeLog
 
 prepare() {
-  cd "${srcdir}/eric5-${pkgver}"
+  cp -r "${srcdir}/eric5-${pkgver}"{,_py2}
 
-  # some freedesktop.org compatibility adjustments (referenced at runtime)
-  # TODO: check if this is still needed, else move to package()
-  for i in $(grep -R "eric5.desktop" . | sed 's/:.*//' | sort -u); do
-    sed -i "s/eric5.desktop/eric.desktop/" ${i}
-  done
-
-  # desktop file later needed during build
-  rm eric/eric5.desktop
-  install -Dm644 "${srcdir}/${pkgbase}.desktop" "eric/${pkgbase}.desktop"
+  cd "${srcdir}/eric5-${pkgver}_py2/eric"
+  find . -name '*.py' -exec \
+    sed -i -r "s:^#!/usr/bin/(env |)python(3|)$:#!/usr/bin/env python2:" {} \;
+  # fix py2 and py3 compatibility
+  sed -i "s/eric5.desktop/eric5_py2.desktop/g" "eric5.appdata.xml"
+  sed -i "s/Exec=eric5/Exec=eric5_py2/g" "eric5.desktop"
+  sed -i "s/Exec=eric5_webbrowser/Exec=eric5_webbrowser_py2/g" "eric5_webbrowser.desktop"
 }
 
 package_eric-common() {
   depends=()
 
-  cd "${srcdir}/eric5-${pkgver}"
+  cd "${srcdir}/eric5-${pkgver}/eric"
+  # eric APIs
+  install -Dm644 "APIs/Python3/eric5.api" \
+                 "${pkgdir}/usr/share/qt4/qsci/api/python/eric5.api"
+  install -Dm644 "APIs/Python3/eric5.bas" \
+                 "${pkgdir}/usr/share/qt4/qsci/api/python/eric5.bas"
   # pyqt APIs
-  install -Dm644 "eric/APIs/Python3/PyQt4.bas" \
+  install -Dm644 "APIs/Python3/PyQt4_Qt4.bas" \
                  "${pkgdir}/usr/share/qt4/qsci/api/python/PyQt4.bas"
+  # qss APIs
+  install -Dm644 "APIs/QSS/qss.api" \
+                 "${pkgdir}/usr/share/qt4/qsci/api/qss/qss.api"
   # qscintilla APIs
-  install -Dm644 "eric/APIs/Python3/QScintilla2.bas" \
+  install -Dm644 "APIs/Python3/QScintilla2.bas" \
                  "${pkgdir}/usr/share/qt4/qsci/api/python/QScintilla2.bas"
   # zope APIs
-  install -Dm644 "eric/APIs/Python/zope-2.10.7.api" \
+  install -Dm644 "APIs/Python/zope-2.10.7.api" \
                  "${pkgdir}/usr/share/qt4/qsci/api/python/zope-2.10.7.api"
-  install -Dm644 "eric/APIs/Python/zope-2.11.2.api" \
+  install -Dm644 "APIs/Python/zope-2.11.2.api" \
                  "${pkgdir}/usr/share/qt4/qsci/api/python/zope-2.11.2.api"
-  install -Dm644 "eric/APIs/Python/zope-3.3.1.api" \
+  install -Dm644 "APIs/Python/zope-3.3.1.api" \
                  "${pkgdir}/usr/share/qt4/qsci/api/python/zope-3.3.1.api"
   # ruby APIs
-  install -Dm644 "eric/APIs/Ruby/Ruby-1.8.7.api" \
+  install -Dm644 "APIs/Ruby/Ruby-1.8.7.api" \
                  "${pkgdir}/usr/share/qt4/qsci/api/ruby/Ruby-1.8.7.api"
-  install -Dm644 "eric/APIs/Ruby/Ruby-1.8.7.bas" \
+  install -Dm644 "APIs/Ruby/Ruby-1.8.7.bas" \
                  "${pkgdir}/usr/share/qt4/qsci/api/ruby/Ruby-1.8.7.bas"
-  install -Dm644 "eric/APIs/Ruby/Ruby-1.9.1.api" \
+  install -Dm644 "APIs/Ruby/Ruby-1.9.1.api" \
                  "${pkgdir}/usr/share/qt4/qsci/api/ruby/Ruby-1.9.1.api"
-  install -Dm644 "eric/APIs/Ruby/Ruby-1.9.1.bas" \
+  install -Dm644 "APIs/Ruby/Ruby-1.9.1.bas" \
                  "${pkgdir}/usr/share/qt4/qsci/api/ruby/Ruby-1.9.1.bas"
+  # pixmaps
+  install -Dm644 "icons/default/eric.png" \
+                 "${pkgdir}/usr/share/pixmaps/eric.png"
+  install -Dm644 "icons/default/ericWeb.png" \
+                 "${pkgdir}/usr/share/pixmaps/ericWeb.png"
 }
 
 package_eric() {
-  depends+=('eric-common')
+  depends=('eric-common' 'python-qscintilla')
 
   cd "${srcdir}/eric5-${pkgver}"
   python install.py -c -b /usr/bin -i "${pkgdir}"
   # remove common components
-  find "${pkgdir}/usr/share/qt4/qsci/api/" -type f -not -name 'eric*' -exec rm {} \;
+  rm -r "${pkgdir}/usr/share/pixmaps"
+  rm -r "${pkgdir}/usr/share/qt4"
+}
 
-  # some canonical symlinks
-  # TODO: might we want to just package this as eric5?
-  #       upstream references them as two distinct versions...
-  cd "${pkgdir}/usr/bin"
-  for i in *; do
-    ln -s /usr/bin/${i} ${i/eric5/eric}
-  done
+package_python2-eric() {
+  depends=('eric-common' 'python2-qscintilla')
+
+  cd "${srcdir}/eric5-${pkgver}_py2"
+  python2 install.py -c -b /usr/bin -i "${pkgdir}" -y
+  # remove common components
+  rm -r "${pkgdir}/usr/share/qt4"
+  rm -r "${pkgdir}/usr/share/pixmaps"
+
+  # compatibility with eric
+  mv "${pkgdir}/usr/share/appdata/"{eric5.appdata.xml,eric5_py2.appdata.xml}
+  mv "${pkgdir}/usr/share/applications/"{eric5.desktop,eric5_py2.desktop}
+  mv "${pkgdir}/usr/share/applications/"{eric5_webbrowser.desktop,eric5_webbrowser_py2.desktop}
 }
 
 # vim:set ts=2 sw=2 et:
