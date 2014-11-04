@@ -1,0 +1,63 @@
+# $Id$
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+
+_target=arm-none-eabi
+pkgname=$_target-newlib
+pkgver=2.1.0
+pkgrel=1
+pkgdesc='A C standard library implementation intended for use on embedded systems (ARM bare metal)'
+arch=(any)
+url='http://www.sourceware.org/newlib/'
+license=(BSD)
+makedepends=($_target-gcc git)
+options=(!emptydirs !strip staticlibs !buildflags)
+# newlib 2.1.0 does not have newlib-nano integrated yet. Let's use the latest HEAD until 2.1.1 release.
+source=(git://sourceware.org/git/newlib.git#commit=9b9f839addfe16ab0fd11f09a30a28139bfae6d5)
+sha1sums=('SKIP')
+
+build() {
+  export CFLAGS_FOR_TARGET='-g -O2 -ffunction-sections -fdata-sections'
+
+  rm -rf build-{newlib,nano}
+  mkdir build-{newlib,nano}
+
+  cd "$srcdir"/build-newlib
+  ../newlib/configure \
+    --target=$_target \
+    --prefix=/usr \
+    --disable-newlib-supplied-syscalls \
+    --disable-nls \
+    --enable-newlib-io-long-long\
+    --enable-newlib-register-fini
+  make
+
+  cd "$srcdir"/build-nano
+  ../newlib/configure \
+    --target=$_target \
+    --prefix=/usr \
+    --disable-newlib-supplied-syscalls \
+    --disable-nls \
+    --enable-newlib-reent-small           \
+    --disable-newlib-fvwrite-in-streamio  \
+    --disable-newlib-fseek-optimization   \
+    --disable-newlib-wide-orient          \
+    --enable-newlib-nano-malloc           \
+    --disable-newlib-unbuf-stream-opt     \
+    --enable-lite-exit                    \
+    --enable-newlib-global-atexit
+  make
+}
+
+package() {
+  cd "$srcdir"/build-nano
+  make DESTDIR="$pkgdir" install -j1
+  find "$pkgdir" -regex ".*/lib\(c\|g\|rdimon\)\.a" -exec rename .a _nano.a '{}' \;
+
+  cd "$srcdir"/build-newlib
+  make DESTDIR="$pkgdir" install -j1
+
+  rm "$pkgdir"/usr/share/info/*.info
+
+  install -d "$pkgdir"/usr/share/licenses/$pkgname/
+  install -m644 -t "$pkgdir"/usr/share/licenses/$pkgname/ "$srcdir"/newlib/COPYING*
+}
