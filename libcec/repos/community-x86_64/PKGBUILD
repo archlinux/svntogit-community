@@ -4,7 +4,7 @@
 # vim: ft=sh:
 
 pkgname=libcec
-pkgver=2.1.4
+pkgver=2.2.0
 pkgrel=1
 pkgdesc="Pulse-Eight's libcec for the Pulse-Eight USB-CEC adapter"
 arch=('i686' 'x86_64')
@@ -24,4 +24,4 @@ package() {
   cd "$pkgname-$pkgname-$pkgver"
   make DESTDIR="$pkgdir" install
 }
-sha256sums=('79bef5232a5c9ab987ca3a2d4bfcaeb80480fd26f502dc1a996fe845d90fe147')
+sha256sums=('fd4f47a18d6e0f4b9e6f5831280207ee2b2a5fc2741ae32ae09ad12a8aa52917')
