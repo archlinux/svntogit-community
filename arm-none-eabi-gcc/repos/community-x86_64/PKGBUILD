@@ -3,29 +3,27 @@
 
 _target=arm-none-eabi
 pkgname=$_target-gcc
-pkgver=4.9.1
-pkgrel=1
-#_snapshot=4.9-20140604
-_newlibver=2.1.0
+pkgver=4.9.2
+_islver=0.12.2
+_cloogver=0.18.1
+pkgrel=3
+#_snapshot=4.9-20140903
 pkgdesc='The GNU Compiler Collection - cross compiler for ARM EABI (bare-metal) target'
 arch=(i686 x86_64)
 url='http://gcc.gnu.org/'
 license=(GPL LGPL FDL)
-depends=($_target-binutils cloog libmpc zlib)
+depends=($_target-binutils $_target-newlib  zlib libmpc)
 makedepends=(gmp mpfr)
-#checkdepends=(dejagnu)
 options=(!emptydirs !strip staticlibs)
 source=(ftp://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
         #ftp://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.bz2
-        ftp://sourceware.org/pub/newlib/newlib-$_newlibver.tar.gz
-        gcc-multilib.patch
-        gcc-no-exceptions.patch
-        libgloss-configure-fix.patch)
-sha256sums=('d334781a124ada6f38e63b545e2a3b8c2183049515a1abab6d513f109f1d717e'
-            '3e4d5ab9f0508942b6231b8ade4f8e5048cf92c96ed574c2bd6bd3320a599a48'
-            '998d1face674cc8d1af5bf28ded15caaaa18936a28f278123448f29555a07775'
-            '7f59b28475aa2018a7edfb81ea81444a6eb098fd3847d8e605809ae6fbeabde5'
-            'eac96c034d3d7d16080d9aef4749e4eda493563a3348e6a06f08e8a330b027ba')
+        http://isl.gforge.inria.fr/isl-$_islver.tar.bz2
+        http://www.bastoul.net/cloog/pages/download/cloog-$_cloogver.tar.gz
+        enable-with-multilib-list-for-arm.patch)
+sha256sums=('2020c98295856aa13fda0f2f3a4794490757fc24bcca918d52cc8b4917b972dd'
+            'f4b3dbee9712850006e44f0db2103441ab3d13b406f77996d1df19ee89d11fb4'
+            '02500a4edd14875f94fe84cbeda4290425cb0c1c2474c6f75d75a303d64b4196'
+            '95a1ae356a6a4f25577bbaa6a83e00cc1ddcebd99e9d3b2bf2c81c5e3d495a77')
 
 if [ -n "$_snapshot" ]; then
   _basedir=gcc-$_snapshot
@@ -34,75 +32,79 @@ else
 fi
 
 prepare() {
-  # Apply configure fix from newlib CVS
-  cd "$srcdir/newlib-$_newlibver/libgloss/arm"
-  patch -Np0 -i "$srcdir/libgloss-configure-fix.patch"
-  autoreconf
+  cd $_basedir
 
-  cd "$srcdir/$_basedir"
+  # link isl/cloog for in-tree builds
+  ln -s ../isl-$_islver isl
+  ln -s ../cloog-$_cloogver cloog
+
   echo $pkgver > gcc/BASE-VER
 
-  patch -Np0 -i "$srcdir"/gcc-multilib.patch
-  patch -Np0 -i "$srcdir"/gcc-no-exceptions.patch
-
-  # Move newlib and libgloss to gcc source directory
-  mv "$srcdir"/newlib-$_newlibver/newlib "$srcdir/$_basedir"
-  mv "$srcdir"/newlib-$_newlibver/libgloss "$srcdir/$_basedir"
-
   # hack! - some configure tests for header files using "$CPP $CPPFLAGS"
-  sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" "$srcdir"/$_basedir/{libiberty,gcc}/configure
+  sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" {libiberty,gcc}/configure
+
+  patch -p1 < $srcdir/enable-with-multilib-list-for-arm.patch
+
+  mkdir $srcdir/gcc-build
 }
 
 build() {
-  cd $_basedir 
-  mkdir build
-  cd build
+  cd gcc-build
 
-  export CFLAGS_FOR_TARGET='-O2 -g -pipe'
-  export CXXFLAGS_FOR_TARGET='-O2 -g -pipe'
+  export CFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
+  export CXXFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
+  $srcdir/$_basedir/configure \
+    --target=$_target \
+    --prefix=/usr \
+    --with-sysroot=/usr/$_target \
+    --with-native-system-header-dir=/include \
+    --libexecdir=/usr/lib \
+    --enable-languages=c,c++ \
+    --enable-plugins \
+    --disable-decimal-float \
+    --disable-libffi \
+    --disable-libgomp \
+    --disable-libmudflap \
+    --disable-libquadmath \
+    --disable-libssp \
+    --disable-libstdcxx-pch \
+    --disable-nls \
+    --disable-shared \
+    --disable-threads \
+    --disable-tls \
+    --with-gnu-as \
+    --with-gnu-ld \
+    --with-system-zlib \
+    --with-newlib \
+    --with-headers=/usr/$_target/include \
+    --with-python-dir=share/gcc-arm-none-eabi \
+    --with-gmp \
+    --with-mpfr \
+    --with-mpc \
+    --with-cloog \
+    --with-isl \
+    --enable-cloog-backend=isl \
+    --with-libelf \
+    "--with-host-libstdcxx=-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm" \
+    --with-pkgversion='Arch Repository' \
+    --with-bugurl='https://bugs.archlinux.org/' \
+    --with-multilib-list=armv6-m,armv7-m,armv7e-m,armv7-r
 
-  ../configure --target=$_target \
-               --prefix=/usr \
-               --libexecdir=/usr/lib \
-               --with-pkgversion='Arch Repository' \
-               --with-bugurl='https://bugs.archlinux.org/' \
-               --enable-multilib \
-               --enable-interwork \
-               --enable-languages=c,c++ \
-               --with-newlib \
-               --with-gnu-as \
-               --with-gnu-ld \
-               --disable-nls \
-               --disable-shared \
-               --disable-threads \
-               --with-headers=newlib/libc/include \
-               --disable-libssp \
-               --disable-libstdcxx-pch \
-               --disable-libmudflap \
-               --disable-libgomp \
-               --with-system-zlib \
-               --disable-newlib-supplied-syscalls
-
-  make
-}
-
-check() {
-  cd $_basedir/build
-# TODO: enable gcc tests for arm target
-#  make check RUNTESTFLAGS="--target_board=arm-sim\{-mhard-float,-msoft-float\}\{-O2,\}"
-#  ../contrib/test_summary
+  make INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"
 }
 
 package() {
-  cd $_basedir/build
+  cd gcc-build
 
   make DESTDIR="$pkgdir" install -j1
 
-  # Strip host objects but do not touch target one
-  find "$pkgdir" -executable -type f -exec /usr/bin/strip --strip-debug '{}' \;
+  # strip target binaries
+  find "$pkgdir"/usr/lib/gcc/$_target/ "$pkgdir"/usr/$_target/lib -type f -and \( -name \*.a -or -name \*.o \) -exec $_target-objcopy -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames -R .debug_pubtypes -R .debug_abbrev -R .debug_line -R .debug_str -R .debug_ranges -R .debug_loc '{}' \;
+
+  # strip host binaries
+  find "$pkgdir"/usr/bin/ "$pkgdir"/usr/lib/gcc/$_target/ -type f -and \( -executable \) -exec strip '{}' \;
 
   # Remove files that conflict with host gcc package
   rm -r "$pkgdir"/usr/share/man/man7
   rm -r "$pkgdir"/usr/share/info
-  rm -r "$pkgdir"/usr/share/gcc-$pkgver
 }
