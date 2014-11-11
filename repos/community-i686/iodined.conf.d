@@ -15,3 +15,7 @@ IODINE_BIND_ADDRESS="0.0.0.0"
 
 # External IP of your iodined server, used in DNS answers.
 IODINE_EXT_IP=""
+
+# The user iodined should run as.
+IODINE_USER="nobody"
+
