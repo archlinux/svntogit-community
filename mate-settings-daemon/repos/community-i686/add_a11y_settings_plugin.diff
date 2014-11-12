@@ -1,0 +1,571 @@
+diff --git a/configure.ac b/configure.ac
+index 5bdeba9..e7b3adc 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -484,6 +484,7 @@ Makefile
+ mate-settings-daemon/Makefile
+ plugins/Makefile
+ plugins/a11y-keyboard/Makefile
++plugins/a11y-settings/Makefile
+ plugins/background/Makefile
+ plugins/clipboard/Makefile
+ plugins/common/Makefile
+diff --git a/data/Makefile.am b/data/Makefile.am
+index 008061a..a44c910 100644
+--- a/data/Makefile.am
++++ b/data/Makefile.am
+@@ -6,6 +6,7 @@ msd_gschemas_in_in = \
+ 	org.mate.peripherals-smartcard.gschema.xml.in.in \
+ 	org.mate.peripherals-touchpad.gschema.xml.in.in \
+ 	org.mate.SettingsDaemon.plugins.a11y-keyboard.gschema.xml.in.in \
++	org.mate.SettingsDaemon.plugins.a11y-settings.gschema.xml.in.in \
+ 	org.mate.SettingsDaemon.plugins.background.gschema.xml.in.in \
+ 	org.mate.SettingsDaemon.plugins.clipboard.gschema.xml.in.in \
+ 	org.mate.SettingsDaemon.plugins.datetime.gschema.xml.in.in \
+diff --git a/data/org.mate.SettingsDaemon.plugins.a11y-settings.gschema.xml.in.in b/data/org.mate.SettingsDaemon.plugins.a11y-settings.gschema.xml.in.in
+new file mode 100644
+index 0000000..26f97bc
+--- /dev/null
++++ b/data/org.mate.SettingsDaemon.plugins.a11y-settings.gschema.xml.in.in
+@@ -0,0 +1,14 @@
++<schemalist>
++  <schema gettext-domain="@GETTEXT_PACKAGE@" id="org.mate.SettingsDaemon.plugins.a11y-settings" path="/org/mate/settings-daemon/plugins/a11y-settings/">
++    <key name="active" type="b">
++      <default>false</default>
++      <_summary>Activation of this plugin</_summary>
++      <_description>Whether this plugin would be activated by mate-settings-daemon or not</_description>
++    </key>
++    <key name="priority" type="i">
++      <default>7</default>
++      <_summary>Priority to use for this plugin</_summary>
++      <_description>Priority to use for this plugin in mate-settings-daemon startup queue</_description>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/plugins/Makefile.am b/plugins/Makefile.am
+index c7ce7d6..05d04c7 100644
+--- a/plugins/Makefile.am
++++ b/plugins/Makefile.am
+@@ -2,6 +2,7 @@ NULL =
+ 
+ enabled_plugins =	\
+ 	a11y-keyboard	\
++	a11y-settings	\
+ 	background	\
+ 	clipboard	\
+ 	datetime	\
+diff --git a/plugins/a11y-settings/Makefile.am b/plugins/a11y-settings/Makefile.am
+new file mode 100644
+index 0000000..f557b0f
+--- /dev/null
++++ b/plugins/a11y-settings/Makefile.am
+@@ -0,0 +1,42 @@
++plugin_name = ally-settings
++
++plugin_LTLIBRARIES = \
++	liba11y-settings.la
++
++liba11y_settings_la_SOURCES = 		\
++	msd-a11y-settings-manager.c	\
++	msd-a11y-settings-manager.h	\
++	msd-a11y-settings-plugin.c	\
++	msd-a11y-settings-plugin.h
++
++liba11y_settings_la_CPPFLAGS = \
++	-I$(top_srcdir)/mate-settings-daemon		\
++	-DMATE_SETTINGS_LOCALEDIR=\""$(datadir)/locale"\" \
++	$(AM_CPPFLAGS)
++
++liba11y_settings_la_CFLAGS = \
++	$(PLUGIN_CFLAGS)		\
++	$(SETTINGS_PLUGIN_CFLAGS)	\
++	$(AM_CFLAGS)
++
++liba11y_settings_la_LDFLAGS = 		\
++	$(MSD_PLUGIN_LDFLAGS)
++
++liba11y_settings_la_LIBADD  = 		\
++	$(SETTINGS_PLUGIN_LIBS)
++
++plugin_in_files = 		\
++	a11y-settings.mate-settings-plugin.in
++
++plugin_DATA = $(plugin_in_files:.mate-settings-plugin.in=.mate-settings-plugin)
++
++EXTRA_DIST = 			\
++	$(plugin_in_files)
++
++CLEANFILES = 			\
++	$(plugin_DATA)
++
++DISTCLEANFILES =		\
++	$(plugin_DATA)
++
++@MSD_INTLTOOL_PLUGIN_RULE@
+diff --git a/plugins/a11y-settings/a11y-settings.mate-settings-plugin.in b/plugins/a11y-settings/a11y-settings.mate-settings-plugin.in
+new file mode 100644
+index 0000000..ecdd80d
+--- /dev/null
++++ b/plugins/a11y-settings/a11y-settings.mate-settings-plugin.in
+@@ -0,0 +1,8 @@
++[MATE Settings Plugin]
++Module=a11y-settings
++IAge=0
++_Name=Accessibility settings
++_Description=Accessibility settings plugin
++Authors=Bastien Nocera <hadess@hadess.net>
++Copyright=Copyright © 2011 Red Hat Inc.
++Website=
+diff --git a/plugins/a11y-settings/msd-a11y-settings-manager.c b/plugins/a11y-settings/msd-a11y-settings-manager.c
+new file mode 100644
+index 0000000..45469be
+--- /dev/null
++++ b/plugins/a11y-settings/msd-a11y-settings-manager.c
+@@ -0,0 +1,192 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2007 William Jon McCann <mccann@jhu.edu>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#include "config.h"
++
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <stdlib.h>
++#include <stdio.h>
++#include <unistd.h>
++#include <string.h>
++#include <errno.h>
++
++#include <locale.h>
++
++#include <glib.h>
++#include <glib/gi18n.h>
++#include <gdk/gdk.h>
++#include <gdk/gdkx.h>
++#include <gtk/gtk.h>
++
++#include "mate-settings-profile.h"
++#include "msd-a11y-settings-manager.h"
++
++#define MSD_A11Y_SETTINGS_MANAGER_GET_PRIVATE(o) (G_TYPE_INSTANCE_GET_PRIVATE ((o), MSD_TYPE_A11Y_SETTINGS_MANAGER, MsdA11ySettingsManagerPrivate))
++
++struct MsdA11ySettingsManagerPrivate
++{
++        GSettings *interface_settings;
++        GSettings *a11y_apps_settings;
++};
++
++enum {
++        PROP_0,
++};
++
++static void     msd_a11y_settings_manager_class_init  (MsdA11ySettingsManagerClass *klass);
++static void     msd_a11y_settings_manager_init        (MsdA11ySettingsManager      *a11y_settings_manager);
++static void     msd_a11y_settings_manager_finalize    (GObject                     *object);
++
++G_DEFINE_TYPE (MsdA11ySettingsManager, msd_a11y_settings_manager, G_TYPE_OBJECT)
++
++static gpointer manager_object = NULL;
++
++static void
++apps_settings_changed (GSettings              *settings,
++		       const char             *key,
++		       MsdA11ySettingsManager *manager)
++{
++	gboolean screen_reader, keyboard;
++
++	if (g_str_equal (key, "screen-reader-enabled") == FALSE &&
++	    g_str_equal (key, "screen-keyboard-enabled") == FALSE)
++		return;
++
++	g_debug ("screen reader or OSK enablement changed");
++
++	screen_reader = g_settings_get_boolean (manager->priv->a11y_apps_settings, "screen-reader-enabled");
++	keyboard = g_settings_get_boolean (manager->priv->a11y_apps_settings, "screen-keyboard-enabled");
++
++	if (screen_reader || keyboard) {
++		g_debug ("Enabling accessibility, screen reader or OSK enabled");
++		g_settings_set_boolean (manager->priv->interface_settings, "accessibility", TRUE);
++	} else if (screen_reader == FALSE && keyboard == FALSE) {
++		g_debug ("Disabling accessibility, screen reader and OSK disabled");
++		g_settings_set_boolean (manager->priv->interface_settings, "accessibility", FALSE);
++	}
++}
++
++gboolean
++msd_a11y_settings_manager_start (MsdA11ySettingsManager *manager,
++                                 GError                **error)
++{
++        g_debug ("Starting a11y_settings manager");
++        mate_settings_profile_start (NULL);
++
++	manager->priv->interface_settings = g_settings_new ("org.mate.interface");
++	manager->priv->a11y_apps_settings = g_settings_new ("org.mate.applications-at");
++
++	g_signal_connect (G_OBJECT (manager->priv->a11y_apps_settings), "changed",
++			  G_CALLBACK (apps_settings_changed), manager);
++
++	/* If any of the screen reader or on-screen keyboard are enabled,
++	 * make sure a11y is enabled for the toolkits.
++	 * We don't do the same thing for the reverse so it's possible to
++	 * enable AT-SPI for the toolkits without using an a11y app */
++	if (g_settings_get_boolean (manager->priv->a11y_apps_settings, "screen-keyboard-enabled") ||
++	    g_settings_get_boolean (manager->priv->a11y_apps_settings, "screen-reader-enabled"))
++		g_settings_set_boolean (manager->priv->interface_settings, "accessibility", TRUE);
++
++        mate_settings_profile_end (NULL);
++        return TRUE;
++}
++
++void
++msd_a11y_settings_manager_stop (MsdA11ySettingsManager *manager)
++{
++	if (manager->priv->interface_settings) {
++		g_object_unref (manager->priv->interface_settings);
++		manager->priv->interface_settings = NULL;
++	}
++	if (manager->priv->a11y_apps_settings) {
++		g_object_unref (manager->priv->a11y_apps_settings);
++		manager->priv->a11y_apps_settings = NULL;
++	}
++        g_debug ("Stopping a11y_settings manager");
++}
++
++static GObject *
++msd_a11y_settings_manager_constructor (GType                  type,
++                                       guint                  n_construct_properties,
++                                       GObjectConstructParam *construct_properties)
++{
++        MsdA11ySettingsManager      *a11y_settings_manager;
++
++        a11y_settings_manager = MSD_A11Y_SETTINGS_MANAGER (G_OBJECT_CLASS (msd_a11y_settings_manager_parent_class)->constructor (type,
++                                                                                                                                 n_construct_properties,
++                                                                                                                                 construct_properties));
++
++        return G_OBJECT (a11y_settings_manager);
++}
++
++static void
++msd_a11y_settings_manager_dispose (GObject *object)
++{
++        G_OBJECT_CLASS (msd_a11y_settings_manager_parent_class)->dispose (object);
++}
++
++static void
++msd_a11y_settings_manager_class_init (MsdA11ySettingsManagerClass *klass)
++{
++        GObjectClass   *object_class = G_OBJECT_CLASS (klass);
++
++        object_class->constructor = msd_a11y_settings_manager_constructor;
++        object_class->dispose = msd_a11y_settings_manager_dispose;
++        object_class->finalize = msd_a11y_settings_manager_finalize;
++
++        g_type_class_add_private (klass, sizeof (MsdA11ySettingsManagerPrivate));
++}
++
++static void
++msd_a11y_settings_manager_init (MsdA11ySettingsManager *manager)
++{
++        manager->priv = MSD_A11Y_SETTINGS_MANAGER_GET_PRIVATE (manager);
++
++}
++
++static void
++msd_a11y_settings_manager_finalize (GObject *object)
++{
++        MsdA11ySettingsManager *a11y_settings_manager;
++
++        g_return_if_fail (object != NULL);
++        g_return_if_fail (MSD_IS_A11Y_SETTINGS_MANAGER (object));
++
++        a11y_settings_manager = MSD_A11Y_SETTINGS_MANAGER (object);
++
++        g_return_if_fail (a11y_settings_manager->priv != NULL);
++
++        G_OBJECT_CLASS (msd_a11y_settings_manager_parent_class)->finalize (object);
++}
++
++MsdA11ySettingsManager *
++msd_a11y_settings_manager_new (void)
++{
++        if (manager_object != NULL) {
++                g_object_ref (manager_object);
++        } else {
++                manager_object = g_object_new (MSD_TYPE_A11Y_SETTINGS_MANAGER, NULL);
++                g_object_add_weak_pointer (manager_object,
++                                           (gpointer *) &manager_object);
++        }
++
++        return MSD_A11Y_SETTINGS_MANAGER (manager_object);
++}
+diff --git a/plugins/a11y-settings/msd-a11y-settings-manager.h b/plugins/a11y-settings/msd-a11y-settings-manager.h
+new file mode 100644
+index 0000000..9f6e3f7
+--- /dev/null
++++ b/plugins/a11y-settings/msd-a11y-settings-manager.h
+@@ -0,0 +1,57 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2007 William Jon McCann <mccann@jhu.edu>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#ifndef __MSD_A11Y_SETTINGS_MANAGER_H
++#define __MSD_A11Y_SETTINGS_MANAGER_H
++
++#include <glib-object.h>
++
++G_BEGIN_DECLS
++
++#define MSD_TYPE_A11Y_SETTINGS_MANAGER         (msd_a11y_settings_manager_get_type ())
++#define MSD_A11Y_SETTINGS_MANAGER(o)           (G_TYPE_CHECK_INSTANCE_CAST ((o), MSD_TYPE_A11Y_SETTINGS_MANAGER, MsdA11ySettingsManager))
++#define MSD_A11Y_SETTINGS_MANAGER_CLASS(k)     (G_TYPE_CHECK_CLASS_CAST((k), MSD_TYPE_A11Y_SETTINGS_MANAGER, MsdA11ySettingsManagerClass))
++#define MSD_IS_A11Y_SETTINGS_MANAGER(o)        (G_TYPE_CHECK_INSTANCE_TYPE ((o), MSD_TYPE_A11Y_SETTINGS_MANAGER))
++#define MSD_IS_A11Y_SETTINGS_MANAGER_CLASS(k)  (G_TYPE_CHECK_CLASS_TYPE ((k), MSD_TYPE_A11Y_SETTINGS_MANAGER))
++#define MSD_A11Y_SETTINGS_MANAGER_GET_CLASS(o) (G_TYPE_INSTANCE_GET_CLASS ((o), MSD_TYPE_A11Y_SETTINGS_MANAGER, MsdA11ySettingsManagerClass))
++
++typedef struct MsdA11ySettingsManagerPrivate MsdA11ySettingsManagerPrivate;
++
++typedef struct
++{
++        GObject                        parent;
++        MsdA11ySettingsManagerPrivate *priv;
++} MsdA11ySettingsManager;
++
++typedef struct
++{
++        GObjectClass   parent_class;
++} MsdA11ySettingsManagerClass;
++
++GType                   msd_a11y_settings_manager_get_type            (void);
++
++MsdA11ySettingsManager *msd_a11y_settings_manager_new                 (void);
++gboolean                msd_a11y_settings_manager_start               (MsdA11ySettingsManager *manager,
++                                                                       GError         **error);
++void                    msd_a11y_settings_manager_stop                (MsdA11ySettingsManager *manager);
++
++G_END_DECLS
++
++#endif /* __MSD_A11Y_SETTINGS_MANAGER_H */
+diff --git a/plugins/a11y-settings/msd-a11y-settings-plugin.c b/plugins/a11y-settings/msd-a11y-settings-plugin.c
+new file mode 100644
+index 0000000..9d206c8
+--- /dev/null
++++ b/plugins/a11y-settings/msd-a11y-settings-plugin.c
+@@ -0,0 +1,109 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2007 William Jon McCann <mccann@jhu.edu>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2, or (at your option)
++ * any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#include "config.h"
++
++#include <glib/gi18n-lib.h>
++#include <gmodule.h>
++
++#include "mate-settings-plugin.h"
++#include "msd-a11y-settings-plugin.h"
++#include "msd-a11y-settings-manager.h"
++
++struct MsdA11ySettingsPluginPrivate {
++        MsdA11ySettingsManager *manager;
++};
++
++#define MSD_A11Y_SETTINGS_PLUGIN_GET_PRIVATE(object) (G_TYPE_INSTANCE_GET_PRIVATE ((object), MSD_TYPE_A11Y_SETTINGS_PLUGIN, MsdA11ySettingsPluginPrivate))
++
++MATE_SETTINGS_PLUGIN_REGISTER (MsdA11ySettingsPlugin, msd_a11y_settings_plugin)
++
++static void
++msd_a11y_settings_plugin_init (MsdA11ySettingsPlugin *plugin)
++{
++        plugin->priv = MSD_A11Y_SETTINGS_PLUGIN_GET_PRIVATE (plugin);
++
++        g_debug ("MsdA11ySettingsPlugin initializing");
++
++        plugin->priv->manager = msd_a11y_settings_manager_new ();
++}
++
++static void
++msd_a11y_settings_plugin_finalize (GObject *object)
++{
++        MsdA11ySettingsPlugin *plugin;
++
++        g_return_if_fail (object != NULL);
++        g_return_if_fail (MSD_IS_A11Y_SETTINGS_PLUGIN (object));
++
++        g_debug ("MsdA11ySettingsPlugin finalizing");
++
++        plugin = MSD_A11Y_SETTINGS_PLUGIN (object);
++
++        g_return_if_fail (plugin->priv != NULL);
++
++        if (plugin->priv->manager != NULL) {
++                g_object_unref (plugin->priv->manager);
++        }
++
++        G_OBJECT_CLASS (msd_a11y_settings_plugin_parent_class)->finalize (object);
++}
++
++static void
++impl_activate (MateSettingsPlugin *plugin)
++{
++        gboolean res;
++        GError  *error;
++
++        g_debug ("Activating a11y-settings plugin");
++
++        error = NULL;
++        res = msd_a11y_settings_manager_start (MSD_A11Y_SETTINGS_PLUGIN (plugin)->priv->manager, &error);
++        if (! res) {
++                g_warning ("Unable to start a11y-settings manager: %s", error->message);
++                g_error_free (error);
++        }
++}
++
++static void
++impl_deactivate (MateSettingsPlugin *plugin)
++{
++        g_debug ("Deactivating a11y-settings plugin");
++        msd_a11y_settings_manager_stop (MSD_A11Y_SETTINGS_PLUGIN (plugin)->priv->manager);
++}
++
++static void
++msd_a11y_settings_plugin_class_init (MsdA11ySettingsPluginClass *klass)
++{
++        GObjectClass             *object_class = G_OBJECT_CLASS (klass);
++        MateSettingsPluginClass *plugin_class = MATE_SETTINGS_PLUGIN_CLASS (klass);
++
++        object_class->finalize = msd_a11y_settings_plugin_finalize;
++
++        plugin_class->activate = impl_activate;
++        plugin_class->deactivate = impl_deactivate;
++
++        g_type_class_add_private (klass, sizeof (MsdA11ySettingsPluginPrivate));
++}
++
++static void
++msd_a11y_settings_plugin_class_finalize (MsdA11ySettingsPluginClass *klass)
++{
++}
+diff --git a/plugins/a11y-settings/msd-a11y-settings-plugin.h b/plugins/a11y-settings/msd-a11y-settings-plugin.h
+new file mode 100644
+index 0000000..a19c8a4
+--- /dev/null
++++ b/plugins/a11y-settings/msd-a11y-settings-plugin.h
+@@ -0,0 +1,59 @@
++/* -*- Mode: C; tab-width: 8; indent-tabs-mode: nil; c-basic-offset: 8 -*-
++ *
++ * Copyright (C) 2011 Red Hat, Inc.
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2, or (at your option)
++ * any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
++ *
++ */
++
++#ifndef __MSD_A11Y_SETTINGS_PLUGIN_H__
++#define __MSD_A11Y_SETTINGS_PLUGIN_H__
++
++#include <glib.h>
++#include <glib-object.h>
++#include <gmodule.h>
++
++#include "mate-settings-plugin.h"
++
++G_BEGIN_DECLS
++
++#define MSD_TYPE_A11Y_SETTINGS_PLUGIN                (msd_a11y_settings_plugin_get_type ())
++#define MSD_A11Y_SETTINGS_PLUGIN(o)                  (G_TYPE_CHECK_INSTANCE_CAST ((o), MSD_TYPE_A11Y_SETTINGS_PLUGIN, MsdA11ySettingsPlugin))
++#define MSD_A11Y_SETTINGS_PLUGIN_CLASS(k)            (G_TYPE_CHECK_CLASS_CAST((k), MSD_TYPE_A11Y_SETTINGS_PLUGIN, MsdA11ySettingsPluginClass))
++#define MSD_IS_A11Y_SETTINGS_PLUGIN(o)               (G_TYPE_CHECK_INSTANCE_TYPE ((o), MSD_TYPE_A11Y_SETTINGS_PLUGIN))
++#define MSD_IS_A11Y_SETTINGS_PLUGIN_CLASS(k)         (G_TYPE_CHECK_CLASS_TYPE ((k), MSD_TYPE_A11Y_SETTINGS_PLUGIN))
++#define MSD_A11Y_SETTINGS_PLUGIN_GET_CLASS(o)        (G_TYPE_INSTANCE_GET_CLASS ((o), MSD_TYPE_A11Y_SETTINGS_PLUGIN, MsdA11ySettingsPluginClass))
++
++typedef struct MsdA11ySettingsPluginPrivate MsdA11ySettingsPluginPrivate;
++
++typedef struct
++{
++        MateSettingsPlugin           parent;
++        MsdA11ySettingsPluginPrivate *priv;
++} MsdA11ySettingsPlugin;
++
++typedef struct
++{
++        MateSettingsPluginClass parent_class;
++} MsdA11ySettingsPluginClass;
++
++GType   msd_a11y_settings_plugin_get_type            (void) G_GNUC_CONST;
++
++/* All the plugins must implement this function */
++G_MODULE_EXPORT GType register_mate_settings_plugin (GTypeModule *module);
++
++G_END_DECLS
++
++#endif /* __MSD_A11Y_SETTINGS_PLUGIN_H__ */
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index f17b5f3..27080da 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -6,6 +6,7 @@ data/org.mate.font-rendering.gschema.xml.in.in
+ data/org.mate.peripherals-smartcard.gschema.xml.in.in
+ data/org.mate.peripherals-touchpad.gschema.xml.in.in
+ data/org.mate.SettingsDaemon.plugins.a11y-keyboard.gschema.xml.in.in
++data/org.mate.SettingsDaemon.plugins.a11y-settings.gschema.xml.in.in
+ data/org.mate.SettingsDaemon.plugins.background.gschema.xml.in.in
+ data/org.mate.SettingsDaemon.plugins.clipboard.gschema.xml.in.in
+ data/org.mate.SettingsDaemon.plugins.datetime.gschema.xml.in.in
