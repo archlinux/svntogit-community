@@ -1,16 +1,16 @@
+# vim:set ts=2 sw=2 et:
 # $Id$
 # Maintainer: BlackEagle < ike DOT devolder AT gmail DOT com >
 # Maintainer: Sébastien Luttringer <seblu@aur.archlinux.org
 
 pkgname=par2cmdline
-pkgver=0.6.10
+pkgver=0.6.11
 pkgrel=1
 pkgdesc='A PAR 2.0 compatible file verification and repair tool'
 url='https://github.com/BlackIkeEagle/par2cmdline'
 license=('GPL2')
 arch=('i686' 'x86_64')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/BlackIkeEagle/$pkgname/archive/v$pkgver.tar.gz")
-sha256sums=('8d0a595d0200c35a56f9b29659b0d8ecfb2e331179283e1d13acd75b6c899365')
 
 build() {
 	cd "$pkgname-$pkgver"
@@ -31,4 +31,4 @@ package() {
 	make DESTDIR="$pkgdir" install
 }
 
-# vim:set ts=2 sw=2 et:
+sha256sums=('7d09033ac4f2dd2f6dd2b61c2498bbc37762e6432afd9171553a5cc466a09998')
