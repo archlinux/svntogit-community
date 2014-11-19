@@ -22,7 +22,6 @@ if [ "$1" != "" ] && [ "$1" = "--newini" ]; then
     -comment_directory $home/.mame/comments \
     -diff_directory $home/.mame/diff \
     -input_directory $home/.mame/inp \
-    -memcard_directory $home/.mame/memcard \
     -nvram_directory $home/.mame/nvram \
     -snapshot_directory $home/.mame/snap \
     -state_directory $home/.mame/sta \
@@ -34,7 +33,7 @@ elif [ ! -e $HOME/.mame ]; then
   echo "Modify this file for permanent changes to your SDLMAME"
   echo "options and paths before running SDLMAME again."
   mkdir $HOME/.mame
-  mkdir $HOME/.mame/{artwork,cfg,comments,ctrlr,diff,ini,inp,memcard,nvram,samples,snap,sta,roms}
+  mkdir $HOME/.mame/{artwork,cfg,comments,ctrlr,diff,ini,inp,nvram,samples,snap,sta,roms}
   cd $HOME/.mame
   /usr/share/sdlmame/sdlmame \
     -artpath "$home/.mame/artwork;artwork" \
@@ -46,7 +45,6 @@ elif [ ! -e $HOME/.mame ]; then
     -comment_directory $home/.mame/comments \
     -diff_directory $home/.mame/diff \
     -input_directory $home/.mame/inp \
-    -memcard_directory $home/.mame/memcard \
     -nvram_directory $home/.mame/nvram \
     -snapshot_directory $home/.mame/snap \
     -state_directory $home/.mame/sta \
