@@ -1,0 +1,192 @@
+From f6a4cc7f93c687ced9da5b2d21f9bbb717e633e0 Mon Sep 17 00:00:00 2001
+From: pad <pad@fb.com>
+Date: Fri, 26 Sep 2014 13:53:38 -0700
+Subject: [PATCH] port to 4.02 (disabled lang_cmt/ for now in configure), fixed
+ some deprecated warnings (or added -w -3) should fix issue #94
+
+---
+ code_graph/Makefile                     | 7 +++++++
+ code_map/Makefile                       | 9 +++++++++
+ code_map/draw_microlevel.ml             | 2 +-
+ configure                               | 5 +++++
+ graph_code/dependencies_matrix_build.ml | 6 +++---
+ graph_code/dependencies_matrix_code.ml  | 8 ++++----
+ graph_code/graph_code_opti.ml           | 6 +++---
+ install.txt                             | 2 +-
+ lang_php/analyze/tools/Makefile         | 6 ++++--
+ 9 files changed, 37 insertions(+), 14 deletions(-)
+
+diff --git a/code_graph/Makefile b/code_graph/Makefile
+index 93eaabc..4670904 100644
+--- a/code_graph/Makefile
++++ b/code_graph/Makefile
+@@ -48,6 +48,13 @@ $(TARGET).cmxa: $(OPTOBJS) $(LIBS:.cma=.cmxa)
+ clean::
+ 	rm -f $(TARGET).top
+ 
++EXTRA_FLAGS=-w -3
++cairo_helpers3.cmo: cairo_helpers3.ml
++	$(OCAMLC) $(EXTRA_FLAGS) -c $<
++
++cairo_helpers3.cmx: cairo_helpers3.ml
++	$(OCAMLOPT) $(PP) $(EXTRA_FLAGS) -c $<
++
+ ##############################################################################
+ # Generic rules
+ ##############################################################################
+diff --git a/code_map/Makefile b/code_map/Makefile
+index 0ae7674..54d4ac9 100644
+--- a/code_map/Makefile
++++ b/code_map/Makefile
+@@ -91,6 +91,15 @@ $(TARGET).cmxa: $(OPTOBJS) $(LIBS:.cma=.cmxa)
+ 	$(OCAMLOPT) -a -o $(TARGET).cmxa $(OPTOBJS)
+ 
+ 
++
++EXTRA_FLAGS=-w -3
++cairo_helpers.cmo: cairo_helpers.ml
++	$(OCAMLC) $(EXTRA_FLAGS) -c $<
++
++cairo_helpers.cmx: cairo_helpers.ml
++	$(OCAMLOPT) $(PP) $(EXTRA_FLAGS) -c $<
++
++
+ clean::
+ 	rm -f $(TARGET).top
+ 
+diff --git a/code_map/draw_microlevel.ml b/code_map/draw_microlevel.ml
+index ee8f2fe..a6f01a0 100644
+--- a/code_map/draw_microlevel.ml
++++ b/code_map/draw_microlevel.ml
+@@ -197,7 +197,7 @@ let glyphs_of_file ~font_size ~font_size_real model_async file
+      * returned by nblines_eff may be different
+      *)
+     let nblines = Common2.nblines_eff file in
+-    let arr = Array.create nblines [] in
++    let arr = Array.make nblines [] in
+     let tokens_with_categ = Parsing.tokens_with_categ_of_file file entities in
+ 
+     let line = ref 0 in
+diff --git a/configure b/configure
+index 5913d32..074fdbf 100755
+--- a/configure
++++ b/configure
+@@ -201,6 +201,11 @@ if (`which ocamlc.opt` && `which ocamlopt.opt`) {
+ # -absname is for tuareg mode under my mac, it also needs ocaml 4.00
+ if($ocaml_version >= 4000) {
+     $ocamlc_flags="-bin-annot -absname";
++}
++
++#TODO: not yet ported to 4.02
++if($ocaml_version >= 4000 && $ocaml_version < 4020) {
++    $cmt=1;
+ } else {
+     $cmt=0;
+ }
+diff --git a/graph_code/dependencies_matrix_build.ml b/graph_code/dependencies_matrix_build.ml
+index 4c33ada..36bb66f 100644
+--- a/graph_code/dependencies_matrix_build.ml
++++ b/graph_code/dependencies_matrix_build.ml
+@@ -90,8 +90,8 @@ let build_with_tree2 tree gopti =
+   let n_nodes = G2.nb_nodes gopti in
+ 
+   let name_to_idm = Hashtbl.create (n / 2) in
+-  let idm_to_name = Array.create n ("", E.Dir) in
+-  let igopti_to_idm = Array.create n_nodes (-1) in
++  let idm_to_name = Array.make n ("", E.Dir) in
++  let igopti_to_idm = Array.make n_nodes (-1) in
+ 
+   let (i: idm idx ref) = ref 0 in
+   nodes +> List.iter (fun node ->
+@@ -108,7 +108,7 @@ let build_with_tree2 tree gopti =
+     config = tree;
+   }
+   in
+-  let (projected_parent_of_igopti: idm idx array) = Array.create n_nodes (-1) in
++  let (projected_parent_of_igopti: idm idx array) = Array.make n_nodes (-1) in
+   let (iroot: igopti idx) = hashtbl_find_node gopti.G2.name_to_i G.root in
+   let rec depth parent igopti =
+     let children = gopti.G2.has_children.(igopti) in
+diff --git a/graph_code/dependencies_matrix_code.ml b/graph_code/dependencies_matrix_code.ml
+index 38d95f0..a29b4ee 100644
+--- a/graph_code/dependencies_matrix_code.ml
++++ b/graph_code/dependencies_matrix_code.ml
+@@ -155,11 +155,11 @@ let explain_cell_list_use_edges (i, j) dm gopti =
+   let res = ref [] in
+ 
+   let n_nodes = G2.nb_nodes gopti in
+-  let igopti_to_idm = Array.create n_nodes (-1) in
++  let igopti_to_idm = Array.make n_nodes (-1) in
+   dm.i_to_name +> Array.iteri (fun idm node ->
+     igopti_to_idm.(hashtbl_find_node gopti.G2.name_to_i node) <- idm;
+   );
+-  let (projected_parent_of_igopti: idm idx array) = Array.create n_nodes (-1) in
++  let (projected_parent_of_igopti: idm idx array) = Array.make n_nodes (-1) in
+   let (iroot: igopti idx) = hashtbl_find_node gopti.G2.name_to_i G.root in
+   let rec depth parent igopti =
+     let children = gopti.G2.has_children.(igopti) in
+@@ -326,7 +326,7 @@ let is_dead_line i dm =
+ 
+ 
+ let parents_of_indexes dm =
+-  let arr = Array.create (Array.length dm.matrix) [] in
++  let arr = Array.make (Array.length dm.matrix) [] in
+   let i = ref 0 in
+   let rec aux acc tree =
+     match tree with
+@@ -408,7 +408,7 @@ let score_downer_triangle dm exclude_nodes =
+   !score
+ 
+ let score_upper_triangle_nodes dm =
+-  let score = Array.create (Array.length dm.matrix) 0 in
++  let score = Array.make (Array.length dm.matrix) 0 in
+   for i = 0 to Array.length dm.matrix -1 do
+     for j = i + 1 to Array.length dm.matrix -1 do
+       let v = dm.matrix.(i).(j) in
+diff --git a/graph_code/graph_code_opti.ml b/graph_code/graph_code_opti.ml
+index 4904f2f..6568908 100644
+--- a/graph_code/graph_code_opti.ml
++++ b/graph_code/graph_code_opti.ml
+@@ -66,9 +66,9 @@ let (convert2: Graph_code.graph -> graph) = fun g ->
+ 
+   let h = {
+     name_to_i = Hashtbl.create (n / 2);
+-    i_to_name = Array.create n ("",E.Dir);
+-    has_children = Array.create n [];
+-    use = Array.create n [];
++    i_to_name = Array.make n ("",E.Dir);
++    has_children = Array.make n [];
++    use = Array.make n [];
+   }
+   in
+   let i = ref 0 in
+diff --git a/install.txt b/install.txt
+index 4247192..843f213 100644
+--- a/install.txt
++++ b/install.txt
+@@ -1,6 +1,6 @@
+ 
+ You must first install a recent version of 
+- - OCaml (at least 4.00.1), 
++ - OCaml (at least 4.00.1), and camlp4 (not part of OCaml since 4.02)
+    see http://caml.inria.fr/download.en.html
+  - GTK (at least gtk 2.10) and Cairo
+    if you want codemap and codegraph, the fancy graphics code visualizers
+diff --git a/lang_php/analyze/tools/Makefile b/lang_php/analyze/tools/Makefile
+index c5f9fca..e13c1c1 100644
+--- a/lang_php/analyze/tools/Makefile
++++ b/lang_php/analyze/tools/Makefile
+@@ -60,9 +60,11 @@ clean::
+ 
+ PP=-pp camlp4o
+ 
++EXTRA_FLAGS=-w -3
++
+ php_serialize.cmo: php_serialize.ml
+-	$(OCAMLC) $(PP) -c $<
++	$(OCAMLC) $(PP) $(EXTRA_FLAGS) -c $<
+ 
+ php_serialize.cmx: php_serialize.ml
+-	$(OCAMLOPT) $(PP) -c $<
++	$(OCAMLOPT) $(PP) $(EXTRA_FLAGS) -c $<
+ 
