@@ -1,0 +1,222 @@
+=== modified file 'Docky.CairoHelper/Makefile.am'
+--- Docky.CairoHelper/Makefile.am	2010-12-29 08:12:28 +0000
++++ Docky.CairoHelper/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -17,7 +17,6 @@
+ 	System.Core \
+ 	$(GLIB_SHARP_20_LIBS) \
+ 	$(GTK_SHARP_20_LIBS) \
+-	$(MONO_CAIRO_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS)
++	$(MONO_CAIRO_LIBS)
+ 
+ MCS_FLAGS += -unsafe
+
+=== modified file 'Docky.Items/Makefile.am'
+--- Docky.Items/Makefile.am	2011-01-02 12:42:36 +0000
++++ Docky.Items/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -60,8 +60,7 @@
+ 	$(GTK_SHARP_20_LIBS) \
+ 	$(GLIB_SHARP_20_LIBS) \
+ 	$(GIO_SHARP_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS) \
+ 	$(WNCK_SHARP_10_LIBS) \
+ 	$(NOTIFY_SHARP_LIBS)
+-	
++
+ MCS_FLAGS += -unsafe
+
+=== modified file 'Docky.Services/Docky.Services.dll.config'
+--- Docky.Services/Docky.Services.dll.config	2011-06-11 06:14:27 +0000
++++ Docky.Services/Docky.Services.dll.config	2013-05-13 19:49:06 +0000
+@@ -1,7 +1,8 @@
+ <configuration>
+ 	<dllmap dll="libgobject-2.0" target="libgobject-2.0.so.0"/>
+ 	<dllmap dll="libgtk-x11-2.0" target="libgtk-x11-2.0.so.0"/>
+-        <dllmap dll="libgdk-x11-2.0" target="libgdk-x11-2.0.so.0"/>
++	<dllmap dll="libgdk-x11-2.0" target="libgdk-x11-2.0.so.0"/>
++	<dllmap dll="libgdk_pixbuf-2.0" target="libgdk_pixbuf-2.0.so.0"/>
+ 	<dllmap dll="libgio-2.0" target="libgio-2.0.so.0"/>
+ 	<dllmap dll="libX11" target="libX11.so.6"/>
+ </configuration>
+
+=== modified file 'Docky.Services/Docky.Services/Extensions/GdkPixbufExtension.cs'
+--- Docky.Services/Docky.Services/Extensions/GdkPixbufExtension.cs	2010-11-11 23:33:22 +0000
++++ Docky.Services/Docky.Services/Extensions/GdkPixbufExtension.cs	2013-05-13 19:33:09 +0000
+@@ -129,5 +129,10 @@
+ 			
+ 			return tmp;
+ 		}
++
++		public static Pixbuf FromFileAtSize (string filename, int width, int height)
++		{
++			return NativeInterop.GdkPixbufNewFromFileAtSize (filename, width, height);
++		}
+ 	}
+ }
+
+=== modified file 'Docky.Services/Docky.Services/NativeInterop.cs'
+--- Docky.Services/Docky.Services/NativeInterop.cs	2011-06-11 06:14:27 +0000
++++ Docky.Services/Docky.Services/NativeInterop.cs	2013-05-13 19:33:09 +0000
+@@ -54,6 +54,9 @@
+ 		[DllImport("libgtk-x11-2.0", CallingConvention = CallingConvention.Cdecl)]
+ 		private static extern IntPtr gtk_icon_theme_lookup_by_gicon (IntPtr icon_theme, IntPtr icon, int size, int flags);
+ 
++		[DllImport("libgdk_pixbuf-2.0")]
++		private static extern IntPtr gdk_pixbuf_new_from_file_at_size (string filename, int width, int height, out IntPtr error);
++
+ 		#region Workaround for GLib.FileInfo leaks...
+ 		
+ 		// some attributes must be looked up as bytestrings, not strings
+@@ -108,6 +111,7 @@
+ 		const string GIO_NOT_FOUND = "Could not find gio-2.0, please report immediately.";
+ 		const string GOBJECT_NOT_FOUND = "Could not find gobject-2.0, please report immediately.";
+ 		const string GTK_NOT_FOUND = "Could not find gtk-2.0, please report immediately.";
++		const string GDK_PIXBUF_NOT_FOUND = "Could not find gdk_pixbuf-2.0, please report immediately.";
+ 		
+ 		public static string StrUri (File file)
+ 		{
+@@ -292,6 +296,19 @@
+ 			"Failed to query icon {0}");
+ 		}
+ 		
++		public static Gdk.Pixbuf GdkPixbufNewFromFileAtSize (string filename, int width, int height)
++		{
++			return NativeHelper<Gdk.Pixbuf> (() =>
++			{
++				IntPtr error = IntPtr.Zero;
++				IntPtr pixbuf = gdk_pixbuf_new_from_file_at_size (filename, width, height, out error);
++				if (error != IntPtr.Zero)
++					throw new GLib.GException (error);
++				return new Gdk.Pixbuf (pixbuf);
++			}, GDK_PIXBUF_NOT_FOUND,
++			"Failed to load pixbuf from file {0}");
++		}
++
+ 		public static void GObjectUnref (IntPtr objectHandle)
+ 		{
+ 			NativeHelper (() =>
+
+=== modified file 'Docky.Services/Makefile.am'
+--- Docky.Services/Makefile.am	2010-10-09 12:54:14 +0000
++++ Docky.Services/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -52,7 +52,7 @@
+ 
+ PROJECT_REFERENCES= \
+ 	Docky.CairoHelper
+-        
++
+ REFERENCES =  \
+ 	System \
+ 	System.Core \
+@@ -66,8 +66,7 @@
+ 	$(GTK_SHARP_20_LIBS) \
+ 	$(GNOME_KEYRING_SHARP_LIBS) \
+ 	$(NOTIFY_SHARP_LIBS) \
+-	$(WNCK_SHARP_10_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS)
++	$(WNCK_SHARP_10_LIBS)
+ 
+ EXTRA_DIST += Docky.Services.dll.config
+ 
+
+=== modified file 'Docky/Makefile.am'
+--- Docky/Makefile.am	2013-05-12 20:15:37 +0000
++++ Docky/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -71,7 +71,6 @@
+ 	$(GTK_SHARP_20_LIBS) \
+ 	$(GKEYFILE_SHARP_LIBS) \
+ 	$(WNCK_SHARP_10_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS) \
+ 	$(NOTIFY_SHARP_LIBS) \
+ 	$(DBUS_SHARP_10_LIBS) \
+ 	$(DBUS_SHARP_GLIB_10_LIBS) \
+
+=== modified file 'StandardPlugins/Clock/Makefile.am'
+--- StandardPlugins/Clock/Makefile.am	2010-02-22 23:14:53 +0000
++++ StandardPlugins/Clock/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -26,5 +26,4 @@
+ 	Mono.Posix \
+ 	$(GIO_SHARP_LIBS) \
+ 	$(MONO_CAIRO_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS) \
+ 	$(GTK_SHARP_20_LIBS)
+
+=== modified file 'StandardPlugins/Clock/src/ClockDockItem.cs'
+--- StandardPlugins/Clock/src/ClockDockItem.cs	2011-03-13 16:47:29 +0000
++++ StandardPlugins/Clock/src/ClockDockItem.cs	2013-05-13 19:33:09 +0000
+@@ -174,7 +174,7 @@
+ 			if (!File.Exists (file))
+ 				return;
+ 			
+-			using (Gdk.Pixbuf pbuf = Rsvg.Tool.PixbufFromFileAtSize (file, size, size)) {
++			using (Gdk.Pixbuf pbuf = GdkPixbufExtension.FromFileAtSize (file, size, size)) {
+ 				Gdk.CairoHelper.SetSourcePixbuf (cr, pbuf, 0, 0);
+ 				cr.Paint ();
+ 			}
+
+=== modified file 'StandardPlugins/Desktop/Makefile.am'
+--- StandardPlugins/Desktop/Makefile.am	2010-12-29 08:44:38 +0000
++++ StandardPlugins/Desktop/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -33,5 +33,4 @@
+ 	$(GTK_SHARP_20_LIBS) \
+ 	$(GLIB_SHARP_20_LIBS) \
+ 	$(GIO_SHARP_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS) \
+ 	$(WNCK_SHARP_10_LIBS)
+
+=== modified file 'StandardPlugins/NetworkMonitor/Makefile.am'
+--- StandardPlugins/NetworkMonitor/Makefile.am	2011-02-24 11:16:13 +0000
++++ StandardPlugins/NetworkMonitor/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -24,5 +24,4 @@
+ 	Mono.Posix \
+ 	$(GIO_SHARP_LIBS) \
+ 	$(MONO_CAIRO_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS) \
+ 	$(GTK_SHARP_20_LIBS)
+
+=== modified file 'StandardPlugins/WorkspaceSwitcher/Makefile.am'
+--- StandardPlugins/WorkspaceSwitcher/Makefile.am	2010-08-06 08:06:53 +0000
++++ StandardPlugins/WorkspaceSwitcher/Makefile.am	2013-05-13 19:33:09 +0000
+@@ -25,5 +25,4 @@
+ 	$(GTK_SHARP_20_LIBS) \
+ 	$(GLIB_SHARP_20_LIBS) \
+ 	$(GIO_SHARP_LIBS) \
+-	$(LIBRSVG_SHARP_LIBS) \
+ 	$(WNCK_SHARP_10_LIBS)
+
+=== modified file 'configure.ac'
+--- configure.ac	2013-05-12 20:15:37 +0000
++++ configure.ac	2013-05-13 19:33:09 +0000
+@@ -64,6 +64,7 @@
+ GTK_REQUIRED_VERSION=2.14.3
+ GLIB_REQUIRED_VERSION=2.22
+ GIO_SHARP_REQUIRED_VERSION=2.22.2
++GDK_PIXBUF_REQUIRED_VERSION=2.14.3
+ DBUS_SHARP_REQUIRED_VERSION=0.7
+ DBUS_SHARP_GLIB_REQUIRED_VERSION=0.5
+ 
+@@ -85,7 +86,6 @@
+ PKG_CHECK_MODULES([GKEYFILE_SHARP], [gkeyfile-sharp])
+ PKG_CHECK_MODULES([GNOME_KEYRING_SHARP], [gnome-keyring-sharp-1.0])
+ PKG_CHECK_MODULES([GTK_SHARP_20], [gtk-sharp-2.0])
+-PKG_CHECK_MODULES([LIBRSVG_SHARP], [rsvg2-sharp-2.0])
+ PKG_CHECK_MODULES([MONO_ADDINS], [mono-addins])
+ PKG_CHECK_MODULES([MONO_ADDINS_GUI], [mono-addins-gui])
+ PKG_CHECK_MODULES([MONO_ADDINS_SETUP], [mono-addins-setup])
+@@ -99,6 +99,7 @@
+ PKG_CHECK_MODULES(GIO, gio-2.0 >= $GLIB_REQUIRED_VERSION)
+ PKG_CHECK_MODULES(GTK, gtk+-2.0 >= $GTK_REQUIRED_VERSION)
+ PKG_CHECK_MODULES(GLIB, gobject-2.0 >= $GLIB_REQUIRED_VERSION)
++PKG_CHECK_MODULES(GDK_PIXBUF, gdk-pixbuf-2.0 >= $GDK_PIXBUF_REQUIRED_VERSION)
+ 
+ AC_SUBST([GCONF_SHARP_20_LIBS])
+ AC_SUBST([GLIB_SHARP_20_LIBS])
+@@ -106,7 +107,6 @@
+ AC_SUBST([GKEYFILE_SHARP_LIBS])
+ AC_SUBST([GNOME_KEYRING_SHARP_LIBS])
+ AC_SUBST([GTK_SHARP_20_LIBS])
+-AC_SUBST([LIBRSVG_SHARP_LIBS])
+ AC_SUBST([MONO_ADDINS_LIBS])
+ AC_SUBST([MONO_ADDINS_GUI_LIBS])
+ AC_SUBST([MONO_ADDINS_SETUP_LIBS])
+
