@@ -1,0 +1,155 @@
+=== modified file 'Docky/Docky/ConfigurationWindow.cs'
+--- Docky/Docky/ConfigurationWindow.cs	2011-03-14 17:56:02 +0000
++++ Docky/Docky/ConfigurationWindow.cs	2013-05-12 20:15:37 +0000
+@@ -2,6 +2,7 @@
+ //  Copyright (C) 2009 Jason Smith, Robert Dyer
+ //  Copyright (C) 2010 Chris Szikszoy
+ //  Copyright (C) 2011 Robert Dyer
++//  Copyright (C) 2013 Rico Tzschichholz
+ // 
+ //  This program is free software: you can redistribute it and/or modify
+ //  it under the terms of the GNU General Public License as published by
+@@ -27,8 +28,8 @@
+ using Cairo;
+ using Gdk;
+ using GLib;
+-using Gnome;
+ using Gtk;
++using KeyFile;
+ using Mono.Unix;
+ 
+ using Docky.Interface;
+@@ -508,34 +509,34 @@
+ 		}
+ 
+ 		const string AutoStartKey = "Hidden";
+-		DesktopItem autostart_item;
++		const string DesktopGroup = "Desktop Entry";
++		GKeyFile autostart_keyfile;
+ 		bool AutoStart 
+ 		{
+ 			get {
+-				if (autostart_item == null) {
++				if (autostart_keyfile == null) {
+ 					
+ 					GLib.File autostart_file = DockServices.Paths.AutoStartFile;
+ 					
+ 					try {
+-						autostart_item = DesktopItem.NewFromFile (autostart_file.Path, DesktopItemLoadFlags.NoTranslations);
+-						if (autostart_item.AttrExists (AutoStartKey))
+-							return !String.Equals (autostart_item.GetString (AutoStartKey), "true", StringComparison.OrdinalIgnoreCase);
++						autostart_keyfile = new GKeyFile (autostart_file.Path, KeyFile.Flags.None);
++						if (autostart_keyfile.HasKey (DesktopGroup, AutoStartKey))
++							return !String.Equals (autostart_keyfile.GetString (DesktopGroup, AutoStartKey), "true", StringComparison.OrdinalIgnoreCase);
+ 						
+ 					} catch (GLib.GException loadException) {
+-						Log<ConfigurationWindow>.Info ("Unable to load existing autostart file: {0}", loadException.Message);					
++						Log<ConfigurationWindow>.Info ("Unable to load existing autostart file: {0}", loadException.Message);
+ 						Log<SystemService>.Error ("Could not open autostart file {0}", autostart_file.Path);
+ 						
+ 						GLib.File desktop_file = DesktopFile;
+ 						
+ 						if (desktop_file.Exists) {
+ 							Log<ConfigurationWindow>.Info ("Writing new autostart file to {0}", autostart_file.Path);
+-							autostart_item = DesktopItem.NewFromFile (desktop_file.Path, DesktopItemLoadFlags.NoTranslations);
++							autostart_keyfile = new GKeyFile (desktop_file.Path, KeyFile.Flags.None);
+ 							try {
+ 								if (!autostart_file.Parent.Exists)
+-									autostart_file.Parent.MakeDirectoryWithParents (null);						
++									autostart_file.Parent.MakeDirectoryWithParents (null);
+ 						
+-								autostart_item.Save (autostart_file.StringUri (), true);
+-								autostart_item.Location = autostart_file.StringUri ();
++								autostart_keyfile.Save (autostart_file.Path);
+ 								return true;
+ 								
+ 							} catch (Exception e) {
+@@ -545,16 +546,20 @@
+ 						return false;
+ 					}
+ 				}
+-				if (autostart_item.AttrExists (AutoStartKey))
+-					return !String.Equals (autostart_item.GetString (AutoStartKey), "true", StringComparison.OrdinalIgnoreCase);
++				if (autostart_keyfile.HasKey (DesktopGroup, AutoStartKey))
++					return !String.Equals (autostart_keyfile.GetString (DesktopGroup, AutoStartKey), "true", StringComparison.OrdinalIgnoreCase);
+ 				else
+ 					return true;
+ 			}
+ 			set {
+-				if (autostart_item != null) {
+-					autostart_item.SetBoolean (AutoStartKey, !value);
++				if (autostart_keyfile != null) {
++					autostart_keyfile.SetBoolean (DesktopGroup, AutoStartKey, !value);
+ 					try {
+-						autostart_item.Save (null, true);
++						GLib.File autostart_file = DockServices.Paths.AutoStartFile;
++						if (!autostart_file.Parent.Exists)
++							autostart_file.Parent.MakeDirectoryWithParents (null);
++
++						autostart_keyfile.Save (autostart_file.Path);
+ 					} catch (Exception e) {
+ 						Log<SystemService>.Error ("Failed to update autostart file: {0}", e.Message);
+ 					}
+
+=== modified file 'Docky/Makefile.am'
+--- Docky/Makefile.am	2010-12-01 21:43:00 +0000
++++ Docky/Makefile.am	2013-05-12 20:15:37 +0000
+@@ -69,7 +69,7 @@
+ 	$(GIO_SHARP_LIBS) \
+ 	$(GLIB_SHARP_20_LIBS) \
+ 	$(GTK_SHARP_20_LIBS) \
+-	$(GNOME_DESKTOP_SHARP_20_LIBS) \
++	$(GKEYFILE_SHARP_LIBS) \
+ 	$(WNCK_SHARP_10_LIBS) \
+ 	$(LIBRSVG_SHARP_LIBS) \
+ 	$(NOTIFY_SHARP_LIBS) \
+
+=== modified file 'Docky/gtk-gui/gui.stetic'
+--- Docky/gtk-gui/gui.stetic	2011-12-22 15:47:35 +0000
++++ Docky/gtk-gui/gui.stetic	2013-05-12 20:15:37 +0000
+@@ -5,12 +5,8 @@
+     <target-gtk-version>2.12</target-gtk-version>
+   </configuration>
+   <import>
++    <widget-library name="notify-sharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=2df29c54e245917a" />
+     <widget-library name="wnck-sharp, Version=2.20.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+-    <widget-library name="gnomedesktop-sharp, Version=2.20.0.0, Culture=neutral, PublicKeyToken=35e10195dab3c99f" />
+-    <widget-library name="../../Docky.Services/bin/Debug/Docky.Services.dll" />
+-    <widget-library name="../../Docky.Items/bin/Debug/Docky.Items.dll" />
+-    <widget-library name="../../Docky.DBus/bin/Debug/Docky.DBus.dll" />
+-    <widget-library name="../../Docky.Widgets/bin/Debug/Docky.Widgets.dll" />
+     <widget-library name="../bin/Debug/Docky.exe" internal="true" />
+   </import>
+   <widget class="Gtk.Bin" id="Docky.Interface.DockPreferences" design-size="500 356">
+@@ -309,7 +305,7 @@
+       </widget>
+     </child>
+   </widget>
+-  <widget class="Gtk.Window" id="Docky.ConfigurationWindow" design-size="380 390">
++  <widget class="Gtk.Window" id="Docky.ConfigurationWindow" design-size="398 390">
+     <property name="MemberName" />
+     <property name="Title" translatable="yes">Docky Settings</property>
+     <property name="Icon">stock:gtk-preferences Menu</property>
+
+=== modified file 'configure.ac'
+--- configure.ac	2013-05-02 11:41:59 +0000
++++ configure.ac	2013-05-12 20:15:37 +0000
+@@ -82,7 +82,7 @@
+ done
+ AC_SUBST([GIO_SHARP_ASSEMBLIES])
+ 
+-PKG_CHECK_MODULES([GNOME_DESKTOP_SHARP_20], [gnome-desktop-sharp-2.0])
++PKG_CHECK_MODULES([GKEYFILE_SHARP], [gkeyfile-sharp])
+ PKG_CHECK_MODULES([GNOME_KEYRING_SHARP], [gnome-keyring-sharp-1.0])
+ PKG_CHECK_MODULES([GTK_SHARP_20], [gtk-sharp-2.0])
+ PKG_CHECK_MODULES([LIBRSVG_SHARP], [rsvg2-sharp-2.0])
+@@ -103,7 +103,7 @@
+ AC_SUBST([GCONF_SHARP_20_LIBS])
+ AC_SUBST([GLIB_SHARP_20_LIBS])
+ AC_SUBST([GIO_SHARP_LIBS])
+-AC_SUBST([GNOME_DESKTOP_SHARP_20_LIBS])
++AC_SUBST([GKEYFILE_SHARP_LIBS])
+ AC_SUBST([GNOME_KEYRING_SHARP_LIBS])
+ AC_SUBST([GTK_SHARP_20_LIBS])
+ AC_SUBST([LIBRSVG_SHARP_LIBS])
+
