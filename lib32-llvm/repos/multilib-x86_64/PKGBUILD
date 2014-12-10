@@ -9,18 +9,21 @@
 # Contributor: Roberto Alsina <ralsina@kde.org>
 # Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
 
-pkgname=('lib32-llvm' 'lib32-llvm-libs')
+pkgname=('lib32-llvm' 'lib32-llvm-libs' 'lib32-clang')
 pkgver=3.5.0
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="http://llvm.org/"
 license=('custom:University of Illinois/NCSA Open Source License')
 makedepends=('lib32-libffi' 'lib32-zlib' 'python2' 'gcc-multilib')
 options=('staticlibs')
 source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.xz{,.sig}
+        http://llvm.org/releases/$pkgver/cfe-$pkgver.src.tar.xz{,.sig}
         http://llvm.org/releases/$pkgver/compiler-rt-$pkgver.src.tar.xz{,.sig}
         llvm-3.5.0-force-link-pass.o.patch)
 sha256sums=('28e199f368ef0a4666708f31c7991ad3bcc3a578342b0306526dd35f07595c03'
+            'SKIP'
+            'fc80992e004b06f6c7afb612de1cdaa9ac9d25811c55f94fcf7331d9b81cdb8b'
             'SKIP'
             'a4b3e655832bf8d9a357ea2c771db347237460e131988cbb96cda40ff39a8136'
             'SKIP'
@@ -29,6 +32,7 @@ sha256sums=('28e199f368ef0a4666708f31c7991ad3bcc3a578342b0306526dd35f07595c03'
 prepare() {
   cd "$srcdir/llvm-$pkgver.src"
 
+  mv "$srcdir/cfe-$pkgver.src" tools/clang
   mv "$srcdir/compiler-rt-$pkgver.src" projects/compiler-rt
 
   # Fix installation directories, ./configure doesn't seem to set them right
@@ -109,7 +113,11 @@ package_lib32-llvm() {
 
   mv "$pkgdir"/usr/include/llvm/Config/*config.h "$pkgdir/"
   rm -rf "$pkgdir"/usr/{bin,include,share/{doc,man,llvm}}
-
+  
+  # remove conflicting clang files
+  rm -r "$pkgdir"/usr/lib
+  rm "$pkgdir"/usr/lib32/libclang*
+  
   install -d "$pkgdir/usr/include/llvm/Config"
   mv "$pkgdir/config.h" "$pkgdir/usr/include/llvm/Config/config-32.h"
   mv "$pkgdir/llvm-config.h" "$pkgdir/usr/include/llvm/Config/llvm-config-32.h"
@@ -130,5 +138,23 @@ package_lib32-llvm-libs() {
   cp -P libLLVM-$pkgver.so libLLVM-${pkgver%.*}.so "$pkgdir/usr/lib32/"
 
   install -Dm644 llvm-$pkgver.src/LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_lib32-clang() {
+  pkgdesc="C language family frontend for LLVM"
+  url="http://clang.llvm.org/"
+  depends=("lib32-llvm=$pkgver-$pkgrel" 'clang' 'gcc-multilib')
+
+  cd "$srcdir/llvm-$pkgver.src/tools/clang"
+
+  make DESTDIR="$pkgdir" install
+
+  mv -v "$pkgdir"/usr/lib/* "$pkgdir"/usr/lib32/
+  rm -r "$pkgdir"/usr/{bin,include,lib,share}
+  
+  # Fix permissions of static libs
+  chmod -x "$pkgdir"/usr/lib32/*.a
+
+  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
