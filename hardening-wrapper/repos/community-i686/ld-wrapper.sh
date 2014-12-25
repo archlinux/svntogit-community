@@ -22,14 +22,4 @@ case "$force_relro" in
   *) error 'invalid value for HARDENING_RELRO' ;;
 esac
 
-unwrapped=false
-IFS=: read -ra path <<< "$PATH";
-for p in "${path[@]}"; do
-  binary="$p/${0##*/}"
-  if [[ "$binary" != "$0" && -x "$binary" ]]; then
-    unwrapped="$binary"
-    break
-  fi
-done
-
-exec "$unwrapped" "${arguments[@]}" "$@"
+run_wrapped_binary "$@"
