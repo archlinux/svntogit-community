@@ -11,48 +11,49 @@ _pkgname=gcc
 pkgver=4.9.2
 _islver=0.12.2
 _cloogver=0.18.1
-pkgrel=1
+pkgrel=2
+_snapshot=4.9-20141224
 pkgdesc="The GNU AVR Compiler Collection"
 arch=('i686' 'x86_64')
 license=('GPL' 'LGPL' 'FDL' 'custom')
 url="http://gcc.gnu.org/"
-depends=('avr-binutils>=2.24' 'ppl' 'gcc-libs>=4.8.0' 'libmpc')
+depends=('avr-binutils>=2.25' 'ppl' 'gcc-libs>=4.8.0' 'libmpc')
 optdepends=('avr-libc: Standard C library for Atmel AVR development')
-provides=("gcc-avr=$pkgver")
-replaces=('gcc-avr')
-options=('staticlibs' '!emptydirs' '!strip')
-source=(http://ftp.gnu.org/gnu/gcc/${_pkgname}-${pkgver}/gcc-${pkgver}.tar.bz2
+options=('!emptydirs' '!strip')
+source=(#ftp://gcc.gnu.org/pub/gcc/releases/gcc-${pkgver}/gcc-${pkgver}.tar.bz2
+        ftp://gcc.gnu.org/pub/gcc/snapshots/${_snapshot}/gcc-${_snapshot}.tar.bz2
         http://isl.gforge.inria.fr/isl-${_islver}.tar.bz2
         http://www.bastoul.net/cloog/pages/download/cloog-${_cloogver}.tar.gz)
+sha1sums=('dcf37616b36b6f60d3a56a3a1f83754e43e59fae'
+          'ca98a91e35fb3ded10d080342065919764d6f928'
+          '2dc70313e8e2c6610b856d627bce9c9c3f848077')
 
-_basedir=${_pkgname}-${pkgver}
+if [ -n "${_snapshot}" ]; then
+  _basedir=gcc-${_snapshot}
+else
+  _basedir=gcc-${pkgver}
+fi
 
 build() {
-    # default CFLAGS lead to issues later on when configure 
-    # calls avr-gcc with -march set.
-    export CFLAGS="-O2 -pipe"
-    export CXXFLAGS="-O2 -pipe"
-
     cd ${srcdir}/${_basedir} 
 
     # Link isl/cloog for in-tree builds
     ln -s ../isl-${_islver} isl
     ln -s ../cloog-${_cloogver} cloog
 
-    # Do not install libiberty
-    sed -i 's/install_to_$(INSTALL_DEST) //' libiberty/Makefile.in
-
     # https://bugs.archlinux.org/task/34629
-    sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" libiberty/configure
-    sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" gcc/configure
+    # hack! - some configure tests for header files using "$CPP $CPPFLAGS"
+    sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" {libiberty,gcc}/configure
 
     echo ${pkgver} > gcc/BASE-VER
 
     cd ${srcdir}
     mkdir gcc-build && cd gcc-build
 
-    # --disable-linker-build-id: https://bugs.archlinux.org/task/34902
+    export CFLAGS_FOR_TARGET='-O2 -pipe'
+    export CXXFLAGS_FOR_TARGET='-O2 -pipe'
 
+    # --disable-linker-build-id: https://bugs.archlinux.org/task/34902
     ${srcdir}/${_basedir}/configure \
                 --disable-install-libiberty \
                 --disable-libssp \
@@ -104,7 +105,3 @@ package() {
     rm -rf ${pkgdir}/usr/share/man/man7
     rm -rf ${pkgdir}/usr/share/info
 }
-
-md5sums=('4df8ee253b7f3863ad0b86359cd39c43'
-         'e039bfcfb6c2ab039b8ee69bf883e824'
-         'e34fca0540d840e5d0f6427e98c92252')
