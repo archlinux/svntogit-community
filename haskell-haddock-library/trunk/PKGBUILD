@@ -1,0 +1,59 @@
+# $Id: PKGBUILD 124882 2014-12-29 22:07:40Z spupykin $
+# Maintainer: Sergej Pupykin <arch+pub@sergej.pp.ru>
+
+pkgname=haskell-haddock-library
+pkgver=1.1.1
+pkgrel=1
+pkgdesc="A documentation-generation tool for Haskell libraries"
+url="http://www.haskell.org/haddock/"
+license=("BSD3")
+arch=('i686' 'x86_64')
+makedepends=()
+depends=("ghc")
+options=('strip' 'staticlibs')
+install="${pkgname}.install"
+source=("http://hackage.haskell.org/packages/archive/haddock-library/${pkgver}/haddock-library-${pkgver}.tar.gz")
+sha256sums=("551b4485663f86528ebc8c9a268eee97342f83ff07e863226449cdd2a6e745e8")
+
+prepare() {
+    cd "${srcdir}/haddock-library-${pkgver}"
+
+    # no cabal patch
+    # no source patch
+}
+
+build() {
+    cd "${srcdir}/haddock-library-${pkgver}"
+
+    runhaskell Setup configure -O --enable-library-profiling --enable-shared \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" \
+        --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+_update_deps() {
+    _ver=`pacman -Q $1 | cut -f2 -d\  | cut -f1 -d-`
+    for i in `seq 0 $(expr ${#depends[@]} - 1)`; do
+        if [ ${depends[$i]} == $1 ]; then
+            depends[$i]="$1=${_ver}"
+        fi
+    done
+}
+
+package() {
+    cd "${srcdir}/haddock-library-${pkgver}"
+
+    _update_deps ghc
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/${pkgname}/register.sh"
+    install    -m744 unregister.sh "${pkgdir}/usr/share/haskell/${pkgname}/unregister.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/haddock-library"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
