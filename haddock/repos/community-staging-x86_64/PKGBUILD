@@ -1,0 +1,62 @@
+# $Id$
+# Maintainer: Alexander Rødseth <rodseth@gmail.com>
+# Contributor: Vesa Kaihlavirta <vesa@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=haddock
+pkgver=2.15.0.1
+pkgrel=2
+pkgdesc='Tool for generating documentation for Haskell libraries'
+url='http://hackage.haskell.org/package/haddock/'
+license=('custom:BSD3')
+arch=('x86_64' 'i686')
+makedepends=('alex' 'happy')
+depends=('ghc' 'haskell-ghc-paths' 'haskell-haddock-api')
+install="$pkgname.install"
+options=('staticlibs')
+source=("http://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('b7b9e357060e99a68996aca3e3921b2e99bcb5a7669bf7cbad33bac91486705f')
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  runhaskell Setup configure -O -p --enable-split-objs --enable-shared \
+    --prefix=/usr --docdir=/usr/share/doc/"$pkgname" \
+    --libsubdir=\$compiler/site-local/\$pkgid
+  runhaskell Setup build
+  runhaskell Setup haddock
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+_update_deps() {
+    _ver=`pacman -Q $1 | cut -f2 -d\  | cut -f1 -d-`
+    for i in `seq 0 $(expr ${#depends[@]} - 1)`; do
+        if [ ${depends[$i]} == $1 ]; then
+            depends[$i]="$1=${_ver}"
+        fi
+    done
+}
+
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  _update_deps ghc
+  _update_deps haskell-ghc-paths
+  _update_deps haskell-haddock-api
+
+#  install -Dm744 register.sh "$pkgdir/usr/share/haskell/$pkgname/register.sh"
+  install -Dm744 unregister.sh \
+    "$pkgdir/usr/share/haskell/$pkgname/unregister.sh"
+  install -dm755 "$pkgdir/usr/share/doc/ghc/html/libraries"
+  ln -s "/usr/share/doc/$pkgname/html" \
+    "$pkgdir/usr/share/doc/ghc/html/libraries/$pkgname"
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  rm -f "$pkgdir/usr/share/doc/$pkgname/LICENSE"
+  mv "$pkgdir/usr/bin/haddock" "$pkgdir/usr/bin/haddock-cabal"
+}
+
+# vim:set ts=2 sw=2 et:
