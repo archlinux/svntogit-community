@@ -1,17 +1,18 @@
-# $Id
+# $Id$
 # Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-pvr-addons
 pkgver=20141212
 _relname='Helix_rc3'
-pkgrel=1
+pkgrel=2
 pkgdesc="PVR add-ons for current stable kodi"
 arch=('i686' 'x86_64')
 url="https://github.com/opdenkamp/xbmc-pvr-addons"
 license=('GPL3')
+groups=('kodi-addons')
 depends=('kodi')
-makedepends=('git' 'libmysqlclient' 'boost')
+makedepends=('git')
 optdepends=('tvheadend-git: tvheadend backend' 'mythtv: mythtv backend')
 replaces=('xbmc-pvr-addons')
 conflicts=('xbmc-pvr-addons' 'xbmc-pvr-addons-git')
