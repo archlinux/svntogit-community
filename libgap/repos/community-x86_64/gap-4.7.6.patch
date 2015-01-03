@@ -1,0 +1,1449 @@
+diff -ru libgap-4.7.5.1.orig/configure.ac libgap-4.7.5.1/configure.ac
+--- libgap-4.7.5.1.orig/configure.ac	2014-06-20 00:35:51.000000000 +0200
++++ libgap-4.7.5.1/configure.ac	2015-01-02 23:08:42.685339746 +0100
+@@ -1,7 +1,7 @@
+ AC_PREREQ([2.66])
+ 
+ # Note: the version number must match the GAP version number
+-AC_INIT([libGAP], [4.7.5.1], [sage-devel@googlegroups.com])
++AC_INIT([libGAP], [4.7.6], [sage-devel@googlegroups.com])
+ 
+ AC_CANONICAL_TARGET
+ AM_INIT_AUTOMAKE
+diff -ru libgap-4.7.5.1.orig/src/compiled.h libgap-4.7.5.1/src/compiled.h
+--- libgap-4.7.5.1.orig/src/compiled.h	2014-06-20 00:38:19.000000000 +0200
++++ libgap-4.7.5.1/src/compiled.h	2014-12-24 09:32:01.000000000 +0100
+@@ -9,6 +9,11 @@
+ #ifndef libGAP_GAP_COMPILED_H
+ #define libGAP_GAP_COMPILED_H
+ 
++#ifdef __cplusplus
++extern "C" {
++#define GAP_IN_EXTERN_C
++#endif
++
+ #include        "system.h"              /* system dependent part           */
+ 
+ #include        "gasman.h"              /* garbage collector               */
+@@ -456,6 +461,11 @@
+ 
+ #endif
+ 
++#ifdef __cplusplus
++}
++#undef GAP_IN_EXTERN_C
++#endif
++    
+ #endif // GAP_COMPILED_H
+ 
+ /****************************************************************************
+diff -ru libgap-4.7.5.1.orig/src/gap.c libgap-4.7.5.1/src/gap.c
+--- libgap-4.7.5.1.orig/src/gap.c	2014-06-20 00:38:31.000000000 +0200
++++ libgap-4.7.5.1/src/gap.c	2015-01-02 23:26:49.395778475 +0100
+@@ -786,6 +786,7 @@
+   libGAP_NrImportedFuncs = 0;
+   libGAP_ErrorHandler = (libGAP_Obj) 0;
+   libGAP_UserHasQUIT = 0;
++  libGAP_UserHasQUITReturnValue = 0;
+   libGAP_UserHasQuit = 0;
+     
+   /* initialize everything and read init.g which runs the GAP session */
+@@ -1386,7 +1387,8 @@
+   
+ 
+ libGAP_UInt libGAP_UserHasQuit;
+-libGAP_UInt libGAP_UserHasQUIT; 
++libGAP_UInt libGAP_UserHasQUIT;
++libGAP_UInt libGAP_UserHasQUITReturnValue;
+ 
+ libGAP_Obj libGAP_FuncSetUserHasQuit( libGAP_Obj Self, libGAP_Obj value)
+ {
+@@ -2700,9 +2702,20 @@
+ **
+ */
+ 
+-libGAP_Obj libGAP_FuncQUIT_GAP( libGAP_Obj self )
++libGAP_Obj libGAP_FuncQUIT_GAP( libGAP_Obj self, libGAP_Obj args )
+ {
++  if ( libGAP_LEN_LIST(args) == 0 ) {
++    libGAP_UserHasQUITReturnValue = 0;
++  }
++  else if ( libGAP_LEN_LIST(args) == 1 && libGAP_IS_INTOBJ( libGAP_ELM_PLIST(args,1) ) ) {
++    libGAP_UserHasQUITReturnValue = libGAP_INT_INTOBJ( libGAP_ELM_PLIST( args, 1 ) );
++  }
++  else {
++    libGAP_ErrorQuit( "usage: QUIT_GAP( [ <return value> ] )", 0L, 0L );
++    return 0;
++  }
+   libGAP_UserHasQUIT = 1;
++  
+   libGAP_ReadEvalError();
+   return (libGAP_Obj)0; 
+ }
+@@ -2903,7 +2916,7 @@
+     { "Sleep", 1, "secs",
+       libGAP_FuncSleep, "src/gap.c:Sleep" },
+ 
+-    { "QUIT_GAP", 0, "",
++    { "QUIT_GAP", -1, "args",
+       libGAP_FuncQUIT_GAP, "src/gap.c:QUIT_GAP" },
+ 
+ 
+diff -ru libgap-4.7.5.1.orig/src/gap.h libgap-4.7.5.1/src/gap.h
+--- libgap-4.7.5.1.orig/src/gap.h	2014-06-20 00:38:19.000000000 +0200
++++ libgap-4.7.5.1/src/gap.h	2014-12-24 10:00:05.000000000 +0100
+@@ -229,6 +229,7 @@
+ 
+ extern libGAP_UInt libGAP_UserHasQuit;
+ extern libGAP_UInt libGAP_UserHasQUIT;
++extern libGAP_UInt libGAP_UserHasQUITReturnValue;
+ 
+ #if 0
+ /****************************************************************************
+Only in libgap-4.7.5.1/src: gapw95.c
+diff -ru libgap-4.7.5.1.orig/src/gasman.c libgap-4.7.5.1/src/gasman.c
+--- libgap-4.7.5.1.orig/src/gasman.c	2014-06-20 00:38:36.000000000 +0200
++++ libgap-4.7.5.1/src/gasman.c	2015-01-02 23:27:53.749292589 +0100
+@@ -285,6 +285,39 @@
+ libGAP_Bag *                   libGAP_StopBags;
+ libGAP_Bag *                   libGAP_EndBags;
+ 
++#ifdef MEMORY_CANARY
++
++#include <valgrind/valgrind.h>
++#include <valgrind/memcheck.h>
++Int canary_size() {
++  Int bufsize = (Int)StopBags - (Int)AllocBags;
++  return bufsize<4096?bufsize:4096;
++}
++
++void ADD_CANARY() {
++  VALGRIND_MAKE_MEM_NOACCESS(AllocBags, canary_size());
++}
++void CLEAR_CANARY() {
++  VALGRIND_MAKE_MEM_DEFINED(AllocBags, canary_size());
++}
++#define CANARY_DISABLE_VALGRIND()  VALGRIND_DISABLE_ERROR_REPORTING
++#define CANARY_ENABLE_VALGRIND() VALGRIND_ENABLE_ERROR_REPORTING
++
++void CHANGED_BAG_IMPL(Bag bag) {
++    CANARY_DISABLE_VALGRIND();
++    if ( PTR_BAG(bag) <= YoungBags && PTR_BAG(bag)[-1] == (bag) ) {                          
++        PTR_BAG(bag)[-1] = ChangedBags;
++        ChangedBags = (bag);    
++    }
++    CANARY_ENABLE_VALGRIND();
++}
++#else
++#define ADD_CANARY()
++#define CLEAR_CANARY()
++#define CANARY_DISABLE_VALGRIND()
++#define CANARY_ENABLE_VALGRIND()
++#endif
++
+ 
+ /* These macros, are (a) for more readable code, but more importantly
+    (b) to ensure that unsigned subtracts and divides are used (since
+@@ -1137,11 +1170,11 @@
+     /* get the identifier of the bag and set 'FreeMptrBags' to the next    */
+     bag          = libGAP_FreeMptrBags;
+     libGAP_FreeMptrBags = *(libGAP_Bag*)bag;
+-
++    CLEAR_CANARY();
+     /* allocate the storage for the bag                                    */
+     dst       = libGAP_AllocBags;
+     libGAP_AllocBags = dst + libGAP_HEADER_SIZE + libGAP_WORDS_BAG(size);
+-
++    ADD_CANARY();
+ 
+     /* enter size-type words                                               */
+ #ifdef libGAP_USE_NEWSHAPE
+@@ -1360,7 +1393,7 @@
+ 
+     /* if the last bag is to be enlarged                                   */
+     else if ( libGAP_PTR_BAG(bag) + libGAP_WORDS_BAG(old_size) == libGAP_AllocBags ) {
+-
++        CLEAR_CANARY();
+         /* check that enough storage for the new bag is available          */
+         if ( libGAP_StopBags < libGAP_PTR_BAG(bag)+libGAP_WORDS_BAG(new_size)
+           && libGAP_CollectBags( new_size-old_size, 0 ) == 0 ) {
+@@ -1372,6 +1405,7 @@
+             libGAP_YoungBags += libGAP_WORDS_BAG(new_size) - libGAP_WORDS_BAG(old_size);
+         libGAP_AllocBags += libGAP_WORDS_BAG(new_size) - libGAP_WORDS_BAG(old_size);
+ 
++        ADD_CANARY();
+         /* change the size-type word                                       */
+ #ifdef libGAP_USE_NEWSHAPE
+       *(*bag-2) = (new_size << 16 | type);
+@@ -1388,11 +1422,11 @@
+           && libGAP_CollectBags( new_size, 0 ) == 0 ) {
+             return 0;
+         }
+-
++        CLEAR_CANARY();
+         /* allocate the storage for the bag                                */
+         dst       = libGAP_AllocBags;
+         libGAP_AllocBags = dst + libGAP_HEADER_SIZE + libGAP_WORDS_BAG(new_size);
+-        
++        ADD_CANARY();
+         /* leave magic size-type word  for the sweeper, type must be 255   */
+ #ifdef libGAP_USE_NEWSHAPE
+         *(*bag-2) = (((libGAP_WORDS_BAG(old_size)+1) * sizeof(libGAP_Bag))) << 16 | 255;
+@@ -1407,12 +1441,13 @@
+         *dst++ = (libGAP_Bag)new_size;
+ #endif
+         
+-
++        CANARY_DISABLE_VALGRIND();
+         /* if the bag is already on the changed bags list, keep it there   */
+         if ( libGAP_PTR_BAG(bag)[-1] != bag ) {
+             *dst++ = libGAP_PTR_BAG(bag)[-1];
+         }
+ 
++
+         /* if the bag is old, put it onto the changed bags list            */
+         else if ( libGAP_PTR_BAG(bag) <= libGAP_YoungBags ) {
+             *dst++ = libGAP_ChangedBags;  libGAP_ChangedBags = bag;
+@@ -1422,6 +1457,7 @@
+         else {
+             *dst++ = bag;
+         }
++	CANARY_ENABLE_VALGRIND();
+ 
+         /* set the masterpointer                                           */
+         src = libGAP_PTR_BAG(bag);
+@@ -1722,6 +1758,8 @@
+     /*     Bag *               last;
+            Char                type; */
+ 
++    CANARY_DISABLE_VALGRIND();
++    CLEAR_CANARY();
+ #ifdef DEBUG_MASTERPOINTERS
+     libGAP_CheckMasterPointers();
+ #endif
+@@ -2293,6 +2331,8 @@
+     /* Possibly advise the operating system about unused pages:            */
+     libGAP_SyMAdviseFree();
+ 
++    CANARY_ENABLE_VALGRIND();
++
+     /* return success                                                      */
+     return 1;
+ }
+diff -ru libgap-4.7.5.1.orig/src/gasman.h libgap-4.7.5.1/src/gasman.h
+--- libgap-4.7.5.1.orig/src/gasman.h	2014-06-20 00:38:19.000000000 +0200
++++ libgap-4.7.5.1/src/gasman.h	2015-01-02 23:28:27.002721034 +0100
+@@ -251,11 +251,27 @@
+ 
+ extern  libGAP_Bag                     libGAP_ChangedBags;
+ 
++/*****
++**  MEMORY_CANARY provides (basic) support for catching out-of-bounds memory
++**  problems in GAP. This is done through the excellent 'valgrind' program.
++**  valgrind is of limited use in GAP normally, because it doesn't understand
++**  GAP's memory manager. Enabling MEMORY_CANARY will make an executable where
++**  valgrind will detect memory issues.
++**
++**  At the moment the detection is limited to only writing off the last allocated
++**  block.
++*/
++
++#ifdef MEMORY_CANARY
++extern void libGAP_CHANGED_BAG_IMPL(libGAP_Bag b);
++#define libGAP_CHANGED_BAG(bag) libGAP_CHANGED_BAG_IMPL(bag);
++#else
+ #define libGAP_CHANGED_BAG(bag)                                                    \
+                 if (   libGAP_PTR_BAG(bag) <= libGAP_YoungBags                              \
+                   && libGAP_PTR_BAG(bag)[-1] == (bag) ) {                          \
+                     libGAP_PTR_BAG(bag)[-1] = libGAP_ChangedBags; libGAP_ChangedBags = (bag);    }
+ 
++#endif
+ 
+ /****************************************************************************
+ **
+diff -ru libgap-4.7.5.1.orig/src/gmpints.c libgap-4.7.5.1/src/gmpints.c
+--- libgap-4.7.5.1.orig/src/gmpints.c	2014-06-20 00:38:20.000000000 +0200
++++ libgap-4.7.5.1/src/gmpints.c	2014-12-24 10:18:09.000000000 +0100
+@@ -57,7 +57,14 @@
+ 
+ #ifdef USE_GMP
+ 
++// GMP must be included outside of 'extern C'
++#ifdef GAP_IN_EXTERN_C
++}
++#endif
+ #include <gmp.h>
++#ifdef GAP_IN_EXTERN_C
++extern "C" {
++#endif
+ 
+ #include        "gmpints.h"             /* GMP integers                    */
+ 
+@@ -521,7 +528,7 @@
+ 
+   len = libGAP_GET_LEN_STRING(str);
+   if (len == 0) {
+-    res = libGAP_INT_INTOBJ(0);
++    res = libGAP_INTOBJ_INT(0);
+     return res;
+   }
+   if (*(libGAP_CHARS_STRING(str)) == '-') {
+diff -ru libgap-4.7.5.1.orig/src/gmpints.h libgap-4.7.5.1/src/gmpints.h
+--- libgap-4.7.5.1.orig/src/gmpints.h	2014-06-20 00:38:19.000000000 +0200
++++ libgap-4.7.5.1/src/gmpints.h	2014-12-24 09:32:01.000000000 +0100
+@@ -17,7 +17,14 @@
+ 
+ #ifdef USE_GMP
+ 
++// GMP must be included outside of 'extern C'
++#ifdef GAP_IN_EXTERN_C
++}
++#endif
+ #include <gmp.h>
++#ifdef GAP_IN_EXTERN_C
++extern "C" {
++#endif
+ 
+ /****************************************************************************
+ **
+diff -ru libgap-4.7.5.1.orig/src/integer.c libgap-4.7.5.1/src/integer.c
+--- libgap-4.7.5.1.orig/src/integer.c	2014-06-20 00:38:23.000000000 +0200
++++ libgap-4.7.5.1/src/integer.c	2014-12-24 10:20:51.000000000 +0100
+@@ -119,31 +119,6 @@
+ /* for fallbacks to library */
+ libGAP_Obj libGAP_String;
+ 
+-/****************************************************************************
+-**
+-
+-*T  TypDigit  . . . . . . . . . . . . . . . . . . . .  type of a single digit
+-**
+-**  'TypDigit' is the type of a single digit of an  arbitrary  size  integer.
+-**  This is of course unsigned short int, which gives us the 16 bits we want.
+-**
+-**  'TypDigit' is defined in the declaration file of the package as follows:
+-**
+-#ifdef SYS_IS_64_BIT
+-typedef UInt4           TypDigit;
+-#else
+-typedef UInt2           TypDigit;
+-#endif
+-#define NR_DIGIT_BITS      (8 * sizeof(TypDigit))
+-#define INTBASE            (1L << NR_DIGIT_BITS)
+-#define NR_SMALL_INT_BITS  (2*NR_DIGIT_BITS - 4)
+-#define SIZE_INT(op)    (SIZE_OBJ(op) / sizeof(TypDigit))
+-#define ADDR_INT(op)    ((TypDigit*)ADDR_OBJ(op))
+-*/
+-
+-
+-
+-
+ 
+ /****************************************************************************
+ **
+@@ -397,7 +372,7 @@
+     /* number of hex digits and sign */
+     len = libGAP_GET_LEN_STRING(str);
+     if (len == 0) {
+-       res = libGAP_INT_INTOBJ(0);
++       res = libGAP_INTOBJ_INT(0);
+        return res;
+     }
+     if (*(libGAP_CHARS_STRING(str)) == '-') {
+diff -ru libgap-4.7.5.1.orig/src/integer.h libgap-4.7.5.1/src/integer.h
+--- libgap-4.7.5.1.orig/src/integer.h	2014-06-20 00:38:19.000000000 +0200
++++ libgap-4.7.5.1/src/integer.h	2014-12-24 10:22:37.000000000 +0100
+@@ -39,7 +39,7 @@
+ #endif
+ 
+ #define libGAP_NR_DIGIT_BITS      (8 * sizeof(libGAP_TypDigit))
+-#define libGAP_INTBASE            (1L << libGAP_NR_DIGIT_BITS)
++#define libGAP_INTBASE            (1UL << libGAP_NR_DIGIT_BITS)
+ #define libGAP_NR_SMALL_INT_BITS  (2*libGAP_NR_DIGIT_BITS - 4)
+ #define libGAP_SIZE_INT(op)    (libGAP_SIZE_OBJ(op) / sizeof(libGAP_TypDigit))
+ #define libGAP_ADDR_INT(op)    ((libGAP_TypDigit*)libGAP_ADDR_OBJ(op))
+diff -ru libgap-4.7.5.1.orig/src/intfuncs.c libgap-4.7.5.1/src/intfuncs.c
+--- libgap-4.7.5.1.orig/src/intfuncs.c	2014-06-20 00:38:24.000000000 +0200
++++ libgap-4.7.5.1/src/intfuncs.c	2015-01-02 23:29:29.852903643 +0100
+@@ -273,7 +273,7 @@
+ // Platform-specific functions and macros
+ 
+ 
+-#define libGAP_FORCE_INLINE inline
++#define libGAP_FORCE_INLINE static inline
+ 
+ static inline uint32_t libGAP_rotl32 ( uint32_t x, int8_t r )
+ {
+diff -ru libgap-4.7.5.1.orig/src/objfgelm.h libgap-4.7.5.1/src/objfgelm.h
+--- libgap-4.7.5.1.orig/src/objfgelm.h	2014-06-20 00:38:19.000000000 +0200
++++ libgap-4.7.5.1/src/objfgelm.h	2015-01-03 00:43:09.764784993 +0100
+@@ -123,20 +123,28 @@
+ **  <npairs> pairs of generator number/exponent.  The new  word is return  in
+ **  <word>.
+ */
+-#define libGAP_NEW_WORD( word, kind, npairs ) \
+- ((word)=libGAP_NewBag(libGAP_T_DATOBJ,2*sizeof(libGAP_Obj)+((npairs)*libGAP_BITS_WORDTYPE((kind))/8L)),\
+-  (libGAP_ADDR_OBJ((word))[1] = libGAP_INTOBJ_INT((npairs))),\
+-  libGAP_SET_TYPE_DATOBJ( (word), (kind) ), (word) )
++static inline libGAP_Obj libGAP_NewWord(libGAP_Obj kind, libGAP_UInt npairs) {
++  libGAP_Obj word;
++  word = libGAP_NewBag(libGAP_T_DATOBJ,2*sizeof(libGAP_Obj)+npairs*libGAP_BITS_WORDTYPE(kind)/8L);
++  (libGAP_ADDR_OBJ(word)[1] = libGAP_INTOBJ_INT(npairs));
++  libGAP_SET_TYPE_DATOBJ( word, kind);
++  return word;
++}
++
++#define libGAP_NEW_WORD(word, kind, npairs) \
++  (word) = libGAP_NewWord((kind), (npairs));
+ 
+ 
+ /****************************************************************************
+ **
+ *F  RESIZE_WORD( <word>, <npairs> )
+ */
+-#define libGAP_RESIZE_WORD( word, bits, npairs ) \
+-  (libGAP_ResizeBag( (word), 2*sizeof(libGAP_Obj)+((npairs)*libGAP_BITS_WORD((word))/8L)), \
+-   (libGAP_ADDR_OBJ((word))[1] = libGAP_INTOBJ_INT((npairs))), \
+-   (word) )
++static inline libGAP_Obj libGAP_RESIZE_WORD( libGAP_Obj word, libGAP_UInt npairs )
++{
++  libGAP_ResizeBag( (word), 2*sizeof(libGAP_Obj)+((npairs)*libGAP_BITS_WORD((word))/8L));
++  (libGAP_ADDR_OBJ((word))[1] = libGAP_INTOBJ_INT((npairs)));
++  return word;
++}
+ 
+ 
+ /****************************************************************************
+diff -ru libgap-4.7.5.1.orig/src/objscoll.c libgap-4.7.5.1/src/objscoll.c
+--- libgap-4.7.5.1.orig/src/objscoll.c	2014-06-20 00:38:27.000000000 +0200
++++ libgap-4.7.5.1/src/objscoll.c	2014-12-24 10:29:32.000000000 +0100
+@@ -123,7 +123,7 @@
+     }
+ 
+     /* correct the size of <obj>                                           */
+-    libGAP_RESIZE_WORD( obj, 8L, j );
++    libGAP_RESIZE_WORD( obj, j );
+     return obj;
+ }
+ 
+@@ -703,7 +703,7 @@
+     }
+ 
+     /* correct the size of <obj>                                           */
+-    libGAP_RESIZE_WORD( obj, 16L, j );
++    libGAP_RESIZE_WORD( obj, j );
+     return obj;
+ }
+ 
+@@ -1285,7 +1285,7 @@
+     }
+ 
+     /* correct the size of <obj>                                           */
+-    libGAP_RESIZE_WORD( obj, 32L, j );
++    libGAP_RESIZE_WORD( obj, j );
+     return obj;
+ }
+ 
+diff -ru libgap-4.7.5.1.orig/src/opers.c libgap-4.7.5.1/src/opers.c
+--- libgap-4.7.5.1.orig/src/opers.c	2014-06-20 00:38:29.000000000 +0200
++++ libgap-4.7.5.1/src/opers.c	2014-12-24 10:35:17.000000000 +0100
+@@ -2859,8 +2859,8 @@
+       libGAP_HDLR_FUNC(oper,narg) = hdlr;
+ 
+     /*N 1996/06/06 mschoene this should not be done here                   */
+-    libGAP_FLAG1_FILT(oper) = libGAP_INT_INTOBJ(0);
+-    libGAP_FLAG2_FILT(oper) = libGAP_INT_INTOBJ(0);
++    libGAP_FLAG1_FILT(oper) = libGAP_INTOBJ_INT(0);
++    libGAP_FLAG2_FILT(oper) = libGAP_INTOBJ_INT(0);
+     libGAP_FLAGS_FILT(oper) = libGAP_False;
+     libGAP_SETTR_FILT(oper) = libGAP_False;
+     libGAP_TESTR_FILT(oper) = libGAP_False;
+@@ -4295,8 +4295,8 @@
+     }
+ 
+     /*N 1996/06/06 mschoene this should not be done here                   */
+-    libGAP_FLAG1_FILT(oper) = libGAP_INT_INTOBJ(0);
+-    libGAP_FLAG2_FILT(oper) = libGAP_INT_INTOBJ(0);
++    libGAP_FLAG1_FILT(oper) = libGAP_INTOBJ_INT(0);
++    libGAP_FLAG2_FILT(oper) = libGAP_INTOBJ_INT(0);
+     libGAP_FLAGS_FILT(oper) = libGAP_False;
+     libGAP_SETTR_FILT(oper) = libGAP_False;
+     libGAP_TESTR_FILT(oper) = libGAP_False;
+diff -ru libgap-4.7.5.1.orig/src/pperm.c libgap-4.7.5.1/src/pperm.c
+--- libgap-4.7.5.1.orig/src/pperm.c	2014-06-20 00:38:36.000000000 +0200
++++ libgap-4.7.5.1/src/pperm.c	2015-01-02 23:51:06.917066687 +0100
+@@ -1807,7 +1807,7 @@
+     ptf2=libGAP_ADDR_PPERM2(f);
+     
+     // find pos in list corresponding to degree of new pperm
+-    while(n>0&&libGAP_INT_INTOBJ(libGAP_ELM_LIST(set, n))>deg) n--;
++    while(n>0&&(libGAP_UInt) libGAP_INT_INTOBJ(libGAP_ELM_LIST(set, n))>deg) n--;
+     while(n>0&&ptf2[libGAP_INT_INTOBJ(libGAP_ELM_LIST(set, n))-1]==0) n--;
+     if(n==0) return libGAP_EmptyPartialPerm;
+ 
+@@ -1826,7 +1826,7 @@
+     deg=libGAP_DEG_PPERM4(f);
+     ptf4=libGAP_ADDR_PPERM4(f);
+     
+-    while(n>0&&libGAP_INT_INTOBJ(libGAP_ELM_LIST(set, n))>deg) n--;
++    while(n>0&&(libGAP_UInt) libGAP_INT_INTOBJ(libGAP_ELM_LIST(set, n))>deg) n--;
+     while(n>0&&ptf4[libGAP_INT_INTOBJ(libGAP_ELM_LIST(set, n))-1]==0) n--;
+     if(n==0) return libGAP_EmptyPartialPerm;
+    
+@@ -2516,9 +2516,7 @@
+     rank=libGAP_RANK_PPERM2(f);
+     for(i=1;i<=rank;i++){
+       j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+-      //JDM could have additional case so that we don't have to check
+-      //ptf[i]<=degg
+-      if(ptf[j]<=degg){ 
++      if(j<deg && ptf[j]<=degg){ 
+         ptfg[j]=ptg[ptf[j]-1];
+         if(ptfg[j]>codeg) codeg=ptfg[j];
+       }
+@@ -2568,7 +2566,7 @@
+     rank=libGAP_RANK_PPERM4(f);
+     for(i=1;i<=rank;i++){
+       j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+-      if(ptf[j]<=degg){ 
++      if(j<deg && ptf[j]<=degg){ 
+         ptfg[j]=ptg[ptf[j]-1];
+         if(ptfg[j]>codeg) codeg=ptfg[j];
+       }
+@@ -2592,44 +2590,56 @@
+   libGAP_UInt4   *ptf, *ptg, *ptfg;
+   libGAP_Obj     fg, dom;
+ 
+-  if(libGAP_DEG_PPERM4(libGAP_g)==0) return libGAP_EmptyPartialPerm;
++  if (libGAP_DEG_PPERM4(libGAP_g) == 0) { 
++    return libGAP_EmptyPartialPerm;
++  }
+ 
+   // find the degree
+-  deg=libGAP_DEG_PPERM4(f);
+-  degg=libGAP_DEG_PPERM4(libGAP_g);
+-  ptf=libGAP_ADDR_PPERM4(f);
+-  ptg=libGAP_ADDR_PPERM4(libGAP_g);
+-  while(deg>0&&(ptf[deg-1]==0||ptf[deg-1]>degg||ptg[ptf[deg-1]-1]==0)) deg--;
+-  if(deg==0) return libGAP_EmptyPartialPerm;
++  deg = libGAP_DEG_PPERM4(f);
++  degg = libGAP_DEG_PPERM4(libGAP_g);
++  ptf = libGAP_ADDR_PPERM4(f);
++  ptg = libGAP_ADDR_PPERM4(libGAP_g);
++  while (deg > 0 
++      && (ptf[deg - 1] == 0 || ptf[deg - 1] > degg || ptg[ptf[deg - 1] - 1] == 0)){
++    deg--;
++  }
++  
++  if(deg == 0){
++    return libGAP_EmptyPartialPerm;
++  }
+   
+   // create new pperm
+-  fg=libGAP_NEW_PPERM4(deg);
+-  ptfg=libGAP_ADDR_PPERM4(fg);
+-  ptf=libGAP_ADDR_PPERM4(f);
+-  ptg=libGAP_ADDR_PPERM4(libGAP_g);
+-  codeg=0;
++  fg = libGAP_NEW_PPERM4(deg);
++  ptfg = libGAP_ADDR_PPERM4(fg);
++  ptf = libGAP_ADDR_PPERM4(f);
++  ptg = libGAP_ADDR_PPERM4(libGAP_g);
++  codeg = 0;
+  
+   // compose in rank operations
+-  if(libGAP_DOM_PPERM(f)!=NULL){
+-    dom=libGAP_DOM_PPERM(f); 
+-    rank=libGAP_RANK_PPERM4(f);
+-    for(i=1;i<=rank;i++){
+-      j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+-      if(ptf[j]<=degg){ 
+-        ptfg[j]=ptg[ptf[j]-1];
+-        if(ptfg[j]>codeg) codeg=ptfg[j];
++  if (libGAP_DOM_PPERM(f) != NULL) {
++    dom = libGAP_DOM_PPERM(f); 
++    rank = libGAP_RANK_PPERM4(f);
++    for (i = 1; i <= rank; i++) {
++      j = libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i)) - 1;
++      if (j < deg && ptf[j] <= degg) { 
++        ptfg[j] = ptg[ptf[j] - 1];
++        if(ptfg[j] > codeg){
++          codeg = ptfg[j];
++        }
+       }
+     }
+   } else { 
+   // compose in deg operations
+-    for(i=0;i<deg;i++){
+-      if(ptf[i]!=0&&ptf[i]<=degg){
+-        ptfg[i]=ptg[ptf[i]-1];
+-        if(ptfg[i]>codeg) codeg=ptfg[i];
++    for (i = 0; i < deg; i++) {
++      if (ptf[i] != 0 && ptf[i] <= degg) {
++        ptfg[i] = ptg[ptf[i] - 1];
++        if (ptfg[i] > codeg) {
++          codeg = ptfg[i];
++        }
+       }
+     }
+   }
+-  libGAP_CODEG_PPERM4(fg)=codeg;
++  libGAP_CODEG_PPERM4(fg) = codeg;
+   return fg;
+ }
+ 
+@@ -2669,7 +2679,7 @@
+     rank=libGAP_RANK_PPERM2(f);
+     for(i=1;i<=rank;i++){
+       j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+-      if(ptf[j]<=degg){ 
++      if(j<deg && ptf[j]<=degg){ 
+         ptfg[j]=ptg[ptf[j]-1];
+         if(ptfg[j]>codeg) codeg=ptfg[j];
+       }
+@@ -3363,8 +3373,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=ptg[ptf[i]-1];
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3388,8 +3400,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=libGAP_IMAGEPP(ptf[i], ptg, deg);
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3416,8 +3430,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3442,8 +3458,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3470,8 +3488,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else {//codeg(f)>deg(g)
+@@ -3496,8 +3516,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3547,8 +3569,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=ptg[ptf[i]-1];
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3572,8 +3596,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=libGAP_IMAGEPP(ptf[i], ptg, deg);
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3600,8 +3626,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3626,8 +3654,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3654,8 +3684,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else {//codeg(f)>deg(g)
+@@ -3680,8 +3712,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3731,8 +3765,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=ptg[ptf[i]-1];
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3756,8 +3792,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=libGAP_IMAGEPP(ptf[i], ptg, deg);
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3784,8 +3822,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3810,8 +3850,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3838,8 +3880,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else {//codeg(f)>deg(g)
+@@ -3864,8 +3908,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3914,8 +3960,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=ptg[ptf[i]-1];
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3939,8 +3987,10 @@
+       for(i=0;i<min;i++){
+         if(ptf[i]!=0&&ptg[i]!=0){
+           img=libGAP_IMAGEPP(ptf[i], ptg, deg);
+-          ptconj[ptg[i]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[i]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -3967,8 +4017,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else { //codeg(f)>deg(g)
+@@ -3993,8 +4045,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(libGAP_IMAGEPP(j+1, ptg, deg)!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -4021,8 +4075,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=ptg[ptf[j]-1];
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     } else {//codeg(f)>deg(g)
+@@ -4047,8 +4103,10 @@
+         j=libGAP_INT_INTOBJ(libGAP_ELM_PLIST(dom, i))-1;
+         if(ptg[j]!=0){
+           img=libGAP_IMAGEPP(ptf[j], ptg, deg);
+-          ptconj[ptg[j]-1]=img;
+-          if(img>codec) codec=img;
++          if(img!=0){
++            ptconj[ptg[j]-1]=img;
++            if(img>codec) codec=img;
++          }
+         }
+       }
+     }
+@@ -4611,7 +4669,7 @@
+     libGAP_ErrorQuit("usage: the first argument should be a positive integer,", 0L, 0L);
+     return 0L;
+   }
+-  return libGAP_INTOBJ_INT(libGAP_IMAGEPP(libGAP_INT_INTOBJ(i), libGAP_ADDR_PPERM2(f), libGAP_DEG_PPERM2(f)));
++  return libGAP_INTOBJ_INT(libGAP_IMAGEPP((libGAP_UInt) libGAP_INT_INTOBJ(i), libGAP_ADDR_PPERM2(f), libGAP_DEG_PPERM2(f)));
+ }
+ 
+ libGAP_Obj libGAP_PowIntPPerm4(libGAP_Obj i, libGAP_Obj f){
+@@ -4620,7 +4678,7 @@
+     libGAP_ErrorQuit("usage: the first argument should be a positive integer,", 0L, 0L);
+     return 0L;
+   }
+-  return libGAP_INTOBJ_INT(libGAP_IMAGEPP(libGAP_INT_INTOBJ(i), libGAP_ADDR_PPERM4(f), libGAP_DEG_PPERM4(f)));
++  return libGAP_INTOBJ_INT(libGAP_IMAGEPP((libGAP_UInt) libGAP_INT_INTOBJ(i), libGAP_ADDR_PPERM4(f), libGAP_DEG_PPERM4(f)));
+ }
+ 
+ // p^-1*f
+@@ -5905,7 +5963,9 @@
+     0,                                  /* checkInit                      */
+     0,                                  /* preSave                        */
+     0,                                  /* postSave                       */
+-    0                                   /* postRestore                    */
++    0,                                  /* postRestore                    */
++    "src/pperm.c",                      /* filename                       */
++    1                                   /* isGapRootRelative              */
+ };
+ 
+ libGAP_StructInitInfo * libGAP_InitInfoPPerm ( void )
+diff -ru libgap-4.7.5.1.orig/src/string.c libgap-4.7.5.1/src/string.c
+--- libgap-4.7.5.1.orig/src/string.c	2014-06-20 00:38:33.000000000 +0200
++++ libgap-4.7.5.1/src/string.c	2015-01-02 23:47:42.163052569 +0100
+@@ -629,7 +629,6 @@
+     return copy;
+ }
+ 
+-
+ /****************************************************************************
+ **
+ *F  CopyStringCopy( <list>, <mut> ) . . . . . . . . . .  copy a copied string
+@@ -1407,6 +1406,39 @@
+ 
+ /****************************************************************************
+ **
++*F  CopyToStringRep( <string> )  . . copy a string to the string representation
++**
++**  'CopyToStringRep' copies the string <string> to a new string in string
++**  representation.
++*/
++libGAP_Obj libGAP_CopyToStringRep(
++    libGAP_Obj                 string )
++{
++    libGAP_Int                 lenString;      /* length of the string            */
++    libGAP_Obj                 elm;            /* one element of the string       */
++    libGAP_Obj                 copy;           /* temporary string                */
++    libGAP_Int                 i;              /* loop variable                   */
++
++    lenString = libGAP_LEN_LIST(string);
++    copy = libGAP_NEW_STRING(lenString);
++
++    if ( libGAP_IS_STRING_REP(string) ) {
++        memcpy(libGAP_ADDR_OBJ(copy), libGAP_ADDR_OBJ(string), libGAP_SIZE_OBJ(string));
++        /* XXX no error checks? */
++    } else {
++        /* copy the string to the string representation                     */
++        for ( i = 1; i <= lenString; i++ ) {
++            elm = libGAP_ELMW_LIST( string, i );
++            libGAP_CHARS_STRING(copy)[i-1] = *((libGAP_UChar*)libGAP_ADDR_OBJ(elm));
++        } 
++        libGAP_CHARS_STRING(copy)[lenString] = '\0';
++    }
++    libGAP_CHANGED_BAG(copy);
++    return (copy);
++}
++
++/****************************************************************************
++**
+ *F  ConvString( <string> )  . . convert a string to the string representation
+ **
+ **  'ConvString' converts the string <list> to the string representation.
+@@ -1559,6 +1591,25 @@
+ 
+ /****************************************************************************
+ **
++*F  FuncCOPY_TO_STRING_REP( <self>, <obj> ) . copy a string into string rep
++*/
++libGAP_Obj libGAP_FuncCOPY_TO_STRING_REP (
++    libGAP_Obj                 self,
++    libGAP_Obj                 obj )
++{
++    /* check whether <obj> is a string                                  */
++    if (!libGAP_IS_STRING(obj)) {
++        obj = libGAP_ErrorReturnObj(
++            "ConvString: <string> must be a string (not a %s)",
++            (libGAP_Int)libGAP_TNAM_OBJ(obj), 0L,
++            "you can replace <string> via 'return <string>;'" );
++        return libGAP_FuncCOPY_TO_STRING_REP( self, obj );
++    }
++    return libGAP_CopyToStringRep(obj);
++}
++
++/****************************************************************************
++**
+ *F  FuncPOSITION_SUBSTRING( <self>,  <string>, <substr>, <off> ) .  position of
+ **  substring
+ **  
+@@ -1688,7 +1739,7 @@
+ **  from <rem> in <string> in place 
+ **    
+ */ 
+-libGAP_UInt1 libGAP_REMCHARLIST[257];
++
+ libGAP_Obj libGAP_FuncRemoveCharacters (
+ 			      libGAP_Obj     self,
+ 			      libGAP_Obj     string,
+@@ -1696,6 +1747,7 @@
+ {
+   libGAP_UInt1  *s;
+   libGAP_Int i, j, len;
++  libGAP_UInt1 libGAP_REMCHARLIST[257] = {0};
+ 
+   /* check whether <string> is a string                                  */
+   if ( ! libGAP_IsStringConv( string ) ) {
+@@ -1715,11 +1767,6 @@
+     return libGAP_FuncRemoveCharacters( self, string, rem );
+   }
+   
+-  /* reset REMCHARLIST (in case of previous error) */
+-  if (libGAP_REMCHARLIST[256] != 0) {
+-    for(i=0; i<257; i++) libGAP_REMCHARLIST[i] = 0;
+-  }
+-  
+   /* set REMCHARLIST by setting positions of characters in rem to 1 */
+   len = libGAP_GET_LEN_STRING(rem);
+   s = libGAP_CHARS_STRING(rem);
+@@ -1741,12 +1788,6 @@
+   libGAP_SET_LEN_STRING(string, i);
+   libGAP_SHRINK_STRING(string);
+ 
+-  /* unset REMCHARLIST  */
+-  len = libGAP_GET_LEN_STRING(rem);
+-  s = libGAP_CHARS_STRING(rem);
+-  for(i=0; i<len; i++) libGAP_REMCHARLIST[s[i]] = 0;
+-  libGAP_REMCHARLIST[256] = 0;
+-
+   return (libGAP_Obj)0;
+ }
+ 
+@@ -2309,6 +2350,9 @@
+     { "CONV_STRING", 1, "string",
+       libGAP_FuncCONV_STRING, "src/string.c:CONV_STRING" },
+ 
++    { "COPY_TO_STRING_REP", 1, "string",
++      libGAP_FuncCOPY_TO_STRING_REP, "src/string.c:COPY_TO_STRING_REP" },
++
+     { "CHAR_INT", 1, "integer",
+       libGAP_FuncCHAR_INT, "src/string.c:CHAR_INT" },
+ 
+diff -ru libgap-4.7.5.1.orig/src/system.c libgap-4.7.5.1/src/system.c
+--- libgap-4.7.5.1.orig/src/system.c	2014-06-20 00:38:21.000000000 +0200
++++ libgap-4.7.5.1/src/system.c	2015-01-02 23:39:16.254726728 +0100
+@@ -33,7 +33,7 @@
+ 
+ #include        "system.h"              /* system dependent part           */
+ 
+-
++#include        "gap.h"                 /* get UserHasQUIT                 */
+ 
+ #include        "sysfiles.h"            /* file input/output               */
+ #include        "gasman.h"            
+@@ -68,10 +68,10 @@
+ /****************************************************************************
+ **
+ *V  SyKernelVersion  . . . . . . . . . . . . . . . . name of the architecture
+-** do not edit the following line. Occurences of `4.7.5' and `today'
++** do not edit the following line. Occurences of `4.7.6' and `today'
+ ** will be replaced by string matching by distribution wrapping scripts.
+ */
+-const libGAP_Char * libGAP_SyKernelVersion = "4.7.5";
++const libGAP_Char * libGAP_SyKernelVersion = "4.7.6";
+ 
+ /****************************************************************************
+ *V  SyWindowsPath  . . . . . . . . . . . . . . . . . default path for Windows
+@@ -1466,6 +1466,11 @@
+ **  The function 'SyExit' must perform all the neccessary cleanup operations.
+ **  If ret is 0 'SyExit' should signal to a calling proccess that all is  ok.
+ **  If ret is 1 'SyExit' should signal a  failure  to  the  calling proccess.
++**
++**  If the user calls 'QUIT_GAP' with a value, then the global variable
++**  'UserHasQUIT' will be set, and their requested return value will be
++**  in 'UserHasQUITReturnValue'. If the return value would be 0, we check
++**  this calue and use it instead.
+ */
+ void libGAP_SyExit (
+     libGAP_UInt                ret )
+@@ -1480,8 +1485,12 @@
+   }
+ 
+ #endif
+-
+-    exit( (int)ret );
++    if(ret == 0) {
++        exit(libGAP_UserHasQUITReturnValue);
++    }
++    else {
++        exit( (int)ret );
++    }
+ }
+ 
+ /****************************************************************************
+diff -ru libgap-4.7.5.1.orig/src/trans.c libgap-4.7.5.1/src/trans.c
+--- libgap-4.7.5.1.orig/src/trans.c	2014-06-20 00:38:36.000000000 +0200
++++ libgap-4.7.5.1/src/trans.c	2015-01-03 00:57:02.221650734 +0100
+@@ -38,24 +38,6 @@
+ #define libGAP_MIN(a,b)          (a<b?a:b)
+ #define libGAP_MAX(a,b)          (a<b?b:a)
+ 
+-#define libGAP_IMG_TRANS(f)       (*(libGAP_Obj*)(libGAP_ADDR_OBJ(f)))
+-#define libGAP_KER_TRANS(f)       (*((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+1))
+-#define libGAP_EXT_TRANS(f)       (*((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+2))
+-
+-#define libGAP_NEW_TRANS2(deg)     libGAP_NewBag(libGAP_T_TRANS2, deg*sizeof(libGAP_UInt2)+3*sizeof(libGAP_Obj))
+-#define libGAP_ADDR_TRANS2(f)      ((libGAP_UInt2*)((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+3))
+-#define libGAP_DEG_TRANS2(f)       ((libGAP_UInt)(libGAP_SIZE_OBJ(f)-3*sizeof(libGAP_Obj))/sizeof(libGAP_UInt2))
+-#define libGAP_RANK_TRANS2(f)      (libGAP_IMG_TRANS(f)==NULL?libGAP_INIT_TRANS2(f):libGAP_LEN_PLIST(libGAP_IMG_TRANS(f)))
+-
+-#define libGAP_NEW_TRANS4(deg)     libGAP_NewBag(libGAP_T_TRANS4, deg*sizeof(libGAP_UInt4)+3*sizeof(libGAP_Obj))
+-#define libGAP_ADDR_TRANS4(f)      ((libGAP_UInt4*)((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+3))
+-#define libGAP_DEG_TRANS4(f)       ((libGAP_UInt)(libGAP_SIZE_OBJ(f)-3*sizeof(libGAP_Obj))/sizeof(libGAP_UInt4))
+-#define libGAP_RANK_TRANS4(f)      (libGAP_IMG_TRANS(f)==NULL?libGAP_INIT_TRANS4(f):libGAP_LEN_PLIST(libGAP_IMG_TRANS(f)))
+-
+-#define libGAP_IS_TRANS(f)       (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2||libGAP_TNUM_OBJ(f)==libGAP_T_TRANS4)
+-#define libGAP_RANK_TRANS(f)     (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2?libGAP_RANK_TRANS2(f):libGAP_RANK_TRANS4(f))
+-#define libGAP_DEG_TRANS(f)      (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2?libGAP_DEG_TRANS2(f):libGAP_DEG_TRANS4(f))
+-
+ // TmpTrans is the same as TmpPerm
+ 
+ libGAP_Obj libGAP_TmpTrans;
+@@ -84,7 +66,7 @@
+ }
+ 
+ /* find rank, canonical trans same kernel, and img set (unsorted) */
+-static libGAP_UInt libGAP_INIT_TRANS2(libGAP_Obj f){ 
++extern libGAP_UInt libGAP_INIT_TRANS2(libGAP_Obj f){ 
+   libGAP_UInt    deg, rank, i, j;
+   libGAP_UInt2   *ptf;
+   libGAP_UInt4   *pttmp;
+@@ -93,7 +75,7 @@
+   deg=libGAP_DEG_TRANS2(f);
+   
+   if(deg==0){//special case for degree 0
+-    img=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY, 0);
++    img=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY+libGAP_IMMUTABLE, 0);
+     libGAP_SET_LEN_PLIST(img, 0);
+     libGAP_IMG_TRANS(f)=img;
+     libGAP_KER_TRANS(f)=img;
+@@ -127,8 +109,7 @@
+   return rank;
+ }
+ 
+-
+-static libGAP_UInt libGAP_INIT_TRANS4(libGAP_Obj f){ 
++extern libGAP_UInt libGAP_INIT_TRANS4(libGAP_Obj f){ 
+   libGAP_UInt    deg, rank, i, j;
+   libGAP_UInt4   *ptf;
+   libGAP_UInt4   *pttmp;
+@@ -137,7 +118,7 @@
+   deg=libGAP_DEG_TRANS4(f);
+   
+   if(deg==0){//special case for degree 0
+-    img=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY, 0);
++    img=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY+libGAP_IMMUTABLE, 0);
+     libGAP_SET_LEN_PLIST(img, 0);
+     libGAP_IMG_TRANS(f)=img;
+     libGAP_KER_TRANS(f)=img;
+@@ -323,41 +304,44 @@
+   libGAP_UInt4   *ptf4;
+   libGAP_Obj     ext;
+ 
+-  ext=libGAP_EXT_TRANS(f);
+-  if(ext!=NULL){
+-    return ext;
+-  } else if(libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2){ 
+-    n=libGAP_DEG_TRANS2(f);
+-    ptf2=libGAP_ADDR_TRANS2(f);
+-    if(ptf2[n-1]!=n-1){
+-      ext=libGAP_INTOBJ_INT(n);
+-    } else {
+-      deg=0;
+-      for(i=0;i<n;i++){ 
+-        if(ptf2[i]>i&&ptf2[i]+1>deg){
+-          deg=ptf2[i]+1;
+-        } else if(ptf2[i]<i&&i+1>deg){
+-          deg=i+1;
+-        }
+-      }  
+-      ext=libGAP_INTOBJ_INT(deg);
++  if(libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2){ 
++    ext=libGAP_EXT_TRANS(f);
++    if(ext == NULL){ 
++      n=libGAP_DEG_TRANS2(f);
++      ptf2=libGAP_ADDR_TRANS2(f);
++      if(ptf2[n-1]!=n-1){
++        ext=libGAP_INTOBJ_INT(n);
++      } else {
++        deg=0;
++        for(i=0;i<n;i++){ 
++          if(ptf2[i]>i&&ptf2[i]+1>deg){
++            deg=ptf2[i]+1;
++          } else if(ptf2[i]<i&&i+1>deg){
++            deg=i+1;
++          }
++        }  
++        ext=libGAP_INTOBJ_INT(deg);
++      }
+     }
+     return ext;
+   } else if (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS4){
+-    n=libGAP_DEG_TRANS4(f);
+-    ptf4=libGAP_ADDR_TRANS4(f);
+-    if(ptf4[n-1]!=n-1){
+-      ext=libGAP_INTOBJ_INT(n);
+-    } else {
+-      deg=0;
+-      for(i=0;i<n;i++){ 
+-        if(ptf4[i]>i&&ptf4[i]+1>deg){
+-          deg=ptf4[i]+1;
+-        } else if(ptf4[i]<i&&i+1>deg){
+-          deg=i+1;
+-        }
+-      }  
+-      ext=libGAP_INTOBJ_INT(deg);
++    ext=libGAP_EXT_TRANS(f);
++    if(ext == NULL){ 
++      n=libGAP_DEG_TRANS4(f);
++      ptf4=libGAP_ADDR_TRANS4(f);
++      if(ptf4[n-1]!=n-1){
++        ext=libGAP_INTOBJ_INT(n);
++      } else {
++        deg=0;
++        for(i=0;i<n;i++){ 
++          if(ptf4[i]>i&&ptf4[i]+1>deg){
++            deg=ptf4[i]+1;
++          } else if(ptf4[i]<i&&i+1>deg){
++            deg=i+1;
++          }
++        }  
++        ext=libGAP_INTOBJ_INT(deg);
++      }
+     }
+     return ext;
+   }
+@@ -779,7 +763,7 @@
+   if(m==deg){
+     return libGAP_FuncIMAGE_SET_TRANS(self, f);
+   } else if(m==0){
+-    new=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY, 0);
++    new=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY+libGAP_IMMUTABLE, 0);
+     libGAP_SET_LEN_PLIST(new, 0);
+     return new;
+   } else if(m<deg){
+@@ -840,7 +824,7 @@
+   m=libGAP_INT_INTOBJ(n);
+ 
+   if(m==0){
+-    out=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY, 0);
++    out=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY+libGAP_IMMUTABLE, 0);
+     libGAP_SET_LEN_PLIST(out, 0);
+     return out;
+   }
+@@ -932,7 +916,7 @@
+ 
+   deg=libGAP_DEG_TRANS(f);
+ 
+-  if(libGAP_INT_INTOBJ(pt)>deg){
++  if((libGAP_UInt) libGAP_INT_INTOBJ(pt)>deg){
+     out=libGAP_NEW_PLIST(libGAP_T_PLIST_CYC, 1);
+     libGAP_SET_LEN_PLIST(out, 1);
+     libGAP_SET_ELM_PLIST(out, 1, pt);
+@@ -951,7 +935,9 @@
+     ptf4=libGAP_ADDR_TRANS4(f);
+     for(j=0;j<deg;j++) if(ptf4[j]==i) libGAP_SET_ELM_PLIST(out, ++nr, libGAP_INTOBJ_INT(j+1));
+   }
+-
++  if(nr==0){
++    libGAP_RetypeBag(out, libGAP_T_PLIST_EMPTY);
++  }
+   libGAP_SET_LEN_PLIST(out, (libGAP_Int) nr);
+   libGAP_SHRINK_PLIST(out, (libGAP_Int) nr);
+   return out;
+@@ -964,8 +950,7 @@
+   libGAP_UInt2   *ptp2, *ptf2;
+   libGAP_UInt4   *ptp4, *ptf4;
+   libGAP_Obj     f, img, *ptimg;
+-  libGAP_UInt    def, dep, i, min;
+-  libGAP_Int     n;
++  libGAP_UInt    def, dep, i, min, n;
+   
+   n=libGAP_INT_INTOBJ(deg);
+   if(n==0) return libGAP_IdentityTrans;
+@@ -1553,7 +1538,7 @@
+     ptg2=libGAP_ADDR_TRANS2(libGAP_g);
+     
+     for(j=0;j<deg;j++) ptg2[j]=j;
+-    for(j=1;j<=libGAP_LEN_LIST(list);j++){
++    for(j=1;j<=(libGAP_UInt) libGAP_LEN_LIST(list);j++){
+       i=libGAP_INT_INTOBJ(libGAP_ELM_LIST(list, j))-1;
+       if(i<deg) ptg2[ptf2[i]]=i;
+     }
+@@ -1566,7 +1551,7 @@
+     
+     i=libGAP_INT_INTOBJ(libGAP_ELM_LIST(list, 1))-1;
+     for(j=0;j<deg;j++) ptg4[j]=j;
+-    for(j=1;j<=libGAP_LEN_LIST(list);j++){
++    for(j=1;j<=(libGAP_UInt) libGAP_LEN_LIST(list);j++){
+       i=libGAP_INT_INTOBJ(libGAP_ELM_LIST(list, j))-1;
+       if(i<deg) ptg4[ptf4[i]]=i;
+     }
+@@ -1929,10 +1914,16 @@
+   libGAP_Obj     out;
+   libGAP_UInt4   *ptcnj, *ptlkp, *ptp4;
+   libGAP_UInt2   *ptp2;
+-
++  
+   len=libGAP_LEN_LIST(ker);
+-  out=libGAP_NEW_PLIST(libGAP_T_PLIST_CYC+libGAP_IMMUTABLE, len);
+-  libGAP_SET_LEN_PLIST(out, len);
++  if(len==0){
++    out=libGAP_NEW_PLIST(libGAP_T_PLIST_EMPTY+libGAP_IMMUTABLE, len);
++    libGAP_SET_LEN_PLIST(out, len);
++    return out;
++  } else {
++    out=libGAP_NEW_PLIST(libGAP_T_PLIST_CYC+libGAP_IMMUTABLE, len);
++    libGAP_SET_LEN_PLIST(out, len);
++  }
+   
+   libGAP_ResizeTmpTrans(2*len);
+   ptcnj = (libGAP_UInt4*) libGAP_ADDR_OBJ(libGAP_TmpTrans);
+@@ -1951,7 +1942,7 @@
+         ptlkp[i]=0;
+       }
+       for(;i<len;i++){
+-        ptcnj[i]=libGAP_IMAGE(libGAP_INT_INTOBJ(libGAP_ELM_LIST(ker, i+1))-1, ptp2, dep);
++        ptcnj[i]=libGAP_IMAGE((libGAP_UInt) libGAP_INT_INTOBJ(libGAP_ELM_LIST(ker, i+1))-1, ptp2, dep);
+         ptlkp[i]=0;
+       }
+ 
+@@ -1981,7 +1972,7 @@
+         ptlkp[i]=0;
+       }
+       for(;i<len;i++){
+-        ptcnj[i]=libGAP_IMAGE(libGAP_INT_INTOBJ(libGAP_ELM_LIST(ker, i+1))-1, ptp4, dep);
++        ptcnj[i]=libGAP_IMAGE((libGAP_UInt) libGAP_INT_INTOBJ(libGAP_ELM_LIST(ker, i+1))-1, ptp4, dep);
+         ptlkp[i]=0;
+       }
+ 
+@@ -2641,7 +2632,7 @@
+   n=1;
+ 
+   for(i=1;n<=rank;i++){
+-    if(libGAP_INT_INTOBJ(libGAP_ELM_PLIST(ker, i))==n){
++    if((libGAP_UInt) libGAP_INT_INTOBJ(libGAP_ELM_PLIST(ker, i))==n){
+       libGAP_SET_ELM_PLIST(img, n++, libGAP_INTOBJ_INT(i));
+     }
+   }
+@@ -2668,7 +2659,7 @@
+   j=1; n=0;
+ 
+   for(i=0;i<deg;i++){
+-    if(j<len&&i+1==libGAP_INT_INTOBJ(libGAP_ELM_PLIST(img, j+1))) j++;
++    if(j<len&&i+1==(libGAP_UInt) libGAP_INT_INTOBJ(libGAP_ELM_PLIST(img, j+1))) j++;
+     libGAP_SET_ELM_PLIST(ker, ++n, libGAP_INTOBJ_INT(j));
+   }
+   return libGAP_FuncIDEM_IMG_KER_NC(self, img, ker);
+@@ -3681,7 +3672,7 @@
+ 
+ /* i^f */
+ libGAP_Obj libGAP_PowIntTrans2(libGAP_Obj i, libGAP_Obj f){
+-  libGAP_Int    img;
++  libGAP_UInt    img;
+  
+   if(libGAP_TNUM_OBJ(i)==libGAP_T_INTPOS) return i; 
+ 
+@@ -3703,7 +3694,7 @@
+ }
+ 
+ libGAP_Obj libGAP_PowIntTrans4(libGAP_Obj i, libGAP_Obj f){
+-  libGAP_Int    img;
++  libGAP_UInt    img;
+  
+   if(libGAP_TNUM_OBJ(i)==libGAP_T_INTPOS) return i; 
+ 
+@@ -4382,7 +4373,9 @@
+     0,                                  /* checkInit                      */
+     0,                                  /* preSave                        */
+     0,                                  /* postSave                       */
+-    0                                   /* postRestore                    */
++    0,                                  /* postRestore                    */
++    "src/trans.c",                      /* filename                       */
++    1                                   /* isGapRootRelative              */
+ };
+ 
+ libGAP_StructInitInfo * libGAP_InitInfoTrans ( void )
+diff -ru libgap-4.7.5.1.orig/src/trans.h libgap-4.7.5.1/src/trans.h
+--- libgap-4.7.5.1.orig/src/trans.h	2014-06-20 00:38:20.000000000 +0200
++++ libgap-4.7.5.1/src/trans.h	2015-01-02 23:37:51.201119765 +0100
+@@ -36,6 +36,27 @@
+ #ifndef libGAP_GAP_TRANS_H
+ #define libGAP_GAP_TRANS_H
+ 
++extern libGAP_UInt libGAP_INIT_TRANS2(libGAP_Obj f);
++extern libGAP_UInt libGAP_INIT_TRANS4(libGAP_Obj f);
++
++#define libGAP_IMG_TRANS(f)      (*(libGAP_Obj*)(libGAP_ADDR_OBJ(f)))
++#define libGAP_KER_TRANS(f)      (*((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+1))
++#define libGAP_EXT_TRANS(f)      (*((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+2))
++
++#define libGAP_NEW_TRANS2(deg)   libGAP_NewBag(libGAP_T_TRANS2, deg*sizeof(libGAP_UInt2)+3*sizeof(libGAP_Obj))
++#define libGAP_ADDR_TRANS2(f)    ((libGAP_UInt2*)((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+3))
++#define libGAP_DEG_TRANS2(f)     ((libGAP_UInt)(libGAP_SIZE_OBJ(f)-3*sizeof(libGAP_Obj))/sizeof(libGAP_UInt2))
++#define libGAP_RANK_TRANS2(f)    (libGAP_IMG_TRANS(f)==NULL?libGAP_INIT_TRANS2(f):libGAP_LEN_PLIST(libGAP_IMG_TRANS(f)))
++
++#define libGAP_NEW_TRANS4(deg)   libGAP_NewBag(libGAP_T_TRANS4, deg*sizeof(libGAP_UInt4)+3*sizeof(libGAP_Obj))
++#define libGAP_ADDR_TRANS4(f)    ((libGAP_UInt4*)((libGAP_Obj*)(libGAP_ADDR_OBJ(f))+3))
++#define libGAP_DEG_TRANS4(f)     ((libGAP_UInt)(libGAP_SIZE_OBJ(f)-3*sizeof(libGAP_Obj))/sizeof(libGAP_UInt4))
++#define libGAP_RANK_TRANS4(f)    (libGAP_IMG_TRANS(f)==NULL?libGAP_INIT_TRANS4(f):libGAP_LEN_PLIST(libGAP_IMG_TRANS(f)))
++
++#define libGAP_IS_TRANS(f)       (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2||libGAP_TNUM_OBJ(f)==libGAP_T_TRANS4)
++#define libGAP_RANK_TRANS(f)     (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2?libGAP_RANK_TRANS2(f):libGAP_RANK_TRANS4(f))
++#define libGAP_DEG_TRANS(f)      (libGAP_TNUM_OBJ(f)==libGAP_T_TRANS2?libGAP_DEG_TRANS2(f):libGAP_DEG_TRANS4(f))
++
+ /****************************************************************************
+ **
+ *F  OnTuplesTrans( <tup>, <f> )  . . . .  operations on tuples of points
