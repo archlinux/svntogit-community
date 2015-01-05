@@ -1,127 +1,153 @@
-# $Id$
-# Maintainer: Evgeniy Alekseev <arcanis at archlinux dot org>
+# $Id: PKGBUILD 118896 2014-09-13 07:12:02Z arcanis $
+# Maintainer: Evgeniy Alekseev <arcanis.arch at gmail dot com>
 # Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
-# Contributor: Antonio Rojas <nqn1976 at gmail dot com>
+# Contributor: Antonio Rojas <arojas@archlinux.org>
 # Contributor: Thomas Dziedzic <gostrc at gmail dot com>
 # Contributor: Osman Ugus <ugus11 at yahoo dot com>
 # Contributor: Stefan Husmann <stefan-husmann at t-online dot de>
 # Special thanks to Nareto for moving the compile from the .install to the PKGBUILD
 
-pkgname=sage-mathematics
+pkgbase=sage-mathematics
+pkgname=('sage-mathematics' 'sage-mathematics-src')
 pkgver=6.4.1
-pkgrel=1
+pkgrel=5
 pkgdesc="Open Source Mathematics Software, free alternative to Magma, Maple, Mathematica, and Matlab"
 arch=('i686' 'x86_64')
 url="http://www.sagemath.org"
 license=('GPL')
-#depends=('desktop-file-utils' 'java-environment=7' 'libjpeg-turbo' 'libtiff' 'libxmu' 'sqlite' 'xz')
-depends=('libatomic_ops')
-makedepends=('desktop-file-utils' 'gcc-fortran' 'gendesk' 'python2')
-optdepends=('imagemagick: some plotting functionality benefits from it'
-            'texlive-core: some plotting functionality benefits from it, also to use SageTeX'
-            'openssh: to use the notebook in secure mode'
-            'ffmpeg: to show animations'
-            'cairo: R plots')
-source=("http://boxen.math.washington.edu/home/sagemath/sage-mirror/src/sage-${pkgver}.tar.gz"
-        "sage.service"
-        "gf2x-sse2-i686.patch")
-install="${pkgname}.install"
-md5sums=('9e64f198f791577555344b9aaa6768a9'
-         '985da1c1d1dcdc3ea9aa73035cb7996b'
-         'f9d7aba4f758f4605164eb84b9e1e3ba')
-changelog=ChangeLog
+makedepends=('ipython2' 'cython2' 'ppl' 'glpk' 'mpfi' 'polybori' 'singular' 'libcliquer' 'ecl' 'libgap' 'givaro' 'libmpc' 'lcalc' 'lrcalc'
+'libfes' 'cryptominisat' 'eclib' 'gmp-ecm' 'zn_poly' 'pynac' 'linbox' 'gsl' 'boost' 'scons' 'ratpoints' 'symmetrica' 'fflas-ffpack' 'gd'
+'coxeter3' 'mcqd' 'python2-jinja' 'python2-numpy')
+source=("https://github.com/sagemath/sage/archive/$pkgver.tar.gz" "http://www.sagemath.org/packages/upstream/pexpect/pexpect-2.0.tar.bz2" 
+'extensions.patch' 'c_lib.patch' 'env.patch' 'paths.patch' 'blas.patch' 'clean.patch' 'skip-check.patch' 'gap-hap.patch' 
+'pexpect-env.patch' 'fes02.patch')
+md5sums=('e40736461992e62af3a84cf9a212c9d1'
+         'd9a3e113ed147dcee8f89962a8dccd43'
+         '5770766ae676491f79162d2062ce7c02'
+         '5216dbb3d80cecc8ec4a36cc9706f8b5'
+         'b980378df4bff2cd1ca002bbfae995a2'
+         'df2f56fb5845a83808b6724f6965ec6e'
+         'eee444d32b8a818a67b1e0ce0850b8bb'
+         '46c212a3a6713b0f78c370c7186d0982'
+         '5947a420a0b1483f0cbc74c76895789b'
+         '631ee6b8b3e7d12bb7858cfd841af483'
+         'a83a3b1bc7fcb7cbf752a83a8311fc42'
+         '506944613082ba7f5b34360939ca90eb')
+# changelog=ChangeLog
 
-prepare() {
-  # create *.desktop file
-  gendesk -f -n \
-          --pkgname="sage-notebook" \
-          --pkgdesc="Sage notebook" \
-          --name="Sage" \
-          --exec="/opt/sage/sage -notebook" \
-          --terminal=true \
-          --categories="Education;Science;Math" \
-          --custom="X-DCOP-ServiceType=
-X-KDE-SubstituteUID=false
-X-KDE-Username="
+prepare(){
+  cd sage-$pkgver
 
-  # create DOT_SAGE directory
-  rm -rf "${srcdir}/build"
-  mkdir "${srcdir}/build"
+# add optional packages manually (Fedora)  
+  patch -p0 -i $srcdir/extensions.patch
+  for _ext in cryptominisat fes lrcalc coxeter3 mcqd
+  do
+   sed -e "s|is_package_installed('$_ext')|True|" -i src/module_list.py
+  done
+  sed -e 's|is_package_installed("nauty")|True|' -i src/sage/graphs/graph_generators.py
+# don't assume Sage is already available (Fedora)
+  patch -p0 -i $srcdir/c_lib.patch
+# find L.h header
+  sed -e 's|libLfunction|Lfunction|' -i src/module_list.py
+# don't try to link against libpng 1.2
+  sed -e 's|png12|png|' -i src/module_list.py
+# set env variables
+  patch -p0 -i $srcdir/env.patch
+# fix paths in python imports
+  patch -p0 -i $srcdir/paths.patch
+# fix linking to blas/cblas
+  patch -p0 -i $srcdir/blas.patch
+  sed -e "s|cblas(), atlas(),|'cblas', 'blas',|" -i src/sage/misc/cython.py
+# don't try to remove installed files
+  patch -p0 -i $srcdir/clean.patch
+# skip checking build status
+  patch -p0 -i $srcdir/skip-check.patch
+# don't use is_package_installed function
+  patch -p0 -i $srcdir/gap-hap.patch
+# supress warning about GAP install dir
+  sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
+# use small Cremona database
+  sed -e "s|is_package_installed('database_cremona_ellcurve')|False|" -i src/sage/databases/cremona.py
+# fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
+  patch -p0 -i $srcdir/fes02.patch
 
-  # disable building gf2x with sse2 for i686
-  if [ "${CARCH}" == "i686" ]; then
-    cp "${srcdir}/gf2x-sse2-i686.patch" "${srcdir}/sage-${pkgver}/build/pkgs/gf2x/patches/sse2.patch"
-  fi
+# use python2
+  sed -e 's|#!/usr/bin/env python|#!/usr/bin/env python2|' -i src/bin/*
+  sed -e 's|exec python|exec python2|' -i src/bin/*
+  sed -e 's|cython %s %s|cython2 %s %s|' -i src/sage/misc/cython.py
+  sed -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
+
+# fix env in pexpect
+  cd $srcdir/pexpect-2.0
+  patch -p1 -i $srcdir/pexpect-env.patch
 }
+
 
 build() {
-  cd "sage-${pkgver}"
+  cd sage-$pkgver/src
 
-  # disable default makepkg flags (required by singular, libgap and zeromq)
-  unset CFLAGS
-  unset CXXFLAGS
-  unset CPPFLAGS
-  unset LDFLAGS
-  ## flags
-  # do not build own gcc
-  export SAGE_INSTALL_GCC='no'
-  # disable debug
-  export SAGE_DEBUG='no'
-  # enable fat binaries
   export SAGE_FAT_BINARY='yes'
-  # can't write to root in a clean chroot
-  export DOT_SAGE="${srcdir}/build"
-  # singular is broken
-  export CPP='/usr/bin/cpp'
+  export SAGE_LOCAL="/usr"
+  export SAGE_SRC="$PWD"
 
-  make
+  pushd c_lib
+    CXX=g++ UNAME=Linux SAGE64=auto scons
+  popd
+  
+  python2 setup.py build
+
+# build pexpect
+  pushd $srcdir/pexpect-2.0
+    python2 setup.py build
+  popd
 }
 
-<< COMMENT
-check() {
-  cd "sage-${pkgver}"
 
-  make test
-  #make ptestlong
-}
-COMMENT
+package_sage-mathematics() {
+  depends=('ipython2' 'cython2' 'ppl' 'glpk' 'mpfi' 'palp' 'polybori' 'singular' 'libcliquer' 'maxima-ecl' 'gfan' 'sympow' 'tachyon' 'python2-rpy2'
+  'python2-matplotlib' 'python2-scipy' 'python2-sympy' 'python2-networkx' 'libgap' 'gap' 'genus2reduction' 'flintqs' 'lcalc' 'lrcalc' 'libfes'
+  'cryptominisat' 'eclib' 'gmp-ecm' 'zn_poly' 'python2-gd' 'pynac' 'linbox' 'gsl' 'rubiks' 'coxeter3' 'nauty' 'mcqd' 'pari-galdata'
+  'pari-seadata-small' 'sage-data-combinatorial_designs' 'sage-data-elliptic_curves' 'sage-data-graphs' 'sage-data-polytopes_db'
+  'sage-data-conway_polynomials')
+  optdepends=('jmol: 3D plots' 'sage-notebook: Web-based notebook interface' 'sage-mathematics-doc: Documentation and inline help'
+  'sage-mathematics-src: source files needed to build cython code'
+  'python2-pyzmq: ipython notebook' 'python2-tornado: ipython notebook' 'python2-jinja: ipython notebook')
 
-package() {
-  cd "${srcdir}/sage-${pkgver}/"
-  # remove build logs
-  rm -f *.log
-  rm -rf "${srcdir}/sage-${pkgver}/"{logs,upstream}
-  # do NOT remove build directory!
+  cd sage-$pkgver/src
 
-  # cp because make install is experimental and will corrupt the install
-  install -dm755 "${pkgdir}/opt/sage"
-  cp -r * "${pkgdir}/opt/sage/"
+  export SAGE_ROOT="/usr"
+  export SAGE_LOCAL="$SAGE_ROOT"
+  export SAGE_SRC="$PWD"
 
-  # move SageTeX files to more appropriate directory
-  install -dm755 "${pkgdir}/usr/share"
-  mv "${pkgdir}/opt/sage/local/share/texmf" "${pkgdir}/usr/share"
+  python2 setup.py install --root="$pkgdir" --optimize=1
 
-  # according to FS#37090
-  # install scripts
-  install -dm755 "${pkgdir}/usr/bin"
-  ./sage -c "install_scripts('${pkgdir}/usr/bin', ignore_existing=True)"
-  # rename scripts to avoid conflicts
-  for ITEM in $(ls "${pkgdir}/usr/bin"); do
-    mv "${pkgdir}/usr/bin/${ITEM}" "${pkgdir}/usr/bin/sage-${ITEM}"
-  done
-  ln -s "/opt/sage/sage" "${pkgdir}/usr/bin/sage"
+  mkdir -p "$pkgdir"/usr/{bin,lib}
+  cp c_lib/libcsage.so "$pkgdir"/usr/lib
+  cp bin/sage* "$pkgdir"/usr/bin
 
-  # FIXME fix bad mtime
-  cd "${pkgdir}/opt/sage/local/lib/python2.7"
-  find . -name '*.py' -exec sh -c "rm {}c 2> /dev/null && python2 -m compileall {}" \;
+  mkdir -p "$pkgdir"/usr/share/sage
+  cp -r ext "$pkgdir"/usr/share/sage
+  
+# Create SAGE_SRC, needed for the notebook
+  mkdir "$pkgdir"/usr/share/sage/src
 
-  # install a systemd user unit
-  install -Dm644 "${srcdir}/sage.service" "${pkgdir}/usr/lib/systemd/user/sage.service"
-  # install *.desktop and icon files
-  install -Dm644 "${srcdir}/sage-notebook.desktop" \
-                 "${pkgdir}/usr/share/applications/sage-notebook.desktop"
-  install -Dm644 "${pkgdir}/opt/sage/local/lib/python2.7/site-packages/sagenb-0.11.1-py2.7.egg/sagenb/data/sage/images/icon48x48.png" \
-                 "${pkgdir}/usr/share/pixmaps/sage-notebook.png"
+# Install gprc.expect in SAGE_ETC
+  install -Dm644 ../build/pkgs/pari/gprc.expect "$pkgdir"/etc/sage/gprc.expect
+
+# Install Sage's own pexpect
+  cd "$srcdir"/pexpect-2.0
+  python2 setup.py install --root="$pkgdir" --optimize=1
+  mkdir -p "$pkgdir"/usr/lib/sage/site-packages/
+  mv "$pkgdir"/usr/lib/python2.7/site-packages/pexpect* "$pkgdir"/usr/lib/sage/site-packages/
 }
 
-# vim :set ts=2 sw=2 et:
+
+package_sage-mathematics-src() {
+  pkgdesc="Source files for sage-mathematics"
+  
+  mkdir -p "$pkgdir"/usr/share/sage/src
+  cp -r sage-$pkgver/src/sage "$pkgdir"/usr/share/sage/src
+
+  mkdir -p "$pkgdir"/usr/include/csage
+  cp -r sage-$pkgver/src/c_lib/include/* "$pkgdir"/usr/include/csage
+}
