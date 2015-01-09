@@ -13,6 +13,7 @@ url='https://launchpad.net/python-distutils-extra'
 makedepends=('python2-setuptools' 'python-setuptools' 'intltool')
 source=(http://launchpad.net/$pkgbase/trunk/$pkgver/+download/$pkgbase-$pkgver.tar.gz
         $pkgbase-$pkgver.tar.gz.asc::http://launchpad.net/$pkgbase/trunk/$pkgver/+download/dist-$pkgbase-$pkgver.tar.gz.asc)
+validpgpkeys=('3DB46B55EFA59D40E6232148D14EF15DAFE11347')
 md5sums=('4e4c9bee92a3ca8bfd915f3adcf14648'
          'SKIP')
 
