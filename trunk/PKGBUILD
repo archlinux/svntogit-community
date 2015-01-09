@@ -11,6 +11,7 @@ url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
 source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.bz2{,.asc})
+validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
 md5sums=('1fb418c59c62f782e35875577bd1ac3f'
          'SKIP')
 
