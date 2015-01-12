@@ -1,0 +1,50 @@
+From 0a94661e8db94e84ecbf1ea45a51fb3c7fb77283 Mon Sep 17 00:00:00 2001
+From: Gregory Maxwell <greg@xiph.org>
+Date: Sat, 6 Dec 2014 07:08:02 -0800
+Subject: [PATCH] Disable SSLv3 (in favor of TLS) for the RPC client and
+ server.
+
+TLS is subject to downgrade attacks when SSLv3 is available, and
+ SSLv3 has vulnerabilities.
+
+The popular solution is to disable SSLv3. On the web this breaks
+ some tiny number of very old clients. While Bitcoin RPC shouldn't
+ be exposed to the open Internet, it also shouldn't be exposed to
+ really old SSL implementations, so it shouldn't be a major issue
+ for us to disable SSLv3.
+
+There is more information on the downgrade attacks and disabling
+ SSLv3 at https://disablessl3.com/ .
+
+Rebased-From: 683dc4009b2b01699e672f8150c28e2ebe0aae19
+---
+ src/rpcclient.cpp | 2 +-
+ src/rpcserver.cpp | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/rpcclient.cpp b/src/rpcclient.cpp
+index 4f3c39c..5e62b71 100644
+--- a/src/rpcclient.cpp
++++ b/src/rpcclient.cpp
+@@ -40,7 +40,7 @@ Object CallRPC(const string& strMethod, const Array& params)
+     bool fUseSSL = GetBoolArg("-rpcssl", false);
+     asio::io_service io_service;
+     ssl::context context(io_service, ssl::context::sslv23);
+-    context.set_options(ssl::context::no_sslv2);
++    context.set_options(ssl::context::no_sslv2 | ssl::context::no_sslv3);
+     asio::ssl::stream<asio::ip::tcp::socket> sslStream(io_service, context);
+     SSLIOStreamDevice<asio::ip::tcp> d(sslStream, fUseSSL);
+     iostreams::stream< SSLIOStreamDevice<asio::ip::tcp> > stream(d);
+diff --git a/src/rpcserver.cpp b/src/rpcserver.cpp
+index f43acf4..cc9e330 100644
+--- a/src/rpcserver.cpp
++++ b/src/rpcserver.cpp
+@@ -539,7 +539,7 @@ void StartRPCThreads()
+ 
+     if (fUseSSL)
+     {
+-        rpc_ssl_context->set_options(ssl::context::no_sslv2);
++        rpc_ssl_context->set_options(ssl::context::no_sslv2 | ssl::context::no_sslv3);
+ 
+         filesystem::path pathCertFile(GetArg("-rpcsslcertificatechainfile", "server.cert"));
+         if (!pathCertFile.is_complete()) pathCertFile = filesystem::path(GetDataDir()) / pathCertFile;
