@@ -1,0 +1,1053 @@
+diff --git a/src/core/boxes.c b/src/core/boxes.c
+index 877fa45..93f7db4 100644
+--- a/src/core/boxes.c
++++ b/src/core/boxes.c
+@@ -1791,6 +1791,7 @@ meta_rectangle_find_onscreen_edges (const MetaRectangle *basic_rect,
+ 
+ GList*
+ meta_rectangle_find_nonintersected_xinerama_edges (
++                                    const MetaRectangle *screen_rect,
+                                     const GList         *xinerama_rects,
+                                     const GSList        *all_struts)
+ {
+@@ -1813,98 +1814,38 @@ meta_rectangle_find_nonintersected_xinerama_edges (
+   while (cur)
+     {
+       MetaRectangle *cur_rect = cur->data;
+-      const GList *compare = xinerama_rects;
+-      while (compare)
++      MetaEdge *new_edge;
++      if (BOX_LEFT(*cur_rect) != BOX_LEFT(*screen_rect))
+         {
+-          MetaRectangle *compare_rect = compare->data;
+-
+-          /* Check if cur might be horizontally adjacent to compare */
+-          if (meta_rectangle_vert_overlap(cur_rect, compare_rect))
+-            {
+-              MetaSide side_type;
+-              int y      = MAX (cur_rect->y, compare_rect->y);
+-              int height = MIN (BOX_BOTTOM (*cur_rect) - y,
+-                                BOX_BOTTOM (*compare_rect) - y);
+-              int width  = 0;
+-              int x;
+-
+-              if (BOX_LEFT (*cur_rect)  == BOX_RIGHT (*compare_rect))
+-                {
+-                  /* compare_rect is to the left of cur_rect */
+-                  x = BOX_LEFT (*cur_rect);
+-                  side_type = META_SIDE_LEFT;
+-                }
+-              else if (BOX_RIGHT (*cur_rect) == BOX_LEFT (*compare_rect))
+-                {
+-                  /* compare_rect is to the right of cur_rect */
+-                  x = BOX_RIGHT (*cur_rect);
+-                  side_type = META_SIDE_RIGHT;
+-                }
+-              else
+-                /* These rectangles aren't adjacent after all */
+-                x = INT_MIN;
+-
+-              /* If the rectangles really are adjacent */
+-              if (x != INT_MIN)
+-                {
+-                  /* We need a left edge for the xinerama on the right, and
+-                   * a right edge for the xinerama on the left.  Just fill
+-                   * up the edges and stick 'em on the list.
+-                   */
+-                  MetaEdge *new_edge  = g_new (MetaEdge, 1);
+-
+-                  new_edge->rect = meta_rect (x, y, width, height);
+-                  new_edge->side_type = side_type;
+-                  new_edge->edge_type = META_EDGE_XINERAMA;
+-
+-                  ret = g_list_prepend (ret, new_edge);
+-                }
+-            }
+-
+-          /* Check if cur might be vertically adjacent to compare */
+-          if (meta_rectangle_horiz_overlap(cur_rect, compare_rect))
+-            {
+-              MetaSide side_type;
+-              int x      = MAX (cur_rect->x, compare_rect->x);
+-              int width  = MIN (BOX_RIGHT (*cur_rect) - x,
+-                                BOX_RIGHT (*compare_rect) - x);
+-              int height = 0;
+-              int y;
+-
+-              if (BOX_TOP (*cur_rect)  == BOX_BOTTOM (*compare_rect))
+-                {
+-                  /* compare_rect is to the top of cur_rect */
+-                  y = BOX_TOP (*cur_rect);
+-                  side_type = META_SIDE_TOP;
+-                }
+-              else if (BOX_BOTTOM (*cur_rect) == BOX_TOP (*compare_rect))
+-                {
+-                  /* compare_rect is to the bottom of cur_rect */
+-                  y = BOX_BOTTOM (*cur_rect);
+-                  side_type = META_SIDE_BOTTOM;
+-                }
+-              else
+-                /* These rectangles aren't adjacent after all */
+-                y = INT_MIN;
+-
+-              /* If the rectangles really are adjacent */
+-              if (y != INT_MIN)
+-                {
+-                  /* We need a top edge for the xinerama on the bottom, and
+-                   * a bottom edge for the xinerama on the top.  Just fill
+-                   * up the edges and stick 'em on the list.
+-                   */
+-                  MetaEdge *new_edge = g_new (MetaEdge, 1);
+-
+-                  new_edge->rect = meta_rect (x, y, width, height);
+-                  new_edge->side_type = side_type;
+-                  new_edge->edge_type = META_EDGE_XINERAMA;
+-
+-                  ret = g_list_prepend (ret, new_edge);
+-                }
+-            }
+-
+-          compare = compare->next;
++          new_edge  = g_new (MetaEdge, 1);
++          new_edge->rect = meta_rect (BOX_LEFT (*cur_rect), BOX_TOP (*cur_rect), 0, cur_rect->height);
++          new_edge->side_type = META_SIDE_LEFT;
++          new_edge->edge_type = META_EDGE_XINERAMA;
++          ret = g_list_prepend (ret, new_edge);
++        }
++      if (BOX_RIGHT(*cur_rect) != BOX_RIGHT(*screen_rect))
++        {
++          new_edge  = g_new (MetaEdge, 1);
++          new_edge->rect = meta_rect (BOX_RIGHT (*cur_rect), BOX_TOP (*cur_rect), 0, cur_rect->height);
++          new_edge->side_type = META_SIDE_RIGHT;
++          new_edge->edge_type = META_EDGE_XINERAMA;
++          ret = g_list_prepend (ret, new_edge);
++        }
++      if (BOX_TOP(*cur_rect) != BOX_TOP(*screen_rect))
++        {
++          new_edge  = g_new (MetaEdge, 1);
++          new_edge->rect = meta_rect (BOX_LEFT (*cur_rect), BOX_TOP (*cur_rect), cur_rect->width, 0);
++          new_edge->side_type = META_SIDE_TOP;
++          new_edge->edge_type = META_EDGE_XINERAMA;
++          ret = g_list_prepend (ret, new_edge);
++        }
++      if (BOX_BOTTOM(*cur_rect) != BOX_BOTTOM(*screen_rect))
++        {
++          new_edge  = g_new (MetaEdge, 1);
++          new_edge->rect = meta_rect (BOX_LEFT (*cur_rect), BOX_BOTTOM (*cur_rect), cur_rect->width, 0);
++          new_edge->side_type = META_SIDE_BOTTOM;
++          new_edge->edge_type = META_EDGE_XINERAMA;
++          ret = g_list_prepend (ret, new_edge);
+         }
+       cur = cur->next;
+     }
+diff --git a/src/core/constraints.c b/src/core/constraints.c
+index 1b2b70a..3d93f63 100644
+--- a/src/core/constraints.c
++++ b/src/core/constraints.c
+@@ -748,8 +748,10 @@ constrain_maximization (MetaWindow         *window,
+     return TRUE;
+ 
+   /* Calculate target_size = maximized size of (window + frame) */
+-  if (window->maximized_horizontally && window->maximized_vertically)
+-    target_size = info->work_area_xinerama;
++  if (META_WINDOW_MAXIMIZED (window))
++    {
++      target_size = info->work_area_xinerama;
++    }
+   else
+     {
+       /* Amount of maximization possible in a single direction depends
+diff --git a/src/core/display-private.h b/src/core/display-private.h
+index 4cfa042..de55a47 100644
+--- a/src/core/display-private.h
++++ b/src/core/display-private.h
+@@ -67,6 +67,13 @@ typedef void (*MetaWindowPingFunc) (MetaDisplay* display, Window xwindow, guint3
+  */
+ #define N_IGNORED_SERIALS           4
+ 
++typedef enum {
++  META_TILE_NONE,
++  META_TILE_LEFT,
++  META_TILE_RIGHT,
++  META_TILE_MAXIMIZED /* only used for previews */
++} MetaTileMode;
++
+ struct _MetaDisplay {
+ 	char* name;
+ 	Display* xdisplay;
+@@ -155,6 +162,8 @@ struct _MetaDisplay {
+ 	int         grab_anchor_root_x;
+ 	int         grab_anchor_root_y;
+ 	MetaRectangle grab_anchor_window_pos;
++	MetaTileMode  grab_tile_mode;
++	int           grab_tile_monitor_number;
+ 	int         grab_latest_motion_x;
+ 	int         grab_latest_motion_y;
+ 	gulong      grab_mask;
+diff --git a/src/core/display.c b/src/core/display.c
+index 4903d00..f33aad3 100644
+--- a/src/core/display.c
++++ b/src/core/display.c
+@@ -464,6 +464,8 @@ meta_display_open (void)
+   the_display->grab_window = NULL;
+   the_display->grab_screen = NULL;
+   the_display->grab_resize_popup = NULL;
++  the_display->grab_tile_mode = META_TILE_NONE;
++  the_display->grab_tile_monitor_number = -1;
+ 
+   the_display->grab_edge_resistance_data = NULL;
+ 
+@@ -3502,6 +3504,16 @@ meta_display_begin_grab_op (MetaDisplay *display,
+   display->grab_xwindow = grab_xwindow;
+   display->grab_button = button;
+   display->grab_mask = modmask;
++  if (window)
++    {
++      display->grab_tile_mode = window->tile_mode;
++      display->grab_tile_monitor_number = window->tile_monitor_number;
++    }
++  else
++    {
++      display->grab_tile_mode = META_TILE_NONE;
++      display->grab_tile_monitor_number = -1;
++    }
+   display->grab_anchor_root_x = root_x;
+   display->grab_anchor_root_y = root_y;
+   display->grab_latest_motion_x = root_x;
+@@ -3698,7 +3710,12 @@ meta_display_end_grab_op (MetaDisplay *display,
+ 
+   if (display->grab_window != NULL)
+     display->grab_window->shaken_loose = FALSE;
+-  
++
++  /*if(display->grab_window != NULL && display->grab_window->tile_mode == META_TILE_MAXIMIZED)
++    {
++      display->grab_window->tile_mode = META_TILE_NONE;
++    }*/
++
+   if (display->grab_window != NULL &&
+       !meta_prefs_get_raise_on_click () &&
+       (meta_grab_op_is_moving (display->grab_op) ||
+@@ -3800,10 +3817,16 @@ meta_display_end_grab_op (MetaDisplay *display,
+       display->grab_sync_request_alarm = None;
+     }
+ #endif /* HAVE_XSYNC */
+-  
++
++  /* Hide the tile preview if it exists */
++  if (display->grab_screen->tile_preview)
++    meta_tile_preview_hide (display->grab_screen->tile_preview);
++
+   display->grab_window = NULL;
+   display->grab_screen = NULL;
+   display->grab_xwindow = None;
++  display->grab_tile_mode = META_TILE_NONE;
++  display->grab_tile_monitor_number = -1;
+   display->grab_op = META_GRAB_OP_NONE;
+ 
+   if (display->grab_resize_popup)
+diff --git a/src/core/frame.c b/src/core/frame.c
+index 9c12b86..9f87485 100644
+--- a/src/core/frame.c
++++ b/src/core/frame.c
+@@ -282,6 +282,12 @@ meta_frame_get_flags (MetaFrame *frame)
+   if (META_WINDOW_MAXIMIZED (frame->window))
+     flags |= META_FRAME_MAXIMIZED;
+ 
++  if (META_WINDOW_TILED_LEFT (frame->window))
++    flags |= META_FRAME_TILED_LEFT;
++
++  if (META_WINDOW_TILED_RIGHT (frame->window))
++    flags |= META_FRAME_TILED_RIGHT;
++
+   if (frame->window->fullscreen)
+     flags |= META_FRAME_FULLSCREEN;
+ 
+diff --git a/src/core/keybindings.c b/src/core/keybindings.c
+index 8dda13c..c61e229 100644
+--- a/src/core/keybindings.c
++++ b/src/core/keybindings.c
+@@ -1391,6 +1391,10 @@ process_mouse_move_resize_grab (MetaDisplay *display,
+ 
+   if (keysym == XK_Escape)
+     {
++      /* Restore the original tile mode */
++      window->tile_mode = display->grab_tile_mode;
++      window->tile_monitor_number = display->grab_tile_monitor_number;
++
+       /* End move or resize and restore to original state.  If the
+        * window was a maximized window that had been "shaken loose" we
+        * need to remaximize it.  In normal cases, we need to do a
+@@ -1402,6 +1406,8 @@ process_mouse_move_resize_grab (MetaDisplay *display,
+         meta_window_maximize (window,
+                               META_MAXIMIZE_HORIZONTAL |
+                               META_MAXIMIZE_VERTICAL);
++      else if (window->tile_mode == META_TILE_LEFT || window->tile_mode == META_TILE_RIGHT)
++        meta_window_tile (window);
+       else if (!display->grab_wireframe_active)
+         meta_window_move_resize (display->grab_window,
+                                  TRUE,
+@@ -3002,6 +3008,43 @@ handle_toggle_above       (MetaDisplay    *display,
+     meta_window_make_above (window);
+ }
+ 
++/* TODO: actually use this keybinding, without messing up the existing keybinding schema */
++static void
++handle_toggle_tiled (MetaDisplay *display,
++                     MetaScreen *screen,
++                     MetaWindow *window,
++                     XEvent *event,
++                     MetaKeyBinding *binding)
++{
++  MetaTileMode mode = binding->handler->data;
++
++  if ((META_WINDOW_TILED_LEFT (window) && mode == META_TILE_LEFT) ||
++      (META_WINDOW_TILED_RIGHT (window) && mode == META_TILE_RIGHT))
++    {
++      window->tile_mode = META_TILE_NONE;
++
++      if (window->saved_maximize)
++        meta_window_maximize (window, META_MAXIMIZE_VERTICAL |
++                                      META_MAXIMIZE_HORIZONTAL);
++      else
++        meta_window_unmaximize (window, META_MAXIMIZE_VERTICAL |
++                                        META_MAXIMIZE_HORIZONTAL);
++    }
++  else if (meta_window_can_tile (window))
++    {
++      window->tile_mode = mode;
++      window->tile_monitor_number = meta_screen_get_xinerama_for_window (window->screen, window)->number;
++      /* Maximization constraints beat tiling constraints, so if the window
++       * is maximized, tiling won't have any effect unless we unmaximize it
++       * horizontally first; rather than calling meta_window_unmaximize(),
++       * we just set the flag and rely on meta_window_tile() syncing it to
++       * save an additional roundtrip.
++       */
++      window->maximized_horizontally = FALSE;
++      meta_window_tile (window);
++    }
++}
++
+ static void
+ handle_toggle_maximized    (MetaDisplay    *display,
+                            MetaScreen     *screen,
+diff --git a/src/core/screen-private.h b/src/core/screen-private.h
+index 8eb02d0..022f7eb 100644
+--- a/src/core/screen-private.h
++++ b/src/core/screen-private.h
+@@ -166,6 +166,8 @@ void          meta_screen_ensure_workspace_popup (MetaScreen *screen);
+ void          meta_screen_tile_preview_update          (MetaScreen    *screen,
+                                                         gboolean       delay);
+ 
++void          meta_screen_tile_preview_hide            (MetaScreen    *screen);
++
+ MetaWindow*   meta_screen_get_mouse_window     (MetaScreen                 *screen,
+                                                 MetaWindow                 *not_this_one);
+ 
+diff --git a/src/core/screen.c b/src/core/screen.c
+index 1804df9..2f4a6e8 100644
+--- a/src/core/screen.c
++++ b/src/core/screen.c
+@@ -1476,6 +1476,7 @@ meta_screen_tile_preview_update_timeout (gpointer data)
+   MetaScreen *screen = data;
+   MetaWindow *window = screen->display->grab_window;
+   gboolean composited = screen->display->compositor != NULL;
++  gboolean needs_preview = FALSE;
+ 
+   screen->tile_preview_timeout_id = 0;
+ 
+@@ -1483,9 +1484,28 @@ meta_screen_tile_preview_update_timeout (gpointer data)
+     screen->tile_preview = meta_tile_preview_new (screen->number,
+                                                   composited);
+ 
+-  if (window
+-      && !META_WINDOW_TILED (window)
+-      && window->tile_mode != META_TILE_NONE)
++  if (window)
++    {
++      switch (window->tile_mode)
++        {
++          case META_TILE_LEFT:
++          case META_TILE_RIGHT:
++              if (!META_WINDOW_TILED (window))
++                needs_preview = TRUE;
++              break;
++
++          case META_TILE_MAXIMIZED:
++              if (!META_WINDOW_MAXIMIZED (window))
++                needs_preview = TRUE;
++              break;
++
++          default:
++              needs_preview = FALSE;
++              break;
++        }
++    }
++
++  if (needs_preview)
+     {
+       MetaRectangle tile_rect;
+ 
+@@ -1523,6 +1543,16 @@ meta_screen_tile_preview_update (MetaScreen *screen,
+     }
+ }
+ 
++void
++meta_screen_tile_preview_hide (MetaScreen *screen)
++{
++  if (screen->tile_preview_timeout_id > 0)
++    g_source_remove (screen->tile_preview_timeout_id);
++
++  if (screen->tile_preview)
++    meta_tile_preview_hide (screen->tile_preview);
++}
++
+ MetaWindow*
+ meta_screen_get_mouse_window (MetaScreen  *screen,
+                               MetaWindow  *not_this_one)
+diff --git a/src/core/testboxes.c b/src/core/testboxes.c
+index ad5faf6..b7f153f 100644
+--- a/src/core/testboxes.c
++++ b/src/core/testboxes.c
+@@ -347,8 +347,14 @@ get_xinerama_edges (int which_xinerama_set, int which_strut_set)
+ 
+   ret = NULL;
+ 
++  MetaRectangle screenrect;
++  screenrect.x = 0;
++  screenrect.y = 0;
++  screenrect.width = 1600;
++  screenrect.height = 1200;
++
+   struts = get_strut_list (which_strut_set);
+-  ret = meta_rectangle_find_nonintersected_xinerama_edges (xins, struts);
++  ret = meta_rectangle_find_nonintersected_xinerama_edges (&screenrect, xins, struts);
+ 
+   free_strut_list (struts);
+   meta_rectangle_free_list_and_elements (xins);
+diff --git a/src/core/window-private.h b/src/core/window-private.h
+index f88f8a4..a206300 100644
+--- a/src/core/window-private.h
++++ b/src/core/window-private.h
+@@ -83,13 +83,6 @@ typedef enum {
+ 
+ #define NUMBER_OF_QUEUES 3
+ 
+-typedef enum {
+-  META_TILE_NONE,
+-  META_TILE_LEFT,
+-  META_TILE_RIGHT,
+-  META_TILE_MAXIMIZE
+-} MetaTileMode;
+-
+ struct _MetaWindow
+ {
+   MetaDisplay *display;
+@@ -150,6 +143,11 @@ struct _MetaWindow
+    * requested after the window grab is released */
+   guint tile_mode : 2;
+ 
++  /* The last "full" maximized/unmaximized state. We need to keep track of
++   * that to toggle between normal/tiled or maximized/tiled states. */
++  guint saved_maximize : 1;
++  int tile_monitor_number;
++
+   /* Whether we're shaded */
+   guint shaded : 1;
+ 
+@@ -398,6 +396,10 @@ struct _MetaWindow
+ #define META_WINDOW_TILED(w)           ((w)->maximized_vertically && \
+                                         !(w)->maximized_horizontally && \
+                                         (w)->tile_mode != META_TILE_NONE)
++#define META_WINDOW_TILED_LEFT(w) (META_WINDOW_TILED(w) && \
++                                   (w)->tile_mode == META_TILE_LEFT)
++#define META_WINDOW_TILED_RIGHT(w) (META_WINDOW_TILED(w) && \
++                                    (w)->tile_mode == META_TILE_RIGHT)
+ #define META_WINDOW_ALLOWS_MOVE(w)     ((w)->has_move_func && !(w)->fullscreen)
+ #define META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS(w)   ((w)->has_resize_func && !META_WINDOW_MAXIMIZED (w) && !META_WINDOW_TILED(w) && !(w)->fullscreen && !(w)->shaded)
+ #define META_WINDOW_ALLOWS_RESIZE(w)   (META_WINDOW_ALLOWS_RESIZE_EXCEPT_HINTS (w) &&                \
+@@ -418,6 +420,7 @@ void        meta_window_free               (MetaWindow  *window,
+ void        meta_window_calc_showing       (MetaWindow  *window);
+ void        meta_window_queue              (MetaWindow  *window,
+                                             guint queuebits);
++void        meta_window_tile               (MetaWindow  *window);
+ void        meta_window_minimize           (MetaWindow  *window);
+ void        meta_window_unminimize         (MetaWindow  *window);
+ void        meta_window_maximize           (MetaWindow        *window,
+@@ -654,4 +657,6 @@ void meta_window_update_icon_now (MetaWindow *window);
+ void meta_window_update_role (MetaWindow *window);
+ void meta_window_update_net_wm_type (MetaWindow *window);
+ 
++gboolean meta_window_can_tile (MetaWindow *window);
++
+ #endif
+diff --git a/src/core/window.c b/src/core/window.c
+index 74e6907..ae8f9bc 100644
+--- a/src/core/window.c
++++ b/src/core/window.c
+@@ -471,6 +471,7 @@ meta_window_new_with_attrs (MetaDisplay       *display,
+   window->require_titlebar_visible = TRUE;
+   window->on_all_workspaces = FALSE;
+   window->tile_mode = META_TILE_NONE;
++  window->tile_monitor_number = -1;
+   window->shaded = FALSE;
+   window->initially_iconic = FALSE;
+   window->minimized = FALSE;
+@@ -2574,6 +2575,9 @@ meta_window_maximize_internal (MetaWindow        *window,
+   else
+     meta_window_save_rect (window);
+ 
++  if (maximize_horizontally && maximize_vertically)
++    window->saved_maximize = TRUE;
++
+   window->maximized_horizontally =
+     window->maximized_horizontally || maximize_horizontally;
+   window->maximized_vertically =
+@@ -2624,13 +2628,15 @@ meta_window_maximize (MetaWindow        *window,
+        */
+       if (!window->placed)
+ 	{
+-	  window->maximize_horizontally_after_placement =
+-            window->maximize_horizontally_after_placement ||
+-            maximize_horizontally;
+-	  window->maximize_vertically_after_placement =
+-            window->maximize_vertically_after_placement ||
+-            maximize_vertically;
+-	  return;
++          window->maximize_horizontally_after_placement = window->maximize_horizontally_after_placement || maximize_horizontally;
++          window->maximize_vertically_after_placement = window->maximize_vertically_after_placement || maximize_vertically;
++          return;
++        }
++
++      if (window->tile_mode != META_TILE_NONE)
++        {
++          saved_rect = &window->saved_rect;
++          window->maximized_vertically = FALSE;
+ 	}
+ 
+       if (window->tile_mode != META_TILE_NONE)
+@@ -2682,7 +2688,7 @@ unmaximize_window_before_freeing (MetaWindow        *window)
+     }
+ }
+ 
+-static void
++void
+ meta_window_tile (MetaWindow *window)
+ {
+   /* Don't do anything if no tiling is requested */
+@@ -2690,7 +2696,6 @@ meta_window_tile (MetaWindow *window)
+     return;
+ 
+   meta_window_maximize_internal (window, META_MAXIMIZE_VERTICAL, NULL);
+-  meta_screen_tile_preview_update (window->screen, FALSE);
+ 
+   /* move_resize with new tiling constraints
+    */
+@@ -2698,11 +2703,18 @@ meta_window_tile (MetaWindow *window)
+ }
+ 
+ static gboolean
++meta_window_can_tile_maximized (MetaWindow *window)
++{
++  return window->has_maximize_func;
++}
++
++gboolean
+ meta_window_can_tile (MetaWindow *window)
+ {
+   const MetaXineramaScreenInfo *monitor;
+   MetaRectangle tile_area;
+ 
++  /*if (!META_WINDOW_ALLOWS_RESIZE (window))*/
+   if (!META_WINDOW_ALLOWS_RESIZE (window))
+     return FALSE;
+ 
+@@ -2733,7 +2745,8 @@ meta_window_unmaximize (MetaWindow        *window,
+   gboolean unmaximize_horizontally, unmaximize_vertically;
+ 
+   /* Restore tiling if necessary */
+-  if (window->tile_mode != META_TILE_NONE)
++  if (window->tile_mode == META_TILE_LEFT ||
++      window->tile_mode == META_TILE_RIGHT)
+     {
+       window->maximized_horizontally = FALSE;
+       meta_window_tile (window);
+@@ -2744,6 +2757,9 @@ meta_window_unmaximize (MetaWindow        *window,
+   unmaximize_vertically   = directions & META_MAXIMIZE_VERTICAL;
+   g_assert (unmaximize_horizontally || unmaximize_vertically);
+ 
++  if (unmaximize_horizontally && unmaximize_vertically)
++    window->saved_maximize = FALSE;
++
+   /* Only do something if the window isn't already maximized in the
+    * given direction(s).
+    */
+@@ -6968,35 +6984,56 @@ update_move (MetaWindow  *window,
+     DRAG_THRESHOLD_TO_SHAKE_THRESHOLD_FACTOR;
+ 
+ 
+-  if (meta_prefs_get_side_by_side_tiling () &&
+-      meta_window_can_tile (window))
++  if (snap)
++    {
++      /* We don't want to tile while snapping. Also, clear any previous tile
++         request. */
++      window->tile_mode = META_TILE_NONE;
++      window->tile_monitor_number = -1;
++    }
++  else if (meta_prefs_get_side_by_side_tiling () &&
++           !META_WINDOW_MAXIMIZED (window) &&
++           !META_WINDOW_TILED (window))
+     {
+       const MetaXineramaScreenInfo *monitor;
+       MetaRectangle work_area;
+ 
+-      /* For tiling we are interested in the work area of the monitor where
+-       * the pointer is located.
+-       * Also see comment in meta_window_get_current_tile_area()
++      /* For side-by-side tiling we are interested in the inside vertical
++       * edges of the work area of the monitor where the pointer is located,
++       * and in the outside top edge for maximized tiling.
++       *
++       * For maximized tiling we use the outside edge instead of the
++       * inside edge, because we don't want to force users to maximize
++       * windows they are placing near the top of their screens.
++       *
++       * The "current" idea of meta_window_get_work_area_current_monitor() and
++       * meta_screen_get_current_monitor() is slightly different: the former
++       * refers to the monitor which contains the largest part of the window,
++       * the latter to the one where the pointer is located.
+        */
+       monitor = meta_screen_get_current_xinerama (window->screen);
+       meta_window_get_work_area_for_xinerama (window,
+                                               monitor->number,
+                                               &work_area);
+ 
+-      if (y >= monitor->rect.y &&
+-          y < (monitor->rect.y + monitor->rect.height))
+-        {
+-          /* check if cursor is near an edge of the work area */
+-          if (x >= monitor->rect.x && x < (work_area.x + shake_threshold))
+-            window->tile_mode = META_TILE_LEFT;
+-          else if (x >= work_area.x + work_area.width - shake_threshold &&
+-                   x < (monitor->rect.x + monitor->rect.width))
+-            window->tile_mode = META_TILE_RIGHT;
+-          else if ((y >= monitor->rect.y) && (y < work_area.y + shake_threshold))
+-            window->tile_mode = META_TILE_MAXIMIZE;
+-          else
+-            window->tile_mode = META_TILE_NONE;
+-        }
++      /* Check if the cursor is in a position which triggers tiling
++       * and set tile_mode accordingly.
++       */
++      if (meta_window_can_tile (window) &&
++          x >= monitor->rect.x && x < (work_area.x + shake_threshold))
++        window->tile_mode = META_TILE_LEFT;
++      else if (meta_window_can_tile (window) &&
++               x >= work_area.x + work_area.width - shake_threshold &&
++               x < (monitor->rect.x + monitor->rect.width))
++        window->tile_mode = META_TILE_RIGHT;
++      else if (meta_window_can_tile_maximized (window) &&
++               y >= monitor->rect.y && y <= work_area.y)
++        window->tile_mode = META_TILE_MAXIMIZED;
++      else
++        window->tile_mode = META_TILE_NONE;
++
++      if (window->tile_mode != META_TILE_NONE)
++        window->tile_monitor_number = monitor->number;
+     }
+ 
+   /* shake loose (unmaximize) maximized or tiled window if dragged beyond
+@@ -7009,7 +7046,10 @@ update_move (MetaWindow  *window,
+     {
+       double prop;
+ 
+-      /* Shake loose */
++      /* Shake loose, so that the window snaps back to maximized
++       * when dragged near the top; do not snap back if the window
++       * was tiled.
++       */
+       window->shaken_loose = META_WINDOW_MAXIMIZED (window);
+       window->tile_mode = META_TILE_NONE;
+ 
+@@ -7086,6 +7126,8 @@ update_move (MetaWindow  *window,
+               display->grab_anchor_root_y = y;
+               window->shaken_loose = FALSE;
+ 
++	      window->tile_mode = META_TILE_NONE;
++
+               meta_window_maximize (window,
+                                     META_MAXIMIZE_HORIZONTAL |
+                                     META_MAXIMIZE_VERTICAL);
+@@ -7456,6 +7498,19 @@ check_use_this_motion_notify (MetaWindow *window,
+     }
+ }
+ 
++static void
++update_tile_mode (MetaWindow *window)
++{
++  switch (window->tile_mode)
++    {
++      case META_TILE_LEFT:
++      case META_TILE_RIGHT:
++          if (!META_WINDOW_TILED (window))
++              window->tile_mode = META_TILE_NONE;
++          break;
++    }
++}
++
+ void
+ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
+                                         XEvent     *event)
+@@ -7524,11 +7579,17 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
+         {
+           if (meta_grab_op_is_moving (window->display->grab_op))
+             {
+-              if (window->tile_mode != META_TILE_NONE)
+-                meta_window_tile (window);
+-              else if (window->tile_mode == META_TILE_MAXIMIZE)
+-                meta_window_maximize (window, META_MAXIMIZE_HORIZONTAL | META_MAXIMIZE_VERTICAL);
+-              else if (event->xbutton.root == window->screen->xroot)
++              if (window->tile_mode == META_TILE_MAXIMIZED)
++	        {
++                  meta_window_maximize (window, META_MAXIMIZE_VERTICAL |
++                                                META_MAXIMIZE_HORIZONTAL);
++                  window->tile_mode = META_TILE_NONE;
++		}
++	      else if (window->tile_mode != META_TILE_NONE)
++	        {
++		  meta_window_tile (window);
++		}
++	      else if (event->xbutton.root == window->screen->xroot)
+                 update_move (window, event->xbutton.state & ShiftMask,
+                              event->xbutton.x_root, event->xbutton.y_root);
+             }
+@@ -7542,6 +7603,15 @@ meta_window_handle_mouse_grab_op_event (MetaWindow *window,
+                                TRUE);
+ 	      if (window->display->compositor)
+ 		meta_compositor_set_updates (window->display->compositor, window, TRUE);
++
++              /* If a tiled window has been dragged free with a
++               * mouse resize without snapping back to the tiled
++               * state, it will end up with an inconsistent tile
++               * mode on mouse release; cleaning the mode earlier
++               * would break the ability to snap back to the tiled
++               * state, so we wait until mouse release.
++               */
++              update_tile_mode (window);
+             }
+         }
+ 
+@@ -7690,17 +7760,29 @@ void
+ meta_window_get_current_tile_area (MetaWindow    *window,
+                                    MetaRectangle *tile_area)
+ {
+-  const MetaXineramaScreenInfo *monitor;
++  int tile_monitor_number;
+ 
+   g_return_if_fail (window->tile_mode != META_TILE_NONE);
+ 
+-  /* The definition of "current" of meta_window_get_work_area_current_xinerama()
+-   * and meta_screen_get_current_xinerama() is slightly different: the former
+-   * refers to the monitor which contains the largest part of the window, the
+-   * latter to the one where the pointer is located.
++  /* I don't know how to detect monitor configuration changes, so I have to take into account that
++   * tile_monitor_number might be invalid. If this happens, I replace it with whatever monitor
++   * the window is currently on. This is usually the correct monitor anyway, only in some special
++   * cases is the real monitor number actually required (e.g. the window is being moved with the mouse but
++   * is still mostly on the wrong monitor).
+    */
+-  monitor = meta_screen_get_current_xinerama (window->screen);
+-  meta_window_get_work_area_for_xinerama (window, monitor->number, tile_area);
++  if (window->tile_monitor_number >= window->screen->n_xinerama_infos)
++    {
++      window->tile_monitor_number = meta_screen_get_xinerama_for_window (window->screen, window)->number;
++    }
++
++  tile_monitor_number = window->tile_monitor_number;
++  if (tile_monitor_number < 0)
++    {
++      meta_warning ("%s called with an invalid monitor number; using 0 instead\n", G_STRFUNC);
++      tile_monitor_number = 0;
++    }
++
++  meta_window_get_work_area_for_xinerama (window, tile_monitor_number, tile_area);
+ 
+   if (window->tile_mode == META_TILE_LEFT  ||
+       window->tile_mode == META_TILE_RIGHT)
+diff --git a/src/core/workspace.c b/src/core/workspace.c
+index 05ca7c7..b839c56 100644
+--- a/src/core/workspace.c
++++ b/src/core/workspace.c
+@@ -738,8 +738,7 @@ ensure_work_areas_validated (MetaWorkspace *workspace)
+   for (i = 0; i < workspace->screen->n_xinerama_infos; i++)
+     tmp = g_list_prepend (tmp, &workspace->screen->xinerama_infos[i].rect);
+   workspace->xinerama_edges =
+-    meta_rectangle_find_nonintersected_xinerama_edges (tmp,
+-                                                       workspace->all_struts);
++    meta_rectangle_find_nonintersected_xinerama_edges (&workspace->screen->rect, tmp, workspace->all_struts);
+   g_list_free (tmp);
+ 
+   /* We're all done, YAAY!  Record that everything has been validated. */
+diff --git a/src/include/boxes.h b/src/include/boxes.h
+index 8cae0f8..c31941c 100644
+--- a/src/include/boxes.h
++++ b/src/include/boxes.h
+@@ -284,7 +284,8 @@ GList* meta_rectangle_find_onscreen_edges (const MetaRectangle *basic_rect,
+  * struts.
+  */
+ GList* meta_rectangle_find_nonintersected_xinerama_edges (
+-                                           const GList         *xinerama_rects,
++                                           const MetaRectangle *screen_rect,
++					   const GList         *xinerama_rects,
+                                            const GSList        *all_struts);
+ 
+ #endif /* META_BOXES_H */
+diff --git a/src/include/common.h b/src/include/common.h
+index 6ee1910..ebd320f 100644
+--- a/src/include/common.h
++++ b/src/include/common.h
+@@ -47,7 +47,9 @@ typedef enum
+   META_FRAME_ALLOWS_MOVE              = 1 << 11,
+   META_FRAME_FULLSCREEN               = 1 << 12,
+   META_FRAME_IS_FLASHING              = 1 << 13,
+-  META_FRAME_ABOVE                    = 1 << 14
++  META_FRAME_ABOVE                    = 1 << 14,
++  META_FRAME_TILED_LEFT               = 1 << 15,
++  META_FRAME_TILED_RIGHT              = 1 << 16
+ } MetaFrameFlags;
+ 
+ typedef enum
+diff --git a/src/ui/theme-parser.c b/src/ui/theme-parser.c
+index e79396b..748cf4a 100644
+--- a/src/ui/theme-parser.c
++++ b/src/ui/theme-parser.c
+@@ -3135,6 +3135,28 @@ parse_style_set_element (GMarkupParseContext  *context,
+           meta_frame_style_ref (frame_style);
+           info->style_set->maximized_styles[frame_focus] = frame_style;
+           break;
++        case META_FRAME_STATE_TILED_LEFT:
++          if (info->style_set->tiled_left_styles[frame_focus])
++            {
++              set_error (error, context, G_MARKUP_ERROR, G_MARKUP_ERROR_PARSE,
++                         _("Style has already been specified for state %s focus %s"),
++                         state, focus);
++              return;
++            }
++          meta_frame_style_ref (frame_style);
++          info->style_set->tiled_left_styles[frame_focus] = frame_style;
++          break;
++        case META_FRAME_STATE_TILED_RIGHT:
++          if (info->style_set->tiled_right_styles[frame_focus])
++            {
++              set_error (error, context, G_MARKUP_ERROR, G_MARKUP_ERROR_PARSE,
++                         _("Style has already been specified for state %s focus %s"),
++                         state, focus);
++              return;
++            }
++          meta_frame_style_ref (frame_style);
++          info->style_set->tiled_right_styles[frame_focus] = frame_style;
++          break;
+         case META_FRAME_STATE_SHADED:
+           if (info->style_set->shaded_styles[frame_resize][frame_focus])
+             {
+@@ -3157,6 +3179,28 @@ parse_style_set_element (GMarkupParseContext  *context,
+           meta_frame_style_ref (frame_style);
+           info->style_set->maximized_and_shaded_styles[frame_focus] = frame_style;
+           break;
++        case META_FRAME_STATE_TILED_LEFT_AND_SHADED:
++          if (info->style_set->tiled_left_and_shaded_styles[frame_focus])
++            {
++              set_error (error, context, G_MARKUP_ERROR, G_MARKUP_ERROR_PARSE,
++                         _("Style has already been specified for state %s focus %s"),
++                         state, focus);
++              return;
++            }
++          meta_frame_style_ref (frame_style);
++          info->style_set->tiled_left_and_shaded_styles[frame_focus] = frame_style;
++          break;
++        case META_FRAME_STATE_TILED_RIGHT_AND_SHADED:
++          if (info->style_set->tiled_right_and_shaded_styles[frame_focus])
++            {
++              set_error (error, context, G_MARKUP_ERROR, G_MARKUP_ERROR_PARSE,
++                         _("Style has already been specified for state %s focus %s"),
++                         state, focus);
++              return;
++            }
++          meta_frame_style_ref (frame_style);
++          info->style_set->tiled_right_and_shaded_styles[frame_focus] = frame_style;
++          break;
+         case META_FRAME_STATE_LAST:
+           g_assert_not_reached ();
+           break;
+diff --git a/src/ui/theme.c b/src/ui/theme.c
+index 4d430b7..a5c3678 100644
+--- a/src/ui/theme.c
++++ b/src/ui/theme.c
+@@ -847,7 +847,9 @@ meta_frame_layout_calc_geometry (const MetaFrameLayout  *layout,
+       rect->visible.width = button_width;
+       rect->visible.height = button_height;
+ 
+-      if (flags & META_FRAME_MAXIMIZED)
++      if (flags & META_FRAME_MAXIMIZED ||
++          flags & META_FRAME_TILED_LEFT ||
++	  flags & META_FRAME_TILED_RIGHT)
+         {
+           rect->clickable.x = rect->visible.x;
+           rect->clickable.y = rect->visible.y;
+@@ -4972,7 +4974,11 @@ meta_frame_style_set_unref (MetaFrameStyleSet *style_set)
+         }
+ 
+       free_focus_styles (style_set->maximized_styles);
++      free_focus_styles (style_set->tiled_left_styles);
++      free_focus_styles (style_set->tiled_right_styles);
+       free_focus_styles (style_set->maximized_and_shaded_styles);
++      free_focus_styles (style_set->tiled_left_and_shaded_styles);
++      free_focus_styles (style_set->tiled_right_and_shaded_styles);
+ 
+       if (style_set->parent)
+         meta_frame_style_set_unref (style_set->parent);
+@@ -5024,9 +5030,21 @@ get_style (MetaFrameStyleSet *style_set,
+           case META_FRAME_STATE_MAXIMIZED:
+             styles = style_set->maximized_styles;
+             break;
++          case META_FRAME_STATE_TILED_LEFT:
++            styles = style_set->tiled_left_styles;
++            break;
++          case META_FRAME_STATE_TILED_RIGHT:
++            styles = style_set->tiled_right_styles;
++            break;
+           case META_FRAME_STATE_MAXIMIZED_AND_SHADED:
+             styles = style_set->maximized_and_shaded_styles;
+             break;
++          case META_FRAME_STATE_TILED_LEFT_AND_SHADED:
++            styles = style_set->tiled_left_and_shaded_styles;
++            break;
++          case META_FRAME_STATE_TILED_RIGHT_AND_SHADED:
++            styles = style_set->tiled_right_and_shaded_styles;
++            break;
+           case META_FRAME_STATE_NORMAL:
+           case META_FRAME_STATE_SHADED:
+           case META_FRAME_STATE_LAST:
+@@ -5036,6 +5054,19 @@ get_style (MetaFrameStyleSet *style_set,
+ 
+         style = styles[focus];
+ 
++        /* Tiled states are optional, try falling back to non-tiled states */
++        if (style == NULL)
++          {
++            if (state == META_FRAME_STATE_TILED_LEFT ||
++                state == META_FRAME_STATE_TILED_RIGHT)
++              style = get_style (style_set, META_FRAME_STATE_NORMAL,
++                                 resize, focus);
++            else if (state == META_FRAME_STATE_TILED_LEFT_AND_SHADED ||
++                     state == META_FRAME_STATE_TILED_RIGHT_AND_SHADED)
++              style = get_style (style_set, META_FRAME_STATE_SHADED,
++                                 resize, focus);
++          }
++
+         /* Try parent if we failed here */
+         if (style == NULL && style_set->parent)
+           style = get_style (style_set->parent, state, resize, focus);
+@@ -5381,7 +5412,7 @@ theme_get_style (MetaTheme     *theme,
+   if (style_set == NULL)
+     return NULL;
+ 
+-  switch (flags & (META_FRAME_MAXIMIZED | META_FRAME_SHADED))
++  switch (flags & (META_FRAME_MAXIMIZED | META_FRAME_SHADED | META_FRAME_TILED_LEFT | META_FRAME_TILED_RIGHT))
+     {
+     case 0:
+       state = META_FRAME_STATE_NORMAL;
+@@ -5389,12 +5420,24 @@ theme_get_style (MetaTheme     *theme,
+     case META_FRAME_MAXIMIZED:
+       state = META_FRAME_STATE_MAXIMIZED;
+       break;
++    case META_FRAME_TILED_LEFT:
++      state = META_FRAME_STATE_TILED_LEFT;
++      break;
++    case META_FRAME_TILED_RIGHT:
++      state = META_FRAME_STATE_TILED_RIGHT;
++      break;
+     case META_FRAME_SHADED:
+       state = META_FRAME_STATE_SHADED;
+       break;
+     case (META_FRAME_MAXIMIZED | META_FRAME_SHADED):
+       state = META_FRAME_STATE_MAXIMIZED_AND_SHADED;
+       break;
++    case (META_FRAME_TILED_LEFT | META_FRAME_SHADED):
++      state = META_FRAME_STATE_TILED_LEFT_AND_SHADED;
++      break;
++    case (META_FRAME_TILED_RIGHT | META_FRAME_SHADED):
++      state = META_FRAME_STATE_TILED_RIGHT_AND_SHADED;
++      break;
+     default:
+       g_assert_not_reached ();
+       state = META_FRAME_STATE_LAST; /* compiler */
+@@ -6231,10 +6274,18 @@ meta_frame_state_from_string (const char *str)
+     return META_FRAME_STATE_NORMAL;
+   else if (strcmp ("maximized", str) == 0)
+     return META_FRAME_STATE_MAXIMIZED;
++  else if (strcmp ("tiled_left", str) == 0)
++    return META_FRAME_STATE_TILED_LEFT;
++  else if (strcmp ("tiled_right", str) == 0)
++    return META_FRAME_STATE_TILED_RIGHT;
+   else if (strcmp ("shaded", str) == 0)
+     return META_FRAME_STATE_SHADED;
+   else if (strcmp ("maximized_and_shaded", str) == 0)
+     return META_FRAME_STATE_MAXIMIZED_AND_SHADED;
++  else if (strcmp ("tiled_left_and_shaded", str) == 0)
++    return META_FRAME_STATE_TILED_LEFT_AND_SHADED;
++  else if (strcmp ("tiled_right_and_shaded", str) == 0)
++    return META_FRAME_STATE_TILED_RIGHT_AND_SHADED;
+   else
+     return META_FRAME_STATE_LAST;
+ }
+@@ -6248,10 +6299,18 @@ meta_frame_state_to_string (MetaFrameState state)
+       return "normal";
+     case META_FRAME_STATE_MAXIMIZED:
+       return "maximized";
++    case META_FRAME_STATE_TILED_LEFT:
++      return "tiled_left";
++    case META_FRAME_STATE_TILED_RIGHT:
++      return "tiled_right";
+     case META_FRAME_STATE_SHADED:
+       return "shaded";
+     case META_FRAME_STATE_MAXIMIZED_AND_SHADED:
+       return "maximized_and_shaded";
++    case META_FRAME_STATE_TILED_LEFT_AND_SHADED:
++      return "tiled_left_and_shaded";
++    case META_FRAME_STATE_TILED_RIGHT_AND_SHADED:
++      return "tiled_right_and_shaded";
+     case META_FRAME_STATE_LAST:
+       break;
+     }
+diff --git a/src/ui/theme.h b/src/ui/theme.h
+index 30cf7ad..002c275 100644
+--- a/src/ui/theme.h
++++ b/src/ui/theme.h
+@@ -716,8 +716,12 @@ typedef enum
+ {
+   META_FRAME_STATE_NORMAL,
+   META_FRAME_STATE_MAXIMIZED,
++  META_FRAME_STATE_TILED_LEFT,
++  META_FRAME_STATE_TILED_RIGHT,
+   META_FRAME_STATE_SHADED,
+   META_FRAME_STATE_MAXIMIZED_AND_SHADED,
++  META_FRAME_STATE_TILED_LEFT_AND_SHADED,
++  META_FRAME_STATE_TILED_RIGHT_AND_SHADED,
+   META_FRAME_STATE_LAST
+ } MetaFrameState;
+ 
+@@ -754,8 +758,12 @@ struct _MetaFrameStyleSet
+   MetaFrameStyleSet *parent;
+   MetaFrameStyle *normal_styles[META_FRAME_RESIZE_LAST][META_FRAME_FOCUS_LAST];
+   MetaFrameStyle *maximized_styles[META_FRAME_FOCUS_LAST];
++  MetaFrameStyle *tiled_left_styles[META_FRAME_FOCUS_LAST];
++  MetaFrameStyle *tiled_right_styles[META_FRAME_FOCUS_LAST];
+   MetaFrameStyle *shaded_styles[META_FRAME_RESIZE_LAST][META_FRAME_FOCUS_LAST];
+   MetaFrameStyle *maximized_and_shaded_styles[META_FRAME_FOCUS_LAST];
++  MetaFrameStyle *tiled_left_and_shaded_styles[META_FRAME_FOCUS_LAST];
++  MetaFrameStyle *tiled_right_and_shaded_styles[META_FRAME_FOCUS_LAST];
+ };
+ 
+ /**
