@@ -3,28 +3,57 @@
 # Maintainer: schuay <jakob.gruber@gmail.com>
 
 pkgname=puzzles
-pkgver=10282
+pkgver=20150117
 pkgrel=1
 pkgdesc="Simon Tatham's Portable Puzzle Collection"
 arch=('i686' 'x86_64')
 url="http://www.chiark.greenend.org.uk/~sgtatham/puzzles/"
 license=('MIT')
-makedepends=('pkgconfig' 'subversion')
-depends=('gtk2')
-source=("svn://svn.tartarus.org/sgt/puzzles#revision=$pkgver")
+makedepends=('pkgconfig' 'subversion' 'xorg-server-xvfb' 'imagemagick' 'git')
+depends=('gtk2' 'desktop-file-utils')
+install=puzzles.install
+source=("git://git.tartarus.org/simon/puzzles.git#commit=cca302c01")
 md5sums=("SKIP")
+
+prepare() {
+    cd ${srcdir}/${pkgname}
+
+    # Generate the makefiles.
+    ./mkfiles.pl
+    sed -i 's|\$(gamesdir)|\$(bindir)|' Makefile.gtk
+
+    # Tweak desktop file generation to use proper icon paths.
+    sed -i 's_\$icondir\/\$id-48d24.png_$id_' desktop.pl
+}
 
 build() {
     cd ${srcdir}/${pkgname}
-
-    ./mkfiles.pl
-    
-    sed -i 's|\$(gamesdir)|\$(bindir)|' Makefile.gtk
-
     make -f Makefile.gtk prefix=/usr
+
+    # Generate icons.
+    cd ${srcdir}/${pkgname}/icons
+    xvfb-run make pngicons
 }
 
 package() {
+    # Install the icons.
+    cd ${srcdir}/${pkgname}/icons
+
+    install -d ${pkgdir}/usr/share/icons/hicolor/48x48/
+    for oldname in *-48d24.png; do
+        newname=$(sed 's/\(\w*\)-48d24.png/\1.png/' <<< ${oldname})
+        install -Dm644 ${oldname} ${pkgdir}/usr/share/icons/hicolor/48x48/${newname}
+    done
+
+    # Generate .desktop files.
+    cd ${srcdir}/${pkgname}
+
+    install -d ${pkgdir}/usr/share/applications
+    ./desktop.pl ${pkgdir}/usr/share/applications \
+                 /usr/bin \
+                 /usr/share/icons/
+
+    # And finally, install the games.
     cd ${srcdir}/${pkgname}
 
     install -d ${pkgdir}/usr/{bin,share/licenses/${pkgname}}
@@ -32,8 +61,11 @@ package() {
 
     make -f Makefile.gtk prefix=/usr DESTDIR=${pkgdir} install
 
-    #fix FS#14600
-    mv ${pkgdir}/usr/bin/net ${pkgdir}/usr/bin/puzzles-net
-    mv ${pkgdir}/usr/bin/cube ${pkgdir}/usr/bin/puzzles-cube
-    mv ${pkgdir}/usr/bin/blackbox ${pkgdir}/usr/bin/puzzles-blackbox
+    # Fix FS#14600 (name conflicts with other packages).
+    for oldname in net cube blackbox; do
+        newname=puzzles-${oldname}
+        mv ${pkgdir}/usr/bin/${oldname} ${pkgdir}/usr/bin/${newname}
+        sed -i "s_Exec=/usr/bin/${oldname}_Exec=/usr/bin/${newname}_" \
+            ${pkgdir}/usr/share/applications/${oldname}.desktop
+    done
 }
