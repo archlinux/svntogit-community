@@ -7,7 +7,7 @@ pkgbase=doublecmd
 pkgname=('doublecmd-gtk2' 'doublecmd-qt')
 pkgver=0.5.11
 _helpver=0.5.5
-pkgrel=1
+pkgrel=2
 url="http://doublecmd.sourceforge.net/"
 arch=('i686' 'x86_64')
 license=('GPL')
@@ -25,10 +25,17 @@ source=(
 	"http://www.herecura.be/files/lazarus-20140321-2.tar.gz"
 )
 
-build() {
-	cp -a $pkgbase-$pkgver $pkgbase-gtk
-	cp -a $pkgbase-$pkgver $pkgbase-qt
+prepare() {
+	cd "$pkgbase-$pkgver"
+	sed -e 's/LIB_SUFFIX=.*/LIB_SUFFIX=/g' -i install/linux/install.sh
 
+	cd "$srcdir"
+
+	cp -a "$pkgbase-$pkgver" "$pkgbase-gtk"
+	cp -a "$pkgbase-$pkgver" "$pkgbase-qt"
+}
+
+build() {
 	msg2 'build gtk'
 	gtkdir="$srcdir/$pkgbase-gtk"
 	cd "$gtkdir"
