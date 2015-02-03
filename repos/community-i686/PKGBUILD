@@ -6,21 +6,22 @@ pkgname=$_target-gcc
 pkgver=4.9.2
 _islver=0.12.2
 _cloogver=0.18.1
-pkgrel=4
-_snapshot=4.9-20141224
+pkgrel=5
+_snapshot=4.9-20150128
 pkgdesc='The GNU Compiler Collection - cross compiler for ARM EABI (bare-metal) target'
 arch=(i686 x86_64)
 url='http://gcc.gnu.org/'
 license=(GPL LGPL FDL)
-depends=($_target-binutils $_target-newlib  zlib libmpc)
-makedepends=(gmp mpfr)
+depends=($_target-binutils zlib libmpc)
+makedepends=(gmp mpfr $_target-newlib)
+optdepends=('arm-none-eabi-newlib: Standard C library optimized for embedded systems')
 options=(!emptydirs !strip)
 source=(#ftp://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
         ftp://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.bz2
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2
         http://www.bastoul.net/cloog/pages/download/cloog-$_cloogver.tar.gz
         enable-with-multilib-list-for-arm.patch)
-sha256sums=('c4038e28fb85496c8b7840b4882d5a6c19b3fe67231a3091de0ca9a90c401f56'
+sha256sums=('a6f8617b0cc3403ecc442476583ca8904f7008f31ef9862ebc02c6de5f0afcc9'
             'f4b3dbee9712850006e44f0db2103441ab3d13b406f77996d1df19ee89d11fb4'
             '02500a4edd14875f94fe84cbeda4290425cb0c1c2474c6f75d75a303d64b4196'
             '95a1ae356a6a4f25577bbaa6a83e00cc1ddcebd99e9d3b2bf2c81c5e3d495a77')
@@ -45,14 +46,10 @@ prepare() {
 
   patch -p1 < $srcdir/enable-with-multilib-list-for-arm.patch
 
-  mkdir $srcdir/gcc-build
+  mkdir $srcdir/build-{gcc,gcc-nano}
 }
 
-build() {
-  cd gcc-build
-
-  export CFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
-  export CXXFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
+_build_gcc() {
   $srcdir/$_basedir/configure \
     --target=$_target \
     --prefix=/usr \
@@ -85,24 +82,48 @@ build() {
     --with-isl \
     --enable-cloog-backend=isl \
     --with-libelf \
-    "--with-host-libstdcxx=-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm" \
+    --with-host-libstdcxx='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm' \
     --with-pkgversion='Arch Repository' \
     --with-bugurl='https://bugs.archlinux.org/' \
     --with-multilib-list=armv6-m,armv7-m,armv7e-m,armv7-r
 
-  make INHIBIT_LIBC_CFLAGS="-DUSE_TM_CLONE_REGISTRY=0"
+  make INHIBIT_LIBC_CFLAGS='-DUSE_TM_CLONE_REGISTRY=0'
+}
+
+build() {
+  cd $srcdir/build-gcc
+  export CFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections'
+  export CXXFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections'
+  _build_gcc
+
+  # Build libstdc++ without exceptions support (the 'nano' variant)
+  cd $srcdir/build-gcc-nano
+  export CFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections -fno-exceptions'
+  export CXXFLAGS_FOR_TARGET='-g -Os -ffunction-sections -fdata-sections -fno-exceptions'  
+  _build_gcc
 }
 
 package() {
-  cd gcc-build
-
+  cd $srcdir/build-gcc
   make DESTDIR="$pkgdir" install -j1
 
+  cd $srcdir/build-gcc-nano
+  make DESTDIR="$pkgdir.nano" install -j1
+  # we need only libstdc nano files
+  multilibs=( $($pkgdir/usr/bin/$_target-gcc -print-multi-lib 2>/dev/null) )
+  for multilib in "${multilibs[@]}"; do
+    dir="${multilib%%;*}"
+    from_dir=$pkgdir.nano/usr/$_target/lib/$dir
+    to_dir=$pkgdir/usr/$_target/lib/$dir
+    cp -f $from_dir/libstdc++.a $to_dir/libstdc++_nano.a
+    cp -f $from_dir/libsupc++.a $to_dir/libsupc++_nano.a
+  done
+
   # strip target binaries
-  find "$pkgdir"/usr/lib/gcc/$_target/ "$pkgdir"/usr/$_target/lib -type f -and \( -name \*.a -or -name \*.o \) -exec $_target-objcopy -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames -R .debug_pubtypes -R .debug_abbrev -R .debug_line -R .debug_str -R .debug_ranges -R .debug_loc '{}' \;
+  find "$pkgdir"/usr/lib/gcc/$_target/$pkgver "$pkgdir"/usr/$_target/lib -type f -and \( -name \*.a -or -name \*.o \) -exec $_target-objcopy -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames -R .debug_pubtypes -R .debug_abbrev -R .debug_line -R .debug_str -R .debug_ranges -R .debug_loc '{}' \;
 
   # strip host binaries
-  find "$pkgdir"/usr/bin/ "$pkgdir"/usr/lib/gcc/$_target/ -type f -and \( -executable \) -exec strip '{}' \;
+  find "$pkgdir"/usr/bin/ "$pkgdir"/usr/lib/gcc/$_target/$pkgver -type f -and \( -executable \) -exec strip '{}' \;
 
   # Remove files that conflict with host gcc package
   rm -r "$pkgdir"/usr/share/man/man7
