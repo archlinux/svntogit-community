@@ -1,0 +1,128 @@
+From: Lukáš Tinkl <lukas@kde.org>
+Date: Thu, 22 Jan 2015 16:20:38 +0000
+Subject: load the translation catalog correctly
+X-Git-Url: http://quickgit.kde.org/?p=kcm-touchpad.git&a=commitdiff&h=7494875a95ccfacc407eb0278f8c1deb71b2b949
+---
+load the translation catalog correctly
+
+also unbreak the dataengine loading and the applet
+---
+
+
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,7 @@
+ project(kcm-touchpad)
+ set(PROJECT_VERSION "5.1.95")
+ cmake_minimum_required(VERSION 2.8.12)
++add_definitions(-DTRANSLATION_DOMAIN=\"kcm_touchpad\")
+ 
+ set(CMAKE_MODULE_PATH
+     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules
+
+--- a/src/applet/CMakeLists.txt
++++ b/src/applet/CMakeLists.txt
+@@ -1,3 +1,6 @@
++remove_definitions(-DTRANSLATION_DOMAIN="kcm_touchpad")
++add_definitions(-DTRANSLATION_DOMAIN="plasma_applet_touchpad")
++
+ add_subdirectory(qml)
+ 
+ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/dataengine.desktop"
+@@ -23,14 +26,16 @@
+ 		      Qt5::DBus
+ )
+ 
++kcoreaddons_desktop_to_json(plasma_engine_touchpad ${CMAKE_CURRENT_BINARY_DIR}/plasma-dataengine-touchpad.desktop)
++
+ install(TARGETS plasma_engine_touchpad
+-        DESTINATION ${PLUGIN_INSTALL_DIR}
++        DESTINATION ${PLUGIN_INSTALL_DIR}/plasma/dataengine
+ )
+ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/plasma-dataengine-touchpad.desktop
+         DESTINATION ${SERVICES_INSTALL_DIR}
+ )
+ install(FILES touchpad.operations
+-        DESTINATION ${DATA_INSTALL_DIR}/plasma/services
++        DESTINATION ${PLASMA_DATA_INSTALL_DIR}/services
+ )
+ install(FILES touchpad.svg
+         DESTINATION ${DATA_INSTALL_DIR}/plasma/desktoptheme/default/icons
+
+--- a/src/applet/dataengine.desktop
++++ b/src/applet/dataengine.desktop
+@@ -44,5 +44,3 @@
+ X-KDE-PluginInfo-License=GPL
+ X-KDE-PluginInfo-EnabledByDefault=true
+ 
+-X-Plasma-EngineName=touchpad
+-
+
+--- a/src/applet/qml/contents/ui/touchpad.qml
++++ b/src/applet/qml/contents/ui/touchpad.qml
+@@ -21,7 +21,6 @@
+ import QtQuick 2.0
+ import org.kde.plasma.core 2.0 as PlasmaCore
+ import org.kde.plasma.components 2.0 as PlasmaComponents
+-import org.kde.qtextracomponents 2.0
+ 
+ Item {
+     id: root
+@@ -84,28 +83,28 @@
+         }
+     }
+ 
+-    QIconItem {
++    PlasmaCore.IconItem {
+         anchors.fill: parent
+         visible: !hasTouchpad
+-        icon: "dialog-warning"
+-    }
++        source: "dialog-warning"
+ 
+-    PlasmaCore.ToolTip {
+-        target: root
+-        mainText: {
+-            if (!hasTouchpad) {
+-                return i18n("No touchpad was found");
++
++        PlasmaCore.ToolTipArea {
++            mainText: {
++                if (!hasTouchpad) {
++                    return i18n("No touchpad was found");
++                }
++
++                return enabled ? i18n("Touchpad is enabled")
++                               : i18n("Touchpad is disabled")
+             }
++            image: {
++                if (!hasTouchpad) {
++                    return "dialog-error"
++                }
+ 
+-            return enabled ? i18n("Touchpad is enabled")
+-                           : i18n("Touchpad is disabled")
+-        }
+-        image: {
+-            if (!hasTouchpad) {
+-                return "dialog-error"
++                return enabled ? "input-touchpad" : "process-stop"
+             }
+-
+-            return enabled ? "input-touchpad" : "process-stop"
+         }
+     }
+ 
+
+--- a/src/applet/touchpadengine.cpp
++++ b/src/applet/touchpadengine.cpp
+@@ -80,5 +80,7 @@
+ {
+ }
+ 
+-//K_EXPORT_PLASMA_DATAENGINE(touchpad, TouchpadEngine)
++K_EXPORT_PLASMA_DATAENGINE_WITH_JSON(touchpad, TouchpadEngine, "plasma-dataengine-touchpad.json")
+ 
++#include "touchpadengine.moc"
++
+
