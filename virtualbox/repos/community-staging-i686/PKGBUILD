@@ -1,0 +1,369 @@
+# $Id$
+# Maintainer: Sébastien "Seblu" Luttringer
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+
+pkgbase=virtualbox
+pkgname=('virtualbox'
+         'virtualbox-host-dkms'
+         'virtualbox-guest-dkms'
+         'virtualbox-sdk'
+         'virtualbox-guest-utils'
+         'virtualbox-guest-utils-nox'
+         'virtualbox-ext-vnc')
+pkgver=4.3.20
+pkgrel=6
+arch=('i686' 'x86_64')
+url='http://virtualbox.org'
+license=('GPL' 'custom')
+makedepends=('alsa-lib'
+             'bin86'
+             'cdrkit'
+             'curl'
+             'dev86'
+             'device-mapper'
+             'glu'
+             'gsoap'
+             'iasl'
+             'jdk7-openjdk'
+             'libidl2'
+             'libpulse'
+             'libstdc++5'
+             'libvncserver'
+             'libvpx'
+             'libxcomposite'
+             'libxcursor'
+             'libxinerama'
+             'libxml2'
+             'libxmu'
+             'libxrandr'
+             'libxslt'
+             'libxtst'
+             'linux-headers'
+             'mesa'
+             'python2'
+             'qt4'
+             'sdl'
+             'sdl_ttf'
+             'vde2'
+             'xalan-c'
+             'xf86driproto'
+             'xorg-server-devel')
+makedepends_x86_64=('gcc-multilib' 'lib32-glibc')
+source=("http://download.virtualbox.org/virtualbox/$pkgver/VirtualBox-$pkgver.tar.bz2"
+        'virtualbox-guest-utils.sysusers'
+        '60-vboxdrv.rules'
+        '60-vboxguest.rules'
+        'LocalConfig.kmk'
+        'vboxservice.service'
+        'vboxservice-nox.service'
+        'vboxweb.service'
+        'vboxreload'
+        '001-vboxdrv-reference.patch'
+        '002-dri-driver-path.patch'
+        '003-ogl-include-path.patch'
+        '004-xorg.patch'
+        '005-gsoap-build.patch'
+        '006-rdesktop-vrdp-keymap-path.patch'
+        '007-python2-path.patch'
+        '008-linux-3.19.patch'
+        '009-xorg-1.17-ugly.patch')
+md5sums=('cf3f25644aa0fae1029e8b362bd4375e'
+         '4833c8e0524fd2272b24ba0d94aef006'
+         '6e2722bfd7013c1b0174382626ac1b8d'
+         'ed1341881437455d9735875ddf455fbe'
+         '864f268375a10f54c4daf46787e0fcf2'
+         '8ba9179c4a3516904417d773816dd992'
+         'fcf6bcef98b16849d5c9f048592739c0'
+         'bc9efed88e0469cd7fc460d5a5cd7b4b'
+         '177c0e849790a825480cb9fba785f11b'
+         '5ebaaf351419a58db6fdddbc19c58c5e'
+         '9be7e2703afeee1fca9368bd8750e710'
+         '1ca474b3c236bd1ffd53ec125cdf3680'
+         'a585770c6652f259c50958478b7ee735'
+         'ecfd13297d7753ebe7b8763ca5b792d9'
+         '7ea75b242e19440d622eb42a4d6c62c4'
+         '188ea65918309f737ce28216c2b07c3b'
+         'd8a6630dfc7fe9cd3282947ed0ccf55c'
+         '8ae131dea6e4e81e5de77156c9d04dce')
+
+prepare() {
+    cd "VirtualBox-$pkgver"
+
+    for _p in "$srcdir"/*.patch; do
+        [[ -e $_p ]] || continue
+        msg2 "Appy patch ${_p##*/}"
+        patch -Np1 -i "$_p"
+    done
+
+    msg2 'Applying local config'
+    cp "$srcdir/LocalConfig.kmk" .
+
+    msg2 'Use our CFLAGS'
+    echo "VBOX_GCC_OPT=$CXXFLAGS" >> LocalConfig.kmk
+
+    msg2 'Remove gcc version censorship'
+    sed -i 's/^check_gcc$/#check_gcc/' configure
+}
+
+build() {
+    cd "VirtualBox-$pkgver"
+
+    msg2 'Build virtualbox'
+    ./configure \
+        --disable-docs \
+        --enable-webservice \
+        --enable-vde \
+        --enable-vnc \
+        --disable-kmods \
+        --with-makeself=/usr/bin/echo
+    # fake makeself binary to compile without nofatal
+    # makeself is used by linux installer. we don't need it.
+    source ./env.sh
+    kmk
+
+    msg2 'Build rdesktop-vrdp'
+    pushd src/VBox/RDP/client >/dev/null
+    kmk
+    popd >/dev/null
+
+    msg2 'Build VNC extension pack'
+    pushd src/VBox/ExtPacks/VNC >/dev/null
+    kmk packing
+    popd >/dev/null
+}
+
+package_virtualbox() {
+    pkgdesc='Powerful x86 virtualization for enterprise as well as home use'
+    depends=('curl'
+             'libpng'
+             'libvpx'
+             'libxcomposite'
+             'libxcursor'
+             'libxinerama'
+             'libxml2'
+             'libxmu'
+             'procps-ng'
+             'sdl'
+             'shared-mime-info'
+             'virtualbox-host-modules')
+    optdepends=('qt4: VirtualBox GUI support'
+                'vde2: Virtual Distributed Ethernet support'
+                'virtualbox-guest-iso: Guest Additions CD image'
+                'virtualbox-ext-vnc: VNC server support'
+                'virtualbox-sdk: Developer kit'
+                'virtualbox-host-dkms: Build kernel modules with DKMS'
+                'net-tools: Host-only or bridged networking support')
+    backup=('etc/vbox/vbox.cfg')
+    replaces=('virtualbox-ose')
+    conflicts=('virtualbox-ose')
+    install=virtualbox.install
+
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+
+    # binaries
+    install -dm755 "$pkgdir/usr/bin"
+    install -m755 VBox.sh "$pkgdir/usr/bin/VBox"
+    for i in VBoxHeadless VBoxManage VBoxSDL VirtualBox vboxwebsrv VBoxBalloonCtrl; do
+        ln -sf VBox "$pkgdir/usr/bin/$i"
+        ln -sf VBox "$pkgdir/usr/bin/${i,,}"
+    done
+    install -m755 VBoxTunctl "$pkgdir/usr/bin"
+    install -m755 rdesktop-vrdp "$pkgdir/usr/bin"
+
+    # libraries
+    install -dm755 "$pkgdir/usr/lib/virtualbox"
+    install -m755 *.so "$pkgdir/usr/lib/virtualbox"
+    install -m644 *.gc *.r0  VBoxEFI*.fd "$pkgdir/usr/lib/virtualbox"
+    ## setuid root binaries
+    install -m4755 VBoxSDL VirtualBox VBoxHeadless VBoxNetDHCP VBoxNetAdpCtl VBoxNetNAT -t "$pkgdir/usr/lib/virtualbox"
+    ## other binaries
+    install -m755 VBoxManage VBoxSVC VBoxExtPackHelperApp VBoxXPCOMIPCD VBoxTestOGL VBoxBalloonCtrl vboxwebsrv webtest -t "$pkgdir/usr/lib/virtualbox"
+
+    # components
+    install -dm755 "$pkgdir/usr/lib/virtualbox/components"
+    install -m755 components/* -t "$pkgdir/usr/lib/virtualbox/components"
+
+    # extensions packs
+    ## as virtualbox install itself stuff in this directory, move it to /var and
+    ## trick it with a symlink
+    ## FIXME: trick is disabled for now
+    #install -dm755 "$pkgdir/var/lib/virtualbox/extensions"
+    #install -dm755 "$pkgdir/usr/share/virtualbox/extensions"
+    #ln -s ../../../var/lib/virtualbox/extensions "$pkgdir/usr/lib/virtualbox/ExtensionPacks"
+    install -dm755 "$pkgdir/usr/lib/virtualbox/ExtensionPacks"
+
+    # languages
+    install -dm755 "$pkgdir/usr/share/virtualbox/nls"
+    install -m755 nls/*.qm -t "$pkgdir/usr/share/virtualbox/nls"
+
+    # rdesktop keymaps
+    install -dm755 "$pkgdir/usr/share/virtualbox/rdesktop-vrdp-keymaps"
+    install -m644 rdesktop-vrdp-keymaps/* "$pkgdir/usr/share/virtualbox/rdesktop-vrdp-keymaps"
+
+    # useless scripts
+    install -m755 VBoxCreateUSBNode.sh VBoxSysInfo.sh -t "$pkgdir/usr/share/virtualbox"
+
+    # icons
+    install -Dm644 VBox.png "$pkgdir/usr/share/pixmaps/VBox.png"
+
+    pushd icons
+    for i in *; do
+        install -d "$pkgdir/usr/share/icons/hicolor/$i/mimetypes"
+        cp $i/* "$pkgdir/usr/share/icons/hicolor/$i/mimetypes"
+    done
+    popd
+
+    #desktop
+    install -Dm644 virtualbox.desktop "$pkgdir/usr/share/applications/virtualbox.desktop"
+    install -Dm644 virtualbox.xml "$pkgdir/usr/share/mime/packages/virtualbox.xml"
+
+    #install configuration
+    install -dm755 "$pkgdir/etc/vbox"
+    echo 'INSTALL_DIR=/usr/lib/virtualbox' > "$pkgdir/etc/vbox/vbox.cfg"
+
+    #licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+    # udev usb rules
+    install -Dm644 "$srcdir/60-vboxdrv.rules" \
+        "$pkgdir/usr/lib/udev/rules.d/60-vboxdrv.rules"
+
+    # install systemd service
+    install -Dm644 "$srcdir/vboxweb.service" \
+        "$pkgdir/usr/lib/systemd/system/vboxweb.service"
+
+    # install module reloading shortcut
+    install -Dm755 "$srcdir/vboxreload" "$pkgdir/usr/bin"
+}
+
+package_virtualbox-sdk() {
+    pkgdesc='VirtualBox Software Developer Kit (SDK)'
+    depends=('python2')
+
+    install -dm755 "$pkgdir/usr/lib/virtualbox"
+
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+
+    install -Dm755 vboxshell.py "$pkgdir/usr/lib/virtualbox/vboxshell.py"
+    # python sdk
+    pushd sdk/installer
+    VBOX_INSTALL_PATH="/usr/lib/virtualbox" python2 vboxapisetup.py install --root "$pkgdir"
+    popd
+    rm -rf sdk/installer
+    mv sdk "$pkgdir/usr/lib/virtualbox"
+    # licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_virtualbox-host-dkms() {
+    pkgdesc='VirtualBox Host kernel modules sources'
+    depends=('dkms' 'gcc' 'make')
+    provides=('virtualbox-host-modules')
+    replaces=('virtualbox-source' 'virtualbox-host-source')
+    conflicts=('virtualbox-source' 'virtualbox-host-source')
+    optdepends=('linux-headers'
+                'linux-lts-headers')
+    install=virtualbox-host-dkms.install
+
+    install -dm755 "$pkgdir/usr/src"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin"
+    cp -r src "$pkgdir/usr/src/vboxhost-$pkgver"
+    # licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_virtualbox-guest-dkms() {
+    pkgdesc='VirtualBox Guest kernel modules sources'
+    depends=('dkms' 'gcc' 'make')
+    provides=('virtualbox-guest-modules')
+    replaces=('virtualbox-archlinux-source' 'virtualbox-guest-source')
+    conflicts=('virtualbox-archlinux-source' 'virtualbox-guest-source')
+    optdepends=('linux-headers'
+                'linux-lts-headers')
+    install=virtualbox-guest-dkms.install
+
+    install -dm755 "$pkgdir/usr/src"
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    cp -r src "$pkgdir/usr/src/vboxguest-$pkgver"
+    # licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_virtualbox-guest-utils() {
+    pkgdesc='VirtualBox Guest userspace utilities'
+    depends=('virtualbox-guest-modules' 'gcc-libs' 'libxmu' 'xorg-xrandr' 'libxfixes'
+    'X-ABI-VIDEODRV_VERSION=19')
+    optdepends=('virtualbox-guest-dkms: Guest kernel source modules for non-stock kernels')
+    replaces=('virtualbox-archlinux-additions' 'virtualbox-guest-additions')
+    conflicts=('virtualbox-archlinux-additions' 'virtualbox-guest-additions' 'virtualbox-guest-utils-nox')
+    install=virtualbox-guest-utils.install
+
+    source "VirtualBox-$pkgver/env.sh"
+    pushd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    install -d "$pkgdir/usr/bin"
+    install -m755 VBoxClient VBoxControl VBoxService mount.vboxsf "$pkgdir/usr/bin"
+    install -m755 -D "$srcdir"/VirtualBox-$pkgver/src/VBox/Additions/x11/Installer/98vboxadd-xclient \
+        "$pkgdir"/usr/bin/VBoxClient-all
+    install -m755 -D "$srcdir"/VirtualBox-$pkgver/src/VBox/Additions/x11/Installer/vboxclient.desktop \
+        "$pkgdir"/etc/xdg/autostart/vboxclient.desktop
+    install -D vboxvideo_drv.so \
+        "$pkgdir/usr/lib/xorg/modules/drivers/vboxvideo.so"
+    install -d "$pkgdir/usr/lib/xorg/modules/dri"
+    install -m755 VBoxOGL*.so "$pkgdir/usr/lib"
+    ln -s /usr/lib/VBoxOGL.so "$pkgdir/usr/lib/xorg/modules/dri/vboxvideo_dri.so"
+    install -m755 -D pam_vbox.so "$pkgdir/usr/lib/security/pam_vbox.so"
+    popd
+    # systemd stuff
+    install -Dm644 60-vboxguest.rules "$pkgdir/usr/lib/udev/rules.d/60-vboxguest.rules"
+    install -Dm644 vboxservice.service "$pkgdir/usr/lib/systemd/system/vboxservice.service"
+    install -Dm644 virtualbox-guest-utils.sysusers "$pkgdir/usr/lib/sysusers.d/virtualbox-guest-utils.conf"
+    # licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_virtualbox-guest-utils-nox() {
+    pkgdesc='VirtualBox Guest userspace utilities without X support'
+    depends=('virtualbox-guest-modules' 'gcc-libs')
+    optdepends=('virtualbox-guest-dkms: Guest kernel source modules for non-stock kernels')
+    conflicts=('virtualbox-guest-utils')
+    install=virtualbox-guest-utils.install
+
+    source "VirtualBox-$pkgver/env.sh"
+    pushd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/bin/additions"
+    install -d "$pkgdir/usr/bin"
+    install -m755 VBoxControl VBoxService mount.vboxsf "$pkgdir/usr/bin"
+    install -m755 -D pam_vbox.so "$pkgdir/usr/lib/security/pam_vbox.so"
+    popd
+    # systemd stuff
+    install -Dm644 60-vboxguest.rules "$pkgdir/usr/lib/udev/rules.d/60-vboxguest.rules"
+    install -Dm644 vboxservice-nox.service "$pkgdir/usr/lib/systemd/system/vboxservice.service"
+    install -Dm644 virtualbox-guest-utils.sysusers "$pkgdir/usr/lib/sysusers.d/virtualbox-guest-utils.conf"
+    # licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_virtualbox-ext-vnc() {
+    pkgdesc='VirtualBox VNC extension pack'
+    depends=('virtualbox' 'libvncserver')
+    optdepends=('tigervnc: vnc client')
+    install=virtualbox-ext-vnc.install
+
+    source "VirtualBox-$pkgver/env.sh"
+    cd "VirtualBox-$pkgver/out/linux.$BUILD_PLATFORM_ARCH/release/packages"
+    install -Dm644 VNC-*.vbox-extpack "$pkgdir/usr/share/virtualbox/extensions/VNC-${pkgver}.vbox-extpack"
+    # licence
+    install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
+        "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+# vim:set ts=4 sw=4 et:
