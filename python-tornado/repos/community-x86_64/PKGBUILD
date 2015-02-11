@@ -3,14 +3,14 @@
 # Contributor: Thomas Dziedzic < gostrc at gmail >
 
 pkgname=('python-tornado' 'python2-tornado')
-pkgver=4.0.2
-pkgrel=2
+pkgver=4.1.0
+pkgrel=1
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('i686' 'x86_64')
 url='http://www.tornadoweb.org/'
 license=('Apache')
 makedepends=('python-setuptools' 'python2-setuptools' 'git')
-checkdepends=('python-pycurl' 'python2-pycurl' 'python-mock' 'python2-mock' 'python-twisted' 'python2-twisted')
+checkdepends=('python-pycurl' 'python2-pycurl' 'python-mock' 'python2-mock' 'python-twisted' 'python2-twisted' 'python2-futures' 'python2-singledispatch')
 source=("git+https://github.com/facebook/tornado.git#tag=v$pkgver"
         0001-use_system_ca_certificates.patch
         0002-get-rid-of-backports-ssl-match-hostname.patch)
@@ -39,16 +39,31 @@ build() {
 }
 
 check() {
-  cd tornado
-  python -m tornado.test.runtests || warning "Tests failed"
-  python -m tornado.test.runtests --ioloop=tornado.platform.asyncio.AsyncIOLoop || warning "Tests with AsyncIO failed"
-  python -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop || warning "Tests with SelectIO failed"
-  python -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop || warning "Tests with TwistedIO failed"
+  (
+    cd tornado
+    # TODO: exporting PYTHONPATH didn't fix the tornado.speedups not found problem...
+    export PYTHONPATH="$(pwd)/build/lib.linux-$CARCH-3.4:$PYTHONPATH"
+    python -m tornado.test.runtests
+    python -m tornado.test.runtests --httpclient=tornado.curl_httpclient.CurlAsyncHTTPClient
+    # python -m tornado.test.runtests --resolver=tornado.platform.caresresolver.CaresResolver  # pycares not in the repos
+    python -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
+    python -m tornado.test.runtests --ioloop=tornado.platform.asyncio.AsyncIOLoop
+    python -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop
+    python -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop
+    python -m tornado.test.runtests --ioloop=tornado.test.twisted_test.LayeredTwistedIOLoop --resolver=tornado.platform.twisted.TwistedResolver
+  ) || warning "Python 3 tests failed"
 
-  cd ../tornado-py2
-  python2 -m tornado.test.runtests || warning "Tests failed"
-  python2 -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop || warning "Tests with TwistedIO failed"
-  python2 -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop || warning "Tests with SelectIO failed"
+  (
+    cd tornado-py2
+    export PYTHONPATH="$(pwd)/build/lib.linux-$CARCH-2.7:$PYTHONPATH"
+    python2 -m tornado.test.runtests
+    python2 -m tornado.test.runtests --httpclient=tornado.curl_httpclient.CurlAsyncHTTPClient
+    # python2 -m tornado.test.runtests --resolver=tornado.platform.caresresolver.CaresResolver  # pycares not in the repos
+    python2 -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
+    python2 -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop
+    python2 -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop
+    python2 -m tornado.test.runtests --ioloop=tornado.test.twisted_test.LayeredTwistedIOLoop --resolver=tornado.platform.twisted.TwistedResolver
+  ) || warning "Python 2 tests failed"
 }
 
 package_python-tornado() {
