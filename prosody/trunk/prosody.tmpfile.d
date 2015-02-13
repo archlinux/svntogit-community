@@ -1,1 +1,1 @@
-d    /run/prosody 0755 412 412
+d /run/prosody 0755 prosody jabber -
