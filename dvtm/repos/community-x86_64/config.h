@@ -26,22 +26,18 @@ static Color colors[] = {
 #define SELECTED_ATTR   (COLOR(BLUE) | A_NORMAL)
 /* curses attributes for normal (not selected) windows */
 #define NORMAL_ATTR     (COLOR(DEFAULT) | A_NORMAL)
+/* curses attributes for a window with pending urgent flag */
+#define URGENT_ATTR     NORMAL_ATTR
 /* curses attributes for the status bar */
 #define BAR_ATTR        (COLOR(BLUE) | A_NORMAL)
 /* status bar (command line option -s) position */
 #define BAR_POS         BAR_TOP /* BAR_BOTTOM, BAR_OFF */
 /* whether status bar should be hidden if only one client exists */
 #define BAR_AUTOHIDE    true
-/* determines whether the statusbar text should be right or left aligned */
-#define BAR_ALIGN       ALIGN_RIGHT
-/* separator between window title and window number */
-#define SEPARATOR " | "
-/* printf format string for the window title, first %s
- * is replaced by the title, second %s is replaced by
- * the SEPARATOR, %d stands for the window number */
-#define TITLE "[%s%s#%d]"
 /* master width factor [0.1 .. 0.9] */
 #define MFACT 0.5
+/* number of clients in master area */
+#define NMASTER 1
 /* scroll back buffer size in lines */
 #define SCROLL_HISTORY 500
 /* printf format string for the tag in the status bar */
@@ -52,6 +48,8 @@ static Color colors[] = {
 #define TAG_NORMAL   (COLOR(DEFAULT) | A_NORMAL)
 /* curses attributes for not selected tags which contain windows */
 #define TAG_OCCUPIED (COLOR(BLUE) | A_NORMAL)
+/* curses attributes for not selected tags which with urgent windows */
+#define TAG_URGENT (COLOR(BLUE) | A_NORMAL | A_BLINK)
 
 const char tags[][8] = { "1", "2", "3", "4", "5" };
 
@@ -76,20 +74,24 @@ static KeyBinding bindings[] = {
 	{ { MOD, 'C',          }, { create,         { NULL, NULL, "$CWD" }      } },
 	{ { MOD, 'x',          }, { killclient,     { NULL }                    } },
 	{ { MOD, 'j',          }, { focusnext,      { NULL }                    } },
-	{ { MOD, 'u',          }, { focusnextnm,    { NULL }                    } },
-	{ { MOD, 'i',          }, { focusprevnm,    { NULL }                    } },
+	{ { MOD, 'J',          }, { focusnextnm,    { NULL }                    } },
+	{ { MOD, 'K',          }, { focusprevnm,    { NULL }                    } },
 	{ { MOD, 'k',          }, { focusprev,      { NULL }                    } },
-	{ { MOD, 'd',          }, { setlayout,      { "[]=" }                   } },
+	{ { MOD, 'f',          }, { setlayout,      { "[]=" }                   } },
 	{ { MOD, 'g',          }, { setlayout,      { "+++" }                   } },
 	{ { MOD, 'b',          }, { setlayout,      { "TTT" }                   } },
 	{ { MOD, 'm',          }, { setlayout,      { "[ ]" }                   } },
 	{ { MOD, ' ',          }, { setlayout,      { NULL }                    } },
+	{ { MOD, 'i',          }, { incnmaster,     { "+1" }                    } },
+	{ { MOD, 'd',          }, { incnmaster,     { "-1" }                    } },
 	{ { MOD, 'h',          }, { setmfact,       { "-0.05" }                 } },
 	{ { MOD, 'l',          }, { setmfact,       { "+0.05" }                 } },
 	{ { MOD, '.',          }, { toggleminimize, { NULL }                    } },
 	{ { MOD, 's',          }, { togglebar,      { NULL }                    } },
+	{ { MOD, 'S',          }, { togglebarpos,   { NULL }                    } },
 	{ { MOD, 'M',          }, { togglemouse,    { NULL }                    } },
 	{ { MOD, '\n',         }, { zoom ,          { NULL }                    } },
+	{ { MOD, '\r',         }, { zoom ,          { NULL }                    } },
 	{ { MOD, '1',          }, { focusn,         { "1" }                     } },
 	{ { MOD, '2',          }, { focusn,         { "2" }                     } },
 	{ { MOD, '3',          }, { focusn,         { "3" }                     } },
@@ -104,7 +106,6 @@ static KeyBinding bindings[] = {
 	{ { MOD, 'a',          }, { togglerunall,   { NULL }                    } },
 	{ { MOD, CTRL('L'),    }, { redraw,         { NULL }                    } },
 	{ { MOD, 'r',          }, { redraw,         { NULL }                    } },
-	{ { MOD, 'B',          }, { togglebell,     { NULL }                    } },
 	{ { MOD, 'e',          }, { copymode,       { NULL }                    } },
 	{ { MOD, '/',          }, { copymode,       { "/" }                     } },
 	{ { MOD, 'p',          }, { paste,          { NULL }                    } },
@@ -120,6 +121,7 @@ static KeyBinding bindings[] = {
 	{ { MOD, KEY_F(3),     }, { view,           { tags[2] }                 } },
 	{ { MOD, KEY_F(4),     }, { view,           { tags[3] }                 } },
 	{ { MOD, KEY_F(5),     }, { view,           { tags[4] }                 } },
+	{ { MOD, 'v', '0'      }, { view,           { NULL }                    } },
 	{ { MOD, 'v', '1'      }, { view,           { tags[0] }                 } },
 	{ { MOD, 'v', '2'      }, { view,           { tags[1] }                 } },
 	{ { MOD, 'v', '3'      }, { view,           { tags[2] }                 } },
