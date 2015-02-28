@@ -1,0 +1,77 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Rémy Oudompheng <oudomphe@clipper.ens.fr>
+
+pkgname=singular
+pkgver=3.1.7.p1
+_majver=3-1-7
+pkgrel=4
+pkgdesc="Computer Algebra System for polynomial computations"
+arch=(i686 x86_64)
+url="http://www.singular.uni-kl.de/"
+license=(GPL)
+depends=(flint cddlib) # polymake
+source=("http://www.mathematik.uni-kl.de/ftp/pub/Math/Singular/src/$_majver/Singular-${_majver}p1.tar.gz" 
+"http://www.mathematik.uni-kl.de/ftp/pub/Math/Singular/src/$_majver/Singular-${_majver}-share.tar.gz" 'templates.patch' 'ntl8.patch')
+md5sums=('ce369519d1c5d07342722e78240ea044'
+         'b9177c00e95ee21b137984bade9fc481'
+         'a267423f3b25f0b91853f9cf607974a7'
+         '38ff8896595626d657fd386ea9408419')
+
+prepare() {
+  cd Singular-$_majver
+  patch -p1 -i ../templates.patch
+# fix build against NTL 8
+  patch -p1 -i ../ntl8.patch
+# fix flint detection
+  sed -e 's|-lmpir|-lgmp|' -i factory/configure -i Singular/configure
+}
+
+build() {
+  cd Singular-$_majver
+
+  export CPP=/usr/bin/cpp
+  export CXXCPP=/usr/bin/cpp
+  export CFLAGS="-fPIC"
+  export CXXFLAGS="-fPIC"
+
+# force using system ntl
+  rm -r ntl
+
+  mkdir -p build
+
+  ./configure --prefix=$PWD/build/usr/lib/Singular \
+     --bindir=$PWD/build/usr/lib/Singular --libdir=$PWD/build/usr/lib/Singular --includedir=$PWD/build/usr/include \
+     --with-apint=gmp --with-gmp=/usr --with-malloc=system --with-ntl=/usr --with-flint=/usr --disable-doc --with-NTL --without-MP --without-lex \
+     --enable-Singular --enable-factory --enable-libfac --enable-IntegerProgramming --enable-gfanlib
+  make install
+
+  export CFLAGS="$CFLAGS -DPIC -DLIBSINGULAR"
+  export CXXFLAGS="$CXXFLAGS -DPIC -DLIBSINGULAR"
+
+  ./configure --prefix=$PWD/build/usr/lib/Singular \
+     --bindir=$PWD/build/usr/lib/Singular --libdir=$PWD/build/usr/lib/Singular --includedir=$PWD/build/usr/include \
+     --with-apint=gmp --with-gmp=/usr --with-malloc=system --with-ntl=/usr --with-flint=/usr --disable-doc --with-NTL --without-MP \
+     --enable-Singular --enable-factory --enable-libfac --enable-IntegerProgramming
+  make clean
+  make install-libsingular
+
+# needed by Sage, not installed by default
+  cp Singular/sing_dbm.h build/usr/include/singular/
+}
+
+package() {
+  cd Singular-$_majver
+
+  cp -r build/* "$pkgdir"/ 
+
+  mkdir -p "$pkgdir"/usr/bin
+  ln -sf /usr/lib/Singular/Singular-$_majver "$pkgdir"/usr/lib/Singular/Singular
+  ln -s /usr/lib/Singular/Singular "$pkgdir"/usr/bin/
+  ln -s /usr/lib/Singular/libsingular.so "$pkgdir"/usr/lib/
+
+# Install docs
+  mkdir -p "$pkgdir"/usr/share/singular
+  install -m644 "$srcdir"/Singular/$_majver/info/singular.hlp "$pkgdir"/usr/share/singular/
+  install -m644 "$srcdir"/Singular/$_majver/doc/singular.idx "$pkgdir"/usr/share/singular/
+}
