@@ -6,52 +6,47 @@
 # Contributor: Alec Thomas
 
 pkgname=mongodb
-pkgver=2.6.8
+pkgver=3.0.0
 pkgrel=1
 pkgdesc='A high-performance, open source, schema-free document-oriented database'
 arch=('i686' 'x86_64')
 url='http://www.mongodb.org'
 license=('AGPL3')
-depends=('pcre' 'snappy' 'openssl' 'gperftools' 'libsasl' 'boost-libs') # 'libyaml' 'yaml-cpp' 'v8')
+depends=('pcre' 'snappy' 'openssl' 'libsasl' 'boost-libs') # 'libyaml' 'yaml-cpp' 'v8' 'gperftools')
 makedepends=('scons' 'readline' 'ncurses' 'libpcap' 'boost' 'clang')
 checkdepends=('python2-pymongo')
-optdepends=('libpcap: needed for mongosniff')
+optdepends=('libpcap: needed for mongosniff'
+            'mongodb-tools: mongoimport, mongodump, mongotop, etc')
 backup=('etc/mongodb.conf')
 install=mongodb.install
 source=("http://downloads.mongodb.org/src/mongodb-src-r${pkgver}.tar.gz"
         'mongodb.conf' 'mongodb.service')
-sha512sums=('6fa69750debb40d0be4d5d057125320d97e882e30c43c664fcb6ec6a9e6a8bff5e63637fc8952a6d898556b2c2ce84254d135387dc0879bf65dbd5e91b8732ef'
+sha512sums=('e9a50066754500d53b2e825bc9c4e7ccb692ce45a852b1ff52ba6cd2bbcbd826efea4c1018c68821bb4070a01335db0e19fd35f09f1eee6ba89d52bb96c228a7'
             '05dead727d3ea5fe8af1a3c3888693f6b3e2b8cb7f197a5d793352e10d2c524e96c9a5c55ad2e88c1114643a9612ec0b26a2574b48a5260a9b51ec8941461f1c'
             '177251404b2e818ae2b546fe8b13cb76e348c99e85c7bef22a04b0f07b600fd515a309ede50214f4198594388a6d2b31f46e945b9dae84aabb4dfa13b1123bb9')
 
-prepare() {
-  cd mongodb-src-r${pkgver}
-
-  # Add missing include required for std::swap()
-  # https://github.com/mongodb/mongo/commit/2d5d662
-  if grep -q '#include <algorithm>' src/mongo/shell/linenoise_utf8.h; then
-    error '<algorithm> include has been fixed upstream; remove this local fix.'
-    return 1
-  fi
-  sed -i '1i #include <algorithm>' src/mongo/shell/linenoise_utf8.h
-}
+_scons_args=(
+  --use-system-pcre
+  --use-system-snappy
+  --use-sasl-client
+  --use-system-boost
+  --variant-dir=build
+  --ssl
+  --disable-warnings-as-errors
+  --cc=clang --cxx=clang++
+  LIBS=atomic
+)
+# --use-system-v8 (Doesn't compile)
+# --use-system-yaml (Doesn't compile)
+# --use-system-tcmalloc (Disabled as upstream suggests in https://jira.mongodb.org/browse/SERVER-17447?focusedCommentId=841890&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-841890)
+# LIBS=atomic is a workaround for https://jira.mongodb.org/browse/SERVER-17447
 
 build() {
   export SCONSFLAGS="$MAKEFLAGS"
 
   cd mongodb-src-r${pkgver}
 
-  scons all \
-    --use-system-pcre \
-    --use-system-snappy \
-    --use-system-tcmalloc \
-    --use-sasl-client \
-    --use-system-boost \
-    --ssl \
-    --disable-warnings-as-errors \
-    --cc=clang --cxx=clang++
-    # --use-system-v8 \
-    # --use-system-yaml \
+  scons all "${_scons_args[@]}"
 }
 
 check() {
@@ -60,16 +55,7 @@ check() {
 
   cd mongodb-src-r${pkgver}
 
-  scons smokeAll \
-    --use-system-pcre \
-    --use-system-snappy \
-    --use-system-tcmalloc \
-    --use-sasl-client \
-    --use-system-boost \
-    --ssl \
-    --disable-warnings-as-errors \
-    --cc=clang --cxx=clang++ \
-    --smokedbprefix="$srcdir" || warning "Tests failed"
+  scons smoke smokeCppUnittests smokeJsCore --smokedbprefix="$srcdir" "${_scons_args[@]}" || warning "Tests failed"
 }
 
 package() {
@@ -77,16 +63,7 @@ package() {
 
   cd mongodb-src-r${pkgver}
 
-  scons install \
-    --use-system-pcre \
-    --use-system-snappy \
-    --use-system-tcmalloc \
-    --use-sasl-client \
-    --use-system-boost \
-    --ssl \
-    --disable-warnings-as-errors \
-    --prefix="$pkgdir/usr" \
-    --cc=clang --cxx=clang++
+  scons install --prefix="$pkgdir/usr" "${_scons_args[@]}"
 
   install -Dm644 "$srcdir/mongodb.conf" "$pkgdir/etc/mongodb.conf"
   install -Dm644 "$srcdir/mongodb.service" "$pkgdir/usr/lib/systemd/system/mongodb.service"
