@@ -13,7 +13,10 @@ usage() {
 update() {
   url="https://www.archlinux.org/packages/$1/x86_64/$2/"
   curkernel=$(wget -qO- "$url"|sed -nr "s/.*<h2>$2 ([0-9]+)\.([0-9]+).*<\/h2>.*/\1.\2/p")
-  nextkernel=${curkernel%.*}.$(( ${curkernel#*.}+1))
+  case $curkernel in
+    3.19) nextkernel="4.0";;
+    *) nextkernel=${curkernel%.*}.$((${curkernel#*.}+1));;
+  esac
 
   echo "** Current kernel: $curkernel"
   echo "** Next kernel: $nextkernel"
