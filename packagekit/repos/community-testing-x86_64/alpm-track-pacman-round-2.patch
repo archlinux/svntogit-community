@@ -1,0 +1,296 @@
+diff --git a/backends/alpm/pk-alpm-config.c b/backends/alpm/pk-alpm-config.c
+index 54e0e7f..4584f36 100644
+--- a/backends/alpm/pk-alpm-config.c
++++ b/backends/alpm/pk-alpm-config.c
+@@ -796,7 +796,7 @@ pk_alpm_siglevel_cross (alpm_siglevel_t base, const alpm_list_t *list, GError **
+ }
+ 
+ static gboolean
+-pk_alpm_config_configure_repos (PkAlpmConfig *config,
++pk_alpm_config_configure_repos (PkBackend *backend, PkAlpmConfig *config,
+ 				   alpm_handle_t *handle, GError **error)
+ {
+ 	alpm_siglevel_t base, local, remote;
+@@ -834,7 +834,7 @@ pk_alpm_config_configure_repos (PkAlpmConfig *config,
+ 		level = pk_alpm_siglevel_parse (base, repo->siglevels, error);
+ 		if (level == ALPM_SIG_USE_DEFAULT)
+ 			return FALSE;
+-		pk_alpm_add_database (repo->name, repo->servers, level);
++		pk_alpm_add_database (backend, repo->name, repo->servers, level);
+ 	}
+ 
+ 	return TRUE;
+@@ -936,7 +936,7 @@ out:
+ }
+ 
+ static alpm_handle_t *
+-pk_alpm_config_configure_alpm (PkAlpmConfig *config, GError **error)
++pk_alpm_config_configure_alpm (PkBackend *backend, PkAlpmConfig *config, GError **error)
+ {
+ 	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (config->backend);
+ 	alpm_handle_t *handle;
+@@ -984,7 +984,7 @@ pk_alpm_config_configure_alpm (PkAlpmConfig *config, GError **error)
+ 	alpm_option_set_noupgrades (handle, config->noupgrades);
+ 	config->noupgrades = NULL;
+ 
+-	pk_alpm_config_configure_repos (config, handle, error);
++	pk_alpm_config_configure_repos (backend, config, handle, error);
+ 
+ 	return handle;
+ }
+@@ -1003,7 +1003,7 @@ pk_alpm_configure (PkBackend *backend, const gchar *filename, GError **error)
+ 	pk_alpm_config_enter_section (config, "options");
+ 
+ 	if (pk_alpm_config_parse (config, filename, NULL, &e))
+-		handle = pk_alpm_config_configure_alpm (config, &e);
++		handle = pk_alpm_config_configure_alpm (backend, config, &e);
+ 
+ 	pk_alpm_config_free (config);
+ 	if (e != NULL) {
+diff --git a/backends/alpm/pk-alpm-databases.c b/backends/alpm/pk-alpm-databases.c
+index aef3cb8..e41bc0a 100644
+--- a/backends/alpm/pk-alpm-databases.c
++++ b/backends/alpm/pk-alpm-databases.c
+@@ -33,9 +33,6 @@ typedef struct
+ 	alpm_siglevel_t level;
+ } PkBackendRepo;
+ 
+-static GHashTable *disabled = NULL;
+-static alpm_list_t *configured = NULL;
+-
+ static GHashTable *
+ pk_alpm_disabled_repos_new (GError **error)
+ {
+@@ -126,7 +123,7 @@ pk_alpm_disabled_repos_configure (PkBackend *backend, GHashTable *table, gboolea
+ 		return FALSE;
+ 	}
+ 
+-	for (i = configured; i != NULL; i = i->next) {
++	for (i = priv->configured_repos; i != NULL; i = i->next) {
+ 		PkBackendRepo *repo = (PkBackendRepo *) i->data;
+ 		alpm_siglevel_t level = repo->level;
+ 		alpm_db_t *db;
+@@ -155,9 +152,10 @@ pk_alpm_disabled_repos_configure (PkBackend *backend, GHashTable *table, gboolea
+ }
+ 
+ void
+-pk_alpm_add_database (const gchar *name, alpm_list_t *servers,
++pk_alpm_add_database (PkBackend *backend, const gchar *name, alpm_list_t *servers,
+ 			 alpm_siglevel_t level)
+ {
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
+ 	PkBackendRepo *repo = g_new (PkBackendRepo, 1);
+ 
+ 	g_return_if_fail (name != NULL);
+@@ -166,29 +164,32 @@ pk_alpm_add_database (const gchar *name, alpm_list_t *servers,
+ 	repo->servers = alpm_list_strdup (servers);
+ 	repo->level = level;
+ 
+-	configured = alpm_list_add (configured, repo);
++	priv->configured_repos = alpm_list_add (priv->configured_repos, repo);
+ }
+ 
+ gboolean
+ pk_alpm_disable_signatures (PkBackend *backend, GError **error)
+ {
+-	return pk_alpm_disabled_repos_configure (backend, disabled, FALSE, error);
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
++	return pk_alpm_disabled_repos_configure (backend, priv->disabled_repos, FALSE, error);
+ }
+ 
+ gboolean
+ pk_alpm_enable_signatures (PkBackend *backend, GError **error)
+ {
+-	return pk_alpm_disabled_repos_configure (backend, disabled, TRUE, error);
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
++	return pk_alpm_disabled_repos_configure (backend, priv->disabled_repos, TRUE, error);
+ }
+ 
+ gboolean
+ pk_alpm_initialize_databases (PkBackend *backend, GError **error)
+ {
+-	disabled = pk_alpm_disabled_repos_new (error);
+-	if (disabled == NULL)
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
++	priv->disabled_repos = pk_alpm_disabled_repos_new (error);
++	if (priv->disabled_repos == NULL)
+ 		return FALSE;
+ 
+-	if (!pk_alpm_disabled_repos_configure (backend, disabled, TRUE, error))
++	if (!pk_alpm_disabled_repos_configure (backend, priv->disabled_repos, TRUE, error))
+ 		return FALSE;
+ 
+ 	return TRUE;
+@@ -197,18 +198,19 @@ pk_alpm_initialize_databases (PkBackend *backend, GError **error)
+ void
+ pk_alpm_destroy_databases (PkBackend *backend)
+ {
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
+ 	alpm_list_t *i;
+ 
+-	if (disabled != NULL)
+-		pk_alpm_disabled_repos_free (disabled);
++	if (priv->disabled_repos != NULL)
++		pk_alpm_disabled_repos_free (priv->disabled_repos);
+ 
+-	for (i = configured; i != NULL; i = i->next) {
++	for (i = priv->configured_repos; i != NULL; i = i->next) {
+ 		PkBackendRepo *repo = (PkBackendRepo *) i->data;
+ 		g_free (repo->name);
+ 		FREELIST (repo->servers);
+ 		g_free (repo);
+ 	}
+-	alpm_list_free (configured);
++	alpm_list_free (priv->configured_repos);
+ }
+ 
+ static gboolean
+@@ -229,7 +231,7 @@ pk_backend_get_repo_list_thread (PkBackendJob *job, GVariant *params, gpointer d
+ 	GHashTableIter iter;
+ 	gpointer key, value;
+ 
+-	g_return_if_fail (disabled != NULL);
++	g_return_if_fail (priv->disabled_repos != NULL);
+ 
+ 	/* emit enabled repos */
+ 	for (i = alpm_get_syncdbs (priv->alpm); i != NULL; i = i->next) {
+@@ -241,7 +243,7 @@ pk_backend_get_repo_list_thread (PkBackendJob *job, GVariant *params, gpointer d
+ 	}
+ 
+ 	/* emit disabled repos */
+-	g_hash_table_iter_init (&iter, disabled);
++	g_hash_table_iter_init (&iter, priv->disabled_repos);
+ 	while (g_hash_table_iter_next (&iter, &key, &value)) {
+ 		const gchar *repo = (const gchar *) key;
+ 		if (pk_backend_job_is_cancelled (job))
+@@ -264,15 +266,16 @@ pk_backend_repo_enable_thread (PkBackendJob *job, GVariant *params, gpointer dat
+ 	const gchar *repo;
+ 	gboolean enabled;
+ 	PkBackend *backend = pk_backend_job_get_backend (job);
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
+ 	_cleanup_error_free_ GError *error = NULL;
+ 
+-	g_return_if_fail (disabled != NULL);
++	g_return_if_fail (priv->disabled_repos != NULL);
+ 
+ 	g_variant_get (params, "(&sb)", &repo, &enabled);
+ 
+-	if (g_hash_table_remove (disabled, repo)) {
++	if (g_hash_table_remove (priv->disabled_repos, repo)) {
+ 		/* reload configuration to preserve ordering */
+-		if (pk_alpm_disabled_repos_configure (backend, disabled, TRUE, &error)) {
++		if (pk_alpm_disabled_repos_configure (backend, priv->disabled_repos, TRUE, &error)) {
+ 			pk_backend_repo_list_changed (backend);
+ 		}
+ 	} else {
+@@ -311,7 +314,7 @@ pk_backend_repo_disable_thread (PkBackendJob *job, GVariant *params, gpointer da
+ 					     "[%s]: %s", repo,
+ 					     alpm_strerror (errno));
+ 			} else {
+-				g_hash_table_insert (disabled, g_strdup (repo),
++				g_hash_table_insert (priv->disabled_repos, g_strdup (repo),
+ 						     GINT_TO_POINTER (1));
+ 			}
+ 			break;
+diff --git a/backends/alpm/pk-alpm-databases.h b/backends/alpm/pk-alpm-databases.h
+index c3a9c3b..9b13a68 100644
+--- a/backends/alpm/pk-alpm-databases.h
++++ b/backends/alpm/pk-alpm-databases.h
+@@ -24,7 +24,8 @@
+ #include <alpm.h>
+ #include <pk-backend.h>
+ 
+-void		 pk_alpm_add_database			(const gchar *name,
++void		 pk_alpm_add_database			(PkBackend *backend,
++					                 const gchar *name,
+ 							 alpm_list_t *servers,
+ 							 alpm_siglevel_t level);
+ 
+diff --git a/backends/alpm/pk-backend-alpm.c b/backends/alpm/pk-backend-alpm.c
+index 8e2efc8..c1bff1a 100644
+--- a/backends/alpm/pk-backend-alpm.c
++++ b/backends/alpm/pk-backend-alpm.c
+@@ -103,7 +103,10 @@ pk_alpm_initialize (PkBackend *backend, GError **error)
+ static void
+ pk_backend_context_invalidate_cb (GFileMonitor *monitor, GFile *file, GFile *other_file, GFileMonitorEvent event_type, PkBackend *backend)
+ {
+-	pk_backend_installed_db_changed (backend);
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
++	if (!pk_backend_is_transaction_inhibited (backend)) {
++		priv->localdb_changed = TRUE;
++	}
+ }
+ 
+ static void
+@@ -152,6 +155,8 @@ pk_backend_initialize (GKeyFile *conf, PkBackend *backend)
+ 
+ 	if (!pk_alpm_initialize_monitor (backend, &error))
+ 		g_error ("Failed to initialize monitor: %s", error->message);
++
++	priv->localdb_changed = FALSE;
+ }
+ 
+ void
+@@ -193,8 +198,16 @@ pk_backend_get_mime_types (PkBackend *backend)
+ void
+ pk_alpm_run (PkBackendJob *job, PkStatusEnum status, PkBackendJobThreadFunc func, gpointer data)
+ {
++	PkBackend *backend = pk_backend_job_get_backend (job);
++	PkBackendAlpmPrivate *priv = pk_backend_get_user_data (backend);
+ 	g_return_if_fail (func != NULL);
+ 
++	if (priv->localdb_changed) {
++		pk_backend_destroy (backend);
++		pk_backend_initialize (NULL, backend);
++		pk_backend_installed_db_changed (backend);
++	}
++
+ 	pk_backend_job_set_allow_cancel (job, TRUE);
+ 	pk_backend_job_set_status (job, status);
+ 	pk_backend_job_thread_create (job, func, data, NULL);
+diff --git a/backends/alpm/pk-backend-alpm.h b/backends/alpm/pk-backend-alpm.h
+index 7ba70ac..fc082fa 100644
+--- a/backends/alpm/pk-backend-alpm.h
++++ b/backends/alpm/pk-backend-alpm.h
+@@ -48,6 +48,9 @@ typedef struct {
+ 	alpm_list_t	*holdpkgs;
+ 	alpm_handle_t	*alpm;
+ 	GFileMonitor    *monitor;
++	GHashTable      *disabled_repos; /* list of disabled repos */
++	alpm_list_t     *configured_repos; /* list of configured repos */
++	gboolean	localdb_changed;
+ } PkBackendAlpmPrivate;
+ 
+ void		 pk_alpm_run		(PkBackendJob *job, PkStatusEnum status,
+diff --git a/src/pk-backend.c b/src/pk-backend.c
+index a92503b..cada3c4 100644
+--- a/src/pk-backend.c
++++ b/src/pk-backend.c
+@@ -809,6 +809,15 @@ pk_backend_transaction_inhibit_end (PkBackend *backend)
+ }
+ 
+ /**
++ * pk_backend_is_transaction_inhibited:
++ **/
++gboolean
++pk_backend_is_transaction_inhibited (PkBackend *backend)
++{
++	return backend->priv->transaction_in_progress;
++}
++
++/**
+  * pk_backend_start_job:
+  *
+  * This is called just before the threaded transaction method, and in
+diff --git a/src/pk-backend.h b/src/pk-backend.h
+index e1d1515..373760d 100644
+--- a/src/pk-backend.h
++++ b/src/pk-backend.h
+@@ -90,6 +90,7 @@ gboolean	 pk_backend_updates_changed_delay	(PkBackend	*backend,
+ 
+ void		 pk_backend_transaction_inhibit_start	(PkBackend      *backend);
+ void		 pk_backend_transaction_inhibit_end	(PkBackend      *backend);
++gboolean	 pk_backend_is_transaction_inhibited    (PkBackend      *backend);
+ const gchar	*pk_backend_bool_to_string		(gboolean	 value);
+ gboolean	 pk_backend_is_online			(PkBackend	*backend);
+ gchar		*pk_backend_convert_uri			(const gchar	*proxy);
