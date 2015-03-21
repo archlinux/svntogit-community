@@ -1,7 +1,7 @@
 # $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
-pkgver=6.5.19
+pkgver=7.0.28
 pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
@@ -13,15 +13,15 @@ provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
 options=(!strip staticlibs)
 install=cuda.install
-source=(http://developer.download.nvidia.com/compute/cuda/6_5/rel/installers/cuda_${pkgver}_linux_64.run
+source=(http://developer.download.nvidia.com/compute/cuda/7_0/Prod/local_installers/cuda_${pkgver}_linux.run
         cuda.sh
         cuda.conf)
-md5sums=('74014042f92d3eade43af0da5f65935e'
+md5sums=('312aede1c3d1d3425c8caa67bbb7a55e'
          '7e5990e03eea90075f5a500e91a0c3d3'
          'ffe1e6fb7f97b23da28fd94a5fd7356d')
 
 prepare() {
-  sh cuda_${pkgver}_linux_64.run -extract=${srcdir}
+  sh cuda_${pkgver}_linux.run -extract=${srcdir}
   ./cuda-linux64-rel-*.run --noexec --keep
   ./cuda-samples-linux-*.run --noexec --keep
 
@@ -48,7 +48,7 @@ package() {
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
 
   # allow gcc 4.9 to work
-  sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
+  #sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
 
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
   install -Dm644 "${srcdir}/cuda.conf" "${pkgdir}/etc/ld.so.conf.d/cuda.conf"
