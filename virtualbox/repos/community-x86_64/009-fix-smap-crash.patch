@@ -1,0 +1,107 @@
+# https://www.virtualbox.org/ticket/13961
+
+--- a/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c	2015-03-20 15:24:13.000000000 +0100
++++ b/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c	2015-03-20 15:23:51.000000000 +0100
+@@ -48,12 +48,6 @@
+ # include <iprt/power.h>
+ # define VBOX_WITH_SUSPEND_NOTIFICATION
+ #endif
+-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
+-# include <asm/smap.h>
+-#else
+-static inline void clac(void) { }
+-static inline void stac(void) { }
+-#endif
+ 
+ #include <linux/sched.h>
+ #ifdef CONFIG_DEVFS_FS
+--- a/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h	2015-03-20 15:24:13.000000000 +0100
++++ b/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h	2015-03-20 15:23:52.000000000 +0100
+@@ -145,6 +145,13 @@
+ # include <asm/tlbflush.h>
+ #endif
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
++# include <asm/smap.h>
++#else
++static inline void clac(void) { }
++static inline void stac(void) { }
++#endif
++
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 0)
+ # ifndef page_to_pfn
+ #  define page_to_pfn(page) ((page) - mem_map)
+--- a/src/VBox/Runtime/r0drv/linux/threadctxhooks-r0drv-linux.c	2015-03-20 15:24:13.000000000 +0100
++++ b/src/VBox/Runtime/r0drv/linux/threadctxhooks-r0drv-linux.c	2015-03-20 15:23:52.000000000 +0100
+@@ -36,6 +36,9 @@
+ #include <iprt/thread.h>
+ #include <iprt/err.h>
+ #include <iprt/asm.h>
++#if defined(RT_ARCH_AMD64) || defined(RT_ARCH_X86)
++# include <iprt/asm-amd64-x86.h>
++#endif
+ #include "internal/thread.h"
+ 
+ /*
+@@ -68,6 +71,11 @@
+     struct preempt_ops          hPreemptOps;
+     /** The reference count for this object. */
+     uint32_t volatile           cRefs;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 19) && defined(RT_ARCH_AMD64)
++    /** Starting with 3.1.19, the linux kernel doesn't restore kernel RFLAGS during
++     * task switch, so we have to do that ourselves. (x86 code is not affected.) */
++    RTCCUINTREG                 fSavedRFlags;
++#endif
+ } RTTHREADCTXINT, *PRTTHREADCTXINT;
+ 
+ 
+@@ -84,12 +92,24 @@
+ static void rtThreadCtxHooksLnxSchedOut(struct preempt_notifier *pPreemptNotifier, struct task_struct *pNext)
+ {
+     PRTTHREADCTXINT pThis = RT_FROM_MEMBER(pPreemptNotifier, RTTHREADCTXINT, hPreemptNotifier);
++#if defined(RT_ARCH_AMD64) || defined(RT_ARCH_X86)
++    RTCCUINTREG fSavedEFlags = ASMGetFlags();
++    stac();
++#endif
++
+     AssertPtr(pThis);
+     AssertPtr(pThis->pfnThreadCtxHook);
+     Assert(pThis->fRegistered);
+     Assert(!RTThreadPreemptIsEnabled(NIL_RTTHREAD));
+ 
+     pThis->pfnThreadCtxHook(RTTHREADCTXEVENT_PREEMPTING, pThis->pvUser);
++
++#if defined(RT_ARCH_AMD64) || defined(RT_ARCH_X86)
++    ASMSetFlags(fSavedEFlags);
++# if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 19) && defined(RT_ARCH_AMD64)
++    pThis->fSavedRFlags = fSavedEFlags;
++# endif
++#endif
+ }
+ 
+ 
+@@ -105,11 +125,24 @@
+ static void rtThreadCtxHooksLnxSchedIn(struct preempt_notifier *pPreemptNotifier, int iCpu)
+ {
+     PRTTHREADCTXINT pThis = RT_FROM_MEMBER(pPreemptNotifier, RTTHREADCTXINT, hPreemptNotifier);
++#if defined(RT_ARCH_AMD64) || defined(RT_ARCH_X86)
++    RTCCUINTREG fSavedEFlags = ASMGetFlags();
++    stac();
++#endif
++
+     AssertPtr(pThis);
+     AssertPtr(pThis->pfnThreadCtxHook);
+     Assert(pThis->fRegistered);
+ 
+     pThis->pfnThreadCtxHook(RTTHREADCTXEVENT_RESUMED, pThis->pvUser);
++
++#if defined(RT_ARCH_AMD64) || defined(RT_ARCH_X86)
++# if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 1, 19) && defined(RT_ARCH_AMD64)
++    fSavedEFlags &= ~RT_BIT_64(18) /*X86_EFL_AC*/;
++    fSavedEFlags |= pThis->fSavedRFlags & RT_BIT_64(18) /*X86_EFL_AC*/;
++# endif
++    ASMSetFlags(fSavedEFlags);
++#endif
+ }
+ 
+ 
