@@ -1,0 +1,79 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+
+pkgbase=sagemath-doc
+pkgname=(sagemath-doc sagemath-src)
+pkgver=6.6
+pkgrel=1
+arch=(any)
+url="http://www.sagemath.org"
+license=(GPL)
+makedepends=(sagemath sage-notebook python2-sphinx)
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz" 'package.patch' 'paths.patch' 'fes02.patch')
+md5sums=('91eefd257f535ed2af337eeffab4c9bd'
+         '0eb5ac1537aac93bd67a2925c0cfd84d'
+         'acc25f13728517badafa70d220ab7b8e'
+         '506944613082ba7f5b34360939ca90eb')
+
+prepare() {
+  cd sage-$pkgver
+
+# Arch-specific patches
+# assume all optional packages are installed
+  patch -p0 -i "$srcdir"/package.patch
+# fix paths in python imports
+  patch -p0 -i "$srcdir"/paths.patch
+# fix cython linking
+  sed -e "s| atlas(),||" -i src/sage/misc/cython.py
+# supress warning about GAP install dir
+  sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
+# use small Cremona database
+  sed -e "s|is_package_installed('database_cremona_ellcurve')|False|" -i src/sage/databases/cremona.py
+# fix IPython kernel path
+  sed -e "s|os.path.join(SAGE_ROOT, 'sage')|'/usr/bin/sage'|" -i src/sage/repl/ipython_kernel/install.py
+
+# Upstream patches
+# fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
+  patch -p0 -i "$srcdir"/fes02.patch
+
+# use python2
+  sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
+}
+
+build() {
+  cd sage-$pkgver/src
+
+  export SAGE_LOCAL="/usr"
+  export SAGE_SRC="$PWD"
+  export SAGE_DOC="$SAGE_SRC"/doc
+  export SAGE_DOC_MATHJAX=yes
+  export PYTHONPATH="/usr/lib/sage/site-packages"
+  python2 doc/common/builder.py -k all html
+}
+
+package_sagemath-doc() {
+  pkgdesc="HTML documentation and inline help for SageMath"
+  depends=(sage-notebook python2-sphinx)
+  conflicts=(sage-mathematics-doc)
+  replaces=(sage-mathematics-doc)
+
+  cd sage-$pkgver/src/doc
+ 
+  mkdir -p "$pkgdir"/usr/share/doc/sage
+  cp -r * "$pkgdir"/usr/share/doc/sage
+  rm "$pkgdir"/usr/share/doc/sage/Makefile
+  rm -r "$pkgdir"/usr/share/doc/sage/output/doctrees
+}
+
+package_sagemath-src() {
+  pkgdesc="Source files for SageMath"
+  conflicts=(sage-mathematics-src)
+  replaces=(sage-mathematics-src)
+  
+  mkdir -p "$pkgdir"/usr/share/sage/src
+  cp -r sage-$pkgver/src/{sage,sage_setup} "$pkgdir"/usr/share/sage/src
+  ln -s /usr/share/doc/sage "$pkgdir"/usr/share/sage/src/doc
+
+  mkdir -p "$pkgdir"/usr/include/csage
+  cp -r sage-$pkgver/src/c_lib/include/* "$pkgdir"/usr/include/csage
+}
