@@ -1,0 +1,77 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+
+pkgbase=sage-mathematics-doc
+pkgname=(sage-mathematics-doc sage-mathematics-src)
+pkgver=6.5
+pkgrel=2
+arch=(any)
+url="http://www.sagemath.org"
+license=(GPL)
+makedepends=(sage-notebook python2-sphinx)
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz" 'package.patch' 'paths.patch' 'fes02.patch' 'ipython3.patch')
+md5sums=('5a173b1ecce89c845626653cfb3d199f'
+         '0eb5ac1537aac93bd67a2925c0cfd84d'
+         'acc25f13728517badafa70d220ab7b8e'
+         '506944613082ba7f5b34360939ca90eb'
+         '05eaaaf764cc5813120feadbe197e0a0')
+
+prepare() {
+  cd sage-$pkgver
+
+# Arch-specific patches
+# assume all optional packages are installed
+  patch -p0 -i "$srcdir"/package.patch
+# fix paths in python imports
+  patch -p0 -i "$srcdir"/paths.patch
+# fix linking to blas/cblas
+  sed -e "s|cblas(), atlas(),|'cblas', 'blas',|" -i src/sage/misc/cython.py
+# supress warning about GAP install dir
+  sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
+# use small Cremona database
+  sed -e "s|is_package_installed('database_cremona_ellcurve')|False|" -i src/sage/databases/cremona.py
+
+# Upstream patches
+# fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
+  patch -p0 -i "$srcdir"/fes02.patch
+# port to IPython 3
+  patch -p1 -i "$srcdir"/ipython3.patch
+# fix IPython kernel path
+  sed -e "s|os.path.join(SAGE_ROOT, 'sage')|'/usr/bin/sage'|" -i src/sage/repl/ipython_kernel/install.py
+
+# use python2
+  sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
+}
+
+build() {
+  cd sage-$pkgver/src
+
+  export SAGE_LOCAL="/usr"
+  export SAGE_SRC="$PWD"
+  export SAGE_DOC="$SAGE_SRC"/doc
+  export SAGE_DOC_MATHJAX=yes
+  export PYTHONPATH="/usr/lib/sage/site-packages"
+  python2 doc/common/builder.py -k all html
+}
+
+package_sage-mathematics-doc() {
+  pkgdesc="HTML documentation and inline help for Sage"
+  depends=(sage-notebook python2-sphinx)
+  cd sage-$pkgver/src/doc
+ 
+  mkdir -p "$pkgdir"/usr/share/doc/sage
+  cp -r * "$pkgdir"/usr/share/doc/sage
+  rm "$pkgdir"/usr/share/doc/sage/Makefile
+  rm -r "$pkgdir"/usr/share/doc/sage/output/doctrees
+}
+
+package_sage-mathematics-src() {
+  pkgdesc="Source files for sage-mathematics"
+  
+  mkdir -p "$pkgdir"/usr/share/sage/src
+  cp -r sage-$pkgver/src/{sage,sage_setup} "$pkgdir"/usr/share/sage/src
+  ln -s /usr/share/doc/sage "$pkgdir"/usr/share/sage/src/doc
+
+  mkdir -p "$pkgdir"/usr/include/csage
+  cp -r sage-$pkgver/src/c_lib/include/* "$pkgdir"/usr/include/csage
+}
