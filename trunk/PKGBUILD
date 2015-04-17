@@ -4,7 +4,7 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2014.10
+pkgver=2015.2
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
@@ -12,7 +12,7 @@ license=("MIT")
 makedepends=('python' 'python2')
 source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.bz2{,.asc})
 validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
-md5sums=('1fb418c59c62f782e35875577bd1ac3f'
+md5sums=('54260229a7ff3f63a860e3e58c3a6326'
          'SKIP')
 
 build(){
