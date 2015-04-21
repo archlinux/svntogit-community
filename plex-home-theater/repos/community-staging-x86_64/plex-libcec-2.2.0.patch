@@ -1,0 +1,114 @@
+From e62cdd0c9ae9818c5c35c6b6b57ba8ff322ca052 Mon Sep 17 00:00:00 2001
+From: Maxime Gauduin <alucryd@gmail.com>
+Date: Tue, 4 Nov 2014 17:07:10 +0100
+Subject: [PATCH] libCEC 2.2.0 fixes
+
+---
+ project/BuildDependencies/scripts/0_package.list  |  1 +
+ project/BuildDependencies/scripts/libcec_d.bat    | 15 ---------------
+ project/BuildDependencies/scripts/libcec_d.txt    |  2 +-
+ system/peripherals.xml                            |  2 +-
+ xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp |  2 ++
+ xbmc/peripherals/devices/PeripheralCecAdapter.cpp | 11 ++++++++---
+ 6 files changed, 13 insertions(+), 20 deletions(-)
+ delete mode 100644 project/BuildDependencies/scripts/libcec_d.bat
+
+diff --git a/project/BuildDependencies/scripts/0_package.list b/project/BuildDependencies/scripts/0_package.list
+index d2a00aa..6f441f3 100644
+--- a/project/BuildDependencies/scripts/0_package.list
++++ b/project/BuildDependencies/scripts/0_package.list
+@@ -11,4 +11,5 @@ libnfs-1.6.0-win32
+ libshairplay-d689c6-win32
+ libjpeg-turbo-1.2.0-win32
+ libbluray-0.2.3-win32
++libcec-2.2.0-win32-1
+ taglib-1.8beta-win32
+diff --git a/project/BuildDependencies/scripts/libcec_d.bat b/project/BuildDependencies/scripts/libcec_d.bat
+deleted file mode 100644
+index 0b41b8a..0000000
+--- a/project/BuildDependencies/scripts/libcec_d.bat
++++ /dev/null
+@@ -1,15 +0,0 @@
+-@ECHO OFF
+-
+-SET LOC_PATH=%CD%
+-SET FILES=%LOC_PATH%\libcec_d.txt
+-
+-CALL dlextract.bat libcec %FILES%
+-
+-cd %TMP_PATH%
+-
+-mkdir "%CUR_PATH%\include\libcec"
+-xcopy libcec\include\* "%CUR_PATH%\include\libcec\." /E /Q /I /Y
+-
+-copy libcec\libcec.dll "%XBMC_PATH%\system\."
+-
+-cd %LOC_PATH%
+diff --git a/project/BuildDependencies/scripts/libcec_d.txt b/project/BuildDependencies/scripts/libcec_d.txt
+index 065ce3a..3d0265e 100644
+--- a/project/BuildDependencies/scripts/libcec_d.txt
++++ b/project/BuildDependencies/scripts/libcec_d.txt
+@@ -1,3 +1,3 @@
+ ; filename                        source of the file
+ 
+-libcec-2.1.1.zip                  http://mirrors.xbmc.org/build-deps/win32/
++libcec-2.2.0-win32.zip            http://mirrors.xbmc.org/build-deps/win32/
+diff --git a/system/peripherals.xml b/system/peripherals.xml
+index 68205df..ea0bb17 100644
+--- a/system/peripherals.xml
++++ b/system/peripherals.xml
+@@ -28,7 +28,7 @@
+     <setting key="device_type" type="int" value="1" configurable="0" />
+     <setting key="wake_devices_advanced" type="string" value="" configurable="0" />
+     <setting key="standby_devices_advanced" type="string" value="" configurable="0" />
+-    <setting key="double_tap_timeout_ms" type="int" min="0" value="2000" configurable="0" />
++    <setting key="double_tap_timeout_ms" type="int" min="0" value="300" configurable="0" />
+   </peripheral>
+ 
+   <peripheral vendor_product="2548:1001,2548:1002" bus="usb" name="Pulse-Eight CEC Adapter" mapTo="cec">
+diff --git a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+index da169c1..f3c8149 100644
+--- a/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
++++ b/xbmc/peripherals/bus/virtual/PeripheralBusCEC.cpp
+@@ -101,6 +101,8 @@ bool CPeripheralBusCEC::PerformDeviceScan(PeripheralScanResults &results)
+       break;
+     case ADAPTERTYPE_RPI:
+       result.m_mappedBusType = PERIPHERAL_BUS_RPI;
++      // the Pi's adapter cannot be removed, no need to rescan
++      m_bNeedsPolling = false;
+       break;
+     default:
+       break;
+diff --git a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+index 056a77e..9823427 100644
+--- a/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
++++ b/xbmc/peripherals/devices/PeripheralCecAdapter.cpp
+@@ -1302,8 +1302,8 @@ void CPeripheralCecAdapter::SetConfigurationFromLibCEC(const CEC::libcec_configu
+ 
+ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+ {
+-  // use the same client version as libCEC version
+-  m_configuration.clientVersion = CEC_CLIENT_VERSION_CURRENT;
++  // client version matches the version of libCEC that we originally used the API from
++  m_configuration.clientVersion = CEC_CLIENT_VERSION_2_2_0;
+ 
+   // device name 'XBMC'
+   snprintf(m_configuration.strDeviceName, 13, "%s", GetSettingString("device_name").c_str());
+@@ -1378,8 +1378,13 @@ void CPeripheralCecAdapter::SetConfigurationFromSettings(void)
+   m_configuration.bPowerOffOnStandby = iStandbyAction == 13011 ? 1 : 0;
+   m_configuration.bShutdownOnStandby = iStandbyAction == 13005 ? 1 : 0;
+ 
+-  // double tap prevention timeout in ms
++#if defined(CEC_DOUBLE_TAP_TIMEOUT_MS_OLD)
++  // double tap prevention timeout in ms. libCEC uses 50ms units for this in 2.2.0, so divide by 50
++  m_configuration.iDoubleTapTimeout50Ms = GetSettingInt("double_tap_timeout_ms") / 50;
++#else
++  // backwards compatibility. will be removed once the next major release of libCEC is out
+   m_configuration.iDoubleTapTimeoutMs = GetSettingInt("double_tap_timeout_ms");
++#endif
+ }
+ 
+ void CPeripheralCecAdapter::ReadLogicalAddresses(const CStdString &strString, cec_logical_addresses &addresses)
+-- 
+2.1.3
+
