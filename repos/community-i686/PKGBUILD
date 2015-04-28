@@ -5,7 +5,7 @@
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-cli' 'bitcoin-qt')
 pkgver=0.10.0
-pkgrel=2
+pkgrel=3
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
 makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc' 'protobuf')
@@ -35,6 +35,7 @@ esac
 
 build() {
   cd "$srcdir/$pkgbase-$pkgver"
+  CXXFLAGS="$CXXFLAGS -DBOOST_VARIANT_USE_RELAXED_GET_BY_DEFAULT=1"
   ./configure --prefix=/usr --with-incompatible-bdb --with-gui=qt4
   make
 }
