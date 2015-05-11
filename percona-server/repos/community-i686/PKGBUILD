@@ -1,9 +1,9 @@
-# $Id: PKGBUILD 128772 2015-03-05 16:00:40Z mtorromeo $
+# $Id$
 # Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
 
 pkgbase=percona-server
 pkgname=('libperconaserverclient' 'percona-server-clients' 'percona-server')
-pkgver=5.6.23_72.1
+pkgver=5.6.24_72.2
 _pkgver=${pkgver/_/-}
 _myver=${pkgver/_rel*}
 pkgrel=1
@@ -12,8 +12,7 @@ makedepends=('cmake' 'openssl' 'zlib' 'libaio' 'systemd-tools')
 license=('GPL')
 url="http://www.percona.com/software/percona-server/"
 source=("http://www.percona.com/downloads/Percona-Server-${pkgver%.*_*}/Percona-Server-$_pkgver/source/tarball/percona-server-$_pkgver.tar.gz"
-        'mysqld-post.sh'
-        'mysqld.service'
+        'my.cnf'
         'mysql-user.conf'
         'mysqld-tmpfile.conf'
         'mysql56-bufsize.patch')
@@ -21,8 +20,9 @@ source=("http://www.percona.com/downloads/Percona-Server-${pkgver%.*_*}/Percona-
 prepare() {
 	cd $pkgbase-$_pkgver
 	patch -p0 -i ../mysql56-bufsize.patch
-
 	rm -v sql/sql_yacc.{cc,h}
+	sed 's|$datadir/mysql.sock|/run/mysqld/mysqld.sock|' \
+	    -i packaging/rpm-fedora/mysql-systemd-start
 }
 
 build() {
@@ -32,6 +32,7 @@ build() {
 
 	cmake ../$pkgbase-$_pkgver \
 		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_CONFIG=mysql_release \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DSYSCONFDIR=/etc/mysql \
 		-DMYSQL_DATADIR=/var/lib/mysql \
@@ -80,7 +81,7 @@ package_libperconaserverclient() {
 		make -C $dir DESTDIR="$pkgdir" install
 	done
 
-  rm "$pkgdir"/usr/lib/libmysqlservices.a
+	rm "$pkgdir"/usr/lib/libmysqlservices.a
 
 	install -Dm755 scripts/mysql_config "$pkgdir"/usr/bin/perconaserver_config
 	install -d "$pkgdir"/usr/share/man/man1
@@ -119,11 +120,13 @@ package_percona-server() {
 	cd build
 	make DESTDIR="$pkgdir" install
 
-	install -Dm644 "$pkgdir"/usr/share/mysql/my-default.cnf "$pkgdir"/etc/mysql/my.cnf
-	install -Dm755 ../mysqld-post.sh "$pkgdir"/usr/bin/mysqld-post
-	install -Dm644 ../mysqld.service "$pkgdir"/usr/lib/systemd/system/mysqld.service
+	install -Dm644 ../my.cnf "$pkgdir"/etc/mysql/my.cnf
 	install -Dm644 ../mysql-user.conf "$pkgdir"/usr/lib/sysusers.d/mysql.conf
 	install -Dm644 ../mysqld-tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/mysqld.conf
+
+	cd ../$pkgbase-$_pkgver/packaging/rpm-fedora
+	install -Dm755 mysql-systemd-start "$pkgdir"/usr/bin/mysql-systemd-start
+	install -Dm644 mysqld.service "$pkgdir"/usr/lib/systemd/system/mysqld.service
 
 	# provided by libperconaserverclient
 	cd "$pkgdir"
@@ -141,9 +144,8 @@ package_percona-server() {
 	rm usr/share/man/man1/mysql-test-run.pl.1
 }
 
-sha256sums=('5382630b98dd05f72e372ede5535ddcad2e389b594311a69f03a3d95f68d4907'
-            '82a241d9fa4032187a26597d044e94ba810b209b53a7ce14bb6eb92555993a48'
-            '9bc66470f3f80534c0bb62f9f8325ccf60b164f421f74ad74a963f065d7b1869'
+sha256sums=('5aa6469f3a55fe0fd1cfe315f2f9cacb0ce318620086c93821c9000d6e25c0de'
+            'ae451839c368f0db25a63bb0a6a890194897a8e74818bd4245140933c29e5f83'
             'e638a2657085f15b6728f43c1fd6aa551b27608fbf6b435e33afd3606a0cfb0e'
             'badf6a701d9dc6ea3b4ddca26cb0f42b6236432ccdbc14c64962147802594a60'
             '1039e232a7778544b00eb215c93bb06c588c95c2fd49cfb162dc50eb4dfbf729')
