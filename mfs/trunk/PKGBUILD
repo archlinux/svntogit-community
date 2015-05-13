@@ -3,125 +3,38 @@
 # Contributor: Thomas S Hatch <thatch45@gmail.com>
 # Contributor: Martin "mortbauer" <mortbauer@gmail.com>
 
-pkgbase=mfs
-pkgname=('mfs-master' 'mfs-chunkserver' 'mfs-client')
-pkgver=1.6.27_5
+pkgname=moosefs
+pkgver=2.0.67_1
 pkgrel=1
-pkgdesc='MooseFS, fault tolerant, network distributed file system'
-url='http://www.moosefs.com/'
+pkgdesc='High performing and fault tolerant distributed file system'
+url='http://moosefs.com/'
+replaces=('mfs-master' 'mfs-chunkserver' 'mfs-client')
+conflicts=('mfs-master' 'mfs-chunkserver' 'mfs-client')
 arch=('x86_64' 'i686')
 license=('GPL3')
 depends=('zlib' 'fuse' 'python2' 'bash' 'xfsprogs')
-install="$pkgbase.install"
-source=("http://www.moosefs.org/tl_files/${pkgbase}code/$pkgbase-${pkgver/_/-}.tar.gz"
-        'mfsmaster.service'
-        'mfschunkserver.service'
-        'mfsmetalogger.service'
-        'mfscgiserv.service')
-sha256sums=('5e6d7dd5dfe181ffb6beee44fd2be51b3faf56a71b90b460b2dc717462ff1eeb'
-            '9f67ace1b598b642d0bee53a759dc9618062612491818bc163d852dd6232c225'
-            'a7b9139cf4d41ce7730e280da34f43c1a5671c1e3b1ae40b871b4814e2076d85'
-            '2d664a28e0822df4c733681863584dee0836ba2b2e3a94733da66bca97b0b55a'
-            'a3a8a3091b262e091901a1ca031608f42869e1d892466611e709a7fc23099707')
+install="$pkgname.install"
+source=("http://ppa.moosefs.com/src/moosefs-${pkgver/_/-}.tar.gz")
+sha256sums=('9b3ad3fc81a6b5ffa7f6cbeb1aa11f85d5b82a2b0c40ff5c8f3b46f72eaafcb4')
 
 build() {
-  msg2 'Building client...'
-  cp -r "$pkgbase-${pkgver%_*}" "$pkgbase-client"
-  cd "$pkgbase-client"
+  cd "moosefs-${pkgver%_*}"
+
   ./configure \
-      --prefix=/usr \
-      --sysconfdir=/etc/mfs \
-      --localstatedir=/var/lib \
-      --disable-mfschunkserver \
-      --disable-mfsmaster \
-      --disable-mfscgi \
-      --disable-mfscgiserv
-  make
-  cd ..
-  
-  msg2 'Building chunkserver...'
-  cp -r "$pkgbase-${pkgver%_*}" "$pkgbase-chunk"
-  cd "$pkgbase-chunk"
-  ./configure \
-      --prefix=/usr \
-      --sysconfdir=/etc/mfs \
-      --localstatedir=/var/lib \
-      --disable-mfsmaster \
-      --disable-mfsmount \
-      --disable-mfscgi \
-      --disable-mfscgiserv
-  make
-  cd ..
-  
-  msg2 'Building master...'
-  cp -r "$pkgbase-${pkgver%_*}" "$pkgbase-master"
-  cd "$pkgbase-master"
-  ./configure \
-      --prefix=/usr \
-      --sysconfdir=/etc/mfs \
-      --localstatedir=/var/lib \
-      --disable-mfschunkserver \
-      --disable-mfsmount
+    --prefix=/usr \
+    --mandir=/share/man \
+    --sysconfdir=/etc \
+    --localstatedir=/var/lib \
+    --with-default-user=mfs \
+    --with-default-group=mfs \
+    --with-systemdsystemunitdir=/usr/lib/systemd/system \
+    --sbindir=/usr/bin
   make
 }
 
-package_mfs-client() {
-  depends=('zlib' 'fuse' 'bash')
-  cd "$pkgbase-client"
-
-  msg2 'Packaging client...'
-  make DESTDIR="$pkgdir" install
-
-  msg2 'Cleaning up...'
-  rm -rf "$pkgdir/usr/share/man/man7"
-  rmdir "$pkgdir/usr/share/man/man5"
+package() {
+  make DESTDIR="$pkgdir" -C "moosefs-${pkgver%_*}" install
 }
 
-package_mfs-chunkserver() {
-  depends=('zlib' 'bash')
-  cd "$pkgbase-chunk"
-
-  msg2 'Packaging chunkserver...'
-  make DESTDIR="$pkgdir" install
-
-  msg2 'Packaging Systemd service...'
-  install -Dm644 "$srcdir/mfschunkserver.service" \
-    "$pkgdir/usr/lib/systemd/system/mfschunkserver.service"
-
-  msg2 'Cleaning up...'
-  rm -rf "$pkgdir/usr/share/man/man7"
-  rmdir "$pkgdir/usr/share/man/man1"
-  mv "$pkgdir/usr/sbin" "$pkgdir/usr/bin"
-}
-
-package_mfs-master() {
-  depends=('zlib' 'python2')
-  cd "$pkgbase-master"
-
-  msg2 'Packaging master, metalogger and web interface...'
-  make DESTDIR="$pkgdir" install
-
-  msg2 'Packaging various text files...'
-  install -Dm644 README "$pkgdir/usr/share/doc/$pkgbase/README"
-  install -Dm644 INSTALL "$pkgdir/usr/share/doc/$pkgbase/INSTALL"
-  install -Dm644 NEWS "$pkgdir/usr/share/doc/$pkgbase/NEWS"
-  install -Dm644 UPGRADE "$pkgdir/usr/share/doc/$pkgbase/UPGRADE"
-
-  msg2 'Packaging Systemd services...'
-  for fn in master metalogger cgiserv; do
-    install -Dm644 "$srcdir/mfs$fn.service" \
-      "$pkgdir/usr/lib/systemd/system/mfs$fn.service"
-  done
-
-  msg2 'Python2 fix...'
-  sed -i '0,/on/s//on2/' \
-    "$pkgdir/usr/sbin/mfscgiserv" \
-    "$pkgdir/usr/share/mfscgi/chart.cgi" \
-    "$pkgdir/usr/share/mfscgi/mfs.cgi"
-
-  msg2 'Cleaning up...'
-  rmdir "$pkgdir/usr/share/man/man1"
-  mv "$pkgdir/usr/sbin" "$pkgdir/usr/bin"
-}
-
+# getver: -u 4 moosefs.com/download/sources.html
 # vim:set ts=2 sw=2 et:
