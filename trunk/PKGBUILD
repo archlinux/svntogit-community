@@ -10,11 +10,12 @@ pkgname=(
   'linux-tools-meta'
   'perf'
   'tmon'
+  'turbostat'
   'usbip'
   'x86_energy_perf_policy'
 )
 pkgver=4.0
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -31,9 +32,10 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 # tmon deps
 makedepends+=('ncurses')
 groups=("$pkgbase")
-validpgpkeys=('ABAF11C65A2970B130ABE3C479BE3E4300411886') # Linus Torvalds
+validpgpkeys=('ABAF11C65A2970B130ABE3C479BE3E4300411886'  # Linus Torvalds
+              '647F28654894E3BD457199BE38DBBDC86092693E') # Greg Kroah-Hartman
 source=("http://ftp.kernel.org/pub/linux/kernel/v${pkgver:0:1}.x/linux-$pkgver.tar"{.xz,.sign}
-        #"http://ftp.kernel.org/pub/linux/kernel/v${pkgver:0:1}.x/patch-$pkgver.7.xz"
+        "http://ftp.kernel.org/pub/linux/kernel/v${pkgver:0:1}.x/patch-$pkgver.3"{.xz,.sign}
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -43,19 +45,22 @@ source=("http://ftp.kernel.org/pub/linux/kernel/v${pkgver:0:1}.x/linux-$pkgver.t
 # http://www.kernel.org/pub/linux/kernel/v4.x/sha256sums.asc
 sha256sums=('0f2f7d44979bc8f71c4fc5d3308c03499c26a824dd311fdf6eef4dee0d7d5991'
             'SKIP'
+            'e8e42b67cd5ca28d3cd85b868a8caf6c0b971c948d6695ea6e399e132664de83'
+            'SKIP'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'fbf6e0ce6eb0ef15703fe212958de6ca46e62188900b5e9f9272ed3cc9cfd54e'
             'a89284d0ecb556ca53a66d1c2087b5fd6d0a901ab2769cd3aebb93f4478905dc'
             '2e187734d8aec58a3046d79883510d779aa93fb3ab20bd3132c1a607ebe5498f'
-            'eb866a589a26b1979ffb2fe08be09417e277a4befac34bdb279a6bb3a27b0570'
-            '7547815bb761d49d198b85f95011535713c2ed4a004f249a9cf6ba985af8c4ed'
+            '91f7d91d4270f207102c469c575dd176c3be7897d78d26057d047db164eaf9ca'
             'e5543d8d6d3fbc7f8d9d25c428a882737d2e0169455f70cbc3f73076ff33dd5d')
 
 prepare() {
-  cd linux-$pkgver
-  #patch -N -p1 -i "$srcdir/patch-$pkgver.7"
-  patch -N -p1 -i "$srcdir/02-archlinux-paths.patch"
-  patch -N -p1 -i "$srcdir/04-fix-usip-h-path.patch"
+  local _patch
+  for _patch in patch-$pkgver.? *.patch; do
+    [[ -e "$_patch" ]] || continue
+    msg2 "Applying $_patch"
+    patch -N -p1 -d linux-$pkgver < "$_patch"
+  done
 }
 
 build() {
@@ -110,6 +115,11 @@ build() {
   pushd linux-$pkgver/tools/cgroup
   make
   popd
+
+  msg2 'turbostat'
+  pushd linux-$pkgver/tools/power/x86/turbostat
+  make
+  popd
 }
 
 package_linux-tools-meta() {
@@ -122,6 +132,7 @@ package_linux-tools-meta() {
     'libtraceevent'
     'perf'
     'tmon'
+    'turbostat'
     'usbip'
     'x86_energy_perf_policy'
   )
@@ -227,6 +238,14 @@ package_cgroup_event_listener() {
 
   cd linux-$pkgver/tools/cgroup
   install -Dm755 cgroup_event_listener "$pkgdir/usr/bin/cgroup_event_listener"
+}
+
+package_turbostat() {
+  pkgdesc='Report processor frequency and idle statistics'
+  depends=('glibc')
+
+  cd linux-$pkgver/tools/power/x86/turbostat
+  make install DESTDIR="$pkgdir"
 }
 
 # vim:set ts=2 sw=2 et:
