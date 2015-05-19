@@ -17,7 +17,7 @@ MKBOOTIMG_SRCS += core/mkbootimg/mkbootimg.c
 
 MKBOOTIMG_CFLAGS += -Icore/include
 
-mkbootimg: $(MKBOOTIMG_OBJ)
+mkbootimg: $(MKBOOTIMG_SRCS)
 	$(CC) -o $@ $(CFLAGS) $(MKBOOTIMG_CFLAGS) $(LDFLAGS) $(MKBOOTIMG_LIBS) $(MKBOOTIMG_SRCS)
 
 
@@ -97,5 +97,5 @@ FASTBOOT_SRCS += libselinux/src/label_file.c
 FASTBOOT_CFLAGS  += -DHAVE_OFF64_T=1 -std=gnu99 -I core/mkbootimg -I core/libsparse/include -I core/include -I extras/ext4_utils -I extras/f2fs_utils -I libselinux/include -I f2fs-tools/include -I f2fs-tools/mkfs
 FASTBOOT_LIBS += -lz -ldl -lpcre
 
-fastboot: $(FASTBOOT_OBJS)
+fastboot: $(FASTBOOT_SRCS)
 	$(CC) -o $@ $(CFLAGS) $(FASTBOOT_CFLAGS) $(LDFLAGS) $(FASTBOOT_SRCS) $(FASTBOOT_LIBS)
