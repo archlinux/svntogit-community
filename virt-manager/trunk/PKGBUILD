@@ -6,7 +6,7 @@
 pkgbase=virt-manager
 pkgname=(virt-install virt-manager)
 pkgver=1.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Console user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.org/"
