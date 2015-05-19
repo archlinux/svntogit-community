@@ -17,7 +17,7 @@ makedepends=('intltool>=0.35.0'
 	     'dbus-python' 'gtk-vnc' 'rarian'
 	     'gconf' 'yajl' 'librsvg' 'python2-gconf' 'libuser'
 	     'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
-	     'gnome-icon-theme' 'graphite' 'spice-gtk3'
+	     'graphite' 'spice-gtk3'
 	     'libvirt-glib' 'vte3')
 source=("http://virt-manager.org/download/sources/virt-manager/virt-manager-$pkgver.tar.gz")
 md5sums=('89e6c816054f3a3751100a8d79ec97c2')
@@ -40,6 +40,6 @@ package_virt-manager() {
 	    'dbus-python' 'gtk-vnc' 'rarian'
 	    'gconf' 'yajl' 'librsvg' 'python2-gconf' 'libuser'
 	    'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
-	    'gnome-icon-theme' 'graphite' 'spice-gtk3'
+	    'graphite' 'spice-gtk3'
 	    'libvirt-glib' 'vte3')
 }
