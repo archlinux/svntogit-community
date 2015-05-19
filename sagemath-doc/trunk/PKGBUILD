@@ -3,17 +3,19 @@
 
 pkgbase=sagemath-doc
 pkgname=(sagemath-doc sagemath-src)
-pkgver=6.6
+pkgver=6.7
 pkgrel=1
 arch=(any)
 url="http://www.sagemath.org"
 license=(GPL)
-makedepends=(sagemath sage-notebook python2-sphinx)
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz" 'package.patch' 'paths.patch' 'fes02.patch')
-md5sums=('91eefd257f535ed2af337eeffab4c9bd'
+makedepends=(sagemath sage-notebook python2-sphinx python2-pyzmq python2-pillow)
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
+	'package.patch' 'paths.patch' 'fes02.patch' 'ntl9.patch')
+md5sums=('df744e882a4b25b42dd8347e202cd497'
          '0eb5ac1537aac93bd67a2925c0cfd84d'
-         'acc25f13728517badafa70d220ab7b8e'
-         '506944613082ba7f5b34360939ca90eb')
+         '020bdb34b6fc0f2c9f46341bdb79937a'
+         '506944613082ba7f5b34360939ca90eb'
+         '308abbb1a49db9b8f0e088aff69567ff')
 
 prepare() {
   cd sage-$pkgver
@@ -27,17 +29,27 @@ prepare() {
   sed -e "s| atlas(),||" -i src/sage/misc/cython.py
 # supress warning about GAP install dir
   sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
-# use small Cremona database
-  sed -e "s|is_package_installed('database_cremona_ellcurve')|False|" -i src/sage/databases/cremona.py
+# fix Cremona database detection
+  sed -e "s|is_package_installed('database_cremona_ellcurve')|os.path.exists('/usr/share/sage/cremona/cremona.db')|" \
+   -i src/sage/databases/cremona.py
 # fix IPython kernel path
   sed -e "s|os.path.join(SAGE_ROOT, 'sage')|'/usr/bin/sage'|" -i src/sage/repl/ipython_kernel/install.py
+# find bliss headers
+  sed -e 's|graph.hh|bliss/graph.hh|' -i src/sage/graphs/bliss.pyx
+# Rename class to fix conflicts with NTL
+  sed -e 's|WrappedPtr|SageWrappedPtr|' -i src/sage/libs/polybori/decl.pxd -i src/sage/libs/polybori/pb_wrap.h  
 
 # Upstream patches
 # fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
   patch -p0 -i "$srcdir"/fes02.patch
+# fix build aginst NTL 9 (Fedora)
+  patch -p0 -i "$srcdir"/ntl9.patch
 
 # use python2
   sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
+
+# remove developer interface
+  rm -r src/sage/dev
 }
 
 build() {
