@@ -3,7 +3,7 @@
 
 pkgname=npm
 pkgver=2.11.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
@@ -24,13 +24,16 @@ build() {
 package() {
   cd npm
   make NPMOPTS="--prefix=\"$pkgdir/usr\"" install
+
+  # Why 777? :/
+  chmod -R u=rwX,go=rX "$pkgdir"
   
   # Fix files owned by nobody:
   chown -R root "$pkgdir/usr/lib/node_modules" 
 
   # Fix wrong symlinks
-  rm -f "$pkgdir"/usr/share/man/{man1,man3,man5,man7}/*
   for _dir in man1 man3 man5 man7; do
+    rm -f "$pkgdir"/usr/share/man/$_dir/*
     cd "$pkgdir"/usr/lib/node_modules/npm/man/$_dir
     for _file in *; do
       ln -s /usr/lib/node_modules/npm/man/$_dir/$_file "$pkgdir"/usr/share/man/$_dir/
