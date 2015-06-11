@@ -1,0 +1,965 @@
+diff -rupN modem-manager-gui-0.0.17.1.old/src/addressbooks.c modem-manager-gui-0.0.17.1/src/addressbooks.c
+--- modem-manager-gui-0.0.17.1.old/src/addressbooks.c	2014-08-28 15:04:24.000000000 +0400
++++ modem-manager-gui-0.0.17.1/src/addressbooks.c	2015-05-01 20:23:52.941628000 +0300
+@@ -36,6 +36,8 @@
+ #include "vcard.h"
+ #include "addressbooks.h"
+ 
++#define MMGUI_ADDRESSBOOKS_GNOME_CONNECT_TIMEOUT     15
++
+ #define MMGUI_ADDRESSBOOKS_AKONADI_LINK_PATH         "%s/.local/share/akonadi/socket-localhost"
+ #define MMGUI_ADDRESSBOOKS_AKONADI_SOCKET_PATH       "%s/akonadiserver.socket"
+ #define MMGUI_ADDRESSBOOKS_AKONADI_DBUS_INTERFACE    "org.freedesktop.Akonadi.Control"
+@@ -78,7 +80,6 @@ struct _mmgui_addressbooks_akonadi_colle
+ 
+ typedef struct _mmgui_addressbooks_akonadi_collection *mmgui_addressbooks_akonadi_collection_t;
+ 
+-
+ //KDE (Akonadi)
+ static gboolean mmgui_addressbooks_session_service_activate(gchar *interface, guint *status);
+ static gint mmgui_addressbooks_open_kde_socket(void);
+@@ -95,7 +96,7 @@ static guint mmgui_addressbooks_akonadi_
+ static gboolean mmgui_addressbooks_get_kde_contacts(mmgui_addressbooks_t addressbooks);
+ //GNOME (Evolution data server)
+ static void mmgui_addressbooks_get_gnome_contacts_foreach(gpointer data, gpointer user_data);
+-static gboolean mmgui_addressbooks_get_gnome_contacts(mmgui_addressbooks_t addressbooks);
++static gboolean mmgui_addressbooks_get_gnome_contacts(mmgui_addressbooks_t addressbooks, mmgui_libpaths_cache_t libcache);
+ //Other
+ static void mmgui_addressbooks_free_contacts_list_foreach(gpointer data, gpointer user_data);
+ 
+@@ -787,7 +788,7 @@ static void mmgui_addressbooks_get_gnome
+ 	g_list_free(emails);
+ }
+ 
+-static gboolean mmgui_addressbooks_get_gnome_contacts(mmgui_addressbooks_t addressbooks)
++static gboolean mmgui_addressbooks_get_gnome_contacts(mmgui_addressbooks_t addressbooks, mmgui_libpaths_cache_t libcache)
+ {
+ 	EBookQuery *queryelements[2];
+ 	EBookQuery *query;
+@@ -802,12 +803,17 @@ static gboolean mmgui_addressbooks_get_g
+ 	EBook *book;
+ 	GList *dcontacts;
+ 	
+-	if (addressbooks == NULL) return FALSE;
++	if ((addressbooks == NULL) || (libcache == NULL)) return FALSE;
+ 	if (!addressbooks->gnomesupported) return FALSE;
+ 	if (addressbooks->ebookmodule == NULL) return FALSE;
+ 	
+ 	error = NULL;
+ 	
++	if (!mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 12, 3, 0)) {
++		g_debug("GNOME contacts API isn't supported\n");
++		return FALSE;
++	}
++	
+ 	queryelements[0] = (addressbooks->e_book_query_field_exists)(E_CONTACT_PHONE_HOME);
+ 	queryelements[1] = (addressbooks->e_book_query_field_exists)(E_CONTACT_PHONE_MOBILE);
+ 	
+@@ -817,39 +823,63 @@ static gboolean mmgui_addressbooks_get_g
+ 		return FALSE;
+ 	}
+ 	
+-	if (addressbooks->e_book_new_system_addressbook != NULL) {
+-		g_debug("Using old GNOME contacts API\n");
+-		book = (addressbooks->e_book_new_system_addressbook)(&error);
+-		if (book == NULL) {
++	if (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 14, 3, 0)) {
++		g_debug("Using GNOME contacts API version 3.6 ... ?\n");
++		registry = (addressbooks->e_source_registry_new_sync)(NULL, &error);
++		if (registry == NULL) {
+ 			(addressbooks->e_book_query_unref)(query);
+-			g_debug("Failed to load GNOME system addressbook: %s\n", error->message);
++			g_debug("Failed to get ESourceRegistry: %s\n", error->message);
+ 			g_error_free(error);
+ 			return FALSE;
+ 		}
+ 		
+-		if (!(addressbooks->e_book_open)(book, TRUE, &error)) {
++		source = (addressbooks->e_source_registry_ref_builtin_address_book)(registry);
++		if (source == NULL) {
+ 			(addressbooks->e_book_query_unref)(query);
+-			g_debug("Failed to load GNOME system addressbook: %s\n", error->message);
+-			g_error_free(error);
++			g_debug("Failed to get ESource\n");
+ 			return FALSE;
+ 		}
+ 		
+-		source = (addressbooks->e_book_get_source)(book);
++		addressbooks->gnomesourcename = (addressbooks->e_source_get_display_name)(source);
+ 		
+-		if (addressbooks->e_source_get_display_name != NULL) {
+-			addressbooks->gnomesourcename = (addressbooks->e_source_get_display_name)(source);
++		if (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 16, 3, 0)) {
++			/*Version 3.16 ... ?*/
++			client = (EBookClient *)(addressbooks->e_book_client_connect_sync316)(source, MMGUI_ADDRESSBOOKS_GNOME_CONNECT_TIMEOUT, NULL, &error);
++			if (client == NULL) {
++				(addressbooks->e_book_query_unref)(query);
++				g_debug("Failed to get EBookClient: %s\n", error->message);
++				g_error_free(error);
++				return FALSE;
++			}
+ 		} else {
+-			addressbooks->gnomesourcename = "";
++			/*Version 3.8 ... 3.16*/
++			client = (EBookClient *)(addressbooks->e_book_client_connect_sync)(source, NULL, &error);
++			if (client == NULL) {
++				(addressbooks->e_book_query_unref)(query);
++				g_debug("Failed to get EBookClient: %s\n", error->message);
++				g_error_free(error);
++				return FALSE;
++			}
+ 		}
+ 		
+-		if (!(addressbooks->e_book_get_contacts)(book, query, &dcontacts, &error)) {
++		s = (addressbooks->e_book_query_to_string)(query);
++		if (s == NULL) {
+ 			(addressbooks->e_book_query_unref)(query);
+-			g_debug("Failed to get query GNOME addressbook results: %s\n", error->message);
++			g_debug("Failed to get GNOME addressbook request in string format\n");
++			return FALSE;
++		}
++		
++		g_debug("GNOME addressbook request: %s\n", s);
++		
++		if (!(addressbooks->e_book_client_get_contacts_sync)(client, s, &scontacts, NULL, &error)) {
++			(addressbooks->e_book_query_unref)(query);
++			g_debug("Failed to get GNOME addressbook query results: %s\n", error->message);
+ 			g_error_free(error);
+ 			return FALSE;
+ 		}
+-	} else {
+-		g_debug("Using new GNOME contacts API\n");
++	} else if (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 13, 3, 0)) {
++		/*Versions 3.4 ... 3.8*/
++		g_debug("Using GNOME contacts API version 3.4 .. 3.6\n");
+ 		registry = (addressbooks->e_source_registry_new_sync)(NULL, &error);
+ 		if (registry == NULL) {
+ 			(addressbooks->e_book_query_unref)(query);
+@@ -865,37 +895,21 @@ static gboolean mmgui_addressbooks_get_g
+ 			return FALSE;
+ 		}
+ 		
+-		if (addressbooks->e_source_get_display_name != NULL) {
+-			addressbooks->gnomesourcename = (addressbooks->e_source_get_display_name)(source);
+-		} else {
+-			addressbooks->gnomesourcename = "";
++		addressbooks->gnomesourcename = (addressbooks->e_source_get_display_name)(source);
++		
++		client = (addressbooks->e_book_client_new)(source, &error);
++		if (client == NULL) {
++			(addressbooks->e_book_query_unref)(query);
++			g_debug("Failed to get EBookClient: %s\n", error->message);
++			g_error_free(error);
++			return FALSE;
+ 		}
+ 		
+-		if (addressbooks->e_book_client_connect_sync != NULL) {
+-			/*Version 3.8*/
+-			client = (EBookClient *)(addressbooks->e_book_client_connect_sync)(source, NULL, &error);
+-			if (client == NULL) {
+-				(addressbooks->e_book_query_unref)(query);
+-				g_debug("Failed to get EBookClient: %s\n", error->message);
+-				g_error_free(error);
+-				return FALSE;
+-			}
+-		} else {
+-			/*Versions 3.2 ... 3.6*/
+-			client = (addressbooks->e_book_client_new)(source, &error);
+-			if (client == NULL) {
+-				(addressbooks->e_book_query_unref)(query);
+-				g_debug("Failed to get EBookClient: %s\n", error->message);
+-				g_error_free(error);
+-				return FALSE;
+-			}
+-			
+-			if (!(addressbooks->e_client_open_sync)((EClient *)client, TRUE, NULL, &error)) {
+-				(addressbooks->e_book_query_unref)(query);
+-				g_debug("Failed to open EBookClient: %s\n", error->message);
+-				g_error_free(error);
+-				return FALSE;
+-			}
++		if (!(addressbooks->e_client_open_sync)((EClient *)client, TRUE, NULL, &error)) {
++			(addressbooks->e_book_query_unref)(query);
++			g_debug("Failed to open EBookClient: %s\n", error->message);
++			g_error_free(error);
++			return FALSE;
+ 		}
+ 		
+ 		s = (addressbooks->e_book_query_to_string)(query);
+@@ -913,21 +927,49 @@ static gboolean mmgui_addressbooks_get_g
+ 			g_error_free(error);
+ 			return FALSE;
+ 		}
++	} else {
++		/*Versions 3.0 ... 3.4*/
++		g_debug("Using GNOME contacts API version 3.0 .. 3.4\n");
++		book = (addressbooks->e_book_new_system_addressbook)(&error);
++		if (book == NULL) {
++			(addressbooks->e_book_query_unref)(query);
++			g_debug("Failed to load GNOME system addressbook: %s\n", error->message);
++			g_error_free(error);
++			return FALSE;
++		}
++		
++		if (!(addressbooks->e_book_open)(book, TRUE, &error)) {
++			(addressbooks->e_book_query_unref)(query);
++			g_debug("Failed to load GNOME system addressbook: %s\n", error->message);
++			g_error_free(error);
++			return FALSE;
++		}
++		
++		source = (addressbooks->e_book_get_source)(book);
++		
++		addressbooks->gnomesourcename = (addressbooks->e_source_get_display_name)(source);
++		
++		if (!(addressbooks->e_book_get_contacts)(book, query, &dcontacts, &error)) {
++			(addressbooks->e_book_query_unref)(query);
++			g_debug("Failed to get query GNOME addressbook results: %s\n", error->message);
++			g_error_free(error);
++			return FALSE;
++		}
+ 	}
+ 	
+ 	(addressbooks->e_book_query_unref)(query);
+ 	
+-	if (addressbooks->e_book_new_system_addressbook != NULL) {
+-		if (dcontacts != NULL) {
++	if (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 13, 3, 0)) {
++		if (scontacts != NULL) {
+ 			addressbooks->counter = 0;
+-			g_list_foreach(dcontacts, (GFunc)mmgui_addressbooks_get_gnome_contacts_foreach, addressbooks);
++			g_slist_foreach(scontacts, (GFunc)mmgui_addressbooks_get_gnome_contacts_foreach, addressbooks);
+ 		} else {
+ 			g_debug("No suitable contacts found\n");
+ 		}
+ 	} else {
+-		if (scontacts != NULL) {
++		if (dcontacts != NULL) {
+ 			addressbooks->counter = 0;
+-			g_slist_foreach(scontacts, (GFunc)mmgui_addressbooks_get_gnome_contacts_foreach, addressbooks);
++			g_list_foreach(dcontacts, (GFunc)mmgui_addressbooks_get_gnome_contacts_foreach, addressbooks);
+ 		} else {
+ 			g_debug("No suitable contacts found\n");
+ 		}
+@@ -941,6 +983,7 @@ static gboolean mmgui_addressbooks_get_g
+ mmgui_addressbooks_t mmgui_addressbooks_new(mmgui_libpaths_cache_t libcache)
+ {
+ 	mmgui_addressbooks_t addressbooks;
++	gpointer *connectfunc;
+ 	gboolean libopened;
+ 	guint akonadistatus;
+ 	
+@@ -951,79 +994,100 @@ mmgui_addressbooks_t mmgui_addressbooks_
+ 	addressbooks->gnomesupported = FALSE;
+ 	addressbooks->gnomecontacts = NULL;
+ 	
+-	/*Open module*/
+-	addressbooks->ebookmodule = g_module_open(mmgui_libpaths_cache_get_library_name(libcache, "libebook-1.2"), G_MODULE_BIND_LAZY);
+-	
+-	if (addressbooks->ebookmodule != NULL) {
+-		libopened = TRUE;
+-		libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_field_exists", (gpointer *)&(addressbooks->e_book_query_field_exists));
+-		libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_or", (gpointer *)&(addressbooks->e_book_query_or));
+-		libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_unref", (gpointer *)&(addressbooks->e_book_query_unref));
+-		libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_contact_get_const", (gpointer *)&(addressbooks->e_contact_get_const));
+-		libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_contact_get", (gpointer *)&(addressbooks->e_contact_get));
+-		if (g_module_symbol(addressbooks->ebookmodule, "e_book_new_system_addressbook", (gpointer *)&(addressbooks->e_book_new_system_addressbook))) {
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_open", (gpointer *)&(addressbooks->e_book_open));
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_get_contacts", (gpointer *)&(addressbooks->e_book_get_contacts));
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_get_source", (gpointer *)&(addressbooks->e_book_get_source));
+-			/*Unused functions*/
+-			addressbooks->e_source_registry_new_sync = NULL;
+-			addressbooks->e_source_registry_ref_builtin_address_book = NULL;
+-			addressbooks->e_book_client_new = NULL;
+-			addressbooks->e_client_open_sync = NULL;
+-			addressbooks->e_book_client_connect_sync = NULL;
+-			addressbooks->e_book_query_to_string = NULL;
+-			addressbooks->e_book_client_get_contacts_sync = NULL;
+-		} else {
+-			if (!g_module_symbol(addressbooks->ebookmodule, "e_book_client_connect_sync", (gpointer *)&(addressbooks->e_book_client_connect_sync))) {
+-				/*Since version 3.2 used these functions, but in 3.8 they are deprecated*/
++	if (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 12, 3, 0)) {
++		/*Open module*/
++		addressbooks->ebookmodule = g_module_open(mmgui_libpaths_cache_get_library_full_path(libcache, "libebook-1.2"), G_MODULE_BIND_LAZY);
++		if (addressbooks->ebookmodule != NULL) {
++			libopened = TRUE;
++			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_field_exists", (gpointer *)&(addressbooks->e_book_query_field_exists));
++			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_or", (gpointer *)&(addressbooks->e_book_query_or));
++			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_unref", (gpointer *)&(addressbooks->e_book_query_unref));
++			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_contact_get_const", (gpointer *)&(addressbooks->e_contact_get_const));
++			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_contact_get", (gpointer *)&(addressbooks->e_contact_get));
++			if ((libopened) && (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 16, 3, 0))) {
++				/*Version 3.16 ... ?*/
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_connect_sync", (gpointer *)&(addressbooks->e_book_client_connect_sync316));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_new_sync", (gpointer *)&(addressbooks->e_source_registry_new_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_ref_builtin_address_book", (gpointer *)&(addressbooks->e_source_registry_ref_builtin_address_book));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_to_string", (gpointer *)&(addressbooks->e_book_query_to_string));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_get_contacts_sync", (gpointer *)&(addressbooks->e_book_client_get_contacts_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_get_display_name", (gpointer *)&(addressbooks->e_source_get_display_name));
++				addressbooks->e_book_client_connect_sync = NULL;
++				addressbooks->e_book_new_system_addressbook = NULL;
++				addressbooks->e_book_open = NULL;
++				addressbooks->e_book_get_contacts = NULL;
++				addressbooks->e_book_get_source = NULL;
++			} else if ((libopened) && (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 14, 3, 0))) {
++				/*Version 3.8 ... 3.16*/
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_connect_sync", (gpointer *)&(addressbooks->e_book_client_connect_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_new_sync", (gpointer *)&(addressbooks->e_source_registry_new_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_ref_builtin_address_book", (gpointer *)&(addressbooks->e_source_registry_ref_builtin_address_book));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_to_string", (gpointer *)&(addressbooks->e_book_query_to_string));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_get_contacts_sync", (gpointer *)&(addressbooks->e_book_client_get_contacts_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_get_display_name", (gpointer *)&(addressbooks->e_source_get_display_name));
++				addressbooks->e_book_client_connect_sync316 = NULL;
++				addressbooks->e_book_new_system_addressbook = NULL;
++				addressbooks->e_book_open = NULL;
++				addressbooks->e_book_get_contacts = NULL;
++				addressbooks->e_book_get_source = NULL;
++			} else if ((libopened) && (mmgui_libpaths_cache_check_library_version(libcache, "libebook-1.2", 13, 3, 0))) {
++				/*Versions 3.4 ... 3.8*/
+ 				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_new", (gpointer *)&(addressbooks->e_book_client_new));
+ 				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_client_open_sync", (gpointer *)&(addressbooks->e_client_open_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_new_sync", (gpointer *)&(addressbooks->e_source_registry_new_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_ref_builtin_address_book", (gpointer *)&(addressbooks->e_source_registry_ref_builtin_address_book));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_to_string", (gpointer *)&(addressbooks->e_book_query_to_string));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_get_contacts_sync", (gpointer *)&(addressbooks->e_book_client_get_contacts_sync));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_peek_name", (gpointer *)&(addressbooks->e_source_get_display_name));
++				addressbooks->e_book_client_connect_sync = NULL;
++				addressbooks->e_book_client_connect_sync316 = NULL;
++				addressbooks->e_book_new_system_addressbook = NULL;
++				addressbooks->e_book_open = NULL;
++				addressbooks->e_book_get_contacts = NULL;
++				addressbooks->e_book_get_source = NULL;
++			} else if (libopened) {
++				/*Versions 3.0 ... 3.4*/
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_new_system_addressbook", (gpointer *)&(addressbooks->e_book_new_system_addressbook));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_open", (gpointer *)&(addressbooks->e_book_open));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_get_contacts", (gpointer *)&(addressbooks->e_book_get_contacts));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_get_source", (gpointer *)&(addressbooks->e_book_get_source));
++				libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_peek_name", (gpointer *)&(addressbooks->e_source_get_display_name));
+ 				addressbooks->e_book_client_connect_sync = NULL;
++				addressbooks->e_book_client_connect_sync316 = NULL;
++				addressbooks->e_source_registry_new_sync = NULL;
++				addressbooks->e_source_registry_ref_builtin_address_book = NULL;
++				addressbooks->e_book_client_new = NULL;
++				addressbooks->e_client_open_sync = NULL;
++				addressbooks->e_book_query_to_string = NULL;
++				addressbooks->e_book_client_get_contacts_sync = NULL;
+ 			}
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_new_sync", (gpointer *)&(addressbooks->e_source_registry_new_sync));
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_source_registry_ref_builtin_address_book", (gpointer *)&(addressbooks->e_source_registry_ref_builtin_address_book));
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_query_to_string", (gpointer *)&(addressbooks->e_book_query_to_string));
+-			libopened = libopened && g_module_symbol(addressbooks->ebookmodule, "e_book_client_get_contacts_sync", (gpointer *)&(addressbooks->e_book_client_get_contacts_sync));
+-			
+-			/*Unused functions*/
+-			addressbooks->e_book_get_contacts = NULL;
+-			addressbooks->e_book_open = NULL;
+-			addressbooks->e_book_get_source = NULL;
+-		}
+-		/*Available since 3.6 - not mandatory*/
+-		if (!g_module_symbol(addressbooks->ebookmodule, "e_source_get_display_name", (gpointer *)&(addressbooks->e_source_get_display_name))) {
+-			/*Fallback function for older versions*/
+-			if (!g_module_symbol(addressbooks->ebookmodule, "e_source_peek_name", (gpointer *)&(addressbooks->e_source_get_display_name))) {
++			/*If some functions not exported, close library*/
++			if (!libopened) {
++				addressbooks->e_book_query_field_exists = NULL;
++				addressbooks->e_book_query_or = NULL;
++				addressbooks->e_source_registry_new_sync = NULL;
++				addressbooks->e_source_registry_ref_builtin_address_book = NULL;
+ 				addressbooks->e_source_get_display_name = NULL;
++				addressbooks->e_book_client_new = NULL;
++				addressbooks->e_client_open_sync = NULL;
++				addressbooks->e_book_query_to_string = NULL;
++				addressbooks->e_book_client_get_contacts_sync = NULL;
++				addressbooks->e_book_new_system_addressbook = NULL;
++				addressbooks->e_book_open = NULL;
++				addressbooks->e_book_get_contacts = NULL;
++				addressbooks->e_book_query_unref = NULL;
++				addressbooks->e_contact_get_const = NULL;
++				addressbooks->e_contact_get = NULL;
++				/*Close module*/
++				g_module_close(addressbooks->ebookmodule);
++				addressbooks->ebookmodule = NULL;
++				addressbooks->gnomesupported = FALSE;
++			} else {
++				/*Get contacts*/
++				addressbooks->gnomesupported = TRUE;
++				mmgui_addressbooks_get_gnome_contacts(addressbooks, libcache);
+ 			}
+ 		}
+-		
+-		/*If some functions not exported, close library*/
+-		if (!libopened) {
+-			addressbooks->e_book_query_field_exists = NULL;
+-			addressbooks->e_book_query_or = NULL;
+-			addressbooks->e_source_registry_new_sync = NULL;
+-			addressbooks->e_source_registry_ref_builtin_address_book = NULL;
+-			addressbooks->e_source_get_display_name = NULL;
+-			addressbooks->e_book_client_new = NULL;
+-			addressbooks->e_client_open_sync = NULL;
+-			addressbooks->e_book_query_to_string = NULL;
+-			addressbooks->e_book_client_get_contacts_sync = NULL;
+-			addressbooks->e_book_new_system_addressbook = NULL;
+-			addressbooks->e_book_open = NULL;
+-			addressbooks->e_book_get_contacts = NULL;
+-			addressbooks->e_book_query_unref = NULL;
+-			addressbooks->e_contact_get_const = NULL;
+-			addressbooks->e_contact_get = NULL;
+-			/*Close module*/
+-			g_module_close(addressbooks->ebookmodule);
+-			addressbooks->ebookmodule = NULL;
+-			addressbooks->gnomesupported = FALSE;
+-		} else {
+-			/*Get contacts*/
+-			addressbooks->gnomesupported = TRUE;
+-			mmgui_addressbooks_get_gnome_contacts(addressbooks);
+-		}
+ 	}
+ 	
+ 	/*KDE addressbook*/
+diff -rupN modem-manager-gui-0.0.17.1.old/src/addressbooks.h modem-manager-gui-0.0.17.1/src/addressbooks.h
+--- modem-manager-gui-0.0.17.1.old/src/addressbooks.h	2014-08-28 00:24:41.000000000 +0400
++++ modem-manager-gui-0.0.17.1/src/addressbooks.h	2015-04-28 01:27:06.000000000 +0300
+@@ -247,6 +247,7 @@ typedef const gchar *(*e_source_get_disp
+ typedef EBookClient *(*e_book_client_new_func)(ESource *source, GError **error);
+ typedef gboolean (*e_client_open_sync_func)(EClient *client, gboolean only_if_exists, gpointer cancellable, GError **error);
+ typedef EClient *(*e_book_client_connect_sync_func)(ESource *source, gpointer cancellable, GError **error);
++typedef EClient *(*e_book_client_connect_sync316_func)(ESource *source, guint32 wait_for_connected_seconds, gpointer cancellable, GError **error);
+ typedef gchar *(*e_book_query_to_string_func)(EBookQuery *q);
+ typedef gboolean (*e_book_client_get_contacts_sync_func)(EBookClient *client, const gchar *sexp, GSList **out_contacts, gpointer cancellable, GError **error);
+ typedef EBook *(*e_book_new_system_addressbook_func)(GError **error);
+@@ -269,6 +270,7 @@ struct _mmgui_addressbooks {
+ 	e_book_client_new_func e_book_client_new;
+ 	e_client_open_sync_func e_client_open_sync;
+ 	e_book_client_connect_sync_func e_book_client_connect_sync;
++	e_book_client_connect_sync316_func e_book_client_connect_sync316;
+ 	e_book_query_to_string_func e_book_query_to_string;
+ 	e_book_client_get_contacts_sync_func e_book_client_get_contacts_sync;
+ 	e_book_new_system_addressbook_func e_book_new_system_addressbook;
+diff -rupN modem-manager-gui-0.0.17.1.old/src/ayatana.c modem-manager-gui-0.0.17.1/src/ayatana.c
+--- modem-manager-gui-0.0.17.1.old/src/ayatana.c	2014-01-05 18:23:44.000000000 +0400
++++ modem-manager-gui-0.0.17.1/src/ayatana.c	2015-04-27 20:36:34.000000000 +0300
+@@ -177,7 +177,7 @@ mmgui_ayatana_t mmgui_ayatana_new(mmgui_
+ 	ayatana->userdata = userdata;
+ 	
+ 	/*Open module for libmessaging-menu*/
+-	ayatana->module = g_module_open(mmgui_libpaths_cache_get_library_name(libcache, "libmessaging-menu"), G_MODULE_BIND_LAZY);
++	ayatana->module = g_module_open(mmgui_libpaths_cache_get_library_full_path(libcache, "libmessaging-menu"), G_MODULE_BIND_LAZY);
+ 	
+ 	/*Initialize local flag*/
+ 	libopened = FALSE;
+@@ -219,7 +219,7 @@ mmgui_ayatana_t mmgui_ayatana_new(mmgui_
+ 	
+ 	if ((ayatana->library == MMGUI_AYATANA_LIB_NULL) && (ayatana->module == NULL)) {
+ 		/*Open module for libindicate*/
+-		ayatana->module = g_module_open(mmgui_libpaths_cache_get_library_name(libcache, "libindicate"), G_MODULE_BIND_LAZY);
++		ayatana->module = g_module_open(mmgui_libpaths_cache_get_library_full_path(libcache, "libindicate"), G_MODULE_BIND_LAZY);
+ 		
+ 		if (ayatana->module != NULL) {
+ 			libopened = TRUE;
+diff -rupN modem-manager-gui-0.0.17.1.old/src/libpaths.c modem-manager-gui-0.0.17.1/src/libpaths.c
+--- modem-manager-gui-0.0.17.1.old/src/libpaths.c	2014-01-05 18:23:44.000000000 +0400
++++ modem-manager-gui-0.0.17.1/src/libpaths.c	2015-05-02 01:04:04.240930000 +0300
+@@ -31,25 +31,33 @@
+ #include "libpaths.h"
+ 
+ #define MMGUI_LIBPATHS_CACHE_FILE         "/etc/ld.so.cache"
+-#define MMGUI_LIBPATHS_CACHE_SOEXT        ".so"
+-#define MMGUI_LIBPATHS_CACHE_LIB_TEMP     "/usr/lib/%s.so"
+ #define MMGUI_LIBPATHS_CACHE_PATH_TEMP    "/usr/lib/%s.so"
++#define MMGUI_LIBPATHS_LIB_PATH_TEMP_MMR  "%s/%s.so.%i.%i.%i"
++#define MMGUI_LIBPATHS_LIB_PATH_TEMP_MM   "%s/%s.so.%i.%i"
++#define MMGUI_LIBPATHS_LIB_PATH_TEMP_M    "%s/%s.so.%i"
++#define MMGUI_LIBPATHS_LIB_PATH_TEMP      "%s/%s.so"
+ /*Cache file*/
+ #define MMGUI_LIBPATHS_LOCAL_CACHE_XDG    ".cache"
+ #define MMGUI_LIBPATHS_LOCAL_CACHE_DIR    "modem-manager-gui"
+ #define MMGUI_LIBPATHS_LOCAL_CACHE_FILE   "libpaths.conf"
+ #define MMGUI_LIBPATHS_LOCAL_CACHE_PERM   0755
++#define MMGUI_LIBPATHS_LOCAL_CACHE_VER    3
+ /*Cache file sections*/
+ #define MMGUI_LIBPATHS_FILE_ROOT_SECTION  "cache"
+ #define MMGUI_LIBPATHS_FILE_TIMESTAMP     "timestamp"
+-#define MMGUI_LIBPATHS_FILE_NAME          "name"
++#define MMGUI_LIBPATHS_FILE_VERSION       "version"
+ #define MMGUI_LIBPATHS_FILE_PATH          "path"
++#define MMGUI_LIBPATHS_FILE_MAJOR_VER     "majorver"
++#define MMGUI_LIBPATHS_FILE_MINOR_VER     "minorver"
++#define MMGUI_LIBPATHS_FILE_RELEASE_VER   "releasever"
+ 
+ 
+ struct _mmgui_libpaths_entry {
+ 	gchar *id;
+-	gchar *libname;
+ 	gchar *libpath;
++	gint   majorver;
++	gint   minorver;
++	gint   releasever;
+ };
+ 
+ typedef struct _mmgui_libpaths_entry *mmgui_libpaths_entry_t;
+@@ -60,6 +68,7 @@ static gboolean mmgui_libpaths_cache_ope
+ 	const gchar *homepath; 
+ 	gchar *confpath;
+ 	guint64 localtimestamp;
++	gint filever;
+ 	GError *error;
+ 	
+ 	if (libcache == NULL) return FALSE;
+@@ -95,11 +104,28 @@ static gboolean mmgui_libpaths_cache_ope
+ 			localtimestamp = g_key_file_get_uint64(libcache->localkeyfile, MMGUI_LIBPATHS_FILE_ROOT_SECTION, MMGUI_LIBPATHS_FILE_TIMESTAMP, &error);
+ 			if (error == NULL) {
+ 				if (localtimestamp == dbtimestamp) {
+-					libcache->updatelocal = FALSE;
++					/*Timestamp is up to date - check version*/
++					filever = g_key_file_get_integer(libcache->localkeyfile, MMGUI_LIBPATHS_FILE_ROOT_SECTION, MMGUI_LIBPATHS_FILE_VERSION, &error);
++					if (error == NULL) {
++						if (filever >= MMGUI_LIBPATHS_LOCAL_CACHE_VER) {
++							/*Acceptable version of file*/
++							libcache->updatelocal = FALSE;
++						} else {
++							/*Old version of file*/
++							libcache->updatelocal = TRUE;
++						}
++					} else {
++						/*Unknown version of file*/
++						libcache->updatelocal = TRUE;
++						g_debug("Local cache contain unreadable version identifier: %s", error->message);
++						g_error_free(error);
++					}
+ 				} else {
++					/*Wrong timestamp*/
+ 					libcache->updatelocal = TRUE;
+ 				}
+ 			} else {
++				/*Unknown timestamp*/
+ 				libcache->updatelocal = TRUE;
+ 				g_debug("Local cache contain unreadable timestamp: %s", error->message);
+ 				g_error_free(error);
+@@ -126,6 +152,8 @@ static gboolean mmgui_libpaths_cache_clo
+ 	if (update) {
+ 		/*Save timestamp*/
+ 		g_key_file_set_int64(libcache->localkeyfile, MMGUI_LIBPATHS_FILE_ROOT_SECTION, MMGUI_LIBPATHS_FILE_TIMESTAMP, (gint64)libcache->modtime);
++		/*Save version of file*/
++		g_key_file_set_integer(libcache->localkeyfile, MMGUI_LIBPATHS_FILE_ROOT_SECTION, MMGUI_LIBPATHS_FILE_VERSION, MMGUI_LIBPATHS_LOCAL_CACHE_VER);
+ 		/*Write to file*/
+ 		error = NULL;
+ 		filedata = g_key_file_to_data(libcache->localkeyfile, &datasize, &error);
+@@ -150,14 +178,16 @@ static gboolean mmgui_libpaths_cache_add
+ 	
+ 	if ((libcache->updatelocal) && (libcache->localkeyfile != NULL)) {
+ 		if (cachedlib->id != NULL) {
+-			/*Library name*/
+-			if (cachedlib->libname != NULL) {
+-				g_key_file_set_string(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_NAME, cachedlib->libname);
+-			}
+ 			/*Library path*/
+ 			if (cachedlib->libpath != NULL) {
+ 				g_key_file_set_string(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_PATH, cachedlib->libpath);
+ 			}
++			/*Library major version*/
++			g_key_file_set_integer(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_MAJOR_VER, cachedlib->majorver);
++			/*Library minor version*/
++			g_key_file_set_integer(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_MINOR_VER, cachedlib->minorver);
++			/*Library release version*/
++			g_key_file_set_integer(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_RELEASE_VER, cachedlib->releasever);
+ 		}
+ 	}
+ 	
+@@ -172,33 +202,69 @@ static gboolean mmgui_libpaths_cache_get
+ 	
+ 	if ((!libcache->updatelocal) && (libcache->localkeyfile != NULL)) {
+ 		if (cachedlib->id != NULL) {
+-			/*Library name*/
++			/*Library path*/
+ 			error = NULL;
+-			if (g_key_file_has_key(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_NAME, &error)) {
++			if (g_key_file_has_key(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_PATH, &error)) {
+ 				error = NULL;
+-				cachedlib->libname = g_key_file_get_string(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_NAME, &error);
++				cachedlib->libpath = g_key_file_get_string(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_PATH, &error);
+ 				if (error != NULL) {
+-					g_debug("Local cache contain unreadable library name: %s", error->message);
++					g_debug("Local cache contain unreadable library path: %s", error->message);
+ 					g_error_free(error);
+ 				}
+ 			} else {
+-				cachedlib->libname = NULL;
+-				g_debug("Local cache does not contain library name: %s", error->message);
+-				g_error_free(error);
++				cachedlib->libpath = NULL;
++				if (error != NULL) {
++					g_debug("Local cache does not contain library path: %s", error->message);
++					g_error_free(error);
++				}
+ 			}
+-			/*Library path*/
++			/*Library major version*/
+ 			error = NULL;
+-			if (g_key_file_has_key(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_PATH, &error)) {
++			if (g_key_file_has_key(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_MAJOR_VER, &error)) {
+ 				error = NULL;
+-				cachedlib->libpath = g_key_file_get_string(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_PATH, &error);
++				cachedlib->majorver = g_key_file_get_integer(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_MAJOR_VER, &error);
+ 				if (error != NULL) {
+-					g_debug("Local cache contain unreadable library path: %s", error->message);
++					g_debug("Local cache contain unreadable library major version: %s", error->message);
+ 					g_error_free(error);
+ 				}
+ 			} else {
+-				cachedlib->libpath = NULL;
+-				g_debug("Local cache does not contain library path: %s", error->message);
+-				g_error_free(error);
++				cachedlib->majorver = -1;
++				if (error != NULL) {
++					g_debug("Local cache does not contain library major version: %s", error->message);
++					g_error_free(error);
++				}
++			}
++			/*Library minor version*/
++			error = NULL;
++			if (g_key_file_has_key(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_MINOR_VER, &error)) {
++				error = NULL;
++				cachedlib->minorver = g_key_file_get_integer(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_MINOR_VER, &error);
++				if (error != NULL) {
++					g_debug("Local cache contain unreadable library minor version: %s", error->message);
++					g_error_free(error);
++				}
++			} else {
++				cachedlib->minorver = -1;
++				if (error != NULL) {
++					g_debug("Local cache does not contain library minor version: %s", error->message);
++					g_error_free(error);
++				}
++			}
++			/*Library release version*/
++			error = NULL;
++			if (g_key_file_has_key(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_RELEASE_VER, &error)) {
++				error = NULL;
++				cachedlib->releasever = g_key_file_get_integer(libcache->localkeyfile, cachedlib->id, MMGUI_LIBPATHS_FILE_RELEASE_VER, &error);
++				if (error != NULL) {
++					g_debug("Local cache contain unreadable library major version: %s", error->message);
++					g_error_free(error);
++				}
++			} else {
++				cachedlib->releasever = -1;
++				if (error != NULL) {
++					g_debug("Local cache does not contain library major version: %s", error->message);
++					g_error_free(error);
++				}
+ 			}
+ 		}
+ 	}
+@@ -217,76 +283,124 @@ static void mmgui_libpaths_cache_destroy
+ 	if (cachedlib->id != NULL) {
+ 		g_free(cachedlib->id);
+ 	}
+-	if (cachedlib->libname != NULL) {
+-		g_free(cachedlib->libname);
+-	}
+ 	if (cachedlib->libpath != NULL) {
+ 		g_free(cachedlib->libpath);
+ 	}
++	cachedlib->majorver = -1;
++	cachedlib->minorver = -1;
++	cachedlib->releasever = -1;
+ 	g_free(cachedlib);
+ }
+ 
+-static gboolean mmgui_libpaths_cache_get_entry(mmgui_libpaths_cache_t libcache, gchar *libpath)
++static gboolean mmgui_libpaths_cache_get_entry(mmgui_libpaths_cache_t libcache, const gchar *libpath)
+ {
+ 	mmgui_libpaths_entry_t cachedlib;
+-	gchar *libext, *libid;
+-	guint pathlen, sym, lnsym, lilen, lnlen;
+-	gboolean res;
++	const gchar versep[2] = ".";
++	gchar *pathendptr;
++	gchar *path;
++	gchar *linktarget;
++	gchar *soextptr;
++	gchar *name;
++	gchar *verptr;
++	gchar *version;
++	gchar *token;
++	gint *verarray[3];
++	gint i;
++	gboolean mustbecached;
++	
+ 	
+ 	if ((libcache == NULL) || (libpath == NULL)) return FALSE;
+ 	
+-	pathlen = strlen(libpath);
++	pathendptr = strrchr(libpath, '/');
++	
++	if (pathendptr == NULL) {
++		return FALSE;
++	}
++	
++	path = g_malloc0(pathendptr - libpath + 1);
++	strncpy(path, libpath, pathendptr - libpath);
++	
++	linktarget = NULL;
+ 	
+-	if (pathlen == 0) return FALSE;
++	if (g_file_test(libpath, G_FILE_TEST_IS_SYMLINK)) {
++		linktarget = g_file_read_link(libpath, NULL);
++	}
+ 	
+-	libext = strstr(libpath, MMGUI_LIBPATHS_CACHE_SOEXT);
++	if (linktarget != NULL) {
++		soextptr = strstr(linktarget, ".so");
++	} else {
++		soextptr = strstr(libpath, ".so");
++	}
++		
++	if (soextptr == NULL) {
++		if (linktarget != NULL) {
++			g_free(linktarget);
++		}
++		g_free(path);
++		return FALSE;
++	}
+ 	
+-	if (libext == NULL) return FALSE;
++	if (linktarget != NULL) {
++		name = g_malloc0(soextptr  - linktarget);
++		strncpy(name, linktarget, soextptr - linktarget);
++	} else {
++		name = g_malloc0(soextptr  - pathendptr);
++		strncpy(name, pathendptr + 1, soextptr - pathendptr - 1);
++	}
+ 	
+-	lnsym = 0;
+-	lilen = 0;
+-	lnlen = 0;
++	cachedlib = (mmgui_libpaths_entry_t)g_hash_table_lookup(libcache->cache, name);
+ 	
+-	for (sym = libext-libpath; sym >= 0; sym--) {
+-		if (libpath[sym] == '/') {
+-			lnsym = sym + 1;
+-			lilen = libext - libpath - sym - 1;
+-			lnlen = pathlen - sym - 1;
+-			break;
++	if (cachedlib == NULL) {
++		if (linktarget != NULL) {
++			g_free(linktarget);
+ 		}
++		g_free(path);
++		g_free(name);
++		return FALSE;
+ 	}
+ 	
+-	if ((lilen == 0) || (lnlen == 0)) return FALSE;
++	g_free(name);
+ 	
+-	/*library identifier*/
+-	libid = g_malloc0(lilen+1);
+-	strncpy(libid, libpath+lnsym, lilen);
+-	/*search in hash table*/
+-	cachedlib = (mmgui_libpaths_entry_t)g_hash_table_lookup(libcache->cache, libid);
+-	res = FALSE;
++	mustbecached = FALSE;
+ 	
+-	if (cachedlib != NULL) {
+-		if (cachedlib->libname == NULL) {
+-			/*library name*/
+-			cachedlib->libname = g_malloc0(lnlen+1);
+-			strncpy(cachedlib->libname, libpath+lnsym, lnlen);
+-			/*library name found*/
+-			mmgui_libpaths_cache_add_to_local_cache_file(libcache, cachedlib);
+-			g_debug("Library name: %s (%s)\n", cachedlib->libname, libid);
+-		} 
+-		if (cachedlib->libpath == NULL) {
+-			/*full library path*/
+-			cachedlib->libpath = g_strdup(libpath);
+-			/*library path found*/
+-			mmgui_libpaths_cache_add_to_local_cache_file(libcache, cachedlib);
+-			g_debug("Library path: %s (%s)\n", cachedlib->libpath, libid);
++	if (cachedlib->libpath == NULL) {
++		cachedlib->libpath = path;
++		mustbecached = TRUE;
++	} else {
++		g_free(path);
++	}
++	
++	verptr = strchr(soextptr + 1, '.');
++	
++	if (verptr != NULL) {
++		version = g_strdup(verptr + 1);
++		
++		token = strtok(version, versep);
++		
++		verarray[0] = &cachedlib->majorver;
++		verarray[1] = &cachedlib->minorver;
++		verarray[2] = &cachedlib->releasever;
++		
++		i = 0;
++		while ((token != NULL) && (i < sizeof(verarray)/sizeof(int *))) {
++			*(verarray[i]) = atoi(token);
++			token = strtok(NULL, versep);
++			i++;
+ 		}
+-		res = TRUE;
++		g_free(version);
++		
++		mustbecached = TRUE;
+ 	}
+ 	
+-	g_free(libid);
++	if (linktarget != NULL) {
++		g_free(linktarget);
++	}
+ 	
+-	return res;
++	if (mustbecached) {
++		mmgui_libpaths_cache_add_to_local_cache_file(libcache, cachedlib);
++	}
++	
++	return TRUE;
+ }
+ 
+ static guint mmgui_libpaths_cache_parse_db(mmgui_libpaths_cache_t libcache)
+@@ -410,8 +524,10 @@ mmgui_libpaths_cache_t mmgui_libpaths_ca
+ 		/*Allocate structure*/
+ 		cachedlib = (mmgui_libpaths_entry_t)g_new0(struct _mmgui_libpaths_entry, 1);
+ 		cachedlib->id = g_strdup(currentlib);
+-		cachedlib->libname = NULL;
+ 		cachedlib->libpath = NULL;
++		cachedlib->majorver = -1;
++		cachedlib->minorver = -1;
++		cachedlib->releasever = -1;
+ 		g_hash_table_insert(libcache->cache, cachedlib->id, cachedlib);
+ 		/*If available, get from local cache*/
+ 		if (localcopy) {
+@@ -451,7 +567,7 @@ void mmgui_libpaths_cache_close(mmgui_li
+ 	g_free(libcache);
+ }
+ 
+-gchar *mmgui_libpaths_cache_get_library_name(mmgui_libpaths_cache_t libcache, gchar *libname)
++gchar *mmgui_libpaths_cache_get_library_full_path(mmgui_libpaths_cache_t libcache, gchar *libname)
+ {
+ 	mmgui_libpaths_entry_t cachedlib;
+ 	
+@@ -460,53 +576,61 @@ gchar *mmgui_libpaths_cache_get_library_
+ 	cachedlib = (mmgui_libpaths_entry_t)g_hash_table_lookup(libcache->cache, libname);
+ 	
+ 	if (cachedlib != NULL) {
+-		if (cachedlib->libname != NULL) {
+-			/*Cached library name*/
+-			return cachedlib->libname;
++		if (cachedlib->libpath != NULL) {
++			/*Safe library path*/
++			if (libcache->safename != NULL) {
++				g_free(libcache->safename);
++			}
++			/*Handle version variations*/
++			if ((cachedlib->majorver != -1) && (cachedlib->minorver != -1) && (cachedlib->releasever != -1)) {
++				libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_LIB_PATH_TEMP_MMR, cachedlib->libpath, libname, cachedlib->majorver, cachedlib->minorver, cachedlib->releasever);
++			} else if ((cachedlib->majorver != -1) && (cachedlib->minorver != -1)) {
++				libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_LIB_PATH_TEMP_MM, cachedlib->libpath, libname, cachedlib->majorver, cachedlib->minorver);
++			} else if (cachedlib->majorver != -1) {
++				libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_LIB_PATH_TEMP_M, cachedlib->libpath, libname, cachedlib->majorver);
++			} else {
++				libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_LIB_PATH_TEMP, cachedlib->libpath, libname);
++			}
++			
++			return libcache->safename;
+ 		} else {
+-			/*Safe library name*/
++			/*Safe library path*/
+ 			if (libcache->safename != NULL) {
+ 				g_free(libcache->safename);
+ 			}
+-			libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_CACHE_LIB_TEMP, libname);
++			libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_CACHE_PATH_TEMP, libname);
+ 			return libcache->safename;
+ 		}
+ 	} else {
+-		/*Safe library name*/
++		/*Safe library path*/
+ 		if (libcache->safename != NULL) {
+ 			g_free(libcache->safename);
+ 		}
+-		libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_CACHE_LIB_TEMP, libname);
++		libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_CACHE_PATH_TEMP, libname);
+ 		return libcache->safename;
+ 	}
+ }
+ 
+-gchar *mmgui_libpaths_cache_get_library_path(mmgui_libpaths_cache_t libcache, gchar *libname)
++gboolean mmgui_libpaths_cache_check_library_version(mmgui_libpaths_cache_t libcache, gchar *libname, gint major, gint minor, gint release)
+ {
+ 	mmgui_libpaths_entry_t cachedlib;
++	gboolean compatiblever;
+ 	
+-	if ((libcache == NULL) || (libname == NULL)) return NULL;
++	if ((libcache == NULL) || (libname == NULL) || (major == -1)) return FALSE;
+ 	
+ 	cachedlib = (mmgui_libpaths_entry_t)g_hash_table_lookup(libcache->cache, libname);
+ 	
+-	if (cachedlib != NULL) {
+-		if (cachedlib->libpath != NULL) {
+-			/*Cached library path*/
+-			return cachedlib->libpath;
+-		} else {
+-			/*Safe library path*/
+-			if (libcache->safename != NULL) {
+-				g_free(libcache->safename);
+-			}
+-			libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_CACHE_PATH_TEMP, libname);
+-			return libcache->safename;
+-		}
+-	} else {
+-		/*Safe library path*/
+-		if (libcache->safename != NULL) {
+-			g_free(libcache->safename);
++	if (cachedlib == NULL) return FALSE;
++	if (cachedlib->majorver == -1) return FALSE;
++	
++	compatiblever = (cachedlib->majorver >= major);
++	
++	if ((cachedlib->majorver == major) && (minor != -1) && (cachedlib->minorver != -1)) {
++		compatiblever = compatiblever && (cachedlib->minorver >= minor);
++		if ((cachedlib->minorver == minor) && (release != -1) && (cachedlib->releasever != -1)) {
++			compatiblever = compatiblever && (cachedlib->releasever >= release); 
+ 		}
+-		libcache->safename = g_strdup_printf(MMGUI_LIBPATHS_CACHE_PATH_TEMP, libname);
+-		return libcache->safename;
+ 	}
++		
++	return compatiblever;
+ }
+diff -rupN modem-manager-gui-0.0.17.1.old/src/libpaths.h modem-manager-gui-0.0.17.1/src/libpaths.h
+--- modem-manager-gui-0.0.17.1.old/src/libpaths.h	2013-06-17 23:02:10.000000000 +0400
++++ modem-manager-gui-0.0.17.1/src/libpaths.h	2015-04-28 00:51:58.000000000 +0300
+@@ -39,7 +39,7 @@ typedef struct _mmgui_libpaths_cache *mm
+ 
+ mmgui_libpaths_cache_t mmgui_libpaths_cache_new(gchar *libname, ...);
+ void mmgui_libpaths_cache_close(mmgui_libpaths_cache_t libcache);
+-gchar *mmgui_libpaths_cache_get_library_name(mmgui_libpaths_cache_t libcache, gchar *libname);
+-gchar *mmgui_libpaths_cache_get_library_path(mmgui_libpaths_cache_t libcache, gchar *libname);
++gchar *mmgui_libpaths_cache_get_library_full_path(mmgui_libpaths_cache_t libcache, gchar *libname);
++gboolean mmgui_libpaths_cache_check_library_version(mmgui_libpaths_cache_t libcache, gchar *libname, gint major, gint minor, gint release);
+ 
+ #endif /* __LIBPATHS_H__ */
+diff -rupN modem-manager-gui-0.0.17.1.old/src/notifications.c modem-manager-gui-0.0.17.1/src/notifications.c
+--- modem-manager-gui-0.0.17.1.old/src/notifications.c	2014-08-27 21:28:22.000000000 +0400
++++ modem-manager-gui-0.0.17.1/src/notifications.c	2015-04-27 20:35:12.000000000 +0300
+@@ -42,7 +42,7 @@ mmgui_notifications_t mmgui_notification
+ 	notifications->notifymodule = NULL;
+ 	
+ 	//Open module
+-	notifications->notifymodule = g_module_open(mmgui_libpaths_cache_get_library_name(libcache, "libnotify"), G_MODULE_BIND_LAZY);
++	notifications->notifymodule = g_module_open(mmgui_libpaths_cache_get_library_full_path(libcache, "libnotify"), G_MODULE_BIND_LAZY);
+ 	
+ 	if (notifications->notifymodule != NULL) {
+ 		libopened = TRUE;
+@@ -102,7 +102,7 @@ mmgui_notifications_t mmgui_notification
+ 	notifications->cacontext = NULL;
+ 	
+ 	//Open module
+-	notifications->canberramodule = g_module_open(mmgui_libpaths_cache_get_library_name(libcache, "libcanberra"), G_MODULE_BIND_LAZY);
++	notifications->canberramodule = g_module_open(mmgui_libpaths_cache_get_library_full_path(libcache, "libcanberra"), G_MODULE_BIND_LAZY);
+ 	
+ 	if (notifications->canberramodule != NULL) {
+ 		libopened = TRUE;
