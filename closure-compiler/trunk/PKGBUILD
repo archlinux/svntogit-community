@@ -2,15 +2,17 @@
 # Maintainer: BlackEagle < ike DOT devolder AT gmail DOT com >
 # Contributor: Bram Schoenmakers <me@bramschoenmakers.nl>
 pkgname=closure-compiler
-pkgver=20150315
+pkgver=20150609
 pkgrel=1
 pkgdesc="Performs checking, instrumentation and optimizations on Javascript code."
 arch=('any')
 url="https://developers.google.com/closure/compiler/"
 license=('APACHE')
 depends=('java-runtime')
-makedepends=('apache-ant')
+makedepends=('apache-ant' 'git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/google/$pkgname/archive/v$pkgver.tar.gz")
+
+LANG='en_US.UTF-8'
 
 build() {
 	cd "$pkgname-$pkgver"
@@ -34,4 +36,4 @@ package() {
 	chmod +x "$pkgdir/usr/bin/closure"
 }
 
-sha256sums=('4b33df258d55d942c59a487174f83007e38437a04ba434c0be058e426d2bf0e0')
+sha256sums=('aa3ba1a0c3de716399d57f0670b55164cee890f967d8f99d3b2dc969a4b430de')
