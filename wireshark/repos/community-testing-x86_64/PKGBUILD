@@ -1,0 +1,98 @@
+# $Id$
+# Maintainer: Timothy Redaelli <timothy.redaelli@gmail.com>
+# Contributor: Guillaume ALAUX <guillaume@archlinux.org>
+# Contributor: Florian Pritz <bluewind at jabber dot ccc dot de>
+pkgname=('wireshark-cli' 'wireshark-gtk' 'wireshark-qt')
+pkgbase=wireshark
+pkgver=1.12.6
+pkgrel=1
+arch=('i686' 'x86_64')
+license=('GPL2')
+makedepends=('qt4' 'gtk3' 'krb5' 'libpcap' 'bash' 'gnutls' 'portaudio'
+             'lua52' 'python' 'desktop-file-utils' 'hicolor-icon-theme')
+url='http://www.wireshark.org/'
+source=(http://www.wireshark.org/download/src/${pkgbase}-${pkgver}.tar.bz2
+        configure-pixmap-fix.diff)
+sha1sums=('5b592bd0389b76d3bdee6a7336e9492f8162c94d'
+          'c383bad83442d75f44afe1737848b9dee4f35b8f')
+
+prepare() {
+  cd ${pkgbase}-${pkgver}
+  sed -i 's/$(AM_V_RCC)rcc/&-qt4/p' ui/qt/Makefile.am
+  patch -uNp0 -i ../configure-pixmap-fix.diff
+}
+
+build() {
+  cd ${pkgbase}-${pkgver}
+
+  ./autogen.sh
+  ./configure \
+      --prefix=/usr \
+      --with-qt \
+      --with-gtk3=yes \
+      --with-pcap \
+      --with-zlib \
+      --with-lua \
+      --with-portaudio \
+      --with-ssl \
+      --with-krb5
+  make all
+}
+
+package_wireshark-cli() {
+  pkgdesc='a free network protocol analyzer for Unix/Linux and Windows - CLI version'
+  depends=('krb5' 'libgcrypt' 'libcap' 'libpcap' 'bash' 'gnutls' 'glib2' 'lua52')
+  install=wireshark.install
+  conflicts=(wireshark)
+
+  cd ${pkgbase}-${pkgver}
+
+  make DESTDIR="${pkgdir}" install
+
+  #wireshark uid group is 150
+  chgrp 150 "${pkgdir}/usr/bin/dumpcap"
+  chmod 754 "${pkgdir}/usr/bin/dumpcap"
+  rm "${pkgdir}/usr/bin/wireshark" "${pkgdir}/usr/bin/wireshark-qt"
+
+  # Headers
+  install -dm755 "${pkgdir}"/usr/include/${pkgbase}/{epan/{crypt,dfilter,dissectors,ftypes,wmem},wiretap,wsutil}
+
+  install -m644 color.h config.h register.h ws_symbol_export.h "${pkgdir}/usr/include/${pkgbase}"
+  for d in epan epan/crypt epan/dfilter epan/dissectors epan/ftypes epan/wmem wiretap wsutil; do
+    install -m644 ${d}/*.h "${pkgdir}"/usr/include/${pkgbase}/${d}
+  done
+}
+
+package_wireshark-gtk() {
+  pkgdesc='a free network protocol analyzer for Unix/Linux and Windows - GTK frontend'
+  depends=('gtk3' 'portaudio' 'wireshark-cli' 'desktop-file-utils' 'hicolor-icon-theme')
+  install=wireshark-gtk.install
+  replaces=(wireshark)
+  conflicts=(wireshark)
+
+  cd ${pkgbase}-${pkgver}
+
+  install -Dm755 .libs/wireshark "${pkgdir}/usr/bin/wireshark"
+  for d in 16 32 48; do
+    install -Dm644 image/hi${d}-app-wireshark.png  \
+                   "${pkgdir}/usr/share/icons/hicolor/${d}x${d}/apps/wireshark.png"
+  done
+
+  for d in 16 24 32 48 64 128 256 ; do
+    install -Dm644 image/WiresharkDoc-${d}.png \
+                   "${pkgdir}/usr/share/icons/hicolor/${d}x${d}/mimetypes/application-vnd.tcpdump.pcap.png"
+  done
+  install -Dm644 wireshark.desktop "${pkgdir}/usr/share/applications/wireshark.desktop"
+}
+
+package_wireshark-qt() {
+  pkgdesc='a free network protocol analyzer for Unix/Linux and Windows - Qt frontend'
+  depends=('qt4' 'wireshark-cli')
+  install=wireshark-qt.install
+
+  cd ${pkgbase}-${pkgver}
+  install -Dm755 .libs/wireshark-qt "${pkgdir}/usr/bin/wireshark-qt"
+
+  install -d "${pkgdir}/usr/share/applications"
+  sed -e 's/^Name.*=Wireshark/& (QT)/g' -e '/Exec=/s/wireshark/&-qt/g' wireshark.desktop > "${pkgdir}/usr/share/applications/wireshark-qt.desktop"
+}
