@@ -1,0 +1,1313 @@
+diff -Naur xarchiver-0.5.4.orig/configure.in xarchiver-0.5.4/configure.in
+--- xarchiver-0.5.4.orig/configure.in	2014-02-09 16:29:23.000000000 +0100
++++ xarchiver-0.5.4/configure.in	2015-07-09 17:27:29.948257405 +0200
+@@ -80,9 +80,22 @@
+ dnl ***********************************
+ dnl *** Check for required packages ***
+ dnl ***********************************
+-XDT_CHECK_PACKAGE([GTK], [gtk+-2.0], [2.10.0])
++AC_ARG_ENABLE([gtk3],
++    [AC_HELP_STRING([--enable-gtk3],
++        [compile xarchiver against gtk+ 3.0 (default: yes)])],
++    [enable_gtk3="${enableval}"],
++    [enable_gtk3="yes"]
++)
++
++if test x"$enable_gtk3" = x"yes"; then
++    GTK_API_VERSION="3.0"
++else
++    GTK_API_VERSION="2.0"
++fi
++
++XDT_CHECK_PACKAGE([GTK], [gtk+-$GTK_API_VERSION], [2.10.0])
+ XDT_CHECK_PACKAGE([GLIB], [glib-2.0], [2.10.0])
+-GTK_VERSION=`$PKG_CONFIG --modversion gtk+-2.0`
++GTK_VERSION=`$PKG_CONFIG --modversion gtk+-$GTK_API_VERSION`
+ 
+ dnl ***********************************
+ dnl *** Check for debugging support ***
+diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.c
+--- xarchiver-0.5.4.orig/src/add_dialog.c	2014-02-09 16:26:24.000000000 +0100
++++ xarchiver-0.5.4/src/add_dialog.c	2015-07-09 17:27:29.951590832 +0200
+@@ -31,16 +31,13 @@
+ 
+ 	add_dialog = g_new0 (Add_dialog_data, 1);
+ 	add_dialog->path_group = NULL;
+-	add_dialog->option_tooltip = gtk_tooltips_new ();
+ 
+ 	add_dialog->dialog1 = gtk_dialog_new ();
+ 	gtk_window_set_title (GTK_WINDOW (add_dialog->dialog1), _("Add files"));
+ 	gtk_window_set_position (GTK_WINDOW (add_dialog->dialog1),GTK_WIN_POS_CENTER_ON_PARENT);
+ 	gtk_window_set_type_hint (GTK_WINDOW (add_dialog->dialog1), GDK_WINDOW_TYPE_HINT_DIALOG);
+-	gtk_dialog_set_has_separator (GTK_DIALOG (add_dialog->dialog1),FALSE);
+ 
+-	add_dialog->add_option_tooltip = gtk_tooltips_new ();
+-	add_dialog->dialog_vbox1 = GTK_DIALOG (add_dialog->dialog1)->vbox;
++	add_dialog->dialog_vbox1 = gtk_dialog_get_content_area(GTK_DIALOG (add_dialog->dialog1));
+ 
+ 	add_dialog->notebook1 = gtk_notebook_new ();
+ 	gtk_box_pack_start (GTK_BOX (add_dialog->dialog_vbox1),add_dialog->notebook1, TRUE, TRUE,0);
+@@ -107,13 +104,13 @@
+ 
+ 	add_dialog->update = gtk_check_button_new_with_mnemonic (_("Update and add"));
+ 	gtk_button_set_focus_on_click (GTK_BUTTON (add_dialog->update), FALSE);
+-	gtk_tooltips_set_tip (add_dialog->option_tooltip,add_dialog->update, _("This option will add any new files and update any files which have been modified since the archive was last created/modified"), NULL );
++	gtk_widget_set_tooltip_text (add_dialog->update, _("This option will add any new files and update any files which have been modified since the archive was last created/modified"));
+ 	gtk_box_pack_start (GTK_BOX (vbox3), add_dialog->update, FALSE, FALSE, 0);
+ 
+ 	add_dialog->freshen = gtk_check_button_new_with_mnemonic (_("Freshen and replace"));
+ 
+ 	gtk_button_set_focus_on_click (GTK_BUTTON (add_dialog->freshen), FALSE);
+-	gtk_tooltips_set_tip (add_dialog->option_tooltip,add_dialog->freshen , _("This option affects the archive only if it has been modified more recently than the version already in the archive; unlike the update option it will not add files that are not already in the archive"), NULL );
++	gtk_widget_set_tooltip_text (add_dialog->freshen , _("This option affects the archive only if it has been modified more recently than the version already in the archive; unlike the update option it will not add files that are not already in the archive"));
+ 	gtk_box_pack_start (GTK_BOX (vbox3), add_dialog->freshen, FALSE, FALSE, 0);
+ 	g_signal_connect (G_OBJECT (add_dialog->freshen),"toggled",G_CALLBACK (add_fresh_update_toggled_cb) , add_dialog);
+ 
+@@ -123,7 +120,7 @@
+ 
+ 	add_dialog->solid_archive = gtk_check_button_new_with_mnemonic (_("Create a solid archive"));
+ 	gtk_button_set_focus_on_click (GTK_BUTTON (add_dialog->solid_archive), FALSE);
+-	gtk_tooltips_set_tip (add_dialog->option_tooltip,add_dialog->solid_archive , _("In a solid archive the files are grouped together featuring a better compression ratio"), NULL);
++	gtk_widget_set_tooltip_text (add_dialog->solid_archive , _("In a solid archive the files are grouped together featuring a better compression ratio"));
+ 	gtk_box_pack_start (GTK_BOX (vbox3), add_dialog->solid_archive, FALSE, FALSE, 0);
+ 
+ 	add_dialog->remove_files = gtk_check_button_new_with_mnemonic (_("Delete files after adding"));
+@@ -172,12 +169,12 @@
+ 	label5 = gtk_label_new (_("Encryption: "));
+ 	gtk_frame_set_label_widget (GTK_FRAME (frame3), label5);
+   
+-	dialog_action_area1 = GTK_DIALOG (add_dialog->dialog1)->action_area;
++	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (add_dialog->dialog1));
+ 	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1), GTK_BUTTONBOX_END);
+ 
+ 	add_dialog->cancel_button = gtk_button_new_from_stock ("gtk-cancel");
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (add_dialog->dialog1), add_dialog->cancel_button, GTK_RESPONSE_CANCEL);
+-	GTK_WIDGET_SET_FLAGS (add_dialog->cancel_button, GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (add_dialog->cancel_button, TRUE);
+ 
+ 	add_dialog->add_button = gtk_button_new();
+ 	add_dialog->add_image = xa_main_window_find_image("xarchiver-add.png", GTK_ICON_SIZE_SMALL_TOOLBAR);
+@@ -192,7 +189,7 @@
+ 	gtk_container_add(GTK_CONTAINER(add_dialog->add_button), alignment2);
+ 
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (add_dialog->dialog1), add_dialog->add_button, GTK_RESPONSE_OK);
+-	GTK_WIDGET_SET_FLAGS (add_dialog->add_button, GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (add_dialog->add_button, TRUE);
+ 	gtk_dialog_set_default_response (GTK_DIALOG (add_dialog->dialog1), GTK_RESPONSE_OK);
+ 	return add_dialog;
+ }
+@@ -316,7 +313,7 @@
+ 		gtk_range_set_inverted (GTK_RANGE (add_dialog->compression_scale), TRUE);
+ 	else if (archive->type == XARCHIVETYPE_7ZIP)
+ 		g_signal_connect (G_OBJECT (add_dialog->compression_value),"value-changed",G_CALLBACK (fix_adjustment_value), NULL);
+-	gtk_tooltips_set_tip (add_dialog->option_tooltip,add_dialog->compression_scale, compression_msg, NULL );
++	gtk_widget_set_tooltip_text (add_dialog->compression_scale, compression_msg);
+ 
+ 	if (archive->type == XARCHIVETYPE_TAR || archive->type == XARCHIVETYPE_TAR_GZ || archive->type == XARCHIVETYPE_TAR_LZMA || archive->type == XARCHIVETYPE_TAR_XZ || archive->type == XARCHIVETYPE_TAR_BZ2 || archive->type == XARCHIVETYPE_TAR_LZOP)
+ 		flag = FALSE;
+@@ -419,13 +416,13 @@
+ 			if (add_dialog->remove_files != NULL)
+ 				archive->remove_files = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (add_dialog->remove_files));
+ 
+-			if (GTK_WIDGET_IS_SENSITIVE(add_dialog->freshen))
++			if (gtk_widget_is_sensitive(GTK_WIDGET(add_dialog->freshen)))
+ 				archive->freshen = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (add_dialog->freshen));
+ 
+-			if (GTK_WIDGET_IS_SENSITIVE(add_dialog->solid_archive))
++			if (gtk_widget_is_sensitive(GTK_WIDGET(add_dialog->solid_archive)))
+ 				archive->solid_archive = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (add_dialog->solid_archive));
+ 
+-			if (GTK_WIDGET_IS_SENSITIVE(add_dialog->compression_scale))
++			if (gtk_widget_is_sensitive(GTK_WIDGET(add_dialog->compression_scale)))
+ 			{
+ 				archive->compression_level = gtk_adjustment_get_value(GTK_ADJUSTMENT (add_dialog->compression_value));
+ 				compression_string = g_strdup_printf("%d",archive->compression_level);
+diff -Naur xarchiver-0.5.4.orig/src/add_dialog.h xarchiver-0.5.4/src/add_dialog.h
+--- xarchiver-0.5.4.orig/src/add_dialog.h	2008-11-10 11:35:55.000000000 +0100
++++ xarchiver-0.5.4/src/add_dialog.h	2015-07-09 17:27:29.951590832 +0200
+@@ -46,10 +46,8 @@
+ 	GtkWidget *add_label;
+ 	GtkWidget *cancel_button;
+ 	GtkWidget *add_button;
+-	GtkTooltips *add_option_tooltip;
+ 	GtkWidget *add_option_label;
+-	GtkTooltips *option_tooltip;
+-	GtkObject *compression_value;
++	GtkAdjustment *compression_value;
+ } Add_dialog_data;
+ 
+ Add_dialog_data *xa_create_add_dialog();
+diff -Naur xarchiver-0.5.4.orig/src/archive.c xarchiver-0.5.4/src/archive.c
+--- xarchiver-0.5.4.orig/src/archive.c	2014-02-09 16:26:24.000000000 +0100
++++ xarchiver-0.5.4/src/archive.c	2015-07-09 17:27:29.951590832 +0200
+@@ -361,7 +361,7 @@
+ 	if (archive->tmp != NULL)
+ 		return TRUE;
+ 
+-	value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_temp_dir));
++	value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_temp_dir));
+ 	tmp_dir = g_strconcat(value,"/xa-XXXXXX",NULL);
+ 
+ 	if (mkdtemp (tmp_dir) == 0)
+diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract_dialog.c
+--- xarchiver-0.5.4.orig/src/extract_dialog.c	2014-09-28 22:11:16.000000000 +0200
++++ xarchiver-0.5.4/src/extract_dialog.c	2015-07-09 17:27:29.951590832 +0200
+@@ -19,7 +19,6 @@
+ #include <gtk/gtk.h>
+ #include <stdlib.h>
+ #include "extract_dialog.h"
+-#include "sexy-icon-entry.h"
+ #include "window.h"
+ #include "string_utils.h"
+ #include "support.h"
+@@ -30,7 +29,7 @@
+ extern extract_func extract	[XARCHIVETYPE_COUNT];
+ 
+ static gchar *xa_multi_extract_archive(Multi_extract_data *,gchar *,gboolean,gboolean,gchar *);
+-static void xa_select_where_to_extract(SexyIconEntry *,SexyIconEntryPosition ,int ,Multi_extract_data *);
++static void xa_select_where_to_extract(GtkEntry *entry,gint icon_pos,GdkEventButton *event,Multi_extract_data *dialog_data);
+ static void xa_remove_files_liststore (GtkWidget *,Multi_extract_data *);
+ static void xa_multi_extract_dialog_select_files_to_add (GtkButton*,Multi_extract_data *);
+ static void xa_multi_extract_dialog_selection_changed(GtkTreeSelection *selection,Multi_extract_data *);
+@@ -51,11 +50,9 @@
+ 
+ 	gtk_window_set_position (GTK_WINDOW (dialog_data->dialog1),GTK_WIN_POS_CENTER_ON_PARENT);
+ 	gtk_window_set_type_hint (GTK_WINDOW (dialog_data->dialog1),GDK_WINDOW_TYPE_HINT_DIALOG);
+-	gtk_dialog_set_has_separator (GTK_DIALOG(dialog_data->dialog1),FALSE);
+ 	gtk_window_set_destroy_with_parent(GTK_WINDOW (dialog_data->dialog1),TRUE);
+ 
+-	option_tooltip = gtk_tooltips_new ();
+-	dialog_data->dialog_vbox1 = GTK_DIALOG (dialog_data->dialog1)->vbox;
++	dialog_data->dialog_vbox1 = gtk_dialog_get_content_area(GTK_DIALOG (dialog_data->dialog1));
+ 
+ 	vbox1 = gtk_vbox_new (FALSE,2);
+ 	gtk_box_pack_start (GTK_BOX (dialog_data->dialog_vbox1),vbox1,TRUE,TRUE,0);
+@@ -65,9 +62,9 @@
+ 	gtk_box_pack_start (GTK_BOX (vbox1),label1,FALSE,FALSE,0);
+ 	gtk_misc_set_alignment (GTK_MISC (label1),0,0.5);
+ 
+-	dialog_data->destination_path_entry = sexy_icon_entry_new();
+-	sexy_icon_entry_add_clear_button( SEXY_ICON_ENTRY(dialog_data->destination_path_entry),dialog_data,xa_select_where_to_extract);
+-    sexy_icon_entry_set_icon_highlight( SEXY_ICON_ENTRY(dialog_data->destination_path_entry),SEXY_ICON_ENTRY_PRIMARY,TRUE );
++	dialog_data->destination_path_entry = gtk_entry_new();
++	gtk_entry_set_icon_from_stock( GTK_ENTRY(dialog_data->destination_path_entry),GTK_ENTRY_ICON_SECONDARY,GTK_STOCK_OPEN);
++	g_signal_connect (dialog_data->destination_path_entry, "icon-press",G_CALLBACK (xa_select_where_to_extract),dialog_data);
+ 	gtk_box_pack_start (GTK_BOX (vbox1),dialog_data->destination_path_entry,FALSE,FALSE,0);
+ 
+ 	hbox1 = gtk_hbox_new (TRUE,10);
+@@ -129,20 +126,20 @@
+ 	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->overwrite_check,FALSE,FALSE,0);
+ 
+ 	dialog_data->extract_full = gtk_check_button_new_with_mnemonic (_("Extract files with full path"));
+-	gtk_tooltips_set_tip(option_tooltip,dialog_data->extract_full,_("The archive's directory structure is recreated in the extraction directory"),NULL );
++	gtk_widget_set_tooltip_text (dialog_data->extract_full,_("The archive's directory structure is recreated in the extraction directory"));
+ 	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->extract_full,FALSE,FALSE,0);
+ 
+ 	dialog_data->touch = gtk_check_button_new_with_mnemonic (_("Touch files"));
+-	gtk_tooltips_set_tip (option_tooltip,dialog_data->touch,_("When this option is used,tar leaves the data modification times of the files it extracts as the times when the files were extracted,instead of setting it to the times recorded in the archive"),NULL );
++	gtk_widget_set_tooltip_text (dialog_data->touch,_("When this option is used,tar leaves the data modification times of the files it extracts as the times when the files were extracted,instead of setting it to the times recorded in the archive"));
+ 	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->touch,FALSE,FALSE,0);
+ 
+ 	dialog_data->fresh = gtk_check_button_new_with_mnemonic (_("Freshen existing files"));
+-	gtk_tooltips_set_tip (option_tooltip,dialog_data->fresh,_("Extract only those files that already exist on disk and that are newer than the disk copies"),NULL );
++	gtk_widget_set_tooltip_text (dialog_data->fresh,_("Extract only those files that already exist on disk and that are newer than the disk copies"));
+ 	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->fresh,FALSE,FALSE,0);
+ 	g_signal_connect (G_OBJECT (dialog_data->fresh),"toggled",G_CALLBACK (fresh_update_toggled_cb),dialog_data);
+ 
+ 	dialog_data->update = gtk_check_button_new_with_mnemonic (_("Update existing files"));
+-	gtk_tooltips_set_tip (option_tooltip,dialog_data->update,_("This option performs the same function as the freshen one,extracting files that are newer than those with the same name on disk,and in addition it extracts those files that do not already exist on disk"),NULL );
++	gtk_widget_set_tooltip_text (dialog_data->update,_("This option performs the same function as the freshen one,extracting files that are newer than those with the same name on disk,and in addition it extracts those files that do not already exist on disk"));
+ 	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->update,FALSE,FALSE,0);
+ 	g_signal_connect (G_OBJECT (dialog_data->update),"toggled",G_CALLBACK (update_fresh_toggled_cb),dialog_data);
+ 
+@@ -159,12 +156,12 @@
+ 	gtk_box_pack_start (GTK_BOX (hbox3),dialog_data->password_entry,TRUE,TRUE,0);
+ 	gtk_entry_set_visibility (GTK_ENTRY (dialog_data->password_entry),FALSE);
+ 
+-	dialog_action_area1 = GTK_DIALOG (dialog_data->dialog1)->action_area;
++	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (dialog_data->dialog1));
+ 	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1),GTK_BUTTONBOX_END);
+ 
+ 	cancel_button = gtk_button_new_from_stock(GTK_STOCK_CANCEL);
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->dialog1),cancel_button,GTK_RESPONSE_CANCEL);
+-	GTK_WIDGET_SET_FLAGS (cancel_button,GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (cancel_button,TRUE);
+ 
+ 	extract_button = gtk_button_new();
+ 	extract_image = xa_main_window_find_image("xarchiver-extract.png",GTK_ICON_SIZE_SMALL_TOOLBAR);
+@@ -178,7 +175,7 @@
+ 	gtk_container_add(GTK_CONTAINER(extract_button),alignment3);
+ 
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->dialog1),extract_button,GTK_RESPONSE_OK);
+-	GTK_WIDGET_SET_FLAGS (extract_button,GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (extract_button,TRUE);
+ 	gtk_dialog_set_default_response (GTK_DIALOG (dialog_data->dialog1),GTK_RESPONSE_OK);
+ 	return dialog_data;
+ }
+@@ -387,11 +384,9 @@
+ 	GtkTreeSelection *selection;
+ 	GtkTreeViewColumn *column;
+ 	GSList *radiobutton1_group = NULL;
+-	GtkTooltips *multi_tooltip;
+ 	char *column_names[]= {(_("Archive Name")),(_("Size")),(_("Path")),NULL};
+ 	int x;
+ 
+-	multi_tooltip = gtk_tooltips_new ();
+ 	dialog_data = g_new0 (Multi_extract_data,1);
+ 	dialog_data->multi_extract = gtk_dialog_new();
+ 
+@@ -399,10 +394,9 @@
+ 	gtk_window_set_type_hint (GTK_WINDOW (dialog_data->multi_extract),GDK_WINDOW_TYPE_HINT_DIALOG);
+ 	gtk_window_set_destroy_with_parent (GTK_WINDOW (dialog_data->multi_extract),TRUE);
+ 	gtk_widget_set_size_request(dialog_data->multi_extract,-1,300);
+-	gtk_dialog_set_has_separator (GTK_DIALOG (dialog_data->multi_extract),FALSE);
+ 	gtk_window_set_title (GTK_WINDOW (dialog_data->multi_extract),_("Multi-Extract"));
+ 
+-	dialog_vbox1 = GTK_DIALOG (dialog_data->multi_extract)->vbox;
++	dialog_vbox1 = gtk_dialog_get_content_area(GTK_DIALOG (dialog_data->multi_extract));
+ 	vbox1 = gtk_vbox_new (FALSE,5);
+ 	gtk_box_pack_start (GTK_BOX (dialog_vbox1),vbox1,TRUE,TRUE,0);
+ 	scrolledwindow1 = gtk_scrolled_window_new (NULL,NULL);
+@@ -466,13 +460,13 @@
+ 	gtk_radio_button_set_group (GTK_RADIO_BUTTON (dialog_data->extract_to),radiobutton1_group);
+ 	radiobutton1_group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (dialog_data->extract_to));
+ 
+-	dialog_data->entry1 = sexy_icon_entry_new();
+-    sexy_icon_entry_add_clear_button( SEXY_ICON_ENTRY(dialog_data->entry1),dialog_data,xa_select_where_to_extract);
+-    sexy_icon_entry_set_icon_highlight( SEXY_ICON_ENTRY(dialog_data->entry1),SEXY_ICON_ENTRY_PRIMARY,TRUE );
++	dialog_data->entry1 = gtk_entry_new();
++	gtk_entry_set_icon_from_stock( GTK_ENTRY(dialog_data->entry1),GTK_ENTRY_ICON_SECONDARY,GTK_STOCK_OPEN);
++	g_signal_connect (dialog_data->entry1, "icon-press",G_CALLBACK (xa_select_where_to_extract),dialog_data);
+ 	gtk_box_pack_start (GTK_BOX (hbox3),dialog_data->entry1,TRUE,TRUE,0);
+ 
+ 	dialog_data->extract_to_archive_name = gtk_radio_button_new_with_mnemonic (NULL,_("Extract to dir \"Archive Name\""));
+-	gtk_tooltips_set_tip (multi_tooltip,dialog_data->extract_to_archive_name,_("This option extracts archives in directories named with the archive names"),NULL);
++	gtk_widget_set_tooltip_text (dialog_data->extract_to_archive_name,_("This option extracts archives in directories named with the archive names"));
+ 	gtk_box_pack_start (GTK_BOX (vbox2),dialog_data->extract_to_archive_name,FALSE,FALSE,0);
+ 	gtk_radio_button_set_group (GTK_RADIO_BUTTON (dialog_data->extract_to_archive_name),radiobutton1_group);
+ 	radiobutton1_group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (dialog_data->extract_to_archive_name));
+@@ -496,11 +490,11 @@
+ 	label2 = gtk_label_new (_("Options:"));
+ 	gtk_frame_set_label_widget(GTK_FRAME(frame2),label2);
+ 
+-	dialog_action_area1 = GTK_DIALOG (dialog_data->multi_extract)->action_area;
++	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (dialog_data->multi_extract));
+ 	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1),GTK_BUTTONBOX_END);
+ 	cancelbutton1 = gtk_button_new_from_stock ("gtk-cancel");
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->multi_extract),cancelbutton1,GTK_RESPONSE_CANCEL);
+-	GTK_WIDGET_SET_FLAGS (cancelbutton1,GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default(cancelbutton1,TRUE);
+ 	
+ 	extract_button = gtk_button_new();
+ 	extract_image = xa_main_window_find_image("xarchiver-extract.png",GTK_ICON_SIZE_SMALL_TOOLBAR);
+@@ -514,7 +508,7 @@
+ 	gtk_container_add(GTK_CONTAINER(extract_button),alignment3);
+ 
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->multi_extract),extract_button,GTK_RESPONSE_OK);
+-	GTK_WIDGET_SET_FLAGS (extract_button,GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (extract_button,TRUE);
+ 	gtk_dialog_set_default_response (GTK_DIALOG (dialog_data->multi_extract),GTK_RESPONSE_OK);
+ 	return dialog_data;
+ }
+@@ -662,7 +656,7 @@
+ 	g_strfreev (array);
+ }
+ 
+-void xa_select_where_to_extract(SexyIconEntry *entry, SexyIconEntryPosition icon_pos,int button,Multi_extract_data *dialog_data)
++void xa_select_where_to_extract(GtkEntry *entry,gint icon_pos,GdkEventButton *event,Multi_extract_data *dialog_data)
+ {
+ 	GtkWidget *file_selector;
+ 	gchar *dest_dir;
+diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.h xarchiver-0.5.4/src/extract_dialog.h
+--- xarchiver-0.5.4.orig/src/extract_dialog.h	2008-10-08 12:14:57.000000000 +0200
++++ xarchiver-0.5.4/src/extract_dialog.h	2015-07-09 17:27:29.954924258 +0200
+@@ -44,7 +44,6 @@
+ GtkWidget *hbox1,*hbox2,*hbox3,*vbox1,*vbox2,*vbox3,*vbox5;
+ GtkWidget *frame1,*frame2,*alignment1,*alignment2,*alignment3;
+ GtkWidget *dialog_action_area1,*cancel_button,*okbutton1,*extract_button,*extract_image,*extract_hbox,*extract_label;
+-GtkTooltips *option_tooltip;
+ 	
+ Extract_dialog_data *xa_create_extract_dialog();
+ void xa_activate_entry(GtkToggleButton *,gpointer );
+diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
+--- xarchiver-0.5.4.orig/src/interface.c	2014-09-28 22:11:04.000000000 +0200
++++ xarchiver-0.5.4/src/interface.c	2015-07-09 17:27:29.954924258 +0200
+@@ -55,7 +55,6 @@
+ 	GdkPixbuf *icon;
+ 
+ 	xa_create_popup_menu();
+-	tooltips = gtk_tooltips_new ();
+ 	accel_group = gtk_accel_group_new ();
+ 	xa_set_window_title (xa_main_window,NULL);
+ 
+@@ -128,7 +127,7 @@
+ 	gtk_widget_show (check_menu);
+ 	gtk_widget_set_sensitive (check_menu,FALSE);
+ 	gtk_container_add (GTK_CONTAINER (menuitem1_menu),check_menu);
+-	gtk_widget_add_accelerator (check_menu,"activate",accel_group,GDK_t,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (check_menu,"activate",accel_group,GDK_KEY_t,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-index",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (tmp_image);
+@@ -138,7 +137,7 @@
+ 	gtk_widget_show (properties);
+ 	gtk_widget_set_sensitive ( properties,FALSE);
+ 	gtk_container_add (GTK_CONTAINER (menuitem1_menu),properties);
+-	gtk_widget_add_accelerator (properties,"activate",accel_group,GDK_p,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (properties,"activate",accel_group,GDK_KEY_p,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-properties",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (tmp_image);
+@@ -169,7 +168,7 @@
+ 	gtk_widget_set_sensitive (addfile,FALSE);
+ 	gtk_widget_show (addfile);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),addfile);
+-	gtk_widget_add_accelerator (addfile,"activate",accel_group,GDK_d,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (addfile,"activate",accel_group,GDK_KEY_d,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	image2 = xa_main_window_find_image ("xarchiver-add.png",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (image2);
+@@ -179,7 +178,7 @@
+ 	gtk_widget_set_sensitive (extract_menu,FALSE);
+ 	gtk_widget_show (extract_menu);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),extract_menu);
+-	gtk_widget_add_accelerator (extract_menu,"activate",accel_group,GDK_e,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (extract_menu,"activate",accel_group,GDK_KEY_e,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	image2 =  xa_main_window_find_image ("xarchiver-extract.png",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (image2);
+@@ -189,7 +188,7 @@
+ 	gtk_widget_set_sensitive (delete_menu,FALSE);
+ 	gtk_widget_show (delete_menu);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),delete_menu);
+-	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_KEY_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
+ 
+ 	rename_menu = gtk_image_menu_item_new_with_mnemonic (_("Rename"));
+ 	gtk_widget_set_sensitive (rename_menu,FALSE);
+@@ -209,7 +208,7 @@
+ 	gtk_widget_set_sensitive (exe_menu,FALSE);
+ 	gtk_widget_show (exe_menu);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),exe_menu);
+-	gtk_widget_add_accelerator (exe_menu,"activate",accel_group,GDK_x,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (exe_menu,"activate",accel_group,GDK_KEY_x,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	image2 = gtk_image_new_from_stock ("gtk-execute",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (image2);
+@@ -218,13 +217,13 @@
+ 	multi_extract_menu = gtk_menu_item_new_with_mnemonic (_("_Multi-Extract"));
+ 	gtk_widget_show (multi_extract_menu);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),multi_extract_menu);
+-	gtk_widget_add_accelerator (multi_extract_menu,"activate",accel_group,GDK_m,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (multi_extract_menu,"activate",accel_group,GDK_KEY_m,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	comment_menu = gtk_image_menu_item_new_with_mnemonic (_("Archive comment"));
+ 	gtk_widget_set_sensitive (comment_menu,FALSE);
+ 	gtk_widget_show (comment_menu);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),comment_menu);
+-	gtk_widget_add_accelerator (comment_menu,"activate",accel_group,GDK_s,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (comment_menu,"activate",accel_group,GDK_KEY_s,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-justify-fill",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (tmp_image);
+@@ -238,7 +237,7 @@
+ 	gtk_widget_show (select_all);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),select_all);
+ 	gtk_widget_set_sensitive (select_all,FALSE);
+-	gtk_widget_add_accelerator (select_all,"activate",accel_group,GDK_a,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (select_all,"activate",accel_group,GDK_KEY_a,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-select-all",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (tmp_image);
+@@ -248,13 +247,13 @@
+ 	gtk_widget_show (deselect_all);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),deselect_all);
+ 	gtk_widget_set_sensitive (deselect_all,FALSE);
+-	gtk_widget_add_accelerator (deselect_all,"activate",accel_group,GDK_l,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (deselect_all,"activate",accel_group,GDK_KEY_l,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	select_pattern = gtk_menu_item_new_with_mnemonic (_("Select _by pattern"));
+ 	gtk_widget_show (select_pattern);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),select_pattern);
+ 	gtk_widget_set_sensitive (select_pattern,FALSE);
+-	gtk_widget_add_accelerator (select_pattern,"activate",accel_group,GDK_b,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (select_pattern,"activate",accel_group,GDK_KEY_b,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	separatormenuitem5 = gtk_separator_menu_item_new ();
+ 	gtk_widget_show (separatormenuitem5);
+@@ -263,7 +262,7 @@
+ 
+ 	view_shell_output1 = gtk_image_menu_item_new_with_mnemonic (_("Cmd-line outp_ut"));
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),view_shell_output1);
+-	gtk_widget_add_accelerator (view_shell_output1,"activate",accel_group,GDK_u,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (view_shell_output1,"activate",accel_group,GDK_KEY_u,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 	if (show_output_menu_item)
+ 		gtk_widget_set_sensitive(view_shell_output1,TRUE);
+ 	else
+@@ -278,7 +277,7 @@
+ 	gtk_widget_show (password_entry_menu);
+ 	gtk_widget_set_sensitive (password_entry_menu,FALSE);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),password_entry_menu);
+-	gtk_widget_add_accelerator (password_entry_menu,"activate",accel_group,GDK_r,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (password_entry_menu,"activate",accel_group,GDK_KEY_r,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	separatormenuitem6 = gtk_separator_menu_item_new ();
+ 	gtk_widget_show (separatormenuitem6);
+@@ -288,7 +287,7 @@
+ 	prefs_menu = gtk_image_menu_item_new_with_mnemonic (_("_Preferences"));
+ 	gtk_widget_show (prefs_menu);
+ 	gtk_container_add (GTK_CONTAINER (menuitem2_menu),prefs_menu);
+-	gtk_widget_add_accelerator (prefs_menu,"activate",accel_group,GDK_f,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (prefs_menu,"activate",accel_group,GDK_KEY_f,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-preferences",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (tmp_image);
+@@ -304,7 +303,7 @@
+ 	help1 = gtk_image_menu_item_new_with_mnemonic ("_Contents");
+ 	gtk_widget_show (help1);
+ 	gtk_container_add (GTK_CONTAINER (menuitem4_menu),help1);
+-	gtk_widget_add_accelerator (help1,"activate",accel_group,GDK_F1,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (help1,"activate",accel_group,GDK_KEY_F1,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-help",GTK_ICON_SIZE_MENU);
+ 	gtk_widget_show (tmp_image);
+@@ -327,7 +326,7 @@
+ 	gtk_widget_show (New_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (New_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),New_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (New_button),tooltips,_("Create a new archive"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (New_button),_("Create a new archive"));
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-open",tmp_toolbar_icon_size);
+ 	gtk_widget_show (tmp_image);
+@@ -335,7 +334,7 @@
+ 	gtk_widget_show (Open_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (Open_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),Open_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (Open_button),tooltips,_("Open an archive"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (Open_button),_("Open an archive"));
+ 
+ 	separatortoolitem1 = (GtkWidget*) gtk_separator_tool_item_new ();
+ 	gtk_widget_show (separatortoolitem1);
+@@ -348,7 +347,7 @@
+ 	gtk_widget_show (back_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (back_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),back_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (back_button),tooltips,_("Back"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (back_button),_("Back"));
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-go-up",tmp_toolbar_icon_size);
+ 	gtk_widget_show (tmp_image);
+@@ -357,7 +356,7 @@
+ 	gtk_widget_show (up_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (up_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),up_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (up_button),tooltips,_("Up"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (up_button),_("Up"));
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-go-forward",tmp_toolbar_icon_size);
+ 	gtk_widget_show (tmp_image);
+@@ -366,7 +365,7 @@
+ 	gtk_widget_show (forward_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (forward_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),forward_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (forward_button),tooltips,_("Forward"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (forward_button),_("Forward"));
+ 
+ 	tmp_image = gtk_image_new_from_stock ("gtk-home",tmp_toolbar_icon_size);
+ 	gtk_widget_show (tmp_image);
+@@ -375,7 +374,7 @@
+ 	gtk_widget_show (home_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (home_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),home_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (home_button),tooltips,_("Root"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (home_button),_("Root"));
+ 
+ 	separatortoolitem3 = (GtkWidget*) gtk_separator_tool_item_new ();
+ 	gtk_widget_show (separatortoolitem3);
+@@ -388,7 +387,7 @@
+ 	gtk_widget_show (AddFile_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (AddFile_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),AddFile_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (AddFile_button),tooltips,_("Add files"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (AddFile_button),_("Add files"));
+ 
+ 	tmp_image = xa_main_window_find_image("xarchiver-extract.png",GTK_ICON_SIZE_LARGE_TOOLBAR);
+ 	gtk_widget_show (tmp_image);
+@@ -397,7 +396,7 @@
+ 	gtk_widget_show (Extract_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (Extract_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),Extract_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (Extract_button),tooltips,_("Extract files"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (Extract_button),_("Extract files"));
+ 
+ 	separatortoolitem2 = (GtkWidget*) gtk_separator_tool_item_new ();
+ 	gtk_widget_show (separatortoolitem2);
+@@ -410,7 +409,7 @@
+ 	gtk_widget_show (Stop_button);
+ 	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM ( Stop_button),FALSE);
+ 	gtk_container_add (GTK_CONTAINER (toolbar1),Stop_button);
+-	gtk_tool_item_set_tooltip (GTK_TOOL_ITEM (Stop_button),tooltips,_("Cancel current operation"),NULL);
++	gtk_tool_item_set_tooltip_text (GTK_TOOL_ITEM (Stop_button),_("Cancel current operation"));
+ 
+ 	/* Location entry */
+ 	toolbar2 = gtk_toolbar_new ();
+@@ -510,7 +509,7 @@
+ 	gtk_widget_show (green_led);
+ 	gtk_box_pack_start (GTK_BOX (hbox_sb),green_led,FALSE,FALSE,0);
+ 	gtk_misc_set_alignment (GTK_MISC (green_led),1,1);
+-	gtk_tooltips_set_tip (tooltips,green_led,_("This is Xarchiver led status. When it's flashing Xarchiver is busy"),NULL);
++	gtk_widget_set_tooltip_text (green_led,_("This is Xarchiver led status. When it's flashing Xarchiver is busy"));
+ 
+ 	red_led = gtk_image_new_from_icon_name ("gtk-no",GTK_ICON_SIZE_BUTTON);
+ 	gtk_box_pack_start (GTK_BOX (hbox_sb),red_led,FALSE,FALSE,0);
+@@ -564,7 +563,7 @@
+ 		archive->pb_source = 0;
+ 		return FALSE;
+ 	}
+-	if (GTK_WIDGET_VISIBLE(green_led))
++	if (gtk_widget_get_visible(GTK_WIDGET(green_led)))
+ 	{
+ 		gtk_widget_hide(green_led);
+ 		gtk_widget_show(red_led);
+@@ -577,7 +576,7 @@
+ 	return TRUE;
+ }
+ 
+-void xa_page_has_changed (GtkNotebook *notebook,GtkNotebookPage *page,guint page_num,gpointer user_data)
++void xa_page_has_changed (GtkNotebook *notebook,GtkWidget *page,guint page_num,gpointer user_data)
+ {
+ 	gint id,selected = 0;
+ 	GtkTreeSelection *selection = NULL;
+@@ -648,7 +647,6 @@
+ void xa_add_page (XArchive *archive)
+ {
+ 	GtkWidget	*page_hbox,*label,*tab_label,*close_button,*image,*align;
+-	GtkTooltips *close_button_tips = gtk_tooltips_new();
+ 	gchar *filename_only;
+ 	GtkRcStyle *rcstyle;
+ 	GtkRequisition size;
+@@ -684,13 +682,13 @@
+ 	close_button = gtk_button_new();
+ 	gtk_button_set_focus_on_click(GTK_BUTTON(close_button),FALSE);
+ 	gtk_button_set_relief (GTK_BUTTON(close_button),GTK_RELIEF_NONE);
+-	gtk_tooltips_set_tip (close_button_tips,close_button,_("Close archive"),NULL);
++	gtk_widget_set_tooltip_text (close_button,_("Close archive"));
+ 	g_signal_connect (G_OBJECT(close_button),"clicked",G_CALLBACK(xa_close_page),(gpointer) archive->scrollwindow);
+ 
+ 	rcstyle = gtk_rc_style_new();
+ 	rcstyle->xthickness = rcstyle->ythickness = 0;
+ 	gtk_widget_modify_style(close_button,rcstyle);
+-	gtk_rc_style_unref(rcstyle);
++	g_object_unref(rcstyle);
+ 
+ 	image = gtk_image_new_from_stock (GTK_STOCK_CLOSE,GTK_ICON_SIZE_MENU);
+ 	gtk_widget_size_request(image,&size);
+@@ -745,9 +743,8 @@
+   	gtk_window_set_position (GTK_WINDOW (password_dialog),GTK_WIN_POS_CENTER_ON_PARENT);
+   	gtk_window_set_resizable (GTK_WINDOW (password_dialog),FALSE);
+   	gtk_window_set_type_hint (GTK_WINDOW (password_dialog),GDK_WINDOW_TYPE_HINT_DIALOG);
+-  	gtk_dialog_set_has_separator (GTK_DIALOG (password_dialog),FALSE);
+ 
+-  	dialog_vbox1 = GTK_DIALOG (password_dialog)->vbox;
++  	dialog_vbox1 = gtk_dialog_get_content_area (GTK_DIALOG (password_dialog));
+   	gtk_widget_show (dialog_vbox1);
+ 
+   	vbox1 = gtk_vbox_new (FALSE,12);
+@@ -945,14 +942,13 @@
+ 	current_page = gtk_notebook_get_current_page (notebook);
+ 	id = xa_find_archive_index (current_page);
+ 
+-  	GtkTooltips *tooltip = gtk_tooltips_new();
+ 	ddialog1 = gtk_dialog_new ();
+ 	gtk_window_set_title (GTK_WINDOW (ddialog1),_("Select by Pattern"));
+ 	gtk_window_set_modal (GTK_WINDOW (ddialog1),TRUE);
+ 	gtk_window_set_type_hint (GTK_WINDOW (ddialog1),GDK_WINDOW_TYPE_HINT_DIALOG);
+ 	gtk_widget_set_size_request(ddialog1,286,93);
+ 	gtk_window_set_transient_for (GTK_WINDOW (ddialog1),GTK_WINDOW (xa_main_window));
+-	ddialog_vbox1 = GTK_DIALOG (ddialog1)->vbox;
++	ddialog_vbox1 = gtk_dialog_get_content_area (GTK_DIALOG (ddialog1));
+ 	gtk_widget_show (ddialog_vbox1);
+ 
+ 	dhbox1 = gtk_hbox_new (FALSE,10);
+@@ -965,19 +961,19 @@
+ 	gtk_box_pack_start (GTK_BOX (dhbox1),pattern_label,FALSE,FALSE,0);
+ 
+ 	pattern_entry = gtk_entry_new ();
+-	gtk_tooltips_set_tip (tooltip,pattern_entry,_("example: *.txt; ac*"),NULL);
++	gtk_widget_set_tooltip_text (pattern_entry,_("example: *.txt; ac*"));
+ 	gtk_widget_show (pattern_entry);
+ 	gtk_box_pack_start (GTK_BOX (dhbox1),pattern_entry,TRUE,TRUE,0);
+ 	gtk_entry_set_activates_default(GTK_ENTRY(pattern_entry),TRUE);
+ 
+-	dialog_action_area1 = GTK_DIALOG (ddialog1)->action_area;
++	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (ddialog1));
+ 	gtk_widget_show (dialog_action_area1);
+ 	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1),GTK_BUTTONBOX_END);
+ 
+ 	cancelbutton1 = gtk_button_new_from_stock ("gtk-cancel");
+ 	gtk_widget_show (cancelbutton1);
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (ddialog1),cancelbutton1,GTK_RESPONSE_CANCEL);
+-	GTK_WIDGET_SET_FLAGS (cancelbutton1,GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (cancelbutton1,TRUE);
+ 
+ 	okbutton1 = gtk_button_new();
+ 	tmp_image = gtk_image_new_from_stock ("gtk-ok",GTK_ICON_SIZE_BUTTON);
+@@ -992,7 +988,7 @@
+ 	gtk_container_add(GTK_CONTAINER(okbutton1),alignment2);
+ 	gtk_widget_show_all (okbutton1);
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (ddialog1),okbutton1,GTK_RESPONSE_OK);
+-	GTK_WIDGET_SET_FLAGS (okbutton1,GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (okbutton1,TRUE);
+ 	gtk_dialog_set_default_response (GTK_DIALOG (ddialog1),GTK_RESPONSE_OK);
+ 
+ 	while (! done)
+@@ -1066,10 +1062,9 @@
+ 	gtk_window_set_type_hint (GTK_WINDOW (archive_properties_window),GDK_WINDOW_TYPE_HINT_DIALOG);
+ 	gtk_window_set_resizable (GTK_WINDOW (archive_properties_window),FALSE);
+ 	gtk_window_set_modal (GTK_WINDOW (archive_properties_window),TRUE);
+-	gtk_dialog_set_has_separator(GTK_DIALOG(archive_properties_window),FALSE);
+ 
+ 	table1 = gtk_table_new (10,2,FALSE);
+-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG(archive_properties_window)->vbox),table1,TRUE,TRUE,0);
++	gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (archive_properties_window))),table1,TRUE,TRUE,0);
+ 	gtk_container_set_border_width (GTK_CONTAINER (table1),6);
+ 	gtk_table_set_row_spacings (GTK_TABLE (table1),6);
+ 	gtk_table_set_col_spacings (GTK_TABLE (table1),12);
+@@ -1485,7 +1480,7 @@
+ 	}
+ 	/* This to set the focus on the dropped row */
+ 	gtk_tree_view_set_drag_dest_row(GTK_TREE_VIEW(widget),path,GTK_TREE_VIEW_DROP_INTO_OR_BEFORE);
+-	gdk_drag_status (context,context->suggested_action,time);
++	gdk_drag_status (context,gdk_drag_context_get_suggested_action(context),time);
+ 	return TRUE;
+ }
+ 
+@@ -1629,7 +1624,7 @@
+ 
+ gboolean xa_pulse_progress_bar_window (Progress_bar_data *pb)
+ {
+-	if (GTK_WIDGET_VISIBLE(pb->progress_window))
++	if (gtk_widget_get_visible(GTK_WIDGET(pb->progress_window)))
+ 	{
+ 		gtk_progress_bar_pulse(GTK_PROGRESS_BAR(pb->progressbar1));
+ 		return TRUE;
+diff -Naur xarchiver-0.5.4.orig/src/interface.h xarchiver-0.5.4/src/interface.h
+--- xarchiver-0.5.4.orig/src/interface.h	2014-02-09 16:26:24.000000000 +0100
++++ xarchiver-0.5.4/src/interface.h	2015-07-09 17:27:29.954924258 +0200
+@@ -39,7 +39,6 @@
+ GtkTreeViewColumn *column;
+ GtkCellRenderer *archive_dir_renderer;
+ GtkAccelGroup *accel_group;
+-GtkTooltips *tooltips;
+ GtkIconTheme *icon_theme;
+ 
+ GtkWidget *xa_popup_menu, *xa_main_window, *vbox1, *hbox_sb, *menubar1, *menuitem1, *menuitem1_menu, *new1, *open1, *listing, *listing_submenu,
+@@ -65,7 +64,7 @@
+ void xa_select_by_pattern_dialog(GtkMenuItem *, gpointer );
+ void xa_handle_navigation_buttons (GtkMenuItem *, gpointer );
+ void xa_add_page (XArchive *);
+-void xa_page_has_changed (GtkNotebook *, GtkNotebookPage *, guint ,gpointer );
++void xa_page_has_changed (GtkNotebook *, GtkWidget *, guint ,gpointer );
+ void xa_close_page ( GtkWidget*, gpointer );
+ void xa_set_button_state (gboolean,gboolean,gboolean,gboolean,gboolean,gboolean, gboolean, gboolean,gboolean,gboolean,gboolean);
+ void xa_restore_navigation(int idx);
+diff -Naur xarchiver-0.5.4.orig/src/Makefile.am xarchiver-0.5.4/src/Makefile.am
+--- xarchiver-0.5.4.orig/src/Makefile.am	2008-09-23 08:39:50.000000000 +0200
++++ xarchiver-0.5.4/src/Makefile.am	2015-07-09 17:27:29.958257684 +0200
+@@ -4,7 +4,6 @@
+ 
+ xarchiver_SOURCES = \
+ 	socket.c socket.h \
+-	sexy-icon-entry.c sexy-icon-entry.h \
+ 	main.c main.h \
+ 	string_utils.c string_utils.h \
+ 	mime.c mime.h \
+diff -Naur xarchiver-0.5.4.orig/src/new_dialog.c xarchiver-0.5.4/src/new_dialog.c
+--- xarchiver-0.5.4.orig/src/new_dialog.c	2014-02-09 16:26:24.000000000 +0100
++++ xarchiver-0.5.4/src/new_dialog.c	2015-07-09 17:27:29.958257684 +0200
+@@ -38,7 +38,6 @@
+ 	GtkWidget *combo_box = NULL;
+ 	GtkWidget *add_extension_cb = NULL;
+ 	GtkFileFilter *xa_new_archive_dialog_filter;
+-	GtkTooltips *filter_tooltip;
+ 	GList *Suffix,*Name;
+ 	gchar *my_path = NULL;
+ 	gchar *my_path_ext = NULL;
+@@ -93,16 +92,15 @@
+ 	hbox = gtk_hbox_new (FALSE, 6);
+ 	gtk_box_pack_start (GTK_BOX (hbox),gtk_label_new (_("Archive type:")),FALSE,FALSE,0);
+ 
+-	combo_box = gtk_combo_box_new_text ();
++	combo_box = gtk_combo_box_text_new ();
+ 
+-	filter_tooltip = gtk_tooltips_new();
+-	gtk_tooltips_set_tip (filter_tooltip,combo_box, _("Choose the archive type to create") , NULL);
++	gtk_widget_set_tooltip_text (combo_box, _("Choose the archive type to create"));
+ 	Name = g_list_first (ArchiveType);
+ 
+ 	while (Name)
+ 	{
+ 		if (!(strncmp(Name->data, "rar", 3) == 0 && unrar))
+-			gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box),Name->data);
++			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box),Name->data);
+ 		Name = g_list_next (Name);
+ 	}
+ 	if (new_combo_box == -1)
+@@ -138,7 +136,7 @@
+ 	if (response == GTK_RESPONSE_ACCEPT)
+ 	{
+ 		my_path = gtk_file_chooser_get_filename ( GTK_FILE_CHOOSER (xa_file_chooser) );
+-		ComboArchiveType = gtk_combo_box_get_active_text (GTK_COMBO_BOX (combo_box));
++		ComboArchiveType = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo_box));
+ 
+ 		if ( gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (add_extension_cb)))
+ 		{
+diff -Naur xarchiver-0.5.4.orig/src/open-with-dlg.c xarchiver-0.5.4/src/open-with-dlg.c
+--- xarchiver-0.5.4.orig/src/open-with-dlg.c	2014-09-28 22:11:22.000000000 +0200
++++ xarchiver-0.5.4/src/open-with-dlg.c	2015-07-09 17:27:29.958257684 +0200
+@@ -58,10 +58,9 @@
+ 	gtk_window_set_modal (GTK_WINDOW (data->dialog1), TRUE);
+ 	gtk_window_set_type_hint (GTK_WINDOW (data->dialog1), GDK_WINDOW_TYPE_HINT_DIALOG);
+ 	gtk_window_set_transient_for(GTK_WINDOW(data->dialog1),GTK_WINDOW(xa_main_window));
+-	gtk_dialog_set_has_separator (GTK_DIALOG (data->dialog1),FALSE);
+ 	gtk_container_set_border_width (GTK_CONTAINER (data->dialog1),5);
+ 	gtk_widget_set_size_request(data->dialog1,380,380);
+-	dialog_vbox1 = GTK_DIALOG (data->dialog1)->vbox;
++	dialog_vbox1 = gtk_dialog_get_content_area (GTK_DIALOG (data->dialog1));
+ 
+ 	vbox1 = gtk_vbox_new (FALSE, 5);
+ 	gtk_box_pack_start (GTK_BOX (dialog_vbox1),vbox1,TRUE,TRUE,0);
+@@ -130,20 +129,20 @@
+ 	gtk_box_pack_start (GTK_BOX (hbox_expander),browse,FALSE,TRUE,0);
+ 	gtk_container_add(GTK_CONTAINER(custom_command_expander),hbox_expander);
+ 
+-	dialog_action_area1 = GTK_DIALOG (data->dialog1)->action_area;
++	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (data->dialog1));
+ 	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1),GTK_BUTTONBOX_END);
+ 
+ 	cancelbutton1 = gtk_button_new_from_stock ("gtk-cancel");
+ 	gtk_widget_show (cancelbutton1);
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (data->dialog1),cancelbutton1,GTK_RESPONSE_CANCEL);
+-	GTK_WIDGET_SET_FLAGS (cancelbutton1, GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (cancelbutton1, TRUE);
+ 	g_signal_connect_swapped (G_OBJECT (cancelbutton1),"clicked",G_CALLBACK (gtk_widget_destroy),G_OBJECT(data->dialog1));
+ 
+ 	okbutton1 = gtk_button_new_from_stock ("gtk-open");
+ 	gtk_widget_show (okbutton1);
+ 	gtk_dialog_add_action_widget (GTK_DIALOG (data->dialog1),okbutton1,GTK_RESPONSE_OK);
+ 	g_signal_connect (G_OBJECT (okbutton1),"clicked",G_CALLBACK (xa_open_with_dialog_execute_command),data);
+-	GTK_WIDGET_SET_FLAGS (okbutton1, GTK_CAN_DEFAULT);
++	gtk_widget_set_can_default (okbutton1, TRUE);
+ 	gtk_widget_show_all(data->dialog1);
+ 
+ 	/* Let's parse the desktop files in all the system data dirs */
+diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialog.c
+--- xarchiver-0.5.4.orig/src/pref_dialog.c	2014-02-09 16:26:24.000000000 +0100
++++ xarchiver-0.5.4/src/pref_dialog.c	2015-07-09 17:27:29.958257684 +0200
+@@ -41,13 +41,11 @@
+ 	prefs_data->dialog1 = gtk_dialog_new_with_buttons (_("Preferences"),
+ 									GTK_WINDOW (xa_main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+ 									GTK_STOCK_CANCEL,GTK_RESPONSE_CANCEL,GTK_STOCK_OK,GTK_RESPONSE_OK, NULL);
+-	tooltips = gtk_tooltips_new();
+ 	icon_theme = gtk_icon_theme_get_default();
+ 	gtk_dialog_set_default_response (GTK_DIALOG (prefs_data->dialog1), GTK_RESPONSE_OK);
+ 	gtk_window_set_position (GTK_WINDOW(prefs_data->dialog1),GTK_WIN_POS_CENTER_ON_PARENT);
+-	gtk_dialog_set_has_separator(GTK_DIALOG(prefs_data->dialog1),FALSE);
+ 
+-	vbox1 = GTK_DIALOG (prefs_data->dialog1)->vbox;
++	vbox1 = gtk_dialog_get_content_area(GTK_DIALOG (prefs_data->dialog1));
+ 	hbox1 = gtk_hbox_new (FALSE, 6);
+ 	gtk_box_pack_start (GTK_BOX (vbox1),hbox1,TRUE,TRUE,10);
+ 
+@@ -75,7 +73,7 @@
+ 	prefs_iconview = gtk_icon_view_new_with_model(GTK_TREE_MODEL(prefs_data->prefs_liststore));
+ 	g_object_unref (prefs_data->prefs_liststore);	
+ 
+-	gtk_icon_view_set_orientation (GTK_ICON_VIEW (prefs_iconview), GTK_ORIENTATION_VERTICAL);
++	gtk_icon_view_set_item_orientation (GTK_ICON_VIEW (prefs_iconview), GTK_ORIENTATION_VERTICAL);
+ 	gtk_icon_view_set_columns (GTK_ICON_VIEW (prefs_iconview),1);
+ 	gtk_icon_view_set_pixbuf_column (GTK_ICON_VIEW (prefs_iconview), 0);
+ 	gtk_icon_view_set_text_column(GTK_ICON_VIEW (prefs_iconview),1);
+@@ -84,7 +82,7 @@
+ 	prefs_data->prefs_notebook = gtk_notebook_new ();
+ 	g_object_set (G_OBJECT (prefs_data->prefs_notebook),"show-border", FALSE,"show-tabs", FALSE,"enable-popup",FALSE,NULL);
+ 	gtk_box_pack_start (GTK_BOX (hbox1), prefs_data->prefs_notebook,TRUE,TRUE,0);
+-	GTK_WIDGET_UNSET_FLAGS (prefs_data->prefs_notebook, GTK_CAN_FOCUS);
++	gtk_widget_set_can_default (prefs_data->prefs_notebook, TRUE);
+ 	g_signal_connect (G_OBJECT (prefs_iconview),"selection-changed",G_CALLBACK (xa_prefs_iconview_changed),prefs_data);
+ 
+ 	/* Archive page*/
+@@ -97,7 +95,7 @@
+ 	label4 = gtk_label_new (_("Preferred archive format"));
+ 	gtk_box_pack_start (GTK_BOX (hbox1), label4, FALSE, FALSE,0);
+ 
+-	prefs_data->combo_prefered_format = gtk_combo_box_new_text();
++	prefs_data->combo_prefered_format = gtk_combo_box_text_new();
+ 	gtk_box_pack_start (GTK_BOX (hbox1), prefs_data->combo_prefered_format,FALSE,TRUE,0);
+ 	archive_type = g_list_first (ArchiveType);
+ 	while ( archive_type != NULL )
+@@ -107,7 +105,7 @@
+ 			(strncmp(archive_type->data, "rar", 3) == 0 && unrar) )
+ 			goto next;
+ 		else
+-			gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_format),archive_type->data );
++			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_format),archive_type->data );
+ 		next:
+ 			archive_type = g_list_next (archive_type);
+ 	}
+@@ -119,12 +117,12 @@
+ 	prefs_data->check_sort_filename_column = gtk_check_button_new_with_mnemonic(_("Sort archive by filename"));
+ 	gtk_box_pack_start (GTK_BOX (vbox4), prefs_data->check_sort_filename_column, FALSE, FALSE, 0);
+ 	gtk_button_set_focus_on_click (GTK_BUTTON (prefs_data->check_sort_filename_column), FALSE);
+-	gtk_tooltips_set_tip(tooltips, prefs_data->check_sort_filename_column, _("The filename column is sorted after loading the archive"), NULL);
++	gtk_widget_set_tooltip_text(prefs_data->check_sort_filename_column, _("The filename column is sorted after loading the archive"));
+ 
+ 	prefs_data->store_output = gtk_check_button_new_with_mnemonic (_("Store archiver output"));
+ 	gtk_box_pack_start (GTK_BOX (vbox4), prefs_data->store_output, FALSE, FALSE, 0);
+ 	gtk_button_set_focus_on_click (GTK_BUTTON (prefs_data->store_output), FALSE);
+-	gtk_tooltips_set_tip(tooltips, prefs_data->store_output, _("This option takes more memory with large archives"), NULL);
++	gtk_widget_set_tooltip_text(prefs_data->store_output, _("This option takes more memory with large archives"));
+ 
+ 	label1 = gtk_label_new ("");
+ 	gtk_notebook_set_tab_label (GTK_NOTEBOOK (prefs_data->prefs_notebook), gtk_notebook_get_nth_page (GTK_NOTEBOOK (prefs_data->prefs_notebook), 0), label1);
+@@ -140,15 +138,15 @@
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 	gtk_misc_set_alignment (GTK_MISC (label9), 0, 0.5);
+-	prefs_data->combo_icon_size = gtk_combo_box_new_text();
+-	gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_icon_size), _("large") );
+-	gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_icon_size), _("small") );
++	prefs_data->combo_icon_size = gtk_combo_box_text_new();
++	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_icon_size), _("large") );
++	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_icon_size), _("small") );
+ 	gtk_table_attach (GTK_TABLE (table1), prefs_data->combo_icon_size, 1, 2, 0, 1,
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 	
+ 	prefs_data->check_show_comment = gtk_check_button_new_with_mnemonic (_("Show archive comment"));
+-	gtk_tooltips_set_tip(tooltips, prefs_data->check_show_comment, _("If checked the archive comment is shown after the archive is loaded"), NULL);
++	gtk_widget_set_tooltip_text(prefs_data->check_show_comment, _("If checked the archive comment is shown after the archive is loaded"));
+ 	gtk_table_attach (GTK_TABLE (table1), prefs_data->check_show_comment, 0, 2, 1, 2,
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+@@ -187,9 +185,9 @@
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 		gtk_misc_set_alignment (GTK_MISC (label6), 0, 0.5);
+-		prefs_data->combo_prefered_web_browser = gtk_combo_box_new_text();
+-		gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_web_browser), "" );
+-		gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_web_browser), _("choose...") );
++		prefs_data->combo_prefered_web_browser = gtk_combo_box_text_new();
++		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_web_browser), "" );
++		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_web_browser), _("choose...") );
+ 		g_signal_connect (prefs_data->combo_prefered_web_browser,"changed",G_CALLBACK (xa_prefs_combo_changed),NULL);
+ 		gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_web_browser, 1, 2, 0, 1,
+ 					(GtkAttachOptions) (GTK_FILL),
+@@ -200,9 +198,9 @@
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 		gtk_misc_set_alignment (GTK_MISC (label7), 0, 0.5);
+-		prefs_data->combo_prefered_editor = gtk_combo_box_new_text();
+-		gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_editor), "" );
+-		gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_editor), _("choose...") );
++		prefs_data->combo_prefered_editor = gtk_combo_box_text_new();
++		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_editor), "" );
++		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_editor), _("choose...") );
+ 		g_signal_connect (prefs_data->combo_prefered_editor,"changed",G_CALLBACK (xa_prefs_combo_changed),NULL);
+ 		gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_editor, 1, 2, 1, 2,
+ 					(GtkAttachOptions) (GTK_FILL),
+@@ -213,9 +211,9 @@
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 		gtk_misc_set_alignment (GTK_MISC (label8), 0, 0.5);
+-		prefs_data->combo_prefered_viewer = gtk_combo_box_new_text();
+-		gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_viewer), "" );
+-		gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_viewer), _("choose...") );
++		prefs_data->combo_prefered_viewer = gtk_combo_box_text_new();
++		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_viewer), "" );
++		gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_viewer), _("choose...") );
+ 		g_signal_connect (prefs_data->combo_prefered_viewer,"changed",G_CALLBACK (xa_prefs_combo_changed),NULL);
+ 		gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_viewer, 1, 2, 2, 3,
+ 					(GtkAttachOptions) (GTK_FILL),
+@@ -226,9 +224,9 @@
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 	gtk_misc_set_alignment (GTK_MISC (label9), 0, 0.5);
+-	prefs_data->combo_prefered_temp_dir = gtk_combo_box_new_text();
+-	gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_temp_dir), _("/tmp") );
+-	gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_temp_dir), _("choose...") );
++	prefs_data->combo_prefered_temp_dir = gtk_combo_box_text_new();
++	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_temp_dir), _("/tmp") );
++	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_temp_dir), _("choose...") );
+ 	g_signal_connect (prefs_data->combo_prefered_temp_dir,"changed",G_CALLBACK (xa_prefs_combo_changed),(gpointer) 1);
+ 	gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_temp_dir, 1, 2, 3, 4,
+ 					(GtkAttachOptions) (GTK_FILL),
+@@ -243,7 +241,7 @@
+ 	gtk_table_attach (GTK_TABLE (table2), prefs_data->allow_sub_dir, 0, 2, 5, 6,
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (0), 0, 0);
+-	gtk_tooltips_set_tip(tooltips, prefs_data->allow_sub_dir, _("This option includes the subdirectories when you add files with drag and drop"), NULL);
++	gtk_widget_set_tooltip_text(prefs_data->allow_sub_dir, _("This option includes the subdirectories when you add files with drag and drop"));
+ 	gtk_button_set_focus_on_click (GTK_BUTTON (prefs_data->check_save_geometry), FALSE);
+ 
+ 	if (xdg_open == FALSE)
+@@ -330,26 +328,26 @@
+ 	
+ 	if (!xdg_open)
+ 	{
+-		value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_data->combo_prefered_web_browser));
++		value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_web_browser));
+ 		if (value != NULL)
+ 		{
+ 			g_key_file_set_string (xa_key_file,PACKAGE,"preferred_web_browser",value);
+ 			g_free (value);
+ 		}
+-		value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_data->combo_prefered_editor));
++		value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_editor));
+ 		if (value != NULL)
+ 		{
+ 			g_key_file_set_string (xa_key_file,PACKAGE,"preferred_editor",value);
+ 			g_free(value);
+ 		}
+-		value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_data->combo_prefered_viewer));
++		value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_viewer));
+ 		if (value != NULL)
+ 		{
+ 			g_key_file_set_string (xa_key_file,PACKAGE,"preferred_viewer",value);
+ 			g_free(value);
+ 		}
+ 	}
+-	value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_data->combo_prefered_temp_dir));
++	value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_temp_dir));
+ 	if (value != NULL)
+ 	{
+ 		g_key_file_set_string (xa_key_file,PACKAGE,"preferred_temp_dir",value);
+@@ -438,24 +436,24 @@
+ 			value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_web_browser",NULL);
+ 			if (value != NULL)
+ 			{
+-				gtk_combo_box_remove_text(GTK_COMBO_BOX (prefs_data->combo_prefered_web_browser),0);
+-				gtk_combo_box_prepend_text(GTK_COMBO_BOX(prefs_data->combo_prefered_web_browser),value);
++				gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_web_browser),0);
++				gtk_combo_box_text_prepend_text(GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_web_browser),value);
+ 				gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_web_browser),0);
+ 				g_free(value);
+ 			}
+ 			value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_editor",NULL);
+ 			if (value != NULL)
+ 			{
+-				gtk_combo_box_remove_text(GTK_COMBO_BOX (prefs_data->combo_prefered_editor),0);
+-				gtk_combo_box_insert_text (GTK_COMBO_BOX(prefs_data->combo_prefered_editor),0,value);
++				gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_editor),0);
++				gtk_combo_box_text_insert_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_editor),0,value);
+ 				gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_editor),0);
+ 				g_free(value);
+ 			}
+ 			value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_viewer",NULL);
+ 			if (value != NULL)
+ 			{
+-				gtk_combo_box_remove_text(GTK_COMBO_BOX (prefs_data->combo_prefered_viewer),0);
+-				gtk_combo_box_insert_text (GTK_COMBO_BOX(prefs_data->combo_prefered_viewer),0,value);
++				gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_viewer),0);
++				gtk_combo_box_text_insert_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_viewer),0,value);
+ 				gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_viewer),0);
+ 				g_free(value);
+ 			}
+@@ -463,8 +461,8 @@
+ 		value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_temp_dir",NULL);
+ 		if (value != NULL)
+ 		{
+-			gtk_combo_box_remove_text(GTK_COMBO_BOX (prefs_data->combo_prefered_temp_dir),0);
+-			gtk_combo_box_insert_text (GTK_COMBO_BOX(prefs_data->combo_prefered_temp_dir),0,value);
++			gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_temp_dir),0);
++			gtk_combo_box_text_insert_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_temp_dir),0,value);
+ 			gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_temp_dir),0);
+ 			g_free(value);
+ 		}
+@@ -538,8 +536,8 @@
+ 		filename = xa_prefs_choose_program(flag);
+ 		if (filename != NULL)
+ 		{
+-			gtk_combo_box_remove_text(GTK_COMBO_BOX (widget),0);
+-			gtk_combo_box_insert_text(GTK_COMBO_BOX (widget),0,filename);
++			gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT (widget),0);
++			gtk_combo_box_text_insert_text(GTK_COMBO_BOX_TEXT (widget),0,filename);
+ 			g_free(filename);
+ 		}
+ 		gtk_combo_box_set_active (GTK_COMBO_BOX (widget),0);
+diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.h xarchiver-0.5.4/src/pref_dialog.h
+--- xarchiver-0.5.4.orig/src/pref_dialog.h	2008-08-27 14:56:03.000000000 +0200
++++ xarchiver-0.5.4/src/pref_dialog.h	2015-07-09 17:27:29.958257684 +0200
+@@ -28,7 +28,6 @@
+ 	GtkWidget *check_show_comment, *check_sort_filename_column,*show_location_bar,*show_sidebar,*combo_prefered_viewer;
+ 	GtkWidget *combo_prefered_web_browser, *combo_prefered_editor, *combo_prefered_temp_dir, *allow_sub_dir,*check_save_geometry,*prefs_notebook;
+ 	GtkListStore *prefs_liststore;
+-	GtkTooltips *tooltips;
+ 	gint geometry[5];
+ 	gint extract_dialog[2];
+ 	gint add_coords[2];
+diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
+--- xarchiver-0.5.4.orig/src/window.c	2015-07-09 17:27:02.254150000 +0200
++++ xarchiver-0.5.4/src/window.c	2015-07-09 17:27:29.961591111 +0200
+@@ -152,10 +152,9 @@
+ 					      GTK_WINDOW(xa_main_window),GTK_DIALOG_MODAL,GTK_STOCK_OK,GTK_RESPONSE_OK,NULL);
+ 	gtk_dialog_set_default_response (GTK_DIALOG (dialog),GTK_RESPONSE_OK);
+ 
+-	gtk_dialog_set_has_separator (GTK_DIALOG (dialog),FALSE);
+ 	gtk_container_set_border_width (GTK_CONTAINER (dialog),6);
+-	gtk_container_set_border_width (GTK_CONTAINER (GTK_DIALOG (dialog)->vbox),6);
+-	gtk_box_set_spacing (GTK_BOX (GTK_DIALOG (dialog)->vbox),8);
++	gtk_container_set_border_width (GTK_CONTAINER (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),6);
++	gtk_box_set_spacing (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),8);
+ 	gtk_widget_set_size_request (dialog,400,-1);
+ 
+ 	scrolledwindow = gtk_scrolled_window_new (NULL,NULL);
+@@ -188,7 +187,7 @@
+ 	}
+ 	gtk_container_add (GTK_CONTAINER (scrolledwindow),textview);
+ 	gtk_box_pack_start (GTK_BOX (vbox),scrolledwindow,TRUE,TRUE,0);
+-	gtk_box_pack_start (GTK_BOX (GTK_DIALOG (dialog)->vbox),vbox,TRUE,TRUE,0);
++	gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (GTK_DIALOG (dialog))),vbox,TRUE,TRUE,0);
+ 
+ 	output = _archive->error_output;
+ 	while (output)
+@@ -964,14 +963,31 @@
+ void xa_about (GtkMenuItem *menuitem,gpointer user_data)
+ {
+     static GtkWidget *about = NULL;
+-    const char *authors[] = {"Main developer:\nGiuseppe Torelli <colossus73@gmail.com>\n\nArchive navigation code:\nJohn Berthels\n\nLHA and DEB support:\nŁukasz Zemczak <sil2100@vexillium.org>\n\nLZMA support:\nThomas Dy <dysprosium66@gmail.com>\n\nLZOP support:\nKevin Day\n\nRAR5, XZ, TAR.XZ support:\nFrederick GUERIN <fguerin01@gmail.com>\n",NULL};
+-    const char *documenters[] = {"Special thanks to Bjoern Martensen for\nbugs hunting and Xarchiver Tango logo.\n\nThanks to:\nBenedikt Meurer\nStephan Arts\nBruno Jesus <00cpxxx@gmail.com>\nUracile for the stunning logo\n",NULL};
++
++    const char *authors[] = {
++	"Main developer:\nGiuseppe Torelli <colossus73@gmail.com>\n",
++	"Archive navigation code:\nJohn Berthels\n",
++	"LHA and DEB support:\nŁukasz Zemczak <sil2100@vexillium.org>\n",
++	"LZMA support:\nThomas Dy <dysprosium66@gmail.com>\n",
++	"LZOP support:\nKevin Day\n",
++	"RAR5, XZ, TAR.XZ support:\nFrederick GUERIN <fguerin01@gmail.com>\n",
++	"GTK+ 3 port:\nBalló György <ballogyor@gmail.com>\n",
++	NULL
++    };
++
++    const char *documenters[] = {
++	"Special thanks to Bjoern Martensen for\nbugs hunting and Xarchiver Tango logo.\n",
++	"Thanks to:",
++	"Benedikt Meurer",
++	"Stephan Arts",
++	"Bruno Jesus <00cpxxx@gmail.com>",
++	"Uracile for the stunning logo\n",
++	NULL
++    };
+ 
+ 	if (about == NULL)
+ 	{
+ 		about = gtk_about_dialog_new ();
+-		gtk_about_dialog_set_email_hook (xa_activate_link,NULL,NULL);
+-		gtk_about_dialog_set_url_hook (xa_activate_link,NULL,NULL);
+ 		gtk_window_set_position (GTK_WINDOW (about),GTK_WIN_POS_CENTER_ON_PARENT);
+ 		gtk_window_set_transient_for (GTK_WINDOW (about),GTK_WINDOW (xa_main_window));
+ 		gtk_window_set_destroy_with_parent (GTK_WINDOW (about),TRUE);
+@@ -979,7 +995,7 @@
+ 			"name", "xarchiver",
+ 			"version",PACKAGE_VERSION,
+ 			"copyright","Copyright \xC2\xA9 2005-2014 Giuseppe Torelli",
+-			"comments","A GTK+2 only lightweight archive manager",
++			"comments","A GTK+ only lightweight archive manager",
+ 			"authors",authors,
+ 			"documenters",documenters,
+ 			"translator_credits",_("translator-credits"),
+@@ -1325,7 +1341,7 @@
+ 	current_page = gtk_notebook_get_current_page(notebook);
+ 	idx = xa_find_archive_index (current_page);
+ 	gtk_widget_set_sensitive(Stop_button,FALSE);
+-	if (GTK_WIDGET_VISIBLE(multi_extract_window->multi_extract))
++	if (gtk_widget_get_visible(GTK_WIDGET(multi_extract_window->multi_extract)))
+ 	{
+ 		multi_extract_window->stop_pressed = TRUE;
+ 		kill (multi_extract_window->archive->child_pid,SIGINT);
+@@ -1658,7 +1674,7 @@
+ 	gtk_tree_model_get_iter(archive->model,&iter,(GtkTreePath*) (row_list->data));
+ 	gtk_tree_model_get (GTK_TREE_MODEL (archive->liststore),&iter,archive->nc+1,&entry,-1);
+ 
+-	gdk_property_change (context->source_window,
++	gdk_property_change (gdk_drag_context_get_source_window(context),
+ 					gdk_atom_intern ("XdndDirectSave0",FALSE),
+ 					gdk_atom_intern ("text/plain",FALSE),
+ 					8,GDK_PROP_MODE_REPLACE,
+@@ -1694,7 +1710,7 @@
+ 		response = xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_ERROR,GTK_BUTTONS_OK,_("Can't perform another extraction:"),_("Please wait until the completion of the current one!"));
+ 		return;
+ 	}
+-	gdk_property_get (	dc->source_window,
++	gdk_property_get (	gdk_drag_context_get_source_window(dc),
+ 						gdk_atom_intern ("XdndDirectSave0",FALSE),
+ 						gdk_atom_intern ("text/plain",FALSE),
+ 						0,4096,FALSE,NULL,NULL,NULL,&_destination );
+@@ -1749,7 +1765,7 @@
+ 			g_free (archive->extraction_path);
+ 			archive->extraction_path = NULL;
+ 		}
+-		gtk_selection_data_set (selection_data,selection_data->target,8,(guchar*)to_send,1);
++		gtk_selection_data_set (selection_data,gtk_selection_data_get_target(selection_data),8,(guchar*)to_send,1);
+ 	}
+ }
+ 
+@@ -1892,7 +1908,7 @@
+ 	if ( !xdg_open)
+ 	{
+ 		gchar *browser_path = NULL;
+-		browser_path = gtk_combo_box_get_active_text(GTK_COMBO_BOX(prefs_window->combo_prefered_web_browser));
++		browser_path = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_web_browser));
+ 		if (strlen(browser_path) == 0)
+ 		{
+ 			response = xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_INFO,GTK_BUTTONS_OK,_("You didn't set which browser to use!"),_("Please go to Preferences->Advanced and set it."));
+@@ -1915,16 +1931,16 @@
+ 	{
+ 		if (strstr(file,".html"))
+ 		{
+-			program = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_web_browser));
++			program = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_web_browser));
+ 		}
+ 		else if (strstr(file,".txt"))
+ 		{
+-			program = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_editor));
++			program = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_editor));
+ 		}
+ 		else if (strstr(file,".png") || strstr(file,".gif") || strstr(file,".jpg") || strstr(file,".bmp") ||
+ 				 strstr(file,".tif") || strstr(file,".tiff")|| strstr(file,".svg") || strstr(file,".png") ||
+ 				 strstr(file,".tga"))
+-			program = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_viewer));
++			program = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_viewer));
+ 		else
+ 		{
+ 			xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_ERROR,GTK_BUTTONS_OK,_("This file type is not supported!"),_("Please install xdg-utils package."));
+@@ -1943,6 +1959,11 @@
+ 	g_free(program);
+ }
+ 
++void setup_display_cb (gpointer data)
++{
++        g_setenv ("DISPLAY", (char *) data, TRUE);
++}
++
+ gboolean xa_launch_external_program(gchar *program,gchar *arg)
+ {
+ 	GtkWidget *message;
+@@ -1950,13 +1971,21 @@
+ 	gchar *command_line = NULL;
+ 	gchar **argv;
+ 	GdkScreen *screen;
++	char *display;
+ 
+ 	command_line = g_strconcat(program," ",arg,NULL);
+ 	g_shell_parse_argv(command_line,NULL,&argv,NULL);
+ 	g_free(command_line);
+ 
+ 	screen = gtk_widget_get_screen (GTK_WIDGET (xa_main_window));
+-	if (!gdk_spawn_on_screen (screen,NULL,argv,NULL,G_SPAWN_SEARCH_PATH,NULL,NULL,NULL,&error))
++
++	if (screen != NULL)
++		display = gdk_screen_make_display_name (screen);
++	else
++		display = NULL;
++
++	display = gdk_screen_make_display_name (screen);
++	if (!g_spawn_async (NULL,argv,NULL,G_SPAWN_SEARCH_PATH,setup_display_cb,display,NULL,&error))
+ 	{
+ 		message = gtk_message_dialog_new (GTK_WINDOW (xa_main_window),
+ 										GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+@@ -2017,8 +2046,7 @@
+ 	comment_dialog = gtk_dialog_new_with_buttons (_("Comment"),GTK_WINDOW(xa_main_window),GTK_DIALOG_MODAL,NULL);
+ 	gtk_window_set_position (GTK_WINDOW (comment_dialog),GTK_WIN_POS_CENTER_ON_PARENT);
+ 	gtk_window_set_type_hint (GTK_WINDOW (comment_dialog),GDK_WINDOW_TYPE_HINT_DIALOG);
+-	gtk_dialog_set_has_separator (GTK_DIALOG (comment_dialog),FALSE);
+-	dialog_vbox1 = GTK_DIALOG (comment_dialog)->vbox;
++	dialog_vbox1 = gtk_dialog_get_content_area (GTK_DIALOG (comment_dialog));
+ 	gtk_widget_set_size_request(comment_dialog,500,330);
+ 
+ 	scrolledwindow1 = gtk_scrolled_window_new (NULL,NULL);
+@@ -2034,7 +2062,7 @@
+ 	g_object_unref (textbuffer);
+ 	gtk_container_add (GTK_CONTAINER (scrolledwindow1),textview);
+ 
+-	dialog_action_area1 = GTK_DIALOG (comment_dialog)->action_area;
++	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (comment_dialog));
+ 	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1),GTK_BUTTONBOX_END);
+ 
+ 	clear = gtk_button_new_from_stock ("gtk-clear");
+@@ -2295,7 +2323,7 @@
+ 		clipboard_selection = gtk_clipboard_wait_for_contents(clipboard,XA_INFO_LIST);
+ 		if (clipboard_selection != NULL)
+ 		{
+-			paste_data = xa_get_paste_data_from_clipboard_selection((char*)clipboard_selection->data);
++			paste_data = xa_get_paste_data_from_clipboard_selection((char*)gtk_selection_data_get_data (clipboard_selection));
+ 			gtk_selection_data_free (clipboard_selection);
+ 			if (strcmp(archive->escaped_path,paste_data->cut_copy_archive->escaped_path) == 0)
+ 				value = FALSE;
+@@ -2363,7 +2391,7 @@
+ 	selection = gtk_clipboard_wait_for_contents(clipboard,XA_INFO_LIST);
+ 	if (selection == NULL)
+ 		return;
+-	paste_data = xa_get_paste_data_from_clipboard_selection((char*)selection->data);
++	paste_data = xa_get_paste_data_from_clipboard_selection((char*)gtk_selection_data_get_data(selection));
+ 	gtk_selection_data_free (selection);
+ 
+ 	/* Let's add the already extracted files in the tmp dir to the current archive dir */
+@@ -2461,7 +2489,7 @@
+ 	XArchive *archive = user_data;
+ 	GSList *_files = archive->clipboard_data->files;
+ 	GString *params = g_string_new("");
+-	if (selection_data->target != XA_INFO_LIST)
++	if (gtk_selection_data_get_target (selection_data) != XA_INFO_LIST)
+ 		return;
+ 
+ 	g_string_append (params,g_strdup(archive->escaped_path));
+@@ -2477,7 +2505,7 @@
+ 		g_string_append (params,"\r\n");
+ 		_files = _files->next;
+ 	}
+-	gtk_selection_data_set (selection_data,selection_data->target,8,(guchar *) params->str,strlen(params->str));
++	gtk_selection_data_set (selection_data,gtk_selection_data_get_target(selection_data),8,(guchar *) params->str,strlen(params->str));
+ 	g_string_free (params,TRUE);
+ }
+ 
+@@ -2514,7 +2542,7 @@
+ 	row_list = gtk_tree_selection_get_selected_rows(selection,&model);
+ 
+ 	g_object_set(archive[idx]->renderer_text,"editable",TRUE,NULL);
+-	gtk_accel_group_disconnect_key(accel_group,GDK_Delete,GDK_MODE_DISABLED);
++	gtk_accel_group_disconnect_key(accel_group,GDK_KEY_Delete,GDK_MODE_DISABLED);
+ 	column = gtk_tree_view_get_column(GTK_TREE_VIEW (archive[idx]->treeview),0);
+ 	gtk_tree_view_set_cursor(GTK_TREE_VIEW(archive[idx]->treeview),row_list->data,column,TRUE);
+ 	gtk_tree_path_free (row_list->data);
+@@ -2524,7 +2552,7 @@
+ void xa_rename_cell_edited_canceled(GtkCellRenderer *renderer,gpointer data)
+ {
+ 	g_object_set(renderer,"editable",FALSE,NULL);
+-	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_KEY_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
+ }
+ 
+ void xa_rename_cell_edited (GtkCellRendererText *cell,const gchar *path_string,const gchar *new_name,XArchive *archive)
+@@ -2600,7 +2628,7 @@
+ 		chdir (archive->tmp);
+ 		xa_execute_add_commands(archive,list,NULL);
+ 	}
+-	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
++	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_KEY_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
+ 	g_object_set(cell,"editable",FALSE,NULL);
+ }
+ 
+diff -Naur xarchiver-0.5.4.orig/xarchiver.desktop.in xarchiver-0.5.4/xarchiver.desktop.in
+--- xarchiver-0.5.4.orig/xarchiver.desktop.in	2015-07-09 17:27:02.254150000 +0200
++++ xarchiver-0.5.4/xarchiver.desktop.in	2015-07-09 17:27:46.692057955 +0200
+@@ -2,7 +2,7 @@
+ Encoding=UTF-8
+ Version=1.0
+ _Name=Xarchiver
+-_Comment=A GTK+2 only archive manager
++_Comment=A GTK+ only archive manager
+ _GenericName=Archive manager
+ Exec=xarchiver %f
+ Icon=xarchiver
