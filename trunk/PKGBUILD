@@ -3,14 +3,15 @@
 # Contributor: Alexander Fehr <pizzapunk gmail com>
 # Contributor: Andrew Simmons <andrew.simmons@gmail.com>
 
-pkgname=xarchiver
+pkgbase=xarchiver
+pkgname=(xarchiver xarchiver-gtk2)
 pkgver=0.5.4
-pkgrel=1
+pkgrel=2
 pkgdesc="GTK+ frontend to various command line archivers"
 arch=('i686' 'x86_64')
 url="http://xarchiver.sourceforge.net/"
 license=('GPL')
-depends=('gtk2' 'desktop-file-utils')
+depends=('gtk2' 'gtk3' 'desktop-file-utils')
 makedepends=('intltool')
 optdepends=('zip: ZIP support'
             'unzip: ZIP support'
@@ -23,14 +24,20 @@ install=xarchiver.install
 source=(http://downloads.sourceforge.net/xarchiver/xarchiver-$pkgver.tar.bz2
         fix-rpm-support.patch
         fix-password-protected.patch
-        add-mime-types.patch)
+        add-mime-types.patch
+        gtk3-port.patch
+        fix-icon-names.patch
+        no-xfce.patch)
 md5sums=('1b4cd37a6af03afc957a8e307417e8d0'
          '812b93339f5e3332621f3c5abebfe277'
          '35ab96d98521a0a36f3e9e9ec0969107'
-         '0cee887b3c989ba2cdce9154813843fb')
+         '0cee887b3c989ba2cdce9154813843fb'
+         '62641fc15b2536a5379a1587bc025c46'
+         'c99ff044585b98d7769063c2f8774a98'
+         'f6e7d38a998a11980b81289f54955170')
 
 prepare() {
-  cd $pkgname-$pkgver
+  cd $pkgbase-$pkgver
 
   # Fix RPM support
   patch -Np1 -i ../fix-rpm-support.patch
@@ -40,15 +47,44 @@ prepare() {
 
   # Add more MIME types to the desktop file, fix exec line
   patch -Np1 -i ../add-mime-types.patch
+
+  # Port to GTK+ 3
+  patch -Np1 -i ../gtk3-port.patch
+
+  # Use standard icon names
+  patch -Np1 -i ../fix-icon-names.patch
+
+  # Don't use xfce4-dev-tools
+  patch -Np1 -i ../no-xfce.patch
 }
 
 build() {
-  cd $pkgname-$pkgver
-  ./configure --prefix=/usr --libexecdir=/usr/lib/xfce4
+  # GTK+ 3 version
+  [ -d gtk3 ] || cp -r $pkgbase-$pkgver gtk3
+  cd gtk3
+  ./autogen.sh --prefix=/usr --libexecdir=/usr/lib/xfce4
+  make
+
+  cd "$srcdir"
+  # GTK+ 2 version
+  [ -d gtk2 ] || cp -r $pkgbase-$pkgver gtk2
+  cd gtk2
+  ./autogen.sh --prefix=/usr --libexecdir=/usr/lib/xfce4 --disable-gtk3
   make
 }
 
-package() {
-  cd $pkgname-$pkgver
+package_xarchiver() {
+  depends=('gtk3' 'desktop-file-utils')
+
+  cd gtk3
+  make DESTDIR="$pkgdir" install
+}
+
+package_xarchiver-gtk2() {
+  pkgdesc+=' (GTK+ 2 version)'
+  depends=('gtk2' 'desktop-file-utils')
+  conflicts=('xarchiver')
+
+  cd gtk2
   make DESTDIR="$pkgdir" install
 }
