@@ -1,6 +1,7 @@
 #!/bin/sh
 
 JAVA_EXEC=""
+APP_ARGS=""
 
 if [ -n "$JAVA_HOME" ]; then
   if [ -x "$JAVA_HOME/bin/java" ]; then
@@ -16,4 +17,9 @@ if [ -z "$JAVA_EXEC" ]; then
   exit 1
 fi
 
-"$JAVA_EXEC" -jar /usr/share/java/sweethome3d.jar
+if [ $# -gt 0 ]
+then
+  APP_ARGS="-open $@"
+fi
+
+"$JAVA_EXEC" -jar /usr/share/java/sweethome3d.jar $APP_ARGS
