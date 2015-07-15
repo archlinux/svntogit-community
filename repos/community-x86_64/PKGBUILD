@@ -4,7 +4,7 @@
 
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-cli' 'bitcoin-qt')
-pkgver=0.10.2
+pkgver=0.11.0
 pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
@@ -16,11 +16,11 @@ source=(http://bitcoin.org/bin/bitcoin-core-$pkgver/bitcoin-$pkgver.tar.gz
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/examples/bitcoin.conf
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoind.1
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoin.conf.5)
-sha256sums=('cddf96c71d0a35524fde93380981cf0cf0b51441454a3a68b9be491b9239bfec'
+sha256sums=('51ba1756addfa71567559e3f22331c1d908a63571891287689fff7113035d09f'
             'b65b377c0d9ecae9eea722843bca0add6bdb7e50929a7e1f751b79b6621c6073'
             'ad880c8459ecfdb96abe6a4689af06bdd27906e0edcd39d0915482f2da91e722'
-            'b049cc2650d5988a581d1b72b205254edbaa4f8c0587c2fe8ac4aa0a25543a6a'
-            '0a31a5f3ad860ecc1cc8041a863aabdbc4084c7ea5fdc487806b5aa829a244fe'
+            '7b9001258d0781b8ae6fba31b7fb99d8009af8cda5a005f4854aa8b20f55b214'
+            '829d5d38c8c3145b6debcb569bfa75acdfcfab5d914495b56ceb4d02060f130f'
             '9acf7f46052f6e508af4f38be4574f34bf0f57d2cf462f072606d3f177b4c957')
 
 # Upstream should be more coherent!
