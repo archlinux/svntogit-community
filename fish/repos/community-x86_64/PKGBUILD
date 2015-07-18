@@ -7,7 +7,7 @@
 
 pkgname=fish
 pkgver=2.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='http://fishshell.com/'
 arch=('i686' 'x86_64')
@@ -35,9 +35,6 @@ build() {
 package() {
   cd fish-shell-${pkgver}
   make DESTDIR="${pkgdir}" install
-
-  # remove completions which are provided by upstream
-  rm "${pkgdir}/usr/share/fish/completions/docker.fish"
 }
 
 # vim:set ts=2 sw=2 et:
