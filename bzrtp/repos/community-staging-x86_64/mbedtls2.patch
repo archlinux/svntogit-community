@@ -1,0 +1,81 @@
+diff -wbBur bzrtp-1.0.2.org/configure.ac bzrtp-1.0.2/configure.ac
+--- bzrtp-1.0.2.org/configure.ac	2015-05-07 18:45:29.000000000 +0300
++++ bzrtp-1.0.2/configure.ac	2015-07-30 15:19:26.965083810 +0300
+@@ -42,7 +42,7 @@
+ 	POLARSSL_LIBS="-L${polarssl_prefix}/lib"
+ fi
+ 
+-POLARSSL_LIBS="$POLARSSL_LIBS -lpolarssl"
++POLARSSL_LIBS="$POLARSSL_LIBS -lmbedtls"
+ 
+ AC_SUBST(POLARSSL_LIBS)
+ AC_SUBST(POLARSSL_CFLAGS)
+diff -wbBur bzrtp-1.0.2.org/src/cryptoPolarssl.c bzrtp-1.0.2/src/cryptoPolarssl.c
+--- bzrtp-1.0.2.org/src/cryptoPolarssl.c	2015-05-07 18:14:36.000000000 +0300
++++ bzrtp-1.0.2/src/cryptoPolarssl.c	2015-07-30 15:18:40.811751008 +0300
+@@ -25,17 +25,18 @@
+ #include <string.h>
+ 
+ /* Random number generator */
+-#include "polarssl/entropy.h"
+-#include "polarssl/ctr_drbg.h"
++#include "mbedtls/compat-1.3.h"
++#include "mbedtls/entropy.h"
++#include "mbedtls/ctr_drbg.h"
+ 
+ /* Hash function sha1(sha2 is different for polarssl v1.2 and v1.3 ) */
+-#include "polarssl/sha1.h"
++#include "mbedtls/sha1.h"
+ 
+ /* Asymmetrics encryption */
+-#include "polarssl/dhm.h"
++#include "mbedtls/dhm.h"
+ 
+ /* Symmetric encryption */
+-#include "polarssl/aes.h"
++#include "mbedtls/aes.h"
+ 
+ #include "cryptoWrapper.h"
+ 
+@@ -133,7 +134,8 @@
+ 	
+ 	entropy_init(&(polarsslContext->entropyContext)); /* init the polarssl entropy engine */
+ 	/* init the polarssl rng context */
+-	if (ctr_drbg_init(&(polarsslContext->rngContext), entropy_func, &(polarsslContext->entropyContext), (const unsigned char *)entropyString, entropyStringLength) != 0) {
++	ctr_drbg_init(&(polarsslContext->rngContext));
++	if (mbedtls_ctr_drbg_seed(&(polarsslContext->rngContext), entropy_func, &(polarsslContext->entropyContext), (const unsigned char *)entropyString, entropyStringLength) != 0) {
+ 		return NULL;
+ 	}
+ 
+@@ -396,11 +398,11 @@
+ /*** End of code common to polarSSL version 1.2 and 1.3 ***/
+ 
+ /* check polarssl version */
+-#include <polarssl/version.h>
++#include <mbedtls/version.h>
+ #if POLARSSL_VERSION_NUMBER >= 0x01030000 /* for Polarssl version 1.3 */
+ 
+ /* Hashs */
+-#include "polarssl/sha256.h"
++#include "mbedtls/sha256.h"
+ 
+ /*
+  * @brief SHA256 wrapper
+@@ -464,7 +466,7 @@
+ 	/* compute the secret key */
+ 	keyLength = context->primeLength; /* undocumented but this value seems to be in/out, so we must set it to the expected key length */
+ 	context->key = (uint8_t *)malloc(keyLength*sizeof(uint8_t)); /* allocate key buffer */
+-	dhm_calc_secret((dhm_context *)(context->cryptoModuleData), context->key, &keyLength, (int (*)(void *, unsigned char *, size_t))rngFunction, rngContext);
++	dhm_calc_secret((dhm_context *)(context->cryptoModuleData), context->key, keyLength, &keyLength, (int (*)(void *, unsigned char *, size_t))rngFunction, rngContext);
+ }
+ 
+ 
+@@ -472,7 +474,7 @@
+ #else /* POLAR SSL VERSION 1.2 */
+ 
+ /* Hashs */
+-#include "polarssl/sha2.h"
++#include "mbedtls/sha2.h"
+ 
+ /*
+  * @brief SHA256 wrapper
