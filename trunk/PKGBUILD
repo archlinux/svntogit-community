@@ -1,0 +1,70 @@
+# $Id: PKGBUILD 138808 2015-08-27 08:24:22Z fyan $
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgbase=python-dogpile.cache
+pkgname=(python-dogpile.cache python2-dogpile.cache)
+_pypiname=dogpile.cache
+pkgver=0.5.6
+pkgrel=2
+pkgdesc="A caching front-end based on the Dogpile lock"
+arch=('any')
+url="http://pypi.python.org/pypi/dogpile.cache"
+license=('BSD')
+makedepends=('python-setuptools' 'python2-setuptools' 'python-dogpile.core' 'python2-dogpile.core')
+checkdepends=('python-mako' 'python2-mako' 'python-nose' 'python2-nose'
+              'python-coverage' 'python2-coverage' 'python-redis' 'python2-redis' 'python2-memcached'
+              'memcached' 'redis' 'python-pytest-runner' 'python2-pytest-runner'
+              # 'python-mock' 'python2-mock'  # See comments below in check()
+              'python-pbr' 'python2-pbr' 'python-six' 'python2-six'  # These can be removed when we have a working mock in repos
+              )
+source=("http://pypi.python.org/packages/source/d/$_pypiname/$_pypiname-$pkgver.tar.gz")
+md5sums=('6283f8e0d94f06d75b6987875cb2e6e8')
+
+prepare() {
+  cp -a "$_pypiname-$pkgver"{,-py2}
+}
+
+build() {
+  cd $_pypiname-$pkgver
+  python setup.py build
+
+  cd ../$_pypiname-$pkgver-py2
+  python2 setup.py build
+}
+
+check() {
+  # Dirty hack: workaround mock errors by installing it with ptr, because we have a too old version in the repos
+  # https://github.com/testing-cabal/mock/issues/249
+
+  _run() {
+    rm -f "$srcdir/memcached.pid" "$srcdir/redis.pid"
+    memcached -d -P "$srcdir/memcached.pid"
+    redis-server --daemonize yes --pidfile "$srcdir/redis.pid"
+    "$@"
+    kill $(cat "$srcdir/memcached.pid") $(cat "$srcdir/redis.pid")
+  }
+
+  cd $_pypiname-$pkgver
+  _run python setup.py ptr
+
+  cd ../$_pypiname-$pkgver-py2
+  _run python2 setup.py ptr
+}
+
+package_python-dogpile.cache() {
+  depends=('python-dogpile.core' 'python-setuptools')
+
+  cd "$srcdir/$_pypiname-$pkgver"
+  python setup.py install --root="$pkgdir/" --optimize=1
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_python2-dogpile.cache() {
+  depends=('python2-dogpile.core' 'python2-setuptools')
+
+  cd "$srcdir/$_pypiname-$pkgver-py2"
+  python2 setup.py install --root="$pkgdir/" --optimize=1
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+# vim:set ts=2 sw=2 et:
