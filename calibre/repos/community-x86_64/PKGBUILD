@@ -8,7 +8,7 @@
 
 pkgname=calibre
 pkgver=2.36.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Ebook management application"
 arch=('i686' 'x86_64')
 url="http://calibre-ebook.com/"
@@ -19,17 +19,19 @@ depends=('python2-six' 'python2-dateutil' 'python2-cssutils' 'python2-cherrypy'
          'python2-pillow' 'shared-mime-info' 'python2-dnspython'
          'python2-pyqt5' 'python2-psutil' 'icu' 'libmtp' 'python2-dbus'
          'python2-netifaces' 'python2-cssselect' 'python2-apsw' 'qt5-webkit'
-         'qt5-svg' 'python2-chardet' 'python2-html5lib' 'python2-pygments' 'mtdev')
-makedepends=('python2-pycountry' 'qt5-x11extras' )
+         'qt5-svg' 'python2-chardet' 'python2-html5lib' 'python2-pygments' 'mtdev'
+         'desktop-file-utils' 'gtk-update-icon-cache')
+makedepends=('qt5-x11extras' 'xdg-utils')
 optdepends=('ipython2: to use calibre-debug'
             'udisks: required for mounting certain devices'
+            'poppler: required for converting pdf to html'
 )
 install=calibre.install
 source=("http://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz")
 md5sums=('f22f3666d6ab70faa52b01552b6f5965')
 
 prepare(){
-  cd "${srcdir}/${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
 
   # Remove unneeded files and libs
   rm -rf resources/${pkgname}-portable.* \
@@ -37,50 +39,33 @@ prepare(){
          src/html5lib \
          src/chardet
 
-  sed -i "s/shlex.split(ldflags)/& + ['-fPIC']/" setup/extensions.py
-
-  # Use python2
-  sed -i 's:\(env[ ]\+python$\|/usr/bin/python$\):\12:g' $(find . -regex ".*\.py\|.*\.recipe")
-
   # Desktop integration (e.g. enforce arch defaults)
   sed -e "/self.create_uninstaller()/,/os.rmdir(config_dir)/d" \
-      -e "/\(cc('xdg-icon-resource\|self.icon_resources.append\|'128'))\)/d" \
-      -e "/render_img/ s/\('calibre-.*\.png'\)/os.path.join(dir, \1)/g" \
-      -e "/dir, 'calibre-lrf.png'/i \
-\                dir = os.path.join(self.opts.staging_sharedir,'../pixmaps')\n\
-\                os.mkdir(dir)" \
-      -e "/f = open/ s/\('calibre-.*\.desktop'\)/os.path.join(dir, \1)/g" \
-      -e "/dir, 'calibre-lrfviewer.desktop'/i \
-\                dir = os.path.join(self.opts.staging_sharedir,'../applications')\n\
-\                os.mkdir(dir)" \
+      -e "/cc(\['xdg-desktop-menu', 'forceupdate'\])/d" \
+      -e "/cc(\['xdg-mime', 'install', MIME\])/d" \
       -e "s/'ctc-posml'/'text' not in mt and 'pdf' not in mt and 'xhtml'/" \
       -e "s/^Name=calibre/Name=Calibre/g" \
       -i  src/calibre/linux.py
 }
 
 build() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
 
   LANG='en_US.UTF-8' python2 setup.py build
-  # LANG='en_US.UTF-8' python2 setup.py resources
-
-  # Don't build translations since building them is broken badly
-  #LANG='en_US.UTF-8' python2 setup.py translations
+  LANG='en_US.UTF-8' python2 setup.py gui
 }
 
 package() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
-  
-  # Fix the environment module location
-  sed -i -e "s|(prefix=.*)|(prefix='$pkgdir/usr')|g" setup/install.py
+  cd "${pkgname}-${pkgver}"
 
-  install -d "${pkgdir}/usr/lib/python2.7/site-packages" \
-             "${pkgdir}/usr/share/zsh/site-functions"
+  install -d "${pkgdir}/usr/share/zsh/site-functions" \
+             "${pkgdir}"/usr/share/{applications,desktop-directories,icons/hicolor}
 
-  LANG='en_US.UTF-8' python2 setup.py install --root="${pkgdir}" --prefix=/usr \
-    --staging-bindir="${pkgdir}/usr/bin" \
-    --staging-libdir="${pkgdir}/usr/lib" \
-    --staging-sharedir="${pkgdir}/usr/share"
+  install -Dm644 resources/calibre-mimetypes.xml \
+    "${pkgdir}/usr/share/mime/packages/calibre-mimetypes.xml"
+
+  XDG_DATA_DIRS="${pkgdir}/usr/share" LANG='en_US.UTF-8' \
+    python2 setup.py install --staging-root="${pkgdir}/usr" --prefix=/usr
 
   # Compiling bytecode FS#33392
   python2 -m compileall "${pkgdir}/usr/lib/calibre/"
