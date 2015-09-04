@@ -1,0 +1,134 @@
+diff -ur owncloudclient-2.0.1.orig/src/gui/application.cpp owncloudclient-2.0.1/src/gui/application.cpp
+--- owncloudclient-2.0.1.orig/src/gui/application.cpp	2015-09-01 15:50:21.000000000 +0200
++++ owncloudclient-2.0.1/src/gui/application.cpp	2015-09-04 16:50:53.333513460 +0200
+@@ -229,7 +229,7 @@
+ 
+     if (list.isEmpty()) {
+         // let gui open the setup wizard
+-        _gui->slotOpenSettingsDialog( true );
++        _gui->slotOpenSettingsDialog();
+ 
+         _checkConnectionTimer.stop(); // don't popup the wizard on interval;
+     }
+diff -ur owncloudclient-2.0.1.orig/src/gui/owncloudgui.cpp owncloudclient-2.0.1/src/gui/owncloudgui.cpp
+--- owncloudclient-2.0.1.orig/src/gui/owncloudgui.cpp	2015-09-01 15:50:21.000000000 +0200
++++ owncloudclient-2.0.1/src/gui/owncloudgui.cpp	2015-09-04 16:43:29.164278696 +0200
+@@ -56,6 +56,7 @@
+ #endif
+     _logBrowser(0),
+     _recentActionsMenu(0),
++    _qdbusmenuWorkaround(false),
+     _folderOpenActionMapper(new QSignalMapper(this)),
+     _recentItemsMapper(new QSignalMapper(this)),
+     _app(parent)
+@@ -145,16 +146,14 @@
+ }
+ 
+ // This should rather be in application.... or rather in ConfigFile?
+-void ownCloudGui::slotOpenSettingsDialog( bool openSettings )
++void ownCloudGui::slotOpenSettingsDialog()
+ {
+     // if account is set up, start the configuration wizard.
+     if( !AccountManager::instance()->accounts().isEmpty() ) {
+-        if( openSettings ) {
+-            if (_settingsDialog.isNull() || !_settingsDialog->isVisible()) {
+-                slotShowSettings();
+-            } else {
+-                _settingsDialog->close();
+-            }
++        if (_settingsDialog.isNull() || !_settingsDialog->isVisible()) {
++            slotShowSettings();
++        } else {
++            _settingsDialog->close();
+         }
+     } else {
+         qDebug() << "No configured folders yet, starting setup wizard";
+@@ -164,11 +163,20 @@
+ 
+ void ownCloudGui::slotTrayClicked( QSystemTrayIcon::ActivationReason reason )
+ {
++    if (_qdbusmenuWorkaround) {
++        static QElapsedTimer last_click;
++        if (last_click.isValid() && last_click.elapsed() < 200) {
++            return;
++        }
++        last_click.start();
++    }
++
+     // A click on the tray icon should only open the status window on Win and
+     // Linux, not on Mac. They want a menu entry.
+ #if !defined Q_OS_MAC
+     if( reason == QSystemTrayIcon::Trigger ) {
+-        slotOpenSettingsDialog(true); // start settings if config is existing.
++        // Start settings if config is existing.
++        slotOpenSettingsDialog();
+     }
+ #else
+     // On Mac, if the settings dialog is already visible but hidden
+@@ -368,8 +376,10 @@
+         }
+     }
+ 
+-
+     if ( _contextMenu ) {
++        if (_qdbusmenuWorkaround) {
++            _tray->hide();
++        }
+         _contextMenu->clear();
+         _recentActionsMenu->clear();
+         _recentActionsMenu->addAction(tr("None."));
+@@ -380,6 +390,17 @@
+         // this must be called only once after creating the context menu, or
+         // it will trigger a bug in Ubuntu's SNI bridge patch (11.10, 12.04).
+         _tray->setContextMenu(_contextMenu.data());
++
++        // Enables workarounds for bugs introduced in Qt 5.5.0
++        // In particular QTBUG-47863 #3672 (tray menu fails to update and
++        // becomes unresponsive) and QTBUG-48068 #3722 (click signal is
++        // emitted several times)
++        QObject* platformMenu = reinterpret_cast<QObject*>(_tray->contextMenu()->platformMenu());
++        if (platformMenu
++                && platformMenu->metaObject()->className() == QLatin1String("QDBusPlatformMenu")) {
++            _qdbusmenuWorkaround = true;
++            qDebug() << "Enabled QDBusPlatformMenu workaround";
++        }
+     }
+     _contextMenu->setTitle(Theme::instance()->appNameGUI() );
+     // We must call deleteLater because we might be called from the press in one of the action.
+@@ -432,13 +453,9 @@
+     }
+     _contextMenu->addAction(_actionQuit);
+ 
+-    // Workaround for #3656, Qt 5.5.0 + dbus based tray integration.
+-#ifdef Q_OS_LINUX
+-#if QT_VERSION >= QT_VERSION_CHECK(5, 5, 0)
+-    _tray->hide();
+-    _tray->show();
+-#endif
+-#endif
++    if (_qdbusmenuWorkaround) {
++        _tray->show();
++    }
+ }
+ 
+ 
+diff -ur owncloudclient-2.0.1.orig/src/gui/owncloudgui.h owncloudclient-2.0.1/src/gui/owncloudgui.h
+--- owncloudclient-2.0.1.orig/src/gui/owncloudgui.h	2015-09-01 15:50:21.000000000 +0200
++++ owncloudclient-2.0.1/src/gui/owncloudgui.h	2015-09-04 16:43:55.801097964 +0200
+@@ -72,7 +72,7 @@
+     void slotTrayClicked( QSystemTrayIcon::ActivationReason reason );
+     void slotToggleLogBrowser();
+     void slotOpenOwnCloud();
+-    void slotOpenSettingsDialog( bool openSettings );
++    void slotOpenSettingsDialog();
+     void slotHelp();
+     void slotOpenPath(const QString& path);
+     void slotAccountStateChanged();
+@@ -98,6 +98,7 @@
+     QScopedPointer<QMenu> _contextMenu;
+     QMenu *_recentActionsMenu;
+     QVector<QMenu*> _accountMenus;
++    bool _qdbusmenuWorkaround;
+ 
+     QAction *_actionLogin;
+     QAction *_actionLogout;
