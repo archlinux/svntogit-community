@@ -1,8 +1,8 @@
 # $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
-pkgver=7.0.28
-pkgrel=2
+pkgver=7.5.18
+pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -13,10 +13,10 @@ provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
 options=(!strip staticlibs)
 install=cuda.install
-source=(http://developer.download.nvidia.com/compute/cuda/7_0/Prod/local_installers/cuda_${pkgver}_linux.run
+source=(http://developer.download.nvidia.com/compute/cuda/7.5/Prod/local_installers/cuda_${pkgver}_linux.run
         cuda.sh
         cuda.conf)
-md5sums=('312aede1c3d1d3425c8caa67bbb7a55e'
+md5sums=('b22ef6bc073f7cf767f547a84fb0e3c2'
          '7e5990e03eea90075f5a500e91a0c3d3'
          'ffe1e6fb7f97b23da28fd94a5fd7356d')
 
