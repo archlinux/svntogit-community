@@ -1,0 +1,75 @@
+# Maintainer: Jakob Gruber <jakob.gruber@gmail.com>
+
+pkgname=stone-soup
+pkgver=0.16.2
+pkgrel=2
+pkgdesc='Open-source, single-player, role-playing roguelike game of exploration and treasure-hunting'
+arch=('i686' 'x86_64')
+url='http://crawl.develz.org/'
+depends=('lua51' 'ncurses' 'sdl2_image' 'sqlite' 'glu' 'freetype2' 'ttf-dejavu')
+makedepends=('bison' 'flex' 'gendesk' 'mesa')
+conflicts=('crawl' 'stone-soup-tile' 'stone-soup-git')
+license=('custom')
+install=stone-soup.install
+source=("http://crawl.develz.org/release/stone_soup-${pkgver}-nodeps.tar.xz")
+
+# used by gendesk to create .desktop file
+_exec=('crawl-tiles')
+_name=('Dungeon Crawl Stone Soup')
+
+package() {
+    cd "$srcdir"
+    gendesk -n --pkgname "$pkgname" --pkgdesc "$pkgdesc" \
+            --exec 'crawl-tiles' --name 'Dungeon Crawl Stone Soup' PKGBUILD
+
+    cd "stone_soup-${pkgver}/source"
+
+    # 0.16.0 weirdness
+    sed -i 's|SDL_main.h|SDL2/&|' main.cc
+
+    # git tarball weirdness
+    echo "$pkgver" > util/release_ver
+
+    # adjust makefile to use /usr/bin, owner root:root,
+    # disable setgid on executable
+
+    sed -i 's|bin_prefix    := bin|bin_prefix    := usr/bin|' Makefile
+    sed -i 's/INSTALL_UGRP := games:games/INSTALL_UGRP := root:root/' Makefile
+    sed -i 's|MCHMOD := 2755|MCHMOD := 755|' Makefile
+
+    # first build and install tiles version
+
+    make DESTDIR="${pkgdir}" \
+         SAVEDIR="~/.crawl/" \
+         DATADIR="/usr/share/${pkgname}/data" \
+         USE_UNICODE=y \
+         TILES=y \
+         install
+
+    # rename tiles executable to avoid clashing with console crawl
+
+    mv "${pkgdir}/usr/bin/crawl" "${pkgdir}/usr/bin/crawl-tiles"
+
+    # then build and install console version
+
+    make DESTDIR="${pkgdir}" \
+         SAVEDIR="~/.crawl/" \
+         DATADIR="/usr/share/${pkgname}/data" \
+         USE_UNICODE=y \
+         install
+
+    # install crawl license
+
+    install -D -m644 ../licence.txt \
+        "${pkgdir}/usr/share/licenses/${pkgname}/license.txt"
+
+    # install icon and .desktop file
+
+    install -D -m644 dat/tiles/stone_soup_icon-32x32.png \
+        "${pkgdir}/usr/share/pixmaps/${pkgname}.png"
+    install -D -m644 "${srcdir}/${pkgname}.desktop" \
+        "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+
+}
+
+md5sums=('55b3b478d8f2321a32cfcf86e1d17841')
