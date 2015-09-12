@@ -5,7 +5,7 @@
 
 pkgbase=doublecmd
 pkgname=('doublecmd-gtk2' 'doublecmd-qt')
-pkgver=0.6.4
+pkgver=0.6.5
 _helpver=0.6.0
 pkgrel=1
 url="http://doublecmd.sourceforge.net/"
@@ -78,6 +78,6 @@ package_doublecmd-qt() {
 	cp -a * "$pkgdir/usr/share/$pkgbase/doc/"
 }
 
-sha256sums=('2c18d0e89deed22bdd876e90bac0279204219dfe25a33372fee0f1a6997ebfca'
+sha256sums=('db3ecdfc0bd857d314b021b5fd9361e613844346e86311405e1f1d9a7fa89b36'
             'd50a58f0e8c25c07720f2afd987213f330dfce268e2aef349d1da3de2eef1c39'
             '16560ad7403ffbee1800384768828e1fad924d03068c6248b68a78c393fc4e20')
