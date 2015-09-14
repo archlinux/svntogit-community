@@ -3,20 +3,17 @@
 
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
-pkgver=0.999
-pkgrel=5
+pkgver=0.9999999
+pkgrel=1
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
 makedepends=('python2' 'python' 'unzip')
+checkdepends=('python-nose' 'python2-nose')
 source=($pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz
     LICENSE)
-md5sums=('f74b320f10d74df9cca8a08b42cb278c'
+md5sums=('2ca78b1ec5852779bc121a97da6e8d4d'
          '838c366f69b72c5df05c96dff79b35f2')
-
-build() {
-    /bin/true
-}
 
 package_python-html5lib() {
 pkgdesc="A Python HTML parser/tokenizer based on the WHATWG HTML5 spec"
@@ -34,4 +31,12 @@ pkgdesc="A Python2 HTML parser/tokenizer based on the WHATWG HTML5 spec"
 
     python2 setup.py install --root=${pkgdir}
     install -Dm755 $srcdir/LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE  
+}
+
+check() {
+    cd ${srcdir}/html5lib-python-${pkgver}/html5lib/tests
+
+    nosetests2 
+  
+    nosetests
 }
