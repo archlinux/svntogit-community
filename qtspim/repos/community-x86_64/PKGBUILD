@@ -3,56 +3,39 @@
 # Contributor: Lukas Jirkovsky <l.jirkovsky@gmail.com>
 
 pkgname=qtspim
-pkgver=9.1.13
+pkgver=9.1.16
 pkgrel=1
 pkgdesc="New user interface for spim, a MIPS simulator."
 arch=('i686' 'x86_64')
 url="http://spimsimulator.sourceforge.net/"
 license=('BSD')
 depends=('qt4')
-makedepends=('subversion')
+makedepends=('subversion' 'icu')
+source=("spimsimulator::svn://svn.code.sf.net/p/spimsimulator/code/#revision=673")
+sha256sums=('SKIP')
 
-__svntrunk="https://spimsimulator.svn.sourceforge.net/svnroot/spimsimulator"
-__svnmod=('QtSpim' 'CPU' 'Documentation' 'Setup')
-__svnrev=637
+prepare() {
+  cd spimsimulator/QtSpim
+  sed -r \
+    -e 's/q([a-z]+)generator/q\1generator-qt4/' \
+    -e 's/-Wno-write-strings/& -fpermissive/' \
+    -i QtSpim.pro
+  rm parser_yacc.* scanner_lex.*
+}
 
 build() {
-  cd "$srcdir"
-  msg "Connecting to SVN server...."
-
-  for i in "${__svnmod[@]}"; do
-    if [[ -d "$i/.svn" ]]; then
-      (cd "$i" && svn up -r "$__svnrev")
-    else
-      svn co "$__svntrunk/$i" --config-dir ./ -r "$__svnrev" "$i"
-    fi
-  done
-
-  msg "SVN checkout done or server timeout"
-  msg "Starting build..."
-
-  rm -rf "$srcdir/build"
-  mkdir "$srcdir/build"
-  for i in "${__svnmod[@]}"; do
-    cp -r "$srcdir/$i" "$srcdir/build"
-  done
-  cd "$srcdir/build/QtSpim"
-
+  cd spimsimulator/QtSpim
   qmake-qt4
-  sed -i 's/qcollectiongenerator/qcollectiongenerator-qt4/' Makefile
-  make
+  make -j1
 }
 
 package() {
-  cd "$srcdir/build/QtSpim"
+  cd spimsimulator
 
-  install -Dm755 QtSpim "$pkgdir/usr/bin/qtspim"
+  install -D QtSpim/QtSpim "$pkgdir/usr/bin/qtspim"
 
-  install -dm755 "$pkgdir/usr/share/qtspim"
-  cp -r help "$pkgdir/usr/share/qtspim"
-  rm -rf "$pkgdir/usr/share/qtspim/help/.svn"
-
-  cd "$srcdir/build"
+  install -d "$pkgdir/usr/share/qtspim"
+  cp -r QtSpim/help "$pkgdir/usr/share/qtspim"
 
   install -Dm644 Documentation/spim.man "$pkgdir/usr/share/man/man1/qtspim.1"
   install -Dm644 Setup/qtspim_debian_deployment/qtspim.desktop \
