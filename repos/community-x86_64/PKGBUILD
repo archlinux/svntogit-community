@@ -7,7 +7,7 @@
 
 pkgname=fish
 pkgver=2.2.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='http://fishshell.com/'
 arch=('i686' 'x86_64')
