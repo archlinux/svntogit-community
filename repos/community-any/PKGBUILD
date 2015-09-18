@@ -2,7 +2,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=2.14.3
+pkgver=3.3.3
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -32,7 +32,7 @@ package() {
   chown -R root "$pkgdir/usr/lib/node_modules" 
 
   # Fix wrong symlinks
-  for _dir in man1 man3 man5 man7; do
+  for _dir in man1 man5 man7; do
     rm -f "$pkgdir"/usr/share/man/$_dir/*
     cd "$pkgdir"/usr/lib/node_modules/npm/man/$_dir
     for _file in *; do
