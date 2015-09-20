@@ -9,7 +9,7 @@ arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
 makedepends=('python2' 'python' 'unzip')
-checkdepends=('python-nose' 'python2-nose')
+checkdepends=('python-nose' 'python2-nose' 'python-six' 'python2-six')
 source=($pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz
     LICENSE)
 md5sums=('2ca78b1ec5852779bc121a97da6e8d4d'
