@@ -1,0 +1,85 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Aaron DeVore <aaron.devore@gmail.com>
+# Contributor: Byron Clark <byron@theclarkfamily.name>
+# Contributor: Guan 'kuno' Qing <neokuno AT gmail DOT com>
+
+pkgbase=python-couchdb
+pkgname=(python-couchdb python2-couchdb)
+pkgver=1.0
+pkgrel=2
+pkgdesc="Python library for working with CouchDB"
+url="http://code.google.com/p/couchdb-python/"
+license=('BSD')
+arch=('any')
+makedepends=('python-setuptools' 'python2-setuptools')
+checkdepends=('couchdb')
+source=(http://pypi.python.org/packages/source/C/CouchDB/CouchDB-$pkgver.tar.gz)
+md5sums=('94fa641fa032f9b8a58515881fbb4b1e')
+
+prepare() {
+  cp -a CouchDB-$pkgver{,-py2}
+
+  cd "$srcdir/CouchDB-$pkgver-py2"
+  sed -i 's/python /python2 /' Makefile
+  find . -name "*.py" -exec \
+    sed -i '1s|env python$|env python2|' {} \;
+}
+
+build() {
+  cd "$srcdir/CouchDB-$pkgver"
+  python setup.py build
+
+  cd "$srcdir/CouchDB-$pkgver-py2"
+  python2 setup.py build
+}
+
+check() {
+  mkdir "$srcdir/tmp_couchdb"
+  cat > "$srcdir/tmp_couchdb.conf" << EOF
+[couchdb]
+database_dir = "$srcdir/tmp_couchdb"
+view_index_dir = "$srcdir/tmp_couchdb"
+uri_file = "$srcdir/tmp_couchdb.uri"
+[log]
+file = "$srcdir/tmp_couchdb.log"
+EOF
+
+  couchdb -a "$srcdir/tmp_couchdb.conf" &
+  _COUCHDB_PID=$!
+  sleep 3;
+
+  cd "$srcdir/CouchDB-$pkgver"
+  python setup.py test || warning "python 3 tests failed"
+
+  cd "$srcdir/CouchDB-$pkgver-py2"
+  python2 setup.py test
+
+  kill $_COUCHDB_PID
+}
+
+package_python-couchdb() {
+  depends=('python-setuptools')
+
+  cd "$srcdir/CouchDB-$pkgver"
+  python setup.py install --root="$pkgdir" --optimize=1
+
+  install -D -m644 "COPYING" \
+    "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+
+package_python2-couchdb() {
+  depends=('python2-setuptools')
+
+  cd "$srcdir/CouchDB-$pkgver-py2"
+  python2 setup.py install --root="$pkgdir" --optimize=1
+
+  install -D -m644 "COPYING" \
+    "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+
+  for name in couchdb-dump couchdb-load couchdb-replicate couchpy; do
+    mv "$pkgdir/usr/bin/$name"{,2}
+  done
+}
+
+# vim:ts=2:sw=2:et
