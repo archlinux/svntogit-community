@@ -1,0 +1,50 @@
+# HG changeset patch
+# User holger krekel <holger@merlinux.eu>
+# Date 1442952268 -7200
+# Branch fixpytest28
+# Node ID 5e239034ab0db1b58b96c7f6b38eb55814ee78de
+# Parent  ea3ba7b8f9b3ed4fe75d981f0f98765e71ef7a7a
+fix issue12: force runpytest() to use subprocesses instead of inline running.
+also streamline tox.ini to newly use py35 and scrap py31 and py32 where pytest is
+not aiming for compatibility itself.
+
+diff --git a/test_pytest_timeout.py b/test_pytest_timeout.py
+--- a/test_pytest_timeout.py
++++ b/test_pytest_timeout.py
+@@ -5,13 +5,19 @@
+ 
+ import pytest
+ 
+-
+ pytest_plugins = 'pytester'
+ 
+-
+ have_sigalrm = pytest.mark.skipif(not hasattr(signal, "SIGALRM"),
+                                   reason='OS does not have SIGALRM')
+ 
++@pytest.fixture
++def testdir(testdir):
++    if hasattr(testdir, "runpytest_subprocess"):
++        # on pytest-2.8 runpytest runs inline by default
++        # patch the testdir instance to use the subprocess method
++        testdir.runpytest = testdir.runpytest_subprocess
++    return testdir
++
+ 
+ @have_sigalrm
+ def test_sigalrm(testdir):
+diff --git a/tox.ini b/tox.ini
+--- a/tox.ini
++++ b/tox.ini
+@@ -3,9 +3,9 @@
+ addopts = -rxs
+ 
+ [tox]
+-envlist = py26,py27,py31,py32,py33,py34,pypy,pypy3
++envlist = py26,py27,py33,py34,py35,pypy,pypy3
+ 
+ [testenv]
+ deps = pytest
+     pexpect
+-commands = py.test []
++commands = py.test {posargs}
