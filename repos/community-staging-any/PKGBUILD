@@ -1,4 +1,4 @@
-# Maintainer: Lukas Fleischer <archlinux at cryptocrack dot de>
+# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
 
 pkgbase=python-magic
 pkgname=(python-magic python2-magic)
