@@ -5,7 +5,7 @@
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-cli' 'bitcoin-qt')
 pkgver=0.11.0
-pkgrel=1
+pkgrel=2
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
 makedepends=('boost' 'automoc4' 'qrencode' 'miniupnpc' 'protobuf')
@@ -15,13 +15,15 @@ source=(http://bitcoin.org/bin/bitcoin-core-$pkgver/bitcoin-$pkgver.tar.gz
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/share/pixmaps/bitcoin128.png
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/examples/bitcoin.conf
 	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoind.1
-	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoin.conf.5)
+	https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoin.conf.5
+	https://github.com/bitcoin/bitcoin/commit/9f3e48e5219a09b5ddfd6883d1f0498910eff4b6.patch)
 sha256sums=('51ba1756addfa71567559e3f22331c1d908a63571891287689fff7113035d09f'
             'b65b377c0d9ecae9eea722843bca0add6bdb7e50929a7e1f751b79b6621c6073'
             'ad880c8459ecfdb96abe6a4689af06bdd27906e0edcd39d0915482f2da91e722'
             '7b9001258d0781b8ae6fba31b7fb99d8009af8cda5a005f4854aa8b20f55b214'
             '829d5d38c8c3145b6debcb569bfa75acdfcfab5d914495b56ceb4d02060f130f'
-            '9acf7f46052f6e508af4f38be4574f34bf0f57d2cf462f072606d3f177b4c957')
+            '9acf7f46052f6e508af4f38be4574f34bf0f57d2cf462f072606d3f177b4c957'
+            '0910004577764c2251a33c4868c7358a42da68f94d6462e44bbcb1945cefd748')
 
 # Upstream should be more coherent!
 case "$pkgver" in
@@ -33,9 +35,14 @@ case "$pkgver" in
   ;;
 esac
 
+prepare() {
+  cd "$pkgbase-$pkgver"
+  patch -Np1 -i "$srcdir"/9f3e48e5219a09b5ddfd6883d1f0498910eff4b6.patch
+}
+
 build() {
   cd "$srcdir/$pkgbase-$pkgver"
-  CXXFLAGS="$CXXFLAGS -DBOOST_VARIANT_USE_RELAXED_GET_BY_DEFAULT=1"
+  CXXFLAGS="$CXXFLAGS -DBOOST_VARIANT_USE_RELAXED_GET_BY_DEFAULT=1 -UUPNPDISCOVER_SUCCESS"
   ./configure --prefix=/usr --with-incompatible-bdb --with-gui=qt4
   make
 }
