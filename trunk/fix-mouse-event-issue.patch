@@ -1,0 +1,205 @@
+commit f15fc5c0c8f1d74d66b4a5067567e21d56c9786f
+Author: Xu Fasheng <fasheng.xu@gmail.com>
+Date:   2015-09-28 14:01:22 +0800
+
+    fix issue that could not receive XCB_BUTTON* message
+    
+    If Qt configured with "-xinput2", the original code will not catch the
+    core X11 events like XCB_BUTTON*, instead, we should dispatch mouse and
+    button events from xinput2 specially.
+    
+    https://bugreports.qt.io/browse/QTBUG-48472
+    
+    Change-Id: I4011c47d904a08d7c92d3c0cc9fb6436e86b064c
+
+diff --git a/deepin-menu.pro b/deepin-menu.pro
+index 6b21a54..9257ff2 100644
+--- a/deepin-menu.pro
++++ b/deepin-menu.pro
+@@ -37,7 +37,7 @@ HEADERS  += \
+     ddockmenu.h \
+     dmenuapplication.h
+ 
+-LIBS += -lxcb
++LIBS += -lxcb -lX11
+ 
+ RESOURCES += \
+     images.qrc
+diff --git a/dmenubase.cpp b/dmenubase.cpp
+index ce9a1c0..9469dd5 100644
+--- a/dmenubase.cpp
++++ b/dmenubase.cpp
+@@ -12,9 +12,10 @@
+ #include <QTimer>
+ #include <QTime>
+ #include <QDebug>
++#include <QX11Info>
+ 
+-#include <xcb/xcb.h>
+ #include <xcb/xproto.h>
++#include <X11/Xlib.h>
+ 
+ #include "dmenubase.h"
+ #include "dmenucontent.h"
+@@ -30,6 +31,8 @@ DMenuBase::DMenuBase(QWidget *parent) :
+ {
+     this->setAttribute(Qt::WA_TranslucentBackground);
+ 
++    queryXIExtension();
++
+     _dropShadow = new QGraphicsDropShadowEffect(this);
+     _dropShadow->setBlurRadius(0);
+     _dropShadow->setColor(Qt::black);
+@@ -334,7 +337,7 @@ bool DMenuBase::nativeEvent(const QByteArray &eventType, void *message, long *)
+         switch (responseType) {
+         case XCB_BUTTON_PRESS: {
+             xcb_button_press_event_t *ev = reinterpret_cast<xcb_button_press_event_t*>(event);
+-            qDebug() << "nativeEvent" <<  responseType <<
++            qDebug() << "nativeEvent XCB_BUTTON_PRESS" <<  responseType <<
+                         ev->detail << ev->child << ev->root_x << ev->root_y;
+             if (!this->menuUnderPoint(QPoint(ev->root_x, ev->root_y))) {
+                 this->destroyAll();
+@@ -343,7 +346,7 @@ bool DMenuBase::nativeEvent(const QByteArray &eventType, void *message, long *)
+         }
+         case XCB_BUTTON_RELEASE: {
+             xcb_button_release_event_t *ev = reinterpret_cast<xcb_button_release_event_t*>(event);
+-            qDebug() << "nativeEvent" <<  responseType <<
++            qDebug() << "nativeEvent XCB_BUTTON_RELEASE" <<  responseType <<
+                         ev->detail << ev->child << ev->root_x << ev->root_y;
+ 
+             if (this->menuUnderPoint(QPoint(ev->root_x, ev->root_y)) && _menuContent){
+@@ -353,7 +356,7 @@ bool DMenuBase::nativeEvent(const QByteArray &eventType, void *message, long *)
+         }
+         case XCB_MOTION_NOTIFY: {
+             xcb_motion_notify_event_t *ev = reinterpret_cast<xcb_motion_notify_event_t*>(event);
+-            qDebug() << "nativeEvent" <<  responseType <<
++            qDebug() << "nativeEvent XCB_MOTION_NOTIFY" <<  responseType <<
+                         ev->detail << ev->child << ev->root_x << ev->root_y;
+             DMenuBase *menuUnderPoint = this->menuUnderPoint(QPoint(ev->root_x, ev->root_y));
+             if (menuUnderPoint &&
+@@ -363,11 +366,66 @@ bool DMenuBase::nativeEvent(const QByteArray &eventType, void *message, long *)
+             }
+             break;
+         }
++        default:
++            if (isXIType(event, xiOpCode, XI_ButtonPress)) {
++                xXIDeviceEvent *ev = reinterpret_cast<xXIDeviceEvent*>(event);
++                qDebug() << "nativeEvent XI_ButtonPress" << fixed1616ToReal(ev->root_x) <<
++                    fixed1616ToReal(ev->root_y);
++                if (!this->menuUnderPoint(QPoint(fixed1616ToReal(ev->root_x),
++                                                 fixed1616ToReal(ev->root_y)))) {
++                    this->destroyAll();
++                }
++            } else if (isXIType(event, xiOpCode, XI_ButtonRelease)) {
++                xXIDeviceEvent *ev = reinterpret_cast<xXIDeviceEvent*>(event);
++                qDebug() << "nativeEvent XI_ButtonRelease" << fixed1616ToReal(ev->root_x) <<
++                    fixed1616ToReal(ev->root_y);
++                if (this->menuUnderPoint(QPoint(fixed1616ToReal(ev->root_x),
++                                                fixed1616ToReal(ev->root_y))) && _menuContent){
++                    _menuContent->doCurrentAction();
++                }
++            } else if (isXIType(event, xiOpCode, XI_Motion)) {
++                xXIDeviceEvent *ev = reinterpret_cast<xXIDeviceEvent*>(event);
++                qDebug() << "nativeEvent XI_Motion" << fixed1616ToReal(ev->root_x) <<
++                    fixed1616ToReal(ev->root_y);
++                DMenuBase *menuUnderPoint = this->menuUnderPoint(
++                    QPoint(fixed1616ToReal(ev->root_x), fixed1616ToReal(ev->root_y)));
++                if (menuUnderPoint &&
++                    (this->mouseGrabber() != menuUnderPoint
++                     || this->keyboardGrabber() != menuUnderPoint)) {
++                    menuUnderPoint->grabFocus();
++                }
++            }
++            break;
+         }
+     }
+     return false;
+ }
+ 
++void DMenuBase::queryXIExtension()
++{
++    XQueryExtension((Display *)QX11Info::display(), "XInputExtension", &xiOpCode, &xiEventBase, &xiErrorBase);
++    qDebug() << "xiOpCode: " << xiOpCode;
++}
++
++bool DMenuBase::isXIEvent(xcb_generic_event_t *event, int opCode)
++{
++    qt_xcb_ge_event_t *e = (qt_xcb_ge_event_t *)event;
++    return e->extension == opCode;
++}
++
++bool DMenuBase::isXIType(xcb_generic_event_t *event, int opCode, uint16_t type)
++{
++    if (!isXIEvent(event, opCode))
++        return false;
++
++    xXIGenericDeviceEvent *xiEvent = reinterpret_cast<xXIGenericDeviceEvent *>(event);
++    return xiEvent->evtype == type;
++}
++
++qreal DMenuBase::fixed1616ToReal(FP1616 val)
++{
++    return (qreal(val >> 16)) + (val & 0xFFFF) / (qreal)0xFFFF;
++}
+ 
+ // private methods
+ void DMenuBase::updateAll()
+diff --git a/dmenubase.h b/dmenubase.h
+index 2fa2559..59805a1 100644
+--- a/dmenubase.h
++++ b/dmenubase.h
+@@ -1,10 +1,31 @@
+ #ifndef DMENUBASE_H
+ #define DMENUBASE_H
+ 
++// this event type was added in libxcb 1.10,
++// but we support also older version
++#ifndef XCB_GE_GENERIC
++#define XCB_GE_GENERIC 35
++#endif
++
+ #include <QWidget>
+ #include <QSharedPointer>
+ #include <QGraphicsDropShadowEffect>
+ 
++#include <xcb/xcb.h>
++#include <X11/extensions/XI2proto.h>
++
++// Starting from the xcb version 1.9.3 struct xcb_ge_event_t has changed:
++// - "pad0" became "extension"
++// - "pad1" and "pad" became "pad0"
++// New and old version of this struct share the following fields:
++typedef struct qt_xcb_ge_event_t {
++    uint8_t  response_type;
++    uint8_t  extension;
++    uint16_t sequence;
++    uint32_t length;
++    uint16_t event_type;
++} qt_xcb_ge_event_t;
++
+ class QColor;
+ class QTimer;
+ class QMargins;
+@@ -94,6 +115,10 @@ private slots:
+     void grabFocusSlot();
+ 
+ private:
++    int xiErrorBase;
++    int xiEventBase;
++    int xiOpCode;
++
+     int _radius;
+     QMargins _shadowMargins;
+     QMargins _menuContentMargins;
+@@ -106,6 +131,11 @@ private:
+     QGraphicsDropShadowEffect *_dropShadow;
+     QTimer *_grabFocusTimer;
+ 
++    void queryXIExtension();
++    bool isXIEvent(xcb_generic_event_t *event, int opCode);
++    bool isXIType(xcb_generic_event_t *event, int opCode, uint16_t type);
++    qreal fixed1616ToReal(FP1616 val);
++
+     bool grabFocusInternal(int);
+     void updateAll();
+ };
