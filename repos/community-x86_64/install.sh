@@ -5,8 +5,6 @@ post_install() {
     true
 }
 
-post_remove() {
-    getent passwd xmms2 > /dev/null && userdel  xmms2
-    getent group  xmms2 > /dev/null && groupdel xmms2
-    true
+post_upgrade() {
+  post_install
 }
