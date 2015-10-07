@@ -1,7 +1,7 @@
 # Maintainer: Florian Pritz <bluewind@xinu.at>
 
 pkgname=perl-cpanplus-dist-arch
-pkgver=1.30
+pkgver=1.32
 pkgrel=1
 pkgdesc='CPANPLUS backend for building ArchLinux pacman packages'
 arch=(any)
@@ -9,9 +9,9 @@ license=(PerlArtistic GPL)
 options=(!emptydirs)
 depends=(perl perl-cpanplus)
 url=https://metacpan.org/release/CPANPLUS-Dist-Arch
-source=("http://search.cpan.org/CPAN/authors/id/J/JU/JUSTER/CPANPLUS-Dist-Arch-$pkgver.tar.gz")
-md5sums=(9335f2404c80692c7ffc859e5d648658)
-sha512sums=(1210fc64f1cb228edd94220f8116f7e8294146bc763b6e18ea5271f1bc18eb48169026b94ee0fa39ff6d8bd66e034882bd7d3a3ea1c34861f1ab434df11a70ff)
+source=("http://search.cpan.org/CPAN/authors/id/J/JN/JNBEK/CPANPLUS-Dist-Arch-$pkgver.tar.gz")
+md5sums=(673be0f0651e975faf4aa59536361d60)
+sha512sums=(92aa6214c56b73c5ce48998a9cc86d619ac3e8c01c1cd3445a99fc9dbc4740923f0cc7708f7270dbc1e930cc783366f98833a8ae58a62f225b614d626c79665d)
 _ddir="CPANPLUS-Dist-Arch-$pkgver"
 
 build()
