@@ -1,0 +1,68 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Giuseppe Borzi <gborzi___AT___ieee___DOT___org>
+# Contributor: mickele <mimocciola___AT___yahoo___DOT___ com>
+# Contributor: iztok pizorn <pizorn___AT___gmail___DOT___com>
+# Contributor: olivier medoc <o_medoc___AT___yahoo___DOT___fr>
+
+pkgname=atlas-lapack-base
+pkgver=3.10.2
+_lapackver=3.5.0
+pkgrel=1
+pkgdesc="Complete LAPACK and BLAS implementation using optimized ATLAS routines"
+url="http://math-atlas.sourceforge.net/"
+depends=(gcc-libs)
+makedepends=(gcc-fortran)
+arch=(i686 x86_64)
+conflicts=(blas cblas lapack)
+provides=(blas cblas 'lapack=$_lapackver' atlas-lapack)
+license=(custom:blas custom:lapack custom:atlas)
+options=(!makeflags)
+source=(http://www.netlib.org/lapack/lapack-$_lapackver.tgz http://downloads.sourceforge.net/math-atlas/atlas${pkgver}.tar.bz2 blas-license.txt 
+atlas-license.txt Makefile disable-throttling-check.patch)
+noextract=(lapack-$_lapackver.tgz)
+install=$pkgname.install
+md5sums=('b1d3e3e425b2e44a06760ff173104bdf'
+         'a4e21f343dec8f22e7415e339f09f6da'
+         'e8e512ee7a2d550139dcd765f127816b'
+         '4903eb06072dfbf94710691ccb6660bf'
+         'd598a27d392d41b00f8e440f1f8fc2a4'
+         '54f80b9a56f13f960017460c36b725ce')
+
+prepare() {
+  mkdir -p ATLAS/build
+
+# override throttling check (Fedora)
+  patch -p0 -i disable-throttling-check.patch
+}
+
+build() {
+  if [ "$CARCH" = "x86_64" ]; then
+     ARCHITECTURE_BUILD_OPTS="-b 64 -A x86SSE3" # for x86_64
+  else
+     ARCHITECTURE_BUILD_OPTS="-b 32 -A x86SSE2" # for i686
+  fi
+
+  cd ATLAS/build
+  ../configure --prefix=/usr/ $ARCHITECTURE_BUILD_OPTS -Fa alg -fPIC -Si latune 0 -t 0 \
+     --with-netlib-lapack-tarfile="$srcdir"/lapack-$_lapackver.tgz
+  make build
+
+# build shared libraries
+  cd lib
+  cp "$srcdir"/Makefile .
+  make
+}
+
+package() {
+  cd ATLAS/build
+
+  make DESTDIR="$pkgdir"/usr install
+  cp -d lib/*.so* "$pkgdir"/usr/lib
+  ln -sr "$pkgdir"/usr/lib/libblas.so{,.3}
+  ln -sr "$pkgdir"/usr/lib/liblapack.so{,.3}
+
+  install -Dm644 "$srcdir"/blas-license.txt "$pkgdir"/usr/share/licenses/$pkgname/blas-license.txt
+  install -Dm644 "$srcdir"/ATLAS/build/src/lapack/reference/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/lapack-license.txt
+  install -Dm644 "$srcdir"/atlas-license.txt "$pkgdir"/usr/share/licenses/$pkgname/atlas-license.txt
+}
