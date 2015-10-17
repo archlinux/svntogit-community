@@ -3,7 +3,7 @@
 
 pkgname=npm
 pkgver=3.3.8
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
@@ -40,9 +40,9 @@ package() {
     done
   done
   
-  # Make symlink for node-gyp
-  #ln -s /usr/lib/node_modules/npm/node_modules/node-gyp/bin/node-gyp.js "$pkgdir"/usr/bin/node-gyp
-  ln -s /usr/lib/node_modules/npm/bin/node-gyp-bin/node-gyp "$pkgdir"/usr/bin/node-gyp
+  # Provide node-gyp executable
+  cp "$pkgdir"/usr/lib/node_modules/npm/bin/node-gyp-bin/node-gyp "$pkgdir"/usr/bin/node-gyp
+  sed -i 's|"`dirname "$0"`/../../|"`dirname "$0"`/../lib/node_modules/npm/|' "$pkgdir"/usr/bin/node-gyp
   
   install -Dm644 "$srcdir/npm/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
