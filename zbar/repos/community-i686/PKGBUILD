@@ -6,7 +6,7 @@
 
 pkgname=zbar
 pkgver=0.10
-pkgrel=5
+pkgrel=6
 pkgdesc="Application and library for reading bar codes from various sources"
 arch=('i686' 'x86_64')
 url="http://zbar.sourceforge.net/"
@@ -16,17 +16,18 @@ conflicts=('zbar-gtk' 'zbar-qt')
 provides=("zbar-gtk=$pkgver" "zbar-qt=$pkgver")
 source=("http://downloads.sourceforge.net/project/zbar/zbar/$pkgver/zbar-$pkgver.tar.bz2"
         v4l1.patch)
+md5sums=('0fd61eb590ac1bab62a77913c8b086a5'
+         '284f11ca2a5e009744c4a1b9e92d6953')
+
+prepare() {
+  cd zbar-$pkgver
+  patch -p1 -i ../v4l1.patch
+}
 
 build() {
   cd zbar-$pkgver
 
-  msg 'Patching...'
-  patch -p1 < ../v4l1.patch
-
-  msg 'Running configure...'
-  ./configure --prefix=/usr --with-qt --with-gtk CFLAGS=-DNDEBUG
-
-  msg 'Running make...'
+  ./configure --prefix=/usr --with-qt --with-gtk CFLAGS="$CFLAGS -DNDEBUG"
   make
 }
 
@@ -36,5 +37,3 @@ package() {
 }
 
 # vim:set ts=2 sw=2 et:
-md5sums=('0fd61eb590ac1bab62a77913c8b086a5'
-         '284f11ca2a5e009744c4a1b9e92d6953')
