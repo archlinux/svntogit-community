@@ -4,7 +4,7 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2015.6
+pkgver=2015.7
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
@@ -13,7 +13,7 @@ makedepends=('python' 'python2')
 source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.gz)
 #source=(http://pypi.python.org/packages/source/p/pytz/pytz-$pkgver.tar.gz{,.asc})
 #validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
-md5sums=('ff047a16dafeaa895bedef80a74c3728')
+md5sums=('252bb731883f37ff9c7f462954e8706d')
 
 build(){
     cd $srcdir
