@@ -1,0 +1,76 @@
+# $Id$
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Marcello "mererghost" Rocha <https://github.com/mereghost>
+# Refactored by Blaž "Speed" Hrastnik <https://github.com/archSeer>
+
+pkgname=elasticsearch
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Distributed RESTful search engine built on top of Lucene"
+arch=('any')
+url="https://www.elastic.co/products/elasticsearch"
+license=('APACHE')
+depends=('java-runtime-headless' 'systemd')
+install='elasticsearch.install'
+source=(
+  "http://download.elasticsearch.org/$pkgname/release/org/$pkgname/distribution/tar/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz"
+  elasticsearch.service
+  elasticsearch@.service
+  elasticsearch-sysctl.conf
+  elasticsearch-user.conf
+  elasticsearch-tmpfile.conf
+  elasticsearch.default
+)
+sha256sums=('b25f13f615337c2072964fd9fc5c7250f8a2a983b22198daf93548285d5d16df'
+            'a59d1bf2efedc146edbc98c252da29a7b2d061fe19b6fda5c2ca0a67004ce374'
+            '59e9e5fbe7a4b7053e2f004e69213ed7cfa9ba4ae236d1fbe9f3fccd9c1fd073'
+            'b3feb1e9c7e7ce6b33cea6c727728ed700332aae942ca475c3bcc1d56b9f113c'
+            'a76c03afe30dc3434bf55b5b50f0867c3670dcaebcc8b522f42277ff523b7277'
+            '39ab5801b45c0f49af43c4d1826a655a981bfa07e4b3791d7a0719f8c191d8d9'
+            'bb74e5fb8bc28f2125e015395ab05bea117b72bfc6dadbca827694b362ee0bf8')
+
+backup=('etc/elasticsearch/elasticsearch.yml'
+        'etc/elasticsearch/logging.yml'
+        'etc/default/elasticsearch')
+
+prepare() {
+  cd "$srcdir"/$pkgname-$pkgver
+
+  for script in plugin elasticsearch; do
+    sed -e 's|^ES_HOME=.*dirname.*|ES_HOME=/usr/share/elasticsearch|' \
+        -e '/^ES_HOME=.*pwd/d' \
+        -i bin/$script
+  done
+
+  sed -re 's;#\s*(path\.conf:).*$;\1 /etc/elasticsearch;' \
+    -e '0,/#\s*(path\.data:).*$/s;;\1 /var/lib/elasticsearch;' \
+    -e 's;#\s*(path\.work:).*$;\1 /tmp/elasticsearch;' \
+    -e 's;#\s*(path\.logs:).*$;\1 /var/log/elasticsearch;' \
+    -i config/elasticsearch.yml
+}
+
+package() {
+  install -dm755 "$pkgdir"/etc
+  install -dm750 -g 114 "$pkgdir"/etc/elasticsearch/scripts
+
+  cd "$srcdir"/$pkgname-$pkgver
+  install -dm755 "$pkgdir"/usr/share/elasticsearch
+  cp -R lib "$pkgdir"/usr/share/elasticsearch/lib
+  cp config/* "$pkgdir"/etc/elasticsearch/
+
+  install -Dm755 bin/elasticsearch "$pkgdir"/usr/bin/elasticsearch
+  install -Dm755 bin/plugin "$pkgdir"/usr/bin/elasticsearch-plugin
+  install -Dm644 bin/elasticsearch.in.sh "$pkgdir"/usr/share/elasticsearch/elasticsearch.in.sh
+
+  cd "$pkgdir"
+  install -dm750 -g 114 etc/elasticsearch/scripts
+  install -Dm644 "$srcdir"/elasticsearch.service usr/lib/systemd/system/elasticsearch.service
+  install -Dm644 "$srcdir"/elasticsearch@.service usr/lib/systemd/system/elasticsearch@.service
+  install -Dm644 "$srcdir"/elasticsearch-user.conf usr/lib/sysusers.d/elasticsearch.conf
+  install -Dm644 "$srcdir"/elasticsearch-tmpfile.conf usr/lib/tmpfiles.d/elasticsearch.conf
+  install -Dm644 "$srcdir"/elasticsearch-sysctl.conf usr/lib/sysctl.d/elasticsearch.conf
+  install -Dm644 "$srcdir"/elasticsearch.default etc/default/elasticsearch
+
+  chgrp -R 114 etc/elasticsearch
+  install -o 114 -g 114 -dm755 usr/share/elasticsearch/plugins
+}
