@@ -1,0 +1,351 @@
+From 9f24795fa4935aa1adcdea8c1008541011b3964f Mon Sep 17 00:00:00 2001
+From: leper <leper@3db68df2-c116-0410-a063-a993310a9797>
+Date: Mon, 25 May 2015 01:23:09 +0000
+Subject: [PATCH] Fix SM build with GCC 5.1.
+
+git-svn-id: http://svn.wildfiregames.com/public/ps/trunk@16673 3db68df2-c116-0410-a063-a993310a9797
+---
+ libraries/source/spidermonkey/FixBug1021171.diff | 245 +++++++++++++++++++++++
+ libraries/source/spidermonkey/FixBug1119228.diff |  65 ++++++
+ libraries/source/spidermonkey/build.sh           |   4 +
+ 3 files changed, 314 insertions(+)
+ create mode 100644 libraries/source/spidermonkey/FixBug1021171.diff
+ create mode 100644 libraries/source/spidermonkey/FixBug1119228.diff
+
+diff --git a/libraries/source/spidermonkey/FixBug1021171.diff b/libraries/source/spidermonkey/FixBug1021171.diff
+new file mode 100644
+index 0000000..b322e44
+--- /dev/null
++++ b/libraries/source/spidermonkey/FixBug1021171.diff
+@@ -0,0 +1,245 @@
++# Based on
++# HG changeset patch
++# User Trevor Saunders <trev.saunders@gmail.com>
++# Date 1402083090 14400
++# Node ID fc756706366d983e5d70345cab419fbf72db3d36
++# Parent  78c20dbe259e808fb58d65731efd4f05e8921820
++bug 1021171 - don't return nulllptr in functions returning bool r=bz,waldo
++
++diff --git a/js/src/builtin/TypedObject.cpp b/js/src/builtin/TypedObject.cpp
++--- a/js/src/builtin/TypedObject.cpp
+++++ b/js/src/builtin/TypedObject.cpp
++@@ -705,35 +705,35 @@ ArrayMetaTypeDescr::construct(JSContext 
++ 
++     // Construct a canonical string `new ArrayType(<elementType>)`:
++     StringBuffer contents(cx);
++     contents.append("new ArrayType(");
++     contents.append(&elementType->stringRepr());
++     contents.append(")");
++     RootedAtom stringRepr(cx, contents.finishAtom());
++     if (!stringRepr)
++-        return nullptr;
+++        return false;
++ 
++     // Extract ArrayType.prototype
++     RootedObject arrayTypePrototype(cx, GetPrototype(cx, arrayTypeGlobal));
++     if (!arrayTypePrototype)
++-        return nullptr;
+++        return false;
++ 
++     // Create the instance of ArrayType
++     Rooted<UnsizedArrayTypeDescr *> obj(cx);
++     obj = create<UnsizedArrayTypeDescr>(cx, arrayTypePrototype, elementType,
++                                         stringRepr, 0);
++     if (!obj)
++         return false;
++ 
++     // Add `length` property, which is undefined for an unsized array.
++     if (!JSObject::defineProperty(cx, obj, cx->names().length,
++                                   UndefinedHandleValue, nullptr, nullptr,
++                                   JSPROP_READONLY | JSPROP_PERMANENT))
++-        return nullptr;
+++        return false;
++ 
++     args.rval().setObject(*obj);
++     return true;
++ }
++ 
++ /*static*/ bool
++ UnsizedArrayTypeDescr::dimension(JSContext *cx, unsigned int argc, jsval *vp)
++ {
++@@ -757,30 +757,30 @@ UnsizedArrayTypeDescr::dimension(JSConte
++     int32_t length = args[0].toInt32();
++     Rooted<SizedTypeDescr*> elementType(cx, &unsizedTypeDescr->elementType());
++ 
++     // Compute the size.
++     CheckedInt32 size = CheckedInt32(elementType->size()) * length;
++     if (!size.isValid()) {
++         JS_ReportErrorNumber(cx, js_GetErrorMessage, nullptr,
++                              JSMSG_TYPEDOBJECT_TOO_BIG);
++-        return nullptr;
+++        return false;
++     }
++ 
++     // Construct a canonical string `new ArrayType(<elementType>).dimension(N)`:
++     StringBuffer contents(cx);
++     contents.append("new ArrayType(");
++     contents.append(&elementType->stringRepr());
++     contents.append(").dimension(");
++     if (!NumberValueToStringBuffer(cx, NumberValue(length), contents))
++         return false;
++     contents.append(")");
++     RootedAtom stringRepr(cx, contents.finishAtom());
++     if (!stringRepr)
++-        return nullptr;
+++        return false;
++ 
++     // Create the sized type object.
++     Rooted<SizedArrayTypeDescr*> obj(cx);
++     obj = ArrayMetaTypeDescr::create<SizedArrayTypeDescr>(cx, unsizedTypeDescr,
++                                                           elementType,
++                                                           stringRepr, size.value());
++     if (!obj)
++         return false;
++@@ -788,25 +788,25 @@ UnsizedArrayTypeDescr::dimension(JSConte
++     obj->initReservedSlot(JS_DESCR_SLOT_SIZED_ARRAY_LENGTH,
++                           Int32Value(length));
++ 
++     // Add `length` property.
++     RootedValue lengthVal(cx, Int32Value(length));
++     if (!JSObject::defineProperty(cx, obj, cx->names().length,
++                                   lengthVal, nullptr, nullptr,
++                                   JSPROP_READONLY | JSPROP_PERMANENT))
++-        return nullptr;
+++        return false;
++ 
++     // Add `unsized` property, which is a link from the sized
++     // array to the unsized array.
++     RootedValue unsizedTypeDescrValue(cx, ObjectValue(*unsizedTypeDescr));
++     if (!JSObject::defineProperty(cx, obj, cx->names().unsized,
++                                   unsizedTypeDescrValue, nullptr, nullptr,
++                                   JSPROP_READONLY | JSPROP_PERMANENT))
++-        return nullptr;
+++        return false;
++ 
++     args.rval().setObject(*obj);
++     return true;
++ }
++ 
++ bool
++ js::IsTypedObjectArray(JSObject &obj)
++ {
++@@ -1248,17 +1248,17 @@ DefineSimpleTypeDescr(JSContext *cx,
++     if (!JS_DefineFunctions(cx, descr, T::typeObjectMethods))
++         return false;
++ 
++     // Create the typed prototype for the scalar type. This winds up
++     // not being user accessible, but we still create one for consistency.
++     Rooted<TypedProto*> proto(cx);
++     proto = NewObjectWithProto<TypedProto>(cx, objProto, nullptr, TenuredObject);
++     if (!proto)
++-        return nullptr;
+++        return false;
++     proto->initTypeDescrSlot(*descr);
++     descr->initReservedSlot(JS_DESCR_SLOT_TYPROTO, ObjectValue(*proto));
++ 
++     RootedValue descrValue(cx, ObjectValue(*descr));
++     if (!JSObject::defineProperty(cx, module, className,
++                                   descrValue, nullptr, nullptr, 0))
++     {
++         return false;
++@@ -1353,66 +1353,66 @@ GlobalObject::initTypedObjectModule(JSCo
++     if (!JS_DefineFunctions(cx, module, TypedObjectMethods))
++         return false;
++ 
++     // uint8, uint16, any, etc
++ 
++ #define BINARYDATA_SCALAR_DEFINE(constant_, type_, name_)                       \
++     if (!DefineSimpleTypeDescr<ScalarTypeDescr>(cx, global, module, constant_,      \
++                                             cx->names().name_))                 \
++-        return nullptr;
+++        return false;
++     JS_FOR_EACH_SCALAR_TYPE_REPR(BINARYDATA_SCALAR_DEFINE)
++ #undef BINARYDATA_SCALAR_DEFINE
++ 
++ #define BINARYDATA_REFERENCE_DEFINE(constant_, type_, name_)                    \
++     if (!DefineSimpleTypeDescr<ReferenceTypeDescr>(cx, global, module, constant_,   \
++                                                cx->names().name_))              \
++-        return nullptr;
+++        return false;
++     JS_FOR_EACH_REFERENCE_TYPE_REPR(BINARYDATA_REFERENCE_DEFINE)
++ #undef BINARYDATA_REFERENCE_DEFINE
++ 
++     // ArrayType.
++ 
++     RootedObject arrayType(cx);
++     arrayType = DefineMetaTypeDescr<ArrayMetaTypeDescr>(
++         cx, global, module, TypedObjectModuleObject::ArrayTypePrototype);
++     if (!arrayType)
++-        return nullptr;
+++        return false;
++ 
++     RootedValue arrayTypeValue(cx, ObjectValue(*arrayType));
++     if (!JSObject::defineProperty(cx, module, cx->names().ArrayType,
++                                   arrayTypeValue,
++                                   nullptr, nullptr,
++                                   JSPROP_READONLY | JSPROP_PERMANENT))
++-        return nullptr;
+++        return false;
++ 
++     // StructType.
++ 
++     RootedObject structType(cx);
++     structType = DefineMetaTypeDescr<StructMetaTypeDescr>(
++         cx, global, module, TypedObjectModuleObject::StructTypePrototype);
++     if (!structType)
++-        return nullptr;
+++        return false;
++ 
++     RootedValue structTypeValue(cx, ObjectValue(*structType));
++     if (!JSObject::defineProperty(cx, module, cx->names().StructType,
++                                   structTypeValue,
++                                   nullptr, nullptr,
++                                   JSPROP_READONLY | JSPROP_PERMANENT))
++-        return nullptr;
+++        return false;
++ 
++     // Everything is setup, install module on the global object:
++     RootedValue moduleValue(cx, ObjectValue(*module));
++     global->setConstructor(JSProto_TypedObject, moduleValue);
++     if (!JSObject::defineProperty(cx, global, cx->names().TypedObject,
++                                   moduleValue,
++                                   nullptr, nullptr,
++                                   0))
++     {
++-        return nullptr;
+++        return false;
++     }
++ 
++     return module;
++ }
++ 
++ JSObject *
++ js_InitTypedObjectModuleObject(JSContext *cx, HandleObject obj)
++ {
++@@ -2444,17 +2444,17 @@ TypedObject::constructUnsized(JSContext 
++     }
++ 
++     // Length constructor.
++     if (args[0].isInt32()) {
++         int32_t length = args[0].toInt32();
++         if (length < 0) {
++             JS_ReportErrorNumber(cx, js_GetErrorMessage,
++                                  nullptr, JSMSG_TYPEDOBJECT_BAD_ARGS);
++-            return nullptr;
+++            return false;
++         }
++         Rooted<TypedObject*> obj(cx, createZeroed(cx, callee, length));
++         if (!obj)
++             return false;
++         args.rval().setObject(*obj);
++         return true;
++     }
++ 
++diff --git a/js/src/frontend/BytecodeCompiler.cpp b/js/src/frontend/BytecodeCompiler.cpp
++--- a/js/src/frontend/BytecodeCompiler.cpp
+++++ b/js/src/frontend/BytecodeCompiler.cpp
++@@ -539,17 +539,17 @@ CompileFunctionBody(JSContext *cx, Mutab
++ 
++     MaybeCallSourceHandler(cx, options, srcBuf);
++ 
++     if (!CheckLength(cx, srcBuf))
++         return false;
++ 
++     RootedScriptSource sourceObject(cx, CreateScriptSourceObject(cx, options));
++     if (!sourceObject)
++-        return nullptr;
+++        return false;
++     ScriptSource *ss = sourceObject->source();
++ 
++     SourceCompressionTask sct(cx);
++     JS_ASSERT(!options.sourceIsLazy);
++     if (!cx->compartment()->options().discardSource()) {
++         if (!ss->setSourceCopy(cx, srcBuf, true, &sct))
++             return false;
++     }
+diff --git a/libraries/source/spidermonkey/FixBug1119228.diff b/libraries/source/spidermonkey/FixBug1119228.diff
+new file mode 100644
+index 0000000..85c0d64
+--- /dev/null
++++ b/libraries/source/spidermonkey/FixBug1119228.diff
+@@ -0,0 +1,65 @@
++# Backport of
++# HG changeset patch
++# User Ehsan Akhgari <ehsan@mozilla.com>
++# Date 1420727118 18000
++# Node ID bcacb5692ad902fc0ec6ebea2ad382a8a3fd5183
++# Parent  48f8a884901ba9753d3bddab08f25c60e1915601
++Bug 1119228 - Fix a fatal warning in PossiblyFail; r=jandem
++
++Recent clang emits the following warning (which is treated as an error) on this code:
++error: implicit conversion of nullptr constant to 'bool' [-Werror,-Wnull-conversion]
++
++
++diff --git a/js/public/Utility.h b/js/public/Utility.h
++--- a/js/public/Utility.h
+++++ b/js/public/Utility.h
++@@ -83,19 +83,28 @@ static MOZ_NEVER_INLINE void js_failedAl
++ #  define JS_OOM_POSSIBLY_FAIL() \
++     do \
++     { \
++         if (++OOM_counter > OOM_maxAllocations) { \
++             JS_OOM_CALL_BP_FUNC();\
++             return nullptr; \
++         } \
++     } while (0)
+++#  define JS_OOM_POSSIBLY_FAIL_BOOL() \
+++    do \
+++    { \
+++        if (++OOM_counter > OOM_maxAllocations) { \
+++            JS_OOM_CALL_BP_FUNC();\
+++            return false; \
+++        } \
+++    } while (0)
++ 
++ # else
++ #  define JS_OOM_POSSIBLY_FAIL() do {} while(0)
+++#  define JS_OOM_POSSIBLY_FAIL_BOOL() do {} while(0)
++ # endif /* DEBUG || JS_OOM_BREAKPOINT */
++ 
++ static inline void* js_malloc(size_t bytes)
++ {
++     JS_OOM_POSSIBLY_FAIL();
++     return malloc(bytes);
++ }
++
++--- a/js/src/jsgcinlines.h
+++++ b/js/src/jsgcinlines.h
++@@ -403,17 +403,17 @@
++     }
++     return nullptr;
++ }
++ #endif /* JSGC_GENERATIONAL */
++
++ static inline bool
++ PossiblyFail()
++ {
++-    JS_OOM_POSSIBLY_FAIL();
+++    JS_OOM_POSSIBLY_FAIL_BOOL();
++     return true;
++ }
++
++ template <AllowGC allowGC>
++ static inline bool
++ CheckAllocatorState(ThreadSafeContext *cx, AllocKind kind)
++ {
++     if (!cx->isJSContext())
+diff --git a/libraries/source/spidermonkey/build.sh b/libraries/source/spidermonkey/build.sh
+index 2833be4..5c74026 100755
+--- a/libraries/source/spidermonkey/build.sh
++++ b/libraries/source/spidermonkey/build.sh
+@@ -84,6 +84,10 @@ patch -p1 -i ../FixTraceLoggerFlushing.diff
+ # It makes quite a big difference for performance.
+ # https://bugzilla.mozilla.org/show_bug.cgi?id=1046176
+ patch -p1 -i ../FixForOfBailouts.diff
++
++# Fix build failures on GCC 5.1 and Clang 3.6
++patch -p1 -i ../FixBug1021171.diff
++patch -p1 -i ../FixBug1119228.diff
+ cd ..
+ 
+ # Clean up header files that may be left over by earlier versions of SpiderMonkey
