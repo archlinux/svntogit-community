@@ -13,15 +13,16 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.2
-pkgrel=2
+pkgver=4.3
+pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
 options=('!strip')
+makedepends=('git')
 # split packages need all package dependencies set manually in makedepends
 # kernel source deps
-makedepends=('asciidoc' 'xmlto')
+makedepends+=('asciidoc' 'xmlto')
 # perf deps
 makedepends+=('perl' 'python2' 'libnewt' 'elfutils' 'libunwind' 'numactl' 'audit' 'gtk2')
 # cpupower deps
@@ -31,43 +32,38 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 # tmon deps
 makedepends+=('ncurses')
 groups=("$pkgbase")
-validpgpkeys=('ABAF11C65A2970B130ABE3C479BE3E4300411886'  # Linus Torvalds
-              '647F28654894E3BD457199BE38DBBDC86092693E') # Greg Kroah-Hartman
-source=("http://ftp.kernel.org/pub/linux/kernel/v${pkgver:0:1}.x/linux-$pkgver.tar"{.xz,.sign}
-        #"http://ftp.kernel.org/pub/linux/kernel/v${pkgver:0:1}.x/patch-$pkgver.3"{.xz,.sign}
+source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service'
         '02-archlinux-paths.patch'
         '04-fix-usip-h-path.patch')
-# http://www.kernel.org/pub/linux/kernel/v4.x/sha256sums.asc
-sha256sums=('cf20e044f17588d2a42c8f2a450b0fd84dfdbd579b489d93e9ab7d0e8b45dbeb'
-            'SKIP'
-            '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
-            'fbf6e0ce6eb0ef15703fe212958de6ca46e62188900b5e9f9272ed3cc9cfd54e'
-            'a89284d0ecb556ca53a66d1c2087b5fd6d0a901ab2769cd3aebb93f4478905dc'
-            '2e187734d8aec58a3046d79883510d779aa93fb3ab20bd3132c1a607ebe5498f'
-            '91f7d91d4270f207102c469c575dd176c3be7897d78d26057d047db164eaf9ca'
-            'e5543d8d6d3fbc7f8d9d25c428a882737d2e0169455f70cbc3f73076ff33dd5d')
+md5sums=('SKIP'
+         '56883c159381ba89e50ab8ea65efec77'
+         '7e0710c2f31c1eb1e1417a7972e676b1'
+         '2450e8ff41b30eb58d43b5fffbfde1f4'
+         'bb35634f480325a78b943f7e10165e86'
+         '1bc4f8c7a21a30e1a873d07e69fb698b'
+         'a73ea3ea6d9c9ecb1cc910871eead3ff')
 
 prepare() {
   local _patch
   for _patch in patch-$pkgver.? *.patch; do
     [[ -e "$_patch" ]] || continue
     msg2 "Applying $_patch"
-    patch -N -p1 -d linux-$pkgver < "$_patch"
+    patch -N -p1 -d linux < "$_patch"
   done
 }
 
 build() {
   msg2 'libtraceevent'
-  pushd linux-$pkgver/tools/lib/traceevent
+  pushd linux/tools/lib/traceevent
   make
   popd
 
   msg2 'perf'
-  pushd linux-$pkgver/tools/perf
+  pushd linux/tools/perf
   make \
     WERROR=0 \
     DESTDIR="$pkgdir/usr" \
@@ -79,36 +75,36 @@ build() {
   popd
 
   msg2 'cpupower'
-  pushd linux-$pkgver/tools/power/cpupower
+  pushd linux/tools/power/cpupower
   # we cannot use --as-needed
   #LDFLAGS=${LDFLAGS:+"$LDFLAGS,--no-as-needed"}
   make VERSION=$pkgver-$pkgrel
   popd
 
   msg2 'x86_energy_perf_policy'
-  pushd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
+  pushd linux/tools/power/x86/x86_energy_perf_policy
   make
   popd
 
   msg2 'usbip'
-  pushd linux-$pkgver/tools/usb/usbip
+  pushd linux/tools/usb/usbip
   ./autogen.sh
   ./configure --prefix=/usr --sbindir=/usr/bin
   make
   popd
 
   msg2 'tmon'
-  pushd linux-$pkgver/tools/thermal/tmon
+  pushd linux/tools/thermal/tmon
   make
   popd
 
   msg2 'cgroup_event_listener'
-  pushd linux-$pkgver/tools/cgroup
+  pushd linux/tools/cgroup
   make
   popd
 
   msg2 'turbostat'
-  pushd linux-$pkgver/tools/power/x86/turbostat
+  pushd linux/tools/power/x86/turbostat
   make
   popd
 }
@@ -135,7 +131,7 @@ package_libtraceevent() {
   pkgdesc='Linux kernel trace event library'
   depends=('glibc')
 
-  cd linux-$pkgver/tools/lib/traceevent
+  cd linux/tools/lib/traceevent
   install -dm 755 "$pkgdir/usr/lib"
   install -m 644 libtraceevent.so "$pkgdir/usr/lib"
 }
@@ -146,7 +142,7 @@ package_perf() {
            'numactl' 'audit')
   optdepends=('gtk2: support GTK2 browser for perf report')
 
-  cd linux-$pkgver/tools/perf
+  cd linux/tools/perf
   make \
     WERROR=0 \
     DESTDIR="$pkgdir/usr" \
@@ -169,7 +165,7 @@ package_cpupower() {
   replaces=('cpufrequtils')
   install=cpupower.install
 
-  pushd linux-$pkgver/tools/power/cpupower
+  pushd linux/tools/power/cpupower
   make \
     DESTDIR="$pkgdir" \
     sbindir='/usr/bin' \
@@ -187,7 +183,7 @@ package_x86_energy_perf_policy() {
   pkgdesc='Read or write MSR_IA32_ENERGY_PERF_BIAS'
   depends=('glibc')
 
-  cd linux-$pkgver/tools/power/x86/x86_energy_perf_policy
+  cd linux/tools/power/x86/x86_energy_perf_policy
   install -Dm 755 x86_energy_perf_policy "$pkgdir/usr/bin/x86_energy_perf_policy"
   install -Dm 644 x86_energy_perf_policy.8 "$pkgdir/usr/share/man/man8/x86_energy_perf_policy.8"
 }
@@ -196,7 +192,7 @@ package_usbip() {
   pkgdesc='An USB device sharing system over IP network'
   depends=('glib2' 'sysfsutils' 'libsystemd')
 
-  pushd linux-$pkgver/tools/usb/usbip
+  pushd linux/tools/usb/usbip
   make install DESTDIR="$pkgdir"
   popd
   # module loading
@@ -210,7 +206,7 @@ package_tmon() {
   pkgdesc='Monitoring and Testing Tool for Linux kernel thermal subsystem'
   depends=('glibc' 'ncurses')
 
-  cd linux-$pkgver/tools/thermal/tmon
+  cd linux/tools/thermal/tmon
   make install INSTALL_ROOT="$pkgdir"
 }
 
@@ -218,7 +214,7 @@ package_cgroup_event_listener() {
   pkgdesc='Simple listener of cgroup events'
   depends=('glibc')
 
-  cd linux-$pkgver/tools/cgroup
+  cd linux/tools/cgroup
   install -Dm755 cgroup_event_listener "$pkgdir/usr/bin/cgroup_event_listener"
 }
 
@@ -226,7 +222,7 @@ package_turbostat() {
   pkgdesc='Report processor frequency and idle statistics'
   depends=('glibc')
 
-  cd linux-$pkgver/tools/power/x86/turbostat
+  cd linux/tools/power/x86/turbostat
   make install DESTDIR="$pkgdir"
 }
 
