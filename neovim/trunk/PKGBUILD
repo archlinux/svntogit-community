@@ -9,7 +9,7 @@ pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('i686' 'x86_64')
 url='https://neovim.io'
 license=('custom:neovim')
-depends=('jemalloc' 'libtermkey' 'libuv' 'msgpack-c' 'unibilium')
+depends=('jemalloc' 'libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm')
 makedepends=('cmake' 'luajit' 'lua51-messagepack' 'lua51-lpeg')
 optdepends=('python2-neovim: for Python 2 plugin support (see :help nvim-python)'
             'python-neovim: for Python 3 plugin support (see :help nvim-python)'
