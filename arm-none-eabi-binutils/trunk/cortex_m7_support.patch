@@ -1,0 +1,808 @@
+commit a715796ba188e7ca9eac6e613439b63fe50a677d
+Author: Terry Guo <terry.guo@arm.com>
+Date:   Fri Nov 21 11:31:37 2014 +0800
+
+    Support ARM Cortex-M7
+    
+    include/ChangeLog:
+    2014-11-21  Terry Guo  <terry.guo@arm.com>
+    
+    	* opcode/arm.h (FPU_VFP_EXT_ARMV8xD): New macro.
+    	(FPU_VFP_V5D16): Likewise.
+    	(FPU_VFP_V5_SP_D16): Likewise.
+    	(FPU_ARCH_VFP_V5D16): Likewise.
+    	(FPU_ARCH_VFP_V5_SP_D16): Likewise.
+    
+    bfd/ChangeLog:
+    2014-11-21  Terry Guo  <terry.guo@arm.com>
+    
+    	* elf32-arm.c (elf32_arm_merge_eabi_attributes): Support FPv5.
+    
+    binutils/ChangeLog:
+    2014-11-21  Terry Guo  <terry.guo@arm.com>
+    
+    	* readelf.c (arm_attr_tag_FP_arch): Extended to support FPv5.
+    
+    gas/ChangeLog:
+    2014-11-21  Terry Guo  <terry.guo@arm.com>
+    
+    	* config/tc-arm.c (fpu_vfp_ext_armv8xd): New.
+    	(arm_cpus): Support cortex-m7.
+    	(arm_fpus): Support fpv5-sp-d16 and fpv5-d16.
+    	(do_vfp_nsyn_cvt_fpv8): Generate error when use D register for S
+    	register only target like FPv5-SP-D16.
+    	(do_neon_cvttb_1): Likewise.
+    	(do_vfp_nsyn_fpv8): Likewise.
+    	(do_vrint_1): Likewise.
+    	(aeabi_set_public_attributes): Set proper FP arch for FPv5.
+    	* doc/c-arm.texi: Document new cpu and fpu names for cortex-m7.
+    
+    gas/testsuite/ChangeLog:
+    2014-11-21  Terry Guo  <terry.guo@arm.com>
+    
+    	* gas/arm/armv7e-m+fpv5-d16.s: New.
+    	* gas/arm/armv7e-m+fpv5-d16.d: Likewise.
+    	* gas/arm/armv7e-m+fpv5-sp-d16.s: Likewise.
+    	* gas/arm/armv7e-m+fpv5-sp-d16.d: Likewise.
+    
+    ld/testsuite/ChangeLog:
+    2014-11-21  Terry Guo  <terry.guo@arm.com>
+    
+    	* ld-arm/attr-merge-vfp-4-sp.s: New test source file.
+    	* ld-arm/attr-merge-vfp-5-sp.s: Likewise.
+    	* ld-arm/attr-merge-vfp-5.s: Likewise.
+    	* ld-arm/attr-merge-vfp-8.d: New test.
+    	* ld-arm/attr-merge-vfp-8r.d: Likewise.
+    	* ld-arm/attr-merge-vfp-9.d: Likewise.
+    	* ld-arm/attr-merge-vfp-9r.d: Likewise.
+    	* ld-arm/attr-merge-vfp-10.d: Likewise.
+    	* ld-arm/attr-merge-vfp-10r.d: Likewise.
+    	* ld-arm/attr-merge-vfp-11.d: Likewise.
+    	* ld-arm/attr-merge-vfp-11r.d: Likewise.
+    	* ld-arm/attr-merge-vfp-12.d: Likewise.
+    	* ld-arm/attr-merge-vfp-12r.d: Likewise.
+    	* ld-arm/attr-merge-vfp-13.d: Likewise.
+    	* ld-arm/attr-merge-vfp-13r.d: Likewise.
+    	* ld-arm/attr-merge-vfp-14.d: Likewise.
+    	* ld-arm/attr-merge-vfp-14r.d: Likewise.
+    	* ld-arm/arm-elf.exp: Run the new tests.
+
+diff --git a/bfd/elf32-arm.c b/bfd/elf32-arm.c
+index 95f59d5..1ff562c 100644
+--- a/bfd/elf32-arm.c
++++ b/bfd/elf32-arm.c
+@@ -11955,7 +11955,7 @@ elf32_arm_merge_eabi_attributes (bfd *ibfd, bfd *obfd)
+ 		 when it's 0.  It might mean absence of FP hardware if
+ 		 Tag_FP_arch is zero, otherwise it is effectively SP + DP.  */
+ 
+-#define VFP_VERSION_COUNT 8
++#define VFP_VERSION_COUNT 9
+ 	      static const struct
+ 	      {
+ 		  int ver;
+@@ -11969,7 +11969,8 @@ elf32_arm_merge_eabi_attributes (bfd *ibfd, bfd *obfd)
+ 		  {3, 16},
+ 		  {4, 32},
+ 		  {4, 16},
+-		  {8, 32}
++		  {8, 32},
++		  {8, 16}
+ 		};
+ 	      int ver;
+ 	      int regs;
+diff --git a/binutils/readelf.c b/binutils/readelf.c
+index 6cead83..b7269d1 100644
+--- a/binutils/readelf.c
++++ b/binutils/readelf.c
+@@ -11887,7 +11887,7 @@ static const char * arm_attr_tag_THUMB_ISA_use[] =
+   {"No", "Thumb-1", "Thumb-2"};
+ static const char * arm_attr_tag_FP_arch[] =
+   {"No", "VFPv1", "VFPv2", "VFPv3", "VFPv3-D16", "VFPv4", "VFPv4-D16",
+-   "FP for ARMv8"};
++   "FP for ARMv8", "FPv5/FP-D16 for ARMv8"};
+ static const char * arm_attr_tag_WMMX_arch[] = {"No", "WMMXv1", "WMMXv2"};
+ static const char * arm_attr_tag_Advanced_SIMD_arch[] =
+   {"No", "NEONv1", "NEONv1 with Fused-MAC", "NEON for ARMv8"};
+diff --git a/gas/config/tc-arm.c b/gas/config/tc-arm.c
+index 9100fb2..f692cff 100644
+--- a/gas/config/tc-arm.c
++++ b/gas/config/tc-arm.c
+@@ -236,6 +236,8 @@ static const arm_feature_set fpu_neon_ext_fma = ARM_FEATURE (0, FPU_NEON_EXT_FMA
+ static const arm_feature_set fpu_vfp_ext_fma = ARM_FEATURE (0, FPU_VFP_EXT_FMA);
+ static const arm_feature_set fpu_vfp_ext_armv8 =
+   ARM_FEATURE (0, FPU_VFP_EXT_ARMV8);
++static const arm_feature_set fpu_vfp_ext_armv8xd =
++  ARM_FEATURE (0, FPU_VFP_EXT_ARMV8xD);
+ static const arm_feature_set fpu_neon_ext_armv8 =
+   ARM_FEATURE (0, FPU_NEON_EXT_ARMV8);
+ static const arm_feature_set fpu_crypto_ext_armv8 =
+@@ -15032,6 +15034,13 @@ do_vfp_nsyn_cvt_fpv8 (enum neon_cvt_flavour flavour,
+   int sz, op;
+   int rm;
+ 
++  /* Targets like FPv5-SP-D16 don't support FP v8 instructions with
++     D register operands.  */
++  if (flavour == neon_cvt_flavour_s32_f64
++      || flavour == neon_cvt_flavour_u32_f64)
++    constraint (!ARM_CPU_HAS_FEATURE (cpu_variant, fpu_vfp_ext_armv8),
++		_(BAD_FPU));
++
+   set_it_insn_type (OUTSIDE_IT_INSN);
+ 
+   switch (flavour)
+@@ -15296,11 +15305,21 @@ do_neon_cvttb_1 (bfd_boolean t)
+     }
+   else if (neon_check_type (2, rs, N_F16, N_F64 | N_VFP).type != NT_invtype)
+     {
++      /* The VCVTB and VCVTT instructions with D-register operands
++         don't work for SP only targets.  */
++      constraint (!ARM_CPU_HAS_FEATURE (cpu_variant, fpu_vfp_ext_armv8),
++		  _(BAD_FPU));
++
+       inst.error = NULL;
+       do_neon_cvttb_2 (t, /*to=*/TRUE, /*is_double=*/TRUE);
+     }
+   else if (neon_check_type (2, rs, N_F64 | N_VFP, N_F16).type != NT_invtype)
+     {
++      /* The VCVTB and VCVTT instructions with D-register operands
++         don't work for SP only targets.  */
++      constraint (!ARM_CPU_HAS_FEATURE (cpu_variant, fpu_vfp_ext_armv8),
++		  _(BAD_FPU));
++
+       inst.error = NULL;
+       do_neon_cvttb_2 (t, /*to=*/FALSE, /*is_double=*/TRUE);
+     }
+@@ -16427,6 +16446,12 @@ do_neon_ldx_stx (void)
+ static void
+ do_vfp_nsyn_fpv8 (enum neon_shape rs)
+ {
++  /* Targets like FPv5-SP-D16 don't support FP v8 instructions with
++     D register operands.  */
++  if (neon_shape_class[rs] == SC_DOUBLE)
++    constraint (!ARM_CPU_HAS_FEATURE (cpu_variant, fpu_vfp_ext_armv8),
++		_(BAD_FPU));
++
+   NEON_ENCODE (FPV8, inst);
+ 
+   if (rs == NS_FFF)
+@@ -16472,6 +16497,12 @@ do_vrint_1 (enum neon_cvt_mode mode)
+   if (rs == NS_NULL)
+     return;
+ 
++  /* Targets like FPv5-SP-D16 don't support FP v8 instructions with
++     D register operands.  */
++  if (neon_shape_class[rs] == SC_DOUBLE)
++    constraint (!ARM_CPU_HAS_FEATURE (cpu_variant, fpu_vfp_ext_armv8),
++		_(BAD_FPU));
++
+   et = neon_check_type (2, rs, N_EQK | N_VFP, N_F32 | N_F64 | N_KEY | N_VFP);
+   if (et.type != NT_invtype)
+     {
+@@ -18953,9 +18984,9 @@ static const struct asm_opcode insns[] =
+ 
+   /* FP for ARMv8.  */
+ #undef  ARM_VARIANT
+-#define ARM_VARIANT   & fpu_vfp_ext_armv8
++#define ARM_VARIANT   & fpu_vfp_ext_armv8xd
+ #undef  THUMB_VARIANT
+-#define THUMB_VARIANT & fpu_vfp_ext_armv8
++#define THUMB_VARIANT & fpu_vfp_ext_armv8xd
+ 
+   nUF(vseleq, _vseleq, 3, (RVSD, RVSD, RVSD),		vsel),
+   nUF(vselvs, _vselvs, 3, (RVSD, RVSD, RVSD),		vsel),
+@@ -24406,6 +24437,7 @@ static const struct arm_cpu_option_table arm_cpus[] =
+   ARM_CPU_OPT ("cortex-r7",	ARM_ARCH_V7R_IDIV,
+ 						 FPU_ARCH_VFP_V3D16,
+ 								  "Cortex-R7"),
++  ARM_CPU_OPT ("cortex-m7",	ARM_ARCH_V7EM,	 FPU_NONE,	  "Cortex-M7"),
+   ARM_CPU_OPT ("cortex-m4",	ARM_ARCH_V7EM,	 FPU_NONE,	  "Cortex-M4"),
+   ARM_CPU_OPT ("cortex-m3",	ARM_ARCH_V7M,	 FPU_NONE,	  "Cortex-M3"),
+   ARM_CPU_OPT ("cortex-m1",	ARM_ARCH_V6SM,	 FPU_NONE,	  "Cortex-M1"),
+@@ -24574,6 +24606,8 @@ static const struct arm_option_fpu_value_table arm_fpus[] =
+   {"vfpv4",		FPU_ARCH_VFP_V4},
+   {"vfpv4-d16",		FPU_ARCH_VFP_V4D16},
+   {"fpv4-sp-d16",	FPU_ARCH_VFP_V4_SP_D16},
++  {"fpv5-d16",		FPU_ARCH_VFP_V5D16},
++  {"fpv5-sp-d16",	FPU_ARCH_VFP_V5_SP_D16},
+   {"neon-vfpv4",	FPU_ARCH_NEON_VFP_V4},
+   {"fp-armv8",		FPU_ARCH_VFP_ARMV8},
+   {"neon-fp-armv8",	FPU_ARCH_NEON_VFP_ARMV8},
+@@ -25199,8 +25233,10 @@ aeabi_set_public_attributes (void)
+ 	ARM_CPU_HAS_FEATURE (flags, arm_arch_t2) ? 2 : 1);
+ 
+   /* Tag_VFP_arch.  */
+-  if (ARM_CPU_HAS_FEATURE (flags, fpu_vfp_ext_armv8))
+-    aeabi_set_attribute_int (Tag_VFP_arch, 7);
++  if (ARM_CPU_HAS_FEATURE (flags, fpu_vfp_ext_armv8xd))
++    aeabi_set_attribute_int (Tag_VFP_arch,
++			     ARM_CPU_HAS_FEATURE (flags, fpu_vfp_ext_d32)
++			     ? 7 : 8);
+   else if (ARM_CPU_HAS_FEATURE (flags, fpu_vfp_ext_fma))
+     aeabi_set_attribute_int (Tag_VFP_arch,
+ 			     ARM_CPU_HAS_FEATURE (flags, fpu_vfp_ext_d32)
+diff --git a/gas/doc/c-arm.texi b/gas/doc/c-arm.texi
+index 7bcce94..12952a7 100644
+--- a/gas/doc/c-arm.texi
++++ b/gas/doc/c-arm.texi
+@@ -123,6 +123,7 @@ recognized:
+ @code{cortex-r4f},
+ @code{cortex-r5},
+ @code{cortex-r7},
++@code{cortex-m7},
+ @code{cortex-m4},
+ @code{cortex-m3},
+ @code{cortex-m1},
+@@ -247,6 +248,8 @@ The following format options are recognized:
+ @code{vfpv4},
+ @code{vfpv4-d16},
+ @code{fpv4-sp-d16},
++@code{fpv5-sp-d16},
++@code{fpv5-d16},
+ @code{fp-armv8},
+ @code{arm1020t},
+ @code{arm1020e},
+diff --git a/gas/testsuite/gas/arm/armv7e-m+fpv5-d16.d b/gas/testsuite/gas/arm/armv7e-m+fpv5-d16.d
+new file mode 100644
+index 0000000..2951b1b
+--- /dev/null
++++ b/gas/testsuite/gas/arm/armv7e-m+fpv5-d16.d
+@@ -0,0 +1,60 @@
++#name: Valid v7e-m+fpv5-d16
++#objdump: -dr --prefix-addresses --show-raw-insn
++
++.*: +file format .*arm.*
++
++Disassembly of section .text:
++0[0-9a-f]+ <[^>]+> fe00 0a00 	vseleq.f32	s0, s0, s0
++0[0-9a-f]+ <[^>]+> fe50 0aa0 	vselvs.f32	s1, s1, s1
++0[0-9a-f]+ <[^>]+> fe2f fa0f 	vselge.f32	s30, s30, s30
++0[0-9a-f]+ <[^>]+> fe7f faaf 	vselgt.f32	s31, s31, s31
++0[0-9a-f]+ <[^>]+> fe00 0b00 	vseleq.f64	d0, d0, d0
++0[0-9a-f]+ <[^>]+> fe18 8b08 	vselvs.f64	d8, d8, d8
++0[0-9a-f]+ <[^>]+> fe2f fb0f 	vselge.f64	d15, d15, d15
++0[0-9a-f]+ <[^>]+> fe3a ab0a 	vselgt.f64	d10, d10, d10
++0[0-9a-f]+ <[^>]+> fe80 0a00 	vmaxnm.f32	s0, s0, s0
++0[0-9a-f]+ <[^>]+> fec0 0aa0 	vmaxnm.f32	s1, s1, s1
++0[0-9a-f]+ <[^>]+> fe8f fa0f 	vmaxnm.f32	s30, s30, s30
++0[0-9a-f]+ <[^>]+> fecf faaf 	vmaxnm.f32	s31, s31, s31
++0[0-9a-f]+ <[^>]+> fe80 0b00 	vmaxnm.f64	d0, d0, d0
++0[0-9a-f]+ <[^>]+> fe88 8b08 	vmaxnm.f64	d8, d8, d8
++0[0-9a-f]+ <[^>]+> fe8f fb0f 	vmaxnm.f64	d15, d15, d15
++0[0-9a-f]+ <[^>]+> fe8a ab0a 	vmaxnm.f64	d10, d10, d10
++0[0-9a-f]+ <[^>]+> fe80 0a40 	vminnm.f32	s0, s0, s0
++0[0-9a-f]+ <[^>]+> fec0 0ae0 	vminnm.f32	s1, s1, s1
++0[0-9a-f]+ <[^>]+> fe8f fa4f 	vminnm.f32	s30, s30, s30
++0[0-9a-f]+ <[^>]+> fecf faef 	vminnm.f32	s31, s31, s31
++0[0-9a-f]+ <[^>]+> fe80 0b40 	vminnm.f64	d0, d0, d0
++0[0-9a-f]+ <[^>]+> fe88 8b48 	vminnm.f64	d8, d8, d8
++0[0-9a-f]+ <[^>]+> fe8f fb4f 	vminnm.f64	d15, d15, d15
++0[0-9a-f]+ <[^>]+> fe8a ab4a 	vminnm.f64	d10, d10, d10
++0[0-9a-f]+ <[^>]+> febc 0ac0 	vcvta.s32.f32	s0, s0
++0[0-9a-f]+ <[^>]+> fefd 0ae0 	vcvtn.s32.f32	s1, s1
++0[0-9a-f]+ <[^>]+> febe fa4f 	vcvtp.u32.f32	s30, s30
++0[0-9a-f]+ <[^>]+> feff fa6f 	vcvtm.u32.f32	s31, s31
++0[0-9a-f]+ <[^>]+> febc 0bc0 	vcvta.s32.f64	s0, d0
++0[0-9a-f]+ <[^>]+> fefd 0bc8 	vcvtn.s32.f64	s1, d8
++0[0-9a-f]+ <[^>]+> febe fb4f 	vcvtp.u32.f64	s30, d15
++0[0-9a-f]+ <[^>]+> feff fb4a 	vcvtm.u32.f64	s31, d10
++0[0-9a-f]+ <[^>]+> eeb6 0ac0 	vrintz.f32	s0, s0
++0[0-9a-f]+ <[^>]+> eef7 0a60 	vrintx.f32	s1, s1
++0[0-9a-f]+ <[^>]+> eeb6 fa4f 	vrintr.f32	s30, s30
++0[0-9a-f]+ <[^>]+> feb8 0a40 	vrinta.f32	s0, s0
++0[0-9a-f]+ <[^>]+> fef9 0a60 	vrintn.f32	s1, s1
++0[0-9a-f]+ <[^>]+> feba fa4f 	vrintp.f32	s30, s30
++0[0-9a-f]+ <[^>]+> fefb fa6f 	vrintm.f32	s31, s31
++0[0-9a-f]+ <[^>]+> eeb6 0bc0 	vrintz.f64	d0, d0
++0[0-9a-f]+ <[^>]+> eeb7 1b41 	vrintx.f64	d1, d1
++0[0-9a-f]+ <[^>]+> eeb6 ab4a 	vrintr.f64	d10, d10
++0[0-9a-f]+ <[^>]+> feb8 0b40 	vrinta.f64	d0, d0
++0[0-9a-f]+ <[^>]+> feb9 1b41 	vrintn.f64	d1, d1
++0[0-9a-f]+ <[^>]+> feba ab4a 	vrintp.f64	d10, d10
++0[0-9a-f]+ <[^>]+> febb ab4a 	vrintm.f64	d10, d10
++0[0-9a-f]+ <[^>]+> eeb3 0bc0 	vcvtt.f16.f64	s0, d0
++0[0-9a-f]+ <[^>]+> eef3 0b48 	vcvtb.f16.f64	s1, d8
++0[0-9a-f]+ <[^>]+> eeb3 fbcf 	vcvtt.f16.f64	s30, d15
++0[0-9a-f]+ <[^>]+> eef3 fb4a 	vcvtb.f16.f64	s31, d10
++0[0-9a-f]+ <[^>]+> eeb2 0bc0 	vcvtt.f64.f16	d0, s0
++0[0-9a-f]+ <[^>]+> eeb2 8b60 	vcvtb.f64.f16	d8, s1
++0[0-9a-f]+ <[^>]+> eeb2 fbcf 	vcvtt.f64.f16	d15, s30
++0[0-9a-f]+ <[^>]+> eeb2 ab6f 	vcvtb.f64.f16	d10, s31
+diff --git a/gas/testsuite/gas/arm/armv7e-m+fpv5-d16.s b/gas/testsuite/gas/arm/armv7e-m+fpv5-d16.s
+new file mode 100644
+index 0000000..06fba06
+--- /dev/null
++++ b/gas/testsuite/gas/arm/armv7e-m+fpv5-d16.s
+@@ -0,0 +1,60 @@
++	.syntax unified
++	.text
++	.arch armv7e-m
++	.fpu fpv5-d16
++
++	.thumb
++	vseleq.f32	s0, s0, s0
++	vselvs.f32	s1, s1, s1
++	vselge.f32	s30, s30, s30
++	vselgt.f32	s31, s31, s31
++	vseleq.f64	d0, d0, d0
++	vselvs.f64	d8, d8, d8
++	vselge.f64	d15, d15, d15
++	vselgt.f64	d10, d10, d10
++	vmaxnm.f32	s0, s0, s0
++	vmaxnm.f32	s1, s1, s1
++	vmaxnm.f32	s30, s30, s30
++	vmaxnm.f32	s31, s31, s31
++	vmaxnm.f64	d0, d0, d0
++	vmaxnm.f64	d8, d8, d8
++	vmaxnm.f64	d15, d15, d15
++	vmaxnm.f64	d10, d10, d10
++	vminnm.f32	s0, s0, s0
++	vminnm.f32	s1, s1, s1
++	vminnm.f32	s30, s30, s30
++	vminnm.f32	s31, s31, s31
++	vminnm.f64	d0, d0, d0
++	vminnm.f64	d8, d8, d8
++	vminnm.f64	d15, d15, d15
++	vminnm.f64	d10, d10, d10
++	vcvta.s32.f32	s0, s0
++	vcvtn.s32.f32	s1, s1
++	vcvtp.u32.f32	s30, s30
++	vcvtm.u32.f32	s31, s31
++	vcvta.s32.f64	s0, d0
++	vcvtn.s32.f64	s1, d8
++	vcvtp.u32.f64	s30, d15
++	vcvtm.u32.f64	s31, d10
++	vrintz.f32	s0, s0
++        vrintx.f32	s1, s1
++        vrintr.f32	s30, s30
++	vrinta.f32	s0, s0
++	vrintn.f32	s1, s1
++	vrintp.f32	s30, s30
++	vrintm.f32	s31, s31
++	vrintz.f64	d0, d0
++        vrintx.f64	d1, d1
++        vrintr.f64	d10, d10
++	vrinta.f64	d0, d0
++	vrintn.f64	d1, d1
++	vrintp.f64	d10, d10
++	vrintm.f64	d10, d10
++	vcvtt.f16.f64	s0, d0
++	vcvtb.f16.f64	s1, d8
++	vcvtt.f16.f64	s30, d15
++	vcvtb.f16.f64	s31, d10
++	vcvtt.f64.f16	d0, s0
++	vcvtb.f64.f16	d8, s1
++	vcvtt.f64.f16	d15, s30
++	vcvtb.f64.f16	d10, s31
+diff --git a/gas/testsuite/gas/arm/armv7e-m+fpv5-sp-d16.d b/gas/testsuite/gas/arm/armv7e-m+fpv5-sp-d16.d
+new file mode 100644
+index 0000000..84ed3b0
+--- /dev/null
++++ b/gas/testsuite/gas/arm/armv7e-m+fpv5-sp-d16.d
+@@ -0,0 +1,28 @@
++#objdump: -dr --prefix-addresses --show-raw-insn
++
++.*: +file format .*arm.*
++
++Disassembly of section .text:
++0[0-9a-f]+ <[^>]+> fe00 0a00 	vseleq.f32	s0, s0, s0
++0[0-9a-f]+ <[^>]+> fe50 0aa0 	vselvs.f32	s1, s1, s1
++0[0-9a-f]+ <[^>]+> fe2f fa0f 	vselge.f32	s30, s30, s30
++0[0-9a-f]+ <[^>]+> fe7f faaf 	vselgt.f32	s31, s31, s31
++0[0-9a-f]+ <[^>]+> fe80 0a00 	vmaxnm.f32	s0, s0, s0
++0[0-9a-f]+ <[^>]+> fec0 0aa0 	vmaxnm.f32	s1, s1, s1
++0[0-9a-f]+ <[^>]+> fe8f fa0f 	vmaxnm.f32	s30, s30, s30
++0[0-9a-f]+ <[^>]+> fecf faaf 	vmaxnm.f32	s31, s31, s31
++0[0-9a-f]+ <[^>]+> fe80 0a40 	vminnm.f32	s0, s0, s0
++0[0-9a-f]+ <[^>]+> fec0 0ae0 	vminnm.f32	s1, s1, s1
++0[0-9a-f]+ <[^>]+> fe8f fa4f 	vminnm.f32	s30, s30, s30
++0[0-9a-f]+ <[^>]+> fecf faef 	vminnm.f32	s31, s31, s31
++0[0-9a-f]+ <[^>]+> febc 0ac0 	vcvta.s32.f32	s0, s0
++0[0-9a-f]+ <[^>]+> fefd 0ae0 	vcvtn.s32.f32	s1, s1
++0[0-9a-f]+ <[^>]+> febe fa4f 	vcvtp.u32.f32	s30, s30
++0[0-9a-f]+ <[^>]+> feff fa6f 	vcvtm.u32.f32	s31, s31
++0[0-9a-f]+ <[^>]+> eeb6 0ac0 	vrintz.f32	s0, s0
++0[0-9a-f]+ <[^>]+> eef7 0a60 	vrintx.f32	s1, s1
++0[0-9a-f]+ <[^>]+> eeb6 fa4f 	vrintr.f32	s30, s30
++0[0-9a-f]+ <[^>]+> feb8 0a40 	vrinta.f32	s0, s0
++0[0-9a-f]+ <[^>]+> fef9 0a60 	vrintn.f32	s1, s1
++0[0-9a-f]+ <[^>]+> feba fa4f 	vrintp.f32	s30, s30
++0[0-9a-f]+ <[^>]+> fefb fa6f 	vrintm.f32	s31, s31
+diff --git a/gas/testsuite/gas/arm/armv7e-m+fpv5-sp-d16.s b/gas/testsuite/gas/arm/armv7e-m+fpv5-sp-d16.s
+new file mode 100644
+index 0000000..0fee290
+--- /dev/null
++++ b/gas/testsuite/gas/arm/armv7e-m+fpv5-sp-d16.s
+@@ -0,0 +1,29 @@
++	.syntax unified
++	.text
++	.arch armv7e-m
++	.fpu fpv5-sp-d16
++
++	.thumb
++	vseleq.f32	s0, s0, s0
++	vselvs.f32	s1, s1, s1
++	vselge.f32	s30, s30, s30
++	vselgt.f32	s31, s31, s31
++	vmaxnm.f32	s0, s0, s0
++	vmaxnm.f32	s1, s1, s1
++	vmaxnm.f32	s30, s30, s30
++	vmaxnm.f32	s31, s31, s31
++	vminnm.f32	s0, s0, s0
++	vminnm.f32	s1, s1, s1
++	vminnm.f32	s30, s30, s30
++	vminnm.f32	s31, s31, s31
++	vcvta.s32.f32	s0, s0
++	vcvtn.s32.f32	s1, s1
++	vcvtp.u32.f32	s30, s30
++	vcvtm.u32.f32	s31, s31
++	vrintz.f32	s0, s0
++        vrintx.f32	s1, s1
++        vrintr.f32	s30, s30
++	vrinta.f32	s0, s0
++	vrintn.f32	s1, s1
++	vrintp.f32	s30, s30
++	vrintm.f32	s31, s31
+diff --git a/include/opcode/arm.h b/include/opcode/arm.h
+index 6d4825a..00475e1 100644
+--- a/include/opcode/arm.h
++++ b/include/opcode/arm.h
+@@ -78,10 +78,11 @@
+ #define FPU_VFP_EXT_FP16 0x00100000	/* Half-precision extensions. */
+ #define FPU_NEON_EXT_FMA 0x00080000	/* Neon fused multiply-add    */
+ #define FPU_VFP_EXT_FMA	 0x00040000	/* VFP fused multiply-add     */
+-#define FPU_VFP_EXT_ARMV8 0x00020000	/* FP for ARMv8.  */
++#define FPU_VFP_EXT_ARMV8 0x00020000	/* Double-precision FP for ARMv8.  */
+ #define FPU_NEON_EXT_ARMV8 0x00010000	/* Neon for ARMv8.  */
+ #define FPU_CRYPTO_EXT_ARMV8 0x00008000	/* Crypto for ARMv8.  */
+ #define CRC_EXT_ARMV8	 0x00004000	/* CRC32 for ARMv8.  */
++#define FPU_VFP_EXT_ARMV8xD 0x00002000	/* Single-precision FP for ARMv8.  */
+ 
+ /* Architectures are the sum of the base and extensions.  The ARM ARM (rev E)
+    defines the following: ARMv3, ARMv3M, ARMv4xM, ARMv4, ARMv4TxM, ARMv4T,
+@@ -153,7 +154,9 @@
+ #define FPU_VFP_V4D16	(FPU_VFP_V3D16 | FPU_VFP_EXT_FP16 | FPU_VFP_EXT_FMA)
+ #define FPU_VFP_V4	(FPU_VFP_V3 | FPU_VFP_EXT_FP16 | FPU_VFP_EXT_FMA)
+ #define FPU_VFP_V4_SP_D16 (FPU_VFP_V3xD | FPU_VFP_EXT_FP16 | FPU_VFP_EXT_FMA)
+-#define FPU_VFP_ARMV8	(FPU_VFP_V4 | FPU_VFP_EXT_ARMV8)
++#define FPU_VFP_V5D16	(FPU_VFP_V4D16 | FPU_VFP_EXT_ARMV8xD | FPU_VFP_EXT_ARMV8)
++#define FPU_VFP_V5_SP_D16 (FPU_VFP_V4_SP_D16 | FPU_VFP_EXT_ARMV8xD)
++#define FPU_VFP_ARMV8	(FPU_VFP_V4 | FPU_VFP_EXT_ARMV8 | FPU_VFP_EXT_ARMV8xD)
+ #define FPU_NEON_ARMV8	(FPU_NEON_EXT_V1 | FPU_NEON_EXT_FMA | FPU_NEON_EXT_ARMV8)
+ #define FPU_CRYPTO_ARMV8 (FPU_CRYPTO_EXT_ARMV8)
+ #define FPU_VFP_HARD	(FPU_VFP_EXT_V1xD | FPU_VFP_EXT_V1 | FPU_VFP_EXT_V2 \
+@@ -186,6 +189,8 @@
+ #define FPU_ARCH_VFP_V4 ARM_FEATURE(0, FPU_VFP_V4)
+ #define FPU_ARCH_VFP_V4D16 ARM_FEATURE(0, FPU_VFP_V4D16)
+ #define FPU_ARCH_VFP_V4_SP_D16 ARM_FEATURE(0, FPU_VFP_V4_SP_D16)
++#define FPU_ARCH_VFP_V5D16 ARM_FEATURE(0, FPU_VFP_V5D16)
++#define FPU_ARCH_VFP_V5_SP_D16 ARM_FEATURE(0, FPU_VFP_V5_SP_D16)
+ #define FPU_ARCH_NEON_VFP_V4 \
+   ARM_FEATURE(0, FPU_VFP_V4 | FPU_NEON_EXT_V1 | FPU_NEON_EXT_FMA)
+ #define FPU_ARCH_VFP_ARMV8 ARM_FEATURE(0, FPU_VFP_ARMV8)
+diff --git a/ld/testsuite/ld-arm/arm-elf.exp b/ld/testsuite/ld-arm/arm-elf.exp
+index d00b74d..8aacb69 100644
+--- a/ld/testsuite/ld-arm/arm-elf.exp
++++ b/ld/testsuite/ld-arm/arm-elf.exp
+@@ -877,6 +877,20 @@ run_dump_test "attr-merge-vfp-6"
+ run_dump_test "attr-merge-vfp-6r"
+ run_dump_test "attr-merge-vfp-7"
+ run_dump_test "attr-merge-vfp-7r"
++run_dump_test "attr-merge-vfp-8"
++run_dump_test "attr-merge-vfp-8r"
++run_dump_test "attr-merge-vfp-9"
++run_dump_test "attr-merge-vfp-9r"
++run_dump_test "attr-merge-vfp-10"
++run_dump_test "attr-merge-vfp-10r"
++run_dump_test "attr-merge-vfp-11"
++run_dump_test "attr-merge-vfp-11r"
++run_dump_test "attr-merge-vfp-12"
++run_dump_test "attr-merge-vfp-12r"
++run_dump_test "attr-merge-vfp-13"
++run_dump_test "attr-merge-vfp-13r"
++run_dump_test "attr-merge-vfp-14"
++run_dump_test "attr-merge-vfp-14r"
+ run_dump_test "attr-merge-incompatible"
+ run_dump_test "attr-merge-arch-2"
+ run_dump_test "attr-merge-nosection-1"
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-10.d b/ld/testsuite/ld-arm/attr-merge-vfp-10.d
+new file mode 100644
+index 0000000..f32f119
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-10.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5.s
++#source: attr-merge-vfp-4-sp.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FPv5/FP-D16 for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-10r.d b/ld/testsuite/ld-arm/attr-merge-vfp-10r.d
+new file mode 100644
+index 0000000..35e0f77
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-10r.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-4-sp.s
++#source: attr-merge-vfp-5.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FPv5/FP-D16 for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-11.d b/ld/testsuite/ld-arm/attr-merge-vfp-11.d
+new file mode 100644
+index 0000000..428410b
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-11.d
+@@ -0,0 +1,13 @@
++#source: attr-merge-vfp-5.s
++#source: attr-merge-vfp-armv8.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-11r.d b/ld/testsuite/ld-arm/attr-merge-vfp-11r.d
+new file mode 100644
+index 0000000..fec7983
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-11r.d
+@@ -0,0 +1,13 @@
++#source: attr-merge-vfp-armv8.s
++#source: attr-merge-vfp-5.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-12.d b/ld/testsuite/ld-arm/attr-merge-vfp-12.d
+new file mode 100644
+index 0000000..f6dff81
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-12.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5-sp.s
++#source: attr-merge-vfp-armv8.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-12r.d b/ld/testsuite/ld-arm/attr-merge-vfp-12r.d
+new file mode 100644
+index 0000000..1ce719d
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-12r.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-armv8.s
++#source: attr-merge-vfp-5-sp.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-13.d b/ld/testsuite/ld-arm/attr-merge-vfp-13.d
+new file mode 100644
+index 0000000..b79f606
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-13.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5.s
++#source: attr-merge-vfp-armv8-hard.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-13r.d b/ld/testsuite/ld-arm/attr-merge-vfp-13r.d
+new file mode 100644
+index 0000000..4633d4e
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-13r.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-armv8-hard.s
++#source: attr-merge-vfp-5.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-14.d b/ld/testsuite/ld-arm/attr-merge-vfp-14.d
+new file mode 100644
+index 0000000..b93ef50
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-14.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5-sp.s
++#source: attr-merge-vfp-armv8-hard.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-14r.d b/ld/testsuite/ld-arm/attr-merge-vfp-14r.d
+new file mode 100644
+index 0000000..2563938
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-14r.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-armv8-hard.s
++#source: attr-merge-vfp-5-sp.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FP for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-4-sp.s b/ld/testsuite/ld-arm/attr-merge-vfp-4-sp.s
+new file mode 100644
+index 0000000..71527df
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-4-sp.s
+@@ -0,0 +1,2 @@
++.fpu fpv4-sp-d16
++
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-5-sp.s b/ld/testsuite/ld-arm/attr-merge-vfp-5-sp.s
+new file mode 100644
+index 0000000..a617adc
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-5-sp.s
+@@ -0,0 +1,2 @@
++.fpu fpv5-sp-d16
++
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-5.s b/ld/testsuite/ld-arm/attr-merge-vfp-5.s
+new file mode 100644
+index 0000000..cee3863
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-5.s
+@@ -0,0 +1,2 @@
++.fpu fpv5-d16
++
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-8.d b/ld/testsuite/ld-arm/attr-merge-vfp-8.d
+new file mode 100644
+index 0000000..78b74af
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-8.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5.s
++#source: attr-merge-vfp-5-sp.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FPv5/FP-D16 for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-8r.d b/ld/testsuite/ld-arm/attr-merge-vfp-8r.d
+new file mode 100644
+index 0000000..1fd5d63
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-8r.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5-sp.s
++#source: attr-merge-vfp-5.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FPv5/FP-D16 for ARMv8
++  Tag_ABI_HardFP_use: SP and DP
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-9.d b/ld/testsuite/ld-arm/attr-merge-vfp-9.d
+new file mode 100644
+index 0000000..bdf3bc1
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-9.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-4-sp.s
++#source: attr-merge-vfp-5-sp.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FPv5/FP-D16 for ARMv8
++  Tag_ABI_HardFP_use: SP only
+diff --git a/ld/testsuite/ld-arm/attr-merge-vfp-9r.d b/ld/testsuite/ld-arm/attr-merge-vfp-9r.d
+new file mode 100644
+index 0000000..78ead24
+--- /dev/null
++++ b/ld/testsuite/ld-arm/attr-merge-vfp-9r.d
+@@ -0,0 +1,14 @@
++#source: attr-merge-vfp-5-sp.s
++#source: attr-merge-vfp-4-sp.s
++#as:
++#ld: -r
++#readelf: -A
++# This test is only valid on ELF based ports.
++# not-target: *-*-*coff *-*-pe *-*-wince *-*-*aout* *-*-netbsd *-*-riscix*
++
++Attribute Section: aeabi
++File Attributes
++  Tag_ARM_ISA_use: Yes
++  Tag_THUMB_ISA_use: Thumb-1
++  Tag_FP_arch: FPv5/FP-D16 for ARMv8
++  Tag_ABI_HardFP_use: SP only
