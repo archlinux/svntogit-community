@@ -1,10 +1,11 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 # Contributor: Carl George < arch at cgtx dot us >
 
+pkgbase=python-click
 pkgname=("python-click" "python2-click")
 _realname=click
 pkgver=5.1
-pkgrel=2
+pkgrel=3
 pkgdesc="A simple wrapper around optparse for powerful command line utilities"
 arch=("any")
 url="http://click.pocoo.org/"
