@@ -3,8 +3,8 @@
 
 pkgname=("python-click" "python2-click")
 _realname=click
-pkgver="5.1"
-pkgrel="1"
+pkgver=5.1
+pkgrel=2
 pkgdesc="A simple wrapper around optparse for powerful command line utilities"
 arch=("any")
 url="http://click.pocoo.org/"
@@ -34,7 +34,7 @@ package_python-click() {
 
 package_python2-click() {
     depends=("python2")
-    cd "${srcdir}/${_realname}-${pkgver}"
+    cd "${srcdir}/${_realname}-${pkgver}-python2"
     python2 setup.py install --skip-build --root="${pkgdir}" --optimize=1
     install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
