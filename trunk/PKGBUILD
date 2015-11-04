@@ -10,29 +10,31 @@ arch=("any")
 url="http://click.pocoo.org/"
 license=("BSD")
 makedepends=("python-setuptools" "python2-setuptools")
-source=("https://pypi.python.org/packages/source/$_realname/$_realname-$pkgver.tar.gz")
+source=("https://pypi.python.org/packages/source/c/$_realname/$_realname-$pkgver.tar.gz")
 sha256sums=('678c98275431fad324275dec63791e4a17558b40e5a110e20a82866139a85a5a')
 
-build_python-click() {
-    cd "${srcdir}/${_realname}-${pkgver}"
-    python setup.py build
+prepare() {
+    cp -a $_realname-$pkgver{,-python2}
 }
 
-build_python2-click() {
+build() {
     cd "${srcdir}/${_realname}-${pkgver}"
+    python setup.py build
+
+    cd "${srcdir}/${_realname}-${pkgver}-python2"
     python2 setup.py build
 }
 
 package_python-click() {
     depends=("python")
     cd "${srcdir}/${_realname}-${pkgver}"
-    python setup.py install --skip-build --prefix=/usr --root="${pkgdir}" --optimize=1
+    python setup.py install --skip-build --root="${pkgdir}" --optimize=1
     install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
 
 package_python2-click() {
     depends=("python2")
     cd "${srcdir}/${_realname}-${pkgver}"
-    python2 setup.py install --skip-build --prefix=/usr --root="${pkgdir}" --optimize=1
+    python2 setup.py install --skip-build --root="${pkgdir}" --optimize=1
     install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
