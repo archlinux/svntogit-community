@@ -3,31 +3,38 @@
 # Contributor: Thomas Dziedzic < gostrc at gmail >
 
 pkgname=('python-tornado' 'python2-tornado')
-pkgver=4.2.1
-pkgrel=3
+pkgver=4.3.0
+pkgrel=1
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('i686' 'x86_64')
 url='http://www.tornadoweb.org/'
 license=('Apache')
 makedepends=('python-setuptools' 'python2-setuptools' 'git')
-checkdepends=('python-pycurl' 'python2-pycurl' 'python-mock' 'python2-mock' 'python-twisted' 'python2-twisted' 'python2-futures' 'python2-singledispatch')
-source=("git+https://github.com/facebook/tornado.git#tag=v$pkgver"
+checkdepends=('python-pycurl' 'python2-pycurl' 'python-mock' 'python2-mock' 'python-twisted'
+              'python2-twisted' 'python2-futures' 'python2-singledispatch' 'python2-backports-abc'
+              'python2-trollius' 'python2-monotonic')
+source=("git+https://github.com/tornadoweb/tornado.git#tag=v$pkgver"
         0001-use_system_ca_certificates.patch
-        0002-get-rid-of-backports-ssl-match-hostname.patch)
+        0002-get-rid-of-backports-ssl-match-hostname.patch
+        0003-support-monotonic.patch)
 sha512sums=('SKIP'
-            '7d484e811c7de62d2f2d38595abc5edf8f6cbdfc8a983229d4ad6b67cadf00f101acaee88bfa4337b14b5a234ebaacc72036ccafca3596eac5f64298a1e30d54'
-            '798f1c5f659138aa4d775edde7c962ec6410671f528b7ec44ca12ac342ddf9ec51d998c676b9025292a58c2140ba8492fcc76759b63adaf08320f96b11bcbfea')
+            'cf3dbed20b0bb78cdaa16d4141adc7e12e0b5fd339d2ee9edb5d618dd1c87a643b6ecee19455235b1df712154ce83a1f4149c5579a5a1df5bdf2cd865c766b66'
+            '4a1a3e83214c9243ac7bd7ca141b25a41279ee25ed1400f7b25259329c52c7c625a8b5724d60b83af170643ae7258fd56f42e2d19c85929d77378f70a4d2205a'
+            '4dc30c12a6b454a517ee19ca84f71d1733d41b089399102827c0c9e629b26fec415df9eaf6b43ecbe495cbb5b7b938d5f157c8cb617e9daceff3c15739b7f647')
 
 prepare() {
   cd tornado
   patch -p1 -i ../0001-use_system_ca_certificates.patch
   patch -p1 -i ../0002-get-rid-of-backports-ssl-match-hostname.patch
+  patch -p1 -i ../0003-support-monotonic.patch
 
   cd "$srcdir"
   cp -a tornado{,-py2}
 
   # python -> python2 rename
   find tornado-py2 -name '*py' -exec sed -e 's_#!/usr/bin/env python_&2_' -i {} \;
+
+  export TORNADO_EXTENSION=1
 }
 
 build() {
@@ -41,29 +48,31 @@ build() {
 check() {
   (
     cd tornado
-    # TODO: exporting PYTHONPATH didn't fix the tornado.speedups not found problem...
-    export PYTHONPATH="$(pwd)/build/lib.linux-$CARCH-3.5:$PYTHONPATH"
+    python setup.py install --root="$PWD/tmp_install" --optimize=1
+    export PYTHONPATH="$PWD/tmp_install/usr/lib/python3.5/site-packages:$PYTHONPATH"
+    cd tmp_install
     python -m tornado.test.runtests
-    python -m tornado.test.runtests --httpclient=tornado.curl_httpclient.CurlAsyncHTTPClient
-    # python -m tornado.test.runtests --resolver=tornado.platform.caresresolver.CaresResolver  # pycares not in the repos
-    python -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
-    python -m tornado.test.runtests --ioloop=tornado.platform.asyncio.AsyncIOLoop
     python -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop
+    python -m tornado.test.runtests --httpclient=tornado.curl_httpclient.CurlAsyncHTTPClient
+    python -m tornado.test.runtests --ioloop_time_monotonic
     python -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop
-    python -m tornado.test.runtests --ioloop=tornado.test.twisted_test.LayeredTwistedIOLoop --resolver=tornado.platform.twisted.TwistedResolver
-  ) || warning "Python 3 tests failed"
+    python -m tornado.test.runtests --ioloop=tornado.platform.asyncio.AsyncIOLoop
+    python -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
+  )
 
   (
     cd tornado-py2
-    export PYTHONPATH="$(pwd)/build/lib.linux-$CARCH-2.7:$PYTHONPATH"
+    python2 setup.py install --root="$PWD/tmp_install" --optimize=1
+    export PYTHONPATH="$PWD/tmp_install/usr/lib/python2.7/site-packages:$PYTHONPATH"
+    cd tmp_install
     python2 -m tornado.test.runtests
-    python2 -m tornado.test.runtests --httpclient=tornado.curl_httpclient.CurlAsyncHTTPClient
-    # python2 -m tornado.test.runtests --resolver=tornado.platform.caresresolver.CaresResolver  # pycares not in the repos
-    python2 -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
     python2 -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop
+    python2 -m tornado.test.runtests --httpclient=tornado.curl_httpclient.CurlAsyncHTTPClient
+    python2 -m tornado.test.runtests --ioloop_time_monotonic
     python2 -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop
-    python2 -m tornado.test.runtests --ioloop=tornado.test.twisted_test.LayeredTwistedIOLoop --resolver=tornado.platform.twisted.TwistedResolver
-  ) || warning "Python 2 tests failed"
+    python2 -m tornado.test.runtests --ioloop=tornado.platform.asyncio.AsyncIOLoop
+    python2 -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
+  )
 }
 
 package_python-tornado() {
@@ -74,9 +83,8 @@ package_python-tornado() {
 }
 
 package_python2-tornado() {
-  depends=('python2>=2.7.9')
+  depends=('python2-singledispatch' 'python2-backports-abc')
 
   cd tornado-py2
   python2 setup.py install --root="${pkgdir}" --optimize=1
 }
-
