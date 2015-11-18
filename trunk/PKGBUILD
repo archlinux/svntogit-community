@@ -38,7 +38,7 @@ package_virt-manager() {
   depends=('virt-install'
 	    'python2' 'libvirt-python' 'libxml2' 'libvirt' 'urlgrabber'
 	    'dbus-python' 'gtk-vnc' 'rarian'
-	    'gconf' 'yajl' 'librsvg' 'python2-gconf' 'libuser'
+	    'yajl' 'librsvg' 'libuser'
 	    'python2-ipy' 'newt-syrup' 'openbsd-netcat' 'x11-ssh-askpass'
 	    'graphite' 'spice-gtk3'
 	    'libvirt-glib' 'vte3')
