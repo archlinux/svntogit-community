@@ -5,7 +5,7 @@
 
 pkgbase=virt-manager
 pkgname=(virt-install virt-manager)
-pkgver=1.2.1
+pkgver=1.3.0
 pkgrel=1
 pkgdesc="Console user interface for managing virtual machines"
 arch=('any')
@@ -20,7 +20,7 @@ makedepends=('intltool>=0.35.0'
 	     'graphite' 'spice-gtk3'
 	     'libvirt-glib' 'vte3')
 source=("http://virt-manager.org/download/sources/virt-manager/virt-manager-$pkgver.tar.gz")
-md5sums=('c8045da517e7c9d8696e22970291c55e')
+md5sums=('81c15c66538c7059f15c9fc50e0a1320')
 
 build() {
   cd "$srcdir/$pkgbase-$pkgver"
