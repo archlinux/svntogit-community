@@ -6,7 +6,7 @@
 pkgbase=virt-manager
 pkgname=(virt-install virt-manager)
 pkgver=1.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Console user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.org/"
@@ -29,7 +29,7 @@ build() {
 
 package_virt-install() {
   cd "$srcdir/$pkgbase-$pkgver"
-  python2 setup.py install --root "$pkgdir"
+  python2 setup.py --no-update-icon-cache --no-compile-schemas install --root "$pkgdir"
 }
 
 package_virt-manager() {
