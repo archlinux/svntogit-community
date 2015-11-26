@@ -6,13 +6,13 @@
 pkgbase=virt-manager
 pkgname=(virt-install virt-manager)
 pkgver=1.3.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Console user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.org/"
 license=('GPL')
 depends=('python2' 'libvirt-python' 'libxml2' 'libvirt' 'urlgrabber'
-	 'libosinfo' 'python2-ipaddr' 'python2-gobject')
+	 'libosinfo' 'python2-ipaddr' 'python2-gobject' 'python2-requests')
 makedepends=('intltool>=0.35.0'
 	     'dbus-python' 'gtk-vnc' 'rarian'
 	     'gconf' 'yajl' 'librsvg' 'python2-gconf' 'libuser'
