@@ -1,0 +1,174 @@
+diff --git a/frame/contentview.cpp b/frame/contentview.cpp
+index 6bec669..cb4e3dd 100644
+--- a/frame/contentview.cpp
++++ b/frame/contentview.cpp
+@@ -16,7 +16,6 @@ ContentView::ContentView(QWidget *parent)
+     m_pluginLoader = new QPluginLoader(this);
+ #ifdef QT_DEBUG
+     m_pluginLoader->setLoadHints(QLibrary::ResolveAllSymbolsHint);
+-#else
+ #endif
+     m_pluginsManager = PluginsManager::getInstance(this);
+ 
+@@ -76,16 +75,19 @@ ContentView::~ContentView()
+ 
+ void ContentView::switchToModule(ModuleMetaData module)
+ {
+-    qDebug() << "load plugin: " << module.path;
+-
+     unloadPlugin();
+ 
++    qDebug() << "load plugin: " << module.path;
++
+     // load new plugin
+     m_pluginLoader->setFileName(module.path);
++    m_sideBar->blockSignals(true);
+     m_sideBar->switchToModule(module.id);
++    m_sideBar->blockSignals(false);
+ 
+     QObject *instance = m_pluginLoader->instance();
+     ModuleInterface *interface = qobject_cast<ModuleInterface *>(instance);
++    qDebug() << "get instance: " << instance << interface;
+ 
+     do {
+         if (!interface)
+@@ -154,23 +156,7 @@ void ContentView::reLayout(bool hideInLeft)
+ 
+ void ContentView::switchToModule(const QString pluginId)
+ {
+-    // unload old plugin
+-    m_pluginLoader->unload();
+-    // load new plugin
+-    m_pluginLoader->setFileName(m_pluginsManager->pluginPath(pluginId));
+-    m_sideBar->switchToModule(pluginId);
+-
+-    QObject *instance = m_pluginLoader->instance();
+-
+-    if (instance) {
+-        ModuleInterface *interface = qobject_cast<ModuleInterface *>(instance);
+-        if(m_hideInLeft)
+-            m_layout->insertWidget(0, interface->getContent());
+-        else
+-            m_layout->addWidget(interface->getContent());
+-    } else {
+-        qDebug() << m_pluginLoader->errorString();
+-    }
++    switchToModule(m_pluginsManager->pluginMetaData(pluginId));
+ }
+ 
+ void ContentView::onModuleSelected(ModuleMetaData meta)
+@@ -199,10 +185,15 @@ void ContentView::onModuleSelected(ModuleMetaData meta)
+ 
+ void ContentView::unloadPlugin()
+ {
++//    if (m_lastPluginInterface)
++//        m_lastPluginInterface->preUnload();
++
+     if (m_lastPluginWidget)
+     {
++        m_lastPluginWidget->hide();
+         m_lastPluginWidget->setParent(nullptr);
+         m_lastPluginWidget->deleteLater();
++//        delete m_lastPluginWidget;
+         m_lastPluginWidget = nullptr;
+     }
+ 
+diff --git a/frame/frame.cpp b/frame/frame.cpp
+index 3d18246..7ba33e8 100644
+--- a/frame/frame.cpp
++++ b/frame/frame.cpp
+@@ -227,8 +227,9 @@ void Frame::updateGeometry(const QRect &primaryRect)
+     setFixedHeight(primaryRect.height());
+     m_centeralWarpper->setFixedHeight(primaryRect.height());
+     m_centeralWidget->setFixedHeight(primaryRect.height());
+-    m_contentView->setFixedHeight(primaryRect.height());
++
+     m_homeScreen->setFixedHeight(primaryRect.height());
++    m_contentView->setFixedHeight(primaryRect.height());
+ 
+     QFrame::updateGeometry();
+ }
+diff --git a/frame/pluginsmanager.cpp b/frame/pluginsmanager.cpp
+index e1e1c41..1163870 100644
+--- a/frame/pluginsmanager.cpp
++++ b/frame/pluginsmanager.cpp
+@@ -34,7 +34,7 @@ int PluginsManager::pluginIndex(const ModuleMetaData &plugin) const
+     return pluginIndex(plugin.id);
+ }
+ 
+-const QString PluginsManager::pluginPath(const QString pluginId) const
++const QString PluginsManager::pluginPath(const QString &pluginId) const
+ {
+     int index(pluginIndex(pluginId));
+ 
+@@ -49,6 +49,13 @@ const QList<ModuleMetaData> &&PluginsManager::pluginsList() const
+     return std::move(m_pluginsList);
+ }
+ 
++const ModuleMetaData PluginsManager::pluginMetaData(const QString &pluginId) const
++{
++    const int index = pluginIndex(pluginId);
++
++    return m_pluginsList.at(index);
++}
++
+ PluginsManager::PluginsManager(QObject *parent)
+     : QObject(parent)
+ {
+diff --git a/frame/pluginsmanager.h b/frame/pluginsmanager.h
+index af7cd6c..84a103e 100644
+--- a/frame/pluginsmanager.h
++++ b/frame/pluginsmanager.h
+@@ -18,8 +18,9 @@ public:
+ 
+     int pluginIndex(const QString pluginId) const;
+     int pluginIndex(const ModuleMetaData &plugin) const;
+-    const QString pluginPath(const QString pluginId) const;
++    const QString pluginPath(const QString &pluginId) const;
+     const QList<ModuleMetaData>&& pluginsList() const;
++    const ModuleMetaData pluginMetaData(const QString &pluginId) const;
+ 
+ signals:
+     void pluginInserted(const int position, const ModuleMetaData &meta) const;
+diff --git a/modules/remote_assistance/remoteassistance.cpp b/modules/remote_assistance/remoteassistance.cpp
+index f5c916c..14d4a89 100644
+--- a/modules/remote_assistance/remoteassistance.cpp
++++ b/modules/remote_assistance/remoteassistance.cpp
+@@ -142,6 +142,11 @@ RemoteAssistance::RemoteAssistance()
+     m_impl->initPanel();
+ }
+ 
++RemoteAssistance::~RemoteAssistance()
++{
++//    delete m_impl->m_view;
++}
++
+ QFrame* RemoteAssistance::getContent()
+ {
+     return m_impl->m_view;
+diff --git a/modules/remote_assistance/remoteassistance.h b/modules/remote_assistance/remoteassistance.h
+index 2efee49..dd8b010 100644
+--- a/modules/remote_assistance/remoteassistance.h
++++ b/modules/remote_assistance/remoteassistance.h
+@@ -27,7 +27,7 @@ class RemoteAssistance: public QObject, public ModuleInterface {
+     Q_INTERFACES(ModuleInterface)
+ public:
+     RemoteAssistance();
+-    ~RemoteAssistance(){}
++    ~RemoteAssistance();
+     QFrame* getContent() Q_DECL_OVERRIDE;
+ 
+ public slots:
+diff --git a/modules/system_info/systeminfo.cpp b/modules/system_info/systeminfo.cpp
+index 28eab8c..bf34d8d 100644
+--- a/modules/system_info/systeminfo.cpp
++++ b/modules/system_info/systeminfo.cpp
+@@ -174,6 +174,8 @@ SystemInfo::SystemInfo()
+ 
+ SystemInfo::~SystemInfo()
+ {
++    m_centeralFrame->hide();
++    m_centeralFrame->setParent(nullptr);
+     m_centeralFrame->deleteLater();
+ }
+ 
