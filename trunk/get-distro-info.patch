@@ -1,0 +1,119 @@
+commit a39042ae318f404ac44196cc028e234e6b01d489
+Author: Felix Yan <felixonmars@archlinux.org>
+Date:   Wed Nov 25 12:55:31 2015 +0800
+
+    Add methods to get distribution info
+    
+    Change-Id: I915fa4a5f429430e5c183ade58bd727c7d5a2478
+
+diff --git a/systeminfo/distro.go b/systeminfo/distro.go
+new file mode 100644
+index 0000000..cfd5bc5
+--- /dev/null
++++ b/systeminfo/distro.go
+@@ -0,0 +1,51 @@
++package systeminfo
++
++import (
++	"fmt"
++)
++
++const (
++	distroFileLSB    = "/etc/lsb-release"
++
++	distroIdKeyLSB   = "DISTRIB_ID"
++	distroDescKeyLSB = "DISTRIB_DESCRIPTION"
++	distroVerKeyLSB  = "DISTRIB_RELEASE"
++	distroKeyDelim   = "="
++)
++
++func getDistro() (string, string, string, error) {
++	distroId, distroDesc, distroVer, err := getDistroFromLSB(distroFileLSB)
++	if err == nil {
++		return distroId, distroDesc, distroVer, nil
++	}
++
++	return "", "", "", err
++}
++
++func getDistroFromLSB(file string) (string, string, string, error) {
++	ret, err := parseInfoFile(file, distroKeyDelim)
++	if err != nil {
++		return "", "", "", err
++	}
++
++	distroId, ok := ret[distroIdKeyLSB]
++	if !ok {
++		return "", "", "", fmt.Errorf("Cannot find the key '%s'", distroIdKeyLSB)
++	}
++
++	distroDesc, ok := ret[distroDescKeyLSB]
++	if !ok {
++		return "", "", "", fmt.Errorf("Cannot find the key '%s'", distroDescKeyLSB)
++	}
++
++	if distroDesc[0] == '"' && distroDesc[len(distroDesc) - 1] == '"' {
++		distroDesc = distroDesc[1:len(distroDesc) - 1]
++	}
++
++	distroVer, ok := ret[distroVerKeyLSB]
++	if !ok {
++		return "", "", "", fmt.Errorf("Cannot find the key '%s'", distroVerKeyLSB)
++	}
++
++	return distroId, distroDesc, distroVer, nil
++}
+diff --git a/systeminfo/info.go b/systeminfo/info.go
+index c905cab..808ffb7 100644
+--- a/systeminfo/info.go
++++ b/systeminfo/info.go
+@@ -7,8 +7,14 @@ import (
+ )
+ 
+ type SystemInfo struct {
+-	// Current version, ex: "2015 Desktop"
++	// Current deepin version, ex: "2015 Desktop"
+ 	Version string
++	// Distribution ID
++	DistroID string
++	// Distribution Description
++	DistroDesc string
++	// Distribution Version
++	DistroVer string
+ 	// CPU information
+ 	Processor string
+ 	// Disk capacity
+@@ -82,6 +88,11 @@ func NewSystemInfo() *SystemInfo {
+ 		logger.Warning("Get version failed:", err)
+ 	}
+ 
++	info.DistroID, info.DistroDesc, info.DistroVer, err = getDistro()
++	if err != nil {
++		logger.Warning("Get distribution failed:", err)
++	}
++
+ 	info.MemoryCap, err = getMemoryFromFile("/proc/meminfo")
+ 	if err != nil {
+ 		logger.Warning("Get memory capacity failed:", err)
+diff --git a/systeminfo/info_test.go b/systeminfo/info_test.go
+index 11bffb7..56700b0 100644
+--- a/systeminfo/info_test.go
++++ b/systeminfo/info_test.go
+@@ -42,3 +42,17 @@ func TestVersion(t *testing.T) {
+ 		So(err, ShouldBeNil)
+ 	})
+ }
++
++func TestDistro(t *testing.T) {
++	Convey("Test os distro", t, func() {
++		lang := os.Getenv("LANGUAGE")
++		os.Setenv("LANGUAGE", "en_US")
++		defer os.Setenv("LANGUAGE", lang)
++
++		distroId, distroDesc, distroVer, err := getDistroFromLSB("testdata/lsb-release")
++		So(distroId, ShouldEqual, "Deepin")
++		So(distroDesc, ShouldEqual, "Deepin 2014.3")
++		So(distroVer, ShouldEqual, "2014.3")
++		So(err, ShouldBeNil)
++	})
++}
