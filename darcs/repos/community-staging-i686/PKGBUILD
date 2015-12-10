@@ -1,0 +1,58 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=darcs
+pkgver=2.10.2
+pkgrel=4
+pkgdesc="A distributed, interactive, smart revision control system"
+url="http://darcs.net"
+license=("GPL")
+arch=('i686' 'x86_64')
+depends=("ghc=7.10.3" "curl" "haskell-attoparsec" "haskell-base16-bytestring"
+         "haskell-cryptohash" "haskell-data-ordlist" "haskell-hashable" "haskell-html"
+         "haskell-http" "haskell-mmap" "haskell-mtl" "haskell-network" "haskell-network-uri"
+         "haskell-old-time" "haskell-parsec" "haskell-sandi" "haskell-random"
+         "haskell-regex-applicative" "haskell-regex-compat-tdfa" "haskell-tar"
+         "haskell-text" "haskell-transformers-compat" "haskell-unix-compat"
+         "haskell-utf8-string" "haskell-vector" "haskell-zip-archive" "haskell-zlib")
+options=('staticlibs' '!emptydirs')
+source=("http://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+install="${pkgname}.install"
+sha256sums=('6337d3fac04711fa2ef5813558b409c59166c5599b0c9d68c418d21cdccfb327')
+
+prepare() {
+    sed -i 's/vector       >= 0.7 && < 0.11,/vector       >= 0.7 \&\& < 0.12,/' ${pkgname}-${pkgver}/${pkgname}.cabal
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    
+    runhaskell Setup configure -O --enable-library-profiling --enable-shared \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" \
+        --libsubdir=\$compiler/site-local/\$pkgid \
+        -fcurl -fpkgconfig -fhttp -f-static -fterminfo -fthreaded -fexecutable \
+        -f-hpc -f-rts -foptimize -f-warn-as-error -f-use-local-data-map-strict \
+        -f-libiconv -f-hashed-storage-diff -fuse-time-1point5 -fnetwork-uri
+    runhaskell Setup build
+
+    runhaskell Setup haddock --hoogle --html
+
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/${pkgname}/register.sh"
+    install    -m744 unregister.sh "${pkgdir}/usr/share/haskell/${pkgname}/unregister.sh"
+    install -d -m755 "${pkgdir}/usr/share/man/man1"
+    install -d -m755 "${pkgdir}/usr/share/man/man5"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${pkgname}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/COPYING"
+    chmod 644 "${pkgdir}/usr/share/man/man1/darcs.1"
+}
