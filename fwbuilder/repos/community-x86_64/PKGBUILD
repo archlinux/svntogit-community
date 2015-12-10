@@ -6,7 +6,7 @@
 
 pkgname=fwbuilder
 pkgver=5.1.0.3599
-pkgrel=5
+pkgrel=6
 pkgdesc="Object-oriented GUI and set of compilers for various firewall platforms"
 url="http://www.fwbuilder.org/"
 arch=('i686' 'x86_64')
