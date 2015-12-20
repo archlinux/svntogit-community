@@ -1,3 +1,4 @@
+# Maintainer: Jiachen Yang <farseerfc@gmail.com>
 # AUR Maintainer: Vlad M. <vlad@archlinux.net>
 
 pkgname=toxic
