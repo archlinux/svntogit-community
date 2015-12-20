@@ -1,0 +1,237 @@
+# Thanks http://ftp.de.debian.org/debian/pool/main/n/neko/neko_2.0.0-3.debian.tar.gz
+diff --git a/Makefile b/Makefile
+index c6b01b9..835ccbc 100644
+--- a/Makefile
++++ b/Makefile
+@@ -12,9 +12,9 @@
+ 
+ INSTALL_PREFIX = /usr
+ 
+-CFLAGS = -Wall -O3 -fPIC -fomit-frame-pointer -I vm -D_GNU_SOURCE -I libs/common
++CFLAGS += -fPIC -fomit-frame-pointer -I vm -D_GNU_SOURCE -I libs/common
+ EXTFLAGS = -pthread
+-MAKESO = $(CC) -shared -Wl,-Bsymbolic
++MAKESO = $(CC) -shared
+ LIBNEKO_NAME = libneko.so
+ LIBNEKO_LIBS = -ldl -lgc -lm
+ NEKOVM_FLAGS = -Lbin -lneko
+@@ -36,7 +36,7 @@ NEKO_EXEC = LD_LIBRARY_PATH=../bin:${LD_LIBRARY_PATH} NEKOPATH=../boot:../bin ..
+ ifeq (${os}, mingw)
+ CFLAGS = -g -Wall -O3 -momit-leaf-frame-pointer -I vm -I /usr/local/include -I libs/common
+ EXTFLAGS =
+-MAKESO = $(CC) -O -shared
++MAKESO = $(CC) -shared
+ LIBNEKO_NAME = neko.dll
+ LIBNEKO_LIBS = -Lbin -lgc
+ STD_NDLL_FLAGS = ${NEKOVM_FLAGS} -lws2_32
+@@ -47,7 +47,7 @@ endif
+ ifeq (${os}, osx)
+ export MACOSX_DEPLOYMENT_TARGET=10.4
+ EXTFLAGS =
+-MAKESO = ${CC}
++MAKESO = $(CC) -shared
+ LIBNEKO_NAME = libneko.dylib
+ LIBNEKO_INSTALL = -install_name @executable_path/${LIBNEKO_NAME}
+ LIBNEKO_LIBS = -ldl /opt/local/lib/libgc.a -lm -dynamiclib -single_module ${LIBNEKO_INSTALL}
+@@ -67,7 +67,7 @@ LIBNEKO_OBJECTS = vm/alloc.o vm/builtins.o vm/callback.o vm/interp.o vm/load.o v
+ all: createbin libneko neko std compiler libs
+ 
+ createbin:
+-	-mkdir bin 2>/dev/null
++	mkdir -p bin 2>/dev/null
+ 
+ libneko: bin/${LIBNEKO_NAME}
+ 
+@@ -101,7 +101,6 @@ bin/${LIBNEKO_NAME}: ${LIBNEKO_OBJECTS}
+ 
+ bin/neko: $(VM_OBJECTS)
+ 	${CC} ${CFLAGS} ${EXTFLAGS} -o $@ ${VM_OBJECTS} ${NEKOVM_FLAGS}
+-	strip bin/neko
+ 
+ bin/std.ndll: ${STD_OBJECTS}
+ 	${MAKESO} -o $@ ${STD_OBJECTS} ${STD_NDLL_FLAGS}
+@@ -116,9 +115,9 @@ clean:
+ install:
+ 	cp bin/${LIBNEKO_NAME} ${INSTALL_PREFIX}/lib
+ 	cp bin/neko bin/nekoc bin/nekotools bin/nekoml bin/nekoml.std ${INSTALL_PREFIX}/bin
+-	-mkdir ${INSTALL_PREFIX}/lib/neko
++	mkdir -p ${INSTALL_PREFIX}/lib/neko
+ 	cp bin/*.ndll ${INSTALL_PREFIX}/lib/neko
+-	-mkdir ${INSTALL_PREFIX}/include
++	mkdir -p ${INSTALL_PREFIX}/include
+ 	cp vm/neko*.h ${INSTALL_PREFIX}/include
+ 
+ uninstall:
+diff --git a/libs/mod_neko/cgi.c b/libs/mod_neko/cgi.c
+index 6830c84..90751ba 100644
+--- a/libs/mod_neko/cgi.c
++++ b/libs/mod_neko/cgi.c
+@@ -572,9 +572,9 @@ static value log_message( value message ) {
+ 	mcontext *c = CONTEXT();
+ 	val_check(message, string);
+ #ifdef APACHE_2_X
+-	ap_log_rerror(__FILE__, __LINE__, APLOG_NOTICE, APR_SUCCESS, c->r, "[mod_neko] %s", val_string(message));
++	ap_log_rerror(APLOG_MARK, APLOG_NOTICE, APR_SUCCESS, c->r, "[mod_neko] %s", val_string(message));
+ #else
+-	ap_log_rerror(__FILE__, __LINE__, APLOG_NOTICE, c->r, "[mod_neko] %s", val_string(message));
++	ap_log_rerror(APLOG_MARK, APLOG_NOTICE, c->r, "[mod_neko] %s", val_string(message));
+ #endif
+ 	return val_null;
+ }
+diff --git a/libs/mod_neko/mod_neko.c b/libs/mod_neko/mod_neko.c
+index ff3fa67..d942380 100644
+--- a/libs/mod_neko/mod_neko.c
++++ b/libs/mod_neko/mod_neko.c
+@@ -44,7 +44,7 @@ typedef time_t aptime;
+ 
+ #define apache_error(level,request,message)	\
+ 	ap_rprintf(request,"<b>Error</b> : %s",message); \
+-	ap_log_rerror(__FILE__, __LINE__, level, LOG_SUCCESS request, "[mod_neko error] %s", message)
++	ap_log_rerror(APLOG_MARK, level, LOG_SUCCESS request, "[mod_neko error] %s", message)
+ 
+ typedef struct cache {
+ 	value file;
+@@ -385,7 +385,7 @@ static void preload_module( const char *name, server_rec *serv ) {
+ 	if( exc ) {
+ 		buffer b = alloc_buffer(NULL);
+ 		val_buffer(b,exc);
+-		ap_log_error(__FILE__,__LINE__,APLOG_WARNING,LOG_SUCCESS serv,"Failed to preload module '%s' : %s",name,val_string(buffer_to_string(b)));
++		ap_log_error(APLOG_MARK,APLOG_WARNING,LOG_SUCCESS serv,"Failed to preload module '%s' : %s",name,val_string(buffer_to_string(b)));
+ 	}
+ 	neko_vm_select(NULL);
+ }
+@@ -415,7 +415,7 @@ static const char *mod_neko_config( cmd_parms *cmd, MCONFIG mconfig, const char
+ 	else if( strcmp(code,"STATS") == 0 ) config.use_stats = value;
+ 	else if( strcmp(code,"PRIM_STATS") == 0 ) config.use_prim_stats = value;
+ 	else if( strcmp(code,"PRELOAD") == 0 ) preload_module(args,cmd->server);
+-	else ap_log_error(__FILE__,__LINE__,APLOG_WARNING,LOG_SUCCESS cmd->server,"Unknown ModNeko configuration command '%s'",code);
++	else ap_log_error(APLOG_MARK,APLOG_WARNING,LOG_SUCCESS cmd->server,"Unknown ModNeko configuration command '%s'",code);
+ 	free(code);
+ 	return NULL;
+ }
+diff --git a/libs/mod_neko/mod_neko.h b/libs/mod_neko/mod_neko.h
+index 998197b..984c600 100644
+--- a/libs/mod_neko/mod_neko.h
++++ b/libs/mod_neko/mod_neko.h
+@@ -60,7 +60,7 @@ DECLARE_KIND(k_mod_neko)
+ 
+ #ifdef STANDARD20_MODULE_STUFF
+ #	define APACHE_2_X
+-#	define REMOTE_ADDR(c)	c->remote_addr->sa.sin.sin_addr
++#	define REMOTE_ADDR(c)	c->client_addr->sa.sin.sin_addr
+ #else
+ #	define REMOTE_ADDR(c)	c->remote_addr.sin_addr
+ #endif
+diff --git a/libs/mod_tora/mod_tora.c b/libs/mod_tora/mod_tora.c
+index 040c048..1cbabca 100644
+--- a/libs/mod_tora/mod_tora.c
++++ b/libs/mod_tora/mod_tora.c
+@@ -50,7 +50,7 @@
+ #	define ap_palloc		apr_palloc
+ #	define LOG_SUCCESS		APR_SUCCESS,
+ #	define REDIRECT			HTTP_MOVED_TEMPORARILY
+-#	define REMOTE_ADDR(c)	c->remote_addr->sa.sin.sin_addr
++#	define REMOTE_ADDR(c)	c->client_addr->sa.sin.sin_addr
+ #else
+ #	define LOG_SUCCESS
+ #	define REMOTE_ADDR(c)	c->remote_addr.sin_addr
+@@ -148,7 +148,7 @@ static void do_log( void *_c, const char *msg, bool user_log ) {
+ 		do_print(c,"Error : ",8);
+ 		do_print(c,msg,(int)strlen(msg));
+ 	} else
+-		ap_log_rerror(__FILE__, __LINE__, APLOG_WARNING, LOG_SUCCESS c->r, "[mod_tora] %s", msg);
++		ap_log_rerror(APLOG_MARK, APLOG_WARNING, LOG_SUCCESS c->r, "[mod_tora] %s", msg);
+ }
+ 
+ static void log_error( mcontext *c, const char *msg ) {
+@@ -232,7 +232,7 @@ static int tora_handler( request_rec *r ) {
+ 		if( config.proxy_mode ) {
+ 			const char *xff = ap_table_get(r->headers_in,"X-Forwarded-For");
+ 			if( xff == NULL )
+-				infos.client_ip = r->connection->remote_ip;
++				infos.client_ip = r->connection->client_ip;
+ 			else {
+ 				char tmp;
+ 				char *xend = (char*)xff + strlen(xff) - 1;
+@@ -319,7 +319,7 @@ static const char *mod_tora_config( cmd_parms *cmd, MCONFIG mconfig, const char
+ 	else if( strcmp(code,"PORT_MAX") == 0 ) config.port_max = value;
+ 	else if( strcmp(code,"POST_SIZE") == 0 ) config.max_post_size = value;
+ 	else if( strcmp(code,"PROXY_MODE") == 0 ) config.proxy_mode = value;
+-	else ap_log_error(__FILE__,__LINE__,APLOG_WARNING,LOG_SUCCESS cmd->server,"Unknown ModTora configuration command '%s'",code);
++	else ap_log_error(APLOG_MARK,APLOG_WARNING,LOG_SUCCESS cmd->server,"Unknown ModTora configuration command '%s'",code);
+ 	free(code);
+ 	return NULL;
+ }
+diff --git a/src/tools/install.neko b/src/tools/install.neko
+index 41856f8..c1d741c 100644
+--- a/src/tools/install.neko
++++ b/src/tools/install.neko
+@@ -43,11 +43,11 @@ buffer_string = $loader.loadprim("std@buffer_string",1);
+ // LIBS DATAS
+ 
+ libs = {
+-	mod_neko => {
++	/*mod_neko => {
+ 		src => $array("../../vm/stats","mod_neko","cgi"),
+ 		inc => "httpd.h",
+ 		incname => "Apache 1.3.x"
+-	},
++	},*/
+ 	mod_neko2 => {
+ 		src => $array("../../vm/stats","mod_neko","cgi"),
+ 		inc => $array("httpd.h","apr.h"),
+@@ -60,7 +60,7 @@ libs = {
+ 		src => $array("mysql"),
+ 		inc => "mysql.h",
+ 		incname => "MySQL 4.+"
+-		lib => "libmysqlclient_r.a",
++		lib => "libmysqlclient_r.so",
+ 		lparams => "-lz -lssl"
+ 	},
+ 	mysql5 => {
+@@ -94,12 +94,12 @@ libs = {
+ 		cflags => switch system { "Mac" => "" default => "`pkg-config --cflags gtk+-2.0`" },
+ 		lparams => switch system { "Mac" => "-framework Carbon" default => "`pkg-config --libs gtk+-2.0` -lgthread-2.0" },
+ 	},
+-	mod_tora => {
++	/*mod_tora => {
+ 		src => $array("../common/socket","protocol","mod_tora"),
+ 		inc => "httpd.h",
+ 		incname => "Apache 1.3.x",
+ 		cflags => "-I../common",
+-	},
++	},*/
+ 	mod_tora2 => {
+ 		src => $array("../common/socket","protocol","mod_tora"),
+ 		inc => $array("httpd.h","apr.h"),
+@@ -163,18 +163,19 @@ search_includes = function(isap2) {
+ 	var inc2;
+ 	if( isap2 )
+ 		inc2 = $array(
+-			"/usr/local/apache2/include",
+-			"/usr/include/apache2",
+-			"/opt/local/apache2/include",
++//			"/usr/local/apache2/include",
++//			"/usr/include/apache2",
++			"/usr/include/httpd",
++//			"/opt/local/apache2/include",
+ 			"/usr/include/apr-1",
+-			"/usr/include/apr-1.0",
+-			"/usr/include/apr-0",
+-			"/usr/local/include/apr-1",
+-			"/usr/local/include/apr-1.0",
+-			"/usr/local/include/apr-0",
+-			"/opt/local/include/apr-1",
+-			"/opt/local/include/apr-1.0",
+-			"/opt/local/include/apr-0"
++//			"/usr/include/apr-1.0",
++//			"/usr/include/apr-0",
++//			"/usr/local/include/apr-1",
++//			"/usr/local/include/apr-1.0",
++//			"/usr/local/include/apr-0",
++//			"/opt/local/include/apr-1",
++//			"/opt/local/include/apr-1.0",
++//			"/opt/local/include/apr-0"
+ 		);
+ 	else
+ 		inc2 = $array(
