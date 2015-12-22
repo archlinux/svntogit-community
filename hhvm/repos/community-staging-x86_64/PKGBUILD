@@ -1,0 +1,150 @@
+# $Id$
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: James Miller <james@pocketrent.com>
+
+pkgname=hhvm
+pkgver=3.11.0
+pkgrel=2
+
+_thirdparty_commit=5211c1aeaf5dd24ac41149c6b05e24f4a52da23f
+_folly_commit=7ce0da391198be14d4a12a42f918d90ceba63b31
+_mcrouter_commit=cb05bfa78209fb5f49b1af7e04553d8429ae3d7a
+_proxygen_commit=1cc6552541156f94dd47808f3024fbebf1d8fc2c
+_squangle_commit=5efc6ad1a6d5078e836bf9c0b6d58416cc3f234e
+_thrift_commit=814ff42fa8912c97ff20f4fc90536243b8de9d59
+_wangle_commit=30c42a4ae96a0a33aa016a7b7d0ad6414cf9a62a
+_webscalesql_commit=a9e580b5a0baa768210ef10544c8fab52003ec0b
+
+pkgdesc="Virtual Machine, Runtime, and JIT for PHP"
+arch=('x86_64')
+url="http://hhvm.com"
+license=('PHP')
+depends=('boost-libs' 'google-glog' 'libmysqlclient' 'libmemcached' 'libzip'
+         'libxslt' 'intel-tbb' 'libmcrypt' 'oniguruma' 'jemalloc' 'curl' 'libvpx'
+         'libdwarf' 'imagemagick' 'libedit' 'sqlite' 'libyaml' 'fribidi' 're2'
+         'gperf' 'c-client' 'unixodbc')
+makedepends=('git' 'cmake' 'gcc' 'boost' 'gflags' 'python2' 'pfff' 'mongodb'
+             'ragel' 'libmariadbclient')
+source=("https://github.com/facebook/hhvm/archive/HHVM-$pkgver.tar.gz"
+        "https://github.com/hhvm/hhvm-third-party/archive/$_thirdparty_commit/hhvm-third-party-$_thirdparty_commit.tar.gz"
+        "https://github.com/facebook/folly/archive/$_folly_commit/folly-$_folly_commit.tar.gz"
+        "https://github.com/facebook/fbthrift/archive/$_thrift_commit/thrift-$_thrift_commit.tar.gz"
+        "https://github.com/facebook/proxygen/archive/$_proxygen_commit/proxygen-$_proxygen_commit.tar.gz"
+        "https://github.com/facebook/mysql-5.6/archive/$_webscalesql_commit/webscalesql-$_webscalesql_commit.tar.gz"
+        "https://github.com/facebook/mcrouter/archive/$_mcrouter_commit/mcrouter-$_mcrouter_commit.tar.gz"
+        "https://github.com/facebook/squangle/archive/$_squangle_commit/squangle-$_squangle_commit.tar.gz"
+        "https://github.com/facebook/wangle/archive/$_wangle_commit/wangle-$_wangle_commit.tar.gz"
+        'hhvm.tmpfile'
+        'hhvm.service'
+        'hhvm@.service'
+        'php.ini'
+        'server.ini')
+install=hhvm.install
+backup=(etc/hhvm/{php,server}.ini)
+options+=('!buildflags')
+
+prepare() {
+    cd "$srcdir"/$pkgname-HHVM-$pkgver
+
+    sed -r 's/service hhvm (start|stop|restart)/systemctl \1 hhvm.service/' \
+        -i hphp/tools/oss-repo-mode
+
+    # Need to remove this to link to system boost and google-glog
+    sed -i 's/-D_GLIBCXX_USE_CXX11_ABI=0//' CMake/HPHPCompiler.cmake
+
+    # Fix sendmail path
+    sed -r 's#/usr/lib/sendmail#/usr/bin/sendmail#g' -i \
+        hphp/runtime/base/runtime-option.cpp
+
+    rm -rf third-party
+    ln -s "$srcdir"/hhvm-third-party-$_thirdparty_commit third-party
+
+    cd third-party/folly
+    rm -rf src
+    ln -s "$srcdir"/folly-$_folly_commit src
+
+    cd ../thrift
+    rm -rf src
+    ln -s "$srcdir"/fbthrift-$_thrift_commit src
+
+    cd ../proxygen
+    rm -rf src
+    ln -s "$srcdir"/proxygen-$_proxygen_commit src
+
+    cd ../mcrouter
+    rm -rf src
+    ln -s "$srcdir"/mcrouter-$_mcrouter_commit src
+
+    cd ../wangle
+    rm -rf src
+    ln -s "$srcdir"/wangle-$_wangle_commit src
+
+    cd ../squangle
+    rm -rf src squangle
+    ln -s "$srcdir"/squangle-$_squangle_commit src
+    ln -s src/squangle
+
+    cd ../webscalesqlclient
+    rm -rf mysql-5.6
+    ln -s "$srcdir"/mysql-5.6-$_webscalesql_commit mysql-5.6
+}
+
+build() {
+    cd "$srcdir"/$pkgname-HHVM-$pkgver
+    msg2 "Building hhvm"
+
+    cmake -Wno-dev \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_PREFIX_PATH="$srcdir" \
+        -DENABLE_MONGO:BOOL=ON \
+        -DMYSQL_UNIX_SOCK_ADDR=/run/mysqld/mysqld.sock \
+        .
+
+    make
+
+    for hacktool in hackificator remove_soft_types; do
+        cd "$srcdir"/$pkgname-HHVM-$pkgver/hphp/hack/tools/$hacktool
+        make depend
+        make
+    done
+}
+
+# check() {
+#     cd "$srcdir"/$pkgname-HHVM-$pkgver/hphp/test
+#     ./run --threads 8 quick
+# }
+
+package() {
+    cd "$srcdir"/$pkgname-HHVM-$pkgver
+    make DESTDIR="$pkgdir/" install
+
+    cd hphp/hack/bin
+    for bin in hh_* tools/*; do
+        install -Dm755 $bin "$pkgdir"/usr/bin/$(basename $bin)
+    done
+
+    cd "$srcdir"
+    install -Dm644 hhvm.tmpfile "$pkgdir"/usr/lib/tmpfiles.d/hhvm.conf
+    install -Dm644 hhvm.service "$pkgdir"/usr/lib/systemd/system/hhvm.service
+    install -Dm644 hhvm@.service "$pkgdir"/usr/lib/systemd/system/hhvm@.service
+
+    install -Dm644 php.ini "$pkgdir"/etc/hhvm/php.ini
+    install -Dm644 server.ini "$pkgdir"/etc/hhvm/server.ini
+}
+
+sha256sums=('b135e23d7e4bb9742d469bfc317374c1fa56ef52a5b972a5f9d409a920df58a4'
+            '11fe0cd67b07a3f5097946a266f55469af95a101c8703a89586d0a44c3dcd7e5'
+            '75c65aff273dd01dd0314677bdfb6c9f54b9bb87e37b386f65c4ab77f15bea8f'
+            '24dde294820785b609f8ab3c36918bdab1b7e49adc23de7e36abea9e76f7b6d0'
+            '1a6b070264a1276aaecef9836001a8a190893ef8711e712350652a7260e53a25'
+            '06983fb95386626dc1a2fdfda2d2632d8f8851b7ad03ec3bef2046f5736af3ab'
+            'f9d16dab7775298a1673e5cc68b2f9c9a1a1f94e34f27930dbb7205c5c9240e9'
+            '8919dd3efba1266b5d05bead0c9ae5d786c3c549d71edbfd862133c83dea1f4e'
+            '816c938c7b6ea147481f117adc8eafe424cff9c8608c4c5c9bb2dd6debbedb1e'
+            'c356010a6d6b976f387bb205a75ea07d5f40593a8010483f2ed0f66f112331bc'
+            '8b50d1ef9f5f726e6d8d469a8c84d85ad63f8b507b97d258b4d751a0e3e221df'
+            '59c640602929dac0aa34d06c668ed69361eb4b7b47a77f9aa0badb4d0b61571c'
+            '3e3093f817706c238fad021483f114fd4ce0b45d84097dcb7870157fc9ec769f'
+            '5b53bc57965e1c5151d720dc7f63f1b2e8ebd5e758b2ef0be3b74df38ebcbce0')
