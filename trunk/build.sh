@@ -56,17 +56,17 @@ gcc -o core/libsparse/sparse_err.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libspar
 gcc -o core/libsparse/sparse_read.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -c core/libsparse/sparse_read.c
 g++ -o core/libziparchive/zip_archive.cc.o -std=gnu++11 $CXXFLAGS $CPPFLAGS -Icore/base/include -Icore/include -c core/libziparchive/zip_archive.cc
 g++ -o core/libutils/FileMap.cpp.o -std=gnu++11 $CXXFLAGS $CPPFLAGS -Icore/include -c core/libutils/FileMap.cpp
-gcc -o extras/ext4_utils/make_ext4fs.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/make_ext4fs.c
-gcc -o extras/ext4_utils/ext4fixup.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/ext4fixup.c
-gcc -o extras/ext4_utils/ext4_utils.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/ext4_utils.c
-gcc -o extras/ext4_utils/allocate.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/allocate.c
-gcc -o extras/ext4_utils/contents.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/contents.c
-gcc -o extras/ext4_utils/extent.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/extent.c
-gcc -o extras/ext4_utils/indirect.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/indirect.c
-gcc -o extras/ext4_utils/sha1.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/sha1.c
-gcc -o extras/ext4_utils/wipe.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/wipe.c
-gcc -o extras/ext4_utils/crc16.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/crc16.c
-gcc -o extras/ext4_utils/ext4_sb.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -c extras/ext4_utils/ext4_sb.c
+gcc -o extras/ext4_utils/make_ext4fs.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/make_ext4fs.c
+gcc -o extras/ext4_utils/ext4fixup.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/ext4fixup.c
+gcc -o extras/ext4_utils/ext4_utils.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/ext4_utils.c
+gcc -o extras/ext4_utils/allocate.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/allocate.c
+gcc -o extras/ext4_utils/contents.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/contents.c
+gcc -o extras/ext4_utils/extent.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/extent.c
+gcc -o extras/ext4_utils/indirect.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/indirect.c
+gcc -o extras/ext4_utils/sha1.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/sha1.c
+gcc -o extras/ext4_utils/wipe.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/wipe.c
+gcc -o extras/ext4_utils/crc16.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/crc16.c
+gcc -o extras/ext4_utils/ext4_sb.c.o -std=gnu11 $CFLAGS $CPPFLAGS -Icore/libsparse/include -Icore/include -Ilibselinux/include -c extras/ext4_utils/ext4_sb.c
 gcc -o libselinux/src/callbacks.c.o -std=gnu11 $CFLAGS $CPPFLAGS -DAUDITD_LOG_TAG=1003 -D_GNU_SOURCE -DHOST -Ilibselinux/include -c libselinux/src/callbacks.c
 gcc -o libselinux/src/check_context.c.o -std=gnu11 $CFLAGS $CPPFLAGS -DAUDITD_LOG_TAG=1003 -D_GNU_SOURCE -DHOST -Ilibselinux/include -c libselinux/src/check_context.c
 gcc -o libselinux/src/freecon.c.o -std=gnu11 $CFLAGS $CPPFLAGS -DAUDITD_LOG_TAG=1003 -D_GNU_SOURCE -DHOST -Ilibselinux/include -c libselinux/src/freecon.c

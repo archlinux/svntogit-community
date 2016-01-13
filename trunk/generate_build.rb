@@ -155,7 +155,7 @@ ext4files = %w(
   crc16.c
   ext4_sb.c
 )
-libext4 = compile(expand('extras/ext4_utils', ext4files), '-Icore/libsparse/include -Icore/include')
+libext4 = compile(expand('extras/ext4_utils', ext4files), '-Icore/libsparse/include -Icore/include -Ilibselinux/include')
 
 selinuxfiles = %w(
   src/callbacks.c
