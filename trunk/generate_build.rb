@@ -2,14 +2,14 @@
 
 # Android build system is complicated and does not allow to build
 # separate parts easily.
-# This script tries to mimic Android build for toolset.
+# This script tries to mimic Android build rules.
 
 def expand(dir, files)
   files.map{|f| File.join(dir,f)}
 end
 
-# Compile sources to *.o files. One *.o file per input.
-# Returns array of *.o filenames
+# Compiles sources to *.o files.
+# Returns array of output *.o filenames
 def compile(sources, cflags)
   outputs = []
   for s in sources
@@ -34,7 +34,7 @@ def compile(sources, cflags)
   return outputs
 end
 
-# compiles and link
+# Links object files
 def link(output, objects, ldflags)
   puts "g++ -o #{output} #{ldflags} \"$LDFLAGS\" #{objects.join(' ')}"
 end
