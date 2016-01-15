@@ -21,14 +21,14 @@ prepare() {
 }
 
 package_python-typogrify() {
-  depends=('python' 'python-setuptools' 'python-smartypants')
+  depends=('python' 'python-smartypants')
   cd "${srcdir}/${_pyname}-${pkgver}"
   python3 setup.py install --root="${pkgdir}/" --optimize=1
   install -D -m644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgbase}/LICENSE"
 }
 
 package_python2-typogrify() {
-  depends=('python2' 'python2-setuptools' 'python2-smartypants')
+  depends=('python2' 'python2-smartypants')
   cd "${srcdir}/${_pyname}-${pkgver}-py2"
   # fixing python2 shebang
   sed -i 's|#!/usr/bin/env python|#!/usr/bin/env python2|' typogrify/packages/titlecase/__init__.py
