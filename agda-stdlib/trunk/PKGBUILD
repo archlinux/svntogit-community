@@ -1,0 +1,54 @@
+# $Id: PKGBUILD 152508 2015-12-10 18:09:47Z fyan $
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=agda-stdlib
+pkgver=0.11
+pkgrel=1
+pkgdesc="Agda standard libraries"
+url="https://github.com/agda/agda-stdlib"
+license=("MIT")
+arch=('i686' 'x86_64')
+depends=("ghc=7.10.3" "agda")
+makedepends=("git" "haskell-filemanip")
+install=$pkgname.install
+options=('staticlibs')
+source=("git+https://github.com/agda/agda-stdlib.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+build() {
+    cd "${srcdir}/${pkgname}"
+    
+    runhaskell Setup configure
+    runhaskell Setup build
+
+    dist/build/GenerateEverything/GenerateEverything
+
+    cd ffi
+    runhaskell Setup configure -O --enable-library-profiling --enable-shared \
+        --prefix=/usr --docdir="/usr/share/doc/agda-lib-ffi" \
+        --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+
+    cd ..
+    agda -i. -isrc Everything.agda
+    agda --html -i. -isrc README.agda
+}
+
+package() {
+    cd "${srcdir}/${pkgname}/ffi"
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/agda-lib-ffi/register.sh"
+    install    -m744 unregister.sh "${pkgdir}/usr/share/haskell/agda-lib-ffi/unregister.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/agda-lib-ffi/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/agda-lib-ffi"
+    runhaskell Setup copy --destdir="${pkgdir}"
+
+    cd ..
+    install -dm755 "$pkgdir/usr/share/agda/lib/prim"
+    cp -pr Everything.agda* src/* "$pkgdir/usr/share/agda/lib/prim"
+    install -D -m644 "LICENCE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENCE"
+}
