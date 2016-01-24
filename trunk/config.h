@@ -30,6 +30,9 @@ static Color colors[] = {
 #define URGENT_ATTR     NORMAL_ATTR
 /* curses attributes for the status bar */
 #define BAR_ATTR        (COLOR(BLUE) | A_NORMAL)
+/* characters for beginning and end of status bar message */
+#define BAR_BEGIN       '['
+#define BAR_END         ']'
 /* status bar (command line option -s) position */
 #define BAR_POS         BAR_TOP /* BAR_BOTTOM, BAR_OFF */
 /* whether status bar should be hidden if only one client exists */
@@ -67,12 +70,17 @@ static Layout layouts[] = {
 };
 
 #define MOD  CTRL('g')
+#define TAGKEYS(KEY,TAG) \
+	{ { MOD, 'v', KEY,     }, { view,           { tags[TAG] }               } }, \
+	{ { MOD, 't', KEY,     }, { tag,            { tags[TAG] }               } }, \
+	{ { MOD, 'V', KEY,     }, { toggleview,     { tags[TAG] }               } }, \
+	{ { MOD, 'T', KEY,     }, { toggletag,      { tags[TAG] }               } },
 
 /* you can at most specifiy MAX_ARGS (3) number of arguments */
 static KeyBinding bindings[] = {
 	{ { MOD, 'c',          }, { create,         { NULL }                    } },
 	{ { MOD, 'C',          }, { create,         { NULL, NULL, "$CWD" }      } },
-	{ { MOD, 'x',          }, { killclient,     { NULL }                    } },
+	{ { MOD, 'x', 'x',     }, { killclient,     { NULL }                    } },
 	{ { MOD, 'j',          }, { focusnext,      { NULL }                    } },
 	{ { MOD, 'J',          }, { focusnextnm,    { NULL }                    } },
 	{ { MOD, 'K',          }, { focusprevnm,    { NULL }                    } },
@@ -102,7 +110,7 @@ static KeyBinding bindings[] = {
 	{ { MOD, '8',          }, { focusn,         { "8" }                     } },
 	{ { MOD, '9',          }, { focusn,         { "9" }                     } },
 	{ { MOD, '\t',         }, { focuslast,      { NULL }                    } },
-	{ { MOD, 'q',          }, { quit,           { NULL }                    } },
+	{ { MOD, 'q', 'q',     }, { quit,           { NULL }                    } },
 	{ { MOD, 'a',          }, { togglerunall,   { NULL }                    } },
 	{ { MOD, CTRL('L'),    }, { redraw,         { NULL }                    } },
 	{ { MOD, 'r',          }, { redraw,         { NULL }                    } },
@@ -122,28 +130,13 @@ static KeyBinding bindings[] = {
 	{ { MOD, KEY_F(4),     }, { view,           { tags[3] }                 } },
 	{ { MOD, KEY_F(5),     }, { view,           { tags[4] }                 } },
 	{ { MOD, 'v', '0'      }, { view,           { NULL }                    } },
-	{ { MOD, 'v', '1'      }, { view,           { tags[0] }                 } },
-	{ { MOD, 'v', '2'      }, { view,           { tags[1] }                 } },
-	{ { MOD, 'v', '3'      }, { view,           { tags[2] }                 } },
-	{ { MOD, 'v', '4'      }, { view,           { tags[3] }                 } },
-	{ { MOD, 'v', '5'      }, { view,           { tags[4] }                 } },
 	{ { MOD, 'v', '\t',    }, { viewprevtag,    { NULL }                    } },
 	{ { MOD, 't', '0'      }, { tag,            { NULL }                    } },
-	{ { MOD, 't', '1'      }, { tag,            { tags[0] }                 } },
-	{ { MOD, 't', '2'      }, { tag,            { tags[1] }                 } },
-	{ { MOD, 't', '3'      }, { tag,            { tags[2] }                 } },
-	{ { MOD, 't', '4'      }, { tag,            { tags[3] }                 } },
-	{ { MOD, 't', '5'      }, { tag,            { tags[4] }                 } },
-	{ { MOD, 'V', '1'      }, { toggleview,     { tags[0] }                 } },
-	{ { MOD, 'V', '2'      }, { toggleview,     { tags[1] }                 } },
-	{ { MOD, 'V', '3'      }, { toggleview,     { tags[2] }                 } },
-	{ { MOD, 'V', '4'      }, { toggleview,     { tags[3] }                 } },
-	{ { MOD, 'V', '5'      }, { toggleview,     { tags[4] }                 } },
-	{ { MOD, 'T', '1'      }, { toggletag,      { tags[0] }                 } },
-	{ { MOD, 'T', '2'      }, { toggletag,      { tags[1] }                 } },
-	{ { MOD, 'T', '3'      }, { toggletag,      { tags[2] }                 } },
-	{ { MOD, 'T', '4'      }, { toggletag,      { tags[3] }                 } },
-	{ { MOD, 'T', '5'      }, { toggletag,      { tags[4] }                 } },
+	TAGKEYS( '1',                              0)
+	TAGKEYS( '2',                              1)
+	TAGKEYS( '3',                              2)
+	TAGKEYS( '4',                              3)
+	TAGKEYS( '5',                              4)
 };
 
 static const ColorRule colorrules[] = {
@@ -211,13 +204,14 @@ static char const * const keytable[] = {
  * set the first entry is chosen. Otherwise the array is consulted for supported
  * options. A %d in argv is replaced by the line number at which the file should
  * be opened. If filter is true the editor is expected to work even if stdout is
- * redirected (i.e. not a terminal).
+ * redirected (i.e. not a terminal). If color is true then color escape sequences
+ * are generated in the output.
  */
 static Editor editors[] = {
-	{ .name = "vis",         .argv = { "vis", "+%d", "-", NULL  }, .filter = true  },
-	{ .name = "sandy",       .argv = { "sandy", "-d", "-", NULL }, .filter = true  },
-	{ .name = "dvtm-editor", .argv = { "dvtm-editor", "-", NULL }, .filter = true  },
-	{ .name = "vim",         .argv = { "vim", "+%d", "-", NULL  }, .filter = false },
-	{ .name = "less",        .argv = { "less", "+%d", NULL      }, .filter = false },
-	{ .name = "more",        .argv = { "more", "+%d", NULL      }, .filter = false },
+	{ .name = "vis",         .argv = { "vis", "+%d", "-", NULL   }, .filter = true,  .color = false },
+	{ .name = "sandy",       .argv = { "sandy", "-d", "-", NULL  }, .filter = true,  .color = false },
+	{ .name = "dvtm-editor", .argv = { "dvtm-editor", "-", NULL  }, .filter = true,  .color = false },
+	{ .name = "vim",         .argv = { "vim", "+%d", "-", NULL   }, .filter = false, .color = false },
+	{ .name = "less",        .argv = { "less", "-R", "+%d", NULL }, .filter = false, .color = true  },
+	{ .name = "more",        .argv = { "more", "+%d", NULL       }, .filter = false, .color = false },
 };
