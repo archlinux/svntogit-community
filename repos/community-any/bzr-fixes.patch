@@ -1,0 +1,235 @@
+=== modified file 'src/nautilus_terminal.py'
+--- src/nautilus_terminal.py	2011-10-17 11:59:24 +0000
++++ src/nautilus_terminal.py	2015-08-02 11:45:09 +0000
+@@ -41,69 +41,78 @@
+ #Specific imports for Python 2 and 3
+ if sys.version_info < (3, 0):
+     from urllib import url2pathname
+-    from ConfigParser import RawConfigParser
++    from ConfigParser import SafeConfigParser
+ else:
+     from urllib.request import url2pathname
+-    from configparser import RawConfigParser
++    from configparser import SafeConfigParser
+ 
+ from gi.repository import GObject, Nautilus, Gtk, Gdk, Vte, GLib
+ 
+ 
+-DEFAULT_CONF = {
+-        'general/def_term_height': 5, #lines
+-        'general/def_visible': True,
+-        'general/term_on_top': True,
+-        'terminal/shell': Vte.get_user_shell(),
+-        }
+-
+-
+-class Config(object):
+-    """Handles the configuration of Nautilus Terminal."""
++def _get_config_path():
++    """Find the configuation file
++
++    Return:
++        The path of the configuraration file or None
++    """
++    config_file = os.path.join(os.environ.get("HOME"), ".%s" % __appname__)
++    if not os.path.isfile(config_file):
++        try:
++            from xdg import BaseDirectory
++        except ImportError:
++            pass
++        else:
++            config_file = os.path.join(
++                BaseDirectory.save_config_path(__appname__), "config.ini")
++    if os.path.isfile(config_file):
++        return config_file
++
++class Config(dict):
++    """The Nautilus Temrinal Configuration"""
+ 
+     def __init__(self):
+         """The constructor."""
+-        self._default = DEFAULT_CONF
+-        self._confp = RawConfigParser()
+-        self.read()
+-
+-    def read(self):
+-        """Read the configuration from a file."""
+-        #Determine where is stored the configuration
+-        config_file = os.path.join(os.environ.get("HOME"), ".%s" % __appname__)
+-        if not os.path.isfile(config_file):
+-            try:
+-                from xdg import BaseDirectory
+-            except ImportError:
+-                pass
+-            else:
+-                config_file = os.path.join(
+-                    BaseDirectory.save_config_path(__appname__), "config.ini")
+-        if os.path.isfile(config_file):
+-            self._confp.read([config_file])
+-
+-    def get(self, key, cast=str):
+-        """Get the value of a key.
+-
+-        Returns the value of the given key in the configuration file or the
+-        default value.
+-
+-        A key is composed of a section and an option name and looks like that:
+-
+-            section/optionname
+-
++        # Default config
++        self['general/def_term_height'] = 5 #lines
++        self['general/def_visible'] = True
++        self['general/term_on_top'] = True
++        self['terminal/shell'] = Vte.get_user_shell()
++        # Load from file
++        conf_path = _get_config_path();
++        if conf_path and os.path.isfile(_get_config_path()):
++            self._load_from_file(conf_path)
++
++    def _load_from_file(self, filepath):
++        """Read the configuration from the given file.
+         Args:
+-            key -- The key (e.g. foo/bar)
+-            cast -- The type of the value (string by default)
+-        """
+-        if cast == bool:
+-            cast = lambda b: bool(int(b))
+-        section, option = key.split("/")
+-        if self._confp.has_option(section, option):
+-            return cast(self._confp.get(section, option))
+-        elif key in self._default:
+-            return cast(self._default[key])
++            filepath -- The path of the configuration file (file must exists)
++        """
++        # Translation dict (for casting variables)
++        cast = {int: int,
++                str: str,
++                bool: lambda x: bool(int(x)),
++                list: lambda x: sub(r"\s*,\s*", ",", x).split(",")}
++        # Parse the config file
++        config_parser = SafeConfigParser()
++        config_parser.read(filepath)
++        for section in config_parser.sections():
++            for key, value in config_parser.items(section):
++                ckey = '%s/%s' % (section.lower(), key.lower())
++                # Update the config
++                if ckey in self:
++                    self[ckey] = cast[type(self[ckey])](value)
++
++    def __getattr__(self, attr):
++        """Sugar...
++
++        Allow you to use the "Config().section_key" syntax instead of
++        "Config()['section/key']".
++        """
++        key = attr.replace("_", "/")
++        if key in self:
++            return self[key]
+         else:
+-            raise KeyError
++            raise AttributeError("Config object has no '%s' attribute." % attr)
+ 
+ 
+ class NautilusTerminal(object):
+@@ -121,8 +130,11 @@
+         #Term
+         self.shell_pid = -1
+         self.term = Vte.Terminal()
+-        self.shell_pid = self.term.fork_command_full(Vte.PtyFlags.DEFAULT,
+-                self._path, [CONF.get("terminal/shell")], None,
++        term_spawn_cmd = "fork_command_full"
++        if (hasattr(self.term, "spawn_sync")):
++                term_spawn_cmd = "spawn_sync"
++        self.shell_pid = getattr(self.term, term_spawn_cmd)(Vte.PtyFlags.DEFAULT,
++                self._path, [CONF.terminal_shell], None,
+                 GLib.SpawnFlags.SEARCH_PATH, None, None)[1]
+         self.term.connect_after("child-exited", self._on_term_child_exited)
+         self.term.connect_after("popup-menu", self._on_term_popup_menu)
+@@ -184,7 +196,7 @@
+         #
+         self.menu.show_all()
+         #Conf
+-        self._set_term_height(CONF.get("general/def_term_height", int))
++        self._set_term_height(CONF["general/def_term_height"])
+         self._visible = True
+         #Lock
+         self._respawn_lock = False
+@@ -260,22 +272,24 @@
+ 
+     def _shell_is_busy(self):
+         """Check if the shell is waiting for a command or not."""
+-        wchan_path = "/proc/%i/wchan" % self.shell_pid
+-        wchan = open(wchan_path, "r").read()
+-        if wchan == "n_tty_read":
+-            return False
+-        elif wchan == "schedule":
+-            shell_stack_path = "/proc/%i/stack" % self.shell_pid
+-            try:
+-                for line in open(shell_stack_path, "r"):
+-                    if line.split(" ")[-1].startswith("n_tty_read"):
+-                        return False
+-                return True
+-            except IOError:
+-                #We can't know...
+-                return False
+-        else:
+-            return True
++        # Disabled because it does not work anymore
++        return False
++        #wchan_path = "/proc/%i/wchan" % self.shell_pid
++        #wchan = open(wchan_path, "r").read()
++        #if wchan == "n_tty_read":
++            #return False
++        #elif wchan == "schedule":
++            #shell_stack_path = "/proc/%i/stack" % self.shell_pid
++            #try:
++                #for line in open(shell_stack_path, "r"):
++                    #if line.split(" ")[-1].startswith("n_tty_read"):
++                        #return False
++                #return True
++            #except IOError:
++                ##We can't know...
++                #return False
++        #else:
++            #return True
+ 
+     def _uri_to_path(self, uri):
+         """Returns the path corresponding of the given URI.
+@@ -309,7 +323,7 @@
+         """
+         if not self._respawn_lock:
+             self.shell_pid = self.term.fork_command_full(Vte.PtyFlags.DEFAULT,
+-                self._path, [CONF.get("terminal/shell")], None,
++                self._path, [CONF.terminal_shell], None,
+                 GLib.SpawnFlags.SEARCH_PATH, None, None)[1]
+ 
+     def _on_drag_data_received(self, widget, drag_context, x, y, data, info, time):
+@@ -379,7 +393,7 @@
+             vpan.show()
+             vbox = Gtk.VBox()
+             vbox.show()
+-            if CONF.get("general/term_on_top", bool):
++            if CONF["general/term_on_top"]:
+                 vpan.add2(vbox)
+             else:
+                 vpan.add1(vbox)
+@@ -394,7 +408,7 @@
+             nterm = NautilusTerminal(self._uri, self._window)
+             if hasattr(self._window, "term_visible"):
+                 nterm.set_visible(self._window.term_visible)
+-            if CONF.get("general/term_on_top", bool):
++            if CONF["general/term_on_top"]:
+                 vpan.add1(nterm.get_widget())
+             else:
+                 vpan.add2(nterm.get_widget())
+@@ -447,7 +461,7 @@
+         if not hasattr(window, "toggle_hide_cb"):
+             window.toggle_hide_cb = []
+         if not hasattr(window, "term_visible"):
+-            window.term_visible = CONF.get("general/def_visible", bool)
++            window.term_visible = CONF["general/def_visible"]
+         #URI specific stuff
+         if uri.startswith("x-nautilus-desktop:///"):
+             return
+
