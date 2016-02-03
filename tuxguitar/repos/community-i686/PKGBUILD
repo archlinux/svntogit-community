@@ -3,8 +3,8 @@
 # Contributor: |AhIoRoS| < ahioros@gmail.com >
 
 pkgname=tuxguitar
-pkgver=1.2
-pkgrel=7
+pkgver=1.3.0
+pkgrel=1
 _jdk=java-7-openjdk
 pkgdesc="multitrack guitar tablature editor and player"
 arch=('i686' 'x86_64')
@@ -12,122 +12,72 @@ arch=('i686' 'x86_64')
 url="http://sourceforge.net/projects/tuxguitar"
 license=('LGPL')
 depends=('java-runtime' 'swt' 'alsa-lib')
-makedepends=('unzip' 'zip' 'apache-ant' 'jack' 'fluidsynth' 'java-environment')
+makedepends=('unzip' 'zip' 'apache-ant' 'jack' 'fluidsynth' 'java-environment' 'maven')
 optdepends=('fluidsynth')
 install=tuxguitar.install
-source=(tuxguitar-src-$pkgver.tar.gz::http://sourceforge.net/projects/tuxguitar/files/TuxGuitar/TuxGuitar-$pkgver/tuxguitar-src-$pkgver.tar.gz/download
+source=(tuxguitar-src-$pkgver.tar.gz::http://downloads.sourceforge.net/project/tuxguitar/TuxGuitar/TuxGuitar-$pkgver/tuxguitar-$pkgver-src.tar.gz
 	tuxguitar.desktop
 	tuxguitar.xml)
-md5sums=('f41ed20e77c6c3d8968991a29c71b912'
+md5sums=('62eef6a9ac511c987a0ac65510cb1bca'
          '0afa7f3248b9317d73ad8ccdc5e5aaf0'
          '59ce4eb8dcc0d0dde81e6cf2820aa9b0')
 
+prepare() {
+  cd $srcdir
+  cat >gcj <<EOF
+#!/bin/sh
+echo "/usr/lib/jvm/default/include -I/usr/lib/jvm/default/include/linux"
+EOF
+  chmod 0755 gcj
+}
+
 build() {
-  cd $srcdir/tuxguitar-src-$pkgver
+  [ $CARCH == x86_64 ] && _arch=x86_64
+  [ $CARCH == i686 ] && _arch=x86
 
-  export CLASSPATH=/usr/share/java/swt.jar:$CLASSPATH
+  export PATH=$srcdir:$PATH
+  export MAVEN_OPTS="$MAVEN_OPTS -Duser.home=$srcdir"
 
-  (cd TuxGuitar/ && ant)
-  (cd TuxGuitar-alsa/ && ant)
-  (cd TuxGuitar-fluidsynth/ && ant)
-  (cd TuxGuitar-jack/ && ant)
-  (cd TuxGuitar-oss/ && ant)
-  (cd TuxGuitar-compat/ && ant)
-  (cd TuxGuitar-gtp/ && ant)
-  (cd TuxGuitar-ptb/ && ant)
-  (cd TuxGuitar-tef/ && ant)
-  (cd TuxGuitar-midi/ && ant)
-  (cd TuxGuitar-lilypond/ && ant)
-  (cd TuxGuitar-musicxml/ && ant)
-  (cd TuxGuitar-ascii/ && ant)
-  (cd TuxGuitar-converter/ && ant)
-  (cd TuxGuitar-tray/ && ant)
-  (cd TuxGuitar-community/ && ant)
-  (cd TuxGuitar-gervill/ && ant)
-  (cd TuxGuitar-jsa/ && ant)
+  # tuxguitar
+  cd $srcdir/tuxguitar-$pkgver-src/build-scripts/tuxguitar-linux-${_arch}
+  mvn install
 
-  # alsa
-  pushd TuxGuitar-alsa/jni
-  gcc -I/usr/lib/jvm/${_jdk}/include -I/usr/lib/jvm/${_jdk}/include/linux -fPIC \
-	-c -o org_herac_tuxguitar_player_impl_midiport_alsa_MidiSystem.o \
-	org_herac_tuxguitar_player_impl_midiport_alsa_MidiSystem.c
-  gcc  -shared -o libtuxguitar-alsa-jni.so org_herac_tuxguitar_player_impl_midiport_alsa_MidiSystem.o -L/usr/lib -lasound
-  popd
+  for i in TuxGuitar-lib TuxGuitar-gm-utils; do
+    cd $srcdir/tuxguitar-$pkgver-src/$i
+    mvn install
+  done
 
-  # oss
-  pushd TuxGuitar-oss/jni
-  gcc -I/usr/lib/jvm/${_jdk}/include -I/usr/lib/jvm/${_jdk}/include/linux -fPIC \
-	-c -o org_herac_tuxguitar_player_impl_midiport_oss_MidiSystem.o \
-	org_herac_tuxguitar_player_impl_midiport_oss_MidiSystem.c
-  gcc  -shared -o libtuxguitar-oss-jni.so org_herac_tuxguitar_player_impl_midiport_oss_MidiSystem.o -L/usr/lib
-  popd
+  cd $srcdir/tuxguitar-$pkgver-src
+  mvn install
 
-  # jack
-  pushd TuxGuitar-jack/jni
-  gcc -I/usr/lib/jvm/${_jdk}/include -I/usr/lib/jvm/${_jdk}/include/linux -fPIC \
-	-c -o org_herac_tuxguitar_jack_JackClient.o \
-	org_herac_tuxguitar_jack_JackClient.c
-  gcc  -shared -o libtuxguitar-jack-jni.so org_herac_tuxguitar_jack_JackClient.o -L/usr/lib -ljack
-  popd
-
-  # fluidsynth
-  pushd TuxGuitar-fluidsynth/jni
-  gcc -I/usr/lib/jvm/${_jdk}/include -I/usr/lib/jvm/${_jdk}/include/linux -fPIC \
-	-c -o org_herac_tuxguitar_player_impl_midiport_fluidsynth_MidiSynth.o \
-	org_herac_tuxguitar_player_impl_midiport_fluidsynth_MidiSynth.c
-  gcc  -shared -o libtuxguitar-fluidsynth-jni.so org_herac_tuxguitar_player_impl_midiport_fluidsynth_MidiSynth.o -L/usr/lib -lfluidsynth
-  popd
+  # native modules
+  for i in alsa oss jack fluidsynth; do
+    cd $srcdir/tuxguitar-$pkgver-src/build-scripts/native-modules/tuxguitar-$i-linux-${_arch}
+    mvn install
+  done
 }
 
 package() {
-  cd $srcdir/tuxguitar-src-$pkgver
+  [ $CARCH == x86_64 ] && _arch=x86_64
+  [ $CARCH == i686 ] && _arch=x86
 
-  mkdir -p $pkgdir/usr/share/tuxguitar
-  mkdir -p $pkgdir/usr/bin
+  mkdir -p $pkgdir/usr/{bin,share}
 
-  cp -r TuxGuitar/share $pkgdir/usr/share/tuxguitar/
-  find -name \*.jar -exec sh -c 'cp {} '$pkgdir'/usr/share/tuxguitar/share/plugins/`basename {}`' \;
-  mv $pkgdir/usr/share/tuxguitar/share/plugins/tuxguitar.jar $pkgdir/usr/share/tuxguitar/
-  cp TuxGuitar/tuxguitar $pkgdir/usr/share/tuxguitar/
-
-  # alsa
-  pushd TuxGuitar-alsa/jni
-  install -D -m0755 libtuxguitar-alsa-jni.so $pkgdir/usr/lib/tuxguitar/libtuxguitar-alsa-jni.so
-  mkdir -p $pkgdir/usr/share/tuxguitar/lib
-  ln -s /usr/lib/tuxguitar/libtuxguitar-alsa-jni.so $pkgdir/usr/share/tuxguitar/lib/libtuxguitar-alsa-jni.so
-  popd
-
-  # oss
-  pushd TuxGuitar-oss/jni
-  install -D -m0755 libtuxguitar-oss-jni.so $pkgdir/usr/lib/tuxguitar/libtuxguitar-oss-jni.so
-  mkdir -p $pkgdir/usr/share/tuxguitar/lib
-  ln -s /usr/lib/tuxguitar/libtuxguitar-oss-jni.so $pkgdir/usr/share/tuxguitar/lib/libtuxguitar-oss-jni.so
-  popd
-
-  # jack
-  pushd TuxGuitar-jack/jni
-  install -D -m0755 libtuxguitar-jack-jni.so $pkgdir/usr/lib/tuxguitar/libtuxguitar-jack-jni.so
-  mkdir -p $pkgdir/usr/share/tuxguitar/lib
-  ln -s /usr/lib/tuxguitar/libtuxguitar-jack-jni.so $pkgdir/usr/share/tuxguitar/lib/libtuxguitar-jack-jni.so
-  popd
-
-  # fluidsynth
-  pushd TuxGuitar-fluidsynth/jni
-  install -D -m0755 libtuxguitar-fluidsynth-jni.so $pkgdir/usr/lib/tuxguitar/libtuxguitar-fluidsynth-jni.so
-  mkdir -p $pkgdir/usr/share/tuxguitar/lib
-  ln -s /usr/lib/tuxguitar/libtuxguitar-fluidsynth-jni.so $pkgdir/usr/share/tuxguitar/lib/libtuxguitar-fluidsynth-jni.so
-  popd
-
-  cd $pkgdir/usr/bin
-  cat >tuxguitar << EOF
+  cd $srcdir/tuxguitar-$pkgver-src/build-scripts/tuxguitar-linux-${_arch}
+  # tuxguitar
+  cp -a target/tuxguitar-$pkgver-linux-${_arch} $pkgdir/usr/share/tuxguitar
+  cat >$pkgdir/usr/bin/tuxguitar <<EOF
 #!/bin/sh
-export CLASSPATH=/usr/share/java/swt.jar:$CLASSPATH
-export LD_LIBRARY_PATH=lib/:$LD_LIBRARY_PATH
-cd /usr/share/$pkgname
-exec /usr/share/$pkgname/tuxguitar "\$1" "\$2" "\$3" "\$4" "\$5" "\$6" "\$7" "\$8" "\$9"
+cd /usr/share/tuxguitar && exec ./tuxguitar.sh "\$@"
 EOF
+  chmod 0755 $pkgdir/usr/bin/tuxguitar
 
-  chmod 755 tuxguitar
+  # native modules
+  for i in alsa oss jack fluidsynth; do
+    cp -a $srcdir/tuxguitar-$pkgver-src/build-scripts/native-modules/tuxguitar-$i-linux-${_arch}/target/build/* $pkgdir/usr/share/tuxguitar/
+  done
+
+  # desktop files
   install -D -m0644 $srcdir/tuxguitar.xml $pkgdir/usr/share/mime/packages/tuxguitar.xml
   install -D -m0644 $srcdir/tuxguitar.desktop $pkgdir/usr/share/applications/tuxguitar.desktop
 }
