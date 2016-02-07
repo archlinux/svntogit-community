@@ -1,0 +1,57 @@
+# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Contributor: Juergen Hoetzel <juergen@hoetzel.info>
+# Contributor: basilburn (basilburn), Paul Bredbury (brebs) 
+
+pkgname=privoxy
+pkgver=3.0.24
+pkgrel=2
+pkgdesc='A web proxy with advanced filtering capabilities.'
+arch=('i686' 'x86_64')
+url='http://www.privoxy.org'
+license=('GPL')
+depends=('pcre' 'zlib')
+makedepends=('autoconf')
+backup=('etc/privoxy/'{config,trust,default.action,user.filter,default.filter}
+        'etc/privoxy/'{match-all,user}.action
+        'etc/logrotate.d/privoxy')
+install='privoxy.install'
+source=("http://downloads.sourceforge.net/ijbswa/${pkgname}-${pkgver}-stable-src.tar.gz"
+        'privoxy.logrotate.d'
+        'privoxy.service')
+md5sums=('44a47d1a5000db8cccd61ace0e25e7f7'
+         'fc3046377137003726a151ee27b142a2'
+         '37965b9a52ab1f2cb9f36cee617f5cf9')
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}-stable"
+
+  autoheader
+  autoconf
+  ./configure --prefix=/usr --sysconfdir=/etc/privoxy --enable-compression
+
+  make
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}-stable"
+
+  make prefix="${pkgdir}/usr" SBIN_DEST="${pkgdir}/usr/bin" \
+    MAN_DEST="${pkgdir}/usr/share/man/man1" GROUP=42 \
+    CONF_BASE="${pkgdir}/etc/privoxy" VAR_DEST="${pkgdir}/var" install
+
+  # Fix configuration paths.
+  sed -i -e 's#^confdir.*$#confdir /etc/privoxy#' -e 's#^logdir.*$#logdir /var/log/privoxy#' \
+    -e '/^user-manual/s#.*#\#user-manual /usr/share/doc/privoxy/user-manual/#' \
+    "${pkgdir}/etc/privoxy/config"
+
+  # Install systemd unit and logrotate configuration.
+  install -Dm0644 "${srcdir}/privoxy.service" "${pkgdir}/usr/lib/systemd/system/privoxy.service"
+  install -Dm0644 "${srcdir}/privoxy.logrotate.d" "${pkgdir}/etc/logrotate.d/privoxy"
+
+  # Don't overwrite existing log files and fix log directory permissions.
+  rm "${pkgdir}/var/log/privoxy/"*
+  chown -R 42:42 "${pkgdir}"/etc/privoxy "${pkgdir}"/var/log/privoxy
+
+  # Avoid conflict with filesystem>=2012.06.
+  rmdir "$pkgdir/var/run"
+}
