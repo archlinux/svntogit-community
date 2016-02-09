@@ -3,8 +3,8 @@
 # Contributor: Florian Hahn <flo@fhahn.com>
 
 pkgname=neovim
-pkgver=0.1.1
-pkgrel=2
+pkgver=0.1.2
+pkgrel=1
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('i686' 'x86_64')
 url='https://neovim.io'
@@ -15,16 +15,9 @@ optdepends=('python2-neovim: for Python 2 plugin support (see :help nvim-python)
             'python-neovim: for Python 3 plugin support (see :help nvim-python)'
             'xclip: for clipboard support (or xsel) (see :help nvim-clipboard)'
             'xsel: for clipboard support (or xclip) (see :help nvim-clipboard)')
-source=("https://github.com/neovim/neovim/archive/v${pkgver}.tar.gz"
-        msgpack-14-compat.patch::https://github.com/neovim/neovim/commit/feb70192a85d04343ecc383ea9a42aa8cd15e98d.patch)
-sha256sums=('f39bcab23457c66ce0d67dcf8029743703f860413db0070f75d4f0ffad27c6c1'
-            '16aa4fb704fc613ce4148ec7e0da8458d956022502e1b64f2f72c3d8b90ffc63')
+source=("https://github.com/neovim/neovim/archive/v${pkgver}.tar.gz")
+sha256sums=('549881465eff82454660ae92d857d6ffa22383d45c94c46f3753fd1b0e699247')
 install=neovim.install
-
-prepare() {
-  cd "neovim-${pkgver}"
-  patch -p1 < "${srcdir}/msgpack-14-compat.patch"
-}
 
 build() {
   mkdir -p "${srcdir}/build"
