@@ -36,7 +36,7 @@ end
 
 # Links object files
 def link(output, objects, ldflags)
-  puts "g++ -o #{output} #{ldflags} \"$LDFLAGS\" #{objects.join(' ')}"
+  puts "g++ -o #{output} #{ldflags} $LDFLAGS #{objects.join(' ')}"
 end
 
 minicryptfiles = %w(
