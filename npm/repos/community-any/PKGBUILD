@@ -2,8 +2,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=3.7.1
-pkgrel=2
+pkgver=3.7.2
+pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
