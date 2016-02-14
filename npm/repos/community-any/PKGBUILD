@@ -3,12 +3,12 @@
 
 pkgname=npm
 pkgver=3.7.1
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
 license=('custom:Artistic')
-depends=('nodejs')
+depends=('nodejs' 'semver')
 provides=('nodejs-node-gyp')
 makedepends=('git' 'procps-ng')
 optdepends=('python2: for node-gyp')
@@ -43,6 +43,13 @@ package() {
   # Provide node-gyp executable
   cp "$pkgdir"/usr/lib/node_modules/npm/bin/node-gyp-bin/node-gyp "$pkgdir"/usr/bin/node-gyp
   sed -i 's|"`dirname "$0"`/../../|"`dirname "$0"`/../lib/node_modules/npm/|' "$pkgdir"/usr/bin/node-gyp
+
+  # Experimental dedup
+  cd "$pkgdir"/usr/lib/node_modules/$pkgname/node_modules
+  for dep in semver; do
+    rm -r $dep;
+    node "$srcdir"/npm/cli.js link $dep;
+  done
   
   install -Dm644 "$srcdir/npm/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
