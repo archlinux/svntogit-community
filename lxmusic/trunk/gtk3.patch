@@ -1,0 +1,493 @@
+From ffc46b7eef2df21e024b04f3b29971093460a8d9 Mon Sep 17 00:00:00 2001
+From: =?utf8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Thu, 18 Dec 2014 02:24:43 +0100
+Subject: [PATCH] Fix some deprecations and add an option to compile with gtk3
+
+---
+ configure.ac             | 19 +++++++++++++--
+ data/lxmusic.ui.glade    |  1 -
+ data/track-info.ui.glade |  1 -
+ src/lxmusic.c            | 63 ++++++++++++++++++++++++++++--------------------
+ 4 files changed, 54 insertions(+), 30 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 6bf5316..836560b 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -6,7 +6,7 @@ AM_CONFIG_HEADER(config.h)
+ AM_MAINTAINER_MODE([enable])
+ 
+ # Required Packages
+-m4_define([gtk_minimum_version], [2.14.0])
++m4_define([gtk_minimum_version], [2.20.0])
+ m4_define([gmodule_export_minimum_version], [2.0])
+ m4_define([xmms2_minimum_version], [0.7])
+ m4_define([xmms2_client_glib_minimum_version], [0.7])
+@@ -22,8 +22,23 @@ AC_HEADER_STDC
+ AC_PROG_INTLTOOL(, [no-xml])
+ 
+ dnl check for mandatory modules
++AC_ARG_ENABLE(gtk3,
++AC_HELP_STRING([--enable-gtk3],[enable to use gtk-3.0 instead of gtk-2.0]),
++[case "${enableval}" in
++  yes)  enable_gtk3=yes ;;
++  no)   enable_gtk3=no ;;
++  *) AC_MSG_ERROR([bad value "${enableval}" for --enable-gtk3, use "yes" (default) or "no".]) ;;
++esac],[])
++
++# Checks for libraries.
++if test "x$enable_gtk3" = "xyes" ; then
++  CFLAGS="$CFLAGS -DENABLE_GTK3"
++  gtk_modules="gtk+-3.0 >= 3.0.0"
++else
++  gtk_modules="gtk+-2.0 >= gtk_minimum_version"
++fi
+ PKG_CHECK_MODULES(LXMUSIC,
+-        [gtk+-2.0 >= gtk_minimum_version
++        [$gtk_modules
+ 	gmodule-export-2.0 >= gmodule_export_minimum_version
+ 	xmms2-client >= xmms2_minimum_version
+ 	xmms2-client-glib >= xmms2_client_glib_minimum_version])
+diff --git a/data/lxmusic.ui.glade b/data/lxmusic.ui.glade
+index b5572fa..1856b30 100644
+--- a/data/lxmusic.ui.glade
++++ b/data/lxmusic.ui.glade
+@@ -370,7 +370,6 @@
+                 <property name="width_request">80</property>
+                 <property name="visible">True</property>
+                 <property name="can_focus">True</property>
+-                <property name="update_policy">GTK_UPDATE_DELAYED</property>
+                 <property name="adjustment">adjustment1</property>
+                 <property name="draw_value">False</property>
+                 <signal handler="on_progress_bar_changed" name="value_changed"/>
+diff --git a/data/track-info.ui.glade b/data/track-info.ui.glade
+index 05895b0..50a6e23 100644
+--- a/data/track-info.ui.glade
++++ b/data/track-info.ui.glade
+@@ -7,7 +7,6 @@
+     <property name="window_position">GTK_WIN_POS_CENTER_ON_PARENT</property>
+     <property name="default_width">480</property>
+     <property name="type_hint">GDK_WINDOW_TYPE_HINT_DIALOG</property>
+-    <property name="has_separator">False</property>
+     <signal handler="gtk_widget_destroy" name="response"/>
+     <child internal-child="vbox">
+       <object class="GtkVBox" id="dialog-vbox1">
+diff --git a/src/lxmusic.c b/src/lxmusic.c
+index 001619d..14aa17a 100644
+--- a/src/lxmusic.c
++++ b/src/lxmusic.c
+@@ -252,13 +252,6 @@ void on_main_win_destroy(GtkWidget* win)
+     }
+ }
+ 
+-static void open_url(GtkAboutDialog* dlg, const char* url, gpointer user_data)
+-{
+-    const char* argv[] = {"xdg-open", NULL, NULL};
+-    argv[1] = url;
+-    g_spawn_async("/", (gchar**)argv, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, NULL);
+-}
+-
+ void on_about(GtkWidget* mi, gpointer data)
+ {
+     const char* authors[] = { "æ´ªä»»è«­ (Hong Jen Yee) <pcman.tw@gmail.com>", 
+@@ -266,11 +259,9 @@ void on_about(GtkWidget* mi, gpointer data)
+     const char* artists[] = { N_("Official icon of xmms2 by Arnaud DIDRY"), NULL };
+     GtkWidget* about;
+ 
+-    gtk_about_dialog_set_url_hook(open_url, NULL, NULL);
+-
+     about = gtk_about_dialog_new();
+-    gtk_about_dialog_set_name( (GtkAboutDialog*)about, "LXMusic" );
+-    gtk_about_dialog_set_logo_icon_name((GtkAboutDialog*)about, "lxmusic");
++    gtk_about_dialog_set_program_name( (GtkAboutDialog*)about, "LXMusic" );
++    gtk_about_dialog_set_logo((GtkAboutDialog*)about, gdk_pixbuf_new_from_file(PACKAGE_DATA_DIR"/pixmaps/lxmusic.png", NULL));
+     gtk_about_dialog_set_version( (GtkAboutDialog*)about, VERSION );
+     gtk_about_dialog_set_authors( (GtkAboutDialog*)about, authors );
+     gtk_about_dialog_set_artists( (GtkAboutDialog*)about, artists );
+@@ -349,7 +340,7 @@ static int on_pref_dlg_init_widget(xmmsv_t* value, void* user_data)
+             gtk_spin_button_set_value(GTK_SPIN_BUTTON(w), atoi(val));
+         else if( GTK_IS_ENTRY(w) )
+             gtk_entry_set_text(GTK_ENTRY(w), val);
+-        else if( GTK_IS_COMBO_BOX_ENTRY(w) )
++        else if( GTK_IS_COMBO_BOX(w) && gtk_bin_get_child(GTK_BIN(w)) != NULL )
+             gtk_entry_set_text(GTK_ENTRY(gtk_bin_get_child(GTK_BIN(w))), val);
+         else
+             g_debug("%s is not supported", G_OBJECT_TYPE_NAME(w));
+@@ -382,7 +373,15 @@ int on_pref_dlg_init_output_plugin(xmmsv_t* value, void* user_data)
+ 	/* fallback to xmms2 plugin names if no translation available*/
+ 	if ( label == NULL )
+ 	    label = xmms2_name;
++#if GTK_CHECK_VERSION(2, 24, 0)
++	GtkListStore *store = GTK_LIST_STORE(gtk_combo_box_get_model(output_plugin_cb));
++	GtkTreeIter iter;
++	/* keeping it as GtkComboBox for backward compatibility with GTK+ < 2.24 */
++	gtk_list_store_append(store, &iter);
++	gtk_list_store_set(store, &iter, 0, label, -1);
++#else
+ 	gtk_combo_box_append_text( output_plugin_cb, label );
++#endif
+     }
+     
+ 
+@@ -399,7 +398,7 @@ int on_pref_dlg_init_output_plugin(xmmsv_t* value, void* user_data)
+ static void on_tray_icon_activate(GtkStatusIcon* icon, gpointer user_data)
+ {
+     /* FIXME: should we unload the playlist to free resources here? */
+-    if( GTK_WIDGET_VISIBLE(main_win) )
++    if( gtk_widget_get_visible(main_win) )
+     {
+ 		/* save window position before we hide the window */
+ 		gtk_window_get_position((GtkWindow*)main_win, &win_xpos, &win_ypos);
+@@ -448,7 +447,7 @@ static void on_tray_icon_popup_menu(GtkStatusIcon* icon, guint btn, guint time,
+ static void create_tray_icon()
+ {
+     tray_icon = (GtkWidget*)gtk_status_icon_new_from_icon_name("lxmusic");
+-    gtk_status_icon_set_tooltip(GTK_STATUS_ICON(tray_icon), _("LXMusic"));
++    gtk_status_icon_set_tooltip_text(GTK_STATUS_ICON(tray_icon), _("LXMusic"));
+     g_signal_connect(tray_icon, "activate", G_CALLBACK(on_tray_icon_activate), NULL );
+     g_signal_connect(tray_icon, "popup-menu", G_CALLBACK(on_tray_icon_popup_menu), NULL );
+     g_signal_connect(tray_icon, "scroll-event", G_CALLBACK(on_volume_btn_scrolled), volume_btn);
+@@ -843,7 +842,11 @@ gboolean on_playlist_view_drag_drop(GtkWidget      *widget,
+     /*  Don't call the default handler  */
+ //    g_signal_stop_emission_by_name( widget, "drag-drop" );
+ 
++#if GTK_CHECK_VERSION(2, 22, 0)
++    if( g_list_find( gdk_drag_context_list_targets(drag_ctx), target ) )
++#else
+     if( g_list_find( drag_ctx->targets, target ) )
++#endif
+     {
+         gtk_drag_get_data( widget, drag_ctx, target, time );
+         return TRUE;
+@@ -1047,7 +1050,7 @@ void on_add_url( GtkMenuItem* item, gpointer user_data )
+             GTK_STOCK_OK, GTK_RESPONSE_OK, NULL );
+     GtkWidget *entry = gtk_entry_new();
+     gtk_window_set_destroy_with_parent(GTK_WINDOW(dlg), TRUE);
+-    gtk_box_pack_start( (GtkBox*)((GtkDialog*)dlg)->vbox, entry, FALSE, FALSE, 4 );
++    gtk_box_pack_start( (GtkBox*)gtk_dialog_get_content_area(GTK_DIALOG(dlg)), entry, FALSE, FALSE, 4 );
+     gtk_dialog_set_default_response( (GtkDialog*)dlg, GTK_RESPONSE_OK );
+     gtk_entry_set_activates_default( (GtkEntry*)entry, TRUE );
+     gtk_widget_show_all( dlg );
+@@ -1128,11 +1131,19 @@ gboolean  on_playlist_view_key_press_event (GtkWidget *widget,
+ {
+     switch ( event->keyval) 
+     {
++#if GTK_CHECK_VERSION(2, 21, 0)
++    case GDK_KEY_Delete:
++#else
+     case GDK_Delete:
++#endif
+ 	/* dummy values: needs cleanup  */
+ 	on_remove_selected (NULL, NULL); 
+ 	break;
++#if GTK_CHECK_VERSION(2, 21, 0)
++    case GDK_KEY_Insert:
++#else
+     case GDK_Insert:
++#endif
+ 	/* dummy values: needs cleanup  */
+ 	on_add_files( NULL, NULL );
+ 	break;
+@@ -1283,7 +1294,7 @@ static int update_track( xmmsv_t *value, GtkTreeRowReference *ref )
+ 	if( tray_icon ) 
+ 	{
+ 	    GString* tray_tooltip = create_window_title(track_properties.artist, track_properties.title, playback_status == XMMS_PLAYBACK_STATUS_PLAY);
+-	    gtk_status_icon_set_tooltip( GTK_STATUS_ICON(tray_icon), tray_tooltip->str );
++	    gtk_status_icon_set_tooltip_text( GTK_STATUS_ICON(tray_icon), tray_tooltip->str );
+ 	    g_string_free( tray_tooltip, TRUE );
+ 	}
+ 	
+@@ -1425,8 +1436,8 @@ static int on_playlist_entries_received( xmmsv_t* value, GtkWidget* list_view )
+     res = xmmsc_coll_get( con, cur_playlist, "Playlists" );
+     xmmsc_result_notifier_set_and_unref(res, on_playlist_coll_received, NULL );
+ 								
+-    if( GTK_WIDGET_REALIZED( list_view ) )
+-        gdk_window_set_cursor( list_view->window, NULL );
++    if( gtk_widget_get_realized( list_view ) )
++        gdk_window_set_cursor( gtk_widget_get_window(list_view), NULL );
+ 
+     gtk_tree_view_set_model( GTK_TREE_VIEW(list_view), mf );
+ 
+@@ -1455,10 +1466,10 @@ static void update_play_list( GtkWidget* list_view )
+ {
+     xmmsc_result_t *res;
+ 
+-    if( GTK_WIDGET_REALIZED( list_view ) ) {
++    if( gtk_widget_get_realized( list_view ) ) {
+         GdkCursor* cur;
+         cur = gdk_cursor_new( GDK_WATCH );
+-        gdk_window_set_cursor( list_view->window, cur );
++        gdk_window_set_cursor( gtk_widget_get_window(list_view), cur );
+         gdk_cursor_unref( cur );
+     }
+     /* get current playlist as id_list */
+@@ -1860,7 +1871,7 @@ static int on_playback_track_loaded( xmmsv_t* value, void* user_data )
+     gtk_window_set_title( GTK_WINDOW(main_win), window_title->str );
+     
+     if( tray_icon )
+-        gtk_status_icon_set_tooltip(GTK_STATUS_ICON(tray_icon), window_title->str);
++        gtk_status_icon_set_tooltip_text(GTK_STATUS_ICON(tray_icon), window_title->str);
+ 
+     LXMusicNotification lxn = lxmusic_do_notify_prepare ( track_properties.artist, track_properties.title,  
+ 							      _("Now Playing:"), GTK_STATUS_ICON(tray_icon) );
+@@ -1879,7 +1890,7 @@ static int on_playback_track_loaded( xmmsv_t* value, void* user_data )
+ 
+ static void send_notification_pixbuf( LXMusicNotification lxn, GdkPixbuf *pixbuf ) 
+ {
+-    if(!GTK_WIDGET_VISIBLE(main_win))  
++    if(!gtk_widget_get_visible(main_win))
+     {
+ 	/* FIXME: Hardcoded notification icon size */
+ 	GdkPixbuf *scaled_pixbuf = gdk_pixbuf_scale_simple( pixbuf, 64, 64, GDK_INTERP_HYPER );
+@@ -1890,7 +1901,7 @@ static void send_notification_pixbuf( LXMusicNotification lxn, GdkPixbuf *pixbuf
+ 
+ static void send_notification( LXMusicNotification lxn ) 
+ {
+-    if(!GTK_WIDGET_VISIBLE(main_win)) 
++    if(!gtk_widget_get_visible(main_win))
+ 	lxmusic_do_notify( lxn );
+ }
+ 
+@@ -2325,7 +2336,7 @@ static void setup_ui()
+     /* add volume button */
+     hbox = (GtkWidget*)gtk_builder_get_object(builder, "top_hbox");
+     volume_btn = gtk_volume_button_new();
+-    gtk_scale_button_get_adjustment(GTK_SCALE_BUTTON(volume_btn))->upper = 100;
++    gtk_adjustment_set_upper (gtk_scale_button_get_adjustment(GTK_SCALE_BUTTON(volume_btn)), 100);
+     gtk_widget_show(volume_btn);
+     gtk_box_pack_start(GTK_BOX(hbox), volume_btn, FALSE, TRUE, 0);
+     g_signal_connect(volume_btn, "value-changed", G_CALLBACK(on_volume_btn_changed), NULL);
+@@ -2362,7 +2373,7 @@ void on_new_playlist(GtkAction* act, gpointer user_data)
+             GTK_STOCK_OK, GTK_RESPONSE_OK, NULL );
+     gtk_window_set_destroy_with_parent(GTK_WINDOW(dlg), TRUE);
+     GtkWidget *entry = gtk_entry_new();
+-    gtk_box_pack_start( (GtkBox*)((GtkDialog*)dlg)->vbox, entry, FALSE, FALSE, 4 );
++    gtk_box_pack_start( (GtkBox*)gtk_dialog_get_content_area(GTK_DIALOG(dlg)), entry, FALSE, FALSE, 4 );
+     gtk_dialog_set_default_response( (GtkDialog*)dlg, GTK_RESPONSE_OK );
+     gtk_entry_set_activates_default( (GtkEntry*)entry, TRUE );
+     gtk_widget_show_all( dlg );
+@@ -2419,7 +2430,7 @@ void on_del_playlist(GtkAction* act, gpointer user_data)
+ void on_show_playlist(GtkAction* act, gpointer user_data)
+ {
+     show_playlist = gtk_toggle_action_get_active(GTK_TOGGLE_ACTION(act));
+-    if(GTK_WIDGET_VISIBLE(inner_vbox))
++    if(gtk_widget_get_visible(inner_vbox))
+     {
+         if( ! show_playlist )
+         {
+-- 
+2.1.4
+
+From 748e03bc88790e9af42ffe67abc9853732d647ce Mon Sep 17 00:00:00 2001
+From: =?utf8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Mon, 20 Jul 2015 22:09:52 +0200
+Subject: [PATCH] Don't use GtkBuilder for popup menu
+
+This makes it compatible with GTK+ 3.
+---
+ data/Makefile.am    |  3 +--
+ data/popup.ui.glade | 69 ----------------------------------------------------
+ po/POTFILES.in      |  1 -
+ src/lxmusic.c       | 70 ++++++++++++++++++++++++++++++++++++++++++++---------
+ 4 files changed, 59 insertions(+), 84 deletions(-)
+ delete mode 100644 data/popup.ui.glade
+
+diff --git a/data/Makefile.am b/data/Makefile.am
+index bbdfe49..c7679de 100644
+--- a/data/Makefile.am
++++ b/data/Makefile.am
+@@ -13,8 +13,7 @@ uidir=$(datadir)/lxmusic
+ ui_DATA= \
+ 	lxmusic.ui.glade \
+ 	pref-dlg.ui.glade \
+-	track-info.ui.glade \
+-	popup.ui.glade
++	track-info.ui.glade
+ 
+ EXTRA_DIST = \
+ 	$(desktop_DATA) \
+diff --git a/data/popup.ui.glade b/data/popup.ui.glade
+deleted file mode 100644
+index 871dc64..0000000
+--- a/data/popup.ui.glade
++++ /dev/null
+@@ -1,69 +0,0 @@
+-<?xml version="1.0"?>
+-<!--*- mode: xml -*-->
+-<interface>
+-  <object class="GtkUIManager" id="uimanager1">
+-    <child>
+-      <object class="GtkActionGroup" id="actiongroup1">
+-        <child>
+-          <object class="GtkAction" id="show_main_win">
+-            <property name="stock_id">gtk-open</property>
+-            <property name="name">show_main_win</property>
+-            <property name="label" translatable="yes">_Show Main Window</property>
+-            <signal handler="on_show_main_win" name="activate"/>
+-          </object>
+-        </child>
+-        <child>
+-          <object class="GtkAction" id="play">
+-            <property name="stock_id">gtk-media-play</property>
+-            <property name="name">play</property>
+-            <signal handler="on_play_btn_clicked" name="activate"/>
+-          </object>
+-        </child>
+-        <child>
+-          <object class="GtkAction" id="stop">
+-            <property name="stock_id">gtk-media-stop</property>
+-            <property name="name">stop</property>
+-            <signal handler="on_stop_btn_clicked" name="activate"/>
+-          </object>
+-        </child>
+-        <child>
+-          <object class="GtkAction" id="prev">
+-            <property name="stock_id">gtk-media-previous</property>
+-            <property name="name">prev</property>
+-            <signal handler="on_prev_btn_clicked" name="activate"/>
+-          </object>
+-        </child>
+-        <child>
+-          <object class="GtkAction" id="next">
+-            <property name="stock_id">gtk-media-next</property>
+-            <property name="name">next</property>
+-            <signal handler="on_next_btn_clicked" name="activate"/>
+-          </object>
+-        </child>
+-        <child>
+-          <object class="GtkAction" id="quit">
+-            <property name="stock_id">gtk-quit</property>
+-            <property name="name">quit</property>
+-            <signal handler="on_quit" name="activate"/>
+-          </object>
+-        </child>
+-      </object>
+-    </child>
+-    <ui>
+-      <popup name="popup">
+-        <menuitem action="show_main_win"/>
+-        <separator/>
+-        <menuitem action="play"/>
+-        <menuitem action="stop"/>
+-        <menuitem action="prev"/>
+-        <menuitem action="next"/>
+-        <separator/>
+-        <menuitem action="quit"/>
+-      </popup>
+-    </ui>
+-  </object>
+-  <object class="GtkMenu" constructor="uimanager1" id="popup">
+-    <property name="visible">True</property>
+-    <signal handler="gtk_widget_destroy" name="selection_done"/>
+-  </object>
+-</interface>
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index c0245cc..19379ea 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -4,7 +4,6 @@ src/utils.c
+ src/lxmusic-plugin-config.c
+ data/lxmusic.desktop.in
+ data/lxmusic.ui.glade
+-data/popup.ui.glade
+ data/pref-dlg.ui.glade
+ data/track-info.ui.glade
+ src/lxmusic-notify.c
+diff --git a/src/lxmusic.c b/src/lxmusic.c
+index 14aa17a..60efc61 100644
+--- a/src/lxmusic.c
++++ b/src/lxmusic.c
+@@ -87,6 +87,10 @@ static int 	update_track				( xmmsv_t *value, GtkTreeRowReference* ref );
+ static int 	on_coll_info_received			( xmmsv_t* value, void* user_data );
+ static int 	on_picture_front_received		( xmmsv_t* value, void* user_data );
+ static int 	on_playback_started			( xmmsv_t* value, void* user_data );
++void		on_prev_btn_clicked			( GtkButton* btn, gpointer user_data );
++void		on_next_btn_clicked			( GtkButton* btn, gpointer user_data );
++void		on_play_btn_clicked			( GtkButton* btn, gpointer user_data );
++void		on_stop_btn_clicked			( GtkButton* btn, gpointer user_data );
+ 
+ static xmmsc_connection_t *con = NULL;
+ static GtkWidget *main_win = NULL;
+@@ -421,25 +425,67 @@ void on_show_main_win(GtkAction* act, gpointer user_data)
+ static void on_tray_icon_popup_menu(GtkStatusIcon* icon, guint btn, guint time, gpointer user_data)
+ {
+ 	/* init tray icon widgets */
+-	GtkBuilder *builder = gtk_builder_new ();
+-	if(gtk_builder_add_from_file(builder, PACKAGE_DATA_DIR "/lxmusic/popup.ui.glade", NULL))
+-	{
+-        	GtkWidget *tray_play_btn = (GtkWidget*)gtk_builder_get_object(builder, "play");
+-		GtkWidget *tray_popup = (GtkWidget*)gtk_builder_get_object(builder, "popup");
+-        	gtk_builder_connect_signals(builder, NULL);
+-		switch (playback_status)
++	GtkMenu *systray_menu;
++	GtkWidget *item = NULL;
++
++	systray_menu = GTK_MENU (gtk_menu_new());
++
++	item = gtk_image_menu_item_new_from_stock(GTK_STOCK_OPEN, NULL);
++	gtk_menu_item_set_label (GTK_MENU_ITEM(item), _("Show Main Window"));
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++	g_signal_connect (G_OBJECT (item), "activate",
++			  G_CALLBACK(on_show_main_win),
++			  NULL);
++
++	item = gtk_separator_menu_item_new();
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++
++	switch (playback_status)
+ 		{
+ 			case XMMS_PLAYBACK_STATUS_PLAY:
+-				g_object_set ( (GObject*)tray_play_btn, "stock-id", "gtk-media-pause", NULL);
++				item = gtk_image_menu_item_new_from_stock(GTK_STOCK_MEDIA_PAUSE, NULL);
+ 				break;
+ 			case XMMS_PLAYBACK_STATUS_PAUSE:
+ 			case XMMS_PLAYBACK_STATUS_STOP:
+-				g_object_set ( (GObject*)tray_play_btn, "stock-id", "gtk-media-play", NULL);
++				item = gtk_image_menu_item_new_from_stock(GTK_STOCK_MEDIA_PLAY, NULL);
+ 				break;
+ 		}
+-		gtk_menu_popup((GtkMenu*)tray_popup, NULL, NULL, NULL, NULL, btn, time);
+-	}
+-	g_object_unref(builder);
++
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++	g_signal_connect (G_OBJECT (item), "activate",
++			  G_CALLBACK(on_play_btn_clicked),
++			  NULL);
++
++	item = gtk_image_menu_item_new_from_stock(GTK_STOCK_MEDIA_STOP, NULL);
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++	g_signal_connect (G_OBJECT (item), "activate",
++			  G_CALLBACK(on_stop_btn_clicked),
++			  NULL);
++
++	item = gtk_image_menu_item_new_from_stock(GTK_STOCK_MEDIA_PREVIOUS, NULL);
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++	g_signal_connect (G_OBJECT (item), "activate",
++			  G_CALLBACK(on_prev_btn_clicked),
++			  NULL);
++
++	item = gtk_image_menu_item_new_from_stock(GTK_STOCK_MEDIA_NEXT, NULL);
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++	g_signal_connect (G_OBJECT (item), "activate",
++			  G_CALLBACK(on_next_btn_clicked),
++			  NULL);
++
++	item = gtk_separator_menu_item_new();
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++
++	item = gtk_image_menu_item_new_from_stock(GTK_STOCK_QUIT, NULL);
++	gtk_menu_shell_append(GTK_MENU_SHELL(systray_menu), item);
++	g_signal_connect (G_OBJECT (item), "activate",
++			  G_CALLBACK(on_quit),
++			  NULL);
++
++	/* show */
++	gtk_widget_show_all(GTK_WIDGET(systray_menu));
++	gtk_menu_popup(GTK_MENU(systray_menu), NULL, NULL, NULL, NULL, btn, time);
+ 
+ 	return;
+ }
+-- 
+2.1.4
+
