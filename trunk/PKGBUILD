@@ -3,29 +3,73 @@
 # Contributor: Angel Velasquez <angvp@archlinux.org>
 # Contributor: Juergen Hoetzel <juergen@archlinux.org>
 
-pkgname=lxsession
+pkgbase=lxsession
+pkgname=(lxsession lxsession-gtk3)
 pkgver=0.5.2
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Lightweight X11 session manager'
 arch=('i686' 'x86_64')
 url="http://lxde.org/"
 license=('GPL2')
-groups=('lxde')
-depends=('dbus-glib' 'gtk2' 'libunique' 'polkit')
+depends=('dbus-glib' 'libunique' 'gtk3' 'polkit')
 makedepends=('intltool' 'docbook-xsl' 'vala')
-replaces=('lxpolkit' 'lxsession-lite' 'lxde-settings-daemon')
-conflicts=('lxpolkit' 'lxsession-lite' 'lxde-settings-daemon')
-source=(http://downloads.sourceforge.net/lxde/$pkgname-$pkgver.tar.xz)
-md5sums=('2957acccbf9ce37ef8205ec5424f8047')
+conflicts=('lxpolkit')
+source=(http://downloads.sourceforge.net/lxde/$pkgbase-$pkgver.tar.xz
+        gtk3.patch
+        0001-Better-handling-the-background-of-logout-dialog.patch
+        0001-Fix-unique-app-handling.patch)
+md5sums=('2957acccbf9ce37ef8205ec5424f8047'
+         'ebbddffa32a54724dea65ce07696e396'
+         '6d1c77fd1904823a1ca3f0f9b5695107'
+         '96e959763db6353a7036d7338e57b977')
+
+prepare() {
+  cd $pkgbase-$pkgver
+  patch -Np1 -i ../gtk3.patch
+  patch -Np1 -i ../0001-Better-handling-the-background-of-logout-dialog.patch
+  patch -Np1 -i ../0001-Fix-unique-app-handling.patch
+
+  # Regenerate C sources from Vala code
+  rm *.stamp
+  autoreconf -fi
+}
 
 build() {
-  cd $pkgname-$pkgver
+  # GTK+ 2 version
+  [ -d gtk2 ] || cp -r $pkgbase-$pkgver gtk2
+  cd gtk2
   ./configure --sysconfdir=/etc --prefix=/usr
+  make
+
+  cd "$srcdir"
+  # GTK+ 3 version
+  [ -d gtk3 ] || cp -r $pkgbase-$pkgver gtk3
+  cd gtk3
+  ./configure --sysconfdir=/etc --prefix=/usr --enable-gtk3
   make
 }
 
+package_lxsession() {
+  groups=('lxde')
+  depends=('dbus-glib' 'libunique' 'polkit')
+  replaces=('lxpolkit')
+
+  cd gtk2
+  make DESTDIR="$pkgdir" install
+}
+
+package_lxsession-gtk3() {
+  groups=('lxde-gtk3')
+  pkgdesc+=' (GTK+ 3 version)'
+  depends=('dbus-glib' 'gtk3' 'polkit')
+  conflicts+=('lxsession')
+
+  cd gtk3
+  make DESTDIR="$pkgdir" install
+}
+
 package() {
-  cd $pkgname-$pkgver
+  cd $pkgbase-$pkgver
   make DESTDIR="$pkgdir" install 
 }
