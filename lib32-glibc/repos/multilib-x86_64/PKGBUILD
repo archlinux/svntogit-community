@@ -6,52 +6,34 @@
 # toolchain build order: linux-api-headers->glibc->binutils->gcc->binutils->glibc
 # NOTE: valgrind-multilib requires rebuild with each major glibc version
 
-
-_pkgbasename=glibc
-pkgname=lib32-$_pkgbasename
-pkgver=2.22
-pkgrel=4
+pkgname=lib32-glibc
+pkgver=2.23
+pkgrel=1
+_commit=e742928c
 pkgdesc="GNU C Library (32-bit)"
 arch=('x86_64')
 url="http://www.gnu.org/software/libc"
 license=('GPL' 'LGPL')
 groups=()
 depends=()
-makedepends=('gcc-multilib>=5.2')
+makedepends=('gcc-multilib>=5.2' 'git')
 backup=()
 
 
 options=('!strip' 'staticlibs' '!emptydirs')
 
-source=(http://ftp.gnu.org/gnu/libc/${_pkgbasename}-${pkgver}.tar.xz{,.sig}
-        glibc-2.22-roundup.patch
-        glibc-2.22-CVE-2015-7547.patch
+source=(git://sourceware.org/git/glibc.git#commit=${_commit}
         lib32-glibc.conf)
 
-md5sums=('e51e02bf552a0a1fbbdc948fb2f5e83c'
-         'SKIP'
-         'd4b9754a2d5e8f113d47c67386f75e7b'
-         'db053da46e40f25a0fc988936725080b'
+md5sums=('SKIP'
          '6e052f1cb693d5d3203f50f9d4e8c33b')
 
-validpgpkeys=('F37CDAB708E65EA183FD1AF625EF0A436C2A4AFF')  # Carlos O'Donell
-
 prepare() {
-  cd ${srcdir}/glibc-${pkgver}
-
-  # glibc-2.22..287de30e
-  # 060f8dbd (and 13ff0739) is reverted as it breaks the testsuite on x86_64
-  # TODO: figure out why...
-  patch -p1 -i $srcdir/glibc-2.22-roundup.patch
-
-  # CVE-2015-7547 - patch from upstream
-  patch -p1 -i $srcdir/glibc-2.22-CVE-2015-7547.patch
-
-  mkdir ${srcdir}/glibc-build
+  mkdir glibc-build
 }
 
 build() {
-  cd ${srcdir}/glibc-build
+  cd glibc-build
 
   #if [[ ${CARCH} = "i686" ]]; then
     # Hack to fix NPTL issues with Xen, only required on 32bit platforms
@@ -71,7 +53,7 @@ build() {
   CFLAGS=${CFLAGS/-fstack-protector-strong/}
   CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}
 
-  ${srcdir}/${_pkgbasename}-${pkgver}/configure --prefix=/usr \
+  ../glibc/configure --prefix=/usr \
       --libdir=/usr/lib32 --libexecdir=/usr/lib32 \
       --with-headers=/usr/include \
       --with-bugurl=https://bugs.archlinux.org/ \
@@ -96,21 +78,18 @@ build() {
   make
 
   # remove harding in preparation to run test-suite
-  sed -i '5,7d' configparms
+  sed -i '/FORTIFY/d' configparms
 }
 
 check() {
-  cd ${srcdir}/glibc-build
+  cd glibc-build
 
   # some failures are "expected"
   make check || true
 }
 
 package() {
-  cd ${srcdir}/glibc-build
-
-
-
+  cd glibc-build
 
   make install_root=${pkgdir} install
 
@@ -118,7 +97,6 @@ package() {
 
   # We need to keep 32 bit specific header files
   find ${pkgdir}/usr/include -type f -not -name '*-32.h' -delete
-
 
   # Dynamic linker
   mkdir ${pkgdir}/usr/lib
@@ -134,9 +112,6 @@ package() {
   # libc, libdl, libm and libpthread are required for toolchain testsuites
   # in addition libcrypt appears widely required
   rm $pkgdir/usr/lib32/lib{anl,BrokenLocale,nsl,resolv,rt,util}.a
-
-
-
 
   # Do not strip the following files for improved debugging support
   # ("improved" as in not breaking gdb and valgrind...):
