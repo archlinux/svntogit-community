@@ -3,27 +3,25 @@
 
 pkgbase=percona-server
 pkgname=('libperconaserverclient' 'percona-server-clients' 'percona-server')
-pkgver=5.6.28_76.1
+pkgver=5.7.10_3
+_boost_ver=1.59.0
 _pkgver=${pkgver/_/-}
 _myver=${pkgver/_rel*}
 pkgrel=1
 arch=('i686' 'x86_64')
 # valgrind necessary for bug https://bugs.launchpad.net/percona-server/+bug/1494283
-makedepends=('cmake' 'openssl' 'zlib' 'libaio' 'systemd-tools' 'valgrind')
+makedepends=('cmake' 'openssl' 'zlib' 'libaio' 'systemd-tools' 'valgrind' 'pam')
 license=('GPL' 'AGPL')
 url="http://www.percona.com/software/percona-server/"
 source=("http://www.percona.com/downloads/Percona-Server-${pkgver%.*_*}/Percona-Server-$_pkgver/source/tarball/percona-server-$_pkgver.tar.gz"
+        "http://sourceforge.net/projects/boost/files/boost/${_boost_ver}/boost_${_boost_ver//./_}.tar.gz"
         'my.cnf'
-        'mysql-user.conf'
-        'mysqld-tmpfile.conf'
-        'mysql56-bufsize.patch')
+        'mysql-user.conf')
 
 prepare() {
 	cd $pkgbase-$_pkgver
-	patch -p0 -i ../mysql56-bufsize.patch
 	rm -v sql/sql_yacc.{cc,h}
-	sed 's|$datadir/mysql.sock|/run/mysqld/mysqld.sock|' \
-		-i packaging/rpm-fedora/mysql-systemd-start
+
 	sed 's|${fullhostname}|"archbuild"|' \
 		-i storage/tokudb/PerconaFT/cmake_modules/TokuSetupCTest.cmake
 }
@@ -60,6 +58,7 @@ build() {
 		-DWITH_PAM=ON \
 		-DWITH_EXTRA_CHARSETS=complex \
 		-DWITH_EMBEDDED_SERVER=ON \
+	  -DWITH_EMBEDDED_SHARED_LIBRARY=ON \
 		-DWITH_INNODB_MEMCACHED=ON \
 		-DWITH_INNOBASE_STORAGE_ENGINE=ON \
 		-DWITH_PARTITION_STORAGE_ENGINE=ON \
@@ -68,16 +67,18 @@ build() {
 		-DWITH_BLACKHOLE_STORAGE_ENGINE=ON \
 		-DWITH_FEDERATED_STORAGE_ENGINE=OFF \
 		-DWITH_EXAMPLE_STORAGE_ENGINE=OFF \
-		-DCMAKE_C_FLAGS="-fPIC $CFLAGS -fno-strict-aliasing -DBIG_JOINS=1 -fomit-frame-pointer" \
-		-DCMAKE_CXX_FLAGS="-fPIC $CXXFLAGS -fno-strict-aliasing -DBIG_JOINS=1 -felide-constructors -fno-rtti" \
-		-DWITH_MYSQLD_LDFLAGS="$LDFLAGS"
+	  -DWITH_SYSTEMD=1 \
+		-DCMAKE_C_FLAGS="-fPIC $CFLAGS -fno-strict-aliasing -DBIG_JOINS=1 -fomit-frame-pointer -fno-delete-null-pointer-checks" \
+		-DCMAKE_CXX_FLAGS="-fPIC $CXXFLAGS -fno-strict-aliasing -DBIG_JOINS=1 -felide-constructors -fno-delete-null-pointer-checks" \
+		-DWITH_MYSQLD_LDFLAGS="-pie ${LDFLAGS},-z,now" \
+		-DWITH_BOOST="../boost_${_boost_ver//./_}"
 
 	make
 }
 
 package_libperconaserverclient() {
 	pkgdesc='Percona Server client libraries'
-	depends=('openssl')
+	depends=('openssl' 'libaio')
 
 	cd build
 	for dir in include libmysql libmysqld libservices; do
@@ -93,7 +94,7 @@ package_libperconaserverclient() {
 
 package_percona-server-clients() {
 	pkgdesc='Percona Server client tools'
-	depends=('libperconaserverclient' 'zlib')
+	depends=('libperconaserverclient' 'zlib' 'openssl')
 	conflicts=('mysql-clients')
 	provides=("mysql-clients=$_myver" "mariadb-clients=$_myver")
 
@@ -107,14 +108,14 @@ package_percona-server-clients() {
 	done
 
 	# provided by percona-server
-	rm "$pkgdir"/usr/bin/{mysql_{plugin,upgrade},mysqlbinlog,mysqltest,mysql_config_editor}
+	rm "$pkgdir"/usr/bin/mysql{_plugin,_upgrade,binlog,test,_config_editor,_install_db,_secure_installation,_ssl_rsa_setup}
 }
 
 package_percona-server() {
 	pkgdesc='Drop-in replacement for MySQL that provides improved performance, diagnostics, instrumentation and TokuDB storage engine'
 	backup=('etc/mysql/my.cnf')
 	install=percona.install
-	depends=('percona-server-clients' 'libaio' 'systemd-tools' 'pam')
+	depends=('libaio' 'systemd-tools' 'pam')
 	optdepends=('perl-dbd-mysql')
 	conflicts=('mysql')
 	provides=("mysql=$_myver" "mariadb=$_myver")
@@ -125,13 +126,10 @@ package_percona-server() {
 
 	install -Dm644 ../my.cnf "$pkgdir"/etc/mysql/my.cnf
 	install -Dm644 ../mysql-user.conf "$pkgdir"/usr/lib/sysusers.d/mysql.conf
-	install -Dm644 ../mysqld-tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/mysqld.conf
-
-	cd ../$pkgbase-$_pkgver/packaging/rpm-fedora
-	install -Dm755 mysql-systemd-start "$pkgdir"/usr/bin/mysql-systemd-start
-	install -Dm644 mysqld.service "$pkgdir"/usr/lib/systemd/system/mysqld.service
 
   cd "$pkgdir"
+  mv usr/usr/lib/* usr/lib
+  rm -rf usr/usr
 
 	# Move documentation
 	install -dm755 usr/share/doc
@@ -150,20 +148,19 @@ package_percona-server() {
 	rm usr/share/man/man1/{mysql_config,mysql_client_test_embedded,mysqltest_embedded}.1
 
 	# provided by percona-server-clients
-	rm usr/bin/{mysql,mysqladmin,mysqlcheck,mysqldump,mysqlimport,mysqlshow,mysqlslap}
-	rm usr/share/man/man1/{mysql,mysqladmin,mysqlcheck,mysqldump,mysqlimport,mysqlshow,mysqlslap}.1
+	rm usr/bin/mysql{,admin,check,dump,import,show,slap,pump}
+	rm usr/share/man/man1/mysql{,admin,check,dump,import,show,slap,pump}.1
 
 	# deprecated/unused
-	rm usr/bin/{replace,msql2mysql}
-	rm usr/share/man/man1/{replace,msql2mysql}.1
+	rm usr/bin/replace
+	rm usr/share/man/man1/replace.1
 
 	# not needed
-	rm -r usr/{data,mysql-test,sql-bench}
+	rm -r usr/mysql-test
 	rm usr/share/man/man1/mysql-test-run.pl.1
 }
 
-sha256sums=('ab8ab794a58a82132645ae84b74de91c7f9a5bcf81f2162628ce8976a00a4fd4'
+sha256sums=('d28e05f942c540aedad55eb17debfa40f0715c3222dec19e378f1d3cc6cfbb97'
+            '47f11c8844e579d02691a607fbd32540104a9ac7a2534a8ddaef50daf502baac'
             'ae451839c368f0db25a63bb0a6a890194897a8e74818bd4245140933c29e5f83'
-            'e638a2657085f15b6728f43c1fd6aa551b27608fbf6b435e33afd3606a0cfb0e'
-            'badf6a701d9dc6ea3b4ddca26cb0f42b6236432ccdbc14c64962147802594a60'
-            '1039e232a7778544b00eb215c93bb06c588c95c2fd49cfb162dc50eb4dfbf729')
+            'e638a2657085f15b6728f43c1fd6aa551b27608fbf6b435e33afd3606a0cfb0e')
