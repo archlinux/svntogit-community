@@ -13,7 +13,7 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients')
 pkgver=16.0
 _codename=Jarvis
-pkgrel=1
+pkgrel=2
 arch=('i686' 'x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -25,7 +25,7 @@ makedepends=(
   'libvdpau' 'libxrandr' 'libxslt' 'lzo' 'mesa' 'nasm' 'nss-mdns'
   'python2-pillow' 'python2-pybluez' 'python2-simplejson' 'rtmpdump' 'sdl2'
   'sdl_image' 'shairplay' 'smbclient' 'swig' 'taglib' 'tinyxml' 'unzip' 'upower'
-  'yajl' 'zip' 'mesa' 'dcadec' 'libcrossguid'
+  'yajl' 'zip' 'mesa' 'libdcadec.so' 'libcrossguid'
 )
 source=(
   "$pkgname-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
@@ -79,7 +79,7 @@ package_kodi() {
     'bluez-libs' 'fribidi' 'glew' 'hicolor-icon-theme' 'libass' 'libcdio'
     'libjpeg-turbo' 'libmariadbclient' 'libmicrohttpd' 'libpulse' 'libssh'
     'libva' 'libxrandr' 'libxslt' 'lzo' 'sdl2' 'smbclient' 'taglib' 'tinyxml'
-    'yajl'
+    'yajl' 'mesa' 'libdcadec.so'
   )
   optdepends=(
     'afpfs-ng: Apple shares support'
