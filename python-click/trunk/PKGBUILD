@@ -4,7 +4,7 @@
 pkgbase=python-click
 pkgname=("python-click" "python2-click")
 _realname=click
-pkgver=6.2
+pkgver=6.3
 pkgrel=1
 pkgdesc="A simple wrapper around optparse for powerful command line utilities"
 arch=("any")
@@ -12,7 +12,7 @@ url="http://click.pocoo.org/"
 license=("BSD")
 makedepends=("python-setuptools" "python2-setuptools")
 source=("https://pypi.python.org/packages/source/c/$_realname/$_realname-$pkgver.tar.gz")
-sha256sums=('fba0ff70f5ebb4cebbf64c40a8fbc222fb7cf825237241e548354dabe3da6a82')
+sha256sums=('b720d9faabe193287b71e3c26082b0f249501288e153b7e7cfce3bb87ac8cc1c')
 
 prepare() {
     cp -a $_realname-$pkgver{,-python2}
