@@ -1,0 +1,58 @@
+# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Contributor: Sébastien Luttringer
+
+pkgname=opensmtpd
+pkgver=5.7.3p2
+pkgrel=3
+pkgdesc='Free implementation of the server-side SMTP protocol'
+arch=('i686' 'x86_64')
+url='http://www.opensmtpd.org/'
+license=('custom')
+depends=('libasr' 'libevent' 'openssl' 'pam')
+provides=('smtp-server' 'smtp-forwarder')
+conflicts=('smtp-server' 'smtp-forwarder')
+backup=('etc/smtpd/smtpd.conf' 'etc/smtpd/aliases')
+options=('emptydirs')
+install=opensmtpd.install
+source=("http://www.opensmtpd.org/archives/$pkgname-$pkgver.tar.gz"
+        'smtpd.service'
+        'smtpd.socket')
+sha256sums=('0d2973008d0f66bebb84bed516be6c32617735241cc54dd26643529281a8e52b'
+            '3760f7268e776b696548e57f5f9e4d18ed19e8854dc0631c176a69d558a8b362'
+            '32d46de5562d01de445d04c93bcc9f94bf103539b676e449c32e3603a3866cf8')
+
+prepare() {
+  sed -ri 's,/etc/mail,/etc/smtpd,g' "$pkgname-$pkgver/smtpd/smtpd.conf"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc/smtpd \
+    --sbindir=/usr/bin \
+    --libexecdir=/usr/lib/smtpd \
+    --with-maildir=/var/spool/mail \
+    --with-privsep-path=/var/empty \
+    --with-sock-dir=/run \
+    --with-ca-file=/etc/ssl/certs/ca-certificates.crt \
+    --with-privsep-user=smtpd \
+    --with-queue-user=smtpq \
+    --with-pam
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir/" install
+
+  # install license and systemd unit files
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/smtpd.service" "$pkgdir/usr/lib/systemd/system/smtpd.service"
+  install -Dm644 "$srcdir/smtpd.socket" "$pkgdir/usr/lib/systemd/system/smtpd.socket"
+
+  # install an empty aliases file (used by the default config)
+  install -Dm644 /dev/null "$pkgdir/etc/smtpd/aliases"
+}
