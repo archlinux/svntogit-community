@@ -1,0 +1,81 @@
+# $Id: PKGBUILD 95035 2013-08-04 09:44:24Z svenstaro $
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+
+#_hgrev=63547
+
+pkgname=pypy3
+pkgver=2.4.0
+_pkgver=2.4.0
+#[[ -n $_hgrev ]] && pkgver=2.0beta2.$_hgrev
+pkgrel=4
+pkgdesc="A Python3 implementation written in Python, JIT enabled"
+url="http://pypy.org"
+arch=('i686' 'x86_64')
+depends=('expat' 'bzip2' 'gdbm' 'openssl' 'libffi' 'zlib')
+makedepends=('python2' 'sqlite' 'tk')
+optdepends=('sqlite: sqlite module'
+            'tk: tk module')
+options=(!buildflags)
+license=('custom:MIT')
+#source=("hg+https://bitbucket.org/pypy/pypy#revision=$_hgrev")
+source=("https://bitbucket.org/pypy/pypy/downloads/$pkgname-$_pkgver-src.tar.bz2"
+        "disable-sslv3.patch"
+        "trackgcroot-new-ops.patch")
+md5sums=('96ba72916114d16904e12562b5d84e51'
+         '383f6220bb64a963a6c071a62d110ec7'
+         '3294fd2919c3372615b59c5f82552f64')
+
+prepare() {
+  cd ${pkgname}-${_pkgver}-src
+  patch -Np1 -i ../disable-sslv3.patch
+  patch -Np1 -i ../trackgcroot-new-ops.patch
+
+  # Hacky fix to allow the curses module to build on x86_64; otherwise we get:
+  #   cffi.ffiplatform.VerificationError: anonymous MEVENT: wrong total size
+  #                                       (we have 24, but C compiler says 20)
+  if [[ $CARCH == x86_64 ]]; then
+    _type=unsigned
+  else
+    _type=uint32_t
+  fi
+  sed -i -e "s/typedef unsigned long mmask_t/typedef $_type mmask_t/" \
+         -e "s/typedef unsigned long chtype/typedef $_type chtype/" \
+    lib_pypy/_curses.py
+}
+
+build() {
+  cd ${pkgname}-${_pkgver}-src/pypy/goal
+
+  #python2 ../../rpython/bin/rpython -Ojit --shared targetpypystandalone
+  python2 ../../rpython/bin/rpython -Ojit targetpypystandalone
+}
+
+package() {
+  cd ${pkgname}-${_pkgver}-src
+
+  install -Dm755 pypy/goal/pypy-c "${pkgdir}"/opt/pypy3/bin/pypy-c
+  #install -Dm755 pypy/goal/libpypy-c.so "${pkgdir}"/usr/lib/libpypy3-c.so
+  cp -r include lib_pypy site-packages "${pkgdir}"/opt/pypy3/
+
+  mkdir "${pkgdir}"/opt/pypy3/lib-python/
+  cp -r lib-python/3 "${pkgdir}"/opt/pypy3/lib-python/
+
+  mkdir -p "${pkgdir}"/usr/bin
+  ln -s /opt/pypy3/bin/pypy-c "${pkgdir}"/usr/bin/pypy3
+
+  install -Dm644 LICENSE "${pkgdir}"/opt/pypy3/LICENSE
+  install -Dm644 README.rst "${pkgdir}"/opt/pypy3/README.rst
+  install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/pypy3/LICENSE
+
+  # Compile binary modules
+  #export LD_LIBRARY_PATH="${pkgdir}"/usr/lib:${LD_LIBRARY_PATH}
+  for module in _curses syslog dbm sqlite3 _tkinter; do
+    "${pkgdir}/opt/pypy3/bin/pypy-c" -c "import ${module}"
+  done
+
+  # Generate bytecode (currently impossibru)
+  #"${pkgdir}"/opt/pypy3/bin/pypy-c -m compileall "${pkgdir}"/opt/pypy3
+  #"${pkgdir}"/opt/pypy3/bin/pypy-c -O -m compileall "${pkgdir}"/opt/pypy3
+
+}
+# vim: ts=2 sw=2 et:
