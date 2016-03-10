@@ -6,7 +6,7 @@
 pkgbase=virt-manager
 pkgname=(virt-install virt-manager)
 pkgver=1.3.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Console user interface for managing virtual machines"
 arch=('any')
 url="http://virt-manager.org/"
@@ -30,12 +30,13 @@ build() {
 package_virt-install() {
   cd "$srcdir/$pkgbase-$pkgver"
   python2 setup.py --no-update-icon-cache --no-compile-schemas install --root "$pkgdir"
+  chmod a-x $pkgdir/usr/bin/virt-manager
 }
 
 package_virt-manager() {
   pkgdesc="Desktop user interface for managing virtual machines"
   install=virt-manager.install
-  depends=('virt-install'
+  depends=("virt-install=$pkgver"
 	    'python2' 'libvirt-python' 'libxml2' 'libvirt' 'urlgrabber'
 	    'dbus-python' 'gtk-vnc' 'rarian'
 	    'yajl' 'librsvg' 'libuser' 'python2-cairo'
