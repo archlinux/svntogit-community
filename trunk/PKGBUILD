@@ -48,7 +48,7 @@ md5sums=('SKIP'
          'a73ea3ea6d9c9ecb1cc910871eead3ff')
 
 prepare() {
-  cd $pkgname-$pkgver
+  cd linux
   # apply patch from the source array (should be a pacman feature)
   local filename
   for filename in "${source[@]}"; do
