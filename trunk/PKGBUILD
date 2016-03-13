@@ -48,12 +48,16 @@ md5sums=('SKIP'
          'a73ea3ea6d9c9ecb1cc910871eead3ff')
 
 prepare() {
-  local _patch
-  for _patch in patch-$pkgver.? *.patch; do
-    [[ -e "$_patch" ]] || continue
-    msg2 "Applying $_patch"
-    patch -N -p1 -d linux < "$_patch"
+  cd $pkgname-$pkgver
+  # apply patch from the source array (should be a pacman feature)
+  local filename
+  for filename in "${source[@]}"; do
+    if [[ "$filename" =~ \.patch$ ]]; then
+      msg2 "Applying patch $filename"
+      patch -p1 -N -i "$srcdir/$filename"
+    fi
   done
+  :
 }
 
 build() {
