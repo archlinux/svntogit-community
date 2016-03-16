@@ -11,7 +11,7 @@
 
 pkgname=opera
 pkgver=36.0.2130.32
-pkgrel=1
+pkgrel=2
 pkgdesc="A fast and secure web browser"
 url="http://www.opera.com/"
 install=${pkgname}.install
@@ -20,6 +20,7 @@ license=('custom:opera')
 backup=("etc/$pkgname/default")
 arch=('i686' 'x86_64')
 depends=('gtk2' 'desktop-file-utils' 'shared-mime-info' 'libxtst' 'gconf' 'libxss' 'alsa-lib' 'nss' 'ttf-font' 'libnotify')
+makedepends=('patchelf')
 optdepends=(
     'curl: opera crash reporter and autoupdate checker'
     'opera-ffmpeg-codecs: playback of proprietary video/audio'
@@ -50,6 +51,10 @@ package() {
         mv "$pkgname" ../
     )
     rm -rf "$pkgdir/usr/lib/"*-linux-gnu
+
+    # patch rpath in opera-developer binary
+    patchelf --set-rpath \$ORIGIN/lib_extra:\$ORIGIN/. \
+        "$pkgdir/usr/lib/$pkgname/$pkgname"
 
     # suid opera_sandbox
     chmod 4755 "$pkgdir/usr/lib/$pkgname/opera_sandbox"
