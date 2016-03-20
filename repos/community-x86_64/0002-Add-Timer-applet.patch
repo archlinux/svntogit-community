@@ -1,0 +1,750 @@
+From bee3602b250210027162adbe34488a0881a5ba95 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Fri, 18 Mar 2016 18:18:51 +0100
+Subject: [PATCH 2/2] Add Timer applet
+
+It's a new applet originally developed for MATE Panel. Original source:
+http://git.mate-desktop.org/mate-applets/tree/timerapplet
+
+https://bugzilla.gnome.org/show_bug.cgi?id=763889
+---
+ Makefile.am                                        |   6 +
+ configure.ac                                       |   9 +
+ po/POTFILES.in                                     |   2 +
+ po/POTFILES.skip                                   |   2 +
+ timerapplet/Makefile.am                            |  68 +++
+ ...rg.gnome.applets.TimerApplet.panel-applet.in.in |  15 +
+ ...org.gnome.gnome-applets.timer.gschema.xml.in.in |  20 +
+ ...nome.panel.applet.TimerAppletFactory.service.in |   3 +
+ timerapplet/timerapplet.c                          | 495 +++++++++++++++++++++
+ 9 files changed, 620 insertions(+)
+ create mode 100644 timerapplet/Makefile.am
+ create mode 100644 timerapplet/org.gnome.applets.TimerApplet.panel-applet.in.in
+ create mode 100644 timerapplet/org.gnome.gnome-applets.timer.gschema.xml.in.in
+ create mode 100644 timerapplet/org.gnome.panel.applet.TimerAppletFactory.service.in
+ create mode 100644 timerapplet/timerapplet.c
+
+diff --git a/Makefile.am b/Makefile.am
+index 29316ea..6034e37 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -37,6 +37,10 @@ if HAVE_TRACKER_SEARCH_BAR
+ tracker_search_bar_SUBDIR = tracker-search-bar
+ endif
+ 
++if BUILD_TIMERAPPLET
++timeapplet_SUBDIR = timerapplet
++endif
++
+ always_built_SUBDIRS =  \
+ 	charpick	\
+ 	brightness	\
+@@ -62,6 +66,7 @@ SUBDIRS = \
+ 	$(cpufreq_SUBDIR) \
+ 	$(minicommander_applet_SUBDIR) \
+ 	$(tracker_search_bar_SUBDIR) \
++	$(timeapplet_SUBDIR) \
+ 	$(NULL)
+ 
+ DIST_SUBDIRS = \
+@@ -86,6 +91,7 @@ DIST_SUBDIRS = \
+ 	brightness	\
+ 	tracker-search-bar \
+ 	command		\
++	timerapplet	\
+ 	$(NULL)
+ 
+ EXTRA_DIST = \
+diff --git a/configure.ac b/configure.ac
+index d85c891..3311af9 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -526,6 +526,12 @@ fi
+ AM_CONDITIONAL(HAVE_TRACKER_SEARCH_BAR, test "$have_tracker_search_bar" = "yes")
+ 
+ dnl ***************************************************************************
++dnl *** timerapplet specific checks                                       ***
++dnl ***************************************************************************
++
++AM_CONDITIONAL(BUILD_TIMERAPPLET, test "x$HAVE_LIBNOTIFY" = "xyes")
++
++dnl ***************************************************************************
+ dnl *** Check if IPv6 is available                                          ***
+ dnl ***************************************************************************
+ AC_MSG_CHECKING([whether to enable ipv6])
+@@ -727,6 +733,8 @@ AC_CONFIG_FILES([
+   stickynotes/Makefile
+   stickynotes/pixmaps/Makefile
+ 
++  timerapplet/Makefile
++
+   tracker-search-bar/Makefile
+ 
+   trashapplet/help/Makefile
+@@ -776,6 +784,7 @@ echo "    modemlights ...................: $BUILD_MODEM_LIGHTS"
+ echo "    multiload .....................: $build_gtop_applets"
+ echo "    netspeed ......................: $build_gtop_applets"
+ echo "    stickynotes ...................: $enable_stickynotes"
++echo "    timerapplet ...................: $HAVE_LIBNOTIFY"
+ echo "    tracker-search-bar ............: $have_tracker_search_bar"
+ echo "    trashapplet ...................: always"
+ echo "    windowpicker ..................: always"
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index 7067b0c..4879b7b 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -108,6 +108,8 @@ stickynotes/stickynotes_callbacks.c
+ [type: gettext/glade]stickynotes/stickynotes-note-menu.xml
+ [type: gettext/ini]trashapplet/org.gnome.applets.TrashApplet.panel-applet.in.in
+ stickynotes/org.gnome.gnome-applets.stickynotes.gschema.xml.in.in
++[type: gettext/ini]timerapplet/org.gnome.applets.TimerApplet.panel-applet.in.in
++timerapplet/timerapplet.c
+ [type: gettext/ini]tracker-search-bar/org.gnome.panel.SearchBar.panel-applet.in.in
+ tracker-search-bar/tracker-applet.c
+ tracker-search-bar/tracker-results-window.c
+diff --git a/po/POTFILES.skip b/po/POTFILES.skip
+index 88a92a6..19839ff 100644
+--- a/po/POTFILES.skip
++++ b/po/POTFILES.skip
+@@ -29,5 +29,7 @@ netspeed/data/org.gnome.panel.Netspeed.panel-applet.in
+ netspeed/data/org.gnome.gnome-applets.netspeed.gschema.xml.in
+ stickynotes/org.gnome.applets.StickyNotesApplet.panel-applet.in
+ stickynotes/org.gnome.gnome-applets.stickynotes.gschema.xml.in
++timer/org.gnome.applets.TimerApplet.panel-applet.in
++timer/org.gnome.gnome-applets.timer.gschema.xml.in
+ tracker-search-bar/org.gnome.panel.SearchBar.panel-applet.in
+ trashapplet/org.gnome.applets.TrashApplet.panel-applet.in
+diff --git a/timerapplet/Makefile.am b/timerapplet/Makefile.am
+new file mode 100644
+index 0000000..85efeb9
+--- /dev/null
++++ b/timerapplet/Makefile.am
+@@ -0,0 +1,68 @@
++NULL =
++
++libexec_PROGRAMS = timer-applet
++
++timer_applet_CFLAGS = \
++	-I.					\
++	-I$(srcdir)				\
++	-DGNOMELOCALEDIR=\""$(localedir)"\" \
++	-DPKG_DATA_DIR=\""$(pkgdatadir)"\" \
++	$(GNOME_APPLETS_CFLAGS)			\
++	$(LIBNOTIFY_CFLAGS) \
++	$(WARN_CFLAGS) \
++	$(AM_CFLAGS) \
++	$(NULL)
++
++timer_applet_SOURCES = timerapplet.c
++
++timer_applet_LDFLAGS = \
++	$(WARN_LDFLAGS) \
++	$(AM_LDFLAGS) \
++	$(NULL)
++
++timer_applet_LDADD = \
++	$(GNOME_APPLETS_LIBS) \
++	$(LIBNOTIFY_LIBS)
++
++appletdir       = $(LIBPANEL_APPLET_DIR)
++applet_in_files = org.gnome.applets.TimerApplet.panel-applet.in
++applet_DATA     = $(applet_in_files:.panel-applet.in=.panel-applet)
++
++$(applet_in_files): $(applet_in_files).in Makefile
++	$(AM_V_GEN)sed \
++            -e "s|\@LIBEXECDIR\@|$(libexecdir)|" \
++            -e "s|\@VERSION\@|$(PACKAGE_VERSION)|" \
++            $< > $@
++
++%.panel-applet: %.panel-applet.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
++
++servicedir       = $(datadir)/dbus-1/services
++service_in_files = org.gnome.panel.applet.TimerAppletFactory.service.in
++service_DATA     = $(service_in_files:.service.in=.service)
++
++org.gnome.panel.applet.TimerAppletFactory.service: $(service_in_files)
++	$(AM_V_GEN)sed \
++            -e "s|\@LIBEXECDIR\@|$(libexecdir)|" \
++            $< > $@
++
++gsettings_schemas_in_in = \
++	org.gnome.gnome-applets.timer.gschema.xml.in.in
++
++@INTLTOOL_XML_NOMERGE_RULE@
++
++gsettings_schemas_in = $(gsettings_schemas_in_in:.xml.in.in=.xml.in)
++gsettings_SCHEMAS = $(gsettings_schemas_in:.xml.in=.xml)
++
++%.gschema.xml.in: %.gschema.xml.in.in Makefile
++	$(AM_V_GEN) $(SED) -e 's^\@GETTEXT_PACKAGE\@^$(GETTEXT_PACKAGE)^g' < $< > $@
++
++@GSETTINGS_RULES@
++
++CLEANFILES = $(applet_DATA) $(applet_DATA).in $(service_DATA) $(gsettings_SCHEMAS) *.gschema.valid
++
++EXTRA_DIST =							\
++	$(gsettings_schemas_in_in) \
++	org.gnome.applets.TimerApplet.panel-applet.in.in	\
++	$(service_in_files)
++
++-include $(top_srcdir)/git.mk
+diff --git a/timerapplet/org.gnome.applets.TimerApplet.panel-applet.in.in b/timerapplet/org.gnome.applets.TimerApplet.panel-applet.in.in
+new file mode 100644
+index 0000000..9f56c39
+--- /dev/null
++++ b/timerapplet/org.gnome.applets.TimerApplet.panel-applet.in.in
+@@ -0,0 +1,15 @@
++[Applet Factory]
++Id=TimerAppletFactory
++Location=@LIBEXECDIR@/timer-applet
++_Name=Timer Factory
++_Description=Timer Factory
++
++[TimerApplet]
++_Name=Timer
++_Description=Start a timer and receive a notification when it is finished
++Icon=gnome-panel-clock
++X-GNOME-Bugzilla-Bugzilla=GNOME
++X-GNOME-Bugzilla-Product=gnome-applets
++X-GNOME-Bugzilla-Component=Timer Applet (timerapplet)
++X-GNOME-Bugzilla-Version=@VERSION@
++X-GNOME-Bugzilla-OtherBinaries=timer-applet
+diff --git a/timerapplet/org.gnome.gnome-applets.timer.gschema.xml.in.in b/timerapplet/org.gnome.gnome-applets.timer.gschema.xml.in.in
+new file mode 100644
+index 0000000..8fbf280
+--- /dev/null
++++ b/timerapplet/org.gnome.gnome-applets.timer.gschema.xml.in.in
+@@ -0,0 +1,20 @@
++<schemalist gettext-domain="@GETTEXT_PACKAGE@">
++  <schema id="org.gnome.gnome-applets.timer">
++    <key name="name" type="s">
++      <default>'Timer'</default>
++      <summary>Name of timer</summary>
++    </key>
++    <key name="duration" type="i">
++      <default>10</default>
++      <summary>Duration of timer in seconds</summary>
++    </key>
++    <key name="show-notification" type="b">
++      <default>true</default>
++      <summary>Show notification popup when timer finish</summary>
++    </key>
++    <key name="show-dialog" type="b">
++      <default>false</default>
++      <summary>Show dialog window when timer finish</summary>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/timerapplet/org.gnome.panel.applet.TimerAppletFactory.service.in b/timerapplet/org.gnome.panel.applet.TimerAppletFactory.service.in
+new file mode 100644
+index 0000000..170330d
+--- /dev/null
++++ b/timerapplet/org.gnome.panel.applet.TimerAppletFactory.service.in
+@@ -0,0 +1,3 @@
++[D-BUS Service]
++Name=org.gnome.panel.applet.TimerAppletFactory
++Exec=@LIBEXECDIR@/timer-applet
+diff --git a/timerapplet/timerapplet.c b/timerapplet/timerapplet.c
+new file mode 100644
+index 0000000..cbfc80d
+--- /dev/null
++++ b/timerapplet/timerapplet.c
+@@ -0,0 +1,495 @@
++/* timerapplet.c:
++ *
++ * Copyright (C) 2014 Stefano Karapetsas
++ *
++ * This file is part of GNOME Applets.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++ *
++ * Authors:
++ *      Stefano Karapetsas <stefano@karapetsas.com>
++ */
++
++#ifdef HAVE_CONFIG_H
++#  include <config.h>
++#endif
++
++#include <glib.h>
++#include <glib/gi18n.h>
++#include <gio/gio.h>
++#include <gtk/gtk.h>
++
++#include <libnotify/notify.h>
++
++#include <panel-applet.h>
++
++/* Applet constants */
++#define APPLET_ICON  "gnome-panel-clock"
++#define STEP         100
++
++/* GSettings constants */
++#define TIMER_SCHEMA            "org.gnome.gnome-applets.timer"
++#define NAME_KEY                "name"
++#define DURATION_KEY            "duration"
++#define SHOW_NOTIFICATION_KEY   "show-notification"
++#define SHOW_DIALOG_KEY         "show-dialog"
++
++typedef struct
++{
++    PanelApplet        *applet;
++
++    GSettings          *settings;
++
++    GSimpleActionGroup *action_group;
++    GtkLabel           *label;
++    GtkImage           *image;
++    GtkImage           *pause_image;
++    GtkBox             *box;
++
++    GtkSpinButton      *hours;
++    GtkSpinButton      *minutes;
++    GtkSpinButton      *seconds;
++
++    gboolean            active;
++    gboolean            pause;
++    gint                elapsed;
++
++    guint               timeout_id;
++} TimerApplet;
++
++static void timer_start_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++static void timer_pause_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++static void timer_stop_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++static void timer_about_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++static void timer_preferences_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++
++static const GActionEntry applet_menu_actions [] = {
++    {"start", timer_start_callback, NULL, NULL, NULL},
++    {"pause", timer_pause_callback, NULL, NULL, NULL},
++    {"stop", timer_stop_callback, NULL, NULL, NULL},
++    {"preferences", timer_preferences_callback, NULL, NULL, NULL},
++    {"about", timer_about_callback, NULL, NULL, NULL},
++};
++
++static const char *ui = "<section>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">_Start timer</attribute>\
++        <attribute name=\"action\">timer.start</attribute>\
++      </item>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">_P_ause timer</attribute>\
++        <attribute name=\"action\">timer.pause</attribute>\
++      </item>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">S_top timer</attribute>\
++        <attribute name=\"action\">timer.stop</attribute>\
++      </item>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">_Preferences</attribute>\
++        <attribute name=\"action\">timer.preferences</attribute>\
++      </item>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">_About</attribute>\
++        <attribute name=\"action\">timer.about</attribute>\
++      </item>\
++    </section>";
++
++static void
++timer_applet_destroy (PanelApplet *applet_widget, TimerApplet *applet)
++{
++    g_assert (applet);
++
++    if (applet->timeout_id != 0)
++    {
++        g_source_remove(applet->timeout_id);
++        applet->timeout_id = 0;
++    }
++
++    g_object_unref (applet->settings);
++
++    notify_uninit ();
++}
++
++/* timer management */
++static gboolean
++timer_callback (TimerApplet *applet)
++{
++    gboolean retval = TRUE;
++    gchar *label;
++    gchar *name;
++    gchar *tooltip;
++    gint hours, minutes, seconds, duration, remaining;
++
++    label = NULL;
++    tooltip = NULL;
++
++    name = g_settings_get_string (applet->settings, NAME_KEY);
++
++    if (!applet->active)
++    {
++        gtk_label_set_text (applet->label, name);
++        gtk_widget_set_tooltip_text (GTK_WIDGET (applet->label), "");
++        gtk_widget_hide (GTK_WIDGET (applet->pause_image));
++    }
++    else
++    {
++        if (applet->active && !applet->pause)
++            applet->elapsed += STEP;
++
++        duration = g_settings_get_int (applet->settings, DURATION_KEY);
++
++        remaining = duration - (applet->elapsed / 1000);
++
++        if (remaining <= 0)
++        {
++            applet->active = FALSE;
++            gtk_label_set_text (applet->label, _("Finished"));
++            gtk_widget_set_tooltip_text (GTK_WIDGET (applet->label), name);
++            gtk_widget_hide (GTK_WIDGET (applet->pause_image));
++
++            if (g_settings_get_boolean (applet->settings, SHOW_NOTIFICATION_KEY))
++            {
++                NotifyNotification *n;
++                n = notify_notification_new (name, _("Timer finished!"), APPLET_ICON);
++                notify_notification_set_timeout (n, 30000);
++                notify_notification_show (n, NULL);
++                g_object_unref (G_OBJECT (n));
++            }
++
++            if (g_settings_get_boolean (applet->settings, SHOW_DIALOG_KEY))
++            {
++                GtkWidget *dialog = gtk_message_dialog_new_with_markup (NULL,
++                                                                        GTK_DIALOG_MODAL,
++                                                                        GTK_MESSAGE_INFO,
++                                                                        GTK_BUTTONS_OK,
++                                                                        "<b>%s</b>\n\n%s", name, _("Timer finished!"));
++                gtk_dialog_run (GTK_DIALOG (dialog));
++                gtk_widget_destroy (dialog);
++            }
++
++            /* stop further calls */
++            retval = FALSE;
++        }
++        else
++        {
++            hours = remaining / 60 / 60;
++            minutes = remaining / 60 % 60;
++            seconds = remaining % 60;
++
++            if (hours > 0)
++                label = g_strdup_printf ("%02d:%02d:%02d", hours, minutes, seconds);
++            else
++                label = g_strdup_printf ("%02d:%02d", minutes, seconds);
++
++            hours = duration / 60 / 60;
++            minutes = duration / 60 % 60;
++            seconds = duration % 60;
++
++            if (hours > 0)
++                tooltip = g_strdup_printf ("%s (%02d:%02d:%02d)", name, hours, minutes, seconds);
++            else
++                tooltip = g_strdup_printf ("%s (%02d:%02d)", name, minutes, seconds);
++
++            gtk_label_set_text (applet->label, label);
++            gtk_widget_set_tooltip_text (GTK_WIDGET (applet->label), tooltip);
++            gtk_widget_set_visible (GTK_WIDGET (applet->pause_image), applet->pause);
++        }
++
++        g_free (label);
++        g_free (tooltip);
++    }
++
++    /* update actions sensitiveness */
++    g_simple_action_set_enabled (G_SIMPLE_ACTION (g_action_map_lookup_action (G_ACTION_MAP (applet->action_group), "start")), !applet->active || applet->pause);
++    g_simple_action_set_enabled (G_SIMPLE_ACTION (g_action_map_lookup_action (G_ACTION_MAP (applet->action_group), "pause")), applet->active && !applet->pause);
++    g_simple_action_set_enabled (G_SIMPLE_ACTION (g_action_map_lookup_action (G_ACTION_MAP (applet->action_group), "stop")), applet->active);
++    g_simple_action_set_enabled (G_SIMPLE_ACTION (g_action_map_lookup_action (G_ACTION_MAP (applet->action_group), "preferences")), !applet->active && !applet->pause);
++
++    g_free (name);
++
++    return retval;
++}
++
++/* start action */
++static void
++timer_start_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    TimerApplet *applet;
++
++    applet = (TimerApplet *) data;
++
++    applet->active = TRUE;
++    if (applet->pause)
++        applet->pause = FALSE;
++    else
++        applet->elapsed = 0;
++    applet->timeout_id = g_timeout_add (STEP, (GSourceFunc) timer_callback, applet);
++}
++
++/* pause action */
++static void
++timer_pause_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    TimerApplet *applet;
++
++    applet = (TimerApplet *) data;
++
++    applet->pause = TRUE;
++    if (applet->timeout_id != 0)
++    {
++        g_source_remove(applet->timeout_id);
++        applet->timeout_id = 0;
++    }
++    timer_callback (applet);
++}
++
++/* stop action */
++static void
++timer_stop_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    TimerApplet *applet;
++
++    applet = (TimerApplet *) data;
++
++    applet->active = FALSE;
++    if (applet->timeout_id != 0)
++    {
++        g_source_remove(applet->timeout_id);
++        applet->timeout_id = 0;
++    }
++    timer_callback (applet);
++}
++
++/* Show the about dialog */
++static void
++timer_about_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    const char* authors[] = { "Stefano Karapetsas <stefano@karapetsas.com>", NULL };
++
++    gtk_show_about_dialog(NULL,
++                          "version", VERSION,
++                          "copyright", "Copyright © 2014 Stefano Karapetsas",
++                          "authors", authors,
++                          "comments", _("Start a timer and receive a notification when it is finished"),
++                          "translator-credits", _("translator-credits"),
++                          "logo-icon-name", APPLET_ICON,
++                          NULL);
++}
++
++/* calculate duration and save in GSettings */
++static void
++timer_spin_button_value_changed (GtkSpinButton *spinbutton, TimerApplet *applet)
++{
++    gint duration = 0;
++
++    duration += gtk_spin_button_get_value (applet->hours) * 60 * 60;
++    duration += gtk_spin_button_get_value (applet->minutes) * 60;
++    duration += gtk_spin_button_get_value (applet->seconds);
++
++    g_settings_set_int (applet->settings, DURATION_KEY, duration);
++}
++
++/* Show the preferences dialog */
++static void
++timer_preferences_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    TimerApplet *applet;
++    GtkDialog *dialog;
++    GtkTable *table;
++    GtkWidget *widget;
++    gint duration, hours, minutes, seconds;
++
++    applet = (TimerApplet *) data;
++
++    duration = g_settings_get_int (applet->settings, DURATION_KEY);
++    hours = duration / 60 / 60;
++    minutes = duration / 60 % 60;
++    seconds = duration % 60;
++
++    dialog = GTK_DIALOG (gtk_dialog_new_with_buttons(_("Timer Applet Preferences"),
++                                                     NULL,
++                                                     GTK_DIALOG_MODAL,
++                                                     _("_Close"),
++                                                     GTK_RESPONSE_CLOSE,
++                                                     NULL));
++    table = GTK_TABLE (gtk_table_new (6, 2, FALSE));
++    gtk_table_set_row_spacings (table, 12);
++    gtk_table_set_col_spacings (table, 12);
++
++    gtk_window_set_default_size (GTK_WINDOW (dialog), 350, 150);
++    gtk_container_set_border_width (GTK_CONTAINER (dialog), 10);
++
++    widget = gtk_label_new (_("Name:"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 0, 1,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    widget = gtk_entry_new ();
++    gtk_table_attach (table, widget, 2, 3, 0, 1,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++    g_settings_bind (applet->settings, NAME_KEY, widget, "text", G_SETTINGS_BIND_DEFAULT);
++
++    widget = gtk_label_new (_("Hours:"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 1, 2,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    widget = gtk_spin_button_new_with_range (0.0, 100.0, 1.0);
++    gtk_spin_button_set_value (GTK_SPIN_BUTTON (widget), hours);
++    gtk_table_attach (table, widget, 2, 3, 1, 2,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++    applet->hours = GTK_SPIN_BUTTON (widget);
++    g_signal_connect (widget, "value-changed", G_CALLBACK (timer_spin_button_value_changed), applet);
++
++    widget = gtk_label_new (_("Minutes:"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 2, 3,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    widget = gtk_spin_button_new_with_range (0.0, 59.0, 1.0);
++    gtk_spin_button_set_value (GTK_SPIN_BUTTON (widget), minutes);
++    gtk_table_attach (table, widget, 2, 3, 2, 3,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++    applet->minutes = GTK_SPIN_BUTTON (widget);
++    g_signal_connect (widget, "value-changed", G_CALLBACK (timer_spin_button_value_changed), applet);
++
++    widget = gtk_label_new (_("Seconds:"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 3, 4,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    widget = gtk_spin_button_new_with_range (0.0, 59.0, 1.0);
++    gtk_spin_button_set_value (GTK_SPIN_BUTTON (widget), seconds);
++    gtk_table_attach (table, widget, 2, 3, 3, 4,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++    applet->seconds = GTK_SPIN_BUTTON (widget);
++    g_signal_connect (widget, "value-changed", G_CALLBACK (timer_spin_button_value_changed), applet);
++
++    widget = gtk_check_button_new_with_label (_("Show notification popup"));
++    gtk_table_attach (table, widget, 2, 3, 4, 5,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++    g_settings_bind (applet->settings, SHOW_NOTIFICATION_KEY, widget, "active", G_SETTINGS_BIND_DEFAULT);
++
++    widget = gtk_check_button_new_with_label (_("Show dialog"));
++    gtk_table_attach (table, widget, 2, 3, 5, 6,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++    g_settings_bind (applet->settings, SHOW_DIALOG_KEY, widget, "active", G_SETTINGS_BIND_DEFAULT);
++
++    gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (dialog)), GTK_WIDGET (table), TRUE, TRUE, 0);
++
++    g_signal_connect (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
++
++    gtk_widget_show_all (GTK_WIDGET (dialog));
++}
++
++static void
++timer_settings_changed (GSettings *settings, gchar *key, TimerApplet *applet)
++{
++    timer_callback (applet);
++}
++
++static gboolean
++timer_applet_fill (PanelApplet* applet_widget)
++{
++    TimerApplet *applet;
++
++    g_set_application_name (_("Timer Applet"));
++    gtk_window_set_default_icon_name (APPLET_ICON);
++
++    if (!notify_is_initted ())
++        notify_init ("timer-applet");
++
++    panel_applet_set_flags (applet_widget, PANEL_APPLET_EXPAND_MINOR);
++
++    applet = g_malloc0(sizeof(TimerApplet));
++    applet->applet = applet_widget;
++    applet->settings = panel_applet_settings_new (applet_widget,TIMER_SCHEMA);
++    applet->timeout_id = 0;
++    applet->active = FALSE;
++    applet->pause = FALSE;
++
++    applet->box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
++    applet->image = GTK_IMAGE (gtk_image_new_from_icon_name (APPLET_ICON, GTK_ICON_SIZE_BUTTON));
++    applet->pause_image = GTK_IMAGE (gtk_image_new_from_icon_name ("media-playback-pause", GTK_ICON_SIZE_BUTTON));
++    applet->label = GTK_LABEL (gtk_label_new (""));
++
++    /* we add the Gtk label into the applet */
++    gtk_box_pack_start (applet->box,
++                        GTK_WIDGET (applet->image),
++                        TRUE, TRUE, 0);
++    gtk_box_pack_start (applet->box,
++                        GTK_WIDGET (applet->pause_image),
++                        TRUE, TRUE, 0);
++    gtk_box_pack_start (applet->box,
++                        GTK_WIDGET (applet->label),
++                        TRUE, TRUE, 3);
++
++    gtk_container_add (GTK_CONTAINER (applet_widget),
++                       GTK_WIDGET (applet->box));
++
++    gtk_widget_show_all (GTK_WIDGET (applet->applet));
++    gtk_widget_hide (GTK_WIDGET (applet->pause_image));
++
++    g_signal_connect(G_OBJECT (applet->applet), "destroy",
++                     G_CALLBACK (timer_applet_destroy),
++                     applet);
++
++    /* set up context menu */
++    applet->action_group = g_simple_action_group_new ();
++    g_action_map_add_action_entries (G_ACTION_MAP (applet->action_group), applet_menu_actions, G_N_ELEMENTS(applet_menu_actions), applet);
++    panel_applet_setup_menu (applet->applet, ui, applet->action_group, GETTEXT_PACKAGE);
++    gtk_widget_insert_action_group (GTK_WIDGET (applet->applet), "timer", G_ACTION_GROUP (applet->action_group));
++
++    /* execute callback to set actions sensitiveness */
++    timer_callback (applet);
++
++    /* GSettings callback */
++    g_signal_connect (G_OBJECT (applet->settings), "changed",
++                      G_CALLBACK (timer_settings_changed), applet);
++
++    return TRUE;
++}
++
++/* this function, called by gnome-panel, will create the applet */
++static gboolean
++timer_factory (PanelApplet* applet, const char* iid, gpointer data)
++{
++    gboolean retval = FALSE;
++
++    if (!g_strcmp0 (iid, "TimerApplet"))
++        retval = timer_applet_fill (applet);
++
++    return retval;
++}
++
++/* needed by gnome-panel applet library */
++PANEL_APPLET_OUT_PROCESS_FACTORY("TimerAppletFactory",
++                                 PANEL_TYPE_APPLET,
++                                 timer_factory,
++                                 NULL)
+-- 
+2.7.3
+
