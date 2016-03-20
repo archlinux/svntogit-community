@@ -1,0 +1,657 @@
+From 572e833dec35ba82f316173a91311863dda48ee5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Fri, 18 Mar 2016 18:06:23 +0100
+Subject: [PATCH 1/2] Add Command applet
+
+It's a new applet originally developed for MATE Panel. Original source:
+http://git.mate-desktop.org/mate-applets/tree/command
+
+https://bugzilla.gnome.org/show_bug.cgi?id=763888
+---
+ Makefile.am                                        |   2 +
+ command/Makefile.am                                |  66 ++++
+ command/command.c                                  | 422 +++++++++++++++++++++
+ ....gnome.applets.CommandApplet.panel-applet.in.in |  15 +
+ ...g.gnome.gnome-applets.command.gschema.xml.in.in |  24 ++
+ ...me.panel.applet.CommandAppletFactory.service.in |   3 +
+ configure.ac                                       |   4 +
+ po/POTFILES.in                                     |   2 +
+ po/POTFILES.skip                                   |   2 +
+ 9 files changed, 540 insertions(+)
+ create mode 100644 command/Makefile.am
+ create mode 100644 command/command.c
+ create mode 100644 command/org.gnome.applets.CommandApplet.panel-applet.in.in
+ create mode 100644 command/org.gnome.gnome-applets.command.gschema.xml.in.in
+ create mode 100644 command/org.gnome.panel.applet.CommandAppletFactory.service.in
+
+diff --git a/Makefile.am b/Makefile.am
+index da88a06..29316ea 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -40,6 +40,7 @@ endif
+ always_built_SUBDIRS =  \
+ 	charpick	\
+ 	brightness	\
++	command		\
+ 	drivemount	\
+ 	inhibit		\
+ 	invest-applet	\
+@@ -84,6 +85,7 @@ DIST_SUBDIRS = \
+ 	inhibit		\
+ 	brightness	\
+ 	tracker-search-bar \
++	command		\
+ 	$(NULL)
+ 
+ EXTRA_DIST = \
+diff --git a/command/Makefile.am b/command/Makefile.am
+new file mode 100644
+index 0000000..63151d6
+--- /dev/null
++++ b/command/Makefile.am
+@@ -0,0 +1,66 @@
++NULL =
++
++libexec_PROGRAMS = command-applet
++
++command_applet_CFLAGS = \
++	-I.					\
++	-I$(srcdir)				\
++	-DGNOMELOCALEDIR=\""$(localedir)"\" \
++	-DPKG_DATA_DIR=\""$(pkgdatadir)"\" \
++	$(GNOME_APPLETS_CFLAGS)			\
++	$(WARN_CFLAGS) \
++	$(AM_CFLAGS) \
++	$(NULL)
++
++command_applet_SOURCES = command.c
++
++command_applet_LDFLAGS = \
++	$(WARN_LDFLAGS) \
++	$(AM_LDFLAGS) \
++	$(NULL)
++
++command_applet_LDADD = \
++	$(GNOME_APPLETS_LIBS)
++
++appletdir       = $(LIBPANEL_APPLET_DIR)
++applet_in_files = org.gnome.applets.CommandApplet.panel-applet.in
++applet_DATA     = $(applet_in_files:.panel-applet.in=.panel-applet)
++
++$(applet_in_files): $(applet_in_files).in Makefile
++	$(AM_V_GEN)sed \
++            -e "s|\@LIBEXECDIR\@|$(libexecdir)|" \
++            -e "s|\@VERSION\@|$(PACKAGE_VERSION)|" \
++            $< > $@
++
++%.panel-applet: %.panel-applet.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
++
++servicedir       = $(datadir)/dbus-1/services
++service_in_files = org.gnome.panel.applet.CommandAppletFactory.service.in
++service_DATA     = $(service_in_files:.service.in=.service)
++
++org.gnome.panel.applet.CommandAppletFactory.service: $(service_in_files)
++	$(AM_V_GEN)sed \
++            -e "s|\@LIBEXECDIR\@|$(libexecdir)|" \
++            $< > $@
++
++gsettings_schemas_in_in = \
++	org.gnome.gnome-applets.command.gschema.xml.in.in
++
++@INTLTOOL_XML_NOMERGE_RULE@
++
++gsettings_schemas_in = $(gsettings_schemas_in_in:.xml.in.in=.xml.in)
++gsettings_SCHEMAS = $(gsettings_schemas_in:.xml.in=.xml)
++
++%.gschema.xml.in: %.gschema.xml.in.in Makefile
++	$(AM_V_GEN) $(SED) -e 's^\@GETTEXT_PACKAGE\@^$(GETTEXT_PACKAGE)^g' < $< > $@
++
++@GSETTINGS_RULES@
++
++CLEANFILES = $(applet_DATA) $(applet_DATA).in $(service_DATA) $(gsettings_SCHEMAS) *.gschema.valid
++
++EXTRA_DIST =							\
++	$(gsettings_schemas_in_in) \
++	org.gnome.applets.CommandApplet.panel-applet.in.in	\
++	$(service_in_files)
++
++-include $(top_srcdir)/git.mk
+diff --git a/command/command.c b/command/command.c
+new file mode 100644
+index 0000000..c2e79de
+--- /dev/null
++++ b/command/command.c
+@@ -0,0 +1,422 @@
++/* command.c:
++ *
++ * Copyright (C) 2013-2014 Stefano Karapetsas
++ *
++ * This file is part of GNOME Applets.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
++ *
++ * Authors:
++ *      Stefano Karapetsas <stefano@karapetsas.com>
++ */
++
++#ifdef HAVE_CONFIG_H
++#  include <config.h>
++#endif
++
++#include <glib.h>
++#include <glib/gi18n.h>
++#include <gio/gio.h>
++#include <gtk/gtk.h>
++
++#include <panel-applet.h>
++
++/* Applet constants */
++#define APPLET_ICON    "utilities-terminal"
++#define ERROR_OUTPUT   "#"
++
++/* GSettings constants */
++#define COMMAND_SCHEMA "org.gnome.gnome-applets.command"
++#define COMMAND_KEY    "command"
++#define INTERVAL_KEY   "interval"
++#define SHOW_ICON_KEY  "show-icon"
++#define WIDTH_KEY      "width"
++
++/* GKeyFile constants */
++#define GK_COMMAND_GROUP   "Command"
++#define GK_COMMAND_OUTPUT  "Output"
++#define GK_COMMAND_ICON    "Icon"
++
++typedef struct
++{
++    PanelApplet       *applet;
++
++    GSettings         *settings;
++
++    GtkLabel          *label;
++    GtkImage          *image;
++    GtkBox            *box;
++
++    gchar             *command;
++    gint               interval;
++    gint               width;
++
++    guint              timeout_id;
++} CommandApplet;
++
++static void command_about_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++static void command_settings_callback (GSimpleAction *action, GVariant *parameter, gpointer data);
++static gboolean command_execute (CommandApplet *command_applet);
++
++static const GActionEntry applet_menu_actions [] = {
++    {"preferences", command_settings_callback, NULL, NULL, NULL},
++    {"about", command_about_callback, NULL, NULL, NULL},
++};
++
++static const char *ui = "<section>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">_Preferences</attribute>\
++        <attribute name=\"action\">command.preferences</attribute>\
++      </item>\
++      <item>\
++        <attribute name=\"label\" translatable=\"yes\">_About</attribute>\
++        <attribute name=\"action\">command.about</attribute>\
++      </item>\
++    </section>";
++
++static void
++command_applet_destroy (PanelApplet *applet_widget, CommandApplet *command_applet)
++{
++    g_assert (command_applet);
++
++    if (command_applet->timeout_id != 0)
++    {
++        g_source_remove (command_applet->timeout_id);
++        command_applet->timeout_id = 0;
++    }
++
++    if (command_applet->command != NULL)
++    {
++        g_free (command_applet->command);
++        command_applet->command = NULL;
++    }
++
++    g_object_unref (command_applet->settings);
++}
++
++/* Show the about dialog */
++static void
++command_about_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    const char* authors[] = { "Stefano Karapetsas <stefano@karapetsas.com>", NULL };
++
++    gtk_show_about_dialog(NULL,
++                          "version", VERSION,
++                          "copyright", "Copyright © 2013-2014 Stefano Karapetsas",
++                          "authors", authors,
++                          "comments", _("Shows the output of a command"),
++                          "translator-credits", _("translator-credits"),
++                          "logo-icon-name", APPLET_ICON,
++    NULL );
++}
++
++/* Show the preferences dialog */
++static void
++command_settings_callback (GSimpleAction *action, GVariant *parameter, gpointer data)
++{
++    CommandApplet *command_applet;
++    GtkDialog *dialog;
++    GtkTable *table;
++    GtkWidget *widget;
++    GtkWidget *command;
++    GtkWidget *interval;
++    GtkWidget *width;
++    GtkWidget *showicon;
++
++    command_applet = (CommandApplet *) data;
++
++    dialog = GTK_DIALOG (gtk_dialog_new_with_buttons(_("Command Applet Preferences"),
++                                                     NULL,
++                                                     GTK_DIALOG_MODAL,
++                                                     _("_Close"),
++                                                     GTK_RESPONSE_CLOSE,
++                                                     NULL));
++    table = GTK_TABLE (gtk_table_new (4, 2, FALSE));
++    gtk_table_set_row_spacings (table, 12);
++    gtk_table_set_col_spacings (table, 12);
++
++    gtk_window_set_default_size (GTK_WINDOW (dialog), 350, 150);
++    gtk_container_set_border_width (GTK_CONTAINER (dialog), 10);
++
++    widget = gtk_label_new (_("Command:"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 0, 1,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    command = gtk_entry_new ();
++    gtk_table_attach (table, command, 2, 3, 0, 1,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++
++    widget = gtk_label_new (_("Interval (seconds):"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 1, 2,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    interval = gtk_spin_button_new_with_range (1.0, 600.0, 1.0);
++    gtk_table_attach (table, interval, 2, 3, 1, 2,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++
++    widget = gtk_label_new (_("Maximum width (chars):"));
++    gtk_label_set_xalign (GTK_LABEL (widget), 1.0);
++    gtk_label_set_yalign (GTK_LABEL (widget), 0.5);
++    gtk_table_attach (table, widget, 1, 2, 2, 3,
++                      GTK_FILL, GTK_FILL,
++                      0, 0);
++
++    width = gtk_spin_button_new_with_range(1.0, 100.0, 1.0);
++    gtk_table_attach (table, width, 2, 3, 2, 3,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++
++    showicon = gtk_check_button_new_with_label (_("Show icon"));
++    gtk_table_attach (table, showicon, 2, 3, 3, 4,
++                      GTK_EXPAND | GTK_FILL | GTK_SHRINK, GTK_FILL,
++                      0, 0);
++
++    gtk_box_pack_start (GTK_BOX (gtk_dialog_get_content_area (dialog)), GTK_WIDGET (table), TRUE, TRUE, 0);
++
++    g_signal_connect (dialog, "response", G_CALLBACK (gtk_widget_destroy), dialog);
++
++    /* use g_settings_bind to manage settings */
++    g_settings_bind (command_applet->settings, COMMAND_KEY, command, "text", G_SETTINGS_BIND_DEFAULT);
++    g_settings_bind (command_applet->settings, INTERVAL_KEY, interval, "value", G_SETTINGS_BIND_DEFAULT);
++    g_settings_bind (command_applet->settings, WIDTH_KEY, width, "value", G_SETTINGS_BIND_DEFAULT);
++    g_settings_bind (command_applet->settings, SHOW_ICON_KEY, showicon, "active", G_SETTINGS_BIND_DEFAULT);
++
++    gtk_widget_show_all (GTK_WIDGET (dialog));
++}
++
++/* GSettings signal callbacks */
++static void
++settings_command_changed (GSettings *settings, gchar *key, CommandApplet *command_applet)
++{
++    gchar *command;
++
++    command = g_settings_get_string (command_applet->settings, COMMAND_KEY);
++
++    if (command_applet->command)
++        g_free (command_applet->command);
++
++    if (command != NULL && command[0] != 0)
++        command_applet->command = command;
++    else
++        command_applet->command = g_strdup ("");
++}
++
++static void
++settings_width_changed (GSettings *settings, gchar *key, CommandApplet *command_applet)
++{
++    gint width;
++
++    width = g_settings_get_int (command_applet->settings, WIDTH_KEY);
++
++    command_applet->width = width;
++
++    /* execute command to start new timer */
++    command_execute (command_applet);
++}
++
++static void
++settings_interval_changed (GSettings *settings, gchar *key, CommandApplet *command_applet)
++{
++    gint interval;
++
++    interval = g_settings_get_int (command_applet->settings, INTERVAL_KEY);
++
++    /* minimum interval */
++    if (interval < 1)
++        interval = 1;
++
++    command_applet->interval = interval;
++
++    /* stop current timer */
++    if (command_applet->timeout_id != 0)
++    {
++        g_source_remove (command_applet->timeout_id);
++        command_applet->timeout_id = 0;
++    }
++
++    /* execute command to start new timer */
++    command_execute (command_applet);
++}
++
++static gboolean
++command_execute (CommandApplet *command_applet)
++{
++    GError *error = NULL;
++    gchar *output = NULL;
++    gint ret = 0;
++
++    if (g_spawn_command_line_sync (command_applet->command, &output, NULL, &ret, &error))
++    {
++        gtk_widget_set_tooltip_text (GTK_WIDGET (command_applet->label), command_applet->command);
++
++        if ((output != NULL) && (output[0] != 0))
++        {
++            /* check if output is a custom GKeyFile */
++            if (g_str_has_prefix (output, "[Command]"))
++            {
++                GKeyFile *file = g_key_file_new ();
++                if (g_key_file_load_from_data (file, output, -1, G_KEY_FILE_NONE, NULL))
++                {
++                    gchar *goutput = g_key_file_get_string (file, GK_COMMAND_GROUP, GK_COMMAND_OUTPUT, NULL);
++                    gchar *icon = g_key_file_get_string (file, GK_COMMAND_GROUP, GK_COMMAND_ICON, NULL);
++
++                    if (goutput)
++                    {
++                        gtk_label_set_use_markup (command_applet->label, TRUE);
++                        gtk_label_set_markup (command_applet->label, goutput);
++                    }
++                    if (icon)
++                        gtk_image_set_from_icon_name (command_applet->image, icon, 24);
++
++                    g_free (goutput);
++                    g_free (icon);
++                }
++                else
++                    gtk_label_set_text (command_applet->label, ERROR_OUTPUT);
++                g_key_file_free (file);
++            }
++            else
++            {
++                /* check output length */
++                if (strlen(output) > command_applet->width)
++                {
++                    GString *strip_output;
++                    strip_output = g_string_new_len (output, command_applet->width);
++                    g_free (output);
++                    output = strip_output->str;
++                    g_string_free (strip_output, FALSE);
++                }
++                /* remove last char if it is '\n' to avoid aligment problems */
++                if (g_str_has_suffix (output, "\n"))
++                {
++                    output[strlen(output) - 1] = 0;
++                }
++
++                gtk_label_set_text (command_applet->label, output);
++            }
++        }
++        else
++            gtk_label_set_text (command_applet->label, ERROR_OUTPUT);
++    }
++    else
++        gtk_label_set_text (command_applet->label, ERROR_OUTPUT);
++
++    g_free (output);
++
++    /* start timer for next execution */
++    command_applet->timeout_id = g_timeout_add_seconds (command_applet->interval,
++                                                        (GSourceFunc) command_execute,
++                                                        command_applet);
++
++    return FALSE;
++}
++
++static gboolean
++command_applet_fill (PanelApplet* applet)
++{
++    CommandApplet *command_applet;
++    GSimpleActionGroup *action_group;
++
++    g_set_application_name (_("Command Applet"));
++    gtk_window_set_default_icon_name (APPLET_ICON);
++
++    panel_applet_set_flags (applet, PANEL_APPLET_EXPAND_MINOR);
++
++    command_applet = g_malloc0(sizeof(CommandApplet));
++    command_applet->applet = applet;
++    command_applet->settings = panel_applet_settings_new (applet, COMMAND_SCHEMA);
++
++    command_applet->interval = g_settings_get_int (command_applet->settings, INTERVAL_KEY);
++    command_applet->command = g_settings_get_string (command_applet->settings, COMMAND_KEY);
++    command_applet->width = g_settings_get_int (command_applet->settings, WIDTH_KEY);
++
++    command_applet->box = GTK_BOX (gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 0));
++    command_applet->image = GTK_IMAGE (gtk_image_new_from_icon_name (APPLET_ICON, 24));
++    command_applet->label = GTK_LABEL (gtk_label_new (ERROR_OUTPUT));
++    command_applet->timeout_id = 0;
++
++    /* we add the Gtk label into the applet */
++    gtk_box_pack_start (command_applet->box,
++                        GTK_WIDGET (command_applet->image),
++                        TRUE, TRUE, 0);
++    gtk_box_pack_start (command_applet->box,
++                        GTK_WIDGET (command_applet->label),
++                        TRUE, TRUE, 0);
++
++    gtk_container_add (GTK_CONTAINER (applet),
++                       GTK_WIDGET (command_applet->box));
++
++    gtk_widget_show_all (GTK_WIDGET (command_applet->applet));
++
++    g_signal_connect(G_OBJECT (command_applet->applet), "destroy",
++                     G_CALLBACK (command_applet_destroy),
++                     command_applet);
++
++    /* GSettings signals */
++    g_signal_connect(command_applet->settings,
++                     "changed::" COMMAND_KEY,
++                     G_CALLBACK (settings_command_changed),
++                     command_applet);
++    g_signal_connect(command_applet->settings,
++                     "changed::" INTERVAL_KEY,
++                     G_CALLBACK (settings_interval_changed),
++                     command_applet);
++    g_signal_connect(command_applet->settings,
++                     "changed::" WIDTH_KEY,
++                     G_CALLBACK (settings_width_changed),
++                     command_applet);
++    g_settings_bind (command_applet->settings,
++                     SHOW_ICON_KEY,
++                     command_applet->image,
++                     "visible",
++                     G_SETTINGS_BIND_DEFAULT);
++
++    /* set up context menu */
++    action_group = g_simple_action_group_new ();
++    g_action_map_add_action_entries (G_ACTION_MAP (action_group), applet_menu_actions, G_N_ELEMENTS(applet_menu_actions), command_applet);
++    panel_applet_setup_menu (applet, ui, action_group, GETTEXT_PACKAGE);
++    gtk_widget_insert_action_group (GTK_WIDGET (applet), "command", G_ACTION_GROUP (action_group));
++
++    /* first command execution */
++    command_execute (command_applet);
++
++    return TRUE;
++}
++
++/* this function, called by gnome-panel, will create the applet */
++static gboolean
++command_factory (PanelApplet* applet, const char* iid, gpointer data)
++{
++    gboolean retval = FALSE;
++
++    if (!g_strcmp0 (iid, "CommandApplet"))
++        retval = command_applet_fill (applet);
++
++    return retval;
++}
++
++/* needed by gnome-panel applet library */
++PANEL_APPLET_OUT_PROCESS_FACTORY("CommandAppletFactory",
++                                 PANEL_TYPE_APPLET,
++                                 command_factory,
++                                 NULL)
+diff --git a/command/org.gnome.applets.CommandApplet.panel-applet.in.in b/command/org.gnome.applets.CommandApplet.panel-applet.in.in
+new file mode 100644
+index 0000000..5058c9f
+--- /dev/null
++++ b/command/org.gnome.applets.CommandApplet.panel-applet.in.in
+@@ -0,0 +1,15 @@
++[Applet Factory]
++Id=CommandAppletFactory
++Location=@LIBEXECDIR@/command-applet
++_Name=Command Factory
++_Description=Command Factory
++
++[CommandApplet]
++_Name=Command
++_Description=Shows the output of a command
++Icon=utilities-terminal
++X-GNOME-Bugzilla-Bugzilla=GNOME
++X-GNOME-Bugzilla-Product=gnome-applets
++X-GNOME-Bugzilla-Component=Command Applet (command)
++X-GNOME-Bugzilla-Version=@VERSION@
++X-GNOME-Bugzilla-OtherBinaries=command-applet
+diff --git a/command/org.gnome.gnome-applets.command.gschema.xml.in.in b/command/org.gnome.gnome-applets.command.gschema.xml.in.in
+new file mode 100644
+index 0000000..311531c
+--- /dev/null
++++ b/command/org.gnome.gnome-applets.command.gschema.xml.in.in
+@@ -0,0 +1,24 @@
++<schemalist gettext-domain="@GETTEXT_PACKAGE@">
++  <schema id="org.gnome.gnome-applets.command">
++    <key name="command" type="s">
++      <default>'date +%T'</default>
++      <summary>Command to execute</summary>
++      <description>Command/script to execute to get the output</description>
++    </key>
++    <key name="interval" type="i">
++      <default>1</default>
++      <summary>Interval for the command</summary>
++      <description>Interval to execute the command (in seconds)</description>
++    </key>
++    <key name="width" type="i">
++      <default>60</default>
++      <summary>Width of output</summary>
++      <description>Number of characters to display</description>
++    </key>
++    <key name="show-icon" type="b">
++      <default>false</default>
++      <summary>Show icon</summary>
++      <description>If applet icon is shown or not</description>
++    </key>
++  </schema>
++</schemalist>
+diff --git a/command/org.gnome.panel.applet.CommandAppletFactory.service.in b/command/org.gnome.panel.applet.CommandAppletFactory.service.in
+new file mode 100644
+index 0000000..1c8f5ed
+--- /dev/null
++++ b/command/org.gnome.panel.applet.CommandAppletFactory.service.in
+@@ -0,0 +1,3 @@
++[D-BUS Service]
++Name=org.gnome.panel.applet.CommandAppletFactory
++Exec=@LIBEXECDIR@/command-applet
+diff --git a/configure.ac b/configure.ac
+index 8f3dce7..d85c891 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -646,6 +646,9 @@ AC_CONFIG_FILES([
+ 
+   charpick/help/Makefile
+   charpick/Makefile
++
++  command/Makefile
++
+   cpufreq/help/Makefile
+   cpufreq/Makefile
+   cpufreq/pixmaps/Makefile
+@@ -761,6 +764,7 @@ echo "    accessx-status ................: $HAVE_XKB"
+ echo "    batstat .......................: $build_battstat_applet"
+ echo "    brightness ....................: always"
+ echo "    charpick ......................: always"
++echo "    command .......................: always"
+ echo "    cpufreq .......................: $build_cpufreq_applet"
+ echo "    drivemount ....................: always"
+ echo "    geyes .........................: always"
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index a1daf06..7067b0c 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -20,6 +20,8 @@ charpick/charpick.c
+ [type: gettext/ini]charpick/org.gnome.applets.CharpickerApplet.panel-applet.in.in
+ charpick/org.gnome.gnome-applets.charpick.gschema.xml.in.in
+ charpick/properties.c
++[type: gettext/ini]command/org.gnome.applets.CommandApplet.panel-applet.in.in
++command/command.c
+ [type: gettext/glade]cpufreq/cpufreq-applet-menu.xml
+ [type: gettext/glade]cpufreq/cpufreq-preferences.ui
+ [type: gettext/ini]cpufreq/org.gnome.applets.CPUFreqApplet.panel-applet.in.in
+diff --git a/po/POTFILES.skip b/po/POTFILES.skip
+index 2a62ceb..88a92a6 100644
+--- a/po/POTFILES.skip
++++ b/po/POTFILES.skip
+@@ -9,6 +9,8 @@ battstat/org.gnome.gnome-applets.battstat.gschema.xml.in
+ brightness/org.gnome.BrightnessApplet.panel-applet.in
+ charpick/org.gnome.applets.CharpickerApplet.panel-applet.in
+ charpick/org.gnome.gnome-applets.charpick.gschema.xml.in
++command/org.gnome.applets.CommandApplet.panel-applet.in
++command/org.gnome.gnome-applets.command.gschema.xml.in
+ cpufreq/org.gnome.applets.CPUFreqApplet.panel-applet.in
+ cpufreq/org.gnome.gnome-applets.cpufreq.gschema.xml.in
+ drivemount/drivemount/org.gnome.applets.DriveMountApplet.panel-applet.in
+-- 
+2.7.3
+
