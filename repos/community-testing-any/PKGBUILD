@@ -1,0 +1,104 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+
+pkgbase=sagemath-doc
+pkgname=(sagemath-doc sagemath-src)
+pkgver=7.1
+pkgrel=1
+arch=(any)
+url="http://www.sagemath.org"
+license=(GPL)
+makedepends=(sagemath sage-notebook python2-pyzmq python2-pillow python2-docutils ipython2-notebook python2-pkgconfig cython2-devel)
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
+        "https://pypi.python.org/packages/source/S/Sphinx/Sphinx-1.2.3.tar.gz"
+	package.patch paths.patch disable-fes.patch docbuild_main.patch gap-4.8.patch)
+md5sums=('c68e846444b9370fe79f43395cdc2725'
+         'a98c93124035b4cd7183604aec656cb3'
+         '9ba81f717ffd4e20b8b2f2a318307488'
+         '1a60304525ac5a5f45114cc704807894'
+         '4eb23a3c7363258bc9ba764d6e5512ba'
+         'f3bf3fa4e11e5af2bd0573cf2620e1f8'
+         '8f631f4132d3a97dade07e4c60044aed')
+
+prepare() {
+  cd sage-$pkgver
+
+# Arch-specific patches
+# assume all optional packages are installed
+  patch -p0 -i ../package.patch
+# fix paths in python imports
+  patch -p0 -i ../paths.patch
+# supress warning about GAP install dir
+  sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
+# fix Cremona database detection
+  sed -e "s|is_package_installed('database_cremona_ellcurve')|os.path.exists('/usr/share/sage/cremona/cremona.db')|" \
+   -i src/sage/databases/cremona.py
+# find bliss headers
+  sed -e 's|graph.hh|bliss/graph.hh|' -i src/sage/graphs/bliss.pyx
+
+# Upstream patches
+# fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
+#  patch -p0 -i ../fes02.patch
+# disable fes module, fails to build
+  patch -p0 -i ../disable-fes.patch
+# port to GAP 4.8 http://trac.sagemath.org/ticket/19911
+  patch -p1 -i ../gap-4.8.patch
+
+# fix relative imports
+  patch -p0 -i ../docbuild_main.patch
+
+# use python2
+  sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
+
+  mkdir -p local-python
+  cp -r "$srcdir"/Sphinx-1.2.3/* local-python
+  cp -r src/sage_setup local-python
+}
+
+build() {
+  cd sage-$pkgver/src
+
+  export SAGE_LOCAL="/usr"
+  export SAGE_SRC="$PWD"
+  export SAGE_DOC_SRC="$SAGE_SRC"/doc
+  export SAGE_DOC="$SAGE_SRC"/doc
+  export SAGE_DOC_MATHJAX=yes
+  export PYTHONPATH="$srcdir/sage-$pkgver/local-python" # Sphinx 1.2 is needed
+  python2 sage_setup/docbuild --no-pdf-links -k all html
+}
+
+package_sagemath-doc() {
+  pkgdesc="HTML documentation and inline help for SageMath"
+  depends=(sage-notebook python2-sphinx)
+  conflicts=(sage-mathematics-doc)
+  replaces=(sage-mathematics-doc)
+
+  cd sage-$pkgver/src/doc
+ 
+  mkdir -p "$pkgdir"/usr/share/doc/sage/en
+  cp -r en/introspect "$pkgdir"/usr/share/doc/sage/en
+  cp -r common "$pkgdir"/usr/share/doc/sage
+  cp -r html "$pkgdir"/usr/share/doc/sage
+
+# Replace duplicated files by symlinks (Gentoo)
+  cd "$pkgdir"/usr/share/doc/sage
+  mv html/en/_static{,.tmp}
+  for _dir in `find -name _static` ; do
+        rm -r $_dir
+        ln -s /usr/share/doc/sage/html/en/_static $_dir
+  done
+  mv html/en/_static{.tmp,}
+}
+
+package_sagemath-src() {
+  pkgdesc="Source files for SageMath"
+  conflicts=(sage-mathematics-src)
+  replaces=(sage-mathematics-src)
+  
+  mkdir -p "$pkgdir"/usr/share/sage/source
+  cp -r sage-$pkgver/src/sage "$pkgdir"/usr/share/sage/source
+  ln -s /usr/share/doc/sage "$pkgdir"/usr/share/sage/source/doc
+
+# remove developer interface
+  rm -r "$pkgdir"/usr/share/sage/source/sage/dev
+}
