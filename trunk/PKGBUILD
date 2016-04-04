@@ -3,20 +3,22 @@
 
 pkgbase=sagemath-doc
 pkgname=(sagemath-doc sagemath-src)
-pkgver=7.0
+pkgver=7.1
 pkgrel=1
 arch=(any)
 url="http://www.sagemath.org"
 license=(GPL)
-makedepends=(sagemath sage-notebook python2-pyzmq python2-pillow python2-docutils)
+makedepends=(sagemath sage-notebook python2-pyzmq python2-pillow python2-docutils ipython2-notebook python2-pkgconfig cython2-devel)
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
         "https://pypi.python.org/packages/source/S/Sphinx/Sphinx-1.2.3.tar.gz"
-	'package.patch' 'paths.patch' 'disable-fes.patch')
-md5sums=('34807a7cf5dd79c008abd377ba1427fa'
+	package.patch paths.patch disable-fes.patch docbuild_main.patch gap-4.8.patch)
+md5sums=('c68e846444b9370fe79f43395cdc2725'
          'a98c93124035b4cd7183604aec656cb3'
          '9ba81f717ffd4e20b8b2f2a318307488'
-         'fd8e3e07f5b7318e6a7200a3c64f5bc2'
-         '4eb23a3c7363258bc9ba764d6e5512ba')
+         '1a60304525ac5a5f45114cc704807894'
+         '4eb23a3c7363258bc9ba764d6e5512ba'
+         'f3bf3fa4e11e5af2bd0573cf2620e1f8'
+         '8f631f4132d3a97dade07e4c60044aed')
 
 prepare() {
   cd sage-$pkgver
@@ -39,12 +41,18 @@ prepare() {
 #  patch -p0 -i ../fes02.patch
 # disable fes module, fails to build
   patch -p0 -i ../disable-fes.patch
+# port to GAP 4.8 http://trac.sagemath.org/ticket/19911
+  patch -p1 -i ../gap-4.8.patch
+
+# fix relative imports
+  patch -p0 -i ../docbuild_main.patch
 
 # use python2
   sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
 
-# remove developer interface
-  rm -r src/sage/dev
+  mkdir -p local-python
+  cp -r "$srcdir"/Sphinx-1.2.3/* local-python
+  cp -r src/sage_setup local-python
 }
 
 build() {
@@ -52,10 +60,11 @@ build() {
 
   export SAGE_LOCAL="/usr"
   export SAGE_SRC="$PWD"
+  export SAGE_DOC_SRC="$SAGE_SRC"/doc
   export SAGE_DOC="$SAGE_SRC"/doc
   export SAGE_DOC_MATHJAX=yes
-  export PYTHONPATH="$srcdir/Sphinx-1.2.3" # Sphinx 1.2 is needed
-  python2 doc/common/builder.py -k all html
+  export PYTHONPATH="$srcdir/sage-$pkgver/local-python" # Sphinx 1.2 is needed
+  python2 sage_setup/docbuild --no-pdf-links -k all html
 }
 
 package_sagemath-doc() {
@@ -66,10 +75,19 @@ package_sagemath-doc() {
 
   cd sage-$pkgver/src/doc
  
-  mkdir -p "$pkgdir"/usr/share/doc/sage
-  cp -r * "$pkgdir"/usr/share/doc/sage
-  rm "$pkgdir"/usr/share/doc/sage/Makefile
-  rm -r "$pkgdir"/usr/share/doc/sage/output/doctrees
+  mkdir -p "$pkgdir"/usr/share/doc/sage/en
+  cp -r en/introspect "$pkgdir"/usr/share/doc/sage/en
+  cp -r common "$pkgdir"/usr/share/doc/sage
+  cp -r html "$pkgdir"/usr/share/doc/sage
+
+# Replace duplicated files by symlinks (Gentoo)
+  cd "$pkgdir"/usr/share/doc/sage
+  mv html/en/_static{,.tmp}
+  for _dir in `find -name _static` ; do
+        rm -r $_dir
+        ln -s /usr/share/doc/sage/html/en/_static $_dir
+  done
+  mv html/en/_static{.tmp,}
 }
 
 package_sagemath-src() {
@@ -78,6 +96,9 @@ package_sagemath-src() {
   replaces=(sage-mathematics-src)
   
   mkdir -p "$pkgdir"/usr/share/sage/source
-  cp -r sage-$pkgver/src/{sage,sage_setup} "$pkgdir"/usr/share/sage/source
+  cp -r sage-$pkgver/src/sage "$pkgdir"/usr/share/sage/source
   ln -s /usr/share/doc/sage "$pkgdir"/usr/share/sage/source/doc
+
+# remove developer interface
+  rm -r "$pkgdir"/usr/share/sage/source/sage/dev
 }
