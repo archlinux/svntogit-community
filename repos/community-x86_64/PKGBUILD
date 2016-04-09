@@ -3,7 +3,7 @@
 # Contributor: Florian Hahn <flo@fhahn.com>
 
 pkgname=neovim
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('i686' 'x86_64')
@@ -16,7 +16,7 @@ optdepends=('python2-neovim: for Python 2 plugin support (see :help nvim-python)
             'xclip: for clipboard support (or xsel) (see :help nvim-clipboard)'
             'xsel: for clipboard support (or xclip) (see :help nvim-clipboard)')
 source=("https://github.com/neovim/neovim/archive/v${pkgver}.tar.gz")
-sha256sums=('549881465eff82454660ae92d857d6ffa22383d45c94c46f3753fd1b0e699247')
+sha256sums=('7a86892d941b8829537ad46864b9a363d009ba56aeefdef2ee15ffa3eee5f92b')
 install=neovim.install
 
 build() {
