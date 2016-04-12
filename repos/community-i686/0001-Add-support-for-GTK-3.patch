@@ -1,11 +1,55 @@
-diff -Naur xarchiver-0.5.4.orig/configure.in xarchiver-0.5.4/configure.in
---- xarchiver-0.5.4.orig/configure.in	2014-02-09 16:29:23.000000000 +0100
-+++ xarchiver-0.5.4/configure.in	2015-07-09 17:27:29.948257405 +0200
-@@ -80,9 +80,22 @@
+From 3dd5509417259229da204493f2d5cce5333269d8 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Tue, 12 Apr 2016 01:40:56 +0200
+Subject: [PATCH] Add support for GTK+ 3
+
+Provide full support for GTK+ 3 by fixing all deprecations in Xarchiver. It keeps the compatibility with GTK+ 2 by using the --disable-gtk3 configure flag.
+---
+ README                |   2 +-
+ configure.ac          |  15 +-
+ doc/html/ch01s01.html |   4 +-
+ doc/xarchiver.docbook |   2 +-
+ src/Makefile.am       |   2 -
+ src/add_dialog.c      |  25 +-
+ src/add_dialog.h      |   4 +-
+ src/archive.c         |   2 +-
+ src/extract_dialog.c  |  50 ++-
+ src/extract_dialog.h  |   1 -
+ src/interface.c       |  81 ++---
+ src/interface.h       |   3 +-
+ src/new_dialog.c      |  12 +-
+ src/open-with-dlg.c   |   9 +-
+ src/pref_dialog.c     |  90 +++--
+ src/pref_dialog.h     |   1 -
+ src/sexy-icon-entry.c | 950 --------------------------------------------------
+ src/sexy-icon-entry.h | 101 ------
+ src/window.c          |  87 +++--
+ xarchiver.desktop.in  |   2 +-
+ 20 files changed, 204 insertions(+), 1239 deletions(-)
+ delete mode 100644 src/sexy-icon-entry.c
+ delete mode 100644 src/sexy-icon-entry.h
+
+diff --git a/README b/README
+index a275bb0..e30b781 100644
+--- a/README
++++ b/README
+@@ -3,7 +3,7 @@ What is it?
+ Xarchiver is the ultimate solution for handling archives on Linux and FreeBSD.
+ It's a Desktop Environment independent archiver frontend. All common archive
+ types are supported. RPM and DEB packages are handled without their package
+-managers being installed. Xarchiver only depends on the GTK+2 libraries and
++managers being installed. Xarchiver only depends on the GTK+ libraries and
+ utilizes various (un)compressor/(un)archiver command line programs at runtime.
+ Installation of xdg-utils is optional but installing it will allow Xarchiver
+ the support to open more file types directly from inside an archive.
+diff --git a/configure.ac b/configure.ac
+index cff493f..b1bc07f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -76,8 +76,21 @@ AM_GLIB_GNU_GETTEXT
  dnl ***********************************
  dnl *** Check for required packages ***
  dnl ***********************************
--XDT_CHECK_PACKAGE([GTK], [gtk+-2.0], [2.10.0])
 +AC_ARG_ENABLE([gtk3],
 +    [AC_HELP_STRING([--enable-gtk3],
 +        [compile xarchiver against gtk+ 3.0 (default: yes)])],
@@ -19,17 +63,62 @@ diff -Naur xarchiver-0.5.4.orig/configure.in xarchiver-0.5.4/configure.in
 +    GTK_API_VERSION="2.0"
 +fi
 +
-+XDT_CHECK_PACKAGE([GTK], [gtk+-$GTK_API_VERSION], [2.10.0])
- XDT_CHECK_PACKAGE([GLIB], [glib-2.0], [2.10.0])
--GTK_VERSION=`$PKG_CONFIG --modversion gtk+-2.0`
-+GTK_VERSION=`$PKG_CONFIG --modversion gtk+-$GTK_API_VERSION`
+ PKG_CHECK_MODULES([GLIB], [glib-2.0 >= 2.10.0])
+-PKG_CHECK_MODULES([GTK], [gtk+-2.0 >= 2.10.0])
++PKG_CHECK_MODULES([GTK], [gtk+-$GTK_API_VERSION >= 2.10.0])
  
  dnl ***********************************
  dnl *** Check for debugging support ***
-diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.c
---- xarchiver-0.5.4.orig/src/add_dialog.c	2014-02-09 16:26:24.000000000 +0100
-+++ xarchiver-0.5.4/src/add_dialog.c	2015-07-09 17:27:29.951590832 +0200
-@@ -31,16 +31,13 @@
+diff --git a/doc/html/ch01s01.html b/doc/html/ch01s01.html
+index ecfd58d..96b1748 100644
+--- a/doc/html/ch01s01.html
++++ b/doc/html/ch01s01.html
+@@ -4,11 +4,11 @@
+ 		</th><td width="20%" align="right"> <a accesskey="n" href="ch01s02.html">Next</a></td></tr></table><hr /></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="intro_about"></a>About Xarchiver</h2></div></div></div><p>
+ 				Xarchiver is a small and lightweight archive manager.
+ 				I developed it to manage archives without depending from a special Desktop Environment
+-				like KDE or GNOME, so Xarchiver requires only the GTK+2 toolkit
++				like KDE or GNOME, so Xarchiver requires only the GTK+ toolkit
+ 				to work. The package <span class="emphasis"><em>xdg-utils</em></span> is optional.
+ 			</p><p>
+ 				Xarchiver presents the following characteristic:
+ 				</p><div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem">Archive directories can be browsed just like a file manager</li><li class="listitem">Mime icon for each of the archive entries</li><li class="listitem">The most used archiver's command line options are supported in the Add and Extract dialogs</li><li class="listitem">Tabs Firefox style support</li><li class="listitem">Multi-extract facility</li><li class="listitem">Dump of the whole archive content as HTML or text file</li><li class="listitem">Context menu on each of the archive entries with cut/copy/paste/rename abilities</li><li class="listitem">Archives are detected by their magic header and not by the extension except for .tar.bz2 and .tar.gz</li><li class="listitem">Drag and drop from and to Xarchiver window</li><li class="listitem">Progress window when using Xarchiver from the command line or from a file-manager</li><li class="listitem">ARJ, RAR and ZIP archive comment are supported</li><li class="listitem">Ability to convert the archive to self-extracting for those archive types which support it</li><li class="listitem">Smart detection of arj, zip and rar password encrypted archives</li><li class="listitem">All the the output of the command line archiver is displayed in the Xarchiver window</li><li class="listitem">All common formats are supported: arj, bzip2, gzip, lha, lzma, 7z, rar, tar, tar.bz2, tar.gz, tar.lzma, tar.lzop, zip, deb and rpm packages (open and extract only)</li><li class="listitem">Deb and Rpm packages are handled internally, their package managers are NOT required.</li><li class="listitem">Zip, rar, arj and 7z password encrypted archives are fully supported (7z automatic password detection is not supported)</li></ul></div><p>
+ 			</p></div><div class="navfooter"><hr /><table width="100%" summary="Navigation footer"><tr><td width="40%" align="left"><a accesskey="p" href="ch01.html">Prev</a> </td><td width="20%" align="center"><a accesskey="u" href="ch01.html">Up</a></td><td width="40%" align="right"> <a accesskey="n" href="ch01s02.html">Next</a></td></tr><tr><td width="40%" align="left" valign="top">Chapter 1. 
+ 			Introduction
+-		 </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Where to get it</td></tr></table></div></body></html>
+\ No newline at end of file
++		 </td><td width="20%" align="center"><a accesskey="h" href="index.html">Home</a></td><td width="40%" align="right" valign="top"> Where to get it</td></tr></table></div></body></html>
+diff --git a/doc/xarchiver.docbook b/doc/xarchiver.docbook
+index 22bc073..a6d71fe 100644
+--- a/doc/xarchiver.docbook
++++ b/doc/xarchiver.docbook
+@@ -40,7 +40,7 @@
+ 			<para>
+ 				&app; is a small and lightweight archive manager.
+ 				I developed it to manage archives without depending from a special Desktop Environment
+-				like KDE or GNOME, so &app; requires only the GTK+2 toolkit
++				like KDE or GNOME, so &app; requires only the GTK+ toolkit
+ 				to work. The package <emphasis>xdg-utils</emphasis> is optional.
+ 			</para>
+ 			<para>
+diff --git a/src/Makefile.am b/src/Makefile.am
+index dd98a21..f620943 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -37,8 +37,6 @@ xarchiver_SOURCES = \
+ 	rar.h \
+ 	rpm.c \
+ 	rpm.h \
+-	sexy-icon-entry.c \
+-	sexy-icon-entry.h \
+ 	socket.c \
+ 	socket.h \
+ 	string_utils.c \
+diff --git a/src/add_dialog.c b/src/add_dialog.c
+index d8afc2f..4dd93a1 100644
+--- a/src/add_dialog.c
++++ b/src/add_dialog.c
+@@ -31,16 +31,13 @@ Add_dialog_data *xa_create_add_dialog()
  
  	add_dialog = g_new0 (Add_dialog_data, 1);
  	add_dialog->path_group = NULL;
@@ -47,7 +136,7 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  
  	add_dialog->notebook1 = gtk_notebook_new ();
  	gtk_box_pack_start (GTK_BOX (add_dialog->dialog_vbox1),add_dialog->notebook1, TRUE, TRUE,0);
-@@ -107,13 +104,13 @@
+@@ -107,13 +104,13 @@ Add_dialog_data *xa_create_add_dialog()
  
  	add_dialog->update = gtk_check_button_new_with_mnemonic (_("Update and add"));
  	gtk_button_set_focus_on_click (GTK_BUTTON (add_dialog->update), FALSE);
@@ -63,7 +152,7 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  	gtk_box_pack_start (GTK_BOX (vbox3), add_dialog->freshen, FALSE, FALSE, 0);
  	g_signal_connect (G_OBJECT (add_dialog->freshen),"toggled",G_CALLBACK (add_fresh_update_toggled_cb) , add_dialog);
  
-@@ -123,7 +120,7 @@
+@@ -123,7 +120,7 @@ Add_dialog_data *xa_create_add_dialog()
  
  	add_dialog->solid_archive = gtk_check_button_new_with_mnemonic (_("Create a solid archive"));
  	gtk_button_set_focus_on_click (GTK_BUTTON (add_dialog->solid_archive), FALSE);
@@ -72,10 +161,10 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  	gtk_box_pack_start (GTK_BOX (vbox3), add_dialog->solid_archive, FALSE, FALSE, 0);
  
  	add_dialog->remove_files = gtk_check_button_new_with_mnemonic (_("Delete files after adding"));
-@@ -172,12 +169,12 @@
+@@ -172,12 +169,12 @@ Add_dialog_data *xa_create_add_dialog()
  	label5 = gtk_label_new (_("Encryption: "));
  	gtk_frame_set_label_widget (GTK_FRAME (frame3), label5);
-   
+ 
 -	dialog_action_area1 = GTK_DIALOG (add_dialog->dialog1)->action_area;
 +	dialog_action_area1 = gtk_dialog_get_action_area(GTK_DIALOG (add_dialog->dialog1));
  	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1), GTK_BUTTONBOX_END);
@@ -87,7 +176,7 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  
  	add_dialog->add_button = gtk_button_new();
  	add_dialog->add_image = xa_main_window_find_image("xarchiver-add.png", GTK_ICON_SIZE_SMALL_TOOLBAR);
-@@ -192,7 +189,7 @@
+@@ -192,7 +189,7 @@ Add_dialog_data *xa_create_add_dialog()
  	gtk_container_add(GTK_CONTAINER(add_dialog->add_button), alignment2);
  
  	gtk_dialog_add_action_widget (GTK_DIALOG (add_dialog->dialog1), add_dialog->add_button, GTK_RESPONSE_OK);
@@ -96,7 +185,7 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  	gtk_dialog_set_default_response (GTK_DIALOG (add_dialog->dialog1), GTK_RESPONSE_OK);
  	return add_dialog;
  }
-@@ -316,7 +313,7 @@
+@@ -312,7 +309,7 @@ void xa_set_add_dialog_options(Add_dialog_data *add_dialog,XArchive *archive)
  		gtk_range_set_inverted (GTK_RANGE (add_dialog->compression_scale), TRUE);
  	else if (archive->type == XARCHIVETYPE_7ZIP)
  		g_signal_connect (G_OBJECT (add_dialog->compression_value),"value-changed",G_CALLBACK (fix_adjustment_value), NULL);
@@ -105,7 +194,7 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  
  	if (archive->type == XARCHIVETYPE_TAR || archive->type == XARCHIVETYPE_TAR_GZ || archive->type == XARCHIVETYPE_TAR_LZMA || archive->type == XARCHIVETYPE_TAR_XZ || archive->type == XARCHIVETYPE_TAR_BZ2 || archive->type == XARCHIVETYPE_TAR_LZOP)
  		flag = FALSE;
-@@ -419,13 +416,13 @@
+@@ -414,13 +411,13 @@ void xa_parse_add_dialog_options (XArchive *archive,Add_dialog_data *add_dialog)
  			if (add_dialog->remove_files != NULL)
  				archive->remove_files = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON (add_dialog->remove_files));
  
@@ -122,10 +211,11 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.c xarchiver-0.5.4/src/add_dialog.
  			{
  				archive->compression_level = gtk_adjustment_get_value(GTK_ADJUSTMENT (add_dialog->compression_value));
  				compression_string = g_strdup_printf("%d",archive->compression_level);
-diff -Naur xarchiver-0.5.4.orig/src/add_dialog.h xarchiver-0.5.4/src/add_dialog.h
---- xarchiver-0.5.4.orig/src/add_dialog.h	2008-11-10 11:35:55.000000000 +0100
-+++ xarchiver-0.5.4/src/add_dialog.h	2015-07-09 17:27:29.951590832 +0200
-@@ -46,10 +46,8 @@
+diff --git a/src/add_dialog.h b/src/add_dialog.h
+index f80ca30..56ebee1 100644
+--- a/src/add_dialog.h
++++ b/src/add_dialog.h
+@@ -46,10 +46,8 @@ typedef struct
  	GtkWidget *add_label;
  	GtkWidget *cancel_button;
  	GtkWidget *add_button;
@@ -137,21 +227,23 @@ diff -Naur xarchiver-0.5.4.orig/src/add_dialog.h xarchiver-0.5.4/src/add_dialog.
  } Add_dialog_data;
  
  Add_dialog_data *xa_create_add_dialog();
-diff -Naur xarchiver-0.5.4.orig/src/archive.c xarchiver-0.5.4/src/archive.c
---- xarchiver-0.5.4.orig/src/archive.c	2014-02-09 16:26:24.000000000 +0100
-+++ xarchiver-0.5.4/src/archive.c	2015-07-09 17:27:29.951590832 +0200
-@@ -361,7 +361,7 @@
+diff --git a/src/archive.c b/src/archive.c
+index ac413ec..c001a62 100644
+--- a/src/archive.c
++++ b/src/archive.c
+@@ -359,7 +359,7 @@ gboolean xa_create_temp_directory (XArchive *archive)
  	if (archive->tmp != NULL)
  		return TRUE;
  
 -	value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_temp_dir));
 +	value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_temp_dir));
  	tmp_dir = g_strconcat(value,"/xa-XXXXXX",NULL);
+ 	g_free(value);
  
- 	if (mkdtemp (tmp_dir) == 0)
-diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract_dialog.c
---- xarchiver-0.5.4.orig/src/extract_dialog.c	2014-09-28 22:11:16.000000000 +0200
-+++ xarchiver-0.5.4/src/extract_dialog.c	2015-07-09 17:27:29.951590832 +0200
+diff --git a/src/extract_dialog.c b/src/extract_dialog.c
+index dfcc486..0a6f6ce 100644
+--- a/src/extract_dialog.c
++++ b/src/extract_dialog.c
 @@ -19,7 +19,6 @@
  #include <gtk/gtk.h>
  #include <stdlib.h>
@@ -160,7 +252,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  #include "window.h"
  #include "string_utils.h"
  #include "support.h"
-@@ -30,7 +29,7 @@
+@@ -30,7 +29,7 @@ extern Progress_bar_data *pb;
  extern extract_func extract	[XARCHIVETYPE_COUNT];
  
  static gchar *xa_multi_extract_archive(Multi_extract_data *,gchar *,gboolean,gboolean,gchar *);
@@ -169,7 +261,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  static void xa_remove_files_liststore (GtkWidget *,Multi_extract_data *);
  static void xa_multi_extract_dialog_select_files_to_add (GtkButton*,Multi_extract_data *);
  static void xa_multi_extract_dialog_selection_changed(GtkTreeSelection *selection,Multi_extract_data *);
-@@ -51,11 +50,9 @@
+@@ -51,11 +50,9 @@ Extract_dialog_data *xa_create_extract_dialog()
  
  	gtk_window_set_position (GTK_WINDOW (dialog_data->dialog1),GTK_WIN_POS_CENTER_ON_PARENT);
  	gtk_window_set_type_hint (GTK_WINDOW (dialog_data->dialog1),GDK_WINDOW_TYPE_HINT_DIALOG);
@@ -182,7 +274,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  
  	vbox1 = gtk_vbox_new (FALSE,2);
  	gtk_box_pack_start (GTK_BOX (dialog_data->dialog_vbox1),vbox1,TRUE,TRUE,0);
-@@ -65,9 +62,9 @@
+@@ -65,9 +62,9 @@ Extract_dialog_data *xa_create_extract_dialog()
  	gtk_box_pack_start (GTK_BOX (vbox1),label1,FALSE,FALSE,0);
  	gtk_misc_set_alignment (GTK_MISC (label1),0,0.5);
  
@@ -195,7 +287,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	gtk_box_pack_start (GTK_BOX (vbox1),dialog_data->destination_path_entry,FALSE,FALSE,0);
  
  	hbox1 = gtk_hbox_new (TRUE,10);
-@@ -129,20 +126,20 @@
+@@ -129,20 +126,20 @@ Extract_dialog_data *xa_create_extract_dialog()
  	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->overwrite_check,FALSE,FALSE,0);
  
  	dialog_data->extract_full = gtk_check_button_new_with_mnemonic (_("Extract files with full path"));
@@ -220,7 +312,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	gtk_box_pack_start (GTK_BOX (vbox5),dialog_data->update,FALSE,FALSE,0);
  	g_signal_connect (G_OBJECT (dialog_data->update),"toggled",G_CALLBACK (update_fresh_toggled_cb),dialog_data);
  
-@@ -159,12 +156,12 @@
+@@ -159,12 +156,12 @@ Extract_dialog_data *xa_create_extract_dialog()
  	gtk_box_pack_start (GTK_BOX (hbox3),dialog_data->password_entry,TRUE,TRUE,0);
  	gtk_entry_set_visibility (GTK_ENTRY (dialog_data->password_entry),FALSE);
  
@@ -235,7 +327,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  
  	extract_button = gtk_button_new();
  	extract_image = xa_main_window_find_image("xarchiver-extract.png",GTK_ICON_SIZE_SMALL_TOOLBAR);
-@@ -178,7 +175,7 @@
+@@ -178,7 +175,7 @@ Extract_dialog_data *xa_create_extract_dialog()
  	gtk_container_add(GTK_CONTAINER(extract_button),alignment3);
  
  	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->dialog1),extract_button,GTK_RESPONSE_OK);
@@ -244,7 +336,16 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	gtk_dialog_set_default_response (GTK_DIALOG (dialog_data->dialog1),GTK_RESPONSE_OK);
  	return dialog_data;
  }
-@@ -387,11 +384,9 @@
+@@ -267,7 +264,7 @@ void xa_set_extract_dialog_options(Extract_dialog_data *dialog_data,gint selecte
+ 
+ 	if (archive->extraction_path == NULL)
+ 	{
+-		archive_dir = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_extract_dir));
++		archive_dir = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_extract_dir));
+ 		if (archive_dir == NULL) archive_dir = xa_remove_level_from_path (archive->path);
+ 		gtk_entry_set_text (GTK_ENTRY(dialog_data->destination_path_entry),archive_dir);
+ 	}
+@@ -391,11 +388,9 @@ Multi_extract_data *xa_create_multi_extract_dialog()
  	GtkTreeSelection *selection;
  	GtkTreeViewColumn *column;
  	GSList *radiobutton1_group = NULL;
@@ -256,7 +357,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	dialog_data = g_new0 (Multi_extract_data,1);
  	dialog_data->multi_extract = gtk_dialog_new();
  
-@@ -399,10 +394,9 @@
+@@ -403,10 +398,9 @@ Multi_extract_data *xa_create_multi_extract_dialog()
  	gtk_window_set_type_hint (GTK_WINDOW (dialog_data->multi_extract),GDK_WINDOW_TYPE_HINT_DIALOG);
  	gtk_window_set_destroy_with_parent (GTK_WINDOW (dialog_data->multi_extract),TRUE);
  	gtk_widget_set_size_request(dialog_data->multi_extract,-1,300);
@@ -268,7 +369,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	vbox1 = gtk_vbox_new (FALSE,5);
  	gtk_box_pack_start (GTK_BOX (dialog_vbox1),vbox1,TRUE,TRUE,0);
  	scrolledwindow1 = gtk_scrolled_window_new (NULL,NULL);
-@@ -466,13 +460,13 @@
+@@ -470,13 +464,13 @@ Multi_extract_data *xa_create_multi_extract_dialog()
  	gtk_radio_button_set_group (GTK_RADIO_BUTTON (dialog_data->extract_to),radiobutton1_group);
  	radiobutton1_group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (dialog_data->extract_to));
  
@@ -286,7 +387,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	gtk_box_pack_start (GTK_BOX (vbox2),dialog_data->extract_to_archive_name,FALSE,FALSE,0);
  	gtk_radio_button_set_group (GTK_RADIO_BUTTON (dialog_data->extract_to_archive_name),radiobutton1_group);
  	radiobutton1_group = gtk_radio_button_get_group (GTK_RADIO_BUTTON (dialog_data->extract_to_archive_name));
-@@ -496,11 +490,11 @@
+@@ -500,11 +494,11 @@ Multi_extract_data *xa_create_multi_extract_dialog()
  	label2 = gtk_label_new (_("Options:"));
  	gtk_frame_set_label_widget(GTK_FRAME(frame2),label2);
  
@@ -297,10 +398,10 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->multi_extract),cancelbutton1,GTK_RESPONSE_CANCEL);
 -	GTK_WIDGET_SET_FLAGS (cancelbutton1,GTK_CAN_DEFAULT);
 +	gtk_widget_set_can_default(cancelbutton1,TRUE);
- 	
+ 
  	extract_button = gtk_button_new();
  	extract_image = xa_main_window_find_image("xarchiver-extract.png",GTK_ICON_SIZE_SMALL_TOOLBAR);
-@@ -514,7 +508,7 @@
+@@ -518,7 +512,7 @@ Multi_extract_data *xa_create_multi_extract_dialog()
  	gtk_container_add(GTK_CONTAINER(extract_button),alignment3);
  
  	gtk_dialog_add_action_widget (GTK_DIALOG (dialog_data->multi_extract),extract_button,GTK_RESPONSE_OK);
@@ -309,7 +410,7 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  	gtk_dialog_set_default_response (GTK_DIALOG (dialog_data->multi_extract),GTK_RESPONSE_OK);
  	return dialog_data;
  }
-@@ -662,7 +656,7 @@
+@@ -665,7 +659,7 @@ static void xa_multi_extract_dialog_drag_data_received (GtkWidget *widget,GdkDra
  	g_strfreev (array);
  }
  
@@ -318,21 +419,23 @@ diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.c xarchiver-0.5.4/src/extract
  {
  	GtkWidget *file_selector;
  	gchar *dest_dir;
-diff -Naur xarchiver-0.5.4.orig/src/extract_dialog.h xarchiver-0.5.4/src/extract_dialog.h
---- xarchiver-0.5.4.orig/src/extract_dialog.h	2008-10-08 12:14:57.000000000 +0200
-+++ xarchiver-0.5.4/src/extract_dialog.h	2015-07-09 17:27:29.954924258 +0200
-@@ -44,7 +44,6 @@
+diff --git a/src/extract_dialog.h b/src/extract_dialog.h
+index 2bbb01a..fd31d56 100644
+--- a/src/extract_dialog.h
++++ b/src/extract_dialog.h
+@@ -44,7 +44,6 @@ GtkWidget *label1,*label2,*label3,*label_password;
  GtkWidget *hbox1,*hbox2,*hbox3,*vbox1,*vbox2,*vbox3,*vbox5;
  GtkWidget *frame1,*frame2,*alignment1,*alignment2,*alignment3;
  GtkWidget *dialog_action_area1,*cancel_button,*okbutton1,*extract_button,*extract_image,*extract_hbox,*extract_label;
 -GtkTooltips *option_tooltip;
- 	
+ 
  Extract_dialog_data *xa_create_extract_dialog();
  void xa_activate_entry(GtkToggleButton *,gpointer );
-diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
---- xarchiver-0.5.4.orig/src/interface.c	2014-09-28 22:11:04.000000000 +0200
-+++ xarchiver-0.5.4/src/interface.c	2015-07-09 17:27:29.954924258 +0200
-@@ -55,7 +55,6 @@
+diff --git a/src/interface.c b/src/interface.c
+index 8bd29ad..2899a31 100644
+--- a/src/interface.c
++++ b/src/interface.c
+@@ -57,7 +57,6 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	GdkPixbuf *icon;
  
  	xa_create_popup_menu();
@@ -340,7 +443,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	accel_group = gtk_accel_group_new ();
  	xa_set_window_title (xa_main_window,NULL);
  
-@@ -128,7 +127,7 @@
+@@ -130,7 +129,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (check_menu);
  	gtk_widget_set_sensitive (check_menu,FALSE);
  	gtk_container_add (GTK_CONTAINER (menuitem1_menu),check_menu);
@@ -349,7 +452,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-index",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (tmp_image);
-@@ -138,7 +137,7 @@
+@@ -140,7 +139,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (properties);
  	gtk_widget_set_sensitive ( properties,FALSE);
  	gtk_container_add (GTK_CONTAINER (menuitem1_menu),properties);
@@ -358,7 +461,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-properties",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (tmp_image);
-@@ -169,7 +168,7 @@
+@@ -171,7 +170,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_set_sensitive (addfile,FALSE);
  	gtk_widget_show (addfile);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),addfile);
@@ -367,7 +470,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	image2 = xa_main_window_find_image ("xarchiver-add.png",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (image2);
-@@ -179,7 +178,7 @@
+@@ -181,7 +180,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_set_sensitive (extract_menu,FALSE);
  	gtk_widget_show (extract_menu);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),extract_menu);
@@ -376,16 +479,16 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	image2 =  xa_main_window_find_image ("xarchiver-extract.png",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (image2);
-@@ -189,7 +188,7 @@
+@@ -191,7 +190,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_set_sensitive (delete_menu,FALSE);
  	gtk_widget_show (delete_menu);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),delete_menu);
 -	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
 +	gtk_widget_add_accelerator (delete_menu,"activate",accel_group,GDK_KEY_Delete,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
  
- 	rename_menu = gtk_image_menu_item_new_with_mnemonic (_("Rename"));
+ 	rename_menu = gtk_image_menu_item_new_with_mnemonic (_("Re_name"));
  	gtk_widget_set_sensitive (rename_menu,FALSE);
-@@ -209,7 +208,7 @@
+@@ -215,7 +214,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_set_sensitive (exe_menu,FALSE);
  	gtk_widget_show (exe_menu);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),exe_menu);
@@ -394,14 +497,14 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	image2 = gtk_image_new_from_stock ("gtk-execute",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (image2);
-@@ -218,13 +217,13 @@
+@@ -224,13 +223,13 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	multi_extract_menu = gtk_menu_item_new_with_mnemonic (_("_Multi-Extract"));
  	gtk_widget_show (multi_extract_menu);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),multi_extract_menu);
 -	gtk_widget_add_accelerator (multi_extract_menu,"activate",accel_group,GDK_m,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
 +	gtk_widget_add_accelerator (multi_extract_menu,"activate",accel_group,GDK_KEY_m,GDK_CONTROL_MASK,GTK_ACCEL_VISIBLE);
  
- 	comment_menu = gtk_image_menu_item_new_with_mnemonic (_("Archive comment"));
+ 	comment_menu = gtk_image_menu_item_new_with_mnemonic (_("Archive _comment"));
  	gtk_widget_set_sensitive (comment_menu,FALSE);
  	gtk_widget_show (comment_menu);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),comment_menu);
@@ -410,7 +513,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-justify-fill",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (tmp_image);
-@@ -238,7 +237,7 @@
+@@ -244,7 +243,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (select_all);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),select_all);
  	gtk_widget_set_sensitive (select_all,FALSE);
@@ -419,7 +522,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-select-all",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (tmp_image);
-@@ -248,13 +247,13 @@
+@@ -254,13 +253,13 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (deselect_all);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),deselect_all);
  	gtk_widget_set_sensitive (deselect_all,FALSE);
@@ -435,7 +538,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	separatormenuitem5 = gtk_separator_menu_item_new ();
  	gtk_widget_show (separatormenuitem5);
-@@ -263,7 +262,7 @@
+@@ -269,7 +268,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  
  	view_shell_output1 = gtk_image_menu_item_new_with_mnemonic (_("Cmd-line outp_ut"));
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),view_shell_output1);
@@ -444,7 +547,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	if (show_output_menu_item)
  		gtk_widget_set_sensitive(view_shell_output1,TRUE);
  	else
-@@ -278,7 +277,7 @@
+@@ -284,7 +283,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (password_entry_menu);
  	gtk_widget_set_sensitive (password_entry_menu,FALSE);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),password_entry_menu);
@@ -453,7 +556,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	separatormenuitem6 = gtk_separator_menu_item_new ();
  	gtk_widget_show (separatormenuitem6);
-@@ -288,7 +287,7 @@
+@@ -294,7 +293,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	prefs_menu = gtk_image_menu_item_new_with_mnemonic (_("_Preferences"));
  	gtk_widget_show (prefs_menu);
  	gtk_container_add (GTK_CONTAINER (menuitem2_menu),prefs_menu);
@@ -462,8 +565,8 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-preferences",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (tmp_image);
-@@ -304,7 +303,7 @@
- 	help1 = gtk_image_menu_item_new_with_mnemonic ("_Contents");
+@@ -310,7 +309,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
+ 	help1 = gtk_image_menu_item_new_with_mnemonic (_("_Contents"));
  	gtk_widget_show (help1);
  	gtk_container_add (GTK_CONTAINER (menuitem4_menu),help1);
 -	gtk_widget_add_accelerator (help1,"activate",accel_group,GDK_F1,GDK_MODE_DISABLED,GTK_ACCEL_VISIBLE);
@@ -471,7 +574,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-help",GTK_ICON_SIZE_MENU);
  	gtk_widget_show (tmp_image);
-@@ -327,7 +326,7 @@
+@@ -334,7 +333,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (New_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (New_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),New_button);
@@ -480,7 +583,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-open",tmp_toolbar_icon_size);
  	gtk_widget_show (tmp_image);
-@@ -335,7 +334,7 @@
+@@ -342,7 +341,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (Open_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (Open_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),Open_button);
@@ -489,7 +592,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	separatortoolitem1 = (GtkWidget*) gtk_separator_tool_item_new ();
  	gtk_widget_show (separatortoolitem1);
-@@ -348,7 +347,7 @@
+@@ -355,7 +354,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (back_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (back_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),back_button);
@@ -498,7 +601,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-go-up",tmp_toolbar_icon_size);
  	gtk_widget_show (tmp_image);
-@@ -357,7 +356,7 @@
+@@ -364,7 +363,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (up_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (up_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),up_button);
@@ -507,7 +610,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-go-forward",tmp_toolbar_icon_size);
  	gtk_widget_show (tmp_image);
-@@ -366,7 +365,7 @@
+@@ -373,7 +372,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (forward_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (forward_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),forward_button);
@@ -516,7 +619,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = gtk_image_new_from_stock ("gtk-home",tmp_toolbar_icon_size);
  	gtk_widget_show (tmp_image);
-@@ -375,7 +374,7 @@
+@@ -382,7 +381,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (home_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (home_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),home_button);
@@ -525,7 +628,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	separatortoolitem3 = (GtkWidget*) gtk_separator_tool_item_new ();
  	gtk_widget_show (separatortoolitem3);
-@@ -388,7 +387,7 @@
+@@ -395,7 +394,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (AddFile_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (AddFile_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),AddFile_button);
@@ -534,7 +637,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	tmp_image = xa_main_window_find_image("xarchiver-extract.png",GTK_ICON_SIZE_LARGE_TOOLBAR);
  	gtk_widget_show (tmp_image);
-@@ -397,7 +396,7 @@
+@@ -404,7 +403,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (Extract_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM (Extract_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),Extract_button);
@@ -543,7 +646,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	separatortoolitem2 = (GtkWidget*) gtk_separator_tool_item_new ();
  	gtk_widget_show (separatortoolitem2);
-@@ -410,7 +409,7 @@
+@@ -417,7 +416,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (Stop_button);
  	gtk_tool_item_set_homogeneous (GTK_TOOL_ITEM ( Stop_button),FALSE);
  	gtk_container_add (GTK_CONTAINER (toolbar1),Stop_button);
@@ -552,7 +655,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	/* Location entry */
  	toolbar2 = gtk_toolbar_new ();
-@@ -510,7 +509,7 @@
+@@ -517,7 +516,7 @@ void xa_create_main_window (GtkWidget *xa_main_window,gboolean show_location,gbo
  	gtk_widget_show (green_led);
  	gtk_box_pack_start (GTK_BOX (hbox_sb),green_led,FALSE,FALSE,0);
  	gtk_misc_set_alignment (GTK_MISC (green_led),1,1);
@@ -561,7 +664,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	red_led = gtk_image_new_from_icon_name ("gtk-no",GTK_ICON_SIZE_BUTTON);
  	gtk_box_pack_start (GTK_BOX (hbox_sb),red_led,FALSE,FALSE,0);
-@@ -564,7 +563,7 @@
+@@ -572,7 +571,7 @@ gboolean xa_flash_led_indicator (XArchive *archive)
  		archive->pb_source = 0;
  		return FALSE;
  	}
@@ -570,7 +673,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	{
  		gtk_widget_hide(green_led);
  		gtk_widget_show(red_led);
-@@ -577,7 +576,7 @@
+@@ -585,7 +584,7 @@ gboolean xa_flash_led_indicator (XArchive *archive)
  	return TRUE;
  }
  
@@ -579,7 +682,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  {
  	gint id,selected = 0;
  	GtkTreeSelection *selection = NULL;
-@@ -648,7 +647,6 @@
+@@ -670,7 +669,6 @@ void xa_page_has_changed (GtkNotebook *notebook,GtkNotebookPage *page,guint page
  void xa_add_page (XArchive *archive)
  {
  	GtkWidget	*page_hbox,*label,*tab_label,*close_button,*image,*align;
@@ -587,7 +690,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	gchar *filename_only;
  	GtkRcStyle *rcstyle;
  	GtkRequisition size;
-@@ -684,13 +682,13 @@
+@@ -706,13 +704,13 @@ void xa_add_page (XArchive *archive)
  	close_button = gtk_button_new();
  	gtk_button_set_focus_on_click(GTK_BUTTON(close_button),FALSE);
  	gtk_button_set_relief (GTK_BUTTON(close_button),GTK_RELIEF_NONE);
@@ -603,7 +706,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	image = gtk_image_new_from_stock (GTK_STOCK_CLOSE,GTK_ICON_SIZE_MENU);
  	gtk_widget_size_request(image,&size);
-@@ -745,9 +743,8 @@
+@@ -766,9 +764,8 @@ gchar *xa_create_password_dialog(XArchive *archive)
    	gtk_window_set_position (GTK_WINDOW (password_dialog),GTK_WIN_POS_CENTER_ON_PARENT);
    	gtk_window_set_resizable (GTK_WINDOW (password_dialog),FALSE);
    	gtk_window_set_type_hint (GTK_WINDOW (password_dialog),GDK_WINDOW_TYPE_HINT_DIALOG);
@@ -614,7 +717,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
    	gtk_widget_show (dialog_vbox1);
  
    	vbox1 = gtk_vbox_new (FALSE,12);
-@@ -945,14 +942,13 @@
+@@ -965,14 +962,13 @@ void xa_select_by_pattern_dialog(GtkMenuItem *menuitem,gpointer user_data)
  	current_page = gtk_notebook_get_current_page (notebook);
  	id = xa_find_archive_index (current_page);
  
@@ -630,7 +733,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	gtk_widget_show (ddialog_vbox1);
  
  	dhbox1 = gtk_hbox_new (FALSE,10);
-@@ -965,19 +961,19 @@
+@@ -985,19 +981,19 @@ void xa_select_by_pattern_dialog(GtkMenuItem *menuitem,gpointer user_data)
  	gtk_box_pack_start (GTK_BOX (dhbox1),pattern_label,FALSE,FALSE,0);
  
  	pattern_entry = gtk_entry_new ();
@@ -653,7 +756,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  
  	okbutton1 = gtk_button_new();
  	tmp_image = gtk_image_new_from_stock ("gtk-ok",GTK_ICON_SIZE_BUTTON);
-@@ -992,7 +988,7 @@
+@@ -1012,7 +1008,7 @@ void xa_select_by_pattern_dialog(GtkMenuItem *menuitem,gpointer user_data)
  	gtk_container_add(GTK_CONTAINER(okbutton1),alignment2);
  	gtk_widget_show_all (okbutton1);
  	gtk_dialog_add_action_widget (GTK_DIALOG (ddialog1),okbutton1,GTK_RESPONSE_OK);
@@ -662,7 +765,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	gtk_dialog_set_default_response (GTK_DIALOG (ddialog1),GTK_RESPONSE_OK);
  
  	while (! done)
-@@ -1066,10 +1062,9 @@
+@@ -1086,10 +1082,9 @@ GtkWidget *xa_create_archive_properties_window()
  	gtk_window_set_type_hint (GTK_WINDOW (archive_properties_window),GDK_WINDOW_TYPE_HINT_DIALOG);
  	gtk_window_set_resizable (GTK_WINDOW (archive_properties_window),FALSE);
  	gtk_window_set_modal (GTK_WINDOW (archive_properties_window),TRUE);
@@ -674,7 +777,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	gtk_container_set_border_width (GTK_CONTAINER (table1),6);
  	gtk_table_set_row_spacings (GTK_TABLE (table1),6);
  	gtk_table_set_col_spacings (GTK_TABLE (table1),12);
-@@ -1485,7 +1480,7 @@
+@@ -1503,7 +1498,7 @@ gboolean xa_sidepane_drag_motion (GtkWidget *widget,GdkDragContext *context,gint
  	}
  	/* This to set the focus on the dropped row */
  	gtk_tree_view_set_drag_dest_row(GTK_TREE_VIEW(widget),path,GTK_TREE_VIEW_DROP_INTO_OR_BEFORE);
@@ -683,7 +786,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	return TRUE;
  }
  
-@@ -1629,7 +1624,7 @@
+@@ -1654,7 +1649,7 @@ static void xa_progress_dialog_stop_action (GtkWidget *widget,GPid *pid)
  
  gboolean xa_pulse_progress_bar_window (Progress_bar_data *pb)
  {
@@ -692,10 +795,11 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.c xarchiver-0.5.4/src/interface.c
  	{
  		gtk_progress_bar_pulse(GTK_PROGRESS_BAR(pb->progressbar1));
  		return TRUE;
-diff -Naur xarchiver-0.5.4.orig/src/interface.h xarchiver-0.5.4/src/interface.h
---- xarchiver-0.5.4.orig/src/interface.h	2014-02-09 16:26:24.000000000 +0100
-+++ xarchiver-0.5.4/src/interface.h	2015-07-09 17:27:29.954924258 +0200
-@@ -39,7 +39,6 @@
+diff --git a/src/interface.h b/src/interface.h
+index 5bf29ed..8804f6e 100644
+--- a/src/interface.h
++++ b/src/interface.h
+@@ -39,7 +39,6 @@ GtkTreeStore *archive_dir_model;
  GtkTreeViewColumn *column;
  GtkCellRenderer *archive_dir_renderer;
  GtkAccelGroup *accel_group;
@@ -703,7 +807,7 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.h xarchiver-0.5.4/src/interface.h
  GtkIconTheme *icon_theme;
  
  GtkWidget *xa_popup_menu, *xa_main_window, *vbox1, *hbox_sb, *menubar1, *menuitem1, *menuitem1_menu, *new1, *open1, *listing, *listing_submenu,
-@@ -65,7 +64,7 @@
+@@ -64,7 +63,7 @@ gboolean select_matched_rows(GtkTreeModel *,GtkTreePath *,GtkTreeIter *,gpointer
  void xa_select_by_pattern_dialog(GtkMenuItem *, gpointer );
  void xa_handle_navigation_buttons (GtkMenuItem *, gpointer );
  void xa_add_page (XArchive *);
@@ -712,29 +816,28 @@ diff -Naur xarchiver-0.5.4.orig/src/interface.h xarchiver-0.5.4/src/interface.h
  void xa_close_page ( GtkWidget*, gpointer );
  void xa_set_button_state (gboolean,gboolean,gboolean,gboolean,gboolean,gboolean, gboolean, gboolean,gboolean,gboolean,gboolean);
  void xa_restore_navigation(int idx);
-diff -Naur xarchiver-0.5.4.orig/src/Makefile.am xarchiver-0.5.4/src/Makefile.am
---- xarchiver-0.5.4.orig/src/Makefile.am	2008-09-23 08:39:50.000000000 +0200
-+++ xarchiver-0.5.4/src/Makefile.am	2015-07-09 17:27:29.958257684 +0200
-@@ -4,7 +4,6 @@
+diff --git a/src/new_dialog.c b/src/new_dialog.c
+index 692a503..4638ad5 100644
+--- a/src/new_dialog.c
++++ b/src/new_dialog.c
+@@ -51,7 +51,7 @@ static void xa_change_archive_extension (GtkComboBox *combo_box, GtkWidget *xa_f
+ 	gchar *file, *stem, *newfile;
  
- xarchiver_SOURCES = \
- 	socket.c socket.h \
--	sexy-icon-entry.c sexy-icon-entry.h \
- 	main.c main.h \
- 	string_utils.c string_utils.h \
- 	mime.c mime.h \
-diff -Naur xarchiver-0.5.4.orig/src/new_dialog.c xarchiver-0.5.4/src/new_dialog.c
---- xarchiver-0.5.4.orig/src/new_dialog.c	2014-02-09 16:26:24.000000000 +0100
-+++ xarchiver-0.5.4/src/new_dialog.c	2015-07-09 17:27:29.958257684 +0200
-@@ -38,7 +38,6 @@
+ 	g_free(ComboArchiveType);
+-	ComboArchiveType = gtk_combo_box_get_active_text(combo_box);
++	ComboArchiveType = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo_box));
+ 	newsuff = xa_get_suffix(g_list_first(ArchiveType), ComboArchiveType);
+ 
+ 	Name = g_list_last(ArchiveType);
+@@ -97,7 +97,6 @@ XArchive *xa_new_archive_dialog (gchar *path, XArchive *archive_open[], gboolean
+ 	GtkWidget *hbox = NULL;
  	GtkWidget *combo_box = NULL;
- 	GtkWidget *add_extension_cb = NULL;
  	GtkFileFilter *xa_new_archive_dialog_filter;
 -	GtkTooltips *filter_tooltip;
  	GList *Suffix,*Name;
  	gchar *my_path = NULL;
- 	gchar *my_path_ext = NULL;
-@@ -93,16 +92,15 @@
+ 	gchar *basepath, *filename;
+@@ -150,10 +149,9 @@ XArchive *xa_new_archive_dialog (gchar *path, XArchive *archive_open[], gboolean
  	hbox = gtk_hbox_new (FALSE, 6);
  	gtk_box_pack_start (GTK_BOX (hbox),gtk_label_new (_("Archive type:")),FALSE,FALSE,0);
  
@@ -747,26 +850,29 @@ diff -Naur xarchiver-0.5.4.orig/src/new_dialog.c xarchiver-0.5.4/src/new_dialog.
  	Name = g_list_first (ArchiveType);
  
  	while (Name)
- 	{
- 		if (!(strncmp(Name->data, "rar", 3) == 0 && unrar))
+@@ -161,7 +159,7 @@ XArchive *xa_new_archive_dialog (gchar *path, XArchive *archive_open[], gboolean
+ 		if (!(*(char *) Name->data == 0 ||
+ 		      (strncmp(Name->data, "arj", 3) == 0 && unarj) ||
+ 		      (strncmp(Name->data, "rar", 3) == 0 && unrar)))
 -			gtk_combo_box_append_text(GTK_COMBO_BOX(combo_box),Name->data);
 +			gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(combo_box),Name->data);
  		Name = g_list_next (Name);
  	}
  	if (new_combo_box == -1)
-@@ -138,7 +136,7 @@
- 	if (response == GTK_RESPONSE_ACCEPT)
- 	{
- 		my_path = gtk_file_chooser_get_filename ( GTK_FILE_CHOOSER (xa_file_chooser) );
--		ComboArchiveType = gtk_combo_box_get_active_text (GTK_COMBO_BOX (combo_box));
-+		ComboArchiveType = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo_box));
+@@ -173,7 +171,7 @@ XArchive *xa_new_archive_dialog (gchar *path, XArchive *archive_open[], gboolean
  
- 		if ( gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (add_extension_cb)))
- 		{
-diff -Naur xarchiver-0.5.4.orig/src/open-with-dlg.c xarchiver-0.5.4/src/open-with-dlg.c
---- xarchiver-0.5.4.orig/src/open-with-dlg.c	2014-09-28 22:11:22.000000000 +0200
-+++ xarchiver-0.5.4/src/open-with-dlg.c	2015-07-09 17:27:29.958257684 +0200
-@@ -58,10 +58,9 @@
+ 	gtk_widget_show_all (hbox);
+ 	gtk_file_chooser_set_extra_widget (GTK_FILE_CHOOSER (xa_file_chooser), hbox);
+-	ComboArchiveType = gtk_combo_box_get_active_text(GTK_COMBO_BOX(combo_box));
++	ComboArchiveType = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(combo_box));
+ 	suffix = xa_get_suffix(g_list_first(ArchiveType), ComboArchiveType);
+ 	g_signal_connect(G_OBJECT(combo_box), "changed", G_CALLBACK(xa_change_archive_extension), xa_file_chooser);
+ 
+diff --git a/src/open-with-dlg.c b/src/open-with-dlg.c
+index 56e93a9..737ed38 100644
+--- a/src/open-with-dlg.c
++++ b/src/open-with-dlg.c
+@@ -60,10 +60,9 @@ void xa_create_open_with_dialog(gchar *filename,gchar *filenames,int nr)
  	gtk_window_set_modal (GTK_WINDOW (data->dialog1), TRUE);
  	gtk_window_set_type_hint (GTK_WINDOW (data->dialog1), GDK_WINDOW_TYPE_HINT_DIALOG);
  	gtk_window_set_transient_for(GTK_WINDOW(data->dialog1),GTK_WINDOW(xa_main_window));
@@ -778,7 +884,7 @@ diff -Naur xarchiver-0.5.4.orig/src/open-with-dlg.c xarchiver-0.5.4/src/open-wit
  
  	vbox1 = gtk_vbox_new (FALSE, 5);
  	gtk_box_pack_start (GTK_BOX (dialog_vbox1),vbox1,TRUE,TRUE,0);
-@@ -130,20 +129,20 @@
+@@ -133,20 +132,20 @@ void xa_create_open_with_dialog(gchar *filename,gchar *filenames,int nr)
  	gtk_box_pack_start (GTK_BOX (hbox_expander),browse,FALSE,TRUE,0);
  	gtk_container_add(GTK_CONTAINER(custom_command_expander),hbox_expander);
  
@@ -802,10 +908,11 @@ diff -Naur xarchiver-0.5.4.orig/src/open-with-dlg.c xarchiver-0.5.4/src/open-wit
  	gtk_widget_show_all(data->dialog1);
  
  	/* Let's parse the desktop files in all the system data dirs */
-diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialog.c
---- xarchiver-0.5.4.orig/src/pref_dialog.c	2014-02-09 16:26:24.000000000 +0100
-+++ xarchiver-0.5.4/src/pref_dialog.c	2015-07-09 17:27:29.958257684 +0200
-@@ -41,13 +41,11 @@
+diff --git a/src/pref_dialog.c b/src/pref_dialog.c
+index eb1fb6e..88ec37f 100644
+--- a/src/pref_dialog.c
++++ b/src/pref_dialog.c
+@@ -41,13 +41,11 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  	prefs_data->dialog1 = gtk_dialog_new_with_buttons (_("Preferences"),
  									GTK_WINDOW (xa_main_window), GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
  									GTK_STOCK_CANCEL,GTK_RESPONSE_CANCEL,GTK_STOCK_OK,GTK_RESPONSE_OK, NULL);
@@ -820,16 +927,16 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	hbox1 = gtk_hbox_new (FALSE, 6);
  	gtk_box_pack_start (GTK_BOX (vbox1),hbox1,TRUE,TRUE,10);
  
-@@ -75,7 +73,7 @@
+@@ -76,7 +74,7 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  	prefs_iconview = gtk_icon_view_new_with_model(GTK_TREE_MODEL(prefs_data->prefs_liststore));
- 	g_object_unref (prefs_data->prefs_liststore);	
+ 	g_object_unref (prefs_data->prefs_liststore);
  
 -	gtk_icon_view_set_orientation (GTK_ICON_VIEW (prefs_iconview), GTK_ORIENTATION_VERTICAL);
 +	gtk_icon_view_set_item_orientation (GTK_ICON_VIEW (prefs_iconview), GTK_ORIENTATION_VERTICAL);
  	gtk_icon_view_set_columns (GTK_ICON_VIEW (prefs_iconview),1);
  	gtk_icon_view_set_pixbuf_column (GTK_ICON_VIEW (prefs_iconview), 0);
  	gtk_icon_view_set_text_column(GTK_ICON_VIEW (prefs_iconview),1);
-@@ -84,7 +82,7 @@
+@@ -85,7 +83,7 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  	prefs_data->prefs_notebook = gtk_notebook_new ();
  	g_object_set (G_OBJECT (prefs_data->prefs_notebook),"show-border", FALSE,"show-tabs", FALSE,"enable-popup",FALSE,NULL);
  	gtk_box_pack_start (GTK_BOX (hbox1), prefs_data->prefs_notebook,TRUE,TRUE,0);
@@ -838,7 +945,7 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	g_signal_connect (G_OBJECT (prefs_iconview),"selection-changed",G_CALLBACK (xa_prefs_iconview_changed),prefs_data);
  
  	/* Archive page*/
-@@ -97,7 +95,7 @@
+@@ -98,7 +96,7 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  	label4 = gtk_label_new (_("Preferred archive format"));
  	gtk_box_pack_start (GTK_BOX (hbox1), label4, FALSE, FALSE,0);
  
@@ -847,16 +954,16 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	gtk_box_pack_start (GTK_BOX (hbox1), prefs_data->combo_prefered_format,FALSE,TRUE,0);
  	archive_type = g_list_first (ArchiveType);
  	while ( archive_type != NULL )
-@@ -107,7 +105,7 @@
- 			(strncmp(archive_type->data, "rar", 3) == 0 && unrar) )
- 			goto next;
- 		else
+@@ -106,7 +104,7 @@ Prefs_dialog_data *xa_create_prefs_dialog()
+ 		if (!(*(char *) archive_type->data == 0 ||
+ 		      (strncmp(archive_type->data, "arj", 3) == 0 && unarj) ||
+ 		      (strncmp(archive_type->data, "rar", 3) == 0 && unrar)))
 -			gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_format),archive_type->data );
 +			gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_format),archive_type->data );
- 		next:
- 			archive_type = g_list_next (archive_type);
+ 		archive_type = g_list_next (archive_type);
  	}
-@@ -119,12 +117,12 @@
+ 
+@@ -117,12 +115,12 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  	prefs_data->check_sort_filename_column = gtk_check_button_new_with_mnemonic(_("Sort archive by filename"));
  	gtk_box_pack_start (GTK_BOX (vbox4), prefs_data->check_sort_filename_column, FALSE, FALSE, 0);
  	gtk_button_set_focus_on_click (GTK_BUTTON (prefs_data->check_sort_filename_column), FALSE);
@@ -871,7 +978,7 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  
  	label1 = gtk_label_new ("");
  	gtk_notebook_set_tab_label (GTK_NOTEBOOK (prefs_data->prefs_notebook), gtk_notebook_get_nth_page (GTK_NOTEBOOK (prefs_data->prefs_notebook), 0), label1);
-@@ -140,15 +138,15 @@
+@@ -138,15 +136,15 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
  	gtk_misc_set_alignment (GTK_MISC (label9), 0, 0.5);
@@ -884,14 +991,14 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	gtk_table_attach (GTK_TABLE (table1), prefs_data->combo_icon_size, 1, 2, 0, 1,
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
- 	
+ 
  	prefs_data->check_show_comment = gtk_check_button_new_with_mnemonic (_("Show archive comment"));
 -	gtk_tooltips_set_tip(tooltips, prefs_data->check_show_comment, _("If checked the archive comment is shown after the archive is loaded"), NULL);
 +	gtk_widget_set_tooltip_text(prefs_data->check_show_comment, _("If checked the archive comment is shown after the archive is loaded"));
  	gtk_table_attach (GTK_TABLE (table1), prefs_data->check_show_comment, 0, 2, 1, 2,
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
-@@ -187,9 +185,9 @@
+@@ -191,9 +189,9 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
  		gtk_misc_set_alignment (GTK_MISC (label6), 0, 0.5);
@@ -904,7 +1011,7 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  		g_signal_connect (prefs_data->combo_prefered_web_browser,"changed",G_CALLBACK (xa_prefs_combo_changed),NULL);
  		gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_web_browser, 1, 2, 0, 1,
  					(GtkAttachOptions) (GTK_FILL),
-@@ -200,9 +198,9 @@
+@@ -204,9 +202,9 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
  		gtk_misc_set_alignment (GTK_MISC (label7), 0, 0.5);
@@ -917,7 +1024,7 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  		g_signal_connect (prefs_data->combo_prefered_editor,"changed",G_CALLBACK (xa_prefs_combo_changed),NULL);
  		gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_editor, 1, 2, 1, 2,
  					(GtkAttachOptions) (GTK_FILL),
-@@ -213,9 +211,9 @@
+@@ -217,9 +215,9 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
  		gtk_misc_set_alignment (GTK_MISC (label8), 0, 0.5);
@@ -930,7 +1037,7 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  		g_signal_connect (prefs_data->combo_prefered_viewer,"changed",G_CALLBACK (xa_prefs_combo_changed),NULL);
  		gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_viewer, 1, 2, 2, 3,
  					(GtkAttachOptions) (GTK_FILL),
-@@ -226,9 +224,9 @@
+@@ -230,9 +228,9 @@ Prefs_dialog_data *xa_create_prefs_dialog()
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
  	gtk_misc_set_alignment (GTK_MISC (label9), 0, 0.5);
@@ -943,8 +1050,21 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	g_signal_connect (prefs_data->combo_prefered_temp_dir,"changed",G_CALLBACK (xa_prefs_combo_changed),(gpointer) 1);
  	gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_temp_dir, 1, 2, 3, 4,
  					(GtkAttachOptions) (GTK_FILL),
-@@ -243,7 +241,7 @@
- 	gtk_table_attach (GTK_TABLE (table2), prefs_data->allow_sub_dir, 0, 2, 5, 6,
+@@ -243,9 +241,9 @@ Prefs_dialog_data *xa_create_prefs_dialog()
+ 					(GtkAttachOptions) (GTK_FILL),
+ 					(GtkAttachOptions) (GTK_SHRINK), 0, 0);
+ 	gtk_misc_set_alignment (GTK_MISC (label10), 0, 0.5);
+-	prefs_data->combo_prefered_extract_dir = gtk_combo_box_new_text();
+-	gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_extract_dir), _("/tmp") );
+-	gtk_combo_box_append_text (GTK_COMBO_BOX (prefs_data->combo_prefered_extract_dir), _("choose...") );
++	prefs_data->combo_prefered_extract_dir = gtk_combo_box_text_new();
++	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_extract_dir), _("/tmp") );
++	gtk_combo_box_text_append_text (GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_extract_dir), _("choose...") );
+ 	g_signal_connect (prefs_data->combo_prefered_extract_dir,"changed",G_CALLBACK (xa_prefs_combo_changed),(gpointer) 1);
+ 	gtk_table_attach (GTK_TABLE (table2), prefs_data->combo_prefered_extract_dir, 1, 2, 4, 5,
+ 					(GtkAttachOptions) (GTK_FILL),
+@@ -260,7 +258,7 @@ Prefs_dialog_data *xa_create_prefs_dialog()
+ 	gtk_table_attach (GTK_TABLE (table2), prefs_data->allow_sub_dir, 0, 2, 6, 7,
  					(GtkAttachOptions) (GTK_FILL),
  					(GtkAttachOptions) (0), 0, 0);
 -	gtk_tooltips_set_tip(tooltips, prefs_data->allow_sub_dir, _("This option includes the subdirectories when you add files with drag and drop"), NULL);
@@ -952,8 +1072,8 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	gtk_button_set_focus_on_click (GTK_BUTTON (prefs_data->check_save_geometry), FALSE);
  
  	if (xdg_open == FALSE)
-@@ -330,26 +328,26 @@
- 	
+@@ -350,32 +348,32 @@ void xa_prefs_save_options(Prefs_dialog_data *prefs_data, const char *filename)
+ 
  	if (!xdg_open)
  	{
 -		value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_data->combo_prefered_web_browser));
@@ -983,7 +1103,14 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  	if (value != NULL)
  	{
  		g_key_file_set_string (xa_key_file,PACKAGE,"preferred_temp_dir",value);
-@@ -438,24 +436,24 @@
+ 		g_free(value);
+ 	}
+-	value = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_data->combo_prefered_extract_dir));
++	value = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_extract_dir));
+ 	if (value != NULL)
+ 	{
+ 		g_key_file_set_string (xa_key_file,PACKAGE,"preferred_extract_dir",value);
+@@ -475,24 +473,24 @@ void xa_prefs_load_options(Prefs_dialog_data *prefs_data)
  			value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_web_browser",NULL);
  			if (value != NULL)
  			{
@@ -1014,7 +1141,7 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  				gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_viewer),0);
  				g_free(value);
  			}
-@@ -463,8 +461,8 @@
+@@ -500,16 +498,16 @@ void xa_prefs_load_options(Prefs_dialog_data *prefs_data)
  		value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_temp_dir",NULL);
  		if (value != NULL)
  		{
@@ -1025,7 +1152,17 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  			gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_temp_dir),0);
  			g_free(value);
  		}
-@@ -538,8 +536,8 @@
+ 		value = g_key_file_get_string(xa_key_file,PACKAGE,"preferred_extract_dir",NULL);
+ 		if (value != NULL)
+ 		{
+-			gtk_combo_box_remove_text(GTK_COMBO_BOX (prefs_data->combo_prefered_extract_dir),0);
+-			gtk_combo_box_insert_text (GTK_COMBO_BOX(prefs_data->combo_prefered_extract_dir),0,value);
++			gtk_combo_box_text_remove(GTK_COMBO_BOX_TEXT (prefs_data->combo_prefered_extract_dir),0);
++			gtk_combo_box_text_insert_text (GTK_COMBO_BOX_TEXT(prefs_data->combo_prefered_extract_dir),0,value);
+ 			gtk_combo_box_set_active (GTK_COMBO_BOX(prefs_data->combo_prefered_extract_dir),0);
+ 			g_free(value);
+ 		}
+@@ -583,8 +581,8 @@ void xa_prefs_combo_changed (GtkComboBox *widget,gpointer user_data)
  		filename = xa_prefs_choose_program(flag);
  		if (filename != NULL)
  		{
@@ -1036,21 +1173,1086 @@ diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.c xarchiver-0.5.4/src/pref_dialo
  			g_free(filename);
  		}
  		gtk_combo_box_set_active (GTK_COMBO_BOX (widget),0);
-diff -Naur xarchiver-0.5.4.orig/src/pref_dialog.h xarchiver-0.5.4/src/pref_dialog.h
---- xarchiver-0.5.4.orig/src/pref_dialog.h	2008-08-27 14:56:03.000000000 +0200
-+++ xarchiver-0.5.4/src/pref_dialog.h	2015-07-09 17:27:29.958257684 +0200
-@@ -28,7 +28,6 @@
- 	GtkWidget *check_show_comment, *check_sort_filename_column,*show_location_bar,*show_sidebar,*combo_prefered_viewer;
- 	GtkWidget *combo_prefered_web_browser, *combo_prefered_editor, *combo_prefered_temp_dir, *allow_sub_dir,*check_save_geometry,*prefs_notebook;
+diff --git a/src/pref_dialog.h b/src/pref_dialog.h
+index 1227ab6..62581dc 100644
+--- a/src/pref_dialog.h
++++ b/src/pref_dialog.h
+@@ -28,7 +28,6 @@ typedef struct
+ 	GtkWidget *check_show_comment, *check_sort_filename_column,*show_location_bar,*show_sidebar,*show_toolbar,*combo_prefered_viewer;
+ 	GtkWidget *combo_prefered_web_browser, *combo_prefered_editor, *combo_prefered_temp_dir, *combo_prefered_extract_dir, *allow_sub_dir,*check_save_geometry,*prefs_notebook;
  	GtkListStore *prefs_liststore;
 -	GtkTooltips *tooltips;
  	gint geometry[5];
  	gint extract_dialog[2];
  	gint add_coords[2];
-diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
---- xarchiver-0.5.4.orig/src/window.c	2015-07-09 17:27:02.254150000 +0200
-+++ xarchiver-0.5.4/src/window.c	2015-07-09 17:27:29.961591111 +0200
-@@ -152,10 +152,9 @@
+diff --git a/src/sexy-icon-entry.c b/src/sexy-icon-entry.c
+deleted file mode 100644
+index 9ee95f4..0000000
+--- a/src/sexy-icon-entry.c
++++ /dev/null
+@@ -1,950 +0,0 @@
+-/*
+- * @file libsexy/sexy-icon-entry.c Entry widget
+- *
+- * @Copyright (C) 2004-2006 Christian Hammond.
+- *
+- * This library is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU Lesser General Public
+- * License as published by the Free Software Foundation; either
+- * version 2 of the License, or (at your option) any later version.
+- *
+- * This library is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Lesser General Public License for more details.
+- *
+- * You should have received a copy of the GNU Lesser General Public
+- * License along with this library; if not, write to the
+- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+- * Boston, MA  02111-1307, USA.
+- */
+-#include <string.h>
+-#include <gtk/gtk.h>
+-#include "sexy-icon-entry.h"
+-
+-#define ICON_MARGIN 2
+-#define MAX_ICONS 2
+-
+-#define IS_VALID_ICON_ENTRY_POSITION(pos) \
+-	((pos) == SEXY_ICON_ENTRY_PRIMARY || \
+-	 (pos) == SEXY_ICON_ENTRY_SECONDARY)
+-
+-typedef struct
+-{
+-	GtkImage *icon;
+-	gboolean highlight;
+-	gboolean hovered;
+-	GdkWindow *window;
+-
+-} SexyIconInfo;
+-
+-struct _SexyIconEntryPriv
+-{
+-	SexyIconInfo icons[MAX_ICONS];
+-
+-	gulong icon_released_id;
+-};
+-
+-enum
+-{
+-	ICON_PRESSED,
+-	ICON_RELEASED,
+-	LAST_SIGNAL
+-};
+-
+-static void sexy_icon_entry_class_init(SexyIconEntryClass *klass);
+-static void sexy_icon_entry_editable_init(GtkEditableClass *iface);
+-static void sexy_icon_entry_init(SexyIconEntry *entry);
+-static void sexy_icon_entry_finalize(GObject *obj);
+-static void sexy_icon_entry_destroy(GtkObject *obj);
+-static void sexy_icon_entry_map(GtkWidget *widget);
+-static void sexy_icon_entry_unmap(GtkWidget *widget);
+-static void sexy_icon_entry_realize(GtkWidget *widget);
+-static void sexy_icon_entry_unrealize(GtkWidget *widget);
+-static void sexy_icon_entry_size_request(GtkWidget *widget,
+-										  GtkRequisition *requisition);
+-static void sexy_icon_entry_size_allocate(GtkWidget *widget,
+-										   GtkAllocation *allocation);
+-static gint sexy_icon_entry_expose(GtkWidget *widget, GdkEventExpose *event);
+-static gint sexy_icon_entry_enter_notify(GtkWidget *widget,
+-											   GdkEventCrossing *event);
+-static gint sexy_icon_entry_leave_notify(GtkWidget *widget,
+-											   GdkEventCrossing *event);
+-static gint sexy_icon_entry_button_press(GtkWidget *widget,
+-											   GdkEventButton *event);
+-static gint sexy_icon_entry_button_release(GtkWidget *widget,
+-												 GdkEventButton *event);
+-
+-static GtkEntryClass *parent_class = NULL;
+-static guint signals[LAST_SIGNAL] = {0};
+-
+-G_DEFINE_TYPE_EXTENDED(SexyIconEntry, sexy_icon_entry, GTK_TYPE_ENTRY,
+-					   0,
+-					   G_IMPLEMENT_INTERFACE(GTK_TYPE_EDITABLE,
+-											 sexy_icon_entry_editable_init));
+-
+-static void
+-sexy_icon_entry_class_init(SexyIconEntryClass *klass)
+-{
+-	GObjectClass *gobject_class;
+-	GtkObjectClass *object_class;
+-	GtkWidgetClass *widget_class;
+-
+-	parent_class = g_type_class_peek_parent(klass);
+-
+-	gobject_class = G_OBJECT_CLASS(klass);
+-	object_class  = GTK_OBJECT_CLASS(klass);
+-	widget_class  = GTK_WIDGET_CLASS(klass);
+-
+-	gobject_class->finalize = sexy_icon_entry_finalize;
+-
+-	object_class->destroy = sexy_icon_entry_destroy;
+-
+-	widget_class->map = sexy_icon_entry_map;
+-	widget_class->unmap = sexy_icon_entry_unmap;
+-	widget_class->realize = sexy_icon_entry_realize;
+-	widget_class->unrealize = sexy_icon_entry_unrealize;
+-	widget_class->size_request = sexy_icon_entry_size_request;
+-	widget_class->size_allocate = sexy_icon_entry_size_allocate;
+-	widget_class->expose_event = sexy_icon_entry_expose;
+-	widget_class->enter_notify_event = sexy_icon_entry_enter_notify;
+-	widget_class->leave_notify_event = sexy_icon_entry_leave_notify;
+-	widget_class->button_press_event = sexy_icon_entry_button_press;
+-	widget_class->button_release_event = sexy_icon_entry_button_release;
+-
+-	/**
+-	 * SexyIconEntry::icon-pressed:
+-	 * @entry: The entry on which the signal is emitted.
+-	 * @icon_pos: The position of the clicked icon.
+-	 * @button: The mouse button clicked.
+-	 *
+-	 * The ::icon-pressed signal is emitted when an icon is clicked.
+-	 */
+-	signals[ICON_PRESSED] =
+-		g_signal_new("icon_pressed",
+-					 G_TYPE_FROM_CLASS(gobject_class),
+-					 G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+-					 G_STRUCT_OFFSET(SexyIconEntryClass, icon_pressed),
+-					 NULL, NULL,
+-					 gtk_marshal_VOID__INT_INT,
+-					 G_TYPE_NONE, 2,
+-					 G_TYPE_INT,
+-					 G_TYPE_INT);
+-
+-	/**
+-	 * SexyIconEntry::icon-released:
+-	 * @entry: The entry on which the signal is emitted.
+-	 * @icon_pos: The position of the clicked icon.
+-	 * @button: The mouse button clicked.
+-	 *
+-	 * The ::icon-released signal is emitted on the button release from a
+-	 * mouse click.
+-	 */
+-	signals[ICON_RELEASED] =
+-		g_signal_new("icon_released",
+-					 G_TYPE_FROM_CLASS(gobject_class),
+-					 G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
+-					 G_STRUCT_OFFSET(SexyIconEntryClass, icon_released),
+-					 NULL, NULL,
+-					 gtk_marshal_VOID__INT_INT,
+-					 G_TYPE_NONE, 2,
+-					 G_TYPE_INT,
+-					 G_TYPE_INT);
+-}
+-
+-static void
+-sexy_icon_entry_editable_init(GtkEditableClass *iface G_GNUC_UNUSED )
+-{
+-};
+-
+-static void
+-sexy_icon_entry_init(SexyIconEntry *entry)
+-{
+-	entry->priv = g_new0(SexyIconEntryPriv, 1);
+-}
+-
+-static void
+-sexy_icon_entry_finalize(GObject *obj)
+-{
+-	SexyIconEntry *entry;
+-
+-	g_return_if_fail(obj != NULL);
+-	g_return_if_fail(SEXY_IS_ICON_ENTRY(obj));
+-
+-	entry = SEXY_ICON_ENTRY(obj);
+-
+-	g_free(entry->priv);
+-
+-	if (G_OBJECT_CLASS(parent_class)->finalize)
+-		G_OBJECT_CLASS(parent_class)->finalize(obj);
+-}
+-
+-static void
+-sexy_icon_entry_destroy(GtkObject *obj)
+-{
+-	SexyIconEntry *entry;
+-
+-	entry = SEXY_ICON_ENTRY(obj);
+-
+-	sexy_icon_entry_set_icon(entry, SEXY_ICON_ENTRY_PRIMARY, NULL);
+-	sexy_icon_entry_set_icon(entry, SEXY_ICON_ENTRY_SECONDARY, NULL);
+-
+-	if (GTK_OBJECT_CLASS(parent_class)->destroy)
+-		GTK_OBJECT_CLASS(parent_class)->destroy(obj);
+-}
+-
+-static void
+-sexy_icon_entry_map(GtkWidget *widget)
+-{
+-	if (GTK_WIDGET_REALIZED(widget) && !GTK_WIDGET_MAPPED(widget))
+-	{
+-		SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-		int i;
+-
+-		GTK_WIDGET_CLASS(parent_class)->map(widget);
+-
+-		for (i = 0; i < MAX_ICONS; i++)
+-		{
+-			if (entry->priv->icons[i].icon != NULL)
+-				gdk_window_show(entry->priv->icons[i].window);
+-		}
+-	}
+-}
+-
+-static void
+-sexy_icon_entry_unmap(GtkWidget *widget)
+-{
+-	if (GTK_WIDGET_MAPPED(widget))
+-	{
+-		SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-		int i;
+-
+-		for (i = 0; i < MAX_ICONS; i++)
+-		{
+-			if (entry->priv->icons[i].icon != NULL)
+-				gdk_window_hide(entry->priv->icons[i].window);
+-		}
+-
+-		GTK_WIDGET_CLASS(parent_class)->unmap(widget);
+-	}
+-}
+-
+-static gint
+-get_icon_width(SexyIconEntry *entry, SexyIconEntryPosition icon_pos)
+-{
+-	GtkRequisition requisition;
+-	gint menu_icon_width;
+-	gint width;
+-	SexyIconInfo *icon_info = &entry->priv->icons[icon_pos];
+-
+-	if (icon_info->icon == NULL)
+-		return 0;
+-
+-	gtk_widget_size_request(GTK_WIDGET(icon_info->icon), &requisition);
+-	gtk_icon_size_lookup(GTK_ICON_SIZE_MENU, &menu_icon_width, NULL);
+-
+-	width = MAX(requisition.width, menu_icon_width);
+-
+-	return width;
+-}
+-
+-static void
+-get_borders(SexyIconEntry *entry, gint *xborder, gint *yborder)
+-{
+-	GtkWidget *widget = GTK_WIDGET(entry);
+-	gint focus_width;
+-	gboolean interior_focus;
+-
+-	gtk_widget_style_get(widget,
+-						 "interior-focus", &interior_focus,
+-						 "focus-line-width", &focus_width,
+-						 NULL);
+-
+-	if (gtk_entry_get_has_frame(GTK_ENTRY(entry)))
+-	{
+-		*xborder = widget->style->xthickness;
+-		*yborder = widget->style->ythickness;
+-	}
+-	else
+-	{
+-		*xborder = 0;
+-		*yborder = 0;
+-	}
+-
+-	if (!interior_focus)
+-	{
+-		*xborder += focus_width;
+-		*yborder += focus_width;
+-	}
+-}
+-
+-static void
+-get_text_area_size(SexyIconEntry *entry, GtkAllocation *alloc)
+-{
+-	GtkWidget *widget = GTK_WIDGET(entry);
+-	GtkRequisition requisition;
+-	gint xborder, yborder;
+-
+-	gtk_widget_get_child_requisition(widget, &requisition);
+-	get_borders(entry, &xborder, &yborder);
+-
+-	alloc->x      = xborder;
+-	alloc->y      = yborder;
+-	alloc->width  = widget->allocation.width - xborder * 2;
+-	alloc->height = requisition.height       - yborder * 2;
+-}
+-
+-static void
+-get_icon_allocation(SexyIconEntry *icon_entry,
+-					gboolean left,
+-					GtkAllocation *widget_alloc G_GNUC_UNUSED,
+-					GtkAllocation *text_area_alloc,
+-					GtkAllocation *allocation,
+-					SexyIconEntryPosition *icon_pos)
+-{
+-	gboolean rtl;
+-
+-	rtl = (gtk_widget_get_direction(GTK_WIDGET(icon_entry)) ==
+-		   GTK_TEXT_DIR_RTL);
+-
+-	if (left)
+-		*icon_pos = (rtl ? SEXY_ICON_ENTRY_SECONDARY : SEXY_ICON_ENTRY_PRIMARY);
+-	else
+-		*icon_pos = (rtl ? SEXY_ICON_ENTRY_PRIMARY : SEXY_ICON_ENTRY_SECONDARY);
+-
+-	allocation->y = text_area_alloc->y;
+-	allocation->width = get_icon_width(icon_entry, *icon_pos);
+-	allocation->height = text_area_alloc->height;
+-
+-	if (left)
+-		allocation->x = text_area_alloc->x + ICON_MARGIN;
+-	else
+-	{
+-		allocation->x = text_area_alloc->x + text_area_alloc->width -
+-		                allocation->width - ICON_MARGIN;
+-	}
+-}
+-
+-static void
+-sexy_icon_entry_realize(GtkWidget *widget)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	GdkWindowAttr attributes;
+-	gint attributes_mask;
+-	int i;
+-
+-	GTK_WIDGET_CLASS(parent_class)->realize(widget);
+-
+-	attributes.x = 0;
+-	attributes.y = 0;
+-	attributes.width = 1;
+-	attributes.height = 1;
+-	attributes.window_type = GDK_WINDOW_CHILD;
+-	attributes.wclass = GDK_INPUT_OUTPUT;
+-	attributes.visual = gtk_widget_get_visual(widget);
+-	attributes.colormap = gtk_widget_get_colormap(widget);
+-	attributes.event_mask = gtk_widget_get_events(widget);
+-	attributes.event_mask |=
+-		(GDK_EXPOSURE_MASK
+-		 | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK
+-		 | GDK_ENTER_NOTIFY_MASK | GDK_LEAVE_NOTIFY_MASK);
+-
+-	attributes_mask = GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL | GDK_WA_COLORMAP;
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		SexyIconInfo *icon_info;
+-
+-		icon_info = &entry->priv->icons[i];
+-		icon_info->window = gdk_window_new(widget->window, &attributes,
+-										   attributes_mask);
+-		gdk_window_set_user_data(icon_info->window, widget);
+-
+-		gdk_window_set_background(icon_info->window,
+-			&widget->style->base[GTK_WIDGET_STATE(widget)]);
+-	}
+-
+-	gtk_widget_queue_resize(widget);
+-}
+-
+-static void
+-sexy_icon_entry_unrealize(GtkWidget *widget)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	int i;
+-
+-	GTK_WIDGET_CLASS(parent_class)->unrealize(widget);
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		SexyIconInfo *icon_info = &entry->priv->icons[i];
+-
+-		gdk_window_destroy(icon_info->window);
+-		icon_info->window = NULL;
+-	}
+-}
+-
+-static void
+-sexy_icon_entry_size_request(GtkWidget *widget, GtkRequisition *requisition)
+-{
+-	SexyIconEntry *entry;
+-	gint icon_widths = 0;
+-	int i;
+-
+-	entry    = SEXY_ICON_ENTRY(widget);
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		int icon_width = get_icon_width(entry, i);
+-
+-		if (icon_width > 0)
+-			icon_widths += icon_width + ICON_MARGIN;
+-	}
+-
+-	GTK_WIDGET_CLASS(parent_class)->size_request(widget, requisition);
+-
+-	if (icon_widths > requisition->width)
+-		requisition->width += icon_widths;
+-}
+-
+-static void
+-place_windows(SexyIconEntry *icon_entry, GtkAllocation *widget_alloc)
+-{
+-	SexyIconEntryPosition left_icon_pos;
+-	SexyIconEntryPosition right_icon_pos;
+-	GtkAllocation left_icon_alloc;
+-	GtkAllocation right_icon_alloc;
+-	GtkAllocation text_area_alloc;
+-
+-	get_text_area_size(icon_entry, &text_area_alloc);
+-	get_icon_allocation(icon_entry, TRUE, widget_alloc, &text_area_alloc,
+-						&left_icon_alloc, &left_icon_pos);
+-	get_icon_allocation(icon_entry, FALSE, widget_alloc, &text_area_alloc,
+-						&right_icon_alloc, &right_icon_pos);
+-
+-	if (left_icon_alloc.width > 0)
+-	{
+-		text_area_alloc.x = left_icon_alloc.x + left_icon_alloc.width +
+-		                    ICON_MARGIN;
+-	}
+-
+-	if (right_icon_alloc.width > 0)
+-		text_area_alloc.width -= right_icon_alloc.width + ICON_MARGIN;
+-
+-	text_area_alloc.width -= text_area_alloc.x;
+-
+-	gdk_window_move_resize(icon_entry->priv->icons[left_icon_pos].window,
+-						   left_icon_alloc.x, left_icon_alloc.y,
+-						   left_icon_alloc.width, left_icon_alloc.height);
+-
+-	gdk_window_move_resize(icon_entry->priv->icons[right_icon_pos].window,
+-						   right_icon_alloc.x, right_icon_alloc.y,
+-						   right_icon_alloc.width, right_icon_alloc.height);
+-
+-	gdk_window_move_resize(GTK_ENTRY(icon_entry)->text_area,
+-						   text_area_alloc.x, text_area_alloc.y,
+-						   text_area_alloc.width, text_area_alloc.height);
+-}
+-
+-static void
+-sexy_icon_entry_size_allocate(GtkWidget *widget, GtkAllocation *allocation)
+-{
+-	g_return_if_fail(SEXY_IS_ICON_ENTRY(widget));
+-	g_return_if_fail(allocation != NULL);
+-
+-	widget->allocation = *allocation;
+-
+-	GTK_WIDGET_CLASS(parent_class)->size_allocate(widget, allocation);
+-
+-	if (GTK_WIDGET_REALIZED(widget))
+-		place_windows(SEXY_ICON_ENTRY(widget), allocation);
+-}
+-
+-static GdkPixbuf *
+-get_pixbuf_from_icon(SexyIconEntry *entry, SexyIconEntryPosition icon_pos)
+-{
+-	GdkPixbuf *pixbuf = NULL;
+-	gchar *stock_id;
+-	SexyIconInfo *icon_info = &entry->priv->icons[icon_pos];
+-	GtkIconSize size;
+-
+-	switch (gtk_image_get_storage_type(GTK_IMAGE(icon_info->icon)))
+-	{
+-		case GTK_IMAGE_PIXBUF:
+-			pixbuf = gtk_image_get_pixbuf(GTK_IMAGE(icon_info->icon));
+-			g_object_ref(pixbuf);
+-			break;
+-
+-		case GTK_IMAGE_STOCK:
+-			gtk_image_get_stock(GTK_IMAGE(icon_info->icon), &stock_id, &size);
+-			pixbuf = gtk_widget_render_icon(GTK_WIDGET(entry),
+-											stock_id, size, NULL);
+-			break;
+-
+-		default:
+-			return NULL;
+-	}
+-
+-	return pixbuf;
+-}
+-
+-/* Kudos to the gnome-panel guys. */
+-static void
+-colorshift_pixbuf(GdkPixbuf *dest, GdkPixbuf *src, int shift)
+-{
+-	gint i, j;
+-	gint width, height, has_alpha, src_rowstride, dest_rowstride;
+-	guchar *target_pixels;
+-	guchar *original_pixels;
+-	guchar *pix_src;
+-	guchar *pix_dest;
+-	int val;
+-	guchar r, g, b;
+-
+-	has_alpha       = gdk_pixbuf_get_has_alpha(src);
+-	width           = gdk_pixbuf_get_width(src);
+-	height          = gdk_pixbuf_get_height(src);
+-	src_rowstride   = gdk_pixbuf_get_rowstride(src);
+-	dest_rowstride  = gdk_pixbuf_get_rowstride(dest);
+-	original_pixels = gdk_pixbuf_get_pixels(src);
+-	target_pixels   = gdk_pixbuf_get_pixels(dest);
+-
+-	for (i = 0; i < height; i++)
+-	{
+-		pix_dest = target_pixels   + i * dest_rowstride;
+-		pix_src  = original_pixels + i * src_rowstride;
+-
+-		for (j = 0; j < width; j++)
+-		{
+-			r = *(pix_src++);
+-			g = *(pix_src++);
+-			b = *(pix_src++);
+-
+-			val = r + shift;
+-			*(pix_dest++) = CLAMP(val, 0, 255);
+-
+-			val = g + shift;
+-			*(pix_dest++) = CLAMP(val, 0, 255);
+-
+-			val = b + shift;
+-			*(pix_dest++) = CLAMP(val, 0, 255);
+-
+-			if (has_alpha)
+-				*(pix_dest++) = *(pix_src++);
+-		}
+-	}
+-}
+-
+-static void
+-draw_icon(GtkWidget *widget, SexyIconEntryPosition icon_pos)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	SexyIconInfo *icon_info = &entry->priv->icons[icon_pos];
+-	GdkPixbuf *pixbuf;
+-	gint x, y, width, height;
+-
+-	if (icon_info->icon == NULL || !GTK_WIDGET_REALIZED(widget))
+-		return;
+-
+-	if ((pixbuf = get_pixbuf_from_icon(entry, icon_pos)) == NULL)
+-		return;
+-
+-	gdk_drawable_get_size(icon_info->window, &width, &height);
+-
+-	if (width == 1 || height == 1)
+-	{
+-		/*
+-		 * size_allocate hasn't been called yet. These are the default values.
+-		 */
+-		return;
+-	}
+-
+-	if (gdk_pixbuf_get_height(pixbuf) > height)
+-	{
+-		GdkPixbuf *temp_pixbuf;
+-		int scale;
+-
+-		scale = height - (2 * ICON_MARGIN);
+-
+-		temp_pixbuf = gdk_pixbuf_scale_simple(pixbuf, scale, scale, GDK_INTERP_BILINEAR);
+-
+-		g_object_unref(pixbuf);
+-
+-		pixbuf = temp_pixbuf;
+-	}
+-
+-	x = (width  - gdk_pixbuf_get_width(pixbuf)) / 2;
+-	y = (height - gdk_pixbuf_get_height(pixbuf)) / 2;
+-
+-	if (icon_info->hovered)
+-	{
+-		GdkPixbuf *temp_pixbuf;
+-
+-		temp_pixbuf = gdk_pixbuf_copy(pixbuf);
+-
+-		colorshift_pixbuf(temp_pixbuf, pixbuf, 30);
+-
+-		g_object_unref(pixbuf);
+-
+-		pixbuf = temp_pixbuf;
+-	}
+-
+-	gdk_draw_pixbuf(icon_info->window, widget->style->black_gc, pixbuf,
+-					0, 0, x, y, -1, -1,
+-					GDK_RGB_DITHER_NORMAL, 0, 0);
+-
+-	g_object_unref(pixbuf);
+-}
+-
+-static gint
+-sexy_icon_entry_expose(GtkWidget *widget, GdkEventExpose *event)
+-{
+-	SexyIconEntry *entry;
+-
+-	g_return_val_if_fail(SEXY_IS_ICON_ENTRY(widget), FALSE);
+-	g_return_val_if_fail(event != NULL, FALSE);
+-
+-	entry = SEXY_ICON_ENTRY(widget);
+-
+-	if (GTK_WIDGET_DRAWABLE(widget))
+-	{
+-		gboolean found = FALSE;
+-		int i;
+-
+-		for (i = 0; i < MAX_ICONS && !found; i++)
+-		{
+-			SexyIconInfo *icon_info = &entry->priv->icons[i];
+-
+-			if (event->window == icon_info->window)
+-			{
+-				gint width;
+-				GtkAllocation text_area_alloc;
+-
+-				get_text_area_size(entry, &text_area_alloc);
+-				gdk_drawable_get_size(icon_info->window, &width, NULL);
+-
+-				gtk_paint_flat_box(widget->style, icon_info->window,
+-								   GTK_WIDGET_STATE(widget), GTK_SHADOW_NONE,
+-								   NULL, widget, "entry_bg",
+-								   0, 0, width, text_area_alloc.height);
+-
+-				draw_icon(widget, i);
+-
+-				found = TRUE;
+-			}
+-		}
+-
+-		if (!found)
+-			GTK_WIDGET_CLASS(parent_class)->expose_event(widget, event);
+-	}
+-
+-	return FALSE;
+-}
+-
+-static void
+-update_icon(GObject *obj G_GNUC_UNUSED, GParamSpec *param, SexyIconEntry *entry)
+-{
+-	if (param != NULL)
+-	{
+-		const char *name = g_param_spec_get_name(param);
+-
+-		if (strcmp(name, "pixbuf")   && strcmp(name, "stock")  &&
+-			strcmp(name, "image")    && strcmp(name, "pixmap") &&
+-			strcmp(name, "icon_set") && strcmp(name, "pixbuf_animation"))
+-		{
+-			return;
+-		}
+-	}
+-
+-	gtk_widget_queue_resize(GTK_WIDGET(entry));
+-}
+-
+-static gint
+-sexy_icon_entry_enter_notify(GtkWidget *widget, GdkEventCrossing *event)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	int i;
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		if (event->window == entry->priv->icons[i].window)
+-		{
+-			if (sexy_icon_entry_get_icon_highlight(entry, i))
+-			{
+-				entry->priv->icons[i].hovered = TRUE;
+-
+-				update_icon(NULL, NULL, entry);
+-
+-				break;
+-			}
+-		}
+-	}
+-
+-	return FALSE;
+-}
+-
+-static gint
+-sexy_icon_entry_leave_notify(GtkWidget *widget, GdkEventCrossing *event)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	int i;
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		if (event->window == entry->priv->icons[i].window)
+-		{
+-			if (sexy_icon_entry_get_icon_highlight(entry, i))
+-			{
+-				entry->priv->icons[i].hovered = FALSE;
+-
+-				update_icon(NULL, NULL, entry);
+-
+-				break;
+-			}
+-		}
+-	}
+-
+-	return FALSE;
+-}
+-
+-static gint
+-sexy_icon_entry_button_press(GtkWidget *widget, GdkEventButton *event)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	int i;
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		if (event->window == entry->priv->icons[i].window)
+-		{
+-			if (event->button == 1 &&
+-				sexy_icon_entry_get_icon_highlight(entry, i))
+-			{
+-				entry->priv->icons[i].hovered = FALSE;
+-
+-				update_icon(NULL, NULL, entry);
+-			}
+-
+-			g_signal_emit(entry, signals[ICON_PRESSED], 0, i, event->button);
+-
+-			return TRUE;
+-		}
+-	}
+-
+-	if (GTK_WIDGET_CLASS(parent_class)->button_press_event)
+-		return GTK_WIDGET_CLASS(parent_class)->button_press_event(widget,
+-																  event);
+-
+-	return FALSE;
+-}
+-
+-static gint
+-sexy_icon_entry_button_release(GtkWidget *widget, GdkEventButton *event)
+-{
+-	SexyIconEntry *entry = SEXY_ICON_ENTRY(widget);
+-	int i;
+-
+-	for (i = 0; i < MAX_ICONS; i++)
+-	{
+-		GdkWindow *icon_window = entry->priv->icons[i].window;
+-
+-		if (event->window == icon_window)
+-		{
+-			int width, height;
+-			gdk_drawable_get_size(icon_window, &width, &height);
+-
+-			if (event->button == 1 &&
+-				sexy_icon_entry_get_icon_highlight(entry, i) &&
+-				event->x >= 0     && event->y >= 0 &&
+-				event->x <= width && event->y <= height)
+-			{
+-				entry->priv->icons[i].hovered = TRUE;
+-
+-				update_icon(NULL, NULL, entry);
+-			}
+-
+-			g_signal_emit(entry, signals[ICON_RELEASED], 0, i, event->button);
+-
+-			return TRUE;
+-		}
+-	}
+-
+-	if (GTK_WIDGET_CLASS(parent_class)->button_release_event)
+-		return GTK_WIDGET_CLASS(parent_class)->button_release_event(widget,
+-																	event);
+-
+-	return FALSE;
+-}
+-
+-/**
+- * sexy_icon_entry_new
+- *
+- * Creates a new SexyIconEntry widget.
+- *
+- * Returns a new #SexyIconEntry.
+- */
+-GtkWidget *
+-sexy_icon_entry_new(void)
+-{
+-	return GTK_WIDGET(g_object_new(SEXY_TYPE_ICON_ENTRY, NULL));
+-}
+-
+-/**
+- * sexy_icon_entry_set_icon
+- * @entry: A #SexyIconEntry.
+- * @position: Icon position.
+- * @icon: A #GtkImage to set as the icon.
+- *
+- * Sets the icon shown in the entry
+- */
+-void
+-sexy_icon_entry_set_icon(SexyIconEntry *entry, SexyIconEntryPosition icon_pos,
+-						 GtkImage *icon)
+-{
+-	SexyIconInfo *icon_info;
+-
+-	g_return_if_fail(entry != NULL);
+-	g_return_if_fail(SEXY_IS_ICON_ENTRY(entry));
+-	g_return_if_fail(IS_VALID_ICON_ENTRY_POSITION(icon_pos));
+-	g_return_if_fail(icon == NULL || GTK_IS_IMAGE(icon));
+-
+-	icon_info = &entry->priv->icons[icon_pos];
+-
+-	if (icon == icon_info->icon)
+-		return;
+-
+-	if (icon_pos == SEXY_ICON_ENTRY_SECONDARY &&
+-		entry->priv->icon_released_id != 0)
+-	{
+-		g_signal_handler_disconnect(entry, entry->priv->icon_released_id);
+-		entry->priv->icon_released_id = 0;
+-	}
+-
+-	if (icon == NULL)
+-	{
+-		if (icon_info->icon != NULL)
+-		{
+-			gtk_widget_destroy(GTK_WIDGET(icon_info->icon));
+-			icon_info->icon = NULL;
+-
+-			/*
+-			 * Explicitly check, as the pointer may become invalidated
+-			 * during destruction.
+-			 */
+-			if (icon_info->window != NULL && GDK_IS_WINDOW(icon_info->window))
+-				gdk_window_hide(icon_info->window);
+-		}
+-	}
+-	else
+-	{
+-		if (icon_info->window != NULL && icon_info->icon == NULL)
+-			gdk_window_show(icon_info->window);
+-
+-		g_signal_connect(G_OBJECT(icon), "notify",
+-						 G_CALLBACK(update_icon), entry);
+-
+-		icon_info->icon = icon;
+-		g_object_ref(icon);
+-	}
+-
+-	update_icon(NULL, NULL, entry);
+-}
+-
+-/**
+- * sexy_icon_entry_set_icon_highlight
+- * @entry: A #SexyIconEntry;
+- * @position: Icon position.
+- * @highlight: TRUE if the icon should highlight on mouse-over
+- *
+- * Determines whether the icon will highlight on mouse-over.
+- */
+-void
+-sexy_icon_entry_set_icon_highlight(SexyIconEntry *entry,
+-								   SexyIconEntryPosition icon_pos,
+-								   gboolean highlight)
+-{
+-	SexyIconInfo *icon_info;
+-
+-	g_return_if_fail(entry != NULL);
+-	g_return_if_fail(SEXY_IS_ICON_ENTRY(entry));
+-	g_return_if_fail(IS_VALID_ICON_ENTRY_POSITION(icon_pos));
+-
+-	icon_info = &entry->priv->icons[icon_pos];
+-
+-	if (icon_info->highlight == highlight)
+-		return;
+-
+-	icon_info->highlight = highlight;
+-}
+-
+-/**
+- * sexy_icon_entry_get_icon
+- * @entry: A #SexyIconEntry.
+- * @position: Icon position.
+- *
+- * Retrieves the image used for the icon
+- *
+- * Returns: A #GtkImage.
+- */
+-GtkImage *
+-sexy_icon_entry_get_icon(const SexyIconEntry *entry,
+-						 SexyIconEntryPosition icon_pos)
+-{
+-	g_return_val_if_fail(entry != NULL, NULL);
+-	g_return_val_if_fail(SEXY_IS_ICON_ENTRY(entry), NULL);
+-	g_return_val_if_fail(IS_VALID_ICON_ENTRY_POSITION(icon_pos), NULL);
+-
+-	return entry->priv->icons[icon_pos].icon;
+-}
+-
+-/**
+- * sexy_icon_entry_get_icon_highlight
+- * @entry: A #SexyIconEntry.
+- * @position: Icon position.
+- *
+- * Retrieves whether entry will highlight the icon on mouseover.
+- *
+- * Returns: TRUE if icon highlights.
+- */
+-gboolean
+-sexy_icon_entry_get_icon_highlight(const SexyIconEntry *entry,
+-								   SexyIconEntryPosition icon_pos)
+-{
+-	g_return_val_if_fail(entry != NULL, FALSE);
+-	g_return_val_if_fail(SEXY_IS_ICON_ENTRY(entry), FALSE);
+-	g_return_val_if_fail(IS_VALID_ICON_ENTRY_POSITION(icon_pos), FALSE);
+-
+-	return entry->priv->icons[icon_pos].highlight;
+-}
+-
+-/**
+- * sexy_icon_entry_add_clear_button
+- * @icon_entry: A #SexyIconEntry.
+- *
+- * A convenience function to add a clear button to the end of the entry.
+- * This is useful for search boxes.
+- */
+-void
+-sexy_icon_entry_add_clear_button(SexyIconEntry *icon_entry,gpointer data, gpointer function)
+-{
+-	GtkWidget *icon;
+-
+-	g_return_if_fail(icon_entry != NULL);
+-	g_return_if_fail(SEXY_IS_ICON_ENTRY(icon_entry));
+-
+-	icon = gtk_image_new_from_stock(GTK_STOCK_OPEN, GTK_ICON_SIZE_MENU);
+-	gtk_widget_show(icon);
+-	sexy_icon_entry_set_icon(SEXY_ICON_ENTRY(icon_entry),
+-							 SEXY_ICON_ENTRY_SECONDARY,
+-							 GTK_IMAGE(icon));
+-	sexy_icon_entry_set_icon_highlight(SEXY_ICON_ENTRY(icon_entry),
+-									   SEXY_ICON_ENTRY_SECONDARY, TRUE);
+-
+-	if (icon_entry->priv->icon_released_id != 0)
+-	{
+-		g_signal_handler_disconnect(icon_entry,
+-									icon_entry->priv->icon_released_id);
+-	}
+-
+-	icon_entry->priv->icon_released_id = g_signal_connect(G_OBJECT(icon_entry), "icon_released",G_CALLBACK(function), data);
+-}
+diff --git a/src/sexy-icon-entry.h b/src/sexy-icon-entry.h
+deleted file mode 100644
+index 5941a8c..0000000
+--- a/src/sexy-icon-entry.h
++++ /dev/null
+@@ -1,101 +0,0 @@
+-/*
+- * @file libsexy/sexy-icon-entry.h Entry widget
+- *
+- * @Copyright (C) 2004-2006 Christian Hammond.
+- *
+- * This library is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU Lesser General Public
+- * License as published by the Free Software Foundation; either
+- * version 2 of the License, or (at your option) any later version.
+- *
+- * This library is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Lesser General Public License for more details.
+- *
+- * You should have received a copy of the GNU Lesser General Public
+- * License along with this library; if not, write to the
+- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+- * Boston, MA  02111-1307, USA.
+- */
+-#ifndef _SEXY_ICON_ENTRY_H_
+-#define _SEXY_ICON_ENTRY_H_
+-
+-typedef struct _SexyIconEntry      SexyIconEntry;
+-typedef struct _SexyIconEntryClass SexyIconEntryClass;
+-typedef struct _SexyIconEntryPriv  SexyIconEntryPriv;
+-
+-#include <gtk/gtkentry.h>
+-#include <gtk/gtkimage.h>
+-
+-#define SEXY_TYPE_ICON_ENTRY (sexy_icon_entry_get_type())
+-#define SEXY_ICON_ENTRY(obj) \
+-		(G_TYPE_CHECK_INSTANCE_CAST((obj), SEXY_TYPE_ICON_ENTRY, SexyIconEntry))
+-#define SEXY_ICON_ENTRY_CLASS(klass) \
+-		(G_TYPE_CHECK_CLASS_CAST((klass), SEXY_TYPE_ICON_ENTRY, SexyIconEntryClass))
+-#define SEXY_IS_ICON_ENTRY(obj) \
+-		(G_TYPE_CHECK_INSTANCE_TYPE((obj), SEXY_TYPE_ICON_ENTRY))
+-#define SEXY_IS_ICON_ENTRY_CLASS(klass) \
+-		(G_TYPE_CHECK_CLASS_TYPE((klass), SEXY_TYPE_ICON_ENTRY))
+-#define SEXY_ICON_ENTRY_GET_CLASS(obj) \
+-		(G_TYPE_INSTANCE_GET_CLASS ((obj), SEXY_TYPE_ICON_ENTRY, SexyIconEntryClass))
+-
+-typedef enum
+-{
+-	SEXY_ICON_ENTRY_PRIMARY,
+-	SEXY_ICON_ENTRY_SECONDARY
+-
+-} SexyIconEntryPosition;
+-
+-struct _SexyIconEntry
+-{
+-	GtkEntry parent_object;
+-
+-	SexyIconEntryPriv *priv;
+-
+-	void (*gtk_reserved1)(void);
+-	void (*gtk_reserved2)(void);
+-	void (*gtk_reserved3)(void);
+-	void (*gtk_reserved4)(void);
+-};
+-
+-struct _SexyIconEntryClass
+-{
+-	GtkEntryClass parent_class;
+-
+-	/* Signals */
+-	void (*icon_pressed)(SexyIconEntry *entry, SexyIconEntryPosition icon_pos,
+-						 int button);
+-	void (*icon_released)(SexyIconEntry *entry, SexyIconEntryPosition icon_pos,
+-						  int button);
+-
+-	void (*gtk_reserved1)(void);
+-	void (*gtk_reserved2)(void);
+-	void (*gtk_reserved3)(void);
+-	void (*gtk_reserved4)(void);
+-};
+-
+-G_BEGIN_DECLS
+-
+-GType sexy_icon_entry_get_type(void);
+-
+-GtkWidget *sexy_icon_entry_new(void);
+-
+-void sexy_icon_entry_set_icon(SexyIconEntry *entry,
+-							  SexyIconEntryPosition position,
+-							  GtkImage *icon);
+-
+-void sexy_icon_entry_set_icon_highlight(SexyIconEntry *entry,
+-										SexyIconEntryPosition position,
+-										gboolean highlight);
+-
+-GtkImage *sexy_icon_entry_get_icon(const SexyIconEntry *entry,
+-								   SexyIconEntryPosition position);
+-
+-gboolean sexy_icon_entry_get_icon_highlight(const SexyIconEntry *entry,
+-											SexyIconEntryPosition position);
+-void sexy_icon_entry_add_clear_button(SexyIconEntry *icon_entry,gpointer, gpointer);
+-
+-G_END_DECLS
+-
+-#endif /* _SEXY_ICON_ENTRY_H_ */
+diff --git a/src/window.c b/src/window.c
+index 7f96fd2..49fc66c 100644
+--- a/src/window.c
++++ b/src/window.c
+@@ -150,10 +150,9 @@ void xa_show_cmd_line_output(GtkMenuItem *menuitem,XArchive *_archive)
  					      GTK_WINDOW(xa_main_window),GTK_DIALOG_MODAL,GTK_STOCK_OK,GTK_RESPONSE_OK,NULL);
  	gtk_dialog_set_default_response (GTK_DIALOG (dialog),GTK_RESPONSE_OK);
  
@@ -1063,7 +2265,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	gtk_widget_set_size_request (dialog,400,-1);
  
  	scrolledwindow = gtk_scrolled_window_new (NULL,NULL);
-@@ -188,7 +187,7 @@
+@@ -186,7 +185,7 @@ void xa_show_cmd_line_output(GtkMenuItem *menuitem,XArchive *_archive)
  	}
  	gtk_container_add (GTK_CONTAINER (scrolledwindow),textview);
  	gtk_box_pack_start (GTK_BOX (vbox),scrolledwindow,TRUE,TRUE,0);
@@ -1072,26 +2274,36 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  
  	output = _archive->error_output;
  	while (output)
-@@ -964,14 +963,31 @@
+@@ -446,7 +445,7 @@ void xa_list_archive (GtkMenuItem *menuitem,gpointer data)
+ 	g_free(filename_plus);
+ 	filename = NULL;
+ 
+-	pref_path = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_extract_dir));
++	pref_path = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_extract_dir));
+ 	if (current_open_directory != NULL || pref_path != NULL)
+ 		gtk_file_chooser_set_current_folder(GTK_FILE_CHOOSER (save), pref_path ? pref_path : current_open_directory);
+ 	g_free (pref_path);
+@@ -961,14 +960,32 @@ void xa_convert_sfx (GtkMenuItem *menuitem ,gpointer user_data)
  void xa_about (GtkMenuItem *menuitem,gpointer user_data)
  {
      static GtkWidget *about = NULL;
--    const char *authors[] = {"Main developer:\nGiuseppe Torelli <colossus73@gmail.com>\n\nArchive navigation code:\nJohn Berthels\n\nLHA and DEB support:\nŁukasz Zemczak <sil2100@vexillium.org>\n\nLZMA support:\nThomas Dy <dysprosium66@gmail.com>\n\nLZOP support:\nKevin Day\n\nRAR5, XZ, TAR.XZ support:\nFrederick GUERIN <fguerin01@gmail.com>\n",NULL};
--    const char *documenters[] = {"Special thanks to Bjoern Martensen for\nbugs hunting and Xarchiver Tango logo.\n\nThanks to:\nBenedikt Meurer\nStephan Arts\nBruno Jesus <00cpxxx@gmail.com>\nUracile for the stunning logo\n",NULL};
-+
+-    const char *authors[] = {"\nMain developer:\nGiuseppe Torelli <colossus73@gmail.com>\n\nThis version:\nIngo Brückl <ib@wupperonline.de>\n\nArchive navigation code:\nJohn Berthels\n\nCode fixing:\nEnrico Tröger\n\nLHA and DEB support:\nŁukasz Zemczak <sil2100@vexillium.org>\n\nLZMA support:\nThomas Dy <dysprosium66@gmail.com>\n\nLZOP support:\nKevin Day\n\nRARv5, XZ, TAR.XZ support:\nFrederick GUERIN <fguerin01@gmail.com>\n",NULL};
+-    const char *documenters[] = {"\nSpecial thanks to Bjoern Martensen for\nbugs hunting and " PACKAGE_NAME " Tango logo.\n\nThanks to:\nBenedikt Meurer\nStephan Arts\nBruno Jesus <00cpxxx@gmail.com>\nUracile for the stunning logo\n",NULL};
 +    const char *authors[] = {
 +	"Main developer:\nGiuseppe Torelli <colossus73@gmail.com>\n",
++	"This version:\nIngo Brückl <ib@wupperonline.de>\n",
 +	"Archive navigation code:\nJohn Berthels\n",
++	"Code fixing:\nEnrico Tröger\n",
 +	"LHA and DEB support:\nŁukasz Zemczak <sil2100@vexillium.org>\n",
 +	"LZMA support:\nThomas Dy <dysprosium66@gmail.com>\n",
 +	"LZOP support:\nKevin Day\n",
-+	"RAR5, XZ, TAR.XZ support:\nFrederick GUERIN <fguerin01@gmail.com>\n",
++	"RARv5, XZ, TAR.XZ support:\nFrederick GUERIN <fguerin01@gmail.com>\n",
 +	"GTK+ 3 port:\nBalló György <ballogyor@gmail.com>\n",
 +	NULL
 +    };
 +
 +    const char *documenters[] = {
-+	"Special thanks to Bjoern Martensen for\nbugs hunting and Xarchiver Tango logo.\n",
++	"Special thanks to Bjoern Martensen for\nbugs hunting and " PACKAGE_NAME " Tango logo.\n",
 +	"Thanks to:",
 +	"Benedikt Meurer",
 +	"Stephan Arts",
@@ -1108,16 +2320,16 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  		gtk_window_set_position (GTK_WINDOW (about),GTK_WIN_POS_CENTER_ON_PARENT);
  		gtk_window_set_transient_for (GTK_WINDOW (about),GTK_WINDOW (xa_main_window));
  		gtk_window_set_destroy_with_parent (GTK_WINDOW (about),TRUE);
-@@ -979,7 +995,7 @@
- 			"name", "xarchiver",
+@@ -976,7 +993,7 @@ void xa_about (GtkMenuItem *menuitem,gpointer user_data)
+ 			"program-name", PACKAGE_NAME,
  			"version",PACKAGE_VERSION,
  			"copyright","Copyright \xC2\xA9 2005-2014 Giuseppe Torelli",
--			"comments","A GTK+2 only lightweight archive manager",
-+			"comments","A GTK+ only lightweight archive manager",
+-			"comments",_("A GTK+2 only lightweight archive manager"),
++			"comments",_("A GTK+ only lightweight archive manager"),
  			"authors",authors,
  			"documenters",documenters,
  			"translator_credits",_("translator-credits"),
-@@ -1325,7 +1341,7 @@
+@@ -1325,7 +1342,7 @@ void xa_cancel_archive (GtkMenuItem *menuitem,gpointer data)
  	current_page = gtk_notebook_get_current_page(notebook);
  	idx = xa_find_archive_index (current_page);
  	gtk_widget_set_sensitive(Stop_button,FALSE);
@@ -1126,7 +2338,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	{
  		multi_extract_window->stop_pressed = TRUE;
  		kill (multi_extract_window->archive->child_pid,SIGINT);
-@@ -1658,7 +1674,7 @@
+@@ -1656,7 +1673,7 @@ void drag_begin (GtkWidget *treeview1,GdkDragContext *context,XArchive *archive)
  	gtk_tree_model_get_iter(archive->model,&iter,(GtkTreePath*) (row_list->data));
  	gtk_tree_model_get (GTK_TREE_MODEL (archive->liststore),&iter,archive->nc+1,&entry,-1);
  
@@ -1135,8 +2347,8 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  					gdk_atom_intern ("XdndDirectSave0",FALSE),
  					gdk_atom_intern ("text/plain",FALSE),
  					8,GDK_PROP_MODE_REPLACE,
-@@ -1694,7 +1710,7 @@
- 		response = xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_ERROR,GTK_BUTTONS_OK,_("Can't perform another extraction:"),_("Please wait until the completion of the current one!"));
+@@ -1691,7 +1708,7 @@ void drag_data_get (GtkWidget *widget,GdkDragContext *dc,GtkSelectionData *selec
+ 		xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_ERROR,GTK_BUTTONS_OK,_("Can't perform another extraction:"),_("Please wait until the completion of the current one!"));
  		return;
  	}
 -	gdk_property_get (	dc->source_window,
@@ -1144,7 +2356,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  						gdk_atom_intern ("XdndDirectSave0",FALSE),
  						gdk_atom_intern ("text/plain",FALSE),
  						0,4096,FALSE,NULL,NULL,NULL,&_destination );
-@@ -1749,7 +1765,7 @@
+@@ -1749,7 +1766,7 @@ void drag_data_get (GtkWidget *widget,GdkDragContext *dc,GtkSelectionData *selec
  			g_free (archive->extraction_path);
  			archive->extraction_path = NULL;
  		}
@@ -1153,7 +2365,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	}
  }
  
-@@ -1892,7 +1908,7 @@
+@@ -1894,7 +1911,7 @@ void xa_activate_link (GtkAboutDialog *about,const gchar *link,gpointer data)
  	if ( !xdg_open)
  	{
  		gchar *browser_path = NULL;
@@ -1161,8 +2373,8 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
 +		browser_path = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_web_browser));
  		if (strlen(browser_path) == 0)
  		{
- 			response = xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_INFO,GTK_BUTTONS_OK,_("You didn't set which browser to use!"),_("Please go to Preferences->Advanced and set it."));
-@@ -1915,16 +1931,16 @@
+ 			xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_INFO,GTK_BUTTONS_OK,_("You didn't set which browser to use!"),_("Please go to Preferences->Advanced and set it."));
+@@ -1917,16 +1934,16 @@ void xa_determine_program_to_run(gchar *file)
  	{
  		if (strstr(file,".html"))
  		{
@@ -1175,14 +2387,14 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
 +			program = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_editor));
  		}
  		else if (strstr(file,".png") || strstr(file,".gif") || strstr(file,".jpg") || strstr(file,".bmp") ||
- 				 strstr(file,".tif") || strstr(file,".tiff")|| strstr(file,".svg") || strstr(file,".png") ||
+ 				 strstr(file,".tif") || strstr(file,".tiff")|| strstr(file,".svg") ||
  				 strstr(file,".tga"))
 -			program = gtk_combo_box_get_active_text (GTK_COMBO_BOX(prefs_window->combo_prefered_viewer));
 +			program = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT(prefs_window->combo_prefered_viewer));
  		else
  		{
  			xa_show_message_dialog (GTK_WINDOW (xa_main_window),GTK_DIALOG_MODAL,GTK_MESSAGE_ERROR,GTK_BUTTONS_OK,_("This file type is not supported!"),_("Please install xdg-utils package."));
-@@ -1943,6 +1959,11 @@
+@@ -1945,6 +1962,11 @@ void xa_determine_program_to_run(gchar *file)
  	g_free(program);
  }
  
@@ -1194,7 +2406,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  gboolean xa_launch_external_program(gchar *program,gchar *arg)
  {
  	GtkWidget *message;
-@@ -1950,13 +1971,21 @@
+@@ -1952,6 +1974,7 @@ gboolean xa_launch_external_program(gchar *program,gchar *arg)
  	gchar *command_line = NULL;
  	gchar **argv;
  	GdkScreen *screen;
@@ -1202,6 +2414,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  
  	command_line = g_strconcat(program," ",arg,NULL);
  	g_shell_parse_argv(command_line,NULL,&argv,NULL);
+@@ -1959,7 +1982,14 @@ gboolean xa_launch_external_program(gchar *program,gchar *arg)
  	g_free(command_line);
  
  	screen = gtk_widget_get_screen (GTK_WIDGET (xa_main_window));
@@ -1217,7 +2430,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	{
  		message = gtk_message_dialog_new (GTK_WINDOW (xa_main_window),
  										GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
-@@ -2017,8 +2046,7 @@
+@@ -2019,8 +2049,7 @@ void xa_show_archive_comment (GtkMenuItem *menuitem,gpointer user_data)
  	comment_dialog = gtk_dialog_new_with_buttons (_("Comment"),GTK_WINDOW(xa_main_window),GTK_DIALOG_MODAL,NULL);
  	gtk_window_set_position (GTK_WINDOW (comment_dialog),GTK_WIN_POS_CENTER_ON_PARENT);
  	gtk_window_set_type_hint (GTK_WINDOW (comment_dialog),GDK_WINDOW_TYPE_HINT_DIALOG);
@@ -1227,7 +2440,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	gtk_widget_set_size_request(comment_dialog,500,330);
  
  	scrolledwindow1 = gtk_scrolled_window_new (NULL,NULL);
-@@ -2034,7 +2062,7 @@
+@@ -2036,7 +2065,7 @@ void xa_show_archive_comment (GtkMenuItem *menuitem,gpointer user_data)
  	g_object_unref (textbuffer);
  	gtk_container_add (GTK_CONTAINER (scrolledwindow1),textview);
  
@@ -1236,7 +2449,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	gtk_button_box_set_layout (GTK_BUTTON_BOX (dialog_action_area1),GTK_BUTTONBOX_END);
  
  	clear = gtk_button_new_from_stock ("gtk-clear");
-@@ -2295,7 +2323,7 @@
+@@ -2295,7 +2324,7 @@ int xa_mouse_button_event(GtkWidget *widget,GdkEventButton *event,XArchive *arch
  		clipboard_selection = gtk_clipboard_wait_for_contents(clipboard,XA_INFO_LIST);
  		if (clipboard_selection != NULL)
  		{
@@ -1245,7 +2458,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  			gtk_selection_data_free (clipboard_selection);
  			if (strcmp(archive->escaped_path,paste_data->cut_copy_archive->escaped_path) == 0)
  				value = FALSE;
-@@ -2363,7 +2391,7 @@
+@@ -2363,7 +2392,7 @@ void xa_clipboard_paste(GtkMenuItem* item,gpointer data)
  	selection = gtk_clipboard_wait_for_contents(clipboard,XA_INFO_LIST);
  	if (selection == NULL)
  		return;
@@ -1254,7 +2467,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	gtk_selection_data_free (selection);
  
  	/* Let's add the already extracted files in the tmp dir to the current archive dir */
-@@ -2461,7 +2489,7 @@
+@@ -2464,7 +2493,7 @@ void xa_clipboard_get (GtkClipboard *clipboard,GtkSelectionData *selection_data,
  	XArchive *archive = user_data;
  	GSList *_files = archive->clipboard_data->files;
  	GString *params = g_string_new("");
@@ -1263,7 +2476,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  		return;
  
  	g_string_append (params,g_strdup(archive->escaped_path));
-@@ -2477,7 +2505,7 @@
+@@ -2480,7 +2509,7 @@ void xa_clipboard_get (GtkClipboard *clipboard,GtkSelectionData *selection_data,
  		g_string_append (params,"\r\n");
  		_files = _files->next;
  	}
@@ -1272,7 +2485,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	g_string_free (params,TRUE);
  }
  
-@@ -2514,7 +2542,7 @@
+@@ -2517,7 +2546,7 @@ void xa_rename_archive(GtkMenuItem* item,gpointer data)
  	row_list = gtk_tree_selection_get_selected_rows(selection,&model);
  
  	g_object_set(archive[idx]->renderer_text,"editable",TRUE,NULL);
@@ -1281,7 +2494,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	column = gtk_tree_view_get_column(GTK_TREE_VIEW (archive[idx]->treeview),0);
  	gtk_tree_view_set_cursor(GTK_TREE_VIEW(archive[idx]->treeview),row_list->data,column,TRUE);
  	gtk_tree_path_free (row_list->data);
-@@ -2524,7 +2552,7 @@
+@@ -2527,7 +2556,7 @@ void xa_rename_archive(GtkMenuItem* item,gpointer data)
  void xa_rename_cell_edited_canceled(GtkCellRenderer *renderer,gpointer data)
  {
  	g_object_set(renderer,"editable",FALSE,NULL);
@@ -1290,7 +2503,7 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  }
  
  void xa_rename_cell_edited (GtkCellRendererText *cell,const gchar *path_string,const gchar *new_name,XArchive *archive)
-@@ -2600,7 +2628,7 @@
+@@ -2606,7 +2635,7 @@ void xa_rename_cell_edited (GtkCellRendererText *cell,const gchar *path_string,c
  		chdir (archive->tmp);
  		xa_execute_add_commands(archive,list,NULL);
  	}
@@ -1299,15 +2512,19 @@ diff -Naur xarchiver-0.5.4.orig/src/window.c xarchiver-0.5.4/src/window.c
  	g_object_set(cell,"editable",FALSE,NULL);
  }
  
-diff -Naur xarchiver-0.5.4.orig/xarchiver.desktop.in xarchiver-0.5.4/xarchiver.desktop.in
---- xarchiver-0.5.4.orig/xarchiver.desktop.in	2015-07-09 17:27:02.254150000 +0200
-+++ xarchiver-0.5.4/xarchiver.desktop.in	2015-07-09 17:27:46.692057955 +0200
-@@ -2,7 +2,7 @@
- Encoding=UTF-8
- Version=1.0
- _Name=Xarchiver
+diff --git a/xarchiver.desktop.in b/xarchiver.desktop.in
+index 719d18f..2ac0c17 100644
+--- a/xarchiver.desktop.in
++++ b/xarchiver.desktop.in
+@@ -3,7 +3,7 @@ Version=1.0
+ Type=Application
+ Name=Xarchiver
+ _GenericName=Archive manager
 -_Comment=A GTK+2 only archive manager
 +_Comment=A GTK+ only archive manager
- _GenericName=Archive manager
- Exec=xarchiver %f
  Icon=xarchiver
+ Exec=xarchiver %f
+ Terminal=false
+-- 
+2.8.0
+
