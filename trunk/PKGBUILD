@@ -34,6 +34,6 @@ package_python-imagesize() {
 package_python2-imagesize() {
   depends=('python2')
 
-  cd /imagesize-$pkgver-py2
+  cd imagesize-$pkgver-py2
   python2 setup.py install --root="$pkgdir" --optimize=1
 }
