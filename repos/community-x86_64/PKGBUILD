@@ -14,7 +14,7 @@ pkgname=(
   'x86_energy_perf_policy'
 )
 pkgver=4.5
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -41,8 +41,8 @@ source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$
         '04-fix-usip-h-path.patch')
 md5sums=('SKIP'
          '56883c159381ba89e50ab8ea65efec77'
-         '7e0710c2f31c1eb1e1417a7972e676b1'
-         '2450e8ff41b30eb58d43b5fffbfde1f4'
+         '34f5ecc19770a1abbcd0fd65bfd1f065'
+         '86c4e419e4ba80835c330d49ba3f56ad'
          'bb35634f480325a78b943f7e10165e86'
          '1bc4f8c7a21a30e1a873d07e69fb698b'
          'a73ea3ea6d9c9ecb1cc910871eead3ff')
@@ -69,9 +69,9 @@ build() {
   msg2 'perf'
   pushd linux/tools/perf
   make \
+    prefix=/usr \
+    DESTDIR="$pkgdir" \
     WERROR=0 \
-    DESTDIR="$pkgdir/usr" \
-    perfexecdir='lib/perf' \
     PYTHON=python2 \
     PYTHON_CONFIG=python2-config \
     PERF_VERSION=$pkgver-$pkgrel \
@@ -148,17 +148,19 @@ package_perf() {
 
   cd linux/tools/perf
   make \
+    prefix=/usr \
+    DESTDIR="$pkgdir" \
     WERROR=0 \
-    DESTDIR="$pkgdir/usr" \
-    perfexecdir='lib/perf' \
     PYTHON=python2 \
     PYTHON_CONFIG=python2-config \
     PERF_VERSION=$pkgver-$pkgrel \
     install install-man
-  # move completion in new directory
   cd "$pkgdir"
-  install -Dm644 usr/etc/bash_completion.d/perf usr/share/bash-completion/completions/perf
-  rm -r usr/etc
+  # move completion in new directory
+  install -Dm644 etc/bash_completion.d/perf usr/share/bash-completion/completions/perf
+  rm -r etc
+  # no exec on usr/share
+  find usr/share -type f -exec chmod a-x {} \;
 }
 
 package_cpupower() {
