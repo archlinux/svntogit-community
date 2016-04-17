@@ -1,4 +1,5 @@
 /var/log/privoxy/logfile {
+   missingok
    create 660 root privoxy
    notifempty
    compress
