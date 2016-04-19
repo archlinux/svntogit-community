@@ -5,30 +5,37 @@
 # Contributor: Josh VanderLinden <arch@cloudlery.com>
 
 pkgname=(python-docker-py python2-docker-py)
-pkgver=1.7.2
+pkgver=1.8.0
 pkgrel=1
 pkgdesc="Python client for Docker."
 arch=('any')
 url="https://github.com/dotcloud/docker-py"
 license=("Apache")
 makedepends=('git' 'python-setuptools' 'python2-setuptools' 'python-requests' 'python2-requests'
-             'python-six' 'python2-six' 'python-websocket-client' 'python2-websocket-client')
+             'python-six' 'python2-six' 'python-websocket-client' 'python2-websocket-client'
+             'python2-backports.ssl_match_hostname' 'python2-ipaddress')
 checkdepends=('python-pytest-cov' 'python2-pytest-cov' 'python-mock' 'python2-mock' 'docker'
               'flake8' 'python2-flake8')
-source=("git+https://github.com/docker/docker-py.git#tag=$pkgver")
-sha256sums=('SKIP')
+source=("git+https://github.com/docker/docker-py.git#tag=$pkgver"
+        backports.patch)
+sha256sums=('SKIP'
+            '0bbf17354fa7e7089180577271f552ea08c6b262fd0ca732626085c0bde7a3e0')
 
 prepare() {
+  # Use match_hostname from backports.ssl_match_hostname, as the required py2-ipaddress module conflicts with python2-ipaddress
+  # https://github.com/docker/docker-py/pull/1029
+  (cd docker-py; patch -p1 -i ../backports.patch)
+
   sed -i 's/==.*$//' docker-py/{,test-}requirements.txt
 
   cp -a docker-py{,-py2}
 }
 
 build() {
-  cd "$srcdir/docker-py"
+  cd "$srcdir"/docker-py
   python setup.py build
 
-  cd "$srcdir/docker-py-py2"
+  cd "$srcdir"/docker-py-py2
   python2 setup.py build
 }
 
@@ -37,10 +44,10 @@ check() {
   # docker daemon -H fd:// -p "$srcdir/docker.pid"
 
   cd "$srcdir/docker-py"
-  py.test tests/unit
+  py.test --cov=docker tests/unit
 
   cd "$srcdir/docker-py-py2"
-  py.test2 tests/unit
+  py.test2 --cov=docker tests/unit
 
   # kill $(<"$srcdir/docker.pid")
 }
@@ -48,15 +55,15 @@ check() {
 package_python-docker-py() {
   depends=('python-requests' 'python-six' 'python-websocket-client')
 
-  cd "$srcdir/docker-py"
+  cd docker-py
   python setup.py install -O1 --root="$pkgdir"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 package_python2-docker-py() {
-  depends=('python2-requests' 'python2-six' 'python2-websocket-client')
+  depends=('python2-requests' 'python2-six' 'python2-websocket-client' 'python2-backports.ssl_match_hostname' 'python2-ipaddress')
 
-  cd "$srcdir/docker-py-py2"
+  cd docker-py-py2
   python2 setup.py install -O1 --root="$pkgdir"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
