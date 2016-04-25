@@ -1,0 +1,142 @@
+From 67d7aa3cf56c0642b09a4016222b06c34cbac76d Mon Sep 17 00:00:00 2001
+From: Rui Matos <tiagomatos@gmail.com>
+Date: Tue, 29 Mar 2016 21:56:28 +0200
+Subject: display-config: handle invalid previous configurations
+
+The previous configuration might not apply because the number of
+enabled outputs when trying to apply it might have changed. This isn't
+a bug so we shouldn't assert. Instead, we can handle it by falling
+back as we would if we didn't have a previous configuration to start
+with.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=764286
+---
+ .../libdisplay-config/flashback-monitor-config.c      | 19 ++++++++++++-------
+ 1 file changed, 12 insertions(+), 7 deletions(-)
+
+diff --git a/gnome-flashback/libdisplay-config/flashback-monitor-config.c b/gnome-flashback/libdisplay-config/flashback-monitor-config.c
+index f5faa1a..4886188 100644
+--- a/gnome-flashback/libdisplay-config/flashback-monitor-config.c
++++ b/gnome-flashback/libdisplay-config/flashback-monitor-config.c
+@@ -653,7 +653,11 @@ meta_monitor_config_assign_crtcs (MetaConfiguration       *config,
+     }
+ 
+   all_outputs = flashback_monitor_manager_get_outputs (manager, &n_outputs);
+-  g_assert (n_outputs == config->n_outputs);
++  if (n_outputs != config->n_outputs)
++    {
++      g_hash_table_destroy (assignment.info);
++      return FALSE;
++    }
+ 
+   for (i = 0; i < n_outputs; i++)
+     {
+@@ -2050,18 +2054,19 @@ flashback_monitor_config_restore_previous (FlashbackMonitorConfig *config)
+       /* The user chose to restore the previous configuration. In this
+        * case, restore the previous configuration. */
+       MetaConfiguration *prev_config = config_ref (config->previous);
+-      apply_configuration (config, prev_config);
++      gboolean ok = apply_configuration (config, prev_config);
+       config_unref (prev_config);
+ 
+       /* After this, self->previous contains the rejected configuration.
+        * Since it was rejected, nuke it. */
+       g_clear_pointer (&config->previous, (GDestroyNotify) config_unref);
++
++      if (ok)
++        return;
+     }
+-  else
+-    {
+-      if (!flashback_monitor_config_apply_stored (config))
+-        flashback_monitor_config_make_default (config);
+-    }
++
++  if (!flashback_monitor_config_apply_stored (config))
++    flashback_monitor_config_make_default (config);
+ }
+ 
+ gboolean
+-- 
+cgit v0.12
+
+From 26592ac89d4b1fd05adac417040110473da6bade Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alberts=20Muktup=C4=81vels?= <alberts.muktupavels@gmail.com>
+Date: Mon, 25 Apr 2016 21:57:40 +0300
+Subject: notifications: disconnect signal handler
+
+Regression from 302df76438ad7f7cba75c2fe949daffb9d701155.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=765128
+---
+ gnome-flashback/libnotifications/gf-bubble.c | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/gnome-flashback/libnotifications/gf-bubble.c b/gnome-flashback/libnotifications/gf-bubble.c
+index ce74fd1..a97ba15 100644
+--- a/gnome-flashback/libnotifications/gf-bubble.c
++++ b/gnome-flashback/libnotifications/gf-bubble.c
+@@ -47,6 +47,7 @@ typedef struct
+   gboolean        url_clicked_lock;
+ 
+   guint           timeout_id;
++  gulong          changed_id;
+ } GfBubblePrivate;
+ 
+ G_DEFINE_TYPE_WITH_PRIVATE (GfBubble, gf_bubble, GF_TYPE_POPUP_WINDOW)
+@@ -413,6 +414,12 @@ gf_bubble_dispose (GObject *object)
+       priv->timeout_id = 0;
+     }
+ 
++  if (priv->changed_id != 0)
++    {
++      g_signal_handler_disconnect (priv->notification, priv->changed_id);
++      priv->changed_id = 0;
++    }
++
+   G_OBJECT_CLASS (gf_bubble_parent_class)->dispose (object);
+ }
+ 
+@@ -665,9 +672,9 @@ gf_bubble_new_for_notification (NdNotification *notification)
+   priv = gf_bubble_get_instance_private (bubble);
+ 
+   priv->notification = g_object_ref (notification);
+-
+-  g_signal_connect (notification, "changed",
+-                    G_CALLBACK (notification_changed_cb), bubble);
++  priv->changed_id = g_signal_connect (notification, "changed",
++                                       G_CALLBACK (notification_changed_cb),
++                                       bubble);
+ 
+   update_bubble (bubble);
+ 
+-- 
+cgit v0.12
+
+From 04689659874ebafbb8c3031a8e55e1ea6a7f7a74 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alberts=20Muktup=C4=81vels?= <alberts.muktupavels@gmail.com>
+Date: Mon, 25 Apr 2016 22:31:03 +0300
+Subject: notifications: use correct window type for GfBubble
+
+Regression from 302df76438ad7f7cba75c2fe949daffb9d701155.
+
+https://bugzilla.gnome.org/show_bug.cgi?id=765128
+---
+ gnome-flashback/libnotifications/gf-bubble.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gnome-flashback/libnotifications/gf-bubble.c b/gnome-flashback/libnotifications/gf-bubble.c
+index eed0514..282c3ef 100644
+--- a/gnome-flashback/libnotifications/gf-bubble.c
++++ b/gnome-flashback/libnotifications/gf-bubble.c
+@@ -654,6 +654,7 @@ gf_bubble_new_for_notification (NdNotification *notification)
+   bubble = g_object_new (GF_TYPE_BUBBLE,
+                          "resizable", FALSE,
+                          "title", _("Notification"),
++                         "type", GTK_WINDOW_POPUP,
+                          NULL);
+ 
+   priv = gf_bubble_get_instance_private (bubble);
+-- 
+cgit v0.12
+
