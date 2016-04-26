@@ -3,20 +3,20 @@
 # Contributor: Florian Hahn <flo@fhahn.com>
 
 pkgname=neovim
-pkgver=0.1.3
+pkgver=0.1.4
 pkgrel=1
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('i686' 'x86_64')
 url='https://neovim.io'
 license=('custom:neovim')
 depends=('jemalloc' 'libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm')
-makedepends=('cmake' 'luajit' 'lua51-messagepack' 'lua51-lpeg')
+makedepends=('cmake' 'luajit' 'lua51-mpack' 'lua51-lpeg')
 optdepends=('python2-neovim: for Python 2 plugin support (see :help nvim-python)'
             'python-neovim: for Python 3 plugin support (see :help nvim-python)'
             'xclip: for clipboard support (or xsel) (see :help nvim-clipboard)'
             'xsel: for clipboard support (or xclip) (see :help nvim-clipboard)')
 source=("https://github.com/neovim/neovim/archive/v${pkgver}.tar.gz")
-sha256sums=('7a86892d941b8829537ad46864b9a363d009ba56aeefdef2ee15ffa3eee5f92b')
+sha256sums=('bb7e359eb83db20c5ec5984b470b249372b6dcd813ae2ccf72c01cce560f93e9')
 install=neovim.install
 
 build() {
