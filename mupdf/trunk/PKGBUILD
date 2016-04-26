@@ -6,31 +6,30 @@
 # Contributor: Pierre-Paul Paquin <pierrepaulpaquin@gmail.com>
 # Contributor: xduugu
 
-pkgname=mupdf
+pkgbase=mupdf
+pkgname=(libmupdf mupdf mupdf-gl mupdf-tools)
 pkgver=1.9_a
-pkgrel=1
+pkgrel=2
 pkgdesc='Lightweight PDF and XPS viewer'
 arch=('i686' 'x86_64')
 url='http://mupdf.com'
 license=('AGPL3')
-depends=('curl' 'desktop-file-utils' 'freetype2' 'jbig2dec' 'libjpeg' 'libxext'
-         'openssl' 'openjpeg2' 'mesa' 'libgl' 'libxcursor' 'libxrandr'
-	 'libxinerama' 'harfbuzz' 'glfw')
-makedepends=('mesa-libgl')
+makedepends=('curl' 'desktop-file-utils' 'freetype2' 'glfw' 'harfbuzz'
+             'jbig2dec' 'libjpeg' 'mesa-libgl' 'openjpeg2' 'openssl')
 install=mupdf.install
 # we need static libs for zathura-pdf-mupdf
 options=('staticlibs')
 source=(http://mupdf.com/downloads/mupdf-${pkgver/_/}-source.tar.gz
+        mupdf-1.5-openjpeg-2.1.0.patch
         mupdf.desktop
-        mupdf.xpm
-        mupdf-1.5-openjpeg-2.1.0.patch)
+	mupdf.xpm)
 md5sums=('658b90788a57d858dcb069cf326e11c3'
+         '8e71587ad9b86e10c9144618ab43149b'
          '39b54f82a763aac54e352315a0ee9037'
-         'f3f35e7320bafde331250de1c99186a1'
-         '8e71587ad9b86e10c9144618ab43149b')
+         'f3f35e7320bafde331250de1c99186a1')
 
 prepare() {
-  cd $pkgname-${pkgver/_/}-source
+  cd $pkgbase-${pkgver/_/}-source
 
   # remove bundled packages, we want our system libraries
   rm -rf thirdparty/{curl,freetype,glfw,harfbuzz,jbig2dec,jpeg,openjpeg,zlib}
@@ -50,20 +49,76 @@ build() {
   SYS_GLFW_LIBS="$(pkg-config --libs glfw3) -lGL"
   export HAVE_GLFW SYS_GLFW_CFLAGS SYS_GLFW_LIBS
 
-  cd $pkgname-${pkgver/_/}-source
+  cd $pkgbase-${pkgver/_/}-source
   make build=release
 }
 
-package() {
-  cd $pkgname-${pkgver/_/}-source
+package_libmupdf() {
+  pkgdesc='Library for Lightweight PDF and XPS viewer'
+
+  cd $pkgbase-${pkgver/_/}-source
+
   make build=release prefix="$pkgdir"/usr install
 
-  mv "$pkgdir"/usr/bin/mupdf-x11-curl "$pkgdir"/usr/bin/mupdf
-  rm "$pkgdir"/usr/bin/mupdf-x11
-
-  install -Dm644 ../mupdf.desktop "$pkgdir"/usr/share/applications/mupdf.desktop
-  install -Dm644 ../mupdf.xpm "$pkgdir"/usr/share/pixmaps/mupdf.xpm
+  rm -rf "$pkgdir"/usr/{bin,share/man}
+  mv "$pkgdir"/usr/share/doc/mupdf "$pkgdir"/usr/share/doc/libmupdf
 
   find "$pkgdir"/usr/include "$pkgdir"/usr/share "$pkgdir"/usr/lib \
-    -type f -exec chmod -v 0644 {} +
+    -type f -exec chmod 0644 {} +
 }
+
+package_mupdf() {
+  pkgdesc='Lightweight PDF and XPS viewer'
+  depends=('curl' 'desktop-file-utils' 'freetype2' 'harfbuzz' 'jbig2dec'
+           'libjpeg' 'openjpeg2' 'openssl')
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  install -D -m0755 build/release/mupdf-x11-curl "$pkgdir"/usr/bin/mupdf
+
+  install -D -m0644 docs/man/mupdf.1 "$pkgdir"/usr/share/man/man1/mupdf.1
+
+  install -d "$pkgdir"/usr/share/doc/mupdf
+  install -m0644  README COPYING CHANGES "$pkgdir"/usr/share/doc/mupdf
+
+  install -D -m0644 ../mupdf.desktop "$pkgdir"/usr/share/applications/mupdf.desktop
+  install -D -m0644 ../mupdf.xpm "$pkgdir"/usr/share/pixmaps/mupdf.xpm
+}
+
+package_mupdf-gl() {
+  pkgdesc='Lightweight PDF and XPS viewer with OpenGL backend'
+  conflicts=('mupdf')
+  provides=('mupdf')
+  depends=('desktop-file-utils' 'freetype2' 'glfw' 'harfbuzz' 'jbig2dec'
+           'libjpeg' 'openjpeg2' 'openssl')
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  install -D -m0755 build/release/mupdf-gl "$pkgdir"/usr/bin/mupdf
+
+  install -D -m0644 docs/man/mupdf.1 "$pkgdir"/usr/share/man/man1/mupdf.1
+
+  install -d "$pkgdir"/usr/share/doc/mupdf
+  install -m0644 README COPYING CHANGES "$pkgdir"/usr/share/doc/mupdf
+
+  install -D -m0644 ../mupdf.desktop "$pkgdir"/usr/share/applications/mupdf.desktop
+  install -D -m0644 ../mupdf.xpm "$pkgdir"/usr/share/pixmaps/mupdf.xpm
+}
+
+package_mupdf-tools() {
+  pkgdesc='Tools for Lightweight PDF and XPS viewer'
+  depends=('mupdf')
+  depends=('freetype2' 'jbig2dec' 'libjpeg'
+         'openssl' 'openjpeg2' 'harfbuzz')
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  install -D -m0755 build/release/mutool "$pkgdir"/usr/bin/mutool
+  install -D -m0755 build/release/mujstest "$pkgdir"/usr/bin/mujstest
+
+  install -D -m0644 docs/man/mutool.1 "$pkgdir"/usr/share/man/man1/mutool.1
+
+  install -d "$pkgdir"/usr/share/doc/mupdf-tools
+  install -m0644 README COPYING CHANGES "$pkgdir"/usr/share/doc/mupdf-tools
+}
+
