@@ -4,7 +4,7 @@
 pkgname=kodi-addon-screensaver-asteroids
 _commit=c7ae05f
 pkgver=20150921.c7ae05f
-pkgrel=1
+pkgrel=2
 pkgdesc="Asteroids screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/screensaver.asteroids'
