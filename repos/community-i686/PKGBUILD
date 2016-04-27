@@ -4,7 +4,7 @@
 pkgname=kodi-addon-visualization-projectm
 _commit=8ca7efb
 pkgver=20151116.8ca7efb
-pkgrel=1
+pkgrel=2
 pkgdesc="ProjectM visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/visualization.projectm'
