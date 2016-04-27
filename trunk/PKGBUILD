@@ -4,7 +4,7 @@
 pkgname=kodi-addon-visualization-goom
 _commit=16747b7
 pkgver=20151116.16747b7
-pkgrel=1
+pkgrel=2
 pkgdesc="GOOM visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/visualization.goom'
