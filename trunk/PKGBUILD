@@ -4,8 +4,8 @@
 pkgname=kodi-addon-adsp-biquad-filters
 _commit=77ea50b
 pkgver=20160325.77ea50b
-pkgrel=1
-pkgdesc=""
+pkgrel=2
+pkgdesc="Biquad Filters AudioDSP add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/kodi-adsp/adsp.biquad.filters'
 license=('GPL')
