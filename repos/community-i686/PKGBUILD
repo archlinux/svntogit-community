@@ -4,7 +4,7 @@
 pkgname=kodi-addon-screensaver-rsxs
 _commit=3241d29
 pkgver=20150907.3241d29
-pkgrel=1
+pkgrel=2
 pkgdesc="RSXS screensaver add-ons for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensavers.rsxs'
