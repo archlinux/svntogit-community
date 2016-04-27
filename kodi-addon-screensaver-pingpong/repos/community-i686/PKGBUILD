@@ -4,7 +4,7 @@
 pkgname=kodi-addon-screensaver-pingpong
 _commit=5c7cf6f
 pkgver=20150920.5c7cf6f
-pkgrel=1
+pkgrel=2
 pkgdesc="Ping-pong screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.pingpong'
