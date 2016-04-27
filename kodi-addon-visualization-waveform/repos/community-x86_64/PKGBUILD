@@ -4,7 +4,7 @@
 pkgname=kodi-addon-visualization-waveform
 _commit=89aec48
 pkgver=20151213.89aec48
-pkgrel=1
+pkgrel=2
 pkgdesc="Waveform visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.waveform'
