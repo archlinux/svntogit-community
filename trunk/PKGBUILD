@@ -4,7 +4,7 @@
 pkgname=kodi-addon-audioencoder-lame
 _commit=ffaf9cb
 pkgver=20160219.ffaf9cb
-pkgrel=2
+pkgrel=3
 pkgdesc="LAME Audio Encoder add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/audioencoder.lame'
