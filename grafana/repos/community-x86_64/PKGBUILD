@@ -1,0 +1,82 @@
+# $Id$
+# Maintainer: Sébastien "Seblu" Luttringer
+# Contributor: Carsten Feuls <archlinux@carstenfeuls.de>
+# Contributor: Gilles Hamel <hamelg at laposte dot net>
+
+pkgname=grafana
+pkgver=2.6.0
+pkgrel=3
+pkgdesc='Gorgeous metric viz, dashboards & editors for Graphite, InfluxDB & OpenTSDB'
+url='http://grafana.org'
+arch=('x86_64' 'i686')
+license=('Apache')
+depends=('glibc')
+makedepends=('git' 'go' 'godep' 'nodejs-grunt-cli' 'npm' 'phantomjs')
+backup=("etc/grafana.ini")
+source=("git+https://github.com/grafana/grafana.git#tag=v$pkgver"
+        "grafana.service"
+        "grafana.sysusers"
+        "grafana.tmpfiles"
+        "01-config.patch"
+        "02-fix-influxdb0.11.1-multiple-queries.patch"
+       )
+install=$pkgname.install
+md5sums=('SKIP'
+         '2f1d73689923ecee92a102a65b91003a'
+         '49688ed04bb3fac45fd48d0ac99e52d5'
+         '19b2559970998bbc320d112df0673c03'
+         'f676cfe7bdd2463e2600ff8fce75a2d6'
+         '49cba56cf9d13615f8fd382c98bd1961')
+
+prepare() {
+  cd $pkgname
+  # apply patch from the source array (should be a pacman feature)
+  local filename
+  for filename in "${source[@]}"; do
+    if [[ "$filename" =~ \.patch$ ]]; then
+      msg2 "Applying patch $filename"
+      patch -p1 -N -i "$srcdir/$filename"
+    fi
+  done
+  :
+}
+
+build() {
+   export GOPATH="$srcdir/$pkgname"
+   export PATH="$PATH:$GOPATH/bin"
+   cd "$GOPATH"
+   go run build.go setup
+   godep restore
+   mkdir -p "$GOPATH/src/github.com/grafana/grafana/"
+   ln -s "$GOPATH/pkg" "$GOPATH/src/github.com/grafana/grafana/"
+
+   # Build frontend assets
+   npm install
+   # Install phantomjs in this directory as well for some reason. Can be removed after next patch: https://github.com/grafana/grafana/issues/2999
+   cd node_modules/karma-phantomjs-launcher
+   npm install
+   cd "$GOPATH"
+   grunt
+   grunt build
+   grunt build-post-process
+
+   # build the backend
+   # no longer doing package build since this just kicks off rpm/deb builds at the end.
+   #go run build.go build package
+   go run build.go build
+}
+
+package() {
+   install -Dm644 grafana.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/grafana.conf"
+   install -Dm644 grafana.sysusers "$pkgdir/usr/lib/sysusers.d/grafana.conf"
+   install -Dm644 grafana.service "$pkgdir/usr/lib/systemd/system/grafana.service"
+   cd $pkgname
+   install -Dsm755 bin/grafana-server "$pkgdir/usr/bin/grafana-server"
+   install -Dm644 conf/sample.ini "$pkgdir/etc/$pkgname.ini"
+   install -Dm644 conf/defaults.ini "$pkgdir/usr/share/$pkgname/conf/defaults.ini"
+   install -dm755 "$pkgdir/usr/share/grafana/"
+   cp -r vendor "$pkgdir/usr/share/grafana/"
+   cp -r public_gen "$pkgdir/usr/share/grafana/public"
+}
+
+# vim:set ts=2 sw=2 et:
