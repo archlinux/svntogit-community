@@ -4,7 +4,7 @@
 pkgname=kodi-platform
 _commit=92583ef
 pkgver=20160131.92583ef
-pkgrel=1
+pkgrel=2
 pkgdesc="platform library for external kodi addons"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/kodi-platform'
