@@ -4,7 +4,7 @@
 pkgname=kodi-addon-visualization-fishbmc
 _commit=50c38c2
 pkgver=20151116.50c38c2
-pkgrel=1
+pkgrel=2
 pkgdesc="Fische visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.fishbmc'
