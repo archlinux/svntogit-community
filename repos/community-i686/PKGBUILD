@@ -4,7 +4,7 @@
 pkgname=kodi-addon-screensaver-stars
 _commit=28bf79d
 pkgver=20150921.28bf79d
-pkgrel=1
+pkgrel=2
 pkgdesc="Starfield screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.stars'
