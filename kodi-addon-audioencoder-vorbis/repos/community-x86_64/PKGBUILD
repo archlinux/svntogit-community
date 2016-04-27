@@ -4,7 +4,7 @@
 pkgname=kodi-addon-audioencoder-vorbis
 _commit=47a0676
 pkgver=20160219.47a0676
-pkgrel=2
+pkgrel=3
 pkgdesc="Vorbis Audio Encoder add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/audioencoder.vorbis'
