@@ -4,7 +4,7 @@
 pkgname=kodi-addon-screensaver-matrixtrails
 _commit=16057e7
 pkgver=20151029.16057e7
-pkgrel=1
+pkgrel=2
 pkgdesc="Matrix trails screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.matrixtrails'
