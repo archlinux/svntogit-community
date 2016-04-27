@@ -4,7 +4,7 @@
 pkgname=kodi-addon-adsp-freesurround
 _commit=6dc533b
 pkgver=20160325.6dc533b
-pkgrel=1
+pkgrel=2
 pkgdesc="FreeSurround AudioDSP add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/kodi-adsp/adsp.freesurround'
