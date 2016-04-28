@@ -1,0 +1,67 @@
+From 3c8598f691593e5def46576402113c54b630d491 Mon Sep 17 00:00:00 2001
+From: Florian Bruhin <git@the-compiler.org>
+Date: Tue, 26 Apr 2016 22:30:27 +0200
+Subject: [PATCH] Work around PyQt 5.6 segfault when using IPC
+
+PyQt 5.6 seems to segfault when emitting None with a signal which is
+declared as emitting a string:
+
+https://www.riverbankcomputing.com/pipermail/pyqt/2016-April/037375.html
+
+We now avoid this by using an empty string explicitly instead of None.
+---
+ qutebrowser/app.py      |  9 +++------
+ qutebrowser/misc/ipc.py | 13 +++++++++++--
+ 2 files changed, 14 insertions(+), 8 deletions(-)
+
+diff --git a/qutebrowser/app.py b/qutebrowser/app.py
+index 13f2597..947792b 100644
+--- a/qutebrowser/app.py
++++ b/qutebrowser/app.py
+@@ -244,12 +244,7 @@ def process_pos_args(args, via_ipc=False, cwd=None, target_arg=None):
+         cwd: The cwd to use for fuzzy_url.
+         target_arg: Command line argument received by a running instance via
+                     ipc. If the --target argument was not specified, target_arg
+-                    will be an empty string instead of None. This behavior is
+-                    caused by the PyQt signal
+-                    ``got_args = pyqtSignal(list, str, str)``
+-                    used in the misc.ipc.IPCServer class. PyQt converts the
+-                    None value into a null QString and then back to an empty
+-                    python string
++                    will be an empty string.
+     """
+     if via_ipc and not args:
+         win_id = mainwindow.get_window(via_ipc, force_window=True)
+@@ -275,6 +270,8 @@ def process_pos_args(args, via_ipc=False, cwd=None, target_arg=None):
+             tabbed_browser = objreg.get('tabbed-browser', scope='window',
+                                         window=win_id)
+             log.init.debug("Startup URL {}".format(cmd))
++            if not cwd:  # could also be an empty string due to the PyQt signal
++                cwd = None
+             try:
+                 url = urlutils.fuzzy_url(cmd, cwd, relative=True)
+             except urlutils.InvalidUrlError as e:
+diff --git a/qutebrowser/misc/ipc.py b/qutebrowser/misc/ipc.py
+index 28462d4..aa219fa 100644
+--- a/qutebrowser/misc/ipc.py
++++ b/qutebrowser/misc/ipc.py
+@@ -340,8 +340,17 @@ def on_ready_read(self):
+                 self._handle_invalid_data()
+                 return
+ 
+-            cwd = json_data.get('cwd', None)
+-            self.got_args.emit(json_data['args'], json_data['target_arg'], cwd)
++            args = json_data['args']
++
++            target_arg = json_data['target_arg']
++            if target_arg is None:
++                # https://www.riverbankcomputing.com/pipermail/pyqt/2016-April/037375.html
++                target_arg = ''
++
++            cwd = json_data.get('cwd', '')
++            assert cwd is not None
++
++            self.got_args.emit(args, target_arg, cwd)
+         self._timer.start()
+ 
+     @pyqtSlot()
