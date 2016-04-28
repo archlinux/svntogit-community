@@ -1,0 +1,247 @@
+From 37b5f49c8542c04e7aae6ded6e8ab0c6aa5f2010 Mon Sep 17 00:00:00 2001
+From: Florian Bruhin <git@the-compiler.org>
+Date: Tue, 26 Apr 2016 20:20:29 +0200
+Subject: [PATCH] Fix types in @pyqtSlot decorations
+
+PyQt 5.5 enforces correct type signatures, and there were a lot of
+places where we were simply wrong, causing qutebrowser to not start at
+all...
+---
+ qutebrowser/browser/downloads.py               | 4 ++--
+ qutebrowser/browser/network/networkmanager.py  | 4 ++--
+ qutebrowser/browser/webpage.py                 | 6 +++---
+ qutebrowser/browser/webview.py                 | 2 +-
+ qutebrowser/commands/runners.py                | 1 +
+ qutebrowser/completion/models/miscmodels.py    | 5 ++---
+ qutebrowser/config/config.py                   | 2 ++
+ qutebrowser/mainwindow/statusbar/percentage.py | 3 ++-
+ qutebrowser/mainwindow/statusbar/progress.py   | 2 +-
+ qutebrowser/mainwindow/statusbar/text.py       | 3 ++-
+ qutebrowser/mainwindow/statusbar/url.py        | 2 +-
+ qutebrowser/misc/ipc.py                        | 2 +-
+ 12 files changed, 20 insertions(+), 16 deletions(-)
+
+diff --git a/qutebrowser/browser/downloads.py b/qutebrowser/browser/downloads.py
+index 8176897..af4a937 100644
+--- a/qutebrowser/browser/downloads.py
++++ b/qutebrowser/browser/downloads.py
+@@ -231,7 +231,7 @@ def remaining_time(self):
+         else:
+             return remaining_bytes / avg
+ 
+-    @pyqtSlot(int, int)
++    @pyqtSlot('qint64', 'qint64')
+     def on_download_progress(self, bytes_done, bytes_total):
+         """Update local variables when the download progress changed.
+ 
+@@ -650,7 +650,7 @@ def on_ready_read(self):
+         except OSError as e:
+             self._die(e.strerror)
+ 
+-    @pyqtSlot(int)
++    @pyqtSlot('QNetworkReply::NetworkError')
+     def on_reply_error(self, code):
+         """Handle QNetworkReply errors."""
+         if code == QNetworkReply.OperationCanceledError:
+diff --git a/qutebrowser/browser/network/networkmanager.py b/qutebrowser/browser/network/networkmanager.py
+index 1156c0c..1974a0d 100644
+--- a/qutebrowser/browser/network/networkmanager.py
++++ b/qutebrowser/browser/network/networkmanager.py
+@@ -253,7 +253,7 @@ def clear_rejected_ssl_errors(self, url):
+         except KeyError:
+             pass
+ 
+-    @pyqtSlot('QNetworkReply', 'QAuthenticator')
++    @pyqtSlot('QNetworkReply*', 'QAuthenticator*')
+     def on_authentication_required(self, reply, authenticator):
+         """Called when a website needs authentication."""
+         user, password = None, None
+@@ -286,7 +286,7 @@ def on_authentication_required(self, reply, authenticator):
+             authenticator.setUser(user)
+             authenticator.setPassword(password)
+ 
+-    @pyqtSlot('QNetworkProxy', 'QAuthenticator')
++    @pyqtSlot('QNetworkProxy', 'QAuthenticator*')
+     def on_proxy_authentication_required(self, proxy, authenticator):
+         """Called when a proxy needs authentication."""
+         proxy_id = ProxyId(proxy.type(), proxy.hostName(), proxy.port())
+diff --git a/qutebrowser/browser/webpage.py b/qutebrowser/browser/webpage.py
+index 29c8dcf..6b01b8a 100644
+--- a/qutebrowser/browser/webpage.py
++++ b/qutebrowser/browser/webpage.py
+@@ -288,7 +288,7 @@ def on_download_requested(self, request):
+                                       window=self._win_id)
+         download_manager.get_request(req, page=self)
+ 
+-    @pyqtSlot('QNetworkReply')
++    @pyqtSlot('QNetworkReply*')
+     def on_unsupported_content(self, reply):
+         """Handle an unsupportedContent signal.
+ 
+@@ -334,7 +334,7 @@ def on_load_started(self):
+         else:
+             self.error_occurred = False
+ 
+-    @pyqtSlot('QWebFrame', 'QWebPage::Feature')
++    @pyqtSlot('QWebFrame*', 'QWebPage::Feature')
+     def on_feature_permission_requested(self, frame, feature):
+         """Ask the user for approval for geolocation/notifications."""
+         options = {
+@@ -439,7 +439,7 @@ def on_restore_frame_state_requested(self, frame):
+         if 'scroll-pos' in data and frame.scrollPosition() == QPoint(0, 0):
+             frame.setScrollPosition(data['scroll-pos'])
+ 
+-    @pyqtSlot(str)
++    @pyqtSlot(usertypes.ClickTarget)
+     def on_start_hinting(self, hint_target):
+         """Emitted before a hinting-click takes place.
+ 
+diff --git a/qutebrowser/browser/webview.py b/qutebrowser/browser/webview.py
+index caedd7a..3d2e80e 100644
+--- a/qutebrowser/browser/webview.py
++++ b/qutebrowser/browser/webview.py
+@@ -352,7 +352,7 @@ def openurl(self, url):
+             frame = self.page().mainFrame()
+             frame.javaScriptWindowObjectCleared.connect(self.add_js_bridge)
+ 
+-    @pyqtSlot(QWebFrame)
++    @pyqtSlot()
+     def add_js_bridge(self):
+         """Add the javascript bridge for qute:... pages."""
+         frame = self.sender()
+diff --git a/qutebrowser/commands/runners.py b/qutebrowser/commands/runners.py
+index bca05d8..a0851c1 100644
+--- a/qutebrowser/commands/runners.py
++++ b/qutebrowser/commands/runners.py
+@@ -258,6 +258,7 @@ def run(self, text, count=None):
+                 result.cmd.run(self._win_id, args)
+ 
+     @pyqtSlot(str, int)
++    @pyqtSlot(str)
+     def run_safely(self, text, count=None):
+         """Run a command and display exceptions in the statusbar."""
+         try:
+diff --git a/qutebrowser/completion/models/miscmodels.py b/qutebrowser/completion/models/miscmodels.py
+index 3b71a65..4e44433 100644
+--- a/qutebrowser/completion/models/miscmodels.py
++++ b/qutebrowser/completion/models/miscmodels.py
+@@ -26,6 +26,7 @@
+ from qutebrowser.utils import objreg, log
+ from qutebrowser.commands import cmdutils
+ from qutebrowser.completion.models import base
++from qutebrowser.mainwindow import mainwindow
+ 
+ 
+ class CommandCompletionModel(base.BaseCompletionModel):
+@@ -176,9 +177,7 @@ def __init__(self, parent=None):
+         objreg.get("app").new_window.connect(self.on_new_window)
+         self.rebuild()
+ 
+-    # slot argument should be mainwindow.MainWindow but can't import
+-    # that at module level because of import loops.
+-    @pyqtSlot(object)
++    @pyqtSlot(mainwindow.MainWindow)
+     def on_new_window(self, window):
+         """Add hooks to new windows."""
+         window.tabbed_browser.new_tab.connect(self.on_new_tab)
+diff --git a/qutebrowser/config/config.py b/qutebrowser/config/config.py
+index af901a2..bcba2c4 100644
+--- a/qutebrowser/config/config.py
++++ b/qutebrowser/config/config.py
+@@ -95,6 +95,7 @@ def __call__(self, func):
+         """
+         if self._function:
+             @pyqtSlot(str, str)
++            @pyqtSlot()
+             @functools.wraps(func)
+             def wrapper(sectname=None, optname=None):
+                 if sectname is None and optname is None:
+@@ -108,6 +109,7 @@ def wrapper(sectname=None, optname=None):
+                     return func()
+         else:
+             @pyqtSlot(str, str)
++            @pyqtSlot()
+             @functools.wraps(func)
+             def wrapper(wrapper_self, sectname=None, optname=None):
+                 if sectname is None and optname is None:
+diff --git a/qutebrowser/mainwindow/statusbar/percentage.py b/qutebrowser/mainwindow/statusbar/percentage.py
+index 2539be9..1f6a053 100644
+--- a/qutebrowser/mainwindow/statusbar/percentage.py
++++ b/qutebrowser/mainwindow/statusbar/percentage.py
+@@ -22,6 +22,7 @@
+ from PyQt5.QtCore import pyqtSlot
+ 
+ from qutebrowser.mainwindow.statusbar import textbase
++from qutebrowser.browser import webview
+ 
+ 
+ class Percentage(textbase.TextBase):
+@@ -48,7 +49,7 @@ def set_perc(self, x, y):  # pylint: disable=unused-argument
+         else:
+             self.setText('[{:2}%]'.format(y))
+ 
+-    @pyqtSlot(object)
++    @pyqtSlot(webview.WebView)
+     def on_tab_changed(self, tab):
+         """Update scroll position when tab changed."""
+         self.set_perc(*tab.scroll_pos)
+diff --git a/qutebrowser/mainwindow/statusbar/progress.py b/qutebrowser/mainwindow/statusbar/progress.py
+index eae05bb..3fd6878 100644
+--- a/qutebrowser/mainwindow/statusbar/progress.py
++++ b/qutebrowser/mainwindow/statusbar/progress.py
+@@ -59,7 +59,7 @@ def on_load_started(self):
+         self.setValue(0)
+         self.show()
+ 
+-    @pyqtSlot(int)
++    @pyqtSlot(webview.WebView)
+     def on_tab_changed(self, tab):
+         """Set the correct value when the current tab changed."""
+         if self is None:  # pragma: no branch
+diff --git a/qutebrowser/mainwindow/statusbar/text.py b/qutebrowser/mainwindow/statusbar/text.py
+index c9c04a9..0a6721b 100644
+--- a/qutebrowser/mainwindow/statusbar/text.py
++++ b/qutebrowser/mainwindow/statusbar/text.py
+@@ -24,6 +24,7 @@
+ from qutebrowser.config import config
+ from qutebrowser.mainwindow.statusbar import textbase
+ from qutebrowser.utils import usertypes, log, objreg
++from qutebrowser.browser import webview
+ 
+ 
+ class Text(textbase.TextBase):
+@@ -98,7 +99,7 @@ def on_load_started(self):
+         """Clear jstext when page loading started."""
+         self._jstext = ''
+ 
+-    @pyqtSlot(int)
++    @pyqtSlot(webview.WebView)
+     def on_tab_changed(self, tab):
+         """Set the correct jstext when the current tab changed."""
+         self._jstext = tab.statusbar_message
+diff --git a/qutebrowser/mainwindow/statusbar/url.py b/qutebrowser/mainwindow/statusbar/url.py
+index 16c1e37..e4812b3 100644
+--- a/qutebrowser/mainwindow/statusbar/url.py
++++ b/qutebrowser/mainwindow/statusbar/url.py
+@@ -158,7 +158,7 @@ def set_hover_url(self, link, _title, _text):
+             self._hover_url = None
+         self._update_url()
+ 
+-    @pyqtSlot(int)
++    @pyqtSlot(webview.WebView)
+     def on_tab_changed(self, tab):
+         """Update URL if the tab changed."""
+         self._hover_url = None
+diff --git a/qutebrowser/misc/ipc.py b/qutebrowser/misc/ipc.py
+index 2651fe4..28462d4 100644
+--- a/qutebrowser/misc/ipc.py
++++ b/qutebrowser/misc/ipc.py
+@@ -221,7 +221,7 @@ def listen(self):
+             # This means we only use setSocketOption on Windows...
+             os.chmod(self._server.fullServerName(), 0o700)
+ 
+-    @pyqtSlot(int)
++    @pyqtSlot('QLocalSocket::LocalSocketError')
+     def on_error(self, err):
+         """Raise SocketError on fatal errors."""
+         if self._socket is None:
