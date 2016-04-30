@@ -13,7 +13,7 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients')
 pkgver=16.1
 _codename=Jarvis
-pkgrel=1
+pkgrel=2
 arch=('i686' 'x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -25,7 +25,7 @@ makedepends=(
   'libvdpau' 'libxrandr' 'libxslt' 'lzo' 'mesa' 'nasm' 'nss-mdns'
   'python2-pillow' 'python2-pybluez' 'python2-simplejson' 'rtmpdump' 'sdl2'
   'sdl_image' 'shairplay' 'smbclient' 'swig' 'taglib' 'tinyxml' 'unzip' 'upower'
-  'yajl' 'zip' 'mesa' 'libdcadec.so' 'libcrossguid'
+  'yajl' 'zip' 'mesa' 'dcadec' 'libcrossguid'
 )
 source=(
   "$pkgname-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
@@ -79,7 +79,7 @@ package_kodi() {
     'bluez-libs' 'fribidi' 'glew' 'hicolor-icon-theme' 'libass' 'libcdio'
     'libjpeg-turbo' 'libmariadbclient' 'libmicrohttpd' 'libpulse' 'libssh'
     'libva' 'libxrandr' 'libxslt' 'lzo' 'sdl2' 'smbclient' 'taglib' 'tinyxml'
-    'yajl' 'mesa' 'libdcadec.so'
+    'yajl' 'mesa' 'dcadec' 'desktop-file-utils'
   )
   optdepends=(
     'afpfs-ng: Apple shares support'
@@ -96,7 +96,6 @@ package_kodi() {
     'upower: Display battery level'
     'lsb-release: log distro information in crashlog'
   )
-  install="kodi.install"
   provides=('xbmc')
   conflicts=('xbmc')
   replaces=('xbmc')
