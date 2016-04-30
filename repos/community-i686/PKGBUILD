@@ -6,14 +6,13 @@
 
 pkgname=fwbuilder
 pkgver=5.1.0.3599
-pkgrel=6
+pkgrel=7
 pkgdesc="Object-oriented GUI and set of compilers for various firewall platforms"
 url="http://www.fwbuilder.org/"
 arch=('i686' 'x86_64')
 license=('GPL')
-depends=('libxslt' 'net-snmp' 'qt4')
+depends=('libxslt' 'net-snmp' 'qt4' 'desktop-file-utils' 'hicolor-icon-theme' 'shared-mime-info')
 conflicts=('libfwbuilder')
-install=fwbuilder.install
 source=("http://sourceforge.net/projects/fwbuilder/files/Current_Packages/${pkgver%.*}/fwbuilder-${pkgver}.tar.gz"
 		'fwbuilder.xml'
 		'fwbuilder-gcc47.patch')
