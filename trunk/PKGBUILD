@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=7.5.18
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -16,9 +16,9 @@ install=cuda.install
 source=(http://developer.download.nvidia.com/compute/cuda/7.5/Prod/local_installers/cuda_${pkgver}_linux.run
         cuda.sh
         cuda.conf)
-md5sums=('b22ef6bc073f7cf767f547a84fb0e3c2'
+md5sums=('4b3bcecf0dfc35928a0898793cf3e4c6'
          '7e5990e03eea90075f5a500e91a0c3d3'
-         'ffe1e6fb7f97b23da28fd94a5fd7356d')
+         '71420ee4e90c65df21c6c5d34373c245')
 
 prepare() {
   sh cuda_${pkgver}_linux.run -extract=${srcdir}
