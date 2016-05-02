@@ -1,0 +1,59 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Josip Ponjavic <josipponjavic at gmail dot com>
+# Contributor: Xu Fasheng <fasheng.xu[AT]gmail.com>
+
+pkgname=deepin-file-manager
+pkgver=0.1.11
+_golibver=0.4.8
+_deepinapiver=3.0.6
+_dbusfactoryver=3.0.2
+_girgeneratorver=0.9.2
+pkgrel=5
+pkgdesc='deepin file manager backend'
+arch=('i686' 'x86_64')
+url="https://github.com/linuxdeepin/deepin-file-manager"
+license=('GPL3')
+depends=('deepin-metacity' 'libcanberra' 'poppler-glib' 'gcc-libs>=5.3.0-3')
+makedepends=('git' 'deepin-dbus-generator' 'deepin-gir-generator' 'gcc-go')
+replaces=('deepin-file-manager-backend')
+source=("git+https://cr.deepin.io/deepin-file-manager.git#tag=$pkgver"
+        "git+https://cr.deepin.io/go-lib.git#tag=$_golibver"
+        "git+https://cr.deepin.io/dde/dde-api.git#tag=$_deepinapiver"
+        "git+https://cr.deepin.io/dbus-factory.git#tag=$_dbusfactoryver"
+        "git+https://cr.deepin.io/go-gir-generator.git#tag=$_girgeneratorver")
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+prepare() {
+  sed -i "s|\"\${GOLDFLAGS}\"|\"\${GOLDFLAGS} $CFLAGS $LDFLAGS\"|" deepin-file-manager/Makefile
+  sed -i 's| generator$||' go-gir-generator/makefile
+
+  export GOPATH="$srcdir/build"
+  mkdir -p build/src/pkg.deepin.io/{lib,dde/api}
+  cp -a go-lib/* build/src/pkg.deepin.io/lib
+  cp -a dde-api/* build/src/pkg.deepin.io/dde/api/
+
+  go get github.com/howeyc/fsnotify github.com/mattn/go-sqlite3 gopkg.in/alecthomas/kingpin.v2
+}
+
+build() {
+  cd "$srcdir/dbus-factory"
+  make install-golang
+
+  cd "$srcdir/go-gir-generator"
+  make GENERATOR=gir-generator build
+  make copyfile
+  cp -r out/src/gir "$GOPATH/src"/
+
+  cd "$srcdir/$pkgname"
+  make USE_GCCGO=1
+}
+
+package() {
+  cd "${pkgname}"
+  make DESTDIR="${pkgdir}" do-install
+}
