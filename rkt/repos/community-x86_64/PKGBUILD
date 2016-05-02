@@ -1,0 +1,92 @@
+# $Id$
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+
+# Contributor: Yuval Adam <yuval at y3xz dot com> PGP-Key: 271386AA2EB7672F
+# Contributor: Kenny Rasschaert <kenny dot rasschaert at gmail dot com> PGP-Key: 1F70454121E41419
+# Contributor: Adrián Pérez de Castro <adrian at perezdecastro dor org> PGP-Key: 91C559DBE4C9123B
+# Contributor: Carl George <arch at cgtx dot us> PGP-Key: 4BA2F7E101D9F512
+
+pkgname=rkt
+pkgver=1.5.0
+pkgrel=1
+pkgdesc="App container runtime"
+arch=('x86_64')
+url="https://github.com/coreos/rkt"
+license=(apache)
+depends=('glibc' 'openssl' 'zlib')
+makedepends=('cpio' 'go' 'wget' 'squashfs-tools' 'perl-capture-tiny'
+             'intltool' 'gperf' 'git' 'libseccomp' 'bc')
+
+# stage1/usr_from_coreos/coreos-common.mk
+CCN_IMG_RELEASE=991.0.0
+CCN_SYSTEMD_VERSION=v225
+
+# stage1/usr_from_kvm/kernel.mk
+KERNEL_VERSION=4.3.1
+
+source=(https://github.com/coreos/rkt/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        http://alpha.release.core-os.net/amd64-usr/$CCN_IMG_RELEASE/coreos_production_pxe_image.cpio.gz{,.sig}
+        https://www.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz
+        rkt.sysusers)
+noextract=(coreos_production_pxe_image.cpio.gz
+           linux-$KERNEL_VERSION.tar.xz)
+validpgpkeys=('04127D0BFABEC8871FFB2CCE50E0885593D2DCB4')
+sha256sums=('00e8f40e4c55076ac46dbc84c600e4bf7b54a08f7b47b2aefe5608421ef0e652'
+            '33697d3d7c7458bbb160a5eb889ced34b001c35e22e10c86235042eb57ae51ed'
+            'SKIP'
+            '11faaff6e7546038b868f524cdf42a5a1b67be9fdfd37d931723a8deb1811b72'
+            '1ad8d343191be731289577d249a2467fbe5a69949117601e760b459f599d311f')
+install="rkt.install"
+
+prepare() {
+  cd $pkgname-$pkgver
+  mkdir -p build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
+  cd build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
+  ln -s "$srcdir"/linux-$KERNEL_VERSION.tar.xz
+}
+
+build() {
+  cd $pkgname-$pkgver
+  export GOPATH="$PWD/Godeps/_workspace/src"
+
+  ./autogen.sh
+  ./configure \
+    --prefix=/usr \
+    --sbindir=/usr/bin \
+    --localstatedir=/var \
+    --enable-tpm=auto \
+    --with-stage1-flavors=coreos,kvm,host,fly \
+    --with-stage1-default-flavor=coreos \
+  	--with-stage1-default-images-directory=/usr/lib/rkt/stage1-images \
+  	--with-stage1-default-location=/usr/lib/rkt/stage1-images/stage1-coreos.aci \
+    --with-coreos-local-pxe-image-path="$srcdir"/coreos_production_pxe_image.cpio.gz \
+    --with-coreos-local-pxe-image-systemd-version=$CCN_SYSTEMD_VERSION
+  make manpages
+  make bash-completion
+  make
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  for unit in rkt-gc.{timer,service} rkt-metadata.{socket,service}; do
+    install -Dm644 dist/init/systemd/$unit "$pkgdir"/usr/lib/systemd/system/$unit
+  done
+
+  install -Dm644 dist/init/systemd/tmpfiles.d/rkt.conf "$pkgdir"/usr/lib/tmpfiles.d/rkt.conf
+  install -Dm644 "$srcdir"/rkt.sysusers "$pkgdir"/usr/lib/sysusers.d/rkt.conf
+  install -Dm644 dist/bash_completion/rkt.bash "$pkgdir"/usr/share/bash-completion/completions/rkt
+
+  cd dist/manpages
+  for f in *; do
+    install -Dm644 "$f" "$pkgdir/usr/share/man/man1/$f"
+  done
+  cd ../..
+
+  cd build-$pkgname-$pkgver
+  install -dm755 "$pkgdir"/usr/bin "$pkgdir"/usr/lib/rkt/stage1-images
+  mv bin/{rkt,actool} "$pkgdir"/usr/bin
+  mv bin/stage1-*.aci "$pkgdir"/usr/lib/rkt/stage1-images/
+}
+
+# vim:set ts=2 sw=2 et:
