@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="http://gitlab.org/gitlab-ce"
@@ -87,10 +87,6 @@ prepare() {
   sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
       config/resque.yml.example > config/resque.yml
 
-  msg2 "Patching redis_config path"
-  sed -i "s|require_relative '../lib|require '${_datadir}/lib|g" config/application.rb
-  sed -i "s|require_relative \"lib|require \"${_datadir}/lib|g" config/mail_room.yml
-
   msg2 "setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
     sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
@@ -107,6 +103,10 @@ build() {
 
   bundle-2.1 config build.nokogiri --use-system-libraries
   bundle-2.1 install -j$(nproc) --no-cache --deployment --without development test aws kerberos
+
+  cp config/database.yml.postgresql config/database.yml
+  sed -i '/symlink/d' config/initializers/gitlab_shell_secret_token.rb
+  bundle-2.1 exec rake assets:precompile RAILS_ENV=production
 }
 
 package() {
@@ -118,23 +118,22 @@ package() {
   chown -R 105:105 "${pkgdir}${_datadir}"
   chmod 750 "${pkgdir}${_datadir}"
 
-  install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/www"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/www"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
+
+  touch "${_etcdir}/secret"
+  chmod 600 "${_etcdir}/secret"
 
   ln -fs /run/gitlab "${pkgdir}${_homedir}/pids"
   ln -fs /run/gitlab "${pkgdir}${_homedir}/sockets"
   ln -fs ${_datadir}/log "${pkgdir}${_homedir}/log"
-
   ln -fs "${_etcdir}/secret" "${pkgdir}${_datadir}/.secret"
 
   rm -rf "${pkgdir}${_datadir}/public/uploads" && ln -fs "${_homedir}/uploads" "${pkgdir}${_datadir}/public/uploads"
-  rm -rf "${pkgdir}${_datadir}/public/assets" && ln -fs "${_homedir}/assets" "${pkgdir}${_datadir}/public/assets"
   rm -rf "${pkgdir}${_datadir}/builds" && ln -fs "${_homedir}/builds" "${pkgdir}${_datadir}/builds"
-  # We are using PrivateTmp=true to start unicorn, so this is safe:
   rm -rf "${pkgdir}${_datadir}/tmp" && ln -fs /var/tmp "${pkgdir}${_datadir}/tmp"
   rm -rf "${pkgdir}${_datadir}/log" && ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
 
@@ -166,7 +165,7 @@ package() {
 
   # Install webserver config templates
   for config_file in apache apache-ssl apache2.2 apache2.2-ssl nginx nginx-ssl lighttpd; do
-    install -m644 "${srcdir}/${config_file}.conf.example" "${pkgdir}${_etcdir}"
+    install -m644 "${srcdir}/${config_file}.conf.example" "${pkgdir}/usr/share/doc/${pkgname}"
   done
 }
 
