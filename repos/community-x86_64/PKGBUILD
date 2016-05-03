@@ -8,15 +8,14 @@
 
 pkgname=gitlab
 pkgver=8.7.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="http://gitlab.org/gitlab-ce"
 license=('MIT')
 depends=('ruby2.1' 'git' 'ruby2.1-bundler' 'gitlab-shell' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb')
-optdepends=('gitlab-workhorse: for http access'
-            'postgresql: database backend'
+optdepends=('postgresql: database backend'
             'mysql: database backend'
             'python2-docutils: reStructuredText markup language support'
             'smtp-server: mail server in order to receive mail notifications')
@@ -117,6 +116,7 @@ package() {
 
   cp -r "${srcdir}/${_srcdir}" "${pkgdir}${_datadir}"
   chown -R 105:105 "${pkgdir}${_datadir}"
+  chmod 750 "${pkgdir}${_datadir}"
 
   install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/www"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/www"
