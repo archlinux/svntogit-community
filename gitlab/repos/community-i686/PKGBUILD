@@ -8,12 +8,12 @@
 
 pkgname=gitlab
 pkgver=8.7.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="http://gitlab.org/gitlab-ce"
 license=('MIT')
-depends=('ruby2.1' 'git' 'ruby2.1-bundler' 'gitlab-shell' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
+depends=('ruby2.1' 'git' 'ruby2.1-bundler' 'gitlab-shell' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb')
 optdepends=('gitlab-workhorse: for http access'
             'postgresql: database backend'
