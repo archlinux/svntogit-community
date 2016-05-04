@@ -1,0 +1,82 @@
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Pavol (Lopo) Hluchy <lopo AT losys DOT eu>
+# Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com> 
+# Contributor: Jonas Heinrich <onny@project-insnaity.org>
+# Contributor: Lee Watson <aur@revthefox.co.uk>
+# Contributor: Tobias Hunger <tobias DOT hunger AT gmail DOT com>
+# Contributor: Stefan Tatschner <stefan@sevenbyte.org>
+
+pkgname=gitlab-shell
+pkgver=2.7.2
+pkgrel=8
+pkgdesc="Self hosted Git management software. Replacement for gitolite"
+arch=('any')
+url="https://gitlab.com/gitlab-org/gitlab-shell/"
+license=('MIT')
+depends=('ruby2.1' 'redis' 'git')
+options=('!strip')
+install=gitlab-shell.install
+backup=("etc/webapps/${pkgname}/config.yml"
+        "etc/webapps/${pkgname}/secret"
+        "etc/webapps/${pkgname}/gitconfig"
+        "etc/webapps/${pkgname}/authorized_keys"
+        "etc/webapps/${pkgname}/")
+source=("${pkgname}-${pkgver}.tar.gz::https://gitlab.com/gitlab-org/gitlab-shell/repository/archive.tar.gz?ref=v${pkgver}"
+        "gitlab-shell.gitconfig")
+md5sums=('1835e858d9285ac9941eec320e2ecac6'
+         '6b917256b13a1685e9a3cc73e68152d0')
+
+_homedir='/var/lib/gitlab'
+_datadir="/usr/share/webapps/${pkgname}"
+_srcdir="gitlab-shell-v${pkgver}"
+_logdir='/var/log/gitlab'
+_etcdir="/etc/webapps/${pkgname}"
+
+prepare() {
+  cd "${srcdir}/${_srcdir}"-*
+
+  sed -e "s|user: git|user: gitlab|" \
+      -e "s|/home/git|${_homedir}|" \
+      -e "s|# log_file: .*|log_file: \"${_logdir}/gitlab-shell.log\"|" \
+      config.yml.example > config.yml
+}
+
+package() {
+  cd "${srcdir}/${_srcdir}"-*
+
+  install -dm755 -o 105 -g 105 "${pkgdir}${_datadir}"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
+  install -dm700 -o 105 -g 105 "${pkgdir}${_homedir}/.ssh"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
+  install -dm770 -o root -g 105 "${pkgdir}${_logdir}"
+
+  # .gitconfig
+  install -Dm644 -o 105 -g 105 "${srcdir}/gitlab-shell.gitconfig" "${pkgdir}${_etcdir}/.gitconfig"
+  ln -fs "${_etcdir}/gitconfig" "${pkgdir}${_homedir}/.gitconfig"
+
+  # .ssh/authorized_keys
+  touch "${pkgdir}${_homedir}/.ssh/authorized_keys"
+  chmod 600 "${pkgdir}${_homedir}/.ssh/authorized_keys"
+  ln -fs "${_etcdir}/authorized_keys" "${pkgdir}${_homedir}/.ssh/authorized_keys"
+
+  # .gitlab_shell_secret
+  touch "${pkgdir}${_etcdir}/secret"
+  chmod 640 "${pkgdir}${_etcdir}/secret"
+  chown root:105 "${pkgdir}${_etcdir}/secret"
+  ln -fs "${_etcdir}/secret" "${pkgdir}${_datadir}/.gitlab_shell_secret"
+
+  # config.yml
+  mv config.yml "${pkgdir}${_etcdir}"
+  ln -fs "${_etcdir}/config.yml" "${pkgdir}${_datadir}/config.yml"
+
+  cp -r VERSION bin hooks lib spec support "${pkgdir}${_datadir}"
+  ln -fs "${_datadir}" "${pkgdir}/${_homedir}/"
+
+  install -dm2770 "${pkgdir}${_homedir}/repositories"
+
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}
+
+# vim:set ts=2 sw=2 et:
