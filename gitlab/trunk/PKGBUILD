@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=5
+pkgrel=6
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -21,6 +21,7 @@ optdepends=('postgresql: database backend'
             'smtp-server: mail server in order to receive mail notifications')
 backup=("etc/webapps/${pkgname}/application.rb"
         "etc/webapps/${pkgname}/gitlab.yml"
+        "etc/webapps/${pkgname}/secret"
         "etc/webapps/${pkgname}/resque.yml"
         "etc/webapps/${pkgname}/unicorn.rb"
         "etc/logrotate.d/${pkgname}")
@@ -84,9 +85,14 @@ prepare() {
       -e "s|${_datadir}/log/|${_logdir}/|g" \
       config/unicorn.rb.example > config/unicorn.rb
 
-  msg2 "Patching username in database.yml..."
+  # We need this one untouched because otherwise assets will fail
+  cp config/database.yml.postgresql config/database.yml.postgresql.orig
+
+  msg2 "Patching username in database.yml.{mysql,postgresql}..."
 	sed -e "s|username: git|username: gitlab|" \
-		  config/database.yml.mysql > config/database.yml
+		  config/database.yml.mysql > config/database.yml.mysql
+	sed -e "s|username: git|username: gitlab|" \
+		  config/database.yml.postgresql > config/database.yml.postgresql
 
   msg2 "Pathing redis connection in resque.yml"
   sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
@@ -109,9 +115,12 @@ build() {
   bundle-2.1 config build.nokogiri --use-system-libraries
   bundle-2.1 install -j$(nproc) --no-cache --deployment --without development test aws kerberos
 
-  cp config/database.yml.postgresql config/database.yml
+  # We'll temporarily stick this in here so we can build the assets
+  cp config/database.yml.postgresql.orig config/database.yml
   sed -i '/symlink/d' config/initializers/gitlab_shell_secret_token.rb
   bundle-2.1 exec rake assets:precompile RAILS_ENV=production
+  # After building assets, clean this up again
+  rm config/database.yml
 }
 
 package() {
