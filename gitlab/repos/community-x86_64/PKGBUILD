@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -123,6 +123,7 @@ package() {
   chown -R 105:105 "${pkgdir}${_datadir}"
   chmod 750 "${pkgdir}${_datadir}"
 
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
@@ -130,7 +131,8 @@ package() {
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
   touch "${pkgdir}${_etcdir}/secret"
-  chmod 600 "${pkgdir}${_etcdir}/secret"
+  chmod 640 "${pkgdir}${_etcdir}/secret"
+  chown root:105 "${pkgdir}${_etcdir}/secret"
 
   ln -fs /run/gitlab "${pkgdir}${_homedir}/pids"
   ln -fs /run/gitlab "${pkgdir}${_homedir}/sockets"
