@@ -8,10 +8,10 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
-url="http://gitlab.org/gitlab-ce"
+url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
 license=('MIT')
 depends=('ruby2.1' 'git' 'ruby2.1-bundler' 'gitlab-shell' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb')
@@ -42,13 +42,13 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         lighttpd.conf.example)
 install='gitlab.install'
 sha256sums=('154c4b684ab088d9d1ea0e728cdcbd9d17f3cc89689f7757b8e98a49a605b947'
-            '83b7a64e467738106dd76f58ee7dc0bd28a9235a935f3a561518c172d459e91d'
-            'e172f46ffe53719ca9de7d0b8af183a198220169b2b28ff2cf2747329b0d01af'
-            '837466a252fe4c540739c04d93f55c0e9b4d6236f7933358e1f75cc80b5ed571'
-            '493dfe969e37a65e71cf2b2e544769b330330e84d5d2c579c0a529849483764c'
+            'eb507c957d4ada65bb416ff7117901d41bc77b85f5aca54e4e4400a55eefd0a7'
+            '54fb165f14fdc0c186817fc3b52d99b5d74ce407a0c0312236d57fe0b729a404'
+            'd21d8c961b2834115a1d9c646278782aaaae0d1d1cde2357b58e67bad3a58527'
+            '522550aa1bda414da95136bb9d1098b48daf841674ebf9a38fe4340f81c0dc97'
             'e2539301fe42869d8fdbaa1b53b30076fb436c4220a37e576ed704458f804852'
             'a1ee236a1f3e65cd26d9adb5f636f66fbab68777fd60d1c796cb26036bd0903f'
-            '35858f5a4db0ab703e0099dd25f71910b2253e73eb65fdaec89bf5ab64d008e9'
+            '84614a2bfbd734f09c2c91531dd3c13e795186b50c0780a120c8e5bc2a892607'
             '7b3137b8175db06e97c7577fb1df3d9095ff0797e6428c12d9c633ddd9121ad5'
             '87fa65bc2d8f382d22fe77a6958bac9058e99021b230e2922a5b7e7afff39dcc'
             '5e8c0e5d66ae5039620bd5d92076112bd47d9894a9cfbf06242dad412618f01a'
@@ -68,8 +68,9 @@ prepare() {
   cd "${srcdir}/${_srcdir}"
 
   # Patching config files:
-  msg2 "Patching paths in gitlab.yml..."
-  sed -e "s|/home/git/repositories|${_homedir}/repositories|" \
+  msg2 "Patching paths in and username gitlab.yml..."
+  sed -e "s|# user: git|user: gitlab|" \
+      -e "s|/home/git/repositories|${_homedir}/repositories|" \
       -e "s|/home/git/gitlab-satellites|${_homedir}/satellites|" \
       -e "s|/home/git/gitlab-shell|/usr/share/webapps/gitlab-shell|" \
       -e "s|tmp/backups|${_homedir}/backups|" \
@@ -82,6 +83,10 @@ prepare() {
       -e "s|timeout 30|timeout 300|" \
       -e "s|${_datadir}/log/|${_logdir}/|g" \
       config/unicorn.rb.example > config/unicorn.rb
+
+  msg2 "Patching username in database.yml..."
+	sed -e "s|username: git|username: gitlab|" \
+		  config/database.yml.mysql > config/database.yml
 
   msg2 "Pathing redis connection in resque.yml"
   sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
@@ -124,8 +129,8 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
-  touch "${_etcdir}/secret"
-  chmod 600 "${_etcdir}/secret"
+  touch "${pkgdir}${_etcdir}/secret"
+  chmod 600 "${pkgdir}${_etcdir}/secret"
 
   ln -fs /run/gitlab "${pkgdir}${_homedir}/pids"
   ln -fs /run/gitlab "${pkgdir}${_homedir}/sockets"
