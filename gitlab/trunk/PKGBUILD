@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=4
+pkgrel=5
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -146,6 +146,8 @@ package() {
 
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
 
+  sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
+  
   # Install config files
   for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
