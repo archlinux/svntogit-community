@@ -5,7 +5,7 @@
 # Contributor: Josh VanderLinden <arch@cloudlery.com>
 
 pkgname=docker-compose
-pkgver=1.6.2
+pkgver=1.7.0
 pkgrel=1
 pkgdesc="Fast, isolated development environments using Docker"
 arch=('i686' 'x86_64')
@@ -13,29 +13,39 @@ url="https://www.docker.com/"
 depends=('python-docopt' 'python-yaml' 'python-requests' 'python-six' 'python-texttable'
          'python-websocket-client' 'python-docker-py' 'python-dockerpty' 'python-setuptools'
          'python-jsonschema' 'python-cached-property')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/docker/compose/archive/$pkgver.tar.gz"
-        "remove-requires-upper-bound.patch")
+depends_x86_64+=('docker')
+makedepends=('git')
+checkdepends=('python-pytest-runner' 'python-mock')
+source=("git+https://github.com/docker/compose.git#tag=$pkgver")
 license=("BSD")
-sha256sums=('1c318cdf12bdc97e079224fb0cab45ed0f6ec2d1ce87599eff549b1aafa27837'
-            '2c36ce2f440f31bd0d2c560f97557b3b57036aa377c3423e87df6647b31faebe')
-
-[[ "$CARCH" == "x86_64" ]] && depends+=('docker')
+sha256sums=('SKIP')
 
 prepare() {
-  cd "$srcdir/compose-$pkgver"
+  cd compose
 
   # Remove upper bound on requires
-  patch -p1 -i "$srcdir/remove-requires-upper-bound.patch"
   sed -i 's/==/>=/g' requirements.txt
+  sed -i "s/, < .*',$/',/" setup.py
 }
 
 build() {
-  cd "$srcdir/compose-$pkgver"
+  cd compose
+
+  ./script/build/write-git-sha
   python setup.py build
 }
 
+check() {
+  # Hack entry points by installing it
+  # TODO: need a running docker daemon to test
+
+  cd compose
+  python setup.py install --root="$PWD/tmp_install" --optimize=1
+  # PATH="$PWD/tmp_install/usr/bin:$PATH" PYTHONPATH="$PWD/tmp_install/usr/lib/python3.5/site-packages:$PYTHONPATH" python setup.py ptr
+}
+
 package() {
-  cd "$srcdir/compose-$pkgver"
+  cd compose
 
   python setup.py install -O1 --root="$pkgdir"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
