@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=6
+pkgrel=7
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -120,7 +120,7 @@ build() {
   sed -i '/symlink/d' config/initializers/gitlab_shell_secret_token.rb
   bundle-2.1 exec rake assets:precompile RAILS_ENV=production
   # After building assets, clean this up again
-  rm config/database.yml
+  rm config/database.yml config/database.yml.postgresql.orig
 }
 
 package() {
