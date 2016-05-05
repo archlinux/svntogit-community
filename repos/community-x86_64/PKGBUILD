@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.2
-pkgrel=7
+pkgrel=8
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -163,6 +163,9 @@ package() {
     [[ -f "${pkgdir}${_datadir}/config/${config_file}" ]] && rm "${pkgdir}${_datadir}/config/${config_file}"
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
   done
+
+  # Install database symlink
+  ln -fs "${_etcdir}/database.yml" "${pkgdir}${_datadir}/config/database.yml"
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG config/*.{example,mysql,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
