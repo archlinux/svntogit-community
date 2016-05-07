@@ -10,7 +10,7 @@
 # Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
 
 pkgname=('lib32-llvm' 'lib32-llvm-libs' 'lib32-clang')
-pkgver=3.7.1
+pkgver=3.8.0
 pkgrel=1
 arch=('x86_64')
 url="http://llvm.org/"
@@ -21,20 +21,17 @@ options=('staticlibs')
 source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.xz{,.sig}
         http://llvm.org/releases/$pkgver/cfe-$pkgver.src.tar.xz{,.sig}
         http://llvm.org/releases/$pkgver/compiler-rt-$pkgver.src.tar.xz{,.sig}
-        llvm-3.7.0-link-tools-against-libLLVM.patch
-        llvm-3.7.0-export-more-symbols.patch
-        clang-3.7.0-add-gcc-abi-tag-support.patch)
-sha256sums=('be7794ed0cec42d6c682ca8e3517535b54555a3defabec83554dbc74db545ad5'
+        D17567-PR23529-Sema-part-of-attrbute-abi_tag-support.patch
+        D18035-PR23529-Mangler-part-of-attrbute-abi_tag-support.patch)
+sha256sums=('555b028e9ee0f6445ff8f949ea10e9cd8be0d084840e21fbbe1d31d51fc06e46'
             'SKIP'
-            '56e2164c7c2a1772d5ed2a3e57485ff73ff06c97dff12edbeea1acc4412b0674'
+            '04149236de03cf05232d68eb7cb9c50f03062e339b68f4f8a03b650a11536cf9'
             'SKIP'
-            '9d4769e4a927d3824bcb7a9c82b01e307c68588e6de4e7f04ab82d82c5af8181'
+            'c8d3387e55f229543dac1941769120f24dc50183150bf19d1b070d53d29d56b0'
             'SKIP'
-            'cf9c8b4d70b4547eda162644658c5c203c3139fcea6c75003b6cd7dc11a8cccc'
-            'a1c9f36b97c639666ab6a1bd647a08a027e93e3d3cfd6f5af9c36e757599ce81'
-            '5ed52d54612829402b63bc500bfefae75b3dc444a1524849c26cadf7e0ae4b7d')
-validpgpkeys=('11E521D646982372EB577A1F8F0871F202119294'
-              'B6C8F98282B944E3B0D5C2530FC3042E345AD05D')
+            '406754764e83d58bc3b859ab4b7893abd48c760278c4619cf4341ef9b9b75c85'
+            'd2ea6d06352d378961a6970cdefb23ef1ba8e4c046c0ace0c479e2dd674aabce')
+validpgpkeys=('B6C8F98282B944E3B0D5C2530FC3042E345AD05D')
 
 prepare() {
   cd "$srcdir/llvm-$pkgver.src"
@@ -45,16 +42,9 @@ prepare() {
 
   mv "$srcdir/compiler-rt-$pkgver.src" projects/compiler-rt
 
-  # Backport LLVM_LINK_LLVM_DYLIB option
-  # https://bugs.archlinux.org/task/46392
-  patch -Np1 -i ../llvm-3.7.0-link-tools-against-libLLVM.patch
-
-  # https://llvm.org/bugs/show_bug.cgi?id=24157
-  patch -Np2 -i ../llvm-3.7.0-export-more-symbols.patch
-
   # https://llvm.org/bugs/show_bug.cgi?id=23529
-  # http://reviews.llvm.org/D12834
-  patch -d tools/clang -Np0 <../clang-3.7.0-add-gcc-abi-tag-support.patch
+  patch -d tools/clang -Np2 <../D17567-PR23529-Sema-part-of-attrbute-abi_tag-support.patch
+  patch -d tools/clang -Np0 <../D18035-PR23529-Mangler-part-of-attrbute-abi_tag-support.patch
 
   mkdir build
 }
@@ -71,7 +61,7 @@ build() {
     -DCMAKE_C_FLAGS:STRING=-m32 \
     -DCMAKE_CXX_FLAGS:STRING=-m32 \
     -DLLVM_TARGET_ARCH:STRING=i686 \
-    -DLLVM_DEFAULT_TARGET_TRIPLE="i686-unknown-linux-gnu" \
+    -DLLVM_DEFAULT_TARGET_TRIPLE="i686-pc-linux-gnu" \
     -DLLVM_BUILD_LLVM_DYLIB=ON \
     -DLLVM_DYLIB_EXPORT_ALL=ON \
     -DLLVM_LINK_LLVM_DYLIB=ON \
@@ -101,7 +91,7 @@ package_lib32-llvm() {
   make -C build DESTDIR="$pkgdir" install
 
   # The runtime library goes into lib32-llvm-libs
-  mv "$pkgdir"/usr/lib32/lib{LLVM,LTO}.so* "$srcdir"
+  mv "$pkgdir"/usr/lib32/lib{LLVM,LTO}*.so* "$srcdir"
   mv -f "$pkgdir"/usr/lib32/{LLVMgold,BugpointPasses}.so "$srcdir"
 
   # Fix permissions of static libs
@@ -134,7 +124,7 @@ package_lib32-llvm-libs() {
   install -d "$pkgdir/usr/lib32"
 
   cp -P \
-    "$srcdir"/lib{LLVM,LTO}.so* \
+    "$srcdir"/lib{LLVM,LTO}*.so* \
     "$srcdir"/{LLVMgold,BugpointPasses}.so \
     "$pkgdir/usr/lib32/"
 
@@ -155,8 +145,7 @@ package_lib32-clang() {
 
   make -C build/tools/clang DESTDIR="$pkgdir" install
 
-  rm -r "$pkgdir"/usr/{bin,include,share}
+  rm -r "$pkgdir"/usr/{bin,include,share,libexec}
 
   install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
-
