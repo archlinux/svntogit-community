@@ -1,0 +1,151 @@
+# $Id$
+# Maintainer: Evangelos Foutras <foutrelis@gmail.com>
+# Contributor: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: Sebastian Nowicki <sebnow@gmail.com>
+# Contributor: Devin Cofer <ranguvar{AT]archlinux[DOT}us>
+# Contributor: Tobias Kieslich <tobias@justdreams.de>
+# Contributor: Geoffroy Carrier <geoffroy.carrier@aur.archlinux.org>
+# Contributor: Tomas Lindquist Olsen <tomas@famolsen.dk>
+# Contributor: Roberto Alsina <ralsina@kde.org>
+# Contributor: Gerardo Exequiel Pozzi <vmlinuz386@yahoo.com.ar>
+
+pkgname=('lib32-llvm' 'lib32-llvm-libs' 'lib32-clang')
+pkgver=3.8.0
+pkgrel=1
+arch=('x86_64')
+url="http://llvm.org/"
+license=('custom:University of Illinois/NCSA Open Source License')
+makedepends=('cmake' 'lib32-libffi' 'lib32-zlib' 'python2' 'gcc-multilib'
+             'lib32-libxml2')
+options=('staticlibs')
+source=(http://llvm.org/releases/$pkgver/llvm-$pkgver.src.tar.xz{,.sig}
+        http://llvm.org/releases/$pkgver/cfe-$pkgver.src.tar.xz{,.sig}
+        http://llvm.org/releases/$pkgver/compiler-rt-$pkgver.src.tar.xz{,.sig}
+        D17567-PR23529-Sema-part-of-attrbute-abi_tag-support.patch
+        D18035-PR23529-Mangler-part-of-attrbute-abi_tag-support.patch)
+sha256sums=('555b028e9ee0f6445ff8f949ea10e9cd8be0d084840e21fbbe1d31d51fc06e46'
+            'SKIP'
+            '04149236de03cf05232d68eb7cb9c50f03062e339b68f4f8a03b650a11536cf9'
+            'SKIP'
+            'c8d3387e55f229543dac1941769120f24dc50183150bf19d1b070d53d29d56b0'
+            'SKIP'
+            '406754764e83d58bc3b859ab4b7893abd48c760278c4619cf4341ef9b9b75c85'
+            'd2ea6d06352d378961a6970cdefb23ef1ba8e4c046c0ace0c479e2dd674aabce')
+validpgpkeys=('B6C8F98282B944E3B0D5C2530FC3042E345AD05D')
+
+prepare() {
+  cd "$srcdir/llvm-$pkgver.src"
+
+  # At the present, clang must reside inside the LLVM source code tree to build
+  # See http://llvm.org/bugs/show_bug.cgi?id=4840
+  mv "$srcdir/cfe-$pkgver.src" tools/clang
+
+  mv "$srcdir/compiler-rt-$pkgver.src" projects/compiler-rt
+
+  # https://llvm.org/bugs/show_bug.cgi?id=23529
+  patch -d tools/clang -Np2 <../D17567-PR23529-Sema-part-of-attrbute-abi_tag-support.patch
+  patch -d tools/clang -Np0 <../D18035-PR23529-Mangler-part-of-attrbute-abi_tag-support.patch
+
+  mkdir build
+}
+
+build() {
+  cd "$srcdir/llvm-$pkgver.src/build"
+
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DLLVM_LIBDIR_SUFFIX=32 \
+    -DCMAKE_C_FLAGS:STRING=-m32 \
+    -DCMAKE_CXX_FLAGS:STRING=-m32 \
+    -DLLVM_TARGET_ARCH:STRING=i686 \
+    -DLLVM_DEFAULT_TARGET_TRIPLE="i686-pc-linux-gnu" \
+    -DLLVM_BUILD_LLVM_DYLIB=ON \
+    -DLLVM_DYLIB_EXPORT_ALL=ON \
+    -DLLVM_LINK_LLVM_DYLIB=ON \
+    -DLLVM_ENABLE_RTTI=ON \
+    -DLLVM_ENABLE_FFI=ON \
+    -DLLVM_BUILD_DOCS=OFF \
+    -DLLVM_ENABLE_SPHINX=OFF \
+    -DLLVM_ENABLE_DOXYGEN=OFF \
+    -DFFI_INCLUDE_DIR=$(pkg-config --variable=includedir libffi) \
+    -DLLVM_BINUTILS_INCDIR=/usr/include \
+    ..
+
+  make
+
+  # Disable automatic installation of components that go into subpackages
+  sed -i '/\(clang\|lldb\)\/cmake_install.cmake/d' tools/cmake_install.cmake
+  sed -i '/extra\/cmake_install.cmake/d' tools/clang/tools/cmake_install.cmake
+  sed -i '/compiler-rt\/cmake_install.cmake/d' projects/cmake_install.cmake
+}
+
+package_lib32-llvm() {
+  pkgdesc="Low Level Virtual Machine (32-bit)"
+  depends=('lib32-llvm-libs' 'llvm')
+
+  cd "$srcdir/llvm-$pkgver.src"
+
+  make -C build DESTDIR="$pkgdir" install
+
+  # The runtime library goes into lib32-llvm-libs
+  mv "$pkgdir"/usr/lib32/lib{LLVM,LTO}*.so* "$srcdir"
+  mv -f "$pkgdir"/usr/lib32/{LLVMgold,BugpointPasses}.so "$srcdir"
+
+  # Fix permissions of static libs
+  chmod -x "$pkgdir"/usr/lib32/*.a
+
+  mv "$pkgdir/usr/bin/llvm-config" "$pkgdir/usr/lib32/llvm-config"
+  mv "$pkgdir/usr/include/llvm/Config/llvm-config.h" \
+    "$pkgdir/usr/lib32/llvm-config-32.h"
+
+  # Get rid of example Hello transformation
+  rm "$pkgdir"/usr/lib32/*LLVMHello.*
+
+  rm -rf "$pkgdir"/usr/{bin,include,share/{doc,man,llvm}}
+
+  # Needed for multilib (https://bugs.archlinux.org/task/29951)
+  # Header stub is taken from Fedora
+  install -d "$pkgdir/usr/include/llvm/Config"
+  mv "$pkgdir/usr/lib32/llvm-config-32.h" "$pkgdir/usr/include/llvm/Config/"
+
+  mkdir "$pkgdir"/usr/bin
+  mv "$pkgdir/usr/lib32/llvm-config" "$pkgdir/usr/bin/llvm-config32"
+
+  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_lib32-llvm-libs() {
+  pkgdesc="Low Level Virtual Machine (runtime library)(32-bit) "
+  depends=('lib32-libffi' 'lib32-zlib' 'lib32-ncurses' 'lib32-gcc-libs')
+
+  install -d "$pkgdir/usr/lib32"
+
+  cp -P \
+    "$srcdir"/lib{LLVM,LTO}*.so* \
+    "$srcdir"/{LLVMgold,BugpointPasses}.so \
+    "$pkgdir/usr/lib32/"
+
+  # Symlink LLVMgold.so from /usr/lib/bfd-plugins
+  # https://bugs.archlinux.org/task/28479
+  install -d "$pkgdir/usr/lib32/bfd-plugins"
+  ln -s ../LLVMgold.so "$pkgdir/usr/lib32/bfd-plugins/LLVMgold.so"
+
+  install -Dm644 llvm-$pkgver.src/LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_lib32-clang() {
+  pkgdesc="C language family frontend for LLVM"
+  url="http://clang.llvm.org/"
+  depends=("lib32-llvm=$pkgver-$pkgrel" 'clang' 'gcc-multilib')
+
+  cd "$srcdir/llvm-$pkgver.src"
+
+  make -C build/tools/clang DESTDIR="$pkgdir" install
+
+  rm -r "$pkgdir"/usr/{bin,include,share,libexec}
+
+  install -Dm644 LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
