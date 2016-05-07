@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.7.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -89,16 +89,14 @@ prepare() {
   cp config/database.yml.postgresql config/database.yml.postgresql.orig
 
   msg2 "Patching username in database.yml.{mysql,postgresql}..."
-	sed -e "s|username: git|username: gitlab|" \
-		  config/database.yml.mysql > config/database.yml.mysql
-	sed -e "s|username: git|username: gitlab|" \
-		  config/database.yml.postgresql > config/database.yml.postgresql
+  sed -i -e "s|username: git|username: gitlab|" config/database.yml.mysql
+  sed -i -e "s|username: git|username: gitlab|" config/database.yml.postgresql
 
-  msg2 "Pathing redis connection in resque.yml"
+  msg2 "Patching redis connection in resque.yml"
   sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
       config/resque.yml.example > config/resque.yml
 
-  msg2 "setting up systemd service files ..."
+  msg2 "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
     sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
     sed -i "s|<DATADIR>|${_datadir}|g" "${srcdir}/${service_file}"
@@ -136,6 +134,7 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/backups"
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
