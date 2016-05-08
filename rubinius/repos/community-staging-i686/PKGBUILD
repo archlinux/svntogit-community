@@ -1,0 +1,87 @@
+# $Id$
+# Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+
+pkgbase=rubinius
+pkgname=(rubinius rubinius-ruby)
+pkgver=3.30
+pkgrel=1
+pkgdesc="Ruby runtime written in Ruby, designed for concurrency"
+arch=(i686 x86_64)
+url="http://rubinius.com"
+license=(custom)
+depends=(llvm-libs libffi openssl libyaml)
+makedepends=(llvm ruby clang valgrind)
+options=(!emptydirs)
+source=(http://releases.rubinius.com/${pkgbase}-${pkgver}.tar.bz2
+        gemrc dirs.patch)
+sha256sums=('5294f406679d41160abe46ec1ff14b76c4353a75756227cc691108bb57f4bd16'
+            '4bb7eb2fe66e396ed16b589cdb656831407b39ad4e138d88536754c0448ac614'
+            '1bfb4d590d35f01b3ee344cec8f961558f08847b3db54e5f56a4a20a22a898ec')
+
+_common() {
+  export GEM_HOME="$srcdir/gemdir" LANG="en_US.UTF-8"
+  cd $pkgbase-$pkgver
+}
+
+prepare() {
+  _common
+
+  patch -Np1 -i ../dirs.patch
+
+  mkdir -p "$GEM_HOME"
+  gem install --no-user-install -N vendor/cache/bundler-*.gem
+
+  "$GEM_HOME/bin/bundle" install --local
+}
+
+build() {
+  _common
+  ./configure --prefix=/usr \
+    --mandir=/usr/share/man \
+    --includedir=/usr/include/rubinius \
+    --appdir=/usr/lib/rubinius \
+    --gemsdir=/usr/lib/rubinius/gems \
+    --llvm-shared \
+    --preserve-prefix \
+    --without-rpath \
+    --bin-link bundle --bin-link bundler
+  rake build
+}
+
+check() {
+  _common
+  rake vm:test || :
+}
+
+package_rubinius() {
+  optdepends=('ruby-docs: Ruby documentation')
+
+  _common
+
+  DESTDIR="$pkgdir" rake install
+
+  mkdir -p "$pkgdir/usr/share/ri"
+  ln -s 2.3.0 "$pkgdir/usr/share/ri/2.2"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/rubinius/LICENSE"
+
+### Split rubinius-ruby
+  mkdir -p "$srcdir/ruby/usr/bin"
+  for _f in "$pkgdir"/usr/bin/*; do
+    [[ $_f == */rbx ]] && continue
+    mv $_f "$srcdir/ruby/usr/bin"
+  done
+}
+
+package_rubinius-ruby() {
+  pkgdesc="Ruby compat for Rubinius"
+  depends=("rubinius=$pkgver-$pkgrel")
+  provides=(ruby)
+  conflicts=(ruby)
+  backup=(etc/gemrc)
+
+  mv ruby/* "$pkgdir"
+  install -Dm644 gemrc "$pkgdir/etc/gemrc"
+  install -d "$pkgdir/usr/share/licenses/rubinius-ruby"
+  ln -s ../rubinius/LICENSE "$pkgdir/usr/share/licenses/rubinius-ruby/LICENSE"
+}
