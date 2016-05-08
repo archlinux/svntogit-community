@@ -1,0 +1,61 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgbase=ghc-mod
+pkgname=(ghc-mod haskell-ghc-mod)
+pkgver=5.5.0.0
+pkgrel=24
+pkgdesc="Happy Haskell Programming"
+url="http://www.mew.org/~kazu/proj/ghc-mod/"
+license=("AGPL3")
+arch=('i686' 'x86_64')
+makedepends=("ghc=7.10.3" "haskell-cabal-helper" "haskell-djinn-ghc" "haskell-extra"
+             "haskell-fclabels" "haskell-ghc-paths" "haskell-ghc-syb-utils" "haskell-src-exts"
+             "haskell-hlint" "haskell-monad-control" "haskell-monad-journal" "haskell-mtl"
+             "haskell-old-time" "haskell-optparse-applicative" "haskell-pipes" "haskell-safe"
+             "haskell-split" "haskell-syb" "haskell-temporary" "haskell-text"
+             "haskell-transformers-base")
+options=('staticlibs')
+source=("http://hackage.haskell.org/packages/archive/${pkgbase}/${pkgver}/${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('d05be8f3541e875cd4ebefb28968cfc095fc323e49328f2e40581f6f5de70d31')
+
+build() {
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    
+    runhaskell Setup configure -O --enable-library-profiling --enable-shared \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgbase}" --datasubdir="$pkgbase" \
+        --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package_ghc-mod() {
+    depends=('cabal-helper' 'ghc')
+
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    rm -r "$pkgdir"/usr/{lib,share/doc}
+
+    install -D -m644 "COPYING.BSD3" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/COPYING.BSD3"
+}
+
+package_haskell-ghc-mod() {
+    pkgdesc="Happy Haskell Programming (docs and libraries)"
+    depends=("${makedepends[@]}" 'ghc-mod')
+    install="haskell-ghc-mod.install"
+
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/${pkgname}/register.sh"
+    install    -m744 unregister.sh "${pkgdir}/usr/share/haskell/${pkgname}/unregister.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgbase}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${pkgbase}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    rm -f "${pkgdir}/usr/share/doc/${pkgbase}/COPYING.BSD3"
+    rm -r "$pkgdir"/usr/{bin,share/$pkgbase}
+}
