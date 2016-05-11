@@ -1,0 +1,56 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Jason R Begley (jayray@digitalgoat.com>
+# Contributor: Daniel Micay <danielmicay@gmail.com>
+
+pkgname=freeradius
+pkgver=3.0.11
+pkgrel=3
+pkgdesc="The premier open source RADIUS server"
+arch=('i686' 'x86_64')
+url="http://www.freeradius.org/"
+license=('GPL')
+depends=('krb5' 'pth' 'net-snmp' 'postgresql-libs' 'libmariadbclient' 'talloc' 'libpcap')
+makedepends=('unixodbc' 'python2' 'curl')
+optdepends=('unixodbc: for ODBC'
+	    'python2: for Python'
+	    'curl: for REST')
+options=('!makeflags')
+install=$pkgname.install
+source=("ftp://ftp.freeradius.org/pub/radius/freeradius-server-$pkgver.tar.bz2"
+	freeradius.tmpfiles
+	freeradius.service)
+md5sums=('e8a748fe824223ed488cc74a1645023e'
+         'f959e89812bedfc9f8308076f78cd74e'
+         'e3f18e3a25df3b692e59f60605354708')
+
+build() {
+  cd $srcdir/freeradius-server-$pkgver
+  ./configure --with-system-libtool --with-system-libltdl \
+	      --prefix=/usr --enable-heimdal-krb5 \
+	      --localstatedir=/var \
+	      --sysconfdir=/etc \
+	      --sbindir=/usr/bin \
+	      --libdir=/usr/lib/freeradius \
+	      --with-udpfromto
+  make
+}
+
+package() {
+  cd $srcdir/freeradius-server-$pkgver
+  make install R=$pkgdir
+  chmod o+r $pkgdir/etc/raddb/*
+  mv $pkgdir/etc/raddb $pkgdir/etc/raddb.default
+  rm -rf $pkgdir/var/run
+
+  install -Dm0644 $srcdir/$pkgname.service $pkgdir/usr/lib/systemd/system/$pkgname.service
+  install -Dm0644 $srcdir/$pkgname.tmpfiles $pkgdir/usr/lib/tmpfiles.d/$pkgname.conf
+
+# template start; name=perl-binary-module-dependency; version=1;
+if [[ $(find "$pkgdir/usr/lib/perl5/" -name "*.so") ]]; then
+	_perlver_min=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]);')
+	_perlver_max=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]+1);')
+	depends+=("perl>=$_perlver_min" "perl<$_perlver_max")
+fi
+# template end;
+}
