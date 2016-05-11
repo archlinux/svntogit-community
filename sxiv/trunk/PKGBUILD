@@ -6,11 +6,10 @@
 
 pkgname=sxiv
 pkgver=1.3.2
-pkgrel=2
+pkgrel=3
 pkgdesc='Simple X Image Viewer'
 arch=('i686' 'x86_64')
 license=('GPL2')
-install=sxiv.install
 url='https://github.com/muennich/sxiv'
 depends=('imlib2' 'desktop-file-utils' 'xdg-utils' 'hicolor-icon-theme' 'libexif')
 source=("$pkgname-$pkgver.tar.gz"::"https://github.com/muennich/sxiv/archive/v$pkgver.tar.gz")
