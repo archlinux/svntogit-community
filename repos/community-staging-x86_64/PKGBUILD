@@ -1,0 +1,94 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Luca Fulchir <luca@fulchir.it>
+
+pkgname=dnssec-tools
+pkgver=2.2
+pkgrel=4
+pkgdesc="libval & dnssec management tools"
+arch=('i686' 'x86_64')
+url="http://www.dnssec-tools.org"
+license=('BSD')
+conflicts=('libval' 'libval_shim' 'libsres')
+backup=('etc/dnssec-tools/dnssec-tools.conf' 'etc/dnssec-tools/resolv.conf' 'etc/dnssec-tools/root.hints' 'etc/dnssec-tools/dnsval.conf')
+depends=('dnsutils' 'perl' 'perl-timedate' 'perl-net-dns' 'perl-net-dns-sec' 'perl-mailtools' 'bind' 'openssl' 'glibc' 'pth')
+optdepends=('perl-tk: for GUI components'
+            'perl-graphviz: for GUI components')
+options=('!emptydirs')
+source=(http://www.dnssec-tools.org/download/${pkgname}-${pkgver}.tar.gz
+        makefile-dependency.patch
+        dnssec-tools-link.patch)
+sha256sums=('4f45033a7a27382fe5284de705a1792277dfbe9a149d369b95d787865a44ef66'
+            'fb23565ff9afabf85dc812ab500a3652add4537e9519a49214e329de3d2171f9'
+            'bbf24ced5c41d61ddd49e39d5deec84d4b1a344ba9fecd3647cf07ccddc89714')
+install="dnssec-tools.install"
+
+prepare() {
+  # patch for race condition with -j 2+
+  cd "$srcdir/${pkgname}-${pkgver}"
+  patch -p0 -i "$srcdir/makefile-dependency.patch"
+
+  # patch for linking errors
+  patch -p1 -i "$srcdir/dnssec-tools-link.patch"
+
+  sed -e '/^maninstall:/,+3s:$(MKPATH) $(mandir)/$(man1dir):$(MKPATH) $(DESTDIR)/$(mandir)/$(man1dir):' \
+      -i Makefile.in
+  sed -e 's:/usr/local/etc:/etc:g' \
+      -e 's:/usr/local:/usr:g' \
+      -i tools/donuts/donuts \
+      -i tools/etc/dnssec-tools/dnssec-tools.conf \
+      -i tools/scripts/genkrf
+  sed -e 's:/usr/bin/genkrf:/usr/bin/vendor_perl/genkrf:' \
+      -e 's:/usr/bin/keyarch:/usr/bin/vendor_perl/keyarch:' \
+      -e 's:/usr/bin/rollchk:/usr/bin/vendor_perl/rollchk:' \
+      -e 's:/usr/bin/rollctl:/usr/bin/vendor_perl/rollctl:' \
+      -e 's:/usr/bin/zonesigner:/usr/bin/vendor_perl/zonesigner:' \
+      -e 's:/usr/sbin/dnssec-keygen:/usr/bin/dnssec-keygen:' \
+      -e 's:/usr/sbin/rndc:/usr/bin/rndc:' \
+      -e 's:/usr/sbin/named-checkzone:/usr/bin/named-checkzone:' \
+      -e 's:/usr/sbin/dnssec-signzone:/usr/bin/dnssec-signzone:' \
+      -i tools/etc/dnssec-tools/dnssec-tools.conf
+}
+
+build() {
+  cd "$srcdir/${pkgname}-${pkgver}"
+  ./configure \
+    --exec_prefix=/usr \
+    --prefix=/usr \
+    --mandir=/usr/share/man \
+    --sysconfdir=/etc \
+    --with-ipv6 \
+    --with-nsec3 \
+    --with-dlv \
+    --with-perl-build-args=INSTALLDIRS=vendor
+  make
+}
+
+package() {
+  cd "$srcdir/${pkgname}-${pkgver}"
+  make install DESTDIR="${pkgdir}"
+  cp validator/etc/dnsval.conf validator/etc/root.hints "${pkgdir}"/etc/dnssec-tools/
+  
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+
+  cd "${pkgdir}/etc/dnssec-tools"
+  mkdir KEY-SAFE
+  touch KEY-SAFE/.pacmankeep
+
+  ## add support for ISC DLV checking
+  cat >> dnsval.conf <<EOF
+##################################
+# ISC DLV root anchor 
+##################################
+: dlv-trust-points
+    .   dlv.isc.org.
+;
+EOF
+# template start; name=perl-binary-module-dependency; version=1;
+if [[ $(find "$pkgdir/usr/lib/perl5/" -name "*.so") ]]; then
+	_perlver_min=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]);')
+	_perlver_max=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]+1);')
+	depends+=("perl>=$_perlver_min" "perl<$_perlver_max")
+fi
+# template end;
+}
