@@ -1,0 +1,142 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Maintainer: Edward Tjörnhammar <xhemi@cube2.se>
+# Contributor: Edward Tjörnhammar <xhemi@cube2.se>
+
+pkgname=inn
+pkgver=2.6.0
+pkgrel=3
+pkgdesc="Complete open source Usenet system. De facto standard for handling news routing, news spool and serving the spool to customers."
+url="http://www.isc.org/software/inn/"
+arch=('i686' 'x86_64')
+license=("custom:INN")
+depends=('openssl' 'perl-mime-tools')
+makedepends=('make' 'bison' 'python2' 'gcc' 'smtp-forwarder' 'libsasl')
+optdepends=('python2' 'libsasl')
+options=(emptydirs docs zipman)
+install=inn.install
+backup=(etc/inn/innwatch.ctl
+	etc/inn/innfeed.conf
+	etc/inn/moderators
+	etc/inn/news2mail.cf
+	etc/inn/innshellvars.tcl.local
+	etc/inn/buffindexed.conf
+	etc/inn/newsfeeds
+	etc/inn/storage.conf
+	etc/inn/innshellvars.local
+	etc/inn/inn-radius.conf
+	etc/inn/nntpsend.ctl
+	etc/inn/passwd.nntp
+	etc/inn/send-uucp.cf
+	etc/inn/cycbuff.conf
+	etc/inn/incoming.conf
+	etc/inn/control.ctl.local
+	etc/inn/actsync.ign
+	etc/inn/motd.innd.sample
+	etc/inn/distributions
+	etc/inn/innshellvars.pl.local
+	etc/inn/readers.conf
+	etc/inn/innreport.conf
+	etc/inn/actsync.cfg
+	etc/inn/nocem.ctl
+	etc/inn/control.ctl
+	etc/inn/subscriptions
+	etc/inn/motd.nnrpd.sample
+	etc/inn/inn.conf
+	etc/inn/ovdb.conf
+	etc/inn/localgroups
+	etc/inn/nnrpd.track
+	etc/inn/distrib.pats
+	etc/inn/expire.ctl
+	var/db/inn/active
+	var/db/inn/active.times
+	var/db/inn/history
+	var/db/inn/history.dir
+	var/db/inn/history.hash
+	var/db/inn/history.index
+	var/db/inn/newsgroups)
+source=(http://ftp.isc.org/isc/inn/inn-$pkgver.tar.gz
+	innd.service
+	inn.tmpfiles
+	site.make.patch)
+md5sums=('e904c2a4d2f917d79b9cfdc94b17e275'
+         '9da925a486fcf0cd67fdf462cbb9c0b4'
+         '050b7bffff3361c673a118739e42349e'
+         '960c800026ed6e03901cf0bafdfd53d8')
+
+prepare() {
+  cd $srcdir/inn-$pkgver
+#  sed -i 's|-export-dynamic gnu|-export-dynamic|' Makefile.global
+#  [ $NOEXTRACT -eq 1 ] || patch -p3 < $srcdir/site.make.patch
+#  sed -i 's|#define L_NOTICE.*|#define L_NOTICE LOG_NOTICE|' include/inn/options.h
+}
+
+build() {
+  cd $srcdir/inn-$pkgver
+  PYTHON=/usr/bin/python2 ./configure --prefix=/usr \
+	--includedir=/usr/include/inn \
+	--sbindir=/usr/sbin \
+	--with-libtool \
+	--with-gnu-id \
+	--with-db-dir=/var/db/inn \
+	--sysconfdir=/etc/inn \
+	--with-spool-dir=/var/spool/news \
+	--with-log-dir=/var/log/inn \
+	--with-run-dir=/var/run/inn \
+	--with-tmp-dir=/var/spool/inn/tmp \
+	--enable-largefiles \
+	--with-openssl=/usr \
+	--with-perl \
+	--with-python \
+	--with-sendmail=/usr/bin/msmtp \
+	--with-sasl=/usr \
+	--with-news-user=9 \
+	--with-news-group=13
+  # See https://wiki.archlinux.org/index.php/DeveloperWiki:UID_/_GID_Database
+  test -f include/config.h
+  cat >>include/config.h <<EOF
+#undef RUNASUSER
+#define RUNASUSER "news"
+#undef RUNASGROUP
+#define RUNASGROUP "news"
+EOF
+  make
+}
+
+package() {
+  cd $srcdir/inn-$pkgver
+  export LD_LIBRARY_PATH=.:$pkgdir/usr/lib:$LD_LIBRARY_PATH
+
+  make DESTDIR=$pkgdir install
+
+  cd $pkgdir/usr/lib
+  for i in lib*.a; do
+	gcc -shared -o ${i%%.a}.so.2.0.0 $i
+	for j in 2.0 2; do
+	    ln -s ${i%%a}so.2.0.0 ${i%%a}so.$j
+	done
+  done
+
+  touch $pkgdir/var/db/inn/history{.dir,.hash,.index,}
+
+  mkdir -p $pkgdir/usr/share/doc/inn $pkgdir/usr/share/inn/
+  mv $pkgdir/usr/share/man/man3/list.3 $pkgdir/usr/share/man/man3/list-inn.3
+  mv $pkgdir/usr/doc/* $pkgdir/usr/share/doc/inn/
+  mv $pkgdir/usr/http/* $pkgdir/usr/share/inn/
+  mv $pkgdir/usr/bin/archive $pkgdir/usr/bin/archive.inn
+  rm -rf $pkgdir/usr/doc $pkgdir/usr/http $pkgdir/var/run
+  install -D -m0644 $srcdir/inn-$pkgver/LICENSE $pkgdir/usr/share/licenses/inn/LICENSE
+  chown root:root $pkgdir/usr/bin/innbind
+  chmod 05555 $pkgdir/usr/bin/innbind
+
+  install -Dm0644 $srcdir/innd.service $pkgdir/usr/lib/systemd/system/innd.service
+  install -Dm0644 $srcdir/inn.tmpfiles $pkgdir/usr/lib/tmpfiles.d/inn.conf
+
+# template start; name=perl-binary-module-dependency; version=1;
+if [[ $(find "$pkgdir/usr/lib/perl5/" -name "*.so") ]]; then
+	_perlver_min=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]);')
+	_perlver_max=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]+1);')
+	depends+=("perl>=$_perlver_min" "perl<$_perlver_max")
+fi
+# template end;
+}
