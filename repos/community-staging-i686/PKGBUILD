@@ -1,0 +1,200 @@
+# $Id$
+# Maintainer: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Valentin Hăloiu <vially.ichb+aur@gmail.com>
+# Contributor: Angel Velasquez <angvp@archlinux.org>
+# Contributor: Kevin Zuber <uKev@knet.eu>
+# Contributor: Vsevolod Balashov <vsevolod@balashov.name>
+# Contributor: David Runge <dave@sleepmap.de>
+
+pkgbase=uwsgi
+pkgname=(uwsgi
+         uwsgi-plugin-rack
+         uwsgi-plugin-psgi
+         uwsgi-plugin-cgi
+         uwsgi-plugin-python2
+         uwsgi-plugin-python
+         uwsgi-plugin-pypy
+         uwsgi-plugin-php
+         uwsgi-plugin-lua51
+         uwsgi-plugin-jvm
+         uwsgi-plugin-mono
+         uwsgi-plugin-webdav
+         mod_proxy_uwsgi)
+pkgver=2.0.13
+pkgrel=2
+arch=(i686 x86_64)
+url="http://projects.unbit.it/$pkgbase"
+license=(GPL2)
+backup=('etc/uwsgi/emperor.ini')
+conflicts=(python-$pkgbase)
+makedepends=(gcc python python2 ruby python2-greenlet python-greenlet php-embed curl libxml2 libyaml
+             perl lua51 pcre libedit openssl bzip2 gmp pam java-environment=7
+             jansson classpath pypy mono python2-gevent apache)
+source=(http://projects.unbit.it/downloads/$pkgbase-$pkgver.tar.gz
+        uwsgiplugin.py::https://raw.githubusercontent.com/unbit/uwsgi/9787f6882c2475aa9873e400988160b17dd04545/plugins/systemd_logger/uwsgiplugin.py
+        archlinux.ini
+        tmpfilesd
+        uwsgi_at.service
+        uwsgi_at.socket
+        uwsgi_ruby20_compatibility.patch
+        uwsgi_trick_chroot.patch
+        emperor.ini
+        emperor.uwsgi.service
+        emperor.uwsgi.socket)
+
+md5sums=('5c2e93fc01796a26e418144064a3e396'
+         'd3c9f32479d816208c3620a782fa5246'
+         '9aced0faffc5fc04afccf946e8a2a886'
+         '752475ee32286acfbafa49b898616817'
+         'feaf107977aec047101acdbf06810f30'
+         'ea381549fe65a5d72fa1abb5ceb7d3ef'
+         '4d09535ce379c8acd76160f35d5d6b55'
+         'a49705b98c28dee890b2f88cbaa58be3'
+         '5fa14ddea9a3dae17b5be28468d47b80'
+         '25dfcc365241f16d7ea16f7143698b53'
+         '3ab4486e02f5c217566fb6c8d469c246')
+
+prepare() {
+    cd $srcdir/$pkgbase-$pkgver
+    cp $srcdir/archlinux.ini buildconf/archlinux.ini
+    for patch in uwsgi_ruby20_compatibility.patch uwsgi_trick_chroot.patch; do
+        msg2 "Applying $patch"
+        patch -Np1 -i $srcdir/$patch
+    done
+    rm -rf plugins/ruby
+    mv plugins/ruby{19,}
+    sed -i 's:\(ruby\)19:\1:' plugins/ruby/uwsgiplugin.py
+
+    cp $srcdir/uwsgiplugin.py plugins/systemd_logger/uwsgiplugin.py
+}
+
+build() {
+    pushd $srcdir/$pkgbase-$pkgver
+
+    python uwsgiconfig.py --build archlinux
+    python uwsgiconfig.py --plugin plugins/python archlinux python
+    python uwsgiconfig.py --plugin plugins/greenlet archlinux greenlet
+    python uwsgiconfig.py --plugin plugins/gevent archlinux gevent
+    python uwsgiconfig.py --plugin plugins/asyncio archlinux asyncio
+    python2 uwsgiconfig.py --plugin plugins/python archlinux python2
+    python2 uwsgiconfig.py --plugin plugins/greenlet archlinux greenlet2
+    python2 uwsgiconfig.py --plugin plugins/gevent archlinux gevent2
+    python2 uwsgiconfig.py --plugin plugins/pypy archlinux pypy
+
+    pushd $srcdir/$pkgbase-$pkgver/apache2
+    /usr/bin/apxs -c mod_proxy_uwsgi.c
+}
+
+package_uwsgi() {
+    pkgdesc="A fast, self-healing and developer/sysadmin-friendly application container server coded in pure C"
+    depends=(python2 libxml2 jansson libyaml libsystemd libcap pam pcre)
+    install=uwsgi.install
+    cd $srcdir/$pkgbase-$pkgver
+    install -Dm755 uwsgi $pkgdir/usr/bin/uwsgi
+    install -Dm644 $srcdir/uwsgi_at.service $pkgdir/usr/lib/systemd/system/uwsgi@.service
+    install -Dm644 $srcdir/uwsgi_at.socket $pkgdir/usr/lib/systemd/system/uwsgi@.socket
+    install -Dm644 $srcdir/emperor.uwsgi.service $pkgdir/usr/lib/systemd/system/emperor.uwsgi.service
+    install -Dm644 $srcdir/emperor.uwsgi.socket $pkgdir/usr/lib/systemd/system/emperor.uwsgi.socket
+    install -Dm644 $srcdir/emperor.ini $pkgdir/etc/uwsgi/emperor.ini
+    install -Dm644 $srcdir/tmpfilesd $pkgdir/usr/lib/tmpfiles.d/uwsgi.conf
+}
+
+package_uwsgi-plugin-cgi() {
+    depends=(uwsgi)
+    pkgdesc="CGI plugin"
+    install -Dm755 $pkgbase-$pkgver/cgi_plugin.so $pkgdir/usr/lib/uwsgi/cgi_plugin.so
+}
+
+package_uwsgi-plugin-rack() {
+    depends=(uwsgi ruby)
+    pkgdesc="Ruby rack plugin"
+    install -Dm755 $pkgbase-$pkgver/rack_plugin.so $pkgdir/usr/lib/uwsgi/rack_plugin.so
+    install -Dm755 $pkgbase-$pkgver/fiber_plugin.so $pkgdir/usr/lib/uwsgi/fiber_plugin.so
+    install -Dm755 $pkgbase-$pkgver/rbthreads_plugin.so $pkgdir/usr/lib/uwsgi/rbthreads_plugin.so
+}
+
+package_uwsgi-plugin-psgi() {
+    depends=(uwsgi perl)
+    pkgdesc="Perl psgi plugin"
+    install -Dm755 $pkgbase-$pkgver/psgi_plugin.so $pkgdir/usr/lib/uwsgi/psgi_plugin.so
+# template start; name=perl-binary-module-dependency; version=1;
+if [[ $(find "$pkgdir/usr/lib/perl5/" -name "*.so") ]]; then
+	_perlver_min=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]);')
+	_perlver_max=$(perl -e '$v = $^V->{version}; print $v->[0].".".($v->[1]+1);')
+	depends+=("perl>=$_perlver_min" "perl<$_perlver_max")
+fi
+# template end;
+}
+
+package_uwsgi-plugin-python2() {
+    depends=(uwsgi python2-gevent python2-greenlet)
+    pkgdesc="Plugin for Python2 support"
+    install -Dm755 $pkgbase-$pkgver/python2_plugin.so $pkgdir/usr/lib/uwsgi/python2_plugin.so
+    install -Dm755 $pkgbase-$pkgver/greenlet2_plugin.so $pkgdir/usr/lib/uwsgi/greenlet2_plugin.so
+    install -Dm755 $pkgbase-$pkgver/gevent2_plugin.so $pkgdir/usr/lib/uwsgi/gevent2_plugin.so
+    install -Dm644 $pkgbase-$pkgver/uwsgidecorators.py $pkgdir/usr/lib/python2.7/site-packages/uwsgidecorators.py
+    python2 -m compileall $pkgdir/usr/lib/python2.7/site-packages/
+    python2 -O -m compileall $pkgdir/usr/lib/python2.7/site-packages/
+}
+
+package_uwsgi-plugin-python() {
+    depends=(uwsgi python python-greenlet)
+    pkgdesc="Plugin for Python support"
+    install -Dm755 $pkgbase-$pkgver/python_plugin.so $pkgdir/usr/lib/uwsgi/python_plugin.so
+    install -Dm755 $pkgbase-$pkgver/greenlet_plugin.so $pkgdir/usr/lib/uwsgi/greenlet_plugin.so
+    install -Dm755 $pkgbase-$pkgver/gevent_plugin.so $pkgdir/usr/lib/uwsgi/gevent_plugin.so
+    install -Dm755 $pkgbase-$pkgver/asyncio_plugin.so $pkgdir/usr/lib/uwsgi/asyncio_plugin.so
+    install -Dm644 $pkgbase-$pkgver/uwsgidecorators.py $pkgdir/usr/lib/python3.5/site-packages/uwsgidecorators.py
+    python -m compileall $pkgdir/usr/lib/python3.5/site-packages/
+    python -O -m compileall $pkgdir/usr/lib/python3.5/site-packages/
+}
+
+package_uwsgi-plugin-pypy() {
+    depends=(uwsgi pypy)
+    pkgdesc="Plugin for PyPy support"
+    install -Dm755 $pkgbase-$pkgver/pypy_plugin.so $pkgdir/usr/lib/uwsgi/pypy_plugin.so
+    install -Dm644 $pkgbase-$pkgver/uwsgidecorators.py $pkgdir/opt/pypy/site-packages/uwsgidecorators.py
+    pypy -m compileall $pkgdir/opt/pypy/site-packages/
+    pypy -O -m compileall $pkgdir/opt/pypy/site-packages/
+}
+
+package_uwsgi-plugin-lua51() {
+    depends=(uwsgi lua51)
+    pkgdesc="Plugin for Lua support"
+    install -Dm755 $pkgbase-$pkgver/lua_plugin.so $pkgdir/usr/lib/uwsgi/lua_plugin.so
+}
+
+package_uwsgi-plugin-php() {
+    depends=(uwsgi php-embed libyaml jansson)
+    pkgdesc="Plugin for PHP support"
+    install -Dm755 $pkgbase-$pkgver/php_plugin.so $pkgdir/usr/lib/uwsgi/php_plugin.so
+}
+
+package_uwsgi-plugin-jvm() {
+    depends=(uwsgi java-environment=7 classpath)
+    pkgdesc="Plugin for Jvm support"
+    install -Dm644 $pkgbase-$pkgver/plugins/jvm/uwsgi.jar $pkgdir/usr/share/java/uwsgi.jar
+    install -Dm755 $pkgbase-$pkgver/jvm_plugin.so $pkgdir/usr/lib/uwsgi/jvm_plugin.so
+}
+
+package_uwsgi-plugin-mono() {
+    depends=(uwsgi mono)
+    pkgdesc="Plugin for mono support"
+    install -Dm755 $pkgbase-$pkgver/plugins/mono/uwsgi.dll $pkgdir/usr/lib/mono/2.0/uwsgi.dll
+    install -Dm755 $pkgbase-$pkgver/mono_plugin.so $pkgdir/usr/lib/uwsgi/mono_plugin.so
+}
+
+package_uwsgi-plugin-webdav() {
+    depends=(uwsgi)
+    pkgdesc="Plugin for webdav support"
+    install -Dm755 $pkgbase-$pkgver/webdav_plugin.so $pkgdir/usr/lib/uwsgi/webdav_plugin.so
+}
+
+package_mod_proxy_uwsgi(){
+    depends=(uwsgi apache)
+    pkgdesc="Apache uWSGI proxy module"
+    install -Dm755 \
+        $pkgbase-$pkgver/apache2/.libs/mod_proxy_uwsgi.so \
+        $pkgdir/usr/lib/httpd/modules/mod_proxy_uwsgi.so
+}
