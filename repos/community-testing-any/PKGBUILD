@@ -4,19 +4,21 @@
 pkgbase=sagemath-doc
 pkgname=(sagemath-doc sagemath-src)
 pkgver=7.2
-pkgrel=1
+pkgrel=2
 arch=(any)
 url="http://www.sagemath.org"
 license=(GPL)
 makedepends=(sagemath sage-notebook python2-pyzmq python2-pillow python2-docutils ipython2-notebook python2-pkgconfig cython2 python2-sphinx)
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
-	package.patch paths.patch disable-fes.patch docbuild_main.patch linbox-1.4.patch)
+	package.patch paths.patch disable-fes.patch docbuild_main.patch linbox-1.4.patch is-package-installed.patch ecm-7.patch)
 md5sums=('2afeb8f75a33107fef5d509698c0eabc'
          '9ba81f717ffd4e20b8b2f2a318307488'
-         '1a60304525ac5a5f45114cc704807894'
+         '52d30e91110183489f66d7bf73c36c64'
          '4eb23a3c7363258bc9ba764d6e5512ba'
          'f3bf3fa4e11e5af2bd0573cf2620e1f8'
-         '9f1cef3e477bafebe2ad301db56db8a2')
+         '9f1cef3e477bafebe2ad301db56db8a2'
+         '541988696465f204235d595a349017f3'
+         '0c9a57d35de80c2cd418ebec912efbbb')
 
 prepare() {
   cd sage-$pkgver
@@ -28,14 +30,10 @@ prepare() {
   patch -p0 -i ../paths.patch
 # supress warning about GAP install dir
   sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
-# fix Cremona database detection
-  sed -e "s|is_package_installed('database_cremona_ellcurve')|os.path.exists('/usr/share/sage/cremona/cremona.db')|" \
-   -i src/sage/databases/cremona.py
-# fix lrs detection
-  sed -e "s|is_package_installed('lrslib')|os.path.exists('/usr/bin/lrs')|g" -i src/sage/geometry/polyhedron/base.py \
-   -i src/sage/game_theory/normal_form_game.py
 # find bliss headers
   sed -e 's|graph.hh|bliss/graph.hh|' -i src/sage/graphs/bliss.pyx
+# fix regressions with ECM 7
+  patch -p1 -i ../ecm-7.patch
 
 # Upstream patches
 # fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
@@ -44,6 +42,8 @@ prepare() {
   patch -p0 -i ../disable-fes.patch
 # port to new fflas-ffpack/givaro/linbox http://trac.sagemath.org/ticket/17635
   patch -p1 -i ../linbox-1.4.patch
+# replace is_package_installed usage http://trac.sagemath.org/ticket/20377
+  patch -p1 -i ../is-package-installed.patch
 
 # fix relative imports
   patch -p0 -i ../docbuild_main.patch
@@ -69,7 +69,7 @@ build() {
 
 package_sagemath-doc() {
   pkgdesc="HTML documentation and inline help for SageMath"
-  depends=(sage-notebook python2-sphinx)
+  depends=(sage-notebook python2-sphinx gap-doc)
   conflicts=(sage-mathematics-doc)
   replaces=(sage-mathematics-doc)
 
@@ -88,6 +88,9 @@ package_sagemath-doc() {
         ln -s /usr/share/doc/sage/html/en/_static $_dir
   done
   mv html/en/_static{.tmp,}
+
+# Remove unneeded files
+  find html -name '*.py' -exec rm -r {} \;
 }
 
 package_sagemath-src() {
