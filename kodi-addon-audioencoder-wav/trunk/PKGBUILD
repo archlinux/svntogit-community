@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-audioencoder-wav
-_commit=a12bcd1
-pkgver=20160219.a12bcd1
-pkgrel=3
+_commit=81149e3
+pkgver=20160513.81149e3
+pkgrel=1
 pkgdesc="WAV Audio Encoder add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/audioencoder.wav'
