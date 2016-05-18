@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-shadertoy
-_commit=5b64785
-pkgver=20160224.5b64785
-pkgrel=2
+_commit=e0436f4
+pkgver=20160511.e0436f4
+pkgrel=1
 pkgdesc="Shadertoy visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.shadertoy'
