@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-audioencoder-flac
-_commit=176288b
-pkgver=20160219.176288b
-pkgrel=3
+_commit=36647b0
+pkgver=20160513.36647b0
+pkgrel=1
 pkgdesc="FLAC Audio Encoder add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/audioencoder.flac'
