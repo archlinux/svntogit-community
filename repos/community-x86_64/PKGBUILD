@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-audioencoder-lame
-_commit=ffaf9cb
-pkgver=20160219.ffaf9cb
-pkgrel=3
+_commit=34c3a88
+pkgver=20160513.34c3a88
+pkgrel=1
 pkgdesc="LAME Audio Encoder add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/audioencoder.lame'
