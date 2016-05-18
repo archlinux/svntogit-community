@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-platform
-_commit=92583ef
-pkgver=20160131.92583ef
-pkgrel=2
+_commit=c8188d8
+pkgver=20160516.c8188d8
+pkgrel=1
 pkgdesc="platform library for external kodi addons"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/kodi-platform'
