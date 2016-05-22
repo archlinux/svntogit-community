@@ -4,7 +4,7 @@
 
 pkgname=lib32-systemd
 _pkgbasename=systemd
-pkgver=229
+pkgver=230
 pkgrel=1
 pkgdesc="system and service manager (32-bit)"
 arch=('x86_64')
@@ -16,21 +16,16 @@ makedepends=('lib32-gcc-libs' 'gcc-multilib' 'lib32-libidn' 'lib32-glib2' 'intlt
 source=("git://github.com/systemd/systemd.git#tag=v$pkgver")
 md5sums=('SKIP')
 
+_backports=(
+)
+
 prepare() {
   cd systemd
 
-  # networkd: FIONREAD is not reliable on some sockets
-  git cherry-pick -n 4edc2c9b6b5b921873eb82e58719ed4d9e0d69bf
-
-  # fix assertion failure in src/core/timer.c on bootup (FS#48197)
-  git cherry-pick -n 3f51aec8647fe13f4b1e46b2f75ff635403adf91
-
-  # fix udevd error checking from cg_unified() (FS#48188)
-  git cherry-pick -n 6d2353394fc33e923d1ab464c8f88df2a5105ffb
-
-  # revert "core: resolve specifier in config_parse_exec()"
-  git cherry-pick -n bd1b973fb326e9b7587494fd6108e5ded46e9163
-
+  if (( ${#_backports[*]} > 0 )); then
+    git cherry-pick -n "${_backports[@]}"
+  fi
+ 
   ./autogen.sh
 }
 
@@ -43,27 +38,34 @@ build() {
 
   local timeservers=({0..3}.arch.pool.ntp.org)
 
-  ./configure \
-    --libexecdir=/usr/lib32 \
-    --libdir=/usr/lib32 \
-    --localstatedir=/var \
-    --sysconfdir=/etc \
-    --disable-audit \
-    --disable-tests \
-    --disable-ima \
-    --disable-seccomp \
-    --disable-pam \
-    --disable-kmod \
-    --disable-networkd \
-    --disable-blkid \
-    --disable-libiptc \
-    --disable-lz4 \
-    --disable-manpages \
-    --without-python \
-    --disable-libcryptsetup \
-    --with-sysvinit-path= \
-    --with-sysvrcnd-path= \
+  local configure_options=(
+    --libexecdir=/usr/lib32
+    --libdir=/usr/lib32
+    --localstatedir=/var
+    --sysconfdir=/etc
+
+    --disable-audit
+    --disable-tests
+    --disable-ima
+    --disable-seccomp
+    --disable-pam
+    --disable-kmod
+    --disable-networkd
+    --disable-blkid
+    --disable-libiptc
+    --disable-lz4
+    --disable-manpages
+    --without-python
+
+    --with-sysvinit-path=
+    --with-sysvrcnd-path=
     --with-ntp-servers="${timeservers[*]}"
+    --with-default-dnssec=no
+    --without-kill-user-processes
+  )
+  #  --disable-libcryptsetup
+
+  ./configure "${configure_options[@]}"
 
   make
 }
