@@ -7,8 +7,8 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=8.7.5
-pkgrel=2
+pkgver=8.8.0
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -42,7 +42,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         nginx-ssl.conf.example
         lighttpd.conf.example)
 install='gitlab.install'
-sha256sums=('170029e20425b070b1c96c0480f5a2dc09bc4bc361e487b6572f67b138d6f6cc'
+sha256sums=('b68d508a2b69dc1c8e545d77fd17a9aee81b59e622a22b9943214e3ddb7a2f0b'
             'becafe0f9811fea69a69b8e2739857ef007f0b7e89391229f123c79c285f34f3'
             'fbe5ec709ead1729e4de85f3f036f053b2b14041c540742315ff2d63a7bdd59a'
             'd21d8c961b2834115a1d9c646278782aaaae0d1d1cde2357b58e67bad3a58527'
@@ -73,6 +73,7 @@ prepare() {
   sed -e "s|# user: git|user: gitlab|" \
       -e "s|/home/git/repositories|${_homedir}/repositories|" \
       -e "s|/home/git/gitlab-satellites|${_homedir}/satellites|" \
+      -e "s|# path: /mnt/gitlab|path: ${_homedir}/shared|" \
       -e "s|/home/git/gitlab-shell|/usr/share/webapps/gitlab-shell|" \
       -e "s|tmp/backups|${_homedir}/backups|" \
       config/gitlab.yml.example > config/gitlab.yml
@@ -132,6 +133,7 @@ package() {
 
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/shared"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/backups"
