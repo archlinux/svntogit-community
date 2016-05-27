@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.8.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -129,7 +129,7 @@ package() {
 
   cp -r "${srcdir}/${_srcdir}" "${pkgdir}${_datadir}"
   chown -R 105:105 "${pkgdir}${_datadir}"
-  chmod 750 "${pkgdir}${_datadir}"
+  chmod 755 "${pkgdir}${_datadir}"
 
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
