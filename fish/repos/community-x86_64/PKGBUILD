@@ -6,8 +6,8 @@
 # Contributor: Jan Fader <jan.fader@web.de>
 
 pkgname=fish
-pkgver=2.2.0
-pkgrel=5
+pkgver=2.3.0
+pkgrel=1
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='http://fishshell.com/'
 arch=('i686' 'x86_64')
@@ -17,7 +17,7 @@ optdepends=('python: for manual page completion parser and web configuration too
 makedepends=('doxygen')
 install=fish.install
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/fish-shell/fish-shell/archive/${pkgver}.tar.gz)
-sha512sums=('a1108a8d5c96bcac1b1ced74e6f28287094fa68f28756811f6a6604bde2b4de88d7637da21874b602723fce129a407be7e24affecab468997158442af208308a')
+sha512sums=('32a67a825dfeac75d77099461eea6da3b49018b83873880bd44732cb92c082ccdb92f745d965c52a680dd015a856226ccc43601792b2def643a36ed5affa853f')
 
 prepare() {
   cd fish-shell-${pkgver}
@@ -37,4 +37,4 @@ package() {
   make DESTDIR="${pkgdir}" install
 }
 
-# vim:set ts=2 sw=2 et:
+# vim: ts=2 sw=2 et:
