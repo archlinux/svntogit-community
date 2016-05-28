@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.8.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -160,7 +160,7 @@ package() {
 
   # Fix for ruby-2.1 and bundle-2.1
   sed -i "s|bundle|bundle-2.1|g" "${pkgdir}${_datadir}/lib/tasks/gitlab/check.rake"
-  grep -rl "bin/env ruby" "${pkgdir}${_datadir}" | xargs sed -i "s|bin/env ruby|bin/env ruby-2.1|g"
+  grep -rl "bin/env ruby" "${pkgdir}${_datadir}" | xargs sed -i "s|bin/env ruby$|bin/env ruby-2.1|g"
   
   # Install config files
   for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
