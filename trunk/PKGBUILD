@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-spectrum
-_commit=d662ffe
-pkgver=20160401.d662ffe
-pkgrel=2
+_commit=34929f0
+pkgver=20160523.34929f0
+pkgrel=1
 pkgdesc="Spectrum visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.spectrum'
