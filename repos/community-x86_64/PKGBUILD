@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-cpblobs
-_commit=87a3abf
-pkgver=20160127.87a3abf
-pkgrel=2
+_commit=04c1938
+pkgver=20160523.04c1938
+pkgrel=1
 pkgdesc="CpBlobs screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.cpblobs'
