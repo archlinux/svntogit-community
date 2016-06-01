@@ -1,0 +1,132 @@
+From ca023e2d6f9192fd8e923f3113ae4a11cda8b53a Mon Sep 17 00:00:00 2001
+From: Jack O'Connor <oconnor663@gmail.com>
+Date: Tue, 31 May 2016 15:27:18 -0400
+Subject: [PATCH] avoid undefined behavior in Go assignments
+
+The funky assignment that initialized p.Hash as part of the method on
+the RHS, invoked undefined behavior in the Go compiler, and ended up
+crashing when we built with gcc-go. There was a lot of dirty code there
+anyway, so this diff just goes ahead and rewrites that whole bit.
+---
+ go/libkb/kbpackets.go | 49 +++++++++++++++++++++++++++++--------------------
+ go/libkb/naclwrap.go  | 14 ++------------
+ go/libkb/skb.go       |  8 +-------
+ 3 files changed, 32 insertions(+), 39 deletions(-)
+
+diff --git a/go/libkb/kbpackets.go b/go/libkb/kbpackets.go
+index df553ed..2cc81ee 100644
+--- a/go/libkb/kbpackets.go
++++ b/go/libkb/kbpackets.go
+@@ -49,32 +49,41 @@ type KeybasePacket struct {
+ 
+ type KeybasePackets []*KeybasePacket
+ 
+-func (p *KeybasePacket) hashToBytes() (ret []byte, err error) {
+-	zb := [0]byte{}
+-	if p.Hash == nil {
+-		p.Hash = &KeybasePacketHash{}
++func NewKeybasePacket(body interface{}, tag int, version int) (*KeybasePacket, error) {
++	ret := KeybasePacket{
++		Body:    body,
++		Tag:     tag,
++		Version: version,
+ 	}
+-	tmp := p.Hash.Value
+-	defer func() {
+-		p.Hash.Value = tmp
+-	}()
+-	p.Hash.Value = zb[:]
+-	p.Hash.Type = SHA256Code
+ 
+-	var encoded []byte
+-	if encoded, err = p.Encode(); err != nil {
+-		return
++	hashBytes, hashErr := ret.hashToBytes()
++	if hashErr != nil {
++		return nil, hashErr
+ 	}
+-
+-	sum := sha256.Sum256(encoded)
+-	ret = sum[:]
+-	return
++	ret.Hash = &KeybasePacketHash{
++		Type:  SHA256Code,
++		Value: hashBytes,
++	}
++	return &ret, nil
+ }
+ 
+-func (p *KeybasePacket) HashMe() error {
++func (p *KeybasePacket) hashToBytes() ([]byte, error) {
++	// We don't include the Hash field in the encoded bytes that we hash,
++	// because if we did then the result wouldn't be stable. To work around
++	// that, we make a copy of the packet and overwrite the Hash field with
++	// an empty slice.
++	packetCopy := *p
++	packetCopy.Hash = &KeybasePacketHash{
++		Type:  SHA256Code,
++		Value: []byte{},
++	}
++	var encoded []byte
+ 	var err error
+-	p.Hash.Value, err = p.hashToBytes()
+-	return err
++	if encoded, err = packetCopy.Encode(); err != nil {
++		return nil, err
++	}
++	ret := sha256.Sum256(encoded)
++	return ret[:], nil
+ }
+ 
+ func (p *KeybasePacket) checkHash() error {
+diff --git a/go/libkb/naclwrap.go b/go/libkb/naclwrap.go
+index 61dd69b..9a9a19d 100644
+--- a/go/libkb/naclwrap.go
++++ b/go/libkb/naclwrap.go
+@@ -390,12 +390,7 @@ func (k NaclDHKeyPair) VerifyString(sig string, msg []byte) (id keybase1.SigID,
+ }
+ 
+ func (s *NaclSigInfo) ToPacket() (ret *KeybasePacket, err error) {
+-	ret = &KeybasePacket{
+-		Version: KeybasePacketV1,
+-		Tag:     TagSignature,
+-	}
+-	ret.Body = s
+-	return
++	return NewKeybasePacket(s, TagSignature, KeybasePacketV1)
+ }
+ 
+ func (p KeybasePacket) ToNaclSigInfo() (*NaclSigInfo, error) {
+@@ -647,12 +642,7 @@ func (k NaclDHKeyPair) EncryptToString(plaintext []byte, sender GenericKey) (str
+ 
+ // ToPacket implements the Packetable interface.
+ func (k *NaclEncryptionInfo) ToPacket() (ret *KeybasePacket, err error) {
+-	ret = &KeybasePacket{
+-		Version: KeybasePacketV1,
+-		Tag:     TagEncryption,
+-	}
+-	ret.Body = k
+-	return
++	return NewKeybasePacket(k, TagEncryption, KeybasePacketV1)
+ }
+ 
+ // DecryptFromString decrypts the output of EncryptToString above,
+diff --git a/go/libkb/skb.go b/go/libkb/skb.go
+index 55475d9..52d3430 100644
+--- a/go/libkb/skb.go
++++ b/go/libkb/skb.go
+@@ -171,13 +171,7 @@ func (s *SKB) newLKSec(pps *PassphraseStream) *LKSec {
+ }
+ 
+ func (s *SKB) ToPacket() (ret *KeybasePacket, err error) {
+-	ret = &KeybasePacket{
+-		Version: KeybasePacketV1,
+-		Tag:     TagP3skb,
+-	}
+-	ret.Body = s
+-	err = ret.HashMe()
+-	return
++	return NewKeybasePacket(s, TagP3skb, KeybasePacketV1)
+ }
+ 
+ func (s *SKB) ReadKey() (g GenericKey, err error) {
