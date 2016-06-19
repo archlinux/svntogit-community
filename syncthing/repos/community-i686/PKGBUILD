@@ -5,57 +5,65 @@
 # Contributor: Kevin MacMartin <prurigro@gmail.com>
 # Contributor: korjjj <korjjj+aur@gmail.com>
 
-pkgname=syncthing
+pkgname=('syncthing' 'syncthing-relaysrv')
 pkgver=0.13.7
-pkgrel=1
-pkgdesc="Open Source Continuous Replication / Cluster Synchronization Thing"
+pkgrel=2
 arch=('i686' 'x86_64')
 url="http://syncthing.net/"
 license=('MPL')
 depends=('glibc')
 makedepends=('git' 'go' 'godep' 'inetutils' 'sed')
-install=$pkgname.install
-source=($pkgname-$pkgver::git+https://github.com/syncthing/syncthing.git#tag=v${pkgver})
-sha1sums=('SKIP')
+options=('!strip')
+source=(git+https://github.com/syncthing/syncthing.git#tag=v${pkgver}
+        syncthing-relaysrv.sysusers
+        syncthing-relaysrv.tmpfiles)
+sha1sums=('SKIP'
+          'bee6e3592cef0a607058192381e0bab46b744e23'
+          '5fed57ce9faa850af5fabebb76294d35b023c00b')
 
 prepare() {
+  cd "${srcdir}/${pkgbase}/cmd/relaysrv"
+  sed -i -e 's|/usr/bin/relaysrv|/usr/bin/syncthing-relaysrv|' \
+    etc/linux-systemd/syncthing-relaysrv.service
+
   cd "${srcdir}"
   install -d "src/github.com/syncthing"
-  mv "${pkgname}-${pkgver}" "src/github.com/syncthing/${pkgname}"
+  mv "${pkgbase}" "src/github.com/syncthing/${pkgbase}"
 }
 
 build() {
   export GOPATH="${srcdir}" GOROOT_FINAL="/usr/bin"
-  cd "${srcdir}/src/github.com/syncthing/${pkgname}"
-  if [ ${CARCH}" == "i686" ] ; then
-      go run build.go -no-upgrade -goarch 386 build
-  elif [ ${CARCH}" == "x86_64" ] ; then
-      go run build.go -no-upgrade -goarch amd64 build
-  else
-      go run build.go -no-upgrade build
-  fi
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  go run build.go -no-upgrade build
+  go run build.go -no-upgrade build relaysrv
 }
 
 check() {
   export GOPATH="${srcdir}" GOROOT_FINAL="/usr/bin"
-  cd "${srcdir}/src/github.com/syncthing/${pkgname}"
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
   if [ "${CARCH}" == "x86_64" ] ; then
     go run build.go -no-upgrade test
   fi
 }
 
-package() {
-  cd "${srcdir}/src/github.com/syncthing/${pkgname}"
+package_syncthing() {
+  pkgdesc="Open Source Continuous Replication / Cluster Synchronization Thing"
+  install=$pkgname.install
+
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
   install -Dm755 ${pkgname} "${pkgdir}/usr/bin/${pkgname}"
   install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-  install -Dm644 "etc/linux-systemd/system/${pkgname}-resume.service" "${pkgdir}/usr/lib/systemd/system/${pkgname}-resume.service"
-  install -Dm644 "etc/linux-systemd/system/${pkgname}@.service" "${pkgdir}/usr/lib/systemd/system/${pkgname}@.service"
-  install -Dm644 "etc/linux-systemd/user/${pkgname}.service" "${pkgdir}/usr/lib/systemd/user/${pkgname}.service"
+  install -Dm644 "etc/linux-systemd/system/${pkgname}-resume.service" \
+    "${pkgdir}/usr/lib/systemd/system/${pkgname}-resume.service"
+  install -Dm644 "etc/linux-systemd/system/${pkgname}@.service" \
+    "${pkgdir}/usr/lib/systemd/system/${pkgname}@.service"
+  install -Dm644 "etc/linux-systemd/user/${pkgname}.service" \
+    "${pkgdir}/usr/lib/systemd/user/${pkgname}.service"
 
-# license
+  # license
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 
-# man pages
+  # man pages
   cd "${srcdir}/src/github.com/syncthing/${pkgname}/man"
   for file in $(find . -name '*.1' -print); do
     install -Dm644 $file "${pkgdir}"/usr/share/man/man1/$file
@@ -66,4 +74,19 @@ package() {
   for file in $(find . -name '*.7' -print); do
     install -Dm644 $file "${pkgdir}"/usr/share/man/man7/$file
   done
+}
+
+package_syncthing-relaysrv() {
+  pkgdesc='Relay server for Syncthing'
+  install=${pkgname}.install
+
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  install -Dm755 relaysrv "${pkgdir}"/usr/bin/${pkgname}
+
+  install -Dm644 cmd/relaysrv/etc/linux-systemd/${pkgname}.service \
+    "${pkgdir}"/usr/lib/systemd/system/${pkgname}.service
+  install -Dm644 "${srcdir}/${pkgname}.tmpfiles" \
+    "$pkgdir/usr/lib/tmpfiles.d/${pkgname}.conf"
+  install -Dm644 "${srcdir}/${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
 }
