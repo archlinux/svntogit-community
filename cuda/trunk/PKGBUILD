@@ -2,12 +2,12 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=7.5.18
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia')
+depends=('gcc-libs' 'opencl-nvidia' 'gcc5')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
@@ -47,8 +47,8 @@ package() {
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
 
-  # allow gcc 4.9 to work
-  sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
+  # allow newer gccs to work
+  # sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
 
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
   install -Dm644 "${srcdir}/cuda.conf" "${pkgdir}/etc/ld.so.conf.d/cuda.conf"
