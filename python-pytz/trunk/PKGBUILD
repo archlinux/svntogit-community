@@ -4,15 +4,15 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2016.4
+pkgver=2016.6.1
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
-source=(https://pypi.python.org/packages/ad/30/5ab2298c902ac92fdf649cc07d1b7d491a241c5cac8be84dd84464db7d8b/pytz-2016.4.tar.gz{,.asc})
+source=(https://pypi.python.org/packages/5d/8e/6635d8f3f9f48c03bb925fab543383089858271f9cfd1216b83247e8df94/pytz-2016.6.1.tar.gz{,.asc})
 validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
-md5sums=('a3316cf3842ed0375ba5931914239d97'
+md5sums=('b6c28a3b968bc1d8badfb61b93874e03'
          'SKIP')
 
 build(){
