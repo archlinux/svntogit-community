@@ -1,0 +1,108 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Tyler Langlois <ty |at| tjll |dot| net>
+
+pkgbase=beats
+pkgname=(filebeat packetbeat topbeat)
+pkgver=1.2.3
+pkgrel=1
+pkgdesc='Open source data shippers for Elasticsearch'
+arch=('i686' 'x86_64')
+url='https://www.elastic.co/products/beats'
+license=('APACHE')
+depends=('glibc')
+makedepends=('go' 'git' 'libpcap')
+options=('!strip')
+source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
+        "filebeat.install"
+        "filebeat.sysusers"
+        "filebeat.service"
+        "packetbeat.service"
+        "topbeat.service")
+sha256sums=('8eea85de415898c362144ba533062651d8891241c738799e54cc9b17040c1fc9'
+            '337d78d9cb21745098c4cc75578f026e5a5819cd4d0575e3f4241f13370c0863'
+            '33feb3690f8b31563cc1e2da557c2aa326501ce9ccd7e0a142036902bfdb05ff'
+            '1b668b67134dcbca41193f7987371c6e9ead9853f3ebcb54d5c80a9d0b9decf0'
+            'e45629a37d5c305efa26e2b6a68561528762081681e547e312bb058cbff76125'
+            'ac768b039c699c63a3cda17518f3a2ec0481dff23e6366f6fb452c819bd5825b')
+
+prepare() {
+    cd beats-$pkgver
+
+    # Avoid installing extraneous configs
+    sed '/[- ]win/d ; /[- ]darwin/d ; /[- ]binary/d' -i */Makefile
+    # Install the Linux config as default
+    sed -r 's#/([a-z]+)-linux.yml#/\1.yml#' -i */Makefile
+
+    # Perform some timestomping to avoid make warnings
+    LANG=C _t="$(date -r Makefile +'%Y-%m-%d %k:%M:%S')"
+    touch -m -d "$_t" */Makefile
+
+    # Workaround to place extracted release into GOPATH
+    mkdir -p "$srcdir"/gopath/src/github.com/elastic
+    ln -sf "$srcdir"/beats-$pkgver \
+        "$srcdir"/gopath/src/github.com/elastic/beats
+}
+
+build() {
+    export GOPATH="$srcdir"/gopath
+    for beat in ${pkgname[@]}; do
+        msg2 "Building $beat..."
+        cd "$srcdir"/beats-$pkgver/$beat
+        make
+    done
+}
+
+package_filebeat() {
+    pkgdesc='Collects, pre-processes, and forwards log files from remote sources'
+    optdepends=('elasticsearch: for standalone installation')
+    backup=("etc/$pkgname/$pkgname.yml")
+    install="$pkgname.install"
+
+    cd beats-$pkgver/$pkgname
+
+    install -dm755 "$pkgdir"/var/lib/$pkgname
+
+    install -dm755 "$pkgdir"/etc/$pkgname
+    make PREFIX="$pkgdir"/etc/$pkgname install-cfg
+
+    install -Dm755 $pkgname \
+                   "$pkgdir"/usr/bin/$pkgname
+    install -Dm644 "$srcdir"/$pkgname.service \
+                   "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+
+    install -Dm644 "$srcdir"/$pkgname.sysusers \
+                   "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
+}
+
+package_packetbeat() {
+    pkgdesc='Open source network packet analyzer that ships data to Elasticsearch'
+    depends=('libpcap')
+    optdepends=('elasticsearch: for standalone installation')
+    backup=("etc/$pkgname/$pkgname.yml")
+
+    cd beats-$pkgver/$pkgname
+
+    install -dm755 "$pkgdir"/etc/$pkgname
+    make PREFIX="$pkgdir"/etc/$pkgname install-cfg
+
+    install -Dm755 $pkgname \
+                   "$pkgdir"/usr/bin/$pkgname
+    install -Dm644 "$srcdir"/$pkgname.service \
+                   "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+}
+
+package_topbeat() {
+    pkgdesc='Open source server monitoring agent that stores metrics in Elasticsearch'
+    optdepends=('elasticsearch: for standalone installation')
+    backup=("etc/$pkgname/$pkgname.yml")
+
+    cd beats-$pkgver/$pkgname
+
+    install -dm755 "$pkgdir"/etc/$pkgname
+    make PREFIX="$pkgdir"/etc/$pkgname install-cfg
+
+    install -Dm755 $pkgname \
+                   "$pkgdir"/usr/bin/$pkgname
+    install -Dm644 "$srcdir"/$pkgname.service \
+                   "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+}
