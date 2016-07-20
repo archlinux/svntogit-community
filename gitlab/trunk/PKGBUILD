@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.9.6
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
