@@ -20,5 +20,5 @@ libcblas.so : libcblas.a libatlas.so libblas.so
 
 liblapack.so : liblapack.a libcblas.so libblas.so
 	ld $(LDFLAGS) -shared -soname liblapack.so.3 -o $@ --whole-archive \
-	   liblapack.a --no-whole-archive $(F77SYSLIB) -L. -lcblas -lblas -lgcc_s
+	   liblapack.a --no-whole-archive $(F77SYSLIB) -L. -lcblas -lblas
 
