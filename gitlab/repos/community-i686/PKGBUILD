@@ -7,8 +7,8 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=8.9.6
-pkgrel=2
+pkgver=8.10.2
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -42,7 +42,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         nginx-ssl.conf.example
         lighttpd.conf.example)
 install='gitlab.install'
-sha256sums=('1b357ed1157a2a20b647004f588b67d72416df805a385fa7b605905bafb26f55'
+sha256sums=('fe9eeb8bfd14afee659f98d9137dcd3d72a72f202ab657b4c7d2a4692e08df46'
             'becafe0f9811fea69a69b8e2739857ef007f0b7e89391229f123c79c285f34f3'
             'fbe5ec709ead1729e4de85f3f036f053b2b14041c540742315ff2d63a7bdd59a'
             'd21d8c961b2834115a1d9c646278782aaaae0d1d1cde2357b58e67bad3a58527'
@@ -67,6 +67,8 @@ _etcdir="/etc/webapps/${pkgname}"
 
 prepare() {
   cd "${srcdir}/${_srcdir}"
+
+  export SKIP_STORAGE_VALIDATION='true'
 
   # Patching config files:
   msg2 "Patching paths in and username gitlab.yml..."
@@ -116,7 +118,7 @@ build() {
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
-  sed -i '/symlink/d' config/initializers/gitlab_shell_secret_token.rb
+  sed -i '/generate_and_link_secret_token/d' config/initializers/gitlab_shell_secret_token.rb
   bundle-2.1 exec rake assets:precompile RAILS_ENV=production
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
@@ -161,7 +163,7 @@ package() {
   # Fix for ruby-2.1 and bundle-2.1
   sed -i "s|bundle|bundle-2.1|g" "${pkgdir}${_datadir}/lib/tasks/gitlab/check.rake"
   grep -rl "bin/env ruby" "${pkgdir}${_datadir}" | xargs sed -i "s|bin/env ruby$|bin/env ruby-2.1|g"
-  
+
   # Install config files
   for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
