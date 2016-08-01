@@ -4,7 +4,7 @@
 pkgname=kodi-addon-visualization-shadertoy
 _commit=81916a2
 pkgver=20160523.81916a2
-pkgrel=1
+pkgrel=2
 pkgdesc="Shadertoy visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.shadertoy'
