@@ -1,0 +1,119 @@
+From 811f3722818b56ae5a4fb4601a2a772532201571 Mon Sep 17 00:00:00 2001
+From: Hao Lian <hi@haolian.org>
+Date: Mon, 2 May 2016 13:19:33 -0400
+Subject: [PATCH] upgrade to persistent 2.5
+
+---
+ esqueleto.cabal                                     | 10 +++++-----
+ src/Database/Esqueleto.hs                           | 21 +++++++++++++++------
+ src/Database/Esqueleto/Internal/PersistentImport.hs |  2 +-
+ stack.yaml                                          | 16 +++++++++++++++-
+ test/Test.hs                                        |  5 +++--
+ 5 files changed, 39 insertions(+), 15 deletions(-)
+
+diff --git a/esqueleto.cabal b/esqueleto.cabal
+index 65aa237..6494349 100644
+--- a/esqueleto.cabal
++++ b/esqueleto.cabal
+@@ -66,7 +66,7 @@ library
+       base                 >= 4.5     && < 4.9
+     , bytestring
+     , text                 >= 0.11    && < 1.3
+-    , persistent           >= 2.1.1.7 && < 2.3
++    , persistent           >= 2.5     && < 2.6
+     , transformers         >= 0.2
+     , unordered-containers >= 0.2
+     , tagged               >= 0.2
+@@ -94,8 +94,8 @@ test-suite test
+     , HUnit
+     , QuickCheck
+     , hspec               >= 1.8
+-    , persistent-sqlite   >= 2.1
+-    , persistent-template >= 2.1
++    , persistent-sqlite   >= 2.5
++    , persistent-template >= 2.5
+     , monad-control
+     , monad-logger        >= 0.3
+ 
+@@ -106,7 +106,7 @@ test-suite test
+     build-depends:
+         postgresql-simple     >= 0.2
+       , postgresql-libpq      >= 0.6
+-      , persistent-postgresql >= 2.0
++      , persistent-postgresql >= 2.5
+ 
+     cpp-options: -DWITH_POSTGRESQL
+ 
+@@ -114,6 +114,6 @@ test-suite test
+     build-depends:
+         mysql-simple          >= 0.2.2.3
+       , mysql                 >= 0.1.1.3
+-      , persistent-mysql      >= 2.0
++      , persistent-mysql      >= 2.5
+ 
+     cpp-options: -DWITH_MYSQL
+diff --git a/src/Database/Esqueleto.hs b/src/Database/Esqueleto.hs
+index eb135c2..bfceffc 100644
+--- a/src/Database/Esqueleto.hs
++++ b/src/Database/Esqueleto.hs
+@@ -101,6 +101,7 @@ module Database.Esqueleto
+     -- * Re-exports
+     -- $reexports
+   , deleteKey
++  , countWhere
+   , module Database.Esqueleto.Internal.PersistentImport
+   ) where
+ 
+@@ -428,10 +429,18 @@ valJ = val . unValue
+ ----------------------------------------------------------------------
+ 
+ 
+--- | Synonym for 'Database.Persist.Store.delete' that does not
+--- clash with @esqueleto@'s 'delete'.
+-deleteKey :: ( PersistStore (PersistEntityBackend val)
+-             , MonadIO m
+-             , PersistEntity val )
+-          => Key val -> ReaderT (PersistEntityBackend val) m ()
++-- | Synonym for 'Database.Persist.delete' that does not clash with
++-- @esqueleto@'s 'delete'.
++deleteKey :: ( BaseBackend backend ~ PersistEntityBackend val
++             , PersistStoreWrite backend
++             , PersistEntity val
++             , MonadIO m) => Key val -> ReaderT backend m ()
+ deleteKey = Database.Persist.delete
++
++-- | Synonym for 'Database.Persist.count' that does not clash with
++-- @esqueleto@'s 'count'.
++countWhere :: ( BaseBackend backend ~ PersistEntityBackend val
++              , PersistQueryRead backend
++              , PersistEntity val
++              , MonadIO m) => [Database.Persist.Filter val] -> ReaderT backend m Int
++countWhere = Database.Persist.count
+diff --git a/src/Database/Esqueleto/Internal/PersistentImport.hs b/src/Database/Esqueleto/Internal/PersistentImport.hs
+index ad193e0..cfc48ec 100644
+--- a/src/Database/Esqueleto/Internal/PersistentImport.hs
++++ b/src/Database/Esqueleto/Internal/PersistentImport.hs
+@@ -10,4 +10,4 @@ import Database.Persist.Sql hiding
+   , selectKeysList, deleteCascadeWhere, (=.), (+=.), (-=.), (*=.), (/=.)
+   , (==.), (!=.), (<.), (>.), (<=.), (>=.), (<-.), (/<-.), (||.)
+   , listToJSON, mapToJSON, getPersistMap, limitOffsetOrder, selectSource
+-  , update )
++  , update, count)
+diff --git a/test/Test.hs b/test/Test.hs
+index 80c6784..619e539 100644
+--- a/test/Test.hs
++++ b/test/Test.hs
+@@ -1396,10 +1396,11 @@ main = do
+ 
+ 
+ insert' :: ( Functor m
+-           , PersistStore (PersistEntityBackend val)
++           , BaseBackend backend ~ PersistEntityBackend val
++           , PersistStore backend
+            , MonadIO m
+            , PersistEntity val )
+-        => val -> ReaderT (PersistEntityBackend val) m (Entity val)
++        => val -> ReaderT backend m (Entity val)
+ insert' v = flip Entity v <$> insert v
+ 
+ 
