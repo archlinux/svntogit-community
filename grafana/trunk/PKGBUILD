@@ -4,14 +4,14 @@
 # Contributor: Gilles Hamel <hamelg at laposte dot net>
 
 pkgname=grafana
-pkgver=3.1.0
+pkgver=3.1.1
 pkgrel=1
 pkgdesc='Gorgeous metric viz, dashboards & editors for Graphite, InfluxDB & OpenTSDB'
 url='http://grafana.org'
 arch=('x86_64' 'i686')
 license=('Apache')
 depends=('glibc')
-makedepends=('git' 'go' 'godep' 'nodejs-grunt-cli' 'npm' 'phantomjs')
+makedepends=('git' 'go' 'npm')
 backup=("etc/grafana.ini")
 source=("git+https://github.com/grafana/grafana.git#tag=v$pkgver"
         "grafana.service"
@@ -38,39 +38,36 @@ prepare() {
 }
 
 build() {
-   export GOPATH="$srcdir/$pkgname"
-   export PATH="$PATH:$GOPATH/bin"
-   cd "$GOPATH"
-   go run build.go setup
-   godep restore
-   mkdir -p "$GOPATH/src/github.com/grafana/grafana/"
-   ln -s "$GOPATH/pkg" "$GOPATH/src/github.com/grafana/grafana/"
+  # $GOPATH tunning
+  export GOPATH="$srcdir"
+  export PATH="$PATH:$GOPATH/bin"
+  mkdir -p "$GOPATH/src/github.com/grafana/"
+  ln -fsr "$srcdir/grafana/" "$GOPATH/src/github.com/grafana/grafana"
+  cd grafana
 
-   # Build frontend assets
-   npm install
-   cd "$GOPATH"
-   grunt
-   grunt build
-   grunt build-post-process
+  # building the backend
+  go run build.go setup
+  godep restore
+  go run build.go build
 
-   # build the backend
-   # no longer doing package build since this just kicks off rpm/deb builds at the end.
-   #go run build.go build package
-   go run build.go build
+  # building the frontend
+  npm install
+  npm run build
 }
 
 package() {
-   install -Dm644 grafana.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/grafana.conf"
-   install -Dm644 grafana.sysusers "$pkgdir/usr/lib/sysusers.d/grafana.conf"
-   install -Dm644 grafana.service "$pkgdir/usr/lib/systemd/system/grafana.service"
-   cd $pkgname
-   install -Dsm755 bin/grafana-server "$pkgdir/usr/bin/grafana-server"
-   install -Dm644 conf/sample.ini "$pkgdir/etc/$pkgname.ini"
-   install -Dm644 conf/defaults.ini "$pkgdir/usr/share/$pkgname/conf/defaults.ini"
-   install -dm755 "$pkgdir/usr/share/grafana/"
-   cp -r vendor "$pkgdir/usr/share/grafana/"
-   cp -r public_gen "$pkgdir/usr/share/grafana/public"
-   ln -s ../../../var/lib/grafana "$pkgdir/usr/share/grafana/data"
+  install -Dm644 grafana.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/grafana.conf"
+  install -Dm644 grafana.sysusers "$pkgdir/usr/lib/sysusers.d/grafana.conf"
+  install -Dm644 grafana.service "$pkgdir/usr/lib/systemd/system/grafana.service"
+  cd $pkgname
+  install -Dsm755 bin/grafana-server "$pkgdir/usr/bin/grafana-server"
+  install -Dsm755 bin/grafana-cli "$pkgdir/usr/bin/grafana-cli"
+  install -Dm644 conf/sample.ini "$pkgdir/etc/$pkgname.ini"
+  install -Dm644 conf/defaults.ini "$pkgdir/usr/share/$pkgname/conf/defaults.ini"
+  install -dm755 "$pkgdir/usr/share/grafana/"
+  cp -r vendor "$pkgdir/usr/share/grafana/"
+  cp -r public_gen "$pkgdir/usr/share/grafana/public"
+  ln -s ../../../var/lib/grafana "$pkgdir/usr/share/grafana/data"
 }
 
 # vim:set ts=2 sw=2 et:
