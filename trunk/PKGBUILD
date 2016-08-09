@@ -13,7 +13,8 @@ arch=('x86_64' 'i686')
 license=('APACHE')
 url='http://pypi.python.org/pypi/pymongo/'
 makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-nose' 'python2-nose' 'python2-gevent' 'python2-monotonic' 'mongodb' 'perl')
+checkdepends=('python-nose' 'python2-nose' 'python2-gevent' 'python2-monotonic' 'mongodb'
+              'python-pifpaf')
 source=("https://pypi.io/packages/source/p/pymongo/pymongo-$pkgver.tar.gz")
 sha256sums=('3d45302fc2622fabf34356ba274c69df41285bac71bbd229f1587283b851b91e')
 
@@ -30,40 +31,13 @@ build() {
 }
 
 check() {
-  _mongod_run() {
-    MONGO_TMP_PORT=$(perl -MSocket -le 'socket S, PF_INET, SOCK_STREAM,getprotobyname("tcp");
-      $port = 50000;
-      ++$port until bind S, sockaddr_in($port,inet_aton("127.1"));
-      print $port')
-    echo "Picked port $MONGO_TMP_PORT to run tests with."
-
-    # Start a mongod instance for test
-    rm -rf "$srcdir/mongo_tmp"
-    mkdir "$srcdir/mongo_tmp"
-    rm -f "$srcdir/mongo_tmp.pid"
-
-    # Specifying --storageEngine is needed for i686
-    if [ "$CARCH" == "i686" ]; then
-      _storageEngine="--storageEngine=mmapv1"
-    else
-      _storageEngine=""
-    fi
-
-    mongod --bind_ip 127.0.0.1 --port $MONGO_TMP_PORT --dbpath "$srcdir/mongo_tmp" --nojournal $_storageEngine -v \
-           --nohttpinterface --noauth --smallfiles --nssize 1 --pidfilepath "$srcdir/mongo_tmp.pid" --logpath "$srcdir/mongo_tmp.log" &
-    # --fork is somehow broken in latest mongodb
-    sleep 5
-    
-    DB_PORT=$MONGO_TMP_PORT "$@"
-    kill $(cat "$srcdir/mongo_tmp.pid")
-    sleep 5
-  }
+  export DB_PORT=29000
 
   cd "$srcdir/pymongo-$pkgver"
-  _mongod_run python setup.py test
+  pifpaf run mongodb python setup.py test
 
   cd "$srcdir/pymongo2-$pkgver"
-  _mongod_run python2 setup.py test
+  pifpaf run mongodb python2 setup.py test
 }
 
 package_python2-pymongo() {
