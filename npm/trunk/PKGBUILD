@@ -2,7 +2,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=3.10.5
+pkgver=3.10.6
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -10,11 +10,16 @@ url='https://www.npmjs.com/'
 license=('custom:Artistic')
 depends=('nodejs' 'semver')
 provides=('nodejs-node-gyp')
-makedepends=('git' 'procps-ng')
+makedepends=('git' 'procps-ng' 'marked-man')
 optdepends=('python2: for node-gyp')
 options=('!emptydirs')
 source=("git+https://github.com/npm/npm.git#tag=v$pkgver")
 md5sums=('SKIP')
+
+prepare() {
+  cd npm
+  ln -s /usr/bin/marked{,-man} node_modules/.bin/
+}
 
 build() {
   cd npm
