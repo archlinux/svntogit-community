@@ -1,0 +1,5676 @@
+diff --git a/launcher/category/category.go b/launcher/category/category.go
+new file mode 100644
+index 0000000..5a4918f
+--- /dev/null
++++ b/launcher/category/category.go
+@@ -0,0 +1,173 @@
++package category
++
++import (
++	"errors"
++	"fmt"
++	"path"
++	"path/filepath"
++	"strings"
++
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"pkg.deepin.io/lib/gettext"
++	"gir/glib-2.0"
++)
++
++// category id and name.
++const (
++	UnknownID CategoryID = iota - 3
++	OthersID
++	AllID
++	NetworkID
++	MultimediaID
++	GamesID
++	GraphicsID
++	ProductivityID
++	IndustryID
++	EducationID
++	DevelopmentID
++	SystemID
++	UtilitiesID
++
++	AllCategoryName          = "all"
++	OtherCategoryName        = "others"
++	NetworkCategoryName      = "internet"
++	MultimediaCategoryName   = "multimedia"
++	GamesCategoryName        = "games"
++	GraphicsCategoryName     = "graphics"
++	ProductivityCategoryName = "productivity"
++	IndustryCategoryName     = "industry"
++	EducationCategoryName    = "education"
++	DevelopmentCategoryName  = "development"
++	SystemCategoryName       = "system"
++	UtilitiesCategoryName    = "utilities"
++
++	SoftwareCenterDataDir = "/usr/share/deepin-software-center/data"
++	_DataNewestIDFileName = "data_newest_id.ini"
++	CategoryNameDBPath    = "/update/%s/desktop/desktop2014.db"
++)
++
++var (
++	categoryNameTable = map[string]CategoryID{
++		OtherCategoryName:        OthersID,
++		AllCategoryName:          AllID,
++		NetworkCategoryName:      NetworkID,
++		MultimediaCategoryName:   MultimediaID,
++		GamesCategoryName:        GamesID,
++		GraphicsCategoryName:     GraphicsID,
++		ProductivityCategoryName: ProductivityID,
++		IndustryCategoryName:     IndustryID,
++		EducationCategoryName:    EducationID,
++		DevelopmentCategoryName:  DevelopmentID,
++		SystemCategoryName:       SystemID,
++		UtilitiesCategoryName:    UtilitiesID,
++	}
++)
++
++// Info for category.
++type Info struct {
++	id    CategoryID
++	name  string
++	items map[ItemID]struct{}
++}
++
++func NewInfo(id CategoryID, name string) *Info {
++	return &Info{
++		id:    id,
++		name:  name,
++		items: map[ItemID]struct{}{},
++	}
++}
++
++// ID returns category id.
++func (c *Info) ID() CategoryID {
++	return c.id
++}
++
++// Name returns category english name.
++func (c *Info) Name() string {
++	return c.name
++}
++
++// LocaleName returns category's locale name.
++func (c *Info) LocaleName() string {
++	return gettext.Tr(c.name)
++}
++
++// AddItem adds a new app.
++func (c *Info) AddItem(itemID ItemID) {
++	c.items[itemID] = struct{}{}
++}
++
++// RemoveItem removes a app.
++func (c *Info) RemoveItem(itemID ItemID) {
++	delete(c.items, itemID)
++}
++
++// Items returns all items belongs to this category.
++func (c *Info) Items() []ItemID {
++	items := []ItemID{}
++	for itemID := range c.items {
++		items = append(items, itemID)
++	}
++	return items
++}
++
++func getNewestDataID(dataDir string) (string, error) {
++	file := glib.NewKeyFile()
++	defer file.Free()
++
++	ok, err := file.LoadFromFile(path.Join(dataDir, _DataNewestIDFileName), glib.KeyFileFlagsNone)
++	if !ok {
++		return "", err
++	}
++
++	id, err := file.GetString("newest", "data_id")
++	if err != nil {
++		return "", err
++	}
++
++	return id, nil
++}
++
++// GetDBPath returns db path store category info.
++func GetDBPath(dataDir string, template string) (string, error) {
++	id, err := getNewestDataID(dataDir)
++	if err != nil {
++		return "", err
++	}
++	return filepath.Join(dataDir, fmt.Sprintf(template, id)), nil
++}
++
++func getCategoryID(name string) (CategoryID, error) {
++	name = strings.ToLower(name)
++	if id, ok := categoryNameTable[name]; ok {
++		return id, nil
++	}
++
++	if id, ok := xCategoryNameIDMap[name]; ok {
++		return id, nil
++	}
++
++	if id, ok := extraXCategoryNameIDMap[name]; ok {
++		return id, nil
++	}
++
++	return OthersID, errors.New("unknown id")
++}
++
++func GetAllInfos(string) []CategoryInfo {
++	return []CategoryInfo{
++		NewInfo(AllID, AllCategoryName),
++		NewInfo(OthersID, OtherCategoryName),
++		NewInfo(NetworkID, NetworkCategoryName),
++		NewInfo(MultimediaID, MultimediaCategoryName),
++		NewInfo(GamesID, GamesCategoryName),
++		NewInfo(GraphicsID, GraphicsCategoryName),
++		NewInfo(ProductivityID, ProductivityCategoryName),
++		NewInfo(IndustryID, IndustryCategoryName),
++		NewInfo(EducationID, EducationCategoryName),
++		NewInfo(DevelopmentID, DevelopmentCategoryName),
++		NewInfo(SystemID, SystemCategoryName),
++		NewInfo(UtilitiesID, UtilitiesCategoryName),
++	}
++}
+diff --git a/launcher/category/category_manager.go b/launcher/category/category_manager.go
+new file mode 100644
+index 0000000..0151067
+--- /dev/null
++++ b/launcher/category/category_manager.go
+@@ -0,0 +1,105 @@
++package category
++
++import (
++	"errors"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"gir/gio-2.0"
++)
++
++type QueryIDTransition interface {
++	Query(*gio.DesktopAppInfo) (CategoryID, error)
++	Free()
++}
++
++// Manager for categories.
++type Manager struct {
++	categoryTable              map[CategoryID]CategoryInfo
++	deepinQueryIDTransition    QueryIDTransition
++	xCategoryQueryIDTransition QueryIDTransition
++}
++
++// NewManager creates a new category manager.
++func NewManager(categories []CategoryInfo) *Manager {
++	m := &Manager{
++		categoryTable: map[CategoryID]CategoryInfo{},
++	}
++	m.AddCategory(categories...)
++	return m
++}
++
++func (m *Manager) AddCategory(c ...CategoryInfo) {
++	for _, info := range c {
++		m.categoryTable[info.ID()] = info
++	}
++}
++
++// GetCategory returns category info according to id.
++func (m *Manager) GetCategory(id CategoryID) CategoryInfo {
++	category, ok := m.categoryTable[id]
++	if ok {
++		return category
++	}
++
++	return nil
++}
++
++// GetAllCategory returns all categories.
++func (m *Manager) GetAllCategory() []CategoryID {
++	ids := []CategoryID{}
++	for id := range m.categoryTable {
++		ids = append(ids, id)
++	}
++
++	return ids
++}
++
++// AddItem adds a app to category.
++func (m *Manager) AddItem(id ItemID, cid CategoryID) {
++	m.categoryTable[cid].AddItem(id)
++	m.categoryTable[AllID].AddItem(id)
++}
++
++// RemoveItem removes a app from category.
++func (m *Manager) RemoveItem(id ItemID, cid CategoryID) {
++	m.categoryTable[cid].RemoveItem(id)
++	m.categoryTable[AllID].RemoveItem(id)
++}
++
++func (m *Manager) QueryID(app *gio.DesktopAppInfo) (CategoryID, error) {
++	var err error
++	if m.deepinQueryIDTransition != nil {
++		cid, e := m.deepinQueryIDTransition.Query(app)
++		if e == nil {
++			return cid, nil
++		}
++		err = e
++	}
++
++	if m.xCategoryQueryIDTransition != nil {
++		return m.xCategoryQueryIDTransition.Query(app)
++	}
++
++	if err != nil {
++		return OthersID, err
++	}
++
++	return OthersID, errors.New("No QueryIDTransition is created")
++}
++
++func (m *Manager) LoadAppCategoryInfo(deepin string, xcategory string) error {
++	var err error
++	m.deepinQueryIDTransition, err = NewDeepinQueryIDTransition(deepin)
++	if err != nil {
++		return err
++	}
++
++	m.xCategoryQueryIDTransition, err = NewXCategoryQueryIDTransition(xcategory)
++	return err
++}
++
++func (m *Manager) FreeAppCategoryInfo() {
++	m.deepinQueryIDTransition.Free()
++	m.xCategoryQueryIDTransition.Free()
++	m.deepinQueryIDTransition = nil
++	m.xCategoryQueryIDTransition = nil
++}
+diff --git a/launcher/category/category_manager_test.go b/launcher/category/category_manager_test.go
+new file mode 100644
+index 0000000..18855d5
+--- /dev/null
++++ b/launcher/category/category_manager_test.go
+@@ -0,0 +1,62 @@
++package category
++
++import (
++	C "launchpad.net/gocheck"
++)
++
++type ManagerTestSuite struct {
++	manager *Manager
++}
++
++func (s *ManagerTestSuite) SetUpTest(c *C.C) {
++	s.manager = NewManager(GetAllInfos(""))
++}
++
++func (s *ManagerTestSuite) TestGetCategory(c *C.C) {
++	category := s.manager.GetCategory(AllID)
++	c.Assert(category.ID(), C.Equals, AllID)
++
++	category2 := s.manager.GetCategory(NetworkID)
++	c.Assert(category2.ID(), C.Equals, NetworkID)
++
++	category3 := s.manager.GetCategory(OthersID)
++	c.Assert(category3.ID(), C.IsNil)
++}
++
++func (s *ManagerTestSuite) TestAddItem(c *C.C) {
++	s.manager.AddItem("google-chrome", NetworkID)
++	c.Assert(s.manager.categoryTable[NetworkID].Items(), C.HasLen, 1)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 1)
++
++	s.manager.AddItem("firefox", NetworkID)
++	c.Assert(s.manager.categoryTable[NetworkID].Items(), C.HasLen, 2)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 2)
++
++	s.manager.AddItem("vim", DevelopmentID)
++	c.Assert(s.manager.categoryTable[DevelopmentID].Items(), C.HasLen, 1)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 3)
++}
++
++func (s *ManagerTestSuite) TestRemoveItem(c *C.C) {
++	s.manager.AddItem("google-chrome", NetworkID)
++	s.manager.AddItem("firefox", NetworkID)
++	s.manager.AddItem("vim", DevelopmentID)
++	c.Assert(s.manager.categoryTable[NetworkID].Items(), C.HasLen, 2)
++	c.Assert(s.manager.categoryTable[DevelopmentID].Items(), C.HasLen, 1)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 3)
++
++	s.manager.RemoveItem("vim", DevelopmentID)
++	c.Assert(s.manager.categoryTable[NetworkID].Items(), C.HasLen, 2)
++	c.Assert(s.manager.categoryTable[DevelopmentID].Items(), C.HasLen, 0)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 2)
++
++	s.manager.RemoveItem("firefox", NetworkID)
++	c.Assert(s.manager.categoryTable[NetworkID].Items(), C.HasLen, 1)
++	c.Assert(s.manager.categoryTable[DevelopmentID].Items(), C.HasLen, 0)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 1)
++
++	s.manager.RemoveItem("test", DevelopmentID)
++	c.Assert(s.manager.categoryTable[NetworkID].Items(), C.HasLen, 1)
++	c.Assert(s.manager.categoryTable[DevelopmentID].Items(), C.HasLen, 0)
++	c.Assert(s.manager.categoryTable[AllID].Items(), C.HasLen, 1)
++}
+diff --git a/launcher/category/category_test.go b/launcher/category/category_test.go
+new file mode 100644
+index 0000000..ec25338
+--- /dev/null
++++ b/launcher/category/category_test.go
+@@ -0,0 +1,58 @@
++package category
++
++import (
++	C "launchpad.net/gocheck"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"testing"
++)
++
++func TestCategory(t *testing.T) {
++	C.TestingT(t)
++}
++
++type CategoryTestSuite struct {
++	testDataDir string
++}
++
++var _ = C.Suite(&CategoryTestSuite{})
++
++func (s *CategoryTestSuite) TestGetID(c *C.C) {
++	cf := &Info{AllID, "all", map[ItemID]struct{}{}}
++	c.Assert(cf.ID(), C.Equals, AllID)
++}
++func (s *CategoryTestSuite) TestGetName(c *C.C) {
++	cf := &Info{AllID, "all", map[ItemID]struct{}{}}
++	c.Assert(cf.Name(), C.Equals, "all")
++}
++
++func (s *CategoryTestSuite) TestGetAddItem(c *C.C) {
++	cf := &Info{AllID, "all", map[ItemID]struct{}{}}
++	c.Assert(cf.items, C.DeepEquals, make(map[ItemID]struct{}, 0))
++	cf.AddItem(ItemID("test"))
++	c.Assert(cf.items, C.DeepEquals, map[ItemID]struct{}{ItemID("test"): struct{}{}})
++}
++
++func (s *CategoryTestSuite) TestRemoveItem(c *C.C) {
++	cf := &Info{AllID, "all", map[ItemID]struct{}{}}
++	c.Assert(cf.items, C.DeepEquals, make(map[ItemID]struct{}, 0))
++	cf.AddItem(ItemID("test"))
++	c.Assert(cf.items, C.DeepEquals, map[ItemID]struct{}{ItemID("test"): struct{}{}})
++	cf.RemoveItem(ItemID("test"))
++	c.Assert(cf.items, C.DeepEquals, make(map[ItemID]struct{}, 0))
++}
++
++func (s *CategoryTestSuite) TestItems(c *C.C) {
++	cf := &Info{AllID, "all", map[ItemID]struct{}{}}
++	c.Assert(cf.Items(), C.DeepEquals, []ItemID{})
++
++	cf.AddItem(ItemID("test"))
++	c.Assert(cf.Items(), C.HasLen, 1)
++
++	cf.AddItem(ItemID("test2"))
++	c.Assert(cf.Items(), C.HasLen, 2)
++
++	cf.RemoveItem(ItemID("test"))
++	c.Assert(cf.Items(), C.HasLen, 1)
++}
++
++// TODO: fake a db to test QueryID
+diff --git a/launcher/category/deepin_query_id_transition.go b/launcher/category/deepin_query_id_transition.go
+new file mode 100644
+index 0000000..3eef702
+--- /dev/null
++++ b/launcher/category/deepin_query_id_transition.go
+@@ -0,0 +1,55 @@
++package category
++
++import (
++	"database/sql"
++	"errors"
++	"path"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"gir/gio-2.0"
++)
++
++type DeepinQueryIDTransition struct {
++	db *sql.DB
++}
++
++func NewDeepinQueryIDTransition(dbPath string) (*DeepinQueryIDTransition, error) {
++	db, err := sql.Open("sqlite3", dbPath)
++	if err != nil {
++		return nil, err
++	}
++
++	transition := &DeepinQueryIDTransition{db: db}
++	return transition, nil
++}
++
++func (transition *DeepinQueryIDTransition) Query(app *gio.DesktopAppInfo) (CategoryID, error) {
++	db := transition.db
++	if db == nil {
++		return OthersID, errors.New("invalid db")
++	}
++
++	filename := app.GetFilename()
++	basename := path.Base(filename)
++	var categoryName string
++	err := db.QueryRow(`
++	select first_category_name
++	from desktop
++	where desktop_name = ?`,
++		basename,
++	).Scan(&categoryName)
++	if err != nil {
++		return OthersID, err
++	}
++
++	if categoryName == "" {
++		return OthersID, errors.New("get empty category")
++	}
++
++	return getCategoryID(categoryName)
++}
++
++func (transition *DeepinQueryIDTransition) Free() {
++	if transition.db != nil {
++		transition.db.Close()
++	}
++}
+diff --git a/launcher/category/translate.go b/launcher/category/translate.go
+new file mode 100644
+index 0000000..c332b71
+--- /dev/null
++++ b/launcher/category/translate.go
+@@ -0,0 +1,20 @@
++package category
++
++import (
++	"pkg.deepin.io/lib/gettext"
++)
++
++var (
++	_AllCategoryName          = gettext.Tr("all")
++	_OtherCategoryName        = gettext.Tr("others")
++	_NetworkCategoryName      = gettext.Tr("internet")
++	_MultimediaCategoryName   = gettext.Tr("multimedia")
++	_GamesCategoryName        = gettext.Tr("games")
++	_GraphicsCategoryName     = gettext.Tr("graphics")
++	_ProductivityCategoryName = gettext.Tr("productivity")
++	_IndustryCategoryName     = gettext.Tr("industry")
++	_EducationCategoryName    = gettext.Tr("education")
++	_DevelopmentCategoryName  = gettext.Tr("development")
++	_SystemCategoryName       = gettext.Tr("system")
++	_UtilitiesCategoryName    = gettext.Tr("utilities")
++)
+diff --git a/launcher/category/x_category.go b/launcher/category/x_category.go
+new file mode 100644
+index 0000000..db05a71
+--- /dev/null
++++ b/launcher/category/x_category.go
+@@ -0,0 +1,247 @@
++package category
++
++import (
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++// AudioVideo/Audio/Video -> multimedia
++// Development -> Development
++// Education -> Education
++// Game -> Games
++// Graphics -> Graphics
++// Network -> Network
++// System/settings -> System
++// Utility -> Utilities
++// office -> Productivity
++// -> Industry
++var xCategoryNameIDMap map[string]CategoryID = map[string]CategoryID{
++	"network":           NetworkID,
++	"webbrowser":        NetworkID,
++	"email":             NetworkID,
++	"contactmanagement": NetworkID, // productivity
++	"filetransfer":      NetworkID,
++	"p2p":               NetworkID,
++	"instantmessaging":  NetworkID,
++	"chat":              NetworkID,
++	"ircclient":         NetworkID,
++	"news":              NetworkID,
++	"remoteaccess":      NetworkID,
++
++	"tv":                MultimediaID,
++	"multimedia":        MultimediaID,
++	"audio":             MultimediaID,
++	"video":             MultimediaID,
++	"audiovideo":        MultimediaID,
++	"audiovideoediting": MultimediaID,
++	"discburning":       MultimediaID,
++	"midi":              MultimediaID,
++	"mixer":             MultimediaID,
++	"player":            MultimediaID,
++	"music":             MultimediaID,
++	"recorder":          MultimediaID,
++	"sequencer":         MultimediaID,
++	"tuner":             MultimediaID,
++
++	"game":          GamesID,
++	"amusement":     GamesID,
++	"actiongame":    GamesID,
++	"adventuregame": GamesID,
++	"arcadegame":    GamesID,
++	"emulator":      GamesID, // system or game
++	"simulation":    GamesID,
++	"kidsgame":      GamesID,
++	"logicgame":     GamesID,
++	"roleplaying":   GamesID,
++	"sportsgame":    GamesID,
++	"strategygame":  GamesID,
++
++	"graphics":        GraphicsID,
++	"2dgraphics":      GraphicsID,
++	"3dgraphics":      GraphicsID,
++	"imageprocessing": GraphicsID, // education
++	"ocr":             GraphicsID,
++	"photography":     GraphicsID,
++	"rastergraphics":  GraphicsID,
++	"vectorgraphics":  GraphicsID,
++	"viewer":          GraphicsID,
++
++	"office":            ProductivityID,
++	"spreadsheet":       ProductivityID,
++	"wordprocessor":     ProductivityID,
++	"projectmanagement": ProductivityID,
++	"chart":             ProductivityID,
++	"numericalanalysis": ProductivityID, // education
++	"presentation":      ProductivityID,
++	"scanning":          ProductivityID, // graphics
++	"printing":          ProductivityID, // system
++
++	"engineering":     IndustryID,
++	"telephonytools":  IndustryID, // utilities
++	"telephony":       IndustryID, // network
++	"finance":         IndustryID, // productivity
++	"hamradio":        IndustryID,
++	"medicalsoftware": IndustryID, // education
++	"publishing":      IndustryID,
++
++	"education":              EducationID,
++	"art":                    EducationID,
++	"literature":             EducationID,
++	"dictionary":             EducationID, // productivity
++	"artificialintelligence": EducationID,
++	"electricity":            EducationID,
++	"robotics":               EducationID,
++	"geography":              EducationID,
++	"computerscience":        EducationID,
++	"math":                   EducationID,
++	"biology":                EducationID,
++	"physics":                EducationID,
++	"chemistry":              EducationID,
++	"electronics":            EducationID,
++	"geology":                EducationID,
++	"astronomy":              EducationID,
++	"science":                EducationID,
++
++	"development":    DevelopmentID,
++	"debugger":       DevelopmentID,
++	"ide":            DevelopmentID,
++	"building":       DevelopmentID,
++	"guidesigner":    DevelopmentID,
++	"webdevelopment": DevelopmentID,
++	"profiling":      DevelopmentID,
++	"transiation":    DevelopmentID,
++
++	"system":         SystemID,
++	"settings":       SystemID,
++	"monitor":        SystemID,
++	"dialup":         SystemID, // network
++	"packagemanager": SystemID,
++	"filesystem":     SystemID,
++
++	"utility":          UtilitiesID,
++	"pda":              UtilitiesID, // productivity
++	"accessibility":    UtilitiesID, // system/utilities
++	"clock":            UtilitiesID,
++	"calendar":         UtilitiesID,
++	"calculator":       UtilitiesID,
++	"documentation":    UtilitiesID,
++	"archiving":        UtilitiesID,
++	"compression":      UtilitiesID,
++	"filemanager":      UtilitiesID, // system/ utilities
++	"filetools":        UtilitiesID, // system/utilities
++	"terminalemulator": UtilitiesID, // system
++	"texteditor":       UtilitiesID,
++	"texttools":        UtilitiesID,
++}
++
++var extraXCategoryNameIDMap map[string]CategoryID = map[string]CategoryID{
++	"internet":        NetworkID,
++	"videoconference": NetworkID,
++
++	"x-jack":           MultimediaID,
++	"x-alsa":           MultimediaID,
++	"x-multitrack":     MultimediaID,
++	"x-sound":          MultimediaID,
++	"cd":               MultimediaID,
++	"x-midi":           MultimediaID,
++	"x-sequencers":     MultimediaID,
++	"x-suse-sequencer": MultimediaID,
++
++	"boardgame":                       GamesID,
++	"cardgame":                        GamesID,
++	"x-debian-applications-emulators": GamesID,
++	"puzzlegame":                      GamesID,
++	"blocksgame":                      GamesID,
++	"x-suse-core-game":                GamesID,
++
++	"x-geeqie": GraphicsID,
++
++	"x-suse-core-office":           ProductivityID,
++	"x-mandrivalinux-office-other": ProductivityID,
++	"x-turbolinux-office":          ProductivityID,
++
++	"technical":                    IndustryID,
++	"x-mandriva-office-publishing": IndustryID,
++
++	"x-kde-edu-misc":     EducationID,
++	"translation":        EducationID,
++	"x-religion":         EducationID,
++	"x-bible":            EducationID,
++	"x-islamic-software": EducationID,
++	"x-quran":            EducationID,
++	"geoscience":         EducationID,
++	"meteorology":        EducationID,
++
++	"revisioncontrol": DevelopmentID,
++
++	"trayicon":                    SystemID,
++	"x-lxde-settings":             SystemID,
++	"x-xfce-toplevel":             SystemID,
++	"x-xfcesettingsdialog":        SystemID,
++	"x-xfce":                      SystemID,
++	"x-kde-utilities-pim":         SystemID,
++	"x-kde-internet":              SystemID,
++	"x-kde-more":                  SystemID,
++	"x-kde-utilities-peripherals": SystemID,
++	"kde": SystemID,
++	"x-kde-utilities-file":                    SystemID,
++	"x-kde-utilities-desktop":                 SystemID,
++	"x-gnome-networksettings":                 SystemID,
++	"gnome":                                   SystemID,
++	"x-gnome-settings-panel":                  SystemID,
++	"x-gnome-personalsettings":                SystemID,
++	"x-gnome-systemsettings":                  SystemID,
++	"desktoputility":                          SystemID,
++	"x-misc":                                  SystemID,
++	"x-suse-core":                             SystemID,
++	"x-red-hat-base-only":                     SystemID,
++	"x-novell-main":                           SystemID,
++	"x-red-hat-extra":                         SystemID,
++	"x-suse-yast":                             SystemID,
++	"x-sun-supported":                         SystemID,
++	"x-suse-yast-high_availability":           SystemID,
++	"x-suse-controlcenter-lookandfeel":        SystemID,
++	"x-suse-controlcenter-system":             SystemID,
++	"x-red-hat-serverconfig":                  SystemID,
++	"x-mandrivalinux-system-archiving-backup": SystemID,
++	"x-suse-backup":                           SystemID,
++	"x-red-hat-base":                          SystemID,
++	"panel":                                   SystemID,
++	"x-gnustep":                               SystemID,
++	"x-bluetooth":                             SystemID,
++	"x-ximian-main":                           SystemID,
++	"x-synthesis":                             SystemID,
++	"x-digital_processing":                    SystemID,
++	"desktopsettings":                         SystemID,
++	"x-mandrivalinux-internet-other":          SystemID,
++	"systemsettings":                          SystemID,
++	"hardwaresettings":                        SystemID,
++	"advancedsettings":                        SystemID,
++	"x-enlightenment":                         SystemID,
++	"compiz":                                  SystemID,
++
++	"consoleonly": UtilitiesID,
++	"core":        UtilitiesID,
++	"favorites":   UtilitiesID,
++	"pim":         UtilitiesID,
++	"gpe":         UtilitiesID,
++	"motif":       UtilitiesID,
++	"applet":      UtilitiesID,
++	"accessories": UtilitiesID,
++	"wine":        UtilitiesID,
++	"wine-programs-accessories": UtilitiesID,
++	"playonlinux":               UtilitiesID,
++	"screensaver":               UtilitiesID,
++	"editors":                   UtilitiesID,
++}
++
++// TODO:
++// Database:productivity:development:multimedia
++// security:system
++// flowchart:productivity
++// construction:education
++// languages: education
++// datavisualization: education
++// economy: education
++// history: education
++// sports: education
++// parallelcomputing: education
+diff --git a/launcher/category/x_category_query_id_transition.go b/launcher/category/x_category_query_id_transition.go
+new file mode 100644
+index 0000000..d186f2a
+--- /dev/null
++++ b/launcher/category/x_category_query_id_transition.go
+@@ -0,0 +1,60 @@
++package category
++
++import (
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"gir/gio-2.0"
++	"sort"
++	"strings"
++)
++
++type XCategoryQueryIDTransition struct {
++}
++
++func NewXCategoryQueryIDTransition(string) (*XCategoryQueryIDTransition, error) {
++	return &XCategoryQueryIDTransition{}, nil
++}
++
++// IDList type alias for []CategoryID, used for sorting.
++type IDList []CategoryID
++
++func (list IDList) Less(i, j int) bool {
++	return list[i] < list[j]
++}
++
++func (list IDList) Swap(i, j int) {
++	list[i], list[j] = list[j], list[i]
++}
++
++func (list IDList) Len() int {
++	return len(list)
++}
++
++func getXCategory(categories []string) CategoryID {
++	candidateIDs := map[CategoryID]bool{OthersID: true}
++	for _, category := range categories {
++		if id, err := getCategoryID(category); err == nil {
++			candidateIDs[id] = true
++		}
++	}
++
++	if len(candidateIDs) > 1 && candidateIDs[OthersID] {
++		delete(candidateIDs, OthersID)
++	}
++
++	var ids []CategoryID
++	for id := range candidateIDs {
++		ids = append(ids, id)
++	}
++
++	sort.Sort(IDList(ids))
++
++	return ids[0]
++}
++
++func (transition *XCategoryQueryIDTransition) Query(app *gio.DesktopAppInfo) (CategoryID, error) {
++	categories := strings.Split(strings.TrimRight(app.GetCategories(), ";"), ";")
++	return getXCategory(categories), nil
++}
++
++func (transition *XCategoryQueryIDTransition) Free() {
++}
+diff --git a/launcher/dbus_export.go b/launcher/dbus_export.go
+new file mode 100644
+index 0000000..77bcda1
+--- /dev/null
++++ b/launcher/dbus_export.go
+@@ -0,0 +1,61 @@
++package launcher
++
++import (
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++// ItemInfoExport is a wrapper struct used to export info to dbus .
++type ItemInfoExport struct {
++	Path          string
++	Name          string
++	ID            ItemID
++	Icon          string
++	CategoryID    CategoryID
++	TimeInstalled int64
++}
++
++// NewItemInfoExport creates a new ItemInfoExport from ItemInfo.
++func NewItemInfoExport(item ItemInfo) ItemInfoExport {
++	if item == nil {
++		return ItemInfoExport{}
++	}
++	return ItemInfoExport{
++		Path:          item.Path(),
++		Name:          item.LocaleName(),
++		ID:            item.ID(),
++		Icon:          item.Icon(),
++		CategoryID:    item.CategoryID(),
++		TimeInstalled: item.TimeInstalled(),
++	}
++}
++
++// CategoryInfoExport is a wrapper struct used to export info to dbus.
++type CategoryInfoExport struct {
++	Name  string
++	ID    CategoryID
++	Items []ItemID
++}
++
++// NewCategoryInfoExport creates a new CategoryInfoExport from CategoryInfo.
++func NewCategoryInfoExport(c CategoryInfo) CategoryInfoExport {
++	if c == nil {
++		return CategoryInfoExport{}
++	}
++	return CategoryInfoExport{
++		Name:  c.Name(),
++		ID:    c.ID(),
++		Items: c.Items(),
++	}
++}
++
++// FrequencyExport is a wrapper struct used to export info to dbus.
++type FrequencyExport struct {
++	ID        ItemID
++	Frequency uint64
++}
++
++// TimeInstalledExport is a wrapper struct used to export info to dbus.
++type TimeInstalledExport struct {
++	ID   ItemID
++	Time int64
++}
+diff --git a/launcher/dbus_export_test.go b/launcher/dbus_export_test.go
+new file mode 100644
+index 0000000..83696c5
+--- /dev/null
++++ b/launcher/dbus_export_test.go
+@@ -0,0 +1,21 @@
++package launcher
++
++import (
++	C "launchpad.net/gocheck"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++type CategoryInfoExportTestSuite struct {
++}
++
++var _ = C.Suite(&CategoryInfoExportTestSuite{})
++
++func (s *CategoryInfoExportTestSuite) TestContructor(c *C.C) {
++	info := NewCategoryInfoExport(nil)
++	c.Assert(info.Name, C.Equals, "")
++
++	m := &MockCategoryInfo{CategoryID(1), "A", map[ItemID]bool{}}
++	info = NewCategoryInfoExport(m)
++	c.Assert(info.Name, C.Equals, "A")
++	c.Assert(info.ID, C.Equals, CategoryID(1))
++}
+diff --git a/launcher/errors/errors.go b/launcher/errors/errors.go
+new file mode 100644
+index 0000000..f8dafe7
+--- /dev/null
++++ b/launcher/errors/errors.go
+@@ -0,0 +1,7 @@
++package errors
++
++import (
++	"errors"
++)
++
++var NilArgument = errors.New("argument is nil")
+diff --git a/launcher/init.go b/launcher/init.go
+new file mode 100644
+index 0000000..36fe535
+--- /dev/null
++++ b/launcher/init.go
+@@ -0,0 +1,12 @@
++package launcher
++
++import (
++	"pkg.deepin.io/dde/daemon/loader"
++	"pkg.deepin.io/lib/log"
++)
++
++var logger = log.NewLogger("daemon/launcher-daemon")
++
++func init() {
++	loader.Register(NewLauncherDaemon(logger))
++}
+diff --git a/launcher/interfaces/category.go b/launcher/interfaces/category.go
+new file mode 100644
+index 0000000..5b6e7b9
+--- /dev/null
++++ b/launcher/interfaces/category.go
+@@ -0,0 +1,29 @@
++package interfaces
++
++import (
++	"gir/gio-2.0"
++)
++
++// CategoryID is the type for category id.
++type CategoryID int64
++
++// CategoryInfo is interface for category info.
++type CategoryInfo interface {
++	ID() CategoryID
++	Name() string
++	LocaleName() string
++	Items() []ItemID
++	AddItem(ItemID)
++	RemoveItem(ItemID)
++}
++
++// CategoryManager is interface for category manager.
++type CategoryManager interface {
++	AddItem(ItemID, CategoryID)
++	RemoveItem(ItemID, CategoryID)
++	GetAllCategory() []CategoryID
++	GetCategory(id CategoryID) CategoryInfo
++	LoadAppCategoryInfo(deepin string, xcategory string) error
++	FreeAppCategoryInfo()
++	QueryID(app *gio.DesktopAppInfo) (CategoryID, error)
++}
+diff --git a/launcher/interfaces/dstore.go b/launcher/interfaces/dstore.go
+new file mode 100644
+index 0000000..9376ef6
+--- /dev/null
++++ b/launcher/interfaces/dstore.go
+@@ -0,0 +1,8 @@
++package interfaces
++
++// DStore is interface for deepin store.
++type DStore interface {
++	GetPkgNameFromPath(string) (string, error)
++	UninstallPkg(string, bool) error
++	Connectupdate_signal(func(message [][]interface{})) func()
++}
+diff --git a/launcher/interfaces/item.go b/launcher/interfaces/item.go
+new file mode 100644
+index 0000000..1363936
+--- /dev/null
++++ b/launcher/interfaces/item.go
+@@ -0,0 +1,45 @@
++package interfaces
++
++import (
++	"gir/glib-2.0"
++	"time"
++)
++
++// ItemID is type for item's id.
++type ItemID string
++
++// ItemInfo is interface for item info.
++type ItemInfo interface {
++	Name() string
++	Icon() string
++	Path() string
++	ID() ItemID
++	ExecCmd() string
++	Description() string
++	LocaleName() string
++	GenericName() string
++	Keywords() []string
++	CategoryID() CategoryID
++	SetCategoryID(CategoryID)
++	TimeInstalled() int64
++	SetTimeInstalled(int64)
++}
++
++// ItemManager is interface for item manager.
++type ItemManager interface {
++	AddItem(ItemInfo)
++	RemoveItem(ItemID)
++	HasItem(ItemID) bool
++	GetItem(ItemID) ItemInfo
++	GetAllItems() []ItemInfo
++	GetAllFrequency(*glib.KeyFile) map[ItemID]uint64
++	GetAllTimeInstalled() (map[ItemID]int64, error)
++	UninstallItem(ItemID, bool, time.Duration) error
++	IsItemOnDesktop(ItemID) bool
++	SendItemToDesktop(ItemID) error
++	RemoveItemFromDesktop(ItemID) error
++	GetFrequency(ItemID, *glib.KeyFile) uint64
++	SetFrequency(ItemID, uint64, *glib.KeyFile)
++	GetAllNewInstalledApps() ([]ItemID, error)
++	MarkLaunched(ItemID) error
++}
+diff --git a/launcher/interfaces/rate.go b/launcher/interfaces/rate.go
+new file mode 100644
+index 0000000..e6a3215
+--- /dev/null
++++ b/launcher/interfaces/rate.go
+@@ -0,0 +1,9 @@
++package interfaces
++
++// RateConfigFile is interface for use frequency config file.
++type RateConfigFile interface {
++	Free()
++	SetUint64(string, string, uint64)
++	GetUint64(string, string) (uint64, error)
++	ToData() (uint64, string, error)
++}
+diff --git a/launcher/interfaces/search.go b/launcher/interfaces/search.go
+new file mode 100644
+index 0000000..70262d3
+--- /dev/null
++++ b/launcher/interfaces/search.go
+@@ -0,0 +1,16 @@
++package interfaces
++
++// SearchID is type for pinyin search.
++type SearchID string
++
++// Search is interface for search transaction.
++type Search interface {
++	Search(string, []ItemInfo)
++	Cancel()
++}
++
++// PinYin is interface for pinyin search transaction.
++type PinYin interface {
++	Search(string) ([]string, error)
++	IsValid() bool
++}
+diff --git a/launcher/interfaces/setting.go b/launcher/interfaces/setting.go
+new file mode 100644
+index 0000000..10cffa4
+--- /dev/null
++++ b/launcher/interfaces/setting.go
+@@ -0,0 +1,18 @@
++package interfaces
++
++// SettingCore is interface for setting.
++type SettingCore interface {
++	GetEnum(string) int32
++	SetEnum(string, int32) bool
++	Connect(string, interface{})
++	Unref()
++}
++
++// Setting is the interface for setting.
++type Setting interface {
++	GetCategoryDisplayMode() int64
++	SetCategoryDisplayMode(newMode int64)
++	GetSortMethod() int64
++	SetSortMethod(newMethod int64)
++	Destroy()
++}
+diff --git a/launcher/item/desktop.go b/launcher/item/desktop.go
+new file mode 100644
+index 0000000..ce6f274
+--- /dev/null
++++ b/launcher/item/desktop.go
+@@ -0,0 +1,42 @@
++package item
++
++import (
++	"os"
++	p "path"
++
++	. "pkg.deepin.io/dde/daemon/launcher/utils"
++	"gir/glib-2.0"
++	"pkg.deepin.io/lib/utils"
++)
++
++func getDesktopPath(name string) string {
++	GReloadUserSpecialDirsCache()
++	return p.Join(glib.GetUserSpecialDir(glib.UserDirectoryDirectoryDesktop), p.Base(name))
++}
++
++func isOnDesktop(name string) bool {
++	path := getDesktopPath(name)
++	return utils.IsFileExist(path)
++}
++
++func sendToDesktop(itemPath string) error {
++	path := getDesktopPath(itemPath)
++	err := CopyFile(itemPath, path,
++		CopyFileNotKeepSymlink|CopyFileOverWrite)
++	if err != nil {
++		return err
++	}
++	s, err := os.Stat(path)
++	if err != nil {
++		removeFromDesktop(itemPath)
++		return err
++	}
++	var execPerm os.FileMode = 0100
++	os.Chmod(path, s.Mode().Perm()|execPerm)
++	return nil
++}
++
++func removeFromDesktop(itemPath string) error {
++	path := getDesktopPath(itemPath)
++	return os.Remove(path)
++}
+diff --git a/launcher/item/desktop_test.go b/launcher/item/desktop_test.go
+new file mode 100644
+index 0000000..71cdfa0
+--- /dev/null
++++ b/launcher/item/desktop_test.go
+@@ -0,0 +1,55 @@
++package item
++
++import (
++	"os"
++	"path"
++
++	C "launchpad.net/gocheck"
++	"pkg.deepin.io/lib/utils"
++)
++
++type DesktopTestSuite struct {
++	oldHome     string
++	testDataDir string
++}
++
++var _ = C.Suite(&DesktopTestSuite{})
++
++// according to the sources of glib.
++func (s *DesktopTestSuite) SetUpSuite(c *C.C) {
++	s.oldHome = os.Getenv("HOME")
++	s.testDataDir = "../testdata"
++	os.Setenv("XDG_CONFIG_HOME", path.Join(s.testDataDir, ".config"))
++	os.Setenv("HOME", s.testDataDir)
++}
++
++func (s *DesktopTestSuite) TearDownSuite(c *C.C) {
++	os.Setenv("HOME", s.oldHome)
++}
++
++func (s *DesktopTestSuite) TestgetDesktopPath(c *C.C) {
++	c.Assert(getDesktopPath("firefox.desktop"), C.Equals, path.Join(s.testDataDir, "Desktop/firefox.desktop"))
++}
++
++func (s *DesktopTestSuite) TestisOnDesktop(c *C.C) {
++	c.Assert(isOnDesktop("firefox.desktop"), C.Equals, true)
++	c.Assert(isOnDesktop("google-chrome.desktop"), C.Equals, false)
++}
++
++func (s *DesktopTestSuite) TestSendRemoveDesktop(c *C.C) {
++	srcFile := path.Join(s.testDataDir, "deepin-software-center.desktop")
++	destFile := path.Join(s.testDataDir, "Desktop/deepin-software-center.desktop")
++	sendToDesktop(srcFile)
++	c.Assert(utils.IsFileExist(destFile), C.Equals, true)
++
++	st, err := os.Lstat(destFile)
++	if err != nil {
++		c.Skip(err.Error())
++	}
++
++	var execPerm os.FileMode = 0100
++	c.Assert(st.Mode().Perm()&execPerm, C.Equals, execPerm)
++
++	removeFromDesktop(srcFile)
++	c.Assert(utils.IsFileExist(destFile), C.Equals, false)
++}
+diff --git a/launcher/item/dstore/package_name.go b/launcher/item/dstore/package_name.go
+new file mode 100644
+index 0000000..a5f66ab
+--- /dev/null
++++ b/launcher/item/dstore/package_name.go
+@@ -0,0 +1,10 @@
++package dstore
++
++import (
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++// GetPkgName returns package name of given desktop file.
++func GetPkgName(soft DStore, path string) (string, error) {
++	return soft.GetPkgNameFromPath(path)
++}
+diff --git a/launcher/item/dstore/uninstall_transaction.go b/launcher/item/dstore/uninstall_transaction.go
+new file mode 100644
+index 0000000..0c5fcd1
+--- /dev/null
++++ b/launcher/item/dstore/uninstall_transaction.go
+@@ -0,0 +1,92 @@
++package dstore
++
++import (
++	"errors"
++	"fmt"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"strings"
++	"time"
++)
++
++// UninstallTransaction is command object for uninstalling package.
++// TODO: add Cancel
++type UninstallTransaction struct {
++	pkgName         string
++	purge           bool
++	timeoutDuration time.Duration
++	timeout         <-chan time.Time
++	done            chan struct{}
++	failed          chan error
++	soft            DStore
++	disconnect      func()
++}
++
++// NewUninstallTransaction creates a new UninstallTransaction.
++func NewUninstallTransaction(soft DStore, pkgName string, purge bool, timeout time.Duration) *UninstallTransaction {
++	return &UninstallTransaction{
++		pkgName:         pkgName,
++		purge:           purge,
++		timeoutDuration: timeout,
++		timeout:         nil,
++		done:            make(chan struct{}, 1),
++		failed:          make(chan error, 1),
++		soft:            soft,
++	}
++}
++
++func (t *UninstallTransaction) run() {
++	t.disconnect = t.soft.Connectupdate_signal(func(message [][]interface{}) {
++		switch message[0][0].(string) {
++		case ActionStart, ActionUpdate, ActionFinish, ActionFailed:
++			msgs := UpdateSignalTranslator(message)
++			for _, action := range msgs {
++				if action.Name == ActionFailed {
++					detail := action.Detail.Value().(ActionFailedDetail)
++					if strings.TrimRight(detail.PkgName, ":i386") == t.pkgName {
++						err := fmt.Errorf("uninstall %q failed: %s", detail.PkgName, detail.Description)
++						t.failed <- err
++						t.disconnect()
++						return
++					}
++				} else if action.Name == ActionFinish {
++					defer func() {
++						if err := recover(); err != nil {
++							fmt.Println(err)
++						}
++					}()
++					detail := action.Detail.Value().(ActionFinishDetail)
++					if strings.TrimRight(detail.PkgName, ":i386") == t.pkgName {
++						close(t.done)
++						t.disconnect()
++						return
++					}
++				}
++			}
++		default:
++			t.disconnect()
++			return
++		}
++	})
++
++	t.timeout = time.After(t.timeoutDuration)
++	if err := t.soft.UninstallPkg(t.pkgName, t.purge); err != nil {
++		t.failed <- err
++	}
++}
++
++func (t *UninstallTransaction) wait() error {
++	select {
++	case <-t.done:
++		return nil
++	case err := <-t.failed:
++		return err
++	case <-t.timeout:
++		return errors.New("timeout")
++	}
++}
++
++// Exec executes this transaction.
++func (t *UninstallTransaction) Exec() error {
++	t.run()
++	return t.wait()
++}
+diff --git a/launcher/item/dstore/update_signal.go b/launcher/item/dstore/update_signal.go
+new file mode 100644
+index 0000000..932584d
+--- /dev/null
++++ b/launcher/item/dstore/update_signal.go
+@@ -0,0 +1,171 @@
++package dstore
++
++import (
++	"dbus/com/linuxdeepin/softwarecenter"
++	"fmt"
++	"pkg.deepin.io/lib/dbus"
++)
++
++// action name
++const (
++	ActionStart  string = "action-start"
++	ActionUpdate string = "action-update"
++	ActionFinish string = "action-finish"
++	ActionFailed string = "action-failed"
++)
++
++// action operation
++const (
++	ActionOperationInstall = iota + 1
++	ActionOperationDelete
++)
++
++// Action is the dbus signal data structure.
++type Action struct {
++	Name   string
++	Detail dbus.Variant
++}
++
++// ActionStartDetail is the data structure for start action, used in Action's Detail field.
++type ActionStartDetail struct {
++	PkgName   string
++	Operation int32
++}
++
++// ActionUpdateDetail is the data structure for update action, used in Actions' Detail field.
++type ActionUpdateDetail struct {
++	PkgName     string
++	Operation   int32
++	Process     int32
++	Description string
++}
++
++// PkgInfo is data structure for pkg info, used in all Detail structures' Pkgs field.
++type PkgInfo struct {
++	PkgName   string
++	Deleted   bool
++	Installed bool
++	Upgraded  bool
++}
++
++// ActionFinishDetail is data structure for finish action, used in Actions' Detail field.
++type ActionFinishDetail struct {
++	PkgName   string
++	Operation int32
++	Pkgs      []PkgInfo
++}
++
++// ActionFailedDetail is data structure for failed action, used in Actions' Detail field.
++type ActionFailedDetail struct {
++	PkgName     string
++	Operation   int32
++	Pkgs        []PkgInfo
++	Description string
++}
++
++// New creates a new software center object.
++func New() (*softwarecenter.SoftwareCenter, error) {
++	return softwarecenter.NewSoftwareCenter(
++		"com.linuxdeepin.softwarecenter",
++		"/com/linuxdeepin/softwarecenter",
++	)
++}
++
++func makeActionStartDetail(detail []interface{}) dbus.Variant {
++	pkgName := detail[0].(string)
++	operation := detail[1].(int32)
++	return dbus.MakeVariant(ActionStartDetail{
++		PkgName:   pkgName,
++		Operation: operation,
++	})
++}
++
++func makeActionUpdateDetail(detail []interface{}) dbus.Variant {
++	pkgName := detail[0].(string)
++	operation := detail[1].(int32)
++	process := detail[2].(int32)
++	description := detail[3].(string)
++	return dbus.MakeVariant(ActionUpdateDetail{
++		PkgName:     pkgName,
++		Operation:   operation,
++		Process:     process,
++		Description: description,
++	})
++}
++
++func makePkgInfoList(infos interface{}) []PkgInfo {
++	var pkgInfo []PkgInfo
++	for _, v := range infos.([][]interface{}) {
++		pkgName := v[0].(string)
++		deleted := v[1].(bool)
++		installed := v[2].(bool)
++		upgraded := v[3].(bool)
++
++		pkgInfo = append(pkgInfo, PkgInfo{
++			pkgName,
++			deleted,
++			installed,
++			upgraded,
++		})
++	}
++
++	return pkgInfo
++}
++
++func makeActionFinishDetail(detail []interface{}) dbus.Variant {
++	pkgName := detail[0].(string)
++	operation := detail[1].(int32)
++	return dbus.MakeVariant(ActionFinishDetail{
++		PkgName:   pkgName,
++		Operation: operation,
++		Pkgs:      makePkgInfoList(detail[2]),
++	})
++}
++
++func makeActionFailedDetail(detail []interface{}) dbus.Variant {
++	pkgName := detail[0].(string)
++	operation := detail[1].(int32)
++	description := detail[3].(string)
++	return dbus.MakeVariant(ActionFailedDetail{
++		PkgName:     pkgName,
++		Operation:   operation,
++		Pkgs:        makePkgInfoList(detail[2]),
++		Description: description,
++	})
++}
++
++// UpdateSignalTranslator translates dbus message to []Action.
++func UpdateSignalTranslator(message [][]interface{}) []Action {
++	defer func() {
++		if err := recover(); err != nil {
++			fmt.Println(err)
++		}
++	}()
++	var info []Action
++	for _, v := range message {
++		actionName := v[0].(string)
++		action := Action{}
++		action.Name = actionName
++
++		switch actionName {
++		case ActionStart:
++			detail := v[1].(dbus.Variant).Value().([]interface{})
++			action.Detail = makeActionStartDetail(detail)
++		case ActionUpdate:
++			detail := v[1].(dbus.Variant).Value().([]interface{})
++			action.Detail = makeActionUpdateDetail(detail)
++		case ActionFinish:
++			detail := v[1].(dbus.Variant).Value().([]interface{})
++			action.Detail = makeActionFinishDetail(detail)
++		case ActionFailed:
++			detail := v[1].(dbus.Variant).Value().([]interface{})
++			action.Detail = makeActionFailedDetail(detail)
++		default:
++			// logger.Warningf("\"%s\" is not handled", actionName)
++		}
++
++		info = append(info, action)
++	}
++
++	return info
++}
+diff --git a/launcher/item/item.go b/launcher/item/item.go
+new file mode 100644
+index 0000000..d9bd8f5
+--- /dev/null
++++ b/launcher/item/item.go
+@@ -0,0 +1,160 @@
++package item
++
++import (
++	"path"
++	"strings"
++
++	_ "github.com/mattn/go-sqlite3"
++
++	"pkg.deepin.io/dde/daemon/appinfo"
++	"pkg.deepin.io/dde/daemon/launcher/category"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"gir/gio-2.0"
++	"pkg.deepin.io/lib/utils"
++)
++
++const (
++	_DesktopSuffixLen = len(".desktop")
++)
++
++// #define FILENAME_WEIGHT 0.3
++// #define GENERIC_NAME_WEIGHT 0.01
++// #define KEYWORD_WEIGHT 0.1
++// #define CATEGORY_WEIGHT 0.01
++// #define NAME_WEIGHT 0.01
++// #define DISPLAY_NAME_WEIGHT 0.1
++// #define DESCRIPTION_WEIGHT 0.01
++// #define EXECUTABLE_WEIGHT 0.05
++
++// Xinfo stores some information in desktop.
++type Xinfo struct {
++	keywords    []string
++	exec        string
++	genericName string
++	description string
++}
++
++// Info stores some information for app.
++type Info struct {
++	path          string
++	name          string
++	enName        string
++	id            ItemID
++	icon          string
++	categoryID    CategoryID
++	timeInstalled int64
++	xinfo         Xinfo
++}
++
++// Path returns desktop's path.
++func (i *Info) Path() string {
++	return i.path
++}
++
++// Name returns app's english name.
++func (i *Info) Name() string {
++	return i.enName
++}
++
++// LocaleName returns app's locale name.
++func (i *Info) LocaleName() string {
++	return i.name
++}
++
++// ID returns appid.
++func (i *Info) ID() ItemID {
++	return i.id
++}
++
++// Keywords returns keywords for searching.
++func (i *Info) Keywords() []string {
++	return i.xinfo.keywords
++}
++
++// GenericName returns generic name in desktop file.
++func (i *Info) GenericName() string {
++	return i.xinfo.genericName
++}
++
++// New creates a new Info object from GDesktopAppInfo.
++func New(app *gio.DesktopAppInfo) *Info {
++	if app == nil {
++		return nil
++	}
++	item := &Info{}
++	item.init(app)
++	return item
++}
++
++func (i *Info) init(app *gio.DesktopAppInfo) {
++	i.id = getID(app)
++	i.path = app.GetFilename()
++	i.name = app.GetDisplayName()
++	i.enName = app.GetString("Name")
++	icon := app.GetIcon()
++	if icon != nil {
++		i.icon = icon.ToString()
++		if path.IsAbs(i.icon) && !utils.IsFileExist(i.icon) {
++			i.icon = ""
++		}
++	}
++
++	i.xinfo.keywords = make([]string, 0)
++	keywords := app.GetKeywords()
++	for _, keyword := range keywords {
++		i.xinfo.keywords = append(i.xinfo.keywords, strings.ToLower(keyword))
++	}
++	i.xinfo.exec = app.GetCommandline()
++	i.xinfo.genericName = app.GetGenericName()
++	i.xinfo.description = app.GetDescription()
++	i.categoryID = category.OthersID
++}
++
++// Description returns the description storing in desktop file.
++func (i *Info) Description() string {
++	return i.xinfo.description
++}
++
++// ExecCmd returns the exec stroing in desktop file.
++func (i *Info) ExecCmd() string {
++	return i.xinfo.exec
++}
++
++// Icon returns the app's icon.
++func (i *Info) Icon() string {
++	return i.icon
++}
++
++// CategoryID returns category id in deepin store.
++func (i *Info) CategoryID() CategoryID {
++	return i.categoryID
++}
++
++// SetCategoryID sets the category id in deepin store.
++func (i *Info) SetCategoryID(id CategoryID) {
++	i.categoryID = id
++}
++
++// TimeInstalled returns the time installed.
++func (i *Info) TimeInstalled() int64 {
++	return i.timeInstalled
++}
++
++// SetTimeInstalled sets the time installed.
++func (i *Info) SetTimeInstalled(timeInstalled int64) {
++	i.timeInstalled = timeInstalled
++}
++
++// GenID returns a valid item id.
++func GenID(filename string) ItemID {
++	if len(filename) <= _DesktopSuffixLen {
++		return ItemID("")
++	}
++
++	basename := path.Base(filename)
++	return ItemID(appinfo.NormalizeAppID(basename[:len(basename)-_DesktopSuffixLen]))
++}
++
++func getID(app *gio.DesktopAppInfo) ItemID {
++	return GenID(app.GetFilename())
++}
+diff --git a/launcher/item/item_manager.go b/launcher/item/item_manager.go
+new file mode 100644
+index 0000000..c337b0a
+--- /dev/null
++++ b/launcher/item/item_manager.go
+@@ -0,0 +1,232 @@
++package item
++
++import (
++	storeApi "dbus/com/deepin/store/api"
++	"encoding/json"
++	"fmt"
++	"sync"
++	"time"
++
++	"pkg.deepin.io/dde/daemon/appinfo"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"pkg.deepin.io/dde/daemon/launcher/item/dstore"
++	"gir/glib-2.0"
++)
++
++const (
++	_NewSoftwareRecordFile = "launcher/new_software.ini"
++	_NewSoftwareGroupName  = "NewInstalledApps"
++	_NewSoftwareKeyName    = "Ids"
++)
++
++// Manager controls all items.
++type Manager struct {
++	lock      sync.Mutex
++	itemTable map[ItemID]ItemInfo
++	soft      DStore
++}
++
++// NewManager creates a new item manager.
++func NewManager(soft DStore) *Manager {
++	return &Manager{
++		itemTable: map[ItemID]ItemInfo{},
++		soft:      soft,
++	}
++}
++
++// AddItem adds a new app.
++func (m *Manager) AddItem(item ItemInfo) {
++	m.lock.Lock()
++	defer m.lock.Unlock()
++	m.itemTable[item.ID()] = item
++}
++
++// HasItem returns true if the app is existed.
++func (m *Manager) HasItem(id ItemID) bool {
++	_, ok := m.itemTable[id]
++	return ok
++}
++
++// RemoveItem removes a app.
++func (m *Manager) RemoveItem(id ItemID) {
++	m.lock.Lock()
++	defer m.lock.Unlock()
++	delete(m.itemTable, id)
++}
++
++// GetItem returns a Item struct object if app exist, otherwise return nil.
++func (m *Manager) GetItem(id ItemID) ItemInfo {
++	item, _ := m.itemTable[id]
++	return item
++}
++
++// GetAllItems returns all apps.
++func (m *Manager) GetAllItems() []ItemInfo {
++	infos := []ItemInfo{}
++	for _, item := range m.itemTable {
++		infos = append(infos, item)
++	}
++	return infos
++}
++
++// UninstallItem will uninstall a app.
++func (m *Manager) UninstallItem(id ItemID, purge bool, timeout time.Duration) error {
++	item := m.GetItem(id)
++	if item == nil {
++		return fmt.Errorf("No such a item: %q", id)
++	}
++
++	pkgName, err := dstore.GetPkgName(m.soft, item.Path())
++	if err != nil {
++		return err
++	}
++
++	if pkgName == "" {
++		return fmt.Errorf("get package name of %q failed", string(id))
++	}
++
++	transaction := dstore.NewUninstallTransaction(m.soft, pkgName, purge, timeout)
++	return transaction.Exec()
++}
++
++// IsItemOnDesktop returns true if app exists on desktop.
++func (m *Manager) IsItemOnDesktop(id ItemID) bool {
++	item := m.GetItem(id)
++	if item == nil {
++		return false
++	}
++	return isOnDesktop(item.Path())
++}
++
++// SendItemToDesktop sends a app to desktop.
++func (m *Manager) SendItemToDesktop(id ItemID) error {
++	if !m.HasItem(id) {
++		return fmt.Errorf("No such a item %q", id)
++	}
++
++	if err := sendToDesktop(m.GetItem(id).Path()); err != nil {
++		return err
++	}
++
++	return nil
++}
++
++// RemoveItemFromDesktop removes app from desktop.
++func (m *Manager) RemoveItemFromDesktop(id ItemID) error {
++	if !m.HasItem(id) {
++		return fmt.Errorf("No such a item %q", id)
++	}
++
++	if err := removeFromDesktop(m.GetItem(id).Path()); err != nil {
++		return err
++	}
++
++	return nil
++}
++
++// GetFrequency returns a item's  use frequency.
++func (m *Manager) GetFrequency(id ItemID, f *glib.KeyFile) uint64 {
++	return appinfo.GetFrequency(string(id), f)
++}
++
++// SetFrequency sets a item's  use frequency, NOT used now.
++func (m *Manager) SetFrequency(id ItemID, rate uint64, f *glib.KeyFile) {
++}
++
++// GetAllFrequency returns all items' use frequency
++func (m *Manager) GetAllFrequency(f *glib.KeyFile) (infos map[ItemID]uint64) {
++	infos = map[ItemID]uint64{}
++	if f == nil {
++		for id := range m.itemTable {
++			infos[id] = 0
++		}
++		return
++	}
++
++	for id := range m.itemTable {
++		infos[id] = m.GetFrequency(id, f)
++	}
++
++	return
++}
++
++// GetAllTimeInstalled returns all items installed time.
++// TODO:
++// 1. do it once.
++// 2. update it when item changed.
++func (m *Manager) GetAllTimeInstalled() (map[ItemID]int64, error) {
++	infos := map[ItemID]int64{}
++	var err error
++	for id := range m.itemTable {
++		infos[id] = 0
++	}
++
++	store, err := storeApi.NewDStoreDesktop("com.deepin.store.Api", "/com/deepin/store/Api")
++	if err != nil {
++		return infos, fmt.Errorf("create store api failed: %v", err)
++	}
++	defer storeApi.DestroyDStoreDesktop(store)
++
++	datasStr, err := store.GetAllDesktops()
++	if err != nil {
++		return infos, fmt.Errorf("get all desktops' info failed: %v", err)
++	}
++
++	datas := [][]interface{}{}
++	err = json.Unmarshal([]byte(datasStr), &datas)
++	if err != nil {
++		return infos, err
++	}
++
++	for _, data := range datas {
++		id := GenID(data[0].(string))
++		t := int64(data[1].(float64))
++		infos[id] = t
++	}
++
++	return infos, err
++}
++
++// GetAllNewInstalledApps returns all apps newly installed.
++func (self *Manager) GetAllNewInstalledApps() ([]ItemID, error) {
++	ids := []ItemID{}
++	store, err := storeApi.NewDStoreDesktop("com.deepin.store.Api", "/com/deepin/store/Api")
++	if err != nil {
++		return ids, fmt.Errorf("create store api failed: %v", err)
++	}
++	defer storeApi.DestroyDStoreDesktop(store)
++
++	dataStr, err := store.GetNewDesktops()
++	if err != nil {
++		return ids, err
++	}
++
++	datas := [][]interface{}{}
++	err = json.Unmarshal([]byte(dataStr), &datas)
++	if err != nil {
++		return ids, err
++	}
++
++	for _, data := range datas {
++		id := GenID(data[0].(string))
++		ids = append(ids, id)
++	}
++	return ids, nil
++}
++
++// MarkNew marks a item as newly installed.
++func (self *Manager) MarkNew(_id ItemID) error {
++	return nil
++}
++
++// MarkLaunched marks a item as launched, it won't be newly installed.
++func (self *Manager) MarkLaunched(_id ItemID) error {
++	store, err := storeApi.NewDStoreDesktop("com.deepin.store.Api", "/com/deepin/store/Api")
++	if err != nil {
++		return fmt.Errorf("create store api failed: %v", err)
++	}
++	defer storeApi.DestroyDStoreDesktop(store)
++
++	_, ok := store.MarkLaunched(string(_id))
++	return ok
++}
+diff --git a/launcher/item/item_manager_test.go b/launcher/item/item_manager_test.go
+new file mode 100644
+index 0000000..83f4079
+--- /dev/null
++++ b/launcher/item/item_manager_test.go
+@@ -0,0 +1,160 @@
++// +build ignore
++
++package item
++
++import (
++	"fmt"
++	C "launchpad.net/gocheck"
++	"math/rand"
++	"os"
++	"path"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"gir/gio-2.0"
++	"gir/glib-2.0"
++	"sync"
++	"time"
++)
++
++type ItemManagerTestSuite struct {
++	softcenter  *MockSoftcenter
++	m           ItemManager
++	item        ItemInfo
++	timeout     time.Duration
++	testDataDir string
++	oldHome     string
++	f           *glib.KeyFile
++}
++
++var _ = C.Suite(&ItemManagerTestSuite{})
++
++func createDesktopFailed(path string) string {
++	return fmt.Sprintf("create desktop(%s) failed", path)
++}
++
++func (s *ItemManagerTestSuite) SetUpSuite(c *C.C) {
++	rand.Seed(time.Now().UTC().UnixNano())
++	s.testDataDir = "../testdata"
++	firefoxDesktopPath := path.Join(s.testDataDir, "firefox.desktop")
++	firefox := gio.NewDesktopAppInfoFromFilename(firefoxDesktopPath)
++	if firefox == nil {
++		c.Skip(createDesktopFailed(firefoxDesktopPath))
++	}
++
++	// according to the sources of glib.
++	s.oldHome = os.Getenv("HOME")
++	os.Setenv("HOME", s.testDataDir)
++
++	var err error
++	s.f, err = GetFrequencyRecordFile()
++	if err != nil {
++		c.Skip("get config file failed")
++	}
++
++	s.item = New(firefox)
++	firefox.Unref()
++}
++
++func (s *ItemManagerTestSuite) TearDownSuite(c *C.C) {
++	os.Setenv("HOME", s.oldHome)
++	s.f.Free()
++}
++
++func (s *ItemManagerTestSuite) SetUpTest(c *C.C) {
++	s.softcenter = NewMockSoftcenter()
++	s.m = NewManager(s.softcenter)
++	s.timeout = time.Second * 10
++}
++
++func (s *ItemManagerTestSuite) TestItemManager(c *C.C) {
++	c.Assert(s.m.GetItem(s.item.ID()), C.IsNil)
++	c.Assert(s.m.HasItem(s.item.ID()), C.Equals, false)
++
++	s.m.AddItem(s.item)
++	c.Assert(s.m.GetItem(s.item.ID()).ID(), C.Equals, s.item.ID())
++	c.Assert(s.m.HasItem(s.item.ID()), C.Equals, true)
++
++	s.m.RemoveItem(s.item.ID())
++	c.Assert(s.m.GetItem(s.item.ID()), C.IsNil)
++	c.Assert(s.m.HasItem(s.item.ID()), C.Equals, false)
++}
++
++func (s *ItemManagerTestSuite) addTestItem(c *C.C, path string) ItemInfo {
++	desktop := gio.NewDesktopAppInfoFromFilename(path)
++	if desktop == nil {
++		c.Skip(createDesktopFailed(path))
++	}
++	item := New(desktop)
++	s.m.AddItem(item)
++	desktop.Unref()
++	return item
++}
++
++func (s *ItemManagerTestSuite) TestUnistallNotExistItem(c *C.C) {
++	err := s.m.UninstallItem("test", false, s.timeout)
++	c.Assert(err, C.NotNil)
++	c.Assert(err.Error(), C.Matches, "No such a item:.*")
++}
++
++func (s *ItemManagerTestSuite) TestUnistallItemNoOnSoftCenter(c *C.C) {
++	softcenter := s.addTestItem(c, path.Join(s.testDataDir, "deepin-software-center.desktop"))
++
++	err := s.m.UninstallItem(softcenter.ID(), false, s.timeout)
++	c.Assert(err, C.NotNil)
++	c.Assert(err.Error(), C.Equals, fmt.Sprintf("get package name of %q failed", softcenter.ID()))
++
++}
++
++func (s *ItemManagerTestSuite) TestUnistallExistItem(c *C.C) {
++	s.m.AddItem(s.item)
++
++	err := s.m.UninstallItem(s.item.ID(), false, s.timeout)
++	c.Assert(err, C.IsNil)
++	c.Assert(s.softcenter.count, C.Equals, 1)
++}
++
++func (s *ItemManagerTestSuite) TestUnistallMultiItem(c *C.C) {
++	var err error
++	s.m.AddItem(s.item)
++	player := s.addTestItem(c, path.Join(s.testDataDir, "deepin-music-player.desktop"))
++
++	err = s.m.UninstallItem(s.item.ID(), false, s.timeout)
++	c.Assert(err, C.IsNil)
++	c.Assert(s.softcenter.count, C.Equals, 1)
++
++	err = s.m.UninstallItem(player.ID(), false, s.timeout)
++	c.Assert(err, C.IsNil)
++	c.Assert(s.softcenter.count, C.Equals, 2)
++}
++
++func (s *ItemManagerTestSuite) TestUnistallMultiItemAsync(c *C.C) {
++	// FIXME: is this test right.
++	var err error
++	s.m.AddItem(s.item)
++	player := s.addTestItem(c, path.Join(s.testDataDir, "deepin-music-player.desktop"))
++
++	var wg sync.WaitGroup
++	wg.Add(1)
++	go func() {
++		defer wg.Done()
++		err = s.m.UninstallItem(s.item.ID(), false, s.timeout)
++		c.Assert(err, C.IsNil)
++	}()
++
++	wg.Add(1)
++	go func() {
++		defer wg.Done()
++		err = s.m.UninstallItem(player.ID(), false, s.timeout)
++		c.Assert(err, C.IsNil)
++	}()
++
++	wg.Wait()
++	c.Assert(s.softcenter.count, C.Equals, 2)
++}
++
++func (s *ItemManagerTestSuite) TestSetFrequency(c *C.C) {
++	s.m.SetFrequency("firefox", uint64(3), s.f)
++	c.Assert(s.m.GetFrequency("firefox", s.f), C.Equals, uint64(3))
++
++	s.m.SetFrequency("firefox", uint64(2), s.f)
++	c.Assert(s.m.GetFrequency("firefox", s.f), C.Equals, uint64(2))
++}
+diff --git a/launcher/item/item_test.go b/launcher/item/item_test.go
+new file mode 100644
+index 0000000..a1067aa
+--- /dev/null
++++ b/launcher/item/item_test.go
+@@ -0,0 +1,149 @@
++package item
++
++import (
++	"fmt"
++	C "launchpad.net/gocheck"
++	"os"
++	"path"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"gir/gio-2.0"
++	"strings"
++	"testing"
++)
++
++func TestItem(t *testing.T) {
++	C.TestingT(t)
++}
++
++type ItemTestSuite struct {
++	firefox         *gio.DesktopAppInfo
++	notExistDesktop *gio.DesktopAppInfo
++	testDataDir     string
++}
++
++var _ = C.Suite(&ItemTestSuite{})
++
++func (s *ItemTestSuite) SetUpSuite(c *C.C) {
++	s.testDataDir = "../testdata/"
++	s.notExistDesktop = nil
++}
++
++func (s *ItemTestSuite) getItemInfoForDiffLang(name, lang string, c *C.C) ItemInfo {
++	oldLangEnv := os.Getenv("LANGUAGE")
++	defer os.Setenv("LANGUAGE", oldLangEnv)
++
++	os.Setenv("LANGUAGE", lang)
++	desktopPath := path.Join(s.testDataDir, name)
++	desktop := gio.NewDesktopAppInfoFromFilename(desktopPath)
++	desktop.GetCommandline()
++	if desktop == nil {
++		c.Skip(fmt.Sprintf("create desktop(%s) failed", desktopPath))
++	}
++	defer desktop.Unref()
++
++	return New(desktop)
++}
++
++func (s *ItemTestSuite) TestNewItem(c *C.C) {
++	c.Assert(New(s.notExistDesktop), C.IsNil)
++
++	firefox := gio.NewDesktopAppInfoFromFilename(path.Join(s.testDataDir, "firefox.desktop"))
++	c.Assert(firefox, C.NotNil)
++}
++
++func (s *ItemTestSuite) TestLocaleName(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.LocaleName(), C.Equals, "Firefox Web Browser")
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	c.Assert(item.LocaleName(), C.Equals, "Firefox 网络浏览器")
++}
++
++func (s *ItemTestSuite) TestID(c *C.C) {
++	var item ItemInfo
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.ID(), C.Equals, ItemID("firefox"))
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	c.Assert(item.ID(), C.Equals, ItemID("firefox"))
++
++	item = s.getItemInfoForDiffLang("deepin-music-player.desktop", "en_US", c)
++	c.Assert(item.ID(), C.Equals, ItemID("deepin-music-player"))
++	item = s.getItemInfoForDiffLang("deepin-music-player.desktop", "zh_CN", c)
++	c.Assert(item.ID(), C.Equals, ItemID("deepin-music-player"))
++
++	item = s.getItemInfoForDiffLang("qmmp_cue.desktop", "en_US", c)
++	c.Assert(item.ID(), C.Equals, ItemID("qmmp-cue"))
++	item = s.getItemInfoForDiffLang("qmmp_cue.desktop", "zh_CN", c)
++	c.Assert(item.ID(), C.Equals, ItemID("qmmp-cue"))
++}
++
++func (s *ItemTestSuite) TestName(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.Name(), C.Equals, "Firefox Web Browser")
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	c.Assert(item.Name(), C.Equals, "Firefox Web Browser")
++}
++
++func (s *ItemTestSuite) TestKeywords(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	expectedKeywords := strings.Split("Internet;WWW;Browser;Web;Explorer", ";")
++	keywords := item.Keywords()
++
++	c.Assert(keywords, C.HasLen, len(expectedKeywords))
++	for i := 0; i < len(expectedKeywords); i++ {
++		c.Assert(keywords[i], C.Equals, strings.ToLower(expectedKeywords[i]))
++	}
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	expectedKeywords = strings.Split("Internet;WWW;Browser;Web;Explorer;网页;浏览;上网;火狐;Firefox;ff;互联网;网站", ";")
++	keywords = item.Keywords()
++
++	c.Assert(keywords, C.HasLen, len(expectedKeywords))
++	for i := 0; i < len(expectedKeywords); i++ {
++		c.Assert(keywords[i], C.Equals, strings.ToLower(expectedKeywords[i]))
++	}
++}
++
++func (s *ItemTestSuite) TestDescription(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.Description(), C.Equals, "Browse the World Wide Web")
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	c.Assert(item.Description(), C.Equals, "浏览互联网")
++}
++
++func (s *ItemTestSuite) TestGenericName(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.GenericName(), C.Equals, "Web Browser")
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	c.Assert(item.GenericName(), C.Equals, "网络浏览器")
++}
++
++func (s *ItemTestSuite) TestPath(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.Path(), C.Equals, path.Join(s.testDataDir, "firefox.desktop"))
++}
++
++func (s *ItemTestSuite) TestIcon(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.Icon(), C.Equals, "firefox")
++}
++
++func (s *ItemTestSuite) TestExecCmd(c *C.C) {
++	var item ItemInfo
++	item = s.getItemInfoForDiffLang("firefox.desktop", "en_US", c)
++	c.Assert(item.ExecCmd(), C.Equals, "ls firefox %u")
++
++	item = s.getItemInfoForDiffLang("firefox.desktop", "zh_CN", c)
++	c.Assert(item.ExecCmd(), C.Equals, "ls firefox %u")
++}
+diff --git a/launcher/item/mock_software_center.go b/launcher/item/mock_software_center.go
+new file mode 100644
+index 0000000..fb2d854
+--- /dev/null
++++ b/launcher/item/mock_software_center.go
+@@ -0,0 +1,127 @@
++package item
++
++import (
++	"math/rand"
++	"path/filepath"
++	"pkg.deepin.io/dde/daemon/launcher/item/dstore"
++	"pkg.deepin.io/lib/dbus"
++	"time"
++)
++
++type MockSoftcenter struct {
++	count           int
++	disconnectCount int
++	handlers        map[int]func([][]interface{})
++	softs           map[string]string
++}
++
++func (m *MockSoftcenter) GetPkgNameFromPath(path string) (string, error) {
++	relPath, _ := filepath.Rel(".", path)
++	for pkgName, path := range m.softs {
++		if path == relPath {
++			return pkgName, nil
++		}
++	}
++	return "", nil
++}
++
++func (m *MockSoftcenter) sendMessage(msg [][]interface{}) {
++	for _, fn := range m.handlers {
++		fn(msg)
++	}
++}
++
++func (m *MockSoftcenter) sendStartMessage(pkgName string) {
++	action := []interface{}{
++		dstore.ActionStart,
++		dbus.MakeVariant([]interface{}{pkgName, int32(0)}),
++	}
++	m.sendMessage([][]interface{}{action})
++}
++
++func (m *MockSoftcenter) sendUpdateMessage(pkgName string) {
++	updateTime := rand.Intn(5) + 1
++	for i := 0; i < updateTime; i++ {
++		action := []interface{}{
++			dstore.ActionUpdate,
++			dbus.MakeVariant([]interface{}{
++				pkgName,
++				int32(1),
++				int32(int(i+1) / updateTime),
++				"update",
++			}),
++		}
++		m.sendMessage([][]interface{}{action})
++		time.Sleep(time.Duration(rand.Int31n(100)+100) * time.Millisecond)
++	}
++}
++func (m *MockSoftcenter) sendFinishedMessage(pkgName string) {
++	action := []interface{}{
++		dstore.ActionFinish,
++		dbus.MakeVariant([]interface{}{
++			pkgName,
++			int32(2),
++			[][]interface{}{
++				[]interface{}{
++					pkgName,
++					true,
++					false,
++					false,
++				},
++			},
++		}),
++	}
++	m.sendMessage([][]interface{}{action})
++}
++
++func (m *MockSoftcenter) sendFailedMessage(pkgName string) {
++	action := []interface{}{
++		dstore.ActionFailed,
++		dbus.MakeVariant([]interface{}{
++			pkgName,
++			int32(3),
++			[][]interface{}{
++				[]interface{}{
++					pkgName,
++					false,
++					false,
++					false,
++				},
++			},
++			"uninstall failed",
++		}),
++	}
++	m.sendMessage([][]interface{}{action})
++}
++
++func (m *MockSoftcenter) UninstallPkg(pkgName string, purge bool) error {
++	if _, ok := m.softs[pkgName]; !ok {
++		m.sendFailedMessage(pkgName)
++		return nil
++	}
++	m.sendStartMessage(pkgName)
++	m.sendUpdateMessage(pkgName)
++	m.sendFinishedMessage(pkgName)
++	return nil
++}
++
++func (m *MockSoftcenter) Connectupdate_signal(fn func([][]interface{})) func() {
++	id := m.count
++	m.handlers[id] = fn
++	m.count++
++	return func() {
++		delete(m.handlers, id)
++		m.disconnectCount++
++	}
++}
++
++func NewMockSoftcenter() *MockSoftcenter {
++	return &MockSoftcenter{
++		handlers: map[int]func([][]interface{}){},
++		count:    0,
++		softs: map[string]string{
++			"firefox":             "../testdata/firefox.desktop",
++			"deepin-music-player": "../testdata/deepin-music-player.desktop",
++		},
++	}
++}
+diff --git a/launcher/item/search/errors.go b/launcher/item/search/errors.go
+new file mode 100644
+index 0000000..9ea679d
+--- /dev/null
++++ b/launcher/item/search/errors.go
+@@ -0,0 +1,10 @@
++package search
++
++import (
++	"errors"
++)
++
++var (
++	// ErrorSearchNullChannel is error for null channel
++	ErrorSearchNullChannel = errors.New("null channel")
++)
+diff --git a/launcher/item/search/matcher.go b/launcher/item/search/matcher.go
+new file mode 100644
+index 0000000..a178b81
+--- /dev/null
++++ b/launcher/item/search/matcher.go
+@@ -0,0 +1,52 @@
++package search
++
++import (
++	"fmt"
++	"regexp"
++)
++
++// item score
++const (
++	Poor         uint32 = 50000
++	BelowAverage uint32 = 60000
++	Average      uint32 = 70000
++	AboveAverage uint32 = 75000
++	Good         uint32 = 80000
++	VeryGood     uint32 = 85000
++	Excellent    uint32 = 90000
++	Highest      uint32 = 100000
++)
++
++func addMatcher(template string, key string, score uint32, m map[*regexp.Regexp]uint32) error {
++	r, err := regexp.Compile(fmt.Sprintf(template, key))
++	if err != nil {
++		return err
++	}
++
++	m[r] = score
++	return nil
++}
++
++// learn from synpase
++// TODO:
++// 1. analyse the code of synapse much deeply.
++// 2. add a weight for frequency.
++func getMatchers(key string) map[*regexp.Regexp]uint32 {
++	// * create a couple of regexes and try to help with matching
++	// * match with these regular expressions (with descending score):
++	// * 1) ^query$
++	// * 2) ^query
++	// * 3) \bquery
++	// * 4) query
++	m := make(map[*regexp.Regexp]uint32, 0)
++	// ^query$
++	addMatcher(`(?i)^(%s)$`, key, Highest, m)
++	// ^query
++	addMatcher(`(?i)^(%s)`, key, Excellent, m)
++	// \bquery
++	addMatcher(`(?i)\b(%s)`, key, VeryGood, m)
++	// query
++	addMatcher("(?i)(%s)", key, BelowAverage, m)
++
++	return m
++}
+diff --git a/launcher/item/search/matcher_test.go b/launcher/item/search/matcher_test.go
+new file mode 100644
+index 0000000..089e704
+--- /dev/null
++++ b/launcher/item/search/matcher_test.go
+@@ -0,0 +1,19 @@
++package search
++
++import (
++	C "launchpad.net/gocheck"
++	"regexp"
++)
++
++type MatcherTestSuite struct {
++}
++
++var _ = C.Suite(&MatcherTestSuite{})
++
++func (*MatcherTestSuite) TestMatcher(c *C.C) {
++	// TODO: test them
++	getMatchers("firefox")
++	getMatchers("深度")
++	getMatchers("f")
++	getMatchers(regexp.QuoteMeta("f\\"))
++}
+diff --git a/launcher/item/search/mock_pinyin.go b/launcher/item/search/mock_pinyin.go
+new file mode 100644
+index 0000000..f5cc67a
+--- /dev/null
++++ b/launcher/item/search/mock_pinyin.go
+@@ -0,0 +1,21 @@
++package search
++
++type MockPinYin struct {
++	data  map[string][]string
++	valid bool
++}
++
++func (self *MockPinYin) Search(key string) ([]string, error) {
++	return self.data[key], nil
++}
++
++func (self *MockPinYin) IsValid() bool {
++	return self.valid
++}
++
++func NewMockPinYin(data map[string][]string, valid bool) *MockPinYin {
++	return &MockPinYin{
++		data:  data,
++		valid: valid,
++	}
++}
+diff --git a/launcher/item/search/pinyin_adapter.go b/launcher/item/search/pinyin_adapter.go
+new file mode 100644
+index 0000000..4f18c17
+--- /dev/null
++++ b/launcher/item/search/pinyin_adapter.go
+@@ -0,0 +1,45 @@
++package search
++
++import (
++	pinyin "dbus/com/deepin/daemon/search"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++// PinYinSearchAdapter is a adapter struct for pinyin.Search.
++type PinYinSearchAdapter struct {
++	searchObj *pinyin.Search
++	searchID  SearchID
++}
++
++// NewPinYinSearchAdapter creates a new PinYinSearchAdapter object according to data.
++func NewPinYinSearchAdapter(data []string) (*PinYinSearchAdapter, error) {
++	searchObj, err := pinyin.NewSearch("com.deepin.daemon.Search", "/com/deepin/daemon/Search")
++	if err != nil {
++		return nil, err
++	}
++	obj := &PinYinSearchAdapter{searchObj, ""}
++	err = obj.Init(data)
++	if err != nil {
++		return nil, err
++	}
++
++	return obj, nil
++}
++
++// Init initializes object with data.
++func (p *PinYinSearchAdapter) Init(data []string) error {
++	searchID, _, err := p.searchObj.NewSearchWithStrList(data)
++	p.searchID = SearchID(searchID)
++
++	return err
++}
++
++// Search executes transaction and returns found objects.
++func (p *PinYinSearchAdapter) Search(key string) ([]string, error) {
++	return p.searchObj.SearchString(key, string(p.searchID))
++}
++
++// IsValid returns true if this object is ok to use.
++func (p *PinYinSearchAdapter) IsValid() bool {
++	return p.searchID != SearchID("")
++}
+diff --git a/launcher/item/search/pinyin_adapter_test.go b/launcher/item/search/pinyin_adapter_test.go
+new file mode 100644
+index 0000000..b0376c2
+--- /dev/null
++++ b/launcher/item/search/pinyin_adapter_test.go
+@@ -0,0 +1,59 @@
++package search
++
++import (
++	C "launchpad.net/gocheck"
++	"os"
++	"path"
++	"gir/gio-2.0"
++)
++
++type PinYinTestSuite struct {
++	testDataDir string
++}
++
++// var _ = C.Suite(&PinYinTestSuite{})
++
++func (self *PinYinTestSuite) SetUpSuite(c *C.C) {
++	self.testDataDir = "../../testdata"
++}
++
++func (self *PinYinTestSuite) TestPinYin(c *C.C) {
++	names := []string{}
++	oldLang := os.Getenv("LANGUAGE")
++	os.Setenv("LANGUAGE", "zh_CN.UTF-8")
++	addName := func(m *[]string, n string) {
++		app := gio.NewDesktopAppInfoFromFilename(n)
++		if app == nil {
++			c.Skip("create desktop app info failed")
++			return
++		}
++		defer app.Unref()
++		name := app.GetDisplayName()
++		c.Logf("add %q to names", name)
++		*m = append(*m, name)
++	}
++	addName(&names, path.Join(self.testDataDir, "deepin-software-center.desktop"))
++	addName(&names, path.Join(self.testDataDir, "firefox.desktop"))
++	tree, err := NewPinYinSearchAdapter(names)
++	if err != nil {
++		c.Log(err)
++		c.Fail()
++	}
++	search := func(key string, res []string) {
++		keys, err := tree.Search(key)
++		if err != nil {
++			c.Log(err)
++			c.Fail()
++			return
++		}
++		c.Assert(keys, C.DeepEquals, res)
++	}
++	search("shang", []string{"深度商店"})
++	search("sd", []string{"深度商店"})
++	search("商店", []string{"深度商店"})
++	search("firefox", []string{"Firefox 网络浏览器"})
++	search("wang", []string{"Firefox 网络浏览器"})
++	search("网络", []string{"Firefox 网络浏览器"})
++
++	os.Setenv("LANGUAGE", oldLang)
++}
+diff --git a/launcher/item/search/search.go b/launcher/item/search/search.go
+new file mode 100644
+index 0000000..696c438
+--- /dev/null
++++ b/launcher/item/search/search.go
+@@ -0,0 +1,127 @@
++package search
++
++import (
++	"regexp"
++	"strings"
++	"sync"
++
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++// default values.
++const (
++	DefaultGoroutineNum = 20
++)
++
++type FreqGetter interface {
++	GetFrequency(string) uint64
++}
++
++// Result stores items information for searching.
++type Result struct {
++	ID    ItemID
++	Name  string
++	Score uint32
++	Freq  uint64
++}
++
++// Transaction is a command object used for search.
++type Transaction struct {
++	maxGoroutineNum int
++	pinyinObj       PinYin
++	freqGetter      FreqGetter
++	result          chan<- Result
++	cancelChan      chan struct{}
++	cancelled       bool
++}
++
++// NewTransaction creates a new Transaction object.
++func NewTransaction(pinyinObj PinYin, result chan<- Result, cancelChan chan struct{}, maxGoroutineNum int) (*Transaction, error) {
++	if result == nil {
++		return nil, ErrorSearchNullChannel
++	}
++	if maxGoroutineNum <= 0 {
++		maxGoroutineNum = DefaultGoroutineNum
++	}
++	return &Transaction{
++		maxGoroutineNum: maxGoroutineNum,
++		pinyinObj:       pinyinObj,
++		result:          result,
++		cancelChan:      cancelChan,
++		cancelled:       false,
++	}, nil
++}
++
++// Cancel cancels this transaction.
++func (s *Transaction) Cancel() {
++	if !s.cancelled {
++		close(s.cancelChan)
++		s.cancelled = true
++	}
++}
++
++func (s *Transaction) SetFreqGetter(freqGetter FreqGetter) *Transaction {
++	s.freqGetter = freqGetter
++	return s
++}
++
++func (s *Transaction) getFreq(id ItemID) uint64 {
++	if s.freqGetter == nil {
++		return 0
++	}
++	return s.freqGetter.GetFrequency(string(id))
++}
++
++// Search executes this transaction and returns the searching result.
++func (s *Transaction) Search(key string, dataSet []ItemInfo) {
++	trimedKey := strings.TrimSpace(key)
++	escapedKey := regexp.QuoteMeta(trimedKey)
++
++	enablePinYinSearch := s.pinyinObj != nil && s.pinyinObj.IsValid()
++	keys := make(chan string)
++	go func() {
++		defer close(keys)
++		if enablePinYinSearch {
++			pinyins, _ := s.pinyinObj.Search(escapedKey)
++			for _, pinyin := range pinyins {
++				keys <- pinyin
++			}
++		}
++	}()
++
++	transaction, _ := NewSearchInstalledItemTransaction(s.result, s.cancelChan, s.maxGoroutineNum)
++	transaction.SetFreqGetter(s.freqGetter)
++	transaction.Search(escapedKey, dataSet)
++
++	if !enablePinYinSearch {
++		return
++	}
++
++	const MaxKeyGoroutineNum = 5
++	var wg sync.WaitGroup
++	wg.Add(MaxKeyGoroutineNum)
++	for i := 0; i < MaxKeyGoroutineNum; i++ {
++		go func(i int) {
++			for key := range keys {
++				// pinyin is the LocaleDisplayName.
++				for _, info := range dataSet {
++					if info.LocaleName() == key {
++						s.result <- Result{
++							ID:    info.ID(),
++							Name:  info.LocaleName(),
++							Score: Excellent,
++							Freq:  s.getFreq(info.ID()),
++						}
++					}
++				}
++				select {
++				case <-s.cancelChan:
++					break
++				default:
++				}
++			}
++			wg.Done()
++		}(i)
++	}
++	wg.Wait()
++}
+diff --git a/launcher/item/search/search_installed_item.go b/launcher/item/search/search_installed_item.go
+new file mode 100644
+index 0000000..7ce55ef
+--- /dev/null
++++ b/launcher/item/search/search_installed_item.go
+@@ -0,0 +1,184 @@
++package search
++
++import (
++	"fmt"
++	"regexp"
++	"sync"
++
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++// SearchInstalledItemTransaction is a command object for searching installed items.
++type SearchInstalledItemTransaction struct {
++	maxGoroutineNum int
++
++	keyMatcher   *regexp.Regexp
++	nameMatchers map[*regexp.Regexp]uint32
++
++	freqGetter FreqGetter
++
++	resChan    chan<- Result
++	cancelChan chan struct{}
++	cancelled  bool
++}
++
++// NewSearchInstalledItemTransaction creates a new SearchInstalledItemTransaction object.
++func NewSearchInstalledItemTransaction(res chan<- Result, cancelChan chan struct{}, maxGoroutineNum int) (*SearchInstalledItemTransaction, error) {
++	if res == nil {
++		return nil, ErrorSearchNullChannel
++	}
++
++	if maxGoroutineNum <= 0 {
++		maxGoroutineNum = DefaultGoroutineNum
++	}
++
++	return &SearchInstalledItemTransaction{
++		maxGoroutineNum: maxGoroutineNum,
++		keyMatcher:      nil,
++		nameMatchers:    nil,
++		resChan:         res,
++		cancelChan:      cancelChan,
++		cancelled:       false,
++	}, nil
++}
++
++func (s *SearchInstalledItemTransaction) SetFreqGetter(freqGetter FreqGetter) *SearchInstalledItemTransaction {
++	s.freqGetter = freqGetter
++	return s
++}
++
++func (s *SearchInstalledItemTransaction) getFreq(id ItemID) uint64 {
++	if s.freqGetter == nil {
++		return 0
++	}
++	return s.freqGetter.GetFrequency(string(id))
++}
++
++// Cancel cancels this transaction.
++func (s *SearchInstalledItemTransaction) Cancel() {
++	if !s.cancelled {
++		close(s.cancelChan)
++		s.cancelled = true
++	}
++}
++
++func (s *SearchInstalledItemTransaction) initKeyMatchers(key string) {
++	s.keyMatcher, _ = regexp.Compile(fmt.Sprintf("(?i)(%s)", key))
++	s.nameMatchers = getMatchers(key)
++}
++
++func (s *SearchInstalledItemTransaction) calcScore(data ItemInfo) (score uint32) {
++	for matcher, s := range s.nameMatchers {
++		if matcher.MatchString(data.LocaleName()) {
++			score += s
++		}
++	}
++	if data.LocaleName() != data.Name() {
++		for matcher, s := range s.nameMatchers {
++			if matcher.MatchString(data.Name()) {
++				score += s
++			}
++		}
++	}
++
++	if s.keyMatcher == nil {
++		return
++	}
++
++	for _, keyword := range data.Keywords() {
++		if s.keyMatcher.MatchString(keyword) {
++			score += VeryGood
++		}
++	}
++
++	if s.keyMatcher.MatchString(data.Path()) {
++		score += Average
++	}
++
++	if s.keyMatcher.MatchString(data.ExecCmd()) {
++		score += Good
++	}
++
++	if s.keyMatcher.MatchString(data.GenericName()) {
++		score += BelowAverage
++	}
++
++	if s.keyMatcher.MatchString(data.Description()) {
++		score += Poor
++	}
++
++	return
++}
++
++func (s *SearchInstalledItemTransaction) isCancelled() bool {
++	if s.cancelled {
++		return true
++	}
++
++	select {
++	case <-s.cancelChan:
++		s.cancelled = true
++		return true
++	default:
++		return false
++	}
++}
++
++// ScoreItem scores item.
++func (s *SearchInstalledItemTransaction) ScoreItem(dataSetChan <-chan ItemInfo) {
++	if s.isCancelled() {
++		return
++	}
++
++	for data := range dataSetChan {
++		score := s.calcScore(data)
++		if score == 0 {
++			continue
++		}
++
++		if s.isCancelled() {
++			return
++		}
++
++		select {
++		case s.resChan <- Result{
++			ID:    data.ID(),
++			Name:  data.LocaleName(),
++			Score: score,
++			Freq:  s.getFreq(data.ID()),
++		}:
++		}
++	}
++}
++
++// Search executes transaction and returns searching results.
++func (s *SearchInstalledItemTransaction) Search(key string, dataSet []ItemInfo) {
++	s.initKeyMatchers(key)
++	dataSetChan := make(chan ItemInfo)
++	go func() {
++		defer close(dataSetChan)
++		if s.isCancelled() {
++			return
++		}
++
++		for _, data := range dataSet {
++			if s.isCancelled() {
++				return
++			}
++
++			select {
++			case dataSetChan <- data:
++			}
++		}
++	}()
++	var wg sync.WaitGroup
++	wg.Add(s.maxGoroutineNum)
++	for i := 0; i < s.maxGoroutineNum; i++ {
++		go func(i int) {
++			s.ScoreItem(dataSetChan)
++			wg.Done()
++		}(i)
++	}
++
++	wg.Wait()
++}
+diff --git a/launcher/item/search/search_installed_item_test.go b/launcher/item/search/search_installed_item_test.go
+new file mode 100644
+index 0000000..2fcbb16
+--- /dev/null
++++ b/launcher/item/search/search_installed_item_test.go
+@@ -0,0 +1,88 @@
++package search
++
++import (
++	C "launchpad.net/gocheck"
++	"os"
++	"path"
++	"pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"pkg.deepin.io/dde/daemon/launcher/item"
++	"gir/gio-2.0"
++	"sync"
++	"time"
++)
++
++type SearchInstalledItemTransactionTestSuite struct {
++	testDataDir string
++}
++
++var _ = C.Suite(&SearchInstalledItemTransactionTestSuite{})
++
++func (self *SearchInstalledItemTransactionTestSuite) SetUpSuite(c *C.C) {
++	self.testDataDir = "../../testdata"
++}
++
++func (self *SearchInstalledItemTransactionTestSuite) TestSearchInstalledItemTransactionConstructor(c *C.C) {
++	var transaction *SearchInstalledItemTransaction
++	var err error
++
++	ch := make(chan Result)
++	transaction, err = NewSearchInstalledItemTransaction(nil, nil, 4)
++	c.Assert(transaction, C.IsNil)
++	c.Assert(err, C.NotNil)
++	c.Assert(err, C.Equals, ErrorSearchNullChannel)
++
++	transaction, err = NewSearchInstalledItemTransaction(ch, nil, 4)
++	c.Assert(transaction, C.NotNil)
++	c.Assert(err, C.IsNil)
++}
++
++func (self *SearchInstalledItemTransactionTestSuite) testSearchInstalledItemTransaction(c *C.C, key string, fn func([]Result, *C.C), delay time.Duration, cancel bool) {
++	old := os.Getenv("LANGUAGE")
++	os.Setenv("LANGUAGE", "zh_CN.UTF-8")
++
++	cancelChan := make(chan struct{})
++	ch := make(chan Result)
++	transaction, _ := NewSearchInstalledItemTransaction(ch, cancelChan, 4)
++	itemInfo := item.New(gio.NewDesktopAppInfoFromFilename(path.Join(self.testDataDir, "firefox.desktop")))
++	var wg sync.WaitGroup
++	wg.Add(1)
++	go func() {
++		time.Sleep(delay)
++		transaction.Search(key, []interfaces.ItemInfo{itemInfo})
++		wg.Done()
++	}()
++	if cancel {
++		transaction.Cancel()
++	}
++	go func() {
++		wg.Wait()
++		close(ch)
++	}()
++
++	res := []Result{}
++	for data := range ch {
++		res = append(res, data)
++	}
++
++	fn(res, c)
++
++	os.Setenv("LANGUAGE", old)
++}
++
++func (self *SearchInstalledItemTransactionTestSuite) TestSearchInstalledItemTransaction(c *C.C) {
++	self.testSearchInstalledItemTransaction(c, "f", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 1)
++	}, 0, false)
++}
++
++func (self *SearchInstalledItemTransactionTestSuite) TestSearchInstalledItemTransactionWithAItemNotExist(c *C.C) {
++	self.testSearchInstalledItemTransaction(c, "IE", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 0)
++	}, 0, false)
++}
++
++func (self *SearchInstalledItemTransactionTestSuite) TestSearchInstalledItemTransactionCancel(c *C.C) {
++	self.testSearchInstalledItemTransaction(c, "fire", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 0)
++	}, time.Second, true)
++}
+diff --git a/launcher/item/search/search_result_list.go b/launcher/item/search/search_result_list.go
+new file mode 100644
+index 0000000..163d66a
+--- /dev/null
++++ b/launcher/item/search/search_result_list.go
+@@ -0,0 +1,32 @@
++package search
++
++// ResultList is type alias for []Result used for sort.
++type ResultList []Result
++
++func (self ResultList) Len() int {
++	return len(self)
++}
++
++func (self ResultList) Swap(i, j int) {
++	self[i], self[j] = self[j], self[i]
++}
++
++func (self ResultList) Less(i, j int) bool {
++	if self[i].Score > self[j].Score {
++		return true
++	}
++
++	if self[j].Score > self[i].Score {
++		return false
++	}
++
++	if self[i].Freq > self[j].Freq {
++		return true
++	}
++
++	if self[j].Freq > self[i].Freq {
++		return false
++	}
++
++	return self[i].Name < self[j].Name
++}
+diff --git a/launcher/item/search/search_result_list_test.go b/launcher/item/search/search_result_list_test.go
+new file mode 100644
+index 0000000..dfd726f
+--- /dev/null
++++ b/launcher/item/search/search_result_list_test.go
+@@ -0,0 +1,70 @@
++package search
++
++import (
++	"sort"
++
++	C "launchpad.net/gocheck"
++)
++
++type ResultListTestSuite struct {
++}
++
++var _ = C.Suite(&ResultListTestSuite{})
++
++func (*ResultListTestSuite) _TestResultList(c *C.C) {
++	res := ResultList{
++		Result{
++			ID:    "chrome",
++			Name:  "chrome",
++			Score: 345000,
++		},
++		Result{
++			ID:    "weibo",
++			Name:  "weibo",
++			Score: 80000,
++		},
++		Result{
++			ID:    "music",
++			Name:  "music",
++			Score: 80000,
++		},
++	}
++	c.Assert(res.Len(), C.Equals, 3)
++	c.Assert(string(res[0].ID), C.Equals, "chrome")
++	c.Assert(string(res[1].ID), C.Equals, "weibo")
++	c.Assert(string(res[2].ID), C.Equals, "music")
++	c.Assert(res.Less(0, 1), C.Equals, true)
++	c.Assert(res.Less(1, 2), C.Equals, false)
++
++	res.Swap(0, 1)
++	c.Assert(string(res[0].ID), C.Equals, "weibo")
++
++	sort.Sort(res)
++	c.Assert(string(res[0].ID), C.Equals, "chrome")
++	c.Assert(string(res[1].ID), C.Equals, "music")
++	c.Assert(string(res[2].ID), C.Equals, "weibo")
++}
++
++func (*ResultListTestSuite) TestResultListReal(c *C.C) {
++	list := ResultList{
++		{"12306", "12306", 80000, 0},
++		{"google-chrome", "Google Chrome", 345000, 0},
++		{"chrome-lbfehkoinhhcknnbdgnnmjhiladcgbol-Default", "Evernote Web", 150000, 0},
++		{"chrome-kidnkfckhbdkfgbicccmdggmpgogehop-Default", "马克飞象", 150000, 0},
++		{"doit-im", "Doit.im", 80000, 0},
++		{"towerim", "Tower.im", 80000, 0},
++		{"microsoft-skydrive", "微软 SkyDrive", 80000, 0},
++		{"sina-weibo", "新浪微博", 80000, 0},
++		{"youdao-note", "有道云笔记", 80000, 0},
++		{"pirateslovedaisies", "海盗爱菊花", 80000, 0},
++		{"baidu-music", "百度音乐", 80000, 0},
++		{"xiami-music", "虾米音乐", 80000, 0},
++		{"kuwo-music", "酷我音乐网页版", 80000, 0},
++		{"kugou-music", "酷狗音乐", 80000, 0},
++		{"kingsoft-fast-docs", "金山快写", 80000, 0},
++		{"kingsoft-online-storage", "金山网盘", 80000, 0},
++	}
++
++	sort.Sort(list)
++	c.Assert(string(list[0].ID), C.Equals, "google-chrome")
++}
+diff --git a/launcher/item/search/search_test.go b/launcher/item/search/search_test.go
+new file mode 100644
+index 0000000..dde4612
+--- /dev/null
++++ b/launcher/item/search/search_test.go
+@@ -0,0 +1,116 @@
++package search
++
++import (
++	"os"
++	"path"
++	"testing"
++	"time"
++
++	C "launchpad.net/gocheck"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"pkg.deepin.io/dde/daemon/launcher/item"
++	"gir/gio-2.0"
++)
++
++func TestSearch(t *testing.T) {
++	C.TestingT(t)
++}
++
++type SearchTransactionTestSuite struct {
++	testDataDir string
++}
++
++var _ = C.Suite(&SearchTransactionTestSuite{})
++
++func (self *SearchTransactionTestSuite) SetUpSuite(c *C.C) {
++	self.testDataDir = "../../testdata"
++}
++
++func (self *SearchTransactionTestSuite) TestSearchTransactionConstructor(c *C.C) {
++	var transaction *Transaction
++	var err error
++
++	transaction, err = NewTransaction(nil, nil, nil, 4)
++	c.Assert(transaction, C.IsNil)
++	c.Assert(err, C.NotNil)
++	c.Assert(err, C.Equals, ErrorSearchNullChannel)
++
++	transaction, err = NewTransaction(nil, make(chan Result), nil, 4)
++	c.Assert(transaction, C.NotNil)
++	c.Assert(err, C.IsNil)
++}
++
++func (self *SearchTransactionTestSuite) testTransaction(c *C.C, pinyinObj PinYin, key string, fn func([]Result, *C.C), delay time.Duration, cancel bool) {
++	old := os.Getenv("LANGUAGE")
++	os.Setenv("LANGUAGE", "zh_CN.UTF-8")
++
++	cancelChan := make(chan struct{})
++	ch := make(chan Result)
++	transaction, _ := NewTransaction(pinyinObj, ch, cancelChan, 4)
++	firefoxItemInfo := item.New(gio.NewDesktopAppInfoFromFilename(path.Join(self.testDataDir, "firefox.desktop")))
++	playerItemInfo := item.New(gio.NewDesktopAppInfoFromFilename(path.Join(self.testDataDir, "deepin-music-player.desktop")))
++	chromeItemInfo := item.New(gio.NewDesktopAppInfoFromFilename(path.Join(self.testDataDir, "google-chrome.desktop")))
++	go func() {
++		time.Sleep(delay)
++		transaction.Search(key, []ItemInfo{
++			firefoxItemInfo,
++			playerItemInfo,
++			chromeItemInfo,
++		})
++		close(ch)
++	}()
++	if cancel {
++		transaction.Cancel()
++	}
++
++	result := map[ItemID]Result{}
++	for itemInfo := range ch {
++		result[itemInfo.ID] = itemInfo
++	}
++
++	res := []Result{}
++	for _, data := range result {
++		res = append(res, data)
++	}
++
++	fn(res, c)
++
++	os.Setenv("LANGUAGE", old)
++}
++
++func (self *SearchTransactionTestSuite) TestTransaction(c *C.C) {
++	self.testTransaction(c, nil, "fire", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 1)
++	}, 0, false)
++}
++
++func (self *SearchTransactionTestSuite) TestSearchTransactionWithAItemNotExist(c *C.C) {
++	self.testTransaction(c, nil, "IE", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 0)
++	}, 0, false)
++}
++
++func (self *SearchTransactionTestSuite) TestSearchTransactionWithPinYin(c *C.C) {
++	old := os.Getenv("LANGUAGE")
++	os.Setenv("LANGUAGE", "zh_CN.UTF-8")
++	fireItemInfo := item.New(gio.NewDesktopAppInfoFromFilename(path.Join(self.testDataDir, "firefox.desktop")))
++	chromeItemInfo := item.New(gio.NewDesktopAppInfoFromFilename(path.Join(self.testDataDir, "google-chrome.desktop")))
++	defer os.Setenv("LANGUAGE", old)
++
++	pinyinObj := NewMockPinYin(map[string][]string{
++		"liu": []string{
++			fireItemInfo.LocaleName(),
++			chromeItemInfo.LocaleName(),
++		},
++	}, true)
++	self.testTransaction(c, pinyinObj, "liu", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 2)
++	}, 0, false)
++
++}
++
++func (self *SearchTransactionTestSuite) TestSearchCancel(c *C.C) {
++	self.testTransaction(c, nil, "fire", func(res []Result, c *C.C) {
++		c.Assert(len(res), C.Equals, 0)
++	}, time.Second, true)
++}
+diff --git a/launcher/launcher.go b/launcher/launcher.go
+new file mode 100644
+index 0000000..73d3988
+--- /dev/null
++++ b/launcher/launcher.go
+@@ -0,0 +1,584 @@
++package launcher
++
++import (
++	"os"
++	"path"
++	"path/filepath"
++	"sort"
++	"sync"
++	"time"
++
++	"github.com/howeyc/fsnotify"
++
++	storeApi "dbus/com/deepin/store/api"
++
++	"pkg.deepin.io/dde/api/soundutils"
++	"pkg.deepin.io/dde/daemon/appinfo"
++	"pkg.deepin.io/dde/daemon/launcher/category"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"pkg.deepin.io/dde/daemon/launcher/item"
++	"pkg.deepin.io/dde/daemon/launcher/item/search"
++	. "pkg.deepin.io/dde/daemon/launcher/utils"
++	"pkg.deepin.io/lib/dbus"
++	"gir/glib-2.0"
++	"pkg.deepin.io/lib/utils"
++)
++
++const (
++	launcherObject    string = "com.deepin.dde.daemon.Launcher"
++	launcherPath      string = "/com/deepin/dde/daemon/Launcher"
++	launcherInterface string = launcherObject
++
++	AppDirName string = "applications"
++
++	AppStatusCreated  string = "created"
++	AppStatusModified string = "updated"
++	AppStatusDeleted  string = "deleted"
++)
++
++// ItemChangedStatus stores item's current changed status.
++type ItemChangedStatus struct {
++	renamed, created, notRenamed, notCreated chan bool
++	timeInstalled                            int64
++}
++
++// Launcher 为launcher的后端。
++type Launcher struct {
++	setting             Setting
++	itemManager         ItemManager
++	categoryManager     CategoryManager
++	cancelMutex         sync.Mutex
++	cancelSearchingChan chan struct{}
++	pinyinObj           PinYin
++	store               *storeApi.DStoreDesktop
++	appMonitor          *fsnotify.Watcher
++
++	// ItemChanged当launcher中的item有改变后触发。
++	ItemChanged func(
++		status string,
++		itemInfo ItemInfoExport,
++		categoryID CategoryID,
++	)
++	// UninstallSuccess在卸载程序成功后触发。
++	UninstallSuccess func(ItemID)
++	// UninstallFailed在卸载程序失败后触发。
++	UninstallFailed func(ItemID, string)
++
++	// SendToDesktopSuccess在发送到桌面成功后触发。
++	SendToDesktopSuccess func(ItemID)
++	// SendToDesktopFailed在发送到桌面失败后触发。
++	SendToDesktopFailed func(ItemID, string)
++
++	// RemoveFromDesktopSuccess在从桌面移除成功后触发。
++	RemoveFromDesktopSuccess func(ItemID)
++	// RemoveFromDesktopFailed在从桌面移除失败后触发。
++	RemoveFromDesktopFailed func(ItemID, string)
++
++	// SearchDone在搜索结束后触发。
++	SearchDone func([]ItemID)
++
++	// NewAppLaunched在新安装程序被标记为已启动后被触发。（废弃，不够直观，使用新信号NewAppMarkedAsLaunched）
++	NewAppLaunched func(ItemID)
++	// NewAppMarkedAsLaunched在新安装程序被标记为已启动后被触发。
++	NewAppMarkedAsLaunched func(ItemID)
++}
++
++// NewLauncher creates a new launcher object.
++func NewLauncher() *Launcher {
++	launcher := &Launcher{
++		cancelSearchingChan: make(chan struct{}),
++	}
++	return launcher
++}
++
++func (self *Launcher) setSetting(s Setting) {
++	self.setting = s
++}
++
++func (self *Launcher) setCategoryManager(cm CategoryManager) {
++	self.categoryManager = cm
++}
++
++func (self *Launcher) setItemManager(im ItemManager) {
++	self.itemManager = im
++}
++
++func (self *Launcher) setPinYinObject(pinyinObj PinYin) {
++	self.pinyinObj = pinyinObj
++}
++
++func (self *Launcher) setStoreAPI(s *storeApi.DStoreDesktop) {
++	self.store = s
++}
++
++// GetDBusInfo returns launcher's dbus info.
++func (self *Launcher) GetDBusInfo() dbus.DBusInfo {
++	return dbus.DBusInfo{
++		launcherObject,
++		launcherPath,
++		launcherInterface,
++	}
++}
++
++// RequestUninstall 请求卸载程。
++func (self *Launcher) RequestUninstall(id string, purge bool) {
++	go func(id ItemID) {
++		logger.Info("uninstall", id)
++		err := self.itemManager.UninstallItem(id, purge, time.Minute*20)
++		if err == nil {
++			dbus.Emit(self, "UninstallSuccess", id)
++			return
++		}
++
++		dbus.Emit(self, "UninstallFailed", id, err.Error())
++	}(ItemID(id))
++}
++
++// RequestSendToDesktop 请求将程序发送到桌面。
++func (self *Launcher) RequestSendToDesktop(id string) bool {
++	itemID := ItemID(id)
++	if filepath.IsAbs(id) {
++		dbus.Emit(self, "SendToDesktopFailed", itemID, "app id is expected")
++		return false
++	}
++
++	if err := self.itemManager.SendItemToDesktop(itemID); err != nil {
++		dbus.Emit(self, "SendToDesktopFailed", itemID, err.Error())
++		return false
++	}
++
++	soundutils.PlaySystemSound(soundutils.EventIconToDesktop, "", false)
++	dbus.Emit(self, "SendToDesktopSuccess", itemID)
++	return true
++}
++
++// RequestRemoveFromDesktop 请求将程序从桌面移除。
++func (self *Launcher) RequestRemoveFromDesktop(id string) bool {
++	itemID := ItemID(id)
++	if filepath.IsAbs(id) {
++		dbus.Emit(self, "RemoveFromDesktopFailed", itemID, "app id is expected")
++		return false
++	}
++
++	if err := self.itemManager.RemoveItemFromDesktop(itemID); err != nil {
++		dbus.Emit(self, "RemoveFromDesktopFailed", itemID, err.Error())
++		return false
++	}
++
++	dbus.Emit(self, "RemoveFromDesktopSuccess", itemID)
++	return true
++}
++
++// IsItemOnDesktop 判断程序是否已经在桌面上。
++func (self *Launcher) IsItemOnDesktop(id string) bool {
++	itemID := ItemID(id)
++	if filepath.IsAbs(id) {
++		return false
++	}
++
++	return self.itemManager.IsItemOnDesktop(itemID)
++}
++
++// GetCategoryInfo 获取分类id对应的分类信息。
++// 包括：分类名，分类id，分类所包含的程序。
++func (self *Launcher) GetCategoryInfo(cid int64) CategoryInfoExport {
++	return NewCategoryInfoExport(self.categoryManager.GetCategory(CategoryID(cid)))
++}
++
++// GetAllCategoryInfos 获取所有分类的分类信息。
++func (self *Launcher) GetAllCategoryInfos() []CategoryInfoExport {
++	infos := []CategoryInfoExport{}
++	ids := self.categoryManager.GetAllCategory()
++	for _, id := range ids {
++		infos = append(infos, NewCategoryInfoExport(self.categoryManager.GetCategory(id)))
++	}
++
++	return infos
++}
++
++// GetItemInfo 获取id对应的item信息。
++// 包括：item的path，item的Name，item的id，item的icon，item的分类id，item的安装时间
++func (self *Launcher) GetItemInfo(id string) ItemInfoExport {
++	return NewItemInfoExport(self.itemManager.GetItem(ItemID(id)))
++}
++
++// GetAllItemInfos 获取所有item的信息。
++func (self *Launcher) GetAllItemInfos() []ItemInfoExport {
++	items := self.itemManager.GetAllItems()
++	infos := []ItemInfoExport{}
++	for _, item := range items {
++		infos = append(infos, NewItemInfoExport(item))
++	}
++
++	return infos
++}
++
++func (self *Launcher) emitItemChanged(name, status string, info map[string]ItemChangedStatus) {
++	if info != nil {
++		defer delete(info, name)
++	}
++
++	id := item.GenID(name)
++
++	if status == AppStatusCreated && self.itemManager.HasItem(id) {
++		status = AppStatusModified
++	}
++	logger.Info("start emitItemChanged", name, "Status:", status)
++
++	if status != AppStatusDeleted {
++		// cannot use float number here. the total wait time is about 12s.
++		maxDuration := time.Second + time.Second/2
++		waitDuration := time.Millisecond * 0
++		deltaDuration := time.Millisecond * 100
++
++		app := CreateDesktopAppInfo(name)
++		for app == nil && waitDuration < maxDuration {
++			<-time.After(waitDuration)
++			app = CreateDesktopAppInfo(name)
++			waitDuration += deltaDuration
++		}
++
++		if app == nil {
++			logger.Infof("create DesktopAppInfo for %q failed", name)
++			return
++		}
++		defer app.Unref()
++		if !app.ShouldShow() {
++			logger.Info(app.GetFilename(), "should NOT show")
++			return
++		}
++		itemInfo := item.New(app)
++		if info[name].timeInstalled != 0 {
++			itemInfo.SetTimeInstalled(info[name].timeInstalled)
++		}
++
++		dbPath, _ := category.GetDBPath(category.SoftwareCenterDataDir, category.CategoryNameDBPath)
++		self.categoryManager.LoadAppCategoryInfo(dbPath, "")
++		defer self.categoryManager.FreeAppCategoryInfo()
++
++		cid, err := self.categoryManager.QueryID(app)
++		if err != nil {
++			itemInfo.SetCategoryID(category.OthersID)
++		}
++		itemInfo.SetCategoryID(cid)
++
++		self.itemManager.AddItem(itemInfo)
++		self.categoryManager.AddItem(itemInfo.ID(), itemInfo.CategoryID())
++	}
++
++	if !self.itemManager.HasItem(id) {
++		logger.Warning("has no such a item", id)
++		return
++	}
++
++	item := self.itemManager.GetItem(id)
++	cid := item.CategoryID()
++	itemInfo := NewItemInfoExport(item)
++
++	if status == AppStatusDeleted {
++		self.itemManager.MarkLaunched(id)
++		self.categoryManager.RemoveItem(id, cid)
++		self.itemManager.RemoveItem(id)
++	} else {
++		self.categoryManager.AddItem(id, cid)
++	}
++
++	logger.Info("emit ItemChanged signal", status, dbus.Emit(self, "ItemChanged", status, itemInfo, cid))
++}
++
++func (self *Launcher) itemChangedHandler(ev *fsnotify.FileEvent, name string, info map[string]ItemChangedStatus) {
++	if _, ok := info[name]; !ok {
++		info[name] = ItemChangedStatus{
++			make(chan bool),
++			make(chan bool),
++			make(chan bool),
++			make(chan bool),
++			0,
++		}
++	}
++	if ev.IsRename() {
++		// logger.Info("renamed")
++		select {
++		case <-info[name].renamed:
++		default:
++		}
++		go func() {
++			select {
++			case <-info[name].notRenamed:
++				return
++			case <-time.After(time.Second):
++				<-info[name].renamed
++				if true {
++					self.emitItemChanged(name, AppStatusDeleted, info)
++				}
++			}
++		}()
++		info[name].renamed <- true
++	} else if ev.IsCreate() {
++		self.emitItemChanged(name, AppStatusCreated, info)
++		go func() {
++			select {
++			case <-info[name].renamed:
++				// logger.Info("not renamed")
++				info[name].notRenamed <- true
++				info[name].renamed <- true
++			default:
++				// logger.Info("default")
++			}
++			select {
++			case <-info[name].notCreated:
++				return
++			case <-time.After(time.Second):
++				<-info[name].created
++			}
++		}()
++		info[name].created <- true
++	} else if ev.IsModify() && !ev.IsAttrib() {
++		go func() {
++			select {
++			case <-info[name].created:
++				info[name].notCreated <- true
++			}
++			select {
++			case <-info[name].renamed:
++				self.emitItemChanged(name, AppStatusModified, info)
++			default:
++			}
++		}()
++	} else if ev.IsAttrib() {
++		go func() {
++			select {
++			case <-info[name].renamed:
++				<-info[name].created
++				info[name].notCreated <- true
++			default:
++			}
++		}()
++	} else if ev.IsDelete() {
++		if true {
++			self.emitItemChanged(name, AppStatusDeleted, info)
++		}
++	}
++}
++
++func (self *Launcher) eventHandler(watcher *fsnotify.Watcher) {
++	var info = map[string]ItemChangedStatus{}
++	for {
++		select {
++		case ev := <-watcher.Event:
++			name := path.Clean(ev.Name)
++			basename := path.Base(name)
++			if basename == "kde4" {
++				if ev.IsCreate() {
++					watcher.Watch(name)
++				} else if ev.IsDelete() {
++					watcher.RemoveWatch(name)
++				}
++			}
++			matched, _ := path.Match(`[^#.]*.desktop`, basename)
++			if matched {
++				go self.itemChangedHandler(ev, name, info)
++			}
++		case <-watcher.Error:
++		}
++	}
++}
++
++func getApplicationsDirs() []string {
++	var dirs []string
++	dataDirs := glib.GetSystemDataDirs()
++	for _, dir := range dataDirs {
++		applicationsDir := path.Join(dir, AppDirName)
++		if utils.IsFileExist(applicationsDir) {
++			dirs = append(dirs, applicationsDir)
++		}
++		applicationsDirForKde := path.Join(applicationsDir, "kde4")
++		if utils.IsFileExist(applicationsDirForKde) {
++			dirs = append(dirs, applicationsDirForKde)
++		}
++	}
++
++	userDataDir := path.Join(glib.GetUserDataDir(), AppDirName)
++	dirs = append(dirs, userDataDir)
++	if !utils.IsFileExist(userDataDir) {
++		os.MkdirAll(userDataDir, DirDefaultPerm)
++	}
++	userDataDirForKde := path.Join(userDataDir, "kde4")
++	if utils.IsFileExist(userDataDirForKde) {
++		dirs = append(dirs, userDataDirForKde)
++	}
++	return dirs
++}
++
++func (self *Launcher) listenItemChanged() {
++	dirs := getApplicationsDirs()
++	watcher, err := fsnotify.NewWatcher()
++	if err != nil {
++		return
++	}
++
++	self.appMonitor = watcher
++	for _, dir := range dirs {
++		logger.Info("monitor:", dir)
++		watcher.Watch(dir)
++	}
++
++	go self.eventHandler(watcher)
++
++	if self.store != nil {
++		self.store.ConnectNewDesktopAdded(func(desktopID string, timeInstalled int32) {
++			self.emitItemChanged(desktopID, AppStatusCreated, map[string]ItemChangedStatus{
++				desktopID: ItemChangedStatus{
++					timeInstalled: int64(timeInstalled),
++				},
++			})
++		})
++	}
++}
++
++// RecordRate 记录程序的使用频率。（废弃，统一用词，请使用新接口RecordFrequency）
++func (self *Launcher) RecordRate(id string) {
++}
++
++// RecordFrequency 记录程序的使用频率。
++func (self *Launcher) RecordFrequency(id string) {
++	self.RecordRate(id)
++}
++
++// GetAllFrequency 获取所有的使用频率信息。
++// 包括：item的id与使用频率。
++func (self *Launcher) GetAllFrequency() (infos []FrequencyExport) {
++	f, err := appinfo.GetFrequencyRecordFile()
++	if err != nil {
++		return
++	}
++
++	frequency := self.itemManager.GetAllFrequency(f)
++	f.Free()
++
++	for id, rate := range frequency {
++		infos = append(infos, FrequencyExport{Frequency: rate, ID: id})
++	}
++
++	return
++}
++
++// GetAllTimeInstalled 获取所有程序的安装时间。
++// 包括：item的id与安装时间。
++func (self *Launcher) GetAllTimeInstalled() []TimeInstalledExport {
++	infos := []TimeInstalledExport{}
++	times, err := self.itemManager.GetAllTimeInstalled()
++	if err != nil {
++		logger.Warning("GetAllTimeInstalled error:", err)
++	}
++
++	for id, t := range times {
++		infos = append(infos, TimeInstalledExport{Time: t, ID: id})
++	}
++
++	return infos
++}
++
++type FreqGetter struct {
++	f *glib.KeyFile
++}
++
++func NewFreqGetter(f *glib.KeyFile) *FreqGetter {
++	getter := &FreqGetter{f: f}
++	return getter
++}
++
++func (getter *FreqGetter) GetFrequency(id string) uint64 {
++	if getter.f == nil {
++		return 0
++	}
++	return appinfo.GetFrequency(id, getter.f)
++}
++
++// Search 搜索给定的关键字。
++func (self *Launcher) Search(key string) {
++	self.cancelMutex.Lock()
++	defer self.cancelMutex.Unlock()
++
++	close(self.cancelSearchingChan)
++	self.cancelSearchingChan = make(chan struct{})
++	go func(cancelChan chan struct{}) {
++		resultChan := make(chan search.Result)
++		recordFile, _ := appinfo.GetFrequencyRecordFile()
++		if recordFile != nil {
++			defer recordFile.Free()
++		}
++		freqGetter := NewFreqGetter(recordFile)
++		transaction, err := search.NewTransaction(self.pinyinObj, resultChan, cancelChan, 0)
++		if err != nil {
++			return
++		}
++
++		transaction.SetFreqGetter(freqGetter)
++		dataSet := self.itemManager.GetAllItems()
++		go func() {
++			transaction.Search(key, dataSet)
++			close(resultChan)
++		}()
++
++		resultMap := map[ItemID]search.Result{}
++		for result := range resultChan {
++			select {
++			case <-cancelChan:
++				return
++			default:
++				resultMap[result.ID] = result
++			}
++		}
++
++		var res search.ResultList
++		for _, data := range resultMap {
++			res = append(res, data)
++		}
++
++		sort.Sort(res)
++
++		logger.Debug("search result", res)
++		itemIDs := []ItemID{}
++		for _, data := range res {
++			itemIDs = append(itemIDs, data.ID)
++		}
++		dbus.Emit(self, "SearchDone", itemIDs)
++	}(self.cancelSearchingChan)
++}
++
++// MarkLaunched 将程序标记为已启动过。
++func (self *Launcher) MarkLaunched(id string) {
++	err := self.itemManager.MarkLaunched(ItemID(id))
++	if err != nil {
++		logger.Warning("MarkLaunched error:", err)
++		return
++	}
++
++	dbus.Emit(self, "NewAppLaunched", ItemID(id))
++}
++
++// GetAllNewInstalledApps 获取所有新安装的程序。
++func (self *Launcher) GetAllNewInstalledApps() []ItemID {
++	ids, err := self.itemManager.GetAllNewInstalledApps()
++	if err != nil {
++		logger.Info("GetAllNewInstalledApps", err)
++	}
++	return ids
++}
++
++func (self *Launcher) destroy() {
++	if self.setting != nil {
++		self.setting.Destroy()
++		self.setting = nil
++	}
++	if self.store != nil {
++		storeApi.DestroyDStoreDesktop(self.store)
++		self.store = nil
++	}
++	if self.appMonitor != nil {
++		self.appMonitor.Close()
++		self.appMonitor = nil
++	}
++	dbus.UnInstallObject(self)
++}
+diff --git a/launcher/launcher_test.go b/launcher/launcher_test.go
+new file mode 100644
+index 0000000..2d7082c
+--- /dev/null
++++ b/launcher/launcher_test.go
+@@ -0,0 +1,12 @@
++package launcher
++
++import (
++	C "launchpad.net/gocheck"
++	"testing"
++)
++
++func TestLauncher(t *testing.T) {
++	C.TestingT(t)
++}
++
++// TODO: test Launcher
+diff --git a/launcher/main.go b/launcher/main.go
+new file mode 100644
+index 0000000..e96325d
+--- /dev/null
++++ b/launcher/main.go
+@@ -0,0 +1,160 @@
++package launcher
++
++import (
++	storeApi "dbus/com/deepin/store/api"
++	"strings"
++	"sync"
++
++	"pkg.deepin.io/dde/daemon/launcher/category"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	"pkg.deepin.io/dde/daemon/launcher/item"
++	"pkg.deepin.io/dde/daemon/launcher/item/dstore"
++	"pkg.deepin.io/dde/daemon/launcher/item/search"
++	. "pkg.deepin.io/dde/daemon/loader"
++	"pkg.deepin.io/lib/gettext"
++	"gir/gio-2.0"
++	. "pkg.deepin.io/lib/initializer"
++	"pkg.deepin.io/lib/log"
++)
++
++// Daemon is the module interface's implementation.
++type Daemon struct {
++	*ModuleBase
++	launcher *Launcher
++}
++
++// NewLauncherDaemon creates a new launcher daemon module.
++func NewLauncherDaemon(logger *log.Logger) *Daemon {
++	daemon := new(Daemon)
++	daemon.ModuleBase = NewModuleBase("launcher", daemon, logger)
++	return daemon
++}
++
++// GetDependencies returns the dependencies of this module.
++func (d *Daemon) GetDependencies() []string {
++	return []string{}
++}
++
++// Stop stops the launcher module.
++func (d *Daemon) Stop() error {
++	if d.launcher == nil {
++		return nil
++	}
++
++	d.launcher.destroy()
++	d.launcher = nil
++
++	logger.EndTracing()
++	return nil
++}
++
++func loadItemsInfo(im *item.Manager, cm *category.Manager) {
++	timeInfo, _ := im.GetAllTimeInstalled()
++
++	appChan := make(chan *gio.AppInfo)
++	go func() {
++		allApps := gio.AppInfoGetAll()
++		for _, app := range allApps {
++			appChan <- app
++		}
++		close(appChan)
++	}()
++
++	dbPath, _ := category.GetDBPath(category.SoftwareCenterDataDir, category.CategoryNameDBPath)
++	cm.LoadAppCategoryInfo(dbPath, "")
++	var wg sync.WaitGroup
++	const N = 20
++	wg.Add(N)
++	for i := 0; i < N; i++ {
++		go func() {
++			for app := range appChan {
++				if !app.ShouldShow() {
++					app.Unref()
++					continue
++				}
++
++				desktopApp := gio.ToDesktopAppInfo(app)
++				newItem := item.New(desktopApp)
++				cid, err := cm.QueryID(desktopApp)
++				newItem.SetCategoryID(cid)
++				if err != nil {
++				}
++				newItem.SetTimeInstalled(timeInfo[newItem.ID()])
++
++				im.AddItem(newItem)
++				cm.AddItem(newItem.ID(), newItem.CategoryID())
++
++				app.Unref()
++			}
++			wg.Done()
++		}()
++	}
++	wg.Wait()
++	cm.FreeAppCategoryInfo()
++}
++func isZH() bool {
++	lang := gettext.QueryLang()
++	return strings.HasPrefix(lang, "zh")
++}
++
++// Start starts the launcher module.
++func (d *Daemon) Start() error {
++	if d.launcher != nil {
++		return nil
++	}
++
++	logger.BeginTracing()
++
++	gettext.InitI18n()
++
++	// DesktopAppInfo.ShouldShow does not know deepin.
++	gio.DesktopAppInfoSetDesktopEnv("Deepin")
++
++	err := NewInitializer().Init(func(interface{}) (interface{}, error) {
++		return dstore.New()
++	}).InitOnSessionBus(func(soft interface{}) (interface{}, error) {
++		d.launcher = NewLauncher()
++
++		im := item.NewManager(soft.(DStore))
++		cm := category.NewManager(category.GetAllInfos(""))
++
++		d.launcher.setItemManager(im)
++		d.launcher.setCategoryManager(cm)
++
++		loadItemsInfo(im, cm)
++
++		store, err := storeApi.NewDStoreDesktop("com.deepin.store.Api", "/com/deepin/store/Api")
++		if err == nil {
++			d.launcher.setStoreAPI(store)
++		}
++
++		if isZH() {
++			logger.Info("enable pinyin search in zh env")
++			names := []string{}
++			for _, item := range im.GetAllItems() {
++				names = append(names, item.LocaleName())
++			}
++
++			pinyinObj, err := search.NewPinYinSearchAdapter(names)
++			if err != nil {
++				logger.Warning("CreatePinYinSearch failed:", err)
++			}
++			d.launcher.setPinYinObject(pinyinObj)
++		}
++
++		d.launcher.listenItemChanged()
++
++		return d.launcher, nil
++	}).InitOnSessionBus(func(interface{}) (interface{}, error) {
++		coreSetting := gio.NewSettings("com.deepin.dde.launcher")
++		setting, err := NewSettings(coreSetting)
++		d.launcher.setSetting(setting)
++		return setting, err
++	}).GetError()
++
++	if err != nil {
++		d.Stop()
++	}
++
++	return err
++}
+diff --git a/launcher/mock_category_info.go b/launcher/mock_category_info.go
+new file mode 100644
+index 0000000..eea767f
+--- /dev/null
++++ b/launcher/mock_category_info.go
+@@ -0,0 +1,39 @@
++package launcher
++
++import (
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++)
++
++type MockCategoryInfo struct {
++	id    CategoryID
++	name  string
++	items map[ItemID]bool
++}
++
++func (c *MockCategoryInfo) ID() CategoryID {
++	return c.id
++}
++
++func (c *MockCategoryInfo) Name() string {
++	return c.name
++}
++
++func (c *MockCategoryInfo) LocaleName() string {
++	// TODO: locale name
++	return c.name
++}
++
++func (c *MockCategoryInfo) AddItem(itemID ItemID) {
++	c.items[itemID] = true
++}
++func (c *MockCategoryInfo) RemoveItem(itemID ItemID) {
++	delete(c.items, itemID)
++}
++
++func (c *MockCategoryInfo) Items() []ItemID {
++	items := []ItemID{}
++	for itemID := range c.items {
++		items = append(items, itemID)
++	}
++	return items
++}
+diff --git a/launcher/mock_setting_core.go b/launcher/mock_setting_core.go
+new file mode 100644
+index 0000000..deac89a
+--- /dev/null
++++ b/launcher/mock_setting_core.go
+@@ -0,0 +1,46 @@
++package launcher
++
++import (
++	"fmt"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	. "pkg.deepin.io/dde/daemon/launcher/setting"
++)
++
++type MockSettingCore struct {
++	values   map[string]int32
++	handlers map[string]func(SettingCore, string)
++}
++
++func (m *MockSettingCore) GetEnum(k string) int32 {
++	return m.values[k]
++}
++
++func (m *MockSettingCore) SetEnum(key string, v int32) bool {
++	m.values[key] = v
++
++	detailSignal := fmt.Sprintf("changed::%s", key)
++	if fn, ok := m.handlers[detailSignal]; ok {
++		fn(m, key)
++	}
++	return true
++}
++
++func (m *MockSettingCore) Connect(signalName string, fn interface{}) {
++	f := fn.(func(SettingCore, string))
++	m.handlers[signalName] = f
++}
++
++func (m *MockSettingCore) Unref() {
++}
++
++func NewMockSettingCore() *MockSettingCore {
++	s := &MockSettingCore{
++		values: map[string]int32{
++			CategoryDisplayModeKey: int32(CategoryDisplayModeIcon),
++			SortMethodkey:          int32(SortMethodByName),
++		},
++		handlers: map[string]func(SettingCore, string){},
++	}
++
++	return s
++}
+diff --git a/launcher/setting.go b/launcher/setting.go
+new file mode 100644
+index 0000000..611cd16
+--- /dev/null
++++ b/launcher/setting.go
+@@ -0,0 +1,117 @@
++package launcher
++
++import (
++	"errors"
++	"fmt"
++	. "pkg.deepin.io/dde/daemon/launcher/interfaces"
++	. "pkg.deepin.io/dde/daemon/launcher/setting"
++	"pkg.deepin.io/lib/dbus"
++	"gir/gio-2.0"
++	"sync"
++)
++
++// Settings 存储launcher相关的设置。
++type Settings struct {
++	core SettingCore
++	lock sync.Mutex
++
++	categoryDisplayMode CategoryDisplayMode
++	// CategoryDisplayModeChanged当分类的显示模式改变后触发。
++	CategoryDisplayModeChanged func(int64)
++
++	sortMethod SortMethod
++	// SortMethodChanged在排序方式改变后触发。
++	SortMethodChanged func(int64)
++}
++
++// NewSettings creates a new setting.
++func NewSettings(core SettingCore) (*Settings, error) {
++	if core == nil {
++		return nil, errors.New("get failed")
++	}
++	s := &Settings{
++		core: core,
++	}
++
++	s.listenSettingChange(CategoryDisplayModeKey, func(setting *gio.Settings, key string) {
++		_newValue := int64(setting.GetEnum(key))
++		newValue := CategoryDisplayMode(_newValue)
++		s.lock.Lock()
++		defer s.lock.Unlock()
++		if newValue != s.categoryDisplayMode {
++			s.categoryDisplayMode = newValue
++			dbus.Emit(s, "CategoryDisplayModeChanged", _newValue)
++		}
++	})
++	s.listenSettingChange(SortMethodkey, func(setting *gio.Settings, key string) {
++		_newValue := int64(setting.GetEnum(key))
++		newValue := SortMethod(_newValue)
++		s.lock.Lock()
++		defer s.lock.Unlock()
++		if newValue != s.sortMethod {
++			s.sortMethod = newValue
++			dbus.Emit(s, "SortMethodChanged", _newValue)
++		}
++	})
++
++	// at least one read operation must be called after signal connected, otherwise,
++	// the signal connection won't work from glib 2.43.
++	// NB: https://github.com/GNOME/glib/commit/8ff5668a458344da22d30491e3ce726d861b3619
++	s.categoryDisplayMode = CategoryDisplayMode(core.GetEnum(CategoryDisplayModeKey))
++	s.sortMethod = SortMethod(core.GetEnum(SortMethodkey))
++
++	return s, nil
++}
++
++// GetDBusInfo returns settings' dbus info.
++func (s *Settings) GetDBusInfo() dbus.DBusInfo {
++	return dbus.DBusInfo{
++		launcherObject,
++		launcherPath,
++		"com.deepin.dde.daemon.launcher.Setting",
++	}
++}
++
++func (s *Settings) listenSettingChange(signalName string, handler func(*gio.Settings, string)) {
++	detailSignal := fmt.Sprintf("changed::%s", signalName)
++	s.core.Connect(detailSignal, handler)
++}
++
++// GetCategoryDisplayMode 获取launcher当前的分类显示模式。
++func (s *Settings) GetCategoryDisplayMode() int64 {
++	s.lock.Lock()
++	defer s.lock.Unlock()
++	return int64(s.categoryDisplayMode)
++}
++
++// SetCategoryDisplayMode 设置launcher的分类显示模式。
++func (s *Settings) SetCategoryDisplayMode(newMode int64) {
++	if CategoryDisplayMode(newMode) != s.categoryDisplayMode {
++		s.core.SetEnum(CategoryDisplayModeKey, int32(newMode))
++	}
++}
++
++// GetSortMethod 获取launcher当前的排序模式。
++func (s *Settings) GetSortMethod() int64 {
++	s.lock.Lock()
++	defer s.lock.Unlock()
++
++	return int64(s.sortMethod)
++}
++
++// SetSortMethod 设置launcher的排序方法。
++func (s *Settings) SetSortMethod(newMethod int64) {
++	if SortMethod(newMethod) != s.sortMethod {
++		s.core.SetEnum(SortMethodkey, int32(newMethod))
++	}
++}
++
++func (s *Settings) Destroy() {
++	s.lock.Lock()
++	defer s.lock.Unlock()
++	if s.core != nil {
++		s.core.Unref()
++		s.core = nil
++	}
++	dbus.UnInstallObject(s)
++}
+diff --git a/launcher/setting/category_display_mode.go b/launcher/setting/category_display_mode.go
+new file mode 100644
+index 0000000..ba81c1c
+--- /dev/null
++++ b/launcher/setting/category_display_mode.go
+@@ -0,0 +1,26 @@
++package setting
++
++// CategoryDisplayMode type for category display mode.
++type CategoryDisplayMode int64
++
++// category display
++const (
++	CategoryDisplayModeUnknown CategoryDisplayMode = iota - 1
++	CategoryDisplayModeIcon
++	CategoryDisplayModeText
++
++	CategoryDisplayModeKey string = "category-display-mode"
++)
++
++func (c CategoryDisplayMode) String() string {
++	switch c {
++	case CategoryDisplayModeUnknown:
++		return "unknown category display mode"
++	case CategoryDisplayModeText:
++		return "display text mode"
++	case CategoryDisplayModeIcon:
++		return "display icon mode"
++	default:
++		return "unknown mode"
++	}
++}
+diff --git a/launcher/setting/category_display_mode_test.go b/launcher/setting/category_display_mode_test.go
+new file mode 100644
+index 0000000..4aa5d46
+--- /dev/null
++++ b/launcher/setting/category_display_mode_test.go
+@@ -0,0 +1,17 @@
++package setting
++
++import (
++	"fmt"
++	C "launchpad.net/gocheck"
++)
++
++type CategoryDisplayModeTestSuite struct {
++}
++
++var _ = C.Suite(CategoryDisplayModeTestSuite{})
++
++func (sts CategoryDisplayModeTestSuite) TestCategoryDisplayMode(c *C.C) {
++	c.Assert(fmt.Sprint(CategoryDisplayModeUnknown), C.Equals, "unknown category display mode")
++	c.Assert(fmt.Sprint(CategoryDisplayModeText), C.Equals, "display text mode")
++	c.Assert(fmt.Sprint(CategoryDisplayModeIcon), C.Equals, "display icon mode")
++}
+diff --git a/launcher/setting/setting_test.go b/launcher/setting/setting_test.go
+new file mode 100644
+index 0000000..fc56ce1
+--- /dev/null
++++ b/launcher/setting/setting_test.go
+@@ -0,0 +1,10 @@
++package setting
++
++import (
++	C "launchpad.net/gocheck"
++	"testing"
++)
++
++func TestSetting(t *testing.T) {
++	C.TestingT(t)
++}
+diff --git a/launcher/setting/sort_method.go b/launcher/setting/sort_method.go
+new file mode 100644
+index 0000000..fb3d578
+--- /dev/null
++++ b/launcher/setting/sort_method.go
+@@ -0,0 +1,32 @@
++package setting
++
++// SortMethod type for sort method.
++type SortMethod int64
++
++// sort method.
++const (
++	SortMethodUnknown SortMethod = iota - 1
++	SortMethodByName
++	SortMethodByCategory
++	SortMethodByTimeInstalled
++	SortMethodByFrequency
++
++	SortMethodkey string = "sort-method"
++)
++
++func (s SortMethod) String() string {
++	switch s {
++	case SortMethodUnknown:
++		return "unknown sort method"
++	case SortMethodByName:
++		return "sort by name"
++	case SortMethodByCategory:
++		return "sort by category"
++	case SortMethodByTimeInstalled:
++		return "sort by time installed"
++	case SortMethodByFrequency:
++		return "sort by frequency"
++	default:
++		return "unknown sort method"
++	}
++}
+diff --git a/launcher/setting/sort_method_test.go b/launcher/setting/sort_method_test.go
+new file mode 100644
+index 0000000..98fd478
+--- /dev/null
++++ b/launcher/setting/sort_method_test.go
+@@ -0,0 +1,19 @@
++package setting
++
++import (
++	"fmt"
++	C "launchpad.net/gocheck"
++)
++
++type SortMethodTestSuite struct {
++}
++
++var _ = C.Suite(&SortMethodTestSuite{})
++
++func (sts *SortMethodTestSuite) TestSortMethod(c *C.C) {
++	c.Assert(fmt.Sprint(SortMethodUnknown), C.Equals, "unknown sort method")
++	c.Assert(fmt.Sprint(SortMethodByName), C.Equals, "sort by name")
++	c.Assert(fmt.Sprint(SortMethodByCategory), C.Equals, "sort by category")
++	c.Assert(fmt.Sprint(SortMethodByTimeInstalled), C.Equals, "sort by time installed")
++	c.Assert(fmt.Sprint(SortMethodByFrequency), C.Equals, "sort by frequency")
++}
+diff --git a/launcher/setting_test.go b/launcher/setting_test.go
+new file mode 100644
+index 0000000..00b1041
+--- /dev/null
++++ b/launcher/setting_test.go
+@@ -0,0 +1,71 @@
++package launcher
++
++import (
++	C "launchpad.net/gocheck"
++	. "pkg.deepin.io/dde/daemon/launcher/setting"
++)
++
++type SettingTestSuite struct {
++	s                               *Settings
++	CategoryDisplayModeChangedCount int64
++	SortMethodChangedCount          int64
++}
++
++// FIXME: gsetting cannot be mocked, because the signal callback must have type func(*gio.Settings, string)
++// var _ = C.Suite(&SettingTestSuite{})
++
++func (sts *SettingTestSuite) SetUpTest(c *C.C) {
++	var err error
++	core := NewMockSettingCore()
++	sts.s, err = NewSettings(core)
++
++	sts.CategoryDisplayModeChangedCount = 0
++	sts.s.CategoryDisplayModeChanged = func(int64) {
++		sts.CategoryDisplayModeChangedCount++
++	}
++
++	sts.SortMethodChangedCount = 0
++	sts.s.SortMethodChanged = func(int64) {
++		sts.SortMethodChangedCount++
++	}
++	if err != nil {
++		c.Fail()
++	}
++}
++
++func (sts *SettingTestSuite) TestGetCategoryDisplayMode(c *C.C) {
++	c.Assert(sts.s, C.NotNil)
++	sts.s.GetCategoryDisplayMode()
++	c.Assert(sts.s.GetCategoryDisplayMode(), C.Equals, int64(CategoryDisplayModeIcon))
++}
++
++func (sts *SettingTestSuite) TestSetCategoryDisplayMode(c *C.C) {
++	c.Assert(sts.s, C.NotNil)
++
++	c.Assert(sts.s.GetCategoryDisplayMode(), C.Equals, int64(CategoryDisplayModeIcon))
++
++	sts.s.SetCategoryDisplayMode(int64(CategoryDisplayModeIcon))
++	c.Assert(sts.s.GetCategoryDisplayMode(), C.Equals, int64(CategoryDisplayModeIcon))
++
++	sts.s.SetCategoryDisplayMode(int64(CategoryDisplayModeText))
++	c.Assert(sts.s.GetCategoryDisplayMode(), C.Equals, int64(CategoryDisplayModeText))
++}
++
++func (sts *SettingTestSuite) TestGetSortMethod(c *C.C) {
++	c.Assert(sts.s, C.NotNil)
++	c.Assert(sts.s.GetSortMethod(), C.Equals, int64(SortMethodByName))
++}
++
++func (sts *SettingTestSuite) TestSetSortMethod(c *C.C) {
++	c.Assert(sts.s, C.NotNil)
++
++	c.Assert(sts.s.GetSortMethod(), C.Equals, int64(SortMethodByName))
++
++	sts.s.SetSortMethod(int64(SortMethodByName))
++	c.Assert(sts.SortMethodChangedCount, C.Equals, int64(0))
++	c.Assert(sts.s.GetSortMethod(), C.Equals, int64(SortMethodByName))
++
++	sts.s.SetSortMethod(int64(SortMethodByCategory))
++	c.Assert(sts.SortMethodChangedCount, C.Equals, int64(1))
++	c.Assert(sts.s.GetSortMethod(), C.Equals, int64(SortMethodByCategory))
++}
+diff --git a/launcher/testdata/.config/launcher/rate.ini b/launcher/testdata/.config/launcher/rate.ini
+new file mode 100644
+index 0000000..05b76e2
+--- /dev/null
++++ b/launcher/testdata/.config/launcher/rate.ini
+@@ -0,0 +1,2 @@
++[firefox]
++rate=2
+diff --git a/launcher/testdata/Desktop/firefox.desktop b/launcher/testdata/Desktop/firefox.desktop
+new file mode 100755
+index 0000000..cbc39ed
+--- /dev/null
++++ b/launcher/testdata/Desktop/firefox.desktop
+@@ -0,0 +1,223 @@
++[Desktop Entry]
++Version=1.0
++Name=Firefox Web Browser
++Name[ar]=متصفح الويب فَيَرفُكْس
++Name[ast]=Restolador web Firefox
++Name[bn]=ফায়ারফক্স ওয়েব ব্রাউজার
++Name[ca]=Navegador web Firefox
++Name[cs]=Firefox Webový prohlížeč
++Name[da]=Firefox - internetbrowser
++Name[el]=Περιηγητής Firefox
++Name[es]=Navegador web Firefox
++Name[et]=Firefoxi veebibrauser
++Name[fa]=مرورگر اینترنتی Firefox
++Name[fi]=Firefox-selain
++Name[fr]=Navigateur Web Firefox
++Name[gl]=Navegador web Firefox
++Name[he]=דפדפן האינטרנט Firefox
++Name[hr]=Firefox web preglednik
++Name[hu]=Firefox webböngésző
++Name[it]=Firefox Browser Web
++Name[ja]=Firefox ウェブ・ブラウザ
++Name[ko]=Firefox 웹 브라우저
++Name[ku]=Geroka torê Firefox
++Name[lt]=Firefox interneto naršyklė
++Name[nb]=Firefox Nettleser
++Name[nl]=Firefox webbrowser
++Name[nn]=Firefox Nettlesar
++Name[no]=Firefox Nettleser
++Name[pl]=Przeglądarka WWW Firefox
++Name[pt]=Firefox Navegador Web
++Name[pt_BR]=Navegador Web Firefox
++Name[ro]=Firefox – Navigator Internet
++Name[ru]=Веб-браузер Firefox
++Name[sk]=Firefox - internetový prehliadač
++Name[sl]=Firefox spletni brskalnik
++Name[sv]=Firefox webbläsare
++Name[tr]=Firefox Web Tarayıcısı
++Name[ug]=Firefox توركۆرگۈ
++Name[uk]=Веб-браузер Firefox
++Name[vi]=Trình duyệt web Firefox
++Name[zh_CN]=Firefox 网络浏览器
++Name[zh_TW]=Firefox 網路瀏覽器
++Comment=Browse the World Wide Web
++Comment[ar]=تصفح الشبكة العنكبوتية العالمية
++Comment[ast]=Restola pela Rede
++Comment[bn]=ইন্টারনেট ব্রাউজ করুন
++Comment[ca]=Navegueu per la web
++Comment[cs]=Prohlížení stránek World Wide Webu
++Comment[da]=Surf på internettet
++Comment[de]=Im Internet surfen
++Comment[el]=Μπορείτε να περιηγηθείτε στο διαδίκτυο (Web)
++Comment[es]=Navegue por la web
++Comment[et]=Lehitse veebi
++Comment[fa]=صفحات شبکه جهانی اینترنت را مرور نمایید
++Comment[fi]=Selaa Internetin WWW-sivuja
++Comment[fr]=Naviguer sur le Web
++Comment[gl]=Navegar pola rede
++Comment[he]=גלישה ברחבי האינטרנט
++Comment[hr]=Pretražite web
++Comment[hu]=A világháló böngészése
++Comment[it]=Esplora il web
++Comment[ja]=ウェブを閲覧します
++Comment[ko]=웹을 돌아 다닙니다
++Comment[ku]=Li torê bigere
++Comment[lt]=Naršykite internete
++Comment[nb]=Surf på nettet
++Comment[nl]=Verken het internet
++Comment[nn]=Surf på nettet
++Comment[no]=Surf på nettet
++Comment[pl]=Przeglądanie stron WWW
++Comment[pt]=Navegue na Internet
++Comment[pt_BR]=Navegue na Internet
++Comment[ro]=Navigați pe Internet
++Comment[ru]=Доступ в Интернет
++Comment[sk]=Prehliadanie internetu
++Comment[sl]=Brskajte po spletu
++Comment[sv]=Surfa på webben
++Comment[tr]=İnternet'te Gezinin
++Comment[ug]=دۇنيادىكى توربەتلەرنى كۆرگىلى بولىدۇ
++Comment[uk]=Перегляд сторінок Інтернету
++Comment[vi]=Để duyệt các trang web
++Comment[zh_CN]=浏览互联网
++Comment[zh_TW]=瀏覽網際網路
++GenericName=Web Browser
++GenericName[ar]=متصفح ويب
++GenericName[ast]=Restolador Web
++GenericName[bn]=ওয়েব ব্রাউজার
++GenericName[ca]=Navegador web
++GenericName[cs]=Webový prohlížeč
++GenericName[da]=Webbrowser
++GenericName[el]=Περιηγητής διαδικτύου
++GenericName[es]=Navegador web
++GenericName[et]=Veebibrauser
++GenericName[fa]=مرورگر اینترنتی
++GenericName[fi]=WWW-selain
++GenericName[fr]=Navigateur Web
++GenericName[gl]=Navegador Web
++GenericName[he]=דפדפן אינטרנט
++GenericName[hr]=Web preglednik
++GenericName[hu]=Webböngésző
++GenericName[it]=Browser web
++GenericName[ja]=ウェブ・ブラウザ
++GenericName[ko]=웹 브라우저
++GenericName[ku]=Geroka torê
++GenericName[lt]=Interneto naršyklė
++GenericName[nb]=Nettleser
++GenericName[nl]=Webbrowser
++GenericName[nn]=Nettlesar
++GenericName[no]=Nettleser
++GenericName[pl]=Przeglądarka WWW
++GenericName[pt]=Navegador Web
++GenericName[pt_BR]=Navegador Web
++GenericName[ro]=Navigator Internet
++GenericName[ru]=Веб-браузер
++GenericName[sk]=Internetový prehliadač
++GenericName[sl]=Spletni brskalnik
++GenericName[sv]=Webbläsare
++GenericName[tr]=Web Tarayıcı
++GenericName[ug]=توركۆرگۈ
++GenericName[uk]=Веб-браузер
++GenericName[vi]=Trình duyệt Web
++GenericName[zh_CN]=网络浏览器
++GenericName[zh_TW]=網路瀏覽器
++Keywords=Internet;WWW;Browser;Web;Explorer
++Keywords[ar]=انترنت;إنترنت;متصفح;ويب;وب
++Keywords[ast]=Internet;WWW;Restolador;Web;Esplorador
++Keywords[ca]=Internet;WWW;Navegador;Web;Explorador;Explorer
++Keywords[cs]=Internet;WWW;Prohlížeč;Web;Explorer
++Keywords[da]=Internet;Internettet;WWW;Browser;Browse;Web;Surf;Nettet
++Keywords[de]=Internet;WWW;Browser;Web;Explorer;Webseite;Site;surfen;online;browsen
++Keywords[el]=Internet;WWW;Browser;Web;Explorer;Διαδίκτυο;Περιηγητής;Firefox;Φιρεφοχ;Ιντερνετ
++Keywords[es]=Explorador;Internet;WWW
++Keywords[fi]=Internet;WWW;Browser;Web;Explorer;selain;Internet-selain;internetselain;verkkoselain;netti;surffaa
++Keywords[fr]=Internet;WWW;Browser;Web;Explorer;Fureteur;Surfer;Navigateur
++Keywords[he]=דפדפן;אינטרנט;רשת;אתרים;אתר;פיירפוקס;מוזילה;
++Keywords[hr]=Internet;WWW;preglednik;Web
++Keywords[hu]=Internet;WWW;Böngésző;Web;Háló;Net;Explorer
++Keywords[it]=Internet;WWW;Browser;Web;Navigatore
++Keywords[is]=Internet;WWW;Vafri;Vefur;Netvafri;Flakk
++Keywords[ja]=Internet;WWW;Web;インターネット;ブラウザ;ウェブ;エクスプローラ
++Keywords[nb]=Internett;WWW;Nettleser;Explorer;Web;Browser;Nettside
++Keywords[nl]=Internet;WWW;Browser;Web;Explorer;Verkenner;Website;Surfen;Online
++Keywords[pt]=Internet;WWW;Browser;Web;Explorador;Navegador
++Keywords[pt_BR]=Internet;WWW;Browser;Web;Explorador;Navegador
++Keywords[ru]=Internet;WWW;Browser;Web;Explorer;интернет;браузер;веб;файрфокс;огнелис
++Keywords[sk]=Internet;WWW;Prehliadač;Web;Explorer
++Keywords[sl]=Internet;WWW;Browser;Web;Explorer;Brskalnik;Splet
++Keywords[tr]=İnternet;WWW;Tarayıcı;Web;Gezgin;Web sitesi;Site;sörf;çevrimiçi;tara
++Keywords[uk]=Internet;WWW;Browser;Web;Explorer;Інтернет;мережа;переглядач;оглядач;браузер;веб;файрфокс;вогнелис;перегляд
++Keywords[vi]=Internet;WWW;Browser;Web;Explorer;Trình duyệt;Trang web
++Keywords[zh_CN]=Internet;WWW;Browser;Web;Explorer;网页;浏览;上网;火狐;Firefox;ff;互联网;网站;
++Keywords[zh_TW]=Internet;WWW;Browser;Web;Explorer;網際網路;網路;瀏覽器;上網;網頁;火狐
++Exec=ls firefox %u
++Terminal=false
++X-MultipleArgs=false
++Type=Application
++Icon=firefox
++Categories=GNOME;GTK;Network;WebBrowser;
++MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;
++StartupNotify=true
++Actions=NewWindow;NewPrivateWindow;
++
++[Desktop Action NewWindow]
++Name=Open a New Window
++Name[ar]=افتح نافذة جديدة
++Name[ast]=Abrir una ventana nueva
++Name[bn]=Abrir una ventana nueva
++Name[ca]=Obre una finestra nova
++Name[cs]=Otevřít nové okno
++Name[da]=Åbn et nyt vindue
++Name[de]=Ein neues Fenster öffnen
++Name[el]=Άνοιγμα νέου παραθύρου
++Name[es]=Abrir una ventana nueva
++Name[fi]=Avaa uusi ikkuna
++Name[fr]=Ouvrir une nouvelle fenêtre
++Name[gl]=Abrir unha nova xanela
++Name[he]=פתיחת חלון חדש
++Name[hr]=Otvori novi prozor
++Name[hu]=Új ablak nyitása
++Name[it]=Apri una nuova finestra
++Name[ja]=新しいウィンドウを開く
++Name[ko]=새 창 열기
++Name[ku]=Paceyeke nû veke
++Name[lt]=Atverti naują langą
++Name[nb]=Åpne et nytt vindu
++Name[nl]=Nieuw venster openen
++Name[pt]=Abrir nova janela
++Name[pt_BR]=Abrir nova janela
++Name[ro]=Deschide o fereastră nouă
++Name[ru]=Новое окно
++Name[sk]=Otvoriť nové okno
++Name[sl]=Odpri novo okno
++Name[sv]=Öppna ett nytt fönster
++Name[tr]=Yeni pencere aç
++Name[ug]=يېڭى كۆزنەك ئېچىش
++Name[uk]=Відкрити нове вікно
++Name[vi]=Mở cửa sổ mới
++Name[zh_CN]=新建窗口
++Name[zh_TW]=開啟新視窗
++Exec=ls firefox -new-window
++OnlyShowIn=Unity;
++
++[Desktop Action NewPrivateWindow]
++Name=Open a New Private Window
++Name[ar]=افتح نافذة جديدة للتصفح الخاص
++Name[ca]=Obre una finestra nova en mode d'incògnit
++Name[de]=Ein neues privates Fenster öffnen
++Name[es]=Abrir una ventana privada nueva
++Name[fi]=Avaa uusi yksityinen ikkuna
++Name[fr]=Ouvrir une nouvelle fenêtre de navigation privée
++Name[he]=פתיחת חלון גלישה פרטית חדש
++Name[hu]=Új privát ablak nyitása
++Name[it]=Apri una nuova finestra anonima
++Name[nb]=Åpne et nytt privat vindu
++Name[ru]=Новое приватное окно
++Name[sl]=Odpri novo okno zasebnega brskanja
++Name[tr]=Yeni bir pencere aç
++Name[uk]=Відкрити нове вікно у потайливому режимі
++Name[zh_TW]=開啟新隱私瀏覽視窗
++Exec=ls firefox -private-window
++OnlyShowIn=Unity;
++Name[zh_CN]=新建隐私浏览窗口
++
+diff --git a/launcher/testdata/deepin-music-player.desktop b/launcher/testdata/deepin-music-player.desktop
+new file mode 100644
+index 0000000..9ce2443
+--- /dev/null
++++ b/launcher/testdata/deepin-music-player.desktop
+@@ -0,0 +1,192 @@
++[Desktop Entry]
++Categories=AudioVideo;Player;GTK;
++Comment=Play your music collection
++Comment[am]=የእርስዎን የሙዚቃ ስብስብ ያጫውቱ
++Comment[ar]=تشغيل مجموعة الصوتيات الخاصة بك
++Comment[cs]=Přehrávejte svoji sbírku zvukových záznamů
++Comment[da]=Afspil din musiksamling
++Comment[de]=Wiedergeben Ihrer Musikkollektion
++Comment[de_DE]=Wiedergeben Ihrer Musikkollektion
++Comment[el_GR]=Παίξτε τη μουσική συλλογή σας
++Comment[en]=Play your music collection
++Comment[es]=Reproduce tu colección musical
++Comment[es_419]=Reproducir tu colección de música
++Comment[es_AR]=Reproducir colección de Música
++Comment[es_CL]=Reproduce tu colección de música
++Comment[es_ES]=Reproducir Biblioteca de Música
++Comment[es_PE]=Reproducir su colección de música
++Comment[fi]=Toista musiikkikokoelma
++Comment[fr]=Lire votre collection de musique
++Comment[he]=נגן את אוסף המוסיקה שלך
++Comment[hu]=Zenegyűjtemény lejátszása
++Comment[hy]=Նվագել ձեր երածշտության հավաքածուն
++Comment[id_ID]=Mainkan koleksi musik
++Comment[it]=Esegui la tua collezione musicale
++Comment[ja]=音楽コレクションの再生
++Comment[ms]=Main koleksi muzik anda
++Comment[nl]=Speel uw muziekcollectie af
++Comment[pl_PL]=Odtwórz kolekcję muzyki
++Comment[pt_BR]=Reproduza tua coleção musical
++Comment[pt_PT]=Reproduzir a sua coleção de música
++Comment[ro]=Redă colecția ta de muzică
++Comment[ru]=Прослушивание музыки
++Comment[sk]=Prehrávajte svoju zbierku zvukových záznamov
++Comment[sl]=Predvajaj svojo glasbeno zbirko
++Comment[tr]=Müzik koleksiyonunu oynat
++Comment[zh_CN]=为您播放本地及网络音频流
++Comment[zh_TW]=爲您播放本機和網路的音樂
++Exec=ls deepin-music-player %F
++GenericName=Music Player
++Icon=deepin-music-player
++MimeType=audio/musepack;application/musepack;application/x-ape;audio/ape;audio/x-ape;audio/x-musepack;application/x-musepack;audio/x-mp3;application/x-id3;audio/mpeg;audio/x-mpeg;audio/x-mpeg-3;audio/mpeg3;audio/mp3;audio/x-m4a;audio/mpc;audio/x-mpc;audio/mp;audio/x-mp;application/ogg;application/x-ogg;audio/vorbis;audio/x-vorbis;audio/ogg;audio/x-ogg;audio/x-flac;application/x-flac;audio/flac;
++Name=Deepin Music
++Name[am]=የሙዚቃ ማጫወቻ
++Name[ar]=دييبن صوتيات
++Name[cs]=Přehrávání hudby
++Name[da]=Deepin Musikafspiller
++Name[de]=Deepin Musik
++Name[de_DE]=Deepin Musik
++Name[el_GR]=Deepin Αναπαραγωγή Μουσικής
++Name[en]=Deepin Music Player
++Name[es]=Reproductor Deepin Music
++Name[es_419]=Reproductor de Música Deepin
++Name[es_AR]=Reproductor de Música Deepin
++Name[es_CL]=Reproductor de música Deepin
++Name[es_ES]=Reproductor Deepin
++Name[fi]=Deepin Musiikkitoistin
++Name[fr]=Deepin Lecteur de Musique
++Name[he]=נגן מוסיקה Deepin
++Name[hu]=Deepin zenelejátszó
++Name[hy]=Deepin Երաժշտական Նվագարկիչ
++Name[id_ID]=Pemutar Musik Deepin
++Name[it]=Deepin Music Player
++Name[ja]=Deepin音楽プレイヤー
++Name[ms]=Pemain Muzik Deepin
++Name[nl]=Deepin Muziekspeler
++Name[pl_PL]=Odtwarzacz muzyki Deepin
++Name[pt_BR]=Deepin Music Player
++Name[pt_PT]=Reprodutor de Música Deepin
++Name[ru]=Аудиоплеер Deepin
++Name[sk]=Deepin Hudobný prehrávač
++Name[sl]=Deepin glasbeni predvajalnik
++Name[tr]=Deepin Müzik Oynatıcısı
++Name[zh_CN]=深度音乐
++Name[zh_TW]=深度音樂
++Type=Application
++
++[Next Shortcut Group]
++Exec=ls deepin-music-player -n
++Name=Next track
++Name[am]=የሚቀጥለውን ተረኛ
++Name[ar]=المسار التالي
++Name[cs]=Další skladba
++Name[da]=Næste spor
++Name[de]=Nächster Titel
++Name[de_DE]=Nächster Titel
++Name[el_GR]=Επόμενο κομμάτι
++Name[en]=Next track
++Name[es]=Siguiente pista
++Name[es_419]=Pista siguiente
++Name[es_AR]=Pista siguiente
++Name[es_CL]=Pista siguiente
++Name[es_ES]=Siguiente Pista
++Name[es_PE]=Pista siguiente
++Name[fi]=Seuraava raita
++Name[fr]=Piste Suivante
++Name[he]=הקטע הבא
++Name[hu]=Következő szám
++Name[hy]=Հաջորդը
++Name[id_ID]=Jalur selanjutnya
++Name[it]=Traccia successiva
++Name[ja]=次へ
++Name[ms]=trek seterusnya
++Name[nl]=Volgende nummer
++Name[pl_PL]=Następny utwór
++Name[pt_BR]=Próxima faixa
++Name[pt_PT]=Próxima faixa
++Name[ro]=Melodia următoare
++Name[ru]=Следующий трек
++Name[sk]=Ďalšia stopa
++Name[sl]=Naslednja skladba
++Name[tr]=Sonraki parça
++Name[zh_CN]=下一首
++Name[zh_HK]=下一首歌曲
++Name[zh_TW]=下一首
++
++[PlayPause Shortcut Group]
++Exec=ls deepin-music-player -t
++Name=Play/Pause track
++Name[am]=ተረኛ ማጫወቻ/ማስቆሚያ
++Name[ar]=تشغيل / إيقاف المسار
++Name[cs]=Přehrát/Pozastavit skladbu
++Name[da]=Afspil/Pause-spor
++Name[de]=Wiedergeben/Pausieren Titel
++Name[de_DE]=Wiedergeben/Pausieren Titel
++Name[el_GR]=Αναπαραγωγή / Παύση κομματιού
++Name[en]=Play/Pause track
++Name[es]=Reproducir/Pausar pista
++Name[es_419]=Reproducir/Pausar Pista
++Name[es_AR]=Reproducir/Pausar pista
++Name[es_CL]=Reproducir / Pausar pista
++Name[es_ES]=Play/Pause Pista
++Name[es_PE]=Reproducir/Pausar pista
++Name[fi]=Toista/Pysäytä raita
++Name[fr]=Lire/Pause le fichier
++Name[he]=נגן/הפסק קטע
++Name[hu]=Szám lejátszása/Szüneteltetése
++Name[hy]=Նվագել/կանգնեցնել
++Name[id_ID]=Main/Jeda track
++Name[it]=Play/Pausa
++Name[ja]=再生/一時停止
++Name[ms]=Main/Jeda trek
++Name[nl]=Nummer afspelen/pauzeren
++Name[pl_PL]=Odtwórz/Wstrzymaj utwór
++Name[pt_BR]=Reproduzir/Pausar faixa
++Name[pt_PT]=Reproduzir/Pausar faixa
++Name[ro]=Redare/Pauză melodia
++Name[ru]=Играть/Пауза
++Name[sk]=Prehrávať/Pozastaviť skladbu
++Name[sl]=Predvajaj/Zaustavi skladbo
++Name[tr]=Oynat/Duraklat parça
++Name[zh_CN]=暂停/继续
++Name[zh_TW]=暫停/播放
++
++[Previous Shortcut Group]
++Exec=ls deepin-music-player -p
++Name=Previous track
++Name[am]=ቀደም ያለው ተረኛ
++Name[ar]=المسار السابق
++Name[cs]=Předchozí skladba
++Name[da]=Forrige spor
++Name[de]=Vorheriges Titel
++Name[de_DE]=Vorheriges Titel
++Name[el_GR]=Προηγούμενο κομμάτι
++Name[en]=Previous track
++Name[es]=Pista anterior
++Name[es_419]=Pista anterior
++Name[es_AR]=Pista anterior
++Name[es_CL]=Pista anterior
++Name[es_ES]=Anterior Pista
++Name[es_PE]=Pista anterior
++Name[fi]=Edellinen raita
++Name[fr]=Piste précédente
++Name[he]=הקטע הקודם
++Name[hu]=Előző szám
++Name[hy]=Նախորդը
++Name[id_ID]=Jalur sebelumnya
++Name[it]=Traccia precedente
++Name[ja]=前へ
++Name[ms]=trek sebelumnya
++Name[nl]=Vorige nummer
++Name[pl_PL]=Poprzedni utwór
++Name[pt_BR]=Faixa anterior
++Name[pt_PT]=Faixa anterior
++Name[ro]=Melodia anterioară
++Name[ru]=Предыдущий трек
++Name[sk]=Predchádzajúca stopa
++Name[sl]=Prejšnja skladba
++Name[tr]=Önceki parça
++Name[zh_CN]=上一首
++Name[zh_HK]=上一首歌曲
++Name[zh_TW]=上一首
++
+diff --git a/launcher/testdata/deepin-software-center.desktop b/launcher/testdata/deepin-software-center.desktop
+new file mode 100644
+index 0000000..b708cbc
+--- /dev/null
++++ b/launcher/testdata/deepin-software-center.desktop
+@@ -0,0 +1,51 @@
++[Desktop Entry]
++Categories=Application;System;Settings
++Comment=A general Linux software manager
++Comment[zh_CN]=Linux 通用软件管理器
++Comment[zh_TW]=Linux 的通用軟體管理器
++Encoding=UTF-8
++Exec=ls deepin-software-center %f
++Icon=deepin-software-center
++Name=Deepin Store
++Name[zh_CN]=深度商店
++Name[zh_TW]=深度商店
++StartupNotify=false
++Terminal=false
++Type=Application
++X-Ayatana-Desktop-Shortcuts=ShowUpgrade;ShowUninstall
++X-MultipleArgs=false
++
++[ShowUninstall Shortcut Group]
++Exec=ls /usr/bin/deepin-software-center --page=uninstall
++Name=Open Uninstall Page
++Name[ar]=فتح صفحة إلغاء التثبيت
++Name[cs]=Otevřít stránku pro odinstalování
++Name[da]=Åbn afinstalleringssiden
++Name[en]=Open Uninstall Page
++Name[es]=Abrir Pagina Desinstalada
++Name[fr]=Ouvre la page des désinstallations 
++Name[pt_BR]=Abrir Página de Desinstação
++Name[ru]=Открыть страницу удаления
++Name[sk]=Otvoriť stránku pre odinštaláciu
++Name[sl]=Odpri stran za odstranjevanje programske opreme
++Name[zh_CN]=打开卸载页面
++Name[zh_TW]=打開解除安裝頁面
++TargetEnvironment=Unity
++
++[ShowUpgrade Shortcut Group]
++Exec=ls /usr/bin/deepin-software-center --page=upgrade
++Name=Open Upgrade Page
++Name[ar]=فتح صفحة الترقية
++Name[cs]=Otevřít stránku pro povyšování
++Name[da]=Åbn opgraderingssiden
++Name[en]=Open Upgrade Page
++Name[es]=Abrir Pagina Actualizada
++Name[fr]=Ouvre la page des mises à jour
++Name[pt_BR]=Abrir Página de Atualização
++Name[ru]=Открыть страницу обновления
++Name[sk]=Otvoriť stránku pre povýšenie
++Name[sl]=Odpri stran za posodobitev programske opreme
++Name[zh_CN]=打开更新页面
++Name[zh_TW]=打開升級頁面
++TargetEnvironment=Unity
++
+diff --git a/launcher/testdata/firefox.desktop b/launcher/testdata/firefox.desktop
+new file mode 100644
+index 0000000..cbc39ed
+--- /dev/null
++++ b/launcher/testdata/firefox.desktop
+@@ -0,0 +1,223 @@
++[Desktop Entry]
++Version=1.0
++Name=Firefox Web Browser
++Name[ar]=متصفح الويب فَيَرفُكْس
++Name[ast]=Restolador web Firefox
++Name[bn]=ফায়ারফক্স ওয়েব ব্রাউজার
++Name[ca]=Navegador web Firefox
++Name[cs]=Firefox Webový prohlížeč
++Name[da]=Firefox - internetbrowser
++Name[el]=Περιηγητής Firefox
++Name[es]=Navegador web Firefox
++Name[et]=Firefoxi veebibrauser
++Name[fa]=مرورگر اینترنتی Firefox
++Name[fi]=Firefox-selain
++Name[fr]=Navigateur Web Firefox
++Name[gl]=Navegador web Firefox
++Name[he]=דפדפן האינטרנט Firefox
++Name[hr]=Firefox web preglednik
++Name[hu]=Firefox webböngésző
++Name[it]=Firefox Browser Web
++Name[ja]=Firefox ウェブ・ブラウザ
++Name[ko]=Firefox 웹 브라우저
++Name[ku]=Geroka torê Firefox
++Name[lt]=Firefox interneto naršyklė
++Name[nb]=Firefox Nettleser
++Name[nl]=Firefox webbrowser
++Name[nn]=Firefox Nettlesar
++Name[no]=Firefox Nettleser
++Name[pl]=Przeglądarka WWW Firefox
++Name[pt]=Firefox Navegador Web
++Name[pt_BR]=Navegador Web Firefox
++Name[ro]=Firefox – Navigator Internet
++Name[ru]=Веб-браузер Firefox
++Name[sk]=Firefox - internetový prehliadač
++Name[sl]=Firefox spletni brskalnik
++Name[sv]=Firefox webbläsare
++Name[tr]=Firefox Web Tarayıcısı
++Name[ug]=Firefox توركۆرگۈ
++Name[uk]=Веб-браузер Firefox
++Name[vi]=Trình duyệt web Firefox
++Name[zh_CN]=Firefox 网络浏览器
++Name[zh_TW]=Firefox 網路瀏覽器
++Comment=Browse the World Wide Web
++Comment[ar]=تصفح الشبكة العنكبوتية العالمية
++Comment[ast]=Restola pela Rede
++Comment[bn]=ইন্টারনেট ব্রাউজ করুন
++Comment[ca]=Navegueu per la web
++Comment[cs]=Prohlížení stránek World Wide Webu
++Comment[da]=Surf på internettet
++Comment[de]=Im Internet surfen
++Comment[el]=Μπορείτε να περιηγηθείτε στο διαδίκτυο (Web)
++Comment[es]=Navegue por la web
++Comment[et]=Lehitse veebi
++Comment[fa]=صفحات شبکه جهانی اینترنت را مرور نمایید
++Comment[fi]=Selaa Internetin WWW-sivuja
++Comment[fr]=Naviguer sur le Web
++Comment[gl]=Navegar pola rede
++Comment[he]=גלישה ברחבי האינטרנט
++Comment[hr]=Pretražite web
++Comment[hu]=A világháló böngészése
++Comment[it]=Esplora il web
++Comment[ja]=ウェブを閲覧します
++Comment[ko]=웹을 돌아 다닙니다
++Comment[ku]=Li torê bigere
++Comment[lt]=Naršykite internete
++Comment[nb]=Surf på nettet
++Comment[nl]=Verken het internet
++Comment[nn]=Surf på nettet
++Comment[no]=Surf på nettet
++Comment[pl]=Przeglądanie stron WWW
++Comment[pt]=Navegue na Internet
++Comment[pt_BR]=Navegue na Internet
++Comment[ro]=Navigați pe Internet
++Comment[ru]=Доступ в Интернет
++Comment[sk]=Prehliadanie internetu
++Comment[sl]=Brskajte po spletu
++Comment[sv]=Surfa på webben
++Comment[tr]=İnternet'te Gezinin
++Comment[ug]=دۇنيادىكى توربەتلەرنى كۆرگىلى بولىدۇ
++Comment[uk]=Перегляд сторінок Інтернету
++Comment[vi]=Để duyệt các trang web
++Comment[zh_CN]=浏览互联网
++Comment[zh_TW]=瀏覽網際網路
++GenericName=Web Browser
++GenericName[ar]=متصفح ويب
++GenericName[ast]=Restolador Web
++GenericName[bn]=ওয়েব ব্রাউজার
++GenericName[ca]=Navegador web
++GenericName[cs]=Webový prohlížeč
++GenericName[da]=Webbrowser
++GenericName[el]=Περιηγητής διαδικτύου
++GenericName[es]=Navegador web
++GenericName[et]=Veebibrauser
++GenericName[fa]=مرورگر اینترنتی
++GenericName[fi]=WWW-selain
++GenericName[fr]=Navigateur Web
++GenericName[gl]=Navegador Web
++GenericName[he]=דפדפן אינטרנט
++GenericName[hr]=Web preglednik
++GenericName[hu]=Webböngésző
++GenericName[it]=Browser web
++GenericName[ja]=ウェブ・ブラウザ
++GenericName[ko]=웹 브라우저
++GenericName[ku]=Geroka torê
++GenericName[lt]=Interneto naršyklė
++GenericName[nb]=Nettleser
++GenericName[nl]=Webbrowser
++GenericName[nn]=Nettlesar
++GenericName[no]=Nettleser
++GenericName[pl]=Przeglądarka WWW
++GenericName[pt]=Navegador Web
++GenericName[pt_BR]=Navegador Web
++GenericName[ro]=Navigator Internet
++GenericName[ru]=Веб-браузер
++GenericName[sk]=Internetový prehliadač
++GenericName[sl]=Spletni brskalnik
++GenericName[sv]=Webbläsare
++GenericName[tr]=Web Tarayıcı
++GenericName[ug]=توركۆرگۈ
++GenericName[uk]=Веб-браузер
++GenericName[vi]=Trình duyệt Web
++GenericName[zh_CN]=网络浏览器
++GenericName[zh_TW]=網路瀏覽器
++Keywords=Internet;WWW;Browser;Web;Explorer
++Keywords[ar]=انترنت;إنترنت;متصفح;ويب;وب
++Keywords[ast]=Internet;WWW;Restolador;Web;Esplorador
++Keywords[ca]=Internet;WWW;Navegador;Web;Explorador;Explorer
++Keywords[cs]=Internet;WWW;Prohlížeč;Web;Explorer
++Keywords[da]=Internet;Internettet;WWW;Browser;Browse;Web;Surf;Nettet
++Keywords[de]=Internet;WWW;Browser;Web;Explorer;Webseite;Site;surfen;online;browsen
++Keywords[el]=Internet;WWW;Browser;Web;Explorer;Διαδίκτυο;Περιηγητής;Firefox;Φιρεφοχ;Ιντερνετ
++Keywords[es]=Explorador;Internet;WWW
++Keywords[fi]=Internet;WWW;Browser;Web;Explorer;selain;Internet-selain;internetselain;verkkoselain;netti;surffaa
++Keywords[fr]=Internet;WWW;Browser;Web;Explorer;Fureteur;Surfer;Navigateur
++Keywords[he]=דפדפן;אינטרנט;רשת;אתרים;אתר;פיירפוקס;מוזילה;
++Keywords[hr]=Internet;WWW;preglednik;Web
++Keywords[hu]=Internet;WWW;Böngésző;Web;Háló;Net;Explorer
++Keywords[it]=Internet;WWW;Browser;Web;Navigatore
++Keywords[is]=Internet;WWW;Vafri;Vefur;Netvafri;Flakk
++Keywords[ja]=Internet;WWW;Web;インターネット;ブラウザ;ウェブ;エクスプローラ
++Keywords[nb]=Internett;WWW;Nettleser;Explorer;Web;Browser;Nettside
++Keywords[nl]=Internet;WWW;Browser;Web;Explorer;Verkenner;Website;Surfen;Online
++Keywords[pt]=Internet;WWW;Browser;Web;Explorador;Navegador
++Keywords[pt_BR]=Internet;WWW;Browser;Web;Explorador;Navegador
++Keywords[ru]=Internet;WWW;Browser;Web;Explorer;интернет;браузер;веб;файрфокс;огнелис
++Keywords[sk]=Internet;WWW;Prehliadač;Web;Explorer
++Keywords[sl]=Internet;WWW;Browser;Web;Explorer;Brskalnik;Splet
++Keywords[tr]=İnternet;WWW;Tarayıcı;Web;Gezgin;Web sitesi;Site;sörf;çevrimiçi;tara
++Keywords[uk]=Internet;WWW;Browser;Web;Explorer;Інтернет;мережа;переглядач;оглядач;браузер;веб;файрфокс;вогнелис;перегляд
++Keywords[vi]=Internet;WWW;Browser;Web;Explorer;Trình duyệt;Trang web
++Keywords[zh_CN]=Internet;WWW;Browser;Web;Explorer;网页;浏览;上网;火狐;Firefox;ff;互联网;网站;
++Keywords[zh_TW]=Internet;WWW;Browser;Web;Explorer;網際網路;網路;瀏覽器;上網;網頁;火狐
++Exec=ls firefox %u
++Terminal=false
++X-MultipleArgs=false
++Type=Application
++Icon=firefox
++Categories=GNOME;GTK;Network;WebBrowser;
++MimeType=text/html;text/xml;application/xhtml+xml;application/xml;application/rss+xml;application/rdf+xml;image/gif;image/jpeg;image/png;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;x-scheme-handler/chrome;video/webm;application/x-xpinstall;
++StartupNotify=true
++Actions=NewWindow;NewPrivateWindow;
++
++[Desktop Action NewWindow]
++Name=Open a New Window
++Name[ar]=افتح نافذة جديدة
++Name[ast]=Abrir una ventana nueva
++Name[bn]=Abrir una ventana nueva
++Name[ca]=Obre una finestra nova
++Name[cs]=Otevřít nové okno
++Name[da]=Åbn et nyt vindue
++Name[de]=Ein neues Fenster öffnen
++Name[el]=Άνοιγμα νέου παραθύρου
++Name[es]=Abrir una ventana nueva
++Name[fi]=Avaa uusi ikkuna
++Name[fr]=Ouvrir une nouvelle fenêtre
++Name[gl]=Abrir unha nova xanela
++Name[he]=פתיחת חלון חדש
++Name[hr]=Otvori novi prozor
++Name[hu]=Új ablak nyitása
++Name[it]=Apri una nuova finestra
++Name[ja]=新しいウィンドウを開く
++Name[ko]=새 창 열기
++Name[ku]=Paceyeke nû veke
++Name[lt]=Atverti naują langą
++Name[nb]=Åpne et nytt vindu
++Name[nl]=Nieuw venster openen
++Name[pt]=Abrir nova janela
++Name[pt_BR]=Abrir nova janela
++Name[ro]=Deschide o fereastră nouă
++Name[ru]=Новое окно
++Name[sk]=Otvoriť nové okno
++Name[sl]=Odpri novo okno
++Name[sv]=Öppna ett nytt fönster
++Name[tr]=Yeni pencere aç
++Name[ug]=يېڭى كۆزنەك ئېچىش
++Name[uk]=Відкрити нове вікно
++Name[vi]=Mở cửa sổ mới
++Name[zh_CN]=新建窗口
++Name[zh_TW]=開啟新視窗
++Exec=ls firefox -new-window
++OnlyShowIn=Unity;
++
++[Desktop Action NewPrivateWindow]
++Name=Open a New Private Window
++Name[ar]=افتح نافذة جديدة للتصفح الخاص
++Name[ca]=Obre una finestra nova en mode d'incògnit
++Name[de]=Ein neues privates Fenster öffnen
++Name[es]=Abrir una ventana privada nueva
++Name[fi]=Avaa uusi yksityinen ikkuna
++Name[fr]=Ouvrir une nouvelle fenêtre de navigation privée
++Name[he]=פתיחת חלון גלישה פרטית חדש
++Name[hu]=Új privát ablak nyitása
++Name[it]=Apri una nuova finestra anonima
++Name[nb]=Åpne et nytt privat vindu
++Name[ru]=Новое приватное окно
++Name[sl]=Odpri novo okno zasebnega brskanja
++Name[tr]=Yeni bir pencere aç
++Name[uk]=Відкрити нове вікно у потайливому режимі
++Name[zh_TW]=開啟新隱私瀏覽視窗
++Exec=ls firefox -private-window
++OnlyShowIn=Unity;
++Name[zh_CN]=新建隐私浏览窗口
++
+diff --git a/launcher/testdata/google-chrome.desktop b/launcher/testdata/google-chrome.desktop
+new file mode 100644
+index 0000000..13ca6a1
+--- /dev/null
++++ b/launcher/testdata/google-chrome.desktop
+@@ -0,0 +1,222 @@
++[Desktop Entry]
++Version=1.0
++Name=Google Chrome
++# Only KDE 4 seems to use GenericName, so we reuse the KDE strings.
++# From Ubuntu's language-pack-kde-XX-base packages, version 9.04-20090413.
++GenericName=Web Browser
++GenericName[ar]=متصفح الشبكة
++GenericName[bg]=Уеб браузър
++GenericName[ca]=Navegador web
++GenericName[cs]=WWW prohlížeč
++GenericName[da]=Browser
++GenericName[de]=Web-Browser
++GenericName[el]=Περιηγητής ιστού
++GenericName[en_GB]=Web Browser
++GenericName[es]=Navegador web
++GenericName[et]=Veebibrauser
++GenericName[fi]=WWW-selain
++GenericName[fr]=Navigateur Web
++GenericName[gu]=વેબ બ્રાઉઝર
++GenericName[he]=דפדפן אינטרנט
++GenericName[hi]=वेब ब्राउज़र
++GenericName[hu]=Webböngésző
++GenericName[it]=Browser Web
++GenericName[ja]=ウェブブラウザ
++GenericName[kn]=ಜಾಲ ವೀಕ್ಷಕ
++GenericName[ko]=웹 브라우저
++GenericName[lt]=Žiniatinklio naršyklė
++GenericName[lv]=Tīmekļa pārlūks
++GenericName[ml]=വെബ് ബ്രൌസര്‍
++GenericName[mr]=वेब ब्राऊजर
++GenericName[nb]=Nettleser
++GenericName[nl]=Webbrowser
++GenericName[pl]=Przeglądarka WWW
++GenericName[pt]=Navegador Web
++GenericName[pt_BR]=Navegador da Internet
++GenericName[ro]=Navigator de Internet
++GenericName[ru]=Веб-браузер
++GenericName[sl]=Spletni brskalnik
++GenericName[sv]=Webbläsare
++GenericName[ta]=இணைய உலாவி
++GenericName[th]=เว็บเบราว์เซอร์
++GenericName[tr]=Web Tarayıcı
++GenericName[uk]=Навігатор Тенет
++GenericName[zh_CN]=网页浏览器
++GenericName[zh_HK]=網頁瀏覽器
++GenericName[zh_TW]=網頁瀏覽器
++# Not translated in KDE, from Epiphany 2.26.1-0ubuntu1.
++GenericName[bn]=ওয়েব ব্রাউজার
++GenericName[fil]=Web Browser
++GenericName[hr]=Web preglednik
++GenericName[id]=Browser Web
++GenericName[or]=ଓ୍ବେବ ବ୍ରାଉଜର
++GenericName[sk]=WWW prehliadač
++GenericName[sr]=Интернет прегледник
++GenericName[te]=మహాతల అన్వేషి
++GenericName[vi]=Bộ duyệt Web
++# Gnome and KDE 3 uses Comment.
++Comment=Access the Internet
++Comment[ar]=الدخول إلى الإنترنت
++Comment[bg]=Достъп до интернет
++Comment[bn]=ইন্টারনেটটি অ্যাক্সেস করুন
++Comment[ca]=Accedeix a Internet
++Comment[cs]=Přístup k internetu
++Comment[da]=Få adgang til internettet
++Comment[de]=Internetzugriff
++Comment[el]=Πρόσβαση στο Διαδίκτυο
++Comment[en_GB]=Access the Internet
++Comment[es]=Accede a Internet.
++Comment[et]=Pääs Internetti
++Comment[fi]=Käytä internetiä
++Comment[fil]=I-access ang Internet
++Comment[fr]=Accéder à Internet
++Comment[gu]=ઇંટરનેટ ઍક્સેસ કરો
++Comment[he]=גישה אל האינטרנט
++Comment[hi]=इंटरनेट तक पहुंच स्थापित करें
++Comment[hr]=Pristup Internetu
++Comment[hu]=Internetelérés
++Comment[id]=Akses Internet
++Comment[it]=Accesso a Internet
++Comment[ja]=インターネットにアクセス
++Comment[kn]=ಇಂಟರ್ನೆಟ್ ಅನ್ನು ಪ್ರವೇಶಿಸಿ
++Comment[ko]=인터넷 연결
++Comment[lt]=Interneto prieiga
++Comment[lv]=Piekļūt internetam
++Comment[ml]=ഇന്റര്‍‌നെറ്റ് ആക്‌സസ് ചെയ്യുക
++Comment[mr]=इंटरनेटमध्ये प्रवेश करा
++Comment[nb]=Gå til Internett
++Comment[nl]=Verbinding maken met internet
++Comment[or]=ଇଣ୍ଟର୍ନେଟ୍ ପ୍ରବେଶ କରନ୍ତୁ
++Comment[pl]=Skorzystaj z internetu
++Comment[pt]=Aceder à Internet
++Comment[pt_BR]=Acessar a internet
++Comment[ro]=Accesaţi Internetul
++Comment[ru]=Доступ в Интернет
++Comment[sk]=Prístup do siete Internet
++Comment[sl]=Dostop do interneta
++Comment[sr]=Приступите Интернету
++Comment[sv]=Gå ut på Internet
++Comment[ta]=இணையத்தை அணுகுதல்
++Comment[te]=ఇంటర్నెట్‌ను ఆక్సెస్ చెయ్యండి
++Comment[th]=เข้าถึงอินเทอร์เน็ต
++Comment[tr]=İnternet'e erişin
++Comment[uk]=Доступ до Інтернету
++Comment[vi]=Truy cập Internet
++Comment[zh_CN]=访问互联网
++Comment[zh_HK]=連線到網際網路
++Comment[zh_TW]=連線到網際網路
++Exec=ls /usr/bin/google-chrome-stable %U
++Terminal=false
++Icon=google-chrome
++Type=Application
++Categories=Network;WebBrowser;
++MimeType=text/html;text/xml;application/xhtml_xml;image/webp;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;
++X-Ayatana-Desktop-Shortcuts=NewWindow;NewIncognito
++
++[NewWindow Shortcut Group]
++Name=New Window
++Name[am]=አዲስ መስኮት
++Name[ar]=نافذة جديدة
++Name[bg]=Нов прозорец
++Name[bn]=নতুন উইন্ডো
++Name[ca]=Finestra nova
++Name[cs]=Nové okno
++Name[da]=Nyt vindue
++Name[de]=Neues Fenster
++Name[el]=Νέο Παράθυρο
++Name[en_GB]=New Window
++Name[es]=Nueva ventana
++Name[et]=Uus aken
++Name[fa]=پنجره جدید
++Name[fi]=Uusi ikkuna
++Name[fil]=New Window
++Name[fr]=Nouvelle fenêtre
++Name[gu]=નવી વિંડો
++Name[hi]=नई विंडो
++Name[hr]=Novi prozor
++Name[hu]=Új ablak
++Name[id]=Jendela Baru
++Name[it]=Nuova finestra
++Name[iw]=חלון חדש
++Name[ja]=新規ウインドウ
++Name[kn]=ಹೊಸ ವಿಂಡೊ
++Name[ko]=새 창
++Name[lt]=Naujas langas
++Name[lv]=Jauns logs
++Name[ml]=പുതിയ വിന്‍ഡോ
++Name[mr]=नवीन विंडो
++Name[nl]=Nieuw venster
++Name[no]=Nytt vindu
++Name[pl]=Nowe okno
++Name[pt]=Nova janela
++Name[pt_BR]=Nova janela
++Name[ro]=Fereastră nouă
++Name[ru]=Новое окно
++Name[sk]=Nové okno
++Name[sl]=Novo okno
++Name[sr]=Нови прозор
++Name[sv]=Nytt fönster
++Name[sw]=Dirisha Jipya
++Name[ta]=புதிய சாளரம்
++Name[te]=క్రొత్త విండో
++Name[th]=หน้าต่างใหม่
++Name[tr]=Yeni Pencere
++Name[uk]=Нове вікно
++Name[vi]=Cửa sổ Mới
++Name[zh_CN]=新建窗口
++Name[zh_TW]=開新視窗
++Exec=ls /usr/bin/google-chrome-stable
++TargetEnvironment=Unity
++
++[NewIncognito Shortcut Group]
++Name=New Incognito Window
++Name[ar]=نافذة جديدة للتصفح المتخفي
++Name[bg]=Нов прозорец „инкогнито“
++Name[bn]=নতুন ছদ্মবেশী উইন্ডো
++Name[ca]=Finestra d'incògnit nova
++Name[cs]=Nové anonymní okno
++Name[da]=Nyt inkognitovindue
++Name[de]=Neues Inkognito-Fenster
++Name[el]=Νέο παράθυρο για ανώνυμη περιήγηση
++Name[en_GB]=New Incognito window
++Name[es]=Nueva ventana de incógnito
++Name[et]=Uus inkognito aken
++Name[fa]=پنجره جدید حالت ناشناس
++Name[fi]=Uusi incognito-ikkuna
++Name[fil]=Bagong Incognito window
++Name[fr]=Nouvelle fenêtre de navigation privée
++Name[gu]=નવી છુપી વિંડો
++Name[hi]=नई गुप्त विंडो
++Name[hr]=Novi anoniman prozor
++Name[hu]=Új Inkognitóablak
++Name[id]=Jendela Penyamaran baru
++Name[it]=Nuova finestra di navigazione in incognito
++Name[iw]=חלון חדש לגלישה בסתר
++Name[ja]=新しいシークレット ウィンドウ
++Name[kn]=ಹೊಸ ಅಜ್ಞಾತ ವಿಂಡೋ
++Name[ko]=새 시크릿 창
++Name[lt]=Naujas inkognito langas
++Name[lv]=Jauns inkognito režīma logs
++Name[ml]=പുതിയ വേഷ പ്രച്ഛന്ന വിന്‍ഡോ
++Name[mr]=नवीन गुप्त विंडो
++Name[nl]=Nieuw incognitovenster
++Name[no]=Nytt inkognitovindu
++Name[pl]=Nowe okno incognito
++Name[pt]=Nova janela de navegação anónima
++Name[pt_BR]=Nova janela anônima
++Name[ro]=Fereastră nouă incognito
++Name[ru]=Новое окно в режиме инкогнито
++Name[sk]=Nové okno inkognito
++Name[sl]=Novo okno brez beleženja zgodovine
++Name[sr]=Нови прозор за прегледање без архивирања
++Name[sv]=Nytt inkognitofönster
++Name[ta]=புதிய மறைநிலைச் சாளரம்
++Name[te]=క్రొత్త అజ్ఞాత విండో
++Name[th]=หน้าต่างใหม่ที่ไม่ระบุตัวตน
++Name[tr]=Yeni Gizli pencere
++Name[uk]=Нове вікно в режимі анонімного перегляду
++Name[vi]=Cửa sổ ẩn danh mới
++Name[zh_CN]=新建隐身窗口
++Name[zh_TW]=新增無痕式視窗
++Exec=ls /usr/bin/google-chrome-stable --incognito
++TargetEnvironment=Unity
+diff --git a/launcher/testdata/qmmp_cue.desktop b/launcher/testdata/qmmp_cue.desktop
+new file mode 100644
+index 0000000..44522b1
+--- /dev/null
++++ b/launcher/testdata/qmmp_cue.desktop
+@@ -0,0 +1,24 @@
++[Desktop Entry]
++X-Desktop-File-Install-Version=0.15
++Name=Open cue album in Qmmp
++Name[cs]=Otevřít album cue v Qmmp
++Name[ru]=Открыть альбом cue в Qmmp
++Name[uk]=Відкрити альбом cue
++Name[zh_CN]=打开 CUE
++Name[zh_TW]=打開 CUE
++Name[he]=פתח אלבום cue בתוך Qmmp
++Comment=Open cue file(s) in the directory
++Comment[cs]=Otevřít cue soubor(y) v adresáři
++Comment[ru]=Открыть cue-файл(ы) в директории
++Comment[uk]=Відкрити cue-файл(и) в теці
++Comment[zh_CN]=在本目录打开 CUE 文件
++Comment[zh_TW]=在本目錄打開 CUE 檔案
++Comment[he]=פתח קבצי cue המצויים בתוך המדור
++Exec=ls sh -c "qmmp '%F'/*.cue"
++Icon=qmmp
++Categories=AudioVideo;Player;Audio;Qt;
++MimeType=inode/directory;
++Type=Application
++X-KDE-StartupNotify=false
++NoDisplay=true
++Terminal=false
+diff --git a/launcher/utils/config_file.go b/launcher/utils/config_file.go
+new file mode 100644
+index 0000000..2fc5552
+--- /dev/null
++++ b/launcher/utils/config_file.go
+@@ -0,0 +1,22 @@
++package utils
++
++// #cgo pkg-config: glib-2.0
++// #include <glib.h>
++import "C"
++
++// GReloadUserSpecialDirsCache reloads user special dirs cache.
++func GReloadUserSpecialDirsCache() {
++	C.g_reload_user_special_dirs_cache()
++}
++
++func uniqueStringList(l []string) []string {
++	m := make(map[string]bool, 0)
++	for _, v := range l {
++		m[v] = true
++	}
++	var n []string
++	for k := range m {
++		n = append(n, k)
++	}
++	return n
++}
+diff --git a/launcher/utils/config_file_test.go b/launcher/utils/config_file_test.go
+new file mode 100644
+index 0000000..b7c28a1
+--- /dev/null
++++ b/launcher/utils/config_file_test.go
+@@ -0,0 +1,8 @@
++package utils
++
++import C "launchpad.net/gocheck"
++
++type ConfigFileTestSuite struct {
++}
++
++var _ = C.Suite(&ConfigFileTestSuite{})
+diff --git a/launcher/utils/copyfile.go b/launcher/utils/copyfile.go
+new file mode 100644
+index 0000000..c976153
+--- /dev/null
++++ b/launcher/utils/copyfile.go
+@@ -0,0 +1,100 @@
++package utils
++
++import (
++	"fmt"
++	"io"
++	"os"
++	"path"
++	"pkg.deepin.io/lib/utils"
++)
++
++// CopyFlag type
++type CopyFlag int
++
++// copy file flags
++const (
++	CopyFileNone CopyFlag = 1 << iota
++	CopyFileNotKeepSymlink
++	CopyFileOverWrite
++)
++
++func copyFileAux(src, dst string, copyFlag CopyFlag) error {
++	srcStat, err := os.Lstat(src)
++	if err != nil {
++		return fmt.Errorf("Error os.Lstat src %s: %s", src, err)
++	}
++
++	if (copyFlag&CopyFileOverWrite) != CopyFileOverWrite && utils.IsFileExist(dst) {
++		return fmt.Errorf("error dst file is already exist")
++	}
++
++	os.Remove(dst)
++	if (copyFlag&CopyFileNotKeepSymlink) != CopyFileNotKeepSymlink &&
++		(srcStat.Mode()&os.ModeSymlink) == os.ModeSymlink {
++		readlink, err := os.Readlink(src)
++		if err != nil {
++			return fmt.Errorf("error read symlink %s: %s", src,
++				err)
++		}
++
++		err = os.Symlink(readlink, dst)
++		if err != nil {
++			return fmt.Errorf("error creating symlink %s to %s: %s",
++				readlink, dst, err)
++		}
++		return nil
++	}
++
++	srcFile, err := os.Open(src)
++	if err != nil {
++		return fmt.Errorf("error opening src file %s: %s", src, err)
++	}
++	defer srcFile.Close()
++
++	dstFile, err := os.OpenFile(
++		dst,
++		os.O_CREATE|os.O_TRUNC|os.O_WRONLY,
++		srcStat.Mode(),
++	)
++	if err != nil {
++		return fmt.Errorf("error opening dst file %s: %s", dst, err)
++	}
++	defer dstFile.Close()
++
++	_, err = io.Copy(dstFile, srcFile)
++	if err != nil {
++		return fmt.Errorf("error in copy from %s to %s: %s", src, dst,
++			err)
++	}
++
++	return nil
++}
++
++// CopyFile copys file.
++func CopyFile(src, dst string, copyFlag CopyFlag) error {
++	srcStat, err := os.Lstat(src)
++	if err != nil {
++		return err
++	}
++
++	if srcStat.IsDir() {
++		return fmt.Errorf("error src is a directory: %s", src)
++	}
++
++	if utils.IsFileExist(dst) {
++		dstStat, err := os.Lstat(dst)
++		if err != nil {
++			return fmt.Errorf("error os.Lstat dst %s: %s", dst, err)
++		}
++
++		if dstStat.IsDir() {
++			dst = path.Join(dst, path.Base(src))
++		} else {
++			if (copyFlag & CopyFileOverWrite) == 0 {
++				return fmt.Errorf("error dst %s is alreadly exist", dst)
++			}
++		}
++	}
++
++	return copyFileAux(src, dst, copyFlag)
++}
+diff --git a/launcher/utils/keyfile.go b/launcher/utils/keyfile.go
+new file mode 100644
+index 0000000..50be730
+--- /dev/null
++++ b/launcher/utils/keyfile.go
+@@ -0,0 +1,26 @@
++package utils
++
++import (
++	"io/ioutil"
++	"os"
++	"gir/glib-2.0"
++)
++
++// SaveKeyFile saves key file.
++func SaveKeyFile(file *glib.KeyFile, path string) error {
++	_, content, err := file.ToData()
++	if err != nil {
++		return err
++	}
++
++	stat, err := os.Lstat(path)
++	if err != nil {
++		return err
++	}
++
++	err = ioutil.WriteFile(path, []byte(content), stat.Mode())
++	if err != nil {
++		return err
++	}
++	return nil
++}
+diff --git a/launcher/utils/utils.go b/launcher/utils/utils.go
+new file mode 100644
+index 0000000..fa8c3e3
+--- /dev/null
++++ b/launcher/utils/utils.go
+@@ -0,0 +1,23 @@
++package utils
++
++import (
++	"os"
++	"gir/gio-2.0"
++	"strings"
++)
++
++// dir default perm.
++const (
++	DirDefaultPerm os.FileMode = 0755
++)
++
++// CreateDesktopAppInfo is a helper function for creating GDesktopAppInfo object.
++// if name is a path, gio.NewDesktopAppInfoFromFilename is used.
++// otherwise, name must be desktop id and gio.NewDesktopAppInfo is used.
++func CreateDesktopAppInfo(name string) *gio.DesktopAppInfo {
++	if strings.ContainsRune(name, os.PathSeparator) {
++		return gio.NewDesktopAppInfoFromFilename(name)
++	} else {
++		return gio.NewDesktopAppInfo(name)
++	}
++}
+diff --git a/launcher/utils/utils_test.go b/launcher/utils/utils_test.go
+new file mode 100644
+index 0000000..95d8df2
+--- /dev/null
++++ b/launcher/utils/utils_test.go
+@@ -0,0 +1,10 @@
++package utils
++
++import (
++	C "launchpad.net/gocheck"
++	"testing"
++)
++
++func TestUtils(t *testing.T) {
++	C.TestingT(t)
++}
