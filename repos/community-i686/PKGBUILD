@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=8.10.4
+pkgver=8.10.5
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
@@ -42,7 +42,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         nginx-ssl.conf.example
         lighttpd.conf.example)
 install='gitlab.install'
-sha256sums=('d1df376dc6e182d6234bec0abdf69622941e72c21d94b420ee74257caf228986'
+sha256sums=('7a27535a910d51c344f9dd2bce3d4f22f8a14669f65f8a263176d7a313882685'
             'becafe0f9811fea69a69b8e2739857ef007f0b7e89391229f123c79c285f34f3'
             'fbe5ec709ead1729e4de85f3f036f053b2b14041c540742315ff2d63a7bdd59a'
             'd21d8c961b2834115a1d9c646278782aaaae0d1d1cde2357b58e67bad3a58527'
