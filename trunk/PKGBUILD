@@ -6,12 +6,13 @@
 
 pkgname=php-mongodb
 pkgver=1.1.8
-pkgrel=1
+pkgrel=2
 pkgdesc="MongoDB driver for PHP"
 arch=("i686" "x86_64")
 url="http://mongodb.github.io/mongo-php-driver"
 license=("Apache")
-depends=('php' 'libmongoc')
+#depends=('php' 'libmongoc')
+depends=('php')
 makedepends=('re2c')
 backup=("etc/php/conf.d/mongodb.ini")
 install=php-mongodb.install
@@ -25,7 +26,8 @@ sha256sums=('b93ae7dc9bd270823965f8903c9acf47fe3a0ba7a630d08e8173ff091d593ae0'
 build() {
 	cd mongodb-$pkgver
 	phpize
-	./configure --prefix=/usr --with-libbson --with-libmongoc
+	#./configure --prefix=/usr --with-libbson --with-libmongoc
+	./configure --prefix=/usr
 }
 
 package() {
