@@ -14,7 +14,7 @@ pkgname=(
   'x86_energy_perf_policy'
 )
 pkgver=4.7
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -37,6 +37,7 @@ source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service'
+        '01-cpupower-governor-fix.patch'
         '02-archlinux-paths.patch'
         '04-fix-usip-h-path.patch')
 md5sums=('SKIP'
@@ -44,11 +45,14 @@ md5sums=('SKIP'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
          'bb35634f480325a78b943f7e10165e86'
+         '33c871519adfd4e5575643c4579d019b'
          '1bc4f8c7a21a30e1a873d07e69fb698b'
          'a73ea3ea6d9c9ecb1cc910871eead3ff')
 
 prepare() {
   cd linux
+  # apply stable kernel patch
+  #xz -kcd "$srcdir"/patch-4.7.1.xz | patch -p1 -N
   # apply patch from the source array (should be a pacman feature)
   local filename
   for filename in "${source[@]}"; do
