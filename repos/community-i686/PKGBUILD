@@ -8,12 +8,12 @@
 
 pkgname=gitlab
 pkgver=8.11.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
 license=('MIT')
-depends=('ruby2.1' 'git' 'ruby2.1-bundler' 'gitlab-shell' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
+depends=('ruby' 'git' 'ruby-bundler' 'gitlab-shell' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
@@ -113,13 +113,13 @@ build() {
   msg "Fetching bundled gems..."
   # Gems will be installed into vendor/bundle
 
-  bundle-2.1 config build.nokogiri --use-system-libraries
-  bundle-2.1 install -j$(nproc) --no-cache --deployment --without development test aws kerberos
+  bundle config build.nokogiri --use-system-libraries
+  bundle install -j$(nproc) --no-cache --deployment --without development test aws kerberos
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
   sed -i '/generate_and_link_secret_token/d' config/initializers/gitlab_shell_secret_token.rb
-  bundle-2.1 exec rake assets:precompile RAILS_ENV=production
+  bundle exec rake assets:precompile RAILS_ENV=production
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
 }
@@ -159,10 +159,6 @@ package() {
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
 
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
-
-  # Fix for ruby-2.1 and bundle-2.1
-  sed -i "s|bundle|bundle-2.1|g" "${pkgdir}${_datadir}/lib/tasks/gitlab/check.rake"
-  grep -rl "bin/env ruby" "${pkgdir}${_datadir}" | xargs sed -i "s|bin/env ruby$|bin/env ruby-2.1|g"
 
   # Install config files
   for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
