@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.11.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -43,10 +43,10 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         lighttpd.conf.example)
 install='gitlab.install'
 sha256sums=('8f78e05ad66e68383de198cfc20454675f3518732d609c88e6cc39f8a7c9806c'
-            'becafe0f9811fea69a69b8e2739857ef007f0b7e89391229f123c79c285f34f3'
-            'fbe5ec709ead1729e4de85f3f036f053b2b14041c540742315ff2d63a7bdd59a'
-            'd21d8c961b2834115a1d9c646278782aaaae0d1d1cde2357b58e67bad3a58527'
-            '06c9f6575ddaeb9cfb70dd9c6cc50a2e676b0aba42731d1c7793a5ba12a2d4e5'
+            '0dabb9c10f6ba49404c13d6be2d0d6cf1bf7e5a0b95f0dea566e33c356997307'
+            'a348d69cf0d08a1aa0713deb615815ae5a2305a1a1c386bcee29f49eae446757'
+            'e16a68539eeb49d24d2ab4a53ff95e33c67264a674b611c006dc5c8a24f41e0e'
+            'f3863b2906526ba487cb594f7fdca926e6dd8b8cfe95dccbba0ff9171ef2bb62'
             'e2539301fe42869d8fdbaa1b53b30076fb436c4220a37e576ed704458f804852'
             'a1ee236a1f3e65cd26d9adb5f636f66fbab68777fd60d1c796cb26036bd0903f'
             '84614a2bfbd734f09c2c91531dd3c13e795186b50c0780a120c8e5bc2a892607'
