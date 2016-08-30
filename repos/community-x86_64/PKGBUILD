@@ -1,26 +1,28 @@
 # Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
 # Contributor: Juergen Hoetzel <juergen@hoetzel.info>
-# Contributor: basilburn (basilburn), Paul Bredbury (brebs) 
+# Contributor: basilburn (basilburn), Paul Bredbury (brebs)
+# Contributor: lolilolicon
 
 pkgname=privoxy
-pkgver=3.0.24
-pkgrel=3
+pkgver=3.0.26
+pkgrel=1
 pkgdesc='A web proxy with advanced filtering capabilities.'
 arch=('i686' 'x86_64')
-url='http://www.privoxy.org'
-license=('GPL')
+url='https://www.privoxy.org'
+license=('GPL2')
 depends=('pcre' 'zlib')
 makedepends=('autoconf')
-backup=('etc/privoxy/'{config,trust,default.action,user.filter,default.filter}
-        'etc/privoxy/'{match-all,user}.action
+backup=('etc/privoxy/'{config,trust,match-all.action,{default,user}.{action,filter}}
         'etc/logrotate.d/privoxy')
 install='privoxy.install'
 source=("http://downloads.sourceforge.net/ijbswa/${pkgname}-${pkgver}-stable-src.tar.gz"
         'privoxy.logrotate.d'
+        'privoxy.sysusers'
         'privoxy.service')
-md5sums=('44a47d1a5000db8cccd61ace0e25e7f7'
+md5sums=('8a1c842112ccea68c19b7ceb4a0e999f'
          'e8196e745c765b398b3bfac68f370279'
-         '37965b9a52ab1f2cb9f36cee617f5cf9')
+         'b16776164ab677282c44a8729743eca1'
+         '99ecefbdab8d2260d9b217895b3adc73')
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}-stable"
@@ -30,28 +32,32 @@ build() {
   ./configure --prefix=/usr --sysconfdir=/etc/privoxy --enable-compression
 
   make
+  sed -i '
+    s+^confdir \.+confdir /etc/privoxy+
+    s+^logdir \.+logdir /var/log/privoxy+
+    s+^#\?user-manual .*+user-manual /usr/share/doc/privoxy/user-manual/+' config
 }
 
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}-stable"
 
-  make prefix="${pkgdir}/usr" SBIN_DEST="${pkgdir}/usr/bin" \
-    MAN_DEST="${pkgdir}/usr/share/man/man1" GROUP=42 \
-    CONF_BASE="${pkgdir}/etc/privoxy" VAR_DEST="${pkgdir}/var" install
+  install -Dm644 "$srcdir/privoxy.service" "$pkgdir/usr/lib/systemd/system/privoxy.service"
+  install -Dm644 "$srcdir/privoxy.sysusers" "$pkgdir/usr/lib/sysusers.d/privoxy.conf"
+  install -Dm644 "$srcdir/privoxy.logrotate.d" "$pkgdir/etc/logrotate.d/privoxy"
 
-  # Fix configuration paths.
-  sed -i -e 's#^confdir.*$#confdir /etc/privoxy#' -e 's#^logdir.*$#logdir /var/log/privoxy#' \
-    -e '/^user-manual/s#.*#\#user-manual /usr/share/doc/privoxy/user-manual/#' \
-    "${pkgdir}/etc/privoxy/config"
+  install -Dm755 {,"$pkgdir"/usr/bin/}privoxy
+  install -Dm644 {,"$pkgdir"/usr/share/man/man1/}privoxy.1
+  install -d -o42 -g42 "$pkgdir"/var/log/privoxy
 
-  # Install systemd unit and logrotate configuration.
-  install -Dm0644 "${srcdir}/privoxy.service" "${pkgdir}/usr/lib/systemd/system/privoxy.service"
-  install -Dm0644 "${srcdir}/privoxy.logrotate.d" "${pkgdir}/etc/logrotate.d/privoxy"
+  install -d "$pkgdir"/etc/privoxy/
+  install -m644 config trust *.{action,filter} "$pkgdir"/etc/privoxy/ # -m0660 upstream
+  find templates -type f -exec install -Dm644 '{}' "$pkgdir"/etc/privoxy/'{}' \;
 
-  # Don't overwrite existing log files and fix log directory permissions.
-  rm "${pkgdir}/var/log/privoxy/"*
-  chown -R 42:42 "${pkgdir}"/etc/privoxy "${pkgdir}"/var/log/privoxy
-
-  # Avoid conflict with filesystem>=2012.06.
-  rmdir "$pkgdir/var/run"
+  (d=$pkgdir/usr/share/doc/privoxy
+  cd doc/webserver
+  install -Dm644 {privoxy-,"$d"/}index.html
+  install -m644 p_doc.css ../../{AUTHORS,README,ChangeLog} "$d"/
+  install -Dm644 {,"$d"/user-manual/}p_doc.css
+  find user-manual developer-manual faq man-page \( -name '*.html' -o -name '*.jpg' \) \
+    -exec install -Dm644 '{}' "$d"/'{}' \;)
 }
