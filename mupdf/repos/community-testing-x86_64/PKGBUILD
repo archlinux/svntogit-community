@@ -1,0 +1,139 @@
+# $Id$
+# Maintainer: Christian Hesse <mail@eworm.de>
+# Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+# Contributor: Brad Fanella <bradfanella@archlinux.us>
+# Contributor: Stefan Husmann <stefan-husmann@t-online.de>
+# Contributor: Pierre-Paul Paquin <pierrepaulpaquin@gmail.com>
+# Contributor: xduugu
+
+pkgbase=mupdf
+pkgname=(libmupdf mupdf mupdf-gl mupdf-tools)
+pkgver=1.9_a
+pkgrel=5
+pkgdesc='Lightweight PDF and XPS viewer'
+arch=('i686' 'x86_64')
+url='http://mupdf.com'
+license=('AGPL3')
+makedepends=('curl' 'desktop-file-utils' 'freetype2' 'glfw' 'harfbuzz'
+             'jbig2dec' 'libjpeg' 'mesa-libgl' 'openjpeg2' 'openssl')
+# we need static libs for zathura-pdf-mupdf
+options=('staticlibs')
+source=("http://mupdf.com/downloads/mupdf-${pkgver/_/}-source.tar.gz"
+        '0001-mupdf-openjpeg.patch'
+        'mupdf-0001-bug-696941-fix-use-after-free.patch::http://git.ghostscript.com/?p=mupdf.git;a=patch;h=fa1936405b6a84e5c9bb440912c23d532772f958'
+        'mupdf-0002-make-sure-that-number-of-colors-in-mesh-params-is-valid.patch::http://git.ghostscript.com/?p=mupdf.git;a=patch;h=39b0f07dd960f34e7e6bf230ffc3d87c41ef0f2e'
+        'mupdf.desktop'
+        'mupdf.xpm')
+md5sums=('658b90788a57d858dcb069cf326e11c3'
+         'c2d096ecd41ae26735551d01099c0a3e'
+         'cc0d5363bf0fd4daa46380f3799e1d16'
+         'f73ad47c6d57aa6cc6fcfbc9aa98465f'
+         '39b54f82a763aac54e352315a0ee9037'
+         'f3f35e7320bafde331250de1c99186a1')
+
+prepare() {
+  cd $pkgbase-${pkgver/_/}-source
+
+  # remove bundled packages, we want our system libraries
+  rm -rf thirdparty/{curl,freetype,glfw,harfbuzz,jbig2dec,jpeg,openjpeg,zlib}
+
+  # Bug 696941: Fix use after free.
+  # CVE-2016-6265
+  # https://security-tracker.debian.org/tracker/CVE-2016-6265
+  patch -Np1 < "${srcdir}/mupdf-0001-bug-696941-fix-use-after-free.patch"
+
+  # Make sure that number of colors in mesh params is valid.
+  # CVE-2016-6525
+  # https://security-tracker.debian.org/tracker/CVE-2016-6525
+  patch -Np1 < "${srcdir}/mupdf-0002-make-sure-that-number-of-colors-in-mesh-params-is-valid.patch"
+
+  # fix function for openjpeg 2.1.x
+  patch -Np1 < "${srcdir}/0001-mupdf-openjpeg.patch"
+
+  # fix includes for jbig2dec
+  sed '/^JBIG2DEC_CFLAGS :=/s|$| -I./include/mupdf|' -i Makethird
+}
+
+build() {
+  CFLAGS+=' -fPIC'
+  CXXFLAGS+=' -fPIC'
+  export CFLAGS CXXFLAGS
+
+  HAVE_GLFW='yes'
+  SYS_GLFW_CFLAGS="$(pkg-config --cflags glfw3)"
+  SYS_GLFW_LIBS="$(pkg-config --libs glfw3) -lGL"
+  export HAVE_GLFW SYS_GLFW_CFLAGS SYS_GLFW_LIBS
+
+  cd $pkgbase-${pkgver/_/}-source
+  make build=release
+}
+
+package_libmupdf() {
+  pkgdesc='Library for Lightweight PDF and XPS viewer'
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  make build=release prefix="$pkgdir"/usr install
+
+  rm -rf "$pkgdir"/usr/{bin,share/man}
+  mv "$pkgdir"/usr/share/doc/mupdf "$pkgdir"/usr/share/doc/libmupdf
+
+  find "$pkgdir"/usr/include "$pkgdir"/usr/share "$pkgdir"/usr/lib \
+    -type f -exec chmod 0644 {} +
+}
+
+package_mupdf() {
+  pkgdesc='Lightweight PDF and XPS viewer'
+  depends=('curl' 'desktop-file-utils' 'freetype2' 'harfbuzz' 'jbig2dec'
+           'libjpeg' 'openjpeg2' 'openssl')
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  install -D -m0755 build/release/mupdf-x11-curl "$pkgdir"/usr/bin/mupdf
+
+  install -D -m0644 docs/man/mupdf.1 "$pkgdir"/usr/share/man/man1/mupdf.1
+
+  install -d "$pkgdir"/usr/share/doc/mupdf
+  install -m0644  README COPYING CHANGES "$pkgdir"/usr/share/doc/mupdf
+
+  install -D -m0644 ../mupdf.desktop "$pkgdir"/usr/share/applications/mupdf.desktop
+  install -D -m0644 ../mupdf.xpm "$pkgdir"/usr/share/pixmaps/mupdf.xpm
+}
+
+package_mupdf-gl() {
+  pkgdesc='Lightweight PDF and XPS viewer with OpenGL backend'
+  conflicts=('mupdf')
+  provides=('mupdf')
+  depends=('desktop-file-utils' 'freetype2' 'glfw' 'harfbuzz' 'jbig2dec'
+           'libjpeg' 'openjpeg2' 'openssl')
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  install -D -m0755 build/release/mupdf-gl "$pkgdir"/usr/bin/mupdf
+
+  install -D -m0644 docs/man/mupdf.1 "$pkgdir"/usr/share/man/man1/mupdf.1
+
+  install -d "$pkgdir"/usr/share/doc/mupdf
+  install -m0644 README COPYING CHANGES "$pkgdir"/usr/share/doc/mupdf
+
+  install -D -m0644 ../mupdf.desktop "$pkgdir"/usr/share/applications/mupdf.desktop
+  install -D -m0644 ../mupdf.xpm "$pkgdir"/usr/share/pixmaps/mupdf.xpm
+}
+
+package_mupdf-tools() {
+  pkgdesc='Tools for Lightweight PDF and XPS viewer'
+  depends=('mupdf')
+  depends=('freetype2' 'jbig2dec' 'libjpeg'
+         'openssl' 'openjpeg2' 'harfbuzz')
+
+  cd $pkgbase-${pkgver/_/}-source
+
+  install -D -m0755 build/release/mutool "$pkgdir"/usr/bin/mutool
+  install -D -m0755 build/release/mujstest "$pkgdir"/usr/bin/mujstest
+
+  install -D -m0644 docs/man/mutool.1 "$pkgdir"/usr/share/man/man1/mutool.1
+
+  install -d "$pkgdir"/usr/share/doc/mupdf-tools
+  install -m0644 README COPYING CHANGES "$pkgdir"/usr/share/doc/mupdf-tools
+}
+
