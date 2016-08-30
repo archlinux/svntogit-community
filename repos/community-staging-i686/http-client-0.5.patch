@@ -1,0 +1,438 @@
+From f40d403587c923c92dad2c80f74f0f4e837297de Mon Sep 17 00:00:00 2001
+From: Simon Jakobi <simon.jakobi@gmail.com>
+Date: Wed, 6 Jul 2016 00:09:36 +0200
+Subject: [PATCH 1/2] Use http-client-0.5.0, http-conduit-2.2.0,
+ http-client-tls-0.3.0
+
+Closes https://github.com/commercialhaskell/stack/issues/2332.
+---
+ src/Network/HTTP/Download.hs                   | 10 +++++-----
+ src/Stack/BuildPlan.hs                         | 16 +++++++++-------
+ src/Stack/Config.hs                            |  6 +++---
+ src/Stack/Fetch.hs                             |  2 +-
+ src/Stack/New.hs                               | 10 ++++------
+ src/Stack/PackageIndex.hs                      |  2 +-
+ src/Stack/Setup.hs                             |  4 ++--
+ src/Stack/Sig/Sign.hs                          |  2 +-
+ src/Stack/Types/Config.hs                      |  4 ++--
+ src/Stack/Types/TemplateName.hs                |  4 ++--
+ src/Stack/Upload.hs                            |  7 +++----
+ src/test/Network/HTTP/Download/VerifiedSpec.hs |  4 ++--
+ stack-7.8.yaml                                 |  8 ++++----
+ stack-8.0.yaml                                 |  3 +++
+ stack.cabal                                    |  6 +++---
+ stack.yaml                                     |  3 +++
+ 16 files changed, 48 insertions(+), 43 deletions(-)
+
+diff --git a/src/Network/HTTP/Download.hs b/src/Network/HTTP/Download.hs
+index c12f713..92724b8 100644
+--- a/src/Network/HTTP/Download.hs
++++ b/src/Network/HTTP/Download.hs
+@@ -16,7 +16,7 @@ module Network.HTTP.Download
+     , download
+     , redownload
+     , downloadJSON
+-    , parseUrl
++    , parseUrlThrow
+     , liftHTTP
+     , ask
+     , getHttpManager
+@@ -46,10 +46,10 @@ import           Data.Monoid                 ((<>))
+ import           Data.Text.Encoding.Error    (lenientDecode)
+ import           Data.Text.Encoding          (decodeUtf8With)
+ import           Data.Typeable               (Typeable)
+-import           Network.HTTP.Client         (path)
++import           Network.HTTP.Client         (path, checkResponse)
+ import           Network.HTTP.Client.Conduit (HasHttpManager, Manager, Request,
+-                                              Response, checkStatus,
+-                                              getHttpManager, parseUrl,
++                                              Response,
++                                              getHttpManager, parseUrlThrow,
+                                               requestHeaders, responseBody,
+                                               responseHeaders, responseStatus,
+                                               withResponse)
+@@ -108,7 +108,7 @@ redownload req0 dest = do
+                         requestHeaders req0 ++
+                         [("If-None-Match", L.toStrict etag)]
+                     }
+-        req2 = req1 { checkStatus = \_ _ _ -> Nothing }
++        req2 = req1 { checkResponse = \_ _ -> return () }
+     env <- ask
+     liftIO $ recoveringHttp drRetryPolicyDefault $ flip runReaderT env $
+       withResponse req2 $ \res -> case () of
+diff --git a/src/Stack/BuildPlan.hs b/src/Stack/BuildPlan.hs
+index 5c210a6..56cbeaf 100644
+--- a/src/Stack/BuildPlan.hs
++++ b/src/Stack/BuildPlan.hs
+@@ -76,7 +76,7 @@ import qualified Distribution.PackageDescription as C
+ import           Distribution.System (Platform)
+ import           Distribution.Text (display)
+ import qualified Distribution.Version as C
+-import           Network.HTTP.Client (checkStatus)
++import           Network.HTTP.Client (checkResponse, responseStatus, parseRequest)
+ import           Network.HTTP.Download
+ import           Network.HTTP.Types (Status(..))
+ import           Path
+@@ -498,17 +498,19 @@ loadBuildPlan name = do
+             $logDebug $ "Decoding build plan from file failed: " <> T.pack (show e)
+             ensureDir (parent fp)
+             url <- buildBuildPlanUrl name file
+-            req <- parseUrl $ T.unpack url
++            req <- parseRequest $ T.unpack url
+             $logSticky $ "Downloading " <> renderSnapName name <> " build plan ..."
+             $logDebug $ "Downloading build plan from: " <> url
+-            _ <- redownload req { checkStatus = handle404 } fp
++            _ <- redownload req { checkResponse = handle404 } fp
+             $logStickyDone $ "Downloaded " <> renderSnapName name <> " build plan."
+             liftIO (decodeFileEither $ toFilePath fp) >>= either throwM return
+ 
+   where
+     file = renderSnapName name <> ".yaml"
+-    handle404 (Status 404 _) _ _ = Just $ SomeException $ SnapshotNotFound name
+-    handle404 _ _ _              = Nothing
++    handle404 _req resp =
++        case responseStatus resp of
++            Status 404 _ -> throwM $ SomeException $ SnapshotNotFound name
++            _ -> return ()
+ 
+ buildBuildPlanUrl :: (MonadReader env m, HasConfig env) => SnapName -> Text -> m Text
+ buildBuildPlanUrl name file = do
+@@ -959,7 +961,7 @@ parseCustomMiniBuildPlan
+     -> m (MiniBuildPlan, SnapshotHash)
+ parseCustomMiniBuildPlan mconfigPath0 url0 = do
+     $logDebug $ "Loading " <> url0 <> " build plan"
+-    case parseUrl $ T.unpack url0 of
++    case parseUrlThrow $ T.unpack url0 of
+         Just req -> downloadCustom url0 req
+         Nothing ->
+            case mconfigPath0 of
+@@ -1004,7 +1006,7 @@ parseCustomMiniBuildPlan mconfigPath0 url0 = do
+         (cs, mresolver) <- decodeYaml yamlBS
+         (getMbp, hash) <- case mresolver of
+             Just (ResolverCustom _ url ) ->
+-                case parseUrl $ T.unpack url of
++                case parseUrlThrow $ T.unpack url of
+                     Just req -> do
+                         let getMbp = do
+                                 -- Ignore custom hash, under the
+diff --git a/src/Stack/Config.hs b/src/Stack/Config.hs
+index 873e561..1136a3a 100644
+--- a/src/Stack/Config.hs
++++ b/src/Stack/Config.hs
+@@ -68,7 +68,7 @@ import           Distribution.System (OS (..), Platform (..), buildPlatform)
+ import qualified Distribution.Text
+ import           Distribution.Version (simplifyVersionRange)
+ import           GHC.Conc (getNumProcessors)
+-import           Network.HTTP.Client.Conduit (HasHttpManager, getHttpManager, Manager, parseUrl)
++import           Network.HTTP.Client.Conduit (HasHttpManager, getHttpManager, Manager, parseUrlThrow)
+ import           Network.HTTP.Download (download, downloadJSON)
+ import           Options.Applicative (Parser, strOption, long, help)
+ import           Path
+@@ -143,7 +143,7 @@ getSnapshots :: (MonadThrow m, MonadMask m, MonadIO m, MonadReader env m, HasHtt
+              => m Snapshots
+ getSnapshots = do
+     latestUrlText <- askLatestSnapshotUrl
+-    latestUrl <- parseUrl (T.unpack latestUrlText)
++    latestUrl <- parseUrlThrow (T.unpack latestUrlText)
+     $logDebug $ "Downloading snapshot versions file from " <> latestUrlText
+     result <- downloadJSON latestUrl
+     $logDebug $ "Done downloading and parsing snapshot versions file"
+@@ -641,7 +641,7 @@ resolvePackageLocation menv projRoot (PLRemote url remotePackageType) = do
+                 ignoringAbsence (removeDirRecur dirTmp)
+ 
+                 let fp = toFilePath file
+-                req <- parseUrl $ T.unpack url
++                req <- parseUrlThrow $ T.unpack url
+                 _ <- download req file
+ 
+                 let tryTar = do
+diff --git a/src/Stack/Fetch.hs b/src/Stack/Fetch.hs
+index af985b7..b1fc193 100644
+--- a/src/Stack/Fetch.hs
++++ b/src/Stack/Fetch.hs
+@@ -484,7 +484,7 @@ fetchPackages' mdistDir toFetchAll = do
+        -> (PackageIdentifier, ToFetch)
+        -> m ()
+     go outputVar runInBase (ident, toFetch) = do
+-        req <- parseUrl $ T.unpack $ tfUrl toFetch
++        req <- parseUrlThrow $ T.unpack $ tfUrl toFetch
+         let destpath = tfTarball toFetch
+ 
+         let toHashCheck bs = HashCheck SHA512 (CheckHexDigestByteString bs)
+diff --git a/src/Stack/New.hs b/src/Stack/New.hs
+index c0b7d44..1dbcdbd 100644
+--- a/src/Stack/New.hs
++++ b/src/Stack/New.hs
+@@ -136,9 +136,7 @@ loadTemplate name logIt = do
+     case templatePath name of
+         AbsPath absFile -> logIt LocalTemp >> loadLocalFile absFile
+         UrlPath s -> do
+-            let req = fromMaybe (error "impossible happened: already valid \
+-                                       \URL couldn't be parsed")
+-                                (parseUrl s)
++            let req = parseRequest_ s
+                 rel = fromMaybe backupUrlRelPath (parseRelFile s)
+             downloadTemplate req (templateDir </> rel)
+         RelPath relFile ->
+@@ -162,7 +160,7 @@ loadTemplate name logIt = do
+             then liftIO (T.readFile (toFilePath path))
+             else throwM (FailedToLoadTemplate name (toFilePath path))
+     relRequest :: MonadThrow n => Path Rel File -> n Request
+-    relRequest rel = parseUrl (defaultTemplateUrl <> "/" <> toFilePath rel)
++    relRequest rel = parseUrlThrow (defaultTemplateUrl <> "/" <> toFilePath rel)
+     downloadTemplate :: Request -> Path Abs File -> m Text
+     downloadTemplate req path = do
+         logIt RemoteTemp
+@@ -293,7 +291,7 @@ getTemplates
+     :: (MonadIO m, MonadReader r m, HasHttpManager r, MonadCatch m)
+     => m (Set TemplateName)
+ getTemplates = do
+-    req <- liftM addHeaders (parseUrl defaultTemplatesList)
++    req <- liftM addHeaders (parseUrlThrow defaultTemplatesList)
+     resp <- catch (httpLbs req) (throwM . FailedToDownloadTemplates)
+     case statusCode (responseStatus resp) of
+         200 ->
+@@ -307,7 +305,7 @@ getTemplateInfo
+     :: (MonadIO m, MonadReader r m, HasHttpManager r, MonadCatch m)
+     => m (Map Text TemplateInfo)
+ getTemplateInfo = do
+-  req <- liftM addHeaders (parseUrl defaultTemplateInfoUrl)
++  req <- liftM addHeaders (parseUrlThrow defaultTemplateInfoUrl)
+   resp <- catch (liftM Right $ httpLbs req) (\(ex :: HttpException) -> return . Left $ "Failed to download template info. The HTTP error was: " <> show ex)
+   case resp >>= is200 of
+     Left err -> do
+diff --git a/src/Stack/PackageIndex.hs b/src/Stack/PackageIndex.hs
+index ab9411d..4f490d4 100644
+--- a/src/Stack/PackageIndex.hs
++++ b/src/Stack/PackageIndex.hs
+@@ -309,7 +309,7 @@ updateIndexHTTP :: (MonadIO m,MonadLogger m
+                 -> Text -- ^ url
+                 -> m ()
+ updateIndexHTTP indexName' index url = do
+-    req <- parseUrl $ T.unpack url
++    req <- parseUrlThrow $ T.unpack url
+     $logInfo ("Downloading package index from " <> url)
+     gz <- configPackageIndexGz indexName'
+     tar <- configPackageIndex indexName'
+diff --git a/src/Stack/Setup.hs b/src/Stack/Setup.hs
+index d31766e..d7efa9e 100644
+--- a/src/Stack/Setup.hs
++++ b/src/Stack/Setup.hs
+@@ -595,7 +595,7 @@ getSetupInfo stackSetupYaml manager = do
+     loadSetupInfo (SetupInfoInline si) = return si
+     loadSetupInfo (SetupInfoFileOrURL urlOrFile) = do
+         bs <-
+-            case parseUrl urlOrFile of
++            case parseUrlThrow urlOrFile of
+                 Just req -> do
+                     bss <-
+                         liftIO $
+@@ -1209,7 +1209,7 @@ chattyDownload :: (MonadReader env m, HasHttpManager env, MonadIO m, MonadLogger
+                -> m ()
+ chattyDownload label downloadInfo path = do
+     let url = downloadInfoUrl downloadInfo
+-    req <- parseUrl $ T.unpack url
++    req <- parseUrlThrow $ T.unpack url
+     $logSticky $ T.concat
+       [ "Preparing to download "
+       , label
+diff --git a/src/Stack/Sig/Sign.hs b/src/Stack/Sig/Sign.hs
+index ed805e6..c183f7a 100644
+--- a/src/Stack/Sig/Sign.hs
++++ b/src/Stack/Sig/Sign.hs
+@@ -116,7 +116,7 @@ signPackage manager url pkg filePath = do
+             url <> "/upload/signature/" <> show name <> "/" <> show version <>
+             "/" <>
+             show fingerprint
+-    req <- parseUrl fullUrl
++    req <- parseUrlThrow fullUrl
+     let put =
+             req
+             { method = methodPut
+diff --git a/src/Stack/Types/Config.hs b/src/Stack/Types/Config.hs
+index 17b1123..c4d05aa 100644
+--- a/src/Stack/Types/Config.hs
++++ b/src/Stack/Types/Config.hs
+@@ -185,7 +185,7 @@ import qualified Distribution.Text
+ import           Distribution.Version (anyVersion)
+ import           GHC.Generics (Generic)
+ import           Generics.Deriving.Monoid (memptydefault, mappenddefault)
+-import           Network.HTTP.Client (parseUrl)
++import           Network.HTTP.Client (parseRequest)
+ import           Path
+ import qualified Paths_stack as Meta
+ import           Stack.Types.BuildPlan (MiniBuildPlan(..), SnapName, renderSnapName, parseSnapName, SnapshotHash (..), trimmedSnapshotHash)
+@@ -615,7 +615,7 @@ instance FromJSON (WithJSONWarnings PackageLocation) where
+       where
+         file t = pure $ PLFilePath $ T.unpack t
+         http t =
+-            case parseUrl $ T.unpack t of
++            case parseRequest $ T.unpack t of
+                 Left  _ -> mzero
+                 Right _ -> return $ PLRemote t RPTHttp
+ 
+diff --git a/src/Stack/Types/TemplateName.hs b/src/Stack/Types/TemplateName.hs
+index 7f957a4..3ae46a9 100644
+--- a/src/Stack/Types/TemplateName.hs
++++ b/src/Stack/Types/TemplateName.hs
+@@ -17,7 +17,7 @@ import           Data.Text (Text)
+ import qualified Data.Text as T
+ import           Data.Yaml (Value(Object), (.:?))
+ import           Language.Haskell.TH
+-import           Network.HTTP.Client (parseUrl)
++import           Network.HTTP.Client (parseRequest)
+ import qualified Options.Applicative as O
+ import           Path
+ import           Path.Internal
+@@ -83,7 +83,7 @@ parseTemplateNameFromString fname =
+                                            $ asum (validParses prefix hsf orig)
+     validParses prefix hsf orig =
+         -- NOTE: order is important
+-        [ TemplateName (T.pack orig) . UrlPath <$> (parseUrl orig *> Just orig)
++        [ TemplateName (T.pack orig) . UrlPath <$> (parseRequest orig *> Just orig)
+         , TemplateName prefix        . AbsPath <$> parseAbsFile hsf
+         , TemplateName prefix        . RelPath <$> parseRelFile hsf
+         ]
+diff --git a/src/Stack/Upload.hs b/src/Stack/Upload.hs
+index 8643018..9392b81 100644
+--- a/src/Stack/Upload.hs
++++ b/src/Stack/Upload.hs
+@@ -48,8 +48,8 @@ import           Network.HTTP.Client                   (BodyReader, Manager,
+                                                         Response,
+                                                         RequestBody(RequestBodyLBS),
+                                                         applyBasicAuth, brRead,
+-                                                        checkStatus, newManager,
+-                                                        parseUrl,
++                                                        newManager,
++                                                        parseRequest,
+                                                         requestHeaders,
+                                                         responseBody,
+                                                         responseStatus,
+@@ -195,10 +195,9 @@ mkUploader config us = do
+     manager <- usGetManager us
+     (creds, fromFile') <- loadCreds $ usCredsSource us config
+     when (not fromFile' && usSaveCreds us) $ saveCreds config creds
+-    req0 <- parseUrl $ usUploadUrl us
++    req0 <- parseRequest $ usUploadUrl us
+     let req1 = req0
+             { requestHeaders = [("Accept", "text/plain")]
+-            , checkStatus = \_ _ _ -> Nothing
+             }
+     return Uploader
+         { upload_ = \tarName bytes -> do
+diff --git a/src/test/Network/HTTP/Download/VerifiedSpec.hs b/src/test/Network/HTTP/Download/VerifiedSpec.hs
+index 4277b0c..e4c5591 100644
+--- a/src/test/Network/HTTP/Download/VerifiedSpec.hs
++++ b/src/test/Network/HTTP/Download/VerifiedSpec.hs
+@@ -27,7 +27,7 @@ getExamplePath dir = do
+ -- | An example DownloadRequest that uses a SHA1
+ exampleReq :: DownloadRequest
+ exampleReq = fromMaybe (error "exampleReq") $ do
+-    req <- parseUrl "http://download.fpcomplete.com/stackage-cli/linux64/cabal-install-1.22.4.0.tar.gz"
++    let req = parseRequest_ "http://download.fpcomplete.com/stackage-cli/linux64/cabal-install-1.22.4.0.tar.gz"
+     return DownloadRequest
+         { drRequest = req
+         , drHashChecks = [exampleHashCheck]
+@@ -143,7 +143,7 @@ spec = beforeAll setup $ afterAll teardown $ do
+     -- https://github.com/commercialhaskell/stack/issues/240
+     it "can download hackage tarballs" $ \T{..} -> withTempDir' $ \dir -> do
+       dest <- fmap (dir </>) $ parseRelFile "acme-missiles-0.3.tar.gz"
+-      req <- parseUrl "http://hackage.haskell.org/package/acme-missiles-0.3/acme-missiles-0.3.tar.gz"
++      let req = parseRequest_ "http://hackage.haskell.org/package/acme-missiles-0.3/acme-missiles-0.3.tar.gz"
+       let dReq = DownloadRequest
+             { drRequest = req
+             , drHashChecks = []
+
+From d40953b6a425f777f5d8b2364243a2811bc72746 Mon Sep 17 00:00:00 2001
+From: Simon Jakobi <simon.jakobi@gmail.com>
+Date: Wed, 6 Jul 2016 14:39:24 +0200
+Subject: [PATCH 2/2] Use parseRequest with redownload
+
+As redownload overrides the checkResponse field there's no point in
+using parseUrlThrow.
+---
+ src/Network/HTTP/Download.hs | 3 ++-
+ src/Stack/BuildPlan.hs       | 8 +-------
+ src/Stack/New.hs             | 2 +-
+ src/Stack/PackageIndex.hs    | 2 +-
+ 4 files changed, 5 insertions(+), 10 deletions(-)
+
+diff --git a/src/Network/HTTP/Download.hs b/src/Network/HTTP/Download.hs
+index 92724b8..4ee9a5a 100644
+--- a/src/Network/HTTP/Download.hs
++++ b/src/Network/HTTP/Download.hs
+@@ -16,6 +16,7 @@ module Network.HTTP.Download
+     , download
+     , redownload
+     , downloadJSON
++    , parseRequest
+     , parseUrlThrow
+     , liftHTTP
+     , ask
+@@ -48,7 +49,7 @@ import           Data.Text.Encoding          (decodeUtf8With)
+ import           Data.Typeable               (Typeable)
+ import           Network.HTTP.Client         (path, checkResponse)
+ import           Network.HTTP.Client.Conduit (HasHttpManager, Manager, Request,
+-                                              Response,
++                                              Response, parseRequest,
+                                               getHttpManager, parseUrlThrow,
+                                               requestHeaders, responseBody,
+                                               responseHeaders, responseStatus,
+diff --git a/src/Stack/BuildPlan.hs b/src/Stack/BuildPlan.hs
+index 56cbeaf..48adfc6 100644
+--- a/src/Stack/BuildPlan.hs
++++ b/src/Stack/BuildPlan.hs
+@@ -76,9 +76,7 @@ import qualified Distribution.PackageDescription as C
+ import           Distribution.System (Platform)
+ import           Distribution.Text (display)
+ import qualified Distribution.Version as C
+-import           Network.HTTP.Client (checkResponse, responseStatus, parseRequest)
+ import           Network.HTTP.Download
+-import           Network.HTTP.Types (Status(..))
+ import           Path
+ import           Path.IO
+ import           Prelude -- Fix AMP warning
+@@ -501,16 +499,12 @@ loadBuildPlan name = do
+             req <- parseRequest $ T.unpack url
+             $logSticky $ "Downloading " <> renderSnapName name <> " build plan ..."
+             $logDebug $ "Downloading build plan from: " <> url
+-            _ <- redownload req { checkResponse = handle404 } fp
++            _ <- redownload req fp
+             $logStickyDone $ "Downloaded " <> renderSnapName name <> " build plan."
+             liftIO (decodeFileEither $ toFilePath fp) >>= either throwM return
+ 
+   where
+     file = renderSnapName name <> ".yaml"
+-    handle404 _req resp =
+-        case responseStatus resp of
+-            Status 404 _ -> throwM $ SomeException $ SnapshotNotFound name
+-            _ -> return ()
+ 
+ buildBuildPlanUrl :: (MonadReader env m, HasConfig env) => SnapName -> Text -> m Text
+ buildBuildPlanUrl name file = do
+diff --git a/src/Stack/New.hs b/src/Stack/New.hs
+index 1dbcdbd..12b25d7 100644
+--- a/src/Stack/New.hs
++++ b/src/Stack/New.hs
+@@ -160,7 +160,7 @@ loadTemplate name logIt = do
+             then liftIO (T.readFile (toFilePath path))
+             else throwM (FailedToLoadTemplate name (toFilePath path))
+     relRequest :: MonadThrow n => Path Rel File -> n Request
+-    relRequest rel = parseUrlThrow (defaultTemplateUrl <> "/" <> toFilePath rel)
++    relRequest rel = parseRequest (defaultTemplateUrl <> "/" <> toFilePath rel)
+     downloadTemplate :: Request -> Path Abs File -> m Text
+     downloadTemplate req path = do
+         logIt RemoteTemp
+diff --git a/src/Stack/PackageIndex.hs b/src/Stack/PackageIndex.hs
+index 4f490d4..5ffd8d3 100644
+--- a/src/Stack/PackageIndex.hs
++++ b/src/Stack/PackageIndex.hs
+@@ -309,7 +309,7 @@ updateIndexHTTP :: (MonadIO m,MonadLogger m
+                 -> Text -- ^ url
+                 -> m ()
+ updateIndexHTTP indexName' index url = do
+-    req <- parseUrlThrow $ T.unpack url
++    req <- parseRequest $ T.unpack url
+     $logInfo ("Downloading package index from " <> url)
+     gz <- configPackageIndexGz indexName'
+     tar <- configPackageIndex indexName'
