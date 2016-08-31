@@ -1,0 +1,95 @@
+From 924fcd64044bd17c683345627def83df044ce867 Mon Sep 17 00:00:00 2001
+From: Felix Hammer <f.hammer@web.de>
+Date: Wed, 19 Aug 2015 15:02:10 +0200
+Subject: [PATCH] Linux Desktop build fix
+
+---
+ pokerth_lib.pro | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pokerth_lib.pro b/pokerth_lib.pro
+index 6ab18b9..e9f1e3a 100644
+--- a/pokerth_lib.pro
++++ b/pokerth_lib.pro
+@@ -256,6 +256,8 @@ win32{
+ 	##### My release static build options
+ 	#QMAKE_CXXFLAGS += -ffunction-sections -fdata-sections
+ 	INCLUDEPATH += /opt/gsasl/include
++        DEFINES += _WEBSOCKETPP_CPP11_STL_
++        QMAKE_CXXFLAGS += -std=gnu++11
+ }
+ 
+ mac{
+#diff --git a/pokerth_qml-client.pro b/pokerth_qml-client.pro
+#index 6e5223f..eec1feb 100644
+#--- a/pokerth_qml-client.pro
+#+++ b/pokerth_qml-client.pro
+#@@ -6,7 +6,6 @@ isEmpty( PREFIX ){
+# DEFINES += PREFIX=\"$${PREFIX}\"
+# 
+# TEMPLATE = app
+#-TARGET = pokerth
+# CODECFORSRC = UTF-8
+# QT += core qml quick widgets svg sql
+# CONFIG += qt thread embed_manifest_exe exceptions rtti stl warn_on
+diff --git a/src/net/common/sessiondata.cpp b/src/net/common/sessiondata.cpp
+index 06f7146..69bcdb7 100644
+--- a/src/net/common/sessiondata.cpp
++++ b/src/net/common/sessiondata.cpp
+@@ -318,8 +318,9 @@ void
+ SessionData::CloseWebSocketHandle()
+ {
+ 	if (m_webData) {
+-		boost::system::error_code ec;
+-		m_webData->webSocketServer->close(m_webData->webHandle, websocketpp::close::status::normal, "PokerTH server closed the connection.", ec);
++//		boost::system::error_code ec;
++        std::error_code std_ec;
++        m_webData->webSocketServer->close(m_webData->webHandle, websocketpp::close::status::normal, "PokerTH server closed the connection.", std_ec);
+ 	}
+ }
+ 
+diff --git a/src/net/common/websendbuffer.cpp b/src/net/common/websendbuffer.cpp
+index 2ba665a..3130373 100644
+--- a/src/net/common/websendbuffer.cpp
++++ b/src/net/common/websendbuffer.cpp
+@@ -57,9 +57,10 @@ void
+ WebSendBuffer::AsyncSendNextPacket(boost::shared_ptr<SessionData> session)
+ {
+ 	if (closeAfterSend) {
+-		boost::system::error_code ec;
++//		boost::system::error_code ec;
++        std::error_code std_ec;
+ 		boost::shared_ptr<WebSocketData> webData = session->GetWebData();
+-		webData->webSocketServer->close(webData->webHandle, websocketpp::close::status::normal, "PokerTH server closed the connection.", ec);
++        webData->webSocketServer->close(webData->webHandle, websocketpp::close::status::normal, "PokerTH server closed the connection.", std_ec);
+ 	}
+ }
+ 
+@@ -70,10 +71,11 @@ WebSendBuffer::InternalStorePacket(boost::shared_ptr<SessionData> session, boost
+ 	google::protobuf::uint8 *buf = new google::protobuf::uint8[packetSize];
+ 	packet->GetMsg()->SerializeWithCachedSizesToArray(buf);
+ 
+-	boost::system::error_code ec;
++//	boost::system::error_code ec;
++    std::error_code std_ec;
+ 	boost::shared_ptr<WebSocketData> webData = session->GetWebData();
+-	webData->webSocketServer->send(webData->webHandle, string((const char *)buf, packetSize), websocketpp::frame::opcode::BINARY, ec);
+-	if (ec) {
++    webData->webSocketServer->send(webData->webHandle, string((const char *)buf, packetSize), websocketpp::frame::opcode::BINARY, std_ec);
++    if (std_ec) {
+ 		SetCloseAfterSend();
+ 	}
+ 
+diff --git a/src/net/serveracceptwebhelper.h b/src/net/serveracceptwebhelper.h
+index a1d371e..f7e8123 100644
+--- a/src/net/serveracceptwebhelper.h
++++ b/src/net/serveracceptwebhelper.h
+@@ -52,7 +53,7 @@ class ServerAcceptWebHelper : public ServerAcceptInterface
+ 
+ protected:
+ 
+-	typedef std::map<websocketpp::connection_hdl, boost::weak_ptr<SessionData> > SessionMap;
++	typedef std::map<websocketpp::connection_hdl, boost::weak_ptr<SessionData>, std::owner_less<websocketpp::connection_hdl> > SessionMap;
+ 
+ 	bool validate(websocketpp::connection_hdl hdl);
+ 	void on_open(websocketpp::connection_hdl hdl);
