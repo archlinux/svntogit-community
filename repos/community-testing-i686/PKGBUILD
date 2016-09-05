@@ -5,77 +5,195 @@
 #_dbver=4.8.30
 pkgbase=bitcoin
 pkgname=('bitcoin-daemon' 'bitcoin-cli' 'bitcoin-qt' 'bitcoin-tx')
-pkgver=0.12.1
-pkgrel=3
+pkgver=0.13.0
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://www.bitcoin.org/"
-makedepends=('boost' 'libevent' 'qt5-base' 'qt5-tools' 'qrencode' 'miniupnpc' 'protobuf')
+makedepends=('git' 'boost' 'libevent' 'qt5-base' 'qt5-tools' 'qrencode' 'miniupnpc' 'protobuf' 'zeromq')
 license=('MIT')
-source=(http://bitcoin.org/bin/bitcoin-core-$pkgver/bitcoin-$pkgver.tar.gz
-        https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/bitcoin-qt.desktop
-        https://raw.github.com/bitcoin/bitcoin/v$pkgver/share/pixmaps/bitcoin128.png
-        https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/examples/bitcoin.conf
-        https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoind.1
-        https://raw.github.com/bitcoin/bitcoin/v$pkgver/contrib/debian/manpages/bitcoin.conf.5)
+source=(git+https://github.com/bitcoin/bitcoin.git#tag=v${pkgver})
 #        http://download.oracle.com/berkeley-db/db-${_dbver}.NC.tar.gz
-sha256sums=('08fc3b6c05c39fb975bba1f6dd49992df46511790ce8dc67398208af9565e199'
-            'b65b377c0d9ecae9eea722843bca0add6bdb7e50929a7e1f751b79b6621c6073'
-            'ad880c8459ecfdb96abe6a4689af06bdd27906e0edcd39d0915482f2da91e722'
-            'efe06ab377706338bc75fa1e24de9785950029f3350a17a4b8ce563b760f3c0c'
-            '7d090ddd485c36d4fae5e6627388c5550f824fd498d5fd958ec999857fff7b28'
-            '7f4021e34d52c321f679b548fcf6d55b4da30077b7aed392976f048ab88dcdd1')
+sha256sums=('SKIP')
 
-# Upstream should be more coherent!
-case "$pkgver" in
-*.*.*.*)
-  _pkgver=${pkgver%.*}
-  ;;
-*)
-  _pkgver=$pkgver
-  ;;
-esac
+validpgpkeys=(71A3B16735405025D447E8F274810B012346C9A6)
 
 # TODO: Build using db 4.8.30
 #prepare() {
 #  mkdir -p db4
 #}
 
-build() {
-#  cd "db-$_dbver.NC/build_unix"
-#  ../dist/configure --enable-cxx --disable-shared --with-pic --prefix="$srcdir/db4"
-#  make
-#  make install
+_parse_gpg_statusfile() {
+	local type arg1 arg6 arg10
 
-  cd "$srcdir/$pkgbase-$pkgver"
+	while read -r _ type arg1 _ _ _ _ arg6 _ _ _ arg10 _; do
+		case "$type" in
+			GOODSIG)
+				pubkey=$arg1
+				success=1
+				status="good"
+				;;
+			EXPSIG)
+				pubkey=$arg1
+				success=1
+				status="expired"
+				;;
+			EXPKEYSIG)
+				pubkey=$arg1
+				success=1
+				status="expiredkey"
+				;;
+			REVKEYSIG)
+				pubkey=$arg1
+				success=0
+				status="revokedkey"
+				;;
+			BADSIG)
+				pubkey=$arg1
+				success=0
+				status="bad"
+				;;
+			ERRSIG)
+				pubkey=$arg1
+				success=0
+				if [[ $arg6 == 9 ]]; then
+					status="missingkey"
+				else
+					status="error"
+				fi
+				;;
+			VALIDSIG)
+				if [[ $arg10 ]]; then
+					# If the file was signed with a subkey, arg10 contains
+					# the fingerprint of the primary key
+					fingerprint=$arg10
+				else
+					fingerprint=$arg1
+				fi
+				;;
+			TRUST_UNDEFINED|TRUST_NEVER)
+				trusted=0
+				;;
+			TRUST_MARGINAL|TRUST_FULLY|TRUST_ULTIMATE)
+				trusted=1
+				;;
+		esac
+	done < "$1"
+}
+
+_validate_gpg_tag() {
+  local file ext decompress found pubkey success status fingerprint trusted
+  local warning=0
+  local errors=0
+  local statusfile=$(mktemp)
+
+  msg "$(gettext "Verifying source file signatures with %s...")" "gpg"
+
+  git verify-tag --raw "$1" 2>"$statusfile"
+
+  # these variables are assigned values in parse_gpg_statusfile
+  success=0
+  status=
+  pubkey=
+  fingerprint=
+  trusted=
+  _parse_gpg_statusfile "$statusfile"
+  if (( ! $success )); then
+    printf '%s' "$(gettext "FAILED")" >&2
+    case "$status" in
+      "missingkey")
+        printf ' (%s)' "$(gettext "unknown public key") $pubkey" >&2
+        ;;
+      "revokedkey")
+        printf " ($(gettext "public key %s has been revoked"))" "$pubkey" >&2
+        ;;
+      "bad")
+        printf ' (%s)' "$(gettext "bad signature from public key") $pubkey" >&2
+        ;;
+      "error")
+        printf ' (%s)' "$(gettext "error during signature verification")" >&2
+        ;;
+    esac
+    errors=1
+  else
+    if (( ${#validpgpkeys[@]} == 0 && !trusted )); then
+      printf "%s ($(gettext "the public key %s is not trusted"))" $(gettext "FAILED") "$fingerprint" >&2
+      errors=1
+    elif (( ${#validpgpkeys[@]} > 0 )) && ! in_array "$fingerprint" "${validpgpkeys[@]}"; then
+      printf "%s (%s %s)" "$(gettext "FAILED")" "$(gettext "invalid public key")" "$fingerprint"
+      errors=1
+    else
+      printf '%s' "$(gettext "Passed")" >&2
+      case "$status" in
+        "expired")
+          printf ' (%s)' "$(gettext "WARNING:") $(gettext "the signature has expired.")" >&2
+          warnings=1
+          ;;
+        "expiredkey")
+          printf ' (%s)' "$(gettext "WARNING:") $(gettext "the key has expired.")" >&2
+          warnings=1
+          ;;
+      esac
+    fi
+  fi
+  printf '\n' >&2
+
+  rm -f "$statusfile"
+
+  if (( errors )); then
+    error "$(gettext "One or more PGP signatures could not be verified!")"
+    false
+  fi
+
+  if (( warnings )); then
+    warning "$(gettext "Warnings have occurred while verifying the signatures.")"
+    plain "$(gettext "Please make sure you really trust them.")"
+  fi
+}
+
+prepare() {
+  cd "$pkgbase"
+  _validate_gpg_tag "v${pkgver}"
+}
+
+build() {
+  #  cd "db-$_dbver.NC/build_unix"
+  #  ../dist/configure --enable-cxx --disable-shared --with-pic --prefix="$srcdir/db4"
+  #  make
+  #  make install
+
+  cd "$pkgbase"
+  ./autogen.sh
   ./configure --prefix=/usr --with-gui=qt5 --with-incompatible-bdb #LDFLAGS="-L$srcdir/db4/lib/ $LDFLAGS" CPPFLAGS="-I$srcdir/db4/include/ $CPPFLAGS"
   make
 }
 
 package_bitcoin-qt() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - Qt"
-  depends=(boost-libs desktop-file-utils libevent qt5-base miniupnpc qrencode protobuf)
+  depends=(boost-libs desktop-file-utils libevent qt5-base miniupnpc qrencode protobuf zeromq)
 
-  cd "$pkgbase-$pkgver"
+  cd "$pkgbase"
   install -Dm755 src/qt/bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
-  install -Dm644 "$srcdir"/bitcoin-qt.desktop \
+  install -Dm644 contrib/debian/bitcoin-qt.desktop \
     "$pkgdir"/usr/share/applications/bitcoin.desktop
-  install -Dm644 "$srcdir"/bitcoin128.png \
+  install -Dm644 share/pixmaps/bitcoin128.png \
     "$pkgdir"/usr/share/pixmaps/bitcoin128.png
+  install -Dm644 contrib/debian/manpages/bitcoin-qt.1 \
+    "$pkgdir"/usr/share/man/man1/bitcoin-qt.1
 
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
 
 package_bitcoin-daemon() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - daemon"
-  depends=(boost-libs libevent miniupnpc)
+  depends=(boost-libs libevent miniupnpc zeromq)
 
-  cd "$pkgbase-$pkgver"
+  cd "$pkgbase"
   install -Dm755 src/bitcoind "$pkgdir"/usr/bin/bitcoind
-  install -Dm644 "$srcdir"/bitcoin.conf \
+  install -Dm644 contrib/debian/examples/bitcoin.conf \
     "$pkgdir/usr/share/doc/$pkgname/examples/bitcoin.conf"
-  install -Dm644 "$srcdir"/bitcoind.1 \
+  install -Dm644 contrib/debian/manpages/bitcoind.1 \
     "$pkgdir"/usr/share/man/man1/bitcoind.1
-  install -Dm644 "$srcdir"/bitcoin.conf.5 \
+  install -Dm644 contrib/debian/manpages/bitcoin.conf.5 \
     "$pkgdir"/usr/share/man/man5/bitcoin.conf.5
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
@@ -84,8 +202,10 @@ package_bitcoin-cli() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - RPC client"
   depends=(boost-libs libevent)
 
-  cd "$pkgbase-$pkgver"
+  cd "$pkgbase"
   install -Dm755 src/bitcoin-cli "$pkgdir"/usr/bin/bitcoin-cli
+  install -Dm644 contrib/debian/manpages/bitcoin-cli.1 \
+    "$pkgdir"/usr/share/man/man1/bitcoin-cli.1
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
 
@@ -93,7 +213,7 @@ package_bitcoin-tx() {
   pkgdesc="Bitcoin is a peer-to-peer network based digital currency - Transaction tool"
   depends=(boost-libs openssl)
 
-  cd "$pkgbase-$pkgver"
+  cd "$pkgbase"
   install -Dm755 src/bitcoin-tx "$pkgdir"/usr/bin/bitcoin-tx
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
