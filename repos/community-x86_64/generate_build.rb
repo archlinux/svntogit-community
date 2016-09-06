@@ -17,11 +17,11 @@ def compile(sources, cflags)
     
     case ext
     when '.c'
-        cc = 'gcc'
+        cc = 'clang'
     	lang_flags = '-std=gnu11 $CFLAGS $CPPFLAGS'
     when '.cpp', '.cc'
-        cc = 'g++'
-    	lang_flags = '-std=gnu++11 $CXXFLAGS $CPPFLAGS'
+        cc = 'clang++'
+    	lang_flags = '-std=gnu++14 $CXXFLAGS $CPPFLAGS'
     else
         raise "Unknown extension #{ext}"
     end
@@ -39,88 +39,97 @@ def link(output, objects, ldflags)
   puts "g++ -o #{output} #{ldflags} $LDFLAGS #{objects.join(' ')}"
 end
 
-minicryptfiles = %w(
-  dsa_sig.c
-  p256_ec.c
-  rsa.c
-  sha.c
-  p256.c
-  p256_ecdsa.c
-  sha256.c
-)
-libminicrypt = compile(expand('core/libmincrypt', minicryptfiles), '-Icore/include')
-libmkbootimg = compile(['core/mkbootimg/mkbootimg.c'], '-Icore/include')
-link('mkbootimg', libminicrypt + libmkbootimg, nil)
-
 
 adbdfiles = %w(
   adb.cpp
   adb_auth.cpp
   adb_io.cpp
   adb_listeners.cpp
+  adb_trace.cpp
   adb_utils.cpp
+  line_printer.cpp
   sockets.cpp
   transport.cpp
   transport_local.cpp
   transport_usb.cpp
+  sysdeps_unix.cpp
 
   fdevent.cpp
   get_my_path_linux.cpp
   usb_linux.cpp
 
   adb_auth_host.cpp
+  shell_service_protocol.cpp
 )
-libadbd = compile(expand('core/adb', adbdfiles), '-DADB_HOST=1 -fpermissive -Icore/include -Icore/base/include')
+libadbd = compile(expand('core/adb', adbdfiles), '-DADB_REVISION=\"$PKGVER\" -DADB_HOST=1 -fpermissive -Icore/include -Icore/base/include -Icore/adb')
 
 adbfiles = %w(
-  adb_main.cpp
   console.cpp
   commandline.cpp
   adb_client.cpp
   services.cpp
   file_sync_client.cpp
+  client/main.cpp
 )
-libadb = compile(expand('core/adb', adbfiles), '-DADB_REVISION=\"$PKGVER\" -D_GNU_SOURCE -DADB_HOST=1 -DWORKAROUND_BUG6558362 -fpermissive -Icore/include -Icore/base/include')
+libadb = compile(expand('core/adb', adbfiles), '-D_GNU_SOURCE -DADB_HOST=1 -DWORKAROUND_BUG6558362 -fpermissive -Icore/include -Icore/base/include -Icore/adb')
 
 basefiles = %w(
   file.cpp
+  logging.cpp
+  parsenetaddress.cpp
   stringprintf.cpp
   strings.cpp
+  errors_unix.cpp
 )
 libbase = compile(expand('core/base', basefiles), '-DADB_HOST=1 -Icore/base/include -Icore/include')
 
 logfiles = %w(
-  logd_write.c
   log_event_write.c
   fake_log_device.c
+  log_event_list.c
+  logger_write.c
+  config_write.c
+  logger_lock.c
+  fake_writer.c
+  logger_name.c
 )
 liblog = compile(expand('core/liblog', logfiles), '-DLIBLOG_LOG_TAG=1005 -DFAKE_LOG_DEVICE=1 -D_GNU_SOURCE -Icore/log/include -Icore/include')
 
 cutilsfiles = %w(
   load_file.c
-  socket_inaddr_any_server.c
-  socket_local_client.c
-  socket_local_server.c
-  socket_loopback_client.c
-  socket_loopback_server.c
-  socket_network_client.c
+  socket_local_client_unix.c
+  socket_loopback_client_unix.c
+  socket_network_client_unix.c
+  socket_loopback_server_unix.c
+  socket_local_server_unix.c
+  sockets_unix.cpp
+  socket_inaddr_any_server_unix.c
+  sockets.cpp
 )
 libcutils = compile(expand('core/libcutils', cutilsfiles), '-D_GNU_SOURCE -Icore/include')
 
-link('adb', libbase + liblog + libcutils + libadbd + libadb, '-lrt -ldl -lpthread -lcrypto')
+diagnoseusbfiles = %w(
+  diagnose_usb.cpp
+)
+libdiagnoseusb = compile(expand('core/adb', diagnoseusbfiles), '-Icore/include -Icore/base/include')
+
+link('adb', libbase + liblog + libcutils + libadbd + libadb + libdiagnoseusb, '-lpthread -lcrypto')
 
 
 fastbootfiles = %w(
-  protocol.c
-  engine.c
+  protocol.cpp
+  engine.cpp
   bootimg_utils.cpp
   fastboot.cpp
-  util.c
-  fs.c
-  usb_linux.c
-  util_linux.c
+  util.cpp
+  fs.cpp
+  usb_linux.cpp
+  util_linux.cpp
+  socket.cpp
+  tcp.cpp
+  udp.cpp
 )
-libfastboot = compile(expand('core/fastboot', fastbootfiles), '-DFASTBOOT_REVISION=\"$PKGVER\" -D_GNU_SOURCE -Icore/include -Icore/libsparse/include -Icore/mkbootimg -Iextras/ext4_utils -Iextras/f2fs_utils')
+libfastboot = compile(expand('core/fastboot', fastbootfiles), '-DFASTBOOT_REVISION=\"$PKGVER\" -D_GNU_SOURCE -Icore/base/include -Icore/include -Icore/adb -Icore/libsparse/include -Icore/mkbootimg -Iextras/ext4_utils -Iextras/f2fs_utils')
 
 sparsefiles = %w(
   backed_block.c
@@ -165,7 +174,8 @@ selinuxfiles = %w(
   src/label.c
   src/label_file.c
   src/label_android_property.c
+  src/label_support.c
 )
 libselinux = compile(expand('libselinux', selinuxfiles), '-DAUDITD_LOG_TAG=1003 -D_GNU_SOURCE -DHOST -Ilibselinux/include')
 
-link('fastboot', libsparse + libzip + liblog + libutil + libbase + libext4 + libselinux + libfastboot, '-lz -lpcre')
+link('fastboot', libsparse + libzip + libcutils + liblog + libutil + libbase + libext4 + libselinux + libfastboot + libdiagnoseusb, '-lz -lpcre -lpthread')
