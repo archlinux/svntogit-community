@@ -1,0 +1,285 @@
+From b4a0d558772c81818ae9a02f80d05515c2ae9e7f Mon Sep 17 00:00:00 2001
+From: jouyouyun <jouyouwen717@gmail.com>
+Date: Wed, 24 Aug 2016 16:52:33 +0800
+Subject: [PATCH] mounts: Fix cgo pointer crash
+
+Because of 'AsyncReadyCallback' will cause process crash, so replace it with 'gvfs-mount'.
+
+Change-Id: I10e7b3de40e772c07b7b5ab46fe11da00c209da4
+---
+ mounts/ifc.go     | 158 ++++++++++++++++++++++++++++--------------------------
+ mounts/monitor.go |  11 +---
+ 2 files changed, 82 insertions(+), 87 deletions(-)
+
+diff --git a/mounts/ifc.go b/mounts/ifc.go
+index 1225dbb..e893a31 100644
+--- a/mounts/ifc.go
++++ b/mounts/ifc.go
+@@ -11,8 +11,7 @@ package mounts
+ 
+ import (
+ 	"fmt"
+-	"gir/gio-2.0"
+-	"gir/gobject-2.0"
++	"os/exec"
+ 	. "pkg.deepin.io/lib/gettext"
+ )
+ 
+@@ -34,16 +33,20 @@ func (m *Manager) Eject(id string) error {
+ 
+ 	mount := m.getMountById(id)
+ 	if mount != nil {
+-		m.ejectMount(id, mount)
+-		mount.Unref()
+-		return nil
++		info := newDiskInfoFromMount(mount)
++		if info != nil && len(info.MountPoint) != 0 {
++			m.ejectMount(info)
++			return nil
++		}
+ 	}
+ 
+ 	volume := m.getVolumeById(id)
+ 	if volume != nil {
+-		m.ejectVolume(id, volume)
+-		volume.Unref()
+-		return nil
++		info := newDiskInfoFromVolume(volume)
++		if info != nil {
++			m.ejectVolume(info)
++			return nil
++		}
+ 	}
+ 
+ 	err := fmt.Errorf("Invalid disk id: %v", id)
+@@ -54,12 +57,13 @@ func (m *Manager) Eject(id string) error {
+ func (m *Manager) Mount(id string) error {
+ 	m.refreshLocker.Lock()
+ 	defer m.refreshLocker.Unlock()
+-
+ 	volume := m.getVolumeById(id)
+ 	if volume != nil {
+-		m.mountVolume(id, volume)
+-		volume.Unref()
+-		return nil
++		info := newDiskInfoFromVolume(volume)
++		if info != nil {
++			m.mountVolume(info)
++			return nil
++		}
+ 	}
+ 
+ 	err := fmt.Errorf("Not found GVolume by '%s'", id)
+@@ -73,9 +77,11 @@ func (m *Manager) Unmount(id string) error {
+ 
+ 	mount := m.getMountById(id)
+ 	if mount != nil {
+-		m.unmountMount(id, mount)
+-		mount.Unref()
+-		return nil
++		info := newDiskInfoFromMount(mount)
++		if info != nil {
++			m.unmountMount(info)
++			return nil
++		}
+ 	}
+ 
+ 	err := fmt.Errorf("Not found GMount by '%s'", id)
+@@ -83,72 +89,70 @@ func (m *Manager) Unmount(id string) error {
+ 	return err
+ }
+ 
+-func (m *Manager) ejectVolume(id string, volume *gio.Volume) {
+-	logger.Debugf("ejectVolume id: %q volume: %v", id, volume)
+-	op := gio.NewMountOperation()
+-	volume.EjectWithOperation(gio.MountUnmountFlagsNone, op, nil, gio.AsyncReadyCallback(
+-		func(o *gobject.Object, ret *gio.AsyncResult) {
+-			logger.Debug("volume.EjectWithOperation AsyncReadyCallback")
+-			volume := gio.ToVolume(o)
+-			_, err := volume.EjectFinish(ret)
+-			if err != nil {
+-				m.emitError(id, err.Error())
+-			}
+-		}))
+-	op.Unref()
++func (m *Manager) ejectVolume(info *DiskInfo) {
++	logger.Debugf("ejectVolume info: %#v", info)
++	go func() {
++		err := doDiskOperation("eject", info.Path)
++		if err != nil {
++			logger.Warning("[ejectVolume] failed:", info.Path, err)
++			m.emitError(info.Id, err.Error())
++		}
++	}()
++}
++
++func (m *Manager) ejectMount(info *DiskInfo) {
++	logger.Debugf("ejectMount info: %#v", info)
++	go func() {
++		err := doDiskOperation("eject", info.MountPoint)
++		if err != nil {
++			logger.Warning("[ejectMount] failed:", info.MountPoint, err)
++			m.emitError(info.Id, err.Error())
++		}
++	}()
+ }
+ 
+-func (m *Manager) ejectMount(id string, mount *gio.Mount) {
+-	logger.Debugf("ejectMount id: %q, mount: %v", id, mount)
+-	op := gio.NewMountOperation()
+-	mount.EjectWithOperation(gio.MountUnmountFlagsNone, op, nil, gio.AsyncReadyCallback(
+-		func(o *gobject.Object, ret *gio.AsyncResult) {
+-			logger.Debug("mount.EjectWithOperation AsyncReadyCallback")
+-			mount := gio.ToMount(o)
+-			_, err := mount.EjectWithOperationFinish(ret)
+-			if err != nil {
+-				m.emitError(id, err.Error())
+-			}
+-		}))
+-	op.Unref()
++func (m *Manager) mountVolume(info *DiskInfo) {
++	logger.Debugf("mountVolume info: %#v", info)
++	go func() {
++		err := doDiskOperation("mount", info.Path)
++		if err != nil {
++			logger.Warning("[mountVolume] failed:", info.Path, err)
++			m.emitError(info.Id, err.Error())
++		}
++	}()
+ }
+ 
+-func (m *Manager) mountVolume(id string, volume *gio.Volume) {
+-	logger.Debugf("mountVolume id: %q, volume: %v", id, volume)
+-	op := gio.NewMountOperation()
+-	volume.Mount(gio.MountMountFlagsNone, op, nil, gio.AsyncReadyCallback(
+-		func(o *gobject.Object, ret *gio.AsyncResult) {
+-			volume := gio.ToVolume(o)
+-			logger.Debug("Mount AsyncReadyCallback")
+-
+-			_, err := volume.MountFinish(ret)
+-			if err != nil {
+-				m.emitError(id, err.Error())
+-			}
+-		}))
+-	op.Unref()
++func (m *Manager) unmountMount(info *DiskInfo) {
++	logger.Debugf("unmountMount info: %#v", info)
++	go func() {
++		err := doDiskOperation("unmount", info.MountPoint)
++		if err != nil {
++			logger.Warning("[unmountMount] failed:", info.MountPoint, err)
++			m.emitError(info.Id, err.Error())
++			return
++		}
++		go m.sendNotify(info.Icon, "",
++			fmt.Sprintf(Tr("%s removed successfully"), info.MountPoint))
++	}()
+ }
+ 
+-func (m *Manager) unmountMount(id string, mount *gio.Mount) {
+-	logger.Debugf("unmountMount id: %q, mount: %v", id, mount)
+-	op := gio.NewMountOperation()
+-	mount.UnmountWithOperation(gio.MountUnmountFlagsNone, op, nil, gio.AsyncReadyCallback(
+-		func(o *gobject.Object, ret *gio.AsyncResult) {
+-			mount := gio.ToMount(o)
+-			logger.Debug("UnmountWithOperation AsyncReadyCallback")
+-
+-			_, err := mount.UnmountWithOperationFinish(ret)
+-			if err != nil {
+-				m.emitError(id, err.Error())
+-				return
+-			}
+-			name := mount.GetName()
+-			gicon := mount.GetIcon()
+-			icon := getIconFromGIcon(gicon)
+-			gicon.Unref()
+-
+-			go m.sendNotify(icon, "",
+-				fmt.Sprintf(Tr("%s removed successfully"), name))
+-		}))
+-	op.Unref()
++func doDiskOperation(ty, path string) error {
++	var args []string
++	switch ty {
++	case "eject":
++		args = append(args, "-e")
++	case "mount":
++		args = append(args, []string{"-m", "-d"}...)
++	case "unmount":
++		args = append(args, "-u")
++	}
++	args = append(args, path)
++	out, err := exec.Command("gvfs-mount", args...).CombinedOutput()
++	if err != nil {
++		if len(out) != 0 {
++			return fmt.Errorf("%s", string(out))
++		}
++		return err
++	}
++	return nil
+ }
+diff --git a/mounts/monitor.go b/mounts/monitor.go
+index 2dafff7..19501e9 100644
+--- a/mounts/monitor.go
++++ b/mounts/monitor.go
+@@ -25,11 +25,9 @@ func (m *Manager) handleEvent() {
+ 		info := newDiskInfoFromVolume(volume)
+ 		logger.Debug("[Event] volume added:", info.Name, info.Type, info.Id)
+ 		if volume.ShouldAutomount() && m.isAutoMount() {
+-			m.mountVolume(info.Id, volume)
+-			volume.Unref()
++			m.mountVolume(info)
+ 			return
+ 		}
+-		volume.Unref()
+ 		m.refreshDiskList()
+ 		dbus.Emit(m, "Changed", EventTypeVolumeAdded, info.Id)
+ 	})
+@@ -37,7 +35,6 @@ func (m *Manager) handleEvent() {
+ 	m.monitor.Connect("volume-removed", func(monitor *gio.VolumeMonitor,
+ 		volume *gio.Volume) {
+ 		logger.Debug("[Event] volume removed:", getVolumeId(volume))
+-		volume.Unref()
+ 		soundutils.PlaySystemSound(soundutils.EventDeviceUnplug,
+ 			"", false)
+ 		oldInfos := m.DiskList.duplicate()
+@@ -51,7 +48,6 @@ func (m *Manager) handleEvent() {
+ 		volume *gio.Volume) {
+ 		id := getVolumeId(volume)
+ 		logger.Debug("[Event] volume changed:", id)
+-		volume.Unref()
+ 		oldInfos := m.DiskList.duplicate()
+ 		m.refreshDiskList()
+ 		added, removed := compareDiskList(oldInfos, m.DiskList)
+@@ -67,19 +63,16 @@ func (m *Manager) handleEvent() {
+ 		mount *gio.Mount) {
+ 		info := newDiskInfoFromMount(mount)
+ 		if info == nil {
+-			mount.Unref()
+ 			return
+ 		}
+ 		logger.Debug("[Event] mount added:", info.Name, info.Id, info.CanEject)
+ 
+ 		volume := mount.GetVolume()
+-		mount.Unref()
+ 		var autoOpen bool = false
+ 		if volume != nil && volume.Object.C != nil {
+ 			if volume.ShouldAutomount() && m.isAutoOpen() {
+ 				autoOpen = true
+ 			}
+-			volume.Unref()
+ 		}
+ 
+ 		m.refreshDiskList()
+@@ -108,11 +101,9 @@ func (m *Manager) handleEvent() {
+ 			// fixed phone device
+ 			m.refreshDiskList()
+ 			dbus.Emit(m, "Changed", EventTypeMountRemoved, getMountId(mount))
+-			mount.Unref()
+ 			logger.Warning(err)
+ 			return
+ 		}
+-		mount.Unref()
+ 		oldLen := len(m.DiskList)
+ 		m.refreshDiskList()
+ 		if oldLen != len(m.DiskList) {
