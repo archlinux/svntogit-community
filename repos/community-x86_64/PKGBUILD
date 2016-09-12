@@ -2,8 +2,8 @@
 
 pkgname=libcrossguid
 _gitname=libcrossguid
-_commit=8f399e8
-pkgver=20150803.$_commit
+_commit=fef89a4
+pkgver=20160907.fef89a4
 pkgrel=1
 pkgdesc="Lightweight cross platform C++ GUID/UUID library"
 arch=('i686' 'x86_64')
