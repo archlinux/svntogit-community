@@ -4,8 +4,8 @@
 pkgname=toxic
 pkgdesc='CLI Tox client'
 license=('GPL3')
-pkgver=0.7.0
-pkgrel=5
+pkgver=0.7.1
+pkgrel=1
 depends=('curl'
          'desktop-file-utils'
          'freealut'
@@ -15,7 +15,7 @@ depends=('curl'
 arch=('i686' 'x86_64')
 url='https://github.com/JFreegman/toxic'
 source=("https://github.com/JFreegman/$pkgname/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha256sums=('f11eab5dc3fd24ee329438f57dad068064c0900838f684af6596e64c68be7006')
+sha512sums=('c304b07a67ed27a25394590eb8759b5dd957605be4eb9e64590d4580da0977e1cd201e8b95ae1b31e995772560510ceb0643028696e2df69e1f5d0dff575b553')
 
 build() {
   cd "$pkgname-$pkgver"
