@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=7.5.18
-pkgrel=4
+pkgrel=5
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -15,10 +15,12 @@ options=(!strip staticlibs)
 install=cuda.install
 source=(http://developer.download.nvidia.com/compute/cuda/7.5/Prod/local_installers/cuda_${pkgver}_linux.run
         cuda.sh
-        cuda.conf)
+        cuda.conf
+        cuda-findgllib_mk.diff)
 md5sums=('4b3bcecf0dfc35928a0898793cf3e4c6'
          '7e5990e03eea90075f5a500e91a0c3d3'
-         '71420ee4e90c65df21c6c5d34373c245')
+         '71420ee4e90c65df21c6c5d34373c245'
+         '6476452a339c12d8ca18b5feb47100cc')
 
 prepare() {
   sh cuda_${pkgver}_linux.run -extract=${srcdir}
@@ -40,6 +42,11 @@ prepare() {
 
   # use python2
   find pkg -name '*.py' | xargs sed -i -e 's|env python|env python2|g' -e 's|bin/python|bin/python2|g'
+
+  # Fix up samples tht use findgllib_mk
+  for f in pkg/samples/*/*/findgllib.mk; do
+    patch $f cuda-findgllib_mk.diff
+  done
 }
 
 package() {
