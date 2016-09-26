@@ -14,7 +14,7 @@ pkgname=(
   'x86_energy_perf_policy'
 )
 pkgver=4.7
-pkgrel=2
+pkgrel=3
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -24,7 +24,7 @@ makedepends=('git')
 # kernel source deps
 makedepends+=('asciidoc' 'xmlto')
 # perf deps
-makedepends+=('perl' 'python2' 'libnewt' 'elfutils' 'libunwind' 'numactl' 'audit' 'gtk2')
+makedepends+=('perl' 'python2' 'slang' 'elfutils' 'libunwind' 'numactl' 'audit' 'gtk2')
 # cpupower deps
 makedepends+=('pciutils')
 # usbip deps
@@ -33,6 +33,7 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 makedepends+=('ncurses')
 groups=("$pkgbase")
 source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
+        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.7.5.xz'
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -41,6 +42,7 @@ source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$
         '02-archlinux-paths.patch'
         '04-fix-usip-h-path.patch')
 md5sums=('SKIP'
+         'c5f3473be15411f7b02f36b7f52cc9d1'
          '56883c159381ba89e50ab8ea65efec77'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
@@ -52,7 +54,7 @@ md5sums=('SKIP'
 prepare() {
   cd linux
   # apply stable kernel patch
-  #xz -kcd "$srcdir"/patch-4.7.1.xz | patch -p1 -N
+  patch -p1 -N -i "$srcdir"/patch-4.7.5
   # apply patch from the source array (should be a pacman feature)
   local filename
   for filename in "${source[@]}"; do
@@ -146,7 +148,7 @@ package_libtraceevent() {
 
 package_perf() {
   pkgdesc='Linux kernel performance auditing tool'
-  depends=('perl' 'python2' 'libnewt' 'elfutils' 'libunwind' 'binutils'
+  depends=('perl' 'python2' 'slang' 'elfutils' 'libunwind' 'binutils'
            'numactl' 'audit')
   optdepends=('gtk2: support GTK2 browser for perf report')
 
