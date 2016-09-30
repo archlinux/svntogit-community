@@ -4,37 +4,34 @@
 # Contributor: Muhammad Qadri <Muhammad dot A dot Qadri at gmail dot com>
 
 pkgname=julius
-pkgver=4.3.1
+pkgver=4.4.2
 pkgrel=1
 pkgdesc="A high-performance, two-pass large vocabulary continuous speech recognition decoder software"
 arch=("i686" "x86_64")
 url="http://julius.sourceforge.jp/"
 license=("custom")
-depends=("libpulse")
+depends=("libpulse" "sdl2")
 optdepends=("voxforge-am-julius: acoustic models")
-source=("http://dl.sourceforge.jp/${pkgname}/60273/${pkgname}-${pkgver}.tar.gz")
-md5sums=("7868d89ac1fa729f477a7c700efaf087")
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/julius-speech/julius/archive/v${pkgver}.tar.gz"
+        "configure.patch")
+md5sums=('1891077bbca02dc9d6d6368c1efb2e4c'
+         '9fe2a29fdec779104f69539ad4d1cce0')
 
 prepare() {
   cd "${srcdir}/${pkgname}-${pkgver}"
-  
-  # replace /lib/cpp with /usr/bin/cpp since Arch Linux doesn't have /lib/cpp anymore
-  sed -i "s|/lib/cpp|/usr/bin/cpp|g" "julius/configure"
-  sed -i "s|/lib/cpp|/usr/bin/cpp|g" "jcontrol/configure"
-  sed -i "s|/lib/cpp|/usr/bin/cpp|g" "libjulius/configure"
-  sed -i "s|/lib/cpp|/usr/bin/cpp|g" "gramtools/configure"
-  sed -i "s|/lib/cpp|/usr/bin/cpp|g" "libsent/configure"
-  sed -i "s|/lib/cpp|/usr/bin/cpp|g" "configure"
-  
-  # Add -02 to CPPFLAGS to prevent issue with -D_FORTIFY_SOURCE=2
-  CPPFLAGS="$CPPFLAGS -O2"
+
+  # configure error
+  patch -p1 -i "${srcdir}/configure.patch"
 }
 
 build() {
+  # redefine makeflags, coz it could not build in parallel
+  export MAKEFLAGS="-j1"
+
   cd "${srcdir}/${pkgname}-${pkgver}/"
   ./configure \
     --prefix="/usr/" \
-    --mandir='${prefix}/share/man' \
+    --mandir='${prefix}/share/man'\
     --enable-words-int \
     --enable-msd \
     --enable-gmm-vad \
@@ -46,11 +43,11 @@ build() {
 
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}/"
-  
+
+  # leave static libraries since julius does not support
+  # shared ones at the moment. See also FS#50599
   make prefix="${pkgdir}/usr" install
-  install -D "LICENSE.txt" "${pkgdir}/usr/share/licenses/julius/LICENSE"
-  # remove empty lib directory
-  rm -r "${pkgdir}/usr/lib"
+  install -Dm644 "LICENSE.txt" "${pkgdir}/usr/share/licenses/julius/LICENSE"
 }
 
 # vim:set ts=2 sw=2 et:
