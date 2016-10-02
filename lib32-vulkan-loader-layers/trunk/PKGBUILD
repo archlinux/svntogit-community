@@ -1,0 +1,92 @@
+# $Id$
+# Maintainer: Laurent Carlier <lordheavym@gmail.com>
+
+pkgbase=lib32-vulkan-loader-layers
+pkgname=(lib32-vulkan-icd-loader lib32-vulkan-validation-layers)
+_pkgname=Vulkan-LoaderAndValidationLayers
+pkgver=1.0.26.0
+pkgrel=1
+arch=(x86_64)
+url="https://www.khronos.org/vulkan/"
+license=('custom')
+depends=()
+makedepends=(git cmake python-lxml lib32-libx11 lib32-wayland)
+source=("https://github.com/KhronosGroup/${_pkgname}/archive/sdk-${pkgver}.tar.gz"
+        'git://github.com/KhronosGroup/glslang.git#commit=81cd764b5ffc475bc73f1fb35f75fd1171bb2343'
+        'git://github.com/KhronosGroup/SPIRV-Tools.git#commit=923a4596b44831a07060df45caacb522613730c9'
+        'git://github.com/KhronosGroup/SPIRV-Headers#commit=33d41376d378761ed3a4c791fc4b647761897f26')
+sha256sums=('40a350f7ccec532187adf95990126b86053dfaa00d70ad2f24dc2c6591a96312'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+build() {
+  export CC="gcc -m32"
+  export CXX="g++ -m32"                                                                                                                                                                                                            
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig" 
+
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+
+  # reproduce some of the update_external_sources.sh script
+  rm -rf external ; mkdir external ; cd external
+  git clone ${srcdir}/glslang
+  git clone ${srcdir}/SPIRV-Tools spirv-tools
+  pushd spirv-tools
+  git clone ${srcdir}/SPIRV-Headers external/spirv-headers
+  popd
+  
+  pushd glslang
+  rm -rf build ; mkdir build ; cd build
+  cmake -D CMAKE_BUILD_TYPE=Release ..
+  cmake -D CMAKE_BUILD_TYPE=Release ..
+  make
+  make install
+  popd
+  
+  pushd spirv-tools
+  rm -rf build ; mkdir build ; cd build
+  cmake -D CMAKE_BUILD_TYPE=Release ..
+  make
+  popd
+  
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+
+  rm -rf build ; mkdir build ; cd build
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+    -DCMAKE_INSTALL_DATADIR=/share \
+    -DCMAKE_SKIP_RPATH=True \
+    -DBUILD_TESTS=Off \
+    -DBUILD_WSI_XLIB_SUPPORT=On \
+    -DBUILD_WSI_WAYLAND_SUPPORT=On \
+    -DCMAKE_BUILD_TYPE=Release \
+    ..
+  make
+  make DESTDIR=install install
+}
+
+package_lib32-vulkan-icd-loader() {
+  pkgdesc="Vulkan Installable Client Driver (ICD) Loader"
+  depends=(lib32-glibc vulkan-icd-loader)
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+  
+  install -dm755 ${pkgdir}/usr/lib32
+  install -dm755 ${pkgdir}/usr/share/licenses/${pkgname}
+  
+  cp -rv  build/loader/libvulkan.so* ${pkgdir}/usr/lib32
+  install -m644 LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/
+}
+
+package_lib32-vulkan-validation-layers() {
+  pkgdesc="Vulkan Software Development Kit"
+  depends=(lib32-gcc-libs lib32-vulkan-icd-loader vulkan-headers)
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+  
+  install -dm755 ${pkgdir}/usr/lib32
+  install -dm755 ${pkgdir}/usr/share/licenses/${pkgname}
+
+  install -m644 build/layers/*.so ${pkgdir}/usr/lib32
+
+  install -m644 LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/
+}
+
