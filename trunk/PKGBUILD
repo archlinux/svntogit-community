@@ -13,8 +13,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.7
-pkgrel=3
+pkgver=4.8
+pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='http://www.kernel.org'
@@ -33,28 +33,23 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 makedepends+=('ncurses')
 groups=("$pkgbase")
 source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
-        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.7.5.xz'
+        #'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.7.5.xz'
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service'
-        '01-cpupower-governor-fix.patch'
-        '02-archlinux-paths.patch'
-        '04-fix-usip-h-path.patch')
+        '01-cpupower-governor-fix.patch')
 md5sums=('SKIP'
-         'c5f3473be15411f7b02f36b7f52cc9d1'
          '56883c159381ba89e50ab8ea65efec77'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
          'bb35634f480325a78b943f7e10165e86'
-         '33c871519adfd4e5575643c4579d019b'
-         '1bc4f8c7a21a30e1a873d07e69fb698b'
-         'a73ea3ea6d9c9ecb1cc910871eead3ff')
+         '33c871519adfd4e5575643c4579d019b')
 
 prepare() {
   cd linux
   # apply stable kernel patch
-  patch -p1 -N -i "$srcdir"/patch-4.7.5
+  #patch -p1 -N -i "$srcdir"/patch-4.7.5
   # apply patch from the source array (should be a pacman feature)
   local filename
   for filename in "${source[@]}"; do
@@ -74,10 +69,11 @@ build() {
 
   msg2 'perf'
   pushd linux/tools/perf
-  make \
+  make -f Makefile.perf \
     prefix=/usr \
-    DESTDIR="$pkgdir" \
-    WERROR=0 \
+    lib=lib/perf \
+    perfexecdir=lib/perf \
+    NO_SDT=1 \
     PYTHON=python2 \
     PYTHON_CONFIG=python2-config \
     PERF_VERSION=$pkgver-$pkgrel \
@@ -153,13 +149,15 @@ package_perf() {
   optdepends=('gtk2: support GTK2 browser for perf report')
 
   cd linux/tools/perf
-  make \
+  make -f Makefile.perf \
     prefix=/usr \
-    DESTDIR="$pkgdir" \
-    WERROR=0 \
+    lib=lib/perf \
+    perfexecdir=lib/perf \
+    NO_SDT=1 \
     PYTHON=python2 \
     PYTHON_CONFIG=python2-config \
     PERF_VERSION=$pkgver-$pkgrel \
+    DESTDIR="$pkgdir" \
     install install-man
   cd "$pkgdir"
   # move completion in new directory
