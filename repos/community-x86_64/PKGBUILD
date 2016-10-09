@@ -6,7 +6,7 @@
 pkgname=vtk
 pkgver=7.0.0
 _majorver=7.0
-pkgrel=2
+pkgrel=3
 pkgdesc='A software system for 3D computer graphics, image processing, and visualization'
 arch=('i686' 'x86_64')
 url='http://www.vtk.org/'
@@ -32,21 +32,23 @@ optdepends=('python2: python bindings'
 source=("http://www.vtk.org/files/release/${_majorver}/VTK-${pkgver}.tar.gz"
         "http://www.vtk.org/files/release/${_majorver}/VTKData-${pkgver}.tar.gz"
         "http://www.vtk.org/files/release/${_majorver}/VTKLargeData-${pkgver}.tar.gz"
-        # https://github.com/Kitware/VTK/pull/21
         gdal2.patch
-        ffmpeg3_compat.patch)
+        ffmpeg3_compat.patch
+        gcc6.patch)
 options=(staticlibs)
 sha1sums=('7719fac36b36965eaf5076542166ba49bbe7afbb'
           '1bbaa642a3e3676a58a08c956df73645326c2859'
           '8d16a1fba15e4eb95c03fe97937488ddcdd7fbd0'
           'c60610e7c8cf0ad93d7c02cbf8a20fc415f59b3e'
-          'a78177f8dd6dedd9ad189fa12730ec53c7d02508')
+          'a78177f8dd6dedd9ad189fa12730ec53c7d02508'
+          'efba04fac41ecc390aa7df3009a7a80f395c9949')
 
 prepare() {
   cd "${srcdir}"/VTK-$pkgver
 
   patch -p1 < ../ffmpeg3_compat.patch # http://www.vtk.org/Bug/view.php?id=16001
-  patch -p1 < ../gdal2.patch
+  patch -p1 < ../gdal2.patch # https://github.com/Kitware/VTK/pull/21
+  patch -p1 < ../gcc6.patch # https://github.com/Kitware/VTK/pull/21
 
   sed -e "s|#![ ]*/usr/bin/python$|#!/usr/bin/python2|" \
       -e "s|#![ ]*/usr/bin/env python$|#!/usr/bin/env python2|" \
@@ -65,11 +67,12 @@ build() {
 
   # flags to enable using system libs
   local cmake_system_flags=""
-  # TODO: try to use system provided XDMF2, XDMF3, LIBPROJ4 NETCDF
+  # TODO: try to use system provided XDMF2, XDMF3, LIBPROJ4 NETCDF, HDF5
   # VTK fails to compile with recent netcdf-cxx package, VTK should be ported to the latest API
   # VTK does not work with XDMF2 compiled from git. TODO: make vtk compatible with system XDMF library. 
   # Note: VTK explicitly disables system GLEW dependency, it uses embedded sources with modifications
-  for lib in HDF5 EXPAT FREETYPE JPEG PNG TIFF ZLIB LIBXML2 OGGTHEORA TWISTED ZOPE SIX AUTOBAHN MPI4PY JSONCPP GLEW GL2PS; do
+  # Note: system HDF5 is incompatible
+  for lib in EXPAT FREETYPE JPEG PNG TIFF ZLIB LIBXML2 OGGTHEORA TWISTED ZOPE SIX AUTOBAHN MPI4PY JSONCPP GLEW GL2PS; do
     cmake_system_flags+="-DVTK_USE_SYSTEM_${lib}:BOOL=ON "
   done
 
@@ -80,6 +83,7 @@ build() {
 
   cmake \
     -Wno-dev \
+    -DVTK_USE_SYSTEM_HDF5:BOOL=OFF \
     -DCMAKE_SKIP_RPATH=ON \
     -DBUILD_SHARED_LIBS:BOOL=ON \
     -DCMAKE_INSTALL_PREFIX:FILEPATH=/usr \
