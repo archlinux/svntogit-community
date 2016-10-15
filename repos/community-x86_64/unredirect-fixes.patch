@@ -1,0 +1,143 @@
+From 837aeb1a10cf2fe57dce791f7b733c2db723b5d9 Mon Sep 17 00:00:00 2001
+From: itzexor <itzexor@gmail.com>
+Date: Sun, 8 May 2016 00:16:22 -0700
+Subject: [PATCH 1/4] meta-window-actor: fix unredirect heuristic Damage
+ coordinates are relative to the drawable not to the screen. So we have to
+ check whether x and y are 0 and not window_rect.x/y otherwise the herustic
+ will never trigger for windows on monitors whos x and y are not 0.
+
+https://git.gnome.org/browse/mutter/commit/?id=cd32e4a
+---
+ src/compositor/meta-window-actor.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/compositor/meta-window-actor.c b/src/compositor/meta-window-actor.c
+index c5d4485..1d4fea8 100644
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -2113,8 +2113,8 @@ meta_window_actor_process_damage (MetaWindowActor    *self,
+       MetaRectangle window_rect;
+       meta_window_get_outer_rect (priv->window, &window_rect);
+ 
+-      if (window_rect.x == event->area.x &&
+-          window_rect.y == event->area.y &&
++      if (event->area.x == 0 &&
++          event->area.y == 0 &&
+           window_rect.width == event->area.width &&
+           window_rect.height == event->area.height)
+         priv->full_damage_frames_count++;
+
+From 68b0df9024b3366bd5012a0ca056cdd69365222a Mon Sep 17 00:00:00 2001
+From: itzexor <itzexor@gmail.com>
+Date: Sat, 14 May 2016 14:36:42 -0700
+Subject: [PATCH 2/4] meta-window-actor: Consider needs_destroy in
+ is_destroyed() According to the documentation, the method returns "whether
+ the X window that the actor was displaying has been destroyed" - that is very
+ much true when we delay the actual actor destruction for a destroy animation,
+ so update the method accordingly.
+
+https://git.gnome.org/browse/mutter/commit/?id=d50f8af
+---
+ src/compositor/meta-window-actor.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/compositor/meta-window-actor.c b/src/compositor/meta-window-actor.c
+index 1d4fea8..286127f 100644
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -925,7 +925,7 @@ meta_window_actor_get_texture (MetaWindowActor *self)
+ gboolean
+ meta_window_actor_is_destroyed (MetaWindowActor *self)
+ {
+-  return self->priv->disposed;
++  return self->priv->disposed || self->priv->needs_destroy;
+ }
+ 
+ gboolean
+
+From 39ab0ef2447d12e936d4133aee462e7888d3a050 Mon Sep 17 00:00:00 2001
+From: itzexor <itzexor@gmail.com>
+Date: Sat, 14 May 2016 15:10:37 -0700
+Subject: [PATCH 3/4] meta-window-actor: Do not request unredirection when
+ destroyed WindowActors can outlive their corresponding window to animate
+ unmap. Unredirecting the actor does not make sense in that case, so make sure
+ to not request it.
+
+https://git.gnome.org/browse/mutter/commit/?id=6e25c37
+---
+ src/compositor/meta-window-actor.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/compositor/meta-window-actor.c b/src/compositor/meta-window-actor.c
+index 286127f..0aa5144 100644
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -1336,6 +1336,9 @@ meta_window_actor_should_unredirect (MetaWindowActor *self)
+   MetaWindow *metaWindow = meta_window_actor_get_meta_window (self);
+   MetaWindowActorPrivate *priv = self->priv;
+ 
++  if (meta_window_actor_is_destroyed (self))
++    return FALSE;
++
+   if (meta_window_requested_dont_bypass_compositor (metaWindow))
+     return FALSE;
+ 
+
+From 3dd425e8cf8719e14613a44165bf2b73f9a6795a Mon Sep 17 00:00:00 2001
+From: itzexor <itzexor@gmail.com>
+Date: Sat, 14 May 2016 15:19:30 -0700
+Subject: [PATCH 4/4] window-actor: Skip frame-sync when the corresponding
+ window is gone https://git.gnome.org/browse/mutter/commit/?id=8d53ae8
+
+---
+ src/compositor/meta-window-actor.c | 16 +++++++++++++++-
+ 1 file changed, 15 insertions(+), 1 deletion(-)
+
+diff --git a/src/compositor/meta-window-actor.c b/src/compositor/meta-window-actor.c
+index 0aa5144..9a81fac 100644
+--- a/src/compositor/meta-window-actor.c
++++ b/src/compositor/meta-window-actor.c
+@@ -1063,7 +1063,12 @@ meta_window_actor_queue_frame_drawn (MetaWindowActor *self,
+                                      gboolean         no_delay_frame)
+ {
+   MetaWindowActorPrivate *priv = self->priv;
+-  FrameData *frame = g_slice_new0 (FrameData);
++  FrameData *frame;
++
++  if (meta_window_actor_is_destroyed (self))
++    return;
++
++  frame = g_slice_new0 (FrameData);
+ 
+   priv->needs_frame_drawn = TRUE;
+ 
+@@ -2447,6 +2452,9 @@ meta_window_actor_pre_paint (MetaWindowActor *self)
+   MetaWindowActorPrivate *priv = self->priv;
+   GList *l;
+ 
++  if (meta_window_actor_is_destroyed (self))
++    return;
++
+   meta_window_actor_handle_updates (self);
+ 
+   for (l = priv->frames; l != NULL; l = l->next)
+@@ -2468,6 +2476,9 @@ meta_window_actor_post_paint (MetaWindowActor *self)
+ 
+   priv->repaint_scheduled = FALSE;
+ 
++  if (meta_window_actor_is_destroyed (self))
++    return;
++
+   if (priv->needs_frame_drawn)
+     {
+       MetaScreen  *screen  = priv->screen;
+@@ -2556,6 +2567,9 @@ meta_window_actor_frame_complete (MetaWindowActor *self,
+   MetaWindowActorPrivate *priv = self->priv;
+   GList *l;
+ 
++  if (meta_window_actor_is_destroyed (self))
++    return;
++
+   for (l = priv->frames; l;)
+     {
+       GList *l_next = l->next;
