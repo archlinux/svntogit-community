@@ -1,0 +1,267 @@
+From f954aa4c5a92b0215797732ecbd6995f68d856a4 Mon Sep 17 00:00:00 2001
+From: Dustin Falgout <dustin@falgout.us>
+Date: Sat, 9 Jul 2016 19:22:39 -0500
+Subject: [PATCH 1/6] update .gitignore
+
+---
+ .gitignore | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index da44845..9c31281 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -38,3 +38,7 @@ Makefile.in
+ *.old
+ *.bak
+ 
++## IDE files ##
++.idea
++CMakeLists.txt
++
+
+From 4e58d04fd715b6a68195c4abeb4a8d31c08550ab Mon Sep 17 00:00:00 2001
+From: Dustin Falgout <dustin@falgout.us>
+Date: Sat, 9 Jul 2016 20:25:28 -0500
+Subject: [PATCH 2/6] Add support for applying GTK style to QT apps when
+ running QT 5.7+ Maintain backwards compatibility for earlier versions of QT.
+
+Ref links:
+https://github.com/GNOME/gnome-session/commit/ce4208add3b49d440e0c418229774dd802ee6b87
+https://github.com/manjaro/release-plan/issues/73
+---
+ cinnamon-session/main.c | 25 +++++++++++++++++++++++--
+ configure.ac            | 12 ++++++++++++
+ 2 files changed, 35 insertions(+), 2 deletions(-)
+
+diff --git a/cinnamon-session/main.c b/cinnamon-session/main.c
+index b2264ab..dda4d7b 100644
+--- a/cinnamon-session/main.c
++++ b/cinnamon-session/main.c
+@@ -296,6 +296,9 @@ main (int argc, char **argv)
+                 { "whale", 0, 0, G_OPTION_ARG_NONE, &please_fail, N_("Show the fail whale dialog for testing"), NULL },
+                 { NULL, 0, 0, 0, NULL, NULL, NULL }
+         };
++        gchar *qt_platform_theme_current = NULL;
++        gchar *qt_style_override_current = NULL;
++        char *qt_platform_theme_new = NULL;
+ 
+         /* Make sure that we have a session bus */
+         if (!require_dbus_session (argc, argv, &error)) {
+@@ -383,8 +386,26 @@ main (int argc, char **argv)
+          */
+         csm_util_setenv ("GNOME_DESKTOP_SESSION_ID", "this-is-deprecated");
+ 
+-        /* Make QT5 apps follow the GTK style */
+-        csm_util_setenv ("QT_STYLE_OVERRIDE", "gtk");
++
++        /* Make QT5 apps follow the GTK style. Starting with QT 5.7, a different
++         * env var has to be set than what worked in previous versions.
++         */
++        qt_platform_theme_current = g_getenv ("QT_QPA_PLATFORMTHEME");
++        qt_style_override_current = g_getenv ("QT_STYLE_OVERRIDE");
++        qt_platform_theme_new = HAVE_QT57 ? "qt5ct" : "qgnomeplatform";
++
++        if (NULL == qt_platform_theme_current) {
++            csm_util_setenv ("QT_QPA_PLATFORMTHEME", qt_platform_theme_new);
++        }
++
++        if (NULL == qt_style_override_current) {
++            csm_util_setenv ("QT_STYLE_OVERRIDE", "gtk");
++        }
++
++        g_free(qt_platform_theme_current);
++        g_free(qt_style_override_current);
++        g_free(qt_platform_theme_new);
++
+ 
+         /* GTK Overlay scrollbars */
+         settings = g_settings_new ("org.cinnamon.desktop.interface");
+diff --git a/configure.ac b/configure.ac
+index fa1b795..2b4e417 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -108,6 +108,18 @@ AC_SUBST(LOGIND_CFLAGS)
+ AC_SUBST(LOGIND_LIBS)
+ 
+ dnl ====================================================================
++dnl Check for qt 5.7+ to set correct env var for theme
++dnl ====================================================================
++PKG_CHECK_MODULES([QT57], [qt-5.0 >= 5.7],
++   [AC_DEFINE([HAVE_QT57], [1], [Have Qt 5.7+])],
++       [AC_DEFINE([HAVE_QT57], [0], [Have Qt 5.7+])]
++)
++AM_CONDITIONAL([HAVE_QT57], [test "$HAVE_QT57" -eq 1])
++if test $HAVE_QT57=1; then
++    AC_DEFINE(HAVE_QT57, 1, [Have QT 5.7+])
++fi
++
++dnl ====================================================================
+ dnl X development libraries check
+ dnl ====================================================================
+ 
+
+From ea20debdd38f393b3098b03391d117a3af668456 Mon Sep 17 00:00:00 2001
+From: Dustin Falgout <dustin@falgout.us>
+Date: Sat, 9 Jul 2016 22:26:07 -0500
+Subject: [PATCH 3/6] use build time option instead of pkgcheck for obvious
+ reasons :sweat_smile:
+
+---
+ configure.ac | 19 ++++++++++---------
+ 1 file changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/configure.ac b/configure.ac
+index 2b4e417..cad1bbb 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -108,15 +108,15 @@ AC_SUBST(LOGIND_CFLAGS)
+ AC_SUBST(LOGIND_LIBS)
+ 
+ dnl ====================================================================
+-dnl Check for qt 5.7+ to set correct env var for theme
++dnl Check for qt 5.7+ to set correct env var for theme/styling
+ dnl ====================================================================
+-PKG_CHECK_MODULES([QT57], [qt-5.0 >= 5.7],
+-   [AC_DEFINE([HAVE_QT57], [1], [Have Qt 5.7+])],
+-       [AC_DEFINE([HAVE_QT57], [0], [Have Qt 5.7+])]
+-)
+-AM_CONDITIONAL([HAVE_QT57], [test "$HAVE_QT57" -eq 1])
+-if test $HAVE_QT57=1; then
+-    AC_DEFINE(HAVE_QT57, 1, [Have QT 5.7+])
++AC_ARG_ENABLE(qt57_theme_support,
++              AS_HELP_STRING([--enable-qt57-theme-support], [Support GTK styles for QT apps with QT 5.7+]),
++              [enable_qt57_theme_support=yes],
++              [enable_qt57_theme_support=no])
++
++if test x$enable_qt57_theme_support = xyes; then
++    AC_DEFINE([HAVE_QT57], [1], [Have QT 5.7+])
+ fi
+ 
+ dnl ====================================================================
+@@ -361,12 +361,13 @@ echo "
+ 
+         GConf support:            ${enable_gconf}
+         Logind support:           ${have_logind}
++        Qt 5.7+ theme support:    ${enable_qt57_theme_support}
+         IPv6 support:             ${have_full_ipv6}
+         Backtrace support:        ${have_backtrace}
+         XRender support:          ${have_xrender}
+         XSync support:            ${have_xsync}
+         XTest support:            ${have_xtest}
+-	Legacy UPower backend:    ${have_old_upower}
++        Legacy UPower backend:    ${have_old_upower}
+         Build documentation:      ${enable_docbook_docs}
+ 
+ "
+
+From 7d50736d0d4c035e940b17e8a98b6e2432091d09 Mon Sep 17 00:00:00 2001
+From: Dustin Falgout <dustin@falgout.us>
+Date: Sun, 10 Jul 2016 05:38:44 -0500
+Subject: [PATCH 4/6] remove unecessary call to g_free
+
+---
+ cinnamon-session/main.c | 1 -
+ configure.ac            | 2 ++
+ 2 files changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/cinnamon-session/main.c b/cinnamon-session/main.c
+index dda4d7b..f3ce2c5 100644
+--- a/cinnamon-session/main.c
++++ b/cinnamon-session/main.c
+@@ -404,7 +404,6 @@ main (int argc, char **argv)
+ 
+         g_free(qt_platform_theme_current);
+         g_free(qt_style_override_current);
+-        g_free(qt_platform_theme_new);
+ 
+ 
+         /* GTK Overlay scrollbars */
+diff --git a/configure.ac b/configure.ac
+index cad1bbb..464c847 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -117,6 +117,8 @@ AC_ARG_ENABLE(qt57_theme_support,
+ 
+ if test x$enable_qt57_theme_support = xyes; then
+     AC_DEFINE([HAVE_QT57], [1], [Have QT 5.7+])
++else
++    AC_DEFINE([HAVE_QT57], [0], [Have QT 5.7+])
+ fi
+ 
+ dnl ====================================================================
+
+From 4258be7220551321a939dd77f51f1d016aa83955 Mon Sep 17 00:00:00 2001
+From: Dustin Falgout <dustin@falgout.us>
+Date: Mon, 18 Jul 2016 04:28:57 -0500
+Subject: [PATCH 5/6] Incorporated feedback
+
+---
+ cinnamon-session/main.c | 11 ++---------
+ 1 file changed, 2 insertions(+), 9 deletions(-)
+
+diff --git a/cinnamon-session/main.c b/cinnamon-session/main.c
+index f3ce2c5..c137432 100644
+--- a/cinnamon-session/main.c
++++ b/cinnamon-session/main.c
+@@ -296,8 +296,6 @@ main (int argc, char **argv)
+                 { "whale", 0, 0, G_OPTION_ARG_NONE, &please_fail, N_("Show the fail whale dialog for testing"), NULL },
+                 { NULL, 0, 0, 0, NULL, NULL, NULL }
+         };
+-        gchar *qt_platform_theme_current = NULL;
+-        gchar *qt_style_override_current = NULL;
+         char *qt_platform_theme_new = NULL;
+ 
+         /* Make sure that we have a session bus */
+@@ -390,21 +388,16 @@ main (int argc, char **argv)
+         /* Make QT5 apps follow the GTK style. Starting with QT 5.7, a different
+          * env var has to be set than what worked in previous versions.
+          */
+-        qt_platform_theme_current = g_getenv ("QT_QPA_PLATFORMTHEME");
+-        qt_style_override_current = g_getenv ("QT_STYLE_OVERRIDE");
+         qt_platform_theme_new = HAVE_QT57 ? "qt5ct" : "qgnomeplatform";
+ 
+-        if (NULL == qt_platform_theme_current) {
++        if (NULL == g_getenv ("QT_QPA_PLATFORMTHEME")) {
+             csm_util_setenv ("QT_QPA_PLATFORMTHEME", qt_platform_theme_new);
+         }
+ 
+-        if (NULL == qt_style_override_current) {
++        if (NULL == g_getenv ("QT_STYLE_OVERRIDE")) {
+             csm_util_setenv ("QT_STYLE_OVERRIDE", "gtk");
+         }
+ 
+-        g_free(qt_platform_theme_current);
+-        g_free(qt_style_override_current);
+-
+ 
+         /* GTK Overlay scrollbars */
+         settings = g_settings_new ("org.cinnamon.desktop.interface");
+
+From 7c34ec9028c5f7b01e5393aeff78cc7e9a0cc8b5 Mon Sep 17 00:00:00 2001
+From: Dustin Falgout <dustin@falgout.us>
+Date: Mon, 5 Sep 2016 01:17:02 -0500
+Subject: [PATCH 6/6] implement change described in PR comments related to
+ "QT_STYLE_OVERRIDE" env var and qt versions 5.7+
+
+---
+ cinnamon-session/main.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/cinnamon-session/main.c b/cinnamon-session/main.c
+index c137432..f36a8a4 100644
+--- a/cinnamon-session/main.c
++++ b/cinnamon-session/main.c
+@@ -394,8 +394,11 @@ main (int argc, char **argv)
+             csm_util_setenv ("QT_QPA_PLATFORMTHEME", qt_platform_theme_new);
+         }
+ 
+-        if (NULL == g_getenv ("QT_STYLE_OVERRIDE")) {
++        if ( ! HAVE_QT57 && NULL == g_getenv ("QT_STYLE_OVERRIDE") ) {
+             csm_util_setenv ("QT_STYLE_OVERRIDE", "gtk");
++
++        } else if (HAVE_QT57 && NULL != g_getenv ("QT_STYLE_OVERRIDE")) {
++            g_unsetenv ("QT_STYLE_OVERRIDE");
+         }
+ 
+ 
