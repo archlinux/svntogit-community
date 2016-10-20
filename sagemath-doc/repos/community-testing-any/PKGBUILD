@@ -1,0 +1,100 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+
+pkgbase=sagemath-doc
+pkgname=(sagemath-doc sagemath-src)
+pkgver=7.4
+pkgrel=1
+arch=(any)
+url="http://www.sagemath.org"
+license=(GPL)
+makedepends=(sagemath sage-notebook python2-pyzmq python2-pillow python2-docutils ipython2-notebook python2-pkgconfig cython2 python2-sphinx)
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
+	package.patch disable-fes.patch docbuild_main.patch is-package-installed.patch 
+        ecm-7.patch sagemath-singular4.patch)
+md5sums=('8311ee35a309dbc668b5148795211254'
+         '493a9e0eae9b2ef87544b42785ae11ea'
+         '06a67e611d10aa2381efe1f08ea4ffd9'
+         'f3bf3fa4e11e5af2bd0573cf2620e1f8'
+         '5dca842e4440e4ef235ae18c1b1f20e3'
+         '0c9a57d35de80c2cd418ebec912efbbb'
+         '4bd7305e8b69add8356f9751470cf587')
+
+prepare() {
+  cd sage-$pkgver
+
+# Arch-specific patches
+# assume all optional packages are installed
+  patch -p0 -i ../package.patch
+# supress warning about GAP install dir
+  sed -e "s|gapdir = os.path.join(SAGE_LOCAL, 'gap', 'latest')|gapdir = '/usr/lib/gap'|" -i src/sage/libs/gap/util.pyx 
+# fix regressions with ECM 7
+  patch -p1 -i ../ecm-7.patch
+
+# Upstream patches
+# fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
+#  patch -p0 -i ../fes02.patch
+# disable fes module, fails to build
+  patch -p0 -i ../disable-fes.patch
+# replace is_package_installed usage http://trac.sagemath.org/ticket/20377
+  patch -p1 -i ../is-package-installed.patch
+# port to Singular 4 https://trac.sagemath.org/ticket/17254
+  patch -p1 -i ../sagemath-singular4.patch
+
+# fix relative imports
+  patch -p0 -i ../docbuild_main.patch
+
+# use python2
+  sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
+
+  mkdir local-python
+  ln -sr src/sage_setup local-python
+}
+
+build() {
+  cd sage-$pkgver/src
+
+  export SAGE_LOCAL="/usr"
+  export SAGE_SRC="$PWD"
+  export SAGE_DOC_SRC="$SAGE_SRC"/doc
+  export SAGE_DOC="$SAGE_SRC"/doc
+  export SAGE_DOC_MATHJAX=yes
+  export PYTHONPATH="/usr/lib/sage/site-packages:$srcdir/sage-$pkgver/local-python"
+  python2 sage_setup/docbuild --no-pdf-links -k all html
+}
+
+package_sagemath-doc() {
+  pkgdesc="HTML documentation and inline help for SageMath"
+  depends=(sage-notebook python2-sphinx gap-doc)
+  conflicts=(sage-mathematics-doc)
+  replaces=(sage-mathematics-doc)
+
+  cd sage-$pkgver/src/doc
+ 
+  mkdir -p "$pkgdir"/usr/share/doc/sage/en
+  cp -r en/introspect "$pkgdir"/usr/share/doc/sage/en
+  cp -r common "$pkgdir"/usr/share/doc/sage
+  cp -r html "$pkgdir"/usr/share/doc/sage
+
+# Replace duplicated files by symlinks (Gentoo)
+  cd "$pkgdir"/usr/share/doc/sage
+  mv html/en/_static{,.tmp}
+  for _dir in `find -name _static` ; do
+        rm -r $_dir
+        ln -s /usr/share/doc/sage/html/en/_static $_dir
+  done
+  mv html/en/_static{.tmp,}
+
+# Remove unneeded files
+  find html -name '*.py' -exec rm -r {} \;
+}
+
+package_sagemath-src() {
+  pkgdesc="Source files for SageMath"
+  conflicts=(sage-mathematics-src)
+  replaces=(sage-mathematics-src)
+  
+  mkdir -p "$pkgdir"/usr/share/sage/source
+  cp -r sage-$pkgver/src/{sage,sage_setup} "$pkgdir"/usr/share/sage/source
+  ln -s /usr/share/doc/sage/html "$pkgdir"/usr/share/sage/source/doc
+}
