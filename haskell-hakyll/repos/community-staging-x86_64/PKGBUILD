@@ -1,0 +1,58 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=hakyll
+pkgname=haskell-hakyll
+pkgver=4.9.0.0
+pkgrel=3
+pkgdesc="A static website compiler library"
+url="http://jaspervdj.be/hakyll"
+license=("custom:BSD3")
+arch=('i686' 'x86_64')
+depends=("ghc=8.0.1" "haskell-blaze-html" "haskell-blaze-markup" "haskell-cryptohash"
+         "haskell-data-default" "haskell-fsnotify" "haskell-http-conduit" "haskell-http-types"
+         "haskell-lrucache" "haskell-mtl" "haskell-network" "haskell-network-uri"
+         "haskell-optparse-applicative" "haskell-pandoc" "haskell-pandoc-citeproc" "haskell-parsec"
+         "haskell-random" "haskell-regex-base" "haskell-regex-tdfa" "haskell-resourcet"
+         "haskell-scientific" "haskell-system-filepath" "haskell-tagsoup" "haskell-text"
+         "haskell-time-locale-compat" "haskell-unordered-containers" "haskell-vector" "haskell-wai"
+         "haskell-wai-app-static" "haskell-warp" "haskell-yaml")
+source=("http://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz"
+        http-conduit-2.2.patch optparse-applicative-0.13.patch)
+sha256sums=('6c21697efaf30166a1afc508f1122e2b828ade9d8d4d53408b13c1216337295e'
+            'f1871d8f381bacfe4ba01e7f037c635fff591d8fb353a2f26d08b1af1311142a'
+            '0b38abf39d8a410e06a5875ddadfb9c22cd37b4552b224dfabd52f30e9015abb')
+
+prepare() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+    patch -p1 -i ../http-conduit-2.2.patch
+    patch -p1 -i ../optparse-applicative-0.13.patch
+}
+
+build() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+    
+    runhaskell Setup configure -O --enable-library-profiling --enable-shared \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" \
+        --libsubdir=\$compiler/site-local/\$pkgid \
+            -fcheckexternal -fwatchserver -fpreviewserver
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${_hkgname}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
