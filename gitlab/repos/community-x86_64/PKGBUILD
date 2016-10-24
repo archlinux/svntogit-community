@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=8.12.7
+pkgver=8.13.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
@@ -21,7 +21,6 @@ optdepends=('postgresql: database backend'
             'smtp-server: mail server in order to receive mail notifications')
 backup=("etc/webapps/${pkgname}/application.rb"
         "etc/webapps/${pkgname}/gitlab.yml"
-        "etc/webapps/${pkgname}/secret"
         "etc/webapps/${pkgname}/resque.yml"
         "etc/webapps/${pkgname}/unicorn.rb"
         "etc/logrotate.d/${pkgname}")
@@ -42,7 +41,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         nginx-ssl.conf.example
         lighttpd.conf.example)
 install='gitlab.install'
-sha256sums=('d033c06d86c346d80f0b45313bdade1eb48b2817791ace62f6f054a9205828af'
+sha256sums=('60e8606fbf335072edf8653bbd4b943932d5f649d232de0fb1493005921d7bb8'
             '0dabb9c10f6ba49404c13d6be2d0d6cf1bf7e5a0b95f0dea566e33c356997307'
             'a348d69cf0d08a1aa0713deb615815ae5a2305a1a1c386bcee29f49eae446757'
             'e16a68539eeb49d24d2ab4a53ff95e33c67264a674b611c006dc5c8a24f41e0e'
@@ -118,7 +117,8 @@ build() {
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
-  sed -i '/generate_and_link_secret_token/d' config/initializers/gitlab_shell_secret_token.rb
+
+  sed -i '/ensure_secret_token/d' config/initializers/gitlab_shell_secret_token.rb
   bundle exec rake assets:precompile RAILS_ENV=production
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
@@ -142,14 +142,9 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
 
-  touch "${pkgdir}${_etcdir}/secret"
-  chmod 640 "${pkgdir}${_etcdir}/secret"
-  chown root:105 "${pkgdir}${_etcdir}/secret"
-
   ln -fs /run/gitlab "${pkgdir}${_homedir}/pids"
   ln -fs /run/gitlab "${pkgdir}${_homedir}/sockets"
   ln -fs ${_datadir}/log "${pkgdir}${_homedir}/log"
-  ln -fs "${_etcdir}/secret" "${pkgdir}${_datadir}/.secret"
 
   rm -rf "${pkgdir}${_datadir}/public/uploads" && ln -fs "${_homedir}/uploads" "${pkgdir}${_datadir}/public/uploads"
   rm -rf "${pkgdir}${_datadir}/builds" && ln -fs "${_homedir}/builds" "${pkgdir}${_datadir}/builds"
@@ -174,7 +169,7 @@ package() {
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_datadir}/config/secrets.yml"
 
   # Install license and help files
-  mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG config/*.{example,mysql,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
+  mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,mysql,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
   install -D "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   # https://gitlab.com/gitlab-org/gitlab-ce/issues/765
