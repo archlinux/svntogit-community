@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=8.0.44
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -54,8 +54,6 @@ package() {
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
 
-  # allow newer gccs to work
-  sed -i "/unsupported GNU/d" $pkgdir/opt/cuda/include/host_config.h
   ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++-5 "${pkgdir}/opt/cuda/bin/g++"
 
