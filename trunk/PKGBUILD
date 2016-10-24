@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.13.0
-pkgrel=1
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -58,11 +58,11 @@ sha256sums=('60e8606fbf335072edf8653bbd4b943932d5f649d232de0fb1493005921d7bb8'
             '822d0b80f1974c8418a9f4d66fbefb7679313b6de9a49c137c83c0bfe622460f'
             'ea5a5f0b4c0ffd26d977efaf564800ee7fa88579a9e4f0556143a591a7ff198c')
 
-_homedir="/var/lib/${pkgname}"
 _datadir="/usr/share/webapps/${pkgname}"
+_etcdir="/etc/webapps/${pkgname}"
+_homedir="/var/lib/${pkgname}"
 _logdir="/var/log/${pkgname}"
 _srcdir="gitlabhq-${pkgver}"
-_etcdir="/etc/webapps/${pkgname}"
 
 prepare() {
   cd "${srcdir}/${_srcdir}"
@@ -130,7 +130,7 @@ package() {
   install -d "${pkgdir}/usr/share/webapps"
 
   cp -r "${srcdir}/${_srcdir}" "${pkgdir}${_datadir}"
-  chown -R 105:105 "${pkgdir}${_datadir}"
+  chown -R root:root "${pkgdir}${_datadir}"
   chmod 755 "${pkgdir}${_datadir}"
 
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
@@ -151,6 +151,11 @@ package() {
   rm -rf "${pkgdir}${_datadir}/tmp" && ln -fs /var/tmp "${pkgdir}${_datadir}/tmp"
   rm -rf "${pkgdir}${_datadir}/log" && ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
 
+  mv "${pkgdir}${_datadir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
+  chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
+  chown root:105 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
+  ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_datadir}/.gitlab_workhorse_secret"
+
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
 
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
@@ -170,7 +175,7 @@ package() {
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,mysql,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
-  install -D "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   # https://gitlab.com/gitlab-org/gitlab-ce/issues/765
   cp -r "${pkgdir}${_datadir}/doc" "${pkgdir}${_datadir}/public/help"
