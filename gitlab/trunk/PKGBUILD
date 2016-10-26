@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.13.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -181,6 +181,8 @@ package() {
   cp -r "${pkgdir}${_datadir}/doc" "${pkgdir}${_datadir}/public/help"
   find "${pkgdir}${_datadir}/public/help" -name "*.md" -exec rm {} \;
   find "${pkgdir}${_datadir}/public/help/" -depth -type d -empty -exec rmdir {} \;
+
+  chown 105:105 "${pkgdir}${_datadir}/db/schema.rb"
 
   # Install systemd service files
   for service_file in gitlab-unicorn.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
