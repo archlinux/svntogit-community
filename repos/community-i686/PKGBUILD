@@ -4,13 +4,15 @@
 pkgbase=beats
 pkgname=(filebeat packetbeat metricbeat)
 pkgver=5.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Data shippers for Elasticsearch'
 arch=('i686' 'x86_64')
 url='https://www.elastic.co/products/beats'
 license=('APACHE')
 depends=('glibc')
 makedepends=('go' 'git' 'libpcap')
+optdepends=('elasticsearch: for standalone installation'
+            'python: for migration script')
 options=('!strip')
 source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "filebeat.install"
@@ -21,9 +23,9 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
 sha256sums=('3e6b7cf2ee5f52e78ae87ef04ab9dd49977c89f86a09416586896aeaea844e34'
             'fd765921479d391d613c75fe592a4193e538dd9feffc1ca36bc687bec0f0e1aa'
             '33feb3690f8b31563cc1e2da557c2aa326501ce9ccd7e0a142036902bfdb05ff'
-            '1ab98d3e387c3970e3005f72f4ce266c4fa19ec3938a576da0a407c7db2fa7ce'
-            'cabf11f35ced8bb61fc26ace4d409dfdb4ed812ff4bc70e168410cb1dc324318'
-            '8a1bcfdb057e4f57d5f16570079055d1822fdfe8d453409891682f6e580f4ff0')
+            '402ecb4d9643ae23c95d6c48702c70f6c8821c477f16b23e4c9137cb34fdca24'
+            '588ce1da188186f9b751592ba3b5848dfa509d1abf314e2a053687e361955553'
+            '8c8636661080248b7eef3dad1a203b6376277de8d9855ed5b33dcbb85eca2fc0')
 
 prepare() {
     cd beats-$pkgver
@@ -49,27 +51,41 @@ build() {
         msg2 "Building $beat..."
         cd "$srcdir"/beats-$pkgver/$beat
         make
+        cd "$srcdir"/beats-$pkgver/libbeat/dashboards
+        make BEAT=$beat
+        mv import_dashboards import_dashboards-$beat
     done
 }
 
-package_filebeat() {
-    pkgdesc='Collects, pre-processes, and forwards log files to remote sources'
-    optdepends=('elasticsearch: for standalone installation')
+_do_package_beat() {
     backup=("etc/$pkgname/$pkgname.yml" "etc/$pkgname/$pkgname.template.json")
-    install="$pkgname.install"
 
     cd beats-$pkgver/$pkgname
 
     install -dm755 "$pkgdir"/var/lib/$pkgname
 
     install -dm755 "$pkgdir"/etc/$pkgname
-    cp $pkgname.{yml,template.json} "$pkgdir"/etc/$pkgname
+    cp $pkgname.{yml,full.yml,template.json} "$pkgdir"/etc/$pkgname
 
     install -Dm755 $pkgname \
                    "$pkgdir"/usr/bin/$pkgname
     install -Dm644 "$srcdir"/$pkgname.service \
                    "$pkgdir"/usr/lib/systemd/system/$pkgname.service
 
+    cd ../libbeat
+    install -Dm755 dashboards/import_dashboards-$pkgname \
+                   "$pkgdir"/usr/share/$pkgname/scripts/import_dashboards
+    install -Dm755 scripts/migrate_beat_config_1_x_to_5_0.py \
+                   "$pkgdir"/usr/share/$pkgname/scripts/migrate_beat_config_1_x_to_5_0.py
+}
+
+package_filebeat() {
+    pkgdesc='Collects, pre-processes, and forwards log files to remote sources'
+    install="$pkgname.install"
+
+    _do_package_beat
+
+    cd "$srcdir"/beats-$pkgver/$pkgname
     install -Dm644 "$srcdir"/$pkgname.sysusers \
                    "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
 }
@@ -77,34 +93,14 @@ package_filebeat() {
 package_packetbeat() {
     pkgdesc='Network packet analyzer that ships data to Elasticsearch'
     depends=('libpcap')
-    optdepends=('elasticsearch: for standalone installation')
-    backup=("etc/$pkgname/$pkgname.yml" "etc/$pkgname/$pkgname.template.json")
 
-    cd beats-$pkgver/$pkgname
-
-    install -dm755 "$pkgdir"/etc/$pkgname
-    cp $pkgname.{yml,template.json} "$pkgdir"/etc/$pkgname
-
-    install -Dm755 $pkgname \
-                   "$pkgdir"/usr/bin/$pkgname
-    install -Dm644 "$srcdir"/$pkgname.service \
-                   "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+    _do_package_beat
 }
 
 package_metricbeat() {
     pkgdesc='Server monitoring agent that stores metrics in Elasticsearch'
-    optdepends=('elasticsearch: for standalone installation')
-    backup=("etc/$pkgname/$pkgname.yml" "etc/$pkgname/$pkgname.template.json")
     conflicts=('topbeat')
     replaces=('topbeat')
 
-    cd beats-$pkgver/$pkgname
-
-    install -dm755 "$pkgdir"/etc/$pkgname
-    cp $pkgname.{yml,template.json} "$pkgdir"/etc/$pkgname
-
-    install -Dm755 $pkgname \
-                   "$pkgdir"/usr/bin/$pkgname
-    install -Dm644 "$srcdir"/$pkgname.service \
-                   "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+    _do_package_beat
 }
