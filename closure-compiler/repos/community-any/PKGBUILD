@@ -2,38 +2,44 @@
 # Maintainer: BlackEagle < ike DOT devolder AT gmail DOT com >
 # Contributor: Bram Schoenmakers <me@bramschoenmakers.nl>
 pkgname=closure-compiler
-pkgver=20160713
+pkgver=20161024
 pkgrel=1
 pkgdesc="Performs checking, instrumentation and optimizations on Javascript code."
 arch=('any')
 url="https://developers.google.com/closure/compiler/"
 license=('APACHE')
 depends=('java-runtime')
-makedepends=('apache-ant' 'git')
+makedepends=('maven' 'git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/google/$pkgname/archive/v$pkgver.tar.gz")
-sha256sums=('f9a6e91b0ee9748c70d00098914dd9a4eb925fe22adb0e70f3a386be4f3c78f5')
+sha256sums=('71a8d4bdc8634eea22ecd7f1f7fd891fb77d3a877bc2bdd3e87690e1af9781ea')
 
 LANG='en_US.UTF-8'
 
 build() {
 	cd "$pkgname-$pkgver"
 
-	ant jar
+	mvn -DskipTests
 }
 
-check() {
-	cd "$pkgname-$pkgver"
+#check() {
+	#cd "$pkgname-$pkgver"
 
-	ant test
-}
+	#ant test
+#}
 
 package() {
 	cd "$pkgname-$pkgver"
 
-	install -m755 -D build/compiler.jar "$pkgdir/usr/share/java/closure-compiler/closure-compiler.jar"
-	mkdir $pkgdir/usr/bin
+    install -Dm644 target/closure-compiler-1.0-SNAPSHOT.jar \
+        "$pkgdir/usr/share/java/closure-compiler/closure-compiler.jar"
+    install -Dm644 target/closure-compiler-linter-1.0-SNAPSHOT.jar \
+        "$pkgdir/usr/share/java/closure-compiler/closure-compiler-linter.jar"
+	install -dm755 $pkgdir/usr/bin
 	echo '#!/bin/sh
-	"$JAVA_HOME/bin/java" -jar /usr/share/java/closure-compiler/closure-compiler.jar $@' > "$pkgdir/usr/bin/closure"
-	chmod +x "$pkgdir/usr/bin/closure"
+	"$JAVA_HOME/bin/java" -jar /usr/share/java/closure-compiler/closure-compiler.jar $@' > "$pkgdir/usr/bin/closure-compiler"
+	chmod +x "$pkgdir/usr/bin/closure-compiler"
+	echo '#!/bin/sh
+	"$JAVA_HOME/bin/java" -jar /usr/share/java/closure-compiler/closure-compiler-linter.jar $@' > "$pkgdir/usr/bin/closure-compiler-linter"
+	chmod +x "$pkgdir/usr/bin/closure-compiler-linter"
 }
 
