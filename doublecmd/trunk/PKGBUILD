@@ -5,7 +5,7 @@
 
 pkgbase=doublecmd
 pkgname=('doublecmd-gtk2' 'doublecmd-qt')
-pkgver=0.7.5
+pkgver=0.7.6
 _helpver=0.6.0
 pkgrel=1
 url="http://doublecmd.sourceforge.net/"
@@ -23,7 +23,7 @@ source=(
 	"http://downloads.sourceforge.net/project/$pkgbase/Double%20Commander%20Source/$pkgbase-help-$_helpver-src.tar.gz"
 	"http://www.herecura.be/files/lazarus-20140321-2.tar.gz"
 )
-sha256sums=('b92fcd6a29cb0ed4eedb4e209c44fc6614f1b3455e0d9a9721be21f5b6bf725b'
+sha256sums=('e6f9e2230c44a83ae66cf96636fae58b8a1799abacfbcea85ffcbafc359b64d5'
             'd50a58f0e8c25c07720f2afd987213f330dfce268e2aef349d1da3de2eef1c39'
             '16560ad7403ffbee1800384768828e1fad924d03068c6248b68a78c393fc4e20')
 
