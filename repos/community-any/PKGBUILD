@@ -2,7 +2,7 @@
 # Maintainer: BlackEagle < ike DOT devolder AT gmail DOT com >
 pkgbase=python-gflags
 pkgname=('python-gflags' 'python2-gflags')
-pkgver=3.0.7
+pkgver=3.1.0
 pkgrel=1
 pkgdesc="Commandline flags module for Python"
 arch=('any')
@@ -10,7 +10,7 @@ url="https://github.com/google/python-gflags"
 license=('BSD')
 makedepends=('python2-setuptools' 'python-setuptools')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/google/$pkgbase/archive/$pkgver.tar.gz")
-sha256sums=('04b1c1481e90444a4a4b4a10cd15a4edc3936458f56e15254fc05aa0563e590a')
+sha256sums=('60ffd920dc19efc0696fba8bd5c2b2c708c6514e8856e7efd66ece276c29ee07')
 
 prepare() {
     cp -a "$pkgbase-$pkgver" "${pkgbase/python/python2}-$pkgver"
