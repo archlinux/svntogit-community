@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.13.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -135,7 +135,7 @@ package() {
 
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/shared"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/shared/"{,artifacts,lfs-objects}
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/backups"
