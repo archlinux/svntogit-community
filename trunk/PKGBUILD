@@ -7,16 +7,16 @@
 # Contributor: Balló György <ballogyor+arch at gmail dot com>
 
 pkgbase=libappindicator
-pkgname=("${pkgbase}-gtk"{2,3} "${pkgbase}-sharp")
+pkgname=("${pkgbase}-gtk"{2,3} "${pkgbase}-sharp" "python2-${pkgbase}")
 pkgver=12.10.0
-pkgrel=11
+pkgrel=12
 pkgdesc='Allow applications to extend a menu via Ayatana indicators in Unity, KDE or Systray'
 url='https://launchpad.net/libappindicator'
 arch=('i686' 'x86_64')
 license=('LGPL2.1' 'LGPL3')
 makedepends=('dbus-glib' 'gobject-introspection' 'gtk-sharp-2'
              'libdbusmenu-gtk'{2,3} 'libindicator-gtk'{2,3}
-             'mono' 'perl-xml-libxml' 'pygtk' 'vala' 'pkg-config')
+             'mono' 'perl-xml-libxml' 'pygtk' 'vala' 'python2')
 options=('!emptydirs')
 source=(http://launchpad.net/${pkgbase}/${pkgver%.*}/${pkgver}/+download/${pkgbase}-${pkgver}.tar.gz{,.asc}
         improved-plasma.patch
@@ -31,9 +31,12 @@ prepare() {
   (cd ${pkgbase}-${pkgver}
     sed 's|/cli/|/mono/|' -i bindings/mono/{appindicator-sharp-0.1.pc.in,Makefile.in}
     sed 's/example //g' -i Makefile.in
-    patch -p1 < "${srcdir}/no-python.patch"
     patch -p1 < "${srcdir}/improved-plasma.patch"
   )
+  # python enabled variant
+  cp -ra ${pkgbase}-${pkgver}{,-py2}
+  # disable python for gtk2 + gtk3 variant
+  (cd ${pkgbase}-${pkgver}; patch -p1 < "${srcdir}/no-python.patch")
   cp -ra ${pkgbase}-${pkgver}{,-gtk2}
 }
 
@@ -53,6 +56,16 @@ build() {
 
   msg2 'Building gtk2...'
   (cd ${pkgbase}-${pkgver}-gtk2
+    ./configure --prefix=/usr \
+      --sysconfdir=/etc \
+      --localstatedir=/var \
+      --disable-{gtk-doc-html,mono-test,static,tests} \
+      --with-gtk=2
+    make
+  )
+
+  msg2 'Building python2...'
+  (cd ${pkgbase}-${pkgver}-py2
     ./configure --prefix=/usr \
       --sysconfdir=/etc \
       --localstatedir=/var \
@@ -91,6 +104,13 @@ package_libappindicator-sharp() {
 
   cd ${pkgbase}-${pkgver}-gtk2
   make -j1 -C bindings/mono DESTDIR="${pkgdir}" install
+}
+
+package_python2-libappindicator() {
+  depends=("${pkgbase}-gtk2" 'python2')
+
+  cd ${pkgbase}-${pkgver}-py2
+  make -j1 -C bindings/python DESTDIR="${pkgdir}" install
 }
 
 # vim: ts=2 sw=2 et:
