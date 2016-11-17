@@ -12,7 +12,7 @@ url='http://gcc.gnu.org/'
 license=(GPL LGPL FDL)
 depends=($_target-binutils $_target-glibc libmpc zlib)
 makedepends=(gmp mpfr)
-options=(!emptydirs !strip staticlibs)
+options=(!emptydirs !strip)
 source=(#ftp://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
         ftp://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.bz2
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
@@ -33,6 +33,9 @@ prepare() {
 
   echo $pkgver > gcc/BASE-VER
 
+  # Do not run fixincludes
+  sed -i 's@\./fixinc\.sh@-c true@' gcc/Makefile.in
+
   # hack! - some configure tests for header files using "$CPP $CPPFLAGS"
   sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" "$srcdir"/$_basedir/{libiberty,gcc}/configure
 
@@ -43,38 +46,32 @@ prepare() {
 build() {
   cd gcc-build
 
-  export CFLAGS_FOR_TARGET='-O2 -pipe'
-
-  # unfortunately CXXFLAGS_FOR_TARGET is not honored https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53579
-  #export CXXFLAGS_FOR_TARGET='-O2 -pipe'
-  export CXXFLAGS='-O2 -pipe'
+  # using -pipe causes spurious test-suite failures
+  # http://gcc.gnu.org/bugzilla/show_bug.cgi?id=48565
+  CFLAGS=${CFLAGS/-pipe/}
+  CXXFLAGS=${CXXFLAGS/-pipe/}
 
   $srcdir/$_basedir/configure \
-    --prefix=/usr \
-    --libexecdir=/usr/lib \
-    --target=$_target \
-    --enable-shared \
-    --disable-nls \
-    --enable-threads=posix \
-    --enable-languages=c,c++ \
-    --enable-multilib \
-    --disable-libssp \
-    --disable-libquadmath \
-    --with-system-zlib \
-    --with-sysroot=/usr/$_target \
-    --with-build-sysroot=/usr/$_target \
-    --with-as=/usr/bin/$_target-as \
-    --with-ld=/usr/bin/$_target-ld \
-    --disable-libgomp \
-    --enable-__cxa_atexit \
-    --enable-addons \
-    --with-libelf \
-    --with-host-libstdcxx='-static-libgcc -Wl,-Bstatic,-lstdc++,-Bdynamic -lm' \
-    --with-gmp \
-    --with-mpfr \
-    --with-mpc \
-    --with-isl \
-    --enable-gnu-indirect-function
+      --prefix=/usr \
+      --program-prefix=$_target- \
+      --with-local-prefix=/usr/$_target \
+      --with-sysroot=/usr/$_target \
+      --with-build-sysroot=/usr/$_target \
+      --with-as=/usr/bin/${_target}-as \
+      --with-ld=/usr/bin/${_target}-ld \
+      --libdir=/usr/lib --libexecdir=/usr/lib \
+      --target=$_target --host=$CHOST --build=$CHOST \
+      --disable-nls \
+      --enable-languages=c,c++ \
+      --enable-shared --enable-threads=posix \
+      --with-system-zlib --with-isl --enable-__cxa_atexit \
+      --disable-libunwind-exceptions --enable-clocale=gnu \
+      --disable-libstdcxx-pch --disable-libssp \
+      --enable-gnu-unique-object --enable-linker-build-id \
+      --enable-lto --enable-plugin --enable-install-libiberty \
+      --with-linker-hash-style=gnu --enable-gnu-indirect-function \
+      --disable-multilib --disable-werror \
+      --enable-checking=release
 
   make
 }
@@ -82,7 +79,7 @@ build() {
 package() {
   cd gcc-build
 
-  make DESTDIR="$pkgdir" install
+  make DESTDIR="$pkgdir" install-gcc install-target-libgcc install-target-libstdc++-v3 
 
   # strip target binaries
   find "$pkgdir"/usr/lib/gcc/$_target/ "$pkgdir"/usr/$_target/lib -type f -and \( -name \*.a -or -name \*.o \) -exec $_target-objcopy -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames -R .debug_pubtypes -R .debug_abbrev -R .debug_line -R .debug_str -R .debug_ranges -R .debug_loc '{}' \;
@@ -94,5 +91,4 @@ package() {
   rm -r "$pkgdir"/usr/share/man/man7
   rm -r "$pkgdir"/usr/share/info
   rm -r "$pkgdir"/usr/share/gcc-$pkgver
-  rm "$pkgdir"/usr/lib/libcc1.*
 }
