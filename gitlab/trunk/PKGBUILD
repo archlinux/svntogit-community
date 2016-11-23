@@ -7,13 +7,13 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=8.13.5
+pkgver=8.14.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
 license=('MIT')
-depends=('ruby' 'git' 'ruby-bundler' 'gitlab-shell' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
+depends=('ruby' 'git' 'ruby-bundler' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
@@ -41,7 +41,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/gitlabhq/gitlabhq/archive/v
         nginx-ssl.conf.example
         lighttpd.conf.example)
 install='gitlab.install'
-sha256sums=('1690bfcd95be4f99f352b96fd926118390c77339f4f3a0c1210d9afcf78abc8e'
+sha256sums=('52b7b48324b2e399273c65a73116652747fbd07c6a26e33dfa40f549b7c00d64'
             '0dabb9c10f6ba49404c13d6be2d0d6cf1bf7e5a0b95f0dea566e33c356997307'
             '3f64de78d1221a0ddf75baed19d1706c625c143701d30ad918f15231aeecfb4f'
             'e16a68539eeb49d24d2ab4a53ff95e33c67264a674b611c006dc5c8a24f41e0e'
@@ -96,7 +96,7 @@ prepare() {
 
   msg2 "Patching redis connection in resque.yml"
   sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
-      config/resque.yml.example > config/resque.yml
+      config/resque.yml.example > config/resque.yml.patched
 
   msg2 "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
@@ -117,15 +117,19 @@ build() {
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
+  cp config/resque.yml.example config/resque.yml
+  sed -i 's/url.*/nope.sock/g' config/resque.yml
 
-  sed -i '/ensure_secret_token/d' config/initializers/gitlab_shell_secret_token.rb
-  bundle exec rake assets:precompile RAILS_ENV=production
+  bundle exec rake assets:precompile RAILS_ENV=production --trace
+
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
+  mv config/resque.yml.patched config/resque.yml
 }
 
 package() {
   cd "${srcdir}/${_srcdir}"
+  depends+=('gitlab-shell>=4.0.0')
 
   install -d "${pkgdir}/usr/share/webapps"
 
