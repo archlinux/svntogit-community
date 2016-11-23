@@ -5,33 +5,37 @@
 # vim: set ft=sh:
 
 pkgname=fwbuilder
-pkgver=5.1.0.3599
-pkgrel=7
+pkgver=5.3.6
+pkgrel=1
 pkgdesc="Object-oriented GUI and set of compilers for various firewall platforms"
 url="http://www.fwbuilder.org/"
 arch=('i686' 'x86_64')
 license=('GPL')
-depends=('libxslt' 'net-snmp' 'qt4' 'desktop-file-utils' 'hicolor-icon-theme' 'shared-mime-info')
+depends=('libxslt' 'net-snmp' 'qt5-base' 'desktop-file-utils' 'hicolor-icon-theme' 'shared-mime-info')
 conflicts=('libfwbuilder')
-source=("http://sourceforge.net/projects/fwbuilder/files/Current_Packages/${pkgver%.*}/fwbuilder-${pkgver}.tar.gz"
-		'fwbuilder.xml'
-		'fwbuilder-gcc47.patch')
-sha256sums=('452514a1ec0be1416bfca93603e6c89deb91d1a3a19671c64b5a8868a3743daf'
-			'f8eacaa9895b17af3a1c148064b5ad8381b83f7983acb14687faef488ac8fede'
-			'd7c602d5b99c6e40403c0b02e34abf15de83802257ca5ce80ad53d486b692f27')
+source=(
+    "$pkgname-$pkgver.tar.gz::https://github.com/UNINETT/$pkgname/archive/v$pkgver.tar.gz"
+    'fwbuilder.xml'
+    'iosimporter.patch'
+    'routingcompileropenbsd.patch'
+)
+sha256sums=('672c2870c3a2ce1eb504a97d17ea9a8eb6dd61ec314cf79b9488b48a356cdfa6'
+            'f8eacaa9895b17af3a1c148064b5ad8381b83f7983acb14687faef488ac8fede'
+            '7ceff7cb70828864831bbb6a438a14fd08b198bb8fc21f736fcac4ec81eca970'
+            '6bd0fe7a06acad4d6ef40451319ca87b874935552f7fbcffba977a1bc51114f5')
 
 build() {
-  cd "${srcdir}/fwbuilder-${pkgver}"
-  patch -p1 -i "$srcdir/fwbuilder-gcc47.patch"
-  export CXXFLAGS="$CXXFLAGS -fno-var-tracking-assignments"
-  ./autogen.sh
-  ./configure --prefix=/usr
-  make
+    cd "$pkgname-$pkgver"
+    find -name "qmake.inc.in" -exec sed -e 's/\/usr\/include//g' -i {} \;
+    patch -p0 -i "$srcdir/iosimporter.patch"
+    patch -p0 -i "$srcdir/routingcompileropenbsd.patch"
+    ./autogen.sh --prefix=/usr
+    make
 }
 
 package() {
-  cd "${srcdir}/fwbuilder-${pkgver}"
-  make INSTALL_ROOT="${pkgdir}" install
-  echo "MimeType=text/x-xml-fwbuilder;" >> "$pkgdir/usr/share/applications/${pkgname}.desktop"
-  install -Dm644 "$srcdir/fwbuilder.xml" "$pkgdir/usr/share/mime/packages/fwbuilder.xml"
+    cd "$pkgname-$pkgver"
+    make INSTALL_ROOT="${pkgdir}" install
+    echo "MimeType=text/x-xml-fwbuilder;" >> "$pkgdir/usr/share/applications/${pkgname}.desktop"
+    install -Dm644 "$srcdir/fwbuilder.xml" "$pkgdir/usr/share/mime/packages/fwbuilder.xml"
 }
