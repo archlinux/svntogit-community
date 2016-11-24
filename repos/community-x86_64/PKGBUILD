@@ -6,38 +6,63 @@
 pkgbase=gap
 pkgname=(gap gap-data gap-doc gap-packages)
 pkgver=4.8.3
-pkgrel=3
+_gapver=4r8p3_2016_03_19-22_17
+pkgrel=4
 pkgdesc="Groups, Algorithms, Programming: a system for computational discrete algebra"
 arch=(i686 x86_64)
 url="http://www.gap-system.org/"
 license=(GPL)
-source=("http://www.gap-system.org/pub/gap/gap48/tar.bz2/gap4r8p3_2016_03_19-22_17.tar.bz2")
-sha256sums=('81d358109d87014eb10d1325c38ee94aa968b2a6365afd1a7411bfdd44f7a454')
+source=("http://www.gap-system.org/pub/gap/gap48/tar.gz/gap$_gapver.tar.gz")
+sha256sums=('667fbbe4b6f2626b799b977a4ca12e9373e0878a6771a94d217bab412405abe6')
+makedepends=(libxaw libxt openmpi givaro mpfi fplll normaliz polymake)
+
+prepare() {
+  cd gap4r8
+# Fix build of cohomolo package
+  sed -e 's|cd cohomolo|cd cohomolo*|' -i bin/BuildPackages.sh
+}
 
 build() {
   cd gap4r8
-  ./configure --prefix=/usr --with-gmp=system
+  CC=mpicc ./configure --prefix=/usr --with-gmp=system
   make
+
+  cd pkg
+  sh ../bin/BuildPackages.sh
+# These packages fail to build:
+# carat
+# float (doesn't support fplll 5)
+# fr https://github.com/gap-packages/fr/issues/16
+# guava
+# linboxing (doesn't support givaro 4)
+# qaos 
+
+  cd ../etc
+  sh install-tools.sh
 }
 
 package_gap() {
-  depends=(gmp)
+  depends=(gmp openmpi)
   optdepends=('gap-packages: extra packages' 'gap-data: additional databases' 'gap-doc: documentation')
   replaces=(gap-math)
   conflicts=(gap-math)
   cd gap4r8
   
   mkdir -p "$pkgdir"/usr/lib/gap
-  cp -r bin etc grp lib tst CITATION "$pkgdir"/usr/lib/gap
+  cp -r bin etc grp lib CITATION "$pkgdir"/usr/lib/gap
   
   mkdir -p "$pkgdir"/usr/lib/gap/pkg
   cp -r pkg/GAPDoc-* "$pkgdir"/usr/lib/gap/pkg
 
   mkdir -p "$pkgdir"/usr/bin
-  ln -s /usr/lib/gap/bin/gap.sh "$pkgdir"/usr/bin/gap
+  install -m755 "$pkgdir"/usr/lib/gap/bin/gap.sh "$pkgdir"/usr/bin/gap
 
 # fix location
-  sed -e 's|/build/gap/src/gap4r8|/usr/lib/gap|' -i "$pkgdir"/usr/lib/gap/bin/gap.sh  
+  sed -e 's|/build/gap/src/gap4r8|/usr/lib/gap|' -i "$pkgdir"/usr/bin/gap  
+# remove unneeded stuff
+  rm "$pkgdir"/usr/lib/gap/bin/*/*.o
+  rm "$pkgdir"/usr/lib/gap/bin/gap.sh
+  find "$pkgdir"/usr/lib/gap/bin/ -maxdepth 1 -type f -exec rm {} \;
 }
 
 package_gap-data() {
@@ -60,6 +85,7 @@ package_gap-doc() {
 
 package_gap-packages() {
   depends=(gap)
+  optdepends=('normaliz: Normaliz interface package' 'polymake: Polymake interface package' 'libxaw: xgap package')
   pkgdesc="Extra packages for GAP"
   cd gap4r8
 
