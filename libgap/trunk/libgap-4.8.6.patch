@@ -1,0 +1,1861 @@
+From 55035e11db706d4dea0c8834d3059c33f77c1d42 Mon Sep 17 00:00:00 2001
+From: Lukas Fleischer <lfleischer@lfos.de>
+Date: Fri, 25 Nov 2016 13:59:22 +0100
+Subject: [PATCH] Update to 4.8.6
+
+---
+ Makefile.in             |  19 +-
+ aclocal.m4              |   1 +
+ config.guess            |   6 +-
+ config.sub              |  10 +-
+ configure               | 123 ++++++++-
+ configure.ac            |   2 +-
+ m4/libtool.m4           |   5 +-
+ patches/gap-4.8.6.patch | 684 ++++++++++++++++++++++++++++++++++++++++++++++++
+ src/Makefile.in         |  18 +-
+ src/bool.c              |   2 +-
+ src/code.c              |  40 ++-
+ src/gap.c               |   1 +
+ src/intfuncs.c          |  33 ---
+ src/listfunc.c          |   7 +-
+ src/pperm.c             |   4 +-
+ src/profile.c           |  75 +++++-
+ src/profile.h           |   3 +-
+ src/read.c              |  10 +-
+ src/streams.c           |  74 ++----
+ src/sysfiles.c          |  93 ++++++-
+ src/sysfiles.h          |  15 +-
+ src/system.c            |   4 +-
+ src/trans.c             |   4 +-
+ test/Makefile.in        |   9 +-
+ 24 files changed, 1076 insertions(+), 166 deletions(-)
+ create mode 100644 patches/gap-4.8.6.patch
+
+diff --git a/Makefile.in b/Makefile.in
+index 44732ab..c5f0384 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -97,10 +97,10 @@ host_triplet = @host@
+ target_triplet = @target@
+ subdir = .
+ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
+-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
+-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
+-	$(top_srcdir)/configure.ac
++am__aclocal_m4_deps = $(top_srcdir)/m4/ld-version-script.m4 \
++	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
++	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
++	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.ac
+ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
+ 	$(ACLOCAL_M4)
+ DIST_COMMON = $(srcdir)/Makefile.am $(top_srcdir)/configure \
+@@ -169,7 +169,7 @@ CSCOPE = cscope
+ DIST_SUBDIRS = $(SUBDIRS)
+ am__DIST_COMMON = $(srcdir)/Makefile.in AUTHORS COPYING ChangeLog \
+ 	INSTALL NEWS README TODO compile config.guess config.sub \
+-	install-sh ltmain.sh missing
++	depcomp install-sh ltmain.sh missing
+ DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+ distdir = $(PACKAGE)-$(VERSION)
+ top_distdir = $(distdir)
+@@ -250,6 +250,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
+ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+ LD = @LD@
+ LDFLAGS = @LDFLAGS@
++LIBGAP_LT_VERSION = @LIBGAP_LT_VERSION@
+ LIBOBJS = @LIBOBJS@
+ LIBS = @LIBS@
+ LIBTOOL = @LIBTOOL@
+@@ -558,7 +559,7 @@ distdir: $(DISTFILES)
+ 	  ! -type d ! -perm -444 -exec $(install_sh) -c -m a+r {} {} \; \
+ 	|| chmod -R a+r "$(distdir)"
+ dist-gzip: distdir
+-	tardir=$(distdir) && $(am__tar) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).tar.gz
++	tardir=$(distdir) && $(am__tar) | eval GZIP= gzip $(GZIP_ENV) -c >$(distdir).tar.gz
+ 	$(am__post_remove_distdir)
+ 
+ dist-bzip2: distdir
+@@ -584,7 +585,7 @@ dist-shar: distdir
+ 	@echo WARNING: "Support for shar distribution archives is" \
+ 	               "deprecated." >&2
+ 	@echo WARNING: "It will be removed altogether in Automake 2.0" >&2
+-	shar $(distdir) | GZIP=$(GZIP_ENV) gzip -c >$(distdir).shar.gz
++	shar $(distdir) | eval GZIP= gzip $(GZIP_ENV) -c >$(distdir).shar.gz
+ 	$(am__post_remove_distdir)
+ 
+ dist-zip: distdir
+@@ -602,7 +603,7 @@ dist dist-all:
+ distcheck: dist
+ 	case '$(DIST_ARCHIVES)' in \
+ 	*.tar.gz*) \
+-	  GZIP=$(GZIP_ENV) gzip -dc $(distdir).tar.gz | $(am__untar) ;;\
++	  eval GZIP= gzip $(GZIP_ENV) -dc $(distdir).tar.gz | $(am__untar) ;;\
+ 	*.tar.bz2*) \
+ 	  bzip2 -dc $(distdir).tar.bz2 | $(am__untar) ;;\
+ 	*.tar.lz*) \
+@@ -612,7 +613,7 @@ distcheck: dist
+ 	*.tar.Z*) \
+ 	  uncompress -c $(distdir).tar.Z | $(am__untar) ;;\
+ 	*.shar.gz*) \
+-	  GZIP=$(GZIP_ENV) gzip -dc $(distdir).shar.gz | unshar ;;\
++	  eval GZIP= gzip $(GZIP_ENV) -dc $(distdir).shar.gz | unshar ;;\
+ 	*.zip*) \
+ 	  unzip $(distdir).zip ;;\
+ 	esac
+diff --git a/aclocal.m4 b/aclocal.m4
+index e62b4ad..b839773 100644
+--- a/aclocal.m4
++++ b/aclocal.m4
+@@ -1170,6 +1170,7 @@ AC_SUBST([am__tar])
+ AC_SUBST([am__untar])
+ ]) # _AM_PROG_TAR
+ 
++m4_include([m4/ld-version-script.m4])
+ m4_include([m4/libtool.m4])
+ m4_include([m4/ltoptions.m4])
+ m4_include([m4/ltsugar.m4])
+diff --git a/config.guess b/config.guess
+index dbfb978..6c32c86 100755
+--- a/config.guess
++++ b/config.guess
+@@ -1,8 +1,8 @@
+ #! /bin/sh
+ # Attempt to guess a canonical system name.
+-#   Copyright 1992-2015 Free Software Foundation, Inc.
++#   Copyright 1992-2014 Free Software Foundation, Inc.
+ 
+-timestamp='2015-01-01'
++timestamp='2014-11-04'
+ 
+ # This file is free software; you can redistribute it and/or modify it
+ # under the terms of the GNU General Public License as published by
+@@ -50,7 +50,7 @@ version="\
+ GNU config.guess ($timestamp)
+ 
+ Originally written by Per Bothner.
+-Copyright 1992-2015 Free Software Foundation, Inc.
++Copyright 1992-2014 Free Software Foundation, Inc.
+ 
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+diff --git a/config.sub b/config.sub
+index 6467c95..7ffe373 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1,8 +1,8 @@
+ #! /bin/sh
+ # Configuration validation subroutine script.
+-#   Copyright 1992-2015 Free Software Foundation, Inc.
++#   Copyright 1992-2014 Free Software Foundation, Inc.
+ 
+-timestamp='2015-01-01'
++timestamp='2014-12-03'
+ 
+ # This file is free software; you can redistribute it and/or modify it
+ # under the terms of the GNU General Public License as published by
+@@ -68,7 +68,7 @@ Report bugs and patches to <config-patches@gnu.org>."
+ version="\
+ GNU config.sub ($timestamp)
+ 
+-Copyright 1992-2015 Free Software Foundation, Inc.
++Copyright 1992-2014 Free Software Foundation, Inc.
+ 
+ This is free software; see the source for copying conditions.  There is NO
+ warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE."
+@@ -260,7 +260,7 @@ case $basic_machine in
+ 	| c4x | c8051 | clipper \
+ 	| d10v | d30v | dlx | dsp16xx \
+ 	| epiphany \
+-	| fido | fr30 | frv | ft32 \
++	| fido | fr30 | frv \
+ 	| h8300 | h8500 | hppa | hppa1.[01] | hppa2.0 | hppa2.0[nw] | hppa64 \
+ 	| hexagon \
+ 	| i370 | i860 | i960 | ia64 \
+@@ -1025,7 +1025,7 @@ case $basic_machine in
+ 		;;
+ 	ppc64)	basic_machine=powerpc64-unknown
+ 		;;
+-	ppc64-* | ppc64p7-*) basic_machine=powerpc64-`echo $basic_machine | sed 's/^[^-]*-//'`
++	ppc64-*) basic_machine=powerpc64-`echo $basic_machine | sed 's/^[^-]*-//'`
+ 		;;
+ 	ppc64le | powerpc64little | ppc64-le | powerpc64-little)
+ 		basic_machine=powerpc64le-unknown
+diff --git a/configure b/configure
+index e3c0c61..b9f24ba 100755
+--- a/configure
++++ b/configure
+@@ -1,6 +1,6 @@
+ #! /bin/sh
+ # Guess values for system-dependent variables and create Makefiles.
+-# Generated by GNU Autoconf 2.69 for libGAP 4.8.3.
++# Generated by GNU Autoconf 2.69 for libGAP 4.8.6.
+ #
+ # Report bugs to <sage-devel@googlegroups.com>.
+ #
+@@ -590,8 +590,8 @@ MAKEFLAGS=
+ # Identity of this package.
+ PACKAGE_NAME='libGAP'
+ PACKAGE_TARNAME='libgap'
+-PACKAGE_VERSION='4.8.3'
+-PACKAGE_STRING='libGAP 4.8.3'
++PACKAGE_VERSION='4.8.6'
++PACKAGE_STRING='libGAP 4.8.6'
+ PACKAGE_BUGREPORT='sage-devel@googlegroups.com'
+ PACKAGE_URL=''
+ 
+@@ -635,6 +635,9 @@ ac_includes_default="\
+ ac_subst_vars='am__EXEEXT_FALSE
+ am__EXEEXT_TRUE
+ LTLIBOBJS
++HAVE_LD_VERSION_SCRIPT_FALSE
++HAVE_LD_VERSION_SCRIPT_TRUE
++LIBGAP_LT_VERSION
+ NEED_ITANIUMOBJ_FALSE
+ NEED_ITANIUMOBJ_TRUE
+ LIBOBJS
+@@ -779,6 +782,7 @@ with_aix_soname
+ with_gnu_ld
+ with_sysroot
+ enable_libtool_lock
++enable_ld_version_script
+ '
+       ac_precious_vars='build_alias
+ host_alias
+@@ -1332,7 +1336,7 @@ if test "$ac_init_help" = "long"; then
+   # Omit some internal or obsolete options to make the list less imposing.
+   # This message is too long to be a string in the A/UX 3.1 sh.
+   cat <<_ACEOF
+-\`configure' configures libGAP 4.8.3 to adapt to many kinds of systems.
++\`configure' configures libGAP 4.8.6 to adapt to many kinds of systems.
+ 
+ Usage: $0 [OPTION]... [VAR=VALUE]...
+ 
+@@ -1403,7 +1407,7 @@ fi
+ 
+ if test -n "$ac_init_help"; then
+   case $ac_init_help in
+-     short | recursive ) echo "Configuration of libGAP 4.8.3:";;
++     short | recursive ) echo "Configuration of libGAP 4.8.6:";;
+    esac
+   cat <<\_ACEOF
+ 
+@@ -1422,6 +1426,9 @@ Optional Features:
+   --enable-fast-install[=PKGS]
+                           optimize for fast installation [default=yes]
+   --disable-libtool-lock  avoid locking (might break parallel builds)
++  --enable-ld-version-script
++                          enable linker version script (default is enabled
++                          when possible)
+ 
+ Optional Packages:
+   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
+@@ -1520,7 +1527,7 @@ fi
+ test -n "$ac_init_help" && exit $ac_status
+ if $ac_init_version; then
+   cat <<\_ACEOF
+-libGAP configure 4.8.3
++libGAP configure 4.8.6
+ generated by GNU Autoconf 2.69
+ 
+ Copyright (C) 2012 Free Software Foundation, Inc.
+@@ -2183,7 +2190,7 @@ cat >config.log <<_ACEOF
+ This file contains any messages produced by compilers while
+ running configure, to aid debugging if configure makes a mistake.
+ 
+-It was created by libGAP $as_me 4.8.3, which was
++It was created by libGAP $as_me 4.8.6, which was
+ generated by GNU Autoconf 2.69.  Invocation command line was
+ 
+   $ $0 $@
+@@ -3157,7 +3164,7 @@ fi
+ 
+ # Define the identity of the package.
+  PACKAGE='libgap'
+- VERSION='4.8.3'
++ VERSION='4.8.6'
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+@@ -11936,9 +11943,6 @@ fi
+   # before this can be enabled.
+   hardcode_into_libs=yes
+ 
+-  # Add ABI-specific directories to the system library path.
+-  sys_lib_dlsearch_path_spec="/lib64 /usr/lib64 /lib /usr/lib"
+-
+   # Ideally, we could use ldconfig to report *all* directores which are
+   # searched for libraries, however this is still not possible.  Aside from not
+   # being certain /sbin/ldconfig is available, command
+@@ -11947,7 +11951,7 @@ fi
+   # appending ld.so.conf contents (and includes) to the search path.
+   if test -f /etc/ld.so.conf; then
+     lt_ld_extra=`awk '/^include / { system(sprintf("cd /etc; cat %s 2>/dev/null", \$2)); skip = 1; } { if (!skip) print \$0; skip = 0; }' < /etc/ld.so.conf | $SED -e 's/#.*//;/^[	 ]*hwcap[	 ]/d;s/[:,	]/ /g;s/=[^=]*$//;s/=[^= ]* / /g;s/"//g;/^$/d' | tr '\n' ' '`
+-    sys_lib_dlsearch_path_spec="$sys_lib_dlsearch_path_spec $lt_ld_extra"
++    sys_lib_dlsearch_path_spec="/lib /usr/lib $lt_ld_extra"
+   fi
+ 
+   # We used to test for /lib/ld.so.1 and disable shared libraries on
+@@ -14448,6 +14452,93 @@ $as_echo "#define SYS_IS_CYGWIN32 0" >>confdefs.h
+ 
+ fi
+ 
++LIBGAP_RELEASE_MAJOR=${PACKAGE_VERSION%.*}
++LIBGAP_VERSION_MAJOR=${PACKAGE_VERSION%%.*}
++LIBGAP_VERSION_MINOR=${LIBGAP_RELEASE_MAJOR#*.}
++LIBGAP_VERSION_MICRO=${PACKAGE_VERSION##*.}
++LIBGAP_VERSION_MICRO=${LIBGAP_VERSION_MICRO%-*}
++LIBGAP_LT_VERSION="$(expr ${LIBGAP_VERSION_MAJOR} + ${LIBGAP_VERSION_MINOR}):${LIBGAP_VERSION_MICRO}:${LIBGAP_VERSION_MINOR}"
++
++
++
++# Checks for linker script support:
++
++  # Check whether --enable-ld-version-script was given.
++if test "${enable_ld_version_script+set}" = set; then :
++  enableval=$enable_ld_version_script; have_ld_version_script=$enableval
++fi
++
++  if test -z "$have_ld_version_script"; then
++    { $as_echo "$as_me:${as_lineno-$LINENO}: checking if LD -Wl,--version-script works" >&5
++$as_echo_n "checking if LD -Wl,--version-script works... " >&6; }
++    save_LDFLAGS="$LDFLAGS"
++    LDFLAGS="$LDFLAGS -Wl,--version-script=conftest.map"
++    cat > conftest.map <<EOF
++foo
++EOF
++    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++int
++main ()
++{
++
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"; then :
++  accepts_syntax_errors=yes
++else
++  accepts_syntax_errors=no
++fi
++rm -f core conftest.err conftest.$ac_objext \
++    conftest$ac_exeext conftest.$ac_ext
++    if test "$accepts_syntax_errors" = no; then
++      cat > conftest.map <<EOF
++VERS_1 {
++        global: sym;
++};
++
++VERS_2 {
++        global: sym;
++} VERS_1;
++EOF
++      cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++int
++main ()
++{
++
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"; then :
++  have_ld_version_script=yes
++else
++  have_ld_version_script=no
++fi
++rm -f core conftest.err conftest.$ac_objext \
++    conftest$ac_exeext conftest.$ac_ext
++    else
++      have_ld_version_script=no
++    fi
++    rm -f conftest.map
++    LDFLAGS="$save_LDFLAGS"
++    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $have_ld_version_script" >&5
++$as_echo "$have_ld_version_script" >&6; }
++  fi
++   if test "$have_ld_version_script" = "yes"; then
++  HAVE_LD_VERSION_SCRIPT_TRUE=
++  HAVE_LD_VERSION_SCRIPT_FALSE='#'
++else
++  HAVE_LD_VERSION_SCRIPT_TRUE='#'
++  HAVE_LD_VERSION_SCRIPT_FALSE=
++fi
++
++
+ 
+ #OUTPUT
+ cat >confcache <<\_ACEOF
+@@ -14592,6 +14683,10 @@ if test -z "${NEED_ITANIUMOBJ_TRUE}" && test -z "${NEED_ITANIUMOBJ_FALSE}"; then
+   as_fn_error $? "conditional \"NEED_ITANIUMOBJ\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5
+ fi
++if test -z "${HAVE_LD_VERSION_SCRIPT_TRUE}" && test -z "${HAVE_LD_VERSION_SCRIPT_FALSE}"; then
++  as_fn_error $? "conditional \"HAVE_LD_VERSION_SCRIPT\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
+ 
+ : "${CONFIG_STATUS=./config.status}"
+ ac_write_fail=0
+@@ -14989,7 +15084,7 @@ cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
+ # report actual input values of CONFIG_FILES etc. instead of their
+ # values after options handling.
+ ac_log="
+-This file was extended by libGAP $as_me 4.8.3, which was
++This file was extended by libGAP $as_me 4.8.6, which was
+ generated by GNU Autoconf 2.69.  Invocation command line was
+ 
+   CONFIG_FILES    = $CONFIG_FILES
+@@ -15055,7 +15150,7 @@ _ACEOF
+ cat >>$CONFIG_STATUS <<_ACEOF || ac_write_fail=1
+ ac_cs_config="`$as_echo "$ac_configure_args" | sed 's/^ //; s/[\\""\`\$]/\\\\&/g'`"
+ ac_cs_version="\\
+-libGAP config.status 4.8.3
++libGAP config.status 4.8.6
+ configured by $0, generated by GNU Autoconf 2.69,
+   with options \\"\$ac_cs_config\\"
+ 
+diff --git a/configure.ac b/configure.ac
+index 695caee..7355821 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1,7 +1,7 @@
+ AC_PREREQ([2.66])
+ 
+ # Note: the version number must match the GAP version number
+-AC_INIT([libGAP], [4.8.3], [sage-devel@googlegroups.com])
++AC_INIT([libGAP], [4.8.6], [sage-devel@googlegroups.com])
+ 
+ AC_CANONICAL_TARGET
+ AM_INIT_AUTOMAKE
+diff --git a/m4/libtool.m4 b/m4/libtool.m4
+index a644432..a3bc337 100644
+--- a/m4/libtool.m4
++++ b/m4/libtool.m4
+@@ -2867,9 +2867,6 @@ linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
+   # before this can be enabled.
+   hardcode_into_libs=yes
+ 
+-  # Add ABI-specific directories to the system library path.
+-  sys_lib_dlsearch_path_spec="/lib64 /usr/lib64 /lib /usr/lib"
+-
+   # Ideally, we could use ldconfig to report *all* directores which are
+   # searched for libraries, however this is still not possible.  Aside from not
+   # being certain /sbin/ldconfig is available, command
+@@ -2878,7 +2875,7 @@ linux* | k*bsd*-gnu | kopensolaris*-gnu | gnu*)
+   # appending ld.so.conf contents (and includes) to the search path.
+   if test -f /etc/ld.so.conf; then
+     lt_ld_extra=`awk '/^include / { system(sprintf("cd /etc; cat %s 2>/dev/null", \[$]2)); skip = 1; } { if (!skip) print \[$]0; skip = 0; }' < /etc/ld.so.conf | $SED -e 's/#.*//;/^[	 ]*hwcap[	 ]/d;s/[:,	]/ /g;s/=[^=]*$//;s/=[^= ]* / /g;s/"//g;/^$/d' | tr '\n' ' '`
+-    sys_lib_dlsearch_path_spec="$sys_lib_dlsearch_path_spec $lt_ld_extra"
++    sys_lib_dlsearch_path_spec="/lib /usr/lib $lt_ld_extra"
+   fi
+ 
+   # We used to test for /lib/ld.so.1 and disable shared libraries on
+diff --git a/patches/gap-4.8.6.patch b/patches/gap-4.8.6.patch
+new file mode 100644
+index 0000000..71b4ee5
+--- /dev/null
++++ b/patches/gap-4.8.6.patch
+@@ -0,0 +1,684 @@
++diff -urd upstream-gap-4.8.6/src/c_filt1.c src/c_filt1.c
++--- upstream-gap-4.8.6/src/c_filt1.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/c_filt1.c	2016-11-25 13:39:28.975513235 +0100
++@@ -1,6 +1,6 @@
++ #ifndef AVOID_PRECOMPILED
++ /* C file produced by GAC */
++-#include "src/compiled.h"
+++#include "compiled.h"
++ 
++ /* global variables used in handlers */
++ static GVar G_IS__FUNCTION;
++diff -urd upstream-gap-4.8.6/src/c_meths1.c src/c_meths1.c
++--- upstream-gap-4.8.6/src/c_meths1.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/c_meths1.c	2016-11-25 13:39:28.982179816 +0100
++@@ -1,6 +1,6 @@
++ #ifndef AVOID_PRECOMPILED
++ /* C file produced by GAC */
++-#include "src/compiled.h"
+++#include "compiled.h"
++ 
++ /* global variables used in handlers */
++ static GVar G_METHOD__0ARGS;
++Only in src: config.h
++Only in src: config.h.in
++Only in src: config.h.in~
++diff -urd upstream-gap-4.8.6/src/c_oper1.c src/c_oper1.c
++--- upstream-gap-4.8.6/src/c_oper1.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/c_oper1.c	2016-11-25 13:39:28.982179816 +0100
++@@ -1,6 +1,6 @@
++ #ifndef AVOID_PRECOMPILED
++ /* C file produced by GAC */
++-#include "src/compiled.h"
+++#include "compiled.h"
++ 
++ /* global variables used in handlers */
++ static GVar G_REREADING;
++diff -urd upstream-gap-4.8.6/src/c_random.c src/c_random.c
++--- upstream-gap-4.8.6/src/c_random.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/c_random.c	2016-11-25 13:39:28.985513106 +0100
++@@ -1,6 +1,6 @@
++ #ifndef AVOID_PRECOMPILED
++ /* C file produced by GAC */
++-#include "src/compiled.h"
+++#include "compiled.h"
++ 
++ /* global variables used in handlers */
++ static GVar G_QUO__INT;
++diff -urd upstream-gap-4.8.6/src/c_type1.c src/c_type1.c
++--- upstream-gap-4.8.6/src/c_type1.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/c_type1.c	2016-11-25 13:39:28.985513106 +0100
++@@ -1,6 +1,6 @@
++ #ifndef AVOID_PRECOMPILED
++ /* C file produced by GAC */
++-#include "src/compiled.h"
+++#include "compiled.h"
++ 
++ /* global variables used in handlers */
++ static GVar G_NAME__FUNC;
++Only in src: .deps
++diff -urd upstream-gap-4.8.6/src/gap.c src/gap.c
++--- upstream-gap-4.8.6/src/gap.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/gap.c	2016-11-25 13:39:29.105511560 +0100
++@@ -212,14 +212,14 @@
++ #endif
++ 
++ static StructImportedGVars ImportedGVars[MAX_IMPORTED_GVARS];
++-static Int NrImportedGVars;
+++Int NrImportedGVars;
++ 
++ static StructImportedGVars ImportedFuncs[MAX_IMPORTED_GVARS];
++-static Int NrImportedFuncs;
+++Int NrImportedFuncs;
++ 
++ char *original_argv0;
++ static char **sysargv;
++-static char **sysenviron;
+++char **sysenviron;
++ 
++ Obj ShellContext = 0;
++ Obj BaseShellContext = 0;
++@@ -730,11 +730,7 @@
++ }
++ #endif
++ 
++-#ifdef COMPILECYGWINDLL
++-#define main realmain
++-#endif
++-
++-int main (
+++int gap_main_loop (
++           int                 argc,
++           char *              argv [],
++           char *              environ [] )
++@@ -1311,6 +1307,7 @@
++ 
++ Obj FuncJUMP_TO_CATCH( Obj self, Obj payload)
++ {
+++  libgap_call_error_handler();
++   TLS(ThrownObject) = payload;
++   syLongjmp(TLS(ReadJmpError), 1);
++   return 0;
++Only in src: gap_version.h
++diff -urd upstream-gap-4.8.6/src/gasman.c src/gasman.c
++--- upstream-gap-4.8.6/src/gasman.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/gasman.c	2016-11-25 13:39:29.108844850 +0100
++@@ -137,6 +137,7 @@
++ 
++ #include        "objects.h"             /* objects                         */
++ #include        "scanner.h"             /* scanner                         */
+++#include        "libgap_internal.h"     /* gasman callback                 */
++ 
++ #include	"code.h"		/* coder                           */
++ #include	"thread.h"		/* threads			   */
++@@ -2210,6 +2211,9 @@
++     /* prepare the list of marked bags for the future                      */
++     MarkedBags = 0;
++ 
+++    /* call the libgap callback so library users can mark their own bags   */
+++    libgap_call_gasman_callback();
+++
++     /* mark from the static area                                           */
++     for ( i = 0; i < GlobalBags.nr; i++ )
++         MARK_BAG( *GlobalBags.addr[i] );
++diff -urd upstream-gap-4.8.6/src/iostream.c src/iostream.c
++--- upstream-gap-4.8.6/src/iostream.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/iostream.c	2016-11-25 13:39:29.108844850 +0100
++@@ -48,6 +48,8 @@
++ #include	"thread.h"		/* threads			   */
++ #include	"tls.h"			/* thread-local storage		   */
++ 
+++#include        "libgap_internal.h"     /* GAP shared library              */
+++
++ #include <stdio.h>                      /* standard input/output functions */
++ #include <stdlib.h>
++ #include <string.h>
++@@ -886,8 +888,9 @@
++   InitHdlrFuncsFromTable( GVarFuncs );
++   
++   /* Set up the trap to detect future dying children */
+++#ifdef LIBGAP_SIGNALS
++   signal( SIGCHLD, ChildStatusChanged );
++-
+++#endif
++   return 0;
++ }
++ 
++Only in src: libgap.c
++Only in src: libgap.h
++Only in src: libgap_internal.h
++Only in src: libgap.la
++Only in src: libgap_la-ariths.lo
++Only in src: libgap_la-ariths.o
++Only in src: libgap_la-blister.lo
++Only in src: libgap_la-blister.o
++Only in src: libgap_la-bool.lo
++Only in src: libgap_la-bool.o
++Only in src: libgap_la-calls.lo
++Only in src: libgap_la-calls.o
++Only in src: libgap_la-c_filt1.lo
++Only in src: libgap_la-c_filt1.o
++Only in src: libgap_la-c_meths1.lo
++Only in src: libgap_la-c_meths1.o
++Only in src: libgap_la-code.lo
++Only in src: libgap_la-code.o
++Only in src: libgap_la-compiler.lo
++Only in src: libgap_la-compiler.o
++Only in src: libgap_la-compstat.lo
++Only in src: libgap_la-compstat.o
++Only in src: libgap_la-c_oper1.lo
++Only in src: libgap_la-c_oper1.o
++Only in src: libgap_la-costab.lo
++Only in src: libgap_la-costab.o
++Only in src: libgap_la-c_random.lo
++Only in src: libgap_la-c_random.o
++Only in src: libgap_la-c_type1.lo
++Only in src: libgap_la-c_type1.o
++Only in src: libgap_la-cyclotom.lo
++Only in src: libgap_la-cyclotom.o
++Only in src: libgap_la-dteval.lo
++Only in src: libgap_la-dteval.o
++Only in src: libgap_la-dt.lo
++Only in src: libgap_la-dt.o
++Only in src: libgap_la-exprs.lo
++Only in src: libgap_la-exprs.o
++Only in src: libgap_la-finfield.lo
++Only in src: libgap_la-finfield.o
++Only in src: libgap_la-funcs.lo
++Only in src: libgap_la-funcs.o
++Only in src: libgap_la-gap.lo
++Only in src: libgap_la-gap.o
++Only in src: libgap_la-gasman.lo
++Only in src: libgap_la-gasman.o
++Only in src: libgap_la-gmpints.lo
++Only in src: libgap_la-gmpints.o
++Only in src: libgap_la-gvars.lo
++Only in src: libgap_la-gvars.o
++Only in src: libgap_la-integer.lo
++Only in src: libgap_la-integer.o
++Only in src: libgap_la-intfuncs.lo
++Only in src: libgap_la-intfuncs.o
++Only in src: libgap_la-intrprtr.lo
++Only in src: libgap_la-intrprtr.o
++Only in src: libgap_la-iostream.lo
++Only in src: libgap_la-iostream.o
++Only in src: libgap_la-libgap.lo
++Only in src: libgap_la-libgap.o
++Only in src: libgap_la-listfunc.lo
++Only in src: libgap_la-listfunc.o
++Only in src: libgap_la-listoper.lo
++Only in src: libgap_la-listoper.o
++Only in src: libgap_la-lists.lo
++Only in src: libgap_la-lists.o
++Only in src: libgap_la-macfloat.lo
++Only in src: libgap_la-macfloat.o
++Only in src: libgap_la-objccoll.lo
++Only in src: libgap_la-objccoll.o
++Only in src: libgap_la-objcftl.lo
++Only in src: libgap_la-objcftl.o
++Only in src: libgap_la-objects.lo
++Only in src: libgap_la-objects.o
++Only in src: libgap_la-objfgelm.lo
++Only in src: libgap_la-objfgelm.o
++Only in src: libgap_la-objpcgel.lo
++Only in src: libgap_la-objpcgel.o
++Only in src: libgap_la-objscoll.lo
++Only in src: libgap_la-objscoll.o
++Only in src: libgap_la-opers.lo
++Only in src: libgap_la-opers.o
++Only in src: libgap_la-permutat.lo
++Only in src: libgap_la-permutat.o
++Only in src: libgap_la-plist.lo
++Only in src: libgap_la-plist.o
++Only in src: libgap_la-pperm.lo
++Only in src: libgap_la-pperm.o
++Only in src: libgap_la-precord.lo
++Only in src: libgap_la-precord.o
++Only in src: libgap_la-profile.lo
++Only in src: libgap_la-profile.o
++Only in src: libgap_la-range.lo
++Only in src: libgap_la-range.o
++Only in src: libgap_la-rational.lo
++Only in src: libgap_la-rational.o
++Only in src: libgap_la-read.lo
++Only in src: libgap_la-read.o
++Only in src: libgap_la-records.lo
++Only in src: libgap_la-records.o
++Only in src: libgap_la-saveload.lo
++Only in src: libgap_la-saveload.o
++Only in src: libgap_la-scanner.lo
++Only in src: libgap_la-scanner.o
++Only in src: libgap_la-sctable.lo
++Only in src: libgap_la-sctable.o
++Only in src: libgap_la-set.lo
++Only in src: libgap_la-set.o
++Only in src: libgap_la-stats.lo
++Only in src: libgap_la-stats.o
++Only in src: libgap_la-streams.lo
++Only in src: libgap_la-streams.o
++Only in src: libgap_la-string.lo
++Only in src: libgap_la-string.o
++Only in src: libgap_la-sysfiles.lo
++Only in src: libgap_la-sysfiles.o
++Only in src: libgap_la-system.lo
++Only in src: libgap_la-system.o
++Only in src: libgap_la-tietze.lo
++Only in src: libgap_la-tietze.o
++Only in src: libgap_la-trans.lo
++Only in src: libgap_la-trans.o
++Only in src: libgap_la-vars.lo
++Only in src: libgap_la-vars.o
++Only in src: libgap_la-vec8bit.lo
++Only in src: libgap_la-vec8bit.o
++Only in src: libgap_la-vecffe.lo
++Only in src: libgap_la-vecffe.o
++Only in src: libgap_la-vecgf2.lo
++Only in src: libgap_la-vecgf2.o
++Only in src: libgap_la-vector.lo
++Only in src: libgap_la-vector.o
++Only in src: libgap_la-weakptr.lo
++Only in src: libgap_la-weakptr.o
++Only in src: libgap.map
++Only in src: .libs
++diff -urd upstream-gap-4.8.6/src/lists.c src/lists.c
++--- upstream-gap-4.8.6/src/lists.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/lists.c	2016-11-25 13:39:29.108844850 +0100
++@@ -1976,7 +1976,7 @@
++                 }
++                 if ( LEN_LIST( poss ) != LEN_LIST( obj ) ) {
++                     obj = ErrorReturnObj(
++-     "List Assigments: <objs> must have the same length as <positions> (%d)",
+++     "List Assignments: <objs> must have the same length as <positions> (%d)",
++                         LEN_LIST( poss ), 0L,
++                         "you can replace <objs> via 'return <objs>;'" );
++                 }
++Only in src: Makefile
++Only in src: Makefile.am
++Only in src: Makefile.in
++diff -urd upstream-gap-4.8.6/src/objscoll.c src/objscoll.c
++--- upstream-gap-4.8.6/src/objscoll.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/objscoll.c	2016-11-25 13:39:29.112178140 +0100
++@@ -103,7 +103,7 @@
++ #define SingleCollectWord   C8Bits_SingleCollectWord
++ #define Solution            C8Bits_Solution
++ #define UIntN               UInt1
++-#include "src/objscoll-impl.h"
+++#include "objscoll-impl.h"
++ 
++ /****************************************************************************
++ **
++@@ -125,7 +125,7 @@
++ #define SingleCollectWord   C16Bits_SingleCollectWord
++ #define Solution            C16Bits_Solution
++ #define UIntN               UInt2
++-#include "src/objscoll-impl.h"
+++#include "objscoll-impl.h"
++ 
++ /****************************************************************************
++ **
++@@ -147,7 +147,7 @@
++ #define SingleCollectWord   C32Bits_SingleCollectWord
++ #define Solution            C32Bits_Solution
++ #define UIntN               UInt4
++-#include "src/objscoll-impl.h"
+++#include "objscoll-impl.h"
++ 
++ /****************************************************************************
++ **
++diff -urd upstream-gap-4.8.6/src/saveload.c src/saveload.c
++--- upstream-gap-4.8.6/src/saveload.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/saveload.c	2016-11-25 13:39:29.112178140 +0100
++@@ -924,7 +924,7 @@
++   if ((x & 3) == 1)
++     Pr("Immediate  integer %d\n", INT_INTOBJ((Obj)x),0L);
++   else if ((x & 3) == 2)
++-    Pr("Immedate FFE %d %d\n", VAL_FFE(x), SIZE_FF(FLD_FFE(x)));
+++    Pr("Immediate FFE %d %d\n", VAL_FFE(x), SIZE_FF(FLD_FFE(x)));
++   else
++     Pr("Reference to bag number %d\n",x>>2,0L);
++ }
++diff -urd upstream-gap-4.8.6/src/scanner.c src/scanner.c
++--- upstream-gap-4.8.6/src/scanner.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/scanner.c	2016-11-25 13:39:29.112178140 +0100
++@@ -64,6 +64,8 @@
++ #include	"tls.h"
++ #include	"thread.h"
++ 
+++#include        "libgap_internal.h"     /* GAP shared library              */
+++
++ #include <assert.h>
++ #include <limits.h>
++ #include <stdlib.h>
++@@ -2453,150 +2455,25 @@
++          KOutputStream stream,
++          Char                ch )
++ {
++-  Int                 i, hint, spos;
++-  Char                str [MAXLENOUTPUTLINE];
++-
++-
++-  /* '\01', increment indentation level                                  */
++-  if ( ch == '\01' ) {
++-
++-    if (!stream->format)
++-      return;
++-
++-    /* add hint to break line  */
++-    addLineBreakHint(stream, stream->pos, 16*stream->indent, 1);
++-  }
++-
++-  /* '\02', decrement indentation level                                  */
++-  else if ( ch == '\02' ) {
++-
++-    if (!stream -> format)
++-      return;
++-
++-    /* if this is a better place to split the line remember it         */
++-    addLineBreakHint(stream, stream->pos, 16*stream->indent, -1);
++-  }
++-
++-  /* '\03', print line                                                   */
++-  else if ( ch == '\03' ) {
++-
++-    /* print the line                                                  */
++-    if (stream->pos != 0)
++-      {
++-        stream->line[ stream->pos ] = '\0';
++-        PutLineTo(stream, stream->pos );
++-
++-        /* start the next line                                         */
++-        stream->pos      = 0;
++-      }
++-    /* reset line break hints                                          */
++-    stream->hints[0] = -1;
++-
++-  }
++-
++-  /* <newline> or <return>, print line, indent next                      */
++-  else if ( ch == '\n' || ch == '\r' ) {
++-
++-    /* put the character on the line and terminate it                  */
++-    stream->line[ stream->pos++ ] = ch;
++-    stream->line[ stream->pos   ] = '\0';
++-
++-    /* print the line                                                  */
++-    PutLineTo( stream, stream->pos );
++-
++-    /* and dump it from the buffer */
++-    stream->pos = 0;
++-    if (stream -> format)
++-      {
++-        /* indent for next line                                         */
++-        for ( i = 0;  i < stream->indent; i++ )
++-          stream->line[ stream->pos++ ] = ' ';
++-      }
++-    /* reset line break hints                                       */
++-    stream->hints[0] = -1;
++-
++-  }
++-
++-  /* normal character, room on the current line                          */
++-  else if ( stream->pos < SyNrCols-2-TLS(NoSplitLine) ) {
++-
++-    /* put the character on this line                                  */
++-    stream->line[ stream->pos++ ] = ch;
++-
++-  }
++-
++-  else
++-    {
++-      /* position to split                                              */
++-      if ( (hint = nrLineBreak(stream)) != -1 )
++-        spos = stream->hints[3*hint];
++-      else
++-        spos = 0;
++-
++-      /* if we are going to split at the end of the line, and we are
++-         formatting discard blanks */
++-      if ( stream->format && spos == stream->pos && ch == ' ' ) {
++-        ;
++-      }
++-
++-      /* full line, acceptable split position                              */
++-      else if ( stream->format && spos != 0 ) {
++-
++-        /* add character to the line, terminate it                         */
++-        stream->line[ stream->pos++ ] = ch;
++-        stream->line[ stream->pos++ ] = '\0';
++-
++-        /* copy the rest after the best split position to a safe place     */
++-        for ( i = spos; i < stream->pos; i++ )
++-          str[ i-spos ] = stream->line[ i ];
++-        str[ i-spos] = '\0';
++-
++-        /* print line up to the best split position                        */
++-        stream->line[ spos++ ] = '\n';
++-        stream->line[ spos   ] = '\0';
++-        PutLineTo( stream, spos );
++-        spos--;
++-
++-        /* indent for the rest                                             */
++-        stream->pos = 0;
++-        for ( i = 0; i < stream->hints[3*hint+2]; i++ )
++-          stream->line[ stream->pos++ ] = ' ';
++-        spos -= stream->hints[3*hint+2];
++-
++-        /* copy the rest onto the next line                                */
++-        for ( i = 0; str[ i ] != '\0'; i++ )
++-          stream->line[ stream->pos++ ] = str[ i ];
++-        /* recover line break hints for copied rest                      */
++-        for ( i = hint+1; stream->hints[3*i] != -1; i++ )
++-        {
++-          stream->hints[3*(i-hint-1)] = stream->hints[3*i]-spos;
++-          stream->hints[3*(i-hint-1)+1] = stream->hints[3*i+1];
++-          stream->hints[3*(i-hint-1)+2] = stream->hints[3*i+2];
++-        }
++-        stream->hints[3*(i-hint-1)] = -1;
++-      }
++-
++-      /* full line, no split position                                       */
++-      else {
++-
++-        if (stream->format)
++-          {
++-            /* append a '\',*/
++-            stream->line[ stream->pos++ ] = '\\';
++-            stream->line[ stream->pos++ ] = '\n';
++-          }
++-        /* and print the line                                */
++-        stream->line[ stream->pos   ] = '\0';
++-        PutLineTo( stream, stream->pos );
++-
++-        /* add the character to the next line                              */
++-        stream->pos = 0;
++-        stream->line[ stream->pos++ ] = ch;
++-
++-        if (stream->format)
++-          stream->hints[0] = -1;
++-      }
++-
+++    // printf("PutChrTo %i %i %c %hhx\n", stream->file, stream->isstream, ch, ch);
+++    if (ch <= 3)  // GAP control characters
+++    return;
+++  // Magic constants are defined in SyFopen
+++    if (stream->file == 0) {        // negative number indicates an error
+++      assert(False);
+++    } else if (stream->file == 0) { // 0 identifies the standard input file "*stdin*"
+++      assert(False);
+++    } else if (stream->file == 1) { // 1 identifies the standard outpt file "*stdout*"
+++      libgap_append_stdout(ch);
+++    } else if (stream->file == 2) { // 2 identifies the brk loop input file "*errin*"
+++      assert(False);
+++    } else if (stream->file == 3) { // 3 identifies the error messages file "*errout*"
+++      libgap_append_stderr(ch);
+++    } else {                        // anything else is a real file descriptor
+++      stream->line[stream->pos++] = ch;
+++      stream->line[stream->pos++] = '\0';
+++      PutLineTo(stream, stream->pos);
+++      stream->pos = 0;
++     }
++ }
++ 
++Only in src: stamp-h1
++diff -urd upstream-gap-4.8.6/src/sysfiles.c src/sysfiles.c
++--- upstream-gap-4.8.6/src/sysfiles.c	2016-11-12 15:42:10.000000000 +0100
+++++ src/sysfiles.c	2016-11-25 13:39:29.115511430 +0100
++@@ -42,6 +42,8 @@
++ #include	"thread.h"		/* threads			   */
++ #include	"tls.h"			/* thread-local storage		   */
++ 
+++#include        "libgap_internal.h"     /* GAP shared library              */
+++
++ #include        <assert.h>
++ #include        <fcntl.h>
++ 
++@@ -1135,16 +1137,20 @@
++ 
++ void syAnswerCont ( int signr )
++ {
+++#ifdef LIBGAP_SIGNALS
++     syStartraw( syFid );
++     signal( SIGCONT, SIG_DFL );
++     kill( getpid(), SIGCONT );
+++#endif
++ }
++ 
++ void syAnswerTstp ( int signr )
++ {
+++#ifdef LIBGAP_SIGNALS
++     syStopraw( syFid );
++     signal( SIGCONT, syAnswerCont );
++     kill( getpid(), SIGTSTP );
+++#endif
++ }
++ 
++ #endif
++@@ -1217,12 +1223,13 @@
++ 
++ #endif
++ 
++-
+++#ifdef LIBGAP_SIGNALS
++ #ifdef SIGTSTP
++     /* install signal handler for stop                                     */
++     syFid = fid;
++     signal( SIGTSTP, syAnswerTstp );
++ #endif
+++#endif
++ 
++     /* indicate success                                                    */
++     return 1;
++@@ -1245,10 +1252,12 @@
++     if ( SyWindow )
++         return;
++ 
+++#ifdef LIBGAP_SIGNALS
++ #ifdef SIGTSTP
++     /* remove signal handler for stop                                      */
++     signal( SIGTSTP, SIG_DFL );
++ #endif
+++#endif
++ 
++ #if HAVE_TERMIOS_H
++ 
++@@ -1342,11 +1351,13 @@
++ 
++ void SyInstallAnswerIntr ( void )
++ {
+++#ifdef LIBGAP_SIGNALS
++     if ( signal( SIGINT, SIG_IGN ) != SIG_IGN )
++     {
++         signal( SIGINT, syAnswerIntr );
++         siginterrupt( SIGINT, 0 );
++     }
+++#endif
++ }
++ 
++ 
++@@ -1625,7 +1636,9 @@
++             if (CO <= 0)
++                 CO = win.ws_col;
++         }
+++#ifdef LIBGAP_SIGNALS
++         (void) signal(SIGWINCH, syWindowChangeIntr);
+++#endif
++     }
++ #endif /* TIOCGWINSZ */
++ 
++@@ -3256,7 +3269,13 @@
++     UInt                length,
++     Int                 fid)
++ {
++-  return syFgets( line, length, fid, 1);
+++  if(fid!=0 && fid!=2) {
+++    // not stdin/stderr; probably file IO. Do the standard thing.
+++    // printf("SyFgets fid=%i\n", fid);
+++    return syFgets( line, length, fid, 1);
+++  }
+++  return libgap_get_input(line, length);
+++  // return syFgets( line, length, fid, 1);
++ }
++ 
++ 
++@@ -3380,7 +3399,7 @@
++ # endif
++ #endif
++ 
++-extern char ** environ;
+++#include "libgap_internal.h"
++ 
++ void NullSignalHandler(int scratch) {}
++ 
++@@ -3495,6 +3514,7 @@
++        `After that, we call the old signal handler, in case any other children have died in the
++        meantime. This resets the handler */
++ 
+++#ifdef LIBGAP_SIGNALS
++     func2 = signal( SIGCHLD, SIG_DFL );
++ 
++     /* This may return SIG_DFL (0x0) or SIG_IGN (0x1) if the previous handler
++@@ -3503,6 +3523,7 @@
++      * is to do nothing */
++     if(func2 == SIG_ERR || func2 == SIG_DFL || func2 == SIG_IGN)
++       func2 = &NullSignalHandler;
+++#endif
++ 
++     /* clone the process                                                   */
++     pid = vfork();
++@@ -3514,8 +3535,9 @@
++     if ( pid != 0 ) {
++ 
++         /* ignore a CTRL-C                                                 */
+++#ifdef LIBGAP_SIGNALS
++         func = signal( SIGINT, SIG_IGN );
++-
+++#endif
++         /* wait for some action                                            */
++ #if HAVE_WAITPID
++         wait_pid = waitpid( pid, &status, 0 );
++@@ -3523,18 +3545,24 @@
++         wait_pid = wait4( pid, &status, 0, &usage );
++ #endif
++         if ( wait_pid == -1 ) {
+++#ifdef LIBGAP_SIGNALS
++             signal( SIGINT, func );
++             (*func2)(SIGCHLD);
+++#endif
++             return -1;
++         }
++ 
++         if ( WIFSIGNALED(status) ) {
+++#ifdef LIBGAP_SIGNALS
++             signal( SIGINT, func );
++             (*func2)(SIGCHLD);
+++#endif
++             return -1;
++         }
+++#ifdef LIBGAP_SIGNALS
++         signal( SIGINT, func );
++         (*func2)(SIGCHLD);
+++#endif
++         return WEXITSTATUS(status);
++     }
++ 
++Only in src: sysfiles.c.orig
+diff --git a/src/Makefile.in b/src/Makefile.in
+index 3ccedf9..13263fe 100644
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -90,13 +90,14 @@ POST_UNINSTALL = :
+ build_triplet = @build@
+ host_triplet = @host@
+ target_triplet = @target@
+-@NEED_ITANIUMOBJ_TRUE@am__append_1 = itanium.s
++@HAVE_LD_VERSION_SCRIPT_TRUE@am__append_1 = -Wl,--version-script=$(top_srcdir)/src/libgap.map
++@NEED_ITANIUMOBJ_TRUE@am__append_2 = itanium.s
+ subdir = src
+ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
+-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
+-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
+-	$(top_srcdir)/configure.ac
++am__aclocal_m4_deps = $(top_srcdir)/m4/ld-version-script.m4 \
++	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
++	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
++	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.ac
+ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
+ 	$(ACLOCAL_M4)
+ DIST_COMMON = $(srcdir)/Makefile.am $(libgapinclude_HEADERS) \
+@@ -290,6 +291,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
+ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+ LD = @LD@
+ LDFLAGS = @LDFLAGS@
++LIBGAP_LT_VERSION = @LIBGAP_LT_VERSION@
+ LIBOBJS = @LIBOBJS@
+ LIBS = @LIBS@
+ LIBTOOL = @LIBTOOL@
+@@ -379,6 +381,8 @@ top_builddir = @top_builddir@
+ top_srcdir = @top_srcdir@
+ DEFAULT_INCLUDES = -I@top_builddir@
+ lib_LTLIBRARIES = libgap.la
++libgap_la_LT_INFO = -version-info @LIBGAP_LT_VERSION@
++libgap_la_LD_VERSION_SCRIPT = $(am__append_1)
+ libgap_la_SOURCES = ariths.c c_random.c gmpints.c objccoll.c \
+ 	rational.c system.c blister.c c_type1.c gvars.c objcftl.c \
+ 	read.c tietze.c bool.c cyclotom.c integer.c objects.c \
+@@ -389,7 +393,7 @@ libgap_la_SOURCES = ariths.c c_random.c gmpints.c objccoll.c \
+ 	compiler.c funcs.c listfunc.c permutat.c stats.c weakptr.c \
+ 	compstat.c gap.c listoper.c plist.c streams.c c_oper1.c \
+ 	lists.c precord.c string.c costab.c gasman.c macfloat.c \
+-	range.c sysfiles.c pperm.c trans.c profile.c $(am__append_1)
++	range.c sysfiles.c pperm.c trans.c profile.c $(am__append_2)
+ libgapincludedir = @includedir@/gap
+ libgapinclude_HEADERS = \
+   ariths.h    cyclotom.h  integer.h   objcftl.h   rational.h  sysfiles.h \
+@@ -413,7 +417,7 @@ libgap_la_CFLAGS = $(AM_CFLAGS) \
+ 
+ 
+ # the no-undefined is necessary for Cygwin
+-libgap_la_LDFLAGS = -lm @GMP_LIBS@ -no-undefined
++libgap_la_LDFLAGS = $(libgap_la_LT_INFO) $(libgap_la_LD_VERSION_SCRIPT) @GMP_LIBS@ -lm -no-undefined
+ all: config.h
+ 	$(MAKE) $(AM_MAKEFLAGS) all-am
+ 
+diff --git a/src/bool.c b/src/bool.c
+index 1fa9d5a..5d64437 100644
+--- a/src/bool.c
++++ b/src/bool.c
+@@ -373,7 +373,7 @@ static Int InitKernel (
+     StructInitInfo *    module )
+ {
+     /* install the marking functions for boolean values                    */
+-    InfoBags[ T_BOOL ].name = "boolean";
++    InfoBags[ T_BOOL ].name = "boolean or fail";
+     InitMarkFuncBags( T_BOOL, MarkNoSubBags );
+ 
+     /* init filters and functions                                          */
+diff --git a/src/code.c b/src/code.c
+index 6bcdf21..e0e2e8f 100644
+--- a/src/code.c
++++ b/src/code.c
+@@ -135,8 +135,33 @@ Obj FILENAME_STAT(Stat stat)
+       filename = ELM_PLIST(FilenameCache, filenameid);
+   return filename;
+ }
+-    
+-    
++
++
++/****************************************************************************
++**
++** Fill in filename and line of a statement, checking we do not overflow
++** the space we have for storing information
++*/
++Stat fillFilenameLine(Int fileid, Int line, Int size, Int type)
++{
++  Stat stat;
++  if(fileid < 0 || fileid >= (1 << 16))
++  {
++    fileid = (1 << 16) - 1;
++    RegisterProfilingFileOverflowOccured();
++  }
++  if(line < 0 || line >= (1 << 16))
++  {
++    line = (1 << 16) - 1;
++    RegisterProfilingLineOverflowOccured();
++  }
++
++  stat = ((Stat)fileid << 48) + ((Stat)line << 32) +
++          ((Stat)size << 8) + (Stat)type;
++
++  return stat;
++}
++
+ /****************************************************************************
+ **
+ *F  NewStat( <type>, <size> ) . . . . . . . . . . .  allocate a new statement
+@@ -173,8 +198,7 @@ Stat NewStatWithLine (
+     setup_gapname(TLS(Input));
+     
+     /* enter type and size                                                 */
+-    ADDR_STAT(stat)[-1] = ((Stat)TLS(Input)->gapnameid << 48) + ((Stat)line << 32) +
+-                          ((Stat)size << 8) + (Stat)type;
++    ADDR_STAT(stat)[-1] = fillFilenameLine(TLS(Input)->gapnameid, line, size, type);
+     RegisterStatWithProfiling(stat);
+     /* return the new statement                                            */
+     return stat;
+@@ -218,9 +242,8 @@ Expr            NewExpr (
+     }
+ 
+     /* enter type and size                                                 */
+-    ADDR_EXPR(expr)[-1] = ((Stat)TLS(Input)->gapnameid << 48) +
+-                          ((Stat)TLS(Input)->number << 32) +
+-                          ((Stat)size << 8) + type;
++    ADDR_EXPR(expr)[-1] = fillFilenameLine(TLS(Input)->gapnameid,
++                                           TLS(Input)->number, size, type);
+     RegisterStatWithProfiling(expr);
+     /* return the new expression                                           */
+     return expr;
+@@ -3510,6 +3533,3 @@ StructInitInfo * InitInfoCode ( void )
+ 
+ *E  code.c  . . . . . . . . . . . . . . . . . . . . . . . . . . . . ends here
+ */
+-
+-
+-
+diff --git a/src/gap.c b/src/gap.c
+index 58528c9..68b5eff 100644
+--- a/src/gap.c
++++ b/src/gap.c
+@@ -3091,6 +3091,7 @@ static Int PostRestore (
+     Last2             = GVarName( "last2" );
+     Last3             = GVarName( "last3" );
+     Time              = GVarName( "time"  );
++    AssGVar(Time, INTOBJ_INT(0));
+     QUITTINGGVar      = GVarName( "QUITTING" );
+     
+     /* return success                                                      */
+diff --git a/src/intfuncs.c b/src/intfuncs.c
+index 51a542b..1614c3c 100644
+--- a/src/intfuncs.c
++++ b/src/intfuncs.c
+@@ -202,36 +202,6 @@ UInt4 nextrandMT_int32(UInt4* mt)
+     return y;
+ }
+ 
+-
+-Obj FuncRandomListMT(Obj self, Obj mtstr, Obj list)
+-{
+-  Int len, a, lg;
+-  UInt4 *mt;
+-  while ((! IsStringConv(mtstr)) || GET_LEN_STRING(mtstr) < 2500) {
+-     mtstr = ErrorReturnObj(
+-         "<mtstr> must be a string with at least 2500 characters, ",
+-         0L, 0L,
+-         "you can replace <mtstr> via 'return <mtstr>;'" );
+-  }
+-  while (! IS_LIST(list)) {
+-     list = ErrorReturnObj(
+-         "<list> must be a list, not a %s",
+-         (Int)TNAM_OBJ(list), 0L,
+-         "you can replace <list> via 'return <list>;'" );
+-  }
+-  len = LEN_LIST(list);
+-  if (len == 0) return Fail;
+-  mt = (UInt4*) CHARS_STRING(mtstr);
+-  lg = 31 - CLog2Int(len);
+-  for (a = nextrandMT_int32(mt) >> lg;
+-       a >= len;
+-       a = nextrandMT_int32(mt) >> lg
+-    );
+-  return ELM_LIST(list, a+1);
+-}
+-
+-
+-
+ /****************************************************************************
+ **
+ *F  FuncHASHKEY_BAG(<self>,<obj>,<seed>,<offset>,<maxlen>)
+@@ -678,9 +648,6 @@ static StructGVarFunc GVarFuncs [] = {
+     { "InitRandomMT", 1, "initstr",
+       FuncInitRandomMT, "src/integer.c:InitRandomMT" },
+ 
+-    { "RandomListMT", 2, "mtstr, list",
+-      FuncRandomListMT, "src/integer.c:RandomListMT" },
+-
+     { 0 }
+ 
+ };
+diff --git a/src/listfunc.c b/src/listfunc.c
+index 7d04525..4b92f01 100644
+--- a/src/listfunc.c
++++ b/src/listfunc.c
+@@ -232,8 +232,10 @@ Obj            RemPlist (
+     }
+     removed = ELM_PLIST(list, pos);
+     SET_ELM_PLIST(list, pos, (Obj)0L);
+-    SET_LEN_PLIST(list, pos-1);
+-    if ( pos == 1 ) {
++    pos--;
++    while ( 1 <= pos && ELM_PLIST( list, pos ) == 0 ) { pos--; }
++    SET_LEN_PLIST(list, pos);
++    if ( pos == 0 ) {
+       RetypeBag(list, T_PLIST_EMPTY);
+     }
+     if (4*pos*sizeof(Obj) < 3*SIZE_BAG(list))
+@@ -302,6 +304,7 @@ Obj             FuncAPPEND_LIST_INTR (
+         len2 = GET_LEN_STRING(list2);
+         GROW_STRING(list1, len1 + len2);
+         SET_LEN_STRING(list1, len1 + len2);
++        CLEAR_FILTS_LIST(list1);
+         memmove( (void *)(CHARS_STRING(list1) + len1), 
+                 (void *)CHARS_STRING(list2), len2 + 1);
+         /* ensure trailing zero */
+diff --git a/src/pperm.c b/src/pperm.c
+index 5965767..45a536b 100644
+--- a/src/pperm.c
++++ b/src/pperm.c
+@@ -2246,7 +2246,7 @@ Obj PrintPPerm4(Obj self, Obj f){
+   
+   deg=DEG_PPERM4(f);
+   if(deg==0) Pr("<empty partial perm>", 0L, 0L);
+-  n=MAX(deg, CODEG_PPERM2(f));
++  n=MAX(deg, CODEG_PPERM4(f));
+   ResizeTmpPPerm(n);
+   ptseen=(UInt4*)(ADDR_OBJ(TmpPPerm));
+   for(i=0;i<n;i++) ptseen[i]=0; 
+@@ -4451,7 +4451,7 @@ Obj QuoPPerm22(Obj f, Obj g){
+       }
+     }
+   }
+-  CODEG_PPERM2(quo)=codeg;
++  CODEG_PPERM4(quo)=codeg;
+   return quo;
+ }
+ 
+diff --git a/src/profile.c b/src/profile.c
+index 6e5d22e..c2f82d3 100644
+--- a/src/profile.c
++++ b/src/profile.c
+@@ -509,6 +509,73 @@ Obj ProfileEvalBoolPassthrough(Expr stat)
+ }
+ 
+ 
++/****************************************************************************
++**
++** This functions check if we overflow either 2^16 lines, or files.
++** In this case profiling will "give up". We print a warning to tell users
++** that this happens.
++**/
++
++Int HaveReportedLineProfileOverflow;
++Int ShouldReportLineProfileOverflow;
++
++Int HaveReportedFileProfileOverflow;
++Int ShouldReportFileProfileOverflow;
++
++// This function only exists to allow testing of these overflow checks
++Obj FuncCLEAR_PROFILE_OVERFLOW_CHECKS(Obj self) {
++  HaveReportedLineProfileOverflow = 0;
++  ShouldReportLineProfileOverflow = 0;
++
++  HaveReportedFileProfileOverflow = 0;
++  ShouldReportFileProfileOverflow = 0;
++  
++  return 0;
++}
++
++void CheckPrintOverflowWarnings() {
++    if(!HaveReportedLineProfileOverflow && ShouldReportLineProfileOverflow)
++    {
++      HaveReportedLineProfileOverflow = 1;
++      Pr("#I Profiling only works on the first 65,535 lines of each file\n"
++         "#I (this warning will only appear once).\n",
++          0L, 0L);
++    }
++    
++    if(!HaveReportedFileProfileOverflow && ShouldReportFileProfileOverflow)
++    {
++      HaveReportedFileProfileOverflow = 1;
++      Pr("#I Profiling only works for the first 65,535 read files\n"
++         "#I (this warning will only appear once).\n",
++          0L, 0L );
++    }
++}
++
++void RegisterProfilingLineOverflowOccured()
++{
++    Int active;
++    HashLock(&profileState);
++    active = profileState_Active;
++    HashUnlock(&profileState);
++    ShouldReportLineProfileOverflow = 1;
++    if(active)
++    {
++        CheckPrintOverflowWarnings();
++    }
++}
++
++void RegisterProfilingFileOverflowOccured()
++{
++    Int active;
++    HashLock(&profileState);
++    active = profileState_Active;
++    HashUnlock(&profileState);
++    ShouldReportFileProfileOverflow = 1;
++    if(active)
++    {
++        CheckPrintOverflowWarnings();
++    }
++}
+ 
+ /****************************************************************************
+ **
+@@ -603,7 +670,7 @@ Obj FuncACTIVATE_PROFILING (
+     if(profileState_Active) {
+       return Fail;
+     }
+-    
++
+     if(profileState.profiledPreviously &&
+        coverage == True) {
+         ErrorMayQuit("Code coverage can only be started once per"
+@@ -611,6 +678,8 @@ Obj FuncACTIVATE_PROFILING (
+         return Fail;
+     }
+ 
++    CheckPrintOverflowWarnings();
++
+     OutputtedFilenameList = NEW_PLIST(T_PLIST, 0);
+ 
+     if ( ! IsStringConv( filename ) ) {
+@@ -897,6 +966,8 @@ void RegisterStatWithProfiling(Stat stat)
+ }
+ 
+ 
++
++
+ /****************************************************************************
+ **
+ 
+@@ -913,6 +984,8 @@ static StructGVarFunc GVarFuncs [] = {
+       FuncACTIVATE_PROFILING, "src/profile.c:ACTIVATE_PROFILING" },
+     { "DEACTIVATE_PROFILING", 0, "",
+       FuncDEACTIVATE_PROFILING, "src/profile.c:DEACTIVATE_PROFILING" },
++    { "CLEAR_PROFILE_OVERFLOW_CHECKS", 0, "",
++      FuncCLEAR_PROFILE_OVERFLOW_CHECKS, "src/profile.c:CLEAR_PROFILE_OVERFLOW_CHECKS" },
+     { "IsLineByLineProfileActive", 0, "",
+       FuncIS_PROFILE_ACTIVE, "src/profile.c:IsLineByLineProfileActive" },
+     { "ACTIVATE_COLOR_PROFILING", 1, "bool",
+diff --git a/src/profile.h b/src/profile.h
+index d6f4fa7..27bbd6f 100644
+--- a/src/profile.h
++++ b/src/profile.h
+@@ -28,7 +28,8 @@
+ StructInitInfo * InitInfoProfile ( void );
+ 
+ void RegisterStatWithProfiling(Stat);
+-
++void RegisterProfilingLineOverflowOccured();
++void RegisterProfilingFileOverflowOccured();
+ 
+ void InstallEvalBoolFunc( Int, Obj(*)(Expr));
+ void InstallEvalExprFunc( Int, Obj(*)(Expr));
+diff --git a/src/read.c b/src/read.c
+index f69d149..a8f6601 100644
+--- a/src/read.c
++++ b/src/read.c
+@@ -551,13 +551,19 @@ void ReadCallVarAss (
+         }
+     }
+ 
++#ifdef HPCGAP
++#define ASSIGN_ERROR_MESSAGE ":= or ::="
++#else
++#define ASSIGN_ERROR_MESSAGE ":="
++#endif
++
+     /* if we need a statement                                              */
+     else if ( mode == 's' || (mode == 'x' && IS_IN(TLS(Symbol), S_ASSIGN)) ) {
+         if ( type != 'c' && type != 'C') {
+ 	    if (TLS(Symbol) != S_ASSIGN)
+-	      Match( S_INCORPORATE, ":= or ::=", follow);
++	      Match( S_INCORPORATE, ASSIGN_ERROR_MESSAGE, follow);
+ 	    else
+-	      Match( S_ASSIGN, ":= or ::=", follow );
++	      Match( S_ASSIGN, ASSIGN_ERROR_MESSAGE, follow );
+             if ( TLS(CountNams) == 0 || !TLS(IntrCoding) ) { TLS(CurrLHSGVar) = (type == 'g' ? var : 0); }
+             ReadExpr( follow, 'r' );
+         }
+diff --git a/src/streams.c b/src/streams.c
+index 7738672..93fbe07 100644
+--- a/src/streams.c
++++ b/src/streams.c
+@@ -1947,25 +1947,30 @@ Obj FuncWRITE_STRING_FILE_NC (
+     Obj             fid,
+     Obj             str )
+ {
+-    Int             len = 0, ret;
++    Int             len = 0, l, ret;
++    char            *ptr;
+ 
+     /* don't check the argument                                            */
+     
+     len = GET_LEN_STRING(str);
+-    ret = write( syBuf[INT_INTOBJ(fid)].echo, CHARS_STRING(str), len);
+-    return (ret == len)?True : Fail;
++    ptr = CSTR_STRING(str);
++    while (len > 0) {
++      l = (len > 1048576) ? 1048576 : len;
++      ret = write( syBuf[INT_INTOBJ(fid)].echo, ptr, l);
++      if (ret == -1) {
++        SySetErrorNo();
++        return Fail;
++      }
++      len -= ret;
++      ptr += ret;
++    }
++    return True;
+ }
+ 
+-
+ Obj FuncREAD_STRING_FILE (
+     Obj             self,
+     Obj             fid )
+ {
+-    Char            buf[20001];
+-    Int             ret, len;
+-    UInt            lstr;
+-    Obj             str;
+-
+     /* check the argument                                                  */
+     while ( ! IS_INTOBJ(fid) ) {
+         fid = ErrorReturnObj(
+@@ -1973,56 +1978,7 @@ Obj FuncREAD_STRING_FILE (
+             (Int)TNAM_OBJ(fid), 0L,
+             "you can replace <fid> via 'return <fid>;'" );
+     }
+-
+-#if ! SYS_IS_CYGWIN32
+-    /* fstat seems completely broken under CYGWIN */
+-#if HAVE_STAT
+-    /* first try to get the whole file as one chunk, this avoids garbage
+-       collections because of the GROW_STRING calls below    */
+-    {
+-        struct stat fstatbuf;
+-        if ( syBuf[INT_INTOBJ(fid)].pipe == 0 &&
+-            fstat( syBuf[INT_INTOBJ(fid)].fp, &fstatbuf) == 0 ) {
+-            if((off_t)(Int)fstatbuf.st_size != fstatbuf.st_size) {
+-                ErrorMayQuit(
+-                    "The file is too big to fit the current workspace",
+-                    (Int)0, (Int)0);
+-            }
+-            len = (Int) fstatbuf.st_size;
+-            str = NEW_STRING( len );
+-            ret = read( syBuf[INT_INTOBJ(fid)].fp, 
+-                        CHARS_STRING(str), len);
+-            CHARS_STRING(str)[ret] = '\0';
+-            SET_LEN_STRING(str, ret);
+-            if ( (off_t) ret == fstatbuf.st_size ) {
+-                 return str;
+-            }
+-        }
+-    }
+-#endif
+-#endif
+-    /* read <fid> until we see  eof   (in 20kB pieces)                     */
+-    str = NEW_STRING(0);
+-    len = 0;
+-    while (1) {
+-        if ( (ret = read( syBuf[INT_INTOBJ(fid)].fp , buf, 20000)) <= 0 )
+-            break;
+-        len += ret;
+-        GROW_STRING( str, len );
+-	lstr = GET_LEN_STRING(str);
+-        memcpy( CHARS_STRING(str)+lstr, buf, ret );
+-	*(CHARS_STRING(str)+lstr+ret) = '\0';
+-	SET_LEN_STRING(str, lstr+ret);
+-    }
+-
+-    /* fix the length of <str>                                             */
+-    len = GET_LEN_STRING(str);
+-    ResizeBag( str, SIZEBAG_STRINGLEN(len) );
+-
+-    /* and return */
+-
+-    syBuf[INT_INTOBJ(fid)].ateof = 1;
+-    return len == 0 ? Fail : str;
++    return SyReadStringFid(INT_INTOBJ(fid));
+ }
+ 
+ /****************************************************************************
+diff --git a/src/sysfiles.c b/src/sysfiles.c
+index 99e7974..fd46d1a 100644
+--- a/src/sysfiles.c
++++ b/src/sysfiles.c
+@@ -1424,9 +1424,6 @@ static void syAnswerAlarm ( int signr, siginfo_t * si, void *context)
+        Later we might want to do something cleverer with throwing an 
+        exception or dealing better if this isn't our timer     */
+   assert( signr == TIMER_SIGNAL);
+-  assert( si->si_signo == TIMER_SIGNAL);
+-  assert( si->si_code == SI_TIMER);
+-  assert( si->si_value.sival_int == 0x12345678 );
+   SyAlarmRunning = 0;
+   SyAlarmHasGoneOff = 1;
+   InterruptExecStat();
+@@ -4055,6 +4052,96 @@ Char * SyTmpdir ( const Char * hint )
+ #endif
+ #endif
+ 
++Obj SyReadStringFile(Int fid)
++{
++    Char            buf[32769];
++    Int             ret, len;
++    UInt            lstr;
++    Obj             str;
++
++    /* read <fid> until we see  eof   (in 32kB pieces)                     */
++    str = NEW_STRING(0);
++    len = 0;
++    do {
++        ret = read( syBuf[fid].fp , buf, 32768);
++        if (ret < 0) {
++            SySetErrorNo();
++            return Fail;
++        }
++        len += ret;
++        GROW_STRING( str, len );
++        lstr = GET_LEN_STRING(str);
++        memcpy( CHARS_STRING(str)+lstr, buf, ret );
++        *(CHARS_STRING(str)+lstr+ret) = '\0';
++        SET_LEN_STRING(str, lstr+ret);
++    } while(ret > 0);
++
++    /* fix the length of <str>                                             */
++    len = GET_LEN_STRING(str);
++    ResizeBag( str, SIZEBAG_STRINGLEN(len) );
++
++    syBuf[fid].ateof = 1;
++    return str;
++}
++
++#if !defined(SYS_IS_CYGWIN32) && defined(HAVE_STAT)
++/* fstat seems completely broken under CYGWIN */
++/* first try to get the whole file as one chunk, this avoids garbage
++   collections because of the GROW_STRING calls below    */
++Obj SyReadStringFileStat(Int fid)
++{
++    Int             ret, len;
++    Obj             str;
++    Int             l;
++    char            *ptr;
++    struct stat     fstatbuf;
++
++    if( fstat( syBuf[fid].fp, &fstatbuf) == 0 ) {
++        if((off_t)(Int)fstatbuf.st_size != fstatbuf.st_size) {
++            ErrorMayQuit(
++                "The file is too big to fit the current workspace",
++                (Int)0, (Int)0);
++        }
++        len = (Int) fstatbuf.st_size;
++        str = NEW_STRING( len );
++        CHARS_STRING(str)[len] = '\0';
++        SET_LEN_STRING(str, len);
++        ptr = CSTR_STRING(str);
++        while (len > 0) {
++            l = (len > 1048576) ? 1048576 : len;
++            ret = read( syBuf[fid].fp, ptr, l);
++            if (ret == -1) {
++                SySetErrorNo();
++                return Fail;
++            }
++            len -= ret;
++            ptr += ret;
++        }
++        syBuf[fid].ateof = 1;
++        return str;
++    } else {
++        SySetErrorNo();
++        return Fail;
++    }
++}
++
++Obj SyReadStringFid(Int fid)
++{
++    if(syBuf[fid].pipe == 1) {
++        return SyReadStringFile(fid);
++    } else {
++        return SyReadStringFileStat(fid);
++    }
++}
++
++#else
++
++Obj SyReadStringFid(Int fid) {
++    return SyReadStringFile(fid);
++}
++
++#endif
++
+ 
+ 
+ /****************************************************************************
+diff --git a/src/sysfiles.h b/src/sysfiles.h
+index 497acca..dbf6b19 100644
+--- a/src/sysfiles.h
++++ b/src/sysfiles.h
+@@ -630,8 +630,21 @@ extern void syWinPut (
+     const Char *        cmd,
+     const Char *        str );
+ 
++/***************************************************************************
++ **
++ *F SyReadStringFid( <fid> )
++ **   - read file given by <fid> into a string
++ *F SyReadStringFile( <fid> )
++ **   - read file given by <fid> into a string, only rely on read()
++ *F SyReadStringFileStat( <fid> )
++ **   - read file given by <fid> into a string, use stat() to determine
++ **     size of file before reading. This does not work for pipes
++ */
++
++extern Obj SyReadStringFid(Int fid);
++extern Obj SyReadStringFile(Int fid);
++extern Obj SyReadStringFileGeneric(Int fid);
+ 
+-     
+ /****************************************************************************
+ **
+ 
+diff --git a/src/system.c b/src/system.c
+index 8548293..e34b898 100644
+--- a/src/system.c
++++ b/src/system.c
+@@ -78,10 +78,10 @@ Int enableCodeCoverageAtStartup( Char **argv, void * dummy);
+ /****************************************************************************
+ **
+ *V  SyKernelVersion  . . . . . . . . . . . . . . . hard coded kernel version
+-** do not edit the following line. Occurences of `4.8.3' and `today'
++** do not edit the following line. Occurences of `4.8.6' and `today'
+ ** will be replaced by string matching by distribution wrapping scripts.
+ */
+-const Char * SyKernelVersion = "4.8.3";
++const Char * SyKernelVersion = "4.8.6";
+ 
+ /****************************************************************************
+ **
+diff --git a/src/trans.c b/src/trans.c
+index f7ec508..8699166 100644
+--- a/src/trans.c
++++ b/src/trans.c
+@@ -421,7 +421,7 @@ Obj FuncRANK_TRANS_LIST(Obj self, Obj f, Obj list){
+     rank=0; 
+     for(i=1;i<=len;i++){
+       pt=ELM_LIST(list, i);
+-      if(!TNUM_OBJ(pt)==T_INT||INT_INTOBJ(pt)<1){
++      if(TNUM_OBJ(pt)!=T_INT||INT_INTOBJ(pt)<1){
+         ErrorQuit("usage: the second argument <list> must be a list of positive\n integers (not a %s)", (Int)TNAM_OBJ(pt), 0L);
+       }
+       j=INT_INTOBJ(pt)-1;
+@@ -439,7 +439,7 @@ Obj FuncRANK_TRANS_LIST(Obj self, Obj f, Obj list){
+     rank=0; 
+     for(i=1;i<=len;i++){
+       pt=ELM_LIST(list, i);
+-      if(!TNUM_OBJ(pt)==T_INT||INT_INTOBJ(pt)<1){
++      if(TNUM_OBJ(pt)!=T_INT||INT_INTOBJ(pt)<1){
+         ErrorQuit("usage: the second argument <list> must be a list of positive\n integers (not a %s)", (Int)TNAM_OBJ(pt), 0L);
+       }
+       j=INT_INTOBJ(pt)-1;
+diff --git a/test/Makefile.in b/test/Makefile.in
+index 013b127..6de463f 100644
+--- a/test/Makefile.in
++++ b/test/Makefile.in
+@@ -92,10 +92,10 @@ TESTS = test$(EXEEXT) shell$(EXEEXT) error_handler$(EXEEXT)
+ check_PROGRAMS = test$(EXEEXT) shell$(EXEEXT) error_handler$(EXEEXT)
+ subdir = test
+ ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+-am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
+-	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
+-	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
+-	$(top_srcdir)/configure.ac
++am__aclocal_m4_deps = $(top_srcdir)/m4/ld-version-script.m4 \
++	$(top_srcdir)/m4/libtool.m4 $(top_srcdir)/m4/ltoptions.m4 \
++	$(top_srcdir)/m4/ltsugar.m4 $(top_srcdir)/m4/ltversion.m4 \
++	$(top_srcdir)/m4/lt~obsolete.m4 $(top_srcdir)/configure.ac
+ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
+ 	$(ACLOCAL_M4)
+ DIST_COMMON = $(srcdir)/Makefile.am $(am__DIST_COMMON)
+@@ -430,6 +430,7 @@ INSTALL_SCRIPT = @INSTALL_SCRIPT@
+ INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+ LD = @LD@
+ LDFLAGS = @LDFLAGS@
++LIBGAP_LT_VERSION = @LIBGAP_LT_VERSION@
+ LIBOBJS = @LIBOBJS@
+ LIBS = @LIBS@
+ LIBTOOL = @LIBTOOL@
+-- 
+2.7.4.1.g5468f9e
+
