@@ -4,8 +4,8 @@
 # vim: ft=sh:
 
 pkgname=libcec
-pkgver=3.1.0
-pkgrel=2
+pkgver=4.0.0
+pkgrel=1
 pkgdesc="Pulse-Eight's libcec for the Pulse-Eight USB-CEC adapter"
 arch=('i686' 'x86_64')
 url="http://libcec.pulse-eight.com/"
@@ -13,7 +13,7 @@ license=('GPL')
 makedepends=('cmake')
 depends=('udev' 'lockdev' 'p8-platform' 'libxrandr')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/Pulse-Eight/$pkgname/archive/$pkgname-$pkgver.tar.gz")
-sha256sums=('09109d21a1b03f42c9e341d12600f2e4c41038d640269fa75408e2d36126f921')
+sha256sums=('e1a710aa050a1ee7ca4cfd1cd801a8bc86f5f28ff22ba0ea4a695972b707060c')
 
 build() {
     cd "$pkgname-$pkgname-$pkgver"
