@@ -3,8 +3,8 @@
 # Contributor: Cedric Girard <girard.cedric@gmail.com>
 
 pkgname=p8-platform
-pkgver=2.0.1
-pkgrel=2
+pkgver=2.1.0.1
+pkgrel=1
 pkgdesc="Platform support library used by libCEC and binary add-ons for Kodi"
 arch=('i686' 'x86_64')
 url="https://github.com/Pulse-Eight/platform"
@@ -14,7 +14,7 @@ replaces=('libplatform')
 makedepends=('cmake')
 depends=('gcc-libs')
 source=(https://github.com/Pulse-Eight/platform/archive/p8-platform-${pkgver}.tar.gz)
-sha256sums=('e97e45273e90571aa37732cde913b262f5f519c387083645d2557d7189c054cf')
+sha256sums=('064f8d2c358895c7e0bea9ae956f8d46f3f057772cb97f2743a11d478a0f68a0')
 
 build() {
   cd "$srcdir"/platform-p8-platform-${pkgver}
