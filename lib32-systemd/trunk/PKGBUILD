@@ -4,27 +4,77 @@
 
 pkgname=lib32-systemd
 _pkgbasename=systemd
-pkgver=231
+pkgver=232
 pkgrel=1
 pkgdesc="system and service manager (32-bit)"
 arch=('x86_64')
-url="http://www.freedesktop.org/wiki/Software/systemd"
+url="https://www.github.com/systemd/systemd"
 license=('GPL2' 'LGPL2.1')
-depends=('lib32-libgcrypt' 'lib32-xz' 'lib32-libcap' 'lib32-acl' 'lib32-libidn' 'lib32-gcc-libs' 'systemd')
+depends=('lib32-libgcrypt' 'lib32-xz' 'lib32-libcap' 'lib32-gcc-libs' 'systemd')
 makedepends=('lib32-gcc-libs' 'gcc-multilib' 'lib32-libidn' 'lib32-glib2' 'intltool' 'gperf'
              'lib32-curl' 'lib32-bzip2' 'git')
-source=("git://github.com/systemd/systemd.git#tag=v$pkgver")
-md5sums=('SKIP')
+options=('strip')
+source=("git://github.com/systemd/systemd.git#tag=v$pkgver"
+        '0001-disable-RestrictAddressFamilies-on-i686.patch'
+        '0001-Revert-nspawn-try-to-bind-mount-resolved-s-resolv.co.patch')
+md5sums=('SKIP'
+         '9536d399938a48fbf38c24e322f4f078'
+         '2f324d6ddd4fd78b73d453044292b9b1')
+validpgpkeys=(
+  '63CDA1E5D3FC22B998D20DD6327F26951A015CC4'  # Lennart Poettering
+)
 
 _backports=(
+  '843d5baf6aad6c53fc00ea8d95d83209a4f92de1'  # core: don't use the unified hierarchy for the systemd cgroup yet (#4628)
+  'abd67ce74858491565cde157c7b08fda43d3279c'  # basic/virt: fix userns check on CONFIG_USER_NS=n kernel (#4651)
+  '4318abe8d26e969ebdb97744a63ab900233a0185'  # build-sys: do not install ctrl-alt-del.target symlink twice
+  'd112eae7da77899be245ab52aa1747d4675549f1'  # device: Avoid calling unit_free(NULL) in device setup logic (#4748)
 )
+
+_validate_tag() {
+  local success fingerprint trusted status tag=v$pkgver
+
+  parse_gpg_statusfile /dev/stdin < <(git verify-tag --raw "$tag" 2>&1)
+
+  if (( ! success )); then
+    error 'failed to validate tag %s\n' "$tag"
+    return 1
+  fi
+
+  if ! in_array "$fingerprint" "${validpgpkeys[@]}" && (( ! trusted )); then
+    error 'unknown or untrusted public key: %s\n' "$fingerprint"
+    return 1
+  fi
+
+  case $status in
+    'expired')
+      warning 'the signature has expired'
+      ;;
+    'expiredkey')
+      warning 'the key has expired'
+      ;;
+  esac
+
+  return 0
+}
 
 prepare() {
   cd systemd
 
+  _validate_tag || return
+
   if (( ${#_backports[*]} > 0 )); then
     git cherry-pick -n "${_backports[@]}"
   fi
+
+  # these patches aren't upstream, but they make v232 more useable.
+
+  # https://github.com/systemd/systemd/issues/4575
+  patch -Np1 <../0001-disable-RestrictAddressFamilies-on-i686.patch
+
+  # https://github.com/systemd/systemd/issues/4595
+  # https://github.com/systemd/systemd/issues/3826
+  patch -Np1 <../0001-Revert-nspawn-try-to-bind-mount-resolved-s-resolv.co.patch
 
   ./autogen.sh
 }
