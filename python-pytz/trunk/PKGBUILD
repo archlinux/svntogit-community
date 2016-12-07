@@ -4,15 +4,16 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2016.7
+pkgver=2016.10
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
-source=(https://pypi.python.org/packages/62/de/3ec428a9a656c4568f8a01b93bda4aff43c3fadfa50356048a62de9ee3b7/pytz-2016.7.tar.gz)
+source=(https://pypi.python.org/packages/42/00/5c89fc6c9b305df84def61863528e899e9dccb196f8438f6cbe960758fc5/pytz-2016.10.tar.gz{,.asc})
+md5sums=('cc9f16ba436efabdcef3c4d32ae4919c'
+         'SKIP')
 validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
-md5sums=('8660ba7c3c0abd23e6e4efa493b02966')
 
 build(){
     cd $srcdir
