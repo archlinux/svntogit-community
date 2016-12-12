@@ -1,0 +1,1914 @@
+From 72091804304b2dbed7ecbae62eae765a431d235d Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 10:38:58 -0400
+Subject: [PATCH 1/8] Pass http-client Request to responseConsumer
+
+This is potentially needed for error handling as HttpException now
+includes it.
+---
+ Aws/Aws.hs                                              |  2 +-
+ Aws/Core.hs                                             |  9 +++++----
+ Aws/DynamoDb/Commands/DeleteItem.hs                     |  2 +-
+ Aws/DynamoDb/Commands/GetItem.hs                        |  2 +-
+ Aws/DynamoDb/Commands/PutItem.hs                        |  2 +-
+ Aws/DynamoDb/Commands/Query.hs                          |  3 ++-
+ Aws/DynamoDb/Commands/Scan.hs                           |  2 +-
+ Aws/DynamoDb/Commands/Table.hs                          | 12 ++++++------
+ Aws/DynamoDb/Commands/UpdateItem.hs                     |  2 +-
+ Aws/Iam/Commands/CreateAccessKey.hs                     |  2 +-
+ Aws/Iam/Commands/CreateUser.hs                          |  5 +++--
+ Aws/Iam/Commands/DeleteAccessKey.hs                     |  3 ++-
+ Aws/Iam/Commands/DeleteUser.hs                          |  3 ++-
+ Aws/Iam/Commands/DeleteUserPolicy.hs                    |  3 ++-
+ Aws/Iam/Commands/GetUser.hs                             |  4 ++--
+ Aws/Iam/Commands/GetUserPolicy.hs                       |  2 +-
+ Aws/Iam/Commands/ListAccessKeys.hs                      |  2 +-
+ Aws/Iam/Commands/ListMfaDevices.hs                      |  2 +-
+ Aws/Iam/Commands/ListUserPolicies.hs                    |  2 +-
+ Aws/Iam/Commands/ListUsers.hs                           |  2 +-
+ Aws/Iam/Commands/PutUserPolicy.hs                       |  2 +-
+ Aws/Iam/Commands/UpdateAccessKey.hs                     |  2 +-
+ Aws/Iam/Commands/UpdateUser.hs                          |  2 +-
+ Aws/S3/Commands/CopyObject.hs                           |  2 +-
+ Aws/S3/Commands/DeleteBucket.hs                         |  2 +-
+ Aws/S3/Commands/DeleteObject.hs                         |  3 ++-
+ Aws/S3/Commands/DeleteObjects.hs                        |  2 +-
+ Aws/S3/Commands/GetBucket.hs                            |  2 +-
+ Aws/S3/Commands/GetBucketLocation.hs                    |  2 +-
+ Aws/S3/Commands/GetObject.hs                            |  2 +-
+ Aws/S3/Commands/GetService.hs                           |  2 +-
+ Aws/S3/Commands/HeadObject.hs                           |  2 +-
+ Aws/S3/Commands/Multipart.hs                            |  8 ++++----
+ Aws/S3/Commands/PutBucket.hs                            |  2 +-
+ Aws/S3/Commands/PutObject.hs                            |  2 +-
+ Aws/Ses/Commands/DeleteIdentity.hs                      |  3 ++-
+ Aws/Ses/Commands/GetIdentityDkimAttributes.hs           |  2 +-
+ Aws/Ses/Commands/GetIdentityNotificationAttributes.hs   |  2 +-
+ Aws/Ses/Commands/GetIdentityVerificationAttributes.hs   |  2 +-
+ Aws/Ses/Commands/ListIdentities.hs                      |  2 +-
+ Aws/Ses/Commands/SendRawEmail.hs                        |  2 +-
+ Aws/Ses/Commands/SetIdentityDkimEnabled.hs              |  3 ++-
+ .../Commands/SetIdentityFeedbackForwardingEnabled.hs    |  3 ++-
+ Aws/Ses/Commands/SetIdentityNotificationTopic.hs        |  3 ++-
+ Aws/Ses/Commands/VerifyDomainDkim.hs                    |  2 +-
+ Aws/Ses/Commands/VerifyDomainIdentity.hs                |  2 +-
+ Aws/Ses/Commands/VerifyEmailIdentity.hs                 |  3 ++-
+ Aws/SimpleDb/Commands/Attributes.hs                     | 17 +++++++++++------
+ Aws/SimpleDb/Commands/Domain.hs                         | 11 +++++++----
+ Aws/SimpleDb/Commands/Select.hs                         |  2 +-
+ Aws/Sqs/Commands/Message.hs                             |  8 ++++----
+ Aws/Sqs/Commands/Permission.hs                          |  6 +++---
+ Aws/Sqs/Commands/Queue.hs                               |  8 ++++----
+ Aws/Sqs/Commands/QueueAttributes.hs                     |  6 +++---
+ 54 files changed, 105 insertions(+), 85 deletions(-)
+
+diff --git a/Aws/Aws.hs b/Aws/Aws.hs
+index 0fb36da..5fad82e 100644
+--- a/Aws/Aws.hs
++++ b/Aws/Aws.hs
+@@ -247,7 +247,7 @@ unsafeAwsRef cfg info manager metadataRef request = do
+   logDebug $ "Response status: " ++ show (HTTP.responseStatus hresp)
+   forM_ (HTTP.responseHeaders hresp) $ \(hname,hvalue) -> liftIO $
+     logger cfg Debug $ T.decodeUtf8 $ "Response header '" `mappend` CI.original hname `mappend` "': '" `mappend` hvalue `mappend` "'"
+-  {-# SCC "unsafeAwsRef:responseConsumer" #-} responseConsumer request metadataRef hresp
++  {-# SCC "unsafeAwsRef:responseConsumer" #-} responseConsumer httpRequest request metadataRef hresp
+ 
+ -- | Run a URI-only AWS transaction. Returns a URI that can be sent anywhere. Does not work with all requests.
+ --
+diff --git a/Aws/Core.hs b/Aws/Core.hs
+index 1a13c38..ec5d033 100644
+--- a/Aws/Core.hs
++++ b/Aws/Core.hs
+@@ -201,14 +201,15 @@ class Monoid (ResponseMetadata resp) => ResponseConsumer req resp where
+     -- metadata type for each AWS service.
+     type ResponseMetadata resp
+ 
+-    -- | Response parser. Takes the corresponding request, an 'IORef'
+-    -- for metadata, and HTTP response data.
+-    responseConsumer :: req -> IORef (ResponseMetadata resp) -> HTTPResponseConsumer resp
++    -- | Response parser. Takes the corresponding AWS request, the derived
++    -- @http-client@ request (for error reporting), an 'IORef' for metadata, and
++    -- HTTP response data.
++    responseConsumer :: HTTP.Request -> req -> IORef (ResponseMetadata resp) -> HTTPResponseConsumer resp
+ 
+ -- | Does not parse response. For debugging.
+ instance ResponseConsumer r (HTTP.Response L.ByteString) where
+     type ResponseMetadata (HTTP.Response L.ByteString) = ()
+-    responseConsumer _ _ resp = do
++    responseConsumer _ _ _ resp = do
+         bss <- HTTP.responseBody resp $$+- CL.consume
+         return resp
+             { HTTP.responseBody = L.fromChunks bss
+diff --git a/Aws/DynamoDb/Commands/DeleteItem.hs b/Aws/DynamoDb/Commands/DeleteItem.hs
+index f541602..7f47e3a 100644
+--- a/Aws/DynamoDb/Commands/DeleteItem.hs
++++ b/Aws/DynamoDb/Commands/DeleteItem.hs
+@@ -97,7 +97,7 @@ instance FromJSON DeleteItemResponse where
+ 
+ instance ResponseConsumer r DeleteItemResponse where
+     type ResponseMetadata DeleteItemResponse = DdbResponse
+-    responseConsumer _ ref resp = ddbResponseConsumer ref resp
++    responseConsumer _ _ ref resp = ddbResponseConsumer ref resp
+ 
+ 
+ instance AsMemoryResponse DeleteItemResponse where
+diff --git a/Aws/DynamoDb/Commands/GetItem.hs b/Aws/DynamoDb/Commands/GetItem.hs
+index 960b968..85bbf9f 100644
+--- a/Aws/DynamoDb/Commands/GetItem.hs
++++ b/Aws/DynamoDb/Commands/GetItem.hs
+@@ -84,7 +84,7 @@ instance FromJSON GetItemResponse where
+ 
+ instance ResponseConsumer r GetItemResponse where
+     type ResponseMetadata GetItemResponse = DdbResponse
+-    responseConsumer _ ref resp = ddbResponseConsumer ref resp
++    responseConsumer _ _ ref resp = ddbResponseConsumer ref resp
+ 
+ 
+ instance AsMemoryResponse GetItemResponse where
+diff --git a/Aws/DynamoDb/Commands/PutItem.hs b/Aws/DynamoDb/Commands/PutItem.hs
+index 2dfe55a..0ad51b1 100644
+--- a/Aws/DynamoDb/Commands/PutItem.hs
++++ b/Aws/DynamoDb/Commands/PutItem.hs
+@@ -98,7 +98,7 @@ instance FromJSON PutItemResponse where
+ 
+ instance ResponseConsumer r PutItemResponse where
+     type ResponseMetadata PutItemResponse = DdbResponse
+-    responseConsumer _ ref resp = ddbResponseConsumer ref resp
++    responseConsumer _ _ ref resp = ddbResponseConsumer ref resp
+ 
+ 
+ instance AsMemoryResponse PutItemResponse where
+diff --git a/Aws/DynamoDb/Commands/Query.hs b/Aws/DynamoDb/Commands/Query.hs
+index 90afdee..c01bbea 100644
+--- a/Aws/DynamoDb/Commands/Query.hs
++++ b/Aws/DynamoDb/Commands/Query.hs
+@@ -135,7 +135,8 @@ instance SignQuery Query where
+ 
+ instance ResponseConsumer r QueryResponse where
+     type ResponseMetadata QueryResponse = DdbResponse
+-    responseConsumer _ ref resp = ddbResponseConsumer ref resp
++    responseConsumer _ _ ref resp
++        = ddbResponseConsumer ref resp
+ 
+ 
+ instance AsMemoryResponse QueryResponse where
+diff --git a/Aws/DynamoDb/Commands/Scan.hs b/Aws/DynamoDb/Commands/Scan.hs
+index 1135c61..f1e0397 100644
+--- a/Aws/DynamoDb/Commands/Scan.hs
++++ b/Aws/DynamoDb/Commands/Scan.hs
+@@ -114,7 +114,7 @@ instance SignQuery Scan where
+ 
+ instance ResponseConsumer r ScanResponse where
+     type ResponseMetadata ScanResponse = DdbResponse
+-    responseConsumer _ ref resp = ddbResponseConsumer ref resp
++    responseConsumer _ _ ref resp = ddbResponseConsumer ref resp
+ 
+ 
+ instance AsMemoryResponse ScanResponse where
+diff --git a/Aws/DynamoDb/Commands/Table.hs b/Aws/DynamoDb/Commands/Table.hs
+index d90c3a9..59b8b44 100644
+--- a/Aws/DynamoDb/Commands/Table.hs
++++ b/Aws/DynamoDb/Commands/Table.hs
+@@ -293,7 +293,7 @@ instance A.FromJSON TableDescription where
+ {- Can't derive these instances onto the return values
+ instance ResponseConsumer r TableDescription where
+     type ResponseMetadata TableDescription = DyMetadata
+-    responseConsumer _ _ = ddbResponseConsumer
++    responseConsumer _ _ _ = ddbResponseConsumer
+ instance AsMemoryResponse TableDescription where
+     type MemoryResponse TableDescription = TableDescription
+     loadToMemory = return
+@@ -351,7 +351,7 @@ newtype CreateTableResult = CreateTableResult { ctStatus :: TableDescription }
+ -- ResponseConsumer and AsMemoryResponse can't be derived
+ instance ResponseConsumer r CreateTableResult where
+     type ResponseMetadata CreateTableResult = DdbResponse
+-    responseConsumer _ = ddbResponseConsumer
++    responseConsumer _ _ = ddbResponseConsumer
+ instance AsMemoryResponse CreateTableResult where
+     type MemoryResponse CreateTableResult = TableDescription
+     loadToMemory = return . ctStatus
+@@ -376,7 +376,7 @@ newtype DescribeTableResult = DescribeTableResult { dtStatus :: TableDescription
+ -- ResponseConsumer can't be derived
+ instance ResponseConsumer r DescribeTableResult where
+     type ResponseMetadata DescribeTableResult = DdbResponse
+-    responseConsumer _ = ddbResponseConsumer
++    responseConsumer _ _ = ddbResponseConsumer
+ instance AsMemoryResponse DescribeTableResult where
+     type MemoryResponse DescribeTableResult = TableDescription
+     loadToMemory = return . dtStatus
+@@ -408,7 +408,7 @@ newtype UpdateTableResult = UpdateTableResult { uStatus :: TableDescription }
+ -- ResponseConsumer can't be derived
+ instance ResponseConsumer r UpdateTableResult where
+     type ResponseMetadata UpdateTableResult = DdbResponse
+-    responseConsumer _ = ddbResponseConsumer
++    responseConsumer _ _ = ddbResponseConsumer
+ instance AsMemoryResponse UpdateTableResult where
+     type MemoryResponse UpdateTableResult = TableDescription
+     loadToMemory = return . uStatus
+@@ -433,7 +433,7 @@ newtype DeleteTableResult = DeleteTableResult { dStatus :: TableDescription }
+ -- ResponseConsumer can't be derived
+ instance ResponseConsumer r DeleteTableResult where
+     type ResponseMetadata DeleteTableResult = DdbResponse
+-    responseConsumer _ = ddbResponseConsumer
++    responseConsumer _ _ = ddbResponseConsumer
+ instance AsMemoryResponse DeleteTableResult where
+     type MemoryResponse DeleteTableResult = TableDescription
+     loadToMemory = return . dStatus
+@@ -459,7 +459,7 @@ instance A.FromJSON ListTablesResult where
+     parseJSON = A.genericParseJSON capitalizeOpt
+ instance ResponseConsumer r ListTablesResult where
+     type ResponseMetadata ListTablesResult = DdbResponse
+-    responseConsumer _ = ddbResponseConsumer
++    responseConsumer _ _ = ddbResponseConsumer
+ instance AsMemoryResponse ListTablesResult where
+     type MemoryResponse ListTablesResult = [T.Text]
+     loadToMemory = return . tableNames
+diff --git a/Aws/DynamoDb/Commands/UpdateItem.hs b/Aws/DynamoDb/Commands/UpdateItem.hs
+index a2290a8..84b46a5 100644
+--- a/Aws/DynamoDb/Commands/UpdateItem.hs
++++ b/Aws/DynamoDb/Commands/UpdateItem.hs
+@@ -158,7 +158,7 @@ instance FromJSON UpdateItemResponse where
+ 
+ instance ResponseConsumer r UpdateItemResponse where
+     type ResponseMetadata UpdateItemResponse = DdbResponse
+-    responseConsumer _ ref resp = ddbResponseConsumer ref resp
++    responseConsumer _ _ ref resp = ddbResponseConsumer ref resp
+ 
+ 
+ instance AsMemoryResponse UpdateItemResponse where
+diff --git a/Aws/Iam/Commands/CreateAccessKey.hs b/Aws/Iam/Commands/CreateAccessKey.hs
+index a95a304..20cb071 100644
+--- a/Aws/Iam/Commands/CreateAccessKey.hs
++++ b/Aws/Iam/Commands/CreateAccessKey.hs
+@@ -58,7 +58,7 @@ data CreateAccessKeyResponse
+ 
+ instance ResponseConsumer CreateAccessKey CreateAccessKeyResponse where
+     type ResponseMetadata CreateAccessKeyResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer $ \cursor -> do
+             let attr name = force ("Missing " ++ Text.unpack name) $
+                             cursor $// elContent name
+diff --git a/Aws/Iam/Commands/CreateUser.hs b/Aws/Iam/Commands/CreateUser.hs
+index 7022045..c3a0aa1 100644
+--- a/Aws/Iam/Commands/CreateUser.hs
++++ b/Aws/Iam/Commands/CreateUser.hs
+@@ -41,8 +41,9 @@ data CreateUserResponse = CreateUserResponse User
+ 
+ instance ResponseConsumer CreateUser CreateUserResponse where
+     type ResponseMetadata CreateUserResponse = IamMetadata
+-    responseConsumer _ = iamResponseConsumer $
+-                         fmap CreateUserResponse . parseUser
++    responseConsumer _ _
++        = iamResponseConsumer $
++          fmap CreateUserResponse . parseUser
+ 
+ instance Transaction CreateUser CreateUserResponse
+ 
+diff --git a/Aws/Iam/Commands/DeleteAccessKey.hs b/Aws/Iam/Commands/DeleteAccessKey.hs
+index 627f6e3..b4e2084 100644
+--- a/Aws/Iam/Commands/DeleteAccessKey.hs
++++ b/Aws/Iam/Commands/DeleteAccessKey.hs
+@@ -39,7 +39,8 @@ data DeleteAccessKeyResponse = DeleteAccessKeyResponse
+ 
+ instance ResponseConsumer DeleteAccessKey DeleteAccessKeyResponse where
+     type ResponseMetadata DeleteAccessKeyResponse = IamMetadata
+-    responseConsumer _ = iamResponseConsumer (const $ return DeleteAccessKeyResponse)
++    responseConsumer _ _
++        = iamResponseConsumer (const $ return DeleteAccessKeyResponse)
+ 
+ instance Transaction DeleteAccessKey DeleteAccessKeyResponse
+ 
+diff --git a/Aws/Iam/Commands/DeleteUser.hs b/Aws/Iam/Commands/DeleteUser.hs
+index 491e3b1..afd2132 100644
+--- a/Aws/Iam/Commands/DeleteUser.hs
++++ b/Aws/Iam/Commands/DeleteUser.hs
+@@ -27,7 +27,8 @@ data DeleteUserResponse = DeleteUserResponse
+ 
+ instance ResponseConsumer DeleteUser DeleteUserResponse where
+     type ResponseMetadata DeleteUserResponse = IamMetadata
+-    responseConsumer _ = iamResponseConsumer (const $ return DeleteUserResponse)
++    responseConsumer _ _
++        = iamResponseConsumer (const $ return DeleteUserResponse)
+ 
+ instance Transaction DeleteUser DeleteUserResponse
+ 
+diff --git a/Aws/Iam/Commands/DeleteUserPolicy.hs b/Aws/Iam/Commands/DeleteUserPolicy.hs
+index 7a1c38f..9cf1279 100644
+--- a/Aws/Iam/Commands/DeleteUserPolicy.hs
++++ b/Aws/Iam/Commands/DeleteUserPolicy.hs
+@@ -37,7 +37,8 @@ data DeleteUserPolicyResponse = DeleteUserPolicyResponse
+ 
+ instance ResponseConsumer DeleteUserPolicy DeleteUserPolicyResponse where
+     type ResponseMetadata DeleteUserPolicyResponse = IamMetadata
+-    responseConsumer _ = iamResponseConsumer (const $ return DeleteUserPolicyResponse)
++    responseConsumer _ _ =
++        iamResponseConsumer (const $ return DeleteUserPolicyResponse)
+ 
+ instance Transaction DeleteUserPolicy DeleteUserPolicyResponse
+ 
+diff --git a/Aws/Iam/Commands/GetUser.hs b/Aws/Iam/Commands/GetUser.hs
+index 171c34e..67c46b3 100644
+--- a/Aws/Iam/Commands/GetUser.hs
++++ b/Aws/Iam/Commands/GetUser.hs
+@@ -33,8 +33,8 @@ data GetUserResponse = GetUserResponse User
+ 
+ instance ResponseConsumer GetUser GetUserResponse where
+     type ResponseMetadata GetUserResponse = IamMetadata
+-    responseConsumer _ = iamResponseConsumer $
+-                         fmap GetUserResponse . parseUser
++    responseConsumer _ _ = iamResponseConsumer $
++                           fmap GetUserResponse . parseUser
+ 
+ instance Transaction GetUser GetUserResponse
+ 
+diff --git a/Aws/Iam/Commands/GetUserPolicy.hs b/Aws/Iam/Commands/GetUserPolicy.hs
+index 9f43e25..e9e33d2 100644
+--- a/Aws/Iam/Commands/GetUserPolicy.hs
++++ b/Aws/Iam/Commands/GetUserPolicy.hs
+@@ -50,7 +50,7 @@ data GetUserPolicyResponse
+ 
+ instance ResponseConsumer GetUserPolicy GetUserPolicyResponse where
+     type ResponseMetadata GetUserPolicyResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer $ \cursor -> do
+             let attr name = force ("Missing " ++ Text.unpack name) $
+                             cursor $// elContent name
+diff --git a/Aws/Iam/Commands/ListAccessKeys.hs b/Aws/Iam/Commands/ListAccessKeys.hs
+index 2d00f34..0e247ab 100644
+--- a/Aws/Iam/Commands/ListAccessKeys.hs
++++ b/Aws/Iam/Commands/ListAccessKeys.hs
+@@ -71,7 +71,7 @@ data ListAccessKeysResponse
+ 
+ instance ResponseConsumer ListAccessKeys ListAccessKeysResponse where
+     type ResponseMetadata ListAccessKeysResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer $ \cursor -> do
+             (lakrIsTruncated, lakrMarker) <- markedIterResponse cursor
+             lakrAccessKeyMetadata <- sequence $
+diff --git a/Aws/Iam/Commands/ListMfaDevices.hs b/Aws/Iam/Commands/ListMfaDevices.hs
+index 3c8eef2..7bad6f2 100644
+--- a/Aws/Iam/Commands/ListMfaDevices.hs
++++ b/Aws/Iam/Commands/ListMfaDevices.hs
+@@ -60,7 +60,7 @@ data ListMfaDevicesResponse = ListMfaDevicesResponse
+ 
+ instance ResponseConsumer ListMfaDevices ListMfaDevicesResponse where
+   type ResponseMetadata ListMfaDevicesResponse = IamMetadata
+-  responseConsumer _req =
++  responseConsumer _ _req =
+     iamResponseConsumer $ \ cursor -> do
+       (lmfarIsTruncated, lmfarMarker) <- markedIterResponse cursor
+       lmfarMfaDevices <-
+diff --git a/Aws/Iam/Commands/ListUserPolicies.hs b/Aws/Iam/Commands/ListUserPolicies.hs
+index 25027cf..ee90483 100644
+--- a/Aws/Iam/Commands/ListUserPolicies.hs
++++ b/Aws/Iam/Commands/ListUserPolicies.hs
+@@ -52,7 +52,7 @@ data ListUserPoliciesResponse
+ 
+ instance ResponseConsumer ListUserPolicies ListUserPoliciesResponse where
+     type ResponseMetadata ListUserPoliciesResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer $ \cursor -> do
+             (luprIsTruncated, luprMarker) <- markedIterResponse cursor
+             let luprPolicyNames = cursor $// laxElement "member" &/ content
+diff --git a/Aws/Iam/Commands/ListUsers.hs b/Aws/Iam/Commands/ListUsers.hs
+index 6ee5e7d..01eff2a 100644
+--- a/Aws/Iam/Commands/ListUsers.hs
++++ b/Aws/Iam/Commands/ListUsers.hs
+@@ -55,7 +55,7 @@ data ListUsersResponse
+ 
+ instance ResponseConsumer ListUsers ListUsersResponse where
+     type ResponseMetadata ListUsersResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer $ \cursor -> do
+             (lurIsTruncated, lurMarker) <- markedIterResponse cursor
+             lurUsers <- sequence $
+diff --git a/Aws/Iam/Commands/PutUserPolicy.hs b/Aws/Iam/Commands/PutUserPolicy.hs
+index bd93db8..9392878 100644
+--- a/Aws/Iam/Commands/PutUserPolicy.hs
++++ b/Aws/Iam/Commands/PutUserPolicy.hs
+@@ -41,7 +41,7 @@ data PutUserPolicyResponse = PutUserPolicyResponse
+ 
+ instance ResponseConsumer PutUserPolicy PutUserPolicyResponse where
+     type ResponseMetadata PutUserPolicyResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer (const $ return PutUserPolicyResponse)
+ 
+ instance Transaction PutUserPolicy PutUserPolicyResponse
+diff --git a/Aws/Iam/Commands/UpdateAccessKey.hs b/Aws/Iam/Commands/UpdateAccessKey.hs
+index 2df59a8..ba54971 100644
+--- a/Aws/Iam/Commands/UpdateAccessKey.hs
++++ b/Aws/Iam/Commands/UpdateAccessKey.hs
+@@ -47,7 +47,7 @@ data UpdateAccessKeyResponse = UpdateAccessKeyResponse
+ 
+ instance ResponseConsumer UpdateAccessKey UpdateAccessKeyResponse where
+     type ResponseMetadata UpdateAccessKeyResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer (const $ return UpdateAccessKeyResponse)
+ 
+ instance Transaction UpdateAccessKey UpdateAccessKeyResponse
+diff --git a/Aws/Iam/Commands/UpdateUser.hs b/Aws/Iam/Commands/UpdateUser.hs
+index 84d84f7..84b27eb 100644
+--- a/Aws/Iam/Commands/UpdateUser.hs
++++ b/Aws/Iam/Commands/UpdateUser.hs
+@@ -42,7 +42,7 @@ data UpdateUserResponse = UpdateUserResponse
+ 
+ instance ResponseConsumer UpdateUser UpdateUserResponse where
+     type ResponseMetadata UpdateUserResponse = IamMetadata
+-    responseConsumer _
++    responseConsumer _ _
+         = iamResponseConsumer (const $ return UpdateUserResponse)
+ 
+ instance Transaction UpdateUser UpdateUserResponse
+diff --git a/Aws/S3/Commands/CopyObject.hs b/Aws/S3/Commands/CopyObject.hs
+index b23c8a3..a748186 100644
+--- a/Aws/S3/Commands/CopyObject.hs
++++ b/Aws/S3/Commands/CopyObject.hs
+@@ -94,7 +94,7 @@ instance SignQuery CopyObject where
+ 
+ instance ResponseConsumer CopyObject CopyObjectResponse where
+     type ResponseMetadata CopyObjectResponse = S3Metadata
+-    responseConsumer _ mref = flip s3ResponseConsumer mref $ \resp -> do
++    responseConsumer _ _ mref = flip s3ResponseConsumer mref $ \resp -> do
+         let vid = T.decodeUtf8 `fmap` lookup "x-amz-version-id" (HTTP.responseHeaders resp)
+         (lastMod, etag) <- xmlCursorConsumer parse mref resp
+         return $ CopyObjectResponse vid lastMod etag
+diff --git a/Aws/S3/Commands/DeleteBucket.hs b/Aws/S3/Commands/DeleteBucket.hs
+index ebecdb1..c96acaa 100644
+--- a/Aws/S3/Commands/DeleteBucket.hs
++++ b/Aws/S3/Commands/DeleteBucket.hs
+@@ -31,7 +31,7 @@ instance SignQuery DeleteBucket where
+ 
+ instance ResponseConsumer DeleteBucket DeleteBucketResponse where
+     type ResponseMetadata DeleteBucketResponse = S3Metadata
+-    responseConsumer _ = s3ResponseConsumer $ \_ -> return DeleteBucketResponse
++    responseConsumer _ _ = s3ResponseConsumer $ \_ -> return DeleteBucketResponse
+ 
+ instance Transaction DeleteBucket DeleteBucketResponse
+ 
+diff --git a/Aws/S3/Commands/DeleteObject.hs b/Aws/S3/Commands/DeleteObject.hs
+index 707f563..65b6122 100644
+--- a/Aws/S3/Commands/DeleteObject.hs
++++ b/Aws/S3/Commands/DeleteObject.hs
+@@ -33,7 +33,8 @@ instance SignQuery DeleteObject where
+ 
+ instance ResponseConsumer DeleteObject DeleteObjectResponse where
+     type ResponseMetadata DeleteObjectResponse = S3Metadata
+-    responseConsumer _ = s3ResponseConsumer $ \_ -> return DeleteObjectResponse
++    responseConsumer _ _
++        = s3ResponseConsumer $ \_ -> return DeleteObjectResponse
+ 
+ instance Transaction DeleteObject DeleteObjectResponse
+ 
+diff --git a/Aws/S3/Commands/DeleteObjects.hs b/Aws/S3/Commands/DeleteObjects.hs
+index 9ec3589..c74ac0e 100644
+--- a/Aws/S3/Commands/DeleteObjects.hs
++++ b/Aws/S3/Commands/DeleteObjects.hs
+@@ -103,7 +103,7 @@ instance SignQuery DeleteObjects where
+ instance ResponseConsumer DeleteObjects DeleteObjectsResponse where
+     type ResponseMetadata DeleteObjectsResponse = S3Metadata
+ 
+-    responseConsumer _ = s3XmlResponseConsumer parse
++    responseConsumer _ _ = s3XmlResponseConsumer parse
+         where parse cursor = do
+                   dorDeleted <- sequence $ cursor $/ Cu.laxElement "Deleted" &| parseDeleted
+                   dorErrors  <- sequence $ cursor $/ Cu.laxElement "Error" &| parseErrors
+diff --git a/Aws/S3/Commands/GetBucket.hs b/Aws/S3/Commands/GetBucket.hs
+index d978993..0d24879 100644
+--- a/Aws/S3/Commands/GetBucket.hs
++++ b/Aws/S3/Commands/GetBucket.hs
+@@ -72,7 +72,7 @@ instance SignQuery GetBucket where
+ instance ResponseConsumer r GetBucketResponse where
+     type ResponseMetadata GetBucketResponse = S3Metadata
+ 
+-    responseConsumer _ = s3XmlResponseConsumer parse
++    responseConsumer _ _ = s3XmlResponseConsumer parse
+         where parse cursor
+                   = do name <- force "Missing Name" $ cursor $/ elContent "Name"
+                        let delimiter = listToMaybe $ cursor $/ elContent "Delimiter"
+diff --git a/Aws/S3/Commands/GetBucketLocation.hs b/Aws/S3/Commands/GetBucketLocation.hs
+index f729f04..b19e17f 100644
+--- a/Aws/S3/Commands/GetBucketLocation.hs
++++ b/Aws/S3/Commands/GetBucketLocation.hs
+@@ -44,7 +44,7 @@ instance SignQuery GetBucketLocation where
+ instance ResponseConsumer r GetBucketLocationResponse where
+   type ResponseMetadata GetBucketLocationResponse = S3Metadata
+ 
+-  responseConsumer _ = s3XmlResponseConsumer parse
++  responseConsumer _ _ = s3XmlResponseConsumer parse
+     where parse cursor = do
+             locationConstraint <- force "Missing Location" $ cursor $.// elContent "LocationConstraint"
+             return GetBucketLocationResponse { gblrLocationConstraint = normaliseLocation locationConstraint }
+diff --git a/Aws/S3/Commands/GetObject.hs b/Aws/S3/Commands/GetObject.hs
+index 773256b..5a60611 100644
+--- a/Aws/S3/Commands/GetObject.hs
++++ b/Aws/S3/Commands/GetObject.hs
+@@ -79,7 +79,7 @@ instance SignQuery GetObject where
+ 
+ instance ResponseConsumer GetObject GetObjectResponse where
+     type ResponseMetadata GetObjectResponse = S3Metadata
+-    responseConsumer GetObject{..} metadata resp
++    responseConsumer _ GetObject{..} metadata resp
+         | status == HTTP.status200 = do
+             rsp <- s3BinaryResponseConsumer return metadata resp
+             om <- parseObjectMetadata (HTTP.responseHeaders resp)
+diff --git a/Aws/S3/Commands/GetService.hs b/Aws/S3/Commands/GetService.hs
+index d453517..a2a7ecc 100644
+--- a/Aws/S3/Commands/GetService.hs
++++ b/Aws/S3/Commands/GetService.hs
+@@ -25,7 +25,7 @@ data GetServiceResponse
+ instance ResponseConsumer r GetServiceResponse where
+     type ResponseMetadata GetServiceResponse = S3Metadata
+ 
+-    responseConsumer _ = s3XmlResponseConsumer parse
++    responseConsumer _ _ = s3XmlResponseConsumer parse
+         where
+           parse el = do
+             owner <- forceM "Missing Owner" $ el $/ Cu.laxElement "Owner" &| parseUserInfo
+diff --git a/Aws/S3/Commands/HeadObject.hs b/Aws/S3/Commands/HeadObject.hs
+index d58baf4..dbc9cc0 100644
+--- a/Aws/S3/Commands/HeadObject.hs
++++ b/Aws/S3/Commands/HeadObject.hs
+@@ -60,7 +60,7 @@ instance SignQuery HeadObject where
+ 
+ instance ResponseConsumer HeadObject HeadObjectResponse where
+     type ResponseMetadata HeadObjectResponse = S3Metadata
+-    responseConsumer HeadObject{..} _ resp
++    responseConsumer _ HeadObject{..} _ resp
+         | status == HTTP.status200 = HeadObjectResponse . Just <$> parseObjectMetadata headers
+         | status == HTTP.status404 = return $ HeadObjectResponse Nothing
+         | otherwise = throwM $ HTTP.StatusCodeException status headers cookies
+diff --git a/Aws/S3/Commands/Multipart.hs b/Aws/S3/Commands/Multipart.hs
+index 176ffbd..f70524c 100644
+--- a/Aws/S3/Commands/Multipart.hs
++++ b/Aws/S3/Commands/Multipart.hs
+@@ -99,7 +99,7 @@ instance SignQuery InitiateMultipartUpload where
+ instance ResponseConsumer r InitiateMultipartUploadResponse where
+     type ResponseMetadata InitiateMultipartUploadResponse = S3Metadata
+ 
+-    responseConsumer _ = s3XmlResponseConsumer parse
++    responseConsumer _ _ = s3XmlResponseConsumer parse
+         where parse cursor
+                   = do bucket <- force "Missing Bucket Name" $ cursor $/ elContent "Bucket"
+                        key <- force "Missing Key" $ cursor $/ elContent "Key"
+@@ -172,7 +172,7 @@ instance SignQuery UploadPart where
+ 
+ instance ResponseConsumer UploadPart UploadPartResponse where
+     type ResponseMetadata UploadPartResponse = S3Metadata
+-    responseConsumer _ = s3ResponseConsumer $ \resp -> do
++    responseConsumer _ _ = s3ResponseConsumer $ \resp -> do
+       let vid = T.decodeUtf8 `fmap` lookup "x-amz-version-id" (HTTP.responseHeaders resp)
+       let etag = fromMaybe "" $ T.decodeUtf8 `fmap` lookup "ETag" (HTTP.responseHeaders resp)
+       return $ UploadPartResponse vid etag
+@@ -259,7 +259,7 @@ instance SignQuery CompleteMultipartUpload where
+ instance ResponseConsumer r CompleteMultipartUploadResponse where
+     type ResponseMetadata CompleteMultipartUploadResponse = S3Metadata
+ 
+-    responseConsumer _ = s3XmlResponseConsumer parse
++    responseConsumer _ _ = s3XmlResponseConsumer parse
+         where parse cursor
+                   = do location <- force "Missing Location" $ cursor $/ elContent "Location"
+                        bucket <- force "Missing Bucket Name" $ cursor $/ elContent "Bucket"
+@@ -318,7 +318,7 @@ instance SignQuery AbortMultipartUpload where
+ instance ResponseConsumer r AbortMultipartUploadResponse where
+     type ResponseMetadata AbortMultipartUploadResponse = S3Metadata
+ 
+-    responseConsumer _ = s3XmlResponseConsumer parse
++    responseConsumer _ _ = s3XmlResponseConsumer parse
+         where parse _cursor
+                   = return AbortMultipartUploadResponse {}
+ 
+diff --git a/Aws/S3/Commands/PutBucket.hs b/Aws/S3/Commands/PutBucket.hs
+index 84cca90..83d2c36 100644
+--- a/Aws/S3/Commands/PutBucket.hs
++++ b/Aws/S3/Commands/PutBucket.hs
+@@ -74,7 +74,7 @@ instance SignQuery PutBucket where
+ instance ResponseConsumer r PutBucketResponse where
+     type ResponseMetadata PutBucketResponse = S3Metadata
+ 
+-    responseConsumer _ = s3ResponseConsumer $ \_ -> return PutBucketResponse
++    responseConsumer _ _ = s3ResponseConsumer $ \_ -> return PutBucketResponse
+ 
+ instance Transaction PutBucket PutBucketResponse
+ 
+diff --git a/Aws/S3/Commands/PutObject.hs b/Aws/S3/Commands/PutObject.hs
+index eac0879..9f67cd5 100644
+--- a/Aws/S3/Commands/PutObject.hs
++++ b/Aws/S3/Commands/PutObject.hs
+@@ -83,7 +83,7 @@ instance SignQuery PutObject where
+ 
+ instance ResponseConsumer PutObject PutObjectResponse where
+     type ResponseMetadata PutObjectResponse = S3Metadata
+-    responseConsumer _ = s3ResponseConsumer $ \resp -> do
++    responseConsumer _ _ = s3ResponseConsumer $ \resp -> do
+       let vid = T.decodeUtf8 `fmap` lookup "x-amz-version-id" (HTTP.responseHeaders resp)
+       return $ PutObjectResponse vid
+ 
+diff --git a/Aws/Ses/Commands/DeleteIdentity.hs b/Aws/Ses/Commands/DeleteIdentity.hs
+index d4ac908..bbeb463 100644
+--- a/Aws/Ses/Commands/DeleteIdentity.hs
++++ b/Aws/Ses/Commands/DeleteIdentity.hs
+@@ -29,7 +29,8 @@ data DeleteIdentityResponse = DeleteIdentityResponse
+ 
+ instance ResponseConsumer DeleteIdentity DeleteIdentityResponse where
+     type ResponseMetadata DeleteIdentityResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \_ -> return DeleteIdentityResponse
++    responseConsumer _ _
++        = sesResponseConsumer $ \_ -> return DeleteIdentityResponse
+ 
+ 
+ instance Transaction DeleteIdentity DeleteIdentityResponse where
+diff --git a/Aws/Ses/Commands/GetIdentityDkimAttributes.hs b/Aws/Ses/Commands/GetIdentityDkimAttributes.hs
+index 5bf18ca..aa5824b 100644
+--- a/Aws/Ses/Commands/GetIdentityDkimAttributes.hs
++++ b/Aws/Ses/Commands/GetIdentityDkimAttributes.hs
+@@ -44,7 +44,7 @@ data GetIdentityDkimAttributesResponse =
+ 
+ instance ResponseConsumer GetIdentityDkimAttributes GetIdentityDkimAttributesResponse where
+     type ResponseMetadata GetIdentityDkimAttributesResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \cursor -> do
++    responseConsumer _ _ = sesResponseConsumer $ \cursor -> do
+         let buildAttr e = do
+               idIdentity <- force "Missing Key" $ e $/ elContent "key"
+               enabled <- force "Missing DkimEnabled" $ e $// elContent "DkimEnabled"
+diff --git a/Aws/Ses/Commands/GetIdentityNotificationAttributes.hs b/Aws/Ses/Commands/GetIdentityNotificationAttributes.hs
+index ddd2122..55e2875 100644
+--- a/Aws/Ses/Commands/GetIdentityNotificationAttributes.hs
++++ b/Aws/Ses/Commands/GetIdentityNotificationAttributes.hs
+@@ -43,7 +43,7 @@ data GetIdentityNotificationAttributesResponse =
+ 
+ instance ResponseConsumer GetIdentityNotificationAttributes GetIdentityNotificationAttributesResponse where
+     type ResponseMetadata GetIdentityNotificationAttributesResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \cursor -> do
++    responseConsumer _ _ = sesResponseConsumer $ \cursor -> do
+         let buildAttr e = do
+               inIdentity <- force "Missing Key" $ e $/ elContent "key"
+               fwdText <- force "Missing ForwardingEnabled" $ e $// elContent "ForwardingEnabled"
+diff --git a/Aws/Ses/Commands/GetIdentityVerificationAttributes.hs b/Aws/Ses/Commands/GetIdentityVerificationAttributes.hs
+index 667e1e8..d9c99a2 100644
+--- a/Aws/Ses/Commands/GetIdentityVerificationAttributes.hs
++++ b/Aws/Ses/Commands/GetIdentityVerificationAttributes.hs
+@@ -45,7 +45,7 @@ data GetIdentityVerificationAttributesResponse =
+ 
+ instance ResponseConsumer GetIdentityVerificationAttributes GetIdentityVerificationAttributesResponse where
+     type ResponseMetadata GetIdentityVerificationAttributesResponse = SesMetadata
+-    responseConsumer _ =
++    responseConsumer _ _ =
+       sesResponseConsumer $ \cursor -> do
+          let buildAttr e = do
+                ivIdentity <- force "Missing Key" $ e $/ elContent "key"
+diff --git a/Aws/Ses/Commands/ListIdentities.hs b/Aws/Ses/Commands/ListIdentities.hs
+index 6712225..1a6f183 100644
+--- a/Aws/Ses/Commands/ListIdentities.hs
++++ b/Aws/Ses/Commands/ListIdentities.hs
+@@ -50,7 +50,7 @@ data ListIdentitiesResponse = ListIdentitiesResponse [Text]
+ 
+ instance ResponseConsumer ListIdentities ListIdentitiesResponse where
+     type ResponseMetadata ListIdentitiesResponse = SesMetadata
+-    responseConsumer _ =
++    responseConsumer _ _ =
+       sesResponseConsumer $ \cursor -> do
+          let ids = cursor $// laxElement "Identities" &/ elContent "member"
+          return $ ListIdentitiesResponse ids
+diff --git a/Aws/Ses/Commands/SendRawEmail.hs b/Aws/Ses/Commands/SendRawEmail.hs
+index e7350d1..284aac6 100644
+--- a/Aws/Ses/Commands/SendRawEmail.hs
++++ b/Aws/Ses/Commands/SendRawEmail.hs
+@@ -45,7 +45,7 @@ data SendRawEmailResponse =
+ 
+ instance ResponseConsumer SendRawEmail SendRawEmailResponse where
+     type ResponseMetadata SendRawEmailResponse = SesMetadata
+-    responseConsumer _ =
++    responseConsumer _ _ =
+       sesResponseConsumer $ \cursor -> do
+         messageId <- force "MessageId not found" $ cursor $// elContent "MessageId"
+         return (SendRawEmailResponse messageId)
+diff --git a/Aws/Ses/Commands/SetIdentityDkimEnabled.hs b/Aws/Ses/Commands/SetIdentityDkimEnabled.hs
+index 537b7a4..1e43c43 100644
+--- a/Aws/Ses/Commands/SetIdentityDkimEnabled.hs
++++ b/Aws/Ses/Commands/SetIdentityDkimEnabled.hs
+@@ -32,7 +32,8 @@ data SetIdentityDkimEnabledResponse = SetIdentityDkimEnabledResponse
+ 
+ instance ResponseConsumer SetIdentityDkimEnabled SetIdentityDkimEnabledResponse where
+     type ResponseMetadata SetIdentityDkimEnabledResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \_ -> return SetIdentityDkimEnabledResponse
++    responseConsumer _ _
++        = sesResponseConsumer $ \_ -> return SetIdentityDkimEnabledResponse
+ 
+ instance Transaction SetIdentityDkimEnabled SetIdentityDkimEnabledResponse
+ 
+diff --git a/Aws/Ses/Commands/SetIdentityFeedbackForwardingEnabled.hs b/Aws/Ses/Commands/SetIdentityFeedbackForwardingEnabled.hs
+index 93106aa..a681208 100644
+--- a/Aws/Ses/Commands/SetIdentityFeedbackForwardingEnabled.hs
++++ b/Aws/Ses/Commands/SetIdentityFeedbackForwardingEnabled.hs
+@@ -34,7 +34,8 @@ data SetIdentityFeedbackForwardingEnabledResponse = SetIdentityFeedbackForwardin
+ 
+ instance ResponseConsumer SetIdentityFeedbackForwardingEnabled SetIdentityFeedbackForwardingEnabledResponse where
+     type ResponseMetadata SetIdentityFeedbackForwardingEnabledResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \_ -> return SetIdentityFeedbackForwardingEnabledResponse 
++    responseConsumer _ _
++        = sesResponseConsumer $ \_ -> return SetIdentityFeedbackForwardingEnabledResponse
+ 
+ instance Transaction SetIdentityFeedbackForwardingEnabled SetIdentityFeedbackForwardingEnabledResponse
+ 
+diff --git a/Aws/Ses/Commands/SetIdentityNotificationTopic.hs b/Aws/Ses/Commands/SetIdentityNotificationTopic.hs
+index a740fe0..4095b10 100644
+--- a/Aws/Ses/Commands/SetIdentityNotificationTopic.hs
++++ b/Aws/Ses/Commands/SetIdentityNotificationTopic.hs
+@@ -48,7 +48,8 @@ data SetIdentityNotificationTopicResponse = SetIdentityNotificationTopicResponse
+ 
+ instance ResponseConsumer SetIdentityNotificationTopic SetIdentityNotificationTopicResponse where
+     type ResponseMetadata SetIdentityNotificationTopicResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \_ -> return SetIdentityNotificationTopicResponse 
++    responseConsumer _ _
++        = sesResponseConsumer $ \_ -> return SetIdentityNotificationTopicResponse
+ 
+ instance Transaction SetIdentityNotificationTopic SetIdentityNotificationTopicResponse
+ 
+diff --git a/Aws/Ses/Commands/VerifyDomainDkim.hs b/Aws/Ses/Commands/VerifyDomainDkim.hs
+index acc811f..b09b5ef 100644
+--- a/Aws/Ses/Commands/VerifyDomainDkim.hs
++++ b/Aws/Ses/Commands/VerifyDomainDkim.hs
+@@ -28,7 +28,7 @@ data VerifyDomainDkimResponse = VerifyDomainDkimResponse [Text]
+ 
+ instance ResponseConsumer VerifyDomainDkim VerifyDomainDkimResponse where
+     type ResponseMetadata VerifyDomainDkimResponse = SesMetadata
+-    responseConsumer _ =
++    responseConsumer _ _ =
+       sesResponseConsumer $ \cursor -> do
+         let tokens = cursor $// laxElement "DkimTokens" &/ elContent "member"
+         return (VerifyDomainDkimResponse tokens)
+diff --git a/Aws/Ses/Commands/VerifyDomainIdentity.hs b/Aws/Ses/Commands/VerifyDomainIdentity.hs
+index 2efd728..4566c88 100644
+--- a/Aws/Ses/Commands/VerifyDomainIdentity.hs
++++ b/Aws/Ses/Commands/VerifyDomainIdentity.hs
+@@ -29,7 +29,7 @@ data VerifyDomainIdentityResponse = VerifyDomainIdentityResponse Text
+ 
+ instance ResponseConsumer VerifyDomainIdentity VerifyDomainIdentityResponse where
+     type ResponseMetadata VerifyDomainIdentityResponse = SesMetadata
+-    responseConsumer _ =
++    responseConsumer _ _ =
+       sesResponseConsumer $ \cursor -> do
+         token <- force "Verification token not found" $ cursor $// elContent "VerificationToken"
+         return (VerifyDomainIdentityResponse token)
+diff --git a/Aws/Ses/Commands/VerifyEmailIdentity.hs b/Aws/Ses/Commands/VerifyEmailIdentity.hs
+index 3a35cea..8114113 100644
+--- a/Aws/Ses/Commands/VerifyEmailIdentity.hs
++++ b/Aws/Ses/Commands/VerifyEmailIdentity.hs
+@@ -29,7 +29,8 @@ data VerifyEmailIdentityResponse = VerifyEmailIdentityResponse
+ 
+ instance ResponseConsumer VerifyEmailIdentity VerifyEmailIdentityResponse where
+     type ResponseMetadata VerifyEmailIdentityResponse = SesMetadata
+-    responseConsumer _ = sesResponseConsumer $ \_ -> return VerifyEmailIdentityResponse
++    responseConsumer _ _
++        = sesResponseConsumer $ \_ -> return VerifyEmailIdentityResponse
+ 
+ 
+ instance Transaction VerifyEmailIdentity VerifyEmailIdentityResponse where
+diff --git a/Aws/SimpleDb/Commands/Attributes.hs b/Aws/SimpleDb/Commands/Attributes.hs
+index dedd0d9..e929318 100644
+--- a/Aws/SimpleDb/Commands/Attributes.hs
++++ b/Aws/SimpleDb/Commands/Attributes.hs
+@@ -39,7 +39,8 @@ instance SignQuery GetAttributes where
+ 
+ instance ResponseConsumer r GetAttributesResponse where
+     type ResponseMetadata GetAttributesResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer parse
++    responseConsumer _ _
++        = sdbResponseConsumer parse
+         where parse cursor = do
+                 sdbCheckResponseType () "GetAttributesResponse" cursor
+                 attributes <- sequence $ cursor $// Cu.laxElement "Attribute" &| readAttribute
+@@ -83,7 +84,8 @@ instance SignQuery PutAttributes where
+ 
+ instance ResponseConsumer r PutAttributesResponse where
+     type ResponseMetadata PutAttributesResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer $ sdbCheckResponseType PutAttributesResponse "PutAttributesResponse"
++    responseConsumer _ _
++        = sdbResponseConsumer $ sdbCheckResponseType PutAttributesResponse "PutAttributesResponse"
+ 
+ instance Transaction PutAttributes PutAttributesResponse
+ 
+@@ -123,7 +125,8 @@ instance SignQuery DeleteAttributes where
+ 
+ instance ResponseConsumer r DeleteAttributesResponse where
+     type ResponseMetadata DeleteAttributesResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer $ sdbCheckResponseType DeleteAttributesResponse "DeleteAttributesResponse"
++    responseConsumer _ _
++        = sdbResponseConsumer $ sdbCheckResponseType DeleteAttributesResponse "DeleteAttributesResponse"
+ 
+ instance Transaction DeleteAttributes DeleteAttributesResponse
+ 
+@@ -156,7 +159,8 @@ instance SignQuery BatchPutAttributes where
+ 
+ instance ResponseConsumer r BatchPutAttributesResponse where
+     type ResponseMetadata BatchPutAttributesResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer $ sdbCheckResponseType BatchPutAttributesResponse "BatchPutAttributesResponse"
++    responseConsumer _ _
++        = sdbResponseConsumer $ sdbCheckResponseType BatchPutAttributesResponse "BatchPutAttributesResponse"
+ 
+ instance Transaction BatchPutAttributes BatchPutAttributesResponse
+ 
+@@ -189,10 +193,11 @@ instance SignQuery BatchDeleteAttributes where
+ 
+ instance ResponseConsumer r BatchDeleteAttributesResponse where
+     type ResponseMetadata BatchDeleteAttributesResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer $ sdbCheckResponseType BatchDeleteAttributesResponse "BatchDeleteAttributesResponse"
++    responseConsumer _ _
++        = sdbResponseConsumer $ sdbCheckResponseType BatchDeleteAttributesResponse "BatchDeleteAttributesResponse"
+ 
+ instance Transaction BatchDeleteAttributes BatchDeleteAttributesResponse
+ 
+ instance AsMemoryResponse BatchDeleteAttributesResponse where
+     type MemoryResponse BatchDeleteAttributesResponse = BatchDeleteAttributesResponse
+-    loadToMemory = return
+\ No newline at end of file
++    loadToMemory = return
+diff --git a/Aws/SimpleDb/Commands/Domain.hs b/Aws/SimpleDb/Commands/Domain.hs
+index 87f8dae..107eae9 100644
+--- a/Aws/SimpleDb/Commands/Domain.hs
++++ b/Aws/SimpleDb/Commands/Domain.hs
+@@ -30,7 +30,8 @@ instance SignQuery CreateDomain where
+ 
+ instance ResponseConsumer r CreateDomainResponse where
+     type ResponseMetadata CreateDomainResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer $ sdbCheckResponseType CreateDomainResponse "CreateDomainResponse"
++    responseConsumer _ _
++        = sdbResponseConsumer $ sdbCheckResponseType CreateDomainResponse "CreateDomainResponse"
+ 
+ instance Transaction CreateDomain CreateDomainResponse
+ 
+@@ -58,7 +59,8 @@ instance SignQuery DeleteDomain where
+ 
+ instance ResponseConsumer r DeleteDomainResponse where
+     type ResponseMetadata DeleteDomainResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer $ sdbCheckResponseType DeleteDomainResponse "DeleteDomainResponse"
++    responseConsumer _ _
++        = sdbResponseConsumer $ sdbCheckResponseType DeleteDomainResponse "DeleteDomainResponse"
+ 
+ instance Transaction DeleteDomain DeleteDomainResponse
+ 
+@@ -95,7 +97,8 @@ instance SignQuery DomainMetadata where
+ instance ResponseConsumer r DomainMetadataResponse where
+     type ResponseMetadata DomainMetadataResponse = SdbMetadata
+ 
+-    responseConsumer _ = sdbResponseConsumer parse
++    responseConsumer _ _
++        = sdbResponseConsumer parse
+         where parse cursor = do
+                 sdbCheckResponseType () "DomainMetadataResponse" cursor
+                 dmrTimestamp <- forceM "Timestamp expected" $ cursor $// elCont "Timestamp" &| (fmap posixSecondsToUTCTime . readInt)
+@@ -141,7 +144,7 @@ instance SignQuery ListDomains where
+ 
+ instance ResponseConsumer r ListDomainsResponse where
+     type ResponseMetadata ListDomainsResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer parse
++    responseConsumer _ _ = sdbResponseConsumer parse
+         where parse cursor = do
+                 sdbCheckResponseType () "ListDomainsResponse" cursor
+                 let names = cursor $// elContent "DomainName"
+diff --git a/Aws/SimpleDb/Commands/Select.hs b/Aws/SimpleDb/Commands/Select.hs
+index ea12f68..9dd7397 100644
+--- a/Aws/SimpleDb/Commands/Select.hs
++++ b/Aws/SimpleDb/Commands/Select.hs
+@@ -42,7 +42,7 @@ instance SignQuery Select where
+ 
+ instance ResponseConsumer r SelectResponse where
+     type ResponseMetadata SelectResponse = SdbMetadata
+-    responseConsumer _ = sdbResponseConsumer parse
++    responseConsumer _ _ = sdbResponseConsumer parse
+         where parse cursor = do
+                 sdbCheckResponseType () "SelectResponse" cursor
+                 items <- sequence $ cursor $// Cu.laxElement "Item" &| readItem
+diff --git a/Aws/Sqs/Commands/Message.hs b/Aws/Sqs/Commands/Message.hs
+index 9a11801..556c71e 100644
+--- a/Aws/Sqs/Commands/Message.hs
++++ b/Aws/Sqs/Commands/Message.hs
+@@ -216,7 +216,7 @@ data SendMessageResponse = SendMessageResponse
+ 
+ instance ResponseConsumer r SendMessageResponse where
+     type ResponseMetadata SendMessageResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse el = SendMessageResponse
+             <$> force "Missing MD5 Signature"
+@@ -287,7 +287,7 @@ data DeleteMessageResponse = DeleteMessageResponse {}
+ 
+ instance ResponseConsumer r DeleteMessageResponse where
+     type ResponseMetadata DeleteMessageResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse _ = return DeleteMessageResponse {}
+ 
+@@ -559,7 +559,7 @@ formatUserMessageAttributes attrs = case attrs of
+ 
+ instance ResponseConsumer r ReceiveMessageResponse where
+     type ResponseMetadata ReceiveMessageResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse el = do
+             result <- force "Missing ReceiveMessageResult"
+@@ -660,7 +660,7 @@ data ChangeMessageVisibilityResponse = ChangeMessageVisibilityResponse {}
+ 
+ instance ResponseConsumer r ChangeMessageVisibilityResponse where
+     type ResponseMetadata ChangeMessageVisibilityResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse _ = return ChangeMessageVisibilityResponse {}
+ 
+diff --git a/Aws/Sqs/Commands/Permission.hs b/Aws/Sqs/Commands/Permission.hs
+index f2e4a90..0bfdc54 100644
+--- a/Aws/Sqs/Commands/Permission.hs
++++ b/Aws/Sqs/Commands/Permission.hs
+@@ -25,7 +25,7 @@ formatPermissions perms =
+ 
+ instance ResponseConsumer r AddPermissionResponse where
+     type ResponseMetadata AddPermissionResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+        where
+          parse _ = do
+            return AddPermissionResponse {}
+@@ -55,7 +55,7 @@ data RemovePermissionResponse = RemovePermissionResponse
+ 
+ instance ResponseConsumer r RemovePermissionResponse where
+     type ResponseMetadata RemovePermissionResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where 
+         parse _ = do
+           return RemovePermissionResponse {}  
+@@ -72,4 +72,4 @@ instance Transaction RemovePermission RemovePermissionResponse
+ 
+ instance AsMemoryResponse RemovePermissionResponse where
+     type MemoryResponse RemovePermissionResponse = RemovePermissionResponse
+-    loadToMemory = return
+\ No newline at end of file
++    loadToMemory = return
+diff --git a/Aws/Sqs/Commands/Queue.hs b/Aws/Sqs/Commands/Queue.hs
+index d6c9ab7..ff61ae9 100644
+--- a/Aws/Sqs/Commands/Queue.hs
++++ b/Aws/Sqs/Commands/Queue.hs
+@@ -23,7 +23,7 @@ data CreateQueueResponse = CreateQueueResponse {
+ 
+ instance ResponseConsumer r CreateQueueResponse where
+     type ResponseMetadata CreateQueueResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse el = do
+           url <- force "Missing Queue Url" $ el $// Cu.laxElement "QueueUrl" &/ Cu.content
+@@ -55,7 +55,7 @@ data DeleteQueueResponse = DeleteQueueResponse
+ 
+ instance ResponseConsumer r DeleteQueueResponse where
+     type ResponseMetadata DeleteQueueResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse _ = do return DeleteQueueResponse{}
+           
+@@ -82,7 +82,7 @@ data ListQueuesResponse = ListQueuesResponse {
+ 
+ instance ResponseConsumer r ListQueuesResponse where
+     type ResponseMetadata ListQueuesResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse el = do
+             let queues = el $// Cu.laxElement "QueueUrl" &/ Cu.content
+@@ -102,4 +102,4 @@ instance Transaction ListQueues ListQueuesResponse
+ 
+ instance AsMemoryResponse ListQueuesResponse where
+     type MemoryResponse ListQueuesResponse = ListQueuesResponse
+-    loadToMemory = return
+\ No newline at end of file
++    loadToMemory = return
+diff --git a/Aws/Sqs/Commands/QueueAttributes.hs b/Aws/Sqs/Commands/QueueAttributes.hs
+index aaa97cc..54f57fd 100644
+--- a/Aws/Sqs/Commands/QueueAttributes.hs
++++ b/Aws/Sqs/Commands/QueueAttributes.hs
+@@ -27,7 +27,7 @@ parseAttributes el = do
+ 
+ instance ResponseConsumer r GetQueueAttributesResponse where
+     type ResponseMetadata GetQueueAttributesResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where
+         parse el = do
+           let attributes = concat $ el $// Cu.laxElement "Attribute" &| parseAttributes
+@@ -64,7 +64,7 @@ data SetQueueAttributesResponse = SetQueueAttributesResponse{
+ 
+ instance ResponseConsumer r SetQueueAttributesResponse where
+     type ResponseMetadata SetQueueAttributesResponse = SqsMetadata
+-    responseConsumer _ = sqsXmlResponseConsumer parse
++    responseConsumer _ _ = sqsXmlResponseConsumer parse
+       where 
+         parse _ = do
+           return SetQueueAttributesResponse {}
+@@ -82,4 +82,4 @@ instance Transaction SetQueueAttributes SetQueueAttributesResponse
+ 
+ instance AsMemoryResponse SetQueueAttributesResponse where
+     type MemoryResponse SetQueueAttributesResponse = SetQueueAttributesResponse
+-    loadToMemory = return
+\ No newline at end of file
++    loadToMemory = return
+
+From 379b1d18e7340efacfb0a1753e0c25a7464ace2b Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 10:56:57 -0400
+Subject: [PATCH 2/8] Silence a number of trivial warnings
+
+These include,
+  * Redundant imports
+  * Defaulting warnings
+  * Duplicate exports
+---
+ Aws/Aws.hs                          | 1 +
+ Aws/Core.hs                         | 1 +
+ Aws/DynamoDb/Commands/DeleteItem.hs | 1 +
+ Aws/DynamoDb/Commands/GetItem.hs    | 1 +
+ Aws/DynamoDb/Commands/PutItem.hs    | 1 +
+ Aws/DynamoDb/Commands/Table.hs      | 1 +
+ Aws/DynamoDb/Commands/UpdateItem.hs | 2 +-
+ Aws/DynamoDb/Core.hs                | 3 ++-
+ Aws/Ec2/InstanceMetadata.hs         | 1 +
+ Aws/Iam/Commands/CreateAccessKey.hs | 1 +
+ Aws/Iam/Commands/CreateUser.hs      | 1 +
+ Aws/Iam/Commands/DeleteAccessKey.hs | 1 +
+ Aws/Iam/Commands/GetUser.hs         | 1 +
+ Aws/Iam/Commands/GetUserPolicy.hs   | 1 +
+ Aws/Iam/Commands/ListAccessKeys.hs  | 1 +
+ Aws/Iam/Commands/ListMfaDevices.hs  | 1 +
+ Aws/Iam/Commands/ListUsers.hs       | 1 +
+ Aws/Iam/Commands/UpdateAccessKey.hs | 1 +
+ Aws/Iam/Commands/UpdateUser.hs      | 1 +
+ Aws/Iam/Internal.hs                 | 1 +
+ Aws/S3/Commands/CopyObject.hs       | 1 +
+ Aws/S3/Commands/DeleteBucket.hs     | 1 -
+ Aws/S3/Commands/GetBucket.hs        | 1 +
+ Aws/S3/Commands/GetObject.hs        | 1 +
+ Aws/S3/Commands/HeadObject.hs       | 1 +
+ Aws/S3/Commands/Multipart.hs        | 1 +
+ Aws/S3/Commands/PutObject.hs        | 1 +
+ Aws/S3/Core.hs                      | 1 +
+ Aws/Ses/Core.hs                     | 1 +
+ Aws/SimpleDb/Commands/Attributes.hs | 1 +
+ Aws/SimpleDb/Commands/Domain.hs     | 1 +
+ Aws/SimpleDb/Commands/Select.hs     | 1 +
+ Aws/SimpleDb/Core.hs                | 1 +
+ Aws/Sqs/Commands/Message.hs         | 1 +
+ Aws/Sqs/Commands/Queue.hs           | 1 +
+ Aws/Sqs/Core.hs                     | 1 +
+ 36 files changed, 36 insertions(+), 3 deletions(-)
+
+diff --git a/Aws/Aws.hs b/Aws/Aws.hs
+index 5fad82e..2f749d7 100644
+--- a/Aws/Aws.hs
++++ b/Aws/Aws.hs
+@@ -52,6 +52,7 @@ import qualified Data.Text.Encoding           as T
+ import qualified Data.Text.IO                 as T
+ import qualified Network.HTTP.Conduit         as HTTP
+ import           System.IO                    (stderr)
++import           Prelude
+ 
+ -- | The severity of a log message, in rising order.
+ data LogLevel
+diff --git a/Aws/Core.hs b/Aws/Core.hs
+index ec5d033..89a78f7 100644
+--- a/Aws/Core.hs
++++ b/Aws/Core.hs
+@@ -138,6 +138,7 @@ import           System.Locale
+ import qualified Text.XML                 as XML
+ import qualified Text.XML.Cursor          as Cu
+ import           Text.XML.Cursor          hiding (force, forceM)
++import           Prelude
+ -------------------------------------------------------------------------------
+ 
+ -- | Types that can be logged (textually).
+diff --git a/Aws/DynamoDb/Commands/DeleteItem.hs b/Aws/DynamoDb/Commands/DeleteItem.hs
+index 7f47e3a..9a4a26d 100644
+--- a/Aws/DynamoDb/Commands/DeleteItem.hs
++++ b/Aws/DynamoDb/Commands/DeleteItem.hs
+@@ -26,6 +26,7 @@ import           Control.Applicative
+ import           Data.Aeson
+ import           Data.Default
+ import qualified Data.Text           as T
++import           Prelude
+ -------------------------------------------------------------------------------
+ import           Aws.Core
+ import           Aws.DynamoDb.Core
+diff --git a/Aws/DynamoDb/Commands/GetItem.hs b/Aws/DynamoDb/Commands/GetItem.hs
+index 85bbf9f..1859938 100644
+--- a/Aws/DynamoDb/Commands/GetItem.hs
++++ b/Aws/DynamoDb/Commands/GetItem.hs
+@@ -19,6 +19,7 @@ import           Control.Applicative
+ import           Data.Aeson
+ import           Data.Default
+ import qualified Data.Text           as T
++import           Prelude
+ -------------------------------------------------------------------------------
+ import           Aws.Core
+ import           Aws.DynamoDb.Core
+diff --git a/Aws/DynamoDb/Commands/PutItem.hs b/Aws/DynamoDb/Commands/PutItem.hs
+index 0ad51b1..28478d7 100644
+--- a/Aws/DynamoDb/Commands/PutItem.hs
++++ b/Aws/DynamoDb/Commands/PutItem.hs
+@@ -26,6 +26,7 @@ import           Control.Applicative
+ import           Data.Aeson
+ import           Data.Default
+ import qualified Data.Text           as T
++import           Prelude
+ -------------------------------------------------------------------------------
+ import           Aws.Core
+ import           Aws.DynamoDb.Core
+diff --git a/Aws/DynamoDb/Commands/Table.hs b/Aws/DynamoDb/Commands/Table.hs
+index 59b8b44..2c06c06 100644
+--- a/Aws/DynamoDb/Commands/Table.hs
++++ b/Aws/DynamoDb/Commands/Table.hs
+@@ -44,6 +44,7 @@ import           Data.Time.Clock.POSIX
+ import           Data.Typeable
+ import qualified Data.Vector           as V
+ import           GHC.Generics          (Generic)
++import           Prelude
+ -------------------------------------------------------------------------------
+ import           Aws.Core
+ import           Aws.DynamoDb.Core
+diff --git a/Aws/DynamoDb/Commands/UpdateItem.hs b/Aws/DynamoDb/Commands/UpdateItem.hs
+index 84b46a5..0d94a59 100644
+--- a/Aws/DynamoDb/Commands/UpdateItem.hs
++++ b/Aws/DynamoDb/Commands/UpdateItem.hs
+@@ -25,7 +25,6 @@ module Aws.DynamoDb.Commands.UpdateItem
+     , AttributeUpdate(..)
+     , au
+     , UpdateAction(..)
+-    , UpdateItem(..)
+     , UpdateItemResponse(..)
+     ) where
+ 
+@@ -34,6 +33,7 @@ import           Control.Applicative
+ import           Data.Aeson
+ import           Data.Default
+ import qualified Data.Text           as T
++import           Prelude
+ -------------------------------------------------------------------------------
+ import           Aws.Core
+ import           Aws.DynamoDb.Core
+diff --git a/Aws/DynamoDb/Core.hs b/Aws/DynamoDb/Core.hs
+index 67fd84b..d9e7dda 100644
+--- a/Aws/DynamoDb/Core.hs
++++ b/Aws/DynamoDb/Core.hs
+@@ -399,7 +399,7 @@ instance DynVal UTCTime where
+ 
+ -------------------------------------------------------------------------------
+ pico :: Rational
+-pico = toRational $ 10 ^ (12 :: Integer)
++pico = toRational $ (10 :: Integer) ^ (12 :: Integer)
+ 
+ 
+ -------------------------------------------------------------------------------
+@@ -1142,6 +1142,7 @@ data QuerySelect
+ instance Default QuerySelect where def = SelectAll
+ 
+ -------------------------------------------------------------------------------
++querySelectJson :: KeyValue t => QuerySelect -> [t]
+ querySelectJson (SelectSpecific as) =
+     [ "Select" .= String "SPECIFIC_ATTRIBUTES"
+     , "AttributesToGet" .= as]
+diff --git a/Aws/Ec2/InstanceMetadata.hs b/Aws/Ec2/InstanceMetadata.hs
+index 0166809..b1547a1 100644
+--- a/Aws/Ec2/InstanceMetadata.hs
++++ b/Aws/Ec2/InstanceMetadata.hs
+@@ -8,6 +8,7 @@ import qualified Data.ByteString.Lazy.Char8 as B8
+ import           Data.ByteString.Lazy.UTF8 as BU
+ import           Data.Typeable
+ import qualified Network.HTTP.Conduit as HTTP
++import           Prelude
+ 
+ data InstanceMetadataException
+   = MetadataNotFound String
+diff --git a/Aws/Iam/Commands/CreateAccessKey.hs b/Aws/Iam/Commands/CreateAccessKey.hs
+index 20cb071..64b6e4a 100644
+--- a/Aws/Iam/Commands/CreateAccessKey.hs
++++ b/Aws/Iam/Commands/CreateAccessKey.hs
+@@ -16,6 +16,7 @@ import           Data.Text           (Text)
+ import qualified Data.Text           as Text
+ import           Data.Time
+ import           Data.Typeable
++import           Prelude
+ import           Text.XML.Cursor     (($//))
+ 
+ -- | Creates a new AWS secret access key and corresponding AWS access key ID
+diff --git a/Aws/Iam/Commands/CreateUser.hs b/Aws/Iam/Commands/CreateUser.hs
+index c3a0aa1..482eda7 100644
+--- a/Aws/Iam/Commands/CreateUser.hs
++++ b/Aws/Iam/Commands/CreateUser.hs
+@@ -14,6 +14,7 @@ import           Aws.Iam.Internal
+ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Typeable
++import           Prelude
+ 
+ -- | Creates a new user.
+ --
+diff --git a/Aws/Iam/Commands/DeleteAccessKey.hs b/Aws/Iam/Commands/DeleteAccessKey.hs
+index b4e2084..605b167 100644
+--- a/Aws/Iam/Commands/DeleteAccessKey.hs
++++ b/Aws/Iam/Commands/DeleteAccessKey.hs
+@@ -13,6 +13,7 @@ import           Aws.Iam.Internal
+ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Typeable
++import           Prelude
+ 
+ -- | Deletes the access key associated with the specified user.
+ --
+diff --git a/Aws/Iam/Commands/GetUser.hs b/Aws/Iam/Commands/GetUser.hs
+index 67c46b3..aa8f5c3 100644
+--- a/Aws/Iam/Commands/GetUser.hs
++++ b/Aws/Iam/Commands/GetUser.hs
+@@ -13,6 +13,7 @@ import           Aws.Iam.Internal
+ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Typeable
++import           Prelude
+ 
+ -- | Retreives information about the given user.
+ --
+diff --git a/Aws/Iam/Commands/GetUserPolicy.hs b/Aws/Iam/Commands/GetUserPolicy.hs
+index e9e33d2..4e60f5a 100644
+--- a/Aws/Iam/Commands/GetUserPolicy.hs
++++ b/Aws/Iam/Commands/GetUserPolicy.hs
+@@ -16,6 +16,7 @@ import qualified Data.Text.Encoding  as Text
+ import           Data.Typeable
+ import qualified Network.HTTP.Types  as HTTP
+ import           Text.XML.Cursor     (($//))
++import           Prelude
+ 
+ -- | Retreives the specified policy document for the specified user.
+ --
+diff --git a/Aws/Iam/Commands/ListAccessKeys.hs b/Aws/Iam/Commands/ListAccessKeys.hs
+index 0e247ab..87e4920 100644
+--- a/Aws/Iam/Commands/ListAccessKeys.hs
++++ b/Aws/Iam/Commands/ListAccessKeys.hs
+@@ -14,6 +14,7 @@ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Time
+ import           Data.Typeable
++import           Prelude
+ import           Text.XML.Cursor     (laxElement, ($/), ($//), (&|))
+ 
+ -- | Returns the access keys associated with the specified user.
+diff --git a/Aws/Iam/Commands/ListMfaDevices.hs b/Aws/Iam/Commands/ListMfaDevices.hs
+index 7bad6f2..f03caae 100644
+--- a/Aws/Iam/Commands/ListMfaDevices.hs
++++ b/Aws/Iam/Commands/ListMfaDevices.hs
+@@ -12,6 +12,7 @@ import Aws.Iam.Internal
+ import Control.Applicative
+ import Data.Text (Text)
+ import Data.Typeable
++import Prelude
+ import Text.XML.Cursor (laxElement, ($//), (&|))
+ -- | Lists the MFA devices. If the request includes the user name,
+ -- then this action lists all the MFA devices associated with the
+diff --git a/Aws/Iam/Commands/ListUsers.hs b/Aws/Iam/Commands/ListUsers.hs
+index 01eff2a..461048b 100644
+--- a/Aws/Iam/Commands/ListUsers.hs
++++ b/Aws/Iam/Commands/ListUsers.hs
+@@ -14,6 +14,7 @@ import           Aws.Iam.Internal
+ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Typeable
++import           Prelude
+ import           Text.XML.Cursor     (laxElement, ($//), (&|))
+ 
+ -- | Lists users that have the specified path prefix.
+diff --git a/Aws/Iam/Commands/UpdateAccessKey.hs b/Aws/Iam/Commands/UpdateAccessKey.hs
+index ba54971..0b079dd 100644
+--- a/Aws/Iam/Commands/UpdateAccessKey.hs
++++ b/Aws/Iam/Commands/UpdateAccessKey.hs
+@@ -13,6 +13,7 @@ import           Aws.Iam.Internal
+ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Typeable
++import           Prelude
+ 
+ -- | Changes the status of the specified access key.
+ --
+diff --git a/Aws/Iam/Commands/UpdateUser.hs b/Aws/Iam/Commands/UpdateUser.hs
+index 84b27eb..1b75497 100644
+--- a/Aws/Iam/Commands/UpdateUser.hs
++++ b/Aws/Iam/Commands/UpdateUser.hs
+@@ -13,6 +13,7 @@ import           Aws.Iam.Internal
+ import           Control.Applicative
+ import           Data.Text           (Text)
+ import           Data.Typeable
++import           Prelude
+ 
+ -- | Updates the name and/or path of the specified user.
+ --
+diff --git a/Aws/Iam/Internal.hs b/Aws/Iam/Internal.hs
+index f6522bd..87fc6a5 100644
+--- a/Aws/Iam/Internal.hs
++++ b/Aws/Iam/Internal.hs
+@@ -20,6 +20,7 @@ import           Control.Monad.Trans.Resource (MonadThrow)
+ import           Data.ByteString     (ByteString)
+ import           Data.Maybe
+ import           Data.Monoid         ((<>))
++import           Prelude
+ import           Data.Text           (Text)
+ import qualified Data.Text           as Text
+ import qualified Data.Text.Encoding  as Text
+diff --git a/Aws/S3/Commands/CopyObject.hs b/Aws/S3/Commands/CopyObject.hs
+index a748186..a26fb41 100644
+--- a/Aws/S3/Commands/CopyObject.hs
++++ b/Aws/S3/Commands/CopyObject.hs
+@@ -20,6 +20,7 @@ import           Data.Time.Format
+ #else
+ import           System.Locale
+ #endif
++import           Prelude
+ 
+ data CopyMetadataDirective = CopyMetadata | ReplaceMetadata [(T.Text,T.Text)]
+   deriving (Show)
+diff --git a/Aws/S3/Commands/DeleteBucket.hs b/Aws/S3/Commands/DeleteBucket.hs
+index c96acaa..e35f3c3 100644
+--- a/Aws/S3/Commands/DeleteBucket.hs
++++ b/Aws/S3/Commands/DeleteBucket.hs
+@@ -4,7 +4,6 @@ where
+ import           Aws.Core
+ import           Aws.S3.Core
+ import           Data.ByteString.Char8      ({- IsString -})
+-import qualified Data.Text                  as T
+ import qualified Data.Text.Encoding         as T
+ 
+ data DeleteBucket = DeleteBucket { dbBucket :: Bucket }
+diff --git a/Aws/S3/Commands/GetBucket.hs b/Aws/S3/Commands/GetBucket.hs
+index 0d24879..6581d05 100644
+--- a/Aws/S3/Commands/GetBucket.hs
++++ b/Aws/S3/Commands/GetBucket.hs
+@@ -11,6 +11,7 @@ import qualified Data.ByteString.Char8 as B8
+ import qualified Data.Text             as T
+ import qualified Data.Text.Encoding    as T
+ import qualified Data.Traversable
++import           Prelude
+ import qualified Network.HTTP.Types    as HTTP
+ import qualified Text.XML.Cursor       as Cu
+ 
+diff --git a/Aws/S3/Commands/GetObject.hs b/Aws/S3/Commands/GetObject.hs
+index 5a60611..62da4a6 100644
+--- a/Aws/S3/Commands/GetObject.hs
++++ b/Aws/S3/Commands/GetObject.hs
+@@ -13,6 +13,7 @@ import qualified Data.Conduit.List     as CL
+ import           Data.Maybe
+ import qualified Data.Text             as T
+ import qualified Data.Text.Encoding    as T
++import           Prelude
+ import qualified Network.HTTP.Conduit  as HTTP
+ import qualified Network.HTTP.Types    as HTTP
+ 
+diff --git a/Aws/S3/Commands/HeadObject.hs b/Aws/S3/Commands/HeadObject.hs
+index dbc9cc0..f13c1d8 100644
+--- a/Aws/S3/Commands/HeadObject.hs
++++ b/Aws/S3/Commands/HeadObject.hs
+@@ -10,6 +10,7 @@ import qualified Data.ByteString.Char8 as B8
+ import           Data.Maybe
+ import qualified Data.Text             as T
+ import qualified Data.Text.Encoding    as T
++import           Prelude
+ import qualified Network.HTTP.Conduit  as HTTP
+ import qualified Network.HTTP.Types    as HTTP
+ 
+diff --git a/Aws/S3/Commands/Multipart.hs b/Aws/S3/Commands/Multipart.hs
+index f70524c..6a45b67 100644
+--- a/Aws/S3/Commands/Multipart.hs
++++ b/Aws/S3/Commands/Multipart.hs
+@@ -22,6 +22,7 @@ import qualified Data.Text.Encoding    as T
+ import qualified Network.HTTP.Conduit  as HTTP
+ import qualified Network.HTTP.Types    as HTTP
+ import qualified Text.XML              as XML
++import           Prelude
+ 
+ {-
+ Aws supports following 6 api for Multipart-Upload.
+diff --git a/Aws/S3/Commands/PutObject.hs b/Aws/S3/Commands/PutObject.hs
+index 9f67cd5..d4513c0 100644
+--- a/Aws/S3/Commands/PutObject.hs
++++ b/Aws/S3/Commands/PutObject.hs
+@@ -13,6 +13,7 @@ import qualified Data.ByteString.Char8 as B
+ import qualified Data.CaseInsensitive  as CI
+ import qualified Data.Text             as T
+ import qualified Data.Text.Encoding    as T
++import           Prelude
+ import qualified Network.HTTP.Conduit  as HTTP
+ 
+ data PutObject = PutObject {
+diff --git a/Aws/S3/Core.hs b/Aws/S3/Core.hs
+index 40af484..6c20e35 100644
+--- a/Aws/S3/Core.hs
++++ b/Aws/S3/Core.hs
+@@ -38,6 +38,7 @@ import qualified Network.HTTP.Conduit           as HTTP
+ import qualified Network.HTTP.Types             as HTTP
+ import qualified Text.XML                       as XML
+ import qualified Text.XML.Cursor                as Cu
++import           Prelude
+ 
+ data S3Authorization
+     = S3AuthorizationHeader
+diff --git a/Aws/Ses/Core.hs b/Aws/Ses/Core.hs
+index ed474b2..aa68f1b 100644
+--- a/Aws/Ses/Core.hs
++++ b/Aws/Ses/Core.hs
+@@ -36,6 +36,7 @@ import           Data.Monoid
+ import           Data.Text                      (Text)
+ import qualified Data.Text.Encoding             as TE
+ import           Data.Typeable
++import           Prelude
+ import qualified Network.HTTP.Conduit           as HTTP
+ import qualified Network.HTTP.Types             as HTTP
+ import           Text.XML.Cursor                (($/), ($//))
+diff --git a/Aws/SimpleDb/Commands/Attributes.hs b/Aws/SimpleDb/Commands/Attributes.hs
+index e929318..179eb2f 100644
+--- a/Aws/SimpleDb/Commands/Attributes.hs
++++ b/Aws/SimpleDb/Commands/Attributes.hs
+@@ -5,6 +5,7 @@ import           Aws.SimpleDb.Core
+ import           Control.Applicative
+ import           Control.Monad
+ import           Data.Maybe
++import           Prelude
+ import           Text.XML.Cursor            (($//), (&|))
+ import qualified Data.Text                  as T
+ import qualified Data.Text.Encoding         as T
+diff --git a/Aws/SimpleDb/Commands/Domain.hs b/Aws/SimpleDb/Commands/Domain.hs
+index 107eae9..e9eb47c 100644
+--- a/Aws/SimpleDb/Commands/Domain.hs
++++ b/Aws/SimpleDb/Commands/Domain.hs
+@@ -6,6 +6,7 @@ import           Control.Applicative
+ import           Data.Maybe
+ import           Data.Time
+ import           Data.Time.Clock.POSIX
++import           Prelude
+ import           Text.XML.Cursor       (($//), (&|))
+ import qualified Data.Text             as T
+ import qualified Data.Text.Encoding    as T
+diff --git a/Aws/SimpleDb/Commands/Select.hs b/Aws/SimpleDb/Commands/Select.hs
+index 9dd7397..804388b 100644
+--- a/Aws/SimpleDb/Commands/Select.hs
++++ b/Aws/SimpleDb/Commands/Select.hs
+@@ -6,6 +6,7 @@ import           Aws.SimpleDb.Core
+ import           Control.Applicative
+ import           Control.Monad
+ import           Data.Maybe
++import           Prelude
+ import           Text.XML.Cursor            (($//), (&|))
+ import qualified Data.Text                  as T
+ import qualified Data.Text.Encoding         as T
+diff --git a/Aws/SimpleDb/Core.hs b/Aws/SimpleDb/Core.hs
+index 7a9c483..6486fe3 100644
+--- a/Aws/SimpleDb/Core.hs
++++ b/Aws/SimpleDb/Core.hs
+@@ -15,6 +15,7 @@ import           Data.Monoid
+ import qualified Data.Text                      as T
+ import qualified Data.Text.Encoding             as T
+ import           Data.Typeable
++import           Prelude
+ import qualified Network.HTTP.Conduit           as HTTP
+ import qualified Network.HTTP.Types             as HTTP
+ import           Text.XML.Cursor                (($|), ($/), ($//), (&|))
+diff --git a/Aws/Sqs/Commands/Message.hs b/Aws/Sqs/Commands/Message.hs
+index 556c71e..af75fbf 100644
+--- a/Aws/Sqs/Commands/Message.hs
++++ b/Aws/Sqs/Commands/Message.hs
+@@ -39,6 +39,7 @@ import Data.Scientific
+ import qualified Network.HTTP.Types as HTTP
+ import Text.Read (readEither)
+ import qualified Text.XML.Cursor as Cu
++import Prelude
+ 
+ -- -------------------------------------------------------------------------- --
+ -- User Message Attributes
+diff --git a/Aws/Sqs/Commands/Queue.hs b/Aws/Sqs/Commands/Queue.hs
+index ff61ae9..71be227 100644
+--- a/Aws/Sqs/Commands/Queue.hs
++++ b/Aws/Sqs/Commands/Queue.hs
+@@ -5,6 +5,7 @@ import           Aws.Core
+ import           Aws.Sqs.Core
+ import           Control.Applicative
+ import           Data.Maybe
++import           Prelude
+ import           Text.XML.Cursor       (($//), (&/))
+ import qualified Data.Text             as T
+ import qualified Data.Text.Encoding    as TE
+diff --git a/Aws/Sqs/Core.hs b/Aws/Sqs/Core.hs
+index dde576f..7d2aee0 100644
+--- a/Aws/Sqs/Core.hs
++++ b/Aws/Sqs/Core.hs
+@@ -22,6 +22,7 @@ import qualified Data.Text.Encoding             as T
+ import qualified Data.Text.Encoding             as TE
+ import           Data.Time
+ import           Data.Typeable
++import           Prelude
+ import qualified Network.HTTP.Conduit           as HTTP
+ import qualified Network.HTTP.Types             as HTTP
+ #if MIN_VERSION_time(1,5,0)
+
+From 64fa3fd3dd48a02b75328c6d886d00b07bab7ffc Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 10:59:32 -0400
+Subject: [PATCH 3/8] Use HTTP.newManager instead of deprecated
+ HTTP.withManager
+
+---
+ Aws/Aws.hs  | 6 +++---
+ Aws/Core.hs | 4 ++--
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/Aws/Aws.hs b/Aws/Aws.hs
+index 2f749d7..cc4a440 100644
+--- a/Aws/Aws.hs
++++ b/Aws/Aws.hs
+@@ -190,9 +190,9 @@ simpleAws :: (Transaction r a, AsMemoryResponse a, MonadIO io)
+             -> ServiceConfiguration r NormalQuery
+             -> r
+             -> io (MemoryResponse a)
+-simpleAws cfg scfg request
+-  = liftIO $ HTTP.withManager $ \manager ->
+-      loadToMemory =<< readResponseIO =<< aws cfg scfg manager request
++simpleAws cfg scfg request = liftIO $ runResourceT $ do
++    manager <- liftIO $ HTTP.newManager HTTP.tlsManagerSettings
++    loadToMemory =<< readResponseIO =<< aws cfg scfg manager request
+ 
+ -- | Run an AWS transaction, without enforcing that response and request type form a valid transaction pair.
+ --
+diff --git a/Aws/Core.hs b/Aws/Core.hs
+index 89a78f7..35a26c9 100644
+--- a/Aws/Core.hs
++++ b/Aws/Core.hs
+@@ -319,8 +319,8 @@ loadCredentialsFromEnv = liftIO $ do
+   Traversable.sequence $ makeCredentials' <$> keyID <*> secret
+ 
+ loadCredentialsFromInstanceMetadata :: MonadIO io => io (Maybe Credentials)
+-loadCredentialsFromInstanceMetadata = liftIO $ HTTP.withManager $ \mgr ->
+-  do
++loadCredentialsFromInstanceMetadata = do
++    mgr <- liftIO $ HTTP.newManager HTTP.tlsManagerSettings
+     -- check if the path is routable
+     avail <- liftIO $ hostAvailable "169.254.169.254"
+     if not avail
+
+From 6896a436d0cd61c54808f46046c2d77bfd98bf58 Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 11:00:12 -0400
+Subject: [PATCH 4/8] Aws.DynamicDb.Core: Remove redundant Typeable constraint
+
+---
+ Aws/DynamoDb/Core.hs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Aws/DynamoDb/Core.hs b/Aws/DynamoDb/Core.hs
+index d9e7dda..a3698b2 100644
+--- a/Aws/DynamoDb/Core.hs
++++ b/Aws/DynamoDb/Core.hs
+@@ -1339,7 +1339,7 @@ getAttr k m = do
+ -- | Parse attribute if it's present in the 'Item'. Fail if attribute
+ -- is present but conversion fails.
+ getAttr'
+-    :: forall a. (Typeable a, DynVal a)
++    :: forall a. (DynVal a)
+     => T.Text
+     -- ^ Attribute name
+     -> Item
+
+From 73552eaa1aba1d629d942a452424ffc855780619 Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 11:06:14 -0400
+Subject: [PATCH 5/8] Drop support for time < 1.4
+
+This allows us to easily silence a number of redundant import warnings
+and drop some CPP.
+---
+ Aws/Core.hs                   | 4 +---
+ Aws/Iam/Core.hs               | 4 +---
+ Aws/S3/Commands/CopyObject.hs | 4 +---
+ Aws/S3/Core.hs                | 4 +---
+ Aws/Sqs/Core.hs               | 4 +---
+ aws.cabal                     | 2 +-
+ 6 files changed, 6 insertions(+), 16 deletions(-)
+
+diff --git a/Aws/Core.hs b/Aws/Core.hs
+index 35a26c9..b81820a 100644
+--- a/Aws/Core.hs
++++ b/Aws/Core.hs
+@@ -130,9 +130,7 @@ import qualified Network.HTTP.Types       as HTTP
+ import           System.Directory
+ import           System.Environment
+ import           System.FilePath          ((</>))
+-#if MIN_VERSION_time(1,5,0)
+-import           Data.Time.Format
+-#else
++#if !MIN_VERSION_time(1,5,0)
+ import           System.Locale
+ #endif
+ import qualified Text.XML                 as XML
+diff --git a/Aws/Iam/Core.hs b/Aws/Iam/Core.hs
+index 0152799..ae9e523 100644
+--- a/Aws/Iam/Core.hs
++++ b/Aws/Iam/Core.hs
+@@ -35,9 +35,7 @@ import           Data.Time
+ import           Data.Typeable
+ import qualified Network.HTTP.Conduit           as HTTP
+ import qualified Network.HTTP.Types             as HTTP
+-#if MIN_VERSION_time(1,5,0)
+-import           Data.Time.Format
+-#else
++#if !MIN_VERSION_time(1,5,0)
+ import           System.Locale
+ #endif
+ import           Text.XML.Cursor                (($//))
+diff --git a/Aws/S3/Commands/CopyObject.hs b/Aws/S3/Commands/CopyObject.hs
+index a26fb41..34206c4 100644
+--- a/Aws/S3/Commands/CopyObject.hs
++++ b/Aws/S3/Commands/CopyObject.hs
+@@ -15,9 +15,7 @@ import qualified Data.Text.Encoding as T
+ import           Data.Time
+ import qualified Network.HTTP.Conduit as HTTP
+ import           Text.XML.Cursor (($/), (&|))
+-#if MIN_VERSION_time(1,5,0)
+-import           Data.Time.Format
+-#else
++#if !MIN_VERSION_time(1,5,0)
+ import           System.Locale
+ #endif
+ import           Prelude
+diff --git a/Aws/S3/Core.hs b/Aws/S3/Core.hs
+index 6c20e35..d55711e 100644
+--- a/Aws/S3/Core.hs
++++ b/Aws/S3/Core.hs
+@@ -18,9 +18,7 @@ import           Data.Monoid
+ import           Control.Applicative            ((<|>))
+ import           Data.Time
+ import           Data.Typeable
+-#if MIN_VERSION_time(1,5,0)
+-import           Data.Time.Format
+-#else
++#if !MIN_VERSION_time(1,5,0)
+ import           System.Locale
+ #endif
+ import           Text.XML.Cursor                (($/), (&|))
+diff --git a/Aws/Sqs/Core.hs b/Aws/Sqs/Core.hs
+index 7d2aee0..700abf5 100644
+--- a/Aws/Sqs/Core.hs
++++ b/Aws/Sqs/Core.hs
+@@ -25,9 +25,7 @@ import           Data.Typeable
+ import           Prelude
+ import qualified Network.HTTP.Conduit           as HTTP
+ import qualified Network.HTTP.Types             as HTTP
+-#if MIN_VERSION_time(1,5,0)
+-import           Data.Time.Format
+-#else
++#if !MIN_VERSION_time(1,5,0)
+ import           System.Locale
+ #endif
+ import qualified Text.XML                       as XML
+diff --git a/aws.cabal b/aws.cabal
+index a74d669..8cea405 100644
+--- a/aws.cabal
++++ b/aws.cabal
+@@ -139,7 +139,7 @@ Library
+                        scientific           >= 0.3,
+                        tagged               >= 0.7     && < 0.9,
+                        text                 >= 0.11,
+-                       time                 >= 1.1.4   && < 2.0,
++                       time                 >= 1.4.0   && < 1.7,
+                        transformers         >= 0.2.2   && < 0.6,
+                        unordered-containers >= 0.2,
+                        utf8-string          >= 0.3     && < 1.1,
+
+From b09069d269f6f8cbfb0564e4d6c8a128ce1c3a8e Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 10:25:11 -0400
+Subject: [PATCH 6/8] Add support for http-client-2.2
+
+---
+ Aws/Core.hs                   | 31 ++++++++++++++++++++++++++++---
+ Aws/S3/Commands/GetObject.hs  | 10 +++++-----
+ Aws/S3/Commands/HeadObject.hs |  6 ++----
+ aws.cabal                     |  2 +-
+ 4 files changed, 36 insertions(+), 13 deletions(-)
+
+diff --git a/Aws/Core.hs b/Aws/Core.hs
+index b81820a..45f277b 100644
+--- a/Aws/Core.hs
++++ b/Aws/Core.hs
+@@ -22,6 +22,7 @@ module Aws.Core
+ , HeaderException(..)
+ , FormException(..)
+ , NoCredentialsException(..)
++, throwStatusCodeException
+   -- ** Response deconstruction helpers
+ , readHex2
+   -- *** XML
+@@ -111,8 +112,10 @@ import qualified Data.ByteString.UTF8     as BU
+ import           Data.Char
+ import           Data.Conduit             (($$+-))
+ import qualified Data.Conduit             as C
++#if MIN_VERSION_http_conduit(2,2,0)
++import qualified Data.Conduit.Binary      as CB
++#endif
+ import qualified Data.Conduit.List        as CL
+-import           Data.Default             (def)
+ import           Data.IORef
+ import           Data.List
+ import qualified Data.Map                 as M
+@@ -462,7 +465,7 @@ queryToHttpRequest :: SignedQuery -> IO (HTTP.Request (C.ResourceT IO))
+ #endif
+ queryToHttpRequest SignedQuery{..} =  do
+     mauth <- maybe (return Nothing) (Just<$>) sqAuthorization
+-    return $ def {
++    return $ HTTP.defaultRequest {
+         HTTP.method = httpMethod sqMethod
+       , HTTP.secure = case sqProtocol of
+                         HTTP -> False
+@@ -494,7 +497,11 @@ queryToHttpRequest SignedQuery{..} =  do
+               _         -> HTTP.RequestBodyBuilder 0 mempty
+ 
+       , HTTP.decompress = HTTP.alwaysDecompress
+-      , HTTP.checkStatus = \_ _ _ -> Nothing
++#if MIN_VERSION_http_conduit(2,2,0)
++      , HTTP.checkResponse = \_ _ -> return ()
++#else
++      , HTTP.checkStatus = \_ _ _-> Nothing
++#endif
+ 
+       , HTTP.redirectCount = 10
+       }
+@@ -792,6 +799,24 @@ newtype NoCredentialsException = NoCredentialsException { noCredentialsErrorMess
+ 
+ instance E.Exception NoCredentialsException
+ 
++-- | A helper to throw an 'HTTP.StatusCodeException'.
++throwStatusCodeException :: HTTP.Request
++                         -> HTTP.Response (C.ResumableSource (ResourceT IO) ByteString)
++                         -> ResourceT IO a
++#if MIN_VERSION_http_conduit(2,2,0)
++throwStatusCodeException req resp = do
++    let resp' = fmap (const ()) resp
++    -- only take first 10kB of error response
++    body <- HTTP.responseBody resp C.$$+- CB.take (10*1024)
++    let sce = HTTP.StatusCodeException resp' (L.toStrict body)
++    throwM $ HTTP.HttpExceptionRequest req sce
++#else
++throwStatusCodeException _req resp = do
++    let cookies = HTTP.responseCookieJar resp
++        headers = HTTP.responseHeaders   resp
++        status  = HTTP.responseStatus    resp
++    throwM $ HTTP.StatusCodeException status headers cookies
++#endif
+ 
+ -- | A specific element (case-insensitive, ignoring namespace - sadly necessary), extracting only the textual contents.
+ elContent :: T.Text -> Cursor -> [T.Text]
+diff --git a/Aws/S3/Commands/GetObject.hs b/Aws/S3/Commands/GetObject.hs
+index 62da4a6..fd8ba92 100644
+--- a/Aws/S3/Commands/GetObject.hs
++++ b/Aws/S3/Commands/GetObject.hs
+@@ -1,10 +1,12 @@
++{-# LANGUAGE CPP #-}
++
+ module Aws.S3.Commands.GetObject
+ where
+ 
+ import           Aws.Core
+ import           Aws.S3.Core
+ import           Control.Applicative
+-import           Control.Monad.Trans.Resource (ResourceT, throwM)
++import           Control.Monad.Trans.Resource (ResourceT)
+ import           Data.ByteString.Char8 ({- IsString -})
+ import qualified Data.ByteString.Char8 as B8
+ import qualified Data.ByteString.Lazy  as L
+@@ -80,16 +82,14 @@ instance SignQuery GetObject where
+ 
+ instance ResponseConsumer GetObject GetObjectResponse where
+     type ResponseMetadata GetObjectResponse = S3Metadata
+-    responseConsumer _ GetObject{..} metadata resp
++    responseConsumer httpReq GetObject{..} metadata resp
+         | status == HTTP.status200 = do
+             rsp <- s3BinaryResponseConsumer return metadata resp
+             om <- parseObjectMetadata (HTTP.responseHeaders resp)
+             return $ GetObjectResponse om rsp
+-        | otherwise = throwM $ HTTP.StatusCodeException status headers cookies
++        | otherwise = throwStatusCodeException httpReq resp
+       where
+         status  = HTTP.responseStatus    resp
+-        headers = HTTP.responseHeaders   resp
+-        cookies = HTTP.responseCookieJar resp
+ 
+ instance Transaction GetObject GetObjectResponse
+ 
+diff --git a/Aws/S3/Commands/HeadObject.hs b/Aws/S3/Commands/HeadObject.hs
+index f13c1d8..09c44f8 100644
+--- a/Aws/S3/Commands/HeadObject.hs
++++ b/Aws/S3/Commands/HeadObject.hs
+@@ -4,7 +4,6 @@ where
+ import           Aws.Core
+ import           Aws.S3.Core
+ import           Control.Applicative
+-import           Control.Monad.Trans.Resource (throwM)
+ import           Data.ByteString.Char8 ({- IsString -})
+ import qualified Data.ByteString.Char8 as B8
+ import           Data.Maybe
+@@ -61,14 +60,13 @@ instance SignQuery HeadObject where
+ 
+ instance ResponseConsumer HeadObject HeadObjectResponse where
+     type ResponseMetadata HeadObjectResponse = S3Metadata
+-    responseConsumer _ HeadObject{..} _ resp
++    responseConsumer httpReq HeadObject{..} _ resp
+         | status == HTTP.status200 = HeadObjectResponse . Just <$> parseObjectMetadata headers
+         | status == HTTP.status404 = return $ HeadObjectResponse Nothing
+-        | otherwise = throwM $ HTTP.StatusCodeException status headers cookies
++        | otherwise = throwStatusCodeException httpReq resp
+       where
+         status  = HTTP.responseStatus    resp
+         headers = HTTP.responseHeaders   resp
+-        cookies = HTTP.responseCookieJar resp
+ 
+ instance Transaction HeadObject HeadObjectResponse
+ 
+diff --git a/aws.cabal b/aws.cabal
+index 8cea405..1d8bb71 100644
+--- a/aws.cabal
++++ b/aws.cabal
+@@ -127,7 +127,7 @@ Library
+                        data-default         >= 0.5.3   && < 0.8,
+                        directory            >= 1.0     && < 1.3,
+                        filepath             >= 1.1     && < 1.5,
+-                       http-conduit         >= 2.1     && < 2.2,
++                       http-conduit         >= 2.1     && < 2.3,
+                        http-types           >= 0.7     && < 0.10,
+                        lifted-base          >= 0.1     && < 0.3,
+                        monad-control        >= 0.3,
+
+From d5b10b790ceea44c802498f9be653ba1dab8f6d1 Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 11:26:08 -0400
+Subject: [PATCH 7/8] Ec2.InstanceMetadata: Use parseUrlThrow explicitly
+
+parseUrl is deprecated.
+---
+ Aws/Ec2/InstanceMetadata.hs | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/Aws/Ec2/InstanceMetadata.hs b/Aws/Ec2/InstanceMetadata.hs
+index b1547a1..dcc254e 100644
+--- a/Aws/Ec2/InstanceMetadata.hs
++++ b/Aws/Ec2/InstanceMetadata.hs
+@@ -17,8 +17,9 @@ data InstanceMetadataException
+ instance Exception InstanceMetadataException
+ 
+ getInstanceMetadata :: HTTP.Manager -> String -> String -> IO L.ByteString
+-getInstanceMetadata mgr p x = do req <- HTTP.parseUrl ("http://169.254.169.254/" ++ p ++ '/' : x)
+-                                 HTTP.responseBody <$> HTTP.httpLbs req mgr
++getInstanceMetadata mgr p x = do
++    req <- HTTP.parseUrlThrow ("http://169.254.169.254/" ++ p ++ '/' : x)
++    HTTP.responseBody <$> HTTP.httpLbs req mgr
+ 
+ getInstanceMetadataListing :: HTTP.Manager -> String -> IO [String]
+ getInstanceMetadataListing mgr p = map BU.toString . B8.split '\n' <$> getInstanceMetadata mgr p ""
+
+From f18b362178ce2de383525af8af23da3cdc7ab466 Mon Sep 17 00:00:00 2001
+From: Ben Gamari <ben@smart-cactus.org>
+Date: Fri, 4 Nov 2016 11:31:51 -0400
+Subject: [PATCH 8/8] Drop redundant Monoid (ResponseMetadata a) constraints
+
+---
+ Aws/Aws.hs | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/Aws/Aws.hs b/Aws/Aws.hs
+index cc4a440..159df36 100644
+--- a/Aws/Aws.hs
++++ b/Aws/Aws.hs
+@@ -203,7 +203,6 @@ simpleAws cfg scfg request = liftIO $ runResourceT $ do
+ -- Metadata is wrapped in the Response, and also logged at level 'Info'.
+ unsafeAws
+   :: (ResponseConsumer r a,
+-      Monoid (ResponseMetadata a),
+       Loggable (ResponseMetadata a),
+       SignQuery r) =>
+      Configuration -> ServiceConfiguration r NormalQuery -> HTTP.Manager -> r -> ResourceT IO (Response (ResponseMetadata a) a)
+@@ -228,7 +227,6 @@ unsafeAws cfg scfg manager request = do
+ -- Metadata is put in the 'IORef', but not logged.
+ unsafeAwsRef
+   :: (ResponseConsumer r a,
+-      Monoid (ResponseMetadata a),
+       SignQuery r) =>
+      Configuration -> ServiceConfiguration r NormalQuery -> HTTP.Manager -> IORef (ResponseMetadata a) -> r -> ResourceT IO a
+ unsafeAwsRef cfg info manager metadataRef request = do
