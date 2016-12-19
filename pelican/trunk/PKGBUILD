@@ -3,8 +3,8 @@
 # Contributor: David Runge <dave@sleepmap.de>
 
 pkgname=pelican
-pkgver=3.6.3
-pkgrel=5
+pkgver=3.7.0
+pkgrel=1
 pkgdesc="A tool to generate a static blog, with restructured text (or markdown) input files."
 arch=('any')
 url="http://getpelican.com"
@@ -13,6 +13,7 @@ makedepends=('python-sphinx' 'python-blinker')
 depends=('python-jinja' 'python-pygments' 'python-feedgenerator' 'python-pytz'
          'python-docutils' 'python-blinker' 'python-unidecode' 'python-six'
          'python-dateutil')
+checkdepends=('python-tox' 'python-setuptools' 'python-lxml' 'git')
 optdepends=('python-markdown: Markdown support'
             'asciidoc: AsciiDoc support'
             'python-beautifulsoup4: importing from wordpress/dotclear/posterous'
@@ -24,24 +25,35 @@ optdepends=('python-markdown: Markdown support'
             's3cmd: uploading through S3'
             'python-ghp-import: uploading through gh-pages'
             'python-typogrify: typographical enhancements'
-            'python-mdx-video: easier embedding of youtube videos in markdown')
+	    'python-mdx-video: easier embedding of youtube videos in markdown')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/getpelican/pelican/archive/$pkgver.tar.gz")
-sha256sums=('d19bc7df61afc5b68eba028f0cf0832ee2a12a04a01d7fe11bdfdd847ddd417b')
+sha512sums=('e4b8a771737a8f6fab109b0f4544229f09141f38210b502f605ae449be7ba12bb43db6637592d2e9060255e923f092c6cfe8dc7bbeec1431d5b625f3a9b8222d')
 
-build() {
-    cd "$srcdir/$pkgname-$pkgver/docs/"
-    make man
-    make text
+prepare() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    # fixing encoding error
+    # pending issue https://github.com/getpelican/pelican/pull/2067
+    sed -i "s|docs/changelog\.rst'|docs/changelog\.rst','r',encoding='utf-8'|" setup.py
 }
 
 package() {
     cd "$srcdir/$pkgname-$pkgver"
 
+    LC_LANG=en_US.UTF-8 python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
+
+    cd "$srcdir/$pkgname-$pkgver/docs/"
+    PYTHONPATH="$pkgdir/usr/lib/python$(python -c "import platform;print('.'.join(platform.python_version_tuple()[0:2]))")/site-packages/" make man
+    PYTHONPATH="$pkgdir/usr/lib/python$(python -c "import platform;print('.'.join(platform.python_version_tuple()[0:2]))")/site-packages/" make text
+
     install -d "$pkgdir/usr/share/man/man1/"
-    install -Dm644 docs/_build/man/*.1 "$pkgdir/usr/share/man/man1/"
+    install -Dm644 _build/man/*.1 "$pkgdir/usr/share/man/man1/"
 
     install -d "$pkgdir/usr/share/doc/pelican/"
-    install -Dm644 docs/_build/text/*.txt "$pkgdir/usr/share/doc/pelican/"
+    install -Dm644 _build/text/*.txt "$pkgdir/usr/share/doc/pelican/"
+}
 
-    python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
+check() {
+    cd "$srcdir/$pkgname-$pkgver"
+    tox -e py35
 }
