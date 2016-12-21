@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-asterwave
-_commit=c39ed33
-pkgver=20160523.c39ed33
+_commit=2c82b03
+pkgver=20161216.2c82b03
 pkgrel=1
 pkgdesc="AsterWave screensaver for Kodi"
 arch=('i686' 'x86_64')
