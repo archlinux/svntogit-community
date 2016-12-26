@@ -1,0 +1,69 @@
+# Maintainer: Jiachen Yang <farseerfc@gmail.com>
+# AUR Maintainer: Stefan Tatschner <rumpelsepp@sevenbyte.org>
+# Contributor: David Runge <dave@sleepmap.de>
+
+pkgname=pelican
+pkgver=3.7.0
+pkgrel=2
+pkgdesc="A tool to generate a static blog, with restructured text (or markdown) input files."
+arch=('any')
+url="http://getpelican.com"
+license=('AGPL3')
+makedepends=('python-sphinx' 'python-blinker')
+depends=('python-jinja' 'python-pygments' 'python-feedgenerator' 'python-pytz'
+         'python-docutils' 'python-blinker' 'python-unidecode' 'python-six'
+         'python-dateutil')
+checkdepends=('python-tox' 'python-setuptools' 'python-lxml' 'git')
+optdepends=('python-markdown: Markdown support'
+            'asciidoc: AsciiDoc support'
+            'python-beautifulsoup4: importing from wordpress/dotclear/posterous'
+            'python-feedparser: importing from feeds'
+#            'python-rst2pdf: PDF generation' # FS#48890
+            'openssh: uploading through SSH'
+            'rsync: uploading through rsync+SSH'
+            'lftp: uploading through FTP'
+            's3cmd: uploading through S3'
+            'python-ghp-import: uploading through gh-pages'
+            'python-typogrify: typographical enhancements'
+	    'python-mdx-video: easier embedding of youtube videos in markdown')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/getpelican/pelican/archive/$pkgver.tar.gz")
+sha512sums=('e4b8a771737a8f6fab109b0f4544229f09141f38210b502f605ae449be7ba12bb43db6637592d2e9060255e923f092c6cfe8dc7bbeec1431d5b625f3a9b8222d')
+
+prepare() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    # fixing encoding error
+    # pending issue https://github.com/getpelican/pelican/pull/2067
+    sed -i "s|docs/changelog\.rst'|docs/changelog\.rst','r',encoding='utf-8'|" setup.py
+
+    # make python 3.6 target for tox
+    # pending issue https://github.com/getpelican/pelican/pull/2074
+    sed -i "s|envlist = py{27,33,34,35},docs,flake8|envlist = py{27,33,34,35,36},docs,flake8|" tox.ini
+    sed -i "s|py33: python3.3|py36: python3.6|" tox.ini
+}
+
+build() {
+    # sphinx tried to import pelican, make it happy
+    cd "$srcdir/$pkgname-$pkgver/docs"
+    PYTHONPATH=".." make man
+    PYTHONPATH=".." make text
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    LC_LANG=en_US.UTF-8 python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
+
+    cd "docs"
+
+    install -d "$pkgdir/usr/share/man/man1/"
+    install -Dm644 _build/man/*.1 "$pkgdir/usr/share/man/man1/"
+
+    install -d "$pkgdir/usr/share/doc/pelican/"
+    install -Dm644 _build/text/*.txt "$pkgdir/usr/share/doc/pelican/"
+}
+
+check() {
+    cd "$srcdir/$pkgname-$pkgver"
+    tox -e py3$(python3 -c "import platform;print(platform.python_version_tuple()[1])")
+}
