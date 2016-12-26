@@ -1,0 +1,445 @@
+From a86e578f0860670f3d43fa2d414e93a60aa72e2d Mon Sep 17 00:00:00 2001
+From: Tycho Andersen <tycho@tycho.ws>
+Date: Sun, 12 Jun 2016 19:49:16 -0600
+Subject: [PATCH] add support for new element "required_start_align"
+
+This is a little bit ugly and it breaks the API, but it's necessary since
+upstream has added this and xcb-types won't parse xcb-proto 1.12 as-is.
+
+Signed-off-by: Tycho Andersen <tycho@tycho.ws>
+---
+ Data/XCB/FromXML.hs | 84 ++++++++++++++++++++++++++++++++---------------------
+ Data/XCB/Pretty.hs  | 41 +++++++++++++++-----------
+ Data/XCB/Types.hs   | 22 ++++++++------
+ 3 files changed, 88 insertions(+), 59 deletions(-)
+
+diff --git a/Data/XCB/FromXML.hs b/Data/XCB/FromXML.hs
+index 67ce9e1..af44a19 100644
+--- a/Data/XCB/FromXML.hs
++++ b/Data/XCB/FromXML.hs
+@@ -73,6 +73,16 @@ localName = snd `liftM` ask
+ allModules :: Parse [XHeader]
+ allModules = fst `liftM` ask
+ 
++-- Extract an Alignment from a list of Elements. This assumes that the
++-- required_start_align is the first element if it exists at all.
++extractAlignment :: (MonadPlus m, Functor m) => [Element] -> m (Maybe Alignment, [Element])
++extractAlignment (el : xs) | el `named` "required_start_align" = do
++                               align <- el `attr` "align" >>= readM
++                               offset <- el `attr` "offset" >>= readM
++                               return (Just (Alignment align offset), xs)
++                           | otherwise = return (Nothing, el : xs)
++extractAlignment xs = return (Nothing, xs)
++
+ -- a generic function for looking up something from
+ -- a named XHeader.
+ --
+@@ -108,23 +118,23 @@ findError :: Name -> [XDecl] -> Maybe ErrorDetails
+ findError pname xs =
+       case List.find f xs of
+         Nothing -> Nothing
+-        Just (XError name code elems) -> Just $ ErrorDetails name code elems
++        Just (XError name code alignment elems) -> Just $ ErrorDetails name code alignment elems
+         _ -> error "impossible: fatal error in Data.XCB.FromXML.findError"
+-    where  f (XError name _ _) | name == pname = True
++    where  f (XError name _ _ _) | name == pname = True
+            f _ = False 
+                                        
+ findEvent :: Name -> [XDecl] -> Maybe EventDetails
+ findEvent pname xs = 
+       case List.find f xs of
+         Nothing -> Nothing
+-        Just (XEvent name code elems noseq) ->
+-            Just $ EventDetails name code elems noseq
++        Just (XEvent name code alignment elems noseq) ->
++            Just $ EventDetails name code alignment elems noseq
+         _ -> error "impossible: fatal error in Data.XCB.FromXML.findEvent"
+-   where f (XEvent name _ _ _) | name == pname = True
++   where f (XEvent name _ _ _ _) | name == pname = True
+          f _ = False 
+ 
+-data EventDetails = EventDetails Name Int [StructElem] (Maybe Bool)
+-data ErrorDetails = ErrorDetails Name Int [StructElem]
++data EventDetails = EventDetails Name Int (Maybe Alignment) [StructElem] (Maybe Bool)
++data ErrorDetails = ErrorDetails Name Int (Maybe Alignment) [StructElem]
+ 
+ ---
+ 
+@@ -194,25 +204,28 @@ xrequest el = do
+   code <- el `attr` "opcode" >>= readM
+   -- TODO - I don't think I like 'mapAlt' here.
+   -- I don't want to be silently dropping fields
+-  fields <- mapAlt structField $ elChildren el
++  (alignment, xs) <- extractAlignment $ elChildren el
++  fields <- mapAlt structField $ xs
+   let reply = getReply el
+-  return $ XRequest nm code fields reply
++  return $ XRequest nm code alignment fields reply
+ 
+ getReply :: Element -> Maybe XReply
+ getReply el = do
+   childElem <- unqual "reply" `findChild` el
+-  fields <- mapM structField $ elChildren childElem
++  (alignment, xs) <- extractAlignment $ elChildren childElem
++  fields <- mapM structField xs
+   guard $ not $ null fields
+-  return fields
++  return $ GenXReply alignment fields
+ 
+ xevent :: Element -> Parse XDecl
+ xevent el = do
+   name <- el `attr` "name"
+   number <- el `attr` "number" >>= readM
+   let noseq = ensureUpper `liftM` (el `attr` "no-sequence-number") >>= readM
+-  fields <- mapM structField $ elChildren el
++  (alignment, xs) <- extractAlignment (elChildren el)
++  fields <- mapM structField $ xs
+   guard $ not $ null fields
+-  return $ XEvent name number fields noseq
++  return $ XEvent name number alignment fields noseq
+ 
+ xevcopy :: Element -> Parse XDecl
+ xevcopy el = do
+@@ -222,12 +235,12 @@ xevcopy el = do
+   -- do we have a qualified ref?
+   let (mname,evname) = splitRef ref
+   details <- lookupEvent mname evname
+-  return $ let EventDetails _ _ fields noseq =
++  return $ let EventDetails _ _ alignment fields noseq =
+                  case details of
+                    Nothing ->
+                        error $ "Unresolved event: " ++ show mname ++ " " ++ ref
+                    Just x -> x  
+-           in XEvent name number fields noseq
++           in XEvent name number alignment fields noseq
+ 
+ -- we need to do string processing to distinguish qualified from
+ -- unqualified types.
+@@ -258,8 +271,9 @@ xerror :: Element -> Parse XDecl
+ xerror el = do
+   name <- el `attr` "name"
+   number <- el `attr` "number" >>= readM
+-  fields <- mapM structField $ elChildren el
+-  return $ XError name number fields
++  (alignment, xs) <- extractAlignment $ elChildren el
++  fields <- mapM structField $ xs
++  return $ XError name number alignment fields
+ 
+ 
+ xercopy :: Element -> Parse XDecl
+@@ -269,23 +283,25 @@ xercopy el = do
+   ref <- el `attr` "ref"
+   let (mname, ername) = splitRef ref
+   details <- lookupError mname ername
+-  return $ XError name number $ case details of
++  return $ uncurry (XError name number) $ case details of
+                Nothing -> error $ "Unresolved error: " ++ show mname ++ " " ++ ref
+-               Just (ErrorDetails _ _ x) -> x
++               Just (ErrorDetails _ _ alignment elems) -> (alignment, elems)
+ 
+ xstruct :: Element -> Parse XDecl
+ xstruct el = do
+   name <- el `attr` "name"
+-  fields <- mapAlt structField $ elChildren el
++  (alignment, xs) <- extractAlignment $ elChildren el
++  fields <- mapAlt structField $ xs
+   guard $ not $ null fields
+-  return $ XStruct name fields
++  return $ XStruct name alignment fields
+ 
+ xunion :: Element -> Parse XDecl
+ xunion el = do
+   name <- el `attr` "name"
+-  fields <- mapAlt structField $ elChildren el
++  (alignment, xs) <- extractAlignment $ elChildren el
++  fields <- mapAlt structField $ xs
+   guard $ not $ null fields
+-  return $ XUnion name fields
++  return $ XUnion name alignment fields
+ 
+ xidtype :: Element -> Parse XDecl
+ xidtype el = liftM XidType $ el `attr` "name"
+@@ -340,8 +356,9 @@ structField el
+         nm <- el `attr` "name"
+         (exprEl,caseEls) <- unconsChildren el
+         expr <- expression exprEl
+-        cases <- mapM bitCase caseEls
+-        return $ Switch nm expr cases
++        (alignment, xs) <- extractAlignment $ caseEls
++        cases <- mapM bitCase xs
++        return $ Switch nm expr alignment cases
+ 
+     | el `named` "exprfield" = do
+         typ <- liftM mkType $ el `attr` "type"
+@@ -371,15 +388,16 @@ structField el
+  ++ show name
+ 
+ bitCase :: (MonadPlus m, Functor m) => Element -> m BitCase
+-bitCase el | el `named` "bitcase" = do
+-               let mName = el `attr` "name"
+-               (exprEl, fieldEls) <- unconsChildren el
+-               expr <- expression exprEl
+-               fields <- mapM structField fieldEls
+-               return $ BitCase mName expr fields
++bitCase el | el `named` "bitcase" || el `named` "case" = do
++              let mName = el `attr` "name"
++              (exprEl, fieldEls) <- unconsChildren el
++              expr <- expression exprEl
++              (alignment, xs) <- extractAlignment $ fieldEls
++              fields <- mapM structField xs
++              return $ BitCase mName expr alignment fields
+            | otherwise =
+-               let name = elName el
+-               in error $ "Invalid bitCase: " ++ show name
++              let name = elName el
++              in error $ "Invalid bitCase: " ++ show name
+ 
+ expression :: (MonadPlus m, Functor m) => Element -> m XExpression
+ expression el | el `named` "fieldref"
+diff --git a/Data/XCB/Pretty.hs b/Data/XCB/Pretty.hs
+index 9c7859c..156d154 100644
+--- a/Data/XCB/Pretty.hs
++++ b/Data/XCB/Pretty.hs
+@@ -104,9 +104,9 @@ instance Pretty a => Pretty (GenStructElem a) where
+     toDoc (ExprField nm typ expr)
+         = parens (text nm <+> text "::" <+> toDoc typ)
+           <+> toDoc expr
+-    toDoc (Switch name expr cases)
++    toDoc (Switch name expr alignment cases)
+         = vcat
+-           [ text "switch" <> parens (toDoc expr) <> brackets (text name)
++           [ text "switch" <> parens (toDoc expr) <> toDoc alignment <> brackets (text name)
+            , braces (vcat (map toDoc cases))
+            ]
+     toDoc (Doc brief fields see)
+@@ -144,10 +144,12 @@ instance Pretty a => Pretty (GenStructElem a) where
+                       ,text lname
+                       ]
+ 
++
+ instance Pretty a => Pretty (GenBitCase a) where
+-    toDoc (BitCase name expr fields)
++    toDoc (BitCase name expr alignment fields)
+         = vcat
+            [ bitCaseHeader name expr
++           , toDoc alignment
+            , braces (vcat (map toDoc fields))
+            ]
+ 
+@@ -157,28 +159,33 @@ bitCaseHeader Nothing expr =
+ bitCaseHeader (Just name) expr =
+     text "bitcase" <> parens (toDoc expr) <> brackets (text name)
+ 
++instance Pretty Alignment where
++    toDoc (Alignment align offset) = text "alignment" <+>
++                                       text "align=" <+> toDoc align <+>
++                                       text "offset=" <+> toDoc offset
++
+ instance Pretty a => Pretty (GenXDecl a) where
+-    toDoc (XStruct nm elems) =
+-        hang (text "Struct:" <+> text nm) 2 $ vcat $ map toDoc elems
++    toDoc (XStruct nm alignment elems) =
++        hang (text "Struct:" <+> text nm <+> toDoc alignment) 2 $ vcat $ map toDoc elems
+     toDoc (XTypeDef nm typ) = hsep [text "TypeDef:"
+                                     ,text nm
+                                     ,text "as"
+                                     ,toDoc typ
+                                     ]
+-    toDoc (XEvent nm n elems (Just True)) =
+-        hang (text "Event:" <+> text nm <> char ',' <> toDoc n <+>
++    toDoc (XEvent nm n alignment elems (Just True)) =
++        hang (text "Event:" <+> text nm <> char ',' <> toDoc n <+> toDoc alignment <+>
+              parens (text "No sequence number")) 2 $
+              vcat $ map toDoc elems
+-    toDoc (XEvent nm n elems _) =
+-        hang (text "Event:" <+> text nm <> char ',' <> toDoc n) 2 $
++    toDoc (XEvent nm n alignment elems _) =
++        hang (text "Event:" <+> text nm <> char ',' <> toDoc n <+> toDoc alignment) 2 $
+              vcat $ map toDoc elems
+-    toDoc (XRequest nm n elems mrep) = 
+-        (hang (text "Request:" <+> text nm <> char ',' <> toDoc n) 2 $
++    toDoc (XRequest nm n alignment elems mrep) = 
++        (hang (text "Request:" <+> text nm <> char ',' <> toDoc n <+> toDoc alignment) 2 $
+              vcat $ map toDoc elems)
+          $$ case mrep of
+              Nothing -> empty
+-             Just reply ->
+-                 hang (text "Reply:" <+> text nm <> char ',' <> toDoc n) 2 $
++             Just (GenXReply repAlignment reply) ->
++                 hang (text "Reply:" <+> text nm <> char ',' <> toDoc n <+> toDoc repAlignment) 2 $
+                       vcat $ map toDoc reply
+     toDoc (XidType nm) = text "XID:" <+> text nm
+     toDoc (XidUnion nm elems) = 
+@@ -186,11 +193,11 @@ instance Pretty a => Pretty (GenXDecl a) where
+              vcat $ map toDoc elems
+     toDoc (XEnum nm elems) =
+         hang (text "Enum:" <+> text nm) 2 $ vcat $ map toDoc elems
+-    toDoc (XUnion nm elems) = 
+-        hang (text "Union:" <+> text nm) 2 $ vcat $ map toDoc elems
++    toDoc (XUnion nm alignment elems) = 
++        hang (text "Union:" <+> text nm <+> toDoc alignment) 2 $ vcat $ map toDoc elems
+     toDoc (XImport nm) = text "Import:" <+> text nm
+-    toDoc (XError nm _n elems) =
+-        hang (text "Error:" <+> text nm) 2 $ vcat $ map toDoc elems
++    toDoc (XError nm _n alignment elems) =
++        hang (text "Error:" <+> text nm <+> toDoc alignment) 2 $ vcat $ map toDoc elems
+ 
+ instance Pretty a => Pretty (GenXHeader a) where
+     toDoc xhd = text (xheader_header xhd) $$
+diff --git a/Data/XCB/Types.hs b/Data/XCB/Types.hs
+index f4d2d7a..1b4fce3 100644
+--- a/Data/XCB/Types.hs
++++ b/Data/XCB/Types.hs
+@@ -30,7 +30,7 @@ module Data.XCB.Types
+     , GenXDecl ( .. )
+     , GenStructElem ( .. )
+     , GenBitCase ( .. )
+-    , GenXReply
++    , GenXReply ( .. )
+     , GenXidUnionElem ( .. )
+     , EnumElem ( .. )
+     , Expression ( .. )
+@@ -44,6 +44,7 @@ module Data.XCB.Types
+     , MaskName
+     , ListName
+     , MaskPadding
++    , Alignment ( .. )
+     ) where
+ 
+ import Data.Map
+@@ -78,16 +79,16 @@ type XEnumElem = EnumElem Type
+ -- |The different types of declarations which can be made in one of the
+ -- XML files.
+ data GenXDecl typ
+-    = XStruct  Name [GenStructElem typ]
++    = XStruct  Name (Maybe Alignment) [GenStructElem typ]
+     | XTypeDef Name typ
+-    | XEvent Name Int [GenStructElem typ] (Maybe Bool)  -- ^ The boolean indicates if the event includes a sequence number.
+-    | XRequest Name Int [GenStructElem typ] (Maybe (GenXReply typ))
++    | XEvent Name Int (Maybe Alignment) [GenStructElem typ] (Maybe Bool)  -- ^ The boolean indicates if the event includes a sequence number.
++    | XRequest Name Int (Maybe Alignment) [GenStructElem typ] (Maybe (GenXReply typ))
+     | XidType  Name
+     | XidUnion  Name [GenXidUnionElem typ]
+     | XEnum Name [EnumElem typ]
+-    | XUnion Name [GenStructElem typ]
++    | XUnion Name (Maybe Alignment) [GenStructElem typ]
+     | XImport Name
+-    | XError Name Int [GenStructElem typ]
++    | XError Name Int (Maybe Alignment) [GenStructElem typ]
+  deriving (Show, Functor)
+ 
+ data GenStructElem typ
+@@ -96,20 +97,21 @@ data GenStructElem typ
+     | SField Name typ (Maybe (EnumVals typ)) (Maybe (MaskVals typ))
+     | ExprField Name typ (Expression typ)
+     | ValueParam typ Name (Maybe MaskPadding) ListName
+-    | Switch Name (Expression typ) [GenBitCase typ]
++    | Switch Name (Expression typ) (Maybe Alignment) [GenBitCase typ]
+     | Doc (Maybe String) (Map Name String) [(String, String)]
+     | Fd String
+  deriving (Show, Functor)
+ 
+ data GenBitCase typ
+-    = BitCase (Maybe Name) (Expression typ) [GenStructElem typ]
++    = BitCase (Maybe Name) (Expression typ) (Maybe Alignment) [GenStructElem typ]
+  deriving (Show, Functor)
+ 
+ type EnumVals typ = typ
+ type MaskVals typ = typ
+ 
+ type Name = String
+-type GenXReply typ = [GenStructElem typ]
++data GenXReply typ = GenXReply (Maybe Alignment) [GenStructElem typ]
++ deriving (Show, Functor)
+ type Ref = String
+ type MaskName = Name
+ type ListName = Name
+@@ -150,3 +152,5 @@ data Binop = Add
+ 
+ data Unop = Complement
+  deriving (Show)
++
++data Alignment = Alignment Int Int deriving (Show)
+From 0991f1d61b92371e9af51ab0fa3699d7c32e2b65 Mon Sep 17 00:00:00 2001
+From: Tycho Andersen <tycho@tycho.ws>
+Date: Sat, 6 Aug 2016 11:38:09 -0600
+Subject: [PATCH] add new expression element "paramref"
+
+Signed-off-by: Tycho Andersen <tycho@tycho.ws>
+---
+ Data/XCB/FromXML.hs | 2 ++
+ Data/XCB/Pretty.hs  | 1 +
+ Data/XCB/Types.hs   | 1 +
+ 3 files changed, 4 insertions(+)
+
+diff --git a/Data/XCB/FromXML.hs b/Data/XCB/FromXML.hs
+index af44a19..951c302 100644
+--- a/Data/XCB/FromXML.hs
++++ b/Data/XCB/FromXML.hs
+@@ -428,6 +428,8 @@ expression el | el `named` "fieldref"
+               | el `named` "sumof" = do
+                     ref <- el `attr` "ref"
+                     return $ SumOf ref
++              | el `named` "paramref"
++                    =  return $ ParamRef $ strContent el
+               | otherwise =
+                   let nm = elName el
+                   in error $ "Unknown epression " ++ show nm ++ " in Data.XCB.FromXML.expression"
+diff --git a/Data/XCB/Pretty.hs b/Data/XCB/Pretty.hs
+index 156d154..1f2b473 100644
+--- a/Data/XCB/Pretty.hs
++++ b/Data/XCB/Pretty.hs
+@@ -90,6 +90,7 @@ instance Pretty a => Pretty (Expression a) where
+                         ]
+     toDoc (Unop op expr)
+         = parens $ toDoc op <> toDoc expr
++    toDoc (ParamRef n) = toDoc n
+ 
+ instance Pretty a => Pretty (GenStructElem a) where
+     toDoc (Pad n) = braces $ toDoc n <+> text "bytes"
+diff --git a/Data/XCB/Types.hs b/Data/XCB/Types.hs
+index 1b4fce3..8ec9ea3 100644
+--- a/Data/XCB/Types.hs
++++ b/Data/XCB/Types.hs
+@@ -139,6 +139,7 @@ data Expression typ
+     | SumOf Name -- ^Note sure. The argument should be a reference to a list
+     | Op Binop (Expression typ) (Expression typ) -- ^A binary opeation
+     | Unop Unop (Expression typ) -- ^A unary operation
++    | ParamRef Name -- ^I think this is the name of an argument passed to the request. See fffbd04d63 in xcb-proto.
+  deriving (Show, Functor)
+ 
+ -- |Supported Binary operations.
+From 239afedc8678494684e8a81d4ffb6d7ccb3a052e Mon Sep 17 00:00:00 2001
+From: Tycho Andersen <tycho@tycho.ws>
+Date: Sun, 7 Aug 2016 09:40:12 -0600
+Subject: [PATCH] Alignment's "offset" is optional
+
+Signed-off-by: Tycho Andersen <tycho@tycho.ws>
+---
+ Data/XCB/FromXML.hs | 2 +-
+ Data/XCB/Types.hs   | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Data/XCB/FromXML.hs b/Data/XCB/FromXML.hs
+index 951c302..ed6e59c 100644
+--- a/Data/XCB/FromXML.hs
++++ b/Data/XCB/FromXML.hs
+@@ -78,7 +78,7 @@ allModules = fst `liftM` ask
+ extractAlignment :: (MonadPlus m, Functor m) => [Element] -> m (Maybe Alignment, [Element])
+ extractAlignment (el : xs) | el `named` "required_start_align" = do
+                                align <- el `attr` "align" >>= readM
+-                               offset <- el `attr` "offset" >>= readM
++                               let offset = el `attr` "offset" >>= readM
+                                return (Just (Alignment align offset), xs)
+                            | otherwise = return (Nothing, el : xs)
+ extractAlignment xs = return (Nothing, xs)
+diff --git a/Data/XCB/Types.hs b/Data/XCB/Types.hs
+index 8ec9ea3..b31542e 100644
+--- a/Data/XCB/Types.hs
++++ b/Data/XCB/Types.hs
+@@ -154,4 +154,4 @@ data Binop = Add
+ data Unop = Complement
+  deriving (Show)
+ 
+-data Alignment = Alignment Int Int deriving (Show)
++data Alignment = Alignment Int (Maybe Int) deriving (Show)
