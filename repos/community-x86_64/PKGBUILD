@@ -13,11 +13,11 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.8
+pkgver=4.9
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
-url='http://www.kernel.org'
+url='https://www.kernel.org'
 options=('!strip')
 makedepends=('git')
 # split packages need all package dependencies set manually in makedepends
@@ -32,19 +32,17 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 # tmon deps
 makedepends+=('ncurses')
 groups=("$pkgbase")
-source=("git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
+source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
         #'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.7.5.xz'
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
-        'usbipd.service'
-        '01-cpupower-governor-fix.patch')
+        'usbipd.service')
 md5sums=('SKIP'
          '56883c159381ba89e50ab8ea65efec77'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
-         'bb35634f480325a78b943f7e10165e86'
-         '33c871519adfd4e5575643c4579d019b')
+         'bb35634f480325a78b943f7e10165e86')
 
 prepare() {
   cd linux
@@ -54,8 +52,8 @@ prepare() {
   local filename
   for filename in "${source[@]}"; do
     if [[ "$filename" =~ \.patch$ ]]; then
-      msg2 "Applying patch $filename"
-      patch -p1 -N -i "$srcdir/$filename"
+      msg2 "Applying patch ${filename##*/}"
+      patch -p1 -N -i "$srcdir/${filename##*/}"
     fi
   done
   :
