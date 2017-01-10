@@ -4,7 +4,7 @@
 
 pkgname=neovim
 pkgver=0.1.7
-pkgrel=1
+pkgrel=2
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('i686' 'x86_64')
 url='https://neovim.io'
@@ -24,7 +24,7 @@ build() {
   cd "${srcdir}/build"
 
   cmake "../neovim-${pkgver}" \
-        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DENABLE_JEMALLOC=ON
   make
