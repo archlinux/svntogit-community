@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=8.0.44
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -66,4 +66,5 @@ package() {
   # remove redundant man and samples
   rm -fr "${pkgdir}/opt/cuda/doc/man"
   rm -fr "${pkgdir}/opt/cuda/cuda-samples"
+  rm -fr "${pkgdir}/usr/share/man/man3/deprecated.3"*
 }
