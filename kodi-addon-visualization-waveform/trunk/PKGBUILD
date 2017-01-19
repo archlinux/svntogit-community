@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-waveform
-_commit=a603d10
-pkgver=20160523.a603d10
+_commit=ede2fd6
+pkgver=20170105.ede2fd6
 pkgrel=1
 pkgdesc="Waveform visualizer for Kodi"
 arch=('i686' 'x86_64')
