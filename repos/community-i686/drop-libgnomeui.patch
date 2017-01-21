@@ -1,0 +1,169 @@
+diff -Naur etherape-0.9.14.orig/configure.in etherape-0.9.14/configure.in
+--- etherape-0.9.14.orig/configure.in	2015-09-20 10:28:27.000000000 +0200
++++ etherape-0.9.14/configure.in	2017-01-21 00:46:38.419035434 +0100
+@@ -25,7 +25,7 @@
+ #AC_PROG_INTLTOOL(0.27)
+ 
+ # Checks for libraries.
+-PKG_CHECK_MODULES(ETHERAPE, glib-2.0 libglade-2.0 libgnomeui-2.0)
++PKG_CHECK_MODULES(ETHERAPE, glib-2.0 libglade-2.0 libgnomecanvas-2.0 popt)
+ AC_SUBST(ETHERAPE_CFLAGS)
+ AC_SUBST(ETHERAPE_LIBS)
+ 
+diff -Naur etherape-0.9.14.orig/src/callbacks.c etherape-0.9.14/src/callbacks.c
+--- etherape-0.9.14.orig/src/callbacks.c	2015-07-26 18:01:30.000000000 +0200
++++ etherape-0.9.14/src/callbacks.c	2017-01-21 00:32:56.115504072 +0100
+@@ -21,7 +21,8 @@
+ #include <config.h>
+ #endif
+ 
+-#include <gnome.h>
++#include <gtk/gtk.h>
++#include <libgnomecanvas/libgnomecanvas.h>
+ #include "appdata.h"
+ #include "callbacks.h"
+ #include "diagram.h"
+diff -Naur etherape-0.9.14.orig/src/capture.c etherape-0.9.14/src/capture.c
+--- etherape-0.9.14.orig/src/capture.c	2015-09-18 23:47:48.000000000 +0200
++++ etherape-0.9.14/src/capture.c	2017-01-21 01:19:23.827260356 +0100
+@@ -22,7 +22,8 @@
+ #include <config.h>
+ #endif
+ 
+-#include <gnome.h>
++#include <gtk/gtk.h>
++#include <libgnomecanvas/libgnomecanvas.h>
+ #include <ctype.h>
+ #include <netinet/in.h>
+ #include <pcap.h>
+diff -Naur etherape-0.9.14.orig/src/diagram.c etherape-0.9.14/src/diagram.c
+--- etherape-0.9.14.orig/src/diagram.c	2016-01-25 21:19:16.000000000 +0100
++++ etherape-0.9.14/src/diagram.c	2017-01-21 00:33:11.775939150 +0100
+@@ -23,7 +23,8 @@
+ 
+ #include <arpa/inet.h>
+ 
+-#include <gnome.h>
++#include <gtk/gtk.h>
++#include <libgnomecanvas/libgnomecanvas.h>
+ #include <regex.h>
+ 
+ #include "appdata.h"
+diff -Naur etherape-0.9.14.orig/src/main.c etherape-0.9.14/src/main.c
+--- etherape-0.9.14.orig/src/main.c	2016-02-06 08:39:57.000000000 +0100
++++ etherape-0.9.14/src/main.c	2017-01-21 01:13:33.093843675 +0100
+@@ -26,8 +26,9 @@
+ #endif
+ #include <netinet/in.h>
+ #include <signal.h>
+-#include <gnome.h>
+-#include <libgnomeui/gnome-client.h>
++#include <popt.h>
++#include <glib/gi18n.h>
++#include <gtk/gtk.h>
+ #include "appdata.h"
+ #include "ip-cache.h"
+ #include "main.h"
+@@ -53,11 +54,6 @@
+  **************************************************************************/
+ static void free_static_data(void);
+ static void set_debug_level (void);
+-static void session_die (GnomeClient * client, gpointer client_data);
+-static gint save_session (GnomeClient * client, gint phase, 
+-                          GnomeSaveStyle save_style, gint is_shutdown, 
+-                          GnomeInteractStyle interact_style, gint is_fast, 
+-                          gpointer client_data);
+ static void log_handler (gchar * log_domain, GLogLevelFlags mask, 
+                          const gchar * message, gpointer user_data);
+ 
+@@ -74,7 +70,6 @@
+ main (int argc, char *argv[])
+ {
+   GtkWidget *widget;
+-  GnomeClient *client;
+   gchar *mode_string = NULL;
+   gchar *cl_filter = NULL;
+   gchar *cl_interface = NULL;
+@@ -143,9 +138,7 @@
+ #else
+   version = g_strdup(VERSION);
+ #endif
+-  gnome_program_init ("EtherApe", version, 
+-                      LIBGNOMEUI_MODULE, argc, argv,
+-		      GNOME_PARAM_POPT_TABLE, optionsTable, GNOME_PARAM_NONE);
++  gtk_init (&argc, &argv);
+   g_free(version);
+ 
+   appdata_init(&appdata);
+@@ -330,12 +323,6 @@
+   /* Sets controls to the values of variables and connects signals */
+   init_diagram (appdata.xml);
+ 
+-  /* Session handling */
+-  client = gnome_master_client ();
+-  g_signal_connect (G_OBJECT (client), "save_yourself",
+-		    GTK_SIGNAL_FUNC (save_session), argv[0]);
+-  g_signal_connect (G_OBJECT (client), "die",
+-		    GTK_SIGNAL_FUNC (session_die), NULL);
+   gtk_widget_show (appdata.app1);
+ 
+   install_handlers();
+@@ -413,46 +400,6 @@
+     g_log_default_handler("EtherApe", mask, message, user_data);
+ }
+ 
+-/* the gnome session manager may call this function */
+-static void
+-session_die (GnomeClient * client, gpointer client_data)
+-{
+-  g_message ("in die");
+-  gtk_main_quit ();
+-}				/* session_die */
+-
+-/* the gnome session manager may call this function */
+-static gboolean
+-save_session (GnomeClient * client, gint phase, GnomeSaveStyle save_style,
+-	      gboolean is_shutdown, GnomeInteractStyle interact_style,
+-	      gboolean is_fast, gpointer client_data)
+-{
+-  gchar **argv;
+-  guint argc;
+-
+-  /* allocate 0-filled, so it will be NULL-terminated */
+-  argv = g_malloc0 (sizeof (gchar *) * 4);
+-  g_assert(argv);
+-
+-  argc = 1;
+-
+-  argv[0] = client_data;
+-
+-  g_message ("In save_session");
+-#if 0
+-  if (message)
+-    {
+-      argv[1] = "--message";
+-      argv[2] = message;
+-      argc = 3;
+-    }
+-#endif
+-
+-  gnome_client_set_clone_command (client, argc, argv);
+-  gnome_client_set_restart_command (client, argc, argv);
+-  return TRUE;
+-}				/* save_session */
+-
+ 
+ /***************************************************************************
+  *
+diff -Naur etherape-0.9.14.orig/src/Makefile.am etherape-0.9.14/src/Makefile.am
+--- etherape-0.9.14.orig/src/Makefile.am	2015-06-06 08:57:12.000000000 +0200
++++ etherape-0.9.14/src/Makefile.am	2017-01-21 01:10:35.818770100 +0100
+@@ -47,7 +47,7 @@
+ 	datastructs.c datastructs.h \
+ 	ui_utils.c ui_utils.h
+ 
+-etherape_LDADD = $(ETHERAPE_LIBS) $(PCAP_LIBS) 
++etherape_LDADD = $(ETHERAPE_LIBS) $(PCAP_LIBS) -lpthread 
+ etherape_LDFLAGS = 
+ 
+ .indent: $(etherape_SOURCES) $(etherape_INCLUDES)
