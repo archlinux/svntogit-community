@@ -1,0 +1,76 @@
+diff -Naur nautilus-actions-3.2.4.orig/src/nact/base-iunique.c nautilus-actions-3.2.4/src/nact/base-iunique.c
+--- nautilus-actions-3.2.4.orig/src/nact/base-iunique.c	2014-05-01 11:03:27.000000000 +0200
++++ nautilus-actions-3.2.4/src/nact/base-iunique.c	2017-01-21 16:13:08.203356184 +0100
+@@ -33,7 +33,6 @@
+ 
+ #include <glib/gi18n.h>
+ #include <string.h>
+-#include <unique/unique.h>
+ 
+ #include "base-iunique.h"
+ #include "base-window.h"
+@@ -47,8 +46,8 @@
+ /* pseudo-properties, set against the instance
+  */
+ typedef struct {
+-	gchar     *unique_app_name;
+-	UniqueApp *handle;
++	gchar        *unique_app_name;
++	GApplication *handle;
+ }
+ 	IUniqueData;
+ 
+@@ -165,7 +164,6 @@
+ 	data = get_iunique_data( instance );
+ 
+ 	if( data->handle ){
+-		g_return_if_fail( UNIQUE_IS_APP( data->handle ));
+ 		g_object_unref( data->handle );
+ 	}
+ 
+@@ -173,12 +171,6 @@
+ 	g_free( data );
+ }
+ 
+-/*
+- * Relying on libunique to detect if another instance is already running.
+- *
+- * A replacement is available with GLib 2.28 in GApplication, but only
+- * GLib 2.30 (Fedora 16) provides a "non-unique" capability.
+- */
+ gboolean
+ base_iunique_init_with_name( BaseIUnique *instance, const gchar *unique_app_name )
+ {
+@@ -197,11 +189,11 @@
+ 
+ 	if( unique_app_name && strlen( unique_app_name )){
+ 
+-			data->handle = unique_app_new( unique_app_name, NULL );
+-			is_first = !unique_app_is_running( data->handle );
++			data->handle = g_application_new (unique_app_name, 0);
++			g_application_register (data->handle, NULL, NULL);
++			is_first = !g_application_get_is_remote( data->handle );
+ 
+ 			if( !is_first ){
+-				unique_app_send_message( data->handle, UNIQUE_ACTIVATE, NULL );
+ 				/* i18n: application name */
+ 				msg = g_strdup_printf(
+ 						_( "Another instance of %s is already running.\n"
+@@ -210,17 +202,6 @@
+ 				base_window_display_error_dlg( NULL, _( "The application is not unique" ), msg );
+ 				g_free( msg );
+ 				ret = FALSE;
+-#if 0
+-			/* default from libunique is actually to activate the first window
+-			 * so we rely on the default..
+-			 */
+-			} else {
+-				g_signal_connect(
+-						data->handle,
+-						"message-received",
+-						G_CALLBACK( on_unique_message_received ),
+-						instance );
+-#endif
+ 			} else {
+ 				data->unique_app_name = g_strdup( unique_app_name );
+ 			}
