@@ -1,7 +1,6 @@
-#!/bin/sh
+#!/bin/bash
 
-# Use sane configuration files, unless they already exists
-
+# Copy over sane configuration files, unless they already exists
 if [ ! -d $HOME/.abuse ]; then
   mkdir -p $HOME/.abuse
 fi
@@ -12,4 +11,5 @@ if [ ! -f $HOME/.abuse/gamma.lsp ]; then
   cp /usr/share/abuse/default.gamma.lsp $HOME/.abuse/gamma.lsp
 fi
 
-exec /usr/bin/abuse.elf
+# Run abuse
+exec /usr/bin/abuse.elf "$@"
