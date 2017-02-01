@@ -1,0 +1,2201 @@
+diff -wbBurN umurmur-0.2.16a/cmake/Modules/FindmbedTLS.cmake umurmur/cmake/Modules/FindmbedTLS.cmake
+--- umurmur-0.2.16a/cmake/Modules/FindmbedTLS.cmake	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/cmake/Modules/FindmbedTLS.cmake	2015-09-22 10:34:34.916136081 +0300
+@@ -0,0 +1,17 @@
++include(FindPackageHandleStandardArgs)
++include(CheckSymbolExists)
++
++find_path(MBEDTLS_INCLUDE_DIR NAMES "version.h" PATHS /usr/pkg /usr/local /usr PATH_SUFFIXES "include/mbedtls")
++find_path(MBEDTLS_LIB_DIR NAMES "libmbedtls.so" "libmbedtls.dylib" "libmbedtls.a" PATHS /usr/pkg /usr/local /usr PATH_SUFFIXES "lib" "lib/${CMAKE_LIBRARY_ARCHITECTURE}")
++
++if(MBEDTLS_INCLUDE_DIR AND MBEDTLS_LIB_DIR)
++  set(MBEDTLS_LIBRARIES mbedtls)
++  set(MBEDTLS_LIBRARIES ${MBEDTLS_LIBRARIES} mbedcrypto)
++  set(MBEDTLS_LIBRARIES ${MBEDTLS_LIBRARIES} mbedx509)
++  check_symbol_exists(MBEDTLS_ZLIB_SUPPORT "${MBEDTLS_INCLUDE_DIR}/version.h" HAVE_ZLIB_SUPPORT)
++  if(HAVE_ZLIB_SUPPORT)
++    set(MBEDTLS_LIBRARIES ${MBEDTLS_LIBRARIES} z)
++  endif(HAVE_ZLIB_SUPPORT)
++endif(MBEDTLS_INCLUDE_DIR AND MBEDTLS_LIB_DIR)
++
++find_package_handle_standard_args(mbedTLS REQUIRED_VARS MBEDTLS_INCLUDE_DIR MBEDTLS_LIBRARIES MBEDTLS_LIB_DIR)
+diff -wbBurN umurmur-0.2.16a/CMakeLists.txt umurmur/CMakeLists.txt
+--- umurmur-0.2.16a/CMakeLists.txt	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/CMakeLists.txt	2015-09-22 10:34:34.909469415 +0300
+@@ -8,9 +8,16 @@
+ set(UMURMUR_ROOT_PATH "${CMAKE_CURRENT_LIST_DIR}")
+ set(UMURMUR_BINARY_DIR ${CMAKE_BINARY_DIR})
+ 
++if(NOT CMAKE_BUILD_TYPE)
++  set(CMAKE_BUILD_TYPE Release CACHE STRING "The type of build product that should be produced.")
++endif(NOT CMAKE_BUILD_TYPE)
++
+ option(USE_POLARSSL_TESTCERT "Link to the PolarSSL test certificate and key." OFF)
+ option(USE_POLARSSL_HAVEGE "Use the PolarSSL HAVEGE random generator key." OFF)
+ 
++option(USE_MBEDTLS_TESTCERT "Link to the mbedTLS test certificate and key." OFF)
++option(USE_MBEDTLS_HAVEGE "Use the mbedTLS HAVEGE random generator key." OFF)
++
+ option(USE_SHAREDMEMORY_API "Compile with Sharedmemory API support" OFF)
+ 
+ if(USE_POLARSSL_TESTCERT OR USE_POLARSSL_HAVEGE)
+@@ -19,6 +26,12 @@
+   endif(SSL MATCHES "openssl" OR SSL MATCHES "gnutls")
+ endif(USE_POLARSSL_TESTCERT OR USE_POLARSSL_HAVEGE)
+ 
++if(USE_MBEDTLS_TESTCERT OR USE_MBEDTLS_HAVEGE)
++  if(SSL MATCHES "openssl" OR SSL MATCHES "gnutls" OR SSL MATCHES "polarssl")
++    message(FATAL_ERROR "Selecting USE_MBEDTLS_TESTCERT or USE_MBEDTLS_HAVEGE implies SSL=mbedtls")
++  endif(SSL MATCHES "openssl" OR SSL MATCHES "gnutls" OR SSL MATCHES "polarssl")
++endif(USE_MBEDTLS_TESTCERT OR USE_MBEDTLS_HAVEGE)
++
+ find_package(Libconfig REQUIRED)
+ find_package(ProtobufC REQUIRED)
+ include(CheckFunctionExists)
+@@ -34,6 +47,11 @@
+     set(SSLIMP_LIBRARIES ${OPENSSL_LIBRARIES})
+     set(SSLIMP_INCLUDE_DIR ${OPENSSL_INCLUDE_DIR})
+     set(SSLIMP_LIBRARY_DIR ${OPENSSL_LIB_DIR})
++
++    if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
++      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-deprecated-declarations")
++    endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
++
+   endif(OPENSSL_FOUND)
+ elseif("${SSL}" STREQUAL "polarssl")
+   find_package(PolarSSL REQUIRED)
+@@ -43,6 +61,14 @@
+     set(SSLIMP_INCLUDE_DIR ${POLARSSL_INCLUDE_DIR})
+     set(SSLIMP_LIBRARY_DIR ${POLARSSL_LIB_DIR})
+   endif(POLARSSL_FOUND)
++elseif("${SSL}" STREQUAL "mbedtls")
++  find_package(mbedTLS REQUIRED)
++  if(MBEDTLS_FOUND)
++    set(USE_MBEDTLS ON)
++    set(SSLIMP_LIBRARIES ${MBEDTLS_LIBRARIES})
++    set(SSLIMP_INCLUDE_DIR ${MBEDTLS_INCLUDE_DIR})
++    set(SSLIMP_LIBRARY_DIR ${MBEDTLS_LIB_DIR})
++  endif(MBEDTLS_FOUND)
+ elseif("${SSL}" STREQUAL "gnutls")
+   find_package(GnuTLS 3 REQUIRED)
+   if(GNUTLS_FOUND)
+diff -wbBurN umurmur-0.2.16a/configure.ac umurmur/configure.ac
+--- umurmur-0.2.16a/configure.ac	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/configure.ac	2015-09-22 10:34:34.916136081 +0300
+@@ -32,15 +32,18 @@
+ AC_PREREQ([2.63])
+ AC_INIT([umurmur], [0.2.16], [https://github.com/umurmur/umurmur/issues/new], [umurmur], [http://github.com/umurmur/umurmur])
+ AC_CONFIG_SRCDIR([src/client.h])
+-AC_CONFIG_HEADERS([src/config.h])
++AC_CONFIG_HEADERS([src/config.h:config.h.in])
+ AM_INIT_AUTOMAKE
+ AC_CANONICAL_HOST
++AM_SILENT_RULES([yes])
+ 
+ # Configure options.
+-AC_ARG_WITH([ssl], [AC_HELP_STRING([--with-ssl=@<:@LIB@:>@], [SSL library (openssl|polarssl|gnutls) @<:@default=polarssl@:>@])], [], [with_ssl=polarssl])
++AC_ARG_WITH([ssl], [AC_HELP_STRING([--with-ssl=@<:@LIB@:>@], [SSL library (openssl|polarssl|gnutls|mbedtls) @<:@default=polarssl@:>@])], [], [with_ssl=polarssl])
+ AC_ARG_ENABLE([shmapi], [AC_HELP_STRING([--enable-shmapi], [compile with Sharedmemory API support @<:@default=no@:>@])],[],[enable_shmapi=no] )
+ AC_ARG_ENABLE(polarssl-test-cert, [  --enable-polarssl-test-cert  Link to PolarSSL test certificate and key @<:@default=no@:>@], [enable_polarssl_test_cert=yes])
+ AC_ARG_ENABLE(polarssl-havege, [  --enable-polarssl-havege  Link to PolarSSL HAVEGE random generator key @<:@default=no@:>@ Default: /dev/urandom], [enable_polarssl_havege=yes])
++AC_ARG_ENABLE(mbedtls-test-cert, [  --enable-mbedtls-test-cert  Link to mbedTLS test certificate and key @<:@default=no@:>@], [enable_mbedtls_test_cert=yes])
++AC_ARG_ENABLE(mbedtls-havege, [  --enable-mbedtls-havege  Link to mbedTLS HAVEGE random generator key @<:@default=no@:>@ Default: /dev/urandom], [enable_mbedtls_havege=yes])
+ 
+ # Checks for programs.
+ AC_PROG_CC
+@@ -53,6 +56,7 @@
+ case $host_os in
+   darwin* )
+     AC_CHECK_FUNC([clock_get_time], [], [AC_MSG_ERROR([could not find clock_get_time()])])
++    CFLAGS+=" -Wno-deprecated-declarations"
+     ;;
+   * )
+     AC_CHECK_FUNC([clock_gettime], [], [AC_CHECK_LIB([rt], [clock_gettime], [], [AC_MSG_ERROR([could not find clock_gettime() in librt])])])
+@@ -81,6 +85,31 @@
+ 	    AC_DEFINE([USE_POLARSSL_HAVEGE], [], [Use PolarSSL HAVEGE random generator])
+     ])
+ ])
++AS_IF([test "x$with_ssl" = xmbedtls], [
++	AC_CHECK_HEADERS([mbedtls/ssl.h], [], [AC_MSG_ERROR([could not find mbedtls/ssl.h])])
++	AC_CHECK_HEADERS([mbedtls/version.h], [], [AC_MSG_ERROR([could not find mbedtls/version.h])])
++
++	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mbedtls/ssl.h>]],
++		[[#if defined(MBEDTLS_ZLIB_SUPPORT)
++		int x;
++		#endif
++		x = 0;
++		return 0;]])],
++		[AC_CHECK_LIB([z], [deflate], [], [AC_MSG_ERROR([could not find zlib])])],
++		[])
++	AC_CHECK_LIB([mbedtls], [mbedtls_ssl_init], [], [AC_MSG_ERROR([could not find libmbedtls])], [-lmbedcrypto -lmbedx509])
++	AC_CHECK_LIB([mbedcrypto], [mbedtls_cipher_setup], [], [AC_MSG_ERROR([could not find libmbedcrypto])], [-lmbedtls -lmbedx509])
++	AC_CHECK_LIB([mbedx509], [mbedtls_x509_crt_init], [], [AC_MSG_ERROR([could not find libmbedx509])], [-lmbedcrypto -lmbedtls])
++	AC_DEFINE([USE_MBEDTLS], [], [Use mbedTLS])
++    AS_IF([test "x$enable_mbedtls_test_cert" = xyes], [
++	    AC_CHECK_LIB([mbedtls], [test_srv_crt], [], [AC_MSG_ERROR([could not find test_srv_crt])])
++	    AC_DEFINE([USE_MBEDTLS_TESTCERT], [], [Use mbedTLS test certificate])
++    ])
++    AS_IF([test "x$enable_mbedtls_havege" = xyes], [
++	    AC_CHECK_LIB([mbedtls], [havege_init], [], [AC_MSG_ERROR([could not find havege_init])])
++	    AC_DEFINE([USE_MBEDTLS_HAVEGE], [], [Use mbedTLS HAVEGE random generator])
++    ])
++])
+ AS_IF([test "x$with_ssl" = xopenssl], [
+ 	AC_CHECK_HEADERS([openssl/ssl.h], [], [AC_MSG_ERROR([could not find openssl/ssl.h])])
+ 	AC_CHECK_LIB([crypto], [BN_init], [], [AC_MSG_ERROR([could not find libcrypto])])
+@@ -101,6 +130,7 @@
+ 
+ AM_CONDITIONAL(USE_OPENSSL, test x$with_ssl = xopenssl)
+ AM_CONDITIONAL(USE_GNUTLS, test x$with_ssl = xgnutls)
++AM_CONDITIONAL(USE_MBEDTLS, test x$with_ssl = xmbedtls)
+ 
+ AS_IF([test "x$enable_shmapi" != xno],
+ 	[
+diff -wbBurN umurmur-0.2.16a/.git/config umurmur/.git/config
+--- umurmur-0.2.16a/.git/config	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/config	2015-09-22 10:34:34.899469415 +0300
+@@ -0,0 +1,11 @@
++[core]
++	repositoryformatversion = 0
++	filemode = true
++	bare = false
++	logallrefupdates = true
++[remote "origin"]
++	url = https://github.com/umurmur/umurmur.git
++	fetch = +refs/heads/*:refs/remotes/origin/*
++[branch "master"]
++	remote = origin
++	merge = refs/heads/master
+diff -wbBurN umurmur-0.2.16a/.git/description umurmur/.git/description
+--- umurmur-0.2.16a/.git/description	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/description	2015-09-22 10:34:27.909469496 +0300
+@@ -0,0 +1 @@
++Unnamed repository; edit this file 'description' to name the repository.
+diff -wbBurN umurmur-0.2.16a/.git/HEAD umurmur/.git/HEAD
+--- umurmur-0.2.16a/.git/HEAD	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/HEAD	2015-09-22 10:34:34.869469415 +0300
+@@ -0,0 +1 @@
++ref: refs/heads/master
+diff -wbBurN umurmur-0.2.16a/.git/hooks/applypatch-msg.sample umurmur/.git/hooks/applypatch-msg.sample
+--- umurmur-0.2.16a/.git/hooks/applypatch-msg.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/applypatch-msg.sample	2015-09-22 10:34:27.886136163 +0300
+@@ -0,0 +1,15 @@
++#!/bin/sh
++#
++# An example hook script to check the commit log message taken by
++# applypatch from an e-mail message.
++#
++# The hook should exit with non-zero status after issuing an
++# appropriate message if it wants to stop the commit.  The hook is
++# allowed to edit the commit message file.
++#
++# To enable this hook, rename this file to "applypatch-msg".
++
++. git-sh-setup
++commitmsg="$(git rev-parse --git-path hooks/commit-msg)"
++test -x "$commitmsg" && exec "$commitmsg" ${1+"$@"}
++:
+diff -wbBurN umurmur-0.2.16a/.git/hooks/commit-msg.sample umurmur/.git/hooks/commit-msg.sample
+--- umurmur-0.2.16a/.git/hooks/commit-msg.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/commit-msg.sample	2015-09-22 10:34:27.889469496 +0300
+@@ -0,0 +1,24 @@
++#!/bin/sh
++#
++# An example hook script to check the commit log message.
++# Called by "git commit" with one argument, the name of the file
++# that has the commit message.  The hook should exit with non-zero
++# status after issuing an appropriate message if it wants to stop the
++# commit.  The hook is allowed to edit the commit message file.
++#
++# To enable this hook, rename this file to "commit-msg".
++
++# Uncomment the below to add a Signed-off-by line to the message.
++# Doing this in a hook is a bad idea in general, but the prepare-commit-msg
++# hook is more suited to it.
++#
++# SOB=$(git var GIT_AUTHOR_IDENT | sed -n 's/^\(.*>\).*$/Signed-off-by: \1/p')
++# grep -qs "^$SOB" "$1" || echo "$SOB" >> "$1"
++
++# This example catches duplicate Signed-off-by lines.
++
++test "" = "$(grep '^Signed-off-by: ' "$1" |
++	 sort | uniq -c | sed -e '/^[ 	]*1[ 	]/d')" || {
++	echo >&2 Duplicate Signed-off-by lines.
++	exit 1
++}
+diff -wbBurN umurmur-0.2.16a/.git/hooks/post-update.sample umurmur/.git/hooks/post-update.sample
+--- umurmur-0.2.16a/.git/hooks/post-update.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/post-update.sample	2015-09-22 10:34:27.889469496 +0300
+@@ -0,0 +1,8 @@
++#!/bin/sh
++#
++# An example hook script to prepare a packed repository for use over
++# dumb transports.
++#
++# To enable this hook, rename this file to "post-update".
++
++exec git update-server-info
+diff -wbBurN umurmur-0.2.16a/.git/hooks/pre-applypatch.sample umurmur/.git/hooks/pre-applypatch.sample
+--- umurmur-0.2.16a/.git/hooks/pre-applypatch.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/pre-applypatch.sample	2015-09-22 10:34:27.889469496 +0300
+@@ -0,0 +1,14 @@
++#!/bin/sh
++#
++# An example hook script to verify what is about to be committed
++# by applypatch from an e-mail message.
++#
++# The hook should exit with non-zero status after issuing an
++# appropriate message if it wants to stop the commit.
++#
++# To enable this hook, rename this file to "pre-applypatch".
++
++. git-sh-setup
++precommit="$(git rev-parse --git-path hooks/pre-commit)"
++test -x "$precommit" && exec "$precommit" ${1+"$@"}
++:
+diff -wbBurN umurmur-0.2.16a/.git/hooks/pre-commit.sample umurmur/.git/hooks/pre-commit.sample
+--- umurmur-0.2.16a/.git/hooks/pre-commit.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/pre-commit.sample	2015-09-22 10:34:27.889469496 +0300
+@@ -0,0 +1,49 @@
++#!/bin/sh
++#
++# An example hook script to verify what is about to be committed.
++# Called by "git commit" with no arguments.  The hook should
++# exit with non-zero status after issuing an appropriate message if
++# it wants to stop the commit.
++#
++# To enable this hook, rename this file to "pre-commit".
++
++if git rev-parse --verify HEAD >/dev/null 2>&1
++then
++	against=HEAD
++else
++	# Initial commit: diff against an empty tree object
++	against=4b825dc642cb6eb9a060e54bf8d69288fbee4904
++fi
++
++# If you want to allow non-ASCII filenames set this variable to true.
++allownonascii=$(git config --bool hooks.allownonascii)
++
++# Redirect output to stderr.
++exec 1>&2
++
++# Cross platform projects tend to avoid non-ASCII filenames; prevent
++# them from being added to the repository. We exploit the fact that the
++# printable range starts at the space character and ends with tilde.
++if [ "$allownonascii" != "true" ] &&
++	# Note that the use of brackets around a tr range is ok here, (it's
++	# even required, for portability to Solaris 10's /usr/bin/tr), since
++	# the square bracket bytes happen to fall in the designated range.
++	test $(git diff --cached --name-only --diff-filter=A -z $against |
++	  LC_ALL=C tr -d '[ -~]\0' | wc -c) != 0
++then
++	cat <<\EOF
++Error: Attempt to add a non-ASCII file name.
++
++This can cause problems if you want to work with people on other platforms.
++
++To be portable it is advisable to rename the file.
++
++If you know what you are doing you can disable this check using:
++
++  git config hooks.allownonascii true
++EOF
++	exit 1
++fi
++
++# If there are whitespace errors, print the offending file names and fail.
++exec git diff-index --check --cached $against --
+diff -wbBurN umurmur-0.2.16a/.git/hooks/prepare-commit-msg.sample umurmur/.git/hooks/prepare-commit-msg.sample
+--- umurmur-0.2.16a/.git/hooks/prepare-commit-msg.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/prepare-commit-msg.sample	2015-09-22 10:34:27.886136163 +0300
+@@ -0,0 +1,36 @@
++#!/bin/sh
++#
++# An example hook script to prepare the commit log message.
++# Called by "git commit" with the name of the file that has the
++# commit message, followed by the description of the commit
++# message's source.  The hook's purpose is to edit the commit
++# message file.  If the hook fails with a non-zero status,
++# the commit is aborted.
++#
++# To enable this hook, rename this file to "prepare-commit-msg".
++
++# This hook includes three examples.  The first comments out the
++# "Conflicts:" part of a merge commit.
++#
++# The second includes the output of "git diff --name-status -r"
++# into the message, just before the "git status" output.  It is
++# commented because it doesn't cope with --amend or with squashed
++# commits.
++#
++# The third example adds a Signed-off-by line to the message, that can
++# still be edited.  This is rarely a good idea.
++
++case "$2,$3" in
++  merge,)
++    /usr/bin/perl -i.bak -ne 's/^/# /, s/^# #/#/ if /^Conflicts/ .. /#/; print' "$1" ;;
++
++# ,|template,)
++#   /usr/bin/perl -i.bak -pe '
++#      print "\n" . `git diff --cached --name-status -r`
++#	 if /^#/ && $first++ == 0' "$1" ;;
++
++  *) ;;
++esac
++
++# SOB=$(git var GIT_AUTHOR_IDENT | sed -n 's/^\(.*>\).*$/Signed-off-by: \1/p')
++# grep -qs "^$SOB" "$1" || echo "$SOB" >> "$1"
+diff -wbBurN umurmur-0.2.16a/.git/hooks/pre-push.sample umurmur/.git/hooks/pre-push.sample
+--- umurmur-0.2.16a/.git/hooks/pre-push.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/pre-push.sample	2015-09-22 10:34:27.902802829 +0300
+@@ -0,0 +1,53 @@
++#!/bin/sh
++
++# An example hook script to verify what is about to be pushed.  Called by "git
++# push" after it has checked the remote status, but before anything has been
++# pushed.  If this script exits with a non-zero status nothing will be pushed.
++#
++# This hook is called with the following parameters:
++#
++# $1 -- Name of the remote to which the push is being done
++# $2 -- URL to which the push is being done
++#
++# If pushing without using a named remote those arguments will be equal.
++#
++# Information about the commits which are being pushed is supplied as lines to
++# the standard input in the form:
++#
++#   <local ref> <local sha1> <remote ref> <remote sha1>
++#
++# This sample shows how to prevent push of commits where the log message starts
++# with "WIP" (work in progress).
++
++remote="$1"
++url="$2"
++
++z40=0000000000000000000000000000000000000000
++
++while read local_ref local_sha remote_ref remote_sha
++do
++	if [ "$local_sha" = $z40 ]
++	then
++		# Handle delete
++		:
++	else
++		if [ "$remote_sha" = $z40 ]
++		then
++			# New branch, examine all commits
++			range="$local_sha"
++		else
++			# Update to existing branch, examine new commits
++			range="$remote_sha..$local_sha"
++		fi
++
++		# Check for WIP commit
++		commit=`git rev-list -n 1 --grep '^WIP' "$range"`
++		if [ -n "$commit" ]
++		then
++			echo >&2 "Found WIP commit in $local_ref, not pushing"
++			exit 1
++		fi
++	fi
++done
++
++exit 0
+diff -wbBurN umurmur-0.2.16a/.git/hooks/pre-rebase.sample umurmur/.git/hooks/pre-rebase.sample
+--- umurmur-0.2.16a/.git/hooks/pre-rebase.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/pre-rebase.sample	2015-09-22 10:34:27.889469496 +0300
+@@ -0,0 +1,169 @@
++#!/bin/sh
++#
++# Copyright (c) 2006, 2008 Junio C Hamano
++#
++# The "pre-rebase" hook is run just before "git rebase" starts doing
++# its job, and can prevent the command from running by exiting with
++# non-zero status.
++#
++# The hook is called with the following parameters:
++#
++# $1 -- the upstream the series was forked from.
++# $2 -- the branch being rebased (or empty when rebasing the current branch).
++#
++# This sample shows how to prevent topic branches that are already
++# merged to 'next' branch from getting rebased, because allowing it
++# would result in rebasing already published history.
++
++publish=next
++basebranch="$1"
++if test "$#" = 2
++then
++	topic="refs/heads/$2"
++else
++	topic=`git symbolic-ref HEAD` ||
++	exit 0 ;# we do not interrupt rebasing detached HEAD
++fi
++
++case "$topic" in
++refs/heads/??/*)
++	;;
++*)
++	exit 0 ;# we do not interrupt others.
++	;;
++esac
++
++# Now we are dealing with a topic branch being rebased
++# on top of master.  Is it OK to rebase it?
++
++# Does the topic really exist?
++git show-ref -q "$topic" || {
++	echo >&2 "No such branch $topic"
++	exit 1
++}
++
++# Is topic fully merged to master?
++not_in_master=`git rev-list --pretty=oneline ^master "$topic"`
++if test -z "$not_in_master"
++then
++	echo >&2 "$topic is fully merged to master; better remove it."
++	exit 1 ;# we could allow it, but there is no point.
++fi
++
++# Is topic ever merged to next?  If so you should not be rebasing it.
++only_next_1=`git rev-list ^master "^$topic" ${publish} | sort`
++only_next_2=`git rev-list ^master           ${publish} | sort`
++if test "$only_next_1" = "$only_next_2"
++then
++	not_in_topic=`git rev-list "^$topic" master`
++	if test -z "$not_in_topic"
++	then
++		echo >&2 "$topic is already up-to-date with master"
++		exit 1 ;# we could allow it, but there is no point.
++	else
++		exit 0
++	fi
++else
++	not_in_next=`git rev-list --pretty=oneline ^${publish} "$topic"`
++	/usr/bin/perl -e '
++		my $topic = $ARGV[0];
++		my $msg = "* $topic has commits already merged to public branch:\n";
++		my (%not_in_next) = map {
++			/^([0-9a-f]+) /;
++			($1 => 1);
++		} split(/\n/, $ARGV[1]);
++		for my $elem (map {
++				/^([0-9a-f]+) (.*)$/;
++				[$1 => $2];
++			} split(/\n/, $ARGV[2])) {
++			if (!exists $not_in_next{$elem->[0]}) {
++				if ($msg) {
++					print STDERR $msg;
++					undef $msg;
++				}
++				print STDERR " $elem->[1]\n";
++			}
++		}
++	' "$topic" "$not_in_next" "$not_in_master"
++	exit 1
++fi
++
++exit 0
++
++################################################################
++
++This sample hook safeguards topic branches that have been
++published from being rewound.
++
++The workflow assumed here is:
++
++ * Once a topic branch forks from "master", "master" is never
++   merged into it again (either directly or indirectly).
++
++ * Once a topic branch is fully cooked and merged into "master",
++   it is deleted.  If you need to build on top of it to correct
++   earlier mistakes, a new topic branch is created by forking at
++   the tip of the "master".  This is not strictly necessary, but
++   it makes it easier to keep your history simple.
++
++ * Whenever you need to test or publish your changes to topic
++   branches, merge them into "next" branch.
++
++The script, being an example, hardcodes the publish branch name
++to be "next", but it is trivial to make it configurable via
++$GIT_DIR/config mechanism.
++
++With this workflow, you would want to know:
++
++(1) ... if a topic branch has ever been merged to "next".  Young
++    topic branches can have stupid mistakes you would rather
++    clean up before publishing, and things that have not been
++    merged into other branches can be easily rebased without
++    affecting other people.  But once it is published, you would
++    not want to rewind it.
++
++(2) ... if a topic branch has been fully merged to "master".
++    Then you can delete it.  More importantly, you should not
++    build on top of it -- other people may already want to
++    change things related to the topic as patches against your
++    "master", so if you need further changes, it is better to
++    fork the topic (perhaps with the same name) afresh from the
++    tip of "master".
++
++Let's look at this example:
++
++		   o---o---o---o---o---o---o---o---o---o "next"
++		  /       /           /           /
++		 /   a---a---b A     /           /
++		/   /               /           /
++	       /   /   c---c---c---c B         /
++	      /   /   /             \         /
++	     /   /   /   b---b C     \       /
++	    /   /   /   /             \     /
++    ---o---o---o---o---o---o---o---o---o---o---o "master"
++
++
++A, B and C are topic branches.
++
++ * A has one fix since it was merged up to "next".
++
++ * B has finished.  It has been fully merged up to "master" and "next",
++   and is ready to be deleted.
++
++ * C has not merged to "next" at all.
++
++We would want to allow C to be rebased, refuse A, and encourage
++B to be deleted.
++
++To compute (1):
++
++	git rev-list ^master ^topic next
++	git rev-list ^master        next
++
++	if these match, topic has not merged in next at all.
++
++To compute (2):
++
++	git rev-list master..topic
++
++	if this is empty, it is fully merged to "master".
+diff -wbBurN umurmur-0.2.16a/.git/hooks/update.sample umurmur/.git/hooks/update.sample
+--- umurmur-0.2.16a/.git/hooks/update.sample	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/hooks/update.sample	2015-09-22 10:34:27.889469496 +0300
+@@ -0,0 +1,128 @@
++#!/bin/sh
++#
++# An example hook script to blocks unannotated tags from entering.
++# Called by "git receive-pack" with arguments: refname sha1-old sha1-new
++#
++# To enable this hook, rename this file to "update".
++#
++# Config
++# ------
++# hooks.allowunannotated
++#   This boolean sets whether unannotated tags will be allowed into the
++#   repository.  By default they won't be.
++# hooks.allowdeletetag
++#   This boolean sets whether deleting tags will be allowed in the
++#   repository.  By default they won't be.
++# hooks.allowmodifytag
++#   This boolean sets whether a tag may be modified after creation. By default
++#   it won't be.
++# hooks.allowdeletebranch
++#   This boolean sets whether deleting branches will be allowed in the
++#   repository.  By default they won't be.
++# hooks.denycreatebranch
++#   This boolean sets whether remotely creating branches will be denied
++#   in the repository.  By default this is allowed.
++#
++
++# --- Command line
++refname="$1"
++oldrev="$2"
++newrev="$3"
++
++# --- Safety check
++if [ -z "$GIT_DIR" ]; then
++	echo "Don't run this script from the command line." >&2
++	echo " (if you want, you could supply GIT_DIR then run" >&2
++	echo "  $0 <ref> <oldrev> <newrev>)" >&2
++	exit 1
++fi
++
++if [ -z "$refname" -o -z "$oldrev" -o -z "$newrev" ]; then
++	echo "usage: $0 <ref> <oldrev> <newrev>" >&2
++	exit 1
++fi
++
++# --- Config
++allowunannotated=$(git config --bool hooks.allowunannotated)
++allowdeletebranch=$(git config --bool hooks.allowdeletebranch)
++denycreatebranch=$(git config --bool hooks.denycreatebranch)
++allowdeletetag=$(git config --bool hooks.allowdeletetag)
++allowmodifytag=$(git config --bool hooks.allowmodifytag)
++
++# check for no description
++projectdesc=$(sed -e '1q' "$GIT_DIR/description")
++case "$projectdesc" in
++"Unnamed repository"* | "")
++	echo "*** Project description file hasn't been set" >&2
++	exit 1
++	;;
++esac
++
++# --- Check types
++# if $newrev is 0000...0000, it's a commit to delete a ref.
++zero="0000000000000000000000000000000000000000"
++if [ "$newrev" = "$zero" ]; then
++	newrev_type=delete
++else
++	newrev_type=$(git cat-file -t $newrev)
++fi
++
++case "$refname","$newrev_type" in
++	refs/tags/*,commit)
++		# un-annotated tag
++		short_refname=${refname##refs/tags/}
++		if [ "$allowunannotated" != "true" ]; then
++			echo "*** The un-annotated tag, $short_refname, is not allowed in this repository" >&2
++			echo "*** Use 'git tag [ -a | -s ]' for tags you want to propagate." >&2
++			exit 1
++		fi
++		;;
++	refs/tags/*,delete)
++		# delete tag
++		if [ "$allowdeletetag" != "true" ]; then
++			echo "*** Deleting a tag is not allowed in this repository" >&2
++			exit 1
++		fi
++		;;
++	refs/tags/*,tag)
++		# annotated tag
++		if [ "$allowmodifytag" != "true" ] && git rev-parse $refname > /dev/null 2>&1
++		then
++			echo "*** Tag '$refname' already exists." >&2
++			echo "*** Modifying a tag is not allowed in this repository." >&2
++			exit 1
++		fi
++		;;
++	refs/heads/*,commit)
++		# branch
++		if [ "$oldrev" = "$zero" -a "$denycreatebranch" = "true" ]; then
++			echo "*** Creating a branch is not allowed in this repository" >&2
++			exit 1
++		fi
++		;;
++	refs/heads/*,delete)
++		# delete branch
++		if [ "$allowdeletebranch" != "true" ]; then
++			echo "*** Deleting a branch is not allowed in this repository" >&2
++			exit 1
++		fi
++		;;
++	refs/remotes/*,commit)
++		# tracking branch
++		;;
++	refs/remotes/*,delete)
++		# delete tracking branch
++		if [ "$allowdeletebranch" != "true" ]; then
++			echo "*** Deleting a tracking branch is not allowed in this repository" >&2
++			exit 1
++		fi
++		;;
++	*)
++		# Anything else (is there anything else?)
++		echo "*** Update hook: unknown type of update to ref $refname of type $newrev_type" >&2
++		exit 1
++		;;
++esac
++
++# --- Finished
++exit 0
+Binary files umurmur-0.2.16a/.git/index and umurmur/.git/index differ
+diff -wbBurN umurmur-0.2.16a/.git/info/exclude umurmur/.git/info/exclude
+--- umurmur-0.2.16a/.git/info/exclude	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/info/exclude	2015-09-22 10:34:27.909469496 +0300
+@@ -0,0 +1,6 @@
++# git ls-files --others --exclude-from=.git/info/exclude
++# Lines that start with '#' are comments.
++# For a project mostly in C, the following would be a good set of
++# exclude patterns (uncomment them if you want to use them):
++# *.[oa]
++# *~
+diff -wbBurN umurmur-0.2.16a/.git/logs/HEAD umurmur/.git/logs/HEAD
+--- umurmur-0.2.16a/.git/logs/HEAD	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/logs/HEAD	2015-09-22 10:34:34.899469415 +0300
+@@ -0,0 +1 @@
++0000000000000000000000000000000000000000 ae8259343df8cf5dfbe5eda22c58c222d36a5499 Sergej Pupykin <sergej.pupykin@dsr-company.com> 1442907274 +0300	clone: from https://github.com/umurmur/umurmur.git
+diff -wbBurN umurmur-0.2.16a/.git/logs/refs/heads/master umurmur/.git/logs/refs/heads/master
+--- umurmur-0.2.16a/.git/logs/refs/heads/master	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/logs/refs/heads/master	2015-09-22 10:34:34.899469415 +0300
+@@ -0,0 +1 @@
++0000000000000000000000000000000000000000 ae8259343df8cf5dfbe5eda22c58c222d36a5499 Sergej Pupykin <sergej.pupykin@dsr-company.com> 1442907274 +0300	clone: from https://github.com/umurmur/umurmur.git
+diff -wbBurN umurmur-0.2.16a/.git/logs/refs/remotes/origin/HEAD umurmur/.git/logs/refs/remotes/origin/HEAD
+--- umurmur-0.2.16a/.git/logs/refs/remotes/origin/HEAD	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/logs/refs/remotes/origin/HEAD	2015-09-22 10:34:34.869469415 +0300
+@@ -0,0 +1 @@
++0000000000000000000000000000000000000000 ae8259343df8cf5dfbe5eda22c58c222d36a5499 Sergej Pupykin <sergej.pupykin@dsr-company.com> 1442907274 +0300	clone: from https://github.com/umurmur/umurmur.git
+Binary files umurmur-0.2.16a/.git/objects/pack/pack-a71015b36aa21d1e9805333b5fe0deb83afad339.idx and umurmur/.git/objects/pack/pack-a71015b36aa21d1e9805333b5fe0deb83afad339.idx differ
+Binary files umurmur-0.2.16a/.git/objects/pack/pack-a71015b36aa21d1e9805333b5fe0deb83afad339.pack and umurmur/.git/objects/pack/pack-a71015b36aa21d1e9805333b5fe0deb83afad339.pack differ
+diff -wbBurN umurmur-0.2.16a/.git/packed-refs umurmur/.git/packed-refs
+--- umurmur-0.2.16a/.git/packed-refs	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/packed-refs	2015-09-22 10:34:34.856136082 +0300
+@@ -0,0 +1,48 @@
++# pack-refs with: peeled fully-peeled 
++83ae0caf5c998f23ecf115ce5eb9a8433bc6aca4 refs/remotes/origin/development
++829e09922fe8747a1899bea850335ee89db04728 refs/remotes/origin/gh-pages
++ae8259343df8cf5dfbe5eda22c58c222d36a5499 refs/remotes/origin/master
++612fea41206c8dba02ab16d527f0393450f7b752 refs/tags/0.1.1
++^288c36cf70726dac83edb2a459f533b0f417ea3a
++694fc8142fe7d8b69cae02ed2a4a001d34dcaf49 refs/tags/0.1.2
++^0c131c82e1f0adfe5c745025450609e463f1e7d8
++7db93d594180d039cd1990bb68ebfcf512ce78af refs/tags/0.1.3
++^e0482ec9a9553b9ec3307ec5eec4480f6b02aa61
++33d86503a10a2decdf71c5a00a8b24ecec6d3829 refs/tags/0.2.0
++^d51fc9052e4359e1704b490996ff46aa6508dab4
++f2aaeddcf7e6a29e13a265e65da78a4a750683eb refs/tags/0.2.0-beta2
++^0f78d58e4e68a4039aad90d1d8bc7f63cf245477
++5a88747f3c76d6c5c9e4ae283695c4bcfde84648 refs/tags/0.2.1
++^b37002d9102d7eb94a19b60157df049953468875
++922673e825f23906a117e5a9cfbcd2c3073412fa refs/tags/0.2.10
++^e25b34db9a432b90218abaec5fada6fed3dc44c9
++01423093a986a8f795e9a0505a0f70b2c1cf890a refs/tags/0.2.11
++^0c57b93dfb882580f7ec43f0ddfea83c1c7ea729
++87b14b8456c288dbcb20b1d9f09c972cf89dc5b3 refs/tags/0.2.12
++^c24acf260de3bad09b25224cc8c8638597b0fab2
++2d1af212fc34bdaa480c9e8725b2fb36fd2d3d44 refs/tags/0.2.13
++^0203f5ed9211a3e0958d83844db32bad7a0e11e7
++c249e9a891bdcf3e6a5d1f409d3528b7e414a353 refs/tags/0.2.14
++^9685e692ba2c2cf0056755f811bf0bdd3e005b2f
++17daa7e92bb08ac52b7b60f8a47358dea9ebb29d refs/tags/0.2.15
++^f66c0c3d630aaff1c4d589bc4d884067f00b6529
++c6fffa87d04e381c9e13b373c559d09af8d0ca6d refs/tags/0.2.16
++^906b0a21bdd1e2c256090ca57569c63705dabbf2
++48a38d70d1018e9fb03e0f237a19d36778d4f160 refs/tags/0.2.16a
++^6da56eac58f7dad5970ed4acb164766c761ffb8a
++259342dd0a012a80acf7d056cd4cd84241a71e9f refs/tags/0.2.2
++^b43afdb43d571cf8a17b859aadfb905de1cea5ed
++462e2f8ae9af9f5670915576814f73d75307f8f0 refs/tags/0.2.3
++^b8d7d0a0fa734546bcc83ad936a5baef68391fd5
++48028f50120870b3c37445e994aeea7cc3ce2d6e refs/tags/0.2.4
++^8fa5a4024f0c9219c566c87d963606198109efde
++e467ca582c2b739531281ae8e34d4b4151dbea0b refs/tags/0.2.5
++^831ca9491725ecbb4f208f961dafc8f6e865e4ef
++8e35f27acd4a8d8e29092f9a70b0c64261a8314d refs/tags/0.2.6
++^ebc4f21156bc096d433616e7d4679018759a7e34
++107a8b44e763093d27022198b80eb5980c9fe26f refs/tags/0.2.7
++^4bc31ec5e6b213295964a7e2e11f2f050cb9b41e
++bd5bb0c8e43e0440afa4a90e97dbd3be5763d4eb refs/tags/0.2.8
++^60aae12f64796bca7e8aed516f2b294120245957
++9cbf454fcf9b31381cade14aa941a016c1d0f755 refs/tags/0.2.9
++^237691dc7eb239c3cffb06c22291105cb5510ace
+diff -wbBurN umurmur-0.2.16a/.git/refs/heads/master umurmur/.git/refs/heads/master
+--- umurmur-0.2.16a/.git/refs/heads/master	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/refs/heads/master	2015-09-22 10:34:34.869469415 +0300
+@@ -0,0 +1 @@
++ae8259343df8cf5dfbe5eda22c58c222d36a5499
+diff -wbBurN umurmur-0.2.16a/.git/refs/remotes/origin/HEAD umurmur/.git/refs/remotes/origin/HEAD
+--- umurmur-0.2.16a/.git/refs/remotes/origin/HEAD	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/.git/refs/remotes/origin/HEAD	2015-09-22 10:34:34.856136082 +0300
+@@ -0,0 +1 @@
++ref: refs/remotes/origin/master
+diff -wbBurN umurmur-0.2.16a/openwrt/files/umurmur.init umurmur/openwrt/files/umurmur.init
+--- umurmur-0.2.16a/openwrt/files/umurmur.init	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/openwrt/files/umurmur.init	2015-09-22 10:34:34.932802748 +0300
+@@ -7,7 +7,7 @@
+ 
+ start() {
+         stop
+-        /usr/bin/umurmurd -r -p $PIDFILE
++        /usr/bin/umurmurd -p $PIDFILE
+ }
+ 
+ stop() {
+diff -wbBurN umurmur-0.2.16a/README.md umurmur/README.md
+--- umurmur-0.2.16a/README.md	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/README.md	2015-09-22 10:34:34.909469415 +0300
+@@ -1,34 +1,10 @@
+-uMurmur - minimalistic Mumble server
+-====================================
+-Project page on [GoogleCode](http://code.google.com/p/umurmur/)
++#About uMurmur
+ 
+ uMurmur is a minimalistic Mumble server primarily targeted to run on embedded computers, like routers, with an open OS like e.g. OpenWRT. The server part of Mumble is called Murmur, hence the name uMurmur. It is available as a precompiled package for quite a lot distributions. Check your distribution's package repository.
+ 
+ Instructions for building from source
+ -------------------------------------
+-1. Requirements
+-	* [OpenSSL](http://www.openssl.org/) or [PolarSSL](http://polarssl.org/) library. For PolarSSL version 1.0.0 and above is required.
+-	* [libconfig](http://www.hyperrealm.com/libconfig/)
+-	* [libprotoc-c](http://code.google.com/p/protobuf-c/) version 1.0.0 (use --disable-protoc option in its ./configure to build only the library). If you for some reason have to run an earlier version you need to recompile the protocol file `Mumble.proto` using the protobuf compiler for the corresponding version.
+-  * [CMake](http://cmake.org) (optional)
+-
+-2. Build - CMake
+-	* Create a build folder and cd into it
+-	* `cmake ../` to use default settings (polarssl, no test-cert and /dev/urandom as source for randomness).
+-	* `make`
+-
+-2. Build - Autotools
+-	* Run `./autogen.sh`
+-	* Run `./configure` for default settings
+-	* `make`
+-   
+-3. Install
+-	* `make install`
+-	* Edit the umurmur.conf found in the 'etc' folder in the prefix (eg. /usr/local) you installed to.
+-
+-4. Run `umurmurd -c <conf file> -p <PID file> -r`. For other switches and their meaning run `umurmurd -h`
+-
+-A startup script can easily be created if you want to. Just copy an existing script and edit it to your liking.
++[Build instructions](https://github.com/umurmur/umurmur/wiki/Building) can be found in the [wiki](https://github.com/umurmur/umurmur/wiki).
+ 
+ Contributors
+ ------------
+@@ -48,6 +24,6 @@
+ 
+ Support/Contact/Documentation
+ -----------------------------
+-See the project page, link above.
++Please consult the [wiki](https://github.com/umurmur/umurmur/wiki) and use the [issue tracker](https://github.com/umurmur/umurmur/issues) to report problems with uMurmur or to submit feature requests.
+ 
+ Have fun!
+diff -wbBurN umurmur-0.2.16a/src/ban.c umurmur/src/ban.c
+--- umurmur-0.2.16a/src/ban.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/ban.c	2015-09-22 10:34:34.939469414 +0300
+@@ -33,6 +33,7 @@
+ #include <time.h>
+ #include <string.h>
+ #include "log.h"
++#include "memory.h"
+ #include "list.h"
+ #include "ban.h"
+ #include "conf.h"
+@@ -70,9 +71,7 @@
+ 	ban_t *ban;
+ 	char hexhash[41];
+ 
+-	ban = calloc(1, sizeof(ban_t));
+-	if (ban == NULL)
+-		Log_fatal("Out of memory");
++	ban = Memory_safeCalloc(1, sizeof(ban_t));
+ 
+ 	memcpy(ban->hash, client->hash, 20);
+ 
+@@ -245,9 +244,7 @@
+ 
+ 	for (i = 0; i < n_bans; i++) {
+ 		Msg_banList_getEntry(msg, i, &address, &mask, &name, &hexhash, &reason, &start, &duration);
+-		ban = malloc(sizeof(ban_t));
+-		if (ban == NULL)
+-			Log_fatal("Out of memory");
++		ban = Memory_safeMalloc(1, sizeof(ban_t));
+ 		SSLi_hex2hash(hexhash, ban->hash);
+ 
+ 		if(memcmp(address, mappedBytes, 12) == 0) {
+@@ -354,9 +351,7 @@
+ 		if (p == NULL) break;
+ 		reason = p;
+ 
+-		ban = malloc(sizeof(ban_t));
+-		if (ban == NULL)
+-			Log_fatal("Out of memory");
++		ban = Memory_safeMalloc(1, sizeof(ban_t));
+ 		memset(ban, 0, sizeof(ban_t));
+ 		SSLi_hex2hash(hexhash, ban->hash);
+ 		if (inet_pton(AF_INET, address, &ban->address) == 0) {
+diff -wbBurN umurmur-0.2.16a/src/channel.c umurmur/src/channel.c
+--- umurmur-0.2.16a/src/channel.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/channel.c	2015-09-22 10:34:34.939469414 +0300
+@@ -32,6 +32,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include "log.h"
++#include "memory.h"
+ #include "list.h"
+ #include "client.h"
+ #include "channel.h"
+@@ -46,9 +47,7 @@
+ {
+ 	channel_t *ch;
+ 
+-	ch = malloc(sizeof(channel_t));
+-	if (ch == NULL)
+-		Log_fatal("out of memory");
++	ch = Memory_safeMalloc(1, sizeof(channel_t));
+ 	memset(ch, 0, sizeof(channel_t));
+ 	ch->id = id;
+ 	ch->name = strdup(name);
+@@ -222,7 +221,7 @@
+ 		else
+ 			ch_dst = ch_itr;
+ 		
+-		chl = malloc(sizeof(channellist_t));
++		chl = Memory_safeMalloc(1, sizeof(channellist_t));
+ 		chl->chan = ch_dst;
+ 		init_list_entry(&chl->node);
+ 		list_add_tail(&chl->node, &ch_src->channel_links);
+@@ -380,7 +379,7 @@
+ 	struct dlist *itr;
+ 	channel_t *sub;
+ 
+-	chl = malloc(sizeof(channellist_t));
++	chl = Memory_safeMalloc(1, sizeof(channellist_t));
+ 	chl->chan = ch;
+ 	init_list_entry(&chl->node);
+ 	list_add_tail(&chl->node, head);
+diff -wbBurN umurmur-0.2.16a/src/client.c umurmur/src/client.c
+--- umurmur-0.2.16a/src/client.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/client.c	2015-09-22 10:34:34.939469414 +0300
+@@ -36,6 +36,7 @@
+ #include <stdlib.h>
+ #include <string.h>
+ #include "log.h"
++#include "memory.h"
+ #include "list.h"
+ #include "client.h"
+ #include "ssl.h"
+@@ -115,9 +116,7 @@
+ 
+ void Client_codec_add(client_t *client, int codec)
+ {
+-	codec_t *cd = malloc(sizeof(codec_t));
+-	if (cd == NULL)
+-		Log_fatal("Out of memory");
++	codec_t *cd = Memory_safeMalloc(1, sizeof(codec_t));
+ 	init_list_entry(&cd->node);
+ 	cd->codec = codec;
+ 	list_add_tail(&cd->node, &client->codecs);
+@@ -157,9 +156,7 @@
+ 
+ 	if (client->tokencount >= MAX_TOKENS)
+ 		return;
+-	token = malloc(sizeof(token_t));
+-	if (token == NULL)
+-		Log_fatal("Out of memory");
++	token = Memory_safeMalloc(1, sizeof(token_t));
+ 	init_list_entry(&token->node);
+ 	token->token = strdup(token_string);
+ 	if (token->token == NULL)
+@@ -227,9 +224,7 @@
+ 				}
+ 			}
+ 			if (!found) {
+-				cd = malloc(sizeof(codec_t));
+-				if (!cd)
+-					Log_fatal("Out of memory");
++				cd = Memory_safeMalloc(1, sizeof(codec_t));
+ 				memset(cd, 0, sizeof(codec_t));
+ 				init_list_entry(&cd->node);
+ 				cd->codec = codec_itr->codec;
+@@ -332,8 +327,7 @@
+ 		return -1;
+ 	}
+ 
+-	if ((newclient = calloc(1, sizeof(client_t))) == NULL)
+-		Log_fatal("(%s:%s): Out of memory while allocating %d bytes.", __FILE__, __LINE__, sizeof(client_t));
++	newclient = Memory_safeCalloc(1, sizeof(client_t));
+ 
+ 	newclient->tcpfd = fd;
+ 	memcpy(&newclient->remote_tcp, remote, sizeof(struct sockaddr_storage));
+@@ -675,12 +669,8 @@
+ 	uint32_t *tree_id;
+ 	message_t *sendmsg = NULL;
+ 
+-	message = malloc(strlen(text) + 1);
+-	if (!message)
+-		Log_fatal("Out of memory");
+-	tree_id = malloc(sizeof(uint32_t));
+-	if (!tree_id)
+-		Log_fatal("Out of memory");
++	message = Memory_safeMalloc(1, strlen(text) + 1);
++	tree_id = Memory_safeMalloc(1, sizeof(uint32_t));
+ 	*tree_id = 0;
+ 	sendmsg = Msg_create(TextMessage);
+ 	sendmsg->payload.textMessage->message = message;
+@@ -1029,14 +1019,11 @@
+ 	if (Util_clientAddressToPortUDP(client) != 0 && CryptState_isValid(&client->cryptState) &&
+ 		client->bUDP) {
+ #if defined(__LP64__)
+-		buf = mbuf = malloc(len + 4 + 16);
++		buf = mbuf = Memory_safeMalloc(1, len + 4 + 16);
+ 		buf += 4;
+ #else
+-		mbuf = buf = malloc(len + 4);
++		mbuf = buf = Memory_safeMalloc(1, len + 4);
+ #endif
+-		if (mbuf == NULL)
+-			Log_fatal("Out of memory");
+-
+ 		CryptState_encrypt(&client->cryptState, data, buf, len);
+ 
+ #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+diff -wbBurN umurmur-0.2.16a/src/CMakeLists.txt umurmur/src/CMakeLists.txt
+--- umurmur-0.2.16a/src/CMakeLists.txt	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/CMakeLists.txt	2015-09-22 10:34:34.936136082 +0300
+@@ -14,12 +14,15 @@
+   ${CMAKE_CURRENT_SOURCE_DIR}/timer.c
+   ${CMAKE_CURRENT_SOURCE_DIR}/util.c
+   ${CMAKE_CURRENT_SOURCE_DIR}/voicetarget.c
++  ${CMAKE_CURRENT_SOURCE_DIR}/memory.c
+   )
+ 
+ if(SSL MATCHES "openssl")
+   list(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ssli_openssl.c)
+ elseif(SSL MATCHES "polarssl")
+   list(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ssli_polarssl.c)
++elseif(SSL MATCHES "mbedtls")
++  list(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ssli_mbedtls.c)
+ elseif(SSL MATCHES "gnutls")
+   list(APPEND SOURCE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/ssli_gnutls.c)
+ endif(SSL MATCHES "openssl")
+diff -wbBurN umurmur-0.2.16a/src/config.h.in umurmur/src/config.h.in
+--- umurmur-0.2.16a/src/config.h.in	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/config.h.in	2015-09-22 10:34:34.939469414 +0300
+@@ -5,6 +5,9 @@
+ #cmakedefine USE_POLARSSL
+ #cmakedefine USE_POLARSSL_TESTCERT
+ #cmakedefine USE_POLARSSL_HAVEGE
++#cmakedefine USE_MBEDTLS
++#cmakedefine USE_MBEDTLS_TESTCERT
++#cmakedefine USE_MBEDTLS_HAVEGE
+ 
+ #cmakedefine USE_SHAREDMEMORY_API
+ 
+diff -wbBurN umurmur-0.2.16a/src/crypt.c umurmur/src/crypt.c
+--- umurmur-0.2.16a/src/crypt.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/crypt.c	2015-09-22 10:34:34.939469414 +0300
+@@ -43,7 +43,7 @@
+ #include "crypt.h"
+ #include "ssl.h"
+ 
+-#ifdef USE_POLARSSL_HAVEGE
++#if defined(USE_POLARSSL_HAVEGE) || defined(USE_MBEDTLS_HAVEGE)
+ extern havege_state hs;
+ #endif
+ 
+diff -wbBurN umurmur-0.2.16a/src/crypt.h umurmur/src/crypt.h
+--- umurmur-0.2.16a/src/crypt.h	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/crypt.h	2015-09-22 10:34:34.939469414 +0300
+@@ -49,6 +49,21 @@
+ #define CRYPT_AES_ENCRYPT(src, dst, cryptstate) aes_crypt_ecb(&(cryptstate)->encrypt_key, AES_ENCRYPT, (unsigned char *)(src), (unsigned char *)(dst));
+ #define CRYPT_AES_DECRYPT(src, dst, cryptstate) aes_crypt_ecb(&(cryptstate)->decrypt_key, AES_DECRYPT, (unsigned char *)(src), (unsigned char *)(dst));
+ 
++#elif defined(USE_MBEDTLS)
++
++#include <mbedtls/havege.h>
++#include <mbedtls/aes.h>
++
++#define CRYPT_AES_KEY mbedtls_aes_context
++#define AES_BLOCK_SIZE 16
++
++#define CRYPT_RANDOM_BYTES(dest, size) RAND_bytes((unsigned char *)(dest), (size))
++#define CRYPT_SET_ENC_KEY(dest, source, size) mbedtls_aes_setkey_enc((dest), (source), (size));
++#define CRYPT_SET_DEC_KEY(dest, source, size) mbedtls_aes_setkey_dec((dest), (source), (size));
++
++#define CRYPT_AES_ENCRYPT(src, dst, cryptstate) mbedtls_aes_crypt_ecb(&(cryptstate)->encrypt_key, MBEDTLS_AES_ENCRYPT, (unsigned char *)(src), (unsigned char *)(dst));
++#define CRYPT_AES_DECRYPT(src, dst, cryptstate) mbedtls_aes_crypt_ecb(&(cryptstate)->decrypt_key, MBEDTLS_AES_DECRYPT, (unsigned char *)(src), (unsigned char *)(dst));
++
+ #elif defined(USE_GNUTLS)
+ 
+ #include <nettle/aes.h>
+diff -wbBurN umurmur-0.2.16a/src/Makefile.am umurmur/src/Makefile.am
+--- umurmur-0.2.16a/src/Makefile.am	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/Makefile.am	2015-09-22 10:34:34.936136082 +0300
+@@ -27,7 +27,7 @@
+ #  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ #  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ bin_PROGRAMS=umurmurd
+-umurmurd_SOURCES=client.c main.c messages.c pds.c server.c log.c conf.c crypt.c timer.c messagehandler.c channel.c Mumble.pb-c.c voicetarget.c ban.c util.c
++umurmurd_SOURCES=client.c main.c messages.c pds.c server.c log.c conf.c crypt.c timer.c messagehandler.c channel.c Mumble.pb-c.c voicetarget.c ban.c util.c memory.c
+ 
+ if USE_OPENSSL
+ umurmurd_SOURCES+=ssli_openssl.c
+@@ -35,9 +35,13 @@
+ if USE_GNUTLS
+ umurmurd_SOURCES+=ssli_gnutls.c
+ else
++if USE_MBEDTLS
++umurmurd_SOURCES+=ssli_mbedtls.c
++else
+ umurmurd_SOURCES+=ssli_polarssl.c
+ endif
+ endif
++endif
+ 
+ if USE_SHAREDMEMORY_API
+ umurmurd_SOURCES+=sharedmemory.c
+diff -wbBurN umurmur-0.2.16a/src/memory.c umurmur/src/memory.c
+--- umurmur-0.2.16a/src/memory.c	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/src/memory.c	2015-09-22 10:34:34.939469414 +0300
+@@ -0,0 +1,62 @@
++/* Copyright (C) 2009-2014, Martin Johansson <martin@fatbob.nu>
++   Copyright (C) 2005-2014, Thorvald Natvig <thorvald@natvig.com>
++
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++   - Redistributions of source code must retain the above copyright notice,
++     this list of conditions and the following disclaimer.
++   - Redistributions in binary form must reproduce the above copyright notice,
++     this list of conditions and the following disclaimer in the documentation
++     and/or other materials provided with the distribution.
++   - Neither the name of the Developers nor the names of its contributors may
++     be used to endorse or promote products derived from this software without
++     specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
++   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
++   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
++   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++*/
++#include <stdint.h>
++#include <unistd.h>
++#include <stdlib.h>
++
++#include "log.h"
++#include "memory.h"
++
++void * Memory_safeMalloc(size_t nmem, size_t size) {
++	// Check if we're going to overflow.
++	if (size && nmem > SIZE_MAX / size)
++		Log_fatal("Request for memory would've overflowed.");
++
++	// Allocate the memory requested.
++	void * retPtr = malloc(nmem * size);
++
++	// Check if we had an error.
++	if (retPtr == NULL)
++		Log_fatal("Out of memory.");
++
++	return retPtr;
++}
++
++void * Memory_safeCalloc(size_t nmem, size_t size) {
++	// Allocate the memory requested.
++	void * retPtr = calloc(nmem, size);
++
++	// Check if we had an error.
++	if (retPtr == NULL)
++		Log_fatal("Out of memory.");
++
++	return retPtr;
++}
+diff -wbBurN umurmur-0.2.16a/src/memory.h umurmur/src/memory.h
+--- umurmur-0.2.16a/src/memory.h	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/src/memory.h	2015-09-22 10:34:34.939469414 +0300
+@@ -0,0 +1,33 @@
++/* Copyright (C) 2009-2014, Martin Johansson <martin@fatbob.nu>
++   Copyright (C) 2005-2014, Thorvald Natvig <thorvald@natvig.com>
++
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++   - Redistributions of source code must retain the above copyright notice,
++     this list of conditions and the following disclaimer.
++   - Redistributions in binary form must reproduce the above copyright notice,
++     this list of conditions and the following disclaimer in the documentation
++     and/or other materials provided with the distribution.
++   - Neither the name of the Developers nor the names of its contributors may
++     be used to endorse or promote products derived from this software without
++     specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
++   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
++   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
++   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++*/
++
++void * Memory_safeMalloc(size_t nmem, size_t size);
++void * Memory_safeCalloc(size_t nmem, size_t size);
+diff -wbBurN umurmur-0.2.16a/src/messagehandler.c umurmur/src/messagehandler.c
+--- umurmur-0.2.16a/src/messagehandler.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/messagehandler.c	2015-09-22 10:34:34.939469414 +0300
+@@ -32,6 +32,7 @@
+ #include <stdlib.h>
+ 
+ #include "log.h"
++#include "memory.h"
+ #include "list.h"
+ #include "client.h"
+ #include "messages.h"
+@@ -284,7 +285,9 @@
+ 				sendmsg->payload.channelState->channel_id = ch_itr->id;
+ 				sendmsg->payload.channelState->n_links = ch_itr->linkcount;
+ 
+-				links = (uint32_t *)malloc(ch_itr->linkcount * sizeof(uint32_t));
++				links = (uint32_t*)Memory_safeMalloc(
++					ch_itr->linkcount,
++					sizeof(uint32_t));
+ 				list_iterate(itr, &ch_itr->channel_links) { /* Iterate links */
+ 					channellist_t *chl;
+ 					channel_t *ch;
+@@ -495,12 +498,8 @@
+ 			char *message;
+ 			uint32_t *tree_id;
+ 
+-			message = malloc(strlen(client->username) + 32);
+-			if (!message)
+-				Log_fatal("Out of memory");
+-			tree_id = malloc(sizeof(uint32_t));
+-			if (!tree_id)
+-				Log_fatal("Out of memory");
++			message = Memory_safeMalloc(1, strlen(client->username) + 32);
++			tree_id = Memory_safeMalloc(1, sizeof(uint32_t));
+ 			*tree_id = 0;
+ 			sendmsg = Msg_create(TextMessage);
+ 			sendmsg->payload.textMessage->message = message;
+@@ -557,9 +556,7 @@
+ 		if (msg->payload.userState->has_plugin_context) {
+ 			if (client->context)
+ 				free(client->context);
+-			client->context = malloc(msg->payload.userState->plugin_context.len);
+-			if (client->context == NULL)
+-				Log_fatal("Out of memory");
++			client->context = Memory_safeMalloc(1, msg->payload.userState->plugin_context.len);
+ 			memcpy(client->context, msg->payload.userState->plugin_context.data,
+ 				   msg->payload.userState->plugin_context.len);
+ 
+@@ -863,9 +860,8 @@
+ 				sendmsg->payload.userStats->version->os_version = strdup(target->os_version);
+ 
+ 			sendmsg->payload.userStats->n_celt_versions = target->codec_count;
+-			sendmsg->payload.userStats->celt_versions = malloc(sizeof(int32_t) * target->codec_count);
+-			if (!sendmsg->payload.userStats->celt_versions)
+-				Log_fatal("Out of memory");
++			sendmsg->payload.userStats->celt_versions
++				= Memory_safeMalloc(target->codec_count, sizeof(int32_t));
+ 			i = 0;
+ 			while (Client_codec_iterate(target, &codec_itr) != NULL)
+ 				sendmsg->payload.userStats->celt_versions[i++] = codec_itr->codec;
+@@ -875,9 +871,8 @@
+ 
+ 			/* Address */
+ 			sendmsg->payload.userStats->has_address = true;
+-			sendmsg->payload.userStats->address.data = malloc(sizeof(uint8_t) * 16);
+-			if (!sendmsg->payload.userStats->address.data)
+-				Log_fatal("Out of memory");
++			sendmsg->payload.userStats->address.data
++				= Memory_safeMalloc(16, sizeof(uint8_t));
+ 			memset(sendmsg->payload.userStats->address.data, 0, 16);
+ 			/* ipv4 representation as ipv6 address. Supposedly correct. */
+ 			memset(&sendmsg->payload.userStats->address.data[10], 0xff, 2); /* IPv4 */
+diff -wbBurN umurmur-0.2.16a/src/messages.c umurmur/src/messages.c
+--- umurmur-0.2.16a/src/messages.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/messages.c	2015-09-22 10:34:34.942802748 +0300
+@@ -38,6 +38,7 @@
+ #include "client.h"
+ #include "pds.h"
+ #include "log.h"
++#include "memory.h"
+ 
+ #define PREAMBLE_SIZE 6
+ 
+@@ -266,10 +267,8 @@
+ 
+ static message_t *Msg_create_nopayload(messageType_t messageType)
+ {
+-	message_t *msg = malloc(sizeof(message_t));
++	message_t *msg = Memory_safeMalloc(1, sizeof(message_t));
+ 
+-	if (msg == NULL)
+-		Log_fatal("Out of memory");
+ 	memset(msg, 0, sizeof(message_t));
+ 	msg->refcount = 1;
+ 	msg->messageType = messageType;
+@@ -284,92 +283,89 @@
+ 
+ 	switch (messageType) {
+ 	case Version:
+-		msg->payload.version = malloc(sizeof(MumbleProto__Version));
++		msg->payload.version = Memory_safeMalloc(1, sizeof(MumbleProto__Version));
+ 		mumble_proto__version__init(msg->payload.version);
+ 		break;
+ 	case UDPTunnel:
+-		msg->payload.UDPTunnel = malloc(sizeof(MumbleProto__UDPTunnel));
++		msg->payload.UDPTunnel = Memory_safeMalloc(1, sizeof(MumbleProto__UDPTunnel));
+ 		mumble_proto__udptunnel__init(msg->payload.UDPTunnel);
+ 		break;
+ 	case Authenticate:
+-		msg->payload.authenticate = malloc(sizeof(MumbleProto__Authenticate));
++		msg->payload.authenticate = Memory_safeMalloc(1, sizeof(MumbleProto__Authenticate));
+ 		mumble_proto__authenticate__init(msg->payload.authenticate);
+ 		break;
+ 	case Ping:
+-		msg->payload.ping = malloc(sizeof(MumbleProto__Ping));
++		msg->payload.ping = Memory_safeMalloc(1, sizeof(MumbleProto__Ping));
+ 		mumble_proto__ping__init(msg->payload.ping);
+ 		break;
+ 	case Reject:
+-		msg->payload.reject = malloc(sizeof(MumbleProto__Reject));
++		msg->payload.reject = Memory_safeMalloc(1, sizeof(MumbleProto__Reject));
+ 		mumble_proto__reject__init(msg->payload.reject);
+ 		break;
+ 	case ServerSync:
+-		msg->payload.serverSync = malloc(sizeof(MumbleProto__ServerSync));
++		msg->payload.serverSync = Memory_safeMalloc(1, sizeof(MumbleProto__ServerSync));
+ 		mumble_proto__server_sync__init(msg->payload.serverSync);
+ 		break;
+ 	case TextMessage:
+-		msg->payload.textMessage = malloc(sizeof(MumbleProto__TextMessage));
++		msg->payload.textMessage = Memory_safeMalloc(1, sizeof(MumbleProto__TextMessage));
+ 		mumble_proto__text_message__init(msg->payload.textMessage);
+ 		break;
+ 	case PermissionDenied:
+-		msg->payload.permissionDenied = malloc(sizeof(MumbleProto__PermissionDenied));
++		msg->payload.permissionDenied = Memory_safeMalloc(1, sizeof(MumbleProto__PermissionDenied));
+ 		mumble_proto__permission_denied__init(msg->payload.permissionDenied);
+ 		break;
+ 	case CryptSetup:
+-		msg->payload.cryptSetup = malloc(sizeof(MumbleProto__CryptSetup));
++		msg->payload.cryptSetup = Memory_safeMalloc(1, sizeof(MumbleProto__CryptSetup));
+ 		mumble_proto__crypt_setup__init(msg->payload.cryptSetup);
+ 		break;
+ 	case UserList:
+-		msg->payload.userList = malloc(sizeof(MumbleProto__UserList));
++		msg->payload.userList = Memory_safeMalloc(1, sizeof(MumbleProto__UserList));
+ 		mumble_proto__user_list__init(msg->payload.userList);
+ 		break;
+ 	case UserState:
+-		msg->payload.userState = malloc(sizeof(MumbleProto__UserState));
++		msg->payload.userState = Memory_safeMalloc(1, sizeof(MumbleProto__UserState));
+ 		mumble_proto__user_state__init(msg->payload.userState);
+ 		break;
+ 	case ChannelState:
+-		msg->payload.channelState = malloc(sizeof(MumbleProto__ChannelState));
++		msg->payload.channelState = Memory_safeMalloc(1, sizeof(MumbleProto__ChannelState));
+ 		mumble_proto__channel_state__init(msg->payload.channelState);
+ 		break;
+ 	case UserRemove:
+-		msg->payload.userRemove = malloc(sizeof(MumbleProto__UserRemove));
++		msg->payload.userRemove = Memory_safeMalloc(1, sizeof(MumbleProto__UserRemove));
+ 		mumble_proto__user_remove__init(msg->payload.userRemove);
+ 		break;
+ 	case VoiceTarget:
+-		msg->payload.voiceTarget = malloc(sizeof(MumbleProto__VoiceTarget));
++		msg->payload.voiceTarget = Memory_safeMalloc(1, sizeof(MumbleProto__VoiceTarget));
+ 		mumble_proto__voice_target__init(msg->payload.voiceTarget);
+ 		break;
+ 	case CodecVersion:
+-		msg->payload.codecVersion = malloc(sizeof(MumbleProto__CodecVersion));
++		msg->payload.codecVersion = Memory_safeMalloc(1, sizeof(MumbleProto__CodecVersion));
+ 		mumble_proto__codec_version__init(msg->payload.codecVersion);
+ 		break;
+ 	case PermissionQuery:
+-		msg->payload.permissionQuery = malloc(sizeof(MumbleProto__PermissionQuery));
++		msg->payload.permissionQuery = Memory_safeMalloc(1, sizeof(MumbleProto__PermissionQuery));
+ 		mumble_proto__permission_query__init(msg->payload.permissionQuery);
+ 		break;
+ 	case ChannelRemove:
+-		msg->payload.channelRemove = malloc(sizeof(MumbleProto__ChannelRemove));
++		msg->payload.channelRemove = Memory_safeMalloc(1, sizeof(MumbleProto__ChannelRemove));
+ 		mumble_proto__channel_remove__init(msg->payload.channelRemove);
+ 		break;
+ 	case UserStats:
+-		msg->payload.userStats = malloc(sizeof(MumbleProto__UserStats));
++		msg->payload.userStats = Memory_safeMalloc(1, sizeof(MumbleProto__UserStats));
+ 		mumble_proto__user_stats__init(msg->payload.userStats);
+ 
+-		msg->payload.userStats->from_client = malloc(sizeof(MumbleProto__UserStats__Stats));
++		msg->payload.userStats->from_client = Memory_safeMalloc(1, sizeof(MumbleProto__UserStats__Stats));
+ 		mumble_proto__user_stats__stats__init(msg->payload.userStats->from_client);
+ 
+-		msg->payload.userStats->from_server = malloc(sizeof(MumbleProto__UserStats__Stats));
++		msg->payload.userStats->from_server = Memory_safeMalloc(1, sizeof(MumbleProto__UserStats__Stats));
+ 		mumble_proto__user_stats__stats__init(msg->payload.userStats->from_server);
+ 
+-		msg->payload.userStats->version = malloc(sizeof(MumbleProto__Version));
++		msg->payload.userStats->version = Memory_safeMalloc(1, sizeof(MumbleProto__Version));
+ 		mumble_proto__version__init(msg->payload.userStats->version);
+ 
+-		if (!msg->payload.userStats || !msg->payload.userStats->from_client ||
+-			!msg->payload.userStats->from_server || !msg->payload.userStats->version)
+-			Log_fatal("Out of memory");
+ 		break;
+ 	case ServerConfig:
+-		msg->payload.serverConfig = malloc(sizeof(MumbleProto__ServerConfig));
++		msg->payload.serverConfig = Memory_safeMalloc(1, sizeof(MumbleProto__ServerConfig));
+ 		mumble_proto__server_config__init(msg->payload.serverConfig);
+ 		break;
+ 
+@@ -386,19 +382,13 @@
+ 	message_t *msg = Msg_create_nopayload(BanList);
+ 	int i;
+ 
+-	msg->payload.banList = malloc(sizeof(MumbleProto__BanList));
+-	if (msg->payload.banList == NULL)
+-		Log_fatal("Out of memory");
++	msg->payload.banList = Memory_safeMalloc(1, sizeof(MumbleProto__BanList));
+ 	memset(msg->payload.banList, 0, sizeof(MumbleProto__BanList));
+ 	mumble_proto__ban_list__init(msg->payload.banList);
+ 	msg->payload.banList->n_bans = n_bans;
+-	msg->payload.banList->bans = malloc(sizeof(MumbleProto__BanList__BanEntry *) * n_bans);
+-	if (msg->payload.banList->bans == NULL)
+-		Log_fatal("Out of memory");
++	msg->payload.banList->bans = Memory_safeMalloc(1, sizeof(MumbleProto__BanList__BanEntry *) * n_bans);
+ 	for (i = 0; i < n_bans; i++) {
+-		msg->payload.banList->bans[i] = malloc(sizeof(MumbleProto__BanList__BanEntry));
+-		if (msg->payload.banList->bans[i] == NULL)
+-			Log_fatal("Out of memory");
++		msg->payload.banList->bans[i] = Memory_safeMalloc(1, sizeof(MumbleProto__BanList__BanEntry));
+ 		memset(msg->payload.banList->bans[i], 0, sizeof(MumbleProto__BanList__BanEntry));
+ 		mumble_proto__ban_list__ban_entry__init(msg->payload.banList->bans[i]);
+ 	}
+@@ -410,9 +400,7 @@
+ {
+ 	MumbleProto__BanList__BanEntry *entry = msg->payload.banList->bans[index];
+ 
+-	entry->address.data = malloc(16);
+-	if (!entry->address.data)
+-		Log_fatal("Out of memory");
++	entry->address.data = Memory_safeMalloc(1, 16);
+ 	memcpy(entry->address.data, address, 16);
+ 	entry->address.len = 16;
+ 	entry->mask = mask;
+@@ -674,12 +662,8 @@
+ 
+ 	msg = Msg_create_nopayload(UDPTunnel);
+ 	msg->unpacked = false;
+-	msg->payload.UDPTunnel = malloc(sizeof(struct _MumbleProto__UDPTunnel));
+-	if (msg->payload.UDPTunnel == NULL)
+-		Log_fatal("Out of memory");
+-	msg->payload.UDPTunnel->packet.data = malloc(size);
+-	if (msg->payload.UDPTunnel->packet.data == NULL)
+-		Log_fatal("Out of memory");
++	msg->payload.UDPTunnel = Memory_safeMalloc(1, sizeof(struct _MumbleProto__UDPTunnel));
++	msg->payload.UDPTunnel->packet.data = Memory_safeMalloc(1, size);
+ 	memcpy(msg->payload.UDPTunnel->packet.data, data, size);
+ 	msg->payload.UDPTunnel->packet.len = size;
+ 	return msg;
+diff -wbBurN umurmur-0.2.16a/src/pds.c umurmur/src/pds.c
+--- umurmur-0.2.16a/src/pds.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/pds.c	2015-09-22 10:34:34.942802748 +0300
+@@ -32,6 +32,7 @@
+ #include <stdlib.h>
+ #include "pds.h"
+ #include "log.h"
++#include "memory.h"
+ 
+ /*
+  * Data serialization functions below
+@@ -117,9 +118,7 @@
+ 
+ pds_t *Pds_create(uint8_t *buf, int size)
+ {
+-	pds_t *pds = malloc(sizeof(pds_t));
+-	if (pds == NULL)
+-		Log_fatal("Out of memory");
++	pds_t *pds = Memory_safeMalloc(1, sizeof(pds_t));
+ 	pds->data = buf;
+ 	pds->offset = pds->overshoot = 0;
+ 	pds->maxsize = size;
+diff -wbBurN umurmur-0.2.16a/src/server.c umurmur/src/server.c
+--- umurmur-0.2.16a/src/server.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/server.c	2015-09-22 10:34:34.942802748 +0300
+@@ -44,6 +44,7 @@
+ #include "client.h"
+ #include "conf.h"
+ #include "log.h"
++#include "memory.h"
+ #include "timer.h"
+ #include "version.h"
+ #include "util.h"
+@@ -94,11 +95,11 @@
+ /* Initialize the address structures for IPv4 and IPv6 */
+ struct sockaddr_storage** Server_setupAddressesAndPorts()
+ {
+-	struct sockaddr_storage** addresses = calloc(2, sizeof(void*));
++	struct sockaddr_storage** addresses = Memory_safeCalloc(2, sizeof(void*));
+ 
+-	struct sockaddr_storage* v4address = calloc(1, sizeof(struct sockaddr_storage));
++	struct sockaddr_storage* v4address = Memory_safeCalloc(1, sizeof(struct sockaddr_storage));
+ 	v4address->ss_family = AF_INET;
+-	struct sockaddr_storage* v6address = calloc(1, sizeof(struct sockaddr_storage));
++	struct sockaddr_storage* v6address = Memory_safeCalloc(1, sizeof(struct sockaddr_storage));
+ 	v6address->ss_family = AF_INET6;
+ 
+ #if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+@@ -261,8 +262,7 @@
+ 	int val = 0;
+ 	int sockets[2] = {-1, -1};
+ 
+-	if((udpsocks = calloc(nofServerSocks / 2, sizeof(int))) == NULL)
+-		Log_fatal("Out of memory (%s:%s)", __FILE__, __LINE__);
++	udpsocks = Memory_safeCalloc(nofServerSocks / 2, sizeof(int));
+ 
+ 	if (hasv4) {
+ 		sockets[0] = socket(PF_INET, SOCK_DGRAM, 0);
+@@ -315,8 +315,7 @@
+ 	checkIPversions();
+ 
+ 	/* max clients + server sokets + client connecting that will be disconnected */
+-	if ((pollfds = calloc((getIntConf(MAX_CLIENTS) + nofServerSocks + 1) , sizeof(struct pollfd))) == NULL)
+-		Log_fatal("out of memory");
++	pollfds = Memory_safeCalloc((getIntConf(MAX_CLIENTS) + nofServerSocks + 1) , sizeof(struct pollfd));
+ 
+ 	/* Figure out bind address and port */
+ 	struct sockaddr_storage** addresses = Server_setupAddressesAndPorts();
+diff -wbBurN umurmur-0.2.16a/src/ssl.h umurmur/src/ssl.h
+--- umurmur-0.2.16a/src/ssl.h	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/ssl.h	2015-09-22 10:34:34.942802748 +0300
+@@ -88,6 +88,39 @@
+ 
+ typedef	ssl_context SSL_handle_t;
+ 
++#elif defined(USE_MBEDTLS)
++#include <mbedtls/ssl.h>
++#include <mbedtls/net.h>
++#include <mbedtls/version.h>
++
++#if defined(MBEDTLS_VERSION_MAJOR)
++#if (MBEDTLS_VERSION_MAJOR < 2)
++#error mbedTLS version 2.0.0 or greater is required!
++#endif
++#else
++#error mbedTLS version 2.0.0 or greater is required!
++#endif
++
++#if defined(USE_MBEDTLS_HAVEGE)
++#include <mbedtls/havege.h>
++    #define HAVEGE_RAND (havege_random)
++    #define RAND_bytes(_dst_, _size_) do { \
++        mbedtls_havege_random(&hs, _dst_, _size_); \
++    } while (0)
++#else
++#define RAND_bytes(_dst_, _size_) do { urandom_bytes(NULL, _dst_, _size_); } while (0)
++int urandom_bytes(void *ctx, unsigned char *dest, size_t len);
++#endif
++
++#define SSLI_ERROR_WANT_READ -0x0F300 /* mbedTLS v0.x.x uses -0x0f00 -> --0x0f90, v1.x.x uses -0x7080 -> -0x7e80 */
++#define SSLI_ERROR_WANT_WRITE -0x0F310
++
++#define SSLI_ERROR_ZERO_RETURN 0
++#define SSLI_ERROR_CONNRESET MBEDTLS_ERR_NET_CONN_RESET
++#define SSLI_ERROR_SYSCALL MBEDTLS_ERR_NET_RECV_FAILED
++
++typedef	mbedtls_ssl_context SSL_handle_t;
++
+ #elif defined(USE_GNUTLS)
+ 
+ #include <gnutls/gnutls.h>
+diff -wbBurN umurmur-0.2.16a/src/ssli_gnutls.c umurmur/src/ssli_gnutls.c
+--- umurmur-0.2.16a/src/ssli_gnutls.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/ssli_gnutls.c	2015-09-22 10:34:34.942802748 +0300
+@@ -31,6 +31,7 @@
+ #include "ssl.h"
+ #include "conf.h"
+ #include "log.h"
++#include "memory.h"
+ 
+ #include <stdlib.h>
+ 
+@@ -97,7 +98,8 @@
+ 
+ SSL_handle_t * SSLi_newconnection( int * fileDescriptor, bool_t * isSSLReady )
+ {
+-	gnutls_session_t * session = calloc(1, sizeof(gnutls_session_t));
++	gnutls_session_t * session
++		= Memory_safeCalloc(1, sizeof(gnutls_session_t));
+ 
+ 	gnutls_init(session, GNUTLS_SERVER);
+ 	gnutls_priority_set(*session, cipherCache);
+diff -wbBurN umurmur-0.2.16a/src/ssli_mbedtls.c umurmur/src/ssli_mbedtls.c
+--- umurmur-0.2.16a/src/ssli_mbedtls.c	1970-01-01 03:00:00.000000000 +0300
++++ umurmur/src/ssli_mbedtls.c	2015-09-22 10:34:34.942802748 +0300
+@@ -0,0 +1,351 @@
++/* Copyright (C) 2009-2015, Martin Johansson <martin@fatbob.nu>
++   Copyright (C) 2005-2015, Thorvald Natvig <thorvald@natvig.com>
++   Copyright (C) 2015-2015, Szymon Pusz <szymon@pusz.net>
++
++   All rights reserved.
++
++   Redistribution and use in source and binary forms, with or without
++   modification, are permitted provided that the following conditions
++   are met:
++
++   - Redistributions of source code must retain the above copyright notice,
++     this list of conditions and the following disclaimer.
++   - Redistributions in binary form must reproduce the above copyright notice,
++     this list of conditions and the following disclaimer in the documentation
++     and/or other materials provided with the distribution.
++   - Neither the name of the Developers nor the names of its contributors may
++     be used to endorse or promote products derived from this software without
++     specific prior written permission.
++
++   THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
++   ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
++   LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
++   A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE FOUNDATION OR
++   CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
++   EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
++   PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
++   PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
++   LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
++   NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
++   SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
++*/
++#include "conf.h"
++#include "log.h"
++#include "ssl.h"
++#include "memory.h"
++
++#include <stdlib.h>
++#include <fcntl.h>
++
++#include <mbedtls/config.h>
++#include <mbedtls/havege.h>
++#include <mbedtls/certs.h>
++#include <mbedtls/x509.h>
++#include <mbedtls/ssl.h>
++#include <mbedtls/net.h>
++
++const int ciphers[] =
++{
++    MBEDTLS_TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
++    MBEDTLS_TLS_RSA_WITH_AES_256_CBC_SHA,
++    MBEDTLS_TLS_RSA_WITH_AES_128_CBC_SHA,
++    0
++};
++
++static mbedtls_x509_crt certificate;
++static inline int x509parse_keyfile(mbedtls_pk_context *pk, const char *path,
++                                    const char *pwd)
++{
++    int ret;
++
++    mbedtls_pk_init(pk);
++    ret = mbedtls_pk_parse_keyfile(pk, path, pwd);
++    if (ret == 0 && !mbedtls_pk_can_do(pk, MBEDTLS_PK_RSA))
++        ret = MBEDTLS_ERR_PK_TYPE_MISMATCH;
++
++    return ret;
++}
++
++static mbedtls_pk_context key;
++bool_t builtInTestCertificate;
++
++#ifdef USE_MBEDTLS_HAVEGE
++havege_state hs;
++#else
++int urandom_fd;
++#endif
++
++/* DH prime */
++char *my_dhm_P =
++	"9CE85640903BF123906947FEDE767261" \
++	"D9B4A973EB8F7D984A8C656E2BCC161C" \
++	"183D4CA471BA78225F940F16D1D99CA3" \
++	"E66152CC68EDCE1311A390F307741835" \
++	"44FF6AB553EC7073AD0CB608F2A3B480" \
++	"19E6C02BCED40BD30E91BB2469089670" \
++	"DEF409C08E8AC24D1732A6128D2220DC53";
++char *my_dhm_G = "4";
++
++#ifdef USE_MBEDTLS_TESTCERT
++static void initTestCert()
++{
++	int rc;
++	builtInTestCertificate = true;
++	rc = mbedtls_x509_crt_parse_rsa(&certificate, (unsigned char *)test_srv_crt,
++		strlen(test_srv_crt));
++
++	if (rc != 0)
++		Log_fatal("Could not parse built-in test certificate");
++}
++
++static void initTestKey()
++{
++	int rc;
++
++	rc = mbedtls_x509parse_key_rsa(&key, (unsigned char *)test_srv_key,
++	                       strlen(test_srv_key), NULL, 0);
++	if (rc != 0)
++		Log_fatal("Could not parse built-in test RSA key");
++}
++#endif
++
++/*
++ * How to generate a self-signed cert with openssl:
++ * openssl genrsa 1024 > host.key
++ * openssl req -new -x509 -nodes -sha1 -days 365 -key host.key > host.cert
++ */
++static void initCert()
++{
++	int rc;
++	char *crtfile = (char *)getStrConf(CERTIFICATE);
++
++	if (crtfile == NULL) {
++#ifdef USE_MBEDTLS_TESTCERT
++		Log_warn("No certificate file specified. Falling back to test certificate.");
++		initTestCert();
++#else
++		Log_fatal("No certificate file specified");
++#endif
++		return;
++	}
++
++	rc = mbedtls_x509_crt_parse_file(&certificate, crtfile);
++
++	if (rc != 0) {
++#ifdef USE_MBEDTLS_TESTCERT
++		Log_warn("Could not read certificate file '%s'. Falling back to test certificate.", crtfile);
++		initTestCert();
++#else
++		Log_fatal("Could not read certificate file '%s'", crtfile);
++#endif
++		return;
++	}
++}
++
++static void initKey()
++{
++	int rc;
++	char *keyfile = (char *)getStrConf(KEY);
++
++	if (keyfile == NULL)
++		Log_fatal("No key file specified");
++	rc = x509parse_keyfile(&key, keyfile, NULL);
++	if (rc != 0)
++		Log_fatal("Could not read RSA key file %s", keyfile);
++}
++
++#ifndef USE_MBEDTLS_HAVEGE
++int urandom_bytes(void *ctx, unsigned char *dest, size_t len)
++{
++	int cur;
++
++	while (len) {
++		cur = read(urandom_fd, dest, len);
++		if (cur < 0)
++			continue;
++		len -= cur;
++	}
++	return 0;
++}
++#endif
++
++#define DEBUG_LEVEL 0
++static void pssl_debug(void *ctx, int level, const char *file, int line, const char *str)
++{
++    if (level <= DEBUG_LEVEL)
++		Log_info("mbedTLS [level %d]: %s", level, str);
++}
++
++mbedtls_ssl_config *conf;
++
++void SSLi_init(void)
++{
++	char verstring[12];
++	int rc;
++
++	initCert();
++#ifdef USE_MBEDTLS_TESTCERT
++	if (builtInTestCertificate) {
++		Log_warn("*** Using built-in test certificate and RSA key ***");
++		Log_warn("*** This is not secure! Please use a CA-signed certificate or create a key and self-signed certificate ***");
++		initTestKey();
++	}
++	else
++		initKey();
++#else
++	initKey();
++#endif
++
++	/* Initialize random number generator */
++#ifdef USE_MBEDTLS_HAVEGE
++    mbedtls_havege_init(&hs);
++#else
++    urandom_fd = open("/dev/urandom", O_RDONLY);
++    if (urandom_fd < 0)
++	    Log_fatal("Cannot open /dev/urandom");
++#endif
++
++	/* Initialize config */
++	conf = Memory_safeCalloc(1, sizeof(mbedtls_ssl_config));
++
++	if (!conf)
++		Log_fatal("Out of memory");
++
++	mbedtls_ssl_config_init(conf);
++
++	if((rc = mbedtls_ssl_config_defaults(conf,
++			MBEDTLS_SSL_IS_SERVER,
++			MBEDTLS_SSL_TRANSPORT_STREAM,
++			MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
++		Log_fatal("mbedtls_ssl_config_defaults returned %d", rc);
++
++	mbedtls_ssl_conf_authmode(conf, MBEDTLS_SSL_VERIFY_OPTIONAL);
++#ifdef USE_MBEDTLS_HAVEGE
++	mbedtls_ssl_conf_rng(conf, HAVEGE_RAND, &hs);
++#else
++	mbedtls_ssl_conf_rng(conf, urandom_bytes, NULL);
++#endif
++	mbedtls_ssl_conf_dbg(conf, pssl_debug, NULL);
++
++	mbedtls_ssl_conf_ciphersuites(conf, (const int*)&ciphers);
++
++	mbedtls_ssl_conf_ca_chain(conf, &certificate, NULL);
++
++	if((rc = mbedtls_ssl_conf_own_cert(conf, &certificate, &key)) != 0)
++		Log_fatal("mbedtls_ssl_conf_own_cert returned %d", rc);
++
++	if((rc = mbedtls_ssl_conf_dh_param(conf, my_dhm_P, my_dhm_G)) != 0)
++		Log_fatal("mbedtls_ssl_conf_dh_param returned %d", rc);
++
++#ifdef MBEDTLS_VERSION_FEATURES
++    mbedtls_version_get_string(verstring);
++    Log_info("mbedTLS library version %s initialized", verstring);
++#else
++    Log_info("mbedTLS library initialized");
++#endif
++}
++
++void SSLi_deinit(void)
++{
++	mbedtls_ssl_config_free(conf);
++	free(conf);
++	mbedtls_x509_crt_free(&certificate);
++	mbedtls_pk_free(&key);
++}
++
++/* Create SHA1 of last certificate in the peer's chain. */
++bool_t SSLi_getSHA1Hash(SSL_handle_t *ssl, uint8_t *hash)
++{
++	mbedtls_x509_crt const *cert;
++	cert = mbedtls_ssl_get_peer_cert(ssl);
++
++	if (!cert) {
++		return false;
++	}
++	mbedtls_sha1(cert->raw.p, cert->raw.len, hash);
++	return true;
++}
++
++SSL_handle_t *SSLi_newconnection(int *fd, bool_t *SSLready)
++{
++	mbedtls_ssl_context *ssl;
++	mbedtls_ssl_session *ssn;
++	int rc;
++
++	ssl = Memory_safeCalloc(1, sizeof(mbedtls_ssl_context));
++	ssn = Memory_safeCalloc(1, sizeof(mbedtls_ssl_session));
++
++	if (!ssl || !ssn)
++		Log_fatal("Out of memory");
++
++	mbedtls_ssl_init(ssl);
++	mbedtls_ssl_set_bio(ssl, fd, mbedtls_net_send, mbedtls_net_recv, NULL);
++	mbedtls_ssl_set_session(ssl, ssn);
++
++	if((rc = mbedtls_ssl_setup(ssl, conf)) != 0)
++		Log_fatal("mbedtls_ssl_setup returned %d", rc);
++
++	return ssl;
++}
++
++int SSLi_nonblockaccept(SSL_handle_t *ssl, bool_t *SSLready)
++{
++	int rc;
++
++	rc = mbedtls_ssl_handshake(ssl);
++	if (rc != 0) {
++		if (rc == MBEDTLS_ERR_SSL_WANT_READ || rc == MBEDTLS_ERR_SSL_WANT_WRITE) {
++			return 0;
++		} else if (rc == MBEDTLS_ERR_X509_CERT_VERIFY_FAILED) { /* Allow this (selfsigned etc) */
++			return 0;
++		} else {
++			Log_warn("SSL handshake failed: %d", rc);
++			return -1;
++		}
++	}
++	*SSLready = true;
++	return 0;
++}
++
++int SSLi_read(SSL_handle_t *ssl, uint8_t *buf, int len)
++{
++	int rc;
++
++	rc = mbedtls_ssl_read(ssl, buf, len);
++	if (rc == MBEDTLS_ERR_SSL_WANT_READ)
++		return SSLI_ERROR_WANT_READ;
++	return rc;
++}
++
++int SSLi_write(SSL_handle_t *ssl, uint8_t *buf, int len)
++{
++	int rc;
++
++	rc = mbedtls_ssl_write(ssl, buf, len);
++	if (rc == MBEDTLS_ERR_SSL_WANT_WRITE)
++		return SSLI_ERROR_WANT_WRITE;
++	return rc;
++}
++
++int SSLi_get_error(SSL_handle_t *ssl, int code)
++{
++	return code;
++}
++
++bool_t SSLi_data_pending(SSL_handle_t *ssl)
++{
++	return mbedtls_ssl_get_bytes_avail(ssl) > 0;
++}
++
++void SSLi_shutdown(SSL_handle_t *ssl)
++{
++	mbedtls_ssl_close_notify(ssl);
++}
++
++void SSLi_free(SSL_handle_t *ssl)
++{
++	Log_debug("SSLi_free");
++	mbedtls_ssl_free(ssl);
++	free(ssl);
++}
++
+diff -wbBurN umurmur-0.2.16a/src/ssli_openssl.c umurmur/src/ssli_openssl.c
+--- umurmur-0.2.16a/src/ssli_openssl.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/ssli_openssl.c	2015-09-22 10:34:34.942802748 +0300
+@@ -33,6 +33,7 @@
+ 
+ #include "conf.h"
+ #include "log.h"
++#include "memory.h"
+ #include "ssl.h"
+ 
+ /*
+@@ -154,52 +155,14 @@
+ 
+ static void SSL_initializeCert() {
+ 
+-	char *crt, *key, *pass;
++	char *crt = (char *)getStrConf(CERTIFICATE);
++	char *key = (char *)getStrConf(KEY);
+ 
+-	crt = (char *)getStrConf(CERTIFICATE);
+-	key = (char *)getStrConf(KEY);
+-	pass = (char *)getStrConf(PASSPHRASE);
+-
+-	x509 = SSL_readcert(crt);
++	if (context) {
++		bool_t did_load_cert = SSL_CTX_use_certificate_chain_file(context, crt);
+ 	rsa = SSL_readprivatekey(key);
+-	if (rsa != NULL) {
+-		pkey = EVP_PKEY_new();
+-		EVP_PKEY_assign_RSA(pkey, rsa);
+-	}
+-
+-
+-#if 0
+-	/* Later ... */
+-	if (key && !x509) {
+-		qscCert = QSslCertificate(key);
+-		if (! qscCert.isNull()) {
+-			logthis("Using certificate from key.");
+-		}
+-	}
+-
+-	if (! qscCert.isNull()) {
+-		QSsl::KeyAlgorithm alg = qscCert.publicKey().algorithm();
+-		/* Fetch algorith from cert */
+-		if (! key.isEmpty()) {
+-			/* get key */
+-			qskKey = QSslKey(key, alg, QSsl::Pem, QSsl::PrivateKey, pass);
+-			if (qskKey.isNull()) {
+-				logthis("Failed to parse key.");
+-			}
+-		}
+-
+-		if (! crt.isEmpty() && qskKey.isNull()) {
+-			/* get key from certificate */
+-			qskKey = QSslKey(crt, alg, QSsl::Pem, QSsl::PrivateKey, pass);
+-			if (! qskKey.isNull()) {
+-				logthis("Using key from certificate.");
+-			}
+-		}
+ 
+-	}
+-#endif
+-
+-	if (!rsa || !x509) {
++		if (!rsa || !did_load_cert) {
+ 		Log_info("Generating new server certificate.");
+ 
+ 
+@@ -207,7 +170,7 @@
+ 
+ 		x509 = X509_new();
+ 		pkey = EVP_PKEY_new();
+-		rsa = RSA_generate_key(1024,RSA_F4,NULL,NULL);
++			rsa = RSA_generate_key(4096,RSA_F4,NULL,NULL);
+ 		EVP_PKEY_assign_RSA(pkey, rsa);
+ 
+ 		X509_set_version(x509, 2);
+@@ -229,25 +192,35 @@
+ 
+ 		SSL_writecert(crt, x509);
+ 		SSL_writekey(key, rsa);
++
++			SSL_CTX_use_certificate(context, x509);
++		} else {
++		  pkey = EVP_PKEY_new();
++		  EVP_PKEY_assign_RSA(pkey, rsa);
++		}
++
++		SSL_CTX_use_PrivateKey(context, pkey);
++
++	} else {
++		Log_fatal("Failed to initialize TLS context.");
+ 	}
+ 
+ }
+ 
+ void SSLi_init(void)
+ {
+-	SSL_METHOD *method;
+ 	SSL *ssl;
+ 	int i, offset = 0, cipherstringlen = 0;
+ 	STACK_OF(SSL_CIPHER) *cipherlist = NULL, *cipherlist_new = NULL;
+ 	SSL_CIPHER *cipher;
+-	char *cipherstring, tempstring[128];
++	char *cipherstring;
+ 
+ 	SSL_library_init();
+-	OpenSSL_add_all_algorithms();		/* load & register all cryptos, etc. */
+-	SSL_load_error_strings();			/* load all error messages */
+-	ERR_load_crypto_strings();			/* load all error messages */
+-	method = SSLv23_server_method();		/* create new server-method instance */
+-	context = SSL_CTX_new(method);			/* create new context from method */
++	OpenSSL_add_all_algorithms();
++	SSL_load_error_strings();
++	ERR_load_crypto_strings();
++
++	context = SSL_CTX_new(SSLv23_server_method());
+ 	if (context == NULL)
+ 	{
+ 		ERR_print_errors_fp(stderr);
+@@ -261,12 +234,6 @@
+ 	}
+ 
+ 	SSL_initializeCert();
+-	if (SSL_CTX_use_certificate(context, x509) <= 0)
+-		Log_fatal("Failed to initialize cert");
+-	if (SSL_CTX_use_PrivateKey(context, pkey) <= 0) {
+-		ERR_print_errors_fp(stderr);
+-		Log_fatal("Failed to initialize private key");
+-	}
+ 
+ 	/* Set cipher list */
+ 	ssl = SSL_new(context);
+@@ -284,9 +251,7 @@
+ 			Log_debug("%s", SSL_CIPHER_get_name(cipher));
+ 			cipherstringlen += strlen(SSL_CIPHER_get_name(cipher)) + 1;
+ 		}
+-		cipherstring = malloc(cipherstringlen + 1);
+-		if (cipherstring == NULL)
+-			Log_fatal("Out of memory");
++		cipherstring = Memory_safeMalloc(1, cipherstringlen + 1);
+ 		for (i = 0; (cipher = sk_SSL_CIPHER_value(cipherlist_new, i)) != NULL; i++) {
+ 			offset += sprintf(cipherstring + offset, "%s:", SSL_CIPHER_get_name(cipher));
+ 		}
+@@ -362,10 +327,7 @@
+ 	}
+ 
+ 	len = i2d_X509(x509, NULL);
+-	buf = malloc(len);
+-	if (buf == NULL) {
+-		Log_fatal("malloc");
+-	}
++	buf = Memory_safeMalloc(1, len);
+ 
+ 	p = buf;
+ 	i2d_X509(x509, &p);
+diff -wbBurN umurmur-0.2.16a/src/ssli_polarssl.c umurmur/src/ssli_polarssl.c
+--- umurmur-0.2.16a/src/ssli_polarssl.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/ssli_polarssl.c	2015-09-22 10:34:34.942802748 +0300
+@@ -30,6 +30,7 @@
+ */
+ #include "conf.h"
+ #include "log.h"
++#include "memory.h"
+ #include "ssl.h"
+ 
+ #include <stdlib.h>
+@@ -269,10 +270,8 @@
+ 	ssl_session *ssn;
+ 	int rc;
+ 
+-	ssl = calloc(1, sizeof(ssl_context));
+-	ssn = calloc(1, sizeof(ssl_session));
+-	if (!ssl || !ssn)
+-		Log_fatal("Out of memory");
++	ssl = Memory_safeCalloc(1, sizeof(ssl_context));
++	ssn = Memory_safeCalloc(1, sizeof(ssl_session));
+ 
+ 	rc = ssl_init(ssl);
+ 	if (rc != 0 )
+diff -wbBurN umurmur-0.2.16a/src/util.c umurmur/src/util.c
+--- umurmur-0.2.16a/src/util.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/util.c	2015-09-22 10:34:34.942802748 +0300
+@@ -28,16 +28,17 @@
+    SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+ #include "util.h"
++#include "memory.h"
+ 
+ char* Util_addressToString(struct sockaddr_storage *address)
+ {
+ 	char* addressString = NULL;
+ 
+ 	if (address->ss_family == AF_INET) {
+-		addressString = malloc(INET_ADDRSTRLEN);
++		addressString = Memory_safeMalloc(1, INET_ADDRSTRLEN);
+ 		inet_ntop(AF_INET, &((struct sockaddr_in *)address)->sin_addr, addressString, INET_ADDRSTRLEN);
+ 	} else if(address->ss_family == AF_INET6) {
+-		addressString = malloc(INET6_ADDRSTRLEN);
++		addressString = Memory_safeMalloc(1, INET6_ADDRSTRLEN);
+ 		inet_ntop(AF_INET6, &((struct sockaddr_in6 *)address)->sin6_addr, addressString, INET6_ADDRSTRLEN);
+ 	}
+ 
+diff -wbBurN umurmur-0.2.16a/src/voicetarget.c umurmur/src/voicetarget.c
+--- umurmur-0.2.16a/src/voicetarget.c	2015-06-20 01:58:46.000000000 +0300
++++ umurmur/src/voicetarget.c	2015-09-22 10:34:34.942802748 +0300
+@@ -33,6 +33,7 @@
+ #include <string.h>
+ #include "voicetarget.h"
+ #include "log.h"
++#include "memory.h"
+ 
+ void Voicetarget_add_session(client_t *client, int targetId, int sessionId)
+ {
+@@ -83,10 +84,7 @@
+ 	int i;
+ 
+ 	Voicetarget_del_id(client, targetId);
+-	newtarget = malloc(sizeof(voicetarget_t));
+-	if (!newtarget)
+-		Log_fatal("Out of memory");
+-	memset(newtarget, 0, sizeof(voicetarget_t));
++	newtarget = Memory_safeCalloc(1, sizeof(voicetarget_t));
+ 	for (i = 0; i < TARGET_MAX_CHANNELS; i++)
+ 		newtarget->channels[i].channel = -1;
+ 	for (i = 0; i < TARGET_MAX_SESSIONS; i++)
