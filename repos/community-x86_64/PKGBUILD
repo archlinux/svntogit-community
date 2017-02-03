@@ -6,7 +6,7 @@
 # Contributor: Jan Fader <jan.fader@web.de>
 
 pkgname=fish
-pkgver=2.4.0
+pkgver=2.5.0
 pkgrel=1
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='http://fishshell.com/'
@@ -17,12 +17,12 @@ optdepends=('python: for manual page completion parser and web configuration too
 makedepends=('doxygen')
 install=fish.install
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/fish-shell/fish-shell/archive/${pkgver}.tar.gz)
-sha512sums=('c844c6c035d2e2137c6d9a8e225792b1c30bb4aacfab722097d9c0b0f7b1171b0890d627d7a376c68a245f22e92600e2d8ae7972c82b687cdcb218b54e704f18')
+sha512sums=('1032f64987ab5632accffaf326fc56daad220d4edc66cf79b16730d9166ac61ff062f33560e5527cdd2ca0efc5299c2f736604c24ed9a3758dea30b91db70eb7')
 
 prepare() {
   cd fish-shell-${pkgver}
   echo ${pkgver} > version
-  autoconf -i
+  autoreconf -fiv
 }
 
 build() {
