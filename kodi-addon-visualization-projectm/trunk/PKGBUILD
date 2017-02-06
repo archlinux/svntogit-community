@@ -2,16 +2,16 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-projectm
-_commit=dcd7179
-pkgver=20160523.dcd7179
+_commit=8064b36
+pkgver=20170105.8064b36
 pkgrel=1
 pkgdesc="ProjectM visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/visualization.projectm'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
-depends=('kodi' 'projectm')
-makedepends=('git' 'cmake')
+depends=('kodi' 'p8-platform' 'projectm')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/visualization.projectm.git#commit=$_commit")
 sha256sums=('SKIP')
 
