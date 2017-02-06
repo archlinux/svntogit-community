@@ -4,14 +4,14 @@
 pkgname=kodi-addon-adsp-freesurround
 _commit=61568b9
 pkgver=20161120.61568b9
-pkgrel=1
+pkgrel=2
 pkgdesc="FreeSurround AudioDSP add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/kodi-adsp/adsp.freesurround'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-adsp')
 depends=('kodi-platform')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/kodi-adsp/adsp.freesurround.git#commit=$_commit")
 sha256sums=('SKIP')
 
