@@ -4,14 +4,14 @@
 pkgname=kodi-addon-adsp-basic
 _commit=2ae604e
 pkgver=20160519.2ae604e
-pkgrel=1
+pkgrel=2
 pkgdesc="Basic AudioDSP add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/kodi-adsp/adsp.basic'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-adsp')
 depends=('kodi-platform')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/kodi-adsp/adsp.basic.git#commit=$_commit")
 sha256sums=('SKIP')
 
