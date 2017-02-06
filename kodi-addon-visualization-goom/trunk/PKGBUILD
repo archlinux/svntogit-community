@@ -4,14 +4,14 @@
 pkgname=kodi-addon-visualization-goom
 _commit=745d8c9
 pkgver=20170105.745d8c9
-pkgrel=1
+pkgrel=2
 pkgdesc="GOOM visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/visualization.goom'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/visualization.goom.git#commit=$_commit")
 sha256sums=('SKIP')
 
