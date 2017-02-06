@@ -4,14 +4,14 @@
 pkgname=kodi-addon-screensaver-asteroids
 _commit=8c2e182
 pkgver=20161216.8c2e182
-pkgrel=1
+pkgrel=2
 pkgdesc="Asteroids screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/screensaver.asteroids'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/screensaver.asteroids.git#commit=$_commit")
 sha256sums=('SKIP')
 
