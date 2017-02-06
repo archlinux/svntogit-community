@@ -4,14 +4,14 @@
 pkgname=kodi-addon-screensaver-asterwave
 _commit=2c82b03
 pkgver=20161216.2c82b03
-pkgrel=1
+pkgrel=2
 pkgdesc="AsterWave screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/screensaver.asterwave'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi' 'soil')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/screensaver.asterwave.git#commit=$_commit")
 sha256sums=('SKIP')
 
