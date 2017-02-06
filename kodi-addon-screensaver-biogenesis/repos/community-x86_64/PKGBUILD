@@ -4,14 +4,14 @@
 pkgname=kodi-addon-screensaver-biogenesis
 _commit=51452c2
 pkgver=20161216.51452c2
-pkgrel=1
+pkgrel=2
 pkgdesc="BioGenesis screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/screensaver.biogenesis'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/screensaver.biogenesis.git#commit=$_commit")
 sha256sums=('SKIP')
 
