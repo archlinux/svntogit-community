@@ -4,14 +4,14 @@
 pkgname=kodi-addon-visualization-spectrum
 _commit=73c8786
 pkgver=20161206.73c8786
-pkgrel=1
+pkgrel=2
 pkgdesc="Spectrum visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.spectrum'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/visualization.spectrum.git#commit=$_commit")
 sha256sums=('SKIP')
 
