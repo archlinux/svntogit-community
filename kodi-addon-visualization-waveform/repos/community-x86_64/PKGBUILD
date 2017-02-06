@@ -4,14 +4,14 @@
 pkgname=kodi-addon-visualization-waveform
 _commit=ede2fd6
 pkgver=20170105.ede2fd6
-pkgrel=1
+pkgrel=2
 pkgdesc="Waveform visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.waveform'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/visualization.waveform.git#commit=$_commit")
 sha256sums=('SKIP')
 
