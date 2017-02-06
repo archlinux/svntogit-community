@@ -4,14 +4,14 @@
 pkgname=kodi-addon-screensaver-cpblobs
 _commit=585c25b
 pkgver=20161216.585c25b
-pkgrel=1
+pkgrel=2
 pkgdesc="CpBlobs screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.cpblobs'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi' 'soil')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/screensaver.cpblobs.git#commit=$_commit")
 sha256sums=('SKIP')
 
