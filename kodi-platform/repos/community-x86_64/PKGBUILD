@@ -4,13 +4,13 @@
 pkgname=kodi-platform
 _commit=c8188d8
 pkgver=20160516.c8188d8
-pkgrel=1
+pkgrel=2
 pkgdesc="platform library for external kodi addons"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/kodi-platform'
 license=('GPL')
 depends=('kodi' 'p8-platform')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/xbmc/kodi-platform.git#commit=$_commit")
 sha256sums=('SKIP')
 
