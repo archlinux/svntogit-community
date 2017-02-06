@@ -4,14 +4,14 @@
 pkgname=kodi-addon-screensaver-pyro
 _commit=379e102
 pkgver=20161216.379e102
-pkgrel=1
+pkgrel=2
 pkgdesc="Pyro screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.pyro'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/screensaver.pyro.git#commit=$_commit")
 sha256sums=('SKIP')
 
