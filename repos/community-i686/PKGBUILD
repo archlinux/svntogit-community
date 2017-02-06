@@ -4,14 +4,14 @@
 pkgname=kodi-addon-visualization-fishbmc
 _commit=9704420
 pkgver=20170105.9704420
-pkgrel=1
+pkgrel=2
 pkgdesc="Fische visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.fishbmc'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/visualization.fishbmc.git#commit=$_commit")
 sha256sums=('SKIP')
 
