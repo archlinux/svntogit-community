@@ -4,14 +4,14 @@
 pkgname=kodi-addon-visualization-shadertoy
 _commit=6a9a5ca
 pkgver=20170105.6a9a5ca
-pkgrel=1
+pkgrel=2
 pkgdesc="Shadertoy visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.shadertoy'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi' 'p8-platform')
-makedepends=('git' 'cmake')
+makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname::git://github.com/notspiff/visualization.shadertoy.git#commit=$_commit")
 sha256sums=('SKIP')
 
