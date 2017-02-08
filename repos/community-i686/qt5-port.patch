@@ -1,0 +1,468 @@
+From dbfeca848b15f93afdb6caf09d633ac99f7cdb4f Mon Sep 17 00:00:00 2001
+From: Weng Xuetian <wengxt@gmail.com>
+Date: Sat, 4 Feb 2017 11:21:23 -0800
+Subject: [PATCH] [libpinyin] port dictmanager to qt5
+
+Fix #22
+---
+ dictmanager/CMakeLists.txt     | 20 +++++---------
+ dictmanager/browserdialog.cpp  | 39 +++++++++++++++++++--------
+ dictmanager/browserdialog.h    |  7 ++++-
+ dictmanager/browserdialog.ui   |  2 +-
+ dictmanager/filedownloader.cpp |  2 +-
+ dictmanager/filelistmodel.cpp  |  2 +-
+ dictmanager/libpinyin.json     |  2 ++
+ dictmanager/main.cpp           | 60 ++++++++++++++++++------------------------
+ dictmanager/main.h             | 58 ++++++++++++++++++++++++++++++++++++++++
+ 9 files changed, 129 insertions(+), 63 deletions(-)
+ create mode 100644 dictmanager/libpinyin.json
+ create mode 100644 dictmanager/main.h
+
+diff --git a/dictmanager/CMakeLists.txt b/dictmanager/CMakeLists.txt
+index 5eaa400..06c18ae 100644
+--- a/dictmanager/CMakeLists.txt
++++ b/dictmanager/CMakeLists.txt
+@@ -12,21 +12,17 @@ fcitx_translate_add_sources(
+     ${DICT_MANAGER_SRCS})
+ 
+ if (ENABLE_QT)
+-find_package(Qt4 4.8 REQUIRED COMPONENTS QtCore QtGui QtWebkit QtNetwork)
++find_package(Qt5 5.7 REQUIRED COMPONENTS Core Gui WebEngineWidgets Network DBus)
++find_package(FcitxQt5WidgetsAddons REQUIRED)
++find_package(FcitxQt5DBusAddons REQUIRED)
+ pkg_check_modules(FCITX_QT "fcitx-qt>=4.2.8" REQUIRED )
+ endif (ENABLE_QT)
+ 
+-if (NOT QT_FOUND OR NOT ENABLE_QT)
++if (NOT ENABLE_QT)
+     return()
+-endif (NOT QT_FOUND OR NOT ENABLE_QT)
++endif ()
+ 
+ include_directories(
+-    ${FCITX_QT_INCLUDE_DIRS}
+-    ${QT_QTCORE_INCLUDE_DIR}
+-    ${QT_QTGUI_INCLUDE_DIR}
+-    ${QT_QTWEBKIT_INCLUDE_DIR}
+-    ${QT_QTNETWORK_INCLUDE_DIR}
+-    ${QT_QTDBUS_INCLUDE_DIR}
+     ${CMAKE_CURRENT_BINARY_DIR}
+     ../src/
+     )
+@@ -46,18 +42,16 @@ include_directories (
+ link_directories(
+ ${FCITX4_FCITX_UTILS_LIBRARY_DIRS}
+ ${FCITX4_FCITX_CONFIG_LIBRARY_DIRS}
+-${FCITX_QT_LIBRARY_DIRS}
+ )
+ 
+-qt4_wrap_ui(DICT_MANAGER_SRCS dictmanager.ui browserdialog.ui)
++qt5_wrap_ui(DICT_MANAGER_SRCS dictmanager.ui browserdialog.ui)
+ 
+ add_library(fcitx-libpinyin-dictmanager MODULE ${DICT_MANAGER_SRCS})
+ set_target_properties(fcitx-libpinyin-dictmanager PROPERTIES
+                       LINK_FLAGS "-Wl,--no-undefined" AUTOMOC TRUE)
+ 
+ target_link_libraries(fcitx-libpinyin-dictmanager
+-${QT_QTCORE_LIBRARY} ${QT_QTGUI_LIBRARY} ${QT_QTDBUS_LIBRARY} ${QT_QTNETWORK_LIBRARY} ${QT_QTWEBKIT_LIBRARY}
+-${FCITX_QT_LIBRARIES}
++Qt5::Core Qt5::Gui Qt5::DBus Qt5::Network Qt5::WebEngineWidgets FcitxQt5::WidgetsAddons FcitxQt5::DBusAddons
+ ${FCITX4_FCITX_UTILS_LIBRARIES}
+ ${FCITX4_FCITX_CONFIG_LIBRARIES}
+ ${LIBINTL_LIBRARIES}
+diff --git a/dictmanager/browserdialog.cpp b/dictmanager/browserdialog.cpp
+index 88baf2f..77a3c65 100644
+--- a/dictmanager/browserdialog.cpp
++++ b/dictmanager/browserdialog.cpp
+@@ -22,6 +22,9 @@
+ #include <QIcon>
+ #include <QTextCodec>
+ #include <QTemporaryFile>
++#include <QUrl>
++#include <QUrlQuery>
++#include <QWebEngineView>
+ #include <QDebug>
+ 
+ #include "guicommon.h"
+@@ -35,19 +38,31 @@
+  * http://download.pinyin.sogou.com/dict/download_cell.php?id=15207&name=%D6%B2%CE%EF%B4%CA%BB%E3%B4%F3%C8%AB%A1%BE%B9%D9%B7%BD%CD%C6%BC%F6%A1%BF
+  */
+ 
++class WebPage : public QWebEnginePage {
++public:
++    WebPage(BrowserDialog *dialog) : QWebEnginePage(dialog), m_dialog(dialog) {
++    }
++protected:
++    bool acceptNavigationRequest(const QUrl &url, NavigationType type, bool isMainFrame) override {
++        return m_dialog->linkClicked(url);
++    }
++private:
++    BrowserDialog *m_dialog;
++};
++
++
+ BrowserDialog::BrowserDialog(QWidget* parent): QDialog(parent)
+-    ,m_ui(new Ui::BrowserDialog)
++    ,m_ui(new Ui::BrowserDialog), m_page(new WebPage(this))
+ {
+     m_ui->setupUi(this);
++    m_ui->webView->setPage(m_page);
+     m_ui->listWidget->hide();
+     setWindowIcon(QIcon::fromTheme("internet-web-browser"));
+     setWindowTitle(_("Browse Sogou Cell Dict repository"));
+ 
+-    m_ui->webView->page()->setLinkDelegationPolicy(QWebPage::DelegateExternalLinks);
+-    connect(m_ui->webView, SIGNAL(loadProgress(int)), m_ui->progressBar, SLOT(setValue(int)));
+-    connect(m_ui->webView, SIGNAL(loadStarted()), m_ui->progressBar, SLOT(show()));
+-    connect(m_ui->webView, SIGNAL(loadFinished(bool)), m_ui->progressBar, SLOT(hide()));
+-    connect(m_ui->webView, SIGNAL(linkClicked(QUrl)), SLOT(linkClicked(QUrl)));
++    connect(m_ui->webView, &QWebEngineView::loadProgress, m_ui->progressBar, &QProgressBar::setValue);
++    connect(m_ui->webView, &QWebEngineView::loadStarted, m_ui->progressBar, &QProgressBar::show);
++    connect(m_ui->webView, &QWebEngineView::loadFinished, m_ui->progressBar, &QProgressBar::hide);
+     m_ui->webView->load(QUrl(URL_BASE));
+ }
+ 
+@@ -66,7 +81,7 @@ QString BrowserDialog::decodeName(const QByteArray& in)
+     return codec->toUnicode(out);
+ }
+ 
+-void BrowserDialog::linkClicked(const QUrl& url)
++bool BrowserDialog::linkClicked(const QUrl& url)
+ {
+     do {
+         if (url.host() != DOWNLOAD_HOST_BASE) {
+@@ -75,15 +90,16 @@ void BrowserDialog::linkClicked(const QUrl& url)
+         if (url.path() != "/dict/download_cell.php") {
+             break;
+         }
+-        QString id = url.queryItemValue("id");
+-        QByteArray name = url.encodedQueryItemValue("name");
++        QUrlQuery query(url);
++        QString id = query.queryItemValue("id");
++        QByteArray name = query.queryItemValue("name", QUrl::FullyEncoded).toLatin1();
+         QString sname = decodeName(name);
+ 
+         m_name = sname;
+ 
+         if (!id.isEmpty() && !sname.isEmpty()) {
+             download(url);
+-            return;
++            return false;
+         }
+     } while(0);
+ 
+@@ -91,8 +107,9 @@ void BrowserDialog::linkClicked(const QUrl& url)
+         QMessageBox::information(this, _("Wrong Link"),
+                                  _("No browsing outside pinyin.sogou.com, now redirect to home page."));
+         m_ui->webView->load(QUrl(URL_BASE));
++        return false;
+     } else {
+-        m_ui->webView->load(url);
++        return true;
+     }
+ }
+ 
+diff --git a/dictmanager/browserdialog.h b/dictmanager/browserdialog.h
+index 9624d09..72b8387 100644
+--- a/dictmanager/browserdialog.h
++++ b/dictmanager/browserdialog.h
+@@ -29,21 +29,26 @@ namespace Ui {
+ class BrowserDialog;
+ }
+ 
++class WebPage;
++
+ class BrowserDialog : public QDialog
+ {
++    friend class WebPage;
+     Q_OBJECT
+ public:
+     explicit BrowserDialog(QWidget* parent = 0);
+     virtual ~BrowserDialog();
+ 
++protected:
++    bool linkClicked(const QUrl& url);
+ private:
+     QString decodeName(const QByteArray& in);
+     void download(const QUrl& url);
+     Ui::BrowserDialog* m_ui;
+     QString m_name;
++    WebPage *m_page;
+ 
+ public slots:
+-    void linkClicked(const QUrl& url);
+     void showMessage(QMessageBox::Icon msgLevel, const QString& message);
+     void downloadFinished(bool succ);
+     void convertFinished(bool);
+diff --git a/dictmanager/browserdialog.ui b/dictmanager/browserdialog.ui
+index ddba1a2..c2b8c96 100644
+--- a/dictmanager/browserdialog.ui
++++ b/dictmanager/browserdialog.ui
+@@ -15,7 +15,7 @@
+   </property>
+   <layout class="QVBoxLayout" name="verticalLayout">
+    <item>
+-    <widget class="QWebView" name="webView">
++    <widget class="QWebEngineView" name="webView">
+      <property name="url">
+       <url>
+        <string>about:blank</string>
+diff --git a/dictmanager/filedownloader.cpp b/dictmanager/filedownloader.cpp
+index 80a2d2f..c074e84 100644
+--- a/dictmanager/filedownloader.cpp
++++ b/dictmanager/filedownloader.cpp
+@@ -45,7 +45,7 @@ void FileDownloader::download(const QUrl& url)
+     }
+ 
+     QNetworkRequest request(url);
+-    request.setRawHeader("Referer", QString("http://%1").arg(url.host()).toAscii());
++    request.setRawHeader("Referer", QString("http://%1").arg(url.host()).toLatin1());
+     m_reply = m_WebCtrl.get(request);
+ 
+     if (!m_reply) {
+diff --git a/dictmanager/filelistmodel.cpp b/dictmanager/filelistmodel.cpp
+index 6b6ca4d..abe30bc 100644
+--- a/dictmanager/filelistmodel.cpp
++++ b/dictmanager/filelistmodel.cpp
+@@ -66,7 +66,7 @@ void FileListModel::loadFileList()
+ {
+     beginResetModel();
+     m_fileList.clear();
+-    FcitxStringHashSet* files = FcitxXDGGetFiles(dictDir().toAscii().constData(), NULL, ".txt");
++    FcitxStringHashSet* files = FcitxXDGGetFiles(dictDir().toLocal8Bit().constData(), NULL, ".txt");
+ 
+     HASH_SORT(files, fcitx_utils_string_hash_set_compare);
+     HASH_FOREACH(f, files, FcitxStringHashSet) {
+diff --git a/dictmanager/libpinyin.json b/dictmanager/libpinyin.json
+new file mode 100644
+index 0000000..2c63c08
+--- /dev/null
++++ b/dictmanager/libpinyin.json
+@@ -0,0 +1,2 @@
++{
++}
+diff --git a/dictmanager/main.cpp b/dictmanager/main.cpp
+index 6ed5cad..4d35cfc 100644
+--- a/dictmanager/main.cpp
++++ b/dictmanager/main.cpp
+@@ -18,42 +18,32 @@
+  *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
+  ***************************************************************************/
+ 
+-#include <fcitx-qt/fcitxqtconfiguiplugin.h>
+-#include <qplugin.h>
++#include "main.h"
+ #include "dictmanager.h"
+ 
+-class LibPinyinDictManagerPlugin : public FcitxQtConfigUIPlugin
++LibPinyinDictManagerPlugin::LibPinyinDictManagerPlugin(QObject* parent)
++    : FcitxQtConfigUIPlugin(parent)
+ {
+-    Q_OBJECT
+-    Q_INTERFACES(FcitxQtConfigUIFactoryInterface)
+-public:
+-    explicit LibPinyinDictManagerPlugin(FcitxQtConfigUIPlugin* parent = 0)
+-        : FcitxQtConfigUIPlugin(parent)
+-    {
+-    }
+-    virtual QString name()
+-    {
+-        return "libpinyin-dictmanager";
+-    }
+-    virtual QStringList files()
+-    {
+-        QStringList list;
+-        list << "libpinyin-dictmanager";
+-        return list;
+-    }
+-    virtual QString domain()
+-    {
+-        return "fcitx-libpinyin";
+-    }
+-    virtual FcitxQtConfigUIWidget* create(const QString& key)
+-    {
+-        if (key == "libpinyin-dictmanager") {
+-            return new DictManager;
+-        }
+-        return 0;
+-    }
+-};
+-
+-Q_EXPORT_PLUGIN2(fcitx_libpinyin_dictmanager, LibPinyinDictManagerPlugin)
++}
+ 
+-#include "main.moc"
++QString LibPinyinDictManagerPlugin::name()
++{
++    return "libpinyin-dictmanager";
++}
++QStringList LibPinyinDictManagerPlugin::files()
++{
++    QStringList list;
++    list << "libpinyin-dictmanager";
++    return list;
++}
++QString LibPinyinDictManagerPlugin::domain()
++{
++    return "fcitx-libpinyin";
++}
++FcitxQtConfigUIWidget* LibPinyinDictManagerPlugin::create(const QString& key)
++{
++    if (key == "libpinyin-dictmanager") {
++        return new DictManager;
++    }
++    return 0;
++}
+diff --git a/dictmanager/main.h b/dictmanager/main.h
+new file mode 100644
+index 0000000..de7007c
+--- /dev/null
++++ b/dictmanager/main.h
+@@ -0,0 +1,58 @@
++/***************************************************************************
++ *   Copyright (C) 2017~2017 by CSSlayer                                   *
++ *   wengxt@gmail.com                                                      *
++ *                                                                         *
++ *   This program is free software; you can redistribute it and/or modify  *
++ *   it under the terms of the GNU General Public License as published by  *
++ *   the Free Software Foundation; either version 2 of the License, or     *
++ *   (at your option) any later version.                                   *
++ *                                                                         *
++ *   This program is distributed in the hope that it will be useful,       *
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
++ *   GNU General Public License for more details.                          *
++ *                                                                         *
++ *   You should have received a copy of the GNU General Public License     *
++ *   along with this program; if not, write to the                         *
++ *   Free Software Foundation, Inc.,                                       *
++ *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
++ ***************************************************************************/
++
++#ifndef _DICTMANAGER_MAIN_H_
++#define _DICTMANAGER_MAIN_H_
++
++/***************************************************************************
++ *   Copyright (C) 2013~2013 by CSSlayer                                   *
++ *   wengxt@gmail.com                                                      *
++ *                                                                         *
++ *   This program is free software; you can redistribute it and/or modify  *
++ *   it under the terms of the GNU General Public License as published by  *
++ *   the Free Software Foundation; either version 2 of the License, or     *
++ *   (at your option) any later version.                                   *
++ *                                                                         *
++ *   This program is distributed in the hope that it will be useful,       *
++ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
++ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
++ *   GNU General Public License for more details.                          *
++ *                                                                         *
++ *   You should have received a copy of the GNU General Public License     *
++ *   along with this program; if not, write to the                         *
++ *   Free Software Foundation, Inc.,                                       *
++ *   51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.              *
++ ***************************************************************************/
++
++#include <fcitxqtconfiguiplugin.h>
++
++class LibPinyinDictManagerPlugin : public FcitxQtConfigUIPlugin
++{
++    Q_OBJECT
++public:
++    Q_PLUGIN_METADATA(IID FcitxQtConfigUIFactoryInterface_iid FILE "libpinyin.json")
++    explicit LibPinyinDictManagerPlugin(QObject* parent = 0);
++    QString name() override;
++    QStringList files() override;
++    QString domain() override;
++    FcitxQtConfigUIWidget* create(const QString& key) override;
++};
++
++#endif // _DICTMANAGER_MAIN_H_
+From 3695c67c548b5566b2d7196fe9223072e8000727 Mon Sep 17 00:00:00 2001
+From: Felix Yan <felixonmars@archlinux.org>
+Date: Sun, 5 Feb 2017 09:42:14 -0600
+Subject: [PATCH] QWidget is under QtWidgets in Qt5 (#23)
+
+QtGui/QWidget was a Qt4 import.
+---
+ dictmanager/erroroverlay.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/dictmanager/erroroverlay.h b/dictmanager/erroroverlay.h
+index e3b43bd..7be34b2 100644
+--- a/dictmanager/erroroverlay.h
++++ b/dictmanager/erroroverlay.h
+@@ -20,7 +20,7 @@
+ #ifndef ERROROVERLAY_H
+ #define ERROROVERLAY_H
+ 
+-#include <QtGui/QWidget>
++#include <QtWidgets/QWidget>
+ 
+ class ErrorOverlay : public QWidget
+ {
+From 74faf32f96226ce9aca1ac34e9b70ebddeb1496e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Wed, 8 Feb 2017 04:54:54 +0100
+Subject: [PATCH] Small fixes for the Qt5 port
+
+---
+ dictmanager/CMakeLists.txt   | 1 -
+ dictmanager/browserdialog.ui | 4 ++--
+ dictmanager/dictmanager.h    | 2 +-
+ dictmanager/importer.h       | 2 +-
+ 4 files changed, 4 insertions(+), 5 deletions(-)
+
+diff --git a/dictmanager/CMakeLists.txt b/dictmanager/CMakeLists.txt
+index 06c18ae..1cdde13 100644
+--- a/dictmanager/CMakeLists.txt
++++ b/dictmanager/CMakeLists.txt
+@@ -15,7 +15,6 @@ if (ENABLE_QT)
+ find_package(Qt5 5.7 REQUIRED COMPONENTS Core Gui WebEngineWidgets Network DBus)
+ find_package(FcitxQt5WidgetsAddons REQUIRED)
+ find_package(FcitxQt5DBusAddons REQUIRED)
+-pkg_check_modules(FCITX_QT "fcitx-qt>=4.2.8" REQUIRED )
+ endif (ENABLE_QT)
+ 
+ if (NOT ENABLE_QT)
+diff --git a/dictmanager/browserdialog.ui b/dictmanager/browserdialog.ui
+index c2b8c96..540f58e 100644
+--- a/dictmanager/browserdialog.ui
++++ b/dictmanager/browserdialog.ui
+@@ -37,9 +37,9 @@
+  </widget>
+  <customwidgets>
+   <customwidget>
+-   <class>QWebView</class>
++   <class>QWebEngineView</class>
+    <extends>QWidget</extends>
+-   <header>QtWebKit/QWebView</header>
++   <header>QtWebEngineWidgets/QWebEngineView</header>
+   </customwidget>
+  </customwidgets>
+  <resources/>
+diff --git a/dictmanager/dictmanager.h b/dictmanager/dictmanager.h
+index 902dde6..903d3a5 100644
+--- a/dictmanager/dictmanager.h
++++ b/dictmanager/dictmanager.h
+@@ -22,7 +22,7 @@
+ #define FCITX_DICTMANAGER_H
+ 
+ #include <QMainWindow>
+-#include <fcitx-qt/fcitxqtconfiguiwidget.h>
++#include <FcitxQt5/FcitxQtWidgetsAddons/fcitxqtconfiguiwidget.h>
+ #include "ui_dictmanager.h"
+ 
+ class ErrorOverlay;
+diff --git a/dictmanager/importer.h b/dictmanager/importer.h
+index 9a2a1ca..6336fb6 100644
+--- a/dictmanager/importer.h
++++ b/dictmanager/importer.h
+@@ -22,7 +22,7 @@
+ #define FCITX_IMPORTER_H
+ 
+ #include <QString>
+-#include <fcitx-qt/fcitxqtconnection.h>
++#include <FcitxQt5/FcitxQtDBusAddons/fcitxqtconnection.h>
+ 
+ class QDBusInterface;
+ class QDBusPendingCallWatcher;
