@@ -2,7 +2,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=1.12.6
+pkgver=1.13.1
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -17,11 +17,17 @@ optdepends=('btrfs-progs: btrfs backend support'
 options=('!strip')
 # Use exact commit version from Dockerfile for runc and containerd until 1.0.0
 # https://github.com/docker/containerd/issues/299#issuecomment-240745119
+# see commit in hack/dockerfile/binaries-commits
+_RUNC_COMMIT=9df8b306d01f59d3a8029be411de015b7304dd8f
+_CONTAINERD_COMMIT=aa8187dbd3b7ad67d8e5e3a15115d3eef43a7ed1
+_LIBNETWORK_COMMIT=0f534354b813003a754606689722fe253101bc4e
 source=("git+https://github.com/docker/docker.git#tag=v$pkgver"
-        'git+https://github.com/opencontainers/runc.git#commit=cc29e3dded8e27ba8f65738f40d251c885030a28'
-        'git+https://github.com/docker/containerd.git#commit=0ac3cd1be170d180b2baed755e8f0da547ceb267'
+        "git+https://github.com/docker/runc.git#commit=$_RUNC_COMMIT"
+        "git+https://github.com/docker/containerd.git#commit=$_CONTAINERD_COMMIT"
+        "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "$pkgname.sysusers")
 md5sums=('SKIP'
+         'SKIP'
          'SKIP'
          'SKIP'
          '9a8b2744db23b14ca3cd350fdf73c179')
@@ -40,6 +46,20 @@ prepare() {
 }
 
 build() {
+  # check packager mistake on commit version
+  msg2 'Checking commit mismatch'
+  . "$srcdir"/docker/hack/dockerfile/binaries-commits
+  local _commit _pkgbuild _dockerfile
+  for _commit in RUNC CONTAINERD LIBNETWORK; do
+    _pkgbuild=_${_commit}_COMMIT
+    _dockerfile=${_commit}_COMMIT
+    if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
+      error "Invalid $_commit commit"
+      return 1
+    fi
+  done
+
+  # go
   export GOPATH="$srcdir"
 
   # runc
@@ -57,6 +77,13 @@ build() {
   cd src/github.com/docker/containerd
   LDFLAGS= make
 
+  # docker proxy
+  msg2 'Building docker-proxy'
+  cd "$srcdir"
+  ln -rsf libnetwork src/github.com/docker
+  cd src/github.com/docker/libnetwork
+  go build github.com/docker/libnetwork/cmd/proxy
+
   # docker
   msg2 'Building docker'
   cd "$srcdir"/docker
@@ -66,21 +93,18 @@ build() {
   man/md2man-all.sh 2>/dev/null
 }
 
-#check() {
-#  cd docker
-#  ./hack/make.sh dyntest
-#}
-
 package() {
-  # runc & containerd
+  # runc
+  install -Dm755 runc/runc "$pkgdir/usr/bin/docker-runc"
+  # containerd
   install -Dm755 containerd/bin/containerd "$pkgdir/usr/bin/docker-containerd"
   install -Dm755 containerd/bin/containerd-shim "$pkgdir/usr/bin/docker-containerd-shim"
   install -Dm755 containerd/bin/ctr "$pkgdir/usr/bin/docker-containerd-ctr"
-  install -Dm755 runc/runc "$pkgdir/usr/bin/docker-runc"
+  # docker proxy
+  install -Dm755 libnetwork/proxy "$pkgdir/usr/bin/docker-proxy"
   # docker binary
   cd docker
   install -Dm755 "bundles/$pkgver/dynbinary-client/docker-$pkgver" "$pkgdir/usr/bin/docker"
-  install -Dm755 "bundles/$pkgver/dynbinary-daemon/docker-proxy-$pkgver" "$pkgdir/usr/bin/docker-proxy"
   install -Dm755 "bundles/$pkgver/dynbinary-daemon/dockerd-$pkgver" "$pkgdir/usr/bin/dockerd"
   # completion
   install -Dm644 'contrib/completion/bash/docker' "$pkgdir/usr/share/bash-completion/completions/docker"
