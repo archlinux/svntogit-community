@@ -1,0 +1,134 @@
+# $Id$
+# Maintainer: Thomas Baechler <thomas@archlinux.org>
+# Contributor: James Rayner <iphitus@gmail.com>
+
+_pkgbasename=nvidia-utils
+pkgbase=lib32-$_pkgbasename
+pkgname=('lib32-nvidia-utils' 'lib32-nvidia-libgl' 'lib32-opencl-nvidia')
+pkgver=378.13
+pkgrel=1
+arch=('x86_64')
+url="http://www.nvidia.com/"
+makedepends=('nvidia-libgl')  # To avoid conflict during installation in the build chroot
+license=('custom')
+options=('!strip')
+
+_arch='x86'
+_pkg="NVIDIA-Linux-${_arch}-${pkgver}"
+source=("http://us.download.nvidia.com/XFree86/Linux-${_arch}/${pkgver}/${_pkg}.run")
+sha512sums=('b96d2558a1003a3c66cade3a1e16abd34d855c0e27cdebacdc0495e0ba3cd5c68bb84cc5f81bff1b9ddce36ac52e0dc125c56d868b77d7c8e2f606d559b13b4a')
+
+create_links() {
+    # create soname links
+    for _lib in $(find "${pkgdir}" -name '*.so*' | grep -v 'xorg/'); do
+        _soname=$(dirname "${_lib}")/$(readelf -d "${_lib}" | grep -Po 'SONAME.*: \[\K[^]]*' || true)
+        _base=$(echo ${_soname} | sed -r 's/(.*).so.*/\1.so/')
+        [[ -e "${_soname}" ]] || ln -s $(basename "${_lib}") "${_soname}"
+        [[ -e "${_base}" ]] || ln -s $(basename "${_soname}") "${_base}"
+    done
+}
+
+build() {
+    sh ${_pkg}.run --extract-only
+}
+
+package_lib32-opencl-nvidia() {
+    pkgdesc="OpenCL implemention for NVIDIA (32-bit)"
+    depends=('lib32-zlib' 'lib32-gcc-libs')
+    optdepends=('opencl-headers: headers necessary for OpenCL development')
+    provides=('lib32-opencl-driver')
+    cd "${_pkg}"
+
+    # OpenCL
+    install -D -m755 "libnvidia-compiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-compiler.so.${pkgver}"
+    install -D -m755 "libnvidia-opencl.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-opencl.so.${pkgver}" 
+
+    create_links
+
+    mkdir -p "${pkgdir}/usr/share/licenses"
+    ln -s $_pkgbasename "${pkgdir}/usr/share/licenses/lib32-opencl-nvidia"
+}
+
+package_lib32-nvidia-libgl() {
+    pkgdesc="NVIDIA drivers libraries symlinks (32-bit)"
+    depends=('lib32-nvidia-utils' 'nvidia-libgl')
+    replaces=('lib32-nvidia-utils<=313.26-1')
+    conflicts=('lib32-libgl' 'lib32-libegl' 'lib32-libgles')
+    provides=('lib32-libgl' 'lib32-libegl' 'lib32-libgles')
+    cd "${_pkg}"
+
+    mkdir -p "${pkgdir}/usr/lib32"
+    ln -s "/usr/lib32/nvidia/libGL.so.1" "${pkgdir}/usr/lib32/libGL.so.1"
+    ln -s "libGL.so.1" "${pkgdir}/usr/lib32/libGL.so"
+
+    ln -s "/usr/lib32/nvidia/libEGL.so.1" "${pkgdir}/usr/lib32/libEGL.so.1"
+    ln -s "libEGL.so.1" "${pkgdir}/usr/lib32/libEGL.so"
+
+    ln -s "/usr/lib32/nvidia/libGLESv1_CM.so.1" "${pkgdir}/usr/lib32/libGLESv1_CM.so.1"
+    ln -s "libGLESv1_CM.so.1" "${pkgdir}/usr/lib32/libGLESv1_CM.so"
+
+    ln -s "/usr/lib32/nvidia/libGLESv2.so.2" "${pkgdir}/usr/lib32/libGLESv2.so.2"
+    ln -s "libGLESv2.so.2" "${pkgdir}/usr/lib32/libGLESv2.so"
+
+    mkdir -p "${pkgdir}/usr/share/licenses"
+    ln -s $_pkgbasename "${pkgdir}/usr/share/licenses/lib32-nvidia-libgl"
+}
+
+package_lib32-nvidia-utils() {
+    pkgdesc="NVIDIA drivers utilities (32-bit)"
+    depends=('lib32-zlib' 'lib32-gcc-libs' 'lib32-libglvnd' 'nvidia-utils')
+    optdepends=('lib32-opencl-nvidia')
+    provides=('lib32-vulkan-driver')
+    cd "${_pkg}"
+
+    # GLX extension module for X
+    install -D -m755 "libglx.so.${pkgver}" "${pkgdir}/usr/lib32/nvidia/xorg/modules/extensions/libglx.so.${pkgver}"
+    ln -s "libglx.so.${pkgver}" "${pkgdir}/usr/lib32/nvidia/xorg/modules/extensions/libglx.so"	# X doesn't find glx otherwise
+    install -D -m755 "libGLX_nvidia.so.${pkgver}" "${pkgdir}/usr/lib32/libGLX_nvidia.so.${pkgver}"
+    ln -s "libGLX_nvidia.so.${pkgver}" "${pkgdir}/usr/lib32/libGLX_indirect.so.0"
+
+    # Wayland stuff
+    install -D -m755 "libnvidia-egl-wayland.so.1.0.1" "${pkgdir}/usr/lib32/libnvidia-egl-wayland.so.1.0.1"
+    ln -s "libnvidia-egl-wayland.so.1.0.1" "${pkgdir}/usr/lib32/libnvidia-egl-wayland.so.1"
+
+    # OpenGL libraries
+    install -D -m755 "libEGL_nvidia.so.${pkgver}" "${pkgdir}/usr/lib32/libEGL_nvidia.so.${pkgver}"
+    install -D -m755 "libGLESv1_CM_nvidia.so.${pkgver}" "${pkgdir}/usr/lib32/libGLESv1_CM_nvidia.so.${pkgver}"
+    install -D -m755 "libGLESv2_nvidia.so.${pkgver}" "${pkgdir}/usr/lib32/libGLESv2_nvidia.so.${pkgver}"
+
+    # OpenGL core library
+    install -D -m755 "libnvidia-glcore.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-glcore.so.${pkgver}"
+    install -D -m755 "libnvidia-eglcore.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-eglcore.so.${pkgver}"
+    install -D -m755 "libnvidia-glsi.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-glsi.so.${pkgver}"
+
+    # misc
+    install -D -m755 "libnvidia-ifr.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-ifr.so.${pkgver}"
+    install -D -m755 "libnvidia-fbc.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-fbc.so.${pkgver}"
+    install -D -m755 "libnvidia-encode.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-encode.so.${pkgver}"
+    install -D -m755 "libnvidia-cfg.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-cfg.so.${pkgver}"
+    install -D -m755 "libnvidia-ml.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-ml.so.${pkgver}"
+    install -D -m755 "libnvidia-wfb.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-wfb.so.${pkgver}"
+
+    # VDPAU
+    install -D -m755 "libvdpau_nvidia.so.${pkgver}" "${pkgdir}/usr/lib32/vdpau/libvdpau_nvidia.so.${pkgver}"
+
+    # nvidia-tls library
+    install -D -m755 "libnvidia-tls.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-tls.so.${pkgver}"
+    install -D -m755 "tls/libnvidia-tls.so.${pkgver}" "${pkgdir}/usr/lib32/tls/libnvidia-tls.so.${pkgver}"
+
+    # CUDA
+    install -D -m755 "libcuda.so.${pkgver}" "${pkgdir}/usr/lib32/libcuda.so.${pkgver}"
+    install -D -m755 "libnvcuvid.so.${pkgver}" "${pkgdir}/usr/lib32/libnvcuvid.so.${pkgver}"
+
+    # PTX JIT Compiler (Parallel Thread Execution (PTX) is a pseudo-assembly language for CUDA)
+    install -D -m755 "libnvidia-ptxjitcompiler.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-ptxjitcompiler.so.${pkgver}"
+
+    # Fat (multiarchitecture) binary loader
+    install -D -m755 "libnvidia-fatbinaryloader.so.${pkgver}" "${pkgdir}/usr/lib32/libnvidia-fatbinaryloader.so.${pkgver}"
+
+    create_links
+
+    rm -rf "${pkgdir}"/usr/{include,share,bin}
+    mkdir -p "${pkgdir}/usr/share/licenses"
+    ln -s $_pkgbasename "${pkgdir}/usr/share/licenses/${pkgname}"
+}
