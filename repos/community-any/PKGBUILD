@@ -4,20 +4,21 @@
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
-pkgver=0.9.0
-pkgrel=3
+pkgver=0.10.0
+pkgrel=1
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
 depends=('python2')
 makedepends=('python2-setuptools' 'python-setuptools')
-source=("https://pypi.python.org/packages/source/j/jedi/jedi-${pkgver}.tar.gz")
-md5sums=('2fee93d273622527ef8c97ac736e92bd')
+checkdepends=('python-pytest' 'python2-pytest')
+source=(https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz)
+md5sums=('89ed853d4a283bfa0fdbcf688b4d35fe')
 
 check() {
    cd "$srcdir/jedi-${pkgver}"
-    python3 setup.py test
-    python2 setup.py test
+   pytest test
+
 }
 
 package_python-jedi() {
