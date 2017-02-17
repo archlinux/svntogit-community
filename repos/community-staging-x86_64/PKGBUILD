@@ -1,0 +1,89 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Krzysztof Raczkowski <raczkow@gmail.com>
+
+pkgname=open-vm-tools
+epoch=6
+pkgver=10.1.0
+pkgrel=3
+pkgdesc="The Open Virtual Machine Tools (open-vm-tools) are the open source implementation of VMware Tools"
+arch=('i686' 'x86_64')
+url="https://github.com/vmware/open-vm-tools"
+license=('LGPL')
+depends=('libdnet' 'icu' 'procps-ng' 'uriparser' 'libsigc++' 'libxss'
+	 'iproute2' 'fuse2' 'lsb-release' 'libmspack')
+makedepends=('chrpath' 'doxygen' 'gtkmm' 'libxtst')
+optdepends=('gtkmm: DnD/CP plugin'
+	    'libxtst: DnD/CP, resolution set plugins'
+	    'netctl: suspend-resume network state'
+	    'networkmanager: suspend-resume network state')
+backup=('etc/pam.d/vmware-guestd')
+options=('docs')
+source=($pkgname-$pkgver.tar.gz::https://github.com/vmware/open-vm-tools/archive/stable-${pkgver/_/-}.tar.gz
+	network-script
+	tools.conf
+	vmware-guestd
+	xautostart.conf
+	vmtoolsd.service
+	vmware-vmblock-fuse.service)
+md5sums=('46f5a319275f63658f1a44b6c8755f6b'
+         'cbfa69ead382bc527e6f6ddfed8e5c4d'
+         'b55d15e2c4be396aad709aeca91033d3'
+         '1b9ae908fce4c623269f100ee9bdfdef'
+         '75a25d83417e683957321f97a00f8465'
+         'a6c53243d31c765580f6dded7d5fa98f'
+         '84c0e820cb053def1742ea59af9f2dec')
+
+prepare() {
+  cd "$srcdir/$pkgname-"*"/open-vm-tools"
+  sed -i \
+    -e 's|-Werror||g' \
+    -e 's|.*common-agent/etc/config/Makefile.*||' \
+    configure.ac
+  mkdir -p common-agent/etc/config
+  autoreconf -vi
+}
+
+build() {
+  cd "$srcdir/$pkgname-"*"/open-vm-tools"
+
+  # glibmm 2.46 uses C++11 features
+  CXXFLAGS+=' -std=gnu++11 -fpermissive '
+  CFLAGS+=' -fpermissive '
+
+  sh ./configure --prefix=/usr \
+    --sbindir=/usr/bin \
+    --without-xmlsecurity \
+    --without-kernel-modules
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname-"*"/open-vm-tools"
+
+  make install DESTDIR="$pkgdir"
+  install -Dm0644 vmware-user-suid-wrapper/vmware-user.desktop "$pkgdir"/usr/share/applications/vmware-user.desktop
+
+  # vmware-user XDG autostart
+  mkdir -p "$pkgdir"/etc/xdg/autostart
+  ln -s /usr/share/applications/vmware-user.desktop "$pkgdir"/etc/xdg/autostart/vmware-user.desktop
+
+  install -D -m 755 scripts/common/vmware-xdg-detect-de "$pkgdir"/usr/bin/vmware-xdg-detect-de
+  chmod 07755 "$pkgdir"/usr/bin/vmware-user-suid-wrapper
+
+  install -Dm0755 "$srcdir"/network-script "$pkgdir"/etc/vmware-tools/scripts/vmware/network
+  install -Dm0644 "$srcdir"/tools.conf "$pkgdir"/etc/vmware-tools/tools.conf
+  install -Dm0644 "$srcdir"/xautostart.conf "$pkgdir"/etc/vmware-tools/xautostart.conf
+  install -Dm0644 "$srcdir"/vmware-guestd "$pkgdir"/etc/pam.d/vmware-guestd
+  rm -rf "$pkgdir"/usr/etc
+
+  # We don't want a symlink in /sbin
+  rm "$pkgdir"/sbin/mount.vmhgfs
+  rmdir "$pkgdir"/sbin
+
+  cd "$pkgdir" && find -type f -exec sh -c "file {} | grep ELF >/dev/null && echo {} && chrpath -d {}" \;
+  install -Dm644 "$srcdir"/vmtoolsd.service "$pkgdir"/usr/lib/systemd/system/vmtoolsd.service
+  install -Dm644 "$srcdir"/vmware-vmblock-fuse.service "$pkgdir"/usr/lib/systemd/system/vmware-vmblock-fuse.service
+
+  rm -f "$pkgdir"/etc/vmware-tools/scripts/vmware/*.orig
+}
