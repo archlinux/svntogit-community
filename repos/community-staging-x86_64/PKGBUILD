@@ -1,0 +1,66 @@
+# $Id$
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+
+pkgname=hostapd
+pkgver=2.6
+pkgrel=4
+pkgdesc="IEEE 802.11 AP, IEEE 802.1X/WPA/WPA2/EAP/RADIUS Authenticator"
+arch=('i686' 'x86_64')
+url="http://w1.fi/hostapd/"
+license=('custom')
+depends=('openssl' 'libnl')
+install=hostapd.install
+options=(emptydirs)
+validpgpkeys=('EC4AA0A991A5F2464582D52D2B6EF432EFC895FA')
+source=(https://w1.fi/releases/$pkgname-$pkgver.tar.gz{,.asc}
+	config
+	hostapd.service
+	hostapd-2.3-noscan.patch
+	openvswitch.patch)
+sha256sums=('01526b90c1d23bec4b0f052039cc4456c2fd19347b4d830d1d58a0a6aea7117d'
+            'SKIP'
+            '6ecafb0be226b29ba7fe7a080ef3dbc2fe4cb5afa34d2ede2b39d9c32081ba53'
+            '989bc6855f44c0b360e3d4cd4a146c35b7c12f8a0ced627b4b033f58edcade8e'
+            'c15b4310f21b41254e4d4485bc04e36926572f213e7c4d3a17038fdff19529b5'
+            'eeb07b5a3b971b3108ce8c5c947f4600d98ec9b338b8b88a96a7774cef269e49')
+
+prepare() {
+  cd $pkgname-$pkgver
+  patch -p1 <"$srcdir"/hostapd-2.3-noscan.patch
+  patch -p1 <"$srcdir"/openvswitch.patch
+}
+
+build() {
+  cd $pkgname-$pkgver/hostapd
+  cp ../../config .config
+  sed -i 's#/etc/hostapd#/etc/hostapd/hostapd#' hostapd.conf
+  export CFLAGS="$CFLAGS $(pkg-config --cflags libnl-3.0)"
+  make
+}
+
+package() {
+  # Systemd unit
+  install -Dm644 hostapd.service "$pkgdir/usr/lib/systemd/system/hostapd.service"
+
+  cd $pkgname-$pkgver
+
+  # License
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+
+  cd hostapd
+
+  # Binaries
+  install -d "$pkgdir/usr/bin"
+  install -t "$pkgdir/usr/bin" hostapd hostapd_cli
+
+  # Configuration
+  install -d "$pkgdir/etc/hostapd"
+  install -d "$pkgdir/usr/share/doc/hostapd"
+  install -m644 -t "$pkgdir/usr/share/doc/hostapd" \
+    hostapd.{accept,conf,deny,eap_user,radius_clients,sim_db,vlan,wpa_psk} \
+    wired.conf hlr_auc_gw.milenage_db
+
+  # Man pages
+  install -Dm644 hostapd.8 "$pkgdir/usr/share/man/man8/hostapd.8"
+  install -Dm644 hostapd_cli.1 "$pkgdir/usr/share/man/man1/hostapd_cli.1"
+}
