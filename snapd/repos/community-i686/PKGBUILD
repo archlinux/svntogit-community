@@ -2,21 +2,29 @@
 # Maintainer: Timothy Redaelli <timothy.redaelli@gmail.com>
 # Contributor: Zygmunt Krynicki <me at zygoon dot pl>
 
-pkgname=snapd
-pkgver=2.16
+pkgbase=snapd
+pkgname=(snapd snap-confine)
+pkgver=2.21
 pkgrel=1
-pkgdesc="Service and tools for management of snap packages."
 arch=('i686' 'x86_64')
 url="https://github.com/snapcore/snapd"
 license=('GPL3')
-depends=('snap-confine' 'squashfs-tools')
 makedepends=('git' 'go' 'go-tools' 'bzr')
 checkdepends=('python')
+
+# snap-confine
+makedepends+=('python-docutils' 'systemd')
+checkdepends+=('indent' 'shellcheck')
+
 options=('!strip' 'emptydirs')
 install=snapd.install
 source=("git+https://github.com/snapcore/$pkgname.git#tag=$pkgver"
+        '0001-dirs-FEDORA-use-alternate-snap-mount-directory.patch'
+        '0001-debian-ARCHLINUX-use-alternate-snap-mount-directory.patch'
         'snapd.sh')
 md5sums=('SKIP'
+         '01f4f8f0f201eb965164a6d129869868'
+         'a793de7726448ecc279b3ac1705e1734'
          '1d841a1d09ba86945551dfc5c5658b2e')
 
 _gourl=github.com/snapcore/snapd
@@ -32,6 +40,13 @@ prepare() {
   # above describes.
   mkdir -p "$(dirname "$GOPATH/src/${_gourl}")"
   ln --no-target-directory -fs "$srcdir/$pkgname" "$GOPATH/src/${_gourl}"
+
+  patch -Np1 -i "$srcdir/0001-dirs-FEDORA-use-alternate-snap-mount-directory.patch"
+  patch -Np1 -i "$srcdir/0001-debian-ARCHLINUX-use-alternate-snap-mount-directory.patch"
+
+  # https://github.com/niemeyer/gopkg/issues/50
+  mkdir -p "$srcdir/git/"
+  git config --file "$srcdir/git/config" http.https://gopkg.in.followRedirects true
 }
 
 build() {
@@ -39,22 +54,41 @@ build() {
   # Use get-deps.sh provided by upstream to fetch go dependencies using the
   # godeps tool and dependencies.tsv (maintained upstream).
   cd "$GOPATH/src/${_gourl}"
-  ./get-deps.sh
+  XDG_CONFIG_HOME="$srcdir" ./get-deps.sh
   # Build/install snap and snapd
   go install "${_gourl}/cmd/snap"
   go install "${_gourl}/cmd/snapd"
+
+  # Build snap-confine
+  ./mkversion.sh
+  cd cmd
+  autoreconf -i -f
+  ./configure \
+    --prefix=/usr \
+    --libexecdir=/usr/lib/snapd \
+    --with-snap-mount-dir=/var/lib/snapd/snap \
+    --disable-apparmor \
+    --enable-nvidia-arch \
+    --enable-merged-usr
+  make
 }
 
+# FIXME
 check() {
   export GOPATH="$srcdir/go"
   cd "$GOPATH/src/${_gourl}"
-  # FIXME lp:1611706
-  env -u SUDO_COMMAND -u SUDO_GID -u SUDO_UID -u SUDO_USER ./run-checks --unit
+#
+#  ./run-checks --unit
+#  ./run-checks --static
 
-  ./run-checks --static
+   cd cmd
+   make -k check
 }
 
-package() {
+package_snapd() {
+  pkgdesc="Service and tools for management of snap packages."
+  depends=('snap-confine' 'squashfs-tools')
+
   export GOPATH="$srcdir/go"
   # Ensure that we have /var/lib/snapd/{hostfs,lib/gl}/ as they are required by snap-confine
   # for constructing some bind mounts around.
@@ -66,10 +100,6 @@ package() {
   # Install the snapd socket and service for the main daemon
   install -m 644 "$GOPATH/src/${_gourl}/debian/snapd.service" "$pkgdir/usr/lib/systemd/system"
   install -m 644 "$GOPATH/src/${_gourl}/debian/snapd.socket" "$pkgdir/usr/lib/systemd/system"
-  # Install legacy "frameworks" units
-  # TODO: drop those when they go away upstream
-  install -m 644 "$GOPATH/src/${_gourl}/debian/snapd.frameworks-pre.target" "$pkgdir/usr/lib/systemd/system"
-  install -m 644 "$GOPATH/src/${_gourl}/debian/snapd.frameworks.target" "$pkgdir/usr/lib/systemd/system"
   # Install snap and snapd executables
   install -d -m 755 "$pkgdir/usr/bin/"
   install -m 755 "$GOPATH/bin/snap" "$pkgdir/usr/bin/"
@@ -77,4 +107,10 @@ package() {
   install -m 755 "$GOPATH/bin/snapd" "$pkgdir/usr/lib/snapd/"
   # Install script to export binaries paths of snaps
   install -Dm 755 "$srcdir/snapd.sh" "$pkgdir/etc/profile.d/apps-bin-path.sh"
+}
+
+package_snap-confine() {
+  pkgdesc="Confinement system for snap applications"
+  depends=('libseccomp' 'libsystemd')
+  make -C "$srcdir/$pkgbase/cmd" install DESTDIR="$pkgdir/"
 }
