@@ -1,0 +1,83 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgbase=stack
+pkgname=(stack haskell-stack)
+pkgver=1.3.2
+pkgrel=43
+pkgdesc="The Haskell Tool Stack"
+url="https://github.com/commercialhaskell/stack"
+license=("custom:BSD3")
+arch=('i686' 'x86_64')
+makedepends=("ghc=8.0.1" "haskell-aeson" "haskell-annotated-wl-pprint" "haskell-ansi-terminal"
+             "haskell-async" "haskell-attoparsec" "haskell-base-compat" "haskell-base16-bytestring"
+             "haskell-base64-bytestring" "haskell-binary-tagged" "haskell-blaze-builder"
+             "haskell-byteable" "haskell-clock" "haskell-conduit" "haskell-conduit-extra"
+             "haskell-cryptohash" "haskell-cryptohash-conduit" "haskell-either" "haskell-errors"
+             "haskell-exceptions" "haskell-extra" "haskell-fast-logger" "haskell-file-embed"
+             "haskell-filelock" "haskell-fsnotify" "haskell-generic-deriving" "haskell-gitrev"
+             "haskell-hashable" "haskell-hastache" "haskell-hit" "haskell-http-client"
+             "haskell-http-client-tls" "haskell-http-conduit" "haskell-http-types" "haskell-hpack"
+             "haskell-lifted-async" "haskell-lifted-base" "haskell-microlens"
+             "haskell-monad-control" "haskell-monad-logger" "haskell-monad-unlift" "haskell-mtl"
+             "haskell-open-browser" "haskell-optparse-applicative" "haskell-optparse-simple"
+             "haskell-path" "haskell-path-io" "haskell-persistent" "haskell-persistent-sqlite"
+             "haskell-persistent-template" "haskell-pid1" "haskell-project-template"
+             "haskell-regex-applicative-text" "haskell-resourcet" "haskell-retry" "haskell-safe"
+             "haskell-safe-exceptions" "haskell-semigroups" "haskell-split" "haskell-stm"
+             "haskell-store" "haskell-streaming-commons" "haskell-tar" "haskell-temporary"
+             "haskell-text" "haskell-text-binary" "haskell-text-metrics" "haskell-tls"
+             "haskell-transformers-base" "haskell-unicode-transforms" "haskell-unix-compat"
+             "haskell-unordered-containers" "haskell-vector" "haskell-vector-binary-instances"
+             "haskell-yaml" "haskell-zip-archive" "haskell-zlib")
+source=("https://hackage.haskell.org/packages/archive/${pkgbase}/${pkgver}/${pkgbase}-${pkgver}.tar.gz")
+sha256sums=('488b9292ea605c92f6ebf79b233e8e374d857b21053051cb44b305dad8f0d3f7')
+
+prepare() {
+    sed -i 's/hpack >=0.14.0 && <0.16,/hpack >=0.14.0 \&\& <0.17,/' ${pkgbase}-${pkgver}/${pkgbase}.cabal
+}
+
+build() {
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    
+    runhaskell Setup configure -O --enable-library-profiling --enable-shared \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgbase}" \
+        --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-disable-git-info -f-integration-tests -f-static -f-hide-dependency-versions
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package_stack() {
+    depends=('gmp' 'libffi' 'zlib')
+    optdepends=('ghc')
+    install="stack.install"
+
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    rm -r "$pkgdir"/usr/{lib,share/doc}
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+    "${pkgdir}"/usr/bin/stack --bash-completion-script /usr/bin/stack > stack_completion_script
+    install -Dm644 stack_completion_script "${pkgdir}/usr/share/bash-completion/completions/stack"
+}
+
+package_haskell-stack() {
+    pkgdesc="The Haskell Tool Stack (docs and libraries)"
+    depends=("${makedepends[@]}" 'stack')
+
+    cd "${srcdir}/${pkgbase}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${pkgbase}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+    rm -rf "${pkgdir}/usr/bin"
+}
