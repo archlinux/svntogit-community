@@ -1,0 +1,55 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=lib32-libglvnd
+pkgver=0.1.1.20161028
+_commit=470fc824a38521a52707c6c0f59d827aa5e0f45a
+pkgrel=1.1
+pkgdesc="The GL Vendor-Neutral Dispatch library"
+arch=('x86_64')
+url="https://github.com/NVIDIA/libglvnd"
+license=('custom:BSD-like')
+depends=('lib32-libxext' 'libglvnd')
+makedepends=('lib32-libx11' 'glproto' 'git' 'python')
+#source=("git+https://github.com/NVIDIA/libglvnd.git#tag=v$pkgver"
+source=("git+https://github.com/NVIDIA/libglvnd.git#commit=$_commit"
+        https://patch-diff.githubusercontent.com/raw/NVIDIA/libglvnd/pull/110.patch
+        https://patch-diff.githubusercontent.com/raw/NVIDIA/libglvnd/pull/97.patch)
+sha1sums=('SKIP'
+          '048e89dbdd0a6ca33441a6273208e4126d9828fc'
+          '48fac1b1248f1a6766ebae66432269c5147b5815')
+
+prepare() {
+  cd libglvnd
+  # FS#51527
+  patch -p1 -i ../97.patch
+  patch -p1 -i ../110.patch
+}
+
+build() {
+  export CC='gcc -m32'
+  export CXX='g++ -m32'
+  export PKG_CONFIG_PATH='/usr/lib32/pkgconfig'
+
+  cd libglvnd
+  ./autogen.sh
+  ./configure --prefix=/usr --libdir=/usr/lib32/ --build=i686-unknown-linux-gnu
+  make
+}
+
+package() {
+  cd libglvnd
+  make DESTDIR="${pkgdir}" install
+
+  rm -r "$pkgdir/usr/include"
+
+  # For compatibility with older nvidia drivers for bumblebee
+  # Symlinks to /usr/lib will be in nvidia-libgl
+  mkdir "$pkgdir/usr/lib32/nvidia"
+  for _lib in libGL.so libGLESv1_CM.so libGLESv2.so libEGL.so; do
+    mv "$pkgdir"/usr/lib32/$_lib* "$pkgdir"/usr/lib32/nvidia/
+  done
+
+  mkdir -p "$pkgdir/usr/share/licenses"
+  ln -s libglvnd "$pkgdir/usr/share/licenses/$pkgname"
+}
