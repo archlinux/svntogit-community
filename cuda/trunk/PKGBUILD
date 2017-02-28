@@ -1,8 +1,8 @@
 # $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
-pkgver=8.0.44
-pkgrel=3
+pkgver=8.0.61
+pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -13,17 +13,17 @@ provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
 options=(!strip staticlibs)
 install=cuda.install
-source=(https://developer.nvidia.com/compute/cuda/8.0/prod/local_installers/cuda_${pkgver}_linux-run
+source=(https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_installers/cuda_${pkgver}_375.26_linux-run
         cuda.sh
         cuda.conf
         cuda-findgllib_mk.diff)
-md5sums=('6dca912f9b7e2b7569b0074a41713640'
+md5sums=('33e1bd980e91af4e55f3ef835c103f9b'
          '7e5990e03eea90075f5a500e91a0c3d3'
          '71420ee4e90c65df21c6c5d34373c245'
          '6476452a339c12d8ca18b5feb47100cc')
 
 prepare() {
-  sh cuda_${pkgver}_linux-run -extract=${srcdir}
+  sh cuda_${pkgver}_375.26_linux-run -extract=${srcdir}
   ./cuda-linux64-rel-*.run --noexec --keep
   ./cuda-samples-linux-*.run --noexec --keep
 
