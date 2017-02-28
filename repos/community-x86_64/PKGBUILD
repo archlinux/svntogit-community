@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-audioencoder-vorbis
-_commit=8c928ed
-pkgver=20160530.8c928ed
-pkgrel=2
+_commit=9201ce8
+pkgver=20170226.9201ce8
+pkgrel=1
 pkgdesc="Vorbis Audio Encoder add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/xbmc/audioencoder.vorbis'
