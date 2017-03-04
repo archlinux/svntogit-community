@@ -9,6 +9,8 @@ process.env.ATOM_ELECTRON_VERSION = process.env.ATOM_ELECTRON_VERSION ||
         require('fs')
     .readFileSync('/usr/lib/electron/version', 'utf8').trim().slice(1);
 
+process.env.PYTHON = __dirname + "/python-interceptor.sh";
+
 require('../lib/apm-cli.js').run(process.argv.slice(2), function (error) {
     process.exitCode = +!!error;
 });
