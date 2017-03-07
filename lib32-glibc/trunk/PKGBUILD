@@ -7,9 +7,9 @@
 # NOTE: valgrind-multilib requires rebuild with each major glibc version
 
 pkgname=lib32-glibc
-pkgver=2.24
-pkgrel=2
-_commit=fdfc9260
+pkgver=2.25
+pkgrel=1
+_commit=69e0a87cc4c570e3b7218392fc3e743b5bddcce2
 pkgdesc="GNU C Library (32-bit)"
 arch=('x86_64')
 url="http://www.gnu.org/software/libc"
@@ -22,7 +22,7 @@ backup=()
 
 options=('!strip' 'staticlibs' '!emptydirs')
 
-source=(git://sourceware.org/git/glibc.git#commit=${_commit}
+source=(git+https://sourceware.org/git/glibc.git#commit=${_commit}
         lib32-glibc.conf)
 
 md5sums=('SKIP'
@@ -30,6 +30,13 @@ md5sums=('SKIP'
 
 prepare() {
   mkdir glibc-build
+
+  cd glibc
+  # avoid crashes on i686 memchr-sse2.S
+  # https://sourceware.org/bugzilla/show_bug.cgi?id=21182
+  _revert_commit="23d27709a423aec32821e9a5198a10267107bae2"
+  _revert_file="sysdeps/i386/i686/multiarch/memchr-sse2.S"
+  git show ${_revert_commit} -- ${_revert_file} | git apply -R
 }
 
 build() {
@@ -37,7 +44,6 @@ build() {
 
   #if [[ ${CARCH} = "i686" ]]; then
     # Hack to fix NPTL issues with Xen, only required on 32bit platforms
-    # TODO: make separate glibc-xen package for i686
     export CFLAGS="${CFLAGS} -mno-tls-direct-seg-refs"
   #fi
 
@@ -49,19 +55,22 @@ build() {
   export CC="gcc -m32"
   export CXX="g++ -m32"
 
-  # remove hardening options for building libraries
-  CFLAGS=${CFLAGS/-fstack-protector-strong/}
+  # remove fortify for building libraries
   CPPFLAGS=${CPPFLAGS/-D_FORTIFY_SOURCE=2/}
 
-  ../glibc/configure --prefix=/usr \
-      --libdir=/usr/lib32 --libexecdir=/usr/lib32 \
+  ../glibc/configure \
+      --prefix=/usr \
+      --libdir=/usr/lib32 \
+      --libexecdir=/usr/lib32 \
       --with-headers=/usr/include \
       --with-bugurl=https://bugs.archlinux.org/ \
       --enable-add-ons \
       --enable-obsolete-rpc \
       --enable-kernel=2.6.32 \
-      --enable-bind-now --disable-profile \
+      --enable-bind-now \
+      --disable-profile \
       --enable-stackguard-randomization \
+      --enable-stack-protector=strong \
       --enable-lock-elision \
       --enable-multi-arch \
       --disable-werror \
@@ -73,8 +82,8 @@ build() {
 
   # re-enable hardening for programs
   sed -i "/build-programs=/s#no#yes#" configparms
-  echo "CC += -fstack-protector-strong -D_FORTIFY_SOURCE=2" >> configparms
-  echo "CXX += -fstack-protector-strong -D_FORTIFY_SOURCE=2" >> configparms
+  echo "CC += -D_FORTIFY_SOURCE=2" >> configparms
+  echo "CXX += -D_FORTIFY_SOURCE=2" >> configparms
   make
 
   # remove harding in preparation to run test-suite
