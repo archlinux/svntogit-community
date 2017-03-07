@@ -2,51 +2,47 @@
 # Maintainer: Sébastien Luttringer
 
 pkgname=backuppc
-pkgver=3.3.2
+pkgver=4.0.0
+_xsver=0.51
+_rbpcver=3.0.9.5
 pkgrel=1
 pkgdesc='Enterprise-grade system for backing up Linux, Windows and MacOS PCs'
 url='https://sourceforge.net/projects/backuppc/'
 license=('GPL2')
-arch=('any')
-depends=('openssh'
-         'par2cmdline'
-         'perl-archive-zip'
-         'perl-file-listing'
-         'perl-time-modules'
-         'perl-cgi'
-         'perl-xml-rss'
-         'smbclient')
-optdepends=('rsync: used by rsync transfert method'
-            'perl-file-rsyncp: used by rsync transfert method'
-            'perl-io-dirent')
-source=("https://downloads.sourceforge.net/project/$pkgname/$pkgname/$pkgver/BackupPC-$pkgver.tar.gz"
+arch=('x86_64' 'i686')
+makedepends=('git')
+depends=('glibc' 'popt' 'par2cmdline' 'perl-archive-zip' 'perl-io-dirent'
+         'perl-file-listing' 'perl-time-modules' 'perl-cgi' 'perl-xml-rss')
+optdepends=('openssh: ssh transfert support'
+            'rsync: rsync transfert support'
+            'smbclient: smb/cifs transfert support'
+            'rrdtool: graphs of the pool usage ')
+source=("https://github.com/backuppc/backuppc/releases/download/v${pkgver//./_}/BackupPC-$pkgver.tar.gz"
+        "https://github.com/backuppc/backuppc-xs/releases/download/v${_xsver//./_}/BackupPC-XS-${_xsver}.tar.gz"
+        "https://github.com/backuppc/rsync-bpc/releases/download/v${_rbpcver//./_}/rsync-bpc-${_rbpcver}.tar.gz"
         "$pkgname.service"
-        "$pkgname.socket"
         "$pkgname.sysusers"
         "$pkgname.tmpfiles"
         "$pkgname.profile.sh"
         "$pkgname.profile.csh"
         "$pkgname.httpd"
-        '01-move-socket-into-run.patch'
-        '02-move-socket-into-run.patch'
-        '03-fix-FS#32642.patch'
-        '04-fix-cve-2011-4923.patch')
+        '01-fix-FS#32642.patch'
+        '02-fix-cve-2011-4923.patch')
 install=$pkgname.install
 backup=("etc/$pkgname/config.pl"
         "etc/$pkgname/hosts"
         "etc/httpd/conf/extra/$pkgname.conf"
         "etc/$pkgname/$pkgname.users")
-md5sums=('7d57515bf3de8dd2b5de7e7c52afc4bd'
-         'ffb8827bbefcf5f0cd959d08fdf64fc1'
-         '88344dbc5f8777e04fc8e0d250a2db82'
+md5sums=('47d3c87239ea24e1a544bd101957aa53'
+         'd657d26dece5d9a6e3da7af3b7d96297'
+         'b57dd472402d5df83e1234781983c7cc'
+         '9d798d275eb737bcfd035d5277b6b4ce'
          'd90840387358e5dd230cace0b2d6b53a'
          'bda3ec3f4c75521c6869279eb16af2f8'
          '67a939aa63740c52d12bbdca72d37891'
          'ef09e4dae5b4197998f5c3a74e0ec86d'
          '99e641c4f3ba4fbcc53e046ce7290ad5'
-         'ec087e8b899450e9e7ab18bff77cb1f3'
-         'b468820ed542023e1fec7ce8c88a0c3b'
-         '3917c474a275e262fde246daf59ffe31'
+         '05dd3f85ac457fa45c1a1793fc518331'
          'aca8392c5dea60c3cceeb02ebcc63497')
 
 prepare() {
@@ -62,8 +58,27 @@ prepare() {
   :
 }
 
+build() {
+  msg2 'rsync-bpc'
+  cd "$srcdir"/rsync-bpc-$_rbpcver
+  ./configure --prefix=/usr/share/backuppc
+  make
+}
+
 package() {
-  cd BackupPC-$pkgver
+  msg2 'rsync-bpc'
+  cd "$srcdir"/rsync-bpc-$_rbpcver
+  make install DESTDIR="$pkgdir"
+
+  msg2 'backuppc-xs'
+  cd "$srcdir"/BackupPC-XS-$_xsver
+  perl Makefile.PL
+  make -j1 # parallel build fail
+  make install DESTDIR="$pkgdir"
+
+  msg2 'backuppc'
+  cd "$srcdir"/BackupPC-$pkgver
+  export PERLLIB="$pkgdir/usr/lib/perl5/site_perl/"
   perl configure.pl \
     --batch \
     --no-set-perms \
@@ -79,11 +94,21 @@ package() {
     --html-dir /usr/share/$pkgname/html \
     --html-dir-url /backuppc \
     --data-dir /var/lib/$pkgname \
-    --log-dir /var/log/$pkgname
+    --log-dir /var/log/$pkgname \
+    --run-dir /run/$pkgname \
+    --bin-path rsync_bpc=/usr/share/backuppc/bin/rsync_bpc \
+    --bin-path smbclient=/usr/bin/smbclient \
+    --bin-path nmblookup=/usr/bin/nmblookup \
+    --bin-path rsync=/usr/bin/rsync \
+    --bin-path ssh=/usr/bin/ssh \
+    --bin-path sendmail=/usr/bin/sendmail \
+    --bin-path ping=/usr/bin/ping \
+    --bin-path ping6=/usr/bin/ping \
+    --bin-path rrdtool=/usr/bin/rrdtool \
+    --
   cd "$srcdir"
   # systemd
   install -D -m 644 $pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
-  install -D -m 644 $pkgname.socket "$pkgdir/usr/lib/systemd/system/$pkgname.socket"
   install -D -m 644 $pkgname.sysusers "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
   install -D -m 644 $pkgname.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
   # install shell profiles
@@ -101,6 +126,8 @@ package() {
   chmod 750 var/log/$pkgname etc/$pkgname
   chmod 750 -R var/lib/$pkgname
   chmod 640 etc/$pkgname/{config.pl,hosts}
+  # no /run
+  rm -r "$pkgdir"/run
 }
 
 # vim:set ts=2 sw=2 et:
