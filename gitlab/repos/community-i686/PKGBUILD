@@ -8,13 +8,13 @@
 
 pkgname=gitlab
 pkgver=8.17.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
 license=('MIT')
 depends=('ruby2.3' 'git' 'ruby2.3-bundler' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
-makedepends=('cmake' 'postgresql' 'mariadb')
+makedepends=('cmake' 'postgresql' 'mariadb' 'npm')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
             'python2-docutils: reStructuredText markup language support'
@@ -121,6 +121,8 @@ build() {
   sed -i 's/url.*/nope.sock/g' config/resque.yml
 
   bundle-2.3 exec rake assets:precompile RAILS_ENV=production --trace
+  npm install
+  bundle-2.3 exec rake webpack:compile RAILS_ENV=production --trace
 
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
