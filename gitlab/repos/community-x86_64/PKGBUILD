@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=8.17.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('i686' 'x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -120,9 +120,9 @@ build() {
   cp config/resque.yml.example config/resque.yml
   sed -i 's/url.*/nope.sock/g' config/resque.yml
 
-  bundle-2.3 exec rake assets:precompile RAILS_ENV=production --trace
-  npm install
-  bundle-2.3 exec rake webpack:compile RAILS_ENV=production --trace
+  npm install --production
+  bundle-2.3 exec rake gitlab:assets:clean gitlab:assets:compile cache:clear RAILS_ENV=production --trace
+  # bundle-2.3 exec rake webpack:compile RAILS_ENV=production --trace
 
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
