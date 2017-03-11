@@ -1,13 +1,14 @@
+# $Id$
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 
 pkgname=bumblebee
 pkgver=3.2.1
-pkgrel=13
+pkgrel=15
 pkgdesc="NVIDIA Optimus support for Linux through VirtualGL"
 arch=('i686' 'x86_64')
 depends=('virtualgl' 'glib2' 'mesa-libgl')
 makedepends=('help2man')
-optdepends=('bbswitch: switch on/off discrete card' 
+optdepends=('bbswitch: switch on/off discrete card'
             'nvidia: NVIDIA kernel driver'
             'nvidia-340xx: NVIDIA kernel driver for older devices'
             'nvidia-304xx: NVIDIA kernel driver for even older devices'
@@ -16,13 +17,11 @@ if [ "$CARCH" = "x86_64" ]; then
      optdepends[${#optdepends[@]}]='lib32-virtualgl: run 32bit applications with optirun'
      optdepends[${#optdepends[@]}]='lib32-primus: faster back-end for optirun'
 fi
-conflicts=('nvidia-libgl')
-provides=('nvidia-libgl')
 url="http://www.bumblebee-project.org"
 license=("GPL3")
 install='bumblebee.install'
-backup=('etc/bumblebee/bumblebee.conf' 
-        'etc/bumblebee/xorg.conf.nouveau' 
+backup=('etc/bumblebee/bumblebee.conf'
+        'etc/bumblebee/xorg.conf.nouveau'
         'etc/bumblebee/xorg.conf.nvidia')
 source=("http://www.bumblebee-project.org/${pkgname}-${pkgver}.tar.gz"
         "0001-bb_nvidia_modeset-detection_bug699_01.patch::https://github.com/arafey/Bumblebee/commit/5636b24fa86a005a5d2e30bd794516db13ccba56.patch"
@@ -32,6 +31,7 @@ source=("http://www.bumblebee-project.org/${pkgname}-${pkgver}.tar.gz"
         "0005-bb_nvidia_drm_detection_bug699_02.patch::https://github.com/arafey/Bumblebee/commit/fcfe596eb13f62ca9dd7de272a5a87ae843b2a00.patch"
         "0006-bb_hexadicimal_bug573.patch::https://github.com/Bumblebee-Project/Bumblebee/commit/2073f8537412aa47755eb6f3f22a114403e5285b.patch"
         "0007-bb_mutebblogger.patch"
+        "0008-libglvnd.patch"
         "bumblebee.conf")
 sha256sums=('1018703b07e2f607a4641249d69478ce076ae5a1e9dd6cff5694d394fa7ee30e'
             'aff3528d17a77ff19b4e0a7a10682b8351456f11795f71ef62b315e774fb408a'
@@ -41,6 +41,7 @@ sha256sums=('1018703b07e2f607a4641249d69478ce076ae5a1e9dd6cff5694d394fa7ee30e'
             '206f71c022b29a77227a3c7ba1f5cf68e219b957b5d807be9a30b6a6a7cafddc'
             '0b7c1f4bb2e27d131c6c21fd7006d075584917ac4259bd9899e6eca99efc0ece'
             'cbe3e1717bc80146b87d8f2ab1158ee9e094ea5bb2ca9a4a8c09c24b086a7792'
+            'b260d64a53617807afe21560db0592d114d7775b182e13fb59349f0157c8dba4'
             '1c3d4f5d40245a23a5f1cb1f2f6bd4274ff3c5b3749f76a09255191328ae3193')
 
 build() {
@@ -48,14 +49,14 @@ build() {
     for p in ${srcdir}/*.patch; do
         patch -Np1 -i "$p"
     done
-    
+
     ./configure \
         CONF_DRIVER_MODULE_NVIDIA=nvidia \
-        CONF_LDPATH_NVIDIA=/usr/lib/nvidia:/usr/lib32/nvidia \
-        CONF_MODPATH_NVIDIA=/usr/lib/nvidia/xorg/,/usr/lib/xorg/modules \
+        CONF_LDPATH_NVIDIA=/usr/lib/nvidia:/usr/lib32/nvidia:/usr/lib:/usr/lib32 \
+        CONF_MODPATH_NVIDIA=/usr/lib/nvidia/xorg,/usr/lib/xorg/modules \
         --prefix=/usr \
         --sbindir=/usr/bin \
-        --with-udev-rules=/usr/lib/udev/rules.d/ \
+        --with-udev-rules=/usr/lib/udev/rules.d \
         --sysconfdir=/etc \
         --without-pidfile
     make
@@ -63,17 +64,17 @@ build() {
 
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
-    
+
     # Install main app
     make install DESTDIR="$pkgdir" \
       completiondir=/usr/share/bash-completion/completions
-    
+
     # Blacklist nvidia and nouveau modules
     # Reference: https://github.com/Bumblebee-Project/Bumblebee/issues/719
     install -Dm644 "${srcdir}/bumblebee.conf" "${pkgdir}/usr/lib/modprobe.d/bumblebee.conf"
-    
+
     # Install systemd unit
-    install -Dm644 "scripts/systemd/bumblebeed.service" "${pkgdir}/usr/lib/systemd/system/bumblebeed.service"    
+    install -Dm644 "scripts/systemd/bumblebeed.service" "${pkgdir}/usr/lib/systemd/system/bumblebeed.service"
     sed -i "s/sbin/bin/" "${pkgdir}/usr/lib/systemd/system/bumblebeed.service"
 
     # Make bash_completion work
