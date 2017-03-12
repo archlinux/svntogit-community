@@ -1,77 +1,79 @@
-# $Id: PKGBUILD 121061 2014-10-20 12:57:19Z arodseth $
-# Maintainer: Alexander F Rødseth <xyproto@archlinux.org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Alexander F Rødseth <xyproto@archlinux.org>
 # Contributor: Dominik Picheta <morfeusz8@gmail.com>
 # Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
 # Contributor: Jesus Alvarez <jeezusjr@gmail.com>
 
 pkgname=nim
-pkgver=0.15.0
+_pkgname=Nim
+pkgver=0.16.0
 pkgrel=1
 pkgdesc='Imperative, multi-paradigm, compiled programming language'
+url='https://nim-lang.org/'
 arch=('x86_64' 'i686')
-url='http://nim-lang.org/'
 license=('MIT')
-makedepends=('git' 'glib2')
+depends=('python' 'bash')
 options=('!emptydirs')
-source=("$pkgname::git://github.com/Araq/Nimrod.git#tag=v$pkgver")
-md5sums=('SKIP')
+source=(${pkgname}-${pkgver}.tar.gz::https://github.com/nim-lang/Nim/archive/v${pkgver}.tar.gz
+        csources-${pkgver}.tar.gz::https://github.com/nim-lang/csources/archive/v${pkgver}.tar.gz)
+sha256sums=('63b35b35d5976fec9d88e3307adb78d2e3988538e5855d13b7f6e6f89c593f7c'
+            'e909cea51c2d1f6b04af955db219877ab9f9666741ccc750334597eded80844e')
+sha512sums=('c1cf13d5003d14f3ea0f332ea0ee7355923d17d3020fd35e9106d36e8225f0fde1a49e5c76bb6a48bc6fefbfa3f9205efdd234ad0da9aec2c136d0a067f92a2a'
+            '26e303140ea8740a191a3d1b6e9cfff1e9f29bf9fc323709636e0ddce7ecc06eabf37e9c11785c214bb6c0adf908b07a4514b4fbee221d560cc8aabf278438c6')
 
 prepare() {
-  cd "$pkgname"
-
-  rm build/empty.txt && rmdir build
-  git clone --depth=1 git://github.com/nimrod-code/csources build
-  cd build
-  git checkout b39a1df
+  cd ${_pkgname}-${pkgver}
+  mv ../csources-${pkgver} csources
+  rm bin/empty.txt
 }
 
 build() {
-  cd "$pkgname/build"
+  cd ${_pkgname}-${pkgver}
+  export PATH="${srcdir}/${_pkgname}-${pkgver}/bin:${PATH}"
 
-  sh build.sh
+  msg2 "Building nim"
+  (cd csources
+    sh build.sh
+  )
+  msg2 "Building koch"
+  nim c -d:release koch
+  ./koch boot -d:release -d:nativeStacktrace -d:useGnuReadline
 
-  cd ..
-  ./bin/nim c koch
-  ./koch boot -d:release -d:useGnuReadline
-
-  export PATH="$srcdir/$pkgname/bin:$PATH"
-
-  cd lib
-  nim c --app:lib -d:createNimRtl -d:release nimrtl.nim
-
-  cd ../tools
-  nim c -d:release nimgrep.nim
+  msg2 "Building libs"
+  (cd lib
+    nim c --app:lib -d:createNimRtl -d:release nimrtl.nim
+  )
+  msg2 "Building tools"
+  (cd tools
+    nim c -d:release nimgrep.nim
+  )
 }
 
 package() {
-  cd "$pkgname"
+  cd ${_pkgname}-${pkgver}
+  export PATH="${srcdir}/${_pkgname}-${pkgver}/bin:${PATH}"
 
-  export PATH="$srcdir/$pkgname/bin:$PATH"
+  ./koch install "${pkgdir}"
 
-  ./koch install "$pkgdir"
-
-  install -d \
-    "$pkgdir/usr/share/nim/doc" "$pkgdir/usr/lib/nim" \
-    "$pkgdir/etc" "$pkgdir/usr/bin" "$pkgdir/usr/include"
-
-  cd "$pkgdir/nim"
-  mv lib/* "$pkgdir/usr/lib/nim/"
-  mv config/* "$pkgdir/etc/"
-  cp -a "$srcdir/$pkgname/lib/packages" "$pkgdir/usr/lib/nim/"
-  mv bin/* "$pkgdir/usr/bin/"
-
-  # Fix FS50252, unusual placement of header files
-  mv "$pkgdir/usr/lib/nim/"*.h "$pkgdir/usr/include/"
-
-  cd "$srcdir/$pkgname"
-  rm -r "$pkgdir/nim"
-  mv examples web doc/* "$pkgdir/usr/share/nim/doc/"
-  install -m644 lib/libnimrtl.so "$pkgdir/usr/lib/libnimrtl.so"
-  install -m755 tools/nimgrep "$pkgdir/usr/bin/"
-  install -Dm644 copying.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -d "${pkgdir}/usr/lib"
+  cp -a lib "${pkgdir}/usr/lib/nim"
+  install -m 755 lib/libnimrtl.so "${pkgdir}/usr/lib/libnimrtl.so"
 
   # Fix FS#48118, related to the doc2 command
-  ln -s /usr/share/nim/doc "$pkgdir/usr/lib/nim/doc"
+  ln -s /usr/share/nim/doc "${pkgdir}/usr/lib/nim/doc"
+
+  install -Dm 644 config/* -t "${pkgdir}/etc"
+  install -Dm 755 bin/* tools/nimgrep -t "${pkgdir}/usr/bin"
+
+  # Fix FS#50252, unusual placement of header files
+  install -d "${pkgdir}/usr/include"
+  cp -a "${pkgdir}/usr/lib/nim/"*.h "${pkgdir}/usr/include"
+
+  install -d "${pkgdir}/usr/share/nim/doc"
+  cp -a examples web doc/* "${pkgdir}/usr/share/nim/doc"
+
+  install -Dm 644 copying.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  rm -r "${pkgdir}/nim"
 }
 
-# vim:set ts=2 sw=2 et:
+# vim: ts=2 sw=2 et:
