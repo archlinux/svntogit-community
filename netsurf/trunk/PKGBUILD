@@ -6,7 +6,7 @@
 
 pkgname=netsurf
 pkgver=3.6
-pkgrel=1
+pkgrel=2
 pkgdesc='Lightweight and fast web browser'
 arch=('x86_64' 'i686')
 url='http://www.netsurf-browser.org/'
@@ -18,21 +18,25 @@ depends=('libmng' 'librsvg' 'curl' 'lcms' 'desktop-file-utils'
 makedepends=('re2c' 'netsurf-buildsystem' 'perl-html-parser' 'nsgenbind>=0.3'
              'inetutils' 'libutf8proc>1.3.1' 'git' 'setconf' 'check' 'gtk3'
              'duktape')
+# git.netsurf-browser.org has an invalid https sertificate
 source=("git://git.netsurf-browser.org/netsurf.git#tag=release/$pkgver"
-        netsurf.sh)
+        'openssl.patch'
+        'netsurf.sh')
 sha256sums=('SKIP'
+            '0601ca86e59a40aa6feaaab9db0e79c4952b018c724f7255279d902a79d090d9'
             'f2e2f61f1864da57cafa74ffdbefac2f9e1d55d9627e82ef923d4931684c5c49')
 
 prepare() {
   cd "$pkgname"
 
+  patch -p1 -i "$srcdir/openssl.patch"
   sed 's:netsurf-gtk:netsurf:' -i frontends/gtk/res/netsurf-gtk.desktop
   sed 's:libutf8proc/::' -i utils/idna.c
   sed 's:UTF8PROC_CCC_VIRAMA:UTF8PROC_BIDI_CLASS_EN:' -i utils/idna.c
   sed 's:utf8proc_normalise:utf8proc_reencode:' -i utils/idna.c
-
-  setconf Makefile.defaults NETSURF_UA_FORMAT_STRING '"NetSurf/%d.%d (%s; Arch Linux)"'
   setconf Makefile.defaults NETSURF_USE_DUKTAPE YES
+  setconf Makefile.defaults NETSURF_UA_FORMAT_STRING \
+    '"NetSurf/%d.%d (%s; Arch Linux)"'
 }
 
 build() {
@@ -50,10 +54,10 @@ package() {
   make install LIBDIR=lib INCLUDEDIR=include PREFIX=/usr TARGET=gtk \
     NETSURF_GTK_MAJOR=3 DESTDIR="$pkgdir"
 
-  # Script
+  # Launcher script
   install -Dm755 "../$pkgname.sh" "$pkgdir/usr/bin/$pkgname"
 
-  # Desktop shortcut
+  # Desktop icon and shortcut
   install -Dm644 "frontends/gtk/res/$pkgname.xpm" \
     "$pkgdir/usr/share/pixmaps/$pkgname.xpm"
   install -Dm644 "frontends/gtk/res/$pkgname-gtk.desktop" \
@@ -62,10 +66,6 @@ package() {
   # License
   install -Dm644 COPYING \
     "$pkgdir/usr/share/licenses/$pkgname/COPYING"
-
-  # Fix path
-  #mv "$pkgdir/usr/share/netsurf/:./gtk/res/"* "$pkgdir/usr/share/netsurf/"
-  #rmdir "$pkgdir/usr/share/netsurf/"{:./gtk/res,:./gtk,:.}
 }
 
 # vim:set ts=2 sw=2 et:
