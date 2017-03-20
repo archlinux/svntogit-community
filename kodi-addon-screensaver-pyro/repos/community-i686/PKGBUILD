@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-pyro
-_commit=379e102
-pkgver=20161216.379e102
-pkgrel=2
+_commit=2d15f72
+pkgver=20170314.2d15f72
+pkgrel=1
 pkgdesc="Pyro screensaver for Kodi"
 arch=('i686' 'x86_64')
 url='github.com/notspiff/screensaver.pyro'
