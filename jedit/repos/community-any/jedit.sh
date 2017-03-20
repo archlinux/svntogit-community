@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Runs jEdit - Programmer's Text Editor
 
