@@ -1,0 +1,144 @@
+From 3e69e10328370884fc1a55de6ba9bef7f7e01d73 Mon Sep 17 00:00:00 2001
+From: Todd Leonhardt <todd.leonhardt@gmail.com>
+Date: Fri, 24 Feb 2017 00:51:40 -0500
+Subject: [PATCH] Added a couple unit tests for self.inputParser.
+
+One passes and the other fails and demonstrates the overall problem with the failing unit test for input redirection on some systems where a "-" ends up in the path name.
+---
+ tests/test_parsing.py | 22 ++++++++++++++++++++++
+ 1 file changed, 22 insertions(+)
+
+diff --git a/tests/test_parsing.py b/tests/test_parsing.py
+index 7186a14..b6ae0a1 100644
+--- a/tests/test_parsing.py
++++ b/tests/test_parsing.py
+@@ -43,6 +43,12 @@ def parser():
+     c._init_parser()
+     return c.parser
+ 
++@fixture
++def input_parser():
++    c = cmd2.Cmd()
++    c._init_parser()
++    return c.inputParser
++
+ 
+ def test_remaining_args():
+     assert cmd2.remaining_args('-f bar   bar   cow', ['bar', 'cow']) == 'bar   cow'
+@@ -237,6 +243,22 @@ def test_parse_output_redirect(parser):
+   - command: {0}""".format(command, args, redirect, output)
+     assert parser.parseString('output into > afile.txt').dump() == expected
+ 
++def test_parse_input_redirect(input_parser):
++    input_from = "< afile.txt"
++    if new_pyparsing:
++        input_from = repr(input_from)
++    expected = """['', {0}]
++- inputFrom: {0}""".format(input_from)
++    assert input_parser.parseString('< afile.txt').dump() == expected
++
++def test_parse_input_redirect_with_dash_in_path(input_parser):
++    input_from = "< python-cmd2/afile.txt"
++    if new_pyparsing:
++        input_from = repr(input_from)
++    expected = """['', {0}]
++- inputFrom: {0}""".format(input_from)
++    assert input_parser.parseString('< python-cmd2/afile.txt').dump() == expected
++
+ def test_parse_pipe_and_redirect(parser):
+     command = "output"
+     args = "into"
+From b358e9f0bbe26874a21e65b8ddfa00da049559a0 Mon Sep 17 00:00:00 2001
+From: Todd Leonhardt <todd.leonhardt@gmail.com>
+Date: Fri, 24 Feb 2017 02:10:17 -0500
+Subject: [PATCH] Added "-" to the list of legal characters.
+
+This is a fix for Issue #55.
+
+Updated a couple unit tests accordingly and also added a couple new unit tests to make sure this logic is appropriately covered.
+---
+ cmd2.py               |  2 +-
+ tests/test_parsing.py | 34 +++++++++++++++++++++++++++-------
+ 2 files changed, 28 insertions(+), 8 deletions(-)
+
+diff --git a/cmd2.py b/cmd2.py
+index 0ac73d9..057b639 100755
+--- a/cmd2.py
++++ b/cmd2.py
+@@ -515,7 +515,7 @@ class Cmd(cmd.Cmd):
+     excludeFromHistory = '''run r list l history hi ed edit li eof'''.split()
+     kept_state = None
+     # make sure your terminators are not in legalChars!
+-    legalChars = u'!#$%.:?@_' + pyparsing.alphanums + pyparsing.alphas8bit
++    legalChars = u'!#$%.:?@_-' + pyparsing.alphanums + pyparsing.alphas8bit
+     multilineCommands = []
+     noSpecialParse = 'set ed edit exit'.split()
+     prefixParser = pyparsing.Empty()
+diff --git a/tests/test_parsing.py b/tests/test_parsing.py
+index b6ae0a1..b3b1543 100644
+--- a/tests/test_parsing.py
++++ b/tests/test_parsing.py
+@@ -185,16 +185,16 @@ def test_parse_simple_piped(parser):
+   - command: {0}""".format(command, pipe)
+     assert parser.parseString('simple | piped').dump() == expected
+ 
+-def test_parse_doulbe_pipe_is_not_a_pipe(parser):
+-    command = "double"
+-    args = "-pipe || is not a pipe"
++def test_parse_double_pipe_is_not_a_pipe(parser):
++    command = "double-pipe"
++    args = "|| is not a pipe"
+     if new_pyparsing:
+         command = repr(command)
+         args = repr(args)
+-    expected = """['double', '-pipe || is not a pipe']
++    expected = """['double-pipe', '|| is not a pipe']
+ - args: {1}
+ - command: {0}
+-- statement: ['double', '-pipe || is not a pipe']
++- statement: ['double-pipe', '|| is not a pipe']
+   - args: {1}
+   - command: {0}""".format(command, args)
+     assert parser.parseString('double-pipe || is not a pipe').dump() == expected
+@@ -243,11 +243,31 @@ def test_parse_output_redirect(parser):
+   - command: {0}""".format(command, args, redirect, output)
+     assert parser.parseString('output into > afile.txt').dump() == expected
+ 
++def test_parse_output_redirect_with_dash_in_path(parser):
++    command = "output"
++    args = "into"
++    redirect = ">"
++    output = "python-cmd2/afile.txt"
++    if new_pyparsing:
++        command = repr(command)
++        args = repr(args)
++        redirect = repr(redirect)
++        output = repr(output)
++    expected = """['output', 'into', '>', 'python-cmd2/afile.txt']
++- args: {1}
++- command: {0}
++- output: {2}
++- outputTo: {3}
++- statement: ['output', 'into']
++  - args: {1}
++  - command: {0}""".format(command, args, redirect, output)
++    assert parser.parseString('output into > python-cmd2/afile.txt').dump() == expected
++
+ def test_parse_input_redirect(input_parser):
+     input_from = "< afile.txt"
+     if new_pyparsing:
+         input_from = repr(input_from)
+-    expected = """['', {0}]
++    expected = """['', '< afile.txt']
+ - inputFrom: {0}""".format(input_from)
+     assert input_parser.parseString('< afile.txt').dump() == expected
+ 
+@@ -255,7 +275,7 @@ def test_parse_input_redirect_with_dash_in_path(input_parser):
+     input_from = "< python-cmd2/afile.txt"
+     if new_pyparsing:
+         input_from = repr(input_from)
+-    expected = """['', {0}]
++    expected = """['', '< python-cmd2/afile.txt']
+ - inputFrom: {0}""".format(input_from)
+     assert input_parser.parseString('< python-cmd2/afile.txt').dump() == expected
+ 
