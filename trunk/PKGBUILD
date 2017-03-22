@@ -4,23 +4,25 @@
 
 pkgname=dnssec-tools
 pkgver=2.2
-pkgrel=4
+pkgrel=5
 pkgdesc="libval & dnssec management tools"
 arch=('i686' 'x86_64')
 url="http://www.dnssec-tools.org"
 license=('BSD')
 conflicts=('libval' 'libval_shim' 'libsres')
 backup=('etc/dnssec-tools/dnssec-tools.conf' 'etc/dnssec-tools/resolv.conf' 'etc/dnssec-tools/root.hints' 'etc/dnssec-tools/dnsval.conf')
-depends=('dnsutils' 'perl' 'perl-timedate' 'perl-net-dns' 'perl-net-dns-sec' 'perl-mailtools' 'bind' 'openssl' 'glibc' 'pth')
+depends=('dnsutils' 'perl' 'perl-timedate' 'perl-net-dns' 'perl-net-dns-sec' 'perl-mailtools' 'bind' 'openssl-1.0' 'glibc' 'pth')
 optdepends=('perl-tk: for GUI components'
             'perl-graphviz: for GUI components')
 options=('!emptydirs')
 source=(http://www.dnssec-tools.org/download/${pkgname}-${pkgver}.tar.gz
         makefile-dependency.patch
-        dnssec-tools-link.patch)
+        dnssec-tools-link.patch
+        glibc-2.25.patch)
 sha256sums=('4f45033a7a27382fe5284de705a1792277dfbe9a149d369b95d787865a44ef66'
             'fb23565ff9afabf85dc812ab500a3652add4537e9519a49214e329de3d2171f9'
-            'bbf24ced5c41d61ddd49e39d5deec84d4b1a344ba9fecd3647cf07ccddc89714')
+            'c499ce75b27d89b456c9b79d7051d63bdfeb35835e95e0cd312f1a55b1881c85'
+            'd5485691e4d1604bc2e0d06a66068f9f930c94cb2012e4d89ffee5615542d296')
 install="dnssec-tools.install"
 
 prepare() {
@@ -30,6 +32,9 @@ prepare() {
 
   # patch for linking errors
   patch -p1 -i "$srcdir/dnssec-tools-link.patch"
+
+  # patch for glibc 2.25 compatibility
+  patch -p1 -i "$srcdir/glibc-2.25.patch"
 
   sed -e '/^maninstall:/,+3s:$(MKPATH) $(mandir)/$(man1dir):$(MKPATH) $(DESTDIR)/$(mandir)/$(man1dir):' \
       -i Makefile.in
@@ -48,6 +53,8 @@ prepare() {
       -e 's:/usr/sbin/named-checkzone:/usr/bin/named-checkzone:' \
       -e 's:/usr/sbin/dnssec-signzone:/usr/bin/dnssec-signzone:' \
       -i tools/etc/dnssec-tools/dnssec-tools.conf
+
+  export CFLAGS="$CFLASG -I/usr/include/openssl-1.0"
 }
 
 build() {
@@ -68,7 +75,7 @@ package() {
   cd "$srcdir/${pkgname}-${pkgver}"
   make install DESTDIR="${pkgdir}"
   cp validator/etc/dnsval.conf validator/etc/root.hints "${pkgdir}"/etc/dnssec-tools/
-  
+
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 
   cd "${pkgdir}/etc/dnssec-tools"
@@ -78,7 +85,7 @@ package() {
   ## add support for ISC DLV checking
   cat >> dnsval.conf <<EOF
 ##################################
-# ISC DLV root anchor 
+# ISC DLV root anchor
 ##################################
 : dlv-trust-points
     .   dlv.isc.org.
