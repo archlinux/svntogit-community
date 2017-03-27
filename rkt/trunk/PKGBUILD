@@ -24,25 +24,43 @@ CCN_SYSTEMD_VERSION=v231
 # stage1/usr_from_kvm/kernel.mk
 KERNEL_VERSION=4.9.2
 
+# stage1/usr_from_kvm/lkvm.mk
+KVMTOOL_VERSION=cfae4d64482ed745214e3c62dd84b79c2ae0f325
+
 source=(https://github.com/coreos/rkt/archive/v$pkgver/$pkgname-$pkgver.tar.gz
         coreos_production_pxe_image-$CCN_IMG_RELEASE.cpio.gz::http://alpha.release.core-os.net/amd64-usr/$CCN_IMG_RELEASE/coreos_production_pxe_image.cpio.gz
         coreos_production_pxe_image-$CCN_IMG_RELEASE.cpio.gz.sig::http://alpha.release.core-os.net/amd64-usr/$CCN_IMG_RELEASE/coreos_production_pxe_image.cpio.gz.sig
         https://www.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz
+        kvmtool-$KVMTOOL_VERSION.tar.gz::https://kernel.googlesource.com/pub/scm/linux/kernel/git/will/kvmtool/+archive/$KVMTOOL_VERSION.tar.gz
         rkt.sysusers)
 noextract=(coreos_production_pxe_image.cpio.gz
-           linux-$KERNEL_VERSION.tar.xz)
+           linux-$KERNEL_VERSION.tar.xz
+           kvmtool-$KVMTOOL_VERSION.tar.gz)
 validpgpkeys=('04127D0BFABEC8871FFB2CCE50E0885593D2DCB4' '48F9B96A2E16137F')
 sha256sums=('090da380ae8526d2a819f777fa983aee0df6254c37eb1fd74783d2d4c4ced359'
             '988e4ad8e044dd8bff54cb5e0a34a1ed25cf7bc8cc241f1a90e3fe7f1412f315'
             'SKIP'
             '8dda9aedd17ae0bf1e06ebb4b79082f83fb3ade45cbcc3ca4c30bf3faf085738'
+            '11e417534817d0890f20c2d1cf23f4d9ead8a59f122c9a0c4debee31bf995f36'
             '2aee4e8547843f4e6c032761b97cb723c1ecd384d508b86f44d16826bc34d6d6')
 
 prepare() {
-  cd $pkgname-$pkgver
-  mkdir -p build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
-  cd build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
-  ln -s "$srcdir"/linux-$KERNEL_VERSION.tar.xz
+  cd "$srcdir"/$pkgname-$pkgver
+  mkdir -p build-rkt-$pkgver/tmp/usr_from_kvm/{lkvm/src,kernel}
+
+  # disable git fetch of kvmtool
+  sed -r '/^include makelib\/git.mk$/d' -i stage1/usr_from_kvm/lkvm.mk
+  bsdtar -xf "$srcdir"/kvmtool-$KVMTOOL_VERSION.tar.gz \
+         -C build-rkt-$pkgver/tmp/usr_from_kvm/lkvm/src
+
+  # place prefetched kernel sources
+  ln -s "$srcdir"/linux-$KERNEL_VERSION.tar.xz \
+        build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
+
+  # fix makedev definition
+  sed '/^#include <sys\/stat.h>$/a #include <sys/sysmacros.h>' -i \
+      stage1/prepare-app/prepare-app.c \
+      build-rkt-$pkgver/tmp/usr_from_kvm/lkvm/src/virtio/9p.c
 }
 
 build() {
