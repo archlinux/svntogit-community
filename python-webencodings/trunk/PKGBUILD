@@ -3,15 +3,15 @@
 
 pkgbase=python-webencodings
 pkgname=('python2-webencodings' 'python-webencodings')
-pkgver=0.5
-pkgrel=2
+pkgver=0.5.1
+pkgrel=1
 arch=('any')
 url="https://github.com/gsnedders/python-webencodings"
 license=('BSD')
 makedepends=('python2' 'python' 'python-setuptools' 'python2-setuptools')
 checkdepends=('python-nose' 'python2-nose')
 source=(https://github.com/gsnedders/python-webencodings/archive/v$pkgver.tar.gz)
-md5sums=('380cd5f79cd65620bd5b852528dce3a6')
+md5sums=('7eb67377743cd55eaa356496c439471e')
 
 package_python-webencodings() {
 pkgdesc="This is a Python implementation of the WHATWG Encoding standard."
@@ -19,6 +19,7 @@ depends=('python')
     cd ${srcdir}/${pkgbase}-${pkgver}
 
     python3 setup.py install --root=${pkgdir}
+    install -D -m644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
 
 package_python2-webencodings() {
@@ -27,6 +28,7 @@ depends=('python2')
     cd ${srcdir}/${pkgbase}-${pkgver}
 
     python2 setup.py install --root=${pkgdir}
+    install -D -m644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
 
 check() {
