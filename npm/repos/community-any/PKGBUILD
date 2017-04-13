@@ -2,7 +2,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=4.4.4
+pkgver=4.5.0
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -14,7 +14,7 @@ makedepends=('procps-ng' 'marked-man')
 optdepends=('python2: for node-gyp')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/npm/archive/v$pkgver.tar.gz")
-sha512sums=('de97e0aa4e20cdfcde688ac53385786f5338a2ce35b634fb63924043f5c1fce248c8808e1e940ffa810adcdb8f20c698e32ba35ae85e651ed37d2c96fe0770c3')
+sha512sums=('e5b1f84c80316ff272024deb418c4c9f736649e58650816f4318c37617469902806e5252aa2301ad6bca59b3bcdaef8cfd9f7b9a2e48a8dddeb04d28eb4fdd43')
 
 prepare() {
   cd npm-$pkgver
@@ -38,7 +38,7 @@ package() {
 
   # Fix wrong symlinks
   for _dir in man1 man5 man7; do
-    rm -f "$pkgdir"/usr/share/man/$_dir/*
+    mkdir -p "$pkgdir"/usr/share/man/$_dir
     cd "$pkgdir"/usr/lib/node_modules/npm/man/$_dir
     for _file in *; do
       ln -s /usr/lib/node_modules/npm/man/$_dir/$_file "$pkgdir"/usr/share/man/$_dir/
