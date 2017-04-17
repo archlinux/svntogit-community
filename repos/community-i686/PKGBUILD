@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-greynetic
-_commit=9b33ee0
-pkgver=20170314.9b33ee0
+_commit=2c103d0
+pkgver=20170416.2c103d0
 pkgrel=1
 pkgdesc="Greynetic screensaver for Kodi"
 arch=('i686' 'x86_64')
