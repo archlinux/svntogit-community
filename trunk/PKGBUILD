@@ -5,7 +5,7 @@ pkgname=toxic
 pkgdesc='CLI Tox client'
 license=('GPL3')
 pkgver=0.7.2
-pkgrel=5
+pkgrel=6
 depends=('curl'
          'desktop-file-utils'
          'freealut'
@@ -22,8 +22,9 @@ validpgpkeys=('BABD00573A065BFA90D53D563627F3144076AE63')  # Jfreegman <jfreegma
 
 build() {
   cd "$pkgname-$pkgver"
-  # disable X11 because https://github.com/JFreegman/toxic/issues/277
-  make PREFIX=/usr DISABLE_X11=1
+  # enabled X11 on konsole may cause https://github.com/JFreegman/toxic/issues/277
+  # but we can only do video and call with X11 enabled https://bugs.archlinux.org/task/52836
+  make PREFIX=/usr
 }
 
 package() {
