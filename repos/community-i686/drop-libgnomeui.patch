@@ -1,18 +1,18 @@
-diff -Naur etherape-0.9.14.orig/configure.in etherape-0.9.14/configure.in
---- etherape-0.9.14.orig/configure.in	2015-09-20 10:28:27.000000000 +0200
-+++ etherape-0.9.14/configure.in	2017-01-21 00:46:38.419035434 +0100
-@@ -25,7 +25,7 @@
+diff -Naur etherape-0.9.15.orig/configure.ac etherape-0.9.15/configure.ac
+--- etherape-0.9.15.orig/configure.ac	2017-04-27 05:53:49.226303987 +0000
++++ etherape-0.9.15/configure.ac	2017-04-27 06:02:09.328964318 +0000
+@@ -26,7 +26,7 @@
  #AC_PROG_INTLTOOL(0.27)
  
  # Checks for libraries.
 -PKG_CHECK_MODULES(ETHERAPE, glib-2.0 libglade-2.0 libgnomeui-2.0)
 +PKG_CHECK_MODULES(ETHERAPE, glib-2.0 libglade-2.0 libgnomecanvas-2.0 popt)
  AC_SUBST(ETHERAPE_CFLAGS)
+ AC_SUBST(ETHERAPE_LDFLAGS)
  AC_SUBST(ETHERAPE_LIBS)
- 
-diff -Naur etherape-0.9.14.orig/src/callbacks.c etherape-0.9.14/src/callbacks.c
---- etherape-0.9.14.orig/src/callbacks.c	2015-07-26 18:01:30.000000000 +0200
-+++ etherape-0.9.14/src/callbacks.c	2017-01-21 00:32:56.115504072 +0100
+diff -Naur etherape-0.9.15.orig/src/callbacks.c etherape-0.9.15/src/callbacks.c
+--- etherape-0.9.15.orig/src/callbacks.c	2017-04-27 05:53:49.236303974 +0000
++++ etherape-0.9.15/src/callbacks.c	2017-04-27 05:56:33.176083792 +0000
 @@ -21,7 +21,8 @@
  #include <config.h>
  #endif
@@ -23,48 +23,36 @@ diff -Naur etherape-0.9.14.orig/src/callbacks.c etherape-0.9.14/src/callbacks.c
  #include "appdata.h"
  #include "callbacks.h"
  #include "diagram.h"
-diff -Naur etherape-0.9.14.orig/src/capture.c etherape-0.9.14/src/capture.c
---- etherape-0.9.14.orig/src/capture.c	2015-09-18 23:47:48.000000000 +0200
-+++ etherape-0.9.14/src/capture.c	2017-01-21 01:19:23.827260356 +0100
-@@ -22,7 +22,8 @@
+diff -Naur etherape-0.9.15.orig/src/diagram.c etherape-0.9.15/src/diagram.c
+--- etherape-0.9.15.orig/src/diagram.c	2017-04-27 05:53:49.226303987 +0000
++++ etherape-0.9.15/src/diagram.c	2017-04-27 05:58:19.665940538 +0000
+@@ -21,7 +21,8 @@
  #include <config.h>
  #endif
  
 -#include <gnome.h>
 +#include <gtk/gtk.h>
 +#include <libgnomecanvas/libgnomecanvas.h>
- #include <ctype.h>
- #include <netinet/in.h>
- #include <pcap.h>
-diff -Naur etherape-0.9.14.orig/src/diagram.c etherape-0.9.14/src/diagram.c
---- etherape-0.9.14.orig/src/diagram.c	2016-01-25 21:19:16.000000000 +0100
-+++ etherape-0.9.14/src/diagram.c	2017-01-21 00:33:11.775939150 +0100
-@@ -23,7 +23,8 @@
- 
- #include <arpa/inet.h>
- 
--#include <gnome.h>
-+#include <gtk/gtk.h>
-+#include <libgnomecanvas/libgnomecanvas.h>
- #include <regex.h>
  
  #include "appdata.h"
-diff -Naur etherape-0.9.14.orig/src/main.c etherape-0.9.14/src/main.c
---- etherape-0.9.14.orig/src/main.c	2016-02-06 08:39:57.000000000 +0100
-+++ etherape-0.9.14/src/main.c	2017-01-21 01:13:33.093843675 +0100
-@@ -26,8 +26,9 @@
- #endif
+ #include "diagram.h"
+diff -Naur etherape-0.9.15.orig/src/main.c etherape-0.9.15/src/main.c
+--- etherape-0.9.15.orig/src/main.c	2017-04-27 05:53:49.236303974 +0000
++++ etherape-0.9.15/src/main.c	2017-04-27 06:17:23.701057857 +0000
+@@ -28,8 +28,10 @@
  #include <netinet/in.h>
  #include <signal.h>
+ #include <glib.h>
 -#include <gnome.h>
 -#include <libgnomeui/gnome-client.h>
 +#include <popt.h>
 +#include <glib/gi18n.h>
 +#include <gtk/gtk.h>
++#include <libgnomecanvas/libgnomecanvas.h>
  #include "appdata.h"
- #include "ip-cache.h"
+ #include "names/ip-cache.h"
  #include "main.h"
-@@ -53,11 +54,6 @@
+@@ -60,11 +62,6 @@
   **************************************************************************/
  static void free_static_data(void);
  static void set_debug_level (void);
@@ -75,16 +63,16 @@ diff -Naur etherape-0.9.14.orig/src/main.c etherape-0.9.14/src/main.c
 -                          gpointer client_data);
  static void log_handler (gchar * log_domain, GLogLevelFlags mask, 
                           const gchar * message, gpointer user_data);
- 
-@@ -74,7 +70,6 @@
- main (int argc, char *argv[])
+ static GPtrArray *parse_position_file(const gchar *path);
+@@ -81,7 +78,6 @@
+ int main (int argc, char *argv[])
  {
    GtkWidget *widget;
 -  GnomeClient *client;
    gchar *mode_string = NULL;
    gchar *cl_filter = NULL;
    gchar *cl_interface = NULL;
-@@ -143,9 +138,7 @@
+@@ -188,9 +184,7 @@
  #else
    version = g_strdup(VERSION);
  #endif
@@ -94,10 +82,10 @@ diff -Naur etherape-0.9.14.orig/src/main.c etherape-0.9.14/src/main.c
 +  gtk_init (&argc, &argv);
    g_free(version);
  
-   appdata_init(&appdata);
-@@ -330,12 +323,6 @@
-   /* Sets controls to the values of variables and connects signals */
-   init_diagram (appdata.xml);
+   set_debug_level();
+@@ -311,12 +305,6 @@
+       gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(widget), FALSE);
+     }
  
 -  /* Session handling */
 -  client = gnome_master_client ();
@@ -108,7 +96,7 @@ diff -Naur etherape-0.9.14.orig/src/main.c etherape-0.9.14/src/main.c
    gtk_widget_show (appdata.app1);
  
    install_handlers();
-@@ -413,46 +400,6 @@
+@@ -496,46 +484,6 @@
      g_log_default_handler("EtherApe", mask, message, user_data);
  }
  
@@ -155,15 +143,15 @@ diff -Naur etherape-0.9.14.orig/src/main.c etherape-0.9.14/src/main.c
  
  /***************************************************************************
   *
-diff -Naur etherape-0.9.14.orig/src/Makefile.am etherape-0.9.14/src/Makefile.am
---- etherape-0.9.14.orig/src/Makefile.am	2015-06-06 08:57:12.000000000 +0200
-+++ etherape-0.9.14/src/Makefile.am	2017-01-21 01:10:35.818770100 +0100
-@@ -47,7 +47,7 @@
- 	datastructs.c datastructs.h \
- 	ui_utils.c ui_utils.h
+diff -Naur etherape-0.9.15.orig/src/Makefile.am etherape-0.9.15/src/Makefile.am
+--- etherape-0.9.15.orig/src/Makefile.am	2017-04-27 05:53:49.236303974 +0000
++++ etherape-0.9.15/src/Makefile.am	2017-04-27 06:04:43.992088744 +0000
+@@ -65,7 +65,7 @@
+ etherape_SOURCES += names/thread_resolve.c names/thread_resolve.h
+ endif
  
 -etherape_LDADD = $(ETHERAPE_LIBS) $(PCAP_LIBS) 
-+etherape_LDADD = $(ETHERAPE_LIBS) $(PCAP_LIBS) -lpthread 
- etherape_LDFLAGS = 
++etherape_LDADD = $(ETHERAPE_LIBS) $(PCAP_LIBS) -lpthread
+ etherape_LDFLAGS = $(ETHERAPE_LDFLAGS)
  
  .indent: $(etherape_SOURCES) $(etherape_INCLUDES)
