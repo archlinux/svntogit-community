@@ -26,7 +26,6 @@ build() {
 }
 
 package() {
-  pwd
   install -Dm755 ${srcdir}/output/bazel ${pkgdir}/usr/bin/bazel
   install -Dm755 ${srcdir}/bazel-bin/scripts/bazel-complete.bash ${pkgdir}/etc/bash_completion.d/bazel-complete.bash
   mkdir -p ${pkgdir}/opt/bazel/
