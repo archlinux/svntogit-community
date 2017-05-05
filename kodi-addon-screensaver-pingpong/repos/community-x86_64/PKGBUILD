@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-pingpong
-_commit=88c7fed
-pkgver=20170314.88c7fed
+_commit=21ae78d
+pkgver=20170429.21ae78d
 pkgrel=1
 pkgdesc="Ping-pong screensaver for Kodi"
 arch=('i686' 'x86_64')
