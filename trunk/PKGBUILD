@@ -13,7 +13,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.10
+pkgver=4.11
 pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
