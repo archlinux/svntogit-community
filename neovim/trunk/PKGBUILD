@@ -4,7 +4,7 @@
 
 pkgname=neovim
 pkgver=0.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('i686' 'x86_64')
 url='https://neovim.io'
@@ -39,7 +39,10 @@ check() {
 package() {
   cd "${srcdir}/build"
   make DESTDIR="${pkgdir}" install
-  install -Dm644 "${srcdir}/neovim-${pkgver}"/LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  cd "${srcdir}/neovim-${pkgver}"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 runtime/nvim.desktop "${pkgdir}/usr/share/applications/nvim.desktop"
+  install -Dm644 runtime/nvim.png "${pkgdir}/usr/share/pixmaps/nvim.png"
 }
 
 # vim:set sw=2 sts=2 et:
