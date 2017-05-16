@@ -2,7 +2,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=4.5.0
+pkgver=4.6.1
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -14,7 +14,7 @@ makedepends=('procps-ng' 'marked-man')
 optdepends=('python2: for node-gyp')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/npm/archive/v$pkgver.tar.gz")
-sha512sums=('e5b1f84c80316ff272024deb418c4c9f736649e58650816f4318c37617469902806e5252aa2301ad6bca59b3bcdaef8cfd9f7b9a2e48a8dddeb04d28eb4fdd43')
+sha512sums=('2d2a7c22fa5d31bf63fc2e04d4ac2c4ffd0d9d80055ae40348d994968a47eff26897cbc554bb4de900c54959ae8ce6b89295178ad243c1c7a25730d3f194b0db')
 
 prepare() {
   cd npm-$pkgver
