@@ -1,0 +1,77 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor  Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+# Contributor: Thomas Dziedzic < gostrc at gmail >
+# Contributor: James Campos <james.r.campos@gmail.com>
+# Contributor: BlackEagle < ike DOT devolder AT gmail DOT com >
+# Contributor: Dongsheng Cai <dongsheng at moodle dot com>
+# Contributor: Masutu Subric <masutu.arch at googlemail dot com>
+# Contributor: TIanyi Cui <tianyicui@gmail.com>
+
+pkgname=nodejs
+pkgver=7.10.0
+pkgrel=2
+pkgdesc='Evented I/O for V8 javascript'
+arch=('i686' 'x86_64')
+url='http://nodejs.org/'
+license=('MIT')
+depends=('openssl-1.0' 'zlib' 'icu' 'libuv' 'http-parser' 'c-ares') # 'v8')
+makedepends=('python2' 'procps-ng')
+optdepends=('npm: nodejs package manager')
+source=("nodejs-$pkgver.tar.gz::https://github.com/nodejs/node/archive/v$pkgver.tar.gz"
+        'nodejs-v8-icu59.patch')
+sha512sums=('b5a1c5167e9f22fccdf61e33a28b03f12c5bb51e4ceefa27b021c5c7e0f3c2ed021cb7ee0b34ea8c4fbf7cafc7a2658a64a7eaa73d75c4905c10683be32bbeb3'
+            'da8071f9b5d7c88c13b812cd422de412c7720a7644620be5e0af8fc79a4af8d8e764308b7607022953a0270c67a6cb2d98d5bad7c2c3974066ec348e4fe86c7b')
+
+prepare() {
+  cd node-$pkgver
+
+  # https://github.com/nodejs/node/pull/11754#issuecomment-285407461
+  patch -Np1 -d deps/v8 <../nodejs-v8-icu59.patch
+
+  msg 'Fixing for python2 name'
+  find -type f -exec sed \
+    -e 's_^#!/usr/bin/env python$_&2_' \
+    -e 's_^\(#!/usr/bin/python2\).[45]$_\1_' \
+    -e 's_^#!/usr/bin/python$_&2_' \
+    -e 's_^\( *exec \+\)python\( \+.*\)$_\1python2\2_'\
+    -e 's_^\(.*\)python\( \+-c \+.*\)$_\1python2\2_'\
+    -e "s_'python'_'python2'_" -i {} \;
+  find test/ -type f -exec sed 's_python _python2 _' -i {} \;
+}
+
+build() {
+  cd node-$pkgver
+
+  export PKG_CONFIG_PATH=/usr/lib/openssl-1.0/pkgconfig
+  export PYTHON=python2
+  ./configure \
+    --prefix=/usr \
+    --with-intl=system-icu \
+    --without-npm \
+    --shared-openssl \
+    --shared-zlib \
+    --shared-libuv \
+    --shared-http-parser \
+    --shared-cares
+    # --shared-v8
+
+  make
+}
+
+check() {
+  cd node-$pkgver
+  # Expected failure: https://github.com/nodejs/node/issues/11627
+  make test || warning "Tests failed"
+}
+
+package() {
+  cd node-$pkgver
+
+  make DESTDIR="$pkgdir" install
+
+  install -D -m644 LICENSE \
+    "$pkgdir"/usr/share/licenses/nodejs/LICENSE
+}
+
+# vim:set ts=2 sw=2 et:
