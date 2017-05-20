@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-asteroids
-_commit=5d6fd4e
-pkgver=20170429.5d6fd4e
+_commit=7da0c9f
+pkgver=20170516.7da0c9f
 pkgrel=1
 pkgdesc="Asteroids screensaver for Kodi"
 arch=('i686' 'x86_64')
