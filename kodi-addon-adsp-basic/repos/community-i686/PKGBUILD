@@ -2,9 +2,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-adsp-basic
-_commit=2ae604e
-pkgver=20160519.2ae604e
-pkgrel=2
+_commit=a55b431
+pkgver=20170518.a55b431
+pkgrel=1
 pkgdesc="Basic AudioDSP add-on for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/kodi-adsp/adsp.basic'
