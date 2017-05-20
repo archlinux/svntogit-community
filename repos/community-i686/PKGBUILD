@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-stars
-_commit=6c62026
-pkgver=20170429.6c62026
+_commit=bab52f8
+pkgver=20170516.bab52f8
 pkgrel=1
 pkgdesc="Starfield screensaver for Kodi"
 arch=('i686' 'x86_64')
