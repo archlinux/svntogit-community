@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-biogenesis
-_commit=8d1ef04
-pkgver=20170429.8d1ef04
+_commit=5d0a8db
+pkgver=20170516.5d0a8db
 pkgrel=1
 pkgdesc="BioGenesis screensaver for Kodi"
 arch=('i686' 'x86_64')
