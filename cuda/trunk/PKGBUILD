@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=8.0.61
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -54,17 +54,31 @@ package() {
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
 
+  # Needs Gcc 5.x.x
   ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++-5 "${pkgdir}/opt/cuda/bin/g++"
 
+  # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
   install -Dm644 "${srcdir}/cuda.conf" "${pkgdir}/etc/ld.so.conf.d/cuda.conf"
 
   mkdir -p "${pkgdir}/usr/share/licenses/${pkgname}"
   ln -s /opt/cuda/doc/pdf/EULA.pdf "${pkgdir}/usr/share/licenses/${pkgname}/EULA.pdf"
 
-  # remove redundant man and samples
+  # Remove redundant man and samples
   rm -fr "${pkgdir}/opt/cuda/doc/man"
   rm -fr "${pkgdir}/opt/cuda/cuda-samples"
   rm -fr "${pkgdir}/usr/share/man/man3/deprecated.3"*
+
+  # Remove included copy of java and link to system java
+  rm -fr  "${pkgdir}/opt/cuda/jre"
+  sed 's|../jre/bin/java|/usr/bin/java|g' \
+    -i "${pkgdir}/opt/cuda/libnsight/nsight.ini" \
+    -i "${pkgdir}/opt/cuda/libnvvp/nvvp.ini"
+
+  # Remove unused files
+  rm -fr "${pkgdir}/opt/cuda/"{bin,samples}"/.uninstall_manifest_do_not_delete.txt"
+  rm -fr "${pkgdir}/opt/cuda/samples/uninstall_cuda_samples_8.0.pl"
+  rm -fr "${pkgdir}/opt/cuda/bin/cuda-install-samples-8.0.sh"
+  rm -fr "${pkgdir}/opt/cuda/bin/uninstall_cuda_toolkit_8.0.pl"
 }
