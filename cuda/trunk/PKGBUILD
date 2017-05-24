@@ -17,10 +17,10 @@ source=(https://developer.nvidia.com/compute/cuda/8.0/Prod2/local_installers/cud
         cuda.sh
         cuda.conf
         cuda-findgllib_mk.diff)
-md5sums=('33e1bd980e91af4e55f3ef835c103f9b'
-         '7e5990e03eea90075f5a500e91a0c3d3'
-         '71420ee4e90c65df21c6c5d34373c245'
-         '6476452a339c12d8ca18b5feb47100cc')
+sha512sums=('d22303719a9feff64f95bf6a966f1caa2bf0cf8c955e475ce08ce54faa5e098d336c2db223ef0185c1f23b9c52b7d2f81a63515485219cfc016d72bda979248b'
+            'ce0b8df5d918ec8429da4ab8f9dee463ac04055ee5b0beeb0386b67d765a4c892d314995776a0d695cd06bcfbaf996e4904935ddc898a9d774f6bf965d989dea'
+            '66bd93ecab7e1aa07218c3dd1c96e460f63ed4ac47e853ecb313c78a58e5425c8a5772f1c7f73d696bf5f93fc3e556a046a4ed955a53d900976ac525abd1f518'
+            '89cbe7ce38039188fa0a0b9554fb938e95aa0ced5bc65479c1bdb6f8e063530a8a7002dbf7c287a8d22aea449014c4502e487fa07ea1efa110db4def02819dfe')
 
 prepare() {
   sh cuda_${pkgver}_375.26_linux-run -extract=${srcdir}
