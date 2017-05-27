@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-greynetic
-_commit=b8fbd5a
-pkgver=20170516.b8fbd5a
+epoch=1
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Greynetic screensaver for Kodi"
 arch=('i686' 'x86_64')
@@ -11,17 +11,12 @@ url='github.com/notspiff/screensaver.greynetic'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi')
-makedepends=('git' 'cmake' 'kodi-dev')
-source=("$pkgname::git://github.com/notspiff/screensaver.greynetic.git#commit=$_commit")
-sha256sums=('SKIP')
-
-pkgver() {
-	cd "$pkgname"
-	git log -1 --date=short --format="%cd.%h" | tr -d '-'
-}
+makedepends=('cmake' 'kodi-dev')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/notspiff/screensaver.greynetic/archive/v$pkgver.tar.gz")
+sha512sums=('ebc35da057f425ab5a4832324f4e26bbd6767aa1aed13177073caab8a099b4a4cbcb6e9c84ae88970eb13401bdf411422588ed9ba83a9d5d9749c3add6e43375')
 
 build() {
-	cd "$pkgname"
+    cd "screensaver.greynetic-$pkgver"
 	cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +26,7 @@ build() {
 }
 
 package() {
-	cd "$pkgname"
+    cd "screensaver.greynetic-$pkgver"
 	make DESTDIR="$pkgdir/" install
 }
 
