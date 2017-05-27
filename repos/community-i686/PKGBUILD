@@ -2,26 +2,20 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-fishbmc
-_commit=b1d1ea6
-pkgver=20170518.b1d1ea6
+epoch=1
+pkgver=4.1.0
 pkgrel=1
-pkgdesc="Fische visualizer for Kodi"
+pkgdesc="Fisch visualizer for Kodi"
 arch=('i686' 'x86_64')
 url='https://github.com/notspiff/visualization.fishbmc'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi')
-makedepends=('git' 'cmake' 'kodi-dev')
-source=("$pkgname::git://github.com/notspiff/visualization.fishbmc.git#commit=$_commit")
-sha256sums=('SKIP')
-
-pkgver() {
-	cd "$pkgname"
-	git log -1 --date=short --format="%cd.%h" | tr -d '-'
-}
+makedepends=('cmake' 'kodi-dev')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/notspiff/visualization.fishbmc/archive/v$pkgver.tar.gz")
 
 build() {
-	cd "$pkgname"
+    cd "visualization.fishbmc-$pkgver"
 	cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +25,8 @@ build() {
 }
 
 package() {
-	cd "$pkgname"
+    cd "visualization.fishbmc-$pkgver"
 	make DESTDIR="$pkgdir/" install
 }
 
+sha512sums=('6107228b8a3f92a047003ef3a34dc57d187d9c6b1f28e2f8d326fd71e7e7b586750c02a3bb9b11cdda322cbdc5d3fe0146c08364029da028fd65d0f3a13a3358')
