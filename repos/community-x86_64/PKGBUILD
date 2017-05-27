@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-stars
-_commit=bab52f8
-pkgver=20170516.bab52f8
+epoch=1
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Starfield screensaver for Kodi"
 arch=('i686' 'x86_64')
@@ -12,16 +12,10 @@ license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi')
 makedepends=('git' 'cmake' 'kodi-dev')
-source=("$pkgname::git://github.com/notspiff/screensaver.stars.git#commit=$_commit")
-sha256sums=('SKIP')
-
-pkgver() {
-	cd "$pkgname"
-	git log -1 --date=short --format="%cd.%h" | tr -d '-'
-}
+source=("$pkgname-$pkgver.tar.gz::https://github.com/notspiff/screensaver.stars/archive/v$pkgver.tar.gz")
 
 build() {
-	cd "$pkgname"
+    cd "screensaver.stars-$pkgver"
 	cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +25,8 @@ build() {
 }
 
 package() {
-	cd "$pkgname"
+    cd "screensaver.stars-$pkgver"
 	make DESTDIR="$pkgdir/" install
 }
 
+sha512sums=('8eae14c604c6687d8703d5fe0c20b98a741f11944b8a0b7931a2bcfd84b0b60da91bfdb089b1eaa50a844dd6e25844d4725b2959ef439a93d1e2660a5cab332d')
