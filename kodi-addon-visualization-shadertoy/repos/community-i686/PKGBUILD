@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-shadertoy
-_commit=8fc93dc
-pkgver=20170518.8fc93dc
+epoch=1
+pkgver=1.1.5
 pkgrel=1
 pkgdesc="Shadertoy visualizer for Kodi"
 arch=('i686' 'x86_64')
@@ -11,17 +11,12 @@ url='https://github.com/notspiff/visualization.shadertoy'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi' 'p8-platform')
-makedepends=('git' 'cmake' 'kodi-dev')
-source=("$pkgname::git://github.com/notspiff/visualization.shadertoy.git#commit=$_commit")
-sha256sums=('SKIP')
-
-pkgver() {
-	cd "$pkgname"
-	git log -1 --date=short --format="%cd.%h" | tr -d '-'
-}
+makedepends=('cmake' 'kodi-dev')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/notspiff/visualization.shadertoy/archive/v$pkgver.tar.gz")
+sha512sums=('557cc9567707ab53c63537f760b552c4129f45a4c99346acf9d00f8fea5249af1a8af9ea6fc8587e7ab6e24c8a686356e5bacf0a2cb34dcc8b38059c36127e43')
 
 build() {
-	cd "$pkgname"
+    cd "visualization.shadertoy-$pkgver"
 	cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +26,7 @@ build() {
 }
 
 package() {
-	cd "$pkgname"
+    cd "visualization.shadertoy-$pkgver"
 	make DESTDIR="$pkgdir/" install
 }
 
