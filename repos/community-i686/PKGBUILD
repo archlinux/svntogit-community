@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-screensaver-asteroids
-_commit=7da0c9f
-pkgver=20170516.7da0c9f
+epoch=1
+pkgver=1.1.2
 pkgrel=1
 pkgdesc="Asteroids screensaver for Kodi"
 arch=('i686' 'x86_64')
@@ -11,17 +11,12 @@ url='https://github.com/notspiff/screensaver.asteroids'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi')
-makedepends=('git' 'cmake' 'kodi-dev')
-source=("$pkgname::git://github.com/notspiff/screensaver.asteroids.git#commit=$_commit")
-sha256sums=('SKIP')
-
-pkgver() {
-	cd "$pkgname"
-	git log -1 --date=short --format="%cd.%h" | tr -d '-'
-}
+makedepends=('cmake' 'kodi-dev')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/notspiff/screensaver.asteroids/archive/v$pkgver.tar.gz")
+sha512sums=('96c760d7ad84d1676a621156a3b3220204783155335a4e7314b094f29bb21c0ddfc98309c0a21c07014f2d6c3ade0fc88eee2af7b84a5997d44190b73cf8783b')
 
 build() {
-	cd "$pkgname"
+    cd "screensaver.asteroids-$pkgver"
 	cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +26,7 @@ build() {
 }
 
 package() {
-	cd "$pkgname"
+    cd "screensaver.asteroids-$pkgver"
 	make DESTDIR="$pkgdir/" install
 }
 
