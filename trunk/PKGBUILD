@@ -2,8 +2,8 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-visualization-waveform
-_commit=18af2da
-pkgver=20170518.18af2da
+epoch=1
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Waveform visualizer for Kodi"
 arch=('i686' 'x86_64')
@@ -11,17 +11,12 @@ url='https://github.com/notspiff/visualization.waveform'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-visualization')
 depends=('kodi')
-makedepends=('git' 'cmake' 'kodi-dev')
-source=("$pkgname::git://github.com/notspiff/visualization.waveform.git#commit=$_commit")
-sha256sums=('SKIP')
-
-pkgver() {
-	cd "$pkgname"
-	git log -1 --date=short --format="%cd.%h" | tr -d '-'
-}
+makedepends=('cmake' 'kodi-dev')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/notspiff/visualization.waveform/archive/v$pkgver.tar.gz")
+sha512sums=('243696af3388506a52c46c8e636f5cbe973c916e1b03f24ad58327642721cf1a492fb16a7a0e69cd80732b8b435b009862dffca78dc8974f86cbb092a6aff195')
 
 build() {
-	cd "$pkgname"
+    cd "visualization.waveform-$pkgver"
 	cmake \
 		-DCMAKE_INSTALL_PREFIX=/usr \
 		-DCMAKE_BUILD_TYPE=Release \
@@ -31,7 +26,7 @@ build() {
 }
 
 package() {
-	cd "$pkgname"
+    cd "visualization.waveform-$pkgver"
 	make DESTDIR="$pkgdir/" install
 }
 
