@@ -46,8 +46,15 @@ md5sums=('SKIP'
 
 prepare() {
   cd linux
+
+  # usbip: Fix implicit fallthrough warning
+  git cherry-pick -n cfd6ed4537a9e938fa76facecd4b9cd65b6d1563
+  # usbip: Fix potential format overflow in userspace tools
+  git cherry-pick -n e5dfa3f902b9a642ae8c6997d57d7c41e384a90b
+
   # apply stable kernel patch
   #patch -p1 -N -i "$srcdir"/patch-4.7.5
+
   # apply patch from the source array (should be a pacman feature)
   local filename
   for filename in "${source[@]}"; do
@@ -56,7 +63,6 @@ prepare() {
       patch -p1 -N -i "$srcdir/${filename##*/}"
     fi
   done
-  :
 }
 
 build() {
