@@ -2,15 +2,15 @@
 # Contributor: Tyler Langlois <ty |at| tjll |dot| net>
 
 pkgbase=beats
-pkgname=(filebeat packetbeat metricbeat)
+pkgname=(filebeat packetbeat metricbeat heartbeat)
 pkgver=5.4.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Data shippers for Elasticsearch'
 arch=('i686' 'x86_64')
 url='https://www.elastic.co/products/beats'
 license=('APACHE')
 depends=('glibc')
-makedepends=('go' 'git' 'libpcap')
+makedepends=('go' 'git' 'libpcap' 'rsync')
 optdepends=('elasticsearch: for standalone installation'
             'python: for migration script')
 options=('!strip')
@@ -19,17 +19,21 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "filebeat.service"
         "packetbeat.service"
         "metricbeat.service"
+        "heartbeat.service"
         "filebeat-tmpfile.conf"
         "packetbeat-tmpfile.conf"
-        "metricbeat-tmpfile.conf")
+        "metricbeat-tmpfile.conf"
+        "heartbeat-tmpfile.conf")
 sha256sums=('1be33563960699941006fd6957bd9ddcfe923b2299a7d589b35a390d0111eb8d'
             '33feb3690f8b31563cc1e2da557c2aa326501ce9ccd7e0a142036902bfdb05ff'
             '4d5394cfe3299c9a6af5ac34c1ad4bcdc2e79162379cccbf00fb414eb28253c0'
             '9f4e33fc768d3500fa3428dcbfda241c6473a2cae8cc4dbadf8f61ca9f2bbec5'
             '26b123acd96808162a7f827ce6f0e9669140c2665fc28d76583a15996fbf853d'
+            '212cb4ab5a02d7078025f7d1f50f48e5caa25debce0852cf68cd8f89ed0a8d09'
             'ec999a29bc19d1b36b84e03cbd7b00b29d3e08c97ca03043b9fd6bfbe04c5e2d'
             '3f3ead4168d5b4953cca883d8a3c4552c26a75f52cedfcf6c7785bfd7bbae3c4'
-            'cb927141d3bed94cb5570789dd9fc97713e967580ee354ff393020811f087dca')
+            'cb927141d3bed94cb5570789dd9fc97713e967580ee354ff393020811f087dca'
+            '9629931db8455891f0a6e9f9c91272716f2b47ec88f8a49e601423a16c7cdba5')
 
 prepare() {
     cd beats-$pkgver
@@ -59,12 +63,16 @@ build() {
         make BEAT=$beat
         mv import_dashboards import_dashboards-$beat
     done
+
+    cd "$srcdir"/beats-$pkgver/filebeat
+    make modules
 }
 
 _do_package_beat() {
     backup=(etc/$pkgname/$pkgname.yml etc/$pkgname/$pkgname.template{,-es2x,-es6x}.json)
 
     cd beats-$pkgver/$pkgname
+    make install-home HOME_PREFIX="$pkgdir"/usr/share/$pkgname
 
     install -dm755 "$pkgdir"/var/lib/$pkgname
 
@@ -81,8 +89,6 @@ _do_package_beat() {
     cd ../libbeat
     install -Dm755 dashboards/import_dashboards-$pkgname \
                    "$pkgdir"/usr/share/$pkgname/scripts/import_dashboards
-    install -Dm755 scripts/migrate_beat_config_1_x_to_5_0.py \
-                   "$pkgdir"/usr/share/$pkgname/scripts/migrate_beat_config_1_x_to_5_0.py
 }
 
 package_filebeat() {
@@ -103,6 +109,14 @@ package_packetbeat() {
 }
 
 package_metricbeat() {
+    pkgdesc='Server monitoring agent that stores metrics in Elasticsearch'
+    conflicts=('topbeat')
+    replaces=('topbeat')
+
+    _do_package_beat
+}
+
+package_heartbeat() {
     pkgdesc='Server monitoring agent that stores metrics in Elasticsearch'
     conflicts=('topbeat')
     replaces=('topbeat')
