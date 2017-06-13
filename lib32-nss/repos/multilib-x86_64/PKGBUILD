@@ -3,55 +3,42 @@
 # Contributor: kfgz <kfgz at interia pl>
 # Contributor: Ionut Biru <ibiru at archlinux dot org>
 
-_pkgbasename=nss
-pkgname=lib32-${_pkgbasename}
-pkgver=3.30.2
-pkgrel=1
+pkgname=lib32-nss
+pkgver=3.31
+pkgrel=3
 pkgdesc="Network Security Services (32-bit)"
 url="https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS"
 arch=(x86_64)
-license=('MPL' 'GPL')
-_nsprver=4.12
-depends=("lib32-nspr>=${_nsprver}" 'lib32-sqlite' 'lib32-zlib' 'lib32-p11-kit' "${_pkgbasename}")
-makedepends=('gcc-multilib' 'perl')
-options=('!strip' '!makeflags' 'staticlibs')
-source=("https://ftp.mozilla.org/pub/security/nss/releases/NSS_${pkgver//./_}_RTM/src/${_pkgbasename}-${pkgver}.tar.gz"
-        nss.pc.in)
-sha256sums=('0d4a77ff26bcee79fa8afe0125e0df6ae9e798b6b36782fa29e28febf7cfce24'
-            'b9f1428ca2305bf30b109507ff335fa00bce5a7ce0434b50acd26ad7c47dd5bd')
+license=(MPL GPL)
+_nsprver=4.15
+depends=("lib32-nspr>=${_nsprver}" lib32-sqlite lib32-zlib lib32-p11-kit nss)
+makedepends=(gcc-multilib perl gyp)
+options=(!strip !makeflags staticlibs)
+source=("https://ftp.mozilla.org/pub/security/nss/releases/NSS_${pkgver//./_}_RTM/src/nss-${pkgver}.tar.gz"
+        nss.pc.in enable-libpkix.patch)
+sha256sums=('e90561256a3271486162c1fbe8d614d118c333d36a4455be2af8688bd420a65d'
+            'f2208c4f70373ff9b60f53d733f8071d4e390c384b776dfc04bf26c306882faf'
+            '0b68c5ffbfeec090e950e5703e6b0519eafcb7eaf4fe2f64c355d0ddf17eed30')
 
 prepare() {
+  mkdir path
+
+  ln -s /usr/bin/python2 path/python
+
   cd nss-$pkgver
 
-  # Respect LDFLAGS
-  sed -e 's/\$(MKSHLIB) -o/\$(MKSHLIB) \$(LDFLAGS) -o/' \
-      -i nss/coreconf/rules.mk
+  patch -Np1 -i ../enable-libpkix.patch
 }
 
 build() {
-  cd nss-$pkgver/nss
   export PKG_CONFIG_PATH=/usr/lib32/pkgconfig
-  export BUILD_OPT=1
-  export NSS_USE_SYSTEM_SQLITE=1
-  export NSS_ALLOW_SSLKEYLOGFILE=1
-  export NSS_ENABLE_ECC=1
-  export NSPR_INCLUDE_DIR="`nspr-config --includedir`"
-  export NSPR_LIB_DIR="`nspr-config --libdir`"
-  export XCFLAGS="${CFLAGS}"
 
-  make -C coreconf
-  make -C lib/dbm
-  make
+  cd nss-$pkgver/nss
+  PATH="$srcdir/path:$PATH" ./build.sh --m32 --opt --system-sqlite --system-nspr --disable-tests
 }
 
 package() {
   cd nss-$pkgver
-
-  install -d "$pkgdir"/usr/lib32/pkgconfig
-
-  NSS_VMAJOR=$(grep '#define.*NSS_VMAJOR' nss/lib/nss/nss.h | awk '{print $3}')
-  NSS_VMINOR=$(grep '#define.*NSS_VMINOR' nss/lib/nss/nss.h | awk '{print $3}')
-  NSS_VPATCH=$(grep '#define.*NSS_VPATCH' nss/lib/nss/nss.h | awk '{print $3}')
 
   sed ../nss.pc.in \
     -e "s,%libdir%,/usr/lib32,g" \
@@ -59,14 +46,13 @@ package() {
     -e "s,%exec_prefix%,/usr/bin,g" \
     -e "s,%includedir%,/usr/include/nss,g" \
     -e "s,%NSPR_VERSION%,${_nsprver},g" \
-    -e "s,%NSS_VERSION%,${pkgver},g" \
-    > "$pkgdir/usr/lib32/pkgconfig/nss.pc"
+    -e "s,%NSS_VERSION%,${pkgver},g" |
+    install -Dm644 /dev/stdin "$pkgdir/usr/lib32/pkgconfig/nss.pc"
   ln -s nss.pc "$pkgdir/usr/lib32/pkgconfig/mozilla-nss.pc"
 
-  cd dist/*.OBJ/lib
-  install -t "$pkgdir/usr/lib32" *.so
-  install -t "$pkgdir/usr/lib32" -m644 libcrmf.a *.chk
+  cd dist/Release/lib
+  install -Dt "$pkgdir/usr/lib32" *.so
+  install -Dt "$pkgdir/usr/lib32" -m644 *.chk
 
-  rm "$pkgdir/usr/lib32/libnssckbi.so"
-  ln -s libnssckbi-p11-kit.so "$pkgdir/usr/lib32/libnssckbi.so"
+  ln -sf libnssckbi-p11-kit.so "$pkgdir/usr/lib32/libnssckbi.so"
 }
