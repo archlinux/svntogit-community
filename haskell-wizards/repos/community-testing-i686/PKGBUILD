@@ -1,0 +1,48 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=wizards
+pkgname=haskell-wizards
+pkgver=1.0.2
+pkgrel=1
+pkgdesc="High level, generic library for interrogative user interfaces"
+url="https://hackage.haskell.org/package/wizards"
+license=("custom:BSD2")
+arch=('i686' 'x86_64')
+depends=("ghc" "haskell-control-monad-free" "haskell-mtl")
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('a4995fbda8ef352e7befd1ec92c3f8e62e17929a1e527fb053621b45bbc611879900acb6a44a4c4836f964f2f88c5bf9707d18ee183f06b8d829addb5292a420')
+
+prepare() {
+    sed -i 's/transformers >= 0.1 && < 0.5/transformers >= 0.1 \&\& < 0.6/' ${_hkgname}-${pkgver}/${_hkgname}.cabal
+}
+
+build() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${_hkgname}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+
+    # Remove static libs
+    find "$pkgdir"/usr/lib -name "*.a" -delete
+}
