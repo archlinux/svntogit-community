@@ -7,7 +7,7 @@
 # Contributor: Carl George <arch at cgtx dot us> PGP-Key: 4BA2F7E101D9F512
 
 pkgname=rkt
-pkgver=1.26.0
+pkgver=1.27.0
 pkgrel=1
 pkgdesc="App container runtime"
 arch=('x86_64')
@@ -32,17 +32,18 @@ source=(https://github.com/coreos/rkt/archive/v$pkgver/$pkgname-$pkgver.tar.gz
         coreos_production_pxe_image-$CCN_IMG_RELEASE.cpio.gz.sig::http://alpha.release.core-os.net/amd64-usr/$CCN_IMG_RELEASE/coreos_production_pxe_image.cpio.gz.sig
         https://www.kernel.org/pub/linux/kernel/v4.x/linux-$KERNEL_VERSION.tar.xz
         kvmtool-$KVMTOOL_VERSION.tar.gz::https://kernel.googlesource.com/pub/scm/linux/kernel/git/will/kvmtool/+archive/$KVMTOOL_VERSION.tar.gz
-        rkt.sysusers)
+        rkt.sysusers
+        ilog2.patch)
 noextract=(coreos_production_pxe_image.cpio.gz
-           linux-$KERNEL_VERSION.tar.xz
            kvmtool-$KVMTOOL_VERSION.tar.gz)
 validpgpkeys=('04127D0BFABEC8871FFB2CCE50E0885593D2DCB4' '48F9B96A2E16137F')
-sha256sums=('35dbecd8ff76bf538465fd783a7690519f32185330d9f4610f762ab19d956b3c'
+sha256sums=('213427c551ddc912622e967b30437e13485b88dcf7021c977a3205a1b03801a1'
             '988e4ad8e044dd8bff54cb5e0a34a1ed25cf7bc8cc241f1a90e3fe7f1412f315'
             'SKIP'
             '8dda9aedd17ae0bf1e06ebb4b79082f83fb3ade45cbcc3ca4c30bf3faf085738'
-            '8de67147aad19c8752b8d49502764f81431ac38816dec1bb055081215443c9ca'
-            '2aee4e8547843f4e6c032761b97cb723c1ecd384d508b86f44d16826bc34d6d6')
+            'b531d7247319ed4fba1f3d8b8fc4025762611d14ef5412a61d2ed8f32f58f5cb'
+            '2aee4e8547843f4e6c032761b97cb723c1ecd384d508b86f44d16826bc34d6d6'
+            '4b836472870b94f74294752af259751ce87bc0c53a3d40f93a70da3bf6512bdf')
 
 prepare() {
   cd "$srcdir"/$pkgname-$pkgver
@@ -53,14 +54,22 @@ prepare() {
   bsdtar -xf "$srcdir"/kvmtool-$KVMTOOL_VERSION.tar.gz \
          -C build-rkt-$pkgver/tmp/usr_from_kvm/lkvm/src
 
+  # fix makedev definition
+  sed '/^#include <sys\/stat.h>$/a #include <sys/sysmacros.h>' -i \
+      build-rkt-$pkgver/tmp/usr_from_kvm/lkvm/src/virtio/9p.c
+
+  # do not extract kernel sources
+  sed '/^\$(call forward-vars,\$(KERNEL_MAKEFILE)/,/tar --extract/d' -i \
+      stage1/usr_from_kvm/kernel.mk
+
   # place prefetched kernel sources
   ln -s "$srcdir"/linux-$KERNEL_VERSION.tar.xz \
         build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
+  ln -s "$srcdir"/linux-$KERNEL_VERSION \
+        build-rkt-$pkgver/tmp/usr_from_kvm/kernel/
 
-  # fix makedev definition
-  sed '/^#include <sys\/stat.h>$/a #include <sys/sysmacros.h>' -i \
-      stage1/prepare-app/prepare-app.c \
-      build-rkt-$pkgver/tmp/usr_from_kvm/lkvm/src/virtio/9p.c
+  cd build-rkt-$pkgver/tmp/usr_from_kvm/kernel/linux-$KERNEL_VERSION
+  patch -p1 -i "$srcdir"/ilog2.patch
 }
 
 build() {
