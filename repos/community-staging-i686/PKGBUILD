@@ -1,0 +1,79 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=stack
+pkgver=1.4.0
+pkgrel=88
+pkgdesc="The Haskell Tool Stack"
+url="https://github.com/commercialhaskell/stack"
+license=("custom:BSD3")
+arch=('i686' 'x86_64')
+depends=('ghc' "haskell-aeson" "haskell-annotated-wl-pprint" "haskell-ansi-terminal"
+         "haskell-async" "haskell-attoparsec" "haskell-base-compat" "haskell-base64-bytestring"
+         "haskell-binary-tagged" "haskell-blaze-builder" "haskell-clock" "haskell-conduit"
+         "haskell-conduit-extra" "haskell-cryptonite" "haskell-cryptonite-conduit"
+         "haskell-either" "haskell-errors" "haskell-exceptions" "haskell-extra"
+         "haskell-fast-logger" "haskell-file-embed" "haskell-filelock" "haskell-fsnotify"
+         "haskell-generic-deriving" "haskell-gitrev" "haskell-hackage-security"
+         "haskell-hashable" "haskell-hastache" "haskell-hit" "haskell-http-client"
+         "haskell-http-client-tls" "haskell-http-conduit" "haskell-http-types" "haskell-hpack"
+         "haskell-lifted-async" "haskell-lifted-base" "haskell-memory" "haskell-microlens"
+         "haskell-microlens-mtl" "haskell-monad-control" "haskell-monad-logger"
+         "haskell-monad-unlift" "haskell-mtl" "haskell-network-uri" "haskell-open-browser"
+         "haskell-optparse-applicative" "haskell-optparse-simple" "haskell-path"
+         "haskell-path-io" "haskell-persistent" "haskell-persistent-sqlite"
+         "haskell-persistent-template" "haskell-pid1" "haskell-project-template"
+         "haskell-regex-applicative-text" "haskell-resourcet" "haskell-retry" "haskell-safe"
+         "haskell-safe-exceptions" "haskell-semigroups" "haskell-split" "haskell-stm"
+         "haskell-store" "haskell-streaming-commons" "haskell-tar" "haskell-temporary"
+         "haskell-text" "haskell-text-binary" "haskell-text-metrics" "haskell-tls"
+         "haskell-transformers-base" "haskell-unicode-transforms" "haskell-unix-compat"
+         "haskell-unordered-containers" "haskell-vector" "haskell-vector-binary-instances"
+         "haskell-yaml" "haskell-zip-archive" "haskell-zlib")
+conflicts=('haskell-stack')
+replaces=('haskell-stack')
+install="stack.install"
+source=("$pkgname-$pkgver.tar.gz::https://github.com/commercialhaskell/stack/archive/v$pkgver.tar.gz"
+        "store-0.4.patch::https://github.com/commercialhaskell/stack/commit/d3637126b9045b266d2e53387e183915cb4a912d.patch")
+sha256sums=('595d311ad117e41ad908b7065743917542b40f343d1334673e98171ee74d36e6'
+            '63d0f620dcbde3a7f236aadab32f5fa3e2b93741dcf462392624bb30b6b49c16')
+
+prepare() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    patch -p1 -i ../store-0.4.patch
+    sed -i 's/PathException/InvalidPathException/' src/System/Process/Read.hs
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-disable-git-info -f-integration-tests -f-static -f-hide-dependency-versions
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${pkgname}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+    
+    LD_PRELOAD=$(ls "$pkgdir"/usr/lib/libHSstack-*-ghc*.so) "${pkgdir}"/usr/bin/stack --bash-completion-script /usr/bin/stack > stack_completion_script
+    install -Dm644 stack_completion_script "${pkgdir}/usr/share/bash-completion/completions/stack"
+
+    # Remove static libs
+    find "$pkgdir"/usr/lib -name "*.a" -delete
+}
