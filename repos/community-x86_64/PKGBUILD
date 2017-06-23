@@ -4,31 +4,42 @@
 
 pkgname=hindent
 pkgver=5.2.3
-pkgrel=13
+pkgrel=19
 pkgdesc="Extensible Haskell pretty printer"
 url="https://github.com/commercialhaskell/hindent"
 license=("custom:BSD3")
 arch=('i686' 'x86_64')
-depends=('gmp' 'libffi')
-makedepends=("ghc=8.0.1" "haskell-descriptive" "haskell-exceptions" "haskell-monad-loops"
-             "haskell-mtl" "haskell-path" "haskell-path-io" "haskell-src-exts" "haskell-text"
-             "haskell-unix-compat" "haskell-utf8-string" "haskell-yaml")
+depends=('ghc' "haskell-descriptive" "haskell-exceptions" "haskell-monad-loops" "haskell-mtl"
+         "haskell-path" "haskell-path-io" "haskell-src-exts" "haskell-text" "haskell-unix-compat"
+         "haskell-utf8-string" "haskell-yaml")
 source=("https://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('478c207ffb408e31f15dbc5bf941acdc9116de1c775d393cb59514e4a28354865d808715005a7e6f076b86d4e5f5c0f389059c16d4761ffcec31953d2d88d969')
 
 build() {
     cd "${srcdir}/${pkgname}-${pkgver}"
     
-    runhaskell Setup configure -O --prefix=/usr \
-        --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname"
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
     runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
 }
 
 package() {
     cd "${srcdir}/${pkgname}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${pkgname}"
     runhaskell Setup copy --destdir="${pkgdir}"
-    rm -r "$pkgdir"/usr/{lib,share/doc}
-
     install -D -m644 "LICENSE.md" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md"
     rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE.md"
+
+    # Remove static libs
+    find "$pkgdir"/usr/lib -name "*.a" -delete
 }
