@@ -3,12 +3,11 @@
 
 pkgname=haskell-pango
 pkgver=0.13.3.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Binding to the pango library for Gtk2Hs."
 url="https://hackage.haskell.org/package/pango"
 license=('LGPL2.1')
 arch=('i686' 'x86_64')
-# deps adjusted to specific versions in package()
 depends=('ghc' 'pango' 'haskell-glib' 'haskell-cairo')
 makedepends=("haskell-gtk2hs-buildtools" "mesa")
 provides=('gtk2hs-pango')
@@ -18,37 +17,29 @@ source=(https://hackage.haskell.org/packages/archive/pango/${pkgver}/pango-${pkg
 sha256sums=('306a4f17d2fe4053b2ddd841a48720513fe391df49080ce61a31b8a0f0633fbb')
 
 build() {
-  cd "$srcdir"/pango-${pkgver}
-  runhaskell Setup configure -O -p --enable-split-objs --enable-shared \
-    --prefix=/usr --docdir=/usr/share/doc/haskell-pango \
-    --libsubdir=\$compiler/site-local/\$pkgid
-  sed -i 's|import Foreign.C.Types.*(CULong, CUInt)|import Foreign.C.Types (CULong(..), CUInt(..))|' Graphics/Rendering/Pango/Types.chs
-  runhaskell Setup build
-  runhaskell Setup haddock
-  runhaskell Setup register --gen-script
-  runhaskell Setup unregister --gen-script
-  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
-  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
-}
-
-_update_deps() {
-    _ver=`pacman -Q $1 | cut -f2 -d\  | cut -f1 -d-`
-    for i in `seq 0 $(expr ${#depends[@]} - 1)`; do
-        if [ ${depends[$i]} == $1 ]; then
-            depends[$i]="$1=${_ver}"
-        fi
-    done
+    cd "${srcdir}/pango-${pkgver}"
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" \
+        --libsubdir=\$compiler/site-local/\$pkgid
+    sed -i 's|import Foreign.C.Types.*(CULong, CUInt)|import Foreign.C.Types (CULong(..), CUInt(..))|' Graphics/Rendering/Pango/Types.chs
+    runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
 }
 
 package() {
-  _update_deps ghc
-  _update_deps haskell-glib
-  _update_deps haskell-cairo
+    cd "${srcdir}/pango-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/pango"
+    runhaskell Setup copy --destdir="${pkgdir}"
 
-  cd "$srcdir"/pango-${pkgver}
-  install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
-  install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
-  install -d -m755 "$pkgdir"/usr/share/doc/ghc/html/libraries
-  ln -s /usr/share/doc/haskell-pango/html "$pkgdir"/usr/share/doc/ghc/html/libraries/pango
-  runhaskell Setup copy --destdir="$pkgdir"
+    # Remove static libs
+    find "$pkgdir"/usr/lib -name "*.a" -delete
 }
