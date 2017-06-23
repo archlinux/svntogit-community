@@ -1,0 +1,140 @@
+commit 326f7a25234f00509751affed0b86c7cd2103b90
+Author: Felix Yan <felixonmars@archlinux.org>
+Date:   Mon May 22 21:39:12 2017 +0800
+
+    Add support for `__float128` (fixes #200)
+    
+    This patch is following the language-c patch at
+    https://github.com/visq/language-c/pull/33
+    
+    With this patch glib and others build fine with GCC 7.1.1.
+
+diff --git a/tools/c2hs/c/CAST.hs b/tools/c2hs/c/CAST.hs
+index 842d1345..81e78529 100644
+--- a/tools/c2hs/c/CAST.hs
++++ b/tools/c2hs/c/CAST.hs
+@@ -301,6 +301,7 @@ data CTypeSpec = CVoidType    Attrs
+                | CIntType     Attrs
+                | CLongType    Attrs
+                | CFloatType   Attrs
++               | CFloat128Type Attrs
+                | CDoubleType  Attrs
+                | CSignedType  Attrs
+                | CUnsigType   Attrs
+@@ -324,6 +325,7 @@ instance Pos CTypeSpec where
+   posOf (CIntType       at) = posOf at
+   posOf (CLongType      at) = posOf at
+   posOf (CFloatType     at) = posOf at
++  posOf (CFloat128Type  at) = posOf at
+   posOf (CDoubleType    at) = posOf at
+   posOf (CSignedType    at) = posOf at
+   posOf (CUnsigType     at) = posOf at
+@@ -342,6 +344,7 @@ instance Eq CTypeSpec where
+   (CIntType      at1) == (CIntType      at2) = at1 == at2
+   (CLongType     at1) == (CLongType     at2) = at1 == at2
+   (CFloatType    at1) == (CFloatType    at2) = at1 == at2
++  (CFloat128Type at1) == (CFloat128Type at2) = at1 == at2
+   (CDoubleType   at1) == (CDoubleType   at2) = at1 == at2
+   (CSignedType   at1) == (CSignedType   at2) = at1 == at2
+   (CUnsigType    at1) == (CUnsigType    at2) = at1 == at2
+@@ -1058,6 +1061,9 @@ instance Binary CTypeSpec where
+             putByte bh 13
+             put_ bh ar
+             put_ bh as
++    put_ bh (CFloat128Type at) = do
++            putByte bh 14
++            put_ bh at
+     get bh = do
+             h <- getByte bh
+             case h of
+@@ -1108,6 +1114,9 @@ instance Binary CTypeSpec where
+                     ar <- get bh
+                     as <- get bh
+                     return (CTypeOfType ar as)
++              14 -> do
++                    at <- get bh
++                    return (CFloat128Type at)
+ 
+ instance Binary CStorageSpec where
+     put_ bh (CAuto aa) = do
+diff --git a/tools/c2hs/c/CLexer.x b/tools/c2hs/c/CLexer.x
+index b6097c37..0099af5c 100644
+--- a/tools/c2hs/c/CLexer.x
++++ b/tools/c2hs/c/CLexer.x
+@@ -111,7 +111,7 @@ $visible  = \ -\127
+ @fractpart = @digits
+ @mantpart  = @intpart?\.@fractpart|@intpart\.
+ @exppart   = [eE][\+\-]?@digits
+-@suffix    = [fFlL]
++@suffix    = [fFlLqQwW]
+ 
+ 
+ tokens :-
+@@ -259,6 +259,7 @@ idkwtok ('d':'o':'u':'b':'l':'e':[])			     = tok CTokDouble
+ idkwtok ('e':'l':'s':'e':[])				     = tok CTokElse
+ idkwtok ('e':'n':'u':'m':[])				     = tok CTokEnum
+ idkwtok ('e':'x':'t':'e':'r':'n':[])			     = tok CTokExtern
++idkwtok ('_':'_':'f':'l':'o':'a':'t':'1':'2':'8':[])           = tok CTokFloat128
+ idkwtok ('f':'l':'o':'a':'t':[])			     = tok CTokFloat
+ idkwtok ('f':'o':'r':[])				     = tok CTokFor
+ idkwtok ('g':'o':'t':'o':[])				     = tok CTokGoto
+diff --git a/tools/c2hs/c/CParser.y b/tools/c2hs/c/CParser.y
+index b457ce95..5ae0333a 100644
+--- a/tools/c2hs/c/CParser.y
++++ b/tools/c2hs/c/CParser.y
+@@ -191,6 +191,7 @@ else		{ CTokElse	_ }
+ enum		{ CTokEnum	_ }
+ extern		{ CTokExtern	_ }
+ float		{ CTokFloat	_ }
++"__float128"   { CTokFloat128  _ }
+ for		{ CTokFor	_ }
+ goto		{ CTokGoto	_ }
+ if		{ CTokIf	_ }
+@@ -656,6 +657,7 @@ basic_type_name
+   | int				{% withAttrs $1 $ CIntType }
+   | long			{% withAttrs $1 $ CLongType }
+   | float			{% withAttrs $1 $ CFloatType }
++  | "__float128"    {% withAttrs $1 $ CFloat128Type }
+   | double			{% withAttrs $1 $ CDoubleType }
+   | signed			{% withAttrs $1 $ CSignedType }
+   | unsigned			{% withAttrs $1 $ CUnsigType }
+diff --git a/tools/c2hs/c/CPretty.hs b/tools/c2hs/c/CPretty.hs
+index 2d9ce265..d285436a 100644
+--- a/tools/c2hs/c/CPretty.hs
++++ b/tools/c2hs/c/CPretty.hs
+@@ -83,6 +83,7 @@ instance Pretty CTypeSpec where
+   pretty (CIntType       _) = text "int"
+   pretty (CLongType      _) = text "long"
+   pretty (CFloatType     _) = text "float"
++  pretty (CFloat128Type  _) = text "__float128"
+   pretty (CDoubleType    _) = text "double"
+   pretty (CSignedType    _) = text "signed"
+   pretty (CUnsigType     _) = text "unsigned"
+diff --git a/tools/c2hs/c/CTokens.hs b/tools/c2hs/c/CTokens.hs
+index 6ee2b040..1195d9fb 100644
+--- a/tools/c2hs/c/CTokens.hs
++++ b/tools/c2hs/c/CTokens.hs
+@@ -102,6 +102,7 @@ data CToken = CTokLParen   !Position            -- `('
+             | CTokEnum     !Position            -- `enum'
+             | CTokExtern   !Position            -- `extern'
+             | CTokFloat    !Position            -- `float'
++            | CTokFloat128 !Position            -- `__float128'
+             | CTokFor      !Position            -- `for'
+             | CTokGoto     !Position            -- `goto'
+             | CTokIf       !Position            -- `if'
+@@ -217,6 +218,7 @@ instance Pos CToken where
+   posOf (CTokEnum     pos  ) = pos
+   posOf (CTokExtern   pos  ) = pos
+   posOf (CTokFloat    pos  ) = pos
++  posOf (CTokFloat128 pos  ) = pos
+   posOf (CTokFor      pos  ) = pos
+   posOf (CTokGoto     pos  ) = pos
+   posOf (CTokInt      pos  ) = pos
+@@ -311,6 +313,7 @@ instance Show CToken where
+   showsPrec _ (CTokEnum     _  ) = showString "enum"
+   showsPrec _ (CTokExtern   _  ) = showString "extern"
+   showsPrec _ (CTokFloat    _  ) = showString "float"
++  showsPrec _ (CTokFloat128 _  ) = showString "__float128"
+   showsPrec _ (CTokFor      _  ) = showString "for"
+   showsPrec _ (CTokGoto     _  ) = showString "goto"
+   showsPrec _ (CTokIf       _  ) = showString "if"
