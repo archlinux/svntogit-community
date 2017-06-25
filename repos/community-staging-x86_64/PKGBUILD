@@ -1,0 +1,143 @@
+# $Id$
+# Maintainer: Alexander F Rødseth <xyproto@archlinux.org>
+# Contributor: Lex Black <autumn-wind at web dot de>
+# Contributor: Michael Jakl <jakl.michael@gmail.com>
+# Contributor: devmotion <nospam-archlinux.org@devmotion.de>
+# Contributor: Valentin Churavy <v.churavy@gmail.com>
+
+pkgbase=julia
+pkgname=('julia' 'julia-docs')
+pkgver=0.6.0
+pkgrel=1
+epoch=2
+arch=('x86_64' 'i686')
+pkgdesc='High-level, high-performance, dynamic programming language'
+url='http://julialang.org/'
+license=('MIT')
+makedepends=('gcc-fortran' 'python2' 'blas' 'lapack' 'arpack' 'libunwind' 'fftw' 'llvm'
+             'gmp' 'mpfr' 'zlib' 'suitesparse' 'patchelf' 'cmake' 'pcre2' 'libgit2' 'openssl')
+options=('!emptydirs' 'staticlibs')
+source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/julia-$pkgver.tar.gz"{,.asc} julia-libunwind-version.patch)
+sha256sums=('1c62bfce8075acf2b5b02355520a61210690324eceb021030681459d18a3a665'
+            'SKIP'
+            '16009ce454f58463464027cbaf6186ccfab84c37660a52fb1ec3a0f514df64f9')
+validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495') # Julia (Binary signing key) <buildbot@julialang.org>
+
+prepare() {
+  # For /etc/ld.so.conf.d/
+  echo '/usr/lib/julia' > julia.conf
+
+  cd $pkgname-$pkgver
+  patch -p1 -i ../julia-libunwind-version.patch
+}
+
+build() {
+  # Make sure not to set -march
+  export CFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
+  export CXXFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
+
+  # SSE2 is a requirement for Julia on 32-bit x86
+  unset ARCH
+  if [[ $CARCH == i686 ]]; then
+    export M="pentium4"
+    export CFLAGS+=" -march=pentium4"
+    export CXXFLAGS+=" -march=pentium4"
+  else
+    export M="x86-64"
+  fi
+
+  cd julia-$pkgver
+  make prefix=/usr sysconfdir=/etc \
+    MARCH=$M \
+    USE_SYSTEM_LLVM=1 \
+    USE_SYSTEM_LIBUNWIND=1 \
+    USE_SYSTEM_PCRE=1 \
+    USE_SYSTEM_LIBM=1 \
+    USE_SYSTEM_OPENLIBM=0 \
+    USE_SYSTEM_OPENSPECFUN=0 \
+    USE_SYSTEM_BLAS=1 \
+    USE_SYSTEM_LAPACK=1 \
+    USE_SYSTEM_FFTW=1 \
+    USE_SYSTEM_GMP=1 \
+    USE_SYSTEM_MPFR=1 \
+    USE_SYSTEM_ARPACK=1 \
+    USE_SYSTEM_SUITESPARSE=1 \
+    USE_SYSTEM_LIBUV=0 \
+    USE_SYSTEM_UTF8PROC=0 \
+    USE_INTEL_MKL=0 \
+    USE_BLAS64=0 \
+    USE_LLVM_SHLIB=1 \
+    USE_SYSTEM_LIBGIT2=1 \
+    USE_SYSTEM_PATCHELF=1 \
+    USE_SYSTEM_DSFMT=0
+}
+
+package_julia() {
+  backup=('etc/ld.so.conf.d/julia.conf' 'etc/julia/juliarc.jl')
+  depends=('arpack' 'fftw' 'libunwind' 'mpfr' 'suitesparse' 'pcre2' 'libgit2' 'llvm-libs' 'patchelf' 'hicolor-icon-theme')
+  optdepends=('gnuplot: If using the Gaston Package from julia')
+  install='sysfix.install'
+
+  # Make sure not to set -march
+  export CFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
+  export CXXFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
+
+  # SSE2 is a requirement for Julia on 32-bit x86
+  if [[ $CARCH == i686 ]]; then
+    export M="pentium4"
+    export CFLAGS+=" -march=pentium4"
+    export CXXFLAGS+=" -march=pentium4"
+  else
+    export M="x86-64"
+  fi
+
+  cd julia-$pkgver
+  make DESTDIR="$pkgdir" \
+    prefix=/usr sysconfdir=/etc  \
+    MARCH=$M \
+    USE_SYSTEM_LLVM=1 \
+    USE_SYSTEM_LIBUNWIND=1 \
+    USE_SYSTEM_PCRE=1 \
+    USE_SYSTEM_LIBM=1 \
+    USE_SYSTEM_OPENLIBM=0 \
+    USE_SYSTEM_OPENSPECFUN=0 \
+    USE_SYSTEM_BLAS=1 \
+    USE_SYSTEM_LAPACK=1 \
+    USE_SYSTEM_FFTW=1 \
+    USE_SYSTEM_GMP=1 \
+    USE_SYSTEM_MPFR=1 \
+    USE_SYSTEM_ARPACK=1 \
+    USE_SYSTEM_SUITESPARSE=1 \
+    USE_SYSTEM_LIBUV=0 \
+    USE_SYSTEM_UTF8PROC=0 \
+    USE_INTEL_MKL=0 \
+    USE_BLAS64=0 \
+    USE_LLVM_SHLIB=1 \
+    USE_SYSTEM_LIBGIT2=1 \
+    USE_SYSTEM_PATCHELF=1 \
+    USE_SYSTEM_DSFMT=0 \
+    install
+
+  # Remove duplicate man-page from julia/doc
+  rm -rvf "$pkgdir/usr/share/julia/doc/man"
+
+  # For /etc/ld.so.conf.d, FS#41731
+  install -Dm644 "$srcdir"/julia.conf "$pkgdir/etc/ld.so.conf.d/julia.conf"
+
+  # Documentation and examples are in the julia-docs package
+  rm -rvf "$pkgdir/usr/share/doc/"
+  rm -rvf "$pkgdir/usr/share/julia/doc/"
+  rm -rvf "$pkgdir/usr/share/julia/examples/"
+
+  install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+}
+
+package_julia-docs() {
+  pkgdesc='Documentation and examples for Julia'
+  cd julia-$pkgver
+
+  install -d "$pkgdir/usr/share/doc"
+  cp -rv doc "$pkgdir/usr/share/doc/$pkgbase"
+  cp -rv examples "$pkgdir/usr/share/doc/$pkgbase/examples"
+  install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+}
