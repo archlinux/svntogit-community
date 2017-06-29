@@ -8,13 +8,13 @@
 
 pkgname=gitlab
 pkgver=9.3.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
 license=('MIT')
 depends=('ruby2.3' 'git' 'ruby2.3-bundler' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
-makedepends=('cmake' 'postgresql' 'mariadb' 'yarn')
+makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
             'python2-docutils: reStructuredText markup language support'
@@ -77,6 +77,7 @@ prepare() {
       -e "s|# path: /mnt/gitlab|path: ${_homedir}/shared|" \
       -e "s|/home/git/gitlab-shell|/usr/share/webapps/gitlab-shell|" \
       -e "s|tmp/backups|${_homedir}/backups|" \
+      -e "s|/home/git/gitlab/tmp/sockets/private|${_homedir}/sockets|" \
       config/gitlab.yml.example > config/gitlab.yml
 
   msg2 "Patching paths and timeout in unicorn.rb..."
@@ -120,8 +121,12 @@ build() {
   cp config/resque.yml.example config/resque.yml
   sed -i 's/url.*/nope.sock/g' config/resque.yml
 
+  bundle-2.3 exec rake "gitlab:gitaly:install[/tmp/gitaly]" RAILS_ENV=production
+  rm -rf /tmp/gitaly/_build
+
   yarn install --production --pure-lockfile
   bundle-2.3 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production
+  bundle-2.3 exec rake gettext:compile RAILS_ENV=production
 
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
@@ -130,11 +135,12 @@ build() {
 
 package() {
   cd "${srcdir}/${_srcdir}"*
-  depends+=('gitlab-shell>=4.0.0')
+  depends+=('gitlab-shell')
 
   install -d "${pkgdir}/usr/share/webapps"
 
   cp -r "${srcdir}/${_srcdir}"* "${pkgdir}${_datadir}"
+  cp -r /tmp/gitaly "${pkgdir}${_datadir}"/../gitaly  # This was prepared in build()
   chown -R root:root "${pkgdir}${_datadir}"
   chmod 755 "${pkgdir}${_datadir}"
 
