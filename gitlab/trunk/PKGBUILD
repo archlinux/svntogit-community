@@ -8,12 +8,12 @@
 
 pkgname=gitlab
 pkgver=9.3.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
 license=('MIT')
-depends=('ruby2.3' 'git' 'ruby2.3-bundler' 'gitlab-workhorse' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
+depends=('ruby2.3' 'git' 'ruby2.3-bundler' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
@@ -121,9 +121,6 @@ build() {
   cp config/resque.yml.example config/resque.yml
   sed -i 's/url.*/nope.sock/g' config/resque.yml
 
-  bundle-2.3 exec rake "gitlab:gitaly:install[/tmp/gitaly]" RAILS_ENV=production
-  rm -rf /tmp/gitaly/_build
-
   yarn install --production --pure-lockfile
   bundle-2.3 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production
   bundle-2.3 exec rake gettext:compile RAILS_ENV=production
@@ -140,7 +137,6 @@ package() {
   install -d "${pkgdir}/usr/share/webapps"
 
   cp -r "${srcdir}/${_srcdir}"* "${pkgdir}${_datadir}"
-  cp -r /tmp/gitaly "${pkgdir}${_datadir}"/../gitaly  # This was prepared in build()
   chown -R root:root "${pkgdir}${_datadir}"
   chmod 755 "${pkgdir}${_datadir}"
 
