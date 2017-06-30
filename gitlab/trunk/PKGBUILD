@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=9.3.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce/tree/master#README"
@@ -77,7 +77,7 @@ prepare() {
       -e "s|# path: /mnt/gitlab|path: ${_homedir}/shared|" \
       -e "s|/home/git/gitlab-shell|/usr/share/webapps/gitlab-shell|" \
       -e "s|tmp/backups|${_homedir}/backups|" \
-      -e "s|/home/git/gitlab/tmp/sockets/private|${_homedir}/sockets|" \
+      -e "s|/home/git/gitlab/tmp/sockets/private/gitaly.socket|${_homedir}/sockets/gitlab-gitaly.socket|" \
       config/gitlab.yml.example > config/gitlab.yml
 
   msg2 "Patching paths and timeout in unicorn.rb..."
