@@ -1,0 +1,75 @@
+# $Id$
+# Maintainer: Muflone http://www.muflone.com/contacts/english/
+# Contributor: Arne Hoch <arne@derhoch.de>
+
+pkgname=dbeaver
+pkgver=4.1.0
+pkgrel=2
+pkgdesc="Free universal SQL Client for developers and database administrators (community edition)"
+arch=('i686' 'x86_64')
+url="http://dbeaver.jkiss.org/"
+license=("Apache")
+depends=('java-runtime>=8' 'gtk2' 'gtk-update-icon-cache')
+makedepends=('maven' 'java-environment>=8')
+source=("${pkgname}-${pkgver}.tar.gz"::"https://github.com/serge-rider/dbeaver/archive/${pkgver}.tar.gz"
+        "$pkgname.desktop")
+sha256sums=('d09caca4b2266ed7074819b9d4c593d667fe8842586c670c6b3144cf67b4cdaf'
+            'd1365a1e1a9a7b3949fc1b9e9928e93b7d8b3d04b5d0eee7c37eaaa362466c47')
+
+build() {
+  cd "${pkgname}-${pkgver}/"
+  mvn --batch-mode package
+}
+
+package() {
+  cd "${pkgname}-${pkgver}/product/standalone"
+  # Install icons into /usr/share/icons/hicolor
+  for _size in 16 32 48 64 128 256 512
+  do
+    install -m 644 -D "icons-sources/icon_${_size}x${_size}.png" \
+      "${pkgdir}/usr/share/icons/hicolor/${_size}x${_size}/apps/dbeaver.png"
+  done
+
+  # Set system architecture
+  if [ "${CARCH}" = 'x86_64' ]; then
+    _arch="x86_64"
+  else
+    _arch='x86'
+  fi
+
+  # Move into the target directory
+  cd "target/products/org.jkiss.dbeaver.core.product/linux/gtk/${_arch}"
+
+  # Install executables and libraries into /usr/lib/dbeaver
+  install -m 755 -d "${pkgdir}/usr/lib/${pkgname}"
+  mv "dbeaver/dbeaver" \
+     "dbeaver/plugins/org.eclipse.equinox.launcher.gtk.linux.${_arch}_1.1.401.v20161122-1740" \
+     "${pkgdir}/usr/lib/${pkgname}"
+
+  # Install java libraries to /usr/share/java/dbeaver
+  install -m 755 -d "${pkgdir}/usr/share/java/${pkgname}"
+  mv dbeaver/plugins "${pkgdir}/usr/share/java/${pkgname}"
+  ln -s "/usr/lib/${pkgname}/org.eclipse.equinox.launcher.gtk.linux.${_arch}_1.1.401.v20161122-1740" \
+        "${pkgdir}/usr/share/java/${pkgname}/plugins"
+  for _file in configuration features .eclipseproduct
+  do
+    ln -s "/usr/share/${pkgname}/${_file}" "${pkgdir}/usr/share/java/${pkgname}/"
+  done
+
+  # Install application files to /usr/share/dbeaver
+  install -m 755 -d "${pkgdir}/usr/share"
+  mv dbeaver "${pkgdir}/usr/share/${pkgname}"
+
+  # Symlink needed files to /usr/lib/dbeaver
+  cd "${pkgdir}/usr/lib/${pkgname}"
+  ln -s "/usr/share/java/${pkgname}/plugins" .
+  ln -s "/usr/share/${pkgname}/dbeaver.ini" .
+  
+  # Install executable files into /usr/bin
+  install -m 755 -d "${pkgdir}/usr/bin"
+  ln -s "/usr/lib/${pkgname}/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+  # Install application launcher into /usr/share/applications
+  install -m 755 -d "${pkgdir}/usr/share/applications"
+  install -m 755 -t "${pkgdir}/usr/share/applications" "${srcdir}/${pkgname}.desktop"
+}
