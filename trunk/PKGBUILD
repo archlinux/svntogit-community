@@ -5,22 +5,30 @@
 
 _pkgbasename=pango
 pkgname=lib32-$_pkgbasename
-pkgver=1.40.3
+pkgver=1.40.6+9+g92cc73c8
 pkgrel=1
 pkgdesc="A library for layout and rendering of text (32-bit)"
-arch=('x86_64')
-license=('LGPL')
-depends=('lib32-libthai' 'lib32-libgl' 'lib32-cairo' 'lib32-libxft'
+url="https://www.pango.org/"
+arch=(x86_64)
+license=(LGPL)
+depends=(lib32-libthai lib32-libgl lib32-cairo lib32-libxft
          $_pkgbasename)
-makedepends=('gcc-multilib' 'lib32-mesa-libgl')
+makedepends=(gcc-multilib gobject-introspection meson git)
 options=('!emptydirs')
-source=(https://download.gnome.org/sources/${_pkgbasename}/${pkgver:0:4}/${_pkgbasename}-${pkgver}.tar.xz)
-url="http://www.pango.org/"
-sha256sums=('abba8b5ce728520c3a0f1535eab19eac3c14aeef7faa5aded90017ceac2711d3')
+_commit=92cc73c898e4665fd739704417d487d137dd271b  # master
+source=("git+https://git.gnome.org/browse/pango#commit=$_commit")
+sha256sums=('SKIP')
 
-prepare() {
-  cd "${srcdir}/${_pkgbasename}-${pkgver}"
+pkgver() {
+  cd $_pkgbasename
 
+  git describe --tags | sed 's/-/+/g'
+}
+ 
+ prepare() {
+  cd $_pkgbasename
+
+  mkdir ../build
   sed -i 's#"pango.modules"#"pango.modules-32"#' pango/modules.c
 }
 
@@ -29,20 +37,24 @@ build() {
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
-  cd "${srcdir}/${_pkgbasename}-${pkgver}"
+  cd build
 
-  ./configure --prefix=/usr --libdir=/usr/lib32 --sysconfdir=/etc \
-      --localstatedir=/var \
-      --with-dynamic-modules=arabic-fc,arabic-lang,basic-fc,basic-win32,basic-x,basic-atsui,hangul-fc,hebrew-fc,indic-fc,indic-lang,khmer-fc,syriac-fc,tibetan-fc \
-      --disable-introspection
-  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
-  make
+  meson --prefix=/usr --libdir=/usr/lib32 --libexecdir=/usr/lib32 \
+    --buildtype=release ../$_pkgbasename
+  ninja -v
+
+#   ./configure --prefix=/usr --libdir=/usr/lib32 --sysconfdir=/etc \
+#       --localstatedir=/var \
+#       --with-dynamic-modules=arabic-fc,arabic-lang,basic-fc,basic-win32,basic-x,basic-atsui,hangul-fc,hebrew-fc,indic-fc,indic-lang,khmer-fc,syriac-fc,tibetan-fc \
+#       --disable-introspection
+#   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+#   make
 }
 
 package() {
-  cd "${srcdir}/${_pkgbasename}-${pkgver}"
+  cd build
 
-  make DESTDIR="${pkgdir}" install
+  DESTDIR="$pkgdir" ninja install
   rm -rf "$pkgdir"/etc
   rm -rf "$pkgdir"/usr/{bin/pango-view,share,include}
 }
