@@ -1,38 +1,49 @@
-# $Id$
-# Maintainer: Dave Reisner <dreisner@archlinux.org>
-# Maintainer: Tom Gundersen <teg@jklm.no>
+# $Id$ Maintainer: Dave Reisner <dreisner@archlinux.org> Maintainer: Tom Gundersen <teg@jklm.no>
 
 pkgname=lib32-systemd
 _pkgbasename=systemd
-pkgver=232
-pkgrel=1
+# latest commit on stable branch
+_commit='27c7bc970d9e7ffe060688a8dd77b7747503a564'
+# Bump this to latest major release for signed tag verification,
+# the commit count is handled by pkgver() function.
+pkgver=233.75
+pkgrel=2
 pkgdesc="system and service manager (32-bit)"
 arch=('x86_64')
 url="https://www.github.com/systemd/systemd"
 license=('GPL2' 'LGPL2.1')
 depends=('lib32-libgcrypt' 'lib32-xz' 'lib32-libcap' 'lib32-gcc-libs' 'systemd')
 makedepends=('lib32-gcc-libs' 'gcc-multilib' 'lib32-libidn' 'lib32-glib2' 'intltool' 'gperf'
-             'lib32-curl' 'lib32-bzip2' 'git')
+             'lib32-curl' 'lib32-bzip2' 'lib32-acl' 'git')
 options=('strip')
-source=("git://github.com/systemd/systemd.git#tag=v$pkgver"
-        '0001-disable-RestrictAddressFamilies-on-i686.patch'
-        '0001-Revert-nspawn-try-to-bind-mount-resolved-s-resolv.co.patch')
+source=("git://github.com/systemd/systemd-stable.git#commit=${_commit}"
+        'git://github.com/systemd/systemd.git') # pull in for tags
 md5sums=('SKIP'
-         '9536d399938a48fbf38c24e322f4f078'
-         '2f324d6ddd4fd78b73d453044292b9b1')
+         'SKIP')
 validpgpkeys=(
   '63CDA1E5D3FC22B998D20DD6327F26951A015CC4'  # Lennart Poettering
 )
 
 _backports=(
-  '843d5baf6aad6c53fc00ea8d95d83209a4f92de1'  # core: don't use the unified hierarchy for the systemd cgroup yet (#4628)
-  'abd67ce74858491565cde157c7b08fda43d3279c'  # basic/virt: fix userns check on CONFIG_USER_NS=n kernel (#4651)
-  '4318abe8d26e969ebdb97744a63ab900233a0185'  # build-sys: do not install ctrl-alt-del.target symlink twice
-  'd112eae7da77899be245ab52aa1747d4675549f1'  # device: Avoid calling unit_free(NULL) in device setup logic (#4748)
+  # build-sys: make RPM macros installation path configurable
+  'ff2e33db54719bfe8feea833571652318c6d197c'
+  # resolved: do not start LLMNR or mDNS stack when no network enables them
+  '2c7ef56459bf6fe7761595585aa4eed5cd183f27^..2c7ef56459bf6fe7761595585aa4eed5cd183f27^2'
+  # networkd: RFC compliant autonomous prefix handling (#5636)
+  '6554550f35a7976f9110aff94743d3576d5f02dd'
+  # core: do not print color console message about gc-ed jobs
+  '047d7219fde661698d3487fc49e9878c61eefd77'
+)
+
+_reverts=(
+  # core: store the invocation ID in the per-service keyring
+  'b3415f5daef49642be3d5f417b8880c078420ff7'
+  # core: run each system service with a fresh session keyring
+  '74dd6b515fa968c5710b396a7664cac335e25ca8'
 )
 
 _validate_tag() {
-  local success fingerprint trusted status tag=v$pkgver
+  local success fingerprint trusted status tag=v${pkgver%.*}
 
   parse_gpg_statusfile /dev/stdin < <(git verify-tag --raw "$tag" 2>&1)
 
@@ -58,23 +69,42 @@ _validate_tag() {
   return 0
 }
 
+pkgver() {
+  local version count
+
+  cd "$_pkgbasename-stable"
+
+  version="$(git describe --abbrev=0 --tags)"
+  count="$(git rev-list --count ${version}..)"
+  printf '%s.%s' "${version#v}" "${count}"
+}
+
 prepare() {
-  cd systemd
+  cd "$_pkgbasename-stable"
+  
+  git remote add upstream ../systemd/
+  git fetch --all
 
   _validate_tag || return
 
-  if (( ${#_backports[*]} > 0 )); then
-    git cherry-pick -n "${_backports[@]}"
-  fi
+  local _commit
+  for _commit in "${_backports[@]}"; do
+    git cherry-pick -n "$_commit"
+  done
+  for _commit in "${_reverts[@]}"; do
+    git revert -n "$_commit"
+  done
 
-  # these patches aren't upstream, but they make v232 more useable.
-
-  # https://github.com/systemd/systemd/issues/4575
-  patch -Np1 <../0001-disable-RestrictAddressFamilies-on-i686.patch
-
-  # https://github.com/systemd/systemd/issues/4595
-  # https://github.com/systemd/systemd/issues/3826
-  patch -Np1 <../0001-Revert-nspawn-try-to-bind-mount-resolved-s-resolv.co.patch
+  # nss-resolve: drop the internal fallback to libnss_dns
+  git show '5486a31d287f26bcd7c0a4eb2abfa4c074b985f1' -- \
+    'Makefile.am' 'src/nss-resolve/nss-resolve.c' | git apply --index
+  
+  # Resolved packet size (#6214) (FS#54619, CVE-2017-9445)
+  git show '751ca3f1de316ca79b60001334dbdf54077e1d01' \
+    'db848813bae4d28c524b3b6a7dad135e426659ce' \
+    '88795538726a5bbfd9efc13d441cb05e1d7fc139' \
+    '64a21fdaca7c93f1c30b21f6fdbd2261798b161a' \
+    -- . ':!src/resolve/meson.build'  | git apply --index
 
   ./autogen.sh
 }
@@ -84,7 +114,7 @@ build() {
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
-  cd systemd
+  cd "$_pkgbasename-stable"
 
   local timeservers=({0..3}.arch.pool.ntp.org)
 
@@ -105,6 +135,7 @@ build() {
     --disable-libiptc
     --disable-lz4
     --disable-manpages
+    --disable-libcryptsetup
     --without-python
 
     --with-sysvinit-path=
@@ -113,8 +144,10 @@ build() {
     --with-default-dnssec=no
     --with-dbuspolicydir=/usr/share/dbus-1/system.d
     --without-kill-user-processes
+    --with-rpmmacrosdir=no
+    # TODO(dreisner): consider changing this to unified
+    --with-default-hierarchy=hybrid
   )
-  #  --disable-libcryptsetup
 
   ./configure "${configure_options[@]}"
 
@@ -122,7 +155,7 @@ build() {
 }
 
 package() {
-  cd systemd
+  cd "$_pkgbasename-stable"
 
   make DESTDIR="$pkgdir" install
 
