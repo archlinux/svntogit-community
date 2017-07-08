@@ -2,7 +2,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=17.05.0
+pkgver=17.06.0
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -15,15 +15,17 @@ makedepends=('git' 'go' 'btrfs-progs' 'cmake')
 optdepends=('btrfs-progs: btrfs backend support'
             'lxc: lxc backend support')
 # don't strip binaries! A sha1 is used to check binary consistency.
-options=('!strip')
+options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile for runc and containerd until 1.0.0
 # https://github.com/docker/containerd/issues/299#issuecomment-240745119
 # see commit in hack/dockerfile/binaries-commits
-_RUNC_COMMIT=9c2d8d184e5da67c95d601382adf14862e4f2228
-_CONTAINERD_COMMIT=9048e5e50717ea4497b757314bad98ea3763c145
+_RUNC_COMMIT=2d41c047c83e09a6d61d464906feb2a2f3c52aa4
+_CONTAINERD_COMMIT=cfb82a876ecc11b5ca0977d1733adbe58599088a
 _TINI_COMMIT=949e6facb77383876aeff8a6944dde66b3089574
 _LIBNETWORK_COMMIT=7b2b1feb1de4817d522cc372af149ff48d25028e
-source=("git+https://github.com/moby/moby.git#tag=v$pkgver-ce"
+_DOCKERCLI_COMMIT=3dfb8343b139d6342acfd9975d7f1068b5b1c3d3
+source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver-ce"
+        "git+https://github.com/docker/cli.git#commit=$_DOCKERCLI_COMMIT"
         "git+https://github.com/docker/runc.git#commit=$_RUNC_COMMIT"
         "git+https://github.com/containerd/containerd.git#commit=$_CONTAINERD_COMMIT"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
@@ -38,15 +40,31 @@ md5sums=('SKIP'
          'SKIP'
          'SKIP'
          'SKIP'
+         'SKIP'
          '9a8b2744db23b14ca3cd350fdf73c179')
+
+
+# create a fake go path directory and pushd into it
+# $1 real directory
+# $2 gopath directory
+_fake_gopath_pushd() {
+  mkdir -p "$GOPATH/src/${2%/*}"
+  rm -f "$GOPATH/src/$2"
+  ln -rsT "$1" "$GOPATH/src/$2"
+  pushd  "$GOPATH/src/$2" >/dev/null
+}
+
+_fake_gopath_popd() {
+  popd >/dev/null
+}
 
 build() {
   ### check my mistakes on commit version
   msg2 'Checking commit mismatch'
   local _cfile _commit _pkgbuild _dockerfile
-  _cfile="$srcdir"/moby/hack/dockerfile/binaries-commits
+  _cfile="$srcdir"/docker-ce/components/engine/hack/dockerfile/binaries-commits
   . "$_cfile"
-  for _commit in RUNC CONTAINERD LIBNETWORK TINI; do
+  for _commit in DOCKERCLI RUNC CONTAINERD LIBNETWORK TINI; do
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
     if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
@@ -56,84 +74,85 @@ build() {
     fi
   done
 
-  ### go magics
+  ### globals
   export GOPATH="$srcdir"
   export PATH="$GOPATH/bin:$PATH"
 
-  ### docker binary
-  msg2 'Building docker'
-  # projects still reference import with github.com/docker
-  mkdir -p src/github.com/docker
-  ln -rsfT moby src/github.com/docker/docker
-  pushd src/github.com/docker/docker >/dev/null
-  DOCKER_BUILDTAGS='seccomp' hack/make.sh dynbinary
-  popd >/dev/null
+  ### cli
+  msg2 'Building cli'
+  _fake_gopath_pushd cli github.com/docker/cli
+  make VERSION=$pkgver-ce dynbinary
+  _fake_gopath_popd
+
+  ### daemon
+  msg2 'Building daemon'
+  _fake_gopath_pushd docker-ce/components/engine github.com/docker/docker
+  DOCKER_GITCOMMIT=$(cd "$srcdir"/docker-ce && git rev-parse --short HEAD) \
+    DOCKER_BUILDTAGS='seccomp' \
+    VERSION=$pkgver-ce \
+    hack/make.sh dynbinary
+  _fake_gopath_popd
 
   ### go-md2man (used for manpages)
   msg2 'Building go-md2man'
-  mkdir -p src/github.com/cpuguy83
-  ln -rsf go-md2man src/github.com/cpuguy83
-  pushd src/github.com/cpuguy83/go-md2man >/dev/null
+  _fake_gopath_pushd go-md2man github.com/cpuguy83/go-md2man
   go get -v ./...
-  popd >/dev/null
+  _fake_gopath_popd
 
   ### docker man pages
   msg2 'Building man pages'
-  # cobra (used for manpages)
   mkdir -p src/github.com/spf13
-  ln -rsf cobra src/github.com/spf13
-  # generate
-  pushd src/github.com/docker/docker >/dev/null
-  man/generate.sh 2>/dev/null
-  popd >/dev/null
+  ln -rsfT cobra src/github.com/spf13/cobra
+  # use docker-ce cli version because they mess up with man dir
+  _fake_gopath_pushd docker-ce/components/cli github.com/docker/cli
+  make manpages 2>/dev/null
+  _fake_gopath_popd
 
   ### runc
   msg2 'Building runc'
-  pushd runc >/dev/null
+  _fake_gopath_pushd runc github.com/opencontainers/runc
   make BUILDTAGS='seccomp'
-  popd >/dev/null
+  _fake_gopath_popd
 
   ### containerd
   msg2 'Building containerd'
-  ln -rsfT containerd src/github.com/docker/containerd
-  pushd src/github.com/docker/containerd >/dev/null
+  _fake_gopath_pushd containerd github.com/containerd/containerd
   LDFLAGS= make
-  popd >/dev/null
+  _fake_gopath_popd
 
   ### docker proxy
   msg2 'Building docker-proxy'
-  ln -rsf libnetwork src/github.com/docker
-  pushd src/github.com/docker/libnetwork >/dev/null
+  _fake_gopath_pushd libnetwork github.com/docker/libnetwork
   go build -ldflags='-linkmode=external' github.com/docker/libnetwork/cmd/proxy
-  popd >/dev/null
+  _fake_gopath_popd
 
   ### docker-init
   msg2 'Building docker-init'
-  pushd tini >/dev/null
+  _fake_gopath_pushd tini github.com/krallin/tini
   cmake .
   # we must use the static binary because it's started in a foreign os
   make tini-static
-  popd >/dev/null
+  _fake_gopath_popd
 }
 
 package() {
+  ### cli
+  install -Dm755 cli/build/docker "$pkgdir/usr/bin/docker"
   ### runc
   install -Dm755 runc/runc "$pkgdir/usr/bin/docker-runc"
-  ### docker-containerd
+  ### containerd
   install -Dm755 containerd/bin/containerd "$pkgdir/usr/bin/docker-containerd"
   install -Dm755 containerd/bin/containerd-shim \
     "$pkgdir/usr/bin/docker-containerd-shim"
   install -Dm755 containerd/bin/ctr "$pkgdir/usr/bin/docker-containerd-ctr"
-  ### docker-proxy
+  ### proxy
   install -Dm755 libnetwork/proxy "$pkgdir/usr/bin/docker-proxy"
-  ### docker-init
+  ### init
   install -Dm755 tini/tini-static "$pkgdir/usr/bin/docker-init"
-  ### docker binary
-  cd moby
-  install -Dm755 "bundles/latest/dynbinary-client/docker" \
-    "$pkgdir/usr/bin/docker"
-  install -Dm755 "bundles/latest/dynbinary-daemon/dockerd" \
-    "$pkgdir/usr/bin/dockerd"
+  ### docker-ce engine subdir
+  cd docker-ce/components/engine
+  ### daemon
+  install -Dm755 {bundles/latest/dynbinary-daemon,"$pkgdir"/usr/bin}/dockerd
   ### completion
   install -Dm644 'contrib/completion/bash/docker' \
     "$pkgdir/usr/share/bash-completion/completions/docker"
@@ -157,7 +176,7 @@ package() {
     "$pkgdir/usr/share/vim/vimfiles/ftdetect/dockerfile.vim"
   ### man
   install -dm755 "$pkgdir/usr/share/man"
-  cp -r man/man* "$pkgdir/usr/share/man"
+  cp -r $srcdir/docker-ce/components/cli/man/man* "$pkgdir/usr/share/man"
 }
 
 # vim:set ts=2 sw=2 et:
