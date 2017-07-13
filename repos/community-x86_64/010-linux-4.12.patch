@@ -1,86 +1,108 @@
-From 73a6d28417871bd5b7535e88a50a3ce60fa1ecfc Mon Sep 17 00:00:00 2001
-From: Christian Hesse <mail@eworm.de>
-Date: Wed, 5 Jul 2017 14:15:18 +0200
-Subject: [PATCH 1/1] linux 4.12
----
- src/VBox/Additions/linux/drm/vbox_ttm.c           |  6 ++++++
- src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c | 19 +++++++++++++++++++
- src/VBox/Runtime/r0drv/linux/the-linux-kernel.h   |  5 +++++
- 3 files changed, 30 insertions(+)
-
-diff --git a/src/VBox/Additions/linux/drm/vbox_ttm.c b/src/VBox/Additions/linux/drm/vbox_ttm.c
-index 57dd087..83f8122 100644
---- a/src/VBox/Additions/linux/drm/vbox_ttm.c
-+++ b/src/VBox/Additions/linux/drm/vbox_ttm.c
-@@ -275,11 +275,17 @@ struct ttm_bo_driver vbox_bo_driver = {
-     .ttm_tt_populate = vbox_ttm_tt_populate,
-     .ttm_tt_unpopulate = vbox_ttm_tt_unpopulate,
-     .init_mem_type = vbox_bo_init_mem_type,
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
-+    .eviction_valuable = ttm_bo_eviction_valuable,
-+#endif
-     .evict_flags = vbox_bo_evict_flags,
-     .move = vbox_bo_move,
-     .verify_access = vbox_bo_verify_access,
-     .io_mem_reserve = &vbox_ttm_io_mem_reserve,
-     .io_mem_free = &vbox_ttm_io_mem_free,
+diff --git a/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c b/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c
+index 0beb736..20cae7c 100644
+--- a/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c
++++ b/src/VBox/HostDrivers/Support/linux/SUPDrv-linux.c
+@@ -1397,7 +1397,7 @@ RTDECL(int) SUPR0Printf(const char *pszFormat, ...)
+ SUPR0DECL(uint32_t) SUPR0GetKernelFeatures(void)
+ {
+     uint32_t fFlags = 0;
+-#ifdef CONFIG_PAX_KERNEXEC
++#if defined(CONFIG_PAX_KERNEXEC) || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
+     fFlags |= SUPKERNELFEATURES_GDT_READ_ONLY;
+ #endif
+ #if defined(VBOX_STRICT) || defined(VBOX_WITH_EFLAGS_AC_SET_IN_VBOXDRV)
+diff --git a/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c b/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c
+index e011867..4576a74 100644
+--- a/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c
++++ b/src/VBox/Runtime/r0drv/linux/alloc-r0drv-linux.c
+@@ -35,6 +35,9 @@
+ #include <iprt/assert.h>
+ #include <iprt/err.h>
+ #include "r0drv/alloc-r0drv.h"
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-+    .io_mem_pfn = ttm_bo_default_io_mem_pfn,
++#include <asm/set_memory.h>
 +#endif
- #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 11, 0)
-     .lru_tail = &ttm_bo_default_lru_tail,
-     .swap_lru_tail = &ttm_bo_default_swap_lru_tail,
+ 
+ 
+ #if (defined(RT_ARCH_AMD64) || defined(DOXYGEN_RUNNING)) && !defined(RTMEMALLOC_EXEC_HEAP)
 diff --git a/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c b/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c
-index 4bc2a9b..0f74ada 100644
+index 4bc2a9b..2b5af61 100644
 --- a/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c
 +++ b/src/VBox/Runtime/r0drv/linux/memobj-r0drv-linux.c
-@@ -902,6 +902,9 @@ static struct page *rtR0MemObjLinuxVirtToPage(void *pv)
+@@ -899,6 +899,9 @@ static struct page *rtR0MemObjLinuxVirtToPage(void *pv)
+     unsigned long   pfn;
+     struct page    *pPage;
+     pte_t          *pEntry;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++    p4d_t	    p4d;
++#endif
      union
      {
          pgd_t       Global;
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-+        p4d_t       Four;
-+#endif
- #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-         pud_t       Upper;
- #endif
-@@ -919,7 +922,23 @@ static struct page *rtR0MemObjLinuxVirtToPage(void *pv)
+@@ -917,9 +920,18 @@ static struct page *rtR0MemObjLinuxVirtToPage(void *pv)
+     u.Global = *pgd_offset(current->active_mm, ulAddr);
+     if (RT_UNLIKELY(pgd_none(u.Global)))
          return NULL;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++    p4d = *p4d_offset(&u.Global, ulAddr);
++    if (RT_UNLIKELY(p4d_none(p4d) || p4d_large(p4d) || !p4d_present(p4d)))
++        return NULL;
++#endif
  
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 11)
-+# if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-+    u.Four  = *p4d_offset(&u.Global, ulAddr);
-+    if (RT_UNLIKELY(p4d_none(u.Four)))
-+        return NULL;
-+    if (p4d_large(u.Four))
-+    {
-+        pPage = p4d_page(u.Four);
-+        AssertReturn(pPage, NULL);
-+        pfn   = page_to_pfn(pPage);      /* doing the safe way... */
-+        AssertCompile(P4D_SHIFT - PAGE_SHIFT < 31);
-+        pfn  += (ulAddr >> PAGE_SHIFT) & ((UINT32_C(1) << (P4D_SHIFT - PAGE_SHIFT)) - 1);
-+        return pfn_to_page(pfn);
-+    }
-+    u.Upper = *pud_offset(&u.Four, ulAddr);
-+# else /* < 4.12 */
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++    u.Upper = *pud_offset(&p4d, ulAddr);
++#else
      u.Upper = *pud_offset(&u.Global, ulAddr);
-+# endif /* < 4.12 */
++#endif
      if (RT_UNLIKELY(pud_none(u.Upper)))
          return NULL;
  # if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
+@@ -1463,13 +1475,23 @@ static int rtR0MemObjLinuxFixPte(struct mm_struct *mm, unsigned long ulAddr, RTH
+ {
+     int rc = -ENOMEM;
+     pgd_t *pgd;
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++    p4d_t *p4d;
++#endif
+ 
+     spin_lock(&mm->page_table_lock);
+ 
+     pgd = pgd_offset(mm, ulAddr);
+     if (!pgd_none(*pgd) && !pgd_bad(*pgd))
+     {
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++	p4d = p4d_offset(*pgd, ulAddr);
++	if (p4d_none(*p4d))
++	    goto exit;
++	pmd_t *pmd = pmd_offset(p4d, ulAddr);
++#else
+         pmd_t *pmd = pmd_offset(pgd, ulAddr);
++#endif
+         if (!pmd_none(*pmd))
+         {
+             pte_t *ptep = pte_offset_map(pmd, ulAddr);
+@@ -1487,6 +1509,9 @@ static int rtR0MemObjLinuxFixPte(struct mm_struct *mm, unsigned long ulAddr, RTH
+         }
+     }
+ 
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
++exit:
++#endif
+     spin_unlock(&mm->page_table_lock);
+     return rc;
+ }
 diff --git a/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h b/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h
-index 5a7ccb2..3a17bd1 100644
+index 5a7ccb2..a07a22a 100644
 --- a/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h
 +++ b/src/VBox/Runtime/r0drv/linux/the-linux-kernel.h
-@@ -159,6 +159,11 @@
- # include <asm/tlbflush.h>
+@@ -320,6 +320,9 @@ DECLINLINE(unsigned long) msecs_to_jiffies(unsigned int cMillies)
  #endif
  
-+/* for set_pages_x() */
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 25)
 +#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 12, 0)
-+# include <asm/set_memory.h>
++#include <asm/cacheflush.h>
 +#endif
-+
- #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
- # include <asm/smap.h>
+ # define MY_SET_PAGES_EXEC(pPages, cPages)    set_pages_x(pPages, cPages)
+ # define MY_SET_PAGES_NOEXEC(pPages, cPages)  set_pages_nx(pPages, cPages)
  #else
