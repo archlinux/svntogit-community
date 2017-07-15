@@ -1,0 +1,53 @@
+# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Contributor: xduugu
+# Contributor: nh2
+# Contributor: Steven Davidovitz <steviedizzle ð gmail đ com>
+# Contributor: Nick B <Shirakawasuna ð gmail đ com>
+# Contributor: Christof Musik <christof ð senfdax đ de>
+# Contributor: Stefan Rupp <archlinux ð stefanrupp đ de>
+# Contributor: Ignas Anikevicius <anikevicius ð gmail đ com>
+
+pkgname=tp_smapi
+_pkgname=tp-smapi
+pkgver=0.42
+_extramodules=extramodules-4.12-ARCH
+pkgrel=22
+pkgdesc="Modules for ThinkPad's SMAPI functionality"
+arch=('i686' 'x86_64')
+url='https://github.com/evgeni/tp_smapi'
+license=('GPL')
+depends=('linux>=4.12' 'linux<4.13')
+makedepends=('linux-headers>=4.12' 'linux-headers<4.13')
+install="${pkgname}.install"
+source=("https://github.com/evgeni/$pkgname/archive/$_pkgname/$pkgver.tar.gz")
+md5sums=('6a51d3aa459ad7a6ebfbb8c29527b3ee')
+
+build() {
+  cd "$srcdir/$pkgname-$_pkgname-$pkgver"
+
+  _kernver="$(cat /usr/lib/modules/${_extramodules}/version)"
+  make HDAPS=1 KVER="$_kernver" KBASE="/usr/lib/modules/$_kernver"
+}
+
+package() {
+  _kernver="$(cat /usr/lib/modules/${_extramodules}/version)"
+
+  make -C "/usr/lib/modules/${_kernver}/build" \
+    INSTALL_MOD_PATH="${pkgdir}/usr" \
+    M="$srcdir/$pkgname-$_pkgname-$pkgver" modules_install
+
+  cd "${pkgdir}/usr/lib/modules"
+  mv "${_kernver}/extra" "${_extramodules}"
+  rmdir "${_kernver}"
+
+  # compress kernel modules
+  find "${pkgdir}" -name "*.ko" -exec gzip -9 {} +
+
+  # load module on startup
+  echo tp_smapi > "${srcdir}/${pkgname}.conf"
+  install -Dm644 "${srcdir}/${pkgname}.conf" "${pkgdir}/usr/lib/modules-load.d/${pkgname}.conf"
+
+  # update kernel version in install file
+  sed -ri "s|^(extramodules=).*\$|\1/usr/lib/modules/${_extramodules}|" \
+    "${startdir}/${pkgname}.install"
+}
