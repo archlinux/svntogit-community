@@ -1,0 +1,113 @@
+From e94669f768217bc9b464c8cc34e14e081e8a11f6 Mon Sep 17 00:00:00 2001
+From: pancake <pancake@nopcode.org>
+Date: Wed, 10 May 2017 18:20:23 +0200
+Subject: [PATCH] Initial support for Meson and support vala 0.36.3
+Subject: [PATCH] Fix build for Vala-git (future 0.36)
+
+---
+ ctypeswriter.vala | 11 ++++++++---
+ gowriter.vala     | 14 ++------------
+ 2 files changed, 41 insertions(+), 16 deletions(-)
+ create mode 100644 meson.build
+
+diff --git a/ctypeswriter.vala b/ctypeswriter.vala
+index 06b6db2..a708acd 100644
+--- a/ctypeswriter.vala
++++ b/ctypeswriter.vala
+@@ -109,12 +109,14 @@ private class CtypeClass {
+ 			deps.append (d);
+ 	}
+ 
++/*
+ 	public bool depends_on(string d) {
+ 		foreach (var s in deps)
+ 			if (s == d)
+ 				return true;
+ 		return false;
+ 	}
++*/
+ 
+ 	public string to_string() {
+ 		return this.text;
+@@ -217,8 +219,9 @@ public class CtypesWriter : ValabindWriter {
+ 		if (!ignoreRef && (type is ReferenceType)) {
+ 			string unref_type = type_name (type, retType, true);
+ 			// HACK just check for the string class instead (how?)
+-			if (unref_type == "char*" || unref_type == "const char*")
++			if (unref_type == "char*" || unref_type == "const char*") {
+ 				return unref_type;
++			}
+ 			// FIXME should it be & under C++?
+ 			return unref_type; //+"_p"; //+"*";
+ 		}
+@@ -319,10 +322,12 @@ public class CtypesWriter : ValabindWriter {
+ 		visit_struct_or_class (c, name, c.get_fields (), c.get_methods (), c.get_delegates ());
+ 
+ 		/* walk nested structs and classes */
+-		foreach (Struct s in c.get_structs ())
++		foreach (Struct s in c.get_structs ()) {
+ 			s.accept (this);
+-		foreach (Class k in c.get_classes ())
++		}
++		foreach (Class k in c.get_classes ()) {
+ 			k.accept (this);
++		}
+ 		/* TODO: add support for freefun in destructor 
+ 		string? freefun = null;
+ 		if (CCodeBaseModule.is_reference_counting (c))
+diff --git a/gowriter.vala b/gowriter.vala
+index 5a8de23..810aa52 100644
+--- a/gowriter.vala
++++ b/gowriter.vala
+@@ -14,10 +14,7 @@ public class GenericClassFinder : ValabindWriter {
+ 	GLib.HashTable<string, GLib.HashTable<string, GLib.List<DataType>>> generic_classes = new GLib.HashTable<string, GLib.HashTable<string, GLib.List<DataType>>> (GLib.str_hash, GLib.str_equal);
+ 
+ 	inline bool is_generic(DataType d) {
+-		foreach (var t in d.get_type_arguments()) {
+-			return true;
+-		}
+-		return false;
++		return (d.get_type_arguments().size > 0);
+ 	}
+ 
+ 	inline bool is_glib(DataType d) {
+@@ -218,14 +215,7 @@ public class GoNamer {
+ 
+ 	private string mangle_datatype(DataType d) {
+ 		string ret = d.data_type.name;  // i think should unify with get_type_declaration?
+-
+-		bool has_parameters = false;
+-		foreach(var p in d.get_type_arguments()) {
+-			has_parameters = true;
+-			break;
+-		}
+-
+-		if (has_parameters) {
++		if (d.get_type_arguments().size > 0) {
+ 			foreach(var dd in d.get_type_arguments()) {
+ 				ret += "_";
+ 				ret += mangle_datatype(dd);
+--- a/cxxwriter.vala
++++ b/cxxwriter.vala
+@@ -157,7 +157,7 @@ public class CxxWriter : ValabindWriter {
+ 	}
+ 
+ 	public void walk_field (Field f) {
+-		if (f.get_ctype () == null) {
++		if (f.get_attribute_string ("CCode", "type") == null) {
+ 			//warning (
+ 			//	"Cannot resolve type for field '%s'".printf (f.get_cname ()));
+ 		} else {
+diff --git a/dlangwriter.vala b/dlangwriter.vala
+index 8d42676..898d3ca 100644
+--- a/dlangwriter.vala
++++ b/dlangwriter.vala
+@@ -167,7 +167,7 @@ public class DlangWriter : ValabindWriter {
+ 	}
+ 
+ 	public void walk_field (Field f) {
+-		if (f.get_ctype () == null) {
++		if (f.get_attribute_string ("CCode", "type") == null) {
+ 			//warning (
+ 			//	"Cannot resolve type for field '%s'".printf (f.get_cname ()));
+ 		} else {
