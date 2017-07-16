@@ -13,8 +13,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.11
-pkgrel=2
+pkgver=4.12
+pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='https://www.kernel.org'
@@ -33,12 +33,13 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 makedepends+=('ncurses')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
-        #'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.9.9.xz'
+        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.12.2.xz'
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service')
 md5sums=('SKIP'
+         'df72b6950492a79610d443d8992b3293'
          '56883c159381ba89e50ab8ea65efec77'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
