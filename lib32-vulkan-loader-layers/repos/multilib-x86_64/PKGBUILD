@@ -4,17 +4,27 @@
 pkgbase=lib32-vulkan-loader-layers
 pkgname=(lib32-vulkan-icd-loader lib32-vulkan-validation-layers)
 _pkgname=Vulkan-LoaderAndValidationLayers
-pkgver=1.0.51.0
+pkgver=1.0.54.0
 pkgrel=1
 arch=(x86_64)
 url="https://www.khronos.org/vulkan/"
 license=('custom')
 depends=()
 makedepends=(git cmake python-lxml lib32-libx11 lib32-libxrandr lib32-wayland)
-source=("https://github.com/KhronosGroup/${_pkgname}/archive/sdk-${pkgver}.tar.gz")
-sha256sums=('20c07764e3f69d0d2158070a24faa6b8c5242af0bf8088ac538281c42c2ca119')
+source=("https://github.com/KhronosGroup/${_pkgname}/archive/sdk-${pkgver}.tar.gz"
+        0001-loader-Remove-executable-stack-from-libvulkan.so.patch)
+sha256sums=('f2556963f27309485c4d6bd9acece58d51df6a1b13699cc3a2c8d2579e6a3831'
+            '01c1e96916a9fc0ef6f62703cd968c14031ad75f64f61409f108bc9e427977a1')
+
+prepare() {
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+
+  # https://github.com/KhronosGroup/Vulkan-LoaderAndValidationLayers/issues/1956
+  patch -Np1 -i ../0001-loader-Remove-executable-stack-from-libvulkan.so.patch
+}
 
 build() {
+  export ASFLAGS=--32
   export CC="gcc -m32"
   export CXX="g++ -m32"                                                                                                                                                                                                            
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig" 
@@ -26,6 +36,7 @@ build() {
   rm -rf build ; mkdir build ; cd build
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_SYSCONFDIR=/etc \
+    -DCMAKE_INSTALL_LIBDIR=lib32 \
     -DCMAKE_INSTALL_DATADIR=/share \
     -DCMAKE_SKIP_RPATH=True \
     -DBUILD_TESTS=Off \
@@ -36,32 +47,39 @@ build() {
     -DCMAKE_BUILD_TYPE=Release \
     ..
   make
-  make DESTDIR=install install
 }
 
 package_lib32-vulkan-icd-loader() {
-  pkgdesc="Vulkan Installable Client Driver (ICD) Loader"
+  pkgdesc="Vulkan Installable Client Driver (ICD) Loader (32-bit)"
   depends=(lib32-glibc)
   optdepends=(lib32-vulkan-driver: packaged vulkan driver)
-  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}/build"
   
-  install -dm755 ${pkgdir}/usr/lib32
+  make DESTDIR="${pkgdir}" install
+
+  rm -r ${pkgdir}/etc
+  rm -r ${pkgdir}/usr/bin
+  rm -r ${pkgdir}/usr/include
+  rm ${pkgdir}/usr/lib32/libVkLayer*.so
+
   install -dm755 ${pkgdir}/usr/share/licenses/${pkgname}
-  
-  cp -rv  build/loader/libvulkan.so* ${pkgdir}/usr/lib32
-  install -m644 LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/
+  install -m644 ../LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/
 }
 
 package_lib32-vulkan-validation-layers() {
-  pkgdesc="Vulkan Software Development Kit"
+  pkgdesc="Vulkan Software Development Kit (32-bit)"
   depends=(lib32-gcc-libs lib32-vulkan-icd-loader vulkan-headers)
-  cd "${srcdir}/${_pkgname}-sdk-${pkgver}"
+  cd "${srcdir}/${_pkgname}-sdk-${pkgver}/build"
   
-  install -dm755 ${pkgdir}/usr/lib32
+  make DESTDIR="${pkgdir}" install
+
+  rm -r ${pkgdir}/etc
+  rm -r ${pkgdir}/usr/bin
+  rm -r ${pkgdir}/usr/include
+  rm -r ${pkgdir}/usr/lib32/pkgconfig
+  rm ${pkgdir}/usr/lib32/libvulkan.so*
+
   install -dm755 ${pkgdir}/usr/share/licenses/${pkgname}
-
-  install -m644 build/layers/*.so ${pkgdir}/usr/lib32
-
-  install -m644 LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/
+  install -m644 ../LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/
 }
 
