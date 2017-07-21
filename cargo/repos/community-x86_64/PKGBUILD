@@ -4,7 +4,7 @@
 # Contributor: Christopher Reimer <mail+aur@c-reimer.de>
 
 pkgname=cargo
-pkgver=0.19.0
+pkgver=0.20.0
 pkgrel=1
 
 pkgdesc='Rust package manager'
@@ -19,44 +19,36 @@ optdepends=('gcc: for compiling C source code with gcc'
 
 options=('!emptydirs')
 
-source=("git+https://github.com/rust-lang/cargo.git#tag=$pkgver"
-        "git+https://github.com/rust-lang/rust-installer.git")
+source=("git+https://github.com/rust-lang/cargo.git#commit=a60d185c878c470876e123b0e40b0ba9f3271163")
 
-md5sums=('SKIP'
-         'SKIP')
-
-prepare() {
-  cd cargo
-
-  git submodule init
-  git config submodule.src/rust-installer.url "$srcdir"/rust-installer
-  git submodule update
-
-  sed 's^share/doc^share/licenses^g' -i Makefile.in
-}
+md5sums=('SKIP')
 
 build() {
   cd cargo
 
-  ./configure \
-    --prefix=/usr \
-    --release-channel=stable \
-    --enable-optimize
-  make
+  cargo build --release
 }
 
 package() {
+  # cargo upstream deleted the old autotools scripts in favor of their own
+  # distribution tarball creation tools in the rust repo, which aren't suitable
+  # for our use right now, so we'll have to install things manually for now.
+
   cd cargo
 
-  make DESTDIR="$pkgdir" install
+  cargo install --root "$pkgdir"/usr
 
-  # Remove files that contains references to $srcdir or $pkgdir,
-  # or that conflicts with the rust package.
-  rm -f "$pkgdir/usr/lib/rustlib/"{install.log,manifest-cargo,uninstall.sh}
+  rm "$pkgdir"/usr/.crates.toml
 
-  install -d "$pkgdir/usr/share/bash-completion/completions"
-  mv "$pkgdir/usr/etc/bash_completion.d/cargo" \
-    "$pkgdir/usr/share/bash-completion/completions/cargo"
+  install -Dm644 src/etc/_cargo \
+    "$pkgdir"/usr/share/zsh/site-functions/_cargo
+  install -Dm644 src/etc/cargo.bashcomp.sh \
+    "$pkgdir"/usr/share/bash-completion/completions/cargo
+
+  install -d "$pkgdir"/usr/share/man/man1/
+  for f in src/etc/man/*; do
+    cp "$f" "$pkgdir"/usr/share/man/man1/
+  done
 
   for f in LICENSE-APACHE LICENSE-MIT LICENSE-THIRD-PARTY; do
     install -Dm644 "$f" "$pkgdir/usr/share/licenses/$pkgname/$f"
