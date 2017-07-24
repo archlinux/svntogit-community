@@ -1,0 +1,155 @@
+diff --git a/src/VBox/HostDrivers/adpctl/VBoxNetAdpCtl.cpp b/src/VBox/HostDrivers/adpctl/VBoxNetAdpCtl.cpp
+index c4bd19f..84003a0 100644
+--- a/src/VBox/HostDrivers/adpctl/VBoxNetAdpCtl.cpp
++++ b/src/VBox/HostDrivers/adpctl/VBoxNetAdpCtl.cpp
+@@ -32,6 +32,7 @@
+ #include <sys/stat.h>
+ #include <fcntl.h>
+ #ifdef RT_OS_LINUX
++# include <arpa/inet.h>
+ # include <net/if.h>
+ # include <linux/types.h>
+ /* Older versions of ethtool.h rely on these: */
+@@ -253,14 +254,79 @@ protected:
+ };
+ 
+ 
++#ifdef RT_OS_LINUX
++/*
++ * Helper class to incapsulate IPv4 address conversion.
++ */
++class AddressIPv4
++{
++public:
++    AddressIPv4(const char *pcszAddress, const char *pcszNetmask = 0)
++        {
++            if (pcszNetmask)
++                m_Prefix = maskToPrefix(pcszNetmask);
++            else
++            {
++                /*
++                 * Since guessing network mask is probably futile we simply use 24,
++                 * as it matches our defaults. When non-default values are used
++                 * providing a proper netmask is up to the user.
++                 */
++                m_Prefix = 24;
++            }
++            inet_pton(AF_INET, pcszAddress, &(m_Address.sin_addr));
++            snprintf(m_szAddressAndMask, sizeof(m_szAddressAndMask), "%s/%d", pcszAddress, m_Prefix);
++            m_Broadcast.sin_addr.s_addr = computeBroadcast(m_Address.sin_addr.s_addr, m_Prefix);
++            inet_ntop(AF_INET, &(m_Broadcast.sin_addr), m_szBroadcast, sizeof(m_szBroadcast));
++        }
++    const char *getBroadcast() const { return m_szBroadcast; };
++    const char *getAddressAndMask() const { return m_szAddressAndMask; };
++private:
++    unsigned int maskToPrefix(const char *pcszNetmask);
++    unsigned long computeBroadcast(unsigned long ulAddress, unsigned int uPrefix);
++
++    unsigned int       m_Prefix;
++    struct sockaddr_in m_Address;
++    struct sockaddr_in m_Broadcast;
++    char m_szAddressAndMask[INET_ADDRSTRLEN + 3]; /* e.g. 192.168.56.101/24 */
++    char m_szBroadcast[INET_ADDRSTRLEN];
++};
++
++unsigned int AddressIPv4::maskToPrefix(const char *pcszNetmask)
++{
++    unsigned cBits = 0;
++    unsigned m[4];
++
++    if (sscanf(pcszNetmask, "%u.%u.%u.%u", &m[0], &m[1], &m[2], &m[3]) == 4)
++    {
++        for (int i = 0; i < 4 && m[i]; ++i)
++        {
++            int mask = m[i];
++            while (mask & 0x80)
++            {
++                cBits++;
++                mask <<= 1;
++            }
++        }
++    }
++    return cBits;
++}
++
++unsigned long AddressIPv4::computeBroadcast(unsigned long ulAddress, unsigned int uPrefix)
++{
++    /* Note: the address is big-endian. */
++    unsigned long ulNetworkMask = (1l << uPrefix) - 1;
++    return (ulAddress & ulNetworkMask) | ~ulNetworkMask;
++}
++
++
+ /*
+  * Linux-specific implementation of 'ip' command, as other platforms do not support it.
+  */
+ class CmdIpLinux : public AddressCommand
+ {
+ public:
+-    CmdIpLinux() { pszBuffer = 0; m_pszPath = "/sbin/ip"; };
+-    virtual ~CmdIpLinux() { delete pszBuffer; };
++    CmdIpLinux() { m_pszPath = "/sbin/ip"; };
+     /**
+      * IPv4 and IPv6 syntax is the same, so we override `remove` instead of implementing
+      * family-specific commands. It would be easier to use the same body in both
+@@ -272,11 +338,14 @@ public:
+ protected:
+     virtual int addV4(const char *pcszAdapter, const char *pcszAddress, const char *pcszNetmask = 0)
+         {
+-            return execute(CmdList("addr") << "add" << combine(pcszAddress, pcszNetmask) <<
+-                           "dev" << pcszAdapter);
++            AddressIPv4 addr(pcszAddress, pcszNetmask);
++            bringUp(pcszAdapter);
++            return execute(CmdList("addr") << "add" << addr.getAddressAndMask() <<
++                           "broadcast" << addr.getBroadcast() << "dev" << pcszAdapter);
+         };
+     virtual int addV6(const char *pcszAdapter, const char *pcszAddress, const char *pcszNetmask = 0)
+         {
++            bringUp(pcszAdapter);
+             return execute(CmdList("addr") << "add" << pcszAddress << "dev" << pcszAdapter);
+             NOREF(pcszNetmask);
+         };
+@@ -295,39 +364,11 @@ protected:
+     virtual CmdList getShowCommand(const char *pcszAdapter) const
+         { return CmdList("addr") << "show" << "dev" << pcszAdapter; };
+ private:
+-    /** Converts address and network mask into a single string in CIDR notation (like 192.168.1.1/24) */
+-    const char *combine(const char *pcszAddress, const char *pcszNetmask);
+-
+-    char *pszBuffer;
++    /** Brings up the adapter */
++    void bringUp(const char *pcszAdapter)
++        { execute(CmdList("link") << "set" << "dev" << pcszAdapter << "up"); };
+ };
+-
+-const char * CmdIpLinux::combine(const char *pcszAddress, const char *pcszNetmask)
+-{
+-    delete pszBuffer;
+-    if (pcszNetmask)
+-    {
+-        unsigned cBits = 0;
+-        unsigned m[4];
+-        if (sscanf(pcszNetmask, "%u.%u.%u.%u", &m[0], &m[1], &m[2], &m[3]) == 4)
+-        {
+-            for (int i = 0; i < 4 && m[i]; ++i)
+-            {
+-                int mask = m[i];
+-                while (mask & 0x80)
+-                {
+-                    cBits++;
+-                    mask <<= 1;
+-                }
+-            }
+-            const size_t cbBuf = strlen(pcszAddress) + 4;
+-            pszBuffer = new char[cbBuf]; // '/xx\0'
+-            snprintf(pszBuffer, cbBuf, "%s/%u", pcszAddress, cBits);
+-            return pszBuffer;
+-        }
+-    }
+-    return pcszAddress;
+-}
+-
++#endif /* RT_OS_LINUX */
+ 
+ 
+ /*********************************************************************************************************************************
