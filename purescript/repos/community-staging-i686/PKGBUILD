@@ -1,0 +1,62 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=purescript
+pkgver=0.11.6
+pkgrel=6
+pkgdesc="PureScript Programming Language Compiler"
+url="http://www.purescript.org/"
+license=("custom:BSD3")
+arch=('i686' 'x86_64')
+depends=('ghc' "haskell-aeson" "haskell-aeson-better-errors" "haskell-aeson-pretty"
+         "haskell-ansi-terminal" "haskell-ansi-wl-pprint" "haskell-base-compat" "haskell-blaze-html"
+         "haskell-bower-json" "haskell-boxes" "haskell-cheapskate" "haskell-clock"
+         "haskell-data-ordlist" "haskell-dlist" "haskell-edit-distance" "haskell-file-embed"
+         "haskell-fsnotify" "haskell-glob" "haskell-http-client" "haskell-http-types"
+         "haskell-language-javascript" "haskell-lens" "haskell-lifted-base" "haskell-monad-control"
+         "haskell-monad-logger" "haskell-mtl" "haskell-network" "haskell-optparse-applicative"
+         "haskell-parallel" "haskell-parsec" "haskell-pattern-arrows" "haskell-pipes"
+         "haskell-pipes-http" "haskell-protolude" "haskell-regex-tdfa" "haskell-safe"
+         "haskell-semigroups" "haskell-sourcemap" "haskell-spdx" "haskell-split" "haskell-stm"
+         "haskell-stringsearch" "haskell-syb" "haskell-text" "haskell-transformers-base"
+         "haskell-transformers-compat" "haskell-unordered-containers" "haskell-utf8-string"
+         "haskell-vector" "haskell-wai" "haskell-wai-websockets" "haskell-warp"
+         "haskell-websockets")
+optdepends=('pulp: for development environment')
+source=("https://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('98a82eb3468c79cc0d0f4adf52879814680f06c40bf443e6ec10a1797ddcbf87b627423714a6d392139fb28a1fb1971a839e24d91f5dd89b8d0ead25ba2eb6a0')
+
+prepare() {
+    sed -i 's/aeson >=1.0 && <1.1/aeson >=1.0/' ${pkgname}-${pkgver}/${pkgname}.cabal
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgbase}" --datasubdir="$pkgbase" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -frelease
+    LC_CTYPE=en_US.UTF-8 runhaskell Setup build
+    runhaskell Setup haddock --hoogle --html
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    install -d -m755 "${pkgdir}/usr/share/doc/ghc/html/libraries"
+    ln -s "/usr/share/doc/${pkgname}/html" "${pkgdir}/usr/share/doc/ghc/html/libraries/${pkgname}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+
+    # Remove static libs
+    find "$pkgdir"/usr/lib -name "*.a" -delete
+}
