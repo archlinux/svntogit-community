@@ -1,0 +1,75 @@
+From 75cecbbe3fdafdb6652e95ac17cd755c28e67f20 Mon Sep 17 00:00:00 2001
+From: Joey Hess <joeyh@joeyh.name>
+Date: Sat, 17 Jun 2017 13:04:48 -0400
+Subject: [PATCH] Fix build with QuickCheck 2.10.
+
+QuickCheck added an Arbitrary instance for CTime aka EpochTime. However,
+while git-annex's instance disallowed times before the epoch, QuickCheck's
+does not. So, rather than using its instance, convert from an Integer.
+
+This commit was sponsored by Thomas Hochstein on Patreon.
+---
+ CHANGELOG             | 6 ++++++
+ Key.hs                | 2 +-
+ Utility/InodeCache.hs | 3 ++-
+ Utility/QuickCheck.hs | 3 ---
+ 4 files changed, 9 insertions(+), 5 deletions(-)
+
+diff --git a/CHANGELOG b/CHANGELOG
+index 1d8f45c..9dbb235 100644
+--- a/CHANGELOG
++++ b/CHANGELOG
+@@ -1,3 +1,9 @@
++git-annex (6.20170521) UNRELEASED; urgency=medium
++
++  * Fix build with QuickCheck 2.10.
++
++ -- Joey Hess <id@joeyh.name>  Sat, 17 Jun 2017 13:02:24 -0400
++
+ git-annex (6.20170520) unstable; urgency=medium
+ 
+   * move --to=here moves from all reachable remotes to the local repository.
+diff --git a/Key.hs b/Key.hs
+index 8672c82..44e9ace 100644
+--- a/Key.hs
++++ b/Key.hs
+@@ -147,7 +147,7 @@ instance Arbitrary Key where
+ 		<$> (listOf1 $ elements $ ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ "-_\r\n \t")
+ 		<*> (parseKeyVariety <$> (listOf1 $ elements ['A'..'Z'])) -- BACKEND
+ 		<*> ((abs <$>) <$> arbitrary) -- size cannot be negative
+-		<*> arbitrary
++		<*> ((abs . fromInteger <$>) <$> arbitrary) -- mtime cannot be negative
+ 		<*> ((abs <$>) <$> arbitrary) -- chunksize cannot be negative
+ 		<*> ((succ . abs <$>) <$> arbitrary) -- chunknum cannot be 0 or negative
+ 
+diff --git a/Utility/InodeCache.hs b/Utility/InodeCache.hs
+index e91771a..7e2d999 100644
+--- a/Utility/InodeCache.hs
++++ b/Utility/InodeCache.hs
+@@ -210,7 +210,8 @@ instance Arbitrary InodeCache where
+ 		let prim = InodeCachePrim
+ 			<$> arbitrary
+ 			<*> arbitrary
+-			<*> arbitrary
++			-- timestamp cannot be negative
++			<*> (abs . fromInteger <$> arbitrary)
+ 		in InodeCache <$> prim
+ 
+ #ifdef mingw32_HOST_OS
+diff --git a/Utility/QuickCheck.hs b/Utility/QuickCheck.hs
+index 0181ea9..e89d103 100644
+--- a/Utility/QuickCheck.hs
++++ b/Utility/QuickCheck.hs
+@@ -35,9 +35,6 @@ instance (Arbitrary v, Ord v) => Arbitrary (S.Set v) where
+ instance Arbitrary POSIXTime where
+ 	arbitrary = fromInteger <$> nonNegative arbitrarySizedIntegral
+ 
+-instance Arbitrary EpochTime where
+-	arbitrary = fromInteger <$> nonNegative arbitrarySizedIntegral
+-
+ {- Pids are never negative, or 0. -}
+ instance Arbitrary ProcessID where
+ 	arbitrary = arbitrarySizedBoundedIntegral `suchThat` (> 0)
+-- 
+2.8.0.rc3
+
