@@ -14,14 +14,14 @@ pkgname=('mythplugins-mytharchive'
          'mythplugins-mythweather'
          'mythplugins-mythweb'
          'mythplugins-mythzoneminder')
-pkgver=0.28.1
-pkgrel=4
+pkgver=29.0
+pkgrel=1
 epoch=1
 arch=('i686' 'x86_64')
 url="http://www.mythtv.org"
 license=('GPL')
 makedepends=('cdrtools' 'dvdauthor' 'dvd+rw-tools' 'ffmpeg' 'flac' 'libexif'
-             'libvorbis' 'mesa' 'mesa-libgl' 'mythtv'
+             'libvorbis' 'mesa' 'mesa-libgl' "mythtv=$epoch:$pkgver"
              'perl-datetime-format-iso8601' 'perl-date-manip' 'perl-image-size'
              'perl-json' 'perl-libwww' 'perl-soap-lite' 'perl-xml-sax'
              'perl-xml-simple' 'perl-xml-xpath' 'python2-oauth' 'python2-pillow'
@@ -29,8 +29,8 @@ makedepends=('cdrtools' 'dvdauthor' 'dvd+rw-tools' 'ffmpeg' 'flac' 'libexif'
 source=("mythtv-$pkgver.tar.gz::https://github.com/MythTV/mythtv/archive/v$pkgver.tar.gz"
         "mythweb-$pkgver.tar.gz::https://github.com/MythTV/mythweb/archive/v$pkgver.tar.gz"
         'cdparanoia.patch')
-sha256sums=('f59688bbb69ef8830cfe76c826ec89027ed0a9bbb75cc97935fc664225b89dee'
-            'bbd82992230d3571eba55a26a91cc3f2dcddfa631d1822ce58e1bf99f2537244'
+sha256sums=('3c24acf3aab3a52e66222331b3eb104f5136f3b045fef8e0ba5623bda581b2a9'
+            '8d233648658d07fd59c191c0c3ca6d31eddbc28daec85509e011e3ade307eee3'
             '004f1e4734830709d2ab5ebb804560514f2bf525abc2f11142501a81eba0754c')
 
 prepare() {
