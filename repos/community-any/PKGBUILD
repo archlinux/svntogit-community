@@ -1,0 +1,76 @@
+# Maintainer: NicoHood <archlinux {cat} nicohood {dog} de>
+# PGP ID: 97312D5EB9D7AE7D0BD4307351DAE9B7C1AE9161
+# Contributor: Carl George < arch at cgtx dot us >
+
+_pkgname=rethinkdb
+_utils=("rethinkdb-import" "rethinkdb-dump" "rethinkdb-export"
+        "rethinkdb-restore" "rethinkdb-index-rebuild"
+        "rethinkdb-repl")
+_remove=('_export' '_import' '_restore' '_dump' '_index_rebuild')
+
+pkgbase=python-rethinkdb
+pkgname=('python-rethinkdb' 'python2-rethinkdb' 'rethinkdb-utils')
+pkgver=2.3.6
+pkgrel=1
+_tag=rethinkdb-$pkgver
+pkgdesc="Python driver library for the RethinkDB database server."
+arch=('any')
+url='https://www.rethinkdb.com/'
+license=('APACHE')
+makedepends=('python-distribute' 'python2-distribute' 'protobuf')
+options=(!emptydirs)
+source=("https://download.rethinkdb.com/dist/$_tag.tgz"
+        "https://download.rethinkdb.com/dist/$_tag.tgz.asc")
+sha512sums=('653177750f7439fa1d61a121e488d578be1eab90f87c7d17ad52b9793d8543f22bbe98f8d501c2ab2d7048c65118096430fe7bde945d87c7a3228905af801af2'
+            'SKIP')
+validpgpkeys=('3B87619DF812A63A8C1005C30742918E5C8DA04A') # RethinkDB Packaging <packaging@rethinkdb.com>
+
+prepare() {
+    # Create a copy for the python2 package
+    cp -r "${_pkgname}-${pkgver}" "python2-${_pkgname}-${pkgver}"
+    mkdir -p "${srcdir}/utils"
+
+    cd $_tag
+    ./configure --allow-fetch
+
+    cd "${srcdir}/python2-${_pkgname}-${pkgver}"
+    ./configure --allow-fetch
+    sed -i 's|#!/usr/bin/env python|#!/usr/bin/env python2|g' \
+        "${srcdir}/python2-${_pkgname}-${pkgver}/drivers/python/rethinkdb/__main__.py"
+}
+
+package_python-rethinkdb() {
+    depends=('python')
+    optdepends=('rethinkdb: database')
+
+    cd "${srcdir}/${_pkgname}-${pkgver}/drivers/python"
+    make
+    python setup.py install --root="${pkgdir}" --optimize=1
+    for _util in ${_utils[@]}; do
+        mv "${pkgdir}/usr/bin/${_util}" "${srcdir}/utils"
+    done
+}
+
+package_python2-rethinkdb() {
+    pkgdesc="Python2 driver library for the RethinkDB database server."
+    depends=('python2')
+    optdepends=('rethinkdb: database')
+
+    cd "${srcdir}/python2-${_pkgname}-${pkgver}/drivers/python"
+    make
+    python2 setup.py install --root="${pkgdir}" --optimize=1
+    for _util in ${_utils[@]}; do
+        rm -f "${pkgdir}/usr/bin/${_util}"
+    done
+    for _rem in ${_remove[@]}; do
+        rm -f "${pkgdir}/usr/lib/python2.7/site-packages/rethinkdb/${_rem}."*
+    done
+}
+
+package_rethinkdb-utils() {
+    pkgdesc="RethinkDB database utilities."
+    depends=('python-rethinkdb' 'rethinkdb')
+    for _util in ${_utils[@]}; do
+        install -D -p -m 755 "${srcdir}/utils/${_util}" "${pkgdir}/usr/bin/${_util}"
+    done
+}
