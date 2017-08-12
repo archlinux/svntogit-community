@@ -4,7 +4,7 @@
 
 pkgname=bazel
 pkgver=0.5.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
@@ -26,7 +26,8 @@ build() {
 }
 
 package() {
-  install -Dm755 ${srcdir}/output/bazel ${pkgdir}/usr/bin/bazel
+  install -Dm755 ${srcdir}/scripts/packages/bazel.sh ${pkgdir}/usr/bin/bazel
+  install -Dm755 ${srcdir}/output/bazel ${pkgdir}/usr/bin/bazel-real
   install -Dm644 ${srcdir}/bazel-bin/scripts/bazel-complete.bash ${pkgdir}/usr/share/bash-completion/completions/bazel
   install -Dm644 ${srcdir}/scripts/zsh_completion/_bazel ${pkgdir}/usr/share/zsh/site-functions/_bazel
   mkdir -p ${pkgdir}/opt/bazel/
