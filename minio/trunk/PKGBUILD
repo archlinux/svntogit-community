@@ -17,10 +17,10 @@ install=minio.install
 source=(https://github.com/minio/minio/archive/RELEASE.${_pkgver}.tar.gz
         minio.conf
         minio.service)
-backup=(etc/minio/minio.conf)
+backup=('etc/minio/minio.conf')
 sha512sums=('f468475cae7071648a1c9c010507ca01b7d181ffaa8ea049932ece8d4e6229d1acb41ed97732f4a33fa17c358473ff497ca6071ec6f30a94810ea7afed811e7f'
             '630a5d109409074b67be71b663a43ad09104121cca3637bb0542df19e375023bff7d7e2cbf39e52cc3cd060d41c363a90bd4ff7734aed1a5ca43a600f6d6d275'
-            '36dbd6b9d27d66b3e7dfb4f6b20fc1939dc42286b5c0ffc399760e5bebffee08548834a0a780d45b815c7c78ca6c738bf0da61ec734131fcc704e65874e04486')
+            '1c6ea217ea8aac93c9d1e05ad0b6c2108fe3d6367fa6a55acc480b8667996bbb59743e2f7e354c5257fc68bffc18cc44a48c4a82eee293abddcdc7962e63e50b')
 
 build() {
   export GOPATH="${srcdir}/go"
