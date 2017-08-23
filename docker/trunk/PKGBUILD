@@ -2,8 +2,8 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=17.06.0
-pkgrel=2
+pkgver=17.06.1
+pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64' 'i686')
@@ -11,7 +11,7 @@ url='https://www.docker.com/'
 license=('Apache')
 depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'libsystemd'
          'libseccomp' 'libtool')
-makedepends=('git' 'go' 'btrfs-progs' 'cmake')
+makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd')
 optdepends=('btrfs-progs: btrfs backend support'
             'lxc: lxc backend support')
 # don't strip binaries! A sha1 is used to check binary consistency.
@@ -19,22 +19,20 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile for runc and containerd until 1.0.0
 # https://github.com/docker/containerd/issues/299#issuecomment-240745119
 # see commit in hack/dockerfile/binaries-commits
-_RUNC_COMMIT=2d41c047c83e09a6d61d464906feb2a2f3c52aa4
-_CONTAINERD_COMMIT=cfb82a876ecc11b5ca0977d1733adbe58599088a
+# https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/binaries-commits
+_RUNC_COMMIT=810190ceaa507aa2727d7ae6f4790c76ec150bd2
+_CONTAINERD_COMMIT=6e23458c129b551d5c9871e5174f6b1b7f6d1170
 _TINI_COMMIT=949e6facb77383876aeff8a6944dde66b3089574
 _LIBNETWORK_COMMIT=7b2b1feb1de4817d522cc372af149ff48d25028e
-_DOCKERCLI_COMMIT=3dfb8343b139d6342acfd9975d7f1068b5b1c3d3
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver-ce"
-        "git+https://github.com/docker/cli.git#commit=$_DOCKERCLI_COMMIT"
         "git+https://github.com/docker/runc.git#commit=$_RUNC_COMMIT"
-        "git+https://github.com/containerd/containerd.git#commit=$_CONTAINERD_COMMIT"
+        "git+https://github.com/docker/containerd.git#commit=$_CONTAINERD_COMMIT"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/spf13/cobra.git"
         "git+https://github.com/cpuguy83/go-md2man.git"
         "$pkgname.sysusers")
 md5sums=('SKIP'
-         'SKIP'
          'SKIP'
          'SKIP'
          'SKIP'
@@ -64,7 +62,7 @@ build() {
   local _cfile _commit _pkgbuild _dockerfile
   _cfile="$srcdir"/docker-ce/components/engine/hack/dockerfile/binaries-commits
   . "$_cfile"
-  for _commit in DOCKERCLI RUNC CONTAINERD LIBNETWORK TINI; do
+  for _commit in RUNC CONTAINERD LIBNETWORK TINI; do
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
     if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
@@ -80,7 +78,7 @@ build() {
 
   ### cli
   msg2 'Building cli'
-  _fake_gopath_pushd cli github.com/docker/cli
+  _fake_gopath_pushd docker-ce/components/cli github.com/docker/cli
   make VERSION=$pkgver-ce dynbinary
   _fake_gopath_popd
 
@@ -88,7 +86,7 @@ build() {
   msg2 'Building daemon'
   _fake_gopath_pushd docker-ce/components/engine github.com/docker/docker
   DOCKER_GITCOMMIT=$(cd "$srcdir"/docker-ce && git rev-parse --short HEAD) \
-    DOCKER_BUILDTAGS='seccomp' \
+    DOCKER_BUILDTAGS='seccomp journald' \
     VERSION=$pkgver-ce \
     hack/make.sh dynbinary
   _fake_gopath_popd
@@ -136,8 +134,6 @@ build() {
 }
 
 package() {
-  ### cli
-  install -Dm755 cli/build/docker "$pkgdir/usr/bin/docker"
   ### runc
   install -Dm755 runc/runc "$pkgdir/usr/bin/docker-runc"
   ### containerd
@@ -149,18 +145,11 @@ package() {
   install -Dm755 libnetwork/proxy "$pkgdir/usr/bin/docker-proxy"
   ### init
   install -Dm755 tini/tini-static "$pkgdir/usr/bin/docker-init"
-  ### docker-ce engine subdir
-  cd docker-ce/components/engine
-  ### daemon
+  ### engine
+  cd "$srcdir"/docker-ce/components/engine
+  # binary
   install -Dm755 {bundles/latest/dynbinary-daemon,"$pkgdir"/usr/bin}/dockerd
-  ### completion
-  install -Dm644 'contrib/completion/bash/docker' \
-    "$pkgdir/usr/share/bash-completion/completions/docker"
-  install -Dm644 'contrib/completion/zsh/_docker' \
-    "$pkgdir/usr/share/zsh/site-functions/_docker"
-  install -Dm644 'contrib/completion/fish/docker.fish' \
-    "$pkgdir/usr/share/fish/vendor_completions.d/docker.fish"
-  ### systemd
+  # systemd
   install -Dm644 'contrib/init/systemd/docker.service' \
     "$pkgdir/usr/lib/systemd/system/docker.service"
   install -Dm644 'contrib/init/systemd/docker.socket' \
@@ -169,14 +158,25 @@ package() {
     "$pkgdir/usr/lib/udev/rules.d/80-docker.rules"
   install -Dm644 "$srcdir/$pkgname.sysusers" \
     "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
-  ### vim syntax
+  # vim syntax
   install -Dm644 'contrib/syntax/vim/syntax/dockerfile.vim' \
     "$pkgdir/usr/share/vim/vimfiles/syntax/dockerfile.vim"
   install -Dm644 'contrib/syntax/vim/ftdetect/dockerfile.vim' \
     "$pkgdir/usr/share/vim/vimfiles/ftdetect/dockerfile.vim"
-  ### man
+  ### cli
+  cd "$srcdir"/docker-ce/components/cli
+  # binary
+  install -Dm755 build/docker "$pkgdir/usr/bin/docker"
+  # completion
+  install -Dm644 'contrib/completion/bash/docker' \
+    "$pkgdir/usr/share/bash-completion/completions/docker"
+  install -Dm644 'contrib/completion/zsh/_docker' \
+    "$pkgdir/usr/share/zsh/site-functions/_docker"
+  install -Dm644 'contrib/completion/fish/docker.fish' \
+    "$pkgdir/usr/share/fish/vendor_completions.d/docker.fish"
+  # man
   install -dm755 "$pkgdir/usr/share/man"
-  cp -r $srcdir/docker-ce/components/cli/man/man* "$pkgdir/usr/share/man"
+  cp -r man/man* "$pkgdir/usr/share/man"
 }
 
 # vim:set ts=2 sw=2 et:
