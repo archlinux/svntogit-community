@@ -20,9 +20,9 @@
 
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
-pkgver=17.3
+pkgver=17.4
 _codename=Krypton
-pkgrel=4
+pkgrel=1
 arch=('i686' 'x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -39,11 +39,9 @@ makedepends=(
 source=(
   "$pkgname-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
   'fix-python-lib-path.patch'
-  'fix-ftpparse.patch'
 )
-sha512sums=('832071c3e9f332281a767f29168f6d6d003a86b42df849e81d907c2280f81f959ae42a850eddc889ae2280bba6106de3355e701ff2d71c88ee14cb20c84e7987'
-            '0f41604e38648969572a66d1124d6e090c3bfca4f9d8ccabcd1806254c38b178ee08df35e1bbbd1228f820729df52353321b3257122af601c3233dbc6405c6d2'
-            '20ed1d87eec133d079c0e58858d24b4c79480e31e35296f82c7c33f5aa48d6ce163ce40784aa50d4ffe2021758c949c84319eb17fadc0040e2aa2be8f2130d2c')
+sha512sums=('fc4eff6606c84459ab24323888d39bf1f5d433aaf7136c17d85631f768761f61e498297c500befc986dd6de14de87a5a28f7a9c36c8d7c35d49ca15c99db37ef'
+            '0f41604e38648969572a66d1124d6e090c3bfca4f9d8ccabcd1806254c38b178ee08df35e1bbbd1228f820729df52353321b3257122af601c3233dbc6405c6d2')
 
 prepare() {
   [[ -d kodi-build ]] && rm -rf kodi-build
@@ -51,7 +49,6 @@ prepare() {
 
   cd "xbmc-$pkgver-$_codename"
   patch -p1 -i "$srcdir/fix-python-lib-path.patch"
-  patch -p1 -i "$srcdir/fix-ftpparse.patch"
 }
 
 build() {
