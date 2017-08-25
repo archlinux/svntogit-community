@@ -53,6 +53,10 @@ prepare() {
   # usbip: Fix potential format overflow in userspace tools
   git cherry-pick -n e5dfa3f902b9a642ae8c6997d57d7c41e384a90b
 
+  # Fix "unwind-libunwind.c:109:11: error: ‘EINVAL’ undeclared" on i686
+  # Not sure why this wasn't an issue until now...
+  sed -i '1i #include <errno.h>' tools/perf/arch/x86/util/unwind-libunwind.c
+
   # apply stable kernel patch
   #patch -p1 -N -i "$srcdir"/patch-4.7.5
 
