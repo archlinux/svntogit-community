@@ -3,18 +3,18 @@
 # Contributor: Simon Legner <Simon.Legner@gmail.com>
 
 pkgname=bazel
-pkgver=0.5.3
-pkgrel=2
+pkgver=0.5.4
+pkgrel=1
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
 url='https://bazel.io/'
 depends=('java-environment>=8' 'libarchive' 'zip' 'unzip')
-makedepends=('git' 'protobuf')
+makedepends=('git' 'protobuf' 'python')
 options=('!distcc' '!strip')
 source=(https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip
         https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip.sig)
-sha512sums=('469303e6789ce181ef0f0a8506b4c53e311bd4e9060528e0f24ab58d3b2a52b349f1372467389253c8335584f16c9febd1995bd0031c86a46ebd728bde3c2a18'
+sha512sums=('f13c003d1d27213e5a723878f488f02a77f1549b6c377db007d412e3db558ab1dfc4e7434c0a7634959d7f5447e71200bda7f99c16fe70661ea81e610c8089f5'
             'SKIP')
 validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')
 
