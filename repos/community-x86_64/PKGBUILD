@@ -4,7 +4,7 @@
 _chromiumver=56.0.2924.87
 pkgname=electron
 pkgver=1.6.11
-pkgrel=1
+pkgrel=2
 pkgdesc='Build cross platform desktop apps with web technologies'
 arch=('i686' 'x86_64')
 url='http://electron.atom.io/'
@@ -93,7 +93,7 @@ sha256sums=('SKIP'
             '6fd3ed318f76c37a0d31ea07c892354718a8c2300f81f1901690f90f8016a04b'
             '4de540ec76736ef3e14475090916a42c03692c542822b430f1ab3f6d36655511'
             '88c924e39de283f698323c9ea5e2e9ce277f2d75b190500a5ad9d3bf81bafdae'
-            '91d805ecbf4fdc7fb644c8029adcfb6651777fbeaff0c581550405ded3c9ba1c'
+            'a5af00380aa79bebdba5a140ec0ab8722e1c96040562862b033e66d09f2eefc2'
             '8fbaa725f7e8ba3851d84d7b03f7837049f8ce2e976fa1ebc76231236678183b'
             '43116692892bb85646ebf34ce91d47233203e9c9fa887d6993ecbbb5033dcd27'
             'ccba3002243fb1f9a67c8a60af310706caa591d12aef45f1d0f4bda47626f3ab'
@@ -193,19 +193,15 @@ prepare() {
   patch -Np1 -i "${srcdir}"/chromium-use-system-re2.patch
 
   for lib in "${_system_libs[@]}" libjpeg_turbo; do
-      find -type f -path "*/third_party/${lib}/*" \
+      find -type f -path "*third_party/${lib}/*" \
           \! -path "*third_party/${lib}/chromium/*" \
           \! -path "*third_party/${lib}/google/*" \
+          \! -path "*base/third_party/icu/*" \
+          \! -path "*base/third_party/libevent/*" \
           \! -regex '.*\.\(gn\|gni\|isolate\|py\)' \
           -delete
   done
   python2 build/linux/unbundle/replace_gn_files.py --system-libraries "${_system_libs[@]}"
-
-  # Download GN
-  echo "Downloading GN..."
-  cd buildtools/linux64
-  wget -O gn https://storage.googleapis.com/chromium-gn/$(<gn.sha1)
-  chmod u+x gn
 }
 
 build() {
@@ -216,6 +212,20 @@ build() {
   else
     _target=ia32
   fi
+
+  # Build GN
+  cd "${srcdir}/chromium-${_chromiumver}"
+  gn_flags=(
+    'clang_base_path="/usr"'
+    'clang_use_chrome_plugins=false'
+    'treat_warnings_as_errors=false'
+    'use_sysroot=false'
+  )
+  python2 tools/gn/bootstrap/bootstrap.py --gn-gen-args "${gn_flags[*]}"
+  # libevent not needed anymore
+  find -type f -path "*base/third_party/libevent/*" \
+    \! -regex '.*\.\(gn\|gni\|isolate\|py\)' \
+    -delete
 
   cd "${srcdir}"/electron
   LDFLAGS="${LDFLAGS} -Wl,-z,noexecstack"
