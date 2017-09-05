@@ -5,6 +5,7 @@ pkgbase=linux-tools
 pkgname=(
   'cgroup_event_listener'
   'cpupower'
+  'hyperv'
   'libtraceevent'
   'linux-tools-meta'
   'perf'
@@ -13,8 +14,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.12
-pkgrel=3
+pkgver=4.13
+pkgrel=1
 license=('GPL2')
 arch=('i686' 'x86_64')
 url='https://www.kernel.org'
@@ -33,13 +34,12 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 makedepends+=('ncurses')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
-        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.12.2.xz'
+#        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.12.2.xz'
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service')
 md5sums=('SKIP'
-         'df72b6950492a79610d443d8992b3293'
          '56883c159381ba89e50ab8ea65efec77'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
@@ -48,24 +48,20 @@ md5sums=('SKIP'
 prepare() {
   cd linux
 
-  # usbip: Fix implicit fallthrough warning
-  git cherry-pick -n cfd6ed4537a9e938fa76facecd4b9cd65b6d1563
-  # usbip: Fix potential format overflow in userspace tools
-  git cherry-pick -n e5dfa3f902b9a642ae8c6997d57d7c41e384a90b
-
   # Fix "unwind-libunwind.c:109:11: error: ‘EINVAL’ undeclared" on i686
   # Not sure why this wasn't an issue until now...
   sed -i '1i #include <errno.h>' tools/perf/arch/x86/util/unwind-libunwind.c
 
-  # apply stable kernel patch
-  #patch -p1 -N -i "$srcdir"/patch-4.7.5
-
   # apply patch from the source array (should be a pacman feature)
   local filename
   for filename in "${source[@]}"; do
+    filename="${filename##*/}"
     if [[ "$filename" =~ \.patch$ ]]; then
-      msg2 "Applying patch ${filename##*/}"
-      patch -p1 -N -i "$srcdir/${filename##*/}"
+      msg2 "Applying patch $filename"
+      patch -p1 -N -i "$srcdir/$filename"
+    elif [[ "$filename" =~ ^patch- ]]; then
+      msg2 "Applying linux $filename"
+      patch -p1 -N -i "$srcdir/${filename%.*}"
     fi
   done
 }
@@ -86,6 +82,7 @@ build() {
     PYTHON=python2 \
     PYTHON_CONFIG=python2-config \
     PERF_VERSION=$pkgver-$pkgrel \
+    DESTDIR="$pkgdir" \
     all man
   popd
 
@@ -120,6 +117,11 @@ build() {
 
   msg2 'turbostat'
   pushd linux/tools/power/x86/turbostat
+  make
+  popd
+
+  msg2 'hv'
+  pushd linux/tools/hv
   make
   popd
 }
@@ -246,6 +248,16 @@ package_turbostat() {
 
   cd linux/tools/power/x86/turbostat
   make install DESTDIR="$pkgdir"
+}
+
+package_hyperv() {
+  pkgdesc='Hyper-V tools'
+  depends=('glibc')
+
+  cd linux/tools/hv
+  for _p in hv_fcopy_daemon hv_kvp_daemon hv_vss_daemon; do
+    install -Dm755 "$_p" "$pkgdir/usr/bin/$_p"
+  done
 }
 
 # vim:set ts=2 sw=2 et:
