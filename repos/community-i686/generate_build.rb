@@ -17,11 +17,11 @@ def compile(sources, cflags)
 
     case ext
     when '.c'
-        cc = 'cc'
-    	lang_flags = '-std=gnu11 $CFLAGS $CPPFLAGS'
+      cc = 'cc'
+      lang_flags = '-std=gnu11 $CFLAGS $CPPFLAGS'
     when '.cpp', '.cc'
-        cc = 'cxx'
-    	lang_flags = '-std=gnu++14 $CXXFLAGS $CPPFLAGS'
+      cc = 'cxx'
+      lang_flags = '-std=gnu++14 $CXXFLAGS $CPPFLAGS'
     else
         raise "Unknown extension #{ext}"
     end
@@ -32,6 +32,13 @@ def compile(sources, cflags)
   end
 
   return outputs
+end
+
+# dir - directory where ninja file is located
+# lib - static library path relative to dir
+def subninja(dir, lib)
+  puts "subninja #{dir}build.ninja"
+  return lib.each{|l| dir + l}
 end
 
 # Links object files
@@ -120,7 +127,7 @@ logfiles = %w(
   stderr_write.c
   logprint.c
 )
-liblog = compile(expand('core/liblog', logfiles), '-DLIBLOG_LOG_TAG=1006 -DFAKE_LOG_DEVICE=1 -Icore/log/include -Icore/include')
+liblog = compile(expand('core/liblog', logfiles), '-DLIBLOG_LOG_TAG=1006 -D_XOPEN_SOURCE=700 -DFAKE_LOG_DEVICE=1 -Icore/log/include -Icore/include')
 
 cutilsfiles = %w(
   load_file.c
@@ -141,25 +148,16 @@ diagnoseusbfiles = %w(
 )
 libdiagnoseusb = compile(expand('core/adb', diagnoseusbfiles), '-Icore/include -Icore/base/include')
 
-
 libcryptofiles = %w(
   android_pubkey.c
 )
 libcrypto = compile(expand('core/libcrypto_utils', libcryptofiles), '-Icore/libcrypto_utils/include -Iboringssl/include')
 
-boringsslfiles = %w(
-  crypto/bn/convert.c
-  crypto/bn/bn.c
-  crypto/bio/file.c
-  crypto/bytestring/cbb.c
-  crypto/buf/buf.c
-  crypto/mem.c
-  crypto/base64/base64.c
-)
-boringssl = compile(expand('boringssl/src', boringsslfiles), '-DBORINGSSL_ANDROID_SYSTEM -DOPENSSL_SMALL -DBORINGSSL_IMPLEMENTATION -Iboringssl/include')
+# TODO: make subninja working
+#boringssl = subninja('boringssl/build/', ['crypto/libcrypto.a'])
+boringssl = ['boringssl/build/crypto/libcrypto.a']
 
-
-link('adb', libbase + liblog + libcutils + libadbd + libadb + libdiagnoseusb + libcrypto + boringssl, '-lpthread -lcrypto -lusb-1.0')
+link('adb', libbase + liblog + libcutils + libadbd + libadb + libdiagnoseusb + libcrypto + boringssl, '-lpthread -lusb-1.0')
 
 
 fastbootfiles = %w(
@@ -174,7 +172,7 @@ fastbootfiles = %w(
   tcp.cpp
   udp.cpp
 )
-libfastboot = compile(expand('core/fastboot', fastbootfiles), '-DFASTBOOT_REVISION="\"$PKGVER\"" -D_GNU_SOURCE -DUSE_F2FS -Icore/base/include -Icore/include -Icore/adb -Icore/libsparse/include -Icore/mkbootimg -Iextras/ext4_utils/include -Iextras/f2fs_utils')
+libfastboot = compile(expand('core/fastboot', fastbootfiles), '-DFASTBOOT_REVISION="\"$PKGVER\"" -D_GNU_SOURCE -D_XOPEN_SOURCE=700 -DUSE_F2FS -Icore/base/include -Icore/include -Icore/adb -Icore/libsparse/include -Icore/mkbootimg -Iextras/ext4_utils/include -Iextras/f2fs_utils')
 
 sparsefiles = %w(
   backed_block.c
@@ -216,7 +214,7 @@ ext4files = %w(
   crc16.c
   ext4_sb.c
 )
-libext4 = compile(expand('extras/ext4_utils', ext4files), '-Icore/libsparse/include -Icore/include -Iselinux/libselinux/include -Iextras/ext4_utils/include')
+libext4 = compile(expand('extras/ext4_utils', ext4files), '-D_GNU_SOURCE -Icore/libsparse/include -Icore/include -Iselinux/libselinux/include -Iextras/ext4_utils/include')
 
 selinuxfiles = %w(
   callbacks.c
