@@ -1,0 +1,542 @@
+diff --git a/src/ccall.cpp b/src/ccall.cpp
+index 6edf5cd222..794944c216 100644
+--- a/src/ccall.cpp
++++ b/src/ccall.cpp
+@@ -1275,7 +1275,7 @@ std::string generate_func_sig()
+     assert(rt && !jl_is_abstract_ref_type(rt));
+ 
+ #if JL_LLVM_VERSION >= 50000
+-    std::vector<AttributeList> paramattrs;
++    std::vector<AttrBuilder> paramattrs;
+ #else
+     std::vector<AttributeSet> paramattrs;
+ #endif
+@@ -1302,7 +1302,7 @@ std::string generate_func_sig()
+ #endif
+             retattrs.addAttribute(Attribute::NoAlias);
+ #if JL_LLVM_VERSION >= 50000
+-            paramattrs.push_back(AttributeList::get(jl_LLVMContext, 1, retattrs));
++            paramattrs.push_back(std::move(retattrs));
+ #else
+             paramattrs.push_back(AttributeSet::get(jl_LLVMContext, 1, retattrs));
+ #endif
+@@ -1388,24 +1388,25 @@ std::string generate_func_sig()
+         do { // for each arg for which this type applies, add the appropriate LLVM parameter attributes
+             if (i < nargs) { // if vararg, the last declared arg type may not have a corresponding arg value
+ #if JL_LLVM_VERSION >= 50000
+-                AttributeList params = AttributeList::get(jl_LLVMContext, i + sret + 1, ab);
++                paramattrs.push_back(std::move(ab));
+ #else
+                 AttributeSet params = AttributeSet::get(jl_LLVMContext, i + sret + 1, ab);
+-#endif
+                 paramattrs.push_back(params);
++#endif              
+             }
+             i++;
+         } while (current_isVa && i < nargs); // if is this is the vararg, loop to the end
+     }
+ 
+     for (i = 0; i < nargs + sret; ++i) {
++        const auto &as = paramattrs.at(i);
+ #if JL_LLVM_VERSION >= 50000
+-        const AttributeList &as = paramattrs.at(i);
++        if (!as.hasAttributes())
++            continue;
+ #else
+         const AttributeSet &as = paramattrs.at(i);
+ #endif
+-        if (!as.isEmpty())
+-            attributes = attributes.addAttributes(jl_LLVMContext, i + 1, as);
++        attributes = attributes.addAttributes(jl_LLVMContext, i + 1, as);
+     }
+     if (rt == jl_bottom_type) {
+         attributes = attributes.addAttribute(jl_LLVMContext,
+diff --git a/src/cgmemmgr.cpp b/src/cgmemmgr.cpp
+index 85316d9667..6b2f43ebff 100644
+--- a/src/cgmemmgr.cpp
++++ b/src/cgmemmgr.cpp
+@@ -744,8 +744,11 @@ public:
+     }
+     void registerEHFrames(uint8_t *Addr, uint64_t LoadAddr,
+                           size_t Size) override;
++#if 0
++    // Disable for now since we are not actually using this.
+     void deregisterEHFrames(uint8_t *Addr, uint64_t LoadAddr,
+                             size_t Size) override;
++#endif
+     uint8_t *allocateCodeSection(uintptr_t Size, unsigned Alignment,
+                                  unsigned SectionID,
+                                  StringRef SectionName) override;
+@@ -872,12 +875,14 @@ void RTDyldMemoryManagerJL::registerEHFrames(uint8_t *Addr,
+     }
+ }
+ 
++#if 0
+ void RTDyldMemoryManagerJL::deregisterEHFrames(uint8_t *Addr,
+                                                uint64_t LoadAddr,
+                                                size_t Size)
+ {
+     deregister_eh_frames((uint8_t*)LoadAddr, Size);
+ }
++#endif
+ 
+ }
+ 
+diff --git a/src/cgutils.cpp b/src/cgutils.cpp
+index e955470276..ea20e20ef4 100644
+--- a/src/cgutils.cpp
++++ b/src/cgutils.cpp
+@@ -2391,7 +2391,7 @@ static void emit_signal_fence(void)
+                                       "~{memory}", true));
+ #else
+ #  if JL_LLVM_VERSION >= 30900
+-    builder.CreateFence(AtomicOrdering::SequentiallyConsistent, SingleThread);
++    builder.CreateFence(AtomicOrdering::SequentiallyConsistent, SyncScope::SingleThread);
+ #  else
+     builder.CreateFence(SequentiallyConsistent, SingleThread);
+ #  endif
+diff --git a/src/codegen.cpp b/src/codegen.cpp
+index 66b7d73a62..4858c0afe0 100644
+--- a/src/codegen.cpp
++++ b/src/codegen.cpp
+@@ -106,6 +106,7 @@
+ #include <polly/RegisterPasses.h>
+ #include <polly/ScopDetection.h>
+ #endif
++#include <llvm/ExecutionEngine/ExecutionEngine.h>
+ #include "fix_llvm_assert.h"
+ 
+ using namespace llvm;
+@@ -1421,8 +1422,15 @@ uint64_t jl_get_llvm_fptr(llvm::Function *llvmf)
+ {
+     uint64_t addr = getAddressForFunction(llvmf);
+ #ifdef USE_ORCJIT
+-    if (!addr)
++    if (!addr) {
++#if JL_LLVM_VERSION >= 50000
++        if (auto exp_addr = jl_ExecutionEngine->findUnmangledSymbol(llvmf->getName()).getAddress()) {
++            addr = exp_addr.get();
++        }
++#else
+         addr = jl_ExecutionEngine->findUnmangledSymbol(llvmf->getName()).getAddress();
++#endif
++    }
+ #endif
+     return addr;
+ }
+diff --git a/src/debuginfo.cpp b/src/debuginfo.cpp
+index 11ac809029..63cccbbada 100644
+--- a/src/debuginfo.cpp
++++ b/src/debuginfo.cpp
+@@ -29,6 +29,9 @@
+ #else
+ #include <llvm/ExecutionEngine/JITMemoryManager.h>
+ #endif
++#if JL_LLVM_VERSION >= 50000
++#include <llvm/BinaryFormat/Magic.h>
++#endif
+ #include <llvm/Object/MachO.h>
+ #include <llvm/Object/COFF.h>
+ #if JL_LLVM_VERSION >= 30700
+@@ -38,6 +41,12 @@
+ 
+ using namespace llvm;
+ 
++#if JL_LLVM_VERSION >= 50000
++using llvm_file_magic = file_magic;
++#else
++using llvm_file_magic = sys::fs::file_magic;
++#endif
++
+ #include "julia.h"
+ #include "julia_internal.h"
+ #include "codegen_internal.h"
+@@ -1009,7 +1018,7 @@ openDebugInfo(StringRef debuginfopath, const debug_link_info &info)
+ 
+     auto error_splitobj = object::ObjectFile::createObjectFile(
+             SplitFile.get().get()->getMemBufferRef(),
+-            sys::fs::file_magic::unknown);
++            llvm_file_magic::unknown);
+     if (!error_splitobj) {
+ #if JL_LLVM_VERSION >= 30900
+         return error_splitobj.takeError();
+@@ -1181,13 +1190,13 @@ bool jl_dylib_DI_for_fptr(size_t pointer, const llvm::object::ObjectFile **obj,
+         std::unique_ptr<MemoryBuffer> membuf = MemoryBuffer::getMemBuffer(
+                 StringRef((const char *)fbase, msize), "", false);
+         auto origerrorobj = llvm::object::ObjectFile::createObjectFile(
+-            membuf->getMemBufferRef(), sys::fs::file_magic::unknown);
++            membuf->getMemBufferRef(), llvm_file_magic::unknown);
+ #elif JL_LLVM_VERSION >= 30500
+         MemoryBuffer *membuf = MemoryBuffer::getMemBuffer(
+             StringRef((const char *)fbase, msize), "", false);
+         std::unique_ptr<MemoryBuffer> buf(membuf);
+         auto origerrorobj = llvm::object::ObjectFile::createObjectFile(
+-            buf, sys::fs::file_magic::unknown);
++            buf, llvm_file_magic::unknown);
+ #else
+         MemoryBuffer *membuf = MemoryBuffer::getMemBuffer(
+             StringRef((const char *)fbase, msize), "", false);
+diff --git a/src/disasm.cpp b/src/disasm.cpp
+index 2e30877a53..766f726303 100644
+--- a/src/disasm.cpp
++++ b/src/disasm.cpp
+@@ -28,8 +28,13 @@
+ 
+ #include "llvm-version.h"
+ #include <llvm/Object/ObjectFile.h>
++#if JL_LLVM_VERSION >= 50000
++#include <llvm/BinaryFormat/MachO.h>
++#include <llvm/BinaryFormat/COFF.h>
++#else
+ #include <llvm/Support/MachO.h>
+ #include <llvm/Support/COFF.h>
++#endif
+ #include <llvm/MC/MCInst.h>
+ #include <llvm/MC/MCStreamer.h>
+ #include <llvm/MC/MCSubtargetInfo.h>
+diff --git a/src/jitlayers.cpp b/src/jitlayers.cpp
+index b049c5da6d..d9ff7a9976 100644
+--- a/src/jitlayers.cpp
++++ b/src/jitlayers.cpp
+@@ -53,7 +53,6 @@ namespace llvm {
+ #endif
+ 
+ #include <llvm/Transforms/Utils/Cloning.h>
+-#include <llvm/ExecutionEngine/JITEventListener.h>
+ 
+ // target support
+ #include <llvm/ADT/Triple.h>
+@@ -364,68 +363,76 @@ JL_DLLEXPORT void ORCNotifyObjectEmitted(JITEventListener *Listener,
+                                          const RuntimeDyld::LoadedObjectInfo &L,
+                                          RTDyldMemoryManager *memmgr);
+ 
++template <typename ObjT, typename LoadResult>
++void JuliaOJIT::DebugObjectRegistrar::registerObject(RTDyldObjHandleT H, const ObjT &Object,
++                                                     const LoadResult &LO)
++{
++    OwningBinary<object::ObjectFile> SavedObject = LO->getObjectForDebug(*Object);
++
++    // If the debug object is unavailable, save (a copy of) the original object
++    // for our backtraces
++    if (!SavedObject.getBinary()) {
++        // This is unfortunate, but there doesn't seem to be a way to take
++        // ownership of the original buffer
++        auto NewBuffer = MemoryBuffer::getMemBufferCopy(Object->getData(),
++                                                        Object->getFileName());
++        auto NewObj = ObjectFile::createObjectFile(NewBuffer->getMemBufferRef());
++        assert(NewObj);
++        SavedObject = OwningBinary<object::ObjectFile>(std::move(*NewObj),
++                                                       std::move(NewBuffer));
++    }
++    else {
++        NotifyGDB(SavedObject);
++    }
++
++    SavedObjects.push_back(std::move(SavedObject));
++
++    ORCNotifyObjectEmitted(JuliaListener.get(), *Object,
++                           *SavedObjects.back().getBinary(),
++                           *LO, JIT.MemMgr.get());
++
++    // record all of the exported symbols defined in this object
++    // in the primary hash table for the enclosing JIT
++    for (auto &Symbol : Object->symbols()) {
++        auto Flags = Symbol.getFlags();
++        if (Flags & object::BasicSymbolRef::SF_Undefined)
++            continue;
++        if (!(Flags & object::BasicSymbolRef::SF_Exported))
++            continue;
++        auto NameOrError = Symbol.getName();
++        assert(NameOrError);
++        auto Name = NameOrError.get();
++        auto Sym = JIT.CompileLayer.findSymbolIn(H, Name, true);
++        assert(Sym);
++        // note: calling getAddress here eagerly finalizes H
++        // as an alternative, we could store the JITSymbol instead
++        // (which would present a lazy-initializer functor interface instead)
++#if JL_LLVM_VERSION >= 50000
++        JIT.LocalSymbolTable[Name] = (void*)(uintptr_t)cantFail(Sym.getAddress());
++#else
++        JIT.LocalSymbolTable[Name] = (void*)(uintptr_t)Sym.getAddress();
++#endif
++    }
++}
++
+ // TODO: hook up RegisterJITEventListener, instead of hard-coding the GDB and JuliaListener targets
+ template <typename ObjSetT, typename LoadResult>
+-void JuliaOJIT::DebugObjectRegistrar::operator()(RTDyldObjectLinkingLayerBase::ObjSetHandleT H,
++void JuliaOJIT::DebugObjectRegistrar::operator()(RTDyldObjHandleT H,
+                 const ObjSetT &Objects, const LoadResult &LOS)
+ {
+-#if JL_LLVM_VERSION < 30800
+-    notifyObjectLoaded(JIT.MemMgr, H);
+-#endif
++#if JL_LLVM_VERSION >= 50000
++    registerObject(H, Objects->getBinary(),
++                   static_cast<const RuntimeDyld::LoadedObjectInfo*>(&LOS));
++#else
+     auto oit = Objects.begin();
+     auto lit = LOS.begin();
+     for (; oit != Objects.end(); ++oit, ++lit) {
+-#if JL_LLVM_VERSION >= 30900
+         const auto &Object = (*oit)->getBinary();
+-#else
+-        auto &Object = *oit;
+-#endif
+         auto &LO = *lit;
+-
+-        OwningBinary<object::ObjectFile> SavedObject = LO->getObjectForDebug(*Object);
+-
+-        // If the debug object is unavailable, save (a copy of) the original object
+-        // for our backtraces
+-        if (!SavedObject.getBinary()) {
+-            // This is unfortunate, but there doesn't seem to be a way to take
+-            // ownership of the original buffer
+-            auto NewBuffer = MemoryBuffer::getMemBufferCopy(Object->getData(),
+-                                                            Object->getFileName());
+-            auto NewObj = ObjectFile::createObjectFile(NewBuffer->getMemBufferRef());
+-            assert(NewObj);
+-            SavedObject = OwningBinary<object::ObjectFile>(std::move(*NewObj),
+-                                                           std::move(NewBuffer));
+-        }
+-        else {
+-            NotifyGDB(SavedObject);
+-        }
+-
+-        SavedObjects.push_back(std::move(SavedObject));
+-
+-        ORCNotifyObjectEmitted(JuliaListener.get(),
+-                *Object,
+-                *SavedObjects.back().getBinary(),
+-                *LO, JIT.MemMgr);
+-
+-        // record all of the exported symbols defined in this object
+-        // in the primary hash table for the enclosing JIT
+-        for (auto &Symbol : Object->symbols()) {
+-            auto Flags = Symbol.getFlags();
+-            if (Flags & object::BasicSymbolRef::SF_Undefined)
+-                continue;
+-            if (!(Flags & object::BasicSymbolRef::SF_Exported))
+-                continue;
+-            auto NameOrError = Symbol.getName();
+-            assert(NameOrError);
+-            auto Name = NameOrError.get();
+-            auto Sym = JIT.CompileLayer.findSymbolIn(H, Name, true);
+-            assert(Sym);
+-            // note: calling getAddress here eagerly finalizes H
+-            // as an alternative, we could store the JITSymbol instead
+-            // (which would present a lazy-initializer functor interface instead)
+-            JIT.LocalSymbolTable[Name] = (void*)(uintptr_t)Sym.getAddress();
+-        }
++        
++        registerObject(H, Object, LO);
+     }
++#endif
+ }
+ 
+ void JuliaOJIT::DebugObjectRegistrar::NotifyGDB(OwningBinary<object::ObjectFile> &DebugObj)
+@@ -447,42 +454,46 @@ void JuliaOJIT::DebugObjectRegistrar::NotifyGDB(OwningBinary<object::ObjectFile>
+     }
+ }
+ 
++object::OwningBinary<object::ObjectFile> JuliaOJIT::CompilerT::operator()(Module &M)
++{
++    JL_TIMING(LLVM_OPT);
++    jit.PM.run(M);
++    std::unique_ptr<MemoryBuffer> ObjBuffer(
++        new ObjectMemoryBuffer(std::move(jit.ObjBufferSV)));
++    auto Obj = object::ObjectFile::createObjectFile(ObjBuffer->getMemBufferRef());
++
++    if (!Obj) {
++#if JL_LLVM_VERSION >= 50000
++        M.print(llvm::dbgs(), nullptr, false, true);
++#else
++        M.dump();
++#endif
++        std::string Buf;
++        raw_string_ostream OS(Buf);
++        logAllUnhandledErrors(Obj.takeError(), OS, "");
++        OS.flush();
++        llvm::report_fatal_error("FATAL: Unable to compile LLVM Module: '" + Buf + "'\n"
++                                 "The module's content was printed above. Please file a bug report");
++    }
++
++    return OwningObj(std::move(*Obj), std::move(ObjBuffer));
++}
++
+ JuliaOJIT::JuliaOJIT(TargetMachine &TM)
+   : TM(TM),
+     DL(TM.createDataLayout()),
+     ObjStream(ObjBufferSV),
+     MemMgr(createRTDyldMemoryManager()),
+-    ObjectLayer(DebugObjectRegistrar(*this)),
+-    CompileLayer(
+-            ObjectLayer,
+-            [this](Module &M) {
+-                JL_TIMING(LLVM_OPT);
+-                PM.run(M);
+-                std::unique_ptr<MemoryBuffer> ObjBuffer(
+-                    new ObjectMemoryBuffer(std::move(ObjBufferSV)));
+-                auto Obj = object::ObjectFile::createObjectFile(ObjBuffer->getMemBufferRef());
+-
+-                if (!Obj) {
++    registrar(*this),
++    ObjectLayer(
+ #if JL_LLVM_VERSION >= 50000
+-                    M.print(llvm::dbgs(), nullptr, false, true);
+-#else
+-                    M.dump();
++        [&] { return MemMgr; },
+ #endif
+-#if JL_LLVM_VERSION >= 30900
+-                    std::string Buf;
+-                    raw_string_ostream OS(Buf);
+-                    logAllUnhandledErrors(Obj.takeError(), OS, "");
+-                    OS.flush();
+-                    llvm::report_fatal_error("FATAL: Unable to compile LLVM Module: '" + Buf + "'\n"
+-                        "The module's content was printed above. Please file a bug report");
+-#else
+-                    llvm::report_fatal_error("FATAL: Unable to compile LLVM Module.\n"
+-                        "The module's content was printed above. Please file a bug report");
+-#endif
+-                }
+-
+-                return OwningObj(std::move(*Obj), std::move(ObjBuffer));
+-            }
++        std::ref(registrar)
++        ),
++    CompileLayer(
++            ObjectLayer,
++            CompilerT(this)
+         )
+ {
+     if (!jl_generating_output()) {
+@@ -581,10 +592,14 @@ void JuliaOJIT::addModule(std::unique_ptr<Module> M)
+                       },
+                       [](const std::string &S) { return nullptr; }
+                     );
++#if JL_LLVM_VERSION >= 50000
++    auto modset = cantFail(CompileLayer.addModule(std::move(M), std::move(Resolver)));
++#else
+     SmallVector<std::unique_ptr<Module>,1> Ms;
+     Ms.push_back(std::move(M));
+-    auto modset = CompileLayer.addModuleSet(std::move(Ms), MemMgr,
++    auto modset = CompileLayer.addModuleSet(std::move(Ms), MemMgr.get(),
+                                             std::move(Resolver));
++#endif
+     // Force LLVM to emit the module so that we can register the symbols
+     // in our lookup table.
+     CompileLayer.emitAndFinalize(modset);
+@@ -592,7 +607,11 @@ void JuliaOJIT::addModule(std::unique_ptr<Module> M)
+ 
+ void JuliaOJIT::removeModule(ModuleHandleT H)
+ {
++#if JL_LLVM_VERSION >= 50000
++    CompileLayer.removeModule(H);
++#else
+     CompileLayer.removeModuleSet(H);
++#endif
+ }
+ 
+ JL_JITSymbol JuliaOJIT::findSymbol(const std::string &Name, bool ExportedSymbolsOnly)
+@@ -615,12 +634,22 @@ JL_JITSymbol JuliaOJIT::findUnmangledSymbol(const std::string Name)
+ 
+ uint64_t JuliaOJIT::getGlobalValueAddress(const std::string &Name)
+ {
++#if JL_LLVM_VERSION >= 50000
++    auto addr = findSymbol(getMangledName(Name), false).getAddress();
++    return addr ? addr.get() : 0;
++#else
+     return findSymbol(getMangledName(Name), false).getAddress();
++#endif
+ }
+ 
+ uint64_t JuliaOJIT::getFunctionAddress(const std::string &Name)
+ {
++#if JL_LLVM_VERSION >= 50000
++    auto addr = findSymbol(getMangledName(Name), false).getAddress();
++    return addr ? addr.get() : 0;
++#else
+     return findSymbol(getMangledName(Name), false).getAddress();
++#endif
+ }
+ 
+ Function *JuliaOJIT::FindFunctionNamed(const std::string &Name)
+diff --git a/src/jitlayers.h b/src/jitlayers.h
+index 02a38275d6..8aaff1f969 100644
+--- a/src/jitlayers.h
++++ b/src/jitlayers.h
+@@ -26,8 +26,8 @@
+ #include <llvm/ExecutionEngine/JITMemoryManager.h>
+ #include <llvm/ExecutionEngine/Interpreter.h>
+ #include <llvm/ExecutionEngine/ExecutionEngine.h>
+-#include <llvm/ExecutionEngine/JITEventListener.h>
+ #endif
++#include <llvm/ExecutionEngine/JITEventListener.h>
+ 
+ #if JL_LLVM_VERSION >= 30700
+ #include "llvm/IR/LegacyPassManager.h"
+@@ -170,12 +170,9 @@ typedef orc::JITSymbol JL_JITSymbol;
+ typedef RuntimeDyld::SymbolInfo JL_SymbolInfo;
+ #endif
+ #if JL_LLVM_VERSION >= 50000
+-using orc::RTDyldObjectLinkingLayerBase;
+-using orc::RTDyldObjectLinkingLayer;
++using RTDyldObjHandleT = orc::RTDyldObjectLinkingLayerBase::ObjHandleT;
+ #else
+-using RTDyldObjectLinkingLayerBase = orc::ObjectLinkingLayerBase;
+-template <typename NotifyLoadedFtor>
+-using RTDyldObjectLinkingLayer = orc::ObjectLinkingLayer<NotifyLoadedFtor>;
++using RTDyldObjHandleT = orc::ObjectLinkingLayerBase::ObjSetHandleT;
+ #endif
+ 
+ class JuliaOJIT {
+@@ -185,19 +182,36 @@ class JuliaOJIT {
+     public:
+         DebugObjectRegistrar(JuliaOJIT &JIT);
+         template <typename ObjSetT, typename LoadResult>
+-        void operator()(RTDyldObjectLinkingLayerBase::ObjSetHandleT H, const ObjSetT &Objects,
++        void operator()(RTDyldObjHandleT H, const ObjSetT &Objects,
+                         const LoadResult &LOS);
+     private:
++        template <typename ObjT, typename LoadResult>
++        void registerObject(RTDyldObjHandleT H, const ObjT &Object, const LoadResult &LO);
+         void NotifyGDB(object::OwningBinary<object::ObjectFile> &DebugObj);
+         std::vector<object::OwningBinary<object::ObjectFile>> SavedObjects;
+         std::unique_ptr<JITEventListener> JuliaListener;
+         JuliaOJIT &JIT;
+     };
+ 
++    struct CompilerT {
++        CompilerT(JuliaOJIT *pjit)
++            : jit(*pjit)
++        {}
++        object::OwningBinary<object::ObjectFile> operator()(Module &M);
++    private:
++        JuliaOJIT &jit;
++    };
++
+ public:
+-    typedef RTDyldObjectLinkingLayer<DebugObjectRegistrar> ObjLayerT;
++#if JL_LLVM_VERSION >= 50000
++    typedef orc::RTDyldObjectLinkingLayer ObjLayerT;
++    typedef orc::IRCompileLayer<ObjLayerT,CompilerT> CompileLayerT;
++    typedef CompileLayerT::ModuleHandleT ModuleHandleT;
++#else
++    typedef orc::ObjectLinkingLayer<std::reference_wrapper<DebugObjectRegistrar>> ObjLayerT;
+     typedef orc::IRCompileLayer<ObjLayerT> CompileLayerT;
+     typedef CompileLayerT::ModuleSetHandleT ModuleHandleT;
++#endif
+     typedef StringMap<void*> SymbolTableT;
+     typedef object::OwningBinary<object::ObjectFile> OwningObj;
+ 
+@@ -229,7 +243,8 @@ private:
+     raw_svector_ostream ObjStream;
+     legacy::PassManager PM;
+     MCContext *Ctx;
+-    RTDyldMemoryManager *MemMgr;
++    std::shared_ptr<RTDyldMemoryManager> MemMgr;
++    DebugObjectRegistrar registrar;
+     ObjLayerT ObjectLayer;
+     CompileLayerT CompileLayer;
+     SymbolTableT GlobalSymbolTable;
