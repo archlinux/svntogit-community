@@ -2,25 +2,46 @@
 # Maintainer:
 # Contributor: Mihails Strasuns <public@dicebot.lv>
 # Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
+
 pkgname=('ldc' 'liblphobos')
 groups=('dlang' 'dlang-ldc')
-pkgver=1.3.0
+pkgver=1.4.0
+_pkgcommit=5a79ff6abc882dd076d1a862911de288cc4ae3cd
 epoch=1
 pkgrel=1
 pkgdesc="A D Compiler based on the LLVM Compiler Infrastructure including D runtime and libphobos2"
-arch=('i686' 'x86_64')
+arch=('x86_64')
 url="https://github.com/ldc-developers/ldc"
 license=('BSD')
-makedepends=('cmake' 'llvm' 'dmd')
-source=("https://github.com/ldc-developers/ldc/releases/download/v$pkgver/ldc-$pkgver-src.tar.gz"
-        "ldc2.conf"
-       )
-sha256sums=('efe31a639bcb44e1f5b752da21713376d9410a01279fecc8aab8572065a3050b'
-            '2ef3b1090e25187305f18ce6fbbbc45527dcbb33570afbe30e177790813948db')
+makedepends=('git' 'cmake' 'llvm' 'dmd')
+
+source=(
+    "git+https://github.com/ldc-developers/ldc#commit=$_pkgcommit"
+		"git+https://github.com/ldc-developers/druntime.git"
+		"git+https://github.com/ldc-developers/phobos.git"
+		"git+https://github.com/ldc-developers/dmd-testsuite.git"
+    "ldc2.conf"
+)
+
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            '266c1888da29715b277c2f56090b2e6dbb7531499f3434fe60938d6ad01705ae')
+
+prepare() {
+	cd "$srcdir/ldc"
+
+	git submodule init
+	git config submodule.druntime.url "$srcdir/druntime"
+	git config submodule.phobos.url "$srcdir/phobos"
+	git config submodule.tests/d2/dmd-testsuite.url "$srcdir/dmd-testsuite"
+	git submodule update
+}
 
 build() {
-    mkdir -p $srcdir/tmp_install_dir
-    cd ldc-$pkgver-src
+    mkdir -p "$srcdir/tmp_install_dir"
+    cd "$srcdir/ldc"
 
     mkdir -p build && cd build
 
@@ -33,9 +54,10 @@ build() {
     -DCMAKE_SKIP_RPATH=ON \
     -DINCLUDE_INSTALL_DIR=/usr/include/dlang/ldc \
     -DBUILD_SHARED_LIBS=ON \
+		-DLDC_WITH_LLD=OFF \
     ..
-    make 
-    make install DESTDIR=$srcdir/tmp_install_dir
+    make
+    make install DESTDIR="$srcdir/tmp_install_dir"
 }
 
 package_ldc() {
@@ -43,22 +65,22 @@ package_ldc() {
     backup=('etc/ldc2.conf')
     provides=('d-compiler')
 
-    cd tmp_install_dir
+    cd "$srcdir/tmp_install_dir"
 
     # binaries
-    install -D -m755 ./usr/bin/ldmd2 $pkgdir/usr/bin/ldmd
-    ln -s /usr/bin/ldmd $pkgdir/usr/bin/ldmd2
-    install -D -m755 ./usr/bin/ldc2 $pkgdir/usr/bin/ldc
-    ln -s /usr/bin/ldc $pkgdir/usr/bin/ldc2
+    install -D -m755 ./usr/bin/ldmd2 "$pkgdir/usr/bin/ldmd"
+    ln -s /usr/bin/ldmd "$pkgdir/usr/bin/ldmd2"
+    install -D -m755 ./usr/bin/ldc2 "$pkgdir/usr/bin/ldc"
+    ln -s /usr/bin/ldc "$pkgdir/usr/bin/ldc2"
 
     # supplementaries
-    install -D -m644 $srcdir/ldc-$pkgver-src/bash_completion.d/ldc2 $pkgdir/usr/share/bash-completion/completions/ldc
+    install -D -m644 "$srcdir/ldc/bash_completion.d/ldc2" "$pkgdir/usr/share/bash-completion/completions/ldc"
 
     # licenses
-    install -D -m644 $srcdir/ldc-$pkgver-src/LICENSE $pkgdir/usr/share/licenses/$pkgname/LICENSE    
+    install -D -m644 "$srcdir/ldc/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
     # default configuration files
-    install -D -m644 $srcdir/ldc2.conf $pkgdir/etc/ldc2.conf
+    install -D -m644 "$srcdir/ldc2.conf" "$pkgdir/etc/ldc2.conf"
 }
 
 package_liblphobos() {
@@ -66,17 +88,17 @@ package_liblphobos() {
     depends=('curl')
 
     # licenses
-    install -D -m644 $srcdir/ldc-$pkgver-src/LICENSE $pkgdir/usr/share/licenses/$pkgname/LICENSE    
+    install -D -m644 "$srcdir/ldc/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 
-    cd tmp_install_dir
+    cd "$srcdir/tmp_install_dir"
 
     # libraries
-    install -D -m644 ./usr/lib/libphobos2-ldc.so $pkgdir/usr/lib/liblphobos2.so
-    install -D -m644 ./usr/lib/libdruntime-ldc.so $pkgdir/usr/lib/libldruntime.so
-    install -D -m644 ./usr/lib/libphobos2-ldc-debug.so $pkgdir/usr/lib/liblphobos2-debug.so
-    install -D -m644 ./usr/lib/libdruntime-ldc-debug.so $pkgdir/usr/lib/libldruntime-debug.so
+    install -D -m644 ./usr/lib/libphobos2-ldc.so "$pkgdir/usr/lib/liblphobos2.so"
+    install -D -m644 ./usr/lib/libdruntime-ldc.so "$pkgdir/usr/lib/libldruntime.so"
+    install -D -m644 ./usr/lib/libphobos2-ldc-debug.so "$pkgdir/usr/lib/liblphobos2-debug.so"
+    install -D -m644 ./usr/lib/libdruntime-ldc-debug.so "$pkgdir/usr/lib/libldruntime-debug.so"
 
     # imports
-    mkdir -p $pkgdir/usr/include/dlang
-    cp -r ./usr/include/dlang/ldc $pkgdir/usr/include/dlang/ldc
+    mkdir -p "$pkgdir/usr/include/dlang"
+    cp -r "./usr/include/dlang/ldc" "$pkgdir/usr/include/dlang/ldc"
 }
