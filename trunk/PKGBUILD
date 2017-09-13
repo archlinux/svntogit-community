@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=8.0.61
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -51,8 +51,15 @@ prepare() {
 
 package() {
   cd pkg
+  export PERL5LIB=.
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
+
+  # Hack we need because of glibc 2.26 (https://bugs.archlinux.org/task/55580)
+  # without which we couldn't compile anything at all.
+  # Super dirty hack. I really hope it doesn't break other stuff!
+  # Probably we can remove this for cuda 9.
+  sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
   # Needs Gcc 5.x.x
   ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
