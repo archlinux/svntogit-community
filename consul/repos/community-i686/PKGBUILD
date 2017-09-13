@@ -1,45 +1,72 @@
 # $Id$
+# Maintainer: Thore Bödecker <foxxx0@archlinux.org>
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=consul
-pkgver=0.8.4
+pkgver=0.9.3
 pkgrel=1
 pkgdesc="A tool for service discovery, monitoring and configuration."
 arch=('i686' 'x86_64')
+_gocli_commit='65fcae5817c8600da98ada9d7edf26dd1a84837b' # HEAD
 url="https://www.consul.io"
 license=('MPL')
 depends=('glibc')
-makedepends=('git' 'go')
+makedepends=('git' 'go' 'procps-ng' 'syslog-ng')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/hashicorp/consul/archive/v$pkgver.tar.gz"
-        consul.service)
-sha512sums=('4bbb167a603f1d20940330bd9615ba0f50e0113e1d96ce47773f5d2813635f76dd1aec8f43dae4c8c547cec8a891eb0726eeeda7bd7c5b1d495029b359378e68'
-            '0f39434e73a3f5d79919e3fad28de834688765edebfce8793aa471f272af61d9cebd13237a7aeb4f8b89f1749a891a63cd710881d58a9590990deedd43dffdba')
+        "git+https://github.com/mitchellh/cli#commit=${_gocli_commit}"
+        consul.service
+        consul.default
+        consul.sysusers
+        example.json
+        disable-broken-api-test.patch)
+install=consul.install
+sha512sums=('a1c9cdd3e197afbf088bd1866af15c1864cb8d042dc65d2fcc0d9070b8bf2f9380cf2ceadaff6d5bba7ecd379d53f4b8191e1ae6832f1b2c82f21c62f07d8b0f'
+            'SKIP'
+            'c70b9d1556f6c7ecb2e915ab685f289cef0e31198bd2e50c74a0483bbfb387beec67334f539a90adbf68b61b07946e98b300ab8a8e26e53b35f4ab4894adeb04'
+            'ec5a800529a297c709fa383c094ecf106351cf0f8ac7b613b972d415d77fe001088902d7ab805e63e78a8e6360323fec1b795db5a4446df1e21b9b4ed31e7079'
+            'ef872aedb2bc022a29292b7972a792b22e684c1ccb904a2b2cfec6d8966c28fb19be1452ce060821c419f1b646b236ba2e783175595e4bb6926d164c27a15c87'
+            'c4292b8f56ee955ed7385a49843fd90d6434029891b3e1e724cb2fc841514c06e2554a26d3937c114371b18c2168c4e64319eb2cbd726ee8b35870df19089348'
+            'ad5b5ea1fd4ec443c98a89da9fb581d32894c4583dec3707ce9096ed45706bc800f8eb20e5a0c68f6de437d228e09a97bad5815b5bba9b18ae339bcf9a42f8f7')
 
 prepare() {
-  cd consul-$pkgver
+  export  GOPATH="${srcdir}"
+  export  PATH="$PATH:$GOPATH/bin"
+  mkdir -p "src/github.com/mitchellh"
+  mkdir -p "src/github.com/hashicorp"
 
-  mkdir build
-  mkdir -p .gopath/src/github.com/hashicorp
-  ln -sf "$PWD" .gopath/src/github.com/hashicorp/consul
-  export GOPATH="$PWD/.gopath"
+  mv "${pkgname}-${pkgver}" "src/github.com/hashicorp/${pkgname}"
+  mv "cli" "src/github.com/mitchellh/cli"
 
-  sed -e "s/Version           = \"unknown\"/Version           = \"$pkgver\"/" \
-      -e "s/VersionPrerelease = \"unknown\"/VersionPrerelease = \"\"/" \
-      -e "s/release = \"dev\"/release = \"\"/" \
-      -i version/version.go
+  cd "src/github.com/hashicorp/${pkgname}"
+
+  # TODO: debug failing tests
+  #       + TestTombstoneGC
+  #rm ./agent/consul/state/tombstone_gc_test.go
+  #       + TestAPI_ClientTLSOptions
+  #patch -p0 ./api/api_test.go < "${srcdir}/disable-broken-api-test.patch"
+  #       + TestSyslogFilter (need to start syslog-ng within the chroot container)
+  #rm ./logger/syslog_test.go
+  #make test
 }
 
 build() {
-  cd consul-$pkgver
-
-  go get github.com/mitchellh/cli
-  go build -o build/consul # -gccgoflags "$CFLAGS $LDFLAGS"
+  cd "src/github.com/hashicorp/${pkgname}"
+  # build local arch only, from: https://github.com/hashicorp/consul/#developing-consul
+  CONSUL_DEV=1 make
 }
 
 package() {
-  cd consul-$pkgver
-  
-  install -Dm755 build/consul "$pkgdir"/usr/bin/consul
-  install -Dm644 "$srcdir"/consul.service "$pkgdir"/usr/lib/systemd/system/consul.service
-  install -d "$pkgdir"/etc/consul.d
+  cd "src/github.com/hashicorp/${pkgname}"
+
+  install -D -d -m750 -o 208 -g 208 "${pkgdir}/var/lib/consul"
+  install -D -d -m750 -o   0 -g 208 "${pkgdir}/etc/consul.d"
+
+  install -D -m644 "${srcdir}/consul.default" "${pkgdir}/etc/default/consul"
+  install -D -m640 -o 0 -g 208 "${srcdir}/example.json" "${pkgdir}/etc/consul.d/example.json"
+  install -Dm755 bin/consul "${pkgdir}/usr/bin/consul"
+
+  install -Dm644 "${srcdir}/consul.service" "${pkgdir}/usr/lib/systemd/system/consul.service"
+  install -Dm644 "${srcdir}/consul.sysusers" "${pkgdir}/usr/lib/sysusers.d/consul.conf"
 }
+
+# vim:set ts=2 sw=2 et:
