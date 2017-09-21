@@ -1,4 +1,4 @@
-# Maintainer: Felix Yan <felixonmars@gmail.com>
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: Alexandre Bique <bique.alexandre@gmail.com>
 # Contributor: Louis R. Marascio <lrm@fitnr.com>
