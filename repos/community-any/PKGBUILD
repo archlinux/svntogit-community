@@ -4,16 +4,16 @@
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
-pkgver=0.10.2
+pkgver=0.11.0
 pkgrel=1
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
 depends=('python2')
 makedepends=('python2-setuptools' 'python-setuptools')
-checkdepends=('python-pytest' 'python2-pytest')
-source=('https://pypi.python.org/packages/80/b9/4e9b0b999deeec8a91cb84e567380853a842e6c387c9d39b8fc9a49953fa/jedi-0.10.2.tar.gz')
-md5sums=('b2b35b4b7e508ec3a54d94cdea1205d0')
+checkdepends=('python-pytest' 'python2-pytest' 'python-parso' 'python2-parso')
+source=(https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz)
+md5sums=('26298afee07465d72dc1fe1091d8ec61')
 
 check() {
    cd "$srcdir/jedi-${pkgver}"
@@ -23,7 +23,7 @@ check() {
 
 package_python-jedi() {
     pkgdesc="Awesome autocompletion for python"
-    depends=('python')
+    depends=('python' 'python-parso')
     conflicts=('python3-jedi-git')
     cd "$srcdir/jedi-${pkgver}"
     python3 setup.py install --root="$pkgdir/" --optimize=1
@@ -33,7 +33,7 @@ package_python-jedi() {
 
 package_python2-jedi() {
     pkgdesc="Awesome autocompletion for python2"
-    depends=('python2')
+    depends=('python2' 'python2-parso')
     conflicts=('jedi-git' 'python2-jedi-git')
     cd "$srcdir/jedi-${pkgver}"
     python2 setup.py install --root="$pkgdir/" --optimize=1
