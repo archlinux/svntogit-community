@@ -15,7 +15,7 @@ pkgname=('mythplugins-mytharchive'
          'mythplugins-mythweb'
          'mythplugins-mythzoneminder')
 pkgver=29.0
-pkgrel=1
+pkgrel=2
 epoch=1
 arch=('i686' 'x86_64')
 url="http://www.mythtv.org"
@@ -25,13 +25,13 @@ makedepends=('cdrtools' 'dvdauthor' 'dvd+rw-tools' 'ffmpeg' 'flac' 'libexif'
              'perl-datetime-format-iso8601' 'perl-date-manip' 'perl-image-size'
              'perl-json' 'perl-libwww' 'perl-soap-lite' 'perl-xml-sax'
              'perl-xml-simple' 'perl-xml-xpath' 'python2-oauth' 'python2-pillow'
-             'python2-pycurl' 'zlib' 'gdb')
+             'python2-pycurl' 'zlib' 'gdb' 'perl-cgi')
 source=("mythtv-$pkgver.tar.gz::https://github.com/MythTV/mythtv/archive/v$pkgver.tar.gz"
         "mythweb-$pkgver.tar.gz::https://github.com/MythTV/mythweb/archive/v$pkgver.tar.gz"
         'cdparanoia.patch')
-sha256sums=('3c24acf3aab3a52e66222331b3eb104f5136f3b045fef8e0ba5623bda581b2a9'
-            '8d233648658d07fd59c191c0c3ca6d31eddbc28daec85509e011e3ade307eee3'
-            '004f1e4734830709d2ab5ebb804560514f2bf525abc2f11142501a81eba0754c')
+sha512sums=('6d79d943b95b1816b4fce52f3de3e01ebcdcc2779f852ec8cf5e3a81f8be4c730a254ff78b52e36ac522ff99b125501f0cba33a2d4c01571552e09fb4dba18c2'
+            'bc6f4f6b73136f5c0342b055dd4814ed177b7ca05d70dcb43e7966c3cd854f77dcd7a391eef2b870acf87c82d09c018cf8fb5176724ab55b59a6f2ab3845e0fe'
+            '6a8c5e3f7500a657cef56d30b7141ab10bd14c65bf3c2d14a768ed180f38deaee6367224e6b0b2d09c26fae78908df08747f8c805250d71c42faaa2931ac577b')
 
 prepare() {
   cd "$srcdir/mythtv-$pkgver/$pkgbase"
@@ -123,7 +123,7 @@ package_mythplugins-mythweather() {
 
 package_mythplugins-mythweb() {
   pkgdesc="Web interface for the MythTV scheduler"
-  depends=('mythtv')
+  depends=('mythtv' 'perl-cgi')
   optdepends=('lighttpd'
               'php-apache')
   install='mythplugins-mythweb.install'
