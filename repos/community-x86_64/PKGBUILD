@@ -22,7 +22,7 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=17.4
 _codename=Krypton
-pkgrel=4
+pkgrel=5
 arch=('i686' 'x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -40,7 +40,7 @@ source=(
   "$pkgname-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
   'fix-python-lib-path.patch'
 )
-sha512sums=('fc4eff6606c84459ab24323888d39bf1f5d433aaf7136c17d85631f768761f61e498297c500befc986dd6de14de87a5a28f7a9c36c8d7c35d49ca15c99db37ef'
+sha512sums=('5cc5707b84a566d5a130c10e1d03ec0dfcf4349d1f4671ad31f088a867407ab1eb1bcc22277ec8c07da867551130356e8d0c4bfe32cb359aa05c617fe0ecb5ef'
             '0f41604e38648969572a66d1124d6e090c3bfca4f9d8ccabcd1806254c38b178ee08df35e1bbbd1228f820729df52353321b3257122af601c3233dbc6405c6d2')
 
 prepare() {
