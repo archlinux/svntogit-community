@@ -2,12 +2,12 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=9.0.176
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia' 'gcc5')
+depends=('gcc-libs' 'opencl-nvidia')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
@@ -58,12 +58,11 @@ package() {
   # Hack we need because of glibc 2.26 (https://bugs.archlinux.org/task/55580)
   # without which we couldn't compile anything at all.
   # Super dirty hack. I really hope it doesn't break other stuff!
-  # Probably we can remove this for cuda 9.
+  # Hopefully we can remove this for later version of cuda.
   sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
-  # Needs Gcc 5.x.x
-  ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
-  ln -s /usr/bin/g++-5 "${pkgdir}/opt/cuda/bin/g++"
+  # Hack for gcc7
+  sed -i "/unsupported GNU version/d" "${pkgdir}/opt/cuda/include/host_defines.h"
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
