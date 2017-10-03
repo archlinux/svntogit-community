@@ -2,7 +2,7 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=9.0.176
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -62,7 +62,7 @@ package() {
   sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
   # Hack for gcc7
-  sed -i "/unsupported GNU version/d" "${pkgdir}/opt/cuda/include/host_defines.h"
+  sed -i "/.*unsupported GNU version.*/d" "${pkgdir}/opt/cuda/include/crt/host_config.h"
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
