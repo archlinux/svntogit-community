@@ -2,12 +2,12 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=9.0.176
-pkgrel=3
+pkgrel=4
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia')
+depends=('gcc-libs' 'opencl-nvidia' 'gcc6')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb')
@@ -61,8 +61,9 @@ package() {
   # Hopefully we can remove this for later version of cuda.
   sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
-  # Hack for gcc7
-  sed -i "/.*unsupported GNU version.*/d" "${pkgdir}/opt/cuda/include/crt/host_config.h"
+  # Needs gcc6
+  ln -s /usr/bin/gcc-6 "${pkgdir}/opt/cuda/bin/gcc"
+  ln -s /usr/bin/g++-6 "${pkgdir}/opt/cuda/bin/g++"
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
