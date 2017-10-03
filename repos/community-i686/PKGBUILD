@@ -22,19 +22,18 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=17.4
 _codename=Krypton
-pkgrel=5
+pkgrel=6
 arch=('i686' 'x86_64')
 url="http://kodi.tv"
 license=('GPL2')
 makedepends=(
   'afpfs-ng' 'bluez-libs' 'boost' 'cmake' 'curl' 'cwiid' 'doxygen' 'ffmpeg'
   'glew' 'gperf' 'hicolor-icon-theme' 'jasper' 'java-runtime' 'libaacs'
-  'libass' 'libbluray' 'libcdio' 'libcec' 'libcrossguid' 'libgl'
-  'libmariadbclient' 'libmicrohttpd' 'libmodplug' 'libmpeg2' 'libnfs'
-  'libplist' 'libxrandr' 'libxslt' 'lzo' 'mesa' 'nasm' 'nss-mdns'
-  'python2-pillow' 'python2-pybluez' 'python2-simplejson' 'rtmpdump'
-  'shairplay' 'smbclient' 'swig' 'taglib' 'tinyxml' 'unzip' 'upower' 'yajl'
-  'zip'
+  'libass' 'libbluray' 'libcdio' 'libcec' 'libgl' 'libmariadbclient'
+  'libmicrohttpd' 'libmodplug' 'libmpeg2' 'libnfs' 'libplist' 'libxrandr'
+  'libxslt' 'lzo' 'mesa' 'nasm' 'nss-mdns' 'python2-pillow' 'python2-pybluez'
+  'python2-simplejson' 'rtmpdump' 'shairplay' 'smbclient' 'swig' 'taglib'
+  'tinyxml' 'unzip' 'upower' 'yajl' 'zip'
 )
 source=(
   "$pkgname-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
