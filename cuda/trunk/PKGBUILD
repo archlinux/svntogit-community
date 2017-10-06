@@ -10,7 +10,8 @@ license=('custom:NVIDIA')
 depends=('gcc-libs' 'opencl-nvidia' 'gcc6')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
-optdepends=('gdb: for cuda-gdb')
+optdepends=('gdb: for cuda-gdb'
+            'java-runtime: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
 source=(https://developer.nvidia.com/compute/cuda/9.0/Prod/local_installers/cuda_${pkgver}_384.81_linux-run
