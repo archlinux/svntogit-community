@@ -5,7 +5,7 @@
 
 _pkgname=async-timeout
 pkgname=python-async-timeout
-pkgver=1.4.0
+pkgver=2.0.0
 pkgrel=1
 pkgdesc='Asyncio-compatible timeout class'
 url='https://github.com/aio-libs/async-timeout'
@@ -13,14 +13,21 @@ arch=('any')
 license=('Apache')
 depends=('python')
 makedepends=('python-setuptools')
+checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-asyncio' 'python-pytest-aiohttp')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/aio-libs/async-timeout/archive/v${pkgver}.tar.gz)
-sha256sums=('627366ef67f2a5dcab7e7d672794db3c70bddaac13d200a21883c37578b85221')
-sha512sums=('82b67cdc0bf791936a3d775cfa7594d7ef6a21c3b0b5390901577aa4a4f24435b7fcabf9550fbfb36ee5739df0d9c98e4cda4d1e3f71eb8e2c5a8f2afd1ce48b')
+sha256sums=('6209cdbaacdd592978f53e4c9466a423e72f26c226a15d0d46791f856aca1a0f')
+sha512sums=('e491308752cdba7c5fb569e59722b2bdb14a1a5f16866ad17b2546c55cee8782b00b16122e6c46dca704ff42459d454d3bfa8cfd8faffb2a6fc251f0080f975c')
 
 build() {
   cd ${_pkgname}-${pkgver}
   python setup.py build
 }
+
+check() {
+  cd ${_pkgname}-${pkgver}
+  PYTHONPATH=. py.test tests
+}
+
 
 package() {
   cd ${_pkgname}-${pkgver}
