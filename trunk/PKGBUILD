@@ -4,7 +4,7 @@
 pkgbase=python-pynacl
 pkgname=(python-pynacl python2-pynacl)
 pkgver=1.1.2
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Python binding to the Networking and Cryptography (NaCl) library'
 url='https://pypi.python.org/pypi/PyNaCl'
@@ -17,7 +17,7 @@ makedepends=('python-setuptools' 'python-pycparser' 'python-cffi'
 
 source=("https://pypi.org/packages/source/P/PyNaCl/PyNaCl-$pkgver.tar.gz")
 
-md5sums=('1963c14272a42585676e74cf6292f4e3')
+sha512sums=('2fb186fca3ebdf3824b4a2517056124901cf81f0c6cfce3e46abf0e44a801150dfd68a08627f1c7cd9b115a67b1ed0802d21140cd79d700803cc409d1e1e9857')
 
 prepare() {
 	cp -a PyNaCl-$pkgver{,-python2}
