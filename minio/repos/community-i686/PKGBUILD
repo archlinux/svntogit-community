@@ -5,13 +5,13 @@
 pkgname=minio
 pkgver=2017.09.29
 _pkgver="${pkgver//./-}T19-16-56Z"
-pkgrel=1
+pkgrel=2
 pkgdesc='Object storage server compatible with Amazon S3'
 arch=('x86_64' 'i686')
 url='https://minio.io'
 license=('APACHE')
 depends=('glibc')
-makedepends=('go')
+makedepends=('go-pie')
 options=('!strip')
 install=minio.install
 source=(https://github.com/minio/minio/archive/RELEASE.${_pkgver}.tar.gz
