@@ -22,7 +22,7 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=17.5
 _codename=Krypton
-pkgrel=4
+pkgrel=5
 arch=('i686' 'x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -91,7 +91,7 @@ package_kodi() {
   pkgdesc="A software media player and entertainment hub for digital media"
   depends=(
     'bluez-libs' 'desktop-file-utils' 'freetype2' 'fribidi' 'glew'
-    'hicolor-icon-theme' 'libcdio' 'libjpeg-turbo' 'libmariadbclient'
+    'hicolor-icon-theme' 'libass' 'libcdio' 'libjpeg-turbo' 'libmariadbclient'
     'libmicrohttpd' 'libpulse' 'libssh' 'libva' 'libvdpau' 'libxrandr'
     'libxslt' 'lzo' 'mesa' 'python2-pillow' 'python2-simplejson' 'smbclient'
     'speex' 'taglib' 'tinyxml' 'xorg-xdpyinfo' 'yajl'
