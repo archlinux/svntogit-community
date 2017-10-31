@@ -5,18 +5,24 @@
 
 _pkgbasename=glib2
 pkgname=lib32-$_pkgbasename
-pkgver=2.52.2+9+g3245eba16
-pkgrel=1
+pkgver=2.54.2
+pkgrel=2
 pkgdesc="Low level core library (32-bit)"
-url="http://www.gtk.org/"
+url="https://wiki.gnome.org/Projects/GLib"
+license=(LGPL2.1)
 arch=(x86_64)
-license=(LGPL)
-depends=(lib32-dbus lib32-libffi lib32-pcre lib32-util-linux lib32-libelf "$_pkgbasename")
-makedepends=(gcc-multilib python git)
-_commit=3245eba169c439180cc13ed3c76f47298d723031  # glib-2-52
+depends=(lib32-pcre lib32-libffi lib32-util-linux lib32-zlib "$_pkgbasename")
+makedepends=(gettext gcc-multilib shared-mime-info python lib32-libelf git util-linux meson lib32-dbus)
+checkdepends=(desktop-file-utils)
+options=(!emptydirs)
+_commit=52b3e434d849e2b0233d6d3d663b5dda82ab263e  # tags/2.54.2^0
 source=("git+https://git.gnome.org/browse/glib#commit=$_commit"
+        0001-meson-Fix-libmount-support.patch
+        libs.diff
         gio-querymodules-32.hook)
 sha256sums=('SKIP'
+            '14c0dcfb4efb690f7cb44673faf31f5eb40ac68c01974eddb53d5aa7ae366629'
+            '2fb828f51727bd9c8b48cfd9d6833c8b4ff82803331f6e2340b0ec8edfe57c52'
             '73b6791b58180e2a02fe908938e6c547ee1b263f8c387262f9a8c4105ffa999a')
 
 pkgver() {
@@ -25,8 +31,14 @@ pkgver() {
 }
 
 prepare() {
+  mkdir -p build
   cd glib
-  NOCONFIGURE=1 ./autogen.sh
+
+  # https://bugzilla.gnome.org/show_bug.cgi?id=789681
+  patch -Np1 -i ../0001-meson-Fix-libmount-support.patch
+
+  # https://bugzilla.gnome.org/show_bug.cgi?id=788773
+  patch -Np1 -i ../libs.diff
 }
 
 build() {
@@ -34,20 +46,20 @@ build() {
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
-  cd glib
-  ./configure --prefix=/usr --libdir=/usr/lib32 \
-      --sysconfdir=/etc \
-      --with-pcre=system \
-      --disable-fam \
-      --disable-gtk-doc \
-      $(check_option debug y && echo --enable-debug=yes)
-  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
-  make
+  cd build
+  arch-meson ../glib --libdir=/usr/lib32 \
+    -Dwith-docs=no -Dwith-man=no
+  ninja
+}
+
+check() {
+  cd build
+  meson test -t 2
 }
 
 package() {
-  cd glib
-  make DESTDIR="$pkgdir" install
+  cd build
+  DESTDIR="$pkgdir" ninja install
 
   rm -r "$pkgdir"/usr/{share,include}
   find "$pkgdir/usr/bin" -type f -not -name gio-querymodules -delete
@@ -55,7 +67,5 @@ package() {
   mv "$pkgdir"/usr/bin/gio-querymodules{,-32}
 
   # install hooks
-  install -d "$pkgdir/usr/share/libalpm/hooks/"
-  install -m644 "$srcdir"/gio-querymodules-32.hook \
-    "$pkgdir/usr/share/libalpm/hooks/"
+  install -Dt "$pkgdir/usr/share/libalpm/hooks" -m644 ../*.hook
 }
