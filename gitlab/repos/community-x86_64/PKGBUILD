@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=10.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -76,6 +76,7 @@ prepare() {
   # Patching config files:
   msg2 "Patching paths in and username gitlab.yml..."
   sed -e "s|# user: git|user: gitlab|" \
+      -e "s|/home/git/gitaly|/usr/bin|" \
       -e "s|/home/git/repositories|${_homedir}/repositories|" \
       -e "s|/home/git/gitlab-satellites|${_homedir}/satellites|" \
       -e "s|# path: /mnt/gitlab|path: ${_homedir}/shared|" \
