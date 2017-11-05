@@ -1,5 +1,5 @@
 #!/bin/sh
-local shortlang=`echo $LANG | cut -b1-2`
+shortlang=`echo $LANG | cut -b1-2`
 if [ ! -d "/usr/share/netsurf/$shortlang" ]; then
   # Use /usr/share/netsurf/en
   export LANG=en_US.UTF-8
