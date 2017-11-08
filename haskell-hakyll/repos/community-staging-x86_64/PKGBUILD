@@ -1,0 +1,58 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=hakyll
+pkgname=haskell-hakyll
+pkgver=4.9.8.0
+pkgrel=72
+pkgdesc="A static website compiler library"
+url="http://jaspervdj.be/hakyll"
+license=("custom:BSD3")
+arch=('x86_64')
+depends=('ghc-libs' "haskell-blaze-html" "haskell-blaze-markup" "haskell-cryptohash"
+         "haskell-data-default" "haskell-fsnotify" "haskell-http-conduit" "haskell-http-types"
+         "haskell-lrucache" "haskell-mtl" "haskell-network" "haskell-network-uri"
+         "haskell-optparse-applicative" "pandoc" "pandoc-citeproc" "haskell-parsec"
+         "haskell-random" "haskell-regex-base" "haskell-regex-tdfa" "haskell-resourcet"
+         "haskell-scientific" "haskell-system-filepath" "haskell-tagsoup" "haskell-text"
+         "haskell-time-locale-compat" "haskell-unordered-containers" "haskell-vector" "haskell-wai"
+         "haskell-wai-app-static" "haskell-warp" "haskell-yaml")
+makedepends=('ghc')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz"
+        https://github.com/rlpowell/hakyll/commit/5c26faf2d867d9c644f8110f2c9bd6bd8c32986a.patch)
+sha512sums=('933645964113bbdf898366aedd11c6f26035e633b66fb01206258264a3b8857e08ea919f3284b6dfef244448c32e6dc2bdd21ee85ed5e1c4c184423dfdc4a487'
+            '06c71fe3e99315c969b694020457af585124179bcc5b62afafafaf179132d88ac23d375ba948984565deab936f378cd6351e19b798125c010bde873c704d15ef')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../5c26faf2d867d9c644f8110f2c9bd6bd8c32986a.patch
+    sed -e 's/pandoc-citeproc      >= 0.10.5 && < 0.11,/pandoc-citeproc      >= 0.10.5,/' \
+        -e 's/process              >= 1.0    && < 1.6,/process              >= 1.0,/' \
+        -e 's/time                 >= 1.4    && < 1.8,/time                 >= 1.4,/' \
+        -i $_hkgname.cabal
+}
+
+build() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -fcheckexternal -fwatchserver -fpreviewserver
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
