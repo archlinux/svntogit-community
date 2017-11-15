@@ -9,7 +9,7 @@ pkgrel=1
 pkgdesc='A PAR 2.0 compatible file verification and repair tool'
 url='https://github.com/BlackIkeEagle/par2cmdline'
 license=('GPL2')
-arch=('i686' 'x86_64')
+arch=('x86_64')
 depends=('gcc-libs')
 source=("https://github.com/Parchive/$pkgname/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz"
         "https://github.com/Parchive/$pkgname/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz.sig")
