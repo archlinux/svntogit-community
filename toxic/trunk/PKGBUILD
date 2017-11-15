@@ -12,7 +12,7 @@ depends=('curl'
          'libnotify'
          'qrencode'
          'toxcore')
-arch=('i686' 'x86_64')
+arch=('x86_64')
 url='https://github.com/JFreegman/toxic'
 source=("$pkgname-$pkgver.tar.gz::https://github.com/JFreegman/$pkgname/archive/v$pkgver/$pkgname-$pkgver.tar.gz"
 	"$pkgname-$pkgver.tar.gz.asc::https://github.com/JFreegman/$pkgname/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz.asc"

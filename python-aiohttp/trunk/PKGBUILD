@@ -7,7 +7,7 @@ pkgver=2.3.2
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
-arch=('i686' 'x86_64')
+arch=('x86_64')
 license=('Apache')
 depends=('python>=3.4.2' 'python-chardet' 'python-multidict' 'python-async-timeout' 'python-yarl')
 makedepends=('cython' 'python-setuptools')
