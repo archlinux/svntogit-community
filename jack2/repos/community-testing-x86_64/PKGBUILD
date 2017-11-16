@@ -1,0 +1,135 @@
+# $Id$
+# Maintainer: Ray Rashif <schiv@archlinux.org>
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: Daniele Paolella <danielepaolella@email.it>
+# Contributor: Philipp Überbacher <hollunder at gmx dot at>
+# Contributor: Thomas Bahn <thomas-bahn at gmx dot net>
+
+pkgbase=jack2
+pkgname=('jack2' 'jack2-dbus' 'jack2-docs')
+pkgdesc="The next-generation JACK with SMP support"
+pkgver=1.9.11_RC1
+pkgrel=2
+arch=('x86_64')
+url="http://jackaudio.org/"
+license=('GPL')
+makedepends=('python' 'python2-dbus' 'libffado' 'celt' 'opus' 'libsamplerate' 'doxygen')
+source=("${pkgbase}-${pkgver}::https://github.com/jackaudio/${pkgbase}/archive/v${pkgver//_/-}.tar.gz"
+        '99-audio.conf'
+        '40-hpet-permissions.rules'
+        'tests-fix-compilation-with-gcc7.patch'
+        'jackdebugclient-keep-client-fsynchrotable.patch'
+        'example-clients-fix-compilation-of-tw.c.patch')
+sha512sums=('4fd7d82ab6536b8c6061023858ae5b978903608b149498818971481da75c6e9e0e7e7aef5e1343730c259f4378aebfbf25916b9736e0ad8aa19584a44f894436'
+            'c21f593d46ff12d1b8d3ce7ca4593c230a673e67ed4e486944f52fd51bdf902873d3fb253220c8ec9c6c5d5b9f002ecf3dd72318222cd748b1925bfcbf1df5d7'
+            '1f876aa61de4bc4e54d46dde7f8c8c2aa575fc382c09f3dc6819c328224b1998c7171cfd3039d35ca214e40909ad71f8d56a9b3b5652046beb5ca97e44a780b1'
+            '79e44bae409fc47af8b9b227464a3a88c223f103bf59a2aaaf2ade99108c27aeca8f4f8d60ba919a3aa83a0072f9ffef03e7259c28a61d70caf9cc18a23afcad'
+            '4c3290c51bd289e36edddb55a6e4cab981d9d3a3932da8c0a06652a22cce35c7858ff4afa99c309ed0e331224274bdb9dfe8e4fed46d486e1b2b44e6b971c484'
+            'ec5f46c8fffda5f90c7597c8a8058246adefec95c0565ccc72afb7f57cb159fdf368107d3160284f1b2cf1c8e5e5c490f53151039d69423ca48da0d3d676e1e0')
+
+prepare() {
+  cd "${pkgbase}-${pkgver//_/-}"
+
+  # https://github.com/jackaudio/jack2/issues/253
+  patch -Np1 -i "${srcdir}/tests-fix-compilation-with-gcc7.patch"
+  patch -Np1 -i "${srcdir}/example-clients-fix-compilation-of-tw.c.patch"
+  patch -Np1 -i "${srcdir}/jackdebugclient-keep-client-fsynchrotable.patch"
+
+  # https://github.com/jackaudio/jack2/issues/308
+  sed -i 's:bin/env python:bin/env python2:' \
+    "example-clients/jack_control"
+
+  # copies of the source for jack2-dbus and jack2-docs
+  cp -r "${srcdir}/${pkgbase}-${pkgver//_/-}" "${srcdir}/${pkgname[1]}-${pkgver//_/-}"
+  cp -r "${srcdir}/${pkgbase}-${pkgver//_/-}" "${srcdir}/${pkgname[2]}-${pkgver//_/-}"
+
+  # configure jack2
+  python waf configure --prefix=/usr \
+                       --doxygen=no \
+                       --freebob=no \
+                       --classic \
+                       --dbus
+
+  # configure jack2-dbus
+  cd "${srcdir}/${pkgname[1]}-${pkgver//_/-}"
+  python waf configure --prefix=/usr \
+                       --doxygen=no \
+                       --freebob=no \
+                       --dbus
+
+  # configure jack2-docs
+  cd "${srcdir}/${pkgname[2]}-${pkgver//_/-}"
+  python waf configure --prefix=/usr \
+                       --htmldir="/usr/share/doc/${pkgbase}/" \
+                       --autostart=none \
+                       --alsa=no \
+                       --firewire=no \
+                       --freebob=no \
+                       --iio=no \
+                       --winmme=no \
+                       --celt=no \
+                       --opus=no \
+                       --samplerate=no \
+                       --sndfile=no \
+                       --readline=no
+}
+
+build() {
+  # build jack2
+  cd "${pkgname[0]}-${pkgver//_/-}"
+  python waf build
+  # build jack2-dbus
+  cd "${srcdir}/${pkgname[1]}-${pkgver//_/-}"
+  python waf build
+  # build jack2-docs
+  cd "${srcdir}/${pkgname[2]}-${pkgver//_/-}"
+  python waf build
+}
+
+package_jack2() {
+  pkgdesc="The next-generation JACK with SMP support"
+  depends=('libsamplerate' 'celt' 'opus' 'libffado' 'python2-dbus')
+  conflicts=('jack')
+  provides=('jack' 'jackmp' 'jackdmp' 'jackdbus')
+  backup=(etc/security/limits.d/99-audio.conf)
+
+  cd "${pkgname[0]}-${pkgver//_/-}"
+  python waf install --destdir="${pkgdir}"
+
+  # configure realtime access/scheduling
+  # see https://bugs.archlinux.org/task/26343
+  install -Dm644 "$srcdir/99-audio.conf" \
+    "$pkgdir/etc/security/limits.d/99-audio.conf"
+
+  install -Dm644 "$srcdir/40-hpet-permissions.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/40-hpet-permissions.rules"
+}
+
+package_jack2-dbus() {
+  pkgdesc="The next-generation JACK with SMP support (for D-BUS interaction only)"
+  depends=('libsamplerate' 'celt' 'opus' 'libffado' 'python2-dbus')
+  conflicts=('jack' 'jack2')
+  provides=('jack' 'jack2' 'jackmp' 'jackdmp' 'jackdbus')
+  backup=(etc/security/limits.d/99-audio.conf)
+
+  cd "${pkgname[1]}-${pkgver//_/-}"
+  python waf install --destdir="${pkgdir}"
+
+  # configure realtime access/scheduling
+  # see https://bugs.archlinux.org/task/26343
+  install -Dm644 "$srcdir/99-audio.conf" \
+    "$pkgdir/etc/security/limits.d/99-audio.conf"
+
+  install -Dm644 "$srcdir/40-hpet-permissions.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/40-hpet-permissions.rules"
+}
+
+package_jack2-docs() {
+  pkgdesc="The next-generation JACK with SMP support (documentation)"
+
+  cd "${pkgname[2]}-${pkgver//_/-}"
+  python waf install --destdir="${pkgdir}"
+  rm -r "${pkgdir}"/usr/{bin,lib,include,share/man}
+}
+
+# vim:set ts=2 sw=2 et:
