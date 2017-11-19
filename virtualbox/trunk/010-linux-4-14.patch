@@ -1,0 +1,156 @@
+diff --git a/src/VBox/Additions/linux/drm/vbox_mode.c b/src/VBox/Additions/linux/drm/vbox_mode.c
+index c23e791..46d1f14 100644
+--- a/src/VBox/Additions/linux/drm/vbox_mode.c
++++ b/src/VBox/Additions/linux/drm/vbox_mode.c
+@@ -151,10 +151,6 @@ static int vbox_set_view(struct drm_crtc *crtc)
+ 	return 0;
+ }
+ 
+-static void vbox_crtc_load_lut(struct drm_crtc *crtc)
+-{
+-}
+-
+ static void vbox_crtc_dpms(struct drm_crtc *crtc, int mode)
+ {
+ 	struct vbox_crtc *vbox_crtc = to_vbox_crtc(crtc);
+@@ -348,7 +344,6 @@ static const struct drm_crtc_helper_funcs vbox_crtc_helper_funcs = {
+ 	.mode_set = vbox_crtc_mode_set,
+ 	/* .mode_set_base = vbox_crtc_mode_set_base, */
+ 	.disable = vbox_crtc_disable,
+-	.load_lut = vbox_crtc_load_lut,
+ 	.prepare = vbox_crtc_prepare,
+ 	.commit = vbox_crtc_commit,
+ };
+diff --git a/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c b/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c
+index 057b7c6..28db48c 100644
+--- a/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c
++++ b/src/VBox/HostDrivers/VBoxNetFlt/linux/VBoxNetFlt-linux.c
+@@ -737,9 +737,6 @@ static struct sk_buff *vboxNetFltLinuxSkBufFromSG(PVBOXNETFLTINS pThis, PINTNETS
+         case PDMNETWORKGSOTYPE_IPV4_TCP:
+             fGsoType = SKB_GSO_TCPV4;
+             break;
+-        case PDMNETWORKGSOTYPE_IPV4_UDP:
+-            fGsoType = SKB_GSO_UDP;
+-            break;
+         case PDMNETWORKGSOTYPE_IPV6_TCP:
+             fGsoType = SKB_GSO_TCPV6;
+             break;
+@@ -1273,7 +1270,7 @@ static bool vboxNetFltLinuxCanForwardAsGso(PVBOXNETFLTINS pThis, struct sk_buff
+      * Check the GSO properties of the socket buffer and make sure it fits.
+      */
+     /** @todo Figure out how to handle SKB_GSO_TCP_ECN! */
+-    if (RT_UNLIKELY( skb_shinfo(pSkb)->gso_type & ~(SKB_GSO_UDP | SKB_GSO_DODGY | SKB_GSO_TCPV6 | SKB_GSO_TCPV4) ))
++    if (RT_UNLIKELY( skb_shinfo(pSkb)->gso_type & ~(SKB_GSO_DODGY | SKB_GSO_TCPV6 | SKB_GSO_TCPV4) ))
+     {
+         Log5(("vboxNetFltLinuxCanForwardAsGso: gso_type=%#x\n", skb_shinfo(pSkb)->gso_type));
+         return false;
+@@ -1523,7 +1520,7 @@ static void vboxNetFltLinuxForwardToIntNetInner(PVBOXNETFLTINS pThis, struct sk_
+         }
+ #endif /* !VBOXNETFLT_SG_SUPPORT */
+ # ifdef VBOXNETFLT_WITH_GSO_RECV
+-        if (   (skb_shinfo(pBuf)->gso_type & (SKB_GSO_UDP | SKB_GSO_TCPV6 | SKB_GSO_TCPV4))
++        if (   (skb_shinfo(pBuf)->gso_type & (SKB_GSO_TCPV6 | SKB_GSO_TCPV4))
+             && vboxNetFltLinuxCanForwardAsGso(pThis, pBuf, fSrc, &GsoCtx) )
+             vboxNetFltLinuxForwardAsGso(pThis, pBuf, fSrc, &GsoCtx);
+         else
+@@ -1699,17 +1696,9 @@ static void vboxNetFltLinuxReportNicGsoCapabilities(PVBOXNETFLTINS pThis)
+                 fGsoCapabilites |= RT_BIT_32(PDMNETWORKGSOTYPE_IPV4_TCP);
+             if (fFeatures & NETIF_F_TSO6)
+                 fGsoCapabilites |= RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_TCP);
+-# if 0 /** @todo GSO: Test UDP offloading (UFO) on linux. */
+-            if (fFeatures & NETIF_F_UFO)
+-                fGsoCapabilites |= RT_BIT_32(PDMNETWORKGSOTYPE_IPV4_UDP);
+-            if (fFeatures & NETIF_F_UFO)
+-                fGsoCapabilites |= RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_UDP);
+-# endif
+             Log3(("vboxNetFltLinuxReportNicGsoCapabilities: reporting wire %s%s%s%s\n",
+                   (fGsoCapabilites & RT_BIT_32(PDMNETWORKGSOTYPE_IPV4_TCP)) ? "tso " : "",
+-                  (fGsoCapabilites & RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_TCP)) ? "tso6 " : "",
+-                  (fGsoCapabilites & RT_BIT_32(PDMNETWORKGSOTYPE_IPV4_UDP)) ? "ufo " : "",
+-                  (fGsoCapabilites & RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_UDP)) ? "ufo6 " : ""));
++                  (fGsoCapabilites & RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_TCP)) ? "tso6 " : ""));
+             pThis->pSwitchPort->pfnReportGsoCapabilities(pThis->pSwitchPort, fGsoCapabilites, INTNETTRUNKDIR_WIRE);
+         }
+ 
+@@ -2402,15 +2391,11 @@ int  vboxNetFltOsConnectIt(PVBOXNETFLTINS pThis)
+      */
+     /** @todo duplicate work here now? Attach */
+ #if defined(VBOXNETFLT_WITH_GSO_XMIT_HOST)
+-    Log3(("vboxNetFltOsConnectIt: reporting host tso tso6 ufo\n"));
++    Log3(("vboxNetFltOsConnectIt: reporting host tso tso6\n"));
+     pThis->pSwitchPort->pfnReportGsoCapabilities(pThis->pSwitchPort,
+                                                  0
+                                                  | RT_BIT_32(PDMNETWORKGSOTYPE_IPV4_TCP)
+                                                  | RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_TCP)
+-                                                 | RT_BIT_32(PDMNETWORKGSOTYPE_IPV4_UDP)
+-# if 0 /** @todo GSO: Test UDP offloading (UFO) on linux. */
+-                                                 | RT_BIT_32(PDMNETWORKGSOTYPE_IPV6_UDP)
+-# endif
+                                                  , INTNETTRUNKDIR_HOST);
+ 
+ #endif
+diff --git a/src/VBox/Additions/linux/drm/vbox_drv.c b/src/VBox/Additions/linux/drm/vbox_drv.c
+index 54fd28f..affb5a0 100644
+--- a/src/VBox/Additions/linux/drm/vbox_drv.c
++++ b/src/VBox/Additions/linux/drm/vbox_drv.c
+@@ -272,7 +272,9 @@ static struct drm_driver driver = {
+ 	.master_set = vbox_master_set,
+ 	.master_drop = vbox_master_drop,
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0) || defined(RHEL_73)
++# if LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
+ 	.set_busid = drm_pci_set_busid,
++# endif
+ #endif
+ 
+ 	.fops = &vbox_fops,
+@@ -307,7 +309,7 @@ static struct drm_driver driver = {
+ 
+ static int __init vbox_init(void)
+ {
+-#ifdef CONFIG_VGA_CONSOLE
++#ifdef CONFIG_VGA_CONSOLE || LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+ 	if (vgacon_text_force() && vbox_modeset == -1)
+ 		return -EINVAL;
+ #endif
+@@ -315,12 +317,12 @@ static int __init vbox_init(void)
+ 	if (vbox_modeset == 0)
+ 		return -EINVAL;
+ 
+-	return drm_pci_init(&driver, &vbox_pci_driver);
++	return pci_register_driver(&vbox_pci_driver);
+ }
+ 
+ static void __exit vbox_exit(void)
+ {
+-	drm_pci_exit(&driver, &vbox_pci_driver);
++	pci_unregister_driver(&vbox_pci_driver);
+ }
+ 
+ module_init(vbox_init);
+diff --git a/src/VBox/Additions/linux/drm/vbox_fb.c b/src/VBox/Additions/linux/drm/vbox_fb.c
+index 178a727..fa52335 100644
+--- a/src/VBox/Additions/linux/drm/vbox_fb.c
++++ b/src/VBox/Additions/linux/drm/vbox_fb.c
+@@ -338,22 +338,7 @@ static int vboxfb_create(struct drm_fb_helper *helper,
+ 	return 0;
+ }
+ 
+-static void vbox_fb_gamma_set(struct drm_crtc *crtc, u16 red, u16 green,
+-			      u16 blue, int regno)
+-{
+-}
+-
+-static void vbox_fb_gamma_get(struct drm_crtc *crtc, u16 *red, u16 *green,
+-			      u16 *blue, int regno)
+-{
+-	*red = regno;
+-	*green = regno;
+-	*blue = regno;
+-}
+-
+ static struct drm_fb_helper_funcs vbox_fb_helper_funcs = {
+-	.gamma_set = vbox_fb_gamma_set,
+-	.gamma_get = vbox_fb_gamma_get,
+ 	.fb_probe = vboxfb_create,
+ };
+ 
