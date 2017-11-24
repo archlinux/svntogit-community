@@ -22,4 +22,6 @@ cd deps ; ls -1 | while read g; do
 		echo -e "\t\"$N::$U#commit=$C\""
 	fi
 	popd &>/dev/null
-done | sed 's|https://|git://|'
+done | sed 's|https://|git://|' >PKGBUILD.inc
+
+cat PKGBUILD.inc | cut -f2 -d'"' | cut -f1 -d: | tr '\n' ' ' >PKGBUILD.inc2
