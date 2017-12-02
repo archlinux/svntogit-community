@@ -20,9 +20,9 @@
 
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
-pkgver=17.5
+pkgver=17.6
 _codename=Krypton
-pkgrel=6
+pkgrel=1
 arch=('x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -39,7 +39,7 @@ makedepends=(
 _libdvdcss_commit="2f12236bc1c92f73c21e973363f79eb300de603f"
 _libdvdnav_commit="981488f7f27554b103cca10c1fbeba027396c94a"
 _libdvdread_commit="17d99db97e7b8f23077b342369d3c22a6250affd"
-_ffmpeg_version="3.1.11-$_codename-$pkgver"
+_ffmpeg_version="3.1.11-$_codename-17.5"
 source=(
   "$pkgbase-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
   "$pkgbase-libdvdcss-$_libdvdcss_commit.tar.gz::https://github.com/xbmc/libdvdcss/archive/$_libdvdcss_commit.tar.gz"
@@ -54,7 +54,7 @@ noextract=(
   "$pkgbase-libdvdread-$_libdvdread_commit.tar.gz"
   "$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz"
 )
-sha512sums=('e47f8a53ccee675031dfb816ffbe338dd2e94c22c944b814f332c1abdab16182304474c6b0d5cd7ad7eb9bc0500de6f5fc97b965dc5828635b58a6c596f82736'
+sha512sums=('1f1ba91e6129ab423f9ad47b63d7bb75775dbf18638a96413a572aaa790f4f0d738ca35486513e158a7f55d501f78f08dd9d68aabe2fbb80a729c6091b264111'
             '12ba7aa653fcb26d5336bf2a8110c924d634cec79f684bbf19dc38ea33f69fb68c22c97f4c09e5ca7c35f95f6c324a6d70ccc2c501a99122a9321cafd33b2cd9'
             '005355da5e3d34f69737f7c3fe7884e82ffdc8f654f337e97d4a4d1e486c9f346f63b4dee74de2765e7a8d94925de5d25c3c82da732d2e8d4f58fcfeb9dd2586'
             'e59ae0bfdc62698e407e3d70503c6a7c5e308545c9dae7843e25db3b5b62d9b26256be77ef4e884263add6b4abec3438c324bfd5715f6ca2ce7fa5962d43a6c2'
