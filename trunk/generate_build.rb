@@ -85,7 +85,7 @@ adbdfiles = %w(
   adb_auth_host.cpp
   shell_service_protocol.cpp
 )
-libadbd = compile(expand('core/adb', adbdfiles), '-DADB_REVISION="\"$PKGVER\"" -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/include')
+libadbd = compile(expand('core/adb', adbdfiles), '-DADB_VERSION="\"$PKGVER\"" -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/include')
 
 adbfiles = %w(
   console.cpp
@@ -100,6 +100,7 @@ adbfiles = %w(
   client/usb_dispatch.cpp
   client/usb_linux.cpp
   client/usb_libusb.cpp
+  sysdeps/posix/network.cpp
 )
 libadb = compile(expand('core/adb', adbfiles), '-D_GNU_SOURCE -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb')
 
@@ -110,6 +111,7 @@ basefiles = %w(
   stringprintf.cpp
   strings.cpp
   errors_unix.cpp
+  test_utils.cpp
 )
 libbase = compile(expand('core/base', basefiles), '-DADB_HOST=1 -Icore/base/include -Icore/include')
 
@@ -133,7 +135,6 @@ cutilsfiles = %w(
   load_file.c
   socket_local_client_unix.c
   socket_network_client_unix.c
-  socket_loopback_server_unix.c
   socket_local_server_unix.c
   sockets_unix.cpp
   socket_inaddr_any_server_unix.c
@@ -172,7 +173,7 @@ fastbootfiles = %w(
   tcp.cpp
   udp.cpp
 )
-libfastboot = compile(expand('core/fastboot', fastbootfiles), '-DFASTBOOT_REVISION="\"$PKGVER\"" -D_GNU_SOURCE -D_XOPEN_SOURCE=700 -DUSE_F2FS -Icore/base/include -Icore/include -Icore/adb -Icore/libsparse/include -Icore/mkbootimg -Iextras/ext4_utils/include -Iextras/f2fs_utils')
+libfastboot = compile(expand('core/fastboot', fastbootfiles), '-DFASTBOOT_VERSION="\"$PKGVER\"" -D_GNU_SOURCE -D_XOPEN_SOURCE=700 -DUSE_F2FS -Icore/base/include -Icore/include -Icore/adb -Icore/libsparse/include -Icore/mkbootimg -Iextras/ext4_utils/include -Iextras/f2fs_utils -Icore/libziparchive/include')
 
 sparsefiles = %w(
   backed_block.c
@@ -180,9 +181,9 @@ sparsefiles = %w(
   sparse.c
   sparse_crc32.c
   sparse_err.c
-  sparse_read.c
+  sparse_read.cpp
 )
-libsparse = compile(expand('core/libsparse', sparsefiles), '-Icore/libsparse/include')
+libsparse = compile(expand('core/libsparse', sparsefiles), '-Icore/libsparse/include -Icore/base/include')
 
 f2fsfiles = %w(
   f2fs_utils.c
@@ -194,7 +195,7 @@ f2fs = compile(expand('extras/f2fs_utils', f2fsfiles), '-Iextras/f2fs_utils -If2
 zipfiles = %w(
   zip_archive.cc
 )
-libzip = compile(expand('core/libziparchive', zipfiles), '-Icore/base/include -Icore/include')
+libzip = compile(expand('core/libziparchive', zipfiles), '-Icore/base/include -Icore/include -Icore/libziparchive/include')
 
 utilfiles = %w(
   FileMap.cpp
