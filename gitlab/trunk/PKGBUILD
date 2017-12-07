@@ -7,8 +7,8 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.2.2
-pkgrel=2
+pkgver=10.2.3
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -36,7 +36,7 @@ source=("$pkgname-$pkgver.tar.bz2::https://gitlab.com/gitlab-org/gitlab-ce/repos
         gitlab.logrotate
         yarn.lock)
 install='gitlab.install'
-sha512sums=('d38e7453df5a8caf951a02733ff5702e6996c845254513393f74709f34dea1187913caa63eb9bb775b54407a63eec1a7e178c41ff73559230506b4bf226fb001'
+sha512sums=('3b4cd5db678259f9f138a1334346ce7875384c8f793c52fa0b40237e2dd0f2e22127a74ef233bebffd017dfd1eaee71caab5086b02ac56366b08ef6d0cc2f6b4'
             '7c0fefe753eda3b80f892f62ef5ca733495b05a0bc94bf6a3db6e455c491f3e534e758f55f320898dfecfc1a799dedfeb573d555ad006a43eb6d0ab289dcd753'
             '14f428525309397f8e9e7dca38b107a5267a124c03cdea67c10ebf271f8e18cefe5b52dd8af0ab146ab41f1a8eef4e05be746171ea11cb43464254965f12436a'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
@@ -89,7 +89,6 @@ prepare() {
   sed -e "s|/home/git/gitlab/tmp/.*/|/run/gitlab/|g" \
       -e "s|/var/run/|/run/|g" \
       -e "s|/home/git/gitlab|${_datadir}|g" \
-      -e "s|timeout 30|timeout 300|" \
       -e "s|${_datadir}/log/|${_logdir}/|g" \
       config/unicorn.rb.example > config/unicorn.rb
 
