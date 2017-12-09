@@ -3,22 +3,21 @@
 
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs')
-pkgver=12.2.1
-pkgrel=2
+pkgver=12.2.2
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
 license=('GPL')
-makedepends=('babeltrace>=1.5.3-1' 'bc' 'boost' 'boost-libs' 'cmake' 'cpio'
-  'crypto++' 'curl' 'cython' 'cython2' 'expat' 'fcgi' 'fuse2' 'gcc-libs' 'git'
-  'glibc' 'gperf' 'gperftools' 'gptfdisk' 'inetutils' 'jq' 'junit' 'keyutils'
-  'leveldb' 'libaio' 'libatomic_ops' 'libedit' 'libsystemd' 'libutil-linux'
-  'libxml2' 'lsb-release' 'lttng-ust>=2.10.0-8' 'lz4' 'ncurses' 'nss' 'parted'
-  'pcre' 'procps-ng' 'python2-cherrypy' 'python2-jinja'
-  'python2-lttngust>=2.10.0-8' 'python2-nose' 'python2-pecan' 'python2-pip'
+makedepends=('bc' 'boost' 'boost-libs' 'cmake' 'cpio' 'crypto++' 'curl' 'cython'
+  'cython2' 'expat' 'fcgi' 'fuse2' 'gcc-libs' 'git' 'glibc' 'gperf' 'gperftools'
+  'gptfdisk' 'inetutils' 'jq' 'junit' 'keyutils' 'leveldb' 'libaio'
+  'libatomic_ops' 'libedit' 'libsystemd' 'libutil-linux' 'libxml2' 'lsb-release'
+  'lz4' 'ncurses' 'nss' 'parted' 'pcre' 'procps-ng' 'python2-cherrypy'
+  'python2-jinja' 'python2-nose' 'python2-pecan' 'python2-pip'
   'python2-prettytable' 'python2-pyopenssl' 'python2-setuptools'
-  'python2-sphinx' 'python2-tox' 'python2-virtualenv' 'python2-werkzeug'
-  'sed' 'snappy' 'socat' 'systemd' 'valgrind' 'xfsprogs' 'xmlstarlet' 'yasm'
+  'python2-sphinx' 'python2-tox' 'python2-virtualenv' 'python2-werkzeug' 'sed'
+  'snappy' 'socat' 'systemd' 'valgrind' 'xfsprogs' 'xmlstarlet' 'yasm'
   'zlib' 'zstd')
 options=('emptydirs')
 source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
@@ -27,10 +26,10 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'fix-or-disable-broken-tests.patch'
         'fix-python2-paths.patch'
         'remove-distro-version-detection.patch')
-sha512sums=('ec2623c1f6ab563c6fd0bb5fd046c78528fdbedca7cde347c92a9b15005d2ab2b1a46d7294e93f56933386462f1066750285109aafb6bf94f7d5bcdb7214d8a8'
+sha512sums=('89b166dc4b58e0110ebe0147eef9f47e1090ccee01702b3f72cfbdca856d02bf03b2663de9e88c84b21a2a61f8f92211e217a05b8bdcf7d5de3158adbe49db88'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
-            '43cbd68841758d58d11ab9acfb04800bf8b34321503b8ebc3b02291c5e2de7a60e26dc0d5e99af75dae63aa7d03e3e9322aba7cbe3b4f1dfb5e7d01fc5b40cad'
+            '40446e298ab6b735b149d26ac26d273d6e159c319bb79f112614f1d4933a5a2684007fc9a1d660c5d4a17075d8bac59019c6cc7e66d64d4e240a1a61454800ef'
             'd5d9e8123833212f6cf0ecef209a5dd9b9a8ec70d780b5140884dc9f87690ec305fb2569c5d1da2b28deb05bd03caecc534acc9dc5ce7ec75e2580df4b5b2063'
             'e2ed33e2ac37bfdb9597083388e1a87f10051e976033055d440b1a4bc2bd11148c29128fb9841771ca983c12fb36b343bcc04219dea87199321ceea9aa18b3cc')
 
@@ -72,10 +71,10 @@ build() {
     -DCMAKE_INSTALL_SBINDIR=/usr/bin \
     -DCMAKE_INSTALL_LIBDIR=/usr/lib \
     -DCMAKE_INSTALL_LIBEXECDIR=/usr/lib \
-    -DWITH_BABELTRACE=ON \
+    -DWITH_BABELTRACE=OFF \
     -DWITH_CEPHFS=ON \
     -DWITH_FUSE=ON \
-    -DWITH_LTTNG=ON \
+    -DWITH_LTTNG=OFF \
     -DWITH_LZ4=ON \
     -DWITH_MGR=ON \
     -DWITH_NSS=ON \
@@ -108,7 +107,7 @@ check() {
 
 package_ceph-libs() {
   depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'leveldb' 'libaio'
-    'libutil-linux' 'lttng-ust' 'nss' 'python2' 'xfsprogs')
+    'libutil-linux' 'nss' 'python2' 'xfsprogs')
 
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
@@ -125,9 +124,9 @@ package_ceph-libs() {
 }
 
 package_ceph() {
-  depends=('ceph-libs' 'babeltrace' 'boost-libs' 'curl' 'fuse2' 'glibc'
-    'gperftools' 'keyutils' 'leveldb' 'libaio' 'libsystemd' 'libutil-linux'
-    'lsb-release' 'lttng-ust' 'ncurses' 'nss' 'python2' 'python2-cherrypy'
+  depends=('ceph-libs' 'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools'
+    'keyutils' 'leveldb' 'libaio' 'libsystemd' 'libutil-linux'
+    'lsb-release' 'ncurses' 'nss' 'python2' 'python2-cherrypy'
     'python2-jinja' 'python2-pecan' 'python2-prettytable' 'python2-pyopenssl'
     'python2-setuptools' 'python2-werkzeug' 'snappy' 'xfsprogs')
 
