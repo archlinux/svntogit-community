@@ -122,7 +122,7 @@ build() {
 
   msg2 'hv'
   pushd linux/tools/hv
-  make
+  CFLAGS+=' -DKVP_SCRIPTS_PATH=/usr/lib/hyperv/kvp_scripts/' make
   popd
 }
 
@@ -259,6 +259,7 @@ package_hyperv() {
   for _p in hv_fcopy_daemon hv_kvp_daemon hv_vss_daemon; do
     install -Dm755 "$_p" "$pkgdir/usr/bin/$_p"
   done
+  install -dm755 "$pkgdir/usr/lib/hyperv/kvp_scripts"
 }
 
 # vim:set ts=2 sw=2 et:
