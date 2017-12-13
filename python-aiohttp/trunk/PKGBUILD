@@ -3,7 +3,7 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-pkgver=2.3.2
+pkgver=2.3.6
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
@@ -13,8 +13,8 @@ depends=('python>=3.4.2' 'python-chardet' 'python-multidict' 'python-async-timeo
 makedepends=('cython' 'python-setuptools')
 checkdepends=('python-pytest' 'python-pytest-mock')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/aio-libs/aiohttp/archive/v${pkgver}.tar.gz)
-sha256sums=('adb90d04c35f6b753656a223cab342186c6dea1321bc33d48a19b393d177987b')
-sha512sums=('54508655c3f6e409277120651537034fd0badb12c909c556778790a8b79bd856f72661d82eba45ccefd2ccd4f3afaf3830817bcce6ca1e89a924541ccc92bc12')
+sha256sums=('1d9c5a6a27b462fe04430ceab0edd90b83535354a4fc9e8856719274cd89994c')
+sha512sums=('967a533231f694f63077c0b0daf89f1973d45cf6e1a649b7b76f0386616f687148b542a1800d731cfcb03d0a464d5f1742a686e435a42a28c2a814cef5ec71b0')
 
 build() {
   cd ${_pkgname}-${pkgver}
