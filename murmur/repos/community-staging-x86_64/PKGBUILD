@@ -1,0 +1,57 @@
+# $Id$
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Otto Allmendinger <otto.allmendinger@googlemail.com>
+# Contributor: Malte Rabenseifner <malte@zearan.de>
+
+pkgname=murmur
+pkgver=1.2.19
+pkgrel=9
+pkgdesc="The voice chat application server for Mumble"
+arch=('x86_64')
+url="http://mumble.sourceforge.net"
+license=('BSD')
+depends=('avahi' 'lsb-release' 'protobuf' 'qt4' 'icu' 'zeroc-ice')
+makedepends=('boost')
+backup=("etc/murmur.ini")
+install="murmur.install"
+source=(https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble-${pkgver}.tar.gz
+        "murmur.dbus.conf"
+        "murmur.service")
+sha512sums=('f91111194a899149b500a94afcf7cc5b9691c7ce8669f07fca2c66adbb3916ddb863bf703d04fb8387133fb75f3c8edb52974d1acf3febfafa1f73da19946de4'
+            '97c7effdddec324e40195c36ef4927950a5de26d2ee2d268d89df6fb547207bbbe30292773316cae6f57ec9923244f205fb0edc377b798771ba7385e3c11d86a'
+            '1773802b938ae2a80fa21e26cd33d162f00de00e074af9f1481f1c682ef32756ffdd2384a1d1f5a4202df55a982a80067efa78d7ad4e077bf5c7f7ccfc4399e4')
+
+prepare() {
+  cd ${srcdir}/mumble-$pkgver
+
+  sed -i "s|/usr/local/share/Ice|/usr/share/ice/slice|g" src/murmur/murmur.pro
+  sed -i "s|-lIceUtil|-lIce|g" src/murmur/murmur.pro
+}
+
+build() {
+  cd ${srcdir}/mumble-$pkgver
+
+  qmake-qt4 main.pro CONFIG+="no-client"
+  make release
+}
+
+package() {
+  cd ${srcdir}/mumble-$pkgver
+
+  sed -e "1i# vi:ft=cfg" \
+    -e "s|database=|database=/var/db/murmur/murmur.sqlite|" \
+    -e "s|#logfile=murmur.log|logfile=|" \
+    -e "s|#uname=|uname=murmur|" \
+    -i scripts/murmur.ini
+
+  install -dm755 -o 122 -g 122 ${pkgdir}/var/db/murmur
+  install -Dm755 release/murmurd ${pkgdir}/usr/bin/murmurd
+  install -Dm644 scripts/murmur.ini ${pkgdir}/etc/murmur.ini
+  install -Dm644 ${srcdir}/murmur.dbus.conf ${pkgdir}/etc/dbus-1/system.d/murmur.conf
+  install -Dm644 README ${pkgdir}/usr/share/doc/murmur/README
+  install -Dm644 man/murmurd.1 ${pkgdir}/usr/share/man/man1/murmurd.1
+  install -Dm644 ${srcdir}/murmur.service ${pkgdir}/usr/lib/systemd/system/murmur.service
+  install -Dm644 LICENSE ${pkgdir}/usr/share/licenses/${pkgname}/LICENSE
+}
+
+# vim: sw=2:ts=2 et:
