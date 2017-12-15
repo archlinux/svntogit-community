@@ -4,16 +4,18 @@
 pkgbase=sagemath-doc
 pkgname=(sagemath-doc sagemath-src)
 pkgver=8.1
-pkgrel=1
+pkgrel=2
 arch=(any)
 url="http://www.sagemath.org"
 license=(GPL)
-makedepends=(sagemath sage-notebook python2-pyzmq python2-pillow python2-docutils tachyon
+makedepends=(sage-notebook python2-pyzmq python2-pillow python2-docutils tachyon
              python2-jupyter_client python2-pkgconfig cython2 thebe python2-sphinx python2-ipywidgets)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
         sagemath-env.patch package.patch latte-count.patch jupyter-path.patch sagemath-python3-notebook.patch test-optional.patch
-        r-no-readline.patch fes02.patch sagemath-threejs.patch sagemath-detect-igraph.patch
-        sagemath-networkx2.patch sagemath-linbox-1.5.patch sagemath-pynac-0.7.14.patch docbuild_main.patch)
+        r-no-readline.patch fes02.patch sagemath-threejs.patch sagemath-detect-igraph.patch pari-stackwarn.patch
+        sagemath-detect-igraph.patch sagemath-networkx2.patch sagemath-linbox-1.5.patch sagemath-pynac-0.7.14.patch
+        sagemath-matplotlib2.patch sagemath-scipy-1.0.patch sagemath-lrs.patch
+        docbuild_main.patch sagemath-doc-no-sagenb.patch)
 sha256sums=('a42b55c2c8ac244535dc9b87171b7d4dd7e1d498099518ab253354fbe2eaaa7b'
             '6dc9b101310f80381c61c0312a3e5c648771bfe0de2e94ac46fafe7282a3e0ee'
             'c41ae665499c6cd775d40bbe178f8786830b0931ee26bf11ee02f7d83bcc8107'
@@ -25,10 +27,16 @@ sha256sums=('a42b55c2c8ac244535dc9b87171b7d4dd7e1d498099518ab253354fbe2eaaa7b'
             '7fcb52e96935dccb0f958d37c2f4e3918392480b9af53e08562f6cba6c68cb94'
             '514135b920a43f999571a15e97b41e14f5bed59f65b19643864dc23555a7b830'
             '28d7789b8d777922ab8871ca43b6afab751428cae875c0343d3962e6a2030b88'
+            'bfd2a20a33ab19a8a8b216a77d07f62e809fe1e1879c4f171ce5dca62fd482e9'
+            '28d7789b8d777922ab8871ca43b6afab751428cae875c0343d3962e6a2030b88'
             '37c5c1e694a2aca06c0f1c7d99622ff81fd2bc6a51e8745762294889fa4673f6'
             'a52d03e04c9d64bb957a1f8dcdae3280ebb9450a7fd76aaf5ae5de5c6f74774f'
             '538f7b279d72f4b67edb445d386d267f3f7022c1079031ca7ea06f6ce392c906'
-            'ea5e17bb7a7cb36a22e5e3872fcc2585852bc971c4b139b0b2cd69a36c1b009b')
+            'b9ab2bb5f381ea425e8763b81b8b3a108a3951c594fb1f37f7df921e7c77e26d'
+            '17397b8e1843b013ef5d2e083369109f0719651edd8ef0c8493cb49e2bc4324a'
+            'c0f65534a845ba802de6196229159fe67fcc3f72f0cb1ce57d4ae5c9fe10282c'
+            'ea5e17bb7a7cb36a22e5e3872fcc2585852bc971c4b139b0b2cd69a36c1b009b'
+            '261bdb5c24e67fb34f537e29bdf35af655162de3fea7d05abc72f85a864720fe')
 
 prepare() {
   cd sage-$pkgver
@@ -53,10 +61,16 @@ prepare() {
    -i src/sage/databases/cremona.py
 # fix python-igraph detection
   patch -p1 -i ../sagemath-detect-igraph.patch
+# fix lrs detection
+  patch -p1 -i ../sagemath-lrs.patch
 # adapt to networkx 2 changes
   patch -p1 -i ../sagemath-networkx2.patch
 # fix three.js plotting backend
   patch -p1 -i ../sagemath-threejs.patch
+# don't show PARI stack size increase warnings during doctesting (Debian)
+  patch -p1 -i ../pari-stackwarn.patch
+# remove deprecated scipy parameters
+  patch -p1 -i ../sagemath-scipy-1.0.patch
 
 # Upstream patches  
 # fix build against libfes 0.2 http://trac.sagemath.org/ticket/15209
@@ -65,6 +79,10 @@ prepare() {
   patch -p1 -i ../sagemath-linbox-1.5.patch
 # fix build with pynac 0.7.14 https://trac.sagemath.org/ticket/24329
   patch -p1 -i ../sagemath-pynac-0.7.14.patch
+# port away from deprecated and removed functions in matplotlib 2 https://trac.sagemath.org/ticket/23696
+  patch -p1 -i ../sagemath-matplotlib2.patch
+# drop sage-notebook dependency from sagemath-doc https://trac.sagemath.org/ticket/24250
+  patch -p1 -i ../sagemath-doc-no-sagenb.patch
 
 # fix relative imports
   patch -p0 -i ../docbuild_main.patch
@@ -72,6 +90,7 @@ prepare() {
 # use python2
   sed -e 's|cython %s %s|cython2 %s %s|' -e 's|python setup.py|python2 setup.py|' -i src/sage/misc/cython.py
 
+# use sage_setup imports from sagemath source, but use system sage ones (which include compiled modules)
   mkdir -p local-python
   ln -sr src/sage_setup local-python
 }
@@ -85,13 +104,13 @@ build() {
   export SAGE_DOC_SRC="$SAGE_SRC"/doc
   export SAGE_DOC="$SAGE_SRC"/doc
   export SAGE_DOC_MATHJAX=yes
-  export PYTHONPATH="/usr/lib/sage/site-packages:$srcdir/sage-$pkgver/local-python"
+  export PYTHONPATH="$srcdir"/sage-$pkgver/local-python
   python2 sage_setup/docbuild --no-pdf-links -k all html
 }
 
 package_sagemath-doc() {
   pkgdesc="HTML documentation and inline help for SageMath"
-  depends=(sage-notebook python2-sphinx gap-doc thebe)
+  depends=(python2-sphinx gap-doc thebe)
   conflicts=(sage-mathematics-doc)
   replaces=(sage-mathematics-doc)
 
