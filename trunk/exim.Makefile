@@ -296,7 +296,7 @@ LOOKUP_LDAP=yes
 # LOOKUP_ORACLE=yes
 # LOOKUP_PASSWD=yes
 # LOOKUP_PGSQL=yes
-# LOOKUP_SQLITE=yes
+LOOKUP_SQLITE=yes
 # LOOKUP_WHOSON=yes
 
 # These two settings are obsolete; all three lookups are compiled when
@@ -1222,7 +1222,7 @@ PID_FILE_PATH=/var/run/exim.pid
 # ENABLE_DISABLE_FSYNC=yes
 
 HAVE_IPV6=YES
-LOOKUP_LIBS=-lldap -llber
+LOOKUP_LIBS=-lldap -llber -lsqlite3
 EXTRALIBS_EXIM=-lpam
 
 USE_GDBM=yes
