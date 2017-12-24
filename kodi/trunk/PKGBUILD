@@ -22,12 +22,12 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=17.6
 _codename=Krypton
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="http://kodi.tv"
 license=('GPL2')
 makedepends=(
-  'afpfs-ng' 'bluez-libs' 'boost' 'cmake' 'curl' 'cwiid' 'doxygen' 'glew'
+  'afpfs-ng' 'bluez-libs' 'boost' 'cmake' 'curl' 'doxygen' 'glew'
   'gperf' 'hicolor-icon-theme' 'jasper' 'java-runtime' 'libaacs' 'libass'
   'libbluray' 'libcdio' 'libcec' 'libgl' 'libmariadbclient' 'libmicrohttpd'
   'libmodplug' 'libmpeg2' 'libnfs' 'libplist' 'libpulse' 'libssh' 'libva'
@@ -147,12 +147,9 @@ package_kodi-eventclients() {
   pkgdesc="Kodi Event Clients"
   conflicts=('kodi-eventclients')
 
-  depends=('cwiid')
-
   _components=(
     'kodi-eventclients-common'
     'kodi-eventclients-ps3'
-    'kodi-eventclients-wiiremote'
     'kodi-eventclients-xbmc-send'
   )
 
