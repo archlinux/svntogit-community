@@ -5,7 +5,7 @@
 _hkgname=Agda
 pkgname=agda
 pkgver=2.5.3
-pkgrel=5
+pkgrel=6
 pkgdesc="A dependently typed functional programming language and proof assistant"
 url="http://wiki.portal.chalmers.se/agda/"
 license=("custom")
@@ -23,9 +23,11 @@ source=("https://github.com/agda/agda/archive/v$pkgver.tar.gz")
 sha512sums=('89cf67d095cb3694a8f266445092620746a04aa866ab3af277f73b304d8c0f54dc7880a6093336f0c4893ee3861fc853bcf7ca48c430f2c8c83b2c24bf6cb97a')
 
 prepare() {
-    # TODO: Find a better way!
-    # Build it twice to compile the agdai file.
-    cp -a ${pkgname}-${pkgver}{,-tmp}
+    mkdir -p lib-target
+    cp -a $pkgname-$pkgver/src/data/lib lib-target/lib
+    sed -e "s|rawSystem agda \\[|rawSystem \"env\" [\"Agda_datadir=$PWD/lib-target\", \"LD_LIBRARY_PATH=$PWD/$pkgname-$pkgver/dist/build\", agda,|" \
+        -e "s|(ms, datadir dirs|(ms, \"$PWD/lib-target\"|" \
+        -i $pkgname-$pkgver/Setup.hs
 }
 
 build() {
@@ -40,16 +42,6 @@ build() {
     runhaskell Setup unregister --gen-script
     sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
     sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
-
-    cd "${srcdir}/${pkgname}-${pkgver}-tmp"
-    runhaskell Setup configure --prefix="$PWD/target" --enable-executable-dynamic --disable-library-vanilla --datasubdir="$pkgname"
-    LC_CTYPE=en_US.UTF-8 runhaskell Setup build
-    runhaskell Setup copy
-
-    LD_PRELOAD=(dist/build/libHSAgda-*-ghc*.so) dist/build/agda/agda target/share/agda/lib/prim/Agda/Primitive.agda
-    for _file in target/share/agda/lib/prim/Agda/Builtin/*.agda; do
-        LD_PRELOAD=(dist/build/libHSAgda-*-ghc*.so) dist/build/agda/agda "$_file"
-    done
 }
 
 package() {
@@ -61,6 +53,6 @@ package() {
     install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
     rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
 
-    install -m644 "${srcdir}/${pkgname}-${pkgver}-tmp"/target/share/agda/lib/prim/Agda/Primitive.agdai "$pkgdir"/usr/share/agda/lib/prim/Agda/Primitive.agdai
-    install -m644 "${srcdir}/${pkgname}-${pkgver}-tmp"/target/share/agda/lib/prim/Agda/Builtin/*.agdai "$pkgdir"/usr/share/agda/lib/prim/Agda/Builtin/
+    install -m644 "$srcdir"/lib-target/lib/prim/Agda/Primitive.agdai "$pkgdir"/usr/share/agda/lib/prim/Agda/Primitive.agdai
+    install -m644 "$srcdir"/lib-target/lib/prim/Agda/Builtin/*.agdai "$pkgdir"/usr/share/agda/lib/prim/Agda/Builtin/
 }
