@@ -8,8 +8,10 @@ pkgrel=1
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
-makedepends=('python2' 'python' 'unzip' 'python-webencodings' 'python2-webencodings')
-checkdepends=('python-six' 'python2-six' 'python2-pytest' 'python-pytest' 'python-lxml' 'python2-lxml' 'python-mock' 'python2-mock') 
+makedepends=('python2' 'python' 'unzip' 'python-webencodings' 'python2-webencodings'
+             'python2-setuptools' 'python-setuptools')
+checkdepends=('python-six' 'python2-six' 'python2-pytest' 'python-pytest'
+              'python-lxml' 'python2-lxml' 'python-mock' 'python2-mock') 
 source=($pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz
     LICENSE)
 md5sums=('ef1146d400657a17d396fb21da5b24b8'
@@ -35,8 +37,4 @@ pkgdesc="A Python2 HTML parser/tokenizer based on the WHATWG HTML5 spec"
 
 check() {
     cd ${srcdir}/html5lib-python-${pkgver}/html5lib/tests
-
-#    nosetests2 
-  
-#    nosetests
 }
