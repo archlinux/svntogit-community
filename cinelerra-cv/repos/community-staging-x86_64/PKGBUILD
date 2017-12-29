@@ -1,0 +1,98 @@
+# $Id$
+# Maintainer: Ray Rashif <schiv@archlinux.org>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Jaroslaw Swierczynski <swiergot@aur.archlinux.org>
+# Contributor: Alexander Rødseth <rodseth@gmail.com>
+
+pkgname=cinelerra-cv
+pkgver=2.3
+_gitrel=2.3.0
+pkgrel=2
+epoch=1
+pkgdesc="Professional video editing and compositing environment"
+arch=('x86_64')
+url="http://cinelerra.org/"
+license=('GPL')
+depends=('e2fsprogs' 'libavc1394' 'libiec61883' 'libxv'
+         'libtiff' 'mjpegtools' 'fftw' 'a52dec' 'glu'
+         'ffmpeg' 'faad2' 'faac' 'openexr>=2.0.0' 'libxft')
+makedepends=('git' 'nasm' 'mesa')
+source=("$pkgname::git+git://git.cinelerra-cv.org/CinelerraCV.git#branch=rel$_gitrel"
+        'v4l1_removal.patch'
+        'ffmpeg_api.patch'
+        'ffmpeg2.0.patch'
+        'gcc5fix.patch'
+	'cinelerra-cv-ffmpeg3.patch'
+	'ffmpeg-link.patch')
+md5sums=('SKIP'
+         'bfa85e20809429d88eba4ab83e569612'
+         'b05ec2fb54e7d02f6167525417802111'
+         '14dd897084d64cd0b5e9caa8a69818bd'
+         '7bf8fe04ce242d8aa76dba94897eac4e'
+         '4d45860f1780b5e42fbbfc0e35614cdd'
+         '0338a22d2785ef52c908574bb323ab02')
+
+prepare() {
+  cd "$srcdir/$pkgname"
+
+  ## Patches (oldest first) ##
+
+  # v4l1 removal patch
+  patch -Np1 -i "$srcdir/v4l1_removal.patch"
+
+  # ffmpeg api patch update for 0.11
+  patch -Np1 -i "$srcdir/ffmpeg_api.patch"
+
+  # fix avcodec_alloc_context and alloc_open
+  patch -Np1 -i "$srcdir/ffmpeg2.0.patch"
+
+  ## Hacks ##
+
+  # if you don't need OpenGL comment out the next line (and no glu/mesa dep)
+  # TODO: check if this is still needed (pre-svn commit) --schiv
+  #sed -i '/\/X11R6/s///' configure.in
+
+  # TODO: check if this is still needed (old commit; r29539 by ibiru) --schiv
+  #sed -i -e '/Debian/d' admin/nasm
+
+  # gcc 5.x fix
+  patch -Np1 -i "$srcdir/gcc5fix.patch"
+
+  # fix build with ffmpeg 3.0
+  patch -p1 -i ../cinelerra-cv-ffmpeg3.patch
+  patch -p0 -i ../ffmpeg-link.patch
+}
+
+build() {
+  cd "$srcdir/$pkgname"
+
+  ## More Hacks (must be in existing env) ##
+
+  # gcc 4.6 workaround
+  export CFLAGS+=" -Wwrite-strings -D__STDC_CONSTANT_MACROS"
+  export CPPFLAGS="$CFLAGS"
+
+  # remove executable stack
+  export LDFLAGS+=" -Wl,-z,noexecstack"
+
+  ./autogen.sh
+
+  # disable mmx due to improper use of registers in asm
+  # - possibly a new problem since gcc 4.9
+  ./configure --prefix=/usr \
+              --with-buildinfo=git/recompile \
+              --with-external-ffmpeg \
+              --enable-opengl \
+              --disable-mmx \
+              --disable-esd
+
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname"
+
+  make DESTDIR="$pkgdir" install
+}
+
+# vim:set ts=2 sw=2 et:
