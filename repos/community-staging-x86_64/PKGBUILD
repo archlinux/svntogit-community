@@ -1,0 +1,98 @@
+# Maintainer: Baptiste Jonglez <baptiste--aur at jonglez dot org>
+# Contributor: nfnty
+pkgbase='kea'
+pkgname=('kea' 'kea-devel-docs')
+pkgver=1.3.0
+pkgrel=2
+pkgdesc='High-performance, extensible DHCP server engine from ISC, supporting both DHCPv4 and DHCPv6'
+arch=('x86_64')
+url='http://kea.isc.org'
+license=('MPL2')
+depends=('botan' 'boost-libs' 'log4cplus' 'libmariadbclient' 'postgresql-libs')
+makedepends=('boost'
+             'postgresql' # Needed for some headers
+             'python' # kea-shell
+	     'libxslt' 'docbook-xsl' 'elinks' 'doxygen' 'graphviz') # Doc
+# Checks are disabled for now
+#checkdepends=('gtest' 'postgresql' 'mariadb' 'python' 'procps-ng') # procps-ng needed for 'pgrep'
+backup=('etc/kea/kea.conf' 'etc/kea/kea-ca.conf' # Config files up to Kea 1.2
+        'etc/kea/kea-dhcp4.conf' 'etc/kea/kea-dhcp6.conf' 'etc/kea/kea-dhcp-ddns.conf' 'etc/kea/kea-ctrl-agent.conf' 'etc/kea/keactrl.conf') # New config files as of Kea 1.3
+
+source=(https://ftp.isc.org/isc/kea/${pkgver}/kea-${pkgver}.tar.gz{,.asc}
+        fix-scripts-include-path.patch
+        asiolink-fix-build-with-boost-1.66.patch
+        LICENSE
+        tmpfiles-kea.conf
+        kea-dhcp4.service
+        kea-dhcp6.service)
+sha512sums=('4708485efe537d9af00b50da9a3f33b740edaf37d9bbfe96f5625e30715349c48ef8a32f5abb8320f00821aea642a5b7ecdbc9f0d323a71b7a07f46f1bed978b'
+            'SKIP'
+            '81874fd3a12f55ea23593b7248c7653450c3a6e5ba8e79c7c5fb40ab685b0dc5d4e29e50f10000bd9018200731dba35f15e5d86c8005c94d14865d73e19983e5'
+            '2ac01524f70c95986cb64f8d0fc29612aec38c8ab95892469329ced071cf3660b4e9997b6e22a62765c244a9c68b41c4729aec8cfe03099e009ce858faa5c661'
+            '32a402845f82f89a8357208be666b58672d70cf30fc264f3093b89b4201bf73b57877a080ed123c9beb8e50cd5396092a6286c33e511b595efb1b43e196e3be1'
+            '13a473bea4f8a1ba40f5667b880010590c5fddecaa76c360113e977c9ab3898558141cda17000def7b1c592b7dc6f8d5a508752351c601f6484abd775b60d214'
+            '24fdd95fc25bcd6aaf21cec598f3d09715418705aadbb2403792b62f4d8789b1897aa65f5e68184612d0a2c1c6be4123491db2fc3b1d602f6e7c5cd6c2d278eb'
+            'f4d54483034ac5d2815a5a06cec84a20aa2849484630d7eeed4d9f2bd7cb96814f80d1f06da2f10b43eabdba0f79f4fb7befe06171001b7d1617844fe8813dae')
+validpgpkeys=('BE0E9748B718253A28BB89FFF1B11BF05CF02E57') # Internet Systems Consortium, Inc. (Signing key, 2017-2018) <codesign@isc.org>
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  # The include path is set incorrectly (it uses undefined $prefix instead of /usr).
+  # Also, it fallbacks to the absolute path inside the chrooted build dir,
+  # which will certainly not exist on the target system...
+  patch -p1 < "${srcdir}"/fix-scripts-include-path.patch
+
+  patch -p1 < "${srcdir}"/asiolink-fix-build-with-boost-1.66.patch
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  autoreconf --install
+  ./configure \
+      --prefix='/usr' \
+      --sbindir='/usr/bin' \
+      --libexecdir='/usr/bin' \
+      --sysconfdir='/etc' \
+      --localstatedir='/var' \
+      --with-dhcp-mysql \
+      --with-dhcp-pgsql \
+      --enable-shell \
+      --enable-generate-docs
+  make
+  make -C doc devel
+}
+
+check() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  # Disable for now, some tests fail (for instance dhcp-ddns.sigterm_test)
+  #make check
+}
+
+package_kea() {
+  optdepends=('mariadb: Lease information database'
+              'postgresql: Lease information database'
+              'python: To use kea-shell'
+              'kea-devel-docs: development documentation')
+
+  cd "${srcdir}/kea-${pkgver}"
+  make DESTDIR="${pkgdir}" install
+  # Handle /var/run -> /run symlink
+  rmdir "${pkgdir}"/var/run/kea
+  rmdir "${pkgdir}"/var/run
+  install -Dm644 "${srcdir}"/tmpfiles-kea.conf "${pkgdir}"/usr/lib/tmpfiles.d/${pkgname}.conf
+  # Systemd service files
+  install -Dm644 "${srcdir}"/kea-dhcp4.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp4.service
+  install -Dm644 "${srcdir}"/kea-dhcp6.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp6.service
+}
+
+package_kea-devel-docs() {
+  pkgdesc="Development documentation for kea"
+  depends=()
+  backup=()
+
+  cd "${srcdir}/kea-${pkgver}"
+  install -d "${pkgdir}/usr/share/doc/kea/"
+  cp -r doc/html "${pkgdir}/usr/share/doc/kea/devel"
+  # License, see https://bugs.archlinux.org/task/31547
+  install -Dm644 "${srcdir}"/LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+}
