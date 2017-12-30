@@ -1,0 +1,55 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=idris
+pkgver=1.1.1
+pkgrel=20
+pkgdesc="Functional Programming Language with Dependent Types"
+url="http://www.idris-lang.org/"
+license=("custom:BSD3")
+arch=('x86_64')
+depends=('ghc-libs' "haskell-aeson" "haskell-annotated-wl-pprint" "haskell-ansi-terminal"
+         "haskell-ansi-wl-pprint" "haskell-async" "haskell-base64-bytestring" "haskell-blaze-html"
+         "haskell-blaze-markup" "haskell-cheapskate" "haskell-code-page" "haskell-fingertree"
+         "haskell-fsnotify" "haskell-ieee754" "haskell-mtl" "haskell-libffi" "haskell-network"
+         "haskell-optparse-applicative" "haskell-parsers" "haskell-regex-tdfa" "haskell-safe"
+         "haskell-split" "haskell-terminal-size" "haskell-text" "haskell-transformers-compat"
+         "haskell-trifecta" "haskell-uniplate" "haskell-unordered-containers" "haskell-utf8-string"
+         "haskell-vector" "haskell-vector-binary-instances" "haskell-zip-archive")
+makedepends=('ghc')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/idris-lang/Idris-dev/archive/v$pkgver.tar.gz")
+sha512sums=('5768705f0ae22053214e62e79720d6d70e4bda55a8ddff45302c7b4f6c484999102100ee8146a7ec3abd823e028a7a3fecb82d67be49a9401219ef26cf7aa946')
+
+prepare() {
+    cd Idris-dev-$pkgver
+
+    sed -i '1ioverride IDRIS := env LD_PRELOAD=$(shell ls ../../dist/build/libHSidris-*-ghc*.so) $(IDRIS)' \
+        libs/*/Makefile
+
+    sed -i 's/, ansi-terminal < 0.7/, ansi-terminal/' idris.cabal
+}
+
+build() {
+    cd "$srcdir"/Idris-dev-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -fFFI -fGMP -frelease -f-freestanding -f-CI -f-execonly
+    LC_CTYPE=en_US.UTF-8 runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "$srcdir"/Idris-dev-$pkgver
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
