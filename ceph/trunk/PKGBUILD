@@ -1,10 +1,10 @@
-# Maintainer: Sébastien "Seblu" Luttringer <seblu@archlinux.org>
-# Contributor: Thore Bödecker <foxxx0@archlinux.org>
+# Maintainer: Thore Bödecker <foxxx0@archlinux.org>
+# Contributor: Sébastien "Seblu" Luttringer <seblu@archlinux.org>
 
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs')
 pkgver=12.2.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
