@@ -1,0 +1,210 @@
+# $Id$
+# Maintainer : Christian Rebischke <Chris.Rebischke@archlinux.org>
+# Contributor: Timothy Redaelli <timothy.redaelli@gmail.com>
+# Contributor: shahid <helllamer@gmail.com>
+
+#_dbver=4.8.30
+pkgbase=bitcoin
+pkgname=('bitcoin-daemon' 'bitcoin-cli' 'bitcoin-qt' 'bitcoin-tx')
+pkgver=0.15.1
+pkgrel=3
+arch=('x86_64')
+url="http://www.bitcoin.org/"
+makedepends=('boost' 'libevent' 'qt5-base' 'qt5-tools' 'qrencode' 'miniupnpc' 'protobuf' 'zeromq')
+license=('MIT')
+source=($pkgname-$pkgver.tar.gz::"https://github.com/bitcoin/bitcoin/archive/v$pkgver.tar.gz" "0001-Make-boost-multi_index-comparators-const.patch")
+sha256sums=('e429d4f257f2b5b6d0caaf36ed1a5f5203e5918c57837efac00b0c322a1fef79'
+            'f302218b0366c2102a3447330684adcdb576217aba5d1bb157e73717d6734ce5')
+validpgpkeys=(71A3B16735405025D447E8F274810B012346C9A6)
+
+ _parse_gpg_statusfile() {
+	local type arg1 arg6 arg10
+
+	while read -r _ type arg1 _ _ _ _ arg6 _ _ _ arg10 _; do
+		case "$type" in
+			GOODSIG)
+				pubkey=$arg1
+				success=1
+				status="good"
+				;;
+			EXPSIG)
+				pubkey=$arg1
+				success=1
+				status="expired"
+				;;
+			EXPKEYSIG)
+				pubkey=$arg1
+				success=1
+				status="expiredkey"
+				;;
+			REVKEYSIG)
+				pubkey=$arg1
+				success=0
+				status="revokedkey"
+				;;
+			BADSIG)
+				pubkey=$arg1
+				success=0
+				status="bad"
+				;;
+			ERRSIG)
+				pubkey=$arg1
+				success=0
+				if [[ $arg6 == 9 ]]; then
+					status="missingkey"
+				else
+					status="error"
+				fi
+				;;
+			VALIDSIG)
+				if [[ $arg10 ]]; then
+					# If the file was signed with a subkey, arg10 contains
+					# the fingerprint of the primary key
+					fingerprint=$arg10
+				else
+					fingerprint=$arg1
+				fi
+				;;
+			TRUST_UNDEFINED|TRUST_NEVER)
+				trusted=0
+				;;
+			TRUST_MARGINAL|TRUST_FULLY|TRUST_ULTIMATE)
+				trusted=1
+				;;
+		esac
+	done < "$1"
+}
+
+_validate_gpg_tag() {
+  local file ext decompress found pubkey success status fingerprint trusted
+  local warning=0
+  local errors=0
+  local statusfile=$(mktemp)
+
+  msg "$(gettext "Verifying source file signatures with %s...")" "gpg"
+
+  git verify-tag --raw "$1" 2>"$statusfile"
+
+  # these variables are assigned values in parse_gpg_statusfile
+  success=0
+  status=
+  pubkey=
+  fingerprint=
+  trusted=
+  _parse_gpg_statusfile "$statusfile"
+  if (( ! $success )); then
+    printf '%s' "$(gettext "FAILED")" >&2
+    case "$status" in
+      "missingkey")
+        printf ' (%s)' "$(gettext "unknown public key") $pubkey" >&2
+        ;;
+      "revokedkey")
+        printf " ($(gettext "public key %s has been revoked"))" "$pubkey" >&2
+        ;;
+      "bad")
+        printf ' (%s)' "$(gettext "bad signature from public key") $pubkey" >&2
+        ;;
+      "error")
+        printf ' (%s)' "$(gettext "error during signature verification")" >&2
+        ;;
+    esac
+    errors=1
+  else
+    if (( ${#validpgpkeys[@]} == 0 && !trusted )); then
+      printf "%s ($(gettext "the public key %s is not trusted"))" $(gettext "FAILED") "$fingerprint" >&2
+      errors=1
+    elif (( ${#validpgpkeys[@]} > 0 )) && ! in_array "$fingerprint" "${validpgpkeys[@]}"; then
+      printf "%s (%s %s)" "$(gettext "FAILED")" "$(gettext "invalid public key")" "$fingerprint"
+      errors=1
+    else
+      printf '%s' "$(gettext "Passed")" >&2
+      case "$status" in
+        "expired")
+          printf ' (%s)' "$(gettext "WARNING:") $(gettext "the signature has expired.")" >&2
+          warnings=1
+          ;;
+        "expiredkey")
+          printf ' (%s)' "$(gettext "WARNING:") $(gettext "the key has expired.")" >&2
+          warnings=1
+          ;;
+      esac
+    fi
+  fi
+  printf '\n' >&2
+
+  rm -f "$statusfile"
+
+  if (( errors )); then
+    error "$(gettext "One or more PGP signatures could not be verified!")"
+    false
+  fi
+
+  if (( warnings )); then
+    warning "$(gettext "Warnings have occurred while verifying the signatures.")"
+    plain "$(gettext "Please make sure you really trust them.")"
+  fi
+}
+
+prepare() {
+  cd "$pkgbase-$pkgver"
+#  _validate_gpg_tag "v${pkgver}"
+  patch -Np1 -i $srcdir/0001-Make-boost-multi_index-comparators-const.patch
+}
+
+build() {
+  cd $pkgbase-$pkgver
+  ./autogen.sh
+  ./configure --prefix=/usr --with-gui=qt5 --with-incompatible-bdb #LDFLAGS="-L$srcdir/db4/lib/ $LDFLAGS" CPPFLAGS="-I$srcdir/db4/include/ $CPPFLAGS"
+  make
+}
+
+package_bitcoin-qt() {
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - Qt"
+  depends=(boost-libs libevent qt5-base miniupnpc qrencode protobuf zeromq)
+
+  cd $pkgbase-$pkgver
+  install -Dm755 src/qt/bitcoin-qt "$pkgdir"/usr/bin/bitcoin-qt
+  install -Dm644 contrib/debian/bitcoin-qt.desktop \
+    "$pkgdir"/usr/share/applications/bitcoin.desktop
+  install -Dm644 share/pixmaps/bitcoin128.png \
+    "$pkgdir"/usr/share/pixmaps/bitcoin128.png
+  install -Dm644 doc/man/bitcoin-qt.1 \
+    "$pkgdir"/usr/share/man/man1/bitcoin-qt.1
+
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+
+package_bitcoin-daemon() {
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - daemon"
+  depends=(boost-libs libevent miniupnpc zeromq)
+
+  cd $pkgbase-$pkgver
+  install -Dm755 src/bitcoind "$pkgdir"/usr/bin/bitcoind
+  install -Dm644 contrib/debian/examples/bitcoin.conf \
+    "$pkgdir/usr/share/doc/$pkgname/examples/bitcoin.conf"
+  install -Dm644 doc/man/bitcoind.1 \
+    "$pkgdir"/usr/share/man/man1/bitcoind.1
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+
+package_bitcoin-cli() {
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - RPC client"
+  depends=(boost-libs libevent)
+
+  cd $pkgbase-$pkgver
+  install -Dm755 src/bitcoin-cli "$pkgdir"/usr/bin/bitcoin-cli
+  install -Dm644 doc/man/bitcoin-cli.1 \
+    "$pkgdir"/usr/share/man/man1/bitcoin-cli.1
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+
+package_bitcoin-tx() {
+  pkgdesc="Bitcoin is a peer-to-peer network based digital currency - Transaction tool"
+  depends=(boost-libs openssl)
+
+  cd $pkgbase-$pkgver
+  install -Dm755 src/bitcoin-tx "$pkgdir"/usr/bin/bitcoin-tx
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}
+
+# vim:set ts=2 sw=2 et:
