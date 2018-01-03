@@ -1,0 +1,82 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+
+pkgbase=unicorn
+pkgname=('unicorn' 'python-unicorn' 'python2-unicorn' 'ruby-unicorn')
+pkgver=1.0.1
+pkgrel=3
+pkgdesc='Lightweight, multi-platform, multi-architecture CPU emulator framework based on QEMU'
+url='http://www.unicorn-engine.org'
+arch=('x86_64')
+license=('GPL2')
+makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools' 'ruby')
+checkdepends=('cmocka')
+options=('staticlibs' '!emptydirs')
+source=(${pkgbase}-${pkgver}.tar.gz::https://github.com/unicorn-engine/unicorn/archive/${pkgver}.tar.gz)
+sha512sums=('edfe1f7bfbc1d20f5b62232057e194a937bc09db686ef2efadb33a54605029a53426432cdb2a29511385aacdb9343b3b3091af50a1909098d7cf6db3429eb966')
+
+prepare() {
+  cd ${pkgbase}-${pkgver}
+  sed 's|-O3|-O2|g' -i Makefile qemu/configure
+  sed 's|-g ||g' -i qemu/configure
+  sed 's|UNICORN_DEBUG ?= yes|UNICORN_DEBUG ?= no|g' -i config.mk
+  cp -ra bindings/python{,2}
+  sed -r 's|(python)$|\12|' -i bindings/python2/*.py
+}
+
+build() {
+  cd ${pkgbase}-${pkgver}
+  make UNICORN_QEMU_FLAGS="--python=/usr/bin/python2"
+  (cd bindings
+    python const_generator.py python
+    python const_generator.py ruby
+  )
+  (cd bindings/python
+    python setup.py build
+  )
+  (cd bindings/python2
+    python2 setup.py build
+  )
+  (cd bindings/ruby/unicorn_gem
+    gem build unicorn.gemspec
+  )
+}
+
+check() {
+  cd ${pkgbase}-${pkgver}
+  # Tests are not supported right now, hope they get some love soon
+  # make test
+}
+
+package_unicorn() {
+  depends=('glibc')
+  cd ${pkgbase}-${pkgver}
+  make DESTDIR="${pkgdir}" install
+  install -Dm 644 samples/*.c -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_python-unicorn() {
+  depends=('python' 'unicorn')
+  cd ${pkgbase}-${pkgver}/bindings/python
+  python setup.py install --root="${pkgdir}" -O1 --skip-build
+  install -Dm 644 sample* shellcode.py -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_python2-unicorn() {
+  depends=('python2' 'unicorn')
+  cd ${pkgbase}-${pkgver}/bindings/python2
+  python2 setup.py install --root="${pkgdir}" -O1 --skip-build
+  install -Dm 644 sample* shellcode.py -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_ruby-unicorn() {
+  depends=('ruby' 'unicorn')
+  cd ${pkgbase}-${pkgver}/bindings/ruby/unicorn_gem
+  local _gemdir="$(gem env gemdir)"
+  gem install --ignore-dependencies --no-user-install -i "${pkgdir}${_gemdir}" \
+    -n "${pkgdir}/usr/bin" ${pkgbase}-*.gem -- --with-opt-include="${srcdir}/${pkgbase}-${pkgver}/include"
+  rm -r "${pkgdir}/${_gemdir}"/{cache/${pkgbase}-*.gem,build_info}
+  find "${pkgdir}/${_gemdir}" \( -name 'mkmf.log' -or -name 'gem_make.out' \) -delete
+  install -Dm 644 ../sample* -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+# vim: ts=2 sw=2 et:
