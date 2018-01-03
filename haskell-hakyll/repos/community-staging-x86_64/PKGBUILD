@@ -1,0 +1,60 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=hakyll
+pkgname=haskell-hakyll
+pkgver=4.10.0.0
+pkgrel=10
+pkgdesc="A static website compiler library"
+url="http://jaspervdj.be/hakyll"
+license=("custom:BSD3")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-blaze-html' 'haskell-blaze-markup' 'haskell-cryptohash'
+         'haskell-data-default' 'haskell-fsnotify' 'haskell-http-conduit' 'haskell-http-types'
+         'haskell-lrucache' 'haskell-mtl' 'haskell-network' 'haskell-network-uri'
+         'haskell-optparse-applicative' 'pandoc' 'pandoc-citeproc' 'haskell-parsec'
+         'haskell-random' 'haskell-regex-base' 'haskell-regex-tdfa' 'haskell-resourcet'
+         'haskell-scientific' 'haskell-system-filepath' 'haskell-tagsoup' 'haskell-text'
+         'haskell-time-locale-compat' 'haskell-unordered-containers' 'haskell-vector' 'haskell-wai'
+         'haskell-wai-app-static' 'haskell-warp' 'haskell-yaml')
+makedepends=('ghc' 'haskell-quickcheck' 'haskell-tasty' 'haskell-tasty-hunit'
+             'haskell-tasty-quickcheck')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('17c5986ba3a522d081067e7d728113311b918289c2b35da372d5804d1606fe58494249b3acc9e0988a0608f8d9715eace172f6e64fed1e45625b791410a61d37')
+
+prepare() {
+    sed -e 's/tasty                      >= 0.11 && < 0.12,/tasty,/' \
+        -e 's/tasty-hunit                >= 0.9  && < 0.10,/tasty-hunit,/' \
+        -i $_hkgname-$pkgver/$_hkgname.cabal
+}
+
+build() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -fcheckexternal -fwatchserver -fpreviewserver
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    # runhaskell Setup test
+    # pandoc 2.0.6 is causing the test suite of hakyll to hang
+}
+
+package() {
+    cd "${srcdir}/${_hkgname}-${pkgver}"
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
