@@ -1,0 +1,104 @@
+# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: fauno <fauno at kiwwwi.com.ar>
+# Contributor: Olivier Ramonat <olivier at ramonat dot fr>
+# Contributor: Richard Murri <admin@richardmurri.com>
+
+pkgbase=notmuch
+pkgname=('notmuch' 'notmuch-vim' 'notmuch-mutt' 'notmuch-runtime')
+pkgver=0.25.2
+pkgrel=2
+arch=('x86_64')
+url="http://notmuchmail.org/"
+license=('GPL3')
+makedepends=('python2' 'python' 'python-sphinx' 'emacs' 'gnupg' 'ruby' 'pkgconfig' 'xapian-core' 'gmime' 'talloc')
+options=(!distcc !makeflags)
+source=("https://notmuchmail.org/releases/${pkgname}-${pkgver}.tar.gz")
+md5sums=('0e7ca4fc1bfae5eb3eb6b43c9a2ebfda')
+
+prepare(){
+    cp -dpr --no-preserve=ownership "$srcdir/${pkgname}-$pkgver"/bindings/python{,2}
+    find "$srcdir/${pkgname}-${pkgver}/bindings/python" -name '*.py' -exec sed -i -e '1s,python$,python3,' {} +
+    find "$srcdir/${pkgname}-${pkgver}/bindings/python2" -name '*.py' -exec sed -i -e '1s,python$,python2,' {} +
+}
+
+build() {
+    cd "$srcdir/$pkgbase-$pkgver"
+
+    ./configure --prefix=/usr --sysconfdir=/etc --includedir=/usr/include --without-zsh-completion
+    make 
+
+    make -C "contrib/${pkgbase}-mutt" "${pkgname}-mutt.1"
+
+    make ruby-bindings
+
+    cd "$srcdir/$pkgbase-$pkgver/bindings/python"
+    python setup.py build
+
+    cd "$srcdir/$pkgbase-$pkgver/bindings/python2"
+    python2 setup.py build
+}
+
+package_notmuch-runtime(){
+    pkgdesc="Runtime for notmuch and notmuch-mutt"
+    depends=('xapian-core' 'gmime' 'talloc')
+
+    cd "$srcdir/$pkgbase-$pkgver"
+
+    make DESTDIR="$pkgdir/" LIBDIR_IN_LDCONFIG=0 WITH_EMACS=0 install
+
+    install -Dm755 notmuch "$pkgdir/usr/bin/notmuch"
+    rm -rf "$pkgdir/usr/share"
+}
+
+
+package_notmuch-vim(){
+    pkgdesc="Vim plugins for notmuch"
+    depends=('notmuch-runtime')
+
+    make -C "$srcdir/$pkgbase-$pkgver/vim" DESTDIR="$pkgdir" prefix="/usr/share/vim/vimfiles" install
+}
+
+
+package_notmuch(){
+    pkgdesc="Notmuch is not much of an email program"
+    depends=('notmuch-runtime')
+    optdepends=('emacs: for using the emacs interface'
+                'vim: for using the vim interface'
+                'python2: for using the python2 bindings'
+                'ruby: for using the ruby bindings'
+                'gnupg: for email encryption')
+    install=notmuch.install
+
+    cd "$srcdir/$pkgbase-$pkgver"
+
+    # Install emacs parts
+    make DESTDIR="$pkgdir/" install-emacs
+
+    # Install manpages
+    make DESTDIR="$pkgdir" prefix="/usr" install-man
+
+    # Install ruby bindings
+    sed -i 's:INSTALL = .*[^D]$:& -D:' bindings/ruby/Makefile
+    make -C bindings/ruby exec_prefix=$pkgdir/usr prefix=/usr install
+
+    # Install python bindings
+    cd "$srcdir/$pkgbase-$pkgver/bindings/python"
+    python setup.py install --prefix=/usr --root="$pkgdir"
+
+    cd "$srcdir/$pkgbase-$pkgver/bindings/python2"
+    python2 setup.py install --prefix=/usr --root="$pkgdir"
+
+    # Remove mimeinfo.cache (fixes FS#53629).
+    rm "$pkgdir/usr/share/applications/mimeinfo.cache"
+}
+
+package_notmuch-mutt(){
+    pkgdesc="The mail indexer"
+    depends=('notmuch-runtime' 'perl-mailtools' 'perl-mail-box' 'perl-term-readline-gnu' 'perl-string-shellquote' 'perl-file-which')
+
+    cd "$srcdir/$pkgbase-$pkgver"
+
+    install -Dm755 "contrib/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
+    install -Dm644 "contrib/$pkgname/${pkgname}.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+}
