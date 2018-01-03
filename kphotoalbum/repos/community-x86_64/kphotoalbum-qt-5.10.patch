@@ -1,0 +1,45 @@
+From 211f74bec0101d56714787b3a722e7f324ce2ae2 Mon Sep 17 00:00:00 2001
+From: Sylvain Stanchina <sylvain@stanchina.fr>
+Date: Mon, 1 Jan 2018 21:57:32 +0100
+Subject: Fix crash with prepared SQL queries on Qt 5.10.
+
+Some explanations: The issue is related to SQL queries containing
+placeholders ("?"). In Exif.Database.cpp, some queries are built using
+the statement "QSqlQuery query( _queryString, m_db );" (or equivalent).
+However, according to QT5.10 documentation, the queries are immediately
+executed when constructed like that. If they contain one or more
+placeholders "?", they are thus executed before their arguments have
+been bound (by calls of bindValue()). In such cases, the application
+crashes.
+---
+ Exif/Database.cpp | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/Exif/Database.cpp b/Exif/Database.cpp
+index 1cc14c3..10747d2 100644
+--- a/Exif/Database.cpp
++++ b/Exif/Database.cpp
+@@ -226,7 +226,8 @@ void Exif::Database::remove( const DB::FileName& fileName )
+     if ( !isUsable() )
+         return;
+ 
+-    QSqlQuery query( QString::fromLatin1( "DELETE FROM exif WHERE fileName=?" ), m_db );
++    QSqlQuery query( m_db);
++    query.prepare( QString::fromLatin1( "DELETE FROM exif WHERE fileName=?" ));
+     query.bindValue( 0, fileName.absolute() );
+     if ( !query.exec() )
+         showError( query );
+@@ -248,8 +251,8 @@ bool Exif::Database::insert(const DB::FileName& filename, Exiv2::ExifData data )
+         }
+         _queryString = QString::fromLatin1( "INSERT OR REPLACE into exif values (?, %1) " ).arg( formalList.join( QString::fromLatin1( ", " ) ) );
+     }
+-
+-    QSqlQuery query( _queryString, m_db );
++    QSqlQuery query(m_db);
++    query.prepare( _queryString );
+     query.bindValue(  0, filename.absolute() );
+     int i = 1;
+     for( const DatabaseElement *e : elements() )
+-- 
+cgit v0.11.2
+
