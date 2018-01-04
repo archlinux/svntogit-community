@@ -1,0 +1,62 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Sabart Otto - Seberm <seberm[at]seberm[dot]com>
+# Contributor: Tobias Veit - nIcE <m.on.key.tobi[at]gmail[dot]com>
+
+pkgname=metasploit
+pkgver=4.16.24
+pkgrel=2
+pkgdesc='Advanced open-source platform for developing, testing, and using exploit code'
+url='https://www.metasploit.com/'
+arch=('x86_64')
+license=('BSD')
+depends=('ruby2.4' 'libpcap' 'postgresql-libs' 'ruby2.4-bundler' 'sqlite' 'libxslt' 'git')
+optdepends=('ruby-pg: database support')
+options=('!strip' '!emptydirs')
+source=(${pkgname}-${pkgver}.tar.gz::https://github.com/rapid7/metasploit-framework/archive/${pkgver}.tar.gz
+        metasploit-dont-restrict-aggregator.patch)
+sha256sums=('86af2838a70238515153687fef66d70c6001c441c3b35d6c74f8be7488312ce8'
+            'f1a6d0369f24eb622d23dd0fed428cf6404f74cfb0a8001af5d1e18df026d9f6')
+sha512sums=('400bc290d751058db18fdac044ba4925d0e995a9d7d7c0c72f4820c7af18afb0fc8944542bfe048d46444c7afec6974e639c34a84d8e75457f7bf890649c6a11'
+            '71611dd350a3f74b6ba61d1508b57d357de221bb676d25d96d5bbcd898e5cabb978ffb9c6c3b37559055fb886c11fe4fed64d8b701d1d94dfff057a32ed53b00')
+
+prepare() {
+  cd ${pkgname}-framework-${pkgver}
+  bundle-2.4 config build.nokogiri --use-system-libraries
+  sed 's|git ls-files|find -type f|' -i metasploit-framework.gemspec
+  patch -R -p1 < "${srcdir}/metasploit-dont-restrict-aggregator.patch"
+}
+
+build() {
+  cd ${pkgname}-framework-${pkgver}
+  bundle-2.4 install -j"$(nproc)" --no-cache --deployment
+  find vendor/bundle/ruby -exec chmod o+r '{}' \;
+}
+
+package() {
+  cd ${pkgname}-framework-${pkgver}
+
+  install -d "${pkgdir}/opt/${pkgname}" "${pkgdir}/usr/bin"
+  cp -r . "${pkgdir}/opt/${pkgname}"
+
+  for f in "${pkgdir}"/opt/${pkgname}/msf*; do
+    local _msffile="${pkgdir}/usr/bin/`basename "${f}"`"
+    echo -e "#!/bin/sh\nBUNDLE_GEMFILE=/opt/${pkgname}/Gemfile bundle-2.4 exec ruby /opt/${pkgname}/`basename "${f}"` \"\$@\"" > "${_msffile}"
+    chmod 755 "${_msffile}"
+  done
+
+  (cd "${pkgdir}/opt/${pkgname}"
+    for f in tools/*/*.rb; do
+      install -Dm 755 "${f}" ".${f}"
+      echo -e "#!/bin/sh\nBUNDLE_GEMFILE=/opt/${pkgname}/Gemfile bundle exec ruby-2.4 /opt/${pkgname}/."${f}" \"\$@\"" > "${f}"
+      chmod 755 "${f}"
+    done
+  )
+
+  install -Dm 644 external/zsh/_* -t "${pkgdir}/usr/share/zsh/site-functions"
+  install -Dm 644 LICENSE COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -d "${pkgdir}/usr/share/doc"
+  mv "${pkgdir}/opt/${pkgname}/documentation" "${pkgdir}/usr/share/doc/${pkgname}"
+  rm "${pkgdir}/usr/bin/msfupdate"
+}
+
+# vim: ts=2 sw=2 et:
