@@ -25,15 +25,13 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'fix-ceph_disk-python-interpreter.patch'
         'fix-or-disable-broken-tests.patch'
         'fix-python2-paths.patch'
-        'remove-distro-version-detection.patch'
-        'boost-1.66-compatibility.patch')
+        'remove-distro-version-detection.patch')
 sha512sums=('89b166dc4b58e0110ebe0147eef9f47e1090ccee01702b3f72cfbdca856d02bf03b2663de9e88c84b21a2a61f8f92211e217a05b8bdcf7d5de3158adbe49db88'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
             '40446e298ab6b735b149d26ac26d273d6e159c319bb79f112614f1d4933a5a2684007fc9a1d660c5d4a17075d8bac59019c6cc7e66d64d4e240a1a61454800ef'
             'd5d9e8123833212f6cf0ecef209a5dd9b9a8ec70d780b5140884dc9f87690ec305fb2569c5d1da2b28deb05bd03caecc534acc9dc5ce7ec75e2580df4b5b2063'
-            'e2ed33e2ac37bfdb9597083388e1a87f10051e976033055d440b1a4bc2bd11148c29128fb9841771ca983c12fb36b343bcc04219dea87199321ceea9aa18b3cc'
-            '51d4e7aa735c611aabb150a1bee6f791cc2de0d808a750e0cadf771507cf810420078a057c7805a5ae763aa81bdf7bed33a3a4d803d3e9db3657c08e1005edce')
+            'e2ed33e2ac37bfdb9597083388e1a87f10051e976033055d440b1a4bc2bd11148c29128fb9841771ca983c12fb36b343bcc04219dea87199321ceea9aa18b3cc')
 
 prepare() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
