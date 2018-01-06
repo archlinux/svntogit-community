@@ -4,7 +4,7 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs')
 pkgver=12.2.2
-pkgrel=1
+pkgrel=3
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -25,13 +25,15 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'fix-ceph_disk-python-interpreter.patch'
         'fix-or-disable-broken-tests.patch'
         'fix-python2-paths.patch'
-        'remove-distro-version-detection.patch')
+        'remove-distro-version-detection.patch'
+        'boost-1.66-compatibility.patch')
 sha512sums=('89b166dc4b58e0110ebe0147eef9f47e1090ccee01702b3f72cfbdca856d02bf03b2663de9e88c84b21a2a61f8f92211e217a05b8bdcf7d5de3158adbe49db88'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
             '40446e298ab6b735b149d26ac26d273d6e159c319bb79f112614f1d4933a5a2684007fc9a1d660c5d4a17075d8bac59019c6cc7e66d64d4e240a1a61454800ef'
             'd5d9e8123833212f6cf0ecef209a5dd9b9a8ec70d780b5140884dc9f87690ec305fb2569c5d1da2b28deb05bd03caecc534acc9dc5ce7ec75e2580df4b5b2063'
-            'e2ed33e2ac37bfdb9597083388e1a87f10051e976033055d440b1a4bc2bd11148c29128fb9841771ca983c12fb36b343bcc04219dea87199321ceea9aa18b3cc')
+            'e2ed33e2ac37bfdb9597083388e1a87f10051e976033055d440b1a4bc2bd11148c29128fb9841771ca983c12fb36b343bcc04219dea87199321ceea9aa18b3cc'
+            '51d4e7aa735c611aabb150a1bee6f791cc2de0d808a750e0cadf771507cf810420078a057c7805a5ae763aa81bdf7bed33a3a4d803d3e9db3657c08e1005edce')
 
 prepare() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
@@ -57,6 +59,17 @@ prepare() {
   if mount | grep 'type btrfs' &>/dev/null; then
     sed -i '/run-tox-ceph-disk/d' src/test/CMakeLists.txt
   fi
+
+  # fix python interpreter -> python2
+  for file in \
+    src/ceph-create-keys \
+    src/ceph-rest-api \
+    src/mount.fuse.ceph \
+    src/brag/client/ceph-brag \
+    src/ceph-detect-init/ceph_detect_init/main.py
+  do
+    sed -i 's|#!/usr/bin/env python|#!/usr/bin/env python2|' "${file}"
+  done
 }
 
 build() {
@@ -64,6 +77,10 @@ build() {
 
   mkdir -p build
   cd build
+
+  # experimental in luminous: (and currently broken with boost 1.66)
+  # RADOSGW_BEAST_FRONTEND
+  # -> disabled
 
   cmake \
     -DCMAKE_INSTALL_PREFIX=/usr \
@@ -80,7 +97,7 @@ build() {
     -DWITH_NSS=ON \
     -DPYTHON_INCLUDE_DIR=/usr/include/python2.7 \
     -DWITH_RADOSGW=ON \
-    -DWITH_RADOSGW_BEAST_FRONTEND=ON \
+    -DWITH_RADOSGW_BEAST_FRONTEND=OFF \
     -DWITH_RDMA=OFF \
     -DWITH_SSL=ON \
     -DWITH_SYSTEM_BOOST=ON \
@@ -107,7 +124,7 @@ check() {
 
 package_ceph-libs() {
   depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'leveldb' 'libaio'
-    'libutil-linux' 'nss' 'python2' 'xfsprogs')
+    'libutil-linux' 'lz4' 'nss' 'python2' 'xfsprogs')
 
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
