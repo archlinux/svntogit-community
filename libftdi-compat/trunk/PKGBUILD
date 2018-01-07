@@ -3,14 +3,14 @@
 
 pkgname=libftdi-compat
 pkgver=0.20
-pkgrel=4
+pkgrel=5
 pkgdesc="A library to talk to FTDI chips"
 arch=('x86_64')
 url="http://www.intra2net.com/en/developer/libftdi/download.php"
 license=('GPL2' 'LGPL2.1')
 depends=('libusb-compat' 'gcc-libs')
 makedepends=('boost')
-source=("http://www.intra2net.com/en/developer/libftdi/download/libftdi-$pkgver.tar.gz"{,.sig})
+source=("https://www.intra2net.com/en/developer/libftdi/download/libftdi-$pkgver.tar.gz"{,.sig})
 sha512sums=('540e5eb201a65936c3dbabff70c251deba1615874b11ff27c5ca16c39d71c150cf61758a68b541135a444fe32ab403b0fba0daf55c587647aaf9b3f400f1dee7'
             'SKIP')
 validpgpkeys=('3CEA9B8868BC3852618EB5B4707F91A424F006F5')  # Intra2net open source
