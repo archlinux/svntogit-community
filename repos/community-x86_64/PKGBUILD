@@ -22,7 +22,7 @@ pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=17.6
 _codename=Krypton
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 url="http://kodi.tv"
 license=('GPL2')
@@ -34,7 +34,7 @@ makedepends=(
   'libvdpau' 'libxrandr' 'libxslt' 'lzo' 'mesa' 'nasm' 'nss-mdns'
   'python2-pillow' 'python2-pybluez' 'python2-simplejson' 'rtmpdump'
   'shairplay' 'smbclient' 'speex' 'swig' 'taglib' 'tinyxml' 'unzip' 'upower'
-  'yajl' 'zip'
+  'yajl' 'zip' 'git'
 )
 _libdvdcss_commit="2f12236bc1c92f73c21e973363f79eb300de603f"
 _libdvdnav_commit="981488f7f27554b103cca10c1fbeba027396c94a"
@@ -47,6 +47,8 @@ source=(
   "$pkgbase-libdvdread-$_libdvdread_commit.tar.gz::https://github.com/xbmc/libdvdread/archive/$_libdvdread_commit.tar.gz"
   "$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz::https://github.com/xbmc/FFmpeg/archive/$_ffmpeg_version.tar.gz"
   'fix-python-lib-path.patch'
+  'cheat-sse-build.patch'
+  'cpuinfo'
 )
 noextract=(
   "$pkgbase-libdvdcss-$_libdvdcss_commit.tar.gz"
@@ -59,7 +61,9 @@ sha512sums=('1f1ba91e6129ab423f9ad47b63d7bb75775dbf18638a96413a572aaa790f4f0d738
             '005355da5e3d34f69737f7c3fe7884e82ffdc8f654f337e97d4a4d1e486c9f346f63b4dee74de2765e7a8d94925de5d25c3c82da732d2e8d4f58fcfeb9dd2586'
             'e59ae0bfdc62698e407e3d70503c6a7c5e308545c9dae7843e25db3b5b62d9b26256be77ef4e884263add6b4abec3438c324bfd5715f6ca2ce7fa5962d43a6c2'
             'b28bb6970c6767213f34e5f4f3e48ad5219a6c668a5264ff7de0a42712cb7393f389ddd88f56785a2dc8089f8231ae5fd05adfa10dbf15ea3e0ad7bc2ccd4d73'
-            '0f41604e38648969572a66d1124d6e090c3bfca4f9d8ccabcd1806254c38b178ee08df35e1bbbd1228f820729df52353321b3257122af601c3233dbc6405c6d2')
+            '0f41604e38648969572a66d1124d6e090c3bfca4f9d8ccabcd1806254c38b178ee08df35e1bbbd1228f820729df52353321b3257122af601c3233dbc6405c6d2'
+            'be8d6b77088373d0173dee6434ebd04c9382fb00190641b392a6f9f5338b35d186f6d871aaea4a01908f283a452b23de3a1113947d9070e77fde531e32458f7e'
+            '539b33f30f6735caaf57fb9f19de449b8a8902362ae9e66a6fceabd530d02888533d2ab262fb187670780c997e5c1d23bd715a3c6860fd50280c1031f47865f7')
 
 prepare() {
   [[ -d kodi-build ]] && rm -rf kodi-build
@@ -67,6 +71,10 @@ prepare() {
 
   cd "xbmc-$pkgver-$_codename"
   patch -p1 -i "$srcdir/fix-python-lib-path.patch"
+  # detect if building in arch chroot
+  if [[ "$srcdir" =~ ^\/build.* ]]; then
+    patch -p1 -i "$srcdir/cheat-sse-build.patch"
+  fi
 }
 
 build() {
