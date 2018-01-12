@@ -1,0 +1,241 @@
+diff -u -r mediastreamer2-2.16.1/configure.ac mediastreamer2-2.16.1-libsrtp2/configure.ac
+--- mediastreamer2-2.16.1/configure.ac	2017-07-21 15:00:47.000000000 +0200
++++ mediastreamer2-2.16.1-libsrtp2/configure.ac	2018-01-13 00:06:22.194089121 +0100
+@@ -1041,7 +1041,7 @@
+ 
+ dnl check for libsrtp support (secure rtp)
+ AC_ARG_WITH(srtp,
+-	AC_HELP_STRING([--with-srtp], [Set prefix where libsrtp can be found or "none" to disable (ex:/usr or /usr/local) [[default=/usr]]]),
++	AC_HELP_STRING([--with-srtp], [Set prefix where libsrtp2 can be found or "none" to disable (ex:/usr or /usr/local) [[default=/usr]]]),
+ 	[srtp_prefix=$withval],
+ 	[if test "$prefix" != "NONE"; then
+ 		srtp_prefix=$prefix
+@@ -1051,22 +1051,22 @@
+ 
+ if test "${srtp_prefix}" != "none" ; then
+ 	if test "${srtp_prefix}" != "/usr" ; then
+-		SRTP_CFLAGS="-I${srtp_prefix}/include -I${srtp_prefix}/include/srtp"
++		SRTP_CFLAGS="-I${srtp_prefix}/include -I${srtp_prefix}/include/srtp2"
+ 		SRTP_LIBS="-L${srtp_prefix}/lib"
+ 	fi
+-	SRTP_LIBS="$SRTP_LIBS -lsrtp"
++	SRTP_LIBS="$SRTP_LIBS -lsrtp2"
+ 
+ 	dnl check srtp headers
+ 	CPPFLAGS_save=$CPPFLAGS
+ 	CPPFLAGS="$CPPFLAGS $SRTP_CFLAGS"
+-	AC_CHECK_HEADER([srtp/srtp.h],have_srtp_headers=yes)
++	AC_CHECK_HEADER([srtp2/srtp.h],have_srtp_headers=yes)
+ 	CPPFLAGS=$CPPFLAGS_save
+ 
+ 	dnl check for srtp lib
+ 	LDFLAGS_save=$LDFLAGS
+ 	LDFLAGS="$LDFLAGS $SRTP_LIBS"
+ 	LIBS_save=$LIBS
+-	AC_CHECK_LIB(srtp,[srtp_init, crypto_policy_set_aes_cm_256_hmac_sha1_80, crypto_policy_set_aes_cm_256_hmac_sha1_32], have_srtp_lib=yes)
++	AC_CHECK_LIB(srtp2,[srtp_init, srtp_crypto_policy_set_aes_cm_256_hmac_sha1_80, srtp_crypto_policy_set_aes_cm_256_hmac_sha1_32], have_srtp_lib=yes)
+ 	LDFLAGS=$LDFLAGS_save
+ 	LIBS=$LIBS_save
+ 
+@@ -1075,9 +1075,9 @@
+ 		LIBS_save=$LIBS
+ 		LDFLAGS="$LDFLAGS $SRTP_LIBS"
+ 		AC_CHECK_LIB(
+-			srtp,
++			srtp2,
+ 			sha1_update,[
+-				AC_MSG_WARN([This libsrtp version exports symbols conflicting with polarssl, resulting in a bad execution path. libsrtp will be statically linked])
++				AC_MSG_WARN([This libsrtp2 version exports symbols conflicting with polarssl, resulting in a bad execution path. libsrtp2 will be statically linked])
+ 				srtp_polarssl_conflict=yes
+ 			],
+ 			srtp_polarssl_conflict=no
+@@ -1086,13 +1086,13 @@
+ 		LIBS=$LIBS_save
+ 
+ 		if test "$srtp_polarssl_conflict" = "yes"; then
+-			srtp_static_lib="${srtp_prefix}/lib/libsrtp.a"
++			srtp_static_lib="${srtp_prefix}/lib/libsrtp2.a"
+ 			if test -f $srtp_static_lib -a -r $srtp_static_lib; then
+-				SRTP_LIBS="${srtp_prefix}/lib/libsrtp.a -Bsymbolic -Wl,--version-script=\$(top_srcdir)/src/libsrtp.map"
++				SRTP_LIBS="${srtp_prefix}/lib/libsrtp2.a -Bsymbolic -Wl,--version-script=\$(top_srcdir)/src/libsrtp2.map"
+ 				AC_DEFINE(HAVE_SRTP, 1, [Defined when srtp support is compiled])
+ 				have_srtp=true
+ 			else
+-				AC_MSG_WARN([Could not access to $srtp_static_lib. Please use --with-srtp=PREFIX to specify the prefix where libsrtp.a has been installed])
++				AC_MSG_WARN([Could not access to $srtp_static_lib. Please use --with-srtp=PREFIX to specify the prefix where libsrtp2.a has been installed])
+ 				SRTP_CFLAGS=
+ 				SRTP_LIBS=
+ 				have_srtp=true
+diff -u -r mediastreamer2-2.16.1/src/crypto/ms_srtp.c mediastreamer2-2.16.1-libsrtp2/src/crypto/ms_srtp.c
+--- mediastreamer2-2.16.1/src/crypto/ms_srtp.c	2017-07-21 15:00:47.000000000 +0200
++++ mediastreamer2-2.16.1-libsrtp2/src/crypto/ms_srtp.c	2018-01-13 00:14:48.575306030 +0100
+@@ -38,7 +38,7 @@
+ // Windows phone doesn't use make install
+ #include <srtp.h>
+ #else
+-#include <srtp/srtp.h>
++#include <srtp2/srtp.h>
+ #endif
+ 
+ 
+@@ -99,7 +99,7 @@
+ /**** Sender functions ****/
+ static int _process_on_send(RtpSession* session,MSSrtpStreamContext *ctx, mblk_t *m){
+ 	int slen;
+-	err_status_t err;
++	srtp_err_status_t err;
+ 	bool_t is_rtp=ctx->is_rtp;
+ 	rtp_header_t *rtp_header=is_rtp?(rtp_header_t*)m->b_rptr:NULL;
+ 	rtcp_common_header_t *rtcp_header=!is_rtp?(rtcp_common_header_t*)m->b_rptr:NULL;
+@@ -109,7 +109,7 @@
+ 		ms_mutex_lock(&ctx->mutex);
+ 		if (!ctx->secured) {
+ 			/*does not make sense to protect, because we don't have any key*/
+-			err=err_status_ok;
++			err=srtp_err_status_ok;
+ 			slen = 0; /*droping packets*/
+ 		} else {
+ 			/* defragment incoming message and enlarge the buffer for srtp to write its data */
+@@ -120,7 +120,7 @@
+ 	} else if (rtcp_header && (slen>RTP_FIXED_HEADER_SIZE && rtcp_header->version==2)) {
+ 		ms_mutex_lock(&ctx->mutex);
+ 		if (!ctx->secured) {
+-			err=err_status_ok;
++			err=srtp_err_status_ok;
+ 			/*does not make sense to protect, because we don't have any key*/
+ 			slen = 0; /*droping packets*/
+ 		} else {
+@@ -135,7 +135,7 @@
+  	}
+ 
+ 	/* check return code from srtp_protect */
+-	if (err==err_status_ok){
++	if (err==srtp_err_status_ok){
+ 		return slen;
+ 	}
+ 	ortp_error("srtp_protect%s() failed (%d) for stream ctx [%p]", is_rtp?"":"_rtcp", err,ctx);
+@@ -151,7 +151,7 @@
+ }
+ static int _process_on_receive(RtpSession* session,MSSrtpStreamContext *ctx, mblk_t *m, int err){
+ 	int slen;
+-	err_status_t srtp_err;
++	srtp_err_status_t srtp_err;
+ 	bool_t is_rtp=ctx->is_rtp;
+ 
+ 	/* keep NON-RTP data unencrypted */
+@@ -167,7 +167,7 @@
+ 
+ 	slen=err;
+ 	srtp_err = is_rtp?srtp_unprotect(ctx->srtp,m->b_rptr,&slen):srtp_unprotect_rtcp(ctx->srtp,m->b_rptr,&slen);
+-	if (srtp_err==err_status_ok) {
++	if (srtp_err==srtp_err_status_ok) {
+ 		return slen;
+ 	} else {
+ 		ms_error("srtp_unprotect%s() failed (%d) on stream ctx [%p]", is_rtp?"":"_rtcp", srtp_err,ctx);
+@@ -201,7 +201,7 @@
+ 
+ 
+ static int ms_media_stream_session_fill_srtp_context(MSMediaStreamSessions *sessions, bool_t is_send, bool_t is_rtp) {
+-	err_status_t err=0;
++	srtp_err_status_t err=0;
+ 	RtpTransport *transport=NULL;
+ 	MSSrtpStreamContext* stream_ctx = get_stream_context(sessions,is_send,is_rtp);
+ 
+@@ -258,28 +258,28 @@
+ }
+ 
+ 
+-static int ms_set_srtp_crypto_policy(MSCryptoSuite suite, crypto_policy_t *policy) {
++static int ms_set_srtp_srtp_crypto_policy(MSCryptoSuite suite, srtp_crypto_policy_t *policy) {
+ 	switch(suite){
+ 		case MS_AES_128_SHA1_32:
+ 			// srtp doc says: not adapted to rtcp...
+-			crypto_policy_set_aes_cm_128_hmac_sha1_32(policy);
++			srtp_crypto_policy_set_aes_cm_128_hmac_sha1_32(policy);
+ 			break;
+ 		case MS_AES_128_NO_AUTH:
+ 			// srtp doc says: not adapted to rtcp...
+-			crypto_policy_set_aes_cm_128_null_auth(policy);
++			srtp_crypto_policy_set_aes_cm_128_null_auth(policy);
+ 			break;
+ 		case MS_NO_CIPHER_SHA1_80:
+-			crypto_policy_set_null_cipher_hmac_sha1_80(policy);
++			srtp_crypto_policy_set_null_cipher_hmac_sha1_80(policy);
+ 			break;
+ 		case MS_AES_128_SHA1_80: /*default mode*/
+-			crypto_policy_set_aes_cm_128_hmac_sha1_80(policy);
++			srtp_crypto_policy_set_aes_cm_128_hmac_sha1_80(policy);
+ 			break;
+ 		case MS_AES_256_SHA1_80: // For backward compatibility
+ 		case MS_AES_CM_256_SHA1_80:
+-		    crypto_policy_set_aes_cm_256_hmac_sha1_80(policy);
+-            break;
++			srtp_crypto_policy_set_aes_cm_256_hmac_sha1_80(policy);
++			break;
+ 		case MS_AES_256_SHA1_32:
+-			crypto_policy_set_aes_cm_256_hmac_sha1_32(policy);
++			srtp_crypto_policy_set_aes_cm_256_hmac_sha1_32(policy);
+ 			break;
+ 		case MS_CRYPTO_SUITE_INVALID:
+ 			return -1;
+@@ -291,13 +291,13 @@
+ static int ms_add_srtp_stream(srtp_t srtp, MSCryptoSuite suite, uint32_t ssrc, const char* key, size_t key_length, bool_t is_send, bool_t is_rtp)
+ {
+ 	srtp_policy_t policy;
+-	err_status_t err;
+-	ssrc_t ssrc_conf;
++	srtp_err_status_t err;
++	srtp_ssrc_t ssrc_conf;
+ 
+ 	memset(&policy,0,sizeof(policy));
+ 
+ 	if (is_rtp) {
+-		if (ms_set_srtp_crypto_policy(suite, &policy.rtp) != 0) {
++		if (ms_set_srtp_srtp_crypto_policy(suite, &policy.rtp) != 0) {
+ 			return -1;
+ 		}
+ 		/* check if key length match given policy */
+@@ -306,7 +306,7 @@
+ 			return -1;
+ 		}
+ 	}else {
+-		if (ms_set_srtp_crypto_policy(suite, &policy.rtcp) != 0) {
++		if (ms_set_srtp_srtp_crypto_policy(suite, &policy.rtcp) != 0) {
+ 			return -1;
+ 		}
+ 		if ((int)key_length != policy.rtcp.cipher_key_len) {
+@@ -326,7 +326,7 @@
+ 	policy.next = NULL;
+ 
+ 	err = srtp_add_stream(srtp, &policy);
+-	if (err != err_status_ok) {
++	if (err != srtp_err_status_ok) {
+ 		ms_error("Failed to add stream to srtp session (%d)", err);
+ 		return -1;
+ 	}
+@@ -344,7 +344,7 @@
+ int ms_srtp_init(void)
+ {
+ 
+-	err_status_t st=0;
++	srtp_err_status_t st=0;
+ 	ms_message("srtp init");
+ 	if (!srtp_init_done) {
+ 		st=srtp_init();
+@@ -352,7 +352,6 @@
+ 			srtp_init_done++;
+ 		}else{
+ 			ms_fatal("Couldn't initialize SRTP library: %d.", st);
+-			err_reporting_init("mediastreamer2");
+ 		}
+ 	}else srtp_init_done++;
+ 	return (int)st;
+@@ -508,7 +507,7 @@
+ #else /* HAVE_SRTP */
+ 
+ typedef void* srtp_t;
+-typedef int err_status_t;
++typedef int srtp_err_status_t;
+ 
+ bool_t ms_srtp_supported(void){
+ 	return FALSE;
