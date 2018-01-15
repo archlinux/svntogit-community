@@ -3,7 +3,7 @@
 
 pkgbase=python-distro
 pkgname=('python-distro' 'python2-distro')
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 pkgdesc='Linux OS platform information API'
 url='https://github.com/nir0s/distro'
@@ -13,12 +13,11 @@ makedepends=('python-setuptools' 'python-sphinx' 'python2-setuptools' 'python2-s
 checkdepends=('python-pytest' 'python2-pytest')
 options=('!makeflags')
 source=(${pkgbase}-${pkgver}.tar.gz::https://github.com/nir0s/distro/archive/v${pkgver}.tar.gz)
-sha256sums=('50bd749155f8823838a562cbfe7847880d64f05568dd8cca172546a371f243c5')
-sha512sums=('eed2151674e0791c5bb37cde013c691e6421ef76f008c7ff8c50cc96812fc4ae0fd7428ea524e1229cd33f055ce6c89bf0de049a57477da017863308f88e4917')
+sha256sums=('eabd93bf9f6f14ff0ce676c384b5faf09e7a3692a765e048aed782aea17182fe')
+sha512sums=('abce130d903f02bf6936e03f8e71c236752ef89f55b95ba256fd0eb4c212805327bec72f7fc6328256ee44a28891db6c0f66c9aedf260c7928844ec5895aca78')
 
 prepare() {
   cp -a distro-${pkgver}{,-py2}
-
 }
 
 build() {
