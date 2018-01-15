@@ -9,7 +9,8 @@ pkgdesc='Linux OS platform information API'
 url='https://github.com/nir0s/distro'
 arch=('any')
 license=('Apache')
-makedepends=('python-setuptools' 'python-sphinx' 'python2-setuptools' 'python2-sphinx')
+makedepends=('python-setuptools' 'python-sphinx' 'python-idna'
+             'python2-setuptools' 'python2-sphinx' 'python2-idna')
 checkdepends=('python-pytest' 'python2-pytest')
 options=('!makeflags')
 source=(${pkgbase}-${pkgver}.tar.gz::https://github.com/nir0s/distro/archive/v${pkgver}.tar.gz)
@@ -41,7 +42,7 @@ check() {
 }
 
 package_python-distro() {
-  depends=('python' 'python-setuptools')
+  depends=('python' 'python-setuptools' 'python-idna')
   cd distro-${pkgver}
   python setup.py install -O1 --root="${pkgdir}" --skip-build
   install -Dm 644 build_docs/man/ld.1 "${pkgdir}/usr/share/man/man1/${pkgname}.1"
@@ -49,7 +50,7 @@ package_python-distro() {
 }
 
 package_python2-distro() {
-  depends=('python2' 'python2-setuptools')
+  depends=('python2' 'python2-setuptools' 'python2-idna')
   cd distro-${pkgver}-py2
   python2 setup.py install -O1 --root="${pkgdir}" --skip-build
   install -Dm 644 build_docs/man/ld.1 "${pkgdir}/usr/share/man/man1/${pkgname}.1"
