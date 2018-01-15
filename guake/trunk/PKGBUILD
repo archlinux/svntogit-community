@@ -5,36 +5,42 @@
 # Contributor: Attila Bukor <r1pp3rj4ck@w4it.eu>
 
 pkgname=guake
-pkgver=0.8.12
+pkgver=3.0.0
 pkgrel=1
 pkgdesc='Drop-down terminal for GNOME'
 arch=('any')
 url="http://guake-project.org/"
 license=('GPL')
-depends=('python2-notify' 'vte' 'python2-gconf' 'python2-dbus' 'python2-keybinder2' 'python2-xdg' 'libutempter')
-makedepends=('intltool' 'gnome-common')
+depends=('libkeybinder3' 'libnotify' 'libutempter' 'python-cairo' 'python-dbus' 'python-gobject' 'vte3')
+makedepends=('python-pbr')
 source=($pkgname-$pkgver.tar.gz::https://github.com/Guake/$pkgname/archive/$pkgver.tar.gz)
-sha256sums=('d98c4005076cb0782d80348346cefa84dfe1075dc093a939e0ba436aa54888c0')
+sha256sums=('bf35c34d90e1778b0cae25a2c9620778a0d2a394bc1ff8c15867bf432800932c')
 
 prepare() {
   cd $pkgname-$pkgver
+  sed -i 's/echo "generating $$f;"/echo "generating $$f";/
+          /glib-compile-schemas/d' Makefile
 
-  # Python2 fix
-  sed -i 's|/usr/bin/env python|/usr/bin/python2|' src/guake/prefs.py
+  # Fix path
+  sed -i "s|IMAGE_DIR = os.path.join(SRC_DIR, 'data/pixmaps')|IMAGE_DIR = '/usr/share/pixmaps/guake'|
+          s|GLADE_DIR = os.path.join(SRC_DIR, 'data')|GLADE_DIR = '/usr/share/guake'|
+          s|SCHEMA_DIR = os.path.join(SRC_DIR, 'data')|SCHEMA_DIR = '/usr/share/glib-2.0/schemas'|" guake/globals.py
 
-  NOCONFIGURE=1 ./autogen.sh
+  # Remove dependency on python-pbr
+  sed -i "/import pbr.version/d
+          s/__version__ = pbr.version.VersionInfo('guake').version_string()/__version__ = '$pkgver'/" guake/__init__.py
 }
 
 build() {
   cd $pkgname-$pkgver
-  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
-              --disable-schemas-install \
-              --with-gconf-schema-file-dir=/usr/share/gconf/schemas \
-              PYTHON=python2
-  make
+  PBR_VERSION=$pkgver python3 setup.py build
+  make generate-desktop generate-mo
 }
 
 package() {
   cd $pkgname-$pkgver
-  make DESTDIR="$pkgdir" install
+  PBR_VERSION=$pkgver python3 setup.py install --root "$pkgdir" --optimize=1
+  install -Dm644 -t "$pkgdir/usr/share/guake/" guake/data/*.glade 
+  install -Dm644 -t "$pkgdir/usr/share/pixmaps/guake/" guake/data/pixmaps/*.png 
+  make PREFIX="$pkgdir/usr" install-schemas install-locale
 }
