@@ -141,8 +141,10 @@ cutilsfiles = %w(
   sockets.cpp
   android_get_control_file.cpp
   threads.c
+  fs_config.cpp
+  canned_fs_config.c
 )
-libcutils = compile(expand('core/libcutils', cutilsfiles), '-D_GNU_SOURCE -Icore/include')
+libcutils = compile(expand('core/libcutils', cutilsfiles), '-D_GNU_SOURCE -Icore/libcutils/include -Icore/include')
 
 diagnoseusbfiles = %w(
   diagnose_usb.cpp
@@ -273,3 +275,140 @@ libsepolfiles = %w(
 libsepol = compile(expand('selinux/libsepol/src', libsepolfiles), '-Iselinux/libsepol/include')
 
 link('fastboot', libsparse + libzip + libcutils + liblog + libutil + libbase + libext4 + f2fs + libselinux + libsepol + libfastboot + libdiagnoseusb, '-lz -lpcre2-8 -lpthread -ldl')
+
+
+# mke2fs.android - a ustom version of mke2fs that supports --android_sparse (FS#56955)
+libext2fsfiles = %w(
+  lib/blkid/cache.c
+  lib/blkid/dev.c
+  lib/blkid/devname.c
+  lib/blkid/devno.c
+  lib/blkid/getsize.c
+  lib/blkid/llseek.c
+  lib/blkid/probe.c
+  lib/blkid/read.c
+  lib/blkid/resolve.c
+  lib/blkid/save.c
+  lib/blkid/tag.c
+  lib/e2p/feature.c
+  lib/e2p/hashstr.c
+  lib/e2p/mntopts.c
+  lib/e2p/ostype.c
+  lib/e2p/parse_num.c
+  lib/e2p/uuid.c
+  lib/et/com_err.c
+  lib/et/error_message.c
+  lib/et/et_name.c
+  lib/ext2fs/alloc.c
+  lib/ext2fs/alloc_sb.c
+  lib/ext2fs/alloc_stats.c
+  lib/ext2fs/alloc_tables.c
+  lib/ext2fs/atexit.c
+  lib/ext2fs/badblocks.c
+  lib/ext2fs/bb_inode.c
+  lib/ext2fs/bitmaps.c
+  lib/ext2fs/bitops.c
+  lib/ext2fs/blkmap64_ba.c
+  lib/ext2fs/blkmap64_rb.c
+  lib/ext2fs/blknum.c
+  lib/ext2fs/block.c
+  lib/ext2fs/bmap.c
+  lib/ext2fs/closefs.c
+  lib/ext2fs/crc16.c
+  lib/ext2fs/crc32c.c
+  lib/ext2fs/csum.c
+  lib/ext2fs/dirblock.c
+  lib/ext2fs/dir_iterate.c
+  lib/ext2fs/expanddir.c
+  lib/ext2fs/ext2_err.c
+  lib/ext2fs/ext_attr.c
+  lib/ext2fs/extent.c
+  lib/ext2fs/fallocate.c
+  lib/ext2fs/fileio.c
+  lib/ext2fs/freefs.c
+  lib/ext2fs/gen_bitmap64.c
+  lib/ext2fs/gen_bitmap.c
+  lib/ext2fs/get_num_dirs.c
+  lib/ext2fs/getsectsize.c
+  lib/ext2fs/getsize.c
+  lib/ext2fs/i_block.c
+  lib/ext2fs/ind_block.c
+  lib/ext2fs/initialize.c
+  lib/ext2fs/inline.c
+  lib/ext2fs/inline_data.c
+  lib/ext2fs/inode.c
+  lib/ext2fs/io_manager.c
+  lib/ext2fs/ismounted.c
+  lib/ext2fs/link.c
+  lib/ext2fs/llseek.c
+  lib/ext2fs/lookup.c
+  lib/ext2fs/mkdir.c
+  lib/ext2fs/mkjournal.c
+  lib/ext2fs/mmp.c
+  lib/ext2fs/namei.c
+  lib/ext2fs/newdir.c
+  lib/ext2fs/openfs.c
+  lib/ext2fs/progress.c
+  lib/ext2fs/punch.c
+  lib/ext2fs/rbtree.c
+  lib/ext2fs/read_bb.c
+  lib/ext2fs/read_bb_file.c
+  lib/ext2fs/res_gdt.c
+  lib/ext2fs/rw_bitmaps.c
+  lib/ext2fs/sparse_io.c
+  lib/ext2fs/symlink.c
+  lib/ext2fs/undo_io.c
+  lib/ext2fs/unix_io.c
+  lib/ext2fs/valid_blk.c
+  lib/support/dict.c
+  lib/support/mkquota.c
+  lib/support/parse_qtype.c
+  lib/support/plausible.c
+  lib/support/prof_err.c
+  lib/support/profile.c
+  lib/support/quotaio.c
+  lib/support/quotaio_tree.c
+  lib/support/quotaio_v2.c
+  lib/uuid/gen_uuid.c
+  lib/uuid/isnull.c
+  lib/uuid/pack.c
+  lib/uuid/parse.c
+  lib/uuid/unpack.c
+  lib/uuid/unparse.c
+  misc/create_inode.c
+)
+libext2fs = compile(expand('e2fsprogs', libext2fsfiles), '-Ie2fsprogs/lib -Icore/libsparse/include')
+
+
+mke2fsfiles = %w(
+  misc/default_profile.c
+  misc/mke2fs.c
+  misc/mk_hugefiles.c
+  misc/util.c
+)
+mke2fs = compile(expand('e2fsprogs', mke2fsfiles), '-Ie2fsprogs/lib')
+
+link('mke2fs.android', mke2fs + libext2fs + libsparse + libbase + libzip + liblog + libutil, '-lpthread -lz')
+
+
+e2fsdroidfiles = %w(
+  contrib/android/e2fsdroid.c
+  contrib/android/basefs_allocator.c
+  contrib/android/block_range.c
+  contrib/android/hashmap.c
+  contrib/android/base_fs.c
+  contrib/android/fsmap.c
+  contrib/android/block_list.c
+  contrib/android/perms.c
+)
+e2fsdroid = compile(expand('e2fsprogs', e2fsdroidfiles), '-Ie2fsprogs/lib -Iselinux/libselinux/include -Icore/libcutils/include -Ie2fsprogs/misc')
+
+link('e2fsdroid', e2fsdroid + libext2fs + libsparse + libbase + libzip + liblog + libutil + libselinux + libsepol + libcutils, '-lz -lpthread -lpcre2-8')
+
+
+ext2simgfiles = %w(
+  contrib/android/ext2simg.c
+)
+ext2simg = compile(expand('e2fsprogs', ext2simgfiles), '-Ie2fsprogs/lib -Icore/libsparse/include')
+
+link('ext2simg', ext2simg + libext2fs + libsparse + libbase + libzip + liblog + libutil, '-lz -lpthread')
