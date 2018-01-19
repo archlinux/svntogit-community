@@ -2,18 +2,18 @@
 
 _pkgname=yarl
 pkgname=python-yarl
-pkgver=0.18.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc='Yet another URL library'
 url='https://github.com/aio-libs/yarl/'
 arch=('x86_64')
 license=('Apache')
-depends=('python' 'python-multidict' 'glibc' 'python-idna')
+depends=('glibc' 'python' 'python-multidict' 'python-idna')
 makedepends=('cython' 'python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-pytest-runner')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/aio-libs/yarl/archive/v${pkgver}.tar.gz)
-sha256sums=('5a0b0787675d0c16c56cbec7ba434bfa5e73e28fe66fe534b2e0e45fdce95f21')
-sha512sums=('e86dc19721ba66037c63828119785e70475318bcdce1ccd730b161deaf4d0e8713535c9066ee8cd7d786407ae21636ada6d322a4db7c18b53d5eb6a4a0077b09')
+sha256sums=('a7f7e2aaf3fcf7486bf22a20bafad399b8ee4a763113290ca82032936684f289')
+sha512sums=('129258a011871b47e648e149b6417725ccd55c84f325adffaf27710f2cb2fad0ad603f624b05338faa3f39daca7f84ab948487c236f5555e7a06afbd85d9ffad')
 
 build() {
   cd ${_pkgname}-${pkgver}
@@ -22,9 +22,7 @@ build() {
 
 check() {
   cd ${_pkgname}-${pkgver}
-  local PYTHONVERSION="$(python -c 'import sys; print("{}.{}".format(sys.version_info.major, sys.version_info.minor))')"
-  PYTHONPATH="build/lib.linux-${CARCH}-${PYTHONVERSION}" \
-    py.test
+  python setup.py test
 }
 
 package() {
