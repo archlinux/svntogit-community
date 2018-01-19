@@ -3,7 +3,7 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-pkgver=2.3.6
+pkgver=2.3.9
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
@@ -11,10 +11,10 @@ arch=('x86_64')
 license=('Apache')
 depends=('python>=3.4.2' 'python-chardet' 'python-multidict' 'python-async-timeout' 'python-yarl')
 makedepends=('cython' 'python-setuptools')
-checkdepends=('python-pytest' 'python-pytest-mock')
+checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/aio-libs/aiohttp/archive/v${pkgver}.tar.gz)
-sha256sums=('1d9c5a6a27b462fe04430ceab0edd90b83535354a4fc9e8856719274cd89994c')
-sha512sums=('967a533231f694f63077c0b0daf89f1973d45cf6e1a649b7b76f0386616f687148b542a1800d731cfcb03d0a464d5f1742a686e435a42a28c2a814cef5ec71b0')
+sha256sums=('3044eed412a7100ba5c9ef61a06e0264ae159a4cb007339e0e98812dd45ae83d')
+sha512sums=('628d60cb3aee209ef15ead381af16d7a46048207ec9c83f5657b26022ac5161789da391f3a9d4baa7fcfeb05f9564ea81f2095fb1bdca62f50914f2e34039409')
 
 build() {
   cd ${_pkgname}-${pkgver}
@@ -23,9 +23,7 @@ build() {
 
 check() {
   cd ${_pkgname}-${pkgver}
-  local PYTHONVERSION="$(python -c 'import sys; print("{}.{}".format(sys.version_info.major, sys.version_info.minor))')"
-  PYTHONPATH="build/lib.linux-${CARCH}-${PYTHONVERSION}" \
-    py.test
+  python setup.py test
 }
 
 package() {
