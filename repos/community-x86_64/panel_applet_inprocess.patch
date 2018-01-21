@@ -1,0 +1,255 @@
+Description: port the GNOME Panel applet to in-process applet
+ It is now built as a separate .so file, and the gnubiff executable
+ now has no applet-related code.
+ .
+ The Makefile.am is refactored to support this double build.
+Author: Dmitry Shachnev <mitya57@ubuntu.com>
+Forwarded: https://sourceforge.net/p/gnubiff/patches/8/
+Last-Update: 2016-12-02
+
+--- a/configure.ac
++++ b/configure.ac
+@@ -40,6 +40,7 @@
+ AC_CONFIG_SRCDIR([src/gnubiff.cc])
+ AM_INIT_AUTOMAKE
+ AM_MAINTAINER_MODE
++LT_INIT([dlopen disable-static])
+ 
+ ######################################################################
+ #                           Configure Options                        #
+@@ -183,7 +184,6 @@
+ 		AC_SUBST(GNOME_DEP_CFLAGS)
+ 		AC_SUBST(GNOME_DEP_LIBS)
+ 		AH_TEMPLATE([USE_GNOME])
+-		AC_DEFINE(USE_GNOME)
+ 		AC_PATH_PROG(GCONFTOOL, gconftool-2, no)
+ 		])
+ 	if test "x$GCONFTOOL" = "xno"; then
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -1,14 +1,20 @@
+-INCLUDES = \
+-	$(FAM_CFLAGS) \
+-	$(GNUBIFF_DEP_CFLAGS)							\
+-	$(GNOME_DEP_CFLAGS)						\
++AM_CXXFLAGS = \
++	$(FAM_CFLAGS)                                   \
++	$(GNUBIFF_DEP_CFLAGS)                           \
++	$(GNOME_DEP_CFLAGS)                             \
++	-Wall -pedantic -export-dynamic
++
++AM_CFLAGS = \
++	$(AM_CXXFLAGS)                                  \
++	-ansi
++
++AM_CPPFLAGS = \
+ 	-DGNUBIFF_LOCALEDIR=\""$(datadir)/locale"\"		\
+ 	-DGNUBIFF_DATADIR=\""$(pkgdatadir)"\"			\
+ 	-DGNUBIFF_ICONDIR=\""$(datadir)/pixmaps"\"		\
+ 	-DGNUBIFF_UIDIR=\""$(datadir)/gnome-2.0/ui"\"	\
+ 	-DREAL_DATADIR=\""$(datadir)"\"					\
+-	-D_GNU_SOURCE									\
+-	-Wall -ansi -pedantic -export-dynamic
++	-D_GNU_SOURCE
+ 
+ bin_PROGRAMS = gnubiff
+ 
+@@ -16,7 +22,6 @@
+ 	ui-applet-gnome.cc 		ui-applet-gnome.h
+ 
+ common_sources = \
+-	gnubiff.cc										\
+ 	biff.cc					biff.h					\
+ 	\
+ 	mailbox.cc				mailbox.h				\
+@@ -57,34 +62,11 @@
+ 	eggtrayicon.c			eggtrayicon.h
+ 
+ 
+-## In case of compilation problem, just comment next lines
+-## then autoconf/automake/configure/make
+-.cc.o:
+-	@printf "%-40s" "Compiling $<... " 
+-	@am__fastdepCXX_TRUE@	if $(CXXCOMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+-	@am__fastdepCXX_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+-	@AMDEP_TRUE@@am__fastdepCXX_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+-	@AMDEP_TRUE@@am__fastdepCXX_FALSE@	DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+-	@am__fastdepCXX_FALSE@	$(CXXCOMPILE) -c -o $@ $<
+-	@echo "[OK]" 
+-
+-gnubiff$(EXEEXT): $(gnubiff_OBJECTS) $(gnubiff_DEPENDENCIES) 
+-	@rm -f gnubiff$(EXEEXT)
+-	@printf "%-40s" "Linking $@ ... "
+-	$(CXXLINK) $(gnubiff_LDFLAGS) $(gnubiff_OBJECTS) $(gnubiff_LDADD) $(LIBS)
+-	@echo "[OK]"
+-
+-## End of section to be commented in case of compilation problem
+-
+-
+-gnubiff_SOURCES      = $(common_sources)
++gnubiff_SOURCES      = $(common_sources) gnubiff.cc
+ gnubiff_LDADD        = $(INTLLIBS) $(GNUBIFF_DEP_LIBS) $(FAM_LIBS)
+ panelappletdir       = `pkg-config --variable=libpanel_applet_dir libpanel-applet`
+ panelapplet_in_files =
+ panelapplet_DATA     =
+-servicedir           = /usr/share/dbus-1/services
+-service_in_files     = 
+-service_DATA         =
+ uidir			     = $(datadir)/gnome-2.0/ui
+ ui_DATA              = 
+ 
+@@ -92,31 +74,30 @@
+ ## Additional files and directories for the gnome panel frontend
+ ##
+ if USE_GNOME
+-gnubiff_SOURCES      += $(gnome_sources)
+-gnubiff_LDADD        += $(GNOME_DEP_LIBS)
++gnubiff_applet_libdir          = $(pkglibdir)
++gnubiff_applet_lib_LTLIBRARIES = libgnubiff-applet.la
++libgnubiff_applet_la_SOURCES   = $(common_sources) $(gnome_sources)
++libgnubiff_applet_la_CPPFLAGS  = $(AM_CPPFLAGS) -DGNOMELOCALEDIR=\""$(localedir)"\" -DUSE_GNOME
++libgnubiff_applet_la_LIBADD    = $(gnubiff_LDADD) $(GNOME_DEP_LIBS)
++libgnubiff_applet_la_LDFLAGS   = $(gnubiff_LDFLAGS) -module -avoid-version
++
+ panelapplet_in_files += org.gnome.panel.applet.GnubiffApplet.panel-applet.in
+ panelapplet_DATA     += $(panelapplet_in_files:.panel-applet.in=.panel-applet)
+ ui_DATA		         += GNOME_gnubiffApplet.xml
+-service_in_files     += org.gnome.panel.applet.GnubiffApplet_Factory.service.in
+-service_DATA         += $(service_in_files:.service.in=.service)
+ endif
+ 
+ $(panelapplet_in_files): $(panelapplet_in_files:.panel-applet.in=.panel-applet.in.in)
+-	sed -e "s|\@BINDIR\@|$(bindir)|" \
++	sed -e "s|\@LOCATION\@|$(pkglibdir)/libgnubiff-applet.so|" \
+ 	    -e "s|\@PKGDATADIR\@|$(pkgdatadir)|" $< > $@
+ 
+ # Following rule should be provided by intltool (INTLTOOL_PANEL_APPLET_RULE)
+ %.panel-applet: %.panel-applet.in $(INTLTOOL_MERGE) $(wildcard $(top_srcdir)/po/*po) ; $(INTLTOOL_MERGE) $(top_srcdir)/po $< $@ -d -u -c $(top_builddir)/po/.intltool-merge-cache
+ 
+-org.gnome.panel.applet.GnubiffApplet_Factory.service: $(service_in_files)
+-	sed -e "s|\@BINDIR\@|$(bindir)|" $< > $@
+-
+ ##
+ ## Files not yet (or not always) covered that must be included when creating
+ ## a package for distribution
+ ##
+ EXTRA_DIST = \
+-	org.gnome.panel.applet.GnubiffApplet_Factory.service.in \
+ 	org.gnome.panel.applet.GnubiffApplet.panel-applet.in.in	\
+ 	GNOME_gnubiffApplet.xml				\
+ 	gnubiff.schemas						\
+@@ -127,6 +108,5 @@
+ ##
+ DISTCLEANFILES = \
+ 	org.gnome.panel.applet.GnubiffApplet.panel-applet.in \
+-	org.gnome.panel.applet.GnubiffApplet.panel-applet \
+-	org.gnome.panel.applet.GnubiffApplet_Factory.service
++	org.gnome.panel.applet.GnubiffApplet.panel-applet
+ 
+--- a/src/gnubiff.cc
++++ b/src/gnubiff.cc
+@@ -33,11 +33,6 @@
+ #include <popt.h>
+ #include <stdlib.h>
+ 
+-#ifdef USE_GNOME
+-#	include <panel-applet.h>
+-#	include "ui-applet-gnome.h"
+-#endif
+-
+ #include "biff.h"
+ #include "nls.h"
+ #include "ui-preferences.h"
+@@ -45,7 +40,6 @@
+ #include "ui-applet-gtk.h"
+ 
+ int main (int argc, char **argv);
+-int mainGNOME (int argc, char **argv);
+ 
+ 
+ int main (int argc, char **argv) {
+@@ -73,16 +67,6 @@
+ 	char *config_file = 0;
+ 	int no_configure = false, print_version = false, no_gui = false;
+ 	int systemtray = false;
+-#if defined USE_GNOME
+-	int debug_applet=false;
+-
+-   	static struct poptOption options_debug[] =
+-	{
+-	   	{"applet",'\0', POPT_ARG_NONE,   &debug_applet,  0,
+-		 N_("Start gnome applet from command line"), NULL},
+-		POPT_TABLEEND
+-	};
+-#endif
+ 	static struct poptOption options_general[] =
+ 	{
+ 	   	{"config",      'c' , POPT_ARG_STRING, &config_file,   0,
+@@ -101,10 +85,6 @@
+ 	{
+ 	   	{NULL, '\0', POPT_ARG_INCLUDE_TABLE, &options_general, 0,
+ 		 N_("General command line options:"), NULL },
+-#if defined USE_GNOME
+-		{NULL, '\0', POPT_ARG_INCLUDE_TABLE, &options_debug, 0,
+-		 N_("Options for debugging:"), NULL },
+-#endif
+ 		POPT_AUTOHELP
+ 		POPT_TABLEEND
+ 	};
+@@ -136,11 +116,6 @@
+ 	else
+ 		gtk_init (&argc, &argv);
+ 
+-#if defined USE_GNOME
+-	if (debug_applet)
+-		return mainGNOME (argc, argv);
+-#endif
+-
+ 	// Print version information if requested and exit
+ 	if (print_version) {
+ #ifdef IS_CVS_VERSION
+@@ -176,14 +151,3 @@
+ 	// Exit
+ 	return 0;
+ }
+-
+-#ifdef USE_GNOME
+-
+-int mainGNOME (int argc, char **argv) {
+-	panel_applet_factory_main ("GnubiffApplet_Factory",
+-							   PANEL_TYPE_APPLET,
+-							   AppletGnome::gnubiff_applet_factory, 0);
+-
+-	return 0;
+-}
+-#endif
+--- a/src/org.gnome.panel.applet.GnubiffApplet.panel-applet.in.in
++++ b/src/org.gnome.panel.applet.GnubiffApplet.panel-applet.in.in
+@@ -1,5 +1,7 @@
+ [Applet Factory]
+ Id=GnubiffApplet_Factory
++InProcess=true
++Location=@LOCATION@
+ Name=Gnubiff Applet Factory
+ Description=gnubiff Applet Factory
+ 
+--- a/src/org.gnome.panel.applet.GnubiffApplet_Factory.service.in
++++ /dev/null
+@@ -1,3 +0,0 @@
+-[D-BUS Service]
+-Name=org.gnome.panel.applet.GnubiffApplet_Factory
+-Exec=@BINDIR@/gnubiff --applet
+\ No newline at end of file
+--- a/src/ui-applet-gnome.cc
++++ b/src/ui-applet-gnome.cc
+@@ -345,3 +345,10 @@
+ 	biffapplet->start (false);
+ 	return true;
+ }
++
++extern "C" {
++	PANEL_APPLET_IN_PROCESS_FACTORY ("GnubiffApplet_Factory",
++	                                 PANEL_TYPE_APPLET,
++	                                 AppletGnome::gnubiff_applet_factory,
++	                                 NULL)
++}
