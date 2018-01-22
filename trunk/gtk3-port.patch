@@ -1,0 +1,142 @@
+diff -Naur grsync.orig/configure.in grsync/configure.in
+--- grsync.orig/configure.in	2018-01-22 12:58:21.350217000 +0100
++++ grsync/configure.in	2018-01-22 17:15:38.718528840 +0100
+@@ -14,6 +14,13 @@
+ AM_PROG_CC_STDC
+ AC_HEADER_STDC
+ 
++AC_ARG_ENABLE([gtk3],
++    [AC_HELP_STRING([--enable-gtk3],
++        [compile grsync against gtk+ 3.0 (default: yes)])],
++    [enable_gtk3="${enableval}"],
++    [enable_gtk3="yes"]
++)
++
+ PKG_CHECK_EXISTS(maemo-version, [VERSIONOK=`$PKG_CONFIG --atleast-version=5 maemo-version`
+ 								 if test x"$VERSIONOK" != x; then
+ 									 AC_MSG_ERROR([You need at least Maemo 5.x for this release of Grsync])
+@@ -34,7 +41,13 @@
+ 				 MAEMO=0
+ 				 XMLFILE="grsync.glade"
+ 				 AC_DEFINE_UNQUOTED(XMLFILE, ["$XMLFILE"], [UI Description XML File])
+-pkg_modules="gtk+-2.0 >= 2.16.0"
++
++				 if test x"$enable_gtk3" = x"yes"; then
++				     GTK_API_VERSION="3.0"
++				 else
++				     GTK_API_VERSION="2.0"
++				 fi
++				 pkg_modules="gtk+-$GTK_API_VERSION >= 2.16.0"
+ 				 OTHER_DESKTOP_ENTRIES="Icon=grsync.png"
+ 				 MIMEINFO_XMLNS="xmlns='http://www.freedesktop.org/standards/shared-mime-info'"
+ 				 MIME_OSSOCAT=""
+diff -Naur grsync.orig/grsync.glade grsync/grsync.glade
+--- grsync.orig/grsync.glade	2018-01-22 12:58:21.026876000 +0100
++++ grsync/grsync.glade	2018-01-22 14:48:21.114182860 +0100
+@@ -322,7 +322,6 @@
+ 						<property name="visible">True</property>
+ 						<property name="can_focus">True</property>
+ 						<property name="border_width">4</property>
+-						<property name="homogeneous">True</property>
+ 						<child>
+ 							<object class="GtkTable" id="table_basic">
+ 								<property name="visible">True</property>
+@@ -1313,7 +1312,6 @@
+ 		<property name="skip_taskbar_hint">True</property>
+ 		<property name="skip_pager_hint">True</property>
+ 		<property name="transient_for">main_window</property>
+-		<property name="has_separator">False</property>
+ 		<child internal-child="vbox">
+ 			<object class="GtkVBox" id="dialog-vbox1">
+ 				<property name="visible">True</property>
+@@ -1414,7 +1412,6 @@
+ 		<property name="skip_taskbar_hint">True</property>
+ 		<property name="skip_pager_hint">True</property>
+ 		<property name="transient_for">main_window</property>
+-		<property name="has_separator">False</property>
+ 		<child internal-child="vbox">
+ 			<object class="GtkVBox" id="dialog-vbox2">
+ 				<property name="visible">True</property>
+@@ -1651,7 +1648,6 @@
+ 		<property name="skip_pager_hint">True</property>
+ 		<property name="urgency_hint">True</property>
+ 		<property name="transient_for">dialog_rsync</property>
+-		<property name="has_separator">False</property>
+ 		<child internal-child="vbox">
+ 			<object class="GtkVBox" id="dialog-vbox3">
+ 				<property name="visible">True</property>
+@@ -1736,7 +1732,6 @@
+ 		<property name="skip_taskbar_hint">True</property>
+ 		<property name="skip_pager_hint">True</property>
+ 		<property name="transient_for">main_window</property>
+-		<property name="has_separator">False</property>
+ 		<signal name="hide" handler="on_rsync_hide"/>
+ 		<signal name="show" handler="on_rsync_show"/>
+ 		<signal name="delete_event" handler="gtk_widget_hide_on_delete"/>
+@@ -1930,7 +1925,6 @@
+ 		<property name="skip_taskbar_hint">True</property>
+ 		<property name="skip_pager_hint">True</property>
+ 		<property name="transient_for">main_window</property>
+-		<property name="has_separator">False</property>
+ 		<child internal-child="vbox">
+ 			<object class="GtkVBox" id="dialog-vbox5">
+ 				<property name="visible">True</property>
+diff -Naur grsync.orig/src/callbacks.c grsync/src/callbacks.c
+--- grsync.orig/src/callbacks.c	2018-01-22 12:58:21.513554000 +0100
++++ grsync/src/callbacks.c	2018-01-22 14:48:19.384135657 +0100
+@@ -58,7 +58,7 @@
+ 	if (flag) {
+ 		if (trayIcon == NULL) {
+ 			trayIcon = gtk_status_icon_new_from_file(icon);
+-			g_signal_connect(GTK_STATUS_ICON(trayIcon), "activate", GTK_SIGNAL_FUNC(on_trayicon_activate), main_window);
++			g_signal_connect(GTK_STATUS_ICON(trayIcon), "activate", G_CALLBACK(on_trayicon_activate), main_window);
+ 		}
+ 	} else {
+ 		if (trayIcon != NULL) {
+@@ -111,7 +111,7 @@
+ void set_main_title(gchar* session, gchar* extra) {
+ 	gchar *stmp = g_strconcat("Grsync: ", session, " ", extra, NULL);
+ 	gtk_window_set_title((GtkWindow*) main_window, stmp);
+-	if (trayIcon != NULL) gtk_status_icon_set_tooltip(trayIcon, stmp);
++	if (trayIcon != NULL) gtk_status_icon_set_tooltip_text(trayIcon, stmp);
+ 	g_free(stmp);
+ }
+ 
+@@ -815,7 +815,7 @@
+ }
+ 
+ 
+-void on_main_destroy(GtkObject *object, gpointer user_data) {
++void on_main_destroy(GtkWidget *object, gpointer user_data) {
+ 	gint sel = gtk_combo_box_get_active((GtkComboBox*) gtk_builder_get_object(builder, "combo_session"));
+ 	save_settings(groups[sel], NULL);
+ 	g_strfreev(groups);
+@@ -860,7 +860,7 @@
+ 			gtk_widget_hide(rsync_window);
+ 		}
+ 	}
+-	if (cmdline_execute) on_main_destroy((GtkObject*) main_window, NULL);
++	if (cmdline_execute) on_main_destroy((GtkWidget*) main_window, NULL);
+ }
+ 
+ 
+@@ -1177,7 +1177,7 @@
+ }
+ 
+ 
+-void on_rsync_hide(GtkObject *object, gpointer user_data) {
++void on_rsync_hide(GtkWidget *object, gpointer user_data) {
+ 	if (rsync_pid) {
+ 		if (paused) superkill(SIGCONT);
+ 		superkill(SIGTERM);
+diff -Naur grsync.orig/src/main.c grsync/src/main.c
+--- grsync.orig/src/main.c	2018-01-22 12:58:21.516888000 +0100
++++ grsync/src/main.c	2018-01-22 14:48:22.214212877 +0100
+@@ -17,7 +17,6 @@
+ 	textdomain(GETTEXT_PACKAGE);
+ #endif
+ 
+-	gtk_set_locale();
+ #ifdef MAEMO
+ 	hildon_gtk_init(&argc, &argv);
+ #else
