@@ -1,0 +1,107 @@
+From 12dff1ac0a8cacbda2969b560f021ebb73b16887 Mon Sep 17 00:00:00 2001
+From: David Allsopp <david.allsopp@metastack.com>
+Date: Thu, 11 Jan 2018 08:10:10 +0000
+Subject: [PATCH] Provide findlib-install target (#6)
+
+Allows installing the entire library using ocamlfind, in an ocamlfind-managed directory.
+This differs from the `install` target which performs the old-style installation in the OCaml stdlib directory.
+---
+ .gitignore            |  1 +
+ Makefile              | 10 +++++++++-
+ src/{META => META.in} |  4 +++-
+ src/Makefile          | 17 +++++++++++++++--
+ 4 files changed, 28 insertions(+), 4 deletions(-)
+ rename src/{META => META.in} (72%)
+
+diff --git a/.gitignore b/.gitignore
+index 6acd3bc..172bf23 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -8,3 +8,4 @@
+ *.cmx[as]
+ *.cmti
+ *.annot
++src/META
+diff --git a/Makefile b/Makefile
+index 6a5d08f..b40e588 100644
+--- a/Makefile
++++ b/Makefile
+@@ -14,8 +14,16 @@ install:
+ 	$(MAKE) -C src install
+ 	$(MAKE) -C toplevel install
+ 
++findlib-install:
++	$(MAKE) -C src findlib-install
++	$(MAKE) -C toplevel install
++
+ uninstall:
+ 	$(MAKE) -C src uninstall
+ 	$(MAKE) -C toplevel uninstall
+ 
+-.PHONY: all test clean install uninstall
++findlib-uninstall:
++	$(MAKE) -C src findlib-uninstall
++	$(MAKE) -C toplevel uninstall
++
++.PHONY: all test clean install uninstall findlib-install findlib-uninstall
+diff --git a/src/META b/src/META.in
+similarity index 72%
+rename from src/META
+rename to src/META.in
+index 66ac170..b5678b7 100644
+--- a/src/META
++++ b/src/META.in
+@@ -1,6 +1,8 @@
+ # This META is the one provided by findlib when the "num" library was
+ # part of the core OCaml distribution.  For backward compatibility,
+-# it installs into OCaml's standard library directory, not in a subdirectory
++# it is installed into OCaml's standard library directory. If the
++# directory line below is removed, then it's installed in a
++# subdirectory, as normal for a findlib package.
+ 
+ requires = "num.core"
+ requires(toploop) = "num.core,num-top"
+diff --git a/src/Makefile b/src/Makefile
+index 97dc074..ff271fe 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -80,21 +80,34 @@ endif
+ ifeq "$(NATDYNLINK)" "true"
+ TOINSTALL+=nums.cmxs
+ endif
++ifeq "$(SUPPORTS_SHARED_LIBRARIES)" "true"
+ TOINSTALL_STUBS=dllnums.$(SO)
++else
++TOINSTALL_STUBS=
++endif
+ 
+ install:
++	cp META.in META
+ 	$(OCAMLFIND) install num META
++	rm -f META
+ 	$(INSTALL_DATA) $(TOINSTALL) $(STDLIBDIR)
+ ifeq "$(SUPPORTS_SHARED_LIBRARIES)" "true"
+ 	$(INSTALL_DLL) $(TOINSTALL_STUBS) $(STDLIBDIR)/stublibs
+ endif
+ 
+-uninstall:
++findlib-install:
++	grep -Fv '^' META.in > META
++	$(OCAMLFIND) install num META $(TOINSTALL) $(TOINSTALL_STUBS)
++	rm -f META
++
++findlib-uninstall:
++	$(OCAMLFIND) remove num
++
++uninstall: findlib-uninstall
+ 	cd $(STDLIBDIR) && rm -f $(TOINSTALL)
+ ifeq "$(SUPPORTS_SHARED_LIBRARIES)" "true"
+ 	cd $(STDLIBDIR)/stublibs && rm -f $(TOINSTALL_STUBS) 
+ endif
+-	$(OCAMLFIND) remove num
+ 
+ clean:
+ 	rm -f *.cm[ioxta] *.cmx[as] *.cmti *.$(O) *.$(A) *.$(SO)
+-- 
+2.16.1
+
