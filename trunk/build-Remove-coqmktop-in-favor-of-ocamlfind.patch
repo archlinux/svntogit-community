@@ -1,0 +1,1019 @@
+From 935cba771ff0503b292a56cad69c01acbddcc2bd Mon Sep 17 00:00:00 2001
+From: Emilio Jesus Gallego Arias <e+git@x80.org>
+Date: Sat, 28 Oct 2017 21:02:48 +0200
+Subject: [PATCH] [build] Remove coqmktop in favor of ocamlfind.
+
+We remove coqmktop in favor of a couple of simple makefile rules using
+ocamlfind. In order to do that, we introduce a new top-level file that
+calls the coqtop main entry.
+
+This is very convenient in order to use other builds systems such as
+`ocamlbuild` or `jbuilder`.
+
+An additional consideration is that we must perform a side-effect on
+init depending on whether we have an OCaml toplevel available [byte]
+or not. We do that by using two different object files, one for the
+bytecode version other for the native one, but we may want to review
+our choice.
+
+We also perform some smaller cleanups taking profit from ocamlfind.
+
+[backported from 598e3ae4a8eb8d9bce316e13d71ee48d9ba1a01f, with a few easy-to-fix conflicts]
+---
+ Makefile                     |   2 +-
+ Makefile.build               |  73 +++++-----
+ Makefile.checker             |   4 +-
+ Makefile.common              |   2 -
+ Makefile.install             |   3 +-
+ config/coq_config.mli        |   4 -
+ configure.ml                 |  15 +--
+ dev/build/windows/ReadMe.txt |   2 -
+ dev/doc/setup.txt            |   2 +-
+ doc/refman/RefMan-uti.tex    |  56 +++-----
+ lib/envars.ml                |  12 +-
+ lib/flags.ml                 |   8 --
+ lib/flags.mli                |   6 -
+ man/coqmktop.1               |  71 ----------
+ tools/CoqMakefile.in         |   1 -
+ tools/coqmktop.ml            | 314 -------------------------------------------
+ toplevel/coqtop.ml           |   2 -
+ toplevel/coqtop_bin.ml       |   6 +
+ toplevel/coqtop_byte_bin.ml  |  21 +++
+ toplevel/coqtop_opt_bin.ml   |   3 +
+ 20 files changed, 100 insertions(+), 507 deletions(-)
+ delete mode 100644 man/coqmktop.1
+ delete mode 100644 tools/coqmktop.ml
+ create mode 100644 toplevel/coqtop_bin.ml
+ create mode 100644 toplevel/coqtop_byte_bin.ml
+ create mode 100644 toplevel/coqtop_opt_bin.ml
+
+diff --git a/Makefile b/Makefile
+index c3f820d93..ce1d146de 100644
+--- a/Makefile
++++ b/Makefile
+@@ -217,7 +217,7 @@ archclean: clean-ide optclean voclean
+ 	rm -f $(ALLSTDLIB).*
+ 
+ optclean:
+-	rm -f $(COQTOPEXE) $(COQMKTOP) $(CHICKEN)
++	rm -f $(COQTOPEXE) $(CHICKEN)
+ 	rm -f $(TOOLS) $(PRIVATEBINARIES) $(CSDPCERT)
+ 	find . -name '*.cmx' -o -name '*.cmxs' -o -name '*.cmxa' -o -name '*.[soa]' -o -name '*.so' | xargs rm -f
+ 
+diff --git a/Makefile.build b/Makefile.build
+index 550b511c3..aca0d3d91 100644
+--- a/Makefile.build
++++ b/Makefile.build
+@@ -231,8 +231,8 @@ endef
+ 
+ define bestocaml
+ $(if $(OPT),\
+-$(OCAMLOPT) $(MLINCLUDES) $(OPTFLAGS) $(LINKMETADATA) -o $@ $(1) $(addsuffix .cmxa,$(2)) $^ && $(STRIP) $@ && $(CODESIGN) $@,\
+-$(OCAMLC) $(MLINCLUDES) $(BYTEFLAGS) $(CUSTOM) -o $@ $(1) $(addsuffix .cma,$(2)) $^)
++$(OCAMLOPT) $(MLINCLUDES) $(OPTFLAGS) $(LINKMETADATA) -o $@ -linkpkg $(1) $^ && $(STRIP) $@ && $(CODESIGN) $@,\
++$(OCAMLC) $(MLINCLUDES) $(BYTEFLAGS) $(CUSTOM) -o $@ -linkpkg $(1) $^)
+ endef
+ 
+ # Camlp5 settings
+@@ -242,9 +242,8 @@ CAMLP4USE=pa_extend.cmo q_MLast.cmo pa_macro.cmo -D$(CAMLVERSION)
+ 
+ PR_O := $(if $(READABLE_ML4),pr_o.cmo,pr_dump.cmo)
+ 
+-SYSMOD:=str unix dynlink threads
+-SYSCMA:=$(addsuffix .cma,$(SYSMOD))
+-SYSCMXA:=$(addsuffix .cmxa,$(SYSMOD))
++# Main packages linked by Coq.
++SYSMOD:=-package num,str,unix,dynlink,threads
+ 
+ # We do not repeat the dependencies already in SYSMOD here
+ P4CMA:=gramlib.cma
+@@ -376,19 +375,30 @@ grammar/%.cmi: grammar/%.mli
+ 
+ 
+ ###########################################################################
+-# Main targets (coqmktop, coqtop.opt, coqtop.byte)
++# Main targets (coqtop.opt, coqtop.byte)
+ ###########################################################################
+ 
+ .PHONY: coqbinaries coqbyte
+ 
+-coqbinaries: $(COQMKTOP) $(COQTOPEXE) $(CHICKEN) $(CSDPCERT) $(FAKEIDE)
++coqbinaries: $(COQTOPEXE) $(CHICKEN) $(CSDPCERT) $(FAKEIDE)
+ 
+ coqbyte: $(COQTOPBYTE) $(CHICKENBYTE)
+ 
++COQTOP_OPT_MLTOP=toplevel/coqtop_opt_bin.cmx
++COQTOP_BYTE_MLTOP=toplevel/coqtop_byte_bin.cmo
++
++$(COQTOP_BYTE_MLTOP): toplevel/coqtop_byte_bin.ml
++	$(SHOW)'OCAMLC    $<'
++	$(HIDE)$(OCAMLC) $(MLINCLUDES) $(BYTEFLAGS) -package compiler-libs.toplevel -c $<
++
+ ifeq ($(BEST),opt)
+-$(COQTOPEXE): $(COQMKTOP) $(LINKCMX) $(LIBCOQRUN) $(TOPLOOPCMA:.cma=.cmxs)
++$(COQTOPEXE): tools/tolink.cmx $(LINKCMX) $(LIBCOQRUN) $(TOPLOOPCMA:.cma=.cmxs) $(COQTOP_OPT_MLTOP)
+ 	$(SHOW)'COQMKTOP -o $@'
+-	$(HIDE)$(COQMKTOP) -boot -opt $(OPTFLAGS) $(LINKMETADATA) -o $@
++	$(HIDE)$(OCAMLOPT) -linkall -linkpkg -I vernac -I toplevel -I tools \
++	                   -I kernel/byterun/ -cclib -lcoqrun \
++                           $(SYSMOD) -package camlp5.gramlib \
++	                   tools/tolink.cmx $(LINKCMX) $(OPTFLAGS) $(LINKMETADATA) \
++	                   $(COQTOP_OPT_MLTOP) toplevel/coqtop_bin.ml -o $@
+ 	$(STRIP) $@
+ 	$(CODESIGN) $@
+ else
+@@ -396,21 +406,18 @@ $(COQTOPEXE): $(COQTOPBYTE)
+ 	cp $< $@
+ endif
+ 
+-$(COQTOPBYTE): $(COQMKTOP) $(LINKCMO) $(LIBCOQRUN) $(TOPLOOPCMA)
++# Are "-cclib lcoqrun -dllib -lcoqrun" necessary?
++$(COQTOPBYTE): tools/tolink.cmo $(LINKCMO) $(LIBCOQRUN) $(TOPLOOPCMA) $(COQTOP_BYTE_MLTOP)
+ 	$(SHOW)'COQMKTOP -o $@'
+-	$(HIDE)$(COQMKTOP) -boot -top $(BYTEFLAGS) -o $@
+-
+-# coqmktop
+-
+-COQMKTOPCMO:=lib/clib.cma lib/cErrors.cmo tools/tolink.cmo tools/coqmktop.cmo
+-
+-$(COQMKTOP): $(call bestobj, $(COQMKTOPCMO))
+-	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml, $(OSDEPLIBS), $(SYSMOD))
++	$(HIDE)$(OCAMLC) -linkall -linkpkg -I vernac -I toplevel -I tools \
++	                 -I kernel/byterun -dllpath $(abspath kernel/byterun) -cclib -lcoqrun -dllib -lcoqrun \
++                         $(SYSMOD) -package camlp5.gramlib,compiler-libs.toplevel \
++	                 tools/tolink.cmo $(LINKCMO) $(BYTEFLAGS) \
++	                 $(COQTOP_BYTE_MLTOP) toplevel/coqtop_bin.ml -o $@
+ 
+ tools/tolink.ml: Makefile.build Makefile.common
+ 	$(SHOW)"ECHO... >" $@
+-	$(HIDE)echo "let copts = \"-cclib -lcoqrun\"" > $@
++	$(HIDE)echo "let static_modules = \""$(STATICPLUGINS)"\"" > $@
+ 	$(HIDE)echo "let core_libs = \""$(LINKCMO)"\"" >> $@
+ 	$(HIDE)echo "let core_objs = \""$(OBJSMOD)"\"" >> $@
+ 
+@@ -420,7 +427,7 @@ COQCCMO:=lib/clib.cma lib/cErrors.cmo toplevel/usage.cmo tools/coqc.cmo
+ 
+ $(COQC): $(call bestobj, $(COQCCMO))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml, $(OSDEPLIBS), $(SYSMOD))
++	$(HIDE)$(call bestocaml, $(SYSMOD))
+ 
+ ###########################################################################
+ # other tools
+@@ -457,11 +464,11 @@ tools/coqdep_boot.cmx : tools/coqdep_common.cmx
+ 
+ $(COQDEPBOOT): $(call bestobj, $(COQDEPBOOTSRC))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml, -I tools, unix)
++	$(HIDE)$(call bestocaml, -I tools -package unix)
+ 
+ $(OCAMLLIBDEP): $(call bestobj, tools/ocamllibdep.cmo)
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml, -I tools, unix)
++	$(HIDE)$(call bestocaml, -I tools -package unix)
+ 
+ # The full coqdep (unused by this build, but distributed by make install)
+ 
+@@ -472,36 +479,36 @@ COQDEPCMO:=lib/clib.cma lib/cErrors.cmo lib/cWarnings.cmo \
+ 
+ $(COQDEP): $(call bestobj, $(COQDEPCMO))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml, $(OSDEPLIBS), $(SYSMOD))
++	$(HIDE)$(call bestocaml, $(SYSMOD))
+ 
+ $(GALLINA): $(call bestobj, tools/gallina_lexer.cmo tools/gallina.cmo)
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,,)
++	$(HIDE)$(call bestocaml,)
+ 
+ COQMAKEFILECMO:=lib/clib.cma tools/coq_makefile.cmo
+ 
+ $(COQMAKEFILE): $(call bestobj,$(COQMAKEFILECMO))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,,str unix threads)
++	$(HIDE)$(call bestocaml, -package str,unix,threads)
+ 
+ $(COQTEX): $(call bestobj, tools/coq_tex.cmo)
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,,str)
++	$(HIDE)$(call bestocaml, -package str)
+ 
+ $(COQWC): $(call bestobj, tools/coqwc.cmo)
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,,)
++	$(HIDE)$(call bestocaml, -package str)
+ 
+ COQDOCCMO:=lib/clib.cma $(addprefix tools/coqdoc/, \
+   cdglobals.cmo alpha.cmo index.cmo tokens.cmo output.cmo cpretty.cmo main.cmo )
+ 
+ $(COQDOC): $(call bestobj, $(COQDOCCMO))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,,str unix)
++	$(HIDE)$(call bestocaml, -package str,unix)
+ 
+ $(COQWORKMGR): $(call bestobj, lib/clib.cma stm/coqworkmgrApi.cmo tools/coqworkmgr.cmo)
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,, $(SYSMOD))
++	$(HIDE)$(call bestocaml, $(SYSMOD))
+ 
+ # fake_ide : for debugging or test-suite purpose, a fake ide simulating
+ # a connection to coqtop -ideslave
+@@ -512,13 +519,13 @@ FAKEIDECMO:= lib/clib.cma lib/cErrors.cmo lib/spawn.cmo	ide/document.cmo \
+ 
+ $(FAKEIDE): $(call bestobj, $(FAKEIDECMO)) | $(IDETOPLOOPCMA:.cma=$(BESTDYN))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,-I ide,str unix threads)
++	$(HIDE)$(call bestocaml, -I ide -package str,unix,threads)
+ 
+ # votour: a small vo explorer (based on the checker)
+ 
+ bin/votour: $(call bestobj, lib/cObj.cmo checker/analyze.cmo checker/values.cmo checker/votour.cmo)
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml, -I checker,)
++	$(HIDE)$(call bestocaml, -I checker)
+ 
+ ###########################################################################
+ # Csdp to micromega special targets
+@@ -530,7 +537,7 @@ CSDPCERTCMO:=lib/clib.cma $(addprefix plugins/micromega/, \
+ 
+ $(CSDPCERT): $(call bestobj, $(CSDPCERTCMO))
+ 	$(SHOW)'OCAMLBEST -o $@'
+-	$(HIDE)$(call bestocaml,,nums unix)
++	$(HIDE)$(call bestocaml, -package num,unix)
+ 
+ ###########################################################################
+ # tests
+diff --git a/Makefile.checker b/Makefile.checker
+index 435d8e8f6..b14f705be 100644
+--- a/Makefile.checker
++++ b/Makefile.checker
+@@ -29,7 +29,7 @@ CHKLIBS:= -I config -I lib -I checker
+ ifeq ($(BEST),opt)
+ $(CHICKEN): checker/check.cmxa checker/main.ml
+ 	$(SHOW)'OCAMLOPT -o $@'
+-	$(HIDE)$(OCAMLOPT) $(SYSCMXA) $(CHKLIBS) $(OPTFLAGS) $(LINKMETADATA) -o $@ $^
++	$(HIDE)$(OCAMLOPT) -linkpkg $(SYSMOD) $(CHKLIBS) $(OPTFLAGS) $(LINKMETADATA) -o $@ $^
+ 	$(STRIP) $@
+ 	$(CODESIGN) $@
+ else
+@@ -39,7 +39,7 @@ endif
+ 
+ $(CHICKENBYTE): checker/check.cma checker/main.ml
+ 	$(SHOW)'OCAMLC -o $@'
+-	$(HIDE)$(OCAMLC) $(SYSCMA) $(CHKLIBS) $(BYTEFLAGS) $(CUSTOM) -o $@ $^
++	$(HIDE)$(OCAMLC) -linkpkg $(SYSMOD) $(CHKLIBS) $(BYTEFLAGS) $(CUSTOM) -o $@ $^
+ 
+ checker/check.cma: checker/check.mllib | md5chk
+ 	$(SHOW)'OCAMLC -a -o $@'
+diff --git a/Makefile.common b/Makefile.common
+index 9dda6b7ed..7c826b409 100644
+--- a/Makefile.common
++++ b/Makefile.common
+@@ -12,8 +12,6 @@
+ # Executables
+ ###########################################################################
+ 
+-COQMKTOP:=bin/coqmktop$(EXE)
+-
+ COQTOPBYTE:=bin/coqtop.byte$(EXE)
+ COQTOPEXE:=bin/coqtop$(EXE)
+ 
+diff --git a/Makefile.install b/Makefile.install
+index e7f368020..3e92e84d4 100644
+--- a/Makefile.install
++++ b/Makefile.install
+@@ -106,7 +106,6 @@ INSTALLCMX = $(sort $(filter-out checker/% ide/% tools/% dev/% configure.cmx, $(
+ 
+ install-devfiles:
+ 	$(MKDIR) $(FULLBINDIR)
+-	$(INSTALLBIN) $(COQMKTOP) $(FULLBINDIR)
+ 	$(MKDIR) $(FULLCOQLIB)
+ 	$(INSTALLSH)  $(FULLCOQLIB) $(GRAMMARCMA)
+ 	$(INSTALLSH)  $(FULLCOQLIB) $(INSTALLCMI)
+@@ -141,7 +140,7 @@ install-coq-info: install-coq-manpages install-emacs install-latex
+ MANPAGES:=man/coq-tex.1 man/coqdep.1 man/gallina.1 \
+ 	man/coqc.1 man/coqtop.1 man/coqtop.byte.1 man/coqtop.opt.1 \
+ 	man/coqwc.1 man/coqdoc.1 man/coqide.1 \
+-	man/coq_makefile.1 man/coqmktop.1 man/coqchk.1
++	man/coq_makefile.1 man/coqchk.1
+ 
+ install-coq-manpages:
+ 	$(MKDIR) $(FULLMANDIR)/man1
+diff --git a/config/coq_config.mli b/config/coq_config.mli
+index 7cb027d12..99f89e85b 100644
+--- a/config/coq_config.mli
++++ b/config/coq_config.mli
+@@ -41,12 +41,8 @@ val caml_flags : string     (* arguments passed to ocamlc (ie. CAMLFLAGS) *)
+ val best : string       (* byte/opt *)
+ val arch : string       (* architecture *)
+ val arch_is_win32 : bool
+-val osdeplibs : string  (* OS dependent link options for ocamlc *)
+ val vmbyteflags : string list (* -custom/-dllib -lcoqrun *)
+ 
+-
+-(* val defined : string list  (* options for lib/ocamlpp *) *)
+-
+ val version : string    (* version number of Coq *)
+ val caml_version : string    (* OCaml version used to compile Coq *)
+ val caml_version_nums : int list    (* OCaml version used to compile Coq by components *)
+diff --git a/configure.ml b/configure.ml
+index 3dab3d414..c763357b4 100644
+--- a/configure.ml
++++ b/configure.ml
+@@ -16,7 +16,7 @@ let coq_macos_version = "8.7.1" (** "[...] should be a string comprised of
+ three non-negative, period-separated integers [...]" *)
+ let vo_magic = 8700
+ let state_magic = 58700
+-let distributed_exec = ["coqtop";"coqc";"coqchk";"coqdoc";"coqmktop";"coqworkmgr";
++let distributed_exec = ["coqtop";"coqc";"coqchk";"coqdoc";"coqworkmgr";
+ "coqdoc";"coq_makefile";"coq-tex";"gallina";"coqwc";"csdpcert";"coqdep"]
+ 
+ let verbose = ref false (* for debugging this script *)
+@@ -708,17 +708,15 @@ let natdynlinkflag =
+ 
+ (** * OS dependent libraries *)
+ 
+-let osdeplibs = "-cclib -lunix"
+-
+-let operating_system, osdeplibs =
++let operating_system =
+   if starts_with arch "sun4" then
+     let os, _ = run "uname" ["-r"] in
+     if starts_with os "5" then
+-      "Sun Solaris "^os, osdeplibs^" -cclib -lnsl -cclib -lsocket"
++      "Sun Solaris "^os
+     else
+-      "Sun OS "^os, osdeplibs
++      "Sun OS "^os
+   else
+-    (try Sys.getenv "OS" with Not_found -> ""), osdeplibs
++    (try Sys.getenv "OS" with Not_found -> "")
+ 
+ (** Num library *)
+ 
+@@ -1042,7 +1040,6 @@ let print_summary () =
+     pr "  Operating system            : %s\n" operating_system;
+   pr "  Coq VM bytecode link flags  : %s\n" (String.concat " " vmbyteflags);
+   pr "  Other bytecode link flags   : %s\n" custom_flag;
+-  pr "  OS dependent libraries      : %s\n" osdeplibs;
+   pr "  OCaml version               : %s\n" caml_version;
+   pr "  OCaml binaries in           : %s\n" camlbin;
+   pr "  OCaml library in            : %s\n" camllib;
+@@ -1135,7 +1132,6 @@ let write_configml f =
+   pr_s "cflags" cflags;
+   pr_s "caml_flags" caml_flags;
+   pr_s "best" best_compiler;
+-  pr_s "osdeplibs" osdeplibs;
+   pr_s "version" coq_version;
+   pr_s "caml_version" caml_version;
+   pr_li "caml_version_nums" caml_version_nums;
+@@ -1255,7 +1251,6 @@ let write_makefile f =
+   pr "# Supplementary libs for some systems, currently:\n";
+   pr "#  . Sun Solaris: -cclib -lunix -cclib -lnsl -cclib -lsocket\n";
+   pr "#  . others     : -cclib -lunix\n";
+-  pr "OSDEPLIBS=%s\n\n" osdeplibs;
+   pr "# executable files extension, currently:\n";
+   pr "#  Unix systems:\n";
+   pr "#  Win32 systems : .exe\n";
+diff --git a/dev/build/windows/ReadMe.txt b/dev/build/windows/ReadMe.txt
+index a6d8e4462..7e80e33c6 100644
+--- a/dev/build/windows/ReadMe.txt
++++ b/dev/build/windows/ReadMe.txt
+@@ -418,7 +418,6 @@ Binary file ./bin/coqchk.exe matches
+ Binary file ./bin/coqdep.exe matches
+ Binary file ./bin/coqdoc.exe matches
+ Binary file ./bin/coqide.exe matches
+-Binary file ./bin/coqmktop.exe matches
+ Binary file ./bin/coqtop.byte.exe matches
+ Binary file ./bin/coqtop.exe matches
+ Binary file ./bin/coqworkmgr.exe matches
+@@ -438,7 +437,6 @@ Binary file ./bin/ocamldoc.exe matches
+ Binary file ./bin/ocamldoc.opt.exe matches
+ Binary file ./bin/ocamlfind.exe matches
+ Binary file ./bin/ocamlmklib.exe matches
+-Binary file ./bin/ocamlmktop.exe matches
+ Binary file ./bin/ocamlobjinfo.exe matches
+ Binary file ./bin/ocamlopt.exe matches
+ Binary file ./bin/ocamlopt.opt.exe matches
+diff --git a/dev/doc/setup.txt b/dev/doc/setup.txt
+index 0c6d3ee80..26f3d0ddc 100644
+--- a/dev/doc/setup.txt
++++ b/dev/doc/setup.txt
+@@ -279,7 +279,7 @@ You can load them by switching to the window holding the "ocamldebug" shell and
+ Some of the functions were you might want to set a breakpoint and see what happens next
+ ---------------------------------------------------------------------------------------
+ 
+-- Coqtop.start : This function is called by the code produced by "coqmktop".
++- Coqtop.start : This function is the main entry point of coqtop.
+ - Coqtop.parse_args : This function is responsible for parsing command-line arguments.
+ - Coqloop.loop : This function implements the read-eval-print loop.
+ - Vernacentries.interp : This function is called to execute the Vernacular command user have typed.\
+diff --git a/doc/refman/RefMan-uti.tex b/doc/refman/RefMan-uti.tex
+index 8f846f2f5..f01d87694 100644
+--- a/doc/refman/RefMan-uti.tex
++++ b/doc/refman/RefMan-uti.tex
+@@ -4,53 +4,27 @@
+ The distribution provides utilities to simplify some tedious works
+ beside proof development, tactics writing or documentation.
+ 
+-\section[Building a toplevel extended with user tactics]{Building a toplevel extended with user tactics\label{Coqmktop}\ttindex{coqmktop}}
++\section[Using Coq as a library]{Using Coq as a library}
+ 
+-The native-code version of \Coq\ cannot dynamically load user tactics
+-using {\ocaml} code. It is possible to build a toplevel of \Coq,
+-with {\ocaml} code statically linked, with the tool {\tt
+-  coqmktop}.
+-
+-For example, one can build a native-code \Coq\ toplevel extended with a tactic
+-which source is in {\tt tactic.ml} with the command
+-\begin{verbatim}
+-     % coqmktop -opt -o mytop.out tactic.cmx
+-\end{verbatim}
+-where {\tt tactic.ml} has been compiled with the native-code
+-compiler {\tt ocamlopt}. This command generates an executable
+-called {\tt mytop.out}. To use this executable to compile your \Coq\
+-files, use {\tt coqc -image mytop.out}.
+-
+-A basic example is the native-code version of \Coq\ ({\tt coqtop.opt}),
+-which can be generated by {\tt coqmktop -opt -o coqopt.opt}.
+-
+-
+-\paragraph[Application: how to use the {\ocaml} debugger with Coq.]{Application: how to use the {\ocaml} debugger with Coq.\index{Debugger}}
+-
+-One useful application of \texttt{coqmktop} is to build a \Coq\ toplevel in
+-order to debug your tactics with the {\ocaml} debugger.
+-You need to have configured and compiled \Coq\ for debugging
+-(see the file \texttt{INSTALL} included in the distribution).
+-Then, you must compile the Caml modules of your tactic with the
+-option \texttt{-g} (with the bytecode compiler) and build a stand-alone
+-bytecode toplevel with the following command:
++In previous versions, \texttt{coqmktop} was used to build custom
++toplevels --- for example for better debugging or custom static
++linking. Nowadays, the preferred method is to use \texttt{ocamlfind}.
+ 
++The most basic custom toplevel is built using:
+ \begin{quotation}
+-\texttt{\% coqmktop -g -o coq-debug}~\emph{<your \texttt{.cmo} files>}
++\texttt{\% make tools/tolink.cmx}
++\texttt{\% ocamlfind ocamlopt -thread -rectypes -linkall -linkpkg
++  -package coq.toplevel -I tools tolink.cmx toplevel/coqtop\_bin.ml -o my\_toplevel.native}
+ \end{quotation}
+ 
++For example, to statically link LTAC, you can add it to \texttt{tools/tolink.ml} and use:
++\begin{quotation}
++\texttt{\% make tools/tolink.cmx}
++\texttt{\% ocamlfind ocamlopt -thread -rectypes -linkall -linkpkg
++  -package coq.toplevel -package coq.ltac -I tools tolink.cmx toplevel/coqtop\_bin.ml -o my\_toplevel.native}
++\end{quotation}
+ 
+-To launch the \ocaml\ debugger with the image you need to execute it in
+-an environment which correctly sets the \texttt{COQLIB} variable.
+-Moreover, you have to indicate the directories in which
+-\texttt{ocamldebug} should search for Caml modules.
+-
+-A possible solution is to use a wrapper around \texttt{ocamldebug}
+-which detects the executables containing the word \texttt{coq}. In
+-this case, the debugger is called with the required additional
+-arguments. In other cases, the debugger is simply called without additional
+-arguments. Such a wrapper can be found in the \texttt{dev/}
+-subdirectory of the sources.
++We will remove the need for the \texttt{tolink} file in the future.
+ 
+ %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ 
+diff --git a/lib/envars.ml b/lib/envars.ml
+index af769fafd..99f284ec1 100644
+--- a/lib/envars.ml
++++ b/lib/envars.ml
+@@ -153,19 +153,17 @@ let coqpath =
+ 
+ let exe s = s ^ Coq_config.exec_extension
+ 
+-let ocamlfind () =
+-  if !Flags.ocamlfind_spec then !Flags.ocamlfind else Coq_config.ocamlfind
++let ocamlfind () = Coq_config.ocamlfind
+ 
+ (** {2 Camlp4 paths} *)
+ 
+ let guess_camlp4bin () = which (user_path ()) (exe Coq_config.camlp4)
+ 
+ let camlp4bin () =
+-  if !Flags.camlp4bin_spec then !Flags.camlp4bin else
+-    if !Flags.boot then Coq_config.camlp4bin else
+-      try guess_camlp4bin ()
+-      with Not_found ->
+-        Coq_config.camlp4bin
++  if !Flags.boot then Coq_config.camlp4bin else
++    try guess_camlp4bin ()
++    with Not_found ->
++      Coq_config.camlp4bin
+ 
+ let camlp4 () = camlp4bin () / exe Coq_config.camlp4
+ 
+diff --git a/lib/flags.ml b/lib/flags.ml
+index efff74c78..270ef80bb 100644
+--- a/lib/flags.ml
++++ b/lib/flags.ml
+@@ -198,14 +198,6 @@ let is_standard_doc_url url =
+ let coqlib_spec = ref false
+ let coqlib = ref "(not initialized yet)"
+ 
+-(* Options for changing ocamlfind (used by coqmktop) *)
+-let ocamlfind_spec = ref false
+-let ocamlfind = ref Coq_config.camlbin
+-
+-(* Options for changing camlp4bin (used by coqmktop) *)
+-let camlp4bin_spec = ref false
+-let camlp4bin = ref Coq_config.camlp4bin
+-
+ (* Level of inlining during a functor application *)
+ 
+ let default_inline_level = 100
+diff --git a/lib/flags.mli b/lib/flags.mli
+index fdc161d58..d841fa55f 100644
+--- a/lib/flags.mli
++++ b/lib/flags.mli
+@@ -151,12 +151,6 @@ val is_standard_doc_url : string -> bool
+ val coqlib_spec : bool ref
+ val coqlib : string ref
+ 
+-(** Options for specifying where OCaml binaries reside *)
+-val ocamlfind_spec : bool ref
+-val ocamlfind : string ref
+-val camlp4bin_spec : bool ref
+-val camlp4bin : string ref
+-
+ (** Level of inlining during a functor application *)
+ val set_inline_level : int -> unit
+ val get_inline_level : unit -> int
+diff --git a/man/coqmktop.1 b/man/coqmktop.1
+deleted file mode 100644
+index 810df782c..000000000
+--- a/man/coqmktop.1
++++ /dev/null
+@@ -1,71 +0,0 @@
+-.TH COQ 1 "April 25, 2001"
+-
+-.SH NAME
+-coqmktop \- The Coq Proof Assistant user-tactics linker
+-
+-
+-.SH SYNOPSIS
+-.B coqmktop
+-[
+-.I options
+-]
+-.I files
+-
+-
+-.SH DESCRIPTION
+-
+-.B coqmktop
+-builds a new Coq toplevel extended with user-tactics.
+-.IR files \&
+-are the Objective Caml object or library files
+-(i.e. with suffix .cmo, .cmx, .cma or .cmxa) to link with the Coq system.
+-The linker produces an executable Coq toplevel which can be called
+-directly or through coqc(1), using the \-image option.
+-
+-.SH OPTIONS
+-
+-.TP
+-.BI \-h
+-Help. List the available options.
+-
+-.TP
+-.BI \-srcdir \ dir
+-Specify where the Coq source files are
+-
+-.TP
+-.BI \-o \ exec\-file
+-Specify the name of the resulting toplevel
+-
+-.TP
+-.B \-opt
+-Compile in native code
+-
+-.TP
+-.B \-full
+-Link high level tactics
+-
+-.TP
+-.B \-top
+-Build Coq on a ocaml toplevel (incompatible with
+-.BR \-opt )
+-
+-.TP
+-.BI \-R \ dir
+-Specify recursively directories for Ocaml
+-
+-.TP
+-.B \-v8
+-Link with V8 grammar
+-
+-
+-.SH SEE ALSO
+-
+-.BR coqtop (1),
+-.BR ocamlmktop (1).
+-.BR ocamlc (1).
+-.BR ocamlopt (1).
+-.br
+-.I
+-The Coq Reference Manual.
+-.I
+-The Coq web site: http://coq.inria.fr
+diff --git a/tools/CoqMakefile.in b/tools/CoqMakefile.in
+index fd553b60a..c9044759a 100644
+--- a/tools/CoqMakefile.in
++++ b/tools/CoqMakefile.in
+@@ -87,7 +87,6 @@ COQCHK   ?= "$(COQBIN)coqchk"
+ COQDEP   ?= "$(COQBIN)coqdep"
+ GALLINA  ?= "$(COQBIN)gallina"
+ COQDOC   ?= "$(COQBIN)coqdoc"
+-COQMKTOP ?= "$(COQBIN)coqmktop"
+ COQMKFILE ?= "$(COQBIN)coq_makefile"
+ 
+ # Timing scripts
+diff --git a/tools/coqmktop.ml b/tools/coqmktop.ml
+deleted file mode 100644
+index 950ed53cc..000000000
+--- a/tools/coqmktop.ml
++++ /dev/null
+@@ -1,314 +0,0 @@
+-(************************************************************************)
+-(*  v      *   The Coq Proof Assistant  /  The Coq Development Team     *)
+-(* <O___,, *   INRIA - CNRS - LIX - LRI - PPS - Copyright 1999-2017     *)
+-(*   \VV/  **************************************************************)
+-(*    //   *      This file is distributed under the terms of the       *)
+-(*         *       GNU Lesser General Public License Version 2.1        *)
+-(************************************************************************)
+-
+-(** {1 Coqmktop} *)
+-
+-(** coqmktop is a script to link Coq, analogous to ocamlmktop.
+-   The command line contains options specific to coqmktop, options for the
+-   Ocaml linker and files to link (in addition to the default Coq files). *)
+-
+-(** {6 Utilities} *)
+-
+-(** Split a string at each blank
+-*)
+-let split_list =
+-  let spaces = Str.regexp "[ \t\n]+" in
+-  fun str -> Str.split spaces str
+-
+-[@@@ocaml.warning "-3"]       (* String.uncapitalize_ascii since 4.03.0 GPR#124 *)
+-let capitalize = String.capitalize
+-[@@@ocaml.warning "+3"]
+-
+-let (/) = Filename.concat
+-
+-(** Which user files do we support (and propagate to ocamlopt) ?
+-*)
+-let supported_suffix f = match CUnix.get_extension f with
+-  | ".ml" | ".cmx" | ".cmo" | ".cmxa" | ".cma" | ".c" -> true
+-  | _ -> false
+-
+-let supported_flambda_option f = List.mem f Coq_config.flambda_flags
+-
+-(** From bytecode extension to native
+-*)
+-let native_suffix f = match CUnix.get_extension f with
+-  | ".cmo" -> (Filename.chop_suffix f ".cmo") ^ ".cmx"
+-  | ".cma" -> (Filename.chop_suffix f ".cma") ^ ".cmxa"
+-  | ".a" -> f
+-  | _ -> failwith ("File "^f^" has not extension .cmo, .cma or .a")
+-
+-(** Transforms a file name in the corresponding Caml module name.
+-*)
+-let module_of_file name =
+-  capitalize (try Filename.chop_extension name with Invalid_argument _ -> name)
+-
+-(** Run a command [prog] with arguments [args].
+-    We do not use [Sys.command] anymore, see comment in [CUnix.sys_command].
+-*)
+-let run_command prog args =
+-  match CUnix.sys_command prog args with
+-  | Unix.WEXITED 127 -> failwith ("no such command "^prog)
+-  | Unix.WEXITED n -> n
+-  | Unix.WSIGNALED n -> failwith (prog^" killed by signal "^string_of_int n)
+-  | Unix.WSTOPPED n -> failwith (prog^" stopped by signal "^string_of_int n)
+-
+-
+-
+-(** {6 Coqmktop options} *)
+-
+-let opt        = ref false
+-let top        = ref false
+-let echo       = ref false
+-let no_start   = ref false
+-
+-let is_ocaml4 = Coq_config.caml_version.[0] <> '3'
+-
+-(** {6 Includes options} *)
+-
+-(** Since the Coq core .cma are given with their relative paths
+-    (e.g. "lib/clib.cma"), we only need to include directories mentionned in
+-    the temp main ml file below (for accessing the corresponding .cmi). *)
+-
+-let std_includes basedir =
+-  let rebase d = match basedir with None -> d | Some base -> base / d in
+-  ["-I"; rebase ".";
+-   "-I"; rebase "lib";
+-   "-I"; rebase "vernac";       (* For Mltop *)
+-   "-I"; rebase "toplevel";
+-   "-I"; rebase "kernel/byterun";
+-   "-I"; Envars.camlp4lib () ] @
+-  (if is_ocaml4 then ["-I"; "+compiler-libs"] else [])
+-
+-(** For the -R option, visit all directories under [dir] and add
+-    corresponding -I to the [opts] option list (in reversed order) *)
+-let incl_all_subdirs dir opts =
+-  let l = ref opts in
+-  let add f = l := f :: "-I" :: !l in
+-  let rec traverse dir =
+-    if Sys.file_exists dir && Sys.is_directory dir then
+-      let () = add dir in
+-      let subdirs = try Sys.readdir dir with any -> [||] in
+-      Array.iter (fun f -> traverse (dir/f)) subdirs
+-  in
+-  traverse dir; !l
+-
+-
+-(** {6 Objects to link} *)
+-
+-(** NB: dynlink is now always linked, it is used for loading plugins
+-    and compiled vm code (see native-compiler). We now reject platforms
+-    with ocamlopt but no dynlink.cmxa during ./configure, and give
+-    instructions there about how to build a dummy dynlink.cmxa,
+-    cf. dev/dynlink.ml. *)
+-
+-(** OCaml + CamlpX libraries *)
+-
+-let ocaml_libs = ["str.cma";"unix.cma";"nums.cma";"dynlink.cma";"threads.cma"]
+-let camlp4_libs = ["gramlib.cma"]
+-let libobjs = ocaml_libs @ camlp4_libs
+-
+-(** Toplevel objects *)
+-
+-let ocaml_topobjs =
+-  if is_ocaml4 then
+-    ["ocamlcommon.cma";"ocamlbytecomp.cma";"ocamltoplevel.cma"]
+-  else
+-    ["toplevellib.cma"]
+-
+-let camlp4_topobjs = ["camlp5_top.cma"; "pa_o.cmo"; "pa_extend.cmo"]
+-
+-let topobjs = ocaml_topobjs @ camlp4_topobjs
+-
+-(** Coq Core objects *)
+-
+-let copts = (split_list Coq_config.osdeplibs) @ (split_list Tolink.copts)
+-let core_objs = split_list Tolink.core_objs
+-let core_libs = split_list Tolink.core_libs
+-
+-(** Build the list of files to link and the list of modules names
+-*)
+-let files_to_link userfiles =
+-  let top = if !top then topobjs else [] in
+-  let modules = List.map module_of_file (top @ core_objs @ userfiles) in
+-  let objs = libobjs @ top @ core_libs in
+-  let objs' = (if !opt then List.map native_suffix objs else objs) @ userfiles
+-  in (modules, objs')
+-
+-
+-(** {6 Parsing of the command-line} *)
+-
+-let usage () =
+-  prerr_endline "Usage: coqmktop <options> <ocaml options> files\
+-\nFlags are:\
+-\n  -coqlib dir    Specify where the Coq object files are\
+-\n  -ocamlfind dir Specify where the ocamlfind binary is\
+-\n  -camlp4bin dir Specify where the Camlp4/5 binaries are\
+-\n  -o exec-file   Specify the name of the resulting toplevel\
+-\n  -boot          Run in boot mode\
+-\n  -echo          Print calls to external commands\
+-\n  -opt           Compile in native code\
+-\n  -top           Build Coq on a OCaml toplevel (incompatible with -opt)\
+-\n  -R dir         Add recursively dir to OCaml search path\
+-\n";
+-  exit 1
+-
+-let parse_args () =
+-  let rec parse (op,fl) = function
+-    | [] -> List.rev op, List.rev fl
+-
+-    (* Directories *)
+-    | "-coqlib" :: d :: rem ->
+-	Flags.coqlib_spec := true; Flags.coqlib := d ; parse (op,fl) rem
+-    | "-ocamlfind" :: d :: rem ->
+-	Flags.ocamlfind_spec := true; Flags.ocamlfind := d ; parse (op,fl) rem
+-    | "-camlp4bin" :: d :: rem ->
+-	Flags.camlp4bin_spec := true; Flags.camlp4bin := d ; parse (op,fl) rem
+-    | "-R" :: d :: rem -> parse (incl_all_subdirs d op,fl) rem
+-    | ("-coqlib"|"-camlbin"|"-camlp4bin"|"-R") :: [] -> usage ()
+-
+-    (* Boolean options of coqmktop *)
+-    | "-boot" :: rem -> Flags.boot := true; parse (op,fl) rem
+-    | "-opt" :: rem -> opt := true ; parse (op,fl) rem
+-    | "-top" :: rem -> top := true ; parse (op,fl) rem
+-    | "-no-start" :: rem -> no_start:=true; parse (op, fl) rem
+-    | "-echo" :: rem -> echo := true ; parse (op,fl) rem
+-
+-    (* Extra options with arity 0 or 1, directly passed to ocamlc/ocamlopt *)
+-    | ("-noassert"|"-compact"|"-g"|"-p"|"-thread"|"-dtypes" as o) :: rem ->
+-        parse (o::op,fl) rem
+-    | ("-cclib"|"-ccopt"|"-I"|"-o"|"-w" as o) :: rem' ->
+-	begin
+-	  match rem' with
+-	    | a :: rem -> parse (a::o::op,fl) rem
+-	    | []       -> usage ()
+-	end
+-
+-    | ("-h"|"-help"|"--help") :: _ -> usage ()
+-    | f :: rem when supported_flambda_option f -> parse (op,fl) rem
+-    | f :: rem when supported_suffix f -> parse (op,f::fl) rem
+-    | f :: _ -> prerr_endline ("Don't know what to do with " ^ f); exit 1
+-  in
+-  parse ([],[]) (List.tl (Array.to_list Sys.argv))
+-
+-
+-(** {6 Temporary main file} *)
+-
+-(** remove the temporary main file
+-*)
+-let clean file =
+-  let rm f = if Sys.file_exists f then Sys.remove f in
+-  let basename = Filename.chop_suffix file ".ml" in
+-  if not !echo then begin
+-    rm file;
+-    rm (basename ^ ".o");
+-    rm (basename ^ ".cmi");
+-    rm (basename ^ ".cmo");
+-    rm (basename ^ ".cmx")
+-  end
+-
+-(** Initializes the kind of loading in the main program
+-*)
+-let declare_loading_string () =
+-  if not !top then
+-    "Mltop.remove ();;"
+-  else
+-    "begin try\
+-\n       (* Enable rectypes in the toplevel if it has the directive #rectypes *)\
+-\n       begin match Hashtbl.find Toploop.directive_table \"rectypes\" with\
+-\n         | Toploop.Directive_none f -> f ()\
+-\n         | _ -> ()\
+-\n       end\
+-\n     with\
+-\n       | Not_found -> ()\
+-\n     end;;\
+-\n\
+-\n     let ppf = Format.std_formatter;;\
+-\n     Mltop.set_top\
+-\n       {Mltop.load_obj=\
+-\n         (fun f -> if not (Topdirs.load_file ppf f)\
+-\n                   then CErrors.user_err Pp.(str (\"Could not load plugin \"^f)));\
+-\n        Mltop.use_file=Topdirs.dir_use ppf;\
+-\n        Mltop.add_dir=Topdirs.dir_directory;\
+-\n        Mltop.ml_loop=(fun () -> Toploop.loop ppf) };;\
+-\n"
+-
+-(** create a temporary main file to link
+-*)
+-let create_tmp_main_file modules =
+-  let main_name,oc = Filename.open_temp_file "coqmain" ".ml" in
+-  try
+-    (* Add the pre-linked modules *)
+-    output_string oc "List.iter Mltop.add_known_module [\"";
+-    output_string oc (String.concat "\";\"" modules);
+-    output_string oc "\"];;\n";
+-    (* Initializes the kind of loading *)
+-    output_string oc (declare_loading_string());
+-    (* Start the toplevel loop *)
+-    if not !no_start then output_string oc "Coqtop.start();;\n";
+-    close_out oc;
+-    main_name
+-  with reraise ->
+-    clean main_name; raise reraise
+-
+-(* TODO: remove once OCaml 4.04 is adopted *)
+-let split_on_char sep s =
+-  let r = ref [] in
+-  let j = ref (String.length s) in
+-  for i = String.length s - 1 downto 0 do
+-      if s.[i] = sep then begin
+-      r := String.sub s (i + 1) (!j - i - 1) :: !r;
+-      j := i
+-    end
+-  done;
+-  String.sub s 0 !j :: !r
+-
+-(** {6 Main } *)
+-
+-let main () =
+-  let (options, userfiles) = parse_args () in
+-  (* Directories: *)
+-  let () = Envars.set_coqlib ~fail:(fun x -> CErrors.user_err Pp.(str x)) in
+-  let basedir = if !Flags.boot then None else Some (Envars.coqlib ()) in
+-  (* Which ocaml compiler to invoke *)
+-  let prog = if !opt then "opt" else "ocamlc" in
+-  (* Which arguments ? *)
+-  if !opt && !top then failwith "no custom toplevel in native code!";
+-  let flags = if !opt then Coq_config.flambda_flags else Coq_config.vmbyteflags in
+-  let topstart = if !top then [ "topstart.cmo" ] else [] in
+-  let (modules, tolink) = files_to_link userfiles in
+-  let main_file = create_tmp_main_file modules in
+-  try
+-    (* - We add topstart.cmo explicitly because we shunted ocamlmktop wrapper.
+-       - With the coq .cma, we MUST use the -linkall option. *)
+-    let coq_camlflags =
+-      List.filter ((<>) "") (split_on_char ' ' Coq_config.caml_flags) in
+-    let args =
+-      coq_camlflags @ "-linkall" :: "-w" :: "-31" :: flags @ copts @ options @
+-      (std_includes basedir) @ tolink @ [ main_file ] @ topstart
+-    in
+-    if !echo then begin
+-      let command = String.concat " " (Envars.ocamlfind ()::prog::args) in
+-      print_endline command;
+-      print_endline
+-	("(command length is " ^
+-	    (string_of_int (String.length command)) ^ " characters)");
+-      flush Pervasives.stdout
+-    end;
+-    let exitcode = run_command (Envars.ocamlfind ()) (prog::args) in
+-    clean main_file;
+-    exitcode
+-  with reraise -> clean main_file; raise reraise
+-
+-let pr_exn = function
+-  | Failure msg -> msg
+-  | Unix.Unix_error (err,fn,arg) -> fn^" "^arg^" : "^Unix.error_message err
+-  | any -> Printexc.to_string any
+-
+-let _ =
+-  try exit (main ())
+-  with any -> Printf.eprintf "Error: %s\n" (pr_exn any); exit 1
+diff --git a/toplevel/coqtop.ml b/toplevel/coqtop.ml
+index 821d71442..c027358f6 100644
+--- a/toplevel/coqtop.ml
++++ b/toplevel/coqtop.ml
+@@ -667,5 +667,3 @@ let start () =
+      dump glob is nothing but garbage ...  *)
+   !toploop_run ();
+   exit 1
+-
+-(* [Coqtop.start] will be called by the code produced by coqmktop *)
+diff --git a/toplevel/coqtop_bin.ml b/toplevel/coqtop_bin.ml
+new file mode 100644
+index 000000000..62459003b
+--- /dev/null
++++ b/toplevel/coqtop_bin.ml
+@@ -0,0 +1,6 @@
++(* Main coqtop initialization *)
++let () =
++  (* XXX: We should make this a configure option *)
++  List.iter Mltop.add_known_module Str.(split (regexp " ") Tolink.static_modules);
++  (* Start the toplevel loop *)
++  Coqtop.start()
+diff --git a/toplevel/coqtop_byte_bin.ml b/toplevel/coqtop_byte_bin.ml
+new file mode 100644
+index 000000000..7d8354ec3
+--- /dev/null
++++ b/toplevel/coqtop_byte_bin.ml
+@@ -0,0 +1,21 @@
++let drop_setup () =
++  begin try
++    (* Enable rectypes in the toplevel if it has the directive #rectypes *)
++    begin match Hashtbl.find Toploop.directive_table "rectypes" with
++      | Toploop.Directive_none f -> f ()
++      | _ -> ()
++    end
++    with
++    | Not_found -> ()
++  end;
++  let ppf = Format.std_formatter in
++  Mltop.(set_top
++           { load_obj = (fun f -> if not (Topdirs.load_file ppf f)
++                          then CErrors.user_err Pp.(str ("Could not load plugin "^f))
++                        );
++             use_file = Topdirs.dir_use ppf;
++             add_dir  = Topdirs.dir_directory;
++             ml_loop  = (fun () -> Toploop.loop ppf);
++           })
++
++let _ = drop_setup ()
+diff --git a/toplevel/coqtop_opt_bin.ml b/toplevel/coqtop_opt_bin.ml
+new file mode 100644
+index 000000000..410b4679a
+--- /dev/null
++++ b/toplevel/coqtop_opt_bin.ml
+@@ -0,0 +1,3 @@
++let drop_setup () = Mltop.remove ()
++
++let _ = drop_setup ()
+-- 
+2.16.1
+
