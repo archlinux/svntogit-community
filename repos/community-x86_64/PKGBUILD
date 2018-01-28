@@ -3,7 +3,7 @@
 
 _pkgname=multidict
 pkgname=python-${_pkgname}
-pkgver=4.0.0
+pkgver=4.1.0
 pkgrel=1
 pkgdesc='Asyncio-based multidict implementation for Python'
 url='https://github.com/aio-libs/multidict'
@@ -13,8 +13,8 @@ depends=('python' 'glibc')
 makedepends=('cython' 'python-setuptools')
 checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-runner' 'python-psutil' 'python-perf')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/aio-libs/multidict/archive/v${pkgver}.tar.gz)
-sha256sums=('02710f9b05eaa60080646e5c25021a89278ae6d4caf345d1c4746a5427d18dea')
-sha512sums=('74c60013467815bec1fdfc4128ee67d9dbda8a7c9ef9f6a9b9655f66a15dc24aa010e354ee51aea3c74415103d7439f7be9982fcfbaf0336f05c422e35f04072')
+sha256sums=('40ffcd64b61e5d55f490036e4ab402a13890a49f6a52bbe39113091ac615238e')
+sha512sums=('8972ca48146b40fd88f5b0675ed6d45e6887c31fc1d5962203f0fa77a369ef11b0d7739593f5691ae1fd2bbef989940983ddcf0c09acfc5a65b39b6b336571f9')
 
 build() {
   cd ${_pkgname}-${pkgver}
