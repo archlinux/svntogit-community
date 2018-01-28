@@ -4,9 +4,9 @@
 
 pkgbase=tensorflow
 pkgname=(tensorflow tensorflow-opt tensorflow-cuda tensorflow-opt-cuda python-tensorflow python-tensorflow-opt python-tensorflow-cuda python-tensorflow-opt-cuda)
-pkgver=1.4.1
-_pkgver=1.4.1
-pkgrel=3
+pkgver=1.5.0
+_pkgver=1.5.0
+pkgrel=1
 pkgdesc="Library for computation using data flow graphs for scalable machine learning"
 url="https://www.tensorflow.org/"
 license=('APACHE')
@@ -14,10 +14,18 @@ arch=('x86_64')
 makedepends=('bazel' 'python-numpy' 'gcc6' 'cuda' 'nvidia-utils'
              'cudnn' 'python-pip' 'python-wheel' 'python-setuptools')
 optdepends=('tensorboard: Tensorflow visualization toolkit')
-source=("https://github.com/tensorflow/tensorflow/archive/v${_pkgver}.tar.gz")
-sha512sums=('618e0a740c79ad9582944a827f43bbdafb1d51a1e621f6f5e5cc7f3f18eb239f0656f81fbbae20c69029a1fa8b4bab56ff5be0907f073eccbe4732e52c7511d6')
+source=("https://github.com/tensorflow/tensorflow/archive/v${_pkgver}.tar.gz"
+        15229.patch)
+sha512sums=('63240d72b9946db29279800b1081adc4cc08b6cd7dc35155a529cc335bfc1dd16fb525fb6047f6cc0dcec547a54e7e100698a176ee93f5633965cfab2a8ad9eb'
+            '3fa052354c1b351430c2a36fa152b50802d8b46a5b22fbf427ba2589932e1ad83ee51f4e1ab1d641b1755ded46b5201f5e0d26b382e2aca72baa63567356a85f')
 
 prepare() {
+  # Trick tensorflow into not building Android. The env var
+  # TF_SET_ANDROID_WORKSPACE does not work for some reason.
+  sed -i "s/if workspace_has_any_android_rule()/if True/g" tensorflow-${_pkgver}/configure.py
+
+  patch -Np1 -d tensorflow-${_pkgver} -i ${srcdir}/15229.patch
+
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-opt
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-cuda
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-opt-cuda
@@ -25,6 +33,7 @@ prepare() {
   export PYTHON_BIN_PATH=/usr/bin/python
   export USE_DEFAULT_PYTHON_LIB_PATH=1
   export TF_NEED_JEMALLOC=1
+  export TF_NEED_OPENCL_SYCL=0
   export TF_NEED_GCP=0
   export TF_NEED_HDFS=0
   export TF_NEED_S3=0
@@ -33,15 +42,17 @@ prepare() {
   export TF_NEED_VERBS=0
   export TF_NEED_OPENCL=0
   export TF_NEED_MPI=0
+  # This should work, but doesn't:
+  # export TF_SET_ANDROID_WORKSPACE=0
 }
 
 build() {
-  _bazel_09_fix="--incompatible_load_argument_is_label=false"
+  # _bazel_09_fix="--incompatible_load_argument_is_label=false"
   cd ${srcdir}/tensorflow-${_pkgver}
   export CC_OPT_FLAGS="-march=x86-64"
   export TF_NEED_CUDA=0
   ./configure
-  bazel build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package ${_bazel_09_fix}
+  bazel build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package # ${_bazel_09_fix}
   bazel-bin/tensorflow/tools/pip_package/build_pip_package ${srcdir}/tmp
 
   cd ${srcdir}/tensorflow-${_pkgver}-cuda

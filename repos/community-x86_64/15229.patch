@@ -1,0 +1,37 @@
+From d4c33cfc944cbcac7a31811ba8f86448d8cc2e23 Mon Sep 17 00:00:00 2001
+From: Anush Elangovan <anush@nod-labs.com>
+Date: Fri, 8 Dec 2017 20:48:23 -0800
+Subject: [PATCH] [XLA] Fix XLA/tfcompile compile error on OSX
+
+This fixes issue #15196
+
+kernel_support_library.cc:99:5: error: no matching function
+for call to 'transform' std::transform(function->arg_begin(),..
+
+TEST=build tfcompile on OSX (also requires PR#14893)
+---
+ .../compiler/xla/service/llvm_ir/kernel_support_library.cc    | 11 +++++++++--
+ 1 file changed, 9 insertions(+), 2 deletions(-)
+
+diff --git a/tensorflow/compiler/xla/service/llvm_ir/kernel_support_library.cc b/tensorflow/compiler/xla/service/llvm_ir/kernel_support_library.cc
+index 5f6f9810c3a..23d2d4e87d2 100644
+--- a/tensorflow/compiler/xla/service/llvm_ir/kernel_support_library.cc
++++ b/tensorflow/compiler/xla/service/llvm_ir/kernel_support_library.cc
+@@ -111,8 +111,15 @@ void KernelSupportLibrary::EmitAndCallOutlinedKernel(
+     ir_builder->SetInsertPoint(return_inst);
+ 
+     std::vector<llvm::Value*> arg_values;
+-    std::transform(function->arg_begin(), function->arg_end(),
+-                   std::back_inserter(arg_values), std::addressof<llvm::Value>);
++    /*
++     * clang on OSX doesn't like std::transform or range for loop here.
++     * See https://github.com/tensorflow/tensorflow/issues/15196
++     */
++    for (llvm::Function::arg_iterator arg = function->arg_begin(),
++                                      arg_e = function->arg_end();
++         arg != arg_e; ++arg) {
++      arg_values.push_back(arg);
++    }
+     if (null_arg_idx != -1) {
+       arg_values.insert(arg_values.begin() + null_arg_idx, nullptr);
+     }
