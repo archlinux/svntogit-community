@@ -14,12 +14,17 @@ arch=('x86_64')
 makedepends=('bazel' 'python-numpy' 'gcc6' 'cuda' 'nvidia-utils'
              'cudnn' 'python-pip' 'python-wheel' 'python-setuptools')
 optdepends=('tensorboard: Tensorflow visualization toolkit')
-source=("https://github.com/tensorflow/tensorflow/archive/v${_pkgver}.tar.gz")
-sha512sums=('63240d72b9946db29279800b1081adc4cc08b6cd7dc35155a529cc335bfc1dd16fb525fb6047f6cc0dcec547a54e7e100698a176ee93f5633965cfab2a8ad9eb')
+source=("https://github.com/tensorflow/tensorflow/archive/v${_pkgver}.tar.gz"
+        15229.patch)
+sha512sums=('63240d72b9946db29279800b1081adc4cc08b6cd7dc35155a529cc335bfc1dd16fb525fb6047f6cc0dcec547a54e7e100698a176ee93f5633965cfab2a8ad9eb'
+            '3fa052354c1b351430c2a36fa152b50802d8b46a5b22fbf427ba2589932e1ad83ee51f4e1ab1d641b1755ded46b5201f5e0d26b382e2aca72baa63567356a85f')
 
 prepare() {
-  # Trick tensorflow into not building Android
-  echo "android_sdk_repository" > tensorflow-${_pkgver}/WORKSPACE
+  # Trick tensorflow into not building Android. The env var
+  # TF_SET_ANDROID_WORKSPACE does not work for some reason.
+  sed -i "s/if workspace_has_any_android_rule()/if True/g" tensorflow-${_pkgver}/configure.py
+
+  patch -Np1 -d tensorflow-${_pkgver} -i ${srcdir}/15229.patch
 
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-opt
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-cuda
@@ -37,6 +42,8 @@ prepare() {
   export TF_NEED_VERBS=0
   export TF_NEED_OPENCL=0
   export TF_NEED_MPI=0
+  # This should work, but doesn't:
+  # export TF_SET_ANDROID_WORKSPACE=0
 }
 
 build() {
@@ -45,7 +52,7 @@ build() {
   export CC_OPT_FLAGS="-march=x86-64"
   export TF_NEED_CUDA=0
   ./configure
-  bazel build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package# ${_bazel_09_fix}
+  bazel build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package # ${_bazel_09_fix}
   bazel-bin/tensorflow/tools/pip_package/build_pip_package ${srcdir}/tmp
 
   cd ${srcdir}/tensorflow-${_pkgver}-cuda
