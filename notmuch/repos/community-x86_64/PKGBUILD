@@ -7,7 +7,7 @@
 pkgbase=notmuch
 pkgname=('notmuch' 'notmuch-vim' 'notmuch-mutt' 'notmuch-runtime')
 pkgver=0.26
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="http://notmuchmail.org/"
 license=('GPL3')
@@ -25,10 +25,10 @@ prepare(){
 build() {
     cd "$srcdir/$pkgbase-$pkgver"
 
-    ./configure --prefix=/usr --sysconfdir=/etc --includedir=/usr/include --without-zsh-completion
-    make 
+    ./configure --prefix=/usr --sysconfdir=/etc --includedir=/usr/include --zshcompletiondir=/usr/share/zsh/site-functions
+    make
 
-    make -C "contrib/${pkgbase}-mutt" "${pkgname}-mutt.1"
+    make -C "contrib/${pkgbase}-mutt"
 
     make ruby-bindings
 
@@ -46,9 +46,13 @@ package_notmuch-runtime(){
     cd "$srcdir/$pkgbase-$pkgver"
 
     make DESTDIR="$pkgdir/" LIBDIR_IN_LDCONFIG=0 WITH_EMACS=0 install
+    make DESTDIR="$pkgdir/" WITH_BASH=1 install-completion
 
-    install -Dm755 notmuch "$pkgdir/usr/bin/notmuch"
-    rm -rf "$pkgdir/usr/share"
+    # Install manpages
+    make DESTDIR="$pkgdir" install-man
+
+    # this is provided both with and without a statically included libnotmuch.so ???
+    install -Dm755 notmuch-shared "$pkgdir/usr/bin/notmuch"
 }
 
 
@@ -75,19 +79,17 @@ package_notmuch(){
     # Install emacs parts
     make DESTDIR="$pkgdir/" install-emacs
 
-    # Install manpages
-    make DESTDIR="$pkgdir" prefix="/usr" install-man
 
     # Install ruby bindings
     sed -i 's:INSTALL = .*[^D]$:& -D:' bindings/ruby/Makefile
-    make -C bindings/ruby exec_prefix=$pkgdir/usr prefix=/usr install
+    make -C bindings/ruby exec_prefix=$pkgdir/usr install
 
     # Install python bindings
     cd "$srcdir/$pkgbase-$pkgver/bindings/python"
-    python setup.py install --prefix=/usr --root="$pkgdir"
+    python setup.py install --root="$pkgdir" --optimize=1
 
     cd "$srcdir/$pkgbase-$pkgver/bindings/python2"
-    python2 setup.py install --prefix=/usr --root="$pkgdir"
+    python2 setup.py install --root="$pkgdir" --optimize=1
 
     # Remove mimeinfo.cache (fixes FS#53629).
     rm "$pkgdir/usr/share/applications/mimeinfo.cache"
