@@ -6,7 +6,7 @@ _name=CsoundQt
 _rtmidiver=3.0.0
 pkgname=csoundqt
 pkgver=0.9.5
-pkgrel=3
+pkgrel=4
 pkgdesc="A frontend for Csound featuring a highlighting editor with autocomplete, interactive widgets and integrated help"
 arch=('x86_64')
 url="https://csoundqt.github.io/"
@@ -21,51 +21,50 @@ sha512sums=('136fb395b955e21c153ccde3642362d4451bd458af78e235808a8b911a87e24fc56
 
 prepare() {
   cd "${_name}-${pkgver}"
-  # fix system-wide locations for html, examples and scripts
+  # fix exptected location for html, examples and scripts
   sed -e 's,csdocdir = \"\",csdocdir = \"/usr/share/doc/csound/html\",' \
     -i src/csoundoptions.cpp
-  sed -e 's@/usr/share/qutecsound/Examples/@/usr/share/csoundqt/Examples/@g' \
+  sed -e 's,/usr/share/qutecsound/Examples/,/usr/share/csoundqt/Examples/,g' \
     -i src/qutecsound.cpp
-  sed 's@../../csoundqt/src/Scripts@/usr/share/csoundqt/Scripts@' \
+  sed -e 's,../../csoundqt/src/Scripts,/usr/share/csoundqt/Scripts,' \
     -i src/types.h
-  # fix icon in desktop file
-  sed -e "s/qtcs/${pkgname}/" -i ${_name}.desktop
+
+  # fix install location of examples on filesystem
+  sed -e 's@DIR/qutecsound/@DIR/csoundqt/@' -i qcs.pro
+
+  # fix desktop file
+  chmod -c 644 ${_name}.desktop
+  mv -v ${_name}.desktop ${pkgname}.desktop
+  sed -e "s/${_name}.desktop/${pkgname}.desktop/" -i qcs.pro
+
+  # fix application icon
+  sed -e "s/qtcs/${pkgname}/" -i "${pkgname}.desktop"
+  sed -e "s,icons,icons/hicolor/scalable/apps," \
+      -e "s/qtcs.svg/${pkgname}.svg/" \
+      -i qcs.pro
+  mv -v images/qtcs.svg "images/${pkgname}.svg"
+
   # move rtmidi sources
   mv ${srcdir}/rtmidi-${_rtmidiver} .
 }
 
 build() {
   cd "${_name}-${pkgver}"
-  qmake-qt5 qcs.pro CONFIG+=rtmidi "RTMIDI_DIR=rtmidi-${_rtmidiver}/"
+  qmake-qt5 qcs.pro DESTDIR="${pkgdir}" \
+    SHARE_DIR="${pkgdir}/usr/share" \
+    INSTALL_DIR="${pkgdir}/usr" \
+    CONFIG+=rtmidi \
+    RTMIDI_DIR="rtmidi-${_rtmidiver}/"
   make
 }
 
 package() {
   cd "${_name}-${pkgver}"
-  # executable
-  install -vDm755 "bin/${_name}-d-cs6" "${pkgdir}/usr/bin/${pkgname}"
-  # docs
-  install -vDm644 doc/*.pdf  -t "${pkgdir}/usr/share/doc/${pkgname}"
-  # mime types and icon
-  install -vDm644 mime-types/*.xml -t "${pkgdir}/usr/share/mime/packages/"
-  install -vDm644 mime-types/csound-light-128.png \
-    "${pkgdir}/usr/share/icons/hicolor/128x128/mimetypes/csound.png"
-  # desktop file and icon
-  install -vDm644 "${_name}.desktop" \
-    "${pkgdir}/usr/share/applications/${pkgname}.desktop"
-  install -vDm644 images/qtcs.png \
-    "${pkgdir}/usr/share/icons/hicolor/128x128/apps/${pkgname}.png"
+  echo "${pkgdir}/"
+  make install
 
-  # examples
-  find examples -type f -print0 | xargs -0 -n1 -i{} install -Dm644 '{}' \
-    "$pkgdir/usr/share/doc/${pkgname}/"'{}'
-  cd src
-  find Examples -type f -print0 | xargs -0 -n1 -i{} install -Dm644 '{}' \
-    "$pkgdir/usr/share/${pkgname}/"'{}'
-
-#  # pythonqt scripts (disabled until pythonqt is included properly)
-#  find Scripts -type f -print0 | xargs -0 -n1 -i{} install -Dm644 '{}' \
-#    "$pkgdir/usr/share/${pkgname}/"'{}'
+  install -t "${pkgdir}/usr/share/doc/${pkgname}/" \
+    -vDm644 {ChangeLog,README.md}
 }
 
 # vim:set ts=2 sw=2 et:
