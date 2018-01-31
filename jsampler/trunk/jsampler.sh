@@ -1,2 +1,2 @@
-#!/bin/bash
-java -jar /usr/share/java/jsampler/fantasia.jar
+#!/bin/sh
+java -jar /usr/share/java/jsampler/fantasia.jar "$@"
