@@ -4,15 +4,14 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2017.3
+pkgver=2018.3
 pkgrel=1
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
-source=(https://pypi.python.org/packages/60/88/d3152c234da4b2a1f7a989f89609ea488225eaea015bc16fbde2b3fdfefa/pytz-2017.3.zip{,.asc})
-md5sums=('7006b56c0d68a162d9fe57d4249c3171'
-         'SKIP')
+source=("https://pypi.io/packages/source/p/pytz/pytz-${pkgver}.tar.gz")
+md5sums=('abb07c09c79f78d7c04f222a550c99ef')
 validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
 
 build(){
