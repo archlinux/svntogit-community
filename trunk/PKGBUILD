@@ -4,23 +4,33 @@
 
 _hkgname=shake
 pkgname=haskell-shake
-pkgver=0.16
-pkgrel=12
+pkgver=0.16.1
+pkgrel=1
 pkgdesc="Build system library, like Make, but more accurate dependencies."
 url="http://shakebuild.com"
 license=("custom:BSD3")
 arch=('x86_64')
 depends=('ghc-libs' 'haskell-extra' 'haskell-hashable' 'haskell-js-flot' 'haskell-js-jquery'
          'haskell-primitive' 'haskell-random' 'haskell-unordered-containers' 'haskell-utf8-string')
-makedepends=('ghc')
+makedepends=('ghc' 'haskell-quickcheck')
 source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
-sha512sums=('0e34cc3a9551e3da099a0c81a1982dc70a808c03db1b7a05d053f5f1159627b17b28c78c290e9fd0949da02f87ee987937e623ebcdc335cd65442518bd33f5f0')
+sha512sums=('24feb974ccf13e4a0fe30fde7f582ab02dd408667d5a623e3b25b493110e34defa093afe704d8533ee6eed191f0c4e49dae60288f5afb7c087a4763fb44ffd7a')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/ghc --make/ghc -dynamic --make/' src/Test/Command.hs
+    sed -e 's/runhaskell Setup.hs configure/runhaskell Setup.hs configure --enable-executable-dynamic --disable-library-vanilla/' \
+        -e 's/ghc -fno-code/ghc -dynamic -fno-code/' \
+        -i src/Test/Docs.hs
+    sed -i 's/cmd "ghc" flags/cmd "ghc" "-dynamic" flags/' src/Test/Self.hs
+    sed -i 's/ghc --make/ghc -dynamic --make/' docs/manual/build.sh
+}
 
 build() {
-    cd "${srcdir}/${_hkgname}-${pkgver}"
+    cd $_hkgname-$pkgver
 
     runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
-        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname"  --enable-tests \
         --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
             -f-portable
     runhaskell Setup build
@@ -30,8 +40,13 @@ build() {
     sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
 }
 
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
 package() {
-    cd "${srcdir}/${_hkgname}-${pkgver}"
+    cd $_hkgname-$pkgver
 
     install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
     install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
