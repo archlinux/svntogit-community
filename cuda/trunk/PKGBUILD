@@ -1,7 +1,8 @@
 # $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
-pkgver=9.1.85
+pkgver=9.1.85.1
+_basever=9.1.85
 pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
@@ -14,17 +15,19 @@ optdepends=('gdb: for cuda-gdb'
             'java-runtime: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
-source=(https://developer.nvidia.com/compute/cuda/9.1/Prod/local_installers/cuda_${pkgver}_387.26_linux
+source=(https://developer.nvidia.com/compute/cuda/9.1/Prod/local_installers/cuda_${_basever}_387.26_linux
+        https://developer.nvidia.com/compute/cuda/9.1/Prod/patches/1/cuda_9.1.85.1_linux
         cuda.sh
         cuda.conf
         cuda-findgllib_mk.diff)
 sha512sums=('492a5fa58fc93ac718ca093f24bb5e74dd2586338c42f2e11e328c7f16756e3511a1c555b12cb1990bb782d0d1600976f4c9e5b3d4857e371b0431daf06b2827'
+            'a29099ffad3470b8fe3a64c2ad675fd7950bd63dcf722dd19083c7daba55be90755456b937347ae3323b50d797a138f81daefddfd37228a6f75b2341dbd861fa'
             'ce0b8df5d918ec8429da4ab8f9dee463ac04055ee5b0beeb0386b67d765a4c892d314995776a0d695cd06bcfbaf996e4904935ddc898a9d774f6bf965d989dea'
             '66bd93ecab7e1aa07218c3dd1c96e460f63ed4ac47e853ecb313c78a58e5425c8a5772f1c7f73d696bf5f93fc3e556a046a4ed955a53d900976ac525abd1f518'
             '6e9a15c73849e6400b0289ed9d6e9d3b7f100712713efcb7bbf4921f39fe671cd9fd3958e735c0da3a44f9afdd2aca94dbc63b564970a0dcacba599b570aca0f')
 
 prepare() {
-  sh cuda_${pkgver}_387.26_linux --extract=${srcdir}
+  sh cuda_${_basever}_387.26_linux --extract=${srcdir}
   ./cuda-*.run --noexec --keep
   ./cuda-samples*.run --noexec --keep
 
@@ -55,6 +58,7 @@ package() {
   export PERL5LIB=.
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
+  sh "${srcdir}"/cuda_9.1.85.1_linux --silent --accept-eula --installdir="${pkgdir}/opt/cuda"
 
   # Hack we need because of glibc 2.26 (https://bugs.archlinux.org/task/55580)
   # without which we couldn't compile anything at all.
