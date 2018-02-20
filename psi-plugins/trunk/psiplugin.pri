@@ -13,6 +13,6 @@ INCLUDEPATH += .ui/
 target.path = /usr/lib/psi-plus/plugins
 INSTALLS += target
 
-INCLUDEPATH += /usr/include/psi-plus/plugins
+INCLUDEPATH += /usr/include/psi/plugins
 
 DEFINES += HAVE_QT5
