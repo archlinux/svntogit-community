@@ -10,7 +10,7 @@ UI_DIR = .ui/
 
 INCLUDEPATH += .ui/
 
-target.path = /usr/lib/psi-plus/plugins
+target.path = /usr/lib/psi/plugins
 INSTALLS += target
 
 INCLUDEPATH += /usr/include/psi/plugins
