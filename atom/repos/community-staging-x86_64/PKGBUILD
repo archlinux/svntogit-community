@@ -1,0 +1,111 @@
+# $Id$
+# Maintainer: Nicola Squartini <tensor5@gmail.com>
+
+pkgname=atom
+pkgver=1.24.0
+pkgrel=2
+pkgdesc='A hackable text editor for the 21st Century'
+arch=('x86_64')
+url='https://github.com/atom/atom'
+license=('MIT' 'custom')
+depends=('apm' 'electron' 'libxkbfile')
+makedepends=('git' 'npm')
+optdepends=('ctags: symbol indexing support'
+            'git: Git and GitHub integration')
+replaces=('atom-editor')
+options=(!emptydirs)
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/atom/atom/archive/v${pkgver}.tar.gz"
+        'dugite-use-system-git.patch'
+        'fix-atom-sh.patch'
+        'fix-license-path.patch'
+        'fix-node8.patch'
+        'fix-restart.patch'
+        'symbols-view-use-system-ctags.patch'
+        'use-system-apm.patch'
+        'use-system-electron.patch')
+sha256sums=('7494fba115b214e29d3977cc1a3b08b94d0e88cad65b0d506d40904e3f967bbc'
+            'bbc07c111fe808b49b62198e17e8da5d3192faf281d5d84ac7cd493ed92bb2ba'
+            '7f4f86387d226fcd452f0b97579dadc3eac217a77485228dbf4facf3391b6198'
+            'ef8cc9f8c6a3e0359a19b876653c4d6a0ef1224c2d4e06f3e5d535c772292f4f'
+            'eb771d7c009be8d48c1387ed63f3e575dc12f3bd69455b4be4b78ab57cb49b86'
+            '34625e26f1089a068582bd43a9a3755b3f5186b90dcc097b519def8f701d9f3a'
+            '3c68e6b3751313e1d386e721f8f819fb051351fb2cf8e753b1d773a0f475fef8'
+            '4b91a1acd112838bd001f4e3c555de2a5fc7446c9eab6bc5dae0ca640306e81b'
+            '3e16f307de4f4bbe247d0e3aaba4abcd74b8d2668898613432dd0fee8f37ce95')
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  patch -Np1 -i "${srcdir}"/fix-atom-sh.patch
+  patch -Np1 -i "${srcdir}"/use-system-electron.patch
+  patch -Np1 -i "${srcdir}"/use-system-apm.patch
+  patch -Np1 -i "${srcdir}"/fix-license-path.patch
+  patch -Np1 -i "${srcdir}"/fix-node8.patch
+  patch -Np1 -i "${srcdir}"/fix-restart.patch
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  export ATOM_RESOURCE_PATH="$srcdir/atom-$pkgver"
+  # If unset, ~/.atom/.node-gyp/.atom/.npm is used
+  export NPM_CONFIG_CACHE="${HOME}/.atom/.npm"
+  apm clean
+  apm install
+
+  # Use system ctags
+  cd node_modules/symbols-view
+  patch -Np1 -i "${srcdir}"/symbols-view-use-system-ctags.patch
+  rm -r vendor
+  cd ../..
+
+  # Use system git (TODO: set LOCAL_GIT_DIRECTORY=/usr)
+  cd node_modules/dugite
+  patch -Np1 -i "${srcdir}"/dugite-use-system-git.patch
+  rm -r git
+  cd ../..
+
+  cd script
+  npm install
+  ./build
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  install -d -m 755 "${pkgdir}"/usr/lib
+  cp -r out/app "${pkgdir}"/usr/lib/atom
+
+  install -d -m 755 "${pkgdir}/usr/share/applications"
+  sed -e "s|<%= appName %>|Atom|" \
+      -e "s/<%= description %>/${pkgdesc}/" \
+      -e "s|<%= installDir %>/share/<%= appFileName %>/atom|electron --app=/usr/lib/atom|" \
+      -e "s|<%= iconPath %>|atom|" \
+      resources/linux/atom.desktop.in > "${pkgdir}/usr/share/applications/atom.desktop"
+
+  for size in 16 24 32 48 64 128 256 512 1024; do
+    install -D -m 644 resources/app-icons/stable/png/${size}.png \
+            "${pkgdir}"/usr/share/icons/hicolor/${size}x${size}/apps/atom.png
+  done
+  ln -sf ../../../share/icons/hicolor/1024x1024/apps/atom.png \
+      "${pkgdir}"/usr/lib/atom/resources/atom.png
+
+  install -D -m 755 atom.sh "${pkgdir}/usr/bin/atom"
+
+  install -d -m 755 "${pkgdir}/usr/share/licenses/${pkgname}"
+  node -e "require('./script/lib/get-license-text')().then((licenseText) => require('fs').writeFileSync('${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md', licenseText))"
+
+  # Remove useless stuff
+  rm "${pkgdir}"/usr/lib/atom/node_modules/.bin/pegjs
+  find "${pkgdir}"/usr/lib/atom/node_modules \
+      -name "*.a" -exec rm '{}' \; \
+      -or -name "*.bat" -exec rm '{}' \; \
+      -or -name "*.node" -exec chmod a-x '{}' \; \
+      -or -name "benchmark" -prune -exec rm -r '{}' \; \
+      -or -name "doc" -prune -exec rm -r '{}' \; \
+      -or -name "html" -prune -exec rm -r '{}' \; \
+      -or -name "man" -prune -exec rm -r '{}' \; \
+      -or -name "scripts" -prune -exec rm -r '{}' \; \
+      -or -path "*/less/gradle" -prune -exec rm -r '{}' \; \
+      -or -path "*/task-lists/src" -prune -exec rm -r '{}' \;
+}
