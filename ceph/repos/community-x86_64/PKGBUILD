@@ -3,7 +3,7 @@
 
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs')
-pkgver=12.2.3
+pkgver=12.2.4
 pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
@@ -26,7 +26,7 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'fix-or-disable-broken-tests.patch'
         'fix-python2-paths.patch'
         'remove-distro-version-detection.patch')
-sha512sums=('3cdc105a64a68b07f55e9ea5cb8880e3eac882937313a2a8e454e34325443cee1675413d3e2148f944ecaf32be35a1384bd0a662ca58bdb2d2ab3c9eff518cd2'
+sha512sums=('ce9ec49e8693d11345adb3a219763cc76b626db2c26d8d9ba08ff0a4d6fdeb08739da29bb87ff0946fed8e6fd55c8db0672cb286f7ebb90cf2e11a47042ba5d6'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
             '40446e298ab6b735b149d26ac26d273d6e159c319bb79f112614f1d4933a5a2684007fc9a1d660c5d4a17075d8bac59019c6cc7e66d64d4e240a1a61454800ef'
