@@ -6,17 +6,24 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=2.21
+pkgver=3.3
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
 
-source=("https://github.com/wine-compholio/wine-patched/archive/staging-$_pkgbasever.tar.gz"
+source=(https://dl.winehq.org/wine/source/3.x/wine-$_pkgbasever.tar.xz{,.sign}
+        "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
         harmony-fix.diff
-        30-win32-aliases.conf)
-sha512sums=('4e3fe2eb81360bfa095194ab5b9647636cbeac0dc3955e6a3ee26062f650c66a4bd2353a1cd8063f9b7c65a6bcc1f892cc7c1d0f00c3c8525a124ec2109d1e86'
+        30-win32-aliases.conf
+        wine-binfmt.conf)
+sha512sums=('c9e4c75e94d745837208bf877b19c4e4e46df1e78082d21e716f52c9f9d93eaabbec8bf34783cda68e4275f53e37929b81ac128e5b8a13c1e5035223b2621d6a'
+            'SKIP'
+            '02d48a9c403b93d01ca37b74af5dc81f86e49c72d67f194c71ccebd4556fa72c473728a1b1f9d5325c6f85f4e41bb7072a1183a2d81cafa8888e00dc53d12166'
             'b86edf07bfc560f403fdfd5a71f97930ee2a4c3f76c92cc1a0dbb2e107be9db3bed3a727a0430d8a049583c63dd11f5d4567fb7aa69b193997c6da241acc4f2e'
-            '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb')
+            '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
+            'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
+validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
+              DA23579A74D4AD9AF9D3F945CEFAC8EAAF17519D)
 
 pkgdesc="A compatibility layer for running Windows programs - Staging branch"
 url="http://www.wine-staging.com"
@@ -24,7 +31,7 @@ arch=(x86_64)
 options=(staticlibs)
 license=(LGPL)
 
-_depends=(
+depends=(
   attr             lib32-attr
   fontconfig       lib32-fontconfig
   lcms2            lib32-lcms2
@@ -43,7 +50,7 @@ _depends=(
 )
 
 makedepends=(autoconf ncurses bison perl fontforge flex
-  'gcc>=4.5.0-2'   'gcc-multilib>=4.5.0-2'
+  'gcc>=4.5.0-2'
   giflib                lib32-giflib
   libpng                lib32-libpng
   gnutls                lib32-gnutls
@@ -65,6 +72,8 @@ makedepends=(autoconf ncurses bison perl fontforge flex
   libva                 lib32-libva
   gtk3                  lib32-gtk3
   gst-plugins-base-libs lib32-gst-plugins-base-libs
+  vulkan-icd-loader     lib32-vulkan-icd-loader
+  sdl2                  lib32-sdl2
   samba
   opencl-headers
 )
@@ -90,28 +99,24 @@ optdepends=(
   gtk3                  lib32-gtk3
   gst-plugins-base-libs lib32-gst-plugins-base-libs
   vulkan-icd-loader     lib32-vulkan-icd-loader
+  sdl2                  lib32-sdl2
   cups
   samba           dosbox
 )
 
-if [[ $CARCH == i686 ]]; then
-  # Strip lib32 etc. on i686
-  _depends=(${_depends[@]/*32-*/})
-  makedepends=(${makedepends[@]/*32-*/} ${_depends[@]})
-  makedepends=(${makedepends[@]/*-multilib*/})
-  optdepends=(${optdepends[@]/*32-*/})
-  provides=("wine=$pkgver")
-  conflicts=('wine')
-else
-  makedepends=(${makedepends[@]} ${_depends[@]})
-  provides=("wine=$pkgver" "wine-wow64=$pkgver")
-  conflicts=('wine' 'wine-wow64')
-fi
+provides=("wine=$pkgver" "wine-wow64=$pkgver")
+conflicts=('wine' 'wine-wow64')
+install=wine.install
 
 prepare() {
   # Allow ccache to work
-  mv wine-patched-staging-$_pkgbasever $pkgname
+  mv wine-$_pkgbasever $pkgname
 
+  # apply wine-staging patchset
+  pushd wine-staging-$_pkgbasever/patches
+  ./patchinstall.sh DESTDIR="$srcdir/$pkgname" --all
+  popd
+  
   # https://bugs.winehq.org/show_bug.cgi?id=43530
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
@@ -122,71 +127,59 @@ prepare() {
 
   # Get rid of old build dirs
   rm -rf $pkgname-{32,64}-build
-  mkdir $pkgname-32-build
+  mkdir $pkgname-{32,64}-build
 }
 
 build() {
   cd "$srcdir"
 
-  if [[ $CARCH == x86_64 ]]; then
-    msg2 "Building Wine-64..."
+  msg2 "Building Wine-64..."
 
-    mkdir $pkgname-64-build
-    cd "$srcdir/$pkgname-64-build"
-    ../$pkgname/configure \
-      --prefix=/usr \
-      --libdir=/usr/lib \
-      --with-x \
-      --with-gstreamer \
-      --enable-win64 \
-      --with-xattr
+  cd "$srcdir/$pkgname-64-build"
+  ../$pkgname/configure \
+    --prefix=/usr \
+    --libdir=/usr/lib \
+    --with-x \
+    --with-gstreamer \
+    --enable-win64 \
+    --with-xattr
 
-    make
-
-    _wine32opts=(
-      --libdir=/usr/lib32
-      --with-wine64="$srcdir/$pkgname-64-build"
-    )
-
-    export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
-  fi
+  make
 
   msg2 "Building Wine-32..."
+
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
   cd "$srcdir/$pkgname-32-build"
   ../$pkgname/configure \
     --prefix=/usr \
     --with-x \
     --with-gstreamer \
     --with-xattr \
-    "${_wine32opts[@]}"
+    --libdir=/usr/lib32 \
+    --with-wine64="$srcdir/$pkgname-64-build"
 
   make
 }
 
 package() {
-  depends=(${_depends[@]})
-
   msg2 "Packaging Wine-32..."
   cd "$srcdir/$pkgname-32-build"
 
-  if [[ $CARCH == i686 ]]; then
-    make prefix="$pkgdir/usr" install
-  else
-    make prefix="$pkgdir/usr" \
-      libdir="$pkgdir/usr/lib32" \
-      dlldir="$pkgdir/usr/lib32/wine" install
+  make prefix="$pkgdir/usr" \
+    libdir="$pkgdir/usr/lib32" \
+    dlldir="$pkgdir/usr/lib32/wine" install
 
-    msg2 "Packaging Wine-64..."
-    cd "$srcdir/$pkgname-64-build"
-    make prefix="$pkgdir/usr" \
-      libdir="$pkgdir/usr/lib" \
-      dlldir="$pkgdir/usr/lib/wine" install
-  fi
+  msg2 "Packaging Wine-64..."
+  cd "$srcdir/$pkgname-64-build"
+  make prefix="$pkgdir/usr" \
+    libdir="$pkgdir/usr/lib" \
+    dlldir="$pkgdir/usr/lib/wine" install
 
   # Font aliasing settings for Win32 applications
   install -d "$pkgdir"/etc/fonts/conf.{avail,d}
   install -m644 "$srcdir/30-win32-aliases.conf" "$pkgdir/etc/fonts/conf.avail"
   ln -s ../conf.avail/30-win32-aliases.conf "$pkgdir/etc/fonts/conf.d/30-win32-aliases.conf"
+  install -Dm 644 "$srcdir/wine-binfmt.conf" "$pkgdir/usr/lib/binfmt.d/wine.conf"
 }
 
 # vim:set ts=8 sts=2 sw=2 et:
