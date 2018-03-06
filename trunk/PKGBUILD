@@ -8,13 +8,13 @@ pkgrel=1
 _snapshot=7-20180125
 pkgdesc='The GNU Compiler Collection - cross compiler for ARM64 target'
 arch=(x86_64)
-url='http://gcc.gnu.org/'
+url='https://gcc.gnu.org/'
 license=(GPL LGPL FDL)
 depends=($_target-binutils $_target-glibc libmpc zlib)
 makedepends=(gmp mpfr)
 options=(!emptydirs !strip)
-source=(#ftp://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
-        ftp://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.xz
+source=(#https://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
+        https://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.xz
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
 sha256sums=('f4cad0895aa6dd237cbcb6e81750e40c3fb3eba8a5bcdf25a21c4ee5520c344b'
             '6b8b0fd7f81d0a957beb3679c81bbb34ccc7568d5682844d8924424a0dadcb1b')
@@ -77,7 +77,7 @@ build() {
 package() {
   cd gcc-build
 
-  make DESTDIR="$pkgdir" install-gcc install-target-libgcc install-target-libstdc++-v3 
+  make DESTDIR="$pkgdir" install-gcc install-target-libgcc install-target-libstdc++-v3
 
   # strip target binaries
   find "$pkgdir"/usr/lib/gcc/$_target/ "$pkgdir"/usr/$_target/lib -type f -and \( -name \*.a -or -name \*.o \) -exec $_target-objcopy -R .comment -R .note -R .debug_info -R .debug_aranges -R .debug_pubnames -R .debug_pubtypes -R .debug_abbrev -R .debug_line -R .debug_str -R .debug_ranges -R .debug_loc '{}' \;
