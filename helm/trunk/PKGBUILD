@@ -1,11 +1,11 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=helm
 pkgver=0.9.0
-pkgrel=5
+pkgrel=6
 pkgdesc="A cross-platform, polyphonic synthesizer, available standalone and as an LV2 plugin"
 arch=('x86_64')
 url="http://tytel.org/helm/"
-license=('GPL')
+license=('GPL3')
 groups=('pro-audio' 'lv2-plugins')
 depends=('alsa-lib' 'curl' 'freetype2' 'hicolor-icon-theme' 'libxinerama' 'lv2' 'mesa')
 makedepends=('jack' 'libxcursor')
@@ -26,4 +26,5 @@ build() {
 package() {
   cd "${pkgname}-${pkgver}"
   make DESTDIR="$pkgdir/" install_standalone install_lv2
+  install -vDm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
 }
