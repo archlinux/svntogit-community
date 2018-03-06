@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.5.2
+pkgver=10.5.3
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -36,7 +36,7 @@ source=("$pkgname-$pkgver.tar.bz2::https://gitlab.com/gitlab-org/gitlab-ce/repos
         gitlab.logrotate
         yarn.lock)
 install='gitlab.install'
-sha512sums=('7f280d48f299d5901f2be0ef3f859fff9c7ba085f0df08e4dad0cecbf0a85fc0c0edde2375c1c96ffb4d79b5ad3909e24baf019a31556aa16480a60e999a89a8'
+sha512sums=('7cfa5ee14c9c6c4870f1c589a41c52233d180f73480ff55389fa0a8dc07d76873214d130990224fb5fd6ddcbd5a528fd4265354ee29a46de1f4f5147466fb6d0'
             '7c0fefe753eda3b80f892f62ef5ca733495b05a0bc94bf6a3db6e455c491f3e534e758f55f320898dfecfc1a799dedfeb573d555ad006a43eb6d0ab289dcd753'
             '14f428525309397f8e9e7dca38b107a5267a124c03cdea67c10ebf271f8e18cefe5b52dd8af0ab146ab41f1a8eef4e05be746171ea11cb43464254965f12436a'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
