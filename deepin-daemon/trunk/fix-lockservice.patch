@@ -1,0 +1,73 @@
+From b5c7466e498c341d33410dca3d4d84f83ad53ec9 Mon Sep 17 00:00:00 2001
+From: jouyouyun <jouyouwen717@gmail.com>
+Date: Tue, 27 Feb 2018 15:13:07 +0800
+Subject: [PATCH] fix(lockservice): fix event crash after the frequent unlocking
+
+Change-Id: Ib045d91eb1c3c89bcc2bf6c8716aebc14fbcd271
+---
+
+diff --git a/bin/dde-lockservice/manager.go b/bin/dde-lockservice/manager.go
+index dfa4167..ba60787 100644
+--- a/bin/dde-lockservice/manager.go
++++ b/bin/dde-lockservice/manager.go
+@@ -164,6 +164,7 @@
+ 	id := getId(pid, username)
+ 	_, ok := m.authUserTable[id]
+ 	if ok {
++		log.Println("In authenticating:", id)
+ 		m.authLocker.Unlock()
+ 		return nil
+ 	}
+@@ -216,6 +217,12 @@
+ 		// 	// TODO: read data from input
+ 		// 	return "", nil
+ 		case pam.PromptEchoOff, pam.PromptEchoOn:
++			if password != "" {
++				tmp := password
++				password = ""
++				return tmp, nil
++			}
++
+ 			if msg != "" {
+ 				if style == pam.PromptEchoOff {
+ 					log.Println("Echo off:", msg)
+@@ -224,12 +231,6 @@
+ 					log.Println("Echo on:", msg)
+ 					m.sendEvent(PromptQuestion, pid, username, msg)
+ 				}
+-			}
+-
+-			if password != "" {
+-				tmp := password
+-				password = ""
+-				return tmp, nil
+ 			}
+ 
+ 			id := getId(pid, username)
+@@ -241,7 +242,17 @@
+ 			}
+ 			log.Println("Join select:", id)
+ 			select {
+-			case tmp := <-v:
++			case tmp, ok := <-v:
++				if !ok {
++					log.Println("Invalid select channel")
++					return "", nil
++				}
++
++				m.authLocker.Lock()
++				delete(m.authUserTable, id)
++				m.authLocker.Unlock()
++				close(v)
++				v = nil
+ 				return tmp, nil
+ 			}
+ 		case pam.ErrorMsg:
+@@ -273,6 +284,7 @@
+ 	if ok {
+ 		if v != nil {
+ 			close(v)
++			v = nil
+ 		}
+ 		delete(m.authUserTable, id)
+ 	}
