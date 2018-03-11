@@ -1,37 +1,34 @@
 # $Id$
-# Maintainer:
+# Maintainer: David Runge <dave@sleepmap.de>
 
 pkgname=ssmtp
 pkgver=2.64
-pkgrel=9
+pkgrel=10
 pkgdesc="Extremely simple MTA to get mail off the system to a mailhub"
 arch=('x86_64')
 license=('GPL')
-url="http://packages.debian.org/stable/mail/ssmtp"
+url="https://tracker.debian.org/pkg/ssmtp"
 depends=('openssl' 'inetutils')
-conflicts=('exim' 'smtp-forwarder')
+conflicts=('smtp-forwarder')
 provides=('smtp-forwarder')
 backup=('etc/ssmtp/ssmtp.conf' 'etc/ssmtp/revaliases')
 options=('!makeflags' '!emptydirs')
 source=("http://ftp.debian.org/debian/pool/main/s/ssmtp/${pkgname}_${pkgver}.orig.tar.bz2"
         'opessl_crypto.patch'
         'build-idempotency.patch')
-md5sums=('65b4e0df4934a6cd08c506cabcbe584f'
-         'aeb4ed09a26eefea9a5f6ac755c4dff0'
-         '589925d042ab01bd692ba68cb25d404f')
+sha512sums=('911752e744420adf58552b9cf3a6e558d8b39103e5ad33a9ed4429b9a3a2091f7674aac11fe9bbd66747a61cdabe6bd638b80efcaadc86b057c12e2e235cca72'
+            '841fae386d155d989bb7202a2010107c5742ccff423aed50613d4ec7eb82a23cfa4818f08dc248d28c8db8569a27e3722181ad1282903cc93b8a1bfd9381ef75'
+            'f66a5b344cd0da8d7be116a634a73681372628447a4d566024b3ccdad4092fe54b2b6ff529575cf340a09f62d55debe680d136c24739901606c7a2551037fddc')
 
 prepare() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
-
+  cd "${pkgname}-${pkgver}"
   patch -p1 -i "${srcdir}/opessl_crypto.patch"
   patch -p1 -i "${srcdir}/build-idempotency.patch"
+  autoreconf -vfi
 }
 
 build() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
-
-  autoreconf
-
+  cd "${pkgname}-${pkgver}"
   ./configure --prefix=/usr \
               --sysconfdir=/etc \
               --mandir=/usr/share/man \
@@ -42,15 +39,28 @@ build() {
 }
 
 package() {
-  cd "${srcdir}/${pkgname}-${pkgver}"
-  yes | make prefix="${pkgdir}/usr" mandir="${pkgdir}/usr/share/man/man8" etcdir="${pkgdir}/etc" install
+  cd "${pkgname}-${pkgver}"
+  # auto-answer inputs
+  yes | make prefix="${pkgdir}/usr" \
+             mandir="${pkgdir}/usr/share/man/man8" \
+             etcdir="${pkgdir}/etc" install
 
-  install -D -m644 ssmtp.conf.5 "${pkgdir}/usr/share/man/man5/ssmtp.conf.5"
+  # man
+  install -vDm644 "${pkgname}.conf.5" \
+    "${pkgdir}/usr/share/man/man5/${pkgname}.conf.5"
 
-  ln -s ssmtp "${pkgdir}/usr/sbin/sendmail"
-  ln -s ssmtp "${pkgdir}/usr/sbin/newaliases"
-  ln -s ssmtp "${pkgdir}/usr/sbin/mailq"
-  # usrmove
-  cd "$pkgdir"
-  mv usr/sbin usr/bin
+  # don't use /usr/sbin
+  mv "${pkgdir}/usr/sbin" "${pkgdir}/usr/bin"
+  # symlinks for smtp-forwarder
+  ln -sv ssmtp "${pkgdir}/usr/bin/sendmail"
+  ln -sv ssmtp "${pkgdir}/usr/bin/newaliases"
+  ln -sv ssmtp "${pkgdir}/usr/bin/mailq"
+
+  # set ownership and permissions for configuration and exectuables
+  # FS#57787
+  chgrp -R mail "${pkgdir}/etc/${pkgname}" \
+    "${pkgdir}/usr/bin/"{${pkgname},sendmail,newaliases,mailq}
+  chmod -R 640 "${pkgdir}/etc/${pkgname}"
+  # setgid executables
+  chmod 2755 "${pkgdir}/usr/bin/"{${pkgname},sendmail,newaliases,mailq}
 }
