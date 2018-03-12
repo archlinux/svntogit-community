@@ -5,15 +5,15 @@
 
 pkgbase=lazarus
 pkgname=('lazarus' 'lazarus-gtk2' 'lazarus-qt5')
-pkgver=1.8.0
-pkgrel=2
+pkgver=1.8.2
+pkgrel=1
 url='http://www.lazarus.freepascal.org/'
 license=('GPL2' 'MPL' 'custom:modifiedLGPL')
 arch=('x86_64')
 makedepends=('fpc' 'fpc-src' 'gtk2' 'qt5pas' 'rsync')
 options=('!emptydirs' '!makeflags')
 source=("https://downloads.sourceforge.net/project/lazarus/Lazarus%20Zip%20_%20GZip/Lazarus%20${pkgver}/lazarus-$pkgver.tar.gz")
-sha512sums=('dd5e02e9c0a057cf9a6b2c15605969cf4cb743aa78fc81bfdc7c566434127893cf32bab5bd1729f79b51c611bf9ae015bea8d774e0544ead42a064f1224ffd7b')
+sha512sums=('3dddbf3bfacb0b04c427086c911a4ff67be0d5b291d23c1efce2d813e2cbd2e26b54b2851b5ad223f8df8c2652c002bc684a54c936a0a77c85ccdce08651531b')
 
 build() {
   cd "$srcdir"/${pkgbase}
