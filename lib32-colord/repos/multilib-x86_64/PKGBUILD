@@ -6,55 +6,56 @@
 # Contributor: Ionut Biru <ibiru@archlinux.org>
 
 pkgname=lib32-colord
-pkgver=1.4.1
+pkgver=1.4.2
 pkgrel=1
 pkgdesc='System daemon for managing color devices'
 arch=('x86_64')
 url='https://www.freedesktop.org/software/colord'
 license=('GPL2')
 depends=('colord' 'lib32-dconf' 'lib32-libgudev' 'lib32-libgusb' 'lib32-lcms2'
-         'lib32-polkit' 'lib32-sqlite')
+         'lib32-polkit' 'lib32-sqlite' 'lib32-dbus')
 makedepends=('argyllcms' 'gcc-multilib' 'gobject-introspection' 'intltool'
-             'meson' 'python2' 'sane' 'vala')
-source=("https://www.freedesktop.org/software/colord/releases/colord-${pkgver}.tar.xz")
-sha256sums=('2b068fc8298265a7a3b68e7516c7a263394cff57579af0d1c0fb6b7429230555')
+             'meson' 'python2' 'sane' 'vala' 'git')
+options=(!emptydirs)
+_commit=5b9aa8de432579a2636f13ad6895928f42511081  # tags/1.4.2^0
+source=("git+https://github.com/hughsie/colord#commit=$_commit"
+        0001-Make-cd_color_get_blackbody_rgb_full-safer.patch)
+sha256sums=('SKIP'
+            '73689805d46705c8680d9ae979a2f5203f661741e56aa07dc627b36059ab404b')
+validpgpkeys=('163EB50119225DB3DF8F49EA17ACBA8DFA970E17')  # Richard Hughes
+
+pkgver() {
+  cd colord
+  git describe --tags | sed 's/-/+/g'
+}
 
 prepare() {
-  if [[ -d build ]]; then
-    rm -rf build
-  fi
-  mkdir build
+  cd colord
+  patch -Np1 -i ../0001-Make-cd_color_get_blackbody_rgb_full-safer.patch
 }
 
 build() {
-  cd build
-
   export CC='gcc -m32'
   export CXX='g++ -m32'
   export PKG_CONFIG_PATH='/usr/lib32/pkgconfig'
 
-  meson setup ../colord-${pkgver} \
-    --buildtype='release' \
-    --prefix='/usr' \
-    --libdir='/usr/lib32' \
-    --libexecdir='/usr/lib32/colord' \
-    --localstatedir='/var' \
-    -Denable-bash-completion='false' \
-    -Denable-docs='false' \
-    -Denable-libcolordcompat='true' \
-    -Denable-man='false' \
-    -Denable-systemd='false' \
-    -Denable-tests='false' \
-    -Denable-vala='true' \
-    -Dwith-daemon-user='colord'
-  ninja
+  arch-meson colord build \
+    --libdir=/usr/lib32 \
+    -Denable-bash-completion=false \
+    -Denable-docs=false \
+    -Denable-man=false \
+    -Denable-tests=false \
+    -Denable-libcolordcompat=true \
+    -Denable-sane=false \
+    -Denable-vala=true \
+    -Denable-print-profiles=false \
+    -Dwith-daemon-user=colord
+  ninja -C build
 }
 
 package() {
-  cd build
-
-  DESTDIR="${pkgdir}" ninja install
-  rm -rf "${pkgdir}"/{etc,var,usr/{bin,include,lib,share}}
+  DESTDIR="$pkgdir" ninja -C build install
+  rm -r "$pkgdir"/usr/{bin,include,lib,share}
 }
 
-# vim: ts=2 sw=2 et:
+# vim:set ts=2 sw=2 et:
