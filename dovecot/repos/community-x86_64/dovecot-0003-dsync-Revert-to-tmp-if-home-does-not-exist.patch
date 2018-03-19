@@ -1,0 +1,49 @@
+From f46b7c33c884b41a614a18187268db351c9d6722 Mon Sep 17 00:00:00 2001
+From: Aki Tuomi <aki.tuomi@dovecot.fi>
+Date: Mon, 19 Mar 2018 18:39:27 +0200
+Subject: [PATCH] dsync: Revert to /tmp if home does not exist
+
+Fixes doveadm: Error: Couldn't lock .dovecot-sync.lock: safe_mkstemp(.dovecot-sync.lock) failed: No such file or directory
+---
+ src/doveadm/dsync/dsync-brain.c | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/src/doveadm/dsync/dsync-brain.c b/src/doveadm/dsync/dsync-brain.c
+index cb4a411..03afdcd 100644
+--- a/src/doveadm/dsync/dsync-brain.c
++++ b/src/doveadm/dsync/dsync-brain.c
+@@ -391,6 +391,7 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
+ 		.lock_method = FILE_LOCK_METHOD_FCNTL,
+ 	};
+ 	const char *home, *error;
++	struct stat st;
+ 	bool created;
+ 	int ret;
+ 
+@@ -415,8 +416,21 @@ dsync_brain_lock(struct dsync_brain *brain, const char *remote_hostname)
+ 
+ 	if (brain->verbose_proctitle)
+ 		process_title_set(dsync_brain_get_proctitle_full(brain, DSYNC_BRAIN_TITLE_LOCKING));
+-	brain->lock_path = p_strconcat(brain->pool, home,
+-				       "/"DSYNC_LOCK_FILENAME, NULL);
++
++	/* if homedir does not yet exist, create lock under tmpdir */
++	if (stat(home, &st) < 0) {
++		if (errno != ENOENT) {
++			i_error("stat(%s) failed: %m", home);
++			return -1;
++		}
++		brain->lock_path = p_strdup_printf(brain->pool, "%s/%s-%s",
++						   brain->user->set->mail_temp_dir,
++						   brain->user->username,
++						   "/"DSYNC_LOCK_FILENAME);
++	} else {
++		brain->lock_path = p_strconcat(brain->pool, home,
++					       "/"DSYNC_LOCK_FILENAME, NULL);
++	}
+ 	brain->lock_fd = file_create_locked(brain->lock_path, &lock_set,
+ 					    &brain->lock, &created, &error);
+ 	if (brain->lock_fd == -1)
+-- 
+2.1.4
+
