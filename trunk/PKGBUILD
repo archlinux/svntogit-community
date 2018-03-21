@@ -1,0 +1,55 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+pkgname=sc3-plugins
+pkgver=3.9.1
+pkgrel=1
+pkgdesc="Extension plugins for the SuperCollider3 audio synthesis server."
+arch=('x86_64')
+url="https://github.com/supercollider/sc3-plugins"
+license=('GPL2')
+groups=('pro-audio')
+depends=('supercollider')
+makedepends=('cmake' 'git')
+# proper source tarball generation is requested:
+# https://github.com/supercollider/sc3-plugins/pull/186
+#source=("$pkgname-$pkgver.tar.gz::https://github.com/supercollider/${pkgname}/archive/Version-${pkgver}.tar.gz")
+source=("$pkgname::git+https://github.com/supercollider/${pkgname}.git#tag=Version-${pkgver}"
+        "git+https://github.com/timblechmann/nova-simd"
+        "git+https://github.com/thestk/stk/"
+        "fixing-supernova-check.patch")
+sha512sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            '34a0753c116a763d4e3576c0207cf20ccc24043829d0b8a3ffa77e3928ffa98ccba9640854e4a728f698eeda23283c6f44f713c5bf155de3bf5f174f597f2805')
+
+prepare() {
+#  mv -v "$pkgname-Version-$pkgver" "${pkgname}-${pkgver}"
+#  cd "${pkgname}-${pkgver}"
+  cd ${pkgname}
+  git submodule init
+  git config submodule.external_libraries/nova-simd.url "${srcdir}/nova-simd"
+  git config submodule.external_libraries/stk.url "${srcdir}/stk"
+  git submodule update
+  # fixing false check for SUPERNOVA
+  # https://github.com/supercollider/sc3-plugins/issues/185
+  patch -Np1 -i "${srcdir}/fixing-supernova-check.patch"
+  mkdir build
+}
+
+build() {
+#  cd "$pkgname-$pkgver/build"
+  cd "${pkgname}/build"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DSC_PATH=/usr/include/SuperCollider/ \
+        -DSUPERNOVA=ON \
+        ..
+  make
+}
+
+package() {
+#  cd "$pkgname-$pkgver/build"
+  cd "${pkgname}/build"
+  make DESTDIR="$pkgdir/" install
+  install -vDm 644 ../{{DEVELOPING,README}.md,TODO} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
