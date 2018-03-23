@@ -2,7 +2,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=18.02.0
+pkgver=18.03.0
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -11,19 +11,17 @@ url='https://www.docker.com/'
 license=('Apache')
 depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'libsystemd'
          'libseccomp' 'libtool')
-makedepends=('git' 'go-pie' 'btrfs-progs' 'cmake' 'systemd')
+makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd')
 optdepends=('btrfs-progs: btrfs backend support'
             'lxc: lxc backend support')
 # don't strip binaries! A sha1 is used to check binary consistency.
 options=('!strip' '!buildflags')
-# Use exact commit version from Dockerfile for runc and containerd until 1.0.0
-# https://github.com/docker/containerd/issues/299#issuecomment-240745119
-# see commit in hack/dockerfile/binaries-commits
-# https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/binaries-commits
-_RUNC_COMMIT=9f9c96235cc97674e935002fc3d78361b696a69e
-_CONTAINERD_COMMIT=9b55aab90508bd389d7654c4baf173a981477d55
+# Use exact commit version from Dockerfile, see them in:
+# https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
+_RUNC_COMMIT=4fc53a81fb7c994640722ac585fa9ca548971871
+_CONTAINERD_COMMIT=cfd04396dc68220d1cecbe686a6cc3aa5ce3667c
 _TINI_COMMIT=949e6facb77383876aeff8a6944dde66b3089574
-_LIBNETWORK_COMMIT=fcf1c3b5e57833aaaa756ae3c4140ea54da00319
+_LIBNETWORK_COMMIT=1b91bc94094ecfdae41daa465cc0c8df37dfb3dd
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver-ce"
         "git+https://github.com/opencontainers/runc.git#commit=$_RUNC_COMMIT"
         "git+https://github.com/containerd/containerd.git#commit=$_CONTAINERD_COMMIT"
@@ -59,18 +57,21 @@ _fake_gopath_popd() {
 build() {
   ### check my mistakes on commit version
   msg2 'Checking commit mismatch'
-  local _cfile _commit _pkgbuild _dockerfile
-  _cfile="$srcdir"/docker-ce/components/engine/hack/dockerfile/binaries-commits
-  . "$_cfile"
+  (
+  local _cfile
+  for _cfile in runc containerd tini proxy; do
+    . "$srcdir/docker-ce/components/engine/hack/dockerfile/install/$_cfile.installer"
+  done
+  local _commit _pkgbuild _dockerfile
   for _commit in RUNC CONTAINERD LIBNETWORK TINI; do
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
     if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
-      error "Invalid $_commit commit"
-      fgrep '_COMMIT=' "$_cfile"
+      error "Invalid $_commit commit, should be ${!_dockerfile}"
       return 1
     fi
   done
+  )
 
   ### globals
   export GOPATH="$srcdir"
@@ -115,7 +116,7 @@ build() {
   ### containerd
   msg2 'Building containerd'
   _fake_gopath_pushd containerd github.com/containerd/containerd
-  LDFLAGS= make
+  make
   _fake_gopath_popd
 
   ### docker proxy
