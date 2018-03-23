@@ -1,0 +1,301 @@
+From bf1c0db61bc11a6fc64db6529941d80a0eeff449 Mon Sep 17 00:00:00 2001
+From: Christopher Lees <leezer3@gmail.com>
+Date: Fri, 12 Jan 2018 14:06:38 +0000
+Subject: [PATCH 1/4] Change: Attempt to force close the window under Mono
+
+---
+ source/OpenBVE/System/GameWindow.cs      |  8 ++++++++
+ source/OpenBVE/UserInterface/formMain.cs | 14 +++++++++++++-
+ 2 files changed, 21 insertions(+), 1 deletion(-)
+
+diff --git a/source/OpenBVE/System/GameWindow.cs b/source/OpenBVE/System/GameWindow.cs
+index 6c71204a..7e963408 100644
+--- a/source/OpenBVE/System/GameWindow.cs
++++ b/source/OpenBVE/System/GameWindow.cs
+@@ -66,6 +66,10 @@ protected override void OnRenderFrame(FrameEventArgs e)
+ 				if (MainLoop.Quit)
+ 				{
+ 					Close();
++					if (Program.CurrentlyRunningOnMono)
++					{
++						Environment.Exit(0);
++					}
+ 				}
+ 				//If the menu state has not changed, don't update the rendered simulation
+ 				return;
+@@ -133,6 +137,10 @@ protected override void OnRenderFrame(FrameEventArgs e)
+ 			if (MainLoop.Quit)
+ 			{
+ 				Program.currentGameWindow.Exit();
++				if (Program.CurrentlyRunningOnMono)
++				{
++					Environment.Exit(0);
++				}				
+ 			}
+ 			Renderer.UpdateLighting();
+ 			Renderer.RenderScene(TimeElapsed);
+diff --git a/source/OpenBVE/UserInterface/formMain.cs b/source/OpenBVE/UserInterface/formMain.cs
+index 6ab37ff0..97592106 100644
+--- a/source/OpenBVE/UserInterface/formMain.cs
++++ b/source/OpenBVE/UserInterface/formMain.cs
+@@ -1,5 +1,6 @@
+ ﻿using System;
+ using System.ComponentModel;
++using System.Diagnostics;
+ using System.Drawing;
+ using System.Net;
+ using System.Windows.Forms;
+@@ -1353,8 +1354,19 @@ private void buttonClose_Click(object sender, EventArgs e)
+ 			//HACK: Call Application.DoEvents() to force the message pump to process all pending messages when the form closes
+ 			//This fixes the main form failing to close on Linux
+ 			Application.DoEvents();
++			if (Program.CurrentlyRunningOnMono)
++			{
++				//On some systems, the process *still* seems to hang around, so explicity issue the Environment.Exit() call
++				//https://github.com/leezer3/OpenBVE/issues/213
++				Environment.Exit(0);
++			}
+ 		}
+ 
++		protected override void OnFormClosing(FormClosingEventArgs e)
++		{
++			//Call the explicit closing method
++			buttonClose_Click(this, e);
++		}
+ 
+ 
+ 		// ======
+@@ -1715,4 +1727,4 @@ private void buttonRailDriverCalibration_Click(object sender, EventArgs e)
+ 			}
+ 		}
+ 	}
+-}
+\ No newline at end of file
++}
+
+From 0c37c8c2cbb59b765aff0fa6f0ef3e198fceda87 Mon Sep 17 00:00:00 2001
+From: Christopher Lees <leezer3@gmail.com>
+Date: Sat, 13 Jan 2018 12:20:01 +0000
+Subject: [PATCH 2/4] Change: Fiddle some more with window closing...
+
+---
+ source/OpenBVE/Game/Menu.cs                    |  4 ++--
+ source/OpenBVE/System/GameWindow.cs            |  8 ++++----
+ source/OpenBVE/System/MainLoop.cs              | 11 ++++++++---
+ source/OpenBVE/UserInterface/formMain.Start.cs |  6 ++++--
+ source/OpenBVE/UserInterface/formMain.cs       | 18 +++++++++++++-----
+ 5 files changed, 31 insertions(+), 16 deletions(-)
+
+diff --git a/source/OpenBVE/Game/Menu.cs b/source/OpenBVE/Game/Menu.cs
+index 0108a6da..f27d4439 100644
+--- a/source/OpenBVE/Game/Menu.cs
++++ b/source/OpenBVE/Game/Menu.cs
+@@ -667,7 +667,7 @@ internal void ProcessCommand(Interface.Command cmd, double timeElapsed)
+ 								Reset();
+ 								Program.RestartArguments =
+ 									Interface.CurrentOptions.GameMode == Interface.GameMode.Arcade ? "/review" : "";
+-								MainLoop.Quit = true;
++								MainLoop.Quit = MainLoop.QuitMode.ExitToMenu;
+ 								break;
+ 							case MenuTag.Control:               // CONTROL CUSTOMIZATION
+ 								PushMenu(MenuType.Control, ((MenuCommand)menu.Items[menu.Selection]).Data);
+@@ -676,7 +676,7 @@ internal void ProcessCommand(Interface.Command cmd, double timeElapsed)
+ 								break;
+ 							case MenuTag.Quit:                  // QUIT PROGRAMME
+ 								Reset();
+-								MainLoop.Quit = true;
++								MainLoop.Quit = MainLoop.QuitMode.QuitProgram;
+ 								break;
+ 						}
+ 					}
+diff --git a/source/OpenBVE/System/GameWindow.cs b/source/OpenBVE/System/GameWindow.cs
+index 7e963408..1235817a 100644
+--- a/source/OpenBVE/System/GameWindow.cs
++++ b/source/OpenBVE/System/GameWindow.cs
+@@ -63,10 +63,10 @@ protected override void OnRenderFrame(FrameEventArgs e)
+ 				//Renderer.UpdateLighting();
+ 				Renderer.RenderScene(TimeElapsed);
+ 				Program.currentGameWindow.SwapBuffers();
+-				if (MainLoop.Quit)
++				if (MainLoop.Quit != MainLoop.QuitMode.ContinueGame)
+ 				{
+ 					Close();
+-					if (Program.CurrentlyRunningOnMono)
++					if (Program.CurrentlyRunningOnMono && MainLoop.Quit == MainLoop.QuitMode.QuitProgram)
+ 					{
+ 						Environment.Exit(0);
+ 					}
+@@ -134,10 +134,10 @@ protected override void OnRenderFrame(FrameEventArgs e)
+ 			}
+ 
+ 			World.CameraAlignmentDirection = new World.CameraAlignment();
+-			if (MainLoop.Quit)
++			if (MainLoop.Quit != MainLoop.QuitMode.ContinueGame)
+ 			{
+ 				Program.currentGameWindow.Exit();
+-				if (Program.CurrentlyRunningOnMono)
++				if (Program.CurrentlyRunningOnMono && MainLoop.Quit == MainLoop.QuitMode.QuitProgram)
+ 				{
+ 					Environment.Exit(0);
+ 				}				
+diff --git a/source/OpenBVE/System/MainLoop.cs b/source/OpenBVE/System/MainLoop.cs
+index 3633c4ed..16c6c435 100644
+--- a/source/OpenBVE/System/MainLoop.cs
++++ b/source/OpenBVE/System/MainLoop.cs
+@@ -10,10 +10,15 @@ namespace OpenBve
+ {
+ 	internal static partial class MainLoop
+ 	{
+-
++		internal enum QuitMode
++		{
++			ContinueGame = 0,
++			QuitProgram = 1,
++			ExitToMenu = 2
++		}
+ 		// declarations
+ 		internal static bool LimitFramerate = false;
+-		internal static bool Quit = false;
++		internal static QuitMode Quit = QuitMode.ContinueGame;
+ 		/// <summary>BlockKeyRepeat should be set to 'true' whilst processing a KeyUp or KeyDown event.</summary>
+ 		internal static bool BlockKeyRepeat;
+ 		/// <summary>The current simulation time-factor</summary>
+@@ -87,7 +92,7 @@ internal static void StartLoopEx(formMain.MainDialogResult result)
+ 
+ 		private static void OpenTKQuit(object sender, CancelEventArgs e)
+ 		{
+-			Quit = true;
++			Quit = QuitMode.QuitProgram;
+ 		}
+ 
+ 		/********************
+diff --git a/source/OpenBVE/UserInterface/formMain.Start.cs b/source/OpenBVE/UserInterface/formMain.Start.cs
+index 11a2051c..cd3c1088 100644
+--- a/source/OpenBVE/UserInterface/formMain.Start.cs
++++ b/source/OpenBVE/UserInterface/formMain.Start.cs
+@@ -705,11 +705,13 @@ private void listviewTrainFolders_SelectedIndexChanged(object sender, EventArgs
+ 		// =====
+ 
+ 		// start
++		private readonly object StartGame = new Object();
++
+ 		private void buttonStart_Click(object sender, EventArgs e) {
+ 			if (Result.RouteFile != null & Result.TrainFolder != null) {
+ 				if (System.IO.File.Exists(Result.RouteFile) & System.IO.Directory.Exists(Result.TrainFolder)) {
+ 					Result.Start = true;
+-					this.Close();
++					buttonClose_Click(StartGame, e);
+ 					//HACK: Call Application.DoEvents() to force the message pump to process all pending messages when the form closes
+ 					//This fixes the main form failing to close on Linux
+ 					Application.DoEvents();
+@@ -1171,4 +1173,4 @@ private void routeWorkerThread_completed(object sender, RunWorkerCompletedEventA
+ 		}
+ 
+ 	}
+-}
+\ No newline at end of file
++}
+diff --git a/source/OpenBVE/UserInterface/formMain.cs b/source/OpenBVE/UserInterface/formMain.cs
+index 97592106..e461c7e7 100644
+--- a/source/OpenBVE/UserInterface/formMain.cs
++++ b/source/OpenBVE/UserInterface/formMain.cs
+@@ -1346,15 +1346,19 @@ private void linkHomepage_LinkClicked(object sender, LinkLabelLinkClickedEventAr
+ 			}
+ 		}
+ 
+-
+-		// close
++		private bool Closing = false;
+ 		private void buttonClose_Click(object sender, EventArgs e)
+ 		{
+-			this.Close();
++			Closing = true;
++			if (sender != null)
++			{
++				//Don't cause an infinite loop
++				this.Close();
++			}
+ 			//HACK: Call Application.DoEvents() to force the message pump to process all pending messages when the form closes
+ 			//This fixes the main form failing to close on Linux
+ 			Application.DoEvents();
+-			if (Program.CurrentlyRunningOnMono)
++			if (Program.CurrentlyRunningOnMono && sender != StartGame)
+ 			{
+ 				//On some systems, the process *still* seems to hang around, so explicity issue the Environment.Exit() call
+ 				//https://github.com/leezer3/OpenBVE/issues/213
+@@ -1364,8 +1368,12 @@ private void buttonClose_Click(object sender, EventArgs e)
+ 
+ 		protected override void OnFormClosing(FormClosingEventArgs e)
+ 		{
++			if (Closing)
++			{
++				return;
++			}
+ 			//Call the explicit closing method
+-			buttonClose_Click(this, e);
++			buttonClose_Click(null, e);
+ 		}
+ 
+ 
+
+From 11bb646bc252f642e7f3afff7d2c398ca0cd5709 Mon Sep 17 00:00:00 2001
+From: Christopher Lees <leezer3@gmail.com>
+Date: Wed, 17 Jan 2018 17:32:09 +0000
+Subject: [PATCH 3/4] Change: Another force-quit case
+
+---
+ source/OpenBVE/System/GameWindow.cs | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/source/OpenBVE/System/GameWindow.cs b/source/OpenBVE/System/GameWindow.cs
+index 1235817a..77fdcb05 100644
+--- a/source/OpenBVE/System/GameWindow.cs
++++ b/source/OpenBVE/System/GameWindow.cs
+@@ -316,6 +316,12 @@ protected override void OnClosing(CancelEventArgs e)
+ 				e.Cancel = true;
+ 				Loading.Cancel = true;
+ 			}
++
++			if (MainLoop.Quit == MainLoop.QuitMode.ContinueGame && Program.CurrentlyRunningOnMono)
++			{
++				//More forcefully close under Mono, stuff *still* hanging around....
++				Environment.Exit(0);
++			}
+ 		}
+ 		/// <summary>This method is called once the route and train data have been preprocessed, in order to physically setup the simulation</summary>
+ 		private void SetupSimulation()
+
+From 4589fcb4500e04d13ccee5a14f64d771ce448a53 Mon Sep 17 00:00:00 2001
+From: Christopher Lees <leezer3@gmail.com>
+Date: Wed, 17 Jan 2018 17:59:39 +0000
+Subject: [PATCH 4/4] Fix: Options save & cleanup not triggered correctly
+
+---
+ source/OpenBVE/UserInterface/formMain.Designer.cs | 1 -
+ source/OpenBVE/UserInterface/formMain.cs          | 1 +
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source/OpenBVE/UserInterface/formMain.Designer.cs b/source/OpenBVE/UserInterface/formMain.Designer.cs
+index 805f55a2..46a14d82 100644
+--- a/source/OpenBVE/UserInterface/formMain.Designer.cs
++++ b/source/OpenBVE/UserInterface/formMain.Designer.cs
+@@ -5289,7 +5289,6 @@ partial class formMain {
+ 			this.Name = "formMain";
+ 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
+ 			this.Text = "openBVE";
+-			this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.formMain_FormClosing);
+ 			this.Load += new System.EventHandler(this.formMain_Load);
+ 			this.Shown += new System.EventHandler(this.formMain_Shown);
+ 			this.Resize += new System.EventHandler(this.formMain_Resize);
+diff --git a/source/OpenBVE/UserInterface/formMain.cs b/source/OpenBVE/UserInterface/formMain.cs
+index e461c7e7..ee8476cf 100644
+--- a/source/OpenBVE/UserInterface/formMain.cs
++++ b/source/OpenBVE/UserInterface/formMain.cs
+@@ -1357,6 +1357,7 @@ private void buttonClose_Click(object sender, EventArgs e)
+ 			}
+ 			//HACK: Call Application.DoEvents() to force the message pump to process all pending messages when the form closes
+ 			//This fixes the main form failing to close on Linux
++			formMain_FormClosing(sender, new FormClosingEventArgs(CloseReason.UserClosing, false));
+ 			Application.DoEvents();
+ 			if (Program.CurrentlyRunningOnMono && sender != StartGame)
+ 			{
