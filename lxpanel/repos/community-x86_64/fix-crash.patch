@@ -1,0 +1,71 @@
+From 5efc0f05fc06cdb52c54338d0139d7316c3c1133 Mon Sep 17 00:00:00 2001
+From: Mamoru TASAKA <mtasaka@fedoraproject.org>
+Date: Sun, 4 Mar 2018 23:15:51 +0900
+Subject: [PATCH] [SF#900] taskbutton: detach menu from widget before widget is
+ destroyed
+
+Although GTK+ 2 version doxygen lacks such information,
+https://developer.gnome.org/gtk3/stable/GtkMenu.html#gtk-menu-attach-to-widget
+says that the attached menu is to be destroyed when the widget is destroyed.
+
+So to "reuse" created menu, menu must be detached before the widget is to
+be destroyed,
+---
+ plugins/task-button.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/plugins/task-button.c b/plugins/task-button.c
+index 3e99068..9e8c398 100644
+--- a/plugins/task-button.c
++++ b/plugins/task-button.c
+@@ -1538,7 +1538,17 @@ void task_button_update_windows_list(TaskButton *button, Window *list, gint n)
+         l = next; /* go next details */
+     }
+     if (button->details == NULL) /* all windows were deleted */
++    {
++        GList *menu_list = gtk_menu_get_for_attach_widget(GTK_WIDGET(button));
++        menu_list = g_list_copy(menu_list);
++        for (l = menu_list; l; l = l->next)
++        {
++            GtkMenu *menu = GTK_MENU(l->data);
++            gtk_menu_detach(menu);
++        }
++        g_list_free(menu_list);
+         gtk_widget_destroy(GTK_WIDGET(button));
++    }
+     else if (has_removed && task_update_visibility(button))
+         task_redraw_label(button);
+     // FIXME: test if need to update menu
+-- 
+2.1.4
+
+From 7aa84571eef5247c0335df57d6ac616cd03d46ee Mon Sep 17 00:00:00 2001
+From: Mamoru TASAKA <mtasaka@fedoraproject.org>
+Date: Wed, 14 Feb 2018 00:11:53 +0900
+Subject: [PATCH] [SF#905] plugins/monitors: reset the color if empty
+
+User may remove color value, or when doing copy/paste color value from somewhere,
+it seems that color value can once disappear.
+In such case, reset to the default to prevent segv
+---
+ plugins/monitors/monitors.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/plugins/monitors/monitors.c b/plugins/monitors/monitors.c
+index 19b8472..75f00c1 100644
+--- a/plugins/monitors/monitors.c
++++ b/plugins/monitors/monitors.c
+@@ -748,6 +748,10 @@ monitors_apply_config (gpointer user_data)
+ start:
+     for (i = 0; i < N_MONITORS; i++)
+     {
++        /* User may remove color value. In such case, reset to the default */
++        if (!colors[i])
++            colors[i] = g_strndup(default_colors[i], COLOR_SIZE-1);
++
+         if (mp->displayed_monitors[i])
+             current_n_monitors++;
+ 
+-- 
+2.1.4
+
