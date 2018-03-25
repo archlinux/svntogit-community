@@ -1,0 +1,157 @@
+From 6b8fffe3e9a8525679b8a653fcd9b05dc2f5984a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bart=C5=82omiej=20Piotrowski?= <b@bpiotrowski.pl>
+Date: Sat, 17 Mar 2018 21:33:23 +0100
+Subject: [PATCH] Revert "ostree: add selinux label for each file"
+
+This reverts commit 9b4510f6d1627c8e53c3303a8fe48ca7842c2ace.
+---
+ ostree/ostree_dest.go | 60 ++++++---------------------------------------------
+ 1 file changed, 7 insertions(+), 53 deletions(-)
+
+diff --git a/ostree/ostree_dest.go b/ostree/ostree_dest.go
+index 1d97daf..c1c8557 100644
+--- a/ostree/ostree_dest.go
++++ b/ostree/ostree_dest.go
+@@ -14,31 +14,25 @@ import (
+ 	"os/exec"
+ 	"path/filepath"
+ 	"strconv"
+-	"strings"
+-	"syscall"
+ 	"time"
+-	"unsafe"
+ 
+ 	"github.com/containers/image/manifest"
+ 	"github.com/containers/image/types"
+ 	"github.com/containers/storage/pkg/archive"
+ 	"github.com/opencontainers/go-digest"
+-	selinux "github.com/opencontainers/selinux/go-selinux"
+ 	"github.com/ostreedev/ostree-go/pkg/otbuiltin"
+ 	"github.com/pkg/errors"
+ 	"github.com/vbatts/tar-split/tar/asm"
+ 	"github.com/vbatts/tar-split/tar/storage"
+ )
+ 
+-// #cgo pkg-config: glib-2.0 gobject-2.0 ostree-1 libselinux
++// #cgo pkg-config: glib-2.0 gobject-2.0 ostree-1
+ // #include <glib.h>
+ // #include <glib-object.h>
+ // #include <gio/gio.h>
+ // #include <stdlib.h>
+ // #include <ostree.h>
+ // #include <gio/ginputstream.h>
+-// #include <selinux/selinux.h>
+-// #include <selinux/label.h>
+ import "C"
+ 
+ type blobToImport struct {
+@@ -156,7 +150,7 @@ func (d *ostreeImageDestination) PutBlob(stream io.Reader, inputInfo types.BlobI
+ 	return types.BlobInfo{Digest: computedDigest, Size: size}, nil
+ }
+ 
+-func fixFiles(selinuxHnd *C.struct_selabel_handle, root string, dir string, usermode bool) error {
++func fixFiles(dir string, usermode bool) error {
+ 	entries, err := ioutil.ReadDir(dir)
+ 	if err != nil {
+ 		return err
+@@ -171,42 +165,13 @@ func fixFiles(selinuxHnd *C.struct_selabel_handle, root string, dir string, user
+ 			continue
+ 		}
+ 
+-		if selinuxHnd != nil {
+-			relPath, err := filepath.Rel(root, fullpath)
+-			if err != nil {
+-				return err
+-			}
+-			// Handle /exports/hostfs as a special case.  Files under this directory are copied to the host,
+-			// thus we benefit from maintaining the same SELinux label they would have on the host as we could
+-			// use hard links instead of copying the files.
+-			relPath = fmt.Sprintf("/%s", strings.TrimPrefix(relPath, "exports/hostfs/"))
+-
+-			relPathC := C.CString(relPath)
+-			defer C.free(unsafe.Pointer(relPathC))
+-			var context *C.char
+-
+-			res, err := C.selabel_lookup_raw(selinuxHnd, &context, relPathC, C.int(info.Mode()&os.ModePerm))
+-			if int(res) < 0 && err != syscall.ENOENT {
+-				return errors.Wrapf(err, "cannot selabel_lookup_raw %s", relPath)
+-			}
+-			if int(res) == 0 {
+-				defer C.freecon(context)
+-				fullpathC := C.CString(fullpath)
+-				defer C.free(unsafe.Pointer(fullpathC))
+-				res, err = C.lsetfilecon_raw(fullpathC, context)
+-				if int(res) < 0 {
+-					return errors.Wrapf(err, "cannot setfilecon_raw %s", fullpath)
+-				}
+-			}
+-		}
+-
+ 		if info.IsDir() {
+ 			if usermode {
+ 				if err := os.Chmod(fullpath, info.Mode()|0700); err != nil {
+ 					return err
+ 				}
+ 			}
+-			err = fixFiles(selinuxHnd, root, fullpath, usermode)
++			err = fixFiles(fullpath, usermode)
+ 			if err != nil {
+ 				return err
+ 			}
+@@ -262,7 +227,7 @@ func generateTarSplitMetadata(output *bytes.Buffer, file string) (digest.Digest,
+ 	return digester.Digest(), written, nil
+ }
+ 
+-func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle, repo *otbuiltin.Repo, blob *blobToImport) error {
++func (d *ostreeImageDestination) importBlob(repo *otbuiltin.Repo, blob *blobToImport) error {
+ 	ostreeBranch := fmt.Sprintf("ociimage/%s", blob.Digest.Hex())
+ 	destinationPath := filepath.Join(d.tmpDirPath, blob.Digest.Hex(), "root")
+ 	if err := ensureDirectoryExists(destinationPath); err != nil {
+@@ -283,7 +248,7 @@ func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle,
+ 		if err := archive.UntarPath(blob.BlobPath, destinationPath); err != nil {
+ 			return err
+ 		}
+-		if err := fixFiles(selinuxHnd, destinationPath, destinationPath, false); err != nil {
++		if err := fixFiles(destinationPath, false); err != nil {
+ 			return err
+ 		}
+ 	} else {
+@@ -292,7 +257,7 @@ func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle,
+ 			return err
+ 		}
+ 
+-		if err := fixFiles(selinuxHnd, destinationPath, destinationPath, true); err != nil {
++		if err := fixFiles(destinationPath, true); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -400,17 +365,6 @@ func (d *ostreeImageDestination) Commit() error {
+ 		return err
+ 	}
+ 
+-	var selinuxHnd *C.struct_selabel_handle
+-
+-	if os.Getuid() == 0 && selinux.GetEnabled() {
+-		selinuxHnd, err = C.selabel_open(C.SELABEL_CTX_FILE, nil, 0)
+-		if selinuxHnd == nil {
+-			return errors.Wrapf(err, "cannot open the SELinux DB")
+-		}
+-
+-		defer C.selabel_close(selinuxHnd)
+-	}
+-
+ 	checkLayer := func(hash string) error {
+ 		blob := d.blobs[hash]
+ 		// if the blob is not present in d.blobs then it is already stored in OSTree,
+@@ -418,7 +372,7 @@ func (d *ostreeImageDestination) Commit() error {
+ 		if blob == nil {
+ 			return nil
+ 		}
+-		err := d.importBlob(selinuxHnd, repo, blob)
++		err := d.importBlob(repo, blob)
+ 		if err != nil {
+ 			return err
+ 		}
+-- 
+2.16.2
+
