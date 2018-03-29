@@ -3,7 +3,8 @@
 # Contributor: David Keogh <davekeogh@archlinux.us>
 
 pkgname=pycharm-community-edition
-pkgver=2017.3.4
+pkgver=2018.1
+_build=181.4203.547
 pkgrel=1
 pkgdesc='Python IDE for Professional Developers'
 arch=('x86_64')
@@ -14,16 +15,33 @@ optdepends=('ipython2: IPython integration for Python 2'
             'ipython: IPython integration for Python 3'
             'python2: Python 2 support'
             'python: Python 3 support')
-makedepends=('python2-setuptools' 'python-setuptools')
+makedepends=('apache-ant' 'java-environment=8' 'java-openjfx'
+             'python2-setuptools' 'python-setuptools')
 conflicts=('pycharm' 'pycharm-community' 'pycharm-professional')
 provides=('pycharm')
-source=("https://download.jetbrains.com/python/pycharm-community-${pkgver}.tar.gz"
-        'pycharm.desktop')
-sha256sums=('048810228293c41377bce069eba4905e1e0c12ea7ac83605adeac89cf138fc08'
-            '28e0d3200c721e61831d8246eba8f72485d3c8379d10bfa75ccb5331b6749480')
+source=("pycharm-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/archive/pycharm/${_build}.tar.gz"
+        'pycharm.desktop'
+        'pycharm-build.patch')
+sha256sums=('1cd40a38535262771c8b69439a6b7c8f1607abfb5e89999c50b2cc575debaec1'
+            '28e0d3200c721e61831d8246eba8f72485d3c8379d10bfa75ccb5331b6749480'
+            '3793e8125abb05b1580919017469ada2563a2e5972a8d74666557df60d270cfd')
+
+prepare() {
+  cd intellij-community-pycharm-${_build}
+
+  patch -Np1 -i ../pycharm-build.patch
+  sed "s/SNAPSHOT/${_build}/" -i python/build.xml
+}
 
 build() {
-  cd pycharm-community-${pkgver}
+  cd intellij-community-pycharm-${_build}/python
+
+  unset _JAVA_OPTIONS
+
+  ant build
+  tar -xf ../out/pycharm-ce/artifacts/pycharmPC-${_build}-no-jdk.tar.gz -C "${srcdir}"
+
+  cd ../../pycharm-community-${pkgver}
 
   python2 helpers/pydev/setup_cython.py build_ext --build-temp build --build-lib .
   python3 helpers/pydev/setup_cython.py build_ext --build-temp build --build-lib .
@@ -33,9 +51,8 @@ build() {
 package() {
   cd pycharm-community-${pkgver}
 
-  install -dm 755 "${pkgdir}"/usr/{bin,share/{applications,doc,licenses,pixmaps,pycharm}}
+  install -dm 755 "${pkgdir}"/usr/{bin,share/{applications,licenses,pixmaps,pycharm}}
   cp -dr --no-preserve='ownership' bin helpers lib plugins "${pkgdir}"/usr/share/pycharm/
-  cp -dr --no-preserve='ownership' help "${pkgdir}"/usr/share/doc/pycharm/
   cp -dr --no-preserve='ownership' license "${pkgdir}"/usr/share/licenses/pycharm/
   ln -s /usr/share/pycharm/bin/pycharm.sh $pkgdir/usr/bin/pycharm
   ln -s /usr/share/pycharm/bin/pycharm.png "${pkgdir}"/usr/share/pixmaps/
