@@ -1,0 +1,539 @@
+diff --git a/src/hwlatdetect/hwlatdetect.py b/src/hwlatdetect/hwlatdetect.py
+index e08c798..6c6687f 100755
+--- a/src/hwlatdetect/hwlatdetect.py
++++ b/src/hwlatdetect/hwlatdetect.py
+@@ -1,6 +1,6 @@
+ #!/usr/bin/python
+ 
+-# (C) 2015 Clark Williams <williams@redhat.com>
++# (C) 2015,2016 Clark Williams <williams@redhat.com>
+ # (C) 2009 Clark Williams <williams@redhat.com>
+ #
+ # This program is free software; you can redistribute it and/or
+@@ -16,7 +16,7 @@ import subprocess
+ import errno
+ import os.path
+ 
+-version = "0.6"
++version = "0.7"
+ debugging = False
+ quiet = False
+ watch = False
+@@ -113,87 +113,81 @@ class DebugFS(object):
+ # leave it alone when cleaning up.
+ #
+ class Kmod(object):
+-    ''' class to manage loading and unloading hwlat.ko'''
++    ''' class to manage loading and unloading of kernel modules'''
+ 
+     names = ("hwlat_detector", "smi_detector")
+     def __check_builtin(self):
+         for l in open(os.path.join('/lib/modules', os.uname()[2], 'modules.builtin'), "r"):
+-            for m in Kmod.names:
+-                if m in l:
+-                    debug("found %s as builtin" % m)
+-                    return m
+-        return None
+-
+-    def __find_modname(self):
+-        debug("looking for modules")
++            if self.name in l:
++                debug("found %s as builtin" % self.namename)
++                return True
++        return False
++
++    def __find_module(self):
++        debug("looking for module %s" % self.name)
+         path = os.path.join("/lib/modules",
+                             os.uname()[2],
+                             "kernel/drivers/misc")
+         debug("module path: %s" % path)
+-        for m in Kmod.names:
+-            mpath = os.path.join(path, m) + ".ko"
+-            debug("checking %s" % mpath)
+-            if os.path.exists(mpath):
+-                return m
+-        raise RuntimeError("no detector module found!")
++        mpath = os.path.join(path, self.name) + ".ko"
++        debug("checking %s" % mpath)
++        if os.path.exists(mpath):
++            return True
++        return False
+ 
+-    def __init__(self):
++    def __init__(self, name):
++        if name not in Kmod.names:
++            raise RuntimeError, "unsupported module name: %s" % name
++        self.name = name
+         self.preloaded = False
+         self.builtin = False
+ 
+         # check for builtin
+-        self.modname = self.__check_builtin()
+-        if self.modname:
++        if self.__check_builtin():
+             self.builtin = True
+             return
+ 
+-        # now look for module
+-        f = open ('/proc/modules')
+-        for l in f:
++        # now look for already loaded module
++        for l in open ('/proc/modules'):
+             field = l.split()
+-            if field[0] in Kmod.names:
++            if self.name in field[0]:
+                 self.preloaded = True
+-                self.modname = field[0]
+-                debug("using already loaded %s" % self.modname)
+-                f.close()
+-                break
+-        f.close()
+-        self.modname = self.__find_modname()
++                debug("using already loaded %s" % self.name)
++                return
++        if not self.__find_module():
++            raise RuntimeError, "module %s does not exist!" % self.name
+ 
+     def load(self):
+         if self.builtin:
+-            debug("not loading %s (builtin)" % self.modname)
++            debug("not loading %s (builtin)" % self.name)
+             return True
+         if self.preloaded:
+-            debug("not loading %s (already loaded)" % self.modname)
++            debug("not loading %s (already loaded)" % self.name)
+             return True
+-        cmd = ['/sbin/modprobe', self.modname]
++        cmd = ['/sbin/modprobe', self.name]
+         return (subprocess.call(cmd) == 0)
+ 
+     def unload(self):
+         if self.preloaded or self.builtin:
+-            debug("Not unloading %s" % self.modname)
++            debug("Not unloading %s" % self.name)
+             return True
+-        cmd = ['/sbin/modprobe', '-r', self.modname]
++        cmd = ['/sbin/modprobe', '-r', self.name]
+         return (subprocess.call(cmd) == 0)
+ 
+ #
+-# wrapper class for detection modules
++# base class for detection modules
+ #
+ class Detector(object):
+-    '''wrapper class for managing detector modules'''
++    '''base class for detector modules'''
+     def __init__(self):
++        self.type = "unknown"
+         if os.getuid() != 0:
+             raise RuntimeError("Must be root")
+         self.debugfs = DebugFS()
+-        self.kmod = Kmod()
+-        self.setup()
+-        if self.kmod.modname == "hwlat_detector":
+-            self.detector = Hwlat(self.debugfs)
+-        elif self.kmod.modname == "smi_detector":
+-            self.detector = Smi(self.debugfs)
++        if not self.debugfs.mount():
++            raise RuntimeError("failed to mount debugfs")
+         self.samples = []
+-        self.testduration = 10 # ten seconds
++        self.testduration = 30 # ten seconds
+         self.have_msr = False
+         self.initsmi = []
+         if os.path.exists('/usr/sbin/rdmsr'):
+@@ -208,78 +202,176 @@ class Detector(object):
+             counts = [ int(x.strip()) for x in p.stdout.readlines()]
+         return counts
+ 
+-    def force_cleanup(self):
+-        debug("forcing unload of hwlat module")
+-        self.kmod.preloaded = False
+-        debug("forcing unmount of debugfs")
+-        self.debugfs.premounted = False
+-        self.cleanup()
+-        debug("exiting")
+-        sys.exit(0)
+-
+-    def setup(self):
+-        if not self.debugfs.mount():
+-            raise RuntimeError("Failed to mount debugfs")
+-        if not self.kmod.load():
+-            raise RuntimeError("Failed to unload hwlat")
+-
+     def cleanup(self):
+-        if not self.kmod.unload():
+-            raise RuntimeError("Failed to unload hwlat")
+-        if not self.debugfs.umount():
+-            raise RuntimeError("Failed to unmount debugfs")
++        raise RuntimeError, "must override base method 'cleanup'!"
+ 
+     def get(self, field):
+-        return self.detector.get(field)
++        '''get the value of a debugfs field'''
++        raise RuntimeError, "must override base method 'get'!"
+ 
+     def set(self, field, val):
+-        return self.detector.set(field, val)
++        '''set a value in a debugfs field'''
++        raise RuntimeError, "must override base method 'set'!"
++
++    def save(self, reportfile=None):
++        '''save sample data to reportfile'''
++        raise RuntimeError, "must override base method 'save'!"
++
++    def display(self):
++        '''output the sample data as a string'''
++        raise RuntimeError, "must override base method 'display'!"
+ 
+     def start(self):
+         count = 0
+-        threshold = self.get("threshold")
++        threshold = int(self.get("threshold"))
+         debug("enabling detector module (threshold: %d)" % threshold)
+-        self.detector.set("enable", 1)
+-        debug("first attempt at enable")
+-        while self.detector.get("enable") == 0:
++        self.set("enable", 1)
++        while self.get("enable") == 0:
+             debug("still disabled, retrying in a bit")
+             count += 1
+             time.sleep(0.1)
+             debug("retrying enable of detector module (%d)" % count)
+-            self.detector.set("enable", 1)
++            self.set("enable", 1)
+         if self.get("threshold") != threshold:
+             debug("start: threshold reset by start, fixing")
+             self.set("threshold", threshold)
+-        debug("detector module enabled (threshold: %d)" % self.get("threshold"))
++        debug("detector module enabled (threshold: %d)" % int(self.get("threshold")))
+ 
+     def stop(self):
+         count = 0
+         debug("disabling detector module")
+-        self.detector.set("enable", 0)
+-        debug("first attempt at disable");
+-        while self.detector.get("enable") == 1:
++        self.set("enable", 0)
++        while self.get("enable") == 1:
+             debug("still enabled, retrying in a bit")
+             count += 1
+             time.sleep(0.1)
+             debug("retrying disable of detector module(%d)" % count)
+-            self.detector.set("enable", 0)
++            self.set("enable", 0)
+         debug("detector module disabled")
+ 
+     def detect(self):
+-        debug("Starting hardware latency detection for %d seconds" % self.testduration)
++        '''get detector output'''
++        raise RuntimeError, "must override base method 'detect'!"
++#
++# class to handle running the hwlat tracer module of ftrace
++#
++class Tracer(Detector):
++    '''class to wrap access to ftrace hwlat tracer'''
++    __field_translation = {
++        'width'     : "hwlat_detector/width",
++        'window'    : "hwlat_detector/window",
++        'enable'    : "tracing_on",
++        'threshold' : "tracing_thresh",
++    }
++
++    class Sample(object):
++        'private class for tracer sample data'
++        __slots__= 'timestamp', 'inner', 'outer',
++        def __init__(self, line):
++            fields = line.split()
++            i,o = fields[6].split('/')
++            ts=fields[7][3:]
++            self.timestamp = str(ts)
++            self.inner = int(i)
++            self.outer = int(o)
++
++        def __str__(self):
++            return "ts: %s, inner:%d, outer:%d" % (self.timestamp, self.inner, self.outer)
++
++        def display(self):
++            print(str(self))
++
++        def largest(self):
++            if self.inner > self.outer:
++                return self.inner
++            return self.outer
++
++    def translate(self, field):
++        path = self.debugfs.getpath('tracing')
++        if field not in Tracer.__field_translation:
++            return os.path.join(path, field)
++        return os.path.join(path, Tracer.__field_translation[field])
++
++    def __init__(self):
++        super(Tracer, self).__init__()
++        path = self.debugfs.getpath('tracing/hwlat_detector')
++        if not os.path.exists(path):
++            raise RuntimeError, "hwlat tracer not available"
++        self.type = "tracer"
++        self.samples = []
++        self.set("enable", 0)
++        self.set('current_tracer', 'hwlat')
++
++    def set(self, field, val):
++        path=self.translate(field)
++        self.debugfs.putval(path, str(val))
++
++    def get(self, field):
++        if field == "count":
++            return len(self.samples)
++        elif field == "max":
++            max=0
++            for values in self.samples:
++                s = int(values.largest())
++                if s > max:
++                    max = s
++            return max
++        return self.debugfs.getval(self.translate(field))
++
++    def detect(self):
++        self.samples = []
++        testend = time.time() + self.testduration
++        pollcnt = 0
+         self.start()
+         try:
+-            self.samples = self.detector.detect(self.testduration)
+-        finally:
+-            self.stop()
+-        debug("Hardware latency detection done (%d samples)" % len(self.samples))
++            while time.time() < testend:
++                pollcnt += 1
++                val = self.get_sample()
++                while val:
++                    self.samples.append(val)
++                    if watch: val.display()
++                    val = self.get_sample()
++                time.sleep(0.1)
++        except KeyboardInterrupt as e:
++            print("interrupted")
++        self.stop()
++        return self.samples
++
++    def get_sample(self):
++        val = None
++        line = self.debugfs.getval("tracing/trace_pipe", nonblocking=True)
++        if line:
++            val = self.Sample(line)
++        return val
++
++    def save(self, output=None):
++        if output:
++            f = open(output, "w")
++            for s in self.samples:
++                f.write("%s\n" % str(s))
++            print("report saved to %s (%d samples)" % (output, len(self.samples)))
++
++    def display(self):
++        for s in self.samples:
++            s.display()
++
++    def cleanup(self):
++        self.set("tracing_on", "0")
++        self.set("current_tracer", "nop")
++        if not self.debugfs.umount():
++            raise RuntimeError("Failed to unmount debugfs")
++
++
+ #
+ # Class to simplify running the hwlat kernel module
+ #
+-class Hwlat(object):
++class Hwlat(Detector):
+     '''class to wrap access to hwlat debugfs files'''
+-    def __init__(self, debugfs):
+-        self.debugfs = debugfs
++    def __init__(self):
++        super(Hwlat, self).__init__()
++        self.kmod = Kmod("hwlat_detector")
++        self.type = "kmodule"
++        self.kmod.load()
+ 
+     def get(self, field):
+         return int(self.debugfs.getval(os.path.join("hwlat_detector", field)))
+@@ -292,10 +384,11 @@ class Hwlat(object):
+     def get_sample(self):
+         return self.debugfs.getval("hwlat_detector/sample", nonblocking=True)
+ 
+-    def detect(self, duration):
++    def detect(self):
+         self.samples = []
+-        testend = time.time() + duration
++        testend = time.time() + self.testduration
+         pollcnt = 0
++        self.start()
+         try:
+             while time.time() < testend:
+                 pollcnt += 1
+@@ -304,13 +397,30 @@ class Hwlat(object):
+                     val = val.strip()
+                     self.samples.append(val)
+                     if watch: print(val)
+-                    debug("got a latency sample: %s" % val)
+                     val = self.get_sample()
+                 time.sleep(0.1)
+         except KeyboardInterrupt as e:
+             print("interrupted")
+-            sys.exit(1)
++        self.stop()
+         return self.samples
++
++    def display(self):
++        for s in self.samples:
++            print (s)
++
++    def save(self, output=None):
++        if output:
++            f = open(output, "w")
++            for s in self.samples:
++                f.write("%s\n" % str(s))
++            print("report saved to %s (%d samples)" % (output, len(self.samples)))
++
++    def cleanup(self):
++        if not self.kmod.unload():
++            raise RuntimeError("Failed to unload %s" % self.name)
++        if not self.debugfs.umount():
++            raise RuntimeError("Failed to unmount debugfs")
++
+ #
+ # the old smi_detector.ko module has different debugfs entries than the modern
+ # hwlat_detector.ko module; this object translates the current entries into the
+@@ -320,7 +430,7 @@ class Hwlat(object):
+ # have them both to calculate the window.
+ #
+ 
+-class Smi(object):
++class Smi(Detector):
+     '''class to wrap access to smi_detector debugfs files'''
+     field_translate = {
+         "count" : "smi_count",
+@@ -333,6 +443,9 @@ class Smi(object):
+         }
+ 
+     def __init__(self, debugfs):
++        super(Smi, self).__init__()
++        self.kmod = Kmod("smi_detector")
++        self.type = "kmodule"
+         self.width = 0
+         self.window = 0
+         self.debugfs = debugfs
+@@ -386,9 +499,9 @@ class Smi(object):
+         name = Smi.field_translate["sample"]
+         return self.debugfs.getval(os.path.join('smi_detector', name), nonblocking=True)
+ 
+-    def detect(self, duration):
++    def detect(self):
+         self.samples = []
+-        testend = time.time() + duration
++        testend = time.time() + self.testduration
+         threshold = self.get("threshold")
+         debug("detect: threshold %d" % threshold)
+         pollcnt = 0
+@@ -404,9 +517,13 @@ class Smi(object):
+                 time.sleep(0.1)
+         except KeyboardInterrupt as e:
+             print("interrupted")
+-            sys.exit(1)
+         return self.samples
+ 
++    def cleanup(self):
++        if not self.kmod.unload():
++            raise RuntimeError("Failed to unload %s" % self.name)
++        if not self.debugfs.umount():
++            raise RuntimeError("Failed to unmount debugfs")
+ 
+ def ms2us(val):
+     return val * 1000
+@@ -462,6 +579,10 @@ def microseconds(str):
+     else:
+         raise RuntimeError("invalid input for microseconds: '%s'" % str)
+ 
++#
++# main starts here
++#
++
+ if __name__ == '__main__':
+     from optparse import OptionParser
+ 
+@@ -506,6 +627,10 @@ if __name__ == '__main__':
+                       dest="watch",
+                       help="print sample data to stdout as it arrives")
+ 
++    parser.add_option("--kmodule", action="store_true", default=False,
++                      dest="kmodule",
++                      help="force using the kernel module")
++
+     (o, a) = parser.parse_args()
+ 
+     # need these before creating detector instance
+@@ -518,7 +643,10 @@ if __name__ == '__main__':
+         quiet = True
+         debugging = False
+ 
+-    detect = Detector()
++    if o.kmodule:
++        detect = Hwlat()
++    else:
++        detect = Tracer()
+ 
+     if o.cleanup:
+         debug("forcing cleanup of debugfs and hardware latency module")
+@@ -534,7 +662,7 @@ if __name__ == '__main__':
+         hardlimit = microseconds(o.hardlimit)
+     else:
+         hardlimit = detect.get("threshold")
+-    debug("hardlimit set to %dus" % hardlimit)
++    debug("hardlimit set to %dus" % int(hardlimit))
+ 
+     if o.window:
+         w = microseconds(o.window)
+@@ -566,11 +694,12 @@ if __name__ == '__main__':
+     reportfile = o.report
+ 
+     info("hwlatdetect:  test duration %d seconds" % detect.testduration)
++    info("   detector: %s" % detect.type)
+     info("   parameters:")
+-    info("        Latency threshold: %dus" % detect.get("threshold"))
+-    info("        Sample window:     %dus" % detect.get("window"))
+-    info("        Sample width:      %dus" % detect.get("width"))
+-    info("     Non-sampling period:  %dus" % (detect.get("window") - detect.get("width")))
++    info("        Latency threshold: %dus" % int(detect.get("threshold")))
++    info("        Sample window:     %dus" % int(detect.get("window")))
++    info("        Sample width:      %dus" % int(detect.get("width")))
++    info("     Non-sampling period:  %dus" % (int(detect.get("window")) - int(detect.get("width"))))
+     info("        Output File:       %s" % reportfile)
+     info("\nStarting test")
+ 
+@@ -599,18 +728,13 @@ if __name__ == '__main__':
+                 print("%d SMIs occured on cpu %d" % (smis, i))
+         info("SMIs during run: %d" % total_smis)
+ 
++    maxlatency = int(detect.get("max"))
++
+     if reportfile:
+-        count = 0
+-        f = open(reportfile, "w")
+-        for s in detect.samples:
+-            count += 1
+-            f.write("%s\n" % s)
+-        f.close()
+-        info("sample data (%d samples) written to %s" % (count, reportfile))
+-    else:
+-        for s in detect.samples:
+-            print("%s" % s)
++        detect.save(reportfile)
++
++    if not watch:
++        detect.display()
+ 
+-    maxlatency = int(detect.get("max"))
+     detect.cleanup()
+     sys.exit(maxlatency > hardlimit)
