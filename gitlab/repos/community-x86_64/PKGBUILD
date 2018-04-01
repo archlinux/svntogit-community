@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=10.6.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -34,7 +34,8 @@ source=("$pkgname-$pkgver.tar.bz2::https://gitlab.com/gitlab-org/gitlab-ce/repos
         gitlab.target
         gitlab.tmpfiles.d
         gitlab.logrotate
-        yarn.lock)
+        yarn.lock
+        a951b96be2862ce660dc715a364f574c2f5f72e1.patch)
 install='gitlab.install'
 sha512sums=('c361605186a2a0cccec7167d47be458f06a0627864d58bdd77f2ebf0edf0faebedc29a908dd7116733b74be4c94825f2317ed2057d28ecd246907f4be9dc8794'
             'c3ef56956fd0d8af1710d0c992f936c79477de35d65107eb5fde2611c65f1bf4e36a954c089a7588bac92c774e38af4581501b861decdb2193a5c08eeac92d32'
@@ -45,7 +46,8 @@ sha512sums=('c361605186a2a0cccec7167d47be458f06a0627864d58bdd77f2ebf0edf0faebedc
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
             '20b93eab504e82cc4401685b59e6311b4d2c0285bc594d47ce4106d3f418a3e2ba92c4f49732748c0ba913aa3e3299126166e37d2a2d5b4d327d66bae4b8abda'
-            'ef4a91d2e5db3aabf83092d9fdff5cd830d291b78d05b4fc9ea991fc5f3299c1a70bbde2632935f899dbf0be084348d125e62df0e87d7925e2ea8068b3463d4d')
+            'ef4a91d2e5db3aabf83092d9fdff5cd830d291b78d05b4fc9ea991fc5f3299c1a70bbde2632935f899dbf0be084348d125e62df0e87d7925e2ea8068b3463d4d'
+            'd7946c9c336e8d148479c1034e0058f2c6f8810e66a5369d531de3050ae7c0ff53be8789bc592afddba16a2acb660670fb687badc7eb65b7db5a445151140cb7')
 
 _datadir="/usr/share/webapps/${pkgname}"
 _etcdir="/etc/webapps/${pkgname}"
@@ -61,6 +63,8 @@ prepare() {
   local revision=$(ls -d ${_srcdir}* | rev | cut -c 34-40 | rev)
 
   cd "${_srcdir}"*
+
+  patch -Np1 -i "${srcdir}"/a951b96be2862ce660dc715a364f574c2f5f72e1.patch
 
   # Fix https://gitlab.com/gitlab-org/gitlab-ce/issues/36397
   # We used to need this but now the package doesn't build anymore with this. Leaving it commented for now.
