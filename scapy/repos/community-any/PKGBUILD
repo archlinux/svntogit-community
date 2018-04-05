@@ -3,44 +3,83 @@
 # Contributor: Ebubekir KARUL <ebubekirkarul@yandex.com>
 # Contributor: s1gma,shirokuro
 
-pkgname=scapy
-pkgver=2.3.3
+pkgbase=scapy
+pkgname=('scapy' 'python-scapy' 'python2-scapy')
+pkgver=2.4.0
 pkgrel=1
-pkgdesc="A powerful interactive packet manipulation program written in Python"
-url="http://www.secdev.org/projects/scapy/"
-depends=('tcpdump' 'python2' )
-optdepends=('python2-crypto: WEP decryption support'
-            'python2-pyx: psdump() and pdfdump() functions'
-            'python2-gnuplot: plotting support'
-            'graphviz: conversations() method support'
-            'sox: for VOIP support')
-checkdepends=('python2-crypto' 'python2-pyx' 'python2-gnuplot' 'python2-mock' 'graphviz' 'sox')
+pkgdesc='Powerful interactive packet manipulation program written in Python'
+url='http://www.secdev.org/projects/scapy/'
+makedepends=('tcpdump' 'python2' 'python')
+checkdepends=('python2-cryptography' 'python2-pyx' 'python2-matplotlib'
+              'python-cryptography' 'python-pyx' 'python-matplotlib'
+              'graphviz' 'sox')
 arch=('any')
 license=('GPL2')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/secdev/scapy/archive/v${pkgver}.tar.gz)
-sha512sums=('47ca2eceafe7b693c569a92c106782037d869c323aaaec41cace07dfdeb3c6a7e9f7bc8ca1150b3c0daea54e6665f93eb1dfc3c511419cfa28eb2e0753bf9ba4')
+sha512sums=('0fe80150cd83db7735c9d0b70ec832a4e68eb5160ad8559e9b1bd79c52a9950ef7c9555ea2a1ee1dc8df1f055a885c52552c29e304faf40250ce9c502a5f870a')
 
 prepare() {
-  cd ${pkgname}-${pkgver}
+  cp -a ${pkgbase}-${pkgver}{,-py2}
+  cd ${pkgbase}-${pkgver}-py2
   sed -e 's|env python|env python2|g' -i doc/scapy/*.rst scapy/contrib/*.py setup.py \
-    run_scapy scapy/pipetool.py scapy/tools/check_asdis.py scapy/layers/*.py
-  sed -e 's/exec python/exec python2/g' -i run_scapy setup.py test/run_tests
+    run_scapy scapy/pipetool.py scapy/tools/check_asdis.py scapy/layers/*.py bin/*
 }
 
 build() {
-  cd ${pkgname}-${pkgver}
-  python2 setup.py build
+  (cd ${pkgbase}-${pkgver}-py2
+    python2 setup.py build
+  )
+  (cd ${pkgbase}-${pkgver}
+    python setup.py build
+  )
 }
 
 check() {
-  cd ${pkgname}-${pkgver}/test
-  ./run_tests -t regression.uts -K netaccess
+  # Run only main tests, without network access
+  (cd ${pkgbase}-${pkgver}-py2/test
+    ./run_tests_py2 -K netaccess -F
+  )
+  (cd ${pkgbase}-${pkgver}/test
+    ./run_tests_py3 -K netaccess -F
+  )
 }
 
-package() {
-  cd ${pkgname}-${pkgver}
+package_scapy() {
+  depends=('python' 'python-scapy')
+  pkgdesc+=' (tools)'
+  cd ${pkgbase}-${pkgver}
+  python setup.py install -O1 --skip-build --root="${pkgdir}" --prefix=/usr
+  install -d "${pkgdir}/usr/share/doc"
+  ln -sf /usr/share/doc/python-scapy "${pkgdir}/usr/share/doc/${pkgname}"
+  rm -r "${pkgdir}/usr/lib"
+}
+
+package_python-scapy() {
+  pkgdesc+=' (library)'
+  depends=('tcpdump' 'python')
+  optdepends=('python-cryptography: WEP, IPsec and SSL/TLS support'
+              'python-pyx: psdump() and pdfdump() functions'
+              'python-matplotlib: plotting support'
+              'graphviz: conversations() method support'
+              'sox: for VOIP support')
+  cd ${pkgbase}-${pkgver}
+  python setup.py install -O1 --skip-build --root="${pkgdir}" --prefix=/usr
+  install -Dm 644 doc/scapy/*.rst -t "${pkgdir}/usr/share/doc/${pkgname}"
+  rm -r "${pkgdir}"{/usr/bin,/usr/share/man}
+}
+
+package_python2-scapy() {
+  pkgdesc+=' (library)'
+  depends=('tcpdump' 'python2')
+  optdepends=('python2-cryptography: WEP, IPsec and SSL/TLS support'
+              'python2-pyx: psdump() and pdfdump() functions'
+              'python2-matplotlib: plotting support'
+              'graphviz: conversations() method support'
+              'sox: for VOIP support')
+  cd ${pkgbase}-${pkgver}-py2
   python2 setup.py install -O1 --skip-build --root="${pkgdir}" --prefix=/usr
   install -Dm 644 doc/scapy/*.rst -t "${pkgdir}/usr/share/doc/${pkgname}"
+  rm -r "${pkgdir}"{/usr/bin,/usr/share/man}
 }
 
 # vim: ts=2 sw=2 et:
