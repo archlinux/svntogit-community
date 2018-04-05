@@ -10,69 +10,70 @@
 _pkgname=hdf5
 _mpi=openmpi
 pkgname=${_pkgname}-${_mpi}
-pkgver=1.10.1
-pkgrel=3
+pkgver=1.10.2
+pkgrel=1
 pkgdesc="General purpose library and file format for storing scientific data (${_mpi} version)"
 arch=('x86_64')
 url="https://www.hdfgroup.org/HDF5/"
 license=('custom')
 depends=('zlib' 'libaec' 'bash' 'openmpi')
-makedepends=('time' 'gcc-fortran')
+makedepends=('cmake' 'time' 'gcc-fortran')
 provides=('hdf5' 'hdf5-cpp-fortran' "hdf5-fortran-${_mpi}")
 conflicts=('hdf5')
 replaces=("hdf5-fortran-${_mpi}")
 source=("https://support.hdfgroup.org/ftp/HDF5/releases/${_pkgname}-${pkgver:0:4}/${_pkgname}-${pkgver/_/-}/src/${_pkgname}-${pkgver/_/-}.tar.bz2"
         'mpi.patch')
-md5sums=('d89893c05ee7ea8611b51bb39450d64e'
+md5sums=('41fb9347801b546fba323523a1c1af51'
          'dfa8dd50b8a7ebb3ad7249c627156cf9')
+sha256sums=('1cad5b7bfdf128dfc53cd16fba48f6e7ae4e93c75c371d9ec8dfc4df0c1fcb71'
+            '603006358175b7a8b35fa44c484cddf45c0381cf50db4fb7c50ea5969d361eca')
 
 prepare() {
-    cd ${_pkgname}-${pkgver/_/-}
+    mkdir -p build
 
+    cd ${_pkgname}-${pkgver/_/-}
     # FS#33343
     patch -p1 -i ../mpi.patch
 }
 
 build() {
-    cd ${_pkgname}-${pkgver/_/-}
-    ./configure \
-        CXX="mpicxx" \
-        CC="mpicc" \
-        FC="mpif90" \
-        F9X="mpif90" \
-        RUNPARALLEL="mpirun" \
-        OMPI_MCA_disable_memory_allocator=1 \
-        --prefix=/usr \
-        --docdir=/usr/share/doc/hdf5/ \
-        --disable-static \
-        --disable-sharedlib-rpath \
-        --enable-build-mode=production \
-        --enable-hl \
-        --enable-cxx \
-        --enable-fortran \
-        --enable-parallel \
-        --enable-unsupported \
-        --with-pic \
-        --with-zlib \
-        --with-szlib
-    make
+    cd build
+    CXX="mpicxx" \
+    CC="mpicc" \
+    FC="mpif90" \
+    F9X="mpif90" \
+    RUNPARALLEL="mpirun" \
+    OMPI_MCA_disable_memory_allocator=1 \
+    cmake ../${_pkgname}-${pkgver/_/-} \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DALLOW_UNSUPPORTED=ON \
+        -DHDF5_BUILD_HL_LIB=ON \
+        -DHDF5_BUILD_CPP_LIB=ON \
+        -DHDF5_BUILD_FORTRAN=ON \
+        -DHDF5_ENABLE_PARALLEL=ON \
+        -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_ENCODING=ON
+    cmake --build . --config Release
 }
 
-# Check are failing with error while loading shared libraries: libhdf5.so.101: cannot open shared object file: No such file or directory
-#check() {
-#    cd ${pkgname}-${pkgver/_/-}
-#    make check
-#}
+check() {
+    cd build
+    # Three expected test failures (https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.2/src/hdf5-1.10.2-RELEASE.txt, Known Problems):
+    #   142 - TEST_PAR_testphdf5 (Failed)
+    #   146 - TEST_PAR_t_cache_image (Timeout)
+    #   153 - TEST_PAR_t_shapesame (Failed)
+    ctest . -C Release || warning "Tests failed"
+}
 
 package() {
-    cd ${_pkgname}-${pkgver/_/-}
+    cd build
 
     make DESTDIR="${pkgdir}" install
 
-    rm -rf "${pkgdir}"/usr/lib/libdynlib*.so
-
-    install -dm755 "${pkgdir}"/usr/share/${_pkgname}
-    mv "${pkgdir}"/usr/share/{hdf5_examples,${_pkgname}/examples}
-
-    install -Dm644 COPYING "${pkgdir}"/usr/share/licenses/${_pkgname}/LICENSE
+    install -d "${pkgdir}"/usr/share/licenses/${pkgname}
+    mv "${pkgdir}"/usr/share/COPYING "${pkgdir}"/usr/share/licenses/${pkgname}/
+    rm "${pkgdir}"/usr/share/{RELEASE,USING_HDF5_CMake}.txt
 }
