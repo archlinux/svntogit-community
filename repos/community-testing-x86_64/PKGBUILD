@@ -1,0 +1,79 @@
+# $Id$
+# Maintainer: Ronald van Haren <ronald.archlinux.org>
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Stefan Husmann <stefan-husmann@t-online.de>
+# Contributor: damir <damir@archlinux.org>
+# Contributor: Tom K <tomk@runbox.com>
+# Contributor: Jed Brown <jed@59A2.org>
+# Contributor: Simone Pezzuto <junki.gnu@gmail.com>
+
+_pkgname=hdf5
+_mpi=openmpi
+pkgname=${_pkgname}-${_mpi}
+pkgver=1.10.2
+pkgrel=1
+pkgdesc="General purpose library and file format for storing scientific data (${_mpi} version)"
+arch=('x86_64')
+url="https://www.hdfgroup.org/HDF5/"
+license=('custom')
+depends=('zlib' 'libaec' 'bash' 'openmpi')
+makedepends=('cmake' 'time' 'gcc-fortran')
+provides=('hdf5' 'hdf5-cpp-fortran' "hdf5-fortran-${_mpi}")
+conflicts=('hdf5')
+replaces=("hdf5-fortran-${_mpi}")
+source=("https://support.hdfgroup.org/ftp/HDF5/releases/${_pkgname}-${pkgver:0:4}/${_pkgname}-${pkgver/_/-}/src/${_pkgname}-${pkgver/_/-}.tar.bz2"
+        'mpi.patch')
+md5sums=('41fb9347801b546fba323523a1c1af51'
+         'dfa8dd50b8a7ebb3ad7249c627156cf9')
+sha256sums=('1cad5b7bfdf128dfc53cd16fba48f6e7ae4e93c75c371d9ec8dfc4df0c1fcb71'
+            '603006358175b7a8b35fa44c484cddf45c0381cf50db4fb7c50ea5969d361eca')
+
+prepare() {
+    mkdir -p build
+
+    cd ${_pkgname}-${pkgver/_/-}
+    # FS#33343
+    patch -p1 -i ../mpi.patch
+}
+
+build() {
+    cd build
+    CXX="mpicxx" \
+    CC="mpicc" \
+    FC="mpif90" \
+    F9X="mpif90" \
+    RUNPARALLEL="mpirun" \
+    OMPI_MCA_disable_memory_allocator=1 \
+    cmake ../${_pkgname}-${pkgver/_/-} \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DALLOW_UNSUPPORTED=ON \
+        -DHDF5_BUILD_HL_LIB=ON \
+        -DHDF5_BUILD_CPP_LIB=ON \
+        -DHDF5_BUILD_FORTRAN=ON \
+        -DHDF5_ENABLE_PARALLEL=ON \
+        -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_ENCODING=ON
+    cmake --build . --config Release
+}
+
+check() {
+    cd build
+    # Three expected test failures (https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.2/src/hdf5-1.10.2-RELEASE.txt, Known Problems):
+    #   142 - TEST_PAR_testphdf5 (Failed)
+    #   146 - TEST_PAR_t_cache_image (Timeout)
+    #   153 - TEST_PAR_t_shapesame (Failed)
+    ctest . -C Release || warning "Tests failed"
+}
+
+package() {
+    cd build
+
+    make DESTDIR="${pkgdir}" install
+
+    install -d "${pkgdir}"/usr/share/licenses/${pkgname}
+    mv "${pkgdir}"/usr/share/COPYING "${pkgdir}"/usr/share/licenses/${pkgname}/
+    rm "${pkgdir}"/usr/share/{RELEASE,USING_HDF5_CMake}.txt
+}
