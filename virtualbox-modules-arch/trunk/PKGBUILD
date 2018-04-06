@@ -7,7 +7,7 @@ pkgname=('virtualbox-host-modules-arch' 'virtualbox-guest-modules-arch')
 pkgver=5.2.8
 pkgrel=11
 _linux_major=4
-_linux_minor=15
+_linux_minor=16
 arch=('x86_64')
 url='http://virtualbox.org'
 license=('GPL')
@@ -16,9 +16,22 @@ makedepends=("linux>=${_linux_major}.${_linux_minor}"
              "linux-headers>=${_linux_major}.${_linux_minor}"
              "linux-headers<${_linux_major}.$((_linux_minor+1))"
              "virtualbox-host-dkms>=$pkgver"
-             "virtualbox-guest-dkms>=$pkgver")
+             'git')
+
+# We need to build a modified version of vboxsf for Linux 4.16. Once
+# Linux 4.17 is out, we should remove virtualbox-guest-modules-arch.
+# https://bugzilla.redhat.com/show_bug.cgi?id=1481630#c65
+_vboxsf_commit=6a782003ad95a383c8b19b570a532271f090ad35
+source=("git+https://github.com/jwrdegoede/vboxsf#commit=$_vboxsf_commit")
+sha256sums=('SKIP')
 
 _extramodules=extramodules-${_linux_major}.${_linux_minor}-ARCH
+
+build() {
+  _kernver="$(cat /usr/lib/modules/$_extramodules/version)"
+  cd vboxsf
+  make BUILDDIR=/usr/lib/modules/$_kernver/build
+}
 
 package_virtualbox-host-modules-arch(){
   _kernver="$(cat /usr/lib/modules/$_extramodules/version)"
@@ -52,15 +65,10 @@ package_virtualbox-guest-modules-arch(){
              'virtualbox-guest-dkms')
   provides=('VIRTUALBOX-GUEST-MODULES')
 
-  cd "/var/lib/dkms/vboxguest/${pkgver}_OSE/$_kernver/$CARCH/module"
-  install -Dt "$pkgdir/usr/lib/modules/$_extramodules" -m644 *
+  install -Dm644 -t "$pkgdir/usr/lib/modules/$_extramodules" vboxsf/vboxsf.ko
 
   # compress each module individually
   find "$pkgdir" -name '*.ko' -exec xz -T1 {} +
-
-  # systemd module loading
-  printf "vboxguest\nvboxsf\nvboxvideo\n" |
-    install -Dm644 /dev/stdin "$pkgdir/usr/lib/modules-load.d/$pkgname.conf"
 }
 
 # vim:set ts=2 sw=2 et:
