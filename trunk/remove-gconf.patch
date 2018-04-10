@@ -1,0 +1,1019 @@
+From 38b173dd908209852d10501bbd64ce930286fdb7 Mon Sep 17 00:00:00 2001
+From: James Cameron <quozl@laptop.org>
+Date: Mon, 26 Mar 2018 14:52:44 +1100
+Subject: [PATCH] jarabe, extensions - remove GConf compatibility
+
+GConf compatibility support in Sugar allowed activities to read or be
+notified of changes to age, gender, nick, user colour, collaboration
+server, backup server, or automatic power management.  Redundant code
+updated GConf values at the same time as updates to Gio.Settings values.
+
+Remove GConf from Sugar;
+
+- remove the autoconf rules,
+
+- remove the Makefile rules,
+
+- remove the schema conversion for upgrades from GTK+ 2 Sugar,
+
+- remove the gsettings-migrated setting key,
+
+- remove the GConf schema from POTFILES.in,
+
+- remove the GConf schema,
+
+- remove redundant code for GConf value updates,
+
+- remove migration from GConf to Gio.Settings.
+
+Warning: may break some activities.  May cause default values to be
+used, traceback, or fail to start for any activity using the removed
+GConf schema to read the removed configuration values for; age, gender,
+nick, user colour, collaboration server, backup server, and automatic
+power management.  Fix GTK+ 2 activities by porting to GTK+ 3 and
+Gio.Settings.  Fix GTK+ 3 activities by porting from GConf to
+Gio.Settings.
+
+Tested on Ubuntu 16.04.
+
+Tested on Ubuntu 18.04 with autogen.sh, distcheck, install, uninstall.
+---
+ configure.ac                          |  11 +-
+ data/Makefile.am                      |  16 +-
+ data/org.sugarlabs.gschema.xml        |   5 -
+ data/sugar-schemas.convert            |  69 -----
+ data/sugar.schemas.in                 | 491 ----------------------------------
+ extensions/cpsection/aboutme/model.py |  15 --
+ extensions/cpsection/network/model.py |  11 -
+ extensions/cpsection/power/model.py   |   5 -
+ po/POTFILES.in                        |   1 -
+ src/jarabe/desktop/schoolserver.py    |   7 -
+ src/jarabe/intro/__init__.py          |   6 +-
+ src/jarabe/intro/agepicker.py         |   5 -
+ src/jarabe/intro/genderpicker.py      |   6 -
+ src/jarabe/intro/window.py            |  10 -
+ src/jarabe/main.py                    | 106 --------
+ 15 files changed, 4 insertions(+), 760 deletions(-)
+ delete mode 100644 data/sugar-schemas.convert
+ delete mode 100644 data/sugar.schemas.in
+
+diff --git a/configure.ac b/configure.ac
+index 4e8ae65fa..be64e6731 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -15,7 +15,7 @@ AM_MAINTAINER_MODE
+ PYTHON=python2
+ AM_PATH_PYTHON
+ 
+-PKG_CHECK_MODULES(SHELL, gtk+-3.0 gconf-2.0)
++PKG_CHECK_MODULES(SHELL, gtk+-3.0)
+ 
+ IT_PROG_INTLTOOL([0.35.0])
+ GETTEXT_PACKAGE=sugar
+@@ -28,15 +28,6 @@ AC_ARG_ENABLE(update-mimedb,
+     enable_update_mimedb=yes)
+ AM_CONDITIONAL(ENABLE_UPDATE_MIMEDB, test x$enable_update_mimedb = xyes)
+ 
+-# Verify that gconftool is installed 
+-# 
+-AC_PATH_PROG(GCONFTOOL, gconftool-2, no)
+-
+-if test "$GCONFTOOL" = no; then
+-  AC_MSG_ERROR([gconftool-2 executable not found in your path - should be installed with GConf])
+-fi
+-
+-AM_GCONF_SOURCE_2
+ GLIB_GSETTINGS
+ 
+ 
+diff --git a/data/Makefile.am b/data/Makefile.am
+index fd1a45efa..433410e9f 100644
+--- a/data/Makefile.am
++++ b/data/Makefile.am
+@@ -51,26 +51,14 @@ endif
+ 
+ @INTLTOOL_SCHEMAS_RULE@
+ 
+-schemadir = $(GCONF_SCHEMA_FILE_DIR)
+-schema_in_files = sugar.schemas.in
+-schema_DATA = $(schema_in_files:.schemas.in=.schemas)
+-
+-install-data-local: $(schema_DATA)
+-if GCONF_SCHEMAS_INSTALL
+-	GCONF_CONFIG_SOURCE=$(GCONF_SCHEMA_CONFIG_SOURCE) $(GCONFTOOL) --makefile-install-rule sugar.schemas 2>&1 > /dev/null
+-endif
+-
+ gsettings_SCHEMAS = org.sugarlabs.gschema.xml
+ @GSETTINGS_RULES@
+ 
+-convertdir = $(datarootdir)/GConf/gsettings
+-convert_DATA = sugar-schemas.convert
+-
+ %.policy : %.policy.in ; sed -e "s|\@bindir\@|$(bindir)|g" $< > $@
+ 
+ polkit_policydir = $(datadir)/polkit-1/actions
+ polkit_in_files = org.sugar.brightness.policy.in org.sugar.serial-number.policy.in
+ polkit_policy_DATA = $(polkit_in_files:.policy.in=.policy)
+ 
+-EXTRA_DIST = $(sugar_DATA) $(xsessions_DATA) $(nmservice_DATA) $(mime_xml_in_files) em.py gtkrc.em $(schema_in_files) $(icon_DATA) $(gsettings_SCHEMAS) $(convert_DATA) $(polkit_in_files)
+-CLEANFILES = $(GTKRC_FILES) $(mime_xml_files) $(schema_DATA) $(polkit_policy_DATA)
++EXTRA_DIST = $(sugar_DATA) $(xsessions_DATA) $(nmservice_DATA) $(mime_xml_in_files) em.py gtkrc.em $(icon_DATA) $(gsettings_SCHEMAS) $(convert_DATA) $(polkit_in_files)
++CLEANFILES = $(GTKRC_FILES) $(mime_xml_files) $(polkit_policy_DATA)
+diff --git a/data/org.sugarlabs.gschema.xml b/data/org.sugarlabs.gschema.xml
+index 3376164c8..3f3a3f86c 100644
+--- a/data/org.sugarlabs.gschema.xml
++++ b/data/org.sugarlabs.gschema.xml
+@@ -1,11 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <schemalist>
+     <schema id="org.sugarlabs" path="/org/sugarlabs/">
+-        <key name="gsettings-migrated" type="b">
+-            <default>false</default>
+-            <summary>Migrated to GSettings</summary>
+-            <description>This key shows whether or not GConf values were migrated to GSettings</description>
+-        </key>
+         <key name="backup-url" type="s">
+             <default>''</default>
+             <summary>Backup URL</summary>
+diff --git a/data/sugar-schemas.convert b/data/sugar-schemas.convert
+deleted file mode 100644
+index ba8981087..000000000
+--- a/data/sugar-schemas.convert
++++ /dev/null
+@@ -1,69 +0,0 @@
+-[org.sugarlabs]
+-backup-url = /desktop/sugar/backup_url
+-maximum-number-of-open-activities = /desktop/sugar/maximum_number_of_open_activities
+-protected-activities = /desktop/sugar/protected_activities
+-show-logout = /desktop/sugar/show_logout
+-show-register = /desktop/sugar/show_register
+-show-restart = /desktop/sugar/show_restart
+-show-shutdown = /desktop/sugar/show_shutdown
+-
+-[org.sugarlabs.user]
+-nick = /desktop/sugar/user/nick
+-default-nick = /desktop/sugar/user/default_nick
+-color = /desktop/sugar/user/color
+-
+-[org.sugarlabs.user.background]
+-image-path = /desktop/sugar/user/background/image-path
+-alpha-level = /desktop/sugar/user/background/alpha-level
+-
+-[org.sugarlabs.sound]
+-volume = /desktop/sugar/sound/volume
+-mute = /desktop/sugar/sound/mute
+-
+-[org.sugarlabs.date]
+-timezone = /desktop/sugar/date/timezone
+-
+-[org.sugarlabs.frame]
+-edge-delay = /desktop/sugar/frame/edge_delay
+-corner-delay = /desktop/sugar/frame/corner_delay
+-
+-[org.sugarlabs.collaboration]
+-jabber-server = /desktop/sugar/collaboration/jabber_server
+-publish-gadget = /desktop/sugar/collaboration/publish_gadget
+-
+-[org.sugarlabs.power]
+-automatic = /desktop/sugar/power/automatic
+-extreme = /desktop/sugar/power/extreme
+-
+-[org.sugarlabs.peripherals.keyboard]
+-layouts = /desktop/sugar/peripherals/keyboard/layouts
+-options = /desktop/sugar/peripherals/keyboard/options
+-model = /desktop/sugar/peripherals/keyboard/model
+-
+-[org.sugarlabs.font]
+-default-face = /desktop/sugar/font/default_face
+-default-size = /desktop/sugar/font/default_size
+-
+-[org.sugarlabs.network]
+-adhoc = /desktop/sugar/network/adhoc
+-
+-[org.sugarlabs.network.gsm]
+-username = /desktop/sugar/network/gsm/username
+-password = /desktop/sugar/network/gsm/password
+-number = /desktop/sugar/network/gsm/number
+-apn = /desktop/sugar/network/gsm/apn
+-pin = /desktop/sugar/network/gsm/pin
+-puk = /desktop/sugar/network/gsm/puk
+-
+-[org.sugarlabs.speech]
+-pitch = /desktop/sugar/speech/pitch
+-rate = /desktop/sugar/speech/rate
+-
+-[org.sugarlabs.update]
+-backend = /desktop/sugar/update/backend
+-microformat-update-url = /desktop/sugar/update/microformat_update_url
+-auto-update-frequency = /desktop/sugar/update/auto_update_frequency
+-last-activity-update = /desktop/sugar/update/last_activity_update
+-
+-[org.sugarlabs.extensions.aboutcomputer]
+-hardware-model = /desktop/desktop/sugar/extensions/aboutcomputer/hardware_model
+diff --git a/data/sugar.schemas.in b/data/sugar.schemas.in
+deleted file mode 100644
+index dbdb45a34..000000000
+--- a/data/sugar.schemas.in
++++ /dev/null
+@@ -1,491 +0,0 @@
+-<?xml version="1.0"?>
+-<gconfschemafile>
+-  <schemalist>
+-    <schema>
+-      <key>/schemas/desktop/sugar/user/nick</key>
+-      <applyto>/desktop/sugar/user/nick</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>User Name</short>
+-        <long>User name that is used throughout the desktop.</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/user/default_nick</key>
+-      <applyto>/desktop/sugar/user/default_nick</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default>system</default>
+-      <locale name="C">
+-        <short>Default nick</short>
+-        <long>"disabled" to ask nick on initialization; "system" to reuse UNIX account long name.</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/user/color</key>
+-      <applyto>/desktop/sugar/user/color</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>User Color</short>
+-        <long>Color for the XO icon that is used throughout the
+-	  desktop. The string is composed of the stroke color and fill
+-	  color, format is that of rgb colors. Example: #AC32FF,#9A5200
+-	</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/journal/save_as</key>
+-      <applyto>/desktop/sugar/journal/save_as</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>false</default>
+-      <locale name="C">
+-        <short>Save-As Alert</short>
+-        <long>Show a save-as alert on activity stop.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/sound/volume</key>
+-      <applyto>/desktop/sugar/sound/volume</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>80</default>
+-      <locale name="C">
+-        <short>Volume Level</short>
+-        <long>Volume level for the sound device.</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/sound/mute</key>
+-      <applyto>/desktop/sugar/sound/mute</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>false</default>
+-      <locale name="C">
+-        <short>Sound Muted</short>
+-        <long>Setting for muting the sound device.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/backup_url</key>
+-      <applyto>/desktop/sugar/backup_url</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>Backup URL</short>
+-        <long>URL where the backup is saved to.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/date/timezone</key>
+-      <applyto>/desktop/sugar/date/timezone</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>Timezone</short>
+-        <long>Timezone setting for the system.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/desktop/favorites_layout</key>
+-      <applyto>/desktop/sugar/desktop/favorites_layout</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default>ring-layout</default>
+-      <locale name="C">
+-        <short>Favorites Layout</short>
+-        <long>Layout of the favorites view.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/desktop/favorites_mode</key>
+-      <applyto>/desktop/sugar/desktop/favorites_mode</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>false</default>
+-      <locale name="C">
+-        <short>Favorites resume mode</short>
+-        <long>When in resume mode, clicking on a favorite icon will cause the last entry for that activity to be resumed.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/frame/edge_delay</key>
+-      <applyto>/desktop/sugar/frame/edge_delay</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>1000</default>
+-      <locale name="C">
+-        <short>Edge Delay</short>
+-        <long>Delay for the activation of the frame using the edges.</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/frame/corner_delay</key>
+-      <applyto>/desktop/sugar/frame/corner_delay</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>0</default>
+-      <locale name="C">
+-        <short>Corner Delay</short>
+-        <long>Delay for the activation of the frame using the corners.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/collaboration/jabber_server</key>
+-      <applyto>/desktop/sugar/collaboration/jabber_server</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>Jabber Server</short>
+-        <long>URL of the jabber server to use.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/power/automatic</key>
+-      <applyto>/desktop/sugar/power/automatic</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>false</default>
+-      <locale name="C">
+-        <short>Power Automatic</short>
+-        <long>Automatic power management (increases battery life)</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/power/extreme</key>
+-      <applyto>/desktop/sugar/power/extreme</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>false</default>
+-      <locale name="C">
+-        <short>Power Extreme</short>
+-        <long>Extreme power management (disables wireless radio, increases battery life)</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/collaboration/publish_gadget</key>
+-      <applyto>/desktop/sugar/collaboration/publish_gadget</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>true</default>
+-      <locale name="C">
+-        <short>Publish to Gadget</short>
+-        <long>If TRUE, Sugar will make us searchable for the other users of the Jabber server.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/show_logout</key>
+-      <applyto>/desktop/sugar/show_logout</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>true</default>
+-      <locale name="C">
+-        <short>Show Log out</short>
+-        <long>If TRUE, Sugar will show a "Log out" option.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/show_restart</key>
+-      <applyto>/desktop/sugar/show_restart</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>true</default>
+-      <locale name="C">
+-        <short>Show Restart</short>
+-        <long>If TRUE, Sugar will show a "Restart" option.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/show_shutdown</key>
+-      <applyto>/desktop/sugar/show_shutdown</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>true</default>
+-      <locale name="C">
+-        <short>Show Shutdown</short>
+-        <long>If TRUE, Sugar will show a "Shutdown" option.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/show_register</key>
+-      <applyto>/desktop/sugar/show_register</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>true</default>
+-      <locale name="C">
+-        <short>Show Register</short>
+-        <long>If TRUE, Sugar will show a "Register" option in the buddy palette.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/peripherals/keyboard/layouts</key>
+-      <applyto>/desktop/sugar/peripherals/keyboard/layouts</applyto>
+-      <owner>sugar</owner>
+-      <type>list</type>
+-      <list_type>string</list_type>
+-      <locale name="C">
+-        <short>Keyboard layouts</short>
+-        <long>List of keyboard layouts. Each entry should be in the form layout(variant)</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/peripherals/keyboard/options</key>
+-      <applyto>/desktop/sugar/peripherals/keyboard/options</applyto>
+-      <owner>sugar</owner>
+-      <type>list</type>
+-      <list_type>string</list_type>
+-      <locale name="C">
+-        <short>Keyboard options</short>
+-        <long>List of keyboard options.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/peripherals/keyboard/model</key>
+-      <applyto>/desktop/sugar/peripherals/keyboard/model</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <locale name="C">
+-        <short>Keyboard model</short>
+-        <long>The keyboard model to be used</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/font/default_face</key>
+-      <applyto>/desktop/sugar/font/default_face</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default>Sans Serif</default>
+-      <locale name="C">
+-        <short>Default font face</short>
+-        <long>Font face that is used throughout the desktop.</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/font/default_size</key>
+-      <applyto>/desktop/sugar/font/default_size</applyto>
+-      <owner>sugar</owner>
+-      <type>float</type>
+-      <default>10</default>
+-      <locale name="C">
+-        <short>Default font size</short>
+-        <long>Font size that is used throughout the desktop.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/gsm/username</key>
+-      <applyto>/desktop/sugar/network/gsm/username</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>GSM network username (DEPRECATED/UNUSED)</short>
+-        <long>GSM network username configuration (DEPRECATED/UNUSED)</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/gsm/password</key>
+-      <applyto>/desktop/sugar/network/gsm/password</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>GSM network password (DEPRECATED/UNUSED)</short>
+-        <long>GSM network password configuration (DEPRECATED/UNUSED)</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/gsm/number</key>
+-      <applyto>/desktop/sugar/network/gsm/number</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default>*99#</default>
+-      <locale name="C">
+-        <short>GSM network number (DEPRECATED/UNUSED)</short>
+-        <long>GSM network telephone number configuration (DEPRECATED/UNUSED)</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/gsm/apn</key>
+-      <applyto>/desktop/sugar/network/gsm/apn</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>GSM network APN (DEPRECATED/UNUSED)</short>
+-        <long>GSM network access point name configuration (DEPRECATED/UNUSED)</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/gsm/pin</key>
+-      <applyto>/desktop/sugar/network/gsm/pin</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>GSM network PIN (DEPRECATED/UNUSED)</short>
+-        <long>GSM network personal identification number configuration (DEPRECATED/UNUSED)</long>
+-      </locale>
+-    </schema>
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/gsm/puk</key>
+-      <applyto>/desktop/sugar/network/gsm/puk</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>GSM network PUK (DEPRECATED/UNUSED)</short>
+-        <long>GSM network personal unlock key configuration (DEPRECATED/UNUSED)</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/network/adhoc</key>
+-      <applyto>/desktop/sugar/network/adhoc</applyto>
+-      <owner>sugar</owner>
+-      <type>bool</type>
+-      <default>true</default>
+-      <locale name="C">
+-        <short>Show Sugar Ad-hoc networks</short>
+-        <long>If TRUE, Sugar will show default Ad-hoc networks for
+-	  channel 1,6 and 11. If Sugar sees no "known" network when
+-	  it starts, it does autoconnect to an Ad-hoc network.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/protected_activities</key>
+-      <applyto>/desktop/sugar/protected_activities</applyto>
+-      <owner>sugar</owner>
+-      <type>list</type>
+-      <list_type>string</list_type>
+-      <default>[]</default>
+-      <locale name="C">
+-        <short>Bundle IDs of protected activities</short>
+-        <long>Users will not be allowed to erase these
+-        activities through the list view.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/speech/pitch</key>
+-      <applyto>/desktop/sugar/speech/pitch</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>0</default>
+-      <locale name="C">
+-        <short>Pitch value for the speech sugar service</short>
+-        <long>Pitch value used by the speech service in Sugar</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/speech/rate</key>
+-      <applyto>/desktop/sugar/speech/rate</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>0</default>
+-      <locale name="C">
+-        <short>Rate value for the speech sugar service</short>
+-        <long>Rate value used by the speech service in Sugar</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/update/backend</key>
+-      <applyto>/desktop/sugar/update/backend</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default>aslo.AsloUpdater</default>
+-      <locale name="C">
+-        <short>Activity update backend.</short>
+-        <long>Activity update backend module, followed by a period, followed by the class name.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/update/microformat_update_url</key>
+-      <applyto>/desktop/sugar/update/microformat_update_url</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>Microformat update URL.</short>
+-        <long>URL used by the microformat update backend for activity update information.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/update/auto_update_frequency</key>
+-      <applyto>/desktop/sugar/update/auto_update_frequency</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>0</default>
+-      <locale name="C">
+-        <short>Automatic update frequency.</short>
+-        <long>Frequency of automatic activity updates, measured in days. 0 means disabled.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/update/last_activity_update</key>
+-      <applyto>/desktop/sugar/update/last_activity_update</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>0</default>
+-      <locale name="C">
+-        <short>Timestamp of last activity update.</short>
+-        <long>A unix timestamp (seconds since epoch) of the last successful activity update.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/extensions/aboutcomputer/hardware_model</key>
+-      <applyto>/desktop/desktop/sugar/extensions/aboutcomputer/hardware_model</applyto>
+-      <owner>sugar</owner>
+-      <type>string</type>
+-      <default></default>
+-      <locale name="C">
+-        <short>A description of the hardware available to the user.</short>
+-        <long>This string is displayed in the control panel, about computer section.</long>
+-      </locale>
+-    </schema>
+-
+-    <schema>
+-      <key>/schemas/desktop/sugar/maximum_number_of_open_activities</key>
+-      <applyto>/desktop/sugar/maximum_number_of_open_activities</applyto>
+-      <owner>sugar</owner>
+-      <type>int</type>
+-      <default>0</default>
+-      <locale name="C">
+-        <short>A limit to the number of simultaneously open activities.</short>
+-        <long>This int is used to set a limit to the number of open activities. By default (0), there is no limit.</long>
+-      </locale>
+-    </schema>
+-
+-  </schemalist>
+-</gconfschemafile>
+diff --git a/extensions/cpsection/aboutme/model.py b/extensions/cpsection/aboutme/model.py
+index a2a4b3597..0f30dbda1 100644
+--- a/extensions/cpsection/aboutme/model.py
++++ b/extensions/cpsection/aboutme/model.py
+@@ -52,11 +52,6 @@ def set_nick(nick):
+         nick = unicode(nick, 'utf-8')
+     settings = Gio.Settings('org.sugarlabs.user')
+     settings.set_string('nick', nick)
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string('/desktop/sugar/user/nick', nick)
+     return 1
+ 
+ 
+@@ -115,11 +110,6 @@ def set_color(stroke, fill, stroke_modifier='medium', fill_modifier='medium'):
+ 
+     settings = Gio.Settings('org.sugarlabs.user')
+     settings.set_string('color', color)
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string('/desktop/sugar/user/color', color)
+     return 1
+ 
+ 
+@@ -134,9 +124,4 @@ def set_color_xo(color):
+     """
+     settings = Gio.Settings('org.sugarlabs.user')
+     settings.set_string('color', color)
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string('/desktop/sugar/user/color', color)
+     return 1
+diff --git a/extensions/cpsection/network/model.py b/extensions/cpsection/network/model.py
+index d7c3c4b5c..0541f416c 100644
+--- a/extensions/cpsection/network/model.py
++++ b/extensions/cpsection/network/model.py
+@@ -71,12 +71,6 @@ def set_jabber(server):
+     """
+     settings = Gio.Settings('org.sugarlabs.collaboration')
+     settings.set_string('jabber-server', server)
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string('/desktop/sugar/collaboration/jabber_server', server)
+-
+     return 0
+ 
+ 
+@@ -107,11 +101,6 @@ def clear_registration():
+     """
+     settings = Gio.Settings('org.sugarlabs')
+     settings.set_string('backup-url', '')
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string('/desktop/sugar/backup_url', '')
+     return 1
+ 
+ 
+diff --git a/extensions/cpsection/power/model.py b/extensions/cpsection/power/model.py
+index d42ede268..c52477739 100644
+--- a/extensions/cpsection/power/model.py
++++ b/extensions/cpsection/power/model.py
+@@ -90,9 +90,4 @@ def set_automatic_pm(enabled):
+ 
+     settings = Gio.Settings('org.sugarlabs.power')
+     settings.set_boolean('automatic', enabled)
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string('/desktop/sugar/power/automatic', enabled)
+     return
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index 560a254ed..6c14f2f17 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -40,7 +40,6 @@ extensions/deviceicon/speech.py
+ extensions/deviceicon/touchpad.py
+ extensions/deviceicon/volume.py
+ extensions/globalkey/screenshot.py
+-data/sugar.schemas.in
+ src/jarabe/controlpanel/cmd.py
+ src/jarabe/controlpanel/gui.py
+ src/jarabe/controlpanel/sectionview.py
+diff --git a/src/jarabe/desktop/schoolserver.py b/src/jarabe/desktop/schoolserver.py
+index cdea15da1..2b022a311 100644
+--- a/src/jarabe/desktop/schoolserver.py
++++ b/src/jarabe/desktop/schoolserver.py
+@@ -153,13 +153,6 @@ def register_laptop(url=_REGISTER_URL):
+     settings = Gio.Settings('org.sugarlabs')
+     settings.set_string('backup-url', data['backupurl'])
+ 
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_string(
+-        '/desktop/sugar/collaboration/jabber_server', data['jabberserver'])
+-    client.set_string('/desktop/sugar/backup_url', data['backupurl'])
+-
+     return True
+ 
+ 
+diff --git a/src/jarabe/intro/__init__.py b/src/jarabe/intro/__init__.py
+index 2766f0119..84921341c 100644
+--- a/src/jarabe/intro/__init__.py
++++ b/src/jarabe/intro/__init__.py
+@@ -20,8 +20,4 @@ def check_group_label():
+     settings = Gio.Settings('org.sugarlabs.user')
+     if len(settings.get_string('group-label')) > 0:
+         return True
+-
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    return client.get_string('/desktop/sugar/user/group') is not None
++    return False
+diff --git a/src/jarabe/intro/agepicker.py b/src/jarabe/intro/agepicker.py
+index 2904de1b1..24d945b24 100644
+--- a/src/jarabe/intro/agepicker.py
++++ b/src/jarabe/intro/agepicker.py
+@@ -115,11 +115,6 @@ def save_age(age):
+     # Record the label so we know it was set
+     settings.set_string('group-label', age_to_group_label(age))
+ 
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-    client.set_int('/desktop/sugar/user/birth_timestamp', birth_timestamp)
+-
+ 
+ class GroupLabels():
+     GROUP_LABEL = []
+diff --git a/src/jarabe/intro/genderpicker.py b/src/jarabe/intro/genderpicker.py
+index 8ee4d1f92..38b6dd64d 100644
+--- a/src/jarabe/intro/genderpicker.py
++++ b/src/jarabe/intro/genderpicker.py
+@@ -39,12 +39,6 @@ def save_gender(gender):
+     else:
+         settings.set_string('gender', '')
+ 
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    if gender is not None:
+-        client = GConf.Client.get_default()
+-        client.set_string('/desktop/sugar/user/gender', gender)
+-
+ 
+ class GenderPicker(Gtk.Grid):
+ 
+diff --git a/src/jarabe/intro/window.py b/src/jarabe/intro/window.py
+index fc91c3756..a06bf2177 100644
+--- a/src/jarabe/intro/window.py
++++ b/src/jarabe/intro/window.py
+@@ -62,16 +62,6 @@ def create_profile(user_profile):
+ 
+     agepicker.save_age(user_profile.age)
+ 
+-    # DEPRECATED
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-
+-    client.set_string('/desktop/sugar/user/nick', user_profile.nickname)
+-
+-    client.set_string('/desktop/sugar/user/color', colors.to_string())
+-
+-    client.suggest_sync()
+-
+     if profile.get_pubkey() and profile.get_profile().privkey_hash:
+         logging.info('Valid key pair found, skipping generation.')
+         return
+diff --git a/src/jarabe/main.py b/src/jarabe/main.py
+index e50e87db0..d4604aa7d 100755
+--- a/src/jarabe/main.py
++++ b/src/jarabe/main.py
+@@ -58,7 +58,6 @@
+ gi.require_version('Wnck', '3.0')
+ gi.require_version('SugarExt', '1.0')
+ gi.require_version('GdkX11', '3.0')
+-gi.require_version('GConf', '2.0')
+ 
+ from gi.repository import GObject
+ from gi.repository import Gio
+@@ -252,109 +251,6 @@ def cleanup_temporary_files():
+         print 'temporary files cleanup failed: %s' % e
+ 
+ 
+-def _migrate_journal_mimeregistry():
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-
+-    # Now this isn't good
+-    # keys in /desktop/sugar/journal/defaults are mime types
+-    # which are of the sort text/plain
+-    # so, GConf is thinking test is a directory and the key is plain
+-    # while the key should be 'text/plain'
+-
+-    gconf_defaults_dir = '/desktop/sugar/journal/defaults'
+-
+-    entries = client.all_entries(gconf_defaults_dir)
+-    for directory in client.all_dirs(gconf_defaults_dir):
+-        entries.extend(client.all_entries(directory))
+-
+-    prefix = gconf_defaults_dir + '/'
+-    prefix_length = len(prefix)
+-
+-    gconf_defaults = {}
+-    for entry in entries:
+-        key = entry.get_key()
+-        key = key[prefix_length:]
+-
+-        # entry.get_value().get_string() causes sugar to crash later
+-        # not on the call, but after some random time
+-        # was impossible to debug (almost impossible)
+-        value = entry.value.get_string()
+-        gconf_defaults[key] = value
+-
+-    variant = GLib.Variant('a{ss}', gconf_defaults)
+-
+-    settings = Gio.Settings('org.sugarlabs.journal')
+-    settings.set_value('mime-registry', variant)
+-
+-
+-def _migrate_homeviews_settings():
+-    from gi.repository import GConf
+-    client = GConf.Client.get_default()
+-
+-    # Merge several keys into one... yay!
+-    options = client.get('/desktop/sugar/desktop/view-icons')
+-    gconf_view_icons = []
+-    if options:
+-        gconf_view_icons = [gval.get_string() for gval in options.get_list()]
+-
+-    # assume view-icons is the leading key
+-    number_of_views = len(gconf_view_icons)
+-
+-    layouts = []
+-    prefix = '/desktop/sugar/desktop/favorites_layout'
+-
+-    entries = client.all_entries('/desktop/sugar/desktop')
+-    for entry in entries:
+-        key = entry.get_key()
+-        if key.startswith(prefix):
+-            # entry.get_value().get_string() causes sugar to crash later
+-            # not on the call, but after some random time
+-            # was impossible to debug (almost impossible)
+-            value = entry.value.get_string()
+-            layouts.append((key, value))
+-
+-    layouts.sort()
+-    gconf_layouts = [layout[1] for layout in layouts][:number_of_views]
+-
+-    while len(gconf_layouts) < number_of_views:
+-        gconf_layouts.append('ring-layout')
+-
+-    options = client.get('/desktop/sugar/desktop/favorite-icons')
+-    gconf_fav_icons = []
+-    if options:
+-        gconf_fav_icons = [gval.get_string() for gval in options.get_list()]
+-        gconf_fav_icons = gconf_fav_icons[:number_of_views]
+-
+-    while len(gconf_fav_icons) < number_of_views:
+-        gconf_fav_icons.append('emblem-favorite')
+-
+-    homeviews = []
+-    for i, view_icon in enumerate(gconf_view_icons):
+-        homeviews.append({'view-icon': view_icon, 'layout': gconf_layouts[i],
+-                          'favorite-icon': gconf_fav_icons[i]})
+-
+-    variant = GLib.Variant('aa{ss}', homeviews)
+-    settings = Gio.Settings('org.sugarlabs.desktop')
+-    settings.set_value('homeviews', variant)
+-
+-
+-def _migrate_gconf_to_gsettings():
+-    try:
+-        subprocess.call('gsettings-data-convert')
+-    except subprocess.CalledProcessError:
+-        logging.error('Unable to convert data.')
+-
+-    settings = Gio.Settings('org.sugarlabs')
+-    migrated = settings.get_boolean('gsettings-migrated')
+-
+-    if not migrated:
+-        _migrate_journal_mimeregistry()
+-        _migrate_homeviews_settings()
+-
+-        settings.set_boolean('gsettings-migrated', True)
+-
+-
+ def setup_timezone():
+     settings = Gio.Settings('org.sugarlabs.date')
+     timezone = settings.get_string('timezone')
+@@ -452,8 +348,6 @@ def main():
+ 
+     Gst.init(sys.argv)
+ 
+-    _migrate_gconf_to_gsettings()
+-
+     cleanup_temporary_files()
+ 
+     _start_window_manager()
