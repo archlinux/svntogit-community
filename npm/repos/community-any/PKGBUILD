@@ -3,7 +3,7 @@
 
 pkgname=npm
 pkgver=5.8.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
@@ -28,12 +28,17 @@ package() {
   cd npm-$pkgver
   make NPMOPTS="--prefix=\"$pkgdir/usr\"" install
 
-  # Why 777? :/
+  # Non-deterministic race in npm gives 777 permissions to random directories.
+  # See https://github.com/npm/npm/issues/9359 for details.
   chmod -R u=rwX,go=rX "$pkgdir"
 
   # Experimental dedup
-  rm -r "$pkgdir"/usr/lib/node_modules/$pkgname/node_modules/semver
-  rm -r "$pkgdir"/usr/lib/node_modules/$pkgname/node_modules/npm-lifecycle/node_modules/node-gyp
+  _npmdir="$pkgdir"/usr/lib/node_modules/$pkgname
+  rm -r "$_npmdir"/node_modules/{,.bin/}semver
+  rm -r "$_npmdir"/node_modules/npm-lifecycle/node_modules/{,.bin/}node-gyp
+  sed -i '/node-gyp.js/c\  exec /usr/bin/node-gyp "$@"' \
+    "$_npmdir"/node_modules/npm-lifecycle/node-gyp-bin/node-gyp \
+    "$_npmdir"/bin/node-gyp-bin/node-gyp
 
   install -dm755 "$pkgdir"/usr/share/bash-completion/completions
   node "$srcdir"/npm-$pkgver/bin/npm-cli.js completion > "$pkgdir"/usr/share/bash-completion/completions/npm
