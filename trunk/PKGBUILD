@@ -4,7 +4,7 @@
 pkgbase=beats
 pkgname=(filebeat packetbeat metricbeat heartbeat-elastic auditbeat)
 pkgver=6.2.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Data shippers for Elasticsearch'
 arch=('x86_64')
 url='https://www.elastic.co/products/beats'
@@ -59,29 +59,37 @@ prepare() {
 
 build() {
     export GOPATH="$srcdir"/gopath
+
+    cd "$srcdir"/beats-$pkgver/libbeat
+    make fields
+
     for beat in ${pkgname[@]}; do
         beat="${beat%-elastic}"
         msg2 "Building $beat..."
         cd "$srcdir"/beats-$pkgver/$beat
         make
-    done
 
-    for beat in filebeat metricbeat auditbeat; do
-        cd "$srcdir"/beats-$pkgver/$beat
-        cp _meta/fields.common.yml _meta/fields.generated.yml
-        python ../metricbeat/scripts/fields_collector.py >> _meta/fields.generated.yml
-        make kibana
-    done
+        case "$beat" in
+            filebeat|metricbeat|auditbeat)
+                cp _meta/fields.common.yml _meta/fields.generated.yml
+                python ../metricbeat/scripts/fields_collector.py >> _meta/fields.generated.yml
+                make kibana
+                ;;
 
-    for beat in heartbeat packetbeat; do
-        cd "$srcdir"/beats-$pkgver/$beat
-        make fields
+            packetbeat)
+                make fields
+                mv _meta/fields{,.generated}.yml
+                ;;
+
+            *)
+                make fields
+        esac
+
+        cat ../libbeat/_meta/fields.generated.yml _meta/fields.generated.yml > fields.yml
     done
 
     cd "$srcdir"/beats-$pkgver/filebeat
     make modules
-
-    mv "$srcdir"/beats-$pkgver/packetbeat/_meta/{fields,fields.generated}.yml
 }
 
 _do_package_beat() {
@@ -95,7 +103,7 @@ _do_package_beat() {
     make install-home HOME_PREFIX="$pkgdir"/usr/share/$_pkgname
 
     cp $_pkgname.{yml,reference.yml} "$pkgdir"/etc/$_pkgname
-    install -Dm644 _meta/fields.generated.yml "$pkgdir"/etc/$_pkgname/fields.yml
+    install -Dm644 fields.yml "$pkgdir"/etc/$_pkgname/fields.yml
 
     install -Dm755 $_pkgname \
                    "$pkgdir"/usr/bin/$_pkgname
