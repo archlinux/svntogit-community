@@ -4,7 +4,7 @@
 
 pkgname=neovim
 pkgver=0.2.2
-pkgrel=3
+pkgrel=4
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
@@ -51,6 +51,10 @@ package() {
   install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install -Dm644 runtime/nvim.desktop "${pkgdir}/usr/share/applications/nvim.desktop"
   install -Dm644 runtime/nvim.png "${pkgdir}/usr/share/pixmaps/nvim.png"
+
+  # Make Arch vim packages work
+  mkdir -p "${pkgdir}"/usr/share/vim
+  echo "runtimepath+=/usr/share/vim/vimfiles" > "${pkgdir}"/usr/share/nvim/sysinit.vim
 }
 
 # vim:set sw=2 sts=2 et:
