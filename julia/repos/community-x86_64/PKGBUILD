@@ -6,19 +6,19 @@
 # Contributor: Valentin Churavy <v.churavy@gmail.com>
 
 pkgbase=julia
-pkgname=('julia' 'julia-docs')
+pkgname=(julia julia-docs)
 epoch=2
 pkgver=0.6.2
-pkgrel=4
+pkgrel=5
 arch=('x86_64')
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
 license=('MIT')
-makedepends=('arpack' 'cmake' 'fftw' 'gcc-fortran' 'gmp' 'libgit2' 'libunwind' 'mpfr' 'patchelf' 'pcre2' 'python2' 'suitesparse')
+makedepends=('cmake' 'fftw' 'gcc-fortran' 'gmp' 'libgit2' 'libunwind' 'mpfr' 'patchelf' 'pcre2' 'python2' 'suitesparse')
 options=('!emptydirs' 'staticlibs')
 source=("https://github.com/JuliaLang/$pkgbase/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
-        julia-libunwind-version.patch
-        julia-makefile.patch)
+        'julia-libunwind-version.patch'
+        'julia-makefile.patch')
 sha256sums=('1e34c13091c9ddb47cf87a51566d94a06613f3db3c483b8f63b276e416dd621b'
             'SKIP'
             '16009ce454f58463464027cbaf6186ccfab84c37660a52fb1ec3a0f514df64f9'
@@ -27,7 +27,7 @@ validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495') # Julia (Binary signin
 
 prepare() {
   # For /etc/ld.so.conf.d/
-  echo '/usr/lib/julia' > julia.conf
+  echo /usr/lib/julia > julia.conf
 
   cd "$pkgbase-$pkgver"
   patch -p1 -i ../julia-libunwind-version.patch
@@ -36,17 +36,18 @@ prepare() {
 
 build() {
   # Make sure not to set -march
-  export CFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
-  export CXXFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
+  export CFLAGS='-mtune=generic -O3 -pipe -fstack-protector-strong'
+  export CXXFLAGS='-mtune=generic -O3 -pipe -fstack-protector-strong'
 
   unset ARCH
 
-  # See FS#57387 for why SYSTEM_LLVM=0, for now
+  # See FS#57387 for why USE_SYSTEM_LLVM=0, for now
+  # See FS#58221 for why USE_SYSTEM_ARPACK=0, for now
 
   make -C "$pkgbase-$pkgver" \
     prefix=/usr \
     sysconfdir=/etc \
-    MARCH="x86-64" \
+    MARCH=x86-64 \
     JULIA_BUILD_MODE=release \
     USE_SYSTEM_LLVM=0 \
     USE_SYSTEM_LIBUNWIND=1 \
@@ -59,7 +60,7 @@ build() {
     USE_SYSTEM_FFTW=1 \
     USE_SYSTEM_GMP=1 \
     USE_SYSTEM_MPFR=1 \
-    USE_SYSTEM_ARPACK=1 \
+    USE_SYSTEM_ARPACK=0 \
     USE_SYSTEM_SUITESPARSE=1 \
     USE_SYSTEM_LIBUV=0 \
     USE_SYSTEM_UTF8PROC=0 \
@@ -83,13 +84,14 @@ package_julia() {
 
   unset ARCH
 
-  # See FS#57387 for why SYSTEM_LLVM=0, for now
+  # See FS#57387 for why USE_SYSTEM_LLVM=0, for now
+  # See FS#58221 for why USE_SYSTEM_ARPACK=0, for now
 
   make -C "$pkgbase-$pkgver" \
     DESTDIR="$pkgdir" \
     prefix=/usr \
     sysconfdir=/etc  \
-    MARCH="x86-64" \
+    MARCH=x86-64 \
     USE_SYSTEM_LLVM=0 \
     USE_SYSTEM_LIBUNWIND=1 \
     USE_SYSTEM_PCRE=1 \
@@ -101,7 +103,7 @@ package_julia() {
     USE_SYSTEM_FFTW=1 \
     USE_SYSTEM_GMP=1 \
     USE_SYSTEM_MPFR=1 \
-    USE_SYSTEM_ARPACK=1 \
+    USE_SYSTEM_ARPACK=0 \
     USE_SYSTEM_SUITESPARSE=1 \
     USE_SYSTEM_LIBUV=0 \
     USE_SYSTEM_UTF8PROC=0 \
@@ -114,21 +116,19 @@ package_julia() {
     install
 
   # Remove duplicate man-page from julia/doc
-  rm -rvf "$pkgdir/usr/share/julia/doc/man"
+  rm -rf "$pkgdir/usr/share/julia/doc/man"
 
   # For /etc/ld.so.conf.d, FS#41731
-  install -Dm644 "$srcdir/julia.conf" "$pkgdir/etc/ld.so.conf.d/julia.conf"
+  install -Dm644 julia.conf "$pkgdir/etc/ld.so.conf.d/julia.conf"
 
   # Documentation and examples are in the julia-docs package
-  rm -rvf "$pkgdir/usr/share/doc/"
-  rm -rvf "$pkgdir/usr/share/julia/doc/"
-  rm -rvf "$pkgdir/usr/share/julia/examples/"
+  rm -rf "$pkgdir/usr/share/"{doc,julia/doc,julia/examples}
+
+  # Patch the rpath in /usr/bin/julia
+  patchelf --set-rpath /usr/lib "$pkgdir/usr/bin/julia"
 
   # License
-  install -Dm644 "$pkgbase-$pkgver"/LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
-
-  # Minor improvement
-  patchelf --set-rpath /usr/lib "$pkgdir/usr/bin/julia"
+  install -Dm644 "$pkgbase-$pkgver/LICENSE.md" "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
 }
 
 package_julia-docs() {
@@ -137,8 +137,8 @@ package_julia-docs() {
   cd "$pkgbase-$pkgver"
 
   install -d "$pkgdir/usr/share/doc"
-  cp -rv doc "$pkgdir/usr/share/doc/$pkgbase"
-  cp -rv examples "$pkgdir/usr/share/doc/$pkgbase/examples"
+  cp -r doc "$pkgdir/usr/share/doc/$pkgbase"
+  cp -r examples "$pkgdir/usr/share/doc/$pkgbase/examples"
   install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
 }
 
