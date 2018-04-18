@@ -4,7 +4,7 @@
 pkgbase=python-pybtex
 pkgname=(python-pybtex python2-pybtex)
 pkgver=0.21
-pkgrel=1
+pkgrel=2
 pkgdesc="A BibTeX-compatible bibliography processor written in Python"
 arch=("any")
 url="https://pybtex.org"
@@ -33,14 +33,14 @@ check() {
 }
 
 package_python-pybtex() {
-  depends=('python' 'python-six' 'python-yaml' 'python-latexcodec')
+  depends=('python' 'python-setuptools' 'python-six' 'python-yaml' 'python-latexcodec')
 
   cd "$srcdir/pybtex-$pkgver"
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 }
 
 package_python2-pybtex() {
-  depends=('python2' 'python2-six' 'python2-yaml' 'python2-latexcodec')
+  depends=('python2' 'python2-setuptools' 'python2-six' 'python2-yaml' 'python2-latexcodec')
 
   cd "$srcdir/pybtex-$pkgver-py2"
   python2 setup.py install --root="$pkgdir" --optimize=1 --skip-build
