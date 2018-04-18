@@ -4,13 +4,14 @@
 pkgbase=python-pybtex
 pkgname=(python-pybtex python2-pybtex)
 pkgver=0.21
-pkgrel=2
+pkgrel=3
 pkgdesc="A BibTeX-compatible bibliography processor written in Python"
 arch=("any")
 url="https://pybtex.org"
 license=("GPL")
-makedepends=('python-setuptools' 'python-six' 'python2-setuptools' 'python2-six')
-checkdepends=('python2-nose' 'python2-yaml' 'python2-latexcodec')
+depends=('python' 'python-setuptools' 'python-six' 'python-yaml' 'python-latexcodec'
+         'python2' 'python2-setuptools' 'python2-six' 'python2-yaml' 'python2-latexcodec')
+checkdepends=('python-nose' 'python2-nose')
 source=("https://pypi.io/packages/source/p/pybtex/pybtex-$pkgver.tar.gz")
 sha256sums=('af8a6c7c74954ad305553b118d2757f68bc77c5dd5d5de2cc1fd16db90046000')
 
@@ -27,9 +28,13 @@ build() {
 }
 
 check() {
+  cd "$srcdir/pybtex-$pkgver/build/lib"
+  export PYTHONPATH="$srcdir/pybtex-$pkgver/build/lib"
+  nosetests || warning "Some python3 tests failed"
+
   cd "$srcdir/pybtex-$pkgver-py2"
   export PYTHONPATH="$srcdir/pybtex-$pkgver-py2"
-  nosetests2
+  nosetests2 || warning "Some python2 tests failed"
 }
 
 package_python-pybtex() {
