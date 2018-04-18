@@ -9,12 +9,13 @@ pkgbase=julia
 pkgname=(julia julia-docs)
 epoch=2
 pkgver=0.6.2
-pkgrel=6
+pkgrel=7
 arch=('x86_64')
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
 license=('MIT')
-makedepends=('chrpath' 'cmake' 'fftw' 'gcc-fortran' 'gmp' 'libgit2' 'libunwind' 'mpfr' 'pcre2' 'python2' 'suitesparse')
+depends=('fftw' 'hicolor-icon-theme' 'libgit2' 'libunwind' 'mpfr' 'pcre2' 'suitesparse')
+makedepends=('chrpath' 'cmake' 'gcc-fortran' 'gmp' 'python2')
 options=('!emptydirs' 'staticlibs')
 source=("https://github.com/JuliaLang/$pkgbase/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
         'julia-libunwind-version.patch'
@@ -26,8 +27,6 @@ sha256sums=('1e34c13091c9ddb47cf87a51566d94a06613f3db3c483b8f63b276e416dd621b'
 validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495') # Julia (Binary signing key) <buildbot@julialang.org>
 
 prepare() {
-  # For /etc/ld.so.conf.d/
-  echo /usr/lib/julia > julia.conf
 
   cd "$pkgbase-$pkgver"
   patch -p1 -i ../julia-libunwind-version.patch
@@ -35,14 +34,11 @@ prepare() {
 }
 
 build() {
-  # Make sure not to set -march
-  export CFLAGS='-mtune=generic -O3 -pipe -fstack-protector-strong'
-  export CXXFLAGS='-mtune=generic -O3 -pipe -fstack-protector-strong'
-
-  unset ARCH
-
   # See FS#57387 for why USE_SYSTEM_LLVM=0, for now
   # See FS#58221 for why USE_SYSTEM_ARPACK=0, for now
+
+  # patchelf is not even used unless $(private_libdir_rel) != $(build_private_libdir_rel)
+  # but we USE_SYSTEM_PATCHELF=1 to prevent building it. This is why it is not in makedepends.
 
   make -C "$pkgbase-$pkgver" \
     prefix=/usr \
@@ -73,16 +69,8 @@ build() {
 }
 
 package_julia() {
-  backup=('etc/ld.so.conf.d/julia.conf' 'etc/julia/juliarc.jl')
-  depends=('arpack' 'fftw' 'hicolor-icon-theme' 'libgit2' 'libunwind' 'mpfr' 'patchelf' 'pcre2' 'suitesparse')
+  backup=('etc/julia/juliarc.jl')
   optdepends=('gnuplot: If using the Gaston Package from julia')
-  install='sysfix.install'
-
-  # Make sure not to set -march
-  export CFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
-  export CXXFLAGS="-mtune=generic -O3 -pipe -fstack-protector-strong"
-
-  unset ARCH
 
   # See FS#57387 for why USE_SYSTEM_LLVM=0, for now
   # See FS#58221 for why USE_SYSTEM_ARPACK=0, for now
@@ -118,8 +106,10 @@ package_julia() {
   # Remove duplicate man-page from julia/doc
   rm -rf "$pkgdir/usr/share/julia/doc/man"
 
-  # For /etc/ld.so.conf.d, FS#41731
-  install -Dm644 julia.conf "$pkgdir/etc/ld.so.conf.d/julia.conf"
+  # FS#58211 && https://github.com/JuliaLang/julia/issues/26830
+  chrpath -r '$ORIGIN/julia' "$pkgdir"/usr/lib/libjulia.so.0.6.2
+  # points to /usr/lib
+  chrpath -d "$pkgdir"/usr/bin/julia
 
   # Documentation and examples are in the julia-docs package
   rm -rf "$pkgdir/usr/share/"{doc,julia/doc,julia/examples}
@@ -130,11 +120,13 @@ package_julia() {
 
 package_julia-docs() {
   pkgdesc='Documentation and examples for Julia'
+  depends=('julia')
 
   cd "$pkgbase-$pkgver"
 
   install -d "$pkgdir/usr/share/doc"
   cp -r doc "$pkgdir/usr/share/doc/$pkgbase"
+  rm -rf "$pkgdir"/usr/share/doc/julia/man/
   cp -r examples "$pkgdir/usr/share/doc/$pkgbase/examples"
   install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
 }
