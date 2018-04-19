@@ -10,8 +10,9 @@ pkgname=('virtualbox'
          'virtualbox-guest-utils'
          'virtualbox-guest-utils-nox'
          'virtualbox-ext-vnc')
-pkgver=5.2.8
+pkgver=5.2.10
 pkgrel=1
+_vboxsf_commit='6a782003ad95a383c8b19b570a532271f090ad35'
 arch=('x86_64')
 url='http://virtualbox.org'
 license=('GPL' 'custom')
@@ -21,6 +22,7 @@ makedepends=('alsa-lib'
              'curl'
              'dev86'
              'device-mapper'
+             'git'
              'glu'
              'gsoap'
              'iasl'
@@ -52,8 +54,12 @@ makedepends=('alsa-lib'
              'xorg-server-devel')
 makedepends_x86_64=('gcc-multilib' 'lib32-glibc')
 source=("http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver}.tar.bz2"
+        # We need to build a modified version of vboxsf for Linux 4.16
+        # https://bugzilla.redhat.com/show_bug.cgi?id=1481630#c65
+        "git+https://github.com/jwrdegoede/vboxsf#commit=$_vboxsf_commit"
         'virtualbox-host-dkms.conf'
         'virtualbox-guest-dkms.conf'
+        'virtualbox-vboxsf-4.16-dkms.conf'
         'virtualbox.sysusers'
         'virtualbox-guest-utils.sysusers'
         '60-vboxdrv.rules'
@@ -69,10 +75,12 @@ source=("http://download.virtualbox.org/virtualbox/${pkgver}/VirtualBox-${pkgver
         '007-python2-path.patch'
         '008-no-vboxvideo.patch'
         '009-include-path.patch'
-        )
-sha256sums=('ee2759d47b0b4ac81b8b671c9485c87fb2db12c097b3e7e69b94c1291a8084e8'
+        '010-linux-4.16-mount-fixes.patch')
+sha256sums=('ed9e524cef571a8dbdb7a5f18bb42442a3dddf24d7fdbb3816e0b317feb324cc'
+            'SKIP'
             'deb03efa7ad0376aa55a087f2e882afe00935f10b0e7aa853ba9147090d341ec'
-            '113f9b92141b85df01f1e74d22f01d1f1aa81650eb79b89ceefc3cae20afe2e2'
+            'c328376b05183d269f98319ec660f54c55e298f77d229977606862b064651a7c'
+            '771009b79115a9b22f00f3cfd38f94e3b5b31b48dcc95a887ceda20ffb776474'
             '2101ebb58233bbfadf3aa74381f22f7e7e508559d2b46387114bc2d8e308554c'
             'da4c49f6ca94e047e196cdbcba2c321199f4760056ea66e0fbc659353e128c9e'
             '9c5238183019f9ebc7d92a8582cad232f471eab9d3278786225abc1a1c7bf66e'
@@ -88,7 +96,7 @@ sha256sums=('ee2759d47b0b4ac81b8b671c9485c87fb2db12c097b3e7e69b94c1291a8084e8'
             '6bdb017459532537199c399eefd3d84d8dc7f1786e79997caebd3b6eb5c75d9f'
             '8b7f241107863f82a5b0ae336aead0b3366a40103ff72dbebf33f54b512a0cbc'
             '1acc7014bcb3d9ca6da29eed813c3d6e91a688c43f9d93802fd4e3814f67ace4'
-            )
+            'c3dc5a771a1acab274cd10e5305982aa9c149cd94ed4c71c7805327020d4d741')
 
 prepare() {
     cd "VirtualBox-$pkgver"
@@ -247,8 +255,8 @@ package_virtualbox-sdk() {
     pushd sdk/installer
     VBOX_INSTALL_PATH="/usr/lib/virtualbox" python2 vboxapisetup.py install --root "$pkgdir"
     popd
-    rm -rf sdk/installer
     cp -r sdk "$pkgdir/usr/lib/virtualbox"
+    rm -r "$pkgdir/usr/lib/virtualbox/sdk/installer"
     # licence
     install -Dm644 "$srcdir/VirtualBox-$pkgver/COPYING" \
         "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
@@ -311,6 +319,15 @@ package_virtualbox-guest-dkms() {
     # starting vbox 5.1, dkms.conf file was dropped
     local _p="$pkgdir/usr/src/vboxguest-${pkgver}_OSE/dkms.conf"
     install -Dm644 "$srcdir/$pkgname.conf" "$_p"
+    sed -i "s,@VERSION@,$pkgver," "$_p"
+
+    # vboxsf module for Linux 4.16
+    install -d "$pkgdir/usr/src/vboxsf-4.16-${pkgver}_OSE"
+    cp -rT "$srcdir/vboxsf" "$pkgdir/usr/src/vboxsf-4.16-${pkgver}_OSE/vboxsf"
+    rm -rf "$pkgdir/usr/src/vboxsf-4.16-${pkgver}_OSE/vboxsf/.git"
+    echo "obj-m = vboxsf/" >"$pkgdir/usr/src/vboxsf-4.16-${pkgver}_OSE/Makefile"
+    local _p="$pkgdir/usr/src/vboxsf-4.16-${pkgver}_OSE/dkms.conf"
+    install -Dm644 "$srcdir/virtualbox-vboxsf-4.16-dkms.conf" "$_p"
     sed -i "s,@VERSION@,$pkgver," "$_p"
 }
 
