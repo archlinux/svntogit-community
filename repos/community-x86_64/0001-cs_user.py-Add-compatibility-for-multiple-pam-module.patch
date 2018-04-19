@@ -1,0 +1,105 @@
+From b5407422e20b44936134e2e22c4fa25bcb555d75 Mon Sep 17 00:00:00 2001
+From: Eli Schwartz <eschwartz93@gmail.com>
+Date: Tue, 6 Mar 2018 10:30:14 -0500
+Subject: [PATCH] cs_user.py: Add compatibility for multiple pam modules
+
+Rework the authentication handling to work with either backend module:
+- python pam, ctypes bindings created by Chris Atlee, available on PyPI
+  and some distros. Forked for python3 support, and available at PyPI as
+  python-pam and https://github.com/FirefighterBlu3/python-pam
+- python PyPAM, CPython binary extension, available on some other
+  distros, and referencing a dead upstream website (Debian hosts and
+  builds from *_orig.tar.gz so it is still able to be built).
+
+The current method allows importing either module without failure, but
+then spawns internal errors if pam is used instead of PyPAM due to the
+two modules containing entirely different APIs.
+
+Also re-raise internal errors and change the tooltip to indicate that
+something went wrong. If something unidentifiable happened, error
+messages should not be ruthlessly squelched -- this hindered my efforts
+to discover why pam was not working on Arch Linux in the first place.
+
+Fixes #7313
+
+(cherry picked from commit a29c68383c3758e6a6b85e9ee2b5a6b41b8147ba)
+---
+ .../cinnamon/cinnamon-settings/modules/cs_user.py  | 39 ++++++++++++++++------
+ 1 file changed, 29 insertions(+), 10 deletions(-)
+
+diff --git a/files/usr/share/cinnamon/cinnamon-settings/modules/cs_user.py b/files/usr/share/cinnamon/cinnamon-settings/modules/cs_user.py
+index 8e4dceea..f4e64edf 100755
+--- a/files/usr/share/cinnamon/cinnamon-settings/modules/cs_user.py
++++ b/files/usr/share/cinnamon/cinnamon-settings/modules/cs_user.py
+@@ -1,9 +1,10 @@
+ #!/usr/bin/python2
+ 
+ try:
+-    import PAM
++    import pam
+ except:
+-    import pam as PAM
++    import PAM
++    pam = None
+ import pexpect
+ import time
+ from random import randint
+@@ -18,6 +19,10 @@ from gi.repository import AccountsService, GLib
+ 
+ from GSettingsWidgets import *
+ 
++class PasswordError(Exception):
++    '''Exception raised when an incorrect password is supplied.'''
++    pass
++
+ 
+ class Module:
+     name = "user"
+@@ -342,22 +347,36 @@ class PasswordDialog(Gtk.Dialog):
+     def _on_show_password_toggled(self, widget):
+         self.set_passwords_visibility()
+ 
++    def auth_pam(self):
++        if not pam.authenticate(GLib.get_user_name(), self.current_password.get_text(), 'passwd'):
++            raise PasswordError("Invalid password")
++
++    def auth_PyPAM(self):
++        auth = PAM.pam()
++        auth.start('passwd')
++        auth.set_item(PAM.PAM_USER, GLib.get_user_name())
++        auth.set_item(PAM.PAM_CONV, self.pam_conv)
++        try:
++            auth.authenticate()
++            auth.acct_mgmt()
++            return True
++        except PAM.error as resp:
++            raise PasswordError("Invalid password")
++
+     def _on_current_password_changed(self, widget, event):
+         self.infobar.hide()
+         if self.current_password.get_text() != "":
+-            auth = PAM.pam()
+-            auth.start('passwd')
+-            auth.set_item(PAM.PAM_USER, GLib.get_user_name())
+-            auth.set_item(PAM.PAM_CONV, self.pam_conv)
+             try:
+-                auth.authenticate()
+-                auth.acct_mgmt()
+-            except PAM.error, resp:
++                self.auth_pam() if pam else self.auth_PyPAM()
++            except PasswordError:
+                 self.current_password.set_icon_from_stock(Gtk.EntryIconPosition.SECONDARY, Gtk.STOCK_DIALOG_WARNING)
+                 self.current_password.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Wrong password"))
+                 self.correct_current_password = False
+             except:
+-                print 'Internal error'
++                self.current_password.set_icon_from_stock(Gtk.EntryIconPosition.SECONDARY, Gtk.STOCK_DIALOG_WARNING)
++                self.current_password.set_icon_tooltip_text(Gtk.EntryIconPosition.SECONDARY, _("Internal Error"))
++                self.correct_current_password = False
++                raise
+             else:
+                 self.current_password.set_icon_from_stock(Gtk.EntryIconPosition.SECONDARY, None)
+                 self.correct_current_password = True
+-- 
+2.16.2
+
