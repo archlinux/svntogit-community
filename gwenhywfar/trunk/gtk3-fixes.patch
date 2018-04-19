@@ -1,0 +1,126 @@
+From c9c916b97a14cde9196203d0303643e7c8a7ce41 Mon Sep 17 00:00:00 2001
+From: Christian Stimming <christian@cstimming.de>
+Date: Sun, 1 Apr 2018 23:25:31 +0200
+Subject: [PATCH 1/4] Bug794707 - Aqbanking combo boxes missing selection.
+
+Modified w_combobox.c setup procedure was had an error when modified
+for gtk3 use.
+
+Patch by Robert Fewell, 7033b331ee47b601279e68464323fe76b7ceebe5 in gnucash.
+---
+ gui/gtk3/w_combobox.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/gui/gtk3/w_combobox.c b/gui/gtk3/w_combobox.c
+index fce098a3..deb75254 100644
+--- a/gui/gtk3/w_combobox.c
++++ b/gui/gtk3/w_combobox.c
+@@ -258,10 +258,13 @@ int Gtk3Gui_WComboBox_Setup(GWEN_WIDGET *w) {
+   /* create widget */
+   store=gtk_list_store_new(1, G_TYPE_STRING);
+   if (flags & GWEN_WIDGET_FLAGS_READONLY)
+-    g=gtk_combo_box_new_with_model_and_entry(GTK_TREE_MODEL(store));
++    g=gtk_combo_box_new_with_model(GTK_TREE_MODEL(store));
+   else
++  {
+     /* TODO: why the heck does *this* combo box have two columns in the list?? */
+     g=gtk_combo_box_new_with_model_and_entry(GTK_TREE_MODEL(store));
++    gtk_combo_box_set_entry_text_column (GTK_COMBO_BOX(g), 0);
++  }
+   g_object_unref(store);
+ 
+   cr=gtk_cell_renderer_text_new();
+
+From 8da8ecd637e2a2b31d85ce600cffae0452e6e61f Mon Sep 17 00:00:00 2001
+From: Christian Stimming <christian@cstimming.de>
+Date: Sun, 1 Apr 2018 23:26:23 +0200
+Subject: [PATCH 2/4] Couple of missing properties for groupbox
+
+When fixing related combo error a couple of critical errors were logged
+for 'Function is not appropriate for this type of widget' which turned
+out to be visibility properties so added them to stop error.
+
+Patch by Robert Fewell in gnucash f7211edbabdc8c802168b93973a1164067fed264
+---
+ gui/gtk3/w_groupbox.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/gui/gtk3/w_groupbox.c b/gui/gtk3/w_groupbox.c
+index e15b930c..0bbb6766 100644
+--- a/gui/gtk3/w_groupbox.c
++++ b/gui/gtk3/w_groupbox.c
+@@ -36,6 +36,10 @@ int Gtk3Gui_WGroupBox_SetIntProperty(GWEN_WIDGET *w,
+     /* just ignore these for now */
+     return 0;
+ 
++  case GWEN_DialogProperty_Visibility:
++    gtk_widget_set_visible (GTK_WIDGET(g), (value==0)?FALSE:TRUE);
++    return 0;
++
+   default:
+     break;
+   }
+@@ -72,6 +76,9 @@ int Gtk3Gui_WGroupBox_GetIntProperty(GWEN_WIDGET *w,
+     /* just ignore these for now */
+     return 0;
+ 
++  case  GWEN_DialogProperty_Visibility:
++    return (gtk_widget_get_visible(GTK_WIDGET(g))==TRUE)?1:0;
++
+   default:
+     break;
+   }
+
+From 0c05f39b189c203c2f15df2e889f46fcc68dca88 Mon Sep 17 00:00:00 2001
+From: Christian Stimming <christian@cstimming.de>
+Date: Sun, 1 Apr 2018 23:27:06 +0200
+Subject: [PATCH 3/4] Error for lineedit when setting text
+
+Critical errors were logged when trying to set the gtkentry text when
+value is null, test for this before setting entry text.
+
+Patch by Robert Fewell in gnucash 3f7d70ace3f35ce71e94eaf1707cd538a7a28f79
+---
+ gui/gtk3/w_lineedit.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/gui/gtk3/w_lineedit.c b/gui/gtk3/w_lineedit.c
+index 10bdd684..d93a0e02 100644
+--- a/gui/gtk3/w_lineedit.c
++++ b/gui/gtk3/w_lineedit.c
+@@ -97,7 +97,8 @@ int Gtk3Gui_WLineEdit_SetCharProperty(GWEN_WIDGET *w,
+ 
+   switch(prop) {
+   case GWEN_DialogProperty_Value:
+-    gtk_entry_set_text(GTK_ENTRY(g), value);
++    if (value && *value)
++        gtk_entry_set_text(GTK_ENTRY(g), value);
+     return 0;
+   default:
+     break;
+
+From 9c15c273e4c5ccbfd6c7930174ee936e92b9a63f Mon Sep 17 00:00:00 2001
+From: Christian Stimming <christian@cstimming.de>
+Date: Sun, 1 Apr 2018 23:27:42 +0200
+Subject: [PATCH 4/4] Missing container add for textbrowser
+
+Needed to add gtk_container_add to add the text_view to the scroll
+window.
+
+Patch by Robert Fewell in gnucash 9b120f95a975bd6a977a3f0485c54a9e4f08c597
+---
+ gui/gtk3/w_textbrowser.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/gui/gtk3/w_textbrowser.c b/gui/gtk3/w_textbrowser.c
+index 2cda4b73..54667ea3 100644
+--- a/gui/gtk3/w_textbrowser.c
++++ b/gui/gtk3/w_textbrowser.c
+@@ -203,6 +203,7 @@ int Gtk3Gui_WTextBrowser_Setup(GWEN_WIDGET *w) {
+   /* create widget */
+   gs=gtk_scrolled_window_new(NULL, NULL);
+   g=gtk_text_view_new();
++  gtk_container_add(GTK_CONTAINER(gs), GTK_WIDGET(g));
+ 
+   if (s && *s) {
+     GWEN_BUFFER *tbuf;
