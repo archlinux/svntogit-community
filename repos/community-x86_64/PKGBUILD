@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.6.4
+pkgver=10.7.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -33,10 +33,9 @@ source=("$pkgname-$pkgver.tar.bz2::https://gitlab.com/gitlab-org/gitlab-ce/repos
         gitlab-backup.timer
         gitlab.target
         gitlab.tmpfiles.d
-        gitlab.logrotate
-        a951b96be2862ce660dc715a364f574c2f5f72e1.patch)
+        gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('3ec17033423f10ae540fb0bfc9a188fa32a427d413a36aba554101ae10e34862973488daedc41baa6738c392f6fab4408c4377eea13b16c26e1a4d49ceb8fce7'
+sha512sums=('1592fc54c2db23049e7999cf58e27f94e2a58a3dcd6f47f6536029ca7e4902f2a22aecef2c2a376be6530e6657aa414a5f0460ab5d0dfbcb837d9f1f4427480c'
             'e96364b3373420a0704552584264f42fee23d64d44d3f769dffa6b516ea9d4c09873da8b2a279445ae9a09f17f81628815efc83e8d0070b3246e56aa13c02ac6'
             '1104db0397ae5f9a69452ea2a432b837cfaf37d72d063226c2156de5f753b5ae42be1f90292c34f27e251ce3d265ac9c1f79faad1d377c923e7dbc6744100471'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
@@ -44,14 +43,13 @@ sha512sums=('3ec17033423f10ae540fb0bfc9a188fa32a427d413a36aba554101ae10e34862973
             'c11d2c59da8325551a465227096e8d39b0e4bcd5b1db21565cf3439e431838c04bc00aa6f07f4d493f3f47fd6b4e25aeb0fe0fc1a05756064706bf5708c960ec'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
-            '20b93eab504e82cc4401685b59e6311b4d2c0285bc594d47ce4106d3f418a3e2ba92c4f49732748c0ba913aa3e3299126166e37d2a2d5b4d327d66bae4b8abda'
-            'd7946c9c336e8d148479c1034e0058f2c6f8810e66a5369d531de3050ae7c0ff53be8789bc592afddba16a2acb660670fb687badc7eb65b7db5a445151140cb7')
+            '20b93eab504e82cc4401685b59e6311b4d2c0285bc594d47ce4106d3f418a3e2ba92c4f49732748c0ba913aa3e3299126166e37d2a2d5b4d327d66bae4b8abda')
 
 _datadir="/usr/share/webapps/${pkgname}"
 _etcdir="/etc/webapps/${pkgname}"
 _homedir="/var/lib/${pkgname}"
 _logdir="/var/log/${pkgname}"
-_srcdir="gitlab-ce-v${pkgver}"
+_srcdir="gitlab-ce-"
 
 prepare() {
   cd "${srcdir}"
@@ -60,8 +58,6 @@ prepare() {
   local revision=$(ls -d ${_srcdir}* | rev | cut -c 34-40 | rev)
 
   cd "${_srcdir}"*
-
-  patch -Np1 -i "${srcdir}"/a951b96be2862ce660dc715a364f574c2f5f72e1.patch
 
   msg2 "Patching git revision in config/initializers/2_app.rb..."
   sed -i -e "s|REVISION = Gitlab::Popen.popen(%W(#{config.git.bin_path} log --pretty=format:%h -n 1)).first.chomp.freeze|REVISION = \"${revision}\"|" \
