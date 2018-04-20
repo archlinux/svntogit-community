@@ -3,7 +3,7 @@
 
 pkgbase=python-sphinxcontrib-bibtex
 pkgname=(python-sphinxcontrib-bibtex python2-sphinxcontrib-bibtex)
-pkgver=0.3.6
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
@@ -15,7 +15,7 @@ makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-nose' 'python-sphinx-testing'
               'python2-nose' 'python2-sphinx-testing')
 source=("https://pypi.io/packages/source/s/sphinxcontrib-bibtex/sphinxcontrib-bibtex-$pkgver.tar.gz")
-sha256sums=('ec4ec071d8c81d2165c55736bfd917352ef59247d2098339fed9e0aecc1cd4d5')
+sha256sums=('cb9fb4526642fc080204fccd5cd8f41e9e95387278e17b1d6969b1e27c2d3e0c')
 
 prepare() {
   cp -a sphinxcontrib-bibtex-$pkgver{,-py2}
