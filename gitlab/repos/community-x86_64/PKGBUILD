@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=10.7.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -203,6 +203,9 @@ package() {
 
   install -Dm644 "${srcdir}/gitlab.tmpfiles.d" "${pkgdir}/usr/lib/tmpfiles.d/gitlab.conf"
   install -Dm644 "${srcdir}/gitlab.logrotate" "${pkgdir}/etc/logrotate.d/gitlab"
+
+  # Fix FS#58292
+  chmod 644 "${pkgdir}"/usr/share/webapps/gitlab/vendor/bundle/ruby/2.3.0/gems/omniauth-jwt-0.0.2/lib/omniauth/strategies/jwt.rb
 }
 
 # vim:set ts=2 sw=2 et:
