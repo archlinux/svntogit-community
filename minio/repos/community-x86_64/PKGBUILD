@@ -5,7 +5,7 @@
 pkgname=minio
 pkgver=2018.04.19
 _pkgver="${pkgver//./-}T22-54-58Z"
-pkgrel=1
+pkgrel=2
 pkgdesc='Object storage server compatible with Amazon S3'
 arch=('x86_64')
 url='https://minio.io'
@@ -20,7 +20,7 @@ source=(https://github.com/minio/minio/archive/RELEASE.${_pkgver}.tar.gz
 backup=('etc/minio/minio.conf')
 sha512sums=('69818c52093300c27c134bf2eae0f320c88a2107d62b4746c3cb6373a5013c9ac95e8dda6e8ae4f498b637f6d2260a9cf9fc279d60cac69d0008a7834ba7420a'
             '630a5d109409074b67be71b663a43ad09104121cca3637bb0542df19e375023bff7d7e2cbf39e52cc3cd060d41c363a90bd4ff7734aed1a5ca43a600f6d6d275'
-            '1c6ea217ea8aac93c9d1e05ad0b6c2108fe3d6367fa6a55acc480b8667996bbb59743e2f7e354c5257fc68bffc18cc44a48c4a82eee293abddcdc7962e63e50b'
+            '4a8448e03974c576138dcf848fc2397304543d3731340a5bd09558a33e0f7ffa7540eb1467b99633779f875efd8b2bc651798f9a0af937ca06ee88758dc54ba9'
             '0832f0927da94c1c552dcd1a0a98a56b4447c0fc5f0e6d3b498f720ae7512fcfd5261b158775817f8c75ea43c052434ebadceb385d722aaea58a12fdb2a401ed')
 
 build() {
