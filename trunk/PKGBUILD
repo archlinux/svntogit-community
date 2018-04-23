@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=10.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -25,7 +25,7 @@ backup=("etc/webapps/${pkgname}/application.rb"
         "etc/webapps/${pkgname}/resque.yml"
         "etc/webapps/${pkgname}/unicorn.rb"
         "etc/logrotate.d/${pkgname}")
-source=("$pkgname-$pkgver.tar.bz2::https://gitlab.com/gitlab-org/gitlab-ce/repository/archive.tar.bz2?ref=v${pkgver}"
+source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab-ce/repository/archive?sha=v${pkgver}"
         gitlab-unicorn.service
         gitlab-sidekiq.service
         gitlab-backup.service
@@ -35,7 +35,7 @@ source=("$pkgname-$pkgver.tar.bz2::https://gitlab.com/gitlab-org/gitlab-ce/repos
         gitlab.tmpfiles.d
         gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('1592fc54c2db23049e7999cf58e27f94e2a58a3dcd6f47f6536029ca7e4902f2a22aecef2c2a376be6530e6657aa414a5f0460ab5d0dfbcb837d9f1f4427480c'
+sha512sums=('e252028fb7e191429fac9088294839f2f7a2ad72c98806c6ba3927f9117d7ecf187016e8c1531daad9cdc125b506bc45fe072bf33a22fc87dc7863788807d153'
             'e96364b3373420a0704552584264f42fee23d64d44d3f769dffa6b516ea9d4c09873da8b2a279445ae9a09f17f81628815efc83e8d0070b3246e56aa13c02ac6'
             '1104db0397ae5f9a69452ea2a432b837cfaf37d72d063226c2156de5f753b5ae42be1f90292c34f27e251ce3d265ac9c1f79faad1d377c923e7dbc6744100471'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
