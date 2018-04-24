@@ -1,63 +1,73 @@
-# $Id$
-# Maintainer:  Jonathan Steel <jsteel at archlinux.org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Jonathan Steel <jsteel at archlinux.org>
 # Contributor: Bartłomiej Piotrowski <nospam@bpiotrowski.pl>
 # Contributor: Andreas Radke <andyrtr@archlinux.org>
 # Contributor: judd <jvinet@zeroflux.org>
 
 pkgname=vsftpd
 pkgver=3.0.3
-pkgrel=3
-pkgdesc="Very Secure FTP daemon"
-arch=('i686' 'x86_64')
-url="https://security.appspot.com/vsftpd.html"
+pkgrel=4
+pkgdesc='Very Secure FTP daemon'
+url='https://security.appspot.com/vsftpd.html'
+arch=('x86_64')
 license=('GPL2')
-depends=('libcap' 'pam')
+depends=('glibc' 'openssl' 'libcap' 'pam' 'libnsl')
 optdepends=('logrotate')
-backup=('etc/vsftpd.conf' 'etc/xinetd.d/vsftpd' "etc/logrotate.d/$pkgname")
-source=(https://security.appspot.com/downloads/$pkgname-$pkgver.tar.gz{,.asc}
-        $pkgname-ssl.socket $pkgname.socket $pkgname.service
-        $pkgname@.service $pkgname-ssl.service $pkgname-ssl@.service)
-md5sums=('da119d084bd3f98664636ea05b5bb398' 'SKIP'
-         'fcef2cd7631f73a883a3c3d479b25cb8' 'd05045a1244a1be9f3946578bfd0252d'
-         '605e82df215a2f5dab1e1ee22b80460d' '32c9266536204fd8c4917c682b6359f1'
-         'c899151c1dbec8ea9051fae4d701f0f3' '987349e5c5570c762fed9e87c0b4e715')
+backup=('etc/vsftpd.conf'
+        'etc/xinetd.d/vsftpd'
+        "etc/logrotate.d/${pkgname}")
+source=(https://security.appspot.com/downloads/${pkgname}-${pkgver}.tar.gz{,.asc}
+        ${pkgname}-ssl.socket
+        ${pkgname}.socket
+        ${pkgname}.service
+        ${pkgname}@.service
+        ${pkgname}-ssl.service
+        ${pkgname}-ssl@.service)
+sha256sums=('9d4d2bf6e6e2884852ba4e69e157a2cecd68c5a7635d66a3a8cf8d898c955ef7'
+            'SKIP'
+            'd5185e48fffc6253499a55e0fe0f90a3424fc639640af11a9d38df33fb145afe'
+            '9fdbfd2ec0207170371ca3cf2b0ddca2dc2fe3d062e5792e0d3e51474c3198c9'
+            '0597e571718ba0f4dc4b32a4ddd148103758c48c7d65dcb8bbedafc9e810e83d'
+            'd7b8e4827d4f6bafcbf52f9d2d7380958c7b08bb3f757806aa89d4bc06c9671c'
+            'b88a50fc68b3bf746d13c9a777df77791cd3eac6eb7c2df655418071c2adf422'
+            '4a55c2468b08d858f71bacf1f4885847bec8e548b0e92088068d9bdd3884af84')
 validpgpkeys=('8660FD3291B184CDBC2F6418AA62EC463C0E751C') # Chris Evans
 
-build() {
-  cd $pkgname-$pkgver
-
+prepare() {
+  cd ${pkgname}-${pkgver}
   # build-time config
-  sed \
-    -e 's|^#undef VSF_BUILD_SSL$|#define VSF_BUILD_SSL|' \
-    -i builddefs.h
+  sed -e 's|^#undef VSF_BUILD_SSL$|#define VSF_BUILD_SSL|' -i builddefs.h
+  sed -e 's|/usr/share/empty|/var/empty|g' -i tunables.c vsftpd.conf.5 INSTALL
 
   # fix linking to openssl 1.1
   sed -e 's|SSL_library_init|SSL_CTX_new|' -i vsf_findlibs.sh
+}
 
-  CFLAGS+=' -fPIE' LINK='' LDFLAGS="-fPIE -pie ${LDFLAGS} -Wl,-z,now" make
+build() {
+  cd ${pkgname}-${pkgver}
+  make LINK='' CFLAGS="${CFLAGS} ${CPPFLAGS}" LDFLAGS="${LDFLAGS}"
 }
 
 package() {
-  cd $pkgname-$pkgver
+  cd ${pkgname}-${pkgver}
 
-  install -D -m755 $pkgname "$pkgdir"/usr/bin/$pkgname
-  install -D -m644 $pkgname.conf "$pkgdir"/etc/$pkgname.conf
-  install -D -m644 $pkgname.8 "$pkgdir"/usr/share/man/man8/$pkgname.8
-  install -D -m644 $pkgname.conf.5 "$pkgdir"/usr/share/man/man5/$pkgname.conf.5
-  install -D -m644 EXAMPLE/INTERNET_SITE/$pkgname.xinetd "$pkgdir"/etc/xinetd.d/$pkgname
-  install -D -m644 RedHat/$pkgname.log "$pkgdir"/etc/logrotate.d/$pkgname
+  install -Dm 755 ${pkgname} -t "${pkgdir}/usr/bin"
+  install -Dm 644 ${pkgname}.conf -t "${pkgdir}/etc"
+  install -Dm 644 ${pkgname}.8 -t "${pkgdir}/usr/share/man/man8"
+  install -Dm 644 ${pkgname}.conf.5 -t "${pkgdir}/usr/share/man/man5"
+  install -Dm 644 EXAMPLE/INTERNET_SITE/${pkgname}.xinetd "${pkgdir}/etc/xinetd.d/${pkgname}"
+  install -Dm 644 RedHat/${pkgname}.log "${pkgdir}/etc/logrotate.d/${pkgname}"
 
-  install -D -m644 "$srcdir"/$pkgname.service "$pkgdir"/usr/lib/systemd/system/$pkgname.service
-  install -D -m644 "$srcdir"/$pkgname@.service "$pkgdir"/usr/lib/systemd/system/$pkgname@.service 
-  install -D -m644 "$srcdir"/$pkgname-ssl.service "$pkgdir"/usr/lib/systemd/system/$pkgname-ssl.service
-  install -D -m644 "$srcdir"/$pkgname-ssl@.service "$pkgdir"/usr/lib/systemd/system/$pkgname-ssl@.service
-  install -D -m644 "$srcdir"/$pkgname.socket "$pkgdir"/usr/lib/systemd/system/$pkgname.socket
-  install -D -m644 "$srcdir"/$pkgname-ssl.socket "$pkgdir"/usr/lib/systemd/system/$pkgname-ssl.socket
+  install -Dm 644 "${srcdir}"/${pkgname}.service "${pkgdir}"/usr/lib/systemd/system/${pkgname}.service
+  install -Dm 644 "${srcdir}"/${pkgname}@.service "${pkgdir}"/usr/lib/systemd/system/${pkgname}@.service
+  install -Dm 644 "${srcdir}"/${pkgname}-ssl.service "${pkgdir}"/usr/lib/systemd/system/${pkgname}-ssl.service
+  install -Dm 644 "${srcdir}"/${pkgname}-ssl@.service "${pkgdir}"/usr/lib/systemd/system/${pkgname}-ssl@.service
+  install -Dm 644 "${srcdir}"/${pkgname}.socket "${pkgdir}"/usr/lib/systemd/system/${pkgname}.socket
+  install -Dm 644 "${srcdir}"/${pkgname}-ssl.socket "${pkgdir}"/usr/lib/systemd/system/${pkgname}-ssl.socket
 
-  install -d -m755 "$pkgdir"/usr/share/empty
-
-  for i in BENCHMARKS BUGS Changelog FAQ INSTALL README README.ssl REFS \
-           REWARD SPEED TODO TUNING; do
-    install -Dm644 $i "$pkgdir"/usr/share/doc/$pkgname/$i
-  done
+  install -dm 755 "${pkgdir}/var/empty"
+  install -Dm 644 BENCHMARKS BUGS Changelog FAQ INSTALL README README.ssl REFS \
+           REWARD SPEED TODO TUNING -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
+
+# vim: ts=2 sw=2 et:
