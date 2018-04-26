@@ -4,57 +4,53 @@
 
 pkgbase=quassel
 pkgname=('quassel-core' 'quassel-client' 'quassel-client-small' 'quassel-monolithic')
-pkgver=0.12.4
-pkgrel=4
+pkgver=0.12.5
+pkgrel=1
 pkgdesc="Next-generation distributed IRC client"
 arch=('x86_64')
 url="https://quassel-irc.org/"
 license=('GPL')
-makedepends=('qt5-base' 'qt5-tools' 'qt5-webkit' 'qca-qt5' 'qt5-script'
+makedepends=('qt5-base' 'qt5-tools' 'qt5-webengine' 'qca-qt5' 'qt5-script'
              'knotifyconfig' 'cmake' 'extra-cmake-modules' 'python'
-             'hicolor-icon-theme')
+             'hicolor-icon-theme' 'ninja')
 source=(https://quassel-irc.org/pub/$pkgbase-$pkgver.tar.bz2
-        0001-Fix-handling-systray-notifications.patch
         $pkgbase.service
         $pkgbase.sysusers
         $pkgbase.tmpfiles
         $pkgbase.conf)
-sha256sums=('93e4e54cb3743cbe2e5684c2fcba94fd2bc2cd739f7672dee14341b49c29444d'
-            '5a465f33c5f233983a12139a1a121665c4ddab9e205997daa453dcffd255156a'
+sha256sums=('1894574dfd79654152a5b7427e7df592b055ae908230504f98a4cb48961e74e2'
             '5dbe20290f3361b9b7a74a52905137e76b656976febf2d31082a2276f9dcde7f'
             '3c72441a99e2668c6a8a751fa07beeb44f937576c8a1b5f615e4a55f841d93d9'
             '2afd4340c7713f6533e5d175a86b28fd118ecd907776c2b10925d1a4fb31cdca'
             'f3031ea8217e01ba42cea14606169e3e27affa5918968ffd5a03c21ae92fe2b8')
 
 prepare() {
-  cd "${srcdir}"
-  mkdir build-{core,client,client-small,mono}
   cd quassel-${pkgver}
-
-  # Fix handling systray notifications
-  # https://github.com/quassel/quassel/pull/272
-  patch -Np1 -i ../0001-Fix-handling-systray-notifications.patch
 }
 
 _build() (
+  mkdir -p build-$1
   cd build-$1
-  cmake \
+  cmake -G Ninja ../quassel-${pkgver} \
     -DCMAKE_INSTALL_PREFIX=/usr/ \
     -DCMAKE_BUILD_TYPE="Release" \
     -DHAVE_SSL=ON \
     -DUSE_QT5=ON \
     "${@:2}" \
-    ../quassel-${pkgver}/ \
     -Wno-dev
-  make
+  cmake --build .
 )
+
+_install() {
+  DESTDIR="${pkgdir}" cmake --build build-$1 --target install
+}
 
 build() {
   _build core \
     -DWANT_QTCLIENT=OFF \
     -DWANT_MONO=OFF \
     -DWITH_OXYGEN=OFF \
-    -DWITH_WEBKIT=OFF
+    -DWITH_WEBENGINE=OFF
 
   _build client \
     -DWANT_CORE=OFF \
@@ -64,7 +60,7 @@ build() {
   _build client-small \
     -DWANT_CORE=OFF \
     -DWANT_MONO=OFF \
-    -DWITH_WEBKIT=OFF \
+    -DWITH_WEBENGINE=OFF \
     -DCMAKE_DISABLE_FIND_PACKAGE_dbusmenu-qt5=ON \
     -DCMAKE_DISABLE_FIND_PACKAGE_Phonon4Qt5=ON
 
@@ -79,30 +75,28 @@ pkgdesc="Next-generation distributed IRC client - core only"
 depends=('icu' 'qca-qt5' 'qt5-script')
 optdepends=('postgresql: PostgreSQL database support')
 backup=(etc/conf.d/quassel)
-  cd "${srcdir}"/build-core
 
-  make DESTDIR="${pkgdir}" install
+  _install core
 
   # Remove unneeded pixmap icons
   rm -r "${pkgdir}"/usr/share
 
-  install -Dm644 "${srcdir}"/$pkgbase.sysusers \
+  install -Dm644 $pkgbase.sysusers \
     "${pkgdir}"/usr/lib/sysusers.d/$pkgbase.conf
-  install -Dm644 "${srcdir}"/$pkgbase.tmpfiles \
+  install -Dm644 $pkgbase.tmpfiles \
     "${pkgdir}"/usr/lib/tmpfiles.d/$pkgbase.conf
-  install -Dm644 "${srcdir}"/$pkgbase.service \
+  install -Dm644 $pkgbase.service \
     "${pkgdir}"/usr/lib/systemd/system/$pkgbase.service
-  install -Dm644 "${srcdir}"/$pkgbase.conf \
+  install -Dm644 $pkgbase.conf \
     "${pkgdir}"/etc/conf.d/$pkgbase
 }
 
 package_quassel-client() {
 pkgdesc="Next-generation distributed IRC client - client only"
-depends=('qt5-base' 'qt5-webkit' 'knotifyconfig' 'hicolor-icon-theme')
+depends=('qt5-base' 'qt5-webengine' 'knotifyconfig' 'hicolor-icon-theme')
 conflicts=('quassel-monolithic' 'quassel-client-small')
-  cd "${srcdir}"/build-client
 
-  make DESTDIR="${pkgdir}" install
+  _install client
 }
 
 package_quassel-client-small() {
@@ -110,17 +104,15 @@ pkgdesc="Next-generation distributed IRC client - client only, reduced deps"
 depends=('qt5-base' 'hicolor-icon-theme')
 conflicts=('quassel-monolithic' 'quassel-client')
 replaces=('quassel-remote')
-  cd "${srcdir}"/build-client-small
 
-  make DESTDIR="${pkgdir}" install
+  _install client-small
 }
 
 package_quassel-monolithic() {
 pkgdesc="Next-generation distributed IRC client - monolithic"
-depends=('qt5-base' 'qca-qt5' 'qt5-webkit' 'qt5-script' 'knotifyconfig' 'hicolor-icon-theme')
+depends=('qt5-base' 'qca-qt5' 'qt5-webengine' 'qt5-script' 'knotifyconfig' 'hicolor-icon-theme')
 optdepends=('postgresql: PostgreSQL database support')
 conflicts=('quassel-client' 'quassel-client-small')
-  cd "${srcdir}"/build-mono
 
-  make DESTDIR="${pkgdir}" install
+  _install mono
 }
