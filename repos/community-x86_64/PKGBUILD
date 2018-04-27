@@ -5,7 +5,7 @@
 # Contributor: Jarek Sedlacek <jareksedlacek@gmail.com>
 
 pkgname=php-mongodb
-pkgver=1.4.2
+pkgver=1.4.3
 pkgrel=1
 pkgdesc="MongoDB driver for PHP"
 arch=("x86_64")
@@ -20,7 +20,7 @@ source=(
 	"https://pecl.php.net/get/mongodb-$pkgver.tgz"
 	"mongodb.ini"
 )
-sha256sums=('c0517b6845f45da5f1f832bbffa7ed872a820580b9e8876b95ada849cc79ef6e'
+sha256sums=('633485d2dd3f608143d0716f7ebf352a32d94b16eb7947a2bb851b29bad3e912'
             '242b9ffea6bd84f813c7fc2a767eaa89f83577c5ff10ff36aecec2ca308ff72b')
 
 build() {
