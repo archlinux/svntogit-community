@@ -3,12 +3,12 @@
 pkgname=cuda
 pkgver=9.1.85.3
 _basever=9.1.85
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia' 'gcc6')
+depends=('gcc-libs' 'opencl-nvidia' 'gcc5')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
@@ -70,11 +70,11 @@ package() {
   # without which we couldn't compile anything at all.
   # Super dirty hack. I really hope it doesn't break other stuff!
   # Hopefully we can remove this for later version of cuda.
-  sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
+  # sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
-  # Needs gcc6
-  ln -s /usr/bin/gcc-6 "${pkgdir}/opt/cuda/bin/gcc"
-  ln -s /usr/bin/g++-6 "${pkgdir}/opt/cuda/bin/g++"
+  # Needs gcc5
+  ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
+  ln -s /usr/bin/g++-5 "${pkgdir}/opt/cuda/bin/g++"
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
@@ -96,7 +96,7 @@ package() {
 
   # Remove unused files
   rm -fr "${pkgdir}/opt/cuda/"{bin,samples}"/.uninstall_manifest_do_not_delete.txt"
-  rm -fr "${pkgdir}/opt/cuda/samples/uninstall_cuda_samples_8.0.pl"
-  rm -fr "${pkgdir}/opt/cuda/bin/cuda-install-samples-8.0.sh"
-  rm -fr "${pkgdir}/opt/cuda/bin/uninstall_cuda_toolkit_8.0.pl"
+  rm -fr "${pkgdir}/opt/cuda/samples/uninstall_cuda_samples"*.pl
+  rm -fr "${pkgdir}/opt/cuda/bin/cuda-install-samples"*.sh
+  rm -fr "${pkgdir}/opt/cuda/bin/uninstall_cuda_toolkit"*.pl
 }
