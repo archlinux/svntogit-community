@@ -1,0 +1,132 @@
+From 5fed38ca58d7f696c13b67dda5f55f4a825ffcdb Mon Sep 17 00:00:00 2001
+From: Eli Schwartz <eschwartz93@gmail.com>
+Date: Mon, 30 Apr 2018 09:12:08 -0400
+Subject: [PATCH] Revert "shell-embedded-window: change realize to map (#6965)"
+
+Try to fix crashes reported in https://github.com/linuxmint/Cinnamon/issues/7522
+
+This reverts commit fa9a5c78bfbb6c15b126bf1d79f7d816fecb7b36.
+---
+ src/cinnamon-embedded-window-private.h |  4 ++--
+ src/cinnamon-embedded-window.c         | 19 ++++++++++++++-----
+ src/cinnamon-gtk-embed.c               | 18 +++++++++---------
+ 3 files changed, 25 insertions(+), 16 deletions(-)
+
+diff --git a/src/cinnamon-embedded-window-private.h b/src/cinnamon-embedded-window-private.h
+index 7e3bd8c1..754ee313 100644
+--- a/src/cinnamon-embedded-window-private.h
++++ b/src/cinnamon-embedded-window-private.h
+@@ -14,7 +14,7 @@ void _cinnamon_embedded_window_allocate (CinnamonEmbeddedWindow *window,
+ 				      int                  width,
+ 				      int                  height);
+ 
+-void _cinnamon_embedded_window_map   (CinnamonEmbeddedWindow *window);
+-void _cinnamon_embedded_window_unmap (CinnamonEmbeddedWindow *window);
++void _cinnamon_embedded_window_realize   (CinnamonEmbeddedWindow *window);
++void _cinnamon_embedded_window_unrealize (CinnamonEmbeddedWindow *window);
+ 
+ #endif /* __CINNAMON_EMBEDDED_WINDOW_PRIVATE_H__ */
+diff --git a/src/cinnamon-embedded-window.c b/src/cinnamon-embedded-window.c
+index 9e3e1316..d2b0512e 100644
+--- a/src/cinnamon-embedded-window.c
++++ b/src/cinnamon-embedded-window.c
+@@ -19,11 +19,20 @@
+  *  - CinnamonGtkEmbed is created for the CinnamonEmbeddedWindow
+  *  - actor is added to a stage
+  *
+- * The GtkWindow is mapped if and only if both:
++ * Ideally, the way it would work is that the GtkWindow is mapped
++ * if and only if both:
+  *
+- * - gtk_window_visible (window) [widget has been shown]
++ * - GTK_WIDGET_VISIBLE (window) [widget has been shown]
+  * - Actor is mapped [actor and all parents visible, actor in stage]
+  *
++ * Implementing this perfectly is not currently possible, due to problems
++ * in Clutter, see:
++ *
++ * http://bugzilla.openedhand.com/show_bug.cgi?id=1138
++ *
++ * So until that is fixed we use the "realized" state of the ClutterActor
++ * as a stand-in for the ideal mapped state, this will work as long
++ * as the ClutterActor and all its parents are in fact visible.
+  */
+ 
+ G_DEFINE_TYPE (CinnamonEmbeddedWindow, cinnamon_embedded_window, GTK_TYPE_WINDOW);
+@@ -221,7 +230,7 @@ _cinnamon_embedded_window_set_actor (CinnamonEmbeddedWindow  *window,
+   window->priv->actor = actor;
+ 
+   if (actor &&
+-      clutter_actor_is_mapped (CLUTTER_ACTOR (actor)) &&
++      clutter_actor_is_realized (CLUTTER_ACTOR (actor)) &&
+       gtk_widget_get_visible (GTK_WIDGET (window)))
+     gtk_widget_map (GTK_WIDGET (window));
+ }
+@@ -261,7 +270,7 @@ _cinnamon_embedded_window_allocate (CinnamonEmbeddedWindow *window,
+ }
+ 
+ void
+-_cinnamon_embedded_window_map (CinnamonEmbeddedWindow *window)
++_cinnamon_embedded_window_realize (CinnamonEmbeddedWindow *window)
+ {
+   g_return_if_fail (CINNAMON_IS_EMBEDDED_WINDOW (window));
+ 
+@@ -270,7 +279,7 @@ _cinnamon_embedded_window_map (CinnamonEmbeddedWindow *window)
+ }
+ 
+ void
+-_cinnamon_embedded_window_unmap (CinnamonEmbeddedWindow *window)
++_cinnamon_embedded_window_unrealize (CinnamonEmbeddedWindow *window)
+ {
+   g_return_if_fail (CINNAMON_IS_EMBEDDED_WINDOW (window));
+ 
+diff --git a/src/cinnamon-gtk-embed.c b/src/cinnamon-gtk-embed.c
+index 8879b3f0..4b4a9ded 100644
+--- a/src/cinnamon-gtk-embed.c
++++ b/src/cinnamon-gtk-embed.c
+@@ -199,24 +199,24 @@ cinnamon_gtk_embed_allocate (ClutterActor          *actor,
+ }
+ 
+ static void
+-cinnamon_gtk_embed_map (ClutterActor *actor)
++cinnamon_gtk_embed_realize (ClutterActor *actor)
+ {
+   CinnamonGtkEmbed *embed = CINNAMON_GTK_EMBED (actor);
+ 
+-  _cinnamon_embedded_window_map (embed->priv->window);
++  _cinnamon_embedded_window_realize (embed->priv->window);
+ 
+-  CLUTTER_ACTOR_CLASS (cinnamon_gtk_embed_parent_class)->map (actor);
++  CLUTTER_ACTOR_CLASS (cinnamon_gtk_embed_parent_class)->realize (actor);
+ }
+ 
+ static void
+-cinnamon_gtk_embed_unmap (ClutterActor *actor)
++cinnamon_gtk_embed_unrealize (ClutterActor *actor)
+ {
+   CinnamonGtkEmbed *embed = CINNAMON_GTK_EMBED (actor);
+-
++  
+   if (embed->priv->window)
+-    _cinnamon_embedded_window_unmap (embed->priv->window);
++    _cinnamon_embedded_window_unrealize (embed->priv->window);
+ 
+-  CLUTTER_ACTOR_CLASS (cinnamon_gtk_embed_parent_class)->unmap (actor);
++  CLUTTER_ACTOR_CLASS (cinnamon_gtk_embed_parent_class)->unrealize (actor);
+ }
+ 
+ static void
+@@ -244,8 +244,8 @@ cinnamon_gtk_embed_class_init (CinnamonGtkEmbedClass *klass)
+   actor_class->get_preferred_width = cinnamon_gtk_embed_get_preferred_width;
+   actor_class->get_preferred_height = cinnamon_gtk_embed_get_preferred_height;
+   actor_class->allocate = cinnamon_gtk_embed_allocate;
+-  actor_class->map = cinnamon_gtk_embed_map;
+-  actor_class->unmap = cinnamon_gtk_embed_unmap;
++  actor_class->realize = cinnamon_gtk_embed_realize;
++  actor_class->unrealize = cinnamon_gtk_embed_unrealize;
+ 
+   g_object_class_install_property (object_class,
+                                    PROP_WINDOW,
+-- 
+2.17.0
+
