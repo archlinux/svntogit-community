@@ -3,7 +3,7 @@
 pkgname=cuda
 pkgver=9.1.85.3
 _basever=9.1.85
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -70,7 +70,7 @@ package() {
   # without which we couldn't compile anything at all.
   # Super dirty hack. I really hope it doesn't break other stuff!
   # Hopefully we can remove this for later version of cuda.
-  # sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
+  sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
   # Needs gcc5
   ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
