@@ -1,76 +1,81 @@
 # $Id$
-# Maintainer: Alexandre Filgueira <alexfilgueira@antergos.com>
+# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Contributor: Alexandre Filgueira <alexfilgueira@antergos.com>
 
 pkgbase=nemo-extensions
 pkgname=('nemo-fileroller'
          'nemo-image-converter'
-	 'nemo-preview'
-	 'nemo-python'
-	 'nemo-seahorse'
-	 'nemo-share'
-	 'nemo-terminal')
-	#'nemo-media-columns'
-	#'nemo-pastebin'
-	#'nemo-compare'
-	#'nemo-rabbitvcs'
-pkgver=3.6.0
-pkgrel=2
+         'nemo-preview'
+         'nemo-python'
+         'nemo-seahorse'
+         'nemo-share'
+         'nemo-terminal')
+        #'nemo-audio-tab'
+        #'nemo-compare'
+        #'nemo-dropbox'
+        #'nemo-emblems'
+        #'nemo-gtkhash'
+        #'nemo-media-columns'
+        #'nemo-pastebin'
+        #'nemo-repairer'
+pkgver=3.8.0
+pkgrel=1
 pkgdesc="Various extensions for Nemo"
 arch=('x86_64')
 license=('GPL2')
 url="https://github.com/linuxmint/nemo-extensions"
-depends=(nemo file-roller cjs clutter-gtk clutter-gst gst-plugins-good imagemagick libmusicbrainz5
-         evince gtksourceview3 webkit2gtk python2-gobject seahorse-nautilus samba)
-makedepends=(gnome-common gtk-doc intltool gobject-introspection libgnome-keyring xreader) # python2-distutils-extra
+depends=('nemo')
+_preview_deps=('cjs' 'clutter-gtk' 'clutter-gst' 'libmusicbrainz5' 'gtksourceview3' 'xreader')
+_python_deps=('python2-gobject')
+_seahorse_deps=('libcryptui' 'libgnome-keyring')
+makedepends=('intltool' 'gtk-doc' 'gobject-introspection')
+makedepends+=("${_preview_deps[@]}" "${_python_deps[@]}" "${_seahorse_deps[@]}")
 options=('!emptydirs')
-source=("${pkgbase}-${pkgver}.tar.gz::https://github.com/linuxmint/nemo-extensions/archive/${pkgver}.tar.gz"
-        nemo-seahorse-gnupg.patch
-        nemo-preview-xreader-version.patch::"https://github.com/linuxmint/nemo-extensions/commit/52767dc7.patch")
-sha256sums=('593aaf206ef50a8185e1f71c9018ce6a8b4bcb82b4684494e069f9045ba11fd1'
-            'ba6ae77a7d6727088e49aae2dc2c89c77c44f1ea19ee48956481d673d97caa36'
-            '5ecc476b2f84ab98ad0214c99c3a9e7366ab1fd2ef647953fe135601e5bdb9ce')
+source=("${pkgbase}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz"
+        "nemo-seahorse-gnupg.patch")
+sha256sums=('15855cf7880290c8e9956f894d8e3c6fb0bee996783b2af63ae66dc019e739a8'
+            'ba6ae77a7d6727088e49aae2dc2c89c77c44f1ea19ee48956481d673d97caa36')
 
 prepare() {
-  cd ${pkgbase}-${pkgver}
+    cd "${srcdir}"/${pkgbase}-${pkgver}
 
-  # Python2 fix
-  find -type f | xargs sed -i 's@^#!.*python$@#!/usr/bin/python2@'
+    # Fix path for nemo-python
+    sed -i 's|libdirsuffix="/i386-linux-gnu/"|libdirsuffix=""|' nemo-python/m4/python.m4
 
-  # Fix path for nemo-python
-  sed -i 's|libdirsuffix="/i386-linux-gnu/"|libdirsuffix=""|' nemo-python/m4/python.m4
+    # Delete deprecated gnome-common macros, even their standard autoconf-archive replacements are
+    # annoying to people who actually set $C(XX)?FLAGS. This drops the unneeded dependency on gnome-common
+    sed -i '/^GNOME_/d' nemo-image-converter/configure.ac
 
-  # Support GnuPG 2.2
-  patch -p1 -i ../nemo-seahorse-gnupg.patch
+    # Support GnuPG 2.2
+    patch -p1 -i ../nemo-seahorse-gnupg.patch
 
-  # Fix xreader dependency versioning
-  patch -p1 -i ../nemo-preview-xreader-version.patch
+    for _dir in "${pkgname[@]}"; do
+        if ! [[ -f ${_dir}/configure.ac || -f ${_dir}/configure.in ]]; then
+            continue
+        fi
+        pushd ${_dir}
+        autoreconf -fi
+        popd
+    done
 }
 
 build() {
-  cd ${pkgbase}-${pkgver}
+    cd "${srcdir}"/${pkgbase}-${pkgver}
 
-  _configure_pkgs="nemo-fileroller nemo-seahorse nemo-share"
-  for dir in ${_configure_pkgs}
-  do
-    pushd ${dir}
-    autoreconf -fi
-    ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/${dir} \
-                --disable-schemas-compile
-    sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
-    make
-    popd
-  done
-
-  _autogen_pkgs="nemo-image-converter nemo-preview nemo-python"
-  for dir in ${_autogen_pkgs}
-  do
-    pushd ${dir}
-    ./autogen.sh --prefix=/usr --sysconfdir=/etc --localstatedir=/var --libexecdir=/usr/lib/${dir} \
-                 --disable-schemas-compile PYTHON=python2
-    sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
-    make
-    popd
-  done
+    for _dir in "${pkgname[@]}"; do
+        if ! [[ -f ${_dir}/configure ]]; then
+            continue
+        fi
+        pushd ${_dir}
+        PYTHON=python2 ./configure --prefix=/usr \
+                                   --sysconfdir=/etc \
+                                   --localstatedir=/var \
+                                   --libexecdir=/usr/lib/${_dir} \
+                                   --disable-schemas-compile
+        sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' -e 's/    if test "$export_dynamic" = yes && test -n "$export_dynamic_flag_spec"; then/      func_append compile_command " -Wl,-O1,--as-needed"\n      func_append finalize_command " -Wl,-O1,--as-needed"\n\0/' libtool
+        make
+        popd
+    done
 
     # # nemo-pastebin
     # cd nemo-pastebin
@@ -80,87 +85,78 @@ build() {
   	# nemo-media-columns
   	# Nothing to do here
   	# Required python2-pypdf from AUR
-
-  	# nemo-compare
-  	# cd nemo-compare
-
-    # nemo-rabbitvcs
-    # Nothing to do here
-
 }
 
 package_nemo-fileroller(){
-  pkgdesc="File archiver extension for Nemo"
-  depends=(nemo file-roller)
+    pkgdesc="File archiver extension for Nemo"
+    depends+=('file-roller')
 
-  cd ${pkgbase}-${pkgver}/nemo-fileroller
-  make DESTDIR="${pkgdir}" install
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    make DESTDIR="${pkgdir}" install
 }
 
 package_nemo-image-converter(){
-  pkgdesc="Nemo extension to rotate/resize image files"
-  depends=(nemo imagemagick)
+    pkgdesc="Nemo extension to rotate/resize image files"
+    depends+=('imagemagick')
 
-  cd ${pkgbase}-${pkgver}/nemo-image-converter
-  make DESTDIR="${pkgdir}" install
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    make DESTDIR="${pkgdir}" install
 }
 
 package_nemo-preview(){
-  pkgdesc="GtkClutter and Javascript-based quick previewer for Nemo"
-  depends=(nemo cjs clutter-gtk clutter-gst libmusicbrainz5 evince gtksourceview3 xreader)
+    pkgdesc="Quick file previewer for Nemo"
+    depends+=("${_preview_deps[@]}")
 
-  cd ${pkgbase}-${pkgver}/nemo-preview
-  make DESTDIR="${pkgdir}" install
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    make DESTDIR="${pkgdir}" install
 }
 
 package_nemo-python() {
-  pkgdesc="Python2 binding for Nemo components"
-  depends=(nemo python2-gobject)
+    pkgdesc="Python2 binding for Nemo components"
+    depends+=("${_python_deps[@]}")
 
-  cd ${pkgbase}-${pkgver}/nemo-python
-  make DESTDIR="${pkgdir}" install
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    make DESTDIR="${pkgdir}" install
 }
 
 package_nemo-seahorse(){
-  pkgdesc="PGP encryption and signing extension for Nemo"
-  depends=(nemo seahorse-nautilus)
+    pkgdesc="PGP encryption and signing extension for Nemo"
+    depends+=("${_seahorse_deps[@]}")
 
-  cd ${pkgbase}-${pkgver}/nemo-seahorse
-  make DESTDIR="${pkgdir}" install
-
-  # seahorse-tool is already in seahorse-nautilus package
-  make -C data DESTDIR="${pkgdir}" uninstall
-  make -C tool DESTDIR="${pkgdir}" uninstall
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    make DESTDIR="${pkgdir}" install
 }
 
 package_nemo-share(){
-  pkgdesc="Samba extension for Nemo"
-  depends=(nemo samba)
+    pkgdesc="Samba extension for Nemo"
+    depends+=('samba')
 
-  cd ${pkgbase}-${pkgver}/nemo-share
-  make DESTDIR="${pkgdir}" install
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    make DESTDIR="${pkgdir}" install
 }
 
 package_nemo-terminal(){
-  pkgdesc="Embedded terminal window for Nemo"
-  depends=(nemo-python vte3)
+    pkgdesc="Embedded terminal window for Nemo"
+    depends=('nemo-python' 'vte3')
 
-  cd ${pkgbase}-${pkgver}/nemo-terminal
-  install -Dm644 src/nemo_terminal.py "$pkgdir"/usr/share/nemo-python/extensions/nemo_terminal.py
-  install -Dm644 src/org.nemo.extensions.nemo-terminal.gschema.xml "$pkgdir"/usr/share/glib-2.0/schemas/org.nemo.extensions.nemo-terminal.gschema.xml
-  install -Dm644 pixmap/logo_120x120.png "$pkgdir"/usr/share/nemo-terminal/logo_120x120.png
+    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+    install -Dm644 src/nemo_terminal.py \
+        "${pkgdir}"/usr/share/nemo-python/extensions/nemo_terminal.py
+    install -Dm644 src/org.nemo.extensions.nemo-terminal.gschema.xml \
+        "${pkgdir}"/usr/share/glib-2.0/schemas/org.nemo.extensions.nemo-terminal.gschema.xml
+    install -Dm644 pixmap/logo_120x120.png \
+        "${pkgdir}"/usr/share/nemo-terminal/logo_120x120.png
 }
 
-# package_nemo-media-columns(){
-# 	cd ${pkgbase}-${pkgver}/nemo-media-columns
-
-# 	pkgdesc=("A Nemo extension to display music/EXIF and PDF metadata info in the Nemo List View")
-# 	arch=(any)
-
-#   install -d ${pkgdir}/usr/share/nemo-python/extensions/
-# 	install -Dm755 ${srcdir}/nemo-media-columns.py \
-# 			${pkgdir}/usr/share/nemo-python/extensions/nemo-media-columns.py
-# }
+## missing kaa-base in the repos
+#package_nemo-media-columns(){
+#    pkgdesc=("A Nemo extension to display music/EXIF and PDF metadata info in the Nemo List View")
+#    depends=('nemo-python' 'mutagen' 'python2-exiv2' 'python2-kaa-base' 'python2-pillow' 'python2-pypdf')
+#
+#    cd "${srcdir}"/${pkgbase}-${pkgver}/${pkgname}
+#    install -Dm644 nemo-media-columns.py \
+#        "${pkgdir}"/usr/share/nemo-python/extensions/nemo-media-columns.py
+#}
 
 # package_nemo-pastebin(){
 # 	cd ${pkgbase}-${pkgver}/nemo-pastebin
@@ -173,6 +169,7 @@ package_nemo-terminal(){
 # 		--no-compile -O0
 # }
 
+## no clue what any of this does
 # package_nemo-compare() {
 #   cd ${pkgbase}-${pkgver}/nemo-compare
 
@@ -194,14 +191,3 @@ package_nemo-terminal(){
 #                   /usr/share/nemo-compare/nemo-compare-preferences.py
 
 # }
-
-# package_nemo-rabbitvcs(){
-# 	cd ${pkgbase}-${pkgver}/nemo-rabbitvcs
-
-#   depends=(nemo-python python2-dbus)
-
-#   install -d ${pkgdir}/usr/share/nemo-python/extensions/
-#   install -Dm755 ${srcdir}/RabbitVCS.py \
-#       ${pkgdir}/usr/share/nemo-python/extensions/RabbitVCS.py
-# }
-
