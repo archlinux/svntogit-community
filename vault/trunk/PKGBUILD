@@ -1,17 +1,19 @@
 # Maintainer : Christian Rebischke <Chris.Rebischke@archlinux.org>
+# Contributor: Tim Meusel <tim@bastelfreak.de>
+# Contributor: Sebastian Rakel sebastian@devunit.eu
 
 pkgname='vault'
 pkgdesc='A tool for managing secrets'
-pkgver='0.10.0'
+pkgver='0.10.1'
 pkgrel='1'
-url='https://vaultproject.io/'
+url="https://vaultproject.io/"
 license=('MPL')
 arch=('x86_64')
-makedepends=('go-pie' 'git')
+makedepends=('nodejs-lts-carbon' 'go-pie' 'git' 'yarn' 'python2' 'bower' 'npm' 'zip')
 depends=('glibc')
 install='vault.install'
 backup=('etc/vault.hcl')
-_vault_commit='5dd7f25f5c4b541f2da62d70075b6f82771a650d'
+_vault_commit='756fdc4587350daf1c65b93647b2cc31a6f119cd'
 source=("git+https://github.com/hashicorp/vault#commit=${_vault_commit}"
         'vault.service'
         'vault.sysusers'
@@ -27,23 +29,45 @@ prepare () {
   export GOPATH="${srcdir}"
   export PATH="$PATH:$GOPATH/bin"
   mkdir -p src/github.com/hashicorp/
-  mv "${pkgname}" src/github.com/hashicorp/
+  mv "${pkgname}" "src/github.com/hashicorp/${pkgname}"
+  # this is temporary
+  go get github.com/kardianos/govendor
+  export PACKAGE_ROOT="${GOPATH}/src/github.com/hashicorp/${pkgname}"
 }
 
 build () {
-  cd src/github.com/hashicorp/"${pkgname}"
-  go build -o vault-binary
+  cd $PACKAGE_ROOT
+
+  # We will provide these packages in the future ourself
+  govendor fetch github.com/mitchellh/gox
+  govendor fetch github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs
+  govendor fetch github.com/hashicorp/go-bindata/go-bindata
+
+  cd $PACKAGE_ROOT/vendor/github.com/hashicorp/go-bindata/go-bindata
+  go build
+  go install
+
+  cd $PACKAGE_ROOT/vendor/github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs
+  go build
+  go install
+
+  cd $PACKAGE_ROOT/vendor/github.com/mitchellh/gox
+  go build
+  go install
+
+  cd $PACKAGE_ROOT
+  XC_OSARCH='linux/amd64' make static-dist bin
 }
 
 package () {
-  cd src/github.com/hashicorp/"${pkgname}"
-	install -Dm755 vault-binary "${pkgdir}/usr/bin/vault"
-	install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-	install -Dm644 "${srcdir}/vault.hcl" "${pkgdir}/etc/vault.hcl"
-	install -Dm644 "${srcdir}/vault.service" "${pkgdir}/usr/lib/systemd/system/vault.service"
-	install -Dm644 "${srcdir}/vault.sysusers" "${pkgdir}/usr/lib/sysusers.d/vault.conf"
-	install -Dm644 "${srcdir}/vault.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/vault.conf"
-	for file in README.md CHANGELOG.md ; do
-		install -Dm644 "${file}" "${pkgdir}/usr/share/doc/${pkgname}/${file}"
-	done
+  cd ${PACKAGE_ROOT}
+  install -Dm755 bin/vault "${pkgdir}/usr/bin/vault"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${srcdir}/vault.hcl" "${pkgdir}/etc/vault.hcl"
+  install -Dm644 "${srcdir}/vault.service" "${pkgdir}/usr/lib/systemd/system/vault.service"
+  install -Dm644 "${srcdir}/vault.sysusers" "${pkgdir}/usr/lib/sysusers.d/vault.conf"
+  install -Dm644 "${srcdir}/vault.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/vault.conf"
+  for file in README.md CHANGELOG.md ; do
+    install -Dm644 "${file}" "${pkgdir}/usr/share/doc/${pkgname}/${file}"
+  done
 }
