@@ -4,7 +4,7 @@
 
 pkgname=qrupdate
 pkgver=1.1.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Fortran library for fast updates of QR and Cholesky decompositions"
 url="http://sourceforge.net/projects/qrupdate"
 makedepends=(gcc-fortran)
