@@ -24,12 +24,14 @@ VPATH = wsi/x11
 SRC = utils.ml keys.ml wsi.ml parser.ml config.ml main.ml
 OBJ = help.cmx ${SRC:.ml=.cmx}
 MOD = unix.cmxa str.cmxa lablgl.cmxa
+SRCMANS = $(wildcard man/*.man)
+MANS = ${SRCMANS:.man=.1}
 
 DISTFILES := Makefile ${SRC} link.c glfont.c keysym2ucs.c wsi.mli
 DISTFILES += mkhelp.sh KEYS README BUILDING
-DISTFILES += misc/
+DISTFILES += misc/ man/
 
-all: llpp
+all: llpp ${MANS}
 
 llpp: ${OBJ} link.o
 	${CAMLOPT} -o $@ ${CAMLFLAGS} link.o -cclib '${LDFLAGS}' ${MOD} ${OBJ}
@@ -61,10 +63,13 @@ link.o: glfont.c keysym2ucs.c
 .mli.cmi:
 	${CAMLOPT} -c -o $@ ${CAMLFLAGS} $<
 
+%.1: %.man man/asciidoc.conf
+	a2x -d manpage -f manpage --asciidoc-opts="-f man/asciidoc.conf --out-file=$@.xml" $<
+
 .PHONY: all clean dist install
 
 clean:
-	${RM} llpp link.o help.ml ${OBJ} ${OBJ:.cmx=.cmi} ${OBJ:.cmx=.o}
+	${RM} llpp link.o help.ml ${OBJ} ${OBJ:.cmx=.cmi} ${OBJ:.cmx=.o} ${MANS} ${MANS:.1=.xml}
 
 dist: clean
 	mkdir llpp-${VERSION}
@@ -74,6 +79,8 @@ dist: clean
 
 install:
 	install -Dm755 llpp ${DESTDIR}${PREFIX}/bin/llpp
+	install -Dm644 -t ${DESTDIR}${PREFIX}/share/man/man1  man/*.1
 	install -Dm755 misc/llppac ${DESTDIR}${PREFIX}/bin/llppac
+	install -Dm755 misc/llpphtml ${DESTDIR}${PREFIX}/bin/llpphtml
 	install -Dm644 misc/llpp.desktop ${DESTDIR}${PREFIX}/share/applications/llpp.desktop
 	install -Dm644 README ${DESTDIR}${PREFIX}/share/licenses/llpp/README
