@@ -1,0 +1,112 @@
+# $Id$
+# Maintainer: schuay <jakob.gruber@gmail.com>
+# Contributor: Brad Fanella <bradfanella@archlinux.us>
+# Contributor: Corrado Primier <bardo@aur.archlinux.org>
+# Contributor: danst0 <danst0@west.de>
+
+# Build order: avr-binutils -> avr-gcc -> avr-libc
+
+pkgname=avr-gcc
+pkgver=8.1.0
+pkgrel=1
+#_snapshot=7-20180125
+_islver=0.19
+pkgdesc='The GNU AVR Compiler Collection'
+arch=(x86_64)
+license=(GPL LGPL FDL custom)
+url='http://gcc.gnu.org/'
+depends=(avr-binutils gcc-libs libmpc)
+optdepends=('avr-libc: Standard C library for Atmel AVR development')
+options=(!emptydirs !strip)
+source=(ftp://gcc.gnu.org/pub/gcc/releases/gcc-${pkgver}/gcc-${pkgver}.tar.xz{,.sig}
+        #ftp://gcc.gnu.org/pub/gcc/snapshots/${_snapshot}/gcc-${_snapshot}.tar.xz
+        http://isl.gforge.inria.fr/isl-${_islver}.tar.bz2
+       )
+sha256sums=('1d1866f992626e61349a1ccd0b8d5253816222cdc13390dcfaa74b093aa2b153'
+            'SKIP'
+            'd59726f34f7852a081fbd3defd1ab2136f174110fc2e0c8d10bb122173fa9ed8')
+validpgpkeys=(33C235A34C46AA3FFB293709A328C3A2C3C45C06) # Jakub Jelinek <jakub@redhat.com>
+
+if [ -n "${_snapshot}" ]; then
+  _basedir=gcc-${_snapshot}
+else
+  _basedir=gcc-${pkgver}
+fi
+
+prepare() {
+    cd ${_basedir}
+}
+
+build() {
+    cd ${srcdir}/${_basedir} 
+
+    # link isl for in-tree build
+    ln -s ../isl-${_islver} isl
+
+    # https://bugs.archlinux.org/task/34629
+    # hack! - some configure tests for header files using "$CPP $CPPFLAGS"
+    sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" {libiberty,gcc}/configure
+
+    echo ${pkgver} > gcc/BASE-VER
+
+    cd ${srcdir}
+    mkdir gcc-build && cd gcc-build
+
+    export CFLAGS_FOR_TARGET='-O2 -pipe'
+    export CXXFLAGS_FOR_TARGET='-O2 -pipe'
+
+    # --disable-linker-build-id   https://bugs.archlinux.org/task/34902
+    # --disable-__cxa_atexit   https://bugs.archlinux.org/task/50848
+    ${srcdir}/${_basedir}/configure \
+                --disable-install-libiberty \
+                --disable-libssp \
+                --disable-libstdcxx-pch \
+                --disable-libunwind-exceptions \
+                --disable-linker-build-id \
+                --disable-nls \
+                --disable-werror \
+                --disable-__cxa_atexit \
+                --enable-checking=release \
+                --enable-clocale=gnu \
+                --enable-gnu-unique-object \
+                --enable-gold \
+                --enable-languages=c,c++ \
+                --enable-ld=default \
+                --enable-lto \
+                --enable-plugin \
+                --enable-shared \
+                --infodir=/usr/share/info \
+                --libdir=/usr/lib \
+                --libexecdir=/usr/lib \
+                --mandir=/usr/share/man \
+                --prefix=/usr \
+                --target=avr \
+                --with-as=/usr/bin/avr-as \
+                --with-gnu-as \
+                --with-gnu-ld \
+                --with-ld=/usr/bin/avr-ld \
+                --with-plugin-ld=ld.gold \
+                --with-system-zlib \
+                --with-isl \
+                --enable-gnu-indirect-function
+
+    make
+}
+
+package() {
+    cd ${srcdir}/gcc-build
+
+    make -j1 DESTDIR=${pkgdir} install
+
+    # Strip debug symbols from libraries; without this, the package size balloons to ~500MB.
+    find ${pkgdir}/usr/lib -type f -name "*.a" \
+        -exec /usr/bin/avr-strip --strip-debug '{}' \;
+
+    # Install Runtime Library Exception
+    install -Dm644 ${srcdir}/${_basedir}/COPYING.RUNTIME \
+        ${pkgdir}/usr/share/licenses/avr-gcc/RUNTIME.LIBRARY.EXCEPTION
+
+    rm -r ${pkgdir}/usr/share/man/man7
+    rm -r ${pkgdir}/usr/share/info
+    rm ${pkgdir}/usr/lib/libcc1.*
+}
