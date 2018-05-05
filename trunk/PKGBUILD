@@ -2,10 +2,10 @@
 
 _target=aarch64-linux-gnu
 pkgname=$_target-gcc
-pkgver=7.3.0
-_islver=0.18
+pkgver=8.1.0
+_islver=0.19
 pkgrel=1
-_snapshot=7-20180125
+#_snapshot=7-20180125
 pkgdesc='The GNU Compiler Collection - cross compiler for ARM64 target'
 arch=(x86_64)
 url='https://gcc.gnu.org/'
@@ -13,11 +13,13 @@ license=(GPL LGPL FDL)
 depends=($_target-binutils $_target-glibc libmpc zlib)
 makedepends=(gmp mpfr)
 options=(!emptydirs !strip)
-source=(#https://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.bz2
-        https://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.xz
+source=(https://gcc.gnu.org/pub/gcc/releases/gcc-$pkgver/gcc-$pkgver.tar.xz{,.sig}
+        #https://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.xz
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
-sha256sums=('f4cad0895aa6dd237cbcb6e81750e40c3fb3eba8a5bcdf25a21c4ee5520c344b'
-            '6b8b0fd7f81d0a957beb3679c81bbb34ccc7568d5682844d8924424a0dadcb1b')
+sha256sums=('1d1866f992626e61349a1ccd0b8d5253816222cdc13390dcfaa74b093aa2b153'
+            'SKIP'
+            'd59726f34f7852a081fbd3defd1ab2136f174110fc2e0c8d10bb122173fa9ed8')
+validpgpkeys=(33C235A34C46AA3FFB293709A328C3A2C3C45C06) # Jakub Jelinek <jakub@redhat.com>
 
 if [ -n "$_snapshot" ]; then
   _basedir=gcc-$_snapshot
