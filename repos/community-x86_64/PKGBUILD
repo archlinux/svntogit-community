@@ -3,12 +3,12 @@
 pkgname=cuda
 pkgver=9.1.85.3
 _basever=9.1.85
-pkgrel=4
+pkgrel=5
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia' 'gcc5' 'nvidia-utils')
+depends=('gcc-libs' 'opencl-nvidia' 'gcc54' 'nvidia-utils')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
