@@ -1,29 +1,71 @@
-# $Id$
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: rudy.matela
 
-pkgname=z3
+pkgbase=z3
+pkgname=('z3' 'python-z3' 'python2-z3')
 pkgver=4.6.0
-pkgrel=1
-pkgdesc="A high-performance theorem prover"
+pkgrel=2
+pkgdesc='High-performance theorem prover'
+url='https://github.com/Z3Prover/z3'
 arch=('x86_64')
-url="https://github.com/Z3Prover/z3"
 license=('MIT')
-depends=('gcc-libs')
-makedepends=('python2') # 'java-environment-common' 'mono' 'ocaml' 'ocaml-findlib')
+ # 'java-environment-common' 'mono' 'ocaml' 'ocaml-findlib'
+makedepends=('cmake' 'python2' 'python2-setuptools' 'python' 'python-setuptools' 'gcc-libs' 'gmp')
 optdepends=('python2-setuptools: bindings for python2')
-source=("https://github.com/Z3Prover/z3/archive/z3-$pkgver.tar.gz")
-sha512sums=('92a87292db17ceb4a90e45bce4f6237fe0437a7a5e147b4b63a2cb793e2d59fc04a6aa579ddb904280eac08b4a85c600df092d4c2fa99239199514b9c0363243')
+source=(https://github.com/Z3Prover/z3/archive/${pkgbase}-${pkgver}.tar.gz
+        z3-${pkgver}-gcc8.patch::https://github.com/Z3Prover/z3/commit/2d5dd802386d78117d5ed9ddcbf8bc22ab3cb461.patch)
+sha512sums=('92a87292db17ceb4a90e45bce4f6237fe0437a7a5e147b4b63a2cb793e2d59fc04a6aa579ddb904280eac08b4a85c600df092d4c2fa99239199514b9c0363243'
+            '8d1e9e140dcbc3e97379d5a4f7943837046b5cfa07bd76a5703242a0f80b9b70e9bb279282f3415f8fccc80590cf75d1b325393467cb2ad8f24bf3dc9d8a900d')
+
+prepare() {
+  cd ${pkgbase}-${pkgbase}-${pkgver}
+  patch -Np1 < ../z3-${pkgver}-gcc8.patch
+  mkdir -p build
+}
 
 build() {
-  cd "$srcdir/$pkgname-$pkgname-$pkgver"
-  python2 scripts/mk_make.py --python # --dotnet --java --ml
-  cd build
+  cd ${pkgbase}-${pkgbase}-${pkgver}/build
+  cmake .. \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DBUILD_PYTHON_BINDINGS=1 \
+    -DPYTHON_EXECUTABLE=/usr/bin/python \
+    -DUSE_LIB_GMP=1
   make
 }
 
-package() {
-  cd "$srcdir"/$pkgname-$pkgname-$pkgver/build
-  make install DESTDIR="$pkgdir"
-  install -Dm644 ../LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+package_z3() {
+  depends=('gcc-libs' 'gmp')
+  provides=('libz3' 'libz3.so')
+  cd ${pkgbase}-${pkgbase}-${pkgver}/build
+  make DESTDIR="${pkgdir}" install
+  install -Dm 644 ../LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  rm -r "${pkgdir}"/usr/lib/python*
 }
+
+package_python-z3() {
+  depends=('python' 'libz3')
+  cd ${pkgbase}-${pkgbase}-${pkgver}/build
+  make DESTDIR="${pkgdir}" install
+  install -Dm 644 ../LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  cd "${pkgdir}"
+  rm -r usr/include usr/bin usr/lib/cmake usr/lib/lib*
+  python -m compileall .
+  python -O -m compileall .
+}
+
+package_python2-z3() {
+  depends=('python2' 'libz3')
+  cd ${pkgbase}-${pkgbase}-${pkgver}/build
+  make DESTDIR="${pkgdir}" install
+  install -Dm 644 ../LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  cd "${pkgdir}"
+  rm -r usr/include usr/bin usr/lib/cmake usr/lib/lib*
+  mv usr/lib/python* usr/lib/python2.7
+  python2 -m compileall .
+  python2 -O -m compileall .
+}
+
+# vim: ts=2 sw=2 et:
