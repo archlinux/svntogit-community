@@ -1,5 +1,5 @@
-# $Id$
-# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Daniel Micay <danielmicay@gmail.com>
 # Contributor: Bartłomiej Piotrowski <nospam@bpiotrowski.pl>
 # Contributor: Patrick Leslie Polzer <leslie.polzer@gmx.net>
@@ -8,60 +8,66 @@
 # Contributor: Elisamuel Resto <ryuji@simplysam.us>
 
 pkgname=chrony
-pkgver=3.2
-pkgrel=2
+pkgver=3.3
+pkgrel=1
 pkgdesc='Lightweight NTP client and server'
-arch=('x86_64')
 url="http://chrony.tuxfamily.org/"
-options=(strip emptydirs)
-license=('GPL')
-depends=('nss' 'readline' 'libcap' 'libedit')
+arch=('x86_64')
+license=('GPL2')
+depends=('glibc' 'nss' 'readline' 'libcap' 'libedit' 'libseccomp' 'nettle')
+makedepends=('asciidoctor')
+options=('!emptydirs')
 backup=('etc/chrony.conf')
 source=(https://download.tuxfamily.org/chrony/${pkgname}-${pkgver}.tar.gz
-        "${pkgname}-${pkgver}.tar.gz.asc::https://download.tuxfamily.org/chrony/${pkgname}-${pkgver}-tar-gz-asc.txt"
-        service
+        ${pkgname}-${pkgver}.tar.gz.asc::https://download.tuxfamily.org/chrony/${pkgname}-${pkgver}-tar-gz-asc.txt
         chrony.sysusers
         chrony.tmpfiles)
-sha256sums=('329f6718dd8c3ece3eee78be1f4821cbbeb62608e7d23f25da293cfa433c4116'
-            '4434f5f6eca4781ac906e260db2444f9ce08df4406621e0c0b58818b5a78cb9c'
-            'dbd30435d5f51a92ecef779efa0eabaf56d09a35a18ddd30644d5418beada212'
+sha256sums=('0d1fb2d5875032f2d5a86f3770374c87ee4c941916f64171e81f7684f2a73128'
+            '22d18f79029cc243d3ec2cb45116c0a03786836fae239e755579005a77be8843'
             '56aa817638c8f959169d514f1e7fc727ef31e7d3beda4fca5165292c7602ee42'
             'c0b52787f68f3ef365eef64f53f22b4fb0046a91f0e38923f9d16f1ca19c3f3a')
 validpgpkeys=('8B1F4A9ADA73D401E3085A0B5FF06F29BA1E013B') # Miroslav Lichvar <mlichvar@redhat.com> has a dsa1024 key *in the wild*
 
 prepare() {
-  cd $pkgname-$pkgver
+  cd ${pkgname}-${pkgver}
   sed -i \
     -e 's|pool.ntp.org|3.arch.pool.ntp.org|g' \
     -e 's|server foo.example.net|server 0.arch.pool.ntp.org iburst|g' \
     -e 's|server bar.example.net|server 1.arch.pool.ntp.org iburst|g' \
     -e 's|server baz.example.net|server 2.arch.pool.ntp.org iburst|g' \
     examples/chrony.conf.example*
+  sed 's|/usr/sbin|/usr/bin|g' -i examples/*.service
 }
 
 build() {
-  cd $pkgname-$pkgver
-  ./configure --prefix=/usr
+  cd ${pkgname}-${pkgver}
+  ./configure \
+    --prefix=/usr \
+    --enable-scfilter \
+    --enable-ntp-signd \
+    --with-user=chrony \
+    --with-sendmail=/usr/bin/sendmail \
+    --with-hwclockfile=/etc/adjtime
   make
 }
 
 package() {
-  cd $pkgname-$pkgver
-  make DESTDIR="$pkgdir" install install-docs
-  install -Dm0644 "$srcdir/chrony.sysusers" "$pkgdir/usr/lib/sysusers.d/chrony.conf"
-  install -Dm0644 "$srcdir/chrony.tmpfiles" "$pkgdir/usr/lib/tmpfiles.d/chrony.conf"
+  cd ${pkgname}-${pkgver}
+  make DESTDIR="${pkgdir}" install install-docs
 
-  install -Dm0644 "$srcdir/$pkgname-$pkgver/examples/chrony.conf.example3" "$pkgdir/etc/chrony.conf"
+  install -Dm 644 "${srcdir}/chrony.sysusers" "${pkgdir}/usr/lib/sysusers.d/chrony.conf"
+  install -Dm 644 "${srcdir}/chrony.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/chrony.conf"
+  install -Dm 644 examples/{chronyd,chrony-wait}.service -t "${pkgdir}/usr/lib/systemd/system"
+  install -Dm 644 examples/chrony.logrotate "${pkgdir}/etc/logrotate.d/chrony"
+  install -Dm 644 README NEWS FAQ -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 examples/* -t "${pkgdir}/usr/share/doc/${pkgname}/examples"
 
-  echo -e "\n# Enable kernel RTC sync\nrtcsync" >> "$pkgdir/etc/chrony.conf"
+  install -Dm 644 examples/chrony.conf.example3 "${pkgdir}/etc/chrony.conf"
+  echo -e "\n# Enable kernel RTC sync\nrtcsync" >> "${pkgdir}/etc/chrony.conf"
+  sed -i '/^! rtconutc$/ s/^! //' "${pkgdir}/etc/chrony.conf"
 
-  sed -i '/^! rtconutc$/ s/^! //' "$pkgdir/etc/chrony.conf"
-
-  mv "$pkgdir/usr/sbin/chronyd" "$pkgdir/usr/bin"
-  rmdir "$pkgdir"{/usr/sbin,/var/lib/chrony,/var/lib}
-
-  install -Dm644 "$srcdir/service" "$pkgdir/usr/lib/systemd/system/chronyd.service"
-
-  cp -a examples "$pkgdir"/usr/share/doc/chrony/examples
-
+  mv "${pkgdir}/usr/sbin/chronyd" "${pkgdir}/usr/bin"
+  rmdir "${pkgdir}"{/usr/sbin,/var/lib/chrony,/var/lib}
 }
+
+# vim: ts=2 sw=2 et:
