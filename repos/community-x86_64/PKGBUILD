@@ -2,46 +2,40 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=0.1.1
-pkgrel=4
+pkgver=1.0.0rc5+19+g69663f0b
+pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
-arch=('x86_64')
+arch=(x86_64)
 url='https://runc.io/'
-license=('Apache')
-depends=('glibc' 'libseccomp')
-makedepends=('git' 'go-pie' 'go-md2man')
-source=("runc.io::git+https://github.com/opencontainers/runc.git#tag=v$pkgver")
+license=(Apache)
+depends=(glibc libseccomp)
+makedepends=(git go-pie go-md2man)
+_commit=69663f0bd4b60df09991c08812a60108003fa340  # master
+source=(git+https://github.com/opencontainers/runc.git#commit=$_commit)
 md5sums=('SKIP')
 
+pkgver() {
+  cd runc
+  git describe | sed 's/^v//;s/-//;s/-/+/g'
+}
+
 prepare() {
-  cd runc.io
-  # apply patch from the source array (should be a pacman feature)
-  local filename
-  for filename in "${source[@]}"; do
-    if [[ "$filename" =~ \.patch$ ]]; then
-      msg2 "Applying patch ${filename##*/}"
-      patch -p1 -N -i "$srcdir/${filename##*/}"
-    fi
-  done
-  :
+  mkdir -p src/github.com/opencontainers
+  cp -r runc src/github.com/opencontainers/
 }
 
 build() {
-  mkdir -p src/github.com/opencontainers
-  cd src/github.com/opencontainers
-  ln -fs "$srcdir/runc.io"
-  cd runc.io
-  export GOPATH="$srcdir" BUILDTAGS='seccomp'
-  make
-  man/md2man-all.sh 2>/dev/null
+  cd src/github.com/opencontainers/runc
+  GOPATH="$srcdir" BUILDTAGS='seccomp' make runc man
 }
 
 package() {
-  cd runc.io
-  install -Dm755 runc "$pkgdir/usr/bin/runc"
-  # man pages
-  install -dm755 "$pkgdir/usr/share/man"
-  mv man/man*/ "$pkgdir/usr/share/man"
-}
+  cd src/github.com/opencontainers/runc
 
-# vim:set ts=2 sw=2 et:
+  install -Dm755 runc "$pkgdir/usr/bin/runc"
+  install -Dm644 contrib/completions/bash/runc \
+    "$pkgdir/usr/share/bash-completion/completions/runc"
+  
+  install -d "$pkgdir/usr/share/man/man8"
+  install -m644 man/man8/*.8 "$pkgdir/usr/share/man/man8"
+}
