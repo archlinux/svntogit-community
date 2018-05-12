@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.7.1
+pkgver=10.7.3
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -33,9 +33,10 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab-backup.timer
         gitlab.target
         gitlab.tmpfiles.d
-        gitlab.logrotate)
+        gitlab.logrotate
+        b41b2de702c26bfbbe375c70c48293a75546df42.patch)
 install='gitlab.install'
-sha512sums=('2a24782352b1dc0fd3eaea1cb85bc08a7c7e9328075d2f85a55b4c6e772793dbc3d555219d82c0c781b70557a3cc2160564de86c45bdca852025efd24575218b'
+sha512sums=('eeeba68bd66fccffe0d638b5f5328efe8b662c8300d7c4bf122346178bb15001414a374788ba7b2aa25f354dd2def568b20b708d3b1da36fe7ed2bc1c3aa320b'
             'e96364b3373420a0704552584264f42fee23d64d44d3f769dffa6b516ea9d4c09873da8b2a279445ae9a09f17f81628815efc83e8d0070b3246e56aa13c02ac6'
             '1104db0397ae5f9a69452ea2a432b837cfaf37d72d063226c2156de5f753b5ae42be1f90292c34f27e251ce3d265ac9c1f79faad1d377c923e7dbc6744100471'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
@@ -43,7 +44,8 @@ sha512sums=('2a24782352b1dc0fd3eaea1cb85bc08a7c7e9328075d2f85a55b4c6e772793dbc3d
             'c11d2c59da8325551a465227096e8d39b0e4bcd5b1db21565cf3439e431838c04bc00aa6f07f4d493f3f47fd6b4e25aeb0fe0fc1a05756064706bf5708c960ec'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
-            '20b93eab504e82cc4401685b59e6311b4d2c0285bc594d47ce4106d3f418a3e2ba92c4f49732748c0ba913aa3e3299126166e37d2a2d5b4d327d66bae4b8abda')
+            '20b93eab504e82cc4401685b59e6311b4d2c0285bc594d47ce4106d3f418a3e2ba92c4f49732748c0ba913aa3e3299126166e37d2a2d5b4d327d66bae4b8abda'
+            '32c432bf5e45be7b63e078335deaab5d05f8c0e78da891038cc607beed75c670f4c825138bb2c6ba0b4cf879ef45f5cbeb12cebd4fa63d7f58362960788c9e72')
 
 _datadir="/usr/share/webapps/${pkgname}"
 _etcdir="/etc/webapps/${pkgname}"
@@ -58,6 +60,8 @@ prepare() {
   local revision=$(ls -d ${_srcdir}* | rev | cut -c 34-40 | rev)
 
   cd "${_srcdir}"*
+
+  patch -Np1 -i "${srcdir}"/b41b2de702c26bfbbe375c70c48293a75546df42.patch
 
   msg2 "Patching git revision in config/initializers/2_app.rb..."
   sed -i -e "s|REVISION = Gitlab::Popen.popen(%W(#{config.git.bin_path} log --pretty=format:%h -n 1)).first.chomp.freeze|REVISION = \"${revision}\"|" \
@@ -203,9 +207,6 @@ package() {
 
   install -Dm644 "${srcdir}/gitlab.tmpfiles.d" "${pkgdir}/usr/lib/tmpfiles.d/gitlab.conf"
   install -Dm644 "${srcdir}/gitlab.logrotate" "${pkgdir}/etc/logrotate.d/gitlab"
-
-  # Fix FS#58292
-  chmod 644 "${pkgdir}"/usr/share/webapps/gitlab/vendor/bundle/ruby/2.3.0/gems/omniauth-jwt-0.0.2/lib/omniauth/strategies/jwt.rb
 }
 
 # vim:set ts=2 sw=2 et:
