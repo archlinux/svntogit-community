@@ -78,6 +78,7 @@ install:
 	install -Dm755 llpp "$(DESTDIR)"$(PREFIX)/bin/llpp
 	install -Dm644 -t "$(DESTDIR)"$(PREFIX)/share/man/man1  man/*.1
 	install -Dm755 misc/llppac "$(DESTDIR)"$(PREFIX)/bin/llppac
+	install -Dm755 misc/llpp.inotify "$(DESTDIR)"$(PREFIX)/bin/llpp.inotify
 	install -Dm755 misc/llpphtml "$(DESTDIR)"$(PREFIX)/bin/llpphtml
 	install -Dm644 misc/llpp.desktop "$(DESTDIR)"$(PREFIX)/share/applications/llpp.desktop
 	install -Dm644 README "$(DESTDIR)"$(PREFIX)/share/licenses/llpp/README
