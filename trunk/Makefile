@@ -1,19 +1,16 @@
 VERSION = $(shell test -d .git && git describe --tags --dirty 2>/dev/null)
 ifeq "$(VERSION)" ""
-VERSION = 26b
+VERSION = 27
 endif
 
 # paths
 PREFIX ?= /usr/local
 
 # includes and libs
-INCS = -I/usr/include -I/usr/include/freetype2 -include ft2build.h
-LIBS = -L/usr/lib -lX11 -lpthread -lmupdf -lmupdfthird -ljbig2dec -lcrypto \
-       -lz -lopenjp2 -ljpeg -lfreetype -lharfbuzz
-
+PKGCONF_DEPS := freetype2 harfbuzz libopenjp2 libjpeg x11 zlib
 CPPFLAGS += -D_GNU_SOURCE -DFFP
-CFLAGS += -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(INCS) $(CPPFLAGS)
-LDFLAGS += -g $(LIBS)
+CFLAGS += -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(shell pkg-config --cflags $(PKGCONF_DEPS))
+LDLIBS = -lpthread -lmupdf -lmupdfthird -ljbig2dec $(shell pkg-config --libs $(PKGCONF_DEPS))
 
 # ocaml
 CAMLOPT = ocamlopt
@@ -34,7 +31,7 @@ DISTFILES += misc/ man/
 all: llpp $(MANS)
 
 llpp: $(OBJ) link.o
-	$(CAMLOPT) -o $@ $(CAMLFLAGS) link.o -cclib '$(LDFLAGS)' $(MOD) $(OBJ)
+	$(CAMLOPT) -o $@ $(CAMLFLAGS) link.o -ccopt '$(LDFLAGS)' -cclib '$(LDLIBS)' $(MOD) $(OBJ)
 
 main.cmx: main.ml utils.cmx config.cmx
 	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) -thread $^
@@ -55,7 +52,7 @@ link.o: glfont.c keysym2ucs.c
 .SUFFIXES: .ml .mli .cmo .cmi .cmx .mll .mly
 
 .c.o:
-	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) -cc $(CC) -ccopt '$(CFLAGS)' $<
+	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) -cc $(CC) -ccopt '$(CFLAGS) $(CPPFLAGS)' $<
 
 .ml.cmx:
 	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) $<
@@ -78,9 +75,9 @@ dist: clean
 	rm -rf llpp-$(VERSION)
 
 install:
-	install -Dm755 llpp $(DESTDIR)$(PREFIX)/bin/llpp
-	install -Dm644 -t $(DESTDIR)$(PREFIX)/share/man/man1  man/*.1
-	install -Dm755 misc/llppac $(DESTDIR)$(PREFIX)/bin/llppac
-	install -Dm755 misc/llpphtml $(DESTDIR)$(PREFIX)/bin/llpphtml
-	install -Dm644 misc/llpp.desktop $(DESTDIR)$(PREFIX)/share/applications/llpp.desktop
-	install -Dm644 README $(DESTDIR)$(PREFIX)/share/licenses/llpp/README
+	install -Dm755 llpp "$(DESTDIR)"$(PREFIX)/bin/llpp
+	install -Dm644 -t "$(DESTDIR)"$(PREFIX)/share/man/man1  man/*.1
+	install -Dm755 misc/llppac "$(DESTDIR)"$(PREFIX)/bin/llppac
+	install -Dm755 misc/llpphtml "$(DESTDIR)"$(PREFIX)/bin/llpphtml
+	install -Dm644 misc/llpp.desktop "$(DESTDIR)"$(PREFIX)/share/applications/llpp.desktop
+	install -Dm644 README "$(DESTDIR)"$(PREFIX)/share/licenses/llpp/README
