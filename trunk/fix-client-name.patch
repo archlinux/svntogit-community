@@ -1,0 +1,42 @@
+Use {client_name} if available instead of hostname passed to xxfi_connect
+
+Spamassassin's RDNS_NONE check tests if the rdns field in the Received header
+is empty or "unknown". Postfix sets the client_name macro to "unknown" when the
+FcrDNS check fails, but the hostname passed to xxfi_connect is set to the IP
+address which means that RDNS_NONE will never trigger. Fix this by using
+client_name if available and only fall back to the hostname parameter
+otherwise.
+
+diff -ur a/amavisd-milter/mlfi.c b/amavisd-milter/mlfi.c
+--- a/amavisd-milter/mlfi.c	2015-05-24 20:59:19.000000000 +0200
++++ b/amavisd-milter/mlfi.c	2017-12-15 18:08:15.007525175 +0100
+@@ -315,6 +315,7 @@
+     const void *addr;
+     const char *prefix;
+     const char *daemon_name;
++    const char *client_host;
+     int		len, plen;
+ 
+     logmsg(LOG_DEBUG, "%s: CONNECT", hostname);
+@@ -331,8 +332,20 @@
+     (void) memset(mlfi, '\0', sizeof(*mlfi));
+     mlfi->mlfi_amasd = -1;
+ 
++	/* Try to get client_name from macros */
++	if ((client_host = smfi_getsymval(ctx, "{client_name}")) != NULL) {
++	    logqidmsg(mlfi, LOG_INFO, "client_name: %s", client_host);
++	    if ((mlfi->mlfi_client_host = strdup(client_host)) == NULL) {
++		logqidmsg(mlfi, LOG_ERR, "could not allocate memory");
++		mlfi_setreply_tempfail(ctx);
++		return SMFIS_TEMPFAIL;
++	    }
++	} else {
++		logqidmsg(mlfi, LOG_INFO, "{client_name} undefined at connect time! Falling back to libmilter value.");
++	}
++
+     /* Save connection informations */
+-    if (hostname != NULL && *hostname != '\0') {
++    if (hostname != NULL && *hostname != '\0' && mlfi->mlfi_client_host == NULL) {
+ 	if ((mlfi->mlfi_client_host = strdup(hostname)) == NULL) {
+ 	    logmsg(LOG_ERR, "%s: could not allocate memory", hostname);
+ 	    mlfi_setreply_tempfail(ctx);
