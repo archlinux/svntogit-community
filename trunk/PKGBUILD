@@ -1,37 +1,33 @@
 # $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
-pkgver=9.1.85.3
-_basever=9.1.85
-pkgrel=5
+pkgver=9.2.88.1
+_basever=9.2.88
+pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia' 'gcc54' 'nvidia-utils')
+depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc54')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
             'java-runtime: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
-source=(https://developer.nvidia.com/compute/cuda/9.1/Prod/local_installers/cuda_${_basever}_387.26_linux
-        https://developer.nvidia.com/compute/cuda/9.1/Prod/patches/1/cuda_9.1.85.1_linux
-        https://developer.nvidia.com/compute/cuda/9.1/Prod/patches/2/cuda_9.1.85.2_linux
-        https://developer.nvidia.com/compute/cuda/9.1/Prod/patches/3/cuda_9.1.85.3_linux
+source=(https://developer.nvidia.com/compute/cuda/9.2/Prod/local_installers/cuda_${_basever}_396.26_linux
+        https://developer.nvidia.com/compute/cuda/9.2/Prod/patches/1/cuda_9.2.88.1_linux
         cuda.sh
         cuda.conf
         cuda-findgllib_mk.diff)
-sha512sums=('492a5fa58fc93ac718ca093f24bb5e74dd2586338c42f2e11e328c7f16756e3511a1c555b12cb1990bb782d0d1600976f4c9e5b3d4857e371b0431daf06b2827'
-            'a29099ffad3470b8fe3a64c2ad675fd7950bd63dcf722dd19083c7daba55be90755456b937347ae3323b50d797a138f81daefddfd37228a6f75b2341dbd861fa'
-            '62644aa8219ff5ce7428033e279ebc05d96596c3c2b9d27f783aff90f41e38e0341578cc1b33e8d6d64c59a544c3e6174e77c5d046de9b12261d1f7e73b259c5'
-            'dcafdd55cbc6d9063f6dc2001c0365f1c1279254378d4d0231039be78b9dec5d6078b3500fa49457fbbf0fad8a17ef0d18c7fa21551b80dc99a16f2ae2a4110a'
+sha512sums=('2d0d87926e11a1b21d6d3377138753df458a53ba9539d8399f9f252e0784cb41e2c63a5c724ca81ded82b9657b97fda51d812b467b0827e7d361aa2ad73b2dba'
+            'd43bddb2affbc66133aab69750e8c95fd4e86bf6357c50b580301dda1819940c33e1cb442f08b25784c82d6e4de1ca6f5b474e51b1396253e4a4e6d820294ff7'
             'ce0b8df5d918ec8429da4ab8f9dee463ac04055ee5b0beeb0386b67d765a4c892d314995776a0d695cd06bcfbaf996e4904935ddc898a9d774f6bf965d989dea'
             '66bd93ecab7e1aa07218c3dd1c96e460f63ed4ac47e853ecb313c78a58e5425c8a5772f1c7f73d696bf5f93fc3e556a046a4ed955a53d900976ac525abd1f518'
             '6e9a15c73849e6400b0289ed9d6e9d3b7f100712713efcb7bbf4921f39fe671cd9fd3958e735c0da3a44f9afdd2aca94dbc63b564970a0dcacba599b570aca0f')
 
 prepare() {
-  sh cuda_${_basever}_387.26_linux --extract=${srcdir}
+  sh cuda_${_basever}_396.26_linux --extract=${srcdir}
   ./cuda-*.run --noexec --keep
   ./cuda-samples*.run --noexec --keep
 
@@ -62,9 +58,7 @@ package() {
   export PERL5LIB=.
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
-  sh "${srcdir}"/cuda_9.1.85.1_linux --silent --accept-eula --installdir="${pkgdir}/opt/cuda"
-  sh "${srcdir}"/cuda_9.1.85.2_linux --silent --accept-eula --installdir="${pkgdir}/opt/cuda"
-  sh "${srcdir}"/cuda_9.1.85.3_linux --silent --accept-eula --installdir="${pkgdir}/opt/cuda"
+  sh "${srcdir}"/cuda_9.2.88.1_linux --silent --accept-eula --installdir="${pkgdir}/opt/cuda"
 
   # Hack we need because of glibc 2.26 (https://bugs.archlinux.org/task/55580)
   # without which we couldn't compile anything at all.
