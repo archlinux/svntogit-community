@@ -4,7 +4,7 @@
 
 pkgname=neovim
 pkgver=0.2.2
-pkgrel=5
+pkgrel=6
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
