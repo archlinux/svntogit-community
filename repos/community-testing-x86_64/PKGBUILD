@@ -1,0 +1,75 @@
+# Maintainer: Baptiste Jonglez <baptiste--aur at jonglez dot org>
+# Contributor: nfnty
+pkgname='kea'
+pkgver=1.4.0beta
+_upstreamver=1.4.0-beta
+pkgrel=1
+pkgdesc='High-performance, extensible DHCP server engine from ISC, supporting both DHCPv4 and DHCPv6'
+arch=('x86_64')
+url='http://kea.isc.org'
+license=('MPL2')
+depends=('botan>=2.6.0' 'boost-libs' 'log4cplus' 'libmariadbclient' 'postgresql-libs')
+makedepends=('boost'
+             'postgresql' # Needed for some headers
+             'python') # kea-shell
+optdepends=('mariadb: lease information database'
+            'postgresql: lease information database'
+            'python: to use kea-shell'
+            'kea-devel-docs: developer documentation')
+# Checks are disabled for now
+#checkdepends=('gtest' 'postgresql' 'mariadb' 'python' 'procps-ng') # procps-ng needed for 'pgrep'
+backup=('etc/kea/kea-dhcp4.conf' 'etc/kea/kea-dhcp6.conf' 'etc/kea/kea-dhcp-ddns.conf' 'etc/kea/kea-ctrl-agent.conf' 'etc/kea/keactrl.conf') # New config files as of Kea 1.3
+
+source=(https://ftp.isc.org/isc/kea/${_upstreamver}/kea-${_upstreamver}.tar.gz{,.asc}
+        fix-scripts-include-path.patch
+        tmpfiles-kea.conf
+        kea-dhcp4.service
+        kea-dhcp6.service)
+sha512sums=('3ff76b270d6064746e94843e8538e1766014dce60ee86a016c962c4565466245f9b34095ae22476996a12ac1be00fe7816c019663123fe0a3cb0b90428e5dfa0'
+            'SKIP'
+            '337c1e8689ce569bb8b085261e946743bc88d62ffdd264f4e8f271a6ca92c5bcda2329376aec4ffacd96187c7dba30450b8d5a9e2929f0a559ef8ecba7c0bafc'
+            '13a473bea4f8a1ba40f5667b880010590c5fddecaa76c360113e977c9ab3898558141cda17000def7b1c592b7dc6f8d5a508752351c601f6484abd775b60d214'
+            '873612cdab1c5d72105ccf379885975405e10b4e4b3b93b258293fbd304ea9f6a47e5af5357b130e603d713691d4980d8868a5ed23376e50aba6eb81b348b8cb'
+            '48cd98cfc2a82b4d5f6350e70ba7048976a633ceae3c8f405824d2131700d78a9eeb885a41634a393e3cdaacc9836dda45343b7ae81c44427b46e758d6520f6c')
+validpgpkeys=('BE0E9748B718253A28BB89FFF1B11BF05CF02E57') # Internet Systems Consortium, Inc. (Signing key, 2017-2018) <codesign@isc.org>
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  # The include path is set incorrectly (it uses undefined $prefix instead of /usr).
+  # Also, it fallbacks to the absolute path inside the chrooted build dir,
+  # which will certainly not exist on the target system...
+  patch -p1 < "${srcdir}"/fix-scripts-include-path.patch
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  autoreconf --install
+  ./configure \
+      --prefix='/usr' \
+      --sbindir='/usr/bin' \
+      --libexecdir='/usr/bin' \
+      --sysconfdir='/etc' \
+      --localstatedir='/var' \
+      --with-dhcp-mysql \
+      --with-dhcp-pgsql \
+      --enable-shell
+  make
+}
+
+check() {
+  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  # Disable for now, some tests fail (for instance dhcp-ddns.sigterm_test)
+  #make check
+}
+
+package() {
+  cd "${srcdir}/kea-${_upstreamver}"
+  make DESTDIR="${pkgdir}" install
+  # Handle /var/run -> /run symlink
+  rmdir "${pkgdir}"/var/run/kea
+  rmdir "${pkgdir}"/var/run
+  install -Dm644 "${srcdir}"/tmpfiles-kea.conf "${pkgdir}"/usr/lib/tmpfiles.d/${pkgname}.conf
+  # Systemd service files
+  install -Dm644 "${srcdir}"/kea-dhcp4.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp4.service
+  install -Dm644 "${srcdir}"/kea-dhcp6.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp6.service
+}
