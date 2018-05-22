@@ -7,15 +7,15 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.7.3
+pkgver=10.8.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
 license=('MIT')
 options=(!buildflags)
-depends=('ruby2.3' 'git' 'ruby2.3-bundler' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 'nodejs' 're2')
-makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go')
+depends=('ruby2.3' 'git' 'ruby2.3-bundler' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2')
+makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
             'python2-docutils: reStructuredText markup language support'
@@ -36,7 +36,7 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.logrotate
         b41b2de702c26bfbbe375c70c48293a75546df42.patch)
 install='gitlab.install'
-sha512sums=('eeeba68bd66fccffe0d638b5f5328efe8b662c8300d7c4bf122346178bb15001414a374788ba7b2aa25f354dd2def568b20b708d3b1da36fe7ed2bc1c3aa320b'
+sha512sums=('e069bb7da740d6024c0adb5a33ba72072f47af268be55a2e1592eaf78ff5a4b6fb599fdda14990e919e740135fd04e8c8b463363ec5ad759f21c32faf6a73542'
             'e96364b3373420a0704552584264f42fee23d64d44d3f769dffa6b516ea9d4c09873da8b2a279445ae9a09f17f81628815efc83e8d0070b3246e56aa13c02ac6'
             '1104db0397ae5f9a69452ea2a432b837cfaf37d72d063226c2156de5f753b5ae42be1f90292c34f27e251ce3d265ac9c1f79faad1d377c923e7dbc6744100471'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
@@ -63,9 +63,9 @@ prepare() {
 
   patch -Np1 -i "${srcdir}"/b41b2de702c26bfbbe375c70c48293a75546df42.patch
 
-  msg2 "Patching git revision in config/initializers/2_app.rb..."
+  msg2 "Patching git revision in lib/gitlab.rb"
   sed -i -e "s|REVISION = Gitlab::Popen.popen(%W(#{config.git.bin_path} log --pretty=format:%h -n 1)).first.chomp.freeze|REVISION = \"${revision}\"|" \
-            config/initializers/2_app.rb
+            lib/gitlab.rb
 
   export SKIP_STORAGE_VALIDATION='true'
 
