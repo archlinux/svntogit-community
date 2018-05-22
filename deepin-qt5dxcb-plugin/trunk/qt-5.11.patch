@@ -1,0 +1,49 @@
+diff --git a/platformplugin/dplatformintegration.cpp b/platformplugin/dplatformintegration.cpp
+index 4785057..cbb470e 100644
+--- a/platformplugin/dplatformintegration.cpp
++++ b/platformplugin/dplatformintegration.cpp
+@@ -583,8 +583,11 @@ static void overrideChangeCursor(QPlatformCursor *cursorHandle, QCursor * cursor
+         c = it.value();
+ #if QT_VERSION < QT_VERSION_CHECK(5, 7, 1)
+         w->setCursor(c);
+-#else
++#elif QT_VERSION < QT_VERSION_CHECK(5, 11, 0)
+         w->setCursor(c, false);
++#else
++        xcb_change_window_attributes(DPlatformIntegration::xcbConnection()->xcb_connection(), w->xcb_window(), XCB_CW_CURSOR, &c);
++        xcb_flush(DPlatformIntegration::xcbConnection()->xcb_connection());
+ #endif
+     }
+ 
+diff --git a/platformplugin/windoweventhook.cpp b/platformplugin/windoweventhook.cpp
+index 2855ba0..ccf887a 100644
+--- a/platformplugin/windoweventhook.cpp
++++ b/platformplugin/windoweventhook.cpp
+@@ -431,6 +431,7 @@ void WindowEventHook::handleXIEnterLeave(xcb_ge_event_t *event)
+                 const int root_x = fixed1616ToInt(ev->root_x);
+                 const int root_y = fixed1616ToInt(ev->root_y);
+ 
++#if QT_VERSION < QT_VERSION_CHECK(5, 11, 0)
+                 if (buttons.testFlag(b)) {
+                     if (!isSet) {
+                         QGuiApplicationPrivate::lastCursorPosition = DHighDpi::fromNativePixels(QPointF(root_x, root_y), me->window());
+@@ -442,6 +443,19 @@ void WindowEventHook::handleXIEnterLeave(xcb_ge_event_t *event)
+                     me->handleButtonPressEvent(event_x, event_y, root_x, root_y,
+                                                0, modifiers, ev->time);
+                 }
++#else
++                if (buttons.testFlag(b)) {
++                    if (!isSet) {
++                        QGuiApplicationPrivate::lastCursorPosition = DHighDpi::fromNativePixels(QPointF(root_x, root_y), me->window());
++                        me->handleButtonReleaseEvent(event_x, event_y, root_x, root_y,
++                                                     0, modifiers, ev->time, QEvent::MouseButtonRelease);
++                    }
++                } else if (isSet) {
++                    QGuiApplicationPrivate::lastCursorPosition = DHighDpi::fromNativePixels(QPointF(root_x, root_y), me->window());
++                    me->handleButtonPressEvent(event_x, event_y, root_x, root_y,
++                                               0, modifiers, ev->time, QEvent::MouseButtonRelease);
++                }
++#endif
+             }
+         }
+     }
