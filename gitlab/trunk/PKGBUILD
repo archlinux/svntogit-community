@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.8.0
+pkgver=10.8.1
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -36,7 +36,7 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.logrotate
         b41b2de702c26bfbbe375c70c48293a75546df42.patch)
 install='gitlab.install'
-sha512sums=('e069bb7da740d6024c0adb5a33ba72072f47af268be55a2e1592eaf78ff5a4b6fb599fdda14990e919e740135fd04e8c8b463363ec5ad759f21c32faf6a73542'
+sha512sums=('6d5790efe888271e4e9eb6b0c8528ca4fe85fe564654cfa4c70d6e8999515a7bfc2059b5dccc9688a96e3237cfd3ac94acaf01e4e48a7e2eeb4eaef0abd22268'
             'e96364b3373420a0704552584264f42fee23d64d44d3f769dffa6b516ea9d4c09873da8b2a279445ae9a09f17f81628815efc83e8d0070b3246e56aa13c02ac6'
             '1104db0397ae5f9a69452ea2a432b837cfaf37d72d063226c2156de5f753b5ae42be1f90292c34f27e251ce3d265ac9c1f79faad1d377c923e7dbc6744100471'
             'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
