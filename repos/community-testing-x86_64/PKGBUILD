@@ -1,0 +1,63 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ponyc
+pkgver=0.22.1
+pkgrel=1
+pkgdesc='An actor model, capabilities, high performance programming language'
+url='http://ponylang.org/'
+arch=('x86_64')
+license=('BSD')
+depends=('llvm-libs')
+makedepends=('llvm')
+checkdepends=('pcre2')
+options=('!strip')
+optdepends=('pcre2: Needed for the regex package')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/ponylang/ponyc/archive/$pkgver.tar.gz")
+sha512sums=('0dea05f4d3edfc8a622cf4c464cbab524f198f4389c4f82ef1b1f18fd849190aadec83c15f1a68c46f9f0bc7472d7e5c821a1d3c309b6a53f0ca94de12ab1072')
+
+prepare() {
+  cd ponyc-$pkgver
+  sed -i 's/-Werror //' Makefile
+}
+
+build() {
+  cd ponyc-$pkgver
+  make config=release prefix=/usr arch=x86-64 verbose= default_pic=true default_ssl=openssl_1.1.0
+
+  mkdir docs
+  build/release/ponyc packages/stdlib -rexpr -g -o docs
+}
+
+check() {
+  cd ponyc-$pkgver
+  make config=release prefix=/usr arch=x86-64 verbose= default_pic=true default_ssl=openssl_1.1.0 test
+}
+
+package() {
+  cd ponyc-$pkgver
+  # The makefile is very strange and requires almost as much post-correction
+  # as to simply do the installation myself.  Even with patches to the
+  # makefile to stop it attempting to symlink locations it has no business
+  # touching.
+  #make config=release prefix=/usr destdir="$pkgdir"/usr/lib/pony/"$pkgver" install
+
+  install -Dm755 build/release/ponyc "$pkgdir"/usr/lib/pony/"$pkgver"/bin/ponyc
+  install -Dm644 build/release/libponyrt-pic.a "$pkgdir"/usr/lib/libponyrt-pic.a
+  install -Dm644 build/release/libponyc.a "$pkgdir"/usr/lib/libponyc.a
+  install -Dm644 src/libponyrt/pony.h "$pkgdir"/usr/include/pony.h
+
+  # Ponyc is designed to read its standard packages from the same directory.
+  install -dm755 "$pkgdir"/usr/bin
+  ln -sf /usr/lib/pony/"$pkgver"/bin/ponyc "$pkgdir"/usr/bin
+
+  cp -dr --no-preserve=ownership packages "$pkgdir"/usr/lib/pony/"$pkgver"
+
+  # Let's include the examples as documentation is scarce.
+  install -dm755 "$pkgdir"/usr/share/doc/pony
+  cp -dr --no-preserve=ownership examples "$pkgdir"/usr/share/doc/pony
+
+  cp -dr docs/* "$pkgdir"/usr/share/doc/pony
+
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
+}
