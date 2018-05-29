@@ -1,0 +1,190 @@
+From 7fd4eb9313154f3b3458ea07d6a12f0be26d2a4e Mon Sep 17 00:00:00 2001
+From: Lee Duncan <lduncan@suse.com>
+Date: Wed, 21 Mar 2018 16:43:33 -0700
+Subject: Use correct size when copying nic name.
+
+The incorrect length was being used to copy
+the NIC name.
+
+Found by gcc-8, which gave this error:
+>    [   19s] nic_utils.c: In function 'nic_util_enable_disable_multicast':
+>    [   19s] nic_utils.c:308:9: warning: argument to 'sizeof' in 'strncpy'
+>             call is the same expression as the source; did you mean to
+>             use the size of the destination? [-Wsizeof-pointer-memaccess]
+>    [   19s]    sizeof(nic->eth_device_name));
+>    [   19s]          ^
+---
+ iscsiuio/src/unix/nic_utils.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/iscsiuio/src/unix/nic_utils.c b/iscsiuio/src/unix/nic_utils.c
+index e2f2943..786f2a4 100644
+--- a/iscsiuio/src/unix/nic_utils.c
++++ b/iscsiuio/src/unix/nic_utils.c
+@@ -305,7 +305,7 @@ static int nic_util_enable_disable_multicast(nic_t *nic, uint32_t cmd)
+ 	/* Prepare the request */
+ 	memset(&ifr, 0, sizeof(ifr));
+ 	strncpy(ifr.ifr_name, nic->eth_device_name,
+-		sizeof(nic->eth_device_name));
++		sizeof(ifr.ifr_name));
+ 	memcpy(ifr.ifr_hwaddr.sa_data, multicast_addr.addr, ETH_ALEN);
+ 
+ 	fd = socket(AF_INET, SOCK_DGRAM, 0);
+-- 
+cgit v1.1-33-g03f6
+
+
+From 1846d2c995f38fc5fa6e1960f6644b4b3b543bb0 Mon Sep 17 00:00:00 2001
+From: Lee Duncan <lduncan@suse.com>
+Date: Wed, 21 Mar 2018 16:47:10 -0700
+Subject: Do not overload global sysfs_path locally.
+
+There is a global string "sysfs_path", and
+it was confusing having a local variable of
+the same name, so rename the local version,
+to be clear which one is being used.
+---
+ usr/iscsi_sysfs.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/usr/iscsi_sysfs.c b/usr/iscsi_sysfs.c
+index 0cc55b9..031ac1d 100644
+--- a/usr/iscsi_sysfs.c
++++ b/usr/iscsi_sysfs.c
+@@ -1153,7 +1153,7 @@ int iscsi_sysfs_for_each_iface_on_host(void *data, uint32_t host_no,
+ 	int rc = 0, i, n;
+ 	struct iface_rec iface;
+         char devpath[PATH_SIZE];
+-        char sysfs_path[PATH_SIZE];
++        char sysfs_dev_iscsi_iface_path[PATH_SIZE];
+         char id[NAME_SIZE];
+ 
+         snprintf(id, sizeof(id), "host%u", host_no);
+@@ -1163,11 +1163,11 @@ int iscsi_sysfs_for_each_iface_on_host(void *data, uint32_t host_no,
+                 return ISCSI_ERR_SYSFS_LOOKUP;
+         }
+ 
+-	sprintf(sysfs_path, "/sys");
+-	strlcat(sysfs_path, devpath, sizeof(sysfs_path));
+-	strlcat(sysfs_path, "/iscsi_iface", sizeof(sysfs_path));
++	sprintf(sysfs_dev_iscsi_iface_path, "/sys");
++	strlcat(sysfs_dev_iscsi_iface_path, devpath, sizeof(sysfs_dev_iscsi_iface_path));
++	strlcat(sysfs_dev_iscsi_iface_path, "/iscsi_iface", sizeof(sysfs_dev_iscsi_iface_path));
+ 
+-	n = scandir(sysfs_path, &namelist, trans_filter, alphasort);
++	n = scandir(sysfs_dev_iscsi_iface_path, &namelist, trans_filter, alphasort);
+ 	if (n <= 0)
+ 		/* older kernels or some drivers will not have ifaces */
+ 		return 0;
+-- 
+cgit v1.1-33-g03f6
+
+
+From af02412d3dd3839441ae48e2c9f9c307889d5fc1 Mon Sep 17 00:00:00 2001
+From: Lee Duncan <lduncan@suse.com>
+Date: Wed, 21 Mar 2018 18:44:44 -0700
+Subject: libopeniscsiusr: ensure sysfs pathname doesn't overflow.
+
+When instantiating a pathname in sysfs, make sure there's enough
+room to prevent possible overflow.
+
+Found by gcc-8, which gave this warning:
+> [54s] sysfs.c:326:48: error: '/iscsi_host/' directive output may be
+>    truncated writing 12 bytes into a region of size between 1 and 4096
+>    [-Werror=format-truncation=]
+---
+ libopeniscsiusr/sysfs.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
+
+diff --git a/libopeniscsiusr/sysfs.c b/libopeniscsiusr/sysfs.c
+index 70298f2..6f590f4 100644
+--- a/libopeniscsiusr/sysfs.c
++++ b/libopeniscsiusr/sysfs.c
+@@ -311,6 +311,9 @@ int _iscsi_host_id_of_session(struct iscsi_context *ctx, uint32_t sid,
+ 	int n = 0;
+ 	const char *host_id_str = NULL;
+ 	int i = 0;
++	const char iscsi_host_dir_str[] = "/iscsi_host/";
++	const unsigned int iscsi_host_dir_strlen = strlen(iscsi_host_dir_str);
++
+ 
+ 	assert(ctx != NULL);
+ 	assert(sid != 0);
+@@ -323,8 +326,16 @@ int _iscsi_host_id_of_session(struct iscsi_context *ctx, uint32_t sid,
+ 
+ 	_good(sysfs_get_dev_path(ctx, sys_se_dir_path, sys_dev_path), rc, out);
+ 
+-	snprintf(sys_scsi_host_dir_path, PATH_MAX, "%s/iscsi_host/",
+-		 sys_dev_path);
++	if ((strlen(sys_dev_path) + iscsi_host_dir_strlen) >= PATH_MAX) {
++		rc = LIBISCSI_ERR_SYSFS_LOOKUP;
++		_error(ctx, "Pathname too long: %s%s",
++		       sys_dev_path, iscsi_host_dir_str);
++		goto out;
++	}
++
++	strncpy(sys_scsi_host_dir_path, sys_dev_path, PATH_MAX);
++	strncat(sys_scsi_host_dir_path, iscsi_host_dir_str,
++		PATH_MAX - iscsi_host_dir_strlen);
+ 
+ 	n = scandir(sys_scsi_host_dir_path, &namelist, _scan_filter_skip_dot,
+ 		    alphasort);
+-- 
+cgit v1.1-33-g03f6
+
+
+From 47de9586abd04e412e53232c88d7b1c8f89034f6 Mon Sep 17 00:00:00 2001
+From: Lee Duncan <lduncan@suse.com>
+Date: Wed, 21 Mar 2018 18:59:40 -0700
+Subject: Ensure sysfs pathname doesn't overflow.
+
+When instantiating a pathname in sysfs, make sure there's enough
+room to prevent possible overflow.
+
+Found by gcc-8, which gave this warning:
+>    [   13s] iscsi_sysfs.c: In function 'iscsi_sysfs_for_each_device':
+>    [   13s] iscsi_sysfs.c:1822:44: warning: '%s' directive output may
+>             be truncated writing up to 511 bytes into a region of size
+>             between 1 and 512 [-Wformat-truncation=]
+>    [   13s]   snprintf(path_full, sizeof(path_full), "%s%s/device/target%d:0:%d",
+>    [   13s]                                             ^~
+>    [   13s]     sysfs_path, devpath, host_no, target);
+>    [   13s]                 ~~~~~~~
+>    [   13s] iscsi_sysfs.c:1822:41: note: using the range
+>             [-2147483648, 2147483647] for directive argument
+>    [   13s]   snprintf(path_full, sizeof(path_full), "%s%s/device/target%d:0:%d",
+>    [   13s]                                          ^~~~~~~~~~~~~~~~~~~~~~~~~~~
+---
+ usr/iscsi_sysfs.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/usr/iscsi_sysfs.c b/usr/iscsi_sysfs.c
+index 031ac1d..a510694 100644
+--- a/usr/iscsi_sysfs.c
++++ b/usr/iscsi_sysfs.c
+@@ -1806,7 +1806,7 @@ int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,
+ 	int h, b, t, l, i, n, err = 0, target;
+ 	char devpath[PATH_SIZE];
+ 	char id[NAME_SIZE];
+-	char path_full[PATH_SIZE];
++	char path_full[3*PATH_SIZE];
+ 
+ 	target = get_target_no_from_sid(sid, &err);
+ 	if (err)
+@@ -1821,6 +1821,13 @@ int iscsi_sysfs_for_each_device(void *data, int host_no, uint32_t sid,
+ 
+ 	snprintf(path_full, sizeof(path_full), "%s%s/device/target%d:0:%d",
+ 		 sysfs_path, devpath, host_no, target);
++
++	if (strlen(path_full) > PATH_SIZE) {
++		log_debug(3, "Could not lookup devpath for %s %s (too long)",
++			  ISCSI_SESSION_SUBSYS, id);
++		return ISCSI_ERR_SYSFS_LOOKUP;
++	}
++
+ 	n = scandir(path_full, &namelist, trans_filter,
+ 		    alphasort);
+ 	if (n <= 0)
+-- 
+cgit v1.1-33-g03f6
+
