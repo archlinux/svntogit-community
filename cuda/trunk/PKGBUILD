@@ -3,19 +3,20 @@
 pkgname=cuda
 pkgver=9.2.88.1
 _basever=9.2.88
-pkgrel=1
+_driverver=396.26
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc54')
+depends=('gcc7-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc7')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
             'java-runtime: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
-source=(https://developer.nvidia.com/compute/cuda/9.2/Prod/local_installers/cuda_${_basever}_396.26_linux
+source=(https://developer.nvidia.com/compute/cuda/9.2/Prod/local_installers/cuda_${_basever}_${_driverver}_linux
         https://developer.nvidia.com/compute/cuda/9.2/Prod/patches/1/cuda_9.2.88.1_linux
         cuda.sh
         cuda.conf
@@ -27,7 +28,7 @@ sha512sums=('2d0d87926e11a1b21d6d3377138753df458a53ba9539d8399f9f252e0784cb41e2c
             '6e9a15c73849e6400b0289ed9d6e9d3b7f100712713efcb7bbf4921f39fe671cd9fd3958e735c0da3a44f9afdd2aca94dbc63b564970a0dcacba599b570aca0f')
 
 prepare() {
-  sh cuda_${_basever}_396.26_linux --extract=${srcdir}
+  sh cuda_${_basever}_${_driverver}_linux --extract=${srcdir}
   ./cuda-*.run --noexec --keep
   ./cuda-samples*.run --noexec --keep
 
@@ -66,9 +67,9 @@ package() {
   # Hopefully we can remove this for later version of cuda.
   sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
 
-  # Needs gcc5
-  ln -s /usr/bin/gcc-5 "${pkgdir}/opt/cuda/bin/gcc"
-  ln -s /usr/bin/g++-5 "${pkgdir}/opt/cuda/bin/g++"
+  # Needs gcc7
+  ln -s /usr/bin/gcc-7 "${pkgdir}/opt/cuda/bin/gcc"
+  ln -s /usr/bin/g++-7 "${pkgdir}/opt/cuda/bin/g++"
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
