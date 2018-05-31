@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=10.8.1
+pkgver=10.8.2
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -36,11 +36,11 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.logrotate
         b41b2de702c26bfbbe375c70c48293a75546df42.patch)
 install='gitlab.install'
-sha512sums=('6d5790efe888271e4e9eb6b0c8528ca4fe85fe564654cfa4c70d6e8999515a7bfc2059b5dccc9688a96e3237cfd3ac94acaf01e4e48a7e2eeb4eaef0abd22268'
-            'e96364b3373420a0704552584264f42fee23d64d44d3f769dffa6b516ea9d4c09873da8b2a279445ae9a09f17f81628815efc83e8d0070b3246e56aa13c02ac6'
-            '1104db0397ae5f9a69452ea2a432b837cfaf37d72d063226c2156de5f753b5ae42be1f90292c34f27e251ce3d265ac9c1f79faad1d377c923e7dbc6744100471'
-            'bfc98f3890dfbe11a6f7fa3275f2b04b54b8e31455dcf70abfdc7f1021ff9acb1243f7af8381465346cd780bc76fa2b1c80fada860b8c3c87c7c56bb5229c1ee'
-            '1410a207279a62ca33ddd6844d41dbdb46121209668ab2fba65fbf8b97aa89da1578d39c72c3f1f2ede1770a0e16cd82c3e144d06ed62d2e76e5d2c79ce01386'
+sha512sums=('d5f773c4a0df470e0dd51c8df120b5c356b763ce2a74aebf1a65e8e42784138990d5b20fac9a1ab75ef482e05bb016b29e3948a52f0127110c8592be384eacd2'
+            'b1bc7c1f3d47758e4745ae3689e61989c6d1fd8490fa60d75de60d3960025f2888da5c50c4a70e1656d75e4d53bcece518e87f743855eed150a61cb11d40b7d2'
+            'ea5ae64214a82b522a09c20be2967ae2ff6fbfd7683587909b748dab4647f99b3128c0e16aba375ecb191e47e1b9045587a84322e216e5cda940904c4fa6271c'
+            '69e6f43008389fb54bba6cea61adb0dbf5b75c5796f5cca327326f20f329365c003847bbd6d53b113a0afb1a0d3a0b101a92476739daf85f65c670a1d4466f9c'
+            '57b562675dbcb35ced9af0fc8ed8f1fe4479f87a460fe7418475a2d9d58d9d200a9071265a15bc1cea374340c63183bc79f828b2f48160dfb4d689a9db952dc9'
             'c11d2c59da8325551a465227096e8d39b0e4bcd5b1db21565cf3439e431838c04bc00aa6f07f4d493f3f47fd6b4e25aeb0fe0fc1a05756064706bf5708c960ec'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
@@ -136,6 +136,13 @@ package() {
   install -d "${pkgdir}/usr/share/webapps"
 
   cp -r "${srcdir}/${_srcdir}"* "${pkgdir}${_datadir}"
+  # Remove unneeded directories: node_modules is only needed during build
+  rm -r "${pkgdir}${_datadir}/node_modules"
+  # https://gitlab.com/gitlab-org/omnibus-gitlab/blob/194cf8f12e51c26980c09de6388bbd08409e1209/config/software/gitlab-rails.rb#L179
+  for dir in spec features qa rubocop app/assets vendor/assets; do
+    rm -r "${pkgdir}${_datadir}/${dir}"
+  done
+
   chown -R root:root "${pkgdir}${_datadir}"
   chmod 755 "${pkgdir}${_datadir}"
 
@@ -143,7 +150,7 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/shared/"{,artifacts,lfs-objects}
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
+  install -dm700 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
   install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/backups"
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/${pkgname}"
