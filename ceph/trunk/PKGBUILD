@@ -46,6 +46,9 @@ prepare() {
     fi
   done
 
+  # work around conflict between std::placeholders and boost::placeholders
+  sed -i '1i #define BOOST_BIND_NO_PLACEHOLDERS' src/test/librbd/test_mock_Journal.cc
+
   # remove tests that require root privileges
   rm src/test/cli/ceph-authtool/cap*.t
 
