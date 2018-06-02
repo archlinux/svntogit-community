@@ -22,12 +22,14 @@ makedepends=('bc' 'boost' 'boost-libs' 'cmake' 'cpio' 'crypto++' 'curl' 'cython'
 options=('emptydirs')
 source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'ceph.sysusers'
+        'disable-fail-on-warnings-for-rocksdb.patch'
         'fix-ceph_disk-python-interpreter.patch'
         'fix-or-disable-broken-tests.patch'
         'fix-python2-paths.patch'
         'remove-distro-version-detection.patch')
 sha512sums=('bd78358590eb077afcc3c1e12864fadee906c95ac8afee25bdca6155f99b75f89d923159fcc13430abba21a89fee3e566177ff5f9ffabdd3b3f220d05602ab86'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
+            '8991759dd968fa073c5ef37c9a9d4513dded9090db0ba33eed57fae03c9ef497f8f99b0d912a3f9b64cd711fb0185fb60c130e247e6ddfe9ae96f6899c12380a'
             '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
             '89699b0a3d4b7e5f184533a5f658270ca4b942a8af82b106a844c41a652bdb6eaf7cd840c1a4574e88993a8fdedf29c3d066ff22786c5e44122328c77829d107'
             'ead2c5fa20cf2e41041f52039acb5fb513922270bdacde234e7ae8e7fd3375ba63e9e3a930a717829577d4d551fa05151c6709a728cb43ef7f930983b38fd762'
