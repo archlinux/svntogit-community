@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=10.8.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -63,9 +63,8 @@ prepare() {
 
   patch -Np1 -i "${srcdir}"/b41b2de702c26bfbbe375c70c48293a75546df42.patch
 
-  msg2 "Patching git revision in lib/gitlab.rb"
-  sed -i -e "s|REVISION = Gitlab::Popen.popen(%W(#{config.git.bin_path} log --pretty=format:%h -n 1)).first.chomp.freeze|REVISION = \"${revision}\"|" \
-            lib/gitlab.rb
+  # GitLab tries to read its revision information from a file.
+  echo "${revision}" > REVISION
 
   export SKIP_STORAGE_VALIDATION='true'
 
