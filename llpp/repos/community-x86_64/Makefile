@@ -1,6 +1,6 @@
 VERSION = $(shell test -d .git && git describe --tags --dirty 2>/dev/null)
 ifeq "$(VERSION)" ""
-VERSION = 27
+VERSION = 28
 endif
 
 # paths
@@ -18,55 +18,60 @@ CAMLFLAGS = -g -w +a -safe-string -I +lablGL
 
 VPATH = wsi/x11
 
-SRC = utils.ml keys.ml wsi.ml parser.ml config.ml main.ml
-OBJ = help.cmx $(SRC:.ml=.cmx)
+C_SRC = cutils.c keysym2ucs.c link.c xlib.c version.c
+C_OBJ = $(C_SRC:.c=.o)
+OCAML_SRC = utils.ml wsi.ml confstruct.ml parser.ml config.ml ffi.ml glutils.ml help.ml keys.ml utf8syms.ml listview.ml main.ml
+OCAML_OBJ = $(OCAML_SRC:.ml=.cmx)
 MOD = unix.cmxa str.cmxa lablgl.cmxa
-SRCMANS = $(wildcard man/*.man)
-MANS = $(SRCMANS:.man=.1)
+SRCMANS = $(wildcard adoc/*.adoc)
+MANS = $(SRCMANS:.adoc=.1)
 
-DISTFILES := Makefile $(SRC) link.c glfont.c keysym2ucs.c wsi.mli
-DISTFILES += mkhelp.sh KEYS README BUILDING
-DISTFILES += misc/ man/
+DISTFILES := Makefile $(OCAML_SRC) link.c glfont.c keysym2ucs.c wsi.mli
+DISTFILES += $(wildcard *.sh) KEYS README BUILDING
+DISTFILES += misc/ adoc/
 
 all: llpp $(MANS)
 
-llpp: $(OBJ) link.o
-	$(CAMLOPT) -o $@ $(CAMLFLAGS) link.o -ccopt '$(LDFLAGS)' -cclib '$(LDLIBS)' $(MOD) $(OBJ)
+# dependency ordering
+config.cmx: wsi.cmi parser.cmx utils.cmx confstruct.cmx
+confstruct.cmx: wsi.cmx utils.cmx
+ffi.cmx: config.cmx
+glutils.cmx: ffi.cmx
+help.cmx: help.cmi config.cmx utils.cmx
+listview.cmx: utils.cmx glutils.cmx config.cmx utf8syms.cmx
+parser.cmx: utils.cmx
+wsi.cmi: utils.cmx keys.cmx
+wsi.cmx: wsi.cmi
 
-main.cmx: main.ml utils.cmx config.cmx
+link.o: glfont.c
+version.o: CPPFLAGS += -DLLPP_VERSION=$(VERSION)
+
+# ordinary targets
+llpp: $(OCAML_OBJ) $(C_OBJ)
+	$(CAMLOPT) -o $@ $(CAMLFLAGS) $(C_OBJ) -ccopt '$(LDFLAGS)' -cclib '$(LDLIBS)' $(MOD) $(OCAML_OBJ)
+
+main.cmx: main.ml utils.cmx config.cmx glutils.cmx listview.cmx ffi.cmx keys.cmx wsi.cmx
 	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) -thread $^
 
-wsi.cmx: wsi.cmi utils.cmx keys.cmx
+confstruct.ml: genconfstr.sh
+	sh $< >$@
 
-wsi.cmi: utils.cmx
-
-help.ml: mkhelp.sh KEYS
-	sh mkhelp.sh KEYS $(VERSION) > $@
-
-config.cmx: wsi.cmi parser.cmx utils.cmx help.cmx
-
-parser.cmx: utils.cmx
-
-link.o: glfont.c keysym2ucs.c
-
-.SUFFIXES: .ml .mli .cmo .cmi .cmx .mll .mly
-
-.c.o:
+# pattern rules
+%.o: %.c
 	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) -cc $(CC) -ccopt '$(CFLAGS) $(CPPFLAGS)' $<
 
-.ml.cmx:
+%.cmx: %.ml
 	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) $<
 
-.mli.cmi:
+%.cmi: %.mli
 	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) $<
 
-%.1: %.man man/asciidoc.conf
-	a2x -d manpage -f manpage --asciidoc-opts="-f man/asciidoc.conf --out-file=$@.xml" $<
+%.1: %.adoc adoc/asciidoc.conf
+	a2x -d manpage -f manpage --asciidoc-opts="-f adoc/asciidoc.conf --out-file=$@.xml" $<
 
-.PHONY: all clean dist install
-
+# special targets
 clean:
-	$(RM) llpp link.o help.ml $(OBJ) $(OBJ:.cmx=.cmi) $(OBJ:.cmx=.o) $(MANS) $(MANS:.1=.xml)
+	$(RM) llpp link.o help.ml $(OCAML_OBJ) $(OCAML_OBJ:.cmx=.cmi) $(OCAML_OBJ:.cmx=.o) $(MANS) $(MANS:.1=.xml)
 
 dist: clean
 	mkdir llpp-$(VERSION)
@@ -76,9 +81,11 @@ dist: clean
 
 install:
 	install -Dm755 llpp "$(DESTDIR)"$(PREFIX)/bin/llpp
-	install -Dm644 -t "$(DESTDIR)"$(PREFIX)/share/man/man1  man/*.1
+	install -Dm644 -t "$(DESTDIR)"$(PREFIX)/share/man/man1  $(MANS)
 	install -Dm755 misc/llppac "$(DESTDIR)"$(PREFIX)/bin/llppac
 	install -Dm755 misc/llpp.inotify "$(DESTDIR)"$(PREFIX)/bin/llpp.inotify
 	install -Dm755 misc/llpphtml "$(DESTDIR)"$(PREFIX)/bin/llpphtml
 	install -Dm644 misc/llpp.desktop "$(DESTDIR)"$(PREFIX)/share/applications/llpp.desktop
 	install -Dm644 README "$(DESTDIR)"$(PREFIX)/share/licenses/llpp/README
+
+.PHONY: all clean dist install
