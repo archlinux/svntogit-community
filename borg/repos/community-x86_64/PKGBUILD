@@ -4,7 +4,7 @@
 pkgname=borg
 _pkgname=borgbackup
 pkgver=1.1.6
-pkgrel=1
+pkgrel=2
 pkgdesc='Deduplicating backup program with compression and authenticated encryption'
 url='https://borgbackup.github.io/'
 license=('BSD')
@@ -17,13 +17,14 @@ checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-benchmark' 'pyt
 provides=('borgbackup')
 replaces=('borgbackup')
 source=("https://github.com/$_pkgname/$pkgname/releases/download/$pkgver/$_pkgname-$pkgver.tar.gz"
-        borg.coveragerc)
+        "https://github.com/borgbackup/borg/pull/3891/commits/d6ce4d9e7e28b89fbedcd883cac2912415164449.patch")
 sha256sums=('a1d2e474c85d3ad3d59b3f8209b5549653c88912082ea0159d27a2e80c910930'
-            '183814ae70fce7bbcf04dbbf3866eaf76867896a4327f8a3b553e095d1ff360f')
+            '9974ffa97694a06c9b30b943176775ccc02927c1baea165955ab5c6e3cab85d4')
 
 prepare() {
   cd "$srcdir/$_pkgname-$pkgver"
-  sed -i "s/msgpack-python>=.*/msgpack',/g" setup.py
+  # msgpack versions are constantly broken: https://bugs.archlinux.org/task/58974
+  patch -p1 -i ../d6ce4d9e7e28b89fbedcd883cac2912415164449.patch
 }
 
 build() {
@@ -34,14 +35,17 @@ build() {
 check() {
   cd "$srcdir/$_pkgname-$pkgver/build/lib.linux-$CARCH-3.6/"
   LANG=en_US.UTF-8 PYTHONPATH="$PWD:$PYTHONPATH" py.test --cov=borg \
-    --cov-config="$srcdir/borg.coveragerc" --benchmark-skip --pyargs borg.testsuite -v \
+    --benchmark-skip --pyargs borg.testsuite -v \
     -k 'not test_non_ascii_acl'
 }
 
 package() {
   cd "$srcdir/$_pkgname-$pkgver"
 
-  python setup.py -q install --root="$pkgdir" --optimize=1
+  python setup.py install --root="$pkgdir" --optimize=1
+
+  # remove junk files
+  rm -r "$pkgdir"/usr/lib/python*/site-packages/{.benchmarks,.coverage}
 
   install -Dm644 scripts/shell_completions/bash/borg \
     "$pkgdir/usr/share/bash-completion/completions/borg"
