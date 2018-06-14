@@ -4,27 +4,31 @@
 # Refactored by Blaž "Speed" Hrastnik <https://github.com/archSeer>
 
 pkgname=elasticsearch
-pkgver=6.2.4
+pkgver=6.3.0
 pkgrel=1
 pkgdesc="Distributed RESTful search engine built on top of Lucene"
 arch=('any')
 url="https://www.elastic.co/products/elasticsearch"
 license=('APACHE')
-depends=('java-runtime-headless=8' 'systemd')
+depends=('java-runtime-headless' 'systemd')
 source=(
   "https://artifacts.elastic.co/downloads/$pkgname/$pkgname-$pkgver.tar.gz"
   elasticsearch-env
   elasticsearch.service
   elasticsearch@.service
+  elasticsearch-keystore.service
+  elasticsearch-keystore@.service
   elasticsearch-sysctl.conf
   elasticsearch-user.conf
   elasticsearch-tmpfile.conf
   elasticsearch.default
 )
-sha256sums=('91e6f1ea1e1dd39011e7a703d2751ca46ee374665b08b0bfe17e0c0c27000e8e'
-            'cffa3aeabd4ec781d90e6432555959140cccba1d311066bb1b8e8bf166f9defd'
-            'ac484a5e44c04f1d1687bf223720468f3a9b9dd11db248072c9ba0f4a6a9e8aa'
-            'dae13e9d5311841eaa6582b333ffb0bd782eabc205a55bb35f891f2e404704ab'
+sha256sums=('0464127140820d82b24bd2830232131ea85bcd49267a8bc7365e4fa391dee2a3'
+            '65ee972c14da242f757507030de134ed6869126d220292c49a883997de7d2c11'
+            'de3842935b6ef9cb8a05dc18334112f534dccc2292e36052df942a92de7e66db'
+            '13090c1d23ae0a21bf6f0f1d1da795d38972f1674b20c3d2d32f54311aa99094'
+            'bac40d87acaa5bee209ceb6dfa253009a072e9243fe3b94be42fb5cd44727d6f'
+            '22a78a165a810608188faea6f2b0b381f27b1e9d60126c3b3e729124540589a8'
             'b3feb1e9c7e7ce6b33cea6c727728ed700332aae942ca475c3bcc1d56b9f113c'
             '815f6a39db6f54bb40750c382ffbdc298d2c4c187ee8ea7e2f855923e2ff354b'
             '3173e3efa429507e6329f518699a072dfd442d9b5da7c62452a55f82334dd2b5'
@@ -38,39 +42,45 @@ backup=('etc/elasticsearch/elasticsearch.yml'
 prepare() {
   cd "$srcdir"/$pkgname-$pkgver
 
-  sed -r 's;source .*/elasticsearch-env;source /usr/share/elasticsearch/elasticsearch-env;' \
-      -i bin/elasticsearch{,-keystore,-plugin,-translog}
+  find bin -type f ! -name \*.bat ! -name \*.jar ! -name \*.exe -exec \
+    sed -r 's;source .*/(.*)-env;source /usr/share/elasticsearch/\1-env;' -i {} +
 }
 
 package() {
   cd "$pkgdir"
   install -dm750 etc/elasticsearch/scripts
-  install -dm755 usr/share/elasticsearch
-  install -dm755 var/lib/elasticsearch
-  install -dm755 var/log/elasticsearch
+  install -dm755 {usr/share,var/lib,var/log}/elasticsearch
+  install -dm755 usr/bin
 
+  cd "$srcdir"/$pkgname-$pkgver
+  find bin -type f \( -name \*.bat -o -name \*.exe \) -delete
+  find bin -type f \( -name \*.jar -o -name \*-env \) -exec chmod a-x {} +
+  rm -rf modules/x-pack/x-pack-ml/platform/{darwin,windows}-*
+  cp -R bin lib modules plugins "$pkgdir"/usr/share/elasticsearch/
+
+  cd config
+  for conf in *; do
+    install -Dm644 "$conf" "$pkgdir/etc/elasticsearch/$conf"
+  done
+  cd ..
+
+  for script in elasticsearch{-keystore,-plugin,-sql-cli}; do
+    ln -s ../share/elasticsearch/bin/$script "$pkgdir"/usr/bin/$script
+  done
+
+  cd "$pkgdir"/usr/share/elasticsearch
+  ln -s ../../../var/log/elasticsearch logs
+  ln -s ../../../var/lib/elasticsearch data
+  mv bin/*-env .
+
+  cd "$pkgdir"
   install -Dm644 "$srcdir"/elasticsearch-env usr/share/elasticsearch/elasticsearch-env
   install -Dm644 "$srcdir"/elasticsearch.service usr/lib/systemd/system/elasticsearch.service
   install -Dm644 "$srcdir"/elasticsearch@.service usr/lib/systemd/system/elasticsearch@.service
+  install -Dm644 "$srcdir"/elasticsearch-keystore.service usr/lib/systemd/system/elasticsearch-keystore.service
+  install -Dm644 "$srcdir"/elasticsearch-keystore@.service usr/lib/systemd/system/elasticsearch-keystore@.service
   install -Dm644 "$srcdir"/elasticsearch-user.conf usr/lib/sysusers.d/elasticsearch.conf
   install -Dm644 "$srcdir"/elasticsearch-tmpfile.conf usr/lib/tmpfiles.d/elasticsearch.conf
   install -Dm644 "$srcdir"/elasticsearch-sysctl.conf usr/lib/sysctl.d/elasticsearch.conf
   install -Dm644 "$srcdir"/elasticsearch.default etc/default/elasticsearch
-
-  cd "$srcdir"/$pkgname-$pkgver
-  cp -R lib modules plugins "$pkgdir"/usr/share/elasticsearch/
-
-	cd config
-	for conf in *; do
-		install -Dm644 "$conf" "$pkgdir/etc/elasticsearch/$conf"
-	done
-	cd ..
-
-  for script in elasticsearch{,-keystore,-plugin,-translog}; do
-    install -Dm755 bin/$script "$pkgdir"/usr/bin/$script
-  done
-
-  ln -s ../../bin "$pkgdir"/usr/share/elasticsearch/bin
-  ln -s ../../../var/log/elasticsearch "$pkgdir"/usr/share/elasticsearch/logs
-  ln -s ../../../var/lib/elasticsearch "$pkgdir"/usr/share/elasticsearch/data
 }
