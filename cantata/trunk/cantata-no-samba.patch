@@ -1,0 +1,2751 @@
+From afc4f8315d3e96574925fb530a7004cc9e6ce3d3 Mon Sep 17 00:00:00 2001
+From: Craig Drummond <craig.p.drummond@gmail.com>
+Date: Fri, 15 Jun 2018 17:48:11 +0100
+Subject: [PATCH] Remove internal Samba shre mounting code, this had some
+ privilege escalation issues, and is not well tested
+
+---
+ CMakeLists.txt                                     |  10 +-
+ ChangeLog                                          |   2 +
+ devices/avahi/CMakeLists.txt                       |   8 -
+ devices/avahi/avahi.cpp                            |  97 --------
+ devices/avahi/avahi.h                              |  59 -----
+ devices/avahi/avahiservice.cpp                     |  82 -------
+ devices/avahi/avahiservice.h                       |  60 -----
+ devices/avahi/org.freedesktop.Avahi.Server.OLD.xml | 218 ------------------
+ devices/avahi/org.freedesktop.Avahi.Server.xml     | 218 ------------------
+ .../avahi/org.freedesktop.Avahi.ServiceBrowser.xml |  59 -----
+ .../org.freedesktop.Avahi.ServiceResolver.OLD.xml  |  58 -----
+ .../org.freedesktop.Avahi.ServiceResolver.xml      |  58 -----
+ devices/mounter/CMakeLists.txt                     |  14 --
+ devices/mounter/main.cpp                           |  33 ---
+ devices/mounter/mount.cifs.wrapper                 |   8 -
+ devices/mounter/mounter.cpp                        | 249 ---------------------
+ devices/mounter/mounter.h                          |  69 ------
+ devices/mounter/mpd.cantata.mounter.conf           |  17 --
+ devices/mounter/mpd.cantata.mounter.service.cmake  |   4 -
+ devices/mounter/mpd.cantata.mounter.xml            |  28 ---
+ devices/remotedevicepropertieswidget.cpp           |  97 +-------
+ devices/remotedevicepropertieswidget.ui            | 219 +-----------------
+ devices/remotefsdevice.cpp                         | 109 +--------
+ devices/remotefsdevice.h                           |  11 -
+ translations/blank.ts                              |  12 +-
+ translations/cantata_cs.ts                         |  26 +--
+ translations/cantata_da.ts                         |  14 +-
+ translations/cantata_de.ts                         |  22 +-
+ translations/cantata_en_GB.ts                      |  12 +-
+ translations/cantata_es.ts                         |  20 +-
+ translations/cantata_fr.ts                         |  22 +-
+ translations/cantata_hu.ts                         |  26 +--
+ translations/cantata_it.ts                         |  14 +-
+ translations/cantata_ja.ts                         |  26 +--
+ translations/cantata_ko.ts                         |  26 +--
+ translations/cantata_pl.ts                         |  26 +--
+ translations/cantata_ru.ts                         |  26 +--
+ translations/cantata_zh_CN.ts                      |  20 +-
+ 38 files changed, 45 insertions(+), 2034 deletions(-)
+ delete mode 100644 devices/avahi/CMakeLists.txt
+ delete mode 100644 devices/avahi/avahi.cpp
+ delete mode 100644 devices/avahi/avahi.h
+ delete mode 100644 devices/avahi/avahiservice.cpp
+ delete mode 100644 devices/avahi/avahiservice.h
+ delete mode 100644 devices/avahi/org.freedesktop.Avahi.Server.OLD.xml
+ delete mode 100644 devices/avahi/org.freedesktop.Avahi.Server.xml
+ delete mode 100644 devices/avahi/org.freedesktop.Avahi.ServiceBrowser.xml
+ delete mode 100644 devices/avahi/org.freedesktop.Avahi.ServiceResolver.OLD.xml
+ delete mode 100644 devices/avahi/org.freedesktop.Avahi.ServiceResolver.xml
+ delete mode 100644 devices/mounter/CMakeLists.txt
+ delete mode 100644 devices/mounter/main.cpp
+ delete mode 100755 devices/mounter/mount.cifs.wrapper
+ delete mode 100644 devices/mounter/mounter.cpp
+ delete mode 100644 devices/mounter/mounter.h
+ delete mode 100644 devices/mounter/mpd.cantata.mounter.conf
+ delete mode 100644 devices/mounter/mpd.cantata.mounter.service.cmake
+ delete mode 100644 devices/mounter/mpd.cantata.mounter.xml
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d8468f27e..6bed9b38b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -408,9 +408,6 @@ if (TAGLIB_FOUND)
+     if (ENABLE_DEVICES_SUPPORT)
+         set(CANTATA_LIBS ${CANTATA_LIBS} solidlite)
+     endif ()
+-    if (ENABLE_DEVICES_SUPPORT AND ENABLE_REMOTE_DEVICES AND NOT WIN32 AND NOT APPLE)
+-        set(CANTATA_LIBS ${CANTATA_LIBS} avahi)
+-    endif ()
+ 
+     if (FFMPEG_FOUND OR MPG123_FOUND)
+         set(CANTATA_SRCS ${CANTATA_SRCS} replaygain/albumscanner.cpp replaygain/rgdialog.cpp replaygain/tagreader.cpp replaygain/jobcontroller.cpp)
+@@ -465,9 +462,6 @@ if (TAGLIB_FOUND)
+             set(CANTATA_SRCS ${CANTATA_SRCS} devices/remotefsdevice.cpp devices/remotedevicepropertiesdialog.cpp
+                 devices/remotedevicepropertieswidget.cpp)
+             set(CANTATA_UIS ${CANTATA_UIS} devices/remotedevicepropertieswidget.ui)
+-            qt5_add_dbus_interfaces(CANTATA_SRCS devices/mounter/${PROJECT_REV_URL}.mounter.xml)
+-            add_subdirectory(devices/mounter)
+-            add_subdirectory(devices/avahi)
+         endif ()
+     else (ENABLE_DEVICES_SUPPORT)
+         set(CANTATA_SRCS ${CANTATA_SRCS} devices/device.cpp)
+diff --git a/devices/avahi/CMakeLists.txt b/devices/avahi/CMakeLists.txt
+deleted file mode 100644
+index 81757c435..000000000
+--- a/devices/avahi/CMakeLists.txt
++++ /dev/null
+@@ -1,8 +0,0 @@
+-set(AVAHI_SRCS avahi.cpp avahiservice.cpp)
+-
+-qt5_add_dbus_interfaces(AVAHI_SRCS org.freedesktop.Avahi.Server.xml )
+-qt5_add_dbus_interfaces(AVAHI_SRCS org.freedesktop.Avahi.ServiceBrowser.xml)
+-qt5_add_dbus_interfaces(AVAHI_SRCS org.freedesktop.Avahi.ServiceResolver.xml)
+-
+-include_directories(${CMAKE_CURRENT_BINARY_DIR} ${QTINCLUDES})
+-add_library(avahi STATIC ${AVAHI_SRCS})
+diff --git a/devices/avahi/avahi.cpp b/devices/avahi/avahi.cpp
+deleted file mode 100644
+index a873794f0..000000000
+--- a/devices/avahi/avahi.cpp
++++ /dev/null
+@@ -1,97 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#include "avahi.h"
+-#include "avahiservice.h"
+-#include "serverinterface.h"
+-#include "servicebrowserinterface.h"
+-#include <QtDBus>
+-#include <QUrl>
+-#include <QDebug>
+-#ifdef ENABLE_KDE_SUPPORT
+-#include <KDE/KGlobal>
+-K_GLOBAL_STATIC(Avahi, instance)
+-#endif
+-
+-static bool isLocalDomain(const QString &d)
+-{
+-    return QLatin1String("local")==d.section('.', -1, -1).toLower();
+-}
+-
+-QString Avahi::domainToDNS(const QString &domain)
+-{
+-    return isLocalDomain(domain) ? domain : QUrl::toAce(domain);
+-}
+-
+-static const QLatin1String constServiceType("_smb._tcp");
+-
+-Avahi * Avahi::self()
+-{
+-    #ifdef ENABLE_KDE_SUPPORT
+-    return instance;
+-    #else
+-    static Avahi *instance=0;
+-    if(!instance) {
+-        instance=new Avahi;
+-    }
+-    return instance;
+-    #endif
+-}
+-
+-Avahi::Avahi()
+-{
+-    org::freedesktop::Avahi::Server server("org.freedesktop.Avahi", "/", QDBusConnection::systemBus());
+-    QDBusReply<QDBusObjectPath> reply=server.ServiceBrowserNew(-1, -1, constServiceType, domainToDNS(QString()), 0);
+-
+-    if (reply.isValid()) {
+-        service=new OrgFreedesktopAvahiServiceBrowserInterface("org.freedesktop.Avahi", reply.value().path(), QDBusConnection::systemBus());
+-        connect(service, SIGNAL(ItemNew(int,int,QString,QString,QString,uint)), SLOT(addService(int,int,QString,QString,QString,uint)));
+-        connect(service, SIGNAL(ItemRemove(int,int,QString,QString,QString,uint)), SLOT(removeService(int,int,QString,QString,QString,uint)));
+-    }
+-}
+-
+-AvahiService * Avahi::getService(const QString &name)
+-{
+-    return services.contains(name) ? services[name] : 0;
+-}
+-
+-void Avahi::addService(int, int, const QString &name, const QString &type, const QString &domain, uint)
+-{
+-    if (isLocalDomain(domain) && !services.contains(name)) {
+-        AvahiService *srv=new AvahiService(name, type, domain);
+-        services.insert(name, srv);
+-        connect(srv, SIGNAL(serviceResolved(QString)), this, SIGNAL(serviceAdded(QString)));
+-    }
+-}
+-
+-void Avahi::removeService(int, int, const QString &name, const QString &, const QString &domain, uint)
+-{
+-    if (isLocalDomain(domain) && services.contains(name)) {
+-        services[name]->deleteLater();
+-        disconnect(services[name], SIGNAL(serviceResolved(QString)), this, SIGNAL(serviceAdded(QString)));
+-        services.remove(name);
+-        emit serviceRemoved(name);
+-    }
+-}
+-
+-#include "moc_avahi.cpp"
+diff --git a/devices/avahi/avahi.h b/devices/avahi/avahi.h
+deleted file mode 100644
+index e834750a4..000000000
+--- a/devices/avahi/avahi.h
++++ /dev/null
+@@ -1,59 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#ifndef AVAHI_H
+-#define AVAHI_H
+-
+-#include <QObject>
+-#include <QMap>
+-
+-//class OrgFreedesktopAvahiDomainBrowserInterface;
+-class OrgFreedesktopAvahiServiceBrowserInterface;
+-class AvahiService;
+-
+-class Avahi : public QObject
+-{
+-    Q_OBJECT
+-public:
+-    static QString domainToDNS(const QString &domain);
+-
+-    static Avahi *self();
+-
+-    Avahi();
+-
+-    AvahiService * getService(const QString &name);
+-
+-Q_SIGNALS:
+-    void serviceAdded(const QString &);
+-    void serviceRemoved(const QString &);
+-
+-private Q_SLOTS:
+-    void addService(int, int, const QString &name, const QString &type, const QString &domain, uint);
+-    void removeService(int, int, const QString &name, const QString &type, const QString &domain, uint);
+-
+-private:
+-    OrgFreedesktopAvahiServiceBrowserInterface *service;
+-    QMap<QString, AvahiService *> services;
+-};
+-
+-#endif
+diff --git a/devices/avahi/avahiservice.cpp b/devices/avahi/avahiservice.cpp
+deleted file mode 100644
+index 889a11a17..000000000
+--- a/devices/avahi/avahiservice.cpp
++++ /dev/null
+@@ -1,82 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#include "avahi.h"
+-#include "avahiservice.h"
+-#include "serverinterface.h"
+-#include "serviceresolverinterface.h"
+-Q_DECLARE_METATYPE(QList<QByteArray>)
+-
+-AvahiService::AvahiService(const QString &n, const QString &type, const QString &domain)
+-    : name(n)
+-    , port(0)
+-{
+-    static bool registeredTypes=false;
+-    if (!registeredTypes) {
+-        qDBusRegisterMetaType<QList<QByteArray> >();
+-        registeredTypes=true;
+-    }
+-
+-    org::freedesktop::Avahi::Server server("org.freedesktop.Avahi", "/", QDBusConnection::systemBus());
+-    QDBusReply<QDBusObjectPath> reply=server.ServiceResolverNew(-1, -1, name, type, Avahi::domainToDNS(domain), -1, 8 /*AVAHI_LOOKUP_NO_ADDRESS|AVAHI_LOOKUP_NO_TXT*/);
+-
+-    if (reply.isValid()) {
+-        resolver=new OrgFreedesktopAvahiServiceResolverInterface("org.freedesktop.Avahi", reply.value().path(), QDBusConnection::systemBus());
+-        connect(resolver, SIGNAL(Found(int,int,const QString &,const QString &,const QString &,const QString &, int, const QString &,ushort,const QList<QByteArray>&, uint)),
+-                this, SLOT(resolved(int,int,const QString &,const QString &,const QString &,const QString &, int, const QString &,ushort, const QList<QByteArray>&, uint)));
+-        connect(resolver, SIGNAL(Failure(QString)), this, SLOT(error(QString)));
+-    }
+-}
+-
+-AvahiService::~AvahiService()
+-{
+-    stop();
+-}
+-
+-void AvahiService::resolved(int, int, const QString &name, const QString &, const QString &, const QString &h, int, const QString &, ushort p, const QList<QByteArray> &, uint)
+-{
+-    Q_UNUSED(name)
+-    port=p;
+-    host=h;
+-    stop();
+-    emit serviceResolved(name);
+-}
+-
+-void AvahiService::error(const QString &)
+-{
+-    stop();
+-}
+-
+-void AvahiService::stop()
+-{
+-    if (resolver) {
+-        resolver->Free();
+-        resolver->deleteLater();
+-        disconnect(resolver, SIGNAL(Found(int,int,const QString &,const QString &,const QString &,const QString &, int, const QString &,ushort,const QList<QByteArray>&, uint)),
+-                   this, SLOT(resolved(int,int,const QString &,const QString &,const QString &,const QString &, int, const QString &,ushort, const QList<QByteArray>&, uint)));
+-        disconnect(resolver, SIGNAL(Failure(QString)), this, SLOT(error(QString)));
+-        resolver=0;
+-    }
+-}
+-
+-#include "moc_avahiservice.cpp"
+diff --git a/devices/avahi/avahiservice.h b/devices/avahi/avahiservice.h
+deleted file mode 100644
+index 2af802450..000000000
+--- a/devices/avahi/avahiservice.h
++++ /dev/null
+@@ -1,60 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#ifndef AVAHISERVICE_H
+-#define AVAHISERVICE_H
+-
+-#include <QObject>
+-
+-class OrgFreedesktopAvahiServiceResolverInterface;
+-
+-class AvahiService : public QObject
+-{
+-    Q_OBJECT
+-
+-public:
+-    AvahiService(const QString &n, const QString &type, const QString &domain);
+-    virtual ~AvahiService();
+-
+-    const QString & getHost() const { return host; }
+-    ushort getPort() const { return port; }
+-
+-private:
+-    void stop();
+-
+-Q_SIGNALS:
+-    void serviceResolved(const QString &);
+-
+-private Q_SLOTS:
+-    void resolved(int, int, const QString &name, const QString &, const QString &domain, const QString &h,
+-                  int, const QString &, ushort p, const QList<QByteArray> &txt, uint);
+-    void error(const QString &msg);
+-
+-private:
+-    QString name;
+-    QString host;
+-    ushort port;
+-    OrgFreedesktopAvahiServiceResolverInterface *resolver;
+-};
+-
+-#endif
+diff --git a/devices/avahi/org.freedesktop.Avahi.Server.OLD.xml b/devices/avahi/org.freedesktop.Avahi.Server.OLD.xml
+deleted file mode 100644
+index f336f207c..000000000
+--- a/devices/avahi/org.freedesktop.Avahi.Server.OLD.xml
++++ /dev/null
+@@ -1,218 +0,0 @@
+-<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+-<?xml-stylesheet type="text/xsl" href="introspect.xsl"?>
+-<!DOCTYPE node SYSTEM "introspect.dtd">
+-
+-<!--
+-  This file is part of avahi.
+-
+-  avahi is free software; you can redistribute it and/or modify it
+-  under the terms of the GNU Lesser General Public License as
+-  published by the Free Software Foundation; either version 2 of the
+-  License, or (at your option) any later version.
+-
+-  avahi is distributed in the hope that it will be useful, but
+-  WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+-  General Public License for more details.
+-
+-  You should have received a copy of the GNU Lesser General Public
+-  License along with avahi; if not, write to the Free Software
+-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-  02111-1307 USA.
+--->
+-
+-<node>
+-
+-  <interface name="org.freedesktop.Avahi.Server">
+-
+-    <method name="GetVersionString">
+-      <arg name="version" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="GetAPIVersion">
+-      <arg name="version" type="u" direction="out"/>
+-    </method>
+-
+-    <method name="GetHostName">
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-    <method name="SetHostName">
+-      <arg name="name" type="s" direction="in"/>
+-    </method>
+-    <method name="GetHostNameFqdn">
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-    <method name="GetDomainName">
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="IsNSSSupportAvailable">
+-      <arg name="yes" type="b" direction="out"/>
+-    </method>
+-
+-    <method name="GetState">
+-      <arg name="state" type="i" direction="out"/>
+-    </method>
+-
+-    <signal name="StateChanged">
+-      <arg name="state" type="i"/>
+-      <arg name="error" type="s"/>
+-    </signal>
+-
+-    <method name="GetLocalServiceCookie">
+-      <arg name="cookie" type="u" direction="out"/>
+-    </method>
+-
+-    <method name="GetAlternativeHostName">
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="GetAlternativeServiceName">
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="GetNetworkInterfaceNameByIndex">
+-      <arg name="index" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-    <method name="GetNetworkInterfaceIndexByName">
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="index" type="i" direction="out"/>
+-    </method>
+-
+-    <method name="ResolveHostName">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="flags" type="u" direction="out"/>
+-    </method>
+-
+-    <method name="ResolveAddress">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="address" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="flags" type="u" direction="out"/>
+-    </method>
+-
+-    <!--
+-    Disabled as it breaks the code generation due to its _11_ parameters.
+-    <method name="ResolveService">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="type" type="s" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="type" type="s" direction="out"/>
+-      <arg name="domain" type="s" direction="out"/>
+-      <arg name="host" type="s" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="port" type="q" direction="out"/>
+-      <arg name="txt" type="aay" direction="out"/>
+-      <annotation name="com.trolltech.QtDBus.QtTypeName.Out9"
+-          value="QList&lt;QByteArray&gt;" />
+-      <arg name="flags" type="u" direction="out"/>
+-    </method>
+-    -->
+-
+-    <method name="EntryGroupNew">
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="DomainBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="btype" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="ServiceTypeBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="ServiceBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="type" type="s" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="ServiceResolverNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="type" type="s" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="HostNameResolverNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="AddressResolverNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="address" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="RecordBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="clazz" type="q" direction="in"/>
+-      <arg name="type" type="q" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-
+-  </interface>
+-</node>
+diff --git a/devices/avahi/org.freedesktop.Avahi.Server.xml b/devices/avahi/org.freedesktop.Avahi.Server.xml
+deleted file mode 100644
+index 49493b3e0..000000000
+--- a/devices/avahi/org.freedesktop.Avahi.Server.xml
++++ /dev/null
+@@ -1,218 +0,0 @@
+-<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+-<?xml-stylesheet type="text/xsl" href="introspect.xsl"?>
+-<!DOCTYPE node SYSTEM "introspect.dtd">
+-
+-<!--
+-  This file is part of avahi.
+-
+-  avahi is free software; you can redistribute it and/or modify it
+-  under the terms of the GNU Lesser General Public License as
+-  published by the Free Software Foundation; either version 2 of the
+-  License, or (at your option) any later version.
+-
+-  avahi is distributed in the hope that it will be useful, but
+-  WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+-  General Public License for more details.
+-
+-  You should have received a copy of the GNU Lesser General Public
+-  License along with avahi; if not, write to the Free Software
+-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-  02111-1307 USA.
+--->
+-
+-<node>
+-
+-  <interface name="org.freedesktop.Avahi.Server">
+-
+-    <method name="GetVersionString">
+-      <arg name="version" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="GetAPIVersion">
+-      <arg name="version" type="u" direction="out"/>
+-    </method>
+-
+-    <method name="GetHostName">
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-    <method name="SetHostName">
+-      <arg name="name" type="s" direction="in"/>
+-    </method>
+-    <method name="GetHostNameFqdn">
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-    <method name="GetDomainName">
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="IsNSSSupportAvailable">
+-      <arg name="yes" type="b" direction="out"/>
+-    </method>
+-
+-    <method name="GetState">
+-      <arg name="state" type="i" direction="out"/>
+-    </method>
+-
+-    <signal name="StateChanged">
+-      <arg name="state" type="i"/>
+-      <arg name="error" type="s"/>
+-    </signal>
+-
+-    <method name="GetLocalServiceCookie">
+-      <arg name="cookie" type="u" direction="out"/>
+-    </method>
+-
+-    <method name="GetAlternativeHostName">
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="GetAlternativeServiceName">
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-
+-    <method name="GetNetworkInterfaceNameByIndex">
+-      <arg name="index" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="out"/>
+-    </method>
+-    <method name="GetNetworkInterfaceIndexByName">
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="index" type="i" direction="out"/>
+-    </method>
+-
+-    <method name="ResolveHostName">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="flags" type="u" direction="out"/>
+-    </method>
+-
+-    <method name="ResolveAddress">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="address" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="flags" type="u" direction="out"/>
+-    </method>
+-
+-    <!--
+-    Disabled as it breaks the code generation due to its _11_ parameters.
+-    <method name="ResolveService">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="type" type="s" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="type" type="s" direction="out"/>
+-      <arg name="domain" type="s" direction="out"/>
+-      <arg name="host" type="s" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="port" type="q" direction="out"/>
+-      <arg name="txt" type="aay" direction="out"/>
+-      <annotation name="org.qtproject.QtDBus.QtTypeName.Out9"
+-          value="QList&lt;QByteArray&gt;" />
+-      <arg name="flags" type="u" direction="out"/>
+-    </method>
+-    -->
+-
+-    <method name="EntryGroupNew">
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="DomainBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="btype" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="ServiceTypeBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="ServiceBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="type" type="s" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="ServiceResolverNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="type" type="s" direction="in"/>
+-      <arg name="domain" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="HostNameResolverNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="aprotocol" type="i" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="AddressResolverNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="address" type="s" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-    <method name="RecordBrowserNew">
+-      <arg name="interface" type="i" direction="in"/>
+-      <arg name="protocol" type="i" direction="in"/>
+-      <arg name="name" type="s" direction="in"/>
+-      <arg name="clazz" type="q" direction="in"/>
+-      <arg name="type" type="q" direction="in"/>
+-      <arg name="flags" type="u" direction="in"/>
+-
+-      <arg name="path" type="o" direction="out"/>
+-    </method>
+-
+-
+-  </interface>
+-</node>
+diff --git a/devices/avahi/org.freedesktop.Avahi.ServiceBrowser.xml b/devices/avahi/org.freedesktop.Avahi.ServiceBrowser.xml
+deleted file mode 100644
+index d2db35923..000000000
+--- a/devices/avahi/org.freedesktop.Avahi.ServiceBrowser.xml
++++ /dev/null
+@@ -1,59 +0,0 @@
+-<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+-<?xml-stylesheet type="text/xsl" href="introspect.xsl"?>
+-<!DOCTYPE node SYSTEM "introspect.dtd">
+-
+-<!-- $Id: ServiceBrowser.introspect 948 2005-11-12 18:55:52Z lennart $ -->
+-
+-<!--
+-  This file is part of avahi.
+- 
+-  avahi is free software; you can redistribute it and/or modify it
+-  under the terms of the GNU Lesser General Public License as
+-  published by the Free Software Foundation; either version 2 of the
+-  License, or (at your option) any later version.
+-
+-  avahi is distributed in the hope that it will be useful, but
+-  WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+-  General Public License for more details.
+-
+-  You should have received a copy of the GNU Lesser General Public
+-  License along with avahi; if not, write to the Free Software
+-  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+-  02110-1301 USA.
+--->
+-
+-<node>
+-  
+-  <interface name="org.freedesktop.Avahi.ServiceBrowser">
+-
+-    <method name="Free"/>
+-      
+-    <signal name="ItemNew">
+-      <arg name="interface" type="i"/>
+-      <arg name="protocol" type="i"/>
+-      <arg name="name" type="s"/>
+-      <arg name="type" type="s"/>
+-      <arg name="domain" type="s"/>
+-      <arg name="flags" type="u"/>
+-    </signal>
+-
+-    <signal name="ItemRemove">
+-      <arg name="interface" type="i"/>
+-      <arg name="protocol" type="i"/>
+-      <arg name="name" type="s"/>
+-      <arg name="type" type="s"/>
+-      <arg name="domain" type="s"/>
+-      <arg name="flags" type="u"/>
+-    </signal>
+-
+-    <signal name="Failure">
+-      <arg name="error" type="s"/>
+-    </signal>
+-
+-    <signal name="AllForNow"/>
+-
+-    <signal name="CacheExhausted"/>
+-
+-  </interface> 
+-</node>
+diff --git a/devices/avahi/org.freedesktop.Avahi.ServiceResolver.OLD.xml b/devices/avahi/org.freedesktop.Avahi.ServiceResolver.OLD.xml
+deleted file mode 100644
+index 48216d4f9..000000000
+--- a/devices/avahi/org.freedesktop.Avahi.ServiceResolver.OLD.xml
++++ /dev/null
+@@ -1,58 +0,0 @@
+-<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+-<?xml-stylesheet type="text/xsl" href="introspect.xsl"?>
+-<!DOCTYPE node SYSTEM "introspect.dtd">
+-
+-<!--
+-  This file is part of avahi.
+-
+-  avahi is free software; you can redistribute it and/or modify it
+-  under the terms of the GNU Lesser General Public License as
+-  published by the Free Software Foundation; either version 2 of the
+-  License, or (at your option) any later version.
+-
+-  avahi is distributed in the hope that it will be useful, but
+-  WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+-  General Public License for more details.
+-
+-  You should have received a copy of the GNU Lesser General Public
+-  License along with avahi; if not, write to the Free Software
+-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-  02111-1307 USA.
+--->
+-
+-<node>
+-<!--
+-  <interface name="org.freedesktop.DBus.Introspectable">
+-    <method name="Introspect">
+-      <arg name="data" type="s" direction="out" />
+-    </method>
+-  </interface>
+--->
+-
+-  <interface name="org.freedesktop.Avahi.ServiceResolver">
+-
+-    <method name="Free"/>
+-
+-    <signal name="Found">
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="type" type="s" direction="out"/>
+-      <arg name="domain" type="s" direction="out"/>
+-      <arg name="host" type="s" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="port" type="q" direction="out"/>
+-      <arg name="txt" type="aay" direction="out"/>
+-      <annotation name="com.trolltech.QtDBus.QtTypeName.In9"
+-          value="QList&lt;QByteArray&gt;" />
+-      <arg name="flags" type="u" direction="out"/>
+-    </signal>
+-
+-    <signal name="Failure">
+-      <arg name="error" type="s"/>
+-    </signal>
+-
+-  </interface>
+-</node>
+diff --git a/devices/avahi/org.freedesktop.Avahi.ServiceResolver.xml b/devices/avahi/org.freedesktop.Avahi.ServiceResolver.xml
+deleted file mode 100644
+index 61bb2a40f..000000000
+--- a/devices/avahi/org.freedesktop.Avahi.ServiceResolver.xml
++++ /dev/null
+@@ -1,58 +0,0 @@
+-<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+-<?xml-stylesheet type="text/xsl" href="introspect.xsl"?>
+-<!DOCTYPE node SYSTEM "introspect.dtd">
+-
+-<!--
+-  This file is part of avahi.
+-
+-  avahi is free software; you can redistribute it and/or modify it
+-  under the terms of the GNU Lesser General Public License as
+-  published by the Free Software Foundation; either version 2 of the
+-  License, or (at your option) any later version.
+-
+-  avahi is distributed in the hope that it will be useful, but
+-  WITHOUT ANY WARRANTY; without even the implied warranty of
+-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+-  General Public License for more details.
+-
+-  You should have received a copy of the GNU Lesser General Public
+-  License along with avahi; if not, write to the Free Software
+-  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-  02111-1307 USA.
+--->
+-
+-<node>
+-<!--
+-  <interface name="org.freedesktop.DBus.Introspectable">
+-    <method name="Introspect">
+-      <arg name="data" type="s" direction="out" />
+-    </method>
+-  </interface>
+--->
+-
+-  <interface name="org.freedesktop.Avahi.ServiceResolver">
+-
+-    <method name="Free"/>
+-
+-    <signal name="Found">
+-      <arg name="interface" type="i" direction="out"/>
+-      <arg name="protocol" type="i" direction="out"/>
+-      <arg name="name" type="s" direction="out"/>
+-      <arg name="type" type="s" direction="out"/>
+-      <arg name="domain" type="s" direction="out"/>
+-      <arg name="host" type="s" direction="out"/>
+-      <arg name="aprotocol" type="i" direction="out"/>
+-      <arg name="address" type="s" direction="out"/>
+-      <arg name="port" type="q" direction="out"/>
+-      <arg name="txt" type="aay" direction="out"/>
+-      <annotation name="org.qtproject.QtDBus.QtTypeName.In9"
+-          value="QList&lt;QByteArray&gt;" />
+-      <arg name="flags" type="u" direction="out"/>
+-    </signal>
+-
+-    <signal name="Failure">
+-      <arg name="error" type="s"/>
+-    </signal>
+-
+-  </interface>
+-</node>
+diff --git a/devices/mounter/CMakeLists.txt b/devices/mounter/CMakeLists.txt
+deleted file mode 100644
+index 04627b393..000000000
+--- a/devices/mounter/CMakeLists.txt
++++ /dev/null
+@@ -1,14 +0,0 @@
+-set(CANTATA_MOUNTER_SRCS main.cpp mounter.cpp)
+-qt5_add_dbus_adaptor(CANTATA_MOUNTER_SRCS mpd.cantata.mounter.xml mounter.h Mounter )
+-
+-add_executable( cantata-mounter ${CANTATA_MOUNTER_SRCS} )
+-install(TARGETS cantata-mounter RUNTIME DESTINATION lib/cantata)
+-configure_file(mpd.cantata.mounter.service.cmake ${CMAKE_CURRENT_BINARY_DIR}/mpd.cantata.mounter.service)
+-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/mpd.cantata.mounter.service DESTINATION ${SHARE_INSTALL_PREFIX}/dbus-1/system-services/ )
+-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/mpd.cantata.mounter.conf DESTINATION /etc/dbus-1/system.d/ )
+-
+-target_link_libraries(cantata-mounter ${Qt5Core_LIBRARIES} ${Qt5DBus_LIBRARIES})
+-include_directories( ${QTINCLUDES} ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_BINARY_DIR})
+-
+-install(FILES ${_qmFile} DESTINATION ${SHARE_INSTALL_PREFIX}/cantata/)
+-install(PROGRAMS mount.cifs.wrapper DESTINATION ${SHARE_INSTALL_PREFIX}/cantata/scripts/ )
+diff --git a/devices/mounter/main.cpp b/devices/mounter/main.cpp
+deleted file mode 100644
+index e3bad148c..000000000
+--- a/devices/mounter/main.cpp
++++ /dev/null
+@@ -1,33 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#include "mounter.h"
+-#include <QCoreApplication>
+-
+-int main(int argc, char *argv[])
+-{
+-    QCoreApplication app(argc, argv);
+-    Mounter srv;
+-
+-    return app.exec();
+-}
+diff --git a/devices/mounter/mount.cifs.wrapper b/devices/mounter/mount.cifs.wrapper
+deleted file mode 100755
+index f1dfc1a4d..000000000
+--- a/devices/mounter/mount.cifs.wrapper
++++ /dev/null
+@@ -1,8 +0,0 @@
+-#!/bin/bash
+-
+-#
+-# Calling mount.cifs directly from DBUS service seems to mess things up?
+-# ..so call mount.cifs via this wrapper :-)
+-#
+-mount.cifs $@
+-exit $?
+diff --git a/devices/mounter/mounter.cpp b/devices/mounter/mounter.cpp
+deleted file mode 100644
+index 819f844c3..000000000
+--- a/devices/mounter/mounter.cpp
++++ /dev/null
+@@ -1,249 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#include "mounter.h"
+-#include "mounteradaptor.h"
+-#include "config.h"
+-#include <stdlib.h>
+-#include <QCoreApplication>
+-#include <QUrl>
+-#if QT_VERSION >= 0x050000
+-#include <QUrlQuery>
+-#endif
+-#include <QProcess>
+-#include <QTemporaryFile>
+-#include <QTextStream>
+-#include <QTimer>
+-#include <QDebug>
+-#include <sys/types.h>
+-#include <signal.h>
+-
+-Mounter::Mounter(QObject *p)
+-    : QObject(p)
+-    , timer(0)
+-    , procCount(0)
+-{
+-    new MounterAdaptor(this);
+-    QDBusConnection bus=QDBusConnection::systemBus();
+-    if (!bus.registerService("mpd.cantata.mounter") || !bus.registerObject("/Mounter", this)) {
+-        QTimer::singleShot(0, qApp, SLOT(quit()));
+-    }
+-}
+-
+-static inline bool mpOk(const QString &mp)
+-{
+-    return !mp.isEmpty() && mp.startsWith("/home/"); // ) && mp.contains("cantata");
+-}
+-
+-static QString fixPath(const QString &dir)
+-{
+-    QString d(dir);
+-
+-    if (!d.isEmpty() && !d.startsWith(QLatin1String("http://"))) {
+-        d.replace(QLatin1String("//"), QChar('/'));
+-    }
+-    d.replace(QLatin1String("/./"), QChar('/'));
+-    if (!d.isEmpty() && !d.endsWith('/')) {
+-        d+='/';
+-    }
+-    return d;
+-}
+-
+-// Control via:
+-//     qdbus --system mpd.cantata.mounter /Mounter mpd.cantata.mounter.mount smb://workgroup\user:password@host:port/path?domain=domain mountPoint uid gid
+-void Mounter::mount(const QString &url, const QString &mountPoint, int uid, int gid, int pid)
+-{
+-    if (calledFromDBus()) {
+-        registerPid(pid);
+-    }
+-
+-    qWarning() << url << mountPoint << uid << gid;
+-    QUrl u(url);
+-    int st=-1;
+-
+-    if (u.scheme()=="smb" && mpOk(mountPoint)) {
+-        QString user=u.userName();
+-        QString domain;
+-        QString password=u.password();
+-        int port=u.port();
+-
+-        #if QT_VERSION < 0x050000
+-        if (u.hasQueryItem("domain")) {
+-            domain=u.queryItemValue("domain");
+-        }
+-        #else
+-        QUrlQuery q(u);
+-        if (q.hasQueryItem("domain")) {
+-            domain=q.queryItemValue("domain");
+-        }
+-        #endif
+-
+-        QTemporaryFile *temp=0;
+-
+-        if (!password.isEmpty()) {
+-            temp=new QTemporaryFile();
+-            if (temp && temp->open()) {
+-                QTextStream str(temp);
+-                if (!user.isEmpty()) {
+-                    str << "username=" << user << endl;
+-                }
+-                str << "password=" << password << endl;
+-                if (!domain.isEmpty()) {
+-                    str << "domain=" << domain << endl;
+-                }
+-            }
+-        }
+-
+-        QString path=fixPath(u.host()+"/"+u.path());
+-        while (!path.startsWith("//")) {
+-            path="/"+path;
+-        }
+-
+-//        qWarning() << "EXEC" << "mount.cifs" << path << mountPoint
+-//                                                         << "-o" <<
+-//                                                         (temp ? ("credentials="+temp->fileName()+",") : QString())+
+-//                                                         "uid="+QString::number(uid)+",gid="+QString::number(gid)+
+-//                                                         (445==port || port<1 ? QString() : ",port="+QString::number(port))+
+-//                                                         (temp || user.isEmpty() ? QString() : (",username="+user))+
+-//                                                         (temp || domain.isEmpty() ? QString() : (",domain="+domain))+
+-//                                                         (temp ? QString() : ",password=");
+-        QProcess *proc=new QProcess(this);
+-        connect(proc, SIGNAL(finished(int)), SLOT(mountResult(int)));
+-        proc->setProperty("mp", mountPoint);
+-        proc->setProperty("pid", pid);
+-        proc->start(QLatin1String(INSTALL_PREFIX"/share/cantata/scripts/mount.cifs.wrapper"),
+-                    QStringList() << path << mountPoint
+-                    << "-o" <<
+-                    (temp ? ("credentials="+temp->fileName()+",") : QString())+
+-                    "uid="+QString::number(uid)+",gid="+QString::number(gid)+
+-                    (445==port || port<1 ? QString() : ",port="+QString::number(port))+
+-                    (temp || user.isEmpty() ? QString() : (",username="+user))+
+-                    (temp || domain.isEmpty() ? QString() : (",domain="+domain))+
+-                    (temp ? QString() : ",password="), QIODevice::WriteOnly);
+-        if (temp) {
+-            tempFiles.insert(proc, temp);
+-        }
+-        procCount++;
+-        return;
+-    }
+-    emit mountStatus(mountPoint, pid, st);
+-}
+-
+-// Control via:
+-//     qdbus --system mpd.cantata.mounter /Mounter mpd.cantata.mounter.umount mountPoint
+-void Mounter::umount(const QString &mountPoint, int pid)
+-{
+-    if (calledFromDBus()) {
+-        registerPid(pid);
+-    }
+-
+-    if (mpOk(mountPoint)) {
+-        QProcess *proc=new QProcess(this);
+-        connect(proc, SIGNAL(finished(int)), SLOT(umountResult(int)));
+-        proc->start("umount", QStringList() << mountPoint);
+-        proc->setProperty("mp", mountPoint);
+-        proc->setProperty("pid", pid);
+-        procCount++;
+-    } else {
+-        emit umountStatus(mountPoint, pid, -1);
+-    }
+-}
+-
+-void Mounter::mountResult(int st)
+-{
+-    QProcess *proc=dynamic_cast<QProcess *>(sender());
+-    qWarning() << "MOUNT RESULT" << st << (void *)proc;
+-    if (proc) {
+-        procCount--;
+-        proc->close();
+-        proc->deleteLater();
+-        if (tempFiles.contains(proc)) {
+-            tempFiles[proc]->close();
+-            tempFiles[proc]->deleteLater();
+-            tempFiles.remove(proc);
+-        }
+-        emit mountStatus(proc->property("mp").toString(), proc->property("pid").toInt(), st);
+-    }
+-    startTimer();
+-}
+-
+-
+-void Mounter::umountResult(int st)
+-{
+-    QProcess *proc=dynamic_cast<QProcess *>(sender());
+-    if (proc) {
+-        procCount--;
+-        proc->close();
+-        proc->deleteLater();
+-        emit umountStatus(proc->property("mp").toString(), proc->property("pid").toInt(), st);
+-    }
+-    startTimer();
+-}
+-
+-void Mounter::startTimer()
+-{
+-    if (!timer) {
+-        timer=new QTimer(this);
+-        connect(timer, SIGNAL(timeout()), SLOT(timeout()));
+-    }
+-    timer->start(30000);
+-}
+-
+-void Mounter::registerPid(int pid)
+-{
+-    pids.insert(pid);
+-    startTimer();
+-}
+-
+-void Mounter::timeout()
+-{
+-    if (procCount!=0) {
+-        startTimer();
+-        return;
+-    }
+-
+-    QSet<int> running;
+-
+-    for (int p: pids) {
+-        if (0==kill(p, 0)) {
+-            running.insert(p);
+-        }
+-    }
+-
+-    pids=running;
+-
+-    if (pids.isEmpty()) {
+-        qApp->exit();
+-        QMap<QObject *, QTemporaryFile *>::ConstIterator it(tempFiles.constBegin());
+-        QMap<QObject *, QTemporaryFile *>::ConstIterator end(tempFiles.constEnd());
+-        for (; it!=end; ++it) {
+-            it.value()->close();
+-            delete it.value();
+-        }
+-        tempFiles.clear();
+-    } else {
+-        startTimer();
+-    }
+-}
+-
+-#include "moc_mounter.cpp"
+diff --git a/devices/mounter/mounter.h b/devices/mounter/mounter.h
+deleted file mode 100644
+index fc3a7aee4..000000000
+--- a/devices/mounter/mounter.h
++++ /dev/null
+@@ -1,69 +0,0 @@
+-/*
+- * Cantata
+- *
+- * Copyright (c) 2011-2018 Craig Drummond <craig.p.drummond@gmail.com>
+- *
+- * ----
+- *
+- * This program is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 2 of the License, or
+- * (at your option) any later version.
+- *
+- * This program is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with this program; see the file COPYING.  If not, write to
+- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+- * Boston, MA 02110-1301, USA.
+- */
+-
+-#ifndef MOUNTER_H
+-#define MOUNTER_H
+-
+-#include <QObject>
+-#include <QMap>
+-#include <QSet>
+-#include <QtDBus>
+-
+-class QTimer;
+-class QTemporaryFile;
+-
+-class Mounter : public QObject, protected QDBusContext
+-{
+-    Q_OBJECT
+-    Q_CLASSINFO("D-Bus Interface", "mpd.cantata.mounter")
+-
+-public:
+-    Mounter(QObject *p=0);
+-    ~Mounter() { }
+-
+-public Q_SLOTS:
+-     Q_NOREPLY void mount(const QString &url, const QString &mountPoint, int uid, int gid, int pid);
+-     Q_NOREPLY void umount(const QString &mountPoint, int pid);
+-
+-private:
+-    void startTimer();
+-    void registerPid(int pid);
+-
+-private Q_SLOTS:
+-    void mountResult(int st);
+-    void umountResult(int st);
+-    void timeout();
+-
+-Q_SIGNALS:
+-    void mountStatus(const QString &src, int pid, int st);
+-    void umountStatus(const QString &src, int pid, int st);
+-
+-private:
+-    QTimer *timer;
+-    int procCount;
+-    QMap<QObject *, QTemporaryFile *> tempFiles;
+-    QSet<int> pids;
+-};
+-
+-#endif
+-
+diff --git a/devices/mounter/mpd.cantata.mounter.conf b/devices/mounter/mpd.cantata.mounter.conf
+deleted file mode 100644
+index dff29a6ce..000000000
+--- a/devices/mounter/mpd.cantata.mounter.conf
++++ /dev/null
+@@ -1,17 +0,0 @@
+-<!DOCTYPE busconfig PUBLIC
+-    "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+-    "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+-<busconfig>
+- <policy user="root">
+-  <allow own="mpd.cantata.mounter"/>
+- </policy>
+- <policy context="default">
+-  <allow send_destination="mpd.cantata.mounter"/>
+-    <allow send_destination="mpd.cantata.mounter"
+-           send_interface="mpd.cantata.mounter"/>
+-    <allow send_destination="mpd.cantata.mounter"
+-           send_interface="org.freedesktop.DBus.Introspectable"/>
+-    <allow send_destination="mpd.cantata.mounter"
+-           send_interface="org.freedesktop.DBus.Properties"/>
+- </policy>
+-</busconfig>
+diff --git a/devices/mounter/mpd.cantata.mounter.service.cmake b/devices/mounter/mpd.cantata.mounter.service.cmake
+deleted file mode 100644
+index 4427e31d6..000000000
+--- a/devices/mounter/mpd.cantata.mounter.service.cmake
++++ /dev/null
+@@ -1,4 +0,0 @@
+-[D-BUS Service]
+-Name=mpd.cantata.mounter
+-Exec=@CMAKE_INSTALL_PREFIX@/lib/cantata/cantata-mounter
+-User=root
+diff --git a/devices/mounter/mpd.cantata.mounter.xml b/devices/mounter/mpd.cantata.mounter.xml
+deleted file mode 100644
+index b6fc55f6f..000000000
+--- a/devices/mounter/mpd.cantata.mounter.xml
++++ /dev/null
+@@ -1,28 +0,0 @@
+-<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+-<node>
+-  <interface name="mpd.cantata.mounter">
+-    <signal name="mountStatus">
+-      <arg name="src" type="s" direction="out"/>
+-      <arg name="pid" type="i" direction="out"/>
+-      <arg name="st" type="i" direction="out"/>
+-    </signal>
+-    <signal name="umountStatus">
+-      <arg name="src" type="s" direction="out"/>
+-      <arg name="pid" type="i" direction="out"/>
+-      <arg name="st" type="i" direction="out"/>
+-    </signal>
+-    <method name="mount">
+-      <arg name="url" type="s" direction="in"/>
+-      <arg name="mountPoint" type="s" direction="in"/>
+-      <arg name="uid" type="i" direction="in"/>
+-      <arg name="gid" type="i" direction="in"/>
+-      <arg name="pid" type="i" direction="in"/>
+-      <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+-    </method>
+-    <method name="umount">
+-      <arg name="mountPoint" type="s" direction="in"/>
+-      <arg name="pid" type="i" direction="in"/>
+-      <annotation name="org.freedesktop.DBus.Method.NoReply" value="true"/>
+-    </method>
+-  </interface>
+-</node>
+diff --git a/devices/remotedevicepropertieswidget.cpp b/devices/remotedevicepropertieswidget.cpp
+index 98ea8e397..f94a82806 100644
+--- a/devices/remotedevicepropertieswidget.cpp
++++ b/devices/remotedevicepropertieswidget.cpp
+@@ -31,8 +31,6 @@
+ #include "config.h"
+ 
+ enum Type {
+-    Type_Samba,
+-    Type_SambaAvahi,
+     Type_SshFs,
+     Type_File
+ };
+@@ -46,29 +44,18 @@ RemoteDevicePropertiesWidget::RemoteDevicePropertiesWidget(QWidget *parent)
+     if (qobject_cast<QTabWidget *>(parent)) {
+         verticalLayout->setMargin(4);
+     }
+-    type->addItem(tr("Samba Share"), (int)Type_Samba);
+-    type->addItem(tr("Samba Share (Auto-discover host and port)"), (int)Type_SambaAvahi);
+     type->addItem(tr("Secure Shell (sshfs)"), (int)Type_SshFs);
+     type->addItem(tr("Locally Mounted Folder"), (int)Type_File);
+ }
+ 
+ void RemoteDevicePropertiesWidget::update(const RemoteFsDevice::Details &d, bool create, bool isConnected)
+ {
+-    int t=create
+-            ? Type_Samba
+-            : d.isLocalFile()
+-                ? Type_File
+-                : d.url.scheme()==RemoteFsDevice::constSshfsProtocol
+-                    ? Type_SshFs
+-                    : d.url.scheme()==RemoteFsDevice::constSambaProtocol
+-                        ? Type_Samba
+-                        : Type_SambaAvahi;
++    int t=d.isLocalFile() ? Type_File : Type_SshFs;
+     setEnabled(d.isLocalFile() || !isConnected);
+     infoLabel->setVisible(create);
+     orig=d;
+     name->setText(d.name);
+     sshPort->setValue(22);
+-    smbPort->setValue(445);
+ 
+     connectionNote->setVisible(!d.isLocalFile() && isConnected);
+     sshFolder->setText(QString());
+@@ -90,39 +77,6 @@ void RemoteDevicePropertiesWidget::update(const RemoteFsDevice::Details &d, bool
+     case Type_File:
+         fileFolder->setText(d.url.path());
+         break;
+-    case Type_Samba: {
+-        smbShare->setText(d.url.path());
+-        if (0!=d.url.port()) {
+-            smbPort->setValue(d.url.port());
+-        }
+-        smbHost->setText(d.url.host());
+-        smbUser->setText(d.url.userName());
+-        smbPassword->setText(d.url.password());
+-        QUrlQuery q(d.url);
+-        if (q.hasQueryItem(RemoteFsDevice::constDomainQuery)) {
+-            smbDomain->setText(q.queryItemValue(RemoteFsDevice::constDomainQuery));
+-        } else {
+-            smbDomain->setText(QString());
+-        }
+-        break;
+-    }
+-    case Type_SambaAvahi: {
+-        smbAvahiShare->setText(d.url.path());
+-        smbAvahiUser->setText(d.url.userName());
+-        smbAvahiPassword->setText(d.url.password());
+-        QUrlQuery q(d.url);
+-        if (q.hasQueryItem(RemoteFsDevice::constDomainQuery)) {
+-            smbAvahiDomain->setText(q.queryItemValue(RemoteFsDevice::constDomainQuery));
+-        } else {
+-            smbAvahiDomain->setText(QString());
+-        }
+-        if (q.hasQueryItem(RemoteFsDevice::constServiceNameQuery)) {
+-            smbAvahiName->setText(q.queryItemValue(RemoteFsDevice::constServiceNameQuery));
+-        } else {
+-            smbAvahiName->setText(QString());
+-        }
+-        break;
+-    }
+     }
+ 
+     name->setEnabled(d.isLocalFile() || !isConnected);
+@@ -142,17 +96,6 @@ void RemoteDevicePropertiesWidget::update(const RemoteFsDevice::Details &d, bool
+     connect(sshPort, SIGNAL(valueChanged(int)), this, SLOT(checkSaveable()));
+     connect(sshExtra, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+     connect(fileFolder, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbHost, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbUser, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbPassword, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbDomain, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbShare, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbPort, SIGNAL(valueChanged(int)), this, SLOT(checkSaveable()));
+-    connect(smbAvahiName, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbAvahiUser, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbAvahiPassword, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbAvahiDomain, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+-    connect(smbAvahiShare, SIGNAL(textChanged(const QString &)), this, SLOT(checkSaveable()));
+     modified=false;
+     setType();
+     checkSaveable();
+@@ -163,9 +106,6 @@ void RemoteDevicePropertiesWidget::setType()
+     if (Type_SshFs==type->itemData(type->currentIndex()).toInt() && 0==sshPort->value()) {
+         sshPort->setValue(22);
+     }
+-    if (Type_Samba==type->itemData(type->currentIndex()).toInt() && 0==smbPort->value()) {
+-        smbPort->setValue(445);
+-    }
+ }
+ 
+ void RemoteDevicePropertiesWidget::checkSaveable()
+@@ -173,9 +113,6 @@ void RemoteDevicePropertiesWidget::checkSaveable()
+     RemoteFsDevice::Details det=details();
+     modified=det!=orig;
+     saveable=!det.isEmpty();
+-    if (saveable && Type_SambaAvahi==type->itemData(type->currentIndex()).toInt()) {
+-        saveable=!smbAvahiName->text().trimmed().isEmpty();
+-    }
+     emit updated();
+ }
+ 
+@@ -204,37 +141,7 @@ RemoteFsDevice::Details RemoteDevicePropertiesWidget::details()
+         det.url.setScheme(RemoteFsDevice::constFileProtocol);
+         break;
+     }
+-    case Type_Samba:
+-        det.url.setHost(smbHost->text().trimmed());
+-        det.url.setUserName(smbUser->text().trimmed());
+-        det.url.setPath(smbShare->text().trimmed());
+-        det.url.setPort(smbPort->value());
+-        det.url.setScheme(RemoteFsDevice::constSambaProtocol);
+-        det.url.setPassword(smbPassword->text().trimmed());
+-        if (!smbDomain->text().trimmed().isEmpty()) {
+-            QUrlQuery q;
+-            q.addQueryItem(RemoteFsDevice::constDomainQuery, smbDomain->text().trimmed());
+-            det.url.setQuery(q);
+-        }
+-        break;
+-    case Type_SambaAvahi:
+-        det.url.setUserName(smbAvahiUser->text().trimmed());
+-        det.url.setPath(smbAvahiShare->text().trimmed());
+-        det.url.setPort(0);
+-        det.url.setScheme(RemoteFsDevice::constSambaAvahiProtocol);
+-        det.url.setPassword(smbAvahiPassword->text().trimmed());
+-        if (!smbDomain->text().trimmed().isEmpty() || !smbAvahiName->text().trimmed().isEmpty()) {
+-            QUrlQuery q;
+-            if (!smbDomain->text().trimmed().isEmpty()) {
+-                q.addQueryItem(RemoteFsDevice::constDomainQuery, smbAvahiDomain->text().trimmed());
+-            }
+-            if (!smbAvahiName->text().trimmed().isEmpty()) {
+-                det.serviceName=smbAvahiName->text().trimmed();
+-                q.addQueryItem(RemoteFsDevice::constServiceNameQuery, det.serviceName);
+-            }
+-            det.url.setQuery(q);
+-        }
+-        break;
++
+     }
+     return det;
+ }
+diff --git a/devices/remotedevicepropertieswidget.ui b/devices/remotedevicepropertieswidget.ui
+index 6a6fc3946..b70f26632 100644
+--- a/devices/remotedevicepropertieswidget.ui
++++ b/devices/remotedevicepropertieswidget.ui
+@@ -62,223 +62,6 @@
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+-        <widget class="QWidget" name="smbPage">
+-         <layout class="QVBoxLayout" name="verticalLayout_3">
+-          <item>
+-           <layout class="QFormLayout" name="formLayout_4">
+-            <item row="0" column="0">
+-             <widget class="BuddyLabel" name="hostLabel_2">
+-              <property name="text">
+-               <string>Host:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbHost</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="0" column="1">
+-             <widget class="LineEdit" name="smbHost"/>
+-            </item>
+-            <item row="1" column="0">
+-             <widget class="BuddyLabel" name="portLabel_2">
+-              <property name="text">
+-               <string>Port:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbPort</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="1" column="1">
+-             <widget class="QSpinBox" name="smbPort">
+-              <property name="maximum">
+-               <number>65535</number>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="2" column="0">
+-             <widget class="BuddyLabel" name="userLabel_2">
+-              <property name="text">
+-               <string>User:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbUser</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="2" column="1">
+-             <widget class="LineEdit" name="smbUser"/>
+-            </item>
+-            <item row="3" column="0">
+-             <widget class="BuddyLabel" name="label_2">
+-              <property name="text">
+-               <string>Domain:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbDomain</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="3" column="1">
+-             <widget class="LineEdit" name="smbDomain"/>
+-            </item>
+-            <item row="4" column="0">
+-             <widget class="BuddyLabel" name="label_3">
+-              <property name="text">
+-               <string>Password:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbPassword</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="4" column="1">
+-             <widget class="LineEdit" name="smbPassword">
+-              <property name="echoMode">
+-               <enum>QLineEdit::Password</enum>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="5" column="0">
+-             <widget class="BuddyLabel" name="folderLabel_2">
+-              <property name="text">
+-               <string>Share:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbShare</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="5" column="1">
+-             <widget class="LineEdit" name="smbShare"/>
+-            </item>
+-           </layout>
+-          </item>
+-          <item>
+-           <widget class="PlainNoteLabel" name="label_4">
+-            <property name="text">
+-             <string>If you enter a password here, it will be stored &lt;b&gt;unencrypted&lt;/b&gt; in Cantata's config file. To have Cantata prompt for the password before accessing the share, set the password to '-'</string>
+-            </property>
+-           </widget>
+-          </item>
+-          <item>
+-           <spacer name="verticalSpacer">
+-            <property name="orientation">
+-             <enum>Qt::Vertical</enum>
+-            </property>
+-            <property name="sizeHint" stdset="0">
+-             <size>
+-              <width>20</width>
+-              <height>14</height>
+-             </size>
+-            </property>
+-           </spacer>
+-          </item>
+-         </layout>
+-        </widget>
+-        <widget class="QWidget" name="smbAvahiPage">
+-         <layout class="QVBoxLayout" name="verticalLayout_3x">
+-          <item>
+-           <layout class="QFormLayout" name="formLayout_4x">
+-            <item row="0" column="0">
+-             <widget class="BuddyLabel" name="hostLabel_2x">
+-              <property name="text">
+-               <string>Service name:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbAvahiName</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="0" column="1">
+-             <widget class="LineEdit" name="smbAvahiName"/>
+-            </item>
+-            <item row="1" column="0">
+-             <widget class="BuddyLabel" name="userLabel_2x">
+-              <property name="text">
+-               <string>User:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbAvahiUser</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="1" column="1">
+-             <widget class="LineEdit" name="smbAvahiUser"/>
+-            </item>
+-            <item row="2" column="0">
+-             <widget class="BuddyLabel" name="label_2x">
+-              <property name="text">
+-               <string>Domain:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbAvahiDomain</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="2" column="1">
+-             <widget class="LineEdit" name="smbAvahiDomain"/>
+-            </item>
+-            <item row="3" column="0">
+-             <widget class="BuddyLabel" name="label_3x">
+-              <property name="text">
+-               <string>Password:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbAvahiPassword</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="3" column="1">
+-             <widget class="LineEdit" name="smbAvahiPassword">
+-              <property name="echoMode">
+-               <enum>QLineEdit::Password</enum>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="4" column="0">
+-             <widget class="BuddyLabel" name="folderLabel_x2">
+-              <property name="text">
+-               <string>Share:</string>
+-              </property>
+-              <property name="buddy">
+-               <cstring>smbAvahiShare</cstring>
+-              </property>
+-             </widget>
+-            </item>
+-            <item row="4" column="1">
+-             <widget class="LineEdit" name="smbAvahiShare"/>
+-            </item>
+-           </layout>
+-          </item>
+-          <item>
+-           <widget class="PlainNoteLabel" name="label_4x">
+-            <property name="text">
+-             <string>If you enter a password here, it will be stored &lt;b&gt;unencrypted&lt;/b&gt; in Cantata's config file. To have Cantata prompt for the password before accessing the share, set the password to '-'</string>
+-            </property>
+-            <property name="wordWrap">
+-             <bool>true</bool>
+-            </property>
+-            <property name="textInteractionFlags">
+-             <set>Qt::NoTextInteraction</set>
+-            </property>
+-           </widget>
+-          </item>
+-          <item>
+-           <spacer name="verticalSpacerx">
+-            <property name="orientation">
+-             <enum>Qt::Vertical</enum>
+-            </property>
+-            <property name="sizeHint" stdset="0">
+-             <size>
+-              <width>20</width>
+-              <height>14</height>
+-             </size>
+-            </property>
+-           </spacer>
+-          </item>
+-         </layout>
+-        </widget>
+         <widget class="QWidget" name="sshPage">
+          <layout class="QVBoxLayout" name="verticalLayout_4">
+           <item>
+@@ -407,7 +190,7 @@
+    <item>
+     <widget class="PlainNoteLabel" name="infoLabel">
+      <property name="text">
+-      <string>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</string>
++      <string>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</string>
+      </property>
+     </widget>
+    </item>
+diff --git a/devices/remotefsdevice.cpp b/devices/remotefsdevice.cpp
+index 9abf6fa13..91c9ba340 100644
+--- a/devices/remotefsdevice.cpp
++++ b/devices/remotefsdevice.cpp
+@@ -32,9 +32,6 @@
+ #include "http/httpserver.h"
+ #include "support/configuration.h"
+ #include "mountpoints.h"
+-#include "mounterinterface.h"
+-#include "avahi/avahi.h"
+-#include "avahi/avahiservice.h"
+ #include <QDBusConnection>
+ #include <QTimer>
+ #include <QProcess>
+@@ -47,10 +44,6 @@
+ const QLatin1String RemoteFsDevice::constPromptPassword("-");
+ const QLatin1String RemoteFsDevice::constSshfsProtocol("sshfs");
+ const QLatin1String RemoteFsDevice::constFileProtocol("file");
+-const QLatin1String RemoteFsDevice::constDomainQuery("domain");
+-const QLatin1String RemoteFsDevice::constSambaProtocol("smb");
+-const QLatin1String RemoteFsDevice::constServiceNameQuery("name");
+-const QLatin1String RemoteFsDevice::constSambaAvahiProtocol("smb-avahi");
+ 
+ static const QLatin1String constCfgPrefix("RemoteFsDevice-");
+ static const QLatin1String constCfgKey("remoteFsDevices");
+@@ -95,14 +88,12 @@ void RemoteFsDevice::Details::save() const
+ 
+ static inline bool isValid(const RemoteFsDevice::Details &d)
+ {
+-    return d.isLocalFile() || RemoteFsDevice::constSshfsProtocol==d.url.scheme() ||
+-           RemoteFsDevice::constSambaProtocol==d.url.scheme() || RemoteFsDevice::constSambaAvahiProtocol==d.url.scheme();
++    return d.isLocalFile() || RemoteFsDevice::constSshfsProtocol==d.url.scheme();
+ }
+ 
+ static inline bool isMountable(const RemoteFsDevice::Details &d)
+ {
+-    return RemoteFsDevice::constSshfsProtocol==d.url.scheme() ||
+-           RemoteFsDevice::constSambaProtocol==d.url.scheme() || RemoteFsDevice::constSambaAvahiProtocol==d.url.scheme();
++    return RemoteFsDevice::constSshfsProtocol==d.url.scheme();
+ }
+ 
+ QList<Device *> RemoteFsDevice::loadAll(MusicLibraryModel *m)
+@@ -168,22 +159,6 @@ void RemoteFsDevice::destroy(bool removeFromConfig)
+     deleteLater();
+ }
+ 
+-void RemoteFsDevice::serviceAdded(const QString &name)
+-{
+-    if (name==details.serviceName && constSambaAvahiProtocol==details.url.scheme()) {
+-        sub=tr("Available");
+-        updateStatus();
+-    }
+-}
+-
+-void RemoteFsDevice::serviceRemoved(const QString &name)
+-{
+-    if (name==details.serviceName && constSambaAvahiProtocol==details.url.scheme()) {
+-        sub=tr("Not Available");
+-        updateStatus();
+-    }
+-}
+-
+ QString RemoteFsDevice::createUdi(const QString &n)
+ {
+     return constCfgPrefix+n;
+@@ -209,7 +184,6 @@ RemoteFsDevice::RemoteFsDevice(MusicLibraryModel *m, const DeviceOptions &option
+     , currentMountStatus(false)
+     , details(d)
+     , proc(0)
+-    , mounterIface(0)
+     , messageSent(false)
+ {
+     opts=options;
+@@ -229,7 +203,6 @@ RemoteFsDevice::RemoteFsDevice(MusicLibraryModel *m, const Details &d)
+     , currentMountStatus(false)
+     , details(d)
+     , proc(0)
+-    , mounterIface(0)
+     , messageSent(false)
+ {
+ //    details.path=Utils::fixPath(details.path);
+@@ -254,20 +227,6 @@ void RemoteFsDevice::toggle()
+     }
+ }
+ 
+-MpdCantataMounterInterface * RemoteFsDevice::mounter()
+-{
+-    if (!mounterIface) {
+-        if (!QDBusConnection::systemBus().interface()->isServiceRegistered(MpdCantataMounterInterface::staticInterfaceName())) {
+-            QDBusConnection::systemBus().interface()->startService(MpdCantataMounterInterface::staticInterfaceName());
+-        }
+-        mounterIface=new MpdCantataMounterInterface(MpdCantataMounterInterface::staticInterfaceName(),
+-                                                              "/Mounter", QDBusConnection::systemBus(), this);
+-        connect(mounterIface, SIGNAL(mountStatus(const QString &, int, int)), SLOT(mountStatus(const QString &, int, int)));
+-        connect(mounterIface, SIGNAL(umountStatus(const QString &, int, int)), SLOT(umountStatus(const QString &, int, int)));
+-    }
+-    return mounterIface;
+-}
+-
+ void RemoteFsDevice::mount()
+ {
+     if (details.isLocalFile()) {
+@@ -280,44 +239,6 @@ void RemoteFsDevice::mount()
+     if (messageSent) {
+         return;
+     }
+-    if (constSambaAvahiProtocol==details.url.scheme()) {
+-        Details det=details;
+-        AvahiService *srv=Avahi::self()->getService(det.serviceName);
+-        if (!srv || srv->getHost().isEmpty() || 0==srv->getPort()) {
+-            emit error(tr("Failed to resolve connection details for %1").arg(details.name));
+-            return;
+-        }
+-        if (constPromptPassword==det.url.password()) {
+-            bool ok=false;
+-            QString passwd=InputDialog::getPassword(QString(), &ok, QApplication::activeWindow());
+-            if (!ok) {
+-                return;
+-            }
+-            det.url.setPassword(passwd);
+-        }
+-        det.url.setScheme(constSambaProtocol);
+-        det.url.setHost(srv->getHost());
+-        det.url.setPort(srv->getPort());
+-        mounter()->mount(det.url.toString(), mountPoint(details, true), getuid(), getgid(), getpid());
+-        setStatusMessage(tr("Connecting..."));
+-        messageSent=true;
+-        return;
+-    }
+-    if (constSambaProtocol==details.url.scheme()) {
+-        Details det=details;
+-        if (constPromptPassword==det.url.password()) {
+-            bool ok=false;
+-            QString passwd=InputDialog::getPassword(QString(), &ok, QApplication::activeWindow());
+-            if (!ok) {
+-                return;
+-            }
+-            det.url.setPassword(passwd);
+-        }
+-        mounter()->mount(det.url.toString(), mountPoint(details, true), getuid(), getgid(), getpid());
+-        setStatusMessage(tr("Connecting..."));
+-        messageSent=true;
+-        return;
+-    }
+ 
+     QString cmd;
+     QStringList args;
+@@ -402,12 +323,6 @@ void RemoteFsDevice::unmount()
+     if (messageSent) {
+         return;
+     }
+-    if (constSambaProtocol==details.url.scheme() || constSambaAvahiProtocol==details.url.scheme()) {
+-        mounter()->umount(mountPoint(details, false), getpid());
+-        setStatusMessage(tr("Disconnecting..."));
+-        messageSent=true;
+-        return;
+-    }
+ 
+     QString cmd;
+     QStringList args;
+@@ -571,26 +486,6 @@ qint64 RemoteFsDevice::freeSpace()
+ 
+ void RemoteFsDevice::load()
+ {
+-    if (RemoteFsDevice::constSambaAvahiProtocol==details.url.scheme()) {
+-        // Start Avahi listener...
+-        Avahi::self();
+-        QUrlQuery q(details.url);
+-        if (q.hasQueryItem(constServiceNameQuery)) {
+-            details.serviceName=q.queryItemValue(constServiceNameQuery);
+-        }
+-
+-        if (!details.serviceName.isEmpty()) {
+-            AvahiService *srv=Avahi::self()->getService(details.serviceName);
+-            if (!srv || srv->getHost().isEmpty()) {
+-                sub=tr("Not Available");
+-            } else {
+-                sub=tr("Available");
+-            }
+-        }
+-        connect(Avahi::self(), SIGNAL(serviceAdded(QString)), SLOT(serviceAdded(QString)));
+-        connect(Avahi::self(), SIGNAL(serviceRemoved(QString)), SLOT(serviceRemoved(QString)));
+-    }
+-
+     if (isConnected()) {
+         setAudioFolder();
+         readOpts(settingsFileName(), opts, true);
+diff --git a/devices/remotefsdevice.h b/devices/remotefsdevice.h
+index 8e2f38aca..a5cdfd538 100644
+--- a/devices/remotefsdevice.h
++++ b/devices/remotefsdevice.h
+@@ -28,7 +28,6 @@
+ #include "config.h"
+ #include <QUrl>
+ 
+-class MpdCantataMounterInterface;
+ class QProcess;
+ class RemoteFsDevice : public FsDevice
+ {
+@@ -66,10 +65,6 @@ class RemoteFsDevice : public FsDevice
+     static const QLatin1String constPromptPassword;
+     static const QLatin1String constSshfsProtocol;
+     static const QLatin1String constFileProtocol;
+-    static const QLatin1String constDomainQuery;
+-    static const QLatin1String constSambaProtocol;
+-    static const QLatin1String constServiceNameQuery;
+-    static const QLatin1String constSambaAvahiProtocol;
+ 
+     static QList<Device *> loadAll(MusicLibraryModel *m);
+     static Device *create(MusicLibraryModel *m, const DeviceOptions &options, const Details &d);
+@@ -96,10 +91,6 @@ class RemoteFsDevice : public FsDevice
+     const Details & getDetails() const { return details; }
+     QString subText() override { return sub; }
+ 
+-private Q_SLOTS:
+-    void serviceAdded(const QString &name);
+-    void serviceRemoved(const QString &name);
+-
+ Q_SIGNALS:
+     void udiChanged();
+     void connectionStateHasChanged(const QString &id, bool connected);
+@@ -111,7 +102,6 @@ private Q_SLOTS:
+ 
+ private:
+     bool isOldSshfs();
+-    MpdCantataMounterInterface * mounter();
+     QString settingsFileName() const;
+ 
+ protected Q_SLOTS:
+@@ -127,7 +117,6 @@ protected Q_SLOTS:
+     Details details;
+     QProcess *proc;
+ //     QString audioFolderSetting;
+-    MpdCantataMounterInterface *mounterIface;
+     bool messageSent;
+     QString sub;
+     friend class DevicesModel;
+diff --git a/translations/blank.ts b/translations/blank.ts
+index cea0280c0..9fa616e6c 100644
+--- a/translations/blank.ts
++++ b/translations/blank.ts
+@@ -6362,17 +6362,7 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation type="unfinished"></translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished"></translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <translation type="unfinished"></translation>
+     </message>
+     <message>
+diff --git a/translations/cantata_cs.ts b/translations/cantata_cs.ts
+index 3ade87c44..e40f32b79 100644
+--- a/translations/cantata_cs.ts
++++ b/translations/cantata_cs.ts
+@@ -1155,14 +1155,6 @@ Please choose a different name.</source>
+ 
+ Vyberte, prosím, jiný název.</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation>Sdílení Samba</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Sdílení Samba (automatické zjištění hostitele a přípojky)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation>Bezpečný shell (sshfs)</translation>
+@@ -4164,11 +4156,11 @@ i18n: ectx: property (text), widget (PlainNoteLabel, label_5)
+         <translation>Kvůli způsobu, jakým sshfs pracuje, bude k zadání hesla vyžadován vhodný program ssh-askpass (ksshaskpass, ssh-askpass-gnome, atd.).</translation>
+     </message>
+     <message>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <extracomment>i18n: file: devices/remotedevicepropertieswidget.ui:410
+ i18n: ectx: property (text), widget (PlainNoteLabel, infoLabel)
+ </extracomment>
+-        <translation>Tento dialog se používá jen pro přidání vzdálených zařízení (např. přes Samba), nebo pro přístup k místně připojeným složkám. Pro běžné přehrávače záznamů, připojené přes USB, Cantata zobrazí zařízení automaticky, když je připojeno.</translation>
++        <translation>Tento dialog se používá jen pro přidání vzdálených zařízení (např. přes sshfs), nebo pro přístup k místně připojeným složkám. Pro běžné přehrávače záznamů, připojené přes USB, Cantata zobrazí zařízení automaticky, když je připojeno.</translation>
+     </message>
+     <message>
+         <source>Name of Dynamic Rules</source>
+@@ -13149,18 +13141,8 @@ Vyberte, prosím, jiný název.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation>Tento dialog se používá jen pro přidání vzdálených zařízení (např. přes Samba), nebo pro přístup k místně připojeným složkám. Pro běžné přehrávače záznamů, připojené přes USB, Cantata zobrazí zařízení automaticky, když je připojeno.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation>Sdílení Samba</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Sdílení Samba (automatické zjištění hostitele a přípojky)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation>Tento dialog se používá jen pro přidání vzdálených zařízení (např. přes sshfs), nebo pro přístup k místně připojeným složkám. Pro běžné přehrávače záznamů, připojené přes USB, Cantata zobrazí zařízení automaticky, když je připojeno.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_da.ts b/translations/cantata_da.ts
+index b4168b266..ad4124d1b 100644
+--- a/translations/cantata_da.ts
++++ b/translations/cantata_da.ts
+@@ -6420,18 +6420,8 @@ Vælg venligst et andet navn.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation>Dialogen bruges kun til at tilføje fjernenheder (f.eks. via Samba), eller til at tilgå mapper som er monteret lokalt. For normale medieafspillere, tilkoblet via USB, vil Cantata automatisk vise enheden når den er tilkoblet.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation>Samba-share</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Samba-share (automatisk opdagelse af vært og port)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation>Dialogen bruges kun til at tilføje fjernenheder (f.eks. via sshfs), eller til at tilgå mapper som er monteret lokalt. For normale medieafspillere, tilkoblet via USB, vil Cantata automatisk vise enheden når den er tilkoblet.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_de.ts b/translations/cantata_de.ts
+index b1bf6c53b..7c6c81e7f 100644
+--- a/translations/cantata_de.ts
++++ b/translations/cantata_de.ts
+@@ -887,14 +887,6 @@ i18n: ectx: property (text), widget (QTreeWidget, tracks)
+         <source>Music Library</source>
+         <translation type="vanished">Musikbibliothek</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Samba-Freigabe</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Samba-Freigabe (Automatisch Host und Port finden)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">Secure Shell (sshfs)</translation>
+@@ -10942,18 +10934,8 @@ Bitte wähle einen anderen Namen.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation>Dieser Dialog dient nur dem Hinzufügen externer Geräte (z. B. via Samba) und dem Öffnen local eingehängter Verzeichnisse. Gewöhnliche über USB verbundene Media-Player zeigt Cantata automatisch an, sobald sie verbunden sind.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation>Samba-Freigabe</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Samba-Freigabe (Host und Port automatisch finden)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation>Dieser Dialog dient nur dem Hinzufügen externer Geräte (z. B. via sshfs) und dem Öffnen local eingehängter Verzeichnisse. Gewöhnliche über USB verbundene Media-Player zeigt Cantata automatisch an, sobald sie verbunden sind.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_en_GB.ts b/translations/cantata_en_GB.ts
+index 6b6cbf6d4..302c9e799 100644
+--- a/translations/cantata_en_GB.ts
++++ b/translations/cantata_en_GB.ts
+@@ -6537,17 +6537,7 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation type="unfinished"></translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished"></translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <translation type="unfinished"></translation>
+     </message>
+     <message>
+diff --git a/translations/cantata_es.ts b/translations/cantata_es.ts
+index 8ceb20d32..d2c68d14b 100644
+--- a/translations/cantata_es.ts
++++ b/translations/cantata_es.ts
+@@ -1027,14 +1027,6 @@ i18n: ectx: property (text), widget (QTreeWidget, tracks)
+         <source>Music Library</source>
+         <translation type="vanished">Biblioteca de música</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Recurso compartido Samba</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Samba Share (Detectar automáticamente host y port)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">Secure Shell (sshfs)</translation>
+@@ -11548,19 +11540,9 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <translation type="unfinished"></translation>
+     </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished">Recurso compartido Samba</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="unfinished">Samba Share (Detectar automáticamente host y port)</translation>
+-    </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+         <source>Secure Shell (sshfs)</source>
+diff --git a/translations/cantata_fr.ts b/translations/cantata_fr.ts
+index d41ee7b46..47f7f3cba 100644
+--- a/translations/cantata_fr.ts
++++ b/translations/cantata_fr.ts
+@@ -1085,14 +1085,6 @@ Please choose a different name.</source>
+ 
+ Veuillez choisir un nom différent.</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="obsolete">Partage Samba</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="obsolete">Partage Samba (découverte automatique de l&apos;hôte et du port)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="obsolete">Secure Shell (sshfs)</translation>
+@@ -12175,18 +12167,8 @@ Veuillez choisir un nom différent.</translation>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+         <location filename="../build/ui_remotedevicepropertieswidget.h" line="450"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation>Cette boite de dialogue n&apos;est utilisée ue pour ajouter des périphériques distants (par exemple via samba) ou pour acceder à des dossiers montés localement. Pour des lecteurs standards, connectés par USB, Cantata les affiche automatiquement lors de leur branchement.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation>Partage Samba</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Partage Samba (découverte automatique de l&apos;hôte et du port)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation>Cette boite de dialogue n&apos;est utilisée ue pour ajouter des périphériques distants (par exemple via sshfs) ou pour acceder à des dossiers montés localement. Pour des lecteurs standards, connectés par USB, Cantata les affiche automatiquement lors de leur branchement.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_hu.ts b/translations/cantata_hu.ts
+index f387608b2..a1d7484c0 100644
+--- a/translations/cantata_hu.ts
++++ b/translations/cantata_hu.ts
+@@ -1143,14 +1143,6 @@ Please choose a different name.</source>
+ 
+ Kérlek válassz másik nevet.</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Szamba-megosztás</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Szamba-megosztás (kiszolgáló és port automatikus felderítése)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">Biztonságos héj (sshfs)</translation>
+@@ -3816,11 +3808,11 @@ i18n: ectx: property (text), widget (PlainNoteLabel, label_5)
+         <translation type="vanished">Az sshfs működéséből eredően jelszó beviteléhez egy megfelelő ssh-askpass alkalamzás  (ksshaskpass, ssh-askpass-gnome, stb.) szükséges.</translation>
+     </message>
+     <message>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <extracomment>i18n: file: devices/remotedevicepropertieswidget.ui:410
+ i18n: ectx: property (text), widget (PlainNoteLabel, infoLabel)
+ </extracomment>
+-        <translation type="vanished">Ez a párbeszéd csak távoli (pl. Samba-n keresztül csatlakozott), vagy helyi csatolású eszközök, hozzáadásához és leválasztásához való. A szokáos, USB-n csatlakozott médialejátszókat a Cantata csatlakozáskor automatikusan megjeleníti.</translation>
++        <translation type="vanished">Ez a párbeszéd csak távoli (pl. sshfs keresztül csatlakozott), vagy helyi csatolású eszközök, hozzáadásához és leválasztásához való. A szokáos, USB-n csatlakozott médialejátszókat a Cantata csatlakozáskor automatikusan megjeleníti.</translation>
+     </message>
+     <message>
+         <source>Name of Dynamic Rules</source>
+@@ -12429,18 +12421,8 @@ Kérlek válassz másik nevet.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation type="unfinished">Ez a párbeszéd csak távoli (pl. Samba-n keresztül csatlakozott), vagy helyi csatolású eszközök, hozzáadásához és leválasztásához való. A szokáos, USB-n csatlakozott médialejátszókat a Cantata csatlakozáskor automatikusan megjeleníti.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished">Szamba-megosztás</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="unfinished">Szamba-megosztás (kiszolgáló és port automatikus felderítése)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation type="unfinished">Ez a párbeszéd csak távoli (pl. sshfs keresztül csatlakozott), vagy helyi csatolású eszközök, hozzáadásához és leválasztásához való. A szokáos, USB-n csatlakozott médialejátszókat a Cantata csatlakozáskor automatikusan megjeleníti.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_it.ts b/translations/cantata_it.ts
+index 08c7d847a..26ccfc9de 100644
+--- a/translations/cantata_it.ts
++++ b/translations/cantata_it.ts
+@@ -6606,18 +6606,8 @@ Prego scegliere un nome diverso.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation>Questa finestra viene usata solamente per aggiungere dispositivi remoti (es. tramite Samba), o per accedere a cartelle montate localmente. Per i lettori musicali normali collegati via USB, Cantata mostrerà automaticamente quando il dispositivo è collegato.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation>Condivisione Samba</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Samba Share (Trova automaticamente host e porta)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation>Questa finestra viene usata solamente per aggiungere dispositivi remoti (es. tramite sshfs), o per accedere a cartelle montate localmente. Per i lettori musicali normali collegati via USB, Cantata mostrerà automaticamente quando il dispositivo è collegato.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_ja.ts b/translations/cantata_ja.ts
+index 2462058ea..72fe896f5 100644
+--- a/translations/cantata_ja.ts
++++ b/translations/cantata_ja.ts
+@@ -1147,14 +1147,6 @@ Please choose a different name.</source>
+ 
+ 他の名前を選択してください。</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Samba 共有</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Samba 共有(ホストとポートを自動検索)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">Secure Shell (sshfs)</translation>
+@@ -4062,11 +4054,11 @@ i18n: ectx: property (text), widget (PlainNoteLabel, label_5)
+         <translation type="vanished">sshfsの仕組みのため、適切なssh-askpassアプリケーション（ksshaskpass、ssh-askpass-gnomeなど）がパスワードを入力する必要があります。</translation>
+     </message>
+     <message>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <extracomment>i18n: file: devices/remotedevicepropertieswidget.ui:410
+ i18n: ectx: property (text), widget (PlainNoteLabel, infoLabel)
+ </extracomment>
+-        <translation type="vanished">このダイアログは、リモートデバイスを（Samba経由などで）追加する場合や、ローカルにマウントされたフォルダにアクセスする場合にのみ使用します。 USBを介して接続された通常のメディアプレーヤーの場合、Cantataはデバイスが接続されると自動的にデバイスを表示します。</translation>
++        <translation type="vanished">このダイアログは、リモートデバイスを（sshfs経由などで）追加する場合や、ローカルにマウントされたフォルダにアクセスする場合にのみ使用します。 USBを介して接続された通常のメディアプレーヤーの場合、Cantataはデバイスが接続されると自動的にデバイスを表示します。</translation>
+     </message>
+     <message>
+         <source>Name of Dynamic Rules</source>
+@@ -12900,18 +12892,8 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation type="unfinished">このダイアログは、リモートデバイスを（Samba経由などで）追加する場合や、ローカルにマウントされたフォルダにアクセスする場合にのみ使用します。 USBを介して接続された通常のメディアプレーヤーの場合、Cantataはデバイスが接続されると自動的にデバイスを表示します。</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished">Samba 共有</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="unfinished">Samba 共有(ホストとポートを自動検索)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation type="unfinished">このダイアログは、リモートデバイスを（sshfs経由などで）追加する場合や、ローカルにマウントされたフォルダにアクセスする場合にのみ使用します。 USBを介して接続された通常のメディアプレーヤーの場合、Cantataはデバイスが接続されると自動的にデバイスを表示します。</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_ko.ts b/translations/cantata_ko.ts
+index 4bec6ac38..adfd04b6a 100644
+--- a/translations/cantata_ko.ts
++++ b/translations/cantata_ko.ts
+@@ -1155,14 +1155,6 @@ Please choose a different name.</source>
+ 
+ 다른 이름을 선택해야 합니다.</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">삼바 공유</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">삼바 공유 (호스트와 포트 자동 검색)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">보안 셸 (sshfs)</translation>
+@@ -4144,11 +4136,11 @@ i18n: ectx: property (text), widget (PlainNoteLabel, label_5)
+         <translation type="vanished">sshfs의 작동 원리에 따라, 비밀번호 입력을 위해서는 적당한 ssh-askpass 응용프로그램 (ksshaskpass, ssh-askpass-gnome, 등.)이 필요합니다.</translation>
+     </message>
+     <message>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <extracomment>i18n: file: devices/remotedevicepropertieswidget.ui:410
+ i18n: ectx: property (text), widget (PlainNoteLabel, infoLabel)
+ </extracomment>
+-        <translation type="vanished">이 대화상자는 원격장치를 추가(예. Samba)하거나 로컬 마운트된 폴더에 연결할 때만 사용됩니다. 일반 미디어 연주기나 USB 장치는 연결되면 자동으로 표시됩니다.</translation>
++        <translation type="vanished">이 대화상자는 원격장치를 추가(예. sshfs)하거나 로컬 마운트된 폴더에 연결할 때만 사용됩니다. 일반 미디어 연주기나 USB 장치는 연결되면 자동으로 표시됩니다.</translation>
+     </message>
+     <message>
+         <source>Name of Dynamic Rules</source>
+@@ -13098,18 +13090,8 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation type="unfinished">이 대화상자는 원격장치를 추가(예. Samba)하거나 로컬 마운트된 폴더에 연결할 때만 사용됩니다. 일반 미디어 연주기나 USB 장치는 연결되면 자동으로 표시됩니다.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished">삼바 공유</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="unfinished">삼바 공유 (호스트와 포트 자동 검색)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation type="unfinished">이 대화상자는 원격장치를 추가(예. sshfs)하거나 로컬 마운트된 폴더에 연결할 때만 사용됩니다. 일반 미디어 연주기나 USB 장치는 연결되면 자동으로 표시됩니다.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_pl.ts b/translations/cantata_pl.ts
+index 664dd913d..68545ed38 100644
+--- a/translations/cantata_pl.ts
++++ b/translations/cantata_pl.ts
+@@ -1170,14 +1170,6 @@ Please choose a different name.</source>
+ 
+ Proszę wybrać inną nazwę.</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Udziały Samby</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Udziały Samby (Automatycznie wykryj hosta i porty)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">Bezpieczna powłoka (sshfs)</translation>
+@@ -4181,11 +4173,11 @@ i18n: ectx: property (text), widget (PlainNoteLabel, label_5)
+         <translation type="vanished">W związku z mechanizmem działania sshfs, odpowiednia aplikacja typu ssh-askpass (ksshaskpass, ssh-askpass-gnome, itp.) konieczna jest do wpisania hasła.</translation>
+     </message>
+     <message>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <extracomment>i18n: file: devices/remotedevicepropertieswidget.ui:410
+ i18n: ectx: property (text), widget (PlainNoteLabel, infoLabel)
+ </extracomment>
+-        <translation type="vanished">To okno dialogowe jest używane jedynie do dodawania zdalnych urządzeń (np. za pomocą protokołu Samba) albo w celu dostępu do lokalnie zamontowanych katalogów. W przypadku normalnych odtwarzaczy mediów podłączonych przez USB Cantata automatycznie wyświetli urządzenie gdy będzie ono podłączone.</translation>
++        <translation type="vanished">To okno dialogowe jest używane jedynie do dodawania zdalnych urządzeń (np. za pomocą protokołu sshfs) albo w celu dostępu do lokalnie zamontowanych katalogów. W przypadku normalnych odtwarzaczy mediów podłączonych przez USB Cantata automatycznie wyświetli urządzenie gdy będzie ono podłączone.</translation>
+     </message>
+     <message>
+         <source>Name of Dynamic Rules</source>
+@@ -13176,18 +13168,8 @@ Proszę wybrać inną nazwę.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation>To okno dialogowe jest używane jedynie do dodawania zdalnych urządzeń (np. za pomocą protokołu Samba) albo w celu dostępu do lokalnie zamontowanych katalogów. W przypadku normalnych odtwarzaczy mediów podłączonych przez USB Cantata automatycznie wyświetli urządzenie gdy będzie ono podłączone.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation>Udziały Samby</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation>Udziały Samby (Automatycznie wykryj hosta i porty)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation>To okno dialogowe jest używane jedynie do dodawania zdalnych urządzeń (np. za pomocą protokołu sshfs) albo w celu dostępu do lokalnie zamontowanych katalogów. W przypadku normalnych odtwarzaczy mediów podłączonych przez USB Cantata automatycznie wyświetli urządzenie gdy będzie ono podłączone.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_ru.ts b/translations/cantata_ru.ts
+index 7fb03e899..ede35dc0f 100644
+--- a/translations/cantata_ru.ts
++++ b/translations/cantata_ru.ts
+@@ -1143,14 +1143,6 @@ Please choose a different name.</source>
+ 
+ Выберите другое название.</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Общий ресурс Samba</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Общий ресурс Samba (авто-определение порта и хоста)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">Secure Shell (sshfs)</translation>
+@@ -3836,11 +3828,11 @@ i18n: ectx: property (text), widget (PlainNoteLabel, label_5)
+         <translation type="vanished">В связи с особенностями работы sshfs, для ввода пароля требуется подходящее приложение ssh-askpass (ksshaskpass, ssh-askpass-gnome, и т.п.).</translation>
+     </message>
+     <message>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <extracomment>i18n: file: devices/remotedevicepropertieswidget.ui:410
+ i18n: ectx: property (text), widget (PlainNoteLabel, infoLabel)
+ </extracomment>
+-        <translation type="vanished">Этот диалог используется только для добавления удалённых устройств (например, с помощью Samba) или для доступа к локально смонтированным папкам. Обычные устройства, подключенные через USB, Cantata показывает автоматически в момент подключения.</translation>
++        <translation type="vanished">Этот диалог используется только для добавления удалённых устройств (например, с помощью sshfs) или для доступа к локально смонтированным папкам. Обычные устройства, подключенные через USB, Cantata показывает автоматически в момент подключения.</translation>
+     </message>
+     <message>
+         <source>Name of Dynamic Rules</source>
+@@ -12481,18 +12473,8 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+-        <translation type="unfinished">Этот диалог используется только для добавления удалённых устройств (например, с помощью Samba) или для доступа к локально смонтированным папкам. Обычные устройства, подключенные через USB, Cantata показывает автоматически в момент подключения.</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished">Общий ресурс Samba</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="unfinished">Общий ресурс Samba (авто-определение порта и хоста)</translation>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <translation type="unfinished">Этот диалог используется только для добавления удалённых устройств (например, с помощью sshfs) или для доступа к локально смонтированным папкам. Обычные устройства, подключенные через USB, Cantata показывает автоматически в момент подключения.</translation>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+diff --git a/translations/cantata_zh_CN.ts b/translations/cantata_zh_CN.ts
+index f7ba420af..f7d2716c4 100644
+--- a/translations/cantata_zh_CN.ts
++++ b/translations/cantata_zh_CN.ts
+@@ -584,14 +584,6 @@ i18n: ectx: property (text), widget (QTreeWidget, tracks)
+         <source>Music Library</source>
+         <translation type="vanished">音乐库</translation>
+     </message>
+-    <message>
+-        <source>Samba Share</source>
+-        <translation type="vanished">Samba 共享</translation>
+-    </message>
+-    <message>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="vanished">Samba 共享(自动设置主机名和端口)</translation>
+-    </message>
+     <message>
+         <source>Secure Shell (sshfs)</source>
+         <translation type="vanished">安全 Shell (sshfs)</translation>
+@@ -8984,19 +8976,9 @@ Please choose a different name.</source>
+     </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.ui" line="410"/>
+-        <source>This dialog is only used to add remote devices (e.g. via Samba), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
++        <source>This dialog is only used to add remote devices (e.g. via sshfs), or to access locally mounted folders. For normal media players, attached via USB, Cantata will automatically display the device when it is attached.</source>
+         <translation type="unfinished"></translation>
+     </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="49"/>
+-        <source>Samba Share</source>
+-        <translation type="unfinished">Samba 共享</translation>
+-    </message>
+-    <message>
+-        <location filename="../devices/remotedevicepropertieswidget.cpp" line="50"/>
+-        <source>Samba Share (Auto-discover host and port)</source>
+-        <translation type="unfinished">Samba 共享(自动设置主机名和端口)</translation>
+-    </message>
+     <message>
+         <location filename="../devices/remotedevicepropertieswidget.cpp" line="51"/>
+         <source>Secure Shell (sshfs)</source>
