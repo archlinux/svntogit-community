@@ -4,7 +4,7 @@
 pkgbase=python-distro
 pkgname=('python-distro' 'python2-distro')
 pkgver=1.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux OS platform information API'
 url='https://github.com/nir0s/distro'
 arch=('any')
