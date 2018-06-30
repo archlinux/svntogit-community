@@ -5,7 +5,7 @@
 pkgbase=python-distutils-extra
 pkgname=('python-distutils-extra' 'python2-distutils-extra')
 pkgver=2.39
-pkgrel=2
+pkgrel=3
 pkgdesc='Enhancements to the Python build system'
 arch=('any')
 license=('GPL')
