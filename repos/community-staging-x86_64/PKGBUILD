@@ -1,0 +1,75 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+
+_pyname=bluepy-v
+pkgbase=python-bluepy
+pkgname=('python-bluepy' 'python2-bluepy')
+pkgver=1.1.4
+pkgrel=2
+pkgdesc='Python module for interfacing with Bluetooth LE devices through Bluez'
+url='https://github.com/IanHarvey/bluepy'
+arch=('x86_64')
+license=('GPL2')
+makedepends=('bluez' 'glib2'
+             'python' 'python-setuptools' 'python-sphinx'
+             'python2' 'python2-setuptools' 'python2-sphinx')
+options=('!makeflags')
+source=(${pkgbase}-${pkgver}.tar.gz::https://github.com/IanHarvey/bluepy/archive/v/${pkgver}.tar.gz)
+sha256sums=('55495d1c4b308199d4f648bb9c6a1b9ac636a279d55e142c62fa490727054620')
+sha512sums=('39ae486dab32c88a3c0a0ca8ba9b96be0682ea6c1ba56a5e58de873e2c1364066ddbe0f32bdd1a42a0e9bbadd6d9fe2e951868d15ebff5c1fff0c5b8132f6b25')
+
+prepare() {
+  (cd ${_pyname}-${pkgver}
+    sed 's|CFLAGS =|CFLAGS +=|g' -i bluepy/Makefile
+    sed 's|CPPFLAGS =|CPPFLAGS +=|g' -i bluepy/Makefile
+    sed 's| $(LDLIBS)| $(LDFLAGS) $(LDLIBS)|g' -i bluepy/Makefile
+  )
+  cp -a ${_pyname}-${pkgver}{,-py2}
+  (cd ${_pyname}-${pkgver}-py2
+    sed 's|env python$|env python2|g' -i bluepy/*.py
+    sed 's|/usr/bin/python$|/usr/bin/python2|g' -i bluepy/*.py
+  )
+}
+
+build() {
+  msg2 "Building python..."
+  (cd ${_pyname}-${pkgver}
+    python setup.py build
+    make -C bluepy
+    make -C docs man text SPHINXBUILD=sphinx-build
+  )
+  msg2 "Building python2..."
+  (cd ${_pyname}-${pkgver}-py2
+    python2 setup.py build
+    make -C bluepy
+    make -C docs man text SPHINXBUILD=sphinx-build2
+  )
+}
+
+package_python-bluepy() {
+  depends=('python' 'python-setuptools' 'bluez' 'glib2')
+  cd ${_pyname}-${pkgver}
+  # install
+  python setup.py install --root="${pkgdir}" --prefix=/usr -O1 --skip-build
+  install -Dm 644 README.md docs/_build/text/*.txt -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 docs/_build/man/bluepy.1 "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+  install -Dm 755 bluepy/bluepy-helper -t "${pkgdir}"/usr/lib/python*/site-packages/bluepy
+  # cleanup
+  rm "${pkgdir}"/usr/lib/python*/site-packages/bluepy/{bluez-src.tgz,Makefile,bluepy-helper.c}
+}
+
+package_python2-bluepy() {
+  depends=('python2' 'python2-setuptools' 'bluez' 'glib2')
+  cd ${_pyname}-${pkgver}-py2
+  # install
+  python2 setup.py install --root="${pkgdir}" --prefix=/usr -O1 --skip-build
+  install -Dm 644 README.md docs/_build/text/*.txt -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 docs/_build/man/bluepy.1 "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+  install -Dm 755 bluepy/bluepy-helper -t "${pkgdir}"/usr/lib/python*/site-packages/bluepy
+  # cleanup
+  rm "${pkgdir}"/usr/lib/python*/site-packages/bluepy/{bluez-src.tgz,Makefile,bluepy-helper.c}
+  for prog in blescan sensortag thingy52; do
+    mv "${pkgdir}/usr/bin/${prog}"{,-py2}
+  done
+}
+
+# vim: ts=2 sw=2 et:
