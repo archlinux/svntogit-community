@@ -1,0 +1,281 @@
+From 0a88d19ddf29b461b819b66e49ea313c89ab576c Mon Sep 17 00:00:00 2001
+From: Diego Oliveira <contato@diegoholiveira.com>
+Date: Sat, 26 May 2018 10:22:42 -0300
+Subject: [PATCH 1/6] Move the module async to _async
+
+---
+ gunicorn/workers/{async.py => _async.py} | 0
+ gunicorn/workers/geventlet.py            | 2 +-
+ gunicorn/workers/ggevent.py              | 2 +-
+ 3 files changed, 2 insertions(+), 2 deletions(-)
+ rename gunicorn/workers/{async.py => _async.py} (100%)
+
+diff --git a/gunicorn/workers/async.py b/gunicorn/workers/_async.py
+similarity index 100%
+rename from gunicorn/workers/async.py
+rename to gunicorn/workers/_async.py
+diff --git a/gunicorn/workers/geventlet.py b/gunicorn/workers/geventlet.py
+index f0bb06495..0c0fa1dcb 100644
+--- a/gunicorn/workers/geventlet.py
++++ b/gunicorn/workers/geventlet.py
+@@ -24,7 +24,7 @@
+ import greenlet
+ 
+ from gunicorn.http.wsgi import sendfile as o_sendfile
+-from gunicorn.workers.async import AsyncWorker
++from gunicorn.workers._async import AsyncWorker
+ 
+ def _eventlet_sendfile(fdout, fdin, offset, nbytes):
+     while True:
+diff --git a/gunicorn/workers/ggevent.py b/gunicorn/workers/ggevent.py
+index 34ee72a82..ac9011bef 100644
+--- a/gunicorn/workers/ggevent.py
++++ b/gunicorn/workers/ggevent.py
+@@ -27,7 +27,7 @@
+ 
+ import gunicorn
+ from gunicorn.http.wsgi import base_environ
+-from gunicorn.workers.async import AsyncWorker
++from gunicorn.workers._async import AsyncWorker
+ from gunicorn.http.wsgi import sendfile as o_sendfile
+ 
+ VERSION = "gevent/%s gunicorn/%s" % (gevent.__version__, gunicorn.__version__)
+
+From 43e31c366b79d9e212bcbc9ad7bae788539bd62f Mon Sep 17 00:00:00 2001
+From: Diego Oliveira <contato@diegoholiveira.com>
+Date: Sat, 26 May 2018 10:42:15 -0300
+Subject: [PATCH 2/6] Fix gaiohttp worker
+
+---
+ .gitignore                    | 2 ++
+ THANKS                        | 1 +
+ docs/source/news.rst          | 8 ++++++++
+ gunicorn/workers/__init__.py  | 2 +-
+ gunicorn/workers/_gaiohttp.py | 2 +-
+ requirements_test.txt         | 4 ++--
+ tests/test_gaiohttp.py        | 2 +-
+ 7 files changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/THANKS b/THANKS
+index f23b74ed0..ff271ad13 100644
+--- a/THANKS
++++ b/THANKS
+@@ -49,6 +49,7 @@ Dariusz Suchojad <dsuch-github@m.zato.io>
+ David Vincelli <david@freshbooks.com>
+ David Wolever <david@wolever.net>
+ Denis Bilenko <denis.bilenko@gmail.com>
++Diego Oliveira <contact@diegoholiveira.com>
+ Dima Barsky <github@kappa.ac93.org>
+ Djoume Salvetti <djoume@freshbooks.com>
+ Dmitry Medvinsky <me@dmedvinsky.name>
+diff --git a/docs/source/news.rst b/docs/source/news.rst
+index 3d90aead2..eb9c4e498 100644
+--- a/docs/source/news.rst
++++ b/docs/source/news.rst
+@@ -2,6 +2,14 @@
+ Changelog
+ =========
+ 
++19.9.0 / 2018/05/26
++===================
++
++- the internal module `gunicorn.workers.async` was renamed to `gunicorn.workers.async`
++  since ``async`` is now a reserved word in Python 3.7
++  (:pr:`1527`)
++
++
+ 19.8.1 / 2018/04/30
+ ===================
+ 
+diff --git a/gunicorn/workers/__init__.py b/gunicorn/workers/__init__.py
+index 05a3e286a..fceaa03c1 100644
+--- a/gunicorn/workers/__init__.py
++++ b/gunicorn/workers/__init__.py
+@@ -17,6 +17,6 @@
+ }
+ 
+ 
+-if sys.version_info >= (3, 3):
++if sys.version_info >= (3, 4):
+     # gaiohttp worker can be used with Python 3.3+ only.
+     SUPPORTED_WORKERS["gaiohttp"] = "gunicorn.workers.gaiohttp.AiohttpWorker"
+diff --git a/gunicorn/workers/_gaiohttp.py b/gunicorn/workers/_gaiohttp.py
+index cdce4be75..fe378c351 100644
+--- a/gunicorn/workers/_gaiohttp.py
++++ b/gunicorn/workers/_gaiohttp.py
+@@ -46,7 +46,7 @@ def init_process(self):
+         super().init_process()
+ 
+     def run(self):
+-        self._runner = asyncio.async(self._run(), loop=self.loop)
++        self._runner = asyncio.ensure_future(self._run(), loop=self.loop)
+ 
+         try:
+             self.loop.run_until_complete(self._runner)
+diff --git a/requirements_test.txt b/requirements_test.txt
+index a99b558bf..30cce5ed5 100644
+--- a/requirements_test.txt
++++ b/requirements_test.txt
+@@ -1,3 +1,3 @@
+ coverage>=4.0,<4.4  # TODO: https://github.com/benoitc/gunicorn/issues/1548
+-pytest==3.0.5
+-pytest-cov==2.4.0
++pytest
++pytest-cov
+diff --git a/tests/test_gaiohttp.py b/tests/test_gaiohttp.py
+index 6a08c413d..e58f36c10 100644
+--- a/tests/test_gaiohttp.py
++++ b/tests/test_gaiohttp.py
+@@ -50,7 +50,7 @@ def test_run(self, m_asyncio):
+         self.worker.loop = mock.Mock()
+         self.worker.run()
+ 
+-        self.assertTrue(m_asyncio.async.called)
++        self.assertTrue(m_asyncio.ensure_future.called)
+         self.assertTrue(self.worker.loop.run_until_complete.called)
+         self.assertTrue(self.worker.loop.close.called)
+ 
+
+From 5a82e7c068ecf01cbdb4d59848149a44a8c6b35f Mon Sep 17 00:00:00 2001
+From: Diego Oliveira <contato@diegoholiveira.com>
+Date: Sat, 26 May 2018 17:11:33 -0300
+Subject: [PATCH 3/6] Change _async to base_async
+
+---
+ docs/source/news.rst                          | 2 +-
+ gunicorn/workers/{_async.py => base_async.py} | 0
+ gunicorn/workers/geventlet.py                 | 2 +-
+ gunicorn/workers/ggevent.py                   | 2 +-
+ 4 files changed, 3 insertions(+), 3 deletions(-)
+ rename gunicorn/workers/{_async.py => base_async.py} (100%)
+
+diff --git a/docs/source/news.rst b/docs/source/news.rst
+index eb9c4e498..ae28a7cba 100644
+--- a/docs/source/news.rst
++++ b/docs/source/news.rst
+@@ -5,7 +5,7 @@ Changelog
+ 19.9.0 / 2018/05/26
+ ===================
+ 
+-- the internal module `gunicorn.workers.async` was renamed to `gunicorn.workers.async`
++- the internal module `gunicorn.workers.async` was renamed to `gunicorn.workers.base_async`
+   since ``async`` is now a reserved word in Python 3.7
+   (:pr:`1527`)
+ 
+diff --git a/gunicorn/workers/_async.py b/gunicorn/workers/base_async.py
+similarity index 100%
+rename from gunicorn/workers/_async.py
+rename to gunicorn/workers/base_async.py
+diff --git a/gunicorn/workers/geventlet.py b/gunicorn/workers/geventlet.py
+index 0c0fa1dcb..189062c89 100644
+--- a/gunicorn/workers/geventlet.py
++++ b/gunicorn/workers/geventlet.py
+@@ -24,7 +24,7 @@
+ import greenlet
+ 
+ from gunicorn.http.wsgi import sendfile as o_sendfile
+-from gunicorn.workers._async import AsyncWorker
++from gunicorn.workers.base_async import AsyncWorker
+ 
+ def _eventlet_sendfile(fdout, fdin, offset, nbytes):
+     while True:
+diff --git a/gunicorn/workers/ggevent.py b/gunicorn/workers/ggevent.py
+index ac9011bef..fb9d91947 100644
+--- a/gunicorn/workers/ggevent.py
++++ b/gunicorn/workers/ggevent.py
+@@ -27,7 +27,7 @@
+ 
+ import gunicorn
+ from gunicorn.http.wsgi import base_environ
+-from gunicorn.workers._async import AsyncWorker
++from gunicorn.workers.base_async import AsyncWorker
+ from gunicorn.http.wsgi import sendfile as o_sendfile
+ 
+ VERSION = "gevent/%s gunicorn/%s" % (gevent.__version__, gunicorn.__version__)
+
+From 72dde4336ddd9f9f53410011ad35ada866a93c4f Mon Sep 17 00:00:00 2001
+From: Diego Oliveira <contato@diegoholiveira.com>
+Date: Sun, 3 Jun 2018 11:38:39 -0300
+Subject: [PATCH 4/6] Fix style issues and revert some unrelated changes
+
+---
+ .gitignore            | 2 --
+ docs/source/news.rst  | 4 ++--
+ requirements_test.txt | 4 ++--
+ 3 files changed, 4 insertions(+), 6 deletions(-)
+
+diff --git a/docs/source/news.rst b/docs/source/news.rst
+index ae28a7cba..0d7b494dd 100644
+--- a/docs/source/news.rst
++++ b/docs/source/news.rst
+@@ -2,10 +2,10 @@
+ Changelog
+ =========
+ 
+-19.9.0 / 2018/05/26
++19.9.0 / not released
+ ===================
+ 
+-- the internal module `gunicorn.workers.async` was renamed to `gunicorn.workers.base_async`
++- The internal module ``gunicorn.workers.async`` was renamed to ``gunicorn.workers.base_async``
+   since ``async`` is now a reserved word in Python 3.7
+   (:pr:`1527`)
+ 
+diff --git a/requirements_test.txt b/requirements_test.txt
+index 30cce5ed5..a99b558bf 100644
+--- a/requirements_test.txt
++++ b/requirements_test.txt
+@@ -1,3 +1,3 @@
+ coverage>=4.0,<4.4  # TODO: https://github.com/benoitc/gunicorn/issues/1548
+-pytest
+-pytest-cov
++pytest==3.0.5
++pytest-cov==2.4.0
+
+From 07dc7167003d231364991416080367cf103a2c26 Mon Sep 17 00:00:00 2001
+From: Berker Peksag <berker.peksag@gmail.com>
+Date: Sun, 3 Jun 2018 18:35:23 +0300
+Subject: [PATCH 5/6] markup tweaks
+
+---
+ docs/source/news.rst | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/docs/source/news.rst b/docs/source/news.rst
+index 0d7b494dd..05a4b4139 100644
+--- a/docs/source/news.rst
++++ b/docs/source/news.rst
+@@ -3,10 +3,10 @@ Changelog
+ =========
+ 
+ 19.9.0 / not released
+-===================
++=====================
+ 
+ - The internal module ``gunicorn.workers.async`` was renamed to ``gunicorn.workers.base_async``
+-  since ``async`` is now a reserved word in Python 3.7
++  since ``async`` is now a reserved word in Python 3.7.
+   (:pr:`1527`)
+ 
+ 
+
+From d338fe16f897b81b70bd4c4b6377f6ad269aca58 Mon Sep 17 00:00:00 2001
+From: Diego Oliveira <contato@diegoholiveira.com>
+Date: Sat, 9 Jun 2018 08:39:25 -0300
+Subject: [PATCH 6/6] Fix comment about python version
+
+---
+ gunicorn/workers/__init__.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/gunicorn/workers/__init__.py b/gunicorn/workers/__init__.py
+index fceaa03c1..074e0012e 100644
+--- a/gunicorn/workers/__init__.py
++++ b/gunicorn/workers/__init__.py
+@@ -18,5 +18,5 @@
+ 
+ 
+ if sys.version_info >= (3, 4):
+-    # gaiohttp worker can be used with Python 3.3+ only.
++    # gaiohttp worker can be used with Python 3.4+ only.
+     SUPPORTED_WORKERS["gaiohttp"] = "gunicorn.workers.gaiohttp.AiohttpWorker"
