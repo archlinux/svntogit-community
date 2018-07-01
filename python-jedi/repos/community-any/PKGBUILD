@@ -5,7 +5,7 @@
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
 pkgver=0.12.0
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
