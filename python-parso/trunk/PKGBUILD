@@ -4,7 +4,7 @@ _pkgbase=parso
 pkgbase=python-parso
 pkgname=('python-parso' 'python2-parso')
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Python parser that supports error recovery and round-trip parsing for different Python versions"
 arch=('any')
 url="https://github.com/davidhalter/parso"
@@ -24,7 +24,7 @@ package_python-parso() {
   cd "$_pkgbase-$pkgver"
   python3 setup.py install --root="$pkgdir/" --optimize=1
 
-  install -D -m644 LICENSE.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
+  install -D -m644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 package_python2-parso() {
@@ -32,5 +32,5 @@ package_python2-parso() {
   cd "$_pkgbase-$pkgver"
   python2 setup.py install --root="$pkgdir/" --optimize=1
 
-  install -D -m644 LICENSE.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
+  install -D -m644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
