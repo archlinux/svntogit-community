@@ -1,0 +1,53 @@
+# $Id$
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Thomas Dziedzic <gostrc@gmail.com>
+
+_hkgname=network
+pkgname=haskell-network
+pkgver=2.7.0.1
+pkgrel=4
+pkgdesc="Low-level networking interface"
+url="https://hackage.haskell.org/package/${_hkgname}"
+license=('custom:BSD3')
+arch=('x86_64')
+depends=('ghc-libs')
+makedepends=('ghc' 'haskell-doctest' 'haskell-hspec' 'haskell-hunit')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz"
+        https://github.com/kazu-yamamoto/network/commit/abb514140cb1bb22c8c03fdf4b8ad10253712ddd.patch)
+sha512sums=('87d8f65bcf5c1b41e26bc18bdb1014a73413c7950adff349c409232dd832aa906b9b2b3f46a04adbc14aba0c6a762646dc6c9966a67fbd66daef7e536ef25cbd'
+            'cfe182407ddfc0352efc7ee3e406e3fd995fde14cc1c2ae161a26b87c55cd68bd693bcbf8f35b337ee52da572beea17842c7ab6aad6909915f2d2d647114c764')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    # https://github.com/haskell/network/issues/334#issuecomment-400192992
+    patch -p1 -i ../abb514140cb1bb22c8c03fdf4b8ad10253712ddd.patch
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    # https://github.com/haskell/network/issues/333#issuecomment-400173091
+    runhaskell Setup test || warning "Tests failed"
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
