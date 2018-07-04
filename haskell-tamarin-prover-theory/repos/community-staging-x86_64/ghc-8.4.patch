@@ -1,0 +1,329 @@
+diff --git a/lib/term/src/Term/Maude/Signature.hs b/lib/term/src/Term/Maude/Signature.hs
+index 98c25d9f..1a4ce82f 100644
+--- a/lib/term/src/Term/Maude/Signature.hs
++++ b/lib/term/src/Term/Maude/Signature.hs
+@@ -104,9 +104,9 @@ maudeSig msig@(MaudeSig {enableDH,enableBP,enableMSet,enableXor,enableDiff=_,stF
+           `S.union` dhReducibleFunSig `S.union` bpReducibleFunSig `S.union` xorReducibleFunSig
+ 
+ -- | A monoid instance to combine maude signatures.
+-instance Monoid MaudeSig where
+-    (MaudeSig dh1 bp1 mset1 xor1 diff1 stFunSyms1 stRules1 _ _) `mappend`
+-      (MaudeSig dh2 bp2 mset2 xor2 diff2 stFunSyms2 stRules2 _ _) =
++instance Semigroup MaudeSig where
++    MaudeSig dh1 bp1 mset1 xor1 diff1 stFunSyms1 stRules1 _ _ <>
++      MaudeSig dh2 bp2 mset2 xor2 diff2 stFunSyms2 stRules2 _ _ =
+           maudeSig (mempty {enableDH=dh1||dh2
+                            ,enableBP=bp1||bp2
+                            ,enableMSet=mset1||mset2
+@@ -114,6 +114,8 @@ instance Monoid MaudeSig where
+                            ,enableDiff=diff1||diff2
+                            ,stFunSyms=S.union stFunSyms1 stFunSyms2
+                            ,stRules=S.union stRules1 stRules2})
++
++instance Monoid MaudeSig where
+     mempty = MaudeSig False False False False False S.empty S.empty S.empty S.empty
+ 
+ -- | Non-AC function symbols.
+diff --git a/lib/term/src/Term/Rewriting/Definitions.hs b/lib/term/src/Term/Rewriting/Definitions.hs
+index bd942b6a..18562e4e 100644
+--- a/lib/term/src/Term/Rewriting/Definitions.hs
++++ b/lib/term/src/Term/Rewriting/Definitions.hs
+@@ -44,10 +44,12 @@ evalEqual (Equal l r) = l == r
+ instance Functor Equal where
+     fmap f (Equal lhs rhs) = Equal (f lhs) (f rhs)
+ 
++instance Semigroup a => Semigroup (Equal a) where
++    (Equal l1 r1) <> (Equal l2 r2) =
++        Equal (l1 <> l2) (r1 <> r2)
++
+ instance Monoid a => Monoid (Equal a) where
+     mempty                                = Equal mempty mempty
+-    (Equal l1 r1) `mappend` (Equal l2 r2) =
+-        Equal (l1 `mappend` l2) (r1 `mappend` r2)
+ 
+ instance Foldable Equal where
+     foldMap f (Equal l r) = f l `mappend` f r
+@@ -104,14 +106,15 @@ instance Functor Match where
+     fmap _ NoMatch             = NoMatch
+     fmap f (DelayedMatches ms) = DelayedMatches (fmap (f *** f) ms)
+ 
++instance Semigroup (Match a) where
++    NoMatch            <> _                  = NoMatch
++    _                  <> NoMatch            = NoMatch
++    DelayedMatches ms1 <> DelayedMatches ms2 =
++        DelayedMatches (ms1 <> ms2)
++
+ instance Monoid (Match a) where
+     mempty = DelayedMatches []
+ 
+-    NoMatch            `mappend` _                  = NoMatch
+-    _                  `mappend` NoMatch            = NoMatch
+-    DelayedMatches ms1 `mappend` DelayedMatches ms2 =
+-        DelayedMatches (ms1 `mappend` ms2)
+-
+ 
+ instance Foldable Match where
+     foldMap _ NoMatch             = mempty
+@@ -136,10 +139,12 @@ data RRule a = RRule a a
+ instance Functor RRule where
+     fmap f (RRule lhs rhs) = RRule (f lhs) (f rhs)
+ 
++instance Monoid a => Semigroup (RRule a) where
++    (RRule l1 r1) <> (RRule l2 r2) =
++        RRule (l1 <> l2) (r1 <> r2)
++
+ instance Monoid a => Monoid (RRule a) where
+     mempty                                = RRule mempty mempty
+-    (RRule l1 r1) `mappend` (RRule l2 r2) =
+-        RRule (l1 `mappend` l2) (r1 `mappend` r2)
+ 
+ instance Foldable RRule where
+     foldMap f (RRule l r) = f l `mappend` f r
+diff --git a/lib/term/src/Term/Unification.hs b/lib/term/src/Term/Unification.hs
+index e1de0163..7ce6bb41 100644
+--- a/lib/term/src/Term/Unification.hs
++++ b/lib/term/src/Term/Unification.hs
+@@ -265,9 +265,11 @@ unifyRaw l0 r0 = do
+ 
+ data MatchFailure = NoMatcher | ACProblem
+ 
++instance Semigroup MatchFailure where
++  _ <> _ = NoMatcher
++
+ instance Monoid MatchFailure where
+   mempty = NoMatcher
+-  mappend _ _ = NoMatcher
+ 
+ -- | Ensure that the computed substitution @sigma@ satisfies
+ -- @t ==_AC apply sigma p@ after the delayed equations are solved.
+diff --git a/lib/theory/src/Theory/Constraint/Solver/Reduction.hs b/lib/theory/src/Theory/Constraint/Solver/Reduction.hs
+index ddbc965a..6daadd0d 100644
+--- a/lib/theory/src/Theory/Constraint/Solver/Reduction.hs
++++ b/lib/theory/src/Theory/Constraint/Solver/Reduction.hs
+@@ -139,13 +139,14 @@ execReduction m ctxt se fs =
+ data ChangeIndicator = Unchanged | Changed
+        deriving( Eq, Ord, Show )
+ 
++instance Semigroup ChangeIndicator where
++    Changed   <> _         = Changed
++    _         <> Changed   = Changed
++    Unchanged <> Unchanged = Unchanged
++
+ instance Monoid ChangeIndicator where
+     mempty = Unchanged
+ 
+-    Changed   `mappend` _         = Changed
+-    _         `mappend` Changed   = Changed
+-    Unchanged `mappend` Unchanged = Unchanged
+-
+ -- | Return 'True' iff there was a change.
+ wasChanged :: ChangeIndicator -> Bool
+ wasChanged Changed   = True
+diff --git a/lib/theory/src/Theory/Constraint/System/Guarded.hs b/lib/theory/src/Theory/Constraint/System/Guarded.hs
+index f98fc7c2..2aac8ce2 100644
+--- a/lib/theory/src/Theory/Constraint/System/Guarded.hs
++++ b/lib/theory/src/Theory/Constraint/System/Guarded.hs
+@@ -435,7 +435,7 @@ gall ss atos gf               = GGuarded All ss atos gf
+ 
+ -- | Local newtype to avoid orphan instance.
+ newtype ErrorDoc d = ErrorDoc { unErrorDoc :: d }
+-    deriving( Monoid, NFData, Document, HighlightDocument )
++    deriving( Monoid, Semigroup, NFData, Document, HighlightDocument )
+ 
+ -- | @formulaToGuarded fm@ returns a guarded formula @gf@ that is
+ -- equivalent to @fm@ under the assumption that this is possible.
+diff --git a/lib/theory/src/Theory/Proof.hs b/lib/theory/src/Theory/Proof.hs
+index 74fb77b1..7971b9fc 100644
+--- a/lib/theory/src/Theory/Proof.hs
++++ b/lib/theory/src/Theory/Proof.hs
+@@ -388,17 +388,19 @@ data ProofStatus =
+        | TraceFound         -- ^ There is an annotated solved step
+     deriving ( Show, Generic, NFData, Binary )
+ 
++instance Semigroup ProofStatus where
++    TraceFound <> _                        = TraceFound
++    _ <> TraceFound                        = TraceFound
++    IncompleteProof <> _                   = IncompleteProof
++    _ <> IncompleteProof                   = IncompleteProof
++    _ <> CompleteProof                     = CompleteProof
++    CompleteProof <> _                     = CompleteProof
++    UndeterminedProof <> UndeterminedProof = UndeterminedProof
++
++
+ instance Monoid ProofStatus where
+     mempty = CompleteProof
+ 
+-    mappend TraceFound _                        = TraceFound
+-    mappend _ TraceFound                        = TraceFound
+-    mappend IncompleteProof _                   = IncompleteProof
+-    mappend _ IncompleteProof                   = IncompleteProof
+-    mappend _ CompleteProof                     = CompleteProof
+-    mappend CompleteProof _                     = CompleteProof
+-    mappend UndeterminedProof UndeterminedProof = UndeterminedProof
+-
+ -- | The status of a 'ProofStep'.
+ proofStepStatus :: ProofStep (Maybe a) -> ProofStatus
+ proofStepStatus (ProofStep _         Nothing ) = UndeterminedProof
+@@ -560,10 +562,12 @@ newtype Prover =  Prover
+               -> Maybe IncrementalProof    -- resulting proof
+           }
+ 
++instance Semigroup Prover where
++    p1 <> p2 = Prover $ \ctxt d se ->
++        runProver p1 ctxt d se >=> runProver p2 ctxt d se
++
+ instance Monoid Prover where
+     mempty          = Prover $ \_  _ _ -> Just
+-    p1 `mappend` p2 = Prover $ \ctxt d se ->
+-        runProver p1 ctxt d se >=> runProver p2 ctxt d se
+ 
+ -- | Provers whose sequencing is handled via the 'Monoid' instance.
+ --
+@@ -579,10 +583,12 @@ newtype DiffProver =  DiffProver
+               -> Maybe IncrementalDiffProof    -- resulting proof
+           }
+ 
++instance Semigroup DiffProver where
++    p1 <> p2 = DiffProver $ \ctxt d se ->
++        runDiffProver p1 ctxt d se >=> runDiffProver p2 ctxt d se
++
+ instance Monoid DiffProver where
+     mempty          = DiffProver $ \_  _ _ -> Just
+-    p1 `mappend` p2 = DiffProver $ \ctxt d se ->
+-        runDiffProver p1 ctxt d se >=> runDiffProver p2 ctxt d se
+ 
+ -- | Map the proof generated by the prover.
+ mapProverProof :: (IncrementalProof -> IncrementalProof) -> Prover -> Prover
+@@ -784,15 +790,16 @@ runAutoDiffProver (AutoProver heuristic bound cut) =
+ -- | The result of one pass of iterative deepening.
+ data IterDeepRes = NoSolution | MaybeNoSolution | Solution ProofPath
+ 
++instance Semigroup IterDeepRes where
++    x@(Solution _)   <> _                = x
++    _                <> y@(Solution _)   = y
++    MaybeNoSolution  <> _                = MaybeNoSolution
++    _                <> MaybeNoSolution  = MaybeNoSolution
++    NoSolution       <> NoSolution       = NoSolution
++
+ instance Monoid IterDeepRes where
+     mempty = NoSolution
+ 
+-    x@(Solution _)   `mappend` _                = x
+-    _                `mappend` y@(Solution _)   = y
+-    MaybeNoSolution  `mappend` _                = MaybeNoSolution
+-    _                `mappend` MaybeNoSolution  = MaybeNoSolution
+-    NoSolution       `mappend` NoSolution       = NoSolution
+-
+ -- | @cutOnSolvedDFS prf@ removes all other cases if an attack is found. The
+ -- attack search is performed using a parallel DFS traversal with iterative
+ -- deepening.
+diff --git a/lib/utils/src/Extension/Data/Bounded.hs b/lib/utils/src/Extension/Data/Bounded.hs
+index 5f166006..6ca7970d 100644
+--- a/lib/utils/src/Extension/Data/Bounded.hs
++++ b/lib/utils/src/Extension/Data/Bounded.hs
+@@ -16,14 +16,18 @@ module Extension.Data.Bounded (
+ newtype BoundedMax a = BoundedMax {getBoundedMax :: a}
+     deriving( Eq, Ord, Show )
+ 
++instance (Ord a, Bounded a) => Semigroup (BoundedMax a) where
++    BoundedMax x <> BoundedMax y = BoundedMax (max x y)
++
+ instance (Ord a, Bounded a) => Monoid (BoundedMax a) where
+     mempty                                  = BoundedMax minBound
+-    (BoundedMax x) `mappend` (BoundedMax y) = BoundedMax (max x y)
+ 
+ -- | A newtype wrapper for a monoid of the minimum of a bounded type.
+ newtype BoundedMin a = BoundedMin {getBoundedMin :: a}
+     deriving( Eq, Ord, Show )
+ 
++instance (Ord a, Bounded a) => Semigroup (BoundedMin a) where
++    BoundedMin x <> BoundedMin y = BoundedMin (min x y)
++
+ instance (Ord a, Bounded a) => Monoid (BoundedMin a) where
+     mempty                                  = BoundedMin maxBound
+-    (BoundedMin x) `mappend` (BoundedMin y) = BoundedMin (min x y)
+\ No newline at end of file
+diff --git a/lib/utils/src/Extension/Data/Monoid.hs b/lib/utils/src/Extension/Data/Monoid.hs
+index 83655c34..ca4f53c2 100644
+--- a/lib/utils/src/Extension/Data/Monoid.hs
++++ b/lib/utils/src/Extension/Data/Monoid.hs
+@@ -38,10 +38,12 @@ newtype MinMax a = MinMax { getMinMax :: Maybe (a, a) }
+ minMaxSingleton :: a -> MinMax a
+ minMaxSingleton x = MinMax (Just (x, x))
+ 
++instance Ord a => Semigroup (MinMax a) where
++    MinMax Nothing             <> y                          = y
++    x                          <> MinMax Nothing             = x
++    MinMax (Just (xMin, xMax)) <> MinMax (Just (yMin, yMax)) =
++       MinMax (Just (min xMin yMin, max xMax yMax))
++
++
+ instance Ord a => Monoid (MinMax a) where
+     mempty = MinMax Nothing
+-
+-    MinMax Nothing             `mappend` y                          = y
+-    x                          `mappend` MinMax Nothing             = x
+-    MinMax (Just (xMin, xMax)) `mappend` MinMax (Just (yMin, yMax)) =
+-       MinMax (Just (min xMin yMin, max xMax yMax))
+diff --git a/lib/utils/src/Logic/Connectives.hs b/lib/utils/src/Logic/Connectives.hs
+index 2e441172..7206cc2c 100644
+--- a/lib/utils/src/Logic/Connectives.hs
++++ b/lib/utils/src/Logic/Connectives.hs
+@@ -23,12 +23,12 @@ import Control.DeepSeq
+ 
+ -- | A conjunction of atoms of type a.
+ newtype Conj a = Conj { getConj :: [a] }
+-  deriving (Monoid, Foldable, Traversable, Eq, Ord, Show, Binary,
++  deriving (Monoid, Semigroup, Foldable, Traversable, Eq, Ord, Show, Binary,
+             Functor, Applicative, Monad, Alternative, MonadPlus, Typeable, Data, NFData)
+ 
+ -- | A disjunction of atoms of type a.
+ newtype Disj a = Disj { getDisj :: [a] }
+-  deriving (Monoid, Foldable, Traversable, Eq, Ord, Show, Binary,
++  deriving (Monoid, Semigroup, Foldable, Traversable, Eq, Ord, Show, Binary,
+             Functor, Applicative, Monad, Alternative, MonadPlus, Typeable, Data, NFData)
+ 
+ instance MonadDisj Disj where
+diff --git a/lib/utils/src/Text/PrettyPrint/Class.hs b/lib/utils/src/Text/PrettyPrint/Class.hs
+index f5eb42fe..13be6515 100644
+--- a/lib/utils/src/Text/PrettyPrint/Class.hs
++++ b/lib/utils/src/Text/PrettyPrint/Class.hs
+@@ -187,9 +187,11 @@ instance Document Doc where
+   nest i (Doc d) = Doc $ P.nest i d
+   caseEmptyDoc yes no (Doc d) = if P.isEmpty d then yes else no
+ 
++instance Semigroup Doc where
++    Doc d1 <> Doc d2 = Doc $ (P.<>) d1 d2
++
+ instance Monoid Doc where
+     mempty = Doc $ P.empty
+-    mappend (Doc d1) (Doc d2) = Doc $ (P.<>) d1 d2
+   
+ ------------------------------------------------------------------------------
+ -- Additional combinators
+diff --git a/lib/utils/src/Text/PrettyPrint/Html.hs b/lib/utils/src/Text/PrettyPrint/Html.hs
+index 3de5e307..10103eb7 100644
+--- a/lib/utils/src/Text/PrettyPrint/Html.hs
++++ b/lib/utils/src/Text/PrettyPrint/Html.hs
+@@ -90,7 +90,7 @@ attribute (key,value) = " " ++ key ++ "=\"" ++ escapeHtmlEntities value ++ "\""
+ 
+ -- | A 'Document' transformer that adds proper HTML escaping.
+ newtype HtmlDoc d = HtmlDoc { getHtmlDoc :: d }
+-    deriving( Monoid )
++    deriving( Monoid, Semigroup )
+ 
+ -- | Wrap a document such that HTML markup can be added without disturbing the
+ -- layout.
+@@ -182,9 +182,11 @@ getNoHtmlDoc = runIdentity . unNoHtmlDoc
+ instance NFData d => NFData (NoHtmlDoc d) where
+     rnf = rnf . getNoHtmlDoc
+ 
++instance Semigroup d => Semigroup (NoHtmlDoc d) where
++  (<>) = liftA2 (<>)
++
+ instance Monoid d => Monoid (NoHtmlDoc d) where
+   mempty = pure mempty
+-  mappend = liftA2 mappend
+ 
+ instance Document d => Document (NoHtmlDoc d) where
+   char = pure . char
