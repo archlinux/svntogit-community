@@ -103,6 +103,7 @@ build() {
     -DWITH_TESTS=ON \
     -DWITH_XFS=ON \
     -DENABLE_SHARED=ON \
+    -DWITH_MGR_DASHBOARD_FRONTEND=OFF \
     ..
 
   make all
