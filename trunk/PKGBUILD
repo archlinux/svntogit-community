@@ -4,7 +4,7 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs')
 pkgver=13.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -14,7 +14,7 @@ makedepends=('bc' 'boost' 'boost-libs' 'cmake' 'cpio' 'crypto++' 'curl' 'cython'
   'gptfdisk' 'inetutils' 'jq' 'junit' 'keyutils' 'leveldb' 'libaio'
   'libatomic_ops' 'libedit' 'libsystemd' 'libutil-linux' 'libxml2' 'lsb-release'
   'lz4' 'ncurses' 'nss' 'parted' 'pcre' 'procps-ng' 'python2-cherrypy'
-  'python2-jinja' 'python2-nose' 'python2-pecan' 'python2-pip'
+  'python2-jinja' 'python2-nose' 'python2-pecan' 'python2-pip' 'python2-bcrypt'
   'python2-prettytable' 'python2-pyopenssl' 'python2-setuptools'
   'python2-sphinx' 'python2-tox' 'python2-virtualenv' 'python2-werkzeug' 'sed'
   'snappy' 'socat' 'systemd' 'valgrind' 'xfsprogs' 'xmlstarlet' 'yasm'
@@ -142,7 +142,7 @@ package_ceph-libs() {
 package_ceph() {
   depends=('ceph-libs' 'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools'
     'keyutils' 'leveldb' 'libaio' 'libsystemd' 'libutil-linux'
-    'lsb-release' 'ncurses' 'nss' 'python2' 'python2-cherrypy'
+    'lsb-release' 'ncurses' 'nss' 'python2' 'python2-cherrypy' 'python2-bcrypt'
     'python2-jinja' 'python2-mako' 'python2-pecan' 'python2-prettytable'
     'python2-pyopenssl' 'python2-setuptools' 'python2-singledispatch'
     'python2-webob' 'python2-werkzeug' 'snappy' 'xfsprogs')
