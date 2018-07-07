@@ -1,0 +1,73 @@
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Contributor: Nicolas Leclercq <nicolas.private@gmail.com>
+# Contributor: Adam S Levy <adam@aslevy.com>
+# Contributor: Charles B. Johnson <mail@cbjohnson.info>
+# Contributor: Daichi Shinozaki <dsdseg@gmail.com>
+# Contributor: Ben Alex <ben.alex@acegi.com.au>
+
+pkgname='influxdb'
+pkgver=1.6.0
+pkgrel=1
+pkgdesc='Scalable datastore for metrics, events, and real-time analytics'
+arch=('i686' 'x86_64' 'armv6h' 'armv7h' 'aarch64')
+url='https://github.com/InfluxData/influxdb'
+license=('MIT')
+makedepends=('go-pie' 'git' 'asciidoc' 'xmlto' 'dep')
+backup=('etc/influxdb/influxdb.conf')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/influxdata/influxdb/archive/v${pkgver}.tar.gz"
+        "influxdb.sysusers"
+        "influxdb.tmpfiles")
+sha256sums=('908445f6a456ebcf9eef31ea6431b9f620342e29dd65b9b13d8aa310c90e5545'
+            '809cca823ae3027984bc7ace70db75753d7d0d4f6658a36db9d94a33054ca5e9'
+            'e2aa59413a6204737383b86cedefd866d7073f56ace5b89aad38c530cc86e60c')
+
+prepare(){
+  export GOPATH="$srcdir/gopath"
+
+  mkdir -p "$GOPATH/src/github.com/influxdata/"
+  cp -r "${srcdir}/influxdb-$pkgver" "$GOPATH/src/github.com/influxdata/influxdb"
+  cd "$GOPATH/src/github.com/influxdata/influxdb"
+  dep ensure
+}
+
+build(){
+  export GOPATH="$srcdir/gopath"
+
+  _LDFLAGS="-X main.version=$pkgver -X main.branch=master"
+  go install -v -ldflags="$_LDFLAGS" "github.com/influxdata/influxdb/cmd/..."
+
+  cd "$GOPATH/src/github.com/influxdata/influxdb/man/"
+  make
+}
+
+check(){
+  export GOPATH="$srcdir/gopath"
+  #go test "github.com/influxdata/influxdb/..."
+}
+
+package(){
+  export GOPATH="$srcdir/gopath"
+
+  cd "$srcdir"
+  install -Dm644 influxdb.sysusers "$pkgdir/usr/lib/sysusers.d/influxdb.conf"
+  install -Dm644 influxdb.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/influxdb.conf"
+
+  cd "$GOPATH/bin"
+  install -d "$pkgdir/usr/bin/"
+  install -Dm755 influx         "$pkgdir/usr/bin/"
+  install -Dm755 influxd        "$pkgdir/usr/bin/"
+  install -Dm755 influx_inspect "$pkgdir/usr/bin/"
+  install -Dm755 influx_stress  "$pkgdir/usr/bin/"
+  install -Dm755 influx-tools   "$pkgdir/usr/bin/"
+  install -Dm755 influx_tsm     "$pkgdir/usr/bin/"
+  install -Dm755 store          "$pkgdir/usr/bin/"
+
+  cd "$GOPATH/src/github.com/influxdata/influxdb"
+  install -Dm644 scripts/influxdb.service "$pkgdir/usr/lib/systemd/system/influxdb.service"
+  install -Dm644 etc/config.sample.toml   "$pkgdir/etc/influxdb/influxdb.conf"
+  install -Dm644 LICENSE                  "$pkgdir/usr/share/licenses/influxdb/LICENSE"
+
+  # Install man pages
+  install -d "$pkgdir/usr/share/man/man1"
+  install -Dm644 man/*.1 "$pkgdir/usr/share/man/man1/"
+}
