@@ -4,7 +4,7 @@
 pkgbase=python-pybtex
 pkgname=(python-pybtex python2-pybtex)
 pkgver=0.21
-pkgrel=3
+pkgrel=4
 pkgdesc="A BibTeX-compatible bibliography processor written in Python"
 arch=("any")
 url="https://pybtex.org"
