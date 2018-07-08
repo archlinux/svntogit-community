@@ -3,7 +3,7 @@
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 
 pkgname=firefox-developer-edition
-pkgver=62.0b5
+pkgver=62.0b6
 pkgrel=1
 pkgdesc="Developer Edition of the popular Firefox web browser"
 arch=('x86_64')
@@ -12,7 +12,7 @@ url="https://www.mozilla.org/firefox/channel/#developer"
 depends=('gtk3' 'mozilla-common' 'libxt' 'startup-notification' 'mime-types'
          'dbus-glib' 'ffmpeg' 'nss' 'hunspell-en_US' 'sqlite' 'ttf-font' 'libpulse')
 makedepends=('unzip' 'zip' 'diffutils' 'python2' 'python' 'yasm' 'mesa' 'imake' 'gconf' 'inetutils'
-             'xorg-server-xvfb' 'autoconf2.13' 'rust' 'mercurial' 'clang' 'llvm' 'jack' 'gtk2')
+             'xorg-server-xvfb' 'autoconf2.13' 'rust' 'mercurial' 'clang' 'llvm' 'jack' 'gtk2' 'lld')
 optdepends=('networkmanager: Location detection via available WiFi networks'
             'libnotify: Notification integration'
             'pulseaudio: Audio support'
@@ -42,9 +42,6 @@ _google_api_key=AIzaSyDwr302FpOSkGRpLlUpPThNTDPbXcIn_FM
 _mozilla_api_key=16674381-f021-49de-8622-3021c5942aff
 
 prepare() {
-  mkdir path
-  ln -s /usr/bin/python2 path/python
-
   cd mozilla-unified
   patch -Np1 -i ../firefox-install-dir.patch
 
@@ -56,20 +53,22 @@ ac_add_options --enable-application=browser
 
 ac_add_options --prefix=/usr
 ac_add_options --enable-release
-ac_add_options --enable-gold
-ac_add_options --enable-pie
-ac_add_options --enable-optimize="-O2"
+ac_add_options --enable-hardening
+ac_add_options --enable-optimize="-O3"
 ac_add_options --enable-rust-simd
+ac_add_options --enable-lto
+ac_add_options --disable-elf-hack
+CC=clang
+CCX=clang++
 
 # Branding
 ac_add_options --with-branding=browser/branding/aurora
 ac_add_options --enable-update-channel=aurora
 ac_add_options --with-distribution-id=org.archlinux
+ac_add_options "MOZ_ALLOW_LEGACY_EXTENSIONS=1"
 export MOZILLA_OFFICIAL=1
 export MOZ_TELEMETRY_REPORTING=1
-export MOZ_ADDON_SIGNING=1
 export MOZ_REQUIRE_SIGNING=0
-ac_add_options "MOZ_ALLOW_LEGACY_EXTENSIONS=1"
 
 # Keys
 ac_add_options --with-google-api-keyfile=${PWD@Q}/google-api-key
@@ -94,15 +93,8 @@ END
 build() {
   cd mozilla-unified
 
-  # _FORTIFY_SOURCE causes configure failures
-  CPPFLAGS+=" -O2"
-
-  export PATH="$srcdir/path:$PATH"
   export MOZ_SOURCE_REPO="$_repo"
 
-  # Do PGO
-  #xvfb-run -a -n 93 -s "-extension GLX -screen 0 1280x1024x24" \
-  #  MOZ_PGO=1 ./mach build
   ./mach build
   ./mach buildsymbols
 }
