@@ -7,7 +7,7 @@
 
 pkgname=qcad
 pkgver=3.21.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='A 2D CAD package based upon Qt'
 arch=('x86_64')
 url="http://www.qcad.org"
@@ -15,7 +15,7 @@ license=('GPL3')
 depends=('qt5-script' 'qt5-svg' 'gcc-libs' 'qt5-xmlpatterns' 'qt5-tools')
 makedepends=('glu')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/qcad/qcad/archive/v${pkgver}.tar.gz")
-sha512sums=('f4dae426df05b483e6ff3b54d4dc363efd56cd7d1304e76a167ea80d1f5403d1cccea0edbbd390ba2b7ede26942c7dcadeae72115d3edeaa8425b558de23aa9e')
+sha512sums=('9c337b241cb09c5b200417f58c3e240f90e7e54d2326edf3f71a0121986cea7c1153c4335339b27e995362bee9ab65a87361518d5a80fbd8bcf52dfb39a97815')
 
 prepare() {
   rm *.tar.gz
