@@ -21,9 +21,9 @@ noextract=()
 
 _sourcename() {
   case $1 in
-    eclipse-common*) return 1 ;;
-    eclipse-rust   ) echo $1-$_release-incubation-linux-gtk-x86_64.tar.gz ;;
-    *              ) echo $1-$_release-linux-gtk-x86_64.tar.gz ;;
+    eclipse-common) return 1 ;;
+    eclipse-rust  ) echo $1-$_release-incubation-linux-gtk-x86_64.tar.gz ;;
+    *             ) echo $1-$_release-linux-gtk-x86_64.tar.gz ;;
   esac
 }
 
@@ -59,10 +59,31 @@ build() {
 
 package_eclipse-common() {
   pkgdesc+=" (common files)"
-  depends=("java-environment>=8" webkit2gtk unzip)
 
   install -d "$pkgdir/usr/lib"
   cp -a eclipse-common "$pkgdir/usr/lib/eclipse"
+}
+
+_package() {
+  local variant i
+
+  case ${1#eclipse-} in
+    java      ) variant=Java; replaces=(eclipse) ;;
+    jee       ) variant=JEE ;;
+    cpp       ) variant=C++; replaces=(eclipse-cdt) ;;
+    php       ) variant=PHP ;;
+    javascript) variant=JavaScript ;;
+    rust      ) variant=Rust ;;
+    *         ) return 1 ;;
+  esac
+
+  pkgdesc+=" for $variant"
+  depends=(eclipse-common "java-environment>=8" webkit2gtk unzip)
+  provides=("eclipse=$pkgver-$pkgrel")
+  conflicts=(eclipse)
+
+  install -d "$pkgdir/usr/lib"
+  cp -a $1 "$pkgdir/usr/lib/eclipse"
 
   install -D /dev/stdin "$pkgdir/usr/bin/eclipse" <<END
 #!/bin/bash
@@ -73,34 +94,17 @@ END
   install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/eclipse.desktop" <<END
 [Desktop Entry]
 Name=Eclipse
-Comment=A Java Development Environment
+Comment=$variant Development Environment
 Icon=eclipse
 Exec=eclipse
 Terminal=false
 Type=Application
-Categories=Development;IDE;Java;
+Categories=Development;IDE;$variant;
 StartupNotify=true
 END
 
-  local i
   for i in 16 22 24 32 48 64 128 256 512 1024; do
     install -Dm644 eclipse-common/plugins/org.eclipse.platform_*/eclipse$i.png \
       "$pkgdir/usr/share/icons/hicolor/${i}x$i/apps/eclipse.png"
   done
-}
-
-_package() {
-  local variant=${1#eclipse-}
-  pkgdesc+=" (${variant^^} variant)"
-  depends=(eclipse-common)
-  provides=("eclipse=$pkgver-$pkgrel")
-  conflicts=(eclipse)
-
-  case $variant in
-    java) replaces=(eclipse) ;;
-    cpp)  replaces=(eclipse-cdt) ;;
-  esac
-
-  install -d "$pkgdir/usr/lib"
-  cp -a $1 "$pkgdir/usr/lib/eclipse"
 }
