@@ -4,9 +4,9 @@ from asyncio.subprocess import DEVNULL, PIPE
 from asyncio import (get_event_loop, gather, BoundedSemaphore, create_subprocess_exec,
                      IncompleteReadError)
 from enum import Enum, auto
-from logging import getLogger, basicConfig, INFO
-from os import cpu_count
-from pathlib import Path
+from logging import getLogger, basicConfig, INFO, DEBUG
+from os import cpu_count, renames, remove, removedirs
+from os.path import isdir, join as pjoin, split as psplit, relpath
 from sys import exit
 
 
@@ -27,11 +27,12 @@ def parse_args(args=None):
                            help=f'extract {m.name} common files')
 
     parser.add_argument('-n', '--dry-run', action='store_true', help='Dry run (do nothing)')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Raise verbosity')
     parser.add_argument('common_dir', metavar='COMMON_DIR',
                         help='common files directory to move to')
     parser.add_argument('targets', nargs='+', metavar='INPUT_DIR', help='directory to move from')
 
-    return parser.parse_args(args)
+    return parser.prog, parser.parse_args(args)
 
 
 class bounded_exec:
@@ -62,7 +63,7 @@ class DiffError(RuntimeError):
 
 
 async def diff(file1, file2):
-    async with bounded_exec('diff', '-q', str(file1), str(file2),
+    async with bounded_exec('diff', '-q', file1, file2,
                             stdin=DEVNULL, stdout=DEVNULL, stderr=DEVNULL) as p:
         ret = await p.wait()
 
@@ -84,26 +85,26 @@ async def identical(files):
     finally:
         fut.cancel()
 
+
+def removes(path):
+    remove(path)
+    head, tail = psplit(path)
+    if head and tail:
+        try:
+            removedirs(head)
+        except OSError:
+            pass
+
+
 def commonify_file(common_file, files):
-    common_file.parent.mkdir(parents=True, exist_ok=True)
     first, *rest = files
-    first.rename(common_file)
+    renames(first, common_file)
     for f in rest:
-        f.unlink()
-
-
-async def commonify_identical(common_file, files, *, dry_run=False):
-    if await identical(files):
-        if not dry_run:
-            commonify_file(common_file, files)
-        return 1
-    else:
-        logger.info('Divergent file: %s', common_file)
-        return 0
+        removes(f)
 
 
 async def find_files(path):
-    async with bounded_exec('find', str(path), '-type', 'f', '-print0',
+    async with bounded_exec('find', path, '-type', 'f', '-print0',
                             stdin=DEVNULL, stdout=PIPE, stderr=DEVNULL) as p:
         while True:
             try:
@@ -113,45 +114,59 @@ async def find_files(path):
                 if not line:
                     break
                 raise
-            yield Path(line[:-1].decode())
+            yield line[:-1].decode()
 
 
-async def scan(target, files_targetfiles):
+async def scan_one(target, files):
     n = 0
     async for f in find_files(target):
-        files_targetfiles.setdefault(f.relative_to(target), []).append(f)
+        files.setdefault(relpath(f, target), []).append(target)
         n += 1
-    logger.info('%s: Found %d files', target, n)
+    logger.info('Found %d files in %r', n, target)
+
+
+async def scan(targets):
+    files = {}
+    await gather(*[scan_one(t, files) for t in targets])
+    return files
 
 
 def arg_dir(s):
-    p = Path(s)
-    if not p.is_dir():
+    if not isdir(s):
         raise ValueError(f'{s!r} is not a directory')
-    return p
+    return s
+
+
+async def commonify(settings, common_file, targets):
+    files = [pjoin(t, common_file) for t in targets]
+
+    if not await identical(files):
+        logger.info("Divergent file %r", common_file)
+        return False
+
+    if len(files) == len(settings.targets):
+        logger.debug("Identical file %r", common_file)
+    elif settings.mode == Mode.nonconflicting:
+        logger.debug("Nonconflicting file %r in %r", common_file, targets)
+    else:
+        logger.debug("Partly identical file %r in %r", common_file, targets)
+        return False
+
+    if not settings.dry_run:
+        commonify_file(pjoin(settings.common_dir, common_file), files)
+
+    return True
 
 
 async def main(settings):
-    ignore_len = settings.mode == Mode.nonconflicting
-    common_dir = arg_dir(settings.common_dir)
-    targets = [arg_dir(t) for t in settings.targets]
-
-    files_targetfiles = {}
-    await gather(*[scan(t, files_targetfiles) for t in targets])
-
-    results = await gather(*[
-        commonify_identical(common_dir / f, tf, dry_run=settings.dry_run)
-        for f, tf in files_targetfiles.items()
-        if ignore_len or len(tf) == len(targets)
-    ])
-
-    logger.info('%s: %d %s files',
-                common_dir, sum(results), settings.mode.name)
+    files = await scan(arg_dir(t) for t in settings.targets)
+    results = await gather(*[commonify(settings, *ft) for ft in files.items()])
+    logger.info('%d %s files in %r', sum(results), settings.mode.name, settings.common_dir)
     return 0
 
 
 if __name__ == '__main__':
-    basicConfig(level=INFO)
-    settings = parse_args()
+    prog, settings = parse_args()
+    basicConfig(level=DEBUG if settings.verbose else INFO, format=f"{prog}: %(message)s")
     loop = get_event_loop()
     exit(loop.run_until_complete(main(settings)))
