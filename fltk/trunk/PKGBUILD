@@ -5,56 +5,69 @@ _pkgver=1.3.4-2
 pkgbase=fltk
 pkgname=('fltk' 'fltk-docs' 'fltk-games')
 pkgver=${_pkgver//-/.}
-pkgrel=2
+pkgrel=3
+pkgdesc="Graphical user interface toolkit for X"
 arch=('x86_64')
-license=('custom:LGPL')
+license=('custom' 'LGPL')
 url="http://www.fltk.org/"
-makedepends=('mesa' 'glu' 'doxygen' 'libjpeg' 'libxft' 'libxinerama'
-             'alsa-lib' 'desktop-file-utils' 'libxcursor')
+makedepends=('alsa-lib' 'desktop-file-utils' 'doxygen' 'glu' 'libjpeg'
+'libxcursor' 'libxft' 'libxinerama' 'mesa')
 source=("http://fltk.org/pub/${pkgbase}/${_pkgver%"-2"}/${pkgbase}-${_pkgver}-source.tar.gz"
-        fltk-config-dynlibs.patch)
+        "${pkgbase}-config-dynlibs.patch"
+        "${pkgbase}-libpng.patch"
+        "${pkgbase}-pkgconf.patch")
 sha512sums=('cc169449b71ca966b2043ceedc55e92220ccb6be07b0ac54eeec36bbed5d60e2f59c6faba2403b5292b9120f5255227880a066d98ac82e57d502522bc627fd4d'
-            'c2f15a5c134a258082454dacf8db14b4d276c8c9ed207b1d2275690a2829272cfee81186caf794031339f7ed619898485bd59c6d59d2e71cd98facfbb564c1f5')
+            'c2f15a5c134a258082454dacf8db14b4d276c8c9ed207b1d2275690a2829272cfee81186caf794031339f7ed619898485bd59c6d59d2e71cd98facfbb564c1f5'
+            'e8e9b79936a09c333ce915a6215753878b6ac8a9800fd2b042e420c266ed1a05fa804eeb70a4fac6ee62ae94e2f24a7a08c4eea0767344524870d558ca1ffc02'
+            '68c42be32141de7a3014b3f4f180b80feae02af33a5345e9cd9000042b9887037f34f08cc74b7a771f66db668613638650c6153c8a7b2471158bec6ec203af35')
 
 prepare() {
   cd "${pkgbase}-${_pkgver}"
   # Fix broken removal of static linking: https://bugs.archlinux.org/task/38276
-  patch -p1 -i ../fltk-config-dynlibs.patch
-  sed -i 's/class Fl_XFont_On_Demand/class FL_EXPORT Fl_XFont_On_Demand/' FL/x.H
-  sed -i 's/x-fluid.desktop/fluid.desktop/' -i fluid/Makefile
-  sed -i -e 's/$(LINKFLTK)/$(LINKSHARED)/' \
-         -e 's/$(LINKFLTKIMG)/$(LINKSHARED)/' test/Makefile
+  patch -p1 -i "../${pkgbase}-config-dynlibs.patch"
+  # Fix search for header of libpng
+  patch -p1 -i "../${pkgbase}-libpng.patch"
+  # Fix dead call to freetype-config by replacing it with call to pkgconf
+  patch -p1 -i "../${pkgbase}-pkgconf.patch"
+  sed -e 's/class Fl_XFont_On_Demand/class FL_EXPORT Fl_XFont_On_Demand/' \
+      -i FL/x.H
+  sed -e 's/x-fluid.desktop/fluid.desktop/' \
+      -i fluid/Makefile
+  sed -e 's/$(LINKFLTK)/$(LINKSHARED)/' \
+      -e 's/$(LINKFLTKIMG)/$(LINKSHARED)/' \
+      -i test/Makefile
+  ./autogen.sh
 }
 
 build() {
   cd "${pkgbase}-${_pkgver}"
   ./configure --prefix=/usr \
-    --enable-threads \
-    --enable-xft \
-    --enable-shared
+              --enable-threads \
+              --enable-xft \
+              --enable-shared
   make
   make -C documentation html
 }
 
 package_fltk() {
   pkgdesc="Graphical user interface toolkit for X"
-  depends=('libjpeg' 'libxft' 'libxinerama' 'hicolor-icon-theme'
-           'desktop-file-utils' 'xdg-utils' 'libxcursor' 'glu')
+  depends=('libjpeg' 'libxcursor' 'libxft' 'libxinerama'
+           'desktop-file-utils' 'glu' 'hicolor-icon-theme' 'xdg-utils')
   options=('!docs')
 
   cd "${pkgbase}-${_pkgver}"
   make DESTDIR="$pkgdir" install
   make DESTDIR="$pkgdir" -C fluid install install-linux
-  install -Dm 644 COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -vDm 644 COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
 
 package_fltk-docs() {
   pkgdesc="Graphical user interface toolkit for X (documentation)"
 
   cd "${pkgbase}-${_pkgver}/documentation"
-  install -t "${pkgdir}/usr/share/doc/fltk/" -Dm644 html/*
   make DESTDIR="$pkgdir" -C ../test install
-  install -Dm 644 ../COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -vDm 644 html/* -t "${pkgdir}/usr/share/doc/fltk/"
+  install -vDm 644 ../COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
 
 package_fltk-games() {
@@ -64,5 +77,5 @@ package_fltk-games() {
   cd "${pkgbase}-${_pkgver}/test"
   make DESTDIR="$pkgdir" install-linux
   make DESTDIR="$pkgdir" -C ../documentation install-linux
-  install -Dm 644 ../COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -vDm 644 ../COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
