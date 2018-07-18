@@ -9,10 +9,9 @@ pkgrel=2
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
-depends=('python2')
 makedepends=('python2-setuptools' 'python-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'python-parso' 'python2-parso')
-source=(https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz)
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz")
 md5sums=('49a94ffb781c1383e8542ca5f71cebf0')
 
 check() {
@@ -27,7 +26,7 @@ package_python-jedi() {
     cd "$srcdir/jedi-${pkgver}"
     python3 setup.py install --root="$pkgdir/" --optimize=1
 
-    install -D -m644 "$srcdir/jedi-${pkgver}/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
+    install -D -m644 "$srcdir/jedi-${pkgver}/LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 package_python2-jedi() {
@@ -37,7 +36,7 @@ package_python2-jedi() {
     cd "$srcdir/jedi-${pkgver}"
     python2 setup.py install --root="$pkgdir/" --optimize=1
 
-    install -D -m644 "$srcdir/jedi-${pkgver}/LICENSE.txt" $pkgdir/usr/share/licenses/$pkgname/LICENSE
+    install -D -m644 "$srcdir/jedi-${pkgver}/LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 # vim:set ts=2 sw=2 et
