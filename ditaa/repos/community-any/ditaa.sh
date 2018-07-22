@@ -1,3 +1,2 @@
 #!/bin/sh
-DIR=/usr/share/java/ditaa
-${JAVA_HOME}/bin/java -jar $DIR/ditaa-VERSION.jar "$@"
+exec /usr/bin/java -jar '/usr/share/java/ditaa/ditaa-VERSION.jar' "$@"
