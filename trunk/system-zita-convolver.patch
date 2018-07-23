@@ -1,0 +1,155 @@
+From fbdbf082fef6c5e9cd7796c8e6726c8e98c7c040 Mon Sep 17 00:00:00 2001
+From: Guido Aulisi <guido.aulisi@gmail.com>
+Date: Wed, 28 Feb 2018 12:28:26 +0100
+Subject: [PATCH 3/3] Allow using system provided zita convolver library
+
+v.2: Rebase onto newer zita-convolver
+---
+ Makefile.mk                       |  9 +++++++++
+ plugins/ZamHeadX2/Makefile        | 12 ++++++++++--
+ plugins/ZamHeadX2/convolution.cpp |  1 -
+ plugins/ZamHeadX2/convolution.hpp |  4 ++++
+ plugins/ZamVerb/Makefile          | 12 ++++++++++--
+ plugins/ZamVerb/convolution.cpp   |  1 -
+ plugins/ZamVerb/convolution.hpp   |  4 ++++
+ 7 files changed, 37 insertions(+), 6 deletions(-)
+
+diff --git a/Makefile.mk b/Makefile.mk
+index 7588326..b53ca4e 100644
+--- a/Makefile.mk
++++ b/Makefile.mk
+@@ -85,6 +85,15 @@ ifeq ($(LINUX),true)
+ HAVE_DGL   = $(shell pkg-config --exists gl x11 && echo true)
+ HAVE_JACK  = $(shell pkg-config --exists jack   && echo true)
+ HAVE_LIBLO = $(shell pkg-config --exists liblo  && echo true)
++
++# Allow to use system provided libs
++ifeq ($(USE_SYSTEM_LIBS),1)
++HAVE_ZITA_CONVOLVER = true
++ZITA_CONVOLVER_LIBS = -lzita-convolver
++BASE_FLAGS += -I/usr/include
++export HAVE_ZITA_CONVOLVER
++endif
++
+ endif
+ 
+ ifeq ($(MACOS),true)
+diff --git a/plugins/ZamHeadX2/Makefile b/plugins/ZamHeadX2/Makefile
+index 8500534..28e6931 100644
+--- a/plugins/ZamHeadX2/Makefile
++++ b/plugins/ZamHeadX2/Makefile
+@@ -12,8 +12,11 @@ NAME = ZamHeadX2
+ # --------------------------------------------------------------
+ # Files to build
+ 
+-OBJS_DSP = \
+-	../../lib/zita-convolver-4.0.0/zita-convolver.cpp.o \
++ifneq ($(HAVE_ZITA_CONVOLVER),true)
++OBJS_DSP = ../../lib/zita-convolver-4.0.0/zita-convolver.cpp.o
++endif
++
++OBJS_DSP += \
+ 	convolution.cpp.o \
+ 	ZamHeadX2Plugin.cpp.o
+ 
+@@ -38,6 +41,11 @@ else
+ TARGETS += lv2_dsp
+ endif
+ 
++ifeq ($(HAVE_ZITA_CONVOLVER),true)
++BASE_FLAGS += -DHAVE_ZITA_CONVOLVER
++LINK_FLAGS += $(ZITA_CONVOLVER_LIBS)
++endif
++
+ TARGETS += vst
+ 
+ all: $(TARGETS)
+diff --git a/plugins/ZamHeadX2/convolution.cpp b/plugins/ZamHeadX2/convolution.cpp
+index 0026ba2..8c42acc 100644
+--- a/plugins/ZamHeadX2/convolution.cpp
++++ b/plugins/ZamHeadX2/convolution.cpp
+@@ -42,7 +42,6 @@
+ #include <pthread.h>
+ #include <assert.h>
+ 
+-#include "../../lib/zita-convolver-4.0.0/zita-convolver.h"
+ #include <samplerate.h>
+ #include "convolution.hpp"
+ 
+diff --git a/plugins/ZamHeadX2/convolution.hpp b/plugins/ZamHeadX2/convolution.hpp
+index 80be8e6..8cdcd71 100644
+--- a/plugins/ZamHeadX2/convolution.hpp
++++ b/plugins/ZamHeadX2/convolution.hpp
+@@ -19,7 +19,11 @@
+ #ifndef CONVOLUTION_H_
+ #define CONVOLUTION_H_
+ 
++#ifdef HAVE_ZITA_CONVOLVER
++#include <zita-convolver.h>
++#else
+ #include "../../lib/zita-convolver-4.0.0/zita-convolver.h"
++#endif
+ 
+ #define MAX_CHANNEL_MAPS (4)
+ #define VERBOSE_printf(x, ...)
+diff --git a/plugins/ZamVerb/Makefile b/plugins/ZamVerb/Makefile
+index eacc080..a08e334 100644
+--- a/plugins/ZamVerb/Makefile
++++ b/plugins/ZamVerb/Makefile
+@@ -15,8 +15,11 @@ NAME = ZamVerb
+ OBJS_DSP = \
+ 	ZamVerbPlugin.cpp.o \
+ 	ZamVerbImpulses.cpp.o \
+-	convolution.cpp.o \
+-	../../lib/zita-convolver-4.0.0/zita-convolver.cpp.o
++	convolution.cpp.o
++
++ifneq ($(HAVE_ZITA_CONVOLVER),true)
++OBJS_DSP += ../../lib/zita-convolver-4.0.0/zita-convolver.cpp.o
++endif
+ 
+ OBJS_UI  = \
+ 	ZamVerbArtwork.cpp.o \
+@@ -39,6 +42,11 @@ else
+ TARGETS += lv2_dsp
+ endif
+ 
++ifeq ($(HAVE_ZITA_CONVOLVER),true)
++BASE_FLAGS += -DHAVE_ZITA_CONVOLVER
++LINK_FLAGS += $(ZITA_CONVOLVER_LIBS)
++endif
++
+ TARGETS += vst
+ 
+ all: $(TARGETS)
+diff --git a/plugins/ZamVerb/convolution.cpp b/plugins/ZamVerb/convolution.cpp
+index 27374e0..8357037 100644
+--- a/plugins/ZamVerb/convolution.cpp
++++ b/plugins/ZamVerb/convolution.cpp
+@@ -42,7 +42,6 @@
+ #include <pthread.h>
+ #include <assert.h>
+ 
+-#include "../../lib/zita-convolver-4.0.0/zita-convolver.h"
+ #include <samplerate.h>
+ #include "convolution.hpp"
+ #include "ZamVerbImpulses.hpp"
+diff --git a/plugins/ZamVerb/convolution.hpp b/plugins/ZamVerb/convolution.hpp
+index 1c89971..cfb3755 100644
+--- a/plugins/ZamVerb/convolution.hpp
++++ b/plugins/ZamVerb/convolution.hpp
+@@ -19,7 +19,11 @@
+ #ifndef CONVOLUTION_H_
+ #define CONVOLUTION_H_
+ 
++#ifdef HAVE_ZITA_CONVOLVER
++#include <zita-convolver.h>
++#else
+ #include "../../lib/zita-convolver-4.0.0/zita-convolver.h"
++#endif
+ 
+ #define MAX_CHANNEL_MAPS (4)
+ #define VERBOSE_printf(x, ...)
+-- 
+2.18.0
+
