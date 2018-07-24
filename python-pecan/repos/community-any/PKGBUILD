@@ -1,59 +1,75 @@
 # Maintainer: Thore Bödecker <foxxx0@archlinux.org>
 # Contributor: Tim Meusel <tim@bastelfreak.de>
 pkgbase='python-pecan'
-pkgname=('python2-pecan' 'python-pecan')
+_pkgbase="${pkgbase#python-}"
+pkgname=("python-${_pkgbase}" "python2-${_pkgbase}")
 pkgdesc='A WSGI object-dispatching web framework, designed to be lean and fast with few dependencies.'
 pkgver=1.3.2
-pkgrel=1
+pkgrel=2
 arch=('any')
 url='https://github.com/pecan/pecan'
 license=('BSD')
-makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools' 'python-sphinx' 'python2-sphinx' 'python-webob' 'python2-webob' 'python-mako' 'python2-mako' 'python-webtest' 'python2-webtest')
-checkdepends=('python2-tox' 'python2-singledispatch' 'python2-waitress' 'python2-markupsafe' 'python2-six' 'python2-beautifulsoup4' 'python2-gunicorn' 'uwsgi-plugin-python2')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/pecan/pecan/archive/${pkgver}.tar.gz")
+makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools'
+             'python-sphinx' 'python2-sphinx' 'python-webob' 'python2-webob'
+             'python-mako' 'python2-mako' 'python-webtest' 'python2-webtest'
+             'python-six' 'python2-six' 'python-logutils' 'python2-logutils')
+checkdepends=('python-virtualenv' 'python2-virtualenv'
+              'python-jinja' 'python2-jinja' 'gunicorn' 'python2-gunicorn'
+              'python-mock' 'python2-mock' 'python-sqlalchemy' 'python2-sqlalchemy'
+              'python2-kajiki' 'python-genshi' 'python2-genshi'
+              'python2-singledispatch' 'python-nine' 'python2-nine')
+source=("${_pkgbase}-${pkgver}.tar.gz::https://github.com/pecan/pecan/archive/${pkgver}.tar.gz")
 sha512sums=('21eca763571c66d5bd2cecf59ebf5b4a70476088a670a5d8067ab84dc67881b81ae5a85fe2f262ca90a8a39b3a9bf8310651d0c595e331fcd0457b01f7f9cf2e')
 
-prepare() {
-  cd "${srcdir}/pecan-${pkgver}"
-
+prepare(){
   # fix manpage build
-  sed -i '/^dist = /d' docs/source/conf.py
-  sed -i "s/^version = release = .*\$/version = release = '${pkgver}'/" docs/source/conf.py
+  sed -i '/^dist = /d' "${srcdir}/${_pkgbase}-${pkgver}/docs/source/conf.py"
+  sed -i "s/^version = release = .*\$/version = release = '${pkgver}'/" "${srcdir}/${_pkgbase}-${pkgver}/docs/source/conf.py"
 
-  # run tests only on platforms we support on Arch Linux
-  # upstream currently ships no tests for python3.6, only 3.5 and older 3.X
-  sed -i 's/envlist.*/envlist = py27,scaffolds-27,scaffolds-27-rest-api,pep8/' tox.ini
+  cp -r "${srcdir}/${_pkgbase}-${pkgver}" "${srcdir}/${_pkgbase}-${pkgver}-py2"
+
+  # fix python interpreter for python2 stuff
+  find "${srcdir}/${_pkgbase}-${pkgver}-py2" -type f -name '*.py' \
+    -exec sed -i 's|^#!/usr/bin/env python$|#!/usr/bin/env python2|1' {} +
+}
+
+build() {
+  cd "${srcdir}/${_pkgbase}-${pkgver}"
+  python ./setup.py build
+  cd "${srcdir}/${_pkgbase}-${pkgver}-py2"
+  python2 ./setup.py build
 }
 
 check() {
-  cd "${srcdir}/pecan-${pkgver}"
-  # upstream tests only support python 2
+  cd "${srcdir}/${_pkgbase}-${pkgver}"
+  python setup.py test
+  cd "${srcdir}/${_pkgbase}-${pkgver}-py2"
   python2 setup.py test
 }
 
-package_python2-pecan() {
-  depends=('python2')
-  cd "${srcdir}/pecan-${pkgver}"
-  python2 setup.py install --root="${pkgdir}/" --optimize=1
+package_python-pecan() {
+  depends=('python' 'python-webob' 'python-mako' 'python-webtest' 'python-six' 'python-logutils')
+  cd "${srcdir}/${_pkgbase}-${pkgver}"
+  python ./setup.py install --root="$pkgdir/" --optimize=1
   install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   cd docs
   PYTHONPATH="${PWD}/../" make man
-  install -D -m644 "${srcdir}/pecan-${pkgver}/docs/build/man/pecan.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+  install -D -m644 "./build/man/pecan.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+}
+
+package_python2-pecan() {
+  depends=('python2' 'python2-webob' 'python2-mako' 'python2-webtest' 'python2-six' 'python2-logutils')
+  cd "${srcdir}/${_pkgbase}-${pkgver}-py2"
+  python2 ./setup.py install --root="$pkgdir/" --optimize=1
+  install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+  cd docs
+  PYTHONPATH="${PWD}/../" make man
+  install -D -m644 "./build/man/pecan.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1"
 
   # fix conflicting files
   for file in gunicorn_pecan pecan; do
     mv "${pkgdir}/usr/bin/${file}" "${pkgdir}/usr/bin/${file}2"
   done
-}
-
-package_python-pecan() {
-  depends=('python')
-  cd "${srcdir}/pecan-${pkgver}"
-  python setup.py install --root="${pkgdir}/" --optimize=1
-  install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-
-  cd docs
-  PYTHONPATH="${PWD}/../" make man
-  install -D -m644 "${srcdir}/pecan-${pkgver}/docs/build/man/pecan.1" "${pkgdir}/usr/share/man/man1/${pkgname}.1"
 }
