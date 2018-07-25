@@ -1,0 +1,71 @@
+# Maintainer: Jiachen Yang <farseerfc@gmail.com>
+# AUR Maintainer: Stefan Tatschner <rumpelsepp@sevenbyte.org>
+# Contributor: David Runge <dave@sleepmap.de>
+
+pkgname=pelican
+pkgver=3.7.1
+pkgrel=3
+pkgdesc="A tool to generate a static blog, with restructured text (or markdown) input files."
+arch=('any')
+url="http://getpelican.com"
+license=('AGPL3')
+makedepends=('python-sphinx' 'python-blinker')
+depends=('python-jinja' 'python-pygments' 'python-feedgenerator' 'python-pytz'
+         'python-docutils' 'python-blinker' 'python-unidecode' 'python-six'
+         'python-dateutil')
+checkdepends=('python-tox' 'python-setuptools' 'python-lxml' 'git')
+optdepends=('python-markdown: Markdown support'
+            'asciidoc: AsciiDoc support'
+            'python-beautifulsoup4: importing from wordpress/dotclear/posterous'
+            'python-feedparser: importing from feeds'
+#            'python-rst2pdf: PDF generation' # FS#48890
+            'openssh: uploading through SSH'
+            'rsync: uploading through rsync+SSH'
+            'lftp: uploading through FTP'
+            's3cmd: uploading through S3'
+            'python-ghp-import: uploading through gh-pages'
+            'python-typogrify: typographical enhancements'
+            'pandoc: for pelican-import auto convert'
+	    'python-mdx-video: easier embedding of youtube videos in markdown')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/getpelican/pelican/archive/$pkgver.tar.gz")
+sha512sums=('9e04e6a2009cc134f74410d8c8349831467192e7524287e23cad0b68232f2b5dd04f5d98505222d71eb3441e466bccec1cafc7f6e3c6bfcb4c5e57e4ab0fadda')
+
+prepare() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    # make python 3.6 target for tox
+    # pending issue https://github.com/getpelican/pelican/pull/2074
+    sed -i "s|envlist = py{27,33,34,35},docs,flake8|envlist = py{27,33,34,35,36,37},docs,flake8|" tox.ini
+    sed -i "s|py33: python3.3|py37: python3.7|" tox.ini
+
+    # fix py37 DeprecationWarning
+    # importing ABCs directly from collections instead of collections.abc is deprecated
+    sed -i 's|import collections|import collections.abc|' pelican/tests/test_pelican.py
+    sed -i 's|collections\.Sequence|collections.abc.Sequence|' pelican/tests/test_pelican.py
+}
+
+build() {
+    # sphinx tried to import pelican, make it happy
+    cd "$srcdir/$pkgname-$pkgver/docs"
+    PYTHONPATH=".." make man
+    PYTHONPATH=".." make text
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    LC_LANG=en_US.UTF-8 python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
+
+    cd "docs"
+
+    install -d "$pkgdir/usr/share/man/man1/"
+    install -Dm644 _build/man/*.1 "$pkgdir/usr/share/man/man1/"
+
+    install -d "$pkgdir/usr/share/doc/pelican/"
+    install -Dm644 _build/text/*.txt "$pkgdir/usr/share/doc/pelican/"
+}
+
+check() {
+    cd "$srcdir/$pkgname-$pkgver"
+    tox -e py3$(python3 -c "import platform;print(platform.python_version_tuple()[1])")
+}
