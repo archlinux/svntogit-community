@@ -4,7 +4,7 @@
 pkgbase=python-pynacl
 pkgname=(python-pynacl python2-pynacl)
 pkgver=1.2.1
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Python binding to the Networking and Cryptography (NaCl) library'
 url='https://pypi.python.org/pypi/PyNaCl'
