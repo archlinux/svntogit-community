@@ -11,7 +11,7 @@ pkgname=('dmd' 'dmd-docs' 'libphobos')
 pkgdesc="D programming language compiler and standard library"
 groups=('dlang' 'dlang-dmd')
 pkgbase=dmd
-pkgver=2.081.1
+pkgver=2.081.2
 pkgrel=1
 epoch=1
 arch=('x86_64')
@@ -27,7 +27,7 @@ source=("git+https://github.com/dlang/dmd.git#tag=v$pkgver"
 sha256sums=('SKIP'
             'SKIP'
             'SKIP'
-            'a93f15fba1786322310492118785de759d8badf8b5a1583256fcb8486e4f74f8'
+            '228372eee1a10ff81cefc168ddde4c8c67e199d446d826627c5e13e7483e67de'
             'SKIP'
             '3d639e89528fed1da90006f4dfb2b0fdc41308da5a96d953381ff4ccf257c035'
             '19c9cd3670bdef7fbde88de36c459d940e6b7bacc2a5e48aefbfd1b2c1895e07')
@@ -38,7 +38,17 @@ prepare() {
     # We only want to extract the docs & samples, not the prebuild executables
     tar xfJ "dmd.$pkgver.linux.tar.xz" dmd2/html
 
-    sed -i "/DFLAGS=/ a override DFLAGS += -link-defaultlib-shared=false" "$srcdir"/dmd/src/posix.mak
+    # Make sure the version is not -dirty
+    sed -i "s/git describe --dirty 2>\/dev\/null || //" "$srcdir"/dmd/config.sh
+
+    # Add $LDFLAGS and $CXXFLAGS to the compilation
+    # '-link-defaultlib-shared=false' statically links dmd to liblphobos
+    _linkflags=$(echo -ne $LDFLAGS | cut -d\" -f2 | tail -c+4 | sed "s/,/ -L=/g")
+
+    sed -i "/^CXXFLAGS :=/ a $CXXFLAGS \\\\" "$srcdir"/dmd/src/posix.mak
+    sed -i "/^DFLAGS=/ a override DFLAGS += -link-defaultlib-shared=false $_linkflags" "$srcdir"/dmd/src/posix.mak
+    sed -i "/^DFLAGS=/ a override DFLAGS += $_linkflags" "$srcdir"/druntime/posix.mak
+    sed -i "/^DFLAGS=/ a override DFLAGS += $_linkflags" "$srcdir"/phobos/posix.mak
 }
 
 build() {
