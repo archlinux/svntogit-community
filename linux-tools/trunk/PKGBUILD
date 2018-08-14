@@ -14,7 +14,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.16
+pkgver=4.18
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -47,10 +47,6 @@ md5sums=('SKIP'
 
 prepare() {
   cd linux
-
-  # Fix "unwind-libunwind.c:109:11: error: ‘EINVAL’ undeclared" on i686
-  # Not sure why this wasn't an issue until now...
-  sed -i '1i #include <errno.h>' tools/perf/arch/x86/util/unwind-libunwind.c
 
   # apply patch from the source array (should be a pacman feature)
   local filename
