@@ -4,7 +4,7 @@
 pkgbase=python-pynacl
 pkgname=(python-pynacl python2-pynacl)
 pkgver=1.2.1
-pkgrel=2
+pkgrel=3
 
 pkgdesc='Python binding to the Networking and Cryptography (NaCl) library'
 url='https://pypi.python.org/pypi/PyNaCl'
@@ -34,7 +34,7 @@ build() {
 }
 
 package_python-pynacl() {
-	depends=('libsodium' 'python' 'python-six')
+	depends=('libsodium' 'python' 'python-six' 'python-cffi')
 
 	export SODIUM_INSTALL=system
 
@@ -43,7 +43,7 @@ package_python-pynacl() {
 }
 
 package_python2-pynacl() {
-	depends=('libsodium' 'python2' 'python2-six')
+	depends=('libsodium' 'python2' 'python2-six' 'python2-cffi')
 
 	export SODIUM_INSTALL=system
 
