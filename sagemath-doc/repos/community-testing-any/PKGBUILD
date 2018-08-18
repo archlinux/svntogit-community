@@ -1,0 +1,57 @@
+# $Id$
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+
+pkgname=sagemath-doc
+pkgver=8.3
+pkgrel=1
+pkgdesc="HTML documentation and inline help for SageMath"
+arch=(any)
+url="http://www.sagemath.org"
+license=(GPL)
+depends=(python2-sphinx gap-4.8-doc thebe)
+makedepends=(sage-notebook python2-pyzmq python2-docutils python2-jupyter_client python2-pkgconfig cython2 python2-ipywidgets)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
+        docbuild_main.patch)
+sha256sums=('41fd0b4eb820f7a1274e12294b6fbdbbf60d0027bff98c22fdc84da140964929'
+            'ea5e17bb7a7cb36a22e5e3872fcc2585852bc971c4b139b0b2cd69a36c1b009b')
+
+prepare() {
+  cd sage-$pkgver
+
+# fix relative imports
+  patch -p0 -i ../docbuild_main.patch
+# use sage_setup imports from sagemath source, but use system sage ones (which include compiled modules)
+  mkdir -p local-python
+  ln -sr src/sage_setup local-python
+}
+
+build() {
+  cd sage-$pkgver/src
+
+  export SAGE_LOCAL="/usr"
+  export SAGE_ROOT="/usr"
+  export SAGE_SRC="$PWD"
+  export SAGE_DOC_SRC="$SAGE_SRC"/doc
+  export SAGE_DOC="$SAGE_SRC"/doc
+  export SAGE_DOC_MATHJAX=yes
+  export PYTHONPATH="$srcdir"/sage-$pkgver/local-python
+  python2 sage_setup/docbuild --no-pdf-links -k all html
+}
+
+package() {
+  cd sage-$pkgver/src/doc
+ 
+  mkdir -p "$pkgdir"/usr/share/doc/sage/en
+  cp -r en/introspect "$pkgdir"/usr/share/doc/sage/en
+  cp -r common "$pkgdir"/usr/share/doc/sage
+  cp -r html "$pkgdir"/usr/share/doc/sage
+
+# Replace duplicated files by symlinks (Gentoo)
+  cd "$pkgdir"/usr/share/doc/sage
+  mv html/en/_static{,.tmp}
+  for _dir in `find -name _static` ; do
+        rm -r $_dir
+        ln -s /usr/share/doc/sage/html/en/_static $_dir
+  done
+  mv html/en/_static{.tmp,}
+}
