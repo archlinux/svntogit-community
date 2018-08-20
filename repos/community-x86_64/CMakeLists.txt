@@ -1,11 +1,21 @@
 cmake_minimum_required(VERSION 2.8)
-project(jxrlib C)
+project(jxrlib C CXX)
 
 set(JXRLIB_MAJOR 0)
 set(JXRLIB_MINOR 0)
 
 set(JXRLIB_LIB_VERSION ${JXRLIB_MAJOR}.${JXRLIB_MINOR}.0)
 set(JXRLIB_SO_VERSION ${JXRLIB_MAJOR})
+
+#find_package(JNI)
+#if (JNI_FOUND)
+#    message (STATUS "JNI_INCLUDE_DIRS=${JNI_INCLUDE_DIRS}")
+#    message (STATUS "JNI_LIBRARIES=${JNI_LIBRARIES}")
+#    message (STATUS "JAVA_INCLUDE_PATH=${JAVA_INCLUDE_PATH}")
+#    message (STATUS "JAVA_INCLUDE_PATH2=${JAVA_INCLUDE_PATH2}")
+#endif()
+#INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH})
+#INCLUDE_DIRECTORIES(${JAVA_INCLUDE_PATH2})
 
 include(TestBigEndian)
 test_big_endian(ISBIGENDIAN)
@@ -35,7 +45,7 @@ install(TARGETS jpegxr
   ARCHIVE DESTINATION lib${LIB_SUFFIX}
 )
 
-# JXR-GLUE Library
+# JXR-GLUE Library
 file(GLOB jxrglue_SRC jxrgluelib/*.c jxrtestlib/*.c)
 file(GLOB jxrglue_HDR jxrgluelib/*.h jxrtestlib/*.h)
 
@@ -48,6 +58,20 @@ install(TARGETS jxrglue
   LIBRARY DESTINATION lib${LIB_SUFFIX}
   ARCHIVE DESTINATION lib${LIB_SUFFIX}
 )
+
+# JXR-JAVA Library
+#file(GLOB jxrjava_SRC java/target/swig/JXR_wrap.cxx cpp/lib/*.cpp)
+#file(GLOB jxrjava_SRC cpp/lib/*.hpp)
+
+#add_library(jxrjava SHARED ${jxrjava_SRC} ${jxrjava_HDR})
+#set_target_properties(jxrjava PROPERTIES VERSION ${JXRLIB_LIB_VERSION} SOVERSION ${JXRLIB_SO_VERSION})
+#target_link_libraries(jxrjava jpegxr m)
+
+#install(TARGETS jxrjava
+#  RUNTIME DESTINATION bin
+#  LIBRARY DESTINATION lib${LIB_SUFFIX}
+#  ARCHIVE DESTINATION lib${LIB_SUFFIX}
+#)
 
 # JxrEncApp Executable
 add_executable(JxrEncApp jxrencoderdecoder/JxrEncApp.c)
@@ -66,3 +90,5 @@ install(FILES jxrgluelib/JXRGlue.h jxrgluelib/JXRMeta.h jxrtestlib/JXRTest.h ima
 install(DIRECTORY common/include/ DESTINATION include/jxrlib
   FILES_MATCHING PATTERN "*.h"
 )
+
+
