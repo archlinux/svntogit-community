@@ -7,7 +7,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=11.2.0
+pkgver=11.2.1
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -33,10 +33,9 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab-backup.timer
         gitlab.target
         gitlab.tmpfiles.d
-        gitlab.logrotate
-        b41b2de702c26bfbbe375c70c48293a75546df42.patch)
+        gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('787fdfae7828ddd3d4259230f0a5dd1b75f8c0081654442d0b57e7da7306627fb81610b7da6236cbe9e4335b3f5d209e217f94b28f6f2c99a0fce8ed6e721dd4'
+sha512sums=('2bef8d83e4b7a3ee0b0be6dc6e04fadcffe5e2aaa55b25ea1e2a034604e7e18685a8f52ccd965adb2adfe6808a92207798815e4a63094e618ef9bff25749918d'
             'b1bc7c1f3d47758e4745ae3689e61989c6d1fd8490fa60d75de60d3960025f2888da5c50c4a70e1656d75e4d53bcece518e87f743855eed150a61cb11d40b7d2'
             'ea5ae64214a82b522a09c20be2967ae2ff6fbfd7683587909b748dab4647f99b3128c0e16aba375ecb191e47e1b9045587a84322e216e5cda940904c4fa6271c'
             '69e6f43008389fb54bba6cea61adb0dbf5b75c5796f5cca327326f20f329365c003847bbd6d53b113a0afb1a0d3a0b101a92476739daf85f65c670a1d4466f9c'
@@ -58,8 +57,6 @@ prepare() {
   local revision=$(ls -d ${_srcdir}* | rev | cut -c 34-40 | rev)
 
   cd "${_srcdir}"*
-
-  # patch -Np1 -i "${srcdir}"/b41b2de702c26bfbbe375c70c48293a75546df42.patch
 
   # GitLab tries to read its revision information from a file.
   echo "${revision}" > REVISION
@@ -159,6 +156,9 @@ package() {
   rm -rf "${pkgdir}${_datadir}/builds" && ln -fs "${_homedir}/builds" "${pkgdir}${_datadir}/builds"
   rm -rf "${pkgdir}${_datadir}/tmp" && ln -fs /var/tmp "${pkgdir}${_datadir}/tmp"
   rm -rf "${pkgdir}${_datadir}/log" && ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
+
+  # Fixes https://bugs.archlinux.org/task/59762
+  ln -s "${_datadir}/config/boot.rb" "${pkgdir}"/${_etcdir}/boot.rb
 
   mv "${pkgdir}${_datadir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
