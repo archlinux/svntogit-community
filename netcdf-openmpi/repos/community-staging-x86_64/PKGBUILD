@@ -1,0 +1,65 @@
+# $Id: PKGBUILD 237977 2017-06-17 17:10:45Z archange $
+# Maintainer: Ronald van Haren <ronald.archlinux.org>
+# Maintainer: Bruno Pagani (a.k.a. ArchangeGabriel) <archange@archlinux.org>
+# Contributor: damir <damir@archlinux.org>
+
+_pkg=netcdf
+_mpi=openmpi
+pkgname=${_pkg}-${_mpi}
+pkgver=4.6.1
+pkgrel=3
+pkgdesc="network Common Data Form interface for array-oriented data access and corresponding library with parallel support (${_mpi} version)"
+arch=('x86_64')
+url="https://www.unidata.ucar.edu/software/netcdf/"
+depends=("hdf5-${_mpi}" "parallel-netcdf-${_mpi}" 'curl')
+makedepends=('cmake')
+optdepends=('netcdf-fortran: fortran bindings' 'netcdf-cxx: c++ bindings')
+checkdepends=('inetutils')
+provides=('netcdf')
+conflicts=('netcdf')
+options=('!makeflags')
+license=('custom')
+source=(${_pkg}-${pkgver}.tar.gz::"https://github.com/Unidata/netcdf-c/archive/v${pkgver}.tar.gz")
+sha256sums=('a2fabf27c72a5ee746e3843e1debbaad37cd035767eaede2045371322211eebb')
+
+prepare() {
+    mkdir -p build
+}
+
+build() {
+    cd build
+    export CC=mpicc
+    cmake ../${_pkg}-c-${pkgver} \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_CDF5=ON \
+        -DENABLE_PNETCDF=ON \
+        -DENABLE_DAP_LONG_TESTS=ON \
+        -DENABLE_EXAMPLE_TESTS=ON \
+        -DENABLE_EXTRA_TESTS=ON \
+        -DENABLE_FAILING_TESTS=ON \
+        -DENABLE_FILTER_TESTING=ON \
+        -DENABLE_LARGE_FILE_TESTS=ON
+    make
+}
+
+
+check() {
+    cd build
+
+    # This is required starting with OpenMPI 3.0 when trying to run more
+    # processes than the number of available cores
+    export OMPI_MCA_rmaps_base_oversubscribe=yes
+
+    # One test failure https://github.com/Unidata/netcdf-c/issues/808
+    make test || warning "Test failure"
+}
+
+package() {
+    cd build
+    make DESTDIR="${pkgdir}" install
+
+    cd "${srcdir}"/${_pkg}-c-${pkgver}
+    install -Dm644 COPYRIGHT -t "${pkgdir}"/usr/share/licenses/${_pkg}/
+}
