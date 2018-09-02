@@ -1,0 +1,227 @@
+From: Jeremy Bicha <jbicha@ubuntu.com>
+Date: Sat, 23 Dec 2017 02:22:44 -0500
+Subject: Drop gconf dependency
+
+Revert 3647e8bd20533f317c8fa0deac29e89fec0512f2
+"Remember show_toolbar and last_open folder in gconf"
+
+Similarly, undo gconf support for Bookmarks feature
+---
+ configure.ac                     |  1 -
+ src/Makefile.am                  |  2 --
+ src/PdfMod/Core/Client.cs        |  2 --
+ src/PdfMod/Core/Configuration.cs | 65 ----------------------------------------
+ src/PdfMod/Gui/Actions.cs        | 17 +++--------
+ src/PdfMod/Gui/BookmarkView.cs   |  2 --
+ src/PdfMod/Gui/Client.cs         |  3 --
+ 7 files changed, 4 insertions(+), 88 deletions(-)
+ delete mode 100644 src/PdfMod/Core/Configuration.cs
+
+diff --git a/configure.ac b/configure.ac
+index e3b4570..6438aa0 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -108,7 +108,6 @@ AM_GLIB_GNU_GETTEXT
+ dnl package checks, common for all configs
+ PKG_CHECK_MODULES([GTK_SHARP_20], [gtk-sharp-2.0])
+ PKG_CHECK_MODULES([GLIB_SHARP_20], [glib-sharp-2.0])
+-PKG_CHECK_MODULES([GCONF_SHARP_20], [gconf-sharp-2.0])
+ 
+ dnl package checks, per config
+ PKG_CHECK_MODULES(HYENA, hyena >= 0.5)
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 9eb4c74..a3ead39 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -29,7 +29,6 @@ all: $(ASSEMBLY) $(PROGRAMFILES) $(BINARIES)
+ FILES =  \
+ 	PdfMod/Core/AssemblyInfo.cs \
+ 	PdfMod/Core/Client.cs \
+-	PdfMod/Core/Configuration.cs \
+ 	PdfMod/Core/Defines.cs \
+ 	PdfMod/Gui/Actions.cs \
+ 	PdfMod/Gui/BookmarkView.cs \
+@@ -63,7 +62,6 @@ EXTRAS = \
+ REFERENCES =  \
+ 	Mono.Cairo \
+ 	Mono.Posix \
+-	-pkg:gconf-sharp-2.0 \
+ 	-pkg:glib-sharp-2.0 \
+ 	-pkg:gtk-sharp-2.0 \
+ 	-pkg:hyena \
+diff --git a/src/PdfMod/Core/Client.cs b/src/PdfMod/Core/Client.cs
+index e8d4d11..fac4c75 100644
+--- a/src/PdfMod/Core/Client.cs
++++ b/src/PdfMod/Core/Client.cs
+@@ -32,13 +32,11 @@ namespace PdfMod.Core
+         static readonly string CacheDir = Path.Combine (XdgBaseDirectorySpec.GetUserDirectory ("XDG_CACHE_HOME", ".cache"), "pdfmod");
+ 
+         public Document Document { get; protected set; }
+-        public static Configuration Configuration { get; private set; }
+ 
+         public event EventHandler DocumentLoaded;
+ 
+         static Client ()
+         {
+-            Configuration = new Configuration ();
+             InitCache ();
+         }
+ 
+diff --git a/src/PdfMod/Core/Configuration.cs b/src/PdfMod/Core/Configuration.cs
+deleted file mode 100644
+index 817b9f4..0000000
+--- a/src/PdfMod/Core/Configuration.cs
++++ /dev/null
+@@ -1,65 +0,0 @@
+-// Copyright (C) 2009-2010 Novell, Inc.
+-//
+-// This program is free software; you can redistribute it and/or
+-// modify it under the terms of the GNU General Public License
+-// as published by the Free Software Foundation; either version 2
+-// of the License, or (at your option) any later version.
+-//
+-// This program is distributed in the hope that it will be useful,
+-// but WITHOUT ANY WARRANTY; without even the implied warranty of
+-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-// GNU General Public License for more details.
+-//
+-// You should have received a copy of the GNU General Public License
+-// along with this program; if not, write to the Free Software
+-// Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
+-
+-using System;
+-
+-namespace PdfMod.Core
+-{    
+-    public class Configuration
+-    {
+-        GConf.Client client = new GConf.Client ();
+-        string ns = "/apps/pdfmod/";
+-
+-        public Configuration()
+-        {
+-        }
+-
+-        T Get<T> (string key, T fallback)
+-        {
+-            try {
+-                return (T) client.Get (ns + key);
+-            } catch {
+-                return fallback;
+-            }
+-        }
+-
+-        void Set<T> (string key, T val)
+-        {
+-            client.Set (ns + key, val);
+-        }
+-
+-        public bool ShowToolbar {
+-            get { return Get<bool> ("show_toolbar", true); }
+-            set { Set<bool> ("show_toolbar", value); }
+-        }
+-
+-        public bool ShowBookmarks {
+-            get { return Get<bool> ("show_bookmarks", false); }
+-            set { Set<bool> ("show_bookmarks", value); }
+-        }
+-
+-        public string LastOpenFolder {
+-            get { return Get<string> ("last_folder", System.Environment.GetFolderPath (System.Environment.SpecialFolder.Desktop)); }
+-            set {
+-                if (value != null && value.StartsWith ("file:/") && !value.StartsWith ("file://")) {
+-                    value = "file://" + value.Substring (6);
+-                }
+-
+-                Set<string> ("last_folder", value);
+-            }
+-        }
+-    }
+-}
+diff --git a/src/PdfMod/Gui/Actions.cs b/src/PdfMod/Gui/Actions.cs
+index 3fc452b..9651a36 100644
+--- a/src/PdfMod/Gui/Actions.cs
++++ b/src/PdfMod/Gui/Actions.cs
+@@ -110,8 +110,8 @@ namespace PdfMod.Gui
+             AddImportant (
+                 new ToggleActionEntry ("Properties", Stock.Properties, null, "<alt>Return", Catalog.GetString ("View and edit the title, keywords, and more for this document"), OnProperties, false),
+                 new ToggleActionEntry ("ZoomFit", Stock.ZoomFit, null, "<control>0", null, OnZoomFit, true),
+-                new ToggleActionEntry ("ViewToolbar", null, Catalog.GetString ("Toolbar"), null, null, OnViewToolbar, Client.Configuration.ShowToolbar),
+-                new ToggleActionEntry ("ViewBookmarks", null, Catalog.GetString ("Bookmarks"), "F9", null, OnViewBookmarks, Client.Configuration.ShowBookmarks),
++                new ToggleActionEntry ("ViewToolbar", null, Catalog.GetString ("Toolbar"), null, null, OnViewToolbar, true),
++                new ToggleActionEntry ("ViewBookmarks", null, Catalog.GetString ("Bookmarks"), "F9", null, OnViewBookmarks, false),
+                 new ToggleActionEntry ("FullScreenView", null, Catalog.GetString ("Fullscreen"), "F11", null, OnFullScreenView, false)
+             );
+ 
+@@ -230,12 +230,6 @@ namespace PdfMod.Gui
+             chooser.SelectMultiple = true;
+             chooser.AddButton (Stock.Open, ResponseType.Ok);
+ 
+-            if (app.Document != null) {
+-                chooser.SetCurrentFolder (System.IO.Path.GetDirectoryName (app.Document.SuggestedSavePath));
+-            } else {
+-                chooser.SetCurrentFolder (Client.Configuration.LastOpenFolder);
+-            }
+-
+             var response = chooser.Run ();
+             var filenames = chooser.Filenames;
+             chooser.Destroy ();
+@@ -266,7 +260,6 @@ namespace PdfMod.Gui
+             chooser.DoOverwriteConfirmation = true;
+             chooser.CurrentName = System.IO.Path.GetFileName (app.Document.SuggestedSavePath);
+             chooser.AddButton (Stock.SaveAs, ResponseType.Ok);
+-            chooser.SetCurrentFolder (System.IO.Path.GetDirectoryName (app.Document.SuggestedSavePath));
+ 
+             var response = chooser.Run ();
+             string filename = chooser.Filename;
+@@ -462,14 +455,12 @@ namespace PdfMod.Gui
+ 
+         void OnViewToolbar (object o, EventArgs args)
+         {
+-            bool show = (this["ViewToolbar"] as ToggleAction).Active;
+-            Client.Configuration.ShowToolbar = app.HeaderToolbar.Visible = show;
++            app.HeaderToolbar.Visible = (this["ViewToolbar"] as ToggleAction).Active;
+         }
+ 
+         void OnViewBookmarks (object o, EventArgs args)
+         {
+-            bool show = (this["ViewBookmarks"] as ToggleAction).Active;
+-            Client.Configuration.ShowBookmarks = app.BookmarkView.Visible = show;
++            app.BookmarkView.Visible = (this["ViewBookmarks"] as ToggleAction).Active;
+             if (app.BookmarkView.Visible) {
+                 app.BookmarkView.GrabFocus ();
+             }
+diff --git a/src/PdfMod/Gui/BookmarkView.cs b/src/PdfMod/Gui/BookmarkView.cs
+index 00303cd..29f9d16 100644
+--- a/src/PdfMod/Gui/BookmarkView.cs
++++ b/src/PdfMod/Gui/BookmarkView.cs
+@@ -69,8 +69,6 @@ namespace PdfMod.Gui
+             model.Clear ();
+             AddOutlineCollection (document, document.Pdf.Outlines, TreeIter.Zero);
+             UpdateActions ();
+-
+-            Visible = Client.Configuration.ShowBookmarks;
+         }
+ 
+         // Bookmark action handlers
+diff --git a/src/PdfMod/Gui/Client.cs b/src/PdfMod/Gui/Client.cs
+index d7a408b..a614dcb 100644
+--- a/src/PdfMod/Gui/Client.cs
++++ b/src/PdfMod/Gui/Client.cs
+@@ -125,8 +125,6 @@ namespace PdfMod.Gui
+             HeaderToolbar.ShowArrow = false;
+             HeaderToolbar.ToolbarStyle = ToolbarStyle.Icons;
+             HeaderToolbar.Tooltips = true;
+-            HeaderToolbar.NoShowAll = true;
+-            HeaderToolbar.Visible = Configuration.ShowToolbar;
+ 
+             // BookmarksView
+             BookmarkView = new BookmarkView (this);
+@@ -272,7 +270,6 @@ namespace PdfMod.Gui
+                 path = System.IO.Path.GetFullPath (path);
+             }
+ 
+-            Configuration.LastOpenFolder = System.IO.Path.GetDirectoryName (suggestedFilename ?? path);
+             status_label.Text = Catalog.GetString ("Loading document...");
+ 
+             ThreadAssist.SpawnFromMain (delegate {
