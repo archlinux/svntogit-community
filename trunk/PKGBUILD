@@ -3,31 +3,47 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-pkgver=3.2.1
-pkgrel=2
+_gitcommit=3ddd91c2c89e5a31380b169bd5a26c8d641b2fc5
+pkgver=3.4.2
+pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
 arch=('x86_64')
 license=('Apache')
-depends=('python' 'python-chardet' 'python-multidict' 'python-async-timeout' 'python-yarl' 'python-idna_ssl' 'python-attrs')
-makedepends=('cython' 'python-setuptools')
-checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock' 'python-async_generator')
-source=(${pkgname}-${pkgver}.tar.gz::https://github.com/aio-libs/aiohttp/archive/v${pkgver}.tar.gz)
-sha256sums=('6cf1c7fd052bc92e0be940e5b2e877a202d2d0fdf36cbf2aa3ef3c92f4e2327a')
-sha512sums=('c56bbcd09bcb56cea1ee2977a7550a0dcde1a18e58e50340978e8882a483350f092b06314611e62e90964a357252debddaf031af427910f318efa31720f3dc33')
+depends=('python' 'python-chardet' 'python-multidict' 'python-async-timeout'
+         'python-yarl' 'python-attrs')
+makedepends=('cython' 'python-setuptools' 'git')
+checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
+              'python-pytest-timeout' 'python-async_generator' 'python-brotlipy')
+source=(${pkgname}::"git+https://github.com/aio-libs/aiohttp#commit=${_gitcommit}"
+        git+https://github.com/nodejs/http-parser)
+sha512sums=('SKIP'
+            'SKIP')
+
+pkgver() {
+  cd ${pkgname}
+  git describe --always --tags | sed 's/^v//;s/-/./g'
+}
+
+prepare() {
+  cd ${pkgname}
+  git submodule init
+  git config submodule."vendor/http-parser".url "${srcdir}/http-parser"
+  git submodule update --recursive
+}
 
 build() {
-  cd ${_pkgname}-${pkgver}
+  cd ${pkgname}
   python setup.py build
 }
 
 check() {
-  cd ${_pkgname}-${pkgver}
+  cd ${pkgname}
   python setup.py test
 }
 
 package() {
-  cd ${_pkgname}-${pkgver}
+  cd ${pkgname}
   python setup.py install --root="${pkgdir}" -O1 --skip-build
 }
 
