@@ -6,7 +6,7 @@
 
 pkgbase=gtest
 pkgname=('gtest' 'gmock')
-pkgver=1.8.0
+pkgver=1.8.1
 pkgrel=1
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest/'
@@ -19,7 +19,7 @@ source=(${pkgbase}-${pkgver}.tar.gz::https://github.com/google/googletest/archiv
         gtest.pc.in
         gmock-install.patch
         gmock.pc.in)
-sha512sums=('1dbece324473e53a83a60601b02c92c089f5d314761351974e097b2cf4d24af4296f9eb8653b6b03b1e363d9c5f793897acae1f0c7ac40149216035c4d395d9d'
+sha512sums=('e6283c667558e1fd6e49fa96e52af0e415a3c8037afe1d28b7ff1ec4c2ef8f49beb70a9327b7fc77eb4052a58c4ccad8b5260ec90e4bceeac7a46ff59c4369d7'
             '7e9ad4cd470eaab7ed5fb1cce1d5721d40fc03a62b0c895b8f9657679ffa43f91b99800bb1e02a6c5c2d0a72e94bb8ea008aa6e74fdb1460b1326a84da5e9f91'
             'df3d23bc53c3b4ab5bacb4b6fad8823870b2ba6b86017e1e99067fb547533a649f2c8e8a8634e3583b344230e1afc280a047d41330cbc7510cfd0c5e843594c3'
             '2c2417c178485a590695f7d37b26fad3a1a1993fdc9a0c869c34fec83d51769b8057b4f67000e0585f61919c092175186252704a032e9b06bfc1f0e7c0b900f9'
