@@ -1,0 +1,116 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Oliver Goethel <deezy>
+# Contributor: eolianoe eolianoe <eolianoe [at] gmail [DoT] com>
+# Contributor: George Eleftheriou <eleftg>
+# Contributor: Mathias Anselmann <mathias.anselmann@gmail.com>
+# Contributor: Stéphane Gaudreault <stephane@archlinux.org>
+# Contributor: Thomas Dziedzic < gostrc at gmail >
+# Contributor: Michele Mocciola <mickele>
+# Contributor: Simon Zilliken <simon____AT____zilliken____DOT____name>
+# Contributor: chuckdaniels
+
+_pkg=paraview
+_mpi=openmpi
+pkgname=${_pkg}
+#-${_mpi}
+pkgver=5.5.2
+pkgrel=4
+pkgdesc="Parallel Visualization application using VTK (${_mpi} version)"
+arch=('x86_64')
+url="https://www.paraview.org"
+license=('BSD' 'custom')
+depends=('qt5-tools' 'qt5-x11extras' 'ospray' 'ffmpeg' 'openmpi'
+         'cgns' 'python-pygments' 'protobuf' 'pugixml'
+         'python-matplotlib' 'python-numpy' 'python-mpi4py'
+         'boost-libs' 'glew' 'expat' 'freetype2'
+         'libjpeg' 'jsoncpp' 'libxml2' 'libpng'
+         'libtiff' 'zlib' 'hdf5' 'lz4' 'netcdf')
+#        netcdf-cxx gl2ps libharu
+#        python-txaio python-hyperlink
+#        proj apparently not used in this VTK configuration
+makedepends=('cmake' 'boost' 'mesa' 'gcc-fortran' 'ninja' 'qt5-tools' 'qt5-xmlpatterns' 'eigen')
+source=("${url}/files/v${pkgver:0:3}/ParaView-v${pkgver}.tar.xz"
+        'fix-qt5.11-headers.patch'
+        'https://gitlab.kitware.com/vtk/vtk/merge_requests/4490.patch'
+        'https://gitlab.kitware.com/paraview/paraview/merge_requests/2613.patch'
+        paraview-fix-doc-build.patch::"https://gitlab.kitware.com/paraview/paraview/commit/f9c7e4b0.diff")
+sha256sums=('4b9d186bac59e412ae09cae49c3ec3ec59803c25f63e89f92efe07b05dc1b896'
+            '638e3148d855e1de2ca7711f9dd1eb6ec5410e3c412d949abf2a34ef2086f0c7'
+            'ebad129ed0229f96bc17ff0a43715407b0fdf8cc2658a7b5ebd7e76809ae1392'
+            '49d643a0220f0f901e571f9f82f5dd48d85fe42a79830b971ab586abf334194f'
+            '2e52c2564e5e147b8c1321367147495ba3c43436eecda1b3d26acde8d04a230d')
+
+prepare() {
+    mkdir -p build
+    cd ParaView-v${pkgver}/
+    patch -p1 -i ../fix-qt5.11-headers.patch
+    # https://gitlab.kitware.com/paraview/paraview/issues/18323
+    patch -p1 -i ../2613.patch
+    # fix build https://gitlab.kitware.com/paraview/paraview/issues/18330
+    patch -p1 -i ../paraview-fix-doc-build.patch
+    cd VTK
+    # https://gitlab.kitware.com/vtk/vtk/issues/17350
+    patch -p1 -i ../../4490.patch
+}
+
+build() {
+    cd build
+
+    # Flags to enable system libs in VTK building, as in VTK package
+    # NETCDFCPP status?
+    # GL2PS fails.
+    # libharu blocked by https://github.com/libharu/libharu/pull/157
+    # LIBPROJ4 apparently not used in this VTK configuration
+    local VTK_USE_SYSTEM_LIB=""
+    for lib in EXPAT FREETYPE JPEG PNG TIFF ZLIB LIBXML2 MPI4PY JSONCPP GLEW HDF5 LZ4 NETCDF EIGEN
+    do
+        VTK_USE_SYSTEM_LIB+="-DVTK_USE_SYSTEM_${lib}:BOOL=ON "
+    done
+    # Specific system libs for ParaView version
+    for lib in CGNS PUGIXML PROTOBUF PYGMENTS
+    do
+        VTK_USE_SYSTEM_LIB+="-DVTK_USE_SYSTEM_${lib}:BOOL=ON "
+    done
+
+    cmake ../ParaView-v${pkgver} \
+        -DBUILD_DOCUMENTATION=OFF \
+        -DBUILD_EXAMPLES=ON \
+        -DBUILD_SHARED_LIBS=ON \
+        -DBUILD_TESTING=OFF \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_COMPILER=mpicc \
+        -DCMAKE_CXX_COMPILER=mpicxx \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DOSPRAY_INSTALL_DIR=/usr \
+        -DPARAVIEW_ENABLE_FFMPEG=ON \
+        -DPARAVIEW_ENABLE_MATPLOTLIB=ON \
+        -DPARAVIEW_ENABLE_PYTHON=ON \
+        -DPARAVIEW_INSTALL_DEVELOPMENT_FILES=ON \
+        -DPARAVIEW_QT_VERSION=5 \
+        -DPARAVIEW_USE_MPI=ON \
+        -DPARAVIEW_USE_VISITBRIDGE=ON \
+        -DPARAVIEW_USE_OSPRAY=ON \
+        -DVISIT_BUILD_READER_CGNS=ON \
+        -DVTK_PYTHON_FULL_THREADSAFE=ON \
+        -DVTK_PYTHON_VERSION=3 \
+        -DVTK_QT_VERSION=5 \
+        -DVTK_RENDERING_BACKEND=OpenGL2 \
+        -DVTK_SMP_IMPLEMENTATION_TYPE=OpenMP \
+        ${VTK_USE_SYSTEM_LIB} \
+        -GNinja
+
+    ninja ${MAKEFLAGS}
+}
+
+package() {
+    cd build
+
+    DESTDIR="${pkgdir}" ninja install
+
+    # Install license
+    install -Dm644 "${srcdir}"/ParaView-v${pkgver}/License_v1.2.txt "${pkgdir}"/usr/share/licenses/paraview/LICENSE
+
+    # Remove IceT man pages to avoid conflicts
+    rm -- "${pkgdir}"/usr/share/man/man3/icet*.3
+    rmdir "${pkgdir}"/usr/share/man/{man3/,}
+}
