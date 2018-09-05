@@ -3,8 +3,8 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-_gitcommit=3ddd91c2c89e5a31380b169bd5a26c8d641b2fc5
-pkgver=3.4.2
+_gitcommit=fd335f2d597208e95bc86732cf93edbc8fa379ef
+pkgver=3.4.4
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
