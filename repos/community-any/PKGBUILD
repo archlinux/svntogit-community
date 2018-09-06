@@ -1,7 +1,7 @@
 pkgbase=python-imagesize
 pkgname=('python-imagesize' 'python2-imagesize')
-pkgver=1.0.0
-pkgrel=2
+pkgver=1.1.0
+pkgrel=1
 
 pkgdesc='Getting image size from png/jpeg/jpeg2000/gif file'
 url='https://github.com/shibukawa/imagesize_py'
@@ -12,7 +12,7 @@ makedepends=('python-setuptools' 'python2-setuptools')
 
 source=("https://files.pythonhosted.org/packages/source/i/imagesize/imagesize-$pkgver.tar.gz")
 
-md5sums=('9aa76df782f1df5b917794638b6bb6c2')
+md5sums=('2f89749b05e07c79c46330dbc62f1e02')
 
 build() {
   cp -r imagesize-$pkgver imagesize-$pkgver-py2
