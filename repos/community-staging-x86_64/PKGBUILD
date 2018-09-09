@@ -8,7 +8,7 @@
 
 pkgname=calibre
 pkgver=3.31.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -31,12 +31,13 @@ source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         podofo_0.9.6.patch)
 sha256sums=('3c2713a89a186e20d45ea42f2ed6be509fecce880ce6e233e63e6f3a415fe1f5'
             'SKIP'
-            '6e5c856b164724ed54bf84b1e592a6aea52d0472874be706fd8b61e88ad73151')
+            '4243e18653348aed438e28af7268c40ea6047e4b1d2b091faeaa1351572f7873')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
   cd "${pkgname}-${pkgver}"
 
+  # https://bugs.launchpad.net/bugs/1791430
   patch -Np1 -i ${srcdir}/podofo_0.9.6.patch
 
   # Remove unneeded files
@@ -64,8 +65,6 @@ check() {
   # without xvfb-run this fails with much "Control socket failed to recv(), resetting"
   # ERROR: test_websocket_perf (calibre.srv.tests.web_sockets.WebSocketTest)
 
-  # websocket test fails currently.
-  rm src/calibre/srv/tests/web_sockets.py
   LANG='en_US.UTF-8' xvfb-run python2 setup.py test
 }
 
