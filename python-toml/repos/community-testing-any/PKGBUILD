@@ -2,8 +2,8 @@
 _name=toml
 pkgbase=python-toml
 pkgname=('python-toml' 'python2-toml')
-pkgver=0.9.4
-pkgrel=4
+pkgver=0.9.6
+pkgrel=1
 pkgdesc="A Python library for parsing and creating TOML"
 arch=('any')
 url="https://github.com/uiri/toml"
@@ -11,8 +11,7 @@ license=('MIT')
 makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('4f87344c5735e8c6c5377c9c48e301c04a224e078e6f8755a9c1f9076cd852fd12dffe25d83cfc6d5dbf181ef1156fa56233cae11537a164416c4b6424b154ba')
-validpgpkeys=()
+sha512sums=('9f2804daebae0744c3a00bfb27b2f1efd73c96e7e5a14316d492200d63ba546167f669a187297c76daca5ef35b7adb6f309c1f6129302b6f41e6b7673bdb43b6')
 
 prepare() {
   mv -v "${_name}-$pkgver" "$pkgbase-$pkgver"
@@ -28,8 +27,8 @@ build() {
 # no tests in pypi source: https://github.com/uiri/toml/issues/192
 #check() {
 #  cd "$pkgname-$pkgver"
-#  python setup.py build
-#  python2 setup.py build
+#  python setup.py test
+#  python2 setup.py test
 #}
 
 package_python-toml() {
