@@ -1,28 +1,23 @@
 # $Id$
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
-# Contriburtor: Michael Hansen <zrax0111 gmail com>
+# Contributor: Michael Hansen <zrax0111 gmail com>
 # Contributor: Francisco Magalhães <franmagneto gmail com>
 
 pkgname=code
-pkgdesc='Microsoft Code -- The Open Source build of Visual Studio Code (vscode)'
+pkgdesc='The Open Source build of Visual Studio Code (vscode) editor'
 pkgver=1.27.1
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url='https://github.com/Microsoft/vscode'
 license=('MIT')
-depends=('gtk3' 'gconf' 'libnotify' 'libxss' 'libxtst' 'libxkbfile' 'nss' 'alsa-lib'
-         'libx11' 'libxkbfile' 'libsecret' 'electron')
-makedepends=('nodejs-lts-carbon' 'gulp' 'python2' 'git' 'yarn' 'npm')
+depends=('electron' 'libsecret' 'libxkbfile')
+makedepends=('git' 'gulp' 'npm' 'python2' 'yarn')
 source=("$pkgname::git+https://github.com/Microsoft/vscode#tag=$_pkgver"
-        'code.desktop'
         'code.sh'
-        'startup_script.patch'
         'product_json.patch'
         'code-liveshare.patch')
 sha512sums=('SKIP'
-            'b43d83d811ec352a153c566ffb4ac2e7eb48e8f7e0fa6d140c1a91ac063663b25cf1900aea7cf35a0b5eccaa22783e94511fa381663999db952894de64ba6b90'
-            '754280ae37300a7706049c83c3cd6b441c58d90ae3eab723d0b721c4ac9321af49b7b491c7a4378487d0d0a4d81124bfc72ad6440bfdee046b5b1724045f3f1d'
-            'bce6f9f9a745fd89916b93075a4748d1cd3b5ba58084e3e957310850c4cf64fe91eb5a63cfcc1f674511b59cebdddf2916028ab8b12bca82bb48035c76ca3170'
+            'dfca36cf30eeab786c38feb320dcec09764dcaa912d9587a959ce5a4273f6a4af7de3a01b963beedc1ec64782b459aa8491d9b808b9c6ce98f847e80d618d272'
             'dcf52fa373a787cd94ce7ad216a269de3ca90b3f02cea1d635016d980e765a9cc040776ce4b4ef83721ab6f0d74efb7a3a9ca02fbdf3daa06653c766d36cde08'
             '6080b9d30b2c852a831d4fa98be94e42eb7d94dfd5813bbe28410d031191c20563e4288d6b0062c74b635a962c3eba3533fcebeff1f67b4a8005a167c2f7fbf2')
 
@@ -64,8 +59,17 @@ prepare() {
 build() {
   cd $pkgname
 
-  yarn
-  yarn install --arch=$_vscode_arch # can't run --production :/
+  yarn install --arch=$_vscode_arch
+
+  # Rebuild native npm modules for system electron
+  # See https://electronjs.org/docs/tutorial/using-native-node-modules for details
+  sed -i '/postinstall/d' node_modules/vscode-ripgrep/package.json
+  npm rebuild \
+      --arch=$_vscode_arch \
+      --runtime=electron \
+      --target=$(</usr/lib/electron/version) \
+      --disturl=https://atom.io/download/electron \
+      --build-from-source
 
   # The default memory limit may be too low for current versions of node
   # to successfully build vscode.  Uncomment this to set it to 2GB, or
@@ -81,26 +85,30 @@ build() {
       echo "***    https://ro-che.info/articles/2017-03-26-increase-open-files-limit"
       exit 1
   fi
-
-  # Patch the startup script to know where the app is installed, rather
-  # than guessing...
-  cd ../VSCode-linux-$_vscode_arch
-  patch -p1 < ../startup_script.patch
 }
 
 package() {
-  # Install .asar files
+  # Install resource files
   install -dm 755 "$pkgdir"/usr/lib/$pkgname
   cp -r --no-preserve=ownership --preserve=mode VSCode-linux-$_vscode_arch/resources/* "$pkgdir"/usr/lib/$pkgname/
-
-  # Add .desktop file
-  install -Dm 644 code.desktop "$pkgdir"/usr/share/applications/code.desktop
-  install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/resources/linux/code.png "$pkgdir"/usr/share/icons/code.png
 
   # Install binary
   install -Dm 755 code.sh "$pkgdir"/usr/bin/code
 
-  # Install license file
-  install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  # Install appdata and desktop file
+  sed -i 's|/usr/share/@@NAME@@/@@NAME@@|@@NAME@@|g
+          s/@@NAME_SHORT@@/Code - OSS/g
+          s/@@NAME_LONG@@/Code/g
+          s/@@NAME@@/code/g
+          s/@@ICON@@/code/g
+          s/@@LICENSE@@/MIT/g' code/resources/linux/code.{appdata.xml,desktop}
+
+  install -Dm 644 code/resources/linux/code.appdata.xml "$pkgdir"/usr/share/metainfo/code.appdata.xml
+  install -Dm 644 code/resources/linux/code.desktop "$pkgdir"/usr/share/applications/code.desktop
+  install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/resources/linux/code.png "$pkgdir"/usr/share/pixmaps/code.png
+
+  # Install license files
+  install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
+  install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/ThirdPartyNotices.txt "$pkgdir"/usr/share/licenses/$pkgname/ThirdPartyNotices.txt
 }
 
