@@ -1,4 +1,3 @@
-# $Id: PKGBUILD 69719 2012-04-23 02:56:20Z svenstaro $
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
 pkgname=cuda
 pkgver=9.2.148
