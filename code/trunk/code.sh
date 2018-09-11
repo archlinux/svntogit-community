@@ -1,3 +1,3 @@
 #!/bin/bash
 
-electron /usr/lib/code/app/ "$@"
+electron /usr/lib/code/app/code.js "$@"
