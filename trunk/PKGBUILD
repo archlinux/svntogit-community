@@ -1,4 +1,3 @@
-# $Id: PKGBUILD 140196 2011-10-09 08:27:16Z angvp $
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 # Contributor: Angel Velasquez <angvp@archlinux.org> 
 # Contributor: Sergej Pupykin <sergej@aur.archlinux.org>
