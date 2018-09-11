@@ -1,4 +1,3 @@
-# $Id$
 
 pkgname=sway
 pkgver=0.15.2
