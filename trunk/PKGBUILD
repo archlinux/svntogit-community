@@ -1,4 +1,3 @@
-# $Id$
 # Maintainer: Sébastien Luttringer
 
 pkgbase=linux-tools
