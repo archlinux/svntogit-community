@@ -1,0 +1,95 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+pkgname=apparmor
+pkgver=2.13.0
+pkgrel=2
+pkgdesc="Mandatory Access Control (MAC) mechanism using the Linux Security
+Module (LSM) framework."
+arch=('x86_64')
+url="https://launchpad.net/apparmor"
+license=('GPL')
+depends=('audit' 'pam' 'python' 'perl')
+makedepends=('swig')
+provides=('libapparmor')
+replaces=('apparmor-libapparmor' 'apparmor-pam' 'apparmor-parser'
+'apparmor-profiles' 'apparmor-utils' 'apparmor-vim')
+backup=('etc/apparmor/easyprof.conf'
+        'etc/apparmor/logprof.conf'
+        'etc/apparmor/notify.conf'
+        'etc/apparmor/parser.conf'
+        'etc/apparmor/subdomain.conf'
+        'etc/apparmor/severity.db')
+source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver%.[0-9]}.tar.gz"{,.asc})
+sha512sums=('f98914713153d4c823a3ea7e96291cc4528bf7c8d3a139286ae0ecd806613e9c34b0ad81f2b258df2193cf6f3157d3252ef72d32d339427948a3fd8ba5651827'
+            'SKIP')
+# 3D3664BB: AppArmor Development Team (AppArmor signing key) <apparmor@lists.ubuntu.com>
+validpgpkeys=('3ECDCBA5FB34D254961CC53F6689E64E3D3664BB')
+_core_perl="/usr/bin/core_perl"
+
+prepare() {
+  # use PIE
+  export CFLAGS+=" -fpic -fpie"
+  export LDFLAGS+=" -fpic -fpie"
+  mv -v "${pkgname}-${pkgver%.[0-9]}" "${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
+  # fix bin directory for parser install target
+  # fix lib dir location
+  # fix missing executable bit on apparmor.systemd script
+  sed -e 's/sbin/usr\/bin/g' \
+      -e 's/\}\/lib\/apparmor/\}\/usr\/lib\/apparmor/' \
+      -e 's/644 apparmor.systemd/755 apparmor.systemd/' \
+      -i parser/Makefile
+  # fix default vim syntax file installation path
+  sed -e 's/share\/apparmor/share\/vim\/vimfiles\/syntax/' \
+      -i utils/vim/Makefile
+  # fix paths in logprof.conf
+  sed -e '/logfiles/ s/syslog /syslog.log /g' \
+      -e '/logfiles/ s/messages/messages.log/g' \
+      -e 's/sbin/bin/g' \
+      -e 's| /bin/| /usr/bin/|g' \
+      -i utils/logprof.conf
+  # rename profiles (to use usr.bin prefix)
+  for profile in $(ls profiles/{${pkgname}/profiles/extras,${pkgname}.d}/{bin,sbin,usr.sbin}*); do
+    mv -v $profile $(echo $profile| sed -e 's|/bin|/usr.bin|;s|/sbin|/usr.bin|g;s|/usr.sbin|/usr.bin|')
+  done
+  # overwrite usage of sbin with bin in all profiles
+  # overwrite local bin includes with usr.bin
+  sed -e 's/sbin/bin/g' \
+      -e 's|local/bin|local/usr.bin|' \
+      -i profiles/${pkgname}/profiles/extras/usr.* \
+      profiles/${pkgname}.d/{abstractions/*-{helpers,common},usr.*}
+  cd libraries/libapparmor/
+  autoreconf -vfi
+  # export required perl executable locations
+  export MAKEFLAGS+=" POD2MAN=${_core_perl}/pod2man"
+  export MAKEFLAGS+=" POD2HTML=${_core_perl}/pod2html"
+  export MAKEFLAGS+=" PODCHECKER=${_core_perl}/podchecker"
+  export MAKEFLAGS+=" PROVE=${_core_perl}/prove"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}/libraries/libapparmor/"
+  ./configure --prefix=/usr \
+              --sbindir=/usr/bin \
+              --with-perl \
+              --with-python
+  make
+  cd ../..
+  make -C parser
+  make -C profiles
+  make -C utils
+  make -C changehat/pam_apparmor
+  make -C utils/vim
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make -C libraries/libapparmor DESTDIR="${pkgdir}" install
+  make -C changehat/pam_apparmor DESTDIR="${pkgdir}/usr" install
+  make -C parser DESTDIR="${pkgdir}" install
+  make -C parser DESTDIR="${pkgdir}" install-systemd
+  make -C profiles DESTDIR="${pkgdir}" install
+  make -C utils DESTDIR="${pkgdir}" BINDIR="${pkgdir}/usr/bin" install
+  # adding files below /etc/apparmor.d to backup array
+  cd profiles/${pkgname}.d/
+  backup=( ${backup[@]} $(find . -type f |sed 's|./|etc/apparmor.d/|') )
+}
