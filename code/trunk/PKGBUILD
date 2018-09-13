@@ -5,18 +5,18 @@
 pkgname=code
 pkgdesc='The Open Source build of Visual Studio Code (vscode) editor'
 pkgver=1.27.1
-pkgrel=6
+pkgrel=7
 arch=('x86_64')
 url='https://github.com/Microsoft/vscode'
 license=('MIT')
 depends=('electron' 'libsecret' 'libxkbfile')
 makedepends=('git' 'gulp' 'npm' 'python2' 'yarn')
-source=("$pkgname::git+https://github.com/Microsoft/vscode#tag=$_pkgver"
+source=("$pkgname::git+https://github.com/Microsoft/vscode.git#tag=$pkgver"
         'code.js'
         'product_json.patch'
         'code-liveshare.patch')
 sha512sums=('SKIP'
-            '8ce619714da6b243ce831a0932266841142c8d88c41b383237e7081a0098a4bee3d9fc80c97bb72bea68edfd9120cca8bacd4aea38694f392aa937e3b79c8c0a'
+            '6f729b01e81d5cba31ee9e7e0275810410bcdbd3514b3956e9c19f4cbe849056fdc6267680cae6f9b28bf85b6b5b09130cf7bdf0db9ae651701efd3b480a22aa'
             'dcf52fa373a787cd94ce7ad216a269de3ca90b3f02cea1d635016d980e765a9cc040776ce4b4ef83721ab6f0d74efb7a3a9ca02fbdf3daa06653c766d36cde08'
             '6080b9d30b2c852a831d4fa98be94e42eb7d94dfd5813bbe28410d031191c20563e4288d6b0062c74b635a962c3eba3533fcebeff1f67b4a8005a167c2f7fbf2')
 
@@ -51,6 +51,15 @@ prepare() {
   local _datestamp=$(date -u -Is | sed 's/\+00:00/Z/')
   sed -e "s/@COMMIT@/$_commit/" -e "s/@DATE@/$_datestamp/" -i product.json
 
+  # Prepare appdata and desktop file
+  sed -i 's|/usr/share/@@NAME@@/@@NAME@@|@@NAME@@|g
+          s|@@NAME_SHORT@@|Code - OSS|g
+          s|@@NAME_LONG@@|Code|g
+          s|@@NAME@@|code|g
+          s|@@ICON@@|code|g
+          s|@@LICENSE@@|MIT|g
+          s|inode/directory;||' resources/linux/code.{appdata.xml,desktop}
+
   # See https://github.com/MicrosoftDocs/live-share/issues/262 for details
   patch -p1 < ../code-liveshare.patch
 
@@ -63,21 +72,7 @@ build() {
   cd $pkgname
 
   yarn install --arch=$_vscode_arch
-
-  # The default memory limit may be too low for current versions of node
-  # to successfully build vscode. Change it if this number still doesn't
-  # work for your system.
-  mem_limit="--max_old_space_size=4096"
-
-  if ! /usr/bin/node $mem_limit /usr/bin/gulp vscode-linux-$_vscode_arch-min
-  then
-      echo
-      echo "*** NOTE: If the build failed due to running out of file handles (EMFILE),"
-      echo "*** you will need to raise your max open file limit."
-      echo "*** You can check this for more information on how to increase this limit:"
-      echo "***    https://ro-che.info/articles/2017-03-26-increase-open-files-limit"
-      exit 1
-  fi
+  node --max_old_space_size=4096 /usr/bin/gulp vscode-linux-$_vscode_arch-min
 }
 
 package() {
@@ -89,14 +84,6 @@ package() {
   install -Dm 755 code.js "$pkgdir"/usr/bin/code
 
   # Install appdata and desktop file
-  sed -i 's|/usr/share/@@NAME@@/@@NAME@@|@@NAME@@|g
-          s|@@NAME_SHORT@@|Code - OSS|g
-          s|@@NAME_LONG@@|Code|g
-          s|@@NAME@@|code|g
-          s|@@ICON@@|code|g
-          s|@@LICENSE@@|MIT|g
-          s|inode/directory;||' code/resources/linux/code.{appdata.xml,desktop}
-
   install -Dm 644 code/resources/linux/code.appdata.xml "$pkgdir"/usr/share/metainfo/code.appdata.xml
   install -Dm 644 code/resources/linux/code.desktop "$pkgdir"/usr/share/applications/code.desktop
   install -Dm 644 VSCode-linux-$_vscode_arch/resources/app/resources/linux/code.png "$pkgdir"/usr/share/pixmaps/code.png
