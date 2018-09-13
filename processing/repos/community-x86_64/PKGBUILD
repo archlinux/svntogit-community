@@ -1,19 +1,24 @@
-# $Id$
 # Maintainer: Alexander F Rødseth <xyproto@archlinux.org>
 
 pkgname=processing
-pkgver=3.3.7
+pkgver=3.4
 pkgrel=1
 arch=('x86_64')
 pkgdesc='Programming environment for creating images, animations and interactions'
 url='http://www.processing.org/'
 license=('GPL' 'LGPL')
-makedepends=('gendesk' 'java-openjfx' 'java-environment=8' 'apache-ant' 'rsync')
-depends=('libgl' 'java-runtime=8')
+# Can upgrade to OpenJDK 10 once java-openjfx has been upgraded to support it
+makedepends=('apache-ant' 'gendesk' 'java-environment=8' 'java-openjfx' 'unzip')
+depends=('java-runtime=8' 'libgl')
 options=('!strip')
-# ex: 3.3.7 -> 0264 | update the expression when the 3.3. series version scheme changes
-source=("https://github.com/$pkgname/$pkgname/archive/$pkgname-0$((257+${pkgver##3.3.}))-$pkgver.tar.gz")
-sha256sums=('8d5bc6559c40f2427ffb91747323281a69e7d24523ee1fce91093b98bd6465e1')
+install=openjdkmsg.install
+# ex: 3.4 -> 0265,  update the expression when the version scheme changes
+source=("https://github.com/$pkgname/$pkgname/archive/$pkgname-0$((265+${pkgver/3.4/0}))-$pkgver.tar.gz"
+        "http://download.processing.org/reference.zip"
+        'build.xml')
+sha256sums=('ae27b35c0193c99b3297029f97b459a262b4c0998aa4b5fb3c3f0f81f72bb4a4'
+            '7538a32db09136de822db26af81a1edab541c6c593d0bd945bfec833f6dd1adc'
+            '9f4050475b3363eb5e966fa891caea0391b3dcc2cdb68245f1a053b0d7ffb220')
 
 prepare() {
   gendesk -f -n --pkgname="$pkgname" --pkgdesc="$pkgdesc"
@@ -21,15 +26,38 @@ prepare() {
   # Symbolic link for not having to repeat the revision number
   ln -sf "$pkgname-$pkgname-"*"-$pkgver" "$pkgname"
 
+  # Copy reference.zip to the java directory
+  mkdir -p "$pkgname/java"
+  cp "$srcdir/reference.zip" "$pkgname/java/"
+
+  # Unpack reference.zip
+  mkdir -p "$pkgname/build/linux/work/modes/java"
+  unzip -q -u "$srcdir/reference.zip" -d "$pkgname/build/linux/work/modes/java"
+
+  # Disable the "We only like Java from Sun and Oracle" GUI message
+  sed -i 's,Messages.showWarning,\/\*Messages.showWarning,;s,null);,null);\*\/,' "$pkgname/app/src/processing/app/platform/LinuxPlatform.java"
+
+  # Create missing directories
+  mkdir -p "$pkgname/build/linux/work/java"
+
   # Use the font's built-in hinting instructions
   sed 's|  java|  _JAVA_OPTIONS="-Dawt.useSystemAAFontSettings=gasp" java|g' \
     -i "$pkgname/build/linux/processing"
+
+  # Don't try to delete the JRE files with rsync or extract them with tar
+  #sed -i 's/rsync/true/g;s/executable="tar" dir="linux"/executable="true"/g' "$pkgname/build/build.xml"
+
+  # DON'T download the JRE from Oracle!
+  #sed -i 's/jre-download, //g' "$pkgname/build/build.xml"
+
+  # Use a custom build.xml file for ant
+  cp -fv build.xml "$pkgname/build/build.xml"
 }
 
 build() {
   cd "$pkgname/build"
 
-  ant run
+  ant build
 }
 
 package() {
@@ -47,7 +75,11 @@ package() {
   # Symbolic links in /usr/bin
   ln -s "/usr/share/$pkgname/$pkgname" "$pkgdir/usr/bin/$pkgname"
   ln -s "/usr/share/$pkgname/$pkgname-java" "$pkgdir/usr/bin/$pkgname-java"
+
+  # Use /usr/lib/jvm/default-runtime
+  rmdir "$pkgdir/usr/share/processing/java"
+  ln -s /usr/lib/jvm/default-runtime/ "$pkgdir/usr/share/processing/java"
 }
 
-# getver: raw.githubusercontent.com/processing/processing/master/build/shared/revisions.txt
+# getver: github.com/processing/processing/search?type=Commits&q=release+notes+author-date%3A%3E2018-03-14
 # vim: ts=2 sw=2 et:
