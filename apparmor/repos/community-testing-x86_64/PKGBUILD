@@ -1,14 +1,15 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=apparmor
 pkgver=2.13.0
-pkgrel=2
-pkgdesc="Mandatory Access Control (MAC) mechanism using the Linux Security
-Module (LSM) framework."
+pkgrel=3
+pkgdesc="Mandatory Access Control (MAC) using Linux Security Module (LSM)"
 arch=('x86_64')
 url="https://launchpad.net/apparmor"
 license=('GPL')
 depends=('audit' 'pam' 'python')
-makedepends=('swig')
+makedepends=('swig' 'chrpath' 'ruby')
+optdepends=('perl: perl bindings'
+            'ruby: ruby bindings')
 provides=('libapparmor')
 replaces=('apparmor-libapparmor' 'apparmor-pam' 'apparmor-parser'
 'apparmor-profiles' 'apparmor-utils' 'apparmor-vim')
@@ -21,14 +22,11 @@ backup=('etc/apparmor/easyprof.conf'
 source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver%.[0-9]}.tar.gz"{,.asc})
 sha512sums=('f98914713153d4c823a3ea7e96291cc4528bf7c8d3a139286ae0ecd806613e9c34b0ad81f2b258df2193cf6f3157d3252ef72d32d339427948a3fd8ba5651827'
             'SKIP')
-# 3D3664BB: AppArmor Development Team (AppArmor signing key) <apparmor@lists.ubuntu.com>
+# AppArmor Development Team (AppArmor signing key) <apparmor@lists.ubuntu.com>
 validpgpkeys=('3ECDCBA5FB34D254961CC53F6689E64E3D3664BB')
 _core_perl="/usr/bin/core_perl"
 
 prepare() {
-  # use PIE
-  export CFLAGS+=" -fpic -fpie"
-  export LDFLAGS+=" -fpic -fpie"
   mv -v "${pkgname}-${pkgver%.[0-9]}" "${pkgname}-${pkgver}"
   cd "${pkgname}-${pkgver}"
   # fix bin directory for parser install target
@@ -49,7 +47,9 @@ prepare() {
       -i utils/logprof.conf
   # rename profiles (to use usr.bin prefix)
   for profile in $(ls profiles/{${pkgname}/profiles/extras,${pkgname}.d}/{bin,sbin,usr.sbin}*); do
-    mv -v $profile $(echo $profile| sed -e 's|/bin|/usr.bin|;s|/sbin|/usr.bin|g;s|/usr.sbin|/usr.bin|')
+    mv -v $profile \
+      $(echo $profile| \
+        sed -e 's|/bin|/usr.bin|;s|/sbin|/usr.bin|;s|/usr.sbin|/usr.bin|')
   done
   # overwrite usage of sbin with bin in all profiles
   # overwrite local bin includes with usr.bin
@@ -59,19 +59,20 @@ prepare() {
       profiles/${pkgname}.d/{abstractions/*-{helpers,common},usr.*}
   cd libraries/libapparmor/
   autoreconf -vfi
+}
+
+build() {
   # export required perl executable locations
   export MAKEFLAGS+=" POD2MAN=${_core_perl}/pod2man"
   export MAKEFLAGS+=" POD2HTML=${_core_perl}/pod2html"
   export MAKEFLAGS+=" PODCHECKER=${_core_perl}/podchecker"
   export MAKEFLAGS+=" PROVE=${_core_perl}/prove"
-}
-
-build() {
   cd "${pkgname}-${pkgver}/libraries/libapparmor/"
   ./configure --prefix=/usr \
               --sbindir=/usr/bin \
               --with-perl \
-              --with-python
+              --with-python \
+              --with-ruby
   make
   cd ../..
   make -C parser
@@ -89,9 +90,15 @@ package() {
   make -C parser DESTDIR="${pkgdir}" install-systemd
   make -C profiles DESTDIR="${pkgdir}" install
   make -C utils DESTDIR="${pkgdir}" BINDIR="${pkgdir}/usr/bin" install
-  # strip perl library
-  find "${pkgdir}/usr/lib/perl5/" -type f -iname "*.so" -exec strip --strip-unneeded {} \;
+  # strip perl library and remove empty rpath
+  find "${pkgdir}/usr/lib/perl5/" \
+    -type f -iname "*.so" \
+    -exec strip --strip-unneeded {} \; \
+    -exec chrpath -d {} \;
+  # move ruby bindings to vendor_ruby
+  mv -v "${pkgdir}/usr/lib/ruby/site_ruby/" \
+    "${pkgdir}/usr/lib/ruby/vendor_ruby/"
   # adding files below /etc/apparmor.d to backup array
-  cd profiles/${pkgname}.d/
-  backup=( ${backup[@]} $(find . -type f |sed 's|./|etc/apparmor.d/|') )
+  backup=( ${backup[@]} $(find "${pkgdir}/etc/${pkgname}.d/" \
+    -type f |sed "s|${pkgdir}/||") )
 }
