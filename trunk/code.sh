@@ -1,3 +1,3 @@
 #!/bin/bash
 
-electron /usr/lib/code/app/code.js "$@"
+exec electron /usr/lib/code/out/cli.js /usr/lib/code/code.js "$@"
