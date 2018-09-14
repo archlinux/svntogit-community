@@ -1,0 +1,4885 @@
+From b9a9a03d7e78b4942a62204080805cc05c018b35 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Julian=20R=C3=BCth?= <julian.rueth@fsfe.org>
+Date: Fri, 1 Jun 2018 02:56:01 +0200
+Subject: Upgrade cddlib
+
+and use cddexec instead of cdd_both_reps. cddexec should be faster and is,
+according to upstream, "done the right way". The change to cddexec makes some
+numerical issues visible, so some things that worked before are not supported
+anymore. Essentially, we now require an inexact redundancy-free representation
+to be convertible back and forth between V and H representation (without loss
+of vertices/inequalities) before we trust it. Some standard examples, fail this
+check. I can not really make the call on whether these are bugs in cddlib or
+numerical issues that could not possibly be fixed (as I do not understand this
+well enough.)
+
+So why this change? Mostly because we do not patch cddlib anymore and just use
+it as is. It is also faster in some cases (that's what upstream cared most
+about when the cddlib author heard about our cdd_both_reps,) e.g.,
+
+%timeit polytopes.six_hundred_cell(exact=False)
+went from 993ms to 246ms
+
+Some other examples see minor slowdowns because of the additional
+transformation that we compute initially to make sure that the conversion back
+and forth worked out.
+---
+ build/pkgs/cddlib/SPKG.txt                         |  12 +-
+ build/pkgs/cddlib/checksums.ini                    |   4 +-
+ build/pkgs/cddlib/package-version.txt              |   2 +-
+ .../patches/build/lib-src-gmp_Makefile.am.patch    |  21 -
+ .../cddlib/patches/build/lib-src_Makefile.am.patch |  14 -
+ .../cddlib/patches/build/src-gmp_Makefile.am.patch |  26 --
+ .../cddlib/patches/build/src_Makefile.am.patch     |  22 -
+ build/pkgs/cddlib/patches/cdd_both_reps.c          | 255 ------------
+ .../cddlib/patches/lib-src-gmp_Makefile.in.patch   |  40 --
+ .../pkgs/cddlib/patches/lib-src_Makefile.in.patch  |  31 --
+ build/pkgs/cddlib/patches/lib-src_cddcore.c.patch  |  34 --
+ build/pkgs/cddlib/patches/lib-src_cddlp.c.patch    |  33 --
+ build/pkgs/cddlib/patches/random.c                 | 144 -------
+ build/pkgs/cddlib/patches/random.h                 |  37 --
+ .../pkgs/cddlib/patches/src-gmp_Makefile.in.patch  |  88 ----
+ build/pkgs/cddlib/patches/src_Makefile.in.patch    |  76 ----
+ build/pkgs/cddlib/spkg-check                       |  23 --
+ build/pkgs/cddlib/spkg-install                     |  11 -
+ build/pkgs/cddlib/spkg-src                         |   4 +-
+ build/pkgs/cddlib/tests/input/ccc4.ext             |  15 -
+ build/pkgs/cddlib/tests/input/ccc5.ext             |  22 -
+ build/pkgs/cddlib/tests/input/ccp4.ext             |  16 -
+ build/pkgs/cddlib/tests/input/ccp5.ext             |  24 --
+ build/pkgs/cddlib/tests/input/cube10.ine           |  27 --
+ build/pkgs/cddlib/tests/input/cube6.ine            |  17 -
+ build/pkgs/cddlib/tests/input/cubocta.ine          |  20 -
+ build/pkgs/cddlib/tests/input/cyclic10-4.ext       |  16 -
+ build/pkgs/cddlib/tests/input/cyclic12-6.ext       |  18 -
+ build/pkgs/cddlib/tests/input/empty.ine            |   6 -
+ build/pkgs/cddlib/tests/input/ex1.ine              |  11 -
+ build/pkgs/cddlib/tests/input/infeas.ine           |  23 --
+ build/pkgs/cddlib/tests/input/irbox20-4.ext        |  26 --
+ build/pkgs/cddlib/tests/input/nonfull.ine          |  12 -
+ build/pkgs/cddlib/tests/input/origin.ine           |  15 -
+ build/pkgs/cddlib/tests/input/reg24-5.ext          |  31 --
+ build/pkgs/cddlib/tests/input/reg24-5.ine          |  30 --
+ build/pkgs/cddlib/tests/input/sampleh1.ine         |  10 -
+ build/pkgs/cddlib/tests/input/sampleh2.ine         |   8 -
+ build/pkgs/cddlib/tests/input/sampleh3.ine         |   8 -
+ build/pkgs/cddlib/tests/input/sampleh5.ine         |  19 -
+ build/pkgs/cddlib/tests/input/sampleh6.ine         |  12 -
+ build/pkgs/cddlib/tests/input/sampleh7.ine         |  19 -
+ build/pkgs/cddlib/tests/input/samplelp1.ine        |  15 -
+ build/pkgs/cddlib/tests/input/samplelp2.ine        |  14 -
+ build/pkgs/cddlib/tests/input/test.ext             |  12 -
+ build/pkgs/cddlib/tests/output/ccc4.ext            |  58 ---
+ build/pkgs/cddlib/tests/output/ccc5.ext            | 130 ------
+ build/pkgs/cddlib/tests/output/ccp4.ext            |  68 ----
+ build/pkgs/cddlib/tests/output/ccp5.ext            | 164 --------
+ build/pkgs/cddlib/tests/output/cube10.ine          |  43 --
+ build/pkgs/cddlib/tests/output/cube6.ine           | 172 --------
+ build/pkgs/cddlib/tests/output/cubocta.ine         |  72 ----
+ build/pkgs/cddlib/tests/output/cyclic10-4.ext      |  72 ----
+ build/pkgs/cddlib/tests/output/cyclic12-6.ext      | 188 ---------
+ build/pkgs/cddlib/tests/output/empty.ine           |  23 --
+ build/pkgs/cddlib/tests/output/ex1.ine             |  38 --
+ build/pkgs/cddlib/tests/output/infeas.ine          | 173 --------
+ build/pkgs/cddlib/tests/output/irbox20-4.ext       |  96 -----
+ build/pkgs/cddlib/tests/output/nonfull.ine         |  35 --
+ build/pkgs/cddlib/tests/output/origin.ine          |  35 --
+ build/pkgs/cddlib/tests/output/reg24-5.ext         | 116 ------
+ build/pkgs/cddlib/tests/output/reg24-5.ine         | 116 ------
+ build/pkgs/cddlib/tests/output/sampleh1.ine        |  35 --
+ build/pkgs/cddlib/tests/output/sampleh2.ine        |  31 --
+ build/pkgs/cddlib/tests/output/sampleh3.ine        |  31 --
+ build/pkgs/cddlib/tests/output/sampleh5.ine        |  35 --
+ build/pkgs/cddlib/tests/output/sampleh6.ine        |  33 --
+ build/pkgs/cddlib/tests/output/sampleh7.ine        |  42 --
+ build/pkgs/cddlib/tests/output/samplelp1.ine       |  48 ---
+ build/pkgs/cddlib/tests/output/samplelp2.ine       |  34 --
+ build/pkgs/cddlib/tests/output/test.ext            |  36 --
+ src/sage/geometry/hasse_diagram.py                 |   2 +-
+ src/sage/geometry/polyhedron/backend_cdd.py        | 448 +++++++++++----------
+ src/sage/geometry/polyhedron/base.py               |   5 +-
+ src/sage/geometry/polyhedron/library.py            |  65 +--
+ src/sage/libs/ppl.pyx                              |   7 +-
+ 76 files changed, 280 insertions(+), 3494 deletions(-)
+ delete mode 100644 build/pkgs/cddlib/patches/build/lib-src-gmp_Makefile.am.patch
+ delete mode 100644 build/pkgs/cddlib/patches/build/lib-src_Makefile.am.patch
+ delete mode 100644 build/pkgs/cddlib/patches/build/src-gmp_Makefile.am.patch
+ delete mode 100644 build/pkgs/cddlib/patches/build/src_Makefile.am.patch
+ delete mode 100644 build/pkgs/cddlib/patches/cdd_both_reps.c
+ delete mode 100644 build/pkgs/cddlib/patches/lib-src-gmp_Makefile.in.patch
+ delete mode 100644 build/pkgs/cddlib/patches/lib-src_Makefile.in.patch
+ delete mode 100644 build/pkgs/cddlib/patches/lib-src_cddcore.c.patch
+ delete mode 100644 build/pkgs/cddlib/patches/lib-src_cddlp.c.patch
+ delete mode 100644 build/pkgs/cddlib/patches/random.c
+ delete mode 100644 build/pkgs/cddlib/patches/random.h
+ delete mode 100644 build/pkgs/cddlib/patches/src-gmp_Makefile.in.patch
+ delete mode 100644 build/pkgs/cddlib/patches/src_Makefile.in.patch
+ delete mode 100644 build/pkgs/cddlib/spkg-check
+ delete mode 100644 build/pkgs/cddlib/tests/input/ccc4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/ccc5.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/ccp4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/ccp5.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/cube10.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/cube6.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/cubocta.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/cyclic10-4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/cyclic12-6.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/empty.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/ex1.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/infeas.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/irbox20-4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/nonfull.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/origin.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/reg24-5.ext
+ delete mode 100644 build/pkgs/cddlib/tests/input/reg24-5.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/sampleh1.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/sampleh2.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/sampleh3.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/sampleh5.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/sampleh6.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/sampleh7.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/samplelp1.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/samplelp2.ine
+ delete mode 100644 build/pkgs/cddlib/tests/input/test.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/ccc4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/ccc5.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/ccp4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/ccp5.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/cube10.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/cube6.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/cubocta.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/cyclic10-4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/cyclic12-6.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/empty.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/ex1.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/infeas.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/irbox20-4.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/nonfull.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/origin.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/reg24-5.ext
+ delete mode 100644 build/pkgs/cddlib/tests/output/reg24-5.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/sampleh1.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/sampleh2.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/sampleh3.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/sampleh5.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/sampleh6.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/sampleh7.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/samplelp1.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/samplelp2.ine
+ delete mode 100644 build/pkgs/cddlib/tests/output/test.ext
+
+diff --git a/build/pkgs/cddlib/SPKG.txt b/build/pkgs/cddlib/SPKG.txt
+index bd1deec..3254e8c 100644
+--- a/build/pkgs/cddlib/SPKG.txt
++++ b/build/pkgs/cddlib/SPKG.txt
+@@ -22,17 +22,7 @@ a linear function over P.
+ GPL v2
+ 
+ == Upstream Contact ==
+-Komei Fukuda <fukuda@ifor.math.ethz.ch>
+-Institute for Operations Research
+-and Institute of Theoretical Computer Science
+-ETH Zentrum, CH-8092 Zurich, Switzerland
+-Tel +41-1-632-4023, Fax +41-1-632-1025
+-http://www.ifor.math.ethz.ch/staff/fukuda/
++https://github.com/cddlib/cddlib
+ 
+ == Dependencies ==
+  * gmp (or its fork mpir)
+-
+-== Special Update/Build Instructions ==
+-From clean upstream sources:
+- * remove directories doc, examples*, autom4te.cache
+-
+diff --git a/build/pkgs/cddlib/checksums.ini b/build/pkgs/cddlib/checksums.ini
+index 9390bbd..c3a6a0d 100644
+--- a/build/pkgs/cddlib/checksums.ini
++++ b/build/pkgs/cddlib/checksums.ini
+@@ -1,4 +1,2 @@
+ tarball=cddlib-VERSION.tar.gz
+-sha1=7b2dc29969d668ad35ff543170cfc68a03699995
+-md5=8aec6578fcfe038138a9f6440d971376
+-cksum=2058915280
++sha1=f7f2f2a9706ed514652ae6adbc990bd4bba02891
+diff --git a/build/pkgs/cddlib/package-version.txt b/build/pkgs/cddlib/package-version.txt
+index 6cae22b..1411365 100644
+--- a/build/pkgs/cddlib/package-version.txt
++++ b/build/pkgs/cddlib/package-version.txt
+@@ -1 +1 @@
+-094i
++0.94j
+diff --git a/build/pkgs/cddlib/patches/build/lib-src-gmp_Makefile.am.patch b/build/pkgs/cddlib/patches/build/lib-src-gmp_Makefile.am.patch
+deleted file mode 100644
+index ec0be42..00000000
+--- a/build/pkgs/cddlib/patches/build/lib-src-gmp_Makefile.am.patch
++++ /dev/null
+@@ -1,21 +0,0 @@
+-diff --git a/lib-src-gmp/Makefile.am b/lib-src-gmp/Makefile.am
+-index b3ab11a..a9673b8 100644
+---- a/lib-src-gmp/Makefile.am
+-+++ b/lib-src-gmp/Makefile.am
+-@@ -13,7 +13,8 @@ cddmp_f.c \
+- cddio_f.c \
+- cddlib_f.c \
+- cddproj_f.c \
+--setoper.c
+-+setoper.c \
+-+random.c
+- 
+- include_HEADERS = \
+- cdd.h \
+-@@ -24,5 +25,5 @@
+- cddtypes_f.h \
+- setoper.h
+- 
+--AM_CPPFLAGS = -I$(gmpincludedir) -DGMPRATIONAL
+-+AM_CPPFLAGS = -DGMPRATIONAL
+- AM_LDFLAGS = -version-info 0:0:0
+diff --git a/build/pkgs/cddlib/patches/build/lib-src_Makefile.am.patch b/build/pkgs/cddlib/patches/build/lib-src_Makefile.am.patch
+deleted file mode 100644
+index d5a1062..00000000
+--- a/build/pkgs/cddlib/patches/build/lib-src_Makefile.am.patch
++++ /dev/null
+@@ -1,14 +0,0 @@
+-diff --git a/lib-src/Makefile.am b/lib-src/Makefile.am
+-index fe08dc3..5b964c6 100644
+---- a/lib-src/Makefile.am
+-+++ b/lib-src/Makefile.am
+-@@ -7,7 +7,8 @@ cddmp.c \
+- cddio.c \
+- cddlib.c \
+- cddproj.c \
+--setoper.c
+-+setoper.c \
+-+random.c
+- 
+- include_HEADERS = \
+- cdd.h \
+diff --git a/build/pkgs/cddlib/patches/build/src-gmp_Makefile.am.patch b/build/pkgs/cddlib/patches/build/src-gmp_Makefile.am.patch
+deleted file mode 100644
+index e6065d8..00000000
+--- a/build/pkgs/cddlib/patches/build/src-gmp_Makefile.am.patch
++++ /dev/null
+@@ -1,26 +0,0 @@
+-diff --git a/src-gmp/Makefile.am b/src-gmp/Makefile.am
+-index e4dbb86..e579d71 100644
+---- a/src-gmp/Makefile.am
+-+++ b/src-gmp/Makefile.am
+-@@ -11,7 +11,8 @@
+- testcdd2_gmp \
+- testlp1_gmp \
+- testlp2_gmp \
+--testlp3_gmp
+-+testlp3_gmp \
+-+cdd_both_reps_gmp
+- #cddmathlink
+- 
+- scdd_gmp_SOURCES                   = simplecdd.c
+-@@ -27,10 +28,9 @@
+- testlp1_gmp_SOURCES                = testlp1.c
+- testlp2_gmp_SOURCES                = testlp2.c
+- testlp3_gmp_SOURCES                = testlp3.c
+-+cdd_both_reps_gmp_SOURCES          = cdd_both_reps.c
+- # cddmathlink_SOURCES                = cddmathlink.c cddmlio.h cddmlio.c
+- 
+- LDADD        = ../lib-src-gmp/libcddgmp.la
+--AM_LDFLAGS   = -L$(gmplibdir)
+- INCLUDES     = -I../lib-src-gmp
+--INCLUDES    += -I$(gmpincludedir)
+- AM_CPPFLAGS  = -DGMPRATIONAL
+diff --git a/build/pkgs/cddlib/patches/build/src_Makefile.am.patch b/build/pkgs/cddlib/patches/build/src_Makefile.am.patch
+deleted file mode 100644
+index d339bfd..00000000
+--- a/build/pkgs/cddlib/patches/build/src_Makefile.am.patch
++++ /dev/null
+@@ -1,22 +0,0 @@
+-diff --git a/src/Makefile.am b/src/Makefile.am
+-index 17f8625..ad50af2 100644
+---- a/src/Makefile.am
+-+++ b/src/Makefile.am
+-@@ -11,7 +11,8 @@ testshoot \
+- testcdd2 \
+- testlp1 \
+- testlp2 \
+--testlp3
+-+testlp3 \
+-+cdd_both_reps
+- #cddmathlink
+- 
+- scdd_SOURCES                   = simplecdd.c
+-@@ -27,6 +28,7 @@ testcdd2_SOURCES               = testcdd2.c
+- testlp1_SOURCES                = testlp1.c
+- testlp2_SOURCES                = testlp2.c
+- testlp3_SOURCES                = testlp3.c
+-+cdd_both_reps_SOURCES          = cdd_both_reps.c
+- # cddmathlink_SOURCES                = cddmathlink.c cddmlio.h cddmlio.c
+- 
+- LDADD        = ../lib-src/libcdd.la
+diff --git a/build/pkgs/cddlib/patches/cdd_both_reps.c b/build/pkgs/cddlib/patches/cdd_both_reps.c
+deleted file mode 100644
+index 3de4247..00000000
+--- a/build/pkgs/cddlib/patches/cdd_both_reps.c
++++ /dev/null
+@@ -1,255 +0,0 @@
+-/* cdd_both_reps.c: compute reduced H and V representation of polytope
+-   by Volker Braun <vbraun@stp.dias.ie>
+-   
+-   The input is taken from stdin and can be either a 
+-   H or V representation, not necessarily reduced.
+-
+-   based on testcdd1.c, redcheck.c, and of course the cdd library
+-   written by Komei Fukuda, fukuda@ifor.math.ethz.ch
+-   Standard ftp site: ftp.ifor.math.ethz.ch, Directory: pub/fukuda/cdd
+-*/
+-
+-/*  This program is free software; you can redistribute it and/or modify
+-    it under the terms of the GNU General Public License as published by
+-    the Free Software Foundation; either version 2 of the License, or
+-    (at your option) any later version.
+-
+-    This program is distributed in the hope that it will be useful,
+-    but WITHOUT ANY WARRANTY; without even the implied warranty of
+-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-    GNU General Public License for more details.
+-
+-    You should have received a copy of the GNU General Public License
+-    along with this program; if not, write to the Free Software
+-    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+-*/
+-
+-#include "setoper.h"
+-#include "cdd.h"
+-#include <stdio.h>
+-#include <stdlib.h>
+-#include <time.h>
+-#include <math.h>
+-#include <string.h>
+-
+-
+-
+-
+-
+-void compute_adjacency(dd_MatrixPtr Rep, dd_ErrorType* err_ptr)
+-{
+-  dd_SetFamilyPtr AdjacencyGraph;
+-  if (*err_ptr != dd_NoError) return;
+-
+-  switch (Rep->representation) {
+-  case dd_Inequality: 
+-    printf("Facet graph\n");
+-    break;
+-  case dd_Generator: 
+-    printf("Vertex graph\n");
+-    break;
+-  case dd_Unspecified:
+-    printf("unknown representation type!\n");
+-  default:
+-    printf("This should be unreachable!\n");
+-    exit(2);
+-  }
+-
+-  /* Output adjacency of vertices/rays/lines */
+-  if (Rep->rowsize > 0) {  /* workaround for bug with empty polyhedron */
+-    /* compute adjacent vertices/rays/lines */
+-    AdjacencyGraph = dd_Matrix2Adjacency(Rep, err_ptr);
+-    if (*err_ptr == dd_NoError) {
+-      dd_WriteSetFamily(stdout,AdjacencyGraph);
+-      dd_FreeSetFamily(AdjacencyGraph);
+-    }
+-  } else {
+-    printf("begin\n");
+-    printf("  0    0\n");
+-    printf("end\n");
+-  }
+-
+-  printf("\n");
+-}
+-
+-
+-void minimal_Vrep_Hrep(dd_MatrixPtr M, 
+-		       dd_MatrixPtr* Vrep_ptr, dd_MatrixPtr* Hrep_ptr, 
+-		       dd_ErrorType* err_ptr)
+-{
+-  dd_PolyhedraPtr poly;
+-  dd_rowindex newpos;
+-  dd_rowset impl_linset,redset;
+-  dd_MatrixPtr Vrep, Hrep;
+-
+-  if (*err_ptr != dd_NoError) return;
+-
+-   /* compute the second representation */
+-  poly = dd_DDMatrix2Poly(M, err_ptr);
+-  if (*err_ptr != dd_NoError) return;
+-
+-  if (*err_ptr == dd_NoError) {
+-    /* compute canonical H-representation */
+-    Hrep = dd_CopyInequalities(poly);
+-    if (Hrep->rowsize > 0) {  /* workaround for bug with empty matrix */
+-      dd_MatrixCanonicalize(&Hrep, &impl_linset, &redset, &newpos, err_ptr);
+-      if (*err_ptr == dd_NoError) {
+-	set_free(redset);
+-	set_free(impl_linset);
+-	free(newpos);
+-      }
+-    }
+-    if (*err_ptr == dd_NoError) (*Hrep_ptr) = Hrep;
+-  }
+-
+-  if (*err_ptr == dd_NoError) {
+-    /* compute canonical V-representation */
+-    Vrep = dd_CopyGenerators(poly);
+-    if (Vrep->rowsize > 0) {  /* workaround for bug with empty matrix */
+-      dd_MatrixCanonicalize(&Vrep, &impl_linset, &redset, &newpos, err_ptr);
+-      if (*err_ptr == dd_NoError) {
+-	set_free(redset);
+-	set_free(impl_linset);
+-	free(newpos);
+-      }
+-    }
+-    if (*err_ptr == dd_NoError) (*Vrep_ptr) = Vrep;
+-  }
+-
+-  dd_FreePolyhedra(poly);
+-}
+-
+-
+-void print_both_reps(dd_MatrixPtr Vrep, dd_MatrixPtr Hrep)
+-{
+-  /* Output V-representation */
+-  dd_WriteMatrix(stdout,Vrep);
+-  printf("\n");
+-
+-  /* Output H-representation */
+-  dd_WriteMatrix(stdout,Hrep);
+-  printf("\n");
+-}
+-
+-
+-void compute_both_reps(dd_MatrixPtr M, dd_ErrorType* err_ptr)
+-{
+-  dd_MatrixPtr Vrep, Hrep;
+-  minimal_Vrep_Hrep(M, &Vrep, &Hrep, err_ptr);
+-  if (*err_ptr != dd_NoError) return;
+-
+-  print_both_reps(Vrep, Hrep);
+-  dd_FreeMatrix(Hrep);
+-  dd_FreeMatrix(Vrep);
+-}
+-
+-
+-void compute_all(dd_MatrixPtr M, dd_ErrorType* err_ptr)
+-{
+-  dd_MatrixPtr Vrep, Hrep;
+-  minimal_Vrep_Hrep(M, &Vrep, &Hrep, err_ptr);
+-  if (*err_ptr != dd_NoError) return;
+-
+-  print_both_reps(Vrep, Hrep);
+-  compute_adjacency(Vrep, err_ptr);
+-  compute_adjacency(Hrep, err_ptr);
+-  dd_FreeMatrix(Hrep);
+-  dd_FreeMatrix(Vrep);
+-}
+-
+-
+-
+-void usage(char *name)
+-{
+-  printf("No known option specified, I don't know what to do!\n"
+-	 "Usage:\n"
+-	 "%s --option\n"
+-	 "where --option is precisely one of the following:\n\n"
+-	 "  --all: Compute everything.\n"
+-	 "    This will compute minimal H-,V-representation and vertex and facet graph.\n"
+-	 "\n"
+-	 "  --reps: Compute both a minimal H- and minimal V-representation.\n"
+-	 "\n"
+-	 "  --adjacency: Compute adjacency information only.\n"
+-	 "    The input is assumed to be a minimal representation, as, for example, computed\n"
+-	 "    by --reps. Warning, you will not get the correct answer if the input\n"
+-	 "    representation is not minimal! The output is the vertex or facet graph,\n"
+-	 "    depending on the input.\n"
+-	 "\n"
+-	 "The input data is a H- or V-representation in cdd's ine/ext format and\n"
+-	 "is in each case read from stdin.\n", 
+-	 name);
+-}
+-
+-
+-enum command_line_arguments { ALL, REPS, ADJACENCY };
+-
+-
+-int parse_arguments(char* arg, enum command_line_arguments* option)
+-{
+-  if (strcmp(arg,"--all")==0) {
+-    *option = ALL;
+-    return 0;
+-  }
+-  if (strcmp(arg,"--reps")==0) {
+-    *option = REPS;
+-    return 0;
+-  }
+-  if (strcmp(arg,"--adjacency")==0) {
+-    *option = ADJACENCY;
+-    return 0;
+-  }
+-  printf("Unknown option: %s\n", arg);
+-  return 1;
+-}
+-
+-
+-int main(int argc, char *argv[])
+-{
+-  dd_ErrorType err=dd_NoError;
+-  dd_MatrixPtr M;
+-  enum command_line_arguments option;
+-
+-  if (argc!=2 || parse_arguments(argv[1],&option)) {
+-    usage(argv[0]);
+-    return 0;
+-  } 
+-
+-  dd_set_global_constants(); 
+-
+-  /* Read data from stdin */
+-  M = dd_PolyFile2Matrix(stdin, &err);
+-  if (err != dd_NoError) {
+-    printf("I was unable to parse the input data!\n");
+-    dd_WriteErrorMessages(stdout,err);
+-    dd_free_global_constants();
+-    return 1;
+-  }
+-
+-  switch (option) {
+-  case ALL:
+-    compute_all(M,&err);
+-    break;
+-  case REPS:
+-    compute_both_reps(M,&err);
+-    break;
+-  case ADJACENCY:
+-    compute_adjacency(M,&err);
+-    break;
+-  default:
+-    printf("unreachable option %d\n", option);
+-    exit(3); /* unreachable */
+-  }
+-  
+-  /* cleanup */
+-  dd_FreeMatrix(M);
+-  if (err != dd_NoError) {
+-    dd_WriteErrorMessages(stdout,err);
+-  }
+-
+-  dd_free_global_constants();
+-  return 0;
+-}
+-
+-
+-
+diff --git a/build/pkgs/cddlib/patches/lib-src-gmp_Makefile.in.patch b/build/pkgs/cddlib/patches/lib-src-gmp_Makefile.in.patch
+deleted file mode 100644
+index 1c83482..00000000
+--- a/build/pkgs/cddlib/patches/lib-src-gmp_Makefile.in.patch
++++ /dev/null
+@@ -1,40 +0,0 @@
+-diff --git a/lib-src-gmp/Makefile.in b/lib-src-gmp/Makefile.in
+-index 4ab9342..93ff335 100644
+---- a/lib-src-gmp/Makefile.in
+-+++ b/lib-src-gmp/Makefile.in
+-@@ -54,7 +54,7 @@
+- libcddgmp_la_LIBADD =
+- am_libcddgmp_la_OBJECTS = cddcore.lo cddlp.lo cddmp.lo cddio.lo \
+- 	cddlib.lo cddproj.lo cddcore_f.lo cddlp_f.lo cddmp_f.lo \
+--	cddio_f.lo cddlib_f.lo cddproj_f.lo setoper.lo
+-+	cddio_f.lo cddlib_f.lo cddproj_f.lo setoper.lo random.lo
+- libcddgmp_la_OBJECTS = $(am_libcddgmp_la_OBJECTS)
+- DEFAULT_INCLUDES = -I.@am__isrc@
+- depcomp = $(SHELL) $(top_srcdir)/depcomp
+-@@ -199,7 +199,8 @@
+- cddio_f.c \
+- cddlib_f.c \
+- cddproj_f.c \
+--setoper.c
+-+setoper.c \
+-+random.c
+- 
+- include_HEADERS = \
+- cdd.h \
+-@@ -210,7 +211,7 @@
+- cddtypes_f.h \
+- setoper.h
+- 
+--AM_CPPFLAGS = -I$(gmpincludedir) -DGMPRATIONAL
+-+AM_CPPFLAGS = -DGMPRATIONAL
+- AM_LDFLAGS = -version-info 0:0:0
+- all: all-am
+- 
+-@@ -293,6 +294,7 @@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cddmp_f.Plo@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cddproj.Plo@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cddproj_f.Plo@am__quote@
+-+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/random.Plo@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/setoper.Plo@am__quote@
+- 
+- .c.o:
+diff --git a/build/pkgs/cddlib/patches/lib-src_Makefile.in.patch b/build/pkgs/cddlib/patches/lib-src_Makefile.in.patch
+deleted file mode 100644
+index bfe6c1c..00000000
+--- a/build/pkgs/cddlib/patches/lib-src_Makefile.in.patch
++++ /dev/null
+@@ -1,31 +0,0 @@
+-diff --git a/lib-src/Makefile.in b/lib-src/Makefile.in
+-index bd3c2b5..ccf4a6c 100644
+---- a/lib-src/Makefile.in
+-+++ b/lib-src/Makefile.in
+-@@ -53,7 +53,7 @@ libLTLIBRARIES_INSTALL = $(INSTALL)
+- LTLIBRARIES = $(lib_LTLIBRARIES)
+- libcdd_la_LIBADD =
+- am_libcdd_la_OBJECTS = cddcore.lo cddlp.lo cddmp.lo cddio.lo cddlib.lo \
+--	cddproj.lo setoper.lo
+-+	cddproj.lo setoper.lo random.lo
+- libcdd_la_OBJECTS = $(am_libcdd_la_OBJECTS)
+- DEFAULT_INCLUDES = -I.@am__isrc@
+- depcomp = $(SHELL) $(top_srcdir)/depcomp
+-@@ -192,7 +192,8 @@ cddmp.c \
+- cddio.c \
+- cddlib.c \
+- cddproj.c \
+--setoper.c
+-+setoper.c \
+-+random.c
+- 
+- include_HEADERS = \
+- cdd.h \
+-@@ -277,6 +278,7 @@ distclean-compile:
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cddlp.Plo@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cddmp.Plo@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cddproj.Plo@am__quote@
+-+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/random.Plo@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/setoper.Plo@am__quote@
+- 
+- .c.o:
+diff --git a/build/pkgs/cddlib/patches/lib-src_cddcore.c.patch b/build/pkgs/cddlib/patches/lib-src_cddcore.c.patch
+deleted file mode 100644
+index 9fea06f..00000000
+--- a/build/pkgs/cddlib/patches/lib-src_cddcore.c.patch
++++ /dev/null
+@@ -1,34 +0,0 @@
+-diff --git a/lib-src/cddcore.c b/lib-src/cddcore.c
+-index 9644788..a029bc3 100644
+---- a/lib-src/cddcore.c
+-+++ b/lib-src/cddcore.c
+-@@ -17,6 +17,7 @@
+- #include <time.h>
+- #include <math.h>
+- #include <string.h>
+-+#include "random.h"   /* include last - overrides RAND_MAX */
+- 
+- void dd_CheckAdjacency(dd_ConePtr cone,
+-     dd_RayPtr *RP1, dd_RayPtr *RP2, dd_boolean *adjacent)
+-@@ -1849,19 +1850,15 @@ void dd_QuickSort(dd_rowindex OV, long p, long r, dd_Amatrix A, long dmax)
+- }
+- 
+- 
+--#ifndef RAND_MAX 
+--#define RAND_MAX 32767 
+--#endif
+--
+- void dd_RandomPermutation(dd_rowindex OV, long t, unsigned int seed)
+- {
+-   long k,j,ovj;
+-   double u,xk,r,rand_max=(double) RAND_MAX;
+-   dd_boolean localdebug=dd_FALSE;
+- 
+--  srand(seed);
+-+  portable_srand(seed);
+-   for (j=t; j>1 ; j--) {
+--    r=rand();
+-+    r=portable_rand();
+-     u=r/rand_max;
+-     xk=(double)(j*u +1);
+-     k=(long)xk;
+diff --git a/build/pkgs/cddlib/patches/lib-src_cddlp.c.patch b/build/pkgs/cddlib/patches/lib-src_cddlp.c.patch
+deleted file mode 100644
+index ea054f0..00000000
+--- a/build/pkgs/cddlib/patches/lib-src_cddlp.c.patch
++++ /dev/null
+@@ -1,33 +0,0 @@
+-diff --git a/lib-src/cddlp.c b/lib-src/cddlp.c
+-index 855b197..dd1268b 100644
+---- a/lib-src/cddlp.c
+-+++ b/lib-src/cddlp.c
+-@@ -13,6 +13,7 @@
+- 
+- #include "setoper.h"  /* set operation library header (Ver. May 18, 2000 or later) */
+- #include "cdd.h"
+-+#include "random.h"
+- #include <stdio.h>
+- #include <stdlib.h>
+- #include <time.h>
+-@@ -23,6 +24,8 @@
+- #include "cdd_f.h"
+- #endif
+- 
+-+#include "random.h"   /* include last - overrides RAND_MAX */
+-+
+- #define dd_CDDLPVERSION  "Version 0.94b (August 25, 2005)"
+- 
+- #define dd_FALSE 0
+-@@ -1755,9 +1758,9 @@ void dd_RandomPermutation2(dd_rowindex OV,long t,unsigned int seed)
+-   double u,xk,r,rand_max=(double) RAND_MAX;
+-   int localdebug=dd_FALSE;
+- 
+--  srand(seed);
+-+  portable_srand(seed);
+-   for (j=t; j>1 ; j--) {
+--    r=rand();
+-+    r=portable_rand();
+-     u=r/rand_max;
+-     xk=(double)(j*u +1);
+-     k=(long)xk;
+diff --git a/build/pkgs/cddlib/patches/random.c b/build/pkgs/cddlib/patches/random.c
+deleted file mode 100644
+index c3806c5..00000000
+--- a/build/pkgs/cddlib/patches/random.c
++++ /dev/null
+@@ -1,144 +0,0 @@
+-/* Copyright (C) 1991, 1996 Free Software Foundation, Inc.
+-
+-   ----------------------------------------------------------
+-   Random numbers that return the same sequence on all platforms.
+-   Implementation taken from the GNU C Library. The same copyright
+-   applies.
+-   ----------------------------------------------------------
+-
+-   The GNU C Library is free software; you can redistribute it and/or
+-   modify it under the terms of the GNU Lesser General Public
+-   License as published by the Free Software Foundation; either
+-   version 2.1 of the License, or (at your option) any later version.
+-
+-   The GNU C Library is distributed in the hope that it will be useful,
+-   but WITHOUT ANY WARRANTY; without even the implied warranty of
+-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-   Lesser General Public License for more details.
+-
+-   You should have received a copy of the GNU Lesser General Public
+-   License along with the GNU C Library; if not, write to the Free
+-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-   02111-1307 USA.  */
+-
+-
+-#include <stdint.h>
+-#include "random.h"
+-
+-
+-/* x**31 + x**3 + 1.  */
+-#define	TYPE_3		3
+-#define	BREAK_3		128
+-#define	DEG_3		31
+-#define	SEP_3		3
+-
+-
+-static int32_t randtbl[DEG_3 + 1] =
+-  {
+-    TYPE_3,
+-    
+-    -1726662223, 379960547, 1735697613, 1040273694, 1313901226,
+-    1627687941, -179304937, -2073333483, 1780058412, -1989503057,
+-    -615974602, 344556628, 939512070, -1249116260, 1507946756,
+-    -812545463, 154635395, 1388815473, -1926676823, 525320961,
+-    -1009028674, 968117788, -123449607, 1284210865, 435012392,
+-    -2017506339, -911064859, -370259173, 1132637927, 1398500161,
+-    -205601318,
+-  };
+-
+-
+-struct random_data
+-  {
+-    int32_t *fptr;              /* Front pointer.  */
+-    int32_t *rptr;              /* Rear pointer.  */
+-    int32_t *state;             /* Array of state values.  */
+-    int rand_type;              /* Type of random number generator.  */
+-    int rand_deg;               /* Degree of random number generator.  */
+-    int rand_sep;               /* Distance between front and rear.  */
+-    int32_t *end_ptr;           /* Pointer behind state table.  */
+-  };
+-
+-static struct random_data rng_state =
+-  {
+-    .fptr = &randtbl[SEP_3 + 1],
+-    .rptr = &randtbl[1],
+-    .state = &randtbl[1],
+-    .rand_type = TYPE_3,
+-    .rand_deg = DEG_3,
+-    .rand_sep = SEP_3,
+-    .end_ptr = &randtbl[sizeof (randtbl) / sizeof (randtbl[0])]
+-};
+-
+-
+-void portable_srand(unsigned int seed)
+-{
+-  int type;
+-  int32_t *state;
+-  long int i;
+-  int32_t word;
+-  int32_t *dst;
+-  int kc;
+-
+-  /* printf("portable_srand: seed = %u\n", seed); */
+-
+-  type = rng_state.rand_type;
+-
+-  state = rng_state.state;
+-  /* We must make sure the seed is not 0.  Take arbitrarily 1 in this case.  */
+-  if (seed == 0)
+-    seed = 1;
+-  state[0] = seed;
+-
+-  dst = state;
+-  word = seed;
+-  kc = rng_state.rand_deg;
+-  for (i = 1; i < kc; ++i)
+-    {
+-      /* This does:
+-	   state[i] = (16807 * state[i - 1]) % 2147483647;
+-	 but avoids overflowing 31 bits.  */
+-      long int hi = word / 127773;
+-      long int lo = word % 127773;
+-      word = 16807 * lo - 2836 * hi;
+-      if (word < 0)
+-	word += 2147483647;
+-      *++dst = word;
+-    }
+-
+-  rng_state.fptr = &state[rng_state.rand_sep];
+-  rng_state.rptr = &state[0];
+-  kc *= 10;
+-  while (--kc >= 0)
+-    portable_rand();
+-}
+-
+-
+-int portable_rand(void)
+-{
+-  int32_t *fptr = rng_state.fptr;
+-  int32_t *rptr = rng_state.rptr;
+-  int32_t *end_ptr = rng_state.end_ptr;
+-  int32_t result;
+-
+-  result = *fptr += *rptr;
+-  /* Chucking least random bit.  */
+-  result = (result >> 1) & 0x7fffffff;
+-  ++fptr;
+-  if (fptr >= end_ptr)
+-    {
+-      fptr = rng_state.state;
+-      ++rptr;
+-    }
+-  else
+-    {
+-      ++rptr;
+-      if (rptr >= end_ptr)
+-	rptr = rng_state.state;
+-    }
+-  rng_state.fptr = fptr;
+-  rng_state.rptr = rptr;
+-
+-  /* printf("portable_rand: output = %d\n", result); */
+-
+-  return result;
+-}
+diff --git a/build/pkgs/cddlib/patches/random.h b/build/pkgs/cddlib/patches/random.h
+deleted file mode 100644
+index d7fcdaf..00000000
+--- a/build/pkgs/cddlib/patches/random.h
++++ /dev/null
+@@ -1,37 +0,0 @@
+-#ifndef RANDOM__H
+-#define RANDOM__H
+-
+-/* Copyright (C) 1991, 1996 Free Software Foundation, Inc.
+-
+-   ----------------------------------------------------------
+-   Random numbers that return the same sequence on all platforms.
+-   Implementation taken from the GNU C Library. The same copyright
+-   applies.
+-   ----------------------------------------------------------
+-
+-   The GNU C Library is free software; you can redistribute it and/or
+-   modify it under the terms of the GNU Lesser General Public
+-   License as published by the Free Software Foundation; either
+-   version 2.1 of the License, or (at your option) any later version.
+-
+-   The GNU C Library is distributed in the hope that it will be useful,
+-   but WITHOUT ANY WARRANTY; without even the implied warranty of
+-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+-   Lesser General Public License for more details.
+-
+-   You should have received a copy of the GNU Lesser General Public
+-   License along with the GNU C Library; if not, write to the Free
+-   Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
+-   02111-1307 USA.  */
+-
+-void portable_srand(unsigned int seed);
+-int portable_rand(void);
+-
+-#endif /* RANDOM__H */
+-
+-
+-/* The largest number rand will return (same as INT_MAX).  */
+-#define RAND_MAX        2147483647
+-/* intentionally outside the #ifdef RANDOM__H block        */
+-/* You must overwrite the system RAND_MAX!                 */
+-
+diff --git a/build/pkgs/cddlib/patches/src-gmp_Makefile.in.patch b/build/pkgs/cddlib/patches/src-gmp_Makefile.in.patch
+deleted file mode 100644
+index ac69550..00000000
+--- a/build/pkgs/cddlib/patches/src-gmp_Makefile.in.patch
++++ /dev/null
+@@ -1,88 +0,0 @@
+-diff --git a/src-gmp/Makefile.in b/src-gmp/Makefile.in
+-index f88c83f..3470dc9 100644
+---- a/src-gmp/Makefile.in
+-+++ b/src-gmp/Makefile.in
+-@@ -37,7 +37,8 @@
+- 	projection_gmp$(EXEEXT) adjacency_gmp$(EXEEXT) \
+- 	allfaces_gmp$(EXEEXT) testshoot_gmp$(EXEEXT) \
+- 	testcdd1_gmp$(EXEEXT) testcdd2_gmp$(EXEEXT) \
+--	testlp1_gmp$(EXEEXT) testlp2_gmp$(EXEEXT) testlp3_gmp$(EXEEXT)
+-+	testlp1_gmp$(EXEEXT) testlp2_gmp$(EXEEXT) testlp3_gmp$(EXEEXT) \
+-+	cdd_both_reps_gmp$(EXEEXT)
+- subdir = src-gmp
+- DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
+- ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+-@@ -57,6 +58,10 @@
+- allfaces_gmp_OBJECTS = $(am_allfaces_gmp_OBJECTS)
+- allfaces_gmp_LDADD = $(LDADD)
+- allfaces_gmp_DEPENDENCIES = ../lib-src-gmp/libcddgmp.la
+-+am_cdd_both_reps_gmp_OBJECTS = cdd_both_reps.$(OBJEXT)
+-+cdd_both_reps_gmp_OBJECTS = $(am_cdd_both_reps_gmp_OBJECTS)
+-+cdd_both_reps_gmp_LDADD = $(LDADD)
+-+cdd_both_reps_gmp_DEPENDENCIES = ../lib-src-gmp/libcddgmp.la
+- am_fourier_gmp_OBJECTS = fourier.$(OBJEXT)
+- fourier_gmp_OBJECTS = $(am_fourier_gmp_OBJECTS)
+- fourier_gmp_LDADD = $(LDADD)
+-@@ -114,19 +119,19 @@
+- 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+- 	$(LDFLAGS) -o $@
+- SOURCES = $(adjacency_gmp_SOURCES) $(allfaces_gmp_SOURCES) \
+--	$(fourier_gmp_SOURCES) $(lcdd_gmp_SOURCES) \
+--	$(projection_gmp_SOURCES) $(redcheck_gmp_SOURCES) \
+--	$(scdd_gmp_SOURCES) $(testcdd1_gmp_SOURCES) \
+--	$(testcdd2_gmp_SOURCES) $(testlp1_gmp_SOURCES) \
+--	$(testlp2_gmp_SOURCES) $(testlp3_gmp_SOURCES) \
+--	$(testshoot_gmp_SOURCES)
+-+	$(cdd_both_reps_gmp_SOURCES) $(fourier_gmp_SOURCES) \
+-+	$(lcdd_gmp_SOURCES) $(projection_gmp_SOURCES) \
+-+	$(redcheck_gmp_SOURCES) $(scdd_gmp_SOURCES) \
+-+	$(testcdd1_gmp_SOURCES) $(testcdd2_gmp_SOURCES) \
+-+	$(testlp1_gmp_SOURCES) $(testlp2_gmp_SOURCES) \
+-+	$(testlp3_gmp_SOURCES) $(testshoot_gmp_SOURCES)
+- DIST_SOURCES = $(adjacency_gmp_SOURCES) $(allfaces_gmp_SOURCES) \
+--	$(fourier_gmp_SOURCES) $(lcdd_gmp_SOURCES) \
+--	$(projection_gmp_SOURCES) $(redcheck_gmp_SOURCES) \
+--	$(scdd_gmp_SOURCES) $(testcdd1_gmp_SOURCES) \
+--	$(testcdd2_gmp_SOURCES) $(testlp1_gmp_SOURCES) \
+--	$(testlp2_gmp_SOURCES) $(testlp3_gmp_SOURCES) \
+--	$(testshoot_gmp_SOURCES)
+-+	$(cdd_both_reps_gmp_SOURCES) $(fourier_gmp_SOURCES) \
+-+	$(lcdd_gmp_SOURCES) $(projection_gmp_SOURCES) \
+-+	$(redcheck_gmp_SOURCES) $(scdd_gmp_SOURCES) \
+-+	$(testcdd1_gmp_SOURCES) $(testcdd2_gmp_SOURCES) \
+-+	$(testlp1_gmp_SOURCES) $(testlp2_gmp_SOURCES) \
+-+	$(testlp3_gmp_SOURCES) $(testshoot_gmp_SOURCES)
+- ETAGS = etags
+- CTAGS = ctags
+- DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+-@@ -254,10 +259,10 @@
+- testlp1_gmp_SOURCES = testlp1.c
+- testlp2_gmp_SOURCES = testlp2.c
+- testlp3_gmp_SOURCES = testlp3.c
+-+cdd_both_reps_gmp_SOURCES = cdd_both_reps.c
+- # cddmathlink_SOURCES                = cddmathlink.c cddmlio.h cddmlio.c
+- LDADD = ../lib-src-gmp/libcddgmp.la
+--AM_LDFLAGS = -L$(gmplibdir)
+--INCLUDES = -I../lib-src-gmp -I$(gmpincludedir)
+-+INCLUDES = -I../lib-src-gmp
+- AM_CPPFLAGS = -DGMPRATIONAL
+- all: all-am
+- 
+-@@ -326,6 +331,9 @@
+- allfaces_gmp$(EXEEXT): $(allfaces_gmp_OBJECTS) $(allfaces_gmp_DEPENDENCIES) 
+- 	@rm -f allfaces_gmp$(EXEEXT)
+- 	$(LINK) $(allfaces_gmp_OBJECTS) $(allfaces_gmp_LDADD) $(LIBS)
+-+cdd_both_reps_gmp$(EXEEXT): $(cdd_both_reps_gmp_OBJECTS) $(cdd_both_reps_gmp_DEPENDENCIES) 
+-+	@rm -f cdd_both_reps_gmp$(EXEEXT)
+-+	$(LINK) $(cdd_both_reps_gmp_OBJECTS) $(cdd_both_reps_gmp_LDADD) $(LIBS)
+- fourier_gmp$(EXEEXT): $(fourier_gmp_OBJECTS) $(fourier_gmp_DEPENDENCIES) 
+- 	@rm -f fourier_gmp$(EXEEXT)
+- 	$(LINK) $(fourier_gmp_OBJECTS) $(fourier_gmp_LDADD) $(LIBS)
+-@@ -368,6 +376,7 @@
+- 
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/adjacency.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/allfaces.Po@am__quote@
+-+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cdd_both_reps.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fourier.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lcdd.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/projection.Po@am__quote@
+diff --git a/build/pkgs/cddlib/patches/src_Makefile.in.patch b/build/pkgs/cddlib/patches/src_Makefile.in.patch
+deleted file mode 100644
+index b7dd74c..00000000
+--- a/build/pkgs/cddlib/patches/src_Makefile.in.patch
++++ /dev/null
+@@ -1,76 +0,0 @@
+-diff --git a/src/Makefile.in b/src/Makefile.in
+-index 8385e4d..b9f6a26 100644
+---- a/src/Makefile.in
+-+++ b/src/Makefile.in
+-@@ -36,7 +36,7 @@ bin_PROGRAMS = scdd$(EXEEXT) lcdd$(EXEEXT) redcheck$(EXEEXT) \
+- 	fourier$(EXEEXT) projection$(EXEEXT) adjacency$(EXEEXT) \
+- 	allfaces$(EXEEXT) testcdd1$(EXEEXT) testshoot$(EXEEXT) \
+- 	testcdd2$(EXEEXT) testlp1$(EXEEXT) testlp2$(EXEEXT) \
+--	testlp3$(EXEEXT)
+-+	testlp3$(EXEEXT) cdd_both_reps$(EXEEXT)
+- subdir = src
+- DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
+- ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
+-@@ -56,6 +56,10 @@ am_allfaces_OBJECTS = allfaces.$(OBJEXT)
+- allfaces_OBJECTS = $(am_allfaces_OBJECTS)
+- allfaces_LDADD = $(LDADD)
+- allfaces_DEPENDENCIES = ../lib-src/libcdd.la
+-+am_cdd_both_reps_OBJECTS = cdd_both_reps.$(OBJEXT)
+-+cdd_both_reps_OBJECTS = $(am_cdd_both_reps_OBJECTS)
+-+cdd_both_reps_LDADD = $(LDADD)
+-+cdd_both_reps_DEPENDENCIES = ../lib-src/libcdd.la
+- am_fourier_OBJECTS = fourier.$(OBJEXT)
+- fourier_OBJECTS = $(am_fourier_OBJECTS)
+- fourier_LDADD = $(LDADD)
+-@@ -112,16 +116,16 @@ CCLD = $(CC)
+- LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
+- 	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
+- 	$(LDFLAGS) -o $@
+--SOURCES = $(adjacency_SOURCES) $(allfaces_SOURCES) $(fourier_SOURCES) \
+--	$(lcdd_SOURCES) $(projection_SOURCES) $(redcheck_SOURCES) \
+--	$(scdd_SOURCES) $(testcdd1_SOURCES) $(testcdd2_SOURCES) \
+--	$(testlp1_SOURCES) $(testlp2_SOURCES) $(testlp3_SOURCES) \
+--	$(testshoot_SOURCES)
+-+SOURCES = $(adjacency_SOURCES) $(allfaces_SOURCES) \
+-+	$(cdd_both_reps_SOURCES) $(fourier_SOURCES) $(lcdd_SOURCES) \
+-+	$(projection_SOURCES) $(redcheck_SOURCES) $(scdd_SOURCES) \
+-+	$(testcdd1_SOURCES) $(testcdd2_SOURCES) $(testlp1_SOURCES) \
+-+	$(testlp2_SOURCES) $(testlp3_SOURCES) $(testshoot_SOURCES)
+- DIST_SOURCES = $(adjacency_SOURCES) $(allfaces_SOURCES) \
+--	$(fourier_SOURCES) $(lcdd_SOURCES) $(projection_SOURCES) \
+--	$(redcheck_SOURCES) $(scdd_SOURCES) $(testcdd1_SOURCES) \
+--	$(testcdd2_SOURCES) $(testlp1_SOURCES) $(testlp2_SOURCES) \
+--	$(testlp3_SOURCES) $(testshoot_SOURCES)
+-+	$(cdd_both_reps_SOURCES) $(fourier_SOURCES) $(lcdd_SOURCES) \
+-+	$(projection_SOURCES) $(redcheck_SOURCES) $(scdd_SOURCES) \
+-+	$(testcdd1_SOURCES) $(testcdd2_SOURCES) $(testlp1_SOURCES) \
+-+	$(testlp2_SOURCES) $(testlp3_SOURCES) $(testshoot_SOURCES)
+- ETAGS = etags
+- CTAGS = ctags
+- DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+-@@ -249,6 +253,7 @@ testcdd2_SOURCES = testcdd2.c
+- testlp1_SOURCES = testlp1.c
+- testlp2_SOURCES = testlp2.c
+- testlp3_SOURCES = testlp3.c
+-+cdd_both_reps_SOURCES = cdd_both_reps.c
+- # cddmathlink_SOURCES                = cddmathlink.c cddmlio.h cddmlio.c
+- LDADD = ../lib-src/libcdd.la
+- INCLUDES = -I../lib-src
+-@@ -320,6 +325,9 @@ adjacency$(EXEEXT): $(adjacency_OBJECTS) $(adjacency_DEPENDENCIES)
+- allfaces$(EXEEXT): $(allfaces_OBJECTS) $(allfaces_DEPENDENCIES) 
+- 	@rm -f allfaces$(EXEEXT)
+- 	$(LINK) $(allfaces_OBJECTS) $(allfaces_LDADD) $(LIBS)
+-+cdd_both_reps$(EXEEXT): $(cdd_both_reps_OBJECTS) $(cdd_both_reps_DEPENDENCIES) 
+-+	@rm -f cdd_both_reps$(EXEEXT)
+-+	$(LINK) $(cdd_both_reps_OBJECTS) $(cdd_both_reps_LDADD) $(LIBS)
+- fourier$(EXEEXT): $(fourier_OBJECTS) $(fourier_DEPENDENCIES) 
+- 	@rm -f fourier$(EXEEXT)
+- 	$(LINK) $(fourier_OBJECTS) $(fourier_LDADD) $(LIBS)
+-@@ -362,6 +370,7 @@ distclean-compile:
+- 
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/adjacency.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/allfaces.Po@am__quote@
+-+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cdd_both_reps.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fourier.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lcdd.Po@am__quote@
+- @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/projection.Po@am__quote@
+diff --git a/build/pkgs/cddlib/spkg-check b/build/pkgs/cddlib/spkg-check
+deleted file mode 100644
+index 9bbc33e..00000000
+--- a/build/pkgs/cddlib/spkg-check
++++ /dev/null
+@@ -1,23 +0,0 @@
+-## This is how I created the initial output files
+-## for i in * ; do echo $i; ( cat $i | cdd_both_reps_gmp --all > ../output/$i ) ; done
+-
+-
+-TEST_OUTPUT=`mktemp /tmp/test_actual_output.XXXXXXXXXX`
+-echo "Using $TEST_OUTPUT as a temporary file."
+-
+-run_test() {
+-    echo "Testing $1"
+-    cat input/$1 | $SAGE_LOCAL/bin/cdd_both_reps_gmp --all > $TEST_OUTPUT
+-    # Now, compare the two outputs and error out if there is a discrepancy:
+-    diff -n output/$1 $TEST_OUTPUT || ( \
+-              echo "cdd_both_reps not working as expected"; \
+-          exit 1 )
+-}
+-
+-
+-cd tests
+-INPUT=`ls input/`
+-
+-for filename in $INPUT; do run_test $filename; done
+-
+-rm $TEST_OUTPUT
+diff --git a/build/pkgs/cddlib/spkg-install b/build/pkgs/cddlib/spkg-install
+index f7d97f9..19d7c55 100644
+--- a/build/pkgs/cddlib/spkg-install
++++ b/build/pkgs/cddlib/spkg-install
+@@ -2,17 +2,6 @@ export CPPFLAGS="-I$SAGE_LOCAL/include $CPPFLAGS"
+ 
+ cd src
+ 
+-# A portable random number generator
+-cp ../patches/random.{c,h} lib-src/
+-cp ../patches/random.{c,h} lib-src-gmp/
+-
+-# Required by sage.geometry.polyhedron
+-cp ../patches/cdd_both_reps.c src/
+-cp ../patches/cdd_both_reps.c src-gmp/cdd_both_reps.c
+-
+-# Use newer version of config.guess and config.sub (see Trac #19718)
+-cp "$SAGE_ROOT"/config/config.* .
+-
+ sdh_configure
+ sdh_make
+ sdh_make_install
+diff --git a/build/pkgs/cddlib/spkg-src b/build/pkgs/cddlib/spkg-src
+index d49ffae..7e0ba63 100755
+--- a/build/pkgs/cddlib/spkg-src
++++ b/build/pkgs/cddlib/spkg-src
+@@ -13,12 +13,12 @@ shopt -s extglob
+ # Remove old sources and download new
+ rm -rf src cddlib*
+ 
+-CDDLIBVERSION=094g
++CDDLIBVERSION=0.94j
+ CDDLIBDIR=cddlib-$CDDLIBVERSION
+ CDDLIBTAR=$CDDLIBDIR.tar.gz
+ 
+ if [ -z "$UPSTREAM_SOURCE_DIRECTORY" ]; then
+-    tar xzf <( curl -L "ftp://ftp.ifor.math.ethz.ch/pub/fukuda/cdd/$CDDLIBTAR" )
++    tar xzf <( curl -L "https://github.com/cddlib/cddlib/archive/$CDDLIBTAR" )
+ else
+     tar xzf "$UPSTREAM_SOURCE_DIRECTORY/$CDDLIBTAR"
+ fi
+diff --git a/build/pkgs/cddlib/tests/input/ccc4.ext b/build/pkgs/cddlib/tests/input/ccc4.ext
+deleted file mode 100644
+index 3118d0f..00000000
+--- a/build/pkgs/cddlib/tests/input/ccc4.ext
++++ /dev/null
+@@ -1,15 +0,0 @@
+-* file name: ccc4.ext
+-* Complete cut cone on 4 vertices
+-* The number of facets is 12.
+-V-representation
+-begin
+-    7    7    integer
+- 0  1  1  1  0  0  0 
+- 0  0  1  1  1  1  0 
+- 0  1  0  1  1  0  1 
+- 0  1  1  0  0  1  1 
+- 0  0  0  1  0  1  1 
+- 0  0  1  0  1  0  1 
+- 0  1  0  0  1  1  0
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/ccc5.ext b/build/pkgs/cddlib/tests/input/ccc5.ext
+deleted file mode 100644
+index 24d932c..00000000
+--- a/build/pkgs/cddlib/tests/input/ccc5.ext
++++ /dev/null
+@@ -1,22 +0,0 @@
+-* file name: ccc5.ext
+-* Complete cut cone on 5 vertices
+-* The number of facets is 40.
+-V-representation
+-begin
+-  15  11  integer
+-0 1 1 1 1 0 0 0 0 0 0
+-0 0 1 1 1 1 1 1 0 0 0
+-0 1 0 1 1 1 0 0 1 1 0
+-0 1 1 0 1 0 1 0 1 0 1
+-0 1 1 1 0 0 0 1 0 1 1
+-0 0 0 1 1 0 1 1 1 1 0
+-0 0 1 0 1 1 0 1 1 0 1
+-0 0 1 1 0 1 1 0 0 1 1
+-0 1 0 0 1 1 1 0 0 1 1
+-0 1 0 1 0 1 0 1 1 0 1
+-0 1 1 0 0 0 1 1 1 1 0
+-0 0 0 0 1 0 0 1 0 1 1
+-0 0 0 1 0 0 1 0 1 0 1
+-0 0 1 0 0 1 0 0 1 1 0
+-0 1 0 0 0 1 1 1 0 0 0
+-end
+diff --git a/build/pkgs/cddlib/tests/input/ccp4.ext b/build/pkgs/cddlib/tests/input/ccp4.ext
+deleted file mode 100644
+index 9c410ad..00000000
+--- a/build/pkgs/cddlib/tests/input/ccp4.ext
++++ /dev/null
+@@ -1,16 +0,0 @@
+-* file name: ccp4.ext
+-* Input file for computing the facets of the complete cut polytope on 4 vertices
+-* The number of facets is 16.
+-V-representation
+-begin
+-    8    7    integer
+- 1  0  0  0  0  0  0
+- 1  1  1  1  0  0  0 
+- 1  0  1  1  1  1  0 
+- 1  1  0  1  1  0  1 
+- 1  1  1  0  0  1  1 
+- 1  0  0  1  0  1  1 
+- 1  0  1  0  1  0  1 
+- 1  1  0  0  1  1  0
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/ccp5.ext b/build/pkgs/cddlib/tests/input/ccp5.ext
+deleted file mode 100644
+index 65374b2..00000000
+--- a/build/pkgs/cddlib/tests/input/ccp5.ext
++++ /dev/null
+@@ -1,24 +0,0 @@
+-* filename: ccp5.ext
+-* Input file for computing the facets of the complete cut polytope on 5 vertices
+-* The number of facets is 56.
+-V-representation
+-begin
+-  16  11  integer
+-1 0 0 0 0 0 0 0 0 0 0
+-1 1 1 1 1 0 0 0 0 0 0
+-1 0 1 1 1 1 1 1 0 0 0
+-1 1 0 1 1 1 0 0 1 1 0
+-1 1 1 0 1 0 1 0 1 0 1
+-1 1 1 1 0 0 0 1 0 1 1
+-1 0 0 1 1 0 1 1 1 1 0
+-1 0 1 0 1 1 0 1 1 0 1
+-1 0 1 1 0 1 1 0 0 1 1
+-1 1 0 0 1 1 1 0 0 1 1
+-1 1 0 1 0 1 0 1 1 0 1
+-1 1 1 0 0 0 1 1 1 1 0
+-1 0 0 0 1 0 0 1 0 1 1
+-1 0 0 1 0 0 1 0 1 0 1
+-1 0 1 0 0 1 0 0 1 1 0
+-1 1 0 0 0 1 1 1 0 0 0
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/cube10.ine b/build/pkgs/cddlib/tests/input/cube10.ine
+deleted file mode 100644
+index b2094a5..00000000
+--- a/build/pkgs/cddlib/tests/input/cube10.ine
++++ /dev/null
+@@ -1,27 +0,0 @@
+-H-representation
+-begin
+- 20 11 integer
+-  1  0  0  0  0  0  0  0  0  0  1
+-  1  1  0  0  0  0  0  0  0  0  0
+-  1  0  1  0  0  0  0  0  0  0  0
+-  1  0  0  1  0  0  0  0  0  0  0
+-  1  0  0  0  1  0  0  0  0  0  0
+-  1  0  0  0  0  1  0  0  0  0  0
+-  1  0  0  0  0  0  1  0  0  0  0
+-  1  0  0  0  0  0  0  1  0  0  0
+-  1  0  0  0  0  0  0  0  1  0  0
+-  1  0  0  0  0  0  0  0  0  1  0
+-  1  0  0  0  0  0  0  0  0  0 -1
+-  1  0  0  0  0  0  0  0  0 -1  0
+-  1  0  0  0  0  0  0  0 -1  0  0
+-  1  0  0  0  0  0  0 -1  0  0  0
+-  1  0  0  0  0  0 -1  0  0  0  0
+-  1  0  0  0  0 -1  0  0  0  0  0
+-  1  0  0  0 -1  0  0  0  0  0  0
+-  1  0  0 -1  0  0  0  0  0  0  0
+-  1  0 -1  0  0  0  0  0  0  0  0
+- -2 -1  0  0  0  0  0  0  0  0  0
+-end
+-minimize
+- -2 -1  0  0  0  0  0  0  0  0  0
+-  
+diff --git a/build/pkgs/cddlib/tests/input/cube6.ine b/build/pkgs/cddlib/tests/input/cube6.ine
+deleted file mode 100644
+index 98b2553..00000000
+--- a/build/pkgs/cddlib/tests/input/cube6.ine
++++ /dev/null
+@@ -1,17 +0,0 @@
+-* 6-dim hypercube
+-H-representation
+-begin
+-    12    7    integer
+- 1  1  0  0  0  0  0
+- 1  0  1  0  0  0  0
+- 1  0  0  1  0  0  0
+- 1  0  0  0  1  0  0
+- 1  0  0  0  0  1  0
+- 1  0  0  0  0  0  1
+- 1 -1  0  0  0  0  0
+- 1  0 -1  0  0  0  0
+- 1  0  0 -1  0  0  0
+- 1  0  0  0 -1  0  0
+- 1  0  0  0  0 -1  0
+- 1  0  0  0  0  0 -1
+-end
+diff --git a/build/pkgs/cddlib/tests/input/cubocta.ine b/build/pkgs/cddlib/tests/input/cubocta.ine
+deleted file mode 100644
+index 954666c..00000000
+--- a/build/pkgs/cddlib/tests/input/cubocta.ine
++++ /dev/null
+@@ -1,20 +0,0 @@
+-filename: cubocta.ine
+-Cuboctahedron
+-H-representation
+-begin
+-  14    4   integer 
+-   1  1  0  0
+-   1  0  1  0
+-   1  0  0  1
+-   1 -1  0  0
+-   1  0 -1  0
+-   1  0  0 -1
+-   2  1  1  1
+-   2 -1  1  1
+-   2  1 -1  1
+-   2  1  1 -1
+-   2 -1 -1  1
+-   2  1 -1 -1
+-   2 -1  1 -1
+-   2 -1 -1 -1
+-end
+diff --git a/build/pkgs/cddlib/tests/input/cyclic10-4.ext b/build/pkgs/cddlib/tests/input/cyclic10-4.ext
+deleted file mode 100644
+index 84629a5..00000000
+--- a/build/pkgs/cddlib/tests/input/cyclic10-4.ext
++++ /dev/null
+@@ -1,16 +0,0 @@
+-* 3-dim cyclic polytope with 10 vertices
+-* Number of facets (outputs) =16
+-V-representation
+-begin
+-10  4  integer
+-  1  1  1  1
+-  1  2  4  8
+-  1  3  9  27
+-  1  4  16  64
+-  1  5  25  125
+-  1  6  36  216
+-  1  7  49  343
+-  1  8  64  512
+-  1  9  81  729
+-  1  10  100  1000
+-end
+diff --git a/build/pkgs/cddlib/tests/input/cyclic12-6.ext b/build/pkgs/cddlib/tests/input/cyclic12-6.ext
+deleted file mode 100644
+index 4dfa2f6..00000000
+--- a/build/pkgs/cddlib/tests/input/cyclic12-6.ext
++++ /dev/null
+@@ -1,18 +0,0 @@
+-* 5-dim cyclic polytope with12 vertices
+-* Number of facets (outputs) =72
+-V-representation
+-begin
+-12  6  integer
+-  1  1  1  1  1  1
+-  1  2  4  8  16  32
+-  1  3  9  27  81  243
+-  1  4  16  64  256  1024
+-  1  5  25  125  625  3125
+-  1  6  36  216  1296  7776
+-  1  7  49  343  2401  16807
+-  1  8  64  512  4096  32768
+-  1  9  81  729  6561  59049
+-  1  10  100  1000  10000  100000
+-  1  11  121  1331  14641  161051
+-  1  12  144  1728  20736  248832
+-end
+diff --git a/build/pkgs/cddlib/tests/input/empty.ine b/build/pkgs/cddlib/tests/input/empty.ine
+deleted file mode 100644
+index 1452c2c..00000000
+--- a/build/pkgs/cddlib/tests/input/empty.ine
++++ /dev/null
+@@ -1,6 +0,0 @@
+-H-representation
+-begin
+- 2 2 rational
+- -1 0
+- 1 0
+-end
+diff --git a/build/pkgs/cddlib/tests/input/ex1.ine b/build/pkgs/cddlib/tests/input/ex1.ine
+deleted file mode 100644
+index e04d917..00000000
+--- a/build/pkgs/cddlib/tests/input/ex1.ine
++++ /dev/null
+@@ -1,11 +0,0 @@
+-* file name: ex1.ine
+-*   2 dimensional polyhedron with three vertices (0,3), (-1, 4) and (-1,10) and 
+-*   two extremal rays (2,1) and (1,2).
+-H-representation
+-begin
+-  4   3   integer
+- 12   2  -1
+- -6  -1   2
+- -3   1   1
+-  1   1   0 
+-end
+diff --git a/build/pkgs/cddlib/tests/input/infeas.ine b/build/pkgs/cddlib/tests/input/infeas.ine
+deleted file mode 100644
+index 394fc50..00000000
+--- a/build/pkgs/cddlib/tests/input/infeas.ine
++++ /dev/null
+@@ -1,23 +0,0 @@
+-* File name: infeas.ine
+-* The empty polytope. No vertices and rays.
+-H-representation
+-begin
+-   13   7   integer
+- 0  1  0  0  0  0  0
+- 0  0  1  0  0  0  0
+- 0  0  0  1  0  0  0
+- 0  0  0  0  1  0  0
+- 0  0  0  0  0  1  0
+- -2 1  0  0  0  0   0
+- 0  0  0  0  0  0  1
+- 1 -1  0  0  0  0  0
+- 1  0 -1  0  0  0  0
+- 1  0  0 -1  0  0  0
+- 1  0  0  0 -1  0  0
+- 1  0  0  0  0 -1  0
+- 1  0  0  0  0  0  -1
+-end
+-minimize
+-  0 1  1  1  1  1  1
+-debug
+-
+diff --git a/build/pkgs/cddlib/tests/input/irbox20-4.ext b/build/pkgs/cddlib/tests/input/irbox20-4.ext
+deleted file mode 100644
+index 501bb5c..00000000
+--- a/build/pkgs/cddlib/tests/input/irbox20-4.ext
++++ /dev/null
+@@ -1,26 +0,0 @@
+-* File name: irbox20-4.ext
+-* Randomly generated 20 integral points in [-100..100]^3
+-V-representation
+-begin
+-  20   4   integer
+-  1    -45      1     47 
+-  1    -34     19      4 
+-  1      5    -11     28 
+-  1     17    -43     17 
+-  1    -46      8    -15 
+-  1     35    -26     -6 
+-  1     41     -3     -8 
+-  1    -39     41     34 
+-  1    -46     49     40 
+-  1    -18    -29     46 
+-  1    -20    -25     -2 
+-  1    -22     -9    -32 
+-  1     31     46      5 
+-  1     10     14     11 
+-  1    -22     17    -29 
+-  1     12      3     -5 
+-  1    -44     -5     40 
+-  1     -2      4     32 
+-  1    -18      8     31 
+-  1    -27     40    -48 
+-end
+diff --git a/build/pkgs/cddlib/tests/input/nonfull.ine b/build/pkgs/cddlib/tests/input/nonfull.ine
+deleted file mode 100644
+index 3a66e17..00000000
+--- a/build/pkgs/cddlib/tests/input/nonfull.ine
++++ /dev/null
+@@ -1,12 +0,0 @@
+-* filename: nonfull.ine
+-* non full-dimensional polyhedron
+-H-representation
+-begin
+-    6      4    integer
+-  2   -1   0   0
+- -2    1   0   0
+-  2    0  -1   0
+- -1    1   0   0
+- -1    0   1   0
+- -1    0   0   1
+-end
+diff --git a/build/pkgs/cddlib/tests/input/origin.ine b/build/pkgs/cddlib/tests/input/origin.ine
+deleted file mode 100644
+index fc06da0..00000000
+--- a/build/pkgs/cddlib/tests/input/origin.ine
++++ /dev/null
+@@ -1,15 +0,0 @@
+-* filename: origin.ine
+-* The polytope consists of a single point, the origin.
+-* cddlib now works properly for this input (version 090c and up).
+-H-representation
+-begin
+-    7   7     integer
+- 0  1  0  0  0  0  0
+- 0  0  1  0  0  0  0
+- 0  0  0  1  0  0  0
+- 0  0  0  0  1  0  0
+- 0  0  0  0  0  1  0
+- 0  0  0  0  0  0  1
+- 0 -1 -1 -1 -1 -1 -1
+-end
+- 
+diff --git a/build/pkgs/cddlib/tests/input/reg24-5.ext b/build/pkgs/cddlib/tests/input/reg24-5.ext
+deleted file mode 100644
+index 83d2211..00000000
+--- a/build/pkgs/cddlib/tests/input/reg24-5.ext
++++ /dev/null
+@@ -1,31 +0,0 @@
+-* The vertices of a self-dual 4-dim regular polytope
+-* with 24 octahedron facets.  
+-* We use hull option to compute all (24) facet inequalities.
+-V-representation
+-begin
+-  24  5  integer
+- 1  1  1  1  1
+- 1  1  1  1 -1
+- 1  1  1 -1  1
+- 1  1  1 -1 -1
+- 1  1 -1  1  1
+- 1  1 -1  1 -1
+- 1  1 -1 -1  1
+- 1  1 -1 -1 -1
+- 1 -1  1  1  1
+- 1 -1  1  1 -1
+- 1 -1  1 -1  1
+- 1 -1  1 -1 -1
+- 1 -1 -1  1  1
+- 1 -1 -1  1 -1
+- 1 -1 -1 -1  1
+- 1 -1 -1 -1 -1
+- 1  2  0  0  0
+- 1  0  2  0  0
+- 1  0  0  2  0
+- 1  0  0  0  2
+- 1 -2  0  0  0
+- 1  0 -2  0  0
+- 1  0  0 -2  0
+- 1  0  0  0 -2
+-end
+diff --git a/build/pkgs/cddlib/tests/input/reg24-5.ine b/build/pkgs/cddlib/tests/input/reg24-5.ine
+deleted file mode 100644
+index e8185d4..00000000
+--- a/build/pkgs/cddlib/tests/input/reg24-5.ine
++++ /dev/null
+@@ -1,30 +0,0 @@
+-* The facets of a self-dual 4-dim regular polytope
+-* with 24 octahedron facets.  
+-H-representation
+-begin
+-  24  5  integer
+- 1  1  1  1  1
+- 1  1  1  1 -1
+- 1  1  1 -1  1
+- 1  1  1 -1 -1
+- 1  1 -1  1  1
+- 1  1 -1  1 -1
+- 1  1 -1 -1  1
+- 1  1 -1 -1 -1
+- 1 -1  1  1  1
+- 1 -1  1  1 -1
+- 1 -1  1 -1  1
+- 1 -1  1 -1 -1
+- 1 -1 -1  1  1
+- 1 -1 -1  1 -1
+- 1 -1 -1 -1  1
+- 1 -1 -1 -1 -1
+- 1  2  0  0  0
+- 1  0  2  0  0
+- 1  0  0  2  0
+- 1  0  0  0  2
+- 1 -2  0  0  0
+- 1  0 -2  0  0
+- 1  0  0 -2  0
+- 1  0  0  0 -2
+-end
+diff --git a/build/pkgs/cddlib/tests/input/sampleh1.ine b/build/pkgs/cddlib/tests/input/sampleh1.ine
+deleted file mode 100644
+index 2ca4c63..00000000
+--- a/build/pkgs/cddlib/tests/input/sampleh1.ine
++++ /dev/null
+@@ -1,10 +0,0 @@
+-* file name: sampleh1.ine
+-* a 3-D cone containing no vertices and a line
+-H-representation
+-begin
+-    3    4   integer
+- 2 -1 -1  0 
+- 0  1  0  0
+- 0  0  1  0
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/sampleh2.ine b/build/pkgs/cddlib/tests/input/sampleh2.ine
+deleted file mode 100644
+index 44b8b64..00000000
+--- a/build/pkgs/cddlib/tests/input/sampleh2.ine
++++ /dev/null
+@@ -1,8 +0,0 @@
+-* file name: sampleh2.ine
+-* a hyperplane with no vertices and rays
+-H-representation
+-begin
+-    1    4   integer
+--1  0  0  1
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/sampleh3.ine b/build/pkgs/cddlib/tests/input/sampleh3.ine
+deleted file mode 100644
+index 705870f..00000000
+--- a/build/pkgs/cddlib/tests/input/sampleh3.ine
++++ /dev/null
+@@ -1,8 +0,0 @@
+-* file name: sampleh3.ine
+-* a 3-D homogeneous cone with no vertices
+-H-representation
+-begin
+-    2    4   integer
+- 0  1  1  0 
+- 0  0  1  0 
+-end
+diff --git a/build/pkgs/cddlib/tests/input/sampleh5.ine b/build/pkgs/cddlib/tests/input/sampleh5.ine
+deleted file mode 100644
+index 63834fb..00000000
+--- a/build/pkgs/cddlib/tests/input/sampleh5.ine
++++ /dev/null
+@@ -1,19 +0,0 @@
+-* file name: sampleh5.ine
+-* test file for redundancy removal
+-H-representation
+-linearity 1 3
+-begin
+-    10   4   integer
+- 0  1  0  0
+- 0  0  1  0
+- 0  0  0  1
+- 0  2  0  0
+- 0  0  0  3
+- 1 -1 -1 -1
+- 1 -1 -1  0
+- 1  0 -1 -1
+- 1 -1  0 -1
+- 2 -1 -1 -1
+-end
+-maximize
+- 0  1  1  1
+diff --git a/build/pkgs/cddlib/tests/input/sampleh6.ine b/build/pkgs/cddlib/tests/input/sampleh6.ine
+deleted file mode 100644
+index fff163a..00000000
+--- a/build/pkgs/cddlib/tests/input/sampleh6.ine
++++ /dev/null
+@@ -1,12 +0,0 @@
+-* file name: sampleh6.ine
+-* test file for forced-equality checking
+-H-representation
+-begin
+-    5   4   integer
+- 0  1  0  0
+- 0  0  1  0
+- 0  0  0  1
+- 1 -1 -1 -1 
+--1  1  1  0
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/sampleh7.ine b/build/pkgs/cddlib/tests/input/sampleh7.ine
+deleted file mode 100644
+index 16f9130..00000000
+--- a/build/pkgs/cddlib/tests/input/sampleh7.ine
++++ /dev/null
+@@ -1,19 +0,0 @@
+-* test file for redundancy removal
+-* the redundant rows are
+-* 3 4 5 9 10
+-* LP type =  1   Seed = 123
+-H-representation
+-begin
+-  10  3  integer 
+- 0 1 0
+- 0 0 1
+- -10000 651 693
+- -10000 697 637
+- -10000 368 824
+- -10000 87 725
+- -10000 387 219
+- -10000 430 202
+- -10000 356 988
+- -10000 674 979
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/input/samplelp1.ine b/build/pkgs/cddlib/tests/input/samplelp1.ine
+deleted file mode 100644
+index 92779f3..00000000
+--- a/build/pkgs/cddlib/tests/input/samplelp1.ine
++++ /dev/null
+@@ -1,15 +0,0 @@
+-* file name: samplelp1.ine
+-* LP
+-H-representation
+-begin
+-    6    4    integer
+- 1  1  0  0
+- 1  0  1  0
+- 1  0  0  1
+- 1 -1  0  0
+- 1  0 -1  0
+- 1  0  0 -1
+-end
+-maximize
+- 0  1  1  1
+-
+diff --git a/build/pkgs/cddlib/tests/input/samplelp2.ine b/build/pkgs/cddlib/tests/input/samplelp2.ine
+deleted file mode 100644
+index d5e865c..00000000
+--- a/build/pkgs/cddlib/tests/input/samplelp2.ine
++++ /dev/null
+@@ -1,14 +0,0 @@
+-* file name: samplelp2.ine
+-* LP
+-H-representation
+-linearity 2  3  4
+-begin
+-    4    5   rational
+- 0  1  1  0   0
+- 0  0  2  0   0
+- 3  0 -1  0   0
+- 9/2  0  0 -1  -1
+-end
+-minimize
+-0  2  3/5  0  0
+-
+diff --git a/build/pkgs/cddlib/tests/input/test.ext b/build/pkgs/cddlib/tests/input/test.ext
+deleted file mode 100644
+index 27d9a9a..00000000
+--- a/build/pkgs/cddlib/tests/input/test.ext
++++ /dev/null
+@@ -1,12 +0,0 @@
+-H-representation
+-begin
+- 8   4   rational
+- 0  1  0  0
+- 0  0  1  0
+- 0  0  0  1
+- 1 -1 -1 -1
+- 1 -1 -1  0
+- 1  0 -1 -1
+- 1 -1  0 -1
+- 2 -1 -1 -1
+-end
+diff --git a/build/pkgs/cddlib/tests/output/ccc4.ext b/build/pkgs/cddlib/tests/output/ccc4.ext
+deleted file mode 100644
+index cebbf92..00000000
+--- a/build/pkgs/cddlib/tests/output/ccc4.ext
++++ /dev/null
+@@ -1,58 +0,0 @@
+-V-representation
+-begin
+- 7 7 rational
+- 0 1 1 1 0 0 0
+- 0 0 1 1 1 1 0
+- 0 1 0 1 1 0 1
+- 0 1 1 0 0 1 1
+- 0 0 0 1 0 1 1
+- 0 0 1 0 1 0 1
+- 0 1 0 0 1 1 0
+-end
+-
+-H-representation
+-begin
+- 12 7 rational
+- 0 0 1 1 0 0 -1
+- 0 1 0 1 0 -1 0
+- 0 1 1 0 -1 0 0
+- 0 1 0 -1 0 1 0
+- 0 1 -1 0 1 0 0
+- 0 0 0 0 1 1 -1
+- 0 0 1 -1 0 0 1
+- 0 0 0 0 1 -1 1
+- 0 -1 1 0 1 0 0
+- 0 0 0 0 -1 1 1
+- 0 0 -1 1 0 0 1
+- 0 -1 0 1 0 1 0
+-end
+-
+-Vertex graph
+-begin
+-  7    7
+- 1 6 : 2 3 4 5 6 7 
+- 2 6 : 1 3 4 5 6 7 
+- 3 6 : 1 2 4 5 6 7 
+- 4 6 : 1 2 3 5 6 7 
+- 5 6 : 1 2 3 4 6 7 
+- 6 6 : 1 2 3 4 5 7 
+- 7 6 : 1 2 3 4 5 6 
+-end
+-
+-Facet graph
+-begin
+-  12    12
+- 1 5 : 2 3 6 9 12 
+- 2 5 : 1 3 5 8 11 
+- 3 5 : 1 2 4 7 10 
+- 4 5 : 3 5 6 7 10 
+- 5 5 : 2 4 6 8 11 
+- 6 5 : 1 4 5 9 12 
+- 7 5 : 3 4 8 9 10 
+- 8 5 : 2 5 7 9 11 
+- 9 5 : 1 6 7 8 12 
+- 10 5 : 3 4 7 11 12 
+- 11 5 : 2 5 8 10 12 
+- 12 5 : 1 6 9 10 11 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/ccc5.ext b/build/pkgs/cddlib/tests/output/ccc5.ext
+deleted file mode 100644
+index 99a5ae7..00000000
+--- a/build/pkgs/cddlib/tests/output/ccc5.ext
++++ /dev/null
+@@ -1,130 +0,0 @@
+-V-representation
+-begin
+- 15 11 rational
+- 0 1 1 1 1 0 0 0 0 0 0
+- 0 0 1 1 1 1 1 1 0 0 0
+- 0 1 0 1 1 1 0 0 1 1 0
+- 0 1 1 0 1 0 1 0 1 0 1
+- 0 1 1 1 0 0 0 1 0 1 1
+- 0 0 0 1 1 0 1 1 1 1 0
+- 0 0 1 0 1 1 0 1 1 0 1
+- 0 0 1 1 0 1 1 0 0 1 1
+- 0 1 0 0 1 1 1 0 0 1 1
+- 0 1 0 1 0 1 0 1 1 0 1
+- 0 1 1 0 0 0 1 1 1 1 0
+- 0 0 0 0 1 0 0 1 0 1 1
+- 0 0 0 1 0 0 1 0 1 0 1
+- 0 0 1 0 0 1 0 0 1 1 0
+- 0 1 0 0 0 1 1 1 0 0 0
+-end
+-
+-H-representation
+-begin
+- 40 11 rational
+- 0 0 0 1 1 0 0 0 0 0 -1
+- 0 1 0 0 1 0 0 -1 0 0 0
+- 0 0 1 0 1 0 0 0 0 -1 0
+- 0 -1 1 1 1 1 1 1 -1 -1 -1
+- 0 1 -1 1 1 1 -1 -1 1 1 -1
+- 0 1 1 -1 1 -1 1 -1 1 -1 1
+- 0 1 1 0 0 -1 0 0 0 0 0
+- 0 1 1 1 -1 -1 -1 1 -1 1 1
+- 0 1 0 1 0 0 -1 0 0 0 0
+- 0 0 1 1 0 0 0 0 -1 0 0
+- 0 1 1 -1 -1 -1 1 1 1 1 -1
+- 0 1 -1 1 -1 1 -1 1 1 -1 1
+- 0 -1 1 1 -1 1 1 -1 -1 1 1
+- 0 1 -1 -1 1 1 1 -1 -1 1 1
+- 0 -1 1 -1 1 1 -1 1 1 -1 1
+- 0 -1 -1 1 1 -1 1 1 1 1 -1
+- 0 0 0 0 0 0 -1 1 0 0 1
+- 0 0 0 0 0 0 0 0 -1 1 1
+- 0 0 0 1 -1 0 0 0 0 0 1
+- 0 0 0 0 0 -1 0 1 0 1 0
+- 0 0 1 0 -1 0 0 0 0 1 0
+- 0 1 0 0 -1 0 0 1 0 0 0
+- 0 1 0 -1 0 0 1 0 0 0 0
+- 0 0 1 -1 0 0 0 0 1 0 0
+- 0 0 0 0 0 -1 1 0 1 0 0
+- 0 1 -1 0 0 1 0 0 0 0 0
+- 0 0 0 0 0 1 1 0 -1 0 0
+- 0 0 0 0 0 1 -1 0 1 0 0
+- 0 -1 1 0 0 1 0 0 0 0 0
+- 0 0 -1 1 0 0 0 0 1 0 0
+- 0 -1 0 1 0 0 1 0 0 0 0
+- 0 0 0 -1 1 0 0 0 0 0 1
+- 0 0 0 0 0 0 0 0 1 -1 1
+- 0 0 0 0 0 0 1 -1 0 0 1
+- 0 0 0 0 0 1 0 -1 0 1 0
+- 0 0 0 0 0 0 0 0 1 1 -1
+- 0 0 -1 0 1 0 0 0 0 1 0
+- 0 0 0 0 0 0 1 1 0 0 -1
+- 0 0 0 0 0 1 0 1 0 -1 0
+- 0 -1 0 0 1 0 0 1 0 0 0
+-end
+-
+-Vertex graph
+-begin
+-  15    15
+- 1 14 : 2 3 4 5 6 7 8 9 10 11 12 13 14 15 
+- 2 14 : 1 3 4 5 6 7 8 9 10 11 12 13 14 15 
+- 3 14 : 1 2 4 5 6 7 8 9 10 11 12 13 14 15 
+- 4 14 : 1 2 3 5 6 7 8 9 10 11 12 13 14 15 
+- 5 14 : 1 2 3 4 6 7 8 9 10 11 12 13 14 15 
+- 6 14 : 1 2 3 4 5 7 8 9 10 11 12 13 14 15 
+- 7 14 : 1 2 3 4 5 6 8 9 10 11 12 13 14 15 
+- 8 14 : 1 2 3 4 5 6 7 9 10 11 12 13 14 15 
+- 9 14 : 1 2 3 4 5 6 7 8 10 11 12 13 14 15 
+- 10 14 : 1 2 3 4 5 6 7 8 9 11 12 13 14 15 
+- 11 14 : 1 2 3 4 5 6 7 8 9 10 12 13 14 15 
+- 12 14 : 1 2 3 4 5 6 7 8 9 10 11 13 14 15 
+- 13 14 : 1 2 3 4 5 6 7 8 9 10 11 12 14 15 
+- 14 14 : 1 2 3 4 5 6 7 8 9 10 11 12 13 15 
+- 15 14 : 1 2 3 4 5 6 7 8 9 10 11 12 13 14 
+-end
+-
+-Facet graph
+-begin
+-  40    40
+- 1 22 : 2 3 4 5 7 9 10 16 20 25 26 27 28 29 30 31 35 36 37 38 39 40 
+- 2 22 : 1 3 5 6 7 9 10 14 18 23 24 25 26 27 28 30 32 33 34 35 36 37 
+- 3 22 : 1 2 4 6 7 9 10 15 17 23 24 25 27 28 29 31 32 33 34 38 39 40 
+- 4 9 : 1 3 10 27 29 31 38 39 40 
+- 5 9 : 1 2 9 26 28 30 35 36 37 
+- 6 9 : 2 3 7 23 24 25 32 33 34 
+- 7 22 : 1 2 3 6 8 9 10 11 17 18 19 20 21 22 23 24 25 32 33 34 36 38 
+- 8 9 : 7 9 10 17 18 19 20 21 22 
+- 9 22 : 1 2 3 5 7 8 10 12 17 18 19 20 21 22 26 28 30 33 35 36 37 39 
+- 10 22 : 1 2 3 4 7 8 9 13 17 18 19 20 21 22 27 29 31 34 35 38 39 40 
+- 11 9 : 7 20 21 22 23 24 25 36 38 
+- 12 9 : 9 17 19 22 26 28 30 33 39 
+- 13 9 : 10 18 19 21 27 29 31 34 35 
+- 14 9 : 2 18 23 26 27 32 34 35 37 
+- 15 9 : 3 17 24 28 29 32 33 39 40 
+- 16 9 : 1 20 25 30 31 36 37 38 40 
+- 17 22 : 3 7 8 9 10 12 15 18 19 20 21 22 24 26 28 29 30 32 33 37 39 40 
+- 18 22 : 2 7 8 9 10 13 14 17 19 20 21 22 23 26 27 29 31 32 34 35 37 40 
+- 19 22 : 7 8 9 10 12 13 17 18 20 21 22 25 26 27 28 29 30 31 33 34 35 39 
+- 20 22 : 1 7 8 9 10 11 16 17 18 19 21 22 23 24 25 30 31 32 36 37 38 40 
+- 21 22 : 7 8 9 10 11 13 17 18 19 20 22 23 24 25 27 28 29 31 34 35 36 38 
+- 22 22 : 7 8 9 10 11 12 17 18 19 20 21 23 24 25 26 27 28 30 33 36 38 39 
+- 23 22 : 2 3 6 7 11 14 18 20 21 22 24 25 26 27 32 33 34 35 36 37 38 39 
+- 24 22 : 2 3 6 7 11 15 17 20 21 22 23 25 28 29 32 33 34 35 36 38 39 40 
+- 25 22 : 1 2 3 6 7 11 16 19 20 21 22 23 24 30 31 32 33 34 36 37 38 40 
+- 26 22 : 1 2 5 9 12 14 17 18 19 22 23 27 28 30 32 33 34 35 36 37 38 39 
+- 27 22 : 1 2 3 4 10 13 14 18 19 21 22 23 26 29 31 32 34 35 37 38 39 40 
+- 28 22 : 1 2 3 5 9 12 15 17 19 21 22 24 26 29 30 32 33 35 36 37 39 40 
+- 29 22 : 1 3 4 10 13 15 17 18 19 21 24 27 28 31 32 33 34 35 36 38 39 40 
+- 30 22 : 1 2 5 9 12 16 17 19 20 22 25 26 28 31 33 34 35 36 37 38 39 40 
+- 31 22 : 1 3 4 10 13 16 18 19 20 21 25 27 29 30 33 34 35 36 37 38 39 40 
+- 32 22 : 2 3 6 7 14 15 17 18 20 23 24 25 26 27 28 29 33 34 35 37 39 40 
+- 33 22 : 2 3 6 7 9 12 15 17 19 22 23 24 25 26 28 29 30 31 32 34 39 40 
+- 34 22 : 2 3 6 7 10 13 14 18 19 21 23 24 25 26 27 29 30 31 32 33 35 37 
+- 35 22 : 1 2 5 9 10 13 14 18 19 21 23 24 26 27 28 29 30 31 32 34 36 37 
+- 36 22 : 1 2 5 7 9 11 16 20 21 22 23 24 25 26 28 29 30 31 35 37 38 40 
+- 37 22 : 1 2 5 9 14 16 17 18 20 23 25 26 27 28 30 31 32 34 35 36 38 40 
+- 38 22 : 1 3 4 7 10 11 16 20 21 22 23 24 25 26 27 29 30 31 36 37 39 40 
+- 39 22 : 1 3 4 9 10 12 15 17 19 22 23 24 26 27 28 29 30 31 32 33 38 40 
+- 40 22 : 1 3 4 10 15 16 17 18 20 24 25 27 28 29 30 31 32 33 36 37 38 39 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/ccp4.ext b/build/pkgs/cddlib/tests/output/ccp4.ext
+deleted file mode 100644
+index bce53a8..00000000
+--- a/build/pkgs/cddlib/tests/output/ccp4.ext
++++ /dev/null
+@@ -1,68 +0,0 @@
+-V-representation
+-begin
+- 8 7 rational
+- 1 0 0 0 0 0 0
+- 1 1 1 1 0 0 0
+- 1 0 1 1 1 1 0
+- 1 1 0 1 1 0 1
+- 1 1 1 0 0 1 1
+- 1 0 0 1 0 1 1
+- 1 0 1 0 1 0 1
+- 1 1 0 0 1 1 0
+-end
+-
+-H-representation
+-begin
+- 16 7 rational
+- 0 0 1 1 0 0 -1
+- 0 1 0 1 0 -1 0
+- 0 1 1 0 -1 0 0
+- 2 0 0 0 -1 -1 -1
+- 2 0 -1 -1 0 0 -1
+- 2 -1 0 -1 0 -1 0
+- 2 -1 -1 0 -1 0 0
+- 0 1 0 -1 0 1 0
+- 0 1 -1 0 1 0 0
+- 0 0 0 0 1 1 -1
+- 0 0 1 -1 0 0 1
+- 0 0 0 0 1 -1 1
+- 0 -1 1 0 1 0 0
+- 0 0 0 0 -1 1 1
+- 0 0 -1 1 0 0 1
+- 0 -1 0 1 0 1 0
+-end
+-
+-Vertex graph
+-begin
+-  8    8
+- 1 7 : 2 3 4 5 6 7 8 
+- 2 7 : 1 3 4 5 6 7 8 
+- 3 7 : 1 2 4 5 6 7 8 
+- 4 7 : 1 2 3 5 6 7 8 
+- 5 7 : 1 2 3 4 6 7 8 
+- 6 7 : 1 2 3 4 5 7 8 
+- 7 7 : 1 2 3 4 5 6 8 
+- 8 7 : 1 2 3 4 5 6 7 
+-end
+-
+-Facet graph
+-begin
+-  16    16
+- 1 6 : 2 3 4 10 13 16 
+- 2 6 : 1 3 4 9 12 15 
+- 3 6 : 1 2 4 8 11 14 
+- 4 6 : 1 2 3 5 6 7 
+- 5 6 : 4 6 7 8 9 10 
+- 6 6 : 4 5 7 11 12 13 
+- 7 6 : 4 5 6 14 15 16 
+- 8 6 : 3 5 9 10 11 14 
+- 9 6 : 2 5 8 10 12 15 
+- 10 6 : 1 5 8 9 13 16 
+- 11 6 : 3 6 8 12 13 14 
+- 12 6 : 2 6 9 11 13 15 
+- 13 6 : 1 6 10 11 12 16 
+- 14 6 : 3 7 8 11 15 16 
+- 15 6 : 2 7 9 12 14 16 
+- 16 6 : 1 7 10 13 14 15 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/ccp5.ext b/build/pkgs/cddlib/tests/output/ccp5.ext
+deleted file mode 100644
+index f84160f..00000000
+--- a/build/pkgs/cddlib/tests/output/ccp5.ext
++++ /dev/null
+@@ -1,164 +0,0 @@
+-V-representation
+-begin
+- 16 11 rational
+- 1 0 0 0 0 0 0 0 0 0 0
+- 1 1 1 1 1 0 0 0 0 0 0
+- 1 0 1 1 1 1 1 1 0 0 0
+- 1 1 0 1 1 1 0 0 1 1 0
+- 1 1 1 0 1 0 1 0 1 0 1
+- 1 1 1 1 0 0 0 1 0 1 1
+- 1 0 0 1 1 0 1 1 1 1 0
+- 1 0 1 0 1 1 0 1 1 0 1
+- 1 0 1 1 0 1 1 0 0 1 1
+- 1 1 0 0 1 1 1 0 0 1 1
+- 1 1 0 1 0 1 0 1 1 0 1
+- 1 1 1 0 0 0 1 1 1 1 0
+- 1 0 0 0 1 0 0 1 0 1 1
+- 1 0 0 1 0 0 1 0 1 0 1
+- 1 0 1 0 0 1 0 0 1 1 0
+- 1 1 0 0 0 1 1 1 0 0 0
+-end
+-
+-H-representation
+-begin
+- 56 11 rational
+- 2 0 0 0 0 0 0 0 -1 -1 -1
+- 0 0 0 1 1 0 0 0 0 0 -1
+- 2 0 0 0 0 0 -1 -1 0 0 -1
+- 0 1 0 0 1 0 0 -1 0 0 0
+- 0 0 1 0 1 0 0 0 0 -1 0
+- 2 0 0 0 0 -1 0 -1 0 -1 0
+- 6 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+- 0 -1 1 1 1 1 1 1 -1 -1 -1
+- 0 1 -1 1 1 1 -1 -1 1 1 -1
+- 0 1 1 -1 1 -1 1 -1 1 -1 1
+- 0 1 1 0 0 -1 0 0 0 0 0
+- 2 1 1 1 1 -1 -1 -1 -1 -1 -1
+- 0 1 1 1 -1 -1 -1 1 -1 1 1
+- 0 1 0 1 0 0 -1 0 0 0 0
+- 0 0 1 1 0 0 0 0 -1 0 0
+- 2 0 0 0 0 -1 -1 0 -1 0 0
+- 0 1 1 -1 -1 -1 1 1 1 1 -1
+- 0 1 -1 1 -1 1 -1 1 1 -1 1
+- 0 -1 1 1 -1 1 1 -1 -1 1 1
+- 2 -1 -1 -1 1 -1 -1 1 -1 1 1
+- 2 1 -1 -1 -1 1 1 1 -1 -1 -1
+- 0 1 -1 -1 1 1 1 -1 -1 1 1
+- 2 -1 1 -1 -1 1 -1 -1 1 1 -1
+- 0 -1 1 -1 1 1 -1 1 1 -1 1
+- 0 -1 -1 1 1 -1 1 1 1 1 -1
+- 2 -1 -1 1 -1 -1 1 -1 1 -1 1
+- 0 0 0 0 0 0 -1 1 0 0 1
+- 0 0 0 0 0 0 0 0 -1 1 1
+- 0 0 0 1 -1 0 0 0 0 0 1
+- 0 0 0 0 0 -1 0 1 0 1 0
+- 0 0 1 0 -1 0 0 0 0 1 0
+- 0 1 0 0 -1 0 0 1 0 0 0
+- 0 1 0 -1 0 0 1 0 0 0 0
+- 0 0 1 -1 0 0 0 0 1 0 0
+- 0 0 0 0 0 -1 1 0 1 0 0
+- 0 1 -1 0 0 1 0 0 0 0 0
+- 0 0 0 0 0 1 1 0 -1 0 0
+- 2 0 -1 -1 0 0 0 0 -1 0 0
+- 0 0 0 0 0 1 -1 0 1 0 0
+- 0 -1 1 0 0 1 0 0 0 0 0
+- 2 -1 0 -1 0 0 -1 0 0 0 0
+- 0 0 -1 1 0 0 0 0 1 0 0
+- 0 -1 0 1 0 0 1 0 0 0 0
+- 2 -1 -1 0 0 -1 0 0 0 0 0
+- 0 0 0 -1 1 0 0 0 0 0 1
+- 0 0 0 0 0 0 0 0 1 -1 1
+- 0 0 0 0 0 0 1 -1 0 0 1
+- 0 0 0 0 0 1 0 -1 0 1 0
+- 0 0 0 0 0 0 0 0 1 1 -1
+- 0 0 -1 0 1 0 0 0 0 1 0
+- 0 0 0 0 0 0 1 1 0 0 -1
+- 2 0 0 -1 -1 0 0 0 0 0 -1
+- 0 0 0 0 0 1 0 1 0 -1 0
+- 2 0 -1 0 -1 0 0 0 0 -1 0
+- 2 -1 0 0 -1 0 0 -1 0 0 0
+- 0 -1 0 0 1 0 0 1 0 0 0
+-end
+-
+-Vertex graph
+-begin
+-  16    16
+- 1 15 : 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 
+- 2 15 : 1 3 4 5 6 7 8 9 10 11 12 13 14 15 16 
+- 3 15 : 1 2 4 5 6 7 8 9 10 11 12 13 14 15 16 
+- 4 15 : 1 2 3 5 6 7 8 9 10 11 12 13 14 15 16 
+- 5 15 : 1 2 3 4 6 7 8 9 10 11 12 13 14 15 16 
+- 6 15 : 1 2 3 4 5 7 8 9 10 11 12 13 14 15 16 
+- 7 15 : 1 2 3 4 5 6 8 9 10 11 12 13 14 15 16 
+- 8 15 : 1 2 3 4 5 6 7 9 10 11 12 13 14 15 16 
+- 9 15 : 1 2 3 4 5 6 7 8 10 11 12 13 14 15 16 
+- 10 15 : 1 2 3 4 5 6 7 8 9 11 12 13 14 15 16 
+- 11 15 : 1 2 3 4 5 6 7 8 9 10 12 13 14 15 16 
+- 12 15 : 1 2 3 4 5 6 7 8 9 10 11 13 14 15 16 
+- 13 15 : 1 2 3 4 5 6 7 8 9 10 11 12 14 15 16 
+- 14 15 : 1 2 3 4 5 6 7 8 9 10 11 12 13 15 16 
+- 15 15 : 1 2 3 4 5 6 7 8 9 10 11 12 13 14 16 
+- 16 15 : 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 
+-end
+-
+-Facet graph
+-begin
+-  56    56
+- 1 28 : 2 3 4 5 6 7 8 11 12 14 15 16 21 32 33 36 37 38 40 41 43 44 51 52 53 54 55 56 
+- 2 28 : 1 3 4 5 6 8 9 11 12 14 15 16 25 30 35 36 37 39 40 42 43 44 48 49 50 51 53 56 
+- 3 28 : 1 2 4 5 6 7 9 11 12 14 15 16 23 31 34 36 38 39 40 41 42 44 48 49 50 52 54 55 
+- 4 28 : 1 2 3 5 6 9 10 11 12 14 15 16 22 28 33 34 35 36 37 38 39 42 45 46 47 48 49 50 
+- 5 28 : 1 2 3 4 6 8 10 11 12 14 15 16 24 27 33 34 35 37 39 40 41 43 45 46 47 51 53 56 
+- 6 28 : 1 2 3 4 5 7 10 11 12 14 15 16 26 29 33 34 35 38 41 42 43 44 45 46 47 52 54 55 
+- 7 10 : 1 3 6 16 38 41 44 52 54 55 
+- 8 10 : 1 2 5 15 37 40 43 51 53 56 
+- 9 10 : 2 3 4 14 36 39 42 48 49 50 
+- 10 10 : 4 5 6 11 33 34 35 45 46 47 
+- 11 28 : 1 2 3 4 5 6 10 12 13 14 15 16 17 27 28 29 30 31 32 33 34 35 45 46 47 49 51 52 
+- 12 10 : 1 2 3 4 5 6 11 14 15 16 
+- 13 10 : 11 14 15 16 27 28 29 30 31 32 
+- 14 28 : 1 2 3 4 5 6 9 11 12 13 15 16 18 27 28 29 30 31 32 36 39 42 46 48 49 50 53 54 
+- 15 28 : 1 2 3 4 5 6 8 11 12 13 14 16 19 27 28 29 30 31 32 37 40 43 47 48 51 53 55 56 
+- 16 28 : 1 2 3 4 5 6 7 11 12 13 14 15 20 27 28 29 30 31 32 38 41 44 45 50 52 54 55 56 
+- 17 10 : 11 30 31 32 33 34 35 49 51 52 
+- 18 10 : 14 27 29 32 36 39 42 46 53 54 
+- 19 10 : 15 28 29 31 37 40 43 47 48 55 
+- 20 10 : 16 27 28 30 38 41 44 45 50 56 
+- 21 10 : 1 32 33 36 37 38 51 52 53 54 
+- 22 10 : 4 28 33 36 37 38 45 47 48 50 
+- 23 10 : 3 31 34 39 40 41 48 49 52 55 
+- 24 10 : 5 27 34 39 40 41 45 46 53 56 
+- 25 10 : 2 30 35 42 43 44 49 50 51 56 
+- 26 10 : 6 29 35 42 43 44 46 47 54 55 
+- 27 28 : 5 11 13 14 15 16 18 20 24 28 29 30 31 32 34 36 38 39 40 41 42 44 45 46 50 53 54 56 
+- 28 28 : 4 11 13 14 15 16 19 20 22 27 29 30 31 32 33 36 37 38 40 41 43 44 45 47 48 50 55 56 
+- 29 28 : 6 11 13 14 15 16 18 19 26 27 28 30 31 32 35 36 37 39 40 42 43 44 46 47 48 53 54 55 
+- 30 28 : 2 11 13 14 15 16 17 20 25 27 28 29 31 32 33 34 35 38 41 42 43 44 45 49 50 51 52 56 
+- 31 28 : 3 11 13 14 15 16 17 19 23 27 28 29 30 32 33 34 35 37 39 40 41 43 47 48 49 51 52 55 
+- 32 28 : 1 11 13 14 15 16 17 18 21 27 28 29 30 31 33 34 35 36 37 38 39 42 46 49 51 52 53 54 
+- 33 28 : 1 4 5 6 10 11 17 21 22 28 30 31 32 34 35 36 37 38 45 46 47 48 49 50 51 52 53 54 
+- 34 28 : 3 4 5 6 10 11 17 23 24 27 30 31 32 33 35 39 40 41 45 46 47 48 49 51 52 53 55 56 
+- 35 28 : 2 4 5 6 10 11 17 25 26 29 30 31 32 33 34 42 43 44 45 46 47 49 50 51 52 54 55 56 
+- 36 28 : 1 2 3 4 9 14 18 21 22 27 28 29 32 33 37 38 39 42 45 46 47 48 49 50 51 52 53 54 
+- 37 28 : 1 2 4 5 8 15 19 21 22 28 29 31 32 33 36 38 40 43 45 47 48 50 51 52 53 54 55 56 
+- 38 28 : 1 3 4 6 7 16 20 21 22 27 28 30 32 33 36 37 41 44 45 47 48 50 51 52 53 54 55 56 
+- 39 28 : 2 3 4 5 9 14 18 23 24 27 29 31 32 34 36 40 41 42 45 46 48 49 50 52 53 54 55 56 
+- 40 28 : 1 2 3 5 8 15 19 23 24 27 28 29 31 34 37 39 41 43 45 46 47 48 49 51 52 53 55 56 
+- 41 28 : 1 3 5 6 7 16 20 23 24 27 28 30 31 34 38 39 40 44 45 46 48 49 50 52 53 54 55 56 
+- 42 28 : 2 3 4 6 9 14 18 25 26 27 29 30 32 35 36 39 43 44 46 47 48 49 50 51 53 54 55 56 
+- 43 28 : 1 2 5 6 8 15 19 25 26 28 29 30 31 35 37 40 42 44 46 47 48 49 50 51 53 54 55 56 
+- 44 28 : 1 2 3 6 7 16 20 25 26 27 28 29 30 35 38 41 42 43 45 46 47 49 50 51 52 54 55 56 
+- 45 28 : 4 5 6 10 11 16 20 22 24 27 28 30 33 34 35 36 37 38 39 40 41 44 46 47 48 50 53 56 
+- 46 28 : 4 5 6 10 11 14 18 24 26 27 29 32 33 34 35 36 39 40 41 42 43 44 45 47 53 54 55 56 
+- 47 28 : 4 5 6 10 11 15 19 22 26 28 29 31 33 34 35 36 37 38 40 42 43 44 45 46 48 50 54 55 
+- 48 28 : 2 3 4 9 14 15 19 22 23 28 29 31 33 34 36 37 38 39 40 41 42 43 45 47 49 50 52 55 
+- 49 28 : 2 3 4 9 11 14 17 23 25 30 31 32 33 34 35 36 39 40 41 42 43 44 48 50 51 52 55 56 
+- 50 28 : 2 3 4 9 14 16 20 22 25 27 28 30 33 35 36 37 38 39 41 42 43 44 45 47 48 49 51 56 
+- 51 28 : 1 2 5 8 11 15 17 21 25 30 31 32 33 34 35 36 37 38 40 42 43 44 49 50 52 53 54 56 
+- 52 28 : 1 3 6 7 11 16 17 21 23 30 31 32 33 34 35 36 37 38 39 40 41 44 48 49 51 53 54 55 
+- 53 28 : 1 2 5 8 14 15 18 21 24 27 29 32 33 34 36 37 38 39 40 41 42 43 45 46 51 52 54 56 
+- 54 28 : 1 3 6 7 14 16 18 21 26 27 29 32 33 35 36 37 38 39 41 42 43 44 46 47 51 52 53 55 
+- 55 28 : 1 3 6 7 15 16 19 23 26 28 29 31 34 35 37 38 39 40 41 42 43 44 46 47 48 49 52 54 
+- 56 28 : 1 2 5 8 15 16 20 24 25 27 28 30 34 35 37 38 39 40 41 42 43 44 45 46 49 50 51 53 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/cube10.ine b/build/pkgs/cddlib/tests/output/cube10.ine
+deleted file mode 100644
+index 8b632c9..00000000
+--- a/build/pkgs/cddlib/tests/output/cube10.ine
++++ /dev/null
+@@ -1,43 +0,0 @@
+-V-representation
+-begin
+- 0 11 rational
+-end
+-
+-H-representation
+-linearity 11  1 2 3 4 5 6 7 8 9 10 11
+-begin
+- 11 11 rational
+- 1 0 0 0 0 0 0 0 0 0 1
+- 1 1 0 0 0 0 0 0 0 0 0
+- 1 0 1 0 0 0 0 0 0 0 0
+- 1 0 0 1 0 0 0 0 0 0 0
+- 1 0 0 0 1 0 0 0 0 0 0
+- 1 0 0 0 0 1 0 0 0 0 0
+- 1 0 0 0 0 0 1 0 0 0 0
+- 1 0 0 0 0 0 0 1 0 0 0
+- 1 0 0 0 0 0 0 0 1 0 0
+- 1 0 0 0 0 0 0 0 0 1 0
+- 1 0 0 0 0 0 0 0 0 0 -1
+-end
+-
+-Vertex graph
+-begin
+-  0    0
+-end
+-
+-Facet graph
+-begin
+-  11    11
+- 1 0 : 
+- 2 0 : 
+- 3 0 : 
+- 4 0 : 
+- 5 0 : 
+- 6 0 : 
+- 7 0 : 
+- 8 0 : 
+- 9 0 : 
+- 10 0 : 
+- 11 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/cube6.ine b/build/pkgs/cddlib/tests/output/cube6.ine
+deleted file mode 100644
+index 9acfe41..00000000
+--- a/build/pkgs/cddlib/tests/output/cube6.ine
++++ /dev/null
+@@ -1,172 +0,0 @@
+-V-representation
+-begin
+- 64 7 rational
+- 1 1 -1 -1 -1 -1 -1
+- 1 1 -1 -1 -1 -1 1
+- 1 1 -1 -1 -1 1 -1
+- 1 1 -1 -1 -1 1 1
+- 1 1 -1 -1 1 -1 -1
+- 1 1 -1 -1 1 -1 1
+- 1 1 -1 -1 1 1 -1
+- 1 1 -1 -1 1 1 1
+- 1 1 -1 1 -1 -1 -1
+- 1 1 -1 1 -1 -1 1
+- 1 1 -1 1 -1 1 -1
+- 1 1 -1 1 -1 1 1
+- 1 1 -1 1 1 -1 -1
+- 1 1 -1 1 1 -1 1
+- 1 1 -1 1 1 1 -1
+- 1 1 -1 1 1 1 1
+- 1 1 1 1 -1 -1 -1
+- 1 1 1 1 -1 -1 1
+- 1 1 1 1 -1 1 -1
+- 1 1 1 1 -1 1 1
+- 1 1 1 1 1 1 -1
+- 1 1 1 1 1 1 1
+- 1 1 1 1 1 -1 1
+- 1 1 1 1 1 -1 -1
+- 1 1 1 -1 1 1 1
+- 1 1 1 -1 1 1 -1
+- 1 1 1 -1 1 -1 1
+- 1 1 1 -1 1 -1 -1
+- 1 1 1 -1 -1 1 1
+- 1 1 1 -1 -1 1 -1
+- 1 1 1 -1 -1 -1 1
+- 1 1 1 -1 -1 -1 -1
+- 1 -1 1 1 1 1 1
+- 1 -1 1 1 1 1 -1
+- 1 -1 1 1 1 -1 1
+- 1 -1 1 1 1 -1 -1
+- 1 -1 1 1 -1 1 1
+- 1 -1 1 1 -1 1 -1
+- 1 -1 1 1 -1 -1 1
+- 1 -1 1 1 -1 -1 -1
+- 1 -1 1 -1 1 1 1
+- 1 -1 1 -1 1 1 -1
+- 1 -1 1 -1 1 -1 1
+- 1 -1 1 -1 1 -1 -1
+- 1 -1 1 -1 -1 1 1
+- 1 -1 1 -1 -1 1 -1
+- 1 -1 1 -1 -1 -1 1
+- 1 -1 1 -1 -1 -1 -1
+- 1 -1 -1 1 1 1 1
+- 1 -1 -1 1 1 1 -1
+- 1 -1 -1 1 1 -1 1
+- 1 -1 -1 1 1 -1 -1
+- 1 -1 -1 1 -1 1 1
+- 1 -1 -1 1 -1 1 -1
+- 1 -1 -1 1 -1 -1 1
+- 1 -1 -1 1 -1 -1 -1
+- 1 -1 -1 -1 1 1 1
+- 1 -1 -1 -1 1 1 -1
+- 1 -1 -1 -1 1 -1 1
+- 1 -1 -1 -1 1 -1 -1
+- 1 -1 -1 -1 -1 1 1
+- 1 -1 -1 -1 -1 1 -1
+- 1 -1 -1 -1 -1 -1 1
+- 1 -1 -1 -1 -1 -1 -1
+-end
+-
+-H-representation
+-begin
+- 12 7 rational
+- 1 1 0 0 0 0 0
+- 1 0 1 0 0 0 0
+- 1 0 0 1 0 0 0
+- 1 0 0 0 1 0 0
+- 1 0 0 0 0 1 0
+- 1 0 0 0 0 0 1
+- 1 -1 0 0 0 0 0
+- 1 0 -1 0 0 0 0
+- 1 0 0 -1 0 0 0
+- 1 0 0 0 -1 0 0
+- 1 0 0 0 0 -1 0
+- 1 0 0 0 0 0 -1
+-end
+-
+-Vertex graph
+-begin
+-  64    64
+- 1 6 : 2 3 5 9 32 64 
+- 2 6 : 1 4 6 10 31 63 
+- 3 6 : 1 4 7 11 30 62 
+- 4 6 : 2 3 8 12 29 61 
+- 5 6 : 1 6 7 13 28 60 
+- 6 6 : 2 5 8 14 27 59 
+- 7 6 : 3 5 8 15 26 58 
+- 8 6 : 4 6 7 16 25 57 
+- 9 6 : 1 10 11 13 17 56 
+- 10 6 : 2 9 12 14 18 55 
+- 11 6 : 3 9 12 15 19 54 
+- 12 6 : 4 10 11 16 20 53 
+- 13 6 : 5 9 14 15 24 52 
+- 14 6 : 6 10 13 16 23 51 
+- 15 6 : 7 11 13 16 21 50 
+- 16 6 : 8 12 14 15 22 49 
+- 17 6 : 9 18 19 24 32 40 
+- 18 6 : 10 17 20 23 31 39 
+- 19 6 : 11 17 20 21 30 38 
+- 20 6 : 12 18 19 22 29 37 
+- 21 6 : 15 19 22 24 26 34 
+- 22 6 : 16 20 21 23 25 33 
+- 23 6 : 14 18 22 24 27 35 
+- 24 6 : 13 17 21 23 28 36 
+- 25 6 : 8 22 26 27 29 41 
+- 26 6 : 7 21 25 28 30 42 
+- 27 6 : 6 23 25 28 31 43 
+- 28 6 : 5 24 26 27 32 44 
+- 29 6 : 4 20 25 30 31 45 
+- 30 6 : 3 19 26 29 32 46 
+- 31 6 : 2 18 27 29 32 47 
+- 32 6 : 1 17 28 30 31 48 
+- 33 6 : 22 34 35 37 41 49 
+- 34 6 : 21 33 36 38 42 50 
+- 35 6 : 23 33 36 39 43 51 
+- 36 6 : 24 34 35 40 44 52 
+- 37 6 : 20 33 38 39 45 53 
+- 38 6 : 19 34 37 40 46 54 
+- 39 6 : 18 35 37 40 47 55 
+- 40 6 : 17 36 38 39 48 56 
+- 41 6 : 25 33 42 43 45 57 
+- 42 6 : 26 34 41 44 46 58 
+- 43 6 : 27 35 41 44 47 59 
+- 44 6 : 28 36 42 43 48 60 
+- 45 6 : 29 37 41 46 47 61 
+- 46 6 : 30 38 42 45 48 62 
+- 47 6 : 31 39 43 45 48 63 
+- 48 6 : 32 40 44 46 47 64 
+- 49 6 : 16 33 50 51 53 57 
+- 50 6 : 15 34 49 52 54 58 
+- 51 6 : 14 35 49 52 55 59 
+- 52 6 : 13 36 50 51 56 60 
+- 53 6 : 12 37 49 54 55 61 
+- 54 6 : 11 38 50 53 56 62 
+- 55 6 : 10 39 51 53 56 63 
+- 56 6 : 9 40 52 54 55 64 
+- 57 6 : 8 41 49 58 59 61 
+- 58 6 : 7 42 50 57 60 62 
+- 59 6 : 6 43 51 57 60 63 
+- 60 6 : 5 44 52 58 59 64 
+- 61 6 : 4 45 53 57 62 63 
+- 62 6 : 3 46 54 58 61 64 
+- 63 6 : 2 47 55 59 61 64 
+- 64 6 : 1 48 56 60 62 63 
+-end
+-
+-Facet graph
+-begin
+-  12    12
+- 1 10 : 2 3 4 5 6 8 9 10 11 12 
+- 2 10 : 1 3 4 5 6 7 9 10 11 12 
+- 3 10 : 1 2 4 5 6 7 8 10 11 12 
+- 4 10 : 1 2 3 5 6 7 8 9 11 12 
+- 5 10 : 1 2 3 4 6 7 8 9 10 12 
+- 6 10 : 1 2 3 4 5 7 8 9 10 11 
+- 7 10 : 2 3 4 5 6 8 9 10 11 12 
+- 8 10 : 1 3 4 5 6 7 9 10 11 12 
+- 9 10 : 1 2 4 5 6 7 8 10 11 12 
+- 10 10 : 1 2 3 5 6 7 8 9 11 12 
+- 11 10 : 1 2 3 4 6 7 8 9 10 12 
+- 12 10 : 1 2 3 4 5 7 8 9 10 11 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/cubocta.ine b/build/pkgs/cddlib/tests/output/cubocta.ine
+deleted file mode 100644
+index ef39f3d..00000000
+--- a/build/pkgs/cddlib/tests/output/cubocta.ine
++++ /dev/null
+@@ -1,72 +0,0 @@
+-V-representation
+-begin
+- 12 4 rational
+- 1 0 -1 1
+- 1 -1 0 1
+- 1 0 1 1
+- 1 1 0 1
+- 1 1 1 0
+- 1 1 0 -1
+- 1 1 -1 0
+- 1 0 1 -1
+- 1 -1 1 0
+- 1 -1 0 -1
+- 1 0 -1 -1
+- 1 -1 -1 0
+-end
+-
+-H-representation
+-begin
+- 14 4 rational
+- 1 1 0 0
+- 1 0 1 0
+- 1 0 0 1
+- 1 -1 0 0
+- 1 0 -1 0
+- 1 0 0 -1
+- 2 1 1 1
+- 2 -1 1 1
+- 2 1 -1 1
+- 2 1 1 -1
+- 2 -1 -1 1
+- 2 1 -1 -1
+- 2 -1 1 -1
+- 2 -1 -1 -1
+-end
+-
+-Vertex graph
+-begin
+-  12    12
+- 1 4 : 2 4 7 12 
+- 2 4 : 1 3 9 12 
+- 3 4 : 2 4 5 9 
+- 4 4 : 1 3 5 7 
+- 5 4 : 3 4 6 8 
+- 6 4 : 5 7 8 11 
+- 7 4 : 1 4 6 11 
+- 8 4 : 5 6 9 10 
+- 9 4 : 2 3 8 10 
+- 10 4 : 8 9 11 12 
+- 11 4 : 6 7 10 12 
+- 12 4 : 1 2 10 11 
+-end
+-
+-Facet graph
+-begin
+-  14    14
+- 1 4 : 7 9 10 12 
+- 2 4 : 7 8 10 13 
+- 3 4 : 7 8 9 11 
+- 4 4 : 8 11 13 14 
+- 5 4 : 9 11 12 14 
+- 6 4 : 10 12 13 14 
+- 7 3 : 1 2 3 
+- 8 3 : 2 3 4 
+- 9 3 : 1 3 5 
+- 10 3 : 1 2 6 
+- 11 3 : 3 4 5 
+- 12 3 : 1 5 6 
+- 13 3 : 2 4 6 
+- 14 3 : 4 5 6 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/cyclic10-4.ext b/build/pkgs/cddlib/tests/output/cyclic10-4.ext
+deleted file mode 100644
+index 7fab01f..00000000
+--- a/build/pkgs/cddlib/tests/output/cyclic10-4.ext
++++ /dev/null
+@@ -1,72 +0,0 @@
+-V-representation
+-begin
+- 10 4 rational
+- 1 1 1 1
+- 1 2 4 8
+- 1 3 9 27
+- 1 4 16 64
+- 1 5 25 125
+- 1 6 36 216
+- 1 7 49 343
+- 1 8 64 512
+- 1 9 81 729
+- 1 10 100 1000
+-end
+-
+-H-representation
+-begin
+- 16 4 rational
+- -72 89 -18 1
+- -42 55 -14 1
+- -20 29 -10 1
+- -12 19 -8 1
+- -6 11 -6 1
+- -30 41 -12 1
+- -56 71 -16 1
+- 560 -206 25 -1
+- 300 -140 21 -1
+- 20 -32 13 -1
+- 60 -56 15 -1
+- 120 -82 17 -1
+- 200 -110 19 -1
+- 420 -172 23 -1
+- -90 109 -20 1
+- 720 -242 27 -1
+-end
+-
+-Vertex graph
+-begin
+-  10    10
+- 1 9 : 2 3 4 5 6 7 8 9 10 
+- 2 3 : 1 3 10 
+- 3 4 : 1 2 4 10 
+- 4 4 : 1 3 5 10 
+- 5 4 : 1 4 6 10 
+- 6 4 : 1 5 7 10 
+- 7 4 : 1 6 8 10 
+- 8 4 : 1 7 9 10 
+- 9 3 : 1 8 10 
+- 10 9 : 1 2 3 4 5 6 7 8 9 
+-end
+-
+-Facet graph
+-begin
+-  16    16
+- 1 3 : 7 15 16 
+- 2 3 : 6 7 14 
+- 3 3 : 4 6 13 
+- 4 3 : 3 5 12 
+- 5 3 : 4 10 11 
+- 6 3 : 2 3 9 
+- 7 3 : 1 2 8 
+- 8 3 : 7 14 16 
+- 9 3 : 6 13 14 
+- 10 3 : 5 11 15 
+- 11 3 : 5 10 12 
+- 12 3 : 4 11 13 
+- 13 3 : 3 9 12 
+- 14 3 : 2 8 9 
+- 15 3 : 1 10 16 
+- 16 3 : 1 8 15 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/cyclic12-6.ext b/build/pkgs/cddlib/tests/output/cyclic12-6.ext
+deleted file mode 100644
+index ee6ba4b..00000000
+--- a/build/pkgs/cddlib/tests/output/cyclic12-6.ext
++++ /dev/null
+@@ -1,188 +0,0 @@
+-V-representation
+-begin
+- 12 6 rational
+- 1 1 1 1 1 1
+- 1 2 4 8 16 32
+- 1 3 9 27 81 243
+- 1 4 16 64 256 1024
+- 1 5 25 125 625 3125
+- 1 6 36 216 1296 7776
+- 1 7 49 343 2401 16807
+- 1 8 64 512 4096 32768
+- 1 9 81 729 6561 59049
+- 1 10 100 1000 10000 100000
+- 1 11 121 1331 14641 161051
+- 1 12 144 1728 20736 248832
+-end
+-
+-H-representation
+-begin
+- 72 6 rational
+- -7920 11302 -3921 577 -39 1
+- -4620 6932 -2737 459 -35 1
+- -3300 5140 -2211 403 -33 1
+- -2200 3610 -1729 349 -31 1
+- -660 1336 -897 247 -27 1
+- -1320 2342 -1291 297 -29 1
+- -6160 8986 -3307 517 -37 1
+- -3024 4674 -1985 365 -31 1
+- -2160 3462 -1591 317 -29 1
+- -1440 2428 -1233 271 -27 1
+- -432 894 -625 185 -23 1
+- -864 1572 -911 227 -25 1
+- -252 540 -401 131 -19 1
+- -504 954 -595 165 -21 1
+- -840 1478 -817 201 -23 1
+- -360 702 -461 137 -19 1
+- -180 396 -307 107 -17 1
+- -120 274 -225 85 -15 1
+- -1680 2746 -1317 277 -27 1
+- -1120 1924 -1015 235 -25 1
+- -672 1244 -745 195 -23 1
+- -336 706 -507 157 -21 1
+- -3780 5748 -2347 411 -33 1
+- -2700 4260 -1889 359 -31 1
+- -1800 2990 -1471 309 -29 1
+- -1080 1938 -1093 261 -27 1
+- -540 1104 -755 215 -25 1
+- -5040 7454 -2845 465 -35 1
+- 2160 -3876 2096 -413 34 -1
+- 6480 -7308 2856 -479 36 -1
+- 12960 -11376 3678 -547 38 -1
+- 21600 -16080 4562 -617 40 -1
+- 60480 -34008 7586 -839 46 -1
+- 45360 -27396 6516 -763 44 -1
+- 32400 -21420 5508 -689 42 -1
+- 1344 -2488 1434 -319 30 -1
+- 4032 -4776 2014 -377 32 -1
+- 8064 -7536 2648 -437 34 -1
+- 13440 -10768 3336 -499 36 -1
+- 20160 -14472 4078 -563 38 -1
+- 288 -624 470 -155 22 -1
+- 480 -976 666 -193 24 -1
+- 720 -1404 892 -233 26 -1
+- 1440 -1968 1006 -239 26 -1
+- 2160 -2772 1308 -283 28 -1
+- 4320 -4464 1770 -335 30 -1
+- 10080 -8496 2786 -443 34 -1
+- 6048 -5904 2190 -385 32 -1
+- 3024 -3708 1644 -329 30 -1
+- 1008 -1908 1148 -275 28 -1
+- 25920 -17784 4770 -625 40 -1
+- 36288 -22824 5670 -695 42 -1
+- 17280 -13296 3928 -557 38 -1
+- 10368 -9360 3144 -491 36 -1
+- 5184 -5976 2418 -427 34 -1
+- 1728 -3144 1750 -365 32 -1
+- -9504 13404 -4495 635 -41 1
+- -5544 8226 -3155 509 -37 1
+- -3960 6102 -2557 449 -35 1
+- -2640 4288 -2007 391 -33 1
+- -1584 2784 -1505 335 -31 1
+- -792 1590 -1051 281 -29 1
+- -7392 10660 -3801 571 -39 1
+- 39600 -25380 6292 -755 44 -1
+- 55440 -32364 7412 -833 46 -1
+- 73920 -40072 8598 -913 48 -1
+- 95040 -48504 9850 -995 50 -1
+- 26400 -19120 5238 -679 42 -1
+- 15840 -13584 4250 -605 40 -1
+- 7920 -8772 3328 -533 38 -1
+- 2640 -4684 2472 -463 36 -1
+- -11880 16458 -5237 701 -43 1
+-end
+-
+-Vertex graph
+-begin
+-  12    12
+- 1 11 : 2 3 4 5 6 7 8 9 10 11 12 
+- 2 11 : 1 3 4 5 6 7 8 9 10 11 12 
+- 3 11 : 1 2 4 5 6 7 8 9 10 11 12 
+- 4 11 : 1 2 3 5 6 7 8 9 10 11 12 
+- 5 11 : 1 2 3 4 6 7 8 9 10 11 12 
+- 6 11 : 1 2 3 4 5 7 8 9 10 11 12 
+- 7 11 : 1 2 3 4 5 6 8 9 10 11 12 
+- 8 11 : 1 2 3 4 5 6 7 9 10 11 12 
+- 9 11 : 1 2 3 4 5 6 7 8 10 11 12 
+- 10 11 : 1 2 3 4 5 6 7 8 9 11 12 
+- 11 11 : 1 2 3 4 5 6 7 8 9 10 12 
+- 12 11 : 1 2 3 4 5 6 7 8 9 10 11 
+-end
+-
+-Facet graph
+-begin
+-  72    72
+- 1 5 : 7 28 57 67 72 
+- 2 5 : 3 7 23 58 65 
+- 3 5 : 2 4 24 59 64 
+- 4 5 : 3 6 25 60 68 
+- 5 5 : 6 27 62 70 71 
+- 6 5 : 4 5 26 61 69 
+- 7 5 : 1 2 28 63 66 
+- 8 5 : 9 19 23 28 52 
+- 9 5 : 8 10 19 24 51 
+- 10 5 : 9 12 20 25 53 
+- 11 5 : 12 22 27 55 56 
+- 12 5 : 10 11 21 26 54 
+- 13 5 : 14 17 22 49 50 
+- 14 5 : 13 15 16 21 48 
+- 15 5 : 14 16 19 20 47 
+- 16 5 : 14 15 17 18 46 
+- 17 5 : 13 16 18 43 45 
+- 18 5 : 16 17 41 42 44 
+- 19 5 : 8 9 15 20 40 
+- 20 5 : 10 15 19 21 39 
+- 21 5 : 12 14 20 22 38 
+- 22 5 : 11 13 21 36 37 
+- 23 5 : 2 8 24 28 34 
+- 24 5 : 3 9 23 25 35 
+- 25 5 : 4 10 24 26 32 
+- 26 5 : 6 12 25 27 31 
+- 27 5 : 5 11 26 29 30 
+- 28 5 : 1 7 8 23 33 
+- 29 5 : 27 30 56 71 72 
+- 30 5 : 27 29 31 55 70 
+- 31 5 : 26 30 32 54 69 
+- 32 5 : 25 31 35 53 68 
+- 33 5 : 28 34 52 66 67 
+- 34 5 : 23 33 35 52 65 
+- 35 5 : 24 32 34 51 64 
+- 36 5 : 22 37 50 56 63 
+- 37 5 : 22 36 38 49 55 
+- 38 5 : 21 37 39 48 54 
+- 39 5 : 20 38 40 47 53 
+- 40 5 : 19 39 47 51 52 
+- 41 5 : 18 42 44 61 62 
+- 42 5 : 18 41 43 44 60 
+- 43 5 : 17 42 45 50 59 
+- 44 5 : 18 41 42 45 46 
+- 45 5 : 17 43 44 46 49 
+- 46 5 : 16 44 45 47 48 
+- 47 5 : 15 39 40 46 48 
+- 48 5 : 14 38 46 47 49 
+- 49 5 : 13 37 45 48 50 
+- 50 5 : 13 36 43 49 58 
+- 51 5 : 9 35 40 52 53 
+- 52 5 : 8 33 34 40 51 
+- 53 5 : 10 32 39 51 54 
+- 54 5 : 12 31 38 53 55 
+- 55 5 : 11 30 37 54 56 
+- 56 5 : 11 29 36 55 57 
+- 57 5 : 1 56 63 67 72 
+- 58 5 : 2 50 59 63 65 
+- 59 5 : 3 43 58 60 64 
+- 60 5 : 4 42 59 61 68 
+- 61 5 : 6 41 60 62 69 
+- 62 5 : 5 41 61 70 71 
+- 63 5 : 7 36 57 58 66 
+- 64 5 : 3 35 59 65 68 
+- 65 5 : 2 34 58 64 66 
+- 66 5 : 7 33 63 65 67 
+- 67 5 : 1 33 57 66 72 
+- 68 5 : 4 32 60 64 69 
+- 69 5 : 6 31 61 68 70 
+- 70 5 : 5 30 62 69 71 
+- 71 5 : 5 29 62 70 72 
+- 72 5 : 1 29 57 67 71 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/empty.ine b/build/pkgs/cddlib/tests/output/empty.ine
+deleted file mode 100644
+index 0cfa018..00000000
+--- a/build/pkgs/cddlib/tests/output/empty.ine
++++ /dev/null
+@@ -1,23 +0,0 @@
+-V-representation
+-begin
+- 0 2 rational
+-end
+-
+-H-representation
+-linearity 1  1
+-begin
+- 1 2 rational
+- -1 0
+-end
+-
+-Vertex graph
+-begin
+-  0    0
+-end
+-
+-Facet graph
+-begin
+-  1    1
+- 1 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/ex1.ine b/build/pkgs/cddlib/tests/output/ex1.ine
+deleted file mode 100644
+index 0941d82..00000000
+--- a/build/pkgs/cddlib/tests/output/ex1.ine
++++ /dev/null
+@@ -1,38 +0,0 @@
+-V-representation
+-begin
+- 5 3 rational
+- 1 -1 4
+- 0 2 1
+- 1 0 3
+- 0 1 2
+- 1 -1 10
+-end
+-
+-H-representation
+-begin
+- 4 3 rational
+- 12 2 -1
+- -6 -1 2
+- -3 1 1
+- 1 1 0
+-end
+-
+-Vertex graph
+-begin
+-  5    5
+- 1 2 : 3 5 
+- 2 2 : 3 4 
+- 3 2 : 1 2 
+- 4 2 : 2 5 
+- 5 2 : 1 4 
+-end
+-
+-Facet graph
+-begin
+-  4    4
+- 1 1 : 4 
+- 2 1 : 3 
+- 3 2 : 2 4 
+- 4 2 : 1 3 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/infeas.ine b/build/pkgs/cddlib/tests/output/infeas.ine
+deleted file mode 100644
+index 8fabe3a..00000000
+--- a/build/pkgs/cddlib/tests/output/infeas.ine
++++ /dev/null
+@@ -1,173 +0,0 @@
+- 16  8  real
+-          |  0  1  2  3  4  5  7 14
+-          |  0  1  2  3  4  5  7 14
+-  ------- | ------------------------
+-   1(  2) |  0  +  0  0  0  0  0  0
+-   2(  3) |  0  0  +  0  0  0  0  0
+-   3(  4) |  0  0  0  +  0  0  0  0
+-   4(  5) |  0  0  0  0  +  0  0  0
+-   5(  6) |  0  0  0  0  0  +  0  0
+-   6( -1) |  -  +  0  0  0  0  0  0
+-   7(  7) |  0  0  0  0  0  0  +  0
+-   8( -1) |  +  -  0  0  0  0  0  0
+-   9( -1) |  +  0  -  0  0  0  0  0
+-  10( -1) |  +  0  0  -  0  0  0  0
+-  11( -1) |  +  0  0  0  -  0  0  0
+-  12( -1) |  +  0  0  0  0  -  0  0
+-  13( -1) |  +  0  0  0  0  0  -  0
+-  14(  8) |  0  0  0  0  0  0  0  +
+-  15(  0) |  +  0  0  0  0  0  0  -
+-  16(  0) |  0  0  0  0  0  0  0  0
+-end
+- 15  8  real
+-          |  0  1  2  3  4  5  7 14
+-          |  0  6  2  3  4  5  7 14
+-  ------- | ------------------------
+-   1( -1) |  +  +  0  0  0  0  0  0
+-   2(  3) |  0  0  +  0  0  0  0  0
+-   3(  4) |  0  0  0  +  0  0  0  0
+-   4(  5) |  0  0  0  0  +  0  0  0
+-   5(  6) |  0  0  0  0  0  +  0  0
+-   6(  2) |  0  +  0  0  0  0  0  0
+-   7(  7) |  0  0  0  0  0  0  +  0
+-   8( -1) |  -  -  0  0  0  0  0  0
+-   9( -1) |  +  0  -  0  0  0  0  0
+-  10( -1) |  +  0  0  -  0  0  0  0
+-  11( -1) |  +  0  0  0  -  0  0  0
+-  12( -1) |  +  0  0  0  0  -  0  0
+-  13( -1) |  +  0  0  0  0  0  -  0
+-  14(  8) |  0  0  0  0  0  0  0  +
+-  15(  0) |  +  0  0  0  0  0  0  -
+-end
+-
+-Evaluating dd_BasisStatusMaximize:
+-
+-nbindex: 0 6 2 3 4 5 7 14
+-re = 8,   se=0
+-se=0,  is=0
+-new se=0,  is=0
+-dd_BasisStatusMaximize: a specified basis exists.
+- 15  8  real
+-          | 0 6 2 3 4 5 7 14
+- ---- ---- ---- ---- ---- ---- ---- ---- ----
+-   1( -1) | 2 1 0 0 0 0 0 0
+-   2(  3) | 0 0 1 0 0 0 0 0
+-   3(  4) | 0 0 0 1 0 0 0 0
+-   4(  5) | 0 0 0 0 1 0 0 0
+-   5(  6) | 0 0 0 0 0 1 0 0
+-   6(  2) | 0 1 0 0 0 0 0 0
+-   7(  7) | 0 0 0 0 0 0 1 0
+-   8( -1) | -1 -1 0 0 0 0 0 0
+-   9( -1) | 1 0 -1 0 0 0 0 0
+-  10( -1) | 1 0 0 -1 0 0 0 0
+-  11( -1) | 1 0 0 0 -1 0 0 0
+-  12( -1) | 1 0 0 0 0 -1 0 0
+-  13( -1) | 1 0 0 0 0 0 -1 0
+-  14(  8) | 0 0 0 0 0 0 0 1
+-  15(  0) | 1 0 0 0 0 0 0 -1
+-end
+-BasisStatus: the current basis is verified with GMP. The LP Solved.
+- 16  8  real
+-          |  0  1  2  3  4  5  7  8
+-          |  0  1  2  3  4  5  7  8
+-  ------- | ------------------------
+-   1(  2) |  0  +  0  0  0  0  0  0
+-   2(  3) |  0  0  +  0  0  0  0  0
+-   3(  4) |  0  0  0  +  0  0  0  0
+-   4(  5) |  0  0  0  0  +  0  0  0
+-   5(  6) |  0  0  0  0  0  +  0  0
+-   6( -1) |  -  +  0  0  0  0  0  0
+-   7(  7) |  0  0  0  0  0  0  +  0
+-   8(  8) |  0  0  0  0  0  0  0  +
+-   9( -1) |  0  +  -  0  0  0  0  +
+-  10( -1) |  0  +  0  -  0  0  0  +
+-  11( -1) |  0  +  0  0  -  0  0  +
+-  12( -1) |  0  +  0  0  0  -  0  +
+-  13( -1) |  0  +  0  0  0  0  -  +
+-  14( -1) |  +  +  0  0  0  0  0  +
+-  15(  0) |  +  -  0  0  0  0  0  -
+-  16(  0) |  0  0  0  0  0  0  0  0
+-end
+- 15  8  real
+-          |  0  1  2  3  4  5  7  8
+-          |  0  6  2  3  4  5  7  8
+-  ------- | ------------------------
+-   1( -1) |  +  +  0  0  0  0  0  0
+-   2(  3) |  0  0  +  0  0  0  0  0
+-   3(  4) |  0  0  0  +  0  0  0  0
+-   4(  5) |  0  0  0  0  +  0  0  0
+-   5(  6) |  0  0  0  0  0  +  0  0
+-   6(  2) |  0  +  0  0  0  0  0  0
+-   7(  7) |  0  0  0  0  0  0  +  0
+-   8(  8) |  0  0  0  0  0  0  0  +
+-   9( -1) |  +  +  -  0  0  0  0  +
+-  10( -1) |  +  +  0  -  0  0  0  +
+-  11( -1) |  +  +  0  0  -  0  0  +
+-  12( -1) |  +  +  0  0  0  -  0  +
+-  13( -1) |  +  +  0  0  0  0  -  +
+-  14( -1) |  +  +  0  0  0  0  0  +
+-  15(  0) |  -  -  0  0  0  0  0  -
+-end
+-
+-Evaluating dd_BasisStatusMaximize:
+-
+-nbindex: 0 6 2 3 4 5 7 8
+-re = 0,   se=0
+-se=0,  is=0
+-new se=0,  is=0
+-dd_BasisStatusMaximize: a specified basis exists.
+- 15  8  real
+-          | 0 6 2 3 4 5 7 8
+- ---- ---- ---- ---- ---- ---- ---- ---- ----
+-   1( -1) | 2 1 0 0 0 0 0 0
+-   2(  3) | 0 0 1 0 0 0 0 0
+-   3(  4) | 0 0 0 1 0 0 0 0
+-   4(  5) | 0 0 0 0 1 0 0 0
+-   5(  6) | 0 0 0 0 0 1 0 0
+-   6(  2) | 0 1 0 0 0 0 0 0
+-   7(  7) | 0 0 0 0 0 0 1 0
+-   8(  8) | 0 0 0 0 0 0 0 1
+-   9( -1) | 2 1 -1 0 0 0 0 1
+-  10( -1) | 2 1 0 -1 0 0 0 1
+-  11( -1) | 2 1 0 0 -1 0 0 1
+-  12( -1) | 2 1 0 0 0 -1 0 1
+-  13( -1) | 2 1 0 0 0 0 -1 1
+-  14( -1) | 3/2 1/2 0 0 0 0 0 1/2
+-  15(  0) | -1/2 -1/2 0 0 0 0 0 -1/2
+-end
+-BasisStatus: the current basis is verified with GMP. The LP Solved.
+-V-representation
+-begin
+- 0 7 rational
+-end
+-
+-H-representation
+-linearity 7  1 2 3 4 5 6 7
+-begin
+- 7 7 rational
+- 0 1 0 0 0 0 0
+- 0 0 1 0 0 0 0
+- 0 0 0 1 0 0 0
+- 0 0 0 0 1 0 0
+- 0 0 0 0 0 1 0
+- -2 1 0 0 0 0 0
+- 0 0 0 0 0 0 1
+-end
+-
+-Vertex graph
+-begin
+-  0    0
+-end
+-
+-Facet graph
+-begin
+-  7    7
+- 1 0 : 
+- 2 0 : 
+- 3 0 : 
+- 4 0 : 
+- 5 0 : 
+- 6 0 : 
+- 7 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/irbox20-4.ext b/build/pkgs/cddlib/tests/output/irbox20-4.ext
+deleted file mode 100644
+index 7021ff1..00000000
+--- a/build/pkgs/cddlib/tests/output/irbox20-4.ext
++++ /dev/null
+@@ -1,96 +0,0 @@
+-V-representation
+-begin
+- 14 4 rational
+- 1 -45 1 47
+- 1 5 -11 28
+- 1 17 -43 17
+- 1 -46 8 -15
+- 1 35 -26 -6
+- 1 41 -3 -8
+- 1 -46 49 40
+- 1 -18 -29 46
+- 1 -20 -25 -2
+- 1 -22 -9 -32
+- 1 31 46 5
+- 1 -44 -5 40
+- 1 -2 4 32
+- 1 -27 40 -48
+-end
+-
+-H-representation
+-begin
+- 24 4 rational
+- 18563/17 -1 593/17 25
+- 35825/391 -501/391 1 1354/391
+- 8158/59 1 268/59 139/59
+- 30933/37 -774/37 1 -952/37
+- 29717/56 197/28 869/56 1
+- 17417/122 -447/244 -1 -543/122
+- 13393/14 141/7 309/14 1
+- 3799/33 17/11 47/33 -1
+- 24041/95 -129/95 -1 -633/95
+- 163243/779 3113/779 -55/41 1
+- 18829 421 69 1
+- 133587/41 2927/41 55/41 -1
+- 63443/469 1105/469 1 1091/469
+- 17141/68 823/136 351/68 1
+- 3519/35 391/175 377/175 1
+- 7262/17 -171/17 -1 -471/34
+- 8110/19 -191/19 -1 -263/19
+- 1625/14 -47/28 -1 -101/28
+- 92115/17 1 -2037/17 212/17
+- 49373/10 -1363/10 1 -758/5
+- 59123/62 -1745/62 1 -788/31
+- 40881/428 -2519/1284 -1 1451/642
+- 24949/188 -417/188 1 911/188
+- 355/2 -165/34 1 -52/17
+-end
+-
+-Vertex graph
+-begin
+-  14    14
+- 1 4 : 4 7 8 12 
+- 2 4 : 3 8 11 13 
+- 3 7 : 2 5 6 8 9 10 11 
+- 4 6 : 1 7 9 10 12 14 
+- 5 4 : 3 6 10 14 
+- 6 4 : 3 5 11 14 
+- 7 6 : 1 4 8 11 13 14 
+- 8 7 : 1 2 3 7 9 12 13 
+- 9 5 : 3 4 8 10 12 
+- 10 5 : 3 4 5 9 14 
+- 11 6 : 2 3 6 7 13 14 
+- 12 4 : 1 4 8 9 
+- 13 4 : 2 7 8 11 
+- 14 6 : 4 5 6 7 10 11 
+-end
+-
+-Facet graph
+-begin
+-  24    24
+- 1 3 : 2 3 24 
+- 2 3 : 1 13 23 
+- 3 3 : 1 5 15 
+- 4 3 : 5 16 20 
+- 5 3 : 3 4 7 
+- 6 3 : 9 16 18 
+- 7 3 : 5 8 14 
+- 8 3 : 7 9 11 
+- 9 3 : 6 8 12 
+- 10 3 : 12 13 19 
+- 11 3 : 8 12 14 
+- 12 3 : 9 10 11 
+- 13 3 : 2 10 15 
+- 14 3 : 7 11 15 
+- 15 3 : 3 13 14 
+- 16 3 : 4 6 17 
+- 17 3 : 16 18 20 
+- 18 3 : 6 17 19 
+- 19 3 : 10 18 22 
+- 20 3 : 4 17 21 
+- 21 3 : 20 22 24 
+- 22 3 : 19 21 23 
+- 23 3 : 2 22 24 
+- 24 3 : 1 21 23 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/nonfull.ine b/build/pkgs/cddlib/tests/output/nonfull.ine
+deleted file mode 100644
+index 2984be5..00000000
+--- a/build/pkgs/cddlib/tests/output/nonfull.ine
++++ /dev/null
+@@ -1,35 +0,0 @@
+-V-representation
+-begin
+- 3 4 rational
+- 1 2 1 1
+- 1 2 2 1
+- 0 0 0 1
+-end
+-
+-H-representation
+-linearity 1  1
+-begin
+- 4 4 rational
+- 2 -1 0 0
+- 2 0 -1 0
+- -1 0 1 0
+- -1 0 0 1
+-end
+-
+-Vertex graph
+-begin
+-  3    3
+- 1 2 : 2 3 
+- 2 2 : 1 3 
+- 3 2 : 1 2 
+-end
+-
+-Facet graph
+-begin
+-  4    4
+- 1 0 : 
+- 2 1 : 4 
+- 3 1 : 4 
+- 4 2 : 2 3 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/origin.ine b/build/pkgs/cddlib/tests/output/origin.ine
+deleted file mode 100644
+index b6f9b22..00000000
+--- a/build/pkgs/cddlib/tests/output/origin.ine
++++ /dev/null
+@@ -1,35 +0,0 @@
+-V-representation
+-begin
+- 1 7 rational
+- 1 0 0 0 0 0 0
+-end
+-
+-H-representation
+-linearity 6  1 2 3 4 5 6
+-begin
+- 6 7 rational
+- 0 1 0 0 0 0 0
+- 0 0 1 0 0 0 0
+- 0 0 0 1 0 0 0
+- 0 0 0 0 1 0 0
+- 0 0 0 0 0 1 0
+- 0 0 0 0 0 0 1
+-end
+-
+-Vertex graph
+-begin
+-  1    1
+- 1 0 : 
+-end
+-
+-Facet graph
+-begin
+-  6    6
+- 1 0 : 
+- 2 0 : 
+- 3 0 : 
+- 4 0 : 
+- 5 0 : 
+- 6 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/reg24-5.ext b/build/pkgs/cddlib/tests/output/reg24-5.ext
+deleted file mode 100644
+index 21d7b41..00000000
+--- a/build/pkgs/cddlib/tests/output/reg24-5.ext
++++ /dev/null
+@@ -1,116 +0,0 @@
+-V-representation
+-begin
+- 24 5 rational
+- 1 1 1 1 1
+- 1 1 1 1 -1
+- 1 1 1 -1 1
+- 1 1 1 -1 -1
+- 1 1 -1 1 1
+- 1 1 -1 1 -1
+- 1 1 -1 -1 1
+- 1 1 -1 -1 -1
+- 1 -1 1 1 1
+- 1 -1 1 1 -1
+- 1 -1 1 -1 1
+- 1 -1 1 -1 -1
+- 1 -1 -1 1 1
+- 1 -1 -1 1 -1
+- 1 -1 -1 -1 1
+- 1 -1 -1 -1 -1
+- 1 2 0 0 0
+- 1 0 2 0 0
+- 1 0 0 2 0
+- 1 0 0 0 2
+- 1 -2 0 0 0
+- 1 0 -2 0 0
+- 1 0 0 -2 0
+- 1 0 0 0 -2
+-end
+-
+-H-representation
+-begin
+- 24 5 rational
+- 2 0 -1 -1 0
+- 2 0 0 -1 -1
+- 2 0 -1 0 -1
+- 2 0 -1 1 0
+- 2 0 0 1 -1
+- 2 0 1 -1 0
+- 2 0 1 0 -1
+- 2 0 1 1 0
+- 2 1 -1 0 0
+- 2 1 0 0 -1
+- 2 1 0 1 0
+- 2 1 1 0 0
+- 2 1 0 0 1
+- 2 1 0 -1 0
+- 2 0 1 0 1
+- 2 0 0 1 1
+- 2 0 -1 0 1
+- 2 0 0 -1 1
+- 2 -1 0 0 1
+- 2 -1 1 0 0
+- 2 -1 0 1 0
+- 2 -1 0 0 -1
+- 2 -1 0 -1 0
+- 2 -1 -1 0 0
+-end
+-
+-Vertex graph
+-begin
+-  24    24
+- 1 8 : 2 3 5 9 17 18 19 20 
+- 2 8 : 1 4 6 10 17 18 19 24 
+- 3 8 : 1 4 7 11 17 18 20 23 
+- 4 8 : 2 3 8 12 17 18 23 24 
+- 5 8 : 1 6 7 13 17 19 20 22 
+- 6 8 : 2 5 8 14 17 19 22 24 
+- 7 8 : 3 5 8 15 17 20 22 23 
+- 8 8 : 4 6 7 16 17 22 23 24 
+- 9 8 : 1 10 11 13 18 19 20 21 
+- 10 8 : 2 9 12 14 18 19 21 24 
+- 11 8 : 3 9 12 15 18 20 21 23 
+- 12 8 : 4 10 11 16 18 21 23 24 
+- 13 8 : 5 9 14 15 19 20 21 22 
+- 14 8 : 6 10 13 16 19 21 22 24 
+- 15 8 : 7 11 13 16 20 21 22 23 
+- 16 8 : 8 12 14 15 21 22 23 24 
+- 17 8 : 1 2 3 4 5 6 7 8 
+- 18 8 : 1 2 3 4 9 10 11 12 
+- 19 8 : 1 2 5 6 9 10 13 14 
+- 20 8 : 1 3 5 7 9 11 13 15 
+- 21 8 : 9 10 11 12 13 14 15 16 
+- 22 8 : 5 6 7 8 13 14 15 16 
+- 23 8 : 3 4 7 8 11 12 15 16 
+- 24 8 : 2 4 6 8 10 12 14 16 
+-end
+-
+-Facet graph
+-begin
+-  24    24
+- 1 8 : 2 3 9 14 17 18 23 24 
+- 2 8 : 1 3 6 7 10 14 22 23 
+- 3 8 : 1 2 4 5 9 10 22 24 
+- 4 8 : 3 5 9 11 16 17 21 24 
+- 5 8 : 3 4 7 8 10 11 21 22 
+- 6 8 : 2 7 12 14 15 18 20 23 
+- 7 8 : 2 5 6 8 10 12 20 22 
+- 8 8 : 5 7 11 12 15 16 20 21 
+- 9 8 : 1 3 4 10 11 13 14 17 
+- 10 8 : 2 3 5 7 9 11 12 14 
+- 11 8 : 4 5 8 9 10 12 13 16 
+- 12 8 : 6 7 8 10 11 13 14 15 
+- 13 8 : 9 11 12 14 15 16 17 18 
+- 14 8 : 1 2 6 9 10 12 13 18 
+- 15 8 : 6 8 12 13 16 18 19 20 
+- 16 8 : 4 8 11 13 15 17 19 21 
+- 17 8 : 1 4 9 13 16 18 19 24 
+- 18 8 : 1 6 13 14 15 17 19 23 
+- 19 8 : 15 16 17 18 20 21 23 24 
+- 20 8 : 6 7 8 15 19 21 22 23 
+- 21 8 : 4 5 8 16 19 20 22 24 
+- 22 8 : 2 3 5 7 20 21 23 24 
+- 23 8 : 1 2 6 18 19 20 22 24 
+- 24 8 : 1 3 4 17 19 21 22 23 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/reg24-5.ine b/build/pkgs/cddlib/tests/output/reg24-5.ine
+deleted file mode 100644
+index 351b546..00000000
+--- a/build/pkgs/cddlib/tests/output/reg24-5.ine
++++ /dev/null
+@@ -1,116 +0,0 @@
+-V-representation
+-begin
+- 24 5 rational
+- 1 0 -1/2 -1/2 0
+- 1 0 0 -1/2 -1/2
+- 1 0 -1/2 0 -1/2
+- 1 0 -1/2 1/2 0
+- 1 0 0 1/2 -1/2
+- 1 0 1/2 -1/2 0
+- 1 0 1/2 0 -1/2
+- 1 0 1/2 1/2 0
+- 1 1/2 -1/2 0 0
+- 1 1/2 0 0 -1/2
+- 1 1/2 0 0 1/2
+- 1 1/2 1/2 0 0
+- 1 1/2 0 1/2 0
+- 1 1/2 0 -1/2 0
+- 1 0 1/2 0 1/2
+- 1 0 0 1/2 1/2
+- 1 0 -1/2 0 1/2
+- 1 0 0 -1/2 1/2
+- 1 -1/2 0 0 1/2
+- 1 -1/2 1/2 0 0
+- 1 -1/2 0 1/2 0
+- 1 -1/2 0 0 -1/2
+- 1 -1/2 0 -1/2 0
+- 1 -1/2 -1/2 0 0
+-end
+-
+-H-representation
+-begin
+- 24 5 rational
+- 1 1 1 1 1
+- 1 1 1 1 -1
+- 1 1 1 -1 1
+- 1 1 1 -1 -1
+- 1 1 -1 1 1
+- 1 1 -1 1 -1
+- 1 1 -1 -1 1
+- 1 1 -1 -1 -1
+- 1 -1 1 1 1
+- 1 -1 1 1 -1
+- 1 -1 1 -1 1
+- 1 -1 1 -1 -1
+- 1 -1 -1 1 1
+- 1 -1 -1 1 -1
+- 1 -1 -1 -1 1
+- 1 -1 -1 -1 -1
+- 1 2 0 0 0
+- 1 0 2 0 0
+- 1 0 0 2 0
+- 1 0 0 0 2
+- 1 -2 0 0 0
+- 1 0 -2 0 0
+- 1 0 0 -2 0
+- 1 0 0 0 -2
+-end
+-
+-Vertex graph
+-begin
+-  24    24
+- 1 8 : 2 3 9 14 17 18 23 24 
+- 2 8 : 1 3 6 7 10 14 22 23 
+- 3 8 : 1 2 4 5 9 10 22 24 
+- 4 8 : 3 5 9 13 16 17 21 24 
+- 5 8 : 3 4 7 8 10 13 21 22 
+- 6 8 : 2 7 12 14 15 18 20 23 
+- 7 8 : 2 5 6 8 10 12 20 22 
+- 8 8 : 5 7 12 13 15 16 20 21 
+- 9 8 : 1 3 4 10 11 13 14 17 
+- 10 8 : 2 3 5 7 9 12 13 14 
+- 11 8 : 9 12 13 14 15 16 17 18 
+- 12 8 : 6 7 8 10 11 13 14 15 
+- 13 8 : 4 5 8 9 10 11 12 16 
+- 14 8 : 1 2 6 9 10 11 12 18 
+- 15 8 : 6 8 11 12 16 18 19 20 
+- 16 8 : 4 8 11 13 15 17 19 21 
+- 17 8 : 1 4 9 11 16 18 19 24 
+- 18 8 : 1 6 11 14 15 17 19 23 
+- 19 8 : 15 16 17 18 20 21 23 24 
+- 20 8 : 6 7 8 15 19 21 22 23 
+- 21 8 : 4 5 8 16 19 20 22 24 
+- 22 8 : 2 3 5 7 20 21 23 24 
+- 23 8 : 1 2 6 18 19 20 22 24 
+- 24 8 : 1 3 4 17 19 21 22 23 
+-end
+-
+-Facet graph
+-begin
+-  24    24
+- 1 8 : 2 3 5 9 17 18 19 20 
+- 2 8 : 1 4 6 10 17 18 19 24 
+- 3 8 : 1 4 7 11 17 18 20 23 
+- 4 8 : 2 3 8 12 17 18 23 24 
+- 5 8 : 1 6 7 13 17 19 20 22 
+- 6 8 : 2 5 8 14 17 19 22 24 
+- 7 8 : 3 5 8 15 17 20 22 23 
+- 8 8 : 4 6 7 16 17 22 23 24 
+- 9 8 : 1 10 11 13 18 19 20 21 
+- 10 8 : 2 9 12 14 18 19 21 24 
+- 11 8 : 3 9 12 15 18 20 21 23 
+- 12 8 : 4 10 11 16 18 21 23 24 
+- 13 8 : 5 9 14 15 19 20 21 22 
+- 14 8 : 6 10 13 16 19 21 22 24 
+- 15 8 : 7 11 13 16 20 21 22 23 
+- 16 8 : 8 12 14 15 21 22 23 24 
+- 17 8 : 1 2 3 4 5 6 7 8 
+- 18 8 : 1 2 3 4 9 10 11 12 
+- 19 8 : 1 2 5 6 9 10 13 14 
+- 20 8 : 1 3 5 7 9 11 13 15 
+- 21 8 : 9 10 11 12 13 14 15 16 
+- 22 8 : 5 6 7 8 13 14 15 16 
+- 23 8 : 3 4 7 8 11 12 15 16 
+- 24 8 : 2 4 6 8 10 12 14 16 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/sampleh1.ine b/build/pkgs/cddlib/tests/output/sampleh1.ine
+deleted file mode 100644
+index c06e5c3..00000000
+--- a/build/pkgs/cddlib/tests/output/sampleh1.ine
++++ /dev/null
+@@ -1,35 +0,0 @@
+-V-representation
+-linearity 1  1
+-begin
+- 4 4 rational
+- 0 0 0 1
+- 1 0 0 0
+- 1 2 0 0
+- 1 0 2 0
+-end
+-
+-H-representation
+-begin
+- 3 4 rational
+- 2 -1 -1 0
+- 0 1 0 0
+- 0 0 1 0
+-end
+-
+-Vertex graph
+-begin
+-  4    4
+- 1 0 : 
+- 2 2 : 3 4 
+- 3 2 : 2 4 
+- 4 2 : 2 3 
+-end
+-
+-Facet graph
+-begin
+-  3    3
+- 1 2 : 2 3 
+- 2 2 : 1 3 
+- 3 2 : 1 2 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/sampleh2.ine b/build/pkgs/cddlib/tests/output/sampleh2.ine
+deleted file mode 100644
+index b6a1e3c..00000000
+--- a/build/pkgs/cddlib/tests/output/sampleh2.ine
++++ /dev/null
+@@ -1,31 +0,0 @@
+-V-representation
+-linearity 2  1 2
+-begin
+- 4 4 rational
+- 0 1 0 0
+- 0 0 1 0
+- 0 0 0 1
+- 1 0 0 1
+-end
+-
+-H-representation
+-begin
+- 1 4 rational
+- -1 0 0 1
+-end
+-
+-Vertex graph
+-begin
+-  4    4
+- 1 0 : 
+- 2 0 : 
+- 3 1 : 4 
+- 4 1 : 3 
+-end
+-
+-Facet graph
+-begin
+-  1    1
+- 1 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/sampleh3.ine b/build/pkgs/cddlib/tests/output/sampleh3.ine
+deleted file mode 100644
+index cc1307f..00000000
+--- a/build/pkgs/cddlib/tests/output/sampleh3.ine
++++ /dev/null
+@@ -1,31 +0,0 @@
+-V-representation
+-linearity 1  1
+-begin
+- 3 4 rational
+- 0 0 0 1
+- 0 1 0 0
+- 0 -1 1 0
+-end
+-
+-H-representation
+-begin
+- 2 4 rational
+- 0 1 1 0
+- 0 0 1 0
+-end
+-
+-Vertex graph
+-begin
+-  3    3
+- 1 0 : 
+- 2 1 : 3 
+- 3 1 : 2 
+-end
+-
+-Facet graph
+-begin
+-  2    2
+- 1 1 : 2 
+- 2 1 : 1 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/sampleh5.ine b/build/pkgs/cddlib/tests/output/sampleh5.ine
+deleted file mode 100644
+index 958ceef..00000000
+--- a/build/pkgs/cddlib/tests/output/sampleh5.ine
++++ /dev/null
+@@ -1,35 +0,0 @@
+-V-representation
+-begin
+- 3 4 rational
+- 1 0 0 0
+- 1 1 0 0
+- 1 0 1 0
+-end
+-
+-H-representation
+-linearity 1  1
+-begin
+- 4 4 rational
+- 0 0 0 1
+- 0 1 0 0
+- 0 0 1 0
+- 1 -1 -1 0
+-end
+-
+-Vertex graph
+-begin
+-  3    3
+- 1 2 : 2 3 
+- 2 2 : 1 3 
+- 3 2 : 1 2 
+-end
+-
+-Facet graph
+-begin
+-  4    4
+- 1 0 : 
+- 2 2 : 3 4 
+- 3 2 : 2 4 
+- 4 2 : 2 3 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/sampleh6.ine b/build/pkgs/cddlib/tests/output/sampleh6.ine
+deleted file mode 100644
+index 7710d0c..00000000
+--- a/build/pkgs/cddlib/tests/output/sampleh6.ine
++++ /dev/null
+@@ -1,33 +0,0 @@
+-V-representation
+-begin
+- 2 4 rational
+- 1 1 0 0
+- 1 0 1 0
+-end
+-
+-H-representation
+-linearity 2  1 2
+-begin
+- 4 4 rational
+- 0 0 0 1
+- 1 -1 -1 -1
+- 0 1 0 0
+- 0 0 1 0
+-end
+-
+-Vertex graph
+-begin
+-  2    2
+- 1 1 : 2 
+- 2 1 : 1 
+-end
+-
+-Facet graph
+-begin
+-  4    4
+- 1 0 : 
+- 2 0 : 
+- 3 0 : 
+- 4 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/sampleh7.ine b/build/pkgs/cddlib/tests/output/sampleh7.ine
+deleted file mode 100644
+index 198a72f..00000000
+--- a/build/pkgs/cddlib/tests/output/sampleh7.ine
++++ /dev/null
+@@ -1,42 +0,0 @@
+-V-representation
+-begin
+- 6 3 rational
+- 1 0 5000/101
+- 1 2530000/130761 500000/43587
+- 1 42500/3999 2500/93
+- 1 10000/87 0
+- 0 1 0
+- 0 0 1
+-end
+-
+-H-representation
+-begin
+- 5 3 rational
+- 0 1 0
+- 0 0 1
+- -10000 87 725
+- -10000 387 219
+- -10000 430 202
+-end
+-
+-Vertex graph
+-begin
+-  6    6
+- 1 2 : 3 6 
+- 2 2 : 3 4 
+- 3 2 : 1 2 
+- 4 2 : 2 5 
+- 5 2 : 4 6 
+- 6 2 : 1 5 
+-end
+-
+-Facet graph
+-begin
+-  5    5
+- 1 1 : 5 
+- 2 1 : 3 
+- 3 2 : 2 4 
+- 4 2 : 3 5 
+- 5 2 : 1 4 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/samplelp1.ine b/build/pkgs/cddlib/tests/output/samplelp1.ine
+deleted file mode 100644
+index e5ceedb..00000000
+--- a/build/pkgs/cddlib/tests/output/samplelp1.ine
++++ /dev/null
+@@ -1,48 +0,0 @@
+-V-representation
+-begin
+- 8 4 rational
+- 1 1 -1 -1
+- 1 1 -1 1
+- 1 1 1 1
+- 1 1 1 -1
+- 1 -1 1 1
+- 1 -1 1 -1
+- 1 -1 -1 1
+- 1 -1 -1 -1
+-end
+-
+-H-representation
+-begin
+- 6 4 rational
+- 1 1 0 0
+- 1 0 1 0
+- 1 0 0 1
+- 1 -1 0 0
+- 1 0 -1 0
+- 1 0 0 -1
+-end
+-
+-Vertex graph
+-begin
+-  8    8
+- 1 3 : 2 4 8 
+- 2 3 : 1 3 7 
+- 3 3 : 2 4 5 
+- 4 3 : 1 3 6 
+- 5 3 : 3 6 7 
+- 6 3 : 4 5 8 
+- 7 3 : 2 5 8 
+- 8 3 : 1 6 7 
+-end
+-
+-Facet graph
+-begin
+-  6    6
+- 1 4 : 2 3 5 6 
+- 2 4 : 1 3 4 6 
+- 3 4 : 1 2 4 5 
+- 4 4 : 2 3 5 6 
+- 5 4 : 1 3 4 6 
+- 6 4 : 1 2 4 5 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/samplelp2.ine b/build/pkgs/cddlib/tests/output/samplelp2.ine
+deleted file mode 100644
+index e878496..00000000
+--- a/build/pkgs/cddlib/tests/output/samplelp2.ine
++++ /dev/null
+@@ -1,34 +0,0 @@
+-V-representation
+-linearity 1  1
+-begin
+- 3 5 rational
+- 0 0 0 -1 1
+- 1 -3 3 9/2 0
+- 0 1 0 0 0
+-end
+-
+-H-representation
+-linearity 2  1 2
+-begin
+- 3 5 rational
+- 3 0 -1 0 0
+- 9/2 0 0 -1 -1
+- 0 1 1 0 0
+-end
+-
+-Vertex graph
+-begin
+-  3    3
+- 1 0 : 
+- 2 1 : 3 
+- 3 1 : 2 
+-end
+-
+-Facet graph
+-begin
+-  3    3
+- 1 0 : 
+- 2 0 : 
+- 3 0 : 
+-end
+-
+diff --git a/build/pkgs/cddlib/tests/output/test.ext b/build/pkgs/cddlib/tests/output/test.ext
+deleted file mode 100644
+index 5eff75c..00000000
+--- a/build/pkgs/cddlib/tests/output/test.ext
++++ /dev/null
+@@ -1,36 +0,0 @@
+-V-representation
+-begin
+- 4 4 rational
+- 1 0 0 1
+- 1 0 0 0
+- 1 1 0 0
+- 1 0 1 0
+-end
+-
+-H-representation
+-begin
+- 4 4 rational
+- 0 1 0 0
+- 0 0 1 0
+- 0 0 0 1
+- 1 -1 -1 -1
+-end
+-
+-Vertex graph
+-begin
+-  4    4
+- 1 3 : 2 3 4 
+- 2 3 : 1 3 4 
+- 3 3 : 1 2 4 
+- 4 3 : 1 2 3 
+-end
+-
+-Facet graph
+-begin
+-  4    4
+- 1 3 : 2 3 4 
+- 2 3 : 1 3 4 
+- 3 3 : 1 2 4 
+- 4 3 : 1 2 3 
+-end
+-
+diff --git a/src/sage/geometry/hasse_diagram.py b/src/sage/geometry/hasse_diagram.py
+index 9d336ce..c5bff21 100644
+--- a/src/sage/geometry/hasse_diagram.py
++++ b/src/sage/geometry/hasse_diagram.py
+@@ -44,7 +44,7 @@ def Hasse_diagram_from_incidences(atom_to_coatoms, coatom_to_atoms,
+       implementation will just return these two tuples as a tuple;
+ 
+     - ``required_atoms`` -- list of atoms (default:None). Each
+-      non-empty "face" requires at least on of the specified atoms
++      non-empty "face" requires at least one of the specified atoms
+       present. Used to ensure that each face has a vertex.
+ 
+     - ``key`` -- any hashable value (default: None). It is passed down
+diff --git a/src/sage/geometry/polyhedron/backend_cdd.py b/src/sage/geometry/polyhedron/backend_cdd.py
+index 8497741..85f6632 100644
+--- a/src/sage/geometry/polyhedron/backend_cdd.py
++++ b/src/sage/geometry/polyhedron/backend_cdd.py
+@@ -1,6 +1,19 @@
+-"""
++# -*- coding: utf-8 -*-
++r"""
+ The cdd backend for polyhedral computations
+ """
++# ****************************************************************************
++#       Copyright (C) 2011-2014 Volker Braun <vbraun.name@gmail.com>
++#                     2018      Timo Kaufmann <timokau@zoho.com>
++#                     2018      Julian Rüth <julian.rueth@fsfe.org>
++#
++# This program is free software: you can redistribute it and/or modify
++# it under the terms of the GNU General Public License as published by
++# the Free Software Foundation, either version 2 of the License, or
++# (at your option) any later version.
++#                  https://www.gnu.org/licenses/
++# ****************************************************************************
++
+ from __future__ import print_function
+ from __future__ import absolute_import
+ 
+@@ -13,12 +26,10 @@ from .base import Polyhedron_base
+ from .base_QQ import Polyhedron_QQ
+ from .base_RDF import Polyhedron_RDF
+ 
+-#########################################################################
+ class Polyhedron_cdd(Polyhedron_base):
+-    """
++    r"""
+     Base class for the cdd backend.
+     """
+-
+     def _init_from_Vrepresentation(self, vertices, rays, lines, verbose=False):
+         """
+         Construct polyhedron from V-representation data.
+@@ -49,8 +60,30 @@ class Polyhedron_cdd(Polyhedron_base):
+         """
+         from .cdd_file_format import cdd_Vrepresentation
+         s = cdd_Vrepresentation(self._cdd_type, vertices, rays, lines)
+-        self._init_from_cdd_input(s, '--reps', verbose)
+-
++        s = self._run_cdd(s, '--redcheck', verbose=verbose)
++        s = self._run_cdd(s, '--repall', verbose=verbose)
++        self._init_from_cdd_output(s)
++        if not self.base_ring().is_exact():
++            # cdd's parser can not handle the full output of --repall, so we
++            # need to extract the first block before we feed it back into cdd
++            s = s.splitlines()
++            s = s[:s.index('end')+1]
++            s = '\n'.join(s)
++            t = self._run_cdd(s, '--rep', verbose=verbose)
++
++            def parse(intro, data):
++                count = int(data[0][0])
++                if count != len(self._cdd_V_to_sage_V):
++                    # Upstream claims that nothing can be done about these
++                    # cases/that they are features not bugs. Imho, cddlib is
++                    # not really suitable for automatic parsing of its output,
++                    # the implementation backed by doubles has not really been
++                    # optimized for numerical stability, and makes some
++                    # somewhat random numerical choices. (But I am not an
++                    # expert in that field by any means.) See also
++                    # https://github.com/cddlib/cddlib/pull/7.
++                    raise ValueError("polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data")
++            Polyhedron_cdd._parse_block(t.splitlines(), 'V-representation', parse)
+ 
+     def _init_from_Hrepresentation(self, ieqs, eqns, verbose=False):
+         """
+@@ -78,88 +111,32 @@ class Polyhedron_cdd(Polyhedron_base):
+         """
+         from .cdd_file_format import cdd_Hrepresentation
+         s = cdd_Hrepresentation(self._cdd_type, ieqs, eqns)
+-        self._init_from_cdd_input(s, '--reps', verbose)
+-
+-
+-    def _init_facet_adjacency_matrix(self, verbose=False):
+-        """
+-        Compute the facet adjacency matrix in case it has not been
+-        computed during initialization.
+-
+-        INPUT:
+-
+-        - ``verbose`` -- boolean (default: ``False``). Whether to print
+-          verbose output for debugging purposes.
+-
+-        EXAMPLES::
+-
+-            sage: p = Polyhedron(vertices=[(0,0),(1,0),(0,1)], backend='cdd', base_ring=QQ)
+-            sage: '_H_adjacency_matrix' in p.__dict__
+-            False
+-            sage: p._init_facet_adjacency_matrix()
+-            sage: p._H_adjacency_matrix
+-            [0 1 1]
+-            [1 0 1]
+-            [1 1 0]
+-        """
+-        self._init_from_cdd_input(self.cdd_Hrepresentation(),
+-                                  '--adjacency', verbose)
+-
+-
+-    def _init_vertex_adjacency_matrix(self, verbose=False):
+-        """
+-        Compute the vertex adjacency matrix in case it has not been
+-        computed during initialization.
+-
+-        INPUT:
+-
+-        - ``verbose`` -- boolean (default: ``False``). Whether to print
+-          verbose output for debugging purposes.
+-
+-        EXAMPLES::
+-
+-            sage: p = Polyhedron(vertices=[(0,0),(1,0),(0,1)], backend='cdd', base_ring=QQ)
+-            sage: '_V_adjacency_matrix' in p.__dict__
+-            False
+-            sage: p._init_vertex_adjacency_matrix()
+-            sage: p._V_adjacency_matrix
+-            [0 1 1]
+-            [1 0 1]
+-            [1 1 0]
+-        """
+-        self._init_from_cdd_input(self.cdd_Vrepresentation(),
+-                                  '--adjacency', verbose)
+-
+-
+-    def _init_from_cdd_input(self, cdd_input_string, cmdline_arg='--all', verbose=False):
+-        """
+-        Internal method: run cdd on a cdd H- or V-representation
+-        and initialize ourselves with the output.
+-
+-        TESTS::
+-
+-            sage: p = Polyhedron(vertices=[[0,0,0],[1,0,0],[0,1,0],[0,0,1]],
+-            ....:                backend='cdd', base_ring=QQ)
+-            sage: from sage.geometry.polyhedron.cdd_file_format import cdd_Vrepresentation
+-            sage: s = cdd_Vrepresentation('rational', [[0,0,1],[0,1,0],[1,0,0]], [], [])
+-            sage: p._init_from_cdd_input(s)
+-            sage: p.dim()
+-            2
+-
+-            sage: point_list = [[0.132, -1.028, 0.028],[0.5, 0.5, -1.5],
+-            ....:    [-0.5, 1.5, -0.5],[0.5, 0.5, 0.5],[1.5, -0.5, -0.5],
+-            ....:    [-0.332, -0.332, -0.668],[-1.332, 0.668, 0.332],
+-            ....:    [-0.932, 0.068, 0.932],[-0.38, -0.38, 1.38],
+-            ....:    [-0.744, -0.12, 1.12],[-0.7781818182, -0.12, 0.9490909091],
+-            ....:    [0.62, -1.38, 0.38],[0.144, -1.04, 0.04],
+-            ....:    [0.1309090909, -1.0290909091, 0.04]]
+-            sage: Polyhedron(point_list)
+-            Traceback (most recent call last):
+-            ...
+-            ValueError: *Error: Numerical inconsistency is found.  Use the GMP exact arithmetic.
+-            sage: Polyhedron(point_list, base_ring=QQ)
+-            A 3-dimensional polyhedron in QQ^3 defined as the convex hull of 14 vertices
+-        """
++        s = self._run_cdd(s, '--redcheck', verbose=verbose)
++        s = self._run_cdd(s, '--repall', verbose=verbose)
++        self._init_from_cdd_output(s)
++        if not self.base_ring().is_exact():
++            # cdd's parser can not handle the full output of --repall, so we
++            # need to extract the first block before we feed it back into cdd
++            s = s.splitlines()
++            s = s[:s.index('end')+1]
++            s = '\n'.join(s)
++            t = self._run_cdd(s, '--rep', verbose=verbose)
++
++            def parse(intro, data):
++                count = int(data[0][0])
++                infinite_count = len([d for d in data[1:] if d[0] == '1' and all(c == '0' for c in d[1:])])
++                if count - infinite_count != len(self._Hrepresentation):
++                    # Upstream claims that nothing can be done about these
++                    # cases/that they are features not bugs. Imho, cddlib is
++                    # not really suitable for automatic parsing of its output,
++                    # the implementation backed by doubles has not really been
++                    # optimized for numerical stability, and makes some
++                    # somewhat random numerical choices. (But I am not an
++                    # expert in that field by any means.)
++                    raise ValueError("polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data")
++            Polyhedron_cdd._parse_block(t.splitlines(), 'H-representation', parse)
++
++    def _run_cdd(self, cdd_input_string, cmdline_arg, verbose=False):
+         if verbose:
+             print('---- CDD input -----')
+             print(cdd_input_string)
+@@ -175,157 +152,189 @@ class Polyhedron_cdd(Polyhedron_base):
+         if 'Error:' in ans + err:
+             # cdd reports errors on stdout and misc information on stderr
+             raise ValueError(ans.strip())
+-        self._init_from_cdd_output(ans)
++        return ans
++
++    @classmethod
++    def _parse_block(cls, cddout, header, parser):
++        r"""
++        Parse a block of cdd data identified by ``header`` by invoking
++        ``parser`` on it.
++
++        EXAMPLES::
+ 
++            sage: cddout = r'''
++            ....: unrelated
++            ....: HEADER
++            ....: intro 0 1 2
++            ....: begin
++            ....: data 0 1 2
++            ....: data 3 4 5
++            ....: end
++            ....: unrelated
++            ....: '''.splitlines()
++            sage: from sage.geometry.polyhedron.backend_cdd import Polyhedron_cdd
++            sage: def parser(intro, data):
++            ....:     print("INTRO:", intro)
++            ....:     print("DATA:", data)
++            sage: Polyhedron_cdd._parse_block(cddout, 'HEADER', parser)
++            INTRO: [['intro', '0', '1', '2']]
++            DATA: [['data', '0', '1', '2'], ['data', '3', '4', '5']]
+ 
+-    def _init_from_cdd_output(self, cdd_output_string):
++        """
++        try:
++            block = cddout[cddout.index(header)+1:]
++        except ValueError:
++            # section is missing in the cdd output
++            return
++
++        intro = block[:block.index('begin')]
++        intro = [i.strip().split() for i in intro]
++        data = block[block.index('begin')+1:block.index('end')]
++        data = [d.strip().split() for d in data]
++        parser(intro, data)
++
++    def _init_from_cdd_output(self, cddout):
+         """
+         Initialize ourselves with the output from cdd.
+ 
+         TESTS::
+ 
+-            sage: from sage.geometry.polyhedron.cdd_file_format import cdd_Vrepresentation
+-            sage: s = cdd_Vrepresentation('rational',[[0,0],[1,0],[0,1],[1,1]], [], [])
+-            sage: from subprocess import Popen, PIPE
+-            sage: cdd_proc = Popen(['cdd_both_reps_gmp', '--all'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+-            sage: ans, err = cdd_proc.communicate(input=s)
+-            sage: p = Polyhedron(vertices = [[0,0],[1,0],[0,1],[1,1]], backend='cdd', base_ring=QQ)
+-            sage: p._init_from_cdd_output(ans)
++            sage: p = Polyhedron(vertices = [[0,0],[1,0],[0,1],[1,1]], backend='cdd', base_ring=QQ) # indirect doctest
+             sage: p.vertices()
+             (A vertex at (0, 0), A vertex at (1, 0), A vertex at (0, 1), A vertex at (1, 1))
+         """
+-        cddout=cdd_output_string.splitlines()
+-        suppressed_vertex = False   # whether cdd suppressed the vertex in output
+-        parent = self.parent()
+-
+-        # nested function
+-        def expect_in_cddout(expected_string):
+-            l = cddout.pop(0).strip()
+-            if l!=expected_string:
+-                raise ValueError('Error while parsing cdd output: expected "'
+-                                   +expected_string+'" but got "'+l+'".\n')
+-        # nested function
+-        def cdd_linearities():
+-            l = cddout[0].split()
+-            if l[0] != "linearity":
+-                return []
+-            cddout.pop(0)
+-            assert len(l) == int(l[1])+2, "Not enough linearities given"
+-            return [int(i)-1 for i in l[2:]]  # make indices pythonic
+-
+-        # nested function
+-        def cdd_convert(string, base_ring=self.base_ring()):
+-            """
+-            Converts the cdd output string to a numerical value.
+-            """
+-            return [base_ring(x) for x in string.split()]
+-
+-        # nested function
+-        def find_in_cddout(expected_string):
+-            """
+-            Find the expected string in a list of strings, and
+-            truncates ``cddout`` to start at that point. Returns
+-            ``False`` if search fails.
+-            """
+-            for pos in range(0,len(cddout)):
+-                l = cddout[pos].strip();
+-                if l==expected_string:
+-                    # must not assign to cddout in nested function
+-                    for i in range(0,pos+1):
+-                        cddout.pop(0)
+-                    return True
+-            return False
+-
+-        if find_in_cddout('V-representation'):
++        cddout = cddout.splitlines()
++
++        def parse_indices(count, cdd_indices, cdd_indices_to_sage_indices=None):
++            cdd_indices = map(int, cdd_indices)
++            if cdd_indices_to_sage_indices is None:
++                cdd_indices_to_sage_indices = {i:i-1 for i in cdd_indices}
++            if count < 0:
++                assert cdd_indices_to_sage_indices is not None, "Did not expect negative counts here"
++                count = -count
++                cdd_indices = list(set(cdd_indices_to_sage_indices.keys()) - set(cdd_indices))
++                assert count in [len(cdd_indices), len(cdd_indices) -1]
++            assert count == len(cdd_indices)
++            return [cdd_indices_to_sage_indices[i] for i in cdd_indices if cdd_indices_to_sage_indices[i] is not None]
++
++        def parse_linearities(intro):
++            for entries in intro:
++                if entries and entries.pop(0) == 'linearity':
++                    return parse_indices(int(entries.pop(0)), entries)
++            return []
++
++        def parse_H_representation(intro, data):
++            if '_Hrepresentation' in self.__dict__:
++                raise NotImplementedError("can not replace internal representation as this breaks caching")
++            self._Hrepresentation = []
++            # we drop some entries in cdd's output and this changes the numbering; this dict keeps track of that
++            self._cdd_H_to_sage_H = {}
++            equations = parse_linearities(intro)
++            data[0].pop(2) # ignore data type, we know the base ring already
++            count, dimension = map(int, data.pop(0))
++            assert self.ambient_dim() == dimension - 1, "Unexpected ambient dimension"
++            assert len(data) == count, "Unexpected number of lines"
++            for i, line in enumerate(data):
++                coefficients = map(self.base_ring(), line)
++                if coefficients[0] != 0 and all([e == 0 for e in coefficients[1:]]):
++                    # cddlib sometimes includes an implicit plane at infinity: 1 0 0 ... 0
++                    # We do not care about this entry.
++                    self._cdd_H_to_sage_H[i+1] = None
++                    continue
++
++                self._cdd_H_to_sage_H[i+1] = len(self._Hrepresentation)
++                if i in equations:
++                    self.parent()._make_Equation(self, coefficients)
++                else:
++                    self.parent()._make_Inequality(self, coefficients)
++
++            self._Hrepresentation = tuple(self._Hrepresentation)
++
++        def parse_V_representation(intro, data):
++            if '_Vrepresentation' in self.__dict__:
++                raise NotImplementedError("can not replace internal representation as this breaks caching")
+             self._Vrepresentation = []
+-            lines = cdd_linearities()
+-            expect_in_cddout('begin')
+-            l = cddout.pop(0).split()
+-            assert self.ambient_dim() == int(l[1])-1,  "Different ambient dimension?"
+-            suppressed_vertex = True
+-            for i in range(int(l[0])):
+-                l = cddout.pop(0).strip()
+-                l_type = l[0]
+-                l = l[1:]
++            # we drop some entries in cdd's output and this changes the numbering; this dict keeps track of that
++            self._cdd_V_to_sage_V = {}
++            lines = parse_linearities(intro)
++            data[0].pop(2) # ignore data type, we know the base ring already
++            count, dimension = map(int, data.pop(0))
++            assert self.ambient_dim() == dimension - 1, "Unexpected ambient dimension"
++            assert len(data) == count, "Unexpected number of lines"
++            has_vertex = False
++            for i, line in enumerate(data):
++                kind = line.pop(0)
++                coefficients = map(self.base_ring(), line)
++                self._cdd_V_to_sage_V[i+1] = len(self._Vrepresentation)
+                 if i in lines:
+-                    parent._make_Line(self, cdd_convert(l));
+-                elif l_type == '0':
+-                    parent._make_Ray(self, cdd_convert(l));
++                    self.parent()._make_Line(self, coefficients);
++                elif kind == '0':
++                    self.parent()._make_Ray(self, coefficients);
+                 else:
+-                    parent._make_Vertex(self, cdd_convert(l));
+-                    suppressed_vertex = False
+-            if suppressed_vertex and self.n_Vrepresentation()>0:
+-                # cdd does not output the vertex if it is only the origin
+-                parent._make_Vertex(self, [0] * self.ambient_dim())
++                    self.parent()._make_Vertex(self, coefficients)
++                    has_vertex = True
++            if len(self._Vrepresentation) and not has_vertex:
++                # when the Polyhedron consists only of lines/rays from the
++                # origin, cddlib does not output the single vertex at the
++                # origin so we have to add it here as the Polyhedron class
++                # expects it to be there.
++                self.parent()._make_Vertex(self, [self.base_ring().zero()] * self.ambient_dim())
+             self._Vrepresentation = tuple(self._Vrepresentation)
+-            expect_in_cddout('end')
+ 
+-        if find_in_cddout('H-representation'):
+-            self._Hrepresentation = []
+-            equations = cdd_linearities()
+-            expect_in_cddout('begin')
+-            l = cddout.pop(0).split()
+-            assert self.ambient_dim() == int(l[1])-1, "Different ambient dimension?"
+-            for i in range(int(l[0])):
+-                l = cddout.pop(0)
+-                if i in equations:
+-                    parent._make_Equation(self, cdd_convert(l));
+-                else:
+-                    parent._make_Inequality(self, cdd_convert(l));
+-            self._Hrepresentation = tuple(self._Hrepresentation)
+-            expect_in_cddout('end')
+-
+-        # nested function
+-        def cdd_adjacencies():
+-            l = cddout.pop(0).split()
+-            assert l[2] == ':', "Not a line of the adjacency data?"
+-            return [int(i)-1 for i in l[3:]]
+-
+-        if find_in_cddout('Vertex graph'):
+-            n = len(self._Vrepresentation);
+-            if suppressed_vertex:
+-                n_cdd=n-1;
+-            else:
+-                n_cdd=n;
+-            self._V_adjacency_matrix = matrix(ZZ, n, n, 0)
+-            if not find_in_cddout('begin'):
+-                raise ValueError('Error while parsing cdd output: could not '
+-                                 'find "begin" after "Vertex graph"')
+-            l = cddout.pop(0).split()
+-            assert int(l[0]) == n_cdd, "Not enough V-adjacencies in cdd output?"
+-            for i in range(n_cdd):
+-                for a in cdd_adjacencies():
+-                    self._V_adjacency_matrix[i,a] = 1
++        def parse_adjacency(intro, data, N, cdd_indices_to_sage_indices):
++            ret = matrix(ZZ, N, N, 0)
++            cdd_vertex_count = int(data.pop(0)[0])
++            data.reverse()
++            for adjacencies in data:
++                assert adjacencies[2] == ':', "Not a line of adjacency data"
++                cdd_vertex = int(adjacencies[0])
++                count = int(adjacencies[1])
++
++                # cdd sometimes prints implicit adjacencies for the plane at
++                # infinity at the end of the output (even though it's not part
++                # of the V/H representation) so we ignore indices that we do
++                # not know about.
++                if cdd_vertex not in cdd_indices_to_sage_indices:
++                    cdd_indices_to_sage_indices[cdd_vertex] = None
++                v = cdd_indices_to_sage_indices[cdd_vertex]
++                if v is None:
++                    continue
++                for w in parse_indices(count, adjacencies[3:], cdd_indices_to_sage_indices):
++                    if w is None:
++                        continue
++                    ret[v, w] = 1
++            return ret
++
++        def parse_vertex_adjacency(intro, data):
++            if '_V_adjacency_matrix' in self.__dict__:
++                raise NotImplementedError("can not replace internal representation as this breaks caching")
++            N = len(self._Vrepresentation)
++            self._V_adjacency_matrix = parse_adjacency(intro, data, N, self._cdd_V_to_sage_V)
++            for i, v in enumerate(self._Vrepresentation):
+                 # cdd reports that lines are never adjacent to anything.
+-                # I disagree, they are adjacent to everything!
+-                if self._Vrepresentation[i].is_line():
+-                    for j in range(n):
++                # we disagree, they are adjacent to everything.
++                if v.is_line():
++                    for j in range(len(self._Vrepresentation)):
+                         self._V_adjacency_matrix[i,j] = 1
+                         self._V_adjacency_matrix[j,i] = 1
+-                    self._V_adjacency_matrix[i,i] = 0
+-            if suppressed_vertex: # cdd implied that there is only one vertex
+-                for i in range(n-1):
+-                    self._V_adjacency_matrix[i,n-1] = 1
+-                    self._V_adjacency_matrix[n-1,i] = 1
++                self._V_adjacency_matrix[i,i] = 0
+             self._V_adjacency_matrix.set_immutable()
+-            expect_in_cddout('end')
+-
+-        if find_in_cddout('Facet graph'):
+-            n = len(self._Hrepresentation);
+-            self._H_adjacency_matrix = matrix(ZZ, n, n, 0)
+-            if not find_in_cddout('begin'):
+-                raise ValueError('Error while parsing cdd output: could not '
+-                                 'find "begin" after "Facet graph"')
+-            l = cddout.pop(0).split()
+-            assert int(l[0]) == n, "Not enough H-adjacencies in cdd output?"
+-            for i in range(n):
+-                for a in cdd_adjacencies():
+-                    self._H_adjacency_matrix[i,a] = 1
++            self.vertex_adjacency_matrix.set_cache(self._V_adjacency_matrix)
++
++        def parse_facet_adjacency(intro, data):
++            if '_H_adjacency_matrix' in self.__dict__:
++                raise NotImplementedError("can not replace internal representation as this breaks caching")
++            N = len(self._Hrepresentation)
++            self._H_adjacency_matrix = parse_adjacency(intro, data, N, self._cdd_H_to_sage_H)
+             self._H_adjacency_matrix.set_immutable()
+-            expect_in_cddout('end')
++            self.facet_adjacency_matrix.set_cache(self._H_adjacency_matrix)
++
++        Polyhedron_cdd._parse_block(cddout, 'H-representation', parse_H_representation)
++        Polyhedron_cdd._parse_block(cddout, 'V-representation', parse_V_representation)
++        Polyhedron_cdd._parse_block(cddout, 'Facet adjacency', parse_facet_adjacency)
++        Polyhedron_cdd._parse_block(cddout, 'Vertex adjacency', parse_vertex_adjacency)
+ 
+ 
+-#########################################################################
+ class Polyhedron_QQ_cdd(Polyhedron_cdd, Polyhedron_QQ):
+     """
+     Polyhedra over QQ with cdd
+@@ -350,7 +359,7 @@ class Polyhedron_QQ_cdd(Polyhedron_cdd, Polyhedron_QQ):
+ 
+     _cdd_type = 'rational'
+ 
+-    _cdd_executable = 'cdd_both_reps_gmp'
++    _cdd_executable = 'cddexec_gmp'
+ 
+     def __init__(self, parent, Vrep, Hrep, **kwds):
+         """
+@@ -369,7 +378,6 @@ class Polyhedron_QQ_cdd(Polyhedron_cdd, Polyhedron_QQ):
+         Polyhedron_cdd.__init__(self, parent, Vrep, Hrep, **kwds)
+ 
+ 
+-#########################################################################
+ class Polyhedron_RDF_cdd(Polyhedron_cdd, Polyhedron_RDF):
+     """
+     Polyhedra over RDF with cdd
+@@ -392,7 +400,7 @@ class Polyhedron_RDF_cdd(Polyhedron_cdd, Polyhedron_RDF):
+     """
+     _cdd_type = 'real'
+ 
+-    _cdd_executable = 'cdd_both_reps'
++    _cdd_executable = 'cddexec'
+ 
+     def __init__(self, parent, Vrep, Hrep, **kwds):
+         """
+diff --git a/src/sage/geometry/polyhedron/base.py b/src/sage/geometry/polyhedron/base.py
+index 34f0a3f..a8ca502 100644
+--- a/src/sage/geometry/polyhedron/base.py
++++ b/src/sage/geometry/polyhedron/base.py
+@@ -46,10 +46,9 @@ from sage.categories.sets_cat import EmptySetError
+ #  * derive from Polyhedron_base
+ #
+ #  * you must implement _init_from_Vrepresentation and
+-#    _init_from_Vrepresentationa
++#    _init_from_Hrepresentation
+ #
+-#  * You might want to override _init_empty_polyhedron,
+-#    _init_facet_adjacency_matrix, _init_vertex_adjacency_matrix, and
++#  * You might want to override _init_empty_polyhedron and
+ #    _make_polyhedron_face.
+ #
+ #  * You can of course also override any other method for which you
+diff --git a/src/sage/geometry/polyhedron/library.py b/src/sage/geometry/polyhedron/library.py
+index bbadbb3..2cdc728 100644
+--- a/src/sage/geometry/polyhedron/library.py
++++ b/src/sage/geometry/polyhedron/library.py
+@@ -1100,18 +1100,23 @@ class Polytopes():
+ 
+         EXAMPLES::
+ 
+-            sage: td = polytopes.truncated_dodecahedron()   # long time - 6secs
+-            sage: td.f_vector()                # long time
++            sage: td = polytopes.truncated_dodecahedron()
++            sage: td.f_vector()
+             (1, 60, 90, 32, 1)
+-            sage: td.base_ring()               # long time
++            sage: td.base_ring()
+             Number Field in sqrt5 with defining polynomial x^2 - 5
+ 
+-        A much faster implementation using floating point approximations::
++        The faster implementation using floating point approximations does not
++        work unfortunately, see https://github.com/cddlib/cddlib/pull/7 for a
++        detailed discussion of this case::
+ 
+             sage: td = polytopes.truncated_dodecahedron(exact=False)
+-            sage: td.f_vector()
++            Traceback (most recent call last):
++            ...
++            ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
++            sage: td.f_vector() # not tested
+             (1, 60, 90, 32, 1)
+-            sage: td.base_ring()
++            sage: td.base_ring() # not tested
+             Real Double Field
+ 
+         Its faces are 20 triangles and 12 regular decagons::
+@@ -1323,21 +1328,25 @@ class Polytopes():
+             sage: ti.base_ring()               # long time
+             Number Field in sqrt5 with defining polynomial x^2 - 5
+ 
+-        A much faster implementation using floating point approximations::
++        The faster implementation using floating point approximations does not
++        work unfortunately::
+ 
+             sage: ti = polytopes.truncated_icosidodecahedron(exact=False)
+-            sage: ti.f_vector()
++            Traceback (most recent call last):
++            ...
++            ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
++            sage: ti.f_vector() # not tested
+             (1, 120, 180, 62, 1)
+-            sage: ti.base_ring()
++            sage: ti.base_ring() # not tested
+             Real Double Field
+ 
+         Its faces are 30 squares, 20 hexagons and 12 decagons::
+ 
+-            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 4)
++            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 4) # long time
+             30
+-            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 6)
++            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 6) # long time
+             20
+-            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 10)
++            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 10) # long time
+             12
+         """
+         if base_ring is None and exact:
+@@ -1382,26 +1391,32 @@ class Polytopes():
+ 
+         - ``backend`` -- the backend to use to create the polytope.
+ 
+-        EXAMPLES::
++        EXAMPLES:
++
++        Unfortunately, no polyhedra backend supports the construction of the
++        snub dodecahedron at the moment::
+ 
+             sage: sd = polytopes.snub_dodecahedron()
+-            sage: sd.f_vector()
++            Traceback (most recent call last):
++            ...
++            ValueError: *Error: Numerical inconsistency is found.  Use the GMP exact arithmetic.
++            sage: sd.f_vector() # not tested
+             (1, 60, 150, 92, 1)
+-            sage: sd.base_ring()
++            sage: sd.base_ring() # not tested
+             Real Double Field
+ 
+         Its faces are 80 triangles and 12 pentagons::
+ 
+-            sage: sum(1 for f in sd.faces(2) if len(f.vertices()) == 3)
++            sage: sum(1 for f in sd.faces(2) if len(f.vertices()) == 3) # not tested
+             80
+-            sage: sum(1 for f in sd.faces(2) if len(f.vertices()) == 5)
++            sage: sum(1 for f in sd.faces(2) if len(f.vertices()) == 5) # not tested
+             12
+         """
+         if base_ring is None:
+             base_ring = RDF
+         phi = (1 + base_ring(5).sqrt()) / 2
+-        xi = ((phi/2 + (phi - 5/27).sqrt()/2).nth_root(3) +
+-              (phi/2 - (phi - 5/27).sqrt()/2).nth_root(3))
++        xi = ((phi/2 + (phi - 5/27).sqrt()/2)**(~ZZ(3)) +
++              (phi/2 - (phi - 5/27).sqrt()/2)**(~ZZ(3)))
+ 
+         alpha = xi - 1 / xi
+         beta = xi * phi + phi**2 + phi / xi
+@@ -1549,14 +1564,18 @@ class Polytopes():
+             sage: gap                                # not tested - very long time
+             A 4-dimensional polyhedron in (Number Field in sqrt5 with defining polynomial x^2 - 5)^4 defined as the convex hull of 100 vertices
+ 
+-        Computation with approximated coordinates is much faster::
++        Computation with approximated coordinates would be much faster but is
++        not supported currently::
+ 
+             sage: gap = polytopes.grand_antiprism(exact=False)
+-            sage: gap
++            Traceback (most recent call last):
++            ...
++            ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
++            sage: gap # not tested
+             A 4-dimensional polyhedron in RDF^4 defined as the convex hull of 100 vertices
+-            sage: gap.f_vector()
++            sage: gap.f_vector() # not tested
+             (1, 100, 500, 720, 320, 1)
+-            sage: len(list(gap.bounded_edges()))
++            sage: len(list(gap.bounded_edges())) # not tested
+             500
+         """
+         from itertools import product
+diff --git a/src/sage/libs/ppl.pyx b/src/sage/libs/ppl.pyx
+index 5366c74..e318e86 100644
+--- a/src/sage/libs/ppl.pyx
++++ b/src/sage/libs/ppl.pyx
+@@ -110,14 +110,11 @@ basis vectors::
+     sage: C_Polyhedron(gs)
+     A 4-dimensional polyhedron in QQ^5 defined as the convex hull of 120 points
+ 
+-The above computation (using PPL) finishes without noticeable delay (timeit
+-measures it to be 90 microseconds on sage.math). Below we do the same
+-computation with cddlib, which needs more than 3 seconds on the same
+-hardware::
++The same computation with cddlib which is slightly slower::
+ 
+     sage: basis = list(range(5))
+     sage: gs = [ tuple(coeff) for coeff in Permutations(basis) ]
+-    sage: Polyhedron(vertices=gs, backend='cdd')  # long time (3s on sage.math, 2011)
++    sage: Polyhedron(vertices=gs, backend='cdd')
+     A 4-dimensional polyhedron in QQ^5 defined as the convex hull of 120 vertices
+ 
+ DIFFERENCES VS. C++
+-- 
+cgit v1.0-1-gd88e
+
+
+From 9a649fcb48922f2e211df3f5c6ee000342465711 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Julian=20R=C3=BCth?= <julian.rueth@fsfe.org>
+Date: Thu, 14 Jun 2018 11:31:40 +0200
+Subject: Fix failing doctests
+
+I think the current approach of failing if cdd can not convert back and forth
+is a bit too restrictive. Issuing a warning would probably be more appropriate.
+---
+ .../en/thematic_tutorials/geometry/polyhedra_tutorial.rst | 15 ++++++++-------
+ src/sage/categories/finite_coxeter_groups.py              |  8 ++++++--
+ src/sage/geometry/polyhedron/backend_cdd.py               |  4 ++++
+ src/sage/graphs/generators/smallgraphs.py                 | 11 ++++++++---
+ 4 files changed, 26 insertions(+), 12 deletions(-)
+
+diff --git a/src/doc/en/thematic_tutorials/geometry/polyhedra_tutorial.rst b/src/doc/en/thematic_tutorials/geometry/polyhedra_tutorial.rst
+index 0c20e1e..8b7e1d1 100644
+--- a/src/doc/en/thematic_tutorials/geometry/polyhedra_tutorial.rst
++++ b/src/doc/en/thematic_tutorials/geometry/polyhedra_tutorial.rst
+@@ -154,8 +154,8 @@ The chosen ring depends on the input format.
+ .. WARNING::
+ 
+     The base ring :code:`RDF` should be used with care. As it is not an exact
+-    ring, certain computations may break, for example when dealing with
+-    non-simplicial polyhedra.
++    ring, certain computations may break or silently produce wrong results, for
++    example when dealing with non-simplicial polyhedra.
+ 
+ 
+ The following example demonstrates the limitations of :code:`RDF`.
+@@ -166,8 +166,9 @@ The following example demonstrates the limitations of :code:`RDF`.
+     sage: D
+     A 3-dimensional polyhedron in (Number Field in sqrt5 with defining polynomial x^2 - 5)^3 defined as the convex hull of 20 vertices
+     sage: D_RDF = Polyhedron(vertices = [n(v.vector(),digits=6) for v in D.vertices()], base_ring=RDF)
+-    sage: D_RDF
+-    A 3-dimensional polyhedron in RDF^3 defined as the convex hull of 19 vertices
++    Traceback (most recent call last):
++    ...
++    ValueError: *Error: Numerical inconsistency is found.  Use the GMP exact arithmetic.
+ 
+ .. end of output
+ 
+@@ -301,9 +302,9 @@ defined. The `H`-representation may contain equations:
+ ::
+ 
+     sage: P3.Hrepresentation()
+-    (An equation (1.0, 1.0) x - 0.5 == 0,
+-     An inequality (-2.0, 0.0) x + 1.0 >= 0,
+-     An inequality (1.0, 0.0) x + 0.0 >= 0)
++    (An inequality (-2.0, 0.0) x + 1.0 >= 0,
++     An inequality (1.0, 0.0) x + 0.0 >= 0,
++     An equation (1.0, 1.0) x - 0.5 == 0)
+ 
+ .. end of output
+ 
+diff --git a/src/sage/categories/finite_coxeter_groups.py b/src/sage/categories/finite_coxeter_groups.py
+index e0b2846..8395895 100644
+--- a/src/sage/categories/finite_coxeter_groups.py
++++ b/src/sage/categories/finite_coxeter_groups.py
+@@ -712,11 +712,15 @@ class FiniteCoxeterGroups(CategoryWithAxiom):
+                 If function is too slow, switching the base ring to
+                 :class:`RDF` will almost certainly speed things up.
+ 
+-            EXAMPLES::
++            EXAMPLES:
++
++            Unfortunately, an inexact base ring can not always be used::
+ 
+                 sage: W = CoxeterGroup(['H',3], base_ring=RDF)
+                 sage: W.permutahedron()
+-                A 3-dimensional polyhedron in RDF^3 defined as the convex hull of 120 vertices
++                Traceback (most recent call last):
++                ...
++                ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
+ 
+                 sage: W = CoxeterGroup(['I',7])
+                 sage: W.permutahedron()
+diff --git a/src/sage/geometry/polyhedron/backend_cdd.py b/src/sage/geometry/polyhedron/backend_cdd.py
+index 85f6632..aaae546 100644
+--- a/src/sage/geometry/polyhedron/backend_cdd.py
++++ b/src/sage/geometry/polyhedron/backend_cdd.py
+@@ -115,6 +115,10 @@ class Polyhedron_cdd(Polyhedron_base):
+         s = self._run_cdd(s, '--repall', verbose=verbose)
+         self._init_from_cdd_output(s)
+         if not self.base_ring().is_exact():
++            if len(self._Vrepresentation) == 0:
++                # cdd (reasonably) refuses to handle empty polyhedra, so we
++                # skip this check
++                return
+             # cdd's parser can not handle the full output of --repall, so we
+             # need to extract the first block before we feed it back into cdd
+             s = s.splitlines()
+diff --git a/src/sage/graphs/generators/smallgraphs.py b/src/sage/graphs/generators/smallgraphs.py
+index bae02d7..084ed43 100644
+--- a/src/sage/graphs/generators/smallgraphs.py
++++ b/src/sage/graphs/generators/smallgraphs.py
+@@ -4454,14 +4454,19 @@ def TruncatedIcosidodecahedralGraph():
+     and 180 edges. For more information, see the
+     :wikipedia:`Truncated_icosidodecahedron`.
+ 
+-    EXAMPLES::
++    EXAMPLES:
++
++    Unfortunately, this graph can not be constructed currently, due to numerical issues::
+ 
+         sage: g = graphs.TruncatedIcosidodecahedralGraph(); g
+-        Truncated Icosidodecahedron: Graph on 120 vertices
+-        sage: g.order(), g.size()
++        Traceback (most recent call last):
++        ...
++        ValueError: *Error: Numerical inconsistency is found.  Use the GMP exact arithmetic.
++        sage: g.order(), g.size() # not tested
+         (120, 180)
+     """
+     from sage.geometry.polyhedron.library import polytopes
++    # note that dropping exact=False here makes the construction take forever
+     G = polytopes.icosidodecahedron(exact=False).truncation().graph()
+     G.name("Truncated Icosidodecahedron")
+     return G
+-- 
+cgit v1.0-1-gd88e
+
+
+From c4048677393f7088d1aa9a2c1392ed95d809d31c Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Julian=20R=C3=BCth?= <julian.rueth@fsfe.org>
+Date: Thu, 14 Jun 2018 12:00:27 +0200
+Subject: Relax cddlib sanity checks
+
+sometimes cddlib's output is useful even if it fails to transform back and forth
+---
+ src/sage/categories/finite_coxeter_groups.py |  9 ++---
+ src/sage/geometry/polyhedron/backend_cdd.py  |  6 ++-
+ src/sage/geometry/polyhedron/library.py      | 56 +++++++++++++---------------
+ 3 files changed, 33 insertions(+), 38 deletions(-)
+
+diff --git a/src/sage/categories/finite_coxeter_groups.py b/src/sage/categories/finite_coxeter_groups.py
+index 8395895..78a89fd 100644
+--- a/src/sage/categories/finite_coxeter_groups.py
++++ b/src/sage/categories/finite_coxeter_groups.py
+@@ -712,15 +712,14 @@ class FiniteCoxeterGroups(CategoryWithAxiom):
+                 If function is too slow, switching the base ring to
+                 :class:`RDF` will almost certainly speed things up.
+ 
+-            EXAMPLES:
+-
+-            Unfortunately, an inexact base ring can not always be used::
++            EXAMPLES::
+ 
+                 sage: W = CoxeterGroup(['H',3], base_ring=RDF)
+                 sage: W.permutahedron()
+-                Traceback (most recent call last):
++                doctest:warning
+                 ...
+-                ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
++                UserWarning: This polyhedron data is numerically complicated; cdd could not convert between the inexact V and H representation without loss of data. The resulting object might show inconsistencies.
++                A 3-dimensional polyhedron in RDF^3 defined as the convex hull of 120 vertices
+ 
+                 sage: W = CoxeterGroup(['I',7])
+                 sage: W.permutahedron()
+diff --git a/src/sage/geometry/polyhedron/backend_cdd.py b/src/sage/geometry/polyhedron/backend_cdd.py
+index aaae546..64f3002 100644
+--- a/src/sage/geometry/polyhedron/backend_cdd.py
++++ b/src/sage/geometry/polyhedron/backend_cdd.py
+@@ -82,7 +82,8 @@ class Polyhedron_cdd(Polyhedron_base):
+                     # somewhat random numerical choices. (But I am not an
+                     # expert in that field by any means.) See also
+                     # https://github.com/cddlib/cddlib/pull/7.
+-                    raise ValueError("polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data")
++                    from warnings import warn
++                    warn("This polyhedron data is numerically complicated; cdd could not convert between the inexact V and H representation without loss of data. The resulting object might show inconsistencies.")
+             Polyhedron_cdd._parse_block(t.splitlines(), 'V-representation', parse)
+ 
+     def _init_from_Hrepresentation(self, ieqs, eqns, verbose=False):
+@@ -137,7 +138,8 @@ class Polyhedron_cdd(Polyhedron_base):
+                     # optimized for numerical stability, and makes some
+                     # somewhat random numerical choices. (But I am not an
+                     # expert in that field by any means.)
+-                    raise ValueError("polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data")
++                    from warnings import warn
++                    warn("This polyhedron data is numerically complicated; cdd could not convert between the inexact V and H representation without loss of data. The resulting object might show inconsistencies.")
+             Polyhedron_cdd._parse_block(t.splitlines(), 'H-representation', parse)
+ 
+     def _run_cdd(self, cdd_input_string, cmdline_arg, verbose=False):
+diff --git a/src/sage/geometry/polyhedron/library.py b/src/sage/geometry/polyhedron/library.py
+index 2cdc728..1115978 100644
+--- a/src/sage/geometry/polyhedron/library.py
++++ b/src/sage/geometry/polyhedron/library.py
+@@ -1106,25 +1106,27 @@ class Polytopes():
+             sage: td.base_ring()
+             Number Field in sqrt5 with defining polynomial x^2 - 5
+ 
+-        The faster implementation using floating point approximations does not
+-        work unfortunately, see https://github.com/cddlib/cddlib/pull/7 for a
+-        detailed discussion of this case::
+-
+-            sage: td = polytopes.truncated_dodecahedron(exact=False)
+-            Traceback (most recent call last):
+-            ...
+-            ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
+-            sage: td.f_vector() # not tested
+-            (1, 60, 90, 32, 1)
+-            sage: td.base_ring() # not tested
+-            Real Double Field
+-
+         Its faces are 20 triangles and 12 regular decagons::
+ 
+             sage: sum(1 for f in td.faces(2) if len(f.vertices()) == 3)
+             20
+             sage: sum(1 for f in td.faces(2) if len(f.vertices()) == 10)
+             12
++
++        The faster implementation using floating point approximations does not
++        fully work unfortunately, see https://github.com/cddlib/cddlib/pull/7
++        for a detailed discussion of this case::
++
++            sage: td = polytopes.truncated_dodecahedron(exact=False)
++            doctest:warning
++            ...
++            UserWarning: This polyhedron data is numerically complicated; cdd could not convert between the inexact V and H representation without loss of data. The resulting object might show inconsistencies.
++            sage: td.f_vector()
++            Traceback (most recent call last):
++            ...
++            KeyError: ...
++            sage: td.base_ring()
++            Real Double Field
+         """
+         if base_ring is None and exact:
+             from sage.rings.number_field.number_field import QuadraticField
+@@ -1328,25 +1330,21 @@ class Polytopes():
+             sage: ti.base_ring()               # long time
+             Number Field in sqrt5 with defining polynomial x^2 - 5
+ 
+-        The faster implementation using floating point approximations does not
+-        work unfortunately::
++        The implementation using floating point approximations is much faster::
+ 
+             sage: ti = polytopes.truncated_icosidodecahedron(exact=False)
+-            Traceback (most recent call last):
+-            ...
+-            ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
+-            sage: ti.f_vector() # not tested
++            sage: ti.f_vector()
+             (1, 120, 180, 62, 1)
+-            sage: ti.base_ring() # not tested
++            sage: ti.base_ring()
+             Real Double Field
+ 
+         Its faces are 30 squares, 20 hexagons and 12 decagons::
+ 
+-            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 4) # long time
++            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 4)
+             30
+-            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 6) # long time
++            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 6)
+             20
+-            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 10) # long time
++            sage: sum(1 for f in ti.faces(2) if len(f.vertices()) == 10)
+             12
+         """
+         if base_ring is None and exact:
+@@ -1564,18 +1562,14 @@ class Polytopes():
+             sage: gap                                # not tested - very long time
+             A 4-dimensional polyhedron in (Number Field in sqrt5 with defining polynomial x^2 - 5)^4 defined as the convex hull of 100 vertices
+ 
+-        Computation with approximated coordinates would be much faster but is
+-        not supported currently::
++        Computation with approximated coordinates is much faster::
+ 
+             sage: gap = polytopes.grand_antiprism(exact=False)
+-            Traceback (most recent call last):
+-            ...
+-            ValueError: polyhedron data is numerically complicated; cdd could not convert between inexact V and H representation without loss of data
+-            sage: gap # not tested
++            sage: gap
+             A 4-dimensional polyhedron in RDF^4 defined as the convex hull of 100 vertices
+-            sage: gap.f_vector() # not tested
++            sage: gap.f_vector()
+             (1, 100, 500, 720, 320, 1)
+-            sage: len(list(gap.bounded_edges())) # not tested
++            sage: len(list(gap.bounded_edges()))
+             500
+         """
+         from itertools import product
+-- 
+cgit v1.0-1-gd88e
+
+
+From 32987a6aa197b274cb4bf550a8fa5567250924a5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Julian=20R=C3=BCth?= <julian.rueth@fsfe.org>
+Date: Thu, 21 Jun 2018 16:29:35 +0200
+Subject: Update hashes with actual release hashes
+
+---
+ build/pkgs/cddlib/checksums.ini | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/build/pkgs/cddlib/checksums.ini b/build/pkgs/cddlib/checksums.ini
+index c3a6a0d..943d71a 100644
+--- a/build/pkgs/cddlib/checksums.ini
++++ b/build/pkgs/cddlib/checksums.ini
+@@ -1,2 +1,4 @@
+ tarball=cddlib-VERSION.tar.gz
+-sha1=f7f2f2a9706ed514652ae6adbc990bd4bba02891
++sha1=4bad24b32d9c056615377ff3103e6b95e17628ac
++md5=73e5f7dfa72b5c3339c09564721813d6
++cksum=3211115816
+-- 
+cgit v1.0-1-gd88e
+
