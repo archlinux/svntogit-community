@@ -3,7 +3,7 @@
 
 pkgbase=beats
 pkgname=(filebeat packetbeat metricbeat heartbeat-elastic auditbeat)
-pkgver=6.3.2
+pkgver=6.4.0
 pkgrel=1
 pkgdesc='Data shippers for Elasticsearch'
 arch=('x86_64')
@@ -13,8 +13,8 @@ depends=('glibc')
 makedepends=('go-pie' 'git' 'libpcap' 'rsync' 'python')
 optdepends=('elasticsearch: for standalone installation'
             'python: for migration script')
-options=('!strip')
 source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
+        "golang-crypto.patch" # golang/crypto patch
         "filebeat.sysusers"
         "filebeat.service"
         "packetbeat.service"
@@ -26,7 +26,8 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "metricbeat-tmpfile.conf"
         "heartbeat-tmpfile.conf"
         "auditbeat-tmpfile.conf")
-sha256sums=('2eb116df314ab780f75da928ac41f379c677b5251a584b04e99817190f95d1ed'
+sha256sums=('970718690fba96efec8ea54fa24939b7216434f55465273a31e3850d3af08ee3'
+            '75583a195b43d7345449bbac60359bf54661ccbd699386a6e59bb483c6054338'
             '33feb3690f8b31563cc1e2da557c2aa326501ce9ccd7e0a142036902bfdb05ff'
             '4d5394cfe3299c9a6af5ac34c1ad4bcdc2e79162379cccbf00fb414eb28253c0'
             '9f4e33fc768d3500fa3428dcbfda241c6473a2cae8cc4dbadf8f61ca9f2bbec5'
@@ -40,10 +41,18 @@ sha256sums=('2eb116df314ab780f75da928ac41f379c677b5251a584b04e99817190f95d1ed'
             'dcdf1be6acda30cc3e8949b5affbc1fe7b0a1efc2a08dfe2f878d6eb6de84d38')
 
 prepare() {
-    cd beats-$pkgver
+    export GOPATH="$srcdir"/gopath
+    mkdir -p "$GOPATH"
+    go get golang.org/x/sys/cpu
+
+    cd "$srcdir"/beats-$pkgver/vendor/golang.org/x/crypto
+    patch -p1 -i "$srcdir"/golang-crypto.patch
+
+    cd "$srcdir"/beats-$pkgver
 
     # Avoid installing extraneous configs
     sed '/[- ]win/d ; /[- ]darwin/d ; /[- ]binary/d' -i */Makefile
+
     # Install the Linux config as default
     sed -r 's#/([a-z]+)-linux.yml#/\1.yml#' -i */Makefile
 
@@ -51,29 +60,40 @@ prepare() {
     LANG=C _t="$(date -r Makefile +'%Y-%m-%d %k:%M:%S')"
     touch -m -d "$_t" */Makefile
 
+    # Use version instead of commit id
+    sed -ri "s/^COMMIT_ID=.*/COMMIT_ID=$pkgver/" libbeat/scripts/Makefile
+
     # Workaround to place extracted release into GOPATH
-    mkdir -p "$srcdir"/gopath/src/github.com/elastic
+    mkdir -p "$GOPATH"/src/github.com/elastic
     ln -sf "$srcdir"/beats-$pkgver \
-        "$srcdir"/gopath/src/github.com/elastic/beats
+        "$GOPATH"/src/github.com/elastic/beats
 }
 
 build() {
     export GOPATH="$srcdir"/gopath
+    export PATH="$GOPATH/bin:$PATH"
 
-    cd "$srcdir"/beats-$pkgver/libbeat
+    cd "$GOPATH"/src/github.com/elastic/beats
+    git init # git root required by one of the build scripts
+
+    cd libbeat
     make fields
 
     for beat in ${pkgname[@]}; do
         beat="${beat%-elastic}"
         msg2 "Building $beat..."
-        cd "$srcdir"/beats-$pkgver/$beat
+        cd ../$beat
         make
+
+        if [ ! -d _meta/kibana ]; then
+            make kibana
+            mv _meta/kibana{.generated,}
+        fi
 
         case "$beat" in
             filebeat|metricbeat|auditbeat)
                 cp _meta/fields.common.yml _meta/fields.generated.yml
                 python ../metricbeat/scripts/fields_collector.py >> _meta/fields.generated.yml
-                make kibana
                 ;;
 
             packetbeat)
@@ -87,9 +107,6 @@ build() {
 
         cat ../libbeat/_meta/fields.generated.yml _meta/fields.generated.yml > fields.yml
     done
-
-    cd "$srcdir"/beats-$pkgver/filebeat
-    make modules
 }
 
 _do_package_beat() {
@@ -99,11 +116,10 @@ _do_package_beat() {
 
     install -dm755 "$pkgdir"/{etc,usr/share,usr/share/licenses,var/lib}/$_pkgname
 
-    cd beats-$pkgver/$_pkgname
-    make install-home HOME_PREFIX="$pkgdir"/usr/share/$_pkgname
+    cd "$srcdir"/beats-$pkgver
+    install -Dm644 NOTICE.txt "$pkgdir"/usr/share/licenses/$pkgname/NOTICE.txt
 
-    rm "$pkgdir"/usr/share/$_pkgname/LICENSE.txt
-    mv "$pkgdir"/usr/share/{,licenses/}$_pkgname/NOTICE.txt
+    cd $_pkgname
 
     cp $_pkgname.{yml,reference.yml} "$pkgdir"/etc/$_pkgname
     install -Dm644 fields.yml "$pkgdir"/etc/$_pkgname/fields.yml
@@ -114,6 +130,17 @@ _do_package_beat() {
                    "$pkgdir"/usr/lib/systemd/system/$_pkgname.service
     install -Dm644 "$srcdir"/$_pkgname-tmpfile.conf \
                    "$pkgdir"/usr/lib/tmpfiles.d/$_pkgname.conf
+
+    cp -R _meta/kibana "$pkgdir"/usr/share/$_pkgname/
+
+    if [ -d module ]; then
+        cp -R module "$pkgdir"/usr/share/$_pkgname/
+        rm -rf "$pkgdir"/usr/share/$_pkgname/module/*/{,info/}_meta
+    fi
+
+    if [ -d modules.d ]; then
+        cp -R modules.d "$pkgdir"/etc/$_pkgname/
+    fi
 }
 
 package_filebeat() {
@@ -122,7 +149,6 @@ package_filebeat() {
     _do_package_beat
 
     cd "$srcdir"/beats-$pkgver/$pkgname
-    cp -R modules.d "$pkgdir"/etc/$pkgname/
     install -Dm644 "$srcdir"/$pkgname.sysusers \
                    "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
 }
@@ -140,9 +166,6 @@ package_metricbeat() {
     replaces=('topbeat')
 
     _do_package_beat
-
-    cd "$srcdir"/beats-$pkgver/$pkgname
-    cp -R modules.d "$pkgdir"/etc/$pkgname/
 }
 
 package_heartbeat-elastic() {
