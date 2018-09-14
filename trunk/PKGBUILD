@@ -2,7 +2,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=0.5.32.4
+pkgver=0.5.33
 pkgrel=1
 pkgdesc='Python to native compiler'
 arch=('any')
@@ -13,7 +13,7 @@ makedepends=('python-setuptools')
 options=('!emptydirs')
 optdepends=('chrpath: for building standalone executables')
 source=("https://nuitka.net/releases/Nuitka-${pkgver%.0}.tar.gz"{,.sig})
-sha256sums=('7e84fbc1d248c1f5c0f0d52bf3c4290d03838dd71475baf4ab07b541d40398c4'
+sha256sums=('9a4b5be2c5ea2f0a32adfc3efd2b1a19e17c6b5daa81879f760674aec6262b30'
             'SKIP')
 validpgpkeys=('D96ADCA1377F1CEB6B5103F11BFC33752912B99C') # Kay Hayen
 
