@@ -2,7 +2,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.1.1
+pkgver=1.1.2
 pkgrel=1
 pkgdesc='A simple daemon to allow session software to update firmware'
 arch=('x86_64')
@@ -10,11 +10,11 @@ url='https://github.com/hughsie/fwupd'
 license=('LGPL')
 depends=('appstream-glib' 'efivar' 'python' 'libsmbios')
 makedepends=('meson' 'valgrind' 'gtk-doc' 'help2man' 'bash-completion' 'python-pillow' 'gobject-introspection'
-             'python-cairo' 'ttf-dejavu' 'adobe-source-han-sans-cn-fonts' 'python-gobject' 'vala' 'gnu-efi-libs')
+             'python-cairo' 'noto-fonts' 'noto-fonts-cjk' 'python-gobject' 'vala' 'gnu-efi-libs')
 checkdepends=('umockdev')
 backup=('etc/fwupd/daemon.conf' 'etc/fwupd/uefi.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('1a8126176dffe3909bd0a52822ce7557f58b64b980ac1dc7de885e73ad9bea6b' 'SKIP')
+sha256sums=('da3d26c81c8833a28e463234f71e54cbf59bcfa01cc824088863a6dd02440fe2' 'SKIP')
 validpgpkeys=('163EB50119225DB3DF8F49EA17ACBA8DFA970E17') # Richard Hughes <richard@hughsie.com>
 
 build() {
