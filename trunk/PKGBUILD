@@ -5,7 +5,7 @@
 
 pkgname=salt
 pkgver=2018.3.2
-pkgrel=2
+pkgrel=3
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -33,8 +33,15 @@ backup=('etc/salt/master'
         'etc/salt/minion')
 
 install=salt.install
-source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz")
-md5sums=('6de86799b65ca4cc0305f5f1d61bc524')
+source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
+        https://github.com/saltstack/salt/commit/736b382e913e46bce69940350e32d530f7560dac.patch)
+md5sums=('6de86799b65ca4cc0305f5f1d61bc524'
+         '693cfe46003ecfd0bbd9aefea49935c2')
+
+prepare() {
+  cd salt-$pkgver
+  patch -p1 <"$srcdir"/736b382e913e46bce69940350e32d530f7560dac.patch
+}
 
 package() {
   cd salt-$pkgver
