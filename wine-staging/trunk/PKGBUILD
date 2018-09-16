@@ -5,7 +5,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=3.15
+pkgver=3.16
 _winever=$pkgver
 pkgrel=1
 
@@ -16,9 +16,9 @@ source=(https://dl.winehq.org/wine/source/3.x/wine-$_winever.tar.xz{,.sign}
         harmony-fix.diff
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('3fb3f6a896eae53ef75a751e72f7431f9b6986b56738dc314bca9eff9d078e65d865ebb28cbb7a63aa571eb11cdaed20c21c36cec565f81610e348fd165e0f2a'
+sha512sums=('f0c566f70ede01e5896b7611dfe58cd6748b92d55d22a71ccc9add575e9aa5062bbbffa14f0a30ee3df5cf79e9ea4dcf02a7d62db64b94d5b56927e256a978c2'
             'SKIP'
-            'f0ed9d4a099b03c04a126927919b7eddbdaff7a08a0b97cdf387c64318826d6454183cf03997425b349540d13b1ccf6262aa2c5af0af682939584e3de71b7541'
+            '25f06b06a0880b3926d9d3dfb35fd1aeb1f168426917dee32dcf906970474862021416f4e9db1917d8320962bc0bc17d1f3dad21b634a60b8e0da87a4b54067e'
             'b86edf07bfc560f403fdfd5a71f97930ee2a4c3f76c92cc1a0dbb2e107be9db3bed3a727a0430d8a049583c63dd11f5d4567fb7aa69b193997c6da241acc4f2e'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
