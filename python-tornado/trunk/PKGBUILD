@@ -3,8 +3,8 @@
 
 pkgbase=python-tornado
 pkgname=('python-tornado' 'python2-tornado')
-pkgver=5.1.0
-pkgrel=2
+pkgver=5.1.1
+pkgrel=1
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('x86_64')
 url='http://www.tornadoweb.org/'
@@ -14,7 +14,7 @@ makedepends=('python-setuptools' 'python2-setuptools' 'python2-futures' 'python2
 checkdepends=('python-pycurl' 'python2-pycurl' 'python-mock' 'python2-mock' 'python-twisted'
               'python2-twisted'  'python2-trollius' 'python2-monotonic')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/tornadoweb/tornado/archive/v$pkgver.tar.gz")
-sha512sums=('7960449ebae76501aa0ae08e3ec9a89f4de2b47a497253477c82acbf5f6f54415587fb921b619271b751312049dbb3334ff59867a536da9c71b7bd6684b9d9d9')
+sha512sums=('b35fa0687ede6e672c35ca82fcc01dbb2ae9d8a7f2e4a65b6e07aa5a8eca861a22d775101172b7e33564951d193e5f11887021a3d762bee88668b9ac0069ab46')
 
 prepare() {
   cd "$srcdir"
