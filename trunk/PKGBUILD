@@ -23,13 +23,16 @@ optdepends=('libxslt:         Web Map Service'
             'mod_wsgi2:       Web Map Service')
 install=$pkgname.install
 source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2
-        https://github.com/mapnik/mapnik/pull/3892.patch)
+        https://github.com/mapnik/mapnik/pull/3892.patch
+        mapnik-boost-1.68.patch::https://github.com/mapnik/mapnik/pull/3937.patch)
 sha256sums=('77b9de029d59fbb7eebb7e5884dff03074eb4eeaa238e3f4c8ff5a61e01a9f04'
-            '774a8590b698e9dc2a483e6ff48781ed0400ba06b901f12a1ed50c9114833d47')
+            '774a8590b698e9dc2a483e6ff48781ed0400ba06b901f12a1ed50c9114833d47'
+            '6b1eb2a013e3e83190cb833cfed370dbe03bd009b51f909112bc353fca7ee4e7')
 
 prepare() {
   cd "${srcdir}"/$pkgname-v$pkgver
   patch -Np1 -i "${srcdir}"/3892.patch
+  patch -p1 -i ../mapnik-boost-1.68.patch # Fix build with boost 1.68
 }
 
 build() {
