@@ -4,7 +4,7 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs')
 pkgver=13.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
