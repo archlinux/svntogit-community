@@ -3,7 +3,7 @@
 
 pkgbase=dotnet-core
 pkgname=('dotnet-host' 'dotnet-runtime' 'aspnet-runtime' 'dotnet-sdk')
-pkgver=2.1.3+401
+pkgver=2.1.4+402
 pkgrel=1
 arch=('x86_64')
 url='https://www.microsoft.com/net/core'
@@ -13,9 +13,8 @@ makedepends=(
   'lttng-ust' 'openssl-1.0' 'zlib'
 )
 options=('staticlibs')
-_commit='1dd84aaa2e44f1694ce0e681f96b6cd4e79f48ff'
 source=(
-  "dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver/[0-9]\+}"
+  "dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}"
   'dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git'
   'dotnet-cli::git+https://github.com/dotnet/cli.git'
   'dotnet-cli-migrate::git+https://github.com/dotnet/cli-migrate.git'
@@ -36,7 +35,7 @@ source=(
   'dotnet-vstest::git+https://github.com/Microsoft/vstest.git'
   'dotnet-websdk::git+https://github.com/aspnet/websdk.git'
   'dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git'
-  'https://download.microsoft.com/download/6/E/B/6EBD972D-2E2F-41EB-9668-F73F5FDDC09C/aspnetcore-runtime-2.1.3-linux-x64.tar.gz'
+  'https://download.microsoft.com/download/A/7/8/A78F1D25-8D5C-4411-B544-C7D527296D5E/aspnetcore-runtime-2.1.4-linux-x64.tar.gz'
   'dotnet-coreclr-rid.patch'
 )
 sha256sums=('SKIP'
@@ -60,7 +59,7 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '5c6c38fbc0386761cbbb0d92045d3533c5e054f82813564af2cf56fac93cb106'
+            '517195f38f7553fffec01a2bd3d09ed4ad589823094426a3febb70c7e77319d3'
             '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee')
 
 prepare() {
