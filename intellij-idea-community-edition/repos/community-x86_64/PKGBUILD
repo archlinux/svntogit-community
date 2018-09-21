@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2018.2.3
-_build=182.4323.46
+pkgver=2018.2.4
+_build=182.4505.22
 _adt_tools_base_commit=70a9f8b3756d917717a04140b858a23eef5e60ca
 pkgrel=1
 epoch=2
@@ -22,8 +22,8 @@ source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/a
         idea-build.patch
         idea.desktop
         idea.sh)
-sha256sums=('0eae527f1cee3fe4ca0fd90ff67707e4e304bb71d3e1d4e773e0c4c0245e8643'
-            '3a8759e8ba508a16108f5b778739465333433fd9fb540414af0f46a1110131fd'
+sha256sums=('51da5c6c0869ab6ad78f76e96c300d5dd4636d1b00a40db88dc8f688c1a2cda8'
+            '8151d42c85e67a98471ca3e3022b400bcedd63bab3f6de968cec6e15167aebf4'
             'SKIP'
             '3793e8125abb05b1580919017469ada2563a2e5972a8d74666557df60d270cfd'
             'fa9e3cba5e26a7e01cecda867f23467322db123c5553dfbb4f14aae034ccbed7'
