@@ -3,7 +3,7 @@ pkgname=cuda
 pkgver=10.0.130
 _basever=10.0.130
 _driverver=410.48
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -57,12 +57,6 @@ package() {
   perl install-linux.pl -prefix="${pkgdir}/opt/cuda" -noprompt
   perl install-sdk-linux.pl -cudaprefix="${pkgdir}/opt/cuda" -prefix="${pkgdir}/opt/cuda/samples" -noprompt
 
-  # Hack we need because of glibc 2.26 (https://bugs.archlinux.org/task/55580)
-  # without which we couldn't compile anything at all.
-  # Super dirty hack. I really hope it doesn't break other stuff!
-  # Hopefully we can remove this for later version of cuda.
-  sed -i "1 i#define _BITS_FLOATN_H" "${pkgdir}/opt/cuda/include/host_defines.h"
-
   # Needs gcc7
   ln -s /usr/bin/gcc-7 "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++-7 "${pkgdir}/opt/cuda/bin/g++"
@@ -75,9 +69,8 @@ package() {
   ln -s /opt/cuda/doc/pdf/EULA.pdf "${pkgdir}/usr/share/licenses/${pkgname}/EULA.pdf"
 
   # Remove redundant man and samples
-  rm -fr "${pkgdir}/opt/cuda/doc/man"
   rm -fr "${pkgdir}/opt/cuda/cuda-samples"
-  rm -fr "${pkgdir}/usr/share/man/man3/deprecated.3"*
+  rm -fr "${pkgdir}/usr/share/man/man3"
 
   # Remove included copy of java and link to system java
   rm -fr  "${pkgdir}/opt/cuda/jre"
