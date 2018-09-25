@@ -19,7 +19,7 @@ source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release
         gtest-1.8.1-libversion.patch
         gtest-1.8.1-null-pointer.patch)
 sha512sums=('e6283c667558e1fd6e49fa96e52af0e415a3c8037afe1d28b7ff1ec4c2ef8f49beb70a9327b7fc77eb4052a58c4ccad8b5260ec90e4bceeac7a46ff59c4369d7'
-            '99667910ddb55f495b15b51d4a21b878f2c2c4e72e2ce7054d6491274e35002e3e793e0c86e5c6d774a0301a7af8c5d5175ff910e12bf6c71f008a6368e33c92'
+            'fd53e4a703c39cf4f1bc2eec2fac6c567e583d5e5a2ab4b52700ead77caf4f4903c4d32b8b25b983c5f650fc2b1e835fdf124b04a971705f42a707a42b34a99e'
             'afa75f975d8aed453c901245dae753939958d8b72e3e5c52995efe7980f44de4fd1ea08f1b0a4cc927443d858de0a1fe34a919512ce05ae443bfb9600b08f029')
 
 prepare() {
@@ -30,6 +30,11 @@ prepare() {
   patch -Np1 -i ../gtest-1.8.1-null-pointer.patch
 
   find . -name '*.py' -exec sed -i '1s|python$|&2|g' {} +
+
+  # fixup version as they are never correct
+  sed -E "s|(GOOGLETEST_VERSION) [0-9\\.]+|\\1 ${pkgver}|" -i CMakeLists.txt
+  sed -E "s|^( +)\\[[0-9\\.]+\\],$|\\1[${pkgver}],|" -i {googletest,googlemock,.}/configure.ac
+  sed -E "s|(GTEST_MIN_VERSION)=\"1.8.0\"|\\1=\"${pkgver}\"|" -i googlemock/configure.ac
 }
 
 build() {
