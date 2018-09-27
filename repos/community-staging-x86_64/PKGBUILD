@@ -1,0 +1,81 @@
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Jonne Haß <me@jhass.eu>
+
+pkgname=crystal
+pkgver=0.26.1
+pkgrel=4
+pkgdesc='The Crystal Programming Language'
+arch=(x86_64)
+url='http://crystal-lang.org'
+license=(Apache)
+depends=(gc libatomic_ops pcre libevent llvm6-libs)
+makedepends=(libxml2 llvm6 crystal) # to compile version N we need crystal compiler of N-1 version
+checkdepends=(libyaml libxml2 gmp inetutils git)
+optdepends=('shards: crystal language package manager'
+            'libyaml: For YAML support'
+            'gmp: For BigInt support'
+            'libxml2: For XML support')
+source=(crystal-$pkgver.tar.gz::https://github.com/crystal-lang/crystal/archive/$pkgver.tar.gz
+        fix_build.patch::https://github.com/crystal-lang/crystal/commit/b697de03deed7647a7bebe0e0987cb660854bdac.patch
+        fix_openssl_11.patch::https://github.com/crystal-lang/crystal/commit/e7524159ef48fe47df914b3c0c1716c602a8bbd8.patch)
+sha256sums=('b7c755a7d0f49f572ae5c08b8b0139fcb1c6862c9479dfae74f00e2c8424fcb0'
+            '4f42a13ade130495e683261c5c200112dbb3f56c125dbada7533717393c69138'
+            '6ce3967052f6ac7e6f0a738782369a375310b5c2650fe1ac95e77408d268e24a')
+
+prepare() {
+  cd $pkgname-$pkgver
+  sed -i 's|Please install shards: https://github.com/ysbaddaden/shards|Please install shards: pacman -S shards|' src/compiler/crystal/command.cr
+
+  # https://github.com/crystal-lang/crystal/issues/6672
+  patch -p1 < ../fix_build.patch
+
+  # https://github.com/crystal-lang/crystal/pull/6738
+  patch -p1 < ../fix_openssl_11.patch
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  make release=1 \
+       FLAGS="--release --no-debug" \
+       CRYSTAL_PATH="$srcdir/$pkgname-$pkgver/src" \
+       CRYSTAL_CONFIG_VERSION="$pkgver" \
+       CRYSTAL_CONFIG_PATH="lib:/usr/lib/crystal" \
+       CRYSTAL_CACHE_DIR="/tmp/crystal"
+  make docs CRYSTAL_CACHE_DIR="/tmp/crystal"
+}
+
+check() {
+  cd $pkgname-$pkgver
+  return # tests require too much RAM, disable it temporary
+
+  make spec CRYSTAL_PATH="$srcdir/$pkgname-$pkgver/src" \
+            CRYSTAL_CONFIG_VERSION="$pkgver" \
+            CRYSTAL_CACHE_DIR="/tmp/crystal" \
+            PATH=".build:$PATH"
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  # /usr/bin/crystal                compiled executable
+  # /usr/lib/crystal/               compiler src & core libs
+  # /usr/share/doc/crystal/api      api docs
+  # /usr/share/doc/crystal/samples/ samples
+
+  install -Dm755 ".build/crystal" "$pkgdir/usr/bin/crystal"
+
+  install -dm755 "$pkgdir/usr/lib" "$pkgdir/usr/share/man/man1"
+  cp -r src "$pkgdir/usr/lib/crystal"
+
+  install -dm755 "$pkgdir/usr/share/doc/crystal"
+  cp -r docs "$pkgdir/usr/share/doc/crystal/api"
+  cp -r samples "$pkgdir/usr/share/doc/crystal/"
+
+  install -Dm644 man/crystal.1 "$pkgdir/usr/share/man/man1/"
+
+  install -Dm644 etc/completion.bash "$pkgdir/usr/share/bash-completion/completions/crystal"
+  install -Dm644 etc/completion.zsh "$pkgdir/usr/share/zsh/site-functions/_crystal"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
