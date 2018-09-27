@@ -1,7 +1,7 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=apparmor
 pkgver=2.13.0
-pkgrel=7
+pkgrel=8
 pkgdesc="Mandatory Access Control (MAC) using Linux Security Module (LSM)"
 arch=('x86_64')
 url="https://gitlab.com/apparmor/apparmor"
@@ -19,9 +19,11 @@ backup=('etc/apparmor/easyprof.conf'
         'etc/apparmor/parser.conf'
         'etc/apparmor/subdomain.conf'
         'etc/apparmor/severity.db')
-source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver%.[0-9]}.tar.gz"{,.asc})
+source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver%.[0-9]}.tar.gz"{,.asc}
+        "binmerge.patch::https://gitlab.com/${pkgname}/${pkgname}/commit/4200932d8fb31cc3782d96dd8312511e807fd09b.patch")
 sha512sums=('f98914713153d4c823a3ea7e96291cc4528bf7c8d3a139286ae0ecd806613e9c34b0ad81f2b258df2193cf6f3157d3252ef72d32d339427948a3fd8ba5651827'
-            'SKIP')
+            'SKIP'
+            'f8f083b43970f2273a79efd08841c50b0333d526e32f85a66a6099e70fd8f36eb8f1c4433e1b37ac99bdfa8fcb2c541704f286ecc9fd5daf978996889b4d2286')
 # AppArmor Development Team (AppArmor signing key) <apparmor@lists.ubuntu.com>
 validpgpkeys=('3ECDCBA5FB34D254961CC53F6689E64E3D3664BB')
 _core_perl="/usr/bin/core_perl"
@@ -29,6 +31,10 @@ _core_perl="/usr/bin/core_perl"
 prepare() {
   mv -v "${pkgname}-${pkgver%.[0-9]}" "${pkgname}-${pkgver}"
   cd "${pkgname}-${pkgver}"
+  # backport upstream 'binmerge' patch
+  patch -Np1 -i ../binmerge.patch
+  #removing stale file
+  rm -v profiles/apparmor.d/usr.sbin.smbd.orig
   # fix bin directory for parser install target
   # fix lib dir location
   # fix missing executable bit on apparmor.systemd script
@@ -39,25 +45,6 @@ prepare() {
   # fix default vim syntax file installation path
   sed -e 's/share\/apparmor/share\/vim\/vimfiles\/syntax/' \
       -i utils/vim/Makefile
-  # fix syslog.log location
-  # fix messages.log location
-  # fixing location of {apparmormor,subdomain}_parser
-  # adding aa- prefix to {genprof,logprof}
-  # replace the use of /sbin and /usr/sbin with /bin and /usr/bin (respectively)
-  sed -e '/logfiles/ s/syslog /syslog.log /g' \
-      -e '/logfiles/ s/messages/messages.log/g' \
-      -e 's| /sbin/apparmor_parser| /usr/bin/apparmor_parser|g' \
-      -e 's|parser /sbin/subdomain|parser /usr/bin/subdomain|g' \
-      -e 's|/genprof|/aa-genprof|g' \
-      -e 's|/logprof|/aa-logprof|g' \
-      -e 's/sbin/bin/g' \
-      -i utils/logprof.conf
-  # replace the use of /sbin /usr/sbin and /bin with /usr/bin in all profiles
-  find profiles -type f \
-    -exec sed -e 's| /sbin/| /usr/bin/|g' \
-              -e 's|/sbin/|/bin/|g' \
-              -e 's| /bin/| /usr/bin/|g' \
-              -i {} +
   cd libraries/libapparmor/
   autoreconf -vfi
 }
