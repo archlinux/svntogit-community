@@ -7,8 +7,8 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.31.0
-pkgrel=3
+pkgver=3.32.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -24,21 +24,20 @@ depends=('python2-six' 'python2-dateutil' 'python2-cssutils' 'python2-dukpy'
 makedepends=('qt5-x11extras' 'sip' 'xdg-utils')
 checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
-            'poppler: required for converting pdf to html'
-)
+            'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
-        podofo_0.9.6.patch)
-sha256sums=('3c2713a89a186e20d45ea42f2ed6be509fecce880ce6e233e63e6f3a415fe1f5'
+        "https://github.com/kovidgoyal/calibre/commit/4d4ffcff7c247072c28d20822abed12e2539cdd2.patch")
+sha256sums=('57254b147d8f8caf16f774f090266e112281c19bf7bc4170e65d22ab9b58d8ac'
             'SKIP'
-            '4243e18653348aed438e28af7268c40ea6047e4b1d2b091faeaa1351572f7873')
+            '60bb12d242e83ba886615472abcf91e05560f1a97a22d04c806d3acdc27fff6c')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
   cd "${pkgname}-${pkgver}"
 
-  # https://bugs.launchpad.net/bugs/1791430
-  patch -Np1 -i ${srcdir}/podofo_0.9.6.patch
+  # https://bugs.launchpad.net/bugs/1794915
+  patch -p1 -i ../4d4ffcff7c247072c28d20822abed12e2539cdd2.patch
 
   # Remove unneeded files
   rm -rf resources/${pkgname}-portable.*
