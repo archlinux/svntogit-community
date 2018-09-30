@@ -2,40 +2,87 @@
 
 pkgname=limesuite
 pkgver=18.06.0
-pkgrel=3
-pkgdesc="Driver and GUI for LMS7002M-based SDR platforms (LimeSDR, Novena RF7, etc.)"
+_octave_patch=81fb282eb005083a24720c91cd72b70d28f50072
+pkgrel=4
+pkgdesc='Driver and GUI for LMS7002M-based SDR platforms (LimeSDR, Novena RF7, etc.)'
 arch=('x86_64')
-url="https://github.com/myriadrf/LimeSuite"
+url='https://github.com/myriadrf/LimeSuite'
 license=('Apache')
-depends=('sqlite3' 'wxgtk2' 'freeglut' 'libusb>=1.0' 'soapysdr' 'wget' 'gnuplot' 'glew')
-makedepends=('cmake')
+depends=('sqlite3' 'wxgtk2' 'freeglut' 'libusb>=1.0' 'soapysdr' 'wget' 'gnuplot' 'glew' 'fltk')
+makedepends=('cmake' 'doxygen')
+#optdepends=('octave: Octave plugin')
 provides=('soapylms7')
 conflicts=('soapylms7')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
-        'limesuitegui.desktop')
+        "$url/commit/$_octave_patch.patch")
 sha512sums=('1f4f20a9779f9516216c9ffa6ee96a047c873e87a256b3e97a02bc9415eb7a63ee4780f5a7ed3f27acf8b4f764994b9492ea0ce95b9fad3853583fe0b7bbe628'
-            '9eaef8e46ea3d324ec7f07a71a607b2d2e2c2440d4292f063630fbf2c330640deb4b4d124fe5dabae4215971e615acabfeda5c47ac94b9afd46f7c534d5f1c10')
+            '4b2319a5599d8f3564eb1fdce7d6939a1c6b8c5e28ff316fc422f6d283649785fbeb84791a269898a2af89a9a1b13817a1d392a099cc41aa7e88aedb1bf06de7')
+
+prepare() {
+  cd LimeSuite-$pkgver
+
+  # Change mode to 666 and ommit plugdev group
+  sed -i 's|MODE="660", GROUP="plugdev"|MODE="666"|g' udev-rules/64-limesuite.rules
+
+#  # Octave plugin
+#  sed -i 's|/usr/local|/usr|g' octave/Makefile # Fix install directory
+#  cp src/lime/* octave/ # Fix headers
+#  patch -p1 < ../$_octave_patch.patch # Fix API changes
+}
 
 build() {
-  mkdir -p "$srcdir"/LimeSuite-$pkgver/build
-  cd "$srcdir"/LimeSuite-$pkgver/build
+  mkdir -p LimeSuite-$pkgver/build
+  cd LimeSuite-$pkgver/build
 
   cmake .. \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_UTILITIES=True \
+    -DENABLE_LIME_UTIL=True \
+    -DENABLE_DESKTOP=False \
+    -DENABLE_SOAPY_LMS7=True \
+    -DENABLE_EVB7COM=True \
+    -DENABLE_PCIE_XILLYBUS=True \
+    -DENABLE_REMOTE=True \
+    -DENABLE_QUICKTEST=True \
+    -DENABLE_MCU_TESTBENCH=True \
+    -DENABLE_FTDI=True \
+    -DENABLE_FX3=True \
+    -DENABLE_STREAM_UNITE=True \
+    -DENABLE_EXAMPLES=True \
+    -DENABLE_HEADERS=True \
+    -DENABLE_GUI=True \
+    -DENABLE_API_DOXYGEN=True \
     -DLIME_SUITE_EXTVER=$pkgver
 
+#    -DENABLE_TESTS=True \
+#    -DENABLE_NOVENARF7=True \
+
   make
+
+#  # Octave plugin
+#  cd ../octave
+#
+#  make
 }
 
+#check() {
+#  # Octave plugin
+#  cd LimeSuite-$pkgver/octave
+#
+#  make test
+#}
+
 package() {
-  cd "$srcdir"/LimeSuite-$pkgver/build
+  cd LimeSuite-$pkgver/build
 
   make DESTDIR="$pkgdir" install
 
   # Install udev rules, changing mode to 666 and ommitting plugdev group
-  mkdir -p "$pkgdir"/etc/udev/rules.d
-  sed 's|MODE="660", GROUP="plugdev"|MODE="666"|g' "$srcdir"/LimeSuite-$pkgver/udev-rules/64-limesuite.rules > "$pkgdir"/etc/udev/rules.d/64-limesuite.rules
+  install -Dm 644 ../udev-rules/64-limesuite.rules "$pkgdir"/etc/udev/rules.d/64-limesuite.rules
 
-  install -Dm 755 "$srcdir"/limesuitegui.desktop "$pkgdir"/usr/share/applications/limesuitegui.desktop
+  # Install icons and .desktop file
+  install -Dm 644 ../Desktop/lime-suite-128.png "$pkgdir"/usr/share/pixmaps/lime-suite.png
+  install -Dm 755 ../Desktop/lime-suite.desktop "$pkgdir"/usr/share/applications/lime-suite.desktop
 }
+
