@@ -8,7 +8,7 @@
 pkgbase=gtest
 pkgname=('gtest' 'gmock')
 pkgver=1.8.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
@@ -19,14 +19,15 @@ source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release
         gtest-1.8.1-libversion.patch
         gtest-1.8.1-null-pointer.patch)
 sha512sums=('e6283c667558e1fd6e49fa96e52af0e415a3c8037afe1d28b7ff1ec4c2ef8f49beb70a9327b7fc77eb4052a58c4ccad8b5260ec90e4bceeac7a46ff59c4369d7'
-            'fd53e4a703c39cf4f1bc2eec2fac6c567e583d5e5a2ab4b52700ead77caf4f4903c4d32b8b25b983c5f650fc2b1e835fdf124b04a971705f42a707a42b34a99e'
+            'e9bd9d65f6e54f71be0026b84c6543a71f9e3d5c0da92eb7f01df3f5937871eff2b8177e3680fec8d733888327eda5f5f3caaf88a3263ada542cdd2b42475ac5'
             'afa75f975d8aed453c901245dae753939958d8b72e3e5c52995efe7980f44de4fd1ea08f1b0a4cc927443d858de0a1fe34a919512ce05ae443bfb9600b08f029')
 
 prepare() {
   cd ${_srcname}
-
+  cp ../gtest-1.8.1-libversion.patch gtest-1.8.1-libversion.patch
+  sed "s|__GOOGLETEST_VERSION__|${pkgver}|g" -i gtest-1.8.1-libversion.patch
   # https://src.fedoraproject.org/rpms/gtest/tree/master
-  patch -Np1 -i ../gtest-1.8.1-libversion.patch
+  patch -Np1 -i gtest-1.8.1-libversion.patch
   patch -Np1 -i ../gtest-1.8.1-null-pointer.patch
 
   find . -name '*.py' -exec sed -i '1s|python$|&2|g' {} +
