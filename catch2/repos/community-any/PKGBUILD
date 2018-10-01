@@ -1,7 +1,7 @@
 # Maintainer: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
 pkgname='catch2'
-pkgver=2.3.0
+pkgver=2.4.1
 pkgrel=1
 pkgdesc="A modern, C++-native, header-only, test framework for unit-tests, TDD and BDD - using C++11, C++14, C++17 and later"
 arch=('any')
@@ -10,7 +10,7 @@ license=('Boost')
 makedepends=('cmake')
 checkdepends=('python')
 source=("https://github.com/catchorg/Catch2/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('aaf6bbf81ce8522131bae2ea4d013a77b003bbb2017614f5872d5787687f8f5f')
+sha256sums=('e1b559d77bd857cb0f773e3e826ac1d7e016cf14057fd14b9e99ec3b2c6b809f')
 
 build() {
   cd "$srcdir/Catch2-$pkgver"
