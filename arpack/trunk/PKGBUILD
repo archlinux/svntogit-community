@@ -3,7 +3,7 @@
 # Contributor: Stefan Husmann <stefan-husmann@t-online.de>
 
 pkgname=arpack
-pkgver=3.6.2
+pkgver=3.6.3
 pkgrel=1
 arch=('x86_64')
 pkgdesc='Fortran77 subroutines for solving large scale eigenvalue problems'
@@ -25,9 +25,7 @@ build() {
   cd "$pkgname-ng"
 
   ./configure --prefix=/usr --enable-mpi
-
-  make \
-    F77="mpif77" \
+  make F77="mpif77" \
     CFLAGS+=" `pkg-config --cflags ompi-f77` " \
     LIBS+=" `pkg-config --libs ompi-f77` "
 }
@@ -39,4 +37,5 @@ package() {
   install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
 
+# getver: github.com/opencollab/arpack-ng
 # vim: ts=2 sw=2 et:
