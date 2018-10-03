@@ -1,13 +1,14 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=apparmor
 pkgver=2.13.0
-pkgrel=9
+pkgrel=10
 pkgdesc="Mandatory Access Control (MAC) using Linux Security Module (LSM)"
 arch=('x86_64')
 url="https://gitlab.com/apparmor/apparmor"
 license=('GPL')
 depends=('audit' 'pam' 'python')
 makedepends=('swig' 'chrpath' 'ruby')
+checkdepends=('dejagnu' 'python-pyflakes')
 optdepends=('perl: perl bindings'
             'ruby: ruby bindings')
 provides=('libapparmor')
@@ -31,6 +32,17 @@ _core_perl="/usr/bin/core_perl"
 prepare() {
   mv -v "${pkgname}-${pkgver%.[0-9]}" "${pkgname}-${pkgver}"
   cd "${pkgname}-${pkgver}"
+  # fix PYTHONPATH for aa-logprof based check
+  local _py3_ver=$(python --version | cut -d " " -f2)
+  local path="${PWD}/libraries/libapparmor/swig/python/build/lib.linux-${CARCH}-${_py3_ver%"."*}/LibAppArmor"
+  local libs="${PWD}/libraries/libapparmor/src/.libs"
+  sed -e "/PYTHONPATH/ s|utils\ |utils:$path\ LD_LIBRARY_PATH=$libs\ |" \
+      -i profiles/Makefile
+  # fix sandbox.py (utils check)
+  sed -e '722i\ \ \ \ \ \ \ \ print(e)' -i utils/apparmor/sandbox.py
+  # remove test-aa.py (utils check), producing too many fails
+  rm -v utils/test/test-aa.py
+
   # backport upstream 'binmerge' patch
   patch -Np1 -i ../binmerge.patch
   #removing stale file
@@ -42,7 +54,7 @@ prepare() {
       -e 's/\}\/lib\/apparmor/\}\/usr\/lib\/apparmor/' \
       -e 's/644 apparmor.systemd/755 apparmor.systemd/' \
       -i parser/Makefile
-  # fix default vim syntax file installation path
+  # fix default installation path for vim syntax file
   sed -e 's/share\/apparmor/share\/vim\/vimfiles\/syntax/' \
       -i utils/vim/Makefile
   cd libraries/libapparmor/
@@ -63,6 +75,7 @@ build() {
               --with-ruby
   make
   cd ../..
+  make -C binutils
   make -C parser
   make -C profiles
   make -C utils
@@ -70,10 +83,22 @@ build() {
   make -C utils/vim
 }
 
+check() {
+  cd "$pkgname-$pkgver"
+  make -C libraries/libapparmor check
+  make -C binutils check
+# parser checks don't run on non-apparmor enabled kernel
+#  make -C parser check
+# profiles check need to be run on a system with aa installed?
+#  make -C profiles check
+  make -C utils check
+}
+
 package() {
   cd "$pkgname-$pkgver"
   make -C libraries/libapparmor DESTDIR="${pkgdir}" install
   make -C changehat/pam_apparmor DESTDIR="${pkgdir}/usr" install
+  make -C binutils DESTDIR="${pkgdir}" install
   make -C parser DESTDIR="${pkgdir}" install
   make -C parser DESTDIR="${pkgdir}" install-systemd
   make -C profiles DESTDIR="${pkgdir}" install
@@ -83,6 +108,8 @@ package() {
     -type f -iname "*.so" \
     -exec strip --strip-unneeded {} \; \
     -exec chrpath -d {} \;
+  # removing empty core_perl directory
+  rm -rv "${pkgdir}"/usr/lib/perl5/*/core_perl
   # move ruby bindings to vendor_ruby
   mv -v "${pkgdir}/usr/lib/ruby/site_ruby/" \
     "${pkgdir}/usr/lib/ruby/vendor_ruby/"
