@@ -4,7 +4,7 @@
 pkgname=borg
 _pkgname=borgbackup
 pkgver=1.1.7
-pkgrel=1
+pkgrel=2
 pkgdesc='Deduplicating backup program with compression and authenticated encryption'
 url='https://borgbackup.github.io/'
 license=('BSD')
@@ -16,8 +16,23 @@ makedepends=('cython' 'python-sphinx' 'python-guzzle-sphinx-theme')
 checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-benchmark' 'python-mock')
 provides=('borgbackup')
 replaces=('borgbackup')
-source=("https://github.com/$_pkgname/$pkgname/releases/download/$pkgver/$_pkgname-$pkgver.tar.gz")
-sha256sums=('f7b51a132e9edfbe1cacb4f478b28caf3622d79fffcb369bdae9f92d8c8a7fdc')
+source=("https://github.com/$_pkgname/$pkgname/releases/download/$pkgver/$_pkgname-$pkgver.tar.gz"
+        "0001-Fix-msgpack-version-constraints-using-proper-setupto.patch")
+sha256sums=('f7b51a132e9edfbe1cacb4f478b28caf3622d79fffcb369bdae9f92d8c8a7fdc'
+            '0392d573928aa8282ddb3082289a42ade7503aa285d575ce06d6296327518744')
+
+prepare() {
+  cd "$srcdir/$_pkgname-$pkgver"
+
+  # msgpack versions are constantly broken: https://bugs.archlinux.org/task/58974
+  # patch submitted upstream as https://github.com/borgbackup/borg/pull/3891
+  # but upstream refuses to merge it, claiming that it *breaks* compatibility
+  # rather than adds it??? We're specifically using a patch since otherwise,
+  # this keeps on breaking with every single release, and we need to check
+  # every single time that it isn't broken again. New versions *cannot* simply
+  # be trusted to be sane.
+  patch -p1 -i ../0001-Fix-msgpack-version-constraints-using-proper-setupto.patch
+}
 
 build() {
   cd "$srcdir/$_pkgname-$pkgver"
@@ -25,7 +40,7 @@ build() {
 }
 
 check() {
-  cd "$srcdir/$_pkgname-$pkgver/build/lib.linux-$CARCH-"*
+  cd "$srcdir/$_pkgname-$pkgver/build/lib.linux-$CARCH-3".*/
   LANG=en_US.UTF-8 PYTHONPATH="$PWD:$PYTHONPATH" py.test --cov=borg \
     --benchmark-skip --pyargs borg.testsuite -v \
     -k 'not test_non_ascii_acl'
@@ -42,7 +57,7 @@ package() {
   install -Dm644 scripts/shell_completions/bash/borg \
     "$pkgdir/usr/share/bash-completion/completions/borg"
   install -Dm644 scripts/shell_completions/fish/borg.fish \
-    "$pkgdir/usr/share/fish/completions/borg.fish"
+    "$pkgdir/usr/share/fish/vendor_completions.d/borg.fish"
   install -Dm644 scripts/shell_completions/zsh/_borg "$pkgdir/usr/share/zsh/site-functions/_borg"
 
   install -Dm644 -t "$pkgdir/usr/share/man/man1/" "docs/man/"*.1
