@@ -3,7 +3,7 @@
 
 pkgbase=dotnet-core
 pkgname=('dotnet-host' 'dotnet-runtime' 'aspnet-runtime' 'dotnet-sdk')
-pkgver=2.1.4+402
+pkgver=2.1.5+403
 pkgrel=1
 arch=('x86_64')
 url='https://www.microsoft.com/net/core'
@@ -16,6 +16,7 @@ options=('staticlibs')
 source=(
   "dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}"
   'dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git'
+  'dotnet-cecil::git+https://github.com/mono/cecil.git'
   'dotnet-cli::git+https://github.com/dotnet/cli.git'
   'dotnet-cli-migrate::git+https://github.com/dotnet/cli-migrate.git'
   'dotnet-clicommandlineparser::git+https://github.com/dotnet/clicommandlineparser.git'
@@ -24,6 +25,7 @@ source=(
   'dotnet-coreclr::git+https://github.com/dotnet/coreclr.git'
   'dotnet-corefx::git+https://github.com/dotnet/corefx.git'
   'dotnet-fsharp::git+https://github.com/Microsoft/VisualFSharp.git'
+  'dotnet-linker::git+https://github.com/mono/linker.git'
   'dotnet-msbuild::git+https://github.com/Microsoft/msbuild.git'
   'dotnet-newtonsoft-json::git+https://github.com/JamesNK/Newtonsoft.Json.git'
   'dotnet-nuget-client::git+https://github.com/NuGet/NuGet.Client.git'
@@ -35,7 +37,7 @@ source=(
   'dotnet-vstest::git+https://github.com/Microsoft/vstest.git'
   'dotnet-websdk::git+https://github.com/aspnet/websdk.git'
   'dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git'
-  'https://download.microsoft.com/download/A/7/8/A78F1D25-8D5C-4411-B544-C7D527296D5E/aspnetcore-runtime-2.1.4-linux-x64.tar.gz'
+  'https://download.visualstudio.microsoft.com/download/pr/97fce50e-e736-41c3-a700-d83d43178197/4c00b063affdbc940dd16f62c68d1505/aspnetcore-runtime-2.1.5-linux-x64.tar.gz'
   'dotnet-coreclr-rid.patch'
 )
 sha256sums=('SKIP'
@@ -59,19 +61,29 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '517195f38f7553fffec01a2bd3d09ed4ad589823094426a3febb70c7e77319d3'
+            'SKIP'
+            'SKIP'
+            '775bcb800f186461b54f2ca0dc858c2a34dc82f95ad060681e8f440c48c2b291'
             '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee')
 
 prepare() {
   cd dotnet-source-build
 
-  for submodule in src/{application-insights,cli,cli-migrate,clicommandlineparser,common,core-setup,coreclr,corefx,fsharp,msbuild,newtonsoft-json,nuget-client,roslyn,roslyn-tools,sdk,standard,templating,vstest,websdk,xliff-tasks}; do
+  for submodule in src/{application-insights,cli,cli-migrate,clicommandlineparser,common,core-setup,coreclr,corefx,fsharp,linker,msbuild,newtonsoft-json,nuget-client,roslyn,roslyn-tools,sdk,standard,templating,vstest,websdk,xliff-tasks}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../dotnet-${submodule#src/}
     git submodule update
   done
 
-  cd src/coreclr
+  cd src/linker
+
+  for submodule in cecil; do
+    git submodule init ${submodule}
+    git config submodule.${submodule}.url ../../../dotnet-${submodule}
+    git submodule update
+  done
+
+  cd ../coreclr
 
   patch -Np1 -i "${srcdir}"/dotnet-coreclr-rid.patch
 }
