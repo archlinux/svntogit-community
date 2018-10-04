@@ -10,7 +10,7 @@ PREFIX ?= /usr/local
 PKGCONF_DEPS := freetype2 harfbuzz libopenjp2 libjpeg x11 zlib
 CPPFLAGS += -D_GNU_SOURCE -DFFP
 CFLAGS += -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(shell pkg-config --cflags $(PKGCONF_DEPS))
-LDLIBS = -lpthread -lmupdf -lmupdfthird -ljbig2dec $(shell pkg-config --libs $(PKGCONF_DEPS))
+LDLIBS = -lpthread -lmupdf -lmupdf-third -ljbig2dec $(shell pkg-config --libs $(PKGCONF_DEPS))
 
 # ocaml
 CAMLOPT = ocamlopt
@@ -39,6 +39,8 @@ ffi.cmx: config.cmx
 glutils.cmx: ffi.cmx
 help.cmx: help.cmi config.cmx utils.cmx
 listview.cmx: utils.cmx glutils.cmx config.cmx utf8syms.cmx
+main.cmx: main.ml utils.cmx config.cmx glutils.cmx listview.cmx ffi.cmx keys.cmx wsi.cmx
+main.cmx: CAMLFLAGS += -thread
 parser.cmx: utils.cmx
 wsi.cmi: utils.cmx keys.cmx
 wsi.cmx: wsi.cmi
@@ -50,8 +52,6 @@ version.o: CPPFLAGS += -DLLPP_VERSION=$(VERSION)
 llpp: $(OCAML_OBJ) $(C_OBJ)
 	$(CAMLOPT) -o $@ $(CAMLFLAGS) $(C_OBJ) -ccopt '$(LDFLAGS)' -cclib '$(LDLIBS)' $(MOD) $(OCAML_OBJ)
 
-main.cmx: main.ml utils.cmx config.cmx glutils.cmx listview.cmx ffi.cmx keys.cmx wsi.cmx
-	$(CAMLOPT) -c -o $@ $(CAMLFLAGS) -thread $^
 
 confstruct.ml: genconfstr.sh
 	sh $< >$@
