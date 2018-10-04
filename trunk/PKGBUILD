@@ -1,12 +1,13 @@
-# Maintainer: Eric Bélanger <eric@archlinux.org>
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: Eric Bélanger <eric@archlinux.org>
 
 pkgname=sox
 pkgver=14.4.2
-pkgrel=3
+pkgrel=4
 pkgdesc="The Swiss Army knife of sound processing tools"
 arch=('x86_64')
 url="http://sox.sourceforge.net/"
-license=('GPL' 'LGPL')
+license=('GPL2' 'LGPL2.1')
 depends=('libltdl' 'file' 'libsndfile' 'libpng' 'lame' 'opencore-amr' 'gsm')
 makedepends=('libao' 'libmad' 'libid3tag' 'wavpack' 'libpulse' 'opusfile' 'twolame')
 checkdepends=('time')
@@ -15,9 +16,10 @@ optdepends=('libao: for ao plugin'
             'libid3tag: for mp3 plugin'
             'wavpack: for wavpack plugin'
             'libpulse: for pulse plugin'
-	    'opusfile: for opus plugin'
+            'opusfile: for opus plugin'
             'twolame: for mp3 plugin')
-source=(http://downloads.sourceforge.net/${pkgname}/${pkgname}-${pkgver}.tar.bz2 sox-dynamic.patch
+source=("https://downloads.sourceforge.net/${pkgname}/${pkgname}-${pkgver}.tar.bz2"
+        sox-dynamic.patch
         CVE-2017-15371.patch::https://github.com/mansr/sox/commit/818bdd0.patch
         CVE-2017-11358.patch::https://github.com/mansr/sox/commit/6cb44a4.patch
         CVE-2017-15370.patch::https://github.com/mansr/sox/commit/ef3d8be.patch
@@ -38,21 +40,29 @@ sha1sums=('dc9668256b9d81ef25d672f14f12ec026b0b4087'
 
 prepare() {
   cd ${pkgname}-${pkgver}
-  sed -i 's|man1/sox.1 soxeffect.7|man1/sox.1.gz soxeffect.7.gz|' Makefile.in
+  # fix man page installation
+  sed -e 's|man1/sox.1 soxeffect.7|man1/sox.1.gz soxeffect.7.gz|' \
+      -i Makefile.in
+
+  # fix dynamic linking
   patch -p1 -i "${srcdir}/sox-dynamic.patch"
+
+  # patch all (known) CVEs
   for _cve in 15371 11358 15370 11332 11359 15372 15642; do
     patch -p1 -i ../CVE-2017-$_cve.patch
   done
-  sed -e '/hcom/d' -i src/tests.sh # test fails with CVE-2017-11358.patch
 
-  aclocal
-  automake
+  # test fails with CVE-2017-11358.patch
+  sed -e '/hcom/d' -i src/tests.sh
+  autoreconf -vfi
 }
 
 build() {
   cd ${pkgname}-${pkgver}
-  ./configure --prefix=/usr --sysconfdir=/etc \
-    --with-dyn-default --with-distro="Arch Linux"
+  ./configure --prefix=/usr \
+              --sysconfdir=/etc \
+              --with-dyn-default \
+              --with-distro="Arch Linux"
   make
 }
 
@@ -64,4 +74,6 @@ check() {
 package() {
   cd ${pkgname}-${pkgver}
   make DESTDIR="${pkgdir}" install
+  install -vDm 644 {AUTHORS,ChangeLog,README} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
