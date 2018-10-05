@@ -2,30 +2,38 @@
 # Contributor: pandada8 <pandada8@gmail.com>
 
 pkgname=v2ray
-pkgver=3.45.1
+pkgver=3.46.2
 pkgrel=1
 pkgdesc="A platform for building proxies to bypass network restrictions"
 arch=('x86_64')
 url="https://github.com/v2ray/v2ray-core"
 license=('MIT')
 makedepends=('go' 'git')
+backup=(etc/v2ray/config.json)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/v2ray/v2ray-core/archive/v$pkgver.tar.gz"
+        "v2ray-ext-$pkgver.tar.gz::https://github.com/v2ray/ext/archive/v$pkgver.tar.gz"
         'v2ray.service')
-sha512sums=('99d2323e125dcdf80646535b533b33dcf017afbad2c2ad93a2456644e53800d5406ceea23a42d40955d86279f67b49eb2d7b81dfef9fe616b28e6e640da54697'
+sha512sums=('fbdacc404638a5e98febc4a3298c1f1b1035763ef05c48be8355bd3958b333417f5398d5abf0b8fbe7158d57101de326c4a3a840e09833d473895debd0108a06'
+            '54fc837380503e657c6a14c3fa3623c74c5343db20c7dd5435b1ccf2a0445114f1278fe17f3bfbd0a6443b476fbfadf311f433eb99fb727596288d3c055526bb'
             'bebb87f43b3920be8efde9aece9c4305323cd7d3a65a3b2441f0dbd0098c02a18ca89a5b08833eee70482cffae2c8e7b7237bb5a4d1076e3c30d273898e2bedb')
 
 prepare() {
+  sed -i 's/h12.me/h12.io/' v2ray-core-$pkgver/testing/scenarios/socks_test.go
+
   export GOPATH="$srcdir/build"
-  go get v2ray.com/core github.com/miekg/dns golang.org/x/sys/unix v2ray.com/ext/assert \
+  mkdir -p "$GOPATH"/src/v2ray.com
+  cp -a "$srcdir"/v2ray-core-$pkgver "$GOPATH"/src/v2ray.com/core
+  cp -a "$srcdir"/ext-$pkgver "$GOPATH"/src/v2ray.com/ext
+
+  go get github.com/miekg/dns golang.org/x/sys/unix h12.io/socks \
          github.com/gorilla/websocket golang.org/x/crypto/chacha20poly1305 golang.org/x/crypto/sha3 \
-         v2ray.com/ext golang.org/x/net/proxy github.com/google/go-github/github golang.org/x/oauth2 \
+         golang.org/x/net/proxy github.com/google/go-github/github golang.org/x/oauth2 \
          github.com/gogo/protobuf/proto google.golang.org/grpc
-  go install v2ray.com/ext/tools/build/vbuild
 }
 
 build() {
-  cd v2ray-core-$pkgver
-  "$GOPATH"/bin/vbuild
+  go build -o v2ray v2ray.com/core/main
+  go build -o v2ctl v2ray.com/ext/tools/control/main
 }
 
 check() {
@@ -39,7 +47,8 @@ package() {
   install -Dm644 release/config/systemd/v2ray.service ${pkgdir}/usr/lib/systemd/system/v2ray.service
   sed -i '/ExecStart/c\ExecStart=/usr/bin/env v2ray.location.asset=/etc/v2ray /usr/bin/v2ray -config /etc/v2ray/config.json' "$pkgdir"/usr/lib/systemd/system/v2ray.service
   install -Dm644 release/config/geoip.dat release/config/geosite.dat release/config/*.json -t "$pkgdir"/etc/v2ray/
-  install -Dm755 "$GOPATH"/bin/v2ray-custom-linux-64/{v2ray,v2ctl} -t "$pkgdir"/usr/bin/
+  install -Dm755 ../v2ray -t "$pkgdir"/usr/bin/
+  install -Dm755 ../v2ctl -t "$pkgdir"/usr/bin/
 
-  install -Dm644 "$srcdir"/v2ray.service "$pkgdir"/usr/lib/systemd/system/v2ray@.service
+  install -Dm644 ../v2ray.service "$pkgdir"/usr/lib/systemd/system/v2ray@.service
 }
