@@ -2,7 +2,7 @@
  * Arch Linux configuration for DropBear
  *
  * The majority of these options are disabled or enabled as a result of
- * running ssh-audit.
+ * running ssh-audit:
  *
  * https://github.com/arthepsy/ssh-audit
  */
@@ -10,7 +10,7 @@
 /* Disable CBC mode for ciphers */
 #define DROPBEAR_ENABLE_CBC_MODE 0
 
-/* Disable X11 Forwarding on the server */
+/* Disable X11 forwarding on the server */
 #define DROPBEAR_X11FWD 0
 
 /* Disable reverse DNS lookups */
@@ -29,12 +29,14 @@
 
 /* Disable ECDH */
 #define DROPBEAR_ECDH 0
-#define DROPBEAR_ECDSA 0
+
+/* Keep ECDSA, for practical purposes */
+#define DROPBEAR_ECDSA 1
 
 /* SFTP server path */
 #define SFTPSERVER_PATH "/usr/lib/ssh/sftp-server"
 
-/* Spend a small mount of bytes for an increase in performance */
+/* Spend a small amount of bytes for an increase in performance */
 #define DROPBEAR_SMALL_CODE 0
 
 /* Default path */
