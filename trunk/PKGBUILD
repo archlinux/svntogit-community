@@ -2,8 +2,8 @@
 
 pkgbase=python-importlib-metadata
 pkgname=(python-importlib-metadata python2-importlib-metadata)
-pkgver=0.5
-pkgrel=2
+pkgver=0.6
+pkgrel=1
 pkgdesc="Read metadata from Python packages"
 url="https://importlib-metadata.readthedocs.io"
 license=('Apache')
@@ -12,7 +12,7 @@ makedepends=('python-setuptools' 'python2-setuptools' 'python2-contextlib2' 'pyt
 checkdepends=('python-pip' 'python2-pip' 'python-pytest-runner' 'python2-pytest-runner'
               'python2-importlib_resources')
 source=("$pkgbase-$pkgver.tar.gz::https://gitlab.com/python-devs/importlib_metadata/-/archive/$pkgver/importlib_metadata-$pkgver.tar.bz2")
-sha512sums=('a38d2bd9fb864ed048c34d49a348f273846008827c384886552ba28f503cf4cfb26dba56567014cf83cb5fc5288dc40f79a5537abd17f3eaf8e8e59c8bd88456')
+sha512sums=('30262c9678d1b928d00d0cb497f7735d1f4b14c65a827ec8fc461322a1a2b81df84a5c5e970d0b578d865f469d8ee7cdacb1b3dde2176e4dda5649c4b193b54f')
 
 prepare() {
   cp -a importlib_metadata-$pkgver{,-py2}
