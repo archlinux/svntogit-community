@@ -1,8 +1,9 @@
-# Maintainer: Eric Bélanger <eric@archlinux.org>
+# Maintainer:
+# Contributor: Eric Bélanger <eric@archlinux.org>
 
 pkgbase=python-pygame
 pkgname=python2-pygame
-pkgver=1.9.3
+pkgver=1.9.4
 pkgrel=1
 pkgdesc="Python game library"
 arch=('x86_64')
@@ -11,7 +12,7 @@ license=('LGPL')
 depends=('sdl_mixer' 'sdl_ttf' 'sdl_image' 'python2' 'portmidi')
 makedepends=('python2-setuptools')
 source=(https://pypi.io/packages/source/p/pygame/pygame-$pkgver.tar.gz)
-sha1sums=('b3ef126f0baea3bd0986fddebba82b6b13f6f282')
+sha1sums=('9387835fab92a8b4a3c9e51e2c9267a670476aaa')
 
 prepare() {
   cd pygame-${pkgver}
