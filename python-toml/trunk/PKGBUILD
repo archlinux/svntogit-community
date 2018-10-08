@@ -2,19 +2,22 @@
 _name=toml
 pkgbase=python-toml
 pkgname=('python-toml' 'python2-toml')
-pkgver=0.9.6
+pkgver=0.10.0
 pkgrel=1
 pkgdesc="A Python library for parsing and creating TOML"
 arch=('any')
 url="https://github.com/uiri/toml"
 license=('MIT')
 makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-pytest')
-source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('9f2804daebae0744c3a00bfb27b2f1efd73c96e7e5a14316d492200d63ba546167f669a187297c76daca5ef35b7adb6f309c1f6129302b6f41e6b7673bdb43b6')
+checkdepends=('python-pytest' 'python2-pytest')
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz"
+        "https://raw.githubusercontent.com/uiri/toml/master/test.toml")
+sha512sums=('26f26c38ce9cd48305218c2c34c5a5407b00aefc25a933f044bb7be22c23cfdfa3b8cf2da952d17760c4b9038df62e405fa039cc7b63dd3e94c9c312f04f9182'
+            '47510e59f9e0bdaaf4052fc5edb570a36b8b173ed7b8e5fac52804f6619f409e545ae3c91f838dbaeefe3c7cfd1a835b699164ac631feaa61de971d2381ac246')
 
 prepare() {
   mv -v "${_name}-$pkgver" "$pkgbase-$pkgver"
+  cp -v test.toml "$pkgbase-$pkgver"
   cd "$pkgbase-$pkgver"
 }
 
@@ -24,12 +27,13 @@ build() {
   python2 setup.py build
 }
 
-# no tests in pypi source: https://github.com/uiri/toml/issues/192
-#check() {
-#  cd "$pkgname-$pkgver"
-#  python setup.py test
-#  python2 setup.py test
-#}
+check() {
+  cd "$pkgname-$pkgver"
+  export PYTHONPATH="../build/lib/:${PYTHONPATH}"
+  # disable useless tests
+  py.test tests -k 'not test_invalid_tests and not test_valid_tests'
+  py.test2 tests -k 'not test_invalid_tests and not test_valid_tests'
+}
 
 package_python-toml() {
   cd "$pkgname-$pkgver"
