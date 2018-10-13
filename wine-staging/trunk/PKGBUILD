@@ -5,7 +5,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=3.17
+pkgver=3.18
 _winever=$pkgver
 pkgrel=1
 
@@ -13,13 +13,11 @@ _pkgbasever=${pkgver/rc/-rc}
 
 source=(https://dl.winehq.org/wine/source/3.x/wine-$_winever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
-        harmony-fix.diff
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('ea50c9e09d3fd7f41ff96a1219d43896946ac79c8cdef31ae56e10664fc3b0b6dd1f9d8cd72db874d08c431eba9c8033ea72182499666a5aa62c1056876b0a66'
+sha512sums=('2137662ea69964a69d77ff5c05f271783bda49af65d605909074d465ed8087d84065156e5c509eae31b4c3a20e83a838fc71bd077b2267640b163acfa5f7366e'
             'SKIP'
-            '2fe9e8f801b53fa9b71fd908f5403956251522851383bfdde6828c6a8545d6f50ac8c41df54d89c2f92d74dc3bb563cd6a7d8ad394002c981197b71adc1a5e13'
-            'b86edf07bfc560f403fdfd5a71f97930ee2a4c3f76c92cc1a0dbb2e107be9db3bed3a727a0430d8a049583c63dd11f5d4567fb7aa69b193997c6da241acc4f2e'
+            'd7c353b2302616b8ffe9f41090bc36c8869238410eda16072aed0b70e54c8a09b4a48d439fc9e4f211804945d55dc4a00a5d70efd2ca4a50f72db7607e6ef10e'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -120,8 +118,6 @@ prepare() {
   # https://bugs.winehq.org/show_bug.cgi?id=43530
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
-
-  patch -d $pkgname -Np1 < harmony-fix.diff
 
   sed 's|OpenCL/opencl.h|CL/opencl.h|g' -i $pkgname/configure*
 
