@@ -1,0 +1,55 @@
+commit ff75a191f067ceac00f4edc065cc1317d69d81ba
+Author: Felix Yan <felixonmars@archlinux.org>
+Date:   Mon Aug 20 14:44:55 2018 +0800
+
+    Fix build with system cmark-gfm (fixes #8)
+    
+    Use the public interface cmark_get_default_mem_allocator instead of
+    private CMARK_DEFAULT_MEM_ALLOCATOR.
+
+diff --git a/CMarkGFM.hsc b/CMarkGFM.hsc
+index 6bd4fce..a39579c 100644
+--- a/CMarkGFM.hsc
++++ b/CMarkGFM.hsc
+@@ -58,7 +58,7 @@ ensurePluginsRegistered = c_core_extensions_ensure_registered
+ 
+ -- | Frees a cmark linked list, produced by extsToLlist.
+ freeLlist :: LlistPtr a -> IO ()
+-freeLlist = c_cmark_llist_free c_CMARK_DEFAULT_MEM_ALLOCATOR
++freeLlist = c_cmark_llist_free c_cmark_mem
+ 
+ -- | Converts a list of resolved extension pointers to a single cmark
+ -- linked list, which can be passed to functions requiring a list of
+@@ -67,7 +67,7 @@ extsToLlist :: [ExtensionPtr] -> IO (LlistPtr ExtensionPtr)
+ extsToLlist [] = return nullPtr
+ extsToLlist (h:t) = do
+   t' <- extsToLlist t
+-  c_cmark_llist_append c_CMARK_DEFAULT_MEM_ALLOCATOR t' (castPtr h)
++  c_cmark_llist_append c_cmark_mem t' (castPtr h)
+ 
+ -- | Resolves CMarkExtensions to pointers.
+ resolveExts :: [CMarkExtension] -> IO [ExtensionPtr]
+@@ -633,8 +633,8 @@ foreign import ccall "cmark.h cmark_llist_append"
+ foreign import ccall "cmark.h cmark_llist_free"
+     c_cmark_llist_free :: MemPtr -> LlistPtr a -> IO ()
+ 
+-foreign import ccall "cmark.h &CMARK_DEFAULT_MEM_ALLOCATOR"
+-    c_CMARK_DEFAULT_MEM_ALLOCATOR :: MemPtr
++foreign import ccall "cmark.h cmark_get_default_mem_allocator"
++    c_cmark_mem :: MemPtr
+ 
+ foreign import ccall "cmark_extension_api.h cmark_parser_attach_syntax_extension"
+     c_cmark_parser_attach_syntax_extension :: ParserPtr -> ExtensionPtr -> IO ()
+diff --git a/cmark-gfm.cabal b/cmark-gfm.cabal
+index afe9d1c..6dec4a8 100644
+--- a/cmark-gfm.cabal
++++ b/cmark-gfm.cabal
+@@ -74,7 +74,7 @@ library
+   default-language:    Haskell2010
+   ghc-options:         -Wall -fno-warn-unused-do-bind
+   if flag(pkgconfig)
+-    pkgconfig-depends: libcmark-gfm
++    Extra-Libraries: cmark-gfm cmark-gfmextensions
+   else
+     cc-options:        -Wall -std=c99
+     Include-dirs:      cbits
