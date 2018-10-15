@@ -1,13 +1,13 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=apparmor
 pkgver=2.13.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Mandatory Access Control (MAC) using Linux Security Module (LSM)"
 arch=('x86_64')
 url="https://gitlab.com/apparmor/apparmor"
 license=('GPL')
 depends=('audit' 'pam' 'python')
-makedepends=('swig' 'chrpath' 'ruby')
+makedepends=('swig' 'ruby')
 checkdepends=('dejagnu' 'python-pyflakes')
 optdepends=('perl: perl bindings'
             'ruby: ruby bindings')
@@ -20,15 +20,16 @@ backup=('etc/apparmor/easyprof.conf'
         'etc/apparmor/parser.conf'
         'etc/apparmor/subdomain.conf'
         'etc/apparmor/severity.db')
-source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver%.[0-9]}.tar.gz"{,.asc})
-sha512sums=('f98914713153d4c823a3ea7e96291cc4528bf7c8d3a139286ae0ecd806613e9c34b0ad81f2b258df2193cf6f3157d3252ef72d32d339427948a3fd8ba5651827'
-            'SKIP')
+source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver}.tar.gz"{,.asc}
+        "https://gitlab.com/${pkgname}/${pkgname}/merge_requests/240.diff")
+sha512sums=('e4b9788ecc0b59285f17d5e87669f507bf849c15d0ac3833e8d1d6aa2ece7add15814c75f257cea9d71a709c1af4990d8b76773e59fd42dbf5cfa2de0f9495a7'
+            'SKIP'
+            'f784a6939352d12f9641d70e58447d1cfd018a6986141d4c9e8188032d71532b8c9dd38c4fec99d08bbe464527eb7031c504803de702a9ece4e331a1fea0980a')
 # AppArmor Development Team (AppArmor signing key) <apparmor@lists.ubuntu.com>
 validpgpkeys=('3ECDCBA5FB34D254961CC53F6689E64E3D3664BB')
 _core_perl="/usr/bin/core_perl"
 
 prepare() {
-  mv -v "${pkgname}-${pkgver%.[0-9]}" "${pkgname}-${pkgver}"
   cd "${pkgname}-${pkgver}"
   # fix PYTHONPATH for aa-logprof based check
   local _py3_ver=$(python --version | cut -d " " -f2)
@@ -36,20 +37,20 @@ prepare() {
   local libs="${PWD}/libraries/libapparmor/src/.libs"
   sed -e "/PYTHONPATH/ s|utils\ |utils:$path\ LD_LIBRARY_PATH=$libs\ |" \
       -i profiles/Makefile
-  # fix sandbox.py (utils check)
-  sed -e '722i\ \ \ \ \ \ \ \ print(e)' -i utils/apparmor/sandbox.py
   # remove test-aa.py (utils check), producing too many fails
   rm -v utils/test/test-aa.py
   # fix bin directory for parser install target
   # fix lib dir location
-  # fix missing executable bit on apparmor.systemd script
-  sed -e 's/sbin/usr\/bin/g' \
+  sed -e 's|/usr/sbin|/usr/bin|g' \
+      -e 's|/sbin|/usr/bin|g' \
       -e 's/\}\/lib\/apparmor/\}\/usr\/lib\/apparmor/' \
-      -e 's/644 apparmor.systemd/755 apparmor.systemd/' \
       -i parser/Makefile
   # fix default installation path for vim syntax file
   sed -e 's/share\/apparmor/share\/vim\/vimfiles\/syntax/' \
       -i utils/vim/Makefile
+  # fixing syntax error in rc.apparmor.functions:
+  # https://gitlab.com/apparmor/apparmor/merge_requests/240/diffs
+  patch -Np1 -i ../240.diff
   cd libraries/libapparmor/
   autoreconf -vfi
 }
@@ -96,11 +97,6 @@ package() {
   make -C parser DESTDIR="${pkgdir}" install-systemd
   make -C profiles DESTDIR="${pkgdir}" install
   make -C utils DESTDIR="${pkgdir}" BINDIR="${pkgdir}/usr/bin" install
-  # strip perl library and remove empty rpath
-  find "${pkgdir}/usr/lib/perl5/" \
-    -type f -iname "*.so" \
-    -exec strip --strip-unneeded {} \; \
-    -exec chrpath -d {} \;
   # removing empty core_perl directory
   rm -rv "${pkgdir}"/usr/lib/perl5/*/core_perl
   # move ruby bindings to vendor_ruby
