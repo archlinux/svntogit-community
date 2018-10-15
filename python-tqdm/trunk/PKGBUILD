@@ -2,7 +2,7 @@
 
 pkgbase=python-tqdm
 pkgname=('python-tqdm' 'python2-tqdm')
-pkgver=4.26.0
+pkgver=4.27.0
 pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
@@ -12,7 +12,7 @@ makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-nose' 'python2-nose' 'python-coverage' 'python2-coverage' 'flake8'
               'python2-flake8')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/tqdm/tqdm/archive/v$pkgver.tar.gz")
-sha512sums=('41545da3101e6ffb73db005a603f2ec6d666f9402102b23421e9e76732c671046c964ae2bf79dce260b83585f21a304a4563103b56539777101ba7e2a94ea9f6')
+sha512sums=('b0260df950a38a693eaca24b3f12f88996542083335c1747cf9d381d084b9992eeacb046ac6bd382232e32f18c99336daf487f821098fa4e288c9b56feb0c0a6')
 
 prepare() {
   cp -a tqdm-$pkgver{,-py2}
