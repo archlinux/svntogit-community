@@ -4,7 +4,7 @@
 
 pkgbase=python-pbr
 pkgname=(python-pbr python2-pbr)
-pkgver=4.3.0
+pkgver=5.0.0
 pkgrel=1
 pkgdesc="Python Build Reasonableness"
 arch=('any')
@@ -17,7 +17,7 @@ checkdepends=('python-stestr' 'python2-stestr' 'python-testscenarios' 'python2-t
               'python-virtualenv' 'python2-virtualenv' 'python-wheel' 'python2-wheel'
               'python-sphinx' 'python2-sphinx')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
-sha512sums=('e3a01dd910b503fd8a5e72aa4282263d2474421400c8c102d0d1a4b57c4ee1bd742469a4ed40d1022ce396672ca0dca798a2906d04b02f9de5c168bb1c4da0c5')
+sha512sums=('a85cd077aa058edccede7ce9653cb1039cae4f5eb09c01a4d1d185de3038839b105c85d738d5a56e66eb37af376e1596842b9bf4f4ff610dc66c56a07406f6ea')
 
 prepare() {
   # Fix for new wheel
