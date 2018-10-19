@@ -7,7 +7,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.32.0
+pkgver=3.33.1
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -26,18 +26,13 @@ checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
-        "https://github.com/kovidgoyal/calibre/commit/4d4ffcff7c247072c28d20822abed12e2539cdd2.patch")
-sha256sums=('57254b147d8f8caf16f774f090266e112281c19bf7bc4170e65d22ab9b58d8ac'
-            'SKIP'
-            '60bb12d242e83ba886615472abcf91e05560f1a97a22d04c806d3acdc27fff6c')
+        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
+sha256sums=('92bc940ac01e888058a5baa171dda8c75e9993dd419b58df3a11e3e55e3875ac'
+            'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
   cd "${pkgname}-${pkgver}"
-
-  # https://bugs.launchpad.net/bugs/1794915
-  patch -p1 -i ../4d4ffcff7c247072c28d20822abed12e2539cdd2.patch
 
   # Remove unneeded files
   rm -rf resources/${pkgname}-portable.*
