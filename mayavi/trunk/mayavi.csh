@@ -1,1 +1,1 @@
-setenv ETS_TOOLKIT "wx"
+setenv ETS_TOOLKIT "qt"
