@@ -1,32 +1,26 @@
-# $Id$
 # Maintainer: Andrzej Giniewicz <gginiu@gmail.com>
 
 pkgname=mayavi
-pkgver=4.5.0
-pkgrel=6
+pkgver=4.6.2
+pkgrel=1
 pkgdesc="A 3-dimensional visualizer of scientific data"
-arch=('i686' 'x86_64')
+arch=('x86_64')
 url="https://github.com/enthought/mayavi"
 license=('BSD')
-depends=('ipython2' 'vtk' 'python2-envisage' 'python2-traitsui' 'python2-configobj' 'wxpython'
-         'gdal' 'unixodbc' 'jsoncpp' 'openmpi' 'ffmpeg')
-makedepends=('python2-setuptools' 'python2-sphinx' 'python2-twisted' 'xorg-server-xvfb' 'qt5-base')
-replaces=('python2-mayavi')
-provides=('python2-mayavi')
+depends=('vtk' 'python-envisage' 'python-traitsui' 'python-configobj' 'python-pyqt5' 'gdal' 'unixodbc' 'jsoncpp' 'openmpi' 'ffmpeg')
+makedepends=('python-setuptools' 'python-sphinx' 'python-twisted' 'xorg-server-xvfb' 'qt5-base' 'glew' 'proj')
+replaces=('python-mayavi')
+provides=('python-mayavi')
 options=(!emptydirs)
 
 source=("$pkgname-$pkgver.tar.gz::https://github.com/enthought/mayavi/archive/${pkgver}.tar.gz"
-        "mayavi.sh" "mayavi.csh" "setuptools.patch")
-md5sums=('ed3b0004b810bd5741ae9bb46d197250'
-         '3e998f4f3cb1d9bc3353fbb933984458'
-         'd68e29e3c805ad2e0a5e82b1744b1f0a'
-         'fa81f3c6610942dedd072ef55428c41b')
+        "mayavi.sh" "mayavi.csh")
+md5sums=('11e76a5ed9b7cd123b6a8efd3828c52a'
+         '5773317624d524e19c78c0521dab79d3'
+         'd42bd281c92cb998f3d8a36171688fc4')
 
 prepare() {
   cd "$srcdir"/mayavi-$pkgver
-
-  # patch to fix setuptools 28.0 --- https://github.com/enthought/mayavi/issues/443
-  patch -p1 < ../setuptools.patch
 
   # fix wrong-file-end-of-line-encoding
   for file in *.txt examples/mayavi/data/room_vis.wrl examples/tvtk/dscene.py \
@@ -48,16 +42,7 @@ prepare() {
   chmod 0644 mayavi/tests/data/cellsnd.ascii.inp
 
   # set path so autodoc can find just built modules
-  echo "sys.path.append('$srcdir/mayavi-$pkgver/build/lib.linux-$CARCH-2.7/')" >> docs/source/mayavi/conf.py
-
-  # Use python2-sphinx provided sphinx-build2
-  sed -i -e 's/sphinx-build/sphinx-build2/' docs/Makefile*
-
-  # fix python->python2
-  sed -e "s|#![ ]*/usr/bin/python$|#!/usr/bin/python2|" \
-      -e "s|#![ ]*/usr/bin/env python$|#!/usr/bin/env python2|" \
-      -e "s|#![ ]*/bin/env python$|#!/usr/bin/env python2|" \
-      -i $(find . -name '*[\._]py')
+  echo "sys.path.append('$srcdir/mayavi-$pkgver/build/lib.linux-$CARCH-3.7/')" >> docs/source/mayavi/conf.py
 }
 
 build() {
@@ -65,50 +50,47 @@ build() {
 
   rm -rf build
   mkdir build
-  mkdir -p build/lib.linux-$CARCH-2.7/{tvtk/plugins/scene,mayavi/preferences,mayavi/core}
+  mkdir -p build/lib.linux-$CARCH-3.7/{tvtk/plugins/scene,mayavi/preferences,mayavi/core}
   ln -s "$srcdir"/enthought-mayavi-${_githubtag}/tvtk/tvtk_classes.zip \
-    build/lib.linux-$CARCH-2.7/tvtk/tvtk_classes.zip
+    build/lib.linux-$CARCH-3.7/tvtk/tvtk_classes.zip
   ln -s "$srcdir"/enthought-mayavi-${_githubtag}/mayavi/preferences/preferences.ini \
-    build/lib.linux-$CARCH-2.7/mayavi/preferences/preferences.ini
+    build/lib.linux-$CARCH-3.7/mayavi/preferences/preferences.ini
   ln -s "$srcdir"/enthought-mayavi-${_githubtag}/tvtk/plugins/scene/preferences.ini \
-    build/lib.linux-$CARCH-2.7/tvtk/plugins/scene/preferences.ini
+    build/lib.linux-$CARCH-3.7/tvtk/plugins/scene/preferences.ini
 
+  export ETS_TOOLKIT="qt"
   # now this is ugly, but docs do not build without X. We setup X according to:
   # http://docs.enthought.com/mayavi/mayavi/tips.html#rendering-using-the-virtual-framebuffer
-  export DISPLAY=:69
-  Xvfb $DISPLAY &
+  xvfb-run python setup.py build
 
-  # build!
-  export ETS_TOOLKIT="wx"
-  python2 setup.py build
-
-  # have to kill the server to proceed, and do other cleanup
-  kill `cat /tmp/.X${DISPLAY/:/}-lock`
-  rm build/lib.linux-$CARCH-2.7/tvtk/tvtk_classes.zip
-  rm build/lib.linux-$CARCH-2.7/mayavi/preferences/preferences.ini
-  rm build/lib.linux-$CARCH-2.7/tvtk/plugins/scene/preferences.ini
+  rm build/lib.linux-$CARCH-3.7/tvtk/tvtk_classes.zip
+  rm build/lib.linux-$CARCH-3.7/mayavi/preferences/preferences.ini
+  rm build/lib.linux-$CARCH-3.7/tvtk/plugins/scene/preferences.ini
 }
 
 package() {
   cd "$srcdir"/mayavi-$pkgver
 
-  python2 setup.py install --skip-build --root="$pkgdir"/ --optimize=1
+  python setup.py install --skip-build --root="$pkgdir"/ --optimize=1
 
   # remove useless files
-  rm -f "${pkgdir}"/usr/lib/python2.7/site-packages/tvtk/setup.py*
+  rm -f "${pkgdir}"/usr/lib/python3.7/site-packages/tvtk/setup.py*
   find "${pkgdir}" -name \.buildinfo -type f -print | xargs rm -f -
 
   # non-executable-script
-  chmod +x "${pkgdir}"/usr/lib/python2.7/site-packages/mayavi/tests/runtests.py
+  chmod +x "${pkgdir}"/usr/lib/python3.7/site-packages/mayavi/tests/runtests.py
 
   # install manpage
   mkdir -p "${pkgdir}"/usr/share/man/man1
   cp -p docs/mayavi2.man "${pkgdir}"/usr/share/man/man1/mayavi2.1
 
-  # switch to Wx, as PyQT no longer works, FS#41791 no longer fixed :(
+  # Force Qt
   install -d "${pkgdir}"/etc/profile.d
   install -Dm644 "${srcdir}"/mayavi.sh "${pkgdir}"/etc/profile.d/mayavi.sh
   install -Dm644 "${srcdir}"/mayavi.csh "${pkgdir}"/etc/profile.d/mayavi.csh
 
   install -D LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  # Cannot find vtk
+  sed -i '/vtk/d' "$pkgdir"/usr/lib/python3.7/site-packages/mayavi-${pkgver}-py3.7.egg-info/requires.txt
 }
