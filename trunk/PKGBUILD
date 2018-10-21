@@ -13,7 +13,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.18
+pkgver=4.19_rc8
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -24,7 +24,7 @@ makedepends=('git')
 # kernel source deps
 makedepends+=('asciidoc' 'xmlto')
 # perf deps
-makedepends+=('perl' 'python2' 'slang' 'elfutils' 'libunwind' 'numactl' 'audit' 'gtk2')
+makedepends+=('perl' 'python' 'slang' 'elfutils' 'libunwind' 'numactl' 'audit' 'gtk2')
 # cpupower deps
 makedepends+=('pciutils')
 # usbip deps
@@ -32,7 +32,7 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 # tmon deps
 makedepends+=('ncurses')
 groups=("$pkgbase")
-source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v$pkgver"
+source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
 #        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.12.2.xz'
         'cpupower.default'
         'cpupower.systemd'
@@ -74,16 +74,16 @@ build() {
     lib=lib/perf \
     perfexecdir=lib/perf \
     NO_SDT=1 \
-    PYTHON=python2 \
-    PYTHON_CONFIG=python2-config \
-    PERF_VERSION=$pkgver-$pkgrel \
+    PYTHON=python \
+    PYTHON_CONFIG=python-config \
+    PERF_VERSION=${pkgver//_/-}-$pkgrel \
     DESTDIR="$pkgdir" \
     all man
   popd
 
   msg2 'cpupower'
   pushd linux/tools/power/cpupower
-  make VERSION=$pkgver-$pkgrel
+  make VERSION=${pkgver//_/-}-$pkgrel
   popd
 
   msg2 'x86_energy_perf_policy'
@@ -149,8 +149,8 @@ package_libtraceevent() {
 
 package_perf() {
   pkgdesc='Linux kernel performance auditing tool'
-  depends=('perl' 'python2' 'slang' 'elfutils' 'libunwind' 'binutils'
-           'numactl' 'audit')
+  depends=('glibc' 'perl' 'python' 'slang' 'elfutils' 'libunwind' 'binutils'
+           'numactl' 'audit' 'coreutils' 'glib2' 'xz' 'zlib' 'libelf' 'bash')
   optdepends=('gtk2: support GTK2 browser for perf report')
 
   cd linux/tools/perf
@@ -159,9 +159,9 @@ package_perf() {
     lib=lib/perf \
     perfexecdir=lib/perf \
     NO_SDT=1 \
-    PYTHON=python2 \
-    PYTHON_CONFIG=python2-config \
-    PERF_VERSION=$pkgver-$pkgrel \
+    PYTHON=python \
+    PYTHON_CONFIG=python-config \
+    PERF_VERSION=${pkgver//_/-}-$pkgrel \
     DESTDIR="$pkgdir" \
     install install-man
   cd "$pkgdir"
@@ -178,7 +178,7 @@ package_perf() {
 package_cpupower() {
   pkgdesc='Linux kernel tool to examine and tune power saving related features of your processor'
   backup=('etc/default/cpupower')
-  depends=('bash' 'pciutils')
+  depends=('glibc' 'bash' 'pciutils')
   conflicts=('cpufrequtils')
   replaces=('cpufrequtils')
   install=cpupower.install
@@ -209,7 +209,7 @@ package_x86_energy_perf_policy() {
 
 package_usbip() {
   pkgdesc='An USB device sharing system over IP network'
-  depends=('glib2' 'sysfsutils' 'libsystemd')
+  depends=('glibc' 'glib2' 'sysfsutils' 'libsystemd')
 
   pushd linux/tools/usb/usbip
   make install DESTDIR="$pkgdir"
