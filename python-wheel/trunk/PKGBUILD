@@ -5,7 +5,7 @@
 _pypiname=wheel
 pkgbase=python-wheel
 pkgname=('python-wheel' 'python2-wheel')
-pkgver=0.32.1
+pkgver=0.32.2
 pkgrel=1
 pkgdesc="A built-package format for Python"
 arch=(any)
@@ -17,7 +17,7 @@ checkdepends=('python-jsonschema' 'python2-jsonschema' 'python-pytest-cov' 'pyth
               'python-keyring' 'python-keyrings-alt' 'python-xdg' 'python2-xdg')
 source=("https://pypi.io/packages/source/w/wheel/$_pypiname-$pkgver.tar.gz")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
-sha512sums=('0ff287e4ebb7b463d71dc51b6a3715542f422b8bc574122f77f3af02689ca1621eede185f3c624a4362a7d56cd73cf82571051de35e7303131725834e898a4ab')
+sha512sums=('ac06f76e213ad89280691681e1ef6179336b21e4b662e76536f97bae3da606a0050b88249ba17a1766b41f0258069c876cbe52a4edbac99de3bbf5d00e38273b')
 
 prepare() {
   cp -a wheel-$pkgver{,-py2}
