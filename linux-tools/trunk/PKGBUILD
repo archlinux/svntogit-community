@@ -76,14 +76,14 @@ build() {
     NO_SDT=1 \
     PYTHON=python \
     PYTHON_CONFIG=python-config \
-    PERF_VERSION=${pkgver//_/-}-$pkgrel \
+    PERF_VERSION=$pkgver-$pkgrel \
     DESTDIR="$pkgdir" \
     all man
   popd
 
   msg2 'cpupower'
   pushd linux/tools/power/cpupower
-  make VERSION=${pkgver//_/-}-$pkgrel
+  make VERSION=$pkgver-$pkgrel
   popd
 
   msg2 'x86_energy_perf_policy'
@@ -161,7 +161,7 @@ package_perf() {
     NO_SDT=1 \
     PYTHON=python \
     PYTHON_CONFIG=python-config \
-    PERF_VERSION=${pkgver//_/-}-$pkgrel \
+    PERF_VERSION=$pkgver-$pkgrel \
     DESTDIR="$pkgdir" \
     install install-man
   cd "$pkgdir"
