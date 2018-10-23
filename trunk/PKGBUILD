@@ -5,7 +5,7 @@
 pkgbase=keybase
 pkgname=('keybase' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=2.7.0
+pkgver=2.8.0
 pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
@@ -15,9 +15,9 @@ makedepends=('git' 'go-pie' 'yarn')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/keybase/client/archive/v${pkgver}.tar.gz"
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('648fee700a5f325a8c5e20fee845639d7bccff175e92581679393aa1266b6b9f8c75dffbda11b333355843b6c462b7f77a3411ed1e89600af6099febacc2f27a'
+sha512sums=('01319ee36d50d928e195d854a3c332d7f327cabd8cdf930f643f3d373a6bd644634a56137f5f02477c15fc261cee3c01cb87efbb80333b7c7299a2048d9f1be1'
             'b3086ea6c60950284eecc331a8a648ea557f89f686f2adecb82b22d0ac65381683fbcc84875a48cf6ba9e3c63d4f06c73b84175621dca5e8f03b2a6a88cdcad4'
-            '42a2574c7618a45cc15eacfce9bde8012ade96ea46e600a478dc68abf01c1b5cd7fb3b361d1dc5f123f4ad4e64f8f1ba91d1e29ca211a763f0282683802806aa')
+            '076cbb73495f6df5b4c54f77c62ee2ccd9b485f837bf5c2206063b79f76814b1bc65910e031ac252b14e88531e50506acffe7608b00e01c7ae724de7f510a574')
 
 prepare() {
     cd client-${pkgver}
