@@ -1,0 +1,115 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor:  TDY <tdy@archlinux.info>
+# Contributor: Rémy Oudompheng <oudomphe@clipper.ens.fr>
+
+pkgbase=gap-4.8
+pkgname=(gap-4.8 gap-4.8-data gap-4.8-doc gap-4.8-packages)
+pkgver=4.8.10
+_gapver=4r8p10_2018_01_15-13_02
+pkgrel=4
+pkgdesc="Groups, Algorithms, Programming: a system for computational discrete algebra (version 4.8)"
+arch=(x86_64)
+url="https://www.gap-system.org/"
+license=(GPL)
+source=("https://www.gap-system.org/pub/gap/gap48/tar.gz/gap$_gapver.tar.gz" gap-no-packages-by-default.patch
+        gap-polymake-3.1.patch)
+sha256sums=('fc0dac32d196a825be5b4cab6a970aad58f1d16ca2870bd0381c94c85e7a9e5b'
+            'e8f19968d998172b7c289d0499b8b8a05bc31119a1ce073181d3842ece6fe3a2'
+            '6d8d57a9947575a3f95e682172040618be3d6a144424496229ae4ec50c0ab4e9')
+makedepends=(libxaw openmpi givaro mpfi normaliz polymake boost c-xsc) # fplll
+
+prepare() {
+  cd gap4r8
+
+# Use system normaliz
+  sed -e '/build-normaliz.sh/d' -i bin/BuildPackages.sh
+# Fix build of guava package
+  sed -e "s|MAKE=make|MAKE='make -j1'|" -i bin/BuildPackages.sh
+  sed -e '/cd leon make/d' -i pkg/guava-*/src/Makefile
+  sed -e '/AM_INIT_AUTOMAKE/d' -i pkg/guava-*/src/leon/configure.ac
+# Don't load any packages by default
+  patch -p1 -i ../gap-no-packages-by-default.patch
+# Fix build of PolymakeInterface with polymake 3.1
+  patch -p1 -i ../gap-polymake-3.1.patch
+# Fix https://bugs.archlinux.org/task/55174
+  sed -e '/xgap/d' -i pkg/sonata/PackageInfo.g
+# Disable fplll in float package, doesn't support 5.2
+  pushd pkg/float-*
+    sed -e '/FPLLL/d' -i configure.ac
+    sed -e '39,44d' -i src/Makefile.am
+    ./autogen.sh
+  popd
+# Disable anupq package, it's i686 only
+  rm -r pkg/anupq-*
+}
+
+build() {
+  cd gap4r8
+  CC=mpicc ./configure --prefix=/usr --with-gmp=system
+  make
+
+  cd pkg
+  export CXXFLAGS+=' -I/usr/include/cxsc' # Fix build of float package
+  sh ../bin/BuildPackages.sh
+# These packages fail to build:
+# linboxing (doesn't support givaro 4)
+# semigroups
+
+  cd ../etc
+  sh install-tools.sh
+}
+
+package_gap-4.8() {
+  depends=(gmp openmpi)
+  optdepends=('gap-4.8-packages: extra packages' 'gap-4.8-data: additional databases' 'gap-4.8-doc: documentation')
+  cd gap4r8
+  
+  mkdir -p "$pkgdir"/usr/lib/gap-4.8
+  cp -r bin etc grp lib CITATION "$pkgdir"/usr/lib/gap-4.8
+  
+  mkdir -p "$pkgdir"/usr/lib/gap-4.8/pkg
+  cp -r pkg/GAPDoc-* "$pkgdir"/usr/lib/gap-4.8/pkg
+
+  mkdir -p "$pkgdir"/usr/bin
+  ln -s /usr/lib/gap-4.8/bin/gap.sh "$pkgdir"/usr/bin/gap-4.8
+
+# fix location
+  sed -e 's|/build/gap-4.8/src/gap4r8|/usr/lib/gap-4.8|' \
+    -i "$pkgdir"/usr/lib/gap-4.8/bin/gap.sh -i "$pkgdir"/usr/lib/gap-4.8/bin/*/sysinfo.gap  
+
+# remove unneeded stuff
+  rm "$pkgdir"/usr/lib/gap-4.8/bin/*/*.o
+  rm -r "$pkgdir"/usr/lib/gap-4.8/bin/*/{config*,extern,gac,Makefile}
+}
+
+package_gap-4.8-data() {
+  depends=(gap-4.8)
+  pkgdesc="Additional databases for GAP 4.8"
+  cd gap4r8
+
+  mkdir -p "$pkgdir"/usr/lib/gap-4.8
+  cp -r prim small trans "$pkgdir"/usr/lib/gap-4.8
+}
+
+package_gap-4.8-doc() {
+  depends=(gap-4.8)
+  pkgdesc="Documentation for GAP 4.8"
+  cd gap4r8
+
+  mkdir -p "$pkgdir"/usr/lib/gap-4.8
+  cp -r doc "$pkgdir"/usr/lib/gap-4.8
+}
+
+package_gap-4.8-packages() {
+  depends=(gap-4.8)
+  optdepends=('normaliz: Normaliz interface package' 'polymake: Polymake interface package' 'libxaw: xgap package'
+              'c-xsc: float package' 'mpfi: float package' 'libmpc: float package') # 'fplll: float package'
+  pkgdesc="Extra packages for GAP 4.8"
+  cd gap4r8
+
+  mkdir -p "$pkgdir"/usr/lib/gap-4.8
+  cp -r pkg "$pkgdir"/usr/lib/gap-4.8
+
+# GAPDoc is in main package
+  rm -r "$pkgdir"/usr/lib/gap-4.8/pkg/GAPDoc-*
+}
