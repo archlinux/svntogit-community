@@ -4,7 +4,7 @@
 
 pkgname=octave
 pkgver=4.4.1
-pkgrel=2
+pkgrel=3
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="http://www.octave.org"
