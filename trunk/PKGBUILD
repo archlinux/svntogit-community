@@ -9,7 +9,7 @@
 pkgbase=python-keyring
 _pkgname=${pkgbase#python-}
 pkgname=(python-$_pkgname python2-$_pkgname)
-pkgver=15.1.0
+pkgver=15.2.0
 pkgrel=1
 pkgdesc="Store and access your passwords safely."
 arch=('any')
@@ -21,7 +21,7 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-entrypoint
 checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python2-pytest-flake8'
               'python2-pytest-runner' 'python-dbus' 'python2-dbus')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
-sha512sums=('27415ad44a562dfea2ac0276cf53d4cb6e1daced66ccf133de155c48656c554b27424ea63dcd928f9dce45de904544ff0e89fc0ac0e5eb09fcbb614a7e39daa7')
+sha512sums=('905f8cab267706af98a0fae2dbed587facfb53815860611ccf56f9968e5bc7f24ea62704592983191f4f58018790192602d84ab5c08bcf77b6db8b28230a6f4c')
 
 prepare() {
   echo -e '\nflake8-ignore = W191 W503 W504' >> $_pkgname-$pkgver/pytest.ini
