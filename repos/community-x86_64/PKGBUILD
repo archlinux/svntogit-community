@@ -3,7 +3,7 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.1.4
+pkgver=1.2.0
 _commit=9f2e07b1fc1342d1c48fe4d7bbb94cb6d1bf278b
 pkgrel=1
 pkgdesc='An open and reliable container runtime'
@@ -13,7 +13,7 @@ makedepends=('go-pie' 'git' 'btrfs-progs')
 arch=('x86_64')
 license=("APACHE")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/containerd/containerd/archive/v$pkgver.tar.gz")
-sha256sums=('7482bf738cf4ec3712c7719006b4b7874f5e35f076d15efc8f10e03fa35bedaf')
+sha256sums=('8565a655345f3db2f7b78b77a2cd3103895229aa44cd0e4c710ba3559e344b5a')
 
 prepare() {
   mkdir -p src/github.com/containerd
@@ -24,6 +24,7 @@ prepare() {
 
 build() {
   export GOPATH="$srcdir"
+  export GOFLAGS="-ldflags=-s -ldflags=-w -gcflags=all=-trimpath=${GOPATH} -asmflags=all=-trimpath=${GOPATH}"
   cd src/github.com/containerd/containerd
   make VERSION=v$pkgver.m REVISION=$_commit.m
 }
