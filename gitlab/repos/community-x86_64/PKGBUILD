@@ -8,7 +8,7 @@
 
 pkgname=gitlab
 pkgver=11.4.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -63,7 +63,7 @@ prepare() {
   export SKIP_STORAGE_VALIDATION='true'
 
   # Patching config files:
-  msg2 "Patching paths in and username gitlab.yml..."
+  echo "Patching paths in and username gitlab.yml..."
   sed -e "s|# user: git|user: gitlab|" \
       -e "s|/home/git/gitaly/bin|/usr/bin|" \
       -e "s|/home/git/repositories|${_homedir}/repositories|" \
@@ -74,7 +74,7 @@ prepare() {
       -e "s|/home/git/gitlab/tmp/sockets/private/gitaly.socket|${_homedir}/sockets/gitlab-gitaly.socket|" \
       config/gitlab.yml.example > config/gitlab.yml
 
-  msg2 "Patching paths and timeout in unicorn.rb..."
+  echo "Patching paths and timeout in unicorn.rb..."
   sed -e "s|/home/git/gitlab/tmp/.*/|/run/gitlab/|g" \
       -e "s|/var/run/|/run/|g" \
       -e "s|/home/git/gitlab|${_datadir}|g" \
@@ -84,15 +84,15 @@ prepare() {
   # We need this one untouched because otherwise assets will fail
   cp config/database.yml.postgresql config/database.yml.postgresql.orig
 
-  msg2 "Patching username in database.yml.{mysql,postgresql}..."
+  echo "Patching username in database.yml.{mysql,postgresql}..."
   sed -i -e "s|username: git|username: gitlab|" config/database.yml.mysql
   sed -i -e "s|username: git|username: gitlab|" config/database.yml.postgresql
 
-  msg2 "Patching redis connection in resque.yml"
+  echo "Patching redis connection in resque.yml"
   sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
       config/resque.yml.example > config/resque.yml.patched
 
-  msg2 "Setting up systemd service files ..."
+  echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
     sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
     sed -i "s|<DATADIR>|${_datadir}|g" "${srcdir}/${service_file}"
@@ -103,9 +103,9 @@ prepare() {
 build() {
   cd "${srcdir}/${_srcdir}"*
 
-  msg "Fetching bundled gems..."
-  # Gems will be installed into vendor/bundle
+  echo "Fetching bundled gems..."
 
+  # Gems will be installed into vendor/bundle
   bundle-2.3 install --no-cache --deployment --without development test aws kerberos
 
   # We'll temporarily stick this in here so we can build the assets
@@ -116,6 +116,7 @@ build() {
   yarn install --production --pure-lockfile
   bundle-2.3 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production
   bundle-2.3 exec rake gettext:compile RAILS_ENV=production
+
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
   mv config/resque.yml.patched config/resque.yml
