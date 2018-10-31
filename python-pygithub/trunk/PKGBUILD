@@ -2,7 +2,7 @@
 
 pkgbase=python-pygithub
 pkgname=('python-pygithub' 'python2-pygithub')
-pkgver=1.43.2
+pkgver=1.43.3
 pkgrel=1
 pkgdesc="Use the full Github API v3"
 arch=('any')
@@ -11,7 +11,7 @@ url="https://github.com/PyGithub/PyGithub"
 makedepends=('python-setuptools' 'python2-setuptools' 'python-pyjwt' 'python2-pyjwt'
              'python-requests' 'python2-requests' 'python-deprecated' 'python2-deprecated')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/PyGithub/PyGithub/archive/v$pkgver.tar.gz")
-sha512sums=('5d68caf552e479f0702c70ae71103ef10126447e4b972ac4365d819beaf01a12e7a1e141f0f899966c6092aabb8375e53f53ead78be99c1991b991815fc40441')
+sha512sums=('42692b22c8a2ca7c21179d64173b0ab6e934f672abb21125de919b19c4be5b5d972034c2e4e9264c1fc001c2db63d896f841340425cebf97705817414e70aa1d')
 
 prepare() {
   cp -a PyGithub-$pkgver{,-py2}
