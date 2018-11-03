@@ -4,7 +4,7 @@
 pkgname=nuitka
 pkgver=0.6.0.6
 pkgrel=1
-pkgdesc='Python compiler that produces faster executables, but depends on libpython'
+pkgdesc='Python compiler that produces faster executables and depends on libpython'
 arch=('any')
 url='https://nuitka.net/'
 license=('APACHE')
@@ -12,7 +12,7 @@ depends=('python')
 makedepends=('python-setuptools')
 options=('!emptydirs')
 optdepends=('chrpath: for building standalone executables')
-source=("https://nuitka.net/releases/Nuitka-$pkgver.tar.bz2"{,.sig})
+source=("${url}releases/Nuitka-$pkgver.tar.bz2"{,.sig})
 sha256sums=('6d47e2a896f8f2cfd632065e1fbf7d5edc99d325fd4a0805985c149ac6fd011f'
             'SKIP')
 validpgpkeys=('D96ADCA1377F1CEB6B5103F11BFC33752912B99C') # Kay Hayen
@@ -23,5 +23,5 @@ package() {
   python setup.py install --root="$pkgdir" --optimize=1
 }
 
-# getver: -u 3 nuitka.net/pages/download.html
+# getver: nuitka.net/pages/download.html
 # vim: sw=2 ts=2 et:
