@@ -4,7 +4,7 @@
 pkgname=openblas
 _pkgname=OpenBLAS
 pkgver=0.3.3
-pkgrel=1
+pkgrel=2
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD"
 arch=('x86_64')
 url="http://www.openblas.net/"
@@ -27,15 +27,16 @@ build() {
 package() {
   cd "$srcdir/$_pkgname-$pkgver"
 
-  make PREFIX="$pkgdir/usr" NUM_THREADS=64 MAJOR_VERSION=3 install
-  rm -f "$pkgdir/usr/include/cblas.h" "$pkgdir"/usr/include/lapacke*
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  make PREFIX="$pkgdir"/usr NUM_THREADS=64 MAJOR_VERSION=3 install
+  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapacke*
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
-  cd "$pkgdir/usr/lib/"
-  ln -sf libopenblasp-r$pkgver.so libblas.so
-  ln -sf libopenblasp-r$pkgver.so libblas.so.3
-  sed -i -e "s%$pkgdir%%" "$pkgdir/usr/lib/cmake/openblas/OpenBLASConfig.cmake"
-  sed -i -e "s%$pkgdir%%" "$pkgdir/usr/lib/pkgconfig/openblas.pc"
+  cd "$pkgdir"/usr/lib/
+  ln -s libopenblasp-r$pkgver.so libblas.so
+  ln -s libopenblasp-r$pkgver.so libblas.so.3
+  sed -i -e "s%$pkgdir%%" "$pkgdir"/usr/lib/cmake/openblas/OpenBLASConfig.cmake
+  sed -i -e "s%$pkgdir%%" "$pkgdir"/usr/lib/pkgconfig/openblas.pc
+  ln -s openblas.pc "$pkgdir"/usr/lib/pkgconfig/blas.pc
 
   rmdir "$pkgdir"/usr/bin
 }
