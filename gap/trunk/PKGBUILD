@@ -4,33 +4,24 @@
 
 pkgbase=gap
 pkgname=(gap gap-doc gap-packages)
-pkgver=4.9.3
+pkgver=4.10.0
 pkgrel=1
 pkgdesc="Groups, Algorithms, Programming: a system for computational discrete algebra"
 arch=(x86_64)
 url="https://www.gap-system.org/"
 license=(GPL)
-source=("https://www.gap-system.org/pub/gap/gap-${pkgver%.*}/tar.gz/gap-$pkgver.tar.gz" gap-no-packages-by-default.patch
-        gap-polymake-3.1.patch)
-sha256sums=('e502941e52352285e87faaf11e7f0e810eab8e38849d869fc6b9714d6cf7fe7c'
-            'e8f19968d998172b7c289d0499b8b8a05bc31119a1ce073181d3842ece6fe3a2'
-            '6d8d57a9947575a3f95e682172040618be3d6a144424496229ae4ec50c0ab4e9')
-makedepends=(libxaw givaro mpfi normaliz boost c-xsc zeromq fplll polymake wget)
+source=("https://www.gap-system.org/pub/gap/gap-${pkgver%.*}/tar.gz/gap-$pkgver.tar.gz" gap-no-packages-by-default.patch)
+sha256sums=('314b8d949c0bb01ef8bee199b29571d42714df660aba0d76ded254f58295904f'
+            'e8f19968d998172b7c289d0499b8b8a05bc31119a1ce073181d3842ece6fe3a2')
+makedepends=(libxaw givaro mpfi normaliz boost c-xsc zeromq fplll polymake wget chrpath)
 
 prepare() {
   cd gap-$pkgver
 
 # Use system normaliz
   sed -e '/build-normaliz.sh/d' -i bin/BuildPackages.sh
-# Fix build of guava package
-  sed -e '/cd leon make/d' -i pkg/guava-*/src/Makefile
-  sed -e '/AM_INIT_AUTOMAKE/d' -i pkg/guava-*/src/leon/configure.ac
 # Don't load any packages by default
   patch -p1 -i ../gap-no-packages-by-default.patch
-# Fix build of PolymakeInterface with polymake 3.1
-  patch -p1 -i ../gap-polymake-3.1.patch
-# Fix https://bugs.archlinux.org/task/55174
-  sed -e '/xgap/d' -i pkg/sonata/PackageInfo.g
 # Disable anupq package, it's i686 only
   rm -r pkg/anupq-*
 }
@@ -41,11 +32,8 @@ build() {
   make
 
   cd pkg
-  export MAKEFLAGS='-j1' # Fix build of guava package
+  export MAKEFLAGS='-j1' # Fix build of carat package
   ../bin/BuildPackages.sh
-# These packages fail to build:
-# linboxing (doesn't support givaro 4)
-# PolymakeInterface (T_POLYMAKE removed from GAP)
 }
 
 package_gap() {
@@ -54,7 +42,9 @@ package_gap() {
   replaces=(gap-data)
   cd gap-$pkgver
 
-  mkdir -p "$pkgdir"/usr/{bin,lib/gap/pkg}
+  make DESTDIR="$pkgdir" install
+
+  mkdir -p "$pkgdir"/usr/lib/gap/pkg
   cp -r grp lib "$pkgdir"/usr/lib/gap
   cp -r pkg/{GAPDoc-*,primgrp-*,SmallGrp-*,transgrp} "$pkgdir"/usr/lib/gap/pkg
   install -m755 gap -t "$pkgdir"/usr/lib/gap
@@ -74,7 +64,8 @@ package_gap-doc() {
 package_gap-packages() {
   depends=(gap)
   optdepends=('normaliz: Normaliz interface package' 'libxaw: xgap package' 'c-xsc: float package' 'mpfi: float package'
-              'libmpc: float package' 'fplll: float package' 'zeromq: ZeroMQ interface package') # 'polymake: Polymake interface package'
+              'libmpc: float package' 'fplll: float package' 'zeromq: ZeroMQ interface package'
+              'polymake: Polymake interface package' 'curl: curl interface package')
   pkgdesc="Extra packages for GAP"
   cd gap-$pkgver
 
@@ -83,4 +74,11 @@ package_gap-packages() {
 
 # provided by main gap package
   rm -r "$pkgdir"/usr/lib/gap/pkg/{GAPDoc-*,primgrp-*,SmallGrp-*,transgrp}
+
+# fix RPATH
+  chrpath -r \$ORIGIN/../lib/ "$pkgdir"/usr/lib/gap/pkg/semigroups-*/bin/x86_64-pc-linux-gnu-default64/semigroups.so
+  chrpath -d "$pkgdir"/usr/lib/gap/pkg/NormalizInterface-*/bin/x86_64-pc-linux-gnu-default64/NormalizInterface.so
+
+# remove leftover binaries
+  find "$pkgdir"/usr/lib/gap/pkg -name .libs | xargs rm -r
 }
