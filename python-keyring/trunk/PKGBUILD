@@ -1,4 +1,3 @@
-# Maintainer: Felix Yan <felixonmars@archlinux.org>
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
 # Contributor: Johannes Dewender  arch at JonnyJD dot net
 # Contributor: Ivan Sichmann Freitas <ivansichfreitas@gmail.com>
@@ -9,7 +8,7 @@
 pkgbase=python-keyring
 _pkgname=${pkgbase#python-}
 pkgname=(python-$_pkgname python2-$_pkgname)
-pkgver=16.0.0
+pkgver=16.0.2
 pkgrel=1
 pkgdesc="Store and access your passwords safely."
 arch=('any')
@@ -21,11 +20,9 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-entrypoint
 checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python2-pytest-flake8'
               'python2-pytest-runner' 'python-dbus' 'python2-dbus')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
-sha512sums=('d94c0e2ede5779406e61fc5025c55cc42a1f3ceb4d976c5e99ca6e84a9acb8d5d9487ae2222330cef106b06597e729b5d2241eafe5f2a903b982e22f533255b5')
+sha512sums=('9e5c23f0a010a2672961c6f51c3c219fe730b6f81872e12732809fcdf3f4867064bce8d4f0a23569f593522c595e195cde539f7582f14630ac4cd45fa094adaf')
 
 prepare() {
-  echo -e '\nflake8-ignore = W191 W503 W504' >> $_pkgname-$pkgver/pytest.ini
-
   cp -a $_pkgname-$pkgver{,-py2}
 }
 
