@@ -5,8 +5,8 @@
 
 pkgname=dnscrypt-proxy
 pkgver=2.0.17
-pkgrel=1
-pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTP."
+pkgrel=2
+pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTP"
 arch=('x86_64')
 url="https://dnscrypt.info"
 license=('custom:ISC')
@@ -34,15 +34,16 @@ prepare() {
   patch -Np1 -i ../configuration.diff
   # create empty ip-blacklist.txt
   touch "${pkgname}/ip-blacklist.txt"
-  # set GOPATH
-  export GOPATH=`pwd`
   # symlink upstream's vendor to src
   ln -sfv vendor src
 }
 
 build() {
-  cd "$pkgname-$pkgver/${pkgname}"
-  go build -ldflags="-s -w"
+  cd "$pkgname-$pkgver"
+  # set GOPATH
+  export GOPATH=$(pwd)
+  cd "${pkgname}"
+  go build -ldflags="-linkmode external -extldflags ${LDFLAGS} -s -w"
 }
 
 package() {
