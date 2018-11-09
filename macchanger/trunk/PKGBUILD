@@ -3,7 +3,7 @@
 
 pkgname=macchanger
 pkgver=1.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A small utility to change your NIC's MAC address"
 arch=('x86_64')
 #url="http://ftp.gnu.org/gnu/macchanger"
