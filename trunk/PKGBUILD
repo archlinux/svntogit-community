@@ -5,11 +5,11 @@
 pkgname=containerd
 pkgver=1.2.0
 _commit=9f2e07b1fc1342d1c48fe4d7bbb94cb6d1bf278b
-pkgrel=1
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
-makedepends=('go-pie' 'git' 'btrfs-progs')
+makedepends=('go' 'git' 'btrfs-progs' 'libseccomp')
 arch=('x86_64')
 license=("APACHE")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/containerd/containerd/archive/v$pkgver.tar.gz")
@@ -24,9 +24,13 @@ prepare() {
 
 build() {
   export GOPATH="$srcdir"
-  export GOFLAGS="-ldflags=-s -ldflags=-w -gcflags=all=-trimpath=${GOPATH} -asmflags=all=-trimpath=${GOPATH}"
   cd src/github.com/containerd/containerd
   make VERSION=v$pkgver.m REVISION=$_commit.m
+}
+
+check() {
+  cd src/github.com/containerd/containerd
+  make test
 }
 
 package() {
@@ -35,5 +39,3 @@ package() {
   make install DESTDIR="$pkgdir/usr"
   install -Dm644 containerd.service "$pkgdir"/usr/lib/systemd/system/containerd.service
 }
-
-# vim:set ts=2 sw=2 et:
