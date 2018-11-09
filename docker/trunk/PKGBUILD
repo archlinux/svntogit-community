@@ -2,39 +2,29 @@
 
 pkgname=docker
 pkgver=18.09.0
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
 url='https://www.docker.com/'
 license=('Apache')
 depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'libsystemd'
-         'libseccomp' 'libtool')
-makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd')
+         'libseccomp' 'libtool' 'runc' 'containerd')
+makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd' 'go-md2man')
 optdepends=('btrfs-progs: btrfs backend support'
-            'lxc: lxc backend support'
             'pigz: parallel gzip compressor support')
-conflicts=('containerd' 'runc')
 # don't strip binaries! A sha1 is used to check binary consistency.
 options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
-_RUNC_COMMIT=69663f0bd4b60df09991c08812a60108003fa340
-_CONTAINERD_COMMIT=468a545b9edcd5932818eb9de8e72413e616e86e
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
 _LIBNETWORK_COMMIT=6da50d1978302f04c3e2089e29112ea24812f05b
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
-        "git+https://github.com/opencontainers/runc.git#commit=$_RUNC_COMMIT"
-        "git+https://github.com/containerd/containerd.git#commit=$_CONTAINERD_COMMIT"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/spf13/cobra.git"
-        "git+https://github.com/cpuguy83/go-md2man.git"
         "$pkgname.sysusers")
 md5sums=('SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
          'SKIP'
          'SKIP'
          'SKIP'
@@ -60,11 +50,11 @@ build() {
   msg2 'Checking commit mismatch'
   (
   local _cfile
-  for _cfile in runc containerd tini proxy; do
+  for _cfile in tini proxy; do
     . "$srcdir/docker-ce/components/engine/hack/dockerfile/install/$_cfile.installer"
   done
   local _commit _pkgbuild _dockerfile
-  for _commit in RUNC CONTAINERD LIBNETWORK TINI; do
+  for _commit in LIBNETWORK TINI; do
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
     if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
@@ -93,12 +83,6 @@ build() {
     hack/make.sh dynbinary
   _fake_gopath_popd
 
-  ### go-md2man (used for manpages)
-  msg2 'Building go-md2man'
-  _fake_gopath_pushd go-md2man github.com/cpuguy83/go-md2man
-  go get -v ./...
-  _fake_gopath_popd
-
   ### docker man pages
   msg2 'Building man pages'
   mkdir -p src/github.com/spf13
@@ -106,18 +90,6 @@ build() {
   # use docker-ce cli version because they mess up with man dir
   _fake_gopath_pushd docker-ce/components/cli github.com/docker/cli
   make manpages 2>/dev/null
-  _fake_gopath_popd
-
-  ### runc
-  msg2 'Building runc'
-  _fake_gopath_pushd runc github.com/opencontainers/runc
-  make BUILDTAGS='seccomp'
-  _fake_gopath_popd
-
-  ### containerd
-  msg2 'Building containerd'
-  _fake_gopath_pushd containerd github.com/containerd/containerd
-  make
   _fake_gopath_popd
 
   ### docker proxy
@@ -136,12 +108,6 @@ build() {
 }
 
 package() {
-  ### runc
-  install -Dm755 runc/runc "$pkgdir/usr/bin/runc"
-  ### containerd
-  install -Dm755 {containerd,"$pkgdir"/usr}/bin/containerd
-  install -Dm755 {containerd,"$pkgdir"/usr}/bin/containerd-shim
-  install -Dm755 {containerd,"$pkgdir"/usr}/bin/ctr
   ### proxy
   install -Dm755 libnetwork/proxy "$pkgdir/usr/bin/docker-proxy"
   ### init
