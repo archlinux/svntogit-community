@@ -1,49 +1,53 @@
-# $Id$
-# Maintainer: Alexander F Rødseth <xyproto@archlinux.org>
-# Contributor: chiku <chirantan DOT mitra AT gmail DOT com>
+# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
+# Contributor: chiku <chirantan.mitra@gmail.com>
 
 pkgname=ucblogo
 pkgver=6.0
-pkgrel=7
-pkgdesc='Portable interpreter for the Logo programming language'
+pkgrel=8
+pkgdesc='Interpreter for the Logo programming language'
 url='https://www.cs.berkeley.edu/~bh/logo.html'
-arch=('x86_64' 'i686')
+arch=('x86_64')
 license=('GPL')
-depends=('libx11' 'ncurses' 'bash' 'libsm')
+makedepends=('addinclude' 'setconf')
+depends=('libice' 'libsm' 'libx11' 'ncurses')
 source=("https://www.cs.berkeley.edu/~bh/downloads/$pkgname.tar.gz"
-        "$pkgname-$pkgver-no-wxWidgets.patch"
-        "$pkgname-$pkgver-no-texinfo.patch"
-        "$pkgname-$pkgver-include-math.h-earlier.patch"
-        'logo.sh')
+        'https://people.eecs.berkeley.edu/~bh/logo-sample.html'
+        'logo.sh'
+        'no-wx.patch'
+        'no-tex.patch')
 sha256sums=('c659e989e9284efc0f904ebd7de24b559c2d7434a98bb9c92c23e6c11b49cef3'
+            'd3dfeb90e5dd6cae6bc12c8b272e1203a2b2693963670a408d2a190d1ba819ab'
+            'b14dfea1bfc5f04df254e4067d8d6301851d42af6920bdb800fdd8ad4443682b'
             'e360ac71ac785fa8b00b89ff0c5bf8ed738114013143245d3bc0e62eb7d0333d'
-            'e83fb9d656a9064685cde5ebc0ee36242ac848228380b0567fe683901435707c'
-            '1e33b748bdf74550963c4052bf6feab8019cea34afa7b0d4eac71aa60c486583'
-            '3dcf0a5472acda2343ff7d4942ff6589149929a50af92b0994fbb0520d2a3849')
+            'e83fb9d656a9064685cde5ebc0ee36242ac848228380b0567fe683901435707c')
 
 prepare() {
-  patch -Np1 -i "$pkgname-$pkgver-no-wxWidgets.patch"
-  patch -Np1 -i "$pkgname-$pkgver-no-texinfo.patch"
-  patch -Np0 -i "$pkgname-$pkgver-include-math.h-earlier.patch"
+  echo '#!/usr/bin/env logo' >sample.logo
+  head -22 <logo-sample.html | grep -v '<' >>sample.logo
+  cd "$pkgname-$pkgver"
+  patch -Np2 -i ../no-wx.patch
+  patch -Np2 -i ../no-tex.patch
+  addinclude -t coms.c math
+  addinclude -t graphics.c math
+  setconf makefile CFLAGS "$CFLAGS -w -fPIC"
+  setconf svn.c 'char* SVN' '"(1)";'
+  sed -i 's/define HAVE_MATHERR 1/undef HAVE_MATHERR/' config.h
 }
 
 build() {
-  cd "$pkgname-$pkgver"
-
-  make
+  CFLAGS="$CFLAGS -fPIC -w" make -C "$pkgname-$pkgver"
+  rm -rf "$srcdir/$pkgname-$pkgver/csls/CVS"
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-
-  # csls/CVS interferes with make
-  rm -r "$srcdir/$pkgname-$pkgver/csls/CVS"
-  make prefix="$pkgdir/usr" INFODIR="$pkgdir/usr/share/info" install
+  make -C "$pkgname-$pkgver" INFODIR="$pkgdir/usr/share/info" \
+    prefix="$pkgdir/usr" install
   mv "$pkgdir/usr/bin/logo" "$pkgdir/usr/bin/logo.elf"
-  install -Dm755 "$srcdir/logo.sh" "$pkgdir/usr/bin/logo"
+  install -Dm755 logo.sh "$pkgdir/usr/bin/logo"
   install -d "$pkgdir/usr/share/doc"
   mv "$pkgdir/usr/lib/logo/docs" "$pkgdir/usr/share/doc/$pkgname"
   rm "$pkgdir/usr/share/doc/$pkgname/usermanual.ps"
+  install -Dm755 sample.logo "$pkgdir/usr/share/doc/$pkgname/sample.logo"
 }
 
-# vim:set ts=2 sw=2 et:
+# vim: ts=2 sw=2 et:
