@@ -3,7 +3,7 @@
 
 pkgbase=dotnet-core
 pkgname=('dotnet-host' 'dotnet-runtime' 'aspnet-runtime' 'dotnet-sdk')
-pkgver=2.1.5+403
+pkgver=2.1.6+500
 pkgrel=1
 arch=('x86_64')
 url='https://www.microsoft.com/net/core'
@@ -14,8 +14,9 @@ makedepends=(
 )
 options=('staticlibs')
 source=(
-  "dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}"
+  "dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}a"
   'dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git'
+  'dotnet-aspnet-razor::git+https://github.com/aspnet/Razor.git'
   'dotnet-cecil::git+https://github.com/mono/cecil.git'
   'dotnet-cli::git+https://github.com/dotnet/cli.git'
   'dotnet-cli-migrate::git+https://github.com/dotnet/cli-migrate.git'
@@ -34,10 +35,12 @@ source=(
   'dotnet-sdk::git+https://github.com/dotnet/sdk.git'
   'dotnet-standard::git+https://github.com/dotnet/standard.git'
   'dotnet-templating::git+https://github.com/dotnet/templating.git'
+#  'dotnet-toolset::git+https://github.com/dotnet/toolset.git'
   'dotnet-vstest::git+https://github.com/Microsoft/vstest.git'
   'dotnet-websdk::git+https://github.com/aspnet/websdk.git'
   'dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git'
-  'https://download.visualstudio.microsoft.com/download/pr/97fce50e-e736-41c3-a700-d83d43178197/4c00b063affdbc940dd16f62c68d1505/aspnetcore-runtime-2.1.5-linux-x64.tar.gz'
+  'https://download.visualstudio.microsoft.com/download/pr/5ecfed21-c776-4924-b734-126400fd324a/4e1bfb9c870ffcf99b1bf953b91ef072/aspnetcore-runtime-2.1.6-linux-x64.tar.gz'
+  'dotnet.sh'
   'dotnet-coreclr-rid.patch'
 )
 sha256sums=('SKIP'
@@ -63,13 +66,15 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '775bcb800f186461b54f2ca0dc858c2a34dc82f95ad060681e8f440c48c2b291'
+            'SKIP'
+            '3d4a4135627c07716447fd058b91c8c45de6b5c385f1245cae8a7a62dec93ce9'
+            'f4cb02490234b853946477f82514f0c6247b55b08b2e85fae98e99a6e6974edd'
             '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee')
 
 prepare() {
   cd dotnet-source-build
 
-  for submodule in src/{application-insights,cli,cli-migrate,clicommandlineparser,common,core-setup,coreclr,corefx,fsharp,linker,msbuild,newtonsoft-json,nuget-client,roslyn,roslyn-tools,sdk,standard,templating,vstest,websdk,xliff-tasks}; do
+  for submodule in src/{application-insights,aspnet-razor,cli,cli-migrate,clicommandlineparser,common,core-setup,coreclr,corefx,fsharp,linker,msbuild,newtonsoft-json,nuget-client,roslyn,roslyn-tools,sdk,standard,templating,vstest,websdk,xliff-tasks}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../dotnet-${submodule#src/}
     git submodule update
@@ -102,11 +107,11 @@ package_dotnet-host() {
 
   cd dotnet-source-build/bin/x64/Release
 
-  install -dm 755 "${pkgdir}"/{opt/dotnet,usr/bin,usr/share/licenses/dotnet-host}
+  install -dm 755 "${pkgdir}"/{opt/dotnet,usr/share/licenses/dotnet-host}
   tar -C "${pkgdir}"/opt/dotnet -xf dotnet-sdk-${pkgver/[0-9]\+}-linux-x64.tar.gz ./dotnet ./host
   tar -C "${pkgdir}"/usr/share/licenses/dotnet-host -xf dotnet-sdk-${pkgver/[0-9]\+}-linux-x64.tar.gz ./LICENSE.txt ./ThirdPartyNotices.txt
   chown root:root -R "${pkgdir}"/opt/dotnet
-  ln -s /opt/dotnet/dotnet "${pkgdir}"/usr/bin/
+  install -Dm 755 "${srcdir}"/dotnet.sh "${pkgdir}"/usr/bin/dotnet
 }
 
 package_dotnet-runtime() {
