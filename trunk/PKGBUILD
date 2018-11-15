@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2018.2.5
-_build=182.4892.20
+pkgver=2018.2.6
+_build=182.5107.16
 _adt_tools_base_commit=70a9f8b3756d917717a04140b858a23eef5e60ca
 pkgrel=1
 epoch=2
@@ -22,8 +22,8 @@ source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/a
         idea-build.patch
         idea.desktop
         idea.sh)
-sha256sums=('5bf05ce4414a24175106fe3da44ea7915e33f9541733f1484086eeea4446caff'
-            '025d3b032a2ec502762465ada12f885415aab9cc09ed816ca56abe36b0f24410'
+sha256sums=('857b17f539fe6f3ff604f7e7c47f82a15e8cd837d3ec492947ea5c063626b4b1'
+            '856b476804a39b88321057c9a060c4a3f2f41a6534f31ebbac15b561081dbbed'
             'SKIP'
             '3793e8125abb05b1580919017469ada2563a2e5972a8d74666557df60d270cfd'
             'fa9e3cba5e26a7e01cecda867f23467322db123c5553dfbb4f14aae034ccbed7'
@@ -59,6 +59,7 @@ package() {
   ln -s /usr/share/idea/bin/idea.png "${pkgdir}"/usr/share/pixmaps/
   install -Dm 644 ../idea.desktop -t "${pkgdir}"/usr/share/applications/
   install -Dm 755 ../idea.sh "${pkgdir}"/usr/bin/idea
+  install -Dm 644 build.txt -t "${pkgdir}"/usr/share/idea
 }
 
 # vim: ts=2 sw=2 et:
