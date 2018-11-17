@@ -2,7 +2,7 @@
 # Contributor: Martin Devera <devik@cdi.cz>
 
 pkgname=sysstat
-pkgver=11.7.3
+pkgver=12.0.2
 pkgrel=1
 pkgdesc="a collection of performance monitoring tools (iostat,isag,mpstat,pidstat,sadf,sar)"
 arch=('x86_64')
@@ -17,7 +17,7 @@ backup=('etc/conf.d/sysstat'
 	'etc/conf.d/sysstat.ioconf')
 source=("http://pagesperso-orange.fr/sebastien.godard/${pkgname}-${pkgver}.tar.xz"
 	      'lib64-fix.patch')
-sha512sums=('c752ebba4d25a30147e68d0cb44d93020bb9b44823812c99550f6b34b42fc6f015c28ef0e6609a1e33ae6e4de566ae2d0e8a4711e412a4298baf5721dd15d27f'
+sha512sums=('c55c3fb8210f006f70e56c8ef5fe013ad1a9247125e69302f920592288725f76ba268c142f1da6ef078a3cdf75e471921ff41aa8b59b8edff57d3bc5345d36e9'
             '46ec3eebb12232d30cddba60f16a57cd8d625513cf002d9e501797a6660f9da9cb4116ec81d0c292644fb6d91eb05c7be458da667260b238bcfef532a020b114')
 
 prepare() {
