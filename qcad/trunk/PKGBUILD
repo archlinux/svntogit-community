@@ -1,4 +1,3 @@
-# $Id$
 # Maintainer: BlackIkeEagle <ike DOT devolder AT gmail DOT com>
 # Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Stefan Husmann <stefan-husmann@t-online.de>
@@ -6,7 +5,7 @@
 # Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
 
 pkgname=qcad
-pkgver=3.21.3.2
+pkgver=3.21.3.7
 pkgrel=1
 pkgdesc='A 2D CAD package based upon Qt'
 arch=('x86_64')
@@ -15,7 +14,7 @@ license=('GPL3')
 depends=('qt5-script' 'qt5-svg' 'gcc-libs' 'qt5-xmlpatterns' 'qt5-tools')
 makedepends=('glu')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/qcad/qcad/archive/v${pkgver}.tar.gz")
-sha512sums=('84eef0389663919f49ff03a0950b0d167140502c2d039d2533e498de975585c83ed1e2d854601a54f922de2c79a019fae53568931de5e418d82c02cfaf224b52')
+sha512sums=('dd7a0c09f3599c4d44e7274050d0e2f8028035062a7cc1cc3dcdeb353a023a8ec1a35ceb4e259d42d5b623d63d0bb04ca32bbcc2a850f750229e4b629d8a10b4')
 
 prepare() {
   rm *.tar.gz
