@@ -1,4 +1,5 @@
-# Maintainer: Jonathan Steel <jsteel at archlinux.org>
+# Maintainer: Christian Rebischke <chris.rebischke@archlinux.org>
+# Contributor: Jonathan Steel <jsteel at archlinux.org>
 # Contributor: Greg Sutcliffe <puppet-aur (at) emeraldreverie (dot) org>
 # Contributor: Hyacinthe Cartiaux <hyacinthe (dot) cartiaux (at) free (dot) fr>
 # Contributor: Thomas S Hatch <thatch45 (at) Gmail (dot) com>
@@ -6,26 +7,49 @@
 # Contributor: Miah Johnson <miah (at) chia-pet dot org>
 # Contributor: Dave Simons <miouhpi (at) Gmail (dot) com>
 # Contributor: Niels Abspoel <aboe76 (at) Gmail (dot) com>
+# Contributor: Tim Meusel <tim (at) bastelfreak (dot) de>
 
 pkgname=puppet
-pkgver=6.0.3
+pkgver=6.0.4
 pkgrel=1
 pkgdesc="Server automation framework and application"
 arch=('any')
 url="https://puppet.com/products/open-source-projects"
 license=('Apache')
 depends=('facter' 'hiera' 'ruby-semantic_puppet')
+makedepends=('jq' 'git')
 optdepends=('ruby-shadow: user password management')
 backup=('etc/puppetlabs/puppet/auth.conf'
-        'etc/puppetlabs/puppet/puppet.conf')
+        'etc/puppetlabs/puppet/puppet.conf'
+        'etc/puppetlabs/puppet/hiera.yaml')
 install=$pkgname.install
-source=(https://downloads.puppetlabs.com/$pkgname/$pkgname-$pkgver.tar.gz)
-md5sums=('707c0769e4487b07f1b2f8a28f4d8359')
+source=("https://downloads.puppetlabs.com/${pkgname}/${pkgname}-${pkgver}.tar.gz"{,.asc}
+        "https://github.com/puppetlabs/puppet-agent/archive/${pkgver}.tar.gz")
+sha512sums=('fcfc0a9e1a707945c89e3080c1795511fd28143576886552d8e3635d62f526d0b3f9ed2a400ecc0084b63906246cb86e176b288ac049d01d0f9cf47fc65fe332'
+            '1e34f642a29618a732dd91017cb72ac935a46a1dd51d2d945038f4141cd7c5f5b7dc04fc61fc3d3eaf7c88be9af6fc007a4e7bd058a3e8a2585ef0acc464b713'
+            '5daf8c18226ebe832141703dc80c8e894b8bad24b01fd37d49da5a172d4f0bcd1ac8e4542ba6af796726d75fd2431387aff5d8b116cd07771dd252f4dfb4dc45')
 conflicts=('puppet5')
 provides=('puppet')
+validpgpkeys=('6F6B15509CF8E59E6E469F327F438280EF8D349F')
 
 prepare() {
-  cd $pkgname-$pkgver
+  cd "puppet-agent-${pkgver}"
+  for file in configs/components/module-puppetlabs-*_core.json; do
+    regex="git:\/\/github.com\/puppetlabs\/puppetlabs-([a-z]+_core)\.git"                         # Regex to determine the correct directory name of a git repo
+    repo="$(jq --raw-output .url ${file})"                                                        # get the puppet module git url from the json file
+    if [[ "${repo}" =~ $regex ]]; then
+      tag="$(jq --raw-output .ref ${file} | cut -d/ -f3)"                                         # get the puppet module git tag from the json file
+      directory="${BASH_REMATCH[1]}"                                                              # get the name of the repo without 'puppetlabs-'
+      echo "preparing ${directory} with tag ${tag} for vendoring"
+      git -c advice.detachedHead=false clone --quiet "$repo" "--branch=${tag}" "../${directory}"  # clone it so we can later `mv` it into vendor_modules
+      rm -rf "../${directory}/"{.git,spec}                                                        # delete useless directories that we don't want to vendor
+    else
+      echo "something failed with our regex"
+      exit 1
+    fi
+  done
+
+  cd "../${pkgname}-${pkgver}"
 
   # FS#45044: fix file location
   sed -i 's_/opt/puppetlabs/puppet_/usr_' ext/systemd/puppet.service
@@ -55,4 +79,8 @@ package() {
   chmod 750 "$pkgdir"/var/log/puppetlabs/puppet
 
   rm -r "$pkgdir"/var/run
+
+  cd ..
+  install --directory "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/"
+  mv *_core "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/"
 }
