@@ -3,15 +3,21 @@
 
 pkgname=macchanger
 pkgver=1.7.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A small utility to change your NIC's MAC address"
 arch=('x86_64')
 #url="http://ftp.gnu.org/gnu/macchanger"
 url="http://www.gnu.org/software/macchanger"
 license=('GPL')
 depends=('glibc')
-source=("https://github.com/alobbs/macchanger/archive/$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tgz::https://github.com/alobbs/macchanger/archive/$pkgver.tar.gz")
 md5sums=('ebd3c24360454b2684c39d89dcaabac8')
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  # FS#59021
+  sed -i 's|/dev/hwrng|/dev/random|' src/main.c
+}
 
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
