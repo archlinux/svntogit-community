@@ -1,18 +1,27 @@
-# Submitter: Simon Conseil <contact+aur at saimon dot org>
-# Submitter: Jesus Alvarez
-# Maintainer: Danilo Bargen <gezuru@gmail.com>
+# Contributor: Danilo Bargen <gezuru@gmail.com>
+# Contributor: Simon Conseil <contact+aur at saimon dot org>
+# Contributor: Jesus Alvarez
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
 pkgver=0.13.1
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
 makedepends=('python2-setuptools' 'python-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'python-parso' 'python2-parso')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz")
-sha256sums=('e650be5ac603537ebcf31009c3c574909f7fd51a47298406f22f07baa7bdf686')
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz"
+        fix-environment-cache.patch)
+sha256sums=('e650be5ac603537ebcf31009c3c574909f7fd51a47298406f22f07baa7bdf686'
+            '60a051084ffac5cfd411fa0d4e3f4b5ce0da544042d78c8594332f0bc41d394f')
+
+prepare() {
+    cd "$srcdir/jedi-${pkgver}"
+
+    # https://github.com/davidhalter/jedi/pull/1238
+    patch -Np1 -i ../fix-environment-cache.patch
+}
 
 check() {
     cd "$srcdir/jedi-${pkgver}"
