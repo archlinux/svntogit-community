@@ -2,7 +2,7 @@
 
 pkgname=npm
 pkgver=6.4.1
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
