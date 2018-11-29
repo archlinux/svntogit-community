@@ -3,7 +3,7 @@
 
 pkgname=sysstat
 pkgver=12.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc="a collection of performance monitoring tools (iostat,isag,mpstat,pidstat,sadf,sar)"
 arch=('x86_64')
 url="http://pagesperso-orange.fr/sebastien.godard/"
