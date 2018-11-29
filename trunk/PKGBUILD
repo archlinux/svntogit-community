@@ -4,23 +4,24 @@
 
 pkgname=code
 pkgdesc='The Open Source build of Visual Studio Code (vscode) editor'
-pkgver=1.27.2
+pkgver=1.29.1
 pkgrel=1
 arch=('x86_64')
 url='https://github.com/Microsoft/vscode'
 license=('MIT')
 depends=('electron' 'libsecret' 'libxkbfile')
-makedepends=('git' 'gulp' 'npm' 'python2' 'yarn')
+# doesn't build without old nodejs: https://github.com/Microsoft/vscode/issues/49292
+makedepends=('git' 'gulp' 'npm' 'python2' 'yarn' 'nodejs-lts-carbon')
 source=("$pkgname::git+https://github.com/Microsoft/vscode.git#tag=$pkgver"
         'code.js'
         'code.sh'
-        'product_json.patch'
-        'code-liveshare.patch')
+        'product_json.diff'
+        'code-liveshare.diff')
 sha512sums=('SKIP'
-            'd6d76d745372466936e516af7cacd146e7c90def5bba2eb03223b740675b810de00fff79a3f1cc8d29277f1d215ead5096aebb5ebeb52d25d8055e9c0d802bb9'
-            'a857b52b5075bed2df9860da4a9a7772351a1f4226e1bcac4578c31801caec61c785d30f49785c8816709a8d0b11c12696a49c4942c26d130a10618ce2c73d6b'
-            '7f85387542987c45a6d0e23424eda9e702dc9c6a789cde96ed6e5d386bd294eae8a6c7b32c7ae18d8071063e83a1033c215d0f5f5e0b1040466ce4b7c3969f2c'
-            '6080b9d30b2c852a831d4fa98be94e42eb7d94dfd5813bbe28410d031191c20563e4288d6b0062c74b635a962c3eba3533fcebeff1f67b4a8005a167c2f7fbf2')
+            '814c9554427183cd893a33cd2cbe91f6e0ea71921ef0717c86217b1d3058d265f9ff7a9ace3e7b76f122e60b7686475cf4d999e581a1845face3033afb9f745f'
+            '0e75ee88274cbaf48c59ef6f363f6b8ac2ea83f8b17a61155008db773b709a1f0233754fa63a136ec0417313ba90a7eb17db000ec22a38ca8840d8ba6c47cab1'
+            '3c4bf0942ba9f1ba33937cc08e87caa8d6c030b862f99b2bac9ce6665739dd6a5f5a255b617c3f27ffd49df35563efa32f2c1a6240f9e19f16356bb12edac891'
+            '0bd10ca06dea22854e47fc45d833756ee8d7bf714c88f63feef44e0b0b5da052fba3c27d001865e3389f391cd7b888d92dc0ba44029fa5c736225da3cf2f9a46')
 
 # Even though we don't officially support other archs, let's
 # allow the user to use this PKGBUILD to compile the package
@@ -46,7 +47,7 @@ prepare() {
 
   # This patch no longer contains proprietary modifications.
   # See https://github.com/Microsoft/vscode/issues/31168 for details.
-  patch -p0 < ../product_json.patch
+  patch -p1 < ../product_json.diff
 
   # Set the commit and build date
   local _commit=$(git rev-parse HEAD)
@@ -54,7 +55,7 @@ prepare() {
   sed -e "s/@COMMIT@/$_commit/" -e "s/@DATE@/$_datestamp/" -i product.json
 
   # See https://github.com/MicrosoftDocs/live-share/issues/262 for details
-  patch -p1 < ../code-liveshare.patch
+  patch -p1 < ../code-liveshare.diff
 
   # Build native modules for system electron
   local _target=$(</usr/lib/electron/version)
@@ -71,6 +72,11 @@ prepare() {
 }
 
 build() {
+  # https://github.com/mapbox/node-sqlite3/issues/1044
+  mkdir -p path
+  ln -sf /usr/bin/python2 path/python
+  export PATH="$PWD/path:$PATH"
+
   cd $pkgname
 
   yarn install --arch=$_vscode_arch
