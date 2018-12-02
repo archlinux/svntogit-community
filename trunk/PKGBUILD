@@ -2,8 +2,8 @@
 
 pkgbase=python-pyjwt
 pkgname=('python-pyjwt' 'python2-pyjwt')
-pkgver=1.6.4
-pkgrel=2
+pkgver=1.7.0
+pkgrel=1
 pkgdesc='JSON Web Token implementation in Python'
 arch=('any')
 url='https://github.com/jpadilla/pyjwt'
@@ -11,7 +11,7 @@ license=('MIT')
 makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest-runner' 'python2-pytest-runner' 'python-pytest-cov' 'python2-pytest-cov')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/jpadilla/pyjwt/archive/$pkgver.tar.gz")
-sha512sums=('d6c9ff1c281b00e2a2baf0c916d721ecc0c1bdc51fab73a6be91ac8d603bd448cdb3eebe189201039a3cb8504f3dcee9da73c71bc930c37ce29d99d92287ccb7')
+sha512sums=('32110fb92a59bdd17fdbdd64c1025f414d4bf8b111b60b4056be735fb8bb05d416c4383f607b4ba5e1995bf274cc24be3b6e0924206526799dbacab1693deee5')
 
 prepare() {
   sed -i 's/pytest==2.7.3/pytest/' pyjwt-$pkgver/setup.py
