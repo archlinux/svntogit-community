@@ -3,9 +3,9 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2018.2.6
-_build=182.5107.16
-_adt_tools_base_commit=70a9f8b3756d917717a04140b858a23eef5e60ca
+pkgver=2018.3
+_build=183.4284.148
+_adt_tools_base_commit=e841aa025aa62a4250040ca2a538daabbff54cf5
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -15,7 +15,7 @@ license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' 'java-environment=8' 'python' 'sh' 'ttf-font')
-makedepends=('apache-ant' 'git' 'java-openjfx')
+makedepends=('ant' 'git' 'java-openjfx')
 source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/archive/idea/${_build}.tar.gz
         idea-android-${_build}.tar.gz::https://github.com/JetBrains/android/archive/idea/${_build}.tar.gz
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=${_adt_tools_base_commit}"
@@ -34,7 +34,6 @@ prepare() {
   patch -Np1 -i ../idea-build.patch
   echo ${_build} > build.txt
   ln -s "${srcdir}"/android-idea-${_build} android
-  ls -lah android/
   ln -s "${srcdir}"/idea-adt-tools-base android/tools-base
 }
 
