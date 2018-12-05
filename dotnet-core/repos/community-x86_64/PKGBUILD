@@ -2,46 +2,60 @@
 # Contributor: Max Liebkies <mail@maxliebkies.de>
 
 pkgbase=dotnet-core
-pkgname=('dotnet-host' 'dotnet-runtime' 'aspnet-runtime' 'dotnet-sdk')
-pkgver=2.1.6+500
-pkgrel=1
-arch=('x86_64')
-url='https://www.microsoft.com/net/core'
-license=('MIT')
-makedepends=(
-  'clang' 'cmake' 'curl' 'git' 'icu' 'krb5' 'libunwind' 'lldb' 'llvm'
-  'lttng-ust' 'openssl-1.0' 'zlib'
+pkgname=(
+ dotnet-host
+ dotnet-runtime
+ dotnet-sdk
+ aspnet-runtime
 )
-options=('staticlibs')
+pkgver=2.2.0+100
+pkgrel=1
+arch=(x86_64)
+url='https://www.microsoft.com/net/core'
+license=(MIT)
+makedepends=(
+  clang
+  cmake
+  curl
+  git
+  icu
+  krb5
+  libunwind
+  lldb
+  llvm
+  lttng-ust
+  openssl-1.0
+  zlib
+)
+options=(staticlibs)
 source=(
-  "dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}a"
-  'dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git'
-  'dotnet-aspnet-razor::git+https://github.com/aspnet/Razor.git'
-  'dotnet-cecil::git+https://github.com/mono/cecil.git'
-  'dotnet-cli::git+https://github.com/dotnet/cli.git'
-  'dotnet-cli-migrate::git+https://github.com/dotnet/cli-migrate.git'
-  'dotnet-clicommandlineparser::git+https://github.com/dotnet/clicommandlineparser.git'
-  'dotnet-common::git+https://github.com/aspnet/common.git'
-  'dotnet-core-setup::git+https://github.com/dotnet/core-setup.git'
-  'dotnet-coreclr::git+https://github.com/dotnet/coreclr.git'
-  'dotnet-corefx::git+https://github.com/dotnet/corefx.git'
-  'dotnet-fsharp::git+https://github.com/Microsoft/VisualFSharp.git'
-  'dotnet-linker::git+https://github.com/mono/linker.git'
-  'dotnet-msbuild::git+https://github.com/Microsoft/msbuild.git'
-  'dotnet-newtonsoft-json::git+https://github.com/JamesNK/Newtonsoft.Json.git'
-  'dotnet-nuget-client::git+https://github.com/NuGet/NuGet.Client.git'
-  'dotnet-roslyn::git+https://github.com/dotnet/roslyn.git'
-  'dotnet-roslyn-tools::git+https://github.com/dotnet/roslyn-tools.git'
-  'dotnet-sdk::git+https://github.com/dotnet/sdk.git'
-  'dotnet-standard::git+https://github.com/dotnet/standard.git'
-  'dotnet-templating::git+https://github.com/dotnet/templating.git'
-#  'dotnet-toolset::git+https://github.com/dotnet/toolset.git'
-  'dotnet-vstest::git+https://github.com/Microsoft/vstest.git'
-  'dotnet-websdk::git+https://github.com/aspnet/websdk.git'
-  'dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git'
-  'https://download.visualstudio.microsoft.com/download/pr/5ecfed21-c776-4924-b734-126400fd324a/4e1bfb9c870ffcf99b1bf953b91ef072/aspnetcore-runtime-2.1.6-linux-x64.tar.gz'
-  'dotnet.sh'
-  'dotnet-coreclr-rid.patch'
+  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}
+  dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git
+  dotnet-aspnet-razor::git+https://github.com/aspnet/Razor.git
+  dotnet-cecil::git+https://github.com/mono/cecil.git
+  dotnet-cli::git+https://github.com/dotnet/cli.git
+  dotnet-cli-migrate::git+https://github.com/dotnet/cli-migrate.git
+  dotnet-clicommandlineparser::git+https://github.com/dotnet/clicommandlineparser.git
+  dotnet-common::git+https://github.com/aspnet/common.git
+  dotnet-core-setup::git+https://github.com/dotnet/core-setup.git
+  dotnet-coreclr::git+https://github.com/dotnet/coreclr.git
+  dotnet-corefx::git+https://github.com/dotnet/corefx.git
+  dotnet-fsharp::git+https://github.com/Microsoft/VisualFSharp.git
+  dotnet-linker::git+https://github.com/mono/linker.git
+  dotnet-msbuild::git+https://github.com/Microsoft/msbuild.git
+  dotnet-newtonsoft-json::git+https://github.com/JamesNK/Newtonsoft.Json.git
+  dotnet-nuget-client::git+https://github.com/NuGet/NuGet.Client.git
+  dotnet-roslyn::git+https://github.com/dotnet/roslyn.git
+  dotnet-roslyn-tools::git+https://github.com/dotnet/roslyn-tools.git
+  dotnet-sdk::git+https://github.com/dotnet/sdk.git
+  dotnet-standard::git+https://github.com/dotnet/standard.git
+  dotnet-templating::git+https://github.com/dotnet/templating.git
+  dotnet-vstest::git+https://github.com/Microsoft/vstest.git
+  dotnet-websdk::git+https://github.com/aspnet/websdk.git
+  dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git
+  https://download.visualstudio.microsoft.com/download/pr/69ee3993-54fe-4687-9388-25b1e0c888fb/df2ba0637e68f6e8ee212a38756a4002/aspnetcore-runtime-2.2.0-linux-x64.tar.gz
+  dotnet.sh
+  dotnet-coreclr-rid.patch
 )
 sha256sums=('SKIP'
             'SKIP'
@@ -67,7 +81,7 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '3d4a4135627c07716447fd058b91c8c45de6b5c385f1245cae8a7a62dec93ce9'
+            '30af25564a9b71a2033b8ce7f78de2232beca4263dc0d6fbaed1e39610e806aa'
             'f4cb02490234b853946477f82514f0c6247b55b08b2e85fae98e99a6e6974edd'
             '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee')
 
@@ -116,11 +130,18 @@ package_dotnet-host() {
 
 package_dotnet-runtime() {
   pkgdesc='The .NET Core runtime'
-  depends=('dotnet-host' 'icu' 'krb5' 'libunwind' 'openssl-1.0' 'zlib'
-           'libcurl.so')
+  depends=(
+    dotnet-host
+    icu
+    krb5
+    libcurl.so
+    libunwind
+    openssl-1.0
+    zlib
+  )
   optdepends=('lttng-ust: CoreCLR tracing')
-  provides=('dotnet-runtime-2.1')
-  conflicts=('dotnet-runtime-2.1')
+  provides=(dotnet-runtime-2.2)
+  conflicts=(dotnet-runtime-2.2)
 
   cd dotnet-source-build/bin/x64/Release
 
@@ -130,22 +151,11 @@ package_dotnet-runtime() {
   ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-runtime
 }
 
-package_aspnet-runtime() {
-  pkgdesc='The ASP.NET Core runtime'
-  depends=('dotnet-runtime')
-  provides=('aspnet-runtime-2.1')
-  conflicts=('aspnet-runtime-2.1')
-
-  install -dm 755 "${pkgdir}"/{opt/dotnet/shared,usr/share/licenses}
-  cp -dr --no-preserve='ownership' shared/Microsoft.AspNetCore.{All,App} "${pkgdir}"/opt/dotnet/shared/
-  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/aspnet-runtime
-}
-
 package_dotnet-sdk() {
   pkgdesc='The .NET Core SDK'
-  depends=('dotnet-runtime')
-  provides=('dotnet-sdk-2.1')
-  conflicts=('dotnet-sdk-2.1')
+  depends=(dotnet-runtime)
+  provides=(dotnet-sdk-2.2)
+  conflicts=(dotnet-sdk-2.2)
 
   cd dotnet-source-build/bin/x64/Release
 
@@ -153,6 +163,17 @@ package_dotnet-sdk() {
   tar -C "${pkgdir}"/opt/dotnet -xf dotnet-sdk-${pkgver/[0-9]\+}-linux-x64.tar.gz ./sdk
   chown root:root -R "${pkgdir}"/opt/dotnet
   ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-sdk
+}
+
+package_aspnet-runtime() {
+  pkgdesc='The ASP.NET Core runtime'
+  depends=(dotnet-runtime)
+  provides=(aspnet-runtime-2.2)
+  conflicts=(aspnet-runtime-2.2)
+
+  install -dm 755 "${pkgdir}"/{opt/dotnet/shared,usr/share/licenses}
+  cp -dr --no-preserve='ownership' shared/Microsoft.AspNetCore.{All,App} "${pkgdir}"/opt/dotnet/shared/
+  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/aspnet-runtime
 }
 
 # vim: ts=2 sw=2 et:
