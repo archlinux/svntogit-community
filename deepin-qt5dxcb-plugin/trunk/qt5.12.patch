@@ -1,0 +1,143 @@
+diff --git a/platformplugin/dforeignplatformwindow_x11.cpp b/platformplugin/dforeignplatformwindow_x11.cpp
+index 330f1d0..d9cc3e9 100644
+--- a/platformplugin/dforeignplatformwindow_x11.cpp
++++ b/platformplugin/dforeignplatformwindow_x11.cpp
+@@ -148,7 +148,9 @@ void DForeignPlatformWindow::handleConfigureNotifyEvent(const xcb_configure_noti
+     // will make the comparison later.
+     QWindowSystemInterface::handleWindowScreenChanged(window(), newScreen->screen());
+ 
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+     if (m_usingSyncProtocol && m_syncState == SyncReceived)
++#endif
+         m_syncState = SyncAndConfigureReceived;
+ 
+     m_dirtyFrameMargins = true;
+diff --git a/platformplugin/dplatformbackingstorehelper.cpp b/platformplugin/dplatformbackingstorehelper.cpp
+index 1a1dc33..70ae12a 100644
+--- a/platformplugin/dplatformbackingstorehelper.cpp
++++ b/platformplugin/dplatformbackingstorehelper.cpp
+@@ -169,7 +169,12 @@ void DPlatformBackingStoreHelper::resize(const QSize &size, const QRegion &stati
+     VtableHook::callOriginalFun(this->backingStore(), &QPlatformBackingStore::resize, size, staticContents);
+ 
+     QXcbBackingStore *bs = static_cast<QXcbBackingStore*>(backingStore());
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+     QXcbShmImage *shm_image = reinterpret_cast<QXcbShmImage*>(bs->m_image);
++#else
++    struct _QXcbBackingStore { QImage *m_image; }; // Expose m_image
++    QXcbShmImage *shm_image = reinterpret_cast<QXcbShmImage*>(reinterpret_cast<_QXcbBackingStore*>( &bs )->m_image);
++#endif
+ 
+     if (shm_image->m_shm_info.shmaddr) {
+         DPlatformWindowHelper *window_helper = DPlatformWindowHelper::mapped.value(bs->window()->handle());
+diff --git a/platformplugin/linux.pri b/platformplugin/linux.pri
+index bfe8d41..81224c3 100644
+--- a/platformplugin/linux.pri
++++ b/platformplugin/linux.pri
+@@ -28,14 +28,27 @@ contains(QT_CONFIG, xcb-xlib)|qtConfig(xcb-xlib) {
+     DEFINES += XCB_USE_XLIB
+     QMAKE_USE += xcb_xlib
+ 
+-    contains(QT_CONFIG, xinput2)|qtConfig(xinput2) {
+-        DEFINES += XCB_USE_XINPUT2
+-        QMAKE_USE += xinput2
++    greaterThan(QT_MINOR_VERSION, 11) {
++        contains(QT_CONFIG, xcb-xinput)|qtConfig(xcb-xinput) {
++            DEFINES += XCB_USE_XINPUT2
++            QMAKE_USE += xcb_xinput
+ 
+-        !isEmpty(QMAKE_LIBXI_VERSION_MAJOR) {
+-            DEFINES += LIBXI_MAJOR=$$QMAKE_LIBXI_VERSION_MAJOR \
+-                       LIBXI_MINOR=$$QMAKE_LIBXI_VERSION_MINOR \
+-                       LIBXI_PATCH=$$QMAKE_LIBXI_VERSION_PATCH
++            !isEmpty(QMAKE_LIBXI_VERSION_MAJOR) {
++                DEFINES += LIBXI_MAJOR=$$QMAKE_LIBXI_VERSION_MAJOR \
++                           LIBXI_MINOR=$$QMAKE_LIBXI_VERSION_MINOR \
++                           LIBXI_PATCH=$$QMAKE_LIBXI_VERSION_PATCH
++            }
++        }
++    } else {
++        contains(QT_CONFIG, xinput2)|qtConfig(xinput2) {
++            DEFINES += XCB_USE_XINPUT2
++            QMAKE_USE += xinput2
++
++            !isEmpty(QMAKE_LIBXI_VERSION_MAJOR) {
++                DEFINES += LIBXI_MAJOR=$$QMAKE_LIBXI_VERSION_MAJOR \
++                           LIBXI_MINOR=$$QMAKE_LIBXI_VERSION_MINOR \
++                           LIBXI_PATCH=$$QMAKE_LIBXI_VERSION_PATCH
++            }
+         }
+     }
+ }
+diff --git a/platformplugin/windoweventhook.cpp b/platformplugin/windoweventhook.cpp
+index 14196e4..f50988f 100644
+--- a/platformplugin/windoweventhook.cpp
++++ b/platformplugin/windoweventhook.cpp
+@@ -538,7 +538,11 @@ void WindowEventHook::handleXIEnterLeave(xcb_ge_event_t *event)
+     me->QXcbWindow::handleXIEnterLeave(event);
+ }
+ 
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+ void WindowEventHook::windowEvent(QEvent *event)
++#else
++bool WindowEventHook::windowEvent(QEvent *event)
++#endif
+ {
+     switch (event->type()) {
+     case QEvent::DragEnter:
+@@ -557,7 +561,11 @@ void WindowEventHook::windowEvent(QEvent *event)
+ 
+     QXcbWindow *window = static_cast<QXcbWindow*>(reinterpret_cast<QPlatformWindow*>(this));
+ 
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+     window->QXcbWindow::windowEvent(event);
++#else
++    return window->QXcbWindow::windowEvent(event);
++#endif
+ }
+ #endif
+ 
+diff --git a/platformplugin/windoweventhook.h b/platformplugin/windoweventhook.h
+index 03dc526..ac16081 100644
+--- a/platformplugin/windoweventhook.h
++++ b/platformplugin/windoweventhook.h
+@@ -42,7 +42,11 @@ public:
+ #ifdef XCB_USE_XINPUT22
+     void handleXIEnterLeave(xcb_ge_event_t *event);
+ #endif
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+     void windowEvent(QEvent *event);
++#else
++    bool windowEvent(QEvent *event);
++#endif
+ 
+ private:
+     static bool relayFocusToModalWindow(QWindow *w, QXcbConnection *connection);
+diff --git a/platformplugin/xcbnativeeventfilter.cpp b/platformplugin/xcbnativeeventfilter.cpp
+index d032631..7ed5d62 100644
+--- a/platformplugin/xcbnativeeventfilter.cpp
++++ b/platformplugin/xcbnativeeventfilter.cpp
+@@ -87,7 +87,11 @@ bool XcbNativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *
+     xcb_generic_event_t *event = reinterpret_cast<xcb_generic_event_t*>(message);
+     uint response_type = event->response_type & ~0x80;
+ 
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+     if (response_type == m_connection->xfixes_first_event + XCB_XFIXES_SELECTION_NOTIFY) {
++#else
++    if (response_type == m_connection->m_xfixesFirstEvent + XCB_XFIXES_SELECTION_NOTIFY) {
++#endif
+         xcb_xfixes_selection_notify_event_t *xsn = (xcb_xfixes_selection_notify_event_t *)event;
+ 
+         if (xsn->selection == DPlatformIntegration::xcbConnection()->atom(QXcbAtom::_NET_WM_CM_S0)) {
+@@ -241,7 +245,12 @@ void XcbNativeEventFilter::updateXIDeviceInfoMap()
+     xiDeviceInfoMap.clear();
+ 
+     QXcbConnection *xcb_connect = DPlatformIntegration::xcbConnection();
++
++#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
+     Display *xDisplay = static_cast<Display *>(xcb_connect->m_xlib_display);
++#else
++    Display *xDisplay = reinterpret_cast<Display *>(xcb_connect->xlib_display());
++#endif
+     int deviceCount = 0;
+     XIDeviceInfo *devices = XIQueryDevice(xDisplay, XIAllDevices, &deviceCount);
+ 
