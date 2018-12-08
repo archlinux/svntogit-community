@@ -4,17 +4,17 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=18.2.6
+pkgver=18.3.0
 pkgrel=1
 arch=('x86_64')
-makedepends=('python2-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
+makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
              'lib32-libva' 'lib32-wayland' 'wayland-protocols' 'lib32-libglvnd' 'lib32-lm_sensors' 'lib32-libxrandr' 'meson')
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE)
-sha512sums=('a7dd02f67384bb800dff70a0672a968ced96bb438605cdb39bde3e468d4dcf6162414a44e5da1abe7a1831fceb6f23e6c850eb5f80cfc5ee3861c14924c10ed4'
+sha512sums=('6643d8a100c50efee7178fe950e7cccad24c3a98538d3a13c7c6570add30a56776b4e5f279e2b0a20c4038e682e9461ca5a4fd4ac23a7f60d2f4a0c972525c42'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
@@ -155,7 +155,7 @@ package_lib32-mesa() {
   # indirect rendering
   ln -s /usr/lib32/libGLX_mesa.so.0 "${pkgdir}/usr/lib32/libGLX_indirect.so.0"
   
-  rm -rv fakeinstall/etc
+  rm -rv fakeinstall/usr/share/drirc.d
   rm -rv fakeinstall/usr/include
   rm -rv fakeinstall/usr/share
 
