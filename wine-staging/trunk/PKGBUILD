@@ -5,19 +5,18 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=3.21
-_winever=$pkgver
+pkgver=4.0rc1
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
 
-source=(https://dl.winehq.org/wine/source/3.x/wine-$_winever.tar.xz{,.sign}
+source=(https://dl.winehq.org/wine/source/4.0/wine-$_pkgbasever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('dd64a6778bf1b848c8fe14dc26cfca21f6c1c92714ca1b2e932a28560a2adc1f69aa1b2cba250f49a5df4f91a4accde677a2afaf960c200d3998eac1957b5c6b'
+sha512sums=('a380b9fa33a43cf6fa9199db91e31139ea57efd0b63f6b26cef42893995b5bec7492b684df9bc3f3b173988c2b45840533644486b7e58fcc3d513f3a80a8c0a5'
             'SKIP'
-            '17f8194954a420d1424d564ba9ad5e6d4dd574dc38da4895d5b6740c1990f8655cb573bd57c77ace2c78c71da4782b511a5ac937ca1f0fc958e3c925abaeefde'
+            'dc07e69095cc5a0f144e5ff926e90235ec1d6d9574e5b653d5c1a273b54e70074040440cd291958b470c3e6140a2355e09b08283881aa2696653d73634e5351b'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -102,13 +101,13 @@ optdepends=(
   samba           dosbox
 )
 
-provides=("wine=$_winever" "wine-wow64=$_winever")
+provides=("wine=$pkgver" "wine-wow64=$pkgver")
 conflicts=('wine' 'wine-wow64')
 install=wine.install
 
 prepare() {
   # Allow ccache to work
-  mv wine-$_winever $pkgname
+  mv wine-$_pkgbasever $pkgname
 
   # apply wine-staging patchset
   pushd wine-staging-$_pkgbasever/patches
