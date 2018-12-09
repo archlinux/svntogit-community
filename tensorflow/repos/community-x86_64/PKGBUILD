@@ -6,7 +6,7 @@ pkgbase=tensorflow
 pkgname=(tensorflow tensorflow-opt tensorflow-cuda tensorflow-opt-cuda python-tensorflow python-tensorflow-opt python-tensorflow-cuda python-tensorflow-opt-cuda)
 pkgver=1.12.0
 _pkgver=1.12.0
-pkgrel=1
+pkgrel=3
 pkgdesc="Library for computation using data flow graphs for scalable machine learning"
 url="https://www.tensorflow.org/"
 license=('APACHE')
@@ -17,19 +17,25 @@ makedepends=('bazel' 'python-numpy' 'cuda' 'nvidia-utils' 'nccl'
              'python-keras-applications' 'python-keras-preprocessing')
 optdepends=('tensorboard: Tensorflow visualization toolkit')
 source=("https://github.com/tensorflow/tensorflow/archive/v${_pkgver}.tar.gz"
+        # Temp fix for https://github.com/tensorflow/tensorflow/issues/24124
+        https://github.com/bazelbuild/bazel/releases/download/0.19.2/bazel-0.19.2-linux-x86_64
         # python37.patch
         protobuf-version-bump.patch
         protobuf-python37.patch
         protobuf-python37-apply.patch
         # try_import.patch
-        explicitly_import_bazelrc.patch)
+        explicitly_import_bazelrc.patch
+        5b14577d42842871f1cb0eb8dfe77d32db1eb654.patch)
 sha512sums=('b145a9118856aa00a829ab6af89bff4e1e131371c96d77b07532544112803c4574d97ef224b28a64437a2af8db4286786dc0b4123efe110b2aa734b443a7e238'
+            'bd87b7c8c517ff2c4783b7b09c4609e9979d79985ff8ed1d564a8f2f49ad8588bfb72eb5d20b3ecc6c7e7e20b64e79e3913c4705b14d7a330ffbc2a0e09f10c4'
             'b9821d8eed1bb0125ddb8ebc46e8a4b8630789aac9b35aa4ecf24459476370f8b57fcf016952d7b7b61bee4177124abba343b7c9e956645b8895d2680f84e29a'
             'c5e24f584153752e7e22f472c8b0378dce8d0e07fa44598f571d27707d1ac5d0917ca1b6556c59259ef27c1405da6f83b9080ed803550ae6a6121ea3054d3111'
             'e13399375a8d61f695f67be20d86570b0e7e9b8682ea00eb689b3638e2b12ce50cb45fbe46f2ce1b1f065d043a29b8fac1b96eeec01317415ef2d8b51ac8332a'
-            'b4567bef73007c388ae782cda0b9f2e06c7d87de03e97dfd99e258275cd60be8a1fa07359eae24316f9d059e00b6abc632d7c72f84318de1a6f4902f59d6fd8e')
+            'b4567bef73007c388ae782cda0b9f2e06c7d87de03e97dfd99e258275cd60be8a1fa07359eae24316f9d059e00b6abc632d7c72f84318de1a6f4902f59d6fd8e'
+            'b6807d1958f7a53ee5f86a873214ccbe4d648fe9845e9c5e0183feab67e244bcf02af8db0847283383fed627783975a65a39350306f3b21122e7cbd195b84e2e')
 
 prepare() {
+  patch -d tensorflow-${_pkgver} -Np1 -i ${srcdir}/5b14577d42842871f1cb0eb8dfe77d32db1eb654.patch
   # https://github.com/tensorflow/tensorflow/issues/20517
   # patch -d tensorflow-${_pkgver} -Np1 -i ${srcdir}/python37.patch
   # https://github.com/tensorflow/tensorflow/issues/20950
@@ -66,6 +72,8 @@ prepare() {
   export TF_DOWNLOAD_CLANG=0
   export TF_NCCL_VERSION=2.3
   export NCCL_INSTALL_PATH=/usr
+
+  chmod +x "${srcdir}"/bazel-0.19.2-linux-x86_64
 }
 
 build() {
@@ -73,7 +81,7 @@ build() {
   export CC_OPT_FLAGS="-march=x86-64"
   export TF_NEED_CUDA=0
   ./configure
-  bazel build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
+  "${srcdir}"/bazel-0.19.2-linux-x86_64 build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
   bazel-bin/tensorflow/tools/pip_package/build_pip_package ${srcdir}/tmp
 
   cd ${srcdir}/tensorflow-${_pkgver}-cuda
@@ -84,18 +92,18 @@ build() {
   # export CLANG_CUDA_COMPILER_PATH=/usr/bin/clang
   export CUDA_TOOLKIT_PATH=/opt/cuda
   export TF_CUDA_VERSION=$($CUDA_TOOLKIT_PATH/bin/nvcc --version | sed -n 's/^.*release \(.*\),.*/\1/p')
-  export CUDNN_INSTALL_PATH=/opt/cuda
-  export TF_CUDNN_VERSION=$(sed -n 's/^#define CUDNN_MAJOR\s*\(.*\).*/\1/p' $CUDNN_INSTALL_PATH/include/cudnn.h)
+  export CUDNN_INSTALL_PATH=/usr/lib
+  export TF_CUDNN_VERSION=$(sed -n 's/^#define CUDNN_MAJOR\s*\(.*\).*/\1/p' /usr/include/cudnn.h)
   export TF_CUDA_COMPUTE_CAPABILITIES=3.0,3.5,5.2,6.1,6.2,7.0,7.2,7.5
   ./configure
-  bazel build --config=opt --config=cuda //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
+  "${srcdir}"/bazel-0.19.2-linux-x86_64 build --config=opt --config=cuda //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
   bazel-bin/tensorflow/tools/pip_package/build_pip_package ${srcdir}/tmpcuda
 
   cd ${srcdir}/tensorflow-${_pkgver}-opt
   export CC_OPT_FLAGS="-march=haswell"
   export TF_NEED_CUDA=0
   ./configure
-  bazel build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
+  "${srcdir}"/bazel-0.19.2-linux-x86_64 build --config=opt //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
   bazel-bin/tensorflow/tools/pip_package/build_pip_package ${srcdir}/tmpopt
 
   cd ${srcdir}/tensorflow-${_pkgver}-opt-cuda
@@ -106,11 +114,11 @@ build() {
   # export CLANG_CUDA_COMPILER_PATH=/usr/bin/clang
   export CUDA_TOOLKIT_PATH=/opt/cuda
   export TF_CUDA_VERSION=$($CUDA_TOOLKIT_PATH/bin/nvcc --version | sed -n 's/^.*release \(.*\),.*/\1/p')
-  export CUDNN_INSTALL_PATH=/opt/cuda
-  export TF_CUDNN_VERSION=$(sed -n 's/^#define CUDNN_MAJOR\s*\(.*\).*/\1/p' $CUDNN_INSTALL_PATH/include/cudnn.h)
+  export CUDNN_INSTALL_PATH=/usr/lib
+  export TF_CUDNN_VERSION=$(sed -n 's/^#define CUDNN_MAJOR\s*\(.*\).*/\1/p' /usr/include/cudnn.h)
   export TF_CUDA_COMPUTE_CAPABILITIES=3.0,3.5,5.2,6.1,6.2,7.0,7.2,7.5
   ./configure
-  bazel build --config=opt --config=cuda //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
+  "${srcdir}"/bazel-0.19.2-linux-x86_64 build --config=opt --config=cuda //tensorflow:libtensorflow.so //tensorflow/tools/pip_package:build_pip_package
   bazel-bin/tensorflow/tools/pip_package/build_pip_package ${srcdir}/tmpcudaopt
 }
 
