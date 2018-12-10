@@ -1,21 +1,23 @@
-commit 509c540aae4c8af46d8b38b2e971194f345fa6e3
-Author: Felix Yan <felixonmars@archlinux.org>
-Date:   Thu Dec 6 18:32:05 2018 +0800
+From 5e6c084c90f16e2ff245dffe36202eadda8aaa44 Mon Sep 17 00:00:00 2001
+From: Felix Yan <felixonmars@archlinux.org>
+Date: Thu, 06 Dec 2018 18:32:05 +0800
+Subject: [PATCH] Fix compilation under Qt 5.12
 
-    Fix compilation under Qt 5.12
-    
-    Change-Id: I73566dc0686fe8607731dbb1b918429b8b15bd2a
+Change-Id: I73566dc0686fe8607731dbb1b918429b8b15bd2a
+---
 
 diff --git a/platformplugin/dforeignplatformwindow_x11.cpp b/platformplugin/dforeignplatformwindow_x11.cpp
-index 330f1d0..d9cc3e9 100644
+index 330f1d0..e4b10a5 100644
 --- a/platformplugin/dforeignplatformwindow_x11.cpp
 +++ b/platformplugin/dforeignplatformwindow_x11.cpp
-@@ -148,7 +148,9 @@ void DForeignPlatformWindow::handleConfigureNotifyEvent(const xcb_configure_noti
+@@ -148,7 +148,11 @@
      // will make the comparison later.
      QWindowSystemInterface::handleWindowScreenChanged(window(), newScreen->screen());
  
 +#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
      if (m_usingSyncProtocol && m_syncState == SyncReceived)
++#else
++    if (connection()->hasXSync() && m_syncState == SyncReceived)
 +#endif
          m_syncState = SyncAndConfigureReceived;
  
@@ -24,7 +26,7 @@ diff --git a/platformplugin/dplatformbackingstorehelper.cpp b/platformplugin/dpl
 index 1a1dc33..70ae12a 100644
 --- a/platformplugin/dplatformbackingstorehelper.cpp
 +++ b/platformplugin/dplatformbackingstorehelper.cpp
-@@ -169,7 +169,12 @@ void DPlatformBackingStoreHelper::resize(const QSize &size, const QRegion &stati
+@@ -169,7 +169,12 @@
      VtableHook::callOriginalFun(this->backingStore(), &QPlatformBackingStore::resize, size, staticContents);
  
      QXcbBackingStore *bs = static_cast<QXcbBackingStore*>(backingStore());
@@ -3830,7 +3832,7 @@ diff --git a/platformplugin/linux.pri b/platformplugin/linux.pri
 index bfe8d41..59113c1 100644
 --- a/platformplugin/linux.pri
 +++ b/platformplugin/linux.pri
-@@ -28,14 +28,27 @@ contains(QT_CONFIG, xcb-xlib)|qtConfig(xcb-xlib) {
+@@ -28,14 +28,27 @@
      DEFINES += XCB_USE_XLIB
      QMAKE_USE += xcb_xlib
  
@@ -3866,10 +3868,10 @@ index bfe8d41..59113c1 100644
      }
  }
 diff --git a/platformplugin/windoweventhook.cpp b/platformplugin/windoweventhook.cpp
-index 14196e4..f0efcef 100644
+index 14196e4..cc01757 100644
 --- a/platformplugin/windoweventhook.cpp
 +++ b/platformplugin/windoweventhook.cpp
-@@ -275,8 +275,8 @@ void WindowEventHook::handleClientMessageEvent(const xcb_client_message_event_t
+@@ -275,8 +275,8 @@
              const QUrl &url = dropData->property("DirectSaveUrl").toUrl();
  
              if (url.isValid() && drag->xdnd_dragsource) {
@@ -3880,7 +3882,7 @@ index 14196e4..f0efcef 100644
                  QByteArray basename = Utility::windowProperty(drag->xdnd_dragsource, XdndDirectSaveAtom, textAtom, 1024);
                  QByteArray fileUri = url.toString().toLocal8Bit() + "/" + basename;
  
-@@ -538,7 +538,11 @@ void WindowEventHook::handleXIEnterLeave(xcb_ge_event_t *event)
+@@ -538,7 +538,11 @@
      me->QXcbWindow::handleXIEnterLeave(event);
  }
  
@@ -3892,15 +3894,12 @@ index 14196e4..f0efcef 100644
  {
      switch (event->type()) {
      case QEvent::DragEnter:
-@@ -557,7 +561,11 @@ void WindowEventHook::windowEvent(QEvent *event)
+@@ -557,7 +561,7 @@
  
      QXcbWindow *window = static_cast<QXcbWindow*>(reinterpret_cast<QPlatformWindow*>(this));
  
-+#if QT_VERSION < QT_VERSION_CHECK(5, 12, 0)
-     window->QXcbWindow::windowEvent(event);
-+#else
+-    window->QXcbWindow::windowEvent(event);
 +    return window->QXcbWindow::windowEvent(event);
-+#endif
  }
  #endif
  
@@ -3908,7 +3907,7 @@ diff --git a/platformplugin/windoweventhook.h b/platformplugin/windoweventhook.h
 index 03dc526..ac16081 100644
 --- a/platformplugin/windoweventhook.h
 +++ b/platformplugin/windoweventhook.h
-@@ -42,7 +42,11 @@ public:
+@@ -42,7 +42,11 @@
  #ifdef XCB_USE_XINPUT22
      void handleXIEnterLeave(xcb_ge_event_t *event);
  #endif
@@ -3924,7 +3923,7 @@ diff --git a/platformplugin/xcbnativeeventfilter.cpp b/platformplugin/xcbnativee
 index d032631..7ed5d62 100644
 --- a/platformplugin/xcbnativeeventfilter.cpp
 +++ b/platformplugin/xcbnativeeventfilter.cpp
-@@ -87,7 +87,11 @@ bool XcbNativeEventFilter::nativeEventFilter(const QByteArray &eventType, void *
+@@ -87,7 +87,11 @@
      xcb_generic_event_t *event = reinterpret_cast<xcb_generic_event_t*>(message);
      uint response_type = event->response_type & ~0x80;
  
@@ -3936,7 +3935,7 @@ index d032631..7ed5d62 100644
          xcb_xfixes_selection_notify_event_t *xsn = (xcb_xfixes_selection_notify_event_t *)event;
  
          if (xsn->selection == DPlatformIntegration::xcbConnection()->atom(QXcbAtom::_NET_WM_CM_S0)) {
-@@ -241,7 +245,12 @@ void XcbNativeEventFilter::updateXIDeviceInfoMap()
+@@ -241,7 +245,12 @@
      xiDeviceInfoMap.clear();
  
      QXcbConnection *xcb_connect = DPlatformIntegration::xcbConnection();
