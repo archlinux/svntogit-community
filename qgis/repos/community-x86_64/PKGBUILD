@@ -9,13 +9,14 @@
 # Contributor: Eric Forgeot < http://esclinux.tk >
 
 pkgname=qgis
-pkgver=3.2.3
+pkgver=3.4.2
 pkgrel=1
 pkgdesc='Geographic Information System (GIS) that supports vector, raster & database formats'
 url='https://qgis.org/'
 license=(GPL)
 arch=(x86_64)
-depends=(gdal hicolor-icon-theme libzip python-qscintilla-qt5 qca qextserialport qt5-3d qt5-webkit qtkeychain qwtpolar spatialindex python-sip)
+depends=(desktop-file-utils gdal hicolor-icon-theme libzip python-qscintilla-qt5 qca qt5-3d
+         qt5-serialport qt5-webkit qt5-xmlpatterns qtkeychain qwtpolar spatialindex python-sip)
 makedepends=(cmake fcgi gsl python-six qt5-tools txt2tags sip)
 optdepends=('fcgi: Map server'
             'gpsbabel: GPS Tools plugin'
@@ -27,71 +28,28 @@ optdepends=('fcgi: Map server'
             'python-pygments: MetaSearch plugin'
             'python-numpy: Processing plugin'
             'python-yaml: Processing plugin')
-source=("https://qgis.org/downloads/$pkgname-$pkgver.tar.bz2"
-        "qgis-3.2.1-fix-sip-name.patch")
-sha256sums=('c91383185fb20ccdc7c009955aa1855df1d2722d4359bf7f241727c5680ef720'
-            'd53899c59c358d4cffb8a498db4cf431b83880e2a7f26e30b3e784088e68b699')
+source=("https://qgis.org/downloads/$pkgname-$pkgver.tar.bz2")
+sha256sums=('6a7f304985940048046074ad7724da44cbaf857a72e2228163d25153be3e6273')
 
 prepare() {
-  cd $pkgname-$pkgver
-
-  # Find Qt5ExtSerialPort
-  sed -e '/include$/ s/$/\/qt/' \
-      -e 's/qextserialport-1.2/Qt5ExtSerialPort/' \
-      -i cmake/FindQextserialport.cmake
-
-  # Find osgQt
-  sed -e 's/osgQt5 osgQt/osgQt/' \
-      -e 's/osgQt5d osgQtd/osgQt/' \
-      -i src/plugins/globe/CMakeModules/FindOSG.cmake
-
-  # Remove mime types already defined by freedesktop.org
-  sed -e '/type="image\/tiff"/,/<\/mime-type>/d' \
-      -e '/type="image\/jpeg"/,/<\/mime-type>/d' \
-      -e '/type="image\/jp2"/,/<\/mime-type>/d' \
-      -e '/type="application\/x-adobe-mif"/,/<\/mime-type>/d' \
-      -i debian/qgis.xml
-
-  # Fix build
-  patch -Np1 -i ../qgis-3.2.1-fix-sip-name.patch
-
   [[ -d build ]] || mkdir build
 }
 
 build() {
-  cd $pkgname-$pkgver/build
-
-  cmake -G "Unix Makefiles" ../ \
+  cd build
+  cmake -G "Unix Makefiles" ../$pkgname-$pkgver/ \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DWITH_3D=TRUE \
     -DWITH_SERVER=TRUE \
     -DWITH_CUSTOM_WIDGETS=TRUE \
-    -DWITH_INTERNAL_QEXTSERIALPORT=FALSE \
     -DBINDINGS_GLOBAL_INSTALL=TRUE \
     -DQGIS_MANUAL_SUBDIR=share/man \
     -DWITH_QWTPOLAR=TRUE \
     -DWITH_INTERNAL_QWTPOLAR=FALSE
-
   make
-
-  # Rebuild srs database, QGIS distributes an old, buggy one
-  LD_LIBRARY_PATH="$PWD/output/lib/" make synccrsdb
-  mv /tmp/srs.db ../resources/
 }
 
 package() {
-  cd $pkgname-$pkgver/build
+  cd build
   make DESTDIR="$pkgdir" install
-
-  cd "$srcdir/$pkgname-$pkgver"
-
-  # install desktop file and icon
-  install -Dm644 debian/qgis.desktop "$pkgdir/usr/share/applications/qgis.desktop"
-  install -Dm644 images/icons/qgis_icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/qgis.svg"
-
-  # install mime information and icons
-  install -Dm644 debian/qgis.xml -t "$pkgdir/usr/share/mime/packages/"
-  for _type in qgs qlr qml qpt; do
-    install -Dm644 images/icons/qgis_${_type}_icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/mimetypes/qgis-$_type.svg"
-  done
 }
