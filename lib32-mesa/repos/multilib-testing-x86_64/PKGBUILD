@@ -4,7 +4,7 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=18.3.0
+pkgver=18.3.1
 pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
@@ -14,7 +14,7 @@ url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE)
-sha512sums=('6643d8a100c50efee7178fe950e7cccad24c3a98538d3a13c7c6570add30a56776b4e5f279e2b0a20c4038e682e9461ca5a4fd4ac23a7f60d2f4a0c972525c42'
+sha512sums=('a68d39158cf1e868d70730d0641a0cfe4c6e5b3cd1bc0c47f54022402aca03503933084f6ddc722bf88c9b6d1281ba5c847ec4fed8092a9b33f90527d08e12db'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
