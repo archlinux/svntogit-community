@@ -1,9 +1,8 @@
-# $Id$
 # Maintainer: BlackIkeEagle <ike DOT devolder AT gmail DOT com>
 
 pkgname=libftdi-compat
 pkgver=0.20
-pkgrel=5
+pkgrel=6
 pkgdesc="A library to talk to FTDI chips"
 arch=('x86_64')
 url="http://www.intra2net.com/en/developer/libftdi/download.php"
