@@ -3,7 +3,7 @@
 # Contributor: Ner0
 
 pkgname=nemo
-pkgver=4.0.5
+pkgver=4.0.6
 pkgrel=1
 pkgdesc="Cinnamon file manager (Nautilus fork)"
 arch=('x86_64')
@@ -14,7 +14,7 @@ optdepends=('cinnamon-translations: i18n'
             'ffmpegthumbnailer: support for video thumbnails')
 makedepends=('meson' 'gobject-introspection' 'intltool')
 source=("$pkgname-$pkgver.tar.gz::${url}/archive/${pkgver}.tar.gz")
-sha512sums=('8969f53c2714625fdcf6de8140cd062b0f196c64d69f9eea18088ef10a1e3e7ba466af7894b5e32e33db109eacad9e6b58e39e88763490621d8dff7360e63348')
+sha512sums=('87006f345317b37093daed1081880a4c28eb84438b9c43f9b62211824306074969e5e21df57cfc5fa163d66d16bcf7ba6c26674e27353cfd8a91cf2bfe82099f')
 
 prepare() {
     cd "${srcdir}"/${pkgname}-${pkgver}
