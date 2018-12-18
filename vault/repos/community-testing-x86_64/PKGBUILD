@@ -1,0 +1,73 @@
+# Maintainer : Christian Rebischke <Chris.Rebischke@archlinux.org>
+# Contributor: Tim Meusel <tim@bastelfreak.de>
+# Contributor: Sebastian Rakel sebastian@devunit.eu
+
+pkgname='vault'
+pkgdesc='A tool for managing secrets'
+pkgver='1.0.1'
+pkgrel='1'
+url="https://vaultproject.io/"
+license=('MPL')
+arch=('x86_64')
+makedepends=('go-pie' 'git' 'yarn' 'python2' 'bower' 'npm' 'zip')
+depends=('glibc')
+install='vault.install'
+backup=('etc/vault.hcl')
+_vault_commit='08df121c8b9adcc2b8fd55fc8506c3f9714c7e61'
+source=("git+https://github.com/hashicorp/vault#commit=${_vault_commit}"
+        'vault.service'
+        'vault.sysusers'
+        'vault.tmpfiles'
+        'vault.hcl')
+sha512sums=('SKIP'
+            '6619cf57668e995cddb29fb6c388c18c21b251052a53832415e415bb4fe538361ef77b74536f5b082b9cda6cd71b598fc50d8b7f51092c4d60262052c5725af2'
+            '92616ccf83fa5ca9f8b0d022cf8ceb1f3549e12b66bf21d9f77f3eb26bd75ec1dc36c155948ec987c642067b85fbfc30a9217d6c503d952a402aa5ef63e50928'
+            '073f0f400cba78521cd2709ce86d88fbb14125117f9f3beca657f625d04eab8e00f7a01b5d9a1cfc03e9038844f5732bdbb1a85dd65a803d3f0b90f8bf87880e'
+            '46106cc76151eef2dd5e4b2caa6a96aae4d6ce1ecbf977dcc8667a3f6c829cbea95133622adafcb15cdfaa066ecc94c73c983e7613ee2f6573694981569729fe')
+
+prepare () {
+  export GOPATH="${srcdir}"
+  export PATH="$PATH:$GOPATH/bin"
+  mkdir -p src/github.com/hashicorp/
+  mv "${pkgname}" "src/github.com/hashicorp/${pkgname}"
+  # this is temporary
+  go get github.com/kardianos/govendor
+  export PACKAGE_ROOT="${GOPATH}/src/github.com/hashicorp/${pkgname}"
+}
+
+build () {
+  cd $PACKAGE_ROOT
+
+  # We will provide these packages in the future ourself
+  govendor fetch github.com/mitchellh/gox
+  govendor fetch github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs
+  govendor fetch github.com/hashicorp/go-bindata/go-bindata
+
+  cd $PACKAGE_ROOT/vendor/github.com/hashicorp/go-bindata/go-bindata
+  go build
+  go install
+
+  cd $PACKAGE_ROOT/vendor/github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs
+  go build
+  go install
+
+  cd $PACKAGE_ROOT/vendor/github.com/mitchellh/gox
+  go build
+  go install
+
+  cd $PACKAGE_ROOT
+  XC_OSARCH='linux/amd64' make static-dist bin
+}
+
+package () {
+  cd ${PACKAGE_ROOT}
+  install -Dm755 bin/vault "${pkgdir}/usr/bin/vault"
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm644 "${srcdir}/vault.hcl" "${pkgdir}/etc/vault.hcl"
+  install -Dm644 "${srcdir}/vault.service" "${pkgdir}/usr/lib/systemd/system/vault.service"
+  install -Dm644 "${srcdir}/vault.sysusers" "${pkgdir}/usr/lib/sysusers.d/vault.conf"
+  install -Dm644 "${srcdir}/vault.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/vault.conf"
+  for file in README.md CHANGELOG.md ; do
+    install -Dm644 "${file}" "${pkgdir}/usr/share/doc/${pkgname}/${file}"
+  done
+}
