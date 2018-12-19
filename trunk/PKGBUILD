@@ -6,7 +6,7 @@
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
 pkgver=1.0.1
-pkgrel=3
+pkgrel=4
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
@@ -48,7 +48,7 @@ package_python-html5lib() {
     cd "${srcdir}"/html5lib-python-${pkgver}
 
     python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
-    install -Dm755 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+    install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
 package_python2-html5lib() {
@@ -59,5 +59,5 @@ package_python2-html5lib() {
     cd "${srcdir}"/html5lib-python-${pkgver}
 
     python2 setup.py install --root="${pkgdir}" --optimize=1 --skip-build
-    install -Dm755 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+    install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
