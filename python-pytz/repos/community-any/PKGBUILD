@@ -5,7 +5,7 @@
 
 pkgname=('python-pytz' 'python2-pytz')
 pkgver=2018.7
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="http://pypi.python.org/pypi/pytz"
 license=("MIT")
@@ -33,7 +33,7 @@ package_python-pytz(){
 
     python3 setup.py install --root=$pkgdir/
 
-    install -D LICENSE.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
+    install -Dm644 LICENSE.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
 
@@ -45,5 +45,5 @@ package_python2-pytz(){
 
     python2 setup.py install --root="$pkgdir/"
 
-    install -D LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
