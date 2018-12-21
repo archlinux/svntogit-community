@@ -1,0 +1,80 @@
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+
+pkgbase=gimagereader
+pkgname=(gimagereader-gtk gimagereader-qt gimagereader-common)
+pkgver=3.3.0
+pkgrel=1
+url="https://github.com/manisandro/gImageReader"
+pkgdesc="Gtk/Qt front-end to tesseract-ocr"
+arch=(x86_64)
+license=(GPL3)
+depends=(desktop-file-utils djvulibre gtksourceviewmm gtkspellmm libxml++ libzip podofo
+         poppler-glib poppler-qt5 qt5-imageformats qtspell quazip sane tesseract)
+makedepends=(cmake intltool python-gobject)
+source=(https://github.com/manisandro/gImageReader/releases/download/v$pkgver/$pkgbase-$pkgver.tar.xz
+        setlocale.patch
+        openmp.patch)
+sha256sums=('91615af41e89170aadaae68cb0db94eb62abdd5b308e8a5162477ba9baf6efe9'
+            'd007abed0fd16e3db340b3d5114a7de7b7b1cdb858f9fce51655df98a02c1baa'
+            'ee84de7fee390ee54152b4e332e50d8f585b0c9a3aa8b40a04f865b5250607c2')
+
+prepare() {
+  [[ -d build-gtk ]] || mkdir build-gtk
+  [[ -d build-qt ]] || mkdir build-qt
+  [[ -d gimagereader-common ]] || mkdir gimagereader-common
+
+  cd $pkgbase-$pkgver
+
+  # Set locale to C before constructing TessBaseAPI
+  # https://github.com/manisandro/gImageReader/issues/375
+  patch -Np1 -i ../setlocale.patch
+
+  # Run OpenMP once before calling tesseract
+  # https://github.com/manisandro/gImageReader/issues/285
+  patch -Np1 -i ../openmp.patch
+}
+
+build() {
+  cd build-gtk
+  cmake -G "Unix Makefiles" ../$pkgbase-$pkgver/ \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DINTERFACE_TYPE=gtk
+  make
+
+  cd ../build-qt
+  cmake -G "Unix Makefiles" ../$pkgbase-$pkgver/ \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DINTERFACE_TYPE=qt5
+  make
+}
+
+package_gimagereader-gtk() {
+  pkgdesc="Gtk front-end to tesseract-ocr"
+  depends=(gimagereader-common djvulibre gtksourceviewmm gtkspellmm libxml++ libzip podofo poppler-glib sane tesseract)
+
+  cd build-gtk
+  make DESTDIR="$pkgdir" install
+
+  # Split gimagereader-common
+  mv "$pkgdir"/usr/share/{doc,icons,locale} \
+     "$srcdir/gimagereader-common/"
+}
+
+package_gimagereader-qt() {
+  pkgdesc="Qt front-end to tesseract-ocr"
+  depends=(gimagereader-common desktop-file-utils djvulibre podofo poppler-qt5 qt5-imageformats qtspell quazip sane tesseract)
+
+  cd build-qt
+  make DESTDIR="$pkgdir" install
+
+  # Split gimagereader-common
+  rm -r "$pkgdir"/usr/share/{doc,icons,locale}
+}
+
+package_gimagereader-common() {
+  pkgdesc="Common files for gImageReader"
+  depends=(hicolor-icon-theme)
+
+  mkdir -p "$pkgdir"/usr/share
+  mv gimagereader-common/* "$pkgdir/usr/share"
+}
