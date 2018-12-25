@@ -1,0 +1,131 @@
+From f37b5b726afbac660c60260b6b4cddc34da73226 Mon Sep 17 00:00:00 2001
+From: vboxsync <vboxsync@cfe28804-0f27-0410-a406-dd0f0b0b656f>
+Date: Thu, 22 Nov 2018 14:08:09 +0000
+Subject: [PATCH] iprt: adjust time-r0drv-linux.c for Linux 4.20. bugref:4567:
+ Linux kernel driver maintainance. Routine ktime_get_real_ts() must be
+ replaced by ktime_get_real_ts64(). Thank you Larry Finger for the patch. 
+ (Adjusted before applying.)
+
+git-svn-id: http://www.virtualbox.org/svn/vbox@75665 cfe28804-0f27-0410-a406-dd0f0b0b656f
+---
+ include/iprt/time.h                             |  8 ++++++++
+ src/VBox/Runtime/r0drv/linux/time-r0drv-linux.c | 11 ++++++++++-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/include/iprt/time.h b/include/iprt/time.h
+index 080accf968..44b5f4f73b 100644
+--- a/include/iprt/time.h
++++ b/include/iprt/time.h
+@@ -428,6 +428,14 @@ DECLINLINE(PRTTIMESPEC) RTTimeSpecSetTimespec(PRTTIMESPEC pTime, const struct ti
+ {
+     return RTTimeSpecAddNano(RTTimeSpecSetSeconds(pTime, pTimespec->tv_sec), pTimespec->tv_nsec);
+ }
++
++
++# ifdef _LINUX_TIME64_H
++DECLINLINE(PRTTIMESPEC) RTTimeSpecSetTimespec64(PRTTIMESPEC pTime, const struct timespec64 *pTimeval)
++{
++    return RTTimeSpecAddNano(RTTimeSpecSetSeconds(pTime, pTimeval->tv_sec), pTimeval->tv_nsec);
++}
++# endif
+ #endif /* various ways of detecting struct timespec */
+ 
+ 
+diff --git a/src/VBox/Runtime/r0drv/linux/time-r0drv-linux.c b/src/VBox/Runtime/r0drv/linux/time-r0drv-linux.c
+index 5b1baadcdd..1a9b56d339 100644
+--- a/src/VBox/Runtime/r0drv/linux/time-r0drv-linux.c
++++ b/src/VBox/Runtime/r0drv/linux/time-r0drv-linux.c
+@@ -171,11 +171,20 @@ RTDECL(PRTTIMESPEC) RTTimeNow(PRTTIMESPEC pTime)
+ {
+     IPRT_LINUX_SAVE_EFL_AC();
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 16)
++/* On Linux 4.20, time.h includes time64.h and we have to use 64-bit times. */
++# ifdef _LINUX_TIME64_H
++    struct timespec64 Ts;
++    ktime_get_real_ts64(&Ts);
++# else
+     struct timespec Ts;
+     ktime_get_real_ts(&Ts);
++# endif
+     IPRT_LINUX_RESTORE_EFL_AC();
++# ifdef _LINUX_TIME64_H
++    return RTTimeSpecSetTimespec64(pTime, &Ts);
++#else
+     return RTTimeSpecSetTimespec(pTime, &Ts);
+-
++#endif
+ #else   /* < 2.6.16 */
+     struct timeval Tv;
+     do_gettimeofday(&Tv);
+From ffc1396e3e550960da9944488e173bd0049b4825 Mon Sep 17 00:00:00 2001
+From: vboxsync <vboxsync@cfe28804-0f27-0410-a406-dd0f0b0b656f>
+Date: Fri, 23 Nov 2018 11:17:22 +0000
+Subject: [PATCH] NetAdp: Linux 4.20 compatibility fix (bugref:4567) In struct
+ ethtool_ops, the get_settings member is renamed get_link_ksettings. Inspired
+ by Larry Finger's patch. Thank you Larry Finger
+
+git-svn-id: http://www.virtualbox.org/svn/vbox@75684 cfe28804-0f27-0410-a406-dd0f0b0b656f
+---
+ .../VBoxNetAdp/linux/VBoxNetAdp-linux.c       | 26 +++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+
+diff --git a/src/VBox/HostDrivers/VBoxNetAdp/linux/VBoxNetAdp-linux.c b/src/VBox/HostDrivers/VBoxNetAdp/linux/VBoxNetAdp-linux.c
+index 881103a12f..16d8996623 100644
+--- a/src/VBox/HostDrivers/VBoxNetAdp/linux/VBoxNetAdp-linux.c
++++ b/src/VBox/HostDrivers/VBoxNetAdp/linux/VBoxNetAdp-linux.c
+@@ -84,7 +84,11 @@ static long VBoxNetAdpLinuxIOCtlUnlocked(struct file *pFilp,
+ #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36) */
+ 
+ static void vboxNetAdpEthGetDrvinfo(struct net_device *dev, struct ethtool_drvinfo *info);
++# if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
++static int vboxNetAdpEthGetLinkSettings(struct net_device *pNetDev, struct ethtool_link_ksettings *pLinkSettings);
++#else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0) */
+ static int vboxNetAdpEthGetSettings(struct net_device *dev, struct ethtool_cmd *cmd);
++#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0) */
+ 
+ 
+ /*********************************************************************************************************************************
+@@ -133,7 +137,11 @@ static struct ethtool_ops gEthToolOpsVBoxNetAdp =
+ # endif
+ {
+     .get_drvinfo        = vboxNetAdpEthGetDrvinfo,
++# if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
++    .get_link_ksettings = vboxNetAdpEthGetLinkSettings,
++# else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0) */
+     .get_settings       = vboxNetAdpEthGetSettings,
++# endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0) */
+     .get_link           = ethtool_op_get_link,
+ };
+ 
+@@ -205,6 +213,23 @@ static void vboxNetAdpEthGetDrvinfo(struct net_device *pNetDev, struct ethtool_d
+ }
+ 
+ 
++# if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
++/* ethtool_ops::get_link_ksettings */
++static int vboxNetAdpEthGetLinkSettings(struct net_device *pNetDev, struct ethtool_link_ksettings *pLinkSettings)
++{
++    /* We just need to set field we care for, the rest is done by ethtool_get_link_ksettings() helper in ethtool. */
++    ethtool_link_ksettings_zero_link_mode(pLinkSettings, supported);
++    ethtool_link_ksettings_zero_link_mode(pLinkSettings, advertising);
++    ethtool_link_ksettings_zero_link_mode(pLinkSettings, lp_advertising);
++    pLinkSettings->base.speed       = SPEED_10;
++    pLinkSettings->base.duplex      = DUPLEX_FULL;
++    pLinkSettings->base.port        = PORT_TP;
++    pLinkSettings->base.phy_address = 0;
++    pLinkSettings->base.transceiver = XCVR_INTERNAL;
++    pLinkSettings->base.autoneg     = AUTONEG_DISABLE;
++    return 0;
++}
++#else /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0) */
+ /* ethtool_ops::get_settings */
+ static int vboxNetAdpEthGetSettings(struct net_device *pNetDev, struct ethtool_cmd *cmd)
+ {
+@@ -224,6 +249,7 @@ static int vboxNetAdpEthGetSettings(struct net_device *pNetDev, struct ethtool_c
+     cmd->maxrxpkt       = 0;
+     return 0;
+ }
++#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 20, 0) */
+ 
+ 
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
