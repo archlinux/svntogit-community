@@ -5,8 +5,8 @@
 
 pkgname=darktable
 epoch=2
-pkgver=2.4.4
-pkgrel=2
+pkgver=2.6.0
+pkgrel=1
 pkgdesc="Utility to organize and develop raw images"
 arch=('x86_64')
 url="https://darktable.org"
@@ -14,10 +14,9 @@ license=('GPL3')
 depends=('pugixml' 'libjpeg-turbo' 'colord-gtk' 'libgphoto2' 'openexr' 'lensfun' 'iso-codes'
          'exiv2' 'flickcurl' 'openjpeg2' 'graphicsmagick' 'lua' 'osm-gps-map' 'libsecret')
 makedepends=('cmake' 'intltool' 'desktop-file-utils' 'llvm' 'clang' 'python-jsonschema' 'libwebp')
-source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver/rc/.rc}.tar.xz"{,.asc})
-sha256sums=('964320b8c9ffef680fa0407a6ca16ed5136ad1f449572876e262764e78acb04d'
-            'SKIP')
-validpgpkeys=('C4CBC150699956E2A3268EF5BB5CC8295B1779C9')
+source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver/rc/.rc}.tar.xz") #{,.asc})
+sha256sums=('483d7d8e4ac532d89efc2f24e169f7a7da2d3ef0c599602b658d67a040670478') # 'SKIP')
+#validpgpkeys=('C4CBC150699956E2A3268EF5BB5CC8295B1779C9')
 
 prepare() {
     mkdir -p build
@@ -31,9 +30,10 @@ build() {
         -DCMAKE_BUILD_TYPE=Release \
         -DBINARY_PACKAGE_BUILD=1 \
         -DBUILD_USERMANUAL=False \
-        -DUSE_LIBSECRET=On \
-        -DUSE_LUA=On \
-        -DUSE_COLORD=On \
+        -DUSE_LIBSECRET=ON \
+        -DUSE_LUA=ON \
+        -DUSE_COLORD=ON \
+        -DRAWSPEED_ENABLE_LTO=ON \
         -DPROJECT_VERSION=${pkgver}
     make
 }
