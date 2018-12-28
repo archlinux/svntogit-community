@@ -10,6 +10,7 @@ arch=('x86_64')
 url=https://www.dulwich.io
 license=('GPL')
 depends=('python-certifi' 'python-urllib3')
+checkdepends=('python-mock')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('5e1e39555f594939a8aff1ca08b3bdf6c7efd4b941c2850760983a0197240974')
 
