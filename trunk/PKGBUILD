@@ -11,7 +11,7 @@
 # need this again at some point in the future.
 pkgname=gitlab
 pkgver=11.6.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
