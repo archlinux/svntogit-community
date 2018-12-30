@@ -1,0 +1,54 @@
+From b3997f5be93f727be2047e8e27ed0b5b3873af55 Mon Sep 17 00:00:00 2001
+From: zccrs <ccrr1314@live.com>
+Date: Fri, 22 Jun 2018 08:58:22 +0800
+Subject: [PATCH] fix: failed when insert the module on 4.17 version kernel
+
+sys_umount is removed
+see: https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/commit/?id=3a18ef5c1b3935cb05888fc37964321f7bd6231d
+
+Change-Id: Id865b20514248b432a49c4659bf91b0da037679f
+---
+
+diff --git a/kernelmod/vfs_kretprobes.c b/kernelmod/vfs_kretprobes.c
+index ddc264b..6744a35 100644
+--- a/kernelmod/vfs_kretprobes.c
++++ b/kernelmod/vfs_kretprobes.c
+@@ -8,6 +8,7 @@
+ #include <linux/list.h>
+ #include <linux/uaccess.h>
+ #include <linux/namei.h>
++#include <linux/version.h>
+ 
+ #include "arg_extractor.h"
+ #include "vfs_change_consts.h"
+@@ -18,14 +19,16 @@
+ 	char dir_name[NAME_MAX];
+ } do_mount_args;
+ 
+-#define DECL_CMN_KRP(fn) static struct kretprobe fn##_krp = {\
++#define _DECL_CMN_KRP(fn, symbol) static struct kretprobe fn##_krp = {\
+ 	.entry_handler	= on_##fn##_ent,\
+ 	.handler		= on_##fn##_ret,\
+ 	.data_size		= sizeof(fn##_args),\
+ 	.maxactive		= 64,\
+-	.kp.symbol_name = ""#fn"",\
++	.kp.symbol_name = ""#symbol"",\
+ };
+ 
++#define DECL_CMN_KRP(fn) _DECL_CMN_KRP(fn, fn)
++
+ static DEFINE_SPINLOCK(sl_parts);
+ static LIST_HEAD(partitions);
+ 
+@@ -207,7 +210,11 @@
+ }
+ 
+ DECL_CMN_KRP(do_mount);
++#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)
+ DECL_CMN_KRP(sys_umount);
++#else
++_DECL_CMN_KRP(sys_umount, ksys_umount);
++#endif
+ 
+ typedef struct __vfs_op_args__ {
+ 	unsigned char major, minor;
