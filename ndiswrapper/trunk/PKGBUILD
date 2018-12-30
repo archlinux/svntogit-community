@@ -1,17 +1,16 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 # Contributor: maz-1 <loveayawaka@gmail.com>
 
-pkgname=ndiswrapper-dkms
+pkgbase=ndiswrapper
+pkgname=(ndiswrapper-module ndiswrapper-dkms ndiswrapper)
 pkgver=1.61
+_extramodules=extramodules-ARCH
 pkgrel=4
-pkgdesc="Module for NDIS (Windows Network Drivers) drivers supplied by vendors.Use with DKMS"
+pkgdesc="Module for NDIS (Windows Network Drivers) drivers supplied by vendors"
 arch=('x86_64')
 url="http://sourceforge.net/projects/ndiswrapper/"
 license=('GPL')
-depends=('dkms')
-# optdepends=('ndisgtk: GTK+ based frontend for ndiswrapper.')
-provides=('ndiswrapper')
-conflicts=('ndiswrapper')
+makedepends=('linux>=4.19.12' 'linux-headers>=4.19.12')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pgiri/ndiswrapper/archive/v$pkgver.tar.gz"
         'dkms.conf' 'linux-4.11.patch' 'linux-4.13.patch' 'linux-4.15.patch')
 sha512sums=('85f550f2952137529e0e9855f4d94b7bbc64cbf8a84a31c1b75a4be09d97478a997e64fa6e1ff4e0d29a97a79fc3d4dab1ebdaa9edb3d627a215f47aa4d52823'
@@ -27,17 +26,41 @@ prepare() {
 
   cd ndiswrapper
   patch --no-backup-if-mismatch -p1 -i "$srcdir"/linux-4.15.patch
+
+  cp -a driver driver-dkms
 }
 
 build() {
+  _kernver="$(cat /usr/lib/modules/$_extramodules/version)"
+
   cd ndiswrapper-$pkgver/ndiswrapper
   make -C utils
+  make -C driver KVERS_UNAME="$_kernver"
 }
 
-package() {
+package_ndiswrapper-module() {
+  depends=('linux>=4.19.12' 'linux<4.20')
+
+  cd ndiswrapper-$pkgver/ndiswrapper/driver
+  install -dm 755 "$pkgdir"/usr/lib/{modules/$_extramodules,modules-load.d}
+  install -m 644 ${pkgname%-*}.ko "$pkgdir"/usr/lib/modules/$_extramodules/
+  gzip "$pkgdir"/usr/lib/modules/$_extramodules/${pkgname%-*}.ko
+}
+
+package_ndiswrapper-dkms() {
+  depends=('dkms')
+  provides=('ndiswrapper-module')
+  conflicts=('ndiswrapper-module')
+
   cd ndiswrapper-$pkgver/ndiswrapper
   mkdir -p "$pkgdir"/usr/src
-  cp -RL ./driver "$pkgdir"/usr/src/ndiswrapper-$pkgver
+  cp -RL ./driver-dkms "$pkgdir"/usr/src/ndiswrapper-$pkgver
   cp "$srcdir"/dkms.conf "$pkgdir"/usr/src/ndiswrapper-$pkgver
+}
+
+package_ndiswrapper() {
+  depends=('ndiswrapper-module')
+
+  cd ndiswrapper-$pkgver/ndiswrapper
   make -C utils sbindir=/usr/bin usrsbindir=/usr/bin DESTDIR="$pkgdir" install
 }
