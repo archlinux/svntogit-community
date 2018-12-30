@@ -1,27 +1,19 @@
+# Maintainer: Jelle van der Waa <jelle@archlinux.org>
 # Contributor: Danilo Bargen <gezuru@gmail.com>
 # Contributor: Simon Conseil <contact+aur at saimon dot org>
 # Contributor: Jesus Alvarez
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
-pkgver=0.13.1
-pkgrel=2
+pkgver=0.13.2
+pkgrel=1
 arch=('any')
 url="https://github.com/davidhalter/jedi"
 license=('MIT')
 makedepends=('python2-setuptools' 'python-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'python-parso' 'python2-parso')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz"
-        fix-environment-cache.patch)
-sha256sums=('e650be5ac603537ebcf31009c3c574909f7fd51a47298406f22f07baa7bdf686'
-            '60a051084ffac5cfd411fa0d4e3f4b5ce0da544042d78c8594332f0bc41d394f')
-
-prepare() {
-    cd "$srcdir/jedi-${pkgver}"
-
-    # https://github.com/davidhalter/jedi/pull/1238
-    patch -Np1 -i ../fix-environment-cache.patch
-}
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz")
+sha256sums=('434f1a6a6afb7477f5b2934da7822fcdbe7d962abf0cec9f391117df493dde0c')
 
 check() {
     cd "$srcdir/jedi-${pkgver}"
