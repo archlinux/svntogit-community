@@ -3,8 +3,8 @@
 
 pkgbase=python-msgpack
 pkgname=('python-msgpack' 'python2-msgpack')
-pkgver=0.5.6
-pkgrel=2
+pkgver=0.6.0
+pkgrel=1
 
 url='https://github.com/msgpack/msgpack-python'
 arch=('x86_64')
@@ -13,9 +13,9 @@ license=('Apache')
 makedepends=('cython' 'cython2' 'python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'python-six' 'python2-six')
 
-source=(msgpack-python-$pkgver.tar.gz::https://github.com/msgpack/msgpack-python/archive/$pkgver.tar.gz)
+source=(msgpack-python-$pkgver.tar.gz::https://github.com/msgpack/msgpack-python/archive/v$pkgver.tar.gz)
 
-md5sums=('e05e0edfebdd32d11b02bea88381595e')
+md5sums=('4b1c5db81133f9992179aa773e6ed3a0')
 
 build() {
   cd msgpack-python-$pkgver
@@ -27,9 +27,7 @@ build() {
 
 check() {
   cd msgpack-python-$pkgver
-  msg2 'python'
   PYTHONPATH=$PWD/build/python py.test test
-  msg2 'python2'
   PYTHONPATH=$PWD/build/python2 py.test2 test
 }
 
