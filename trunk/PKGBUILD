@@ -3,8 +3,8 @@
 
 pkgbase=python-sphinx-alabaster-theme
 pkgname=(python-sphinx-alabaster-theme python2-sphinx-alabaster-theme)
-pkgver=0.7.11
-pkgrel=2
+pkgver=0.7.12
+pkgrel=1
 
 pkgdesc="Sphinx default theme"
 url='https://github.com/bitprophet/alabaster'
@@ -15,7 +15,7 @@ makedepends=('python-setuptools' 'python2-setuptools')
 
 source=("https://pypi.org/packages/source/a/alabaster/alabaster-$pkgver.tar.gz")
 
-md5sums=('a23493869f819326a7f62deb7dbdb849')
+md5sums=('3591827fde96d1dd23970fb05410ed04')
 
 build() {
 	cp -r alabaster-"$pkgver" alabaster-"$pkgver"-py2
