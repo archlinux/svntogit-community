@@ -2,6 +2,7 @@
 
 pkgbase=linux-tools
 pkgname=(
+  'bpf'
   'cgroup_event_listener'
   'cpupower'
   'hyperv'
@@ -13,7 +14,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=4.19
+pkgver=4.20
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -117,12 +118,22 @@ build() {
   pushd linux/tools/hv
   CFLAGS+=' -DKVP_SCRIPTS_PATH=/usr/lib/hyperv/kvp_scripts/' make
   popd
+
+  msg2 'bpf'
+  pushd linux/tools/bpf
+  # doesn't compile when we don't first compile bpftool in its directory
+  cd bpftool
+  make
+  cd ..
+  make
+  popd
 }
 
 package_linux-tools-meta() {
   pkgdesc='Linux kernel tools meta package'
   groups=()
   depends=(
+    'bpf'
     'cgroup_event_listener'
     'cpupower'
     'hyperv'
@@ -254,6 +265,17 @@ package_hyperv() {
     install -Dm755 "$_p" "$pkgdir/usr/bin/$_p"
   done
   install -dm755 "$pkgdir/usr/lib/hyperv/kvp_scripts"
+}
+
+package_bpf() {
+  pkgdesc='BPF tools'
+  depends=('glibc')
+
+  cd linux/tools/bpf
+  make install prefix=/usr DESTDIR="$pkgdir"
+  # fix bpftool hard written path
+  mv "$pkgdir"/usr/sbin/bpftool "$pkgdir"/usr/bin/bpftool
+  rmdir "$pkgdir"/usr/sbin
 }
 
 # vim:set ts=2 sw=2 et:
