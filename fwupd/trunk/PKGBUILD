@@ -2,7 +2,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.2.2
+pkgver=1.2.3
 pkgrel=1
 pkgdesc="A simple daemon to allow session software to update firmware"
 arch=('x86_64')
@@ -17,7 +17,7 @@ makedepends=('meson' 'valgrind' 'gobject-introspection' 'gtk-doc'
 checkdepends=('umockdev')
 backup=('etc/fwupd/daemon.conf' 'etc/fwupd/uefi.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('593d8ad46379d6f75636f14f67eccaa8562e0c17bf44f575728dc4f90a2689d3' 'SKIP')
+sha256sums=('541343f6ae677a8619ce9ac6b52a4bb6f0993c7b53d4954dc25035cb6c7c1787' 'SKIP')
 validpgpkeys=('163EB50119225DB3DF8F49EA17ACBA8DFA970E17') # Richard Hughes <richard@hughsie.com>
 
 build() {
