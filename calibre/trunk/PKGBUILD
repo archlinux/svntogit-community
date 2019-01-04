@@ -7,13 +7,13 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.36.0
+pkgver=3.37.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
 license=('GPL3')
-depends=('python2-six' 'python2-dateutil' 'python2-cssutils' 'python2-dukpy'
+depends=('python2-six' 'python2-dateutil' 'python2-css-parser' 'python2-dukpy'
          'python2-mechanize' 'podofo' 'libwmf' 'jxrlib'
          'chmlib' 'python2-lxml' 'libusbx' 'python2-html5-parser'
          'python2-pillow' 'shared-mime-info' 'python2-dnspython' 'python2-msgpack'
@@ -27,7 +27,7 @@ optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
-sha256sums=('68cd787db3eafc2907e2e62b6bf895836c880f6bc91686de1b6ace9dc4226e39'
+sha256sums=('0544fc8c10f7fa29b998ab53b5058a27107b5d26da590011f08dc6f2943c518b'
             'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
