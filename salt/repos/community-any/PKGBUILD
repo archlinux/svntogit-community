@@ -5,7 +5,7 @@
 
 pkgname=salt
 pkgver=2018.3.3
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -29,14 +29,19 @@ depends=('python2-jinja'
 optdepends=('dmidecode: decode SMBIOS/DMI tables'
             'python2-pygit2: gitfs support')
 
-backup=('etc/salt/master'
+backup=('etc/logrotate.d/salt'
+        'etc/salt/master'
         'etc/salt/minion')
 
 install=salt.install
-source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz")
-md5sums=('13ba421e4bea1f33617b30b1116a9d32')
+source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
+        salt.logrotate)
+md5sums=('13ba421e4bea1f33617b30b1116a9d32'
+         '029c0553d023004ca00b0519620a8491')
 
 package() {
+  install -Dm644 salt.logrotate "$pkgdir"/etc/logrotate.d/salt
+
   cd salt-$pkgver
   python2 setup.py clean
   python2 setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1
