@@ -1,0 +1,102 @@
+# Maintainer: Christian Rebischke <chris.rebischke@archlinux.org>
+# Contributor: Jonathan Steel <jsteel at archlinux.org>
+# Contributor: Greg Sutcliffe <puppet-aur (at) emeraldreverie (dot) org>
+# Contributor: Hyacinthe Cartiaux <hyacinthe (dot) cartiaux (at) free (dot) fr>
+# Contributor: Thomas S Hatch <thatch45 (at) Gmail (dot) com>
+# Contributor: Xavion <Xavion (dot) 0 (at) Gmail (dot) com>
+# Contributor: Miah Johnson <miah (at) chia-pet dot org>
+# Contributor: Dave Simons <miouhpi (at) Gmail (dot) com>
+# Contributor: Niels Abspoel <aboe76 (at) Gmail (dot) com>
+# Contributor: Tim Meusel <tim (at) bastelfreak (dot) de>
+
+pkgname=puppet
+pkgver=6.1.0
+pkgrel=2
+pkgdesc="Server automation framework and application"
+arch=('any')
+url="https://puppet.com/products/open-source-projects"
+license=('Apache')
+depends=('facter' 'hiera' 'ruby-semantic_puppet')
+makedepends=('jq' 'git')
+optdepends=('ruby-shadow: user password management')
+backup=('etc/puppetlabs/puppet/auth.conf'
+        'etc/puppetlabs/puppet/puppet.conf'
+        'etc/puppetlabs/puppet/hiera.yaml')
+install="$pkgname.install"
+_augeas_commit=9e459bf2dab04218d54d8d582a44ab81b757336d
+_cron_commit=5902877cd435f6616510826d0bc5e949f7bc5857
+_host_commit=6f5af66b913782fd0ce01f4b18b70f7ccf370e7c
+_mount_commit=c583c11fe5cdfded5d460fdad14e432755981638
+_scheduled_commit=2e5f7cecf65c40f342f420146cda5e4b0aca75eb
+_selinux_commit=4b183e1c3758b0db6235a8766f1c2434b650e17c
+_sshkeys_commit=0609e86911bf7adc3caffb8d0659ed6af03409d3
+_yumrepo_commit=a13cb4691718bf969a436941192593a0bd5318bb
+_zfs_commit=5580f8daba1460cd11fb2204b8d9b422e9a2e21b
+_zone_commit=11db22ae85cf870a1d71c820ddf2f3d97de102ba
+
+source=("https://downloads.puppetlabs.com/${pkgname}/${pkgname}-${pkgver}.tar.gz"{,.asc}
+        "augeas_core::git+https://github.com/puppetlabs/puppetlabs-augeas_core#commit=${_augeas_commit}"
+        "cron_core::git+https://github.com/puppetlabs/puppetlabs-cron_core#commit=${_cron_commit}"
+        "host_core::git+https://github.com/puppetlabs/puppetlabs-host_core#commit=${_host_commit}"
+        "mount_core::git+https://github.com/puppetlabs/puppetlabs-mount_core#commit=${_mount_commit}"
+        "scheduled_task::git+https://github.com/puppetlabs/puppetlabs-scheduled_task#commit=${_scheduled_commit}"
+        "selinux_core::git+https://github.com/puppetlabs/puppetlabs-selinux_core#commit=${_selinux_commit}"
+        "sshkeys_core::git+https://github.com/puppetlabs/puppetlabs-sshkeys_core#commit=${_sshkeys_commit}"
+        "yumrepo_core::git+https://github.com/puppetlabs/puppetlabs-yumrepo_core#commit=${_yumrepo_commit}"
+        "zfs_core::git+https://github.com/puppetlabs/puppetlabs-zfs_core#commit=${_zfs_commit}"
+        "zone_core::git+https://github.com/puppetlabs/puppetlabs-zone_core#commit=${_zone_commit}"
+        )
+sha512sums=('b82d5f5b045e23543a26949d9faa7ced78f1413e7699d124dd43a56b8558232d6f151a9fdbe52e1959900eb8fff7d7e873fa7ce986206419a27a7627a56f91f6'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+conflicts=('puppet5')
+provides=('puppet')
+validpgpkeys=('6F6B15509CF8E59E6E469F327F438280EF8D349F')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+
+  # FS#45044: fix file location
+  sed -i 's_/opt/puppetlabs/puppet_/usr_' ext/systemd/puppet.service
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  ruby install.rb --destdir="$pkgdir" --sitelibdir="$( ruby -e \
+    'puts RbConfig::CONFIG["vendorlibdir"]' )"
+
+  install -d "$pkgdir"/usr/lib/{sysusers.d,tmpfiles.d}
+
+  echo 'u puppet 52 "Puppet" /var/lib/puppet' > \
+    "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
+  echo "d /run/puppetlabs 0755 $pkgname $pkgname -" > \
+    "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+
+  # systemd
+  install -Dm644 "$srcdir"/$pkgname-$pkgver/ext/systemd/$pkgname.service \
+    "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  # Match permissions that puppet sets when running
+  install -dm775 "$pkgdir"/var/lib/puppet
+  chmod 750 "$pkgdir"/var/log/puppetlabs/puppet
+
+  rm -r "$pkgdir"/var/run
+
+  cd ..
+  install --directory "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/"
+  mv *_core "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/"
+  # Search for unwanted .git directories and delete them
+  find "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/" -type d -name .git -exec rm -rf {} +
+}
