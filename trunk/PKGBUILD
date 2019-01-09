@@ -11,13 +11,13 @@
 # need this again at some point in the future.
 pkgname=gitlab
 pkgver=11.6.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
 license=('MIT')
 options=(!buildflags)
-depends=('ruby' 'git' 'ruby-bundler' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs')
+depends=('ruby2.5' 'ruby2.5-bundler' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
             'mysql: database backend'
@@ -39,10 +39,10 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.logrotate)
 install='gitlab.install'
 sha512sums=('754916481228b4d726d3ce2c5b2184b0e3741e004e8e80a08d96e9ea4c6be72995a0ecf9cb6ce66b2e697d0474e3353ab4db4ad286a64f2873dec0596dd24666'
-            'b4cb93962f46f2aedb891be06e052db8d9651992636ce9c0807ad437e9040062fde1a3ff3e91a055b936752c622e0c1762bd2d7d512040c6136928dabf884888'
-            'd2de30f346677ed9387303a7890c8b47aef167325c10314dc4f34fb595265b8a43c311329a8977ab606894561a0f672d23acdbaec628b887f19f3f73d9f385d0'
-            '8d2ca0abb3cc14f02b7e9582cc4628f3443f93f32a005d2c7a3f82b6726d31a1b43e06c1a957e29bd1bdcead596f9194427afc5671a6d1ae44b208ad5a24fb1f'
-            '41f6bf17251fb77105d62c1a5199719414ea2bfe7743d5557138347329e1fd137eeeb22f43f3e77b3058d5ae23639cc9f0ccb41dce3b1a507211e0f3a2b3229b'
+            'd6d0604a726277f27a7596caf31909ff7d9854fd85f2902fd8a06eb581b38cc0e0fd6c10b3b16c84e0c629230501bc51d2f74c765761b43cdead139a521a327d'
+            '41ca8890aff1dd99b3c4ef283f70a172af772837ab6b1bda1d26710616a822f5179899ca9b3a96bc0b434f8f6d614b29b39b1596c0f284e5347ae9e06d40c1c4'
+            '2e49f4c2549c219d5d1c8572a7db7a700847bc8c520b44bdfc1742d3caf57d8336da5c0b74672f820349b8eab0fa1712dcec5588a4fb742ad98c8eb7ec2b5951'
+            'fdb698c86057574aecaa1f1503f3d3319e06d5e872c676d58590b48bb7b3483b837bc991136eb2cc4b2cea68b52d294b8c1b382c9659f14027a923ac3c17d6d5'
             'c11d2c59da8325551a465227096e8d39b0e4bcd5b1db21565cf3439e431838c04bc00aa6f07f4d493f3f47fd6b4e25aeb0fe0fc1a05756064706bf5708c960ec'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
@@ -109,7 +109,7 @@ build() {
   echo "Fetching bundled gems..."
 
   # Gems will be installed into vendor/bundle
-  bundle install --no-cache --deployment --without development test aws kerberos
+  bundle-2.5 install --no-cache --deployment --without development test aws kerberos
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
@@ -117,8 +117,8 @@ build() {
   sed -i 's/url.*/nope.sock/g' config/resque.yml
 
   yarn install --production --pure-lockfile
-  bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
-  bundle exec rake gettext:compile RAILS_ENV=production
+  bundle-2.5 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
+  bundle-2.5 exec rake gettext:compile RAILS_ENV=production
 
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
@@ -171,6 +171,16 @@ package() {
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
 
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
+
+  # Fix for ruby-2.5 and bundle-2.5
+  sed -i "s|bundle|bundle-2.5|g" "${pkgdir}${_datadir}/lib/tasks/gitlab/check.rake"
+  grep -rl "bin/env ruby" "${pkgdir}${_datadir}" | xargs sed -i "s|bin/env ruby$|bin/env ruby-2.5|g"
+  sed -i \
+    -e "s|ruby --version|ruby-2.5 --version|g" \
+    -e "s|gem --version|gem-2.5 --version|g" \
+    -e "s|bundle --version|bundle-2.5 --version|g" \
+    -e "s|rake --version|rake-2.5 --version|g" \
+    "${pkgdir}${_datadir}/lib/tasks/gitlab/info.rake"
 
   # Install config files
   for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
