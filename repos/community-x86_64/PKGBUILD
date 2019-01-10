@@ -3,18 +3,20 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-_gitcommit=fd335f2d597208e95bc86732cf93edbc8fa379ef
-pkgver=3.4.4
+_gitcommit=8c8375f26a5bbfb8c0f56541aec860b10d99ffc5
+pkgver=3.5.2
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
 arch=('x86_64')
 license=('Apache')
 depends=('python' 'python-chardet' 'python-multidict' 'python-async-timeout'
-         'python-yarl' 'python-attrs')
+         'python-yarl' 'python-attrs' 'gunicorn')
 makedepends=('cython' 'python-setuptools' 'git')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
-              'python-pytest-timeout' 'python-async_generator' 'python-brotlipy')
+              'python-pytest-timeout' 'python-async_generator' 'python-brotlipy'
+              'python-pytest-xdist' 'python-pytest-forked' 'python-pytest-cov'
+              'python-trustme')
 source=(${pkgname}::"git+https://github.com/aio-libs/aiohttp#commit=${_gitcommit}"
         git+https://github.com/nodejs/http-parser)
 sha512sums=('SKIP'
@@ -22,7 +24,7 @@ sha512sums=('SKIP'
 
 pkgver() {
   cd ${pkgname}
-  git describe --always --tags | sed 's/^v//;s/-/./g'
+  git describe --always --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 prepare() {
