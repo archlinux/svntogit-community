@@ -1,0 +1,72 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+
+pkgname=js185
+pkgver=1.0.0
+pkgrel=8
+pkgdesc="JavaScript interpreter and libraries (legacy)"
+arch=(x86_64)
+url="https://developer.mozilla.org/en-US/docs/Mozilla/Projects/SpiderMonkey/Releases/1.8.5"
+license=(MPL)
+depends=(nspr libffi)
+makedepends=(python2 zip)
+source=("https://ftp.mozilla.org/pub/mozilla.org/js/${pkgname}-${pkgver}.tar.gz"
+        'fix-gcc6.patch'
+        'fix-install-symlinks.patch'
+        'system-libffi-autoconf.patch'
+        'allow-to-build-against-system-libffi.patch'
+        'apache-couchdb-mozjs-tag.patch')
+sha256sums=('5d12f7e1f5b4a99436685d97b9b7b75f094d33580227aa998c406bbae6f2a687'
+            '7d252ea688f3011360c3a370820e1a00c85ae785cdad37c6655d0d5ef996fb76'
+            'b738dc60b6f9c4697aede30ca09a87ac0d5895fe5da6c9f277295531cbe8c215'
+            '524e11a66f0931dc1affcfcf47a87e086b6006ee9b747e2c7caae82334d6ba6b'
+            'eea3f80f72cfde52745fbb24b9d3a3506dd2cdbb08fe53a529d7c9a14f0381a6'
+            '669b2e87f962ef554ab8e7940d1dbf4e0e437b96ed3001a3b9ef124492a686d0')
+
+prepare() {
+  cd js-1.8.5
+
+  # https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=811665
+  patch -p1 -i ../fix-gcc6.patch
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=628723
+  patch -p1 -i ../fix-install-symlinks.patch
+  patch -p1 -i ../system-libffi-autoconf.patch
+  patch -p1 -i ../allow-to-build-against-system-libffi.patch
+  patch -p1 -i ../apache-couchdb-mozjs-tag.patch
+}
+
+build() {
+  cd js-1.8.5/js/src
+
+  # _FORTIFY_SOURCE causes the following configure error:
+  # checking for the alignment of void*... configure: error: No alignment found for void*
+  unset CPPFLAGS
+
+  ./configure \
+    --prefix=/usr \
+    --with-system-nspr \
+    --disable-tests \
+    --disable-optimize \
+    --disable-profile-guided-optimization \
+    --disable-methodjit \
+    --enable-ctypes \
+    --enable-jemalloc \
+    --enable-readline \
+    --enable-threadsafe \
+    --enable-system-ffi
+
+  make
+}
+
+package() {
+  cd js-1.8.5/js/src
+
+  make DESTDIR="${pkgdir}" install
+
+  install -Dm755 shell/js -t "${pkgdir}"/usr/bin/
+
+  find "${pkgdir}"/usr/{lib/pkgconfig,include} -type f -exec chmod -x {} +
+
+  # Remove static lib (!staticlibs does not work because name do not match)
+  rm "${pkgdir}"/usr/lib/libmozjs185-1.0.a
+}
