@@ -3,7 +3,7 @@
 
 pkgname=openblas
 _pkgname=OpenBLAS
-pkgver=0.3.4
+pkgver=0.3.5
 pkgrel=1
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD"
 arch=('x86_64')
@@ -14,7 +14,7 @@ makedepends=('perl' 'gcc-fortran')
 provides=('blas=3.8.0')
 conflicts=('blas')
 source=(${_pkgname}-v${pkgver}.tar.gz::https://github.com/xianyi/OpenBLAS/archive/v${pkgver}.tar.gz)
-sha512sums=('6e0e5fb5db67f12c9d8c091a4a249981947b717f6d1e0799be06401c28e3d763e1084790b4cfc36c539f8431960122496e32f9b6296da2b54ddefa63803171e3')
+sha512sums=('91b3074eb922453bf843158b4281cde65db9e8bbdd7590e75e9e6cdcb486157f7973f2936f327bb3eb4f1702ce0ba51ae6729d8d4baf2d986c50771e8f696df0')
 
 build() {
   cd "$srcdir/$_pkgname-$pkgver"
