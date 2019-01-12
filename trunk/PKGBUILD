@@ -3,7 +3,7 @@
 
 pkgname=fwupd
 pkgver=1.2.3
-pkgrel=1
+pkgrel=2
 pkgdesc="A simple daemon to allow session software to update firmware"
 arch=('x86_64')
 url="https://github.com/hughsie/fwupd"
@@ -14,6 +14,8 @@ depends=('libxmlb' 'efivar' 'python' 'libsmbios' 'libgusb'
 makedepends=('meson' 'valgrind' 'gobject-introspection' 'gtk-doc'
              'python-cairo' 'noto-fonts' 'noto-fonts-cjk' 'python-gobject' 'vala'
              'bash-completion' 'python-pillow' 'help2man' 'gnu-efi-libs')
+optdepends=('tpm2-abrmd: TPM2 support'
+            'tpm2-tools: TPM2 support')
 checkdepends=('umockdev')
 backup=('etc/fwupd/daemon.conf' 'etc/fwupd/uefi.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
@@ -35,6 +37,9 @@ package() {
     DESTDIR="${pkgdir}" ninja -C build install
     # Fixup mode to match polkit
     install -d -o root -g 102 -m 750 "${pkgdir}"/usr/share/polkit-1/rules.d
+    # Move D-BUS policy
+    mv "${pkgdir}"/{etc,usr/share}/dbus-1/system.d
+    rmdir "${pkgdir}"/etc/dbus-1
     # Remove the tests
     rm -r "${pkgdir}"/usr/share/installed-tests/
 }
