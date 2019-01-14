@@ -4,18 +4,19 @@
 
 pkgname=octave
 pkgver=4.4.1
-pkgrel=4
+pkgrel=5
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="http://www.octave.org"
 license=('GPL')
 depends=('fftw' 'curl' 'graphicsmagick' 'glpk' 'hdf5' 'qhull' 'arpack' 'glu' 'ghostscript'
  	   'suitesparse' 'gl2ps' 'qscintilla-qt5' 'libsndfile' 'qt5-tools' 'qrupdate')
-makedepends=('gcc-fortran' 'texlive-core' 'suitesparse' 'texinfo' 'gnuplot' 'fltk' 'portaudio' 'jdk8-openjdk')
+makedepends=('gcc-fortran' 'texlive-core' 'suitesparse' 'texinfo' 'gnuplot' 'fltk' 'portaudio' 'jdk8-openjdk' 'sundials')
 optdepends=('texinfo: for help-support in octave'
             'gnuplot: alternative plotting'
             'portaudio: audio support'
             'java-runtime: java support'
+            'sundials: ode15i and ode15s solvers'
             'fltk: FLTK GUI')
 source=(ftp://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig})
 options=('!emptydirs')
@@ -26,6 +27,7 @@ sha512sums=('21a1f13e2145fa530f2169254d19442b572745d65b91453ba1f552f6eda6aecfead
 build() {
   cd "${srcdir}/${pkgname}-${pkgver}"
 
+  export QCOLLECTIONGENERATOR=qhelpgenerator # Fix build with Qt 5.12
   ./configure --prefix=/usr --libexecdir=/usr/lib \
   --enable-shared --disable-static \
   --with-quantum-depth=16 \
