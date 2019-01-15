@@ -1,0 +1,2078 @@
+diff -aur --new-file tagpy-2013.1/aksetup_helper.py tagpy-2013.1.new/aksetup_helper.py
+--- tagpy-2013.1/aksetup_helper.py	2012-12-16 02:56:27.000000000 +0100
++++ tagpy-2013.1.new/aksetup_helper.py	2018-01-02 14:24:02.692000748 +0100
+@@ -1,10 +1,14 @@
+-# dealings with ez_setup ------------------------------------------------------
+-import distribute_setup
+-distribute_setup.use_setuptools()
++# {{{ dealings with ez_setup
+ 
+-import setuptools
++import ez_setup
++ez_setup.use_setuptools()
++
++import setuptools  # noqa
+ from setuptools import Extension
+ 
++# }}}
++
++
+ def count_down_delay(delay):
+     from time import sleep
+     import sys
+@@ -15,31 +19,11 @@
+         sleep(1)
+     print("")
+ 
+-
+-
+-
+-if not hasattr(setuptools, "_distribute"):
+-    print("-------------------------------------------------------------------------")
+-    print("Setuptools conflict detected.")
+-    print("-------------------------------------------------------------------------")
+-    print("When I imported setuptools, I did not get the distribute version of")
+-    print("setuptools, which is troubling--this package really wants to be used")
+-    print("with distribute rather than the old setuptools package. More than likely,")
+-    print("you have both distribute and setuptools installed, which is bad.")
+-    print("")
+-    print("See this page for more information:")
+-    print("http://wiki.tiker.net/DistributeVsSetuptools")
+-    print("-------------------------------------------------------------------------")
+-    print("I will continue after a short while, fingers crossed.")
+-    print("Hit Ctrl-C now if you'd like to think about the situation.")
+-    print("-------------------------------------------------------------------------")
+-
+-    count_down_delay(delay=10)
++DASH_SEPARATOR = 75 * "-"
+ 
+ 
+ def setup(*args, **kwargs):
+     from setuptools import setup
+-    import traceback
+     try:
+         setup(*args, **kwargs)
+     except KeyboardInterrupt:
+@@ -47,14 +31,13 @@
+     except SystemExit:
+         raise
+     except:
+-        print ("----------------------------------------------------------------------------")
+-        print ("Sorry, your build failed. Try rerunning configure.py with different options.")
+-        print ("----------------------------------------------------------------------------")
++        print(DASH_SEPARATOR)
++        print("Sorry, your build failed. Try rerunning configure.py with "
++                "different options.")
++        print(DASH_SEPARATOR)
+         raise
+ 
+ 
+-
+-
+ class NumpyExtension(Extension):
+     # nicked from
+     # http://mail.python.org/pipermail/distutils-sig/2007-September/008253.html
+@@ -62,7 +45,7 @@
+     def __init__(self, *args, **kwargs):
+         Extension.__init__(self, *args, **kwargs)
+         self._include_dirs = self.include_dirs
+-        del self.include_dirs # restore overwritten property
++        del self.include_dirs  # restore overwritten property
+ 
+     def get_numpy_incpath(self):
+         from imp import find_module
+@@ -73,16 +56,16 @@
+ 
+     def get_include_dirs(self):
+         return self._include_dirs + [self.get_numpy_incpath()]
++
+     def set_include_dirs(self, value):
+         self._include_dirs = value
++
+     def del_include_dirs(self):
+         pass
+ 
+     include_dirs = property(get_include_dirs, set_include_dirs, del_include_dirs)
+ 
+ 
+-
+-
+ class PyUblasExtension(NumpyExtension):
+     def get_module_include_path(self, name):
+         from imp import find_module
+@@ -105,8 +88,6 @@
+                 ]
+ 
+ 
+-
+-
+ class HedgeExtension(PyUblasExtension):
+     @property
+     def include_dirs(self):
+@@ -117,9 +98,8 @@
+                 ]
+ 
+ 
++# {{{ tools
+ 
+-
+-# tools -----------------------------------------------------------------------
+ def flatten(list):
+     """For an iterable of sub-iterables, generate each member of each
+     sub-iterable in turn, i.e. a flattened version of that super-iterable.
+@@ -131,16 +111,15 @@
+             yield j
+ 
+ 
+-
+-
+ def humanize(sym_str):
+     words = sym_str.lower().replace("_", " ").split(" ")
+     return " ".join([word.capitalize() for word in words])
+ 
++# }}}
+ 
+ 
++# {{{ siteconf handling
+ 
+-# siteconf handling -----------------------------------------------------------
+ def get_config(schema=None, warn_about_no_config=True):
+     if schema is None:
+         from setup import get_config_schema
+@@ -168,8 +147,6 @@
+     return expand_options(schema.read_config())
+ 
+ 
+-
+-
+ def hack_distutils(debug=False, fast_link=True, what_opt=3):
+     # hack distutils.sysconfig to eliminate debug flags
+     # stolen from mpi4py
+@@ -211,9 +188,11 @@
+                             ['-Wl,-O'])
+                     cvars[varname] = str.join(' ', ldsharedflags)
+ 
++# }}}
++
+ 
++# {{{ configure guts
+ 
+-# configure guts --------------------------------------------------------------
+ def default_or(a, b):
+     if a is None:
+         return b
+@@ -221,7 +200,6 @@
+         return a
+ 
+ 
+-
+ def expand_str(s, options):
+     import re
+ 
+@@ -237,6 +215,7 @@
+ 
+     return re.subn(r"\$\{([a-zA-Z0-9_]+)\}", my_repl, s)[0]
+ 
++
+ def expand_value(v, options):
+     if isinstance(v, str):
+         return expand_str(v, options)
+@@ -260,10 +239,6 @@
+             (k, expand_value(v, options)) for k, v in options.items())
+ 
+ 
+-
+-
+-
+-
+ class ConfigSchema:
+     def __init__(self, options, conf_file="siteconf.py", conf_dir="."):
+         self.optdict = dict((opt.name, opt) for opt in options)
+@@ -416,12 +391,6 @@
+                 for opt in self.options)
+ 
+ 
+-
+-
+-
+-
+-
+-
+ class Option(object):
+     def __init__(self, name, default=None, help=None):
+         self.name = name
+@@ -456,10 +425,9 @@
+     def take_from_configparser(self, options):
+         return getattr(options, self.name)
+ 
++
+ class Switch(Option):
+     def add_to_configparser(self, parser, default=None):
+-        option = self.as_option()
+-
+         if not isinstance(self.default, bool):
+             raise ValueError("Switch options must have a default")
+ 
+@@ -481,6 +449,7 @@
+             default=default,
+             action=action)
+ 
++
+ class StringListOption(Option):
+     def value_to_str(self, default):
+         if default is None:
+@@ -512,25 +481,36 @@
+                 help=help or ("Include directories for %s"
+                 % (human_name or humanize(lib_name))))
+ 
++
+ class LibraryDir(StringListOption):
+     def __init__(self, lib_name, default=None, human_name=None, help=None):
+         StringListOption.__init__(self, "%s_LIB_DIR" % lib_name, default,
+                 help=help or ("Library directories for %s"
+                 % (human_name or humanize(lib_name))))
+ 
++
+ class Libraries(StringListOption):
+     def __init__(self, lib_name, default=None, human_name=None, help=None):
+         StringListOption.__init__(self, "%s_LIBNAME" % lib_name, default,
+                 help=help or ("Library names for %s (without lib or .so)"
+                 % (human_name or humanize(lib_name))))
+ 
++
+ class BoostLibraries(Libraries):
+-    def __init__(self, lib_base_name):
++    def __init__(self, lib_base_name, default_lib_name=None):
++        if default_lib_name is None:
++            if lib_base_name == "python":
++                import sys
++                default_lib_name = "boost_python-py%d%d" % sys.version_info[:2]
++            else:
++                default_lib_name = "boost_%s" % lib_base_name
++
+         Libraries.__init__(self, "BOOST_%s" % lib_base_name.upper(),
+-                ["boost_%s" % lib_base_name],
++                [default_lib_name],
+                 help="Library names for Boost C++ %s library (without lib or .so)"
+                     % humanize(lib_base_name))
+ 
++
+ def set_up_shipped_boost_if_requested(project_name, conf):
+     """Set up the package to use a shipped version of Boost.
+ 
+@@ -542,14 +522,14 @@
+ 
+     if conf["USE_SHIPPED_BOOST"]:
+         if not exists("bpl-subset/bpl_subset/boost/version.hpp"):
+-            print("------------------------------------------------------------------------")
+-            print("The shipped Boost library was not found, but USE_SHIPPED_BOOST is True.")
++            print(DASH_SEPARATOR)
++            print("The shipped Boost library was not found, but "
++                    "USE_SHIPPED_BOOST is True.")
+             print("(The files should be under bpl-subset/.)")
+-            print("------------------------------------------------------------------------")
++            print(DASH_SEPARATOR)
+             print("If you got this package from git, you probably want to do")
+             print("")
+-            print(" $ git submodule init")
+-            print(" $ git submodule update")
++            print(" $ git submodule update --init")
+             print("")
+             print("to fetch what you are presently missing. If you got this from")
+             print("a distributed package on the net, that package is broken and")
+@@ -557,7 +537,7 @@
+             print("to try and see if the build succeeds that way, but in the long")
+             print("run you might want to either get the missing bits or turn")
+             print("'USE_SHIPPED_BOOST' off.")
+-            print("------------------------------------------------------------------------")
++            print(DASH_SEPARATOR)
+             conf["USE_SHIPPED_BOOST"] = False
+ 
+             count_down_delay(delay=10)
+@@ -574,7 +554,7 @@
+                 + glob("bpl-subset/bpl_subset/libs/*/*.cpp"))
+ 
+         # make sure next line succeeds even on Windows
+-        source_files = [f.replace("\\","/") for f in source_files]
++        source_files = [f.replace("\\", "/") for f in source_files]
+ 
+         source_files = [f for f in source_files
+                 if not f.startswith("bpl-subset/bpl_subset/libs/thread/src")]
+@@ -627,11 +607,6 @@
+         ]
+ 
+ 
+-
+-
+-
+-
+-
+ def configure_frontend():
+     from optparse import OptionParser
+ 
+@@ -657,7 +632,8 @@
+             help="Ignored")
+     parser.add_option("--enable-shared", help="Ignored", action="store_false")
+     parser.add_option("--disable-static", help="Ignored", action="store_false")
+-    parser.add_option("--update-user", help="Update user config file (%s)" % schema.user_conf_file,
++    parser.add_option("--update-user",
++            help="Update user config file (%s)" % schema.user_conf_file,
+             action="store_true")
+     parser.add_option("--update-global",
+             help="Update global config file (%s)" % schema.global_conf_file,
+@@ -684,8 +660,6 @@
+         substitute(substs, "Makefile")
+ 
+ 
+-
+-
+ def substitute(substitutions, fname):
+     import re
+     var_re = re.compile(r"\$\{([A-Za-z_0-9]+)\}")
+@@ -713,10 +687,11 @@
+                 else:
+                     subst = '"%s"' % subst
+ 
+-                l = l[:match.start()] + subst  + l[match.end():]
++                l = l[:match.start()] + subst + l[match.end():]
+                 made_change = True
+         new_lines.append(l)
+-    new_lines.insert(1, "# DO NOT EDIT THIS FILE -- it was generated by configure.py\n")
++    new_lines.insert(1, "# DO NOT EDIT THIS FILE -- "
++            "it was generated by configure.py\n")
+     import sys
+     new_lines.insert(2, "# %s\n" % (" ".join(sys.argv)))
+     open(fname, "w").write("".join(new_lines))
+@@ -726,47 +701,48 @@
+     chmod(fname, infile_stat_res.st_mode)
+ 
+ 
+-
+-
+-def check_git_submodules():
+-    from os.path import isdir
+-    if not isdir(".git"):
+-        # not a git repository
+-        return
+-
++def _run_git_command(cmd):
+     git_error = None
+     from subprocess import Popen, PIPE
+     try:
+-        popen = Popen(["git", "--version"], stdout=PIPE)
+-        stdout_data, _ = popen.communicate()
++        popen = Popen(["git"] + cmd, stdout=PIPE)
++        stdout, stderr = popen.communicate()
+         if popen.returncode != 0:
+-            git_error = "git returned error code %d" % popen.returncode
++            git_error = "git returned error code %d: %s" % (popen.returncode, stderr)
+     except OSError:
+-        git_error = "(os error, likely git not found)"
++        git_error = "(OS error, likely git not found)"
+ 
+     if git_error is not None:
+-        print("-------------------------------------------------------------------------")
++        print(DASH_SEPARATOR)
+         print("Trouble invoking git")
+-        print("-------------------------------------------------------------------------")
++        print(DASH_SEPARATOR)
+         print("The package directory appears to be a git repository, but I could")
+         print("not invoke git to check whether my submodules are up to date.")
+         print("")
+         print("The error was:")
+         print(git_error)
+         print("Hit Ctrl-C now if you'd like to think about the situation.")
+-        print("-------------------------------------------------------------------------")
++        print(DASH_SEPARATOR)
+         count_down_delay(delay=5)
++    return stdout.decode("ascii"), git_error
++
++
++def check_git_submodules():
++    from os.path import isdir
++    if not isdir(".git"):
++        # not a git repository
++        return
++    if isdir("../.repo"):
++        # assume repo is in charge and bail
+         return
+ 
+-    popen = Popen(["git", "submodule", "status"], stdout=PIPE)
+-    stdout_data, _ = popen.communicate()
+-    stdout_data = stdout_data.decode("ascii")
+-    if popen.returncode != 0:
+-        git_error = "git returned error code %d" % popen.returncode
++    stdout, git_error = _run_git_command(["submodule", "status"])
++    if git_error is not None:
++        return
+ 
+     pkg_warnings = []
+ 
+-    lines = stdout_data.split("\n")
++    lines = stdout.split("\n")
+     for l in lines:
+         if not l.strip():
+             continue
+@@ -779,10 +755,10 @@
+             continue
+ 
+         if status == "+":
+-            pkg_warnings.append("version of '%s' is not what this outer package wants"
+-                    % package)
++            pkg_warnings.append("version of '%s' is not what this "
++                    "outer package wants" % package)
+         elif status == "-":
+-            pkg_warnings.append("subpackage '%s' is not initialized" 
++            pkg_warnings.append("subpackage '%s' is not initialized"
+                     % package)
+         elif status == " ":
+             pass
+@@ -791,36 +767,36 @@
+                     % package)
+ 
+     if pkg_warnings:
+-            print("-------------------------------------------------------------------------")
++            print(DASH_SEPARATOR)
+             print("git submodules are not up-to-date or in odd state")
+-            print("-------------------------------------------------------------------------")
++            print(DASH_SEPARATOR)
+             print("If this makes no sense, you probably want to say")
+             print("")
+-            print(" $ git submodule init")
+-            print(" $ git submodule update")
++            print(" $ git submodule update --init")
+             print("")
+-            print("to fetch what you are presently missing and move on with your life.")
+-            print("If you got this from a distributed package on the net, that package is")
+-            print("broken and should be fixed. Please inform whoever gave you this package.")
++            print("to fetch what you are presently missing and "
++                    "move on with your life.")
++            print("If you got this from a distributed package on the "
++                    "net, that package is")
++            print("broken and should be fixed. Please inform whoever "
++                    "gave you this package.")
+             print("")
+             print("These issues were found:")
+             for w in pkg_warnings:
+                 print("  %s" % w)
+             print("")
+-            print("I will try to continue after a short wait, fingers crossed.")
+-            print("-------------------------------------------------------------------------")
++            print("I will try to initialize the submodules for you "
++                    "after a short wait.")
++            print(DASH_SEPARATOR)
+             print("Hit Ctrl-C now if you'd like to think about the situation.")
+-            print("-------------------------------------------------------------------------")
++            print(DASH_SEPARATOR)
+ 
+             from os.path import exists
+             if not exists(".dirty-git-ok"):
+                 count_down_delay(delay=10)
+-
+-
+-
+-
+-
+-
+-
+-
+-
++                stdout, git_error = _run_git_command(
++                        ["submodule", "update", "--init"])
++                if git_error is None:
++                    print(DASH_SEPARATOR)
++                    print("git submodules initialized successfully")
++                    print(DASH_SEPARATOR)
+diff -aur --new-file tagpy-2013.1/aksetup_helper.py.orig tagpy-2013.1.new/aksetup_helper.py.orig
+--- tagpy-2013.1/aksetup_helper.py.orig	1970-01-01 01:00:00.000000000 +0100
++++ tagpy-2013.1.new/aksetup_helper.py.orig	2018-01-02 14:19:10.185337582 +0100
+@@ -0,0 +1,826 @@
++# dealings with ez_setup ------------------------------------------------------
++import distribute_setup
++distribute_setup.use_setuptools()
++
++import setuptools
++from setuptools import Extension
++
++def count_down_delay(delay):
++    from time import sleep
++    import sys
++    while delay:
++        sys.stdout.write("Continuing in %d seconds...   \r" % delay)
++        sys.stdout.flush()
++        delay -= 1
++        sleep(1)
++    print("")
++
++
++
++
++if not hasattr(setuptools, "_distribute"):
++    print("-------------------------------------------------------------------------")
++    print("Setuptools conflict detected.")
++    print("-------------------------------------------------------------------------")
++    print("When I imported setuptools, I did not get the distribute version of")
++    print("setuptools, which is troubling--this package really wants to be used")
++    print("with distribute rather than the old setuptools package. More than likely,")
++    print("you have both distribute and setuptools installed, which is bad.")
++    print("")
++    print("See this page for more information:")
++    print("http://wiki.tiker.net/DistributeVsSetuptools")
++    print("-------------------------------------------------------------------------")
++    print("I will continue after a short while, fingers crossed.")
++    print("Hit Ctrl-C now if you'd like to think about the situation.")
++    print("-------------------------------------------------------------------------")
++
++    count_down_delay(delay=10)
++
++
++def setup(*args, **kwargs):
++    from setuptools import setup
++    import traceback
++    try:
++        setup(*args, **kwargs)
++    except KeyboardInterrupt:
++        raise
++    except SystemExit:
++        raise
++    except:
++        print ("----------------------------------------------------------------------------")
++        print ("Sorry, your build failed. Try rerunning configure.py with different options.")
++        print ("----------------------------------------------------------------------------")
++        raise
++
++
++
++
++class NumpyExtension(Extension):
++    # nicked from
++    # http://mail.python.org/pipermail/distutils-sig/2007-September/008253.html
++    # solution by Michael Hoffmann
++    def __init__(self, *args, **kwargs):
++        Extension.__init__(self, *args, **kwargs)
++        self._include_dirs = self.include_dirs
++        del self.include_dirs # restore overwritten property
++
++    def get_numpy_incpath(self):
++        from imp import find_module
++        # avoid actually importing numpy, it screws up distutils
++        file, pathname, descr = find_module("numpy")
++        from os.path import join
++        return join(pathname, "core", "include")
++
++    def get_include_dirs(self):
++        return self._include_dirs + [self.get_numpy_incpath()]
++    def set_include_dirs(self, value):
++        self._include_dirs = value
++    def del_include_dirs(self):
++        pass
++
++    include_dirs = property(get_include_dirs, set_include_dirs, del_include_dirs)
++
++
++
++
++class PyUblasExtension(NumpyExtension):
++    def get_module_include_path(self, name):
++        from imp import find_module
++        file, pathname, descr = find_module(name)
++        from os.path import join, exists
++        installed_path = join(pathname, "..", "include")
++        development_path = join(pathname, "..", "src", "cpp")
++        if exists(installed_path):
++            return installed_path
++        elif exists(development_path):
++            return development_path
++        else:
++            raise RuntimeError("could not find C include path for module '%s'" % name)
++
++    @property
++    def include_dirs(self):
++        return self._include_dirs + [
++                self.get_numpy_incpath(),
++                self.get_module_include_path("pyublas"),
++                ]
++
++
++
++
++class HedgeExtension(PyUblasExtension):
++    @property
++    def include_dirs(self):
++        return self._include_dirs + [
++                self.get_numpy_incpath(),
++                self.get_module_include_path("pyublas"),
++                self.get_module_include_path("hedge"),
++                ]
++
++
++
++
++# tools -----------------------------------------------------------------------
++def flatten(list):
++    """For an iterable of sub-iterables, generate each member of each
++    sub-iterable in turn, i.e. a flattened version of that super-iterable.
++
++    Example: Turn [[a,b,c],[d,e,f]] into [a,b,c,d,e,f].
++    """
++    for sublist in list:
++        for j in sublist:
++            yield j
++
++
++
++
++def humanize(sym_str):
++    words = sym_str.lower().replace("_", " ").split(" ")
++    return " ".join([word.capitalize() for word in words])
++
++
++
++
++# siteconf handling -----------------------------------------------------------
++def get_config(schema=None, warn_about_no_config=True):
++    if schema is None:
++        from setup import get_config_schema
++        schema = get_config_schema()
++
++    if (not schema.have_config() and not schema.have_global_config()
++            and warn_about_no_config):
++        print("*************************************************************")
++        print("*** I have detected that you have not run configure.py.")
++        print("*************************************************************")
++        print("*** Additionally, no global config files were found.")
++        print("*** I will go ahead with the default configuration.")
++        print("*** In all likelihood, this will not work out.")
++        print("*** ")
++        print("*** See README_SETUP.txt for more information.")
++        print("*** ")
++        print("*** If the build does fail, just re-run configure.py with the")
++        print("*** correct arguments, and then retry. Good luck!")
++        print("*************************************************************")
++        print("*** HIT Ctrl-C NOW IF THIS IS NOT WHAT YOU WANT")
++        print("*************************************************************")
++
++        count_down_delay(delay=10)
++
++    return expand_options(schema.read_config())
++
++
++
++
++def hack_distutils(debug=False, fast_link=True, what_opt=3):
++    # hack distutils.sysconfig to eliminate debug flags
++    # stolen from mpi4py
++
++    def remove_prefixes(optlist, bad_prefixes):
++        for bad_prefix in bad_prefixes:
++            for i, flag in enumerate(optlist):
++                if flag.startswith(bad_prefix):
++                    optlist.pop(i)
++                    break
++        return optlist
++
++    import sys
++    if not sys.platform.lower().startswith("win"):
++        from distutils import sysconfig
++
++        cvars = sysconfig.get_config_vars()
++        cflags = cvars.get('OPT')
++        if cflags:
++            cflags = remove_prefixes(cflags.split(),
++                    ['-g', '-O', '-Wstrict-prototypes', '-DNDEBUG'])
++            if debug:
++                cflags.append("-g")
++            else:
++                if what_opt is None:
++                    pass
++                else:
++                    cflags.append("-O%s" % what_opt)
++                    cflags.append("-DNDEBUG")
++
++            cvars['OPT'] = str.join(' ', cflags)
++            cvars["CFLAGS"] = cvars["BASECFLAGS"] + " " + cvars["OPT"]
++
++        if fast_link:
++            for varname in ["LDSHARED", "BLDSHARED"]:
++                ldsharedflags = cvars.get(varname)
++                if ldsharedflags:
++                    ldsharedflags = remove_prefixes(ldsharedflags.split(),
++                            ['-Wl,-O'])
++                    cvars[varname] = str.join(' ', ldsharedflags)
++
++
++
++# configure guts --------------------------------------------------------------
++def default_or(a, b):
++    if a is None:
++        return b
++    else:
++        return a
++
++
++
++def expand_str(s, options):
++    import re
++
++    def my_repl(match):
++        sym = match.group(1)
++        try:
++            repl = options[sym]
++        except KeyError:
++            from os import environ
++            repl = environ[sym]
++
++        return expand_str(repl, options)
++
++    return re.subn(r"\$\{([a-zA-Z0-9_]+)\}", my_repl, s)[0]
++
++def expand_value(v, options):
++    if isinstance(v, str):
++        return expand_str(v, options)
++    elif isinstance(v, list):
++        result = []
++        for i in v:
++            try:
++                exp_i = expand_value(i, options)
++            except:
++                pass
++            else:
++                result.append(exp_i)
++
++        return result
++    else:
++        return v
++
++
++def expand_options(options):
++    return dict(
++            (k, expand_value(v, options)) for k, v in options.items())
++
++
++
++
++
++
++class ConfigSchema:
++    def __init__(self, options, conf_file="siteconf.py", conf_dir="."):
++        self.optdict = dict((opt.name, opt) for opt in options)
++        self.options = options
++        self.conf_dir = conf_dir
++        self.conf_file = conf_file
++
++        from os.path import expanduser
++        self.user_conf_file = expanduser("~/.aksetup-defaults.py")
++
++        import sys
++        if not sys.platform.lower().startswith("win"):
++            self.global_conf_file = "/etc/aksetup-defaults.py"
++        else:
++            self.global_conf_file = None
++
++    def get_conf_file(self):
++        import os
++        return os.path.join(self.conf_dir, self.conf_file)
++
++    def set_conf_dir(self, conf_dir):
++        self.conf_dir = conf_dir
++
++    def get_default_config(self):
++        return dict((opt.name, opt.default) for opt in self.options)
++
++    def read_config_from_pyfile(self, filename):
++        result = {}
++        filevars = {}
++        infile = open(filename, "r")
++        try:
++            contents = infile.read()
++        finally:
++            infile.close()
++
++        exec(compile(contents, filename, "exec"), filevars)
++
++        for key, value in filevars.items():
++            if key in self.optdict:
++                result[key] = value
++
++        return result
++
++    def update_conf_file(self, filename, config):
++        result = {}
++        filevars = {}
++
++        try:
++            exec(compile(open(filename, "r").read(), filename, "exec"), filevars)
++        except IOError:
++            pass
++
++        if "__builtins__" in filevars:
++            del filevars["__builtins__"]
++
++        for key, value in config.items():
++            if value is not None:
++                filevars[key] = value
++
++        keys = filevars.keys()
++        keys.sort()
++
++        outf = open(filename, "w")
++        for key in keys:
++            outf.write("%s = %s\n" % (key, repr(filevars[key])))
++        outf.close()
++
++        return result
++
++    def update_user_config(self, config):
++        self.update_conf_file(self.user_conf_file, config)
++
++    def update_global_config(self, config):
++        if self.global_conf_file is not None:
++            self.update_conf_file(self.global_conf_file, config)
++
++    def get_default_config_with_files(self):
++        result = self.get_default_config()
++
++        import os
++
++        confignames = []
++        if self.global_conf_file is not None:
++            confignames.append(self.global_conf_file)
++        confignames.append(self.user_conf_file)
++
++        for fn in confignames:
++            if os.access(fn, os.R_OK):
++                result.update(self.read_config_from_pyfile(fn))
++
++        return result
++
++    def have_global_config(self):
++        import os
++        result = os.access(self.user_conf_file, os.R_OK)
++
++        if self.global_conf_file is not None:
++            result = result or os.access(self.global_conf_file, os.R_OK)
++
++        return result
++
++    def have_config(self):
++        import os
++        return os.access(self.get_conf_file(), os.R_OK)
++
++    def read_config(self, warn_if_none=True):
++        import os
++        cfile = self.get_conf_file()
++
++        result = self.get_default_config_with_files()
++        if os.access(cfile, os.R_OK):
++            filevars = {}
++            exec(compile(open(cfile, "r").read(), cfile, "exec"), filevars)
++
++            for key, value in filevars.items():
++                if key in self.optdict:
++                    result[key] = value
++                elif key == "__builtins__":
++                    pass
++                else:
++                    raise KeyError("invalid config key in %s: %s" % (
++                            cfile, key))
++
++        return result
++
++    def add_to_configparser(self, parser, def_config=None):
++        if def_config is None:
++            def_config = self.get_default_config_with_files()
++
++        for opt in self.options:
++            default = default_or(def_config.get(opt.name), opt.default)
++            opt.add_to_configparser(parser, default)
++
++    def get_from_configparser(self, options):
++        result = {}
++        for opt in self.options:
++            result[opt.name] = opt.take_from_configparser(options)
++        return result
++
++    def write_config(self, config):
++        outf = open(self.get_conf_file(), "w")
++        for opt in self.options:
++            value = config[opt.name]
++            if value is not None:
++                outf.write("%s = %s\n" % (opt.name, repr(config[opt.name])))
++        outf.close()
++
++    def make_substitutions(self, config):
++        return dict((opt.name, opt.value_to_str(config[opt.name]))
++                for opt in self.options)
++
++
++
++
++
++
++
++
++class Option(object):
++    def __init__(self, name, default=None, help=None):
++        self.name = name
++        self.default = default
++        self.help = help
++
++    def as_option(self):
++        return self.name.lower().replace("_", "-")
++
++    def metavar(self):
++        last_underscore = self.name.rfind("_")
++        return self.name[last_underscore+1:]
++
++    def get_help(self, default):
++        result = self.help
++        if self.default:
++            result += " (default: %s)" % self.value_to_str(
++                    default_or(default, self.default))
++        return result
++
++    def value_to_str(self, default):
++        return default
++
++    def add_to_configparser(self, parser, default=None):
++        default = default_or(default, self.default)
++        default_str = self.value_to_str(default)
++        parser.add_option(
++            "--" + self.as_option(), dest=self.name,
++            default=default_str,
++            metavar=self.metavar(), help=self.get_help(default))
++
++    def take_from_configparser(self, options):
++        return getattr(options, self.name)
++
++class Switch(Option):
++    def add_to_configparser(self, parser, default=None):
++        option = self.as_option()
++
++        if not isinstance(self.default, bool):
++            raise ValueError("Switch options must have a default")
++
++        if default is None:
++            default = self.default
++
++        option_name = self.as_option()
++
++        if default:
++            option_name = "no-" + option_name
++            action = "store_false"
++        else:
++            action = "store_true"
++
++        parser.add_option(
++            "--" + option_name,
++            dest=self.name,
++            help=self.get_help(default),
++            default=default,
++            action=action)
++
++class StringListOption(Option):
++    def value_to_str(self, default):
++        if default is None:
++            return None
++
++        return ",".join([str(el).replace(",", r"\,") for el in default])
++
++    def get_help(self, default):
++        return Option.get_help(self, default) + " (several ok)"
++
++    def take_from_configparser(self, options):
++        opt = getattr(options, self.name)
++        if opt is None:
++            return None
++        else:
++            if opt:
++                import re
++                sep = re.compile(r"(?<!\\),")
++                result = sep.split(opt)
++                result = [i.replace(r"\,", ",") for i in result]
++                return result
++            else:
++                return []
++
++
++class IncludeDir(StringListOption):
++    def __init__(self, lib_name, default=None, human_name=None, help=None):
++        StringListOption.__init__(self, "%s_INC_DIR" % lib_name, default,
++                help=help or ("Include directories for %s"
++                % (human_name or humanize(lib_name))))
++
++class LibraryDir(StringListOption):
++    def __init__(self, lib_name, default=None, human_name=None, help=None):
++        StringListOption.__init__(self, "%s_LIB_DIR" % lib_name, default,
++                help=help or ("Library directories for %s"
++                % (human_name or humanize(lib_name))))
++
++class Libraries(StringListOption):
++    def __init__(self, lib_name, default=None, human_name=None, help=None):
++        StringListOption.__init__(self, "%s_LIBNAME" % lib_name, default,
++                help=help or ("Library names for %s (without lib or .so)"
++                % (human_name or humanize(lib_name))))
++
++class BoostLibraries(Libraries):
++    def __init__(self, lib_base_name):
++        Libraries.__init__(self, "BOOST_%s" % lib_base_name.upper(),
++                ["boost_%s" % lib_base_name],
++                help="Library names for Boost C++ %s library (without lib or .so)"
++                    % humanize(lib_base_name))
++
++def set_up_shipped_boost_if_requested(project_name, conf):
++    """Set up the package to use a shipped version of Boost.
++
++    Return a tuple of a list of extra C files to build and extra
++    defines to be used.
++    """
++    from os.path import exists
++    import sys
++
++    if conf["USE_SHIPPED_BOOST"]:
++        if not exists("bpl-subset/bpl_subset/boost/version.hpp"):
++            print("------------------------------------------------------------------------")
++            print("The shipped Boost library was not found, but USE_SHIPPED_BOOST is True.")
++            print("(The files should be under bpl-subset/.)")
++            print("------------------------------------------------------------------------")
++            print("If you got this package from git, you probably want to do")
++            print("")
++            print(" $ git submodule init")
++            print(" $ git submodule update")
++            print("")
++            print("to fetch what you are presently missing. If you got this from")
++            print("a distributed package on the net, that package is broken and")
++            print("should be fixed. For now, I will turn off 'USE_SHIPPED_BOOST'")
++            print("to try and see if the build succeeds that way, but in the long")
++            print("run you might want to either get the missing bits or turn")
++            print("'USE_SHIPPED_BOOST' off.")
++            print("------------------------------------------------------------------------")
++            conf["USE_SHIPPED_BOOST"] = False
++
++            count_down_delay(delay=10)
++
++    if conf["USE_SHIPPED_BOOST"]:
++        conf["BOOST_INC_DIR"] = ["bpl-subset/bpl_subset"]
++        conf["BOOST_LIB_DIR"] = []
++        conf["BOOST_PYTHON_LIBNAME"] = []
++        conf["BOOST_THREAD_LIBNAME"] = []
++
++        from glob import glob
++        source_files = (glob("bpl-subset/bpl_subset/libs/*/*/*/*.cpp")
++                + glob("bpl-subset/bpl_subset/libs/*/*/*.cpp")
++                + glob("bpl-subset/bpl_subset/libs/*/*.cpp"))
++
++        # make sure next line succeeds even on Windows
++        source_files = [f.replace("\\","/") for f in source_files]
++
++        source_files = [f for f in source_files
++                if not f.startswith("bpl-subset/bpl_subset/libs/thread/src")]
++
++        if sys.platform == "win32":
++            source_files += glob(
++                    "bpl-subset/bpl_subset/libs/thread/src/win32/*.cpp")
++            source_files += glob(
++                    "bpl-subset/bpl_subset/libs/thread/src/*.cpp")
++        else:
++            source_files += glob(
++                    "bpl-subset/bpl_subset/libs/thread/src/pthread/*.cpp")
++
++        from os.path import isdir
++        main_boost_inc = "bpl-subset/bpl_subset/boost"
++        bpl_project_boost_inc = "bpl-subset/bpl_subset/%sboost" % project_name
++
++        if not isdir(bpl_project_boost_inc):
++            try:
++                from os import symlink
++            except ImportError:
++                from shutil import copytree
++                print("Copying files, hang on... (do not interrupt)")
++                copytree(main_boost_inc, bpl_project_boost_inc)
++            else:
++                symlink("boost", bpl_project_boost_inc)
++
++        return (source_files,
++                {
++                    # do not pick up libboost link dependency on windows
++                    "BOOST_ALL_NO_LIB": 1,
++                    "BOOST_THREAD_BUILD_DLL": 1,
++
++                    "BOOST_MULTI_INDEX_DISABLE_SERIALIZATION": 1,
++                    "BOOST_THREAD_DONT_USE_CHRONO": 1,
++                    "BOOST_PYTHON_SOURCE": 1,
++                    "boost": '%sboost' % project_name
++                    }
++                )
++    else:
++        return [], {}
++
++
++def make_boost_base_options():
++    return [
++        IncludeDir("BOOST", []),
++        LibraryDir("BOOST", []),
++        Option("BOOST_COMPILER", default="gcc43",
++            help="The compiler with which Boost C++ was compiled, e.g. gcc43"),
++        ]
++
++
++
++
++
++
++
++def configure_frontend():
++    from optparse import OptionParser
++
++    from setup import get_config_schema
++    schema = get_config_schema()
++    if schema.have_config():
++        print("************************************************************")
++        print("*** I have detected that you have already run configure.")
++        print("*** I'm taking the configured values as defaults for this")
++        print("*** configure run. If you don't want this, delete the file")
++        print("*** %s." % schema.get_conf_file())
++        print("************************************************************")
++
++    import sys
++
++    description = "generate a configuration file for this software package"
++    parser = OptionParser(description=description)
++    parser.add_option(
++            "--python-exe", dest="python_exe", default=sys.executable,
++            help="Which Python interpreter to use", metavar="PATH")
++
++    parser.add_option("--prefix", default=None,
++            help="Ignored")
++    parser.add_option("--enable-shared", help="Ignored", action="store_false")
++    parser.add_option("--disable-static", help="Ignored", action="store_false")
++    parser.add_option("--update-user", help="Update user config file (%s)" % schema.user_conf_file,
++            action="store_true")
++    parser.add_option("--update-global",
++            help="Update global config file (%s)" % schema.global_conf_file,
++            action="store_true")
++
++    schema.add_to_configparser(parser, schema.read_config())
++
++    options, args = parser.parse_args()
++
++    config = schema.get_from_configparser(options)
++    schema.write_config(config)
++
++    if options.update_user:
++        schema.update_user_config(config)
++
++    if options.update_global:
++        schema.update_global_config(config)
++
++    import os
++    if os.access("Makefile.in", os.F_OK):
++        substs = schema.make_substitutions(config)
++        substs["PYTHON_EXE"] = options.python_exe
++
++        substitute(substs, "Makefile")
++
++
++
++
++def substitute(substitutions, fname):
++    import re
++    var_re = re.compile(r"\$\{([A-Za-z_0-9]+)\}")
++    string_var_re = re.compile(r"\$str\{([A-Za-z_0-9]+)\}")
++
++    fname_in = fname+".in"
++    lines = open(fname_in, "r").readlines()
++    new_lines = []
++    for l in lines:
++        made_change = True
++        while made_change:
++            made_change = False
++            match = var_re.search(l)
++            if match:
++                varname = match.group(1)
++                l = l[:match.start()] + str(substitutions[varname]) + l[match.end():]
++                made_change = True
++
++            match = string_var_re.search(l)
++            if match:
++                varname = match.group(1)
++                subst = substitutions[varname]
++                if subst is None:
++                    subst = ""
++                else:
++                    subst = '"%s"' % subst
++
++                l = l[:match.start()] + subst  + l[match.end():]
++                made_change = True
++        new_lines.append(l)
++    new_lines.insert(1, "# DO NOT EDIT THIS FILE -- it was generated by configure.py\n")
++    import sys
++    new_lines.insert(2, "# %s\n" % (" ".join(sys.argv)))
++    open(fname, "w").write("".join(new_lines))
++
++    from os import stat, chmod
++    infile_stat_res = stat(fname_in)
++    chmod(fname, infile_stat_res.st_mode)
++
++
++
++
++def check_git_submodules():
++    from os.path import isdir
++    if not isdir(".git"):
++        # not a git repository
++        return
++
++    git_error = None
++    from subprocess import Popen, PIPE
++    try:
++        popen = Popen(["git", "--version"], stdout=PIPE)
++        stdout_data, _ = popen.communicate()
++        if popen.returncode != 0:
++            git_error = "git returned error code %d" % popen.returncode
++    except OSError:
++        git_error = "(os error, likely git not found)"
++
++    if git_error is not None:
++        print("-------------------------------------------------------------------------")
++        print("Trouble invoking git")
++        print("-------------------------------------------------------------------------")
++        print("The package directory appears to be a git repository, but I could")
++        print("not invoke git to check whether my submodules are up to date.")
++        print("")
++        print("The error was:")
++        print(git_error)
++        print("Hit Ctrl-C now if you'd like to think about the situation.")
++        print("-------------------------------------------------------------------------")
++        count_down_delay(delay=5)
++        return
++
++    popen = Popen(["git", "submodule", "status"], stdout=PIPE)
++    stdout_data, _ = popen.communicate()
++    stdout_data = stdout_data.decode("ascii")
++    if popen.returncode != 0:
++        git_error = "git returned error code %d" % popen.returncode
++
++    pkg_warnings = []
++
++    lines = stdout_data.split("\n")
++    for l in lines:
++        if not l.strip():
++            continue
++
++        status = l[0]
++        sha, package = l[1:].split(" ", 1)
++
++        if package == "bpl-subset":
++            # treated separately
++            continue
++
++        if status == "+":
++            pkg_warnings.append("version of '%s' is not what this outer package wants"
++                    % package)
++        elif status == "-":
++            pkg_warnings.append("subpackage '%s' is not initialized" 
++                    % package)
++        elif status == " ":
++            pass
++        else:
++            pkg_warnings.append("subpackage '%s' has unrecognized status '%s'"
++                    % package)
++
++    if pkg_warnings:
++            print("-------------------------------------------------------------------------")
++            print("git submodules are not up-to-date or in odd state")
++            print("-------------------------------------------------------------------------")
++            print("If this makes no sense, you probably want to say")
++            print("")
++            print(" $ git submodule init")
++            print(" $ git submodule update")
++            print("")
++            print("to fetch what you are presently missing and move on with your life.")
++            print("If you got this from a distributed package on the net, that package is")
++            print("broken and should be fixed. Please inform whoever gave you this package.")
++            print("")
++            print("These issues were found:")
++            for w in pkg_warnings:
++                print("  %s" % w)
++            print("")
++            print("I will try to continue after a short wait, fingers crossed.")
++            print("-------------------------------------------------------------------------")
++            print("Hit Ctrl-C now if you'd like to think about the situation.")
++            print("-------------------------------------------------------------------------")
++
++            from os.path import exists
++            if not exists(".dirty-git-ok"):
++                count_down_delay(delay=10)
++
++
++
++
++
++
++
++
++
+diff -aur --new-file tagpy-2013.1/distribute_setup.py tagpy-2013.1.new/distribute_setup.py
+--- tagpy-2013.1/distribute_setup.py	2012-08-30 00:28:33.000000000 +0200
++++ tagpy-2013.1.new/distribute_setup.py	1970-01-01 01:00:00.000000000 +0100
+@@ -1,485 +0,0 @@
+-#!python
+-"""Bootstrap distribute installation
+-
+-If you want to use setuptools in your package's setup.py, just include this
+-file in the same directory with it, and add this to the top of your setup.py::
+-
+-    from distribute_setup import use_setuptools
+-    use_setuptools()
+-
+-If you want to require a specific version of setuptools, set a download
+-mirror, or use an alternate download directory, you can do so by supplying
+-the appropriate options to ``use_setuptools()``.
+-
+-This file can also be run as a script to install or upgrade setuptools.
+-"""
+-import os
+-import sys
+-import time
+-import fnmatch
+-import tempfile
+-import tarfile
+-from distutils import log
+-
+-try:
+-    from site import USER_SITE
+-except ImportError:
+-    USER_SITE = None
+-
+-try:
+-    import subprocess
+-
+-    def _python_cmd(*args):
+-        args = (sys.executable,) + args
+-        return subprocess.call(args) == 0
+-
+-except ImportError:
+-    # will be used for python 2.3
+-    def _python_cmd(*args):
+-        args = (sys.executable,) + args
+-        # quoting arguments if windows
+-        if sys.platform == 'win32':
+-            def quote(arg):
+-                if ' ' in arg:
+-                    return '"%s"' % arg
+-                return arg
+-            args = [quote(arg) for arg in args]
+-        return os.spawnl(os.P_WAIT, sys.executable, *args) == 0
+-
+-DEFAULT_VERSION = "0.6.19"
+-DEFAULT_URL = "http://pypi.python.org/packages/source/d/distribute/"
+-SETUPTOOLS_FAKED_VERSION = "0.6c11"
+-
+-SETUPTOOLS_PKG_INFO = """\
+-Metadata-Version: 1.0
+-Name: setuptools
+-Version: %s
+-Summary: xxxx
+-Home-page: xxx
+-Author: xxx
+-Author-email: xxx
+-License: xxx
+-Description: xxx
+-""" % SETUPTOOLS_FAKED_VERSION
+-
+-
+-def _install(tarball):
+-    # extracting the tarball
+-    tmpdir = tempfile.mkdtemp()
+-    log.warn('Extracting in %s', tmpdir)
+-    old_wd = os.getcwd()
+-    try:
+-        os.chdir(tmpdir)
+-        tar = tarfile.open(tarball)
+-        _extractall(tar)
+-        tar.close()
+-
+-        # going in the directory
+-        subdir = os.path.join(tmpdir, os.listdir(tmpdir)[0])
+-        os.chdir(subdir)
+-        log.warn('Now working in %s', subdir)
+-
+-        # installing
+-        log.warn('Installing Distribute')
+-        if not _python_cmd('setup.py', 'install'):
+-            log.warn('Something went wrong during the installation.')
+-            log.warn('See the error message above.')
+-    finally:
+-        os.chdir(old_wd)
+-
+-
+-def _build_egg(egg, tarball, to_dir):
+-    # extracting the tarball
+-    tmpdir = tempfile.mkdtemp()
+-    log.warn('Extracting in %s', tmpdir)
+-    old_wd = os.getcwd()
+-    try:
+-        os.chdir(tmpdir)
+-        tar = tarfile.open(tarball)
+-        _extractall(tar)
+-        tar.close()
+-
+-        # going in the directory
+-        subdir = os.path.join(tmpdir, os.listdir(tmpdir)[0])
+-        os.chdir(subdir)
+-        log.warn('Now working in %s', subdir)
+-
+-        # building an egg
+-        log.warn('Building a Distribute egg in %s', to_dir)
+-        _python_cmd('setup.py', '-q', 'bdist_egg', '--dist-dir', to_dir)
+-
+-    finally:
+-        os.chdir(old_wd)
+-    # returning the result
+-    log.warn(egg)
+-    if not os.path.exists(egg):
+-        raise IOError('Could not build the egg.')
+-
+-
+-def _do_download(version, download_base, to_dir, download_delay):
+-    egg = os.path.join(to_dir, 'distribute-%s-py%d.%d.egg'
+-                       % (version, sys.version_info[0], sys.version_info[1]))
+-    if not os.path.exists(egg):
+-        tarball = download_setuptools(version, download_base,
+-                                      to_dir, download_delay)
+-        _build_egg(egg, tarball, to_dir)
+-    sys.path.insert(0, egg)
+-    import setuptools
+-    setuptools.bootstrap_install_from = egg
+-
+-
+-def use_setuptools(version=DEFAULT_VERSION, download_base=DEFAULT_URL,
+-                   to_dir=os.curdir, download_delay=15, no_fake=True):
+-    # making sure we use the absolute path
+-    to_dir = os.path.abspath(to_dir)
+-    was_imported = 'pkg_resources' in sys.modules or \
+-        'setuptools' in sys.modules
+-    try:
+-        try:
+-            import pkg_resources
+-            if not hasattr(pkg_resources, '_distribute'):
+-                if not no_fake:
+-                    _fake_setuptools()
+-                raise ImportError
+-        except ImportError:
+-            return _do_download(version, download_base, to_dir, download_delay)
+-        try:
+-            pkg_resources.require("distribute>="+version)
+-            return
+-        except pkg_resources.VersionConflict:
+-            e = sys.exc_info()[1]
+-            if was_imported:
+-                sys.stderr.write(
+-                "The required version of distribute (>=%s) is not available,\n"
+-                "and can't be installed while this script is running. Please\n"
+-                "install a more recent version first, using\n"
+-                "'easy_install -U distribute'."
+-                "\n\n(Currently using %r)\n" % (version, e.args[0]))
+-                sys.exit(2)
+-            else:
+-                del pkg_resources, sys.modules['pkg_resources']    # reload ok
+-                return _do_download(version, download_base, to_dir,
+-                                    download_delay)
+-        except pkg_resources.DistributionNotFound:
+-            return _do_download(version, download_base, to_dir,
+-                                download_delay)
+-    finally:
+-        if not no_fake:
+-            _create_fake_setuptools_pkg_info(to_dir)
+-
+-def download_setuptools(version=DEFAULT_VERSION, download_base=DEFAULT_URL,
+-                        to_dir=os.curdir, delay=15):
+-    """Download distribute from a specified location and return its filename
+-
+-    `version` should be a valid distribute version number that is available
+-    as an egg for download under the `download_base` URL (which should end
+-    with a '/'). `to_dir` is the directory where the egg will be downloaded.
+-    `delay` is the number of seconds to pause before an actual download
+-    attempt.
+-    """
+-    # making sure we use the absolute path
+-    to_dir = os.path.abspath(to_dir)
+-    try:
+-        from urllib.request import urlopen
+-    except ImportError:
+-        from urllib2 import urlopen
+-    tgz_name = "distribute-%s.tar.gz" % version
+-    url = download_base + tgz_name
+-    saveto = os.path.join(to_dir, tgz_name)
+-    src = dst = None
+-    if not os.path.exists(saveto):  # Avoid repeated downloads
+-        try:
+-            log.warn("Downloading %s", url)
+-            src = urlopen(url)
+-            # Read/write all in one block, so we don't create a corrupt file
+-            # if the download is interrupted.
+-            data = src.read()
+-            dst = open(saveto, "wb")
+-            dst.write(data)
+-        finally:
+-            if src:
+-                src.close()
+-            if dst:
+-                dst.close()
+-    return os.path.realpath(saveto)
+-
+-def _no_sandbox(function):
+-    def __no_sandbox(*args, **kw):
+-        try:
+-            from setuptools.sandbox import DirectorySandbox
+-            if not hasattr(DirectorySandbox, '_old'):
+-                def violation(*args):
+-                    pass
+-                DirectorySandbox._old = DirectorySandbox._violation
+-                DirectorySandbox._violation = violation
+-                patched = True
+-            else:
+-                patched = False
+-        except ImportError:
+-            patched = False
+-
+-        try:
+-            return function(*args, **kw)
+-        finally:
+-            if patched:
+-                DirectorySandbox._violation = DirectorySandbox._old
+-                del DirectorySandbox._old
+-
+-    return __no_sandbox
+-
+-def _patch_file(path, content):
+-    """Will backup the file then patch it"""
+-    existing_content = open(path).read()
+-    if existing_content == content:
+-        # already patched
+-        log.warn('Already patched.')
+-        return False
+-    log.warn('Patching...')
+-    _rename_path(path)
+-    f = open(path, 'w')
+-    try:
+-        f.write(content)
+-    finally:
+-        f.close()
+-    return True
+-
+-_patch_file = _no_sandbox(_patch_file)
+-
+-def _same_content(path, content):
+-    return open(path).read() == content
+-
+-def _rename_path(path):
+-    new_name = path + '.OLD.%s' % time.time()
+-    log.warn('Renaming %s into %s', path, new_name)
+-    os.rename(path, new_name)
+-    return new_name
+-
+-def _remove_flat_installation(placeholder):
+-    if not os.path.isdir(placeholder):
+-        log.warn('Unknown installation at %s', placeholder)
+-        return False
+-    found = False
+-    for file in os.listdir(placeholder):
+-        if fnmatch.fnmatch(file, 'setuptools*.egg-info'):
+-            found = True
+-            break
+-    if not found:
+-        log.warn('Could not locate setuptools*.egg-info')
+-        return
+-
+-    log.warn('Removing elements out of the way...')
+-    pkg_info = os.path.join(placeholder, file)
+-    if os.path.isdir(pkg_info):
+-        patched = _patch_egg_dir(pkg_info)
+-    else:
+-        patched = _patch_file(pkg_info, SETUPTOOLS_PKG_INFO)
+-
+-    if not patched:
+-        log.warn('%s already patched.', pkg_info)
+-        return False
+-    # now let's move the files out of the way
+-    for element in ('setuptools', 'pkg_resources.py', 'site.py'):
+-        element = os.path.join(placeholder, element)
+-        if os.path.exists(element):
+-            _rename_path(element)
+-        else:
+-            log.warn('Could not find the %s element of the '
+-                     'Setuptools distribution', element)
+-    return True
+-
+-_remove_flat_installation = _no_sandbox(_remove_flat_installation)
+-
+-def _after_install(dist):
+-    log.warn('After install bootstrap.')
+-    placeholder = dist.get_command_obj('install').install_purelib
+-    _create_fake_setuptools_pkg_info(placeholder)
+-
+-def _create_fake_setuptools_pkg_info(placeholder):
+-    if not placeholder or not os.path.exists(placeholder):
+-        log.warn('Could not find the install location')
+-        return
+-    pyver = '%s.%s' % (sys.version_info[0], sys.version_info[1])
+-    setuptools_file = 'setuptools-%s-py%s.egg-info' % \
+-            (SETUPTOOLS_FAKED_VERSION, pyver)
+-    pkg_info = os.path.join(placeholder, setuptools_file)
+-    if os.path.exists(pkg_info):
+-        log.warn('%s already exists', pkg_info)
+-        return
+-
+-    log.warn('Creating %s', pkg_info)
+-    f = open(pkg_info, 'w')
+-    try:
+-        f.write(SETUPTOOLS_PKG_INFO)
+-    finally:
+-        f.close()
+-
+-    pth_file = os.path.join(placeholder, 'setuptools.pth')
+-    log.warn('Creating %s', pth_file)
+-    f = open(pth_file, 'w')
+-    try:
+-        f.write(os.path.join(os.curdir, setuptools_file))
+-    finally:
+-        f.close()
+-
+-_create_fake_setuptools_pkg_info = _no_sandbox(_create_fake_setuptools_pkg_info)
+-
+-def _patch_egg_dir(path):
+-    # let's check if it's already patched
+-    pkg_info = os.path.join(path, 'EGG-INFO', 'PKG-INFO')
+-    if os.path.exists(pkg_info):
+-        if _same_content(pkg_info, SETUPTOOLS_PKG_INFO):
+-            log.warn('%s already patched.', pkg_info)
+-            return False
+-    _rename_path(path)
+-    os.mkdir(path)
+-    os.mkdir(os.path.join(path, 'EGG-INFO'))
+-    pkg_info = os.path.join(path, 'EGG-INFO', 'PKG-INFO')
+-    f = open(pkg_info, 'w')
+-    try:
+-        f.write(SETUPTOOLS_PKG_INFO)
+-    finally:
+-        f.close()
+-    return True
+-
+-_patch_egg_dir = _no_sandbox(_patch_egg_dir)
+-
+-def _before_install():
+-    log.warn('Before install bootstrap.')
+-    _fake_setuptools()
+-
+-
+-def _under_prefix(location):
+-    if 'install' not in sys.argv:
+-        return True
+-    args = sys.argv[sys.argv.index('install')+1:]
+-    for index, arg in enumerate(args):
+-        for option in ('--root', '--prefix'):
+-            if arg.startswith('%s=' % option):
+-                top_dir = arg.split('root=')[-1]
+-                return location.startswith(top_dir)
+-            elif arg == option:
+-                if len(args) > index:
+-                    top_dir = args[index+1]
+-                    return location.startswith(top_dir)
+-        if arg == '--user' and USER_SITE is not None:
+-            return location.startswith(USER_SITE)
+-    return True
+-
+-
+-def _fake_setuptools():
+-    log.warn('Scanning installed packages')
+-    try:
+-        import pkg_resources
+-    except ImportError:
+-        # we're cool
+-        log.warn('Setuptools or Distribute does not seem to be installed.')
+-        return
+-    ws = pkg_resources.working_set
+-    try:
+-        setuptools_dist = ws.find(pkg_resources.Requirement.parse('setuptools',
+-                                  replacement=False))
+-    except TypeError:
+-        # old distribute API
+-        setuptools_dist = ws.find(pkg_resources.Requirement.parse('setuptools'))
+-
+-    if setuptools_dist is None:
+-        log.warn('No setuptools distribution found')
+-        return
+-    # detecting if it was already faked
+-    setuptools_location = setuptools_dist.location
+-    log.warn('Setuptools installation detected at %s', setuptools_location)
+-
+-    # if --root or --preix was provided, and if
+-    # setuptools is not located in them, we don't patch it
+-    if not _under_prefix(setuptools_location):
+-        log.warn('Not patching, --root or --prefix is installing Distribute'
+-                 ' in another location')
+-        return
+-
+-    # let's see if its an egg
+-    if not setuptools_location.endswith('.egg'):
+-        log.warn('Non-egg installation')
+-        res = _remove_flat_installation(setuptools_location)
+-        if not res:
+-            return
+-    else:
+-        log.warn('Egg installation')
+-        pkg_info = os.path.join(setuptools_location, 'EGG-INFO', 'PKG-INFO')
+-        if (os.path.exists(pkg_info) and
+-            _same_content(pkg_info, SETUPTOOLS_PKG_INFO)):
+-            log.warn('Already patched.')
+-            return
+-        log.warn('Patching...')
+-        # let's create a fake egg replacing setuptools one
+-        res = _patch_egg_dir(setuptools_location)
+-        if not res:
+-            return
+-    log.warn('Patched done.')
+-    _relaunch()
+-
+-
+-def _relaunch():
+-    log.warn('Relaunching...')
+-    # we have to relaunch the process
+-    # pip marker to avoid a relaunch bug
+-    if sys.argv[:3] == ['-c', 'install', '--single-version-externally-managed']:
+-        sys.argv[0] = 'setup.py'
+-    args = [sys.executable] + sys.argv
+-    sys.exit(subprocess.call(args))
+-
+-
+-def _extractall(self, path=".", members=None):
+-    """Extract all members from the archive to the current working
+-       directory and set owner, modification time and permissions on
+-       directories afterwards. `path' specifies a different directory
+-       to extract to. `members' is optional and must be a subset of the
+-       list returned by getmembers().
+-    """
+-    import copy
+-    import operator
+-    from tarfile import ExtractError
+-    directories = []
+-
+-    if members is None:
+-        members = self
+-
+-    for tarinfo in members:
+-        if tarinfo.isdir():
+-            # Extract directories with a safe mode.
+-            directories.append(tarinfo)
+-            tarinfo = copy.copy(tarinfo)
+-            tarinfo.mode = 448 # decimal for oct 0700
+-        self.extract(tarinfo, path)
+-
+-    # Reverse sort directories.
+-    if sys.version_info < (2, 4):
+-        def sorter(dir1, dir2):
+-            return cmp(dir1.name, dir2.name)
+-        directories.sort(sorter)
+-        directories.reverse()
+-    else:
+-        directories.sort(key=operator.attrgetter('name'), reverse=True)
+-
+-    # Set correct owner, mtime and filemode on directories.
+-    for tarinfo in directories:
+-        dirpath = os.path.join(path, tarinfo.name)
+-        try:
+-            self.chown(tarinfo, dirpath)
+-            self.utime(tarinfo, dirpath)
+-            self.chmod(tarinfo, dirpath)
+-        except ExtractError:
+-            e = sys.exc_info()[1]
+-            if self.errorlevel > 1:
+-                raise
+-            else:
+-                self._dbg(1, "tarfile: %s" % e)
+-
+-
+-def main(argv, version=DEFAULT_VERSION):
+-    """Install or upgrade setuptools and EasyInstall"""
+-    tarball = download_setuptools()
+-    _install(tarball)
+-
+-
+-if __name__ == '__main__':
+-    main(sys.argv[1:])
+diff -aur --new-file tagpy-2013.1/ez_setup.py tagpy-2013.1.new/ez_setup.py
+--- tagpy-2013.1/ez_setup.py	1970-01-01 01:00:00.000000000 +0100
++++ tagpy-2013.1.new/ez_setup.py	2018-01-02 14:24:02.692000748 +0100
+@@ -0,0 +1,258 @@
++#!python
++"""Bootstrap setuptools installation
++
++If you want to use setuptools in your package's setup.py, just include this
++file in the same directory with it, and add this to the top of your setup.py::
++
++    from ez_setup import use_setuptools
++    use_setuptools()
++
++If you want to require a specific version of setuptools, set a download
++mirror, or use an alternate download directory, you can do so by supplying
++the appropriate options to ``use_setuptools()``.
++
++This file can also be run as a script to install or upgrade setuptools.
++"""
++import os
++import shutil
++import sys
++import tempfile
++import tarfile
++import optparse
++import subprocess
++
++from distutils import log
++
++try:
++    from site import USER_SITE
++except ImportError:
++    USER_SITE = None
++
++DEFAULT_VERSION = "0.7.2"
++DEFAULT_URL = "https://pypi.python.org/packages/source/s/setuptools/"
++
++def _python_cmd(*args):
++    args = (sys.executable,) + args
++    return subprocess.call(args) == 0
++
++def _install(tarball, install_args=()):
++    # extracting the tarball
++    tmpdir = tempfile.mkdtemp()
++    log.warn('Extracting in %s', tmpdir)
++    old_wd = os.getcwd()
++    try:
++        os.chdir(tmpdir)
++        tar = tarfile.open(tarball)
++        _extractall(tar)
++        tar.close()
++
++        # going in the directory
++        subdir = os.path.join(tmpdir, os.listdir(tmpdir)[0])
++        os.chdir(subdir)
++        log.warn('Now working in %s', subdir)
++
++        # installing
++        log.warn('Installing Setuptools')
++        if not _python_cmd('setup.py', 'install', *install_args):
++            log.warn('Something went wrong during the installation.')
++            log.warn('See the error message above.')
++            # exitcode will be 2
++            return 2
++    finally:
++        os.chdir(old_wd)
++        shutil.rmtree(tmpdir)
++
++
++def _build_egg(egg, tarball, to_dir):
++    # extracting the tarball
++    tmpdir = tempfile.mkdtemp()
++    log.warn('Extracting in %s', tmpdir)
++    old_wd = os.getcwd()
++    try:
++        os.chdir(tmpdir)
++        tar = tarfile.open(tarball)
++        _extractall(tar)
++        tar.close()
++
++        # going in the directory
++        subdir = os.path.join(tmpdir, os.listdir(tmpdir)[0])
++        os.chdir(subdir)
++        log.warn('Now working in %s', subdir)
++
++        # building an egg
++        log.warn('Building a Setuptools egg in %s', to_dir)
++        _python_cmd('setup.py', '-q', 'bdist_egg', '--dist-dir', to_dir)
++
++    finally:
++        os.chdir(old_wd)
++        shutil.rmtree(tmpdir)
++    # returning the result
++    log.warn(egg)
++    if not os.path.exists(egg):
++        raise IOError('Could not build the egg.')
++
++
++def _do_download(version, download_base, to_dir, download_delay):
++    egg = os.path.join(to_dir, 'setuptools-%s-py%d.%d.egg'
++                       % (version, sys.version_info[0], sys.version_info[1]))
++    if not os.path.exists(egg):
++        tarball = download_setuptools(version, download_base,
++                                      to_dir, download_delay)
++        _build_egg(egg, tarball, to_dir)
++    sys.path.insert(0, egg)
++    import setuptools
++    setuptools.bootstrap_install_from = egg
++
++
++def use_setuptools(version=DEFAULT_VERSION, download_base=DEFAULT_URL,
++                   to_dir=os.curdir, download_delay=15):
++    # making sure we use the absolute path
++    to_dir = os.path.abspath(to_dir)
++    was_imported = 'pkg_resources' in sys.modules or \
++        'setuptools' in sys.modules
++    try:
++        import pkg_resources
++    except ImportError:
++        return _do_download(version, download_base, to_dir, download_delay)
++    try:
++        pkg_resources.require("setuptools>=" + version)
++        return
++    except pkg_resources.VersionConflict:
++        e = sys.exc_info()[1]
++        if was_imported:
++            sys.stderr.write(
++            "The required version of setuptools (>=%s) is not available,\n"
++            "and can't be installed while this script is running. Please\n"
++            "install a more recent version first, using\n"
++            "'easy_install -U setuptools'."
++            "\n\n(Currently using %r)\n" % (version, e.args[0]))
++            sys.exit(2)
++        else:
++            del pkg_resources, sys.modules['pkg_resources']    # reload ok
++            return _do_download(version, download_base, to_dir,
++                                download_delay)
++    except pkg_resources.DistributionNotFound:
++        return _do_download(version, download_base, to_dir,
++                            download_delay)
++
++
++def download_setuptools(version=DEFAULT_VERSION, download_base=DEFAULT_URL,
++                        to_dir=os.curdir, delay=15):
++    """Download setuptools from a specified location and return its filename
++
++    `version` should be a valid setuptools version number that is available
++    as an egg for download under the `download_base` URL (which should end
++    with a '/'). `to_dir` is the directory where the egg will be downloaded.
++    `delay` is the number of seconds to pause before an actual download
++    attempt.
++    """
++    # making sure we use the absolute path
++    to_dir = os.path.abspath(to_dir)
++    try:
++        from urllib.request import urlopen
++    except ImportError:
++        from urllib2 import urlopen
++    tgz_name = "setuptools-%s.tar.gz" % version
++    url = download_base + tgz_name
++    saveto = os.path.join(to_dir, tgz_name)
++    src = dst = None
++    if not os.path.exists(saveto):  # Avoid repeated downloads
++        try:
++            log.warn("Downloading %s", url)
++            src = urlopen(url)
++            # Read/write all in one block, so we don't create a corrupt file
++            # if the download is interrupted.
++            data = src.read()
++            dst = open(saveto, "wb")
++            dst.write(data)
++        finally:
++            if src:
++                src.close()
++            if dst:
++                dst.close()
++    return os.path.realpath(saveto)
++
++
++def _extractall(self, path=".", members=None):
++    """Extract all members from the archive to the current working
++       directory and set owner, modification time and permissions on
++       directories afterwards. `path' specifies a different directory
++       to extract to. `members' is optional and must be a subset of the
++       list returned by getmembers().
++    """
++    import copy
++    import operator
++    from tarfile import ExtractError
++    directories = []
++
++    if members is None:
++        members = self
++
++    for tarinfo in members:
++        if tarinfo.isdir():
++            # Extract directories with a safe mode.
++            directories.append(tarinfo)
++            tarinfo = copy.copy(tarinfo)
++            tarinfo.mode = 448  # decimal for oct 0700
++        self.extract(tarinfo, path)
++
++    # Reverse sort directories.
++    if sys.version_info < (2, 4):
++        def sorter(dir1, dir2):
++            return cmp(dir1.name, dir2.name)
++        directories.sort(sorter)
++        directories.reverse()
++    else:
++        directories.sort(key=operator.attrgetter('name'), reverse=True)
++
++    # Set correct owner, mtime and filemode on directories.
++    for tarinfo in directories:
++        dirpath = os.path.join(path, tarinfo.name)
++        try:
++            self.chown(tarinfo, dirpath)
++            self.utime(tarinfo, dirpath)
++            self.chmod(tarinfo, dirpath)
++        except ExtractError:
++            e = sys.exc_info()[1]
++            if self.errorlevel > 1:
++                raise
++            else:
++                self._dbg(1, "tarfile: %s" % e)
++
++
++def _build_install_args(options):
++    """
++    Build the arguments to 'python setup.py install' on the setuptools package
++    """
++    install_args = []
++    if options.user_install:
++        if sys.version_info < (2, 6):
++            log.warn("--user requires Python 2.6 or later")
++            raise SystemExit(1)
++        install_args.append('--user')
++    return install_args
++
++def _parse_args():
++    """
++    Parse the command line for options
++    """
++    parser = optparse.OptionParser()
++    parser.add_option(
++        '--user', dest='user_install', action='store_true', default=False,
++        help='install in user site package (requires Python 2.6 or later)')
++    parser.add_option(
++        '--download-base', dest='download_base', metavar="URL",
++        default=DEFAULT_URL,
++        help='alternative URL from where to download the setuptools package')
++    options, args = parser.parse_args()
++    # positional arguments are ignored
++    return options
++
++def main(version=DEFAULT_VERSION):
++    """Install or upgrade setuptools and EasyInstall"""
++    options = _parse_args()
++    tarball = download_setuptools(download_base=options.download_base)
++    return _install(tarball, _build_install_args(options))
++
++if __name__ == '__main__':
++    sys.exit(main())
+diff -aur --new-file tagpy-2013.1/MANIFEST.in tagpy-2013.1.new/MANIFEST.in
+--- tagpy-2013.1/MANIFEST.in	2009-10-15 20:15:04.000000000 +0200
++++ tagpy-2013.1.new/MANIFEST.in	2018-01-02 14:24:02.688667416 +0100
+@@ -4,7 +4,7 @@
+ include test/tagrename
+ include LICENSE
+ 
+-include distribute_setup.py
++include ez_setup.py
+ include configure.py
+ include Makefile.in
+ include aksetup_helper.py
