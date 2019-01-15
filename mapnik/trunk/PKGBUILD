@@ -33,6 +33,7 @@ prepare() {
   cd "${srcdir}"/$pkgname-v$pkgver
   patch -Np1 -i "${srcdir}"/3892.patch
   patch -p1 -i ../mapnik-boost-1.68.patch # Fix build with boost 1.68
+  sed 's|gil/gil_all.hpp|gil.hpp|g' -i include/*/*.hpp # boost 1.69
 }
 
 build() {
