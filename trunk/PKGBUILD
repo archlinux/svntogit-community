@@ -28,7 +28,7 @@ license=('GPL2')
 makedepends=(
   'afpfs-ng' 'bluez-libs' 'cmake' 'curl' 'doxygen' 'glew'
   'gperf' 'hicolor-icon-theme' 'jasper' 'java-runtime' 'libaacs' 'libass'
-  'libbluray' 'libcdio' 'libcec' 'libgl' 'libmariadbclient' 'libmicrohttpd'
+  'libbluray' 'libcdio' 'libcec' 'libgl' 'mariadb-libs' 'libmicrohttpd'
   'libmodplug' 'libmpeg2' 'libnfs' 'libplist' 'libpulse' 'libssh' 'libva'
   'libvdpau' 'libxrandr' 'libxslt' 'lzo' 'mesa' 'nasm' 'nss-mdns'
   'python2-pillow' 'python2-pybluez' 'python2-simplejson' 'rtmpdump'
@@ -98,7 +98,7 @@ package_kodi() {
   pkgdesc="A software media player and entertainment hub for digital media"
   depends=(
     'bluez-libs' 'desktop-file-utils' 'freetype2' 'fribidi'
-    'hicolor-icon-theme' 'libass' 'libcdio' 'libjpeg-turbo' 'libmariadbclient'
+    'hicolor-icon-theme' 'libass' 'libcdio' 'libjpeg-turbo' 'mariadb-libs'
     'libmicrohttpd' 'libpulse' 'libssh' 'libva' 'libvdpau' 'libxrandr'
     'libxslt' 'lzo' 'mesa' 'python2-pillow' 'python2-simplejson' 'smbclient'
     'speex' 'taglib' 'tinyxml' 'xorg-xdpyinfo' 'yajl'
