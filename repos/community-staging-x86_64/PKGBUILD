@@ -1,0 +1,128 @@
+# Maintainer: Evgeniy Alekseev <arcanis at archlinux dot org>
+# Maintainer: Bruno Pagani <archange at archlinux dot org>
+# Contributor: Ray Rashif <schiv at archlinux dot org>
+# Contributor: Andrzej Giniewicz <gginiu at gmail dot com>
+# Contributor: Thomas Dziedzic <gostrc at gmail>
+
+pkgname=vtk
+pkgver=8.1.2
+pkgrel=2
+pkgdesc="A software system for 3D computer graphics, image processing, and visualization"
+arch=('x86_64')
+url="https://www.vtk.org/"
+license=('BSD')
+depends=('gcc-libs')
+makedepends=('cmake' 'boost' 'doxygen' 'ffmpeg' 'gdal' 'gnuplot'
+             'java-environment' 'openmpi' 'python-matplotlib' 'qt5-base'
+             'qt5-tools' 'qt5-webkit' 'qt5-x11extras' 'tk' 'unixodbc' 'wget'
+             'expat' 'freetype2' 'glew' 'hdf5' 'libjpeg' 'jsoncpp' 'libxml2'
+             'lz4' 'python-mpi4py' 'netcdf' 'libogg' 'libtheora' 'libpng'
+             'libtiff' 'zlib'
+             'python-autobahn' 'python-constantly' 'python-hyperlink'
+             'python-incremental' 'proj' 'mariadb' 'python-six'
+             'python-twisted' 'python-txaio' 'python-zope-interface')
+optdepends=('gnuplot: plotting tools'
+            'graphviz: drawing tools'
+            'java-runtime: java bindings'
+            'python: python bindings'
+            'python-autobahn: for vtkWeb'
+            'python-twisted: for vtkWeb'
+            'python-constantly'
+            'python-incremental'
+            'python-mpi4py: OpenMPI python support'
+            'python-matplotlib: for Matplotlib rendering'
+            'openmpi: OpenMPI support'
+            'qt5-x11extras'
+            'qt5-webkit: WebKit support'
+            'tk: tcl bindings'
+            'ffmpeg'
+            'gdal'
+            'glew'
+            'hdf5'
+            'jsoncpp'
+            'lz4'
+            'mariadb'
+            'netcdf'
+            'proj'
+            'unixodbc')
+source=("http://www.vtk.org/files/release/${pkgver%.*}/VTK-${pkgver}.tar.gz"
+        "http://www.vtk.org/files/release/${pkgver%.*}/VTKData-${pkgver}.tar.gz"
+        "http://www.vtk.org/files/release/${pkgver%.*}/VTKLargeData-${pkgver}.tar.gz")
+options=(staticlibs)
+sha512sums=('c9fc498804ff9bb433bf79f4b14d9bb6134b026aea46ed12ac40434bfdd8063c42e75d3e0cfa88d171fa271001c9444d66a471edc9b22df83a9109733abcdfa0'
+            '6aaf2bfed03bf1138eba2476ea7d03f977bcbd918718b545304873935e88c1361d1aa0483a188f60d36e68da1a22620a8786e7a7f8c3c16fa82e2c6a3d695bb8'
+            '12c65442c16fc0eaadfcd59248eb8ed0d45e9afb272a2bfa6820143d1059e02efbb503e81f78168eb86f24641908975f81e5c0fa739ff2b5ca018d1a48c9a579')
+
+prepare() {
+  mkdir build
+}
+
+build() {
+  cd build
+
+  # to help cmake find java
+  export JAVA_HOME=/usr/lib/jvm/default
+
+  # GL2PS blocked by http://www.vtk.org/Bug/view.php?id=16083
+  # NETCDFCPP blocked by https://github.com/Unidata/netcdf-cxx4/issues/43
+  # LIBHARU blocked by https://github.com/libharu/libharu/pull/157
+  # Note: VTK explicitly disables system GLEW dependency, it uses embedded sources with modifications
+  # Only in ParaView build: DOUBLECONVERSION EIGEN LZMA PEGTL PUGIXML
+  local VTK_USE_SYSTEM_LIB=""
+  # Common with ParaView
+  for lib in EXPAT FREETYPE GLEW HDF5 JPEG JSONCPP LIBXML2 LZ4 MPI4PY NETCDF OGGTHEORA PNG TIFF ZLIB; do
+    VTK_USE_SYSTEM_LIB+="-DVTK_USE_SYSTEM_${lib}=ON "
+  done
+  for lib in AUTOBAHN CONSTANTLY HYPERLINK INCREMENTAL LIBPROJ4 SIX TWISTED TXAIO ZOPE; do
+    VTK_USE_SYSTEM_LIB+="-DVTK_USE_SYSTEM_${lib}=ON "
+  done
+
+  local _tkver=$(echo 'puts $tcl_version' | tclsh)
+
+  cmake ../VTK-${pkgver} \
+    -Wno-dev \
+    -DCMAKE_SKIP_RPATH=ON \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DBUILD_SHARED_LIBS=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_DOCUMENTATION=OFF \
+    -DDOXYGEN_KEEP_TEMP=ON \
+    -DDOCUMENTATION_HTML_HELP=OFF \
+    -DDOCUMENTATION_HTML_TARZ=OFF \
+    -DBUILD_EXAMPLES=ON \
+    -DXDMF_STATIC_AND_SHARED=OFF \
+    -DVTK_USE_FFMPEG_ENCODER=ON \
+    -DVTK_BUILD_ALL_MODULES=ON \
+    -DVTK_USE_LARGE_DATA=ON \
+    -DVTK_QT_VERSION="5" \
+    -DVTK_WRAP_JAVA=ON \
+    -DVTK_WRAP_PYTHON=ON \
+    -DVTK_WRAP_TCL=ON \
+    -DCMAKE_CXX_FLAGS="-D__STDC_CONSTANT_MACROS" \
+    -DVTK_PYTHON_VERSION="3" \
+    -DVTK_CUSTOM_LIBRARY_SUFFIX="" \
+    -DVTK_INSTALL_INCLUDE_DIR=include/vtk \
+    -DVTK_INSTALL_TCL_DIR=/usr/lib/tcl${_tkver}/vtk/ \
+    ${VTK_USE_SYSTEM_LIB} \
+    -DCMAKE_BUILD_TYPE=Release
+
+  make
+}
+
+package() {
+  cd build
+
+  make DESTDIR="${pkgdir}" install
+
+  # Move the vtk.jar to the arch-specific location
+  install -dv "${pkgdir}"/usr/share/java/vtk
+  mv -v "${pkgdir}"/usr/lib/vtk.jar "${pkgdir}"/usr/share/java/vtk
+  rm -rf "${pkgdir}"/usr/lib/vtk-${pkgver%.*}/java
+
+  # Install license
+  install -Dm644 ../VTK-${pkgver}/Copyright.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}/
+
+  # Fix path of QtDesigner plugin
+  install -dv "${pkgdir}"/usr/lib/qt
+  mv "${pkgdir}"/usr/plugins "${pkgdir}"/usr/lib/qt/plugins
+}
