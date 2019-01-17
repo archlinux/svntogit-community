@@ -3,7 +3,7 @@
 
 pkgname=sundials
 pkgver=4.0.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Suite of nonlinear differential/algebraic equation solvers"
 arch=(x86_64)
 url="https://computation.llnl.gov/casc/sundials/main.html"
@@ -25,6 +25,7 @@ build() {
     -DMPI_ENABLE=ON \
     -DPTHREAD_ENABLE=ON	\
     -DOPENMP_ENABLE=ON \
+    -DF77_INTERFACE_ENABLE=ON \
     -DEXAMPLES_INSTALL_PATH=/usr/share/sundials/examples
   make
 }
