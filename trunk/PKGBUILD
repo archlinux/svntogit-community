@@ -3,7 +3,7 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=9.0.0_r18
+pkgver=9.0.0_r30
 pkgrel=1
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -19,6 +19,7 @@ source=(git+https://android.googlesource.com/platform/system/core#tag=android-$p
         git+https://android.googlesource.com/platform/external/selinux#tag=android-$pkgver
         git+https://android.googlesource.com/platform/external/f2fs-tools#tag=android-$pkgver
         git+https://android.googlesource.com/platform/external/e2fsprogs#tag=android-$pkgver
+        git+https://android.googlesource.com/platform/external/avb#tag=android-$pkgver
         git+https://boringssl.googlesource.com/boringssl#commit=$_boringssl_commit
         generate_build.rb
         fix_build_core.patch
@@ -32,6 +33,7 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
+          'SKIP'
           '238507086a99134820cc9900545cbff06772dc30'
           '62446582a96b3a39e5d91e3e2ef8b8b38a5a735e'
           'ec473160d7445f97bccabd1c32ac0ae2f77900c1'
@@ -39,7 +41,7 @@ sha1sums=('SKIP'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
 prepare() {
-  PKGVER=$pkgver ./generate_build.rb > build.ninja
+  PKGVER=$pkgver LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
 
   cd $srcdir/core
   patch -p1 < ../fix_build_core.patch
@@ -50,6 +52,9 @@ prepare() {
   cd $srcdir/e2fsprogs
   patch -p1 < ../fix_build_e2fsprogs.patch
 
+  cd $srcdir/avb
+  sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
+
   mkdir -p $srcdir/boringssl/build && cd $srcdir/boringssl/build && cmake -GNinja ..; ninja
 }
 
@@ -59,6 +64,6 @@ build() {
 
 package(){
   install -m755 -d "$pkgdir"/usr/bin
-  install -m755 -t "$pkgdir"/usr/bin fastboot adb mke2fs.android e2fsdroid ext2simg core/mkbootimg/mkbootimg
+  install -m755 -t "$pkgdir"/usr/bin fastboot adb mke2fs.android e2fsdroid ext2simg core/mkbootimg/mkbootimg avb/avbtool
   install -Dm 644 bash_completion.fastboot "$pkgdir"/usr/share/bash-completion/completions/fastboot
 }
