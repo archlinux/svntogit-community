@@ -1,4 +1,4 @@
-From f02992e562fafc807092d09a8034f2117c9db00d Mon Sep 17 00:00:00 2001
+From e0cc4d157106fb8978b00456181347cdb96ae1c7 Mon Sep 17 00:00:00 2001
 From: Ben Gamari <ben@smart-cactus.org>
 Date: Thu, 28 Jun 2018 01:02:09 -0400
 Subject: [PATCH] Update hasql
@@ -7,11 +7,28 @@ Move to hasql 1.3.
 ---
  postgrest.cabal               |   6 +-
  src/PostgREST/App.hs          |  16 ++---
- src/PostgREST/DbStructure.hs  | 131 +++++++++++++++++-----------------
+ src/PostgREST/DbStructure.hs  | 126 +++++++++++++++++-----------------
  src/PostgREST/Error.hs        |  11 +--
  src/PostgREST/QueryBuilder.hs |  30 ++++----
- 5 files changed, 99 insertions(+), 95 deletions(-)
+ 5 files changed, 96 insertions(+), 93 deletions(-)
 
+diff --git a/postgrest.cabal b/postgrest.cabal
+index 25231474..acfe7af9 100644
+--- a/postgrest.cabal
++++ b/postgrest.cabal
+@@ -64,9 +64,9 @@ library
+                      , contravariant-extras
+                      , either
+                      , gitrev
+-                     , hasql == 1.1
+-                     , hasql-pool == 0.4.3
+-                     , hasql-transaction == 0.5.2
++                     , hasql >= 1.3
++                     , hasql-pool >= 0.5
++                     , hasql-transaction >= 0.7
+                      , heredoc
+                      , HTTP
+                      , http-types
 diff --git a/src/PostgREST/App.hs b/src/PostgREST/App.hs
 index 022d95ac..ff12b6dd 100644
 --- a/src/PostgREST/App.hs
@@ -89,39 +106,38 @@ index 022d95ac..ff12b6dd 100644
  
          _ -> return notFound
 diff --git a/src/PostgREST/DbStructure.hs b/src/PostgREST/DbStructure.hs
-index dbff35b6..bc519987 100644
+index 99e792ec..82a48210 100644
 --- a/src/PostgREST/DbStructure.hs
 +++ b/src/PostgREST/DbStructure.hs
-@@ -15,7 +15,8 @@ module PostgREST.DbStructure (
+@@ -14,7 +14,7 @@ module PostgREST.DbStructure (
  
  import qualified Hasql.Decoders                as HD
  import qualified Hasql.Encoders                as HE
 -import qualified Hasql.Query                   as H
 +import qualified Hasql.Statement               as H
-+import qualified Hasql.Session                 as H
  
  import           Control.Applicative
  import qualified Data.HashMap.Strict           as M
-@@ -38,12 +39,12 @@ import           Contravariant.Extras          (contrazip2)
+@@ -34,12 +34,12 @@ import           Unsafe (unsafeHead)
  
  getDbStructure :: Schema -> PgVersion -> H.Session DbStructure
  getDbStructure schema pgVer = do
 -  tabs      <- H.query () allTables
 -  cols      <- H.query schema $ allColumns tabs
--  syns      <- H.query () $ allSynonyms cols
+-  syns      <- H.query schema $ allSynonyms cols
 -  childRels <- H.query () $ allChildRelations tabs cols
 -  keys      <- H.query () $ allPrimaryKeys tabs
 -  procs     <- H.query schema allProcs
 +  tabs      <- H.statement () allTables
 +  cols      <- H.statement schema $ allColumns tabs
-+  syns      <- H.statement () $ allSynonyms cols
++  syns      <- H.statement schema $ allSynonyms cols
 +  childRels <- H.statement () $ allChildRelations tabs cols
 +  keys      <- H.statement () $ allPrimaryKeys tabs
 +  procs     <- H.statement schema allProcs
  
    let rels = addManyToManyRelations . addParentRelations $ addViewRelations syns childRels
        cols' = addForeignKeys rels cols
-@@ -60,70 +61,70 @@ getDbStructure schema pgVer = do
+@@ -56,70 +56,70 @@ getDbStructure schema pgVer = do
  
  decodeTables :: HD.Result [Table]
  decodeTables =
@@ -228,7 +244,7 @@ index dbff35b6..bc519987 100644
  
      addName :: ProcDescription -> (Text, ProcDescription)
      addName pd = (pdName pd, pd)
-@@ -159,11 +160,11 @@ decodeProcs =
+@@ -155,11 +155,11 @@ decodeProcs =
                        | v == 's' = Stable
                        | otherwise = Volatile -- only 'v' can happen here
  
@@ -244,7 +260,7 @@ index dbff35b6..bc519987 100644
    where
      sql = procsSqlQuery <> " AND has_function_privilege(p.oid, 'execute')"
  
-@@ -186,9 +187,9 @@ procsSqlQuery = [q|
+@@ -182,9 +182,9 @@ procsSqlQuery = [q|
    WHERE  pn.nspname = $1
  |]
  
@@ -256,7 +272,7 @@ index dbff35b6..bc519987 100644
    where
      sql = [q|
        select
-@@ -199,9 +200,9 @@ schemaDescription =
+@@ -195,9 +195,9 @@ schemaDescription =
        where
          n.nspname = $1 |]
  
@@ -268,7 +284,7 @@ index dbff35b6..bc519987 100644
   where
    sql = [q|
      select
-@@ -328,9 +329,9 @@ addViewPrimaryKeys syns = concatMap (\pk ->
+@@ -324,9 +324,9 @@ addViewPrimaryKeys syns = concatMap (\pk ->
                  filter (\(col, _) -> colTable col == pkTable pk && colName col == pkName pk) syns in
    pk : viewPks)
  
@@ -280,7 +296,7 @@ index dbff35b6..bc519987 100644
   where
    sql = [q|
      SELECT
-@@ -351,9 +352,9 @@ allTables =
+@@ -347,9 +347,9 @@ allTables =
      GROUP BY table_schema, table_name, insertable
      ORDER BY table_schema, table_name |]
  
@@ -292,7 +308,7 @@ index dbff35b6..bc519987 100644
   where
    sql = [q|
      SELECT DISTINCT
-@@ -538,9 +539,9 @@ columnFromRow tabs (s, t, n, desc, pos, nul, typ, u, l, p, d, e) = buildColumn <
+@@ -534,9 +534,9 @@ columnFromRow tabs (s, t, n, desc, pos, nul, typ, u, l, p, d, e) = buildColumn <
      parseEnum :: Maybe Text -> [Text]
      parseEnum str = fromMaybe [] $ split (==',') <$> str
  
@@ -304,7 +320,7 @@ index dbff35b6..bc519987 100644
   where
    sql = [q|
      SELECT ns1.nspname AS table_schema,
-@@ -579,9 +580,9 @@ relationFromRow allTabs allCols (rs, rt, rcs, frs, frt, frcs) =
+@@ -575,9 +575,9 @@ relationFromRow allTabs allCols (rs, rt, rcs, frs, frt, frcs) =
      cols  = mapM (findCol rs rt) rcs
      colsF = mapM (findCol frs frt) frcs
  
@@ -316,19 +332,19 @@ index dbff35b6..bc519987 100644
   where
    sql = [q|
      /*
-@@ -689,9 +690,9 @@ pkFromRow :: [Table] -> (Schema, Text, Text) -> Maybe PrimaryKey
+@@ -685,9 +685,9 @@ pkFromRow :: [Table] -> (Schema, Text, Text) -> Maybe PrimaryKey
  pkFromRow tabs (s, t, n) = PrimaryKey <$> table <*> pure n
    where table = find (\tbl -> tableSchema tbl == s && tableName tbl == t) tabs
  
--allSynonyms :: [Column] -> H.Query () [Synonym]
-+allSynonyms :: [Column] -> H.Statement () [Synonym]
+-allSynonyms :: [Column] -> H.Query Schema [Synonym]
++allSynonyms :: [Column] -> H.Statement Schema [Synonym]
  allSynonyms cols =
--  H.statement sql HE.unit (decodeSynonyms cols) True
-+  H.Statement sql HE.unit (decodeSynonyms cols) True
-  where
-   -- query explanation at https://gist.github.com/ruslantalpa/2eab8c930a65e8043d8f
-   sql = [q|
-@@ -772,15 +773,15 @@ synonymFromRow allCols (s1,t1,c1,s2,t2,c2) = (,) <$> col1 <*> col2
+-  H.statement sql (HE.value HE.text) (decodeSynonyms cols) True
++  H.Statement sql (HE.param HE.text) (decodeSynonyms cols) True
+   -- query explanation at https://gist.github.com/steve-chavez/7ee0e6590cddafb532e5f00c46275569
+   where sql = [q|
+     with
+@@ -756,7 +756,7 @@ synonymFromRow allCols (s1,t1,c1,s2,t2,c2) = (,) <$> col1 <*> col2
      findCol s t c = find (\col -> (tableSchema . colTable) col == s && (tableName . colTable) col == t && colName col == c) allCols
  
  getPgVersion :: H.Session PgVersion
@@ -338,22 +354,6 @@ index dbff35b6..bc519987 100644
      sql = "SELECT current_setting('server_version_num')::integer, current_setting('server_version')"
 -    versionRow = HD.singleRow $ PgVersion <$> HD.value HD.int4 <*> HD.value HD.text
 +    versionRow = HD.singleRow $ PgVersion <$> HD.column HD.int4 <*> HD.column HD.text
- 
- fillSessionWithSettings :: [(Text, Text)] -> H.Session ()
- fillSessionWithSettings settings =
-     -- Send all of the config settings to the set_config function, using pgsql's `unnest` to transform arrays of values
--    H.query settings $ H.statement "SELECT set_config(k, v, false) FROM unnest($1, $2) AS f1(k, v)" encoder HD.unit False
-+    H.statement settings $ H.Statement "SELECT set_config(k, v, false) FROM unnest($1, $2) AS f1(k, v)" encoder HD.unit False
- 
-   where
-     -- Take a list of (key, value) pairs and encode each as an array to later bind to the query
-@@ -788,5 +789,5 @@ fillSessionWithSettings settings =
-     encoder = contramap L.unzip $ contrazip2 (vector HE.text) (vector HE.text)
-       where
-         vector value =
--          HE.value $ HE.array $ HE.arrayDimension foldl' $ HE.arrayValue value
-+          HE.param $ HE.array $ HE.dimension foldl' $ HE.element value
- 
 diff --git a/src/PostgREST/Error.hs b/src/PostgREST/Error.hs
 index 0972b281..f54a8e63 100644
 --- a/src/PostgREST/Error.hs
@@ -388,11 +388,11 @@ index 0972b281..f54a8e63 100644
 +httpStatus _ (P.SessionError (H.QueryError _ _ (H.ResultError _))) = HT.status500
 +httpStatus _ (P.SessionError (H.QueryError _ _ (H.ClientError _))) = HT.status503
 diff --git a/src/PostgREST/QueryBuilder.hs b/src/PostgREST/QueryBuilder.hs
-index 8045573b..29c0fe57 100644
+index e29ce630..95bc2516 100644
 --- a/src/PostgREST/QueryBuilder.hs
 +++ b/src/PostgREST/QueryBuilder.hs
 @@ -26,7 +26,7 @@ module PostgREST.QueryBuilder (
-   , pgFmtEnvVar
+   , pgFmtSetLocal
    ) where
  
 -import qualified Hasql.Query             as H
