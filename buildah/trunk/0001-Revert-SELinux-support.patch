@@ -1,10 +1,19 @@
+From 0dcc87af0cdd484480e8cc3f968b9e3d44758f15 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Bart=C5=82omiej=20Piotrowski?= <b@bpiotrowski.pl>
+Date: Wed, 23 Jan 2019 08:55:02 +0100
+Subject: [PATCH] Revert SELinux support
+
+---
+ ostree/ostree_dest.go | 62 +++++--------------------------------------
+ 1 file changed, 7 insertions(+), 55 deletions(-)
+
 diff --git a/ostree/ostree_dest.go b/ostree/ostree_dest.go
-index 2e0d7fcf..a8e879ed 100644
+index d69f4fa..78b15e5 100644
 --- a/ostree/ostree_dest.go
 +++ b/ostree/ostree_dest.go
-@@ -15,31 +15,25 @@ import (
- 	"os/exec"
+@@ -15,32 +15,26 @@ import (
  	"path/filepath"
+ 	"runtime"
  	"strconv"
 -	"strings"
 -	"syscall"
@@ -14,6 +23,7 @@ index 2e0d7fcf..a8e879ed 100644
  	"github.com/containers/image/manifest"
  	"github.com/containers/image/types"
  	"github.com/containers/storage/pkg/archive"
+ 	"github.com/klauspost/pgzip"
  	"github.com/opencontainers/go-digest"
 -	selinux "github.com/opencontainers/selinux/go-selinux"
  	"github.com/ostreedev/ostree-go/pkg/otbuiltin"
@@ -35,7 +45,7 @@ index 2e0d7fcf..a8e879ed 100644
  import "C"
  
  type blobToImport struct {
-@@ -158,7 +152,7 @@ func (d *ostreeImageDestination) PutBlob(ctx context.Context, stream io.Reader,
+@@ -179,7 +173,7 @@ func (d *ostreeImageDestination) PutBlob(ctx context.Context, stream io.Reader,
  	return types.BlobInfo{Digest: computedDigest, Size: size}, nil
  }
  
@@ -44,7 +54,7 @@ index 2e0d7fcf..a8e879ed 100644
  	entries, err := ioutil.ReadDir(dir)
  	if err != nil {
  		return err
-@@ -173,42 +167,13 @@ func fixFiles(selinuxHnd *C.struct_selabel_handle, root string, dir string, user
+@@ -194,42 +188,13 @@ func fixFiles(selinuxHnd *C.struct_selabel_handle, root string, dir string, user
  			continue
  		}
  
@@ -88,16 +98,18 @@ index 2e0d7fcf..a8e879ed 100644
  			if err != nil {
  				return err
  			}
-@@ -264,7 +229,7 @@ func generateTarSplitMetadata(output *bytes.Buffer, file string) (digest.Digest,
+@@ -285,9 +250,7 @@ func generateTarSplitMetadata(output *bytes.Buffer, file string) (digest.Digest,
  	return digester.Digest(), written, nil
  }
  
 -func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle, repo *otbuiltin.Repo, blob *blobToImport) error {
+-	// TODO: This can take quite some time, and should ideally be cancellable using a context.Context.
+-
 +func (d *ostreeImageDestination) importBlob(repo *otbuiltin.Repo, blob *blobToImport) error {
- 	// TODO: This can take quite some time, and should ideally be cancellable using a context.Context.
- 
  	ostreeBranch := fmt.Sprintf("ociimage/%s", blob.Digest.Hex())
-@@ -287,7 +252,7 @@ func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle,
+ 	destinationPath := filepath.Join(d.tmpDirPath, blob.Digest.Hex(), "root")
+ 	if err := ensureDirectoryExists(destinationPath); err != nil {
+@@ -308,7 +271,7 @@ func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle,
  		if err := archive.UntarPath(blob.BlobPath, destinationPath); err != nil {
  			return err
  		}
@@ -106,7 +118,7 @@ index 2e0d7fcf..a8e879ed 100644
  			return err
  		}
  	} else {
-@@ -296,7 +261,7 @@ func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle,
+@@ -317,7 +280,7 @@ func (d *ostreeImageDestination) importBlob(selinuxHnd *C.struct_selabel_handle,
  			return err
  		}
  
@@ -115,7 +127,7 @@ index 2e0d7fcf..a8e879ed 100644
  			return err
  		}
  	}
-@@ -404,17 +369,6 @@ func (d *ostreeImageDestination) Commit(ctx context.Context) error {
+@@ -430,17 +393,6 @@ func (d *ostreeImageDestination) Commit(ctx context.Context) error {
  		return err
  	}
  
@@ -133,7 +145,7 @@ index 2e0d7fcf..a8e879ed 100644
  	checkLayer := func(hash string) error {
  		blob := d.blobs[hash]
  		// if the blob is not present in d.blobs then it is already stored in OSTree,
-@@ -422,7 +376,7 @@ func (d *ostreeImageDestination) Commit(ctx context.Context) error {
+@@ -448,7 +400,7 @@ func (d *ostreeImageDestination) Commit(ctx context.Context) error {
  		if blob == nil {
  			return nil
  		}
@@ -142,3 +154,6 @@ index 2e0d7fcf..a8e879ed 100644
  		if err != nil {
  			return err
  		}
+-- 
+2.20.1
+
