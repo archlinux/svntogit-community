@@ -5,7 +5,7 @@
 
 pkgname=wine
 pkgver=4.0
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -62,6 +62,11 @@ makedepends=(autoconf ncurses bison perl fontforge flex
   libxslt               lib32-libxslt
   gst-plugins-base-libs lib32-gst-plugins-base-libs
   vulkan-icd-loader     lib32-vulkan-icd-loader
+  vkd3d                 lib32-vkd3d
+  sdl2                  lib32-sdl2
+  libgphoto2
+  sane
+  gsm
   vulkan-headers
   samba
   opencl-headers
@@ -84,6 +89,11 @@ optdepends=(
   opencl-icd-loader     lib32-opencl-icd-loader
   libxslt               lib32-libxslt
   gst-plugins-base-libs lib32-gst-plugins-base-libs
+  vkd3d                 lib32-vkd3d
+  sdl2                  lib32-sdl2
+  libgphoto2
+  sane
+  gsm
   cups
   samba           dosbox
 )
