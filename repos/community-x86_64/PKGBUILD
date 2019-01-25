@@ -5,7 +5,7 @@
 pkgname=minio
 pkgver=2018.11.06
 _pkgver="${pkgver//./-}T01-01-02Z"
-pkgrel=1
+pkgrel=2
 pkgdesc='Object storage server compatible with Amazon S3'
 arch=('x86_64')
 url='https://minio.io'
