@@ -5,7 +5,7 @@
 
 pkgname=dnscrypt-proxy
 pkgver=2.0.19
-pkgrel=1
+pkgrel=2
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTP"
 arch=('x86_64')
 url="https://dnscrypt.info"
