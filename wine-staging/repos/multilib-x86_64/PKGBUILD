@@ -6,7 +6,7 @@
 
 pkgname=wine-staging
 pkgver=4.0
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -71,6 +71,11 @@ makedepends=(autoconf ncurses bison perl fontforge flex
   gst-plugins-base-libs lib32-gst-plugins-base-libs
   vulkan-icd-loader     lib32-vulkan-icd-loader
   sdl2                  lib32-sdl2
+  vkd3d                 lib32-vkd3d
+  sane
+  libgphoto2
+  gsm
+  ffmpeg
   samba
   opencl-headers
 )
@@ -97,6 +102,11 @@ optdepends=(
   gst-plugins-base-libs lib32-gst-plugins-base-libs
   vulkan-icd-loader     lib32-vulkan-icd-loader
   sdl2                  lib32-sdl2
+  vkd3d                 lib32-vkd3d
+  sane
+  libgphoto2
+  gsm
+  ffmpeg
   cups
   samba           dosbox
 )
