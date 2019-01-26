@@ -11,7 +11,7 @@ makedepends=(gcc-fortran)
 depends=(lapack)
 arch=(x86_64)
 license=(GPL3)
-source=( http://downloads.sourceforge.net/project/qrupdate/qrupdate/1.2/$pkgname-$pkgver.tar.gz)
+source=(https://downloads.sourceforge.net/project/qrupdate/qrupdate/1.2/$pkgname-$pkgver.tar.gz)
 sha256sums=('e2a1c711dc8ebc418e21195833814cb2f84b878b90a2774365f0166402308e08')
 
 build() {
