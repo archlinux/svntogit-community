@@ -10,7 +10,7 @@ url="https://computation.llnl.gov/casc/sundials/main.html"
 license=(BSD)
 depends=(openmpi)
 makedepends=(cmake gcc-fortran python)
-source=("http://computation.llnl.gov/projects/sundials/download/$pkgname-$pkgver.tar.gz")
+source=("https://computation.llnl.gov/projects/sundials/download/$pkgname-$pkgver.tar.gz")
 sha256sums=('6656d6938aed9142e61a001b1ed9f4ee4f7eaf003613bf5a887e98a85904d375')
 
 prepare() {
