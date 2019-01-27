@@ -15,7 +15,7 @@ pkgbase=go
 pkgname=(go go-pie)
 epoch=2
 pkgver=1.11.5
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url='https://golang.org/'
 license=(BSD)
@@ -42,7 +42,6 @@ prepare() {
 
 build() {
   export GOPATH="$srcdir/"
-  export GO_GCFLAGS="-trimpath=$GOPATH"
 
   for _pkgname in ${pkgname[@]}; do
     export GOROOT="$srcdir/$_pkgname"
@@ -101,6 +100,11 @@ package_go-pie() {
   conflicts=(go)
 
   _package $pkgname
+
+  # linux_amd64 is essentially the content of linux_amd64_shared, however there might
+  # be cases where the user could generate the _shared directory as it's missing in go-pie.
+  # Make sure it exists without rebuilding std with -buildmode=pie.
+  cp -a "$pkgdir/usr/lib/go/pkg/linux_amd64/" "$pkgdir/usr/lib/go/pkg/linux_amd64_shared"
 }
 
 # vim: ts=2 sw=2 et
