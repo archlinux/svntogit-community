@@ -1,56 +1,63 @@
-diff --git a/src/sage_setup/docbuild/__init__.py b/src/sage_setup/docbuild/__init__.py
-index ff67979..83b49e1 100644
---- a/src/sage_setup/docbuild/__init__.py
-+++ b/src/sage_setup/docbuild/__init__.py
-@@ -332,6 +331,18 @@ class AllBuilder(object):
-         for document in refs:
-             getattr(get_builder(document), 'inventory')(*args, **kwds)
+diff --git a/src/sage/misc/sphinxify.py b/src/sage/misc/sphinxify.py
+index 6e21344..4270294 100644
+--- a/src/sage/misc/sphinxify.py
++++ b/src/sage/misc/sphinxify.py
+@@ -68,20 +68,20 @@ def sphinxify(docstring, format='html'):
+         sage: assert n == len(sys.path)
+     """
+     srcdir = mkdtemp()
+-    base_name = os.path.join(srcdir, 'docstring')
+-    rst_name = base_name + '.rst'
++    outdir = mkdtemp()
++    src_base_name = os.path.join(srcdir, 'docstring')
++    out_base_name = os.path.join(outdir, 'docstring')
++    rst_name = src_base_name + '.rst'
  
-+        # In the inventory build, the directory
-+        # SAGE_DOC/inventory/en/reference/_static might be created,
-+        # but it is unnecessary in the inventory build -- this
-+        # directory should contain javascript and style files
-+        # specifically for the html build -- and it can confuse
-+        # intersphinx and the html builder when they look for
-+        # inventory files. So delete this directory.
-+        staticdir = os.path.join(SAGE_DOC, 'inventory', 'en', 'reference', '_static')
-+        if os.path.isdir(staticdir):
-+            logger.info("Deleting _static directory in the inventory build")
-+            shutil.rmtree(staticdir)
-+
-         logger.warning("Building reference manual, second pass.\n")
-         for document in refs:
-             getattr(get_builder(document), name)(*args, **kwds)
-diff --git a/src/sage_setup/docbuild/ext/sage_autodoc.py b/src/sage_setup/docbuild/ext/sage_autodoc.py
-index 2c399bad51..96abec3382 100644
---- a/src/sage_setup/docbuild/ext/sage_autodoc.py
-+++ b/src/sage_setup/docbuild/ext/sage_autodoc.py
-@@ -39,8 +39,9 @@ from docutils.statemachine import ViewList
- import sphinx
- from sphinx.util import rpartition, force_decode
- from sphinx.locale import _
--from sphinx.pycode import ModuleAnalyzer, PycodeError
--from sphinx.application import ExtensionError
-+from sphinx.pycode import ModuleAnalyzer
-+from sphinx.errors import ExtensionError, PycodeError
-+from sphinx.util.logging import getLogger
- from sphinx.util.nodes import nested_parse_with_titles
- from docutils.parsers.rst import Directive
- from sphinx.util.inspect import getargspec, isdescriptor, safe_getmembers, \
-diff --git a/src/sage_setup/docbuild/ext/multidocs.py b/src/sage_setup/docbuild/ext/multidocs.py
-index dc2e065e7e..ddd28c1a46 100644
---- a/src/sage_setup/docbuild/ext/multidocs.py
-+++ b/src/sage_setup/docbuild/ext/multidocs.py
-@@ -302,7 +302,6 @@ def init_subdoc(app):
-                     os.unlink(static_dir)
-             os.symlink(master_static_dir, static_dir)
-
--        app.builder.copy_static_files = link_static_files
-
-     if app.config.multidoc_first_pass == 1:
-         app.config.intersphinx_mapping = {}
+     if format == 'html':
+         suffix = '.html'
+     else:
+         suffix = '.txt'
+-    output_name = base_name + suffix
++    output_name = out_base_name + suffix
+ 
+     with open(rst_name, 'w') as filed:
+         filed.write(docstring)
+ 
+-    # Sphinx constructor: Sphinx(srcdir, confdir, outdir, doctreedir,
+-    # buildername, confoverrides, status, warning, freshenv).
+     confdir = os.path.join(SAGE_DOC_SRC, 'en', 'introspect')
+ 
+     open(os.path.join(srcdir, 'docutils.conf'), 'w').write(r"""
+@@ -93,7 +93,9 @@ smart_quotes = no
+ 
+     import sys
+     old_sys_path = list(sys.path)  # Sphinx modifies sys.path
+-    sphinx_app = Sphinx(srcdir, confdir, srcdir, doctreedir, format,
++    # Sphinx constructor: Sphinx(srcdir, confdir, outdir, doctreedir,
++    # buildername, confoverrides, status, warning, freshenv).
++    sphinx_app = Sphinx(srcdir, confdir, outdir, doctreedir, format,
+                         confoverrides, None, None, True)
+     sphinx_app.build(None, [rst_name])
+     sys.path = old_sys_path
+@@ -118,13 +120,15 @@ smart_quotes = no
+         # Remove spurious \(, \), \[, \].
+         output = output.replace('\\(', '').replace('\\)', '').replace('\\[', '').replace('\\]', '')
+     else:
+-        print("BUG -- Sphinx error")
++        from warnings import warn
++        warn("Sphinx did not produce any output", Warning)
+         if format == 'html':
+             output = '<pre class="introspection">%s</pre>' % docstring
+         else:
+             output = docstring
+ 
+     shutil.rmtree(srcdir, ignore_errors=True)
++    shutil.rmtree(outdir, ignore_errors=True)
+ 
+     return output
+ 
 diff --git a/src/sage_setup/docbuild/__init__.py b/src/sage_setup/docbuild/__init__.py
-index 0b24b1a..ff67979 100644
+index 534b40b..ff8f4c1 100644
 --- a/src/sage_setup/docbuild/__init__.py
 +++ b/src/sage_setup/docbuild/__init__.py
 @@ -47,7 +47,6 @@ import logging, warnings
@@ -61,8 +68,47 @@ index 0b24b1a..ff67979 100644
  import sphinx.util.console
  import sphinx.ext.intersphinx
  
+@@ -334,6 +333,7 @@ class AllBuilder(object):
+             getattr(get_builder(document), 'inventory')(*args, **kwds)
+ 
+         logger.warning("Building reference manual, second pass.\n")
++        sage_makedirs(os.path.join(SAGE_DOC, "html", "en", "reference", "_static"))
+         for document in refs:
+             getattr(get_builder(document), name)(*args, **kwds)
+ 
+diff --git a/src/sage_setup/docbuild/ext/inventory_builder.py b/src/sage_setup/docbuild/ext/inventory_builder.py
+index 113849a..92deaa1 100644
+--- a/src/sage_setup/docbuild/ext/inventory_builder.py
++++ b/src/sage_setup/docbuild/ext/inventory_builder.py
+@@ -12,6 +12,7 @@ from os import path
+ 
+ from six import iteritems, text_type
+ 
++import shutil
+ 
+ try:
+     from hashlib import md5
+@@ -107,6 +108,18 @@ class InventoryBuilder(StandaloneHTMLBuilder):
+         """
+         raise RuntimeError("This function shouldn't be called in \"%s\" builder"%(self.name))
+ 
++    def cleanup(self):
++        """
++        Remove the '_static' directory.
++
++        This directory is unnecessary for the inventory build, but it
++        may be created by the graphviz extension. Its presence will
++        break the docbuild later on, so remove it.
++        """
++        if path.isdir(path.join(self.outdir, '_static')):
++            shutil.rmtree(path.join(self.outdir, '_static'))
++
++
+     copy_image_files = removed_method_error
+     copy_download_files = removed_method_error
+     copy_static_files = removed_method_error
 diff --git a/src/sage_setup/docbuild/ext/multidocs.py b/src/sage_setup/docbuild/ext/multidocs.py
-index 62d3946..262cb3c 100644
+index dc2e065..8c3736d 100644
 --- a/src/sage_setup/docbuild/ext/multidocs.py
 +++ b/src/sage_setup/docbuild/ext/multidocs.py
 @@ -32,6 +32,7 @@ from sphinx.util.console import bold
@@ -108,7 +154,7 @@ index 62d3946..262cb3c 100644
 -        app.info("")
 -        app.warn("Unable to fetch %s " % filename)
 +        logger.info("")
-+        logger.warn("Unable to fetch %s " % filename)
++        logger.warning("Unable to fetch %s " % filename)
          return None
      docenv = cPickle.load(f)
      f.close()
@@ -146,12 +192,12 @@ index 62d3946..262cb3c 100644
  
 @@ -181,8 +182,8 @@ def get_js_index(app, curdoc):
      try:
-         f = open(indexfile, 'rb')
+         f = open(indexfile, 'r')
      except IOError:
 -        app.info("")
 -        app.warn("Unable to fetch %s " % indexfile)
 +        logger.info("")
-+        logger.warn("Unable to fetch %s " % indexfile)
++        logger.warning("Unable to fetch %s " % indexfile)
          return None
      indexer.load(f, sphinx.search.js_index)
      f.close()
@@ -180,7 +226,7 @@ index 62d3946..262cb3c 100644
      cite = env.domaindata["std"]["citations"]
      for ind, (path, tag, lineno) in six.iteritems(cache):
          if ind not in cite: # don't override local citation
-@@ -265,18 +266,17 @@ def init_subdoc(app):
+@@ -265,18 +266,18 @@ def init_subdoc(app):
      doc itself.
      """
      if app.config.multidocs_is_master:
@@ -195,14 +241,14 @@ index 62d3946..262cb3c 100644
 -                app.builder.info(bold('skipping loading of indexes... '), nonl=1)
 +                logger.info(bold('skipping loading of indexes... '), nonl=1)
              app.builder.load_indexer = load_indexer
--
+ 
      else:
 -        app.info(bold("Compiling a sub-document"))
 +        logger.info(bold("Compiling a sub-document"))
          app.connect('html-page-context', fix_path_html)
          if not app.config.multidoc_first_pass:
              app.connect('env-updated', fetch_citation)
-@@ -292,7 +292,7 @@ def init_subdoc(app):
+@@ -292,7 +293,7 @@ def init_subdoc(app):
                      def copy_static_files(self):
                      [...]
              """
@@ -212,58 +258,21 @@ index 62d3946..262cb3c 100644
              master_static_dir = os.path.join('..', '_static')
              if os.path.lexists(static_dir):
 diff --git a/src/sage_setup/docbuild/ext/sage_autodoc.py b/src/sage_setup/docbuild/ext/sage_autodoc.py
-index ecad739..587f592 100644
+index 25895d3..2e640a0 100644
 --- a/src/sage_setup/docbuild/ext/sage_autodoc.py
 +++ b/src/sage_setup/docbuild/ext/sage_autodoc.py
-@@ -49,6 +49,8 @@ from sphinx.util.inspect import getargspec, isdescriptor, safe_getmembers, \
-     isenumclass, isenumattribute
+@@ -40,7 +40,8 @@ from sphinx.errors import ExtensionError
+ from sphinx.ext.autodoc.importer import mock, import_object, get_object_members
+ from sphinx.ext.autodoc.inspector import format_annotation, formatargspec
+ from sphinx.locale import _, __
+-from sphinx.pycode import ModuleAnalyzer, PycodeError
++from sphinx.pycode import ModuleAnalyzer
++from sphinx.errors import ExtensionError, PycodeError
+ from sphinx.util import logging
+ from sphinx.util import rpartition, force_decode
  from sphinx.util.docstrings import prepare_docstring
- 
-+logger = getLogger(__name__)
-+
- try:
-     if sys.version_info >= (3,):
-         import typing
-@@ -554,7 +556,7 @@ class Documenter(object):
- 
-         Returns True if successful, False if an error occurred.
-         """
--        dbg = self.env.app.debug
-+        dbg = logger.debug
-         if self.objpath:
-             dbg('[autodoc] from %s import %s',
-                 self.modname, '.'.join(self.objpath))
-@@ -988,7 +990,7 @@ class Documenter(object):
-             # be cached anyway)
-             self.analyzer.find_attr_docs()
-         except PycodeError as err:
--            self.env.app.debug('[autodoc] module analyzer failed: %s', err)
-+            logger.debug('[autodoc] module analyzer failed: %s', err)
-             # A few things could have happened here:
-             # * there is no source file -- e.g. for builtin and C modules
-             # * the source file contains syntax that Sphinx can not parse,
-@@ -1732,8 +1734,8 @@ class AutoDirective(Directive):
-             source, lineno = self.reporter.get_source_and_line(self.lineno)
-         except AttributeError:
-             source = lineno = None
--        self.env.app.debug('[autodoc] %s:%s: input:\n%s',
--                           source, lineno, self.block_text)
-+        logger.debug('[autodoc] %s:%s: input:\n%s',
-+                     source, lineno, self.block_text)
- 
-         # find out what documenter to call
-         objtype = self.name[4:]
-@@ -1762,7 +1764,7 @@ class AutoDirective(Directive):
-         if not self.result:
-             return self.warnings
- 
--        self.env.app.debug2('[autodoc] output:\n%s', '\n'.join(self.result))
-+        logger.debug('[autodoc] output:\n%s', '\n'.join(self.result))
- 
-         # record all filenames as dependencies -- this will at least
-         # partially make automatic invalidation possible
 diff --git a/src/sage_setup/docbuild/sphinxbuild.py b/src/sage_setup/docbuild/sphinxbuild.py
-index 8f7034f..87c29b7 100644
+index 8c7efbe..9a2fba7 100644
 --- a/src/sage_setup/docbuild/sphinxbuild.py
 +++ b/src/sage_setup/docbuild/sphinxbuild.py
 @@ -22,6 +22,7 @@ We redirect stdout and stderr to our own logger, and remove some unwanted chatte
@@ -274,7 +283,7 @@ index 8f7034f..87c29b7 100644
  
  # override the fancy multi-line formatting
  def term_width_line(text):
-@@ -310,12 +311,12 @@ def runsphinx():
+@@ -304,12 +305,12 @@ def runsphinx():
      try:
          sys.stdout = SageSphinxLogger(sys.stdout, os.path.basename(output_dir))
          sys.stderr = SageSphinxLogger(sys.stderr, os.path.basename(output_dir))
