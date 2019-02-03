@@ -1,8 +1,8 @@
-# Maintainer: Ainola
+# Maintainer: Ainola <ainola@archlinux.org>
 
 pkgname=wlroots
-pkgver=0.2
-pkgrel=3
+pkgver=0.3
+pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://github.com/swaywm/wlroots'
@@ -18,7 +18,7 @@ depends=(
 )
 makedepends=('meson' 'ninja' 'wayland-protocols')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz")
-sha256sums=('0b690c5db5a1f11051a28f0349655322fe54d92f7c2dc8d3c6e5559b1098bfd8')
+sha256sums=('6fe527dcaf223015276f6e8592becd1cc5215166d943d636a9fa578f57db684e')
 
 build() {
     arch-meson "$pkgname-$pkgver" build \
