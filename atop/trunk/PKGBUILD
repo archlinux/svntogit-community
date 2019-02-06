@@ -4,10 +4,10 @@
 
 pkgname=atop
 pkgver=2.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A system and process level monitor'
 arch=('x86_64')
-url='http://www.atoptool.nl/'
+url='https://www.atoptool.nl/'
 license=('GPL')
 depends=('ncurses' 'sh' 'zlib' 'cron')
 backup=('etc/default/atop')
