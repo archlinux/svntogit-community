@@ -6,10 +6,10 @@
 
 pkgname=qcad
 pkgver=3.22.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A 2D CAD package based upon Qt'
 arch=('x86_64')
-url="http://www.qcad.org"
+url="https://www.qcad.org"
 license=('GPL3')
 depends=('qt5-script' 'qt5-svg' 'gcc-libs' 'qt5-xmlpatterns' 'qt5-tools')
 makedepends=('glu')
