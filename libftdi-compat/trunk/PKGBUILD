@@ -2,10 +2,10 @@
 
 pkgname=libftdi-compat
 pkgver=0.20
-pkgrel=6
+pkgrel=7
 pkgdesc="A library to talk to FTDI chips"
 arch=('x86_64')
-url="http://www.intra2net.com/en/developer/libftdi/download.php"
+url="https://www.intra2net.com/en/developer/libftdi/download.php"
 license=('GPL2' 'LGPL2.1')
 depends=('libusb-compat' 'gcc-libs')
 makedepends=('boost')
