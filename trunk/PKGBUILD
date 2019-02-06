@@ -4,11 +4,11 @@
 
 pkgname=libaacs
 pkgver=0.9.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Advanced Access Content System"
 arch=('x86_64')
 license=('LGPL')
-url="http://www.videolan.org/developers/libaacs.html"
+url="https://www.videolan.org/developers/libaacs.html"
 depends=('libgcrypt')
 source=("ftp://ftp.videolan.org/pub/videolan/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.bz2")
 sha1sums=('b658830b760e756a46486cc4ab47dacef31994ab')
