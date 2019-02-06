@@ -5,8 +5,8 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=2.13.1
-pkgrel=2
+pkgver=3.0.0
+pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
 license=('BSD')
@@ -15,8 +15,8 @@ makedepends=('git' 'go-pie' 'yarn')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/keybase/client/archive/v${pkgver}.tar.gz"
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('c0cad522f14cf39f08c841ff90f96662f3f5d9fe3c8e8156755a8805757c5d206991410a2511315b8c00dcafcc5e23e5449d37d13f399e6692e0c6d4fb1c0b61'
-            '4ab159d8e764de7ef92b3c9b99559e0a499de607914521b7c5f89396d810c6360b87a785c43be90c54d1dee7e93ec1fda31e8377080d9bbbeb6230166d856f39'
+sha512sums=('40ddbd6fc5201bbca087490022b021e6abc201dc428327e8974953d0e5cd403324cebf1ace29a22126eee0d1e36f84e85d443a236a7271ccdd79605abfe6fa72'
+            'd9aa6a9f9cfcb951cb4ab5da8a8daadd0b1ff34dff6f23891b75c01b600b6fd98656ec5db4154ec0db9e62469b1b8f865e8b4515e190b510258233e20dba9de2'
             'b721dc0c40cf23602424d2ca024524a0eef5210a7cdca0209b89eab5c17c3fcb3cc48d91940a4c88d2416d0a19a7fb3deba92e90244251c4338b0fd640befdcd')
 
 prepare() {
@@ -28,11 +28,9 @@ prepare() {
 
     # Fix paths to run electron /path/to/app (or our minimal wrapper script).
     # Also wire up "hideWindow" when running as a service or via XDG autostart.
-    sed -i \
-        -e 's@/opt/keybase/Keybase@/usr/bin/electron /usr/share/keybase-app@' \
-        -e '/EnvironmentFile/a\Environment=KEYBASE_START_UI=hideWindow' \
+    sed -i 's@/opt/keybase/Keybase@/usr/bin/electron /usr/share/keybase-app@' \
         packaging/linux/systemd/keybase.gui.service
-    sed -i 's/KEYBASE_AUTOSTART=1/KEYBASE_START_UI=hideWindow/;s/run_keybase/keybase-gui/g' \
+    sed -i 's/run_keybase/keybase-gui/g' \
         packaging/linux/keybase.desktop go/install/install_unix.go
 
     patch -p1 -i ../0001-Don-t-use-electron-to-build.patch
@@ -78,7 +76,7 @@ package_kbfs() {
     install -Dm755 -t "${pkgdir}"/usr/bin/ go/bin/{kbfsfuse,git-remote-keybase}
     install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
     # more systemd activation
-    install -Dm644 go/kbfs/packaging/linux/systemd/kbfs.service "$pkgdir"/usr/lib/systemd/user/kbfs.service
+    install -Dm644 packaging/linux/systemd/kbfs.service "$pkgdir"/usr/lib/systemd/user/kbfs.service
 }
 
 package_keybase-gui() {
