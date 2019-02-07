@@ -1,0 +1,58 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: ChaosKid42 <christoph.scholz@gmail.com>
+# Contributor: Andy Weidenbaum <archbaum@gmail.com>
+
+_name=rugged
+pkgname=ruby-rugged
+pkgver=0.27.5
+pkgrel=1
+pkgdesc='A Ruby binding to the libgit2 linkable library'
+arch=('x86_64')
+url="https://github.com/libgit2/rugged"
+license=('MIT')
+depends=('ruby' 'libgit2')
+makedepends=('ruby-minitest' 'ruby-rake' 'ruby-rake-compiler' 'ruby-rdoc')
+checkdepends=('git')
+options=(!emptydirs)
+source=("${_name}-${pkgver}.tar.gz::https://github.com/libgit2/${_name}/archive/v${pkgver}.tar.gz")
+sha512sums=('9c2b24aa7c3e193124fa11ecde9eb0e894a4be4edb4bc8c542ea528e735dc417ec4e6eae63e2eac2996f74e95bf613974c3c2db361213b31c157584907ad0e28')
+
+prepare() {
+  mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
+  cd ${pkgname}-${pkgver}
+  sed -r 's|~>|>=|g' -i ${_name}.gemspec # don't give a fuck about rubys bla bla
+  # remove broken and useless libgit2 "version check"
+  sed '47,67d' -i ext/rugged/extconf.rb
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  export CI_BUILD=true
+  export RUGGED_USE_SYSTEM_LIBRARIES=true
+  export CMAKE_FLAGS=" --use-system-libraries"
+  rake compile
+  rake gem
+}
+
+# we're missing the fixtures from libgit2 to run the tests
+#check(){
+#  cd "${pkgname}-${pkgver}"
+#  rake test
+#}
+
+package() {
+  cd ${pkgname}-${pkgver}
+  local _gemdir="$(gem env gemdir)"
+  gem install --ignore-dependencies \
+              --no-user-install \
+              -i "${pkgdir}/${_gemdir}" \
+              -n "${pkgdir}/usr/bin" \
+              pkg/${_name}-${pkgver}.gem
+  install -vDm 644 "$pkgdir/$_gemdir/gems/$_name-$pkgver/LICENSE" \
+    -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  install -vDm 644 README.md CHANGELOG.md -t \
+    "${pkgdir}/usr/share/doc/${pkgname}"
+  cd "${pkgdir}/${_gemdir}"
+  rm -rv cache gems/${_name}-${pkgver}/{ext,lib/*/*.so} \
+    extensions/*/*/${_name}-${pkgver}/{mkmf.log,gem_make.out}
+}
