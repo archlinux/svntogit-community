@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=hindent
+pkgver=5.2.7
+pkgrel=65
+pkgdesc="Extensible Haskell pretty printer"
+url="https://github.com/commercialhaskell/hindent"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-exceptions' 'haskell-monad-loops' 'haskell-optparse-applicative'
+         'haskell-path' 'haskell-path-io' 'haskell-src-exts' 'haskell-unix-compat'
+         'haskell-utf8-string' 'haskell-yaml')
+makedepends=('ghc' 'haskell-diff' 'haskell-hspec')
+source=("https://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        https://github.com/chrisdone/hindent/pull/537.patch)
+sha512sums=('9538486abe1c7638710825ee903fd9f97eab3c906c30a036c396dcb3c806e1c803e9e1a408b392c98652d10d02fb1f27472ae8475a9dceae3e46cc361f237cf5'
+            'f11d905ec785aa3a4fe6ded720a665677d78a623608bde594bb0df0813503eb688a6c7b3012aea307dedbb5ccfd634048ac5d2214d11227d7523c5900371a2b8')
+
+prepare() {
+    cd $pkgname-$pkgver
+    patch -p1 -i ../537.patch
+}
+
+build() {
+    cd $pkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --enable-tests --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $pkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $pkgname-$pkgver
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE.md" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.md"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE.md"
+}
