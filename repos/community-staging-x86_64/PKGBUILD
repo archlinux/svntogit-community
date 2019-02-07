@@ -1,0 +1,55 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=shake
+pkgname=haskell-shake
+pkgver=0.17.5
+pkgrel=3
+pkgdesc="Build system library, like Make, but more accurate dependencies."
+url="http://shakebuild.com"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-extra' 'haskell-hashable' 'haskell-js-flot' 'haskell-js-jquery'
+         'haskell-primitive' 'haskell-random' 'haskell-unordered-containers' 'haskell-utf8-string')
+makedepends=('ghc' 'haskell-quickcheck')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('027f28c100201158938c39f9d1f5025367497d70627028fa5d83b5476abc459ea62c2dcca13ba13c93b63442d63ac5a3568ee88e65de1c45ccde6aadc6b425b3')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/ghc --make/ghc -dynamic --make/' src/Test/Command.hs
+    sed -e 's/runhaskell Setup.hs configure/runhaskell Setup.hs configure --enable-executable-dynamic --disable-library-vanilla/' \
+        -e 's/ghc -fno-code/ghc -dynamic -fno-code/' \
+        -i src/Test/Docs.hs
+    sed -i 's/cmd "ghc" flags/cmd "ghc" "-dynamic" flags/' src/Test/Self.hs src/Test/SelfMake.hs
+    sed -i 's/ghc --make/ghc -dynamic --make/' docs/manual/build.sh
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir="$pkgname"  --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-portable -f-cloud
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
