@@ -1,0 +1,63 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=snap-server
+pkgname=haskell-snap-server
+pkgver=1.1.1.0
+pkgrel=2
+pkgdesc="A web server for the Snap Framework"
+url="https://github.com/snapframework/snap-server"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-attoparsec' 'haskell-blaze-builder' 'haskell-case-insensitive'
+         'haskell-clock' 'haskell-io-streams' 'haskell-io-streams-haproxy' 'haskell-lifted-base'
+         'haskell-network' 'haskell-old-locale' 'haskell-snap-core' 'haskell-unix-compat'
+         'haskell-vector')
+makedepends=('ghc')
+checkdepends=('haskell-base16-bytestring' 'haskell-monad-control' 'haskell-random'
+              'haskell-threads' 'haskell-hunit' 'haskell-quickcheck' 'haskell-http-streams'
+              'haskell-http-common' 'haskell-parallel' 'haskell-test-framework'
+              'haskell-test-framework-hunit' 'haskell-test-framework-quickcheck2')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz
+	https://github.com/snapframework/snap-server/commit/d38d24d2f452c299c2b941dba36db63fac2c6bcb.patch)
+sha512sums=('072033389c9b699c1aa497bcd37c89605b5188b30e828330d510e9c3f76872ecf61f7c91d536f7b31269ec001ecee9459433d125a12a101643c24cc3cf92f0a7'
+            'b99da752954abe699ffd9c601c7f88fdacacdaca9fd05dbf5dc999adc371872b6f0108b80d6c01df8604dfe95b5ea69051ecedfbf91725dc3503164ba00bea71')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../d38d24d2f452c299c2b941dba36db63fac2c6bcb.patch
+    sed -i -e '/bytestring-builder/d' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    if (( CHECKFUNC )); then
+        _opts=('--enable-tests')
+    else
+        _opts=('--disable-tests')
+    fi
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname "${_opts[@]}" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
