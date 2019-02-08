@@ -1,0 +1,52 @@
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Federico Cuello <fedux@fedux.com.ar>
+
+pkgname=redmine
+pkgver=4.0.1
+pkgrel=1
+pkgdesc="A flexible project management web application written using Ruby on Rails framework."
+arch=('any')
+url="https://www.redmine.org"
+license=('GPL2')
+depends=('ruby' 'libmagick6' 'ruby-bundler' 'libxml2' 'libxslt')
+makedepends=('imagemagick6' 'mariadb-libs' 'postgresql-libs')
+optdepends=('apache: A supported application server'
+            'nginx: A supported application server'
+            'mysql: MySQL database support'
+            'postgresql: PostgreSQL database support'
+            'sqlite: SQLite database support'
+            'ruby-rmagick: For Gantt export to PNG image and thumbnails generation'
+            'ruby-rails: Alternative Ruby on Rails instalation')
+source=("$url/releases/$pkgname-$pkgver.tar.gz"
+	"redmine.service")
+sha512sums=('736e39404364fce44371b504ce2051417cb88a9020d8b4b6ccab0357bbcbd249f16bba65c195977088504ceb8a7c8852654b91a1d3118386a028d884c3394d6c'
+            'aa2186ed970667baf8b80c4b65fce76291074bed25cf8e78c6a265afb6e8a00c67eb195ceb8fc021cdc0b70731a008ccb64cdd28f492e130d469a71f364d40a7')
+
+build() {
+    cd "$srcdir"/redmine-$pkgver
+    echo -e "p:\n  adapter: mysql2\n\ndevelopment:\n  adapter: postgresql" >config/database.yml
+    echo "gem \"xpath\", \"< 4.0\"" >Gemfile.local
+    bundle lock
+    bundle install --no-cache --deployment --without development test
+    rm -f config/database.yml
+}
+
+package() {
+    _instdir="$pkgdir"/usr/share/webapps/redmine
+
+    cd "$srcdir"/redmine-$pkgver
+    install -dm 755 "$_instdir"
+    cp -a --no-preserve=ownership ./* "$_instdir"
+
+    install -Dm0644 "${srcdir}"/redmine.service "${pkgdir}"/usr/lib/systemd/system/redmine.service
+
+    cd "$_instdir"
+    rm -rf files log
+    install -dm0755 -o http -g http "$pkgdir"/var/lib/redmine/files
+    install -dm0755 -o http -g http "$pkgdir"/var/log/redmine
+    mv tmp "$pkgdir"/var/lib/redmine/tmp
+    chown -R http:http "$pkgdir"/var/lib/redmine/tmp
+    ln -s /var/log/redmine log
+    ln -s /var/lib/redmine/files files
+    ln -s /var/lib/redmine/tmp tmp
+}
