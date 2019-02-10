@@ -2,7 +2,7 @@
 
 pkgname=docker
 pkgver=18.09.1
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
