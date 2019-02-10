@@ -4,25 +4,26 @@
 
 pkgbase=aubio
 pkgname=('aubio' 'python-aubio' 'python2-aubio')
-pkgver=0.4.8
+pkgver=0.4.9
 pkgrel=1
 pkgdesc="A tool for extracting annotations from audio signals"
 arch=('x86_64')
 url="https://aubio.org/"
 license=('GPL3')
+makedepends=('doxygen' 'jack' 'libsamplerate' 'libsndfile' 'python-sphinx' 'txt2man')
 makedepends=('doxygen' 'ffmpeg' 'fftw' 'jack' 'libsamplerate' 'libsndfile'
 'python-numpy' 'python-setuptools' 'python-sphinx' 'python2-numpy'
 'python2-setuptools' 'python2-sphinx' 'txt2man')
-checkdepends=('python-nose2' 'python2-nose2')
+checkdepends=('python-pytest' 'python2-pytest')
 source=("https://${pkgbase}.org/pub/${pkgbase}-${pkgver}.tar.bz2")
-sha512sums=('e58b32beda36865a5243ec7ed4647cf96e3652a25fd319fc697c08f93487f895070dc66b830700b40b879220c2e3a53b8cdc255ce2e34770ba5e34b36a4f51b4')
+sha512sums=('0cb81bb4b15051db3f3f4d160d500af56fdfb237e0a74e3f366f53c2870030aa0a7cee8469a611a9694c36b8866d3d42ffb48241c999de08f3fee43e6d903130')
 
 prepare() {
   cp -av "${pkgbase}-${pkgver}" "${pkgname[2]}-${pkgver}"
   cd "${pkgname[2]}-${pkgver}"
   # python2 shebang
   sed -e '1s/python/&2/' \
-    -i "python/lib/${pkgname}/"{__init__,cmd,cut}.py \
+    -i "python/lib/${pkgbase}/"{__init__,cmd,cut}.py \
     -i "python/tests/"*.py
   # console_scripts names
   sed -e 's/aubio =/aubio2 =/g' \
@@ -32,11 +33,9 @@ prepare() {
 
 build() {
   cd "${pkgbase}-${pkgver}"
-  echo "$(pwd)"
   python waf configure --prefix=/usr \
+    --alltests \
     --enable-fftw3 \
-    --htmldir=/usr/share/doc/${pkgname} \
-    --docdir=/usr/share/doc/${pkgname} \
     --libdir=/usr/lib
   python waf build
   python setup.py build
@@ -45,15 +44,19 @@ build() {
 }
 
 check() {
+  local _py3_ver=$(python3 -c "import sys; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor))")
+  local _py2_ver=$(python2 -c "import sys; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor))")
+  local PYTHON2_PATH="${srcdir}/${pkgname[2]}-${pkgver}/build/lib.linux-$CARCH-${_py2_ver}/:${PYTHONPATH}"
+  local PYTHON3_PATH="${srcdir}/${pkgbase}-${pkgver}/build/lib.linux-$CARCH-${_py3_ver}/:${PYTHONPATH}"
   cd "${pkgbase}-${pkgver}"
+  PYTHONPATH="${PYTHON3_PATH}" \
   LD_LIBRARY_PATH="${PWD}/build/src" \
-  PYTHONPATH="${PWD}/build/lib.linux-${CARCH}-3.7:${PYTHONPATH}" \
-  python setup.py test
+  py.test python/tests
 
   cd ../"${pkgname[2]}-${pkgver}"
+  PYTHONPATH="${PYTHON2_PATH}" \
   LD_LIBRARY_PATH="${PWD}/build/src" \
-  PYTHONPATH="${PWD}/build/lib.linux-${CARCH}-2.7:${PYTHONPATH}" \
-  python2 setup.py test
+  py.test2 python/tests
 }
 
 package_aubio() {
