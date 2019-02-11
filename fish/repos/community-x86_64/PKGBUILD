@@ -6,7 +6,7 @@
 # Contributor: Jan Fader <jan.fader@web.de>
 
 pkgname=fish
-pkgver=3.0.0
+pkgver=3.0.1
 pkgrel=1
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
@@ -16,8 +16,8 @@ depends=('bc' 'gcc-libs' 'inetutils' 'ncurses' 'which' 'pcre2')
 optdepends=('python: for manual page completion parser and web configuration tool')
 makedepends=('doxygen')
 install=fish.install
-source=(${pkgname}-${pkgver}.tar.gz::https://github.com/fish-shell/fish-shell/archive/${pkgver}.tar.gz)
-sha512sums=('97efb67c34860794787b44c04fbb8ebc1b7a8c37da00e7f6d93daab6707f198a2e0455e956a3b1c6a0c1711fa2d0f024ba42a3f82fbb17e857c518a858bb2ffb')
+source=(https://github.com/fish-shell/fish-shell/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
+sha512sums=('6203b317c503b92c6f742eeb06f9e01558c6a31394ea73134c90b1cf0acebc5b88cdfe18cacf17f70d9b1612289f610e78a7cb683ffbfd9d616e1848f9861bcf')
 
 prepare() {
   cd fish-shell-${pkgver}
@@ -27,7 +27,8 @@ prepare() {
 
 build() {
   cd fish-shell-${pkgver}
-  ./configure --prefix=/usr \
+  ./configure \
+    --prefix=/usr \
     --sysconfdir=/etc
   make
 }
