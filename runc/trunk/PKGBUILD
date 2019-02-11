@@ -1,17 +1,21 @@
-# Maintainer: Sébastien "Seblu" Luttringer
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Contributor: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=1.0.0rc5+168+g079817cc
+pkgver=1.0.0rc6
 pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
 url='https://runc.io/'
 license=(Apache)
-depends=(glibc libseccomp)
+depends=(libseccomp)
 makedepends=(git go-pie go-md2man)
-_commit=079817cc26ec5292ac375bb9f47f373d33574949  # master
-source=(git+https://github.com/opencontainers/runc.git#commit=$_commit)
-md5sums=('SKIP')
+_commit=ccb5efd37fb7c86364786e9137e22948751de7ed
+source=("git+https://github.com/opencontainers/runc.git#commit=$_commit?signed"
+		"0001-nsenter-clone-proc-self-exe-to-avoid-exposing-host-b.patch")
+validpgpkeys=("5F36C6C61B5460124A75F5A69E18AA267DDB8DB4")
+sha256sums=('SKIP'
+            '327ee5b857062d53527701e70ae86a0614732e11b9000ab7a69f9e32981717c6')
 
 pkgver() {
   cd runc
@@ -21,11 +25,17 @@ pkgver() {
 prepare() {
   mkdir -p src/github.com/opencontainers
   cp -r runc src/github.com/opencontainers/
+  cd src/github.com/opencontainers/runc
+  patch -Np1 -i "${srcdir}/0001-nsenter-clone-proc-self-exe-to-avoid-exposing-host-b.patch"
 }
 
 build() {
   cd src/github.com/opencontainers/runc
-  GOPATH="$srcdir" BUILDTAGS='seccomp' make runc man
+  export EXTRA_FLAGS="-gcflags all=-trimpath=${PWD} -asmflags all=-trimpath=${PWD}"
+  export GOPATH="$srcdir"
+  export EXTRA_LDFLAGS="-extldflags ${LDFLAGS}"
+  export BUILDTAGS='seccomp'
+  make runc man
 }
 
 package() {
