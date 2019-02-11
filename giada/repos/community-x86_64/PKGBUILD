@@ -1,6 +1,6 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=giada
-pkgver=0.15.2
+pkgver=0.15.3
 pkgrel=1
 pkgdesc="A free, minimal, hardcore audio tool for DJs, live performers and electronic musicians"
 arch=('x86_64')
@@ -9,8 +9,11 @@ license=('GPL3')
 groups=('pro-audio')
 depends=('fltk' 'jansson' 'libpulse' 'libxpm' 'rtmidi')
 makedepends=('gendesk' 'imagemagick')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/monocasual/${pkgname}/archive/v${pkgver}.tar.gz")
-sha512sums=('3622e0218c53b0dd2dc0e527372cd44f013a7e69e2c99db078ece8f09941505820895dc54157bf56081ff95e89ecaa08f82e51911a4d0de7d40dde29fef9c2db')
+checkdepends=('catch2' 'xorg-server-xvfb')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/monocasual/${pkgname}/archive/v${pkgver}.tar.gz"
+        "$pkgname-atomic_include.diff")
+sha512sums=('05e928bb228e8cf14816558e8d5981fb1457596a6bbae55ae1b1b224d5dd1f64652cc6310e4771e2b4eb1b3384788c3d485110f89103785494d82ee293a8fe34'
+            'dd1164c659e158faabcffe35abd85daf06d1a233c6c017bea6e1221fcf18da2402247757959168bec27252a6fee247939390f1f55b53a938e1a06eb64fb1963f')
 
 prepare() {
   cd "$pkgname-$pkgver"
@@ -21,15 +24,23 @@ prepare() {
           --pkgdesc "${pkgdesc}" \
           --name Giada \
           --categories "AudioVideo;Audio;Midi;Sequencer"
-  convert +set date:create +set date:modify \
-    "src/ext/${pkgname}.ico" \
-    "${pkgname}.png"
+  # add missing atomic include: https://github.com/monocasual/giada/pull/241
+  patch -Np1 -i ../${pkgname}-atomic_include.diff
+  # fixing broken catch2 include
+  sed -e 's|catch\.hpp|catch2/catch\.hpp|g' -i tests/*.cpp
 }
 
 build() {
   cd "$pkgname-$pkgver"
-  ./configure --prefix=/usr --target=linux
+  ./configure --prefix=/usr \
+              --target=linux \
+              --enable-system-catch
   make
+}
+
+check(){
+  cd "$pkgname-$pkgver"
+  xvfb-run -a make -k check
 }
 
 package() {
@@ -37,7 +48,8 @@ package() {
   make DESTDIR="$pkgdir/" install
   # XDG integration
   install -vDm 644 "${pkgname}.desktop" -t "${pkgdir}/usr/share/applications"
-  install -vDm 644 "${pkgname}.png" -t "${pkgdir}/usr/share/pixmaps"
+  install -vDm 644 "extras/${pkgname}-logo.png" \
+    "${pkgdir}/usr/share/pixmaps/${pkgname}.png"
   # docs
   install -vDm 644 {ChangeLog,README.md} \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
