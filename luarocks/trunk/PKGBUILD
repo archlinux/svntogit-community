@@ -4,7 +4,7 @@
 
 pkgbase=luarocks
 pkgname=('luarocks' 'luarocks5.1' 'luarocks5.2')
-pkgver=2.4.4
+pkgver=3.0.4
 pkgrel=1
 arch=('any')
 url='http://luarocks.org/'
@@ -17,7 +17,7 @@ optdepends=('cvs: for fetching sources from CVS repositories'
             'cmake: for building rocks that use the cmake build system')
 options=('!makeflags')
 source=(https://luarocks.org/releases/$pkgname-$pkgver.tar.gz{,.asc})
-md5sums=('04e8b19d565e86b1d08f745adc4b1a56'
+md5sums=('b67be533e0e027a26e3fd2b566ac938f'
          'SKIP')
 validpgpkeys=(8460980B2B79786DE0C7FCC83FD8F43C2BB3C478)
 
@@ -30,31 +30,28 @@ build() {
 
   cd $pkgbase-$pkgver
   LUA_VERSION= ./configure --prefix=/usr \
-    --sysconfdir=/etc/luarocks \
+    --sysconfdir=/etc \
     --lua-version=5.3 \
     --with-lua-include=/usr/include \
-    --with-downloader=curl \
     --versioned-rocks-dir
   make
 
   cd ../${pkgbase}5.1-$pkgver
   ./configure --prefix=/usr \
-    --sysconfdir=/etc/luarocks \
+    --sysconfdir=/etc \
     --lua-version=5.1 \
     --lua-suffix=5.1 \
     --with-lua-include=/usr/include/lua5.1 \
-    --with-downloader=curl \
     --versioned-rocks-dir
   make
   sed -i 's/env lua/env lua5.1/' src/bin/luarocks{,-admin}
 
   cd ../${pkgbase}5.2-$pkgver
   ./configure --prefix=/usr \
-    --sysconfdir=/etc/luarocks \
+    --sysconfdir=/etc \
     --lua-version=5.2 \
     --lua-suffix=5.2 \
     --with-lua-include=/usr/include/lua5.2 \
-    --with-downloader=curl \
     --versioned-rocks-dir
   make
   sed -i 's/env lua/env lua5.2/' src/bin/luarocks{,-admin}
@@ -69,9 +66,8 @@ package_luarocks() {
   cd $pkgname-$pkgver
   make install DESTDIR="$pkgdir"
   install -D COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-
-  # FS#40388
-  sed -i '/^LUAROCKS_UNAME_M/d' "$pkgdir"/usr/share/lua/5.3/luarocks/site_config.lua
+  cp "$pkgdir"/usr/bin/luarocks{,-5.3}
+  cp "$pkgdir"/usr/bin/luarocks-admin{,-5.3}
 }
 
 package_luarocks5.1() {
@@ -83,10 +79,8 @@ package_luarocks5.1() {
   cd $pkgname-$pkgver
   make install DESTDIR="$pkgdir"
   install -D COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-  rm "$pkgdir"/usr/bin/luarocks{,-admin}
-
-  # FS#40388
-  sed -i '/^LUAROCKS_UNAME_M/d' "$pkgdir"/usr/share/lua/5.1/luarocks/site_config.lua
+  mv "$pkgdir"/usr/bin/luarocks{,-5.1}
+  mv "$pkgdir"/usr/bin/luarocks-admin{,-5.1}
 }
 
 package_luarocks5.2() {
@@ -98,8 +92,6 @@ package_luarocks5.2() {
   cd $pkgname-$pkgver
   make install DESTDIR="$pkgdir"
   install -D COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-  rm "$pkgdir"/usr/bin/luarocks{,-admin}
-
-  # FS#40388
-  sed -i '/^LUAROCKS_UNAME_M/d' "$pkgdir"/usr/share/lua/5.2/luarocks/site_config.lua
+  mv "$pkgdir"/usr/bin/luarocks{,-5.2}
+  mv "$pkgdir"/usr/bin/luarocks-admin{,-5.2}
 }
