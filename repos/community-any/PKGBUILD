@@ -1,18 +1,20 @@
 # Maintainer: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
-pkgname='catch2'
-pkgver=2.5.0
+
+pkgname=catch2
+pkgver=2.6.0
 pkgrel=1
-pkgdesc="A modern, C++-native, header-only, test framework for unit-tests, TDD and BDD - using C++11, C++14, C++17 and later"
+pkgdesc="Modern, C++-native, header-only, test framework for unit-tests, TDD and BDD"
 arch=('any')
 url="https://github.com/catchorg/catch2"
 license=('Boost')
 makedepends=('cmake' 'python') # python seems to be necessary for building tests (FS#60273)
 source=("https://github.com/catchorg/Catch2/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('720c84d18f4dc9eb23379941df2054e7bcd5ff9c215e4d620f8533a130d128ae')
+sha256sums=('4c94a685557328eb1b0ed1017ca37c3a378742dc03b558cf02267b6ba8579577')
 
 build() {
-  cd "$srcdir/Catch2-$pkgver"
+  cd Catch2-$pkgver
 
   mkdir -p build
   cd build
@@ -28,11 +30,13 @@ build() {
 }
 
 check() {
-  cd "$srcdir/Catch2-$pkgver/build"
+  cd Catch2-$pkgver/build
   make test
 }
 
 package() {
-  cd "$srcdir/Catch2-$pkgver/build"
+  cd Catch2-$pkgver/build
   make DESTDIR="$pkgdir" install
 }
+
+# vim: ts=2 sw=2 et:
