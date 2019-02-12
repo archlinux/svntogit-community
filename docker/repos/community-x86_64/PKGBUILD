@@ -1,8 +1,8 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=18.09.1
-pkgrel=2
+pkgver=18.09.2
+pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
