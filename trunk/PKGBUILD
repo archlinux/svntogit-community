@@ -2,7 +2,7 @@
 
 pkgbase=python-pytest-runner
 pkgname=('python-pytest-runner' 'python2-pytest-runner')
-pkgver=4.3.1
+pkgver=4.4
 pkgrel=1
 pkgdesc="Invoke py.test as distutils command with dependency resolution"
 arch=('any')
@@ -12,7 +12,7 @@ makedepends=('python-pytest' 'python2-pytest' 'python-setuptools-scm' 'python2-s
 checkdepends=('python-pytest-virtualenv' 'python2-pytest-virtualenv' 'python-pytest-flake8'
               'python2-pytest-flake8')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/pytest-dev/pytest-runner/archive/$pkgver.tar.gz")
-sha512sums=('a5a5069e728a891f2156d5e52233a9f16fcb483038dd2a6f77796c08e88493bd253d98db2c6027f3004cb146f0eda841e8e003972c68e1b1bfa462c7b3de15cb')
+sha512sums=('a369bea32accebc0cb1184ca6fbc7c73c9385c2745f14e1102c3da96ce0a41b901d0b20eaef1e0eecb06f448414624b3edb14f34829c1dc8953c0d472dc38862')
 
 prepare() {
   cp -a pytest-runner-$pkgver{,-py2}
