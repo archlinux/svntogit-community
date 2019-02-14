@@ -8,7 +8,7 @@
 pkgbase=python-keyring
 _pkgname=${pkgbase#python-}
 pkgname=(python-$_pkgname python2-$_pkgname)
-pkgver=17.1.1
+pkgver=18.0.0
 pkgrel=1
 pkgdesc="Store and access your passwords safely."
 arch=('any')
@@ -20,7 +20,7 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-entrypoint
 checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python2-pytest-flake8'
               'python2-pytest-runner' 'python-dbus' 'python2-dbus')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
-sha512sums=('19fb785376db8e1e7a87917b29e8094e14d689ac60cd299047c4e8fa3ecdb029c377df0b77bd2c89a463ddaa9eae165b5355d8d7e7d758fd367dd50cd0d06f1a')
+sha512sums=('3863f2cd89131d7e927e55691b4eb4b7c2599af189525293d0948aef5215efbbbd74d45db3cd4885ba5b18a79f0fa0b0edc3783a020a6702f6a6fb7ed86b2cf2')
 
 prepare() {
   cp -a $_pkgname-$pkgver{,-py2}
