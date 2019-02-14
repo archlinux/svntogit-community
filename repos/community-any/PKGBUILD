@@ -3,7 +3,7 @@
 
 pkgbase=twine
 pkgname=('twine' 'python2-twine')
-pkgver=1.12.1
+pkgver=1.13.0
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -14,7 +14,7 @@ makedepends=('python-setuptools' 'python2-setuptools' 'python-requests-toolbelt'
              'python2-tqdm' 'python-readme-renderer' 'python2-readme-renderer' 'python2-pyblake2')
 checkdepends=('python-pytest-runner' 'python2-pytest-runner' 'python-pretend' 'python2-pretend')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/pypa/twine/archive/$pkgver.tar.gz")
-sha512sums=('b9ff2d80c4fe484fd89c9d5edd79d79818ba8ff7dc9a1f598f4f7a6cc97c9be2e38e91234b044fe528be2839c5c045d10c68c83962d197b5790978954c1d00ea')
+sha512sums=('c72c6a3e12e78712335fdcc7917b7edd69ca34829a649f6e37501ee813501dc0bff0d2eda2bf5e4e30f32daef8fe67aed79679ad327b93f01ccf646e3881883c')
 
 prepare() {
   cp -a twine-$pkgver{,-py2}
