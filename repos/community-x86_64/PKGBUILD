@@ -4,15 +4,13 @@
 
 pkgname=xcftools
 pkgver=1.0.7
-pkgrel=4
+pkgrel=5
 pkgdesc='Command line tools for use with the open XCF image format (includes xcf2png)'
 # no https available
 url='http://henning.makholm.net/software'
 arch=(x86_64)
 license=(custom)
 depends=(libpng perl)
-optdepends=(gimp)
-makedepends=(libpng)
 source=("http://henning.makholm.net/xcftools/xcftools-$pkgver.tar.gz"
         xcftools.patch)
 sha256sums=('1ebf6d8405348600bc551712d9e4f7c33cc83e416804709f68d0700afde920a6'
