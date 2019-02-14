@@ -12,7 +12,7 @@ license=('GPL')
 makedepends=('bc' 'boost' 'boost-libs' 'cmake' 'cpio' 'crypto++' 'curl' 'cython'
   'cython2' 'expat' 'fcgi' 'fuse2' 'gcc-libs' 'git' 'glibc' 'gperf' 'gperftools'
   'gptfdisk' 'inetutils' 'jq' 'junit' 'keyutils' 'leveldb' 'libaio'
-  'libatomic_ops' 'libedit' 'libsystemd' 'libutil-linux' 'libxml2' 'lsb-release'
+  'libatomic_ops' 'libedit' 'systemd-libs' 'libutil-linux' 'libxml2' 'lsb-release'
   'lz4' 'ncurses' 'nss' 'parted' 'pcre' 'procps-ng' 'python2-cherrypy'
   'python2-jinja' 'python2-nose' 'python2-pecan' 'python2-pip' 'python2-bcrypt'
   'python2-prettytable' 'python2-pyopenssl' 'python2-setuptools' 'python2-routes'
@@ -141,7 +141,7 @@ package_ceph-libs() {
 
 package_ceph() {
   depends=('ceph-libs' 'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools'
-    'keyutils' 'leveldb' 'libaio' 'libsystemd' 'libutil-linux' 'python2-routes'
+    'keyutils' 'leveldb' 'libaio' 'systemd-libs' 'libutil-linux' 'python2-routes'
     'lsb-release' 'ncurses' 'nss' 'python2' 'python2-cherrypy' 'python2-bcrypt'
     'python2-jinja' 'python2-mako' 'python2-pecan' 'python2-prettytable'
     'python2-pyopenssl' 'python2-setuptools' 'python2-singledispatch'

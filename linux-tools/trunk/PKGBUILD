@@ -220,7 +220,7 @@ package_x86_energy_perf_policy() {
 
 package_usbip() {
   pkgdesc='An USB device sharing system over IP network'
-  depends=('glibc' 'glib2' 'sysfsutils' 'libsystemd')
+  depends=('glibc' 'glib2' 'sysfsutils' 'systemd-libs')
 
   pushd linux/tools/usb/usbip
   make install DESTDIR="$pkgdir"
