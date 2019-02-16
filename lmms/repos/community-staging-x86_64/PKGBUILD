@@ -1,0 +1,65 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: Lukas Fleischer <lfleischer@archlinux.org>
+# Contributor: Shinlun Hsieh <yngwiexx@yahoo.com.tw>
+# Contributor: Mateusz Herych <heniekk@gmail.com>
+# Contributor: Storyteller <spiralsorrow@hotmail.com>
+
+_pkgver=1.2.0-rc7
+pkgname=lmms
+pkgver=${_pkgver/-}
+pkgrel=3
+pkgdesc='The Linux MultiMedia Studio'
+arch=('x86_64')
+url="https://lmms.io"
+license=('GPL2')
+groups=('pro-audio')
+depends=('fftw' 'fltk' 'fluidsynth' 'lame' 'libgig' 'qt5-x11extras' 'sdl'
+'stk')
+makedepends=('carla' 'cmake' 'doxygen' 'extra-cmake-modules' 'freetype2' 'git'
+'ladspa' 'qt5-tools' 'wine')
+optdepends=('pulseaudio: pulseaudio support'
+            'wine: VST plugin support')
+source=("git+https://github.com/${pkgname}/${pkgname}.git#tag=v${_pkgver}"
+        'git+https://github.com/Lukas-W/qt5-x11embed.git'
+        'git+https://github.com/rampantpixels/rpmalloc.git'
+        "${pkgname}-fluidsynth2.patch::https://github.com/${pkgname}/${pkgname}/pull/4678/commits/c2e4f5a28d1612a706b8bee6d37b5ecc0bc38794.patch")
+sha512sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'c68cbff796f754bdf1af01d3f83abb1b3d36bdecb27bf3a8ec0242c2b3163709e5b43851fcd539b735c55e9b6a07ee44598ec0bc92305709c36655c720dd900c')
+
+prepare() {
+  mv -v "${pkgname}" "${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
+  mkdir -vp build
+  git submodule init
+  git config submodule.src/3rdparty/qt5-x11embed.url "${srcdir}/qt5-x11embed"
+  git config submodule.src/3rdparty/rpmalloc.url "${srcdir}/rpmalloc"
+  git submodule update
+  # setting lib dir
+  sed -e 's|lib64|lib|g' -i cmake/modules/DetectMachine.cmake
+  # setting proper DESTDIR based install path for bash-completion
+  sed -e 's/\(${BASHCOMP_USER\)/\\$DESTDIR\1/g' -i cmake/modules/BashCompletion.cmake
+  # fix for fluidsynth > 2: https://github.com/LMMS/lmms/issues/4640
+  patch -Np1 -i ../${pkgname}-fluidsynth2.patch
+}
+
+build() {
+  cd "${pkgname}-${pkgver}/build"
+  export LDFLAGS="${LDFLAGS}"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DWANT_QT5=ON \
+        -DWANT_SOUNDIO=OFF \
+        -DCMAKE_INSTALL_LIBDIR=lib \
+        -DCMAKE_MODULE_PATH=/usr/share/ECM/find-modules \
+        -DCMAKE_PREFIX_PATH=/usr/include/wine/windows \
+        -DWINE_INCLUDE_DIR=/usr/include/wine/windows \
+        -DWINE_LIBRARY=/usr/lib32/wine \
+        ..
+  make
+}
+
+package() {
+  cd "${pkgname}-${pkgver}/build"
+  make DESTDIR="${pkgdir}" install
+}
