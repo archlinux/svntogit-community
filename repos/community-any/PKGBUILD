@@ -5,7 +5,7 @@
 
 pkgname=luarocks
 pkgver=3.0.4
-pkgrel=1
+pkgrel=2
 pkgdesc='Deployment and management system for Lua modules'
 backup=(etc/luarocks/config-5.{1,2,3}.lua)
 arch=('any')
