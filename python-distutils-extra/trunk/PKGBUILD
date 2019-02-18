@@ -10,7 +10,7 @@ arch=('any')
 license=('GPL')
 url='https://launchpad.net/python-distutils-extra'
 makedepends=('python2-setuptools' 'python-setuptools' 'intltool')
-source=(http://launchpad.net/$pkgbase/trunk/$pkgver/+download/$pkgbase-$pkgver.tar.gz{,.asc})
+source=(https://launchpad.net/$pkgbase/trunk/$pkgver/+download/$pkgbase-$pkgver.tar.gz{,.asc})
 # https://launchpad.net/python-distutils-extra/trunk/2.39/+download/python-distutils-extra-2.39.tar.gz.asc
         #$pkgbase-$pkgver.tar.gz.sig::http://launchpad.net/$pkgbase/trunk/$pkgver/+download/dist-$pkgbase-$pkgver.tar.gz.sig)
 validpgpkeys=('3DB46B55EFA59D40E6232148D14EF15DAFE11347')
