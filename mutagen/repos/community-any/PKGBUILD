@@ -1,64 +1,77 @@
-# Maintainer:
+# Maintainer: David Runge <dave@sleepmap.de>
 # Contributor: Eric Bélanger <eric@archlinux.org>
 
 pkgbase=mutagen
-pkgname=(python2-mutagen python-mutagen mutagen-tools)
+pkgname=('python-mutagen' 'python2-mutagen')
 pkgver=1.42.0
-pkgrel=2
-arch=(any)
+pkgrel=3
+arch=('any')
+pkgdesc="An audio metadata tag reader and writer (python library)"
 url="https://github.com/quodlibet/mutagen"
 license=('GPL2')
 makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-pytest' 'python2-pytest' 'python-hypothesis' 'python2-hypothesis' 'python-pyflakes' 'python2-pyflakes'
-              'python-pycodestyle' 'python2-pycodestyle')
-source=("https://github.com/quodlibet/mutagen/releases/download/release-$pkgver/$pkgbase-$pkgver.tar.gz"{,.sig}
-        mutagen-indent.patch::"https://github.com/quodlibet/mutagen/commit/0ee86ef9.patch")
+checkdepends=('python-pytest' 'python-hypothesis' 'python-pyflakes'
+'python-pycodestyle' 'python2-pytest' 'python2-hypothesis' 'python2-pyflakes'
+'python2-pycodestyle')
+source=("https://github.com/quodlibet/${pkgbase}/releases/download/release-$pkgver/$pkgbase-$pkgver.tar.gz"{,.sig}
+        "${pkgbase}-indent.patch::https://github.com/quodlibet/${pkgbase}/commit/0ee86ef9.patch")
 sha256sums=('bb61e2456f59a9a4a259fbc08def6d01ba45a42da8eeaa97d00633b0ec5de71c'
             'SKIP'
             '4c02028ea27e150de8f011e809fe96ba726825732233d186c7edb3269fffdce3')
-validpgpkeys=('0EBF782C5D53F7E5FB02A66746BD761F7A49B0EC')
+validpgpkeys=('0EBF782C5D53F7E5FB02A66746BD761F7A49B0EC') # Christoph Reiter <reiter.christoph@gmail.com>
 
 prepare() {
-  pushd $pkgbase-$pkgver
-    patch -p1 -i ../mutagen-indent.patch # Fix tests
-  popd
-  cp -r $pkgbase-$pkgver{,-py2}
+  cd "${pkgbase}-${pkgver}"
+  # fix tests
+  patch -Np1 -i ../${pkgbase}-indent.patch
+
+  # copying source for python2 version, so we can modify the man/ script names
+  cd ..
+  cp -av "${pkgbase}-$pkgver" "${pkgname[1]}-${pkgver}"
+  cd "${pkgname[1]}-$pkgver"
+  for script in {mid3{cp,iconv,v2},moggsplit,mutagen-{inspect,pony}}; do
+    sed -e "s/${script}/${script}2/g" -i setup.py
+    sed -e 's/python/&2/' -i "tools/${script}"
+    mv -v "tools/${script}"{,2}
+    mv -v "man/${script}"{,2}.1
+  done
+}
+
+build() {
+  cd "${pkgbase}-${pkgver}"
+  python setup.py build
+  cd "../${pkgname[1]}-${pkgver}"
+  python2 setup.py build
 }
 
 check() {
-  cd $pkgbase-$pkgver
-  LANG=en_US.UTF8 python setup.py test
-  cd ../$pkgbase-$pkgver-py2
-  LANG=en_US.UTF8 python2 setup.py test
-}
-
-package_python2-mutagen() {
-  pkgdesc="An audio metadata tag reader and writer (Python 2 libraries)"
-  depends=(python2)
-  conflicts=(mutagen)
-  provides=(mutagen)
-  replaces=(mutagen)
- 
-  cd $pkgbase-$pkgver-py2
-  python2 setup.py install --root="$pkgdir"
-  rm -r "$pkgdir"/usr/{bin,share}
+  cd "${pkgbase}-${pkgver}"
+  python setup.py test
+  cd "../${pkgname[1]}-${pkgver}"
+  python2 setup.py test
 }
 
 package_python-mutagen() {
-  pkgdesc="An audio metadata tag reader and writer (Python 3 libraries)"
-  depends=(python)
-
-  cd $pkgbase-$pkgver
-  python setup.py install --root="$pkgdir"
-  rm -r "$pkgdir"/usr/{bin,share}
+  pkgdesc="An audio metadata tag reader and writer (python library)"
+  depends=('python')
+  replaces=('mutagen-tools')
+  cd "${pkgbase}-${pkgver}"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --prefix=/usr \
+    --root="${pkgdir}"
 }
 
-package_mutagen-tools() {
-  pkgdesc="An audio metadata tag reader and writer (tools)"
-  depends=(python-mutagen)
-
-  cd $pkgbase-$pkgver
-  python setup.py install --root="$pkgdir"
-  rm -r "$pkgdir"/usr/lib
+package_python2-mutagen() {
+  pkgdesc="An audio metadata tag reader and writer (python2 library)"
+  depends=('python2')
+  conflicts=('mutagen')
+  provides=('mutagen')
+  replaces=('mutagen')
+  cd "${pkgname}-${pkgver}"
+  python2 setup.py install --skip-build \
+    --optimize=1 \
+    --prefix=/usr \
+    --root="${pkgdir}"
 }
 
