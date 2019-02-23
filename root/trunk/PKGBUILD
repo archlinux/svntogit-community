@@ -7,7 +7,7 @@
 pkgbase=root
 pkgname=('root' 'root-cuda')
 pkgver=6.16.00
-pkgrel=1
+pkgrel=2
 pkgdesc='C++ data analysis framework and interpreter from CERN.'
 arch=('x86_64')
 url='http://root.cern.ch'
@@ -79,25 +79,39 @@ optdepends=('cfitsio: Read images and data from FITS files'
             'libxml2: XML parser interface'
             'xrootd: Support remote file server and client')
 source=("https://root.cern.ch/download/root_v${pkgver}.source.tar.gz"
-        'root.sh'
         'root.xml'
         'rootd'
         'settings.cmake'
         'settings-cuda.cmake'
-        'fix_compile_time_install_clad.patch')
+        'fix_compile_time_install_clad.patch'
+        'adding_directories_needed_to_use_libxml.patch'
+        'rename_based_fix_for_rconfig_on_case_sensitive_systems.patch')
 sha256sums=('2a45055c6091adaa72b977c512f84da8ef92723c30837c7e2643eecc9c5ce4d8'
-            '9d1f8e7ad923cb5450386edbbce085d258653c0160419cdd6ff154542cc32bd7'
             '50c08191a5b281a39aa05ace4feb8d5405707b4c54a5dcba061f954649c38cb0'
             '3c45b03761d5254142710b7004af0077f18efece7c95511910140d0542c8de8a'
             '0110fd393a6de68c9d65abad7ec626b298e0bb4431210e6cd75285078052a39a'
             '114c6ae5ac03ebed30f93ccf9431475eb797086e1a9d97d45f84e59c7212b09d'
-            'de32dcc6c9d8527cb08360a2703c1ca1e586a5b7cc12ea12fd07125795ea5104')
+            'de32dcc6c9d8527cb08360a2703c1ca1e586a5b7cc12ea12fd07125795ea5104'
+            '51e5de01a423b89c113d19918c731a060e6d9b018d086c97b3dde10818cbd1fe'
+            '09fabd3927a57b9a1e0cda7dfe3a53e82eea5ae1fe1c47f778e751603b1c0549')
+get_pyver () {
+    python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
+}
 prepare() {
     # cd "${srcdir}/${pkgbase}-${pkgver}"
 
     2to3 -w "${srcdir}/${pkgbase}-${pkgver}"/etc/dictpch/makepch.py 2>&1 > /dev/null
 
     patch -d "${srcdir}/${pkgbase}-${pkgver}" -Np1 -i "${srcdir}/fix_compile_time_install_clad.patch"
+    patch -d "${srcdir}/${pkgbase}-${pkgver}" -Np1 -i "${srcdir}/adding_directories_needed_to_use_libxml.patch"
+    patch -d "${srcdir}/${pkgbase}-${pkgver}" -Np1 -i "${srcdir}/rename_based_fix_for_rconfig_on_case_sensitive_systems.patch"
+
+    # don't let ROOT play around with lib paths
+    sed -i -e 's@SetLibraryPath();@@g' \
+        "${srcdir}/${pkgbase}-${pkgver}/rootx/src/rootx.cxx"
+
+    # trust system to find GSL
+    rm "${srcdir}/${pkgbase}-${pkgver}/cmake/modules/FindGSL.cmake"
 
     cp -r "${pkgbase}-${pkgver}" "${pkgbase}-${pkgver}-cuda"
 }
@@ -141,14 +155,21 @@ package_root() {
 
     make DESTDIR="${pkgdir}" install
 
-    install -d "${pkgdir}/usr/share/root/cli"
-    sed -e '/^\#!/d' -i "${pkgdir}/usr/lib/root"/cmdLineUtils.py
-    mv "${pkgdir}/usr/lib/root"/cmdLineUtils.py* "${pkgdir}/usr/share/root/cli/"
-    rm "${pkgdir}/usr/lib/root/__pycache__"/cmdLineUtils.*
-    python -m compileall "${pkgdir}/usr/share/root/cli/"
+    # fix python env call
+    sed -e 's/@python@/python/' -i "${pkgdir}/usr/lib/root/cmdLineUtils.py"
 
-    install -D "${srcdir}/root.sh" \
-        "${pkgdir}/etc/profile.d/root.sh"
+    # try to deal with weird PyROOT, PyMVA and JupyROOT stuff
+    install -d "${pkgdir}/usr/lib/python$(get_pyver)/site-packages"
+    ln -s "/usr/lib/root/ROOT.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/_pythonization.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/cmdLineUtils.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/cppyy.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/JsMVA/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/JupyROOT/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/libPyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/libPyMVA.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/libJupyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+
     install -D "${srcdir}/rootd" \
         "${pkgdir}/etc/rc.d/rootd"
     install -D -m644 "${srcdir}/root.xml" \
@@ -179,14 +200,21 @@ package_root-cuda() {
 
     make DESTDIR="${pkgdir}" install
 
-    install -d "${pkgdir}/usr/share/root/cli"
-    sed -e '/^\#!/d' -i "${pkgdir}/usr/lib/root"/cmdLineUtils.py
-    mv "${pkgdir}/usr/lib/root"/cmdLineUtils.py* "${pkgdir}/usr/share/root/cli/"
-    rm "${pkgdir}/usr/lib/root/__pycache__"/cmdLineUtils.*
-    python -m compileall "${pkgdir}/usr/share/root/cli/"
+    # fix python env call
+    sed -e 's/@python@/python/' -i "${pkgdir}/usr/lib/root/cmdLineUtils.py"
 
-    install -D "${srcdir}/root.sh" \
-        "${pkgdir}/etc/profile.d/root.sh"
+    # try to deal with weird PyROOT, PyMVA and JupyROOT stuff
+    install -d "${pkgdir}/usr/lib/python$(get_pyver)/site-packages"
+    ln -s "/usr/lib/root/ROOT.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/_pythonization.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/cmdLineUtils.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/cppyy.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/JsMVA/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/JupyROOT/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/libPyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/libPyMVA.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    ln -s "/usr/lib/root/libJupyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+
     install -D "${srcdir}/rootd" \
         "${pkgdir}/etc/rc.d/rootd"
     install -D -m644 "${srcdir}/root.xml" \
