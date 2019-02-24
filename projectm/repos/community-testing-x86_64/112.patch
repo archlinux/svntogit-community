@@ -1,0 +1,168 @@
+From fa135a027c260bfbf6a0038540cc825a171b2632 Mon Sep 17 00:00:00 2001
+From: Arne Morten Kvarving <spiff@kodi.tv>
+Date: Thu, 4 Oct 2018 16:33:47 +0200
+Subject: [PATCH 1/2] added: allow specifying datadir in settings on runtime
+
+---
+ src/libprojectM/Renderer/Renderer.cpp       | 6 +++---
+ src/libprojectM/Renderer/Renderer.hpp       | 3 ++-
+ src/libprojectM/Renderer/TextureManager.cpp | 8 +++++---
+ src/libprojectM/Renderer/TextureManager.hpp | 3 ++-
+ src/libprojectM/projectM.cpp                | 6 ++++--
+ src/libprojectM/projectM.hpp                | 1 +
+ 6 files changed, 17 insertions(+), 10 deletions(-)
+
+diff --git a/src/libprojectM/Renderer/Renderer.cpp b/src/libprojectM/Renderer/Renderer.cpp
+index 82ae81ac..5da27fcb 100644
+--- a/src/libprojectM/Renderer/Renderer.cpp
++++ b/src/libprojectM/Renderer/Renderer.cpp
+@@ -20,9 +20,9 @@ Pipeline* Renderer::currentPipe;
+ class Preset;
+ 
+ Renderer::Renderer(int width, int height, int gx, int gy, BeatDetect *_beatDetect, std::string _presetURL,
+-        std::string _titlefontURL, std::string _menufontURL) :
++        std::string _titlefontURL, std::string _menufontURL, const std::string& datadir) :
+     title_fontURL(_titlefontURL), menu_fontURL(_menufontURL), presetURL(_presetURL), m_presetName("None"), vw(width),
+-            vh(height), mesh(gx, gy)
++            vh(height), mesh(gx, gy), m_datadir(datadir)
+ {
+     this->totalframes = 1;
+     this->noSwitch = false;
+@@ -463,7 +463,7 @@ void Renderer::reset(int w, int h)
+     if (textureManager != NULL) {
+         delete textureManager;
+     }
+-    textureManager = new TextureManager(presetURL, texsizeX, texsizeY);
++    textureManager = new TextureManager(presetURL, texsizeX, texsizeY, m_datadir);
+ 
+     shaderEngine.setParams(texsizeX, texsizeY, beatDetect, textureManager);
+     shaderEngine.reset();
+diff --git a/src/libprojectM/Renderer/Renderer.hpp b/src/libprojectM/Renderer/Renderer.hpp
+index f525c7c4..7d2c00e6 100644
+--- a/src/libprojectM/Renderer/Renderer.hpp
++++ b/src/libprojectM/Renderer/Renderer.hpp
+@@ -67,7 +67,7 @@ class Renderer
+   float m_fInvAspectX;
+   float m_fInvAspectY;
+ 
+-  Renderer(int width, int height, int gx, int gy, BeatDetect *_beatDetect, std::string presetURL, std::string title_fontURL, std::string menu_fontURL);
++  Renderer(int width, int height, int gx, int gy, BeatDetect *_beatDetect, std::string presetURL, std::string title_fontURL, std::string menu_fontURL, const std::string& datadir = "");
+   ~Renderer();
+ 
+   void RenderFrame(const Pipeline &pipeline, const PipelineContext &pipelineContext);
+@@ -98,6 +98,7 @@ class Renderer
+   //per pixel equation variables
+   ShaderEngine shaderEngine;
+   std::string m_presetName;
++  std::string m_datadir;
+ 
+   float* p;
+ 
+diff --git a/src/libprojectM/Renderer/TextureManager.cpp b/src/libprojectM/Renderer/TextureManager.cpp
+index 29058382..b87196a4 100644
+--- a/src/libprojectM/Renderer/TextureManager.cpp
++++ b/src/libprojectM/Renderer/TextureManager.cpp
+@@ -29,7 +29,7 @@
+ #define NUM_BLUR_TEX    6
+ 
+ 
+-TextureManager::TextureManager(const std::string _presetsURL, const int texsizeX, const int texsizeY):
++TextureManager::TextureManager(const std::string _presetsURL, const int texsizeX, const int texsizeY, std::string datadir):
+     presetsURL(_presetsURL)
+ {
+     extensions.push_back(".jpg");
+@@ -40,9 +40,11 @@ TextureManager::TextureManager(const std::string _presetsURL, const int texsizeX
+     extensions.push_back(".dib");
+ 
+     Preload();
++    if (datadir.empty())
++      datadir = DATADIR_PATH;
+ 
+-    loadTextureDir(std::string(DATADIR_PATH) + "/presets");
+-    loadTextureDir(std::string(DATADIR_PATH) + "/textures");
++    loadTextureDir(datadir + "/presets");
++    loadTextureDir(datadir + "/textures");
+     loadTextureDir(_presetsURL);
+ 
+     // Create main texture ans associated samplers
+diff --git a/src/libprojectM/Renderer/TextureManager.hpp b/src/libprojectM/Renderer/TextureManager.hpp
+index b1a79824..10b68e67 100644
+--- a/src/libprojectM/Renderer/TextureManager.hpp
++++ b/src/libprojectM/Renderer/TextureManager.hpp
+@@ -23,7 +23,8 @@ class TextureManager
+   std::vector<std::string> extensions;
+ 
+ public:
+-  TextureManager(std::string _presetsURL, const int texsizeX, const int texsizeY);
++  TextureManager(std::string _presetsURL, const int texsizeX, const int texsizeY,
++                 std::string datadir = "");
+   ~TextureManager();
+ 
+   void Clear();
+diff --git a/src/libprojectM/projectM.cpp b/src/libprojectM/projectM.cpp
+index 00377a50..c9645231 100755
+--- a/src/libprojectM/projectM.cpp
++++ b/src/libprojectM/projectM.cpp
+@@ -267,6 +267,7 @@ void projectM::readSettings (const Settings & settings )
+     _settings.titleFontURL = settings.titleFontURL;
+     _settings.menuFontURL =  settings.menuFontURL;
+     _settings.shuffleEnabled = settings.shuffleEnabled;
++    _settings.datadir = settings.datadir;
+ 
+     _settings.easterEgg = settings.easterEgg;
+ 
+@@ -512,7 +513,7 @@ static void *thread_callback(void *prjm) {
+             mspf= ( int ) ( 1000.0/ ( float ) _settings.fps );
+         else mspf = 0;
+ 
+-        this->renderer = new Renderer ( width, height, gx, gy, beatDetect, settings().presetURL, settings().titleFontURL, settings().menuFontURL );
++        this->renderer = new Renderer ( width, height, gx, gy, beatDetect, settings().presetURL, settings().titleFontURL, settings().menuFontURL, settings().datadir );
+ 
+         running = true;
+ 
+@@ -931,7 +932,8 @@ void projectM::changeTextureSize(int size) {
+   renderer = new Renderer(_settings.windowWidth, _settings.windowHeight,
+                           _settings.meshX, _settings.meshY,
+                           beatDetect, _settings.presetURL,
+-                          _settings.titleFontURL, _settings.menuFontURL);
++                          _settings.titleFontURL, _settings.menuFontURL,
++                          _settings.datadir);
+ }
+ 
+ void projectM::changePresetDuration(int seconds) {
+diff --git a/src/libprojectM/projectM.hpp b/src/libprojectM/projectM.hpp
+index f9f07835..014c4594 100755
+--- a/src/libprojectM/projectM.hpp
++++ b/src/libprojectM/projectM.hpp
+@@ -128,6 +128,7 @@ class DLLEXPORT projectM
+         std::string presetURL;
+         std::string titleFontURL;
+         std::string menuFontURL;
++        std::string datadir;
+         int smoothPresetDuration;
+         int presetDuration;
+         float beatSensitivity;
+
+From 2301aaabfe377c875821450b1d93cb8abfa1b711 Mon Sep 17 00:00:00 2001
+From: Arne Morten Kvarving <arne.morten.kvarving@sintef.no>
+Date: Mon, 15 Oct 2018 15:24:14 +0200
+Subject: [PATCH 2/2] fixup! added: allow specifying datadir in settings on
+ runtime
+
+---
+ src/libprojectM/Renderer/TextureManager.cpp | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/src/libprojectM/Renderer/TextureManager.cpp b/src/libprojectM/Renderer/TextureManager.cpp
+index b87196a4..146f9318 100644
+--- a/src/libprojectM/Renderer/TextureManager.cpp
++++ b/src/libprojectM/Renderer/TextureManager.cpp
+@@ -40,6 +40,8 @@ TextureManager::TextureManager(const std::string _presetsURL, const int texsizeX
+     extensions.push_back(".dib");
+ 
+     Preload();
++    // if not data directory specified from user code
++    // we use the built-in default directory (unix prefix based)
+     if (datadir.empty())
+       datadir = DATADIR_PATH;
+ 
