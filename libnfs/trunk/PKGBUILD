@@ -2,7 +2,7 @@
 
 pkgname=libnfs
 pkgver=4.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="client library for accessing NFS shares"
 arch=('x86_64')
 url="https://github.com/sahlberg/libnfs"
@@ -11,7 +11,7 @@ depends=('glibc')
 source=(
 	"https://github.com/sahlberg/$pkgname/archive/$pkgname-$pkgver.tar.gz"
 )
-sha256sums=('4d2091b0096392871fffca28272a3d496e62bd0936cfc9de95de57c46fc89f1a')
+sha256sums=('6ee77e9fe220e2d3e3b1f53cfea04fb319828cc7dbb97dd9df09e46e901d797d')
 
 #prepare() {
   #cd "$pkgname-$pkgname-$pkgver"
