@@ -1,7 +1,7 @@
 # Maintainer: Ainola <ainola@archlinux.org>
 
 pkgname=wlroots
-pkgver=0.3
+pkgver=0.4
 pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
@@ -17,11 +17,18 @@ depends=(
     'xcb-util-wm'
 )
 makedepends=('meson' 'ninja' 'wayland-protocols')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz")
-sha256sums=('6fe527dcaf223015276f6e8592becd1cc5215166d943d636a9fa578f57db684e')
+source=(
+    "$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz"
+    "https://github.com/swaywm/wlroots/releases/download/0.4/wlroots-$pkgver.tar.gz.sig"
+)
+sha256sums=('f9308d4c9a0dbcf0009f5577e390c11b1bffdc38fa92681cc37dc2ec7ab927f0'
+            'SKIP')
+validpgpkeys=('9DDA3B9FA5D58DD5392C78E652CB6609B22DA89A') # Drew DeVault
 
 build() {
-    arch-meson "$pkgname-$pkgver" build \
+    meson "$pkgname-$pkgver" build \
+        --prefix=/usr \
+        --buildtype=plain \
         -Dlibcap=enabled \
         -Dlogind=enabled \
         -Dlogind-provider=systemd \
