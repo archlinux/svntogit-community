@@ -4,7 +4,7 @@
 
 pkgname=libcec
 pkgver=4.0.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Pulse-Eight's libcec for the Pulse-Eight USB-CEC adapter"
 arch=('x86_64')
 url="http://libcec.pulse-eight.com/"
