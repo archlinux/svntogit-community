@@ -3,7 +3,7 @@
 
 pkgname=p8-platform
 pkgver=2.1.0.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Platform support library used by libCEC and binary add-ons for Kodi"
 arch=('x86_64')
 url="https://github.com/Pulse-Eight/platform"
