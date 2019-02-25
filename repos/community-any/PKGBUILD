@@ -2,7 +2,7 @@
 
 pkgbase=python-pluggy
 pkgname=(python-pluggy python2-pluggy)
-pkgver=0.8.1
+pkgver=0.9.0
 pkgrel=1
 pkgdesc="Plugin and hook calling mechanisms for python"
 arch=('any')
@@ -11,7 +11,7 @@ license=('MIT')
 makedepends=('python-setuptools-scm' 'python2-setuptools-scm')
 checkdepends=('python-pytest-runner' 'python2-pytest-runner')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/pytest-dev/pluggy/archive/$pkgver.tar.gz")
-sha512sums=('582ed10983f77aa21851998cd8808d14e026bb5e0fba129fbe8bc19000a864af66bb229cf1c3199833c5b5f6739276643f10ee5636922602f60f965715474b98')
+sha512sums=('e4adcd4de9758476a43c338baf7d13b0a1380739d7c6cc593537a3ec63a6491250adf0f33183e323f50695d9d0191a7d3378b1d36df44f9355625624ef1c4551')
 
 prepare() {
   cp -a pluggy-$pkgver{,-py2}
