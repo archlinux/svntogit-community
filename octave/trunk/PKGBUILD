@@ -3,8 +3,8 @@
 # Contributor : cyberdune <cyberdune@gmail.com>
 
 pkgname=octave
-pkgver=4.4.1
-pkgrel=7
+pkgver=5.1.0
+pkgrel=1
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="http://www.octave.org"
@@ -21,7 +21,7 @@ optdepends=('texinfo: for help-support in octave'
 source=(ftp://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig})
 options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
-sha512sums=('21a1f13e2145fa530f2169254d19442b572745d65b91453ba1f552f6eda6aecfead57dbe0260b3293a29db0aa0f27cfd4f26df332e6d640848a822b20c1232f8'
+sha512sums=('a842fb50c13f25e9d425fe9a2c71d9433d7e125747d2175efe0c9b2a780c799d9ce1ee085b5a13fbfedb7990b0ba5d11079d880ddb3bdb66782efc321390eebb'
             'SKIP')
 
 build() {
