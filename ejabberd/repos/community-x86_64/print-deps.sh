@@ -4,13 +4,15 @@
 # Helper script which prints ejabberd deps' urls including commit hash
 #
 
+test -d src/ejabberd-*/config || makepkg -od || exit 1
+
 cd src/ejabberd-*/config && cd ..
 
-if [ ! -d deps ]; then
-	[ -x configure ] || ./autogen.sh
-	./configure --enable-all
-	make deps || exit 1
-fi
+rm -rf deps
+
+[ -x configure ] || ./autogen.sh
+./configure --enable-all
+make deps || exit 1
 
 cd deps ; ls -1 | while read g; do
 	test -d $g && \
