@@ -3,12 +3,12 @@
 
 pkgname=sundials
 pkgver=4.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Suite of nonlinear differential/algebraic equation solvers"
 arch=(x86_64)
 url="https://computation.llnl.gov/casc/sundials/main.html"
 license=(BSD)
-depends=(openmpi)
+depends=(openmpi suitesparse)
 makedepends=(cmake gcc-fortran python)
 source=("https://computation.llnl.gov/projects/sundials/download/$pkgname-$pkgver.tar.gz")
 sha256sums=('280de1c27b2360170a6f46cb3799b2aee9dff3bddbafc8b08c291a47ab258aa5')
@@ -26,6 +26,8 @@ build() {
     -DPTHREAD_ENABLE=ON	\
     -DOPENMP_ENABLE=ON \
     -DF77_INTERFACE_ENABLE=ON \
+    -DKLU_ENABLE=ON \
+    -DKLU_LIBRARY_DIR=/usr/lib \
     -DEXAMPLES_INSTALL_PATH=/usr/share/sundials/examples
   make
 }
