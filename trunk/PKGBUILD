@@ -3,7 +3,7 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=3
+pkgrel=4
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -44,10 +44,19 @@ package() {
   ln -s lib "${pkgdir}/opt/cuda/lib64"
   ln -s lib "${pkgdir}/opt/cuda/nvvm/lib64"
 
-  # How did they forget these symlinks?
-  ln -s libcublasLt.so.10 "${pkgdir}"/opt/cuda/lib64/libcublasLt.so.10.1
-  ln -s libcublas.so.10 "${pkgdir}"/opt/cuda/lib64/libcublas.so.10.1
-  ln -s libnvblas.so.10 "${pkgdir}"/opt/cuda/lib64/libnvblas.so.10.1
+  # Create soname links.
+  # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
+  # Best we can do is create all symlinks and hope for the best.
+  # Their installer used to perform this for us but now it's all manual and I think this is what we'll be stuck with for now.
+  find builds/cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -d $'\0' _lib; do
+    _base=$(echo ${_lib} | sed -r 's/(.*).so.*/\1.so/')
+    _current_soname=$(basename ${_lib%.*})
+    while [[ $_current_soname != $(basename $_base) ]]; do
+      _full_soname=$(dirname $_base)/$_current_soname
+      echo "[[ ! -f $_full_soname ]] && ln -s $_lib $_full_soname"
+      _current_soname=$(basename ${_current_soname%.*})
+    done
+  done
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
@@ -62,3 +71,6 @@ package() {
     -i "${pkgdir}/opt/cuda/libnsight/nsight.ini" \
     -i "${pkgdir}/opt/cuda/libnvvp/nvvp.ini"
 }
+
+# vim:set ts=2 sw=2 et:
+
