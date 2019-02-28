@@ -2,7 +2,7 @@
 
 pkgbase=python-deprecated
 pkgname=(python-deprecated python2-deprecated)
-pkgver=1.2.4
+pkgver=1.2.5
 pkgrel=1
 pkgdesc="Python @deprecated decorator to deprecate old python classes, functions or methods"
 url="https://github.com/tantale/deprecated"
@@ -11,7 +11,7 @@ arch=('any')
 makedepends=('python-setuptools' 'python2-setuptools' 'python-wrapt' 'python2-wrapt')
 checkdepends=('python-pytest-runner' 'python2-pytest-runner')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/tantale/deprecated/archive/v$pkgver.tar.gz")
-sha512sums=('20531256f86789f9f52ed9e9db2b61bf253f888728754bcb654b6c049532f29295a6dd44aaad1f21fd17c072515af9b1da55586b0cdb25da620dd1788191d46c')
+sha512sums=('3a16b5d4f2475788ce919c327b668bb8852dab88adfa959826c9b68ccbfba3207a1c60ca164edacde8a756bd3895225af944a51eebde1230a93a973145231234')
 
 prepare() {
   cp -a deprecated-$pkgver{,-py2}
