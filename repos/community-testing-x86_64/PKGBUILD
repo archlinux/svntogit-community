@@ -3,7 +3,7 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -21,7 +21,7 @@ source=(https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cud
         cuda-findgllib_mk.diff)
 sha512sums=('07cdc053989758e4cdccaad566cae7127fa79780ad85033ea52d33cc4c43c9de08e88dd087390c58b542e51703f256859cdf51a018ee57e6a412f45fb9561622'
             'ce0b8df5d918ec8429da4ab8f9dee463ac04055ee5b0beeb0386b67d765a4c892d314995776a0d695cd06bcfbaf996e4904935ddc898a9d774f6bf965d989dea'
-            '268effce192d72d51658c1c337517f47e731fc820cdf6918cfc31e787e286a6afe42914650050e7df18a5f14beebaa1b23cc3cb0b459e8c794b74226bd2d5701'
+            '714d973bc79446f73bebe85306b3566fe25b554bcbcba2fcbe76709a3eca71fb5d183ab4da2d3b5e9326cb9cd8d13a93f6d4a005ea5a41f7ef8e6c6e81e06b5e'
             '41d6b6cad934f135eafde610d1cbd862033977fd4416a4b6abaa47709a70bab7fcf6f8377c21329084fb9db13f2a8c8c20e93c15292d7d4a6448d70a33b23f1b')
 
 prepare() {
@@ -37,12 +37,10 @@ package() {
   mkdir -p "${pkgdir}/opt/"
 
   cd builds
-  cp -r cublas "${pkgdir}/opt/cublas"
-  ln -s lib64 "${pkgdir}/opt/cublas/lib"
-
-  cp -r cuda-samples "${pkgdir}/opt/cuda-samples"
-
   cp -r cuda-toolkit "${pkgdir}/opt/cuda"
+  cp -r cublas/include/* "${pkgdir}/opt/cuda/include/"
+  cp -r cublas/lib64/* "${pkgdir}/opt/cuda/lib64/"
+  cp -r cuda-samples "${pkgdir}/opt/cuda/samples"
   ln -s lib "${pkgdir}/opt/cuda/lib64"
   ln -s lib "${pkgdir}/opt/cuda/nvvm/lib64"
 
