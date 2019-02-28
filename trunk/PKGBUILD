@@ -3,7 +3,7 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -43,6 +43,11 @@ package() {
   cp -r cuda-samples "${pkgdir}/opt/cuda/samples"
   ln -s lib "${pkgdir}/opt/cuda/lib64"
   ln -s lib "${pkgdir}/opt/cuda/nvvm/lib64"
+
+  # How did they forget these symlinks?
+  ln -s libcublasLt.so.10 "${pkgdir}"/opt/cuda/lib64/libcublasLt.so.10.1
+  ln -s libcublas.so.10 "${pkgdir}"/opt/cuda/lib64/libcublas.so.10.1
+  ln -s libnvblas.so.10 "${pkgdir}"/opt/cuda/lib64/libnvblas.so.10.1
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${pkgdir}/etc/profile.d/cuda.sh"
