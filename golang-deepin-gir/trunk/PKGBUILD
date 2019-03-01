@@ -2,36 +2,55 @@
 # Contributor: Josip Ponjavic <josipponjavic at gmail dot com>
 # Contributor: Xu Fasheng <fasheng.xu[AT]gmail.com>
 
-pkgname=deepin-gir-generator
-pkgver=1.2.0
+pkgname=golang-deepin-gir
+pkgver=2.0.0
 pkgrel=1
 pkgdesc='Generate static golang bindings for GObject'
-arch=('x86_64')
+arch=('any')
 url="https://github.com/linuxdeepin/go-gir-generator"
 license=('GPL3')
-depends=('gobject-introspection' 'libgudev')
-makedepends=('go-pie')
+depends=('gtk3' 'libgudev')
+makedepends=('go-pie' 'gobject-introspection')
+checkdepends=('golang-gopkg-check.v1')
+provides=('deepin-gir-generator')
+conflicts=('deepin-gir-generator')
+replaces=('deepin-gir-generator')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxdeepin/go-gir-generator/archive/$pkgver.tar.gz"
         SettingsBackendLike.patch)
-sha512sums=('8fefad81103f614bb5c172df5255ff36a395923d9d82faf54f6a21ad4c38f59bdcab3c6f94ee7298debec46c79981a58011cf38f52effe2cde819ef399e9d5ce'
-            'b36b10c01afb33f7bb054a928d4c5e0a017fac35e38992fe441bfcb9224b3aebd55e77a2f740a7b439221694f103a0edd102bd9bc0ef72a45512514886a90ea8')
+sha512sums=('859b11160be3172e9ffea9120af218808edfb4d2dc5afeb17858e77be9f0a2053b90d3ed50a946251d53ede48f0a4735756fa78babc180a3b1c3392f811b25f7'
+            'bd97770e2a345bc1fe4248238f13bd741c157629c5e097c56039326fe7fa4d550c8030272c18c2adc1c0dce35dd72c8d4e6fc394bf4d659076794e6a375d045a')
 
 prepare() {
-  export GOPATH="$srcdir/go-gir-generator/vender:$srcdir/go-gir-generator"
+  mkdir -p "$srcdir"/build/src/pkg.deepin.io
 
-  cd go-gir-generator-$pkgver
+  # Should be fixed upstream
+  mkdir -p go-gir-generator-$pkgver/out/src/pkg.deepin.io/gir/{glib-2.0,gobject-2.0,gio-2.0,gudev-1.0}
+
   # Our gobject-introspection is too new
   # https://cr.deepin.io/#/c/16880/
-  patch -p1 -i ../SettingsBackendLike.patch
-  sed -i '/MountIface/a ,"OutputVector"' lib.in/gio-2.0/config.json
+  patch -d go-gir-generator-$pkgver -p1 -i ../SettingsBackendLike.patch
 }
 
 build() {
+  export GOPATH="$srcdir/build:/usr/share/gocode"
   cd go-gir-generator-$pkgver
+  rm -r gogtk-demo
   make
+
+  mv out/src/pkg.deepin.io/gir "$srcdir"/build/src/pkg.deepin.io/
+}
+
+check() {
+  # https://github.com/linuxdeepin/developer-center/issues/955
+  export GOPATH="$srcdir/build:/usr/share/gocode"
+  cd "$srcdir"/build/src/pkg.deepin.io/gir
+  go test -v $(go list ./...) || warning "Tests failed"
+
+  cd "$srcdir"/go-gir-generator-$pkgver
+  go run test/memory.go
 }
 
 package() {
-  cd go-gir-generator-$pkgver
-  make DESTDIR="$pkgdir" install
+  mkdir -p "$pkgdir"/usr/share/gocode/src/pkg.deepin.io
+  cp -a "$srcdir"/build/src/pkg.deepin.io/gir "$pkgdir"/usr/share/gocode/src/pkg.deepin.io/
 }
