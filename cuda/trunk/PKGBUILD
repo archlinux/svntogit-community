@@ -48,13 +48,12 @@ package() {
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
   # Best we can do is create all symlinks and hope for the best.
   # Their installer used to perform this for us but now it's all manual and I think this is what we'll be stuck with for now.
-  find builds/cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -d $'\0' _lib; do
-    _base=$(echo ${_lib} | sed -r 's/(.*).so.*/\1.so/')
+  find cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -rd '' _lib; do
+    _base=${_lib%.so.*}
     _current_soname=$(basename ${_lib%.*})
     while [[ $_current_soname != $(basename $_base) ]]; do
-      _full_soname=$(dirname $_base)/$_current_soname
-      echo "[[ ! -f $_full_soname ]] && ln -s $_lib $_full_soname"
-      _current_soname=$(basename ${_current_soname%.*})
+      ln -sf ${_lib##*/} ${pkgdir}/opt/cuda/lib64/$_current_soname
+      _current_soname=${_current_soname%.*}
     done
   done
 
