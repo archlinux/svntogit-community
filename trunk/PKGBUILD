@@ -2,12 +2,15 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgbase=snes9x
-pkgname=(snes9x snes9x-gtk)
-pkgver=1.58
+pkgname=(
+  snes9x
+  snes9x-gtk
+)
+pkgver=1.59.2
 pkgrel=1
 pkgdesc='Portable Super Nintendo Entertainment System (TM) emulator'
 arch=(x86_64)
-url='http://www.snes9x.com/'
+url=http://www.snes9x.com/
 license=(custom)
 makedepends=(
   alsa-lib
@@ -15,6 +18,7 @@ makedepends=(
   gdk-pixbuf2
   git
   glib2
+  glslang
   gtk3
   intltool
   libepoxy
@@ -25,25 +29,32 @@ makedepends=(
   libxml2
   libxrandr
   libxv
+  meson
   minizip
   nasm
+  portaudio
   sdl2
   zlib
 )
-source=(git+https://github.com/snes9xgit/snes9x.git#tag=${pkgver})
-sha256sums=(SKIP)
+source=(
+  git+https://github.com/snes9xgit/snes9x.git#tag=${pkgver}
+  git+https://github.com/KhronosGroup/SPIRV-Cross.git
+)
+sha256sums=('SKIP'
+            'SKIP')
 
 prepare() {
-  pushd snes9x/unix
+  cd snes9x
+
+  for submodule in shaders/SPIRV-Cross; do
+    git submodule init ${submodule}
+    git config submodule.${submodule}.url ../${submodule#*/}
+    git submodule update ${submodule}
+  done
+
+  cd unix
 
   autoreconf -fiv
-
-  popd
-  pushd snes9x/gtk
-
-  ./autogen.sh
-
-  popd
 }
 
 build() {
@@ -55,15 +66,9 @@ build() {
   make
 
   popd
-  pushd snes9x/gtk
 
-  ./configure \
-    --prefix='/usr' \
-    --with-netplay \
-    --with-opengl
-  make
-
-  popd
+  arch-meson snes9x/gtk build
+  ninja -C build
 }
 
 package_snes9x() {
@@ -91,6 +96,7 @@ package_snes9x-gtk() {
     cairo
     gdk-pixbuf2
     glib2
+    glslang
     gtk3
     hicolor-icon-theme
     libepoxy
@@ -102,15 +108,15 @@ package_snes9x-gtk() {
     libxrandr
     libxv
     minizip
+    portaudio
     sdl2
     zlib
   )
 
-  cd snes9x/gtk
+  DESTDIR="${pkgdir}" ninja -C build install
 
-  make DESTDIR="${pkgdir}" install
-  install -Dm 644 ../docs/{control-inputs.txt,controls.txt,snapshots.txt} -t "${pkgdir}"/usr/share/doc/snes9x-gtk
-  install -Dm 644 ../LICENSE "${pkgdir}"/usr/share/licenses/snes9x-gtk/LICENSE
+  install -Dm 644 snes9x/docs/{control-inputs.txt,controls.txt,snapshots.txt} -t "${pkgdir}"/usr/share/doc/snes9x-gtk
+  install -Dm 644 snes9x/LICENSE "${pkgdir}"/usr/share/licenses/snes9x-gtk/LICENSE
 }
 
 # vim: ts=2 sw=2 et:
