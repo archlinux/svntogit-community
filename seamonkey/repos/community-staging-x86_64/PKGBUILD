@@ -1,0 +1,94 @@
+# Maintainer: Kyle Keen <keenerd@gmail.com>
+
+pkgname=seamonkey
+pkgver=2.49.4
+pkgrel=4
+pkgdesc="SeaMonkey internet suite"
+arch=('x86_64')
+license=('MPL')
+depends=('alsa-lib'  'dbus-glib'  'desktop-file-utils'  'gtk2' 'gtk3' 'hunspell'  'libevent'  'libnotify'  'libvpx'  'libxt' 'mime-types'  'mozilla-common'  'nss'  'sqlite'  'startup-notification' 'libpulse' 'icu')
+makedepends=('unzip' 'zip' 'pkg-config'  'python2' 'yasm' 'wireless_tools' 'mesa' 'autoconf2.13' 'imake' 'python3' 'gst-plugins-base')
+optdepends=('gst-plugins-base: vorbis decoding, ogg demuxing'
+            'gst-plugins-bad: aac, vp8 and opus decoding'
+            'gst-plugins-good: webm and mp4 demuxing'
+            'gst-plugins-ugly: h.264 decoding')
+url="http://www.seamonkey-project.org/"
+source=("https://archive.mozilla.org/pub/mozilla.org/seamonkey/releases/$pkgver/source/seamonkey-$pkgver.source.tar.xz"
+        mozconfig
+        seamonkey-2.0-lang.patch
+        patch-bug1435212.xz
+	no-crmf.diff)
+sha256sums=('c8a66774d0a3525698b559fa2c41397186f2de99c5733e35b8eafb0ae5ccc4ee'
+            '6ff9fd323eec175eb02cfefd3136c79491c3b40be0b1f899da7c75c2f76259ca'
+            'ab19d10fbd6258aec37ab5e5efb12429814b2c24a1193284a48dd654311b4e2e'
+            'dce68858694f820a9a1fc2428038a88ea00b4835cea0778734db794fea3bb21a'
+            'fb85a538044c15471c12cf561d6aa74570f8de7b054a7063ef88ee1bdfc1ccbb')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  cp ../mozconfig .mozconfig
+  #patch -Np1 -i ../seamonkey-2.0-lang.patch
+
+  # FS#48404
+  #echo "ac_add_options --enable-gstreamer=1.0" >> .mozconfig
+
+  # ffmpeg 4.0 patch from freebsd
+  # https://github.com/freebsd/freebsd-ports/blob/master/www/seamonkey/files/patch-bug1435212
+  patch -Np1 -d mozilla -i ../../patch-bug1435212
+
+  # Don't exit with error when some libs are missing which we have in
+  # system.
+  sed -i '/^MOZ_PKG_FATAL_WARNINGS/s@= 1@= 0@' suite/installer/Makefile.in
+
+  # configure script misdetects the preprocessor without an optimization level
+  sed -i '/ac_cpp=/s/$CPPFLAGS/& -O2/' configure
+
+  # 2.26 build fix from wgnie (blfs ch 37)
+  sed -i 's/$(MOZ_ZLIB_CFLAGS)/& $(MOZ_PIXMAN_CFLAGS)/' config/config.mk
+
+  # work around from FS#54395
+  patch -Np1 -d mozilla -i ../../no-crmf.diff
+  sed -i "s/'crmf',//" mozilla/security/manager/ssl/moz.build
+  sed -i 's/^.*-lcrmf/#&/' mozilla/config/external/nss/crmf/moz.build
+  sed -i 's/ -lcrmf"/"/' mozilla/old-configure.in.orig
+  sed -i 's/ -lcrmf"/"/' mozilla/old-configure
+  sed -i 's/SDK_LIBS = crmf/SDK_LIBS = /' mozilla/config/external/nss/Makefile.in
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  export LDFLAGS="$LDFLAGS -Wl,-rpath,/usr/lib/seamonkey-$pkgver"
+  export MOZ_MAKE_FLAGS="$MAKEFLAGS"
+  unset MAKEFLAGS
+  unset CPPFLAGS
+
+  # GCC 6
+  CFLAGS+=" -fno-delete-null-pointer-checks -fno-lifetime-dse -fno-schedule-insns2"
+  CXXFLAGS+=" -fno-delete-null-pointer-checks -fno-lifetime-dse -fno-schedule-insns2"
+
+  make -j1 -f client.mk build
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  make -j1 -f client.mk DESTDIR="$pkgdir" INSTALL_SDK= install
+
+  rm -rf "$pkgdir"/usr/lib/seamonkey-$pkgver/{dictionaries,hyphenation}
+  ln -s /usr/share/hunspell "$pkgdir/usr/lib/seamonkey-$pkgver/dictionaries"
+  ln -s /usr/share/hyphen "$pkgdir/usr/lib/seamonkey-$pkgver/hyphenation"
+
+  install -Dm644 suite/branding/nightly/icons/gtk/seamonkey.png \
+                "$pkgdir/usr/share/pixmaps/seamonkey.png"
+
+  install -Dm644 mozilla/toolkit/mozapps/installer/linux/rpm/mozilla.desktop \
+                "$pkgdir/usr/share/applications/seamonkey.desktop"
+  sed -i 's/@MOZ_APP_DISPLAYNAME@/SeaMonkey internet suite/' \
+                "$pkgdir/usr/share/applications/seamonkey.desktop"
+  sed -i 's/@MOZ_APP_NAME@/seamonkey/' "$pkgdir/usr/share/applications/seamonkey.desktop"
+
+  rm -f "$pkgdir/usr/lib/pkgconfig/"seamonkey-ns{s,pr}.pc
+  #rm -r "$pkgdir"/usr/{include,lib/seamonkey-devel-$pkgver,share/idl}
+}
+
