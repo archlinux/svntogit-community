@@ -2,7 +2,7 @@
 
 pkgbase=python-magic
 pkgname=(python-magic python2-magic)
-pkgver=5.35
+pkgver=5.36
 pkgrel=1
 pkgdesc="Python bindings to the magic library"
 arch=('any')
@@ -10,7 +10,7 @@ url='http://darwinsys.com/file/'
 makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools')
 license=('custom')
 source=("ftp://ftp.astron.com/pub/file/file-${pkgver}.tar.gz")
-sha512sums=('cbecc52e9209be8bc090752d0672efa181625d4e1e688e63edd1f5657b29bad69364a477fb4ed85d1fa413b8002c8578c86153d2acaaecce78446c0ca6ea9e38')
+sha512sums=('3ec5e51ffb7a82defa74845a90fbc983f6e169fc116606049bc01ff6e720d340c8abf6eb7a08b9ac1099162a5c02deac3633b07b039d486344c8abd9052ca751')
 
 package_python-magic() {
   depends=('python')
