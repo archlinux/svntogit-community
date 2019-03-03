@@ -5,7 +5,7 @@
 
 pkgbase=python-jedi
 pkgname=('python2-jedi' 'python-jedi')
-pkgver=0.13.2
+pkgver=0.13.3
 pkgrel=1
 arch=('any')
 url="https://github.com/davidhalter/jedi"
@@ -13,7 +13,7 @@ license=('MIT')
 makedepends=('python2-setuptools' 'python-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'python-parso' 'python2-parso')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/davidhalter/jedi/archive/v$pkgver.tar.gz")
-sha256sums=('434f1a6a6afb7477f5b2934da7822fcdbe7d962abf0cec9f391117df493dde0c')
+sha256sums=('e82c4933b4c9717276fa6528b91d7c667463ac2773ccecd076e6b068c70a6e0e')
 
 check() {
     cd "$srcdir/jedi-${pkgver}"
