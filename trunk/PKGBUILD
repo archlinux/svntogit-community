@@ -1,10 +1,11 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Co-Maintainer: Konstantin Gizdov <arch@kge.pw>
 # Contributor: Frederik Schwan <frederik dot schwan at linux dot com>
 # Contributor: Simon Legner <Simon.Legner@gmail.com>
 
 pkgname=bazel
 pkgver=0.23.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
