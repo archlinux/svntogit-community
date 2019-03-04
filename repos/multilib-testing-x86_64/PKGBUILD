@@ -1,0 +1,62 @@
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+# Contributor: Pierre Schmitz <pierre@archlinux.de>
+# Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi>
+
+pkgname=lib32-glib2
+pkgver=2.60.0
+pkgrel=1
+pkgdesc="Low level core library (32-bit)"
+url="https://wiki.gnome.org/Projects/GLib"
+license=(LGPL2.1)
+arch=(x86_64)
+depends=(lib32-pcre lib32-libffi lib32-util-linux lib32-zlib glib2)
+makedepends=(gettext gtk-doc shared-mime-info python lib32-libelf git util-linux meson lib32-dbus)
+checkdepends=(desktop-file-utils lib32-glib2)
+options=(!emptydirs)
+_commit=2edc5aa6dfffec0a48c8a1e9381b73d1096e0489  # tags/2.60.0^0
+source=("git+https://gitlab.gnome.org/GNOME/glib.git#commit=$_commit"
+        multilib.diff
+        gio-querymodules-32.hook)
+sha256sums=('SKIP'
+            '9c59f120cdccdbd960c5e3aab11f6c3c4b464ff4f7fc267520f5baad7919310a'
+            '73b6791b58180e2a02fe908938e6c547ee1b263f8c387262f9a8c4105ffa999a')
+
+pkgver() {
+  cd glib
+  git describe --tags | sed 's/-/+/g'
+}
+
+prepare() {
+  cd glib
+  patch -Np1 -i ../multilib.diff
+}
+
+build() {
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  arch-meson glib build \
+    -D selinux=disabled \
+    --libdir=/usr/lib32
+  ninja -C build
+}
+
+check() {
+  meson test -C build --no-suite flaky
+}
+
+package() {
+  DESTDIR="$pkgdir" meson install -C build
+
+  rm -r "$pkgdir"/usr/{share,include}
+  find "$pkgdir/usr/bin" -type f -not -name gio-querymodules -printf 'Removing %P\n' -delete
+  mv "$pkgdir"/usr/bin/gio-querymodules{,-32}
+
+  install -Dt "$pkgdir/usr/share/libalpm/hooks" -m644 *.hook
+
+  # Remove installed tests
+  rm -r "$pkgdir/usr/lib/installed-tests"
+}
+
+# vim:set sw=2 et:
