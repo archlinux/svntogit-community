@@ -8,7 +8,7 @@ pkgbase=python-markdown
 pkgname=('python-markdown' 'python2-markdown')
 _pkgbasename=Markdown
 pkgver=3.0.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
@@ -16,12 +16,16 @@ license=('BSD')
 depends=('python')
 makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools')
 checkdepends=('python-yaml' 'python2-yaml')
-source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
-md5sums=('72219f46ca440b657bf227500731bdf1')
+source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz"
+        '0001-fix-double-escaping.patch')
+md5sums=('72219f46ca440b657bf227500731bdf1'
+         '8ecbe4dc23be24a49bff904126535857')
 
 prepare() {
   # bug in 2.4, some DOS line endings slipped in
   find "$_pkgbasename-$pkgver/" -name '*py' -exec sed -i 's|\r||g' {} +
+
+  patch -d "$_pkgbasename-$pkgver/" -Np1 < "${srcdir}"/0001-fix-double-escaping.patch
 
   cp -r $_pkgbasename-$pkgver "$srcdir/python2-markdown"
   cd "$srcdir/python2-markdown"
