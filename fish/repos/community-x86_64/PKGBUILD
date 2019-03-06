@@ -6,18 +6,20 @@
 # Contributor: Jan Fader <jan.fader@web.de>
 
 pkgname=fish
-pkgver=3.0.1
+pkgver=3.0.2
 pkgrel=1
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
 arch=('x86_64')
 license=('GPL2')
-depends=('bc' 'gcc-libs' 'inetutils' 'ncurses' 'which' 'pcre2')
-optdepends=('python: for manual page completion parser and web configuration tool')
+depends=('glibc' 'gcc-libs' 'jq' 'ncurses' 'pcre2')
+optdepends=('python: man page completion parser / web config tool'
+            'pkgfile: command-not-found hook')
 makedepends=('doxygen')
 install=fish.install
 source=(https://github.com/fish-shell/fish-shell/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('6203b317c503b92c6f742eeb06f9e01558c6a31394ea73134c90b1cf0acebc5b88cdfe18cacf17f70d9b1612289f610e78a7cb683ffbfd9d616e1848f9861bcf')
+sha256sums=('0421a3fdf5df54c14cddd4d764bc0931bbb4d37fb799205a9457c6eaba513166')
+sha512sums=('d3a24f85d4ada891ec4f6b14733edb236ae67f34868b0c9115fa5ebae99202a747ee9aeec7c6b04702f9a608019d5964b9cdc9abc4e3edfd7aaa9335093d8881')
 
 prepare() {
   cd fish-shell-${pkgver}
