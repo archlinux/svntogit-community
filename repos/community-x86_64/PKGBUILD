@@ -1,69 +1,75 @@
-# $Id$
 # Maintainer: Kyle Keen <keenerd@gmail.com>
 
+pkgbase=cataclysm-dda
+pkgname=(cataclysm-dda cataclysm-dda-tiles)
 pkgname=cataclysm-dda
-pkgver=0.C
-pkgrel=4
+pkgver=0.D
+pkgrel=1
 pkgdesc="A post-apocalyptic roguelike."
 #url="http://cataclysmrl.blogspot.com/"
 #url="http://www.cataclysm.glyphgryph.com/"
-url="http://en.cataclysmdda.com/"
+#url="http://en.cataclysmdda.com/"
+url="https://cataclysmdda.org/"
 arch=('x86_64')
 license=("CCPL:by-sa")
-depends=('ncurses' 'lua' 'hicolor-icon-theme')
-makedepends=('sdl2_image' 'sdl2_ttf' 'sdl2_mixer' 'freetype2')
-optdepends=('sdl2_image: for tiles'
-            'sdl2_ttf: for tiles'
-            'freetype2: for tiles'
-            'sdl2_mixer: for tiles')
-install=cataclysm-dda.install
+depends=('ncurses' 'lua' 'hicolor-icon-theme' 'gettext')
+makedepends=('sdl2_image' 'sdl2_ttf' 'sdl2_mixer' 'freetype2' 'astyle')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/CleverRaven/Cataclysm-DDA/archive/$pkgver.tar.gz")
-md5sums=('805132ab7651ba93e5247ced7fe1fc97')
+md5sums=('720cf97844bf77ca428c6a4d0b1afa34')
 
 # official docs say to use lua51
 # but makefile supports lua52?
 # lua53 works, but git HEAD detects/uses lua51?
 
-# tiles + executable are about half of the package
-# next release looks like 2/3rds,  consider splitting
-# USE_XDG_DIR for next release
+prepare() {
+  cd "Cataclysm-DDA-$pkgver"
+  sed -i 's/-Werror//' Makefile
+  sed -i 's/ncursesw5-config/ncursesw6-config/' Makefile
+  #sed -i 's|"\(l.*h\)"|"lua5.1/\1"|' src/catalua.{h,cpp}
+  sed -i 's/shell git/shell false/' Makefile
+}
 
 build() {
   cd "Cataclysm-DDA-$pkgver"
 
-  sed -i 's/-Werror//' Makefile
-  sed -i 's/ncursesw5-config/ncursesw6-config/' Makefile
-  #sed -i 's|"\(l.*h\)"|"lua5.1/\1"|' src/catalua.{h,cpp}
-
-  make PREFIX=/usr RELEASE=1 ZLEVELS=1 USE_HOME_DIR=1 LUA=1
-  make PREFIX=/usr RELEASE=1 ZLEVELS=1 USE_HOME_DIR=1 LUA=1 TILES=1 SOUND=1
+  # tests "ifdef TILES" so "TILES=0" will enable tiles!
+  # DYNAMIC_LINKING appears to be a windows flag?
+  make PREFIX=/usr RELEASE=1 USE_XDG_DIR=1 BACKTRACE=0 ZLEVELS=1 LUA=1
+  make PREFIX=/usr RELEASE=1 USE_XDG_DIR=1 BACKTRACE=0 ZLEVELS=1 LUA=1 TILES=1 SOUND=1
   #LUA_BINARY="/usr/bin/lua5.1"
 }
 
-package() {
+package_cataclysm-dda() {
   cd "Cataclysm-DDA-$pkgver"
 
-  # no DESTDIR
-  make PREFIX="$pkgdir/usr" \
-  RELEASE=1 ZLEVELS=1 USE_HOME_DIR=1 LUA=1 TILES=0 SOUND=0 \
-  install
-  # doesn't install executable?
-  install -Dm755 cataclysm "$pkgdir/usr/bin/cataclysm"
-
-  make PREFIX="$pkgdir/usr" \
-  RELEASE=1 ZLEVELS=1 USE_HOME_DIR=1 LUA=1 TILES=1 SOUND=1 \
-  install
-
-  # Icon
-  install -D 'data/osx/AppIcon.iconset/icon_128x128.png' "$pkgdir/usr/share/icons/hicolor/128x128/apps/cataclysm-dda.png"
+  make DESTDIR="$pkgdir" PREFIX="/usr" RELEASE=1 ZLEVELS=1 USE_HOME_DIR=1 LUA=1 install
 
   # Docs
   install -d "$pkgdir/usr/share/doc/cataclysm-dda"
   cp -r doc/* "$pkgdir/usr/share/doc/cataclysm-dda"
   # undo symlink
   rm "$pkgdir/usr/share/doc/cataclysm-dda/JSON_LOADING_ORDER.md"
-  cp 'data/json/LOADING_ORDER.md' "$pkgdir/usr/share/doc/cataclysm-dda/      JSON_LOADING_ORDER.md"
+  cp 'data/json/LOADING_ORDER.md' "$pkgdir/usr/share/doc/cataclysm-dda/JSON_LOADING_ORDER.md"
 
   # License
   install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_cataclysm-dda-tiles() {
+  pkgdesc="A graphical post-apocalyptic roguelike."
+  depends=('cataclysm-dda' 'sdl2_image' 'sdl2_ttf' 'freetype2' 'sdl2_mixer')
+  cd "Cataclysm-DDA-$pkgver"
+
+  make DESTDIR="$pkgdir" PREFIX="/usr" RELEASE=1 ZLEVELS=1 LUA=1 TILES=1 SOUND=1 install
+
+  # Icon
+  install -D 'data/osx/AppIcon.iconset/icon_128x128.png' "$pkgdir/usr/share/icons/hicolor/128x128/apps/cataclysm-dda.png"
+
+  install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # hack: remove overlapping files
+  cd "$pkgdir/../cataclysm-dda"
+  find . -type f -exec rm -f "$pkgdir"/{} \;
+  cd "$pkgdir"
+  find . -type d -empty -delete
 }
