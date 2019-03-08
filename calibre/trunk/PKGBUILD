@@ -13,14 +13,11 @@ pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
 license=('GPL3')
-depends=('python2-six' 'python2-dateutil' 'python2-css-parser' 'python2-dukpy'
-         'python2-mechanize' 'podofo' 'libwmf' 'jxrlib' 'mathjax'
-         'chmlib' 'python2-lxml' 'libusbx' 'python2-html5-parser'
-         'python2-pillow' 'shared-mime-info' 'python2-dnspython' 'python2-msgpack'
-         'python2-pyqt5' 'python2-psutil' 'icu' 'libmtp' 'python2-dbus'
-         'python2-netifaces' 'python2-cssselect' 'python2-apsw' 'qt5-webkit'
-         'qt5-svg' 'python2-regex' 'python2-pygments' 'mtdev' 'python2-unrardll'
-         'desktop-file-utils' 'gtk-update-icon-cache' 'optipng' 'udisks2')
+_py_deps=('apsw' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython' 'dukpy'
+          'html5-parser' 'lxml' 'mechanize' 'msgpack'
+          'netifaces' 'unrardll' 'pillow' 'psutil' 'pygments' 'pyqt5' 'regex')
+depends=('chmlib' 'icu' 'jxrlib' 'libmtp' 'libusbx' 'libwmf' 'mathjax' 'mtdev' 'optipng'
+         'podofo'  "${_py_deps[@]/#/python2-}" 'qt5-svg' 'qt5-webkit' 'udisks2')
 makedepends=('qt5-x11extras' 'sip' 'xdg-utils')
 checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
