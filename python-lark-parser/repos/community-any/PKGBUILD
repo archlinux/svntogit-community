@@ -2,7 +2,7 @@
 
 pkgbase=python-lark-parser
 pkgname=(python-lark-parser python2-lark-parser)
-pkgver=0.6.6
+pkgver=0.6.7
 _tag=0.66
 _nearley_commit=a46b37471db486db0f6e1ce6a2934fb238346b44
 pkgrel=1
