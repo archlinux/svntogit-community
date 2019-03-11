@@ -1,7 +1,7 @@
 # Maintainer: Ainola <ainola@archlinux.org>
 
 pkgname=wlroots
-pkgver=0.4.1
+pkgver=0.5.0
 pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
@@ -21,7 +21,7 @@ source=(
     "$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz"
     "https://github.com/swaywm/wlroots/releases/download/$pkgver/wlroots-$pkgver.tar.gz.sig"
 )
-sha256sums=('a8c480b1ab3e5fff2d2a38661a0f06eb96af43c1cac02dc02e180d7fa5e8a5fa'
+sha256sums=('3c6d422aaa7ac09a1e4a88d93f07a4d6ef6c5e4d76c3422c240a5783265ed0e3'
             'SKIP')
 validpgpkeys=('9DDA3B9FA5D58DD5392C78E652CB6609B22DA89A') # Drew DeVault
 
