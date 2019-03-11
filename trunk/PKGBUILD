@@ -8,7 +8,7 @@ pkgrel=6
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=('x86_64')
-url='http://dolphin-emu.org'
+url='https://dolphin-emu.org'
 license=('GPL')
 depends=('alsa-lib' 'bluez-libs' 'enet' 'gcc-libs' 'glibc' 'hidapi' 'libevdev'
          'libgl' 'libpng' 'libpulse' 'libx11' 'libxi' 'libxrandr' 'lzo'
