@@ -5,7 +5,7 @@
 pkgbase=python-certifi
 pkgname=('python-certifi' 'python2-certifi')
 _libname=${pkgbase/python-/}
-pkgver=2018.11.29
+pkgver=2019.3.9
 pkgrel=1
 pkgdesc="Python package for providing Mozilla's CA Bundle"
 arch=(any)
@@ -13,7 +13,7 @@ url="http://pypi.python.org/pypi/certifi"
 license=('GPL')
 makedepends=('python-setuptools' 'python2-setuptools')
 source=("https://pypi.io/packages/source/${_libname:0:1}/$_libname/$_libname-$pkgver.tar.gz")
-sha512sums=('6a6bf1ff98caefcdbf78a8c83e11e155368bacdd806f0ae0c6afa8f513667df6598e594b3584de61acdca3d6049f4a776937f2aa8672b602bd6db7b737f6074e')
+sha512sums=('d86559b0d384f8114245b169391c73d5e6df02ba411cf9706c9d4e5958eeef610b6550bcb5eb519856b8fa25f3f5eb1cea02c0df1f6df72e16da8201732b0dd9')
 
 prepare() {
   cp -a $_libname-$pkgver{,-py2}
