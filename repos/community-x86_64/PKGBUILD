@@ -3,9 +3,9 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.2.0
-_commit=9f2e07b1fc1342d1c48fe4d7bbb94cb6d1bf278b
-pkgrel=3
+pkgver=1.2.5
+_commit=bb71b10fd8f58240ca47fbb579b9d1028eea7c84
+pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
@@ -13,7 +13,7 @@ makedepends=('go' 'git' 'btrfs-progs' 'libseccomp')
 arch=('x86_64')
 license=("APACHE")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/containerd/containerd/archive/v$pkgver.tar.gz")
-sha256sums=('8565a655345f3db2f7b78b77a2cd3103895229aa44cd0e4c710ba3559e344b5a')
+sha256sums=('b92819bde71de947329814a3c649b8adb106cc03be16aae217b94297f4b843a1')
 
 prepare() {
   mkdir -p src/github.com/containerd
