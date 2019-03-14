@@ -4,7 +4,7 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=18.3.4
+pkgver=19.0.0
 pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
@@ -14,7 +14,7 @@ url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE)
-sha512sums=('e4ead944ba053aa05425e9e199d633f576dfa424976253fc32438e8db6da5e8d381122e4c4b7fb18f94177421f208bab5567cfec8d2692d104e266483ca02a99'
+sha512sums=('5759b85275bcd145513cf14a9ef7505595766fb33b82c53738f74ede462e5850580d48ab4af326b41209e7f4b05aab75539f2bfebf67c3098a4680ea95c37591'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
@@ -63,7 +63,6 @@ build() {
     -D lmsensors=true \
     -D osmesa=gallium \
     -D shared-glapi=true \
-    -D texture-float=true \
     -D valgrind=false
 
   # Print config
