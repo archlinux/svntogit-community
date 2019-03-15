@@ -1,6 +1,6 @@
-# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
-# Maintainer: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Maintainer: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+# Contributor: Alexander F. Rødseth <xyproto@archlinux.org>
 # Contributor: Pierre Neidhardt <ambrevar@gmail.com>
 # Contributor: Vesa Kaihlavirta <vegai@iki.fi>
 # Contributor: Rémy Oudompheng <remy@archlinux.org>
@@ -14,7 +14,7 @@
 pkgbase=go
 pkgname=(go go-pie)
 epoch=2
-pkgver=1.12
+pkgver=1.12.1
 pkgrel=1
 arch=(x86_64)
 url='https://golang.org/'
@@ -22,24 +22,19 @@ license=(BSD)
 makedepends=(git go)
 source=(https://storage.googleapis.com/golang/go$pkgver.src.tar.gz
         default-buildmode-pie.patch)
-sha256sums=('09c43d3336743866f2985f566db0520b36f4992aea2b4b2fd9f52f17049e88f2'
+sha256sums=('0be127684df4b842a64e58093154f9d15422f1405f1fcff4b2c36ffc6a15818a'
             '9d2f0d201d4e002d74f548cc82bd131139bab5dd62191004c71dd430fdc1666d')
-
-export GOOS=linux
-case "$CARCH" in
-  x86_64) export GOARCH=amd64 ;;
-esac
-export GOROOT_FINAL=/usr/lib/go
-export GOROOT_BOOTSTRAP=/usr/lib/go
 
 prepare() {
   cp -r $pkgbase $pkgbase-pie
-
   cd $pkgbase-pie
   patch -p1 -i "$srcdir/default-buildmode-pie.patch"
 }
 
 build() {
+  export GOARCH=amd64
+  export GOROOT_FINAL=/usr/lib/go
+  export GOROOT_BOOTSTRAP=/usr/lib/go
   export GOPATH="$srcdir/"
 
   for _pkgname in ${pkgname[@]}; do
@@ -55,6 +50,9 @@ build() {
 }
 
 check() {
+  export GOARCH=amd64
+  export GOROOT_FINAL=/usr/lib/go
+  export GOROOT_BOOTSTRAP=/usr/lib/go
   # Run test suite only for unpatched Go as it expects non-PIE ldBuildmode
   export GOROOT="$srcdir/$pkgbase"
   export GOBIN="$GOROOT/bin"
@@ -62,10 +60,14 @@ check() {
   export GO_TEST_TIMEOUT_SCALE=2
 
   cd $pkgbase/src
-  ./run.bash --no-rebuild -v -v -v -k 
+  ./run.bash --no-rebuild -v -v -v -k
 }
 
 _package() {
+  export GOARCH=amd64
+  export GOROOT_FINAL=/usr/lib/go
+  export GOROOT_BOOTSTRAP=/usr/lib/go
+
   options=(!strip staticlibs)
   cd "$srcdir/$1"
 
