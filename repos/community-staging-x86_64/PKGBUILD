@@ -4,7 +4,7 @@
 
 pkgname=octave
 pkgver=5.1.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="http://www.octave.org"
@@ -35,9 +35,9 @@ build() {
   cd ${pkgname}-${pkgver}
 
   ./configure --prefix=/usr --libexecdir=/usr/lib \
-  --enable-shared --disable-static --enable-link-all-dependencies \
-  --with-quantum-depth=16
-
+    --enable-shared --disable-static \
+    --with-quantum-depth=16 \
+    --with-sundials_ida="-lsundials_ida -lsundials_sunlinsolklu"
   make
 }
 
