@@ -4,7 +4,7 @@
 
 pkgname=octave
 pkgver=5.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="http://www.octave.org"
@@ -23,7 +23,7 @@ options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
 sha512sums=('a842fb50c13f25e9d425fe9a2c71d9433d7e125747d2175efe0c9b2a780c799d9ce1ee085b5a13fbfedb7990b0ba5d11079d880ddb3bdb66782efc321390eebb'
             'SKIP'
-            'c05514859d661c8064973c4728ab68a91ca97910792b9ee6deee28748c79867b1204517775fe12f716e23576632f7b741bfe90c79ada288a1f57b58877b0fd76')
+            '4b743602e8ca91e8be8dab69e09d3e476e9edd867b2eb0b9816fbe4ca344a16bff7a413c2e89b0c9fb769f4a815a696c4d67b70282b7e4fe8c24598bcce90d34')
 
 prepare() {
   cd $pkgname-$pkgver
@@ -35,9 +35,8 @@ build() {
   cd ${pkgname}-${pkgver}
 
   ./configure --prefix=/usr --libexecdir=/usr/lib \
-  --enable-shared --disable-static \
-  --with-quantum-depth=16 \
-  --with-sundials_ida="-lsundials_ida -lsundials_sunlinsolklu"
+  --enable-shared --disable-static --enable-link-all-dependencies \
+  --with-quantum-depth=16
 
   make
 }
