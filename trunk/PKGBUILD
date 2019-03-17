@@ -8,10 +8,10 @@ pkgname=(
  dotnet-sdk
  aspnet-runtime
 )
-pkgver=2.2.1+102
+pkgver=2.2.3+105
 pkgrel=1
 arch=(x86_64)
-url='https://www.microsoft.com/net/core'
+url=https://www.microsoft.com/net/core
 license=(MIT)
 makedepends=(
   clang
@@ -29,7 +29,7 @@ makedepends=(
 )
 options=(staticlibs)
 source=(
-  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}-ga
+  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}
   dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git
   dotnet-aspnet-razor::git+https://github.com/aspnet/Razor.git
   dotnet-cecil::git+https://github.com/mono/cecil.git
@@ -53,7 +53,7 @@ source=(
   dotnet-vstest::git+https://github.com/Microsoft/vstest.git
   dotnet-websdk::git+https://github.com/aspnet/websdk.git
   dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git
-  https://download.visualstudio.microsoft.com/download/pr/53cace8f-2907-487e-84d7-bc7a7ba5de05/326704ffa2ef9d4dcd0db2f1da996ebb/aspnetcore-runtime-2.2.1-linux-x64.tar.gz
+  https://download.visualstudio.microsoft.com/download/pr/dabca6d9-19e5-44b6-a402-a627fae42d26/e36d703f5d281ec8662422bfa62c2fdd/aspnetcore-runtime-2.2.3-linux-x64.tar.gz
   dotnet.sh
   dotnet-coreclr-rid.patch
 )
@@ -81,7 +81,7 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '8a275315b36f6f66038049c34dcb4808e0fa4ece49651957f7be83d6b235f4b8'
+            '9d71c8312ec3448ae957cfbf4d4777c1924e34cb287d0f0d0f4853ce4ffc5355'
             '4978b3a31a94032b425d2a2a9b5a17f506f36fb784fbfefdf2cfea9485a30f47'
             '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee')
 
