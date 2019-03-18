@@ -4,8 +4,8 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.0.19
-pkgrel=2
+pkgver=2.0.21
+pkgrel=1
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTP"
 arch=('x86_64')
 url="https://dnscrypt.info"
@@ -24,7 +24,7 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/jedisct1/${pkgname}/arc
         "${pkgname}.service"
         "${pkgname}.socket"
         'configuration.diff')
-sha512sums=('4501a64717c0f2a9313e9328340e466c9ec325d09ef548f6af9a7855ff3497fb741269a17b397a36e2a120519820378e9f98a6a768a3678ea8144ee4690364f6'
+sha512sums=('e01869b963ef7454f9136d8ececc4e541dae489524e03cc2906fc3b661281bd6ebf5ef8b6dc29a6bcc1dabb638b9e74200b3ed48ebcd69cd3306e8bab5dd248a'
             'aa871927bbc37d0c629e75a39cbfe50ce6062a19d7fe5b61895c604d6a480ba8f484cf207943c6ee7bf2dc3c7799d8f7a2b1ea5c8e586920c97730a7c503985e'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
             '6144f3d33f3d85c9a4e5573f88e92f1b9d7118fd654072eeac6c3f76085086d4b2464e1d3579d8501153f453bc5125859d148fc3b3486d26368d1f51911aeb33')
@@ -36,6 +36,7 @@ prepare() {
   touch "${pkgname}/ip-blacklist.txt"
   # symlink upstream's vendor to src
   ln -sfv vendor src
+  rm -v go.mod
 }
 
 build() {
