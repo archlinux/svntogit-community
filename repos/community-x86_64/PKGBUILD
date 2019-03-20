@@ -5,7 +5,7 @@
 
 pkgname=darktable
 epoch=2
-pkgver=2.6.1
+pkgver=2.6.2
 pkgrel=1
 pkgdesc="Utility to organize and develop raw images"
 arch=('x86_64')
@@ -15,7 +15,7 @@ depends=('pugixml' 'libjpeg-turbo' 'colord-gtk' 'libgphoto2' 'openexr' 'lensfun'
          'exiv2' 'flickcurl' 'openjpeg2' 'graphicsmagick' 'lua' 'osm-gps-map' 'libsecret')
 makedepends=('cmake' 'intltool' 'desktop-file-utils' 'llvm' 'clang' 'python-jsonschema' 'libwebp')
 source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver/rc/.rc}.tar.xz"{,.asc})
-sha256sums=('63c53332eecff946e41c1b6551d51bc0a2515572532f470b7b570b60805c3026' 'SKIP')
+sha256sums=('9cb9efbb09a40375ff05cef89343235a621c58339539e44985470a029a7ffb45' 'SKIP')
 validpgpkeys=('C4CBC150699956E2A3268EF5BB5CC8295B1779C9'  # darktable releases <release@darktable.org>
               'F10F9686652B0E949FCD94C318DCA123F949BD3B') # Pascal Obry <pascal@obry.net>
 
