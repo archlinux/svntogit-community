@@ -13,7 +13,7 @@ depends=('glibc' 'oniguruma')
 makedepends=('autoconf' 'automake' 'bison' 'flex' 'python2')
 source=("https://github.com/stedolan/jq/releases/download/${pkgname}-${pkgver}/${pkgname}-${pkgver}.tar.gz")
 changelog=ChangeLog
-sha512sums=('f5ae8be558ca2ff15324c378d623106b74bd0823be50835e23548584aa1eb24eb81f8f054693d5d3fe44f157d0735c5f0f40b9f21899ba068f2a11d1345ace19')
+sha512sums=('5da71f53c325257f1f546a2520fe47828b495c953270df25ea0e37741463fdda72f0ba4d5b05b25114ec30f27a559344c2b024bacabf610759f4e3e9efadb480')
 
 build() {
     cd "${pkgname}-${pkgver}"
