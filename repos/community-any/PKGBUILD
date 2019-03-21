@@ -1,7 +1,7 @@
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
 
 pkgname=pulseaudio-equalizer-ladspa
-pkgver=3.0.1
+pkgver=3.0.2
 pkgrel=1
 pkgdesc='A 15-band equalizer for PulseAudio'
 arch=(any)
@@ -11,7 +11,7 @@ depends=('python-gobject' 'gtk3' 'swh-plugins' 'pulseaudio' 'bc')
 makedepends=('meson')
 optdepends=('python2-gobject: python2 support')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha512sums=('377a7aeff31ffe9cf3d5e10325b23177a5c3e5fcaeae506c9d59a93a781756311b2811557d3e9b5df4db4dc4d4aa09ccfb3a424baf6d102852574bdd4d49d570')
+sha512sums=('a916d55f02002de3f0053b0bf1e6f2315e517caa42d6b1e5d19268d895376d990a793d73f52e0050e44b391d61c190c3be23ccf31cef018521740c6cc0a728e0')
 
 build() {
   mkdir -p equalizer-$pkgver/build
