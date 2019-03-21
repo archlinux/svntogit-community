@@ -4,7 +4,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine
-pkgver=4.2
+pkgver=4.3
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
@@ -12,7 +12,7 @@ _pkgbasever=${pkgver/rc/-rc}
 source=(https://dl.winehq.org/wine/source/4.x/$pkgname-$_pkgbasever.tar.xz{,.sign}
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('408a846e92a0222f64ddd3c4d2c2a71b387ce51749e346c1fbca1fd57db910fa18dc6bb4ce0a350bef81e13be77c6b2d74537f7a1c0dcbb0e6d4c19d1ade288c'
+sha512sums=('45c0519f8f2873ef65e1761d518a7148f3aa54c0e993a41a60849c01c8df17386d57edd83308cff289300adc6a8e3fc5918fb12513f5b85a88e556b420479e83'
             'SKIP'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
@@ -38,6 +38,7 @@ depends=(
   libsm           lib32-libsm
   gcc-libs        lib32-gcc-libs
   libpcap         lib32-libpcap
+  faudio          lib32-faudio
   desktop-file-utils
 )
 makedepends=(autoconf ncurses bison perl fontforge flex
