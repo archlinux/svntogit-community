@@ -13,7 +13,7 @@ pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
 license=('BSD')
-makedepends=('python2' 'cmake' 'gcc-libs' 'sh' 'ninja')
+makedepends=('python2' 'cmake' 'gcc-libs' 'sh')
 _srcname=googletest-release-${pkgver}
 source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
         gtest-1.8.1-libversion.patch
@@ -39,19 +39,16 @@ prepare() {
 }
 
 build() {
-  mkdir build build-ac
-  cd build
-
-  cmake -G Ninja ../${_srcname} \
+  cmake -H${_srcname} -Bbuild \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DBUILD_SHARED_LIBS=ON \
     -DPython_ADDITIONAL_VERSIONS=2.7 \
     -Dgtest_build_tests=ON
-  cmake --build .
+  cmake --build build
 
   # Only for g{test,mock}-config
-  cd ../${_srcname}/googletest
+  cd ${_srcname}/googletest
   autoreconf -fvi
   ./configure --prefix=/usr
   cd ../googlemock
