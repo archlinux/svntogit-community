@@ -1,14 +1,15 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Co-Maintainer: Konstantin Gizdov <arch@kge.pw>
 pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=5
+pkgrel=6
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-depends=('gcc7-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc7')
+depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
@@ -44,9 +45,9 @@ package() {
   ln -s lib "${pkgdir}/opt/cuda/lib64"
   ln -s lib "${pkgdir}/opt/cuda/nvvm/lib64"
 
-  # Needs gcc7
-  ln -s /usr/bin/gcc-7 "${pkgdir}/opt/cuda/bin/gcc"
-  ln -s /usr/bin/g++-7 "${pkgdir}/opt/cuda/bin/g++"
+  # Use GCC 8
+  ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
+  ln -s /usr/bin/g++ "${pkgdir}/opt/cuda/bin/g++"
 
   # Create soname links.
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
