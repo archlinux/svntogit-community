@@ -2,9 +2,9 @@
 
 pkgname=kodi-addon-screensaver-matrixtrails
 epoch=1
-pkgver=2.2.0
+pkgver=2.2.1
 _codename=Leia
-pkgrel=9
+pkgrel=1
 pkgdesc="Matrix trails screensaver for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/screensaver.matrixtrails'
@@ -13,7 +13,7 @@ groups=('kodi-addons' 'kodi-addons-screensaver')
 depends=('kodi' 'soil')
 makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/xbmc/screensaver.matrixtrails/archive/v$pkgver-$_codename.tar.gz")
-sha512sums=('edfbf1d02266450029a3dbd693f48227a0472dae6d561e12ba291563d9a75ca54bd2d7d1c25358114a0d095e3bfe874352735b457677815bad36e2d36999fed1')
+sha512sums=('453e4e5450502df1a2f3b74eda06d12aed57c3509d1065dcc2accd9f43aca56e38e83a8610227c8dadc20f55f4cf8d97b8f85211c88b1047a63b38e715699080')
 
 build() {
     cd "screensaver.matrixtrails-$pkgver-$_codename"
