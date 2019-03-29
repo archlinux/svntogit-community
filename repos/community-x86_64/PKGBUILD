@@ -2,18 +2,18 @@
 
 pkgname=kodi-addon-screensaver-greynetic
 epoch=1
-pkgver=2.1.0
+pkgver=2.2.1
 _codename=Leia
-pkgrel=9
+pkgrel=1
 pkgdesc="Greynetic screensaver for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/screensaver.greynetic'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
-depends=('kodi')
+depends=('kodi' 'glm')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/xbmc/screensaver.greynetic/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('32b01e4ca337db187e557a6d40def26d31d8840063fdcafc157572ac00515e29acebb031abe675777ac8c2c63eee3284a97442c67c162d540346cd8be71a7a1f')
+sha512sums=('d8c69efad259d137e9d67a526f540b4704e62bd24e0f307ec54fe08a3d3e57112756c7c32a4e65eb7240c528318e7920c52cc0c9a3a1bd1a67ee455254e5ff58')
 
 build() {
     cd "screensaver.greynetic-$pkgver-$_codename"
