@@ -2,7 +2,7 @@
 # Contributor: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=1.0.0rc6
+pkgver=1.0.0rc7
 pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
@@ -10,12 +10,10 @@ url='https://runc.io/'
 license=(Apache)
 depends=(libseccomp)
 makedepends=(git go-pie go-md2man)
-_commit=ccb5efd37fb7c86364786e9137e22948751de7ed
-source=("git+https://github.com/opencontainers/runc.git#commit=$_commit?signed"
-		"0001-nsenter-clone-proc-self-exe-to-avoid-exposing-host-b.patch")
+_commit=69ae5da6afdcaaf38285a10b36f362e41cb298d6  # tags/v1.0.0-rc7^0
+source=("git+https://github.com/opencontainers/runc.git#commit=$_commit?signed")
 validpgpkeys=("5F36C6C61B5460124A75F5A69E18AA267DDB8DB4")
-sha256sums=('SKIP'
-            '327ee5b857062d53527701e70ae86a0614732e11b9000ab7a69f9e32981717c6')
+sha256sums=('SKIP')
 
 pkgver() {
   cd runc
@@ -25,8 +23,6 @@ pkgver() {
 prepare() {
   mkdir -p src/github.com/opencontainers
   cp -r runc src/github.com/opencontainers/
-  cd src/github.com/opencontainers/runc
-  patch -Np1 -i "${srcdir}/0001-nsenter-clone-proc-self-exe-to-avoid-exposing-host-b.patch"
 }
 
 build() {
