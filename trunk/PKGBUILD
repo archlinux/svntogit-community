@@ -3,9 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2018.3.5
-_build=183.5912.21
-_adt_tools_base_commit=e841aa025aa62a4250040ca2a538daabbff54cf5
+pkgver=2019.1
+_build=191.6183.87
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -18,14 +17,14 @@ depends=('giflib' 'java-environment=8' 'python' 'sh' 'ttf-font' 'libdbusmenu-gli
 makedepends=('ant' 'kotlin' 'git' 'java-openjfx')
 source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/archive/idea/${_build}.tar.gz
         idea-android-${_build}.tar.gz::https://github.com/JetBrains/android/archive/idea/${_build}.tar.gz
-        idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=${_adt_tools_base_commit}"
+        idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#tag=idea/${_build}"
         idea-build.patch
         idea.desktop
         idea.sh)
-sha256sums=('4b51c691ad9a7f9aef216ba807f017a136a54995f18a78571489378d0dfbcdc2'
-            'ebbc7b69de2dbe938d90110fbb1c18405726f71e44342922604b59c9fc5c294c'
+sha256sums=('9162146dbcfb5e44a6bc48f7b71a94ec311a8ccf7972ef7ad029dec00dfe3796'
+            '0d5b65f63b77f120c0fbf5d4aad15552b2f60b7faf1a7e471f41e6b9e28f9440'
             'SKIP'
-            '9df5bfebad9364899a926ea974a12b7f9924cabf29c504bd944a39bf400cac67'
+            'd7556a6651ec0c00daa6af3ec205f92945ebae2c5e30d29c04d8f65358e74825'
             'fa9e3cba5e26a7e01cecda867f23467322db123c5553dfbb4f14aae034ccbed7'
             'c021dba82f75a18be6ffdc2fe70d616496bbe3a14e7a5efef30c06b4cbd915c3')
 
@@ -44,7 +43,7 @@ build() {
   export JAVA_HOME=/usr/lib/jvm/java-8-openjdk
   export PATH="${JAVA_HOME}/bin:${PATH}"
   ant build
-  tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jdk.tar.gz -C "${srcdir}"
+  tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
 }
 
 package() {
@@ -53,12 +52,13 @@ package() {
   # workaround FS#40934
   sed -i 's/lcd/on/' bin/*.vmoptions
 
-  rm -rf bin/fsnotifier{,-arm} lib/libpty/linux/x86
+  rm -rf bin/fsnotifier-arm lib/libpty/linux/x86
 
-  install -dm 755 "${pkgdir}"/usr/share/{licenses,pixmaps,idea}
+  install -dm 755 "${pkgdir}"/usr/share/{licenses,pixmaps,idea,icons/hicolor/scalable/apps}
   cp -dr --no-preserve='ownership' bin lib plugins redist "${pkgdir}"/usr/share/idea/
   cp -dr --no-preserve='ownership' license "${pkgdir}"/usr/share/licenses/idea
   ln -s /usr/share/idea/bin/idea.png "${pkgdir}"/usr/share/pixmaps/
+  ln -s /usr/share/idea/bin/idea.svg "${pkgdir}"/usr/share/icons/hicolor/scalable/apps/
   install -Dm 644 ../idea.desktop -t "${pkgdir}"/usr/share/applications/
   install -Dm 755 ../idea.sh "${pkgdir}"/usr/bin/idea
   install -Dm 644 build.txt -t "${pkgdir}"/usr/share/idea
