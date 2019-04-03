@@ -1,0 +1,95 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Aleksey Filippov <sarum9in@gmail.com>
+# Contributor: Victor Aurélio Santos <victoraur.santos@gmail.com>
+
+pkgbase='grpc'
+pkgname=('grpc' 'python-grpcio' 'php-grpc' 'grpc-cli')
+pkgver=1.19.1
+_gtestver=1.8.1
+pkgrel=1
+pkgdesc="High performance, open source, general RPC framework that puts mobile and HTTP/2 first."
+arch=('x86_64')
+url='https://grpc.io'
+license=('BSD')
+makedepends=('re2c' 'protobuf' 'php' 'c-ares' 'openssl' 'chrpath' 'gflags'
+             'cython')
+source=("https://github.com/$pkgname/$pkgname/archive/v$pkgver/$pkgname-$pkgver.tar.gz"
+        "https://github.com/google/googletest/archive/release-$_gtestver/googletest-$_gtestver.tar.gz"
+        "makefile.patch")
+sha256sums=('f869c648090e8bddaa1260a271b1089caccbe735bf47ac9cd7d44d35a02fb129'
+            '9bf1fe5182a604b4135edc1a425ae356c9ad15e9b23f9f12a02e80184c3a249c'
+            'f292cb387f0cf7567e6e8004a6dd57bf0375abbaa8968dcd97cbd7e72409670f')
+
+prepare() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  patch -p1 -i "$srcdir/makefile.patch"
+
+  sed -r 's/-Werror//g;/ldconfig/d;s/ strip-(static|shared)_c(xx)? / /' -i Makefile
+
+  ln -sf "$srcdir/googletest-release-$_gtestver/"{googlemock,googletest} \
+    third_party/googletest
+}
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  make prefix=/usr
+  make prefix=/usr grpc_cli
+
+  # Don't install it as part of main package
+  mv bins/opt/grpc_cli .
+
+  # Python
+  GRPC_PYTHON_BUILD_WITH_CYTHON=1 \
+  GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1 \
+  GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1 \
+  GRPC_PYTHON_BUILD_SYSTEM_CARES=1 \
+  python setup.py build
+
+  # PHP
+  cd "$srcdir/$pkgbase-$pkgver/src/php/ext/$pkgbase"
+  phpize
+  LDFLAGS=-L"$srcdir/$pkgname-$pkgver/libs/opt" ./configure --enable-grpc="$srcdir/$pkgname-$pkgver"
+  make
+}
+
+package_grpc() {
+  depends=('c-ares' 'protobuf' 'openssl')
+
+  cd "$srcdir/$pkgbase-$pkgver"
+  make prefix="$pkgdir/usr" install
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_python-grpcio() {
+  depends=('c-ares' 'python')
+
+  cd "$srcdir/$pkgbase-$pkgver"
+  python setup.py install -O1 --skip-build --root="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_php-grpc() {
+  depends=('grpc' 'php')
+  backup=('etc/php/conf.d/grpc.ini')
+
+  # Install PHP extension.
+  cd "$srcdir/$pkgbase-$pkgver/src/php/ext/$pkgbase"
+  make install "INSTALL_ROOT=$pkgdir"
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  # Remove RPATH
+  chrpath -d "$pkgdir/usr/lib/php/modules/grpc.so"
+
+  echo ';extension=grpc.so' >grpc.ini
+  install -Dm644 grpc.ini "$pkgdir/etc/php/conf.d/grpc.ini"
+}
+
+package_grpc-cli() {
+  depends=('c-ares' 'gflags' 'protobuf' 'openssl')
+
+  cd "$srcdir/$pkgbase-$pkgver"
+  install -Dm755 grpc_cli "$pkgdir"/usr/bin/grpc_cli
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
