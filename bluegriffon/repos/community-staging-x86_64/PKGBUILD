@@ -1,0 +1,142 @@
+# Maintainer: Muflone http://www.muflone.com/contacts/english/
+# Contributor: Balló György <ballogyor+arch at gmail dot com>
+
+pkgbase=bluegriffon
+pkgname=(bluegriffon)
+pkgver=3.1
+_gecko_dev_revision=042b84a # see config/gecko_dev_revision.txt
+pkgrel=6
+pkgdesc="The next-generation Web Editor based on the rendering engine of Firefox"
+arch=('x86_64')
+url="http://bluegriffon.org/"
+license=('MPL' 'GPL' 'LGPL')
+depends=('dbus-glib' 'gtk3' 'hunspell' 'mozilla-common' 'nss' 'libvpx' 'libxt' 'startup-notification')
+makedepends=('autoconf2.13' 'gtk2' 'libpulse' 'python2' 'rust' 'unzip' 'yasm' 'zip')
+options=('!emptydirs')
+source=("${pkgbase}-${pkgver}.tar.gz"::"https://github.com/therealglazou/${pkgbase}/archive/${pkgver}.tar.gz"
+        "gecko-dev-${_gecko_dev_revision}.tar.gz"::"https://github.com/mozilla/gecko-dev/archive/${_gecko_dev_revision}.tar.gz"
+        "mozconfig"
+        "${pkgbase}.desktop"
+        "bug_1353650_icu59.patch"::"https://hg.mozilla.org/integration/mozilla-inbound/raw-rev/605d00e70409"
+        "bug_1384062_systemresourcemonitor.patch"::"https://hg.mozilla.org/mozilla-central/raw-rev/8d9ae8c45dd0"
+        "bug_1427455-unused-variables.patch"::"https://hg.mozilla.org/mozilla-central/raw-rev/8e28a66b548b"
+        "bug_445128_install-dir.patch"::"https://hg.mozilla.org/mozilla-central/raw-rev/8f74ddd39f61"
+        "no-crmf.diff")
+sha256sums=('4fb9b29f00ff4e94e78994308ffa52bce818978009e0d8229203d6ac4210b0f4'
+            '01096e58c898e1b37cba581e1cc0f325d1c402091ccc4a2491543b39add40c6c'
+            'd589572a0e36b8500ed12937727e540a13b635c7ac12621a10ff675250b61175'
+            '882133b77840356985a81e496b4ddc443f8f33c068cfb7ef0858497820adcfff'
+            '6417fda6af8e610556f662fca28b2c25ceedb3e6970923a4eec562389b00b6d6'
+            '7760ebe71f4057cbd2f52b715abaf0d944c14c39e2bb2a5322114ad8451e12d9'
+            '806cbe936720676ea8d82c5f2bb880ca632181b07b0cf24a47c064a3485b7c7f'
+            '18fbcfda13dd7d30d3c1310da15a133f90bf9ce6b7cfa15de833928e7d9efe95'
+            '02000d185e647aa20ca336e595b4004bb29cdae9d8f317f90078bdcc7a36e873')
+
+prepare() {
+  mkdir path
+  ln -s /usr/bin/python2 path/python
+
+  cd "${srcdir}/gecko-dev-${_gecko_dev_revision}"*/
+
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=1427455
+  patch -Np1 -i ../bug_1427455-unused-variables.patch
+
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=445128
+  patch -Np1 -i ../bug_445128_install-dir.patch
+
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=1371991
+  patch -Np1 -i ../no-crmf.diff
+
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=1353650
+  patch -Np1 -i ../bug_1353650_icu59.patch
+
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=1384062
+  patch -Np1 -i ../bug_1384062_systemresourcemonitor.patch
+
+  # Move files to their correct location
+  cp -r "${srcdir}/${pkgbase}-${pkgver}" bluegriffon
+  cp "${srcdir}/mozconfig" .mozconfig
+
+  # Apply BlueGriffon's upstream customizations
+  patch -Np1 -i "bluegriffon/config/gecko_dev_content.patch"
+  patch -Np1 -i "bluegriffon/config/gecko_dev_idl.patch"
+}
+
+build() {
+  cd "${srcdir}/gecko-dev-${_gecko_dev_revision}"*/
+
+  # _FORTIFY_SOURCE causes configure failures
+  CPPFLAGS+=" -O2"
+
+  export PATH="$srcdir/path:$PATH"
+
+  # Build the package
+  ./mach build
+}
+
+package_bluegriffon() {
+  cd "${srcdir}/gecko-dev-${_gecko_dev_revision}"*/
+  DESTDIR="${pkgdir}" ./mach install
+
+  # Install icons
+  cp bluegriffon/branding/mozicon128.png bluegriffon/branding/default128.png
+  for _icon in 16 32 48 128 256; do
+      install -Dm644 bluegriffon/branding/default${_icon}.png \
+        "${pkgdir}/usr/share/icons/hicolor/${_icon}x${_icon}/apps/${pkgbase}.png"
+  done
+
+  # Install desktop file
+  install -Dm644 ../${pkgbase}.desktop \
+    "${pkgdir}/usr/share/applications/${pkgbase}.desktop"
+
+  # Use system-provided dictionaries
+  rm -r "$pkgdir"/usr/lib/$pkgbase/{dictionaries,hyphenation}
+  ln -Ts /usr/share/hunspell "${pkgdir}/usr/lib/$pkgbase/dictionaries"
+  ln -Ts /usr/share/hyphen "${pkgdir}/usr/lib/$pkgbase/hyphenation"
+
+  # Split out language packs
+  mv "$pkgdir"/usr/lib/$pkgbase/distribution/extensions/langpack-*@bluegriffon.org.xpi "$srcdir"
+  install -Dm644 "$srcdir/langpack-en-US@bluegriffon.org.xpi" \
+    "$pkgdir/usr/lib/$pkgbase/distribution/extensions/langpack-en-US@bluegriffon.org.xpi"
+}
+
+_languages=(
+  'cs     "Czech"'
+  'de     "German"'
+  'es-ES  "Spanish (Spain)"'
+  'fi     "Finnish"'
+  'fr     "French"'
+  'gl     "Galician"'
+  'he     "Hebrew"'
+  'hu     "Hungarian"'
+  'it     "Italian"'
+  'ja     "Japanese"'
+  'ko     "Korean"'
+  'nl     "Dutch"'
+  'pl     "Polish"'
+  'ru     "Russian"'
+  'sl     "Slovenian"'
+  'sr     "Serbian"'
+  'sv-SE  "Swedish"'
+  'zh-CN  "Chinese (Simplified)"'
+  'zh-TW  "Chinese (Traditional)"'
+)
+
+for _lang in "${_languages[@]}"; do
+  _locale=${_lang%% *}
+  _pkgname=bluegriffon-i18n-${_locale,,}
+
+  pkgname+=($_pkgname)
+  eval "package_$_pkgname() {
+    _package $_lang
+  }"
+done
+
+_package() {
+  pkgdesc="$2 language pack for Bluegriffon"
+  depends=("bluegriffon>=$pkgver")
+  provides=('bluegriffon-i18n')
+
+  install -Dm644 langpack-$1@bluegriffon.org.xpi \
+    "$pkgdir/usr/lib/$pkgbase/distribution/extensions/langpack-$1@bluegriffon.org.xpi"
+}
