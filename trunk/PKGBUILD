@@ -6,7 +6,7 @@
 
 pkgname=wine-staging
 pkgver=4.5
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -43,7 +43,6 @@ depends=(
   libsm            lib32-libsm
   gcc-libs         lib32-gcc-libs
   libpcap          lib32-libpcap
-  faudio           lib32-faudio
   desktop-file-utils
 )
 
