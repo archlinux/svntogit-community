@@ -1,0 +1,91 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: Ainola
+# Contributor: speps
+# Contributor: Bernardo Barros
+
+pkgbase=csound
+pkgname=('csound' 'csound-doc')
+pkgver=6.12.2
+pkgrel=6
+pkgdesc="A programming language for sound rendering and signal processing."
+arch=('x86_64')
+url="https://csound.com"
+license=('LGPL')
+# libpd needs to be packaged: https://github.com/libpd/libpd/releases
+# current gmm doesn't work https://github.com/csound/csound/issues/920
+makedepends=('boost' 'cmake' 'cunit' 'doxygen' 'dssi' 'eigen' 'faust' 'fltk'
+'fluidsynth' 'git' 'hdf5' 'java-environment=8' 'ladspa' 'libmusicxml'
+'libwebsockets' 'llvm' 'luajit' 'portmidi' 'portsmf' 'python2' 'stk' 'swig'
+'wiiuse')
+source=("${pkgbase}-${pkgver}.tar.gz::https://github.com/${pkgbase}/${pkgbase}/archive/${pkgver}.tar.gz"
+        "${pkgbase}.sh"
+        "fluidsynth2.patch"
+        "https://github.com/${pkgbase}/${pkgbase}/releases/download/${pkgver}/Csound${pkgver}_manual_html.zip"
+        "https://github.com/${pkgbase}/${pkgbase}/releases/download/${pkgver}/Csound${pkgver}_manual_pdf.zip"
+        "fluidsynth2.patch")
+sha512sums=('e00a1f74e38cc5edadcaa4ea2a38a79a010be21008cad091b46c79ed18242a925ab9279fc049b4e82f6944e4d6e815787b7f847b08ae3bba9bde60570aa96f58'
+            '53a8ae1e61db2a3a492930ef0f0881b613ae47108c5e8de0a6e2aa28bcf7a5c93c7fea8b7fc2bbae29ab92e1e68bf94ba406be1255ad8ab5725ea9078c1fd6dc'
+            'bf762db1079dde5b62f2bfe8ba649ac9e719b6ada535f3d67d048213133aeecb3caa3cb1e5bbf26fe78e4b1882e08be9bbea701bd49c914bfbf8d3ab7d83013b'
+            'eb287b9070c16d6cfbd890532d97eda34d72d8b5e5548a1a55ed7de91b2b913e04426cd50c94d0ac84221396002421077a5d22b3b67ce634c34a9aa1ceb53d9d'
+            '881bbdae5ab7fceb28199084173492eb8cc6477e72100739599e9d1448c607062efd1390b5cb19e03aeeae9c58eb608b61f36853dddb4d9141b86da31d00bc45'
+            'bf762db1079dde5b62f2bfe8ba649ac9e719b6ada535f3d67d048213133aeecb3caa3cb1e5bbf26fe78e4b1882e08be9bbea701bd49c914bfbf8d3ab7d83013b')
+
+prepare() {
+  cd "${pkgbase}-${pkgver}"
+  patch -Np1 -i ../fluidsynth2.patch
+  mkdir build
+
+}
+
+build() {
+  cd "${pkgbase}-${pkgver}/build"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DJAVA_AWT_LIBRARY=/usr/lib/jvm/java-8-openjdk/jre/lib/amd64/libawt.so \
+        -DJAVA_JVM_LIBRARY=/usr/lib/jvm/java-8-openjdk/jre/lib/amd64 \
+        -DLUA_MODULE_INSTALL_DIR=/usr/lib/lua/5.1/ \
+        -DLUAJIT_LIBRARY=/usr/lib/libluajit-5.1.so \
+        -DLUA_H_PATH=/usr/include/luajit-2.0/ \
+        -DPYTHON_MODULE_INSTALL_DIR=/usr/lib/python2.7/site-packages \
+        -DBUILD_STATIC_LIBRARY=ON \
+        ..
+  make
+}
+
+check() {
+  cd "${pkgbase}-${pkgver}/build"
+  make test
+}
+
+package_csound() {
+  groups=('pro-audio')
+  depends=('fluidsynth' 'git' 'hdf5' 'liblo' 'libmusicxml' 'libwebsockets'
+  'luajit' 'portmidi' 'portsmf' 'stk' 'tk' 'wiiuse')
+  optdepends=('csound-doc: The canonical Csound Reference Manual'
+              'csoundqt: Qt frontend'
+              'fltk: fltk GUIs'
+              'faust: Embed faust'
+              'java-runtime=8: Use csound with Java'
+              'python2: python opcodes'
+              'vim-csound: Use csound with vim')
+  cd "${pkgname}-${pkgver}/build"
+  make DESTDIR="${pkgdir}/" install
+
+  # export vars in profile.d
+  install -vDm 755 "${srcdir}/${pkgname}.sh" -t "${pkgdir}/etc/profile.d/"
+  # rename extract executable due to name conflict with libextractor
+  # https://github.com/csound/csound/issues/985
+  mv -v "${pkgdir}/usr/bin/extract" "${pkgdir}/usr/bin/${pkgname}-extract"
+}
+
+package_csound-doc() {
+  license=('LGPL' 'GPL')
+  install -vDm 644 "Csound${pkgver}_manual.pdf" \
+    "${pkgdir}/usr/share/doc/${pkgname}/${pkgbase}-manual.pdf"
+
+  install -dv "${pkgdir}/usr/share/doc/${pkgname}/html"
+  cp -av "${srcdir}"/html/* "${pkgdir}/usr/share/doc/${pkgname}/html"
+  # fix file permissions
+  find "${pkgdir}" -type f -exec chmod -c 644 {} \;
+}
+
+# vim:set ts=2 sw=2 et:
