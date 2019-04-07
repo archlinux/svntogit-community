@@ -1,0 +1,78 @@
+# Maintainer: Santiago Torres-Arias <santiago@archlinux.org>
+# Contributor: Timm Preetz <timm@preetz.us>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Ben Wolsieffer <benwolsieffer@gmail.com>
+
+pkgname=netbeans
+pkgver=11.0
+pkgrel=0
+pkgdesc='IDE for Java, HTML5, PHP, Groovy, C and C++'
+arch=('any')
+url='https://netbeans.apache.org/'
+license=('Apache')
+# classpath is not needed, see FS#38567 (Oracle JDK does not need atk either)
+depends=('ttf-font')
+makedepends=('ant' 'java-environment=8')
+optdepends=('php: for developing programs in php'
+            'groovy: for developing programs in groovy'
+            'lib32-glibc')
+source=("https://www.apache.org/dist/incubator/netbeans/incubating-netbeans/incubating-${pkgver}/incubating-${pkgname}-${pkgver}-source.zip"{,.asc}
+       "netbeans.clusters")
+
+sha256sums=('59fb38a9e1aab96c1322296c6c0b2b613af6cde160f41472c32a5efab20af8cf'
+            'SKIP'
+            'a7849ee0f21acef34a7bbd1216e8f822aba38284e3138ea04532224ad6f227c2')
+
+validpgpkeys=("1A83C352499305B6682E3D95CF7BA0AB1CCF4647" # Emilian Marius Bold <emi@apache.org>
+              "79C8F02A726E9EF53646D712B2BF814FA145CB2D" # Laszlo Kishalmi <lkishalmi@apache.org>
+            )
+
+build() {
+  # full cluster configuration is not available at this time
+  #ant -quiet -Dcluster.config=full
+  export LDFLAGS_EXTRA=$LDFLAGS CFLAGS_EXTRA=$CFLAGS
+  ant -quiet
+}
+
+# It appears that they have disabled the CI tests upstream, so I'll disable these for now...
+# see the parms here: https://travis-ci.org/apache/incubator-netbeans/jobs/473379270 
+#check() {
+#  cd "${srcdir}"
+#  ant -quiet test -Djavac.compilerargs=-nowarn -Dbuild.compiler.deprecation=false -Dtest.includes=NoTestsJustBuild
+#}
+
+package() {
+  depends+=('java-environment>=9')
+
+  # install launcher script
+  install -Dm755 "nbbuild/${pkgname}/bin/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+
+  # Resources for platform config
+  mkdir -p "${pkgdir}/usr/lib/${pkgname}"
+  cp -r "nbbuild/${pkgname}/"{java,harness,javafx,profiler,nb,ide,extide,apisupport,websvccommon,platform} "${pkgdir}/usr/lib/${pkgname}"
+  install -Dm644 "${srcdir}/nbbuild/netbeans/etc/netbeans.import" -t "${pkgdir}/usr/lib/${pkgname}/etc/"
+
+  # copy cluster configuration
+  install -Dm644 "${srcdir}/nbbuild/netbeans/etc/netbeans."* -t "${pkgdir}/usr/etc/"
+  install -Dm644 "netbeans."* -t "${pkgdir}/usr/etc/"
+
+  # Desktop shortcut and icon
+  install -Dm644 "nbbuild/packaging/snap/gui/$pkgname.desktop" \
+    "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+  sed -i "s/Icon=.*/Icon=\/usr\/share\/pixmaps\/${pkgname}.png/" "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+  install -Dm644 "nbbuild/netbeans/nb/${pkgname}.png" "${pkgdir}/usr/share/pixmaps/${pkgname}.png"
+
+  # remove non-linux non x86_64 binaries (FIXME: ideally we should just *not* build these)
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/ide/bin/nativeexecution/SunOS"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/ide/bin/nativeexecution/MacOSX"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/ide/bin/nativeexecution/Windows"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/ide/bin/nativeexecution/"*-sparc_64
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/profiler/lib/deployed/jdk16/solaris-"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/profiler/lib/deployed/jdk16/hpux-"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/profiler/lib/deployed/jdk16/linux-arm"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/profiler/lib/deployed/jdk15/hpux-"*
+  rm -rf "${pkgdir}/usr/lib/${pkgname}/profiler/lib/deployed/jdk15/solaris-"*
+  find "${pkgdir}/usr/lib/${pkgname}/" -name "*.exe" -exec rm {} \;
+  find "${pkgdir}/usr/lib/${pkgname}/" -name "*.dll" -exec rm {} \;
+
+}
