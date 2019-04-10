@@ -4,11 +4,12 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=6
+pkgrel=7
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
+makedepends=('patchelf')
 depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
@@ -37,13 +38,15 @@ prepare() {
 package() {
   mkdir -p "${pkgdir}/opt/"
 
-  cd builds
+  cd "${srcdir}/builds"
   cp -r cuda-toolkit "${pkgdir}/opt/cuda"
   cp -r cublas/include/* "${pkgdir}/opt/cuda/include/"
   cp -r cublas/lib64/* "${pkgdir}/opt/cuda/lib64/"
   cp -r cuda-samples "${pkgdir}/opt/cuda/samples"
-  ln -s lib "${pkgdir}/opt/cuda/lib64"
-  ln -s lib "${pkgdir}/opt/cuda/nvvm/lib64"
+  cd "${pkgdir}/opt/cuda"
+  ln -s "${pkgdir}/opt/cuda/lib64" lib
+  cd "${pkgdir}/opt/cuda/nvvm"
+  ln -s "${pkgdir}/opt/cuda/nvvm/lib64" lib
 
   # Use GCC 8
   ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
@@ -53,13 +56,28 @@ package() {
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
   # Best we can do is create all symlinks and hope for the best.
   # Their installer used to perform this for us but now it's all manual and I think this is what we'll be stuck with for now.
-  find cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -rd '' _lib; do
-    _base=${_lib%.so.*}
-    _current_soname=$(basename ${_lib%.*})
-    while [[ $_current_soname != $(basename $_base) ]]; do
-      ln -sf ${_lib##*/} ${pkgdir}/opt/cuda/lib64/$_current_soname
-      _current_soname=${_current_soname%.*}
-    done
+  # find cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -rd '' _lib; do
+  #   _base=${_lib%.so.*}
+  #   _current_soname=$(basename ${_lib%.*})
+  #   while [[ $_current_soname != $(basename $_base) ]]; do
+  #     ln -sf ${_lib##*/} ${pkgdir}/opt/cuda/lib64/$_current_soname
+  #     _current_soname=${_current_soname%.*}
+  #   done
+  # done
+
+  # Try to patch unmatching SONAMEs
+  patchlibs=(libcublasLt.so.10 libcublas.so.10 libcufft.so.10 libcufftw.so.10
+             libcurand.so.10 libcusolver.so.10 libcusparse.so.10 libnppc.so.10
+             libnppial.so.10 libnppicc.so.10 libnppicom.so.10 libnppidei.so.10
+             libnppif.so.10 libnppig.so.10 libnppim.so.10 libnppist.so.10
+             libnppisu.so.10 libnppitc.so.10 libnpps.so.10 libnvblas.so.10
+             libnvgraph.so.10 libnvjpeg.so.10)
+  cd "${pkgdir}/opt/cuda/targets/x86_64-linux/lib"
+  for plib in "${patchlibs[@]}"; do
+    echo "copying ${plib} to ${plib}.1 version"
+    cp ${plib} "${plib}.1"
+    echo "patching ${plib}.1 SONAME to match ${plib}.1"
+    patchelf --set-soname "${plib}.1" "${plib}.1"
   done
 
   # Install profile and ld.so.config files
