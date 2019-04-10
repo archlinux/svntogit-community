@@ -1,43 +1,123 @@
-# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
 # Contributor: Filip <fila pruda.com>
 pkgname=postfixadmin
-pkgver=3.2
+pkgver=3.2.2
 pkgrel=1
-pkgdesc="A web based interface used to manage mailboxes, virtual domains and aliases created for Postfix"
+pkgdesc="Web based interface to manage Postfix mailboxes, virtual domains and aliases"
 arch=('any')
-license=('GPL')
+license=('GPL2')
 url="http://postfixadmin.sourceforge.net/"
-backup=(etc/webapps/postfixadmin/config.inc.php
-        etc/webapps/postfixadmin/.htaccess)
+backup=('etc/webapps/postfixadmin/config.inc.php'
+        'etc/webapps/postfixadmin/config.local.php'
+        'etc/webapps/postfixadmin/.htaccess'
+        'etc/uwsgi/postfixadmin.ini')
 depends=('php')
-optdepends=('mariadb: MySQL server'
-            'postgresql: PostgreSQL server')
-source=("https://downloads.sourceforge.net/project/postfixadmin/postfixadmin/postfixadmin-${pkgver}/postfixadmin-${pkgver}.tar.gz")
-sha512sums=('eca4903dc3a22e56585c6f1b028a0f93d2422574faf9458b369b071880af55b36cd52c5ff9b0438c2c129a561404414b5d1f926043b40700fb5e31bffffe6ec7')
+optdepends=('mariadb: use local MySQL server'
+            'postgresql: use local PostgreSQL server'
+            'php-fpm: run in fastCGI process manager'
+            'uwsgi: run as application container')
+source=("https://github.com/postfixadmin/${pkgname}/archive/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}.sysusers"
+        "${pkgname}.tmpfiles"
+        "${pkgname}.uwsgi")
+install="${pkgname}.install"
+sha512sums=('6c84cb215e69c52c26db0651e5d0d9d8bcb0a63b00d3c197f10fa1f0442a1fde44bb514fb476a1e68a21741d603febac67282961d01270e5969ee13d145121ee'
+            'dc61527dbec79a3b19c8fcbc424fbfbe483cccf99a606e566ea6cd624d46c70a6d87dd8d4da398fedf12b60cfd0cf364c351d6b826e6eee6b2ca8eac0d9efcbe'
+            '7e55c844be7b186d9eb568fe097632651c683582da83e0ee24cd6dd7c5a581fe05e5462174237f542ff8dc5d17a8ab651a77f0087a0c8df01d7b36c7722b1440'
+            '50640e431f9b167d618e5e5f6acd36453270aeb7ef8b714afe8207eba9916c86d4b42a1edb9b73a46a1c732a886efcab01389e007baa5b85295c091b451d5673')
+
+prepare(){
+  mv -v "${pkgname}-${pkgname}-${pkgver}" "${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
+  # creating empty local config (for overrides)
+  echo "<?php" > "config.local.php"
+  # creating htaccess file
+  echo "#Require all denied" > .htaccess
+  # remove unneeded executable bits
+  find . -executable -type f \
+    -and -not -path "*scripts*" -exec chmod -c 644 {} \;
+  # remove symlinks
+  find . -type l -exec rm -v {} +
+  # remove unneeded debian directories
+  rm -rv ADDITIONS/squirrelmail-plugin/debian
+}
 
 package() {
-  _destdir=$pkgdir/usr/share/webapps/postfixAdmin
-  _destdir_etc=$pkgdir/etc/webapps/postfixadmin
-  _destdir_doc=$pkgdir/usr/share/doc/postfixadmin
+  cd "${pkgname}-${pkgver}"
 
-  install -dm755 ${_destdir}
-  install -dm755 ${_destdir_etc}
-  install -dm755 ${_destdir_doc}
-
-  cd $srcdir/$pkgname-$pkgver
-  cp -r * ${_destdir}
-
-  # config
-  mv ${_destdir}/config.inc.php ${_destdir_etc}
-  ln -s /etc/webapps/postfixadmin/config.inc.php ${_destdir}/config.inc.php
-  echo "#Require all denied" >${_destdir_etc}/.htaccess
-  ln -s /etc/webapps/postfixadmin/.htaccess ${_destdir}/.htaccess
-
-  # template cache needs to be writeable
-  mkdir -p ${_destdir}/templates_c
-  chown http:http ${_destdir}/templates_c
-
+  # sysusers.d integration
+  install -vDm 644 ../${pkgname}.sysusers \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+  # tmpfiles.d integration
+  install -vDm 644 ../${pkgname}.tmpfiles \
+    "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
   # docs
-  mv ${_destdir}/{*.TXT,tests,ADDITIONS,DOCUMENTS,VIRTUAL_VACATION} ${_destdir_doc}
-  rm -rf ${_destdir}/debian
+  install -vDm 644 {README.md,CHANGELOG.TXT} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  install -vDm 644 DOCUMENTS/*.txt \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/documents"
+  cp -av ADDITIONS VIRTUAL_VACATION \
+    "${pkgdir}/usr/share/doc/${pkgname}"
+  # webapp
+  install -vDm 644 {common,functions.inc,index}.php phpunit.xml \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}"
+  install -vDm 644 configs/menu.conf \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/configs"
+  install -vDm 644 languages/*.{lang,php} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/languages/"
+  install -vDm 644 lib/*.{phar,pubkey,php,txt} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/lib/"
+  install -vDm 644 lib/smarty/{COPYING.lib,smarty_version} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/lib/smarty"
+  install -vDm 644 lib/smarty/libs/*.{php,tpl} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/lib/smarty/libs"
+  install -vDm 644 lib/smarty/libs/plugins/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/lib/smarty/libs/plugins"
+  install -vDm 644 lib/smarty/libs/sysplugins/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/lib/smarty/libs/sysplugins"
+  install -vDm 644 model/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/model"
+  install -vDm 644 public/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/public"
+  (
+    # adding weird symlinks
+    cd "${pkgdir}/usr/share/webapps/${pkgname}/public"
+    ln -sv users/password-change.php .
+    ln -sv users/password-recover.php .
+  )
+  install -vDm 644 public/css/*.css \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/public/css"
+  install -vDm 644 public/images/*.{gif,ico,php,png} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/public/images"
+  install -vDm 644 public/users/*.{js,php} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/public/users"
+  install -vDm 644 public/users/css/*.css \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/public/users/css"
+  install -vDm 644 public/users/images/calendar/*.{gif,png} \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/public/users/images/calendar"
+  install -vDm 755 scripts/${pkgname}-cli \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/scripts"
+  install -vDm 644 scripts/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/scripts"
+  install -vDm 644 scripts/snippets/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/scripts/snippets"
+  install -vDm 644 templates/*.tpl \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/templates"
+  install -vDm 644 tests/*.php \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}/tests"
+  # config
+  install -vDm 640 config.{inc,local}.php -t "${pkgdir}/etc/webapps/${pkgname}/"
+  ln -sv "/etc/webapps/${pkgname}/config.inc.php" \
+    "${pkgdir}/usr/share/webapps/${pkgname}/config.inc.php"
+  ln -sv "/etc/webapps/${pkgname}/config.local.php" \
+    "${pkgdir}/usr/share/webapps/${pkgname}/config.local.php"
+  install -vDm 644 .htaccess -t "${pkgdir}/etc/webapps/${pkgname}/"
+  ln -sv "/etc/webapps/${pkgname}/.htaccess" \
+    "${pkgdir}/usr/share/webapps/${pkgname}/.htaccess"
+  install -vDm 644 "../${pkgname}.uwsgi" "${pkgdir}/etc/uwsgi/${pkgname}.ini"
+  # template caches
+  install -vdm 755 "${pkgdir}/var/cache/${pkgname}/templates_c"
+  ln -sv "/var/cache/${pkgname}/templates_c" \
+    "${pkgdir}/usr/share/webapps/${pkgname}/"
 }
