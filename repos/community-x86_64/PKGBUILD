@@ -5,19 +5,22 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=3.1.2
+pkgver=3.2.1
 pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
 license=('BSD')
 # git is needed for yarn...
 makedepends=('git' 'go-pie' 'yarn')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/keybase/client/archive/v${pkgver}.tar.gz"
+source=("${pkgbase}-${pkgver}.tar.gz::https://github.com/keybase/client/archive/v${pkgver}.tar.gz"
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('7082a74d14d3c0b2ccf5211507a53efb1d6aa2a0b69757c3a8352c3506d6a1bf2b1b440df2f1fa4606a2f6bcb37924c34a140893c9c8e97a1bd31958ec03a0ac'
-            'd9aa6a9f9cfcb951cb4ab5da8a8daadd0b1ff34dff6f23891b75c01b600b6fd98656ec5db4154ec0db9e62469b1b8f865e8b4515e190b510258233e20dba9de2'
-            'b721dc0c40cf23602424d2ca024524a0eef5210a7cdca0209b89eab5c17c3fcb3cc48d91940a4c88d2416d0a19a7fb3deba92e90244251c4338b0fd640befdcd')
+sha512sums=('2fd9a20281373cfca125bf8e7ce6b20792f2165231848ac205f9db420da80830f3bd8291b4821ca887de0859eccd16f59cb9e9636d585485f68c6f3143729ffc'
+            '72d2a5ba25d2f5898fa7e97cee655aacfdca50933000555f6c04451235ad7f6d08a3ee2ec94cac79130064b9702fd38d24abffc48187e19912acd01d378156e3'
+            'df19e24912a26ff0a745493d4f90839aae9d6b7efff6d95e38efb079b6f5028ceca4e9e339eaf8069d0a678505ad472869e1d1a0c02558087b40296cacf4381f')
+b2sums=('4da710bd503dde9968b31ac6d146d51bffc0bc791387a0695fca96a1db8a12ead09fa27743cdd4569a22b0032e947c220f372fab57ba078ab31fb39d69e48e43'
+        '3b1cdc95a70c9463c8ab2506cc22577ff5b9fd9665a99fcb97c287590f89cef4450fa984e58548288c7e2f2411de00577b92b78ac38829eac5d86223ceb432a0'
+        '0f3bc76093afd54a7e360873de71e6446a00878c014d6a3acb3786dc7336ddf5956785a3d14b57541e604eba1e2acd9e4771a21c0684ed7fbe1106c4492fafd8')
 
 prepare() {
     cd client-${pkgver}
