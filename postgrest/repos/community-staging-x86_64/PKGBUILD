@@ -1,0 +1,70 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=postgrest
+pkgver=5.2.0
+pkgrel=34
+pkgdesc="REST API for any Postgres database"
+url="https://github.com/begriffs/postgrest"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-auto-update' 'haskell-hasql' 'haskell-hasql-pool' 'haskell-protolude'
+         'haskell-warp' 'haskell-base64-bytestring' 'haskell-retry' 'haskell-aeson'
+         'haskell-ansi-wl-pprint' 'haskell-case-insensitive' 'haskell-cassava'
+         'haskell-configurator-ng' 'haskell-contravariant' 'haskell-contravariant-extras'
+         'haskell-either' 'haskell-gitrev' 'haskell-hasql-transaction' 'haskell-heredoc'
+         'haskell-http' 'haskell-http-types' 'haskell-insert-ordered-containers'
+         'haskell-interpolatedstring-perl6' 'haskell-jose' 'haskell-lens' 'haskell-lens-aeson'
+         'haskell-network-uri' 'haskell-optparse-applicative' 'haskell-ranged-sets'
+         'haskell-regex-tdfa' 'haskell-scientific' 'haskell-swagger2' 'haskell-unordered-containers'
+         'haskell-vector' 'haskell-wai' 'haskell-wai-cors' 'haskell-wai-extra'
+         'haskell-wai-middleware-static' 'haskell-cookie')
+makedepends=('ghc' 'haskell-aeson-qq' 'haskell-async' 'haskell-hspec' 'haskell-hspec-wai'
+             'haskell-hspec-wai-json' 'haskell-hjsonschema')
+checkdepends=('pifpaf' 'postgresql' 'procps-ng')
+source=("$pkgname-$pkgver.tar.bz2::https://github.com/begriffs/postgrest/archive/v$pkgver.tar.gz")
+sha512sums=('7c2bba89457dd8b3d681ccc032482055144b5ee17336b2e90dda6bbed6c229f36cf521cf66aafd7923ca6c147a1f2bb26567a3109079dae65d726e85f85b32ed')
+
+prepare() {
+    cd $pkgname-$pkgver
+    sed -i -e 's/==/>=/' -e 's/< *4.10/<5/' -e 's/== 0.3.0/>= 0.3.0/' $pkgname.cabal
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-CI
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $pkgname-$pkgver
+
+    eval $(pifpaf run postgresql --host 127.0.0.1 --port 5432)
+    createdb postgrest_test
+
+    # TODO: it shouldn't take this long to finish
+    # POSTGREST_TEST_CONNECTION=$(test/create_test_db "postgres://$USER@localhost" postgrest_test) runhaskell Setup test
+
+    # Disabled: uses stack
+    # test/io-tests.sh
+
+    pifpaf_stop
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
