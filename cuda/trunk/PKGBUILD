@@ -4,7 +4,7 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=10
+pkgrel=11
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -72,9 +72,9 @@ package() {
   mkdir -p "${pkgdir}/usr/share/licenses/${pkgname}"
   ln -s /opt/cuda/doc/pdf/EULA.pdf "${pkgdir}/usr/share/licenses/${pkgname}/EULA.pdf"
 
-  # Remove included copy of java and link to system java
+  # Remove included copy of java and link to system java 8
   rm -fr  "${pkgdir}/opt/cuda/jre"
-  sed 's|../jre/bin/java|/usr/bin/java|g' \
+  sed 's|../jre/bin/java|/usr/lib/jvm/java-8-openjdk/jre/bin/java|g' \
     -i "${pkgdir}/opt/cuda/libnsight/nsight.ini" \
     -i "${pkgdir}/opt/cuda/libnvvp/nvvp.ini"
 }
