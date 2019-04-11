@@ -43,10 +43,8 @@ package() {
   cp -r cublas/include/* "${pkgdir}/opt/cuda/include/"
   cp -r cublas/lib64/* "${pkgdir}/opt/cuda/lib64/"
   cp -r cuda-samples "${pkgdir}/opt/cuda/samples"
-  cd "${pkgdir}/opt/cuda"
-  ln -s "${pkgdir}/opt/cuda/lib64" lib
-  cd "${pkgdir}/opt/cuda/nvvm"
-  ln -s "${pkgdir}/opt/cuda/nvvm/lib64" lib
+  ln -s /opt/cuda/targets/x86_64-linux/lib "${pkgdir}/opt/cuda/lib"
+  ln -s /opt/cuda/nvvm/lib64 "${pkgdir}/opt/cuda/nvvm/lib"
 
   # Use GCC 8
   ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
