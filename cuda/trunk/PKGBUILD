@@ -4,7 +4,7 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=9
+pkgrel=10
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -50,32 +50,19 @@ package() {
   ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++ "${pkgdir}/opt/cuda/bin/g++"
 
-  # Create soname links.
+  # Create soname variants with patchelf.
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
-  # Best we can do is create all symlinks and hope for the best.
+  # Best we can do is copy those libs to *.so.10.1 variants, patchelf the SONAME and hope for the best.
   # Their installer used to perform this for us but now it's all manual and I think this is what we'll be stuck with for now.
-  # find cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -rd '' _lib; do
-  #   _base=${_lib%.so.*}
-  #   _current_soname=$(basename ${_lib%.*})
-  #   while [[ $_current_soname != $(basename $_base) ]]; do
-  #     ln -sf ${_lib##*/} ${pkgdir}/opt/cuda/lib64/$_current_soname
-  #     _current_soname=${_current_soname%.*}
-  #   done
-  # done
-
-  # Try to patch unmatching SONAMEs
-  patchlibs=(libcublasLt.so.10 libcublas.so.10 libcufft.so.10 libcufftw.so.10
-             libcurand.so.10 libcusolver.so.10 libcusparse.so.10 libnppc.so.10
-             libnppial.so.10 libnppicc.so.10 libnppicom.so.10 libnppidei.so.10
-             libnppif.so.10 libnppig.so.10 libnppim.so.10 libnppist.so.10
-             libnppisu.so.10 libnppitc.so.10 libnpps.so.10 libnvblas.so.10
-             libnvgraph.so.10 libnvjpeg.so.10)
   cd "${pkgdir}/opt/cuda/targets/x86_64-linux/lib"
-  for plib in "${patchlibs[@]}"; do
-    echo "copying ${plib} to ${plib}.1 version"
-    cp ${plib} "${plib}.1"
-    echo "patching ${plib}.1 SONAME to match ${plib}.1"
-    patchelf --set-soname "${plib}.1" "${plib}.1"
+  find "${pkgdir}"/opt/cuda/targets/x86_64-linux/lib -type l -name "*.so.10" ! -path "*stubs/*" -print0 | while read -rd '' _lib; do
+    _current_soname=$(basename ${_lib})
+    if [ ! -f "${_current_soname}.1" ]; then
+      echo "copying ${_current_soname} to ${_current_soname}.1 version"
+      cp ${_current_soname} "${_current_soname}.1"
+      echo "patching ${_current_soname}.1 SONAME to match ${_current_soname}.1"
+      patchelf --set-soname "${_current_soname}.1" "${_current_soname}.1"
+    fi
   done
 
   # Install profile and ld.so.config files
