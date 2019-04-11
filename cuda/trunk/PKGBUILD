@@ -4,7 +4,7 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=8
+pkgrel=9
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
@@ -14,7 +14,7 @@ depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
-            'java-runtime: for nsight and nvvp')
+            'java-runtime=8: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
 source=(https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_${_basever}_${_driverver}_linux.run
