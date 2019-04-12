@@ -10,8 +10,8 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=11.9.6
-pkgrel=2
+pkgver=11.9.8
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -38,7 +38,7 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.tmpfiles.d
         gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('af7f1e4ed196d15c070f47bff87fa1ddeb0e0913ff01e4c2df9de843547e6435ccc806b7c62a062b593ffcb8ecef16f12695c2ae756f9dcdc7b045bd19991796'
+sha512sums=('6e1743fa2386de606a7164795eb5296d588460a6b4f1b1d2091e785da2cf062e3b3850000e4c1e77ad3e67aabff7fe940982901c8579a25c6a7c0cb817e22623'
             'd6d0604a726277f27a7596caf31909ff7d9854fd85f2902fd8a06eb581b38cc0e0fd6c10b3b16c84e0c629230501bc51d2f74c765761b43cdead139a521a327d'
             '41ca8890aff1dd99b3c4ef283f70a172af772837ab6b1bda1d26710616a822f5179899ca9b3a96bc0b434f8f6d614b29b39b1596c0f284e5347ae9e06d40c1c4'
             '2e49f4c2549c219d5d1c8572a7db7a700847bc8c520b44bdfc1742d3caf57d8336da5c0b74672f820349b8eab0fa1712dcec5588a4fb742ad98c8eb7ec2b5951'
