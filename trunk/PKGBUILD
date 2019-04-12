@@ -14,8 +14,8 @@ arch=('any')
 url='https://github.com/jaraco/keyring'
 license=('PSF' 'MIT')
 depends=('python-entrypoints' 'python-secretstorage')
-makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-entrypoints')
-checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python2-pytest-flake8')
+makedepends=('python-setuptools-scm' 'python-entrypoints')
+checkdepends=('python-pytest-flake8' 'python-pytest-runner')
 optdepends=('python-keyrings-alt: Alternative backends'
             'python-dbus: kwallet backend')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
