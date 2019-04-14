@@ -2,26 +2,33 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.2.6
+pkgver=1.2.7
 pkgrel=1
 pkgdesc="A simple daemon to allow session software to update firmware"
-arch=('x86_64')
+arch=(x86_64)
 url="https://github.com/hughsie/fwupd"
-license=('LGPL')
-depends=('libxmlb' 'efivar' 'python' 'libsmbios' 'libgusb'
-         'libsoup' 'json-glib' 'gcab' 'libarchive' 'gpgme'
-         'libgudev' 'polkit' 'shared-mime-info' 'modemmanager')
-makedepends=('meson' 'valgrind' 'gobject-introspection' 'gtk-doc'
-             'python-cairo' 'noto-fonts' 'noto-fonts-cjk' 'python-gobject' 'vala'
-             'bash-completion' 'python-pillow' 'help2man' 'gnu-efi-libs')
+license=(LGPL)
+depends=(libxmlb efivar python libsmbios libgusb
+         libsoup json-glib gcab libarchive gpgme
+         libgudev polkit shared-mime-info modemmanager)
+makedepends=(meson valgrind gobject-introspection gtk-doc
+             python-cairo noto-fonts noto-fonts-cjk python-gobject vala
+             bash-completion python-pillow help2man gnu-efi-libs)
 optdepends=('tpm2-abrmd: TPM2 support'
             'tpm2-tools: TPM2 support')
-checkdepends=('umockdev')
-backup=('etc/fwupd/daemon.conf' 'etc/fwupd/uefi.conf')
+checkdepends=(umockdev)
+backup=('etc/fwupd/daemon.conf'
+        'etc/fwupd/redfish.conf'
+        'etc/fwupd/remotes.d/dell-esrt.conf'
+        'etc/fwupd/remotes.d/fwupd-tests.conf'
+        'etc/fwupd/remotes.d/lvfs-testing.conf'
+        'etc/fwupd/remotes.d/lvfs.conf'
+        'etc/fwupd/remotes.d/vendor-directory.conf'
+        'etc/fwupd/remotes.d/vendor.conf'
+        'etc/fwupd/uefi.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('36f53b652a0df9088c53311d0ab48dfff0b6cb79c56257fbd3034146b6979467'
-            'SKIP')
-validpgpkeys=('163EB50119225DB3DF8F49EA17ACBA8DFA970E17') # Richard Hughes <richard@hughsie.com>
+sha256sums=('c37ed23f7e89c2dc3670589b24c4f28ced7405ccee04f996a677ef5283e10cb9' 'SKIP')
+validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
     cd ${pkgname}-${pkgver}
