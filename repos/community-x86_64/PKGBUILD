@@ -4,16 +4,17 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=6
+pkgrel=11
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
+makedepends=('patchelf')
 depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
-            'java-runtime: for nsight and nvvp')
+            'java-runtime=8: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
 source=(https://developer.nvidia.com/compute/cuda/10.1/Prod/local_installers/cuda_${_basever}_${_driverver}_linux.run
@@ -37,29 +38,31 @@ prepare() {
 package() {
   mkdir -p "${pkgdir}/opt/"
 
-  cd builds
+  cd "${srcdir}/builds"
   cp -r cuda-toolkit "${pkgdir}/opt/cuda"
   cp -r cublas/include/* "${pkgdir}/opt/cuda/include/"
   cp -r cublas/lib64/* "${pkgdir}/opt/cuda/lib64/"
   cp -r cuda-samples "${pkgdir}/opt/cuda/samples"
-  ln -s lib "${pkgdir}/opt/cuda/lib64"
-  ln -s lib "${pkgdir}/opt/cuda/nvvm/lib64"
+  ln -s /opt/cuda/targets/x86_64-linux/lib "${pkgdir}/opt/cuda/lib"
+  ln -s /opt/cuda/nvvm/lib64 "${pkgdir}/opt/cuda/nvvm/lib"
 
   # Use GCC 8
   ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++ "${pkgdir}/opt/cuda/bin/g++"
 
-  # Create soname links.
+  # Create soname variants with patchelf.
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
-  # Best we can do is create all symlinks and hope for the best.
+  # Best we can do is copy those libs to *.so.10.1 variants, patchelf the SONAME and hope for the best.
   # Their installer used to perform this for us but now it's all manual and I think this is what we'll be stuck with for now.
-  find cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -rd '' _lib; do
-    _base=${_lib%.so.*}
-    _current_soname=$(basename ${_lib%.*})
-    while [[ $_current_soname != $(basename $_base) ]]; do
-      ln -sf ${_lib##*/} ${pkgdir}/opt/cuda/lib64/$_current_soname
-      _current_soname=${_current_soname%.*}
-    done
+  cd "${pkgdir}/opt/cuda/targets/x86_64-linux/lib"
+  find "${pkgdir}"/opt/cuda/targets/x86_64-linux/lib -type l -name "*.so.10" ! -path "*stubs/*" -print0 | while read -rd '' _lib; do
+    _current_soname=$(basename ${_lib})
+    if [ ! -f "${_current_soname}.1" ]; then
+      echo "copying ${_current_soname} to ${_current_soname}.1 version"
+      cp ${_current_soname} "${_current_soname}.1"
+      echo "patching ${_current_soname}.1 SONAME to match ${_current_soname}.1"
+      patchelf --set-soname "${_current_soname}.1" "${_current_soname}.1"
+    fi
   done
 
   # Install profile and ld.so.config files
@@ -69,9 +72,9 @@ package() {
   mkdir -p "${pkgdir}/usr/share/licenses/${pkgname}"
   ln -s /opt/cuda/doc/pdf/EULA.pdf "${pkgdir}/usr/share/licenses/${pkgname}/EULA.pdf"
 
-  # Remove included copy of java and link to system java
+  # Remove included copy of java and link to system java 8
   rm -fr  "${pkgdir}/opt/cuda/jre"
-  sed 's|../jre/bin/java|/usr/bin/java|g' \
+  sed 's|../jre/bin/java|/usr/lib/jvm/java-8-openjdk/jre/bin/java|g' \
     -i "${pkgdir}/opt/cuda/libnsight/nsight.ini" \
     -i "${pkgdir}/opt/cuda/libnvvp/nvvp.ini"
 }
