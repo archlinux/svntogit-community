@@ -2,7 +2,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=0.6.2
+pkgver=0.6.3
 pkgrel=1
 pkgdesc='Python compiler that produces faster executables and depends on libpython'
 arch=(any)
@@ -13,7 +13,7 @@ makedepends=(python-setuptools)
 options=(!emptydirs)
 optdepends=('chrpath: for building standalone executables')
 source=("$pkgname-$pkgver.tgz::https://github.com/Nuitka/Nuitka/archive/$pkgver.tar.gz")
-sha256sums=('a4d4e4e239640bf4c2f8da4bf9eabc04bc5681d78b32306b63fbd21b5b981513')
+sha256sums=('f79e2612db748590c1a67b94523167f39e62a561b59fe8c688ca37224e36f35b')
 validpgpkeys=('D96ADCA1377F1CEB6B5103F11BFC33752912B99C') # Kay Hayen
 
 package() {
