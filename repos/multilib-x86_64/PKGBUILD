@@ -11,7 +11,7 @@ pkgname=(
   lib32-libnm
   lib32-libnm-glib
 )
-pkgver=1.14.6
+pkgver=1.16.0
 pkgrel=1
 arch=(x86_64)
 url=https://wiki.gnome.org/Projects/NetworkManager
@@ -24,9 +24,9 @@ makedepends=(
   git
   gtk-doc
   intltool
-  iproute2
   iptables
   iwd
+  lib32-curl
   lib32-dbus
   lib32-dbus-glib
   lib32-jansson
@@ -41,6 +41,7 @@ makedepends=(
   lib32-nss
   lib32-polkit
   lib32-util-linux
+  meson
   modemmanager
   perl-yaml
   python-gobject
@@ -51,84 +52,39 @@ source=(git+https://gitlab.freedesktop.org/NetworkManager/NetworkManager.git#tag
 sha256sums=(SKIP)
 
 prepare() {
-  cd NetworkManager
-
-  NOCONFIGURE=1 ./autogen.sh
+  sed "s/'lib'/'lib32'/g" -i NetworkManager/meson.build
 }
 
 build() {
-  cd NetworkManager
-
   export CC='gcc -m32'
-  export PKG_CONFIG_PATH='/usr/lib32/pkgconfig'
+  export PKG_CONFIG_PATH=/usr/lib32/pkgconfig
 
-  ./configure \
-    --prefix=/usr \
-    --libdir=/usr/lib32 \
-    --libexecdir=/usr/lib32/NetworkManager \
-    --localstatedir=/var \
-    --sbindir=/usr/bin \
-    --sysconfdir=/etc \
-    --enable-json-validation \
-    --enable-ld-gc \
-    --enable-modify-system \
-    --enable-polkit \
-    --enable-polkit-agent \
-    --enable-wifi \
-    --disable-bluez5-dun \
-    --disable-concheck \
-    --disable-gtk-doc-html \
-    --disable-introspection \
-    --disable-ifcfg-rh \
-    --disable-ifupdown \
-    --disable-introspection \
-    --disable-lto \
-    --disable-more-warnings \
-    --disable-ppp \
-    --disable-qt \
-    --disable-static \
-    --disable-teamdctl \
-    --with-config-dhcp-default=dhclient \
-    --with-config-dns-rc-manager-default=resolvconf \
-    --with-config-logging-backend-default=journal \
-    --with-config-plugins-default=keyfile \
-    --with-crypto=nss \
-    --with-dbus-sys-dir=/usr/share/dbus-1/system.d \
-    --with-dhclient=/usr/bin/dhclient \
-    --with-dist-version=${pkgver}-${pkgrel} \
-    --with-dnsmasq=/usr/bin/dnsmasq \
-    --with-dnssec-trigger=/usr/lib/dnssec-trigger/dnssec-trigger-script \
-    --with-hostname-persist=default \
-    --with-iptables=/usr/bin/iptables \
-    --with-iwd \
-    --with-modem-manager-1 \
-    --with-kernel-firmware-dir=/usr/lib/firmware \
-    --with-libnm-glib \
-    --with-libpsl \
-    --with-libsoup \
-    --with-modem-manager-1 \
-    --with-resolvconf=/usr/bin/resolvconf \
-    --with-session-tracking=systemd \
-    --with-suspend-resume=systemd \
-    --with-system-ca-path=/etc/ssl/certs \
-    --with-systemd-journal \
-    --with-systemd-logind \
-    --with-systemdsystemunitdir=/usr/lib/systemd/system \
-    --with-udev-dir=/usr/lib/udev \
-    --with-wext \
-    --without-consolekit \
-    --without-dhcpcanon \
-    --without-libaudit \
-    --without-more-assets \
-    --without-netconfig \
-    --without-nmcli \
-    --without-nmtui \
-    --without-ofono \
-    --without-selinux
-
-  sed -e 's/ -shared / -Wl,-O1,--as-needed\0/g' -i libtool
-
-  make DESTDIR="${srcdir}"/install install
+  arch-meson NetworkManager build \
+    --libdir=lib32 \
+    --libexecdir=lib32 \
+    -D config_plugins_default=keyfile,ibft \
+    -D dbus_conf_dir=/usr/share/dbus-1/system.d \
+    -D dist_version="${pkgver}-${pkgrel}" \
+    -D docs=false \
+    -D ebpf=true \
+    -D ibft=true \
+    -D introspection=false \
+    -D iwd=true \
+    -D libaudit=no \
+    -D libnm_glib=true \
+    -D modify_system=true \
+    -D more_asserts=no \
+    -D more_logging=false \
+    -D nmcli=false \
+    -D nmtui=false \
+    -D polkit_agent=true \
+    -D qt=false \
+    -D selinux=false \
+    -D session_tracking_consolekit=false \
+    -D suspend_resume=systemd \
+    -D tests=no \
+    -D vapi=false
+  ninja -C build
 }
 
 package_lib32-libnm() {
@@ -136,8 +92,6 @@ package_lib32-libnm() {
   depends=(
     lib32-glib2
     lib32-glibc
-    lib32-jansson
-    lib32-libgudev
     lib32-nspr
     lib32-nss
     lib32-util-linux
@@ -145,8 +99,8 @@ package_lib32-libnm() {
   )
 
   install -dm 755 "${pkgdir}"/usr/lib32/pkgconfig
-  cp -dr --no-preserve='ownership' install/usr/lib32/libnm.so* "${pkgdir}"/usr/lib32/
-  cp -dr --no-preserve='ownership' install/usr/lib32/pkgconfig/libnm.pc "${pkgdir}"/usr/lib32/pkgconfig/
+  cp -dr --no-preserve='ownership' build/libnm/libnm.so* "${pkgdir}"/usr/lib32/
+  cp -dr --no-preserve='ownership' build/meson-private/libnm.pc "${pkgdir}"/usr/lib32/pkgconfig/
 
 }
 
@@ -165,12 +119,11 @@ package_lib32-libnm-glib() {
   )
 
   install -dm 755 "${pkgdir}"/usr/lib32/pkgconfig
-  cp -dr --no-preserve='ownership' install/usr/lib32/libnm-glib.so* "${pkgdir}"/usr/lib32/
-  cp -dr --no-preserve='ownership' install/usr/lib32/pkgconfig/libnm-glib.pc "${pkgdir}"/usr/lib32/pkgconfig/
-  cp -dr --no-preserve='ownership' install/usr/lib32/libnm-glib-vpn.so* "${pkgdir}"/usr/lib32/
-  cp -dr --no-preserve='ownership' install/usr/lib32/pkgconfig/libnm-glib-vpn.pc "${pkgdir}"/usr/lib32/pkgconfig/
-  cp -dr --no-preserve='ownership' install/usr/lib32/libnm-util.so* "${pkgdir}"/usr/lib32/
-  cp -dr --no-preserve='ownership' install/usr/lib32/pkgconfig/libnm-util.pc "${pkgdir}"/usr/lib32/pkgconfig/
+  cp -dr --no-preserve='ownership' build/libnm-glib/libnm*.so* "${pkgdir}"/usr/lib32/
+  cp -dr --no-preserve='ownership' build/libnm-util/libnm*.so* "${pkgdir}"/usr/lib32/
+  cp -dr --no-preserve='ownership' build/meson-private/libnm-glib*.pc "${pkgdir}"/usr/lib32/pkgconfig/
+  cp -dr --no-preserve='ownership' build/meson-private/libnm-util.pc "${pkgdir}"/usr/lib32/pkgconfig/
+  cp -dr --no-preserve='ownership' build/meson-private/NetworkManager.pc "${pkgdir}"/usr/lib32/pkgconfig/
 }
 
 # vim: ts=2 sw=2 et:
