@@ -1,26 +1,23 @@
 # Maintainer: Balló György <ballogyor+arch at gmail dot com>
 
 pkgname=goobox
-pkgver=3.4.3
+pkgver=3.6.0
 pkgrel=1
 pkgdesc="CD player and ripper for GNOME"
 arch=('x86_64')
 url="https://people.gnome.org/~paobac/goobox/"
 license=('GPL')
 depends=('gst-plugins-base' 'brasero' 'libmusicbrainz5' 'libdiscid' 'libcoverart' 'libnotify')
-makedepends=('intltool' 'itstool' 'python')
+makedepends=('itstool' 'meson')
 optdepends=('gst-plugins-good: rip CDs into flac and wav formats')
 source=(https://download.gnome.org/sources/$pkgname/${pkgver%.*}/$pkgname-$pkgver.tar.xz)
-sha256sums=('7f97cfc1887acc26f7435a5078c710a422c7a7747f94a09e1ed4a904284848e2')
+sha256sums=('5c4cd30463a82dd873f297f27774867ede3e6a8679ee12a12d790508dc46b046')
 
 build() {
-  cd $pkgname-$pkgver
-  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
-              --disable-schemas-compile
-  make
+  arch-meson $pkgname-$pkgver build
+  ninja -C build
 }
 
 package() {
-  cd $pkgname-$pkgver
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" meson install -C build
 }
