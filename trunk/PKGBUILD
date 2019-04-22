@@ -10,8 +10,10 @@ url='http://guichaz.free.fr/iotop/'
 license=('GPL')
 depends=('python')
 changelog=$pkgname.changelog
-source=(http://guichaz.free.fr/$pkgname/files/$pkgname-$pkgver.tar.bz2)
-sha256sums=('3adea2a24eda49bbbaeb4e6ed2042355b441dbd7161e883067a02bfc8dcef75b')
+source=(http://guichaz.free.fr/$pkgname/files/$pkgname-$pkgver.tar.bz2{,.asc})
+sha256sums=('3adea2a24eda49bbbaeb4e6ed2042355b441dbd7161e883067a02bfc8dcef75b'
+            'SKIP')
+validpgpkeys=('72FCCF352015B102B5E60D31959E7A3E4D23A27E') # Guillaume Chazarain <guichaz@gmail.com>
 
 prepare() {
   cd "${srcdir}"/$pkgname-$pkgver
