@@ -4,7 +4,7 @@
 # Contributor: Simon Legner <Simon.Legner@gmail.com>
 
 pkgname=bazel
-pkgver=0.24.0
+pkgver=0.24.1
 pkgrel=1
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
@@ -15,12 +15,12 @@ makedepends=('git' 'protobuf' 'python')
 options=('!distcc' '!strip')
 source=("https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip"
         "https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip.sig")
-sha512sums=('15bc62b8387ddb705dc70d71856b2bd41c0c0a66c5cf90292406e6874d50398df9898dbec5895fbf86ffda4912a80d627ace543d9789357645937c016fdc3f6a'
+sha512sums=('a78c871eb517ec53a0d1d9592887288fa54e5e9f44b0b7dba44792a74a1ba0c98e38ff2f6094ab6e8b3add3ec4a0188de3b2489d94d419373e210d16db641774'
             'SKIP')
 validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')
 
 build() {
-  ./compile.sh
+  env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh
   ./output/bazel build scripts:bazel-complete.bash
   cd output
   ./bazel shutdown
