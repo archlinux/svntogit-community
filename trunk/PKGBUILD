@@ -4,7 +4,7 @@
 
 pkgname=arpack
 pkgver=3.7.0
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 pkgdesc='Fortran77 subroutines for solving large scale eigenvalue problems'
 url='https://github.com/opencollab/arpack-ng'
@@ -24,7 +24,7 @@ prepare() {
 build() {
   cd "$pkgname-ng"
 
-  ./configure --prefix=/usr --enable-mpi
+  ./configure --prefix=/usr --enable-mpi --enable-icb
   make \
     F77="mpif77" \
     CFLAGS+=" `pkg-config --cflags ompi-f77` " \
