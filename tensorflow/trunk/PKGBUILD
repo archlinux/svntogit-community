@@ -7,7 +7,7 @@ pkgbase=tensorflow
 pkgname=(tensorflow tensorflow-opt tensorflow-cuda tensorflow-opt-cuda python-tensorflow python-tensorflow-opt python-tensorflow-cuda python-tensorflow-opt-cuda)
 pkgver=1.13.1
 _pkgver=1.13.1
-pkgrel=4
+pkgrel=5
 pkgdesc="Library for computation using data flow graphs for scalable machine learning"
 url="https://www.tensorflow.org/"
 license=('APACHE')
@@ -19,15 +19,24 @@ makedepends=('bazel=0.22.0' 'python-numpy' 'cuda' 'nvidia-utils' 'nccl' 'git' 'g
 optdepends=('tensorboard: Tensorflow visualization toolkit')
 source=("https://github.com/tensorflow/tensorflow/archive/v${_pkgver}.tar.gz"
         'protobuf_temp_fix_cuda10.1_apply.patch'
-        'protobuf_temp_fix_cuda10.1.patch')
+        'protobuf_temp_fix_cuda10.1.patch'
+        'cuda_config.patch')
 sha512sums=('1e5c020a82b0b502c9c6fc9439905e19e8f1fb07e32740a5e2c70f4a3565c8c87053ccdcad360e95550dad648154e399ca8e352fb97a1788acfec3b87bf323bb'
             '770afd62612abac4fcef6919f75d1ac3519030d917ce8b277de4f88b76f5449c2ad7af81fbbcd17f5e799d637f188de200f078211f13809373d8f0378bb01754'
-            '5900002170aab40144453d3d0d1b097475d0cbc48c5901147214e38ed7d8634ea9207fc187b44129c878b0355676a531cb4807d4f2124f6110a20cbb61172c18')
+            '5900002170aab40144453d3d0d1b097475d0cbc48c5901147214e38ed7d8634ea9207fc187b44129c878b0355676a531cb4807d4f2124f6110a20cbb61172c18'
+            '0e488349ecc8e8ecf07a435196bb2c29bcbe9f139d39ef386a3d30a4162ec3496861c303a9c88a45e70c0fa57a0282c286453d57ffe289c0015b45875f8fe42c')
+
+get_pyver () {
+    python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
+}
 
 prepare() {
   # https://github.com/tensorflow/tensorflow/issues/26155
   patch -d tensorflow-${_pkgver} -Np1 -i "${srcdir}/protobuf_temp_fix_cuda10.1_apply.patch"
   cp "${srcdir}/protobuf_temp_fix_cuda10.1.patch" "${srcdir}/tensorflow-${_pkgver}/third_party"/
+
+  # do not strictly check sonames on CUDA libs, needed for CUDA 10.1 broken sonames
+  patch -d tensorflow-${_pkgver} -Np1 -i "${srcdir}/cuda_config.patch"
 
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-opt
   cp -r tensorflow-${_pkgver} tensorflow-${_pkgver}-cuda
@@ -129,16 +138,30 @@ build() {
 package_tensorflow() {
   cd "${srcdir}"/tensorflow-${_pkgver}
 
+  # install headers first
+  install -d "${pkgdir}"/usr/include/tensorflow
+  cp -r bazel-genfiles/tensorflow/include/* "${pkgdir}"/usr/include/tensorflow/
+  # install python-version to get all extra headers
+  WHEEL_PACKAGE=$(find "${srcdir}"/tmp -name "tensor*.whl")
+  pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+  # move extra headers to correct location
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    cp -nr "${_folder}" "${pkgdir}"/usr/include/tensorflow/
+  done
+  # clean up unneeded files
+  rm -rf "${pkgdir}"/usr/bin
+  rm -rf "${pkgdir}"/usr/lib
+  rm -rf "${pkgdir}"/usr/share
+
+  # install the rest of tensorflow
   tensorflow/c/generate-pc.sh --prefix=/usr --version=${pkgver}
+  sed -e 's/\/include/\/include\/tensorflow/' -i tensorflow.pc
   install -Dm644 tensorflow.pc "${pkgdir}"/usr/lib/pkgconfig/tensorflow.pc
   install -Dm755 bazel-bin/tensorflow/libtensorflow.so "${pkgdir}"/usr/lib/libtensorflow.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_cc.so "${pkgdir}"/usr/lib/libtensorflow_cc.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_framework.so "${pkgdir}"/usr/lib/libtensorflow_framework.so
-  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/c/c_api.h
+  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/tensorflow/c/c_api.h
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
-
-  mkdir -p "${pkgdir}"/usr/include/tensorflow/
-  cp -r bazel-genfiles/tensorflow/include/tensorflow "${pkgdir}"/usr/include/
 }
 
 package_tensorflow-opt() {
@@ -148,16 +171,30 @@ package_tensorflow-opt() {
 
   cd "${srcdir}"/tensorflow-${_pkgver}-opt
 
+  # install headers first
+  install -d "${pkgdir}"/usr/include/tensorflow
+  cp -r bazel-genfiles/tensorflow/include/* "${pkgdir}"/usr/include/tensorflow/
+  # install python-version to get all extra headers
+  WHEEL_PACKAGE=$(find "${srcdir}"/tmpopt -name "tensor*.whl")
+  pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+  # move extra headers to correct location
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    cp -nr "${_folder}" "${pkgdir}"/usr/include/tensorflow/
+  done
+  # clean up unneeded files
+  rm -rf "${pkgdir}"/usr/bin
+  rm -rf "${pkgdir}"/usr/lib
+  rm -rf "${pkgdir}"/usr/share
+
+  # install the rest of tensorflow
   tensorflow/c/generate-pc.sh --prefix=/usr --version=${pkgver}
+  sed -e 's/\/include/\/include\/tensorflow/' -i tensorflow.pc
   install -Dm644 tensorflow.pc "${pkgdir}"/usr/lib/pkgconfig/tensorflow.pc
   install -Dm755 bazel-bin/tensorflow/libtensorflow.so "${pkgdir}"/usr/lib/libtensorflow.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_cc.so "${pkgdir}"/usr/lib/libtensorflow_cc.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_framework.so "${pkgdir}"/usr/lib/libtensorflow_framework.so
-  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/c/c_api.h
+  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/tensorflow/c/c_api.h
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
-
-  mkdir -p "${pkgdir}"/usr/include/tensorflow/
-  cp -r bazel-genfiles/tensorflow/include/tensorflow "${pkgdir}"/usr/include/
 }
 
 package_tensorflow-cuda() {
@@ -168,16 +205,30 @@ package_tensorflow-cuda() {
 
   cd "${srcdir}"/tensorflow-${_pkgver}-cuda
 
+  # install headers first
+  install -d "${pkgdir}"/usr/include/tensorflow
+  cp -r bazel-genfiles/tensorflow/include/* "${pkgdir}"/usr/include/tensorflow/
+  # install python-version to get all extra headers
+  WHEEL_PACKAGE=$(find "${srcdir}"/tmpcuda -name "tensor*.whl")
+  pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+  # move extra headers to correct location
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    cp -nr "${_folder}" "${pkgdir}"/usr/include/tensorflow/
+  done
+  # clean up unneeded files
+  rm -rf "${pkgdir}"/usr/bin
+  rm -rf "${pkgdir}"/usr/lib
+  rm -rf "${pkgdir}"/usr/share
+
+  # install the rest of tensorflow
   tensorflow/c/generate-pc.sh --prefix=/usr --version=${pkgver}
+  sed -e 's/\/include/\/include\/tensorflow/' -i tensorflow.pc
   install -Dm644 tensorflow.pc "${pkgdir}"/usr/lib/pkgconfig/tensorflow.pc
   install -Dm755 bazel-bin/tensorflow/libtensorflow.so "${pkgdir}"/usr/lib/libtensorflow.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_cc.so "${pkgdir}"/usr/lib/libtensorflow_cc.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_framework.so "${pkgdir}"/usr/lib/libtensorflow_framework.so
-  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/c/c_api.h
+  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/tensorflow/c/c_api.h
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
-
-  mkdir -p "${pkgdir}"/usr/include/tensorflow/
-  cp -r bazel-genfiles/tensorflow/include/tensorflow "${pkgdir}"/usr/include/
 }
 
 package_tensorflow-opt-cuda() {
@@ -188,25 +239,46 @@ package_tensorflow-opt-cuda() {
 
   cd "${srcdir}"/tensorflow-${_pkgver}-opt-cuda
 
+  # install headers first
+  install -d "${pkgdir}"/usr/include/tensorflow
+  cp -r bazel-genfiles/tensorflow/include/* "${pkgdir}"/usr/include/tensorflow/
+  # install python-version to get all extra headers
+  WHEEL_PACKAGE=$(find "${srcdir}"/tmpcudaopt -name "tensor*.whl")
+  pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+  # move extra headers to correct location
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    cp -nr "${_folder}" "${pkgdir}"/usr/include/tensorflow/
+  done
+  # clean up unneeded files
+  rm -rf "${pkgdir}"/usr/bin
+  rm -rf "${pkgdir}"/usr/lib
+  rm -rf "${pkgdir}"/usr/share
+
+  # install the rest of tensorflow
   tensorflow/c/generate-pc.sh --prefix=/usr --version=${pkgver}
+  sed -e 's/\/include/\/include\/tensorflow/' -i tensorflow.pc
   install -Dm644 tensorflow.pc "${pkgdir}"/usr/lib/pkgconfig/tensorflow.pc
   install -Dm755 bazel-bin/tensorflow/libtensorflow.so "${pkgdir}"/usr/lib/libtensorflow.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_cc.so "${pkgdir}"/usr/lib/libtensorflow_cc.so
   install -Dm755 bazel-bin/tensorflow/libtensorflow_framework.so "${pkgdir}"/usr/lib/libtensorflow_framework.so
-  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/c/c_api.h
+  install -Dm644 tensorflow/c/c_api.h "${pkgdir}"/usr/include/tensorflow/tensorflow/c/c_api.h
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
-
-  mkdir -p "${pkgdir}"/usr/include/tensorflow/
-  cp -r bazel-genfiles/tensorflow/include/tensorflow "${pkgdir}"/usr/include/
 }
 
 package_python-tensorflow() {
-  depends+=(python-termcolor python-astor python-gast python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
+  depends+=(tensorflow python-termcolor python-astor python-gast python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
 
   cd "${srcdir}"/tensorflow-${_pkgver}
 
   WHEEL_PACKAGE=$(find "${srcdir}"/tmp -name "tensor*.whl")
   pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+
+  # create symlinks to headers
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/ -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    rm -rf "${_folder}"
+    _smlink="$(basename "${_folder}")"
+    ln -s /usr/include/tensorflow/"${_smlink}" "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/
+  done
 
   # tensorboard has been separated from upstream but they still install it with
   # tensorflow. I don't know what kind of sense that makes but we have to clean
@@ -217,7 +289,7 @@ package_python-tensorflow() {
 }
 
 package_python-tensorflow-opt() {
-  depends+=(python-termcolor python-astor python-gast python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
+  depends+=(tensorflow-opt python-termcolor python-astor python-gast python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
   conflicts=(python-tensorflow)
   provides=(python-tensorflow)
   pkgdesc="Library for computation using data flow graphs for scalable machine learning (with CPU optimizations)"
@@ -226,6 +298,13 @@ package_python-tensorflow-opt() {
 
   WHEEL_PACKAGE=$(find "${srcdir}"/tmpopt -name "tensor*.whl")
   pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+
+  # create symlinks to headers
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/ -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    rm -rf "${_folder}"
+    _smlink="$(basename "${_folder}")"
+    ln -s /usr/include/tensorflow/"${_smlink}" "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/
+  done
 
   # tensorboard has been separated from upstream but they still install it with
   # tensorflow. I don't know what kind of sense that makes but we have to clean
@@ -236,7 +315,7 @@ package_python-tensorflow-opt() {
 }
 
 package_python-tensorflow-cuda() {
-  depends+=(python-termcolor python-astor python-gast python-numpy cuda cudnn python-pycuda python-protobuf absl-py nccl python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
+  depends+=(tensorflow-cuda python-termcolor python-astor python-gast python-numpy cuda cudnn python-pycuda python-protobuf absl-py nccl python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
   conflicts=(python-tensorflow)
   provides=(python-tensorflow)
   pkgdesc="Library for computation using data flow graphs for scalable machine learning (with CUDA)"
@@ -245,6 +324,13 @@ package_python-tensorflow-cuda() {
 
   WHEEL_PACKAGE=$(find "${srcdir}"/tmpcuda -name "tensor*.whl")
   pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+
+  # create symlinks to headers
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/ -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    rm -rf "${_folder}"
+    _smlink="$(basename "${_folder}")"
+    ln -s /usr/include/tensorflow/"${_smlink}" "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/
+  done
 
   # tensorboard has been separated from upstream but they still install it with
   # tensorflow. I don't know what kind of sense that makes but we have to clean
@@ -255,7 +341,7 @@ package_python-tensorflow-cuda() {
 }
 
 package_python-tensorflow-opt-cuda() {
-  depends+=(python-termcolor python-astor python-gast python-numpy cuda cudnn python-pycuda python-protobuf absl-py nccl python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
+  depends+=(tensorflow-opt-cuda python-termcolor python-astor python-gast python-numpy cuda cudnn python-pycuda python-protobuf absl-py nccl python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator)
   conflicts=(python-tensorflow)
   provides=(python-tensorflow python-tensorflow-cuda)
   pkgdesc="Library for computation using data flow graphs for scalable machine learning (with CUDA and CPU optimizations)"
@@ -264,6 +350,13 @@ package_python-tensorflow-opt-cuda() {
 
   WHEEL_PACKAGE=$(find "${srcdir}"/tmpcudaopt -name "tensor*.whl")
   pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
+
+  # create symlinks to headers
+  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/ -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+    rm -rf "${_folder}"
+    _smlink="$(basename "${_folder}")"
+    ln -s /usr/include/tensorflow/"${_smlink}" "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/
+  done
 
   # tensorboard has been separated from upstream but they still install it with
   # tensorflow. I don't know what kind of sense that makes but we have to clean
