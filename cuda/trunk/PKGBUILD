@@ -4,12 +4,11 @@ pkgname=cuda
 pkgver=10.1.105
 _basever=10.1.105
 _driverver=418.39
-pkgrel=11
+pkgrel=12
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="http://www.nvidia.com/object/cuda_home.html"
 license=('custom:NVIDIA')
-makedepends=('patchelf')
 depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
@@ -50,19 +49,17 @@ package() {
   ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++ "${pkgdir}/opt/cuda/bin/g++"
 
-  # Create soname variants with patchelf.
+  # Create soname links.
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
-  # Best we can do is copy those libs to *.so.10.1 variants, patchelf the SONAME and hope for the best.
+  # Best we can do is create all symlinks and hope for the best.
   # Their installer used to perform this for us but now it's all manual and I think this is what we'll be stuck with for now.
-  cd "${pkgdir}/opt/cuda/targets/x86_64-linux/lib"
-  find "${pkgdir}"/opt/cuda/targets/x86_64-linux/lib -type l -name "*.so.10" ! -path "*stubs/*" -print0 | while read -rd $'\0' _lib; do
-    _current_soname=$(basename ${_lib})
-    if [ ! -f "${_current_soname}.1" ]; then
-      echo "copying ${_current_soname} to ${_current_soname}.1 version"
-      cp ${_current_soname} "${_current_soname}.1"
-      echo "patching ${_current_soname}.1 SONAME to match ${_current_soname}.1"
-      patchelf --set-soname "${_current_soname}.1" "${_current_soname}.1"
-    fi
+  find cuda-toolkit/targets -type f -name '*.so*' ! -path '*stubs/*' -print0 | while read -rd $'\0' _lib; do
+    _base=${_lib%.so.*}
+    _current_soname=$(basename ${_lib%.*})
+    while [[ $_current_soname != $(basename $_base) ]]; do
+      ln -sf ${_lib##*/} ${pkgdir}/opt/cuda/lib64/$_current_soname
+      _current_soname=${_current_soname%.*}
+    done
   done
 
   # Install profile and ld.so.config files
@@ -80,3 +77,4 @@ package() {
 }
 
 # vim:set ts=2 sw=2 et:
+
