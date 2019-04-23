@@ -3,8 +3,8 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=9.0.0_r30
-pkgrel=2
+pkgver=9.0.0_r35
+pkgrel=1
 pkgdesc='Android platform tools'
 arch=(x86_64)
 url='http://tools.android.com/'
