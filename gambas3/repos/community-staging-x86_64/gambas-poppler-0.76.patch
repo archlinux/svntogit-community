@@ -1,0 +1,128 @@
+diff --git a/gb.pdf/src/CPdfDocument.cpp b/gb.pdf/src/CPdfDocument.cpp
+index 0610a65d8..e54cb35b5 100644
+--- a/gb.pdf/src/CPdfDocument.cpp
++++ b/gb.pdf/src/CPdfDocument.cpp
+@@ -40,7 +40,6 @@
+ #include <TextOutputDev.h>
+ #include <SplashOutputDev.h>
+ #include <splash/SplashBitmap.h>
+-#include <goo/GooList.h>
+ #include <Outline.h>
+ #include <Link.h>
+ #include <Gfx.h>
+@@ -273,7 +272,7 @@ static uint32_t aux_get_page_from_action(void *_object, const_LinkAction *act)
+ 	if (dest->isPageRef() )
+ 	{
+ 		pref= dest->getPageRef();
+-		return THIS->doc->findPage(pref.num, pref.gen);
++		return THIS->doc->findPage(pref);
+ 	}
+ 	else
+ 		return dest->getPageNum();
+@@ -717,7 +716,7 @@ PDF document index
+ 
+ BEGIN_PROPERTY(PDFDOCUMENT_has_index)
+ 
+-	GB.ReturnBoolean(THIS->index && THIS->index->getLength());
++	GB.ReturnBoolean(THIS->index && THIS->index->size());
+ 
+ END_PROPERTY
+ 
+@@ -725,14 +724,14 @@ BEGIN_PROPERTY(PDFDOCUMENT_index)
+ 
+ 	if (!THIS->index) { GB.ReturnNull(); return; }
+ 	
+-	THIS->action=((OutlineItem*)THIS->index->get(THIS->currindex))->getAction();
++	THIS->action=((*THIS->index)[THIS->currindex])->getAction();
+ 	RETURN_SELF();
+ 
+ END_PROPERTY
+ 
+ BEGIN_PROPERTY(PDFINDEX_count)
+ 
+-	GB.ReturnInteger(THIS->index->getLength());
++	GB.ReturnInteger(THIS->index->size());
+ 
+ END_PROPERTY
+ 
+@@ -740,8 +739,8 @@ BEGIN_PROPERTY(PDFINDEX_has_children)
+ 
+ 	OutlineItem *item;
+ 
+-	item = (OutlineItem *)THIS->index->get (THIS->currindex);
+-	GB.ReturnBoolean(item->getKids() && item->getKids()->getLength());
++	item = (*THIS->index)[THIS->currindex];
++	GB.ReturnBoolean(item->getKids() && item->getKids()->size());
+ 
+ END_PROPERTY
+ 
+@@ -749,7 +748,7 @@ BEGIN_PROPERTY(PDFINDEX_is_open)
+ 
+ 	OutlineItem *item;
+ 
+-	item = (OutlineItem *)THIS->index->get (THIS->currindex);
++	item = (*THIS->index)[THIS->currindex];
+ 
+ 	if (READ_PROPERTY)
+ 	{	GB.ReturnBoolean(item->isOpen()); return; }
+@@ -763,7 +762,7 @@ BEGIN_PROPERTY(PDFINDEX_title)
+ 
+ 	OutlineItem *item;
+ 
+-	item = (OutlineItem *)THIS->index->get (THIS->currindex);
++	item = (*THIS->index)[THIS->currindex];
+ 	return_unicode_string(item->getTitle(), item->getTitleLength());
+ 
+ END_PROPERTY
+@@ -792,7 +791,7 @@ END_METHOD
+ 
+ BEGIN_METHOD_VOID(PDFINDEX_next)
+ 
+-	if ( (THIS->currindex+1) >= (uint32_t)THIS->index->getLength() )
++	if ( (THIS->currindex+1) >= (uint32_t)THIS->index->size() )
+ 		 { GB.ReturnBoolean(true); return; }
+ 
+ 	THIS->currindex++;
+@@ -804,9 +803,9 @@ BEGIN_METHOD_VOID(PDFINDEX_child)
+ 
+ 	OutlineItem *item;
+ 
+-	item = (OutlineItem *)THIS->index->get (THIS->currindex);
++	item = (*THIS->index)[THIS->currindex];
+ 
+-	if (!item->hasKids() || item->getKids()->getLength() == 0) { GB.ReturnBoolean(true); return; }
++	if (!item->hasKids() || item->getKids()->size() == 0) { GB.ReturnBoolean(true); return; }
+ 
+ 	if (THIS->pindex)
+ 	{
+@@ -833,7 +832,7 @@ BEGIN_METHOD_VOID(PDFINDEX_parent)
+ 
+ 	if (!THIS->pindex) { GB.ReturnBoolean(true); return; }
+ 
+-	THIS->index=(GooList*)THIS->pindex[GB.Count(POINTER(THIS->pindex))-1];
++	THIS->index=(std::vector<OutlineItem*>*)THIS->pindex[GB.Count(POINTER(THIS->pindex))-1];
+ 	THIS->currindex=THIS->oldindex[GB.Count(POINTER(THIS->pindex))-1];
+ 	if (GB.Count(POINTER(THIS->pindex))==1)
+ 	{
+diff --git a/gb.pdf/src/CPdfDocument.h b/gb.pdf/src/CPdfDocument.h
+index fa80d47a9..c616e325d 100644
+--- a/gb.pdf/src/CPdfDocument.h
++++ b/gb.pdf/src/CPdfDocument.h
+@@ -29,7 +29,7 @@
+ #include <PDFDoc.h>
+ #include <SplashOutputDev.h>
+ #include <Page.h>
+-#include <goo/GooList.h>
++#include <Outline.h>
+ #include <stdint.h>
+ 
+ #if POPPLER_VERSION_0_64
+@@ -93,7 +93,7 @@ typedef
+ 		uint currpage;
+ 
+ 		void **pindex;            // Parent of current index entries
+-		const_GooList *index;     // Current entries
++		const std::vector<OutlineItem*> *index;     // Current entries
+ 		
+ 		uint currindex;           // Current entry
+ 		uint *oldindex;           // Parent entry
