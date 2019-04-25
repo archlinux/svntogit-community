@@ -9,11 +9,11 @@ pkgver=3.6.1
 pkgrel=1
 pkgdesc='A single player dungeon exploration game'
 arch=('x86_64')
-url="http://www.nethack.org/index.html"
+url="https://www.nethack.org/index.html"
 license=('custom')
 depends=('ncurses' 'gzip')
 install=nethack.install
-source=("http://downloads.sourceforge.net/$pkgname/$pkgname-${pkgver//.}-src.tgz")
+source=("https://downloads.sourceforge.net/$pkgname/$pkgname-${pkgver//.}-src.tgz")
 
 prepare() {
   cd $srcdir/$pkgname-$pkgver/
