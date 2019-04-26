@@ -4,8 +4,8 @@
 pkgbase=python-argcomplete
 pkgname=('python-argcomplete' 'python2-argcomplete')
 _pyname=argcomplete
-pkgver=1.9.4
-pkgrel=2
+pkgver=1.9.5
+pkgrel=1
 pkgdesc='Easy, extensible command line tab completion of arguments for your Python script'
 url='https://github.com/kislyuk/argcomplete'
 arch=('any')
@@ -13,8 +13,8 @@ license=('Apache')
 makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pexpect' 'python2-pexpect' 'tcsh')
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/kislyuk/${_pyname}/archive/v${pkgver}.tar.gz)
-sha256sums=('0ac6fdaa989242e122573eba92976ee9bb27e93cf6f0234324df498ed820f411')
-sha512sums=('2b0900b55136739f409c32172933af985f4cdde1c018a4687d02f0c5ecdaf36eb8f960270d16bbd157e79f76992c437ab42fd4c6aa9b6aeb3c7302935bf00970')
+sha256sums=('6b1564e91e1c614158baa8dd7d38bd333d0e2ac2d8f7a6cd2f2ad8a90c8d2aca')
+sha512sums=('489ce1b82ee6a36d616d95e936afd39191e8451aa4fa10457ffcb18a586ceed4a7165e46cf1a659c2f9dd7485110d25b35fda6df0f80181de7f46345f70a58ce')
 
 prepare() {
   cp -a ${_pyname}-${pkgver}{,-py2}
