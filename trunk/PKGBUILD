@@ -7,7 +7,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.41.3
+pkgver=3.42.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -18,15 +18,15 @@ _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dn
           'netifaces' 'unrardll' 'pillow' 'psutil' 'pygments' 'pyqt5' 'regex')
 depends=('chmlib' 'icu' 'jxrlib' 'libmtp' 'libusbx' 'libwmf' 'mathjax' 'mtdev' 'optipng'
          'podofo' "${_py_deps[@]/#/python2-}" 'qt5-svg' 'qt5-webkit' 'udisks2')
-makedepends=('qt5-x11extras' 'sip' 'xdg-utils')
+makedepends=('qt5-x11extras' 'rapydscript-ng' 'sip' 'xdg-utils')
 checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
-sha256sums=('2aa3a819915ea2a4ef032918cf545f2cc21ea3aad84ffc9cb772d6c8c986f098'
+sha256sums=('b51194aecd452e6cea9681889cd1b2f868d379b07413b1dcb8842c363487ad7a'
             'SKIP')
-b2sums=('bbbe888bab285207a23a24a152b396cdc51723442e49d6e8ea6d3631cc4c6d67d421452d3d616d03dbe89f6df292dcdce5b564d6ed423dfece60a4bc59678a87'
+b2sums=('3b1fa7abfed277f7a787fa2b65697817d0fe8553d570901a8817e63756f7edc8321c18768fb9c965382f9027d053af708fdf54c4288c831acb0ec03a64748651'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
