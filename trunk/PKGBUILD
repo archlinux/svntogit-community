@@ -7,7 +7,7 @@ _driverver=418.39
 pkgrel=12
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
-url="http://www.nvidia.com/object/cuda_home.html"
+url="https://developer.nvidia.com/cuda-zone"
 license=('custom:NVIDIA')
 depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
 replaces=('cuda-toolkit' 'cuda-sdk')
@@ -26,7 +26,7 @@ sha512sums=('07cdc053989758e4cdccaad566cae7127fa79780ad85033ea52d33cc4c43c9de08e
             '41d6b6cad934f135eafde610d1cbd862033977fd4416a4b6abaa47709a70bab7fcf6f8377c21329084fb9db13f2a8c8c20e93c15292d7d4a6448d70a33b23f1b')
 
 prepare() {
-  sh cuda_${_basever}_${_driverver}_linux.run --target ${srcdir} --noexec
+  sh cuda_${_basever}_${_driverver}_linux.run --target "${srcdir}" --noexec
 
   # Fix up samples tht use findgllib_mk
   for f in builds/cuda-samples/*/*/findgllib.mk; do
