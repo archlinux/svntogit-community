@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pygithub
-pkgver=1.43.6
+pkgver=1.43.7
 pkgrel=1
 pkgdesc="Use the full Github API v3"
 arch=('any')
@@ -9,8 +9,9 @@ license=('LGPL')
 url="https://github.com/PyGithub/PyGithub"
 depends=('python-pyjwt' 'python-requests' 'python-deprecated')
 makedepends=('python-setuptools')
+checkdepends=('python-cryptography' 'python-httpretty')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/PyGithub/PyGithub/archive/v$pkgver.tar.gz")
-sha512sums=('bb1bc7f21286bcdb49a0450ab1246e2813b983acd0b4209ff8dd8692d3b36ca208e5e45edfebe1002f54019d558310d33838ed89d229f8bea5c642414f118f41')
+sha512sums=('15d7c7ca6a505a259fe59c96db667a278179df7acfe794116f118bb18966c573cbdcd9276fe50b321fd759988810250a0268c2e8e330c1ef5a8bdcc3a50b6391')
 
 build() {
   cd PyGithub-$pkgver
@@ -19,6 +20,7 @@ build() {
 
 check() {
   cd PyGithub-$pkgver
+  python -m lib2to3 -w -n tests
   python setup.py test
 }
 
