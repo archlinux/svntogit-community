@@ -11,13 +11,11 @@ url='https://neovim.io'
 license=('custom:neovim')
 depends=('jemalloc' 'libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm' 'luajit')
 makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg' 'gperf')
-optdepends=('python2-neovim: for Python 2 plugin support (see :help python)'
-            'python-neovim: for Python 3 plugin support (see :help python)'
+optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support (or xsel) (see :help clipboard)'
             'xsel: for clipboard support (or xclip) (see :help clipboard)')
 source=(https://github.com/neovim/neovim/archive/v${pkgver}.tar.gz)
 sha512sums=('8e7c14df59fdcb0eb03a2dbed5d56ae3b1eadb9aac805e69da03f7e964936721abf6c04ca6bf91d10b4451030f4440814ac445b58a0b06d11c7f6663c1b22019')
-install=neovim.install
 
 build() {
   cmake -Hneovim-${pkgver} -Bbuild -GNinja \
