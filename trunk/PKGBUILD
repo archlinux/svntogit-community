@@ -4,22 +4,26 @@
 # Contributor: Geoffroy Carrier <geoffroy@archlinux.org>
 
 pkgname=luarocks
-pkgver=3.0.4
-pkgrel=2
+pkgver=3.1.0
+pkgrel=1
 pkgdesc='Deployment and management system for Lua modules'
 backup=(etc/luarocks/config-5.{1,2,3}.lua)
 arch=('any')
 url='https://luarocks.org/'
 license=('custom')
 replaces=('luarocks5.1' 'luarocks5.2')
-depends=('unzip' 'zip' 'curl' 'lua')
+depends=('coreutils' # need chmod, md5sum
+         'curl' # need one of curl or wget
+         'lua'
+         'unzip' # need unzip and zip or lua-zlib
+         'zip')
 optdepends=('cvs: for fetching sources from CVS repositories'
             'git: for fetching sources from git repositories'
             'mercurial: for fetching sources from mercurial repositories'
             'cmake: for building rocks that use the cmake build system'
             'lua-sec: HTTPS support')
 source=("https://luarocks.org/releases/$pkgname-$pkgver.tar.gz"{,.asc})
-md5sums=('b67be533e0e027a26e3fd2b566ac938f'
+md5sums=('55d1a6d4e5e975dae481ce70c306a029'
          'SKIP')
 validpgpkeys=('8460980B2B79786DE0C7FCC83FD8F43C2BB3C478')
 
