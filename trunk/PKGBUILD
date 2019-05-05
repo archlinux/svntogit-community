@@ -1,10 +1,9 @@
 # Maintainer: Nicola Squartini <tensor5@gmail.com>
 
 pkgname=electron
-pkgver=5.0.0
-_commit=7514372e7959d7e44286797a2f3688382d6a90b3
-#_chromiumver=73.0.3683.119
-_chromiumver=73.0.3683.114
+pkgver=5.0.1
+_commit=2de54a3dbc2ecb1427e5df335b4bb7b57b6c1067
+_chromiumver=73.0.3683.121
 pkgrel=1
 pkgdesc='Build cross platform desktop apps with web technologies'
 arch=('x86_64')
@@ -19,7 +18,6 @@ optdepends=('kde-cli-tools: file deletion support (kioclient5)'
             'trash-cli: file deletion support (trash-put)'
             "xdg-utils: open URLs with desktop's default (xdg-email, xdg-open)")
 source=('git+https://github.com/electron/electron.git'
-        "https://commondatastorage.googleapis.com/chromium-browser-official/chromium-${_chromiumver}.tar.xz"
         'git+https://chromium.googlesource.com/chromium/tools/depot_tools.git'
         'electron.desktop'
         'default_app-icon.patch'
@@ -31,7 +29,6 @@ source=('git+https://github.com/electron/electron.git'
         'chromium-system-icu.patch'
        )
 sha256sums=('SKIP'
-            'b8153bcb1efe620b7f5d9d74c4017771710fc4432872b1f0b73c92146e868d0c'
             'SKIP'
             '5270db01f3f8aaa5137dec275a02caa832b7f2e37942e068cba8d28b3a29df39'
             'a9f4d2af71c4399dd01047bb1205c0ca9bb5ce6bf0eeaeb57acf4c69724b668b'
@@ -70,7 +67,9 @@ prepare() {
   ln -sf /usr/bin/python2 "${srcdir}/python2-path/python"
   export PATH="${srcdir}/python2-path:${PATH}:${srcdir}/depot_tools"
 
-  mv chromium-${_chromiumver} src
+  echo "Fetching chromium..."
+  git clone --branch=${_chromiumver} --depth=1 \
+      https://chromium.googlesource.com/chromium/src.git
 
   echo "solutions = [
   {
@@ -94,14 +93,24 @@ prepare() {
 
   echo "Running hooks..."
   # python2 "${srcdir}/depot_tools/gclient.py" runhooks
+  python2 src/build/landmines.py
+  python2 src/build/util/lastchange.py -o src/build/util/LASTCHANGE
+  python2 src/build/util/lastchange.py -m GPU_LISTS_VERSION \
+    --revision-id-only --header src/gpu/config/gpu_lists_version.h
+  python2 src/build/util/lastchange.py -m SKIA_COMMIT_HASH \
+    -s src/third_party/skia --header src/skia/ext/skia_commit_hash.h
+  # Create sysmlink to system Node.js
+  mkdir -p src/third_party/node/linux/node-linux-x64/bin
+  ln -sf /usr/bin/node src/third_party/node/linux/node-linux-x64/bin
+  python2 src/third_party/depot_tools/download_from_google_storage.py \
+    --no_resume --extract --no_auth --bucket chromium-nodejs \
+    -s src/third_party/node/node_modules.tar.gz.sha1
+  vpython src/chrome/android/profiles/update_afdo_profile.py
   python2 src/electron/script/apply_all_patches.py \
       src/electron/patches/common/config.json
   cd src/electron
   npm install
   cd ..
-  # Create sysmlink to system Node.js
-  mkdir -p third_party/node/linux/node-linux-x64/bin
-  ln -sf /usr/bin/node third_party/node/linux/node-linux-x64/bin
 
   echo "Patching Chromium for using system libraries..."
   sed -i 's/OFFICIAL_BUILD/GOOGLE_CHROME_BUILD/' \
