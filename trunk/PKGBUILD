@@ -5,8 +5,8 @@
 
 pkgname=dnscrypt-proxy
 pkgver=2.0.23
-pkgrel=1
-pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTP"
+pkgrel=2
+pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTPS"
 arch=('x86_64')
 url="https://dnscrypt.info"
 license=('custom:ISC')
@@ -50,7 +50,7 @@ build() {
 package() {
   cd $pkgname-$pkgver
   # executable
-  install -vDm 755 "${pkgname}/${pkgname}" "${pkgdir}/usr/bin/${pkgname}"
+  install -vDm 755 "${pkgname}/${pkgname}" -t "${pkgdir}/usr/bin/"
   # configuration
   install -vDm 644 "${pkgname}/example-${pkgname}.toml" \
     "${pkgdir}/etc/${pkgname}/${pkgname}.toml"
@@ -68,7 +68,7 @@ package() {
   install -vDm 644 "../${pkgname}."{service,socket} \
     -t "${pkgdir}/usr/lib/systemd/system/"
   # license
-  install -vDm 644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
   # docs
   install -vDm 644 {ChangeLog,README.md} \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
