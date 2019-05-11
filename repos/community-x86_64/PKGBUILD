@@ -1,7 +1,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=18.09.5
+pkgver=18.09.6
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -18,7 +18,7 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
-_LIBNETWORK_COMMIT=4725f2163fb214a6312f3beae5991f838ec36326
+_LIBNETWORK_COMMIT=872f0a83c98add6cae255c8859e29532febc0039
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
