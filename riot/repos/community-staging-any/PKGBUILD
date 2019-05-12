@@ -1,0 +1,81 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Luca Weiss <luca (at) z3ntu (dot) xyz>
+
+pkgbase=riot
+pkgname=('riot-desktop' 'riot-web')
+pkgver=1.1.0
+pkgrel=2
+pkgdesc="A glossy Matrix collaboration client, web and desktop versions."
+arch=(any)
+url="https://riot.im"
+license=(Apache)
+makedepends=(npm git yarn)
+_url="https://github.com/vector-im/riot-web"
+source=(${pkgbase}-${pkgver}.tar.gz::"${_url}/archive/v${pkgver}.tar.gz"
+        ${pkgbase}-${pkgver}.tar.gz.asc::"${_url}/releases/download/v${pkgver}/v${pkgver}-src.tar.gz.asc"
+        "${pkgbase}.desktop"
+        "${pkgbase}-desktop.sh"
+        riot-electron5.patch::'https://gist.githubusercontent.com/dbkr/e898624be6d53590ebf494521d868fec/raw/e179d672f5e12fdd5ac9a9376928362b7b8735af/electron5.patch')
+sha256sums=('d3366ffaaf4bcd198c377ec7fe76a8c380687bad0073c3435eb3792a99c392fc'
+            'SKIP'
+            '043fbaa29be96f52541143e1684fd7ba33585edb215c06d1ed4e59ddc48a9fa7'
+            '94807ecb4210b09672d39f39b5be6f4e8fbd58e9d674c3b7ca795a6dd9c14ff7'
+            '82dd23b76a7887cb4f309955f76e7e0aafd780f9c7f20427d7d5028fff59aeda')
+validpgpkeys=(A878CDF66CF4A9B4807CEBE574692659BDA3D940) # Riot Releases <releases@riot.im>
+
+prepare() {
+  cd ${pkgbase}-web-${pkgver}
+  sed -i 's@https://riot.im/download/desktop/update/@null@g' electron_app/riot.im/config.json
+  patch -p1 -i ../riot-electron5.patch
+}
+
+build() {
+  cd ${pkgbase}-web-${pkgver}
+  npm install --cache ../npm-cache
+  npm run build --cache ../npm-cache
+}
+
+package_riot-web() {
+  pkgdesc="A glossy Matrix collaboration client for the web."
+  provides=(vector-web)
+  replaces=(vector-web)
+  cd ${pkgbase}-web-${pkgver}
+
+  install -d "${pkgdir}"/{usr/share/webapps,etc/webapps}/${pkgbase}
+
+  cp -r webapp/* "${pkgdir}"/usr/share/webapps/${pkgbase}/
+  install -Dm644 config.sample.json -t "${pkgdir}"/etc/webapps/${pkgbase}/
+  ln -s /etc/webapps/${pkgbase}/config.json "${pkgdir}"/usr/share/webapps/${pkgbase}/
+  echo "${pkgver}" > "${pkgdir}"/usr/share/webapps/${pkgbase}/version
+}
+
+package_riot-desktop() {
+  pkgdesc="A glossy Matrix collaboration client for the desktop."
+  depends=(riot-web electron)
+  backup=('etc/riot/config.json')
+  cd ${pkgbase}-web-${pkgver}
+
+  cd electron_app
+  npm install --cache "${srcdir}"/npm-cache
+  cd ..
+
+  install -d "${pkgdir}"{/usr/lib/${pkgbase}/electron_app,/etc/webapps/${pkgbase}}
+
+  ln -s /usr/share/webapps/${pkgbase} "${pkgdir}"/usr/lib/${pkgbase}/webapp
+  ln -s /etc/${pkgbase}/config.json "${pkgdir}"/etc/webapps/${pkgbase}/config.json
+
+  install -Dm644 package.json -t "${pkgdir}"/usr/lib/${pkgbase}/
+  cp -r origin_migrator "${pkgdir}"/usr/lib/${pkgbase}/
+  cp -r electron_app/src "${pkgdir}"/usr/lib/${pkgbase}/electron_app/
+  cp -r electron_app/node_modules "${pkgdir}"/usr/lib/${pkgbase}/electron_app/
+  install -Dm644 electron_app/img/riot.png -t "${pkgdir}"/usr/lib/${pkgbase}/electron_app/img
+  install -Dm644 electron_app/riot.im/config.json -t "${pkgdir}"/etc/${pkgbase}
+
+  install -Dm644 "${srcdir}"/${pkgbase}.desktop "${pkgdir}"/usr/share/applications/${pkgbase}.desktop
+  install -Dm755 "${srcdir}"/${pkgname}.sh "${pkgdir}"/usr/bin/${pkgname}
+
+  install -Dm644 res/themes/riot/img/logos/riot-im-logo.svg "${pkgdir}"/usr/share/icons/hicolor/scalable/apps/${pkgbase}.svg
+  for i in 16 24 48 64 96 128 256 512; do
+    install -Dm644 electron_app/build/icons/${i}x${i}.png "${pkgdir}"/usr/share/icons/hicolor/${i}x${i}/apps/${pkgbase}.png
+  done
+}
