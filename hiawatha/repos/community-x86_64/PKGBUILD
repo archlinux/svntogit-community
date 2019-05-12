@@ -1,17 +1,18 @@
 # Maintainer: Kyle Keen <keenerd@gmail.com>
 # Contributor: Kurt Marasco <celilo _at_ lavabit _dot_ com>
 # Contributor: Pascal Ernster <aur at hardfalcon dot net>
+# Contributor: Kewl <kewl at alto dot eu dot org>
 
 pkgname=hiawatha
 pkgver=10.9
-pkgrel=1
+pkgrel=2
 pkgdesc="Secure and advanced webserver"
 url="https://www.hiawatha-webserver.org/"
 arch=('x86_64')
 license=('GPL2')
 depends=('libxslt' 'mbedtls')
 optdepends=('php-fpm: PHP fastcgi'
-            'php: letsencrypt')
+            'php: letsencrypt/lefh')
 makedepends=('cmake')
 backup=(
         'etc/hiawatha/hiawatha.conf'
@@ -23,19 +24,32 @@ source=(
         "https://www.hiawatha-webserver.org/files/$pkgname-$pkgver.tar.gz" 
         'hiawatha.conf.sample'
         'hiawatha.service'
-        'letsencrypt-renew.service'
-        'letsencrypt-renew.timer'
+        'lefh-renew.service'
+        'lefh-renew.timer'
 )
 sha256sums=('74dd43812272c3ddbf067b6d4da1773cdeef2ffe71e8f164449fabf8431752b8'
             '4671d2586cbe3cd6497b16ff422c6143cdab40641ef3c9c4988c478351a8f5e7'
             'fb789b12bb6246237b15a9244f58317abdd53e5ca4eb55880e40a498b2237155'
-            '7f903aadf1e7e4bf449c9a647f160051358ef1e2db328afffc7f3a5c204f8ea5'
-            'a1d5371e886bdd697c9d040125aa5b117d6efe36bb6ee77b57004d893f2bc410')
+            'db1d647d86370583c24ae7a37feab78e3f0015d441ff5bc8f9b32e1a91ec4c8e'
+            'd12c5a68c293f66d95ae4df704ea349adbad972fb25475ab1a0a24fb42bfc70b')
 
 
 prepare() {
   cd "$srcdir/$pkgname-$pkgver"
   sed -i 's/www-data/http/g' extra/logrotate.in
+
+  # Update stock hiawatha.conf
+  sed -e 's|#ServerId = www-data|ServerId = http|' \
+      -e 's|/var/www/|/srv/http/|g' \
+      -e 's|//|/|g' \
+      -e 's|#CGIextension = cgi|&\n#TriggerOnCGIstatus = no|g' \
+      -e 's|ConnectTo = 127.0.0.1:2005|ConnectTo = 127.0.0.1:9000|g' \
+      -e 's|#	Extension = php|&\n#       SessionTimeout = 30|g' \
+      -e 's|#ErrorHandler = 404:/error.cgi|&\n#UseGZfile = yes|g' \
+      -i config/hiawatha.conf.in
+  
+  sed -e 's|/etc/init.d/hiawatha restart|systemctl restart hiawatha.service|' \
+      -i extra/letsencrypt/letsencrypt.conf.in
 }
 
 build() {
@@ -69,7 +83,7 @@ build() {
 
   # Features disabled by default
   # -DENABLE_DEBUG
-  # -DENABLE_TOMAHAWK	
+  # -DENABLE_TOMAHAWK
 }
 
 package() {
@@ -80,23 +94,11 @@ package() {
   rm "$pkgdir/srv/http/hiawatha/index.html"
   rmdir -p --ignore-fail-on-non-empty "$pkgdir/srv/http/hiawatha"
  
-  # Update stock hiawatha.conf
-  sed -e 's|#ServerId = www-data|ServerId = http|' \
-      -e 's|/var/www/|/srv/http/|g' \
-      -e 's|//|/|g' \
-      -e 's|#CGIextension = cgi|&\n#TriggerOnCGIstatus = no|g' \
-      -e 's|ConnectTo = 127.0.0.1:2005|ConnectTo = 127.0.0.1:9000|g' \
-      -e 's|#	Extension = php|&\n#       SessionTimeout = 30|g' \
-      -e 's|#ErrorHandler = 404:/error.cgi|&\n#UseGZfile = yes|g' \
-      -i "$pkgdir/etc/hiawatha/hiawatha.conf"
-  
   install -Dm644 logrotate.d/hiawatha "$pkgdir/etc/logrotate.d/hiawatha"
-  install -Dm644 "$srcdir/hiawatha.service" "$pkgdir/usr/lib/systemd/system/hiawatha.service"
-  install -Dm644 "$srcdir/hiawatha.conf.sample" "$pkgdir/etc/hiawatha/"
-
-  mkdir -p "$pkgdir/usr/share/hiawatha/"
-  cd "$srcdir/$pkgname-$pkgver/extra/"
-  cp "$srcdir/letsencrypt-renew."* letsencrypt/
-  tar -caf "$pkgdir/usr/share/hiawatha/letsencrypt.tar.gz" letsencrypt/*
+  cd "$srcdir"
+  install -Dm644 hiawatha.service   "$pkgdir/usr/lib/systemd/system/hiawatha.service"
+  install -Dm644 lefh-renew.service "$pkgdir/usr/lib/systemd/system/lefh-renew.service"
+  install -Dm644 lefh-renew.timer   "$pkgdir/usr/lib/systemd/system/lefh-renew.timer"
+  install -Dm644 hiawatha.conf.sample "$pkgdir/etc/hiawatha/"
 }
 
