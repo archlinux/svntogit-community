@@ -23,7 +23,7 @@ pkgname=(
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
 pkgver=18.2
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -89,6 +89,11 @@ sha512sums=('7b63dc9c082f538690d28dd6da10999888af2b9de2e532bca54420753f64238f42e
             '539b33f30f6735caaf57fb9f19de449b8a8902362ae9e66a6fceabd530d02888533d2ab262fb187670780c997e5c1d23bd715a3c6860fd50280c1031f47865f7')
 
 prepare() {
+  # force python 'binary' as python2
+  [[ -d "$srcdir/path" ]] && rm -rf "$srcdir/path"
+  mkdir "$srcdir/path"
+  ln -s /usr/bin/python2 "$srcdir/path/python"
+
   [[ -d kodi-build-x11 ]] && rm -rf kodi-build-x11
   mkdir kodi-build-x11
   [[ -d kodi-build-wayland ]] && rm -rf kodi-build-wayland
@@ -105,6 +110,8 @@ prepare() {
 }
 
 build() {
+  export PATH="$srcdir/path:$PATH"
+
   msg2 "building kodi-x11"
   cd "$srcdir/kodi-build-x11"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
@@ -204,6 +211,8 @@ package_kodi() {
     'kodi-bin'
   )
 
+  export PATH="$srcdir/path:$PATH"
+
   cd kodi-build-x11
   # install eventclients
   for _cmp in ${_components[@]}; do
@@ -286,6 +295,8 @@ package_kodi-eventclients() {
     'kodi-eventclients-kodi-send'
   )
 
+  export PATH="$srcdir/path:$PATH"
+
   cd kodi-build-x11
   # install eventclients
   for _cmp in ${_components[@]}; do
@@ -340,6 +351,8 @@ package_kodi-dev() {
     'kodi-screensaver-dev'
     'kodi-visualization-dev'
   )
+
+  export PATH="$srcdir/path:$PATH"
 
   cd kodi-build-x11
   # install eventclients
