@@ -5,7 +5,7 @@
 # Contributor : Nick Erdmann <erdmann@date.upb.de>
 
 pkgname=nethack
-pkgver=3.6.1
+pkgver=3.6.2
 pkgrel=1
 pkgdesc='A single player dungeon exploration game'
 arch=('x86_64')
@@ -13,7 +13,7 @@ url="https://www.nethack.org/index.html"
 license=('custom')
 depends=('ncurses' 'gzip')
 install=nethack.install
-source=("https://downloads.sourceforge.net/$pkgname/$pkgname-${pkgver//.}-src.tgz")
+source=("https://www.nethack.org/download/${pkgver}/${pkgname}-${pkgver//.}-src.tgz")
 
 prepare() {
   cd $srcdir/$pkgname-$pkgver/
@@ -71,4 +71,4 @@ package() {
   install -Dm644 dat/license $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
-md5sums=('5c469058a0d2876c274c102d56f47bb5')
+md5sums=('567c89d9606456ce98c1b9535d024b8f')
