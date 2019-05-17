@@ -2,7 +2,7 @@
 
 pkgbase=python-importlib-metadata
 pkgname=(python-importlib-metadata python2-importlib-metadata)
-pkgver=0.9
+pkgver=0.12
 pkgrel=1
 pkgdesc="Read metadata from Python packages"
 url="https://importlib-metadata.readthedocs.io"
@@ -13,14 +13,12 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python2-contextli
 checkdepends=('python-pip' 'python2-pip' 'python-pytest-runner' 'python2-pytest-runner'
               'python2-importlib_resources' 'python-wheel' 'python2-wheel')
 source=("$pkgbase-$pkgver.tar.gz::https://gitlab.com/python-devs/importlib_metadata/-/archive/$pkgver/importlib_metadata-$pkgver.tar.bz2")
-sha512sums=('c12d820c18be35a3734c336ba4c30905d4cd421e655b955025368c66fecb2beba9769c24cfbedc929bbce6828665051726495c2ec0b3e0684917033afad49613')
+sha512sums=('b3b13580dc1007d1e9a603999b4c578cb0dbdfd35dacd9908cc232795ddd08d2567cb8305b5eb2bca1babc9c94a3b51341e0feea835944e5dab132527771db98')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 prepare() {
   cp -a importlib_metadata-$pkgver{,-py2}
-  cd importlib_metadata-$pkgver
-  sed -i 's/importlib_resources/importlib.resources/' importlib_metadata/tests/test_zip.py
 }
 
 build() {
@@ -32,13 +30,11 @@ build() {
 }
 
 check() {
-  # https://gitlab.com/python-devs/importlib_metadata/issues/41
-
   cd "$srcdir"/importlib_metadata-$pkgver
-  python setup.py pytest --addopts "-k 'not test_file_hash_repr and not test_files_dist_info'"
+  python setup.py pytest
 
   cd "$srcdir"/importlib_metadata-$pkgver-py2
-  python2 setup.py pytest --addopts "-k 'not test_file_hash_repr and not test_files_dist_info'"
+  python2 setup.py pytest
 }
 
 package_python-importlib-metadata() {
