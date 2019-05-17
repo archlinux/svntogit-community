@@ -39,7 +39,7 @@ ffi.cmx: config.cmx
 glutils.cmx: ffi.cmx
 help.cmx: help.cmi config.cmx utils.cmx
 listview.cmx: utils.cmx glutils.cmx config.cmx utf8syms.cmx
-main.cmx: main.ml utils.cmx config.cmx glutils.cmx listview.cmx ffi.cmx keys.cmx wsi.cmx
+main.cmx: main.ml main.cmi utils.cmx config.cmx glutils.cmx listview.cmx ffi.cmx keys.cmx wsi.cmx
 main.cmx: CAMLFLAGS += -thread
 parser.cmx: utils.cmx
 wsi.cmi: utils.cmx keys.cmx
