@@ -7,8 +7,8 @@
 pkgbase=python-markdown
 pkgname=('python-markdown' 'python2-markdown')
 _pkgbasename=Markdown
-pkgver=3.0.1
-pkgrel=2
+pkgver=3.1
+pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
@@ -16,16 +16,15 @@ license=('BSD')
 depends=('python')
 makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools')
 checkdepends=('python-yaml' 'python2-yaml')
-source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz"
-        '0001-fix-double-escaping.patch')
-md5sums=('72219f46ca440b657bf227500731bdf1'
-         '8ecbe4dc23be24a49bff904126535857')
+source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
+md5sums=('ef00dbf71b44d60a8e75b0315eaf6944')
 
 prepare() {
   # bug in 2.4, some DOS line endings slipped in
   find "$_pkgbasename-$pkgver/" -name '*py' -exec sed -i 's|\r||g' {} +
 
-  patch -d "$_pkgbasename-$pkgver/" -Np1 < "${srcdir}"/0001-fix-double-escaping.patch
+  # ImportError: No module named pkg_resources
+  sed -i 's/^from pkg_resources.*$/import packaging.version/' "$_pkgbasename-$pkgver/markdown/__init__.py"
 
   cp -r $_pkgbasename-$pkgver "$srcdir/python2-markdown"
   cd "$srcdir/python2-markdown"
@@ -62,11 +61,11 @@ package_python2-markdown() {
 }
 
 check_python-markdown() {
-  [[ $(python -c "import markdown; print(markdown._get_version())") == "$pkgver" ]]
+  [[ $(python -c "import markdown; print(markdown.version)") == "$pkgver" ]]
   [[ $(python -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
 }
 
 check_python2-markdown() {
-  [[ $(python2 -c "import markdown; print(markdown._get_version())") == "$pkgver" ]]
+  [[ $(python2 -c "import markdown; print(markdown.version)") == "$pkgver" ]]
   [[ $(python2 -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
 }
