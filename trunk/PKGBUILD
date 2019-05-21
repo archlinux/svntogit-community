@@ -2,7 +2,7 @@
 
 pkgbase=python-filelock
 pkgname=(python-filelock python2-filelock)
-pkgver=3.0.10
+pkgver=3.0.12
 pkgrel=1
 pkgdesc="A platform independent file lock"
 url="https://github.com/benediktschmitt/py-filelock"
@@ -11,7 +11,7 @@ arch=('any')
 makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest' 'python2-pytest')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/benediktschmitt/py-filelock/archive/v$pkgver.tar.gz")
-sha512sums=('1fa4594eaba6689ea61149a60a71e86007297614a1c22dc6c94b4774520d396ff8ad03076dfdbb2ce49d2b6e42c374af065a115c167d81cf6107918abfbe52ef')
+sha512sums=('0f30b54b9de2540f023855effcc582b18fedcee6681f21e1733f1b60dbd39eb148e3830bc798a44c5e8c22e7ea8ca26b6d4547fae79dacc78c62b819a3d84683')
 
 build() {
   cd py-filelock-$pkgver
@@ -30,7 +30,7 @@ package_python-filelock() {
 
   cd py-filelock-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE.rst "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.rst
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
 }
 
 package_python2-filelock() {
@@ -38,5 +38,5 @@ package_python2-filelock() {
 
   cd py-filelock-$pkgver
   python2 setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE.rst "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.rst
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
 }
