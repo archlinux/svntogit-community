@@ -1,8 +1,43 @@
+From a6ab1e66fc05a02178e051ea2441633996d5871e Mon Sep 17 00:00:00 2001
+From: Nathan Baker <7409217+nathan-b@users.noreply.github.com>
+Date: Thu, 23 May 2019 09:59:06 -0400
+Subject: [PATCH] Changes to build the kmod with 5.1 kernels [SMAGENT-1643]
+ (#1413)
+
+[SMAGENT-1643] Changes to build the kmod with 5.1 kernels
+
+* The syscall_get_arguments function changed its parameters.
+* The mmap symbols changed header locations
+* Wrapped the kernel version check in a function
+---
+ driver/main.c             |  21 ++-
+ driver/ppm.h              |   2 +
+ driver/ppm_events.c       |  47 +++---
+ driver/ppm_fillers.c      | 345 ++++++++++++++++++++------------------
+ driver/ppm_flag_helpers.h |   3 +-
+ 5 files changed, 227 insertions(+), 191 deletions(-)
+
 diff --git a/driver/main.c b/driver/main.c
-index a2b0b64..cdd8d2d 100644
+index a2b0b6453..fc8768584 100644
 --- a/driver/main.c
 +++ b/driver/main.c
-@@ -1284,11 +1284,14 @@ static const unsigned char compat_nas[21] = {
+@@ -216,6 +216,15 @@ do {								\
+ 		pr_info(fmt, ##__VA_ARGS__);			\
+ } while (0)
+ 
++inline void ppm_syscall_get_arguments(struct task_struct *task, struct pt_regs *regs, unsigned long *args)
++{
++#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
++    syscall_get_arguments(task, regs, 0, 6, args);
++#else
++    syscall_get_arguments(task, regs, args);
++#endif
++}
++
+ /* compat tracepoint functions */
+ static int compat_register_trace(void *func, const char *probename, struct tracepoint *tp)
+ {
+@@ -1284,11 +1293,10 @@ static const unsigned char compat_nas[21] = {
  #ifdef _HAS_SOCKETCALL
  static enum ppm_event_type parse_socketcall(struct event_filler_arguments *filler_args, struct pt_regs *regs)
  {
@@ -12,15 +47,11 @@ index a2b0b64..cdd8d2d 100644
  	int socketcall_id;
 -
 -	syscall_get_arguments(current, regs, 0, 2, args);
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+	syscall_get_arguments(current, regs, 0, 6, args);
-+#else
-+	syscall_get_arguments(current, regs, args);
-+#endif
++	ppm_syscall_get_arguments(current, regs, args);
  	socketcall_id = args[0];
  	scargs = (unsigned long __user *)args[1];
  
-@@ -1403,6 +1406,7 @@ static inline void record_drop_x(struct ppm_consumer_t *consumer, struct timespe
+@@ -1403,6 +1411,7 @@ static inline void record_drop_x(struct ppm_consumer_t *consumer, struct timespe
  static inline int drop_nostate_event(enum ppm_event_type event_type,
  				     struct pt_regs *regs)
  {
@@ -28,39 +59,42 @@ index a2b0b64..cdd8d2d 100644
  	unsigned long arg = 0;
  	int close_fd = -1;
  	struct files_struct *files;
-@@ -1424,7 +1428,12 @@ static inline int drop_nostate_event(enum ppm_event_type event_type,
+@@ -1424,7 +1433,8 @@ static inline int drop_nostate_event(enum ppm_event_type event_type,
  		 * The invalid fd events don't matter to userspace in dropping mode,
  		 * so we do this before the UF_NEVER_DROP check
  		 */
 -		syscall_get_arguments(current, regs, 0, 1, &arg);
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+		syscall_get_arguments(current, regs, 0, 6, args);
-+#else
-+		syscall_get_arguments(current, regs, args);
-+#endif
++		ppm_syscall_get_arguments(current, regs, args);
 +		arg = args[0];
  		close_fd = (int)arg;
  
  		files = current->files;
-@@ -1444,7 +1453,12 @@ static inline int drop_nostate_event(enum ppm_event_type event_type,
+@@ -1444,7 +1454,8 @@ static inline int drop_nostate_event(enum ppm_event_type event_type,
  	case PPME_SYSCALL_FCNTL_E:
  	case PPME_SYSCALL_FCNTL_X:
  		// cmd arg
 -		syscall_get_arguments(current, regs, 1, 1, &arg);
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+		syscall_get_arguments(current, regs, 0, 6, args);
-+#else
-+		syscall_get_arguments(current, regs, args);
-+#endif
++		ppm_syscall_get_arguments(current, regs, args);
 +		arg = args[1];
  		if (arg != F_DUPFD && arg != F_DUPFD_CLOEXEC)
  			drop = true;
  		break;
+diff --git a/driver/ppm.h b/driver/ppm.h
+index 6ecc2b719..6077fa425 100644
+--- a/driver/ppm.h
++++ b/driver/ppm.h
+@@ -113,4 +113,6 @@ extern const struct syscall_evt_pair g_syscall_ia32_table[];
+ extern const enum ppm_syscall_code g_syscall_ia32_code_routing_table[];
+ #endif
+ 
++extern void ppm_syscall_get_arguments(struct task_struct *task, struct pt_regs *regs, unsigned long *args);
++
+ #endif /* PPM_H_ */
 diff --git a/driver/ppm_events.c b/driver/ppm_events.c
-index cc3eb98..db13d07 100644
+index 77671a9fa..fd96acd8c 100644
 --- a/driver/ppm_events.c
 +++ b/driver/ppm_events.c
-@@ -244,14 +244,20 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
+@@ -249,14 +249,16 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
  			if (err == 0) {
  				if(args->event_type == PPME_SOCKET_SENDTO_X)
  				{
@@ -74,17 +108,13 @@ index cc3eb98..db13d07 100644
 -						syscall_get_arguments(current, args->regs, 4, 1, &val);
 -					else
 +					if (!args->is_socketcall) {
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+						syscall_get_arguments(current, args->regs, 0, 6, syscall_args);
-+#else
-+						syscall_get_arguments(current, args->regs, syscall_args);
-+#endif
++						ppm_syscall_get_arguments(current, args->regs, syscall_args);
 +						val = syscall_args[4];
 +					} else
  						val = args->socketcall_args[4];
  
  					usrsockaddr = (struct sockaddr __user *)val;
-@@ -265,9 +271,14 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
+@@ -270,9 +272,10 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
  						/*
  						 * Get the address len
  						 */
@@ -92,17 +122,13 @@ index cc3eb98..db13d07 100644
 -							syscall_get_arguments(current, args->regs, 5, 1, &val);
 -						else
 +						if (!args->is_socketcall) {
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+							syscall_get_arguments(current, args->regs, 0, 6, syscall_args);
-+#else
-+							syscall_get_arguments(current, args->regs, syscall_args);
-+#endif
++							ppm_syscall_get_arguments(current, args->regs, syscall_args);
 +							val = syscall_args[5];
 +						} else
  							val = args->socketcall_args[5];
  
  						if (val != 0) {
-@@ -283,6 +294,7 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
+@@ -288,6 +291,7 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
  						}
  					}
  				} else if (args->event_type == PPME_SOCKET_SENDMSG_X) {
@@ -110,7 +136,7 @@ index cc3eb98..db13d07 100644
  					unsigned long val;
  					struct sockaddr __user * usrsockaddr;
  					int addrlen;
-@@ -295,9 +307,14 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
+@@ -300,9 +304,10 @@ inline u32 compute_snaplen(struct event_filler_arguments *args, char *buf, u32 l
  					struct msghdr mh;
  #endif
  
@@ -118,17 +144,13 @@ index cc3eb98..db13d07 100644
 -						syscall_get_arguments(current, args->regs, 1, 1, &val);
 -					else
 +					if (!args->is_socketcall) {
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+						syscall_get_arguments(current, args->regs, 0, 6, syscall_args);
-+#else
-+						syscall_get_arguments(current, args->regs, syscall_args);
-+#endif
++						ppm_syscall_get_arguments(current, args->regs, syscall_args);
 +						val = syscall_args[1];
 +					} else
  						val = args->socketcall_args[1];
  
  #ifdef CONFIG_COMPAT
-@@ -1106,6 +1123,7 @@ int32_t parse_readv_writev_bufs(struct event_filler_arguments *args, const struc
+@@ -1113,6 +1118,7 @@ int32_t parse_readv_writev_bufs(struct event_filler_arguments *args, const struc
  	unsigned long bufsize;
  	char *targetbuf = args->str_storage;
  	u32 targetbuflen = STR_STORAGE_SIZE;
@@ -136,7 +158,7 @@ index cc3eb98..db13d07 100644
  	unsigned long val;
  	u32 notcopied_len;
  	size_t tocopy_len;
-@@ -1151,9 +1169,14 @@ int32_t parse_readv_writev_bufs(struct event_filler_arguments *args, const struc
+@@ -1158,9 +1164,10 @@ int32_t parse_readv_writev_bufs(struct event_filler_arguments *args, const struc
  			/*
  			 * Retrieve the FD. It will be used for dynamic snaplen calculation.
  			 */
@@ -144,17 +166,13 @@ index cc3eb98..db13d07 100644
 -				syscall_get_arguments(current, args->regs, 0, 1, &val);
 -			else
 +			if (!args->is_socketcall) {
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+				syscall_get_arguments(current, args->regs, 0, 6, syscall_args);
-+#else
-+				syscall_get_arguments(current, args->regs, syscall_args);
-+#endif
++				ppm_syscall_get_arguments(current, args->regs, syscall_args);
 +				val = syscall_args[0];
 +			} else
  				val = args->socketcall_args[0];
  			args->fd = (int)val;
  
-@@ -1237,6 +1260,7 @@ int32_t compat_parse_readv_writev_bufs(struct event_filler_arguments *args, cons
+@@ -1244,6 +1251,7 @@ int32_t compat_parse_readv_writev_bufs(struct event_filler_arguments *args, cons
  	unsigned long bufsize;
  	char *targetbuf = args->str_storage;
  	u32 targetbuflen = STR_STORAGE_SIZE;
@@ -162,7 +180,7 @@ index cc3eb98..db13d07 100644
  	unsigned long val;
  	u32 notcopied_len;
  	compat_size_t tocopy_len;
-@@ -1282,9 +1306,14 @@ int32_t compat_parse_readv_writev_bufs(struct event_filler_arguments *args, cons
+@@ -1289,9 +1297,10 @@ int32_t compat_parse_readv_writev_bufs(struct event_filler_arguments *args, cons
  			/*
  			 * Retrieve the FD. It will be used for dynamic snaplen calculation.
  			 */
@@ -170,17 +188,13 @@ index cc3eb98..db13d07 100644
 -				syscall_get_arguments(current, args->regs, 0, 1, &val);
 -			else
 +			if (!args->is_socketcall) {
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+				syscall_get_arguments(current, args->regs, 0, 6, syscall_args);
-+#else
-+				syscall_get_arguments(current, args->regs, syscall_args);
-+#endif
++				ppm_syscall_get_arguments(current, args->regs, syscall_args);
 +				val = syscall_args[0];
 +			} else
  				val = args->socketcall_args[0];
  			args->fd = (int)val;
  
-@@ -1368,6 +1397,7 @@ int32_t compat_parse_readv_writev_bufs(struct event_filler_arguments *args, cons
+@@ -1375,6 +1384,7 @@ int32_t compat_parse_readv_writev_bufs(struct event_filler_arguments *args, cons
  int f_sys_autofill(struct event_filler_arguments *args)
  {
  	int res;
@@ -188,7 +202,7 @@ index cc3eb98..db13d07 100644
  	unsigned long val;
  	u32 j;
  	int64_t retval;
-@@ -1386,11 +1416,12 @@ int f_sys_autofill(struct event_filler_arguments *args)
+@@ -1393,11 +1403,8 @@ int f_sys_autofill(struct event_filler_arguments *args)
  				/*
  				 * Regular argument
  				 */
@@ -197,25 +211,21 @@ index cc3eb98..db13d07 100644
 -						evinfo->autofill_args[j].id,
 -						1,
 -						&val);
-+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 1, 0))
-+				syscall_get_arguments(current, args->regs, 0, 6, syscall_args);
-+#else
-+				syscall_get_arguments(current, args->regs, syscall_args);
-+#endif
++				ppm_syscall_get_arguments(current, args->regs, syscall_args);
 +				val = syscall_args[evinfo->autofill_args[j].id];
  			}
  
  			res = val_to_ring(args, val, 0, true, 0);
 diff --git a/driver/ppm_fillers.c b/driver/ppm_fillers.c
-index ccf092f..c9c4e67 100644
+index 82d0b162a..883827afd 100644
 --- a/driver/ppm_fillers.c
 +++ b/driver/ppm_fillers.c
-@@ -48,6 +48,23 @@ or GPL2.txt for full copies of the license.
+@@ -56,6 +56,23 @@ static inline struct inode *file_inode(struct file *f)
  
  #define merge_64(hi, lo) ((((unsigned long long)(hi)) << 32) + ((lo) & 0xffffffffUL))
  
 +/*
-+ * Linux 5.1 kernels modify the syscall_get_arguments_deprecated function to always
++ * Linux 5.1 kernels modify the syscall_get_arguments function to always
 + * return all arguments rather than allowing the caller to select which
 + * arguments are desired. This wrapper replicates the original
 + * functionality.
@@ -234,7 +244,7 @@ index ccf092f..c9c4e67 100644
  int f_sys_generic(struct event_filler_arguments *args)
  {
  	int res;
-@@ -107,7 +124,7 @@ int f_sys_single(struct event_filler_arguments *args)
+@@ -115,7 +132,7 @@ int f_sys_single(struct event_filler_arguments *args)
  	int res;
  	unsigned long val;
  
@@ -243,7 +253,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -147,7 +164,7 @@ int f_sys_open_x(struct event_filler_arguments *args)
+@@ -195,7 +212,7 @@ int f_sys_open_x(struct event_filler_arguments *args)
  	/*
  	 * name
  	 */
@@ -252,7 +262,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -156,7 +173,7 @@ int f_sys_open_x(struct event_filler_arguments *args)
+@@ -204,7 +221,7 @@ int f_sys_open_x(struct event_filler_arguments *args)
  	 * Flags
  	 * Note that we convert them into the ppm portable representation before pushing them to the ring
  	 */
@@ -261,7 +271,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, open_flags_to_scap(flags), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -164,7 +181,7 @@ int f_sys_open_x(struct event_filler_arguments *args)
+@@ -212,7 +229,7 @@ int f_sys_open_x(struct event_filler_arguments *args)
  	/*
  	 *  mode
  	 */
@@ -270,7 +280,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, open_modes_to_scap(flags, modes), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -182,7 +199,7 @@ int f_sys_read_x(struct event_filler_arguments *args)
+@@ -237,7 +254,7 @@ int f_sys_read_x(struct event_filler_arguments *args)
  	/*
  	 * Retrieve the FD. It will be used for dynamic snaplen calculation.
  	 */
@@ -279,7 +289,7 @@ index ccf092f..c9c4e67 100644
  	args->fd = (int)val;
  
  	/*
-@@ -203,7 +220,7 @@ int f_sys_read_x(struct event_filler_arguments *args)
+@@ -258,7 +275,7 @@ int f_sys_read_x(struct event_filler_arguments *args)
  		val = 0;
  		bufsize = 0;
  	} else {
@@ -288,7 +298,7 @@ index ccf092f..c9c4e67 100644
  
  		/*
  		 * The return value can be lower than the value provided by the user,
-@@ -233,7 +250,7 @@ int f_sys_write_x(struct event_filler_arguments *args)
+@@ -288,7 +305,7 @@ int f_sys_write_x(struct event_filler_arguments *args)
  	/*
  	 * Retrieve the FD. It will be used for dynamic snaplen calculation.
  	 */
@@ -297,7 +307,7 @@ index ccf092f..c9c4e67 100644
  	args->fd = (int)val;
  
  	/*
-@@ -248,13 +265,13 @@ int f_sys_write_x(struct event_filler_arguments *args)
+@@ -303,13 +320,13 @@ int f_sys_write_x(struct event_filler_arguments *args)
  	/*
  	 * data
  	 */
@@ -313,7 +323,7 @@ index ccf092f..c9c4e67 100644
  	args->enforce_snaplen = true;
  	res = val_to_ring(args, val, bufsize, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -693,7 +710,7 @@ int f_proc_startupdate(struct event_filler_arguments *args)
+@@ -748,7 +765,7 @@ int f_proc_startupdate(struct event_filler_arguments *args)
  			 */
  			args->str_storage[0] = 0;
  
@@ -322,7 +332,7 @@ index ccf092f..c9c4e67 100644
  #ifdef CONFIG_COMPAT
  			if (unlikely(args->compat))
  				args_len = compat_accumulate_argv_or_env((compat_uptr_t)val,
-@@ -865,9 +882,9 @@ cgroups_error:
+@@ -920,9 +937,9 @@ int f_proc_startupdate(struct event_filler_arguments *args)
  		 */
  		if (args->event_type == PPME_SYSCALL_CLONE_20_X) {
  #ifdef CONFIG_S390
@@ -334,7 +344,7 @@ index ccf092f..c9c4e67 100644
  #endif
  		} else
  			val = 0;
-@@ -940,7 +957,7 @@ cgroups_error:
+@@ -995,7 +1012,7 @@ int f_proc_startupdate(struct event_filler_arguments *args)
  			/*
  			 * The call failed, so get the env from the arguments
  			 */
@@ -343,7 +353,7 @@ index ccf092f..c9c4e67 100644
  #ifdef CONFIG_COMPAT
  			if (unlikely(args->compat))
  				env_len = compat_accumulate_argv_or_env((compat_uptr_t)val,
-@@ -1009,7 +1026,7 @@ int f_sys_execve_e(struct event_filler_arguments *args)
+@@ -1064,7 +1081,7 @@ int f_sys_execve_e(struct event_filler_arguments *args)
  	/*
  	 * filename
  	 */
@@ -352,7 +362,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (res == PPM_FAILURE_INVALID_USER_MEMORY)
  		res = val_to_ring(args, (unsigned long)"<NA>", 0, false, 0);
-@@ -1041,7 +1058,7 @@ int f_sys_socket_bind_x(struct event_filler_arguments *args)
+@@ -1096,7 +1113,7 @@ int f_sys_socket_bind_x(struct event_filler_arguments *args)
  	 * addr
  	 */
  	if (!args->is_socketcall)
@@ -361,7 +371,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[1];
  
-@@ -1051,7 +1068,7 @@ int f_sys_socket_bind_x(struct event_filler_arguments *args)
+@@ -1106,7 +1123,7 @@ int f_sys_socket_bind_x(struct event_filler_arguments *args)
  	 * Get the address len
  	 */
  	if (!args->is_socketcall)
@@ -370,7 +380,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[2];
  
-@@ -1109,7 +1126,7 @@ int f_sys_connect_x(struct event_filler_arguments *args)
+@@ -1164,7 +1181,7 @@ int f_sys_connect_x(struct event_filler_arguments *args)
  	 * in the stack, and therefore we can consume them.
  	 */
  	if (!args->is_socketcall) {
@@ -379,7 +389,7 @@ index ccf092f..c9c4e67 100644
  		fd = (int)val;
  	} else
  		fd = (int)args->socketcall_args[0];
-@@ -1119,7 +1136,7 @@ int f_sys_connect_x(struct event_filler_arguments *args)
+@@ -1174,7 +1191,7 @@ int f_sys_connect_x(struct event_filler_arguments *args)
  		 * Get the address
  		 */
  		if (!args->is_socketcall)
@@ -388,7 +398,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[1];
  
-@@ -1129,7 +1146,7 @@ int f_sys_connect_x(struct event_filler_arguments *args)
+@@ -1184,7 +1201,7 @@ int f_sys_connect_x(struct event_filler_arguments *args)
  		 * Get the address len
  		 */
  		if (!args->is_socketcall)
@@ -397,7 +407,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[2];
  
-@@ -1194,7 +1211,7 @@ int f_sys_socketpair_x(struct event_filler_arguments *args)
+@@ -1249,7 +1266,7 @@ int f_sys_socketpair_x(struct event_filler_arguments *args)
  		 * fds
  		 */
  		if (!args->is_socketcall)
@@ -406,7 +416,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[3];
  #ifdef CONFIG_COMPAT
-@@ -1427,9 +1444,9 @@ int f_sys_setsockopt_x(struct event_filler_arguments *args)
+@@ -1482,9 +1499,9 @@ int f_sys_setsockopt_x(struct event_filler_arguments *args)
  {
  	int res;
  	int64_t retval;
@@ -418,7 +428,7 @@ index ccf092f..c9c4e67 100644
  	retval = (int64_t)(long)syscall_get_return_value(current, args->regs);
  
  	/* retval */
-@@ -1471,9 +1488,9 @@ int f_sys_getsockopt_x(struct event_filler_arguments *args)
+@@ -1526,9 +1543,9 @@ int f_sys_getsockopt_x(struct event_filler_arguments *args)
  	int res;
  	int64_t retval;
  	uint32_t optlen;
@@ -430,7 +440,7 @@ index ccf092f..c9c4e67 100644
  	retval = (int64_t)(long)syscall_get_return_value(current, args->regs);
  
  	/* retval */
-@@ -1575,7 +1592,7 @@ int f_sys_accept_x(struct event_filler_arguments *args)
+@@ -1630,7 +1647,7 @@ int f_sys_accept_x(struct event_filler_arguments *args)
  	 * queuepct
  	 */
  	if (!args->is_socketcall)
@@ -439,7 +449,7 @@ index ccf092f..c9c4e67 100644
  	else
  		srvskfd = args->socketcall_args[0];
  
-@@ -1617,7 +1634,7 @@ int f_sys_send_e_common(struct event_filler_arguments *args, int *fd)
+@@ -1672,7 +1689,7 @@ int f_sys_send_e_common(struct event_filler_arguments *args, int *fd)
  	 * fd
  	 */
  	if (!args->is_socketcall)
@@ -448,7 +458,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[0];
  
-@@ -1631,7 +1648,7 @@ int f_sys_send_e_common(struct event_filler_arguments *args, int *fd)
+@@ -1686,7 +1703,7 @@ int f_sys_send_e_common(struct event_filler_arguments *args, int *fd)
  	 * size
  	 */
  	if (!args->is_socketcall)
@@ -457,7 +467,7 @@ index ccf092f..c9c4e67 100644
  	else
  		size = args->socketcall_args[2];
  
-@@ -1678,7 +1695,7 @@ int f_sys_sendto_e(struct event_filler_arguments *args)
+@@ -1733,7 +1750,7 @@ int f_sys_sendto_e(struct event_filler_arguments *args)
  	 * Get the address
  	 */
  	if (!args->is_socketcall)
@@ -466,7 +476,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[4];
  
-@@ -1688,7 +1705,7 @@ int f_sys_sendto_e(struct event_filler_arguments *args)
+@@ -1743,7 +1760,7 @@ int f_sys_sendto_e(struct event_filler_arguments *args)
  	 * Get the address len
  	 */
  	if (!args->is_socketcall)
@@ -475,7 +485,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[5];
  
-@@ -1736,7 +1753,7 @@ int f_sys_send_x(struct event_filler_arguments *args)
+@@ -1791,7 +1808,7 @@ int f_sys_send_x(struct event_filler_arguments *args)
  	 * Retrieve the FD. It will be used for dynamic snaplen calculation.
  	 */
  	if (!args->is_socketcall)
@@ -484,7 +494,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[0];
  
-@@ -1761,7 +1778,7 @@ int f_sys_send_x(struct event_filler_arguments *args)
+@@ -1816,7 +1833,7 @@ int f_sys_send_x(struct event_filler_arguments *args)
  		bufsize = 0;
  	} else {
  		if (!args->is_socketcall)
@@ -493,7 +503,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[1];
  
-@@ -1790,7 +1807,7 @@ int f_sys_recv_x_common(struct event_filler_arguments *args, int64_t *retval)
+@@ -1845,7 +1862,7 @@ int f_sys_recv_x_common(struct event_filler_arguments *args, int64_t *retval)
  	 * Retrieve the FD. It will be used for dynamic snaplen calculation.
  	 */
  	if (!args->is_socketcall)
@@ -502,7 +512,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[1];
  
-@@ -1815,7 +1832,7 @@ int f_sys_recv_x_common(struct event_filler_arguments *args, int64_t *retval)
+@@ -1870,7 +1887,7 @@ int f_sys_recv_x_common(struct event_filler_arguments *args, int64_t *retval)
  		bufsize = 0;
  	} else {
  		if (!args->is_socketcall)
@@ -511,7 +521,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[1];
  
-@@ -1871,7 +1888,7 @@ int f_sys_recvfrom_x(struct event_filler_arguments *args)
+@@ -1926,7 +1943,7 @@ int f_sys_recvfrom_x(struct event_filler_arguments *args)
  		 * Get the fd
  		 */
  		if (!args->is_socketcall) {
@@ -520,7 +530,7 @@ index ccf092f..c9c4e67 100644
  			fd = (int)val;
  		} else
  			fd = (int)args->socketcall_args[0];
-@@ -1880,7 +1897,7 @@ int f_sys_recvfrom_x(struct event_filler_arguments *args)
+@@ -1935,7 +1952,7 @@ int f_sys_recvfrom_x(struct event_filler_arguments *args)
  		 * Get the address
  		 */
  		if (!args->is_socketcall)
@@ -529,7 +539,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[4];
  		usrsockaddr = (struct sockaddr __user *)val;
-@@ -1889,7 +1906,7 @@ int f_sys_recvfrom_x(struct event_filler_arguments *args)
+@@ -1944,7 +1961,7 @@ int f_sys_recvfrom_x(struct event_filler_arguments *args)
  		 * Get the address len
  		 */
  		if (!args->is_socketcall)
@@ -538,7 +548,7 @@ index ccf092f..c9c4e67 100644
  		else
  			val = args->socketcall_args[5];
  		if (usrsockaddr != NULL && val != 0) {
-@@ -1965,7 +1982,7 @@ int f_sys_sendmsg_e(struct event_filler_arguments *args)
+@@ -2020,7 +2037,7 @@ int f_sys_sendmsg_e(struct event_filler_arguments *args)
  	 * fd
  	 */
  	if (!args->is_socketcall)
@@ -547,7 +557,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[0];
  
-@@ -1978,7 +1995,7 @@ int f_sys_sendmsg_e(struct event_filler_arguments *args)
+@@ -2033,7 +2050,7 @@ int f_sys_sendmsg_e(struct event_filler_arguments *args)
  	 * Retrieve the message header
  	 */
  	if (!args->is_socketcall)
@@ -556,7 +566,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[1];
  
-@@ -2090,7 +2107,7 @@ int f_sys_sendmsg_x(struct event_filler_arguments *args)
+@@ -2145,7 +2162,7 @@ int f_sys_sendmsg_x(struct event_filler_arguments *args)
  	 * Retrieve the message header
  	 */
  	if (!args->is_socketcall)
@@ -565,7 +575,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[1];
  
-@@ -2163,7 +2180,7 @@ int f_sys_recvmsg_x(struct event_filler_arguments *args)
+@@ -2218,7 +2235,7 @@ int f_sys_recvmsg_x(struct event_filler_arguments *args)
  	 * Retrieve the message header
  	 */
  	if (!args->is_socketcall)
@@ -574,7 +584,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[1];
  
-@@ -2207,7 +2224,7 @@ int f_sys_recvmsg_x(struct event_filler_arguments *args)
+@@ -2262,7 +2279,7 @@ int f_sys_recvmsg_x(struct event_filler_arguments *args)
  		 * Get the fd
  		 */
  		if (!args->is_socketcall) {
@@ -583,7 +593,25 @@ index ccf092f..c9c4e67 100644
  			fd = (int)val;
  		} else
  			fd = (int)args->socketcall_args[0];
-@@ -2269,7 +2286,7 @@ int f_sys_pipe_x(struct event_filler_arguments *args)
+@@ -2323,7 +2340,7 @@ int f_sys_creat_x(struct event_filler_arguments *args)
+ 	/*
+ 	 * name
+ 	 */
+-	syscall_get_arguments(current, args->regs, 0, 1, &val);
++	syscall_get_arguments_deprecated(current, args->regs, 0, 1, &val);
+ 	res = val_to_ring(args, val, 0, true, 0);
+ 	if (unlikely(res != PPM_SUCCESS))
+ 		return res;
+@@ -2331,7 +2348,7 @@ int f_sys_creat_x(struct event_filler_arguments *args)
+ 	/*
+ 	 *  mode
+ 	 */
+-	syscall_get_arguments(current, args->regs, 1, 1, &modes);
++	syscall_get_arguments_deprecated(current, args->regs, 1, 1, &modes);
+ 	res = val_to_ring(args, open_modes_to_scap(O_CREAT, modes), 0, false, 0);
+ 	if (unlikely(res != PPM_SUCCESS))
+ 		return res;
+@@ -2365,7 +2382,7 @@ int f_sys_pipe_x(struct event_filler_arguments *args)
  	/*
  	 * fds
  	 */
@@ -592,7 +620,7 @@ index ccf092f..c9c4e67 100644
  
  #ifdef CONFIG_COMPAT
  	if (!args->compat) {
-@@ -2317,7 +2334,7 @@ int f_sys_eventfd_e(struct event_filler_arguments *args)
+@@ -2413,7 +2430,7 @@ int f_sys_eventfd_e(struct event_filler_arguments *args)
  	/*
  	 * initval
  	 */
@@ -601,7 +629,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2326,7 +2343,7 @@ int f_sys_eventfd_e(struct event_filler_arguments *args)
+@@ -2422,7 +2439,7 @@ int f_sys_eventfd_e(struct event_filler_arguments *args)
  	 * flags
  	 * XXX not implemented yet
  	 */
@@ -610,7 +638,7 @@ index ccf092f..c9c4e67 100644
  	val = 0;
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -2344,7 +2361,7 @@ int f_sys_shutdown_e(struct event_filler_arguments *args)
+@@ -2440,7 +2457,7 @@ int f_sys_shutdown_e(struct event_filler_arguments *args)
  	 * fd
  	 */
  	if (!args->is_socketcall)
@@ -619,7 +647,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[0];
  
-@@ -2356,7 +2373,7 @@ int f_sys_shutdown_e(struct event_filler_arguments *args)
+@@ -2452,7 +2469,7 @@ int f_sys_shutdown_e(struct event_filler_arguments *args)
  	 * how
  	 */
  	if (!args->is_socketcall)
@@ -628,7 +656,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = args->socketcall_args[1];
  
-@@ -2375,7 +2392,7 @@ int f_sys_futex_e(struct event_filler_arguments *args)
+@@ -2471,7 +2488,7 @@ int f_sys_futex_e(struct event_filler_arguments *args)
  	/*
  	 * addr
  	 */
@@ -637,7 +665,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2383,7 +2400,7 @@ int f_sys_futex_e(struct event_filler_arguments *args)
+@@ -2479,7 +2496,7 @@ int f_sys_futex_e(struct event_filler_arguments *args)
  	/*
  	 * op
  	 */
@@ -646,7 +674,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, (unsigned long)futex_op_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2391,7 +2408,7 @@ int f_sys_futex_e(struct event_filler_arguments *args)
+@@ -2487,7 +2504,7 @@ int f_sys_futex_e(struct event_filler_arguments *args)
  	/*
  	 * val
  	 */
@@ -655,7 +683,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2407,7 +2424,7 @@ int f_sys_lseek_e(struct event_filler_arguments *args)
+@@ -2503,7 +2520,7 @@ int f_sys_lseek_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -664,7 +692,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2415,7 +2432,7 @@ int f_sys_lseek_e(struct event_filler_arguments *args)
+@@ -2511,7 +2528,7 @@ int f_sys_lseek_e(struct event_filler_arguments *args)
  	/*
  	 * offset
  	 */
@@ -673,7 +701,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2423,7 +2440,7 @@ int f_sys_lseek_e(struct event_filler_arguments *args)
+@@ -2519,7 +2536,7 @@ int f_sys_lseek_e(struct event_filler_arguments *args)
  	/*
  	 * whence
  	 */
@@ -682,7 +710,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, lseek_whence_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2442,7 +2459,7 @@ int f_sys_llseek_e(struct event_filler_arguments *args)
+@@ -2538,7 +2555,7 @@ int f_sys_llseek_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -691,7 +719,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2451,8 +2468,8 @@ int f_sys_llseek_e(struct event_filler_arguments *args)
+@@ -2547,8 +2564,8 @@ int f_sys_llseek_e(struct event_filler_arguments *args)
  	 * offset
  	 * We build it by combining the offset_high and offset_low system call arguments
  	 */
@@ -702,7 +730,7 @@ index ccf092f..c9c4e67 100644
  	offset = (((uint64_t)oh) << 32) + ((uint64_t)ol);
  	res = val_to_ring(args, offset, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -2461,7 +2478,7 @@ int f_sys_llseek_e(struct event_filler_arguments *args)
+@@ -2557,7 +2574,7 @@ int f_sys_llseek_e(struct event_filler_arguments *args)
  	/*
  	 * whence
  	 */
@@ -711,7 +739,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, lseek_whence_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2485,7 +2502,7 @@ static int poll_parse_fds(struct event_filler_arguments *args, bool enter_event)
+@@ -2581,7 +2598,7 @@ static int poll_parse_fds(struct event_filler_arguments *args, bool enter_event)
  	 *
  	 * Get the number of fds
  	 */
@@ -720,7 +748,7 @@ index ccf092f..c9c4e67 100644
  
  	/*
  	 * Check if we have enough space to store both the fd list
-@@ -2495,7 +2512,7 @@ static int poll_parse_fds(struct event_filler_arguments *args, bool enter_event)
+@@ -2591,7 +2608,7 @@ static int poll_parse_fds(struct event_filler_arguments *args, bool enter_event)
  		return PPM_FAILURE_BUFFER_FULL;
  
  	/* Get the fds pointer */
@@ -729,7 +757,7 @@ index ccf092f..c9c4e67 100644
  
  	fds = (struct pollfd *)args->str_storage;
  #ifdef CONFIG_COMPAT
-@@ -2552,7 +2569,7 @@ int f_sys_poll_e(struct event_filler_arguments *args)
+@@ -2648,7 +2665,7 @@ int f_sys_poll_e(struct event_filler_arguments *args)
  	/*
  	 * timeout
  	 */
@@ -738,7 +766,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2607,7 +2624,7 @@ int f_sys_ppoll_e(struct event_filler_arguments *args)
+@@ -2703,7 +2720,7 @@ int f_sys_ppoll_e(struct event_filler_arguments *args)
  	/*
  	 * timeout
  	 */
@@ -747,7 +775,7 @@ index ccf092f..c9c4e67 100644
  	/* NULL timeout specified as 0xFFFFFF.... */
  	if (val == (unsigned long)NULL)
  		res = val_to_ring(args, (uint64_t)(-1), 0, false, 0);
-@@ -2619,7 +2636,7 @@ int f_sys_ppoll_e(struct event_filler_arguments *args)
+@@ -2715,7 +2732,7 @@ int f_sys_ppoll_e(struct event_filler_arguments *args)
  	/*
  	 * sigmask
  	 */
@@ -756,7 +784,7 @@ index ccf092f..c9c4e67 100644
  	if (val != (unsigned long)NULL)
  		if (0 != ppm_copy_from_user(&val, (void __user *)val, sizeof(val)))
  			return PPM_FAILURE_INVALID_USER_MEMORY;
-@@ -2661,7 +2678,7 @@ int f_sys_mount_e(struct event_filler_arguments *args)
+@@ -2757,7 +2774,7 @@ int f_sys_mount_e(struct event_filler_arguments *args)
  	 * Fix mount flags in arg 3.
  	 * See http://lxr.free-electrons.com/source/fs/namespace.c?v=4.2#L2650
  	 */
@@ -765,7 +793,7 @@ index ccf092f..c9c4e67 100644
  	if ((val & PPM_MS_MGC_MSK) == PPM_MS_MGC_VAL)
  		val &= ~PPM_MS_MGC_MSK;
  	res = val_to_ring(args, val, 0, false, 0);
-@@ -2687,7 +2704,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
+@@ -2783,7 +2800,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
  	/*
  	 * dirfd
  	 */
@@ -774,7 +802,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -2699,7 +2716,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
+@@ -2795,7 +2812,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
  	/*
  	 * name
  	 */
@@ -783,7 +811,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2708,7 +2725,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
+@@ -2804,7 +2821,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
  	 * Flags
  	 * Note that we convert them into the ppm portable representation before pushing them to the ring
  	 */
@@ -792,7 +820,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, open_flags_to_scap(flags), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2716,7 +2733,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
+@@ -2812,7 +2829,7 @@ int f_sys_openat_x(struct event_filler_arguments *args)
  	/*
  	 *  mode
  	 */
@@ -801,7 +829,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, open_modes_to_scap(flags, modes), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2738,7 +2755,7 @@ int f_sys_unlinkat_x(struct event_filler_arguments *args)
+@@ -2841,7 +2858,7 @@ int f_sys_unlinkat_x(struct event_filler_arguments *args)
  	/*
  	 * dirfd
  	 */
@@ -810,7 +838,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -2750,7 +2767,7 @@ int f_sys_unlinkat_x(struct event_filler_arguments *args)
+@@ -2853,7 +2870,7 @@ int f_sys_unlinkat_x(struct event_filler_arguments *args)
  	/*
  	 * name
  	 */
@@ -819,7 +847,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2759,7 +2776,7 @@ int f_sys_unlinkat_x(struct event_filler_arguments *args)
+@@ -2862,7 +2879,7 @@ int f_sys_unlinkat_x(struct event_filler_arguments *args)
  	 * flags
  	 * Note that we convert them into the ppm portable representation before pushing them to the ring
  	 */
@@ -828,7 +856,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, unlinkat_flags_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2782,7 +2799,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
+@@ -2885,7 +2902,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
  	/*
  	 * olddir
  	 */
@@ -837,7 +865,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -2794,7 +2811,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
+@@ -2897,7 +2914,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
  	/*
  	 * oldpath
  	 */
@@ -846,7 +874,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2802,7 +2819,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
+@@ -2905,7 +2922,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
  	/*
  	 * newdir
  	 */
@@ -855,7 +883,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -2814,7 +2831,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
+@@ -2917,7 +2934,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
  	/*
  	 * newpath
  	 */
@@ -864,7 +892,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2823,7 +2840,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
+@@ -2926,7 +2943,7 @@ int f_sys_linkat_x(struct event_filler_arguments *args)
  	 * Flags
  	 * Note that we convert them into the ppm portable representation before pushing them to the ring
  	 */
@@ -873,7 +901,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, linkat_flags_to_scap(flags), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2844,7 +2861,7 @@ int f_sys_pread64_e(struct event_filler_arguments *args)
+@@ -2947,7 +2964,7 @@ int f_sys_pread64_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -882,7 +910,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2852,7 +2869,7 @@ int f_sys_pread64_e(struct event_filler_arguments *args)
+@@ -2955,7 +2972,7 @@ int f_sys_pread64_e(struct event_filler_arguments *args)
  	/*
  	 * size
  	 */
@@ -891,7 +919,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, size, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2861,11 +2878,11 @@ int f_sys_pread64_e(struct event_filler_arguments *args)
+@@ -2964,11 +2981,11 @@ int f_sys_pread64_e(struct event_filler_arguments *args)
  	 * pos
  	 */
  #if defined CONFIG_X86
@@ -907,7 +935,7 @@ index ccf092f..c9c4e67 100644
  #else
   #error This architecture/abi not yet supported
  #endif
-@@ -2895,7 +2912,7 @@ int f_sys_pwrite64_e(struct event_filler_arguments *args)
+@@ -2998,7 +3015,7 @@ int f_sys_pwrite64_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -916,7 +944,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2903,7 +2920,7 @@ int f_sys_pwrite64_e(struct event_filler_arguments *args)
+@@ -3006,7 +3023,7 @@ int f_sys_pwrite64_e(struct event_filler_arguments *args)
  	/*
  	 * size
  	 */
@@ -925,7 +953,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, size, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -2914,17 +2931,17 @@ int f_sys_pwrite64_e(struct event_filler_arguments *args)
+@@ -3017,17 +3034,17 @@ int f_sys_pwrite64_e(struct event_filler_arguments *args)
  	 * separate registers that we need to merge.
  	 */
  #ifdef _64BIT_ARGS_SINGLE_REGISTER
@@ -948,7 +976,7 @@ index ccf092f..c9c4e67 100644
   #else
    #error This architecture/abi not yet supported
   #endif
-@@ -2962,8 +2979,8 @@ int f_sys_readv_preadv_x(struct event_filler_arguments *args)
+@@ -3065,8 +3082,8 @@ int f_sys_readv_preadv_x(struct event_filler_arguments *args)
  	/*
  	 * data and size
  	 */
@@ -959,7 +987,7 @@ index ccf092f..c9c4e67 100644
  
  #ifdef CONFIG_COMPAT
  	if (unlikely(args->compat)) {
-@@ -2994,7 +3011,7 @@ int f_sys_writev_e(struct event_filler_arguments *args)
+@@ -3097,7 +3114,7 @@ int f_sys_writev_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -968,7 +996,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3002,12 +3019,12 @@ int f_sys_writev_e(struct event_filler_arguments *args)
+@@ -3105,12 +3122,12 @@ int f_sys_writev_e(struct event_filler_arguments *args)
  	/*
  	 * size
  	 */
@@ -983,7 +1011,7 @@ index ccf092f..c9c4e67 100644
  #ifdef CONFIG_COMPAT
  	if (unlikely(args->compat)) {
  		compat_iov = (const struct compat_iovec __user *)compat_ptr(val);
-@@ -3050,13 +3067,13 @@ int f_sys_writev_pwritev_x(struct event_filler_arguments *args)
+@@ -3153,13 +3170,13 @@ int f_sys_writev_pwritev_x(struct event_filler_arguments *args)
  	/*
  	 * data and size
  	 */
@@ -999,7 +1027,7 @@ index ccf092f..c9c4e67 100644
  #ifdef CONFIG_COMPAT
  	if (unlikely(args->compat)) {
  		compat_iov = (const struct compat_iovec __user *)compat_ptr(val);
-@@ -3085,7 +3102,7 @@ int f_sys_preadv64_e(struct event_filler_arguments *args)
+@@ -3188,7 +3205,7 @@ int f_sys_preadv64_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -1008,7 +1036,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3100,8 +3117,8 @@ int f_sys_preadv64_e(struct event_filler_arguments *args)
+@@ -3203,8 +3220,8 @@ int f_sys_preadv64_e(struct event_filler_arguments *args)
  	 * requirements apply here. For an overly-detailed discussion about
  	 * this, see https://lwn.net/Articles/311630/
  	 */
@@ -1019,7 +1047,7 @@ index ccf092f..c9c4e67 100644
  
  	pos64 = merge_64(pos1, pos0);
  
-@@ -3131,7 +3148,7 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
+@@ -3234,7 +3251,7 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -1028,7 +1056,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3139,12 +3156,12 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
+@@ -3242,12 +3259,12 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
  	/*
  	 * size
  	 */
@@ -1043,7 +1071,7 @@ index ccf092f..c9c4e67 100644
  #ifdef CONFIG_COMPAT
  	if (unlikely(args->compat)) {
  		compat_iov = (const struct compat_iovec __user *)compat_ptr(val);
-@@ -3167,7 +3184,7 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
+@@ -3270,7 +3287,7 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
  	 * separate registers that we need to merge.
  	 */
  #ifdef _64BIT_ARGS_SINGLE_REGISTER
@@ -1052,7 +1080,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3178,8 +3195,8 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
+@@ -3281,8 +3298,8 @@ int f_sys_pwritev_e(struct event_filler_arguments *args)
  	 * requirements apply here. For an overly-detailed discussion about
  	 * this, see https://lwn.net/Articles/311630/
  	 */
@@ -1063,7 +1091,7 @@ index ccf092f..c9c4e67 100644
  
  	pos64 = merge_64(pos1, pos0);
  
-@@ -3196,7 +3213,7 @@ int f_sys_nanosleep_e(struct event_filler_arguments *args)
+@@ -3299,7 +3316,7 @@ int f_sys_nanosleep_e(struct event_filler_arguments *args)
  	unsigned long val;
  	int res;
  
@@ -1072,7 +1100,7 @@ index ccf092f..c9c4e67 100644
  	res = timespec_parse(args, val);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3213,7 +3230,7 @@ int f_sys_getrlimit_setrlimit_e(struct event_filler_arguments *args)
+@@ -3316,7 +3333,7 @@ int f_sys_getrlimit_setrlimit_e(struct event_filler_arguments *args)
  	/*
  	 * resource
  	 */
@@ -1081,7 +1109,7 @@ index ccf092f..c9c4e67 100644
  
  	ppm_resource = rlimit_resource_to_scap(val);
  
-@@ -3248,7 +3265,7 @@ int f_sys_getrlimit_setrlrimit_x(struct event_filler_arguments *args)
+@@ -3351,7 +3368,7 @@ int f_sys_getrlimit_setrlrimit_x(struct event_filler_arguments *args)
  	 * Copy the user structure and extract cur and max
  	 */
  	if (retval >= 0 || args->event_type == PPME_SYSCALL_SETRLIMIT_X) {
@@ -1090,7 +1118,7 @@ index ccf092f..c9c4e67 100644
  
  #ifdef CONFIG_COMPAT
  		if (!args->compat) {
-@@ -3296,7 +3313,7 @@ int f_sys_prlimit_e(struct event_filler_arguments *args)
+@@ -3399,7 +3416,7 @@ int f_sys_prlimit_e(struct event_filler_arguments *args)
  	/*
  	 * pid
  	 */
@@ -1099,7 +1127,7 @@ index ccf092f..c9c4e67 100644
  
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -3305,7 +3322,7 @@ int f_sys_prlimit_e(struct event_filler_arguments *args)
+@@ -3408,7 +3425,7 @@ int f_sys_prlimit_e(struct event_filler_arguments *args)
  	/*
  	 * resource
  	 */
@@ -1108,7 +1136,7 @@ index ccf092f..c9c4e67 100644
  
  	ppm_resource = rlimit_resource_to_scap(val);
  
-@@ -3342,7 +3359,7 @@ int f_sys_prlimit_x(struct event_filler_arguments *args)
+@@ -3445,7 +3462,7 @@ int f_sys_prlimit_x(struct event_filler_arguments *args)
  	 * Copy the user structure and extract cur and max
  	 */
  	if (retval >= 0) {
@@ -1117,7 +1145,7 @@ index ccf092f..c9c4e67 100644
  
  #ifdef CONFIG_COMPAT
  		if (!args->compat) {
-@@ -3370,7 +3387,7 @@ int f_sys_prlimit_x(struct event_filler_arguments *args)
+@@ -3473,7 +3490,7 @@ int f_sys_prlimit_x(struct event_filler_arguments *args)
  		newmax = -1;
  	}
  
@@ -1126,7 +1154,7 @@ index ccf092f..c9c4e67 100644
  
  #ifdef CONFIG_COMPAT
  	if (!args->compat) {
-@@ -3525,7 +3542,7 @@ int f_sys_fcntl_e(struct event_filler_arguments *args)
+@@ -3628,7 +3645,7 @@ int f_sys_fcntl_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -1135,7 +1163,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3533,7 +3550,7 @@ int f_sys_fcntl_e(struct event_filler_arguments *args)
+@@ -3636,7 +3653,7 @@ int f_sys_fcntl_e(struct event_filler_arguments *args)
  	/*
  	 * cmd
  	 */
@@ -1144,7 +1172,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, fcntl_cmd_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3547,7 +3564,7 @@ static inline int parse_ptrace_addr(struct event_filler_arguments *args, u16 req
+@@ -3650,7 +3667,7 @@ static inline int parse_ptrace_addr(struct event_filler_arguments *args, u16 req
  	uint64_t dst;
  	u8 idx;
  
@@ -1153,7 +1181,7 @@ index ccf092f..c9c4e67 100644
  	switch (request) {
  	default:
  		idx = PPM_PTRACE_IDX_UINT64;
-@@ -3564,7 +3581,7 @@ static inline int parse_ptrace_data(struct event_filler_arguments *args, u16 req
+@@ -3667,7 +3684,7 @@ static inline int parse_ptrace_data(struct event_filler_arguments *args, u16 req
  	uint64_t dst;
  	u8 idx;
  
@@ -1162,7 +1190,7 @@ index ccf092f..c9c4e67 100644
  	switch (request) {
  	case PPM_PTRACE_PEEKTEXT:
  	case PPM_PTRACE_PEEKDATA:
-@@ -3612,7 +3629,7 @@ int f_sys_ptrace_e(struct event_filler_arguments *args)
+@@ -3715,7 +3732,7 @@ int f_sys_ptrace_e(struct event_filler_arguments *args)
  	/*
  	 * request
  	 */
@@ -1171,7 +1199,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, ptrace_requests_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3620,7 +3637,7 @@ int f_sys_ptrace_e(struct event_filler_arguments *args)
+@@ -3723,7 +3740,7 @@ int f_sys_ptrace_e(struct event_filler_arguments *args)
  	/*
  	 * pid
  	 */
@@ -1180,7 +1208,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3658,7 +3675,7 @@ int f_sys_ptrace_x(struct event_filler_arguments *args)
+@@ -3761,7 +3778,7 @@ int f_sys_ptrace_x(struct event_filler_arguments *args)
  	/*
  	 * request
  	 */
@@ -1189,7 +1217,7 @@ index ccf092f..c9c4e67 100644
  	request = ptrace_requests_to_scap(val);
  
  	res = parse_ptrace_addr(args, request);
-@@ -3724,7 +3741,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
+@@ -3827,7 +3844,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
  	/*
  	 * addr
  	 */
@@ -1198,7 +1226,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3732,7 +3749,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
+@@ -3835,7 +3852,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
  	/*
  	 * length
  	 */
@@ -1207,7 +1235,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3740,7 +3757,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
+@@ -3843,7 +3860,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
  	/*
  	 * prot
  	 */
@@ -1216,7 +1244,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, prot_flags_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3748,7 +3765,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
+@@ -3851,7 +3868,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
  	/*
  	 * flags
  	 */
@@ -1225,7 +1253,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, mmap_flags_to_scap(val), 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3756,7 +3773,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
+@@ -3859,7 +3876,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
  	/*
  	 * fd
  	 */
@@ -1234,7 +1262,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3764,7 +3781,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
+@@ -3867,7 +3884,7 @@ int f_sys_mmap_e(struct event_filler_arguments *args)
  	/*
  	 * offset/pgoffset
  	 */
@@ -1243,7 +1271,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3786,7 +3803,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
+@@ -3889,7 +3906,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
  	/*
  	 * olddirfd
  	 */
@@ -1252,7 +1280,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -3798,7 +3815,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
+@@ -3901,7 +3918,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
  	/*
  	 * oldpath
  	 */
@@ -1261,7 +1289,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3806,7 +3823,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
+@@ -3909,7 +3926,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
  	/*
  	 * newdirfd
  	 */
@@ -1270,7 +1298,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -3818,7 +3835,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
+@@ -3921,7 +3938,7 @@ int f_sys_renameat_x(struct event_filler_arguments *args)
  	/*
  	 * newpath
  	 */
@@ -1279,7 +1307,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3840,7 +3857,7 @@ int f_sys_symlinkat_x(struct event_filler_arguments *args)
+@@ -3943,7 +3960,7 @@ int f_sys_symlinkat_x(struct event_filler_arguments *args)
  	/*
  	 * oldpath
  	 */
@@ -1288,7 +1316,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3848,7 +3865,7 @@ int f_sys_symlinkat_x(struct event_filler_arguments *args)
+@@ -3951,7 +3968,7 @@ int f_sys_symlinkat_x(struct event_filler_arguments *args)
  	/*
  	 * newdirfd
  	 */
@@ -1297,7 +1325,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -3860,7 +3877,7 @@ int f_sys_symlinkat_x(struct event_filler_arguments *args)
+@@ -3963,7 +3980,7 @@ int f_sys_symlinkat_x(struct event_filler_arguments *args)
  	/*
  	 * newpath
  	 */
@@ -1306,7 +1334,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3896,7 +3913,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
+@@ -3999,7 +4016,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
  	/*
  	 * out_fd
  	 */
@@ -1315,7 +1343,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3904,7 +3921,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
+@@ -4007,7 +4024,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
  	/*
  	 * in_fd
  	 */
@@ -1324,7 +1352,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3912,7 +3929,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
+@@ -4015,7 +4032,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
  	/*
  	 * offset
  	 */
@@ -1333,7 +1361,7 @@ index ccf092f..c9c4e67 100644
  
  	if (val != 0) {
  #ifdef CONFIG_COMPAT
-@@ -3937,7 +3954,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
+@@ -4040,7 +4057,7 @@ int f_sys_sendfile_e(struct event_filler_arguments *args)
  	/*
  	 * size
  	 */
@@ -1342,7 +1370,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -3963,7 +3980,7 @@ int f_sys_sendfile_x(struct event_filler_arguments *args)
+@@ -4066,7 +4083,7 @@ int f_sys_sendfile_x(struct event_filler_arguments *args)
  	/*
  	 * offset
  	 */
@@ -1351,7 +1379,7 @@ index ccf092f..c9c4e67 100644
  
  	if (val != 0) {
  #ifdef CONFIG_COMPAT
-@@ -3999,7 +4016,7 @@ int f_sys_quotactl_e(struct event_filler_arguments *args)
+@@ -4102,7 +4119,7 @@ int f_sys_quotactl_e(struct event_filler_arguments *args)
  	/*
  	 * extract cmd
  	 */
@@ -1360,7 +1388,7 @@ index ccf092f..c9c4e67 100644
  	cmd = quotactl_cmd_to_scap(val);
  	res = val_to_ring(args, cmd, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -4016,7 +4033,7 @@ int f_sys_quotactl_e(struct event_filler_arguments *args)
+@@ -4119,7 +4136,7 @@ int f_sys_quotactl_e(struct event_filler_arguments *args)
  	 *  extract id
  	 */
  	id = 0;
@@ -1369,7 +1397,7 @@ index ccf092f..c9c4e67 100644
  	if ((cmd == PPM_Q_GETQUOTA) ||
  		 (cmd == PPM_Q_SETQUOTA) ||
  		 (cmd == PPM_Q_XGETQUOTA) ||
-@@ -4059,7 +4076,7 @@ int f_sys_quotactl_x(struct event_filler_arguments *args)
+@@ -4162,7 +4179,7 @@ int f_sys_quotactl_x(struct event_filler_arguments *args)
  	/*
  	 * extract cmd
  	 */
@@ -1378,7 +1406,7 @@ index ccf092f..c9c4e67 100644
  	cmd = quotactl_cmd_to_scap(val);
  
  	/*
-@@ -4073,7 +4090,7 @@ int f_sys_quotactl_x(struct event_filler_arguments *args)
+@@ -4176,7 +4193,7 @@ int f_sys_quotactl_x(struct event_filler_arguments *args)
  	/*
  	 * Add special
  	 */
@@ -1387,7 +1415,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4081,7 +4098,7 @@ int f_sys_quotactl_x(struct event_filler_arguments *args)
+@@ -4184,7 +4201,7 @@ int f_sys_quotactl_x(struct event_filler_arguments *args)
  	/*
  	 * get addr
  	 */
@@ -1396,7 +1424,7 @@ index ccf092f..c9c4e67 100644
  
  	/*
  	 * get quotafilepath only for QUOTAON
-@@ -4259,7 +4276,7 @@ int f_sys_getresuid_and_gid_x(struct event_filler_arguments *args)
+@@ -4362,7 +4379,7 @@ int f_sys_getresuid_and_gid_x(struct event_filler_arguments *args)
  	/*
  	 * ruid
  	 */
@@ -1405,7 +1433,7 @@ index ccf092f..c9c4e67 100644
  #ifdef CONFIG_COMPAT
  	if (!args->compat) {
  #endif
-@@ -4279,7 +4296,7 @@ int f_sys_getresuid_and_gid_x(struct event_filler_arguments *args)
+@@ -4382,7 +4399,7 @@ int f_sys_getresuid_and_gid_x(struct event_filler_arguments *args)
  	/*
  	 * euid
  	 */
@@ -1414,7 +1442,7 @@ index ccf092f..c9c4e67 100644
  	len = ppm_copy_from_user(&uid, (void *)val, sizeof(uint32_t));
  	if (unlikely(len != 0))
  		return PPM_FAILURE_INVALID_USER_MEMORY;
-@@ -4291,7 +4308,7 @@ int f_sys_getresuid_and_gid_x(struct event_filler_arguments *args)
+@@ -4394,7 +4411,7 @@ int f_sys_getresuid_and_gid_x(struct event_filler_arguments *args)
  	/*
  	 * suid
  	 */
@@ -1423,7 +1451,7 @@ index ccf092f..c9c4e67 100644
  	len = ppm_copy_from_user(&uid, (void *)val, sizeof(uint32_t));
  	if (unlikely(len != 0))
  		return PPM_FAILURE_INVALID_USER_MEMORY;
-@@ -4309,12 +4326,12 @@ int f_sys_flock_e(struct event_filler_arguments *args)
+@@ -4412,12 +4429,12 @@ int f_sys_flock_e(struct event_filler_arguments *args)
  	int res;
  	u32 flags;
  
@@ -1438,7 +1466,7 @@ index ccf092f..c9c4e67 100644
  	flags = flock_flags_to_scap(val);
  	res = val_to_ring(args, flags, 0, false, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -4332,7 +4349,7 @@ int f_sys_setns_e(struct event_filler_arguments *args)
+@@ -4435,7 +4452,7 @@ int f_sys_setns_e(struct event_filler_arguments *args)
  	/*
  	 * parse fd
  	 */
@@ -1447,7 +1475,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4340,7 +4357,7 @@ int f_sys_setns_e(struct event_filler_arguments *args)
+@@ -4443,7 +4460,7 @@ int f_sys_setns_e(struct event_filler_arguments *args)
  	/*
  	 * get type, parse as clone flags as it's a subset of it
  	 */
@@ -1456,7 +1484,7 @@ index ccf092f..c9c4e67 100644
  	flags = clone_flags_to_scap(val);
  	res = val_to_ring(args, flags, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -4358,7 +4375,7 @@ int f_sys_unshare_e(struct event_filler_arguments *args)
+@@ -4461,7 +4478,7 @@ int f_sys_unshare_e(struct event_filler_arguments *args)
  	/*
  	 * get type, parse as clone flags as it's a subset of it
  	 */
@@ -1465,7 +1493,7 @@ index ccf092f..c9c4e67 100644
  	flags = clone_flags_to_scap(val);
  	res = val_to_ring(args, flags, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
-@@ -4459,7 +4476,7 @@ int f_sys_semop_x(struct event_filler_arguments *args)
+@@ -4562,7 +4579,7 @@ int f_sys_semop_x(struct event_filler_arguments *args)
  	 * actually this could be read in the enter function but
  	 * we also need to know the value to access the sembuf structs
  	 */
@@ -1474,7 +1502,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, nsops, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4467,7 +4484,7 @@ int f_sys_semop_x(struct event_filler_arguments *args)
+@@ -4570,7 +4587,7 @@ int f_sys_semop_x(struct event_filler_arguments *args)
  	/*
  	 * sembuf
  	 */
@@ -1483,7 +1511,7 @@ index ccf092f..c9c4e67 100644
  
  	if (nsops && ptr) {
  		/* max length of sembuf array in g_event_info = 2 */
-@@ -4506,7 +4523,7 @@ int f_sys_semget_e(struct event_filler_arguments *args)
+@@ -4609,7 +4626,7 @@ int f_sys_semget_e(struct event_filler_arguments *args)
  	/*
  	 * key
  	 */
@@ -1492,7 +1520,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4514,7 +4531,7 @@ int f_sys_semget_e(struct event_filler_arguments *args)
+@@ -4617,7 +4634,7 @@ int f_sys_semget_e(struct event_filler_arguments *args)
  	/*
  	 * nsems
  	 */
@@ -1501,7 +1529,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4522,7 +4539,7 @@ int f_sys_semget_e(struct event_filler_arguments *args)
+@@ -4625,7 +4642,7 @@ int f_sys_semget_e(struct event_filler_arguments *args)
  	/*
  	 * semflg
  	 */
@@ -1510,7 +1538,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, semget_flags_to_scap(val), 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4538,7 +4555,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
+@@ -4641,7 +4658,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
  	/*
  	 * semid
  	 */
@@ -1519,7 +1547,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4546,7 +4563,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
+@@ -4649,7 +4666,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
  	/*
  	 * semnum
  	 */
@@ -1528,7 +1556,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4554,7 +4571,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
+@@ -4657,7 +4674,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
  	/*
  	 * cmd
  	 */
@@ -1537,7 +1565,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, semctl_cmd_to_scap(val), 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4563,7 +4580,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
+@@ -4666,7 +4683,7 @@ int f_sys_semctl_e(struct event_filler_arguments *args)
  	 * optional argument semun/val
  	 */
  	if (val == SETVAL)
@@ -1546,7 +1574,7 @@ index ccf092f..c9c4e67 100644
  	else
  		val = 0;
  	res = val_to_ring(args, val, 0, true, 0);
-@@ -4581,7 +4598,7 @@ int f_sys_access_e(struct event_filler_arguments *args)
+@@ -4684,7 +4701,7 @@ int f_sys_access_e(struct event_filler_arguments *args)
  	/*
  	 * mode
  	 */
@@ -1555,7 +1583,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, access_flags_to_scap(val), 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4609,7 +4626,7 @@ int f_sys_bpf_x(struct event_filler_arguments *args)
+@@ -4712,7 +4729,7 @@ int f_sys_bpf_x(struct event_filler_arguments *args)
  	/*
  	 * fd, depending on cmd
  	 */
@@ -1564,7 +1592,7 @@ index ccf092f..c9c4e67 100644
  #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 18, 0)
  	if(cmd == BPF_MAP_CREATE || cmd == BPF_PROG_LOAD)
  #else
-@@ -4642,7 +4659,7 @@ int f_sys_mkdirat_x(struct event_filler_arguments *args)
+@@ -4745,7 +4762,7 @@ int f_sys_mkdirat_x(struct event_filler_arguments *args)
  	/*
  	 * dirfd
  	 */
@@ -1573,7 +1601,7 @@ index ccf092f..c9c4e67 100644
  
  	if ((int)val == AT_FDCWD)
  		val = PPM_AT_FDCWD;
-@@ -4654,7 +4671,7 @@ int f_sys_mkdirat_x(struct event_filler_arguments *args)
+@@ -4757,7 +4774,7 @@ int f_sys_mkdirat_x(struct event_filler_arguments *args)
  	/*
  	 * path
  	 */
@@ -1582,7 +1610,7 @@ index ccf092f..c9c4e67 100644
  	res = val_to_ring(args, val, 0, true, 0);
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
-@@ -4662,7 +4679,7 @@ int f_sys_mkdirat_x(struct event_filler_arguments *args)
+@@ -4765,7 +4782,7 @@ int f_sys_mkdirat_x(struct event_filler_arguments *args)
  	/*
  	 * mode
  	 */
@@ -1592,7 +1620,7 @@ index ccf092f..c9c4e67 100644
  	if (unlikely(res != PPM_SUCCESS))
  		return res;
 diff --git a/driver/ppm_flag_helpers.h b/driver/ppm_flag_helpers.h
-index 6e9ac21..1c3b925 100644
+index 6e9ac21c5..1c3b9251e 100644
 --- a/driver/ppm_flag_helpers.h
 +++ b/driver/ppm_flag_helpers.h
 @@ -9,8 +9,7 @@ or GPL2.txt for full copies of the license.
