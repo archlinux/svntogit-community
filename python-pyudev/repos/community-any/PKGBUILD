@@ -1,0 +1,70 @@
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Contributor: Andrea Scarpino <andrea@archlinux.org>
+# Contributor: examon <examon.mail[at]gmail[dot]com>
+# Contributor: Sebastian Wiesner <lunaryorn googlemail com>
+# Contributor: Dwight Schauer <dschauer@ti.com>
+
+_pkgname=pyudev
+pkgname=python-$_pkgname
+pkgver=0.21.0
+pkgrel=6
+arch=('any')
+url='https://github.com/pyudev/pyudev'
+license=('LGPL')
+pkgdesc='Python bindings to libudev'
+depends=('python-six' 'systemd')
+makedepends=('python-setuptools' 'python-sphinx' 'python-mock')
+checkdepends=('python-pytest-runner' 'python-docutils' 'python-mock' 'python-hypothesis')
+optdepends=('python-pyqt5: PyQt integration'
+            'pyside2: PySide integration'
+            'python-gobject2: Glib integration'
+            'python-wxpython: WX integration')
+source=("$_pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
+        '0001-tests-fix-tests-for-pytest-4.0.patch')
+sha512sums=('c6cc8786c69de2a07eeae39cb57e33db6ca5fea83c38fdab277070bf052c97bd053911ab08a11fe65cb56c463492111e74451801390d89dc7f00fd00e68bba19'
+            '5abbf38f0d7e171ff46823144a027de8ff0ce3a800642d17655f577af04460bf78eecc320a3099ef6d7808def6350ec8350307f0023157df3d0e3feccd484756')
+
+prepare() {
+  cd $_pkgname-$pkgver
+
+  # pytest-runner doesn't understand norecursedirs
+  sed -i '/norecursedirs/d' setup.cfg
+  echo -e '[pytest]\nnorecursedirs = .* _* build' > pytest.ini
+
+  # Fix tests for pytest >= 4.0
+  patch -p1 < ../0001-tests-fix-tests-for-pytest-4.0.patch
+
+  # Remove failing tests (we can't test udev inside makepkg)
+  rm tests/test_{util,discover,device,monitor,enumerate,observer}.py
+
+  # Fix documentation build
+  sed -i "s|os.path.join(doc_directory, os.pardir)|os.path.join(doc_directory, os.pardir, 'src')|
+          s|b'autodoc-process-docstring'|'autodoc-process-docstring'|" doc/conf.py
+}
+
+build() {
+  cd $_pkgname-$pkgver
+
+  python setup.py build
+
+  # Generate documentation
+  sphinx-apidoc -f -e -o doc src/pyudev
+  sphinx-build -a -b html doc doc/html
+}
+
+check() {
+  cd $_pkgname-$pkgver
+
+  python setup.py pytest
+}
+
+package() {
+  cd $_pkgname-$pkgver
+
+  python setup.py install --root "$pkgdir" --skip-build -O1
+
+  # Install documentation
+  install -dm 755 "$pkgdir"/usr/share/doc/$pkgname
+  cp -r -a --no-preserve=ownership doc/html "$pkgdir"/usr/share/doc/$pkgname
+}
+
