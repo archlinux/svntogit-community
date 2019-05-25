@@ -2,11 +2,11 @@
 
 pkgname=python-tomlkit
 pkgver=0.5.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Style-preserving TOML library for Python"
 url="https://github.com/sdispater/tomlkit"
 license=('MIT')
-arch=('x86_64')
+arch=('any')
 depends=('python')
 checkdepends=('python-pytest')
 source=("https://pypi.io/packages/source/t/tomlkit/tomlkit-$pkgver.tar.gz")
