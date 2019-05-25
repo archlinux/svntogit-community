@@ -2,7 +2,7 @@
 
 pkgname=python-yarg
 pkgver=0.1.9
-pkgrel=1
+pkgrel=2
 pkgdesc="A semi hard Cornish cheese, also queries PyPI (PyPI client)"
 url="https://github.com/kura/yarg"
 license=('MIT')
@@ -28,4 +28,6 @@ package() {
   python setup.py install --root="$pkgdir" --optimize=1
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+
+  mv "$pkgdir"/usr/lib/python3.7/site-packages/{,yarg/}tests
 }
