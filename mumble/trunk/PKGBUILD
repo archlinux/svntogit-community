@@ -10,7 +10,7 @@ pkgname=mumble
 pkgver=1.3.0rc1
 _pkgver=1.3.0-rc1
 __pkgver=1.3.0
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
@@ -20,18 +20,10 @@ makedepends=(boost mesa jack python qt5-tools)
 optdepends=('jack: JACK audio output'
             'speech-dispatcher')
 url="https://www.mumble.info/"
-source=(https://github.com/mumble-voip/mumble/releases/download/${_pkgver}/mumble-${_pkgver}.tar.gz{,.sig}
-        https://patch-diff.githubusercontent.com/raw/mumble-voip/mumble/pull/3683.patch)
+source=(https://github.com/mumble-voip/mumble/releases/download/${_pkgver}/mumble-${_pkgver}.tar.gz{,.sig})
 sha512sums=('e993b18b0ecf620d3a9a89f145c18b9ecde3aaf9b7217e235b7472908c81a365323c8683dd6fc9ed14b108160f8bf5244369c2a9ee57c22595550220d158516c'
-            'SKIP'
-            '253f3f9b2d45755365a9c56d11df1d366f83877da0d34a78b9acb1f3c68f89865f7f63c941e3aeb46d8aeebaa37b402f391210ba2c6967a1529051a3cf36e024')
+            'SKIP')
 validpgpkeys=('56D0B23AE00B1EE9A8BAAC0F5B8CF87BB893449B') # Mumble Automatic Build Infrastructure 2019 <mumble-auto-build-2019@mumble.info>
-
-prepare() {
-  cd "$srcdir"/$pkgname-$__pkgver
-
-  patch -Np1 -i "$srcdir"/3683.patch
-}
 
 build() {
   cd "$srcdir"/$pkgname-$__pkgver
