@@ -8,7 +8,7 @@ pkgbase=python-markdown
 pkgname=('python-markdown' 'python2-markdown')
 _pkgbasename=Markdown
 pkgver=3.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
@@ -46,7 +46,7 @@ check() {
 }
 
 package_python-markdown() {
-  depends=('python')
+  depends=('python' 'python-setuptools')
   cd "$srcdir/$_pkgbasename-$pkgver"
   python3 setup.py install --root="$pkgdir" --optimize=0
   install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/python-markdown/LICENSE"
