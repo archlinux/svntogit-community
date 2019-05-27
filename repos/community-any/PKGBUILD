@@ -7,17 +7,17 @@
 pkgbase=python-markdown
 pkgname=('python-markdown' 'python2-markdown')
 _pkgbasename=Markdown
-pkgver=3.1
+pkgver=3.1.1
 pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
 license=('BSD')
-depends=('python')
+depends=('python' 'python-setuptools')
 makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools')
 checkdepends=('python-yaml' 'python2-yaml')
 source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
-md5sums=('ef00dbf71b44d60a8e75b0315eaf6944')
+md5sums=('d84732ecc65b3a1bff693d9d4c24277f')
 
 prepare() {
   # bug in 2.4, some DOS line endings slipped in
@@ -53,7 +53,7 @@ package_python-markdown() {
 }
 
 package_python2-markdown() {
-  depends=('python2')
+  depends=('python2' 'python2-setuptools')
   cd "$srcdir/python2-markdown"
   python2 setup.py install --root="$pkgdir" --optimize=0
   mv "$pkgdir/usr/bin/markdown_py" "$pkgdir/usr/bin/markdown_py2"
