@@ -7,7 +7,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.42.0
+pkgver=3.43.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -24,9 +24,9 @@ optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
-sha256sums=('b51194aecd452e6cea9681889cd1b2f868d379b07413b1dcb8842c363487ad7a'
+sha256sums=('b56c2545eb1e64d278eb219b9688c65f36c6f599fbc1a1e5baca9f19ec547041'
             'SKIP')
-b2sums=('3b1fa7abfed277f7a787fa2b65697817d0fe8553d570901a8817e63756f7edc8321c18768fb9c965382f9027d053af708fdf54c4288c831acb0ec03a64748651'
+b2sums=('6a19be6741ecc2abc839731ca35684363310431db5fa8f5cccd264f7bef37cd365ae5f38f97f8b4de323c035bcfcab30e0b2ade8a366d1e96a70a22f6c4aaa54'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
@@ -34,9 +34,7 @@ prepare(){
   cd "${pkgname}-${pkgver}"
 
   # Desktop integration (e.g. enforce arch defaults)
-  sed -e "/self.create_uninstaller()/,/os.rmdir(config_dir)/d" \
-      -e "/cc(\['xdg-desktop-menu', 'forceupdate'\])/d" \
-      -e "/cc(\['xdg-mime', 'install', MIME\])/d" \
+  sed -e "/import config_dir/,/os.rmdir(config_dir)/d" \
       -e "s/'ctc-posml'/'text' not in mt and 'pdf' not in mt and 'xhtml'/" \
       -e "s/^Name=calibre/Name=Calibre/g" \
       -i  src/calibre/linux.py
@@ -79,14 +77,12 @@ check() {
 package() {
   cd "${pkgname}-${pkgver}"
 
-  install -d "${pkgdir}/usr/share/zsh/site-functions" \
-             "${pkgdir}"/usr/share/{applications,desktop-directories,icons/hicolor}
+  # If this directory doesn't exist, zsh completion won't install.
+  install -d "${pkgdir}/usr/share/zsh/site-functions"
 
-  install -Dm644 resources/calibre-mimetypes.xml \
-    "${pkgdir}/usr/share/mime/packages/calibre-mimetypes.xml"
-
-  XDG_DATA_DIRS="${pkgdir}/usr/share" LANG='en_US.UTF-8' \
-    python2 setup.py install --staging-root="${pkgdir}/usr" --prefix=/usr
+  LANG='en_US.UTF-8' python2 setup.py install \
+    --staging-root="${pkgdir}/usr" \
+    --prefix=/usr
 
   cp -a man-pages/ "${pkgdir}/usr/share/man"
 
