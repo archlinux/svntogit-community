@@ -8,7 +8,8 @@ pkgdesc="Plugin and hook calling mechanisms for python"
 arch=('any')
 url="https://www.pluggypayments.com/docs/python"
 license=('MIT')
-makedepends=('python-setuptools-scm' 'python2-setuptools-scm')
+makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-importlib-metadata'
+             'python2-importlib-metadata')
 checkdepends=('python-pytest-runner' 'python2-pytest-runner')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/pytest-dev/pluggy/archive/$pkgver.tar.gz")
 sha512sums=('84e0f085132e14b015b03a59ca6f90beff3f8cd7577d3097dca626e063b255f3b1d27c518d2afd28a31556eca58c6a6b6afa0b7922717ac44f0a500b59b6cc2f')
@@ -36,7 +37,7 @@ check() {
 }
 
 package_python-pluggy() {
-  depends=('python')
+  depends=('python-importlib-metadata')
 
   cd pluggy-$pkgver
   python setup.py install -O1 --root "$pkgdir"
@@ -45,7 +46,7 @@ package_python-pluggy() {
 }
 
 package_python2-pluggy() {
-  depends=('python2')
+  depends=('python2-importlib-metadata')
 
   cd pluggy-$pkgver-py2
   python2 setup.py install -O1 --root "$pkgdir"
