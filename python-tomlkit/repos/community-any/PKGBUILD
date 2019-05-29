@@ -2,15 +2,26 @@
 
 pkgname=python-tomlkit
 pkgver=0.5.3
-pkgrel=2
+_tomltestcommit=f910e151d1b14d94b1e8a4264db0814fb03520d9
+pkgrel=3
 pkgdesc="Style-preserving TOML library for Python"
 url="https://github.com/sdispater/tomlkit"
 license=('MIT')
 arch=('any')
 depends=('python')
+makedepends=('python-dephell')
 checkdepends=('python-pytest')
-source=("https://pypi.io/packages/source/t/tomlkit/tomlkit-$pkgver.tar.gz")
-sha512sums=('90939b380fb8c58a1825c45740d599f116adf5075b1efb327ceb72353b1d1b3d6d6b960ed7673d46af586fc3ed56a866a6a8eb8dfc2a78ea128b5b7f214b0b55')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/sdispater/tomlkit/archive/$pkgver.tar.gz"
+        "toml-test-$_tomltestcommit.tar.gz::https://github.com/BurntSushi/toml-test/archive/$_tomltestcommit.tar.gz")
+sha512sums=('68f2c2df5bfe0986a8530bb72d35179be974105a11427a59d8d88ea2c1828284ed5518e9fdd90f82ab508e44e63176f7efb78acccc8f4baaa901805979f32c90'
+            '49431bf72cd5b40b6732eec75b2ea25d349df4f76c84a7fc51443f55712c47b0ae0f7a049d7ae19f328ca504ded1f6df00861c725dcfdbeaac07c3bd999c5f3b')
+
+prepare() {
+  cd tomlkit-$pkgver
+  dephell deps convert --from pyproject.toml --to setup.py
+  rmdir tests/toml-test
+  ln -s "$srcdir"/toml-test-$_tomltestcommit tests/toml-test
+}
 
 build() {
   cd tomlkit-$pkgver
@@ -19,8 +30,7 @@ build() {
 
 check() {
   cd tomlkit-$pkgver
-  # TODO: package a pyproject to setup converter and use git source
-  # python -m pytest
+  python -m pytest
 }
 
 package() {
