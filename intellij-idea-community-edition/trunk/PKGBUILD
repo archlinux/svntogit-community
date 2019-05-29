@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2019.1.2
-_build=191.7141.44
+pkgver=2019.1.3
+_build=191.7479.19
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -21,8 +21,8 @@ source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/a
         idea-build.patch
         idea.desktop
         idea.sh)
-sha256sums=('7b6f311790f6b850a64fe48ed35998f4cbd77d407231424420afb94b307b3ced'
-            'fba5d906bd6a8b7b4c85ad22c22b180c1e2b71097cd015bcbf2b6ffb103e4d33'
+sha256sums=('7aa10cec7e873d23fd08eba9b18eda9a3a6e6a49fb603051f2eb37b45b1069ea'
+            '7b1d89afbdbe89a9e2b1773be62620d31b43cdc83ced7168c9a845cacc451946'
             'SKIP'
             'd7556a6651ec0c00daa6af3ec205f92945ebae2c5e30d29c04d8f65358e74825'
             'fa9e3cba5e26a7e01cecda867f23467322db123c5553dfbb4f14aae034ccbed7'
