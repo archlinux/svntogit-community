@@ -4,7 +4,7 @@
 
 pkgbase=python-pbr
 pkgname=(python-pbr python2-pbr)
-pkgver=5.2.0
+pkgver=5.2.1
 pkgrel=1
 pkgdesc="Python Build Reasonableness"
 arch=('any')
@@ -17,16 +17,9 @@ checkdepends=('python-stestr' 'python2-stestr' 'python-testscenarios' 'python2-t
               'python-virtualenv' 'python2-virtualenv' 'python-wheel' 'python2-wheel'
               'python-sphinx' 'python2-sphinx')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
-sha512sums=('f75e1faef11035e161fa193d489ec052f2f0fd0b1832cb5fd20e491dc19d8cc9dd5f9fead5302c4e7f59a0fd7cb8d27090c11d92df558876e469316198a39e13')
+sha512sums=('159280582d2405ba3e152751aa9434d7511867e93e8e3b44e5e098e801e5b9cdc43b9935e52ba1b49c626cc5897c8fc87c9d90357bcf976bfa26ba9ab6629db1')
 
 prepare() {
-  # Fix for new wheel
-  sed -e 's/wheel.install/wheel.wheelfile/' \
-      -e 's/wheel_file.zipfile/wheel_file/' \
-      -i pbr-$pkgver/pbr/tests/test_packaging.py
-
-  sed -i 's/packaging, distutils, setuptools/packaging,distutils,setuptools/' pbr-$pkgver/pbr/tests/test_core.py
-
   cp -a pbr-$pkgver{,-py2}
 
   find pbr-$pkgver-py2 -name \*.py -exec sed -i '1s/python$/&2/' {} +
