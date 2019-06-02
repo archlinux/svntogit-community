@@ -7,82 +7,76 @@
 
 pkgname=john
 _jumbover=1
-_johnver=1.8.0
+_johnver=1.9.0
 pkgver=${_johnver}.jumbo${_jumbover}
-pkgrel=10
+pkgrel=1
 pkgdesc='John the Ripper password cracker'
-url='http://www.openwall.com/john'
+url='https://www.openwall.com/john'
 arch=('x86_64')
 license=('GPL2' 'custom')
-depends=('openssl-1.0' 'gmp' 'libpcap' 'openmpi' 'gcc-libs' 'opencl-icd-loader')
+depends=('openssl' 'gmp' 'libpcap' 'openmpi' 'gcc-libs' 'opencl-icd-loader')
 optdepends=(
   'bash-completion: completion for bash'
   'perl: perl based john scripts'
   'ruby: ruby based john scripts'
-  'python2: python based john scripts')
+  'python2: python2 based john scripts'
+  'python: python based john scripts')
 makedepends=('pkg-config' 'opencl-headers')
 backup=('etc/john/john.conf')
-install=john.install
-source=(http://www.openwall.com/john/j/john-${_johnver}-jumbo-${_jumbover}.tar.xz
-        params.h.patch
-        gcc5.patch
-        fix-32bit.patch
-        fix-i686-openmp.patch)
-sha512sums=('163cd71f634c2d1e9d0fa760984cc05001bfeef8300098d6b9cc8bf7e1719fec1d37142c39d7fd65ef37ee96c95681f01d7f0b1941058b7f9926442e2df5cd8e'
-            '4e7c530bf75d0c56409018097a2fee4a991c8332b25f985b16d91ffb631079d46870fa0c54eb519c8d60c7425c62c616e24617e0ebbad4193ccef8d001c08893'
-            '941a8fbe435d24287be158648d3083062806de639ce822645d949a171b2e662249bb13d9f5903017792cc979c7ff89615681adaed2afbf0d9c6ca5fe825e135a'
-            '824497e6fa67b1ff17a4b87544dedf5361e5ba07617ffb9e7718f2e90152b0bc2f39cd80a1badd84de0ef1e3442783bda3df1332d990b722a29d04b8b7449590'
-            '7eddd3c7360f459fba02b6c398b530baa7151f127384a1a8551a74658acbfb11a7d206a0482ab357496074be4ca20192c192962938e9bcdf1976cb4421d9af2c')
+source=(https://www.openwall.com/john/k/john-${_johnver}-jumbo-${_jumbover}.tar.xz{,.sign})
+sha512sums=('c5cb5dc739ee4c666f8479cdf10511fddc391b590c59f90c060d3ccd8449b794ac7b831a6d1f7553883892499e709a66578cfa4d62caef9b7e0a831eb827e808'
+            'SKIP')
+validpgpkeys=(
+  '297AD21CF86C948081520C1805C027FD4BDC136E' # Openwall offline signing key
+)
 
 prepare() {
-  cd ${pkgname}-${_johnver}-jumbo-${_jumbover}
-  patch -p0 < "${srcdir}/params.h.patch"
-  patch -p1 < "${srcdir}/gcc5.patch"
-  patch -p1 < "${srcdir}/fix-32bit.patch"
-  patch -Rp1 < "${srcdir}/fix-i686-openmp.patch"
-  sed 's|env python|env python2|' -i run/*.py
-  sed 's|/usr/bin/python|/usr/bin/python2|' -i run/*.py
-  sed 's|"x$enable_native_tests" = xyes -a "x$PKG_CONFIG"|"x$PKG_CONFIG"|' -i src/configure
+  cd ${pkgname}-${_johnver}-jumbo-${_jumbover}/src
+  sed 's|$prefix/bin|/usr/lib/john|' -i configure.ac
+  autoreconf -fiv
 }
 
 build() {
   cd ${pkgname}-${_johnver}-jumbo-${_jumbover}/src
 
-  export PKG_CONFIG_PATH=/usr/lib/openssl-1.0/pkgconfig
-
-  local JOHN_CFG_FULL_NAME="-DCFG_FULL_NAME='\"/etc/john/john.conf\"'"
-  local JOHN_SYSTEMWIDE_FLAGS="-DJOHN_SYSTEMWIDE_EXEC='\"/usr/lib/john\"' -DJOHN_SYSTEMWIDE_HOME='\"/usr/share/john\"'"
-  local JOHN_FLAGS="-DJOHN_SYSTEMWIDE=1 ${JOHN_SYSTEMWIDE_FLAGS} -DCPU_FALLBACK ${JOHN_CFG_FULL_NAME}"
-  local CFLAGS="${CFLAGS} ${JOHN_FLAGS}"
-  local CONFIGURE_FLAGS="--prefix=/usr --disable-native-tests --enable-openmp --enable-mpi"
-  CONFIGURE_FLAGS+=" --enable-opencl --enable-pkg-config --enable-pcap"
+  local CFLAGS="${CFLAGS} -DCPU_FALLBACK"
+  local options=(
+    --prefix=/usr
+    --with-systemwide
+    --disable-native-tests
+    --enable-openmp
+    --enable-mpi
+    --enable-opencl
+    --enable-pkg-config
+    --enable-pcap
+  )
 
   if [[ "${CARCH}" == "x86_64" ]]; then
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS}"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS/-DCPU_FALLBACK}"
     make clean; make
     mv ../run/john{,-non-avx}
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS} -mavx"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mavx"
     make clean; make
     mv ../run/john{,-non-xop}
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS} -mxop"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mxop"
     make clean; make
   elif [[ "${CARCH}" == "i686" ]]; then
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS}"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS}"
     make clean; make
     mv ../run/john{,-non-mmx}
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS} -mmmx"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mmmx"
     make clean; make
     mv ../run/john{,-non-sse}
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS} -msse2"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -msse2"
     make clean; make
     mv ../run/john{,-non-avx}
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS} -mavx"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mavx"
     make clean; make
     mv ../run/john{,-non-xop}
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS} -mxop"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mxop"
     make clean; make
   else
-    ./configure ${CONFIGURE_FLAGS} CFLAGS="${CFLAGS}"
+    ./configure "${options[@]}" CFLAGS="${CFLAGS}"
     make clean; make
   fi
 }
@@ -91,17 +85,19 @@ package() {
   cd ${pkgname}-${_johnver}-jumbo-${_jumbover}
 
   # config
-  sed 's|$JOHN/john.local.conf|/etc/john/john.local.conf|g' -i run/john.conf
   install -Dm 644 run/john.conf -t "${pkgdir}/etc/john"
   install -Dm 644 run/*.conf -t "${pkgdir}/usr/share/john"
-  rm "${pkgdir}/usr/share/john/"{john.conf,john.local.conf}
 
   # opencl
   install -Dm 644 run/kernels/* -t "${pkgdir}/usr/share/john/kernels"
 
   # docs
-  install -Dm 644 doc/* -t "${pkgdir}/usr/share/doc/john"
+  install -d "${pkgdir}/usr/share/doc/john"
+  cp -r doc/* "${pkgdir}/usr/share/doc/john"
+  rm "${pkgdir}/usr/share/doc/john/README"
+  install -Dm 644 README.md "${pkgdir}/usr/share/doc/${pkgname}"
   install -Dm 644 doc/LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  chmod -R o+r "${pkgdir}"/usr/share/doc/john/*
 
   # completion
   install -Dm 644 run/john.bash_completion "${pkgdir}/usr/share/bash-completion/completions/john"
@@ -110,10 +106,10 @@ package() {
   # binaries
   install -Dm 755 run/john -t "${pkgdir}/usr/bin"
   install -Dm 755 run/john-non-* -t "${pkgdir}/usr/lib/john"||true
-  local john_bins=(calc_stat cprepair  genmkvpwd  luks2john    mkvcalcproba raw2dyna \
+  local john_bins=(calc_stat cprepair  genmkvpwd  luks2john.py    mkvcalcproba raw2dyna \
                    relbench  tgtsnarf  uaf2john   wpapcap2john vncpcap2john SIPdump)
   for bin in "${john_bins[@]}"; do
-    install -Dm 755 run/${bin} -t "${pkgdir}/usr/bin"
+    install -Dm 755 "run/${bin}" "${pkgdir}/usr/bin/${bin/.py/}"
   done
 
   # scripts
@@ -121,6 +117,7 @@ package() {
 
   # data
   install -Dm 644 run/*.chr run/*.lst run/dictionary* run/stats -t "${pkgdir}/usr/share/john"
+  install -Dm 644 run/rules/* -t "${pkgdir}/usr/share/john/rules"
 
   # syminks
   cd "${pkgdir}/usr/bin"
