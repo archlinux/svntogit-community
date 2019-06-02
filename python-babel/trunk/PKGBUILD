@@ -4,9 +4,9 @@
 
 pkgbase=python-babel
 pkgname=(python-babel python2-babel)
-pkgver=2.6.0
-_core=33
-pkgrel=2
+pkgver=2.7.0
+_core=35.1
+pkgrel=1
 pkgdesc="A collection of tools for internationalizing Python applications"
 url="http://babel.pocoo.org/"
 license=("BSD")
@@ -16,16 +16,16 @@ makedepends=('python' 'python2'
              'python-pytz' 'python2-pytz')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-freezegun'
 	      'python-pytest-runner' 'python2-pytest-runner' 'python2-freezegun')
-noextract=("core-$_core.zip")
+noextract=("cldr-core-$_core.zip")
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/python-babel/babel/archive/v$pkgver.tar.gz"
-        "core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip")
-sha256sums=('f760326e6ae6ce290520aef63c3ee416a9258d7917addb0b6e086fe0e5911432'
-            'fa3490082c086d21257153609642f54fcf788fcfda4966fe67f3f6daca0d58b9')
+        "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip")
+sha256sums=('d31a563d7b573f2544d49fecc22b58d470a624ebb63fe41583502095e266c462'
+            'e2ede8cb8f9c29157e281ee9e696ce540a72c598841bed595a406b710eea87b0')
 
 prepare() {
   cp -a babel-$pkgver{,-py2}
-  cp "$srcdir"/core-$_core.zip babel-$pkgver-py2/cldr/core-$_core.0.zip
-  cp "$srcdir"/core-$_core.zip babel-$pkgver/cldr/core-$_core.0.zip
+  cp "$srcdir"/cldr-core-$_core.zip babel-$pkgver-py2/cldr/cldr-core-$_core.zip
+  cp "$srcdir"/cldr-core-$_core.zip babel-$pkgver/cldr/cldr-core-$_core.zip
 }
 
 build(){
