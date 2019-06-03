@@ -7,7 +7,7 @@ pkgver=3.7.13.5
 pkgrel=2
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
-url="http://gnuradio.org"
+url="https://gnuradio.org"
 license=('GPL')
 depends=('fftw' 'python2-numpy' 'cppunit' 'gsl' 'blas' 'boost-libs>=1.53'
     'libusbx' 'portaudio' 'libuhd' 'zeromq' 'libvolk')
