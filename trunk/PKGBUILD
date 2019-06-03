@@ -12,6 +12,8 @@ license=(Apache MIT)
 depends=(pcre2 libusb)
 optdepends=('python: for mkbootimg script')
 makedepends=(git clang gtest ruby cmake ninja go-pie)
+provides=(fastboot adb)
+conflicts=(fastboot adb)
 # keep the boringssl commit in sync with android tree https://android.googlesource.com/platform/external/boringssl/+/$pkgver/BORINGSSL_REVISION
 _boringssl_commit=45210dd4e21ace9d28cb76b3f83303fcdd2efcce
 source=(git+https://android.googlesource.com/platform/system/core#tag=android-$pkgver
