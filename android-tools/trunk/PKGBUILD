@@ -3,7 +3,7 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=9.0.0_r35
+pkgver=9.0.0_r41
 pkgrel=1
 pkgdesc='Android platform tools'
 arch=(x86_64)
