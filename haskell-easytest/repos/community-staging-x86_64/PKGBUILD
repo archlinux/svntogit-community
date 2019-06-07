@@ -1,0 +1,49 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=easytest
+pkgname=haskell-easytest
+pkgver=0.2.1
+pkgrel=6
+pkgdesc="Simple, expressive testing library"
+url="https://github.com/joelburget/easytest"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-async' 'haskell-call-stack'
+         'haskell-random')
+makedepends=('ghc')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('cb4604ae1311976b70047614e6c4a2fadf7085073c3add488b8b7f4001625a1159d134053289aec75eb33bb59ba1d48dc8d9b215745c88851bdbf0eb7b6ef928')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -foptimized -f-quiet
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
