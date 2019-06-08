@@ -8,7 +8,7 @@ pkgver=3.0.21
 pkgrel=4
 pkgdesc="Free Toolkit for developing mapping applications and rendering beautiful maps"
 arch=('x86_64')
-url="http://mapnik.org/"
+url="https://mapnik.org/"
 license=('LGPL')
 depends=('boost-libs' 'icu' 'libpng' 'libjpeg-turbo' 'libtiff' 'freetype2'
          'libxml2' 'python2' 'proj' 'cairo' 'cairomm' 'python2-cairo'
