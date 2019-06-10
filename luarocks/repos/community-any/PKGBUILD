@@ -4,7 +4,7 @@
 # Contributor: Geoffroy Carrier <geoffroy@archlinux.org>
 
 pkgname=luarocks
-pkgver=3.1.2
+pkgver=3.1.3
 pkgrel=1
 pkgdesc='Deployment and management system for Lua modules'
 backup=(etc/luarocks/config-5.{1,2,3}.lua)
@@ -23,7 +23,7 @@ optdepends=('cvs: for fetching sources from CVS repositories'
             'cmake: for building rocks that use the cmake build system'
             'lua-sec: HTTPS support')
 source=("https://luarocks.org/releases/$pkgname-$pkgver.tar.gz"{,.asc})
-md5sums=('8cde5e602b9f5fc727a59aa44c194ee6'
+md5sums=('a5c7487a62c9916547f83ed947a5022b'
          'SKIP')
 validpgpkeys=('8460980B2B79786DE0C7FCC83FD8F43C2BB3C478')
 
