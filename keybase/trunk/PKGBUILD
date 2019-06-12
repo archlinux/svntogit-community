@@ -5,7 +5,7 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=4.0.0
+pkgver=4.1.0
 pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
@@ -15,12 +15,12 @@ makedepends=('git' 'go-pie' 'yarn')
 source=("${pkgbase}-${pkgver}.tar.gz::https://github.com/keybase/client/archive/v${pkgver}.tar.gz"
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('b572cd747b8a5b94764671903de1e5e0641a7e1b58ff8eff1058143fd8962fa0685f4aa378d23690d50ee4dd756fc38afdc747c0f2e3266bf4bad93808144331'
-            '72d2a5ba25d2f5898fa7e97cee655aacfdca50933000555f6c04451235ad7f6d08a3ee2ec94cac79130064b9702fd38d24abffc48187e19912acd01d378156e3'
-            'df19e24912a26ff0a745493d4f90839aae9d6b7efff6d95e38efb079b6f5028ceca4e9e339eaf8069d0a678505ad472869e1d1a0c02558087b40296cacf4381f')
-b2sums=('63e754fb8748f5196f9a0044b61e6c1f269ef541a09f24eb401505c4e85f38bbc9eb8f88497d0d2271680d772dd08637ef07db466b2894a4e4a6d3388b55931e'
-        '3b1cdc95a70c9463c8ab2506cc22577ff5b9fd9665a99fcb97c287590f89cef4450fa984e58548288c7e2f2411de00577b92b78ac38829eac5d86223ceb432a0'
-        '0f3bc76093afd54a7e360873de71e6446a00878c014d6a3acb3786dc7336ddf5956785a3d14b57541e604eba1e2acd9e4771a21c0684ed7fbe1106c4492fafd8')
+sha512sums=('da018ca7c2c01ddcb86e0cb6bd34ab252e4495605519cadd6a521a52fed4931cf2bbafd83cb3b009239eab4de917b8c6f9a06a230e85f2d44cf47b265e0d5afe'
+            '673bfd68c708a905f1a69835804166945ef1be46de367f35b841015be1cc9b0cb188367055f147028ca12b3f464d877e0d502d24a4e6a6d94423f6f1cfc4b26a'
+            'f552e40479fd7240ce671cf1b36a92df89ad93c1505322ad53a7d2c2f1e961e22bc5f6147f09a7ccf4f50594bff6ea400d32152c67dd8223d6c2b73be5efdbb2')
+b2sums=('8e14a94f80ea9a3b3e98d0e53ee1a213277747287772579364e24306d6163fe5302e407e4fd1f9363409173d4c65a338251596ce9e502f3bebe781ef5e711d83'
+        'd2392b0d61279358a4063b4df872e96545672d70b8b99c23f29ec26ab7d96467dbf25c4066319e0ff214d069418a745e370400f6a3923b458d89b37883995db5'
+        'cb04645501fb475b6c3d1ec4b6ca43b7e8fa929a774093b50f3dc6c6e57866d6064e648854bfea0d04719dae62045da8a260b0ca4c2a15e82898e07dfe7cad95')
 
 prepare() {
     cd client-${pkgver}
@@ -51,7 +51,7 @@ build() {
 
     cd ../../shared
     yarn install
-    yarn run package
+    yarn run package --appVersion $pkgver
 }
 
 package_keybase() {
