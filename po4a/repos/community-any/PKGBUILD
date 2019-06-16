@@ -6,18 +6,18 @@
 # Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi> aka Neverth
 
 pkgname=po4a
-pkgver=0.55
+pkgver=0.56
 pkgrel=1
 pkgdesc="Tools for helping translation of documentation"
 arch=('any')
-license=('GPL')
 url="https://po4a.org/"
+license=('GPL')
 depends=('perl' 'gettext')
 makedepends=('docbook-xsl' 'perl-text-wrapi18n' 'perl-locale-gettext'
              'perl-term-readkey' 'perl-sgmls' 'perl-module-build' 'perl-unicode-linebreak')
 options=('!emptydirs')
 source=($pkgname-$pkgver.tar.gz::https://github.com/mquinson/$pkgname/archive/v$pkgver.tar.gz)
-sha256sums=('211b9f2553043360f519fb9b7df008fb0c91ffcd2163395c9ed6544a247aec09')
+sha256sums=('f5a4fbf17a98a72d0490e004ba373ea2825091c65748f32425413dee6dfe0ea2')
 
 build() {
   cd ${pkgname}-${pkgver}
