@@ -4,8 +4,8 @@
 # Contributor: orbisvicis <orbisvicis@gmail.com>
 
 pkgname=mapnik
-pkgver=3.0.21
-pkgrel=4
+pkgver=3.0.22
+pkgrel=1
 pkgdesc="Free Toolkit for developing mapping applications and rendering beautiful maps"
 arch=('x86_64')
 url="https://mapnik.org/"
@@ -23,19 +23,13 @@ optdepends=('libxslt:         Web Map Service'
             'mod_wsgi2:       Web Map Service')
 install=$pkgname.install
 source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2
-        https://github.com/mapnik/mapnik/pull/3892.patch
-        mapnik-boost-1.68.patch::https://github.com/mapnik/mapnik/pull/3937.patch
-        mapnik-boost-1.69.patch::https://github.com/mapnik/mapnik/commit/bcb1e67507.patch)
-sha256sums=('6db7918e8fd24346dfc81745e455c383a718335ffa64015cf625fed5ed92b524'
-            '774a8590b698e9dc2a483e6ff48781ed0400ba06b901f12a1ed50c9114833d47'
-            '6b1eb2a013e3e83190cb833cfed370dbe03bd009b51f909112bc353fca7ee4e7'
-            'c47d8bdf6ccfe72b459f0898a3a92eb044d2b1a9b92f208db9ffcb4c173bdf31')
+        https://github.com/mapnik/mapnik/pull/3892.patch)
+sha256sums=('930612ad9e604b6a29b9cea1bc1de85cf7cf2b2b8211f57ec8b6b94463128ab9'
+            '774a8590b698e9dc2a483e6ff48781ed0400ba06b901f12a1ed50c9114833d47')
 
 prepare() {
   cd "${srcdir}"/$pkgname-v$pkgver
   patch -Np1 -i "${srcdir}"/3892.patch
-  patch -p1 -i ../mapnik-boost-1.68.patch # Fix build with boost 1.68
-  patch -p1 -i ../mapnik-boost-1.69.patch # Fix build with boost 1.69
 }
 
 build() {
