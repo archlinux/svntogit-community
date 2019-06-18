@@ -4,7 +4,7 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=19.0.6
+pkgver=19.1.0
 pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
@@ -13,10 +13,12 @@ makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
-        LICENSE)
-sha512sums=('320fd6b12ccd5e4a40dfc93546354848a38da09d90e4d5a1dae5d100b8106942acfc25ac3f705a2d3ab3b355162c74c7dfadbdb99a46cf2e5e0761f8542bfeb1'
+        LICENSE
+        glesv2.pc)
+sha512sums=('25b186ae8037dedea5691e0b77b22f2065f3c877838378651726dfa1b34ef49dcc56f1dbd124e99285e5f14489db936a886a6740495b5b279e8363424bfb3433'
             'SKIP'
-            'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
+            'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
+            '67b9484f5131beea834192ef185d4eb2d4b77d12302d7a99337c3fb59cb6a2bee10a70d01e92554a0ff74eca04a8197b300b63ebde0aace55c249021b3383179')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
               '946D09B5E4C9845E63075FF1D961C596A7203456'  # Andres Gomez <tanty@igalia.com>
               'E3E8F480C52ADD73B278EE78E1ECBE07D7D70895'  # Juan Antonio Suárez Romero (Igalia, S.L.) <jasuarez@igalia.com>"
@@ -40,7 +42,7 @@ build() {
     -D b_ndebug=true \
     -D platforms=x11,wayland,drm,surfaceless \
     -D dri-drivers=i915,i965,r100,r200,nouveau \
-    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast \
+    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,swr,iris \
     -D vulkan-drivers=amd,intel \
     -D swr-arches=avx,avx2 \
     -D dri3=true \
@@ -54,7 +56,7 @@ build() {
     -D gallium-xa=true \
     -D gallium-xvmc=false \
     -D gbm=true \
-    -D gles1=true \
+    -D gles1=false \
     -D gles2=true \
     -D glvnd=true \
     -D glx=dri \
@@ -135,17 +137,15 @@ package_lib32-mesa() {
   conflicts=('lib32-ati-dri' 'lib32-intel-dri' 'lib32-nouveau-dri' 'lib32-mesa-dri' 'lib32-mesa-libgl')
   replaces=('lib32-ati-dri' 'lib32-intel-dri' 'lib32-nouveau-dri' 'lib32-mesa-dri' 'lib32-mesa-libgl')
 
-  # ati-dri, nouveau-dri, intel-dri, svga-dri, swrast
+  # ati-dri, nouveau-dri, intel-dri, svga-dri, swrast, swr
   _install fakeinstall/usr/lib32/dri/*_dri.so
    
   _install fakeinstall/usr/lib32/d3d
   _install fakeinstall/usr/lib32/lib{gbm,glapi}.so*
   _install fakeinstall/usr/lib32/libOSMesa.so*
   _install fakeinstall/usr/lib32/libxatracker.so*
+  _install fakeinstall/usr/lib32/libswrAVX*.so*
   _install fakeinstall/usr/lib32/pkgconfig
-
-  # in libglvnd
-  rm -v fakeinstall/usr/lib32/libGLESv{1_CM,2}.so*
 
   # libglvnd support
   _install fakeinstall/usr/lib32/libGLX_mesa.so*
@@ -160,6 +160,9 @@ package_lib32-mesa() {
 
   # make sure there are no files left to install
   find fakeinstall -depth -print0 | xargs -0 rmdir
+
+  # bring back missing glesv2.pc
+  install -m644 -Dt ${pkgdir}/usr/lib32/pkgconfig ${srcdir}/glesv2.pc
 
   install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
 }
