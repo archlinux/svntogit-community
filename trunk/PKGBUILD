@@ -9,7 +9,7 @@ pkgver=3.0.1
 pkgrel=1
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
-url="http://pypi.python.org/pypi/jsonschema"
+url="https://pypi.python.org/pypi/jsonschema"
 license=('MIT')
 makedepends=('python-attrs' 'python2-attrs' 'python-pyrsistent' 'python2-pyrsistent'
              'python2-functools32' 'python-setuptools-scm' 'python2-setuptools-scm')
