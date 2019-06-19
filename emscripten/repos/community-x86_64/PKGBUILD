@@ -5,85 +5,65 @@
 
 pkgname=emscripten
 pkgver=1.38.36
-pkgrel=1
+pkgrel=2
 pkgdesc="LLVM-based project that compiles C and C++ into highly-optimizable JavaScript for the web"
 arch=('x86_64')
 url="http://emscripten.org"
 license=('custom')
-depends=('nodejs' 'python')
-makedepends=('cmake' 'libxml2')
+depends=(nodejs python binaryen)
+makedepends=(cmake libxml2 git ninja)
 optdepends=('java-environment: for using clojure'
             'ruby: for using websockify addon'
             'cmake: for emcc --show-ports')
-install=$pkgname.install
+install=emscripten.install
 source=(emscripten-$pkgver.tar.gz::"https://github.com/kripken/emscripten/archive/$pkgver.tar.gz"
-        emscripten-fastcomp-$pkgver.tar.gz::"https://github.com/kripken/emscripten-fastcomp/archive/$pkgver.tar.gz"
-        emscripten-fastcomp-clang-$pkgver.tar.gz::"https://github.com/kripken/emscripten-fastcomp-clang/archive/$pkgver.tar.gz"
+        git+https://github.com/llvm/llvm-project.git#commit=58dbe47
         "emscripten.sh")
 sha512sums=('70ec76c0e196c2e91182adb144eace500c00ae35f4a78b5818d059eeb05e875d93216e344631a32324e55dda51c290e9772c67bd59a837e08437eda11b25d026'
-            '5606353b02f82cb23628fa408ee21543f1733aeb5964b01bbf2a7fff84a3a13e44ad4bd96a266e7e918e2a32f12221bced4bdf501e2799906c6d5b4a1364465c'
-            '9d0e54bc15e0a60da3182e99728e5dd1723175c82ca03791bee6ac59fd5ae6bf9f3da673fc2b7b4fd91802d366c422ef22fe7fda909df720bf4ac37b2b36ab89'
-            '52007717c21c22f5d9f027268de2516e969f2ffb8e37121f75ca2697b7ddcde6c0be9636d19df7b3c2e89bc769f5361750c62f9fcb84d224cde3c8626bc9c93b')
+            'SKIP'
+            'fbe9b95b8d18e7d0c6ec5fded6f11b72fbe4ddd0391e5704b281ba79c479f3563e82423b790ddf3f0554a23d659193ca898a81fe3db509f16c30c7188b790e4d')
 
 prepare() {
-  cd emscripten-fastcomp-$pkgver
+  cd "$srcdir"/emscripten-$pkgver
 
-  mkdir build
+  sed -i 's|EMSCRIPTEN_ROOT.*|EMSCRIPTEN_ROOT = "/usr/lib/emscripten"|g' tools/settings_template_readonly.py
+  sed -i 's|LLVM_ROOT.*|LLVM_ROOT = "/usr/lib/emscripten-llvm"|g' tools/settings_template_readonly.py
 
-  # put clang source into the right place (http://git.io/i1GBkg)
-  rm -rf tools/clang
-  ln -s "$srcdir"/emscripten-fastcomp-clang-$pkgver tools/clang
-
-  cd ../emscripten-$pkgver
-
-  # adapt config file template to use our custom environment variable and path
-  sed -e "s|getenv('LLVM')|getenv('EMSCRIPTEN_FASTCOMP')|" \
-    -e 's|{{{ LLVM_ROOT }}}|/usr/lib/emscripten-fastcomp|' \
-    -i tools/settings_template_readonly.py
+  mkdir "$srcdir"/llvm-project/llvm/build
 }
 
 build() {
-  cd emscripten-fastcomp-$pkgver/build
+  cd "$srcdir"/llvm-project/llvm/build
 
   cmake .. \
+    -GNinja \
     -DPYTHON_EXECUTABLE=/usr/bin/python \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_SKIP_RPATH=YES \
-    -DLLVM_TARGETS_TO_BUILD="X86;JSBackend" \
+    -DLLVM_TARGETS_TO_BUILD="X86;WebAssembly" \
     -DLLVM_BUILD_RUNTIME=OFF \
     -DLLVM_INCLUDE_EXAMPLES=OFF \
     -DLLVM_INCLUDE_TESTS=OFF \
+    -DLLVM_ENABLE_PROJECTS="lld;clang" \
     -DCLANG_INCLUDE_TESTS=OFF
-  make
+  ninja
 }
 
 package() {
-  # exported variables
-  install -Dm755 "$srcdir"/emscripten.sh "$pkgdir"/etc/profile.d/emscripten.sh
+  # install LLVM stuff
+  install -d "$pkgdir"/usr/lib/emscripten-llvm
+  install -m755 "$srcdir"/llvm-project/llvm/build/bin/* "$pkgdir"/usr/lib/emscripten-llvm
 
-  # LLVM-backend, TODO: include only needed tools
-  cd "$srcdir"/emscripten-fastcomp-$pkgver
-  install -Dm644 emscripten-version.txt "$pkgdir"/usr/lib/emscripten-fastcomp/emscripten-version.txt
-  install -m755 build/bin/* "$pkgdir"/usr/lib/emscripten-fastcomp
-
-  # copy structure
+  # install emscripten
   cd "$srcdir"/emscripten-$pkgver
   install -d "$pkgdir"/usr/lib/emscripten
   cp -rup em* cmake site src system third_party tools "$pkgdir"/usr/lib/emscripten
 
   # remove clutter
-  rm "$pkgdir"/usr/lib/emscripten-fastcomp/{*-test,llvm-lit}
   rm "$pkgdir"/usr/lib/emscripten/*.bat
 
-  # docs
   install -d "$pkgdir"/usr/share/doc
   ln -s /usr/lib/emscripten/site/source/docs "$pkgdir"/usr/share/doc/$pkgname
-
-  # license
+  install -Dm755 "$srcdir"/emscripten.sh "$pkgdir"/etc/profile.d/emscripten.sh
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-
-  # Get rid of some duplicated binaries (see FS#61487).
-  for link in ++ -6.0 -cl -cpp; do
-      ln -sf clang "$pkgdir"/usr/lib/emscripten-fastcomp/clang$link
-  done
 }
