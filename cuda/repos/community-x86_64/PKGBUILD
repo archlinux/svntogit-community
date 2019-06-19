@@ -4,7 +4,7 @@ pkgname=cuda
 pkgver=10.1.168
 _basever=10.1.105
 _driverver=418.39
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -48,7 +48,8 @@ package() {
   ln -s /opt/cuda/targets/x86_64-linux/lib "${pkgdir}/opt/cuda/lib"
   ln -s /opt/cuda/nvvm/lib64 "${pkgdir}/opt/cuda/nvvm/lib"
 
-  # Use GCC 8
+  # Define compilers for CUDA to use.
+  # This allows us to use older versions of GCC if we have to.
   ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
   ln -s /usr/bin/g++ "${pkgdir}/opt/cuda/bin/g++"
 
@@ -77,6 +78,9 @@ package() {
   sed 's|../jre/bin/java|/usr/lib/jvm/java-8-openjdk/jre/bin/java|g' \
     -i "${pkgdir}/opt/cuda/libnsight/nsight.ini" \
     -i "${pkgdir}/opt/cuda/libnvvp/nvvp.ini"
+
+  # Allow GCC 9 to work
+  sed -i "/.*unsupported GNU version.*/d" "${pkgdir}"/opt/cuda/targets/x86_64-linux/include/crt/host_config.h
 }
 
 # vim:set ts=2 sw=2 et:
