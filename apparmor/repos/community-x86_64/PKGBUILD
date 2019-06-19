@@ -1,73 +1,65 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=apparmor
-pkgver=2.13.2
-pkgrel=4
+pkgver=2.13.3
+pkgrel=1
 pkgdesc="Mandatory Access Control (MAC) using Linux Security Module (LSM)"
 arch=('x86_64')
 url="https://gitlab.com/apparmor/apparmor"
 license=('GPL2' 'LGPL2.1')
 depends=('audit' 'pam' 'python')
 makedepends=('apache' 'ruby' 'swig')
-checkdepends=('dejagnu' 'python-pyflakes')
+checkdepends=('dejagnu' 'perl-locale-gettext' 'python-pyflakes')
 optdepends=('perl: perl bindings'
             'ruby: ruby bindings')
-provides=('libapparmor')
-replaces=('apparmor-libapparmor' 'apparmor-pam' 'apparmor-parser'
-'apparmor-profiles' 'apparmor-utils' 'apparmor-vim')
+provides=('libapparmor.so')
 backup=('etc/apparmor/easyprof.conf'
         'etc/apparmor/logprof.conf'
         'etc/apparmor/notify.conf'
         'etc/apparmor/parser.conf'
         'etc/apparmor/subdomain.conf'
         'etc/apparmor/severity.db')
-source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver}.tar.gz"{,.asc}
-        "${pkgname}-2.13.2-swig4.patch::https://gitlab.com/apparmor/apparmor/merge_requests/384.patch")
-sha512sums=('2e5f84ced12c9de1a862e1a3258e8424f1f0d3c986947aec9d88a9258729a584953d00591c8902aa41e664acf9a639dab96d025c3a1ed3f91f0edce8d028b58f'
-            'SKIP'
-            'd80dfb222b43a6b347cb952ec7672e3bc24d144a8678fab737520823ff84c45d6a4bd997416c5f67679fdf58172843003dd0c8dbed0f30646a6937922683d9ff')
+source=("https://launchpad.net/${pkgname}/${pkgver%.[0-9]}/${pkgver}/+download/${pkgname}-${pkgver}.tar.gz"{,.asc})
+sha512sums=('137b2bf026ec655b662e9c264d7d48d878db474a3f1cc5a38bfd7df2f85b682bddb77b091ab5595178231a0a262c9ae9cdd61409461cd889bdee156906ef1141'
+            'SKIP')
 # AppArmor Development Team (AppArmor signing key) <apparmor@lists.ubuntu.com>
 validpgpkeys=('3ECDCBA5FB34D254961CC53F6689E64E3D3664BB')
 _core_perl="/usr/bin/core_perl"
 
 prepare() {
   cd "${pkgname}-${pkgver}"
-  # fix PYTHONPATH for aa-logprof based check
+  # fix PYTHONPATH and add LD_LIBRARY_PATH for aa-logprof based check:
+  # https://gitlab.com/apparmor/apparmor/issues/39
   local _py3_ver=$(python --version | cut -d " " -f2)
   local path="${PWD}/libraries/libapparmor/swig/python/build/lib.linux-${CARCH}-${_py3_ver%"."*}/LibAppArmor"
   local libs="${PWD}/libraries/libapparmor/src/.libs"
   sed -e "/PYTHONPATH/ s|utils\ |utils:$path\ LD_LIBRARY_PATH=$libs\ |" \
       -i profiles/Makefile
-  # remove test-aa.py (utils check), producing too many fails
-  rm -v utils/test/test-aa.py
-  # fix bin directory for parser install target
-  # fix lib dir location
+  # fix hardcoded install paths: https://gitlab.com/apparmor/apparmor/issues/38
   sed -e 's|/usr/sbin|/usr/bin|g' \
       -e 's|/sbin|/usr/bin|g' \
-      -e 's/\}\/lib\/apparmor/\}\/usr\/lib\/apparmor/' \
       -i parser/Makefile
-  # fix default installation path for vim syntax file
-  sed -e 's/share\/apparmor/share\/vim\/vimfiles\/syntax/' \
-      -i utils/vim/Makefile
-  # fix issue with swig >= 4.0.0: https://gitlab.com/apparmor/apparmor/issues/33
-  patch -Np1 -i "../${pkgname}-2.13.2-swig4.patch"
-  cd libraries/libapparmor/
-  autoreconf -vfi
+  (
+    cd libraries/libapparmor/
+    autoreconf -vfi
+  )
 }
 
 build() {
+  cd "${pkgname}-${pkgver}"
   # export required perl executable locations
   export MAKEFLAGS+=" POD2MAN=${_core_perl}/pod2man"
   export MAKEFLAGS+=" POD2HTML=${_core_perl}/pod2html"
   export MAKEFLAGS+=" PODCHECKER=${_core_perl}/podchecker"
   export MAKEFLAGS+=" PROVE=${_core_perl}/prove"
-  cd "${pkgname}-${pkgver}/libraries/libapparmor/"
-  ./configure --prefix=/usr \
-              --sbindir=/usr/bin \
-              --with-perl \
-              --with-python \
-              --with-ruby
-  make
-  cd ../..
+  (
+    cd "libraries/libapparmor/"
+    ./configure --prefix=/usr \
+                --sbindir=/usr/bin \
+                --with-perl \
+                --with-python \
+                --with-ruby
+    make
+  )
   make -C binutils
   make -C parser
   make -C profiles
@@ -81,10 +73,10 @@ check() {
   cd "$pkgname-$pkgver"
   make -C libraries/libapparmor check
   make -C binutils check
-# parser checks don't run on non-apparmor enabled kernel
-#  make -C parser check
-# profiles check need to be run on a system with aa installed?
-#  make -C profiles check
+  make -C parser check
+  # only running check-parser, as check-logprof (included in check) fails:
+  # https://gitlab.com/apparmor/apparmor/issues/36
+  make -C profiles check-parser
   make -C utils check
 }
 
@@ -94,22 +86,25 @@ package() {
   make -C changehat/pam_apparmor DESTDIR="${pkgdir}/usr" install
   make -C changehat/mod_apparmor DESTDIR="${pkgdir}" install
   make -C binutils DESTDIR="${pkgdir}" install
-  make -C parser DESTDIR="${pkgdir}" install
-  make -C parser DESTDIR="${pkgdir}" install-systemd
+  make -C parser DESTDIR="${pkgdir}" \
+                 APPARMOR_BIN_PREFIX="${pkgdir}/usr/lib/apparmor" \
+                 install install-systemd
   make -C profiles DESTDIR="${pkgdir}" install
-  make -C utils DESTDIR="${pkgdir}" BINDIR="${pkgdir}/usr/bin" install
-  # strip perl library
+  make -C utils DESTDIR="${pkgdir}" \
+                BINDIR="${pkgdir}/usr/bin" \
+                VIM_INSTALL_PATH="${pkgdir}/usr/share/vim/vimfiles/syntax" \
+                install
+  # strip perl library: https://gitlab.com/apparmor/apparmor/issues/34
   find "${pkgdir}/usr/lib/perl5/" \
     -type f -iname "*.so" \
     -exec strip --strip-unneeded {} \;
-  # removing empty core_perl directory
-  rm -rv "${pkgdir}"/usr/lib/perl5/*/core_perl
-  # move ruby bindings to vendor_ruby
+  # move ruby bindings to vendor_ruby:
+  # https://gitlab.com/apparmor/apparmor/issues/35
   mv -v "${pkgdir}/usr/lib/ruby/site_ruby/" \
     "${pkgdir}/usr/lib/ruby/vendor_ruby/"
   # adding files below /etc/apparmor.d to backup array
   cd "${pkgdir}"
   # tricking extract_function_variable() in makepkg into not detecting the
-  # backup array modification
+  # backup array modification and adding remaining configuration files
   [[ /usr/bin/true ]] && backup=( ${backup[@]} $(find "etc/${pkgname}.d/" -type f) )
 }
