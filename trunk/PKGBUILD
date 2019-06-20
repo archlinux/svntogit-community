@@ -5,7 +5,7 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=2.1.1
+pkgver=2.1.2
 pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
@@ -28,7 +28,7 @@ checkdepends=('imagemagick' 'librsvg'
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
 source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('15143166e786c7faa76fa990d3b6b38ebffe081ef81cffd1d656b07f3b28a1fa'
+sha256sums=('f9a79e746b87921cabc3baa375199c6076d1270cee53915dbd24fdbeaaacc427'
             'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa
