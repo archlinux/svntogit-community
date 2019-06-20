@@ -4,15 +4,15 @@
 # Contributor: Tom Newsom <Jeepster@gmx.co.uk>
 
 pkgname=ecasound
-pkgver=2.9.1
-pkgrel=13
+pkgver=2.9.2
+pkgrel=1
 pkgdesc="Command-line multitrack audio processor"
 arch=('x86_64')
 url="https://ecasound.seul.org/ecasound/"
 license=('GPL' 'LGPL')
 groups=('pro-audio')
-depends=('audiofile' 'liblo>=0.28' 'lilv')
-makedepends=('python2' 'ruby')
+depends=('audiofile' 'liblo' 'lilv')
+makedepends=('lv2' 'python2' 'ruby')
 optdepends=('python2: ecamonitor, ECI API'
             'ruby: ECI API'
             'mpg123: MP3 decoding'
@@ -22,31 +22,36 @@ optdepends=('python2: ecamonitor, ECI API'
             'faac: AAC encoding'
             'timidity++: MIDI file input'
             'libmikmod: tracker module')
-source=("https://ecasound.seul.org/download/$pkgname-$pkgver.tar.gz"
-        'ruby2.patch')
+source=("https://ecasound.seul.org/download/$pkgname-$pkgver.tar.gz")
 options=('staticlibs')
-sha512sums=('b91fd68cb4809fdf62b25323fbf52c9bb7de6663287d5aa2576cc4fb28e322850b7020df2718ed6087f5d9f5f96692a476287378ea65853d01834523e8eb7033'
-            'aa1553e81acc41917cc8e62b7e2569106183b4500d687fc17e0b56c8f70e78ae63cd65c4940ef83a13dbb0b320ba51573b6eb43da54b141f846623962838d639')
+sha512sums=('fca6b37b5f669ba8616e48afe24fbfd53da3cb4987d2d6a2d6167843de34371a4c2cdceb6faf677462d6efb4069dd1d27ffafc1ceb19de56f4a051f077ada07b')
 
 prepare() {
   cd "$pkgname-$pkgver"
 
-  # fix python2 shebang
-  sed -e 's:bin/env python:bin/env python2:' \
-      -i "ecatools/ecamonitor"
+  # install ruby integration to vendor_ruby
+  sed -e 's/sitedir/vendordir/' -i configure.ac
 
-  # fix ruby 2.0 incompatibility + use vendor_ruby for ruby files
-  patch -Np1 -i "$srcdir/ruby2.patch"
+  # lv2core is deprecated in favor of lv2:
+  # https://sourceforge.net/p/ecasound/bugs/52/
+  sed -e 's/lv2core/lv2/g' -i configure.ac
+
+  # fix python2 shebang:
+  # https://sourceforge.net/p/ecasound/mailman/message/36698740/
+  sed -e 's/env python/env python2/' \
+      -i 'ecatools/ecamonitor' \
+      -i "examples/"*.py \
+      -i "pyecasound/"*.py
+
+  autoreconf -vfi
 }
 build() {
   cd "$pkgname-$pkgver"
-
-  PYTHONPATH=/usr/bin/python2 ./configure \
-    --prefix=/usr \
-    --with-python-includes=/usr/include/python2.7 \
-    --with-python-modules=/usr/lib/python2.7 \
-    --enable-liboil=no
-
+  export PYTHONPATH="/usr/bin/python2"
+  ./configure --prefix=/usr \
+              --with-python-includes=/usr/include/python2.7 \
+              --with-python-modules=/usr/lib/python2.7 \
+              --enable-liboil=no
   make
 }
 
