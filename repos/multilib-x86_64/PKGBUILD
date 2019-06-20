@@ -5,7 +5,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=4.9
+pkgver=4.10
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
@@ -14,9 +14,9 @@ source=(https://dl.winehq.org/wine/source/4.x/wine-$_pkgbasever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('bf750af9569b0c564cd9581b9de8c399f6e42227eb6e79338ec6ba70f135fe3388b0792ff013add97341c488ed906227cdf93cc275e362ba232df78afaaab66d'
+sha512sums=('cafc1d268719f723091429d9d8787044719f0936b00d47c6d01cef4d9c141fed7ba5b9776c1c63c68934a0a1071fb74daa0440aa52e77c4e42aca894163d6f54'
             'SKIP'
-            '9676f54833a424f965af7591c40aa40cd3fb3b36062484de56585a631dafa68a9a545f00153350c067a0d73146f9f169a678041bb141f7562f9df6e31ec4e2d5'
+            'f65ed761d9cbfb58aef19ea8a90c049996855a49de747f1858703e765292532dc7bb487ecfe50eb2e7e87c673507a5e287f6f80aa2d50aabe9066314809c1f03'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -123,8 +123,8 @@ prepare() {
   pushd wine-staging-$_pkgbasever/patches
   ./patchinstall.sh DESTDIR="$srcdir/$pkgname" --all
   popd
-  
-  # https://bugs.winehq.org/show_bug.cgi?id=43530
+
+  # Doesn't compile without remove these flags as of 4.10
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
 
