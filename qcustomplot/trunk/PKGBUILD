@@ -1,0 +1,56 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+_name=QCustomPlot
+pkgname=qcustomplot
+pkgver=2.0.1
+pkgrel=3
+pkgdesc="Qt C++ widget for plotting and data visualization"
+arch=('x86_64')
+url="https://www.qcustomplot.com/"
+license=('GPL3')
+depends=('qt5-base')
+replaces=('qcustomplot-qt5')
+makedepends=('doxygen' 'graphviz' 'python' 'qt5-tools')
+source=("https://gitlab.com/DerManu/${_name}/-/archive/v${pkgver}/${_name}-v${pkgver}.tar.bz2")
+sha512sums=('fb9184d517007b7c280e7122b3c14b6e49bf6b550bf41b95fe6808cc1c66c66dd82383796bfa4f43ce1ff0406e4c53e579ecc0aa2992741c5a45e5469f4bf5e8')
+
+prepare() {
+  mv -v "${_name}-v${pkgver}" "${pkgname}-${pkgver}"
+  cd "$pkgname-$pkgver"
+  # using amalgamated sources, so we can create shared objects
+  ./amalgamate src/*.skeleton
+  sed -e 's|qcustomplot.cpp|src/qcustomplot.cpp|g' \
+      -e 's|qcustomplot.h|src/qcustomplot.h|g' \
+      -i sharedlib/sharedlib-compilation/sharedlib-compilation.pro
+  find . -type f -iname "*.gitignore" -delete
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  qmake-qt5 sharedlib/sharedlib-compilation/sharedlib-compilation.pro
+  make
+  # create documentation
+  doxygen
+  ./documentation/postprocess-doc-images.py
+  ./documentation/postprocess-doc-html.py
+  qhelpgenerator documentation/html/index.qhp \
+    -o documentation/qthelp/qcustomplot.qch
+  find documentation/html -type f \
+    -iname "*.ghp" -or -iname "*.map" -or -iname "*.md5" -delete
+}
+
+#check() {
+#  cd "$pkgname-$pkgver"
+#  make -k check
+#}
+
+package() {
+  cd "$pkgname-$pkgver"
+  # there is no install target
+  install -vDm 644 "src/${pkgname}.h" -t "${pkgdir}/usr/include/"
+  install -vdm 755 "${pkgdir}/usr/lib/"
+  cp -av "lib${pkgname}.so"* "${pkgdir}/usr/lib/"
+  install -vDm 644 changelog.txt -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  cp -av examples "${pkgdir}/usr/share/doc/${pkgname}/"
+  cp -av documentation/html "${pkgdir}/usr/share/doc/${pkgname}/"
+  cp -av documentation/qthelp "${pkgdir}/usr/share/doc/${pkgname}/"
+}
