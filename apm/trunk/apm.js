@@ -4,7 +4,7 @@
 
 process.env.ATOM_RESOURCE_PATH = process.env.ATOM_RESOURCE_PATH || "/usr/lib/atom";
 
-process.env.ATOM_ELECTRON_VERSION = process.env.ATOM_ELECTRON_VERSION || require("fs").readFileSync("/usr/lib/electron/version", "utf8");
+process.env.ATOM_ELECTRON_VERSION = process.env.ATOM_ELECTRON_VERSION || require("fs").readFileSync("/usr/lib/electron4/version", "utf8");
 
 process.env.npm_config_python = __dirname + "/python-interceptor.sh";
 
