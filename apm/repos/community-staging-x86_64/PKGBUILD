@@ -1,0 +1,104 @@
+# Maintainer: Nicola Squartini <tensor5@gmail.com>
+
+pkgname=apm
+pkgver=2.3.1
+pkgrel=2
+pkgdesc='Atom package manager'
+arch=('x86_64')
+url='https://github.com/atom/apm'
+license=('MIT')
+depends=('libsecret' 'nodejs>=10' 'npm' 'python2')
+makedepends=('git')
+provides=('nodejs-atom-package-manager')
+conflicts=('nodejs-atom-package-manager')
+replaces=('nodejs-atom-package-manager')
+options=(!emptydirs)
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/atom/apm/archive/v${pkgver}.tar.gz"
+        'apm.js'
+        'no-scripts.patch'
+        'python2.patch'
+        'use-system-npm.patch')
+sha256sums=('39c684a34caf1d01b2efbaec24101c970ad3eb1b2327da573f3c3f9db0d4d527'
+            'acbe133eb67d603e815605b1f3d9056a03bfc4a22a7e9db081126b289b385f77'
+            '897a82cd23ed5a4f226635dabe56ad28e533cb0949593e2b771ad7928c058bcb'
+            '621ae29f99c3fbc410a9a7dc143dd9c912ee94eaa48110ad32c40647f635e792'
+            'cf17bd31f70079fe2a17958712c1a515ce83623dd3f97557a3f01d346da09f19')
+
+_apmdir='/usr/lib/node_modules/atom-package-manager'
+
+prepare() {
+  rm -rf "${srcdir}"/apm-build
+
+  cd apm-${pkgver}
+
+  # Use custom launcher
+  rm bin/apm{,.cmd} bin/npm{,.cmd}
+  rm src/cli.coffee
+  install -m755 "${srcdir}"/apm.js bin/apm
+
+  # Use system npm
+  tr -d '\015' < package.json > package.json.new  # CRLF to LF
+  mv package.json.new package.json
+  patch -Np1 -i "${srcdir}"/use-system-npm.patch
+
+  # Don't download binary Node
+  patch -Np1 -i "${srcdir}"/no-scripts.patch
+  rm BUNDLED_NODE_VERSION script/*
+
+  # GYP needs Python2
+  patch -Np1 -i "${srcdir}"/python2.patch
+}
+
+build() {
+  cd apm-${pkgver}
+
+  npm install coffee-script
+  npx coffee -c --no-header -o lib src/*.coffee
+  rm -r node_modules
+  npm install --user root -g --prefix="${srcdir}"/apm-build/usr $(npm pack | tail -1)
+}
+
+package() {
+  cp -r "${srcdir}"/apm-build/usr "${pkgdir}"
+
+  cd "${pkgdir}"${_apmdir}
+  install -m644 "${srcdir}"/apm-${pkgver}/README.md ./
+
+  # Install license file
+  install -d -m755 "${pkgdir}/usr/share/licenses/${pkgname}"
+  ln -s ../../../lib/node_modules/atom-package-manager/LICENSE.md \
+     "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  # Remove occurrences of ${srcdir}
+  find "${pkgdir}" -name "package.json" \
+       -exec sed -e "s|${srcdir}/apm-build||" \
+                 -e "s|${srcdir}/apm-${pkgver}|${_apmdir}|" \
+                 -i '{}' \;
+
+  # Remove useless stuff
+  find "${pkgdir}"/usr/lib \
+      -name ".*" -prune -exec rm -r '{}' \; \
+      -or -name "*.a" -exec rm '{}' \; \
+      -or -name "*.bat" -exec rm '{}' \; \
+      -or -name "*.mk" -exec rm '{}' \; \
+      -or -path "*/git-utils/binding.gyp" -exec rm '{}' \; \
+      -or -path "*/git-utils/src" -prune -exec rm -r '{}' \; \
+      -or -path "*/keytar/binding.gyp" -exec rm '{}' \; \
+      -or -path "*/keytar/src" -prune -exec rm -r '{}' \; \
+      -or -path "*/oniguruma/binding.gyp" -exec rm '{}' \; \
+      -or -path "*/oniguruma/src" -prune -exec rm -r '{}' \; \
+      -or -name "appveyor.yml" -exec rm '{}' \; \
+      -or -name "benchmark" -prune -exec rm -r '{}' \; \
+      -or -name "binding.Makefile" -exec rm '{}' \; \
+      -or -name "config.gypi" -exec rm '{}' \; \
+      -or -name "deps" -prune -exec rm -r '{}' \; \
+      -or -name "doc" -prune -exec rm -r '{}' \; \
+      -or -name "html" -prune -exec rm -r '{}' \; \
+      -or -name "Makefile" -exec rm '{}' \; \
+      -or -name "man" -prune -exec rm -r '{}' \; \
+      -or -name "obj.target" -prune -exec rm -r '{}' \; \
+      -or -name "samples" -prune -exec rm -r '{}' \; \
+      -or -name "scripts" -prune -exec rm -r '{}' \; \
+      -or -name "test" -prune -exec rm -r '{}' \; \
+      -or -name "tests" -prune -exec rm -r '{}' \;
+}
