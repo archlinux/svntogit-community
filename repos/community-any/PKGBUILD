@@ -8,9 +8,8 @@ pkgdesc='Sphinx extension which outputs Apple help books'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-applehelp
 license=('BSD')
-depends=('python-sphinx')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('edaa0ab2b2bc74403149cb0209d6775c96de797dfd5b5e2a71981309efab3897')
 
