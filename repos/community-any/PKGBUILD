@@ -8,9 +8,8 @@ pkgdesc='Sphinx extension which outputs Devhelp document'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-devhelp
 license=('BSD')
-depends=('python-sphinx')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('6c64b077937330a9128a4da74586e8c2130262f014689b4b89e2d08ee7294a34')
 
