@@ -8,9 +8,8 @@ pkgdesc='Sphinx extension which renders HTML help files'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-htmlhelp
 license=('BSD')
-depends=('python-sphinx')
 makedepends=('python-setuptools')
-checkdepends=('python-html5lib' 'python-pytest')
+checkdepends=('python-html5lib' 'python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('4670f99f8951bd78cd4ad2ab962f798f5618b17675c35c5ac3b2132a14ea8422')
 
