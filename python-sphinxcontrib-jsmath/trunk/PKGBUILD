@@ -8,9 +8,8 @@ pkgdesc='Sphinx extension which renders display math in HTML via JavaScript'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-jsmath
 license=('BSD')
-depends=('python-sphinx')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('a9925e4a4587247ed2191a22df5f6970656cb8ca2bd6284309578f2153e0c4b8')
 
