@@ -8,9 +8,8 @@ pkgdesc='Sphinx extension which outputs "serialized" HTML files (json and pickle
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-serializinghtml
 license=('BSD')
-depends=('python-sphinx')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('c0efb33f8052c04fd7a26c0a07f1678e8512e0faec19f4aa8f2473a8b81d5227')
 
