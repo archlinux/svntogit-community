@@ -4,12 +4,12 @@ pkgname=cuda
 pkgver=10.1.168
 _basever=10.1.105
 _driverver=418.39
-pkgrel=3
+pkgrel=4
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
 license=('custom:NVIDIA')
-depends=('gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'gcc')
+depends=('gcc8-libs'  'gcc8' 'opencl-nvidia' 'nvidia-utils')
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
@@ -50,8 +50,8 @@ package() {
 
   # Define compilers for CUDA to use.
   # This allows us to use older versions of GCC if we have to.
-  ln -s /usr/bin/gcc "${pkgdir}/opt/cuda/bin/gcc"
-  ln -s /usr/bin/g++ "${pkgdir}/opt/cuda/bin/g++"
+  ln -s /usr/bin/gcc-8 "${pkgdir}/opt/cuda/bin/gcc"
+  ln -s /usr/bin/g++-8 "${pkgdir}/opt/cuda/bin/g++"
 
   # Create soname links.
   # We have to be weird about this since for some reason the ELF SONAME is incorrect or at least partially incorrect for some libs.
