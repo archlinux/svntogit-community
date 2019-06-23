@@ -8,9 +8,8 @@ pkgdesc='Sphinx extension which outputs QtHelp document'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-qthelp
 license=('BSD')
-depends=('python-sphinx')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('79465ce11ae5694ff165becda529a600c754f4bc459778778c7017374d4d406f')
 
