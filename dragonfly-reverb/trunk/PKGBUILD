@@ -1,27 +1,50 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=dragonfly-reverb
 _name=DragonflyReverb
-pkgver=1.1.3
+_reverbs=('DragonflyHallReverb' 'DragonflyRoomReverb')
+pkgver=2.0.0
 pkgrel=1
-pkgdesc="A free hall-style reverb based on freeverb3 algorithms"
+pkgdesc="A concert hall reverb and a room reverb"
 arch=('x86_64')
-url="https://github.com/michaelwillis/dragonfly-reverb"
+url="https://michaelwillis.github.io/dragonfly-reverb/"
 license=('GPL3')
 groups=('pro-audio' 'lv2-plugins' 'vst-plugins')
-depends=('jack' 'libglvnd')
+depends=('freeverb3' 'jack' 'libglvnd')
 makedepends=('gendesk' 'liblo' 'lv2')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/michaelwillis/${pkgname}/releases/download/${pkgver}/${_name}-Source-v${pkgver}.tgz")
-sha512sums=('1e93c1f067499153b4015715448f1d14effaeab06b0a0fb4d009fe5531730355c0830c65e46ae9694ee219da043c1476e0f73fccd4369072f170d9327209d55e')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/michaelwillis/${pkgname}/releases/download/${pkgver}/${_name}-Source-v${pkgver}.tar.gz")
+sha512sums=('2d6e7c4cdf852e956888437776eb22eea43eb8b6c7c6be3faef1b51b57c80d62c3239e206240acce0ebb5f6212382b1aea5d90b149453bbed4356bc3da2054de')
 
 prepare() {
   mv -v "DragonflyReverb-Source-v${pkgver}" "$pkgname-$pkgver"
   cd "$pkgname-$pkgver"
-  # XDG desktop file
+  # remove local freeverb and its components
+  rm -rv common/{freeverb,libsamplerate2,fv3_config.h}
+  # devendor freeverb3 from the common component Makefile
+  sed -e '/freeverb/d' \
+      -e '24,28d' \
+      -i common/Makefile
+  # devendor freeverb from the plugins' Makefile
+  sed -e '/freeverb/d' \
+      -e 's/-lm/-lm $(shell pkg-config --libs freeverb3-3)/' \
+      -e '31iBUILD_CXX_FLAGS := $(shell pkg-config --cflags freeverb3-3) $(BUILD_CXX_FLAGS)' \
+      -i plugins/*/Makefile
+  # replacing local references of header includes with system includes
+  sed -e 's|"freeverb/earlyref.hpp"|<freeverb/earlyref.hpp>|g' \
+      -e 's|"freeverb/zref2.hpp"|<freeverb/zref2.hpp>|g' \
+      -e 's|"freeverb/progenitor2.hpp"|<freeverb/progenitor2.hpp>|g' \
+      -i plugins/*/*.hpp
+
   gendesk -n \
-          --pkgname ${pkgname} \
-          --pkgdesc "${pkgdesc}" \
-          --name DragonflyReverb \
-          --exec DragonflyReverb \
+          --pkgname ${pkgname}-hall \
+          --pkgdesc "A free stereo-to-stereo concert hall reverb effect" \
+          --name DragonflyHallReverb \
+          --exec DragonflyHallReverb \
+          --categories "AudioVideo;Audio"
+  gendesk -n \
+          --pkgname ${pkgname}-room \
+          --pkgdesc  "A free stereo-to-stereo room reverb effect" \
+          --name DragonflyRoomReverb \
+          --exec DragonflyRoomReverb \
           --categories "AudioVideo;Audio"
 }
 
@@ -33,13 +56,14 @@ build() {
 
 package() {
   cd "$pkgname-$pkgver"
-  install -vDm 755 "bin/${_name}" -t "${pkgdir}/usr/bin"
-  install -vDm 644 "${pkgname}.desktop" \
-    -t "${pkgdir}/usr/share/applications/"
-  install -vDm 755 "bin/${_name}-vst.so" -t "${pkgdir}/usr/lib/vst"
-  install -vDm 755 "bin/${_name}.lv2/"*.so \
-    -t "${pkgdir}/usr/lib/lv2/${_name}.lv2/"
-  install -vDm 644 "bin/${_name}.lv2/"*.ttl \
-    -t "${pkgdir}/usr/lib/lv2/${_name}.lv2/"
+  for _reverb in "${_reverbs[@]}"; do
+    install -vDm 755 "bin/${_reverb}" -t "${pkgdir}/usr/bin"
+    install -vDm 755 "bin/${_reverb}-vst.so" -t "${pkgdir}/usr/lib/vst"
+    install -vDm 755 "bin/${_reverb}.lv2/"*.so \
+      -t "${pkgdir}/usr/lib/lv2/${_reverb}.lv2/"
+    install -vDm 644 "bin/${_reverb}.lv2/"*.ttl \
+      -t "${pkgdir}/usr/lib/lv2/${_reverb}.lv2/"
+  done
+  install -vDm 644 *".desktop" -t "${pkgdir}/usr/share/applications/"
   install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
