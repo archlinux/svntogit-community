@@ -7,7 +7,7 @@
 pkgbase=projectm
 pkgname=('projectm' 'projectm-sdl' 'projectm-pulseaudio')
 pkgver=3.1.0
-pkgrel=4
+pkgrel=5
 arch=('x86_64')
 url='https://github.com/projectM-visualizer/projectm'
 license=('LGPL')
@@ -24,7 +24,7 @@ prepare() {
 
 build() {
     cd "projectM-$pkgver"
-    ./configure --prefix=/usr --enable-sdl --enable-threading --enable-qt
+    ./configure --prefix=/usr --enable-gles --enable-sdl --enable-threading --enable-qt
     make
 }
 
