@@ -3,7 +3,7 @@
 pkgname=kodi-addon-game-libretro-scummvm
 pkgver=2.0.0.4
 _codename=Leia
-pkgrel=5
+pkgrel=6
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro.scummvm'
