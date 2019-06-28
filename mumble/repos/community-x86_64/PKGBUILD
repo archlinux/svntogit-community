@@ -7,10 +7,10 @@
 # to the depends and delete "no-g15" in the configure line below
 
 pkgname=mumble
-pkgver=1.3.0rc1
-_pkgver=1.3.0-rc1
+pkgver=1.3.0rc2
+_pkgver=1.3.0-rc2
 __pkgver=1.3.0
-pkgrel=3
+pkgrel=1
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
@@ -21,7 +21,7 @@ optdepends=('jack: JACK audio output'
             'speech-dispatcher')
 url="https://www.mumble.info/"
 source=(https://github.com/mumble-voip/mumble/releases/download/${_pkgver}/mumble-${_pkgver}.tar.gz{,.sig})
-sha512sums=('e993b18b0ecf620d3a9a89f145c18b9ecde3aaf9b7217e235b7472908c81a365323c8683dd6fc9ed14b108160f8bf5244369c2a9ee57c22595550220d158516c'
+sha512sums=('b31a92cbe9d2d973cb06e5f3bb237de22f0fa5f242e6a8141ffaa735268ca41097bda44445a73ea5dafef6ef3ff7a5050c52c7f9b9f5600d400e57aff6f2e4c4'
             'SKIP')
 validpgpkeys=('56D0B23AE00B1EE9A8BAAC0F5B8CF87BB893449B') # Mumble Automatic Build Infrastructure 2019 <mumble-auto-build-2019@mumble.info>
 
