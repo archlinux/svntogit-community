@@ -8,7 +8,7 @@
 
 pkgname=calibre
 pkgver=3.44.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -23,15 +23,21 @@ checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
+        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
+        "https://github.com/kovidgoyal/calibre/commit/0a5dc07da1cb0f9409803b4df1a92e497e3c0e95.patch")
 sha256sums=('f15354b013cbf4090e1eeefdc150402dac589f51395f9c82424d2e8cec62a38d'
-            'SKIP')
+            'SKIP'
+            '728509a902267b8fd628884e1040a54f7a6fb03fc2dcbcf2ff7e54be6eae7920')
 b2sums=('7eb1412aa5de6ba2f48ea13e922dffff7ace0f4f475832ebe122db967c71df05b6bbb45092bdd53ddfe35d7a0c2af566ed83dde9aac64200d41ea2adc4cb1886'
-        'SKIP')
+        'SKIP'
+        'fc647f48cc0dfc85028babb1fe0b659820e9f34001611f84eeddd0938465991e3e2e4afb9d256e887585d2e1109091fb03a4248fa2a3efdcf8b04735810d7448')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
   cd "${pkgname}-${pkgver}"
+
+  # fix build with qt 5.13
+  patch -p1 -i ../0a5dc07da1cb0f9409803b4df1a92e497e3c0e95.patch
 
   # Desktop integration (e.g. enforce arch defaults)
   sed -e "/import config_dir/,/os.rmdir(config_dir)/d" \
