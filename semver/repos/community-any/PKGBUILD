@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=semver
-pkgver=6.1.2
+pkgver=6.2.0
 pkgrel=1
 pkgdesc='The semantic version parser used by npm.'
 arch=('any')
@@ -11,7 +11,7 @@ depends=('nodejs')
 makedepends=('npm')
 source=(https://registry.npmjs.org/$pkgname/-/$pkgname-$pkgver.tgz)
 noextract=($pkgname-$pkgver.tgz)
-sha512sums=('cf83ea882a68986b568fceb7de87807579b52a7d56fbedd3f1ea646589f0895808608274407b338489d84894d8c5e6c1c901fb295084027f11f5dbb3656d8f85')
+sha512sums=('8dd142d55754193ff649c81b8a67fb152c7d8892d7a2a7e095217e8097ae356569884dfb3886dcd63cb047f189c85773de69e4cf6fe27742f427f72bd22cd1e4')
 
 package() {
   npm install -g --user root --prefix "$pkgdir"/usr "$srcdir"/$pkgname-$pkgver.tgz
