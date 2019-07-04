@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=6.9.2
+pkgver=6.10.0
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -11,7 +11,7 @@ depends=('nodejs' 'node-gyp' 'semver')
 makedepends=('procps-ng' 'marked-man')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/cli/archive/v$pkgver.tar.gz")
-sha512sums=('2a9459223719d051fe384a6568fd3c9b1279405318c260e468207ec477d925021ef2e20542f71cad7760f075b0b5b90f6349943912a5d24a03dd4dfd2445be81')
+sha512sums=('1994bda0a30fa588d0af2ebf0a1a34c7f05886fae302ddaf1a1a664d858fa1298696edbbf20ce920a7b5e132c900a67075de985f22487595f6fc8c175e73c38f')
 
 prepare() {
   cd cli-$pkgver
