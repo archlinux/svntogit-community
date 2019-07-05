@@ -5,26 +5,36 @@
 
 pkgname=kitty
 pkgver=0.14.2
-pkgrel=1
+pkgrel=2
 pkgdesc="A modern, hackable, featureful, OpenGL based terminal emulator"
 arch=('x86_64')
 url="https://github.com/kovidgoyal/kitty"
 license=('GPL3')
-depends=('python3' 'freetype2'  'fontconfig' 'wayland' 'libx11' 'libxkbcommon-x11' 'hicolor-icon-theme' 'libgl')
-makedepends=('pkg-config' 'python-setuptools' 'libxinerama' 'libxcursor' 'libxrandr' 'libxkbcommon' 'glfw-x11' 'wayland-protocols' 'mesa' 'python-sphinx')
+depends=('python3' 'freetype2'  'fontconfig' 'wayland' 'libx11' 'libxkbcommon-x11' 'libxi' 'hicolor-icon-theme' 'libgl')
+makedepends=('libxinerama' 'libxcursor' 'libxrandr' 'wayland-protocols' 'python-sphinx')
 optdepends=('imagemagick: viewing images with icat')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/kovidgoyal/$pkgname/archive/v$pkgver.tar.gz")
 sha512sums=('f020125d7dfe7984da8d1538df3c8a6473e5510a22160e62a76fd7a2ef9a3e494b1d05956c003722389c7de0ef99450928ace27f683cee4d81e5e43d2c3b615a')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
-  python3 setup.py linux-package
+  python3 setup.py linux-package --update-check-interval=0
 }
 
 package() {
   cd "$srcdir/$pkgname-$pkgver"
 
-  python3 setup.py linux-package --prefix ${pkgdir}/usr
+  cp -r linux-package "${pkgdir}"/usr
 
-  install -Dm644 ${pkgdir}/usr/share/icons/hicolor/256x256/apps/kitty.png ${pkgdir}/usr/share/pixmaps/kitty.png
+  # completions
+  python __main__.py + complete setup bash | install -Dm644 /dev/stdin "${pkgdir}"/usr/share/bash-completion/completions/kitty
+  python __main__.py + complete setup fish | install -Dm644 /dev/stdin "${pkgdir}"/usr/share/fish/vendor_completions.d/kitty.fish
+  # doesn't know how to http://zsh.sourceforge.net/Doc/Release/Completion-System.html#Autoloaded-files
+  # so we write our own header
+  {
+      echo "#compdef kitty"
+      python __main__.py + complete setup zsh
+  } | install -Dm644 /dev/stdin "${pkgdir}"/usr/share/zsh/site-functions/_kitty
+
+  install -Dm644 "${pkgdir}"/usr/share/icons/hicolor/256x256/apps/kitty.png "${pkgdir}"/usr/share/pixmaps/kitty.png
 }
