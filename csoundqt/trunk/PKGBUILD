@@ -2,66 +2,44 @@
 # Contributor: Ainola
 # Contributor: rtfreedman
 
+_pkgver=0.9.6-rc1
 _name=CsoundQt
-_rtmidiver=3.0.0
 pkgname=csoundqt
-pkgver=0.9.5
-pkgrel=7
+pkgver=${_pkgver//-}
+pkgrel=1
 pkgdesc="Csound frontend with highlighting editor, autocomplete, interactive widgets and integrated help"
 arch=('x86_64')
 url="https://csoundqt.github.io/"
 license=('CCPL' 'FDL' 'GPL' 'LGPL2.1')
 groups=('pro-audio')
-# TODO: somehow include pythonqt
-depends=('csound' 'csound-doc' 'qt5-declarative')
+depends=('csound' 'csound-doc' 'desktop-file-utils' 'hicolor-icon-theme' 'qt5-declarative' 'rtmidi')
 makedepends=('shared-mime-info')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}/archive/${pkgver}.tar.gz"
-        "rtmidi-${_rtmidiver}.tar.gz::https://github.com/thestk/rtmidi/archive/v${_rtmidiver}.tar.gz")
-sha512sums=('136fb395b955e21c153ccde3642362d4451bd458af78e235808a8b911a87e24fc5614c72b0e09f3dcd6ab1f49d563eb547dc1371b8ebd75cb8e051a2d629fb74'
-            '8975a63e7be9102af70401cef48c702597b87efe2d8fa30a978fe280e26da1dfa90d6f30cfbd3df587462f0dd085d0f29e1c014e67d7fcd3a36960b6bcfb3e55')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}/archive/${_pkgver}.tar.gz")
+sha512sums=('6ed98d28248936a860b6f92432e031c54f9584ec0b826dc6d1e69adade781d4104f613fc969196b188a413990cc1196821a9ecffc3aea5d653ec2da65be5c2f2')
 
 prepare() {
-  cd "${_name}-${pkgver}"
-  # fix exptected location for html, examples and scripts
-  sed -e 's,csdocdir = \"\",csdocdir = \"/usr/share/doc/csound-doc/html\",' \
-    -i src/csoundoptions.cpp
-  sed -e 's,/usr/share/qutecsound/Examples/,/usr/share/csoundqt/Examples/,g' \
-    -i src/qutecsound.cpp
-  sed -e 's,../../csoundqt/src/Scripts,/usr/share/csoundqt/Scripts,' \
-    -i src/types.h
-
-  # fix install location of examples on filesystem
-  sed -e 's@DIR/qutecsound/@DIR/csoundqt/@' -i qcs.pro
-
-  # fix desktop file
-  chmod -c 644 ${_name}.desktop
-  mv -v ${_name}.desktop ${pkgname}.desktop
-  sed -e "s/${_name}.desktop/${pkgname}.desktop/" -i qcs.pro
-
-  # fix application icon
-  sed -e "s/qtcs/${pkgname}/" -i "${pkgname}.desktop"
-  sed -e "s,icons,icons/hicolor/scalable/apps," \
-      -e "s/qtcs.svg/${pkgname}.svg/" \
-      -i qcs.pro
-  mv -v images/qtcs.svg "images/${pkgname}.svg"
-
-  # move rtmidi sources
-  mv ${srcdir}/rtmidi-${_rtmidiver} .
+  mv -v "${_name}-${_pkgver}" "${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
+  # fix inclusion of wrong path:
+  # https://github.com/CsoundQt/CsoundQt/issues/258#issuecomment-508981111
+  sed -e 's|/usr/local/rtmidi|/usr/include/rtmidi|g' \
+      -i config.pri
 }
 
 build() {
-  cd "${_name}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
   qmake-qt5 qcs.pro \
     SHARE_DIR="${pkgdir}/usr/share" \
-    INSTALL_DIR="${pkgdir}/usr" \
-    CONFIG+=rtmidi \
-    RTMIDI_DIR="rtmidi-${_rtmidiver}/"
+    INSTALL_DIR="${pkgdir}/usr"
   make
 }
 
 package() {
-  cd "${_name}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
   make DESTDIR="${pkgdir}" install
+  # overwrite broken symlink:
+  # https://github.com/CsoundQt/CsoundQt/issues/258#issuecomment-508982990
+  ln -svf "${_name}-d-cs6" "${pkgdir}/usr/bin/${pkgname}"
   # docs
   install -t "${pkgdir}/usr/share/doc/${pkgname}/" \
     -vDm644 {ChangeLog,README.md}
