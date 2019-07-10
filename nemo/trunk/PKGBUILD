@@ -3,7 +3,7 @@
 # Contributor: Ner0
 
 pkgname=nemo
-pkgver=4.2.0
+pkgver=4.2.1
 pkgrel=1
 pkgdesc="Cinnamon file manager (Nautilus fork)"
 arch=('x86_64')
@@ -13,10 +13,10 @@ depends=('cinnamon-desktop' 'dconf' 'gvfs' 'exempi' 'libexif' 'libnotify' 'libxm
          'python' 'xapps')
 optdepends=('cinnamon-translations: i18n'
             'ffmpegthumbnailer: support for video thumbnails')
-makedepends=('meson' 'gobject-introspection' 'intltool')
+makedepends=('meson' 'samurai' 'gobject-introspection' 'intltool')
 source=("$pkgname-$pkgver.tar.gz::${url}/archive/${pkgver}.tar.gz")
-sha512sums=('5c41617d8babb89444dde7e448d06057b66eb4de6c6480b90ee550502ee0fe296a25a99d89abcfafe33023b420ef58c58545589a50d00f9e049c016ba0a39ef0')
-b2sums=('bb31bf169f9bfd948228fdb2f71d059a57d249199a5806820dd04aa676655ca2792779adfba6312bf5d8e63df05e2e428bd8bbbc9b0688502bd46027e433d4fd')
+sha512sums=('b0d1bc49fe54693d661b2617b1f4468492d9c279a64e355a456df62afd3d3e92240e176b9c8b7eb38c83341bda366d0d5f9dc558dd3bcfcacc71c6e25e58077d')
+b2sums=('ceeaf059120ad471873534be3ff57bf8b2a00938348b59dbfbc276c0a65c1bffbdb5ef6e2ec0c80593ac5f65da13defca49cb3df269225c2fb7b2e8053baeb1a')
 
 prepare() {
     cd "${srcdir}"/${pkgname}-${pkgver}
@@ -33,11 +33,11 @@ build() {
           --libexecdir=lib/${pkgname} \
           --buildtype=plain \
           ..
-    ninja
+    samu
 }
 
 package() {
     cd "${srcdir}"/${pkgname}-${pkgver}/build
 
-    DESTDIR="${pkgdir}" ninja install
+    DESTDIR="${pkgdir}" samu install
 }
