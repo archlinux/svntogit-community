@@ -1,0 +1,74 @@
+# Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Corrado Primier <bardo@aur.archlinux.org>
+# Contributor: William Rea <sillywilly@gmail.com>
+
+_pkgbasename=libpulse
+pkgname=lib32-$_pkgbasename
+pkgdesc="A featureful, general-purpose sound server (32-bit client libraries)"
+pkgver=12.99.1
+pkgrel=1
+arch=(x86_64)
+url="https://www.freedesktop.org/wiki/Software/PulseAudio/"
+license=(LGPL)
+depends=(lib32-dbus lib32-systemd lib32-glib2
+         lib32-libasyncns lib32-libcap lib32-libxtst lib32-libsm lib32-libsndfile
+         $_pkgbasename)
+makedepends=(gcc-multilib libtool-multilib intltool lib32-speexdsp lib32-gtk3 git)
+optdepends=('lib32-alsa-plugins: ALSA support')
+provides=("lib32-pulseaudio=$pkgver")
+conflicts=(lib32-pulseaudio)
+replaces=(lib32-pulseaudio)
+_commit=0cd931dc808786bffa3b40f75097af43a217b880  # tags/v12.99.1^0
+source=("git+https://gitlab.freedesktop.org/pulseaudio/pulseaudio.git#commit=$_commit")
+sha256sums=('SKIP')
+
+_pulsever=$pkgver
+[[ $_pulsever = *.*.* ]] && _pulsever=${_pulsever%.*}
+
+_libs="libpulse.la libpulse-simple.la libpulse-mainloop-glib.la"
+_pkglibs="libpulsecommon-${_pulsever}.la libpulsedsp.la"
+
+pkgver() {
+  cd pulseaudio
+  git describe --tags | sed 's/^v//;s/-/+/g'
+}
+
+prepare() {
+  cd pulseaudio
+  NOCONFIGURE=1 ./bootstrap.sh
+}
+
+build() {
+  cd pulseaudio
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  ./configure --prefix=/usr \
+    --libdir=/usr/lib32 \
+    --sysconfdir=/etc \
+    --libexecdir=/usr/lib32 \
+    --localstatedir=/var \
+    --disable-tcpwrap \
+    --disable-bluez4 \
+    --disable-samplerate \
+    --disable-rpath \
+    --disable-default-build-tests \
+    DATADIRNAME=share
+
+  # fight unused direct deps
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+
+  make -C src $_libs $_pkglibs
+}
+
+package() {
+  cd pulseaudio
+  make -j1 -C src DESTDIR="$pkgdir" \
+    lib_LTLIBRARIES="$_libs" install-libLTLIBRARIES
+  make -j1 -C src DESTDIR="$pkgdir" \
+    pkglib_LTLIBRARIES="$_pkglibs" install-pkglibLTLIBRARIES
+  make -j1 DESTDIR="$pkgdir" install-pkgconfigDATA
+}
