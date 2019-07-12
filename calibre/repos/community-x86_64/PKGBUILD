@@ -7,8 +7,8 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.44.0
-pkgrel=3
+pkgver=3.45.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -23,26 +23,15 @@ checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
-        "https://github.com/kovidgoyal/calibre/commit/0a5dc07da1cb0f9409803b4df1a92e497e3c0e95.patch"
-        "https://github.com/kovidgoyal/calibre/commit/8088902fa886af20e8a4dfc8d07daa38c918eb4a.patch")
-sha256sums=('f15354b013cbf4090e1eeefdc150402dac589f51395f9c82424d2e8cec62a38d'
-            'SKIP'
-            '728509a902267b8fd628884e1040a54f7a6fb03fc2dcbcf2ff7e54be6eae7920'
-            '6aa88aac68a5804a2c85e81b054c6ec3abab60853cfc801f2eef2ec3567435fa')
-b2sums=('7eb1412aa5de6ba2f48ea13e922dffff7ace0f4f475832ebe122db967c71df05b6bbb45092bdd53ddfe35d7a0c2af566ed83dde9aac64200d41ea2adc4cb1886'
-        'SKIP'
-        'fc647f48cc0dfc85028babb1fe0b659820e9f34001611f84eeddd0938465991e3e2e4afb9d256e887585d2e1109091fb03a4248fa2a3efdcf8b04735810d7448'
-        'b5f92ca6022e4a3b0dcca807dc386dba7ab81322a6ac85da1045d5837bd46ee2d9268b218bec99cfb4fdd62b2f4933ef56df9799e9eb4e869be4993341bf9dcc')
+        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
+sha256sums=('5c6c2960433e2c881fa8071d570907371db698ed5d09d450066e36daafb3cbc8'
+            'SKIP')
+b2sums=('b7666d1607228606f338d14bdfec79868ce7823ff36a7e7a3e1895fceedc42b2ed7ece0b12a20f43433cbb437735bd27bd2f023f15eeab8455a58eead09d2de6'
+        'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
   cd "${pkgname}-${pkgver}"
-
-  # fix build with qt 5.13
-  patch -p1 -i ../0a5dc07da1cb0f9409803b4df1a92e497e3c0e95.patch
-  # workaround column sort regression with qt 5.13, see FS#63063
-  patch -p1 -i ../8088902fa886af20e8a4dfc8d07daa38c918eb4a.patch
 
   # Desktop integration (e.g. enforce arch defaults)
   sed -e "/import config_dir/,/os.rmdir(config_dir)/d" \
