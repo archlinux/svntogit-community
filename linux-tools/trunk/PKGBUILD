@@ -9,13 +9,14 @@ pkgname=(
   'libtraceevent'
   'linux-tools-meta'
   'perf'
+  'python-perf'
   'tmon'
   'turbostat'
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.1
-pkgrel=3
+pkgver=5.2
+pkgrel=1
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
@@ -34,12 +35,13 @@ makedepends+=('glib2' 'sysfsutils' 'udev')
 makedepends+=('ncurses')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-#        'https://cdn.kernel.org/pub/linux/kernel/v4.x/patch-4.12.2.xz'
+        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
         'usbipd.service')
 md5sums=('SKIP'
+         'a45be902d46625f7b554f17bab3686f0'
          '56883c159381ba89e50ab8ea65efec77'
          '34f5ecc19770a1abbcd0fd65bfd1f065'
          '86c4e419e4ba80835c330d49ba3f56ad'
@@ -94,6 +96,8 @@ build() {
 
   msg2 'usbip'
   pushd linux/tools/usb/usbip
+  # Fix gcc compilation
+  sed -i 's,-Wall -Werror -Wextra,,' configure.ac
   ./autogen.sh
   ./configure --prefix=/usr --sbindir=/usr/bin
   make
@@ -139,6 +143,7 @@ package_linux-tools-meta() {
     'hyperv'
     'libtraceevent'
     'perf'
+    'python-perf'
     'tmon'
     'turbostat'
     'usbip'
@@ -185,6 +190,16 @@ package_perf() {
   # no exec on usr/share
   find usr/share -type f -exec chmod a-x {} \;
 }
+
+package_python-perf(){
+  pkgdesc='Linux kernel performance auditing tool (python bindings)'
+  depends=('python')
+
+  cd linux/tools/perf
+
+  make install-python_ext PYTHON=python DESTDIR="$pkgdir"
+}
+
 
 package_cpupower() {
   pkgdesc='Linux kernel tool to examine and tune power saving related features of your processor'
