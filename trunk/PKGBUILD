@@ -9,7 +9,7 @@ pkgname=(
   'libtraceevent'
   'linux-tools-meta'
   'perf'
-  'python-perf'
+#  'python-perf'
   'tmon'
   'turbostat'
   'usbip'
@@ -143,7 +143,7 @@ package_linux-tools-meta() {
     'hyperv'
     'libtraceevent'
     'perf'
-    'python-perf'
+#    'python-perf'
     'tmon'
     'turbostat'
     'usbip'
@@ -191,14 +191,14 @@ package_perf() {
   find usr/share -type f -exec chmod a-x {} \;
 }
 
-package_python-perf(){
-  pkgdesc='Linux kernel performance auditing tool (python bindings)'
-  depends=('python')
-
-  cd linux/tools/perf
-
-  make install-python_ext PYTHON=python DESTDIR="$pkgdir"
-}
+#package_python-perf(){
+#  pkgdesc='Linux kernel performance auditing tool (python bindings)'
+#  depends=('python')
+#
+#  cd linux/tools/perf
+#
+#  make install-python_ext PYTHON=python DESTDIR="$pkgdir"
+#}
 
 
 package_cpupower() {
