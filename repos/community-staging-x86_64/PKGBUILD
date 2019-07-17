@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=clash-prelude
+pkgname=haskell-clash-prelude
+pkgver=0.99.3
+pkgrel=54
+pkgdesc="CAES Language for Synchronous Hardware - Prelude library"
+url="https://github.com/clash-lang/clash-prelude"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-bifunctors' 'haskell-constraints' 'haskell-data-binary-ieee754'
+         'haskell-data-default' 'haskell-ghc-typelits-extra' 'haskell-ghc-typelits-knownnat'
+         'haskell-ghc-typelits-natnormalise' 'haskell-half' 'haskell-lens' 'haskell-quickcheck'
+         'haskell-reflection' 'haskell-singletons' 'haskell-vector')
+makedepends=('ghc' 'haskell-doctest')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz
+        ghc-8.6.patch)
+sha512sums=('9eb9dc5647a5dc61c9f0b5a9b880ae102e6f26783db0c4b29b4898705c9679c01d6cb96db0b206e327172743189a984299662c91209429f36c1eeb7d1d319bd1'
+            '52fcf8c2c701d724b55f8dc3a99e2842d26088ce36ae04dea02b104366255a268c83a6c02f1282f4b51795cd5afb3cb8c66d5c7348dc9ee3f149338df7776b87')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../ghc-8.6.patch
+    sed -i -e 's/< *0.3/<1/' -e 's/< *2.14/<3/' -e 's/< *0.6/<1/' -e 's/< *2.12/<3/' -e 's/< *0.10/<1/' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    # TODO
+    runhaskell Setup test || warning "Tests failed"
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
