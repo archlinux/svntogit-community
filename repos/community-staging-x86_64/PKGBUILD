@@ -1,0 +1,46 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=hackage-security
+pkgname=haskell-hackage-security
+pkgver=0.5.3.0
+pkgrel=54
+pkgdesc="Hackage security library"
+url="https://github.com/well-typed/hackage-security"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-base16-bytestring' 'haskell-base64-bytestring'
+         'haskell-cryptohash-sha256' 'haskell-ed25519' 'haskell-network' 'haskell-network-uri'
+         'haskell-tar' 'haskell-zlib')
+makedepends=('ghc')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('57af812fb3911aed6ebdbc5de733e86a2bdc7845a07246c69346c59f654e7c4ae5bf20ad753cfe71dc1d7f47ce66a37fba49b178e8e6ff74002fc8ffb72d920d')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i -e 's/<.*2.7/<3/' -e 's/< *2.4/<3/' -e 's/< *4.12/<5/' -e 's/< *0.6/<1/' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -fbase48 -fuse-network-uri -f-old-directory
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
