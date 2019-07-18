@@ -3,7 +3,7 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=9.0.0_r41
+pkgver=9.0.0_r45
 pkgrel=1
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -43,7 +43,9 @@ sha1sums=('SKIP'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
 prepare() {
-  PKGVER=$pkgver LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
+  # for the Android version calculation see FS#63200
+  android_sdk_ver=`curl https://android.googlesource.com/platform/development/+/refs/tags/android-$pkgver/sdk/plat_tools_source.prop_template?format=TEXT | base64 -d | sed -n 's/^Pkg.Revision=\(.*\)$/\1/p'`
+  PKGVER="$android_sdk_ver-$pkgver" LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
 
   cd $srcdir/core
   patch -p1 < ../fix_build_core.patch
