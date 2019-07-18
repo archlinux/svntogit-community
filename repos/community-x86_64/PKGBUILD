@@ -8,7 +8,7 @@ pkgname=(
  dotnet-sdk
  aspnet-runtime
 )
-pkgver=2.2.3+105
+pkgver=2.2.6+108
 pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -19,6 +19,7 @@ makedepends=(
   curl
   git
   icu
+  inetutils
   krb5
   libunwind
   lldb
@@ -31,6 +32,7 @@ options=(staticlibs)
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=v${pkgver%+*}
   dotnet-application-insights::git+https://github.com/Microsoft/ApplicationInsights-dotnet.git
+  dotnet-arcade::git+https://github.com/dotnet/arcade.git
   dotnet-aspnet-razor::git+https://github.com/aspnet/Razor.git
   dotnet-cecil::git+https://github.com/mono/cecil.git
   dotnet-cli::git+https://github.com/dotnet/cli.git
@@ -53,9 +55,10 @@ source=(
   dotnet-vstest::git+https://github.com/Microsoft/vstest.git
   dotnet-websdk::git+https://github.com/aspnet/websdk.git
   dotnet-xliff-tasks::git+https://github.com/dotnet/xliff-tasks.git
-  https://download.visualstudio.microsoft.com/download/pr/dabca6d9-19e5-44b6-a402-a627fae42d26/e36d703f5d281ec8662422bfa62c2fdd/aspnetcore-runtime-2.2.3-linux-x64.tar.gz
+  https://download.visualstudio.microsoft.com/download/pr/5d59077f-07f3-4997-b514-d88bce8cdcbf/3729ac370c4b96720829e098bee7ee5e/aspnetcore-runtime-2.2.6-linux-x64.tar.gz
   dotnet.sh
   dotnet-coreclr-rid.patch
+  dotnet-coreclr-dbghelpers.patch
 )
 sha256sums=('SKIP'
             'SKIP'
@@ -81,14 +84,16 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '9d71c8312ec3448ae957cfbf4d4777c1924e34cb287d0f0d0f4853ce4ffc5355'
+            'SKIP'
+            '1e5687ab1b52fc342211607af829d847b96976737f187394b468d27b9f3ae7af'
             '4978b3a31a94032b425d2a2a9b5a17f506f36fb784fbfefdf2cfea9485a30f47'
-            '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee')
+            '2c4fc48151e5319d57c8761091709070a17da91eddc2de8a26bc32c60679bfee'
+            '6a8da7d7e19efdabaae07b668cfefe8f7e8dc62239f0d70e03f34ae6bf79e645')
 
 prepare() {
   cd dotnet-source-build
 
-  for submodule in src/{application-insights,aspnet-razor,cli,cli-migrate,clicommandlineparser,common,core-setup,coreclr,corefx,fsharp,linker,msbuild,newtonsoft-json,nuget-client,roslyn,roslyn-tools,sdk,standard,templating,vstest,websdk,xliff-tasks}; do
+  for submodule in src/{application-insights,arcade,aspnet-razor,cli,cli-migrate,clicommandlineparser,common,core-setup,coreclr,corefx,fsharp,linker,msbuild,newtonsoft-json,nuget-client,roslyn,roslyn-tools,sdk,standard,templating,vstest,websdk,xliff-tasks}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../dotnet-${submodule#src/}
     git submodule update
@@ -104,6 +109,8 @@ prepare() {
 
   cd ../coreclr
 
+  git cherry-pick -n bdd0408f25a285deae0a69da659f4bc4d4f272f7
+  patch -Np1 -i "${srcdir}"/dotnet-coreclr-dbghelpers.patch
   patch -Np1 -i "${srcdir}"/dotnet-coreclr-rid.patch
 }
 
@@ -112,6 +119,7 @@ build() {
 
   export PKG_CONFIG_PATH='/usr/lib/openssl-1.0/pkgconfig'
   export SOURCE_BUILD_SKIP_SUBMODULE_CHECK=1
+  export CXXFLAGS="$CXXFLAGS -Wno-atomic-implicit-seq-cst"
 
   ./build.sh
 }
