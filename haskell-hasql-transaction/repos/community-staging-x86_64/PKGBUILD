@@ -1,0 +1,48 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hasql-transaction
+pkgname=haskell-hasql-transaction
+pkgver=0.7.1
+pkgrel=38
+pkgdesc="A composable abstraction over the retryable transactions for Hasql"
+url="https://github.com/nikita-volkov/hasql-transaction"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-bytestring-tree-builder' 'haskell-contravariant'
+         'haskell-contravariant-extras' 'haskell-hasql')
+makedepends=('ghc' 'haskell-async' 'haskell-rebase')
+checkdepends=('postgresql' 'pifpaf')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('f27d2da378e6415eed2bc56eb586e197fed91a2ff82273e73edc85e48c89cefcb9569d8c1e6d8cf670a05440d7dbdfe563ac42f1e297b8b6cd2b8b502af356ea')
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+
+    eval $(pifpaf run postgresql --host 127.0.0.1 --port 5432)
+    createuser -s postgres
+    runhaskell Setup test
+    pifpaf_stop
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
