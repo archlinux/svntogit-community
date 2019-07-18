@@ -1,0 +1,50 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=configurator-ng
+pkgname=haskell-configurator-ng
+pkgver=0.0.0.1
+pkgrel=75
+pkgdesc="The next generation of configuration management"
+url="https://github.com/lpsmith/configurator-ng"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' "haskell-attoparsec" "haskell-critbit" "haskell-dlist" "haskell-data-ordlist"
+         "haskell-hashable" "haskell-scientific" "haskell-unix-compat"
+         "haskell-unordered-containers")
+makedepends=('ghc')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz"
+        ghc-8.4.patch)
+sha512sums=('7995be233ab367e807a66c6f0f412826dc6c916a895c5e145d5b21af2f867a0c69c6bd228e7d5425a69ea9b500ed51fb00025ca9090417aaee4ac1a027f2f77a'
+            'c0f0ed7bc5e61794e66950792c8664c84f78b664b15c91e7a8c7d4d547229500e04a2975c4a68908167ab6e636b6db87fd4f6e6af4730bfe3c24a60b22ddc129')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../ghc-8.4.patch
+
+    sed -i '/fail/d' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-developer
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
