@@ -4,7 +4,7 @@
 
 pkgbase=python-pbr
 pkgname=(python-pbr python2-pbr)
-pkgver=5.4.0
+pkgver=5.4.1
 pkgrel=1
 pkgdesc="Python Build Reasonableness"
 arch=('any')
@@ -17,7 +17,7 @@ checkdepends=('python-stestr' 'python2-stestr' 'python-testscenarios' 'python2-t
               'python-virtualenv' 'python2-virtualenv' 'python-wheel' 'python2-wheel'
               'python-sphinx' 'python2-sphinx')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
-sha512sums=('f4d7452a7890cc713945cc8b8b54bf57ea2f8362ecbb7cdf48e1fa64dd7c0c007155e25cd5562da93ce7183e998ad8132ac366aa08d503b2cb55f4abe5c48539')
+sha512sums=('789fda8d33b1def647d9e9b9ea87916526c322a19e0724b030791c49aedd5d42dd64517d88593fd3c4b2c3889115dc09d314f72bc7734a35279ab21a1bf94f96')
 
 prepare() {
   cp -a pbr-$pkgver{,-py2}
