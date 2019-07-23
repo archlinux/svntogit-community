@@ -4,7 +4,7 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=19.1.2
+pkgver=19.1.3
 pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
@@ -15,7 +15,7 @@ license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE
         glesv2.pc)
-sha512sums=('cab30694a409a5037996dd50cef1567eb9e0b83ed69cdb4fbc893a844ed35434fcd05023d48fce2831219866fa420500b53650c791bea286233f4cd6c2703e19'
+sha512sums=('787310c43089142209ff7db298489b0815b630577680d5ce1bc3f796eed3772ba41f03e5e773b77ae084c191ed4e365eac1753166ce60f12b8f5974d55762eeb'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
             '67b9484f5131beea834192ef185d4eb2d4b77d12302d7a99337c3fb59cb6a2bee10a70d01e92554a0ff74eca04a8197b300b63ebde0aace55c249021b3383179')
