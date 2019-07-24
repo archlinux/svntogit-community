@@ -5,7 +5,7 @@
 pkgname=intellij-idea-community-edition
 pkgver=2019.1.3
 _build=191.7479.19
-pkgrel=1
+pkgrel=2
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -14,7 +14,7 @@ license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' 'java-environment=8' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
-makedepends=('ant' 'kotlin' 'git' 'java-openjfx')
+makedepends=('ant' 'kotlin' 'git' 'java8-openjfx')
 source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/archive/idea/${_build}.tar.gz
         idea-android-${_build}.tar.gz::https://github.com/JetBrains/android/archive/idea/${_build}.tar.gz
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#tag=idea/${_build}"
