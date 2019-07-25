@@ -3,9 +3,9 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2019.1.3
-_build=191.7479.19
-pkgrel=2
+pkgver=2019.2
+_build=192.5728.98
+pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -13,20 +13,20 @@ arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' 'java-environment=8' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
-makedepends=('ant' 'kotlin' 'git' 'java8-openjfx')
+depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
+makedepends=('ant' 'kotlin' 'git' 'java8-openjfx' 'java-environment=8')
 source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/archive/idea/${_build}.tar.gz
         idea-android-${_build}.tar.gz::https://github.com/JetBrains/android/archive/idea/${_build}.tar.gz
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#tag=idea/${_build}"
         idea-build.patch
         idea.desktop
         idea.sh)
-sha256sums=('7aa10cec7e873d23fd08eba9b18eda9a3a6e6a49fb603051f2eb37b45b1069ea'
-            '7b1d89afbdbe89a9e2b1773be62620d31b43cdc83ced7168c9a845cacc451946'
+sha256sums=('48b266170e902576b855969bc88aeb5bcb82c8c1c25f2000c6b38d2a7e845d2c'
+            '63b50680a569ad907effd9c35de4557b954d6278d0c1553613ab8b730ba596e0'
             'SKIP'
-            'd7556a6651ec0c00daa6af3ec205f92945ebae2c5e30d29c04d8f65358e74825'
+            '6a94352edfcf7426679d124dfc93395a82e6f14f5910dde7f1ff931781c0c543'
             'fa9e3cba5e26a7e01cecda867f23467322db123c5553dfbb4f14aae034ccbed7'
-            'c021dba82f75a18be6ffdc2fe70d616496bbe3a14e7a5efef30c06b4cbd915c3')
+            '5d4f998bec3249165b0e62b5e51e9b7fbe383bb9f1178ffefe070f2c9872eebb')
 
 prepare() {
   cd intellij-community-idea-${_build}
