@@ -1,7 +1,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=18.09.8
+pkgver=19.03.1
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -18,7 +18,7 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
-_LIBNETWORK_COMMIT=e7933d41e7b206756115aa9df5e0599fc5169742
+_LIBNETWORK_COMMIT=fc5a7d91d54cc98f64fc28f9e288b46a0bee756c
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
@@ -54,14 +54,16 @@ build() {
     . "$srcdir/docker-ce/components/engine/hack/dockerfile/install/$_cfile.installer"
   done
   local _commit _pkgbuild _dockerfile
+  err=0
   for _commit in LIBNETWORK TINI; do
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
     if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
       error "Invalid $_commit commit, should be ${!_dockerfile}"
-      return 1
+      err=$(($err + 1))
     fi
   done
+  return $err
   )
 
   ### globals
