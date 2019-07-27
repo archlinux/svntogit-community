@@ -39,7 +39,7 @@ build() {
   CXXFLAGS+=' -DU_USING_ICU_NAMESPACE=1'
 
   PYTHON=python2
-  scons configure \
+  scons configure  FAST=True \
     PREFIX="/usr" \
     INPUT_PLUGINS=all \
     XMLPARSER=libxml2 \
