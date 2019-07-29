@@ -1,0 +1,87 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Iwan Timmer <irtimmer@gmail.com>
+# Contributor: Mark Constable <markc@renta.net>
+# Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+
+pkgbase=cockpit
+pkgname=(cockpit cockpit-pcp cockpit-dashboard)
+pkgver=199
+pkgrel=1
+pkgdesc='A systemd web based user interface for Linux servers'
+arch=('x86_64')
+url='https://cockpit-project.org/'
+license=(LGPL)
+makedepends=(libssh krb5 libssh accountsservice perl-json perl-locale-po json-glib glib-networking
+             git intltool gtk-doc gobject-introspection networkmanager libgsystem xmlto npm pcp)
+source=("https://github.com/cockpit-project/cockpit/releases/download/$pkgver/cockpit-$pkgver.tar.xz"
+        "https://github.com/cockpit-project/cockpit/releases/download/$pkgver/cockpit-cache-$pkgver.tar.xz"
+        "cockpit.pam")
+sha256sums=('b20fbeeed0bf41524a55624527ca8c0507c0dba0173de2b557d5f7dcf903c63e'
+            'f19887d35a715b405827df852ac1a2961904b4bc6890ed9874a8625511a38739'
+            'a979e236681c6a06906937cf0f012e976347af5d6d7e7ae04a11acb01cc2689d')
+
+build() {
+  cd cockpit-$pkgver
+  ./configure \
+    --prefix=/usr \
+    --sbindir=/usr/bin \
+    --libexecdir=/usr/lib/$pkgname/ \
+    --sysconfdir=/etc \
+    --localstatedir=/var \
+    --disable-dependency-tracking
+  make
+}
+
+package_cockpit() {
+  depends=(libssh krb5 libssh accountsservice perl-json perl-locale-po json-glib glib-networking)
+  backup=('etc/pam.d/cockpit')
+  optdepends=("cockpit-pcp: reading performance metrics"
+              "cockpit-dashboard: dashboard and support for connecting to remote hosts"
+              "udisks2: manage hard disks"
+              "networkmanager: manage network connections"
+              "packagekit: manage packages"
+              "docker: manage containers"
+              "libvirt: manage virtual machines"
+              "kubernetes: manage cluster")
+
+  cd cockpit-$pkgver
+  make DESTDIR="$pkgdir" install
+  rm -rf "$pkgdir"/usr/{src,lib/firewalld}
+  install -Dm 644 "$srcdir"/cockpit.pam "$pkgdir"/etc/pam.d/cockpit
+
+  # remove unused plugins
+  rm -rf "$pkgdir"/usr/share/cockpit/{selinux,playground,sosreport} \
+         "$pkgdir"/usr/share/metainfo/org.cockpit-project.cockpit-{selinux,sosreport}.metainfo.xml
+
+  # remove plugins packaged separately
+  rm -rf "$pkgdir"/usr/share/cockpit/{pcp,dashboard} \
+         "$pkgdir"/usr/lib/cockpit/cockpit-pcp \
+         "$pkgdir"/var/lib/pcp
+}
+
+package_cockpit-pcp() {
+  pkgdesc='Cockpit support for reading PCP metrics and loading PCP archives'
+  depends=(cockpit pcp)
+
+  cd cockpit-$pkgver
+  make DESTDIR="$pkgdir"/tmp install
+
+  cd "$pkgdir"/tmp
+  bsdtar -cf - usr/share/cockpit/pcp usr/lib/cockpit/cockpit-pcp var/lib/pcp \
+    | bsdtar -xf - -C "$pkgdir"
+  rm -rf "$pkgdir"/tmp
+}
+
+package_cockpit-dashboard() {
+  pkgdesc='Cockpit support for connecting to remote servers (through ssh), bastion hosts, and a basic dashboard.'
+  arch=('any')
+  depends=(cockpit)
+
+  cd cockpit-$pkgver
+  make DESTDIR="$pkgdir"/tmp install
+
+  cd "$pkgdir"/tmp
+  bsdtar -cf - usr/share/cockpit/dashboard \
+    | bsdtar -xf - -C "$pkgdir"
+  rm -rf "$pkgdir"/tmp
+}
