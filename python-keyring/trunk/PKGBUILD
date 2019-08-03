@@ -7,7 +7,7 @@
 
 pkgname=python-keyring
 _pkgname=keyring
-pkgver=19.0.1
+pkgver=19.0.2
 pkgrel=1
 pkgdesc='Store and access your passwords safely'
 arch=('any')
@@ -15,11 +15,11 @@ url='https://github.com/jaraco/keyring'
 license=('PSF' 'MIT')
 depends=('python-entrypoints' 'python-secretstorage')
 makedepends=('python-setuptools-scm' 'python-entrypoints')
-checkdepends=('python-pytest-flake8' 'python-pytest-runner')
+checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python-pytest-black')
 optdepends=('python-keyrings-alt: Alternative backends'
             'python-dbus: kwallet backend')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
-sha512sums=('7dbc15ec622e12a5bd449947e02f329f0004894f76fcd68b4eeabe5771c3bb4721d51bde28ec9de552bcf8db0ebf2f87e57e19e3f8c123e334fd947c7961c92f')
+sha512sums=('985d69101f673cda04c0a9ee07a62a92d07ee38b7dcc3f4c85fedaa7c38e52da7609d5fc53d445e2c75314be3893b86283b6b5f7b2f8046edc36b782d8675142')
 
 build() {
   cd $_pkgname-$pkgver
