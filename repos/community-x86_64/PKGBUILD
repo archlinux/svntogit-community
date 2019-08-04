@@ -1,38 +1,56 @@
 # Maintainer: David Runge <dave@sleepmap.de>
 pkgname=geonkick
-pkgver=1.0
+pkgver=1.6
 pkgrel=1
 pkgdesc="A free software percussion synthesizer"
 arch=('x86_64')
 url="https://gitlab.com/iurie/geonkick"
 license=('GPL3')
 groups=('pro-audio')
-depends=('desktop-file-utils' 'hicolor-icon-theme' 'jack' 'qt5-base')
-makedepends=('cmake' 'qt5-tools')
+depends=('cairo' 'desktop-file-utils' 'hicolor-icon-theme' 'shared-mime-info')
+makedepends=('cmake' 'jack' 'lv2' 'sord' 'rapidjson' 'redkite')
+optdepends=('jack: for standalone application')
 source=("https://gitlab.com/iurie/geonkick/-/archive/v${pkgver}/$pkgname-v$pkgver.tar.gz")
-sha512sums=('cffb5569efeb6d2680ea091c410ebe90bdfaf8369d188e40f963dd01b2873b898ac647b265713dcab0c1ffde0134034d743efcfa1ea1975fac659755b3909b67')
+sha512sums=('72f117a8bc2bfe3ed9d2e9d5b2271248a211b4fd194d792f16952547aa9bcb6793d5cb327da580e08b8287fe54d8c03a5232a63d6fed63d45f9954cd0a142330')
 
 prepare() {
   mv -v "$pkgname-v$pkgver" "$pkgname-$pkgver"
   cd "$pkgname-$pkgver"
   mkdir -v build
-  # fix ignored CMAKE_INSTALL_PREFIX:
-  # https://gitlab.com/iurie/geonkick/issues/83
-  sed -e 's|/usr/local|${CMAKE_INSTALL_PREFIX}|' \
-      -i standalone/CMakeLists.txt
+  # fix hardcoded redkite headers location:
+  # https://gitlab.com/quamplex/geonkick/issues/133
+  sed -e 's|/usr/local/include|/usr/include|' -i CMakeLists.txt
 }
 
 build() {
-  cd "$pkgname-$pkgver/build"
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        ..
-  make
+  cd "$pkgname-$pkgver"
+  (
+    cd build
+    cmake -DCMAKE_INSTALL_PREFIX=/usr \
+          ..
+    make
+  )
 }
 
+# lv2_validate still fails on itself:
+# https://gitlab.com/lv2/lv2/issues/27
+# check() {
+#   cd "$pkgname-$pkgver"
+#   (
+#     cd build
+#     lv2_validate "../plugin/lv2/${pkgname}.lv2/"*.ttl
+#   )
+# }
+
 package() {
-  cd "$pkgname-$pkgver/build"
-  make DESTDIR="$pkgdir/" install
-  install -vDm 644 ../examples/* \
+  cd "$pkgname-$pkgver"
+  (
+    cd build
+    make DESTDIR="$pkgdir/" install
+  )
+  install -vDm 644 "data/${pkgname}.desktop" \
+    -t "${pkgdir}/usr/share/applications"
+  install -vDm 644 examples/* \
     -t "${pkgdir}/usr/share/doc/${pkgname}/examples"
-  install -vDm 644 ../README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
