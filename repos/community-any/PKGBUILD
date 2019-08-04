@@ -4,14 +4,14 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=('python-pytz' 'python2-pytz')
-pkgver=2019.1
+pkgver=2019.2
 pkgrel=1
 arch=('any')
 url="https://pypi.python.org/pypi/pytz"
 license=("MIT")
 makedepends=('python' 'python2')
 source=("https://pypi.io/packages/source/p/pytz/pytz-${pkgver}.tar.gz")
-md5sums=('8b2860a161bfb0a6165798b1a2d8c40c')
+md5sums=('8c21963449c3a793aa61ef122e171516')
 validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
 
 build(){
