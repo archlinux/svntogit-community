@@ -3,19 +3,35 @@
 # Contributor: jackoneill <cantabile.desu@gmail.com>
 
 pkgname=vapoursynth
-pkgver=R46
+pkgver=R47
 pkgrel=1
 pkgdesc='A video processing framework with the future in mind'
-arch=('x86_64')
-url='http://www.vapoursynth.com/'
-license=('LGPL2.1' 'custom:OFL')
-depends=(
-  'libmagick' 'python' 'tesseract'
-  'libass.so' 'libavcodec.so' 'libavformat.so' 'libavutil.so' 'libzimg.so'
+arch=(x86_64)
+url=http://www.vapoursynth.com/
+license=(
+  LGPL2.1
+  custom:OFL
 )
-makedepends=('cython' 'git' 'nasm' 'python-sphinx')
-source=("git+https://github.com/vapoursynth/vapoursynth.git#tag=${pkgver}"
-        'vapoursynth.xml')
+depends=(
+  libass.so
+  libavcodec.so
+  libavformat.so
+  libavutil.so
+  libmagick
+  libzimg.so
+  python
+  tesseract
+)
+makedepends=(
+  cython
+  git
+  nasm
+  python-sphinx
+)
+source=(
+  git+https://github.com/vapoursynth/vapoursynth.git#tag=${pkgver}
+  vapoursynth.xml
+)
 sha256sums=('SKIP'
             '8e51579547d20cd7cb9618a47b3ac508423d09d76649bf038d0ab9acb850b068')
 
@@ -29,7 +45,7 @@ build() {
   cd vapoursynth
 
   ./configure \
-    --prefix='/usr' \
+    --prefix=/usr \
     --enable-imwri \
     --disable-static
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
