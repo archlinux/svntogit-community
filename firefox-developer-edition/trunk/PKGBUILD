@@ -3,7 +3,7 @@
 
 pkgname=firefox-developer-edition
 pkgver=69.0b10
-pkgrel=1
+pkgrel=2
 pkgdesc="Developer Edition of the popular Firefox web browser"
 arch=('x86_64')
 license=('MPL' 'GPL' 'LGPL')
@@ -55,7 +55,7 @@ prepare() {
   echo -n "$_google_api_key" > google-api-key
   echo -n "$_mozilla_api_key" > mozilla-api-key
 
-  cat > .mozconfig << END
+  cat > ../mozconfig << END
 ac_add_options --enable-application=browser
 
 ac_add_options --prefix=/usr
@@ -63,10 +63,8 @@ ac_add_options --enable-release
 ac_add_options --enable-hardening
 ac_add_options --enable-optimize
 ac_add_options --enable-rust-simd
-ac_add_options --enable-lto
-export MOZ_PGO=1
-export CC=clang
-export CXX=clang++
+export CC='clang --target=x86_64-unknown-linux-gnu'
+export CXX='clang++ --target=x86_64-unknown-linux-gnu'
 export AR=llvm-ar
 export NM=llvm-nm
 export RANLIB=llvm-ranlib
@@ -112,8 +110,46 @@ build() {
   # LTO needs more open files
   ulimit -n 4096
 
-  xvfb-run -a -n 95 -s "-screen 0 1600x1200x24" ./mach build
-  ./mach buildsymbols
+  # -fno-plt with cross-LTO causes obscure LLVM errors
+  # LLVM ERROR: Function Import: link error
+  CFLAGS="${CFLAGS/-fno-plt/}"
+  CXXFLAGS="${CXXFLAGS/-fno-plt/}"
+
+  # Do 3-tier PGO
+  msg2 "Building instrumented browser..."
+  cat >.mozconfig ../mozconfig - <<END
+ac_add_options --enable-profile-generate
+END
+  ./mach build
+
+  msg2 "Profiling browser..."
+  ./mach package
+  JARLOG_FILE="$PWD/jarlog" \
+    xvfb-run -a -n 92 -s "-screen 0 1600x1200x24" \
+    ./mach python build/pgo/profileserver.py
+
+  if ! compgen -G '*.profraw' >&2; then
+    error "No profile data produced."
+    return 1
+  fi
+
+  if [[ ! -s jarlog ]]; then
+    error "No jar log produced."
+    return 1
+  fi
+
+  msg2 "Building optimized browser..."
+  cat >.mozconfig ../mozconfig - <<END
+ac_add_options --enable-lto
+ac_add_options --enable-profile-use
+ac_add_options --with-pgo-profile-path=${PWD@Q}
+ac_add_options --with-pgo-jarlog=${PWD@Q}/jarlog
+END
+
+  ./mach build
+
+  msg2 "Building symbol archive..."
+    ./mach buildsymbols
 }
 
 package() {
