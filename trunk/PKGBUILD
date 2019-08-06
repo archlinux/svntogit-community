@@ -4,7 +4,7 @@
 
 pkgname=tmux
 pkgver=2.9_a
-pkgrel=2
+pkgrel=3
 pkgdesc='A terminal multiplexer'
 url='https://github.com/tmux/tmux/wiki'
 arch=('x86_64')
