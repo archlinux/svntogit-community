@@ -1,38 +1,25 @@
-# Maintainer:
-# Contributor: Eric Bélanger <eric@archlinux.org>
-
-pkgbase=python-pygame
-pkgname=python2-pygame
-pkgver=1.9.5
-pkgrel=1
+# Maintainer: Alad Wenter <alad@archlinux.org>
+# Contributor: Matthew McGinn <mamcgi@gmail.com>
+# Contributor: Gryffyn
+# Contributor: Tetsumi
+pkgname=python-pygame
+pkgver=1.9.6
+pkgrel=2
 pkgdesc="Python game library"
 arch=('x86_64')
-url="http://www.pygame.org/"
+url="http://www.pygame.org"
 license=('LGPL')
-depends=('sdl_mixer' 'sdl_ttf' 'sdl_image' 'python2' 'portmidi')
-makedepends=('python2-setuptools')
-source=(https://pypi.io/packages/source/p/pygame/pygame-$pkgver.tar.gz)
-sha1sums=('72bec05e052f1b271f4fab219d078d0f768a72ea')
-
-prepare() {
-  cd pygame-${pkgver}
-  # don't ship python2 *and* python3 compiled bytecode from upstream
-  find . -name "*.pyc" -delete
-  find . -type f -exec sed -i 's#/usr/bin/env python#/usr/bin/env python2#' {} +
-}
+makedepends=('python-setuptools')
+depends=('python' 'sdl_mixer' 'sdl_ttf' 'sdl_image' 'portmidi')
+source=("https://pypi.io/packages/source/p/pygame/pygame-$pkgver.tar.gz")
+sha256sums=('301c6428c0880ecd4a9e3951b80e539c33863b6ff356a443db1758de4f297957')
 
 build() {
-  cd pygame-${pkgver}
-  python2 setup.py build
+    cd pygame-"$pkgver"
+    python setup.py build
 }
 
-package_python2-pygame() {
-  cd pygame-${pkgver}
-  python2 setup.py install --root="${pkgdir}" --prefix=/usr
-
-# Copying the examples
-  cp -R examples "${pkgdir}/usr/lib/python2.7/site-packages/pygame"
-
-# Fixing permissions
-  chmod 644 "${pkgdir}"/usr/include/python2.7/pygame/*
+package() {
+    cd pygame-"$pkgver"
+    python setup.py install --root="$pkgdir" --prefix=/usr --skip-build
 }
