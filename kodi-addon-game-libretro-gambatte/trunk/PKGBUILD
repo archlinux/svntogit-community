@@ -1,9 +1,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-gambatte
-pkgver=0.5.0.5
+pkgver=0.5.0.6
 _codename=Leia
-pkgrel=6
+pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro.gambatte'
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi-addon-game-libretro' 'libretro-gambatte')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.gambatte/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('12ae2c7cb3659f072f5b525e4e58554cce2fd77ab80e78661e64cab7fcbac07c3060f35808440e72c09745d875c857b7fad9ea231608ff1bbad84ae5b49d8b13')
+sha512sums=('439a616eadadf8e445e721d234bf3ce0307ee3a822d5682f0cd082ef3e04120427afb564945e1f435366045db24a78422f904f4ab362813bb556d6cda8fdc81a')
 
 build() {
     cd "game.libretro.gambatte-$pkgver-$_codename"
