@@ -1,9 +1,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-beetle-psx
-pkgver=0.9.44.7
+pkgver=0.9.44.8
 _codename=Leia
-pkgrel=6
+pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro.beetle-psx'
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi-addon-game-libretro' 'libretro-beetle-psx')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.beetle-psx/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('4a4f669aa75959395185f862e171c6a49a6105e4fa850a6cf56148d2f130c61e0e66a71011679439e46ef38ac41114da8b803abc363740b1f94de72d7b85cdb0')
+sha512sums=('4e3691aa545b3115f050d87e6a4dba3080940f128e0d5fca5700da5d3f0d69690e02f77067cd5d335031399cbd8f1a829aa7b5e6f9ff502743332adbc06466e0')
 
 build() {
     cd "game.libretro.beetle-psx-$pkgver-$_codename"
