@@ -1,9 +1,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-melonds
-pkgver=0.6.0.2
+pkgver=0.8.2.3
 _codename=Leia
-pkgrel=6
+pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro.melonds'
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi-addon-game-libretro' 'libretro-melonds')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.melonds/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('e383a3067ec6c29ee9a68b5016a6a9c9e474493289044b063e02148b702a97c3bec178a122fada4c3c4fc33715cbc58a49b461fb4fbfd2aa61960367c7e1713d')
+sha512sums=('8cb5902de05f1631833aff14f535deb97c2209d73ac54074ab5e13f212fc979e2644d0a2e816c960448907418d8335b5dd351cdf7ef536e678193b19e73082b9')
 
 build() {
     cd "game.libretro.melonds-$pkgver-$_codename"
