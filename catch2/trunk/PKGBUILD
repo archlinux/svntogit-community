@@ -3,7 +3,7 @@
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
 
 pkgname=catch2
-pkgver=2.9.1
+pkgver=2.9.2
 pkgrel=1
 pkgdesc="Modern, C++-native, header-only, test framework for unit-tests, TDD and BDD"
 arch=('any')
@@ -11,7 +11,7 @@ url="https://github.com/catchorg/catch2"
 license=('Boost')
 makedepends=('cmake' 'python') # python seems to be necessary for building tests (FS#60273)
 source=("https://github.com/catchorg/Catch2/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('0b36488aca6265e7be14da2c2d0c748b4ddb9c70a1ea4da75736699c629f14ac')
+sha256sums=('54bea6d80a388a80f895cd0e2343fca72b0d9093a776af40904aefce49c13bda')
 
 build() {
   cd Catch2-$pkgver
