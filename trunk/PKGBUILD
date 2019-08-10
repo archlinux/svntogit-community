@@ -66,7 +66,7 @@ build() {
   ninja
 }
 
-package(){
+package() {
   install -m755 -d "$pkgdir"/usr/bin
   install -m755 -t "$pkgdir"/usr/bin fastboot adb mke2fs.android e2fsdroid ext2simg avb/avbtool
   install -Dm 755 mkbootimg/mkbootimg.py "$pkgdir"/usr/bin/mkbootimg
