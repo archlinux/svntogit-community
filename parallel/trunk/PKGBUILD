@@ -4,7 +4,7 @@
 # Contributor: Peter Simons <simons@cryp.to>
 
 pkgname=parallel
-pkgver=20190422
+pkgver=20190722
 pkgrel=1
 pkgdesc='A shell tool for executing jobs in parallel'
 arch=('any')
@@ -14,7 +14,7 @@ depends=('perl' 'procps')
 source=(https://ftp.gnu.org/gnu/$pkgname/$pkgname-$pkgver.tar.bz2{,.sig}
         0001-Remove-citation-things.patch
         0002-Remove-GNU-branding.patch)
-sha1sums=('921e0469fe655ca3f583d836b7d614c8cbebfad8'
+sha1sums=('d07817630a0f64e2267fb8aa7ade71ea9cf20f25'
           'SKIP'
           '550f849763d158146931609a1ba9c480cb00fe7e'
           'c412f8e040283a00c58e44b89fecfe7daa54ea2a')
