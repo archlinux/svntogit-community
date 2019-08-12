@@ -1,0 +1,61 @@
+From 284fb1e35abce2ecbebe41b3d6a78bf757145b9b Mon Sep 17 00:00:00 2001
+From: Juan Wajnerman <jwajnerman@manas.com.ar>
+Date: Thu, 8 Aug 2019 08:23:26 -0300
+Subject: [PATCH] Don't resume fibers directly from event loop callbacks (fixes
+ #8044). (#8058)
+
+This is required to enable compatibility with libevent 2.1.11, because
+a warning is now raised if a `fork` is executed from within the event loop (https://github.com/libevent/libevent/commit/497ef904d544ac51de43934549dbeccce8e6e8f8).
+Since most Crystal code actually runs from within the event loop (from libevent point of view)
+the solution is enqueue the fibers and resume them outside the call to `event_base_loop`.
+---
+ src/crystal/event_loop.cr | 9 +++++++--
+ src/io/evented.cr         | 4 ++--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
+
+diff --git a/src/crystal/event_loop.cr b/src/crystal/event_loop.cr
+index 9d8cc2812a..a4726b16d4 100644
+--- a/src/crystal/event_loop.cr
++++ b/src/crystal/event_loop.cr
+@@ -13,12 +13,17 @@ module Crystal::EventLoop
+   end
+ 
+   private def self.loop_fiber
+-    @@loop_fiber ||= Fiber.new { @@eb.run_loop }
++    @@loop_fiber ||= Fiber.new do
++      loop do
++        @@eb.run_once
++        Crystal::Scheduler.reschedule
++      end
++    end
+   end
+ 
+   def self.create_resume_event(fiber)
+     @@eb.new_event(-1, LibEvent2::EventFlags::None, fiber) do |s, flags, data|
+-      data.as(Fiber).resume
++      Crystal::Scheduler.enqueue data.as(Fiber)
+     end
+   end
+ 
+diff --git a/src/io/evented.cr b/src/io/evented.cr
+index ae2895c571..deca61cd87 100644
+--- a/src/io/evented.cr
++++ b/src/io/evented.cr
+@@ -99,7 +99,7 @@ module IO::Evented
+     @read_timed_out = timed_out
+ 
+     if reader = @readers.try &.shift?
+-      reader.resume
++      Crystal::Scheduler.enqueue reader
+     end
+   end
+ 
+@@ -108,7 +108,7 @@ module IO::Evented
+     @write_timed_out = timed_out
+ 
+     if writer = @writers.try &.shift?
+-      writer.resume
++      Crystal::Scheduler.enqueue writer
+     end
+   end
+ 
