@@ -1,4 +1,6 @@
 # Maintainer: Christian Rebischke <chris.rebischke at archlinux.org>
+# Maintainer: Thore Bödecker <foxxx0@archlinux.org>
+# Contributor: Tim Meusel <tim@bastelfreak.de>
 # Contributor: Jonathan Steel <jsteel at archlinux.org>
 # Contributor: Greg Sutcliffe <facter_aur (at) emeraldreverie.orgr>
 # Contributor: Hyacinthe Cartiaux <hyacinthe.cartiaux@free.fr>
@@ -7,45 +9,74 @@
 # Contributor: Niels Abspoel <aboe76 (at) Gmail (dot) com>
 
 pkgname=facter
-pkgver=3.13.1
-pkgrel=3
+pkgver=3.14.2
+pkgrel=1
 pkgdesc="Collect and display system facts"
 arch=('x86_64')
 url="https://puppetlabs.com/facter"
 license=('APACHE')
-depends=('yaml-cpp' 'boost-libs' 'curl')
-makedepends=('ruby' 'boost' 'cmake' 'java-environment>=10' 'leatherman' 'cpp-hocon' 'java-environment-common')
-optdepends=('java-environment: jruby support')
+depends=('yaml-cpp' 'boost-libs' 'curl' 'libwhereami')
+makedepends=('boost' 'boost-libs' 'cmake' 'java-environment>=10' 'leatherman'
+             'cpp-hocon' 'java-environment-common' 'ruby' 'python'
+             'libudev0-shim' 'libwhereami')
+checkdepends=('ruby-bundler' 'ruby-rake' 'ruby-rspec' 'ruby-mocha')
+optdepends=('java-environment: jruby support'
+            'puppet: retrieve puppet facts')
 replaces=('cfacter')
-source=("https://github.com/puppetlabs/facter/archive/${pkgver}.tar.gz"
-        'java10.patch')
-sha512sums=('22d65d3c7eeedc674b99dcba1503bcecdc268abda0f25e6e209f1c3560dc8077b13fc5a6bbb8de1b45f2b7f5d1f2dfec8aa4fe20461a1b1d6a1a65674f570e56'
-            '0db7f0a636bb31850b4440b3e7acc273cefc4091bd177ffaeb51434f80b142b9a96730d2a31a6ef48bf94dbd1cb21943a18e4f329a75b87718efd06a7124260b')
+source=("https://downloads.puppet.com/facter/facter-${pkgver}.tar.gz"{,.asc}
+        'FindUDEV.cmake'
+        'fix-shared-libwhereami-detection.patch')
+validpgpkeys=('6F6B15509CF8E59E6E469F327F438280EF8D349F') # "Puppet, Inc. Release Key (Puppet, Inc. Release Key) <release@puppet.com>"
+sha512sums=('e8f0b8b509c5d5ea1d7f2c3a0a7ff36d25aa55001237cc9cdc96eafcd59da845eb2a01a8ac334c2376a1692e80862dc575a551340a03d7ae02d6f32e5215a3ec'
+            'SKIP'
+            'c06f8b75a697c89c696729aaca88d30cf4d8652406245d457d97a0de973f6129a037e226847e71785070dc16d5b40b98f287258f961da7904cf5338eb601fc09'
+            '1f5d2595cd6b2a63fc01c92c84eccf8f92bd9e9f0721ea1a3f59836d7d02f5ec6e6e3711b223b240d46ca55f7377f27339b7458c12d6c21564a2764c76df12b2')
 
 prepare() {
-  cd "${pkgname}-${pkgver}"
+  cd "${srcdir}/${pkgname}-${pkgver}"
 
-  # Replace rb_data_object_alloc symbol with rb_data_object_wrap
-  # https://tickets.puppetlabs.com/browse/FACT-1291
-  sed -i 's/rb_data_object_alloc/rb_data_object_wrap/g' \
-    $( grep -rl rb_data_object_alloc lib/src/ruby )
+  # Puppet builds Facter in a way that the java library is compatible with Java 6
+  # We require at least Java 8. 7 technically works, but already throws a deprecation warning
+  sed --in-place 's/-source 1.6 -target 1.6/-source 1.8 -target 1.8/' CMakeLists.txt
+
+  # https://tickets.puppetlabs.com/browse/FACT-1968
+  # facter is designed for ruby 2.4, which uses rb_data_object_alloc.
+  # This is deprecated in our Ruby 2.6 version
+  sed --in-place 's/rb_data_object_alloc/rb_data_object_wrap/g' lib/src/ruby/*.cc
+
+  # strip version boundary of gems
+  sed -i -r 's|(gem .\w+.).*|\1|' lib/Gemfile
+
+  # add missing cmake helper to find the udev lib (provided by systemd)
+  install -Dm644 "${srcdir}/FindUDEV.cmake" cmake/
+
+  # patch FindWHEREAMI.cmake so that it works with the shared lib
+  patch -p1 -N -i "${srcdir}/fix-shared-libwhereami-detection.patch"
 }
 
 build() {
-  cd "${pkgname}-${pkgver}"
+  cd "${srcdir}/${pkgname}-${pkgver}"
 
-  # Do not treat warnings as errors
-  CXXFLAGS+=' -Wno-error'
+  mkdir build
+  cd build
 
-  JAVA_HOME=/usr/lib/jvm/default cmake -DCMAKE_INSTALL_PREFIX=/usr
-
+  export JAVA_HOME=/usr/lib/jvm/default
+  cmake \
+    -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DENABLE_CXX_WERROR=OFF \
+    ..
   make
 }
 
+check(){
+  cd "${srcdir}/${pkgname}-${pkgver}/build"
+  make test
+}
+
 package() {
-  cd "${pkgname}-${pkgver}"
+  cd "${srcdir}/${pkgname}-${pkgver}/build"
 
-  make install DESTDIR="${pkgdir}"
+  make DESTDIR="${pkgdir}" install
 
-  install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/"${pkgname}"/LICENSE
+  install -Dm644 ../LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
