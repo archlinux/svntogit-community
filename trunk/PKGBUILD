@@ -6,28 +6,21 @@
 _pkgbasename=libpulse
 pkgname=lib32-$_pkgbasename
 pkgdesc="A featureful, general-purpose sound server (32-bit client libraries)"
-pkgver=12.99.1
+pkgver=12.99.2+3+g493e7f358
 pkgrel=1
 arch=(x86_64)
 url="https://www.freedesktop.org/wiki/Software/PulseAudio/"
 license=(LGPL)
-depends=(lib32-dbus lib32-systemd lib32-glib2
-         lib32-libasyncns lib32-libcap lib32-libxtst lib32-libsm lib32-libsndfile
+depends=(lib32-{dbus,libasyncns,libcap,libxtst,libsm,libsndfile,systemd}
          $_pkgbasename)
-makedepends=(gcc-multilib libtool-multilib intltool lib32-speexdsp lib32-gtk3 git)
+makedepends=(lib32-{speexdsp,glib2,gtk3} git meson)
 optdepends=('lib32-alsa-plugins: ALSA support')
 provides=("lib32-pulseaudio=$pkgver")
 conflicts=(lib32-pulseaudio)
 replaces=(lib32-pulseaudio)
-_commit=0cd931dc808786bffa3b40f75097af43a217b880  # tags/v12.99.1^0
+_commit=493e7f35821c09a3b79b883a76283f5614ae1202  # master
 source=("git+https://gitlab.freedesktop.org/pulseaudio/pulseaudio.git#commit=$_commit")
 sha256sums=('SKIP')
-
-_pulsever=$pkgver
-[[ $_pulsever = *.*.* ]] && _pulsever=${_pulsever%.*}
-
-_libs="libpulse.la libpulse-simple.la libpulse-mainloop-glib.la"
-_pkglibs="libpulsecommon-${_pulsever}.la libpulsedsp.la"
 
 pkgver() {
   cd pulseaudio
@@ -36,39 +29,45 @@ pkgver() {
 
 prepare() {
   cd pulseaudio
-  NOCONFIGURE=1 ./bootstrap.sh
 }
 
 build() {
-  cd pulseaudio
-
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
-  ./configure --prefix=/usr \
-    --libdir=/usr/lib32 \
-    --sysconfdir=/etc \
-    --libexecdir=/usr/lib32 \
-    --localstatedir=/var \
-    --disable-tcpwrap \
-    --disable-bluez4 \
-    --disable-samplerate \
-    --disable-rpath \
-    --disable-default-build-tests \
-    DATADIRNAME=share
+  arch-meson pulseaudio build \
+    --libdir /usr/lib32 \
+    --auto-features auto \
+    -D man=false \
+    -D tests=false \
+    -D avahi=disabled \
+    -D gcov=false \
+    -D pulsedsp-location='/usr/\$LIB/pulseaudio' \
+    -D udevrulesdir=/usr/lib/udev/rules.d
+  ninja -C build
+}
 
-  # fight unused direct deps
-  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+check() {
+  meson test -C build --print-errorlogs
+}
 
-  make -C src $_libs $_pkglibs
+_pick() {
+  local f d
+  for f; do
+    d="$pkgdir/${f#$srcdir/install/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
 }
 
 package() {
-  cd pulseaudio
-  make -j1 -C src DESTDIR="$pkgdir" \
-    lib_LTLIBRARIES="$_libs" install-libLTLIBRARIES
-  make -j1 -C src DESTDIR="$pkgdir" \
-    pkglib_LTLIBRARIES="$_pkglibs" install-pkglibLTLIBRARIES
-  make -j1 DESTDIR="$pkgdir" install-pkgconfigDATA
+  DESTDIR="$srcdir/install" meson install -C build
+
+  cd install
+  _pick usr/lib32/libpulse{,-simple,-mainloop-glib}.so*
+  _pick usr/lib32/{cmake,pkgconfig}
+  _pick usr/lib32/pulseaudio/libpulse{dsp,common-*}.so
 }
+# vim:set sw=2 et:
