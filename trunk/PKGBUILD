@@ -26,7 +26,6 @@ source=(git+https://android.googlesource.com/platform/system/core#tag=$tag
         git+https://boringssl.googlesource.com/boringssl#commit=$_boringssl_commit
         generate_build.rb
         fix_build_core.patch
-        fix_build_selinux.patch
         fix_build_e2fsprogs.patch
         bash_completion.fastboot)
         # Bash completion file was taken from https://github.com/mbrubeck/android-completion
@@ -38,9 +37,8 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
-          'ff8613a331b9026f2f413768f88ccd10e26149bf'
+          'afca7974ad8658e52fd028ead12ad0a959d63273'
           '99a1618bd93af8ef3ff2cca893e950a0346021fe'
-          'b2ccf6dac3577d230f910e668ae70af6051fee46'
           'bcebdf1e706a3c3da175234840c6ee4e13652012'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
@@ -49,9 +47,6 @@ prepare() {
 
   cd $srcdir/core
   patch -p1 < ../fix_build_core.patch
-
-  cd $srcdir/selinux
-  patch -p1 < ../fix_build_selinux.patch
 
   cd $srcdir/e2fsprogs
   patch -p1 < ../fix_build_e2fsprogs.patch
