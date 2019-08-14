@@ -5,7 +5,7 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=4.2.0
+pkgver=4.3.1
 pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
@@ -13,17 +13,24 @@ license=('BSD')
 # git is needed for yarn...
 makedepends=('git' 'go-pie' 'yarn')
 source=("${pkgbase}-${pkgver}.tar.gz::https://github.com/keybase/client/archive/v${pkgver}.tar.gz"
+        "https://github.com/keybase/client/commit/753d4ac4033f457bb43bb107014b2e9c76090015.patch"
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('132196b786f7c523d1c6892b4d330e5f7f166d959873b52420371f77d9499b7e3fe98af5ea141b98c1cf753f84d9c290e8b8b29ab032eb93772f93a25a070820'
+sha512sums=('6d5f303e42ee99377c59e322c61d61126ba09964ce690289a93939d6e85b9051f3e5367d96d2145aa716cd3ef329ede68f2aa6f7e2c8d19f85b55a92306a24bf'
+            '2fb645efb208191cec3d4754119c59504980e703750051a38a1e4ba99a862a2626cca14be02959457f5d50ba752191c6d6466fd06babd661c104ecbe852c193e'
             '4dcb3f4119959e2b203528a9ed637bf8b07b85964c632a8b2456aa1e2f29fada383a9bc2af8abbb05fcf6b22c43723ce6d08bea8187d61fa6581d15fefae850b'
-            'f552e40479fd7240ce671cf1b36a92df89ad93c1505322ad53a7d2c2f1e961e22bc5f6147f09a7ccf4f50594bff6ea400d32152c67dd8223d6c2b73be5efdbb2')
-b2sums=('0b1e5a39e90e97c3b76a0913a6ff1458a1b6f7211f54e842ed06b2f3bc4bde1bd9213ad8217872775cf1855341c58f46646bfa96e1f3f142c6d5e28e149db88b'
+            '747f87b6a399375331acb86d6a1beddf83496cab8a598aaa54e4fe7a096a8964b3cbd757bb6924b286a16cd68b9f081f917233c9ff2b984a1f92ef85aa9dd0bd')
+b2sums=('42a1d55d223a3c52d2aaced1c756814646cdb493447ba99d0b9a8267c83b67949d969e18a61bfdeb68e790561430a214bb284a93ac7d146d59ed1b2e97336bf2'
+        '86871257c22f77158ce4644ad7f81ae3db1645df003b41bd5847dd34035a39d3e16ffbc64a67a6d1cf0eaa8fbf6d9047dee8846120587e9b4c6fb373242d131d'
         '90aab71ef3b5db0c8ec81967604f43e3532be5f66ce7d9af1bd5204c1fde2062ef356909c03d237a63de93fa3cb045b9c31c3956cbecbea711602804e9d26efd'
-        'cb04645501fb475b6c3d1ec4b6ca43b7e8fa929a774093b50f3dc6c6e57866d6064e648854bfea0d04719dae62045da8a260b0ca4c2a15e82898e07dfe7cad95')
+        'b20b444b58cc78c2960cc31cd070afae6b73d59e77afa76ab83167befd07b6ca91bdb1465d2d898ac61127c77fdbb708f48c591d053830883fbbaba660328de4')
 
 prepare() {
     cd client-${pkgver}
+
+    # support keybase:// links in argv2 with debundled electron
+    # https://github.com/keybase/client/issues/18925
+    patch -p1 -i ../753d4ac4033f457bb43bb107014b2e9c76090015.patch
 
     export GOPATH="${srcdir}/.gopath"
     mkdir -p "${GOPATH}"/src/github.com/keybase
