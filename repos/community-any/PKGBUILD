@@ -2,7 +2,7 @@
 
 pkgbase=python-lark-parser
 pkgname=(python-lark-parser python2-lark-parser)
-pkgver=0.7.2
+pkgver=0.7.3
 _nearley_commit=a46b37471db486db0f6e1ce6a2934fb238346b44
 pkgrel=1
 pkgdesc="A modern parsing library"
@@ -13,7 +13,7 @@ makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-js2py' 'python2-js2py')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/lark-parser/lark/archive/$pkgver.tar.gz"
         "nearley-$_nearley_commit.tar.gz::https://github.com/kach/nearley/archive/$_nearley_commit.tar.gz")
-sha512sums=('4b8cda9e97f9d3774dbe81d0e27c3020fa3ab214ca88a0fde268a4ebc1802506f3cbffcf7585299aaaeec8be3bf5fd3a23b40ef19f1cd367b71457df282fd29f'
+sha512sums=('0dab89f728653afa869b651685d6375b8a8f6c3741eb3fa47ef47e18302ba34b784ae1e5647b4b50c6dec740ed62b9b5e064dc6ebe8fc16df2aab0f0454fe266'
             'fe14909f8a1d1626f8a632e8d48bf83602923f468b7bbb819557b85ab5e384cb042241ba15525e9850f2bbd65cad12497ed0b7ff6bc86c04d78b63d0c1bb66b4')
 
 prepare() { 
