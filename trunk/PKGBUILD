@@ -54,7 +54,7 @@ prepare() {
   cd $srcdir/avb
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
 
-  mkdir -p $srcdir/boringssl/build && cd $srcdir/boringssl/build && cmake -GNinja ..; ninja
+  mkdir -p $srcdir/boringssl/build && cd $srcdir/boringssl/build && cmake -GNinja ..; ninja crypto/libcrypto.a
 }
 
 build() {
