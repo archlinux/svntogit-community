@@ -6,7 +6,7 @@
 pkgname=containerd
 pkgver=1.2.7
 _commit=85f6aa58b8a3170aec9824568f7a31832878b603
-pkgrel=1
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
