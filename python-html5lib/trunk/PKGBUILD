@@ -10,9 +10,10 @@ pkgrel=4
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
-makedepends=('python-setuptools' 'python2-setuptools' 'python-webencodings' 'python2-webencodings')
-checkdepends=('python-six' 'python2-six' 'python-pytest-expect' 'python2-pytest-expect'
-              'python-lxml' 'python2-lxml' 'python-mock' 'python2-mock')
+_deps=('six' 'webencodings')
+makedepends=('python-setuptools' 'python2-setuptools' "${_deps[@]/#/python-}" "${_deps[@]/#/python2-}")
+_checkdeps=('pytest-expect' 'lxml' 'mock')
+checkdepends=("${_checkdeps[@]/#/python-}" "${_checkdeps[@]/#/python2-}")
 _test_commit=c305da74fae50fb018870de7a042da36c1a93b65
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz"
         "https://github.com/html5lib/html5lib-tests/archive/${_test_commit}.tar.gz")
@@ -42,7 +43,7 @@ check() {
 
 package_python-html5lib() {
     pkgdesc="A Python HTML parser/tokenizer based on the WHATWG HTML5 spec"
-    depends=('python' 'python-six' 'python-webencodings')
+    depends=("${_deps[@]/#/python-}")
     optdepends=('python-lxml: lxml treebuilder'
                 'python-genshi: genshi treewalker')
     cd "${srcdir}"/html5lib-python-${pkgver}
@@ -53,7 +54,7 @@ package_python-html5lib() {
 
 package_python2-html5lib() {
     pkgdesc="A Python2 HTML parser/tokenizer based on the WHATWG HTML5 spec"
-    depends=('python2' 'python2-six' 'python2-webencodings')
+    depends=("${_deps[@]/#/python2-}")
     optdepends=('python2-lxml: lxml treebuilder'
                 'python2-genshi: genshi treewalker')
     cd "${srcdir}"/html5lib-python-${pkgver}
