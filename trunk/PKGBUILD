@@ -3,7 +3,7 @@
 
 pkgname=python-typing_extensions
 pkgver=3.7.4
-pkgrel=1
+pkgrel=2
 pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
 arch=(any)
 url=https://github.com/python/typing/tree/master/typing_extensions
@@ -17,6 +17,13 @@ provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
 source=(git+https://github.com/python/typing.git#tag=${pkgver})
 sha256sums=(SKIP)
+
+prepare() {
+  cd typing
+
+  # fix version
+  git cherry-pick -n 27f2e427b9b677401961b5da1762f8380a929bb8
+}
 
 build() {
   cd typing/typing_extensions
