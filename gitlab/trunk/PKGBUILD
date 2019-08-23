@@ -10,8 +10,8 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.1.6
-pkgrel=2
+pkgver=12.2.1
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-ce"
@@ -20,7 +20,6 @@ options=(!buildflags)
 depends=('ruby2.5' 'ruby2.5-bundler' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs')
 makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
-            'mysql: database backend'
             'python2-docutils: reStructuredText markup language support'
             'smtp-server: mail server in order to receive mail notifications')
 backup=("etc/webapps/${pkgname}/application.rb"
@@ -38,7 +37,7 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.tmpfiles.d
         gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('00b8e827e704a357489c8ccb09626353b26b5f1a1511a4318b51e9673c34ade62c3afd394b78e32990da7373987771004c0745960cd2a3c526f4f33a31c2c91e'
+sha512sums=('16a79090e744191cdd32b2a63d9ae1eca91eec8ed981c1958c6c6c880295088da5fc924dc87e56c18304017839e7c8aaac3805dd17c99e02a2bdf18acba31274'
             'd6d0604a726277f27a7596caf31909ff7d9854fd85f2902fd8a06eb581b38cc0e0fd6c10b3b16c84e0c629230501bc51d2f74c765761b43cdead139a521a327d'
             '41ca8890aff1dd99b3c4ef283f70a172af772837ab6b1bda1d26710616a822f5179899ca9b3a96bc0b434f8f6d614b29b39b1596c0f284e5347ae9e06d40c1c4'
             '2e49f4c2549c219d5d1c8572a7db7a700847bc8c520b44bdfc1742d3caf57d8336da5c0b74672f820349b8eab0fa1712dcec5588a4fb742ad98c8eb7ec2b5951'
@@ -87,8 +86,7 @@ prepare() {
   # We need this one untouched because otherwise assets will fail
   cp config/database.yml.postgresql config/database.yml.postgresql.orig
 
-  echo "Patching username in database.yml.{mysql,postgresql}..."
-  sed -i -e "s|username: git|username: gitlab|" config/database.yml.mysql
+  echo "Patching username in database.yml.postgresql..."
   sed -i -e "s|username: git|username: gitlab|" config/database.yml.postgresql
 
   echo "Patching redis connection in resque.yml"
@@ -196,7 +194,7 @@ package() {
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_datadir}/config/secrets.yml"
 
   # Install license and help files
-  mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,mysql,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
+  mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
   # https://gitlab.com/gitlab-org/gitlab-ce/issues/765
