@@ -1,0 +1,744 @@
+From c526efc6500a1c35d71aee9ce170190b06a7210f Mon Sep 17 00:00:00 2001
+From: "Xl.W" <shawlix+git@gmail.com>
+Date: Thu, 22 Aug 2019 13:33:30 +0800
+Subject: [PATCH] node-tree-sitter: nodejs 12 update
+
+---
+ src/conversions.cc  | 69 +++++++++++++++++++++-------------
+ src/language.cc     |  4 +-
+ src/logger.cc       | 10 ++---
+ src/node.cc         | 75 +++++++++++++++++++++----------------
+ src/parser.cc       | 91 ++++++++++++++++++++++++++-------------------
+ src/tree.cc         | 37 ++++++++++++------
+ src/tree_cursor.cc  | 14 ++++---
+ test/node_test.js   |  2 +-
+ test/parser_test.js |  2 +-
+ 9 files changed, 180 insertions(+), 124 deletions(-)
+
+diff --git a/src/conversions.cc b/src/conversions.cc
+index d024b4c..6d685cd 100644
+--- a/src/conversions.cc
++++ b/src/conversions.cc
+@@ -29,7 +29,7 @@ void InitConversions(Local<Object> exports) {
+ 
+   point_transfer_buffer = static_cast<uint32_t *>(malloc(2 * sizeof(uint32_t)));
+   auto js_point_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), point_transfer_buffer, 2 * sizeof(uint32_t));
+-  exports->Set(Nan::New("pointTransferArray").ToLocalChecked(), Uint32Array::New(js_point_transfer_buffer, 0, 2));
++  Nan::Set(exports, Nan::New("pointTransferArray").ToLocalChecked(), Uint32Array::New(js_point_transfer_buffer, 0, 2));
+ }
+ 
+ void TransferPoint(const TSPoint &point) {
+@@ -39,10 +39,10 @@ void TransferPoint(const TSPoint &point) {
+ 
+ Local<Object> RangeToJS(const TSRange &range) {
+   Local<Object> result = Nan::New<Object>();
+-  result->Set(Nan::New(start_position_key), PointToJS(range.start_point));
+-  result->Set(Nan::New(start_index_key), ByteCountToJS(range.start_byte));
+-  result->Set(Nan::New(end_position_key), PointToJS(range.end_point));
+-  result->Set(Nan::New(end_index_key), ByteCountToJS(range.end_byte));
++  Nan::Set(result, Nan::New(start_position_key), PointToJS(range.start_point));
++  Nan::Set(result, Nan::New(start_index_key), ByteCountToJS(range.start_byte));
++  Nan::Set(result, Nan::New(end_position_key), PointToJS(range.end_point));
++  Nan::Set(result, Nan::New(end_index_key), ByteCountToJS(range.end_byte));
+   return result;
+ }
+ 
+@@ -56,8 +56,13 @@ Nan::Maybe<TSRange> RangeFromJS(const Local<Value> &arg) {
+ 
+   Local<Object> js_range = Local<Object>::Cast(arg);
+ 
+-  #define INIT(field, key, Type) { \
+-    auto field = Type(js_range->Get(Nan::New(key))); \
++  #define INIT(field, key, Convert) { \
++    auto value = Nan::Get(js_range, Nan::New(key)); \
++    if (value.IsEmpty()) { \
++      Nan::ThrowTypeError("Range must be a {startPosition, endPosition, startIndex, endIndex} object"); \
++      return Nan::Nothing<TSRange>(); \
++    } \
++    auto field = Convert(value.ToLocalChecked()); \
+     if (field.IsJust()) { \
+       result.field = field.FromJust(); \
+     } else { \
+@@ -77,41 +82,52 @@ Nan::Maybe<TSRange> RangeFromJS(const Local<Value> &arg) {
+ 
+ Local<Object> PointToJS(const TSPoint &point) {
+   Local<Object> result = Nan::New<Object>();
+-  result->Set(Nan::New(row_key), Nan::New<Number>(point.row));
+-  result->Set(Nan::New(column_key), ByteCountToJS(point.column));
++  Nan::Set(result, Nan::New(row_key), Nan::New<Number>(point.row));
++  Nan::Set(result, Nan::New(column_key), ByteCountToJS(point.column));
+   return result;
+ }
+ 
+ Nan::Maybe<TSPoint> PointFromJS(const Local<Value> &arg) {
+-  if (!arg->IsObject()) {
++  Local<Object> js_point;
++  if (!Nan::To<Object>(arg).ToLocal(&js_point)) {
+     Nan::ThrowTypeError("Point must be a {row, column} object");
+     return Nan::Nothing<TSPoint>();
+   }
+ 
+-  Local<Object> js_point = Local<Object>::Cast(arg);
+-  Local<Value> js_row = js_point->Get(Nan::New(row_key));
+-  if (!js_row->IsNumber()) {
+-    Nan::ThrowTypeError("Point.row must be a number");
++  Local<Value> js_row;
++  if (!Nan::Get(js_point, Nan::New(row_key)).ToLocal(&js_row)) {
++    Nan::ThrowTypeError("Point must be a {row, column} object");
+     return Nan::Nothing<TSPoint>();
+   }
+ 
+-  Local<Value> js_column = js_point->Get(Nan::New(column_key));
+-  if (!js_column->IsNumber()) {
+-    Nan::ThrowTypeError("Point.column must be a number");
++  Local<Value> js_column;
++  if (!Nan::Get(js_point, Nan::New(column_key)).ToLocal(&js_column)) {
++    Nan::ThrowTypeError("Point must be a {row, column} object");
+     return Nan::Nothing<TSPoint>();
+   }
+ 
+-  uint32_t row, column;
+-  if (std::isfinite(js_row->NumberValue())) {
+-    row = static_cast<uint32_t>(js_row->Int32Value());
+-  } else {
++  uint32_t row;
++  if (!std::isfinite(Nan::To<double>(js_row).FromMaybe(0))) {
+     row = UINT32_MAX;
++  } else {
++    auto maybe_row = Nan::To<uint32_t>(js_row);
++    if (!maybe_row.IsJust()) {
++      Nan::ThrowTypeError("Point.row must be a number");
++      return Nan::Nothing<TSPoint>();
++    }
++    row = maybe_row.FromJust();
+   }
+ 
+-  if (std::isfinite(js_column->NumberValue())) {
+-    column = static_cast<uint32_t>(js_column->Int32Value()) * BYTES_PER_CHARACTER;
+-  } else {
++  uint32_t column;
++  if (!std::isfinite(Nan::To<double>(js_column).FromMaybe(0))) {
+     column = UINT32_MAX;
++  } else {
++    auto maybe_column = Nan::To<uint32_t>(js_column);
++    if (!maybe_column.IsJust()) {
++      Nan::ThrowTypeError("Point.column must be a number");
++      return Nan::Nothing<TSPoint>();
++    }
++    column = maybe_column.FromJust();
+   }
+ 
+   return Nan::Just<TSPoint>({row, column});
+@@ -122,12 +138,13 @@ Local<Number> ByteCountToJS(uint32_t byte_count) {
+ }
+ 
+ Nan::Maybe<uint32_t> ByteCountFromJS(const v8::Local<v8::Value> &arg) {
+-  if (!arg->IsUint32()) {
++  auto result = Nan::To<uint32_t>(arg);
++  if (!result.IsJust()) {
+     Nan::ThrowTypeError("Character index must be a number");
+     return Nan::Nothing<uint32_t>();
+   }
+ 
+-  return Nan::Just<uint32_t>(arg->Uint32Value() * BYTES_PER_CHARACTER);
++  return Nan::Just<uint32_t>(result.FromJust() * BYTES_PER_CHARACTER);
+ }
+ 
+ }  // namespace node_tree_sitter
+diff --git a/src/language.cc b/src/language.cc
+index 9a25b02..a804433 100644
+--- a/src/language.cc
++++ b/src/language.cc
+@@ -77,12 +77,12 @@ static void GetNodeFieldNamesById(const Nan::FunctionCallbackInfo<Value> &info)
+ void Init(Local<Object> exports) {
+   exports->Set(
+     Nan::New("getNodeTypeNamesById").ToLocalChecked(),
+-    Nan::New<FunctionTemplate>(GetNodeTypeNamesById)->GetFunction()
++    Nan::GetFunction(Nan::New<FunctionTemplate>(GetNodeTypeNamesById)).ToLocalChecked()
+   );
+ 
+   exports->Set(
+     Nan::New("getNodeFieldNamesById").ToLocalChecked(),
+-    Nan::New<FunctionTemplate>(GetNodeFieldNamesById)->GetFunction()
++    Nan::GetFunction(Nan::New<FunctionTemplate>(GetNodeFieldNamesById)).ToLocalChecked()
+   );
+ }
+ 
+diff --git a/src/logger.cc b/src/logger.cc
+index 00e624e..5f0cacd 100644
+--- a/src/logger.cc
++++ b/src/logger.cc
+@@ -36,21 +36,21 @@ void Logger::Log(void *payload, TSLogType type, const char *message_str) {
+ 
+     string key = message.substr(key_pos, (value_sep_pos - key_pos));
+     string value = message.substr(val_pos, (param_sep_pos - val_pos));
+-    params->Set(Nan::New(key).ToLocalChecked(), Nan::New(value).ToLocalChecked());
++    Nan::Set(params, Nan::New(key).ToLocalChecked(), Nan::New(value).ToLocalChecked());
+   }
+ 
+   Local<Value> argv[3] = { name, params, type_name };
+   TryCatch try_catch(Isolate::GetCurrent());
+-  fn->Call(fn->CreationContext()->Global(), 3, argv);
++  Nan::Call(fn, fn->CreationContext()->Global(), 3, argv);
+   if (try_catch.HasCaught()) {
+     Local<Value> log_argv[2] = {
+       Nan::New("Error in debug callback:").ToLocalChecked(),
+       try_catch.Exception()
+     };
+ 
+-    Local<Object> console = Local<Object>::Cast(fn->CreationContext()->Global()->Get(Nan::New("console").ToLocalChecked()));
+-    Local<Function> error_fn = Local<Function>::Cast(console->Get(Nan::New("error").ToLocalChecked()));
+-    error_fn->Call(console, 2, log_argv);
++    Local<Object> console = Local<Object>::Cast(Nan::Get(fn->CreationContext()->Global(), Nan::New("console").ToLocalChecked()).ToLocalChecked());
++    Local<Function> error_fn = Local<Function>::Cast(Nan::Get(console, Nan::New("error").ToLocalChecked()).ToLocalChecked());
++    Nan::Call(error_fn, console, 2, log_argv);
+   }
+ }
+ 
+diff --git a/src/node.cc b/src/node.cc
+index 8a5517f..5f4ad93 100644
+--- a/src/node.cc
++++ b/src/node.cc
+@@ -27,7 +27,8 @@ static inline void setup_transfer_buffer(uint32_t node_count) {
+     transfer_buffer_length = new_length;
+     transfer_buffer = static_cast<uint32_t *>(malloc(transfer_buffer_length * sizeof(uint32_t)));
+     auto js_transfer_buffer = ArrayBuffer::New(Isolate::GetCurrent(), transfer_buffer, transfer_buffer_length * sizeof(uint32_t));
+-    Nan::New(module_exports)->Set(
++    Nan::Set(
++      Nan::New(module_exports),
+       Nan::New("nodeTransferArray").ToLocalChecked(),
+       Uint32Array::New(js_transfer_buffer, 0, transfer_buffer_length)
+     );
+@@ -56,13 +57,12 @@ static void MarshalNodes(const Nan::FunctionCallbackInfo<Value> &info,
+       *(p++) = node.context[2];
+       *(p++) = node.context[3];
+       if (node.id) {
+-        result->Set(i, Nan::New(ts_node_symbol(node)));
++        Nan::Set(result, i, Nan::New(ts_node_symbol(node)));
+       } else {
+-        result->Set(i, Nan::Null());
++        Nan::Set(result, i, Nan::Null());
+       }
+     } else {
+-      assert(!cache_entry->second->node.IsNearDeath());
+-      result->Set(i, Nan::New(cache_entry->second->node));
++      Nan::Set(result, i, Nan::New(cache_entry->second->node));
+     }
+   }
+   info.GetReturnValue().Set(result);
+@@ -83,7 +83,6 @@ void MarshalNode(const Nan::FunctionCallbackInfo<Value> &info, const Tree *tree,
+       info.GetReturnValue().Set(Nan::New(ts_node_symbol(node)));
+     }
+   } else {
+-    assert(!cache_entry->second->node.IsNearDeath());
+     info.GetReturnValue().Set(Nan::New(cache_entry->second->node));
+   }
+ }
+@@ -317,7 +316,7 @@ static void Child(const Nan::FunctionCallbackInfo<Value> &info) {
+       Nan::ThrowTypeError("Second argument must be an integer");
+       return;
+     }
+-    uint32_t index = info[1]->Uint32Value();
++    uint32_t index = Nan::To<uint32_t>(info[1]).FromJust();
+     MarshalNode(info, tree, ts_node_child(node, index));
+     return;
+   }
+@@ -333,7 +332,7 @@ static void NamedChild(const Nan::FunctionCallbackInfo<Value> &info) {
+       Nan::ThrowTypeError("Second argument must be an integer");
+       return;
+     }
+-    uint32_t index = info[1]->Uint32Value();
++    uint32_t index = Nan::To<uint32_t>(info[1]).FromJust();
+     MarshalNode(info, tree, ts_node_named_child(node, index));
+     return;
+   }
+@@ -470,26 +469,37 @@ bool symbol_set_from_js(SymbolSet *symbols, const Local<Value> &value, const TSL
+ 
+   Local<Array> js_types = Local<Array>::Cast(value);
+   for (unsigned i = 0, n = js_types->Length(); i < n; i++) {
+-    Local<Value> js_types_i = js_types->Get(i);
+-    if (!js_types_i->IsString()) {
+-      Nan::ThrowTypeError("Argument must be a string or array of strings");
+-      return false;
+-    }
+-
+-    Local<String> js_node_type = Local<String>::Cast(js_types_i);
+-    std::string node_type(js_node_type->Utf8Length(), '\0');
+-    js_node_type->WriteUtf8(&node_type[0]);
+-
+-    if (node_type == "ERROR") {
+-      symbols->add(static_cast<TSSymbol>(-1));
+-      continue;
+-    }
++    Local<Value> js_node_type_value;
++    if (Nan::Get(js_types, i).ToLocal(&js_node_type_value)) {
++      Local<String> js_node_type;
++      if (Nan::To<String>(js_node_type_value).ToLocal(&js_node_type)) {
++        std::string node_type(js_node_type->Utf8Length(Isolate::GetCurrent()), '\0');
++        js_node_type->WriteUtf8(
++
++          // Nan doesn't wrap this functionality
++          #if NODE_MAJOR_VERSION >= 12
++                Isolate::GetCurrent(),
++          #endif
++
++          &node_type[0]
++        );
++
++        if (node_type == "ERROR") {
++          symbols->add(static_cast<TSSymbol>(-1));
++        } else {
++          for (TSSymbol j = 0; j < symbol_count; j++) {
++            if (node_type == ts_language_symbol_name(language, j)) {
++              symbols->add(j);
++            }
++          }
++        }
+ 
+-    for (TSSymbol j = 0; j < symbol_count; j++) {
+-      if (node_type == ts_language_symbol_name(language, j)) {
+-        symbols->add(j);
++        continue;
+       }
+     }
++
++    Nan::ThrowTypeError("Argument must be a string or array of strings");
++    return false;
+   }
+ 
+   return true;
+@@ -542,13 +552,13 @@ static void DescendantsOfType(const Nan::FunctionCallbackInfo<Value> &info) {
+   TSPoint start_point = {0, 0};
+   TSPoint end_point = {UINT32_MAX, UINT32_MAX};
+ 
+-  if (info[2]->BooleanValue()) {
++  if (info.Length() > 2) {
+     auto maybe_start_point = PointFromJS(info[2]);
+     if (maybe_start_point.IsNothing()) return;
+     start_point = maybe_start_point.FromJust();
+   }
+ 
+-  if (info[3]->BooleanValue()) {
++  if (info.Length() > 3) {
+     auto maybe_end_point = PointFromJS(info[3]);
+     if (maybe_end_point.IsNothing()) return;
+     end_point = maybe_end_point.FromJust();
+@@ -606,7 +616,7 @@ static void ChildNodesForFieldId(const Nan::FunctionCallbackInfo<Value> &info) {
+     Nan::ThrowTypeError("Second argument must be an integer");
+     return;
+   }
+-  uint32_t field_id = info[1]->Uint32Value();
++  uint32_t field_id = Nan::To<uint32_t>(info[1]).FromJust();
+ 
+   vector<TSNode> result;
+   ts_tree_cursor_reset(&scratch_cursor, node);
+@@ -631,7 +641,7 @@ static void ChildNodeForFieldId(const Nan::FunctionCallbackInfo<Value> &info) {
+       Nan::ThrowTypeError("Second argument must be an integer");
+       return;
+     }
+-    uint32_t field_id = info[1]->Uint32Value();
++    uint32_t field_id = Nan::To<uint32_t>(info[1]).FromJust();
+     MarshalNode(info, tree, ts_node_child_by_field_id(node, field_id));
+     return;
+   }
+@@ -710,16 +720,17 @@ void Init(Local<Object> exports) {
+   };
+ 
+   for (size_t i = 0; i < length_of_array(methods); i++) {
+-    result->Set(
++    Nan::Set(
++      result,
+       Nan::New(methods[i].name).ToLocalChecked(),
+-      Nan::New<FunctionTemplate>(methods[i].callback)->GetFunction()
++      Nan::GetFunction(Nan::New<FunctionTemplate>(methods[i].callback)).ToLocalChecked()
+     );
+   }
+ 
+   module_exports.Reset(exports);
+   setup_transfer_buffer(1);
+ 
+-  exports->Set(Nan::New("NodeMethods").ToLocalChecked(), result);
++  Nan::Set(exports, Nan::New("NodeMethods").ToLocalChecked(), result);
+ }
+ 
+ }  // namespace node_methods
+diff --git a/src/parser.cc b/src/parser.cc
+index 7eddd39..420c7b1 100644
+--- a/src/parser.cc
++++ b/src/parser.cc
+@@ -26,11 +26,8 @@ class CallbackInput {
+     : callback(callback),
+       byte_offset(0),
+       partial_string_offset(0) {
+-    if (js_buffer_size->IsUint32()) {
+-      buffer.resize(Local<Integer>::Cast(js_buffer_size)->Uint32Value());
+-    } else {
+-      buffer.resize(32 * 1024);
+-    }
++    uint32_t buffer_size = Nan::To<uint32_t>(js_buffer_size).FromMaybe(32 * 1024);
++    buffer.resize(buffer_size);
+   }
+ 
+   TSInput Input() {
+@@ -51,8 +48,9 @@ class CallbackInput {
+       reader->partial_string.Reset();
+     }
+ 
++    *bytes_read = 0;
+     Local<String> result;
+-    uint32_t start;
++    uint32_t start = 0;
+     if (reader->partial_string_offset) {
+       result = Nan::New(reader->partial_string);
+       start = reader->partial_string_offset;
+@@ -61,18 +59,26 @@ class CallbackInput {
+       uint32_t utf16_unit = byte / 2;
+       Local<Value> argv[2] = { Nan::New<Number>(utf16_unit), PointToJS(position) };
+       TryCatch try_catch(Isolate::GetCurrent());
+-      auto result_value = callback->Call(Nan::Null(), 2, argv);
+-      if (!try_catch.HasCaught() && result_value->IsString()) {
+-        result = Local<String>::Cast(result_value);
+-        start = 0;
+-      } else {
+-        *bytes_read = 0;
+-        start = 0;
+-        return "";
+-      }
++      auto maybe_result_value = Nan::Call(callback, callback->CreationContext()->Global(), 2, argv);
++      if (try_catch.HasCaught()) return nullptr;
++
++      Local<Value> result_value;
++      if (!maybe_result_value.ToLocal(&result_value)) return nullptr;
++      if (!Nan::To<String>(result_value).ToLocal(&result)) return nullptr;
+     }
+ 
+-    int utf16_units_read = result->Write(reader->buffer.data(), start, reader->buffer.size(), 2);
++    int utf16_units_read = result->Write(
++
++      // Nan doesn't wrap this functionality
++      #if NODE_MAJOR_VERSION >= 12
++            Isolate::GetCurrent(),
++      #endif
++
++      reader->buffer.data(),
++      start,
++      reader->buffer.size(),
++      2
++    );
+     int end = start + utf16_units_read;
+     *bytes_read = 2 * utf16_units_read;
+ 
+@@ -173,9 +179,9 @@ void Parser::Init(Local<Object> exports) {
+     Nan::SetPrototypeMethod(tpl, methods[i].name, methods[i].callback);
+   }
+ 
+-  constructor.Reset(Nan::Persistent<Function>(tpl->GetFunction()));
+-  exports->Set(class_name, Nan::New(constructor));
+-  exports->Set(Nan::New("LANGUAGE_VERSION").ToLocalChecked(), Nan::New<Number>(TREE_SITTER_LANGUAGE_VERSION));
++  constructor.Reset(Nan::Persistent<Function>(Nan::GetFunction(tpl).ToLocalChecked()));
++  Nan::Set(exports, class_name, Nan::New(constructor));
++  Nan::Set(exports, Nan::New("LANGUAGE_VERSION").ToLocalChecked(), Nan::New<Number>(TREE_SITTER_LANGUAGE_VERSION));
+ }
+ 
+ Parser::Parser() : parser_(ts_parser_new()), is_parsing_async_(false) {}
+@@ -188,7 +194,9 @@ static bool handle_included_ranges(TSParser *parser, Local<Value> arg) {
+     auto js_included_ranges = Local<Array>::Cast(arg);
+     vector<TSRange> included_ranges;
+     for (unsigned i = 0; i < js_included_ranges->Length(); i++) {
+-      auto maybe_range = RangeFromJS(js_included_ranges->Get(i));
++      Local<Value> range_value;
++      if (!Nan::Get(js_included_ranges, i).ToLocal(&range_value)) return false;
++      auto maybe_range = RangeFromJS(range_value);
+       if (!maybe_range.IsJust()) return false;
+       auto range = maybe_range.FromJust();
+       if (range.start_byte < last_included_range_end) {
+@@ -250,9 +258,10 @@ void Parser::Parse(const Nan::FunctionCallbackInfo<Value> &info) {
+ 
+   Local<Function> callback = Local<Function>::Cast(info[0]);
+ 
++  Local<Object> js_old_tree;
+   const TSTree *old_tree = nullptr;
+-  if (info.Length() > 1 && info[1]->BooleanValue()) {
+-    const Tree *tree = Tree::UnwrapTree(info[1]);
++  if (info.Length() > 1 && Nan::To<Object>(info[1]).ToLocal(&js_old_tree)) {
++    const Tree *tree = Tree::UnwrapTree(js_old_tree);
+     if (!tree) {
+       Nan::ThrowTypeError("Second argument must be a tree");
+       return;
+@@ -305,9 +314,10 @@ void Parser::ParseTextBuffer(const Nan::FunctionCallbackInfo<Value> &info) {
+     return;
+   }
+ 
++  Local<Object> js_old_tree;
+   const TSTree *old_tree = nullptr;
+-  if (info.Length() > 2 && info[2]->BooleanValue()) {
+-    const Tree *tree = Tree::UnwrapTree(info[2]);
++  if (info.Length() > 2 && Nan::To<Object>(info[2]).ToLocal(&js_old_tree)) {
++    const Tree *tree = Tree::UnwrapTree(js_old_tree);
+     if (!tree) {
+       Nan::ThrowTypeError("Second argument must be a tree");
+       return;
+@@ -322,18 +332,21 @@ void Parser::ParseTextBuffer(const Nan::FunctionCallbackInfo<Value> &info) {
+ 
+   // If a `syncTimeoutMicros` option is passed, parse synchronously
+   // for the given amount of time before queuing an async task.
+-  if (info[4]->BooleanValue()) {
+-    double js_sync_timeout = info[4]->NumberValue();
++  double js_sync_timeout = Nan::To<double>(info[4]).FromMaybe(-1);
++  if (js_sync_timeout > 0) {
+     size_t sync_timeout;
+ 
+     // If the timeout is `Infinity`, then parse synchronously with no timeout.
+-    if (js_sync_timeout > 0 && !std::isfinite(js_sync_timeout)) {
++    if (js_sync_timeout && !std::isfinite(js_sync_timeout)) {
+       sync_timeout = 0;
+-    } else if (info[4]->IsUint32()) {
+-      sync_timeout = info[4]->Uint32Value();
+     } else {
+-      Nan::ThrowTypeError("The `syncTimeoutMicros` option must be a positive integer.");
+-      return;
++      auto maybe_sync_timeout = Nan::To<uint32_t>(info[4]);
++      if (maybe_sync_timeout.IsJust()) {
++        sync_timeout = maybe_sync_timeout.FromJust();
++      } else {
++        Nan::ThrowTypeError("The `syncTimeoutMicros` option must be a positive integer.");
++        return;
++      }
+     }
+ 
+     // Logging is disabled for this method, because we can't call the
+@@ -348,7 +361,8 @@ void Parser::ParseTextBuffer(const Nan::FunctionCallbackInfo<Value> &info) {
+     if (result) {
+       delete input;
+       Local<Value> argv[] = {Tree::NewInstance(result)};
+-      info[0].As<Function>()->Call(Nan::Null(), 1, argv);
++      auto callback = info[0].As<Function>();
++      Nan::Call(callback, callback->CreationContext()->Global(), 1, argv);
+       return;
+     }
+   }
+@@ -369,9 +383,10 @@ void Parser::ParseTextBufferSync(const Nan::FunctionCallbackInfo<Value> &info) {
+     return;
+   }
+ 
+-  TSTree *old_tree = nullptr;
+-  if (info.Length() > 1 && info[1]->BooleanValue()) {
+-    const Tree *tree = Tree::UnwrapTree(info[1]);
++  Local<Object> js_old_tree;
++  const TSTree *old_tree = nullptr;
++  if (info.Length() > 1 && Nan::To<Object>(info[1]).ToLocal(&js_old_tree)) {
++    const Tree *tree = Tree::UnwrapTree(js_old_tree);
+     if (!tree) {
+       Nan::ThrowTypeError("Second argument must be a tree");
+       return;
+@@ -411,7 +426,7 @@ void Parser::SetLogger(const Nan::FunctionCallbackInfo<Value> &info) {
+   if (info[0]->IsFunction()) {
+     if (current_logger.payload) delete (Logger *)current_logger.payload;
+     ts_parser_set_logger(parser->parser_, Logger::Make(Local<Function>::Cast(info[0])));
+-  } else if (!info[0]->BooleanValue()) {
++  } else if (!Nan::To<bool>(info[0]).FromMaybe(true)) {
+     if (current_logger.payload) delete (Logger *)current_logger.payload;
+     ts_parser_set_logger(parser->parser_, { 0, 0 });
+   } else {
+@@ -429,9 +444,7 @@ void Parser::PrintDotGraphs(const Nan::FunctionCallbackInfo<Value> &info) {
+     return;
+   }
+ 
+-  Local<Boolean> value = Local<Boolean>::Cast(info[0]);
+-
+-  if (value->IsBoolean() && value->BooleanValue()) {
++  if (Nan::To<bool>(info[0]).FromMaybe(false)) {
+     ts_parser_print_dot_graphs(parser->parser_, 2);
+   } else {
+     ts_parser_print_dot_graphs(parser->parser_, -1);
+diff --git a/src/tree.cc b/src/tree.cc
+index c41437a..2800075 100644
+--- a/src/tree.cc
++++ b/src/tree.cc
+@@ -34,11 +34,11 @@ void Tree::Init(Local<Object> exports) {
+     Nan::SetPrototypeMethod(tpl, methods[i].name, methods[i].callback);
+   }
+ 
+-  Local<Function> ctor = tpl->GetFunction();
++  Local<Function> ctor = Nan::GetFunction(tpl).ToLocalChecked();
+ 
+   constructor_template.Reset(tpl);
+   constructor.Reset(ctor);
+-  exports->Set(class_name, ctor);
++  Nan::Set(exports, class_name, ctor);
+ }
+ 
+ Tree::Tree(TSTree *tree) : tree_(tree) {}
+@@ -53,10 +53,14 @@ Tree::~Tree() {
+ Local<Value> Tree::NewInstance(TSTree *tree) {
+   if (tree) {
+     Local<Object> self;
+-    MaybeLocal<Object> maybe_self = Nan::New(constructor)->NewInstance(Nan::GetCurrentContext());
++    printf("NEW INSTANCE TIME %d\n", Nan::New(constructor)->IsFunction());
++    MaybeLocal<Object> maybe_self = Nan::NewInstance(Nan::New(constructor));
+     if (maybe_self.ToLocal(&self)) {
++      puts("GOT A LOCAL");
+       (new Tree(tree))->Wrap(self);
+       return self;
++    } else {
++      puts("DID NOT GOT A LOCAL");
+     }
+   }
+   return Nan::Null();
+@@ -70,14 +74,17 @@ const Tree *Tree::UnwrapTree(const Local<Value> &value) {
+ }
+ 
+ void Tree::New(const Nan::FunctionCallbackInfo<Value> &info) {
+-  info.GetReturnValue().Set(Nan::Null());
++  printf("IS CONSTRUCT CALL %d\n", info.IsConstructCall());
++  info.GetReturnValue().Set(info.This());
+ }
+ 
+ #define read_number_from_js(out, value, name)        \
+-  if (!(value)->IsUint32()) {                       \
++  maybe_number = Nan::To<uint32_t>(value);           \
++  if (maybe_number.IsNothing()) {                    \
+     Nan::ThrowTypeError(name " must be an integer"); \
++    return;                                          \
+   }                                                  \
+-  *(out) = (value)->Uint32Value()
++  *(out) = maybe_number.FromJust();
+ 
+ #define read_byte_count_from_js(out, value, name)   \
+   read_number_from_js(out, value, name);            \
+@@ -87,6 +94,7 @@ void Tree::Edit(const Nan::FunctionCallbackInfo<Value> &info) {
+   Tree *tree = ObjectWrap::Unwrap<Tree>(info.This());
+ 
+   TSInputEdit edit;
++  Nan::Maybe<uint32_t> maybe_number = Nan::Nothing<uint32_t>();
+   read_number_from_js(&edit.start_point.row, info[0], "startPosition.row");
+   read_byte_count_from_js(&edit.start_point.column, info[1], "startPosition.column");
+   read_number_from_js(&edit.old_end_point.row, info[2], "oldEndPosition.row");
+@@ -104,13 +112,16 @@ void Tree::Edit(const Nan::FunctionCallbackInfo<Value> &info) {
+     TSNode node;
+     node.id = entry.first;
+     for (unsigned i = 0; i < 4; i++) {
+-      node.context[i] = js_node->Get(i + 2)->Uint32Value();
++      Local<Value> node_field;
++      if (Nan::Get(js_node, i + 2).ToLocal(&node_field)) {
++        node.context[i] = Nan::To<uint32_t>(node_field).FromMaybe(0);
++      }
+     }
+ 
+     ts_node_edit(&node, &edit);
+ 
+     for (unsigned i = 0; i < 4; i++) {
+-      js_node->Set(i + 2, Nan::New(node.context[i]));
++      Nan::Set(js_node, i + 2, Nan::New(node.context[i]));
+     }
+   }
+ 
+@@ -135,7 +146,7 @@ void Tree::GetChangedRanges(const Nan::FunctionCallbackInfo<Value> &info) {
+ 
+   Local<Array> result = Nan::New<Array>();
+   for (size_t i = 0; i < range_count; i++) {
+-    result->Set(i, RangeToJS(ranges[i]));
++    Nan::Set(result, i, RangeToJS(ranges[i]));
+   }
+ 
+   info.GetReturnValue().Set(result);
+@@ -197,7 +208,6 @@ void Tree::PrintDotGraph(const Nan::FunctionCallbackInfo<Value> &info) {
+ 
+ static void FinalizeNode(const v8::WeakCallbackInfo<Tree::NodeCacheEntry> &info) {
+   Tree::NodeCacheEntry *cache_entry = info.GetParameter();
+-  assert(cache_entry->node.IsNearDeath());
+   assert(!cache_entry->node.IsEmpty());
+   cache_entry->node.Reset();
+   if (cache_entry->tree) {
+@@ -211,9 +221,12 @@ void Tree::CacheNode(const Nan::FunctionCallbackInfo<Value> &info) {
+   Tree *tree = ObjectWrap::Unwrap<Tree>(info.This());
+   Local<Object> js_node = Local<Object>::Cast(info[0]);
+ 
++  Local<Value> js_node_field1, js_node_field2;
++  if (!Nan::Get(js_node, 0).ToLocal(&js_node_field1)) return;
++  if (!Nan::Get(js_node, 1).ToLocal(&js_node_field2)) return;
+   uint32_t key_parts[2] = {
+-    js_node->Get(0)->Uint32Value(),
+-    js_node->Get(1)->Uint32Value(),
++    Nan::To<uint32_t>(js_node_field1).FromMaybe(0),
++    Nan::To<uint32_t>(js_node_field2).FromMaybe(0)
+   };
+   const void *key = UnmarshalNodeId(key_parts);
+ 
+diff --git a/src/tree_cursor.cc b/src/tree_cursor.cc
+index 332a14b..a1bb741 100644
+--- a/src/tree_cursor.cc
++++ b/src/tree_cursor.cc
+@@ -49,8 +49,8 @@ void TreeCursor::Init(v8::Local<v8::Object> exports) {
+     Nan::SetPrototypeMethod(tpl, methods[i].name, methods[i].callback);
+   }
+ 
+-  Local<Function> constructor_local = tpl->GetFunction();
+-  exports->Set(class_name, constructor_local);
++  Local<Function> constructor_local = Nan::GetFunction(tpl).ToLocalChecked();
++  Nan::Set(exports, class_name, constructor_local);
+   constructor.Reset(Nan::Persistent<Function>(constructor_local));
+ }
+ 
+@@ -87,10 +87,12 @@ void TreeCursor::GotoFirstChild(const Nan::FunctionCallbackInfo<Value> &info) {
+ 
+ void TreeCursor::GotoFirstChildForIndex(const Nan::FunctionCallbackInfo<Value> &info) {
+   TreeCursor *cursor = Nan::ObjectWrap::Unwrap<TreeCursor>(info.This());
+-  if (!info[0]->IsUint32()) {
++  auto maybe_index = Nan::To<uint32_t>(info[0]);
++  if (maybe_index.IsNothing()) {
+     Nan::ThrowTypeError("Argument must be an integer");
++    return;
+   }
+-  uint32_t goal_byte = info[0]->Uint32Value() * 2;
++  uint32_t goal_byte = maybe_index.FromJust() * 2;
+   int64_t child_index = ts_tree_cursor_goto_first_child_for_byte(&cursor->cursor_, goal_byte);
+   if (child_index < 0) {
+     info.GetReturnValue().Set(Nan::Null());
+@@ -120,7 +122,7 @@ void TreeCursor::EndPosition(const Nan::FunctionCallbackInfo<Value> &info) {
+ void TreeCursor::CurrentNode(const Nan::FunctionCallbackInfo<Value> &info) {
+   TreeCursor *cursor = Nan::ObjectWrap::Unwrap<TreeCursor>(info.This());
+   Local<String> key = Nan::New<String>("tree").ToLocalChecked();
+-  const Tree *tree = Tree::UnwrapTree(info.This()->Get(key));
++  const Tree *tree = Tree::UnwrapTree(Nan::Get(info.This(), key).ToLocalChecked());
+   TSNode node = ts_tree_cursor_current_node(&cursor->cursor_);
+   node_methods::MarshalNode(info, tree, node);
+ }
+@@ -128,7 +130,7 @@ void TreeCursor::CurrentNode(const Nan::FunctionCallbackInfo<Value> &info) {
+ void TreeCursor::Reset(const Nan::FunctionCallbackInfo<Value> &info) {
+   TreeCursor *cursor = Nan::ObjectWrap::Unwrap<TreeCursor>(info.This());
+   Local<String> key = Nan::New<String>("tree").ToLocalChecked();
+-  const Tree *tree = Tree::UnwrapTree(info.This()->Get(key));
++  const Tree *tree = Tree::UnwrapTree(Nan::Get(info.This(), key).ToLocalChecked());
+   TSNode node = node_methods::UnmarshalNode(tree);
+   ts_tree_cursor_reset(&cursor->cursor_, node);
+ }
+diff --git a/test/node_test.js b/test/node_test.js
+index 6455a9f..643ab3e 100644
+--- a/test/node_test.js
++++ b/test/node_test.js
+@@ -53,7 +53,7 @@ describe("Node", () => {
+   });
+ 
+   describe(".children", () => {
+-    it("returns an array of child nodes", () => {
++    it.only("returns an array of child nodes", () => {
+       const tree = parser.parse("x10 + 1000");
+       assert.equal(1, tree.rootNode.children.length);
+       const sumNode = tree.rootNode.firstChild.firstChild;
+diff --git a/test/parser_test.js b/test/parser_test.js
+index 1645104..a1f6d17 100644
+--- a/test/parser_test.js
++++ b/test/parser_test.js
+@@ -100,7 +100,7 @@ describe("Parser", () => {
+ 
+     it("reads from the given input", () => {
+       const parts = ["first", "_", "second", "_", "third"];
+-      const tree = parser.parse(() => parts.shift());
++      const tree = parser.parse((index) => parts.shift());
+       assert.equal(tree.rootNode.toString(), "(program (expression_statement (identifier)))");
+     });
+ 
+-- 
+2.23.0
+
