@@ -3,46 +3,57 @@
 
 pkgname=lv2
 pkgver=1.16.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Plugin standard for audio systems"
 url="http://lv2plug.in/"
-license=('LGPL' 'custom')
+license=('ISC')
 arch=('x86_64')
-makedepends=('asciidoc' 'doxygen' 'gtk2' 'libsndfile' 'pygmentize'
-'python-pygments' 'python-rdflib')
-optdepends=('libsndfile: Example sampler'
-            'gtk2: Example scope and sampler'
-            'python-pygments: Documentation generator script'
-            'python-rdflib: Documentation generator script')
+makedepends=('asciidoc' 'doxygen' 'gtk2' 'libsndfile' 'pygmentize' 'python-pygments' 'python-rdflib' 'waf')
+optdepends=('sord: for lv2_validate'
+            'libsndfile: for eg-sampler.lv2'
+            'gtk2: for eg-scope.lv2'
+            'python-pygments: for lv2specgen.py'
+            'python-rdflib: for lv2specgen.py')
 source=("http://lv2plug.in/spec/${pkgname}-${pkgver}.tar.bz2"{,.sig}
-        "lv2-1.16.0-fix_lv2_validate.patch::https://gitlab.com/lv2/lv2/commit/2dd45ffd8d19491407bc9f9e0b395fbdefaaacf0.patch")
+        "lv2-1.16.0-fix_lv2_validate.patch::https://github.com/ventosus/lv2/commit/51e6005c9f33a9dd6ac5004a09fcb6ffbdee8dee.patch")
 sha512sums=('ead6d590cded5dd7a548d6ffe0f2f9f8efadfa7bb9e8b4fa0aea6664ccdfbb3ca697514bddebe695a9442fba5b62714b5cd45c1bf7d0aaef12ffe50972c2d88c'
             'SKIP'
-            '850518c8cc0c12d0aaf6693e7c0fda0aba84d6e660bd04c389238a9889ecfcbdb990ac7db708e2cfd16c96a92b56312bf9c3d3616514e5d5ea5e92bfa88249a5')
+            '448cc7d3d8cac70ae4abda5ea1b6c4320084649a0af8fcacaa9e86f3dfd7c6599a4c25e8c452f1f30385fa9a363b67e87b634a63d70c7add9de29effef7f3c28')
 validpgpkeys=('907D226E7E13FA337F014A083672782A9BF368F3') # David Robillard <d@drobilla.net>
 
 prepare() {
   cd "${pkgname}-${pkgver}"
+  # let wscript(s) find the custom waf scripts
+  mkdir -pv tools
+  touch __init__.py
+  cp -v waflib/extras/{autowaf,lv2}.py tools/
+  mkdir -pv plugins/tools/
+  cp -v waflib/extras/{autowaf,lv2}.py plugins/tools/
+  rm -rv waflib
+  sed -e 's/waflib.extras/tools/g' \
+      -e "s/load('autowaf'/load('autowaf', tooldir='tools'/g" \
+      -e "s/load('lv2'/load('lv2', tooldir='tools'/g" \
+      -i {,plugins/,plugins/*/}wscript
   patch -Np1 -i "../lv2-1.16.0-fix_lv2_validate.patch"
 }
 
 build() {
   cd "${pkgname}-${pkgver}"
-  python waf configure --prefix=/usr \
-    --libdir=/usr/lib \
-    --docs \
-    --test
-  python waf build $MAKEFLAGS
+  # --docs is currently broken: https://gitlab.com/lv2/lv2/issues/28
+  waf -vv configure --prefix=/usr \
+                --libdir=/usr/lib \
+                --test
+  waf -vv build $MAKEFLAGS
 }
 
 check() {
   cd "${pkgname}-${pkgver}"
-  python waf test
+  waf test
 }
 
 package() {
   cd "${pkgname}-${pkgver}"
-  python waf install --destdir="${pkgdir}"
+  waf install --destdir="${pkgdir}"
   # license
   install -vDm 644 COPYING \
     -t "${pkgdir}/usr/share/licenses/${pkgname}/"
