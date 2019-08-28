@@ -2,16 +2,17 @@
 
 pkgbase=python-zipp
 pkgname=(python-zipp python2-zipp)
-pkgver=0.5.2
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
 license=('MIT')
 arch=('x86_64')
-makedepends=('python-setuptools-scm' 'python2-setuptools-scm')
+makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-more-itertools'
+             'python2-more-itertools')
 checkdepends=('python2-pathlib2' 'python2-contextlib2' 'python2-unittest2')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/jaraco/zipp/archive/v$pkgver.tar.gz")
-sha512sums=('034b0872cce41a73509a896347eff79b681a6720fe01093355837c427cfb9bc8d4c592000ca236e5454627ff8ff48ac76b832fd1b6831f5188d3a9904c0a0fb6')
+sha512sums=('9aef3b03a19d76cb72e1510d62a4edd536cbb176a4593154d6f98ecf020438249307ee5f8205f29e7f121acd61c105ca79a1ed48c66c6ba8799e2dbb3eecd75e')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
@@ -28,7 +29,7 @@ check() {
 }
 
 package_python-zipp() {
-  depends=('python')
+  depends=('python-more-itertools')
 
   cd zipp-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
@@ -36,7 +37,7 @@ package_python-zipp() {
 }
 
 package_python2-zipp() {
-  depends=('python2')
+  depends=('python2-more-itertools')
 
   cd zipp-$pkgver
   python2 setup.py install --root="$pkgdir" --optimize=1
