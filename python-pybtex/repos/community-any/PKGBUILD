@@ -3,7 +3,7 @@
 
 pkgbase=python-pybtex
 pkgname=(python-pybtex python2-pybtex)
-pkgver=0.22.0
+pkgver=0.22.2
 pkgrel=1
 pkgdesc="A BibTeX-compatible bibliography processor written in Python"
 arch=("any")
@@ -14,7 +14,7 @@ depends=('python' 'python-setuptools' 'python-six' 'python-yaml' 'python-latexco
          'python2' 'python2-setuptools' 'python2-six' 'python2-yaml' 'python2-latexcodec')
 checkdepends=('python-nose' 'python2-nose')
 source=("https://pypi.io/packages/source/p/pybtex/pybtex-$pkgver.tar.gz")
-sha256sums=('26b70ec9f941db330c198fe1f2743182e9d8c2afa0a4b8ccca695f11e079f966')
+sha256sums=('00816e5f8570609d8ce3360cd23916bd3e50428a3508127578fdb4dc2b731c1c')
 
 prepare() {
   cp -a pybtex-$pkgver{,-py2}
@@ -41,6 +41,9 @@ package_python-pybtex() {
 
   cd "$srcdir/pybtex-$pkgver"
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+
+  # Files under site-packages/tests/ conflict with other python packages.
+  rm -rf "$pkgdir"/usr/lib/python3.?/site-packages/tests/
 }
 
 package_python2-pybtex() {
@@ -48,6 +51,9 @@ package_python2-pybtex() {
 
   cd "$srcdir/pybtex-$pkgver-py2"
   python2 setup.py install --root="$pkgdir" --optimize=1 --skip-build
+
+  # Files under site-packages/tests/ conflict with other python packages.
+  rm -rf "$pkgdir"/usr/lib/python2.?/site-packages/tests/
 
   # Rename executables to avoid file conflict with python-pybtex
   mv "$pkgdir"/usr/bin/pybtex{,2}
