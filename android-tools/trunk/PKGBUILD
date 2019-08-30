@@ -4,7 +4,7 @@
 
 pkgname=android-tools
 pkgver=29.0.2
-pkgrel=1
+pkgrel=2
 tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -53,6 +53,9 @@ prepare() {
 
   cd "$srcdir"/avb
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
+
+  cd "$srcdir"/mkbootimg
+  sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' unpack_bootimg.py
 
   mkdir -p "$srcdir"/boringssl/build && cd "$srcdir"/boringssl/build && cmake -GNinja ..; ninja crypto/libcrypto.a
 }
