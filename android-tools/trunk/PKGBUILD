@@ -15,7 +15,7 @@ optdepends=('python: for mkbootimg script')
 makedepends=(git clang gtest ruby cmake ninja go-pie)
 provides=(fastboot adb)
 conflicts=(fastboot adb)
-_boringssl_commit=`curl https://android.googlesource.com/platform/external/boringssl/+/refs/tags/$tag/BORINGSSL_REVISION?format=TEXT | base64 -d`
+_boringssl_commit=$(curl https://android.googlesource.com/platform/external/boringssl/+/refs/tags/$tag/BORINGSSL_REVISION?format=TEXT | base64 -d)
 source=(git+https://android.googlesource.com/platform/system/core#tag=$tag
         git+https://android.googlesource.com/platform/system/extras#tag=$tag
         git+https://android.googlesource.com/platform/system/tools/mkbootimg#tag=$tag
@@ -45,16 +45,16 @@ sha1sums=('SKIP'
 prepare() {
   PLATFORM_TOOLS_VERSION="$pkgver" LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
 
-  cd $srcdir/core
+  cd "$srcdir"/core
   patch -p1 < ../fix_build_core.patch
 
-  cd $srcdir/e2fsprogs
+  cd "$srcdir"/e2fsprogs
   patch -p1 < ../fix_build_e2fsprogs.patch
 
-  cd $srcdir/avb
+  cd "$srcdir"/avb
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
 
-  mkdir -p $srcdir/boringssl/build && cd $srcdir/boringssl/build && cmake -GNinja ..; ninja crypto/libcrypto.a
+  mkdir -p "$srcdir"/boringssl/build && cd "$srcdir"/boringssl/build && cmake -GNinja ..; ninja crypto/libcrypto.a
 }
 
 build() {
