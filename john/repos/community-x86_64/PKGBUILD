@@ -9,7 +9,7 @@ pkgname=john
 _jumbover=1
 _johnver=1.9.0
 pkgver=${_johnver}.jumbo${_jumbover}
-pkgrel=1
+pkgrel=2
 pkgdesc='John the Ripper password cracker'
 url='https://www.openwall.com/john'
 arch=('x86_64')
@@ -17,6 +17,7 @@ license=('GPL2' 'custom')
 depends=('openssl' 'gmp' 'libpcap' 'openmpi' 'gcc-libs' 'opencl-icd-loader')
 optdepends=(
   'bash-completion: completion for bash'
+  'lua: lua based john scripts'
   'perl: perl based john scripts'
   'ruby: ruby based john scripts'
   'python2: python2 based john scripts'
@@ -103,33 +104,35 @@ package() {
   install -Dm 644 run/john.bash_completion "${pkgdir}/usr/share/bash-completion/completions/john"
   install -Dm 644 run/john.zsh_completion "${pkgdir}/usr/share/zsh/site-functions/_john"
 
+  # scripts
+  install -d "${pkgdir}/usr/bin" "${pkgdir}/usr/lib/john"
+  install -Dm 755 run/{*.py,*.pl,*.rb,*.lua,*.js,mailer,benchmark-unify} -t "${pkgdir}/usr/lib/john"
+  for ext in lua pl rb py; do
+    for script in run/*."${ext}"; do
+      ln -sf "/usr/lib/john/$(basename "${script}")" "${pkgdir}/usr/bin/$(basename "${script/.${ext}/}")"
+    done
+  done
+
   # binaries
   install -Dm 755 run/john -t "${pkgdir}/usr/bin"
   install -Dm 755 run/john-non-* -t "${pkgdir}/usr/lib/john"||true
-  local john_bins=(calc_stat cprepair  genmkvpwd  luks2john.py    mkvcalcproba raw2dyna \
-                   relbench  tgtsnarf  uaf2john   wpapcap2john vncpcap2john SIPdump)
+  local john_bins=(bitlocker2john calc_stat cprepair dmg2john eapmd5tojohn genmkvpwd hccap2john \
+                   keepass2john mkvcalcproba putty2john racf2john raw2dyna SIPdump uaf2john \
+                   vncpcap2john wpapcap2john)
   for bin in "${john_bins[@]}"; do
-    install -Dm 755 "run/${bin}" "${pkgdir}/usr/bin/${bin/.py/}"
+    install -Dm 755 "run/${bin}" -t "${pkgdir}/usr/lib/john"
+    ln -sf "/usr/lib/john/${bin}" "${pkgdir}/usr/bin/${bin}"
   done
 
-  # scripts
-  install -Dm 755 run/*.py run/*.pl run/*.rb run/{mailer,benchmark-unify} -t "${pkgdir}/usr/lib/john"
+  # symlink john
+  for link in $(find run -maxdepth 1 -type l); do
+    ln -s john "${pkgdir}/usr/bin/$(basename "${link}")"
+    ln -s /usr/bin/john "${pkgdir}/usr/lib/john/$(basename "${link}")"
+  done
 
   # data
   install -Dm 644 run/*.chr run/*.lst run/dictionary* run/stats -t "${pkgdir}/usr/share/john"
   install -Dm 644 run/rules/* -t "${pkgdir}/usr/share/john/rules"
-
-  # syminks
-  cd "${pkgdir}/usr/bin"
-  local john_links=(base64conv    dmg2john       gpg2john      hccap2john    \
-                    keepass2john  keychain2john  keyring2john  keystore2john \
-                    kwallet2john  pfx2john       putty2john    pwsafe2john   \
-                    racf2john     rar2john       ssh2john      unique        \
-                    unshadow      zip2john       unafs         undrop        \
-                    truecrypt_volume2john)
-  for link in "${john_links[@]}"; do
-    ln -s john ${link}
-  done
 }
 
 # vim: ts=2 sw=2 et:
