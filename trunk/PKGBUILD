@@ -2,7 +2,7 @@
 
 pkgname=npm
 pkgver=6.11.2
-pkgrel=1
+pkgrel=2
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
@@ -33,6 +33,10 @@ package() {
   # Non-deterministic race in npm gives 777 permissions to random directories.
   # See https://github.com/npm/npm/issues/9359 for details.
   chmod -R u=rwX,go=rX "$pkgdir"
+
+  # npm installs package.json owned by build user
+  # https://bugs.archlinux.org/task/63396
+  chown -R root:root "$pkgdir"
 
   # Experimental dedup
   _npmdir="$pkgdir"/usr/lib/node_modules/$pkgname
