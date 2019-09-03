@@ -4,36 +4,42 @@
 pkgbase=python-argcomplete
 pkgname=('python-argcomplete' 'python2-argcomplete')
 _pyname=argcomplete
-pkgver=1.9.5
+pkgver=1.10.0
+_gitcommit=9d6dd18ae402b606bbd7d0fea663971fc7e42e97
 pkgrel=1
 pkgdesc='Easy, extensible command line tab completion of arguments for your Python script'
 url='https://github.com/kislyuk/argcomplete'
 arch=('any')
 license=('Apache')
-makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-pexpect' 'python2-pexpect' 'tcsh')
-source=(${pkgname}-${pkgver}.tar.gz::https://github.com/kislyuk/${_pyname}/archive/v${pkgver}.tar.gz)
-sha256sums=('6b1564e91e1c614158baa8dd7d38bd333d0e2ac2d8f7a6cd2f2ad8a90c8d2aca')
-sha512sums=('489ce1b82ee6a36d616d95e936afd39191e8451aa4fa10457ffcb18a586ceed4a7165e46cf1a659c2f9dd7485110d25b35fda6df0f80181de7f46345f70a58ce')
+makedepends=('git' 'python-setuptools' 'python2-setuptools')
+checkdepends=('python-pexpect' 'python2-pexpect' 'tcsh' 'fish')
+source=(${_pyname}::"git+https://github.com/kislyuk/${_pyname}#commit=${_gitcommit}?signed")
+sha512sums=('SKIP')
+validpgpkeys=('29BCBADB4ECAAAC2382699388AFAFCD242818A52') # Andrey Kislyuk <kislyuk@gmail.com>
+
+pkgver() {
+  cd ${_pyname}
+  git describe --tags --match 'v*' | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
 
 prepare() {
-  cp -a ${_pyname}-${pkgver}{,-py2}
+  cp -a ${_pyname}{,-py2}
 }
 
 build() {
-  (cd ${_pyname}-${pkgver}
+  (cd ${_pyname}
     python setup.py build
   )
-  (cd ${_pyname}-${pkgver}-py2
+  (cd ${_pyname}-py2
     python2 setup.py build
   )
 }
 
 check() {
-  (cd ${_pyname}-${pkgver}
+  (cd ${_pyname}
     LC_CTYPE=en_US.UTF-8 python test/test.py -v
   )
-  (cd ${_pyname}-${pkgver}-py2
+  (cd ${_pyname}-py2
     LC_CTYPE=en_US.UTF-8 python2 test/test.py -v
   )
 }
@@ -41,14 +47,14 @@ check() {
 package_python-argcomplete() {
   depends=('python')
 
-  cd ${_pyname}-${pkgver}
+  cd ${_pyname}
   python setup.py install -O1 --root="${pkgdir}" --skip-build
 }
 
 package_python2-argcomplete() {
   depends=('python2')
 
-  cd ${_pyname}-${pkgver}-py2
+  cd ${_pyname}-py2
   python2 setup.py install -O1 --root="${pkgdir}" --skip-build
   mv "${pkgdir}/usr/bin/activate-global-python-argcomplete" \
     "${pkgdir}/usr/bin/activate-global-python2-argcomplete"
