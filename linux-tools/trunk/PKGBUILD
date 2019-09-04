@@ -16,7 +16,7 @@ pkgname=(
   'x86_energy_perf_policy'
 )
 pkgver=5.2
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
@@ -126,9 +126,7 @@ build() {
   msg2 'bpf'
   pushd linux/tools/bpf
   # doesn't compile when we don't first compile bpftool in its directory
-  cd bpftool
-  make
-  cd ..
+  make -C bpftool all doc
   make
   popd
 }
@@ -291,6 +289,8 @@ package_bpf() {
   # fix bpftool hard written path
   mv "$pkgdir"/usr/sbin/bpftool "$pkgdir"/usr/bin/bpftool
   rmdir "$pkgdir"/usr/sbin
+  # install man pages
+  make -C bpftool doc-install prefix=/usr DESTDIR="$pkgdir"
 }
 
 # vim:set ts=2 sw=2 et:
