@@ -10,7 +10,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.2.1
+pkgver=12.2.4
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -37,7 +37,7 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.tmpfiles.d
         gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('16a79090e744191cdd32b2a63d9ae1eca91eec8ed981c1958c6c6c880295088da5fc924dc87e56c18304017839e7c8aaac3805dd17c99e02a2bdf18acba31274'
+sha512sums=('a2abfb8de0ecf4c783cc1832d50d87a44f07c8b6aaca8f5990724a93f2671cb6d4fb44bb0c74bf6646b2e9e026c74792d2159cc709bf8340f801e9feb0f7f34b'
             'd6d0604a726277f27a7596caf31909ff7d9854fd85f2902fd8a06eb581b38cc0e0fd6c10b3b16c84e0c629230501bc51d2f74c765761b43cdead139a521a327d'
             '41ca8890aff1dd99b3c4ef283f70a172af772837ab6b1bda1d26710616a822f5179899ca9b3a96bc0b434f8f6d614b29b39b1596c0f284e5347ae9e06d40c1c4'
             '2e49f4c2549c219d5d1c8572a7db7a700847bc8c520b44bdfc1742d3caf57d8336da5c0b74672f820349b8eab0fa1712dcec5588a4fb742ad98c8eb7ec2b5951'
@@ -107,6 +107,7 @@ build() {
   echo "Fetching bundled gems..."
 
   # Gems will be installed into vendor/bundle
+  bundle-2.5 config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
   bundle-2.5 install --no-cache --deployment --without development test aws kerberos
 
   # We'll temporarily stick this in here so we can build the assets
