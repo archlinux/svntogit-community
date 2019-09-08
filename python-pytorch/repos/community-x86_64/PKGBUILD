@@ -4,23 +4,27 @@
 pkgbase="python-pytorch"
 pkgname=("python-pytorch" "python-pytorch-opt" "python-pytorch-cuda" "python-pytorch-opt-cuda")
 _pkgname="pytorch"
-pkgver=1.1.0
-pkgrel=8
+pkgver=1.2.0
+pkgrel=2
 pkgdesc="Tensors and Dynamic neural networks in Python with strong GPU acceleration"
 arch=('x86_64')
 url="https://pytorch.org"
 license=('BSD')
 depends=('google-glog' 'gflags' 'opencv' 'openmp' 'nccl' 'pybind11' 'python' 'python-yaml' 'python-numpy' 'protobuf' 'ffmpeg' 'python-future')
-makedepends=('python' 'python-setuptools' 'python-yaml' 'python-numpy' 'cmake' 'cuda' 'cudnn' 'git')
-source=("${_pkgname}-${pkgver}::git+https://github.com/pytorch/pytorch.git#tag=v$pkgver")
-sha256sums=('SKIP')
+makedepends=('python' 'python-setuptools' 'python-yaml' 'python-numpy' 'cmake' 'cuda' 'cudnn' 'git' 'magma')
+source=("${_pkgname}-${pkgver}::git+https://github.com/pytorch/pytorch.git#tag=v$pkgver"
+        24143.patch)
+sha256sums=('SKIP'
+            '773971a391e2d517630b37150ec20bd4ba06181c5c9767d51cd7358729b4aa5a')
 
 get_pyver () {
-    python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
+  python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
 }
 
 prepare() {
   cd "${_pkgname}-${pkgver}"
+
+  patch -Np1 -i "$srcdir"/24143.patch
 
   # This is the lazy way since pytorch has sooo many submodules and they keep
   # changing them around but we've run into more problems so far doing it the
@@ -35,8 +39,6 @@ prepare() {
   cp -a "${_pkgname}-${pkgver}" "${_pkgname}-${pkgver}-cuda"
   cp -a "${_pkgname}-${pkgver}" "${_pkgname}-${pkgver}-opt-cuda"
 
-  export CC=gcc-8
-  export CXX=g++-8
   export VERBOSE=1
   export PYTORCH_BUILD_VERSION="${pkgver}"
   export PYTORCH_BUILD_NUMBER=1
@@ -56,35 +58,35 @@ prepare() {
   export CUDNN_LIB_DIR=/usr/lib
   export CUDNN_INCLUDE_DIR=/usr/include
   export TORCH_NVCC_FLAGS="-Xfatbin -compress-all"
-  export TORCH_CUDA_ARCH_LIST="3.0;3.2;3.5;3.7;5.0;5.2;5.3;6.0;6.1;6.2;7.0;7.2;7.5"
+  export TORCH_CUDA_ARCH_LIST="3.2;3.5;3.7;5.0;5.2;5.3;6.0;6.1;6.2;7.0;7.2;7.5"
 }
 
 build() {
   echo "Building without cuda and without non-x86-64 optimizations"
-  export NO_CUDA=1
-  export WITH_CUDNN=0
+  export USE_CUDA=0
+  export USE_CUDNN=0
   cd "${srcdir}/${_pkgname}-${pkgver}"
   python setup.py build
 
 
   echo "Building without cuda and with non-x86-64 optimizations"
-  export NO_CUDA=1
-  export WITH_CUDNN=0
+  export USE_CUDA=0
+  export USE_CUDNN=0
   cd "${srcdir}/${_pkgname}-${pkgver}-opt"
   echo "add_definitions(-march=haswell)" >> cmake/MiscCheck.cmake
   python setup.py build
 
 
   echo "Building with cuda and without non-x86-64 optimizations"
-  export NO_CUDA=0
-  export WITH_CUDNN=1
+  export USE_CUDA=1
+  export USE_CUDNN=1
   cd "${srcdir}/${_pkgname}-${pkgver}-cuda"
   python setup.py build
 
 
   echo "Building with cuda and with non-x86-64 optimizations"
-  export NO_CUDA=0
-  export WITH_CUDNN=1
+  export USE_CUDA=1
+  export USE_CUDNN=1
   cd "${srcdir}/${_pkgname}-${pkgver}-opt-cuda"
   echo "add_definitions(-march=haswell)" >> cmake/MiscCheck.cmake
   python setup.py build
@@ -137,7 +139,7 @@ package_python-pytorch-opt() {
 
 package_python-pytorch-cuda() {
   pkgdesc="Tensors and Dynamic neural networks in Python with strong GPU acceleration (with CUDA)"
-  depends+=(cuda cudnn)
+  depends+=(cuda cudnn magma)
   conflicts=(python-pytorch)
   provides=(python-pytorch)
 
@@ -147,7 +149,7 @@ package_python-pytorch-cuda() {
 
 package_python-pytorch-opt-cuda() {
   pkgdesc="Tensors and Dynamic neural networks in Python with strong GPU acceleration (with CUDA and CPU optimizations)"
-  depends+=(cuda cudnn)
+  depends+=(cuda cudnn magma)
   conflicts=(python-pytorch)
   provides=(python-pytorch python-pytorch-cuda)
 
