@@ -4,33 +4,61 @@
 # Contributor: Sławomir Kowalski <suawekk@gmail.com>
 
 pkgname=percona-toolkit
-pkgver=3.0.13
+pkgver=3.1.0
 pkgrel=1
 pkgdesc="Collection of advanced command-line tools to perform a variety of MySQL and system tasks."
 url="https://www.percona.com/software/database-tools/percona-toolkit"
-arch=('any')
+arch=('x86_64')
 license=('GPL')
 depends=('perl-term-readkey')
-makedepends=('perl-dbd-mysql' 'perl-dbi')
+makedepends=('perl-dbd-mysql' 'perl-dbi' 'go-pie' 'dep' 'git')
 optdepends=(
     'perl-dbd-mysql: MySQL connections'
     'perl-dbi: MySQL connections'
 )
 options=('!emptydirs' 'purge')
-source=("https://www.percona.com/downloads/$pkgname/$pkgver/source/tarball/$pkgname-$pkgver.tar.gz")
-sha256sums=('21f68d1c5204a9cad7be716fd1e53f0fe6ff7d995292b56dbc7c55e3979432b1')
+source=("https://github.com/percona/$pkgname/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('651e259643645cc832352fa6b4325a20db4891775d8cd2a065d5597b98f38f1f')
+
+prepare() {
+    mkdir -p "$srcdir"/src/github.com/percona
+    cd "$srcdir"/src/github.com/percona
+    mv "$srcdir"/$pkgname-$pkgver $pkgname
+    cd $pkgname
+
+    sed -ri src/go{,/*}/Makefile \
+        -e "s#\\$\\(shell git describe --abbrev=0\\)#v$pkgver#" \
+        -e "s#\\$\\(shell git rev-(parse|list).* HEAD\\)#v$pkgver#" \
+        -e "s#\\$\\(shell git rev-parse --show-toplevel\\)#$srcdir/src/github.com/percona/$pkgname#" \
+        -e "s#\\$\\(shell basename \`git rev-parse --show-toplevel\`\\)#$pkgname#" \
+        -e "s#\\bLDFLAGS\\b#PTLDFLAGS#" \
+        -e 's#^PTLDFLAGS="#PTLDFLAGS="-extldflags \\"$(LDFLAGS)\\" #'
+}
 
 build() {
-    cd "$srcdir"/$pkgname-$pkgver
+    export GOPATH="$srcdir"
+    export PATH="$GOPATH/bin:$PATH"
+
+    cd "$srcdir"/src/github.com/percona/$pkgname
     unset PERL5LIB PERL_MM_OPT PERL_LOCAL_LIB_ROOT
     export PERL_MM_USE_DEFAULT=1 PERL_AUTOINSTALL=--skipdeps MODULEBUILDRC=/dev/null
     perl Makefile.PL INSTALLDIRS=vendor
     make
+
+    cd src/go
+    make linux-amd64
 }
 
 package() {
-    cd "$srcdir"/$pkgname-$pkgver
+    cd "$srcdir"/src/github.com/percona/$pkgname
     unset PERL5LIB PERL_MM_OPT PERL_LOCAL_LIB_ROOT
     make install DESTDIR="$pkgdir"
     rm -rf "$pkgdir"/usr/lib
+
+    cd bin
+    for bin in *; do
+        if [ ! -f "$pkgdir/usr/bin/vendor_perl/$bin" ]; then
+            install -Dm755 "$bin" "$pkgdir/usr/bin/$bin"
+        fi
+    done
 }
