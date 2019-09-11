@@ -3,8 +3,8 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-_gitcommit=f6f647eb828fa738610d61481f11fa51e42599e9
-pkgver=3.5.4
+_gitcommit=b33540cafa432503baa517d0fd76abf67b647598
+pkgver=3.6.0
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
@@ -24,7 +24,7 @@ sha512sums=('SKIP'
 
 pkgver() {
   cd ${pkgname}
-  git describe --always --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  git describe --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 prepare() {
@@ -32,10 +32,12 @@ prepare() {
   git submodule init
   git config submodule."vendor/http-parser".url "${srcdir}/http-parser"
   git submodule update --recursive
+  sed 's|.install-cython ||' -i Makefile
 }
 
 build() {
   cd ${pkgname}
+  make cythonize
   python setup.py build
 }
 
