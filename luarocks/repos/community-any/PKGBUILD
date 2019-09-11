@@ -4,7 +4,7 @@
 # Contributor: Geoffroy Carrier <geoffroy@archlinux.org>
 
 pkgname=luarocks
-pkgver=3.1.3
+pkgver=3.2.1
 pkgrel=1
 pkgdesc='Deployment and management system for Lua modules'
 backup=(etc/luarocks/config-5.{1,2,3}.lua)
@@ -22,9 +22,21 @@ optdepends=('cvs: for fetching sources from CVS repositories'
             'mercurial: for fetching sources from mercurial repositories'
             'cmake: for building rocks that use the cmake build system'
             'lua-sec: HTTPS support')
-source=("https://luarocks.org/releases/$pkgname-$pkgver.tar.gz"{,.asc})
-md5sums=('a5c7487a62c9916547f83ed947a5022b'
-         'SKIP')
+source=("https://luarocks.org/releases/$pkgname-$pkgver.tar.gz"{,.asc}
+        "luarocks.bash"
+        "luarocks.fish"
+        "luarocks.zsh"
+        "luarocks-admin.bash"
+        "luarocks-admin.fish"
+        "luarocks-admin.zsh")
+md5sums=('236ea48b78ddb96ecbd33654a573bdb2'
+         'SKIP'
+         '781392de1a3b8dc21077165862bbfeec'
+         'adfd09f3b8a522675f6954472a1fe72f'
+         '2b81640e9d0ae96c7d0e5b145ab69ffc'
+         '6001f9e83c8946ac6ef68c6bcbc38348'
+         '1c192564378718b918573da36d5589f3'
+         '7f9021c0acf9709a2907b5232ef62577')
 validpgpkeys=('8460980B2B79786DE0C7FCC83FD8F43C2BB3C478')
 
 build() {
@@ -36,6 +48,13 @@ build() {
 }
 
 package() {
+  install -Dm644 luarocks.bash "$pkgdir/usr/share/bash-completion/completions/luarocks"
+  install -Dm644 luarocks.fish "$pkgdir/usr/share/fish/vendor_completions.d/luarocks.fish"
+  install -Dm644 luarocks.zsh "$pkgdir/usr/share/zsh/site-functions/_luarocks"
+  install -Dm644 luarocks-admin.bash "$pkgdir/usr/share/bash-completion/completions/luarocks-admin"
+  install -Dm644 luarocks-admin.fish "$pkgdir/usr/share/fish/vendor_completions.d/luarocks-admin.fish"
+  install -Dm644 luarocks-admin.zsh "$pkgdir/usr/share/zsh/site-functions/_luarocks-admin"
+
   cd "$pkgname-$pkgver"
   make DESTDIR="$pkgdir" install
   make DESTDIR="$pkgdir" LUA_VERSION=5.1 install-config
