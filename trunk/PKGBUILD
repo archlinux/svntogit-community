@@ -16,7 +16,7 @@ makedepends=('bc' 'boost' 'boost-libs' 'cmake' 'cpio' 'crypto++' 'curl' 'cython'
   'lz4' 'ncurses' 'nss' 'parted' 'pcre' 'procps-ng' 'python2-cherrypy'
   'python2-jinja' 'python2-nose' 'python2-pecan' 'python2-pip' 'python2-bcrypt'
   'python2-prettytable' 'python2-pyopenssl' 'python2-setuptools' 'python2-routes'
-  'python2-sphinx' 'python2-tox' 'python2-virtualenv' 'python2-werkzeug' 'sed'
+  'python-sphinx' 'python2-tox' 'python2-virtualenv' 'python2-werkzeug' 'sed'
   'snappy' 'socat' 'systemd' 'valgrind' 'xfsprogs' 'xmlstarlet' 'yasm'
   'zlib' 'zstd' 'cunit' 'oath-toolkit' 'fontconfig')
 options=('emptydirs')
@@ -26,14 +26,16 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'fix-ceph_disk-python-interpreter.patch'
         'fix-or-disable-broken-tests.patch'
         'fix-python2-paths.patch'
-        'remove-distro-version-detection.patch')
+        'remove-distro-version-detection.patch'
+        'warning.patch')
 sha512sums=('411218ea6037bdf9425a741720ea89876e893e64fbfa518c9584ba581f805fde2c82b13ed47313279665e5d20f36223fc8d5c27055b580c72b22c2004e4da81b'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             'b886c3f2b2a2b32d4033225b5f28cef98ca96e3f4fe2d04cfdbdb3141bbefd81895284abe9c9b75dcad156d54a93dc938bd8d9a45056b4de12855bbbdf0870ca'
             '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
             '915bb02b91a2e7c6e21243e5d4d80847aedaf6f899e3bac55f4ccae4bb8386c434aad7f052dd449fd510c103f7796bd0a25c0cfac72ee8d1e94d230cf2f0550a'
-            'b8ce48ab190b2408f38a7e78d755d762994d271f7bbf88f51392572d1976c4f81e8fad78eb38051df8ef287d70554214624c7b45359d4bef2c11d9ae7d61151c'
-            '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da')
+            'd11c886e7874d4757a12001bb7b0a81c362ff3cf9bf3d2dc5e29095d86bc2b38c92c8d2c5f05e6cfb6ee93164cfc7e11576140258a57ace7c873591ece3f3940'
+            '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
+            'd9f8bede9592bea56282f4b9a6b5bb87803a308843b2749dbafbb594083e88d4428f7ea2257106450d9be895d8e92dd7ae4f031fa1669c341948694957fc6466')
 
 prepare() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
