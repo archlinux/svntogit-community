@@ -7,8 +7,8 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.47.1
-pkgrel=4
+pkgver=3.48.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -16,18 +16,21 @@ license=('GPL3')
 _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython' 'dukpy'
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
           'netifaces' 'unrardll' 'pillow' 'psutil' 'pygments' 'pyqt5' 'regex')
-depends=('chmlib' 'icu' 'jxrlib' 'libmtp' 'libusbx' 'libwmf' 'mathjax2' 'mtdev' 'optipng'
+depends=('chmlib' 'hunspell' 'icu' 'jxrlib' 'libmtp' 'libusbx' 'libwmf' 'mathjax2' 'mtdev' 'optipng'
          'podofo' "${_py_deps[@]/#/python2-}" 'qt5-svg' 'qt5-webkit' 'udisks2')
 makedepends=('qt5-x11extras' 'rapydscript-ng' 'sip' 'xdg-utils')
 checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
-sha256sums=('b309933f295cddf05553c60012d8c0376aae732a729688f646466cca55369f9e'
-            'SKIP')
-b2sums=('60915345dd756d085386af61128e92569304be64aadbc21b69973e93adf3fb5cc88f7250153c238ecf423546f408bfc094b5bce329a54e7f080f831c4a8c23c1'
-        'SKIP')
+        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
+        "https://github.com/kovidgoyal/calibre/commit/420e9e121b67db197e0c5d0bf23b92c174f2678f.patch")
+sha256sums=('024528f0f913c78e121fb34beb3dae8dba3686f2334422c6450808796042950c'
+            'SKIP'
+            'ff9be7c1773c18ccf4acaff5598ad29cf1477a1d33ddde85184d97f9a44ace1a')
+b2sums=('9a7fae20487ae93120cfdc06a312a42d54d68935fdd2bc18dc41be5f8d359c79eae24e0409ba8e7f4df85e2f073f80ce6bab56cba0638cead6693600fa93cb41'
+        'SKIP'
+        '29a3597676fd8a26d286363ba5002d2c439faba6c8cd3d6c98fd10f8aa3cd41021dbda501f445ed94759dc17561c945488822ba4f9e17334481d3261a973787c')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
@@ -43,6 +46,8 @@ prepare(){
   # needed for frozen builds + beautifulsoup4
   # see https://github.com/kovidgoyal/calibre/commit/b177f0a1096b4fdabd8772dd9edc66662a69e683#commitcomment-33169700
   rm -r src/backports
+  # de-vendor hunspell now instead of waiting for 4.x
+  patch -p1 -i ../420e9e121b67db197e0c5d0bf23b92c174f2678f.patch
 
   cd resources
 
