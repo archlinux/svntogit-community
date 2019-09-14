@@ -4,7 +4,7 @@ const name = "react-native-debugger";
 
 const {app} = require("electron");
 const fs = require("fs");
-const {join} = require("path");
+const {dirname, join} = require("path");
 
 // Change command name.
 const fd = fs.openSync("/proc/self/comm", fs.constants.O_WRONLY);
@@ -15,7 +15,7 @@ fs.closeSync(fd);
 process.argv.splice(0, 1);
 
 // Set application paths.
-const appPath = join(__dirname, "app.asar");
+const appPath = join(dirname(__dirname), "lib", `${name}.asar`);
 const packageJson = require(join(appPath, "package.json"));
 const productName = packageJson.productName;
 app.setAppPath(appPath);
