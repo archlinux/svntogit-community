@@ -1,23 +1,42 @@
 # Maintainer: Eli Schwartz <eschwartz@archlinux.org>
 
 pkgname=ksh
-_pkgver=2020.0.0-alpha1
+_pkgver=2020.0.0-beta1
 pkgver=${_pkgver//-/}
 pkgrel=1
 pkgdesc="The Original AT&T Korn Shell"
 arch=('x86_64')
 url="http://kornshell.org/"
 license=('EPL')
-makedepends=('meson')
-checkdepends=('ed' 'vi' 'expect' 'openbsd-netcat')
+makedepends=('meson' 'samurai')
+checkdepends=('ed' 'expect' 'openbsd-netcat' 'procps-ng' 'which' 'vi')
 provides=('ksh93')
 install=ksh.install
-source=("https://github.com/att/ast/releases/download/${_pkgver}/ksh-${_pkgver}.tar.xz"{,.asc})
-sha256sums=('f383f375902557561340372eca0d3fd5076d310de563e18271e406e7f42ff25b'
-            'SKIP')
-b2sums=('a6e030bdcde2561b97cb25e7914413f6133c49795be36ee57704f996a5592c0b05e21e4bf71b2abfeccd7107033a207bf62ba1b3919ebaaef113c1a9b91a87ec'
-        'SKIP')
+source=("https://github.com/att/ast/releases/download/${_pkgver}/ksh-${_pkgver}.tar.xz"{,.asc}
+        "https://github.com/att/ast/commit/d89753b5d38482f4a3f17ba3b7d09ab07cfe7419.patch"
+        "https://github.com/att/ast/commit/44463c0255b7e80d3ace9a0a27e543f2232ca409.patch")
+sha256sums=('ebcc55b352d40e1c5329615224d1b76c7b9f7755d07e0b828a6db02ac9c77f52'
+            'SKIP'
+            '8d10ac086727ef9d1b967e2e973be29792e9a4a8c5f915087aa3a2c44d87403f'
+            'e99e2ca533c61005e3dd7947dfcdccef9c70719a109cb2474997105453846870')
+b2sums=('9d45b6ecdb182363156bd33a984addfae8281a6498beb675456700e4ce5aea346f7720e033b8e83b6f0832b020b502cce6f8407400de1ec4b4232f7d9323f615'
+        'SKIP'
+        'bcf521012bb197d234b119dc56ddc068f8ec3e46b6f4c6d82e1043629368bfcabd1a5d360bae702777e5b01914ac70c9edbdce5ee0bba7e9f69916a3c38b1820'
+        '9409982ecb7f2d0c4748debcd211b6879bea26e4b1f9c90e6d9e620fcde5d3b8a9d02b034813bea7cb2298a136e911dfcf3f6f303b4fd1f1a5e6c16e0a758f3a')
 validpgpkeys=('4BF045ACC726FE4E9DFC1D7762213CE2D3CB82EA') # Siteshwar Vashisht <svashisht@redhat.com>
+
+export NINJA=/usr/bin/samu
+
+prepare() {
+    cd "${srcdir}"/ksh-${_pkgver}
+
+    # ignore test error on non-debug builds: https://github.com/att/ast/issues/1390
+    patch -p1 -i ../d89753b5d38482f4a3f17ba3b7d09ab07cfe7419.patch
+    # be less flaky inside systemd-nspawn containers with seccomp:
+    # https://github.com/att/ast/issues/1398
+    patch -p1 -i ../44463c0255b7e80d3ace9a0a27e543f2232ca409.patch
+
+}
 
 build() {
     mkdir -p "${srcdir}"/ksh-${_pkgver}/build
@@ -26,19 +45,19 @@ build() {
     meson --prefix /usr \
           --buildtype=plain \
           ..
-    ninja
+    samu
 }
 
 check() {
     cd "${srcdir}"/ksh-${_pkgver}/build
 
     # a couple tests are flaky and may time out
-    meson test -t 3
+    meson test -t 3 --print-errorlogs
 }
 
 package() {
     cd "${srcdir}"/ksh-${_pkgver}/build
 
-    DESTDIR="${pkgdir}" ninja install
+    DESTDIR="${pkgdir}" samu install
     ln -s ksh "${pkgdir}"/usr/bin/ksh93
 }
