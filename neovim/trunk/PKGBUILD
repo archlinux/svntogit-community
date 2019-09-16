@@ -3,20 +3,20 @@
 # Contributor: Florian Hahn <flo@fhahn.com>
 
 pkgname=neovim
-pkgver=0.3.8
+pkgver=0.4.0
 pkgrel=1
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
 backup=('etc/xdg/nvim/sysinit.vim')
 license=('custom:neovim')
-depends=('jemalloc' 'libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm' 'luajit')
+depends=('jemalloc' 'libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm' 'luajit' 'libluv')
 makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg' 'gperf')
 optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support (or xsel) (see :help clipboard)'
             'xsel: for clipboard support (or xclip) (see :help clipboard)')
 source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('431d3df859b430570e3f927328b862945a15b1ac041108599670d32af6cccac9361a143fc6af27847529629a43a5e0a0afd98b1c826d4ee1e7570de3cf14f9c7')
+sha512sums=('2a965eb64cb5582e70d49ba55fc49a9e4e3589c25200b33219cb5b4115583a3bbab1ac6a88cb921c104769e4ef45659e085cdc1070683ac2554902aa5a4233d5')
 
 build() {
   cmake -Hneovim-${pkgver} -Bbuild -GNinja \
