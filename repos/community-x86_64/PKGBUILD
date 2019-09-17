@@ -2,27 +2,50 @@
 # Contributor: muzhed <chustokes@126.com>
 
 pkgname=din
-pkgver=42
+pkgver=43
 pkgrel=1
 pkgdesc="A sound synthesizer and musical instrument."
 arch=('x86_64')
 url="https://dinisnoise.org/"
 license=('GPL2')
 groups=('pro-audio')
-depends=('hicolor-icon-theme' 'jack' 'libgl' 'sdl' 'tcl')
+depends=('glibc' 'hicolor-icon-theme' 'jack' 'libgl' 'rtaudio' 'rtmidi' 'sdl' 'tcl')
 makedepends=('boost' 'glu')
 source=("https://archive.org/download/dinisnoise_source_code/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('2b3dff05e3cff71e5c8f5d61958f90208072bfbb5135a7d559bd5758a34af0acee1701a63044d00a096a391576a7eb9417527c1201ec4a024256b258be2b0df0')
+sha512sums=('cd371b9762e136853ac7cb879b3648841a5741c3ee3718b6684e33df49519b26eccf0bcf7119729c0ca1ff898f9828eb75cd2b4bb0aac374bc11f0da95f62a79')
 
 prepare() {
   cd "${pkgname}-${pkgver}"
+#  # use system rtaudio/rtmidi, instead of vendored versions
+  sed -e 's/RtAudio.h//' \
+      -e 's/RtMidi.h//' \
+      -e '/RtMidi.Po/d' \
+      -e '/RtAudio.Po/d' \
+      -i include/Makefile.{am,in}
+  sed -e 's/RtAudio.cpp//' \
+      -e 's/RtMidi.cpp//' \
+      -e '/RtMidi.Po/d' \
+      -e '/RtAudio.Po/d' \
+      -e '/RtMidi.$(OBJECT)/d' \
+      -e '/RtAudio.$(OBJECT)/d' \
+      -i src/Makefile.{am,in}
+  sed -e 's/\"RtAudio.h\"/<RtAudio.h>/' \
+      -i include/audio.h
+  sed -e 's/\"RtMidi.h\"/<RtMidi.h>/' \
+      -i include/midi_in.h
+  sed -e '19i#include <RtAudio.h>' \
+      -i src/audio.cc
+  sed -e '13i#include <RtMidi.h>' \
+      -i src/midi_in.cc
+  rm -v include/Rt{Audio,Midi}.h src/Rt{Audio,Midi}.cpp
   autoreconf -vfi
 }
 
 build() {
   cd "${pkgname}-${pkgver}"
-  CXXFLAGS="${CXXFLAGS} -O3 -D__UNIX_ALSA__ -D__UNIX_JACK__" \
-  CFLAGS="${CFLAGS} -O3" \
+  export CXXFLAGS="${CXXFLAGS} $(pkg-config --cflags jack rtaudio rtmidi)"
+  export CFLAGS="${CFLAGS} $(pkg-config --cflags jack rtaudio rtmidi)"
+  export LIBS="${LIBS} $(pkg-config --libs jack rtaudio rtmidi)"
   ./configure --prefix='/usr'
   make
 }
