@@ -7,7 +7,7 @@
 
 pkgname=python-keyring
 _pkgname=keyring
-pkgver=19.0.2
+pkgver=19.2.0
 pkgrel=1
 pkgdesc='Store and access your passwords safely'
 arch=('any')
@@ -19,7 +19,7 @@ checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python-pytest-black
 optdepends=('python-keyrings-alt: Alternative backends'
             'python-dbus: kwallet backend')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
-sha512sums=('985d69101f673cda04c0a9ee07a62a92d07ee38b7dcc3f4c85fedaa7c38e52da7609d5fc53d445e2c75314be3893b86283b6b5f7b2f8046edc36b782d8675142')
+sha512sums=('1fe423f2a7e5331a9d1b37624f4d88b60f77c2cb2c8f8b0808a2f90f43eb9533faa533068e0d8f75b4bdddba2d160f5fac2500c93760fde64fbdb269f8668b0f')
 
 build() {
   cd $_pkgname-$pkgver
