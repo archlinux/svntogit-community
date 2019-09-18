@@ -38,12 +38,12 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'afca7974ad8658e52fd028ead12ad0a959d63273'
-          'e7f02cd6529dad54b4bdfd35e34b2cb9cb70cdd4'
+          '6f3d6ca9112b0f2b3049febb46cf311ddc883567'
           '2b57a4cf8012473c1a4fc6adae16573756272b02'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
 prepare() {
-  PLATFORM_TOOLS_VERSION="$pkgver" LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
+  PLATFORM_TOOLS_VERSION="$pkgver-$pkgrel" LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
 
   cd "$srcdir"/core
   patch -p1 < ../fix_build_core.patch
