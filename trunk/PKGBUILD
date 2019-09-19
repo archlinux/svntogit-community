@@ -11,7 +11,8 @@ arch=(x86_64)
 url='http://tools.android.com/'
 license=(Apache MIT)
 depends=(pcre2 libusb)
-optdepends=('python: for mkbootimg script')
+optdepends=('python: for mkbootimg script'
+            'python2: for unpack_bootimg & avbtool scripts')
 makedepends=(git clang gtest ruby cmake ninja go-pie)
 provides=(fastboot adb)
 conflicts=(fastboot adb)
