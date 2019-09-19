@@ -7,7 +7,7 @@
 pkgbase=root
 pkgname=('root' 'root-cuda')
 pkgver=6.18.04
-pkgrel=1
+pkgrel=2
 pkgdesc='C++ data analysis framework and interpreter from CERN'
 arch=('x86_64')
 url='https://root.cern.ch'
@@ -90,15 +90,15 @@ source=("https://root.cern.ch/download/root_v${pkgver}.source.tar.gz"
 sha256sums=('315a85fc8363f8eb1bffa0decbf126121258f79bd273513ed64795675485cfa4'
             '50c08191a5b281a39aa05ace4feb8d5405707b4c54a5dcba061f954649c38cb0'
             '3c45b03761d5254142710b7004af0077f18efece7c95511910140d0542c8de8a'
-            'b3719aee5fbc576b7a1304a46485c74e44595b2a09318b448c505678199c3d51'
-            '0fe525254f38d911e15a1e5d11aba9ce67ba4354bcd03f0fbfb2d4bd4eccc2fd'
+            '070256512fb94df55201891919168777f1c0d61316018e98cddaaa97c9063d55'
+            '4ae9f2971c4360fc216ecb793aa11f98e069b33a746c05cdb635fe684a5800c9'
             '1cb2654f22b5f1de7f8621434c76266968db77a1f300de857e47d0f4ad5da217')
+
 get_pyver () {
     python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
 }
-prepare() {
-    # cd "${srcdir}/${pkgbase}-${pkgver}"
 
+prepare() {
     local src
     for src in "${source[@]}"; do
         src="${src%%::*}"
@@ -107,8 +107,6 @@ prepare() {
         echo "  -> Applying patch $src..."
         patch -Np1 -i "../$src" -d "${srcdir}/${pkgbase}-${pkgver}"
     done
-
-    2to3 -w "${srcdir}/${pkgbase}-${pkgver}"/etc/dictpch/makepch.py 2>&1 > /dev/null
 
     # don't let ROOT play around with lib paths
     sed -i -e 's@SetLibraryPath();@@g' \
@@ -147,12 +145,9 @@ build() {
     make
 }
 
-package_root() {
-    provides=('root-extra' 'python-pyroot')
-    replaces=('root-extra' 'python-pyroot')
-    conflicts=('root-extra' 'python-pyroot' 'python2-pyroot')
-    optdepends+=('gcc-fortran: Enable the Fortran components of ROOT')
-    cd "${srcdir}/build"
+_package() {
+    local bld_dir="${1}"
+    cd "${srcdir}/${bld_dir}"
 
     make DESTDIR="${pkgdir}" install
 
@@ -160,16 +155,20 @@ package_root() {
     sed -e 's/@python@/python/' -i "${pkgdir}/usr/lib/root/cmdLineUtils.py"
 
     # try to deal with weird PyROOT, PyMVA and JupyROOT stuff
-    install -d "${pkgdir}/usr/lib/python$(get_pyver)/site-packages"
-    ln -s "/usr/lib/root/ROOT.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/_pythonization.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/cmdLineUtils.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/cppyy.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/JsMVA/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/JupyROOT/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/libPyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/libPyMVA.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/libJupyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
+    rm -rf "${pkgdir}/usr/lib/root/__pycache__"
+    local _pyver=$(get_pyver)
+    local _pydir="${pkgdir}/usr/lib/python${_pyver}/site-packages"
+    install -d "${_pydir}"
+    find "${pkgdir}/usr/lib/root" -maxdepth 1 -mindepth 1 \( -iname "*py*" -or -name "*Js*" \) ! -name "*EGPythia8*" -print0 | while read -rd $'\0' _lib; do
+        _base=$(basename ${_lib})
+        ln -sf "/usr/lib/root/${_base}" "${pkgdir}/usr/lib/python${_pyver}/site-packages/${_base}"
+    done
+
+    # recompile pycache to strip $pkgdir from embedded paths
+    python -m compileall -d "/usr/lib/python${_pyver}" \
+        "${pkgdir}/usr/lib/python${_pyver}"
+    python -O -m compileall -d "/usr/lib/python${_pyver}" \
+        "${pkgdir}/usr/lib/python${_pyver}"
 
     install -D "${srcdir}/rootd" \
         "${pkgdir}/etc/rc.d/rootd"
@@ -190,46 +189,19 @@ package_root() {
     rm -rf "${pkgdir}/etc/root/daemons"
 }
 
+package_root() {
+    provides=('root-extra' 'python-pyroot')
+    replaces=('root-extra' 'python-pyroot')
+    conflicts=('root-extra' 'python-pyroot' 'python2-pyroot')
+    optdepends+=('gcc-fortran: Enable the Fortran components of ROOT')
+    _package build
+}
+
 package_root-cuda() {
     pkgdesc='C++ data analysis framework and interpreter from CERN with GPU (CUDA) features enabled'
     provides=('root' 'root-extra')
     conflicts=('root' 'root-extra' 'python-pyroot' 'python2-pyroot')
     depends+=('cuda')
     optdepends+=('gcc8-fortran: Enable the Fortran components of ROOT')
-    cd "${srcdir}/build-cuda"
-
-    make DESTDIR="${pkgdir}" install
-
-    # fix python env call
-    sed -e 's/@python@/python/' -i "${pkgdir}/usr/lib/root/cmdLineUtils.py"
-
-    # try to deal with weird PyROOT, PyMVA and JupyROOT stuff
-    install -d "${pkgdir}/usr/lib/python$(get_pyver)/site-packages"
-    ln -s "/usr/lib/root/ROOT.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/_pythonization.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/cmdLineUtils.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/cppyy.py" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/JsMVA/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/JupyROOT/" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/libPyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/libPyMVA.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-    ln -s "/usr/lib/root/libJupyROOT.so" "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/"
-
-    install -D "${srcdir}/rootd" \
-        "${pkgdir}/etc/rc.d/rootd"
-    install -D -m644 "${srcdir}/root.xml" \
-        "${pkgdir}/usr/share/mime/packages/root.xml"
-
-    install -D -m644 "${srcdir}/${pkgbase}-${pkgver}-cuda/etc/root.desktop" \
-        "${pkgdir}/usr/share/applications/root.desktop"
-
-    install -D -m644 "${srcdir}/${pkgbase}-${pkgver}-cuda/icons/Root6Icon.png" \
-        "${pkgdir}/usr/share/icons/hicolor/48x48/apps/root.png"
-    echo 'Icon=root.png' >> "${pkgdir}/usr/share/applications/root.desktop"
-
-    # use a file that pacman can track instead of adding directly to ld.so.conf
-    install -d "${pkgdir}/etc/ld.so.conf.d"
-    echo '/usr/lib/root' > "${pkgdir}/etc/ld.so.conf.d/root.conf"
-
-    rm -rf "${pkgdir}/etc/root/daemons"
+    _package build-cuda
 }
