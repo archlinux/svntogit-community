@@ -2,7 +2,7 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=1.14.0
+pkgver=1.15.0
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -15,7 +15,7 @@ conflicts=('python-twine')
 replaces=('python-twine')
 checkdepends=('python-pytest-runner' 'python-pretend')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/twine/archive/$pkgver.tar.gz")
-sha512sums=('4044332727a1a6bb0ffd38d83ddd3a04ad96e013d3894dee3c468527cb8fa9c5d86161bfdcbe357ebf8440d46776b3688131d57ed06cac13cb0893a64861b99a')
+sha512sums=('e0eae05c108e1e766a0a8ec684e3423b0537c8aa671675f30403171fd4f48ec65666d407df53f6dd9eefa0b98e5fd2fdf7dbf1f0f9150686c499de131f6f2435')
 
 build() {
   cd twine-$pkgver
