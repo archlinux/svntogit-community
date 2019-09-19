@@ -75,7 +75,7 @@ set (roofit ON CACHE BOOL "" FORCE)
 set (root7 ON CACHE BOOL "" FORCE)
 set (roottest OFF CACHE BOOL "" FORCE)
 set (rpath OFF CACHE BOOL "" FORCE)
-set (runtime_cxxmodules OFF CACHE BOOL "" FORCE)  # broken
+set (runtime_cxxmodules OFF CACHE BOOL "" FORCE)  # breaks python
 set (r OFF CACHE BOOL "" FORCE)  # requires r-rcpp
 set (shadowpw ON CACHE BOOL "" FORCE)
 set (shared ON CACHE BOOL "" FORCE)
