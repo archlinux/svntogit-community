@@ -10,7 +10,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.2.5
+pkgver=12.3.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -27,7 +27,7 @@ backup=("etc/webapps/${pkgname}/application.rb"
         "etc/webapps/${pkgname}/resque.yml"
         "etc/webapps/${pkgname}/unicorn.rb"
         "etc/logrotate.d/${pkgname}")
-source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab-ce/repository/archive?sha=v${pkgver}"
+source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab-foss/repository/archive?sha=v${pkgver}"
         gitlab-unicorn.service
         gitlab-sidekiq.service
         gitlab-backup.service
@@ -37,7 +37,7 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.tmpfiles.d
         gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('4e05cbf37d66257332b0808f3996c91320565d4e4e00c8bc4f4687ecf134780df87c25a0e215acdeec09300cbf65ae428d56200bdafe047eb97793ae4862042e'
+sha512sums=('e649ee91211adcf4aa7521b93a77a298822297914306f9df71dcee7220d3aed0e133bba981f7ad5bbe08428cb01765e69fee9f4080e0bc78a718b8908e0db16c'
             'd6d0604a726277f27a7596caf31909ff7d9854fd85f2902fd8a06eb581b38cc0e0fd6c10b3b16c84e0c629230501bc51d2f74c765761b43cdead139a521a327d'
             '41ca8890aff1dd99b3c4ef283f70a172af772837ab6b1bda1d26710616a822f5179899ca9b3a96bc0b434f8f6d614b29b39b1596c0f284e5347ae9e06d40c1c4'
             '2e49f4c2549c219d5d1c8572a7db7a700847bc8c520b44bdfc1742d3caf57d8336da5c0b74672f820349b8eab0fa1712dcec5588a4fb742ad98c8eb7ec2b5951'
@@ -51,7 +51,7 @@ _datadir="/usr/share/webapps/${pkgname}"
 _etcdir="/etc/webapps/${pkgname}"
 _homedir="/var/lib/${pkgname}"
 _logdir="/var/log/${pkgname}"
-_srcdir="gitlab-ce-"
+_srcdir="gitlab-foss-"
 
 prepare() {
   # Get first 7 characters from sha1 which has 40 characters in total
@@ -198,7 +198,7 @@ package() {
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/${pkgname}"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 
-  # https://gitlab.com/gitlab-org/gitlab-ce/issues/765
+  # https://gitlab.com/gitlab-org/gitlab-foss/issues/765
   cp -r "${pkgdir}${_datadir}/doc" "${pkgdir}${_datadir}/public/help"
   find "${pkgdir}${_datadir}/public/help" -name "*.md" -exec rm {} \;
   find "${pkgdir}${_datadir}/public/help/" -depth -type d -empty -exec rmdir {} \;
