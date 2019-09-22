@@ -3,10 +3,11 @@
 # Contributor: Fabio 'Lolix' Loli <lolix@disroot.org> -> https://github.com/FabioLolix
 # Contributor: Maximilian Kindshofer <maximilian@kindshofer.net>
 
-pkgname=kitty
+pkgbase=kitty
+pkgname=(kitty kitty-terminfo)
 pkgver=0.14.4
-pkgrel=1
-pkgdesc="A modern, hackable, featureful, OpenGL based terminal emulator"
+pkgrel=2
+pkgdesc="A modern, hackable, featureful, OpenGL-based terminal emulator"
 arch=('x86_64')
 url="https://github.com/kovidgoyal/kitty"
 license=('GPL3')
@@ -21,7 +22,9 @@ build() {
   python3 setup.py linux-package --update-check-interval=0
 }
 
-package() {
+package_kitty() {
+  depends+=('kitty-terminfo')
+
   cd "$srcdir/$pkgname-$pkgver"
 
   cp -r linux-package "${pkgdir}"/usr
@@ -37,4 +40,14 @@ package() {
   } | install -Dm644 /dev/stdin "${pkgdir}"/usr/share/zsh/site-functions/_kitty
 
   install -Dm644 "${pkgdir}"/usr/share/icons/hicolor/256x256/apps/kitty.png "${pkgdir}"/usr/share/pixmaps/kitty.png
+
+  rm -r "$pkgdir"/usr/share/terminfo
+}
+
+package_kitty-terminfo() {
+  pkgdesc='Terminfo for kitty, an OpenGL-based terminal emulator'
+  depends=('ncurses')
+
+  mkdir -p "$pkgdir/usr/share/terminfo"
+  tic -x -o "$pkgdir/usr/share/terminfo" $pkgbase-$pkgver/terminfo/kitty.terminfo
 }
