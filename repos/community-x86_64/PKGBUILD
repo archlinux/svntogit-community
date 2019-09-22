@@ -5,15 +5,14 @@
 
 pkgname=mumble
 pkgver=1.3.0
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
 depends=(qt5-base qt5-svg speex lsb-release libxi avahi libsndfile protobuf libpulse opus
          xdg-utils libspeechd libpng freetype2 fontconfig libxrender)
-makedepends=(boost mesa jack python qt5-tools)
-optdepends=('jack: JACK audio output'
-            'speech-dispatcher: Text-to-speech support'
+makedepends=(boost mesa python qt5-tools)
+optdepends=('speech-dispatcher: Text-to-speech support'
             'espeak-ng: Text-to-speech support')
 url="https://www.mumble.info/"
 source=(https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble-${pkgver}.tar.gz{,.sig})
