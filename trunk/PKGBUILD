@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2019.2.1
-_build=192.6262.58
+pkgver=2019.2.3
+_build=192.6817.14
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -15,30 +15,32 @@ backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
 makedepends=('ant' 'kotlin' 'git' 'java8-openjfx' 'java-environment=8')
-source=(idea-${_build}.tar.gz::https://github.com/JetBrains/intellij-community/archive/idea/${_build}.tar.gz
-        idea-android-${_build}.tar.gz::https://github.com/JetBrains/android/archive/idea/${_build}.tar.gz
+source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
+        idea-android::"git+https://github.com/JetBrains/android#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#tag=idea/${_build}"
         idea-build.patch
         idea.desktop
         idea.sh)
-sha256sums=('fbf31030d64090a616a6641556817f409593a21fbb4a7aa1748ddc81526d8000'
-            '06e201a2f83f9cc542a840e7582e09c316117147bbea95a938cbe98441d42177'
+sha256sums=('SKIP'
             'SKIP'
-            '6a94352edfcf7426679d124dfc93395a82e6f14f5910dde7f1ff931781c0c543'
-            'fa9e3cba5e26a7e01cecda867f23467322db123c5553dfbb4f14aae034ccbed7'
+            'SKIP'
+            '666e6128995b3470516dcda3815cd4b11102a20e0835b82446190c495f25cd25'
+            '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
             '5d4f998bec3249165b0e62b5e51e9b7fbe383bb9f1178ffefe070f2c9872eebb')
 
 prepare() {
-  cd intellij-community-idea-${_build}
+  cd intellij-community
   patch -Np1 -i ../idea-build.patch
   echo ${_build} > build.txt
+  sed '/def targetOs =/c def targetOs = "linux"' -i build/dependencies/setupJbre.gradle
+  sed '/String targetOS/c   String targetOS = OS_LINUX' -i platform/build-scripts/groovy/org/jetbrains/intellij/build/BuildOptions.groovy
   # build system doesn't like symlinks
-  mv "${srcdir}"/android-idea-${_build} android
+  mv "${srcdir}"/idea-android android
   mv "${srcdir}"/idea-adt-tools-base android/tools-base
 }
 
 build() {
-  cd intellij-community-idea-${_build}
+  cd intellij-community
   unset _JAVA_OPTIONS
   export JAVA_HOME=/usr/lib/jvm/java-8-openjdk
   export PATH="${JAVA_HOME}/bin:${PATH}"
