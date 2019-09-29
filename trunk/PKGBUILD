@@ -2,74 +2,100 @@
 # Contributor: Sébastien "Seblu" Luttringer <seblu@archlinux.org>
 
 pkgbase='ceph'
-pkgname=('ceph' 'ceph-libs')
-pkgver=13.2.1
-pkgrel=3
+pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
+_zstdver=1.4.3
+pkgver=14.2.1
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
 license=('GPL')
-makedepends=('bc' 'boost' 'boost-libs' 'cmake' 'cpio' 'crypto++' 'curl' 'cython'
-  'cython2' 'expat' 'fcgi' 'fuse2' 'gcc-libs' 'git' 'glibc' 'gperf' 'gperftools'
-  'gptfdisk' 'inetutils' 'jq' 'junit' 'keyutils' 'leveldb' 'libaio'
-  'libatomic_ops' 'libedit' 'systemd-libs' 'libutil-linux' 'libxml2' 'lsb-release'
-  'lz4' 'ncurses' 'nss' 'parted' 'pcre' 'procps-ng' 'python2-cherrypy'
-  'python2-jinja' 'python2-nose' 'python2-pecan' 'python2-pip' 'python2-bcrypt'
-  'python2-prettytable' 'python2-pyopenssl' 'python2-setuptools' 'python2-routes'
-  'python-sphinx' 'python2-tox' 'python2-virtualenv' 'python2-werkzeug' 'sed'
-  'snappy' 'socat' 'systemd' 'valgrind' 'xfsprogs' 'xmlstarlet' 'yasm'
-  'zlib' 'zstd' 'cunit' 'oath-toolkit' 'fontconfig')
+makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
+             'cpio' 'crypto++' 'cryptsetup' 'cunit' 'curl' 'cython' 'expat'
+             'fcgi' 'fontconfig' 'fuse2' 'gcc' 'gcc-libs' 'git' 'glibc' 'gmock'
+             'gperf' 'gperftools' 'gptfdisk' 'gtest' 'inetutils' 'java-runtime'
+             'jq' 'jre11-openjdk-headless' 'junit' 'keyutils' 'leveldb' 'libaio'
+             'libatomic_ops' 'libcap' 'libcap-ng' 'libcroco' 'libcurl-compat'
+             'libedit' 'libgudev' 'librabbitmq-c' 'libtool' 'libutil-linux'
+             'libuv' 'libxml2' 'lsb-release' 'lz4' 'ncurses'
+             'nss' 'oath-toolkit' 'openssl' 'parted' 'pcre' 'pcre2' 'pkgconf'
+             'procps-ng' 'python-astroid' 'python-attrs' 'python-bcrypt'
+             'python-cheroot' 'python-cherrypy' 'python-coverage'
+             'python-elasticsearch' 'python-flask' 'python-flask-restful'
+             'python-google-api-python-client' 'python-google-auth'
+             'python-google-auth-httplib2' 'python-grpcio' 'python-isort'
+             'python-jinja' 'python-lazy-object-proxy' 'python-mccabe'
+             'python-more-itertools' 'python-numpy' 'python-pbr' 'python-pecan'
+             'python-pip' 'python-pluggy' 'python-portend' 'python-prettytable'
+             'python-prometheus_client' 'python-py' 'python-pycparser'
+             'python-pyjwt' 'python-pyopenssl' 'python-pytz' 'python-requests'
+             'python-routes' 'python-scikit-learn' 'python-scipy'
+             'python-setuptools' 'python-six' 'python-sphinx' 'python-tempora'
+             'python-virtualenv' 'python-werkzeug' 'python-wrapt' 'rabbitmq'
+             'sed' 'snappy' 'socat' 'systemd' 'systemd-libs' 'valgrind'
+             'xfsprogs' 'xmlstarlet' 'xxhash' 'yasm' 'zlib')
+checkdepends=('python-mock' 'python-nose' 'python-pycodestyle' 'python-pylint'
+              'python-pytest' 'python-pytest-cov')
 options=('emptydirs')
 source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'ceph.sysusers'
-        'boost-1.67.patch'
-        'fix-ceph_disk-python-interpreter.patch'
-        'fix-or-disable-broken-tests.patch'
-        'fix-python2-paths.patch'
         'remove-distro-version-detection.patch'
-        'warning.patch')
-sha512sums=('411218ea6037bdf9425a741720ea89876e893e64fbfa518c9584ba581f805fde2c82b13ed47313279665e5d20f36223fc8d5c27055b580c72b22c2004e4da81b'
+        'fix-tox-test-commands.patch'
+        'disable-empty-readable.sh-test.patch'
+        'use-threadsafe-death-tests-objectstore-memstore.patch'
+        'use-system-zstd-and-fix-zstd-1.4.0-compatbility.patch'
+        'suppress-pylint-warnings.patch'
+        "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz")
+sha512sums=('fccde341344c721fbfc7f7cb73db4f65933d7fcacc9495398b55b37d1e208f0bad0cd78a4da08a3b5e26cca3175e7707f7dfb76fae5aa094f58afaed8603c866'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
-            'b886c3f2b2a2b32d4033225b5f28cef98ca96e3f4fe2d04cfdbdb3141bbefd81895284abe9c9b75dcad156d54a93dc938bd8d9a45056b4de12855bbbdf0870ca'
-            '7abd94a333fb0d6c9f7156d69ed6d4bf123f0f3030407f4347209d677b282e5023664d43e74a21a27b7856d3493ae469a17ea8a810331c7266018cc34eee4841'
-            '915bb02b91a2e7c6e21243e5d4d80847aedaf6f899e3bac55f4ccae4bb8386c434aad7f052dd449fd510c103f7796bd0a25c0cfac72ee8d1e94d230cf2f0550a'
-            'd11c886e7874d4757a12001bb7b0a81c362ff3cf9bf3d2dc5e29095d86bc2b38c92c8d2c5f05e6cfb6ee93164cfc7e11576140258a57ace7c873591ece3f3940'
             '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
-            '83970f6e70d938c82cdb3b1bec073534e9e4e7af2385b3507b5cf86f8dbdccef04212e44ba28db7a53c1af5fa9ec1d0cc76340ab48e425e0725fbb9977c94774')
+            'e0a890c358674902db2db3c484a4d19260e2463f1b5bb641605aae0a068027327c7153e267ef344dda190affc495f3661f29b576997691431bb4bae52573aa69'
+            '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
+            'a74aea7c0b0d1883c874f889c184bd2c766fa578d6ca0cbe5eaada840281bb947b3d80f142b30473058cd2652d2967d241ade6914d6be50e93e91728a31733c8'
+            '4345fc2f422c7c1910bfd4068ad39511fa63d8c1e4fc04af416bb0f3869e43327d4a4bfc980d5abf273693a532ac153ed1e4c03e033a127692c1254b99092b8a'
+            '27ec7cc9479426446857f458261f7fd3b303b32234edea1b86c4115214a320ec3e895bdc9231700b44c55d49d5b68d74e36fe1154907eb7e5d91bb9abc0437ac'
+            'ccda90c7437635f92d0db39dfba3604e256f1f08284c35c042763a54b0ead45dca8e7fa3e5cf8032292d1dd9eefc1369e23f78a80d9335d69170563090677d5f')
+
+
+# -fno-plt causes linker errors (undefined reference to internal methods)
+# similar issue: https://bugs.archlinux.org/task/54845
+# https://github.com/intel/media-driver/commit/d95d8f7ab7ac94a2e0f4ee6a4b4794898dc2d3b7
+# as of today (2019-07-12) the upstream maintainers do not consider this a bug in their code
+# (IMHO rightfully so) and thus we strip the option here
+CFLAGS="${CFLAGS/-fno-plt/}"
+CXXFLAGS="${CXXFLAGS/-fno-plt/}"
+
 
 prepare() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
-  # apply patch from the source array (should be a pacman feature)
+
+  # apply patches from the source array
   local filename
   for filename in "${source[@]}"; do
-    if [[ "$filename" =~ \.patch$ ]]; then
+    if [[ "${filename}" =~ \.patch$ ]]; then
       msg2 "Applying patch ${filename##*/}"
-      patch -p1 -N -i "$srcdir/${filename##*/}"
+      patch -p1 -N -i "${srcdir}/${filename##*/}"
     fi
   done
+
+  # suppress deprecation warnings
+  sed -i '/#ifndef CEPH_CONFIG_H/i#define BOOST_ALLOW_DEPRECATED_HEADERS' \
+    src/common/config.h
+  sed -i '/#ifndef CEPH_TYPES_H/i#define BOOST_ALLOW_DEPRECATED_HEADERS' \
+    src/include/types.h
+
+  # remove bundled zstd and replace with newer release
+  rm -rf src/zstd
+  ln -sf "${srcdir}/zstd-${_zstdver}" src/zstd
 
   # remove tests that require root privileges
   rm src/test/cli/ceph-authtool/cap*.t
 
-  # remove broken tests
-  rm src/test/cli/crushtool/build.t
-  rm -rf qa/btrfs
-  rm src/btrfs_ioc_test.c
-
   # this test will try to perform btrfs operations when a btrfs mount
   # is active on the build host, which will fail
-  if mount | grep 'type btrfs' &>/dev/null; then
-    sed -i '/run-tox-ceph-disk/d' src/test/CMakeLists.txt
-  fi
-
-  # fix python interpreter -> python2
-  for file in \
-    src/ceph-create-keys \
-    src/mount.fuse.ceph \
-    src/ceph-detect-init/ceph_detect_init/main.py
-  do
-    sed -i 's|#!/usr/bin/env python|#!/usr/bin/env python2|' "${file}"
-  done
+  # if mount | grep 'type btrfs' &>/dev/null; then
+  #   sed -i '/run-tox-ceph-disk/d' src/test/CMakeLists.txt
+  # fi
 }
 
 build() {
@@ -78,59 +104,79 @@ build() {
   mkdir -p build
   cd build
 
-  # experimental in luminous: (and currently broken with boost 1.66)
-  # RADOSGW_BEAST_FRONTEND
-  # -> disabled
+  export PYTHON_INCLUDE_DIR="$(python -c "from sysconfig import get_path; print(get_path('include'))")"
 
   cmake \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_SYSCONFDIR=/etc \
     -DCMAKE_INSTALL_SBINDIR=/usr/bin \
     -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+    -DCEPH_SYSTEMD_ENV_DIR=/etc/default \
     -DCMAKE_INSTALL_LIBEXECDIR=/usr/lib \
+    -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR=/usr/lib/systemd/system \
+    -DCMAKE_VERBOSE_MAKEFILE=ON \
+    -DCMAKE_BUILD_TYPE=RelWithDebInf \
+    -DENABLE_GIT_VERSION=ON \
+    -DWITH_PYTHON2=OFF \
+    -DWITH_PYTHON3=ON \
+    -DMGR_PYTHON_VERSION=3 \
+    -DPYTHON_INCLUDE_DIR="${PYTHON_INCLUDE_DIR:?}" \
     -DWITH_BABELTRACE=OFF \
-    -DWITH_CEPHFS=ON \
-    -DWITH_FUSE=ON \
     -DWITH_LTTNG=OFF \
-    -DWITH_LZ4=ON \
-    -DWITH_MGR=ON \
-    -DWITH_NSS=ON \
-    -DPYTHON_INCLUDE_DIR=/usr/include/python2.7 \
-    -DWITH_RADOSGW=ON \
-    -DWITH_RADOSGW_BEAST_FRONTEND=OFF \
+    -DWITH_OPENLDAP=OFF \
     -DWITH_RDMA=OFF \
-    -DWITH_SSL=ON \
-    -DWITH_SYSTEM_BOOST=ON \
-    -DWITH_SYSTEMD=ON \
-    -DWITH_TESTS=ON \
+    -DWITH_TBB=OFF \
+    -DWITH_OCF=OFF \
+    -DWITH_DPDK=OFF \
+    -DWITH_SPDK=OFF \
+    -DWITH_CEPHFS=ON \
+    -DWITH_CEPHFS_JAVA=ON \
+    -DWITH_CEPHFS_SHELL=ON \
+    -DWITH_FUSE=ON \
+    -DWITH_LZ4=ON \
     -DWITH_XFS=ON \
+    -DWITH_NSS=ON \
+    -DWITH_NUMA=ON \
+    -DWITH_MGR=ON \
+    -DWITH_MGR_DASHBOARD_FRONTEND=ON \
+    -DWITH_RADOSGW=ON \
+    -DWITH_RADOSGW_FCGI_FRONTEND=OFF \
+    -DWITH_RADOSGW_BEAST_FRONTEND=ON \
+    -DWITH_RADOSGW_BEAST_OPENSSL=ON \
+    -DWITH_RADOSGW_AMQP_ENDPOINT=OFF \
+    -DWITH_SSL=ON \
+    -DWITH_SYSTEMD=ON \
+    -DWITH_SYSTEM_BOOST=OFF \
+    -DWITH_BOOST_CONTEXT=ON \
+    -DWITH_SYSTEM_GTEST=OFF \
+    -DWITH_SYSTEM_NPM=OFF \
     -DENABLE_SHARED=ON \
-    -DWITH_MGR_DASHBOARD_FRONTEND=OFF \
+    -DWITH_TESTS=ON \
     ..
 
-  make all
+  VERBOSE=1 make all
 }
 
 check() {
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
   export CTEST_PARALLEL_LEVEL="$(nproc)"
-  make check
+  VERBOSE=1 make check
 
   # sometimes processes are not properly terminated...
   for process in ceph-mon ceph-mgr ceph-osd; do
-    pkill -9 "$process" || true
+    pkill -9 "${process}" || true
   done
 }
 
 package_ceph-libs() {
-  depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'leveldb' 'libaio'
-    'libutil-linux' 'lz4' 'nss' 'python2' 'xfsprogs' 'oath-toolkit')
+  depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'libutil-linux' 'lz4' 'nss'
+           'oath-toolkit' 'python' 'snappy' 'systemd-libs')
 
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
   # main install
-  make DESTDIR="$pkgdir" install
+  VERBOSE=1 make DESTDIR="${pkgdir}" install
 
   # remove stuff that goes into the ceph package
   rm -rf "${pkgdir}"/usr/lib/{ceph/mgr,systemd,sysusers.d,tmpfiles.d}
@@ -142,25 +188,35 @@ package_ceph-libs() {
 }
 
 package_ceph() {
-  depends=('ceph-libs' 'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools'
-    'keyutils' 'leveldb' 'libaio' 'systemd-libs' 'libutil-linux' 'python2-routes'
-    'lsb-release' 'ncurses' 'nss' 'python2' 'python2-cherrypy' 'python2-bcrypt'
-    'python2-jinja' 'python2-mako' 'python2-pecan' 'python2-prettytable'
-    'python2-pyopenssl' 'python2-setuptools' 'python2-singledispatch'
-    'python2-webob' 'python2-werkzeug' 'snappy' 'xfsprogs' 'python2-requests')
+  depends=("ceph-libs=${pkgver}-${pkgrel}"
+           'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools' 'java-runtime'
+           'keyutils' 'leveldb' 'libaio' 'libutil-linux' 'lsb-release' 'ncurses'
+           'nss' 'oath-toolkit' 'python' 'python-bcrypt' 'python-setuptools'
+           'snappy' 'systemd-libs' 'xfsprogs')
 
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
   # main install
-  make DESTDIR="$pkgdir" install
+  VERBOSE=1 make DESTDIR="${pkgdir}" install
+
+  # fix sbin dir (cmake opt seems to have no effect)
+  mv "${pkgdir}"/usr/sbin/* "${pkgdir}/usr/bin/"
+  rm -rf "${pkgdir}/usr/sbin"
 
   # remove stuff that is in the ceph-libs package
   find "${pkgdir}/usr/lib" -maxdepth 1 -type f -delete
   find "${pkgdir}/usr/lib" -maxdepth 1 -type l -delete
   find "${pkgdir}/usr/lib/ceph" -maxdepth 1 -type f -delete
   find "${pkgdir}/usr/lib/ceph" -maxdepth 1 -type l -delete
-  rm -rf "${pkgdir}"/usr/lib/{ceph/{compressor,crypto,erasure-code},python2.7,rados-classes}
+  rm -rf "${pkgdir}"/usr/lib/{ceph/{compressor,crypto,erasure-code},rados-classes}
+  rm -rf "${pkgdir}"/usr/lib/python*
   rm -rf "${pkgdir}/usr/include"
+
+  # remove stuff that is in the ceph-mgr package
+  rm -rf "${pkgdir}"/usr/{bin/ceph-mgr,share/ceph/mgr,lib/systemd/system/ceph-mgr*}
+
+  # remove _test_ binaries from the package, not needed
+  find "${pkgdir}/usr/bin" -maxdepth 1 -type f -iname 'ceph_test_*' -delete
 
   # install tmpfiles.d and sysusers.d stuff
   install -Dm644 "${srcdir}/${pkgbase}-${pkgver}/systemd/ceph.tmpfiles.d" \
@@ -171,16 +227,14 @@ package_ceph() {
   # remove debian init script
   rm -rf "${pkgdir}/etc/init.d"
 
-  # fix sbin dir (cmake opt seems to have no effect)
-  mv "${pkgdir}"/usr/sbin/* "${pkgdir}/usr/bin/"
-  rm -rf "${pkgdir}/usr/sbin"
-
   # remove drop.ceph.com ssh stuff
-  rm -f "${pkgdir}/usr/share/ceph/{{known_hosts,id_rsa}_drop.ceph.com,.pub}"
+  rm -f "${pkgdir}"/usr/share/ceph/id_rsa_drop.ceph.com
+  rm -f "${pkgdir}"/usr/share/ceph/id_rsa_drop.ceph.com.pub
+  rm -f "${pkgdir}"/usr/share/ceph/known_hosts_drop.ceph.com
 
   # fix bash completions path
   install -d -m 755 "${pkgdir}/usr/share/bash-completion"
-  mv "$pkgdir"/{etc/bash_completion.d,usr/share/bash-completion/completions}
+  mv "${pkgdir}"/{etc/bash_completion.d,usr/share/bash-completion/completions}
 
   # fix EnvironmentFile location in systemd service files
   sed -i 's|/etc/sysconfig/|/etc/conf.d/|g' "${pkgdir}"/usr/lib/systemd/system/*.service
@@ -193,8 +247,55 @@ package_ceph() {
   install -D -d -m750 -o 340 -g 340 "${pkgdir}/var/lib/ceph/bootstrap-osd"
   install -D -d -m750 -o 340 -g 340 "${pkgdir}/var/lib/ceph/bootstrap-rgw"
   install -D -d -m750 -o 340 -g 340 "${pkgdir}/var/lib/ceph/mon"
-  install -D -d -m750 -o 340 -g 340 "${pkgdir}/var/lib/ceph/mgr"
   install -D -d -m750 -o 340 -g 340 "${pkgdir}/var/lib/ceph/osd"
+}
+
+package_ceph-mgr() {
+  depends=("ceph=${pkgver}-${pkgrel}" "ceph-libs=${pkgver}-${pkgrel}"
+           'bash' 'boost-libs' 'coffeescript' 'curl' 'gperftools' 'nodejs' 'nss'
+           'python' 'python-cherrypy' 'python-flask-restful' 'python-pecan'
+           'python-pyjwt' 'python-routes')
+  optdepends=('python-influxdb: influx module'
+              'python-kubernetes: rook module'
+              'python-prometheus_client: prometheus module'
+              'python-remoto: ssh module')
+  conflicts=('ceph<14.2.1-1')
+
+  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+
+  # main install
+  VERBOSE=1 make DESTDIR="${pkgdir}" install
+
+  # fix sbin dir (cmake opt seems to have no effect)
+  mv "${pkgdir}"/usr/sbin/* "${pkgdir}/usr/bin/"
+  rm -rf "${pkgdir}/usr/sbin"
+
+  # remove everything except mgr related stuff, rest is in ceph/ceph-libs
+  rm -rf "${pkgdir}"/usr/lib/{ceph/{compressor,crypto,erasure-code},rados-classes}
+  rm -rf "${pkgdir}/usr/include"
+  find "${pkgdir}/usr/bin" -maxdepth 1 -type f -not -name 'ceph-mgr' -delete
+  find "${pkgdir}"/usr/lib/systemd/system -maxdepth 1 -type f -not -iname 'ceph-mgr*' -delete
+  find "${pkgdir}"/usr/lib -maxdepth 1 -type f -delete
+  find "${pkgdir}"/usr/lib -maxdepth 1 -type l -delete
+  rm -rf "${pkgdir}"/etc
+  rm -rf "${pkgdir}"/var
+  rm -rf "${pkgdir}"/usr/lib/{ceph,sysusers.d,tmpfiles.d}
+  rm -rf "${pkgdir}"/usr/lib/python*
+  rm -rf "${pkgdir}"/usr/share/{bash-completion,doc,java,man}
+
+  # remove debian init script
+  rm -rf "${pkgdir}/etc/init.d"
+
+  # remove drop.ceph.com ssh stuff
+  rm -f "${pkgdir}"/usr/share/ceph/id_rsa_drop.ceph.com
+  rm -f "${pkgdir}"/usr/share/ceph/id_rsa_drop.ceph.com.pub
+  rm -f "${pkgdir}"/usr/share/ceph/known_hosts_drop.ceph.com
+
+  # fix EnvironmentFile location in systemd service files
+  sed -i 's|/etc/sysconfig/|/etc/conf.d/|g' "${pkgdir}"/usr/lib/systemd/system/*.service
+
+  # prepare some paths and set correct permissions
+  install -D -d -m750 -o 340 -g 340 "${pkgdir}/var/lib/ceph/mgr"
 }
 
 # vim:set ts=2 sw=2 et:
