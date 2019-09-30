@@ -2,8 +2,8 @@
 
 _gemname=rake
 pkgname=ruby-$_gemname
-pkgver=12.3.1
-pkgrel=3
+pkgver=13.0.0
+pkgrel=1
 pkgdesc='Make-like build tool implemented in Ruby'
 provides=(rake)
 arch=(any)
@@ -13,7 +13,7 @@ depends=(ruby)
 options=(!emptydirs)
 source=(https://rubygems.org/downloads/$_gemname-$pkgver.gem)
 noextract=($_gemname-$pkgver.gem)
-sha1sums=('d0dab0b05fcf7ecd11065e16ce74211e4b60c6cd')
+sha1sums=('476a76a88f0263ba99333a690b6247273009082e')
 
 package() {
   local _gemdir="$(ruby -e'puts Gem.default_dir')"
