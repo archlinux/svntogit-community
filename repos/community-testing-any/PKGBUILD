@@ -1,0 +1,60 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+
+pkgname=sagemath-doc
+pkgver=8.9
+pkgrel=1
+pkgdesc="HTML documentation and inline help for SageMath"
+arch=(any)
+url="http://www.sagemath.org"
+license=(GPL)
+depends=(python2-sphinx gap-doc pplpy-doc thebe)
+makedepends=(sagemath python2-pyzmq python2-docutils python2-jupyter_client python2-pkgconfig cython2 python2-ipywidgets)
+source=(sagemath-$pkgver.tar.gz::"https://github.com/sagemath/sage/archive/$pkgver.tar.gz"
+        docbuild_main.patch
+        sagemath-ecl-sigfpe.patch)
+sha256sums=('4f9f18a08142fed69342b58ffc6221ec16fe8daf1042086b351e1308489ec5d4'
+            'ea5e17bb7a7cb36a22e5e3872fcc2585852bc971c4b139b0b2cd69a36c1b009b'
+            'a42f3b152b1aedb8abf16bc70971419919d1fe30328574e7fef8305f9d07d938')
+
+prepare() {
+  cd sage-$pkgver
+
+# fix relative imports
+  patch -p0 -i ../docbuild_main.patch
+# use sage_setup imports from sagemath source, but use system sage ones (which include compiled modules)
+  mkdir -p local-python
+  ln -sr src/sage_setup local-python
+# Fix SIGFPE crashes with ecl 16.1.3 https://trac.sagemath.org/ticket/22191
+  patch -p1 -i ../sagemath-ecl-sigfpe.patch
+}
+
+build() {
+  cd sage-$pkgver/src
+
+  export SAGE_LOCAL="/usr" \
+         SAGE_ROOT="/usr" \
+         SAGE_SRC="$PWD" \
+         SAGE_DOC_SRC="$PWD"/doc \
+         SAGE_DOC="$PWD"/doc \
+         SAGE_DOC_MATHJAX=yes \
+         PYTHONPATH="$srcdir"/sage-$pkgver/local-python \
+         SAGE_NUM_THREADS=10
+  python2 sage_setup/docbuild --no-pdf-links all html
+}
+
+package() {
+  cd sage-$pkgver/src/doc
+ 
+  mkdir -p "$pkgdir"/usr/share/doc/sage
+  cp -r common "$pkgdir"/usr/share/doc/sage
+  cp -r html "$pkgdir"/usr/share/doc/sage
+
+# Replace duplicated files by symlinks (Gentoo)
+  cd "$pkgdir"/usr/share/doc/sage
+  mv html/en/_static{,.tmp}
+  for _dir in `find -name _static` ; do
+    rm -r $_dir
+    ln -s /usr/share/doc/sage/html/en/_static $_dir
+  done
+  mv html/en/_static{.tmp,}
+}
