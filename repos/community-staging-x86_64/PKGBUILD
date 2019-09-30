@@ -1,0 +1,57 @@
+# Maintainer: Daurnimator <daurnimator@archlinux.org>
+# Contributor: Marc Tiehuis <marctiehuis@gmail.com>
+
+pkgname=zig
+pkgver=0.5.0
+pkgrel=1
+pkgdesc='a general-purpose programming language designed for robustness, optimality, and maintainability'
+arch=('x86_64')
+url='https://ziglang.org/'
+license=('MIT')
+depends=('clang' 'llvm-libs' 'lld')
+makedepends=('cmake' 'llvm')
+source=("https://ziglang.org/download/$pkgver/zig-$pkgver.tar.xz")
+sha256sums=('55ae16960f152bcb9cf98b4f8570902d0e559a141abf927f0d3555b7cc838a31')
+
+build() {
+    cd "$pkgname-$pkgver"
+
+    mkdir -p build
+    cd build
+    # The zig CMakeLists uses build type Debug if not set
+    # override it back to None so makepkg env vars are respected
+    # Zig vendors LLD as a workaround for an upstream bug when targetting OSX
+    # - https://github.com/ziglang/zig/issues/662
+    # - https://bugs.llvm.org/show_bug.cgi?id=32254
+    # - http://lists.llvm.org/pipermail/llvm-dev/2017-August/116904.html
+    cmake \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DZIG_FORCE_EXTERNAL_LLD=ON \
+        -DZIG_SKIP_INSTALL_LIB_FILES=ON \
+        ..
+    make
+}
+
+check() {
+    cd "$pkgname-$pkgver/build"
+
+    ./zig build test
+}
+
+package() {
+    cd "$pkgname-$pkgver"
+
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+    cd build
+    # Need to re-configure so lib files are installed.
+    # See https://github.com/ziglang/zig/issues/2221#issuecomment-535335570
+    cmake \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DZIG_FORCE_EXTERNAL_LLD=ON \
+        -DZIG_SKIP_INSTALL_LIB_FILES=OFF \
+        ..
+    make DESTDIR="$pkgdir" install
+}
