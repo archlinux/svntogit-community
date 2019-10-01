@@ -5,7 +5,7 @@
 
 pkgname=salt
 pkgver=2019.2.0
-pkgrel=2
+pkgrel=3
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -38,7 +38,7 @@ source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
 sha256sums=('5695bb2b3fa288bcfc0e3b93d9449afd75220bd8f0deefb5e7fc03af381df6cd'
-            '70cd01658182ad12d831d67ddbe42004c245ec3ec83efde76632274cc27f25cf')
+            'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 package() {
   install -Dm644 salt.logrotate "$pkgdir"/etc/logrotate.d/salt
