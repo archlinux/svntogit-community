@@ -1,0 +1,65 @@
+# Maintainer: Daniel Bermond <dbermond@archlinux.org>
+
+pkgname=intel-media-sdk
+pkgver=19.2.1
+pkgrel=1
+pkgdesc='API to access hardware-accelerated video decode, encode and filtering on Intel platforms with integrated graphics'
+arch=('x86_64')
+url='https://github.com/Intel-Media-SDK/MediaSDK/'
+license=('MIT')
+depends=('gcc-libs' 'libdrm' 'libva' 'wayland' 'intel-media-driver')
+optdepends=('ocl-icd: for rotate_opencl plugin'
+            'intel-compute-runtime: for rotate_opencl plugin')
+makedepends=('cmake' 'libpciaccess' 'libx11' 'libxcb' 'python'
+             'opencl-headers' 'ocl-icd' 'intel-compute-runtime')
+provides=('libmfx')
+install="${pkgname}.install"
+source=("https://github.com/Intel-Media-SDK/MediaSDK/archive/intel-mediasdk-${pkgver}.tar.gz"
+        'intel-media-sdk.conf'
+        'intel-media-sdk.sh')
+sha256sums=('03c11a0379b61e292e789fa3dc9308ce45f36d68b4ebf437806c0e2c32357970'
+            '12a37e6e12d93fac5829082773b9f010a3c6c763ddeee177618b8e1a0547fbbc'
+            '315ea6f304cf2b7b6a8aaabb0b8f71fcd480677c7fb9c8cbfa51c7830bb159bc')
+
+prepare() {
+       mkdir -p "MediaSDK-intel-mediasdk-${pkgver}/build"
+}
+
+build() {
+    cd "MediaSDK-intel-mediasdk-${pkgver}/build"
+    
+    cmake \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DBUILD_ALL:BOOL='ON' \
+        -DBUILD_TOOLS:BOOL='ON' \
+        -DENABLE_ITT:BOOL='OFF' \
+        -DENABLE_OPENCL:BOOL='ON' \
+        -DENABLE_WAYLAND:BOOL='ON' \
+        -DENABLE_X11_DRI3:BOOL='ON' \
+        -Wno-dev \
+        ..
+        
+    make
+}
+
+check() {
+    make -C "MediaSDK-intel-mediasdk-${pkgver}/build" test
+}
+
+package() {
+    cd "MediaSDK-intel-mediasdk-${pkgver}/build"
+    
+    make DESTDIR="$pkgdir" install
+    
+    # metrics_monitor
+    install -D -m755 __bin/None/libcttmetrics.so -t "${pkgdir}/opt/intel/mediasdk/share/mfx/samples"
+    install -D -m755 __bin/None/metrics_monitor  -t "${pkgdir}/opt/intel/mediasdk/share/mfx/samples"
+    ln -s ../share/mfx/samples/libcttmetrics.so "${pkgdir}/opt/intel/mediasdk/lib/libcttmetrics.so"
+    
+    # ld.so and profile configuration files
+    install -D -m644 "${srcdir}/intel-media-sdk.conf" -t "${pkgdir}/etc/ld.so.conf.d"
+    install -D -m755 "${srcdir}/intel-media-sdk.sh"   -t "${pkgdir}/etc/profile.d"
+    
+    # license
+    install -D -m644 "${srcdir}/MediaSDK-intel-mediasdk-${pkgver}/LICENSE" -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
