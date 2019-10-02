@@ -5,7 +5,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgver=19.2.0
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'glproto' 'lib32-libdrm' 'dri2proto' 'dri3proto' 'presentproto'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
@@ -14,11 +14,13 @@ url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE
-        glvnd.patch)
+        glvnd.patch
+	intel-topology-query-fix-old-gens.patch)
 sha512sums=('7278bbfba9c29fe91d1959ff1a48422e917db85287460523d12ae8c6d7f49f76e9636bf4c0d8d7d89e5569b3c67135f1b23b8f6c9d52d39413d8ec22e3bb40f0'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
-            '3e5746dcd493bff3f04b26de6168b15d0f161de62c1c6657106b61cbb1ad4925cbf3a691d5055491e759f88dbe0362dc909e7d726f87528980662f26ceb6dcbc')
+            '3e5746dcd493bff3f04b26de6168b15d0f161de62c1c6657106b61cbb1ad4925cbf3a691d5055491e759f88dbe0362dc909e7d726f87528980662f26ceb6dcbc'
+            'a5e2ccef20edc81859255c66cb838c5244774d9d6c56dcfce2e462b6ddaa66ef7847242b050402305621c9c9e706629af30dd27c8466b6bd32d1be40cb3e53a0')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
               '946D09B5E4C9845E63075FF1D961C596A7203456'  # Andres Gomez <tanty@igalia.com>
               'E3E8F480C52ADD73B278EE78E1ECBE07D7D70895'  # Juan Antonio Suárez Romero (Igalia, S.L.) <jasuarez@igalia.com>"
@@ -28,7 +30,10 @@ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l
 prepare() {
   cd mesa-${pkgver}
 
+  # libglvnd-1.2.0 support
   patch -Np1 -i ${srcdir}/glvnd.patch
+  # Fix FS#63945
+  patch -Np1 -i ${srcdir}/intel-topology-query-fix-old-gens.patch
 }
 
 build() {
