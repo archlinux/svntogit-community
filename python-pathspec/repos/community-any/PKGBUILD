@@ -3,16 +3,16 @@
 
 _name=pathspec
 pkgname=python-pathspec
-pkgver=0.5.9
-pkgrel=2
+pkgver=0.6.0
+pkgrel=1
 pkgdesc='Utility library for gitignore style pattern matching of file paths'
 arch=('any')
 url=https://github.com/cpburnz/python-path-specification
-license=('custom:MPLv2')
+license=('MPL2')
 depends=('python')
 makedepends=('python-setuptools')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('54a5eab895d89f342b52ba2bffe70930ef9f8d96e398cccf530d21fa0516a873')
+sha256sums=('e285ccc8b0785beadd4c18e5708b12bb8fcf529a1e61215b3feff1d1e559ea5c')
 
 build() {
   cd $_name-$pkgver
@@ -26,8 +26,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
-  python setup.py install --root="$pkgdir"
-  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 }
 
 # vim:set ts=2 sw=2 et:
