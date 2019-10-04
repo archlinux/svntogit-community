@@ -1,0 +1,114 @@
+From a9c57a90817c10b256389d425ec715d311cceb76 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Mon, 30 Sep 2019 21:11:09 +0200
+Subject: [PATCH 1/2] sandbox: do not propagate mounts to the parent ns
+
+when creating the sandbox, make sure the mounts are marked with
+MS_SLAVE so that events are not propagated to other mount namespaces.
+
+Closes: https://github.com/containers/libpod/issues/4113
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ sandbox.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+diff --git a/sandbox.c b/sandbox.c
+index 05d29e8..256bf04 100644
+--- a/sandbox.c
++++ b/sandbox.c
+@@ -16,6 +16,11 @@ static int add_mount(const char *from, const char *to)
+ {
+     int ret;
+ 
++    ret = mount("", from, "", MS_SLAVE | MS_REC, NULL);
++    if (ret < 0 && errno != EINVAL) {
++        fprintf(stderr, "cannot make mount propagation slave %s\n", from);
++        return ret;
++    }
+     ret = mount(from, to, "",
+                 MS_BIND | MS_REC | MS_SLAVE | MS_NOSUID | MS_NODEV | MS_NOEXEC,
+                 NULL);
+@@ -23,6 +28,11 @@ static int add_mount(const char *from, const char *to)
+         fprintf(stderr, "cannot bind mount %s to %s\n", from, to);
+         return ret;
+     }
++    ret = mount("", to, "", MS_SLAVE | MS_REC, NULL);
++    if (ret < 0) {
++        fprintf(stderr, "cannot make mount propagation slave %s\n", to);
++        return ret;
++    }
+     ret = mount(from, to, "",
+                 MS_REMOUNT | MS_BIND | MS_RDONLY | MS_NOSUID | MS_NODEV |
+                     MS_NOEXEC,
+
+From 4c2e8c68205f5cacd96d49287584e647e483c6f9 Mon Sep 17 00:00:00 2001
+From: Giuseppe Scrivano <gscrivan@redhat.com>
+Date: Tue, 1 Oct 2019 09:29:47 +0200
+Subject: [PATCH 2/2] tests: --create-sandbox doesn't umount under /run
+
+Signed-off-by: Giuseppe Scrivano <gscrivan@redhat.com>
+---
+ Makefile.am                     |  1 +
+ tests/slirp4netns-no-unmount.sh | 29 +++++++++++++++++++++++++++++
+ tests/test-slirp4netns.sh       |  2 ++
+ 3 files changed, 32 insertions(+)
+ create mode 100755 tests/slirp4netns-no-unmount.sh
+
+diff --git a/Makefile.am b/Makefile.am
+index 1298d38..7708820 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -16,6 +16,7 @@ EXTRA_DIST = \
+ 	api.h \
+ 	sandbox.h \
+ 	seccompfilter.h \
++	tests/slirp4netns-no-unmount.sh \
+ 	vendor/libslirp/COPYRIGHT \
+ 	vendor/libslirp/README.md \
+ 	vendor/libslirp/src/bootp.h \
+diff --git a/tests/slirp4netns-no-unmount.sh b/tests/slirp4netns-no-unmount.sh
+new file mode 100755
+index 0000000..6e8ed15
+--- /dev/null
++++ b/tests/slirp4netns-no-unmount.sh
+@@ -0,0 +1,29 @@
++#!/bin/bash
++set -xeuo pipefail
++
++. $(dirname $0)/common.sh
++
++# it is a part of test-slirp4netns.sh
++# must run in a new mount namespace
++
++mount -t tmpfs tmpfs /run
++mkdir /run/foo
++mount -t tmpfs tmpfs /run/foo
++mount --make-rshared /run
++
++unshare -n sleep infinity &
++child=$!
++
++wait_for_network_namespace $child
++
++./slirp4netns --enable-sandbox --netns-type=path /proc/$child/ns/net tun11 &
++slirp_pid=$!
++
++function cleanup {
++    kill -9 $child $slirp_pid
++}
++trap cleanup EXIT
++
++wait_for_network_device $child tun11
++
++findmnt /run/foo
+diff --git a/tests/test-slirp4netns.sh b/tests/test-slirp4netns.sh
+index 2586e7d..5ed0217 100755
+--- a/tests/test-slirp4netns.sh
++++ b/tests/test-slirp4netns.sh
+@@ -67,3 +67,5 @@ wait_for_network_device $child tun11
+ 
+ nsenter --preserve-credentials -U -n --target=$child ip -a netconf | grep tun11
+ nsenter --preserve-credentials -U -n --target=$child ip addr show tun11 | grep -v inet
++
++unshare -rm $(readlink -f $(dirname $0)/slirp4netns-no-unmount.sh)
