@@ -7,36 +7,34 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=3.48.0
+pkgver=4.0.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
 license=('GPL3')
-_py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython' 'dukpy'
+_py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython'
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
-          'netifaces' 'unrardll' 'pillow' 'psutil' 'pygments' 'pyqt5' 'regex')
+          'netifaces' 'unrardll' 'pillow' 'psutil' 'pygments' 'pyqt5' 'pyqtwebengine' 'regex')
 depends=('chmlib' 'hunspell' 'icu' 'jxrlib' 'libmtp' 'libusbx' 'libwmf' 'mathjax2' 'mtdev' 'optipng'
-         'podofo' "${_py_deps[@]/#/python2-}" 'qt5-svg' 'qt5-webkit' 'udisks2')
+         'podofo' "${_py_deps[@]/#/python2-}" 'qt5-svg' 'udisks2')
 makedepends=('qt5-x11extras' 'rapydscript-ng' 'sip' 'xdg-utils')
 checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
-        "https://github.com/kovidgoyal/calibre/commit/420e9e121b67db197e0c5d0bf23b92c174f2678f.patch")
-sha256sums=('024528f0f913c78e121fb34beb3dae8dba3686f2334422c6450808796042950c'
-            'SKIP'
-            'ff9be7c1773c18ccf4acaff5598ad29cf1477a1d33ddde85184d97f9a44ace1a')
-b2sums=('9a7fae20487ae93120cfdc06a312a42d54d68935fdd2bc18dc41be5f8d359c79eae24e0409ba8e7f4df85e2f073f80ce6bab56cba0638cead6693600fa93cb41'
-        'SKIP'
-        '29a3597676fd8a26d286363ba5002d2c439faba6c8cd3d6c98fd10f8aa3cd41021dbda501f445ed94759dc17561c945488822ba4f9e17334481d3261a973787c')
+        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
+sha256sums=('9c012ac318aae8efc7a26ba1f5beef2e0e924407c8830e30167b229d8f6e1a9b'
+            'SKIP')
+b2sums=('c047402da770c1f5048c40ddddd362b4fa6dba0eed7da029167671a9e8d38b2e714da7b3ff377fb4827a56970b3718a5eb245736625b9c2e68d02a9d8352c04f'
+        'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
   cd "${pkgname}-${pkgver}"
 
   # Desktop integration (e.g. enforce arch defaults)
+  # Use uppercase naming scheme, don't delete config files under fakeroot.
   sed -e "/import config_dir/,/os.rmdir(config_dir)/d" \
       -e "s/'ctc-posml'/'text' not in mt and 'pdf' not in mt and 'xhtml'/" \
       -e "s/^Name=calibre/Name=Calibre/g" \
@@ -46,16 +44,11 @@ prepare(){
   # needed for frozen builds + beautifulsoup4
   # see https://github.com/kovidgoyal/calibre/commit/b177f0a1096b4fdabd8772dd9edc66662a69e683#commitcomment-33169700
   rm -r src/backports
-  # de-vendor hunspell now instead of waiting for 4.x
-  patch -p1 -i ../420e9e121b67db197e0c5d0bf23b92c174f2678f.patch
 
   cd resources
 
   # Remove unneeded files
   rm ${pkgname}-portable.* mozilla-ca-certs.pem
-
-  # tarball cache from calibre 4.x
-  rm editor.js viewer.{js,html}
 
   # use system mathjax
   rm -r mathjax
