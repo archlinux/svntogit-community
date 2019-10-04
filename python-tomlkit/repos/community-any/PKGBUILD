@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-tomlkit
-pkgver=0.5.5
+pkgver=0.5.7
 _tomltestcommit=f910e151d1b14d94b1e8a4264db0814fb03520d9
 pkgrel=1
 pkgdesc="Style-preserving TOML library for Python"
@@ -13,7 +13,7 @@ makedepends=('python-dephell')
 checkdepends=('python-pytest')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/sdispater/tomlkit/archive/$pkgver.tar.gz"
         "toml-test-$_tomltestcommit.tar.gz::https://github.com/BurntSushi/toml-test/archive/$_tomltestcommit.tar.gz")
-sha512sums=('aa11e199c4a97133739b3ade36b7806c07f7f2681f6a6f3ed5195cf9affecd24f04a89d2ffb37938851cc8c48c2551d262e7eac9282a4070389c5ac4e8d718fb'
+sha512sums=('d849974a2f76d50498dedb54cce400d0abedd4182f03485189ef713fc1bd3aa07713ce60369f9e4593154184fde3b870aa91816a1a8d26d943d527c6b4d2b624'
             '49431bf72cd5b40b6732eec75b2ea25d349df4f76c84a7fc51443f55712c47b0ae0f7a049d7ae19f328ca504ded1f6df00861c725dcfdbeaac07c3bd999c5f3b')
 
 prepare() {
