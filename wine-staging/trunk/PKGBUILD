@@ -6,7 +6,7 @@
 
 pkgname=wine-staging
 pkgver=4.17
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -121,7 +121,7 @@ prepare() {
 
   # apply wine-staging patchset
   pushd wine-staging-$_pkgbasever/patches
-  ./patchinstall.sh DESTDIR="$srcdir/$pkgname" --all
+  ./patchinstall.sh DESTDIR="$srcdir/$pkgname" --all -W user32-rawinput
   popd
 
   # Doesn't compile without remove these flags as of 4.10
