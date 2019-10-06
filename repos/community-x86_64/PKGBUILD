@@ -23,7 +23,7 @@ pkgname=(
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
 pkgver=18.4
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -47,7 +47,7 @@ _codename=Leia
 _libdvdcss_version="1.4.2-$_codename-Beta-5"
 _libdvdnav_version="6.0.0-$_codename-Alpha-3"
 _libdvdread_version="6.0.0-$_codename-Alpha-3"
-_ffmpeg_version="4.0.3-$_codename-18.2"
+_ffmpeg_version="4.0.4-$_codename-18.4"
 _fmt_version="5.1.0"
 _crossguid_version="8f399e8bd4"
 _fstrcmp_version="0.7.D001"
@@ -80,7 +80,7 @@ sha512sums=('ae08fc29d20387d9352dc1ae4a89da19962a279b89705ff8f7869377281589d44a6
             '5185dbdbeb1bd13ea9d8723f1f4ab599d6f3102f5ba1096cd085aa1cda252c045f327c719227bba8e1b742352ade5e335106c8d0c1637a5a6b93ce661620dd7e'
             '11c93eaacd156f8fd7dec7c43d366438b201f31ad55b2870463a9e286912b6ada08882319a021fb7992190f87b909a49f2b83e0321cc17aedc29f7fe5898fa72'
             'b3419ba0a1a2dd70f1bb6236afdfe1c6e88c9ad4264198b289e3bba9375e077cecf7f89848c7b09debaa445327f3507101f3d157e692f7a7163b2bb52643e1e7'
-            'b4d4bf16f05b953ba81769446c8fd90246e1919b9ef671fb212008151c83d8445e4123ad37c352aa6243074962832e817749d2de318eb721d5bb5d655fd77ab2'
+            'c6dd75dbff7119adeeda246cfb640b5e8d3b4c242ef83e5ba070207b60f0c715c3fe3cb328d87687b70a133f122a03aba990f0e95f3aac7d5dbcee25bec59078'
             'b759a718353254fa8cd981e483bf01a45af0fc76901216404ace5e47f5d3edf43d42422184e5413c221e49832322fdf60d1860e8ec87349c674511064b31e5d6'
             '2682d63609d3dcdfcd8136be632e45df26ad88ce93b9c49745cf728bbd2e6254a7b05c8b059ab581d532372e504206a525a52564b64d076dfdae9c965a09fd16'
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
