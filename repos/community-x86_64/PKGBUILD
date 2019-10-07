@@ -2,7 +2,7 @@
 
 pkgname=docker
 pkgver=19.03.2
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -80,7 +80,7 @@ build() {
   msg2 'Building daemon'
   _fake_gopath_pushd docker-ce/components/engine github.com/docker/docker
   DOCKER_GITCOMMIT=$(cd "$srcdir"/docker-ce && git rev-parse --short HEAD) \
-    DOCKER_BUILDTAGS='seccomp journald' \
+    DOCKER_BUILDTAGS='seccomp journald apparmor' \
     VERSION=$pkgver-ce \
     hack/make.sh dynbinary
   _fake_gopath_popd
