@@ -3,7 +3,7 @@
 
 pkgbase=beats
 pkgname=(filebeat packetbeat metricbeat heartbeat-elastic auditbeat journalbeat)
-pkgver=7.3.2
+pkgver=7.4.0
 pkgrel=1
 pkgdesc='Data shippers for Elasticsearch'
 arch=('x86_64')
@@ -20,15 +20,17 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "heartbeat.service"
         "auditbeat.service"
         "journalbeat.service"
-        "tmpfile.conf")
-sha256sums=('513d0056f4de63f33052792ba690677844c8930104cb55236a421ca879db242e'
-            '66d9061841e8b406135383e45d6db9ce6261b2bb08aa28224e3ed689e6e0efec'
+        "tmpfile.conf"
+        "magefile_text_file_busy.patch")
+sha256sums=('b6b689eb89051266c75342972736412e2d5d8fc78d0ed1f285377d6a1f346c69'
+            '7256be466b4255cf3ec9e3600998ec006e762508345a08db16e004a1f15083dc'
             '9f4e33fc768d3500fa3428dcbfda241c6473a2cae8cc4dbadf8f61ca9f2bbec5'
-            '26b123acd96808162a7f827ce6f0e9669140c2665fc28d76583a15996fbf853d'
-            '212cb4ab5a02d7078025f7d1f50f48e5caa25debce0852cf68cd8f89ed0a8d09'
-            'b7f1c61950f21c7fab31166c68d4a9e5027f0c5bcc40a97913d6d89eaf643b85'
-            '57d2f5bf75b4b5214065ba408c98ec941fb0042f19a623add7f4396d640225ba'
-            'f29361772f23ec42bb15b5e0ca7e93f17fe00d31cf08a9e2c0d0ab27f2277bbc')
+            '7d83a068e8c4da3de3f42bf21b840a86900e9cf02f5ba0851501a1620e5fa29d'
+            '878b28a891c9683da4b3d8b6914212e3de0f5e832633c54c6263b3099eb96ba2'
+            '5ee738b911022494bc9f8422a4fa7ab7862bd635ca7b08fa3bc8d789ef2785bf'
+            'c3633d95314d11dd4e153197f22f308c239ced9240291a9aeaec4f6721911e01'
+            'f29361772f23ec42bb15b5e0ca7e93f17fe00d31cf08a9e2c0d0ab27f2277bbc'
+            '6fdef755fe03d1c83aa9dfe0cba505b4a9d3e4134cb6d3f9c62e9795a3b7c85a')
 
 prepare() {
     mkdir -p "$srcdir/bin"
@@ -41,12 +43,7 @@ prepare() {
     go get golang.org/x/sys/cpu
 
     cd "$srcdir"/beats-$pkgver
-
-    # Avoid installing extraneous configs
-    sed '/[- ]win/d ; /[- ]darwin/d ; /[- ]binary/d' -i */Makefile
-
-    # Install the Linux config as default
-    sed -r 's#/([a-z]+)-linux.yml#/\1.yml#' -i */Makefile
+    patch -p1 -i "$srcdir"/magefile_text_file_busy.patch
 
     # Perform some timestomping to avoid make warnings
     LANG=C _t="$(date -r Makefile +'%Y-%m-%d %k:%M:%S')"
@@ -61,6 +58,7 @@ prepare() {
 }
 
 build() {
+    export GOFLAGS="-ldflags=-extldflags=-zrelro -ldflags=-extldflags=-znow"
     export GOPATH="$srcdir"/gopath
     export PATH="$GOPATH/bin:$srcdir/bin:$PATH"
 
@@ -75,20 +73,7 @@ build() {
         msg2 "Building $beat..."
         cd ../$beat
         make $beat
-
-        if grep -Eq '^kibana:' Makefile; then
-            make kibana
-        fi
-
-        if [ "$beat" = "auditbeat" ]; then
-            make fields
-        else
-            make update
-        fi
-
-        if grep -Eq '^kibana:' Makefile; then
-            mv _meta/kibana{.generated,}
-        fi
+        make update
     done
 }
 
@@ -115,17 +100,10 @@ _do_package_beat() {
 
     sed "s/BEATNAME/$_pkgname/g" "$srcdir"/tmpfile.conf > "$pkgdir"/usr/lib/tmpfiles.d/$_pkgname.conf
 
-    if [ -d _meta/kibana ]; then
-        cp -R _meta/kibana "$pkgdir"/usr/share/$_pkgname/
-    fi
-
-    if [ -d module ]; then
-        cp -R module "$pkgdir"/usr/share/$_pkgname/
-        rm -rf "$pkgdir"/usr/share/$_pkgname/module/*/{,info/}_meta
-    fi
-
-    if [ -d modules.d ]; then
-        cp -R modules.d "$pkgdir"/etc/$_pkgname/
+    if [ -d build/kibana ]; then
+        cp -R build/kibana "$pkgdir"/usr/share/$_pkgname/
+    elif [ -d _meta/kibana.generated ]; then
+        cp -R _meta/kibana.generated "$pkgdir"/usr/share/$_pkgname/kibana
     fi
 }
 
@@ -133,6 +111,8 @@ package_filebeat() {
     pkgdesc='Sends log files to Logstash or directly to Elasticsearch'
 
     _do_package_beat
+    cp -R build/package/modules.d "$pkgdir"/etc/$_pkgname/
+    cp -R build/package/module "$pkgdir"/usr/share/$_pkgname/
 }
 
 package_packetbeat() {
@@ -148,6 +128,7 @@ package_metricbeat() {
     replaces=('topbeat')
 
     _do_package_beat
+    cp -R modules.d "$pkgdir"/etc/$_pkgname/
 }
 
 package_heartbeat-elastic() {
@@ -156,6 +137,7 @@ package_heartbeat-elastic() {
     replaces=('heartbeat')
 
     _do_package_beat
+    cp -R monitors.d "$pkgdir"/etc/$_pkgname/
 }
 
 package_auditbeat() {
@@ -164,10 +146,11 @@ package_auditbeat() {
     install='auditbeat.install'
 
     _do_package_beat
+    install -D module/auditd/_meta/audit.rules.d/sample-rules-linux-64bit.conf "$pkgdir"/etc/$_pkgname/audit.rules.d/sample-rules.conf.disabled
 }
 
 package_journalbeat() {
-    pkgdesc='Data collector to read and forward journal entries from journald to Elasticsearch'
+    pkgdesc='Data collector to ship systemd journal entries to Elasticsearch or Logstash'
 
     _do_package_beat
 }
