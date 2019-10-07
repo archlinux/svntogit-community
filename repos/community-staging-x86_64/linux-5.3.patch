@@ -1,0 +1,69 @@
+diff --git a/ndiswrapper/driver/ntoskernel.c b/ndiswrapper/driver/ntoskernel.c
+index 4fe0dc1..4dd7a89 100644
+--- a/ndiswrapper/driver/ntoskernel.c
++++ b/ndiswrapper/driver/ntoskernel.c
+@@ -2524,7 +2524,11 @@ int ntoskernel_init(void)
+ 			info->task = NULL;
+ 			info->count = 0;
+ #ifdef CONFIG_SMP
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)
+ 			cpumask_setall(&info->cpus_allowed);
++#else
++			cpumask_setall(&info->cpus_mask);
++#endif
+ #endif
+ 		}
+ 	} while (0);
+diff --git a/ndiswrapper/driver/ntoskernel.h b/ndiswrapper/driver/ntoskernel.h
+index 3c4c6ff..8a71ae3 100644
+--- a/ndiswrapper/driver/ntoskernel.h
++++ b/ndiswrapper/driver/ntoskernel.h
+@@ -107,7 +107,11 @@ static cpumask_t cpumasks[NR_CPUS];
+ #endif /* CONFIG_SMP */
+ 
+ #ifndef tsk_cpus_allowed
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)
+ #define tsk_cpus_allowed(tsk) (&(tsk)->cpus_allowed)
++#else
++#define tsk_cpus_allowed(tsk) (&(tsk)->cpus_mask)
++#endif
+ #endif
+ 
+ #ifndef __packed
+@@ -631,7 +635,12 @@ struct irql_info {
+ 	int count;
+ 	struct mutex lock;
+ #ifdef CONFIG_SMP
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)
+ 	cpumask_t cpus_allowed;
++#else
++	const cpumask_t	*cpus_ptr;
++	cpumask_t	cpus_mask;
++#endif
+ #endif
+ 	struct task_struct *task;
+ };
+@@ -658,7 +667,11 @@ static inline KIRQL raise_irql(KIRQL newirql)
+ 	/* TODO: is this enough to pin down to current cpu? */
+ #ifdef CONFIG_SMP
+ 	assert(task_cpu(current) == smp_processor_id());
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)
+ 	cpumask_copy(&info->cpus_allowed, tsk_cpus_allowed(current));
++#else
++	cpumask_copy(&info->cpus_mask, tsk_cpus_allowed(current));
++#endif
+ 	set_cpus_allowed_ptr(current, cpumask_of(smp_processor_id()));
+ #endif
+ 	put_cpu_var(irql_info);
+@@ -682,7 +695,11 @@ static inline void lower_irql(KIRQL oldirql)
+ 	if (--info->count == 0) {
+ 		info->task = NULL;
+ #ifdef CONFIG_SMP
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,3,0)
+ 		set_cpus_allowed_ptr(current, &info->cpus_allowed);
++#else
++		set_cpus_allowed_ptr(current, &info->cpus_mask);
++#endif
+ #endif
+ 		mutex_unlock(&info->lock);
+ 	}
