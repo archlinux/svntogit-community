@@ -7,7 +7,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=4.0.0
+pkgver=4.1.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -24,9 +24,9 @@ optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
-sha256sums=('9c012ac318aae8efc7a26ba1f5beef2e0e924407c8830e30167b229d8f6e1a9b'
+sha256sums=('363f89b4c26ba8f8bba1eb40da09df85b8b3fedf9a0256285a0abae1ff65987c'
             'SKIP')
-b2sums=('c047402da770c1f5048c40ddddd362b4fa6dba0eed7da029167671a9e8d38b2e714da7b3ff377fb4827a56970b3718a5eb245736625b9c2e68d02a9d8352c04f'
+b2sums=('85987b8b8b37deb40f9ebb7d918e15e9a763cca00cf26eab841d0035309bd066f675d50d1ca94cb65e512d1964bac4241b3006aa38cac14ec0cb5e2d6416d2a8'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
