@@ -3,10 +3,10 @@
 # Contributor: Daniel Maslowski <info@orangecms.org>
 
 pkgname=minio
-pkgver=2019.08.14
-_timever=T20:37:41Z
+pkgver=2019.10.02
+_timever=T21:19:38Z
 _pkgver="${pkgver//./-}${_timever//:/-}"
-pkgrel=2
+pkgrel=1
 pkgdesc='Object storage server compatible with Amazon S3'
 arch=('x86_64')
 url='https://minio.io'
