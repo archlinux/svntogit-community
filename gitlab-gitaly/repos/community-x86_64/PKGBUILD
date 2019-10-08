@@ -1,11 +1,11 @@
-# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
 
 # NOTE: Gitlab isn't always compatible with modern Ruby versions. In that case, check the
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab-gitaly
-pkgver=1.56.0
-pkgrel=2
+pkgver=1.66.0
+pkgrel=1
 pkgdesc="Speed up Git access using caching"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitaly"
@@ -15,8 +15,10 @@ options=(!buildflags)
 makedepends=(go ruby2.5-bundler cmake)
 backup=("etc/gitlab-gitaly/config.toml")
 source=("${pkgname}-${pkgver}.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitaly/repository/archive?sha=v${pkgver}"
+        ruby2.5.patch
         "gitlab-gitaly.service")
-sha512sums=('19656c7bd2829e0e7c6405e1d6ee71e27b26a1c1d4a66ef378fa80579e94fb234dfb67465e0f448c41e64ead284d752f114a149b6537b5b6937714d98083f511'
+sha512sums=('f6e0ee9178bd2b87e9885827ef28775f8a6cc6e0ce007592f288e0e3e44c0764962fd0d424a281cd2720e9e4e617f97283f7943183ecf449c89927ba790f33a2'
+            'a82c15379900fde6f88a96bbdeb0029cab9b785ef7248f7f7f395af8aa812ba7fc94f933d07f560011e00c4853278b091660b3b0a1d852514c197ce0df205f61'
             'b330c0f42592322ad2131079ca554a13a364007182dded8c556198caff2c9ec642acf5bb7dfecb05de5a3d89bffec6588b6d05c8c7c5c771a46df3d296deed28')
 
 _homedir="/var/lib/gitlab"
@@ -24,23 +26,8 @@ _homedir="/var/lib/gitlab"
 prepare() {
   cd "gitaly-"*
 
-  sed -i "s/bundle install/bundle-2.5 install/" Makefile
-  sed -i "s/bundle config/bundle-2.5 config/" Makefile
-  sed -i "s/bundle show/bundle-2.5 show/" Makefile
-  sed -i "s/bundle/bundle-2.5/" \
-    internal/rubyserver/rubyserver.go \
-    internal/linguist/linguist.go \
-    _support/makegen.go
-  sed -i "s/env ruby/env ruby-2.5/g" \
-    ruby/gitlab-shell/bin/test-logger \
-    ruby/gitlab-shell/bin/check \
-    ruby/gitlab-shell/hooks/post-receive \
-    ruby/gitlab-shell/hooks/update \
-    ruby/gitlab-shell/hooks/pre-receive
-  sed -i "s/\"ruby\"/\"ruby-2.5\"/" internal/linguist/linguist.go
-  sed -i "s/env ruby/env ruby-2.5/" ruby/bin/gitaly-ruby
-  sed -i "s/env ruby/env ruby-2.5/" ruby/bin/ruby-cd
-  sed -i "s/VERSION = .*/VERSION = ${pkgver}/" Makefile
+  patch -Np1 -i "$srcdir"/ruby2.5.patch
+
   sed -i "s|dir = \"/home/git/gitaly/ruby\"|dir = \"/usr/share/webapps/gitlab-gitaly/ruby\"|" config.toml.example
   sed -i "s|dir = \"/home/git/gitlab-shell\"|dir = \"/usr/share/webapps/gitlab-shell\"|" config.toml.example
   sed -i "s|bin_dir = \"/home/git/gitaly\"|bin_dir = \"/usr/bin\"|" config.toml.example
@@ -52,7 +39,7 @@ prepare() {
 build() {
   cd "gitaly-"*
 
-  make build
+  make BUILD_TAGS="tracer_static tracer_static_jaeger"
 }
 
 package() {
