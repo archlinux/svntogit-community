@@ -1,8 +1,8 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=19.03.2
-pkgrel=2
+pkgver=19.03.3
+pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -18,7 +18,7 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
-_LIBNETWORK_COMMIT=fc5a7d91d54cc98f64fc28f9e288b46a0bee756c
+_LIBNETWORK_COMMIT=45c710223c5fbf04dc3028b9a90b51892e36ca7f
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
@@ -117,7 +117,7 @@ package() {
   ### engine
   cd "$srcdir"/docker-ce/components/engine
   # binary
-  install -Dm755 {bundles/latest/dynbinary-daemon,"$pkgdir"/usr/bin}/dockerd
+  install -Dm755 {bundles/dynbinary-daemon,"$pkgdir"/usr/bin}/dockerd
   # systemd
   install -Dm644 'contrib/init/systemd/docker.service' \
     "$pkgdir/usr/lib/systemd/system/docker.service"
@@ -135,7 +135,7 @@ package() {
   ### cli
   cd "$srcdir"/docker-ce/components/cli
   # binary
-  install -Dm755 build/docker "$pkgdir/usr/bin/docker"
+  install -Dm755 {build,"$pkgdir"/usr/bin}/docker
   # completion
   install -Dm644 'contrib/completion/bash/docker' \
     "$pkgdir/usr/share/bash-completion/completions/docker"
