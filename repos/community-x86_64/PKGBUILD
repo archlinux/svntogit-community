@@ -4,8 +4,8 @@
 # Contributor: Simon Legner <Simon.Legner@gmail.com>
 
 pkgname=bazel
-pkgver=0.29.1
-pkgrel=2
+pkgver=1.0.0
+pkgrel=1
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
@@ -16,7 +16,7 @@ options=('!distcc' '!strip')
 source=("https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip"
         "https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip.sig"
         'grpc_rename_gettid.patch')
-sha512sums=('4da49e3f1ba681003afc2536d55954ed5a2c29de4a68e5a07f2627f3573d97bd6e244bc8a4f43c8951ecddd221041d87270ca9b7dd59ab16676306c9716f003d'
+sha512sums=('3e51dfdf5883af3920149c74d0374524cb93b4d85fcaf402f3f7fae0e8e0a458be004365bfa7a0fc583a4f95e068ecaa2a53531ba315abb3e9180a7503db127f'
             'SKIP'
             '0d4dc5c5931ff3a16bb9ac228ec560fc0115444a3d3787f12866e11e8b3833ee8a26cc65c97aa9898c1f7a6c380820d62544d2ed7bed0d6f21aa4293e244eb04')
 validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')
