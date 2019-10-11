@@ -1,31 +1,102 @@
-From 7bf6d1ca718c337659fb4ca581fcc47a80191c75 Mon Sep 17 00:00:00 2001
+From 8bcc7153e0ef5aeb5fb276350c7015579f6e432a Mon Sep 17 00:00:00 2001
 From: Jindrich Makovicka <makovick@gmail.com>
-Date: Fri, 4 Oct 2019 21:08:28 +0200
-Subject: [PATCH] Fix timeout with gnome-keyring 3.34
+Date: Sun, 6 Oct 2019 10:35:46 +0200
+Subject: [PATCH 1/2] Remove GNOME_KEYRING_LIFETIME_FD
+
+Keyring lifetime fd was removed from gnome-keyring in 2009
+
+See "[daemon] Use new control protocol for daemon."
+---
+ mate-session/msm-gnome.c | 35 ++---------------------------------
+ 1 file changed, 2 insertions(+), 33 deletions(-)
+
+diff --git a/mate-session/msm-gnome.c b/mate-session/msm-gnome.c
+index 5e9cf02..97e08b8 100644
+--- a/mate-session/msm-gnome.c
++++ b/mate-session/msm-gnome.c
+@@ -48,29 +48,9 @@
+ 
+ 
+ static gboolean gnome_compat_started = FALSE;
+-static int keyring_lifetime_pipe[2];
+ static pid_t gnome_keyring_daemon_pid = 0;
+ static Window gnome_smproxy_window = None;
+ 
+-static void
+-child_setup (gpointer user_data)
+-{
+-  gint open_max;
+-  gint fd;
+-  char *fd_str;
+-
+-  open_max = sysconf (_SC_OPEN_MAX);
+-  for (fd = 3; fd < open_max; fd++)
+-    {
+-      if (fd != keyring_lifetime_pipe[0])
+-        fcntl (fd, F_SETFD, FD_CLOEXEC);
+-    }
+-
+-  fd_str = g_strdup_printf ("%d", keyring_lifetime_pipe[0]);
+-  g_setenv ("GNOME_KEYRING_LIFETIME_FD", fd_str, TRUE);
+-  g_free (fd_str);
+-}
+-
+ 
+ static void
+ gnome_keyring_daemon_startup (void)
+@@ -87,26 +67,15 @@ gnome_keyring_daemon_startup (void)
+   gchar       *name;
+   const gchar *value;
+ 
+-  /* Pipe to slave keyring lifetime to */
+-  if (pipe (keyring_lifetime_pipe))
+-    {
+-      g_warning ("Failed to set up pipe for gnome-keyring: %s", strerror (errno));
+-      return;
+-    }
+-
+   error = NULL;
+   argv[0] = GNOME_KEYRING_DAEMON;
+   argv[1] = "--start";
+   argv[2] = NULL;
+   g_spawn_sync (NULL, argv, NULL,
+-                G_SPAWN_SEARCH_PATH | G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
+-                child_setup, NULL,
++                G_SPAWN_SEARCH_PATH,
++                NULL, NULL,
+                 &sout, NULL, &status, &error);
+ 
+-  close (keyring_lifetime_pipe[0]);
+-  /* We leave keyring_lifetime_pipe[1] open for the lifetime of the session,
+-     in order to slave the keyring daemon lifecycle to the session. */
+-
+   if (error != NULL)
+     {
+       g_printerr ("Failed to run gnome-keyring-daemon: %s\n",
+
+From 023f6f7b69b2a9c0399d7737d7729d464f9671e5 Mon Sep 17 00:00:00 2001
+From: Jindrich Makovicka <makovick@gmail.com>
+Date: Sun, 6 Oct 2019 10:38:05 +0200
+Subject: [PATCH 2/2] Fix timeout with gnome-keyring 3.34
 
 Launch gnome-keyring-daemon asynchronously, and remove the
 GNOME_KEYRING_PID reading code.
 
 GNOME_KEYRING_PID exposure was removed from gnome-keyring in 2014.
 ---
- mate-session/msm-gnome.c | 94 +++++++++++-----------------------------
- 1 file changed, 25 insertions(+), 69 deletions(-)
+ mate-session/msm-gnome.c | 85 ++++++++++------------------------------
+ 1 file changed, 20 insertions(+), 65 deletions(-)
 
 diff --git a/mate-session/msm-gnome.c b/mate-session/msm-gnome.c
-index 5e9cf02..f7f1154 100644
+index 97e08b8..b43f1ad 100644
 --- a/mate-session/msm-gnome.c
 +++ b/mate-session/msm-gnome.c
-@@ -49,7 +49,6 @@
+@@ -48,88 +48,46 @@
+ 
  
  static gboolean gnome_compat_started = FALSE;
- static int keyring_lifetime_pipe[2];
 -static pid_t gnome_keyring_daemon_pid = 0;
  static Window gnome_smproxy_window = None;
- 
- static void
-@@ -71,21 +70,26 @@ child_setup (gpointer user_data)
-   g_free (fd_str);
- }
  
 +static void
 +gnome_keyring_daemon_finished (GPid pid,
@@ -50,31 +121,24 @@ index 5e9cf02..f7f1154 100644
 -  gint         status;
 -  glong        pid;
 -  gchar       *end;
-+  gint         sout;
 +  GPid         pid;
    gchar       *argv[3];
 -  gchar       *p;
 -  gchar       *name;
 -  const gchar *value;
  
-   /* Pipe to slave keyring lifetime to */
-   if (pipe (keyring_lifetime_pipe))
-@@ -98,69 +102,24 @@ gnome_keyring_daemon_startup (void)
+   error = NULL;
    argv[0] = GNOME_KEYRING_DAEMON;
    argv[1] = "--start";
    argv[2] = NULL;
 -  g_spawn_sync (NULL, argv, NULL,
--                G_SPAWN_SEARCH_PATH | G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
--                child_setup, NULL,
+-                G_SPAWN_SEARCH_PATH,
+-                NULL, NULL,
 -                &sout, NULL, &status, &error);
--
--  close (keyring_lifetime_pipe[0]);
--  /* We leave keyring_lifetime_pipe[1] open for the lifetime of the session,
--     in order to slave the keyring daemon lifecycle to the session. */
-+  g_spawn_async_with_pipes (NULL, argv, NULL,
-+                            G_SPAWN_SEARCH_PATH | G_SPAWN_LEAVE_DESCRIPTORS_OPEN,
-+                            child_setup, NULL, &pid,
-+                            NULL, &sout, NULL, &error);
++  g_spawn_async (NULL, argv, NULL,
++		 G_SPAWN_SEARCH_PATH | G_SPAWN_DO_NOT_REAP_CHILD,
++		 NULL, NULL, &pid,
++		 &error);
  
    if (error != NULL)
      {
@@ -132,15 +196,11 @@ index 5e9cf02..f7f1154 100644
 -      kill (gnome_keyring_daemon_pid, SIGTERM);
 -      gnome_keyring_daemon_pid = 0;
 -    }
-+  close (keyring_lifetime_pipe[0]);
-+  /* We leave keyring_lifetime_pipe[1] open for the lifetime of the session,
-+     in order to slave the keyring daemon lifecycle to the session. */
-+
 +  g_child_watch_add (pid, gnome_keyring_daemon_finished, NULL);
  }
  
  
-@@ -263,9 +222,6 @@ msm_gnome_stop (void)
+@@ -232,9 +190,6 @@ msm_gnome_stop (void)
  
    g_debug ("MsmGnome: stopping");
  
