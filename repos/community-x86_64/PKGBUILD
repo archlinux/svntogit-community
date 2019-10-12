@@ -3,8 +3,8 @@
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-_gitcommit=b33540cafa432503baa517d0fd76abf67b647598
-pkgver=3.6.0
+_gitcommit=6a5ab96bd9cb404b4abfd5160fe8f34a29d941e5
+pkgver=3.6.2
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
@@ -16,7 +16,7 @@ makedepends=('cython' 'python-setuptools' 'git')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
               'python-pytest-timeout' 'python-async_generator' 'python-brotlipy'
               'python-pytest-xdist' 'python-pytest-forked' 'python-pytest-cov'
-              'python-trustme')
+              'python-trustme' 'python-freezegun')
 source=(${pkgname}::"git+https://github.com/aio-libs/aiohttp#commit=${_gitcommit}"
         git+https://github.com/nodejs/http-parser)
 sha512sums=('SKIP'
