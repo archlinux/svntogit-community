@@ -1,0 +1,84 @@
+# Maintainer: schuay <jakob.gruber@gmail.com>
+# Contributor: Brad Fanella <bradfanella@archlinux.us>
+# Contributor: Corrado Primier <bardo@aur.archlinux.org>
+# Contributor: danst0 <danst0@west.de>
+
+# Build order: avr-binutils -> avr-gcc -> avr-libc
+
+pkgname=avr-binutils
+pkgver=2.33.1
+pkgrel=1
+pkgdesc="A set of programs to assemble and manipulate binary and object files for the AVR architecture"
+arch=('x86_64')
+url="https://www.gnu.org/software/binutils/"
+license=('GPL')
+depends=('glibc>=2.17' 'zlib' 'binutils')
+options=('!distcc' '!ccache')
+source=(https://ftp.gnu.org/gnu/binutils/binutils-${pkgver}.tar.bz2{,.sig}
+        avr-size.patch)
+sha1sums=('332c7df7e1830c1e756cf4a5542a7952200210c1'
+          'SKIP'
+          '7ec726441f086bf13142884901a6eb8d571f53ae')
+validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
+              '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton (Chief Binutils Maintainer) <nickc@redhat.com>
+
+_builddir=binutils-build
+
+prepare() {
+    cd ${srcdir}/binutils-${pkgver}
+
+    # See https://bugs.archlinux.org/task/32504
+    # And https://bugs.archlinux.org/task/40986
+    patch -p1 < ${srcdir}/avr-size.patch
+
+    # https://bugs.archlinux.org/task/34629
+    sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" libiberty/configure
+
+    rm -rf ${srcdir}/${_builddir}
+    mkdir ${srcdir}/${_builddir}
+}
+
+build() {
+    cd ${srcdir}/binutils-${pkgver}
+
+    config_guess=$(./config.guess)
+
+    cd ${srcdir}/${_builddir}
+
+    ${srcdir}/binutils-${pkgver}/configure \
+        --prefix=/usr \
+        --with-lib-path=/usr/lib:/usr/local/lib \
+        --with-bugurl=https://bugs.archlinux.org/ \
+        --enable-ld=default \
+        --enable-gold \
+        --enable-plugins \
+        --enable-threads \
+        --with-pic \
+        --enable-shared \
+        --disable-werror \
+        --disable-multilib \
+        --build=${config_guess} \
+        --target=avr \
+        $CONFIGFLAG
+
+    # This checks the host environment and makes sure all the necessary tools are available to compile Binutils.
+    make configure-host
+
+    make tooldir=/usr
+}
+
+package() {
+    cd ${srcdir}/${_builddir}
+
+    make prefix=${pkgdir}/usr tooldir=${pkgdir}/usr install
+
+    for bin in ar as nm objcopy objdump ranlib strip readelf; do
+        rm -f ${pkgdir}/usr/bin/${bin}
+    done
+
+    for info in as bfd binutils gprof ld; do
+        mv ${pkgdir}/usr/share/info/${info}.info ${pkgdir}/usr/share/info/avr-${info}.info
+    done
+
+    rm -r ${pkgdir}/usr/share/locale
+}
