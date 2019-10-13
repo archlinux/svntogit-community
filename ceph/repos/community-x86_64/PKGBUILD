@@ -5,7 +5,7 @@ pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.3
 pkgver=14.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -254,7 +254,7 @@ package_ceph-mgr() {
   depends=("ceph=${pkgver}-${pkgrel}" "ceph-libs=${pkgver}-${pkgrel}"
            'bash' 'boost-libs' 'coffeescript' 'curl' 'gperftools' 'nodejs' 'nss'
            'python' 'python-cherrypy' 'python-flask-restful' 'python-pecan'
-           'python-pyjwt' 'python-routes')
+           'python-pyjwt' 'python-routes' 'python-requests' 'python-pyopenssl')
   optdepends=('python-influxdb: influx module'
               'python-kubernetes: rook module'
               'python-prometheus_client: prometheus module'
