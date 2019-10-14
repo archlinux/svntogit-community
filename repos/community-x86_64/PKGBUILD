@@ -4,7 +4,7 @@
 
 pkgname=android-tools
 pkgver=29.0.4
-pkgrel=1
+pkgrel=2
 tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -27,6 +27,7 @@ source=(git+https://android.googlesource.com/platform/system/core#tag=$tag
         git+https://boringssl.googlesource.com/boringssl#commit=$_boringssl_commit
         generate_build.rb
         fix_build_core.patch
+        fix_sparse_img.patch
         bash_completion.fastboot)
         # Bash completion file was taken from https://github.com/mbrubeck/android-completion
 sha1sums=('SKIP'
@@ -38,7 +39,8 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'afca7974ad8658e52fd028ead12ad0a959d63273'
-          '6f3d6ca9112b0f2b3049febb46cf311ddc883567'
+          '9d35e4e9c4d1064783f3b1edaae0a2fae49493a4'
+          '2b57a4cf8012473c1a4fc6adae16573756272b02'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
 prepare() {
@@ -46,6 +48,7 @@ prepare() {
 
   cd "$srcdir"/core
   patch -p1 < ../fix_build_core.patch
+  patch -p1 < ../fix_sparse_img.patch # FS#63370
 
   cd "$srcdir"/avb
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
