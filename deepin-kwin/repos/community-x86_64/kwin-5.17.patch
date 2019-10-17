@@ -1,0 +1,64 @@
+diff --git a/dde-kwin-0.1.0/plugins/kwin-xcb/lib/kwinutils.cpp.orig b/dde-kwin-0.1.0/plugins/kwin-xcb/lib/kwinutils.cpp
+index 999f23b..b618c54 100644
+--- a/dde-kwin-0.1.0/plugins/kwin-xcb/lib/kwinutils.cpp.orig
++++ b/dde-kwin-0.1.0/plugins/kwin-xcb/lib/kwinutils.cpp
+@@ -129,10 +129,6 @@ class Compositor : public QObject
+ public:
+     enum SuspendReason { NoReasonSuspend = 0, UserSuspend = 1<<0, BlockRuleSuspend = 1<<1, ScriptSuspend = 1<<2, AllReasonSuspend = 0xff };
+     static Compositor *s_compositor;
+-
+-public Q_SLOTS:
+-    void suspend(Compositor::SuspendReason reason);
+-    void resume(Compositor::SuspendReason reason);
+ };
+ 
+ // 光标管理
+@@ -222,6 +218,7 @@ class KWinInterface
+     typedef xcb_cursor_t (*X11CursorGetCursor)(Qt::CursorShape);
+     typedef KWin::Options::WindowOperation (*OptionsWindowOperation)(const QString &, bool);
+     typedef QObject *(*WorkspaceFindClient)(KWinUtils::Predicate, xcb_window_t);
++    typedef void (*CompositorToggle)(void *, KWin::Compositor::SuspendReason);
+ public:
+     KWinInterface()
+     {
+@@ -232,6 +229,8 @@ public:
+         x11CursorGetCursor = (X11CursorGetCursor)KWinUtils::resolve("_ZN4KWin6Cursor12getX11CursorEN2Qt11CursorShapeE");
+         optionsWindowOperation = (OptionsWindowOperation)KWinUtils::resolve("_ZN4KWin7Options15windowOperationERK7QStringb");
+         findClient = (WorkspaceFindClient)KWinUtils::resolve("_ZNK4KWin9Workspace10findClientENS_9PredicateEj");
++        compositorSuspend = (CompositorToggle)KWinUtils::resolve("_ZN4KWin13X11Compositor7suspendENS0_13SuspendReasonE");
++        compositorResume = (CompositorToggle)KWinUtils::resolve("_ZN4KWin13X11Compositor6resumeENS0_13SuspendReasonE");
+     }
+ 
+     ClientMaximizeMode clientMaximizeMode;
+@@ -241,6 +240,8 @@ public:
+     X11CursorGetCursor x11CursorGetCursor;
+     OptionsWindowOperation optionsWindowOperation;
+     WorkspaceFindClient findClient;
++    CompositorToggle compositorSuspend;
++    CompositorToggle compositorResume;
+ };
+ 
+ Q_GLOBAL_STATIC(KWinInterface, interface)
+@@ -609,18 +610,18 @@ void KWinUtils::ShowWorkspacesView()
+ 
+ void KWinUtils::ResumeCompositor(int type)
+ {
+-    if (!KWin::Compositor::s_compositor)
++    if (!KWin::Compositor::s_compositor || !interface->compositorResume)
+         return;
+ 
+-    KWin::Compositor::s_compositor->resume(static_cast<KWin::Compositor::SuspendReason>(type));
++    interface->compositorResume(KWin::Compositor::s_compositor, static_cast<KWin::Compositor::SuspendReason>(type));
+ }
+ 
+ void KWinUtils::SuspendCompositor(int type)
+ {
+-    if (!KWin::Compositor::s_compositor)
++    if (!KWin::Compositor::s_compositor || !interface->compositorSuspend)
+         return;
+ 
+-    KWin::Compositor::s_compositor->suspend(static_cast<KWin::Compositor::SuspendReason>(type));
++    interface->compositorSuspend(KWin::Compositor::s_compositor, static_cast<KWin::Compositor::SuspendReason>(type));
+ }
+ 
+ void KWinUtils::ShowAllWindowsView()
