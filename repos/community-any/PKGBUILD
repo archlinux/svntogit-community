@@ -3,7 +3,7 @@
 
 pkgbase=python-ecdsa
 pkgname=('python-ecdsa' 'python2-ecdsa')
-pkgver=0.13.2
+pkgver=0.13.3
 pkgrel=1
 pkgdesc="Implementation of ECDSA in Python"
 arch=('any')
@@ -12,7 +12,7 @@ license=('MIT')
 makedepends=('python-setuptools' 'python2-setuptools')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/e/ecdsa/ecdsa-$pkgver.tar.gz" "LICENSE")
-md5sums=('0ce51d17c0751e5232be4eafd69b7f13'
+md5sums=('b1b33f7fe171eb1278de6f93eefc34f8'
          '66ffc5e30f76cbb5358fe54b645e5a1d')
 
 build() {
