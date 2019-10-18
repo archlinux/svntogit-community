@@ -1,0 +1,36 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+
+pkgname=r8168-lts
+pkgver=8.047.04
+pkgrel=5
+pkgdesc="A kernel module for Realtek 8168 network cards for linux-lts"
+url="http://www.realtek.com.tw"
+license=("GPL")
+arch=('x86_64')
+depends=('glibc' "linux-lts>=4.19.80" "linux-lts<4.20")
+makedepends=("linux-lts-headers>=4.19.80" "linux-lts-headers<4.20")
+source=(https://github.com/mtorromeo/r8168/archive/$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('4a201c7691b66e47f19172367c70a14b8b38d600f0739719c57dba9c0cf3f17a')
+
+build() {
+	local KERNEL_VERSION=$(</usr/src/linux-lts/version)
+	msg2 "Kernel = $KERNEL_VERSION"
+
+	cd "r8168-$pkgver"
+	# avoid using the Makefile directly -- it doesn't understand
+	# any kernel but the current.
+	make -C /usr/lib/modules/$KERNEL_VERSION/build \
+			SUBDIRS="$PWD/src" \
+			EXTRA_CFLAGS="-DCONFIG_R8168_NAPI -DCONFIG_R8168_VLAN" \
+			modules
+}
+
+package() {
+	local extradir=/usr/lib/modules/$(</usr/src/linux-lts/version)/extramodules
+	cd "r8168-$pkgver"
+	install -Dt "$pkgdir$extradir" -m644 src/*.ko
+	find "$pkgdir" -name '*.ko' -exec xz {} +
+
+	echo "blacklist r8169" | \
+		install -Dm644 /dev/stdin "$pkgdir/usr/lib/modprobe.d/$pkgname.conf"
+}
