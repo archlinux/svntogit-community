@@ -1,0 +1,112 @@
+# Maintainer: Chih-Hsuan Yen <yan12125@gmail.com>
+# Contributor: xRemaLx <anton.komolov@gmail.com>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: William Rea <sillywilly@gmail.com>
+
+pkgbase=buildbot-www
+pkgname=(python-buildbot-www python-buildbot-waterfall-view
+         python-buildbot-console-view python-buildbot-grid-view
+         python-buildbot-wsgi-dashboards python-buildbot-badges)
+pkgver=2.5.0
+pkgrel=1
+arch=(any)
+url='https://buildbot.net'
+license=(GPL2)
+makedepends=(git python-buildbot-pkg=$pkgver python-mock)
+checkdepends=(chromium)
+source=("https://github.com/buildbot/buildbot/releases/download/v$pkgver/buildbot-v$pkgver.gitarchive.tar.gz"{,.sig})
+sha256sums=('b5af824031c2bac87a73cd580fe597b439c113352f3f5d8c8146afbbf077fc77'
+            'SKIP')
+validpgpkeys=(
+  '390EB159056ED56F66AB1092AECD456B4D2531FC'  # Pierre Tardy <tardyp@gmail.com> (@tardyp on GitHub)
+  'FD0004A26EADFE43A4C3F249C6F7AE200374452D'  # Povilas Kanapickas <povilas@radix.lt> (@p12tic on GitHub)
+)
+
+prepare() {
+  cd "$srcdir"/buildbot-$pkgver
+  # HACK: do not use virtualenv
+  sed -i -e 's#frontend_deps:.*#frontend_deps:#' \
+         -e 's#frontend_tests_headless:.*#frontend_tests_headless:#' Makefile
+  # To avoid circular dependency
+  sed -i -e '/import buildbot/d' \
+         -e "/setup_requires/ s#'buildbot', ##" www/*/setup.py
+}
+
+build() {
+  export NODE_OPTIONS="--max-old-space-size=2048"
+
+  cd "$srcdir"/buildbot-$pkgver
+  # HACK: use system packages instead of ones via pip
+  make PIP=/usr/bin/true frontend_deps
+
+  for module in base waterfall_view console_view grid_view wsgi_dashboards badges
+  do
+    cd "$srcdir"/buildbot-$pkgver/www/$module
+    python setup.py build
+  done
+}
+
+check() {
+  cd "$srcdir"/buildbot-$pkgver
+  CHROME_BIN=/usr/bin/chromium make frontend_tests_headless
+}
+
+package_python-buildbot-www() {
+  pkgdesc='Buildbot UI'
+  # Not depending on buildbot so that buildbot can easily use
+  # python-buildbot-www in checkdepends
+  depends=(python)
+  optdepends=(
+    'python-buildbot-waterfall-view'
+    'python-buildbot-console-view'
+    'python-buildbot-grid-view'
+    'python-buildbot-badges'
+  )
+
+  cd buildbot-$pkgver/www/base
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
+
+package_python-buildbot-waterfall-view() {
+  pkgdesc='Buildbot Waterfall View plugin'
+  depends=(python-buildbot-www)
+
+  cd buildbot-$pkgver/www/waterfall_view
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
+
+package_python-buildbot-console-view() {
+  pkgdesc='Buildbot Console View plugin'
+  depends=(python-buildbot-www)
+
+  cd buildbot-$pkgver/www/console_view
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
+
+package_python-buildbot-grid-view() {
+  pkgdesc='Buildbot Grid View plugin'
+  depends=(python-buildbot-www)
+
+  cd buildbot-$pkgver/www/grid_view
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
+
+package_python-buildbot-wsgi-dashboards() {
+  pkgdesc='Buildbot plugin to integrate flask or bottle dashboards to buildbot UI'
+  depends=(python-buildbot-www)
+
+  cd buildbot-$pkgver/www/wsgi_dashboards
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
+
+package_python-buildbot-badges() {
+  pkgdesc='Buildbot badges'
+  depends=(python-buildbot-www python-klein python-cairosvg python-cairocffi python-jinja)
+  # https://github.com/buildbot/buildbot/blob/v1.6.0/www/badges/buildbot_badges/__init__.py#L40
+  optdepends=(
+    'ttf-dejavu: the default font for rendering badges as PNGs'
+  )
+
+  cd buildbot-$pkgver/www/badges
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
