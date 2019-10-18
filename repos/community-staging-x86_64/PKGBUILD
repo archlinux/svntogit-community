@@ -1,0 +1,82 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: farid <farid at archlinuc-br.org>
+# Contributor: Archie <Mymaud@gmail.com>
+
+pkgbase=gmic
+pkgname=(gmic zart gimp-plugin-gmic krita-plugin-gmic)
+pkgver=2.7.4
+pkgrel=2
+arch=(x86_64)
+url="https://gmic.eu/"
+license=(custom:CeCILL)
+makedepends=(gimp qt5-base fftw openexr opencv eigen)
+source=(https://gmic.eu/files/source/gmic_$pkgver.tar.gz zart-opencv4.patch)
+sha256sums=('cd9b40fa8df8a0bb47388071096c768a9d4908af574f0e98cc8515410d0b2c40'
+            'f4295a2b9a6730060e1dd763c602bd5156570d623bc69c2214dfd11e94943296')
+
+prepare() {
+  sed -e 's|/etc/bash_completion.d|/usr/share/bash-completion/completions|g' -i gmic-$pkgver/src/Makefile
+# fix overlinking
+  sed -e 's/pkg-config opencv --libs ||//' -e 's/-lopencv_highgui/-lopencv_videoio/' \
+      -e 's/pkg-config opencv/pkg-config opencv4/' -i gmic-$pkgver/src/Makefile 
+# fix build with openexr 2.4
+  sed -e 's|-lIlmImf -lHalf|-lIlmImf-2_4 -lHalf-2_4|' -i gmic-$pkgver/src/Makefile
+# fix build with openCV 4.0
+  cd gmic-$pkgver/zart
+  patch -p1 -i ../../zart-opencv4.patch
+  sed -e 's|opencv|opencv4|' -i zart.pro
+}
+
+build() {
+  cd gmic-$pkgver
+  make -C src cli lib libc WGET=/bin/true LIBS=${LDFLAGS} -j1
+
+  cd gmic-qt
+  qmake GMIC_PATH=../src GMIC_DYNAMIC_LINKING=on HOST=none
+  make
+  qmake GMIC_PATH=../src GMIC_DYNAMIC_LINKING=on HOST=gimp
+  make
+  qmake GMIC_PATH=../src GMIC_DYNAMIC_LINKING=on HOST=krita
+  make  
+
+  cd ../zart
+  qmake GMIC_PATH=../src GMIC_DYNAMIC_LINKING=on QMAKE_CXXFLAGS+=" -DOPENCV2_HEADERS"
+  make
+}
+
+package_gmic() {
+  pkgdesc="GREYC's Magic Image Converter: image processing framework"
+  depends=(opencv fftw curl)
+  optdepends=('qt5-base: for the Qt UI')
+
+  cd gmic-$pkgver/src
+  make DESTDIR="$pkgdir" install
+  install -Dm644 ../COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  rm -r "$pkgdir"/usr/{bin/zart,lib/gimp,bin/gmic_krita_qt}
+}
+
+package_zart() {
+  pkgdesc="A GUI for G'MIC real-time manipulations on the output of a webcam"
+  depends=(gmic qt5-base)
+
+  install -Dm755 gmic-$pkgver/zart/zart -t "$pkgdir"/usr/bin
+  install -Dm644 gmic-$pkgver/zart/Licence_CeCILL_V2-en.html -t "$pkgdir"/usr/share/licenses/$pkgname
+}
+
+package_gimp-plugin-gmic() {
+  pkgdesc="Gimp plugin for the G'MIC image processing framework"
+  depends=(gimp gmic qt5-base)
+
+  install -Dm755 gmic-$pkgver/gmic-qt/gmic_gimp_qt "$pkgdir"/usr/lib/gimp/2.0/plug-ins/gmic_gimp
+  install -Dm644 gmic-$pkgver/COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_krita-plugin-gmic() {
+  pkgdesc="Krita plugin for the G'MIC image processing framework"
+  depends=(krita gmic)
+
+  install -Dm755 gmic-$pkgver/gmic-qt/gmic_krita_qt -t "$pkgdir"/usr/bin/
+  install -Dm644 gmic-$pkgver/COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
