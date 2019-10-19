@@ -1,0 +1,59 @@
+# Maintainer: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: kfgz <kfgz at interia pl>
+# Contributor: Ionut Biru <ibiru at archlinux dot org>
+
+pkgname=lib32-nss
+pkgver=3.47
+pkgrel=1
+pkgdesc="Network Security Services (32-bit)"
+url="https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS"
+arch=(x86_64)
+license=(MPL GPL)
+_nsprver=4.20
+depends=("lib32-nspr>=${_nsprver}" lib32-sqlite lib32-zlib lib32-p11-kit nss)
+makedepends=(perl python2 gyp)
+source=("https://ftp.mozilla.org/pub/security/nss/releases/NSS_${pkgver//./_}_RTM/src/nss-${pkgver}.tar.gz"
+        no-plt.diff)
+sha256sums=('6cd0c4438b616bdacc0b5f25ff1506b0d07ee97ea6c95d514c5487200a155fa7'
+            'ea8e1b871c0f1dd29cdea1b1a2e7f47bf4713e2ae7b947ec832dba7dfcc67daa')
+
+prepare() {
+  mkdir path
+
+  ln -s /usr/bin/python2 path/python
+
+  cd nss-$pkgver
+
+  # https://bugzilla.mozilla.org/show_bug.cgi?id=1382942
+  patch -Np2 -i ../no-plt.diff
+}
+
+build() {
+  export PKG_CONFIG_PATH=/usr/lib32/pkgconfig
+
+  cd nss-$pkgver/nss
+  PATH="$srcdir/path:$PATH" bash -x ./build.sh -v \
+    --m32 --opt --system-sqlite --system-nspr --enable-libpkix --disable-tests
+}
+
+package() {
+  cd nss-$pkgver
+
+  sed nss/pkg/pkg-config/nss.pc.in \
+    -e "s,%libdir%,/usr/lib32,g" \
+    -e "s,%prefix%,/usr,g" \
+    -e "s,%exec_prefix%,/usr/bin,g" \
+    -e "s,%includedir%,/usr/include/nss,g" \
+    -e "s,%NSPR_VERSION%,$_nsprver,g" \
+    -e "s,%NSS_VERSION%,$pkgver,g" |
+    install -Dm644 /dev/stdin "$pkgdir/usr/lib32/pkgconfig/nss.pc"
+
+  ln -s nss.pc "$pkgdir/usr/lib32/pkgconfig/mozilla-nss.pc"
+
+  cd dist/Release/lib
+  install -Dt "$pkgdir/usr/lib32" *.so
+  install -Dt "$pkgdir/usr/lib32" -m644 *.chk
+
+  # Replace built-in trust with p11-kit connection
+  ln -sf libnssckbi-p11-kit.so "$pkgdir/usr/lib32/libnssckbi.so"
+}
