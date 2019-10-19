@@ -1,7 +1,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=19.03.3
+pkgver=19.03.4
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -10,7 +10,7 @@ url='https://www.docker.com/'
 license=('Apache')
 depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'systemd-libs'
          'libseccomp' 'libtool' 'runc' 'containerd')
-makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd' 'go-md2man')
+makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd' 'go-md2man' 'sed')
 optdepends=('btrfs-progs: btrfs backend support'
             'pigz: parallel gzip compressor support')
 # don't strip binaries! A sha1 is used to check binary consistency.
@@ -18,18 +18,21 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
-_LIBNETWORK_COMMIT=45c710223c5fbf04dc3028b9a90b51892e36ca7f
+_LIBNETWORK_COMMIT=3eb39382bfa6a3c42f83674ab080ae13b0e34e5d
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/spf13/cobra.git"
         "$pkgname.sysusers")
-md5sums=('SKIP'
-         'SKIP'
-         'SKIP'
-         'SKIP'
-         '9a8b2744db23b14ca3cd350fdf73c179')
+sha224sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            '4c19a66617d73adf1c0b4b0a63e22cba296fd5af32b9b32a9787ff8d')
 
+prepare() {
+  sed -i 's,/var/run,/run,' docker-ce/components/engine/contrib/init/systemd/docker.socket
+}
 
 # create a fake go path directory and pushd into it
 # $1 real directory
