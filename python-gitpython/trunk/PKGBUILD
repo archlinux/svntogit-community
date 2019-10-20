@@ -5,7 +5,7 @@
 _name=GitPython
 pkgdesc="A python library used to interact with Git repositories"
 pkgname=python-gitpython
-pkgver=3.0.2
+pkgver=3.0.3
 pkgrel=1
 url="https://github.com/gitpython-developers/gitpython"
 license=('BSD')
@@ -15,7 +15,7 @@ makedepends=('python-setuptools')
 checkdepends=('python-ddt' 'python-nose')
 source=("${pkgname}-${pkgver}.tar.gz::https://pypi.org/packages/source/G/${_name}/${_name}-${pkgver}.tar.gz"
         "${pkgname}-${pkgver}.tar.gz.asc::https://pypi.org/packages/source/G/${_name}/${_name}-${pkgver}.tar.gz.asc")
-sha512sums=('3ee5f31a45284f62a7d93500f559b130a62e848ee62bdaa6d18e15982b23d3457fecaa9d82eb5d20473531e69c4e21b6fdceb3ad1a82d73a47bc2112dcf67187'
+sha512sums=('91b64093bce9a41f6c2298fa08a5afe4b8895087fd0b0ef627f71923babd1ea89f3435c6075d013a96dd33969b1fddcfb8a392eeba004b41fbfd122ff2e3379c'
             'SKIP')
 validpgpkeys=('2CF6E0B51AAF73F09B1C21174D1DA68C88710E60') # Sebastian Thiel (In Rust I trust!) <byronimo@gmail.com>
 
@@ -28,14 +28,109 @@ build() {
   python setup.py build
 }
 
-# # tests are broken (only in released pypi sources):
-# # https://github.com/gitpython-developers/GitPython/issues/914
-# check() {
-#   cd "${pkgname}-${pkgver}"
-#   git config --global user.email "something@something.tld"
-#   git config --global user.name "Test User"
-#   nosetests -vd
-# }
+check() {
+  cd "${pkgname}-${pkgver}"
+  local TEST_TMPDIR=$(mktemp -d -t gitpython.XXX)
+  local GITDB_TMPDIR=$(mktemp -d -t gitdb.XXX)
+  local SMMAP_TMPDIR=$(mktemp -d -t smmap.XXX)
+  git config --global user.name "Test User"
+  git config --global user.email "test@user.org"
+  (
+    cd "$SMMAP_TMPDIR"
+    mkdir -vp bare
+    (
+      cd bare
+      git init --bare
+    )
+    git clone bare clone
+    cd clone
+    for commit in {1..50}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+    git push
+  )
+  (
+    cd "$GITDB_TMPDIR"
+    mkdir -vp bare
+    (
+      cd bare
+      git init --bare
+    )
+    git clone bare clone
+    cd clone
+
+    mkdir -vp gitdb/ext
+    git submodule add --name 'smmap' "${SMMAP_TMPDIR}/clone" gitdb/ext/smmap
+    git submodule init gitdb/ext/smmap
+    git add gitdb/ext/smmap
+    git commit -m "Adding smmap submodule"
+
+    for commit in {1..50}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+    git push
+  )
+  (
+    cd "$TEST_TMPDIR"
+    mkdir -vp bare
+    (
+      cd bare
+      git init --bare
+    )
+    git clone bare clone
+    cd clone
+
+    mkdir -vp git/ext
+    git submodule add --name 'gitdb' "${GITDB_TMPDIR}/clone" git/ext/gitdb
+    git submodule update --init --recursive git/ext/gitdb
+    git add git/ext/gitdb
+    git commit -m "Adding gitdb submodule"
+
+    # test hardcodes this file to test against
+    touch AUTHORS
+    git add AUTHORS
+    git commit -m "Adding AUTHORS."
+    # test hardcodes this file to test against
+    touch MANIFEST.in
+    git add MANIFEST.in
+    git commit -m "Adding MANIFEST.in."
+
+    for commit in {1..50}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+    git tag -am '0.1.4' 0.1.4
+    for commit in {51..100}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+    git tag -am '0.1.5' 0.1.5
+    for commit in {101..150}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+    git tag -am '0.1.6' 0.1.6
+    for commit in {151..160}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+    git tag -am '0.3.5' 0.3.5
+
+    git tag __testing_point__
+    git push
+    git push --tags
+  )
+  export GIT_PYTHON_TEST_GIT_REPO_BASE="${TEST_TMPDIR}/clone/.git"
+  nosetests -vd || echo "Test suite relies on checked out repository https://github.com/gitpython-developers/GitPython/issues/914"
+}
 
 package() {
   cd "${pkgname}-${pkgver}"
