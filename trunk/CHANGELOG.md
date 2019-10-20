@@ -1,9 +1,39 @@
-## 0.12.10 (Unreleased)
+## 0.12.13 (Unreleased)
+## 0.12.12 (October 18, 2019)
+
+BUG FIXES:
+
+* backend/remote: Don't do local validation of whether variables are set prior to submitting, because only the remote system knows the full set of configured stored variables and environment variables that might contribute. This avoids erroneous error messages about unset required variables for remote runs when those variables will be set by stored variables in the remote workspace. ([#23122](https://github.com/hashicorp/terraform/issues/23122))
+
+## 0.12.11 (October 17, 2019)
 
 ENHANCEMENTS:
-* `terraform plan` and `terraform apply` will now warn when the `-target` option is used, to draw attention to the fact that the result of applying the plan is likely to be incomplete, and to remind to re-run `terraform plan` with no targets afterwards to ensure that the configuration has converged. [GH-22783]
-* config: New function `parseint` for parsing strings containing digits as integers in various bases. [GH-22747]
-* config: New function `cidrsubnets`, which is a companion to the existing function `cidrsubnet` which can allocate multiple consecutive subnet prefixes (possibly of different prefix lengths) in a single call. [GH-22858]
+
+* backend/s3: Support `role_arn` in AWS configuration files ([#22994](https://github.com/hashicorp/terraform/issues/22994))
+* backend/remote: Remote backend will now ignore all .terraform/ (exclusive of .terraform/modules) and .git/ directories for uploads during remote plans/applies. You can exclude files from upload to TFC by adding a .terraformignore file to your configuration directory, more details at https://www.terraform.io/docs/backends/types/remote.html ([#23105](https://github.com/hashicorp/terraform/issues/23105))
+
+BUG FIXES:
+
+* config: Clean up orphan modules in the presence of -target ([#21313](https://github.com/hashicorp/terraform/issues/21313))
+* config: Always evaluate whole resources rather than instances in expressions, so that invalid instance indexes can return a useful error rather than unknown ([#22846](https://github.com/hashicorp/terraform/issues/22846))
+* command/jsonplan: fix bug with missing nested modules `planned_values` output ([#23092](https://github.com/hashicorp/terraform/issues/23092))
+* command/show: Fix panic when the only resource instance is deposed ([#23027](https://github.com/hashicorp/terraform/issues/23027))
+* commands: When required root module variables are not provided and interactive input is disabled (`-input=false`), produce a proper "variable not defined" error rather than falling through to an internal assertion failure. ([#23040](https://github.com/hashicorp/terraform/issues/23040))
+* provisioner/puppet: fix bug when connection type was not set in config ([#23057](https://github.com/hashicorp/terraform/issues/23057))
+
+## 0.12.10 (October 07, 2019)
+
+ENHANCEMENTS:
+
+* `terraform plan` and `terraform apply` will now warn when the `-target` option is used, to draw attention to the fact that the result of applying the plan is likely to be incomplete, and to remind to re-run `terraform plan` with no targets afterwards to ensure that the configuration has converged. ([#22783](https://github.com/hashicorp/terraform/issues/22783))
+* config: New function `parseint` for parsing strings containing digits as integers in various bases. ([#22747](https://github.com/hashicorp/terraform/issues/22747))
+* config: New function `cidrsubnets`, which is a companion to the existing function `cidrsubnet` which can allocate multiple consecutive subnet prefixes (possibly of different prefix lengths) in a single call. ([#22858](https://github.com/hashicorp/terraform/issues/22858))
+* backend/google: The GCS backend now supports OAuth2 token authentication. ([#21772](https://github.com/hashicorp/terraform/issues/21772))
+* provisioner/habitat: Multiple updates and fixes, see PR for details ([#22705](https://github.com/hashicorp/terraform/issues/22705))
+
+BUG FIXES:
+
+* backend/manta: fix panic when `insecure_skip_tls_verify` was not set ([#22918](https://github.com/hashicorp/terraform/issues/22918))
 
 ## 0.12.9 (September 17, 2019)
 
