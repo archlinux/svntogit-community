@@ -6,7 +6,7 @@ pkgname=minio
 pkgver=2019.10.11
 _timever=T00:38:09Z
 _pkgver="${pkgver//./-}${_timever//:/-}"
-pkgrel=1
+pkgrel=2
 pkgdesc='Object storage server compatible with Amazon S3'
 arch=('x86_64')
 url='https://minio.io'
@@ -32,7 +32,7 @@ build() {
   sed -i "s/Version.*/Version = \"${pkgver//./-}${_timever}\"/g" cmd/build-constants.go
   sed -i "s/ReleaseTag.*/ReleaseTag = \"RELEASE.${_pkgver}\"/g" cmd/build-constants.go
   sed -i "s/CommitID.*/CommitID = \"$(git rev-parse HEAD)\"/g" cmd/build-constants.go
-  GO111MODULE=on go build
+  GO111MODULE=on go build -ldflags "-extldflags $LDFLAGS"
 }
 
 package() {
