@@ -4,7 +4,7 @@
 # Contributor: Christer Edwards <christer.edwards@gmail.com>
 
 pkgname=salt
-pkgver=2019.2.1
+pkgver=2019.2.2
 pkgrel=1
 
 pkgdesc='Central system and configuration manager'
@@ -37,15 +37,19 @@ install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
-sha256sums=('c8fa8318a8e87f788970b83f841bb52f1e873a697e2db9691e284ce248aa930a'
+sha256sums=('75eef973cfc0fe2bb3e5db440e62507420ec4d7fc78758691bd329b02e542586'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
+
+build() {
+  cd salt-$pkgver
+  python2 setup.py build
+}
 
 package() {
   install -Dm644 salt.logrotate "$pkgdir"/etc/logrotate.d/salt
 
   cd salt-$pkgver
-  python2 setup.py clean
-  python2 setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1
+  python2 setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
 
   # default config
   install -Dm644 conf/master "$pkgdir/etc/salt/master"
