@@ -2,7 +2,7 @@
 
 pkgname=python-magic
 pkgver=5.37
-pkgrel=1
+pkgrel=2
 pkgdesc="Python bindings to the magic library"
 arch=('any')
 url='https://darwinsys.com/file/'
