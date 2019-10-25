@@ -2,7 +2,7 @@
 
 pkgname=python-yarg
 pkgver=0.1.9
-pkgrel=2
+pkgrel=3
 pkgdesc="A semi hard Cornish cheese, also queries PyPI (PyPI client)"
 url="https://github.com/kura/yarg"
 license=('MIT')
