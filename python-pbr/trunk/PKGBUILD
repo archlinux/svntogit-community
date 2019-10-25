@@ -5,7 +5,7 @@
 pkgbase=python-pbr
 pkgname=(python-pbr python2-pbr)
 pkgver=5.4.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
