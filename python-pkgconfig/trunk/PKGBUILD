@@ -3,7 +3,7 @@
 pkgbase=python-pkgconfig
 pkgname=(python2-pkgconfig python-pkgconfig)
 pkgver=1.5.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Python module to interface with the pkg-config command line tool"
 arch=(any)
 url="https://github.com/matze/pkgconfig"
