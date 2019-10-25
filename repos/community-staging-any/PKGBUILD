@@ -1,0 +1,60 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: NicoHood <archlinux {cat} nicohood {dog} de>
+# Contributor: Carl George < arch at cgtx dot us >
+
+_name=gitdb2
+pkgdesc="A pure-Python git object database"
+pkgname=python-gitdb
+pkgver=2.0.6
+pkgrel=2
+url="https://github.com/gitpython-developers/gitdb"
+license=('BSD')
+arch=('any')
+depends=('git' 'python-smmap')
+makedepends=('python-setuptools')
+checkdepends=('python-nose')
+source=("${pkgname}-${pkgver}.tar.gz::https://pypi.org/packages/source/g/${_name}/${_name}-${pkgver}.tar.gz"
+        "${pkgname}-${pkgver}.tar.gz.asc::https://pypi.org/packages/source/g/${_name}/${_name}-${pkgver}.tar.gz.asc")
+sha512sums=('a7b5166cb36adfef92e9ec8f2aff690295a657d23f7078a27d0c0fe68208b12356c82c11e589c7f7321b76ccaa0747229d9c5405415c63c5e355f81084e18935'
+            'SKIP')
+validpgpkeys=('2CF6E0B51AAF73F09B1C21174D1DA68C88710E60') # Sebastian Thiel (In Rust I trust!) <byronimo@gmail.com>
+
+prepare() {
+  mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py build
+}
+
+# some tests need to be disabled, because of coupling with the project
+# repository: https://github.com/gitpython-developers/gitdb/issues/51
+check() {
+  cd "${pkgname}-${pkgver}"
+  local TEST_TMPDIR=$(mktemp -d)
+  (
+    cd "$TEST_TMPDIR"
+    git init
+    git config user.name "Test User"
+    git config user.email "test@user.org"
+    for commit in {1..50}; do
+      touch "file${commit}"
+      git add "file${commit}"
+      git commit -m "file${commit}"
+    done
+  )
+  export GITDB_TEST_GIT_REPO_BASE="${TEST_TMPDIR}/.git"
+  nosetests -vd -e 'test_pack_writing'
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py install --skip-build \
+                          --optimize=1 \
+                          --prefix=/usr \
+                          --root="${pkgdir}"
+  install -vDm 644 {AUTHORS,README.rst} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+}
