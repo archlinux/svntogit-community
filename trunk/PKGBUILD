@@ -29,7 +29,7 @@ check() {
   (
     cd tornado-$pkgver
     python setup.py install --root="$PWD/tmp_install" --optimize=1
-    export PYTHONPATH="$PWD/tmp_install/usr/lib/python3.7/site-packages:$PYTHONPATH"
+    export PYTHONPATH="$PWD/tmp_install/usr/lib/python3.8/site-packages:$PYTHONPATH"
     cd tmp_install
     python -m tornado.test.runtests
     python -m tornado.test.runtests --ioloop=tornado.platform.select.SelectIOLoop
