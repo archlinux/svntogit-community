@@ -32,13 +32,13 @@ package() {
 
   cd "$srcdir/testpath"
   for _i in ./*; do
-    install -Dm644 $_i "$pkgdir/usr/lib/python3.7/site-packages/testpath/$_i"
+    install -Dm644 $_i "$pkgdir/usr/lib/python3.8/site-packages/testpath/$_i"
   done
 
   _dist="testpath-$pkgver.dist-info"
   cd "$srcdir/$_dist"
   for _i in ./*; do
-    install -Dm644 $_i "$pkgdir/usr/lib/python3.7/site-packages/$_dist/$_i"
+    install -Dm644 $_i "$pkgdir/usr/lib/python3.8/site-packages/$_dist/$_i"
   done
 
   cd "$srcdir/testpath-$pkgver"
