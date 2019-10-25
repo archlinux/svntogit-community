@@ -1,0 +1,197 @@
+From f57a0b3469159954253b3be6d3147bc902095029 Mon Sep 17 00:00:00 2001
+From: Levente Polyak <levente@leventepolyak.net>
+Date: Fri, 20 Sep 2019 18:34:39 +0200
+Subject: [PATCH] fix static analysis test skips with latest pytest
+
+Latest pytest ensures pytest.skip is being called with a str parameter.
+However, test_static_analysis passed over the skip parameter which
+contains a tuple returned from skip_python_version leading to test
+regression.
+Unify the version skip reasons for both, static analysis and integration
+tests by using a shared BaseTestCase parent to avoid code duplication.
+Furthermore handle test_static_analysis skip_reason extraction
+orthogonal to test_completion.
+---
+ test/conftest.py         | 42 +------------------------
+ test/run.py              | 67 ++++++++++++++++++++++++++++++++++------
+ test/test_integration.py |  5 +--
+ 3 files changed, 61 insertions(+), 53 deletions(-)
+
+diff --git a/test/conftest.py b/test/conftest.py
+index 45bb48e0..389c7c98 100644
+--- a/test/conftest.py
++++ b/test/conftest.py
+@@ -10,7 +10,6 @@ from . import refactor
+ 
+ import jedi
+ from jedi.api.environment import InterpreterEnvironment
+-from jedi.evaluate.analysis import Warning
+ 
+ 
+ def pytest_addoption(parser):
+@@ -85,46 +84,7 @@ def collect_static_analysis_tests(base_dir, test_files):
+         files_to_execute = [a for a in test_files.items() if a[0] in f_name]
+         if f_name.endswith(".py") and (not test_files or files_to_execute):
+             path = os.path.join(base_dir, f_name)
+-            yield StaticAnalysisCase(path)
+-
+-
+-class StaticAnalysisCase(object):
+-    """
+-    Static Analysis cases lie in the static_analysis folder.
+-    The tests also start with `#!`, like the goto_definition tests.
+-    """
+-    def __init__(self, path):
+-        self._path = path
+-        self.name = os.path.basename(path)
+-        with open(path) as f:
+-            self._source = f.read()
+-
+-        self.skip = False
+-        for line in self._source.splitlines():
+-            self.skip = self.skip or run.skip_python_version(line)
+-
+-    def collect_comparison(self):
+-        cases = []
+-        for line_nr, line in enumerate(self._source.splitlines(), 1):
+-            match = re.match(r'(\s*)#! (\d+ )?(.*)$', line)
+-            if match is not None:
+-                column = int(match.group(2) or 0) + len(match.group(1))
+-                cases.append((line_nr + 1, column, match.group(3)))
+-        return cases
+-
+-    def run(self, compare_cb, environment):
+-        analysis = jedi.Script(
+-            self._source,
+-            path=self._path,
+-            environment=environment,
+-        )._analysis()
+-        typ_str = lambda inst: 'warning ' if isinstance(inst, Warning) else ''
+-        analysis = [(r.line, r.column, typ_str(r) + r.name)
+-                    for r in analysis]
+-        compare_cb(self, analysis, self.collect_comparison())
+-
+-    def __repr__(self):
+-        return "<%s: %s>" % (self.__class__.__name__, os.path.basename(self._path))
++            yield run.StaticAnalysisCase(path)
+ 
+ 
+ @pytest.fixture(scope='session')
+diff --git a/test/run.py b/test/run.py
+index 9e87be27..a42549c6 100755
+--- a/test/run.py
++++ b/test/run.py
+@@ -127,6 +127,7 @@ from jedi.api.completion import get_user_scope
+ from jedi import parser_utils
+ from jedi.api.environment import get_default_environment, get_system_environment
+ from jedi.evaluate.gradual.conversion import convert_contexts
++from jedi.evaluate.analysis import Warning
+ 
+ 
+ TEST_COMPLETIONS = 0
+@@ -138,16 +139,8 @@ TEST_USAGES = 3
+ grammar36 = parso.load_grammar(version='3.6')
+ 
+ 
+-class IntegrationTestCase(object):
+-    def __init__(self, test_type, correct, line_nr, column, start, line,
+-                 path=None, skip_version_info=None):
+-        self.test_type = test_type
+-        self.correct = correct
+-        self.line_nr = line_nr
+-        self.column = column
+-        self.start = start
+-        self.line = line
+-        self.path = path
++class BaseTestCase(object):
++    def __init__(self, skip_version_info=None):
+         self._skip_version_info = skip_version_info
+         self._skip = None
+ 
+@@ -175,6 +168,19 @@ class IntegrationTestCase(object):
+                 operator_, min_version[0], min_version[1]
+             )
+ 
++
++class IntegrationTestCase(BaseTestCase):
++    def __init__(self, test_type, correct, line_nr, column, start, line,
++                 path=None, skip_version_info=None):
++        super(IntegrationTestCase, self).__init__(skip_version_info)
++        self.test_type = test_type
++        self.correct = correct
++        self.line_nr = line_nr
++        self.column = column
++        self.start = start
++        self.line = line
++        self.path = path
++
+     @property
+     def module_name(self):
+         return os.path.splitext(os.path.basename(self.path))[0]
+@@ -277,6 +283,47 @@ class IntegrationTestCase(object):
+         return compare_cb(self, compare, sorted(wanted))
+ 
+ 
++class StaticAnalysisCase(BaseTestCase):
++    """
++    Static Analysis cases lie in the static_analysis folder.
++    The tests also start with `#!`, like the goto_definition tests.
++    """
++    def __init__(self, path):
++        self._path = path
++        self.name = os.path.basename(path)
++        with open(path) as f:
++            self._source = f.read()
++
++        skip_version_info = None
++        for line in self._source.splitlines():
++            skip_version_info = skip_python_version(line) or skip_version_info
++
++        super(StaticAnalysisCase, self).__init__(skip_version_info)
++
++    def collect_comparison(self):
++        cases = []
++        for line_nr, line in enumerate(self._source.splitlines(), 1):
++            match = re.match(r'(\s*)#! (\d+ )?(.*)$', line)
++            if match is not None:
++                column = int(match.group(2) or 0) + len(match.group(1))
++                cases.append((line_nr + 1, column, match.group(3)))
++        return cases
++
++    def run(self, compare_cb, environment):
++        analysis = jedi.Script(
++            self._source,
++            path=self._path,
++            environment=environment,
++        )._analysis()
++        typ_str = lambda inst: 'warning ' if isinstance(inst, Warning) else ''
++        analysis = [(r.line, r.column, typ_str(r) + r.name)
++                    for r in analysis]
++        compare_cb(self, analysis, self.collect_comparison())
++
++    def __repr__(self):
++        return "<%s: %s>" % (self.__class__.__name__, os.path.basename(self._path))
++
++
+ def skip_python_version(line):
+     # check for python minimal version number
+     match = re.match(r" *# *python *([<>]=?|==) *(\d+(?:\.\d+)?)$", line)
+diff --git a/test/test_integration.py b/test/test_integration.py
+index 04fbd48e..64239048 100644
+--- a/test/test_integration.py
++++ b/test/test_integration.py
+@@ -45,8 +45,9 @@ def test_completion(case, monkeypatch, environment, has_typing):
+ 
+ 
+ def test_static_analysis(static_analysis_case, environment):
+-    if static_analysis_case.skip is not None:
+-        pytest.skip(static_analysis_case.skip)
++    skip_reason = static_analysis_case.get_skip_reason(environment)
++    if skip_reason is not None:
++        pytest.skip(skip_reason)
+     else:
+         static_analysis_case.run(assert_static_analysis, environment)
+ 
+-- 
+2.23.0
+
