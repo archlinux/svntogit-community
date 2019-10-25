@@ -6,7 +6,7 @@
 # Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi> aka Neverth
 
 pkgname=po4a
-pkgver=0.56
+pkgver=0.57
 pkgrel=1
 pkgdesc="Tools for helping translation of documentation"
 arch=('any')
@@ -17,7 +17,7 @@ makedepends=('docbook-xsl' 'perl-text-wrapi18n' 'perl-locale-gettext'
              'perl-term-readkey' 'perl-sgmls' 'perl-module-build' 'perl-unicode-linebreak')
 options=('!emptydirs')
 source=($pkgname-$pkgver.tar.gz::https://github.com/mquinson/$pkgname/archive/v$pkgver.tar.gz)
-sha256sums=('f5a4fbf17a98a72d0490e004ba373ea2825091c65748f32425413dee6dfe0ea2')
+sha256sums=('0935be23f5bf75685fe76be91dddc4f05e7956c00a067484e119629e9452fafd')
 
 build() {
   cd ${pkgname}-${pkgver}
