@@ -5,7 +5,7 @@
 
 pkgname=('python-pytz' 'python2-pytz')
 pkgver=2019.3
-pkgrel=1
+pkgrel=2
 arch=('any')
 url="https://pypi.python.org/pypi/pytz"
 license=("MIT")
