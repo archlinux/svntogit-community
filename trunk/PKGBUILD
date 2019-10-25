@@ -36,7 +36,7 @@ check() {
 
   cd "$srcdir/wheel-$pkgver"
   python setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.7/site-packages:$PYTHONPATH" py.test
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.8/site-packages:$PYTHONPATH" py.test
 
   cd "$srcdir/wheel-$pkgver-py2"
   python2 setup.py install --root="$PWD/tmp_install" --optimize=1
