@@ -1,7 +1,7 @@
 pkgbase=python-imagesize
 pkgname=('python-imagesize' 'python2-imagesize')
 pkgver=1.1.0
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Getting image size from png/jpeg/jpeg2000/gif file'
 url='https://github.com/shibukawa/imagesize_py'
