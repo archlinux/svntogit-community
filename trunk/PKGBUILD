@@ -29,5 +29,5 @@ package() {
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 
-  mv "$pkgdir"/usr/lib/python3.7/site-packages/{,yarg/}tests
+  mv "$pkgdir"/usr/lib/python3.8/site-packages/{,yarg/}tests
 }
