@@ -3,7 +3,7 @@
 pkgbase=python-importlib-metadata
 pkgname=(python-importlib-metadata python2-importlib-metadata)
 pkgver=0.23
-pkgrel=1
+pkgrel=2
 pkgdesc="Read metadata from Python packages"
 url="https://importlib-metadata.readthedocs.io"
 license=('Apache')
