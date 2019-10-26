@@ -53,9 +53,9 @@ build() {
   cd build
   cmake \
     -DPYTHON_EXECUTABLE=$(which python3) \
-    -DPYTHON_INCLUDE_DIR=$(echo /usr/include/python3*) \
-    -DPYTHON_LIBRARY=$(echo /usr/lib/libpython3.*m.so) \
-    -DGR_PYTHON_DIR=$(echo /usr/lib/python3.*/site-packages/) \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.8 \
+    -DPYTHON_LIBRARY=/usr/lib/libpython3.8.so \
+    -DGR_PYTHON_DIR=/usr/lib/python3.8/site-packages \
     -DENABLE_INTERNAL_VOLK=OFF \
     -DENABLE_GRC=ON \
     -DENABLE_GR_QTGUI=ON \
