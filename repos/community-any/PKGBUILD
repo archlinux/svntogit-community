@@ -5,7 +5,7 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=7.8.0
+pkgver=7.9.0
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
@@ -20,11 +20,9 @@ optdepends=("python-nose: for IPython's test suite")
 # new optional thing: ipyparallel
 
 source=("ipython-$pkgver.tgz::https://github.com/ipython/ipython/archive/$pkgver.tar.gz"
-        "https://pypi.python.org/packages/source/s/simplegeneric/simplegeneric-0.8.1.zip"
         "https://files.pythonhosted.org/packages/source/b/backcall/backcall-0.1.0.tar.gz"
         "https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-md5sums=('901b416961d6a249a8607837c06ba0ac'
-         'f9c1fab00fd981be588fc32759f474e3'
+md5sums=('2d848e39f2eaf91cdea1bda1b0761252'
          '87ce0c7839808e6a3427d57df6a792e7'
          '2901d65f1b1fe354e72850085cd1c072')
 
@@ -35,9 +33,6 @@ package() {
 
   # see https://github.com/ipython/ipython/issues/2057
   #export LC_ALL=en_US.UTF-8
-  python3 setup.py install --prefix=/usr --root="$pkgdir" --optimize=0
-
-  cd "$srcdir/simplegeneric-0.8.1"
   python3 setup.py install --prefix=/usr --root="$pkgdir" --optimize=0
 
   cd "$srcdir/backcall-0.1.0"
