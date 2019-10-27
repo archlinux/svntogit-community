@@ -5,7 +5,7 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=4.6.0
+pkgver=4.7.1
 pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
@@ -15,11 +15,11 @@ makedepends=('git' 'go-pie' 'yarn')
 source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('cfc0cefd80ced597e099fd6755280e2f77837cbf0cbc83df78b4f7ccb5360740c7563408652afb77f9c400d8e0c1e40975fc021a3b1959b1f2b326c9b460e4be'
+sha512sums=('28e3cacea5e31bf978c9eb94d6500330e40c222875e469e7c9a74c9346ff5efbd9a14c8f794fe1a02166ba09c9862cdd60eacb258ff83d67e1699a9a75faaa8c'
             'SKIP'
             '4dcb3f4119959e2b203528a9ed637bf8b07b85964c632a8b2456aa1e2f29fada383a9bc2af8abbb05fcf6b22c43723ce6d08bea8187d61fa6581d15fefae850b'
             '32256b4cc3d2dd1ed645f58981db086af09cfe8d8f8e9d913c1d3731e249282dff699e545bf822e67abd4c36abc04130137e2b6f72877c898d75d602abd99fe7')
-b2sums=('76fd8fcb7ebf28f9e311c9cd18d152a5d5b4e7f546817a91be42f51a05a0bb13e01567a32b9d2160b0cb9cd6cf909dca4d9d45ff61f964628bf5a53606d424a4'
+b2sums=('139d3e0fdd54094926eaaf8be89c2da67b06d167b6c89b52c3d4dd94c159b99bd7093697d48e3ab4831ae685f5c35fb76a430719cd5b972fefabaeca135154cf'
         'SKIP'
         '90aab71ef3b5db0c8ec81967604f43e3532be5f66ce7d9af1bd5204c1fde2062ef356909c03d237a63de93fa3cb045b9c31c3956cbecbea711602804e9d26efd'
         'ffc92d422586ffaa4f1133889140e1ddf5ada0f05d77423c39b5d70bc98538bbe070e71bcfdf205959f929788f8971e60dc918aa3cdb74817b6a5ec21375b1d9')
@@ -76,6 +76,7 @@ package_kbfs() {
     pkgdesc="The Keybase filesystem"
     url="https://keybase.io/docs/kbfs"
     depends=('fuse' 'keybase')
+    install=kbfs.install
 
     cd client-v${pkgver}
 
