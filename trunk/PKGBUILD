@@ -1,4 +1,4 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: Felix Yan <felixonmars@archlinux.org>
 # Contributor: Techlive Zheng <techlivezheng at gmail dot com>
 # Contributor: peace4all <markspost at rocketmail dot com>
