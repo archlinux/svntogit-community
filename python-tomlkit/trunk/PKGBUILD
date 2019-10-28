@@ -4,20 +4,25 @@
 _pkgname=tomlkit
 pkgname=python-tomlkit
 pkgver=0.5.8
-pkgrel=1
+pkgrel=2
 pkgdesc="Style-preserving TOML library for Python"
 url="https://github.com/sdispater/tomlkit"
 license=('MIT')
 arch=('any')
 depends=('python')
-makedepends=('python-dephell')
+#makedepends=('python-dephell')
+makedepends=('python-setuptools')
 checkdepends=('python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_pkgname:0:1}/${_pkgname}/${_pkgname}-${pkgver}.tar.gz")
 sha512sums=('e224ad4522279ea94977eb60739d2a43ddbb2d60bac5d00eaa0a93e06cded14eb030c3438ec4be982437c75cc317d89c674fc9e00239e12f41a4ac57285be3e1')
 
 prepare() {
   cd tomlkit-$pkgver
-  dephell deps convert --from pyproject.toml --to setup.py
+
+  # poetry-generated setup.py is badly broken in several ways, including
+  # distribution of tests in the built package as well as using distutils for
+  # bad metadata. See https://github.com/sdispater/poetry/issues/866
+  #dephell deps convert --from pyproject.toml --to setup.py
 }
 
 build() {
