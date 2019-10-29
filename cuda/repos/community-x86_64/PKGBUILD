@@ -1,9 +1,9 @@
 # Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
-# Co-Maintainer: Konstantin Gizdov <arch@kge.pw>
+# Maintainer: Konstantin Gizdov <arch@kge.pw>
 pkgname=cuda
 pkgver=10.1.243
 _driverver=418.87.00
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -77,6 +77,11 @@ package() {
 
   # Allow GCC 9 to work
   sed -i "/.*unsupported GNU version.*/d" "${pkgdir}"/opt/cuda/targets/x86_64-linux/include/crt/host_config.h
+
+  # Fix Makefile paths to CUDA
+  for f in $(find "$pkgdir"/opt/cuda -name Makefile); do
+    sed -i "s|/usr/local/cuda|/opt/cuda|g" "$f"
+  done
 }
 
 # vim:set ts=2 sw=2 et:
