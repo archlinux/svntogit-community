@@ -1,9 +1,9 @@
 # Maintainer: Nicola Squartini <tensor5@gmail.com>
 
 pkgname=electron
-pkgver=6.1.1
-_commit=aa863bc323d8ddfcae9e1211d9c2cb05f1f77c46
-_chromiumver=76.0.3809.146
+pkgver=7.0.0
+_commit=3083693e67632720b8d12b32d3811be0f4336318
+_chromiumver=78.0.3905.1
 pkgrel=1
 pkgdesc='Build cross platform desktop apps with web technologies'
 arch=('x86_64')
@@ -12,7 +12,7 @@ license=('MIT' 'custom')
 depends=('c-ares' 'ffmpeg' 'gtk3' 'http-parser' 'libevent' 'libnghttp2'
          'libxslt' 'libxss' 'minizip' 'nss' 're2' 'snappy')
 makedepends=('clang' 'git' 'gn' 'gperf' 'harfbuzz-icu' 'java-runtime-headless'
-             'jsoncpp' 'libnotify' 'lld' 'llvm' 'ninja' 'npm' 'pciutils'
+             'jsoncpp' 'libnotify' 'lld' 'llvm' 'ninja' 'npm' 'pciutils' 'yarn'
              'python2' 'wget' 'yasm')
 optdepends=('kde-cli-tools: file deletion support (kioclient5)'
             'trash-cli: file deletion support (trash-put)'
@@ -23,13 +23,17 @@ source=('git+https://github.com/electron/electron.git'
         'default_app-icon.patch'
         'use-system-libraries-in-node.patch'
         'chromium-skia-harmony.patch'
+        'chromium-system-icu.patch'
+        'chromium-system-zlib.patch'
        )
 sha256sums=('SKIP'
             'SKIP'
             '5270db01f3f8aaa5137dec275a02caa832b7f2e37942e068cba8d28b3a29df39'
-            '545196274b7fac0cf1e1169624bbc67414bb47a65c5112c88b6c0f4f9cb5914c'
+            '3d97c2b6d83a0c6dd22609484abd841a1c34dde45bd024cccbb85d4ae249dff5'
             'c7eadac877179e586d0cce7f898aa1462b4c207733e68ecc17de9754b691713a'
             '771292942c0901092a402cc60ee883877a99fb804cb54d568c8c6c94565a48e1'
+            'e73cc2ee8d3ea35aab18c478d76fdfc68ca4463e1e10306fa1e738c03b3f26b5'
+            'eb67eda4945a89c3b90473fa8dc20637511ca4dcb58879a8ed6bf403700ca9c8'
            )
 
 _system_libs=('ffmpeg'
@@ -97,11 +101,15 @@ prepare() {
   python2 src/third_party/depot_tools/download_from_google_storage.py \
     --no_resume --extract --no_auth --bucket chromium-nodejs \
     -s src/third_party/node/node_modules.tar.gz.sha1
-  vpython src/chrome/android/profiles/update_afdo_profile.py
+  vpython src/tools/download_cros_provided_profile.py \
+    --newest_state=src/chrome/android/profiles/newest.txt \
+    --local_state=src/chrome/android/profiles/local.txt \
+    --output_name=src/chrome/android/profiles/afdo.prof \
+    --gs_url_base=chromeos-prebuilt/afdo-job/llvm
   python2 src/electron/script/apply_all_patches.py \
-      src/electron/patches/common/config.json
+      src/electron/patches/config.json
   cd src/electron
-  npm install
+  yarn install --frozen-lockfile
   cd ..
 
   echo "Patching Chromium for using system libraries..."
@@ -125,6 +133,8 @@ prepare() {
 
   echo "Applying local patches..."
   patch -Np0 -i ../chromium-skia-harmony.patch
+  patch -Np1 -i ../chromium-system-icu.patch
+  patch -Np1 -i ../chromium-system-zlib.patch
   patch -Np1 -i ../use-system-libraries-in-node.patch
   patch -Np1 -i ../default_app-icon.patch  # Icon from .desktop file
 }
@@ -134,6 +144,10 @@ build() {
   export CXX=clang++
   export AR=ar
   export NM=nm
+
+  # Do not warn about unknown warning options
+  CFLAGS+='   -Wno-unknown-warning-option'
+  CXXFLAGS+=' -Wno-unknown-warning-option'
 
   cd src
   export CHROMIUM_BUILDTOOLS_PATH="${PWD}/buildtools"
