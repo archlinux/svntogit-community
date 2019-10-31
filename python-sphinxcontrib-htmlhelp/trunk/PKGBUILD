@@ -3,7 +3,7 @@
 _name=sphinxcontrib-htmlhelp
 pkgname=python-sphinxcontrib-htmlhelp
 pkgver=1.0.2
-pkgrel=3
+pkgrel=4
 pkgdesc='Sphinx extension which renders HTML help files'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-htmlhelp
