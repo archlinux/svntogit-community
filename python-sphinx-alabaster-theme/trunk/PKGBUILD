@@ -4,7 +4,7 @@
 pkgbase=python-sphinx-alabaster-theme
 pkgname=(python-sphinx-alabaster-theme python2-sphinx-alabaster-theme)
 pkgver=0.7.12
-pkgrel=2
+pkgrel=3
 
 pkgdesc="Sphinx default theme"
 url='https://github.com/bitprophet/alabaster'
