@@ -3,7 +3,7 @@
 _name=sphinxcontrib-devhelp
 pkgname=python-sphinxcontrib-devhelp
 pkgver=1.0.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Sphinx extension which outputs Devhelp document'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-devhelp
