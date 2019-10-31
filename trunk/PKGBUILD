@@ -3,7 +3,7 @@
 
 pkgname=nuitka
 pkgver=0.6.4
-pkgrel=2
+pkgrel=3
 pkgdesc='Python compiler that produces faster executables and depends on libpython'
 arch=(any)
 url='https://nuitka.net/'
