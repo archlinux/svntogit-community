@@ -4,7 +4,7 @@
 pkgbase=python-ecdsa
 pkgname=('python-ecdsa' 'python2-ecdsa')
 pkgver=0.13.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Implementation of ECDSA in Python"
 arch=('any')
 url="https://github.com/warner/python-ecdsa"
