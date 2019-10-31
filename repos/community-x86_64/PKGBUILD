@@ -4,7 +4,7 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.0.30
+pkgver=2.0.31
 pkgrel=1
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTPS"
 arch=('x86_64')
@@ -24,7 +24,7 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/jedisct1/${pkgname}/arc
         "${pkgname}.service"
         "${pkgname}.socket"
         'configuration.diff')
-sha512sums=('a978ae408ceaf98b16c53bff620fa21077afb646a5e460afc1a56ad053aef7b775c5769caab030d662d82478522b027ce379ff5a60b49b0da5ae292102fb9522'
+sha512sums=('500c800213b94bf8ecbea7493716de5fe41afd584c70844519f1f50827b94a28ec982f2c2b85f7a281dca58273ba968113beed6a965c62bb3dc47ab83d7a1629'
             'aa871927bbc37d0c629e75a39cbfe50ce6062a19d7fe5b61895c604d6a480ba8f484cf207943c6ee7bf2dc3c7799d8f7a2b1ea5c8e586920c97730a7c503985e'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
             '6144f3d33f3d85c9a4e5573f88e92f1b9d7118fd654072eeac6c3f76085086d4b2464e1d3579d8501153f453bc5125859d148fc3b3486d26368d1f51911aeb33')
