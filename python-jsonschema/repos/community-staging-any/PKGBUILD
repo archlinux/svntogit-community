@@ -6,7 +6,7 @@
 pkgbase=python-jsonschema
 pkgname=('python-jsonschema' 'python2-jsonschema')
 pkgver=3.0.2
-pkgrel=2
+pkgrel=3
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
 url="https://pypi.python.org/pypi/jsonschema"
