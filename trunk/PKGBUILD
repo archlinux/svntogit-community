@@ -4,7 +4,7 @@
 _name=dulwich
 pkgname=python-dulwich
 pkgver=0.19.13
-pkgrel=2
+pkgrel=3
 pkgdesc='Pure-Python implementation of the Git file formats and protocols'
 arch=('x86_64')
 url=https://www.dulwich.io
