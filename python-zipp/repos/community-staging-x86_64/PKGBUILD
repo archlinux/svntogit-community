@@ -3,7 +3,7 @@
 pkgbase=python-zipp
 pkgname=(python-zipp python2-zipp)
 pkgver=0.6.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
 license=('MIT')
