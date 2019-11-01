@@ -26,7 +26,7 @@ check() {
   py.test
 }
 
-package_python-semantic-version() {
+package() {
   cd python-semanticversion-$pkgver
   python3 setup.py install --root="$pkgdir" --optimize=1
   install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
