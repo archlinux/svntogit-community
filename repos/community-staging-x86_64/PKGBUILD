@@ -4,7 +4,7 @@
 pkgbase=python-msgpack
 pkgname=('python-msgpack' 'python2-msgpack')
 pkgver=0.6.2
-pkgrel=2
+pkgrel=3
 
 url='https://github.com/msgpack/msgpack-python'
 arch=('x86_64')
