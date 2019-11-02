@@ -19,8 +19,8 @@ provides=(fastboot adb)
 conflicts=(fastboot adb)
 _boringssl_commit=$(curl https://android.googlesource.com/platform/external/boringssl/+/refs/tags/$tag/BORINGSSL_REVISION?format=TEXT | base64 -d)
 source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$tag
-	git+https://android.googlesource.com/platform/frameworks/native#tag=$tag
-	git+https://android.googlesource.com/platform/system/core#tag=$tag
+        git+https://android.googlesource.com/platform/frameworks/native#tag=$tag
+        git+https://android.googlesource.com/platform/system/core#tag=$tag
         git+https://android.googlesource.com/platform/system/extras#tag=$tag
         git+https://android.googlesource.com/platform/system/tools/mkbootimg#tag=$tag
         git+https://android.googlesource.com/platform/external/selinux#tag=$tag
@@ -40,7 +40,7 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$tag
 #   lunch full-eng
 #   mmm system/core/adb/
 #   cp ./target/product/generic/system/framework/deployagent.jar .
-	deployagent.jar
+        deployagent.jar
         fix_build_core.patch
         bash_completion.fastboot)
         # Bash completion file was taken from https://github.com/mbrubeck/android-completion
