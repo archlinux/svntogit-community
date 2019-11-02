@@ -4,7 +4,7 @@
 pkgbase=python-pybtex-docutils
 pkgname=(python-pybtex-docutils python2-pybtex-docutils)
 pkgver=0.2.1
-pkgrel=3
+pkgrel=4
 pkgdesc="A docutils backend for pybtex"
 arch=("any")
 url="https://github.com/mcmtroffaes/pybtex-docutils"
