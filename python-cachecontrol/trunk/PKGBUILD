@@ -13,14 +13,17 @@ makedepends=('python-msgpack' 'python-requests' 'python2-msgpack' 'python2-reque
 checkdepends=('python-mock' 'python-pytest' 'python-lockfile' 'python-cherrypy'
               'python2-mock' 'python2-pytest' 'python2-lockfile' 'python2-cherrypy')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz"
-        "0001-Remove-unnecessary-console-script.patch")
+        "0001-Remove-unnecessary-console-script.patch"
+         cachecontrol-pytest4.patch::"https://github.com/ionrock/cachecontrol/commit/2b886af2.patch")
 sha256sums=('d3876bbd614968e0d82c95734b380fca648661416fb14dc1a50514256e521089'
-            'a2c93d4852887152027140bdd54030d5363876b02e5eabee6a018d4e946a87b1')
+            'a2c93d4852887152027140bdd54030d5363876b02e5eabee6a018d4e946a87b1'
+            '83273fc1a39baa46a504f54457997f5301947a82989853f9b2c6c19bfb6ecdfc')
 
 prepare() {
     cd "${srcdir}"/${_pkgname}-${pkgver}
 
     patch -p1 -i ../0001-Remove-unnecessary-console-script.patch
+    patch -p1 -i ../cachecontrol-pytest4.patch # Fix tests with pytest 4
 }
 
 build() {
