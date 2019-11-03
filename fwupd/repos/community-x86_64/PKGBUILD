@@ -2,7 +2,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.3.2
+pkgver=1.3.3
 pkgrel=1
 pkgdesc="A simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -10,8 +10,8 @@ url="https://github.com/fwupd/fwupd"
 license=(LGPL)
 depends=(libxmlb efivar python libsmbios libgusb
          libsoup json-glib gcab libarchive gpgme
-         libgudev polkit shared-mime-info modemmanager)
-optdepends=('tpm2-tss: UEFI plugin')
+         libgudev polkit shared-mime-info modemmanager
+         tpm2-tss)
 makedepends=(meson valgrind gobject-introspection gtk-doc
              python-cairo noto-fonts noto-fonts-cjk python-gobject vala
              bash-completion python-pillow help2man gnu-efi-libs tpm2-tss)
@@ -26,17 +26,8 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/remotes.d/vendor.conf'
         'etc/fwupd/uefi.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('33a52b6140b6b0860db649674d0b9af23387328cf92a2eafd8f3a766f365891e'
-            'SKIP')
+sha256sums=('14ff660549b7cb7bdabc330868e00665f538cf666dee3fc982d47d8bfac61f5b' 'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
-
-prepare() {
-  cd ${pkgname}-${pkgver}
-
-  # This tests are failing inside a chroot
-  sed -i "/test('uefi-self-test', e)/d" plugins/uefi/meson.build
-  sed -i "/test('dell-self-test', e)/d" plugins/dell/meson.build
-}
 
 build() {
     cd ${pkgname}-${pkgver}
