@@ -1,0 +1,327 @@
+diff --git a/aiohttp/connector.py b/aiohttp/connector.py
+index da37e0d9..29dda832 100644
+--- a/aiohttp/connector.py
++++ b/aiohttp/connector.py
+@@ -964,7 +964,7 @@ class TCPConnector(BaseConnector):
+             hosts = await asyncio.shield(self._resolve_host(
+                 host,
+                 port,
+-                traces=traces), loop=self._loop)
++                traces=traces))
+         except OSError as exc:
+             # in case of proxy it is not ClientProxyConnectionError
+             # it is problem of resolving proxy ip itself
+diff --git a/aiohttp/locks.py b/aiohttp/locks.py
+index ed41f979..88b9d3e3 100644
+--- a/aiohttp/locks.py
++++ b/aiohttp/locks.py
+@@ -18,7 +18,7 @@ class EventResultOrError:
+     def __init__(self, loop: asyncio.AbstractEventLoop) -> None:
+         self._loop = loop
+         self._exc = None  # type: Optional[BaseException]
+-        self._event = asyncio.Event(loop=loop)
++        self._event = asyncio.Event()
+         self._waiters = collections.deque()  # type: Deque[asyncio.Future[Any]]
+ 
+     def set(self, exc: Optional[BaseException]=None) -> None:
+diff --git a/aiohttp/test_utils.py b/aiohttp/test_utils.py
+index ebfa9732..88a3438e 100644
+--- a/aiohttp/test_utils.py
++++ b/aiohttp/test_utils.py
+@@ -245,7 +245,7 @@ class TestClient:
+         self._server = server
+         self._loop = loop
+         if cookie_jar is None:
+-            cookie_jar = aiohttp.CookieJar(unsafe=True, loop=loop)
++            cookie_jar = aiohttp.CookieJar(unsafe=True)
+         self._session = ClientSession(loop=loop,
+                                       cookie_jar=cookie_jar,
+                                       **kwargs)
+diff --git a/aiohttp/web_server.py b/aiohttp/web_server.py
+index ad746ed0..9bfd0eda 100644
+--- a/aiohttp/web_server.py
++++ b/aiohttp/web_server.py
+@@ -50,7 +50,7 @@ class Server:
+ 
+     async def shutdown(self, timeout: Optional[float]=None) -> None:
+         coros = [conn.shutdown(timeout) for conn in self._connections]
+-        await asyncio.gather(*coros, loop=self._loop)
++        await asyncio.gather(*coros)
+         self._connections.clear()
+ 
+     def __call__(self) -> RequestHandler:
+diff --git a/tests/test_client_request.py b/tests/test_client_request.py
+index ba73317e..b095dc0e 100644
+--- a/tests/test_client_request.py
++++ b/tests/test_client_request.py
+@@ -779,7 +779,7 @@ async def test_chunked2(loop, conn) -> None:
+ 
+ async def test_chunked_explicit(loop, conn) -> None:
+     req = ClientRequest(
+-        'post', URL('http://python.org/'), chunked=True, loop=loop)
++        'post', URL('http://python.org/'), chunked=True)
+     with mock.patch('aiohttp.client_reqrep.StreamWriter') as m_writer:
+         m_writer.return_value.write_headers = make_mocked_coro()
+         resp = await req.send(conn)
+@@ -794,14 +794,14 @@ async def test_chunked_length(loop, conn) -> None:
+     with pytest.raises(ValueError):
+         ClientRequest(
+             'post', URL('http://python.org/'),
+-            headers={'CONTENT-LENGTH': '1000'}, chunked=True, loop=loop)
++            headers={'CONTENT-LENGTH': '1000'}, chunked=True)
+ 
+ 
+ async def test_chunked_transfer_encoding(loop, conn) -> None:
+     with pytest.raises(ValueError):
+         ClientRequest(
+             'post', URL('http://python.org/'),
+-            headers={'TRANSFER-ENCODING': 'chunked'}, chunked=True, loop=loop)
++            headers={'TRANSFER-ENCODING': 'chunked'}, chunked=True)
+ 
+ 
+ async def test_file_upload_not_chunked(loop) -> None:
+@@ -861,7 +861,7 @@ async def test_file_upload_force_chunked(loop) -> None:
+ 
+ async def test_expect100(loop, conn) -> None:
+     req = ClientRequest('get', URL('http://python.org/'),
+-                        expect100=True, loop=loop)
++                        expect100=True)
+     resp = await req.send(conn)
+     assert '100-continue' == req.headers['EXPECT']
+     assert req._continue is not None
+@@ -979,7 +979,7 @@ async def test_data_stream_exc_deprecated(loop, conn) -> None:
+     assert req.headers['TRANSFER-ENCODING'] == 'chunked'
+ 
+     async def throw_exc():
+-        await asyncio.sleep(0.01, loop=loop)
++        await asyncio.sleep(0.01)
+         fut.set_exception(ValueError)
+ 
+     loop.create_task(throw_exc())
+@@ -1034,7 +1034,7 @@ async def test_data_stream_exc_chain_deprecated(loop, conn) -> None:
+     inner_exc = ValueError()
+ 
+     async def throw_exc():
+-        await asyncio.sleep(0.01, loop=loop)
++        await asyncio.sleep(0.01)
+         fut.set_exception(inner_exc)
+ 
+     loop.create_task(throw_exc())
+@@ -1058,7 +1058,7 @@ async def test_data_stream_continue(loop, buf, conn) -> None:
+ 
+     req = ClientRequest(
+         'POST', URL('http://python.org/'), data=gen(),
+-        expect100=True, loop=loop)
++        expect100=True)
+     assert req.chunked
+ 
+     async def coro():
+@@ -1085,11 +1085,11 @@ async def test_data_stream_continue_deprecated(loop, buf, conn) -> None:
+ 
+     req = ClientRequest(
+         'POST', URL('http://python.org/'), data=gen(),
+-        expect100=True, loop=loop)
++        expect100=True)
+     assert req.chunked
+ 
+     async def coro():
+-        await asyncio.sleep(0.0001, loop=loop)
++        await asyncio.sleep(0.0001)
+         req._continue.set_result(1)
+ 
+     loop.create_task(coro())
+@@ -1105,7 +1105,7 @@ async def test_data_stream_continue_deprecated(loop, buf, conn) -> None:
+ async def test_data_continue(loop, buf, conn) -> None:
+     req = ClientRequest(
+         'POST', URL('http://python.org/'), data=b'data',
+-        expect100=True, loop=loop)
++        expect100=True)
+ 
+     async def coro():
+         await asyncio.sleep(0.0001)
+@@ -1140,7 +1140,7 @@ async def test_close_deprecated(loop, buf, conn) -> None:
+     with pytest.warns(DeprecationWarning):
+         @aiohttp.streamer
+         async def gen(writer):
+-            await asyncio.sleep(0.00001, loop=loop)
++            await asyncio.sleep(0.00001)
+             await writer.write(b'result')
+ 
+     req = ClientRequest(
+diff --git a/tests/test_connector.py b/tests/test_connector.py
+index f0ff01d8..3a1d6d2f 100644
+--- a/tests/test_connector.py
++++ b/tests/test_connector.py
+@@ -193,7 +193,7 @@ async def test_del_with_scheduled_cleanup(loop) -> None:
+         # obviously doesn't deletion because loop has a strong
+         # reference to connector's instance method, isn't it?
+         del conn
+-        await asyncio.sleep(0.01, loop=loop)
++        await asyncio.sleep(0.01)
+         gc.collect()
+ 
+     assert not conns_impl
+@@ -1423,7 +1423,7 @@ async def test_connect_with_limit(loop, key) -> None:
+ 
+     task = loop.create_task(f())
+ 
+-    await asyncio.sleep(0.01, loop=loop)
++    await asyncio.sleep(0.01)
+     assert not acquired
+     connection1.release()
+     await asyncio.sleep(0, loop=loop)
+@@ -1486,7 +1486,7 @@ async def test_connect_queued_operation_tracing(loop, key) -> None:
+         connection2.release()
+ 
+     task = asyncio.ensure_future(f(), loop=loop)
+-    await asyncio.sleep(0.01, loop=loop)
++    await asyncio.sleep(0.01)
+     connection1.release()
+     await task
+     conn.close()
+@@ -1557,7 +1557,7 @@ async def test_connect_with_limit_and_limit_per_host(loop, key) -> None:
+ 
+     task = loop.create_task(f())
+ 
+-    await asyncio.sleep(0.01, loop=loop)
++    await asyncio.sleep(0.01)
+     assert not acquired
+     connection1.release()
+     await asyncio.sleep(0, loop=loop)
+@@ -1589,7 +1589,7 @@ async def test_connect_with_no_limit_and_limit_per_host(loop, key) -> None:
+ 
+     task = loop.create_task(f())
+ 
+-    await asyncio.sleep(0.01, loop=loop)
++    await asyncio.sleep(0.01)
+     assert not acquired
+     connection1.release()
+     await asyncio.sleep(0, loop=loop)
+@@ -1623,7 +1623,7 @@ async def test_connect_with_no_limits(loop, key) -> None:
+ 
+     task = loop.create_task(f())
+ 
+-    await asyncio.sleep(0.01, loop=loop)
++    await asyncio.sleep(0.01)
+     assert acquired
+     connection1.release()
+     await task
+@@ -1653,7 +1653,7 @@ async def test_connect_with_limit_cancelled(loop) -> None:
+     with pytest.raises(asyncio.TimeoutError):
+         # limit exhausted
+         await asyncio.wait_for(conn.connect(req, None, ClientTimeout()),
+-                               0.01, loop=loop)
++                               0.01)
+     connection.close()
+ 
+ 
+@@ -1724,13 +1724,13 @@ async def test_connect_with_limit_concurrent(loop) -> None:
+         num_requests += 1
+         if not start:
+             connection = await conn.connect(req, None, ClientTimeout())
+-            await asyncio.sleep(0, loop=loop)
++            await asyncio.sleep(0)
+             connection.release()
+         tasks = [
+             loop.create_task(f(start=False))
+             for i in range(start_requests)
+         ]
+-        await asyncio.wait(tasks, loop=loop)
++        await asyncio.wait(tasks)
+ 
+     await f()
+     conn.close()
+@@ -2245,7 +2245,7 @@ class TestDNSCacheTable:
+     async def test_expired_ttl(self, loop) -> None:
+         dns_cache_table = _DNSCacheTable(ttl=0.01)
+         dns_cache_table.add('localhost', ['127.0.0.1'])
+-        await asyncio.sleep(0.02, loop=loop)
++        await asyncio.sleep(0.02)
+         assert dns_cache_table.expired('localhost')
+ 
+     def test_next_addrs(self, dns_cache_table) -> None:
+diff --git a/tests/test_loop.py b/tests/test_loop.py
+index 25d36c70..7609e410 100644
+--- a/tests/test_loop.py
++++ b/tests/test_loop.py
+@@ -13,7 +13,7 @@ from aiohttp.test_utils import AioHTTPTestCase, unittest_run_loop
+ async def test_subprocess_co(loop) -> None:
+     assert isinstance(threading.current_thread(), threading._MainThread)
+     proc = await asyncio.create_subprocess_shell(
+-        "exit 0", loop=loop, stdin=asyncio.subprocess.DEVNULL,
++        "exit 0", stdin=asyncio.subprocess.DEVNULL,
+         stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+     await proc.wait()
+ 
+diff --git a/tests/test_proxy_functional.py b/tests/test_proxy_functional.py
+index 58600c3a..9863d857 100644
+--- a/tests/test_proxy_functional.py
++++ b/tests/test_proxy_functional.py
+@@ -209,7 +209,7 @@ async def test_proxy_http_acquired_cleanup_force(proxy_test_server,
+                                                  loop) -> None:
+     url = 'http://aiohttp.io/path'
+ 
+-    conn = aiohttp.TCPConnector(force_close=True, loop=loop)
++    conn = aiohttp.TCPConnector(force_close=True)
+     sess = aiohttp.ClientSession(connector=conn, loop=loop)
+     proxy = await proxy_test_server()
+ 
+@@ -417,7 +417,7 @@ async def xtest_proxy_https_acquired_cleanup(proxy_test_server, loop):
+ async def xtest_proxy_https_acquired_cleanup_force(proxy_test_server, loop):
+     url = 'https://secure.aiohttp.io/path'
+ 
+-    conn = aiohttp.TCPConnector(force_close=True, loop=loop)
++    conn = aiohttp.TCPConnector(force_close=True)
+     sess = aiohttp.ClientSession(connector=conn, loop=loop)
+     proxy = await proxy_test_server()
+ 
+diff --git a/tests/test_web_protocol.py b/tests/test_web_protocol.py
+index eaec2650..69311b32 100644
+--- a/tests/test_web_protocol.py
++++ b/tests/test_web_protocol.py
+@@ -843,10 +843,7 @@ async def test_client_disconnect(aiohttp_server) -> None:
+     app.router.add_route('POST', '/', handler)
+     server = await aiohttp_server(app, logger=logger)
+ 
+-    if helpers.PY_38:
+-        writer = await asyncio.connect('127.0.0.1', server.port)
+-    else:
+-        _, writer = await asyncio.open_connection('127.0.0.1', server.port)
++    _, writer = await asyncio.open_connection('127.0.0.1', server.port)
+     writer.write("""POST / HTTP/1.1\r
+ Connection: keep-alive\r
+ Content-Length: 10\r
+diff --git a/tests/test_web_websocket_functional.py b/tests/test_web_websocket_functional.py
+index 2cc83098..3b64a50a 100644
+--- a/tests/test_web_websocket_functional.py
++++ b/tests/test_web_websocket_functional.py
+@@ -274,7 +274,7 @@ async def test_close_timeout(loop, aiohttp_client) -> None:
+     # The server closes here.  Then the client sends bogus messages with an
+     # internval shorter than server-side close timeout, to make the server
+     # hanging indefinitely.
+-    await asyncio.sleep(0.08, loop=loop)
++    await asyncio.sleep(0.08)
+     msg = await ws._reader.read()
+     assert msg.type == WSMsgType.CLOSE
+     await ws.send_str('hang')
+@@ -282,16 +282,16 @@ async def test_close_timeout(loop, aiohttp_client) -> None:
+     # i am not sure what do we test here
+     # under uvloop this code raises RuntimeError
+     try:
+-        await asyncio.sleep(0.08, loop=loop)
++        await asyncio.sleep(0.08)
+         await ws.send_str('hang')
+-        await asyncio.sleep(0.08, loop=loop)
++        await asyncio.sleep(0.08)
+         await ws.send_str('hang')
+-        await asyncio.sleep(0.08, loop=loop)
++        await asyncio.sleep(0.08)
+         await ws.send_str('hang')
+     except RuntimeError:
+         pass
+ 
+-    await asyncio.sleep(0.08, loop=loop)
++    await asyncio.sleep(0.08)
+     assert (await aborted)
+ 
+     await ws.close()
