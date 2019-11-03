@@ -3,7 +3,7 @@
 
 pkgname=twine
 pkgver=1.15.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
 url='https://pypi.python.org/pypi/twine'
