@@ -8,7 +8,7 @@
 
 pkgname=calibre
 pkgver=4.2.0
-pkgrel=4
+pkgrel=5
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -24,13 +24,13 @@ optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
-         calibre-qt-5.13.2.patch::"https://github.com/kovidgoyal/calibre/commit/6cccd18b.patch")
+         "calibre-qt-5.13.2.patch")
 sha256sums=('b1b626acdcc3b29ae96489e7424389161bd6529545f47c0d2b063b99131286d8'
             'SKIP'
-            'e04ebcae81459b60c9b165ac494d7a5e2cb14a1da2af4b8ad890b0f4f6027fcd')
+            'c4e952ad1bb15cb0c8c36e34b6f056d4263b74f9322ab611de5a73dd0004f2be')
 b2sums=('a37baae9c77ae2535782c5ee2095a33874c394b7f6415f4aac2752330c6cac3972723e75b90d38955a67a5df90de4318b740ca357b7149f610245f1895482437'
         'SKIP'
-        '5fabab94ed39ef63daa87e3f42b87cc8631113b670eb9698566682d2719c3816e5b54a4c1b49e77a962c82a19c4cb49c81896318f8ce9a8cf37db8a138d4ee2c')
+        '1778ba195a5088aa65d74ad22e255200f4d7304ee543077e15b08793cb6877c1e7bf45b9b63fb3beba9d6ad667c1d1ddb3218f9d539e252162fe9f33a5c17616')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
