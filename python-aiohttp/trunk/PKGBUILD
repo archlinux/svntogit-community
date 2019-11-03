@@ -18,9 +18,11 @@ checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
               'python-pytest-xdist' 'python-pytest-forked' 'python-pytest-cov'
               'python-trustme' 'python-freezegun')
 source=(${pkgname}::"git+https://github.com/aio-libs/aiohttp#commit=${_gitcommit}"
-        git+https://github.com/nodejs/http-parser)
+        git+https://github.com/nodejs/http-parser
+        aiohttp-python-3.8.patch)
 sha512sums=('SKIP'
-            'SKIP')
+            'SKIP'
+            '2a8e2851d23c848ae3bc53cee4b296decf195ac854dffd8685fd43801870fb4854936b273a16e72d582ef055a16c1d580d4feda51f905c981e09364dbee5c2d9')
 
 pkgver() {
   cd ${pkgname}
@@ -33,6 +35,8 @@ prepare() {
   git config submodule."vendor/http-parser".url "${srcdir}/http-parser"
   git submodule update --recursive
   sed 's|.install-cython ||' -i Makefile
+
+  patch -p1 -i ../aiohttp-python-3.8.patch # Fix warnings with python 3.8
 }
 
 build() {
