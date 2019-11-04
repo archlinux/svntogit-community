@@ -4,7 +4,7 @@
 
 pkgname=mypy
 pkgver=0.730
-pkgrel=2
+pkgrel=3
 pkgdesc='Optional static typing for Python 2 and 3 (PEP484)'
 url="http://www.mypy-lang.org/"
 arch=('any')
