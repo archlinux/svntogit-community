@@ -1,0 +1,591 @@
+diff -Naur qreator-16.06.2.orig/data/ui/QreatorWindow.ui qreator-16.06.2/data/ui/QreatorWindow.ui
+--- qreator-16.06.2.orig/data/ui/QreatorWindow.ui	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/data/ui/QreatorWindow.ui	2019-04-03 10:29:17.331552075 +0200
+@@ -35,7 +35,7 @@
+             </child>
+             <child internal-child="ok_button">
+               <object class="GtkButton" id="colorselectiondialog-ok_button1">
+-                <property name="label">_Selecciona</property>
++                <property name="label" translatable="yes">Select</property>
+                 <property name="can_focus">True</property>
+                 <property name="can_default">True</property>
+                 <property name="receives_default">True</property>
+@@ -79,7 +79,6 @@
+             <property name="can_focus">False</property>
+             <property name="border_width">5</property>
+             <property name="orientation">vertical</property>
+-            <signal name="color-changed" handler="on_colorselectiondialog_color_selection1_color_changed" swapped="no"/>
+           </object>
+           <packing>
+             <property name="expand">False</property>
+diff -Naur qreator-16.06.2.orig/qreator/__init__.py qreator-16.06.2/qreator/__init__.py
+--- qreator-16.06.2.orig/qreator/__init__.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/__init__.py	2019-04-02 15:23:01.600124635 +0200
+@@ -40,22 +40,18 @@
+         plugin_warnings.append("%s: %s." % (name, e))
+ 
+ 
+-def UTF8_(message):
+-    return _(message).decode('UTF-8')
+-
+-
+ def parse_options(qr_types):
+     """Support for command line options"""
+     parser = optparse.OptionParser(version="%%prog %s" % get_version())
+     parser.add_option(
+         "-v", "--verbose", action="count", dest="verbose",
+-        help=UTF8_("Show debug messages (-vv debugs qreator_lib also)"))
++        help=_("Show debug messages (-vv debugs qreator_lib also)"))
+ 
+     for n, qr in enumerate(qr_types):
+         parser.add_option(
+             qr.cmdline_option_short, qr.cmdline_option_long,
+             dest="view", action="store_const", const=n,
+-            help=qr.message.decode('UTF-8'))
++            help=qr.message)
+ 
+     (options, args) = parser.parse_args()
+ 
+@@ -68,6 +64,8 @@
+     # Fix icons which are missing in 12.04
+     icontheme = Gtk.IconTheme.get_default()
+     icontheme.append_search_path(os.path.join(get_data_path(), "media"))
++    settings = Gtk.Settings.get_default()
++    settings.set_property("gtk-application-prefer-dark-theme", True)
+ 
+     # Run the application
+     window = QreatorWindow.QreatorWindow()
+diff -Naur qreator-16.06.2.orig/qreator/QRCode.py qreator-16.06.2/qreator/QRCode.py
+--- qreator-16.06.2.orig/qreator/QRCode.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/QRCode.py	2019-04-02 11:21:05.528298581 +0200
+@@ -18,7 +18,7 @@
+ try:
+     import qrencode
+ except ImportError:
+-    print "You need to install the python-qrencode package"
++    print("You need to install the python-qrencode package")
+     sys.exit(1)
+ 
+ try:
+@@ -148,11 +148,11 @@
+     def _add_border(self, current_color_bg=None):
+         '''Adds a border to the QR code'''
+         if current_color_bg:
+-            fill = (current_color_bg[0], current_color_bg[1],
+-                    current_color_bg[2], 255)
++            fill = (int(current_color_bg[0]), int(current_color_bg[1]),
++                    int(current_color_bg[2]), 255)
+         else:
+             fill = 'white'
+         # Add a border
+-        border_size = (self.output_size - self.image.size[0]) / 2
++        border_size = int((self.output_size - self.image.size[0]) / 2)
+         self.image = ImageOps.expand(self.image, border=border_size,
+                                      fill=fill)
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeLocationGtk.py qreator-16.06.2/qreator/qrcodes/QRCodeLocationGtk.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeLocationGtk.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeLocationGtk.py	2019-04-03 09:22:01.443536769 +0200
+@@ -14,8 +14,11 @@
+ # with this program.  If not, see <http://www.gnu.org/licenses/>.
+ ### END LICENSE
+ 
++import gi
++gi.require_version('GtkChamplain', '0.12')
+ from gi.repository import Gtk, GtkChamplain, Clutter, Champlain
+ from qreator_lib.helpers import get_data_file
++gi.require_version('GtkClutter', '1.0')
+ from gi.repository import GtkClutter
+ 
+ 
+@@ -46,15 +49,8 @@
+ 
+         # Get the current location, center the map on it, and initialize
+         # other map features
+-        latitude, longitude = get_current_location()
+-        self.builder.get_object('lat_entry').set_text(str(latitude))
+-        self.builder.get_object('lon_entry').set_text(str(longitude))
+-        self.map_view.center_on(latitude, longitude)
+-        if latitude == 0 and longitude == 0:
+-            # In case something went wrong in getting the current location
+-            self.map_view.set_zoom_level(1)
+-        else:
+-            self.map_view.set_zoom_level(15)
++        self.get_current_location()
++        self.map_view.set_zoom_level(1)
+         self.map_view.set_kinetic_mode(True)
+ 
+         scale = Champlain.Scale()
+@@ -81,39 +77,26 @@
+ 
+         return True
+ 
++    def get_current_location(self):
++        '''Gets the current location from geolocation via using Geoclue-2.0'''
+ 
+-def get_current_location():
+-    '''Gets the current location from geolocation via IP (only method
+-       currently supported)'''
+-    #import Geoclue
+-    #POS_PROVIDER = 'Ubuntu GeoIP'
+-    #location = Geoclue.DiscoverLocation()
+-    #location.init()
+-    #location.set_position_provider(POS_PROVIDER)
+-    #position = location.get_location_info()
+-
+-    import dbus
+-    bus = dbus.SessionBus()
+-
+-    # For now we default to the UbuntuGeoIP provider and we fall back to
+-    # Hostip. We should probably be cleverer about provider detection, but
+-    # this solution works for now and does not rely solely on UbuntuGeoIP,
+-    # which means qreator can run on other distros
+-    try:
+-        geoclue = bus.get_object(
+-            'org.freedesktop.Geoclue.Providers.UbuntuGeoIP',
+-            '/org/freedesktop/Geoclue/Providers/UbuntuGeoIP')
+-    except dbus.exceptions.DBusException:
+-        geoclue = bus.get_object(
+-            'org.freedesktop.Geoclue.Providers.Hostip',
+-            '/org/freedesktop/Geoclue/Providers/Hostip')
+-    position_info = geoclue.GetPosition(
+-        dbus_interface='org.freedesktop.Geoclue.Position')
+-
+-    position = {}
+-    position['timestamp'] = position_info[1]
+-    position['latitude'] = position_info[2]
+-    position['longitude'] = position_info[3]
+-    position['altitude'] = position_info[4]
++        gi.require_version('Geoclue', '2.0')
++        from gi.repository import Geoclue
+ 
+-    return position['latitude'], position['longitude']
++        Geoclue.Simple.new('qreator',
++                           Geoclue.AccuracyLevel.EXACT,
++                           callback=on_current_location_ready,
++                           user_data=self)
++        return True
++
++
++def on_current_location_ready(self, widget, data=None):
++    location = self.get_location()
++    latitude = location.get_property('latitude')
++    longitude = location.get_property('longitude')
++    if latitude != 0 and longitude != 0:
++        data.builder.get_object('lat_entry').set_text(str(latitude))
++        data.builder.get_object('lon_entry').set_text(str(longitude))
++        data.map_view.center_on(latitude, longitude)
++        data.map_view.set_zoom_level(15)
++    return
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeLocation.py qreator-16.06.2/qreator/qrcodes/QRCodeLocation.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeLocation.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeLocation.py	2019-04-02 09:26:47.130038473 +0200
+@@ -15,8 +15,8 @@
+ ### END LICENSE
+ 
+ from qreator_lib.i18n import _
+-from QRCodeType import QRCodeType
+-from QRCodeLocationGtk import QRCodeLocationGtk
++from .QRCodeType import QRCodeType
++from .QRCodeLocationGtk import QRCodeLocationGtk
+ 
+ class QRCodeLocation(QRCodeType):
+     description =  _('Geolocation')
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeText.py qreator-16.06.2/qreator/qrcodes/QRCodeText.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeText.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeText.py	2019-04-02 09:26:47.303384385 +0200
+@@ -16,7 +16,7 @@
+ 
+ from qreator_lib.i18n import _
+ from . QRCodeType import QRCodeType
+-from QRCodeTextGtk import QRCodeTextGtk
++from .QRCodeTextGtk import QRCodeTextGtk
+ 
+ class QRCodeText(QRCodeType):
+     description =  _('Text')
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeType.py qreator-16.06.2/qreator/qrcodes/QRCodeType.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeType.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeType.py	2019-04-02 09:26:47.333386561 +0200
+@@ -34,7 +34,7 @@
+             cls.dataformats.append(cls)
+ 
+ 
+-class QRCodeType(object):
++class QRCodeType(object, metaclass=DataformatsMount):
+     """This class is the base for QRCode dataformats. It is not used itself.
+ 
+     Classes implementing a dataformat type should provide the following class
+@@ -58,7 +58,6 @@
+                           to the general code update function.
+     ====================  =====================================================
+     """
+-    __metaclass__ = DataformatsMount
+ 
+     # replace the description, and make it translatable with _("")
+     description = "DataFormat"
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeURLGtk.py qreator-16.06.2/qreator/qrcodes/QRCodeURLGtk.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeURLGtk.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeURLGtk.py	2019-04-02 11:47:11.409448850 +0200
+@@ -15,7 +15,7 @@
+ ### END LICENSE
+ 
+ from gi.repository import Gtk, GObject
+-from GtkHelpers import clear_text_entry, show_clear_icon
++from .GtkHelpers import clear_text_entry, show_clear_icon
+ from qreator_lib.helpers import get_data_file
+ from qreator_lib.i18n import _
+ import requests
+@@ -33,7 +33,7 @@
+     def short_url(self):
+         self.r = requests.get("{0}?format=simple&url={1}".format(self.api_url,
+                                                                  self.url))
+-        if self.r.content.startswith("Error"):
++        if self.r.content.startswith(b"Error"):
+             raise Exception(self.r.content)
+         return self.r.content
+ 
+@@ -190,7 +190,7 @@
+             return
+         self.entry.set_tooltip_text(self.long_address)
+         self.entry.set_has_tooltip(True)
+-        self.entry.set_text(self.short_address)
++        self.entry.set_text(self.short_address.decode('utf-8'))
+         self.entry.select_region(0, len(self.entry.get_text()))
+         self.qr_code_update_func(self.short_address)
+ 
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeURL.py qreator-16.06.2/qreator/qrcodes/QRCodeURL.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeURL.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeURL.py	2019-04-02 09:26:47.346720862 +0200
+@@ -15,8 +15,8 @@
+ ### END LICENSE
+ 
+ from qreator_lib.i18n import _
+-from QRCodeType import QRCodeType
+-from QRCodeURLGtk import QRCodeURLGtk
++from .QRCodeType import QRCodeType
++from .QRCodeURLGtk import QRCodeURLGtk
+ 
+ class QRCodeURL(QRCodeType):
+     description = _('URL')
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeVCardGtk.py qreator-16.06.2/qreator/qrcodes/QRCodeVCardGtk.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeVCardGtk.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeVCardGtk.py	2019-04-02 11:27:44.861798966 +0200
+@@ -33,7 +33,7 @@
+ # X-KADDRESSBOOK-X-ManagersName, X-KADDRESSBOOK-X-Office
+ # X-KADDRESSBOOK-X-Profession, X-KADDRESSBOOK-X-SpouseName
+ 
+-from GtkHelpers import clear_text_entry, show_clear_icon
++from .GtkHelpers import clear_text_entry, show_clear_icon
+ from gi.repository import Gtk, GObject
+ from qreator_lib.helpers import get_data_file
+ from qreator_lib.i18n import _
+@@ -69,8 +69,8 @@
+                (_("Textphone"), "textphone"),
+                ]
+ 
+-USAGE_TYPES = [(_("Home"), u"home"),
+-               (_("Work"), u"work")]
++USAGE_TYPES = [(_("Home"), "home"),
++               (_("Work"), "work")]
+ 
+ 
+ def on_icon(widget=None, icon=None, button=None):
+@@ -157,7 +157,7 @@
+     def add_entries(self, card):
+         text = self.entry.get_text()
+         if text:
+-            card.add(self.entry_field).value = text.decode("utf-8")
++            card.add(self.entry_field).value = text
+         return card
+ 
+ 
+@@ -194,7 +194,7 @@
+     def add_entries(self, card):
+         text = self.entry.get_text()
+         if text:
+-            card.add(self.entry_field).value = text.decode("utf-8")
++            card.add(self.entry_field).value = text
+             getattr(card,
+                     self.entry_field).type_param = USAGE_TYPES[
+                 self.usagecombo.get_active()][1]
+@@ -241,7 +241,7 @@
+     def add_entries(self, card):
+         text = self.entry.get_text()
+         if text:
+-            card.add(self.entry_field).value = text.decode("utf-8")
++            card.add(self.entry_field).value = text
+             tp = [USAGE_TYPES[self.usagecombo.get_active()][1],
+                   PHONE_TYPES[self.phonecombo.get_active()][1]]
+             getattr(card,
+@@ -328,9 +328,9 @@
+         if street or city or region or code or country or postbox:
+             card.add("adr")
+             card.adr.value = vobject.vcard.Address(
+-                street.decode("utf-8"), city.decode("utf-8"),
+-                region.decode("utf-8"), code.decode("utf-8"),
+-                country.decode("utf-8"), postbox.decode("utf-8"))
++                street, city,
++                region, code,
++                country, postbox)
+             getattr(card,
+                     self.entry_field).type_param = USAGE_TYPES[
+                         self.usagecombo.get_active()][1]
+@@ -370,9 +370,9 @@
+         f = self['entry2'].get_text()
+         g = self['entry1'].get_text()
+         self.j.n.value = vobject.vcard.Name(
+-            family=f.decode("utf-8"), given=g.decode("utf-8"))
++            family=f, given=g)
+         self.j.add("fn")
+-        self.j.fn.value = self.fullname_template.format(f, g).decode("utf-8")
++        self.j.fn.value = self.fullname_template.format(f, g)
+ 
+         for e in VCardEntry.instances:
+             self.j = e.add_entries(self.j)
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeVCard.py qreator-16.06.2/qreator/qrcodes/QRCodeVCard.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeVCard.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeVCard.py	2019-04-02 09:26:47.480063871 +0200
+@@ -15,8 +15,8 @@
+ ### END LICENSE
+ 
+ from qreator_lib.i18n import _
+-from QRCodeType import QRCodeType
+-from QRCodeVCardGtk import QRCodeVCardGtk
++from .QRCodeType import QRCodeType
++from .QRCodeVCardGtk import QRCodeVCardGtk
+ 
+ 
+ class QRCodeVCard(QRCodeType):
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeWifiGtk.py qreator-16.06.2/qreator/qrcodes/QRCodeWifiGtk.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeWifiGtk.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeWifiGtk.py	2019-04-03 10:06:12.862891592 +0200
+@@ -14,9 +14,11 @@
+ # with this program.  If not, see <http://www.gnu.org/licenses/>.
+ ### END LICENSE
+ 
+-from GtkHelpers import clear_text_entry, show_clear_icon
++from .GtkHelpers import clear_text_entry, show_clear_icon
+ from qreator_lib.i18n import _
+ from qreator_lib.helpers import get_data_file
++import gi
++gi.require_version('NM', '1.0')
+ from gi.repository import Gtk, NM, GLib, GdkPixbuf
+ 
+ 
+@@ -59,7 +61,7 @@
+         icontheme = Gtk.IconTheme.get_default()
+         size = 24
+         self.strength_pixbufs = []
+-        for strength in ["weak", "ok", "good", "excellent"]:
++        for strength in ["none", "weak", "ok", "good", "excellent"]:
+             self.strength_pixbufs.append(icontheme.load_icon(
+                 "network-wireless-signal-{0}-symbolic".format(strength),
+                 size, Gtk.IconLookupFlags.USE_BUILTIN))
+diff -Naur qreator-16.06.2.orig/qreator/qrcodes/QRCodeWifi.py qreator-16.06.2/qreator/qrcodes/QRCodeWifi.py
+--- qreator-16.06.2.orig/qreator/qrcodes/QRCodeWifi.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/qrcodes/QRCodeWifi.py	2019-04-02 09:26:47.720081286 +0200
+@@ -15,8 +15,8 @@
+ ### END LICENSE
+ 
+ from qreator_lib.i18n import _
+-from QRCodeType import QRCodeType
+-from QRCodeWifiGtk import QRCodeWifiGtk
++from .QRCodeType import QRCodeType
++from .QRCodeWifiGtk import QRCodeWifiGtk
+ 
+ class QRCodeWifi(QRCodeType):
+     description = _('Wifi network')
+diff -Naur qreator-16.06.2.orig/qreator/QreatorWindow.py qreator-16.06.2/qreator/QreatorWindow.py
+--- qreator-16.06.2.orig/qreator/QreatorWindow.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator/QreatorWindow.py	2019-04-02 16:07:06.485309197 +0200
+@@ -27,8 +27,8 @@
+ from qreator_lib import Window
+ from qreator_lib.helpers import get_media_file
+ 
+-from QRCode import QRCode
+-from QRCode import QRCodeOutput
++from .QRCode import QRCode
++from .QRCode import QRCodeOutput
+ 
+ from qreator.qrcodes.QRCodeType import QRCodeType
+ 
+@@ -184,7 +184,7 @@
+         about.set_website("http://davidplanella.org/project-showcase/qreator/")
+ 
+         #FIXME: the version should be picked up from setup.py
+-        about.set_version('16.06.1')
++        about.set_version('16.06.2')
+         about.set_authors([
+             'David Planella <david.planella@ubuntu.com>',
+             'Stefan Schwarzburg <stefan.schwarzburg@googlemail.com>',
+@@ -197,6 +197,8 @@
+             ])
+         about.set_license(_('Distributed under the GPL v3 license.') +
+                 '\nhttp://www.opensource.org/licenses/gpl-3.0.html')
++        about.set_website(None)
++        about.set_logo_icon_name(None)
+ 
+         # Workaround for bug #1031657, remove David from translation credits
+         # unless the locale is Catalan
+diff -Naur qreator-16.06.2.orig/qreator_lib/Builder.py qreator-16.06.2/qreator_lib/Builder.py
+--- qreator-16.06.2.orig/qreator_lib/Builder.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator_lib/Builder.py	2019-04-02 15:42:34.341587327 +0200
+@@ -18,6 +18,8 @@
+ 
+ '''Enhances builder connections, provides object to access glade objects'''
+ 
++import gi
++gi.require_version('Gtk', '3.0')
+ from gi.repository import GObject, Gtk # pylint: disable=E0611
+ 
+ import inspect
+@@ -120,7 +122,7 @@
+         connection_dict = {}
+         connection_dict.update(self.glade_handler_dict)
+         connection_dict.update(callback_handler_dict)
+-        for item in connection_dict.items():
++        for item in list(connection_dict.items()):
+             if item[1] is None:
+                 # the handler is missing so reroute to default_handler
+                 handler = functools.partial(
+@@ -167,7 +169,7 @@
+     ''' provides an object with attributes as glade widgets'''
+     def __init__(self, widget_dict):
+         self._widget_dict = widget_dict
+-        for (widget_name, widget) in widget_dict.items():
++        for (widget_name, widget) in list(widget_dict.items()):
+             setattr(self, widget_name, widget)
+ 
+         # Mangle any non-usable names (like with spaces or dashes)
+@@ -176,7 +178,7 @@
+         consider using a pythonic name instead of design name '%s'"""
+         consider_message = """consider using a pythonic name instead of design name '%s'"""
+         
+-        for (widget_name, widget) in widget_dict.items():
++        for (widget_name, widget) in list(widget_dict.items()):
+             pyname = make_pyname(widget_name)
+             if pyname != widget_name:
+                 if hasattr(self, pyname):
+@@ -187,7 +189,7 @@
+ 
+         def iterator():
+             '''Support 'for o in self' '''
+-            return iter(widget_dict.values())
++            return iter(list(widget_dict.values()))
+         setattr(self, '__iter__', iterator)
+ 
+     def __getitem__(self, name):
+@@ -260,7 +262,7 @@
+ 
+     callback_handler_dict = dict_from_callback_obj(callback_obj)
+ 
+-    for item in builder.widgets.items():
++    for item in list(builder.widgets.items()):
+         (widget_name, widget) = item
+         signal_ids = []
+         try:
+@@ -296,7 +298,7 @@
+     widget_name, widget = item
+ 
+     for handler_name in handler_names:
+-        target = handler_name in callback_handler_dict.keys()
++        target = handler_name in list(callback_handler_dict.keys())
+         connection = (widget_name, signal_name, handler_name)
+         duplicate = connection in connections
+         if target and not duplicate:
+@@ -312,7 +314,7 @@
+ 
+     connected_functions = [x[2] for x in connections]
+ 
+-    handler_names = callback_handler_dict.keys()
++    handler_names = list(callback_handler_dict.keys())
+     unconnected = [x for x in handler_names if x.startswith('on_')]
+ 
+     for handler_name in connected_functions:
+diff -Naur qreator-16.06.2.orig/qreator_lib/helpers.py qreator-16.06.2/qreator_lib/helpers.py
+--- qreator-16.06.2.orig/qreator_lib/helpers.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/qreator_lib/helpers.py	2019-04-02 11:14:28.382004998 +0200
+@@ -104,8 +104,8 @@
+         logger.setLevel(logging.DEBUG)
+         plugin_logger.setLevel(logging.DEBUG)
+         logger.debug('logging enabled')
+-    if opts.verbose > 1:
+-        lib_logger.setLevel(logging.DEBUG)
++        if opts.verbose > 1:
++            lib_logger.setLevel(logging.DEBUG)
+ 
+ def get_help_uri(page=None):
+     # help_uri from source tree - default language
+diff -Naur qreator-16.06.2.orig/setup.py qreator-16.06.2/setup.py
+--- qreator-16.06.2.orig/setup.py	2018-07-30 02:11:48.000000000 +0200
++++ qreator-16.06.2/setup.py	2019-04-02 09:46:16.320847100 +0200
+@@ -23,7 +23,7 @@
+ try:
+     import DistUtilsExtra.auto
+ except ImportError:
+-    print >> sys.stderr, 'To build qreator you need https://launchpad.net/python-distutils-extra'
++    print('To build qreator you need https://launchpad.net/python-distutils-extra', file=sys.stderr)
+     sys.exit(1)
+ assert DistUtilsExtra.auto.__version__ >= '2.18', 'needs DistUtilsExtra.auto >= 2.18'
+ 
+@@ -32,8 +32,8 @@
+     filename = os.path.join(libdir, 'qreator_lib/qreatorconfig.py')
+     oldvalues = {}
+     try:
+-        fin = file(filename, 'r')
+-        fout = file(filename + '.new', 'w')
++        fin = open(filename, 'r')
++        fout = open(filename + '.new', 'w')
+ 
+         for line in fin:
+             fields = line.split(' = ') # Separate variable from value
+@@ -46,8 +46,8 @@
+         fout.close()
+         fin.close()
+         os.rename(fout.name, fin.name)
+-    except (OSError, IOError), e:
+-        print ("ERROR: Can't find %s" % filename)
++    except (OSError, IOError) as e:
++        print(("ERROR: Can't find %s" % filename))
+         sys.exit(1)
+     return oldvalues
+ 
+@@ -65,7 +65,7 @@
+     desktop_file = desktop_path + '/qreator.desktop'
+ 
+     if not os.path.exists(old_desktop_file):
+-        print ("ERROR: Can't find", old_desktop_file)
++        print(("ERROR: Can't find", old_desktop_file))
+         sys.exit(1)
+     elif target_data != prefix + '/':
+         # This is an /opt install, so rename desktop file to use extras-
+@@ -75,7 +75,7 @@
+             os.rename(old_desktop_file, desktop_file)
+             os.rmdir(old_desktop_path)
+         except OSError as e:
+-            print ("ERROR: Can't rename", old_desktop_file, ":", e)
++            print(("ERROR: Can't rename", old_desktop_file, ":", e))
+             sys.exit(1)
+ 
+     return desktop_file
+@@ -83,8 +83,8 @@
+ def update_desktop_file(filename, target_pkgdata, target_scripts):
+ 
+     try:
+-        fin = file(filename, 'r')
+-        fout = file(filename + '.new', 'w')
++        fin = open(filename, 'r')
++        fout = open(filename + '.new', 'w')
+ 
+         for line in fin:
+             if 'Icon=' in line:
+@@ -100,8 +100,8 @@
+         fout.close()
+         fin.close()
+         os.rename(fout.name, fin.name)
+-    except (OSError, IOError), e:
+-        print ("ERROR: Can't find %s" % filename)
++    except (OSError, IOError) as e:
++        print(("ERROR: Can't find %s" % filename))
+         sys.exit(1)
+ 
+ def compile_schemas(root, target_data):
