@@ -1,0 +1,71 @@
+# Maintainer: David Runge <dave@sleepmap.de>
+# Contributor: Moritz Lipp <mlq@pwmt.org>
+# Contributor: fordprefect <fordprefect@dukun.de>
+# Contributor: Thor77 <thor77@thor77.org>
+
+pkgname=radicale
+_name=Radicale
+pkgver=2.1.11
+pkgrel=2
+pkgdesc='Simple calendar (CalDAV) and contact (CardDAV) server'
+arch=('any')
+url="http://www.radicale.org/"
+license=('GPL3')
+depends=('python-bcrypt' 'python-passlib' 'python-setuptools' 'python-vobject')
+checkdepends=('python-bcrypt' 'python-pytest-cov' 'python-pytest-flake8' 'python-pytest-isort' 'python-pytest-runner')
+backup=('etc/radicale/config'
+        'etc/radicale/rights'
+        'etc/radicale/users')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/Kozea/${pkgname}/archive/${pkgver}.tar.gz"
+        "${pkgname}-sysusers.conf"
+        "${pkgname}-tmpfiles.conf"
+        "${pkgname}.service")
+sha512sums=('ccdcc61e7f0d62041bdc41ea2004f721d0ce40d6d73b0475ccc8ff91224f0881a2d9749adfa5a7555782a0daf8bb4c8b29d724d68b486c5b1b8b5befd988781d'
+            '56dffb66e018cfbf158dc5d8fe638b3cb31229945f659aae5623f219bcd1d68ddc375f1633fa8e857a9b2f50c9e05a06efce165370137d6e116a4f187466637f'
+            '9d0dd88e4a34e9f97abda1785698e4b2a5e8202063deeb91b84e13c05e00b07e45b8d4d9eca09b9241b1138bbbfdc999dba0135c18f5bc0c08d65b0cd83b367b'
+            '2e2a99fb0a42d3f0f8ac9d0264376441ea600508e98c5dfb3ebcd6de096286a276747455fdf4b5c771f3cc6f454cb0277dc62cc9b11e278bd5fe74cb2b7b979a')
+
+prepare() {
+  mv -v ${_name}-${pkgver} ${pkgname}-${pkgver}
+  cd ${pkgname}-${pkgver}
+  # removing useless flake8 and isort tests
+  sed -e 's/--flake8 --isort//' \
+      -i setup.cfg
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py build
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py test
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py install --skip-build \
+                          --optimize=1 \
+                          --prefix=/usr \
+                          --root="${pkgdir}"
+    # config
+    install -vDm 644 {config,rights} -t "${pkgdir}/etc/${pkgname}/"
+    touch "${pkgdir}/etc/${pkgname}/users"
+    # fcgi/wsgi
+    install -t "${pkgdir}/usr/share/${pkgname}/" \
+      -vDm 644 "${pkgname}.fcgi" \
+      -vDm 644 "${pkgname}.wsgi"
+    # systemd service
+    install -vDm 644 "${srcdir}/${pkgname}.service" \
+      "${pkgdir}/usr/lib/systemd/system/${pkgname}.service"
+    # sysusers.d
+    install -vDm 644 "${srcdir}/${pkgname}-sysusers.conf" \
+      "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+    # tmpfiles.d
+    install -vDm 644 "${srcdir}/${pkgname}-tmpfiles.conf" \
+      "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+    # docs
+    install -t "${pkgdir}/usr/share/doc/${pkgname}/" -vDm 644 {NEWS,README}.md
+}
+
