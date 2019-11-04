@@ -2,7 +2,7 @@
 
 pkgname=python-pygithub
 pkgver=1.44
-pkgrel=1
+pkgrel=2
 pkgdesc="Use the full Github API v3"
 arch=('any')
 license=('LGPL')
