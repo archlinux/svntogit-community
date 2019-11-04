@@ -1,0 +1,79 @@
+# Maintainer: Baptiste Jonglez <baptiste--aur at jonglez dot org>
+# Contributor: nfnty
+pkgname='kea'
+pkgver=1.5.0
+_upstreamver=1.5.0
+pkgrel=6
+pkgdesc='High-performance, extensible DHCP server engine from ISC, supporting both DHCPv4 and DHCPv6'
+arch=('x86_64')
+url='https://kea.isc.org'
+license=('MPL2')
+depends=('botan>=2.7.0' 'boost-libs' 'log4cplus' 'mariadb-libs' 'postgresql-libs')
+makedepends=('boost'
+             'postgresql' # Needed for some headers
+             'python') # kea-shell
+optdepends=('mariadb: lease information database'
+            'postgresql: lease information database'
+            'python: to use kea-shell'
+            'kea-devel-docs: developer documentation')
+# Checks are disabled for now
+#checkdepends=('gtest' 'postgresql' 'mariadb' 'python' 'procps-ng') # procps-ng needed for 'pgrep'
+backup=('etc/kea/kea-dhcp4.conf' 'etc/kea/kea-dhcp6.conf' 'etc/kea/kea-dhcp-ddns.conf' 'etc/kea/kea-ctrl-agent.conf' 'etc/kea/keactrl.conf') # New config files as of Kea 1.3
+
+source=(https://ftp.isc.org/isc/kea/${_upstreamver}/kea-${_upstreamver}.tar.gz{,.asc}
+        fix-scripts-include-path.patch
+        tmpfiles-kea.conf
+        kea-dhcp4.service
+        kea-dhcp6.service
+        kea-dhcp-ddns.service
+        kea-ctrl-agent.service)
+sha512sums=('6d6b7407831311ebe37abce382ce77c664015ddbe3e73ec78153a00b301f98af5be52e26ad4febf5ca1e478d2c1844db4c988b241d2700d758e90b077f176ad8'
+            'SKIP'
+            '337c1e8689ce569bb8b085261e946743bc88d62ffdd264f4e8f271a6ca92c5bcda2329376aec4ffacd96187c7dba30450b8d5a9e2929f0a559ef8ecba7c0bafc'
+            '702a5dc19d1ed8fbe21aa9a4c09297eff9c9a3f6f1b178af8101a655b18b70c9e1dafd0cccc32063e31b2592d276e80c9bd4d2d51d8e1f74f67931fd290be6c0'
+            '1b62dace9f9a955b21c5dd5b5466fb3a4f1d8057ad2a30ea89e222a769dc721ad2fe4913c41ec407e018b1b38ddde757e9b7b8fc12d4763ddde077a0abb0c971'
+            '8f0e8d059338c415ae322e971e243b259d9b2ef7d37b6be57b409bf5f0f3392e519c9bb94c5b548021d000b944a5da82096608cd9ff3ee58061059ad519b0068'
+            '9ab05b580f3b206d127514e158a445146a765ba4bf760daa93bcf29ec9d816dbdd08a497b5a4bba67645f4cc79b210fed8d1defa9daefc48175a654738927d31'
+            'db329fd83e458e4a77f6df8569074088bed152ffc1a188059d868d7178a6d3530efe368ce870a2e0be894f87fa0e5ba43562bdc3ad6372ddfcfedae37c90f491')
+validpgpkeys=('BE0E9748B718253A28BB89FFF1B11BF05CF02E57') # Internet Systems Consortium, Inc. (Signing key, 2017-2018) <codesign@isc.org>
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  # The include path is set incorrectly (it uses undefined $prefix instead of /usr).
+  # Also, it fallbacks to the absolute path inside the chrooted build dir,
+  # which will certainly not exist on the target system...
+  patch -p1 < "${srcdir}"/fix-scripts-include-path.patch
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  autoreconf --install
+  ./configure \
+      --prefix='/usr' \
+      --sbindir='/usr/bin' \
+      --libexecdir='/usr/bin' \
+      --sysconfdir='/etc' \
+      --localstatedir='/var' \
+      --with-dhcp-mysql \
+      --with-dhcp-pgsql \
+      --enable-shell
+  make
+}
+
+check() {
+  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  # Disable for now, some tests fail (for instance dhcp-ddns.sigterm_test)
+  #make check
+}
+
+package() {
+  cd "${srcdir}/kea-${_upstreamver}"
+  make DESTDIR="${pkgdir}" install
+  # Handle /var/run -> /run symlink
+  rmdir "${pkgdir}"/var/run/kea
+  rmdir "${pkgdir}"/var/run
+  install -Dm644 "${srcdir}"/tmpfiles-kea.conf "${pkgdir}"/usr/lib/tmpfiles.d/${pkgname}.conf
+  # Systemd service files
+  install -Dm644 "${srcdir}"/kea-dhcp4.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp4.service
+  install -Dm644 "${srcdir}"/kea-dhcp6.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp6.service
+}
