@@ -3,7 +3,7 @@
 
 pkgname=python-sphinxcontrib-bibtex
 pkgver=0.4.2
-pkgrel=2
+pkgrel=3
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
 url="https://sphinxcontrib-bibtex.readthedocs.org"
