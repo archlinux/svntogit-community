@@ -6,7 +6,7 @@ pkgname=('python-cachy' 'python2-cachy')
 pkgver=0.2.0
 # git tags are missing, see https://github.com/sdispater/cachy/issues/4
 _commit=ee4b044d6aafa80125730a00b1f679a7bd852b8a
-pkgrel=1
+pkgrel=2
 pkgdesc="simple yet effective caching library"
 arch=('any')
 url="https://github.com/sdispater/${_pkgname}"
