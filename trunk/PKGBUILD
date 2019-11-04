@@ -4,7 +4,7 @@
 
 pkgname=python-semantic-version
 pkgver=2.6.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A library implementing the 'SemVer' scheme."
 url="https://github.com/rbarrois/semantic-version"
 license=('BSD')
