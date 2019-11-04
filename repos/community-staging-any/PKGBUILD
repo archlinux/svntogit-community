@@ -4,14 +4,14 @@
 pkgname=python-moto
 _pkgname=moto
 pkgver=1.3.13
-pkgrel=3
+pkgrel=4
 pkgdesc='Moto is a library to mock out the boto library.'
 arch=(any)
 url='https://github.com/spulec/moto'
 license=(Apache)
 depends=(python-aws-xray-sdk python-boto python-boto3
          python-cryptography python-dateutil python-docker python-jinja
-         python-jsondiff python-jose python-mock python-pyaml
+         python-jsondiff python-jose python-mock python-yaml
          python-pytz python-requests python-responses python-xmltodict
          python-werkzeug python-cfn-lint python-setuptools python-sshpubkeys)
 checkdepends=(python-flask python-freezegun python-nose python-sure tk)
@@ -20,16 +20,22 @@ optdepends=(
 )
 source=("https://files.pythonhosted.org/packages/source/m/moto/moto-$pkgver.tar.gz"
         moto-fix-setup.patch::https://github.com/yan12125/moto/commit/92bf8eff12b49def8e9689c57d26184c548546d0.patch
-        botocore-1.12.198.patch::https://github.com/spulec/moto/commit/e4a4e6183560489e98b95e815b439c7a1cf3566c.patch)
+        botocore-1.12.198.patch::https://github.com/spulec/moto/commit/e4a4e6183560489e98b95e815b439c7a1cf3566c.patch
+        $pkgname-boto2-nose-attrs.patch::https://github.com/yan12125/moto/commit/19cfa7f73e023fb4e72067cead3b5219cf4b46c1.patch
+        $pkgname-python38.patch::https://github.com/yan12125/moto/commit/77bc97c8da7f652848de970d7be2d2a4195f6a4d.patch)
 sha256sums=('95d48d8ebaad47fb5bb4233854cf1cf8523ec5307d50eb1e4017ce10f1960b66'
             '913485b0605c1b9cbb445b1862eb91ee6130430d5b735836f8e1b093565924d8'
-            '01d94989ff1016ec6668221ddd07e1423542a8dad7b091f92cdc31602097bfae')
+            '01d94989ff1016ec6668221ddd07e1423542a8dad7b091f92cdc31602097bfae'
+            'a9b35341f6890072c17020d71a8d621da37ad1ae9b5cfcfd58d2eb563b82468a'
+            'cd6be898f27f28b7ee959275181c01e1b2d801f7ce149646c08fdd73089ab5a7')
 
 prepare() {
   cd $_pkgname-$pkgver
 
   patch -Np1 -i ../moto-fix-setup.patch
   patch -Np1 -i ../botocore-1.12.198.patch
+  patch -Np1 -i ../$pkgname-boto2-nose-attrs.patch
+  patch -Np1 -i ../$pkgname-python38.patch
 
   # Remove upper bounds of dependencies
   sed --in-place=.orig -r 's#,?<[0-9.]+,?##;s#==([0-9.]+)#>=\1#' setup.py
@@ -45,14 +51,18 @@ build() {
 check() {
   cd $_pkgname-$pkgver
 
+  # Save myself from complex escaping for !
+  # makepkg saves and restores bash options, anyway
+  set +o histexpand
+
   # boto 2.x is broken with proxies https://github.com/boto/boto/issues/2869
-  # XXX: is there a way to skip boto 2.x tests only?
   if [ -n "$http_proxy" -o -n "$https_proxy" ] ; then
-    echo "Warning: Skipping tests as some tests do not work with proxies."
-    return
+    echo "Warning: Skipping boto2 tests as they do not work with proxies."
+    NOSE_EXTRA_ARGS='-a !boto2_test'
   fi
 
-  TZ=UTC nosetests -sv ./tests/ --exclude='test_iot.*' --exclude='test_lambda.*'
+  # test_lambda tests moto.awslambda, which requires a running docker.service
+  TZ=UTC nosetests -sv ./tests/ --exclude='test_lambda.*' $NOSE_EXTRA_ARGS
 }
 
 package() {
