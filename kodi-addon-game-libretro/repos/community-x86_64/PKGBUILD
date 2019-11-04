@@ -1,9 +1,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro
-pkgver=1.1.0
+pkgver=1.1.1
 _codename=Leia
-pkgrel=9
+pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro'
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi' 'kodi-platform' 'libretro-core-info')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('80cc868d57d4284085a7cd736930da6f1b2440cbd8667a20634c329c282e7f0b79158d4d510504a230427fae4d84d9ae29c7a76fab5e2a23820bfa72d75a8e91')
+sha512sums=('f26776eba765a010a86994a02658045ca0c1e887481a31d90ae388765620fb1a0cbd4da79285ae161e99feb311ca9ddccd25193a73a22e7c5f19a78ff1164920')
 
 build() {
     cd "game.libretro-$pkgver-$_codename"
