@@ -2,7 +2,7 @@
 
 pkgname=python-whatever
 pkgver=0.5
-pkgrel=3
+pkgrel=4
 pkgdesc='Easy way to make anonymous functions by partial application of operators'
 arch=('any')
 license=('BSD')
