@@ -46,6 +46,7 @@ pkgver() {
 prepare() {
   cd vapoursynth
 
+  sed -e 's|python-$PYTHON_VERSION|python-$PYTHON_VERSION-embed|' -i configure.ac # Fix linking with python 3.8
   ./autogen.sh
 }
 
