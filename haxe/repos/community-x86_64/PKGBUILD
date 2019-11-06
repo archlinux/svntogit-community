@@ -1,5 +1,4 @@
-# $Id$
-# Maintainer: Alexander F Rødseth <xyproto@archlinux.org>
+# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
 # Contributor: Daichi Shinozaki <dsdseg@gmail.com>
 # Contributor: Andy Li <andy@onthewings.net>
 # Contributor: Kyle Brady  <kyle at spark-gap dot com>
@@ -7,39 +6,73 @@
 # Contributor: Michael Fellinger <mf@rubyists.com>
 
 pkgname=haxe
-pkgver=3.4.7
+pkgver=4.0.0
 pkgrel=1
 pkgdesc='Cross-platform toolkit and programming language'
-arch=('x86_64')
+arch=(x86_64)
 url='https://haxe.org/'
-license=('GPL' 'MIT' 'LGPL')
-groups=('devel')
-depends=('neko')
-optdepends=('python' 'php' 'java-environment' 'mono')
-makedepends=('git' 'ocaml' 'camlp4' 'zlib' 'neko')
-provides=('haxe' 'haxelib')
-options=('!strip' '!makeflags')
-source=("$pkgname-$pkgver::git+https://github.com/HaxeFoundation/haxe.git#tag=$pkgver"
-        'haxe.sh')
-md5sums=('SKIP'
-         '977476c8fc1dfc0acbb05bd22f9136b0')
+license=(GPL MIT LGPL)
+groups=(devel)
+depends=(neko)
+optdepends=(python php java-environment mono)
+makedepends=(git ocaml camlp4 zlib neko opam)
+provides=(haxe haxelib)
+options=(!strip !makeflags)
+# tag: 4.0.0
+source=("$pkgname-$pkgver::git+https://github.com/HaxeFoundation/haxe.git#commit=ef18b62"
+        haxe.sh)
+sha256sums=('SKIP'
+            'da08272cf61872f3401ad8b9f0bf94a4b2bfbaeb7b65644ee822f4ac8aaaed10')
 
 prepare() {
   cd "$pkgname-$pkgver"
+  git submodule update --init
 
-  git submodule update --init --recursive
+  # Patch the OCaml source files to use "Stdlib." instead of "Pervasives." (deprecated)
+  find . -name "*.ml" -type f -exec sed -i "s/Pervasives\./Stdlib./g" {} \;
 }
 
 build() {
-  # Needed to make Haxe build with OCaml 4.06
+  # Needed to make Haxe build with OCaml 4.06 and 4.07
   # For more info, see: https://github.com/HaxeFoundation/haxe/issues/6883#issuecomment-370142073
   export OCAMLPARAM="safe-string=0,_"
 
-  make -C "$pkgname-$pkgver" all tools
+  # Prepare opam and ocamlfind before building
+  export HOME="$srcdir"
+  opam init -a
+  eval $(opam env)
+
+  # Install two ocaml packages that are used for building later on
+  opam install -y dune jbuilder
+
+  # Download and patch the sha package
+  opam install -y sha || true
+  find . -name "*.ml" -type f \
+    -exec sed -i "s/Pervasives\./Stdlib./g" {} \;
+
+  # Build and install the modified sha package
+  export CCACHE_DISABLE=1
+  opam install -b --inplace-build --reuse-build-dir -y sha
+
+  # Install the other dependencies
+  opam install -y ocamlfind camlp5 sedlex ppx_tools_versioned xml-light extlib ptmap || exit 1
+
+  cd "$srcdir/$pkgname-$pkgver"
+
+  # Build two make targets
+  make libs
+  make haxe
+
+  # "make tools" did not work. These are the replacement commands:
+  cd "$srcdir/$pkgname-$pkgver/extra/haxelib_src"
+  ../../haxe client.hxml || true
+  nekotools boot run.n
+  mv run ../../haxelib
 }
 
 check() {
-  "$pkgname-$pkgver/haxe" -version && "$pkgname-$pkgver/haxelib" version
+  "$srcdir/$pkgname-$pkgver/haxe" -version
+  "$srcdir/$pkgname-$pkgver/haxelib" version
 }
 
 package() {
