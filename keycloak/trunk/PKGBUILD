@@ -3,29 +3,60 @@
 
 pkgname=keycloak
 pkgver=7.0.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Open Source Identity and Access Management For Modern Applications and Services"
 arch=('any')
-url="http://www.keycloak.org/"
+url="https://www.keycloak.org/"
 license=('Apache')
-depends=('jdk8-openjdk')
-makedepends=('maven' 'git')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/keycloak/keycloak/archive/${pkgver}.tar.gz"
-        "keycloak.service")
+depends=('java-runtime>=8' 'grep' 'bash' 'coreutils' 'util-linux')
+makedepends=('maven' 'git' 'java-environment=8')
+backup=(
+  opt/keycloak/standalone/configuration/application-roles.properties
+  opt/keycloak/standalone/configuration/application-users.properties
+  opt/keycloak/standalone/configuration/logging.properties
+  opt/keycloak/standalone/configuration/mgmt-groups.properties
+  opt/keycloak/standalone/configuration/mgmt-users.properties
+  opt/keycloak/standalone/configuration/standalone-ha.xml
+  opt/keycloak/standalone/configuration/standalone.xml
+)
+options=(emptydirs)
+source=(https://github.com/keycloak/keycloak/archive/$pkgver/$pkgname-$pkgver.tar.gz
+        keycloak.service
+        keycloak.sysusers
+        keycloak.tmpfiles
+        layers.conf)
 sha512sums=('d70971588736e771afc62af10633c939e493e0562e5d55c0dd6e78f9bad78439fcef74b595190a36cebbe16fc4fd79743b29f40864caf1ad426b392a159ab4a1'
-            'eefc589eb574a784a593e0331603178a71bc795b46a4cca41feb780e967079fd801c934378c5f0aa790651c0c7e24c7bf31d11f69cc986e83b608cfe90f7d738')
+            '0c319a350d211bcffaa08fe226b37913c8d79f38d281c13c50b0ae949e1b8a97acac26842679b29436568770ccf8c5907c01c824e777dbd374b5ec8cc120dae3'
+            'c53b734598ccf675930754514bd2af628355025197e77541e5acb8718629a8ece763c814e8373278758a30475e6a716febeff10bdebf0847d914bc193e732c79'
+            '2f51757761d0444820e5624cdd061062d125a1ea74faf51c224603cae11583f99ff9ffbb79bb1834ae45dd6439b5d2db0f36f3a84c625df85fa9549e95308fea'
+            'd54a04c120edb933c4f7168460bd813ff92a4e3771cedcabfeeb76c5d3e057b3cd0d0486dc11ddbd91e8d87ca90193e4c74cc3414e45106dd556d455ac7e60b2')
 
 build() {
-    cd $pkgname-$pkgver
-    mvn -Pdistribution -pl distribution/server-dist -am -Dmaven.test.skip clean install
+  cd $pkgname-$pkgver
+
+  export PATH="/usr/lib/jvm/java-8-openjdk/bin:$PATH"
+  mvn -Pdistribution \
+    -pl distribution/server-dist \
+    -am \
+    -Dmaven.test.skip \
+    clean install
 }
 
 package() {
-   mkdir -p "$pkgdir/opt"
-   cd $pkgname-$pkgver
-   ls distribution/server-dist/target/
-   cp -r "distribution/server-dist/target/keycloak-$pkgver" "$pkgdir/opt/keycloak"
+  cd $pkgname-$pkgver
 
-   install -Dm644 "$srcdir"/keycloak.service "$pkgdir"/usr/lib/systemd/system/keycloak.service
+  mkdir -p "$pkgdir/opt"
+  cp -r "distribution/server-dist/target/keycloak-$pkgver" "$pkgdir/opt/keycloak"
+  install -Dm 644 "$srcdir"/layers.conf -t "$pkgdir/opt/keycloak/modules"
+  install -d "$pkgdir"/opt/keycloak/standalone/{data,log}
+
+  install -d "$pkgdir/"{etc,var/log}
+  ln -s /opt/keycloak/standalone/configuration "$pkgdir/etc/keycloak"
+  ln -s /opt/keycloak/standalone/log "$pkgdir/var/log/keycloak"
+
+  install -Dm644 "$srcdir"/keycloak.service "$pkgdir"/usr/lib/systemd/system/keycloak.service
+  install -Dm644 "$srcdir"/keycloak.sysusers "$pkgdir"/usr/lib/sysusers.d/keycloak.conf
+  install -Dm644 "$srcdir"/keycloak.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/keycloak.conf
 }
 
+# vim: ts=2 sw=2 et:
