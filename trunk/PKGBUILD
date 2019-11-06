@@ -4,12 +4,12 @@
 
 pkgname=atop
 pkgver=2.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A system and process level monitor'
 arch=('x86_64')
 url='https://www.atoptool.nl/'
 license=('GPL')
-depends=('ncurses' 'sh' 'zlib' 'cron')
+depends=('ncurses' 'sh' 'zlib')
 backup=('etc/default/atop')
 source=("https://www.atoptool.nl/download/atop-${pkgver/_/-}.tar.gz"
         'atop.default')
@@ -32,4 +32,8 @@ package() {
     mkdir -p "$pkgdir/etc/default"
     make DESTDIR="$pkgdir" systemdinstall SBINPATH=/usr/bin
     install -Dm644 "$srcdir/atop.default" "$pkgdir/etc/default/atop"
+    # enable atop-rotate.timer by default
+    install -dm755 "$pkgdir/usr/lib/systemd/system/timers.target.wants"
+    ln -s ../atop-rotate.timer \
+        "$pkgdir/usr/lib/systemd/system/timers.target.wants/atop-rotate.timer"
 }
