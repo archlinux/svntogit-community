@@ -7,8 +7,8 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=4.2.0
-pkgrel=5
+pkgver=4.3.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -23,21 +23,15 @@ checkdepends=('xorg-server-xvfb')
 optdepends=('ipython2: to use calibre-debug'
             'poppler: required for converting pdf to html')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig"
-         "calibre-qt-5.13.2.patch")
-sha256sums=('b1b626acdcc3b29ae96489e7424389161bd6529545f47c0d2b063b99131286d8'
-            'SKIP'
-            'c4e952ad1bb15cb0c8c36e34b6f056d4263b74f9322ab611de5a73dd0004f2be')
-b2sums=('a37baae9c77ae2535782c5ee2095a33874c394b7f6415f4aac2752330c6cac3972723e75b90d38955a67a5df90de4318b740ca357b7149f610245f1895482437'
-        'SKIP'
-        '1778ba195a5088aa65d74ad22e255200f4d7304ee543077e15b08793cb6877c1e7bf45b9b63fb3beba9d6ad667c1d1ddb3218f9d539e252162fe9f33a5c17616')
+        "https://calibre-ebook.com/signatures/${pkgname}-${pkgver}.tar.xz.sig")
+sha256sums=('cf19f19da993c496a045c49d89f9232dd5ab23034acad2d14cba0bfab8178420'
+            'SKIP')
+b2sums=('fd187d1b68ac60c26c11094b0d19123f24ac93cde1e9939b71ecd4756c7a40ab55e4e36128763ed7f312df18a5152da418828ce84f4514a8747df8ccc3de2365'
+        'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
     cd "${pkgname}-${pkgver}"
-
-    # fix ebook-viewer with Qt 5.13.2
-    patch -p1 -i ../calibre-qt-5.13.2.patch
 
     # Desktop integration (e.g. enforce arch defaults)
     # Use uppercase naming scheme, don't delete config files under fakeroot.
