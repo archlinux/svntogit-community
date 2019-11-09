@@ -1,4 +1,42 @@
-## 0.12.13 (Unreleased)
+## 0.12.14 (Unreleased)
+
+UPGRADE NOTES:
+
+* The `terraform output` command formerly would treat no outputs at all as an error, exiting with a non-zero status. Since it's expected for some root modules to have no outputs, the command now returns with success status zero in this situation, but still returns the error on stderr as a compromise to provide an explanation for why nothing is being shown.
+
+ENHANCEMENTS:
+
+* command/output: Now treats no defined outputs as a success case rather than an error case, returning exit status zero instead of non-zero. [GH-23008] [GH-21136]
+* backend/artifactory: Will now honor the `HTTP_PROXY` and `HTTPS_PROXY` environment variables when appropriate, to allow sending requests to the Artifactory endpoints via a proxy. [GH-18629]
+
+BUG FIXES:
+
+* command/plan: Previously certain changes to lists would cause the list diff in the plan output to miss items. Now `terraform plan` will show those items as expected. [GH-22695]
+* command/show: When showing a saved plan file not in JSON mode, use the same presentation as `terraform plan` itself would've used. [GH-23292]
+* core: Store absolute instance dependencies in state to allow for proper destroy ordering [GH-23252]
+* core: Ensure tainted status is maintained when a destroy operation fails [GH-23304]
+* config: `transpose` function will no longer panic when it should produce an empty map as its result. [GH-23321]
+* cli: When running Terraform as a sub-process of itself, we will no longer produce errant prefixes on the console output. While we don't generally recommend using Terraform recursively like this, it was behaving in this strange way due to an implementation detail of how Terraform captures "panic" crashes from the Go runtime, and that subsystem is now updated to avoid that strange behavior. [GH-23281]
+* provisioners: Sanitize output to filter invalid utf8 sequences [GH-23302]
+
+## 0.12.13 (October 31, 2019)
+
+UPGRADE NOTES:
+
+* **Remote backend local-only operations:** Previously the remote backend was not correctly handling variables marked as "HCL" in the remote workspace when running local-only operations like `terraform import`, instead interpreting them as literal strings as described in [#23228](https://github.com/hashicorp/terraform/issues/23228).
+
+    That behavior is now corrected in this release, but in the unlikely event that an existing remote workspace contains a variable marked as "HCL" whose value is not valid HCL syntax these local-only commands will now fail with a syntax error where previously the value would not have been parsed at all and so an operation not relying on that value may have succeeded in spite of the problem. If you see an error like "Invalid expression for var.example" on local-only commands after upgrading, ensure that the remotely-stored value for the given variable uses correct HCL value syntax.
+    
+    This _does not_ affect true remote operations like `terraform plan` and `terraform apply`, because the processing of variables for those always happens in the remote system.
+
+BUG FIXES:
+
+* config: Fix regression where self wasn't properly evaluated when using for_each ([#23215](https://github.com/hashicorp/terraform/issues/23215))
+* config: dotfiles are no longer excluded when copying existing modules; previously, any dotfile/dir was excluded in this copy, but this change makes the local copy behavior match go-getter behavior ([#22946](https://github.com/hashicorp/terraform/issues/22946))
+* core: Ensure create_before_destroy ordering is enforced with dependencies between modules ([#22937](https://github.com/hashicorp/terraform/issues/22937))
+* core: Fix some destroy-time cycles due to unnecessary edges in the graph, and remove unused resource nodes ([#22976](https://github.com/hashicorp/terraform/issues/22976))
+* backend/remote: Correctly handle remotely-stored variables that are marked as "HCL" when running local-only operations like `terraform import`. Previously they would produce a type mismatch error, due to misinterpreting them as literal strings. ([#23229](https://github.com/hashicorp/terraform/issues/23229))
+
 ## 0.12.12 (October 18, 2019)
 
 BUG FIXES:
