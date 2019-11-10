@@ -2,7 +2,7 @@
 
 pkgname=python-tqdm
 pkgver=4.28.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
 license=('MIT' 'MPL')
