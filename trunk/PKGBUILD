@@ -4,7 +4,7 @@ _srcname=SPIRV-LLVM-Translator
 pkgname=${_srcname,,}
 _build=1
 pkgver=9.0.0.${_build}
-pkgrel=1
+pkgrel=2
 pkgdesc="Tool and a library for bi-directional translation between SPIR-V and LLVM IR"
 arch=(x86_64)
 url="https://github.com/KhronosGroup/SPIRV-LLVM-Translator/"
@@ -19,7 +19,12 @@ prepare() {
 
 build() {
     cd build
+    
+    # workaround to fix luxmark crashing issue: use -O0
+    # https://github.com/intel/compute-runtime/issues/218
     cmake ../${_srcname}-${pkgver%.*}-${_build} \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_CXX_FLAGS_RELEASE='-O0' \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -Wno-dev
