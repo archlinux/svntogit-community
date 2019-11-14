@@ -4,7 +4,7 @@
 # Contributor: Tetsumi
 pkgname=python-pygame
 pkgver=1.9.6
-pkgrel=2
+pkgrel=3
 pkgdesc="Python game library"
 arch=('x86_64')
 url="http://www.pygame.org"
