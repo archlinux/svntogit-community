@@ -3,7 +3,7 @@
 _name=sphinx-argparse
 pkgname=python-sphinx-argparse
 pkgver=0.2.5
-pkgrel=1
+pkgrel=2
 pkgdesc="Sphinx extension that automatically documents argparse commands and options"
 arch=('any')
 url="https://github.com/ribozz/sphinx-argparse"
