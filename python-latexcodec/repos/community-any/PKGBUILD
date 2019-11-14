@@ -3,7 +3,7 @@
 
 pkgname=python-latexcodec
 pkgver=1.0.7
-pkgrel=1
+pkgrel=2
 pkgdesc="A lexer and codec to work with LaTeX code in Python"
 arch=('any')
 url="https://github.com/mcmtroffaes/latexcodec"
