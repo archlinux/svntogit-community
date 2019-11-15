@@ -6,30 +6,33 @@
 
 pkgname=nim
 _pkgname=Nim
-pkgver=0.19.0
+pkgver=1.0.2
+_csourcesver=0.20.0
 pkgrel=1
 pkgdesc='Imperative, multi-paradigm, compiled programming language'
 url='https://nim-lang.org/'
 arch=('x86_64')
 license=('MIT')
-depends=('python' 'bash')
+depends=('bash')
+makedepends=('git')
+optdepends=('nimble: Nim package manager')
 options=('!emptydirs')
 backup=(
-  etc/nim.cfg
-  etc/nimdoc.cfg
-  etc/nimdoc.tex.cfg
-  etc/rename.rules.cfg
+  etc/nim/nim.cfg
+  etc/nim/nimdoc.cfg
+  etc/nim/nimdoc.tex.cfg
+  etc/nim/rename.rules.cfg
 )
-source=(${pkgname}-${pkgver}.tar.gz::https://github.com/nim-lang/Nim/archive/v${pkgver}.tar.gz
-        csources-${pkgver}.tar.gz::https://github.com/nim-lang/csources/archive/v${pkgver}.tar.gz)
-sha256sums=('f6a0b1c7bc227db1f7b8efa3bde0c6f23903c9184beebc99ff0094378c28e1ee'
-            '68042afae0b24915acac813b52b9ee0a303219e990d3bfa05ca57fb6bbc51578')
-sha512sums=('112db4eb0b2007cef48e549d3df7316498aa11226be65ab30d03fa06fdd67dc525c3f60e6ed883b74745644a2cdca55f4be0eddadcd72cec40440e0af06907e0'
-            '06f0062ee54eb52ee1a95cdc9a9fe99bea1b94e16d57dff20335199f029dcd9043c82bb204d4ae65ee3ca326e924d8d3667c7f7cec66c7a50124046500d75a5f')
+source=(https://github.com/nim-lang/Nim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
+        https://github.com/nim-lang/csources/archive/v${_csourcesver}/csources-${_csourcesver}.tar.gz)
+sha256sums=('6cb3027b1234a69ff98437cf8a6d02e31a1ae4b3fc913cda8abef1cb965857b8'
+            '5e6fd15d90df1a8cb7614c4ffc70aa8c4198cd854d7742016202b96dd0228d3c')
+sha512sums=('bdb1aac10c45843216925b158d76fdd6f3a855389d6307b6a18721b92657a75184dc1bd72cb8e5c203e2abdd5a47b02e902a4bce3b0c2ada47d460059a321929'
+            '4da00678cb92cfd3b2425e4698cbbef8111c711f9457ba969367638437b5fad7928ca0a91fd24f53dcd9d341cfc420e87ec85d245767531bc57ccafd6feba258')
 
 prepare() {
   cd ${_pkgname}-${pkgver}
-  mv ../csources-${pkgver} csources
+  mv ../csources-${_csourcesver} csources
   rm bin/empty.txt
   for nimcfg in {compiler,config}/nim.cfg; do
     echo "gcc.options.always %= \"\${gcc.options.always} ${CFLAGS:-} ${CPPFLAGS}\"" >> "${nimcfg}"
@@ -53,7 +56,9 @@ build() {
   (cd lib
     nim c --app:lib -d:createNimRtl -d:release nimrtl.nim
   )
+
   msg2 "Building tools"
+  ./koch tools
   (cd tools
     nim c -d:release nimgrep.nim
   )
@@ -76,18 +81,28 @@ package() {
   # Fix FS#48118, related to the doc2 command
   ln -s /usr/share/nim/doc "${pkgdir}/usr/lib/nim/doc"
 
-  install -Dm 644 config/* -t "${pkgdir}/etc"
-  install -Dm 755 bin/* tools/nimgrep nimsuggest/nimsuggest -t "${pkgdir}/usr/bin"
+  install -Dm 644 config/* -t "${pkgdir}/etc/nim"
+  install -Dm 755 bin/* -t "${pkgdir}/usr/bin"
 
   # Fix FS#50252, unusual placement of header files
   install -d "${pkgdir}/usr/include"
   cp -a "${pkgdir}/usr/lib/nim/"*.h "${pkgdir}/usr/include"
 
   install -d "${pkgdir}/usr/share/nim/doc"
-  cp -a examples web doc/* "${pkgdir}/usr/share/nim/doc"
+  cp -a examples doc/* "${pkgdir}/usr/share/nim/doc"
 
   install -Dm 644 copying.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  # completions
+  for comp in tools/*.bash-completion; do
+    install -Dm 644 "${comp}" "${pkgdir}/usr/share/bash-completion/completions/$(basename "${comp/.bash-completion}")"
+  done
+  for comp in tools/*.zsh-completion; do
+    install -Dm 644 "${comp}" "${pkgdir}/usr/share/zsh/site-functions/_$(basename "${comp/.zsh-completion}")"
+  done
+
   rm -r "${pkgdir}/nim"
+  rm "${pkgdir}/usr/bin/nimble"
 }
 
 # vim: ts=2 sw=2 et:
