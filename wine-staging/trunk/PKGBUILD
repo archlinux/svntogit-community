@@ -5,7 +5,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=4.18
+pkgver=4.19
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
@@ -14,9 +14,9 @@ source=(https://dl.winehq.org/wine/source/4.x/wine-$_pkgbasever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('794802289fa021092a86c939a3618563ad1523689cdafb6fd58aed06c6a5c867fc5ef0d3dbb2435a65c3eb0d3b982b37e983257a7a7d20c3b6d71df9bf5bf1f1'
+sha512sums=('a86bd7ccfb1878445ea946e4ca72769c10b4d966bcc893536a8c3eaa29484ba687dc3a44755ec92a2ad6073e736985b814c0c682bf4f90b5ffe2bca0ebbf4b25'
             'SKIP'
-            'e5ddb7ac09322b5f2c8e8facff9639699a6a3e72a96f4028e88e23e81f73c766bde1479e54a9a80bd7f33c7747a8220e2699f4dcfe55117b9832ff4cdba60a04'
+            'a47ae16dd39797b54011f942fe7e722897af7ddc0bed2bf2e39c46aecf60a02769f7287609c63b4c0c3f1c8e40172e0cdf3bdb53562a07d7a2b7ac53e570dbdc'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -72,6 +72,7 @@ makedepends=(autoconf ncurses bison perl fontforge flex
   vulkan-icd-loader     lib32-vulkan-icd-loader
   sdl2                  lib32-sdl2
   vkd3d                 lib32-vkd3d
+  libcups               lib32-libcups
   sane
   libgphoto2
   gsm
