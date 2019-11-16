@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-whatever
-pkgver=0.5
-pkgrel=4
+pkgver=0.6
+pkgrel=1
 pkgdesc='Easy way to make anonymous functions by partial application of operators'
 arch=('any')
 license=('BSD')
@@ -11,11 +11,7 @@ depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/Suor/whatever/archive/$pkgver.tar.gz")
-sha512sums=('eb3f0b9bc63197c1bfdd135a46a597e2f5d6131900910f266c984c1afd901d6cbc8c8ee62397e9af8393bf34beff068dc0007e8b016e70f275e019420f18f6e1')
-
-prepare() {
-  sed -i -e 's/(1, 0, 1)/(1, 0, 0, 1)/' -e 's/(self._arity, 0, self._arity)/(self._arity, 0, 0, self._arity)/' whatever-$pkgver/whatever.py
-}
+sha512sums=('f982100f0d6a8bf4c30e452a083c75f4cb2bca07e57e40ba4fd66baca752f039aea9519ffb97b3d43708df0ff5e981d0c4d03773f225106aa2f43e7770ee1975')
 
 build() {
   cd whatever-$pkgver
