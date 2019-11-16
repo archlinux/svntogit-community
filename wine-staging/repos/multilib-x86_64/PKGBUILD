@@ -5,7 +5,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=4.19
+pkgver=4.20
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
@@ -14,9 +14,9 @@ source=(https://dl.winehq.org/wine/source/4.x/wine-$_pkgbasever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('a86bd7ccfb1878445ea946e4ca72769c10b4d966bcc893536a8c3eaa29484ba687dc3a44755ec92a2ad6073e736985b814c0c682bf4f90b5ffe2bca0ebbf4b25'
+sha512sums=('c01af88106b8a808fbceb6ace45882c300656a47913142ba7052283b358d6d5b4379895804e15a2ca1870a4e955ea3ca857ec042a8070ea4ffaefa0c7a84e701'
             'SKIP'
-            'a47ae16dd39797b54011f942fe7e722897af7ddc0bed2bf2e39c46aecf60a02769f7287609c63b4c0c3f1c8e40172e0cdf3bdb53562a07d7a2b7ac53e570dbdc'
+            '2ce4f6fa83fc275c83bc7f7bbd4b1a4ca65f7e55e16af40958635b8b2efc2b174baa79ed576ed09c4c13b572756fb6262f19281e5b72797c7e0f1f6c4dd1a4ee'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
