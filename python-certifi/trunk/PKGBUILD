@@ -4,8 +4,8 @@
 
 pkgname=python-certifi
 _libname=${pkgname/python-/}
-pkgver=2019.6.16
-pkgrel=3
+pkgver=2019.9.11
+pkgrel=1
 pkgdesc="Python package for providing Mozilla's CA Bundle"
 arch=(any)
 url="https://pypi.python.org/pypi/certifi"
@@ -13,7 +13,7 @@ license=('GPL')
 depends=('python')
 makedepends=('python-setuptools')
 source=("https://pypi.io/packages/source/${_libname:0:1}/$_libname/$_libname-$pkgver.tar.gz")
-sha512sums=('4641626bc5073cd0b3a520855ddef1007dcb42933baa7a3469856f936e725581042bcbd5b67e984ba9748e7faa62b9125cba7dc160dcc5db2eafe46461a29f5e')
+sha512sums=('aab5734bf65cbad12772bb120153b0325a5c3226339e0a03fdf4c3413303feb930b6d53d1d9dab93bd4f3cf00d2bfbe86419c4c462570340f1a4aa143a31373c')
 
 build() {
   cd "$srcdir/$_libname-$pkgver"
