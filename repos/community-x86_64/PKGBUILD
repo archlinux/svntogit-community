@@ -5,7 +5,7 @@
 
 pkgname=dnscrypt-proxy
 pkgver=2.0.33
-pkgrel=1
+pkgrel=2
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTPS"
 arch=('x86_64')
 url="https://dnscrypt.info"
@@ -28,7 +28,7 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/jedisct1/${pkgname}/arc
 sha512sums=('5c6eb655aa70457889253cbf630e7e37011a461a7f181f0a667694d53146ad9dee88bbbf80c7db3187bba0054af2a63b7b5be1a229800b2566a9758e9d047429'
             'aa871927bbc37d0c629e75a39cbfe50ce6062a19d7fe5b61895c604d6a480ba8f484cf207943c6ee7bf2dc3c7799d8f7a2b1ea5c8e586920c97730a7c503985e'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
-            '6144f3d33f3d85c9a4e5573f88e92f1b9d7118fd654072eeac6c3f76085086d4b2464e1d3579d8501153f453bc5125859d148fc3b3486d26368d1f51911aeb33')
+            '456a81906c9713f7b9bdc6e152d3688899da6f760758fce91a9c625da3d7286bf0fd1d54419a57aa5ec1d9d50e1d2db32b6d5f36c2f265e227dc7e8eef65cfdd')
 
 prepare() {
   cd "$pkgname-$pkgver"
