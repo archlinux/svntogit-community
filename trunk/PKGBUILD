@@ -5,7 +5,7 @@
 
 pkgbase=python-jsonschema
 pkgname=('python-jsonschema' 'python2-jsonschema')
-pkgver=3.1.1
+pkgver=3.2.0
 pkgrel=1
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
@@ -18,7 +18,7 @@ checkdepends=('python-twisted' 'python2-twisted' 'python-idna' 'python2-idna' 'p
               'python2-jsonpointer' 'python-strict-rfc3339' 'python2-strict-rfc3339'
               'python-rfc3987' 'python2-rfc3987' 'python-webcolors' 'python2-webcolors')
 source=("$pkgbase-$pkgver.tar.bz2::https://github.com/Julian/jsonschema/archive/v$pkgver.tar.gz")
-sha512sums=('399f8de7379cbcec00ebc9db7d23cc419fbae0a4e20bc1d8c9d6715de997facafe1ad41a9a5bf128bde421f7ceb0a31a6e351972850d323879d72cc5f22db69a')
+sha512sums=('a575e9e7b0668220854e7ae45f2afd433643c3f0bfeb9769413cfc072ae01513a8d97bddbb6317f42348e09081e72bbad801d00ee5e3c0ac840bd19e934955cd')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
