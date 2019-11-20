@@ -5,19 +5,20 @@
 
 pkgbase=python-jsonschema
 pkgname=('python-jsonschema' 'python2-jsonschema')
-pkgver=3.0.2
-pkgrel=3
+pkgver=3.1.1
+pkgrel=1
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
 url="https://pypi.python.org/pypi/jsonschema"
 license=('MIT')
-makedepends=('python-attrs' 'python2-attrs' 'python-pyrsistent' 'python2-pyrsistent'
-             'python2-functools32' 'python-setuptools-scm' 'python2-setuptools-scm')
+makedepends=('python-attrs' 'python2-attrs' 'python-importlib-metadata' 'python2-importlib-metadata'
+             'python-pyrsistent' 'python2-pyrsistent' 'python2-functools32' 'python-setuptools-scm'
+             'python2-setuptools-scm')
 checkdepends=('python-twisted' 'python2-twisted' 'python-idna' 'python2-idna' 'python-jsonpointer'
               'python2-jsonpointer' 'python-strict-rfc3339' 'python2-strict-rfc3339'
               'python-rfc3987' 'python2-rfc3987' 'python-webcolors' 'python2-webcolors')
 source=("$pkgbase-$pkgver.tar.bz2::https://github.com/Julian/jsonschema/archive/v$pkgver.tar.gz")
-sha512sums=('906ee1911a56fd7db18891c86dbca6dc9b7e306784b09b2507f75ce07cd236729404f71a142f5bd1b947a475e05a69c1586e91bcc2b6c10e3d630d887e6a33f8')
+sha512sums=('399f8de7379cbcec00ebc9db7d23cc419fbae0a4e20bc1d8c9d6715de997facafe1ad41a9a5bf128bde421f7ceb0a31a6e351972850d323879d72cc5f22db69a')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
@@ -47,7 +48,7 @@ check() {
 }
 
 package_python-jsonschema() {
-  depends=('python-attrs' 'python-pyrsistent' 'python-setuptools')
+  depends=('python-attrs' 'python-importlib-metadata' 'python-pyrsistent' 'python-setuptools')
 
   cd jsonschema-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
@@ -55,7 +56,8 @@ package_python-jsonschema() {
 }
 
 package_python2-jsonschema() {
-  depends=('python2-attrs' 'python2-pyrsistent' 'python2-setuptools' 'python2-functools32')
+  depends=('python2-attrs' 'python2-importlib-metadata' 'python2-pyrsistent' 'python2-setuptools'
+           'python2-functools32')
 
   cd jsonschema-$pkgver-py2
   python2 setup.py install --root="$pkgdir" --optimize=1
