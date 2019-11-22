@@ -4,7 +4,7 @@
 pkgname=kodi-addon-inputstream-rtmp
 pkgver=2.0.6
 _codename=Leia
-pkgrel=1
+pkgrel=2
 pkgdesc="RTMP input stream add-on for Kodi"
 arch=('x86_64')
 url="https://github.com/xbmc/inputstream.rtmp"
