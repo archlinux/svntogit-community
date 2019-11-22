@@ -5,7 +5,7 @@
 pkgname=kodi-addon-inputstream-adaptive
 pkgver=2.4.2
 _codename=Leia
-pkgrel=3
+pkgrel=4
 pkgdesc="InputStream client for adaptive streams for Kodi 18+"
 arch=('x86_64')
 url="https://github.com/peak3d/inputstream.adaptive"
