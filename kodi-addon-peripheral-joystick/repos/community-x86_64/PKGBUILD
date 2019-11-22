@@ -2,7 +2,7 @@
 
 pkgname=kodi-addon-peripheral-joystick
 pkgver=1.4.7
-pkgrel=10
+pkgrel=11
 pkgdesc="Joystick support for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/peripheral.joystick'
