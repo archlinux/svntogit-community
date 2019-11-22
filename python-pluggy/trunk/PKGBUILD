@@ -2,8 +2,8 @@
 
 pkgbase=python-pluggy
 pkgname=(python-pluggy python2-pluggy)
-pkgver=0.13.0
-pkgrel=3
+pkgver=0.13.1
+pkgrel=1
 pkgdesc="Plugin and hook calling mechanisms for python"
 arch=('any')
 url="https://www.pluggypayments.com/docs/python"
@@ -12,7 +12,7 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-importlib-
              'python2-importlib-metadata')
 checkdepends=('python-pytest-runner' 'python2-pytest-runner')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/pytest-dev/pluggy/archive/$pkgver.tar.gz")
-sha512sums=('cc946bf3e003e0c6fd04d113682560c6e2c84ffa790a6177f43cd5754d25248bae33af6aa77d86c938cea31bc386af9ada88d61499071a6216da1fd94bc11773')
+sha512sums=('3269f7ad7801a70ba8aa3182c568f70e2ee88a90b6f6335be631f9737dd42fac3fb1b27c5b6fe6422de128ddcc58736f0c41ed60b7c0177126dd676b98ece301')
 
 prepare() {
   cp -a pluggy-$pkgver{,-py2}
