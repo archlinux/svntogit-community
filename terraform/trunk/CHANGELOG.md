@@ -1,23 +1,63 @@
-## 0.12.14 (Unreleased)
+## 0.12.17 (Unreleased)
+## 0.12.16 (November 18, 2019)
 
-UPGRADE NOTES:
+NEW FEATURES:
 
-* The `terraform output` command formerly would treat no outputs at all as an error, exiting with a non-zero status. Since it's expected for some root modules to have no outputs, the command now returns with success status zero in this situation, but still returns the error on stderr as a compromise to provide an explanation for why nothing is being shown.
-
-ENHANCEMENTS:
-
-* command/output: Now treats no defined outputs as a success case rather than an error case, returning exit status zero instead of non-zero. [GH-23008] [GH-21136]
-* backend/artifactory: Will now honor the `HTTP_PROXY` and `HTTPS_PROXY` environment variables when appropriate, to allow sending requests to the Artifactory endpoints via a proxy. [GH-18629]
+*  lang/funcs: Add `trim*` functions
 
 BUG FIXES:
 
-* command/plan: Previously certain changes to lists would cause the list diff in the plan output to miss items. Now `terraform plan` will show those items as expected. [GH-22695]
-* command/show: When showing a saved plan file not in JSON mode, use the same presentation as `terraform plan` itself would've used. [GH-23292]
-* core: Store absolute instance dependencies in state to allow for proper destroy ordering [GH-23252]
-* core: Ensure tainted status is maintained when a destroy operation fails [GH-23304]
-* config: `transpose` function will no longer panic when it should produce an empty map as its result. [GH-23321]
-* cli: When running Terraform as a sub-process of itself, we will no longer produce errant prefixes on the console output. While we don't generally recommend using Terraform recursively like this, it was behaving in this strange way due to an implementation detail of how Terraform captures "panic" crashes from the Go runtime, and that subsystem is now updated to avoid that strange behavior. [GH-23281]
-* provisioners: Sanitize output to filter invalid utf8 sequences [GH-23302]
+* command/0.12upgrade: fix panic when int value is out of range ([#23394](https://github.com/hashicorp/terraform/issues/23394))
+* core: fix cycle between dependencies with create_before_destroy ([#23399](https://github.com/hashicorp/terraform/issues/23399))
+* backend/remote: default .terraformignore paths will now work on Windows ([#23311](https://github.com/hashicorp/terraform/issues/23311))
+
+## 0.12.15 (November 14, 2019)
+
+BUG FIXES:
+
+* various commands: Fixed errant error "Initialization required. Please see the error message above." ([#23383](https://github.com/hashicorp/terraform/issues/23383))
+
+    The error was produced on some of Terraform's subcommands (in particular `terraform show` and `terraform output`, but possibly others) if a warning was emitted during configuration loading and if a `backend` block was present. This issue has been present since v0.12.0 for any configuration that produces configuration-related deprecation warnings, but it became more visible in v0.12.14 due to the addition of several more situations that could produce warnings.
+
+## 0.12.14 (November 13, 2019)
+
+UPGRADE NOTES:
+
+* Terraform v0.12.0 included several changes to the Terraform language involving making expressions, type constraints, keywords, and references first-class in the language syntax, removing the need for placing thee items either in quoted strings or in interpolation syntax. Terraform v0.11 required these items to be quoted because the underlying language could not represent them any other way, while Terraform v0.12 expects them to be unquoted in order to improve readability.
+
+    We have been accepting both forms for backward-compatibility with existing configurations and examples since the inititial v0.12.0 release. Having maintained compatibility for both forms for several versions we are now beginning the deprecation cycle for the old usage by having Terraform emit deprecation warnings.
+    
+    Terraform will still accept the older forms in spite of these warnings, so no immediate action is required. If your modules are targeting Terraform v0.12.0 and later exclusively, you can silence the warnings by removing the quotes, as directed in the warning message. In a future major version of Terraform, some of these warnings will be elevated to be errors.
+    
+    The summary of the warning for these situations will be one of the following:
+    
+    * **Interpolation-only expressions are deprecated:** an expression like `"${foo}"` should be rewritten as just `foo`.
+    * **Quoted type constraints are deprecated:** In a `variable` block, a type constraint `"map"` should be written as `map(string)`, `"list"` as `list(string)`, and `"string"` as just `string`.
+    * **Quoted keywords are deprecated:** In certain contexts that expect special keywords, such as `when` in `provisioner` blocks, the keyword should be unquoted.
+    * **Quoted references are deprecated:** In the `depends_on` and `ignore_changes` meta-arguments, quoted references like `"aws_instance.foo"` should be rewritten without the quotes, e.g. as `aws_instance.foo`.
+    
+    The above changes are made automatically by the upgrade tool for users who are [upgrading from Terraform 0.11](https://www.terraform.io/upgrade-guides/index.html). These warnings are intended to help those who are using Terraform for the first time at Terraform 0.12 but who may have found examples online that are written for older versions of Terraform, in order to guide towards the modern Terraform style.
+
+* The `terraform output` command would formerly treat no outputs at all as an error, exiting with a non-zero status. Since it's expected for some root modules to have no outputs, the command now returns with success status zero in this situation, but still returns the error on stderr as a compromise to provide an explanation for why nothing is being shown.
+
+ENHANCEMENTS:
+
+* config: Redundant interpolation syntax for attribute values and legacy (0.11-style) variable type constrants will now emit deprecation warnings. ([#23348](https://github.com/hashicorp/terraform/issues/23348))
+* config: Keywords and references in `depends_on`, `ignore_changes`, and in provisioner `when` and `on_failure` will now emit deprecation warnings. ([#23329](https://github.com/hashicorp/terraform/issues/23329))
+* command/output: Now treats no defined outputs as a success case rather than an error case, returning exit status zero instead of non-zero. ([#23008](https://github.com/hashicorp/terraform/issues/23008)] [[#21136](https://github.com/hashicorp/terraform/issues/21136))
+* backend/artifactory: Will now honor the `HTTP_PROXY` and `HTTPS_PROXY` environment variables when appropriate, to allow sending requests to the Artifactory endpoints via a proxy. ([#18629](https://github.com/hashicorp/terraform/issues/18629))
+
+BUG FIXES:
+
+* backend/remote: Filter environment variables when loading context for remote backend ([#23283](https://github.com/hashicorp/terraform/issues/23283))
+* command/plan: Previously certain changes to lists would cause the list diff in the plan output to miss items. Now `terraform plan` will show those items as expected. ([#22695](https://github.com/hashicorp/terraform/issues/22695))
+* command/show: When showing a saved plan file not in JSON mode, use the same presentation as `terraform plan` itself would've used. ([#23292](https://github.com/hashicorp/terraform/issues/23292))
+* command/force-unlock: Return an explicit error when the local-filesystem lock implementation receives the wrong lock id. Previously it was possible to see either an incorrect error or no error at all in that case. ([#23336](https://github.com/hashicorp/terraform/issues/23336))
+* core: Store absolute instance dependencies in state to allow for proper destroy ordering ([#23252](https://github.com/hashicorp/terraform/issues/23252))
+* core: Ensure tainted status is maintained when a destroy operation fails ([#23304](https://github.com/hashicorp/terraform/issues/23304))
+* config: `transpose` function will no longer panic when it should produce an empty map as its result. ([#23321](https://github.com/hashicorp/terraform/issues/23321))
+* cli: When running Terraform as a sub-process of itself, we will no longer produce errant prefixes on the console output. While we don't generally recommend using Terraform recursively like this, it was behaving in this strange way due to an implementation detail of how Terraform captures "panic" crashes from the Go runtime, and that subsystem is now updated to avoid that strange behavior. ([#23281](https://github.com/hashicorp/terraform/issues/23281))
+* provisioners: Sanitize output to filter invalid utf8 sequences ([#23302](https://github.com/hashicorp/terraform/issues/23302))
 
 ## 0.12.13 (October 31, 2019)
 
