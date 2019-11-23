@@ -1,25 +1,51 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+_name=mda-lv2
 pkgname=mda.lv2
-pkgver=1.2.2
-pkgrel=3
+pkgver=1.2.4
+pkgrel=1
 pkgdesc="A port of the MDA VST plugins to LV2"
 arch=('x86_64')
-url="https://git.drobilla.net/cgit.cgi/mda.lv2.git/about/"
+url="https://gitlab.com/drobilla/mda-lv2"
 license=('GPL3')
 groups=('lv2-plugins' 'pro-audio')
-depends=('gcc-libs')
-makedepends=('lv2' 'python')
-source=("https://git.drobilla.net/cgit.cgi/${pkgname}.git/snapshot/${pkgname}-${pkgver}.tar.bz2")
-sha512sums=('5fa9a9a27e62b007b9703055b869bc47ad02ba122ba04abf8a1de420b695d9e0c6dc9a1633777b8d380e1452b3d75b1c0eaffb1c703a962814281e2d79236179')
+depends=('gcc-libs' 'glibc')
+checkdepends=('lv2lint' 'sord')
+makedepends=('lv2' 'waf')
+source=("https://download.drobilla.net/${_name}-${pkgver}.tar.bz2"{,.sig})
+validpgpkeys=('907D226E7E13FA337F014A083672782A9BF368F3') # David Robillard
+sha512sums=('d2ae0a7531de36ed30d0fa6e377d42d44d8dc67e4893e075b1d850e92c3a2d92f6f80e292e642c71ad1493532a0e06734011028cfec91348cfda02eec62dfe04'
+            'SKIP')
+
+prepare() {
+  mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+  # let wscript(s) find the custom waf scripts
+  mkdir -pv tools
+  touch __init__.py
+  cp -v waflib/extras/{autoship,autowaf,lv2}.py tools/
+  mkdir -pv plugins/tools/
+  cp -v waflib/extras/{autoship,autowaf,lv2}.py plugins/tools/
+  rm -rv waflib
+  sed -e 's/waflib.extras/tools/g' \
+      -e "s/load('autowaf'/load('autowaf', tooldir='tools'/g" \
+      -e "s/load('lv2'/load('lv2', tooldir='tools'/g" \
+      -i wscript
+}
 
 build() {
   cd "$pkgname-$pkgver"
-  ./waf configure --prefix=/usr
-  ./waf
+  waf configure --prefix=/usr
+  waf
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  sord_validate "build/lv2/${pkgname}/"*.ttl || echo "Known to fail"
+  LV2_PATH="${PWD}/build/lv2" lv2lint "http://drobilla.net/drobilla" || echo "Known to fail"
 }
 
 package() {
   cd "$pkgname-$pkgver"
-  ./waf install --destdir="$pkgdir/"
-  install -vDm 644 {NEWS,README} -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  waf install --destdir="$pkgdir/"
+  install -vDm 644 {NEWS,README.md} -t "${pkgdir}/usr/share/doc/${pkgname}/"
 }
