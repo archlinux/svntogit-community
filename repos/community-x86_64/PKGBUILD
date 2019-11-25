@@ -1,44 +1,76 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: Ray Rashif <schiv@archlinux.org>
 # Contributor: SpepS <dreamspepser at yahoo dot it>
 
 _name=Ardour
 pkgname=ardour
 pkgver=5.12
-pkgrel=11
+pkgrel=12
 pkgdesc="Professional-grade digital audio workstation"
 arch=('x86_64')
 url="https://ardour.org/"
-license=('GPL')
+license=('GPL2')
 groups=('pro-audio')
-depends=('liblrdf' 'libarchive' 'liblo' 'lilv' 'suil' 'taglib' 'aubio'
-'rubberband' 'gtkmm')
-makedepends=('boost' 'cppunit' 'git' 'itstool' 'python2')
+depends=('atk' 'cairo' 'dbus' 'fftw' 'fontconfig' 'gdk-pixbuf2' 'glib2'
+'glibc' 'gtk2' 'gtkmm' 'harfbuzz' 'libaubio.so' 'libarchive.so' 'libcurl.so'
+'libFLAC.so' 'libfreetype.so' 'liblo.so' 'liblrdf.so' 'liblilv-0.so' 'libogg'
+'libreadline.so' 'librubberband.so' 'libsamplerate' 'libserd-0.so'
+'libsord-0.so' 'libsratom-0.so' 'libsuil-0.so' 'libusb-1.0.so'
+'libvamp-hostsdk.so' 'libvamp-sdk.so' 'libx11' 'libxml2' 'pango' 'taglib')
+makedepends=('boost' 'cppunit' 'doxygen' 'git' 'graphviz' 'itstool' 'lv2' 'waf')
 optdepends=('xjadeo: video monitoring'
             'harvid: video timeline')
-source=("${pkgname}-${pkgver}::git+https://github.com/${pkgname}/${pkgname}.git#tag=${pkgver}")
-sha512sums=('SKIP')
+source=("${pkgname}-${pkgver}::git+https://github.com/${pkgname}/${pkgname}.git#tag=${pkgver}"
+        "${pkgname}-${pkgver}-waf-python3.patch"
+        'https://gitlab.com/ita1024/waf/raw/waf-1.6.11/waflib/extras/misc.py')
+sha512sums=('SKIP'
+            'a716271681ae312b36d6b7e2c82ace91ca29d7ee579e14002fb5936e0708b0957ccb4f2da0e4d23068287585b8b20c633ed1e1807f30e0e06ca67c7de2a611d4'
+            '71bd724dfce9f02d2635a4594ee28c85a467cacd7ea5a6bb0b3e431a8759b161ace021086c97e73923b98b41876407df6cce2b588a79e8f9fb4b3010afba962e')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+
+  # unsetting gtk2 rc (FS#54389)
+  sed -e '8iexport GTK2_RC_FILES=/dev/null' -i gtk2_ardour/ardour.sh.in
+
+  # make wscripts python3 and current waf compatible
+  patch -Np1 -i "../${pkgname}-${pkgver}-waf-python3.patch"
+
+  # Fixes to use system waf:
+  # making sure, that subdirectories can be picked up with local includes
+  touch __init__.py
+  # making ancient 'misc' include available to system installed waf
+  ln -sv "${srcdir}/misc.py" tools/misc.py
+  sed -e "s/('misc')/('misc', tooldir='tools')/" \
+      -i {tools/luadevel,gtk2_ardour,session_utils,libs/fst,headless}/wscript
+  # make custom 'autowaf' include compatible with system installed waf
+  find . -type f \
+         -iname "*wscript*" \
+         -exec sed -e 's/from waflib.extras import autowaf/from tools import autowaf/g' \
+                   -e 's/import waflib.extras.autowaf/from tools import autowaf/g' \
+                   -i {} \;
+}
 
 build() {
   cd "${pkgname}-${pkgver}"
-  python2 waf configure --prefix=/usr \
-                        --configdir=/etc \
-                        --with-backends="jack,alsa,dummy" \
-                        --libjack=weak \
-                        --nls \
-                        --optimize \
-                        --cxx11 \
-                        --freedesktop \
-                        --ptformat \
-                        --lxvst \
-                        --no-phone-home
-  python2 waf build
+  waf configure --prefix=/usr \
+                --configdir=/etc \
+                --with-backends="jack,alsa,dummy" \
+                --libjack=weak \
+                --nls \
+                --optimize \
+                --cxx11 \
+                --freedesktop \
+                --ptformat \
+                --lxvst \
+                --no-phone-home
+  waf build -v
 }
 
 package() {
   cd "${pkgname}-${pkgver}"
-  python2 waf i18n --destdir="${pkgdir}"
-  python2 waf install --destdir="${pkgdir}"
+  waf i18n --destdir="${pkgdir}"
+  waf install --destdir="${pkgdir}"
   # xdg integration
   install -vDm 644 "build/gtk2_${pkgname}/${pkgname}.xml" \
     -t "${pkgdir}/usr/share/mime/packages/"
@@ -51,5 +83,4 @@ package() {
   # man pages
   install -vDm 644 "${pkgname}.1"* -t "${pkgdir}/usr/share/man/man1/"
 }
-
 # vim:set ts=2 sw=2 et:
