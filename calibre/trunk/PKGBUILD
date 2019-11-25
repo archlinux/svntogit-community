@@ -28,10 +28,10 @@ source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "calibre-alternatives.sh")
 sha256sums=('089ef0fedda62c0bf6f3fe87fbfe9c87e9537ff985bbd4cb376189326f6a77a2'
             'SKIP'
-            '20dc4ff196423a7c7c8f644cb83fcfe07b4b5a64ba4addeb0750f94cd7aa9e8e')
+            '1a3b24fb8a4d80dcd791842c4049e8519b9297f1199ef323ac678509f0290573')
 b2sums=('d6f6bfb98dd95012a7d145d7700a2818974b2d2e9f8faf1d98b931283305c92ec7e136c9569ef2074d748cc39819e53186ab250b8331d60253d23fddaa1f8a41'
         'SKIP'
-        'c08d9587f9bb5c9b0f4be71bf5189515d2add7932ac5b504a11c8f5130fff129589a0cb58b7d4ffb172f454d993330b01ff153f59cbe4b626afec11f142ed631')
+        'eaf6ee113e24dbf4ac045f4bef6c2b83424cba3aac52f967d0aca8a27356c053b4fc903e2b857c981bfe9c6cb600701ef640facd3df00d3225b2237ee927f5b1')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
