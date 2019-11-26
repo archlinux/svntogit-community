@@ -2,8 +2,8 @@
 # Contributor: Timm Preetz <timm@preetz.us>
 
 pkgname=('python-pygments' 'python2-pygments' 'pygmentize')
-pkgver=2.4.2
-pkgrel=3
+pkgver=2.5.1
+pkgrel=1
 pkgdesc="Python syntax highlighter"
 arch=('any')
 url="http://pygments.org/"
@@ -11,7 +11,7 @@ license=('BSD')
 makedepends=('python-setuptools' 'python2-setuptools')
 options=('!emptydirs')
 source=(https://pypi.org/packages/source/P/Pygments/Pygments-$pkgver.tar.gz)
-sha256sums=('881c4c157e45f30af185c1ffe8d549d48ac9127433f2c380c24b84572ad66297')
+sha256sums=('83ec6c6133ca6b529b7ff5aa826328fd14b5bb02a58c37f4f06384e96a0f94ab')
 
 package_python-pygments() {
   depends=('python-setuptools')
