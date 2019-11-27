@@ -1,42 +1,45 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 pkgname=zopfli
 pkgver=1.0.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Compression algorithm library"
 arch=('x86_64')
 url="https://github.com/google/zopfli/tree/ae43a8b73827577c4b19b005b6eed81f5cf9bbac"
 license=('Apache')
-depends=('gcc-libs')
-provides=('zopfli' 'zopflipng')
-source=("https://github.com/google/${pkgname}/archive/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('290a9506a0c1f3d0510230ca21017e1d2bed830f3f96f9d38c9f27210d89123c3baebd05a1da988eccd5395a7b007f6690f08eb9087550a06eaa69d7531f074e')
+depends=('gcc-libs' 'glibc')
+makedepends=('cmake')
+provides=('libzopfli.so' 'libzopflipng.so')
+source=("https://github.com/google/${pkgname}/archive/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}-1.0.1-cmake.patch::https://github.com/google/zopfli/pull/58.patch"
+        "${pkgname}-1.0.2-lib-update.patch::https://github.com/google/zopfli/commit/f0010d0c13a71ee44f48bb9d2eb3160aee5ed458.patch"
+        "${pkgname}-1.0.2-cmake-update.patch::https://github.com/google/zopfli/pull/151.patch")
+sha512sums=('290a9506a0c1f3d0510230ca21017e1d2bed830f3f96f9d38c9f27210d89123c3baebd05a1da988eccd5395a7b007f6690f08eb9087550a06eaa69d7531f074e'
+            '4e3e23e519e61cc2e818036d37528782db3a2ea81ce3e89ebea49afc5553470f49eb05a5f6cd33c80cab07a3672943a4e19f4646884d03d038c7e799dc554bfa'
+            'd02cfb4f1e945538d46a056f4d420916242760854b85858f9e7c3212c3625fbe0ad6a6cb58ff72df4428c3388178cba20e8e5da3d962242d1e2384b0e8bb51d0'
+            'cfe0aaeb53027a7ae541282a289772083c134058b08f8ec1a7d7b7fd97bbde0d27c78ffb7e8de007d564e7c9e4e1134d61cb598d1b7e90ce2da5c6eeaddf0393')
 
 prepare() {
   mv -v "$pkgname-$pkgname-$pkgver" "$pkgname-$pkgver"
   cd "$pkgname-$pkgver"
-  # add LDFLAGS to get full relro
-  sed -e "/^CFLAGS = / s/$/ $CFLAGS/" \
-      -e "/^CXXFLAGS = / s/$/ $CXXFLAGS/" \
-      -e "s/\-\-shared/\-shared/" \
-      -e "/\-shared / s/$/ $LDFLAGS/" \
-      -e "s/\-o\ zopflipng$/& $LDFLAGS/" \
-      -e "s/\-o\ zopfli$/& $LDFLAGS/" \
-      -i Makefile
+  # upstream hasn't released in ages, but there are commits, properly setting
+  # up cmake: https://github.com/google/zopfli/issues/90
+  patch -Np1 -i "../${pkgname}-1.0.1-cmake.patch"
+  patch -Np1 -i "../${pkgname}-1.0.2-lib-update.patch"
+  patch -Np1 -i "../${pkgname}-1.0.2-cmake-update.patch"
 }
 
 build() {
   cd "$pkgname-$pkgver"
-  make libzopfli zopfli libzopflipng zopflipng
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DZOPFLI_BUILD_SHARED=ON \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
 }
 
 package() {
   cd "$pkgname-$pkgver"
-  # there is no install target
-  install -vDm 755 ${pkgname}{,png} -t "${pkgdir}/usr/bin/"
-  install -vDm 644 src/${pkgname}{,png}/${pkgname}*.h \
-    -t "${pkgdir}/usr/include/"
-  install -vDm 755 lib${pkgname}*.so.* -t "${pkgdir}/usr/lib/"
-  ldconfig -N "${pkgdir}/usr/lib/"
+  make -C build DESTDIR="${pkgdir}" install
   install -vDm 644 README* -t "${pkgdir}/usr/share/doc/${pkgname}/"
 }
 
