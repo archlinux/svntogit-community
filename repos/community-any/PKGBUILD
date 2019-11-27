@@ -3,18 +3,28 @@
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
 
 pkgname=catch2
-pkgver=2.10.2
+_gitcommit=e1c9d5569dc4135babb9c81891d70a8ba8ed938c
+pkgver=2.11.0
 pkgrel=1
 pkgdesc="Modern, C++-native, header-only, test framework for unit-tests, TDD and BDD"
 arch=('any')
 url="https://github.com/catchorg/catch2"
 license=('Boost')
-makedepends=('cmake' 'python') # python seems to be necessary for building tests (FS#60273)
-source=("https://github.com/catchorg/Catch2/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('79aa46ee6c5a87bc5306bfffc6ecde6a1ad6327715b208ee2e846873f282a494')
+makedepends=('git' 'cmake' 'python') # python seems to be necessary for building tests (FS#60273)
+source=(${pkgname}::"git+https://github.com/catchorg/Catch2#commit=${_gitcommit}?signed")
+sha256sums=('SKIP')
+validpgpkeys=(
+  E29C46F3B8A7502860793B7DECC9C20E314B2360 # Martin Hořeňovský
+  81E70B717FFB27AFDB45F52090BBFF120F9C087B # Jozef Grajciar
+)
+
+pkgver() {
+  cd ${pkgname}
+  git describe --tags --match 'v*' | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
 
 build() {
-  cd Catch2-$pkgver
+  cd ${pkgname}
 
   mkdir -p build
   cd build
@@ -30,12 +40,12 @@ build() {
 }
 
 check() {
-  cd Catch2-$pkgver/build
+  cd ${pkgname}/build
   make test
 }
 
 package() {
-  cd Catch2-$pkgver/build
+  cd ${pkgname}/build
   make DESTDIR="$pkgdir" install
 }
 
