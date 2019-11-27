@@ -1,0 +1,42 @@
+# Maintainer: Anatol Pomozov
+
+pkgname=osquery
+pkgver=4.1.1
+pkgrel=1
+pkgdesc='SQL powered operating system instrumentation, monitoring, and analytics'
+arch=(x86_64)
+url='https://osquery.io'
+license=(Apache GPL2)
+depends=(augeas boost-libs gflags google-glog aws-sdk-cpp librdkafka rocksdb gtest device-mapper rpm-tools dpkg lvm2 libelfin lldpd rapidjson sleuthkit ssdeep thrift yara lmdb)
+makedepends=(cmake ninja python2 python boost linenoise-ng)
+# patched version of smartools that we need to build statically to avoid collision with the upstream version
+_smartmontools_commit=5f7669fba545f32a6d0c07e2be67df16f3eb354b
+source=(osquery-$pkgver.zip::https://github.com/osquery/osquery/archive/$pkgver.zip
+        third-party-smartmontools.zip::https://github.com/osquery/third-party-smartmontools/archive/$_smartmontools_commit.zip
+        devendorize.patch::https://github.com/anatol/osquery/compare/8e6fefb47ad2ae08f11f480e890ce991835ae7a6...8bf38f9223bfc7b743c25339c9175c148515d4f2.patch)
+sha256sums=('895a04605dc323b1fec7586cfc77430a93c08de1d16e6b19eb3358017723c0da'
+            '891f11acd804aa0d53dbec599e6a32ad9c1e5392a3eb4022714871f3a1ce95ee'
+            'a343efeea2a8ed4b2e74cf2fd843097bdeed274d24b303c5e317c0bd772daa11')
+
+prepare() {
+  cd osquery-$pkgver
+  patch -p1 < ../devendorize.patch
+
+  rm -rf libraries/cmake/source/smartmontools/src
+  ln -sf `pwd`/../third-party-smartmontools-$_smartmontools_commit libraries/cmake/source/smartmontools/src
+}
+
+build() {
+  cd osquery-$pkgver
+
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DOSQUERY_VERSION=$pkgver -S . -B build
+  cmake --build build
+}
+
+package() {
+  cd osquery-$pkgver
+
+  cmake --build build --target install -- DESTDIR="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  rm -r "$pkgdir/etc/init.d/"
+}
