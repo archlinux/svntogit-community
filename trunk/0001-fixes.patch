@@ -1,0 +1,204 @@
+From b2fd161b071a7076d33119c0ff9aefdd548ff25f Mon Sep 17 00:00:00 2001
+From: nicm <nicm>
+Date: Sat, 19 Oct 2019 12:40:42 +0000
+Subject: [PATCH] Do not crash trying to fix layout size if only one cell,
+ from Azat Khuzhin.
+---
+ layout-custom.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/layout-custom.c b/layout-custom.c
+index e02eead3..7d731d19 100644
+--- a/layout-custom.c
++++ b/layout-custom.c
+@@ -210,7 +210,7 @@ layout_parse(struct window *w, const char *layout)
+ 		}
+ 		break;
+ 	}
+-	if (lc->sx != sx || lc->sy != sy) {
++	if (lc->type != LAYOUT_WINDOWPANE && (lc->sx != sx || lc->sy != sy)) {
+ 		log_debug("fix layout %u,%u to %u,%u", lc->sx, lc->sy, sx,sy);
+ 		layout_print_cell(lc, __func__, 0);
+ 		lc->sx = sx - 1; lc->sy = sy - 1;
+From 5afe7eb850eeb812bdd92cebf1ab21f45c6dd814 Mon Sep 17 00:00:00 2001
+From: nicm <nicm>
+Date: Thu, 3 Oct 2019 10:24:05 +0000
+Subject: [PATCH] Do not lazily use BUFSIZ for "I don't care what size"
+ when building strings because it is only guaranteed to be 256 bytes and even
+ the default 1024 is not always enough. Reported by Gregory Pakosz.
+---
+ cmd-list-keys.c | 2 +-
+ cmd-parse.y     | 4 ++--
+ cmd.c           | 2 +-
+ layout-custom.c | 2 +-
+ tty-term.c      | 4 ++--
+ 5 files changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/cmd-list-keys.c b/cmd-list-keys.c
+index 57f65c8e..ef862101 100644
+--- a/cmd-list-keys.c
++++ b/cmd-list-keys.c
+@@ -61,7 +61,7 @@ cmd_list_keys_exec(struct cmd *self, struct cmdq_item *item)
+ 	struct key_table	*table;
+ 	struct key_binding	*bd;
+ 	const char		*tablename, *r;
+-	char			*key, *cp, tmp[BUFSIZ];
++	char			*key, *cp, tmp[8192];
+ 	int			 repeat, width, tablewidth, keywidth;
+ 
+ 	if (self->entry == &cmd_list_commands_entry)
+diff --git a/cmd-parse.y b/cmd-parse.y
+index 6d2b970c..a51e4f6e 100644
+--- a/cmd-parse.y
++++ b/cmd-parse.y
+@@ -1245,7 +1245,7 @@ yylex_token_variable(char **buf, size_t *len)
+ {
+ 	struct environ_entry	*envent;
+ 	int			 ch, brackets = 0;
+-	char			 name[BUFSIZ];
++	char			 name[1024];
+ 	size_t			 namelen = 0;
+ 	const char		*value;
+ 
+@@ -1297,7 +1297,7 @@ yylex_token_tilde(char **buf, size_t *len)
+ {
+ 	struct environ_entry	*envent;
+ 	int			 ch;
+-	char			 name[BUFSIZ];
++	char			 name[1024];
+ 	size_t			 namelen = 0;
+ 	struct passwd		*pw;
+ 	const char		*home = NULL;
+diff --git a/cmd.c b/cmd.c
+index 96cedc97..f77176c9 100644
+--- a/cmd.c
++++ b/cmd.c
+@@ -384,7 +384,7 @@ cmd_find(const char *name, char **cause)
+ {
+ 	const struct cmd_entry	**loop, *entry, *found = NULL;
+ 	int			  ambiguous;
+-	char			  s[BUFSIZ];
++	char			  s[8192];
+ 
+ 	ambiguous = 0;
+ 	for (loop = cmd_table; *loop != NULL; loop++) {
+diff --git a/layout-custom.c b/layout-custom.c
+index 7d731d19..d7371292 100644
+--- a/layout-custom.c
++++ b/layout-custom.c
+@@ -60,7 +60,7 @@ layout_checksum(const char *layout)
+ char *
+ layout_dump(struct layout_cell *root)
+ {
+-	char	layout[BUFSIZ], *out;
++	char	layout[8192], *out;
+ 
+ 	*layout = '\0';
+ 	if (layout_append(root, layout, sizeof layout) != 0)
+diff --git a/tty-term.c b/tty-term.c
+index 182edd7d..c7c3d11f 100644
+--- a/tty-term.c
++++ b/tty-term.c
+@@ -281,7 +281,7 @@ static char *
+ tty_term_strip(const char *s)
+ {
+ 	const char     *ptr;
+-	static char	buf[BUFSIZ];
++	static char	buf[8192];
+ 	size_t		len;
+ 
+ 	/* Ignore strings with no padding. */
+@@ -309,7 +309,7 @@ tty_term_strip(const char *s)
+ static char *
+ tty_term_override_next(const char *s, size_t *offset)
+ {
+-	static char	value[BUFSIZ];
++	static char	value[8192];
+ 	size_t		n = 0, at = *offset;
+ 
+ 	if (s[at] == '\0')
+From c942f11ba89cfb8dc74908609669fd78f1276ba7 Mon Sep 17 00:00:00 2001
+From: Nicholas Marriott <nicholas.marriott@gmail.com>
+Date: Wed, 27 Nov 2019 20:48:30 +0000
+Subject: [PATCH] Use a malloc'd buffer for lsk since commands can be very
+ long, from Gregory Pakosz.
+---
+ cmd-list-keys.c | 35 ++++++++++++++++++++++++++++-------
+ 1 file changed, 28 insertions(+), 7 deletions(-)
+
+diff --git a/cmd-list-keys.c b/cmd-list-keys.c
+index ef862101..8636b70a 100644
+--- a/cmd-list-keys.c
++++ b/cmd-list-keys.c
+@@ -61,8 +61,9 @@ cmd_list_keys_exec(struct cmd *self, struct cmdq_item *item)
+ 	struct key_table	*table;
+ 	struct key_binding	*bd;
+ 	const char		*tablename, *r;
+-	char			*key, *cp, tmp[8192];
++	char			*key, *cp, *tmp;
+ 	int			 repeat, width, tablewidth, keywidth;
++	size_t			 tmpsize, tmpused, cplen;
+ 
+ 	if (self->entry == &cmd_list_commands_entry)
+ 		return (cmd_list_keys_commands(self, item));
+@@ -101,6 +102,9 @@ cmd_list_keys_exec(struct cmd *self, struct cmdq_item *item)
+ 		table = key_bindings_next_table(table);
+ 	}
+ 
++	tmpsize = 256;
++	tmp = xmalloc(tmpsize);
++
+ 	table = key_bindings_first_table ();
+ 	while (table != NULL) {
+ 		if (tablename != NULL && strcmp(table->name, tablename) != 0) {
+@@ -117,20 +121,35 @@ cmd_list_keys_exec(struct cmd *self, struct cmdq_item *item)
+ 				r = "-r ";
+ 			else
+ 				r = "   ";
+-			xsnprintf(tmp, sizeof tmp, "%s-T ", r);
++			tmpused = xsnprintf(tmp, tmpsize, "%s-T ", r);
+ 
+ 			cp = utf8_padcstr(table->name, tablewidth);
+-			strlcat(tmp, cp, sizeof tmp);
+-			strlcat(tmp, " ", sizeof tmp);
++			cplen = strlen(cp) + 1;
++			while (tmpused + cplen + 1 >= tmpsize) {
++				tmpsize *= 2;
++				tmp = xrealloc(tmp, tmpsize);
++			}
++			tmpused = strlcat(tmp, cp, tmpsize);
++			tmpused = strlcat(tmp, " ", tmpsize);
+ 			free(cp);
+ 
+ 			cp = utf8_padcstr(key, keywidth);
+-			strlcat(tmp, cp, sizeof tmp);
+-			strlcat(tmp, " ", sizeof tmp);
++			cplen = strlen(cp) + 1;
++			while (tmpused + cplen + 1 >= tmpsize) {
++				tmpsize *= 2;
++				tmp = xrealloc(tmp, tmpsize);
++			}
++			tmpused = strlcat(tmp, cp, tmpsize);
++			tmpused = strlcat(tmp, " ", tmpsize);
+ 			free(cp);
+ 
+ 			cp = cmd_list_print(bd->cmdlist, 1);
+-			strlcat(tmp, cp, sizeof tmp);
++			cplen = strlen(cp);
++			while (tmpused + cplen + 1 >= tmpsize) {
++				tmpsize *= 2;
++				tmp = xrealloc(tmp, tmpsize);
++			}
++			strlcat(tmp, cp, tmpsize);
+ 			free(cp);
+ 
+ 			cmdq_print(item, "bind-key %s", tmp);
+@@ -141,6 +160,8 @@ cmd_list_keys_exec(struct cmd *self, struct cmdq_item *item)
+ 		table = key_bindings_next_table(table);
+ 	}
+ 
++	free(tmp);
++
+ 	return (CMD_RETURN_NORMAL);
+ }
+ 
