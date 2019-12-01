@@ -2,8 +2,8 @@
 # Contributor: Philipp A. <flying-sheep@web.de>
 _name=testpath
 pkgname=python-testpath
-pkgver=0.4.2
-pkgrel=3
+pkgver=0.4.4
+pkgrel=1
 pkgdesc='Test utilities for code working with files and commands'
 arch=('any')
 url="https://pypi.python.org/pypi/testpath"
@@ -15,8 +15,8 @@ _wheel="$_name-$pkgver-py2.py3-none-any.whl"
 source=("$pkgname-$pkgver.tgz::https://github.com/jupyter/testpath/archive/$pkgver.tar.gz"
         "https://files.pythonhosted.org/packages/py2.py3/t/$_name/$_wheel")
 #noextract=("$_wheel")
-md5sums=('2f0971fb3f497275f5763c137c3380af'
-         '4128c6f88528e9cf5c7f6f40359e8380')
+md5sums=('4d7795541fccebd2be9818aead36caf1'
+         '5e03fa02495b35f9c33a3303ebe10349')
 
 prepare() {
   cd "$srcdir"
