@@ -16,7 +16,7 @@ pkgname=(
   'x86_energy_perf_policy'
 )
 pkgver=5.4
-pkgrel=1
+pkgrel=2
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
@@ -299,6 +299,8 @@ package_bpf() {
   rmdir "$pkgdir"/usr/sbin
   # install man pages
   make -C bpftool doc-install prefix=/usr/share DESTDIR="$pkgdir"
+  # bpf-helpers conflict with man-pages (FS#64705)
+  rm "$pkgdir"/usr/share/man/man7/bpf-helpers.7
 }
 
 # vim:set ts=2 sw=2 et:
