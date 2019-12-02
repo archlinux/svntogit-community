@@ -1,50 +1,31 @@
 # Maintainer: Kyle Keen <keenerd@gmail.com>
 # Contributor: Andy Weidenbaum <archbaum@gmail.com>
 
-pkgbase=python-prompt_toolkit
-pkgname=(python-prompt_toolkit python2-prompt_toolkit)
+pkgname=python-prompt_toolkit
 _name=prompt_toolkit
-pkgver=2.0.10
-pkgrel=3
+pkgver=3.0.2
+pkgrel=1
 pkgdesc="Library for building powerful interactive command lines in Python"
 arch=('any')
 depends=('python-pygments'
          'python-six'
          'python-wcwidth')
-makedepends=('python-setuptools' 'python2-setuptools'
-             'python2-pygments' 'python2-six' 'python2-wcwidth')
+makedepends=('python-setuptools')
 url="https://github.com/jonathanslenders/python-prompt-toolkit"
 license=('BSD')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/p/$_name/$_name-$pkgver.tar.gz")
-md5sums=('5016c523e603cd7119644fbc0f00ce53')
-sha256sums=('f15af68f66e664eaa559d4ac8a928111eebd5feda0c11738b5998045224829db')
-
-prepare() {
-  cd "$srcdir"
-  cp -r $_name-$pkgver python2-$_name-$pkgver
-}
+md5sums=('e2bef5d83122a96f8b3efca4b0de7fbd')
+sha256sums=('63daee79aa8366c8f1c637f1a4876b890da5fc92a19ebd2f7080ebacb901e990')
 
 build() {
   cd "$srcdir/$_name-$pkgver"
   python3 setup.py build
-
-  cd "$srcdir/python2-$_name-$pkgver"
-  python2 setup.py build
 }
 
-package_python-prompt_toolkit() {
+package() {
   cd "$srcdir/$_name-$pkgver"
   python3 setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-}
-
-package_python2-prompt_toolkit() {
-  depends=('python2-pygments'
-           'python2-six'
-           'python2-wcwidth')
-  cd "$srcdir/python2-$_name-$pkgver"
-  python2 setup.py install --root="$pkgdir" --optimize=1
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
