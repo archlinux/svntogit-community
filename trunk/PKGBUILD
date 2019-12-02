@@ -19,7 +19,7 @@ source=(https://ftp.gnu.org/gnu/gcc/gcc-$pkgver/gcc-$pkgver.tar.xz{,.sig}
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
 sha256sums=('ea6ef08f121239da5695f76c9b33637a118dcf63e24164422231917fa61fb206'
             'SKIP'
-            'd18ca11f8ad1a39ab6d03d3dcb3365ab416720fcb65b42d69f34f51bf0a0e859')
+            'b21d354acd613a91cb88328753ec3aaeb174d6af042d89c5fcf3bbcced370751')
 validpgpkeys=(33C235A34C46AA3FFB293709A328C3A2C3C45C06) # Jakub Jelinek <jakub@redhat.com>
 
 if [ -n "$_snapshot" ]; then
