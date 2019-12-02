@@ -15,8 +15,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.3
-pkgrel=2
+pkgver=5.4
+pkgrel=1
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
@@ -37,7 +37,7 @@ makedepends+=('ncurses')
 makedepends+=('python-docutils')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-#        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
+        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -46,6 +46,7 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
+            '78f08a9d16bc88f1478c560bd9a3a71be6e2af1bbd5f6ff60771fa1e14b74705'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'd2e8e5e8b22c6089a91f573aa1c59e442a1f3b67a2c9f047abe3b57d3d6558cc'
             'fa2560630576464739ede14c9292249f4007f36a684bc378add174fc88394550'
@@ -87,8 +88,7 @@ build() {
     PYTHON=python \
     PYTHON_CONFIG=python-config \
     PERF_VERSION=$pkgver-$pkgrel \
-    DESTDIR="$pkgdir" \
-    all man
+    DESTDIR="$pkgdir"
   popd
 
   msg2 'cpupower'
@@ -127,7 +127,7 @@ build() {
 
   msg2 'hv'
   pushd linux/tools/hv
-  CFLAGS+=' -DKVP_SCRIPTS_PATH=/usr/lib/hyperv/kvp_scripts/' make
+  CFLAGS+=' -DKVP_SCRIPTS_PATH=\"/usr/lib/hyperv/kvp_scripts/\"' make
   popd
 
   msg2 'bpf'
@@ -184,7 +184,7 @@ package_perf() {
     PYTHON_CONFIG=python-config \
     PERF_VERSION=$pkgver-$pkgrel \
     DESTDIR="$pkgdir" \
-    install install-man
+    install
   cd "$pkgdir"
   # add linker search path
   mkdir "$pkgdir/etc/ld.so.conf.d"
@@ -298,7 +298,7 @@ package_bpf() {
   mv "$pkgdir"/usr/sbin/bpftool "$pkgdir"/usr/bin/bpftool
   rmdir "$pkgdir"/usr/sbin
   # install man pages
-  make -C bpftool doc-install prefix=/usr DESTDIR="$pkgdir"
+  make -C bpftool doc-install prefix=/usr/share DESTDIR="$pkgdir"
 }
 
 # vim:set ts=2 sw=2 et:
