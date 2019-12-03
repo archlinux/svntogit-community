@@ -51,9 +51,9 @@ set_current() {
 }
 
 case ${1} in
-    help)
+    ''|help)
         usage;;
-    ''|get)
+    get)
         get_current;;
     set)
         shift; set_current "${1}";;
