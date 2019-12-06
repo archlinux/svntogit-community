@@ -2,17 +2,17 @@
 # Contributor: Patrice Peterson <runiq at archlinux dot us>
 
 pkgname=python-sphinxcontrib-bibtex
-pkgver=0.4.2
-pkgrel=3
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
 url="https://sphinxcontrib-bibtex.readthedocs.org"
 license=('BSD')
-depends=('python-six' 'python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-oset')
+depends=('python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-oset')
 makedepends=('python-setuptools')
 checkdepends=('python-nose' 'python-sphinx-testing')
 source=("https://pypi.io/packages/source/s/sphinxcontrib-bibtex/sphinxcontrib-bibtex-$pkgver.tar.gz")
-sha256sums=('169afb3a3485775e5473934a0fdff1780e8bdcdd44db7ed286044a074331c729')
+sha256sums=('629612b001f86784669d65e662377a482052decfd9a0a17c46860878eef7b9e0')
 
 build() {
   cd "$srcdir/sphinxcontrib-bibtex-$pkgver"
