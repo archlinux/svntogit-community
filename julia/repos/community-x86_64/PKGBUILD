@@ -8,24 +8,24 @@
 pkgbase=julia
 pkgname=(julia julia-docs)
 epoch=2
-pkgver=1.2.0
-pkgrel=2
+pkgver=1.3.0
+pkgrel=1
 arch=(x86_64)
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
 license=(MIT)
 depends=(cblas fftw hicolor-icon-theme libgit2 libunwind libutf8proc openblas
-         suitesparse)
-makedepends=(cmake gcc-fortran gmp python2)
+         suitesparse mbedtls openlibm)
+makedepends=(cmake gcc-fortran gmp python)
 source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
-        'cblas.patch::https://github.com/JuliaLang/julia/pull/29540/commits/0c442318196389d653ee21eba65d8c4f7beb72a0.patch'
+        julia-system-cblas.patch
         libunwind-version.patch
-        Make.user)
-sha256sums=('2419b268fc5c3666dd9aeb554815fe7cf9e0e7265bc9b94a43957c31a68d9184'
+        make-install-no-build.patch)
+sha256sums=('98c38f75eab1c16bde71509e8e3bdc941bc4686fe80dfc3c560f851c81e9e748'
             'SKIP'
-            '88fcbd8a2450027aada0892a60c49c891a8dae43ee6c19e64364b1a1373d50bc'
-            'a5eec1e43e1161c313b1d32a5f35a67d6b4a2bbc2d6d324c010f6f2b35be4a72'
-            '2057587e21a2261c49adb524ece2af48aa9a04a544c21a2de115c7b4fe58e98a')
+            'd4c8fe9eec1bc416549924ae328ceb3f63cc736ecd5e67886faa924e7c14bc5d'
+            '856dab2da8124df95e4fbd17f1164bebe1b10e99852fedf38f9dfe31f8ae295c'
+            '0b57e0bc6e25c92fde8a6474394f7a99bfb57f9b5d0f7b53f988622ae67de8b7')
 # Julia (Binary signing key) <buildbot@julialang.org>
 validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495')
 
@@ -33,23 +33,39 @@ prepare() {
   cd $pkgbase-$pkgver
 
   # Add and use option to build with system cblas
-  patch -p1 --no-backup-if-mismatch -i ../cblas.patch
+  patch -p1 -i ../julia-system-cblas.patch
 
   # Fixing libunwind version check
   # https://github.com/JuliaLang/julia/pull/29082
   patch -p1 -i ../libunwind-version.patch
 
-  # Configuring the build
-  cp -f ../Make.user Make.user
-
-  # Prepare a symlink from "python" to "python2"
-  mkdir -p "$srcdir/bin"
-  ln -s /usr/bin/python2 "$srcdir/bin/python"
+  # Don't build again in install
+  patch -p1 -i ../make-install-no-build.patch
 }
 
 build() {
   export PATH="$srcdir/bin:$PATH"
-  env CFLAGS="$CFLAGS -w" CXXFLAGS="$CXXFLAGS -w" make -C $pkgbase-$pkgver
+  env CFLAGS="$CFLAGS -w" CXXFLAGS="$CXXFLAGS -w" make VERBOSE=1 -C $pkgbase-$pkgver \
+    USE_SYSTEM_LLVM=0 \
+    USE_SYSTEM_LIBUNWIND=1 \
+    USE_SYSTEM_PCRE=1 \
+    USE_SYSTEM_BLAS=1 \
+    USE_SYSTEM_LAPACK=1 \
+    USE_SYSTEM_GMP=1 \
+    USE_SYSTEM_MPFR=1 \
+    USE_SYSTEM_SUITESPARSE=1 \
+    USE_SYSTEM_DSFMT=0 \
+    USE_SYSTEM_LIBUV=0 \
+    USE_SYSTEM_UTF8PROC=1 \
+    USE_SYSTEM_LIBGIT2=1 \
+    USE_SYSTEM_LIBSSH2=1 \
+    USE_SYSTEM_MBEDTLS=1 \
+    USE_SYSTEM_CURL=1 \
+    USE_SYSTEM_PATCHELF=1 \
+    USE_SYSTEM_ZLIB=1 \
+    USE_SYSTEM_P7ZIP=1 \
+    USE_SYSTEM_OPENLIBM=1 \
+    MARCH=x86-64
 }
 
 check() {
@@ -66,7 +82,10 @@ package_julia() {
   backup=(etc/julia/startup.jl)
   optdepends=('gnuplot: If using the Gaston Package from julia')
 
-  make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install
+  make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install \
+    prefix=/usr \
+    libexecdir=/usr/lib \
+    sysconfdir=/etc
 
   # Documentation is in the julia-docs package.
   # Man pages in /usr/share/julia/doc/man are duplicate.
@@ -86,6 +105,3 @@ package_julia-docs() {
   install -Dm644 $pkgbase-$pkgver/LICENSE.md \
     "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
 }
-
-# getver: julialang.org/downloads
-# vim: ts=2 sw=2 et:
