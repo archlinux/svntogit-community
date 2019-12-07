@@ -4,7 +4,7 @@
 
 pkgname=android-tools
 pkgver=29.0.5
-pkgrel=1
+pkgrel=2
 tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
