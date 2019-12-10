@@ -3,8 +3,8 @@
 
 pkgbase=python-colorama
 pkgname=('python-colorama' 'python2-colorama')
-pkgver=0.4.1
-pkgrel=3
+pkgver=0.4.3
+pkgrel=1
 pkgdesc="Python API for cross-platform colored terminal text."
 arch=('any')
 url="https://pypi.python.org/pypi/colorama"
@@ -12,7 +12,7 @@ license=('BSD')
 makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-mock' 'python2-mock')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/tartley/colorama/archive/$pkgver.tar.gz")
-sha512sums=('006069859ca05ec8a6808860ca73ab541b246e6e6443b1bc8426973beaa5268660b48994f21edb6492fe97c4b9d29949b874b861ec200b1756d40e8abda8dee0')
+sha512sums=('ab41a2f95fe75de0b280c174c6166b86645e5cc675dcedf784fe15170aae630e831370527c9490342b77c7d088a023a48428a519b52ad1c70be58904742a94c8')
 
 prepare() {
   cp -a colorama-$pkgver{,-py2}
