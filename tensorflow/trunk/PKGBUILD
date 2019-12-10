@@ -27,6 +27,15 @@ get_pyver () {
   python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
 }
 
+check_dir() {
+  if [ -d "${1}" ]; then
+    return 0
+  else
+    >&2 echo Directory "${1}" does not exist or is a file! Exiting...
+    exit 1
+  fi
+}
+
 prepare() {
   patch -Np1 -d tensorflow-${_pkgver} -i "$srcdir"/Add-grpc-fix-for-gettid.patch
 
@@ -134,7 +143,9 @@ _package() {
   WHEEL_PACKAGE=$(find "${srcdir}"/$1 -name "tensor*.whl")
   pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
   # move extra headers to correct location
-  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+  local _srch_path="${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow_core/include
+  check_dir "${_srch_path}"  # we need to quit on broken search paths
+  find "${_srch_path}" -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
     cp -nr "${_folder}" "${pkgdir}"/usr/include/tensorflow/
   done
   # clean up unneeded files
@@ -165,10 +176,12 @@ _python_package() {
   pip install --ignore-installed --upgrade --root "${pkgdir}"/ $WHEEL_PACKAGE --no-dependencies
 
   # create symlinks to headers
-  find "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/ -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
+  local _srch_path="${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow_core/include/
+  check_dir "${_srch_path}"  # we need to quit on broken search paths
+  find "${_srch_path}" -maxdepth 1 -mindepth 1 -type d -print0 | while read -rd $'\0' _folder; do
     rm -rf "${_folder}"
     _smlink="$(basename "${_folder}")"
-    ln -s /usr/include/tensorflow/"${_smlink}" "${pkgdir}/usr/lib/python$(get_pyver)"/site-packages/tensorflow/include/
+    ln -s /usr/include/tensorflow/"${_smlink}" "${_srch_path}"
   done
 
   # tensorboard has been separated from upstream but they still install it with
