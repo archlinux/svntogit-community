@@ -1,9 +1,9 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-parallel-n64
-pkgver=2.0.0.3
+pkgver=2.0.0.4
 _codename=Leia
-pkgrel=5
+pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro.parallel_n64'
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi-addon-game-libretro' 'libretro-parallel-n64')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.parallel_n64/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('68fec534213a770ec4f942a53608bbefce1244e6c26287526fc6fe4880520c9402a03f4ee27dbb6bcd1daaeaab6f466d895377d4d2e6684be4d65888268a745a')
+sha512sums=('d6b9fcc28e2c930af8fcca550abe013917b8eeda01372106830224476ada7454d4f7aa75cd0daf8c81b3db320ad676e8b42fa3baa40a712edac12ca1cec8038d')
 
 build() {
     cd "game.libretro.parallel_n64-$pkgver-$_codename"
