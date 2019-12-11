@@ -2,9 +2,9 @@
 
 pkgname=kodi-addon-audioencoder-flac
 epoch=1
-pkgver=2.0.4
+pkgver=2.0.5
 _codename=Leia
-pkgrel=2
+pkgrel=1
 pkgdesc="FLAC Audio Encoder add-on for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/audioencoder.flac'
@@ -15,7 +15,7 @@ replaces=('kodi-audioencoder-flac')
 depends=('kodi')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/xbmc/audioencoder.flac/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('d58913acc84b892049919c15fd5d82e46f4451eaf6f7993e36e66e1e390f14c86bf0633dfdf60f6751ea23b43b7e0b7a8d2fc7a1c28a87212c614fc16cf33056')
+sha512sums=('4c6940be8c84f509a399ed22a38281259327371c7819cde4266ffd3712484664561a9bd3a5ecc8b51c0e45305f90114164f3aa2bc624c0d0d588b212bf28c750')
 
 build() {
     cd "audioencoder.flac-$pkgver-$_codename"
