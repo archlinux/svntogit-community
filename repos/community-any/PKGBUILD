@@ -4,13 +4,13 @@
 
 pkgname=mypy
 pkgver=0.750
-pkgrel=1
+pkgrel=2
 pkgdesc='Optional static typing for Python 2 and 3 (PEP484)'
 url="http://www.mypy-lang.org/"
 arch=('any')
 license=('MIT')
-depends=('python' 'python-psutil' 'python-typed-ast' 'python-mypy_extensions' 'python-typing_extensions')
-makedepends=('python-setuptools' 'git')
+depends=('python-setuptools' 'python-psutil' 'python-typed-ast' 'python-mypy_extensions' 'python-typing_extensions')
+makedepends=('git')
 source=("$pkgname-$pkgver.tar.gz::https://pypi.org/packages/source/m/$pkgname/$pkgname-$pkgver.tar.gz")
 sha256sums=('6ecbd0e8e371333027abca0922b0c2c632a5b4739a0c61ffbd0733391e39144c')
 
