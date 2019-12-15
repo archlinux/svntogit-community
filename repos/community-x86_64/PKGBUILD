@@ -3,7 +3,7 @@
 pkgname=cuda
 pkgver=10.2.89
 _driverver=440.33.01
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
