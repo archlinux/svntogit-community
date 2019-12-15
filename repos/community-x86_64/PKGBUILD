@@ -1,16 +1,19 @@
 # Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Lauri Niskanen <ape@ape3000.com>
 # Contributor: Sebastian.Salich@gmx.de
 # Contributor: Doc Angelo
 
 pkgname=mumble
 pkgver=1.3.0
-pkgrel=4
+pkgrel=5
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
-depends=(qt5-base qt5-svg speex lsb-release libxi avahi libsndfile protobuf libpulse opus
-         xdg-utils libspeechd libpng freetype2 fontconfig libxrender)
+depends=('alsa-lib' 'avahi' 'desktop-file-utils' 'gcc-libs' 'glibc'
+'hicolor-icon-theme' 'libprotobuf.so' 'libpulse' 'libsndfile' 'libspeechd'
+'libx11' 'libxi' 'lsb-release' 'openssl' 'opus' 'qt5-base' 'qt5-svg' 'speex'
+'xdg-utils')
 makedepends=(boost mesa python qt5-tools)
 optdepends=('speech-dispatcher: Text-to-speech support'
             'espeak-ng: Text-to-speech support')
@@ -21,37 +24,40 @@ sha512sums=('2a629fc97f3c7c587c9a3b40fc96cf15d668acada37282ec1c4a5b169ad37717d60
 validpgpkeys=('56D0B23AE00B1EE9A8BAAC0F5B8CF87BB893449B') # Mumble Automatic Build Infrastructure 2019 <mumble-auto-build-2019@mumble.info>
 
 build() {
-  cd "$srcdir"/$pkgname-$pkgver
+  cd "$pkgname-$pkgver"
 
   qmake-qt5 main.pro \
-    CONFIG+="bundled-celt no-bundled-opus no-bundled-speex no-g15 no-xevie no-server \
+    CONFIG+="no-bundled-opus no-bundled-speex no-g15 no-xevie no-server \
     no-embed-qt-translations no-update packaged" \
     DEFINES+="PLUGIN_PATH=/usr/lib/mumble" \
-    INCLUDEPATH+="/usr/include/speech-dispatcher" \
-    LIBS+="-lpng16 -lfreetype -lXrender -lfontconfig"
+    INCLUDEPATH+="/usr/include/speech-dispatcher"
   make release
 }
 
 package() {
-  cd "$srcdir"/$pkgname-$pkgver
+  cd "$pkgname-$pkgver"
 
+  # mumble has no install target: https://github.com/mumble-voip/mumble/issues/1029
   # bin stuff
-  install -m755 -D ./release/mumble "$pkgdir"/usr/bin/mumble
-  install -m755 -D ./scripts/mumble-overlay "$pkgdir"/usr/bin/mumble-overlay
+  install -vDm 755 release/mumble -t "$pkgdir/usr/bin"
+  install -vDm 755 scripts/mumble-overlay -t "$pkgdir/usr/bin/"
 
   # lib stuff
-  install -m755 -D ./release/libmumble.so.$pkgver "$pkgdir"/usr/lib/mumble/libmumble.so.$pkgver
-  ln -s libmumble.so.$pkgver "$pkgdir"/usr/lib/mumble/libmumble.so
-  ln -s libmumble.so.$pkgver "$pkgdir"/usr/lib/mumble/libmumble.so.1
-  ln -s libmumble.so.$pkgver "$pkgdir"/usr/lib/mumble/libmumble.so.1.3
-  install -m755 -D ./release/plugins/liblink.so "$pkgdir"/usr/lib/mumble/liblink.so
-  install -m755 -D ./release/libcelt* "$pkgdir"/usr/lib/mumble/
+  install -vdm 755 "$pkgdir/usr/lib/mumble/"
+  local _lib
+  for _lib in release/*.so*; do
+    if [ -L "$_lib" ]; then
+      cp -vP "$_lib" "$pkgdir/usr/lib/mumble/"
+    else
+      install -vDm 755 "$_lib" -t "$pkgdir/usr/lib/mumble/"
+    fi
+  done
+  install -vDm 755 release/plugins/*.so -t "$pkgdir/usr/lib/mumble/"
 
   # other stuff
-  install -m644 -D ./scripts/mumble.desktop "$pkgdir"/usr/share/applications/mumble.desktop
-  install -m755 -d "$pkgdir"/usr/share/man/man1
-  install -m644 -D ./man/mum* "$pkgdir"/usr/share/man/man1/
-  install -m644 -D ./icons/mumble.svg "$pkgdir"/usr/share/icons/hicolor/scalable/apps/mumble.svg
-  install -m644 -D ./LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -vDm 644 scripts/mumble.desktop -t "$pkgdir/usr/share/applications"
+  install -vDm 644 "man/${pkgname}"*.1 -t "$pkgdir/usr/share/man/man1/"
+  install -vDm 644 icons/mumble.svg -t "$pkgdir/usr/share/icons/hicolor/scalable/apps/"
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
 # vim: sw=2:ts=2 et:
