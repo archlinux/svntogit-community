@@ -12,7 +12,7 @@ arch=('any')
 url="https://github.com/mitya57/secretstorage"
 license=('BSD')
 depends=('python-cryptography' 'python-jeepney')
-checkdepends=('gnome-keyring' 'xorg-server-xvfb')
+checkdepends=('org.freedesktop.secrets' 'xorg-server-xvfb')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
 sha512sums=('295e0f75c772edf153480730dc20051f06e60e040a18f169620cb4aaa37b8c1a254a496464d3794a38cf49fa884a7b561fe364816f0d12a5b2622c77259f03cf')
 
