@@ -1,52 +1,55 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: speps <speps at aur dot archlinux dot org>
 
 _plugins_pkgver=3.12.0
 pkgname=nomacs
 pkgver=3.12
-pkgrel=8
+pkgrel=9
 pkgdesc="A Qt image viewer"
 arch=('x86_64')
 url="https://nomacs.org/"
 license=('GPL3')
-depends=('desktop-file-utils' 'exiv2' 'libraw' 'opencv' 'quazip' 'qt5-svg')
+depends=('desktop-file-utils' 'exiv2' 'gcc-libs' 'glibc' 'libtiff' 'libraw'
+'opencv' 'quazip' 'qt5-base' 'qt5-svg')
 optdepends=('qt5-imageformats: support additional image formats')
 makedepends=('cmake' 'qt5-tools')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}/archive/${pkgver}.tar.gz"
         "${pkgname}-plugins-${_plugins_pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}-plugins/archive/${_plugins_pkgver}.tar.gz"
-        "opencv4.patch::https://github.com/${pkgname}/${pkgname}-plugins/commit/7fdb4371135909bf5a2ba0caac2370e2a1a1c692.patch"
-        nomacs-iostream.patch
-        nomacs-opencv-4.2.patch)
+        "${pkgname}-opencv-4.2.patch"
+        "${pkgname}-3.12-opencv4.patch::https://github.com/${pkgname}/${pkgname}-plugins/commit/7fdb4371135909bf5a2ba0caac2370e2a1a1c692.patch"
+        "${pkgname}-3.12-gcc9.patch::https://github.com/nomacs/nomacs/commit/37805e3bc8753970127db101f4aa0c061bc5a70d.patch")
 sha512sums=('4508354d48a6115cd40f701cc90cbbcb84490e99eaac0295db48f6fea99550d5e2b3e7365128d0c9cc4eeb621906f55e275603d84cb8b6bb164d0b5e2e192119'
             'b46a2523737893bd342e90331d22082a84f3ff9abf4fdcf360d3fb9f2724cf616a6d77eacc272f117e103a9978f99b70feb8364f4c818681a147f78bfe356032'
+            'fdbef4eba4968cf4f01bcb7601633b8042f5fefb43307b534c3ff685594a0a96c27f9b18a2f4da27fe6948459ea99a0e141246e6035afd2abcd381aedf1711ac'
             '456bb01e88974c4bad1b9ad0c24857a473777c78755adfcfbebbe0377db5e756c08321c462b9a56eb141dccb7da80582a4a6c17ebc0af80c229982c532c32ccb'
-            'fab94e9db91e209609f5f4d9dea9d2e9a8257f937c03cbc0768d25b979c0a67a1bbd7143ec4dfb3ad3dee7323d9625f80f1de7a03fdb29643c41633347497639'
-            'fdbef4eba4968cf4f01bcb7601633b8042f5fefb43307b534c3ff685594a0a96c27f9b18a2f4da27fe6948459ea99a0e141246e6035afd2abcd381aedf1711ac')
+            'ba5db2b6423742d5cc0068ed3e65e0888026628cea2e303cf66ed8f232a15e82d7620588ee23a3ba5e5d592339a5e53fee51bd5f21efe4dabd717d41ab244e12')
 
 prepare() {
   cd "${pkgname}-${pkgver}"
-  # move plugins
-  mv "${srcdir}/${pkgname}-plugins-${_plugins_pkgver}" "ImageLounge/plugins"
-
-  patch -p1 -i ../nomacs-iostream.patch # Add missing header
-  # upstream patch for opencv >= 4.0.0:
+  # symlinking plugins into place
+  ln -sv "${srcdir}/${pkgname}-plugins-${_plugins_pkgver}" "ImageLounge/plugins"
+  # fixes for gcc >= 9:
+  # https://github.com/nomacs/nomacs/issues/408
+  patch -Np1 -i "../${pkgname}-3.12-gcc9.patch"
+  # fixes for opencv >= 4.0.0:
   # https://github.com/nomacs/nomacs-plugins/issues/26
-  cd ImageLounge/plugins
-  patch -Np1 -i "${srcdir}/opencv4.patch"
-  # fix build with opencv 4.2
-  cd ../..
-  patch -Np1 -i "${srcdir}/nomacs-opencv-4.2.patch"
+  patch -d ImageLounge/plugins -Np1 -i "${srcdir}/${pkgname}-3.12-opencv4.patch"
+  # fixes for opencv >= 4.2.0:
+  # https://github.com/nomacs/nomacs/issues/410
+  patch -Np1 -i "../${pkgname}-opencv-4.2.patch"
 }
 
 build() {
   cd "${pkgname}-${pkgver}"
-  cmake ./ImageLounge -DCMAKE_INSTALL_PREFIX=/usr \
-                      -DUSE_SYSTEM_QUAZIP=ON \
-                      -DENABLE_TRANSLATIONS=true
-  make
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DUSE_SYSTEM_QUAZIP=ON \
+        -DENABLE_TRANSLATIONS=true \
+        -B build \
+        -S ./ImageLounge
+  make VERBOSE=1 -C build
 }
 
 package() {
   cd "${pkgname}-${pkgver}"
-  make DESTDIR="${pkgdir}" install
+  make DESTDIR="${pkgdir}" install -C build
 }
