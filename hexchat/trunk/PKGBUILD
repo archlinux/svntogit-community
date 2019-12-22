@@ -2,8 +2,8 @@
 # Contributor: TingPing <tingping@tingping.se>
 
 pkgname=hexchat
-pkgver=2.14.2
-pkgrel=6
+pkgver=2.14.3
+pkgrel=1
 pkgdesc='A popular and easy to use graphical IRC (chat) client'
 arch=('x86_64')
 url='https://hexchat.github.io/'
@@ -17,15 +17,12 @@ optdepends=('enchant: Spell check'
             'perl: Perl plugin'
             'python-cffi: Python plugin')
 source=("git+https://github.com/hexchat/hexchat.git#tag=v${pkgver}"
-        '0001-python-backport.patch'
         '0002-python-3-8.patch')
 sha256sums=('SKIP'
-            'eb2d038dba5f56ddc156fafea41c6560baf09a401ae9ea4f6b8ee079d542fc38'
             '8d17ce657e744272815b5fb33d8ad959f79ece3294349637eaadcf86d90496fa')
 
 prepare() {
   cd hexchat
-  patch -Np1 < ../0001-python-backport.patch
   patch -Np1 < ../0002-python-3-8.patch
 }
 
