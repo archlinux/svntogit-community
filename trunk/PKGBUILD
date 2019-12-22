@@ -7,8 +7,8 @@
 # Contributor: Valentine Sinitsyn <e_val@inbox.ru>
 
 pkgname=lib32-libnm-glib
-pkgver=1.18.2
-pkgrel=3
+pkgver=1.18.5dev+12+ga8746f48ca
+pkgrel=1
 pkgdesc='NetworkManager client library (legacy)'
 arch=(x86_64)
 url=https://wiki.gnome.org/Projects/NetworkManager
@@ -28,79 +28,86 @@ depends=(
   libnm-glib
 )
 makedepends=(
-  dhclient
   git
-  gtk-doc
   intltool
-  iptables
-  iwd
-  lib32-curl
-  lib32-jansson
-  lib32-libmm-glib
   lib32-libndp
-  lib32-libnewt
-  lib32-libnl
-  lib32-libpsl
-  lib32-libsoup
-  lib32-polkit
+  libxslt
   meson
-  modemmanager
-  perl-yaml
-  python-gobject
-  systemd
-  wpa_supplicant
 )
-source=(git+https://gitlab.freedesktop.org/NetworkManager/NetworkManager.git#tag=822216ae3691e44e5af6c17e1d941a56257dad10)
-sha256sums=(SKIP)
+_commit=a8746f48ca088b4cd3799e540b8606df1f1e8522  # nm-1-18
+source=("git+https://gitlab.freedesktop.org/NetworkManager/NetworkManager.git#commit=$_commit")
+sha256sums=('SKIP')
 
 pkgver() {
   cd NetworkManager
-
-  git describe --tags
+  git describe | sed 's/-dev/dev/;s/-rc/rc/;s/-/+/g'
 }
 
 prepare() {
-  sed "s/'lib'/'lib32'/g" -i NetworkManager/meson.build
+  cd NetworkManager
 }
 
 build() {
   export CC='gcc -m32'
-  export PKG_CONFIG_PATH=/usr/lib32/pkgconfig
+  export PKG_CONFIG=i686-pc-linux-gnu-pkg-config
 
-  arch-meson NetworkManager build \
-    --libdir=lib32 \
-    -D config_plugins_default=keyfile,ibft \
-    -D dbus_conf_dir=/usr/share/dbus-1/system.d \
-    -D dist_version="${pkgver}-${pkgrel}" \
-    -D docs=false \
-    -D ebpf=true \
-    -D ibft=true \
-    -D introspection=false \
-    -D iwd=true \
-    -D libaudit=no \
-    -D libnm_glib=true \
-    -D modify_system=true \
-    -D more_asserts=no \
-    -D more_logging=false \
-    -D nmcli=false \
-    -D nmtui=false \
-    -D polkit_agent=true \
-    -D qt=false \
-    -D selinux=false \
-    -D session_tracking_consolekit=false \
-    -D suspend_resume=systemd \
-    -D tests=no \
+  local meson_args=(
+    --libdir=lib32
+
+    # system paths
+    -D dbus_conf_dir=/usr/share/dbus-1/system.d
+
+    # platform
+    -D dist_version="$pkgver-$pkgrel"
+    -D session_tracking_consolekit=false
+    -D suspend_resume=systemd
+    -D polkit=false
+    -D modify_system=true
+    -D polkit_agent=false
+    -D selinux=false
+    -D libaudit=no
+
+    # features
+    -D ppp=false
+    -D modem_manager=false
+    -D concheck=false
+    -D ovs=false
+    -D libnm_glib=true
+    -D nmcli=false
+    -D nmtui=false
+    -D ebpf=true
+
+    # configuration plugins
+    -D config_plugins_default=keyfile
+
+    # miscellaneous
+    -D introspection=false
     -D vapi=false
+    -D docs=false
+    -D tests=no
+    -D more_asserts=no
+    -D more_logging=false
+    -D libpsl=false
+    -D json_validation=false
+    -D qt=false
+  )
+
+  arch-meson NetworkManager build "${meson_args[@]}"
   ninja -C build
 }
 
 package() {
-  install -dm 755 "${pkgdir}"/usr/lib32/pkgconfig
-  cp -dr --no-preserve=ownership build/libnm-glib/libnm*.so* "${pkgdir}"/usr/lib32/
-  cp -dr --no-preserve=ownership build/libnm-util/libnm*.so* "${pkgdir}"/usr/lib32/
-  cp -dr --no-preserve=ownership build/meson-private/libnm-glib*.pc "${pkgdir}"/usr/lib32/pkgconfig/
-  cp -dr --no-preserve=ownership build/meson-private/libnm-util.pc "${pkgdir}"/usr/lib32/pkgconfig/
-  cp -dr --no-preserve=ownership build/meson-private/NetworkManager.pc "${pkgdir}"/usr/lib32/pkgconfig/
+  DESTDIR="$PWD/install" meson install -C build
+
+  local src dst
+  for src in \
+    install/usr/lib32/libnm-* \
+    install/usr/lib32/pkgconfig/{NetworkManager,libnm-}*
+  do
+    dst="$pkgdir/${src#install/}"
+    mkdir -p "${dst%/*}"
+    mv "$src" "$dst"
+  done
 }
 
-# vim: ts=2 sw=2 et:
+# vim:set sw=2 et:
