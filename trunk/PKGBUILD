@@ -1,29 +1,42 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=6.12.1
+pkgver=6.13.4
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
 url='https://www.npmjs.com/'
 license=('custom:Artistic')
 depends=('nodejs' 'node-gyp' 'semver')
-makedepends=('procps-ng' 'marked-man')
+# libgl: TODO
+# libvips: for sharp (doc build)
+# libxi: for cwebp (doc build)
+makedepends=('libgl' 'libvips' 'libxi' 'marked' 'marked-man' 'procps-ng' 'python')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/cli/archive/v$pkgver.tar.gz")
-sha512sums=('781ad125eebf426714a050eb0d3332c2a22041380c6b5691b6781f49f8324ce8ace7c6040b34ed8132d084da74cb6dfe69a9ef0ccd1c554d86864d13a20f618c')
+sha512sums=('0b7b591bb73ea0ca25a5675e6c01c6289bdc85fd22cea399d0b7a0e428bda838d1f4ac279ee674de6ed7fcd1f3d2e91a3c8bd023ea8eaef211b8f4cee7ec718a')
 
 prepare() {
   cd cli-$pkgver
   mkdir -p node_modules/.bin
   ln -sf /usr/bin/marked{,-man} node_modules/.bin/
 
+  # Use local marked/marked-man
+  sed -i 's|node bin/npm-cli.js install marked|true |' Makefile
+
+  # Don't build twice
+  sed -i 's/install: all/install:/' Makefile
+
   mkdir -p man/man1
+
+  # Fix nodejs 13 compatibility
+  sed -i '/gatsby/ s/\^/>=/' docs/package.json
+  rm docs/package-lock.json
 }
 
 build() {
   cd cli-$pkgver
-  make
+  NODE_PATH=/usr/lib/node_modules make
 }
 
 package() {
