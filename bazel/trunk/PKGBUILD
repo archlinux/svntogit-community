@@ -4,7 +4,7 @@
 # Contributor: Simon Legner <Simon.Legner@gmail.com>
 
 pkgname=bazel
-pkgver=1.2.1
+pkgver=2.0.0
 pkgrel=1
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
@@ -14,17 +14,10 @@ depends=('java-environment=11' 'libarchive' 'zip' 'unzip')
 makedepends=('git' 'protobuf' 'python')
 options=('!distcc' '!strip')
 source=("https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip"
-        "https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip.sig"
-        'grpc_rename_gettid.patch')
-sha512sums=('bc0e6526bfbb8725a4f2ae95fc88b22229301b64559325fca3bcf5a9bc642cec2b2284eb9a6ce0699f1f910378b89ee23657dbea7928a92cc1900f1f2f405ff3'
-            'SKIP'
-            '0d4dc5c5931ff3a16bb9ac228ec560fc0115444a3d3787f12866e11e8b3833ee8a26cc65c97aa9898c1f7a6c380820d62544d2ed7bed0d6f21aa4293e244eb04')
+        "https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip.sig")
+sha512sums=('db609e9d0ee0cdbfb999de850db17907af02dc26e605f4617dfeb2fbac5c30c4c0a9f48c6ba3673ffe8babb5b9e157cc51c32832015b85ed279b6b160506cdae'
+            'SKIP')
 validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')
-
-prepare() {
-  # fix gRPC: https://github.com/grpc/grpc/pull/18950
-  patch -Np0 -i "${srcdir}/grpc_rename_gettid.patch" -d third_party/grpc
-}
 
 build() {
   env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh
