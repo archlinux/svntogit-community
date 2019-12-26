@@ -5,7 +5,7 @@
 pkgbase=lazarus
 pkgname=('lazarus' 'lazarus-gtk2' 'lazarus-qt5')
 pkgver=2.0.6
-pkgrel=1
+pkgrel=2
 url='http://www.lazarus.freepascal.org/'
 license=('GPL2' 'MPL' 'custom:modifiedLGPL')
 arch=('x86_64')
@@ -32,12 +32,11 @@ build() {
 
 package_lazarus() {
   pkgdesc='Delphi-like IDE for FreePascal common files'
-  depends=('fpc' 'fpc-src')
+  depends=('fpc' 'fpc-src' 'gdb')
   optdepends=(
     'perl: to run some scirpts in the tools directory'
     'gtk2: to compile gtk2 apps'
     'qt5pas: to compile qt5 apps and use help viewer'
-    'gdb: debugging while developing'
   )
 
   cd "$srcdir"/${pkgbase}
