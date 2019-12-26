@@ -1,0 +1,61 @@
+# Maintainer: Jonathan Steel <jsteel at archlinux.org>
+# Contributor: Greg Sutcliffe <puppet-aur (at) emeraldreverie (dot) org>
+# Contributor: Hyacinthe Cartiaux <hyacinthe (dot) cartiaux (at) free (dot) fr>
+# Contributor: Thomas S Hatch <thatch45 (at) Gmail (dot) com>
+# Contributor: Xavion <Xavion (dot) 0 (at) Gmail (dot) com>
+# Contributor: Miah Johnson <miah (at) chia-pet dot org>
+# Contributor: Dave Simons <miouhpi (at) Gmail (dot) com>
+# Contributor: Niels Abspoel <aboe76 (at) Gmail (dot) com>
+
+_pkgname=puppet
+pkgname=puppet5
+pkgver=5.5.17
+pkgrel=4
+pkgdesc="Server automation framework and application"
+arch=('any')
+url="https://puppet.com/products/open-source-projects"
+license=('Apache')
+depends=('facter' 'hiera' 'ruby-multi_json' 'ruby-augeas')
+optdepends=('ruby-shadow: user password management')
+backup=('etc/puppetlabs/puppet/auth.conf'
+        'etc/puppetlabs/puppet/puppet.conf')
+install=$_pkgname.install
+source=("https://downloads.puppetlabs.com/$_pkgname/$_pkgname-$pkgver.tar.gz"{,.asc})
+sha512sums=('95c6cd836a9f732ccfe2d8b83096e79c32428c43390c0826663f896ca1388e1fe3b55d93a5a7548831e95de85247db717866c36786d591e207341c734d70168b'
+            'SKIP')
+validpgpkeys=('6F6B15509CF8E59E6E469F327F438280EF8D349F')
+conflicts=('puppet')
+provides=('puppet')
+
+prepare() {
+  cd $_pkgname-$pkgver
+
+  # FS#45044: fix file location
+  sed -i 's_/opt/puppetlabs/puppet_/usr_' ext/systemd/puppet.service
+}
+
+package() {
+  cd $_pkgname-$pkgver
+
+  ruby install.rb --destdir="$pkgdir" --sitelibdir="$( ruby -e \
+    'puts RbConfig::CONFIG["vendorlibdir"]' )"
+
+  install -d "$pkgdir"/usr/lib/{sysusers.d,tmpfiles.d}
+
+  echo 'u puppet 52 "Puppet" /var/lib/puppet' > \
+    "$pkgdir"/usr/lib/sysusers.d/$_pkgname.conf
+  echo "d /run/puppetlabs 0755 $_pkgname $_pkgname -" > \
+    "$pkgdir"/usr/lib/tmpfiles.d/$_pkgname.conf
+
+  # systemd
+  install -Dm644 "$srcdir"/$_pkgname-$pkgver/ext/systemd/$_pkgname.service \
+    "$pkgdir"/usr/lib/systemd/system/$_pkgname.service
+
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$_pkgname/LICENSE
+
+  # Match permissions that puppet sets when running
+  install -dm775 "$pkgdir"/var/lib/puppet
+  chmod 750 "$pkgdir"/var/log/puppetlabs/puppet
+
+  rm -r "$pkgdir"/var/run
+}
