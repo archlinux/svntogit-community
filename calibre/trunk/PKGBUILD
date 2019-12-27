@@ -8,8 +8,8 @@
 
 pkgbase=calibre
 pkgname=('calibre' 'calibre-common' 'calibre-python3')
-pkgver=4.6.0
-pkgrel=2
+pkgver=4.7.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -26,10 +26,10 @@ checkdepends=('xorg-server-xvfb')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
         "calibre-alternatives.sh")
-sha256sums=('a602ab5b4e14944d81311ef680c5fa8eff1f073368df075d3d46700e5f2e0aed'
+sha256sums=('48ab11dcc46f119131355a1644e1c5879af4bde4fbe7c396c6610a5c87564b01'
             'SKIP'
             '1a3b24fb8a4d80dcd791842c4049e8519b9297f1199ef323ac678509f0290573')
-b2sums=('145f329bb4dfeaffcc1a1dec741cf7f0d2bb943bc343f83828ad3755452c6313e59cc2e1518d8b05120746928080bc2c0de52827202c6a45733495bddf9995ed'
+b2sums=('5030bee02506c2051949c248a941289da7b4e6b48aa638abcf14ab9c56f6552b1043f85bc6fbae644e33843711ad11d03da4ac3a320cb7cf4590bc1d0bf92ed8'
         'SKIP'
         'eaf6ee113e24dbf4ac045f4bef6c2b83424cba3aac52f967d0aca8a27356c053b4fc903e2b857c981bfe9c6cb600701ef640facd3df00d3225b2237ee927f5b1')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
