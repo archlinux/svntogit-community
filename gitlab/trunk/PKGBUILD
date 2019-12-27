@@ -10,17 +10,17 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.5.5
+pkgver=12.6.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
 license=('MIT')
 options=(!buildflags)
-depends=('ruby2.5' 'ruby2.5-bundler' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl-1.0')
-makedepends=('cmake' 'postgresql' 'mariadb' 'yarn' 'go' 'nodejs')
+depends=('ruby' 'ruby-bundler' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl')
+makedepends=('cmake' 'postgresql' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
-            'python2-docutils: reStructuredText markup language support'
+            'python-docutils: reStructuredText markup language support'
             'smtp-server: mail server in order to receive mail notifications')
 backup=("etc/webapps/${pkgname}/application.rb"
         "etc/webapps/${pkgname}/gitlab.yml"
@@ -28,6 +28,7 @@ backup=("etc/webapps/${pkgname}/application.rb"
         "etc/webapps/${pkgname}/unicorn.rb"
         "etc/logrotate.d/${pkgname}")
 source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab-foss/repository/archive?sha=v${pkgver}"
+        build_fix.patch
         gitlab-unicorn.service
         gitlab-sidekiq.service
         gitlab-backup.service
@@ -37,15 +38,17 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.tmpfiles.d
         gitlab.logrotate)
 install='gitlab.install'
-sha512sums=('62f7f907080b399ee9dcca5614e8c29edaa4649be0fa98c0fc42030a9e23a35ef02fd7ee9e29f4bbf58d6f0b166909ecdb0ee0c279fa2f0d7f47244db9883781'
-            'd6d0604a726277f27a7596caf31909ff7d9854fd85f2902fd8a06eb581b38cc0e0fd6c10b3b16c84e0c629230501bc51d2f74c765761b43cdead139a521a327d'
-            '41ca8890aff1dd99b3c4ef283f70a172af772837ab6b1bda1d26710616a822f5179899ca9b3a96bc0b434f8f6d614b29b39b1596c0f284e5347ae9e06d40c1c4'
-            '2e49f4c2549c219d5d1c8572a7db7a700847bc8c520b44bdfc1742d3caf57d8336da5c0b74672f820349b8eab0fa1712dcec5588a4fb742ad98c8eb7ec2b5951'
-            'fdb698c86057574aecaa1f1503f3d3319e06d5e872c676d58590b48bb7b3483b837bc991136eb2cc4b2cea68b52d294b8c1b382c9659f14027a923ac3c17d6d5'
+sha512sums=('b169ea5cb5b5596edcc6516b876f1e8defe322cf09c6c22e682bc8abb3fecdae9f2255451657a833a2e21e18d73ae4fc18f327d8437677f7ec66102ff90d59cf'
+            'c2ce677892ce8c7ec5b27cb42e2c900ecdc47c1002601c714cd38482adc2cfea137b87524328e21233660bb4d628689df128e8b5d5af27de08d320da719ebb26'
+            '1ad15b48890ad48e97a6fcea56132582f2b22aa27f4a1a1f4590f3ea72de4726e13ef6f3db2bc0984da1ef140bde092e74e0c9f8f1778f207f3fac4a31a77e4b'
+            '8ca36771f7568b190823ec47afeaf6ff75f61c5b6f31ce5d837a6dcd84a5b3da23fb07a1eceeda0752b2e61c4a8f4d17bf368fa2913e1487567944a8d29eeb58'
+            '0cbb9a1631b529a83d5c6db95fd3a684c8f06073890b31f6262c339360444e7452275d804fb6a119a3d61a0ef1b76d0e956f260a12f032d54c00308e8d9520b0'
+            '159530b50ac560c46703ef9ddd788cebc614bc53daa5b545ed8ac55f7ff4f9bb81a5149220a48770e8264e2cd5ca173f0f1f0ef4881f4e2350aaef007ea3e933'
             'c11d2c59da8325551a465227096e8d39b0e4bcd5b1db21565cf3439e431838c04bc00aa6f07f4d493f3f47fd6b4e25aeb0fe0fc1a05756064706bf5708c960ec'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
             '20b93eab504e82cc4401685b59e6311b4d2c0285bc594d47ce4106d3f418a3e2ba92c4f49732748c0ba913aa3e3299126166e37d2a2d5b4d327d66bae4b8abda')
+
 
 _datadir="/usr/share/webapps/${pkgname}"
 _etcdir="/etc/webapps/${pkgname}"
@@ -58,6 +61,8 @@ prepare() {
   local revision=$(ls -d ${_srcdir}* | rev | cut -c 34-40 | rev)
 
   cd "${_srcdir}"*
+
+  patch -p1 < ../build_fix.patch
 
   # GitLab tries to read its revision information from a file.
   echo "${revision}" > REVISION
@@ -99,16 +104,21 @@ prepare() {
     sed -i "s|<DATADIR>|${_datadir}|g" "${srcdir}/${service_file}"
     sed -i "s|<LOGDIR>|${_logdir}|g" "${srcdir}/${service_file}"
   done
+
+  # https://github.com/bundler/bundler/issues/6882
+  sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
+
+  bundle lock --update=bundler-audit
 }
 
 build() {
   cd "${srcdir}/${_srcdir}"*
 
   echo "Fetching bundled gems..."
-
   # Gems will be installed into vendor/bundle
-  bundle-2.5 config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
-  bundle-2.5 install --no-cache --deployment --without development test aws kerberos
+  bundle config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
+  bundle config force_ruby_platform true # some native gems are not available for newer ruby
+  bundle install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
@@ -116,8 +126,8 @@ build() {
   sed -i 's/url.*/nope.sock/g' config/resque.yml
 
   yarn install --production --pure-lockfile
-  bundle-2.5 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
-  bundle-2.5 exec rake gettext:compile RAILS_ENV=production
+  bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
+  bundle exec rake gettext:compile RAILS_ENV=production
 
   # After building assets, clean this up again
   rm config/database.yml config/database.yml.postgresql.orig
@@ -170,16 +180,6 @@ package() {
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
 
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
-
-  # Fix for ruby-2.5 and bundle-2.5
-  sed -i "s|bundle|bundle-2.5|g" "${pkgdir}${_datadir}/lib/tasks/gitlab/check.rake"
-  grep -rl "bin/env ruby" "${pkgdir}${_datadir}" | xargs sed -i "s|bin/env ruby$|bin/env ruby-2.5|g"
-  sed -i \
-    -e "s|ruby --version|ruby-2.5 --version|g" \
-    -e "s|gem --version|gem-2.5 --version|g" \
-    -e "s|bundle --version|bundle-2.5 --version|g" \
-    -e "s|rake --version|rake-2.5 --version|g" \
-    "${pkgdir}${_datadir}/lib/tasks/gitlab/info.rake"
 
   # Install config files
   for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
