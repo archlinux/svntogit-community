@@ -3,12 +3,12 @@
 _pkgname=cleo
 pkgname=python-cleo
 pkgver=0.7.6
-pkgrel=1
+pkgrel=2
 pkgdesc="create beautiful and testable command-line interfaces"
 arch=('any')
 url="https://github.com/sdispater/${_pkgname}"
 license=('MIT')
-depends=('python-pastel' 'python-pylev' 'python-clikit')
+depends=('python-clikit')
 makedepends=('python-dephell' 'python-setuptools')
 checkdepends=('python-pytest' 'python-pytest-mock')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz")
