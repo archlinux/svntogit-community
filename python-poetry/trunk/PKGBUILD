@@ -4,14 +4,14 @@
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Python dependency management and packaging made easy"
 arch=('any')
 url="https://poetry.eustace.io/"
 license=('MIT')
 _deps=('cachecontrol' 'cachy' 'cleo' 'html5lib' 'jsonschema' 'lockfile'
        'pkginfo' 'pyparsing' 'pyrsistent' 'requests' 'requests-toolbelt'
-       'shellingham' 'tomlkit' 'keyring')
+       'shellingham' 'tomlkit' 'keyring' 'pexpect')
 depends=("${_deps[@]/#/python-}")
 checkdepends=('git' 'python-pytest' 'python-pytest-mock' 'python-httpretty')
 provides=('poetry')
