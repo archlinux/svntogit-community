@@ -5,7 +5,7 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=7.11.0
+pkgver=7.11.1
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
@@ -22,7 +22,7 @@ optdepends=("python-nose: for IPython's test suite")
 source=("ipython-$pkgver.tgz::https://github.com/ipython/ipython/archive/$pkgver.tar.gz"
         "https://files.pythonhosted.org/packages/source/b/backcall/backcall-0.1.0.tar.gz"
         "https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-md5sums=('64fa7e93cf884902abd43938a2954bd5'
+md5sums=('20990017b722f5fa53744cd985ca9d8b'
          '87ce0c7839808e6a3427d57df6a792e7'
          '2901d65f1b1fe354e72850085cd1c072')
 
