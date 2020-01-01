@@ -1,0 +1,53 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=activesupport
+pkgname=ruby-activesupport
+pkgver=6.0.2.1
+pkgrel=1
+pkgdesc='A collection of utility classes and standard library extensions'
+arch=('any')
+url="https://github.com/rails/rails/tree/master/activesupport"
+license=('MIT')
+# bootstrap activesupport without i18n (circular dependency)
+depends=('ruby' 'ruby-concurrent' 'ruby-tzinfo' 'ruby-zeitwerk')
+makedepends=('git' 'ruby-rake')
+checkdepends=('ruby-minitest')
+options=(!emptydirs)
+source=("${pkgname}-${pkgver}::git+https://github.com/rails/rails#tag=v${pkgver}?signed")
+sha512sums=('SKIP')
+validpgpkeys=('54FE550EA35E26D7C75362C1FC23B6D0F1EEE948') # Rafael Mendonça França <rafael.ufs@gmail.com>
+
+prepare() {
+  cd "${pkgname}-${pkgver}/activesupport"
+  # we don't do version pinning
+  sed -r 's|~>|>=|g' -i "${_name}.gemspec"
+  # bootstrap activesupport (circular dependency on i18n)
+  sed -r '/i18n/d' -i "${_name}.gemspec"
+}
+
+build() {
+  cd "$pkgname-$pkgver/activesupport"
+  gem build "${_name}.gemspec"
+}
+
+# bootstrap activesupport without tests (circular dependency on i18n)
+# check() {
+#   cd "$pkgname-$pkgver/activesupport"
+#   rake test
+# }
+
+package() {
+  cd "$pkgname-$pkgver/activesupport"
+  local _gemdir="$(gem env gemdir)"
+  gem install --ignore-dependencies \
+              --no-user-install \
+              -i "${pkgdir}/${_gemdir}" \
+              -n "${pkgdir}/usr/bin" \
+              ${_name}-${pkgver}.gem
+  install -vDm 644 MIT-LICENSE \
+    "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  cd "${pkgdir}/${_gemdir}"
+  rm -rvf cache gems/${_name}-${pkgver}/{ext,lib/*/*.so} \
+    extensions/*/*/${_name}-${pkgver}/{mkmf.log,gem_make.out} \
+    build_info extensions
+}
