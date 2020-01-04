@@ -4,7 +4,7 @@
 
 pkgbase=python-babel
 pkgname=(python-babel python2-babel)
-pkgver=2.7.0
+pkgver=2.8.0
 _core=35.1
 pkgrel=3
 pkgdesc="A collection of tools for internationalizing Python applications"
@@ -15,11 +15,11 @@ makedepends=('python' 'python2'
              'python-setuptools' 'python2-setuptools'
              'python-pytz' 'python2-pytz')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-freezegun'
-	      'python-pytest-runner' 'python2-pytest-runner' 'python2-freezegun')
+              'python-pytest-runner' 'python2-pytest-runner' 'python2-freezegun')
 noextract=("cldr-core-$_core.zip")
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/python-babel/babel/archive/v$pkgver.tar.gz"
         "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip")
-sha256sums=('d31a563d7b573f2544d49fecc22b58d470a624ebb63fe41583502095e266c462'
+sha256sums=('2d4d29e73e85afd10ff260579303b5479b332eadc393663089dceb14ff6f8b9c'
             'e2ede8cb8f9c29157e281ee9e696ce540a72c598841bed595a406b710eea87b0')
 
 prepare() {
