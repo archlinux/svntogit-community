@@ -3,9 +3,9 @@
 
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
-_zstdver=1.4.3
-pkgver=14.2.1
-pkgrel=3
+_zstdver=1.4.4
+pkgver=14.2.5
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -25,6 +25,9 @@ makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
              'python-google-api-python-client' 'python-google-auth'
              'python-google-auth-httplib2' 'python-grpcio' 'python-isort'
              'python-jinja' 'python-lazy-object-proxy' 'python-mccabe'
+
+             'python-isodate' 'python-defusedxml' 'python-pkgconfig' 'python-lxml' 'python-xmlsec'
+
              'python-more-itertools' 'python-numpy' 'python-pbr' 'python-pecan'
              'python-pip' 'python-pluggy' 'python-portend' 'python-prettytable'
              'python-prometheus_client' 'python-py' 'python-pycparser'
@@ -33,28 +36,28 @@ makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
              'python-setuptools' 'python-six' 'python-sphinx' 'python-tempora'
              'python-virtualenv' 'python-werkzeug' 'python-wrapt' 'rabbitmq'
              'sed' 'snappy' 'socat' 'systemd' 'systemd-libs' 'valgrind'
-             'xfsprogs' 'xmlstarlet' 'xxhash' 'yasm' 'zlib')
+             'xfsprogs' 'xmlstarlet' 'xxhash' 'yasm' 'zlib' )
 checkdepends=('python-mock' 'python-nose' 'python-pycodestyle' 'python-pylint'
               'python-pytest' 'python-pytest-cov')
 options=('emptydirs')
 source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'ceph.sysusers'
         'remove-distro-version-detection.patch'
-        'fix-tox-test-commands.patch'
         'disable-empty-readable.sh-test.patch'
         'use-threadsafe-death-tests-objectstore-memstore.patch'
         'use-system-zstd-and-fix-zstd-1.4.0-compatbility.patch'
         'suppress-pylint-warnings.patch'
+        'disable-broken-mgr-dashboard-test.patch'
         "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz")
-sha512sums=('fccde341344c721fbfc7f7cb73db4f65933d7fcacc9495398b55b37d1e208f0bad0cd78a4da08a3b5e26cca3175e7707f7dfb76fae5aa094f58afaed8603c866'
+sha512sums=('38da62a38960d3618e2689f0e882785d4d95358b4a3b3b5b83e54e227cff9e69f4cca0b63d2d55d69e3916055818e6cf9067f2c2eddeb221ef4bc64a13cfa22b'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
-            'e0a890c358674902db2db3c484a4d19260e2463f1b5bb641605aae0a068027327c7153e267ef344dda190affc495f3661f29b576997691431bb4bae52573aa69'
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
             'a74aea7c0b0d1883c874f889c184bd2c766fa578d6ca0cbe5eaada840281bb947b3d80f142b30473058cd2652d2967d241ade6914d6be50e93e91728a31733c8'
             '4345fc2f422c7c1910bfd4068ad39511fa63d8c1e4fc04af416bb0f3869e43327d4a4bfc980d5abf273693a532ac153ed1e4c03e033a127692c1254b99092b8a'
-            '27ec7cc9479426446857f458261f7fd3b303b32234edea1b86c4115214a320ec3e895bdc9231700b44c55d49d5b68d74e36fe1154907eb7e5d91bb9abc0437ac'
-            'ccda90c7437635f92d0db39dfba3604e256f1f08284c35c042763a54b0ead45dca8e7fa3e5cf8032292d1dd9eefc1369e23f78a80d9335d69170563090677d5f')
+            '4afd5c3b49a839531921e80b1204ef5b496531a31b3de13042bfcbb548d736851ef7698e41bc94a9bed356e7c2cab6bf30bc711796249cf10ee791974033c29b'
+            '63a92990f979dadb3c23e04e559d95d52cdb3f79115406900ccae67d3f8b1d0658f05431142365eba6ffb7706f9751209f702b69d6ffcd815716ffaf74ebae54'
+            '8209837e8eb14e474dfe21d5511085f46cef93b03ab77613fd41e7b8be652418231c38852669c8e0b55b78ad41ea2cb8008d0da122a83f8f27e32b5c86f045cf')
 
 
 # -fno-plt causes linker errors (undefined reference to internal methods)
@@ -118,7 +121,7 @@ build() {
     -DCMAKE_BUILD_TYPE=RelWithDebInf \
     -DENABLE_GIT_VERSION=ON \
     -DWITH_PYTHON2=OFF \
-    -DWITH_PYTHON3=ON \
+    -DWITH_PYTHON3=3 \
     -DMGR_PYTHON_VERSION=3 \
     -DPYTHON_INCLUDE_DIR="${PYTHON_INCLUDE_DIR:?}" \
     -DWITH_BABELTRACE=OFF \
@@ -254,7 +257,8 @@ package_ceph-mgr() {
   depends=("ceph=${pkgver}-${pkgrel}" "ceph-libs=${pkgver}-${pkgrel}"
            'bash' 'boost-libs' 'coffeescript' 'curl' 'gperftools' 'nodejs' 'nss'
            'python' 'python-cherrypy' 'python-flask-restful' 'python-pecan'
-           'python-pyjwt' 'python-routes' 'python-requests' 'python-pyopenssl')
+           'python-pyjwt' 'python-routes' 'python-requests' 'python-pyopenssl'
+           'python-prettytable')
   optdepends=('python-influxdb: influx module'
               'python-kubernetes: rook module'
               'python-prometheus_client: prometheus module'
