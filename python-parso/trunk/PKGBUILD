@@ -3,8 +3,8 @@
 _pkgbase=parso
 pkgbase=python-parso
 pkgname=('python-parso' 'python2-parso')
-pkgver=0.5.1
-pkgrel=3
+pkgver=0.5.2
+pkgrel=1
 pkgdesc="Python parser that supports error recovery and round-trip parsing for different Python versions"
 arch=('any')
 url="https://github.com/davidhalter/parso"
@@ -12,7 +12,7 @@ license=('MIT')
 makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest' 'python2-pytest')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/davidhalter/parso/archive/v$pkgver.tar.gz")
-md5sums=('49c6ee6f308985626f0f19874d4aac45')
+md5sums=('6c5e19479e9e9fd6906c6ae153c5e9f3')
 
 check() {
   cd "$_pkgbase-$pkgver"
