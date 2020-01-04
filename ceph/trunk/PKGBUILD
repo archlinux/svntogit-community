@@ -5,7 +5,7 @@ pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.4
 pkgver=14.2.5
-pkgrel=1
+pkgrel=2
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -25,9 +25,8 @@ makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
              'python-google-api-python-client' 'python-google-auth'
              'python-google-auth-httplib2' 'python-grpcio' 'python-isort'
              'python-jinja' 'python-lazy-object-proxy' 'python-mccabe'
-
-             'python-isodate' 'python-defusedxml' 'python-pkgconfig' 'python-lxml' 'python-xmlsec'
-
+             'python-isodate' 'python-defusedxml' 'python-pkgconfig'
+             'python-lxml' 'python-xmlsec' 'python-yaml'
              'python-more-itertools' 'python-numpy' 'python-pbr' 'python-pecan'
              'python-pip' 'python-pluggy' 'python-portend' 'python-prettytable'
              'python-prometheus_client' 'python-py' 'python-pycparser'
@@ -258,7 +257,7 @@ package_ceph-mgr() {
            'bash' 'boost-libs' 'coffeescript' 'curl' 'gperftools' 'nodejs' 'nss'
            'python' 'python-cherrypy' 'python-flask-restful' 'python-pecan'
            'python-pyjwt' 'python-routes' 'python-requests' 'python-pyopenssl'
-           'python-prettytable')
+           'python-prettytable' 'python-yaml')
   optdepends=('python-influxdb: influx module'
               'python-kubernetes: rook module'
               'python-prometheus_client: prometheus module'
