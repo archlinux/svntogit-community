@@ -11,7 +11,7 @@
 # need this again at some point in the future.
 pkgname=gitlab
 pkgver=12.6.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -107,8 +107,9 @@ prepare() {
 
   # https://github.com/bundler/bundler/issues/6882
   sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
-
   bundle lock --update=bundler-audit
+  # 'lock' adds 'BUNDLED WITH' back. Remove it again.
+  sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
 }
 
 build() {
