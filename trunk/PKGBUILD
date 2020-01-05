@@ -4,7 +4,7 @@
 
 pkgname=atop
 pkgver=2.5.0
-pkgrel=2
+pkgrel=3
 pkgdesc='A system and process level monitor'
 arch=('x86_64')
 url='https://www.atoptool.nl/'
@@ -14,7 +14,7 @@ backup=('etc/default/atop')
 source=("https://www.atoptool.nl/download/atop-${pkgver/_/-}.tar.gz"
         'atop.default')
 sha512sums=('675bbd902d8fe584b1ff47c275ee06d7bfe9127fadf79825ca64bbb6bcb6c34cab485e0686854d805bbdfaf69ebb40d790f7cc00c788544bff73b49c3d24dc08'
-            '472a43abfe4bab9169ffce0f365547d646c6a4edb43b4092e893541d6641832cabcf9d8c9ab0332018854d9de5cf2d88a66cdcc5aaa75702cffd83ccb917fc34')
+            'ed43e68f5d2acd7a9ed0a6df703a1a79b5a6b793e16ab8371463b37e5f16894246af26d178b56625f5e0b3289e2e50c42215da0c57c32ed0ddddaf2178c4d9d0')
 
 #prepare() {
     #cd "$pkgname-$pkgver"
