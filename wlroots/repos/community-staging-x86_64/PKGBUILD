@@ -3,13 +3,14 @@
 
 pkgname=wlroots
 pkgver=0.9.1
-pkgrel=1
+pkgrel=2
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://github.com/swaywm/wlroots'
 arch=('x86_64')
 depends=(
-    'freerdp'
+    'libwinpr2.so'
+    'libfreerdp2.so'
     'libinput'
     'libxkbcommon'
     'opengl-driver'
@@ -18,7 +19,11 @@ depends=(
     'xcb-util-image'
     'xcb-util-wm'
 )
-makedepends=('meson' 'ninja' 'wayland-protocols')
+makedepends=(
+    'meson'
+    'ninja'
+    'wayland-protocols'
+)
 provides=(
     'libwlroots.so'
 )
