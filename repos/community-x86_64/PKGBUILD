@@ -1,0 +1,91 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=JUCE
+pkgname=juce
+pkgver=5.4.5
+pkgrel=1
+pkgdesc="Cross-platform C++ framework"
+arch=('x86_64')
+url="https://github.com/weareroli/juce/"
+license=('Apache' 'BSD' 'GPL3' 'ISC')
+depends=('atk' 'cairo' 'gcc-libs' 'gdk-pixbuf2' 'glib2' 'glibc' 'gtk3'
+'harfbuzz' 'libfreetype.so' 'libjpeg-turbo' 'libpng' 'libsoup' 'libx11'
+'libxext' 'libxinerama' 'pango' 'webkit2gtk' 'zlib')
+makedepends=('doxygen' 'gendesk' 'graphviz' 'python')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/weareroli/${pkgname}/archive/${pkgver}.tar.gz"
+        "$pkgname-5.4.5-disable_update_check.patch"
+        "$pkgname-5.4.5-disable_usage_data.patch"
+        "$pkgname-5.4.5-fix_include_defines.patch"
+        "$pkgname-5.4.5-link_to_systemlibs.patch"
+        "$pkgname-5.4.5-jucepath.patch")
+sha512sums=('4fcd6b9d6d43c00683fdd9cabbbdba61094eee61d50738fb89d7330c95552712f876a9b76e2557a390060a875b9f771f3ffe8135d2b2a5b60e2e01586a79ccbf'
+            '5e7516d37deeb6faf9bd7ccf6b0da68f610992b9a4dfb8010baec1dba56cf2310c390c3d0876b5e2f30c89c69555ad34c088887a0254c59f121d2af38334b3d3'
+            '85ca210a4d904a00de0830385a9e103493d47981acdb24335494fddc4af3f8b89cc05d1935cc4695c9e136bce5f91c1568c2135a8fe4ce565f396c3ba0153460'
+            '69bc445275e88594ab6077285442bb3af97e2e4a7776f409d5e0ce2aae214a0eadedb82960c666ee45ea459f8ffb519873ecb0577eecf11e4728ee46e6ee042f'
+            '062197ee6860c2c9cf655131df042df536d0b9aab58b304ca35a9d335231932dc49d92cb439c347f3dc863fc60ae6ae2357fbca8d057b9ce3b06fdbf16ff05df'
+            'c7ad5fadedd09f6f810cc27736f0def236f3b107de00079fb24509fc27750b26225bed7e9b19b0fa9873d5dae7b686cd9929298bb0107fd44645aad1a69c9168')
+
+prepare() {
+  mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+  # setting juce path
+  patch -Np1 -i "../$pkgname-5.4.5-jucepath.patch"
+  # disable checking for update in projucer
+  patch -Np1 -i "../$pkgname-5.4.5-disable_update_check.patch"
+  # disable sending usage data in projucer
+  patch -Np1 -i "../$pkgname-5.4.5-disable_usage_data.patch"
+  # fix include defines in projucer
+  patch -Np1 -i "../$pkgname-5.4.5-fix_include_defines.patch"
+  # link to system libs, if flac, jack, libogg, vorbis, libjpeg, libpng or zlib
+  # are in use
+  patch -Np1 -i "../$pkgname-5.4.5-link_to_systemlibs.patch"
+  # disabling -march=native
+  sed -e 's/\-march=native//g' \
+      -i extras/Projucer/Builds/LinuxMakefile/Makefile
+  gendesk -n \
+          --pkgname "com.juce_projucer" \
+          --name "Projucer" \
+          --pkgdesc "Cross-platform project manager and C++ code editor" \
+          --exec "Projucer" \
+          --icon "Projucer" \
+          --genericname "Code manager and editor" \
+          --categories "Development"
+  # devendor bundled sources for flac, libogg, vorbis, libjpeg, libpng and zlib
+  rm -rvf modules/juce_audio_formats/codecs/flac/ \
+    modules/juce_audio_formats/codecs/oggvorbis/ \
+    modules/juce_audio_plugin_client/AU/ \
+    modules/juce_graphics/image_formats/jpglib/ \
+    modules/juce_graphics/image_formats/pnglib/ \
+    modules/juce_core/zip/zlib/
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  # enabling GPL mode via CPPFLAGS
+  CPPFLAGS+=" -DJUCER_ENABLE_GPL_MODE=1" \
+  LDFLAGS+=" $(pkg-config --libs libjpeg libpng zlib)" \
+  make -C extras/Projucer/Builds/LinuxMakefile/ V=1
+  cd doxygen
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  install -vDm 755 extras/Projucer/Builds/LinuxMakefile/build/Projucer \
+    -t "${pkgdir}/usr/bin"
+  # xdg desktop integration
+  install -vDm 644 *.desktop -t "${pkgdir}/usr/share/applications/"
+  install -vDm 644 examples/Assets/juce_icon.png \
+    "${pkgdir}/usr/share/icons/hicolor/512x512/apps/Projucer.png"
+  # modules
+  install -vDm 644 ChangeList.txt -t "${pkgdir}/usr/share/${pkgname}"
+  install -vdm 755 "${pkgdir}/usr/share/${pkgname}/modules"
+  cp -av modules/* "${pkgdir}/usr/share/${pkgname}/modules"
+  # docs
+  install -vdm 755 "${pkgdir}/usr/share/doc/${pkgname}/html"
+  cp -av doxygen/doc/* "${pkgdir}/usr/share/doc/${pkgname}/html"
+  install -vDm 644 {ChangeList.txt,README.md} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  # license
+  install -vDm 644 LICENSE.md -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
