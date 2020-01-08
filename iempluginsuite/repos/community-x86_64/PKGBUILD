@@ -1,0 +1,117 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=IEMPluginSuite
+pkgname=iempluginsuite
+pkgver=1.11.0
+pkgrel=1
+pkgdesc="Plug-in suite including Ambisonic plug-ins up to 7th order"
+arch=('x86_64')
+url="https://plugins.iem.at"
+license=('GPL3')
+groups=('pro-audio' 'vst-plugins')
+depends=('alsa-lib' 'fftw' 'gcc-libs' 'glibc' 'libFLAC.so' 'libcurl.so'
+'libfreetype.so' 'libglvnd' 'libjack.so' 'libjpeg-turbo' 'libogg' 'libpng'
+'libvorbis.so' 'libvorbisenc.so' 'libvorbisfile.so' 'libx11' 'libxext'
+'libxinerama' 'zlib')
+makedepends=('gendesk' 'juce' 'xorg-server-xvfb')
+source=("$pkgname-$pkgver.tar.gz::https://git.iem.at/audioplugins/${_name}/-/archive/v${pkgver}/${_name}-v${pkgver}.tar.gz"
+        "$pkgname.directory"
+        "$pkgname.menu")
+sha512sums=('9c1adbd053a87cb2e743fa2a287b80517b553405cc21d171b6ef147198db20d64fce1ad6fd5e2083e2de4e479a10f664f3b7b68e4be7b7f07a54065b85191bcb'
+            '412ac2581089babfe57b10c06dca86c19a8b708b76af70283d3b35dd1deffc8f7c654d9e7d182da8b0fa2f40cafe46fc855890e0aed7d11530de3c0d56bf17dd'
+            '2d290b5b8c9320013abb97e0a9051c6687a92700433454c88d4c89fe122c9b1537e128faf7060715c63eb28e93ad9f3f1a98765a7a5934e4f8bd0a8c20254ab3')
+_standalones=('AllRADecoder' 'BinauralDecoder' 'CoordinateConverter'
+'DirectionalCompressor' 'DirectivityShaper' 'DistanceCompensator' 'DualDelay'
+'EnergyVisualizer' 'FdnReverb' 'MatrixMultiplier' 'MultiBandCompressor'
+'MultiEQ' 'MultiEncoder' 'OmniCompressor' 'PluginTemplate' 'ProbeDecoder'
+'RoomEncoder' 'SceneRotator' 'SimpleDecoder' 'StereoEncoder' 'ToolBox')
+
+prepare() {
+  mv -v "${_name}-v$pkgver" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+  declare -A comments=(
+    ['AllRADecoder']="Design an Ambisonic decoder for an arbitrary loudspeaker layout using the AllRAD approach."
+    ['BinauralDecoder']="Renders the Ambisonic input signal to a binaural headphone signal using the MagLS approach."
+    ['CoordinateConverter']="Converts VST parameters from a spherical representation to a cartesian, and vice versa."
+    ['DirectionalCompressor']="A more sophisticated Ambisonic compressor/limiter which lets you control the dynamics for different spatial regions."
+    ['DirectivityShaper']="Filter input signal into four independent bands, to which different directivity patterns can be applied to."
+    ['DistanceCompensator']="Calculate the needed delays and gains in order to compensate for distance differences."
+    ['DualDelay']="Two delay-lines, which can be configured independently."
+    ['EnergyVisualizer']="Visualizes the energy distribution on the sphere of the Ambisonic input signal using a Hammer-Aitoff projection (a spherical projection which is area-preserving)"
+    ['FdnReverb']="A Feedback-Delay-Network reverberation."
+    ['MatrixMultiplier']="Load a configuration which contains a TransformationMatrix object which will be applied to the input signal."
+    ['MultiBandCompressor']="Splits an Ambisonic signal into four bands and compresses them individually."
+    ['MultiEQ']="A simple multi-channel equalizer, filtering up to 64 audio channels."
+    ['MultiEncoder']="Encode multiple sources with just one plug-in."
+    ['OmniCompressor']="An Ambisonic compressor which can also be used as a limiter."
+    ['ProbeDecoder']="A little tool to sample/decode the Ambisonic input signal for one specific direction and listen to the output."
+    ['RoomEncoder']="Puts a source and a listener into a virtual shoebox-shaped room and renders over 200 wall reflections."
+    ['SceneRotator']="An Ambisonic rotator plug-in, which rotates the Ambisonic scene."
+    ['SimpleDecoder']="Reads JSON configuration files and decodes the Ambisonic input signal to loudspeaker signals."
+    ['StereoEncoder']="Encodes mono or stereo audio signals into the Ambisonic domain."
+    ['ToolBox']="Flips the Ambisonic input signal along the x, y and/or z axis."
+  )
+  declare -A comments=(
+    ['AllRADecoder']="Ambisonic Decoder Designer"
+    ['BinauralDecoder']="Binaural Decoder"
+    ['CoordinateConverter']="VST Coordinate Converter"
+    ['DirectionalCompressor']="Compressor Limiter"
+    ['DirectivityShaper']="Directivity Shaper"
+    ['DistanceCompensator']="Distance Compensation"
+    ['DualDelay']="Delay"
+    ['EnergyVisualizer']="Audio Visualizer"
+    ['FdnReverb']="Reverb"
+    ['MatrixMultiplier']="Matrix Transformation"
+    ['MultiBandCompressor']="Multiband Compressor"
+    ['MultiEQ']="Multichannel Equalizer"
+    ['MultiEncoder']="Ambisonics Encoder"
+    ['OmniCompressor']="Ambisonic Limiter Compressor"
+    ['ProbeDecoder']="Ambisonic Decoder"
+    ['RoomEncoder']="Room Encoder"
+    ['SceneRotator']="Ambisonic Scene Rotator"
+    ['SimpleDecoder']="Ambisonic Decoder"
+    ['StereoEncoder']="Ambisonic Encoder"
+    ['ToolBox']="Ambisonic Transformation"
+  )
+  for name in "${_standalones[@]}"; do
+    gendesk -n \
+            --pkgname "at.iem.plugins.${name}" \
+            --name "${name}" \
+            --exec "${name}" \
+            --icon "${pkgname}" \
+            --pkgdesc "${comments[$name]}" \
+            --genericname "${generic[$name]}" \
+            --categories "${pkgname}"
+  done
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  for _jucer in */*.jucer; do
+    _name="$(dirname ${_jucer})"
+    ln -sv ../resources/ "${_name}/"
+    xvfb-run Projucer --resave "${_jucer}"
+    # remove -march=native as only supplying -DTARGET_ARCH is not enough
+    sed -e 's/\-march=native//g' -i "${_name}/Builds/LinuxMakefile/Makefile"
+    CPPFLAGS+=" -I/usr/share/juce/modules/juce_audio_processors/format_types/ -DJUCE_JACK=1" \
+      make CONFIG=Release AR=gcc-ar -j$(nproc) V=1 -C "${_name}/Builds/LinuxMakefile"
+  done
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  for _jucer in */*.jucer; do
+    _name="$(dirname "${_jucer}")"
+    install -vDm 755 "${_name}/Builds/LinuxMakefile/build/${_name##_}" \
+      -t "${pkgdir}/usr/bin"
+    install -vDm 755 "${_name}/Builds/LinuxMakefile/build/${_name##_}.so" \
+      -t "${pkgdir}/usr/lib/vst"
+  done
+  # XDG desktop integration
+  install -vDm 644 *.desktop -t "${pkgdir}/usr/share/applications"
+  install -vDm 644 "../${pkgname}.menu" \
+    -t "${pkgdir}/etc/xdg/menus/applications-merged/"
+  install -vDm 644 "../${pkgname}.directory" \
+    -t "${pkgdir}/usr/share/desktop-directories/"
+  install -vDm 644 {ChangeLog,README}.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
