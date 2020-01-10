@@ -11,7 +11,7 @@
 # need this again at some point in the future.
 pkgname=gitlab
 pkgver=12.6.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -36,7 +36,8 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab-backup.timer
         gitlab.target
         gitlab.tmpfiles.d
-        gitlab.logrotate)
+        gitlab.logrotate
+        ruby27-pop-extra-arg.patch)
 install='gitlab.install'
 sha512sums=('510dac5476df16e4e0563a8de3c19f4e27e390715742bf7f0ef59c6ac93c095d67455551720c151aa54478ede7728cf6fae01b0dfbb13c69c7c99e35e32d1c92'
             '8f841befa246c54687be9e0a77b9fa0241a92253167b86c251e8ab0d31fabe09f1e79e5f52a201bf0c22241409577d0a6000e8ed024d3d23107291e82a2c26c6'
@@ -47,7 +48,8 @@ sha512sums=('510dac5476df16e4e0563a8de3c19f4e27e390715742bf7f0ef59c6ac93c095d674
             'c11d2c59da8325551a465227096e8d39b0e4bcd5b1db21565cf3439e431838c04bc00aa6f07f4d493f3f47fd6b4e25aeb0fe0fc1a05756064706bf5708c960ec'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
-            '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121')
+            '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121'
+            'ac1f033a6a4cde442e3280f06ee5e78a800420715fff6a35bad798e948997c173499fb970592f146483d583b4f0697c2844071d66348ac7da69f36f1a9c757a8')
 
 
 _datadir="/usr/share/webapps/${pkgname}"
@@ -120,6 +122,11 @@ build() {
   bundle config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
   bundle config force_ruby_platform true # some native gems are not available for newer ruby
   bundle install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
+
+  # workaround for a weird ruby27 issue https://gitlab.com/groups/gitlab-org/-/epics/2380
+  pushd vendor/bundle/ruby/2.7.0/gems/rack-2.0.7/
+  patch -p1 < $srcdir/ruby27-pop-extra-arg.patch
+  popd
 
   # We'll temporarily stick this in here so we can build the assets
   cp config/database.yml.postgresql.orig config/database.yml
