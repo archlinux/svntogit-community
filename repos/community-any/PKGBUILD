@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=6.13.4
+pkgver=6.13.5
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -14,7 +14,7 @@ depends=('nodejs' 'node-gyp' 'semver')
 makedepends=('libgl' 'libvips' 'libxi' 'marked' 'marked-man' 'procps-ng' 'python')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/cli/archive/v$pkgver.tar.gz")
-sha512sums=('0b7b591bb73ea0ca25a5675e6c01c6289bdc85fd22cea399d0b7a0e428bda838d1f4ac279ee674de6ed7fcd1f3d2e91a3c8bd023ea8eaef211b8f4cee7ec718a')
+sha512sums=('7762de23387f5ad44fe0c975277acfb477ef04db874e6e6435e47511d191d0ada17fa606b77401a0bebb857cb26b77f1240a598a2c38b7a65a0cb139cce05ba9')
 
 prepare() {
   cd cli-$pkgver
@@ -28,10 +28,6 @@ prepare() {
   sed -i 's/install: all/install:/' Makefile
 
   mkdir -p man/man1
-
-  # Fix nodejs 13 compatibility
-  sed -i '/gatsby/ s/\^/>=/' docs/package.json
-  rm docs/package-lock.json
 }
 
 build() {
