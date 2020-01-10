@@ -4,8 +4,8 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.4
-pkgver=14.2.5
-pkgrel=2
+pkgver=14.2.6
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -46,16 +46,16 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'use-threadsafe-death-tests-objectstore-memstore.patch'
         'use-system-zstd-and-fix-zstd-1.4.0-compatbility.patch'
         'suppress-pylint-warnings.patch'
-        'disable-broken-mgr-dashboard-test.patch'
+        'fix-mgr-dashboard-frontend-unittests-dist-stuff.patch'
         "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz")
-sha512sums=('38da62a38960d3618e2689f0e882785d4d95358b4a3b3b5b83e54e227cff9e69f4cca0b63d2d55d69e3916055818e6cf9067f2c2eddeb221ef4bc64a13cfa22b'
+sha512sums=('b864a228deb3f8ec64fd17ed1b56b7e100332b9f94109eb31bfe4af24d50a615671a4389f02148e55852df01e7cc965b2baf56624ea89192bda34d79223f97fe'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
             'a74aea7c0b0d1883c874f889c184bd2c766fa578d6ca0cbe5eaada840281bb947b3d80f142b30473058cd2652d2967d241ade6914d6be50e93e91728a31733c8'
             '4345fc2f422c7c1910bfd4068ad39511fa63d8c1e4fc04af416bb0f3869e43327d4a4bfc980d5abf273693a532ac153ed1e4c03e033a127692c1254b99092b8a'
             '4afd5c3b49a839531921e80b1204ef5b496531a31b3de13042bfcbb548d736851ef7698e41bc94a9bed356e7c2cab6bf30bc711796249cf10ee791974033c29b'
-            '63a92990f979dadb3c23e04e559d95d52cdb3f79115406900ccae67d3f8b1d0658f05431142365eba6ffb7706f9751209f702b69d6ffcd815716ffaf74ebae54'
+            '6265e083e0e8cba481741c7492a47e8144381287c2cbaef220a64bd889d8bac43cb5cc3efb01600cf785d585c950982a908deed10bedf0688c5cd2015e004c1f'
             '8209837e8eb14e474dfe21d5511085f46cef93b03ab77613fd41e7b8be652418231c38852669c8e0b55b78ad41ea2cb8008d0da122a83f8f27e32b5c86f045cf')
 
 
@@ -70,6 +70,12 @@ CXXFLAGS="${CXXFLAGS/-fno-plt/}"
 
 prepare() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
+
+  # the src/pybind/mgr/dashboard/run-frontend-unittests.sh helper will incorrectly
+  # rebuild the static assets to frontend/dist/ causing failures in run-tox-mgr-dashboard
+  # and in the final package
+  # with fix-mgr-dashboard-frontend-unittests-dist-stuff.patch we comment out
+  # the npm build and i18n commands of this helper and just use the remainder to run the actual tests
 
   # apply patches from the source array
   local filename
@@ -92,6 +98,10 @@ prepare() {
 
   # remove tests that require root privileges
   rm src/test/cli/ceph-authtool/cap*.t
+
+  # disable certain pylint test cases (we don't are about them for packaging)
+  sed -i 's/,py3-lint//' src/pybind/mgr/dashboard/run-tox.sh
+
 
   # this test will try to perform btrfs operations when a btrfs mount
   # is active on the build host, which will fail
@@ -120,14 +130,13 @@ build() {
     -DCMAKE_BUILD_TYPE=RelWithDebInf \
     -DENABLE_GIT_VERSION=ON \
     -DWITH_PYTHON2=OFF \
-    -DWITH_PYTHON3=3 \
+    -DWITH_PYTHON3=ON \
     -DMGR_PYTHON_VERSION=3 \
     -DPYTHON_INCLUDE_DIR="${PYTHON_INCLUDE_DIR:?}" \
     -DWITH_BABELTRACE=OFF \
     -DWITH_LTTNG=OFF \
     -DWITH_OPENLDAP=OFF \
     -DWITH_RDMA=OFF \
-    -DWITH_TBB=OFF \
     -DWITH_OCF=OFF \
     -DWITH_DPDK=OFF \
     -DWITH_SPDK=OFF \
@@ -137,16 +146,14 @@ build() {
     -DWITH_FUSE=ON \
     -DWITH_LZ4=ON \
     -DWITH_XFS=ON \
-    -DWITH_NSS=ON \
-    -DWITH_NUMA=ON \
     -DWITH_MGR=ON \
     -DWITH_MGR_DASHBOARD_FRONTEND=ON \
+    -DDASHBOARD_FRONTEND_LANGS="ALL" \
     -DWITH_RADOSGW=ON \
     -DWITH_RADOSGW_FCGI_FRONTEND=OFF \
     -DWITH_RADOSGW_BEAST_FRONTEND=ON \
     -DWITH_RADOSGW_BEAST_OPENSSL=ON \
     -DWITH_RADOSGW_AMQP_ENDPOINT=OFF \
-    -DWITH_SSL=ON \
     -DWITH_SYSTEMD=ON \
     -DWITH_SYSTEM_BOOST=OFF \
     -DWITH_BOOST_CONTEXT=ON \
@@ -157,6 +164,13 @@ build() {
     ..
 
   VERBOSE=1 make all
+
+  # remove this folder to force proper rebuild of the static assets
+  # for whatever reason they get corrupted during `make all`
+  # upstream hasn't managed to find a solution yet so this is the workaround
+  # rm -rf "../src/pybind/mgr/dashboard/frontend/dist"
+  # rebuild all mgr-dashboard-dashboard related stuff including static assets
+  # make mgr-dashboard-frontend-build
 }
 
 check() {
