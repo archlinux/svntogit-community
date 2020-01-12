@@ -3,8 +3,8 @@
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.0.0
-pkgrel=2
+pkgver=1.0.2
+pkgrel=1
 pkgdesc="Python dependency management and packaging made easy"
 arch=('any')
 url="https://poetry.eustace.io/"
@@ -19,9 +19,9 @@ conflicts=('poetry')
 replaces=('poetry')
 source=("${_pkgname}-${pkgver}.tar.gz::https://github.com/sdispater/${_pkgname}/archive/${pkgver}.tar.gz"
         "poetry-completions-generator")
-sha256sums=('6c5b50f404d8226efda3849cbc9ad8302a9939db230b92d8c727d78c0939d4af'
+sha256sums=('837c429e70851af65c761af55ae509a8114d4acba5b6559b904d82ee3b230566'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
-b2sums=('1f7678abbbe46abf98cb4f061a6ee1c0cbb36954064efb70a877bf833a19f84af1263725cd5958bb5100f7f144494d6366c6a4c57aafbd2ce475915116f43e53'
+b2sums=('853fcae57f6b8e205bc1cc6d95b9373ea3fd893e3aa49836d9f14725c4bf7a1f7e364188891b2b120697dc97c3964636698e15dd9fb16abace64621a252dcac6'
         '3fd62e7936d7547dcd06a1a7519f176a1597553ecc959144a4be799bb7e2d688e187f14604d3e359ed10c128c722ebd588c07ca318e0be0a31d276dcb388e2e1')
 
 prepare() {
@@ -69,5 +69,5 @@ package() {
         -e "s/pyrsistent.*/pyrsistent/g" \
         -e "s/requests-toolbelt.*/requests-toolbelt/g" \
         -e "s/keyring.*/keyring/g" \
-        "${pkgdir}"/usr/lib/python3.8/site-packages/poetry-1.0.0-py3.8.egg-info/requires.txt
+        "${pkgdir}"/usr/lib/python3.8/site-packages/poetry-${pkgver}-py3.8.egg-info/requires.txt
 }
