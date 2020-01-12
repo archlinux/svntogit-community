@@ -1,0 +1,86 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=mailman
+pkgname=mailman3
+pkgver=3.3.0
+pkgrel=1
+pkgdesc="The GNU mailing list manager"
+arch=('any')
+url="https://www.list.org/"
+license=('GPL3')
+depends=('gunicorn' 'python-aiosmtpd' 'python-alembic' 'python-atpublic'
+'python-authheaders' 'python-authres' 'python-click' 'python-dateutil'
+'python-dnspython' 'python-falcon' 'python-flufl.bounce' 'python-flufl.i18n'
+'python-flufl-lock' 'python-importlib_resources' 'python-lazr.config'
+'python-passlib' 'python-requests' 'python-setuptools' 'python-sqlalchemy'
+'python-zope-component' 'python-zope-configuration' 'python-zope-event'
+'python-zope-interface')
+checkdepends=('python-coverage' 'python-diff-cover' 'python-flufl.testing'
+'python-nose2' 'python-psycopg2' 'python-pymysql' 'python-pytest')
+optdepends=('mailmanclient: for interfacing the mailman REST API locally'
+            'python-django-hyperkitty: for local archive and list interaction'
+            'python-django-posterius: for local configuration interaction'
+            'python-psycopg2: for PostgreSQL support'
+            'python-pymysql: for MySQL support'
+            'smtp-server: for a local mail server')
+conflicts=('mailman')
+replaces=('mailman-core')
+backup=('etc/mailman.cfg')
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz"{,.asc}
+        "${pkgname}.service"
+        "${pkgname}-digests.service"
+        "${pkgname}-digests.timer"
+        "${pkgname}-gatenews.service"
+        "${pkgname}-gatenews.timer"
+        "${pkgname}-notify.service"
+        "${pkgname}-notify.timer"
+        "${pkgname}.sysusers"
+        "${pkgname}.tmpfiles")
+sha512sums=('63cf30c102751c1cae086f4c046767c2d817ad57097bd60bc838ead19c4e29ed1bc5d4cc2c1eef40f41787daf60d8b98033f64064d6ad4567a9552b5fb2cabd8'
+            'SKIP'
+            '088ba44528ae41003d13b536accbd8d3d4d29bdec523838eb605e3504a49093bbb4c066a4cc7eb78bc5ec7053693a088e525a99fb7c049c21e40aacdf3bac4c2'
+            '734e0cdf1198f6609a5e41312c48c5c4e492ba5b9acc3af4cd302a6ed148933396333077932e25aedfc50ff3f68b1d4898137193bdadaf71e23045ec8e96be10'
+            '5d7ccba8cf1262ab052078f2188ded15e43e1201302c7c24ce763efef9789ec99d8ea9a19e8fbd9bc5a38f47a162fe5cf4b0ade284894cb57af66350f23507bc'
+            'e610060021d6f2ebeb4ffb5b37d448efdd44154ace6f228a316e9712799dc620611953401f705bb76d1046b769b6e8316c9b1d143e535110e383a7762d866669'
+            'fc550ef017ad8a22e0c40a8808361831b8c32cd0d34925cdce433ec4a0564e9577d6f9ccdcd38098eb4cf692257c061ff3fbea3b762d274f9b5e2fa88d10d82e'
+            'b1f8f3afdfb25f361d0dea59fb00e0ef126dd0557994366c421d473b5e354dc42daafd1b296d5bc3f79c45a085087d40b573c416ae8aba6bf358c06d139d636f'
+            'b8538618be8bdd6313d24b844d15c8f25a059c3391cd06db69314b7be19996bfbe913d6c0c9c99d6a19c4f92df32212d31785e92fb32faf5eb792fffe121fcce'
+            '074cf58a93204d4b7631c4cc8af62d5720560301c6fefef6baa5d3aa33e72720870757fac7803f7b2835f8f02bb776f9d049df5c7528c743b56dda7da2085b07'
+            '765575d26347a42b0a3f2edb9e6edce8a8a3d3667c0aecd740c678cf1a7a9cdaabe36978cc99630da2a4147b8237fe0e4c6ea2785201ba8f5a60587dbcc8e46f')
+validpgpkeys=('541EA0448453394FF77A0ECC9D9B2BA061D0A67C') # Abhilash Raj <maxking@asynchronous.in>
+
+prepare() {
+  mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+  # making sure, mailman runs in a FHS compliant way
+  echo -e "[mailman]\nlayout: fhs" >> var/etc/mailman.cfg
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  python setup.py build
+}
+
+# tests are only integration tests
+# check() {
+#   cd "$pkgname-$pkgver"
+#   nose2 -v
+# }
+
+package() {
+  cd "$pkgname-$pkgver"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --prefix=/usr \
+    --root="${pkgdir}"
+  # config
+  install -vDm 640 var/etc/mailman.cfg -t "${pkgdir}/etc/"
+  # sysusers.d
+  install -vDm 644 "../${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+  # tmpfiles.d
+  install -vDm 644 "../${pkgname}.tmpfiles" \
+    "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+  # services and timer
+  install -vDm 644 ../*.{service,timer} -t "${pkgdir}/usr/lib/systemd/system"
+}
