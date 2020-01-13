@@ -49,7 +49,7 @@ sha512sums=('ca30bbd8ed5ff7e1ebbaef0019a2eb2190e17dae7506cbbe0246f5172d4e05c1333
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
             '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121'
-            'ac1f033a6a4cde442e3280f06ee5e78a800420715fff6a35bad798e948997c173499fb970592f146483d583b4f0697c2844071d66348ac7da69f36f1a9c757a8')
+            '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0')
 
 
 _datadir="/usr/share/webapps/${pkgname}"
@@ -123,8 +123,10 @@ build() {
   bundle config force_ruby_platform true # some native gems are not available for newer ruby
   bundle install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
 
-  # workaround for a weird ruby27 issue https://gitlab.com/groups/gitlab-org/-/epics/2380
-  pushd vendor/bundle/ruby/2.7.0/gems/rack-2.0.7/
+  # workaround for a ruby2.7 issue
+  # https://gitlab.com/groups/gitlab-org/-/epics/2380
+  # https://github.com/ruby-grape/grape/issues/1967
+  pushd vendor/bundle/ruby/2.7.0/gems/grape-1.1.0/
   patch -p1 < $srcdir/ruby27-pop-extra-arg.patch
   popd
 
