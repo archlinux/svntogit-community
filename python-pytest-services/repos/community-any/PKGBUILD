@@ -1,0 +1,51 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=pytest-services
+pkgname=python-pytest-services
+pkgver=2.0.1
+pkgrel=1
+pkgdesc="Services plugin for pytest testing framework"
+arch=('any')
+url="https://github.com/pytest-dev/pytest-services"
+license=('MIT')
+depends=('python-setuptools' 'python-pytest' 'python-requests' 'python-psutil'
+'python-zc.lockfile')
+checkdepends=('memcached' 'python-astroid' 'python-coverage' 'python-mock'
+'python-mysqlclient' 'python-pylibmc' 'xorg-server-xvfb')
+# 2.0.1 sdist doesn't have tests on pypi
+# https://github.com/pytest-dev/pytest-services/issues/33
+# source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
+source=("${_name}-${pkgver}.tar.gz::https://github.com/pytest-dev/${_name}/archive/${pkgver}.tar.gz")
+noextract=()
+sha512sums=('445cd5346f0c19b68014eb3c27b06376ae6699e31d8c1fee0cb3cda6e927d0ecadbffe3b0b832dd38fe63bc1fe4e3108e2ecbcabf0641af0bdbff019681f0576')
+validpgpkeys=()
+
+prepare() {
+  mv -v "${_name}-${pkgver}" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  python setup.py build
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  local python_stdlib_basepath="$(python -c "from sysconfig import get_path; print(get_path('stdlib'))")"
+  # Hack entry points by installing it
+  python setup.py install --root="${PWD}/tmp_install" --optimize=1
+  export PYTHONPATH="${PWD}/tmp_install/${python_stdlib_basepath/\//}/site-packages:${PYTHONPATH}:${PWD}/tests"
+  pytest -v -k 'not test_mysql'
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --prefix=/usr \
+    --root="${pkgdir}"
+  install -vDm 644 {AUTHORS,CHANGES,README}.rst \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
