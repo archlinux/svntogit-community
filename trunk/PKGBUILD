@@ -2,8 +2,8 @@
 
 pkgbase=python-zipp
 pkgname=(python-zipp python2-zipp)
-pkgver=0.6.0
-pkgrel=3
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
 license=('MIT')
@@ -12,7 +12,7 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-more-itert
              'python2-more-itertools')
 checkdepends=('python2-pathlib2' 'python2-contextlib2' 'python2-unittest2')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/jaraco/zipp/archive/v$pkgver.tar.gz")
-sha512sums=('9aef3b03a19d76cb72e1510d62a4edd536cbb176a4593154d6f98ecf020438249307ee5f8205f29e7f121acd61c105ca79a1ed48c66c6ba8799e2dbb3eecd75e')
+sha512sums=('71a6a6ba0ca5e4cefbacff4480eefb097abe3b5efaf9e473cb79200acc2997fbdbfe9dfbf5eba9c5c7046fa18395ed819869be74fed1b6eaa01fe50ed667cbd5')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
