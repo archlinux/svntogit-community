@@ -1,0 +1,81 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=postorius
+pkgver=1.3.2
+pkgrel=1
+pkgdesc="The New Mailman Web UI"
+arch=('any')
+url="https://gitlab.com/mailman/postorius"
+license=('GPL3')
+depends=('python-cmarkgfm' 'python-django' 'python-django-mailman3'
+'python-mailmanclient' 'python-readme-renderer')
+makedepends=('python-setuptools')
+checkdepends=('mailman3' 'python-beautifulsoup4' 'python-isort' 'python-mock'
+'python-pytest' 'python-pytest-django' 'python-vcrpy')
+optdepends=('uwsgi-plugin-python: for running inside uwsgi')
+replaces=('python-django-postorius')
+backup=("etc/uwsgi/${pkgname}.ini"
+        "etc/webapps/${pkgname}/settings.py")
+source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/${pkgname}/${pkgname}-${pkgver}.tar.gz"{,.asc}
+        "${pkgname}.sysusers"
+        "${pkgname}.tmpfiles"
+        "${pkgname}.uwsgi"
+        "${pkgname}-1.3.2-settings.patch")
+sha512sums=('41ff225fa574dd4bd0ac88419a10a55a71c52a64df01a1a593963fdfa62baf16a0df735364688ea24680c8e88093841892474279d40c1428948375db7eb6333b'
+            'SKIP'
+            '3884b818da2deb148279e50316f720c95f0aaa529777b1b3662d8ab253cda823a90682a9eb47e941ca5ba80eefcb9a2d4afacd29f0340d7f9828b36ebcee23b3'
+            '0be8c2bac3feb69519a8d7039002b43b7a705db638d7385b925a4c9fd6ba70d4707954872cabbe5fab2176f48d48fabd8f31338064bb630d02ad1380536915c4'
+            'f7ec287cac22679166398f53b6db440f0defa022554dd8997092b99eab972bb8ba8d158e7415da939645d2e5ff298e496eb46011c6391b9857e6405c9f0c2c47'
+            '811d52a246d55c900ee07cdb7572410aebc7eff05261166287c196ae9994079ee3e925bbf5e539155ecf452328316ae8dac2176dfb4398df1acb519a2accf0b8')
+validpgpkeys=('541EA0448453394FF77A0ECC9D9B2BA061D0A67C') # Abhilash Raj <raj.abhilash1@gmail.com>
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # patch global paths into settings.py
+  patch -Np1 -i "../${pkgname}-1.3.2-settings.patch"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  python setup.py build
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  local python_stdlib_basepath="$(python -c "from sysconfig import get_path; print(get_path('stdlib'))")"
+  # install to temporary location, so that tests can run
+  python setup.py install --root="${PWD}/tmp_install" --optimize=1
+  export PYTHONPATH="${PWD}/tmp_install/${python_stdlib_basepath/\//}/site-packages:${PYTHONPATH}"
+  cd example_project/
+  pytest -v "../tmp_install/${python_stdlib_basepath/\//}/site-packages/${pkgname}"
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  local python_stdlib_basepath="$(python -c "from sysconfig import get_path; print(get_path('stdlib'))")"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --prefix=/usr \
+    --root="${pkgdir}"
+  # django project
+  install -vDm 644 example_project/{__init__,manage,urls,wsgi}.py \
+    -t "${pkgdir}/usr/share/webapps/${pkgname}"
+  # symlink locale and static files (instead of generating them)
+  ln -svf "$python_stdlib_basepath/site-packages/${pkgname}/locale/" \
+    "${pkgdir}/usr/share/webapps/${pkgname}"
+  ln -svf "$python_stdlib_basepath/site-packages/${pkgname}/static/" \
+    "${pkgdir}/usr/share/webapps/${pkgname}"
+  # config
+  install -vDm 640 example_project/settings.py \
+    -t "${pkgdir}/etc/webapps/${pkgname}"
+  ln -svf "/etc/webapps/${pkgname}/settings.py" \
+    "${pkgdir}/usr/share/webapps/${pkgname}/settings.py"
+  # uwsgi
+  install -vDm 644 "../${pkgname}.uwsgi" "${pkgdir}/etc/uwsgi/${pkgname}.ini"
+  # tmpfiles.d
+  install -vDm 644 "../${pkgname}.tmpfiles" \
+    "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+  # sysusers.d
+  install -vDm 644 "../${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+}
