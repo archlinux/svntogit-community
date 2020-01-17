@@ -4,7 +4,7 @@
 
 pkgname=vapoursynth
 pkgver=R48
-pkgrel=2
+pkgrel=3
 pkgdesc='A video processing framework with the future in mind'
 arch=(x86_64)
 url=http://www.vapoursynth.com/
@@ -25,7 +25,6 @@ depends=(
 makedepends=(
   cython
   git
-  nasm
   python-sphinx
 )
 source=(
