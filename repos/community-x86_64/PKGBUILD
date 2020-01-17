@@ -12,7 +12,7 @@ pkgname=(
 pkgver=3.1.0.sdk100
 _runtimever=3.1.0
 _sdkver=3.1.100
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -34,16 +34,19 @@ makedepends=(
 )
 options=(staticlibs)
 source=(
-  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=4e9ce2915ba680d38b47a2dadd74ec3b52a09d1b
+  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=
   9999-Fix-versionless-RID-computation.patch
+  9999-Add-arch-RIDs.patch
 )
 sha256sums=('SKIP'
-            '0e500cd3d1e4a75bf58558020f1b6ad7720f9194dfea2aade7c148af5a031cd7')
+            '0e500cd3d1e4a75bf58558020f1b6ad7720f9194dfea2aade7c148af5a031cd7'
+            '1d64778c9ac6a5aa49cda743e87ed31ace6aef8aa2e22f98ccd9bb7303cfd593')
 
 prepare() {
   cd dotnet-source-build
 
   cp ../9999-Fix-versionless-RID-computation.patch patches/core-setup/
+  cp ../9999-Add-arch-RIDs.patch patches/corefx/
 }
 
 build() {
