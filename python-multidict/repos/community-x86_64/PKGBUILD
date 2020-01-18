@@ -3,7 +3,7 @@
 
 _pkgname=multidict
 pkgname=python-${_pkgname}
-pkgver=4.6.1
+pkgver=4.7.4
 pkgrel=1
 pkgdesc='Asyncio-based multidict implementation for Python'
 url='https://github.com/aio-libs/multidict'
@@ -13,17 +13,11 @@ depends=('python' 'glibc')
 makedepends=('cython' 'python-setuptools' 'git')
 checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-runner' 'python-psutil' 'python-perf')
 source=(https://github.com/aio-libs/multidict/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha256sums=('a7c85a93ecb2be388b922b564b05d83eff6be28c7e852a1ff51a6f47cad2814e')
-sha512sums=('494075a9d567e8db6a2273d59957288ca0aedf083d25632791a94938bc41d31d5d8d4c7284240103a62bbbd46783e68a5b5247d88b7187b70fb28a868b6f0f2f')
-
-prepare() {
-  cd ${_pkgname}-${pkgver}
-  sed 's| .install-cython ||g' -i Makefile
-}
+sha512sums=('0d4a5e8522f5abc5dd44d74608dd9b3eca141963ffe6e51155352ef4b963e4b3a6d9ab43a874f04583db490d61961b10ff06998b094458907bfbbdb65ffb5359')
+b2sums=('5155633ad47cd8cab57cc18a30840c4077f155a63ca9df0dc7a2bbee8b5353daf7666af12069ba003fd39db2add8dfb2ce7af467f96af2aac5994a2af0ab6033')
 
 build() {
   cd ${_pkgname}-${pkgver}
-  make cythonize
   python setup.py build
 }
 
