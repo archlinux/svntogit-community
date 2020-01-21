@@ -5,7 +5,7 @@
 # https://github.com/mymedia2/tdesktop
 
 pkgname=telegram-desktop
-pkgver=1.9.3
+pkgver=1.9.4
 pkgrel=1
 pkgdesc='Official Telegram Desktop client'
 arch=('x86_64')
@@ -36,59 +36,61 @@ optdepends=(
 )
 source=(
     "https://github.com/telegramdesktop/tdesktop/releases/download/v${pkgver}/tdesktop-${pkgver}-full.tar.gz"
-    "0001-Dynamic-linking-system-libs.patch"
-    "0002-Dynamic-linking-system-qt.patch"
-    "0004-gtk3.patch"
-    "0005-Use-system-wide-fonts.patch"
-    "0006-Revert-Disable-DemiBold-fallback-for-Semibold.patch"
-    "series"
+    telegram-desktop.sh
+    0005-Use-system-wide-fonts.patch
+    0006-Revert-Disable-DemiBold-fallback-for-Semibold.patch
+    series
 )
-sha512sums=('af8e5d2c74d0b990958edd75a01f40b70bc21c0f69074acfb943f44fdb1f1e84465b461765a1a584513e54ab30045817b42b6839ad16cb4c1043fda89ea600f7'
-            '69fc5b50d2663af0c0bb539a6ac4b3d8996282f1701f484b9d1e29ddbd6eec942c999ee2f77d7effed13d4ecdd62e03e6ff064be0948ff91124962cc17c57143'
-            '5675787e849a811679b24e86b64e651c1aded56853e52c9455d8d914b85c153b63287a0d41aaa4c39c0e805ee1f411132431340d7aba99b11fcd1036e8d37680'
-            '8c3f48536ff3878baa73949057960eb5c8fcf3f152141c42740a7c0f2fc96c1708511a5d4ffe45ae9e20a08f88a3c2c77163a0a2050d7fca4356e4d2a96dfaf1'
-            'd5fa5290b7041cb972c78066ca60d1cbc2bb3de10bf571ca1a639bf05abfa029531ffc0facba0564d39e32f89301960f4879b35bb9ac362ae9264d0a8c5c835c'
+sha512sums=('0967f60dd978a5fc5ec2501a22e8865afd4ddeaacfd1b0acfb133cd511767ff1c6f03a099aef3de03b0f837c8eccac1caea14c395ee54c8d3ab5b35de7551745'
+            '3c21c871e28bac365400f7bc439a16ad1a9a8d87590ad764ce262f1db968c10387caed372d4e064cb50f43da726cebaa9b24bcbcc7c6d5489515620f44dbf56b'
+            'e12021af0c95c967f80240abd683bf197f3c4f8f21315b48c5dadeb399dc39cd1e352352daba1c30691c6d1c6e66078af95b9262e8fe0c2174709fcb1a8a3f5d'
             '41f22a8b63b1929288cca5638c2719ce9754aa4334deb9004370c44f780fb8ac57f2b4075d529c494f4eac49dde22885f0f9efc0911840f79cb5fcf8d737061d'
-            '17d831ce49ef522bae3558c679dda3eb1d84d69be40d9942f1ec2dc9fe32960b1233b072b09c107e5fc704c4a9286010f2cdd5e9830a2bdad97d3cb24b502ebe')
+            'd66adb920b318520146cf7a29f13e28e16c0cfb28f4d27ef743a8d7acea4b45b5c62e7dfc3928ec23a97b12dd42845f311aaa7c317df632f7926bdd5bfb8f2b3')
 
 prepare() {
-    cd "$srcdir/tdesktop-$pkgver-full"
+    cd tdesktop-$pkgver-full
 
     QUILT_PATCHES=.. quilt --quiltrc=/dev/null push -a
+
+    mkdir build
 }
 
 build() {
-    cd "$srcdir/tdesktop-$pkgver-full"
-    mkdir build
+    cd tdesktop-$pkgver-full
+
     export CXXFLAGS="$CXXFLAGS -ffile-prefix-map=$srcdir/tdesktop-$pkgver-full="
     cmake -B build -G Ninja . \
+        -Ddisable_autoupdate=1 \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_BUILD_TYPE=Release \
         -DTDESKTOP_API_ID=17349 \
         -DTDESKTOP_API_HASH=344583e45741c457fe1862106095a5eb \
         -DDESKTOP_APP_USE_GLIBC_WRAPS=OFF \
-        -DDESKTOP_APP_USE_SYSTEM_LIBS=ON \
+        -DDESKTOP_APP_USE_PACKAGED=ON \
+        -DDESKTOP_APP_USE_PACKAGED_RLOTTIE=OFF \
         -DDESKTOP_APP_DISABLE_CRASH_REPORTS=ON \
-        -DTDESKTOP_DISABLE_AUTOUPDATE=ON \
         -DTDESKTOP_DISABLE_REGISTER_CUSTOM_SCHEME=ON \
         -DTDESKTOP_DISABLE_DESKTOP_FILE_GENERATION=ON \
+        -DTDESKTOP_USE_PACKAGED_TGVOIP=OFF \
         -DDESKTOP_APP_SPECIAL_TARGET=""
     ninja -C build
 }
 
 package() {
-    cd "$srcdir/tdesktop-$pkgver-full/"
     install -dm755 "$pkgdir/usr/bin"
-    install -m755 "build/bin/Telegram" "$pkgdir/usr/bin/telegram-desktop"
+    install -m755 telegram-desktop.sh "$pkgdir/usr/bin/telegram-desktop"
+
+    cd tdesktop-$pkgver-full
+    install -m755 build/bin/Telegram "$pkgdir/usr/bin/telegram-desktop-bin"
 
     install -d "$pkgdir/usr/share/applications"
-    install -m644 "lib/xdg/telegramdesktop.desktop" "$pkgdir/usr/share/applications/telegramdesktop.desktop"
+    install -m644 lib/xdg/telegramdesktop.desktop "$pkgdir/usr/share/applications/telegramdesktop.desktop"
 
     install -d "$pkgdir/usr/share/kservices5"
-    install -m644 "$srcdir/lib/xdg/tg.protocol" "$pkgdir/usr/share/kservices5/tg.protocol"
+    install -m644 lib/xdg/tg.protocol "$pkgdir/usr/share/kservices5/tg.protocol"
 
     install -d "$pkgdir/usr/share/metainfo/"
-    install -m644 "$srcdir/lib/xdg/telegramdesktop.appdata.xml" "$pkgdir/usr/share/metainfo/telegramdesktop.appdata.xml"
+    install -m644 lib/xdg/telegramdesktop.appdata.xml "$pkgdir/usr/share/metainfo/telegramdesktop.appdata.xml"
 
     local icon_size icon_dir
     for icon_size in 16 32 48 64 128 256 512; do
