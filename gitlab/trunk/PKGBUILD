@@ -10,7 +10,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.6.4
+pkgver=12.7.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -39,8 +39,8 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         gitlab.logrotate
         ruby27-pop-extra-arg.patch)
 install='gitlab.install'
-sha512sums=('9ebf617f480dd35b5896bba5595377a958982ab4680bc37cf7318e121e9b66134b4e03d2254d914d2d488761bc3a6a414d9f46258d349154cbb5784a67fa1d65'
-            '8f841befa246c54687be9e0a77b9fa0241a92253167b86c251e8ab0d31fabe09f1e79e5f52a201bf0c22241409577d0a6000e8ed024d3d23107291e82a2c26c6'
+sha512sums=('5fa1df5430451a1b4724c42fa33cda90215bd5148c0228484d1fceb93ebda7f2a9839e563f702b5303658ec7ed02efc01711f3952a10d4b5ba657d267192ec0d'
+            '2a3cf6c83c7f9fd926f6c030e3fd49b379fc818ca1e34b4a853bb64f80259370e2fae33bf0e5f869f498d5f3abbc88e387289755d9a0e46f633ca410cf01e1d4'
             '1ad15b48890ad48e97a6fcea56132582f2b22aa27f4a1a1f4590f3ea72de4726e13ef6f3db2bc0984da1ef140bde092e74e0c9f8f1778f207f3fac4a31a77e4b'
             '8ca36771f7568b190823ec47afeaf6ff75f61c5b6f31ce5d837a6dcd84a5b3da23fb07a1eceeda0752b2e61c4a8f4d17bf368fa2913e1487567944a8d29eeb58'
             '0cbb9a1631b529a83d5c6db95fd3a684c8f06073890b31f6262c339360444e7452275d804fb6a119a3d61a0ef1b76d0e956f260a12f032d54c00308e8d9520b0'
