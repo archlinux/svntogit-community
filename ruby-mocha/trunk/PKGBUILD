@@ -3,38 +3,33 @@
 
 _gemname=mocha
 pkgname="ruby-${_gemname}"
-pkgver=1.9.0
+pkgver=1.11.2
 pkgrel=2
 pkgdesc='Mocha is a mocking and stubbing library for Ruby'
 arch=('any')
 url='https://github.com/freerange/mocha'
 license=('Custom')
 depends=('ruby')
-checkdepends=('ruby-rake' 'ruby-minitest' 'ruby-bundler')
+checkdepends=('ruby-rake' 'ruby-bundler')
+makedepends=('ruby-minitest')
 options=('!emptydirs')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/freerange/mocha/archive/v${pkgver}.tar.gz"
-        'removemetaclassdependency.patch::https://github.com/freerange/mocha/commit/e3db6e608c0b98ddcfc0c1f540d508004cde55bd.patch')
-sha512sums=('e2cd4afe3023c269fffb8f328fed17e965fe0bcce299ed87e46ae824e9a95ec294b0615fcd08af8f606a590395da5bcf4e93d91a79a537441dfab029f9b73a38'
-            'da0d443cc81dd0cda383e34674b3271ef6493bef3e7e3f179f7c2ccb02670fe5876569cebe140e0fecbc2b56c8f34303a35b0fecb25c059317ff6ed3791863c2')
+        'remove-unneeded-dependencies.patch')
+sha512sums=('3c547c6b38eb6cdff06f9e7a7061d6f47d0181161852b9fec143b71244eb4b67c650dcf20e6ba88ce62f337b3c67e1120e88276ccd98983b403a10b9e57cf5af'
+            '6a3c4568b6cf8009aed70935ddcff96a75d8d92b2e87a2a332a71ec569ed28c7c83e507ad408a0f62f93fc16b066133ba184f13a3e5b9a14bf90dc6276acde60')
 
 prepare() {
   cd "${_gemname}-${pkgver}"
 
-  # release 1.9.0 still depends on the metaclass gem, which is dead.
-  #This patch is in master and gets rid of it.
-  patch --forward --verbose --strip=1 --input='../removemetaclassdependency.patch'
+  # remove unneeded dependencies
+  # bundler might require them if they are still in the gemspec file
+  patch --forward --verbose --strip=1 --input='../remove-unneeded-dependencies.patch'
 
   # replace upper version boundaries for ruby gems
   sed -r 's|~>|>=|g' -i ${_gemname}.gemspec
 
   # `git` doesn't work within src dir, because we downloaded an archive
   sed --in-place 's|git ls-files|find|' "${_gemname}.gemspec"
-
-  # sed introspection gem is heavily broken. Also it depends on metaclass.
-  # It will be removed in a future release.
-  sed --in-place '/introspection/d' "${_gemname}.gemspec"
-
-  sed --in-place '/rubocop/d' "${_gemname}.gemspec"
 }
 
 check() {
@@ -53,7 +48,15 @@ package() {
   gem install --ignore-dependencies --no-user-install --install-dir "${pkgdir}${_gemdir}" --bindir "${pkgdir}/usr/bin" "${_gemname}-${pkgver}.gem"
   install -Dm 644 README.md RELEASE.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
   install -Dm 644 COPYING.md MIT-LICENSE.md --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  # delete unneeded files
   rm "${pkgdir}/${_gemdir}/cache/${_gemname}-${pkgver}.gem"
+  echo
+  echo
+  ls "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/"{test,yard-templates,gemfiles,bin,.github,.gemtest}
+  echo
+  echo
+  rm -rf "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/"{test,yard-templates,gemfiles,bin,.github,.gemtest}
 }
 
 # vim: ts=2 sw=2 et:
