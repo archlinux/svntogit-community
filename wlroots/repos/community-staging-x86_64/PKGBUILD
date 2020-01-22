@@ -3,14 +3,13 @@
 
 pkgname=wlroots
 pkgver=0.9.1
-pkgrel=2
+pkgrel=3
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://github.com/swaywm/wlroots'
 arch=('x86_64')
 depends=(
     'libwinpr2.so'
-    'libfreerdp2.so'
     'libinput'
     'libxkbcommon'
     'opengl-driver'
@@ -39,7 +38,6 @@ build() {
     meson "$pkgname-$pkgver" build \
         --prefix=/usr \
         --buildtype=plain \
-        -Dfreerdp=enabled \
         -Dlibcap=enabled \
         -Dlogind=enabled \
         -Dlogind-provider=systemd \
