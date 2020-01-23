@@ -1,7 +1,6 @@
 #!/bin/sh
 
 libdir=/usr/lib/calibre
-bindir=/usr/lib/calibre/bin
 
 die() {
     echo "${1}" >&2
