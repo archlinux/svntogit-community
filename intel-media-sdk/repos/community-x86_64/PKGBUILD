@@ -1,37 +1,30 @@
 # Maintainer: Daniel Bermond <dbermond@archlinux.org>
 
-pkgname=intel-media-sdk
+pkgbase=intel-media-sdk
+pkgname=('intel-media-sdk' 'libmfx')
 pkgver=19.4.0
-pkgrel=1
-pkgdesc='API to access hardware-accelerated video decode, encode and filtering on Intel platforms with integrated graphics'
+pkgrel=4
+pkgdesc='API to access hardware-accelerated video on Intel Gen graphics hardware platforms'
 arch=('x86_64')
-url='https://github.com/Intel-Media-SDK/MediaSDK/'
+url='https://software.intel.com/en-us/media-sdk/'
 license=('MIT')
-depends=('gcc-libs' 'libdrm' 'libva' 'wayland' 'intel-media-driver')
-optdepends=('ocl-icd: for rotate_opencl plugin'
-            'intel-compute-runtime: for rotate_opencl plugin')
-makedepends=('cmake' 'libpciaccess' 'libx11' 'libxcb' 'python'
+makedepends=('libdrm' 'libva' 'wayland' 'intel-media-driver'
+             'cmake' 'libpciaccess' 'libx11' 'libxcb' 'python'
              'opencl-headers' 'ocl-icd' 'intel-compute-runtime')
-provides=('libmfx')
-install="${pkgname}.install"
-source=("https://github.com/Intel-Media-SDK/MediaSDK/archive/intel-mediasdk-${pkgver}.tar.gz"
-        'intel-media-sdk.conf'
-        'intel-media-sdk.sh')
-sha256sums=('289a40ffe73dc291461d97edf452bdc622f76e52666483fd1eb4f131d2921cd1'
-            '12a37e6e12d93fac5829082773b9f010a3c6c763ddeee177618b8e1a0547fbbc'
-            '315ea6f304cf2b7b6a8aaabb0b8f71fcd480677c7fb9c8cbfa51c7830bb159bc')
+source=("https://github.com/Intel-Media-SDK/MediaSDK/archive/intel-mediasdk-${pkgver}.tar.gz")
+sha256sums=('289a40ffe73dc291461d97edf452bdc622f76e52666483fd1eb4f131d2921cd1')
 
 build() {
     cmake -B build -S "MediaSDK-intel-mediasdk-${pkgver}" \
-        -DCMAKE_BUILD_TYPE='None' \
         -DBUILD_ALL:BOOL='ON' \
         -DBUILD_TOOLS:BOOL='ON' \
+        -DCMAKE_BUILD_TYPE:STRING='None' \
+        -DCMAKE_INSTALL_PREFIX:PATH='/usr' \
         -DENABLE_ITT:BOOL='OFF' \
         -DENABLE_OPENCL:BOOL='ON' \
         -DENABLE_WAYLAND:BOOL='ON' \
         -DENABLE_X11_DRI3:BOOL='ON' \
-        -Wno-dev \
-        ..
+        -Wno-dev
     make -C build
 }
 
@@ -39,18 +32,32 @@ check() {
     make -C build test
 }
 
-package() {
+package_intel-media-sdk() {
+    depends=('gcc-libs' 'libdrm' 'libva' 'wayland' "libmfx=${pkgver}" 'intel-media-driver')
+    optdepends=('ocl-icd: for rotate_opencl plugin'
+                'intel-compute-runtime: for rotate_opencl plugin')
+    
     make -C build DESTDIR="$pkgdir" install
     
-    # metrics_monitor
-    install -D -m755 build/__bin/None/libcttmetrics.so -t "${pkgdir}/opt/intel/mediasdk/share/mfx/samples"
-    install -D -m755 build/__bin/None/metrics_monitor  -t "${pkgdir}/opt/intel/mediasdk/share/mfx/samples"
-    ln -s ../share/mfx/samples/libcttmetrics.so "${pkgdir}/opt/intel/mediasdk/lib/libcttmetrics.so"
+    ln -s ../share/mfx/samples/libcttmetrics.so "${pkgdir}/usr/lib/libcttmetrics.so"
     
-    # ld.so and profile configuration files
-    install -D -m644 intel-media-sdk.conf -t "${pkgdir}/etc/ld.so.conf.d"
-    install -D -m755 intel-media-sdk.sh   -t "${pkgdir}/etc/profile.d"
+    # remove core component libmfx
+    [ -d 'libmfx' ] && rm -rf libmfx
+    mkdir -p libmfx/lib/pkgconfig
+    mv "${pkgdir}/usr/include" libmfx
+    mv "${pkgdir}/usr/lib/libmfx.so"* libmfx/lib
+    mv "${pkgdir}/usr/lib/pkgconfig/"{,lib}mfx.pc libmfx/lib/pkgconfig
     
-    # license
+    install -D -m644 "MediaSDK-intel-mediasdk-${pkgver}/LICENSE" -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
+
+package_libmfx() {
+    pkgdesc='Intel Media SDK dispatcher library'
+    depends=('gcc-libs')
+    
+    # install core component libmfx into a separated package
+    mkdir -p "${pkgdir}/usr"
+    mv libmfx/{include,lib} "${pkgdir}/usr"
+    
     install -D -m644 "MediaSDK-intel-mediasdk-${pkgver}/LICENSE" -t "${pkgdir}/usr/share/licenses/${pkgname}"
 }
