@@ -9,7 +9,7 @@ pkgdesc="Electron application that links with Signal on mobile"
 license=('GPL3')
 arch=('x86_64')
 url="https://signal.org"
-depends=('electron')
+depends=('electron' 'libvips')
 makedepends=('yarn' 'git' 'nodejs' 'npm' 'python' 'python2')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
