@@ -5,7 +5,7 @@
 # Contributor : Nick Erdmann <erdmann@date.upb.de>
 
 pkgname=nethack
-pkgver=3.6.2
+pkgver=3.6.4
 pkgrel=1
 pkgdesc='A single player dungeon exploration game'
 arch=('x86_64')
@@ -15,8 +15,10 @@ depends=('ncurses' 'gzip')
 install=nethack.install
 source=("https://www.nethack.org/download/${pkgver}/${pkgname}-${pkgver//.}-src.tgz")
 
+_builddir="NetHack-NetHack-3.6.4_Released"
+
 prepare() {
-  cd $srcdir/$pkgname-$pkgver/
+  cd "$srcdir/$_builddir"
 
   sed -e 's|^/\* \(#define LINUX\) \*/|\1|' \
       -e 's|^/\* \(#define TIMED_DELAY\) \*/|\1|' -i include/unixconf.h
@@ -42,15 +44,15 @@ prepare() {
 }
 
 build(){
-  cd $srcdir/$pkgname-$pkgver/sys/unix
+  cd "$srcdir/$_builddir/sys/unix"
   sh setup.sh hints/linux
 
-  cd $srcdir/$pkgname-$pkgver
+  cd "$srcdir/$_builddir"
   make
 }
   
 package() {
-  cd $srcdir/$pkgname-$pkgver/
+  cd "$srcdir/$_builddir"
 
   install -dm755 $pkgdir/usr/share/{man/man6,doc/nethack}
   install -dm775 $pkgdir/var/games/
@@ -71,4 +73,4 @@ package() {
   install -Dm644 dat/license $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
-md5sums=('567c89d9606456ce98c1b9535d024b8f')
+md5sums=('b3a84ed39818489560c8c0e368490255')
