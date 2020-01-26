@@ -3,7 +3,7 @@
 
 pkgbase=beats
 pkgname=(filebeat packetbeat metricbeat heartbeat-elastic auditbeat journalbeat)
-pkgver=7.5.1
+pkgver=7.5.2
 pkgrel=1
 pkgdesc='Data shippers for Elasticsearch'
 arch=('x86_64')
@@ -13,6 +13,7 @@ depends=('glibc')
 makedepends=('go-pie' 'git' 'libpcap' 'rsync' 'python2-virtualenv' 'audit')
 optdepends=('elasticsearch: for standalone installation'
             'python: for migration script')
+options=('!makeflags')
 source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "filebeat.service"
         "packetbeat.service"
@@ -22,7 +23,7 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "journalbeat.service"
         "tmpfile.conf"
         "magefile_text_file_busy.patch")
-sha256sums=('3880e2baa37129acdd604522290c1af56187fef9d801b7a89ef10311eb7d0352'
+sha256sums=('fcfecd4fca374843efac346e5db40272ab306e2c971e074efb71ada1c17f0e12'
             '7256be466b4255cf3ec9e3600998ec006e762508345a08db16e004a1f15083dc'
             '9f4e33fc768d3500fa3428dcbfda241c6473a2cae8cc4dbadf8f61ca9f2bbec5'
             '7d83a068e8c4da3de3f42bf21b840a86900e9cf02f5ba0851501a1620e5fa29d'
@@ -55,10 +56,12 @@ prepare() {
     # Workaround to place extracted release into GOPATH
     mkdir -p "$GOPATH"/src/github.com/elastic
     ln -sf ../../../../beats-$pkgver "$GOPATH"/src/github.com/elastic/beats
+
+    # Patch go flags, remove -i for trimpath and add extldflags
+    sed -E 's|-i (-ldflags ")|-v -trimpath \1-extldflags='"${LDFLAGS}"' |' -i libbeat/scripts/Makefile
 }
 
 build() {
-    export GOFLAGS="-ldflags=-extldflags=-zrelro -ldflags=-extldflags=-znow"
     export GOPATH="$srcdir"/gopath
     export PATH="$GOPATH/bin:$srcdir/bin:$PATH"
 
@@ -70,7 +73,7 @@ build() {
 
     for beat in ${pkgname[@]}; do
         beat="${beat%-elastic}"
-        msg2 "Building $beat..."
+        echo "-> Building $beat..."
         cd ../$beat
         make $beat
         make update
@@ -154,3 +157,5 @@ package_journalbeat() {
 
     _do_package_beat
 }
+
+# vim: ts=4 sw=4 et:
