@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2019.3
-_build=193.5233.102
+pkgver=2019.3.2
+_build=193.6015.39
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -14,7 +14,7 @@ license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
-makedepends=('ant' 'kotlin' 'git' 'java8-openjfx' 'java-environment=8')
+makedepends=('ant' 'git' 'java8-openjfx' 'java-environment=8')
 source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
         idea-android::"git+https://github.com/JetBrains/android#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#tag=idea/${_build}"
@@ -24,19 +24,22 @@ source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_bui
 sha256sums=('SKIP'
             'SKIP'
             'SKIP'
-            '666e6128995b3470516dcda3815cd4b11102a20e0835b82446190c495f25cd25'
+            'c3beea12e932eadbd4af05f842e4134b904a309a708b0c11e0106a8acbdf859b'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
             '5d4f998bec3249165b0e62b5e51e9b7fbe383bb9f1178ffefe070f2c9872eebb')
 
 prepare() {
   cd intellij-community
-  patch -Np1 -i ../idea-build.patch
-  echo ${_build} > build.txt
-  sed '/def targetOs =/c def targetOs = "linux"' -i build/dependencies/setupJbre.gradle
-  sed '/String targetOS/c   String targetOS = OS_LINUX' -i platform/build-scripts/groovy/org/jetbrains/intellij/build/BuildOptions.groovy
+
   # build system doesn't like symlinks
   mv "${srcdir}"/idea-android android
   mv "${srcdir}"/idea-adt-tools-base android/tools-base
+
+  patch -Np1 < ../idea-build.patch
+  sed '/def targetOs =/c def targetOs = "linux"' -i build/dependencies/setupJbre.gradle
+  sed '/String targetOS/c   String targetOS = OS_LINUX' -i platform/build-scripts/groovy/org/jetbrains/intellij/build/BuildOptions.groovy
+  sed -E 's/-Xmx[0-9]+m/-XX:-UseGCOverheadLimit/' -i build.xml
+  echo ${_build} > build.txt
 }
 
 build() {
