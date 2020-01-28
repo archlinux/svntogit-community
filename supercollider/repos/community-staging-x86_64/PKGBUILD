@@ -1,0 +1,64 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: speps <speps at aur dot archlinux dot org>
+# Contributor: osc <farid at archlinux-br.org>
+
+_name=SuperCollider
+pkgname=supercollider
+pkgver=3.10.4
+pkgrel=2
+pkgdesc="Environment and programming language for real time audio synthesis and algorithmic composition"
+arch=('x86_64')
+url="https://supercollider.github.io"
+license=('GPL3')
+groups=('pro-audio')
+depends=('avahi' 'desktop-file-utils' 'fftw' 'gcc-libs' 'glibc' 'libasound.so'
+'libboost_filesystem.so' 'libboost_program_options.so' 'libboost_regex.so'
+'libboost_thread.so' 'libjack.so' 'libsndfile.so' 'libx11' 'libyaml-cpp.so'
+'qt5-base' 'qt5-svg' 'qt5-webengine' 'qt5-websockets' 'libreadline.so'
+'systemd-libs')
+makedepends=('boost' 'cmake' 'emacs' 'qt5-tools')
+checkdepends=('xorg-server-xvfb')
+optdepends=('emacs: emacs interface'
+            'gedit: gedit interface'
+            'sc3-plugins: additional extension plugins for scsynth')
+provides=("libscsynth.so" "sclang=${pkgver}" "scsynth=${pkgver}")
+# fixes for system boost were not backported:
+# https://github.com/supercollider/supercollider/issues/4743
+source=("https://github.com/${pkgname}/${pkgname}/releases/download/Version-${pkgver}/${_name}-${pkgver}-Source-linux.tar.bz2"
+        "${pkgname}-3.10.4-system_boost.patch::https://github.com/dvzrv/supercollider/commit/21f5c7f765223a77621c9a46beb95d0ac00115a4.patch")
+install="${pkgname}.install"
+sha512sums=('8d414e036899ed2c8f1e6852cf325d85f2b99b0fa98dc1bd832be6106c8ec4d71f130a3280a86abc24ff71606e98242899319f1c7ed782fbf02af375e0477f6b'
+            'e460e53c425bcd15d26214d9e4d5d16aa5ab9b9922ed0b6ad74ad4d62baff7666110da80e9b488a6c60905fe6cc5845da67ec246a3e00139b570bdbda372b683')
+
+prepare() {
+  mv -v "${_name}-Source" "${pkgname}-${pkgver}"
+  cd "${pkgname}-${pkgver}"
+  patch -Np1 -i "../${pkgname}-3.10.4-system_boost.patch"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBoost_NO_BOOST_CMAKE=ON \
+        -DLIBSCSYNTH=ON \
+        -DFORTIFY=ON \
+        -DSYSTEM_YAMLCPP=ON \
+        -DSYSTEM_BOOST=ON \
+        -DSC_VIM=OFF \
+        -B build \
+        .
+  make VERBOSE=1 -C build
+}
+
+check() {
+  cd "${pkgname}-${pkgver}/build"
+  xvfb-run make test ARGS="-V" -C build || echo "Known failing tests: https://github.com/supercollider/supercollider/issues/3555"
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  make DESTDIR="${pkgdir}" install -C build
+  install -vDm 644 {AUTHORS,{CHANGELOG,README,README_LINUX}.md} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
