@@ -1,0 +1,512 @@
+diff --git a/src/doc/en/constructions/algebraic_geometry.rst b/src/doc/en/constructions/algebraic_geometry.rst
+index a312548..db84096 100644
+--- a/src/doc/en/constructions/algebraic_geometry.rst
++++ b/src/doc/en/constructions/algebraic_geometry.rst
+@@ -139,7 +139,7 @@ Other methods
+ 
+        sage: singular.lib("brnoeth.lib")
+        sage: s = singular.ring(2,'(x,y)','lp')
+-       sage: I = singular.ideal('[x^4+x, y^4+y]')
++       sage: I = singular.ideal('x^4+x', 'y^4+y')
+        sage: L = singular.closed_points(I)
+        sage: # Here you have all the points :
+        sage: print(L)
+diff --git a/src/sage/algebras/free_algebra.py b/src/sage/algebras/free_algebra.py
+index c24add0..25e84ff 100644
+--- a/src/sage/algebras/free_algebra.py
++++ b/src/sage/algebras/free_algebra.py
+@@ -39,7 +39,15 @@ two-sided ideals, and thus provide ideal containment tests::
+     Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
+     sage: I = F*[x*y+y*z,x^2+x*y-y*x-y^2]*F
+     sage: I.groebner_basis(degbound=4)
+-    Twosided Ideal (y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z, y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z, y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z, y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z, y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++    Twosided Ideal (x*y + y*z,
++        x*x - y*x - y*y - y*z,
++        y*y*y - y*y*z + y*z*y - y*z*z,
++        y*y*x + y*y*z + y*z*x + y*z*z,
++        y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z,
++        y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z,
++        y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z,
++        y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z) of Free Associative Unital
++        Algebra on 3 generators (x, y, z) over Rational Field
+     sage: y*z*y*y*z*z + 2*y*z*y*z*z*x + y*z*y*z*z*z - y*z*z*y*z*x + y*z*z*z*z*x in I
+     True
+ 
+@@ -236,7 +244,7 @@ class FreeAlgebraFactory(UniqueFactory):
+         a*b^2*c^3
+     """
+     def create_key(self, base_ring, arg1=None, arg2=None,
+-            sparse=None, order='degrevlex',
++            sparse=None, order=None,
+             names=None, name=None,
+             implementation=None, degrees=None):
+         """
+@@ -267,6 +275,8 @@ class FreeAlgebraFactory(UniqueFactory):
+             return tuple(degrees),base_ring
+         # test if we can use libSingular/letterplace
+         if implementation == "letterplace":
++            if order is None:
++                order = 'degrevlex' if degrees is None else 'deglex'
+             args = [arg for arg in (arg1, arg2) if arg is not None]
+             kwds = dict(sparse=sparse, order=order, implementation="singular")
+             if name is not None:
+@@ -277,7 +287,7 @@ class FreeAlgebraFactory(UniqueFactory):
+             if degrees is None:
+                 return (PolRing,)
+             from sage.all import TermOrder
+-            T = PolRing.term_order() + TermOrder('lex',1)
++            T = TermOrder(PolRing.term_order(), PolRing.ngens() + 1)
+             varnames = list(PolRing.variable_names())
+             newname = 'x'
+             while newname in varnames:
+diff --git a/src/sage/algebras/letterplace/free_algebra_element_letterplace.pyx b/src/sage/algebras/letterplace/free_algebra_element_letterplace.pyx
+index f78b522..4b5b834 100644
+--- a/src/sage/algebras/letterplace/free_algebra_element_letterplace.pyx
++++ b/src/sage/algebras/letterplace/free_algebra_element_letterplace.pyx
+@@ -24,7 +24,6 @@ from cpython.object cimport PyObject_RichCompare
+ # Define some singular functions
+ lib("freegb.lib")
+ poly_reduce = singular_function("NF")
+-singular_system=singular_function("system")
+ 
+ #####################
+ # Free algebra elements
+@@ -444,9 +443,9 @@ cdef class FreeAlgebraElement_letterplace(AlgebraElement):
+         cdef int i
+         if P.monomial_divides(s_poly,p_poly):
+             return True
++        realngens = A._commutative_ring.ngens()
+         for i from 0 <= i < p_d-s_d:
+-            s_poly = singular_system("stest",s_poly,1,
+-                                     A._degbound,A.__ngens,ring=P)
++            s_poly = s_poly._cycle(realngens)
+             if P.monomial_divides(s_poly,p_poly):
+                 return True
+         return False
+@@ -600,7 +599,8 @@ cdef class FreeAlgebraElement_letterplace(AlgebraElement):
+         # we must put the polynomials into the same ring
+         left._poly = A._current_ring(left._poly)
+         right._poly = A._current_ring(right._poly)
+-        rshift = singular_system("stest",right._poly,left._poly.degree(),A._degbound,A.__ngens, ring=A._current_ring)
++        realngens = A._commutative_ring.ngens()
++        rshift = right._poly._cycle(left._poly.degree() * realngens)
+         return FreeAlgebraElement_letterplace(A,left._poly*rshift, check=False)
+ 
+     def __pow__(FreeAlgebraElement_letterplace self, int n, k):
+@@ -626,10 +626,10 @@ cdef class FreeAlgebraElement_letterplace(AlgebraElement):
+         self._poly = A._current_ring(self._poly)
+         cdef int d = self._poly.degree()
+         q = p = self._poly
++        realngens = A._commutative_ring.ngens()
+         cdef int i
+         for i from 0<i<n:
+-            q = singular_system("stest",q,d,A._degbound,A.__ngens,
+-                                     ring=A._current_ring)
++            q = q._cycle(d * realngens)
+             p *= q
+         return FreeAlgebraElement_letterplace(A, p, check=False)
+ 
+diff --git a/src/sage/algebras/letterplace/free_algebra_letterplace.pxd b/src/sage/algebras/letterplace/free_algebra_letterplace.pxd
+index 7e5f2bb..d1d162c 100644
+--- a/src/sage/algebras/letterplace/free_algebra_letterplace.pxd
++++ b/src/sage/algebras/letterplace/free_algebra_letterplace.pxd
+@@ -13,8 +13,15 @@ from sage.rings.ring cimport Algebra
+ from sage.structure.element cimport AlgebraElement, ModuleElement, RingElement, Element
+ from sage.rings.polynomial.multi_polynomial_libsingular cimport MPolynomialRing_libsingular, MPolynomial_libsingular
+ from sage.algebras.letterplace.free_algebra_element_letterplace cimport FreeAlgebraElement_letterplace
++from sage.libs.singular.decl cimport ring
+ 
+ 
++cdef class FreeAlgebra_letterplace_libsingular():
++    cdef ring* _lp_ring
++    cdef MPolynomialRing_libsingular _commutative_ring
++    cdef MPolynomialRing_libsingular _lp_ring_internal
++    cdef object __ngens
++
+ cdef class FreeAlgebra_letterplace(Algebra):
+     cdef MPolynomialRing_libsingular _commutative_ring
+     cdef MPolynomialRing_libsingular _current_ring
+diff --git a/src/sage/algebras/letterplace/free_algebra_letterplace.pyx b/src/sage/algebras/letterplace/free_algebra_letterplace.pyx
+index 7a84000..02d0e89 100644
+--- a/src/sage/algebras/letterplace/free_algebra_letterplace.pyx
++++ b/src/sage/algebras/letterplace/free_algebra_letterplace.pyx
+@@ -37,7 +37,15 @@ The preceding containment test is based on the computation of Groebner
+ bases with degree bound::
+ 
+     sage: I.groebner_basis(degbound=4)
+-    Twosided Ideal (y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z, y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z, y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z, y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z, y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++    Twosided Ideal (x*y + y*z,
++        x*x - y*x - y*y - y*z,
++        y*y*y - y*y*z + y*z*y - y*z*z,
++        y*y*x + y*y*z + y*z*x + y*z*z,
++        y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z,
++        y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z,
++        y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z,
++        y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z) of Free Associative Unital
++        Algebra on 3 generators (x, y, z) over Rational Field
+ 
+ When reducing an element by `I`, the original generators are chosen::
+ 
+@@ -67,7 +75,13 @@ different normal form::
+     Lexicographic term order
+     sage: J = L*[a*b+b*c,a^2+a*b-b*c-c^2]*L
+     sage: J.groebner_basis(4)
+-    Twosided Ideal (2*b*c*b - b*c*c + c*c*b, a*c*c - 2*b*c*a - 2*b*c*c - c*c*a, a*b + b*c, a*a - 2*b*c - c*c) of Free Associative Unital Algebra on 3 generators (a, b, c) over Rational Field
++    Twosided Ideal (2*b*c*b - b*c*c + c*c*b,
++        a*b + b*c,
++        -a*c*c + 2*b*c*a + 2*b*c*c + c*c*a,
++        a*c*c*b - 2*b*c*c*b + b*c*c*c,
++        a*a - 2*b*c - c*c,
++        a*c*c*a - 2*b*c*c*a - 4*b*c*c*c - c*c*c*c) of Free Associative Unital
++        Algebra on 3 generators (a, b, c) over Rational Field
+     sage: (b*c*b*b).normal_form(J)
+     1/2*b*c*c*b - 1/2*c*c*b*b
+ 
+@@ -105,15 +119,16 @@ TESTS::
+ from sage.misc.misc_c import prod
+ from sage.rings.polynomial.polynomial_ring_constructor import PolynomialRing
+ from sage.libs.singular.function import lib, singular_function
+-from sage.rings.polynomial.term_order import TermOrder
++from sage.libs.singular.function cimport RingWrap
++from sage.libs.singular.ring cimport singular_ring_delete, singular_ring_reference
+ from sage.categories.algebras import Algebras
+ from sage.rings.noncommutative_ideals import IdealMonoid_nc
++from sage.rings.polynomial.plural cimport new_CRing
+ 
+ #####################
+ # Define some singular functions
+ lib("freegb.lib")
+-poly_reduce = singular_function("NF")
+-singular_system=singular_function("system")
++freeAlgebra = singular_function("freeAlgebra")
+ 
+ # unfortunately we can not set Singular attributes for MPolynomialRing_libsingular
+ # Hence, we must constantly work around Letterplace's sanity checks,
+@@ -242,7 +257,7 @@ cdef class FreeAlgebra_letterplace(Algebra):
+             sage: F.<a,b,c> = FreeAlgebra(K, implementation='letterplace')
+             sage: TestSuite(F).run()
+         """
+-        if not isinstance(R,MPolynomialRing_libsingular):
++        if not isinstance(R, MPolynomialRing_libsingular):
+             raise TypeError("A letterplace algebra must be provided by a polynomial ring of type %s" % MPolynomialRing_libsingular)
+         self.__ngens = R.ngens()
+         if degrees is None:
+@@ -260,7 +275,9 @@ cdef class FreeAlgebra_letterplace(Algebra):
+         if degrees is None:
+             self._degrees = tuple([int(1)]*self.__ngens)
+         else:
+-            if (not isinstance(degrees,(tuple,list))) or len(degrees)!=self.__ngens-1 or any(i <= 0 for i in degrees):
++            if (not isinstance(degrees, (tuple, list))) \
++                    or len(degrees) != self.__ngens - self._nb_slackvars \
++                    or any(i <= 0 for i in degrees):
+                 raise TypeError("The generator degrees must be given by a list or tuple of %d positive integers" % (self.__ngens-1))
+             self._degrees = tuple([int(i) for i in degrees])
+             self.set_degbound(max(self._degrees))
+@@ -666,7 +683,7 @@ cdef class FreeAlgebra_letterplace(Algebra):
+         Sage, since it does the reductions in a different order
+         compared to Singular. Therefore, we call the original Singular
+         reduction method, and prevent a warning message by asserting
+-        that `G` is a Groebner basis.
++        that `G` is a Groebner basis. ::
+ 
+             sage: from sage.libs.singular.function import singular_function
+             sage: poly_reduce = singular_function("NF")
+@@ -683,7 +700,7 @@ cdef class FreeAlgebra_letterplace(Algebra):
+         degbound = self._degbound
+         cdef list G = [C(x._poly) for x in g]
+         for y in G:
+-            out.extend([y]+[singular_system("stest",y,n+1,degbound,ngens,ring=C) for n in xrange(d-y.degree())])
++            out.extend([y]+[y._cycle(ngens*(n+1)) for n in xrange(d-y.degree())])
+         return C.ideal(out)
+ 
+     ###########################
+@@ -879,3 +896,28 @@ cdef class FreeAlgebra_letterplace(Algebra):
+             PNames[P.ngens(): len(PNames): P.ngens()+1] = list(Names[self.ngens(): len(Names): self.ngens()+1])[:P.degbound()]
+             x = Ppoly.hom([Gens[Names.index(asdf)] for asdf in PNames])(x.letterplace_polynomial())
+         return FreeAlgebraElement_letterplace(self,self._current_ring(x))
++
++cdef class FreeAlgebra_letterplace_libsingular():
++    """
++    Internally used wrapper around a Singular Letterplace polynomial ring.
++    """
++
++    def __cinit__(self, MPolynomialRing_libsingular commutative_ring,
++                  int degbound):
++        cdef RingWrap rw = freeAlgebra(commutative_ring, degbound)
++        self._lp_ring = singular_ring_reference(rw._ring)
++        # `_lp_ring` viewed as `MPolynomialRing_libsingular` with additional
++        # letterplace attributes set (for internal use only)
++        self._lp_ring_internal = new_CRing(rw, commutative_ring.base_ring())
++        self._commutative_ring = commutative_ring
++
++    def __init__(self, commutative_ring, degbound):
++        self.__ngens = commutative_ring.ngens() * degbound
++
++    def __dealloc__(self):
++        r"""
++        Carefully deallocate the ring, without changing ``currRing``
++        (since this method can be at unpredictable times due to garbage
++        collection).
++        """
++        singular_ring_delete(self._lp_ring)
+diff --git a/src/sage/algebras/letterplace/letterplace_ideal.pyx b/src/sage/algebras/letterplace/letterplace_ideal.pyx
+index 5776c58..e73663b 100644
+--- a/src/sage/algebras/letterplace/letterplace_ideal.pyx
++++ b/src/sage/algebras/letterplace/letterplace_ideal.pyx
+@@ -27,7 +27,11 @@ One can compute Groebner bases out to a finite degree, can compute normal
+ forms and can test containment in the ideal::
+ 
+     sage: I.groebner_basis(degbound=3)
+-    Twosided Ideal (y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++    Twosided Ideal (x*y + y*z,
++        x*x - y*x - y*y - y*z,
++        y*y*y - y*y*z + y*z*y - y*z*z,
++        y*y*x + y*y*z + y*z*x + y*z*z) of Free Associative Unital Algebra
++        on 3 generators (x, y, z) over Rational Field
+     sage: (x*y*z*y*x).normal_form(I)
+     y*z*z*y*z + y*z*z*z*x + y*z*z*z*z
+     sage: x*y*z*y*x - (x*y*z*y*x).normal_form(I) in I
+@@ -41,14 +45,14 @@ AUTHOR:
+ 
+ from sage.rings.noncommutative_ideals import Ideal_nc
+ from sage.libs.singular.function import lib, singular_function
+-from sage.algebras.letterplace.free_algebra_letterplace cimport FreeAlgebra_letterplace
++from sage.algebras.letterplace.free_algebra_letterplace cimport FreeAlgebra_letterplace, FreeAlgebra_letterplace_libsingular
+ from sage.algebras.letterplace.free_algebra_element_letterplace cimport FreeAlgebraElement_letterplace
+ from sage.rings.infinity import Infinity
+ 
+ #####################
+ # Define some singular functions
+ lib("freegb.lib")
+-singular_system=singular_function("system")
++singular_twostd=singular_function("twostd")
+ poly_reduce=singular_function("NF")
+ 
+ class LetterplaceIdeal(Ideal_nc):
+@@ -68,14 +72,22 @@ class LetterplaceIdeal(Ideal_nc):
+         sage: I.groebner_basis(2)
+         Twosided Ideal (x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
+         sage: I.groebner_basis(4)
+-        Twosided Ideal (y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z, y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z, y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z, y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z, y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++        Twosided Ideal (x*y + y*z,
++            x*x - y*x - y*y - y*z,
++            y*y*y - y*y*z + y*z*y - y*z*z,
++            y*y*x + y*y*z + y*z*x + y*z*z,
++            y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z,
++            y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z,
++            y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z,
++            y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z) of Free Associative Unital
++            Algebra on 3 generators (x, y, z) over Rational Field
+ 
+     Groebner bases are cached. If one has computed a Groebner basis
+     out to a high degree then it will also be returned if a Groebner
+     basis with a lower degree bound is requested::
+ 
+-        sage: I.groebner_basis(2)
+-        Twosided Ideal (y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z, y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z, y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z, y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z, y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++        sage: I.groebner_basis(2) is I.groebner_basis(4)
++        True
+ 
+     Of course, the normal form of any element has to satisfy the following::
+ 
+@@ -115,8 +127,11 @@ class LetterplaceIdeal(Ideal_nc):
+         sage: F.<x,y,z> = FreeAlgebra(QQ, implementation='letterplace',degrees=[1,2,3])
+         sage: I = F*[x*y+z-y*x,x*y*z-x^6+y^3]*F
+         sage: I.groebner_basis(Infinity)
+-        Twosided Ideal (x*z*z - y*x*x*z - y*x*y*y + y*x*z*x + y*y*y*x + z*x*z + z*y*y - z*z*x,
+-        x*y - y*x + z,
++        Twosided Ideal (x*y - y*x + z,
++        x*x*x*x*x*x - y*x*z - y*y*y + z*z,
++        x*z*z - y*x*x*z + y*x*z*x + y*y*z + y*z*y + z*x*z + z*y*y - z*z*x,
++        x*x*x*x*x*z + x*x*x*x*z*x + x*x*x*z*x*x + x*x*z*x*x*x + x*z*x*x*x*x +
++        y*x*z*y - y*y*x*z + y*z*z + z*x*x*x*x*x - z*z*y,
+         x*x*x*x*z*y*y + x*x*x*z*y*y*x - x*x*x*z*y*z - x*x*z*y*x*z + x*x*z*y*y*x*x +
+         x*x*z*y*y*y - x*x*z*y*z*x - x*z*y*x*x*z - x*z*y*x*z*x +
+         x*z*y*y*x*x*x + 2*x*z*y*y*y*x - 2*x*z*y*y*z - x*z*y*z*x*x -
+@@ -134,10 +149,7 @@ class LetterplaceIdeal(Ideal_nc):
+         z*y*y*y*y - 3*z*y*y*z*x - z*y*z*x*x*x - 2*z*y*z*y*x +
+         2*z*y*z*z - z*z*x*x*x*x*x + 4*z*z*x*x*z + 4*z*z*x*z*x -
+         4*z*z*y*x*x*x - 3*z*z*y*y*x + 4*z*z*y*z + 4*z*z*z*x*x +
+-        2*z*z*z*y,
+-        x*x*x*x*x*z + x*x*x*x*z*x + x*x*x*z*x*x + x*x*z*x*x*x + x*z*x*x*x*x +
+-        y*x*z*y - y*y*x*z + y*z*z + z*x*x*x*x*x - z*z*y,
+-        x*x*x*x*x*x - y*x*z - y*y*y + z*z)
++        2*z*z*z*y)
+         of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
+ 
+     Again, we can compute normal forms::
+@@ -225,7 +237,15 @@ class LetterplaceIdeal(Ideal_nc):
+             sage: I.groebner_basis()   # not tested
+             Twosided Ideal (y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
+             sage: I.groebner_basis(4)
+-            Twosided Ideal (y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z, y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z, y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z, y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z, y*y*y - y*y*z + y*z*y - y*z*z, y*y*x + y*y*z + y*z*x + y*z*z, x*y + y*z, x*x - y*x - y*y - y*z) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++            Twosided Ideal (x*y + y*z,
++                x*x - y*x - y*y - y*z,
++                y*y*y - y*y*z + y*z*y - y*z*z,
++                y*y*x + y*y*z + y*z*x + y*z*z,
++                y*y*z*y - y*y*z*z + y*z*z*y - y*z*z*z,
++                y*z*y*y - y*z*y*z + y*z*z*y - y*z*z*z,
++                y*y*z*x + y*y*z*z + y*z*z*x + y*z*z*z,
++                y*z*y*x + y*z*y*z + y*z*z*x + y*z*z*z) of Free Associative
++                Unital Algebra on 3 generators (x, y, z) over Rational Field
+             sage: I.groebner_basis(2) is I.groebner_basis(4)
+             True
+             sage: G = I.groebner_basis(4)
+@@ -237,7 +257,14 @@ class LetterplaceIdeal(Ideal_nc):
+ 
+             sage: I = F*[x*y-y*x,x*z-z*x,y*z-z*y,x^2*y-z^3,x*y^2+z*x^2]*F
+             sage: I.groebner_basis(Infinity)
+-            Twosided Ideal (z*z*z*y*y + z*z*z*z*x, z*x*x*x + z*z*z*y, y*z - z*y, y*y*x + z*x*x, y*x*x - z*z*z, x*z - z*x, x*y - y*x) of Free Associative Unital Algebra on 3 generators (x, y, z) over Rational Field
++            Twosided Ideal (-y*z + z*y,
++                -x*z + z*x,
++                -x*y + y*x,
++                x*x*z + x*y*y,
++                x*x*y - z*z*z,
++                x*x*x*z + y*z*z*z,
++                x*z*z*z*z + y*y*z*z*z) of Free Associative Unital Algebra
++                on 3 generators (x, y, z) over Rational Field
+ 
+         Since the commutators of the generators are contained in the ideal,
+         we can verify the above result by a computation in a polynomial ring
+@@ -275,9 +302,32 @@ class LetterplaceIdeal(Ideal_nc):
+         libsingular_options['redSB'] = True
+         A.set_degbound(degbound)
+         P = A._current_ring
+-        out = [FreeAlgebraElement_letterplace(A,X,check=False) for X in
+-               singular_system("freegb",P.ideal([x._poly for x in self.__GB.gens()]),
+-                               degbound,A.__ngens, ring = P)]
++
++        # note that degbound might be smaller than A._degbound due to caching,
++        # but degbound must be large enough to map all generators to the
++        # letterplace ring L
++        if degbound < A._degbound:
++            max_deg = max([x._poly.degree() for x in self.__GB.gens()])
++            if degbound < max_deg:
++                degbound = max_deg
++
++        # The following is a workaround for calling Singular's new Letterplace
++        # API (see :trac:`25993`). We construct a temporary polynomial ring L
++        # with letterplace attributes set as required by the API. As L has
++        # duplicate variable names, we need to handle this ring carefully; in
++        # particular, we cannot coerce to and from L, so we use homomorphisms
++        # for the conversion.
++
++        cdef FreeAlgebra_letterplace_libsingular lp_ring = \
++            FreeAlgebra_letterplace_libsingular(A._commutative_ring, degbound)
++        L = lp_ring._lp_ring_internal
++        to_L = P.hom(L.gens(), L, check=False)
++        from_L = L.hom(P.gens(), P, check=False)
++        I = L.ideal([to_L(x._poly) for x in self.__GB.gens()])
++        gb = singular_twostd(I)
++        out = [FreeAlgebraElement_letterplace(A, from_L(X), check=False)
++               for X in gb]
++
+         libsingular_options['redTail'] = bck[0]
+         libsingular_options['redSB'] = bck[1]
+         self.__GB = A.ideal(out,side='twosided',coerce=False)
+diff --git a/src/sage/libs/singular/function.pyx b/src/sage/libs/singular/function.pyx
+index b649ab1..3742260 100644
+--- a/src/sage/libs/singular/function.pyx
++++ b/src/sage/libs/singular/function.pyx
+@@ -1257,7 +1257,7 @@ cdef class SingularFunction(SageObject):
+             Traceback (most recent call last):
+             ...
+             RuntimeError: error in Singular function call 'size':
+-            Wrong number of arguments (got 2 arguments, arity code is 300)
++            Wrong number of arguments (got 2 arguments, arity code is 302)
+             sage: size('foobar', ring=P)
+             6
+ 
+@@ -1671,17 +1671,17 @@ def singular_function(name):
+         Traceback (most recent call last):
+         ...
+         RuntimeError: error in Singular function call 'factorize':
+-        Wrong number of arguments (got 0 arguments, arity code is 303)
++        Wrong number of arguments (got 0 arguments, arity code is 305)
+         sage: factorize(f, 1, 2)
+         Traceback (most recent call last):
+         ...
+         RuntimeError: error in Singular function call 'factorize':
+-        Wrong number of arguments (got 3 arguments, arity code is 303)
++        Wrong number of arguments (got 3 arguments, arity code is 305)
+         sage: factorize(f, 1, 2, 3)
+         Traceback (most recent call last):
+         ...
+         RuntimeError: error in Singular function call 'factorize':
+-        Wrong number of arguments (got 4 arguments, arity code is 303)
++        Wrong number of arguments (got 4 arguments, arity code is 305)
+ 
+     The Singular function ``list`` can be called with any number of
+     arguments::
+diff --git a/src/sage/rings/polynomial/multi_polynomial_ideal.py b/src/sage/rings/polynomial/multi_polynomial_ideal.py
+index 22f29ee..1ca1f97 100644
+--- a/src/sage/rings/polynomial/multi_polynomial_ideal.py
++++ b/src/sage/rings/polynomial/multi_polynomial_ideal.py
+@@ -170,7 +170,7 @@ when the system has no solutions over the rationals.
+     which is not 1. ::
+ 
+         sage: I.groebner_basis()
+-        [x + 130433*y + 59079*z, y^2 + 3*y + 17220, y*z + 5*y + 14504, 2*y + 158864, z^2 + 17223, 2*z + 41856, 164878]
++        [x + y + 57119*z + 4, y^2 + 3*y + 17220, y*z + y + 26532, 2*y + 158864, z^2 + 17223, 2*z + 41856, 164878]
+ 
+     Now for each prime `p` dividing this integer 164878, the Groebner
+     basis of I modulo `p` will be non-trivial and will thus give a
+@@ -3995,9 +3995,9 @@ class MPolynomialIdeal( MPolynomialIdeal_singular_repr, \
+             sage: P.<a,b,c> = PolynomialRing(ZZ,3)
+             sage: I = P * (a + 2*b + 2*c - 1, a^2 - a + 2*b^2 + 2*c^2, 2*a*b + 2*b*c - b)
+             sage: I.groebner_basis()
+-            [b^3 - 181*b*c^2 + 222*c^3 - 26*b*c - 146*c^2 + 19*b + 24*c,
+-             2*b*c^2 - 48*c^3 + 3*b*c + 22*c^2 - 2*b - 2*c,
+-             42*c^3 + 45*b^2 + 54*b*c + 22*c^2 - 13*b - 12*c,
++            [b^3 + b*c^2 + 12*c^3 + b^2 + b*c - 4*c^2,
++             2*b*c^2 - 6*c^3 - b^2 - b*c + 2*c^2,
++             42*c^3 + b^2 + 2*b*c - 14*c^2 + b,
+              2*b^2 + 6*b*c + 6*c^2 - b - 2*c,
+              10*b*c + 12*c^2 - b - 4*c,
+              a + 2*b + 2*c - 1]
+diff --git a/src/sage/rings/polynomial/multi_polynomial_libsingular.pyx b/src/sage/rings/polynomial/multi_polynomial_libsingular.pyx
+index 74f964c..027ef96 100644
+--- a/src/sage/rings/polynomial/multi_polynomial_libsingular.pyx
++++ b/src/sage/rings/polynomial/multi_polynomial_libsingular.pyx
+@@ -2588,6 +2588,26 @@ cdef class MPolynomial_libsingular(MPolynomial):
+         """
+         return  singular_polynomial_str_with_changed_varnames(self._poly, self._parent_ring, varnames)
+ 
++    def _cycle(self, int n):
++        """
++        Permute the variables by shifting ``n`` positions to the right.
++
++        EXAMPLES::
++
++            sage: R.<a,b,c,d> = QQ[]
++            sage: f = a*b + c
++            sage: f._cycle(-1), f._cycle(0), f._cycle(1)
++            (a*d + b, a*b + c, b*c + d)
++        """
++        r = self.parent()
++        n = n % r.ngens()
++        olddict = self.dict()
++        newdict = dict()
++        for key in olddict:
++            newkey = key[-n:]+key[:-n]
++            newdict[newkey] = olddict[key]
++        return r(newdict)
++
+     def degree(self, MPolynomial_libsingular x=None, int std_grading=False):
+         """
+         Return the maximal degree of this polynomial in ``x``, where
+diff --git a/src/sage/rings/polynomial/plural.pyx b/src/sage/rings/polynomial/plural.pyx
+index d2dec78..6fa2680 100644
+--- a/src/sage/rings/polynomial/plural.pyx
++++ b/src/sage/rings/polynomial/plural.pyx
+@@ -2876,7 +2876,8 @@ cpdef MPolynomialRing_libsingular new_CRing(RingWrap rw, base_ring):
+     self.__ngens = rw.ngens()
+     self.__term_order =  TermOrder(rw.ordering_string(), force=True)
+ 
+-    ParentWithGens.__init__(self, base_ring, rw.var_names())
++    ParentWithGens.__init__(self, base_ring, tuple(rw.var_names()),
++                            normalize=False)
+ #    self._populate_coercion_lists_()  # ???
+ 
+     #MPolynomialRing_generic.__init__(self, base_ring, n, names, order)
+
