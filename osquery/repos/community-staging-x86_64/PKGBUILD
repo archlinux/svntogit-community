@@ -1,0 +1,46 @@
+# Maintainer: Anatol Pomozov
+
+pkgname=osquery
+pkgver=4.1.2
+pkgrel=2
+pkgdesc='SQL powered operating system instrumentation, monitoring, and analytics'
+arch=(x86_64)
+url='https://osquery.io'
+license=(Apache GPL2)
+depends=(augeas boost-libs gflags google-glog aws-sdk-cpp librdkafka rocksdb gtest device-mapper rpm-tools dpkg lvm2 libelfin lldpd rapidjson sleuthkit ssdeep thrift yara lmdb)
+makedepends=(cmake ninja python boost linenoise-ng)
+# patched version of smartools that we need to build statically to avoid collision with the upstream version
+_smartmontools_commit=5f7669fba545f32a6d0c07e2be67df16f3eb354b
+source=(osquery-$pkgver.zip::https://github.com/osquery/osquery/archive/$pkgver.zip
+        third-party-smartmontools.zip::https://github.com/osquery/third-party-smartmontools/archive/$_smartmontools_commit.zip
+        devendorize.patch::https://github.com/anatol/osquery/compare/551d548b478f416bbfadaa0a0450c05873d2a9f6...8ab1e555bc0ce1816d99000596b085efe5161337.patch)
+sha256sums=('98962a38ca4bebfd87d483e5269c4364291b97f30c047489da99ebf3fdcc57d1'
+            '891f11acd804aa0d53dbec599e6a32ad9c1e5392a3eb4022714871f3a1ce95ee'
+            '81d2752eb4271d2821d42d5c09f3fa9a86e1c8f644673c4eee5061957ef7d636')
+
+prepare() {
+  cd osquery-$pkgver
+  patch -p1 < ../devendorize.patch
+
+  # iptables 1.8.4 dropped libiptc.so; users are expected to
+  # link to libip4tc.so or libip6tc.so directly
+  sed -i 's/"iptc"//' libraries/cmake/system/modules/Findlibiptables.cmake
+
+  rm -rf libraries/cmake/source/smartmontools/src
+  ln -sf `pwd`/../third-party-smartmontools-$_smartmontools_commit libraries/cmake/source/smartmontools/src
+}
+
+build() {
+  cd osquery-$pkgver
+
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DOSQUERY_VERSION=$pkgver -S . -B build
+  cmake --build build
+}
+
+package() {
+  cd osquery-$pkgver
+
+  cmake --build build --target install -- DESTDIR="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  rm -r "$pkgdir/etc/init.d/"
+}
