@@ -50,7 +50,7 @@ _fake_gopath_popd() {
 
 build() {
   ### check my mistakes on commit version
-  msg2 'Checking commit mismatch'
+  echo 'Checking commit mismatch'
   (
   local _cfile
   for _cfile in tini proxy; do
@@ -62,7 +62,7 @@ build() {
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
     if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
-      error "Invalid $_commit commit, should be ${!_dockerfile}"
+      echo "Invalid $_commit commit, should be ${!_dockerfile}" >&2
       err=$(($err + 1))
     fi
   done
@@ -74,13 +74,13 @@ build() {
   export PATH="$GOPATH/bin:$PATH"
 
   ### cli
-  msg2 'Building cli'
+  echo 'Building cli'
   _fake_gopath_pushd docker-ce/components/cli github.com/docker/cli
   DISABLE_WARN_OUTSIDE_CONTAINER=1 make VERSION=$pkgver-ce dynbinary
   _fake_gopath_popd
 
   ### daemon
-  msg2 'Building daemon'
+  echo 'Building daemon'
   _fake_gopath_pushd docker-ce/components/engine github.com/docker/docker
   DOCKER_GITCOMMIT=$(cd "$srcdir"/docker-ce && git rev-parse --short HEAD) \
     DOCKER_BUILDTAGS='seccomp journald apparmor' \
@@ -89,7 +89,7 @@ build() {
   _fake_gopath_popd
 
   ### docker man pages
-  msg2 'Building man pages'
+  echo 'Building man pages'
   mkdir -p src/github.com/spf13
   ln -rsfT cobra src/github.com/spf13/cobra
   # use docker-ce cli version because they mess up with man dir
@@ -98,13 +98,13 @@ build() {
   _fake_gopath_popd
 
   ### docker proxy
-  msg2 'Building docker-proxy'
+  echo 'Building docker-proxy'
   _fake_gopath_pushd libnetwork github.com/docker/libnetwork
   go build -ldflags='-linkmode=external' github.com/docker/libnetwork/cmd/proxy
   _fake_gopath_popd
 
   ### docker-init
-  msg2 'Building docker-init'
+  echo 'Building docker-init'
   _fake_gopath_pushd tini github.com/krallin/tini
   cmake .
   # we must use the static binary because it's started in a foreign os
