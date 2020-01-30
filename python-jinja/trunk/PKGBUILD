@@ -3,7 +3,7 @@
 # Contributor: Peter Baldwin <bald_pete@hotmail.com>
 
 pkgname=('python-jinja' 'python2-jinja')
-pkgver=2.11.0
+pkgver=2.11.1
 pkgrel=1
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
@@ -13,7 +13,7 @@ makedepends=('python-setuptools' 'python2-setuptools' 'python-markupsafe'
              'python2-markupsafe')
 checkdepends=('python-pytest' 'python2-pytest')
 source=(https://files.pythonhosted.org/packages/source/J/Jinja2/Jinja2-$pkgver.tar.gz)
-sha256sums=('d6609ae5ec3d56212ca7d802eda654eaf2310000816ce815361041465b108be4')
+sha256sums=('93187ffbc7808079673ef52771baa950426fd664d3aad1d0fa3e95644360e250')
 
 build() {
   cd Jinja2-$pkgver
