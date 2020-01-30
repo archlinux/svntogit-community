@@ -6,7 +6,7 @@
 
 pkgname=mupen64plus
 pkgver=2.5
-pkgrel=14
+pkgrel=15
 pkgdesc='Nintendo64 Emulator'
 arch=('x86_64')
 url='https://github.com/mupen64plus/mupen64plus-core'
