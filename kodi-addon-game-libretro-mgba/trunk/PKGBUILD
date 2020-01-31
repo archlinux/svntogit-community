@@ -1,7 +1,7 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-mgba
-pkgver=0.8.0.8
+pkgver=0.8.0.9
 _codename=Leia
 pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi-addon-game-libretro' 'libretro-mgba')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.mgba/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('c84eaaf1716da2a904355f92a44f0ab788d03e292f1c906d50887315edad0cd81b44654a137e74e4c1b76635380f6436044b7af697fe1791630281a3d8dd1c10')
+sha512sums=('9153275742e3b30ddcb6b765dab067f166a122ed16c76388abd9fbb8317d3b06cc3f15d18774b321b04937cfa08368798bce143bc158107df10f6ecdadeb665d')
 
 build() {
     cd "game.libretro.mgba-$pkgver-$_codename"
