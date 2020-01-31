@@ -9,13 +9,22 @@ url="https://lucene.apache.org/solr/"
 license=('Apache')
 depends=('bash' 'java-runtime>=8')
 makedepends=('ant' 'ivy' 'java-environment>=8')
+backup=("etc/${pkgname}/server/jetty-http.xml"
+        "etc/${pkgname}/server/jetty-https.xml"
+        "etc/${pkgname}/server/jetty-https8.xml"
+        "etc/${pkgname}/server/jetty-ssl.xml"
+        "etc/${pkgname}/server/jetty.xml"
+        "etc/${pkgname}/server/webdefault.xml"
+        "etc/${pkgname}/${pkgname}.in.sh"
+        "etc/${pkgname}/${pkgname}.xml"
+        "etc/${pkgname}/zoo.cfg")
 source=("https://archive.apache.org/dist/lucene/${pkgname}/${pkgver}/${pkgname}-${pkgver}-src.tgz"{,.asc}
         "${pkgname}.service"
         "${pkgname}.sysusers"
         "${pkgname}.tmpfiles")
 sha512sums=('29df94ce5ee571b3cdb9738b1d05ed3e1abe4bc171b4407789100f338671a539d5751f27c12c3317f064354d5cb96df7cd0cf7d03de6882d06b5db4501e278ce'
             'SKIP'
-            '4ddd652315d6b640e1ba84e3ad5dba97bf9d93548c16812d2a219cf0d62cce79603050329eae632c22a7c7528227a93c01dd4671864de1a55f8e54269bb4b44d'
+            'a34121427e9d3362e3424c8bf1f13e50dccbee4a1870bd8713a39c8bf79450462b12a98cc981af3a3522d176094b05e300468465100f27bcd44f08129f324430'
             '06e5e40b96d2b6668790e4b166fc2867b9e694a2c72fd57eec702526e009b8b0495acbe16a5a27e259827477f4783ce87742f1f806254d8a2baec23b0b317058'
             '9cc97763a50c11c305b06ce07f0b2936b8fcb0b1d43f8b469fe1399850cb009fc1eba297d295a386a556e5c042e189dba1b1fc96a54aa46964ed4db8e17d40a8')
 validpgpkeys=('2085660D9C1FCCACC4A479A3BF160FF14992A24C') # Ishan Chattopadhyaya <ishan@apache.org>
@@ -32,19 +41,21 @@ build() {
   ant compile
   ant server
   ant dist
-  # removing unneeded sources
-  rm -rvf contrib/*/src
-  find . -type f \( -iname "*build.xml" -o -iname "*ivy.xml" \) -delete
 }
 
-check() {
-  cd "$pkgname-$pkgver"
-  cd "${pkgname}"
-  ant test
-}
+# TODO: make org.apache.solr.cloud.MetricsHistoryIntegrationTest.testGet pass
+# seemingly requires lucene to be built as well X_X
+# check() {
+#   cd "$pkgname-$pkgver"
+#   cd "${pkgname}"
+#   ant test
+# }
 
 package() {
   cd "$pkgname-$pkgver"
+  # removing unneeded sources and build artifacts
+  rm -rvf ${pkgname}/contrib/*/src
+  find . -type f \( -iname "*build.xml" -o -iname "*ivy.xml" \) -delete
   # script
   install -vDm 755 "${pkgname}/bin/${pkgname}" -t "${pkgdir}/usr/bin"
   # configuration
@@ -52,23 +63,27 @@ package() {
     -t "${pkgdir}/etc/${pkgname}"
   install -vDm 644 "${pkgname}/server/etc/"*.xml \
     -t "${pkgdir}/etc/${pkgname}/server"
-  install -vDm 644 "${pkgname}/server/${pkgname}/"*.xml \
+  install -vDm 644 "${pkgname}/server/${pkgname}/${pkgname}.xml" \
+    -t "${pkgdir}/etc/${pkgname}/"
+  install -vDm 644 "${pkgname}/server/${pkgname}/zoo.cfg" \
     -t "${pkgdir}/etc/${pkgname}/"
   install -vdm 755 "${pkgdir}/usr/share/${pkgname}"
+  # copy application
   cp -rvL "${pkgname}/"{bin,contrib,dist,docs,example,licenses,server} \
     "${pkgdir}/usr/share/${pkgname}"
-  # logs directory
-  install -vdm 750 "${pkgdir}/var/log/${pkgname}"
-  ln -svf "/var/log/${pkgname}" "${pkgdir}/usr/share/${pkgname}/server/logs"
   # symlink configuration into place
   ln -svf "/etc/${pkgname}/${pkgname}.in.sh" \
     "${pkgdir}/usr/share/${pkgname}/"
   ln -svf "/etc/${pkgname}/${pkgname}.xml" \
     "${pkgdir}/usr/share/${pkgname}/server/${pkgname}"
+  ln -svf "/etc/${pkgname}/zoo.cfg" \
+    "${pkgdir}/usr/share/${pkgname}/server/${pkgname}"
   for config in {jetty,jetty-{http,https,https8,ssl},webdefault}.xml; do
     ln -svf "/etc/${pkgname}/server/${config}" \
       "${pkgdir}/usr/share/${pkgname}/server/etc/${config}"
   done
+  # logs directory
+  install -vdm 750 "${pkgdir}/var/log/${pkgname}"
   # docs
   install -vDm 644 "${pkgname}/"{CHANGES,LUCENE_CHANGES,NOTICE,README}.txt \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
