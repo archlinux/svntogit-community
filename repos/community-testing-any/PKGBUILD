@@ -2,7 +2,7 @@
 
 pkgname=postorius
 pkgver=1.3.2
-pkgrel=1
+pkgrel=2
 pkgdesc="The New Mailman Web UI"
 arch=('any')
 url="https://gitlab.com/mailman/postorius"
@@ -12,10 +12,12 @@ depends=('python-cmarkgfm' 'python-django' 'python-django-mailman3'
 makedepends=('python-setuptools')
 checkdepends=('mailman3' 'python-beautifulsoup4' 'python-isort' 'python-mock'
 'python-pytest' 'python-pytest-django' 'python-vcrpy')
-optdepends=('uwsgi-plugin-python: for running inside uwsgi')
+optdepends=('mailman3: for configuring a local mailman instance'
+            'uwsgi-plugin-python: for running inside uwsgi')
 replaces=('python-django-postorius')
 backup=("etc/uwsgi/${pkgname}.ini"
         "etc/webapps/${pkgname}/settings.py")
+install="${pkgname}.install"
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/${pkgname}/${pkgname}-${pkgver}.tar.gz"{,.asc}
         "${pkgname}.sysusers"
         "${pkgname}.tmpfiles"
@@ -24,9 +26,9 @@ source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/${pkgname}
 sha512sums=('41ff225fa574dd4bd0ac88419a10a55a71c52a64df01a1a593963fdfa62baf16a0df735364688ea24680c8e88093841892474279d40c1428948375db7eb6333b'
             'SKIP'
             '3884b818da2deb148279e50316f720c95f0aaa529777b1b3662d8ab253cda823a90682a9eb47e941ca5ba80eefcb9a2d4afacd29f0340d7f9828b36ebcee23b3'
-            '0be8c2bac3feb69519a8d7039002b43b7a705db638d7385b925a4c9fd6ba70d4707954872cabbe5fab2176f48d48fabd8f31338064bb630d02ad1380536915c4'
-            'f7ec287cac22679166398f53b6db440f0defa022554dd8997092b99eab972bb8ba8d158e7415da939645d2e5ff298e496eb46011c6391b9857e6405c9f0c2c47'
-            '811d52a246d55c900ee07cdb7572410aebc7eff05261166287c196ae9994079ee3e925bbf5e539155ecf452328316ae8dac2176dfb4398df1acb519a2accf0b8')
+            '0fe9517bb56c241d38e97e0141e499480760b3c6e786e78a4e6f5825fc319a4b518649a2457a5a224e49decaeb0340cbb0929ec82d51b66afe9cce7f9d270f1d'
+            'c042f00d0d8dc72dadd19023152e55246c4d7a4b9d53bca3a05e7b8cb38cac5116417440d4ae82350820c7cb0cd414dcce45fa6af9be19296c4ebd0862dba896'
+            '589b000789375a1669eaa165c904e27fec097802fca39b4469b61cac6b615031a2ca6ece63f32cfd78f91ef249b0b15ec43c6ce6130166e7c127ef3d717e02f2')
 validpgpkeys=('541EA0448453394FF77A0ECC9D9B2BA061D0A67C') # Abhilash Raj <raj.abhilash1@gmail.com>
 
 prepare() {
@@ -52,7 +54,6 @@ check() {
 
 package() {
   cd "$pkgname-$pkgver"
-  local python_stdlib_basepath="$(python -c "from sysconfig import get_path; print(get_path('stdlib'))")"
   python setup.py install --skip-build \
     --optimize=1 \
     --prefix=/usr \
@@ -60,11 +61,16 @@ package() {
   # django project
   install -vDm 644 example_project/{__init__,manage,urls,wsgi}.py \
     -t "${pkgdir}/usr/share/webapps/${pkgname}"
-  # symlink locale and static files (instead of generating them)
-  ln -svf "$python_stdlib_basepath/site-packages/${pkgname}/locale/" \
+  # symlink locale and static dirs to state dir
+  ln -svf "/var/lib//${pkgname}/locale/" \
     "${pkgdir}/usr/share/webapps/${pkgname}"
-  ln -svf "$python_stdlib_basepath/site-packages/${pkgname}/static/" \
+  ln -svf "/var/lib/${pkgname}/static/" \
     "${pkgdir}/usr/share/webapps/${pkgname}"
+  # state dir
+  install -vdm 750 "${pkgdir}/var/lib/${pkgname}"
+  install -vdm 755 "${pkgdir}/var/lib/${pkgname}/"{locale,static}
+  # log dir
+  install -vdm 750 "${pkgdir}/var/log/${pkgname}"
   # config
   install -vDm 640 example_project/settings.py \
     -t "${pkgdir}/etc/webapps/${pkgname}"
