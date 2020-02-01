@@ -3,7 +3,7 @@
 _name=HyperKitty
 pkgname=hyperkitty
 pkgver=1.3.2
-pkgrel=2
+pkgrel=3
 pkgdesc="A web interface to access GNU Mailman v3 archives"
 arch=('any')
 url="https://gitlab.com/mailman/hyperkitty"
@@ -16,12 +16,17 @@ depends=('python-dateutil' 'python-django' 'python-django-compressor'
 makedepends=('python-isort' 'python-setuptools')
 checkdepends=('python-beautifulsoup4' 'python-coverage' 'python-elasticsearch'
 'python-mock' 'python-pytest' 'python-whoosh')
-optdepends=('uwsgi-plugin-python: for running inside uwsgi'
+optdepends=('python-elasticsearch: for using elasticsearch as search backend'
+            'python-whoosh: for using whoosh as search backend'
+            'python-xapian-haystack: for using xapian as search backend'
+            'uwsgi-plugin-python: for running inside uwsgi'
             'ruby-sassc: alternative to sassc')
 backup=("etc/uwsgi/${pkgname}.ini"
         "etc/webapps/${pkgname}/settings.py")
+install="${pkgname}.install"
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz"{,.asc}
         "${pkgname}-1.3.2-django3.patch::https://gitlab.com/mailman/hyperkitty/-/merge_requests/228.patch"
+        "${pkgname}-1.3.2-settings.patch"
         "${pkgname}-qcluster.service"
         "${pkgname}.sysusers"
         "${pkgname}.tmpfiles"
@@ -29,10 +34,11 @@ source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_
 sha512sums=('c0c20f0a0d999e08be32f9db52f43660179b2277e80385bb4ef58f2a652b8271e03690282aa3174a3408c48bd7e5ee18c5a8adcee736a45165647cb124cd6293'
             'SKIP'
             '04b593949c80362324103726f54a73d5904f053efb5ef90cd3fbdefd90e93c707052bcb8cddf5b64efc1f053f5c51ad76285833448f6fcdff4bdfbf640f6b8c2'
+            'f1a4112db9032d1140b67dddf6c0fe3f23a87f0ec4a521b0dd788eb6b9cd3409ef2604418ec27edeb39deae48f4f8fdfda3e40f05200c3230ef6ed9c5f545d55'
             'f3ff31e0a725dab5c55692f0da27dfe3625123e48e65b08f3198e790551ba4f2530719f36373eccf8c28a5ebac94ab546a0ca4e51b4fcb5f0bcaf0b356c0a03e'
             '3267427109b08b8c9336b187381ed14357a07370bdcdfc24da94555020ad0424c5bbebc09e131e981e0540c51db443ffe558209e1bca7c2a1b7b1f602ed0805b'
-            'c7f564f0415721711535d3901f5d893a8456f5593ef562dad81faf7bfab2ae402058768cbbe443c014b76c968efbfe03cf7fc9d0e2bf699b14c07736e1e8d813'
-            '58bbd8c3d7338204b70611630c428e65cdf29c7c134ed291491a3484c565c4dd4a9cd286dfd23d54ec0c973d313ff4d9d7d037c5ce1ec223be0f63d3bb401b55')
+            '0b24e82a75c55bc46b0f164285772168079ce298530bb228b230b2cc64a3a1c6ee2cfb8083c866ef59c71e66c2a237d7dc1f5bdc6928142c66d3057542304886'
+            '351f40a6bc1fd1735c883408f9941808e081206927a7c02467e03228243dd156378cac21f851b498702bd4f96fde8e4c80536dbcc6f3c384bf708bed4e988971')
 validpgpkeys=('541EA0448453394FF77A0ECC9D9B2BA061D0A67C') # Abhilash Raj <raj.abhilash1@gmail.com>
 
 prepare() {
@@ -41,6 +47,8 @@ prepare() {
   # removing legacy stuff to be compatible with django3:
   # https://gitlab.com/mailman/hyperkitty/issues/278
   patch -Np1 -i "../${pkgname}-1.3.2-django3.patch"
+  # setting FHS compliant default paths
+  patch -Np1 -i "../${pkgname}-1.3.2-settings.patch"
 }
 
 build() {
@@ -61,7 +69,7 @@ package() {
     --optimize=1 \
     --prefix=/usr \
     --root="${pkgdir}"
-  # remove example_project from top level:
+  # remove example_project from top level site-packages:
   # https://gitlab.com/mailman/hyperkitty/issues/279
   rm -rfv "${pkgdir}/${python_stdlib_basepath}/site-packages/example_project"
   # doc
@@ -69,11 +77,16 @@ package() {
   # django project
   install -vDm 644 example_project/{__init__,manage,urls,wsgi}.py \
     -t "${pkgdir}/usr/share/webapps/${pkgname}"
-  # symlink locale and static files (instead of generating them)
-  ln -svf "$python_stdlib_basepath/site-packages/${pkgname}/locale/" \
+  # symlink locale and static dirs to state dir
+  ln -svf "/var/lib//${pkgname}/locale/" \
     "${pkgdir}/usr/share/webapps/${pkgname}"
-  ln -svf "$python_stdlib_basepath/site-packages/${pkgname}/static/" \
+  ln -svf "/var/lib/${pkgname}/static/" \
     "${pkgdir}/usr/share/webapps/${pkgname}"
+  # state dir
+  install -vdm 750 "${pkgdir}/var/lib/${pkgname}"
+  install -vdm 755 "${pkgdir}/var/lib/${pkgname}/"{locale,static}
+  # log dir
+  install -vdm 750 "${pkgdir}/var/log/${pkgname}"
   # config
   install -vDm 640 example_project/settings.py \
     -t "${pkgdir}/etc/webapps/${pkgname}"
