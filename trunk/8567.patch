@@ -1,0 +1,161 @@
+From ec17b3d8fa9e167f1ad1e4813399172dc43f18a6 Mon Sep 17 00:00:00 2001
+From: Rui Lopes <rgl@ruilopes.com>
+Date: Sun, 5 Jan 2020 15:44:01 +0000
+Subject: [PATCH] correctly handle the diskSize property as a qemu size string
+
+---
+ post-processor/vagrant/libvirt.go      | 52 ++++++++++++++++++-
+ post-processor/vagrant/libvirt_test.go | 69 ++++++++++++++++++++++++++
+ 2 files changed, 120 insertions(+), 1 deletion(-)
+ create mode 100644 post-processor/vagrant/libvirt_test.go
+
+diff --git a/post-processor/vagrant/libvirt.go b/post-processor/vagrant/libvirt.go
+index 60e274a576..5f14ba7777 100644
+--- a/post-processor/vagrant/libvirt.go
++++ b/post-processor/vagrant/libvirt.go
+@@ -3,11 +3,61 @@ package vagrant
+ import (
+ 	"fmt"
+ 	"path/filepath"
++	"strconv"
+ 	"strings"
+ 
+ 	"github.com/hashicorp/packer/packer"
+ )
+ 
++// Lowercase a ascii letter.
++func lower(c byte) byte {
++	return c | ('a' - 'A')
++}
++
++// Convert a string that represents a qemu disk image size to megabytes.
++//
++// Valid units (case-insensitive):
++//
++//		B (byte)        1B
++//		K (kilobyte) 1024B
++//		M (megabyte) 1024K
++//		G (gigabyte) 1024M
++//		T (terabyte) 1024G
++//		P (petabyte) 1024T
++//		E (exabyte)  1024P
++//
++// The default is M.
++func sizeInMegabytes(size string) uint64 {
++	unit := size[len(size)-1]
++
++	if unit >= '0' && unit <= '9' {
++		unit = 'm'
++	} else {
++		size = size[:len(size)-1]
++	}
++
++	value, _ := strconv.ParseUint(size, 10, 64)
++
++	switch lower(unit) {
++	case 'b':
++		return value / 1024 / 1024
++	case 'k':
++		return value / 1024
++	case 'm':
++		return value
++	case 'g':
++		return value * 1024
++	case 't':
++		return value * 1024 * 1024
++	case 'p':
++		return value * 1024 * 1024 * 1024
++	case 'e':
++		return value * 1024 * 1024 * 1024 * 1024
++	default:
++		panic(fmt.Sprintf("Unknown size unit %c", unit))
++	}
++}
++
+ type LibVirtProvider struct{}
+ 
+ func (p *LibVirtProvider) KeepInputArtifact() bool {
+@@ -28,7 +78,7 @@ func (p *LibVirtProvider) Process(ui packer.Ui, artifact packer.Artifact, dir st
+ 	}
+ 
+ 	format := artifact.State("diskType").(string)
+-	origSize := artifact.State("diskSize").(uint64)
++	origSize := sizeInMegabytes(artifact.State("diskSize").(string))
+ 	size := origSize / 1024 // In MB, want GB
+ 	if origSize%1024 > 0 {
+ 		// Make sure we don't make the size smaller
+diff --git a/post-processor/vagrant/libvirt_test.go b/post-processor/vagrant/libvirt_test.go
+new file mode 100644
+index 0000000000..da03596ae2
+--- /dev/null
++++ b/post-processor/vagrant/libvirt_test.go
+@@ -0,0 +1,69 @@
++package vagrant
++
++import (
++	"fmt"
++	"testing"
++)
++
++func assertSizeInMegabytes(t *testing.T, size string, expected uint64) {
++	actual := sizeInMegabytes(size)
++	if actual != expected {
++		t.Fatalf("the size `%s` was converted to `%d` but expected `%d`", size, actual, expected)
++	}
++}
++
++func Test_sizeInMegabytes_WithInvalidUnitMustPanic(t *testing.T) {
++	defer func() {
++		if r := recover(); r == nil {
++			t.Fatalf("expected a panic but got none")
++		}
++	}()
++
++	sizeInMegabytes("1234x")
++}
++
++func Test_sizeInMegabytes_WithoutUnitMustDefaultToMegabytes(t *testing.T) {
++	assertSizeInMegabytes(t, "1234", 1234)
++}
++
++func Test_sizeInMegabytes_WithBytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, fmt.Sprintf("%db", 1234*1024*1024), 1234)
++	assertSizeInMegabytes(t, fmt.Sprintf("%dB", 1234*1024*1024), 1234)
++	assertSizeInMegabytes(t, "1B", 0)
++}
++
++func Test_sizeInMegabytes_WithKiloBytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, fmt.Sprintf("%dk", 1234*1024), 1234)
++	assertSizeInMegabytes(t, fmt.Sprintf("%dK", 1234*1024), 1234)
++	assertSizeInMegabytes(t, "1K", 0)
++}
++
++func Test_sizeInMegabytes_WithMegabytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, "1234m", 1234)
++	assertSizeInMegabytes(t, "1234M", 1234)
++	assertSizeInMegabytes(t, "1M", 1)
++}
++
++func Test_sizeInMegabytes_WithGigabytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, "1234g", 1234*1024)
++	assertSizeInMegabytes(t, "1234G", 1234*1024)
++	assertSizeInMegabytes(t, "1G", 1*1024)
++}
++
++func Test_sizeInMegabytes_WithTerabytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, "1234t", 1234*1024*1024)
++	assertSizeInMegabytes(t, "1234T", 1234*1024*1024)
++	assertSizeInMegabytes(t, "1T", 1*1024*1024)
++}
++
++func Test_sizeInMegabytes_WithPetabytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, "1234p", 1234*1024*1024*1024)
++	assertSizeInMegabytes(t, "1234P", 1234*1024*1024*1024)
++	assertSizeInMegabytes(t, "1P", 1*1024*1024*1024)
++}
++
++func Test_sizeInMegabytes_WithExabytesUnit(t *testing.T) {
++	assertSizeInMegabytes(t, "1234e", 1234*1024*1024*1024*1024)
++	assertSizeInMegabytes(t, "1234E", 1234*1024*1024*1024*1024)
++	assertSizeInMegabytes(t, "1E", 1*1024*1024*1024*1024)
++}
