@@ -3,13 +3,13 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r11530.ea9b96370d
+pkgver=5.0.r11617.0491831483
 pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=(x86_64)
 url=https://dolphin-emu.org
-license=(GPL)
+license=(GPL2)
 depends=(
   alsa-lib
   bluez-libs
@@ -46,7 +46,7 @@ makedepends=(
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-source=(dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=ea9b96370df89b446ed25fca5452f0eef33682a9)
+source=(dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=049183148307ad6a5a3244c313841fc97448b647)
 sha256sums=(SKIP)
 
 pkgver() {
@@ -67,6 +67,7 @@ build() {
 package() {
   make DESTDIR="${pkgdir}" -C build install
   install -Dm 644 dolphin-emu/Data/51-usb-device.rules -t "${pkgdir}"/usr/lib/udev/rules.d/
+  rm -rf "${pkgdir}"/usr/{include,lib/libdiscord-rpc.a}
 }
 
 # vim: ts=2 sw=2 et:
