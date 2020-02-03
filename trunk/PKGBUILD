@@ -5,7 +5,7 @@
 # Contributor: Brad Fanella <bradfanella@archlinux.us>
 
 pkgname=sxiv
-pkgver=25
+pkgver=26
 pkgrel=1
 pkgdesc='Simple X Image Viewer'
 arch=('x86_64')
@@ -13,7 +13,7 @@ license=('GPL2')
 url='https://github.com/muennich/sxiv'
 depends=('imlib2' 'desktop-file-utils' 'xdg-utils' 'hicolor-icon-theme' 'libexif' 'libxft')
 source=("$pkgname-$pkgver.tar.gz"::"https://github.com/muennich/sxiv/archive/v$pkgver.tar.gz")
-md5sums=('2c1c64a5714c6c876e7bfd8cd405b2a0')
+md5sums=('969d086bff438ae882433f8729d2b95d')
 
 prepare() {
   cd "$pkgname-$pkgver"
