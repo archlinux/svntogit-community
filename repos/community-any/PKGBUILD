@@ -3,7 +3,7 @@
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.0.2
+pkgver=1.0.3
 pkgrel=1
 pkgdesc="Python dependency management and packaging made easy"
 arch=('any')
@@ -19,9 +19,9 @@ conflicts=('poetry')
 replaces=('poetry')
 source=("${_pkgname}-${pkgver}.tar.gz::https://github.com/sdispater/${_pkgname}/archive/${pkgver}.tar.gz"
         "poetry-completions-generator")
-sha256sums=('837c429e70851af65c761af55ae509a8114d4acba5b6559b904d82ee3b230566'
+sha256sums=('29fa6d7ddefbe50338e826ffecba332cf94c81afdc28e6e9e94577a78fc40046'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
-b2sums=('853fcae57f6b8e205bc1cc6d95b9373ea3fd893e3aa49836d9f14725c4bf7a1f7e364188891b2b120697dc97c3964636698e15dd9fb16abace64621a252dcac6'
+b2sums=('2b0ca38c4abd496021f7730805b12df211af3cdb91de1b6f76b92a648c07f01c3c5bd6070bf38e5637f5a49c803d8e12f355c846017a5b56de1f267586310968'
         '3fd62e7936d7547dcd06a1a7519f176a1597553ecc959144a4be799bb7e2d688e187f14604d3e359ed10c128c722ebd588c07ca318e0be0a31d276dcb388e2e1')
 
 prepare() {
