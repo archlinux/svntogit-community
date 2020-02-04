@@ -2,7 +2,7 @@
 
 _name=inflect
 pkgname=python-inflect
-pkgver=4.0.0
+pkgver=4.1.0
 pkgrel=1
 pkgdesc="Correctly generate plurals, singular nouns, ordinals, indefinite articles"
 arch=('any')
@@ -13,7 +13,7 @@ makedepends=('python-dephell' 'python-setuptools')
 checkdepends=('flake8' 'python-black' 'python-coverage' 'python-pytest'
 'python-pytest-black' 'python-pytest-cov' 'python-pytest-flake8')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('7d9ef9389b9301e596165fcb1774467ddeb421636094a0f0cebbcaa11558b4529ccb90644e1097f91cff3316911c98f4bb1df92180193a5313ca7da91a282e5c')
+sha512sums=('9a2ba4777f01475390976f3ac28f046d39d1f86cfdafd161cc7c8d33526aca35d44e6598ccf2a0b68d3511a64b67ed0991b51c78bda8f279cd706fd29a3fa514')
 
 prepare() {
   mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
