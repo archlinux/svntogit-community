@@ -4,7 +4,7 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.4
-pkgver=14.2.6
+pkgver=14.2.7
 pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
@@ -48,7 +48,7 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'suppress-pylint-warnings.patch'
         'fix-mgr-dashboard-frontend-unittests-dist-stuff.patch'
         "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz")
-sha512sums=('b864a228deb3f8ec64fd17ed1b56b7e100332b9f94109eb31bfe4af24d50a615671a4389f02148e55852df01e7cc965b2baf56624ea89192bda34d79223f97fe'
+sha512sums=('59f475e56053ba5e7e3a482a3a91b4d44272e6ec8051b92783de76c09c0d967a7ef76676db998968a709e48f08e90828dd8f86bd96a7c3fd111d48bfb7fd93b1'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
@@ -208,7 +208,7 @@ package_ceph() {
            'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools' 'java-runtime'
            'keyutils' 'leveldb' 'libaio' 'libutil-linux' 'lsb-release' 'ncurses'
            'nss' 'oath-toolkit' 'python' 'python-bcrypt' 'python-setuptools'
-           'snappy' 'systemd-libs' 'xfsprogs')
+           'python-cmd2' 'snappy' 'systemd-libs' 'xfsprogs')
 
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
