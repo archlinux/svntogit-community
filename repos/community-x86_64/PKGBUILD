@@ -3,15 +3,15 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=1.30.0
-pkgrel=2
+pkgver=1.30.1
+pkgrel=1
 pkgdesc="Electron application that links with Signal on mobile"
 license=('GPL3')
 replaces=('signal-desktop-bin')
 arch=('x86_64')
 url="https://signal.org"
 depends=('electron' 'libvips')
-makedepends=('yarn' 'git' 'nodejs' 'npm' 'python' 'python2')
+makedepends=('yarn' 'git' 'nodejs' 'npm' 'python')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
   "${pkgname}.desktop"
@@ -21,12 +21,12 @@ source=(
   # See https://github.com/atom/node-spellchecker/issues/127
   "https://github.com/atom/node-spellchecker/archive/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"
 )
-sha512sums=('bc804a1fe3135418cc0b4e8a5db87f86a6f246f97fc0599911816c581cb129239c46f3be036be31cb90e2eea9d64276887a845329e474e443d119071b56606c9'
+sha512sums=('612a968e30571d4d3bf9d965a673ecc02bdd0a6def90b8f61a27e25160359862eb6f8fba854f82184e8cb707b04860a6c182951ab6b37f60d05fc374805ef639'
             'c5ec0bf524e527ecf94207ef6aa1f2671346e115ec15de6d063cde0960151813752a1814e003705fc1a99d4e2eae1b3ca4d03432a50790957186e240527cc361'
             '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
             '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2'
             '42f57802fa91dafb6dbfb5a3f613c4c07df65e97f8da84c9a54292c97a4d170f8455461aac8f6f7819d1ffbea4bf6c28488f8950056ba988776d060be3f107dd')
-b2sums=('39b94317f440e133d755956e2ebe4705653e13d9c7f0e66c0df676645d90ccd490ca584c14e532fc491a35da436b1b592a5cef819ae0b2715a51fb9947bdd9d4'
+b2sums=('92fd1c182f23db91bf9127fd4b0d0ef075c12d85cb885154b3888a82f3ef224a0a895fe472fb82cceb69a482d64be35c82c4546ca6a1d03a62eb2eef9617c5ac'
         'c0ceb5b903965727714b1848c818877f4b740c4734deafcfaf777046002a445d79cd4d86bbbf3d763dbda8e8d542b60605ae2ca43196ea76b089f2e808926dbc'
         '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
         'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289'
@@ -44,6 +44,12 @@ prepare() {
 
   # Allow higher Node versions
   sed 's#"node": "#&>=#' -i package.json
+
+  # Select node-gyp versions with python3 support
+  sed 's#"node-gyp": "5.0.3"#"node-gyp": "6.1.0"#' -i package.json
+  # https://github.com/sass/node-sass/pull/2841
+  # https://github.com/sass/node-sass/issues/2716
+  sed 's#"resolutions": {#"resolutions": {"node-sass/node-gyp": "^6.0.0",#' -i package.json
 
   yarn install
 
