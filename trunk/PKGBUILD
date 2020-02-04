@@ -6,7 +6,7 @@
 
 pkgname=python-scikit-build
 pkgver=0.10.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Improved build system generator for CPython C, C++, Cython and Fortran extensions"
 arch=('any')
 url="https://scikit-build.org"
