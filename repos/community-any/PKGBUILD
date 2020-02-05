@@ -2,14 +2,14 @@
 # Contributor: Aaron Schaefer <aaron@elasticdog.com>
 
 pkgname=(python-pexpect python2-pexpect)
-pkgver=4.7.0
-pkgrel=3
+pkgver=4.8.0
+pkgrel=1
 pkgdesc='For controlling and automating applications'
 arch=(any)
 url='https://pexpect.readthedocs.org/en/stable/'
 license=(MIT)
 makedepends=(git python python2)
-source=("git+https://github.com/pexpect/pexpect#tag=$pkgver")
+source=("git+https://github.com/pexpect/pexpect#commit=5eed1a31a2853a09b7367c59fbd1a4a0b53341df") # 4.8.0
 sha512sums=('SKIP')
 
 prepare() {
