@@ -8,7 +8,7 @@
 
 pkgbase=calibre
 pkgname=('calibre' 'calibre-common' 'calibre-python3')
-pkgver=4.9.1
+pkgver=4.10.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -16,7 +16,7 @@ url="https://calibre-ebook.com/"
 license=('GPL3')
 _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython'
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
-          'netifaces' 'unrardll' 'pillow' 'psutil' 'pygments' 'pyqt5' 'pyqtwebengine' 'regex')
+          'netifaces' 'unrardll' 'pillow' 'psutil' 'pychm' 'pygments' 'pyqt5' 'pyqtwebengine' 'regex')
 _py3_deps=("${_py_deps[@]}" 'zeroconf')
 depends=('chmlib' 'hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusbx'
          'libwmf' 'mathjax2' 'mtdev' 'optipng' 'podofo' 'qt5-svg' 'udisks2')
@@ -25,12 +25,15 @@ makedepends=("${_py_deps[@]/#/python2-}" "${_py3_deps[@]/#/python-}" 'qt5-x11ext
 checkdepends=('xorg-server-xvfb')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
+        "0001-De-vendor-pychm.patch"
         "calibre-alternatives.sh")
-sha256sums=('b5809e06921539b9e5f4d773c90b6f315711f09254f589d2b39eb67318e5ce06'
+sha256sums=('c3388ae60a1fbb3b2a6df04572eab1738b75d6eed044c2701c01eda151a65a47'
             'SKIP'
+            'f7b829aea1d33818808cbeeb9a295e18e49edf619a5bc89b8315c88f56ce4d25'
             '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3')
-b2sums=('5d703ca0c398b43cc26a54e0628d0fe938c6a5027a4fd0c9cac83944e5143eb08439bf79b2098182be7727eaa042748f17866788b02c7744178dce131f6b1d1e'
+b2sums=('80a8ee99d07b73bb770df54d57ad43d48407909822b0d1a101e3ece328935910e5197df531b0730faf0131eee2ae853c3606894fb46d438f7d0c00bc0fedd7e4'
         'SKIP'
+        'c35181c70084813772c4d593311b48b3e3bcc3b4e9e8ee58112b9beab2bbc0de1ee22aafc3d06cfd812f87a2e91292f7b7f1dc5f522c55440f415b6b265d5671'
         '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
@@ -48,6 +51,9 @@ prepare(){
     # needed for frozen builds + beautifulsoup4
     # see https://github.com/kovidgoyal/calibre/commit/b177f0a1096b4fdabd8772dd9edc66662a69e683#commitcomment-33169700
     rm -r src/backports
+    # devendor pychm now, from the py3 building branch:
+    # https://github.com/kovidgoyal/calibre/commit/959b7e3fafff5faad6ae59263f825b23c7563dd4
+    patch -p1 -i ../0001-De-vendor-pychm.patch
 
     cd resources
 
