@@ -3,16 +3,16 @@
 
 pkgname=python-argcomplete
 _pyname=argcomplete
-pkgver=1.10.0
-_gitcommit=9d6dd18ae402b606bbd7d0fea663971fc7e42e97
-pkgrel=3
+pkgver=1.11.1
+_gitcommit=ee975823f997367b74169ce98744bbe48c9ce573
+pkgrel=1
 pkgdesc='Easy, extensible command line tab completion of arguments for your Python script'
 url='https://github.com/kislyuk/argcomplete'
 arch=('any')
 license=('Apache')
 depends=('python')
 makedepends=('git' 'python-setuptools')
-checkdepends=('python-pexpect' 'tcsh' 'fish')
+checkdepends=('python-pexpect' 'tcsh' 'fish' 'python-pip')
 source=(${_pyname}::"git+https://github.com/kislyuk/${_pyname}#commit=${_gitcommit}?signed")
 sha512sums=('SKIP')
 validpgpkeys=('29BCBADB4ECAAAC2382699388AFAFCD242818A52') # Andrey Kislyuk <kislyuk@gmail.com>
