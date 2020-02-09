@@ -2,9 +2,9 @@
 
 pkgname=kodi-addon-audioencoder-wav
 epoch=1
-pkgver=2.0.2
+pkgver=2.0.3
 _codename=Leia
-pkgrel=2
+pkgrel=1
 pkgdesc="WAV Audio Encoder add-on for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/audioencoder.wav'
@@ -15,7 +15,7 @@ replaces=('kodi-audioencoder-wav')
 depends=('kodi')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/xbmc/audioencoder.wav/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('8e4de58bf6b7cc79c4bb24ed9f0906632f34a20c0a17010b4a5e32934d03414840b6a9d0db5b88975b5da2dd675cd743acb64288e2a3e338090f52df9fb228c9')
+sha512sums=('f6b444483808b9e75426cd8b3252c4b3ed57811d9f1433d851d3cd6b3168f376bdfa2311aa3797642450b955ff8d231e40c7c49ad03a5f2b1b3e0679ec3a8617')
 
 build() {
     cd "audioencoder.wav-$pkgver-$_codename"
