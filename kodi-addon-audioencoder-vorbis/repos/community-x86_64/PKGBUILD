@@ -2,9 +2,9 @@
 
 pkgname=kodi-addon-audioencoder-vorbis
 epoch=1
-pkgver=2.0.3
+pkgver=2.0.4
 _codename=Leia
-pkgrel=2
+pkgrel=1
 pkgdesc="Vorbis Audio Encoder add-on for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/audioencoder.vorbis'
@@ -15,7 +15,7 @@ replaces=('kodi-audioencoder-vorbis')
 depends=('kodi')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/xbmc/audioencoder.vorbis/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('9c68cb84ce2cc207b81b98306615425f85054f9e8ad731512a9844521145e1cdda936ede4a6302e0d0a76094aeacb4d60732b375ae1c85705d5528804d42eecc')
+sha512sums=('df618e078d1b0aa3f9b6cbca87288908058f4de13e52056d66239e9606c67a31a84734d8d650520920b8a9e0dfbd1c031aa81e2d1ece1316c11fbd59a6a8d8a2')
 
 build() {
     cd "audioencoder.vorbis-$pkgver-$_codename"
