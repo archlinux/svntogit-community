@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-tqdm
-pkgver=4.28.1
-pkgrel=4
+pkgver=4.30.0
+pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
 license=('MIT' 'MPL')
@@ -11,7 +11,7 @@ depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-nose' 'python-coverage' 'flake8')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tqdm/tqdm/archive/v$pkgver.tar.gz")
-sha512sums=('6bfccb83ede76a57fbad8e46bb0642a2db0f4bceedaed3428c7abb468a1f70bf4ac8097894416be9ab026877640db48953f40688ddcdf45ee52261bd3d61551b')
+sha512sums=('ce32c729438a3536d73a91d06185897dc66c18b6395c47b99a679b7325ac11d9dfbbf2bc9e2a7a22c4e5e8c3c80ae2c858d0ba35368c8ce22d3ca410d4c123e9')
 
 build() {
   cd "$srcdir"/tqdm-$pkgver
@@ -20,7 +20,8 @@ build() {
 
 check() {
   cd "$srcdir"/tqdm-$pkgver
-  python setup.py nosetests --ignore-files="tests_perf\.py"
+  python setup.py egg_info
+  PYTHONPATH="$PWD" nosetests --ignore-files="tests_perf\.py"
 }
 
 package() {
