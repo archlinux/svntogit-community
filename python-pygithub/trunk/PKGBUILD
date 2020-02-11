@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pygithub
-pkgver=1.45
+pkgver=1.46
 pkgrel=1
 pkgdesc="Use the full Github API v3"
 arch=('any')
@@ -11,7 +11,7 @@ depends=('python-pyjwt' 'python-requests' 'python-deprecated' 'python-six')
 makedepends=('python-setuptools')
 checkdepends=('python-cryptography' 'python-httpretty' 'python-parameterized')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/PyGithub/PyGithub/archive/v$pkgver.tar.gz")
-sha512sums=('24ff3c75f5578f5e0df59fa1a02511747857984d7bd4ae1b3d0a3b41a0eee79df9732d39ee5026978b70a71746826e92f27cc44b8362b6bd3e7dd4edb1654acd')
+sha512sums=('1c03920434491b279e1709550a658ff125c0d91390160b1de5e5fadf5cf5eeb722477fd913f47ec686cce052a8c34d916de753ea36fecb227d955e60d064a0b6')
 
 build() {
   cd PyGithub-$pkgver
