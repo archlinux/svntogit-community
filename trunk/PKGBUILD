@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pipreqs
-pkgver=0.4.8
+pkgver=0.4.10
 pkgrel=1
 pkgdesc="Pip requirements.txt generator based on imports in project"
 url="https://github.com/bndr/pipreqs"
@@ -10,7 +10,7 @@ arch=('any')
 depends=('python-docopt' 'python-yarg')
 makedepends=('python-setuptools')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/bndr/pipreqs/archive/v$pkgver.tar.gz")
-sha512sums=('6e89ec5a20e078c3b3be28c6157d1f795c73ce545e1436b64211e799177d56ab2d9382df44936210ffd1f626e5a5cbf6f7a0a3901bffc677f4c6b2b47b2ecd85')
+sha512sums=('031fb48122f4e63d4df6a773567e69d8cf0746cdc846b9166d5b5c52bfa18ee309666926a75d43eecbf89f11e6cdc97789c4fd7cd9e42e2c497e992b767e8f3b')
 
 build() {
   cd pipreqs-$pkgver
