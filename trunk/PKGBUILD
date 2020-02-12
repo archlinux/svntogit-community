@@ -28,7 +28,7 @@ package() {
   cd "$srcdir/$_pkgname-$pkgver"
 
   make PREFIX="$pkgdir"/usr NUM_THREADS=64 MAJOR_VERSION=3 install
-  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapacke*
+  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapack*
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
   cd "$pkgdir"/usr/lib/
