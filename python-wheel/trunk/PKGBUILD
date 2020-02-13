@@ -6,15 +6,15 @@ _pypiname=wheel
 pkgbase=python-wheel
 pkgname=('python-wheel' 'python2-wheel')
 pkgver=0.34.2
-pkgrel=1
+pkgrel=2
 pkgdesc="A built-package format for Python"
 arch=(any)
 url="https://pypi.python.org/pypi/wheel"
 license=('MIT')
 makedepends=('python' 'python-setuptools'
              'python2' 'python2-setuptools')
-checkdepends=('python-jsonschema' 'python2-jsonschema' 'python-pytest-cov' 'python2-pytest-cov'
-              'python-keyring' 'python-keyrings-alt' 'python-xdg' 'python2-xdg')
+checkdepends=('python-jsonschema' 'python-pytest-cov' 'python-keyring' 'python-keyrings-alt'
+              'python-xdg')
 source=("https://pypi.io/packages/source/w/wheel/$_pypiname-$pkgver.tar.gz")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
 sha512sums=('fcd02cf770382c26b5250aa48f60481ac868ff7e1b08245ed4616aaa7d6dc5e3280d9ab787c4d1690b11550de9f6160c0d31dd65b79554711ab5d02de479e1ab')
@@ -34,13 +34,9 @@ build() {
 check() {
   # Hack entry points by installing it
 
-  cd "$srcdir/wheel-$pkgver"
+  cd wheel-$pkgver
   python setup.py install --root="$PWD/tmp_install" --optimize=1
   PYTHONPATH="$PWD/tmp_install/usr/lib/python3.8/site-packages:$PYTHONPATH" py.test
-
-  cd "$srcdir/wheel-$pkgver-py2"
-  python2 setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python2.7/site-packages:$PYTHONPATH" py.test2 -k 'not test_keygen'
 }
 
 package_python-wheel() {
