@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-tqdm
-pkgver=4.32.0
+pkgver=4.33.0
 pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
@@ -11,7 +11,7 @@ depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-nose' 'python-coverage' 'flake8')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tqdm/tqdm/archive/v$pkgver.tar.gz")
-sha512sums=('85c3396207c5148f4c46b8c0b568cb214597959b2cd94e0c07923a0f1829c4eb67c86bf7f59b68b595d7a7b79f9fed1080a7708f77cea1df3bd5de3800ac4906')
+sha512sums=('3bbf67635b4e2d2705312404da33a51ee94e4af96c66744c661b761266ecee8d8b8e2c6e76afbd0ee71b3462f5b0e1709fe25c3e8245cb8da9313c491a9fd84f')
 
 build() {
   cd "$srcdir"/tqdm-$pkgver
