@@ -5,26 +5,23 @@
 pkgbase=python-pbr
 pkgname=(python-pbr python2-pbr)
 pkgver=5.4.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
 license=('Apache')
 makedepends=('python2-setuptools' 'python-setuptools' 'git')
-checkdepends=('python-stestr' 'python2-stestr' 'python-testscenarios' 'python2-testscenarios'
-              'python-testresources' 'python2-testresources' 'python-testrepository'
-              'python2-testrepository' 'python-mock' 'python2-mock'
-              'python-virtualenv' 'python2-virtualenv' 'python-wheel' 'python2-wheel'
-              'python-sphinx' 'python2-sphinx')
+checkdepends=('python-stestr' 'python-testscenarios' 'python-testresources' 'python-testrepository'
+              'python-mock' 'python-virtualenv' 'python-wheel' 'python-sphinx')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
 sha512sums=('0b7d74a16fe2e08f8e39c445c922dbd53fc47c339f6d07993344479aeb2bfae569c02fa819c84bcedcf99a0c098b71f18880ff2434dea8af58ae1b71ffe0ac26')
+
+export PBR_VERSION=$pkgver
 
 prepare() {
   cp -a pbr-$pkgver{,-py2}
 
   find pbr-$pkgver-py2 -name \*.py -exec sed -i '1s/python$/&2/' {} +
-
-  export PBR_VERSION=$pkgver
 }
 
 build() {
@@ -36,11 +33,8 @@ build() {
 }
 
 check() {
-  cd "$srcdir"/pbr-$pkgver
+  cd pbr-$pkgver
   stestr run
-
-  cd "$srcdir"/pbr-$pkgver-py2
-  PYTHON=python2 stestr2 run
 }
 
 package_python-pbr() {
@@ -57,6 +51,6 @@ package_python2-pbr() {
   cd pbr-$pkgver-py2
   python2 setup.py install -O1 --root="$pkgdir"
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-  
+
   mv "$pkgdir"/usr/bin/pbr{,2}
 }
