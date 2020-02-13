@@ -2,11 +2,11 @@
 
 pkgname=python-zipp
 pkgver=2.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
 license=('MIT')
-arch=('x86_64')
+arch=('any')
 depends=('python')
 makedepends=('python-setuptools-scm' 'python-toml')
 checkdepends=('python-jaraco')
