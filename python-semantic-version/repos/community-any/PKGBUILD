@@ -3,31 +3,30 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-semantic-version
-pkgver=2.6.0
-pkgrel=4
+pkgver=2.8.2
+pkgrel=1
 pkgdesc="A library implementing the 'SemVer' scheme."
-url="https://github.com/rbarrois/semantic-version"
+url="https://github.com/rbarrois/python-semanticversion"
 license=('BSD')
 arch=('any')
 depends=('python')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest') # 'python-django') Test hangs
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/rbarrois/python-semanticversion/archive/v$pkgver.tar.gz")
-sha512sums=('18db9279c2728565b13362c54bedbf569f0878cbe6bb58e631d87ffe7cff7d9131a30a2592cbf511091c03e854851159bbb298fe7469f53e8a2d92cf26ab4d0b')
+checkdepends=('python-pytest' 'python-django')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/rbarrois/python-semanticversion/archive/$pkgver.tar.gz")
+sha512sums=('d6d7b3eac904c5bb0f73e2c13addcc4c4176c442f8a2139c4b920ceaf4240dfb75a28be074ad36fda175650103412fff97c82a91ece37e864e3e0a1aa411acfb')
 
 build() {
-  cd "$srcdir"/python-semanticversion-$pkgver
+  cd python-semanticversion-$pkgver
   python setup.py build
 }
 
 check() {
-  cd "$srcdir"/python-semanticversion-$pkgver
-  rm tests/test_django.py
+  cd python-semanticversion-$pkgver
   py.test
 }
 
 package() {
   cd python-semanticversion-$pkgver
-  python3 setup.py install --root="$pkgdir" --optimize=1
+  python setup.py install --root="$pkgdir" --optimize=1
   install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
