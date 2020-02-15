@@ -11,7 +11,7 @@ url="https://gnuradio.org"
 license=('GPL')
 depends=('fftw' 'python-numpy' 'gsl' 'blas' 'boost-libs>=1.53'
     'libusbx' 'portaudio' 'libuhd' 'zeromq' 'libvolk' 'log4cpp' 'python-yaml'
-    'gmp' 'gsm' 'codec2' 'python-mako' 'python-click-plugins')
+    'gmp' 'gsm' 'codec2' 'python-mako' 'python-click-plugins' 'pango' 'gtk3')
 makedepends=('boost' 'cmake' 'python-lxml' 'glu' 'swig' 'python-gobject'
     'qwt' 'python-pyqt5' 'python-cairo')
 
