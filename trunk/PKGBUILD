@@ -15,8 +15,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.4
-pkgrel=3
+pkgver=5.5
+pkgrel=1
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
@@ -37,7 +37,7 @@ makedepends+=('ncurses')
 makedepends+=('python-docutils')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
+        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.4.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -46,7 +46,7 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
-            '78f08a9d16bc88f1478c560bd9a3a71be6e2af1bbd5f6ff60771fa1e14b74705'
+            'cf640d75bdf4211446aa699a562c7bbd6d0360c6bc11e9ca22e8032de14697db'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'd2e8e5e8b22c6089a91f573aa1c59e442a1f3b67a2c9f047abe3b57d3d6558cc'
             'fa2560630576464739ede14c9292249f4007f36a684bc378add174fc88394550'
@@ -63,22 +63,22 @@ prepare() {
   for filename in "${source[@]}"; do
     filename="${filename##*/}"
     if [[ "$filename" =~ \.patch$ ]]; then
-      msg2 "Applying patch $filename"
+      echo "Applying patch $filename"
       patch -p1 -N -i "$srcdir/$filename"
     elif [[ "$filename" =~ ^patch- ]]; then
-      msg2 "Applying linux $filename"
+      echo "Applying linux $filename"
       patch -p1 -N -i "$srcdir/${filename%.*}"
     fi
   done
 }
 
 build() {
-  msg2 'libtraceevent'
+  echo ':: libtraceevent'
   pushd linux/tools/lib/traceevent
   make
   popd
 
-  msg2 'perf'
+  echo ':: perf'
   pushd linux/tools/perf
   make -f Makefile.perf \
     prefix=/usr \
@@ -91,17 +91,17 @@ build() {
     DESTDIR="$pkgdir"
   popd
 
-  msg2 'cpupower'
+  echo ':: cpupower'
   pushd linux/tools/power/cpupower
   make VERSION=$pkgver-$pkgrel
   popd
 
-  msg2 'x86_energy_perf_policy'
+  echo ':: x86_energy_perf_policy'
   pushd linux/tools/power/x86/x86_energy_perf_policy
   make
   popd
 
-  msg2 'usbip'
+  echo ':: usbip'
   pushd linux/tools/usb/usbip
   # Fix gcc compilation
   sed -i 's,-Wall -Werror -Wextra,,' configure.ac
@@ -110,27 +110,27 @@ build() {
   make
   popd
 
-  msg2 'tmon'
+  echo ':: tmon'
   pushd linux/tools/thermal/tmon
   make
   popd
 
-  msg2 'cgroup_event_listener'
+  echo ':: cgroup_event_listener'
   pushd linux/tools/cgroup
   make
   popd
 
-  msg2 'turbostat'
+  echo ':: turbostat'
   pushd linux/tools/power/x86/turbostat
   make
   popd
 
-  msg2 'hv'
+  echo ':: hv'
   pushd linux/tools/hv
   CFLAGS+=' -DKVP_SCRIPTS_PATH=\"/usr/lib/hyperv/kvp_scripts/\"' make
   popd
 
-  msg2 'bpf'
+  echo ':: bpf'
   pushd linux/tools/bpf
   # doesn't compile when we don't first compile bpftool in its directory
   make -C bpftool all doc
