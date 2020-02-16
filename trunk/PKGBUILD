@@ -38,6 +38,7 @@ makedepends+=('python-docutils')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
         "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.4.xz"
+        "01-fix-perf-build-libbfd.patch::https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/patch/?id=0ada120c883d4f1f6aafd01cf0fbb10d8bbba015"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -47,6 +48,7 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
             'cf640d75bdf4211446aa699a562c7bbd6d0360c6bc11e9ca22e8032de14697db'
+            '61f5398b2adcf024516e3368f242d2398c9286a5272eaf7fdd21530e1494d47e'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'd2e8e5e8b22c6089a91f573aa1c59e442a1f3b67a2c9f047abe3b57d3d6558cc'
             'fa2560630576464739ede14c9292249f4007f36a684bc378add174fc88394550'
@@ -59,16 +61,14 @@ prepare() {
   cd linux
 
   # apply patch from the source array (should be a pacman feature)
-  local filename
-  for filename in "${source[@]}"; do
-    filename="${filename##*/}"
-    if [[ "$filename" =~ \.patch$ ]]; then
-      echo "Applying patch $filename"
-      patch -p1 -N -i "$srcdir/$filename"
-    elif [[ "$filename" =~ ^patch- ]]; then
-      echo "Applying linux $filename"
-      patch -p1 -N -i "$srcdir/${filename%.*}"
-    fi
+  local src
+  for src in "${source[@]}"; do
+    src="${src%%::*}"
+    src="${src##*/}"
+    src="${src%.xz}"
+    [[ $src = *.patch || $src = patch-* ]] || continue
+    echo ":: Applying patch $src"
+    patch -p1 -N -i "$srcdir/$src"
   done
 }
 
