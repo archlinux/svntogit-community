@@ -3,7 +3,7 @@
 
 pkgbase=python-setuptools-scm
 pkgname=(python-setuptools-scm python2-setuptools-scm)
-pkgver=3.4.2
+pkgver=3.4.3
 pkgrel=1
 pkgdesc="Handles managing your python package versions in scm metadata."
 arch=('any')
@@ -13,7 +13,7 @@ makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'mercurial' 'git' 'python-pip' 'python2-pip'
               'python-toml' 'python2-toml')
 source=("https://pypi.io/packages/source/s/setuptools_scm/setuptools_scm-$pkgver.tar.gz")
-sha512sums=('bdfe0e1d3952be9f55b9d7a00a8623f58fc3fb81d78baafd80cf0bec43dd89cc6df6de547012d3b4bfcdfc709895b6cc7534adb631990470a015eb1199a99bbf')
+sha512sums=('455344ac7dda5c0ac79bdb26bef020cafc116fe59b979601351c78d26806e6e610774979f74762c113926e8b022e7b58513f25010ef7b92e5104fc1b2d552d4e')
 
 prepare() {
   cp -a setuptools_scm-$pkgver{,-py2}
