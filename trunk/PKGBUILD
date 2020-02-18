@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=6.13.6
+pkgver=6.13.7
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -9,12 +9,12 @@ url='https://www.npmjs.com/'
 license=('custom:Artistic')
 depends=('nodejs' 'node-gyp' 'semver')
 # libgl: TODO
-# libvips: for sharp (doc build)
+# libvips: for sharp (doc build) (disabled as current version of gatsby imports a broken sharp)
 # libxi: for cwebp (doc build)
-makedepends=('libgl' 'libvips' 'libxi' 'marked' 'marked-man' 'procps-ng' 'python')
+makedepends=('libgl' 'libxi' 'marked' 'marked-man' 'procps-ng' 'python')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/cli/archive/v$pkgver.tar.gz")
-sha512sums=('962c3918c96191e87130a71c83c18ddb9b98a4d5bbe1ced6e13176d5a989db0dd1cefd9fadbe199b8232d602ac0186fc7e2509406db76474c6937f144e4d940c')
+sha512sums=('3abf11e50de3849afc7c11d2aa2e66dfe774586abbf50aae72dc23b9a9cb89675feef6aec65c9f7553d8e29e5ab2c0fc1b57906b50a8d987f9d67ac797b5ea54')
 
 prepare() {
   cd cli-$pkgver
