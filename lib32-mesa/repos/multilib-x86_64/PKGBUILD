@@ -5,7 +5,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgver=19.3.4
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
@@ -32,7 +32,7 @@ build() {
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
   
   arch-meson mesa-$pkgver build \
-	--native-file crossfile.ini \
+    --native-file crossfile.ini \
     --libdir=/usr/lib32 \
     -D b_lto=false \
     -D b_ndebug=true \
@@ -87,7 +87,7 @@ package_lib32-opencl-mesa() {
   pkgdesc="OpenCL support for AMD/ATI Radeon mesa drivers (32-bit)"
   depends=('lib32-expat' 'lib32-libdrm' 'lib32-libelf' 'lib32-clang')
   optdepends=('opencl-headers: headers necessary for OpenCL development')
-  provides=('opencl-driver')
+  provides=('lib32-opencl-driver')
 
   rm -rv fakeinstall/etc/OpenCL
   _install fakeinstall/usr/lib32/lib*OpenCL*
