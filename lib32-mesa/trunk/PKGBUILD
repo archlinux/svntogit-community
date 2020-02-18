@@ -3,20 +3,23 @@
 # Contributor: Andreas Radke <andyrtr@archlinux.org>
 
 pkgbase=lib32-mesa
-pkgname=('lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
+pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgver=19.3.4
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
-             'lib32-libva' 'lib32-wayland' 'wayland-protocols' 'lib32-libglvnd' 'lib32-lm_sensors' 'lib32-libxrandr' 'meson')
+             'lib32-libva' 'lib32-wayland' 'wayland-protocols' 'lib32-libglvnd' 'lib32-lm_sensors' 'lib32-libxrandr'
+             'clang' 'lib32-clang' 'libclc' 'meson')
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
-        LICENSE)
+        LICENSE
+        crossfile.ini)
 sha512sums=('2bbb3dc8f1d839f11fe12cc959393cd69607fa6714b2166b80299e0559d2d3b0ac38ed4e15ac3e5f472264eb24536d1901d350f7409f3a7e00d6f4ccbb2312fb'
             'SKIP'
-            'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
+            'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
+            'c7dbb390ebde291c517a854fcbe5166c24e95206f768cc9458ca896b2253aabd6df12a7becf831998721b2d622d0c02afdd8d519e77dea8e1d6807b35f0166fe')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
               '946D09B5E4C9845E63075FF1D961C596A7203456'  # Andres Gomez <tanty@igalia.com>
               'E3E8F480C52ADD73B278EE78E1ECBE07D7D70895'  # Juan Antonio Suárez Romero (Igalia, S.L.) <jasuarez@igalia.com>"
@@ -27,9 +30,9 @@ build() {
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
-  export LLVM_CONFIG="/usr/bin/llvm-config32"
   
   arch-meson mesa-$pkgver build \
+	--native-file crossfile.ini \
     --libdir=/usr/lib32 \
     -D b_lto=false \
     -D b_ndebug=true \
@@ -43,7 +46,7 @@ build() {
     -D gallium-extra-hud=true \
     -D gallium-nine=true \
     -D gallium-omx=disabled \
-    -D gallium-opencl=disabled \
+    -D gallium-opencl=icd \
     -D gallium-va=true \
     -D gallium-vdpau=true \
     -D gallium-xa=true \
@@ -78,6 +81,19 @@ _install() {
     install -m755 -d "${dir}"
     mv -v "${src}" "${dir}/"
   done
+}
+
+package_lib32-opencl-mesa() {
+  pkgdesc="OpenCL support for AMD/ATI Radeon mesa drivers (32-bit)"
+  depends=('lib32-expat' 'lib32-libdrm' 'lib32-libelf' 'lib32-clang')
+  optdepends=('opencl-headers: headers necessary for OpenCL development')
+  provides=('opencl-driver')
+
+  rm -rv fakeinstall/etc/OpenCL
+  _install fakeinstall/usr/lib32/lib*OpenCL*
+  _install fakeinstall/usr/lib32/gallium-pipe
+
+  install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
 }
 
 package_lib32-vulkan-intel() {
