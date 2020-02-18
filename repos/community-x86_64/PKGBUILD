@@ -1,8 +1,8 @@
 # Maintainer: Antoine Damhet <antoine.damhet@lse.epita.fr>
 
 pkgname=brightnessctl
-pkgver=0.4
-pkgrel=3
+pkgver=0.5.1
+pkgrel=1
 pkgdesc="Lightweight brightness control tool"
 arch=('x86_64')
 url='https://github.com/Hummer12007/brightnessctl'
@@ -10,7 +10,7 @@ license=('MIT')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/Hummer12007/brightnessctl/archive/${pkgver}.tar.gz"
 )
-sha512sums=('f0e1abe4dd7fc66a7990c0c42ecd9af079ba397fb0a49d339c5927fe639edbce4c30ecfcd16c3e0bf58de2eb4ca611dd1e1ce40eec9f95fe3960189c5e5396d8')
+sha512sums=('41ac86357b3b5a3d54a043140a6bdb1fb68d5080a16e86692059ad58f4b9134a8532432a3f664c70c665a4ad73ea8a94cc9b88fa84abc28f0356b8b397aaebc7')
 install='brightnessctl.install'
 
 build() {
