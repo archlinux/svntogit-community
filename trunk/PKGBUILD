@@ -4,19 +4,19 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=19.3.4
-pkgrel=3
+pkgver=20.0.0
+pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
              'lib32-libva' 'lib32-wayland' 'wayland-protocols' 'lib32-libglvnd' 'lib32-lm_sensors' 'lib32-libxrandr'
-             'clang' 'lib32-clang' 'libclc' 'meson')
+             'clang' 'lib32-clang' 'libclc' 'lib32-zstd' 'meson')
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE
         crossfile.ini)
-sha512sums=('2bbb3dc8f1d839f11fe12cc959393cd69607fa6714b2166b80299e0559d2d3b0ac38ed4e15ac3e5f472264eb24536d1901d350f7409f3a7e00d6f4ccbb2312fb'
+sha512sums=('3968820029434682fb6644947c76e12b6bb991a3d05cb519a6ea971ecc4aa9b21d03f84b9a452cc21cc77a7981db9e40dd2dfd3ea3dee85b3dd88a59b4842bbb'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
             'c7dbb390ebde291c517a854fcbe5166c24e95206f768cc9458ca896b2253aabd6df12a7becf831998721b2d622d0c02afdd8d519e77dea8e1d6807b35f0166fe')
@@ -85,7 +85,7 @@ _install() {
 
 package_lib32-opencl-mesa() {
   pkgdesc="OpenCL support for AMD/ATI Radeon mesa drivers (32-bit)"
-  depends=('lib32-expat' 'lib32-libdrm' 'lib32-libelf' 'lib32-clang')
+  depends=('lib32-expat' 'lib32-libdrm' 'lib32-libelf' 'lib32-clang' 'lib32-zstd')
   optdepends=('opencl-headers: headers necessary for OpenCL development')
   provides=('lib32-opencl-driver')
 
@@ -98,7 +98,7 @@ package_lib32-opencl-mesa() {
 
 package_lib32-vulkan-intel() {
   pkgdesc="Intel's Vulkan mesa driver (32-bit)"
-  depends=('lib32-wayland' 'lib32-libx11' 'lib32-libdrm' 'lib32-libxshmfence')
+  depends=('lib32-wayland' 'lib32-libx11' 'lib32-libdrm' 'lib32-libxshmfence' 'lib32-zstd')
   provides=('lib32-vulkan-driver')
 
   _install fakeinstall/usr/share/vulkan/icd.d/intel_icd*.json
@@ -109,7 +109,8 @@ package_lib32-vulkan-intel() {
 
 package_lib32-vulkan-radeon() {
   pkgdesc="Radeon's Vulkan mesa driver (32-bit)"
-  depends=('lib32-wayland' 'lib32-libx11' 'lib32-llvm-libs' 'lib32-libdrm' 'lib32-libelf' 'lib32-libxshmfence')
+  depends=('lib32-wayland' 'lib32-libx11' 'lib32-llvm-libs' 'lib32-libdrm' 'lib32-libelf' 
+           'lib32-libxshmfence' 'lib32-zstd')
   provides=('lib32-vulkan-driver')
 
   _install fakeinstall/usr/share/vulkan/icd.d/radeon_icd*.json
@@ -120,7 +121,8 @@ package_lib32-vulkan-radeon() {
 
 package_lib32-libva-mesa-driver() {
   pkgdesc="VA-API implementation for gallium (32-bit)"
-  depends=('lib32-libdrm' 'lib32-libx11' 'lib32-expat' 'lib32-llvm-libs' 'lib32-libelf' 'lib32-libxshmfence')
+  depends=('lib32-libdrm' 'lib32-libx11' 'lib32-expat' 'lib32-llvm-libs' 'lib32-libelf'
+           'lib32-zstd' 'lib32-libxshmfence')
 
   _install fakeinstall/usr/lib32/dri/*_drv_video.so
    
@@ -129,7 +131,8 @@ package_lib32-libva-mesa-driver() {
 
 package_lib32-mesa-vdpau() {
   pkgdesc="Mesa VDPAU drivers (32-bit)"
-  depends=('lib32-libdrm' 'lib32-libx11' 'lib32-expat' 'lib32-llvm-libs' 'lib32-libelf' 'lib32-libxshmfence')
+  depends=('lib32-libdrm' 'lib32-libx11' 'lib32-expat' 'lib32-llvm-libs' 'lib32-libelf'
+           'lib32-zstd' 'lib32-libxshmfence')
 
   _install fakeinstall/usr/lib32/vdpau
    
@@ -139,7 +142,7 @@ package_lib32-mesa-vdpau() {
 package_lib32-mesa() {
   pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
   depends=('lib32-libdrm' 'lib32-libxxf86vm' 'lib32-libxdamage' 'lib32-libxshmfence' 'lib32-lm_sensors'
-           'lib32-libelf' 'lib32-llvm-libs' 'lib32-wayland' 'lib32-libglvnd' 'mesa')
+           'lib32-libelf' 'lib32-llvm-libs' 'lib32-wayland' 'lib32-libglvnd' 'lib32-zstd' 'mesa')
   optdepends=('opengl-man-pages: for the OpenGL API man pages'
               'lib32-mesa-vdpau: for accelerated video playback')
   provides=('lib32-mesa-libgl' 'lib32-opengl-driver')
