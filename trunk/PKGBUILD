@@ -2,8 +2,8 @@
 
 _name=sphinxcontrib-htmlhelp
 pkgname=python-sphinxcontrib-htmlhelp
-pkgver=1.0.2
-pkgrel=4
+pkgver=1.0.3
+pkgrel=1
 pkgdesc='Sphinx extension which renders HTML help files'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-htmlhelp
@@ -11,12 +11,7 @@ license=('BSD')
 makedepends=('python-setuptools')
 checkdepends=('python-html5lib' 'python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('4670f99f8951bd78cd4ad2ab962f798f5618b17675c35c5ac3b2132a14ea8422')
-
-prepare() {
-  cd $_name-$pkgver
-  rm -r tests/__pycache__
-}
+sha256sums=('e8f5bb7e31b2dbb25b9cc435c8ab7a79787ebf7f906155729338f3156d93659b')
 
 build() {
   cd $_name-$pkgver
