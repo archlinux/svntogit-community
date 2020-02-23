@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=snap-server
+pkgname=haskell-snap-server
+pkgver=1.1.1.1
+pkgrel=130
+pkgdesc="A web server for the Snap Framework"
+url="https://github.com/snapframework/snap-server"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-attoparsec' 'haskell-blaze-builder' 'haskell-case-insensitive'
+         'haskell-clock' 'haskell-io-streams' 'haskell-io-streams-haproxy' 'haskell-lifted-base'
+         'haskell-network' 'haskell-old-locale' 'haskell-snap-core' 'haskell-unix-compat'
+         'haskell-vector')
+makedepends=('ghc')
+checkdepends=('haskell-base16-bytestring' 'haskell-monad-control' 'haskell-random'
+              'haskell-threads' 'haskell-hunit' 'haskell-quickcheck' 'haskell-http-streams'
+              'haskell-http-common' 'haskell-parallel' 'haskell-test-framework'
+              'haskell-test-framework-hunit' 'haskell-test-framework-quickcheck2')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('ed39f3ab22880b4651173c5942b10d17d8b3ecf734bd3e3c1724e8fe90303a41fb69543bf4e4868416bf596db34584c17065d960d07f0247364aca8a6f20bab1')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i -e '/bytestring-builder/d' -e 's/< *0.8/<1/' -e 's/< *4/<5/' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    if (( CHECKFUNC )); then
+        _opts=('--enable-tests')
+    else
+        _opts=('--disable-tests')
+    fi
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname "${_opts[@]}" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
