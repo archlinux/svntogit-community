@@ -1,7 +1,7 @@
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
 
 pkgname=tribler
-pkgver=7.4.3
+pkgver=7.4.4
 pkgrel=1
 pkgdesc='Privacy enhanced BitTorrent client with P2P content discovery'
 url='https://www.tribler.org'
@@ -14,7 +14,7 @@ depends=('python-pyqt5' 'python-aiohttp' 'python-aiohttp-apispec' 'libtorrent-ra
 makedepends=('python-setuptools' 'git')
 #checkdepends=('python-pytest-runner')
 source=("https://github.com/Tribler/tribler/releases/download/v$pkgver/Tribler-v$pkgver.tar.xz")
-sha512sums=('935a85ec364acd491869d5cc344169671ab8293eea56330841828fc523a709ec2b303a0feb0821fc59cba73260ba778a5363c9c1f3efffa587b07b8f8309b119')
+sha512sums=('931dff82bb7f83de8d5b63ab8a712cf371a7361a75e8bbb7c490d8b56aa55d1586586ae6e14f28c3c8ad5daf938eb2bbc05b67f74bcc9a3a23e38f8fc909d722')
 
 prepare() {
   cd $pkgname
