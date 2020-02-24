@@ -3,61 +3,72 @@
 
 pkgname=cppcheck
 pkgver=1.90
-pkgrel=1
+pkgrel=2
 pkgdesc="A tool for static C/C++ code analysis"
 arch=('x86_64')
 url="http://cppcheck.sourceforge.net/"
 license=('GPL')
-depends=('python-pygments')
-makedepends=('docbook-xsl' 'qt5-tools' 'qt5-base' 'python')
-optdepends=('qt5-base: run cppcheck-gui')
+depends=('python-pygments' 'tinyxml2')
+makedepends=('docbook-xsl' 'qt5-tools' 'qt5-base' 'python' 'pandoc' 'cmake')
+optdepends=('qt5-base: run cppcheck-gui'
+            'python-pygments: cppcheck-htmlreport')
 source=($pkgname-$pkgver.tar.gz::https://github.com/danmar/cppcheck/archive/${pkgver}.tar.gz
-        translations-location.patch)
+        translations-location.patch cppcheck-1.90-tinyxml.patch)
 sha1sums=('852d69a60b6caf023a3420943ebdc29e99fd0349'
-          '03b0888438cf92ccdcbf307dbc3c35e65c91b844')
+          '03b0888438cf92ccdcbf307dbc3c35e65c91b844'
+          '12d885e1b0a0a899faa190182a9ad5a8e53476a5')
 
 prepare() {
    cd "${pkgname}-${pkgver}"
    patch -Np1 -i $srcdir/translations-location.patch
+   patch -Np1 -i $srcdir/cppcheck-1.90-tinyxml.patch
+
+   # Make sure bundled tinyxml is not used
+   rm -r externals/tinyxml
+
+   mkdir build
+}
+
+check() {
+   cd "${pkgname}-${pkgver}/build/bin"
+   ./testrunner -g -q
 }
 
 build() {
    cd "${pkgname}-${pkgver}"
    export CXXFLAGS+=" -DNDEBUG"
-   # Unicode fix
-   LANG='en_US.UTF-8' make SRCDIR=build CFGDIR=/usr/share/cppcheck/cfg HAVE_RULES=yes USE_MATCHCOMPILER=yes
 
-   make DB2MAN=/usr/share/xml/docbook/xsl-stylesheets-1.79.2/manpages/docbook.xsl CFGDIR=/usr/share/cppcheck/cfg man
+   # Manuals
+   xsversion=$(pacman -Qi docbook-xsl | grep ^Version | sed -e 's/.*: //' -e 's/-[0-9]$//')
+   make DB2MAN=/usr/share/xml/docbook/xsl-stylesheets-${xsversion}-nons/manpages/docbook.xsl man
+   pandoc man/manual.md -o man/manual.html -s --number-sections --toc
+   pandoc man/reference-cfg-format.md -o man/reference-cfg-format.html -s --number-sections --toc
 
-   cd gui
-   lrelease gui.pro
-   qmake HAVE_RULES=yes
-   make CFGDIR=/usr/share/cppcheck/cfg USE_MATCHCOMPILER=yes HAVE_RULES=yes SRCDIR=build
+   cd build
+   cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+         -DUSE_MATCHCOMPILER=yes -DHAVE_RULES=yes \
+         -DBUILD_GUI=yes -DBUILD_SHARED_LIBS:BOOL=OFF \
+         -DBUILD_TESTS=yes -DFILESDIR=/usr/share/cppcheck \
+         ..
+
+   make cppcheck
 }
 
 check() {
-   cd "${pkgname}-${pkgver}"
-
-   #LANG='en_US.UTF-8' make SRCDIR=build CFGDIR=/usr/share/cppcheck/cfg HAVE_RULES=yes test
+   cd "${pkgname}-${pkgver}/build/bin"
+#./testrunner -g -q
 }
 
 package() {
-   cd "${pkgname}-${pkgver}"
-  LANG='en_US.UTF-8' make DESTDIR="${pkgdir}" \
-                          FILESDIR=/usr/share/cppcheck \
-                          CFGDIR=/usr/share/cppcheck/cfg \
-                          USE_MATCHCOMPILER=yes HAVE_RULES=yes install
+   cd "${pkgname}-${pkgver}/build"
+   make DESTDIR="${pkgdir}" install
+
+   cd ..
 
    install -D -p -m 644 cppcheck.1 "${pkgdir}"/usr/share/man/man1/cppcheck.1
+   install -D -p -m 755 htmlreport/cppcheck-htmlreport "${pkgdir}"/usr/bin/cppcheck-htmlreport
 
-   # GUI
-   install -m755 gui/cppcheck-gui "${pkgdir}"/usr/bin
-   install -d "${pkgdir}/usr/share/applications/"
-   install -m644 gui/cppcheck-gui.desktop "${pkgdir}/usr/share/applications/"
-
-   install -d "${pkgdir}"/usr/share/cppcheck/cfg
-   install -D ./cfg/* -t "${pkgdir}"/usr/share/cppcheck/cfg
-
+   # Fix location of language files
    install -d "${pkgdir}"/usr/share/cppcheck/cfg/lang
-   install -D gui/*.qm -t "${pkgdir}"/usr/share/cppcheck/cfg/lang/
+   mv "${pkgdir}"/usr/bin/cppcheck_*.qm "${pkgdir}"/usr/share/cppcheck/cfg/lang/
 }
