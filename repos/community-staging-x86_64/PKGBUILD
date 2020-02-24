@@ -1,0 +1,50 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=bz2
+pkgname=haskell-bz2
+pkgver=1.0.0.2
+pkgrel=7
+pkgdesc="Bindings to libbz2"
+url="https://hub.darcs.net/vmchale/bz2"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'bzip2')
+makedepends=('ghc' 'c2hs' 'haskell-tasty' 'haskell-tasty-golden' 'haskell-tasty-hunit')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('7963cbc3befb40490099ff37ecebd8b5fbd657f3bf81b6cb76ac6eed3c8dc46ca35a72bf50567a6964345d6e2be5e4063d8ac4c3db05c99a1bb205779a742b36')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+
+    # Use system libbz2
+    sed -i -e '/cbits/d' -e '/c-sources/d' -e '/hs-source-dirs/i \    extra-libraries: bz2' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
