@@ -3,8 +3,8 @@
 
 pkgbase=python-msgpack
 pkgname=('python-msgpack' 'python2-msgpack')
-pkgver=0.6.2
-pkgrel=3
+pkgver=1.0.0
+pkgrel=1
 
 url='https://github.com/msgpack/msgpack-python'
 arch=('x86_64')
@@ -15,7 +15,7 @@ checkdepends=('python-pytest' 'python2-pytest' 'python-six' 'python2-six')
 
 source=(msgpack-python-$pkgver.tar.gz::https://github.com/msgpack/msgpack-python/archive/v$pkgver.tar.gz)
 
-md5sums=('e751675f8e18625bf1d2ec391dd9e8fd')
+md5sums=('f1a8989fb993ef8e24144f2f1b39d915')
 
 build() {
   cd msgpack-python-$pkgver
