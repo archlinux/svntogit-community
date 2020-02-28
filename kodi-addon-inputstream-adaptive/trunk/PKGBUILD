@@ -3,9 +3,9 @@
 # Contributor: kevku <kevku@gmx.com>
 
 pkgname=kodi-addon-inputstream-adaptive
-pkgver=2.4.2
+pkgver=2.4.3
 _codename=Leia
-pkgrel=4
+pkgrel=1
 pkgdesc="InputStream client for adaptive streams for Kodi 18+"
 arch=('x86_64')
 url="https://github.com/peak3d/inputstream.adaptive"
@@ -14,7 +14,7 @@ groups=('kodi-addons' 'kodi-addons-inputstream')
 depends=('kodi' 'kodi-platform')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/peak3d/inputstream.adaptive/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('218be820b4e7f05d9a3ffd330db785997afe225a994ed4187a1aaa13b28189453d4a82e3553210613aa644f9f98b30bfc7bc048a1ad9674521053ef21e2e26e0')
+sha512sums=('832e8501294cd8abb253eb05e22525476517252c9b3012a4b86973f9ea79e31f21be4f9967ba3c7c29da157cae72eb4dd7481ea95f5a9ab9f96cf994c36198f1')
 
 build() {
     cd "inputstream.adaptive-$pkgver-$_codename"
