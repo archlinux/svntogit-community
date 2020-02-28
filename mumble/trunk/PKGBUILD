@@ -6,15 +6,14 @@
 
 pkgname=mumble
 pkgver=1.3.0
-pkgrel=5
+pkgrel=6
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
-depends=('alsa-lib' 'avahi' 'desktop-file-utils' 'gcc-libs' 'glibc'
-'hicolor-icon-theme' 'libprotobuf.so' 'libpulse' 'libsndfile' 'libspeechd'
-'libx11' 'libxi' 'lsb-release' 'openssl' 'opus' 'qt5-base' 'qt5-svg' 'speex'
-'xdg-utils')
-makedepends=(boost mesa python qt5-tools)
+depends=('gcc-libs' 'glibc' 'hicolor-icon-theme' 'libspeechd' 'libx11' 'libxi'
+'lsb-release' 'openssl' 'opus' 'qt5-base' 'qt5-svg' 'speex' 'xdg-utils')
+makedepends=('alsa-lib' 'avahi' 'boost' 'jack' 'libpulse' 'libsndfile' 'mesa'
+'protobuf' 'python' 'qt5-tools')
 optdepends=('speech-dispatcher: Text-to-speech support'
             'espeak-ng: Text-to-speech support')
 url="https://www.mumble.info/"
@@ -25,7 +24,6 @@ validpgpkeys=('56D0B23AE00B1EE9A8BAAC0F5B8CF87BB893449B') # Mumble Automatic Bui
 
 build() {
   cd "$pkgname-$pkgver"
-
   qmake-qt5 main.pro \
     CONFIG+="no-bundled-opus no-bundled-speex no-g15 no-xevie no-server \
     no-embed-qt-translations no-update packaged" \
@@ -35,14 +33,14 @@ build() {
 }
 
 package() {
+  depends+=('libasound.so' 'libdns_sd.so' 'libjack.so' 'libprotobuf.so'
+  'libpulse.so' 'libsndfile.so')
   cd "$pkgname-$pkgver"
-
   # mumble has no install target: https://github.com/mumble-voip/mumble/issues/1029
-  # bin stuff
+  # binaries and scripts
   install -vDm 755 release/mumble -t "$pkgdir/usr/bin"
   install -vDm 755 scripts/mumble-overlay -t "$pkgdir/usr/bin/"
-
-  # lib stuff
+  # (vendored) libs
   install -vdm 755 "$pkgdir/usr/lib/mumble/"
   local _lib
   for _lib in release/*.so*; do
@@ -53,11 +51,13 @@ package() {
     fi
   done
   install -vDm 755 release/plugins/*.so -t "$pkgdir/usr/lib/mumble/"
-
-  # other stuff
+  # XDG desktop integration
   install -vDm 644 scripts/mumble.desktop -t "$pkgdir/usr/share/applications"
+  # man page
   install -vDm 644 "man/${pkgname}"*.1 -t "$pkgdir/usr/share/man/man1/"
+  # XDG desktop icons
   install -vDm 644 icons/mumble.svg -t "$pkgdir/usr/share/icons/hicolor/scalable/apps/"
+  # license
   install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
 # vim: sw=2:ts=2 et:
