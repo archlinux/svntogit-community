@@ -3,7 +3,7 @@
 
 pkgname=runc
 pkgver=1.0.0rc10
-pkgrel=1
+pkgrel=2
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
 url='https://runc.io/'
