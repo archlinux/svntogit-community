@@ -2,8 +2,8 @@
 
 _name=sphinxcontrib-applehelp
 pkgname=python-sphinxcontrib-applehelp
-pkgver=1.0.1
-pkgrel=4
+pkgver=1.0.2
+pkgrel=1
 pkgdesc='Sphinx extension which outputs Apple help books'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-applehelp
@@ -11,7 +11,7 @@ license=('BSD')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('edaa0ab2b2bc74403149cb0209d6775c96de797dfd5b5e2a71981309efab3897')
+sha256sums=('a072735ec80e7675e3f432fcae8610ecf509c5f1869d17e2eecff44389cdbc58')
 
 build() {
   cd $_name-$pkgver
