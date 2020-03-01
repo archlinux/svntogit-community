@@ -2,8 +2,8 @@
 
 _name=sphinxcontrib-devhelp
 pkgname=python-sphinxcontrib-devhelp
-pkgver=1.0.1
-pkgrel=4
+pkgver=1.0.2
+pkgrel=1
 pkgdesc='Sphinx extension which outputs Devhelp document'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-devhelp
@@ -11,7 +11,7 @@ license=('BSD')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('6c64b077937330a9128a4da74586e8c2130262f014689b4b89e2d08ee7294a34')
+sha256sums=('ff7f1afa7b9642e7060379360a67e9c41e8f3121f2ce9164266f61b9f4b338e4')
 
 build() {
   cd $_name-$pkgver
