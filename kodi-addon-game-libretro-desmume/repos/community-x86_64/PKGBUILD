@@ -3,7 +3,7 @@
 pkgname=kodi-addon-game-libretro-desmume
 pkgver=0.0.1.4
 _codename=Leia
-pkgrel=1
+pkgrel=2
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro.desmume'
