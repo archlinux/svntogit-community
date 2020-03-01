@@ -3,7 +3,7 @@
 pkgname=kodi-addon-visualization-projectm
 epoch=1
 pkgver=2.2.0
-pkgrel=10
+pkgrel=11
 pkgdesc="ProjectM visualizer for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/visualization.projectm'
