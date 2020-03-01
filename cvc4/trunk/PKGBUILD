@@ -2,32 +2,54 @@
 # Contributor: Philipp Sieweck
 
 pkgname=cvc4
-pkgver=1.6
-pkgrel=2
+pkgver=1.7
+pkgrel=1
 pkgdesc="An automatic theorem prover"
 arch=('x86_64')
-url="https://cvc4.cs.stanford.edu/web/"
+url="https://cvc4.github.io/"
 depends=('boost' 'libantlr3c' 'cln')
-makedepends=('python')
+makedepends=('python' 'cmake' 'java-runtime')
 optdepends=('readline: for an improved interaction support')
 license=('GPL' 'BSD' 'MIT' 'custom:HPND')
-source=("https://cvc4.cs.stanford.edu/downloads/builds/src/cvc4-$pkgver.tar.gz" cvc4-gcc7.patch)
-sha512sums=('0887b3f74a4b9e51e634591c7cf39d730110ca5d930149bab4816a49e383eeea8ccadf8474d22f5529cc03ddd045acacf8a2b92434b882adf352f4de4075fcd4'
-            '5b05fff54c1f610b4e1d9884812980529512a0656da66cf5f67a407eaf28e10da59fd06e9b34ee0200751a2e796df37e37df9dda406cc3a5ceaaf518c357a5d7')
+source=("https://github.com/CVC4/CVC4/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        "https://www.antlr3.org/download/antlr-3.4-complete.jar"
+        cvc4-fix-headers.patch
+        cvc4-gcc7.patch)
+noextract=('antlr-3.4-complete.jar')
+sha512sums=('b91dfac7ddf979a3474f562eb98f2d6f17a53efa38c1be5502429309a0c059e1f2b0d85ee95e5aee17d35f34c825f01f879ec4aaf26025b1fcac835c33a867c6'
+            '04be4dfba3a21f3ab9d9e439a64958bd8e844a9f151b798383bd9e0dd6ebc416783ae7cb1d1dbb27fb7288ab9756b13b8338cdb8ceb41a10949c852ad45ab1f2'
+            'f6a60c2b95c348f7e8abffc79befef0910ff962143b0b5f89f9b3c9798fff575a9bfc71ae8271c9e56e2f5e400539879b440df23aef7c23664eaec9cd5d6fe10'
+            'ff5d60141f97394b625c336614afa5a6429d775bed12e277ad1bc64b84f865a958fb075185fb9726ea8ca443b55aedb1a8d114840f016ed8e639dbcf77aa3783')
 
 prepare() {
-  cd $pkgname-$pkgver
-  patch -p1 -i ../cvc4-gcc7.patch # Fix build with GCC 7
+  cd "$srcdir/CVC4-$pkgver"
+
+  patch -p1 -i ../cvc4-fix-headers.patch
+  patch -p1 -i ../cvc4-gcc7.patch
+
+  mkdir -p antlr-3.4/bin
+  tee antlr-3.4/bin/antlr3 <<EOF
+#!/bin/bash
+export CLASSPATH=$srcdir/antlr-3.4-complete.jar:\$CLASSPATH
+exec java org.antlr.Tool "\$@"
+EOF
+  chmod a+x antlr-3.4/bin/antlr3
 }
 
 build() {
-  cd $pkgname-$pkgver
-  ./configure --prefix=/usr --disable-doxygen-doc --with-cln --enable-gpl
+  cd "$srcdir/CVC4-$pkgver"
+  ./configure.sh --prefix=/usr --cln --gpl
+  cd build
   make
 }
 
+check() {
+  cd "$srcdir/CVC4-$pkgver/build"
+  make check
+}
+
 package() {
-  cd $pkgname-$pkgver
-  make prefix="$pkgdir"/usr install
-  install -Dm644 COPYING "$pkgdir"/usr/share/licenses/cvc4/LICENSE
+  cd "$srcdir/CVC4-$pkgver/build"
+  make DESTDIR="$pkgdir/" install
+  install -Dm644 "$srcdir/CVC4-$pkgver/COPYING" "$pkgdir"/usr/share/licenses/cvc4/LICENSE
 }
