@@ -2,18 +2,18 @@
 
 pkgname=kodi-addon-screensaver-pingpong
 epoch=1
-pkgver=2.1.1
+pkgver=2.1.2
 _codename=Leia
-pkgrel=11
+pkgrel=2
 pkgdesc="Ping-pong screensaver for Kodi"
 arch=('x86_64')
 url='https://github.com/xbmc/screensaver.pingpong'
 license=('GPL')
 groups=('kodi-addons' 'kodi-addons-screensaver')
-depends=('kodi')
+depends=('kodi' 'glm')
 makedepends=('git' 'cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/xbmc/screensaver.pingpong/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('388b5c2980c6001650b0147e21cf7d3baacc78f1d94b82b1f96b12a5ea5c420808a70500779b707138efea0c1c7cfea12c179b60d5f76eaf7f821d48e03e0d53')
+sha512sums=('d7a1b316920a4ecea88462c6ade886f8bebf35d4b2be7108eca8fc929838c01b02a1f7cc1dce5ce89f677e84cea7cdd7eb259cc23fb70b6760bf2eb57d6a9e5d')
 
 build() {
     cd "screensaver.pingpong-$pkgver-$_codename"
