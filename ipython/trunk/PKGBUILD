@@ -5,7 +5,7 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=7.12.0
+pkgver=7.13.0
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
@@ -13,35 +13,24 @@ url="https://ipython.org"
 license=('BSD')
 depends=('python' 'python-traitlets' 'python-pexpect' 'sqlite'
          'python-setuptools' 'python-pickleshare' 'python-prompt_toolkit'
-         'python-jedi' 'python-pygments')
-makedepends=('python-setuptools')
+         'python-jedi' 'python-pygments' 'python-backcall')
 optdepends=("python-nose: for IPython's test suite")
 
 # new optional thing: ipyparallel
 
 source=("ipython-$pkgver.tgz::https://github.com/ipython/ipython/archive/$pkgver.tar.gz"
-        "https://files.pythonhosted.org/packages/source/b/backcall/backcall-0.1.0.tar.gz"
         "https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-md5sums=('7254316356c009f9dd0230be5fa4636d'
-         '87ce0c7839808e6a3427d57df6a792e7'
+md5sums=('e9293fd44bfcec40c57d882b5c73d2c5'
          '2901d65f1b1fe354e72850085cd1c072')
 
 # confirm that an update does not break sage?
 
 package() {
-  cd "$srcdir/ipython-$pkgver"
-
-  # see https://github.com/ipython/ipython/issues/2057
-  #export LC_ALL=en_US.UTF-8
-  python3 setup.py install --prefix=/usr --root="$pkgdir" --optimize=0
-
-  cd "$srcdir/backcall-0.1.0"
-  python3 setup.py install --prefix=/usr --root="$pkgdir" --optimize=0
-
-  cd "$srcdir/ipython-$pkgver"
+  cd "ipython-$pkgver"
+  python3 setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
   install -Dm644 docs/source/about/license_and_copyright.rst "$pkgdir/usr/share/licenses/ipython/LICENSE"
 
-  cd "$srcdir/ipython-$pkgver/examples/IPython Kernel/"
+  cd "examples/IPython Kernel"
   # FS#45120
   sed -i 's/gnome-netstatus-idle/ipython/' *.desktop
   install -Dm644 ipython.desktop "$pkgdir/usr/share/applications/ipython.desktop"
