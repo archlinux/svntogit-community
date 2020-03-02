@@ -1,8 +1,7 @@
 # Maintainer: Johannes Löthberg <johannes@kyriasis.com>
 # Contributor: Sébastien "Seblu" Luttringer
 
-pkgbase=python-msgpack
-pkgname=('python-msgpack' 'python2-msgpack')
+pkgname=python-msgpack
 pkgver=1.0.0
 pkgrel=1
 
@@ -10,43 +9,30 @@ url='https://github.com/msgpack/msgpack-python'
 arch=('x86_64')
 license=('Apache')
 
-makedepends=('cython' 'cython2' 'python-setuptools' 'python2-setuptools')
-checkdepends=('python-pytest' 'python2-pytest' 'python-six' 'python2-six')
+makedepends=('cython' 'cython2' 'python-setuptools')
+checkdepends=('python-pytest' 'python-six')
 
 source=(msgpack-python-$pkgver.tar.gz::https://github.com/msgpack/msgpack-python/archive/v$pkgver.tar.gz)
 
-md5sums=('f1a8989fb993ef8e24144f2f1b39d915')
+sha512sums=('ef392d9084ff9a86cc69514982f10d9c39494a9d2c56cd1904b75a6e493d2673ab4e47261464af07dd7beaaba153fe008a9917332e1a4c96beef4ba9ebe595ab')
 
 build() {
   cd msgpack-python-$pkgver
   python setup.py build --build-lib=build/python
-  python2 setup.py build --build-lib=build/python2
-  find build/python2 -type f -exec \
-    sed -i '1s,^#! \?/usr/bin/\(env \|\)python$,#!/usr/bin/python2,' {} \;
 }
 
 check() {
   cd msgpack-python-$pkgver
   PYTHONPATH=$PWD/build/python py.test test
-  PYTHONPATH=$PWD/build/python2 py.test2 test
 }
 
-package_python-msgpack() {
+package() {
   pkgdesc='MessagePack serializer implementation for Python'
   depends=('python')
 
   cd msgpack-python-$pkgver
   python setup.py build --build-lib=build/python \
                   install --root="$pkgdir" --optimize=1
-}
-
-package_python2-msgpack() {
-  pkgdesc='MessagePack serializer implementation for Python2'
-  depends=('python2')
-
-  cd msgpack-python-$pkgver
-  python2 setup.py build --build-lib=build/python2 \
-                   install --root="$pkgdir" --optimize=1
 }
 
 # vim:set ts=2 sw=2 et:
