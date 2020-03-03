@@ -4,8 +4,9 @@ libdir=_LIBDIR
 includedir=_INCDIR
 
 Name: ROOT
-Version: _PKGVERSION
 Description: C++ data analysis framework and interpreter from CERN
-Requires:
+Version: _PKGVERSION
+URL: _UPSTREAM_URL
+Requires: _REQUIRES
 Libs: _LIBRARIES
 Cflags: _CFLAGS
