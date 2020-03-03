@@ -7,7 +7,7 @@
 
 pkgname=fish
 pkgver=3.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
 arch=('x86_64')
@@ -17,6 +17,7 @@ optdepends=('python: man page completion parser / web config tool'
             'pkgfile: command-not-found hook')
 makedepends=('cmake' 'python-sphinx')
 install=fish.install
+backup=(etc/fish/config.fish)
 source=(https://github.com/fish-shell/fish-shell/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz{,.asc})
 validgpgkeys=(003837986104878835FA516D7A67D962D88A709A) # David Adam <zanchey@gmail.com>
 sha256sums=('e5db1e6839685c56f172e1000c138e290add4aa521f187df4cd79d4eab294368'
