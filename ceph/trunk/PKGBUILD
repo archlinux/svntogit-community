@@ -4,7 +4,7 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.4
-pkgver=14.2.7
+pkgver=14.2.8
 pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
@@ -48,7 +48,7 @@ source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
         'suppress-pylint-warnings.patch'
         'fix-mgr-dashboard-frontend-unittests-dist-stuff.patch'
         "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz")
-sha512sums=('59f475e56053ba5e7e3a482a3a91b4d44272e6ec8051b92783de76c09c0d967a7ef76676db998968a709e48f08e90828dd8f86bd96a7c3fd111d48bfb7fd93b1'
+sha512sums=('38b0c6df58579377528c8f8e06d0cbc40f471f6eb2fb4a05b395f6fddbd3f2117674545b2147d8730973b01967ddcd4322a769ba03f9c625417ed35cc39f195a'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
@@ -164,19 +164,12 @@ build() {
     ..
 
   VERBOSE=1 make all
-
-  # remove this folder to force proper rebuild of the static assets
-  # for whatever reason they get corrupted during `make all`
-  # upstream hasn't managed to find a solution yet so this is the workaround
-  # rm -rf "../src/pybind/mgr/dashboard/frontend/dist"
-  # rebuild all mgr-dashboard-dashboard related stuff including static assets
-  # make mgr-dashboard-frontend-build
 }
 
 check() {
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
 
-  export CTEST_PARALLEL_LEVEL="$(nproc)"
+  export CTEST_PARALLEL_LEVEL="8"
   VERBOSE=1 make check
 
   # sometimes processes are not properly terminated...
