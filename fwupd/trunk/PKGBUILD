@@ -2,8 +2,8 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.3.8
-pkgrel=2
+pkgver=1.3.9
+pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
@@ -11,10 +11,13 @@ license=(LGPL)
 depends=(libxmlb efivar python libsmbios libgusb
          libsoup json-glib gcab libarchive gpgme
          libgudev polkit shared-mime-info tpm2-tss)
-optdepends=('modemmanager: modem firmware upgrade support')
+optdepends=(
+    'modemmanager: modem firmware upgrade support'
+    'udisks2: UEFI firmware upgrade support'
+)
 makedepends=(meson valgrind gobject-introspection gtk-doc
              python-cairo noto-fonts noto-fonts-cjk python-gobject vala
-             bash-completion python-pillow help2man gnu-efi-libs tpm2-tss)
+             bash-completion python-pillow help2man gnu-efi-libs)
 checkdepends=(umockdev)
 backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/redfish.conf'
@@ -24,10 +27,10 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/remotes.d/lvfs.conf'
         'etc/fwupd/remotes.d/vendor-directory.conf'
         'etc/fwupd/remotes.d/vendor.conf'
-        'etc/fwupd/uefi.conf')
+        'etc/fwupd/uefi.conf'
+        'etc/fwupd/upower.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('1d49f33fd18af6e0cef630092abe4b48253841915b18cd83f9c40e23c6e50b92'
-            'SKIP')
+sha256sums=('66e446f9437c79b5efe59f1f398593d1e0ad1f29065e807c62cbb7c007aac740' 'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
