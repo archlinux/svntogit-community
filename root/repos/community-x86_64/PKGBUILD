@@ -6,50 +6,33 @@
 
 pkgbase=root
 pkgname=('root' 'root-cuda')
-pkgver=6.18.04
-pkgrel=9
+pkgver=6.20.00
+pkgrel=2
 pkgdesc='C++ data analysis framework and interpreter from CERN'
 arch=('x86_64')
-url='https://root.cern.ch'
-license=('LGPL2.1')
+url='https://root.cern'
+license=('LGPL2.1' 'GPL' 'custom:University of California and Stanford University License')
 makedepends=('ccache'
              'cern-vdt'
              'cfitsio'
              'cmake'
              'cuda'
-             'fcgi'
-             'fftw'
-             'ftgl'
-             'blas'
+             'cudnn'
              'gcc-fortran'
-             'gcc8'
              'gcc8-fortran'
-             'giflib'
              'git'
-             'gl2ps'
-             'glew'
              'go-pie'
-             'gsl'
-             'hicolor-icon-theme'
-             'intel-tbb'
-             'libafterimage'
+             'libxml2'
              'libmariadbclient'
-             'librsvg'
-             'libxpm'
              'ocaml'
              'ocaml-ctypes'
              'openssl'
              'postgresql-libs'
              'pythia8>=8.2.40-1'
-             'python'
-             'python-numpy'
              'sqlite'
-             'tex-gyre-fonts'
              'unuran'
              'vc'
-             'xmlrpc-c'
              'xrootd>=4.6.0-2'
-             'xxhash>=0.6.5-1'
              'z3')
 depends=('blas'
          'desktop-file-utils'
@@ -66,12 +49,16 @@ depends=('blas'
          'libafterimage'
          'librsvg'
          'libxpm'
+         'python'
+         'python-numpy'
          'tex-gyre-fonts'
          'unixodbc'
-         'xxhash>=0.6.5-1')
-optdepends=('cfitsio: Read images and data from FITS files'
-            'cern-vdt: Add a set of fast and vectorisable mathematical functions'
+         'xxhash>=0.6.5-1'
+         'zstd')
+optdepends=('cern-vdt: Add a set of fast and vectorisable mathematical functions'
+            'cfitsio: Read images and data from FITS files'
             'libmariadbclient: MySQL support'
+            'libxml2: XML parser interface'
             'openssl: OpenSSL support'
             'postgresql-libs: PostgreSQL support'
             'pythia8>=8.2.40-1: Pythia8 EG support'
@@ -79,20 +66,24 @@ optdepends=('cfitsio: Read images and data from FITS files'
             'tcsh: Legacy CSH support'
             'unuran: Support non-uniform random numbers'
             'vc: Add types for portable and intuitive SIMD programming'
-            'libxml2: XML parser interface'
-            'xrootd: Support remote file server and client')
+            'xrootd: Support remote file server and client'
+            'z3: Suuport the Z3 theorem prover')
 source=("https://root.cern.ch/download/root_v${pkgver}.source.tar.gz"
+        'ROOFIT_LICENSE'
         'root.xml'
         'root.pc.tpl'
         'settings.cmake'
         'settings-cuda.cmake'
-        'add_missing_include_ROOT-10315.patch')
-sha256sums=('315a85fc8363f8eb1bffa0decbf126121258f79bd273513ed64795675485cfa4'
+        'add_missing_include_ROOT-10315.patch'
+        'fix_relative_paths.patch')
+sha256sums=('68421eb0434b38b66346fa8ea6053a0fdc9a6d254e4a72019f4e3633ae118bf0'
+            '43fb857c82c23016dc9ae82a591503c47d12ecbc576cb8285aa632b3e83b9839'
             '50c08191a5b281a39aa05ace4feb8d5405707b4c54a5dcba061f954649c38cb0'
-            'a0fc0c9404905f61fe8ba94e52ffbbefcdbcb198f2a577703b1924364a251395'
-            'e24884e67ad241e4893c8ecac973cd38f1ea523a54e774cc996989d40091cce3'
-            'a676e65d2615a5bb89943f72adc6e1552df60e9b0dc040c7bb05f6d640d9dbd6'
-            '1cb2654f22b5f1de7f8621434c76266968db77a1f300de857e47d0f4ad5da217')
+            '558b1c882ce166ad27349460f4da2a81a9a429ad0b5e802601b6ee2714610b0e'
+            '9d8280ae1e850dcb2d49bb917412d0056871cee99cd631168e264d9a85a97b4e'
+            '4e5546039dbf7bb90c6c1ae49f20f6025cde87573457bfec3266602d4fa06818'
+            '1cb2654f22b5f1de7f8621434c76266968db77a1f300de857e47d0f4ad5da217'
+            'd5b135fb4d6329277e33d612f8b81b1ca60681cca96196e33ab776f3018a2fa8')
 
 get_pyver () {
     python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
@@ -129,7 +120,6 @@ build() {
         -DINSTALL_PREFIX=/usr \
         "${srcdir}/${pkgbase}-${pkgver}"
 
-    cd "${srcdir}/build"
     make
 
     ## ROOT with CUDA
@@ -147,7 +137,6 @@ build() {
         -DINSTALL_PREFIX=/usr \
         "${srcdir}/${pkgbase}-${pkgver}-cuda"
 
-    cd "${srcdir}/build-cuda"
     make
 }
 
@@ -190,7 +179,7 @@ _package() {
     echo '/usr/lib/root' > "${pkgdir}/etc/ld.so.conf.d/root.conf"
 
     # create pkg-config file
-    local _prefix _exec_prefix _bindir _libdir _incdir _pkg_ver _libs _cflags
+    local _prefix _exec_prefix _bindir _libdir _incdir _pkg_ver _libs _cflags _requires
     _prefix="$("${pkgdir}"/usr/bin/root-config --prefix)"
     _exec_prefix="$("${pkgdir}"/usr/bin/root-config --exec-prefix)"
     _bindir="$("${pkgdir}"/usr/bin/root-config --bindir)"
@@ -199,24 +188,19 @@ _package() {
     _pkg_ver="$(sed -n 's,.*ROOT_RELEASE *\"\(.*\)\".*,\1,p' < "${pkgdir}"/usr/include/RVersion.h)"
     _libs="$("${pkgdir}"/usr/bin/root-config --libs)"
     _cflags="$("${pkgdir}"/usr/bin/root-config --cflags)"
+    printf -v _requires '%s,' "${depends[@]}"
     cp "${srcdir}/root.pc.tpl" "${bld_dir}"/
     sed -e "s@_PREFIX@${_prefix}@" -e "s@_EXECPREFIX@${_exec_prefix}@" \
         -e "s@_LIBDIR@${_libdir}@" -e "s@_INCDIR@${_incdir}@" \
         -e "s@_PKGVERSION@${_pkg_ver}@" -e "s@_LIBRARIES@${_libs}@" \
-        -e "s@_CFLAGS@${_cflags}@" \
+        -e "s@_CFLAGS@${_cflags}@" -e "s@_UPSTREAM_URL@${url}@" \
+        -e "s@_REQUIRES@${_requires}@" \
         -i "${bld_dir}/root.pc.tpl"
     install -Dm644 "${bld_dir}/root.pc.tpl" "${pkgdir}/usr/lib/pkgconfig/root.pc"
 
-    # put CMake config in correct path and fix relative paths
-    install -d "${pkgdir}/usr/lib/cmake/ROOT"
-    mv "${pkgdir}/usr/share/root/cmake"/* "${pkgdir}/usr/lib/cmake/ROOT"/
-    rm -rf "${pkgdir}/usr/share/root/cmake"
-    sed -e "s@ROOT_INCLUDE_DIRS .*include\"@ROOT_INCLUDE_DIRS \"${_incdir}\"@" \
-        -e "s@ROOT_LIBRARY_DIR .*lib/root\"@ROOT_LIBRARY_DIR \"${_libdir}\"@" \
-        -e "s@ROOT_BINARY_DIR .*bin\"@ROOT_BINARY_DIR \"${_bindir}\"@" \
-        -e 's@# ROOT configured for the install with relative paths, so use these@# ROOT was patched to use correct absolute paths, specifically these@g' \
-        -i "${pkgdir}"/usr/lib/cmake/ROOT/ROOTConfig.cmake
-    ln -sf "/usr/lib/root/cmake/cling" "${pkgdir}/usr/lib/cmake/ROOT/cling"
+    # install all licenses
+    install -d "${pkgdir}/usr/share/licenses/roofit"
+    install "${srcdir}/ROOFIT_LICENSE" "${pkgdir}/usr/share/licenses/roofit/LICENSE"
 }
 
 package_root() {
@@ -228,7 +212,7 @@ package_root-cuda() {
     pkgdesc='C++ data analysis framework and interpreter from CERN with GPU (CUDA) features enabled'
     provides=('root')
     conflicts=('root')
-    depends+=('cuda')
+    depends+=('cuda' 'cudnn')
     optdepends+=('gcc8-fortran: Enable the Fortran components of ROOT')
     _package build-cuda
 }
