@@ -29,10 +29,10 @@ def compile(sources, cflags, params = {})
     output = s + ".o"
     outputs << output
     order_deps = if params[:order_deps]
-                   " || " + params[:order_deps].join(" ")
-                 else
-                   ""
-                 end
+        " || " + params[:order_deps].join(" ")
+      else
+        ""
+      end
 
     puts "build #{output}: #{cc} #{s}#{order_deps}\n    cflags = #{lang_flags} #{cflags}"
   end
