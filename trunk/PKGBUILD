@@ -3,8 +3,8 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=29.0.5
-pkgrel=2
+pkgver=29.0.6
+pkgrel=1
 tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -14,7 +14,7 @@ depends=(pcre2 libusb protobuf)
 optdepends=('python: for mkbootimg script'
             'python2: for unpack_bootimg & avbtool scripts')
 # depend on 'vim' for 'xxd' tool.
-makedepends=(git clang gtest ruby cmake ninja go-pie vim)
+makedepends=(git clang gtest ruby cmake ninja go vim)
 provides=(fastboot adb)
 conflicts=(fastboot adb)
 _boringssl_commit=$(curl https://android.googlesource.com/platform/external/boringssl/+/refs/tags/$tag/BORINGSSL_REVISION?format=TEXT | base64 -d)
@@ -54,7 +54,7 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
-          'acb02d8c048411fd21d00d57909a45aa6a6a6a7a'
+          '37992d0d7547b7deb703f3232ec124a4c6b96aef'
           'd9dfac30245faa0a96968b96f3acd9ad536f4910'
           '31779cd6c0df710be9589bd2ee4f697f59b100fd'
           '7004dbd0c193668827174880de6f8434de8ceaee')
