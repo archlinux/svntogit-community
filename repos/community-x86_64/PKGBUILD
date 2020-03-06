@@ -8,7 +8,7 @@
 
 pkgbase=calibre
 pkgname=('calibre' 'calibre-common' 'calibre-python3')
-pkgver=4.11.2
+pkgver=4.12.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -16,9 +16,10 @@ url="https://calibre-ebook.com/"
 license=('GPL3')
 _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython'
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
-          'netifaces' 'unrardll' 'pillow' 'psutil' 'pychm' 'pygments' 'pyqt5' 'pyqtwebengine' 'regex')
+          'netifaces' 'unrardll' 'pillow' 'psutil' 'pychm' 'pygments' 'pyqt5'
+          'pyqtwebengine' 'regex')
 _py3_deps=("${_py_deps[@]}" 'zeroconf')
-depends=('chmlib' 'hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusbx'
+depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusbx'
          'libwmf' 'mathjax2' 'mtdev' 'optipng' 'podofo' 'qt5-svg' 'udisks2')
 makedepends=("${_py_deps[@]/#/python2-}" "${_py3_deps[@]/#/python-}" 'qt5-x11extras'
              'rapydscript-ng' 'sip' 'xdg-utils')
@@ -27,11 +28,11 @@ source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
         "0001-De-vendor-pychm.patch"
         "calibre-alternatives.sh")
-sha256sums=('fbe18fbf9bfd7d1060292f51267e7434b734ed33325dc8a7467d79c19ebfb53b'
+sha256sums=('d111bfd36d3be058234c4f3a4f468a05a3f60b8e3967a530e39e35056ea19b90'
             'SKIP'
             'f7b829aea1d33818808cbeeb9a295e18e49edf619a5bc89b8315c88f56ce4d25'
             '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3')
-b2sums=('7d76d45afd9228d6346daefaf4ee7cbf4d3281379c96d0ae63b3073b6b5ed055bd2eca0ae728f1471460e3aa8cf9b3afa3e489c4c2f02c6849b39b94e2c2023a'
+b2sums=('b8dd24152b79790c8d22d3c0aa9482f69250fe177499e01c6c0564bf31946d0266a2e3053549f037c7ea7626b18a27798097bfbe0caf93f97585d4869c475ab9'
         'SKIP'
         'c35181c70084813772c4d593311b48b3e3bcc3b4e9e8ee58112b9beab2bbc0de1ee22aafc3d06cfd812f87a2e91292f7b7f1dc5f522c55440f415b6b265d5671'
         '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91')
