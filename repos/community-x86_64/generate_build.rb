@@ -109,6 +109,7 @@ adbdfiles = %w(
   transport.cpp
   transport_local.cpp
   transport_usb.cpp
+  types.cpp
 )
 libadbd = compile(expand("core/adb", adbdfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/include -Icore/diagnose_usb/include')
 
@@ -158,6 +159,7 @@ basefiles = %w(
   chrono_utils.cpp
   errors_unix.cpp
   file.cpp
+  liblog_symbols.cpp
   logging.cpp
   mapped_file.cpp
   parsenetaddress.cpp
@@ -169,16 +171,14 @@ basefiles = %w(
 libbase = compile(expand("core/base", basefiles), "-DADB_HOST=1 -Icore/base/include -Icore/include")
 
 logfiles = %w(
-  fake_log_device.cpp
-  fake_writer.cpp
   log_event_list.cpp
   log_event_write.cpp
-  logger_lock.cpp
   logger_name.cpp
   logger_write.cpp
   logprint.cpp
+  properties.cpp
 )
-liblog = compile(expand("core/liblog", logfiles), "-DLIBLOG_LOG_TAG=1006 -D_XOPEN_SOURCE=700 -DFAKE_LOG_DEVICE=1 -Icore/log/include -Icore/include")
+liblog = compile(expand("core/liblog", logfiles), "-DLIBLOG_LOG_TAG=1006 -D_XOPEN_SOURCE=700 -DFAKE_LOG_DEVICE=1 -Icore/log/include -Icore/include -Icore/base/include")
 
 cutilsfiles = %w(
   android_get_control_file.cpp
@@ -307,12 +307,11 @@ libsepolfiles = %w(
   debug.c
   ebitmap.c
   expand.c
-  genbools.c
-  genusers.c
   hashtab.c
   hierarchy.c
   kernel_to_common.c
   mls.c
+  optimize.c
   policydb.c
   policydb_convert.c
   policydb_public.c
