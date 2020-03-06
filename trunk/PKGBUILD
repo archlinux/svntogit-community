@@ -4,7 +4,7 @@
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
 pkgver=1.32.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Electron application that links with Signal on mobile"
 license=('GPL3')
 replaces=('signal-desktop-bin')
