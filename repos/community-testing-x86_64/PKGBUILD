@@ -1,0 +1,124 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Bruno Pagani <archange@archlinux.org>
+
+pkgname=matrix-appservice-irc
+pkgver=0.16.0
+pkgrel=1
+pkgdesc="Node.js IRC bridge for Matrix"
+arch=('x86_64')
+url="https://github.com/matrix-org/matrix-appservice-irc"
+license=('Apache')
+depends=('nodejs')
+makedepends=('git' 'npm' 'python')
+optdepends=('python-urllib3: for grant-ops-in-room.py, migrate-users.py, remove-idle-users.py and remove-user.py'
+            'python-requests: for grant-ops-in-room.py, migrate-users.py, remove-idle-users.py and remove-user.py'
+            'python-pyaml: for grant-ops-in-room.py, migrate-users.py and remove-user.py')
+source=("https://github.com/matrix-org/matrix-appservice-irc/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}.service"
+        "${pkgname}.sysusers"
+        "${pkgname}.tmpfiles")
+sha512sums=('1a87082d15c9cae7a7e357fa4737fc36405f67ec1f10ae748ed703dc89ac68bc398887e287bd2f8a42e0a40e7703cf68d774b5c7aa06218e15428ded2de5e9de'
+            '8d7a290dda62e70ac8e368b07325ac5e183ce2671395e2561cb8f9cf9f381319e55c24cb2bcf37435a7cd55ceb11dfe0278d550993f0bdab2063b768441d47b4'
+            'f615e5da11be8d834d6f48f064a65a9b7aa129d255be7865a171522d5aed921eb549a33661ab2c4fff4625d2ca5a7f9c43be95c188e7a77bdde4062aa3983edd'
+            '60b7afdd68aaf2c8e47caf10efefb6c4dc54f40d187ad495a604786b30c00dac7e5c77a7b596d86c2a62a7cdbe3727e11f75494f86d26c9fc51ea7a1bf6ab7f0')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  sed -e "s|./provisioning.rules.yaml|/etc/${pkgname}/provisioning.rules.yaml|" \
+      -i config.sample.yaml
+  touch registration.yaml
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  npm install --cache "${srcdir}"/npm-cache
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  npm audit || echo "npm audit output might return non-zero"
+  npm test
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  # removing unneeded files and directories
+  find node_modules -type f \
+          \( \
+         -iname '*Makefile*' -o \
+         -iname '*appveyor.yml' -o \
+         -iname '*.babelrc' -o \
+         -iname '*.bak' -o \
+         -iname '*bower.json' -o \
+         -iname '*.c' -o \
+         -iname '*.cc' -o \
+         -iname '*.cpp' -o \
+         -iname '*.md' -o \
+         -iname '*.markdown' -o \
+         -iname '*.rst' -o \
+         -iname '*.nycrc' -o \
+         -iname '*.npmignore' -o \
+         -iname '*.editorconfig' -o \
+         -iname '*.el' -o \
+         -iname '*.eslintignore' -o \
+         -iname '*.eslintrc*' -o \
+         -iname '*.fimbullinter.yaml' -o \
+         -iname '*.gitattributes' -o \
+         -iname '*.gitmodules' -o \
+         -iname '*.h' -o \
+         -iname '*.html' -o \
+         -iname '*.jshintrc' -o \
+         -iname '*.jscs.json' -o \
+         -iname '*.log' -o \
+         -iname '*logo.svg' -o \
+         -iname '*.nvmrc' -o \
+         -iname '*.o' -o \
+         -iname '*package.json' -o \
+         -iname '*package-lock.json' -o \
+         -iname '*.travis.yml' -o \
+         -iname '*.prettierrc' -o \
+         -iname '*.sh' -o \
+         -iname '*.tags*' -o \
+         -iname '*.tm_properties' -o \
+         -iname '*.wotanrc.yaml' -o \
+         -iname '*tsconfig.json' -o \
+         -iname '*yarn.lock' \
+         \) \
+         -delete
+  find node_modules -type d \
+          \( \
+         -iwholename '*.github' -o \
+         -iwholename '*.tscache' -o \
+         -iwholename '*/man' -o \
+         -iwholename '*/test' -o \
+         -iwholename '*/scripts' -o \
+         -iwholename '*/git-hooks' \
+         \) \
+         -exec rm -rvf {} +
+  find node_modules -empty -type d -delete
+  install -vdm 755 "${pkgdir}/usr/lib/node_modules/${pkgname}/"
+  # copy vendored modules, lib and entry point
+  cp -av {lib,node_modules,app.js,config.schema.yml} "${pkgdir}/usr/lib/node_modules/${pkgname}/"
+  # configuration
+  install -vDm 640 config.sample.yaml "${pkgdir}/etc/${pkgname}/config.yaml"
+  install -vDm 640 provisioning.rules.sample.yaml \
+    "${pkgdir}/etc/${pkgname}/provisioning.rules.yaml"
+  install -vDm 640 registration.yaml \
+    -t "${pkgdir}/etc/${pkgname}/"
+  # service
+  install -vDm 644 "../${pkgname}.service" -t "${pkgdir}/usr/lib/systemd/system"
+  # tmpfiles.d and sysusers.d
+  install -vDm 644 "../${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+  install -vDm 644 "../${pkgname}.tmpfiles" \
+    "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+  # python scripts
+  install -vDm 755 scripts/{grant-ops-in-room,migrate-users,remove-idle-users,remove-user}.py \
+    -t "${pkgdir}/usr/bin"
+  # add nodejs based scripts (which are location dependent)
+  install -vDm 755 scripts/{migrate-db-to-pgres.sh,unbridge.js} \
+    -t "${pkgdir}/usr/lib/node_modules/${pkgname}/scripts"
+  # docs
+  install -vDm 644 {CHANGELOG,CONTRIBUTING,HOWTO,README}.md \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
