@@ -1,9 +1,10 @@
 # Maintainer: Kyle Keen <keenerd@gmail.com>
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
 # Contributor: Andy Weidenbaum <archbaum@gmail.com>
 
 pkgname=python-prompt_toolkit
 _name=prompt_toolkit
-pkgver=3.0.3
+pkgver=3.0.4
 pkgrel=1
 pkgdesc="Library for building powerful interactive command lines in Python"
 arch=('any')
@@ -11,21 +12,26 @@ depends=('python-pygments'
          'python-six'
          'python-wcwidth')
 makedepends=('python-setuptools')
+checkdepends=('python-pytest')
 url="https://github.com/jonathanslenders/python-prompt-toolkit"
 license=('BSD')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/p/$_name/$_name-$pkgver.tar.gz")
-md5sums=('c0f7beb0d22886f99de990816fb4aba0')
-sha256sums=('a402e9bf468b63314e37460b68ba68243d55b2f8c4d0192f85a019af3945050e')
+sha256sums=('ebe6b1b08c888b84c50d7f93dee21a09af39860144ff6130aadbd61ae8d29783')
 
 build() {
-  cd "$srcdir/$_name-$pkgver"
-  python3 setup.py build
+  cd "$_name-$pkgver"
+  python setup.py build
+}
+
+check() {
+  cd "$_name-$pkgver"
+  python -m pytest
 }
 
 package() {
-  cd "$srcdir/$_name-$pkgver"
-  python3 setup.py install --root="$pkgdir" --optimize=1
+  cd "$_name-$pkgver"
+  python setup.py install --root="$pkgdir" --optimize=1
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
