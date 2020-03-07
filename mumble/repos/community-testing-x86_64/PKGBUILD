@@ -6,7 +6,7 @@
 
 pkgname=mumble
 pkgver=1.3.0
-pkgrel=6
+pkgrel=7
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
@@ -21,6 +21,16 @@ source=(https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble
 sha512sums=('2a629fc97f3c7c587c9a3b40fc96cf15d668acada37282ec1c4a5b169ad37717d60af94d12c7bce45f2816c265f76a99ebad40a006adcf8ca38a117e7c0a4122'
             'SKIP')
 validpgpkeys=('56D0B23AE00B1EE9A8BAAC0F5B8CF87BB893449B') # Mumble Automatic Build Infrastructure 2019 <mumble-auto-build-2019@mumble.info>
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # changing the default to *not* unconditionally and automatically start a
+  # JACK server, when mumble is started
+  # https://bugs.archlinux.org/task/62755
+  # https://github.com/mumble-voip/mumble/issues/3989
+  sed -e 's/bJackStartServer = true/bJackStartServer = false/' \
+    -i src/mumble/Settings.cpp
+}
 
 build() {
   cd "$pkgname-$pkgver"
