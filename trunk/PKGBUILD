@@ -1,20 +1,24 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 # Contributor: jtts <jussaar@mbnet.fi>
 # Contributor: Jan de Groot <jgc@archlinux.org>
 
 pkgname=lib32-librsvg
-pkgver=2.46.4
+pkgver=2.48.0
 pkgrel=1
 pkgdesc="SVG rendering library (32-bit)"
 url="https://wiki.gnome.org/Projects/LibRsvg"
 arch=(x86_64)
 license=(LGPL)
-depends=(lib32-gdk-pixbuf2 lib32-pango lib32-libcroco librsvg)
+depends=(lib32-gdk-pixbuf2 lib32-pango lib32-libxml2 librsvg)
 makedepends=(gobject-introspection gtk-doc git rust lib32-rust-libs)
-_commit=c7c2c6c280dec08d4dc804379d0fe389e28fbeb3  # tags/2.46.4^0
+checkdepends=(ttf-dejavu)
+provides=(librsvg-${pkgver%%.*}.so)
+_commit=cc3b2fb0672052721e761ca9dd1c8ab6821cbdf9  # tags/2.48.0^0
 source=("git+https://gitlab.gnome.org/GNOME/librsvg.git#commit=$_commit"
-        multilib.diff)
+        lto.diff multilib.diff)
 sha256sums=('SKIP'
+            '3cc8ad1af515b2cb4071f0647319c1cf3280dc054875634239061800af1616b6'
             'c32283a724e8d1a87ad64330ee72781396b6f439dcae0f56da074e9a988ec544')
 
 pkgver() {
@@ -25,8 +29,11 @@ pkgver() {
 prepare() {
   cd librsvg
 
+  # Turn LTO back on
+  git apply -3 ../lto.diff
+
   # Hack to cross-compile rust only
-  patch -Np1 -i ../multilib.diff
+  git apply -3 ../multilib.diff
 
   NOCONFIGURE=1 ./autogen.sh
 }
@@ -38,7 +45,8 @@ build() {
   export RUST_TARGET=i686-unknown-linux-gnu
 
   cd librsvg
-  ./configure --prefix=/usr --disable-static --disable-vala --disable-gtk-doc --disable-introspection --libdir=/usr/lib32
+  ./configure --prefix=/usr --disable-static --disable-vala \
+    --disable-gtk-doc --disable-introspection --libdir=/usr/lib32
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' libtool
   make
 }
@@ -46,8 +54,7 @@ build() {
 check() {
   cd librsvg
   # Reftests are probably broken
-  # e.g. 91-nonzero-translation-ref.png's background is only 95% transparent,
-  # while 91-nonzero-translation-out.png is 100% transparent
+  # some reference images were created without the requested fonts
   make check || :
 }
 
