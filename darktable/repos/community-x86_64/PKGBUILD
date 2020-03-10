@@ -1,12 +1,13 @@
 # Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
 # Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Christian Himpel <chressie at gmail dot com>
 # Contributor: Johannes Hanika <hanatos at gmail dot com>
 
 pkgname=darktable
 epoch=2
-pkgver=3.0.0
-pkgrel=2
+pkgver=3.0.1
+pkgrel=1
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
@@ -20,7 +21,7 @@ optdepends=('dcraw: base curve script'
             'gnuplot: noise profile script')
 makedepends=(cmake intltool desktop-file-utils llvm clang python-jsonschema libwebp)
 source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver/rc/.rc}.tar.xz"{,.asc})
-sha256sums=('7195a5ff7ee95ab7c5a57e4e84f8c90cc4728b2c917359203c21293ab754c0db'
+sha256sums=('c54b3921da14a97c99ab2f79feca468cf2abca65adf907dba6216e47edab7cb7'
             'SKIP')
 validpgpkeys=(C4CBC150699956E2A3268EF5BB5CC8295B1779C9  # darktable releases <release@darktable.org>
               F10F9686652B0E949FCD94C318DCA123F949BD3B) # Pascal Obry <pascal@obry.net>
