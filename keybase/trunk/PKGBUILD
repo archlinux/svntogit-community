@@ -5,8 +5,8 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=5.2.0
-pkgrel=2
+pkgver=5.3.0
+pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
 license=('BSD')
@@ -15,14 +15,14 @@ makedepends=('git' 'go-pie' 'yarn')
 source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('fb41428f49376e3b6471a2235dc7a904fd08ef4e9cbbdfe3e33cbc02db8770f833f6be55c77c63fcb954468cd2ce8f4f08d47e1c453050e7e366f3288c2e37e4'
+sha512sums=('cf4cd22bb148900d57b435a88c6f02b38f6e65646a6b60efae5f4c992574181059989737f9fd3862359c83349780f2cc41b039c2f5b8f36789eb72e0a2bfba63'
             'SKIP'
             'd672bdd308b2ab6f7b1248300f85f11b480e08149e1e4da5e01dac6c551b44dbfceb5c89d0fd17ce7a64c8b83cd4c7df14e24c31c2f37ae532abbb9099320290'
-            'bfc0919eba93d0367bfbd1a51c5600a1a39bdd1c01e626c7dcbd624c34c9e850006d127455746530598c6660d6ac8a3862fb23897a9fca1dac76ad231fbfdeb5')
-b2sums=('2835729da5590072aa16f6c24ca5083c783ed40984b0be4bca539b3c9ef265e4f5c97267bd6202d0b0c93165d8d63a105feff9e2a65a241b2776f70af2f36da0'
+            '1485e41432218b88aff71bbe68d265baad18c8b91b3d51cacdb4ac9b09abfb6cde91b9b87cb861cffeff92830159552307a89462c8697bb066416bd897e7b68b')
+b2sums=('aaf0d5adb49a01cde03da1893bec9938360bedbb36cd9e0951b21188834c31d1309f1e1f07956cdb0670df4c9b0b9cf203de2326a0704d6482d56df26a807afd'
         'SKIP'
         'db6d63df77aa73c230128b5c6cd278215e0dfac2b42db861127571a6c867d8a305c18a5ea12a616669c77bd072ab8b26aa52379cbd8167c34bc043bfdcefec1d'
-        'e1a42f150f322c560887143a7878df224acafe2391bff6f9f755f7d155303a4c263b9ed3b2ca1d718487bc55f2c39b49f207a7fe06977b2a60b5f99df4122b58')
+        '164dd6f37fe38d3c840b2b92d41553e0be67985d7c8471833a9ff381c05b0c35f295bfc630aa3ce6e31afb70b805d071e8c0a438a504064d24f99720c1571b9a')
 validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Signing (v1) <code@keybase.io>
 
 prepare() {
@@ -92,6 +92,8 @@ package_keybase-gui() {
 
     cd client-v${pkgver}/
 
+    install -Dm644 packaging/linux/x-saltpack.xml \
+        "${pkgdir}"/usr/share/mime/packages/x-saltpack.xml
     install -Dm644 packaging/linux/keybase.desktop \
         "${pkgdir}"/usr/share/applications/keybase.desktop
     # more systemd activation
@@ -105,6 +107,8 @@ package_keybase-gui() {
     for i in 16 32 128 256 512 ; do
         install -Dm644 media/icons/Keybase.iconset/icon_${i}x${i}.png \
             "${pkgdir}"/usr/share/icons/hicolor/${i}x${i}/apps/keybase.png
+        install -Dm644 media/icons/Saltpack.iconset/icon_${i}x${i}.png \
+            "${pkgdir}"/usr/share/icons/hicolor/${i}x${i}/mimetypes/application-x-saltpack.png
     done
     # ???
     install -Dm644 media/icons/Keybase.iconset/icon_32x32@2x.png \
