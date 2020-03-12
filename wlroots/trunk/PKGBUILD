@@ -2,8 +2,8 @@
 # Contributor: Omar Pakker
 
 pkgname=wlroots
-pkgver=0.10.0
-pkgrel=2
+pkgver=0.10.1
+pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://github.com/swaywm/wlroots'
@@ -29,9 +29,12 @@ source=(
     "$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz"
     "https://github.com/swaywm/wlroots/releases/download/$pkgver/wlroots-$pkgver.tar.gz.sig"
 )
-sha256sums=('9414ba761c321f9c2b3e0426e1bbed55443fa8f97d46643d1706d1ddd614f6cd'
+sha256sums=('b84baefbaff7bb04b3d2c43cbacef1a433e2cd65111f8fbf4bfc5faaa4b34b08'
             'SKIP')
-validpgpkeys=('9DDA3B9FA5D58DD5392C78E652CB6609B22DA89A') # Drew DeVault
+validpgpkeys=(
+    '9DDA3B9FA5D58DD5392C78E652CB6609B22DA89A' # Drew DeVault
+    '4100929B33EEB0FD1DB852797BC79407090047CA' # Sway signing key
+)
 
 build() {
     meson "$pkgname-$pkgver" build \
