@@ -5,7 +5,7 @@
 
 pkgname=bazel
 pkgver=2.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
@@ -20,7 +20,7 @@ sha512sums=('67011c3a045c0fd74cdcb98eef1c3ead6902a3bd65a629fe49911f9dbb4c39508bd
 validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')
 
 build() {
-  env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk --verbose_failures" ./compile.sh
+  env EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh
   ./output/bazel build scripts:bazel-complete.bash
   cd output
   ./bazel shutdown
