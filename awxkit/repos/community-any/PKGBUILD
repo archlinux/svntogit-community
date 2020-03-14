@@ -2,8 +2,8 @@
 
 pkgname=awxkit
 _pkgname=awx
-pkgver=9.2.0
-pkgrel=2
+pkgver=9.3.0
+pkgrel=1
 pkgdesc="cli client and python library for ansible awx (tower)"
 arch=('any')
 url="https://github.com/ansible/awx"
@@ -12,7 +12,7 @@ depends=('python-six' 'python-yaml' 'python-requests')
 makedepends=('python-pip' 'python-setuptools')
 options=(!emptydirs)
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/ansible/${_pkgname}/archive/${pkgver}.tar.gz")
-sha512sums=('f3079ca13a8e94f7fd11accc1147727ac32d5cee8b4bb34044ff10f6a575674446b3cd83da5ab03580f6af9e0e42bb747cc41be28878a55f692a2bed98a205e0')
+sha512sums=('c433afb8699aa417bf923e85f06db1ccd4ba3d6d89c360b179e67424d88afaf2b37b4d5d1127e8838b4fd46438fcbfbb5e9042f345851e11f3ba334fcb53c74b')
 
 build() {
     cd "${_pkgname}-${pkgver}/${pkgname}"
