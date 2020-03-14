@@ -2,8 +2,8 @@
 # Contributor: rebel <novakpetya at yahoo dot co dot uk>
 
 pkgname=qt5pas
-_svnrevision=61322
-pkgver=2.6.r61322
+_svnrevision=62764
+pkgver=2.6.r62764
 pkgrel=1
 pkgdesc='Free Pascal Qt5 binding library updated by lazarus IDE'
 arch=('x86_64')
