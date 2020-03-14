@@ -2,7 +2,7 @@
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 
 pkgname=firefox-developer-edition
-pkgver=74.0b9
+pkgver=75.0b3
 pkgrel=1
 pkgdesc="Developer Edition of the popular Firefox web browser"
 arch=('x86_64')
@@ -11,7 +11,7 @@ url="https://www.mozilla.org/firefox/channel/#developer"
 depends=('gtk3' 'libxt' 'startup-notification' 'mime-types' 'dbus-glib' 'ffmpeg' 'ttf-font' 'libpulse' 'nss')
 makedepends=('unzip' 'zip' 'diffutils' 'python2-setuptools' 'yasm' 'mesa' 'imake' 'inetutils'
              'xorg-server-xvfb' 'autoconf2.13' 'rust' 'clang' 'llvm' 'jack' 'gtk2'
-             'python' 'nodejs' 'python2-psutil' 'python-distro' 'cbindgen' 'nasm')
+             'python' 'nodejs' 'python2-psutil' 'cbindgen' 'nasm')
 optdepends=('networkmanager: Location detection via available WiFi networks'
             'libnotify: Notification integration'
             'pulseaudio: Audio support'
@@ -23,7 +23,7 @@ source=(https://archive.mozilla.org/pub/firefox/releases/$pkgver/source/firefox-
         firefox-install-dir.patch
         0001-Use-remoting-name-for-GDK-application-names.patch
         "$pkgname".desktop)
-sha512sums=('ca85508d25d92fe13e536fc6cd03507914d6ca275ce5a034cb61b5e3e268a8d60da13e767a77a0a2f7c078128ba2bf4031000ee6dc5b442a986b5680f6544875'
+sha512sums=('47ff22546f776cc64805d18cc0667890634c7963edb4f5dd57916b1f2aa52088af05387891e2b3c5bd3404e49bd2d50eb1a171df6fd930167155f1efac628c9e'
             'SKIP'
             'b66dbe7f262d036e5a5b895ab5b0dbb03313bca18b0823c001ef2dbaeb1a33169b57db0cf4dfd268499f28913845119902b5d62e8a6a9cc4820eb0ee2f322a1e'
             '40c931b8abbe5880122dbcc93d457e04e9b4f2bc3e0275e9e3e35dd347fe0658f9446c89e99553203be8a8c9ab6f4ca872a7aedc514920c107b9235c04df91dc'
@@ -96,6 +96,7 @@ ac_add_options --enable-crashreporter
 ac_add_options --disable-gconf
 ac_add_options --disable-updater
 ac_add_options --disable-tests
+ac_add_options --allow-addon-sideload
 END
 }
 
@@ -114,17 +115,17 @@ build() {
   CXXFLAGS="${CXXFLAGS/-fno-plt/}"
 
   # Do 3-tier PGO
-  msg2 "Building instrumented browser..."
+  echo "Building instrumented browser..."
   cat >.mozconfig ../mozconfig - <<END
 ac_add_options --enable-profile-generate=cross
 END
   ./mach build
 
-  msg2 "Profiling instrumented browser..."
+  echo "Profiling instrumented browser..."
   ./mach package
   LLVM_PROFDATA=llvm-profdata \
     JARLOG_FILE="$PWD/jarlog" \
-    xvfb-run -a -n 92 -s "-screen 0 1600x1200x24" \
+    xvfb-run -s "-screen 0 1920x1080x24 -nolisten local" \
     ./mach python build/pgo/profileserver.py
 
   if [[ ! -s merged.profdata ]]; then
@@ -137,10 +138,10 @@ END
     return 1
   fi
 
-  msg2 "Removing instrumented browser..."
+  echo "Removing instrumented browser..."
   ./mach clobber
 
-  msg2 "Building optimized browser..."
+  echo "Building optimized browser..."
   cat >.mozconfig ../mozconfig - <<END
 ac_add_options --enable-lto=cross
 ac_add_options --enable-profile-use=cross
@@ -149,17 +150,16 @@ ac_add_options --with-pgo-jarlog=${PWD@Q}/jarlog
 END
   ./mach build
 
-  msg2 "Building symbol archive..."
+  echo "Building symbol archive..."
     ./mach buildsymbols
 }
 
 package() {
   cd firefox-${pkgver%b*}
   DESTDIR="$pkgdir" ./mach install
-  find . -name '*crashreporter-symbols-full.zip' -exec cp -fvt "$startdir" {} +
 
-  _vendorjs="$pkgdir/usr/lib/$pkgname/browser/defaults/preferences/vendor.js"
-  install -Dm644 /dev/stdin "$_vendorjs" << END
+  local vendorjs="$pkgdir/usr/lib/$pkgname/browser/defaults/preferences/vendor.js"
+  install -Dm644 /dev/stdin "$vendorjs" << END
 // Use LANG environment variable to choose locale.
 pref("intl.locale.requested", "");
 
@@ -171,11 +171,10 @@ pref("browser.shell.checkDefaultBrowser", false);
 
 // Don't disable our bundled extensions in the application directory.
 pref("extensions.autoDisableScopes", 11);
-pref("extensions.shownSelectionUI", true);
 END
 
-  _distini="$pkgdir/usr/lib/$pkgname/distribution/distribution.ini"
-  install -Dm644 /dev/stdin "$_distini" << END
+  local distini="$pkgdir/usr/lib/$pkgname/distribution/distribution.ini"
+  install -Dm644 /dev/stdin "$distini" << END
 [Global]
 id=archlinux
 version=1.0
@@ -215,5 +214,13 @@ END
   local nssckbi="$pkgdir/usr/lib/$pkgname/libnssckbi.so"
   if [[ -e $nssckbi ]]; then
     ln -srf "$pkgdir/usr/lib/libnssckbi.so" "$nssckbi"
+  fi
+
+  if [[ -f "$startdir/.crash-stats-api.token" ]]; then
+    find . -name '*crashreporter-symbols-full.zip' -exec \
+      "$startdir/upload-symbol-archive" "$startdir/.crash-stats-api.token" {} +
+  else
+    find . -name '*crashreporter-symbols-full.zip' -exec \
+      cp -fvt "$startdir" {} +
   fi
 }
