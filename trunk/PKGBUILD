@@ -5,18 +5,20 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=5.3
+pkgver=5.4
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
 
 source=(https://dl.winehq.org/wine/source/5.x/wine-$_pkgbasever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
+        wine-staging-x3daudio1_7.patch::https://github.com/wine-staging/wine-staging/commit/a1246b5e921ea950851e4a971fb3dae535d7b982.patch
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('40528f46ad10c11758308e3bf21ba73c7af133d4dda386d542acec3a5cb31e01be0eb102b94f9d82a2358e45597bf49bd1e82c463e3a26aff8c0827b5a0894b6'
+sha512sums=('892e8b875484ada01eaddab4ea50992f95cf3ced6730f8e2ca1f0765770d7fa53a21080c526772b9b3ac83b3559d3d68e83ad3af3afbe9d6f931d833afde7e98'
             'SKIP'
-            'df14a61c04b134a72dc8662ee331fd234e2c82bf82824cb01443ae6516aba0bdcb579e2dbedc1ada47de0f3a1265c5fe9ef5f8183094d74451845b78d0a81702'
+            'd4958e73cea34a4a722f516487116d9f77a22099cb80b9c79f2468fbe28855acec131dacecfd255a9934fb88bcf34809bfb2e2e518d89ac23bcae125b6d6c86b'
+            '5ae86f2eb6a396099e8c45dda444ff94f08c089bbb7b1e818bb9d7069f362e6aa082832dcfa07247cc3fd8a49fcd36a6965e9face260fbfb00b55612de501a44'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -120,6 +122,8 @@ install=wine.install
 prepare() {
   # Allow ccache to work
   mv wine-$_pkgbasever $pkgname
+
+  patch -d wine-staging-$_pkgbasever -p1 -i ../wine-staging-x3daudio1_7.patch
 
   # apply wine-staging patchset
   pushd wine-staging-$_pkgbasever/patches
