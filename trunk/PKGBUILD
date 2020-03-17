@@ -1,7 +1,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=19.03.7
+pkgver=19.03.8
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
