@@ -5,7 +5,7 @@
 # Contributor : Nick Erdmann <erdmann@date.upb.de>
 
 pkgname=nethack
-pkgver=3.6.4
+pkgver=3.6.6
 pkgrel=1
 pkgdesc='A single player dungeon exploration game'
 arch=('x86_64')
@@ -15,7 +15,7 @@ depends=('ncurses' 'gzip')
 install=nethack.install
 source=("https://www.nethack.org/download/${pkgver}/${pkgname}-${pkgver//.}-src.tgz")
 
-_builddir="NetHack-NetHack-3.6.4_Released"
+_builddir="NetHack-NetHack-3.6.6_Released"
 
 prepare() {
   cd "$srcdir/$_builddir"
@@ -73,4 +73,4 @@ package() {
   install -Dm644 dat/license $pkgdir/usr/share/licenses/$pkgname/LICENSE
 }
 
-md5sums=('b3a84ed39818489560c8c0e368490255')
+md5sums=('6c9a75f556d24c66801d74d8727a602e')
