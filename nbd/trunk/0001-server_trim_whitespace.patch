@@ -1,0 +1,42 @@
+From 6cabf9af2310282ace4208ae6f3f4d874dbf3e88 Mon Sep 17 00:00:00 2001
+From: Jonathan Liu <net147@gmail.com>
+Date: Sun, 15 Mar 2020 18:10:51 +1100
+Subject: [PATCH] server: trim whitespace from lines in authorization file
+
+The netmask line can fail to parse when passed to getaddrinfo if it
+contains whitespace such as newline when using glibc 2.29 and later.
+This results in clients being denied access even though their IP
+address is listed in the authorization file.
+
+Signed-off-by: Jonathan Liu <net147@gmail.com>
+Signed-off-by: Wouter Verhelst <w@uter.be>
+---
+ nbdsrv.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/nbdsrv.c b/nbdsrv.c
+index b4fa8000..168d425b 100644
+--- a/nbdsrv.c
++++ b/nbdsrv.c
+@@ -127,6 +127,7 @@ int authorized_client(CLIENT *opts) {
+   
+ 	while (fgets(line,LINELEN,f)!=NULL) {
+ 		char* pos;
++		char* endpos;
+ 		/* Drop comments */
+ 		if((pos = strchr(line, '#'))) {
+ 			*pos = '\0';
+@@ -140,7 +141,12 @@ int authorized_client(CLIENT *opts) {
+ 		if(!(*pos)) {
+ 			continue;
+ 		}
+-		if(address_matches(line, (struct sockaddr*)&opts->clientaddr, NULL)) {
++		/* Trim trailing whitespace */
++		endpos = pos;
++		while ((*endpos) && !isspace(*endpos))
++			endpos++;
++		*endpos = '\0';
++		if(address_matches(pos, (struct sockaddr*)&opts->clientaddr, NULL)) {
+ 			fclose(f);
+ 			return 1;
+ 		}
