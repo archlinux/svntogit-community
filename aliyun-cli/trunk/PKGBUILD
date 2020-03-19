@@ -1,0 +1,75 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Andreas 'Segaja' Schleifer <archlinux at segaja dot de>
+
+pkgname=aliyun-cli
+pkgver=3.0.37
+pkgrel=1
+pkgdesc='Alibaba Cloud CLI'
+arch=('x86_64')
+url='https://github.com/aliyun/aliyun-cli'
+license=('APACHE')
+depends=('glibc' 'jq')
+makedepends=('git' 'go-pie')
+source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
+sha512sums=('9d750ede919ae4ceb405b7e93c1905820b598a855ed581cf85992c11bc534381c943da652a01d75b21d25f04cd8e2a4c4ead99d1cb9cd48384c286ad9db8f941')
+b2sums=('2cde5b7714ca4a23ab05c1ed3ae900e37aef9271dab669dd1221376b17b841d4d35cb4c3d8d62fe92feed09c0b28aa6cf24a2db1445ddcf530c0518806a37239')
+
+prepare() {
+  export GOPATH="${srcdir}/go"
+
+  mkdir -p "${GOPATH}/src/github.com/aliyun"
+  ln -rTsf "${pkgname}-${pkgver}" "${GOPATH}/src/github.com/aliyun/${pkgname}"
+
+  go get -u github.com/aliyun/aliyun-openapi-meta ||:
+
+  # for now we can't use the go-bindata package as this breaks the resulting binary.
+  # The issue has been reported upstream: https://github.com/aliyun/aliyun-cli/issues/262
+  go get -u github.com/jteeuwen/go-bindata/...
+
+  export PATH="${GOPATH}/bin:${PATH}"
+
+  cd "${GOPATH}/src/github.com/aliyun/${pkgname}"
+
+  go-bindata \
+      -o resource/metas.go \
+      -pkg resource \
+      -prefix "${GOPATH}/src/github.com/aliyun/aliyun-openapi-meta" \
+      "${GOPATH}/src/github.com/aliyun/aliyun-openapi-meta/..."
+}
+
+build() {
+  export GOPATH="${srcdir}/go"
+
+  cd "${GOPATH}/src/github.com/aliyun/${pkgname}"
+
+  go build \
+    -trimpath \
+    -mod=vendor \
+    -ldflags "-extldflags ${LDFLAGS} -X 'github.com/aliyun/aliyun-cli/cli.Version=${pkgver}'" \
+    -o ./out/aliyun ./main/main.go
+
+  go clean --modcache
+}
+
+check() {
+  export GOPATH="${srcdir}/go"
+
+  cd "${GOPATH}/src/github.com/aliyun/${pkgname}"
+
+  # Horrible but needed for the ./cli/ tests
+  touch "${HOME}/.bashrc"
+
+  # for now can't test the `./oss/...` folder, because it needs an env file that is not so easy to have in dev
+  go test \
+    -race \
+    ./cli/... ./command/... ./config/... ./i18n/... ./main/... ./openapi/... ./resource/...
+}
+
+package() {
+  cd "${GOPATH}/src/github.com/aliyun/${pkgname}"
+  install -Dm 755 ./out/aliyun "${pkgdir}/usr/bin/aliyun"
+  install -Dm 644 README*.md CHANGELOG.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 bin/README.md -t "${pkgdir}/usr/share/doc/${pkgname}/bin"
+}
+
+# vim: ts=2 sw=2 et:
