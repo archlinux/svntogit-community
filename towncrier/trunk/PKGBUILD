@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=towncrier
-pkgver=19.2.0
+pkgver=19.9.0rc1
 pkgrel=1
 pkgdesc="Utility to produce useful, summarised news files for your project"
 arch=('any')
@@ -10,8 +10,8 @@ license=('MIT')
 depends=('python-setuptools' 'python-click' 'python-click-default-group' 'python-incremental'
          'python-jinja' 'python-toml')
 checkdepends=('git' 'python-twisted')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/hawkowl/towncrier/archive/$pkgver.tar.gz")
-sha512sums=('60999446c4ae404fb54ea6282a862621d49f62a2488d31eecf8fed9dd7afa6e01f4feac6e3dd26b882ee75f747424d63d05521e33b5f6b8df7059ce32dbe5c4f')
+source=("https://pypi.io/packages/source/t/towncrier/towncrier-$pkgver.tar.gz")
+sha512sums=('b0654da9f90356522d8ddb029c7564be469be64bfb4684e97cae9f44e028795f54c15a8a59d5bdb2710580b5a9649fd53a500b5eadeec846108d079a3318c241')
 
 build() {
   cd towncrier-$pkgver
