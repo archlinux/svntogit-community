@@ -1,0 +1,62 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+
+pkgname=r2ghidra-dec
+_gitcommit=d8a184ca992183faa1e806f9aa0de0d3195c5eda
+_gitcutter=b78df947d0a000ff38c38673fe84bae4c47a77e1
+pkgver=r167.d8a184c
+pkgrel=1
+pkgdesc='Deep ghidra decompiler integration for radare2 and Cutter'
+url='https://github.com/radareorg/r2ghidra-dec'
+arch=('x86_64')
+license=('LGPL3')
+depends=('radare2' 'glibc')
+makedepends=('git' 'cmake' 'qt5-base')
+provides=('radare2-cutter-r2ghidra-dec'
+          'radare2-r2ghidra-dec')
+source=("git+https://github.com/radareorg/r2ghidra-dec#commit=${_gitcommit}"
+        "git+https://github.com/radareorg/cutter#commit=${_gitcutter}"
+        thestr4ng3r-ghidra::git+https://github.com/thestr4ng3r/ghidra.git
+        git+https://github.com/zeux/pugixml.git)
+sha512sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+pkgver() {
+  cd ${pkgname}
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd ${pkgname}
+  git submodule init
+  git config submodule."third-party/pugixml".url "${srcdir}/pugixml"
+  git config submodule."ghidra/ghidra".url "${srcdir}/thestr4ng3r-ghidra"
+  git submodule update --recursive
+}
+
+build() {
+  mkdir -p ${pkgname}/build
+  cd ${pkgname}/build
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXFLAGS+=" ${CPPFLAGS}"
+  cmake \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=None \
+    -DBUILD_CUTTER_PLUGIN=ON \
+    -DBUILD_SLASPECS=ON \
+    -DCUTTER_SOURCE_DIR="${srcdir}/cutter" \
+    ..
+  make
+}
+
+package() {
+  cd ${pkgname}/build
+  make DESTDIR="${pkgdir}" install
+  # move shared library into R2_LIBR_PLUGINS
+  r2version=$(r2 -version|grep radare2|sed -E 's/radare2 ([0-9\.]+) .*/\1/')
+  install -d "${pkgdir}/usr/lib/radare2/${r2version}"
+  mv "${pkgdir}"/usr/share/radare2/plugins/*.so -t "${pkgdir}/usr/lib/radare2/${r2version}"
+}
+
+# vim: ts=2 sw=2 et:
