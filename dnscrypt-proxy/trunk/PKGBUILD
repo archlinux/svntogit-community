@@ -4,11 +4,11 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.0.39
-pkgrel=3
+pkgver=2.0.40
+pkgrel=1
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTPS"
 arch=('x86_64')
-url="https://dnscrypt.info"
+url="https://github.com/DNSCrypt/dnscrypt-proxy"
 license=('custom:ISC')
 depends=('glibc')
 makedepends=('git' 'go-pie')
@@ -21,18 +21,20 @@ backup=("etc/${pkgname}/${pkgname}.toml"
         "etc/${pkgname}/ip-blacklist.txt"
         "etc/${pkgname}/whitelist.txt"
 )
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/jedisct1/${pkgname}/archive/${pkgver}.tar.gz"
+source=("git+https://github.com/jedisct1/${pkgname}#tag=${pkgver}?signed"
         "${pkgname}.service"
         "${pkgname}.socket"
-        'configuration.diff')
-sha512sums=('d4eacd8d1989b99d9932d66ef609948558af26f9db1fc37acd6b5609e2a410d20828e32f2b79f2f9fbdf822998af641aec20128e4c58233663929106e29d8e24'
-            'a5ec1df803436b2330861f2121fc39337cafd80cff39d29f10499ec63df7232343c249ba7ef9abbd395239d6cd482d65fd7654d196f8363feca85dd8c75f2e15'
+        "${pkgname}-configuration.patch::https://github.com/dvzrv/dnscrypt-proxy/commit/8d0fb58eaf5b2e315c9a243e34596104d4f2bff4.patch")
+sha512sums=('SKIP'
+            '9a93a2383f575cfc9c7ddbf42d075dd62877dbe50572cd853067834e0a8b66ff0173472d4b8465d357ab4cd33beedf4c39db03b8908a67180ffdb404a00a0c65'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
-            '456a81906c9713f7b9bdc6e152d3688899da6f760758fce91a9c625da3d7286bf0fd1d54419a57aa5ec1d9d50e1d2db32b6d5f36c2f265e227dc7e8eef65cfdd')
+            '3144229a4b60a237f5f576650e6f7a34df90026307bb18b68b72bddc1cbdc14f4740c29ac570e1c337ff24439172b6f6e2f0d67ec5ccd38bea1572c7ad765ebb')
+validpgpkeys=('54A2B8892CC3D6A597B92B6C210627AABA709FE1') # Frank Denis (Jedi/Sector One) <pgp@pureftpd.org
 
 prepare() {
+  mv -v "${pkgname}" "${pkgname}-${pkgver}"
   cd "$pkgname-$pkgver"
-  patch -Np1 -i ../configuration.diff
+  patch -Np1 -i "../${pkgname}-configuration.patch"
   # create empty ip-blacklist.txt
   touch "${pkgname}/ip-blacklist.txt"
 }
@@ -43,7 +45,7 @@ build() {
 }
 
 package() {
-  cd $pkgname-$pkgver
+  cd "$pkgname-$pkgver"
   # executable
   install -vDm 755 "${pkgname}/${pkgname}" -t "${pkgdir}/usr/bin/"
   # configuration
