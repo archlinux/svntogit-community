@@ -3,7 +3,7 @@
 
 _target=aarch64-linux-gnu
 pkgname=$_target-gcc
-pkgver=9.2.0
+pkgver=9.3.0
 _islver=0.22
 pkgrel=1
 #_snapshot=8-20190111
@@ -17,7 +17,7 @@ options=(!emptydirs !strip staticlibs)
 source=(https://ftp.gnu.org/gnu/gcc/gcc-$pkgver/gcc-$pkgver.tar.xz{,.sig}
         #https://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.xz
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
-sha256sums=('ea6ef08f121239da5695f76c9b33637a118dcf63e24164422231917fa61fb206'
+sha256sums=('71e197867611f6054aa1119b13a0c0abac12834765fe2d81f35ac57f84f742d1'
             'SKIP'
             'b21d354acd613a91cb88328753ec3aaeb174d6af042d89c5fcf3bbcced370751')
 validpgpkeys=(33C235A34C46AA3FFB293709A328C3A2C3C45C06) # Jakub Jelinek <jakub@redhat.com>
