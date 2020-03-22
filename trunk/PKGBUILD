@@ -3,8 +3,8 @@
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
 
 pkgname=catch2
-_gitcommit=d10b9bd02e098476670f5eb0527d2c7281476e8a
-pkgver=2.11.1
+_gitcommit=255aa5f2afe1a622c97422f65ace6ca915be0d8d
+pkgver=2.11.3
 pkgrel=1
 pkgdesc="Modern, C++-native, header-only, test framework for unit-tests, TDD and BDD"
 arch=('any')
@@ -24,10 +24,10 @@ pkgver() {
 }
 
 build() {
-  cd ${pkgname}
-
-  mkdir -p build
-  cd build
+  mkdir -p ${pkgname}/build
+  cd ${pkgname}/build
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXFLAGS+=" ${CPPFLAGS}"
   cmake .. \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=lib \
