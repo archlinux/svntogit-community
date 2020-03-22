@@ -1,0 +1,77 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=link
+pkgname=abletonlink
+pkgver=3.0.2
+pkgrel=3
+pkgdesc="Synchronizes musical beat, tempo, and phase across multiple applications"
+arch=('x86_64')
+url="https://github.com/ableton/link"
+license=('GPL2')
+depends=('asio')
+# TODO: remove replaces on 2020-09-22
+replaces=('link')
+makedepends=('catch2' 'cmake' 'portaudio' 'qt5-tools' 'qt5-quickcontrols')
+optdepends=('jack: for JACK examples'
+            'portaudio: for portaudio based examples'
+            'qt5-quickcontrols: for Qt examples')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Ableton/${_name}/archive/Link-${pkgver}.tar.gz"
+        "${pkgname}-3.0.2-cmake_system_paths.patch"
+        "${pkgname}-3.0.2-use_system_libs.patch")
+sha512sums=('7ee81721272fe758f59889bd5c3cef4fae14189fda7113b46f71128d5ca2bed280dc2271a23ec522d49cd21653ae9999f1b58aa8c68b50e323e0dfa46d15c95e'
+            '8ccd3cc531b64fc91d1b5ba8c1de2a0f6aa52399e1ad5b971cf68b503aa471accb71834e8157b9c4b7a86a346d882f5408e7b99ba890a0baaf2cef21545424e9'
+            '4683948b7bdc42f85674ad7ebed4abe8123a95580c0892a9c326d05e4783c2e875254e7d9c98767b5c8cc11b85023d31533f4535ffcf9654736a72abe256e6ca')
+
+prepare() {
+  mv -v "${_name}-Link-${pkgver}" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+  # using system libraries when integrating
+  patch -Np1 -i "../${pkgname}-3.0.2-use_system_libs.patch"
+  # the cmake integration is used to build tests and examples, so duplicating
+  # before patching
+  cp -v AbletonLinkConfig.cmake{,.local}
+  patch -Np1 -i "../${pkgname}-3.0.2-cmake_system_paths.patch"
+  mv -v AbletonLinkConfig.cmake{,.system}
+  mv -v AbletonLinkConfig.cmake{.local,}
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  # fixing the catch2 include for the test binaries
+  export CXXFLAGS+=" -I/usr/include/catch2"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DLINK_BUILD_JACK=ON \
+        -DLINK_BUILD_QT_EXAMPLES=ON \
+        -B build \
+        -S .
+  make -C build
+}
+
+check() {
+  cd "$pkgname-$pkgver/build"
+  bin/LinkCoreTest
+  bin/LinkDiscoveryTest
+}
+
+package() {
+  local dirs=('discovery' 'discovery/test' 'discovery/v1' 'link' 'link/v1'
+  'platforms' 'platforms/asio' 'platforms/darwin' 'platforms/linux'
+  'platforms/posix' 'platforms/stl' 'platforms/windows' 'test' 'test/serial_io'
+  'util' 'util/test')
+  cd "$pkgname-$pkgver"
+  install -vDm 644 include/ableton/*.{ipp,hpp} \
+    -t "${pkgdir}/usr/include/ableton"
+  for dir in "${dirs[@]}"; do
+    install -vDm 644 include/ableton/"${dir}"/*.hpp \
+      -t "${pkgdir}/usr/include/ableton/${dir}"
+  done
+  # install cmake integration
+  install -vDm 644 AbletonLinkConfig.cmake.system \
+    "${pkgdir}/usr/lib/cmake/${pkgname}/AbletonLinkConfig.cmake"
+  install -vDm 644 cmake_include/AsioStandaloneConfig.cmake \
+    -t "${pkgdir}/usr/lib/cmake/${pkgname}/cmake_include"
+  # examples
+  install -vDm 755 build/bin/{LinkHut,QLinkHut,QLinkHutSilent} -t "${pkgdir}/usr/bin/"
+  install -vDm 644 {{README,CONTRIBUTING}.md,*.pdf} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
