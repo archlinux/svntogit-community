@@ -4,8 +4,8 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.0.40
-pkgrel=2
+pkgver=2.0.41
+pkgrel=1
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTPS"
 arch=('x86_64')
 url="https://github.com/DNSCrypt/dnscrypt-proxy"
