@@ -1,0 +1,54 @@
+# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+
+pkgname=tensorboard
+pkgver=2.2.0
+pkgrel=1
+pkgdesc="TensorFlow's Visualization Toolkit"
+url='https://github.com/tensorflow/tensorboard'
+arch=('x86_64')
+license=('APACHE')
+depends=('python' 'python-werkzeug' 'python-numpy' 'python-bleach' 'python-wheel' 'python-markdown' 'python-tensorflow-serving-api'
+         'python-html5lib' 'python-protobuf' 'python-setuptools' 'python-tensorflow' 'python-grpcio' 'python-google-auth-oauthlib')
+makedepends=('bazel' 'tree')
+source=("https://github.com/tensorflow/tensorboard/archive/${pkgver}.tar.gz")
+sha512sums=('05da0d879c20c86a3f307aa712e779cab442292c5628086175af141398029d65f119b81a21e08d866ab2e89e9159d036b59a1b22e39a668a7a72a95c79a7af2f')
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  bazel build tensorboard:tensorboard
+  bazel build //tensorboard/pip_package:build_pip_package
+
+  mkdir pypackage
+  cp -R bazel-bin/tensorboard/pip_package/build_pip_package.runfiles/org_tensorflow_tensorboard/external pypackage
+  cp -R bazel-bin/tensorboard/pip_package/build_pip_package.runfiles/org_tensorflow_tensorboard/tensorboard pypackage
+  cp tensorboard/pip_package/{README.rst,MANIFEST.in} pypackage
+  cp README.md pypackage
+  cp tensorboard/pip_package/setup.py pypackage
+  cp tensorboard/pip_package/requirements.txt pypackage
+  cd pypackage
+  python setup.py build
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  cd pypackage
+  python setup.py install --root="$pkgdir" --optimize=1
+
+  rm -r "$pkgdir"/usr/lib/python3.8/site-packages/external/
+
+  _requires="$pkgdir"/usr/lib/python3.8/site-packages/tensorboard-${pkgver}-py3.8.egg-info/requires.txt
+  # This is ugly: We need to patch it to use current bleach and html5lib
+  # because old ones are not even compatible with Python 3.6 and we don't have
+  # those in Arch of course.
+  sed -i 's/bleach==.*/bleach/' ${_requires}
+  sed -i 's/html5lib==.*/html5lib/' ${_requires}
+  # Other ugly hack: workaround for issues 650
+  # https://github.com/tensorflow/tensorboard/issues/650
+  sed -i '/^futures/d' ${_requires}
+}
+
+# vim:set ts=2 sw=2 et:
