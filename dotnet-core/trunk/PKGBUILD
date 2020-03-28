@@ -9,7 +9,7 @@ pkgname=(
  dotnet-sdk
  aspnet-runtime
 )
-pkgver=3.1.3.sdk103
+pkgver=3.1.3.sdk103.2
 _runtimever=3.1.3
 _sdkver=3.1.103
 pkgrel=1
@@ -34,7 +34,7 @@ makedepends=(
 )
 options=(staticlibs)
 source=(
-  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=9678feff10e08406d11aee34ff33d409de915902
+  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=ed88943d2414b1abaaae657b5b3c2d38a1391164
   9999-Fix-versionless-RID-computation.patch
   9999-Add-arch-RIDs.patch
 )
