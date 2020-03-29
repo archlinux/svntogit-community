@@ -5,7 +5,7 @@
 
 pkgbase=kitty
 pkgname=(kitty kitty-terminfo)
-pkgver=0.17.1
+pkgver=0.17.2
 pkgrel=1
 pkgdesc="A modern, hackable, featureful, OpenGL-based terminal emulator"
 arch=('x86_64')
@@ -15,7 +15,7 @@ depends=('python3' 'freetype2'  'fontconfig' 'wayland' 'libx11' 'libxkbcommon-x1
 makedepends=('libxinerama' 'libxcursor' 'libxrandr' 'wayland-protocols' 'python-sphinx')
 optdepends=('imagemagick: viewing images with icat')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/kovidgoyal/$pkgname/archive/v$pkgver.tar.gz")
-sha512sums=('e7de00bbbba2172f3e7dba1809135b044f20f89ee156b1c6b7121a13f7589413cc9b2a264b30d2ab3e8cb9265a5291f3c932961b034e216735ec6704c5445200')
+sha512sums=('1161d2988179f712bff6deba94c70e65299e301538b9c44e30b0729f350ca621b074fdde29cbb94531ff011e5b75cab3ba7379dcc494ba8b3d3afa14a3ff14bf')
 
 build() {
   cd "$srcdir/$pkgname-$pkgver"
