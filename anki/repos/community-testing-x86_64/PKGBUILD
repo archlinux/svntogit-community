@@ -1,0 +1,106 @@
+# Maintainer: Johannes Löthberg <johannes@kyriasis.com>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Timm Preetz <timm@preetz.us>
+# Contributor: Michael 'manveru' Fellinger <m.fellinger@gmail.com>
+# Contributor: Dave Pretty <david dot pretty at gmail dot com>
+
+pkgname=anki
+pkgver=2.1.23
+pkgrel=1
+
+pkgdesc="Helps you remember facts (like words/phrases in a foreign language) efficiently"
+url="https://ankisrs.net/"
+arch=('x86_64')
+license=('AGPL3')
+
+depends=(
+	# anki and aqt
+	'python-beautifulsoup4'
+	'python-requests'
+	'python-wheel'
+
+	# anki
+	'python-decorator'
+	'python-distro'
+	# Currently not packaged.  Falls back to stdlib json module.
+	# 'python-orjson'
+	'python-protobuf'
+
+	# aqt
+	'python-jsonschema'
+	'python-markdown'
+	'python-pyaudio'
+	'python-pyqt5'
+	'python-pyqtwebengine'
+	'python-send2trash'
+)
+makedepends=(
+	'git'
+	'rsync'
+
+	'maturin'
+	'rustup'
+
+	'python-pip'
+	'python-mypy-protobuf'
+	'npm'
+	'typescript'
+)
+optdepends=(
+	'lame: record sound'
+	'mpv: play sound. prefered over mplayer'
+	'mplayer: play sound'
+)
+
+source=(
+	anki-$pkgver.tar.gz::https://github.com/ankitects/anki/archive/$pkgver.tar.gz
+	git+https://github.com/ankitects/anki-desktop-ftl#commit=255a12eadf5c6afc22705ac9ab7c9e2982c7d2b1
+	git+https://github.com/ankitects/anki-core-i18n#commit=23c4dc5bf5c88c782536ec48934ef6a379b10e72
+	0001-Unfuck-make-build-targets.patch
+	0001-Move-aqt_data-to-sys.prefix-share.patch
+)
+sha256sums=(
+	'682efd4cf044a89a0dbd83e30d4545683c6574d847642cc64cc0e0ca4a94f4ae'
+	'SKIP'
+	'SKIP'
+	'SKIP'
+	'SKIP'
+)
+
+prepare() {
+	cd anki-$pkgver
+	patch -p1 <"$srcdir"/0001-Unfuck-make-build-targets.patch
+	patch -p1 <"$srcdir"/0001-Move-aqt_data-to-sys.prefix-share.patch
+}
+
+build() {
+	# Put translations in place.
+	git clone anki-desktop-ftl anki-$pkgver/qt/ftl/repo
+	git clone anki-core-i18n anki-$pkgver/rslib/ftl/repo
+
+	# Built into the shared libraries so that the Python component can check
+	# that it has the same value.
+	cd anki-$pkgver/meta
+	echo anki-$pkgver > buildhash
+
+	# rust ankirspy module
+	cd ../rspy
+	make build
+
+	# python anki module
+	cd ../pylib
+	make build
+
+	# python aqt module
+	cd ../qt
+	make build
+}
+
+package() {
+	cd anki-$pkgver
+
+	PIP_CONFIG_FILE=/dev/null pip install --isolated --root="$pkgdir" --ignore-installed --no-deps dist/*.whl
+
+	install -Dm755 qt/runanki "$pkgdir"/usr/bin/anki
+	install -Dm644 qt/anki.desktop "$pkgdir"/usr/share/applications/anki.desktop
+}
