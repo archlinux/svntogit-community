@@ -4,7 +4,7 @@
 
 pkgname=vapoursynth
 pkgver=R49
-pkgrel=1
+pkgrel=2
 pkgdesc='A video processing framework with the future in mind'
 arch=(x86_64)
 url=http://www.vapoursynth.com/
@@ -51,6 +51,8 @@ prepare() {
 
 build() {
   cd vapoursynth
+
+  export LDFLAGS="$LDFLAGS -lpthread"
 
   ./configure \
     --prefix=/usr \
