@@ -9,12 +9,14 @@ arch=('any')
 url='https://github.com/jpadilla/pyjwt'
 license=('MIT')
 makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-pytest-runner' 'python2-pytest-runner' 'python-pytest-cov' 'python2-pytest-cov')
+checkdepends=('python-pytest-runner' 'python2-pytest-runner')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/jpadilla/pyjwt/archive/$pkgver.tar.gz")
 sha512sums=('0f61ad132309f896b6ea7f1a689854e643f4db6baf3a44d9f5b544b62e3fce384b95c3a04fe2a46aa3e1a5843c3550d57eaec5449c7faa56ca06562571940171')
 
 prepare() {
-  sed -i 's/pytest==2.7.3/pytest/' pyjwt-$pkgver/setup.py
+  sed -i 's/pytest==2.7.3/pytest/;/pytest-cov/d' pyjwt-$pkgver/setup.py
+  # do not use python-coverage
+  sed -i 's/--cov-report term-missing --cov-config=.coveragerc --cov .//' pyjwt-$pkgver/setup.cfg
   cp -a pyjwt-$pkgver{,-py2}
 }
 
