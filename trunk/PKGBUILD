@@ -15,7 +15,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.5
+pkgver=5.6
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -37,8 +37,7 @@ makedepends+=('ncurses')
 makedepends+=('python-docutils')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.4.xz"
-        "01-fix-perf-build-libbfd.patch::https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/patch/?id=0ada120c883d4f1f6aafd01cf0fbb10d8bbba015"
+        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -47,8 +46,7 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
-            'cf640d75bdf4211446aa699a562c7bbd6d0360c6bc11e9ca22e8032de14697db'
-            '61f5398b2adcf024516e3368f242d2398c9286a5272eaf7fdd21530e1494d47e'
+            '75adbc3fae5ddd49e9292e9d0816f230c8bff3efd35dd2c06c3c9330c480d4ef'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'd2e8e5e8b22c6089a91f573aa1c59e442a1f3b67a2c9f047abe3b57d3d6558cc'
             'fa2560630576464739ede14c9292249f4007f36a684bc378add174fc88394550'
@@ -132,9 +130,11 @@ build() {
 
   echo ':: bpf'
   pushd linux/tools/bpf
-  # doesn't compile when we don't first compile bpftool in its directory
+  # doesn't compile when we don't first compile bpftool in its own directory and
+  # man pages require to be also launch from the subdirectory
   make -C bpftool all doc
-  make
+  # runqslower, require kernel binary path to build, skip it
+  make -W runqslower
   popd
 }
 
@@ -293,7 +293,8 @@ package_bpf() {
   depends=('glibc')
 
   cd linux/tools/bpf
-  make install prefix=/usr DESTDIR="$pkgdir"
+  # skip runsqlower until disabled in build
+  make -W runqslower_install install prefix=/usr DESTDIR="$pkgdir"
   # fix bpftool hard written path
   mv "$pkgdir"/usr/sbin/bpftool "$pkgdir"/usr/bin/bpftool
   rmdir "$pkgdir"/usr/sbin
