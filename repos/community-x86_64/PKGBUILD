@@ -2,7 +2,7 @@
 
 pkgname=docker
 pkgver=19.03.8
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -19,16 +19,21 @@ options=('!strip' '!buildflags')
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
 _LIBNETWORK_COMMIT=9fd385be8302dbe1071a3ce124891893ff27f90f
+_APP_TAG='v0.9.0-beta1'
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/spf13/cobra.git"
+        "git+https://github.com/docker/buildx.git"
+        "git+https://github.com/docker/app.git#tag=$_APP_TAG"
         "$pkgname.sysusers")
-sha224sums=('SKIP'
+sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '4c19a66617d73adf1c0b4b0a63e22cba296fd5af32b9b32a9787ff8d')
+            'SKIP'
+            'SKIP'
+            'a7a4b52000ed38ead62665eec9ed2366a4f763d61977ebd5414b041ff1c3d415')
 
 prepare() {
   sed -i 's,/var/run,/run,' docker-ce/components/engine/contrib/init/systemd/docker.socket
@@ -77,6 +82,19 @@ build() {
   echo 'Building cli'
   _fake_gopath_pushd docker-ce/components/cli github.com/docker/cli
   DISABLE_WARN_OUTSIDE_CONTAINER=1 make VERSION=$pkgver-ce dynbinary
+  _fake_gopath_popd
+
+  ### app cli plugin
+  echo 'Building app cli plugin'
+  _fake_gopath_pushd app github.com/docker/app
+  make dynamic
+  _fake_gopath_popd
+
+  ### buildx cli plugin
+  echo 'Building buildx cli plugin'
+  _fake_gopath_pushd buildx github.com/docker/buildx
+  go build -o bin/docker-buildx -ldflags "-X github.com/docker/buildx/version.Version=$(git describe --match 'v[0-9]*' --always --tags)-tp-docker -X github.com/docker/buildx/version.Revision=$(git rev-parse HEAD) -X github.com/docker/buildx/version.Package=github.com/docker/buildx -X main.experimental=1" ./cmd/buildx
+  go clean -modcache
   _fake_gopath_popd
 
   ### daemon
@@ -149,6 +167,10 @@ package() {
   # man
   install -dm755 "$pkgdir/usr/share/man"
   cp -r man/man* "$pkgdir/usr/share/man"
+  # cli-plugins
+  cd "$srcdir"/src/github.com/docker
+  install -Dm755 app/bin/docker-app "$pkgdir/usr/lib/docker/cli-plugins/docker-app"
+  install -Dm755 buildx/bin/docker-buildx "$pkgdir/usr/lib/docker/cli-plugins/docker-buildx"
 }
 
 # vim:set ts=2 sw=2 et:
