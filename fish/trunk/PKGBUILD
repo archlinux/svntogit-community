@@ -19,7 +19,7 @@ makedepends=('cmake' 'python-sphinx')
 install=fish.install
 backup=(etc/fish/config.fish)
 source=(https://github.com/fish-shell/fish-shell/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz{,.asc})
-validgpgkeys=(003837986104878835FA516D7A67D962D88A709A) # David Adam <zanchey@gmail.com>
+validpgpkeys=(003837986104878835FA516D7A67D962D88A709A) # David Adam <zanchey@gmail.com>
 sha256sums=('e5db1e6839685c56f172e1000c138e290add4aa521f187df4cd79d4eab294368'
             'SKIP')
 sha512sums=('143e462b5329790fa9834e135109e1397c3525756a0209d0ec68a53f7d2a1f581cd45fbbdcde6a5b53dff447da18ed6a62277993d851e7b18ef7f1a6b6d49cff'
