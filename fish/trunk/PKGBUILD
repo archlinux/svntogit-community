@@ -7,7 +7,7 @@
 
 pkgname=fish
 pkgver=3.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
 arch=('x86_64')
@@ -26,14 +26,16 @@ sha512sums=('143e462b5329790fa9834e135109e1397c3525756a0209d0ec68a53f7d2a1f581cd
             'SKIP')
 
 build() {
-  mkdir ${pkgname}-${pkgver}/build
-  cd ${pkgname}-${pkgver}/build
-  cmake .. \
+  cd ${pkgname}-${pkgver}
+  export CXXFLAGS+=" ${CPPFLAGS}"
+  cmake \
+    -B build \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_SYSCONFDIR=/etc \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DBUILD_DOCS=True
-  make
+    -DCMAKE_BUILD_TYPE=None \
+    -DBUILD_DOCS=True \
+    -Wno-dev
+  make -C build VERBOSE=1
 }
 
 package() {
