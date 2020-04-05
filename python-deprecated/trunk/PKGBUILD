@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-deprecated
-pkgver=1.2.7
-pkgrel=2
+pkgver=1.2.8
+pkgrel=1
 pkgdesc="Python @deprecated decorator to deprecate old python classes, functions or methods"
 url="https://github.com/tantale/deprecated"
 license=('MIT')
@@ -11,7 +11,7 @@ depends=('python-wrapt')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tantale/deprecated/archive/v$pkgver.tar.gz")
-sha512sums=('da99a22410fdcc2a96cb5b15c489971078ce34e251406ae3dce6b3f97e284a4f09aaf1c5702407abe85a94cb6c8d9237f373a3096d6182e4a9cd1990be2817f1')
+sha512sums=('0a80775b3c9c52137ab22356ee1200d6b6faa7e202b85cd45fe99d58749569f4b6ebc53da0770c0bae1d59cc50dee7dd321b2e83bca85070a2d465080c399b03')
 
 build() {
   cd "$srcdir"/deprecated-$pkgver
