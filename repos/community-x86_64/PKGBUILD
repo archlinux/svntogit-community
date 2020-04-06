@@ -4,9 +4,9 @@
 # Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
 
 pkgbase=cockpit
-pkgname=(cockpit cockpit-pcp cockpit-dashboard)
+pkgname=(cockpit cockpit-pcp cockpit-dashboard cockpit-docker cockpit-machines)
 pkgver=216
-pkgrel=1
+pkgrel=2
 pkgdesc='A systemd web based user interface for Linux servers'
 arch=('x86_64')
 url='https://cockpit-project.org/'
@@ -45,6 +45,8 @@ package_cockpit() {
   backup=('etc/pam.d/cockpit')
   optdepends=("cockpit-pcp: reading performance metrics"
               "cockpit-dashboard: dashboard and support for connecting to remote hosts"
+              "cockpit-docker: user interface for managing docker containers"
+              "cockpit-machines: user interface for managing virtual machines"
               "udisks2: manage hard disks"
               "networkmanager: manage network connections"
               "packagekit: manage packages"
@@ -66,7 +68,8 @@ package_cockpit() {
          "$pkgdir"/usr/share/metainfo/org.cockpit-project.cockpit-{selinux,sosreport}.metainfo.xml
 
   # remove plugins packaged separately
-  rm -rf "$pkgdir"/usr/share/cockpit/{pcp,dashboard} \
+  rm -rf "$pkgdir"/usr/share/cockpit/{pcp,dashboard,docker,machines} \
+         "$pkgdir"/usr/share/metainfo/org.cockpit-project.cockpit-{docker,machines}.metainfo.xml \
          "$pkgdir"/usr/lib/cockpit/cockpit-pcp \
          "$pkgdir"/var/lib/pcp
 }
@@ -84,15 +87,37 @@ package_cockpit-pcp() {
   rm -rf "$pkgdir"/tmp
 }
 
-package_cockpit-dashboard() {
-  pkgdesc='Cockpit support for connecting to remote servers (through ssh), bastion hosts, and a basic dashboard.'
-  depends=(cockpit)
+_do_package_component() {
+  _component="${pkgname#cockpit-}"
 
   cd cockpit-$pkgver
   make DESTDIR="$pkgdir"/tmp install
 
   cd "$pkgdir"/tmp
-  bsdtar -cf - usr/share/cockpit/dashboard \
+  bsdtar -cf - usr/share/cockpit/$_component \
     | bsdtar -xf - -C "$pkgdir"
+
+  [ -f usr/share/metainfo/org.cockpit-project.$pkgname.metainfo.xml ] && \
+    install -Dm644 usr/share/metainfo/org.cockpit-project.$pkgname.metainfo.xml \
+      "$pkgdir"/usr/share/metainfo/org.cockpit-project.$pkgname.metainfo.xml
+
   rm -rf "$pkgdir"/tmp
+}
+
+package_cockpit-dashboard() {
+  pkgdesc='Cockpit support for connecting to remote servers (through ssh), bastion hosts, and a basic dashboard.'
+  depends=(cockpit)
+  _do_package_component
+}
+
+package_cockpit-docker() {
+  pkgdesc='Cockpit components for interacting with Docker and user interface.'
+  depends=(cockpit docker)
+  _do_package_component
+}
+
+package_cockpit-machines() {
+  pkgdesc='Cockpit components for managing virtual machines.'
+  depends=(cockpit libvirt-dbus)
+  _do_package_component
 }
