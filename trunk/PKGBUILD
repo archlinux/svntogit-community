@@ -3,7 +3,7 @@
 pkgname=cuda
 pkgver=10.2.89
 _driverver=440.33.01
-pkgrel=3
+pkgrel=4
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -75,8 +75,12 @@ package() {
     -i "${pkgdir}/opt/cuda/libnsight/nsight.ini" \
     -i "${pkgdir}/opt/cuda/libnvvp/nvvp.ini"
 
-  # Allow GCC 9 to work
+  # Allow newer compilers to work. This is not officially supported in the Arch package but
+  # if users want to try, let them try.
+  # See https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#system-requirements
+  # for official requirements
   sed -i "/.*unsupported GNU version.*/d" "${pkgdir}"/opt/cuda/targets/x86_64-linux/include/crt/host_config.h
+  sed -i "/.*unsupported clang version.*/d" "${pkgdir}"/opt/cuda/targets/x86_64-linux/include/crt/host_config.h
 
   # Fix Makefile paths to CUDA
   for f in $(find "$pkgdir"/opt/cuda -name Makefile); do
