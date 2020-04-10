@@ -5,7 +5,7 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=3.0.0
+pkgver=3.0.1
 pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
@@ -21,14 +21,15 @@ depends=('python-babel'
          'python-snowballstemmer'
          'python-sphinx-alabaster-theme'
          'python-sphinxcontrib-'{{apple,dev,html}help,jsmath,qthelp,serializinghtml})
-#checkdepends=('imagemagick' 'librsvg'
+#checkdepends=('cython'
+#              'imagemagick' 'librsvg'
 #              'python-html5lib'
 #              'python-pytest'
 #              'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
 source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('6a099e6faffdc3ceba99ca8c2d09982d43022245e409249375edf111caf79ed3'
+sha256sums=('50972d83b78990fd61d0d3fe8620814cae53db29443e92c13661bc43dff46ec8'
             'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa
@@ -38,7 +39,6 @@ build() {
   make build
 }
 
-# https://github.com/sphinx-doc/sphinx/issues/6777
 #check() {
 #  cd Sphinx-$pkgver
 #  LC_ALL="en_US.UTF-8" make test
