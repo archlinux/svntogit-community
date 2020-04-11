@@ -1,0 +1,125 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=ambix
+pkgver=0.2.10
+pkgrel=1
+pkgdesc="Ambisonic VST, LV2 plug-ins with variable order for use in Digital Audio Workstations"
+arch=('x86_64')
+url="https://github.com/kronihias/ambix"
+license=('GPL2')
+groups=('lv2-plugins' 'pro-audio' 'vst-plugins')
+depends=('gcc-libs' 'glibc' 'libglvnd' 'libsoxr' 'libx11' 'libxext')
+makedepends=('alsa-lib' 'cmake' 'eigen' 'fftw' 'freetype2' 'freeglut' 'gcc8'
+'gendesk' 'glu' 'libxcursor' 'libxinerama' 'jack' 'liblo' 'zita-convolver')
+checkdepends=('lv2lint')
+optdepends=('jack: for standalone applications')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/kronihias/${pkgname}/archive/v${pkgver}.tar.gz"
+        "${pkgname}-0.2.10-lv2_plugin_uri.patch::https://github.com/kronihias/ambix/pull/28/commits/3892c0b5e6ca6bf1033cfaf8d008aaa5790ba5fe.patch")
+sha512sums=('6e53129bb258a7fd767fb60097354ead28cf05fd5e15017530518b5f0bc9f6350326a58ca81ab7250e70ae25b50900cb00092b489ae33974b258cb200f1c43f5'
+            'e89f69841fcf29b6a0a80b13c026157d0fc625df0962d705f970b9e562be3c8472f3b3d31d87d0d0bfd66ec78cd36ffd0f5944736e123ca88e2000210dc14f20')
+
+_plugin_names=('ambix_binaural' 'ambix_converter' 'ambix_decoder'
+'ambix_directional_loudness' 'ambix_encoder_i2' 'ambix_encoder_i4'
+'ambix_encoder_i6' 'ambix_encoder_i8' 'ambix_encoder' 'ambix_maxre'
+'ambix_mirror' 'ambix_rotator' 'ambix_rotator_z' 'ambix_vmic' 'ambix_warp'
+'ambix_widening')
+
+_standalone_names=('ambix_binaural' 'ambix_converter' 'ambix_decoder'
+'ambix_directional_loudness' 'ambix_encoder' 'ambix_mirror' 'ambix_rotator'
+'ambix_vmic')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # setting proper LV2 URIs:
+  # https://github.com/kronihias/ambix/issues/27
+  patch -Np1 -i "../${pkgname}-0.2.10-lv2_plugin_uri.patch"
+  declare -A _descriptions=(
+    ['ambix_binaural']="Listen to Ambisonics with Headphones"
+    ['ambix_converter']="Convert between Ambisonics Formats"
+    ['ambix_decoder']="Playback Ambisonics with Loudspeakers"
+    ['ambix_directional_loudness']="Amplify, Attenuate or Filter Out Certain Parts of the Spherical Soundfield"
+    ['ambix_encoder']="Encode Audio for Ambisonics"
+    ['ambix_mirror']="Adjust Symmetric Components in Ambisonics Streams"
+    ['ambix_rotator']="Rotate Sounds for Ambisonics"
+    ['ambix_vmic']="Virtual Microphone: Select part of the Soundfield"
+  )
+  declare -A _generic=(
+    ['ambix_binaural']="Binaural Decoder"
+    ['ambix_converter']="Ambisonics Formats Converter"
+    ['ambix_decoder']="Single-band Decoded Ambisonics"
+    ['ambix_directional_loudness']="Spherical Soundfield Amplifier"
+    ['ambix_encoder']="Ambisonics Panning"
+    ['ambix_mirror']="Soundfield Mirroring"
+    ['ambix_rotator']="Ambisonics Sounds Rotator"
+    ['ambix_vmic']="Ambisonics Virtual Microphone"
+  )
+  for _standalone in ${_standalone_names[@]}; do
+    gendesk -n \
+            --pkgname "${_standalone}" \
+            --name "${_standalone}" \
+            --pkgdesc "${_description[${_standalone}]}" \
+            --genericname "${_generic[${_standalone}]}" \
+            --categories "AudioVideo;Audio"
+  done
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  # building with gcc > 9.1 is currently broken
+  # https://github.com/kronihias/ambix/issues/26
+  export CC="gcc-8"
+  export CXX="g++-8"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE='Release' \
+        -DBUILD_LV2=ON \
+        -DWITH_ZITA_CONVOLVER=ON \
+        -DOpenGL_GL_PREFERENCE=GLVND \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
+  (
+    cd lv2-ttl-generator
+    make
+  )
+  (
+    cd build/_bin
+    ../../lv2-ttl-generator/generate-ttl.sh
+  )
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  for _plugin in ${_plugin_names[@]}; do
+    lv2lint -I "build/_bin/lv2/${_plugin}_o5.lv2/" \
+      "https://github.com/kronihias/ambix/${_plugin}" \
+      || echo "Known to fail: https://github.com/kronihias/ambix/issues/29"
+  done
+}
+
+package() {
+  depends+=('libasound.so' 'libfftw3f.so' 'libfftw3f_threads.so'
+  'libfreetype.so' 'libzita-convolver.so')
+  cd "$pkgname-$pkgver"
+  # install standalone applications
+  for _standalone in ${_standalone_names[@]}; do
+    install -vDm 755 "build/_bin/standalone/${_standalone}_standalone_o5" \
+      "${pkgdir}/usr/bin/${_standalone}"
+  done
+  # install vst2 plugins
+  for _plugin in ${_plugin_names[@]}; do
+    install -vDm 755 "build/_bin/vst/${_plugin}_o5.so" \
+      "${pkgdir}/usr/lib/vst/${_plugin}.so"
+  done
+  # install lv2 plugins
+  for _plugin in ${_plugin_names[@]}; do
+    install -vDm 755 "build/_bin/lv2/${_plugin}_o5.lv2/"*.so \
+      -t "${pkgdir}/usr/lib/lv2/${_plugin}_o5.lv2/"
+    install -vDm 644 "build/_bin/lv2/${_plugin}_o5.lv2/"*.ttl \
+      -t "${pkgdir}/usr/lib/lv2/${_plugin}_o5.lv2/"
+  done
+  # XDG desktop integration
+  install -vDm 644 *".desktop" \
+    -t "${pkgdir}/usr/share/applications/"
+  install -vDm 644 {AUTHORS,README.md} -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
