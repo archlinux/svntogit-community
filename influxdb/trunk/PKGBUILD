@@ -6,63 +6,60 @@
 # Contributor: Ben Alex <ben.alex@acegi.com.au>
 
 pkgname=influxdb
-pkgver=1.7.10
+pkgver=1.8.0
 pkgrel=1
 pkgdesc='Scalable datastore for metrics, events, and real-time analytics'
 arch=('x86_64')
 url='https://github.com/InfluxData/influxdb'
 license=('MIT')
-makedepends=('go-pie' 'git' 'asciidoc' 'xmlto' 'dep')
+makedepends=('go' 'git' 'asciidoc' 'xmlto' 'dep')
 backup=('etc/influxdb/influxdb.conf')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/influxdata/influxdb/archive/v${pkgver}.tar.gz"
+        "fix-go114.patch::https://github.com/Foxboron/influxdb/commit/f8453b48862b50fe44021e320332f75e32457f29.patch"
         "influxdb.sysusers"
         "influxdb.tmpfiles")
-sha256sums=('2f8a6b19a1bf6088e992766373b977d21368db71f0140fb7f764c881012eca6d'
+sha256sums=('a20a03caac651ba8a1c6ee317c207d835feb51d4c266c4aa4986f196a7686623'
+            '2812f5cd31bdf6b9f587d471c249fb90ea58c4000ce52e3b91de7b17ca74dc7d'
             '809cca823ae3027984bc7ace70db75753d7d0d4f6658a36db9d94a33054ca5e9'
             'e2aa59413a6204737383b86cedefd866d7073f56ace5b89aad38c530cc86e60c')
-
-prepare(){
-  export GOPATH="$srcdir/gopath"
-
-  mkdir -p "$GOPATH/src/github.com/influxdata/"
-  cp -r "${srcdir}/influxdb-$pkgver" "$GOPATH/src/github.com/influxdata/influxdb"
-  cd "$GOPATH/src/github.com/influxdata/influxdb"
-  dep ensure
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  patch -Np1 < "../fix-go114.patch"
 }
 
 build(){
-  export GOPATH="$srcdir/gopath"
-
-  _LDFLAGS="-X main.version=$pkgver -X main.branch=master -extldflags ${LDFLAGS}"
-  go install -v -trimpath -ldflags="$_LDFLAGS" "github.com/influxdata/influxdb/cmd/..."
-
-  cd "$GOPATH/src/github.com/influxdata/influxdb/man/"
+  cd "$pkgname-$pkgver"
+  export CGO_LDFLAGS="$LDFLAGS"
+  export GOFLAGS="-buildmode=pie -trimpath"
+  _LDFLAGS="-X main.version=$pkgver -X main.branch=master"
+  mkdir -p build
+  go build -v -ldflags="$_LDFLAGS" -o build ./cmd/...
+  cd "man"
   make
 }
 
 check(){
-  export GOPATH="$srcdir/gopath"
-  go test "github.com/influxdata/influxdb/..."
+  cd "$pkgname-$pkgver"
+  export CGO_LDFLAGS="$LDFLAGS"
+  export GOFLAGS="-buildmode=pie -trimpath"
+  go test ./...
 }
 
 package(){
-  export GOPATH="$srcdir/gopath"
+  cd "$pkgname-$pkgver"
 
-  cd "$srcdir"
-  install -Dm644 influxdb.sysusers "$pkgdir/usr/lib/sysusers.d/influxdb.conf"
-  install -Dm644 influxdb.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/influxdb.conf"
+  install -Dm644 ../influxdb.sysusers "$pkgdir/usr/lib/sysusers.d/influxdb.conf"
+  install -Dm644 ../influxdb.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/influxdb.conf"
 
-  cd "$GOPATH/bin"
   install -d "$pkgdir/usr/bin/"
-  install -Dm755 influx         "$pkgdir/usr/bin/"
-  install -Dm755 influxd        "$pkgdir/usr/bin/"
-  install -Dm755 influx_inspect "$pkgdir/usr/bin/"
-  install -Dm755 influx_stress  "$pkgdir/usr/bin/"
-  install -Dm755 influx_tools   "$pkgdir/usr/bin/"
-  install -Dm755 influx_tsm     "$pkgdir/usr/bin/"
+  install -Dm755 build/influx         "$pkgdir/usr/bin/"
+  install -Dm755 build/influxd        "$pkgdir/usr/bin/"
+  install -Dm755 build/influx_inspect "$pkgdir/usr/bin/"
+  install -Dm755 build/influx_stress  "$pkgdir/usr/bin/"
+  install -Dm755 build/influx_tools   "$pkgdir/usr/bin/"
+  install -Dm755 build/influx_tsm     "$pkgdir/usr/bin/"
   # install -Dm755 store          "$pkgdir/usr/bin/"
 
-  cd "$GOPATH/src/github.com/influxdata/influxdb"
   install -Dm644 scripts/influxdb.service "$pkgdir/usr/lib/systemd/system/influxdb.service"
   install -Dm644 etc/config.sample.toml   "$pkgdir/etc/influxdb/influxdb.conf"
   install -Dm644 LICENSE                  "$pkgdir/usr/share/licenses/influxdb/LICENSE"
