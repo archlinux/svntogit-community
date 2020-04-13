@@ -6,8 +6,8 @@
 
 pkgbase=root
 pkgname=('root' 'root-cuda')
-pkgver=6.20.02
-pkgrel=2
+pkgver=6.20.04
+pkgrel=1
 pkgdesc='C++ data analysis framework and interpreter from CERN'
 arch=('x86_64')
 url='https://root.cern'
@@ -74,16 +74,22 @@ source=("https://root.cern.ch/download/root_v${pkgver}.source.tar.gz"
         'root.pc.tpl'
         'settings.cmake'
         'settings-cuda.cmake'
+        'jupyter_notebook_config.py'
         'add_missing_include_ROOT-10315.patch'
-        'fix_relative_paths.patch')
-sha256sums=('0997586bf097c0afbc6f08edbffcebf5eb6a4237262216114ba3f5c8087dcba6'
+        'fix_relative_paths.patch'
+        'nbman-for-arch.patch'
+        'thisroot.fail')
+sha256sums=('1f8c76ccdb550e64e6ddb092b4a7e9d0a10655ef80044828cba12d5e7c874472'
             '43fb857c82c23016dc9ae82a591503c47d12ecbc576cb8285aa632b3e83b9839'
             '50c08191a5b281a39aa05ace4feb8d5405707b4c54a5dcba061f954649c38cb0'
             '558b1c882ce166ad27349460f4da2a81a9a429ad0b5e802601b6ee2714610b0e'
-            '54cae85b8ff132cd0de6654048797281a7725efaa8158a3b97ea21ce8f258ebd'
-            'b1cad3e74be54ea7ef65a522d726e608b7f5b451c036c4cbb7511f454f015f4c'
+            '24d38e4a075755aece47acaa49b48e88e9736d69839fab92794dae6dbd6593fc'
+            '3dea5bbf14f8ce9851b5034df9a02b68ee34cd099ecdc5d27c9540b8ce603a3e'
+            'f33b7b6c4357b0c95cb6a19b4c7e0a1063e5a5ebe4f777f50ff7cde4d77b2241'
             '1cb2654f22b5f1de7f8621434c76266968db77a1f300de857e47d0f4ad5da217'
-            'd5b135fb4d6329277e33d612f8b81b1ca60681cca96196e33ab776f3018a2fa8')
+            'd5b135fb4d6329277e33d612f8b81b1ca60681cca96196e33ab776f3018a2fa8'
+            '58d9cd6ac3e8c7f243505c3c2d176d0d4e49c54dc5d166a4378f8bdc313cb161'
+            'd88c7d09ae2f20022d12c82bf981ae9dffeefc93d8dd766aca011b2b3193f413')
 
 get_pyver () {
     python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
@@ -167,7 +173,8 @@ _package() {
     local _pyver=$(get_pyver)
     local _pydir="${pkgdir}/usr/lib/python${_pyver}/site-packages"
     install -d "${_pydir}"
-    find "${pkgdir}/usr/lib/root" -maxdepth 1 -mindepth 1 \( -iname "*py*" -or -name "*Js*" \) ! -name "*EGPythia8*" -print0 | while read -rd $'\0' _lib; do
+    find "${pkgdir}/usr/lib/root" -maxdepth 1 -mindepth 1 \( -iname "*py*" -or -name "*Js*" \) \
+            ! \( -name "*EGPythia8*" -or -iname "*.rootmap" -or -iname "*.pcm" \) -print0 | while read -rd $'\0' _lib; do
         _base=$(basename "${_lib}")
         ln -sf "/usr/lib/root/${_base}" "${pkgdir}/usr/lib/python${_pyver}/site-packages/${_base}"
     done
@@ -211,9 +218,41 @@ _package() {
         -i "${bld_dir}/root.pc.tpl"
     install -Dm644 "${bld_dir}/root.pc.tpl" "${pkgdir}/usr/lib/pkgconfig/root.pc"
 
-    # install all licenses
+    # install all licenses & docs
     install -d "${pkgdir}/usr/share/licenses/roofit"
     install "${srcdir}/ROOFIT_LICENSE" "${pkgdir}/usr/share/licenses/roofit/LICENSE"
+    install -d "${pkgdir}/usr/share/licenses/${pkgname}"
+    ln -s '/usr/share/doc/root/LICENSE' "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    ln -s '/usr/share/root/fonts' "${pkgdir}/usr/share/licenses/${pkgname}/fonts"
+    ln -s '/usr/share/root/js' "${pkgdir}/usr/share/licenses/${pkgname}/js"
+    ln -s '/usr/share/licenses/rootfit' "${pkgdir}/usr/share/licenses/${pkgname}/roofit"
+    if [ "${pkgname}" != "root" ]; then
+        ln -s "/usr/share/licenses/${pkgname}" "${pkgdir}/usr/share/licenses/root"
+        ln -s "/usr/share/doc/root" "${pkgdir}/usr/share/doc/${pkgname}"
+    fi
+
+    # install jupyter kernels and `root --notebook` config
+    install -d "${pkgdir}/usr/share/jupyter/kernels"
+    ln -s '/etc/notebook/kernels/root' "${pkgdir}/usr/share/jupyter/kernels/root"
+    install "${srcdir}/jupyter_notebook_config.py" "${pkgdir}/etc/notebook"/
+
+    # drop thisroot.* shell files
+    rm -rf "${pkgdir}"/usr/bin/thisroot.*
+    install -Dm755 "${srcdir}/thisroot.fail" "${pkgdir}/usr/bin/thisroot.sh"
+    for suffix in csh fish; do
+        ln -s '/usr/bin/thisroot.sh' "${pkgdir}/usr/bin/thisroot.${suffix}"
+    done
+
+    # strip build paths
+    find "${pkgdir}/" -type f -print0 | while read -rd $'\0' _file; do
+        sed -b -e "s@${bld_dir}/lib@/usr/lib/root@g" \
+               -e "s@${bld_dir}/etc@/etc@g" \
+               -e "s@${bld_dir}/include@/usr/include@g" \
+               -e "s@${bld_dir}/input@/input@g" \
+               -e "s@${srcdir}/${pkgbase}-${pkgver}@@g" \
+               -e "s@${srcdir}/${pkgbase}-${pkgver}-cuda@@g" \
+            -i "${_file}"
+    done
 }
 
 package_root() {
