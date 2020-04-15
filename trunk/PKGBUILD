@@ -5,7 +5,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgver=20.0.4
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
@@ -14,10 +14,12 @@ makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgpro
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
+        mesa-llvm-10.patch::https://github.com/mesa3d/mesa/commit/ff1a3a00cb37d84ab9a563f0aa241714876f56b4.patch
         LICENSE
         crossfile.ini)
 sha512sums=('17d8bc3b56779a8e5648d81da9ee97b66bcec015710801edce4e8055fbb314cd9ebc1d112e3035480ba844c7d9ae6b5b1f1eac0cc0817e69e9253a7748451a55'
             'SKIP'
+            'e6c1812816ed6251959400a9f6824b604b69d4ce057b677baff8c4c2c41de8edc1571ce13f0cc9ec87eb0e9d007a305b6a1727d820a8632f482c7a8629bd6fb8'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
             'c7dbb390ebde291c517a854fcbe5166c24e95206f768cc9458ca896b2253aabd6df12a7becf831998721b2d622d0c02afdd8d519e77dea8e1d6807b35f0166fe')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
@@ -27,11 +29,16 @@ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l
               '71C4B75620BC75708B4BDB254C95FAAB3EB073EC'  # Dylan Baker <dylan@pnwbakers.com>
               '57551DE15B968F6341C248F68D8E31AFC32428A6') # Eric Engestrom <eric@engestrom.ch>
 
+prepare() {
+  cd mesa-$pkgver
+  patch -p1 -i ../mesa-llvm-10.patch
+}
+
 build() {
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
-  
+
   arch-meson mesa-$pkgver build \
     --native-file crossfile.ini \
     --libdir=/usr/lib32 \
@@ -110,7 +117,7 @@ package_lib32-vulkan-intel() {
 
 package_lib32-vulkan-radeon() {
   pkgdesc="Radeon's Vulkan mesa driver (32-bit)"
-  depends=('lib32-wayland' 'lib32-libx11' 'lib32-llvm-libs' 'lib32-libdrm' 'lib32-libelf' 
+  depends=('lib32-wayland' 'lib32-libx11' 'lib32-llvm-libs' 'lib32-libdrm' 'lib32-libelf'
            'lib32-libxshmfence' 'lib32-zstd')
   provides=('lib32-vulkan-driver')
 
@@ -126,7 +133,7 @@ package_lib32-libva-mesa-driver() {
            'lib32-zstd' 'lib32-libxshmfence')
 
   _install fakeinstall/usr/lib32/dri/*_drv_video.so
-   
+
   install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
 }
 
@@ -136,7 +143,7 @@ package_lib32-mesa-vdpau() {
            'lib32-zstd' 'lib32-libxshmfence')
 
   _install fakeinstall/usr/lib32/vdpau
-   
+
   install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
 }
 
@@ -152,7 +159,7 @@ package_lib32-mesa() {
 
   # ati-dri, nouveau-dri, intel-dri, svga-dri, swrast, swr
   _install fakeinstall/usr/lib32/dri/*_dri.so
-   
+
   _install fakeinstall/usr/lib32/d3d
   _install fakeinstall/usr/lib32/lib{gbm,glapi}.so*
   _install fakeinstall/usr/lib32/libOSMesa.so*
@@ -165,7 +172,7 @@ package_lib32-mesa() {
 
   # indirect rendering
   ln -s /usr/lib32/libGLX_mesa.so.0 "${pkgdir}/usr/lib32/libGLX_indirect.so.0"
-  
+
   rm -rv fakeinstall/usr/share/drirc.d
   rm -rv fakeinstall/usr/include
   rm -rv fakeinstall/usr/share
