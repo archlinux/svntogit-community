@@ -3,7 +3,7 @@
 
 _name=dulwich
 pkgname=python-dulwich
-pkgver=0.19.15
+pkgver=0.19.16
 pkgrel=1
 pkgdesc='Pure-Python implementation of the Git file formats and protocols'
 arch=('x86_64')
@@ -12,7 +12,7 @@ license=('GPL')
 depends=('python-certifi' 'python-urllib3')
 checkdepends=('python-mock')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('805a9b1932dc28b91f359f529c2e46b7623aec3ab719c96d3f2fc63d0d8d8411')
+sha256sums=('f74561c448bfb6f04c07de731c1181ae4280017f759b0bb04fa5770aa84ca850')
 
 build() {
   cd $_name-$pkgver
