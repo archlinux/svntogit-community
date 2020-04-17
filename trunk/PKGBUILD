@@ -5,7 +5,7 @@ pkgname=('ghdl-mcode' 'ghdl-llvm' 'ghdl-gcc')
 _gcc=9.3.0
 _isl=0.22
 pkgver=0.37
-pkgrel=5
+pkgrel=6
 pkgdesc='VHDL simulator'
 arch=('x86_64')
 url='https://github.com/ghdl/ghdl'
@@ -50,45 +50,35 @@ prepare() {
   sed -i "/ac_cpp=/s/\$CPPFLAGS/\$CPPFLAGS -O2/" {libiberty,gcc}/configure
 }
 
-build() {
-  echo 'Building ghdl-mcode...'
-  cd "$srcdir"/ghdl-mcode
-
+_configure() {
   ./configure \
       --prefix=/usr \
       --disable-werror \
       --enable-checks \
       --enable-libghdl \
       --enable-openieee \
-      --enable-synth
+      --enable-synth $@
+}
+
+build() {
+  echo 'Building ghdl-mcode...'
+  cd "$srcdir"/ghdl-mcode
+
+  _configure
 
   make
 
   echo 'Building ghdl-llvm...'
   cd "$srcdir"/ghdl-llvm
 
-  ./configure \
-      --prefix=/usr \
-      --with-llvm-config \
-      --disable-werror \
-      --enable-checks \
-      --enable-libghdl \
-      --enable-openieee \
-      --enable-synth
+  _configure --with-llvm-config
 
   make
 
   echo 'Building ghdl-gcc...'
   cd "$srcdir"/ghdl-gcc
 
-  ./configure \
-      --prefix=/usr \
-      --with-gcc="$srcdir"/gcc-$_gcc \
-      --disable-werror \
-      --enable-checks \
-      --enable-libghdl \
-      --enable-openieee \
-      --enable-synth
+  _configure --with-gcc="$srcdir"/gcc-$_gcc
 
   make copy-sources
 
@@ -101,14 +91,17 @@ build() {
       --enable-languages=vhdl \
       --enable-default-pie \
       --enable-default-ssp \
-      --with-system-zlib \
       --with-isl \
+      --enable-plugin \
+      --enable-lto \
       --disable-bootstrap \
-      --disable-lto \
       --disable-multilib \
+      --disable-libada \
+      --disable-libsanitizer \
       --disable-libssp \
-      --disable-libgomp \
       --disable-libquadmath \
+      --disable-libgomp \
+      --disable-libvtv \
       --with-pkgversion='Arch Linux Repositories' \
       --with-bugurl='https://bugs.archlinux.org/'
 
@@ -133,6 +126,7 @@ package_ghdl-mcode() {
 package_ghdl-llvm() {
   pkgdesc="$pkgdesc (LLVM backend)"
   depends+=('llvm-libs')
+  options=(!emptydirs)
 
   cd $pkgname
 
@@ -148,15 +142,17 @@ package_ghdl-gcc() {
 
   cd "$srcdir"/gcc-build
 
-  mkdir "$srcdir"/dest
-  make DESTDIR="$srcdir"/dest install
+  make DESTDIR="$pkgdir" install
 
-  # manually install the files
-  install -dm 755 "$pkgdir"/usr/{bin,lib/{ghdl,gcc/x86_64-pc-linux-gnu/$_gcc}}
-  install -Dm 755 "$srcdir"/dest/usr/bin/ghdl "$pkgdir"/usr/bin/ghdl
-  install -Dm 644 "$srcdir"/dest/usr/lib/ghdl/libbacktrace.a "$pkgdir"/usr/lib/ghdl/libbacktrace.a
-  install -Dm 644 "$srcdir"/dest/usr/share/info/ghdl.info "$pkgdir"/usr/share/info/ghdl.info
-  install -Dm 644 "$srcdir"/dest/usr/lib/gcc/x86_64-pc-linux-gnu/$_gcc/ghdl1 "$pkgdir"/usr/lib/gcc/x86_64-pc-linux-gnu/$_gcc/ghdl1
+  # Remove files that conflict with the system gcc -- we only want to install the ghdl plugin
+  for FILE in $(find "$pkgdir" -not -type d); do
+    if [ -f /"${FILE#"$pkgdir"}" ]; then
+      rm -f "$FILE"
+    fi
+  done
+
+  find "$pkgdir"/usr/share -not -type d -not -name '*ghdl*' -delete
+  rm -rf "$pkgdir"/usr/lib64
 
   # strip binaries
   find "$pkgdir"/usr/bin/ "$pkgdir"/usr/lib/gcc -type f -and \( -executable -o -name '*.o' \) -exec strip '{}' \;
@@ -164,6 +160,5 @@ package_ghdl-gcc() {
   cd "$srcdir"/ghdl-gcc
 
   make DESTDIR="$pkgdir" install
-
 }
 
