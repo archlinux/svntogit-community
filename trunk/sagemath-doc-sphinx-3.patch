@@ -1,22 +1,32 @@
---- a/src/sage_setup/docbuild/__init__.py
-+++ b/src/sage_setup/docbuild/__init__.py
-@@ -817,9 +817,13 @@ class ReferenceSubBuilder(DocBuilder):
+diff --git a/src/doc/en/thematic_tutorials/structures_in_coding_theory.rst b/src/doc/en/thematic_tutorials/structures_in_coding_theory.rst
+index 13f1a83a2b..4726bce061 100644
+--- a/src/doc/en/thematic_tutorials/structures_in_coding_theory.rst
++++ b/src/doc/en/thematic_tutorials/structures_in_coding_theory.rst
+@@ -721,8 +721,6 @@ derive from the one that follows.
  
-         env_pickle = os.path.join(self._doctrees_dir(), 'environment.pickle')
-         try:
--            env = BuildEnvironment.frompickle(env_pickle, FakeApp(self.dir))
--            logger.debug("Opened Sphinx environment: %s", env_pickle)
--            return env
-+            with open(env_pickle, 'rb') as f:
-+                import pickle
-+                env = pickle.load(f)
-+                env.app = FakeApp(self.dir)
-+                env.config.values = env.app.config.values
-+                logger.debug("Opened Sphinx environment: %s", env_pickle)
-+                return env
-         except IOError as err:
-             logger.debug("Failed to open Sphinx environment: %s", err)
+ .. CODE-BLOCK:: python
  
+-    :class:`sage.coding.repetition_code.BinaryRepetitionCode <sage.coding.repetition_code.BinaryRepetitionCode>`
+-    #the line above creates a link to the class in the html documentation of coding theory library
+     from sage.coding.repetition_code import BinaryRepetitionCode
+ 
+ ``encoders_catalog.py`` (continued):
+diff --git a/src/sage/combinat/permutation.py b/src/sage/combinat/permutation.py
+index a68d6734f8..ae644cf28a 100644
+--- a/src/sage/combinat/permutation.py
++++ b/src/sage/combinat/permutation.py
+@@ -415,9 +415,6 @@ class Permutation(CombinatorialElement):
+         []
+         sage: Permutation( [[], []] )
+         []
+-
+-    .. automethod:: Permutation.left_action_product
+-    .. automethod:: Permutation.right_action_product
+     """
+     @staticmethod
+     def __classcall_private__(cls, l, check_input = True):
+diff --git a/src/sage/docs/conf.py b/src/sage/docs/conf.py
+index 10664c67f5..768729fb3c 100644
 --- a/src/sage/docs/conf.py
 +++ b/src/sage/docs/conf.py
 @@ -8,6 +8,7 @@ from docutils import nodes
@@ -27,7 +37,7 @@
  from IPython.lib.lexers import IPythonConsoleLexer, IPyLexer
  
  # If your extensions are in another directory, add it here.
-@@ -169,13 +169,8 @@ todo_include_todos = True
+@@ -169,13 +170,8 @@ todo_include_todos = True
  
  # Cross-links to other project's online documentation.
  python_version = sys.version_info.major
@@ -63,7 +73,7 @@
  
  # By default document are not master.
  multidocs_is_master = True
-@@ -669,7 +672,7 @@ def call_intersphinx(app, env, node, contnode):
+@@ -669,7 +670,7 @@ def call_intersphinx(app, env, node, contnode):
      """
      debug_inf(app, "???? Trying intersphinx for %s" % node['reftarget'])
      builder = app.builder
@@ -72,7 +82,7 @@
          app, env, node, contnode)
      if res:
          # Replace absolute links to $SAGE_DOC by relative links: this
-@@ -852,11 +855,10 @@ def setup(app):
+@@ -852,11 +853,10 @@ def setup(app):
      if app.srcdir.startswith(SAGE_DOC_SRC):
          app.add_config_value('intersphinx_mapping', {}, False)
          app.add_config_value('intersphinx_cache_limit', 5, False)
@@ -86,29 +96,43 @@
 -        app.connect('builder-inited', set_intersphinx_mappings)
 -        app.connect('builder-inited', sphinx.ext.intersphinx.load_mappings)
          app.connect('builder-inited', nitpick_patch_config)
+diff --git a/src/sage_setup/docbuild/__init__.py b/src/sage_setup/docbuild/__init__.py
+index 128117b960..5aad13c8c5 100644
+--- a/src/sage_setup/docbuild/__init__.py
++++ b/src/sage_setup/docbuild/__init__.py
+@@ -817,9 +817,13 @@ class ReferenceSubBuilder(DocBuilder):
+ 
+         env_pickle = os.path.join(self._doctrees_dir(), 'environment.pickle')
+         try:
+-            env = BuildEnvironment.frompickle(env_pickle, FakeApp(self.dir))
+-            logger.debug("Opened Sphinx environment: %s", env_pickle)
+-            return env
++            with open(env_pickle, 'rb') as f:
++                import pickle
++                env = pickle.load(f)
++                env.app = FakeApp(self.dir)
++                env.config.values = env.app.config.values
++                logger.debug("Opened Sphinx environment: %s", env_pickle)
++                return env
+         except IOError as err:
+             logger.debug("Failed to open Sphinx environment: %s", err)
+ 
+diff --git a/src/sage_setup/docbuild/ext/multidocs.py b/src/sage_setup/docbuild/ext/multidocs.py
+index 71a08cd937..ffed722d33 100644
 --- a/src/sage_setup/docbuild/ext/multidocs.py
 +++ b/src/sage_setup/docbuild/ext/multidocs.py
-@@ -47,32 +47,39 @@ def merge_environment(app, env):
-     - domaindata['py']['modules'] # list of python modules
-     """
-     logger.info(bold('Merging environment/index files...'))
-+    if not hasattr(env, "todo_all_todos"):
-+        env.todo_all_todos = []
-+    if not env.domaindata['citation'].get('citations'):
-+        env.domaindata['citation']['citations'] = dict()
-     for curdoc in app.env.config.multidocs_subdoc_list:
-         logger.info("    %s:"%curdoc, nonl=1)
+@@ -52,27 +52,29 @@ def merge_environment(app, env):
          docenv = get_env(app, curdoc)
          if docenv is not None:
              fixpath = lambda path: os.path.join(curdoc, path)
-+            todos = docenv.todo_all_todos if hasattr(docenv, "todo_all_todos") else []
++            todos = docenv.domaindata['todo'].get('todos', dict())
 +            citations = docenv.domaindata['citation'].get('citations', dict())
 +            indexentries = docenv.domaindata['index'].get('entries', dict())
              logger.info(" %s todos, %s index, %s citations"%(
 -                    len(docenv.todo_all_todos),
 -                    len(docenv.indexentries),
 -                    len(docenv.domaindata["std"]["citations"])
-+                    len(todos),
++                    sum(len(t) for t in todos.values()),
 +                    len(indexentries),
 +                    len(citations)
                      ), nonl=1)
@@ -118,10 +142,10 @@
                  env.titles[fixpath(t)] = docenv.titles[t]
              # merge the todo links
 -            for dct in docenv.todo_all_todos:
-+            for dct in todos:
-                 dct['docname'] = fixpath(dct['docname'])
+-                dct['docname'] = fixpath(dct['docname'])
 -            env.todo_all_todos += docenv.todo_all_todos
-+            env.todo_all_todos += todos
++            for dct in todos:
++                env.domaindata['todo']['todos'][fixpath(dct)] = todos[dct]
              # merge the html index links
              newindex = {}
 -            for ind in docenv.indexentries:
@@ -137,7 +161,7 @@
              # merge the all_docs links, needed by the js index
              newalldoc = {}
              for ind in docenv.all_docs:
-@@ -86,24 +93,23 @@ def merge_environment(app, env):
+@@ -86,24 +88,23 @@ def merge_environment(app, env):
                  env.metadata[ind] = md
              # merge the citations
              newcite = {}
@@ -158,9 +182,10 @@
              env.domaindata['py']['modules'].update(newmodules)
              logger.info(", %s modules"%(len(newmodules)))
      logger.info('... done (%s todos, %s index, %s citations, %s modules)'%(
-             len(env.todo_all_todos),
+-            len(env.todo_all_todos),
 -            len(env.indexentries),
 -            len(env.domaindata["std"]["citations"]),
++            sum(len(t) for t in env.domaindata['todo']['todos'].values()),
 +            len(env.domaindata['index']['entries']),
 +            len(env.domaindata['citation']['citations']),
              len(env.domaindata['py']['modules'])))
@@ -169,15 +194,17 @@
  
  
  def get_env(app, curdoc):
-@@ -253,7 +259,7 @@ def fetch_citation(app, env):
+@@ -253,7 +254,7 @@ def fetch_citation(app, env):
      with open(filename, 'rb') as f:
          cache = cPickle.load(f)
      logger.info("done (%s citations)."%len(cache))
 -    cite = env.domaindata["std"]["citations"]
-+    cite = env.domaindata['citation']['citations']
++    cite = env.domaindata['citation'].get('citations', dict())
      for ind, (path, tag, lineno) in six.iteritems(cache):
          if ind not in cite: # don't override local citation
              cite[ind] = (os.path.join("..", path), tag, lineno)
+diff --git a/src/sage_setup/docbuild/ext/sage_autodoc.py b/src/sage_setup/docbuild/ext/sage_autodoc.py
+index bba274fe35..179fc25d0e 100644
 --- a/src/sage_setup/docbuild/ext/sage_autodoc.py
 +++ b/src/sage_setup/docbuild/ext/sage_autodoc.py
 @@ -35,14 +35,15 @@ import sys
