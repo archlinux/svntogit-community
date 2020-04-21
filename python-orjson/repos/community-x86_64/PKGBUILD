@@ -1,0 +1,54 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=orjson
+pkgname=python-orjson
+pkgver=2.6.5
+pkgrel=1
+pkgdesc="Fast, correct Python JSON library supporting dataclasses and datetimes"
+arch=('x86_64')
+url="https://github.com/ijl/orjson"
+license=('Apache' 'MIT')
+depends=('python')
+makedepends=('maturin' 'python-pip' 'rustup')
+checkdepends=('python-arrow' 'python-pendulum' 'python-psutil' 'python-pytest' 'python-pytz')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/ijl/${_name}/archive/${pkgver}.tar.gz")
+sha512sums=('a5cfbd3f2912f2c507af1a86fbfc2efbfdbd6430d25b695e0b8abf44745e729695310b380773a6cd9bf28f41898d87324dfe6969167580efc4c0e7f227292046')
+
+prepare() {
+  mv -v "${_name}-${pkgver}" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+#  dephell deps convert --from pyproject.toml --to setup.py
+  rustup override set nightly
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  maturin build --release \
+                --strip \
+                --manylinux
+}
+
+check() {
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  cd "$pkgname-$pkgver"
+  mkdir -vp testdir
+  export PIP_CONFIG_FILE=/dev/null
+  pip install --isolated \
+              --root="testdir" \
+              --ignore-installed \
+              --no-deps target/wheels/*.whl
+  export PYTHONPATH="testdir/usr/lib/python${python_version}/site-packages:${PYTHONPATH}"
+  pytest -v
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  export PIP_CONFIG_FILE='/dev/null'
+  pip install --isolated \
+              --root="$pkgdir" \
+              --ignore-installed \
+              --no-deps target/wheels/*.whl
+  install -vDm 644 {CHANGELOG,README}.md \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 LICENSE-* -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
