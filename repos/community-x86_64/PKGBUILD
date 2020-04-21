@@ -1,0 +1,75 @@
+# Maintainer: kpcyrd <kpcyrd[at]archlinux[dot]org>
+
+pkgname=rebuilderd
+pkgver=0.2.0
+pkgrel=1
+pkgdesc='Independent verification system of binary packages'
+url='https://github.com/kpcyrd/rebuilderd'
+arch=('x86_64')
+license=('GPL3')
+depends=('libsodium' 'sqlite' 'archlinux-repro')
+makedepends=('cargo')
+backup=('etc/rebuilderd.conf'
+        'etc/rebuilderd-sync.conf'
+        'etc/rebuilderd-worker.conf')
+source=(https://github.com/kpcyrd/${pkgname}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
+        https://github.com/kpcyrd/${pkgname}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz.asc)
+sha512sums=('01f1bc03d75f7100860b90eaeba04f0f067b971bb259bf17e56974f79d0ae14800cf5549205f4af50fa1004f7c892ffac19e1a482fe1afd4160a73ba0c07dc44'
+            'SKIP')
+b2sums=('b32204787703fdbab6b0a98fb8f1899917ce21ae0888f363c09767c1ea41791afc22c0fb225991ae1862e32eb03d1eb0a58296f9c6fbc8b3e242094b353480a7'
+        'SKIP')
+
+validpgpkeys=("64B13F7117D6E07D661BBCE0FE763A64F5E54FD6")
+
+build() {
+  cd ${pkgname}-${pkgver}
+  cargo build --release --locked
+}
+
+check() {
+  cd ${pkgname}-${pkgver}
+  cargo test --release --locked
+}
+
+package() {
+  cd ${pkgname}-${pkgver}
+  install -Dm 755 -t "${pkgdir}/usr/bin" \
+    target/release/rebuilderd \
+    target/release/rebuilderd-worker \
+    target/release/rebuildctl
+
+  # install rebuilder scripts
+  install -Dm 755 -t "${pkgdir}/usr/libexec/rebuilderd" \
+    worker/rebuilder-archlinux.sh \
+    worker/rebuilder-debian.sh
+
+  # install config files
+  install -Dm 644 -t "${pkgdir}/etc" \
+    contrib/confs/rebuilderd-sync.conf
+  install -Dm 640 -g 212 -t "${pkgdir}/etc" \
+    contrib/confs/rebuilderd-worker.conf \
+    contrib/confs/rebuilderd.conf
+
+  # install completions
+  install -d "${pkgdir}/usr/share/bash-completion/completions" \
+             "${pkgdir}/usr/share/zsh/site-functions" \
+             "${pkgdir}/usr/share/fish/vendor_completions.d"
+  "${pkgdir}/usr/bin/rebuildctl" completions bash > "${pkgdir}/usr/share/bash-completion/completions/rebuildctl"
+  "${pkgdir}/usr/bin/rebuildctl" completions zsh > "${pkgdir}/usr/share/zsh/site-functions/_rebuildctl"
+  "${pkgdir}/usr/bin/rebuildctl" completions fish > "${pkgdir}/usr/share/fish/vendor_completions.d/rebuildctl.fish"
+
+  # install systemd configs
+  install -Dm 644 -t "${pkgdir}/usr/lib/systemd/system" \
+    contrib/systemd/rebuilderd-sync@.service \
+    contrib/systemd/rebuilderd-sync@.timer \
+    contrib/systemd/rebuilderd-worker@.service \
+    contrib/systemd/rebuilderd.service
+
+  install -Dm 644 contrib/systemd/rebuilderd.sysusers "${pkgdir}/usr/lib/sysusers.d/rebuilderd.conf"
+  install -Dm 644 contrib/systemd/rebuilderd.tmpfiles "${pkgdir}/usr/lib/tmpfiles.d/rebuilderd.conf"
+
+  # install docs
+  install -Dm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+# vim: ts=2 sw=2 et:
