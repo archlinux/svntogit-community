@@ -1,20 +1,25 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
+
 pkgname=giada
-pkgver=0.16.1
+pkgver=0.16.2.2
 pkgrel=1
 pkgdesc="A free, minimal, hardcore audio tool for DJs, live performers and electronic musicians"
 arch=('x86_64')
 url="https://www.giadamusic.com/"
 license=('GPL3')
 groups=('pro-audio')
-depends=('alsa-lib' 'fltk' 'gcc-libs' 'glibc' 'jansson' 'libjack.so' 'libpulse'
-'librtmidi.so' 'libsamplerate' 'libsndfile' 'libx11' 'libxpm')
-makedepends=('gendesk' 'imagemagick')
+depends=('fltk' 'gcc-libs' 'glibc' 'libx11' 'libxpm')
+# upstream vendors a hacked rtaudio :(
+makedepends=('alsa-lib' 'gendesk' 'imagemagick' 'jack' 'libpulse'
+'libsamplerate' 'libsndfile' 'nlohmann-json' 'rtmidi')
 checkdepends=('catch2' 'xorg-server-xvfb')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/monocasual/${pkgname}/archive/v${pkgver}.tar.gz")
-sha512sums=('12a898d449bea7d189eb320ea1241c0e408eafbf2460ff122b1383aff4209b5af4513ba5a2d4684cbbcaaf5a866d8016f19337497c7cd4faf58b884663543c35')
+source=("https://www.giadamusic.com/data/${pkgname}-${pkgver}-src.tar.gz"
+        "$pkgname-0.16.2.2-devendor_nlohmann-json.patch")
+sha512sums=('5b642ea557bf27923c99548af2c21cb106d75c515214cf105910897eb1654416303e2b77854220562a6fa16515c6ded219dac470626d96ea6d92fd9cd27757bf'
+            '31cf5b2b1bba29e8c97109c04c6456a98b778017ef5d48a0f020d326d8a11a5e76c8613fc232a2492d16aa48bc2faaae4aae7316252d6b887bd2187032fb83f9')
 
 prepare() {
+  mv -v "$pkgname-$pkgver-src" "$pkgname-$pkgver"
   cd "$pkgname-$pkgver"
   autoreconf -vfi
   # XDG desktop file
@@ -25,10 +30,14 @@ prepare() {
           --categories "AudioVideo;Audio;Midi;Sequencer"
   # fixing catch2 include for system library
   sed -e 's|catch\.hpp|catch2/catch\.hpp|g' -i tests/*.cpp
+  # devendor nlohmann-json
+  patch -Np1 -i ../"$pkgname-0.16.2.2-devendor_nlohmann-json.patch"
 }
 
 build() {
   cd "$pkgname-$pkgver"
+  # TODO: build vst once the included juce is fixed for gcc >= 9.1.0
+  # https://github.com/monocasual/giada/issues/328
   ./configure --prefix=/usr \
               --target=linux \
               --enable-system-catch
@@ -41,6 +50,8 @@ check(){
 }
 
 package() {
+  depends+=('libasound.so' 'libjack.so' 'libpulse.so' 'libpulse-simple.so'
+  'librtmidi.so' 'libsamplerate.so' 'libsndfile.so')
   cd "$pkgname-$pkgver"
   make DESTDIR="$pkgdir/" install
   # XDG integration
