@@ -5,39 +5,30 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.1.2
-pkgrel=3
+pkgver=3.2.0
+pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
 url="https://helm.sh/"
 license=("Apache")
 depends=('glibc')
 makedepends=("go" "git")
-source=("git+https://github.com/helm/helm.git#tag=v$pkgver?signed")
+_commit=e11b7ce3b12db2941e90399e874513fbd24bcb71
+source=("git+https://github.com/helm/helm.git#commit=$_commit?signed")
 validpgpkeys=('672C657BE06B4B30969C4A57461449C25E36B98E')
 sha256sums=('SKIP')
-
-prepare() {
-    cd "${pkgname}"
-
-    # fix: update unit test for go 1.14 error string change (#7835)
-    # https://github.com/helm/helm/pull/7835
-    git cherry-pick -n 3706aa7ca666fda6d8301c55118fa1c092f124a2 
-
-    # Repair failing unit tests - failure caused by os.Stat return values for directory size on Linux.
-    # https://github.com/helm/helm/pull/7189
-    git cherry-pick -n e3976ab7a286ecbe1038a725fbc4149b95267abf
-}
 
 build() {
     cd "${pkgname}"
     export CGO_LDFLAGS="$LDFLAGS"
+    export CGO_CFLAGS="$CFLAGS"
     make GOFLAGS="-buildmode=pie -trimpath"
 }
 
 check(){
     cd "${pkgname}"
     export CGO_LDFLAGS="$LDFLAGS"
+    export CGO_CFLAGS="$CFLAGS"
     make GOFLAGS="-buildmode=pie -trimpath" test-unit
 }
 
