@@ -10,7 +10,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.9.4
+pkgver=12.10.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -213,6 +213,7 @@ package() {
   find "${pkgdir}${_datadir}/public/help/" -depth -type d -empty -exec rmdir {} \;
 
   chown 105:105 "${pkgdir}${_datadir}/db/schema.rb"
+  chown 105:105 "${pkgdir}${_datadir}/db/structure.sql"
 
   # Install systemd service files
   for service_file in gitlab-unicorn.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
