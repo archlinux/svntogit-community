@@ -1,7 +1,7 @@
 # Maintainer: Thorsten Töpper <atsutane-tu@freethoughts.de>
 
 pkgname=i3-wm
-pkgver=4.18
+pkgver=4.18.1
 pkgrel=1
 pkgdesc="An improved dynamic tiling window manager"
 url="https://i3wm.org/"
@@ -21,7 +21,7 @@ groups=(i3)
 replaces=(i3 i3bar)
 source=("https://i3wm.org/downloads/i3-$pkgver.tar.bz2"{,.asc}
         0001-Use-OVER-operator-for-drawing-text.patch)
-sha256sums=('1fbb58d580e8f8afb7e807fe71164d6003e454d71f22eea5eb3256c73c7a6537'
+sha256sums=('9abf90fa803f2cb8e53e3bc8c952eba48c43463083608e4107fc53ab224be07c'
             'SKIP'
             'e49e147b1cd06f95188decbbe41f5c3a0aca18d0195750bc3ea16465b4aca563')
 validpgpkeys=('424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D') # Michael Stapelberg
