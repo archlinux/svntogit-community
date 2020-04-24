@@ -6,24 +6,20 @@
 pkgname=containerd
 pkgver=1.3.4
 _commit=d76c121f76a5fc8a462dc64594aea72fe18e1178
-pkgrel=1
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
 makedepends=('go' 'git' 'btrfs-progs' 'libseccomp')
 arch=('x86_64')
 license=("Apache")
-source=("$pkgname-$pkgver.tar.gz::https://github.com/containerd/containerd/archive/v$pkgver.tar.gz"
-        bbolt-1.3.4.tar.gz::https://github.com/etcd-io/bbolt/archive/v1.3.4.tar.gz)
-sha256sums=('374d0c944985a64a7f31da4018aaa6d7a0b123122633ce28ab04cf1203f785b8'
-            '536029610c6cd08e4a9fe2e1b0857ae539b0736850132cbbe1c18f0fbed8a4da')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/containerd/containerd/archive/v$pkgver.tar.gz")
+sha256sums=('374d0c944985a64a7f31da4018aaa6d7a0b123122633ce28ab04cf1203f785b8')
 
+# bbolt 1.3.3 is broken with go 1.14 and 1.3.4 is unstable:
+# https://github.com/etcd-io/bbolt/issues/214
 
 prepare() {
-  # Update bbolt to fix tests with go 1.14
-  rm -r $pkgname-$pkgver/vendor/go.etcd.io/bbolt
-  ln -rTsf bbolt-1.3.4 $pkgname-$pkgver/vendor/go.etcd.io/bbolt
-
   mkdir -p src/github.com/containerd
   ln -rTsf $pkgname-$pkgver src/github.com/containerd/containerd
 
