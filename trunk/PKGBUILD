@@ -20,8 +20,8 @@ optdepends=('dcraw: base curve script'
             'ghostscript: noise profile script'
             'gnuplot: noise profile script')
 makedepends=(cmake intltool desktop-file-utils llvm clang python-jsonschema libwebp)
-source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver/rc/.rc}.tar.xz"{,.asc}
-        "fix-cmake.patch::https://github.com/darktable-org/darktable/commit/767d48e0f60e7f858e8b31a88dd8cc1258e7ee9e.patch")
+source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc}
+        darktable-fix-cmake.patch::https://github.com/darktable-org/darktable/commit/767d48e0f60e7f858e8b31a88dd8cc1258e7ee9e.patch)
 sha256sums=('6abaf661fe9414e92bdb33b58b98ef024ccf6132b7876abaf0751ec2109f36fb'
             'SKIP'
             'cdcaf17a362c4fc551ede3ebc0933e48e20185a9fad2c18a025f0414c180ef0d')
@@ -29,14 +29,12 @@ validpgpkeys=(C4CBC150699956E2A3268EF5BB5CC8295B1779C9  # darktable releases <re
               F10F9686652B0E949FCD94C318DCA123F949BD3B) # Pascal Obry <pascal@obry.net>
 
 prepare() {
-    mkdir -p build
-    cd "${pkgname}-${pkgver}"
-    patch -Np1 < "../fix-cmake.patch"
+    cd ${pkgname}-${pkgver}
+    patch -Np1 < ../darktable-fix-cmake.patch
 }
 
 build() {
-    cd build
-    cmake ../${pkgname}-${pkgver} \
+    cmake -B build -S ${pkgname}-${pkgver} \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_INSTALL_LIBDIR=/usr/lib \
         -DCMAKE_INSTALL_LIBEXECDIR=/usr/lib \
@@ -50,11 +48,10 @@ build() {
         -DBUILD_NOISE_TOOLS=ON \
         -DRAWSPEED_ENABLE_LTO=ON \
         -DPROJECT_VERSION=${pkgver}
-    make
+    make -C build
 }
 
 package() {
-    cd build
-    make DESTDIR="${pkgdir}" install
+    make -C build DESTDIR="${pkgdir}" install
     ln -s darktable/libdarktable.so "${pkgdir}"/usr/lib/libdarktable.so
 }
