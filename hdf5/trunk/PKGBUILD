@@ -6,7 +6,7 @@
 
 pkgname=hdf5
 pkgver=1.12.0
-pkgrel=1
+pkgrel=2
 pkgdesc="General purpose library and file format for storing scientific data"
 arch=(x86_64)
 url="https://www.hdfgroup.org/hdf5"
@@ -16,8 +16,10 @@ makedepends=(cmake time gcc-fortran)
 replaces=(hdf5-cpp-fortran)
 provides=(hdf5-cpp-fortran)
 options=(staticlibs)
-source=("https://support.hdfgroup.org/ftp/HDF5/releases/${pkgname}-${pkgver:0:4}/${pkgname}-${pkgver/_/-}/src/${pkgname}-${pkgver/_/-}.tar.bz2")
-sha256sums=('97906268640a6e9ce0cde703d5a71c9ac3092eded729591279bf2e3ca9765f61')
+source=("https://support.hdfgroup.org/ftp/HDF5/releases/${pkgname}-${pkgver:0:4}/${pkgname}-${pkgver/_/-}/src/${pkgname}-${pkgver/_/-}.tar.bz2"
+        hdf5-1.12.0-compat-1.6.patch)
+sha256sums=('97906268640a6e9ce0cde703d5a71c9ac3092eded729591279bf2e3ca9765f61'
+            '72ad497c56760bb3af8193c88d3fa264125829850b843697de55d934c56f7f44')
 
 build() {
     # Crazy workaround: run CMake to generate pkg-config file
@@ -68,4 +70,7 @@ package() {
     install -Dm644 COPYING -t "${pkgdir}"/usr/share/licenses/${pkgname}
     # Install pkg-config files from CMake tree
     install -Dm644 ../build/CMakeFiles/hdf5{,_hl}{,_cpp}-${pkgver}.pc -t "${pkgdir}"/usr/lib/pkgconfig/
+    # Fix 1.6 compatibility for h5py
+    cd "${pkgdir}"/usr/include/
+    patch -p1 -i "${srcdir}"/hdf5-1.12.0-compat-1.6.patch
 }
