@@ -1,0 +1,56 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=autorandr
+pkgver=1.10
+pkgrel=1
+pkgdesc="Auto-detect connected display hardware and load appropiate X11 setup using xrandr"
+arch=('x86_64')
+url="https://github.com/phillipberndt/autorandr"
+license=('GPL3')
+depends=('python-setuptools' 'xorg-xrandr')
+makedepends=('bash-completion')
+optdepends=('bash-completion: auto-completion for autorandr in Bash'
+            'xorg-xdpyinfo: For detecting the primary XRandR output'
+            'zsh-completions: auto-completion for autorandr in ZSH')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/phillipberndt/${pkgname}/archive/${pkgver}.tar.gz")
+sha512sums=('875433c4dd995d6170b511d6936d79c6a0790f823ad053b268bba7974d68f68674ba5474b59f2fba6ff6eed8871b2499e950f60c0e5698d39358159da454d9c5')
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py build
+  # compile the autorandr-launcher manually, as the Makefile is weird
+  # https://github.com/phillipberndt/autorandr/issues/195
+  gcc -Wall $CFLAGS contrib/autorandr_launcher/autorandr_launcher.c \
+      -o contrib/autorandr_launcher/autorandr-launcher \
+      $(pkg-config --libs --cflags pkg-config xcb xcb-randr) $LDFLAGS
+}
+
+package() {
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  cd "${pkgname}-${pkgver}"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --root="${pkgdir}/"
+  # symlink executable in place, as we are installing with setuptools but
+  # there's no entry_point
+  chmod +x "${pkgdir}/usr/lib/python${python_version}/site-packages/${pkgname}.py"
+  ln -svf "/usr/lib/python${python_version}/site-packages/${pkgname}.py" \
+    "${pkgdir}/usr/bin/${pkgname}"
+  install -vDm 644 "contrib/etc/xdg/autostart/${pkgname}.desktop" \
+    -t "${pkgdir}/etc/xdg/autostart/"
+  # launcher
+  install -vDm 755 contrib/autorandr_launcher/autorandr-launcher \
+    -t "${pkgdir}/usr/bin"
+  install -vDm 644 "contrib/etc/xdg/autostart/${pkgname}-launcher.desktop" \
+    -t "${pkgdir}/etc/xdg/autostart/"
+  # man page
+  install -vDm 644 "${pkgname}.1" -t "${pkgdir}/usr/share/man/man1/"
+  # bash completion
+  install -vDm 644 "contrib/bash_completion/${pkgname}" \
+    -t "${pkgdir}/$(pkg-config --variable=completionsdir bash-completion)"
+  # zsh completion
+  install -vDm 644 "contrib/zsh_completion/_${pkgname}" \
+    -t "${pkgdir}/usr/share/zsh/site-functions/"
+  # docs
+  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
