@@ -1,60 +1,81 @@
-# Maintainer:
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Santiago Torres-Arias <santiago@archlinux.org>
 # Contributor: Tom Newsom <Jeepster@gmx.co.uk>
 
 pkgbase=ettercap
-pkgname=('ettercap' 'ettercap-gtk')
+pkgname=(ettercap ettercap-gtk)
 pkgver=0.8.3
-pkgrel=1
+pkgrel=2
+pkgdesc='Network sniffer/interceptor/logger for ethernet LANs'
+url='https://ettercap.github.com/ettercap/'
 arch=('x86_64')
-url="https://ettercap.github.com/ettercap/"
 license=('GPL')
-depends=('openssl' 'libpcap' 'pcre' 'libltdl' 'libnet' 'ethtool' 'curl' 'geoip')
-makedepends=('ghostscript' 'cmake' 'libpcap' 'libltdl' 'libnet' 'gtk3' 'harfbuzz')
-options=('!makeflags' '!emptydirs')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/Ettercap/ettercap/archive/v$pkgver.tar.gz" build.patch)
-sha1sums=('1db39315b2b2b574dc1eb3f7ae72871ad2391e2f'
-          '6d01c9517dc8b2981dccf9bd92c592ff8a7f90ba')
+depends=('glibc' 'openssl' 'zlib' 'libpcap' 'pcre' 'libltdl' 'libnet' 'ethtool' 'curl' 'geoip'
+         'ncurses' 'libncursesw.so' 'libformw.so' 'libpanelw.so' 'libmenuw.so' 'libcurl.so')
+makedepends=('ghostscript' 'cmake' 'gtk3' 'harfbuzz' 'check')
+options=('!emptydirs')
+backup=(etc/ettercap/etter.{conf,dns,mdns,nbns})
+source=(https://github.com/Ettercap/ettercap/archive/v${pkgver}/${pkgbase}-${pkgver}.tar.gz
+        cmake-harfbuzz.patch)
+sha512sums=('1929c986d3a17ebc693ffe8531e01c66379c0ee6ea71305ea49b6a9eece84b6da1923135311db458bdb6035feb593e525786e6cf4c465ced5a7683384d4a4ae7'
+            '248dc70641370f8161a796d090d52f2881ede5dbc834f1aa183583cd3bc64a60f28ad197556289b33f217766eb12de55ab1a96209ff70beb4d67c352debde526')
+b2sums=('f49098d61f60877d3f979d7861f36dad6ec3fbfca7ed89d8f9826867145ea36daec65a1076c893f81391218688448515ef020a9cdf9a16ffddc830bacec8eb1c'
+        '59e9982abe88684dac46045ab91330a908421386f30ca4df6cc37d2d73413018b37185325e759c3eb88d98e6860a9d3574ffd257c9c12a2b69b57320a0aa10d5')
 
 prepare() {
-  cd "${pkgbase}-${pkgver}"
-  patch -Np1 -i $srcdir/build.patch
+  cd ${pkgbase}-${pkgver}
+  patch -Np1 < "${srcdir}/cmake-harfbuzz.patch"
 }
 
 build() {
-  cd "${srcdir}"
-
-  cp -r ${pkgbase}-${pkgver} ${pkgbase}-${pkgver}-gtk
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXLAGS+=" ${CPPFLAGS}"
 
   cd ${pkgbase}-${pkgver}
-  mkdir build
-  cd build
-  cmake -D ENABLE_GTK=OFF -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_PREFIX=/usr -D CMAKE_BUILD_TYPE=Release ../
-  make
+  cmake -B build \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D INSTALL_PREFIX=/usr \
+    -D ENABLE_GTK=OFF \
+    -D ENABLE_TESTS=ON \
+    -D ENABLE_IPV6=ON
+  make -C build VERBOSE=1
 
-  cd "$srcdir"/${pkgbase}-${pkgver}-gtk
-  mkdir build
-  cd build
-  cmake -D ENABLE_GTK=ON -D CMAKE_INSTALL_PREFIX=/usr -D INSTALL_PREFIX=/usr -D CMAKE_BUILD_TYPE=Release ../
-  make
+  cmake -B build-gtk \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D INSTALL_PREFIX=/usr \
+    -D ENABLE_GTK=ON \
+    -D ENABLE_TESTS=ON \
+    -D ENABLE_IPV6=ON
+  make -C build-gtk VERBOSE=1
+}
+
+check() {
+  cd ${pkgbase}-${pkgver}
+  make -C build test
+  make -C build-gtk test
 }
 
 package_ettercap() {
-  pkgdesc="A network sniffer/interceptor/logger for ethernet LANs - console"
-  backup=('etc/ettercap/etter.conf')
-  conflicts=('ettercap-gtk')
+  pkgdesc+=" - console"
+  provides=('libettercap.so')
 
-  cd "${srcdir}"/${pkgbase}-${pkgver}/build
-  make DESTDIR="${pkgdir}" install
+  cd ${pkgbase}-${pkgver}
+  make -C build DESTDIR="${pkgdir}" install
+  install -Dm 644 CHANGELOG README* -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
 
 package_ettercap-gtk() {
-  pkgdesc="A network sniffer/interceptor/logger for ethernet LANs - GTK frontend"
+  pkgdesc+=" - GTK frontend"
   depends+=('gtk3' 'harfbuzz')
-  backup=('etc/ettercap/etter.conf')
+  optdepends=('polkit: run ettercap directly from menu')
+  provides=('ettercap' 'libettercap.so')
   conflicts=('ettercap')
-  provides=('ettercap')
-  optdepends=('polkit: to run ettercap directly from menu')
 
-  cd "${srcdir}"/${pkgbase}-${pkgver}-gtk/build
-  make DESTDIR="${pkgdir}" install
+  cd ${pkgbase}-${pkgver}
+  make -C build-gtk DESTDIR="${pkgdir}" install
+  install -Dm 644 CHANGELOG README* -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
+
+# vim: ts=2 sw=2 et:
