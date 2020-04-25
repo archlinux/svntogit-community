@@ -1,0 +1,61 @@
+# Maintainer: Kyle Keen <keenerd@gmail.com>
+# Contributor: Chirantan Ekbote <chirantan.ekbote at gmail.com>
+# Contributor: Eric Anderson <ejona86 at gmail.com>
+# Contributor: Pierre DOUCET <pierre at equinoxefr.org>
+pkgname=openscad
+pkgver=2019.05
+pkgrel=6
+pkgdesc="The programmers solid 3D CAD modeller"
+url="http://openscad.org/"
+arch=('x86_64')
+license=('GPL2')
+changelog=CHANGELOG
+depends=('qt5-base' 'qscintilla-qt5' 'cgal' 'opencsg' 'boost-libs'
+         'shared-mime-info' 'libzip' 'qt5-multimedia' 'libspnav'
+         'lib3mf-1')
+makedepends=('eigen' 'boost' 'imagemagick')
+# full tests need imagemagick and an X11 or framebuffer session
+# can't find lib3MF from libsavitar?
+checkdepends=('cmake' 'xorgproto' 'libx11' 'python')
+validpgpkeys=('E2EBDADD336FF516ADD51A78F3E12CCC22164A0F')
+source=("https://files.openscad.org/openscad-$pkgver.src.tar.gz"{,.asc}
+        $pkgname-boost-1.72.patch::https://github.com/openscad/openscad/commit/b6c170cc5d.patch)
+md5sums=('2b63e249d56e2eba62ed5b042e1d82bc'
+         'SKIP'
+         '7a4a1eb8c5bf29448bc94c1d936c0ee8')
+
+prepare() {
+    cd "$srcdir/$pkgname-$pkgver"
+    patch -Np1 -i ../$pkgname-boost-1.72.patch
+}
+
+build() {
+    cd "$srcdir/$pkgname-$pkgver"
+    qmake-qt5 PREFIX="/usr"
+    make
+    convert +set date:create +set date:modify "icons/$pkgname.png" -resize 128x128\> "icons/$pkgname-128.png"
+}
+
+check() {
+    # see doc/testing.txt about enabling
+    # normally will display stuff, run image diffs
+    cd "$srcdir/$pkgname-$pkgver/tests"
+    sed -i 's/exit 1/exit 0/' virtualfb.sh
+    cmake .
+    # pkgconfig weirdness
+    #sed -i 's/-lmpfr/& -lX11/' CMakeFiles/openscad_nogui.dir/link.txt 
+    make
+    msg "Running headless tests..."
+    ctest -R 'dumptest|csgtexttest|csgtermtest|openscad-nonascii|openscad-override'
+    # echotest is buggy on i686, check again next release
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+    make INSTALL_ROOT="$pkgdir" install
+    # can't remove earlier, py files needed for tests
+    rm "$pkgdir/usr/share/openscad/libraries/MCAD/"*.py
+    install -Dm644 "icons/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
+    install -Dm644 "icons/$pkgname-128.png" "$pkgdir/usr/share/pixmaps/$pkgname.png"
+    install -Dm644 "icons/$pkgname.xml" "$pkgdir/usr/share/mime/packages/$pkgname.xml"
+}
