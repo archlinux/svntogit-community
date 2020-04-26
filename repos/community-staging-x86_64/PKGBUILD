@@ -1,0 +1,75 @@
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Jon Nordby <jononor@gmail.com>
+
+pkgname=mypaint
+pkgver=1.2.1
+pkgrel=12
+pkgdesc="Fast and easy painting application for digital painters, with brush dynamics"
+arch=('x86_64')
+url="http://mypaint.org/"
+license=('GPL')
+depends=('gtk3' 'libmypaint' 'python2-cairo' 'python2-gobject' 'python2-numpy')
+makedepends=('scons' 'swig')
+# requires mypaint 2.0 with libmypaint 2.0 to work dynamically
+options=('!emptydirs')
+source=(https://github.com/mypaint/$pkgname/releases/download/v$pkgver/$pkgname-$pkgver.tar.xz{,.asc}
+        json-c.patch
+        fix-wayland.patch
+        0001-Fix-AppStream-metadata-validation.patch
+        scons-python3.patch
+        https://github.com/mypaint/mypaint/commit/e05fc17118b6dc20adfe0652756df023528a7fc0.patch)
+validpgpkeys=('C02391F4BBA4F0E2B27C6BFF6E3037E12878B299') # Andrew Chadwick
+sha256sums=('ed2349382f6a0c583d7defae06427e97ac7d14acb77b9e2c0fc7171ddd96d3c7'
+            'SKIP'
+            'cdb78e8f592bdb1862c57edbb0e287b23512203e33e398f1471d6dea3f47f772'
+            '1ffa2e6e0deb236928f33c7f82cc037949e76600b5f7242f85b18380a241928b'
+            '5a0d1dc67a4377adf6d7e38300fcf07b11765ea7bf8866d0a28765d0522ff99b'
+            'f2f99e7d0db538eb2c9c084077e7c8ceb480911318b3c0fbf23cf9cc37bfc893'
+            'b2743d0d3c6d894385bb154ac1594d370adb83ba3ac9beb135c2a196934dfc3b')
+
+prepare() {
+  cd $pkgname-$pkgver
+
+  # Fix building with json-c 0.14
+  patch -Np1 -i ../json-c.patch
+
+  # Fix run under wayland
+  # https://github.com/mypaint/mypaint/issues/791
+  patch -Np1 -i ../fix-wayland.patch
+
+  # Fix AppStream metadata validation
+  # https://github.com/mypaint/mypaint/pull/955
+  patch -Np1 -i ../0001-Fix-AppStream-metadata-validation.patch
+
+  # FS#63288 -> https://github.com/mypaint/mypaint/issues/1030
+  patch -p1 -i ../e05fc17118b6dc20adfe0652756df023528a7fc0.patch
+  sed -i 's|ui_dir = os.path.dirname(os.path.abspath(__file__))|ui_dir = "/usr/share/mypaint/gui"|' gui/brusheditor.py
+
+  # Don't use legacy path for AppStream metainfo file
+  sed -i 's|/share/appdata|/share/metainfo|' SConscript
+
+  patch -p1 -i ../scons-python3.patch
+}
+
+build() {
+  cd $pkgname-$pkgver
+  scons python_binary=python2 python_config=python2-config
+}
+
+package() {
+  cd $pkgname-$pkgver
+  scons prefix="$pkgdir"/usr install python_binary=python2 python_config=python2-config
+
+  # This is kind of ugly but removes traces of the build root.
+  while read -rd '' _file; do
+    _destdir="$(dirname "${_file#${pkgdir}}")"
+    python2 -m compileall -d "${_destdir}" "${_file}"
+    python2 -O -m compileall -d "${_destdir}" "${_file}"
+  done < <(find "${pkgdir}"/usr/lib/ -name '*.py' -print0)
+
+  # Remove conflicting files with the libmypaint package
+  rm -r "$pkgdir"/usr/include/ "$pkgdir"/usr/lib/pkgconfig/
+  rm "$pkgdir"/usr/lib/libmypaint.a
+  rm -r "$pkgdir"/usr/share/locale/*/LC_MESSAGES/libmypaint.mo
+}
