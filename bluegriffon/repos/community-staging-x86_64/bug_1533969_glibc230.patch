@@ -1,0 +1,61 @@
+
+# HG changeset patch
+# User Emilio Cobos Álvarez <emilio@crisal.io>
+# Date 1552332517 0
+# Node ID 7b85bf9c5210e5679fa6cfad92466a6e2ba30232
+# Parent  96e78962a05388c638385c2bad0cc772b7295291
+Bug 1533969 - Fix build error with newer glibc. r=nbp
+
+New glibc versions provide a wrapper for gettid, which means that our stuff
+fails to build with:
+
+```
+/home/emilio/src/moz/gecko/js/src/util/NativeStack.cpp:28:14: error: static declaration of 'gettid' follows non-static declaration
+static pid_t gettid() { return syscall(__NR_gettid); }
+             ^
+/usr/include/bits/unistd_ext.h:34:16: note: previous declaration is here
+extern __pid_t gettid (void) __THROW;
+```
+
+Differential Revision: https://phabricator.services.mozilla.com/D22829
+
+diff --git a/tools/profiler/core/platform.h b/tools/profiler/core/platform.h
+--- a/tools/profiler/core/platform.h
++++ b/tools/profiler/core/platform.h
+@@ -34,32 +34,26 @@
+ #include "mozilla/StaticMutex.h"
+ #include "mozilla/TimeStamp.h"
+ #include "mozilla/UniquePtr.h"
+ #include "mozilla/Unused.h"
+ #include "PlatformMacros.h"
+ #include <vector>
+ #include "StackTop.h"
+ 
+-// We need a definition of gettid(), but glibc doesn't provide a
++// We need a definition of gettid(), but old glibc versions don't provide a
+ // wrapper for it.
+ #if defined(__GLIBC__)
+ #include <unistd.h>
+ #include <sys/syscall.h>
+-static inline pid_t gettid()
+-{
+-  return (pid_t) syscall(SYS_gettid);
+-}
++#  define gettid() static_cast<pid_t>(syscall(SYS_gettid))
+ #elif defined(GP_OS_darwin)
+ #include <unistd.h>
+ #include <sys/syscall.h>
+-static inline pid_t gettid()
+-{
+-  return (pid_t) syscall(SYS_thread_selfid);
+-}
++#  define gettid() static_cast<pid_t>(syscall(SYS_thread_selfid))
+ #elif defined(GP_OS_android)
+ #include <unistd.h>
+ #elif defined(GP_OS_windows)
+ #include <windows.h>
+ #include <process.h>
+ #ifndef getpid
+ #define getpid _getpid
+ #endif
+
