@@ -10,7 +10,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.10.0
+pkgver=12.10.1
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -26,10 +26,12 @@ backup=("etc/webapps/gitlab/application.rb"
         "etc/webapps/gitlab/gitlab.yml"
         "etc/webapps/gitlab/resque.yml"
         "etc/webapps/gitlab/unicorn.rb"
+        "etc/webapps/gitlab/puma.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         build_fix.patch
         gitlab-unicorn.service
+        gitlab-puma.service
         gitlab-sidekiq.service
         gitlab-backup.service
         gitlab-mailroom.service
@@ -42,6 +44,7 @@ install='gitlab.install'
 sha512sums=('SKIP'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
             '1ad15b48890ad48e97a6fcea56132582f2b22aa27f4a1a1f4590f3ea72de4726e13ef6f3db2bc0984da1ef140bde092e74e0c9f8f1778f207f3fac4a31a77e4b'
+            '9fcc8934a9e927838eb5b496a462b4895dfbbd5f65e14513c600c35356f1687fbfcfb43b5a6e580ccba38df826da462fc2f0b0406a86a48b9ff90afab7a1122f'
             '8ca36771f7568b190823ec47afeaf6ff75f61c5b6f31ce5d837a6dcd84a5b3da23fb07a1eceeda0752b2e61c4a8f4d17bf368fa2913e1487567944a8d29eeb58'
             '0cbb9a1631b529a83d5c6db95fd3a684c8f06073890b31f6262c339360444e7452275d804fb6a119a3d61a0ef1b76d0e956f260a12f032d54c00308e8d9520b0'
             '159530b50ac560c46703ef9ddd788cebc614bc53daa5b545ed8ac55f7ff4f9bb81a5149220a48770e8264e2cd5ca173f0f1f0ef4881f4e2350aaef007ea3e933'
@@ -89,6 +92,13 @@ prepare() {
       -e "s|${_datadir}/log/|${_logdir}/|g" \
       config/unicorn.rb.example > config/unicorn.rb
 
+  echo "Patching paths and timeout in puma.rb..."
+  sed -e "s|/home/git/gitlab/tmp/.*/|/run/gitlab/|g" \
+      -e "s|/var/run/|/run/|g" \
+      -e "s|/home/git/gitlab|${_datadir}|g" \
+      -e "s|${_datadir}/log/|${_logdir}/|g" \
+      config/puma.rb.example > config/puma.rb
+
   # We need this one untouched because otherwise assets will fail
   cp config/database.yml.postgresql config/database.yml.postgresql.orig
 
@@ -100,7 +110,7 @@ prepare() {
       config/resque.yml.example > config/resque.yml.patched
 
   echo "Setting up systemd service files ..."
-  for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
+  for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
     sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
     sed -i "s|<DATADIR>|${_datadir}|g" "${srcdir}/${service_file}"
     sed -i "s|<LOGDIR>|${_logdir}|g" "${srcdir}/${service_file}"
@@ -191,7 +201,7 @@ package() {
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
 
   # Install config files
-  for config_file in application.rb gitlab.yml unicorn.rb resque.yml; do
+  for config_file in application.rb gitlab.yml unicorn.rb puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
     [[ -f "${pkgdir}${_datadir}/config/${config_file}" ]] && rm "${pkgdir}${_datadir}/config/${config_file}"
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
@@ -216,7 +226,7 @@ package() {
   chown 105:105 "${pkgdir}${_datadir}/db/structure.sql"
 
   # Install systemd service files
-  for service_file in gitlab-unicorn.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
+  for service_file in gitlab-unicorn.service gitlab-puma.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
     install -Dm644 "${srcdir}/${service_file}" "${pkgdir}/usr/lib/systemd/system/${service_file}"
   done
 
