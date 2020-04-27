@@ -8,7 +8,7 @@
 
 pkgbase=calibre
 pkgname=('calibre' 'calibre-common' 'calibre-python3')
-pkgver=4.13.0
+pkgver=4.14.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -18,21 +18,22 @@ _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dn
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
           'netifaces' 'unrardll' 'pillow' 'psutil' 'pychm' 'pygments' 'pyqt5'
           'pyqtwebengine' 'regex')
+_py2_deps=("${_py_deps[@]}" 'ipaddress')
 _py3_deps=("${_py_deps[@]}" 'zeroconf')
 depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusbx'
          'libwmf' 'mathjax2' 'mtdev' 'optipng' 'podofo' 'qt5-svg' 'udisks2')
-makedepends=("${_py_deps[@]/#/python2-}" "${_py3_deps[@]/#/python-}" 'qt5-x11extras'
+makedepends=("${_py2_deps[@]/#/python2-}" "${_py3_deps[@]/#/python-}" 'qt5-x11extras'
              'rapydscript-ng' 'sip' 'xdg-utils')
 checkdepends=('xorg-server-xvfb')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
         "0001-De-vendor-pychm.patch"
         "calibre-alternatives.sh")
-sha256sums=('f9587dea4f9ea76c6a5ec11b04ee66d0199d4ab3a4aad8c87966fed8ee76e1f6'
+sha256sums=('1c0dd818f602d76724aa8512a23f51101bf385233e2e5cc1cd31cae4a90f0e21'
             'SKIP'
             'f7b829aea1d33818808cbeeb9a295e18e49edf619a5bc89b8315c88f56ce4d25'
             '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3')
-b2sums=('46d012d633b98fd892c194692d007d9c383b0cce520c4b9c97a74ab6da366efbc8861ed718b4a92d331e800e4cd44d27d51acfda8cbeca7726ba3e50cdfe139a'
+b2sums=('a643ec69b99fb8f4b8fee922621925c19bf5cf2053b16da0f0fdc7479d100eb2b9a84f19b3cd17326c340e68aa721e18966eeb58810221323eba1d2d46b60763'
         'SKIP'
         'c35181c70084813772c4d593311b48b3e3bcc3b4e9e8ee58112b9beab2bbc0de1ee22aafc3d06cfd812f87a2e91292f7b7f1dc5f522c55440f415b6b265d5671'
         '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91')
@@ -52,6 +53,8 @@ prepare(){
     # needed for frozen builds + beautifulsoup4
     # see https://github.com/kovidgoyal/calibre/commit/b177f0a1096b4fdabd8772dd9edc66662a69e683#commitcomment-33169700
     rm -r src/backports
+    # biplist is only used on macOS + python2
+    rm -r src/biplist/
     # devendor pychm now, from the py3 building branch:
     # https://github.com/kovidgoyal/calibre/commit/959b7e3fafff5faad6ae59263f825b23c7563dd4
     patch -p1 -i ../0001-De-vendor-pychm.patch
@@ -119,7 +122,7 @@ package_calibre-common() {
 
 package_calibre() {
     pkgdesc+=" (python2 build)"
-    depends=('calibre-common' "${_py_deps[@]/#/python2-}")
+    depends=('calibre-common' "${_py2_deps[@]/#/python2-}")
     optdepends+=('ipython2: to use calibre-debug')
     install=calibre.install
 
