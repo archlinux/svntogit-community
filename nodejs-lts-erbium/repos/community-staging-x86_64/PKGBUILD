@@ -1,0 +1,74 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=nodejs-lts-erbium
+pkgver=12.16.2
+pkgrel=2
+pkgdesc="Evented I/O for V8 javascript (LTS release: Erbium)"
+arch=(x86_64)
+url="https://nodejs.org/"
+license=(MIT)
+depends=(openssl zlib icu libuv c-ares brotli libnghttp2) # http-parser
+makedepends=(python2 procps-ng)
+optdepends=('npm: nodejs package manager')
+provides=("nodejs=$pkgver")
+conflicts=(nodejs)
+source=("${url}/dist/v${pkgver}/node-v${pkgver}.tar.xz"
+        icu67.patch)
+# https://nodejs.org/download/release/latest-erbium/SHASUMS256.txt.asc
+sha256sums=('555c47ca0a40e5526d9ab7b2e9c18f9dbd1d956cbdc013fd2223bb11a069be78'
+            '5315977307e69d20b3e856d3f8724835b08e02085a4444a5c5cefea83fd7d006')
+validpgpkeys=(C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8  # Myles Borins <mylesborins@google.com>
+              77984A986EBC2AA786BC0F66B01FBB92821C587A  # Gibson Fahnestock <gibfahn@gmail.com>
+              B9AE9905FFD7803F25714661B63B535A4C206CA9  # Evan Lucas <evanlucas@me.com>
+              DD8F2338BAE7501E3DD5AC78C273792F7D83545D  # Rod Vagg <rod@vagg.org>
+              B9E2F5981AA6E0CD28160D9FF13993A75599653C  # Shelley Vohr <shelley.vohr@gmail.com>
+              4ED778F539E3634C779C87C6D7062848A1AB005C) # Beth Griggs <Bethany.Griggs@uk.ibm.com>
+
+prepare() {
+  cd node-v${pkgver}
+  patch -Np1 -i ../icu67.patch
+
+  echo 'Fixing for python2 name'
+  find -type f -exec sed \
+    -e 's_^#!/usr/bin/env python$_&2_' \
+    -e 's_^\(#!/usr/bin/python2\).[45]$_\1_' \
+    -e 's_^#!/usr/bin/python$_&2_' \
+    -e 's_^\( *exec \+\)python\( \+.*\)$_\1python2\2_'\
+    -e 's_^\(.*\)python\( \+-c \+.*\)$_\1python2\2_'\
+    -e "s_'python'_'python2'_" -i {} \;
+  find test/ -type f -exec sed 's_python _python2 _' -i {} \;
+}
+
+build() {
+  cd node-v${pkgver}
+
+  export PYTHON=python2
+  ./configure \
+    --prefix=/usr \
+    --with-intl=system-icu \
+    --without-npm \
+    --shared-openssl \
+    --shared-zlib \
+    --shared-libuv \
+    --experimental-http-parser \
+    --shared-cares \
+    --shared-brotli \
+    --shared-nghttp2
+    #--shared-http-parser \
+
+  make
+}
+
+check() {
+  cd node-v${pkgver}
+  # https://github.com/nodejs/node/issues/32765
+  sed -i '/\$(MAKE) -s test-doc/d' Makefile
+  make test
+}
+
+package() {
+  cd node-v${pkgver}
+  make DESTDIR="${pkgdir}" install
+  install -Dm644 LICENSE -t "${pkgdir}"/usr/share/licenses/${pkgname}/
+}
