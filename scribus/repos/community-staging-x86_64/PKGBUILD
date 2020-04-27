@@ -1,0 +1,83 @@
+# Maintainer: Gaetan Bisson <bisson@archlinux.org>
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Ronald van Haren <ronald.archlinux.org>
+# Contributor: tobias <tobias@archlinux.org>
+# Contributor: Ben <ben@benmazer.net>
+
+pkgname=scribus
+pkgver=1.5.5
+pkgrel=10
+pkgdesc="Desktop publishing software"
+arch=(x86_64)
+url="https://www.scribus.net/"
+license=(GPL)
+depends=(qt5-base harfbuzz-icu poppler python2 hunspell podofo openscenegraph
+         libcdr libfreehand libmspub libpagemaker libqxp libvisio libzmf) # graphicsmagick
+makedepends=(cmake boost mesa qt5-tools)
+optdepends=('tk: scripts based on tkinter'
+            'hyphen-lang: hyphenation patterns for desired languages')
+source=("https://downloads.sourceforge.net/${pkgname}/${pkgname}-${pkgver}.tar.xz"{,.asc}
+         scribus-boost-1.71.patch
+         scribus-poppler-0.82.patch::"https://github.com/scribusproject/scribus/commit/6db15ec1.patch"
+         scribus-poppler-0.83.patch::"https://github.com/scribusproject/scribus/commit/b51c2bab.patch"
+         scribus-poppler-0.84.patch::"https://github.com/scribusproject/scribus/commit/37425599.patch"
+         scribus-poppler-0.86.patch)
+sha256sums=('7908b21a6ce843269f58cedf5f8f791893257e6201cce5fbddc70daca2fe3f71'
+            'SKIP'
+            '19e20b11c0bce2dce07a845e31adb9ff1b680746698fa150d4572776513b243e'
+            'a948a5ee53842ffc8acc3f6720291819d55d2ff370c2b46ddffc1122cba07e7f'
+            '5631f5a19565cdbd1290c4e1a2c5a87e56ca0af17017c191dc0c00c97a456b3b'
+            '7c0c13abec2682398591ee66e9ab4547b9e0da66f135dd2357f8977589403694'
+            'ac660067894effdde20e92c2f32095336707a7f6f3f277316498999096f65445')
+validpgpkeys=(5086B8D68E70FDDF4C40045AEF7B95E7F60166DA  # Peter Linnell <plinnell@scribus.net>
+              757F5E9B13DD648887AD50092D47C099E782504E  # The Scribus Team (www.scribus.net) <the_scribus_team@scribus.net>
+              6558BE84D27273A438A151198BEA48118AEBEE64) # Craig Bradney <cbradney@zipworld.com.au>
+
+prepare() {
+    cd ${pkgname}-${pkgver}
+
+    # Fix python name
+    sed \
+        -e 's|#!/usr/bin/python|#!/usr/bin/python2|' \
+        -e 's|#!/usr/bin/env python|#!/usr/bin/env python2|' \
+        -i scribus/plugins/scriptplugin/{samples,scripts}/*
+
+    mkdir -p build
+
+    patch -p1 -i ../scribus-boost-1.71.patch # Fix build with boost 1.71
+    patch -p1 -i ../scribus-poppler-0.82.patch # Fix build with poppler 0.82
+    patch -p1 -i ../scribus-poppler-0.83.patch # Fix build with poppler 0.83
+    patch -p1 -i ../scribus-poppler-0.84.patch # Fix build with poppler 0.84
+    patch -p1 -i ../scribus-poppler-0.86.patch # Fix build with poppler 0.86
+}
+
+build() {
+    cd ${pkgname}-${pkgver}/build
+    cmake .. \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_SKIP_RPATH=ON
+        # FS#59800
+        #-DWANT_GRAPHICSMAGICK=1
+    make
+}
+
+package() {
+    cd ${pkgname}-${pkgver}/build
+
+    make DESTDIR="${pkgdir}" install
+
+    cd ..
+
+    install -Dm644 scribus.desktop -t "${pkgdir}"/usr/share/applications
+
+    for i in 16x16 32x32 128x128 256x256 512x512 1024x1024
+    do
+        install -Dm644 resources/iconsets/artwork/icon_${i}.png "${pkgdir}"/usr/share/icons/hicolor/${i}/apps/scribus.png
+    done
+
+    # Use system hyphen
+    rm -rf "${pkgdir}"/usr/share/scribus/dicts/hyph
+    ln -sf /usr/share/hyphen "${pkgdir}"/usr/share/scribus/dicts/hyph
+}
