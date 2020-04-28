@@ -1,36 +1,51 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
 pkgname=artyfx
 pkgver=1.3
-pkgrel=2
+pkgrel=3
 pkgdesc="A plugin bundle of artistic real-time audio effects"
 arch=('x86_64')
 url="http://openavproductions.com/artyfx/"
 license=('GPL2')
 groups=('lv2-plugins' 'pro-audio')
-depends=('cairo' 'libsndfile')
-makedepends=('cmake' 'lv2')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/openAVproductions/openAV-${pkgname}/archive/release-${pkgver}.tar.gz")
-sha512sums=('51931d0497c91150db738ffe7199e1cd3a86d43d34b371b9719b8d0b504bebf3b9cf14e20d299081b0482f51ef7a6e825e8bf0c832b0caf3bc4a8f8221990a97')
+depends=('cairo' 'gcc-libs' 'glibc' 'libx11')
+makedepends=('cmake' 'lv2' 'libsndfile')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/openAVproductions/openAV-${pkgname}/archive/release-${pkgver}.tar.gz"
+        "${pkgname}-1.3-lv2-1.18.0.patch::https://github.com/openAVproductions/openAV-ArtyFX/pull/41/commits/492587461b50d140455aa3c98d915eb8673bebf0.patch"
+        "${pkgname}-1.3-build_flags.patch::https://github.com/openAVproductions/openAV-ArtyFX/commit/5de759f3c3eae061b3b1223c22f94cd80deda233.patch")
+sha512sums=('51931d0497c91150db738ffe7199e1cd3a86d43d34b371b9719b8d0b504bebf3b9cf14e20d299081b0482f51ef7a6e825e8bf0c832b0caf3bc4a8f8221990a97'
+            'e06c99b49dc77d7099794a257cb3161f57f4655adfd461f0ca487fae4653d69ddbecedb5b02ee81343dd8341517dfa25e56012a2744611d60f11b3c63672238a'
+            '27aa9e8ba0947f2d5acfb5d4d6f1a9e2e01da5c2cea1c7804164a14169dcf9293af994bb5316b910da2e0b2e9cb2a74039c4e4607909717951729171b8f34344')
 
 prepare() {
   mv -v "openAV-ArtyFX-release-${pkgver}" "${pkgname}-${pkgver}"
   cd "$pkgname-$pkgver"
-  mkdir build
+  # fixing build with lv2 >= 1.18.0
+  # https://github.com/openAVproductions/openAV-ArtyFX/issues/40
+  patch -Np1 -i "../${pkgname}-1.3-lv2-1.18.0.patch"
+  # fixing build flags
+  # https://github.com/openAVproductions/openAV-ArtyFX/issues/41
+  patch -Np1 -i "../${pkgname}-1.3-build_flags.patch"
 }
 
 build() {
-  cd "$pkgname-$pkgver/build"
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXFLAGS+=" ${CPPFLAGS}"
+  cd "$pkgname-$pkgver"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DAVTK_SNDFILE_SUPPORT=true \
-        ..
-  make
+        -DBUILD_GUI=ON \
+        -DBUILD_SSE=ON \
+        -Wno-dev \
+        -Bbuild \
+        -S .
+  make VERBOSE=1 -C build
 }
 
 package() {
-  cd "$pkgname-$pkgver/build"
-  make DESTDIR="$pkgdir/" install
+  depends+=('libsndfile.so')
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir/" install -C build
   # docs
-  install -vDm 644 ../{CHANGELOG,README.md} \
+  install -vDm 644 {CHANGELOG,README.md} \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
