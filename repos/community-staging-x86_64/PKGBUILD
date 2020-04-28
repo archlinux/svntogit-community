@@ -1,0 +1,206 @@
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Contributor: Nicola Squartini <tensor5@gmail.com>
+
+pkgname=electron7
+pkgver=7.1.14
+_commit=0f082ecd5c378a36b5b9bd6d150a00d5dc34da6c
+_chromiumver=78.0.3904.130
+pkgrel=4
+pkgdesc='Build cross platform desktop apps with web technologies'
+arch=('x86_64')
+url='https://electronjs.org/'
+license=('MIT' 'custom')
+depends=('c-ares' 'ffmpeg' 'gtk3' 'http-parser' 'libevent' 'libnghttp2'
+         'libxslt' 'libxss' 'minizip' 'nss' 're2' 'snappy')
+makedepends=('clang' 'git' 'gn' 'gperf' 'harfbuzz-icu' 'java-runtime-headless'
+             'jsoncpp' 'libnotify' 'lld' 'llvm' 'ninja' 'npm' 'pciutils' 'yarn'
+             'python2' 'wget' 'yasm')
+optdepends=('kde-cli-tools: file deletion support (kioclient5)'
+            'libappindicator-gtk3: StatusNotifierItem support'
+            'trash-cli: file deletion support (trash-put)'
+            "xdg-utils: open URLs with desktop's default (xdg-email, xdg-open)")
+source=('git+https://github.com/electron/electron.git'
+        'git+https://chromium.googlesource.com/chromium/tools/depot_tools.git'
+        "$pkgname.desktop"
+        'default_app-icon.patch'
+        'use-system-libraries-in-node.patch'
+        'icu65.patch'
+        'icu67.patch'
+        'glslang-remove-setAllocator.patch'
+        'chromium-skia-harmony.patch'
+        'chromium-system-icu.patch'
+        'chromium-system-zlib.patch')
+sha512sums=('SKIP'
+            'SKIP'
+            'c8a3c849117c8d1b4037076563ed39b441e68178c541603dab4203d889903f2e3aa26fc93fc958dc96e720446d082a79e1169ea87801a15ae3f22b527aed00c4'
+            '8c7fb91a3e5f0ba9e031d4011c5167b872e54751a64f78816f66376a5ac8af81e59e3fb6301140056f61ced44903acb3acbd106ad5d5f6503e7566bc6b7ee5b9'
+            '147563fe422108598af26c617edf78d146d4e70223e3093216d5f63a1ab051eff95abd0c8f8c0b6f8a504ae26557d65cd0ffd90c542d6534176b72b99ea44a5e'
+            'd109937c4a5fba96e82d6fbc7b804943010d5723eef91af4f79355c8b84214da3978fc784dd0fcc3ed228c4684d0d06cf8cd21fa32fc5ec80c00d1bb4e3b9c90'
+            '9b80bdda769a63f8550e4adfaa3b17cda6d3de45b2aa08adcbcf079256058a46537ed40d54e56c64595e608da8d8537e0d2cb5ece44a34636a1aadb47fb5e1ef'
+            'e34562b4b6cf4f0afa3f23afe7336fed4614201b39bfb73871899081161f5927d273c1da14b3ab7edeeb803300ba6e07c1ddf7261e8be12555cbfc4fe0a0d23c'
+            '6fa7c5f737b3f86274b1f768aadf863dd7542fca9c8885d5c3804590bd04c288394c54b2003234be37d961f48b5470ce15254ba64b2716f8aceb181e1fd3c7c0'
+            '7413e0cca7102008dd5bee443dcde90be69ef1d0973fee576f70544f0d0a66aa8bc7099e619c89160915d6cd6186384be46ffab4a1d747000133dda9a84e15e5'
+            '89d62431e11cf8f3b48afdf9a133a8532916d445676de12acb48b0aaca3aa45106e25de399e7ee37a6220b0766c0ea65f10da219d4bb9a7a02275b4364e493ad')
+
+_system_libs=('ffmpeg'
+              'flac'
+              'fontconfig'
+              'freetype'
+              'harfbuzz-ng'
+              'icu'
+              'libdrm'
+              'libevent'
+              'libjpeg'
+#              'libpng'
+#              'libvpx'
+              'libwebp'
+              'libxml'
+              'libxslt'
+#              'openh264'
+              'opus'
+              're2'
+              'snappy'
+              'yasm'
+              'zlib')
+
+prepare() {
+  mkdir -p "$srcdir"/python2-path
+  ln -sf /usr/bin/python2 "$srcdir"/python2-path/python
+  export PATH="$srcdir/python2-path:$PATH:$srcdir/depot_tools"
+
+  echo 'Fetching chromium...'
+  git clone --branch=$_chromiumver --depth=1 https://chromium.googlesource.com/chromium/src.git
+
+  echo "solutions = [
+  {
+    \"name\": \"src/electron\",
+    \"url\": \"file://$srcdir/electron@$_commit\",
+    \"deps_file\": \"DEPS\",
+    \"managed\": False,
+    \"custom_deps\": {
+      \"src\": None,
+    },
+    \"custom_vars\": {},
+  },
+]" > .gclient
+
+  python2 "$srcdir"/depot_tools/gclient.py sync \
+      --with_branch_heads \
+      --with_tags \
+      --nohooks
+
+  sed -e "s/'am'/'apply'/" -i src/electron/script/lib/git.py
+
+  echo 'Running hooks...'
+  # python2 "$srcdir"/depot_tools/gclient.py runhooks
+  python2 src/build/landmines.py
+  python2 src/build/util/lastchange.py -o src/build/util/LASTCHANGE
+  python2 src/build/util/lastchange.py -m GPU_LISTS_VERSION \
+    --revision-id-only --header src/gpu/config/gpu_lists_version.h
+  python2 src/build/util/lastchange.py -m SKIA_COMMIT_HASH \
+    -s src/third_party/skia --header src/skia/ext/skia_commit_hash.h
+  # Create sysmlink to system Node.js
+  mkdir -p src/third_party/node/linux/node-linux-x64/bin
+  ln -sf /usr/bin/node src/third_party/node/linux/node-linux-x64/bin
+  python2 src/third_party/depot_tools/download_from_google_storage.py \
+    --no_resume --extract --no_auth --bucket chromium-nodejs \
+    -s src/third_party/node/node_modules.tar.gz.sha1
+  vpython src/tools/download_cros_provided_profile.py \
+    --newest_state=src/chrome/android/profiles/newest.txt \
+    --local_state=src/chrome/android/profiles/local.txt \
+    --output_name=src/chrome/android/profiles/afdo.prof \
+    --gs_url_base=chromeos-prebuilt/afdo-job/llvm
+  python2 src/electron/script/apply_all_patches.py \
+      src/electron/patches/config.json
+  cd src/electron
+  yarn install --frozen-lockfile
+  cd ..
+
+  echo 'Patching Chromium for using system libraries...'
+  sed -i 's/OFFICIAL_BUILD/GOOGLE_CHROME_BUILD/' \
+      tools/generate_shim_headers/generate_shim_headers.py
+  for lib in "${_system_libs[@]}" libjpeg_turbo; do
+      third_party_dir=third_party/"$lib"
+      if [ ! -d "$third_party_dir" ]; then
+        third_party_dir=base/"$third_party_dir"
+      fi
+      find "$third_party_dir" -type f \
+          \! -path "$third_party_dir/chromium/*" \
+          \! -path "$third_party_dir/google/*" \
+          \! -path 'third_party/yasm/run_yasm.py' \
+          \! -regex '.*\.\(gn\|gni\|isolate\)' \
+          -delete
+  done
+  python2 build/linux/unbundle/replace_gn_files.py \
+      --system-libraries \
+      "${_system_libs[@]}"
+
+  echo 'Applying local patches...'
+  patch -Np0 -i ../chromium-skia-harmony.patch
+  patch -Np1 -i ../icu65.patch
+  patch -Np3 -d v8 <../icu67.patch
+  patch -Np1 -d third_party/glslang/src <../glslang-remove-setAllocator.patch
+  patch -Np1 -i ../chromium-system-icu.patch
+  patch -Np1 -i ../chromium-system-zlib.patch
+  patch -Np1 -i ../use-system-libraries-in-node.patch
+  patch -Np1 -i ../default_app-icon.patch  # Icon from .desktop file
+}
+
+build() {
+  export CC=clang
+  export CXX=clang++
+  export AR=ar
+  export NM=nm
+
+  # Do not warn about unknown warning options
+  CFLAGS+='   -Wno-unknown-warning-option'
+  CXXFLAGS+=' -Wno-unknown-warning-option'
+
+  cd src
+  export CHROMIUM_BUILDTOOLS_PATH="$PWD"/buildtools
+  GN_EXTRA_ARGS='
+    blink_symbol_level = 0
+    clang_use_chrome_plugins = false
+    custom_toolchain = "//build/toolchain/linux/unbundle:default"
+    host_toolchain = "//build/toolchain/linux/unbundle:default"
+    icu_use_data_file = false
+    is_component_ffmpeg = false
+    link_pulseaudio = true
+    linux_use_bundled_binutils = false
+    treat_warnings_as_errors = false
+    use_custom_libcxx = false
+    use_gnome_keyring = false
+    use_sysroot = false
+  '
+  gn gen out/Release \
+      --args="import(\"//electron/build/args/release.gn\") $GN_EXTRA_ARGS"
+  ninja -C out/Release electron
+  # Strip before zip to avoid
+  # zipfile.LargeZipFile: Filesize would require ZIP64 extensions
+  strip -s out/Release/electron
+  ninja -C out/Release electron_dist_zip
+  # ninja -C out/Release third_party/electron_node:headers
+}
+
+package() {
+  install -dm755 "$pkgdir"/usr/lib/$pkgname
+  bsdtar -xf src/out/Release/dist.zip -C "$pkgdir"/usr/lib/$pkgname
+
+  chmod u+s "$pkgdir"/usr/lib/$pkgname/chrome-sandbox
+
+  install -dm755 "$pkgdir"/usr/share/licenses/$pkgname
+  for l in "$pkgdir"/usr/lib/$pkgname/{LICENSE,LICENSES.chromium.html}; do
+    ln -s  \
+      $(realpath --relative-to="$pkgdir"/usr/share/licenses/$pkgname $l) \
+      "$pkgdir"/usr/share/licenses/$pkgname
+  done
+
+  install -dm755 "$pkgdir"/usr/bin
+  ln -s ../lib/$pkgname/electron "$pkgdir"/usr/bin/$pkgname
+
+  # Install .desktop and icon file (see default_app-icon.patch)
+  install -Dm644 -t "$pkgdir"/usr/share/applications $pkgname.desktop
+  install -Dm644 src/electron/default_app/icon.png \
+          "$pkgdir"/usr/share/pixmaps/$pkgname.png  # hicolor has no 1024x1024
+}
+
