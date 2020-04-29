@@ -3,7 +3,7 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-semantic-version
-pkgver=2.8.4
+pkgver=2.8.5
 pkgrel=1
 pkgdesc="A library implementing the 'SemVer' scheme."
 url="https://github.com/rbarrois/python-semanticversion"
@@ -13,7 +13,7 @@ depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest' 'python-django')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/rbarrois/python-semanticversion/archive/$pkgver.tar.gz")
-sha512sums=('4c847d7adb478349b4d8444adddde12802c2ca56355dd2b6cd943d7869d221ddf0242ecbef7dc34e591b9b13f2e7dfd0e84310d31c0f7074de599f8950668de7')
+sha512sums=('e59508b12ac0f1b46f1d97f633f5bead99c41542c51c2714a4074eda9da6a04cd103be20eafd031b541834b6ee99b4f9f9ee9baec58b9f8a313d0c727aeab68d')
 
 build() {
   cd python-semanticversion-$pkgver
