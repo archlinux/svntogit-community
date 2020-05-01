@@ -23,13 +23,13 @@ fi
 
 # Build classpath
 APP_CLASSPATH="SweetHome3D.jar:Furniture.jar:Textures.jar:Examples.jar:Help.jar:iText-2.1.7.jar:freehep-vectorgraphics-svg-2.1.1b.jar:sunflow-0.07.3i.jar:jmf.jar:batik-svgpathparser-1.7.jar:jeksparser-calculator.jar:jnlp.jar"
-if [ "${SWEETHOME3D_JAVA3D}" = "1.5" ]
+if [ "${SWEETHOME3D_JAVA3D}" = "1.6" ]
 then
-  JAVA_OPTS="${JAVA_OPTS} -Djava.library.path=/usr/lib/sweethome3d/java3d-1.5"
-  APP_CLASSPATH="${APP_CLASSPATH}:/usr/lib/sweethome3d/java3d-1.5/j3dcore.jar:/usr/lib/sweethome3d/java3d-1.5/j3dutils.jar:/usr/lib/sweethome3d/java3d-1.5/vecmath.jar"
-else
   JAVA_OPTS="${JAVA_OPTS} -Djava.library.path=/usr/lib/sweethome3d/java3d-1.6 -Djogamp.gluegen.UseTempJarCache=false"
   APP_CLASSPATH="${APP_CLASSPATH}:/usr/lib/sweethome3d/java3d-1.6/j3dcore.jar:/usr/lib/sweethome3d/java3d-1.6/j3dutils.jar:/usr/lib/sweethome3d/java3d-1.6/vecmath.jar:/usr/lib/sweethome3d/java3d-1.6/gluegen-rt.jar:/usr/lib/sweethome3d/java3d-1.6/jogl-all.jar"
+else
+  JAVA_OPTS="${JAVA_OPTS} -Djava.library.path=/usr/lib/sweethome3d/java3d-1.5"
+  APP_CLASSPATH="${APP_CLASSPATH}:/usr/lib/sweethome3d/java3d-1.5/j3dcore.jar:/usr/lib/sweethome3d/java3d-1.5/j3dutils.jar:/usr/lib/sweethome3d/java3d-1.5/vecmath.jar"
 fi
 
 cd "/usr/share/java/sweethome3d"
