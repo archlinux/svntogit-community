@@ -4,7 +4,7 @@
 
 pkgname=octave
 pkgver=5.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="https://www.gnu.org/software/octave/"
@@ -21,9 +21,9 @@ source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig}
         octave-sundials4.patch)
 options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
-sha256sums=('2fea62b3c78d6f38e9451da8a4d26023840725977dffee5250d3d180f56595e1'
+sha512sums=('fa2076fb22415e0797964c66cfb8d24643f178f45eb9c14ebb4c082767e0a53509fde550f579fa4a816348bd0f7cbc74f24144f9a30a5b9c09ebe1b3949db498'
             'SKIP'
-            'bfa7253f7b572158ce05fee117cd24325ec73e7f3acbcc73b3c34d6e52f01f5a')
+            '4b743602e8ca91e8be8dab69e09d3e476e9edd867b2eb0b9816fbe4ca344a16bff7a413c2e89b0c9fb769f4a815a696c4d67b70282b7e4fe8c24598bcce90d34')
 
 prepare() {
   cd $pkgname-$pkgver
