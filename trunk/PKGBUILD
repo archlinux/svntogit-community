@@ -5,7 +5,7 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=7.13.0
+pkgver=7.14.0
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
@@ -19,11 +19,18 @@ optdepends=("python-nose: for IPython's test suite")
 # new optional thing: ipyparallel
 
 source=("ipython-$pkgver.tgz::https://github.com/ipython/ipython/archive/$pkgver.tar.gz"
-        "https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-md5sums=('e9293fd44bfcec40c57d882b5c73d2c5'
-         '2901d65f1b1fe354e72850085cd1c072')
+        "https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png"
+        'https://github.com/ipython/ipython/commit/1e79c167a41d13eee673b8bb54798cb2f920f957.patch') # FS#66516
+md5sums=('057266ea0820d5d58551cf4a49592eef'
+         '2901d65f1b1fe354e72850085cd1c072'
+         '66b946ec2967cda4cf16ba7c86e729f2')
 
 # confirm that an update does not break sage?
+
+prepare() {
+  cd "ipython-$pkgver"
+  patch -p1 -i ../1e79c167a41d13eee673b8bb54798cb2f920f957.patch
+}
 
 package() {
   cd "ipython-$pkgver"
