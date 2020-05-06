@@ -1,57 +1,54 @@
 # Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Steef Hegeman <mail@steefhegeman.com>
 # Contributor: Luca Weiss <luca (at) z3ntu (dot) xyz>
 # Contributor: Julian Schacher <jspp@posteo.net>
 
 pkgbase=riot
-pkgname=('riot-web' 'riot-desktop')
-pkgver=1.5.15
+pkgname=(riot-web riot-desktop)
+pkgver=1.6.0
 pkgrel=1
 pkgdesc="A glossy Matrix collaboration client, web and desktop versions."
 arch=(x86_64)
 url="https://riot.im"
 license=(Apache)
 makedepends=(npm git yarn python rust sqlcipher electron)
-_url="https://github.com/vector-im/riot-web"
-source=(${pkgbase}-${pkgver}.tar.gz::${_url}/archive/v${pkgver}.tar.gz
-        ${pkgbase}-${pkgver}.tar.gz.asc::${_url}/releases/download/v${pkgver}/v${pkgver}-src.tar.gz.asc
+_url="https://github.com/vector-im/riot"
+source=(${pkgbase}-web-${pkgver}.tar.gz::${_url}-web/archive/v${pkgver}.tar.gz
+        ${pkgbase}-web-${pkgver}.tar.gz.asc::${_url}-web/releases/download/v${pkgver}/v${pkgver}-src.tar.gz.asc
+        ${pkgbase}-desktop-${pkgver}.tar.gz::${_url}-desktop/archive/v${pkgver}.tar.gz
+        ${pkgbase}-desktop-${pkgver}.tar.gz.asc::${_url}-desktop/releases/download/v${pkgver}/v${pkgver}-src.tar.gz.asc
         ${pkgbase}.desktop
         ${pkgbase}-desktop.sh)
-sha256sums=('3d5512f842fa436aef00b1b1f1c5ced4a4f1adc5cc1bcfddbc77573387f9cc42'
+sha256sums=('0e54adbda71e2d572f1ecdec3a6f07cb6379e5c9f8223bff19580d2e663f50c4'
             'SKIP'
-            'fa1a6756280c678e2193930adbd98c7721071278700e17a0db38de1668365091'
+            '4b1befbabb1fc391d0a9a49125540903fa97d5bbad033bdaff377a018a244333'
+            'SKIP'
+            'ba8157d7b951400d1c590c2a75ec879a4f3770dac6baf38d6010c24e69f0c3fc'
             'dc14c79694bac4f523493c26a73c8000f9a2374f36dd21c1945bfb93d19277cd')
 validpgpkeys=(A878CDF66CF4A9B4807CEBE574692659BDA3D940) # Riot Releases <releases@riot.im>
 
 prepare() {
   cd ${pkgbase}-web-${pkgver}
-  sed -i 's@https://riot.im/download/desktop/update/@null@g' electron_app/riot.im/config.json
+  # Switch target to output to directory rather than .deb package
   sed -i 's/"target": "deb"/"target": "dir"/g' package.json
   yarn install
 
-  # Add the matrix-seshat package (which is needed for search in E2E encrypted
-  # rooms) as well as the electron-build-env package, which gets used later to
-  # rebuild the native libraries against electron’s version of node.
-  # See here for more information:
-  # https://github.com/vector-im/riot-web/blob/develop/docs/native-node-modules.md#adding-seshat-for-search-in-e2e-encrypted-rooms
-  cd electron_app
-  yarn add matrix-seshat
-  yarn add electron-build-env
-  # Finally also enable the event indexing feature in the config.
-  sed 's/"features": {/"features": {\n        "feature_event_indexing": "enable",/' riot.im/config.json
+  cd ../${pkgbase}-desktop-${pkgver}
+  sed -i 's@"https://packages.riot.im/desktop/update/"@null@g' riot.im/release/config.json
+  yarn install
 }
 
 build() {
-  cd ${pkgbase}-web-${pkgver}/electron_app
-  # Recompile matrix-seshat
-  yarn run electron-build-env -- --electron $(cat /usr/lib/electron/version) -- neon build matrix-seshat --release
+  cd ${pkgbase}-web-${pkgver}
+  yarn build
 
-  cd ..
-  # Do the actual build
-  yarn build:electron:linux
+  cd ../${pkgbase}-desktop-${pkgver}
+  yarn run build:native
+  yarn run build
 }
 
 package_riot-web() {
-  pkgdesc="A glossy Matrix collaboration client for the web."
+  pkgdesc="Glossy Matrix collaboration client for the web."
   provides=(vector-web)
   replaces=(vector-web)
 
@@ -66,35 +63,29 @@ package_riot-web() {
 }
 
 package_riot-desktop() {
-  pkgdesc="A glossy Matrix collaboration client for the desktop."
+  pkgdesc="Glossy Matrix collaboration client for the desktop."
   depends=(riot-web electron sqlcipher)
   backup=('etc/riot/config.json')
 
-  cd ${pkgbase}-web-${pkgver}
+  cd ${pkgbase}-desktop-${pkgver}
 
   install -d "${pkgdir}"{/usr/lib/${pkgbase}/,/etc/webapps/${pkgbase}}
 
   # Install the app content, replace the webapp with a symlink to the system package
-  cp -r electron_app/dist/linux-unpacked/resources/* "${pkgdir}"/usr/lib/${pkgbase}/
-  rm -r "${pkgdir}"/usr/lib/${pkgbase}/webapp
+  cp -r dist/linux-unpacked/resources/* "${pkgdir}"/usr/lib/${pkgbase}/
   ln -s /usr/share/webapps/${pkgbase} "${pkgdir}"/usr/lib/${pkgbase}/webapp
-
-  # Remove cruft from seshat build
-  for item in Cargo.lock Cargo.toml artifacts.json build.rs src target ; do
-    rm -r "${pkgdir}"/usr/lib/${pkgbase}/app.asar.unpacked/node_modules/matrix-seshat/native/${item}
-  done
 
   # Config file
   ln -s /etc/${pkgbase}/config.json "${pkgdir}"/etc/webapps/${pkgbase}/config.json
-  install -Dm644 electron_app/riot.im/config.json -t "${pkgdir}"/etc/${pkgbase}
+  install -Dm644 riot.im/release/config.json -t "${pkgdir}"/etc/${pkgbase}
 
   # Required extras
-  install -Dm644 "${srcdir}"/${pkgbase}.desktop "${pkgdir}"/usr/share/applications/${pkgbase}.desktop
-  install -Dm755 "${srcdir}"/${pkgname}.sh "${pkgdir}"/usr/bin/${pkgname}
+  install -Dm644 ../${pkgbase}.desktop "${pkgdir}"/usr/share/applications/${pkgbase}.desktop
+  install -Dm755 ../${pkgname}.sh "${pkgdir}"/usr/bin/${pkgname}
 
   # Icons
-  install -Dm644 res/themes/riot/img/logos/riot-im-logo.svg "${pkgdir}"/usr/share/icons/hicolor/scalable/apps/${pkgbase}.svg
+  install -Dm644 ../${pkgbase}-web-${pkgver}/res/themes/riot/img/logos/riot-im-logo.svg "${pkgdir}"/usr/share/icons/hicolor/scalable/apps/${pkgbase}.svg
   for i in 16 24 48 64 96 128 256 512; do
-    install -Dm644 electron_app/build/icons/${i}x${i}.png "${pkgdir}"/usr/share/icons/hicolor/${i}x${i}/apps/${pkgbase}.png
+    install -Dm644 build/icons/${i}x${i}.png "${pkgdir}"/usr/share/icons/hicolor/${i}x${i}/apps/${pkgbase}.png
   done
 }
