@@ -11,7 +11,7 @@
 # need this again at some point in the future.
 pkgname=gitlab
 pkgver=12.10.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -30,6 +30,7 @@ backup=("etc/webapps/gitlab/application.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         build_fix.patch
+        update-re2-to-1.2.0.patch
         gitlab-unicorn.service
         gitlab-puma.service
         gitlab-sidekiq.service
@@ -43,6 +44,7 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
 install='gitlab.install'
 sha512sums=('SKIP'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
+            '556ad2b9561839b9de5bbd8cb4ebfd5dafe1c43257491ee77fed16106440021b97d252ffeec235da71741e56b657c4d53ef25bb15d58ec49a4f82f21cdf899c2'
             '1ad15b48890ad48e97a6fcea56132582f2b22aa27f4a1a1f4590f3ea72de4726e13ef6f3db2bc0984da1ef140bde092e74e0c9f8f1778f207f3fac4a31a77e4b'
             '9fcc8934a9e927838eb5b496a462b4895dfbbd5f65e14513c600c35356f1687fbfcfb43b5a6e580ccba38df826da462fc2f0b0406a86a48b9ff90afab7a1122f'
             '8ca36771f7568b190823ec47afeaf6ff75f61c5b6f31ce5d837a6dcd84a5b3da23fb07a1eceeda0752b2e61c4a8f4d17bf368fa2913e1487567944a8d29eeb58'
@@ -67,6 +69,7 @@ prepare() {
   cd gitlab-foss
 
   patch -p1 < ../build_fix.patch
+  patch -p1 < ../update-re2-to-1.2.0.patch
 
   # GitLab tries to read its revision information from a file.
   echo "${revision}" > REVISION
