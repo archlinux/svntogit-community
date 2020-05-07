@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2020.1
-_build=201.6668.121
+pkgver=2020.1.1
+_build=201.7223.91
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -17,7 +17,7 @@ depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-gl
 makedepends=('ant' 'git' 'java8-openjfx' 'java-environment=8')
 source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
         idea-android::"git+https://github.com/JetBrains/android#tag=idea/${_build}"
-        idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#tag=idea/${_build}"
+        idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
         idea.desktop
         idea.sh)
 sha256sums=('SKIP'
