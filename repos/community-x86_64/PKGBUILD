@@ -3,8 +3,8 @@
 # Contributor: Daniel Maslowski <info@orangecms.org>
 
 pkgname=minio
-pkgver=2020.03.06
-_timever=T22:23:56Z
+pkgver=2020.05.06
+_timever=T23:23:25Z
 _pkgver="${pkgver//./-}${_timever//:/-}"
 pkgrel=1
 pkgdesc='Object storage server compatible with Amazon S3'
@@ -25,22 +25,23 @@ sha512sums=('SKIP'
             '7e4617aed266cf48a2ff9b0e80e31641d998537c78d2c56ce97b828cfc77d96dbf64728d4235dac7382d6e5b201388bef6722959302de5e2298d93f4ec1e0e63')
 
 build() {
-  export GOPATH="${srcdir}/go"
-  mkdir -p "${GOPATH}/src/github.com/minio"
-  mv "${srcdir}/minio" "${GOPATH}/src/github.com/minio/minio"
-  cd "${GOPATH}/src/github.com/minio/minio"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-trimpath"
+
+  cd minio
+
   sed -i "s/Version.*/Version = \"${pkgver//./-}${_timever}\"/g" cmd/build-constants.go
   sed -i "s/ReleaseTag.*/ReleaseTag = \"RELEASE.${_pkgver}\"/g" cmd/build-constants.go
   sed -i "s/CommitID.*/CommitID = \"$(git rev-parse HEAD)\"/g" cmd/build-constants.go
-  GO111MODULE=on go build -ldflags "-extldflags $LDFLAGS"
+
+  go build .
 }
 
 package() {
   install -dm750 -o 103 -g 103 "${pkgdir}/srv/minio"
   install -dm750 -o 103 -g 103 "${pkgdir}/var/lib/minio"
 
-  cd "${srcdir}/go/src/github.com/minio/minio"
-  install -Dm755 minio "${pkgdir}/usr/bin/minio"
+  install -Dm755 minio/minio "${pkgdir}/usr/bin/minio"
   install -Dm644 "${srcdir}/minio.conf" "${pkgdir}/etc/minio/minio.conf"
   install -Dm644 "${srcdir}/minio.service" "${pkgdir}/usr/lib/systemd/system/minio.service"
   install -Dm644 "${srcdir}/minio.sysusers" "${pkgdir}/usr/lib/sysusers.d/minio.conf"
