@@ -2,23 +2,23 @@
 # Contributor: Andreas Wagner <Andreas dot Wagner at em dot uni-frankfurt dot de>
 
 pkgname=oniguruma
-pkgver=6.9.5
+pkgver=6.9.5_rev1
 pkgrel=1
 pkgdesc="a regular expressions library"
 arch=('x86_64')
 url="https://github.com/kkos/oniguruma"
 license=('BSD')
-source=("https://github.com/kkos/oniguruma/releases/download/v$pkgver/onig-$pkgver.tar.gz")
-sha256sums=('2f25cc3165e6da4b12dcabdb6b77c48f436d835e127ec2e3cad7abae9ea8e9a6')
+source=("https://github.com/kkos/oniguruma/releases/download/v$pkgver/onig-${pkgver/_/-}.tar.gz")
+sha256sums=('d33c849d1672af227944878cefe0a8fcf26fc62bedba32aa517f2f63c314a99e')
 
 build() {
-	cd "$srcdir"/onig-$pkgver
-	./configure --prefix=/usr
+	cd "$srcdir"/onig-${pkgver%_rev1}
+	./configure --prefix=/usr --enable-posix-api
 	make
 }
 
 package() {
-	cd "$srcdir"/onig-$pkgver
+	cd "$srcdir"/onig-${pkgver%_rev1}
 	make DESTDIR="$pkgdir" install
 	install -dm755 "$pkgdir"/usr/share/doc
 	cp -r doc "$pkgdir"/usr/share/doc/$pkgname
