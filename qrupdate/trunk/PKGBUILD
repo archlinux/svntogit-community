@@ -4,7 +4,7 @@
 
 pkgname=qrupdate
 pkgver=1.1.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Fortran library for fast updates of QR and Cholesky decompositions"
 url="https://sourceforge.net/projects/qrupdate"
 makedepends=(gcc-fortran)
@@ -13,6 +13,11 @@ arch=(x86_64)
 license=(GPL3)
 source=(https://downloads.sourceforge.net/project/qrupdate/qrupdate/1.2/$pkgname-$pkgver.tar.gz)
 sha256sums=('e2a1c711dc8ebc418e21195833814cb2f84b878b90a2774365f0166402308e08')
+
+prepare() {
+# Honor system build flags
+  sed -e 's|^FFLAGS.*|FFLAGS=${CFLAGS} ${LDFLAGS}|' -i $pkgname-$pkgver/Makeconf
+}
 
 build() {
   cd $pkgname-$pkgver
