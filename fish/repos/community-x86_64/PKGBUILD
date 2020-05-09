@@ -6,7 +6,7 @@
 # Contributor: Jan Fader <jan.fader@web.de>
 
 pkgname=fish
-pkgver=3.1.1
+pkgver=3.1.2
 pkgrel=1
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
@@ -20,9 +20,9 @@ install=fish.install
 backup=(etc/fish/config.fish)
 source=(https://github.com/fish-shell/fish-shell/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz{,.asc})
 validpgpkeys=(003837986104878835FA516D7A67D962D88A709A) # David Adam <zanchey@gmail.com>
-sha256sums=('07dc78eea3bc4cbd490b2f2a2e19e5771ac9e3b6b1a75893039ad8b34d6122b8'
+sha256sums=('d5b927203b5ca95da16f514969e2a91a537b2f75bec9b21a584c4cd1c7aa74ed'
             'SKIP')
-sha512sums=('edda6739427b7ba140445430b93388ada116c7c9064da7deb6924f2ace3832de7da8e1e20730bfd12b081ab1cc4b7ffaf8f60c5ee5204f59e65889e30c913eae'
+sha512sums=('b6ae2c928774a2eaccf35312d3a9446bfa3e1335182c8f2b2d6198161d0916904f4964fb20ed13a5bf850c1c819e003905d13db3bc8b1faa5b401a60b47dc563'
             'SKIP')
 
 build() {
@@ -39,8 +39,8 @@ build() {
 }
 
 package() {
-  cd ${pkgname}-${pkgver}/build
-  make DESTDIR="${pkgdir}" install
+  cd ${pkgname}-${pkgver}
+  make -C build DESTDIR="${pkgdir}" install
 }
 
 # vim: ts=2 sw=2 et:
