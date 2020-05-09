@@ -3,62 +3,43 @@
 
 pkgname=v2ray
 pkgver=4.23.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A platform for building proxies to bypass network restrictions"
 arch=('x86_64')
 url="https://github.com/v2ray/v2ray-core"
 license=('MIT')
 depends=('glibc' 'v2ray-domain-list-community' 'v2ray-geoip')
-makedepends=('go-pie' 'golang-golang-x-crypto' 'golang-golang-x-net' 'golang-golang-x-sys' 'git')
+makedepends=('go' 'git')
 backup=(etc/v2ray/config.json)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/v2ray/v2ray-core/archive/v$pkgver.tar.gz"
         'v2ray.service')
 sha512sums=('3f5244c201a1c8e348b3928ac5ad130596db39419166273af0c45a916d365544dea7b07368ab47744317321300df13061349610c2770e8e561b5df2db691eecd'
             '79192646438bcbd13a5a88d0093b1b6d5df603a9c2241a6260babf16f9e98d75f9e04fb3a1d926eb809a81fa935d3ff47d39cc703c609dfc906146ca58272bc7')
 
-prepare() {
-  # Try to unpin go mods
-  rm v2ray-core-$pkgver/go.{mod,sum}
-
-  export GOPATH="$srcdir/build:/usr/share/gocode"
-  mkdir -p "$srcdir"/build/src/v2ray.com
-
-  # mv *.com *.io *.org *.net "$srcdir"/build/src/
-  mv v2ray-core-$pkgver "$srcdir"/build/src/v2ray.com/core
-
-  # Future makedepends
-  go get github.com/golang/protobuf/proto go.starlark.net/starlark go.starlark.net/syntax \
-         google.golang.org/grpc github.com/gorilla/websocket github.com/refraction-networking/utls
-
-  # Future checkdepends
-  go get github.com/golang/mock/gomock github.com/google/go-cmp/cmp \
-         golang.org/x/sync/errgroup golang.org/x/xerrors github.com/miekg/dns h12.io/socks
-}
-
 build() {
-  go build -trimpath \
-    -ldflags "-extldflags ${LDFLAGS}" \
-    -o v2ray v2ray.com/core/main
-
-  go build -trimpath \
-    -ldflags "-extldflags ${LDFLAGS}" \
-    -o v2ctl v2ray.com/core/infra/control/main
+  cd "v2ray-core-$pkgver"
+  export GOFLAGS="-buildmode=pie -trimpath"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  go build -o v2ray ./main
+  go build -o v2ctl ./infra/control/main
 }
 
 check() {
-  cd "$srcdir"/build/src/v2ray.com/core
+  cd "v2ray-core-$pkgver"
   go test -p 1 -tags json -v -timeout 30m v2ray.com/core/...
 }
 
 package() {
-  cd "$srcdir"/build/src/v2ray.com/core
+  cd v2ray-core-$pkgver
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/v2ray/LICENSE
   install -Dm644 release/config/systemd/v2ray.service "$pkgdir"/usr/lib/systemd/system/v2ray.service
   sed -i -e 's|/usr/bin/v2ray/v2ray|/usr/lib/v2ray/v2ray|' \
          "$pkgdir"/usr/lib/systemd/system/v2ray.service
   install -Dm644 release/config/*.json -t "$pkgdir"/etc/v2ray/
-  install -Dm755 "$srcdir"/v2ray -t "$pkgdir"/usr/lib/v2ray/
-  install -Dm755 "$srcdir"/v2ctl -t "$pkgdir"/usr/lib/v2ray/
+  install -Dm755 v2ray -t "$pkgdir"/usr/lib/v2ray/
+  install -Dm755 v2ctl -t "$pkgdir"/usr/lib/v2ray/
   install -dm755 "$pkgdir"/usr/bin
   ln -s ../lib/v2ray/v2ray "$pkgdir"/usr/bin/v2ray
   ln -s ../lib/v2ray/v2ctl "$pkgdir"/usr/bin/v2ctl
