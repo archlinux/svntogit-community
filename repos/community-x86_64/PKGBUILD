@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.2.0
+pkgver=3.2.1
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
@@ -22,6 +22,8 @@ build() {
     cd "${pkgname}"
     export CGO_LDFLAGS="$LDFLAGS"
     export CGO_CFLAGS="$CFLAGS"
+    export CGO_CXXFLAGS="$CXXFLAGS"
+    export CGO_CPPFLAGS="$CPPFLAGS"
     make GOFLAGS="-buildmode=pie -trimpath"
 }
 
@@ -29,6 +31,8 @@ check(){
     cd "${pkgname}"
     export CGO_LDFLAGS="$LDFLAGS"
     export CGO_CFLAGS="$CFLAGS"
+    export CGO_CXXFLAGS="$CXXFLAGS"
+    export CGO_CPPFLAGS="$CPPFLAGS"
     make GOFLAGS="-buildmode=pie -trimpath" test-unit
 }
 
