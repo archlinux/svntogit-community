@@ -2,7 +2,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.4.0
+pkgver=1.4.1
 pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -31,12 +31,12 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/uefi.conf'
         'etc/fwupd/upower.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('575df5fe5d3914a6056af44c5d16a25b56d09130849fb313cb20fe6ea602954e' 'SKIP')
+sha256sums=('81af0ca5b63db53c2bd23b268c400cc85c430bec83e0b053c798174578a0df53' 'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
     cd ${pkgname}-${pkgver}
-    arch-meson -D b_lto=false ../build
+    arch-meson -D b_lto=false -D plugin_flashrom=true ../build
     ninja -v -C ../build
 }
 
