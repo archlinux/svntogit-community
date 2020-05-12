@@ -11,7 +11,7 @@
 # need this again at some point in the future.
 pkgname=gitlab
 pkgver=12.10.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -40,7 +40,8 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab.target
         gitlab.tmpfiles.d
         gitlab.logrotate
-        ruby27-pop-extra-arg.patch)
+        ruby27-pop-extra-arg.patch
+        kubertenes-ruby27.patch::https://gitlab.com/gitlab-org/gitlab/-/commit/6e8bdcb8dd5cfff373f47697610011ad1c97e33b.patch)
 install='gitlab.install'
 sha512sums=('SKIP'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
@@ -54,7 +55,8 @@ sha512sums=('SKIP'
             'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
             '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121'
-            '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0')
+            '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0'
+            'f8d6aab2d9f41c14e850bc36f555c318f37b74dbdb6bc95144ee855c438117dc82ae29ec6039c9af934e61f17555a6ada7f0a965e3b88d9d4f1bc2ba0e5b1213')
 
 
 _datadir="/usr/share/webapps/gitlab"
@@ -70,6 +72,7 @@ prepare() {
 
   patch -p1 < ../build_fix.patch
   patch -p1 < ../update-re2-to-1.2.0.patch
+  patch -p1 < ../kubertenes-ruby27.patch
 
   # GitLab tries to read its revision information from a file.
   echo "${revision}" > REVISION
