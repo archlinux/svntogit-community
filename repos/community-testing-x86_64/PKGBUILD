@@ -7,7 +7,7 @@
 pkgname=darktable
 epoch=2
 pkgver=3.0.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
