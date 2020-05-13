@@ -1,0 +1,45 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Josip Ponjavic <josipponjavic at gmail dot com>
+# Contributor: Xu Fasheng <fasheng.xu[AT]gmail.com>
+
+pkgname=deepin-terminal
+pkgver=5.2.1
+pkgrel=1
+pkgdesc='Default terminal emulation application for Deepin'
+arch=('x86_64')
+url="https://github.com/linuxdeepin/deepin-terminal-reborn"
+license=('GPL3')
+depends=('deepin-qt5integration')
+makedepends=('chrpath' 'cmake' 'expac' 'lxqt-build-tools' 'qt5-tools')
+groups=('deepin-extra')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxdeepin/deepin-terminal-reborn/archive/$pkgver.tar.gz")
+sha512sums=('4679e88a1862f12a7021f1d01e7cb9b98fdaf7d0a4052a9acd488010db05904ee729d6afd6c47aad3c2a9133bbebe30fa0045d6c9b345bae09357b4dff7b8c75')
+
+prepare() {
+  mkdir -p build
+  cd deepin-terminal-reborn-$pkgver
+  # Devendor qtermwidget - disabled due to the vendored copy has changes
+  #rm -r terminalwidget
+  #sed -i '/terminalwidget/d;/build_qtermwidget/d' deepin-terminal.pro
+  #sed -i 's|terminalwidget/lib/qtermwidget.h|qtermwidget5/qtermwidget.h|' encodeplugin/encodelistmodel.cpp views/termwidget.h theme/themelistmodel.cpp
+
+  # Much upstream weirdness
+  sed -i '/<QHash>/i#include <QObject>' terminalwidget/lib/SessionManager.h
+  sed -i 's/QString("/QString::fromLatin1("/;s/message = "Session crashed.";/message = QString::fromLatin1("Session crashed.");/' terminalwidget/lib/Session.cpp
+
+  sed -i 's|default-config.json|resources/other/default-config.json|' CMakeLists.txt
+}
+
+build(){
+  cd build
+  cmake -DDTKCORE_TOOL_DIR=/usr/lib/libdtk-$(expac %v dtkcore | cut -d - -f 1 | cut -d : -f 2)/DCore/bin ../deepin-terminal-reborn-$pkgver
+  make
+}
+
+package() {
+  cd build
+  make DESTDIR="$pkgdir" install
+
+  rm -r "$pkgdir"/build
+  chrpath --delete "$pkgdir"/usr/bin/deepin-terminal
+}
