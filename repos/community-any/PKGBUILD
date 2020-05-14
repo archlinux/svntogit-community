@@ -4,15 +4,15 @@
 pkgbase=python-click
 pkgname=("python-click" "python2-click")
 _realname=click
-pkgver=7.1.1
+pkgver=7.1.2
 pkgrel=1
 pkgdesc="A simple wrapper around optparse for powerful command line utilities"
 arch=("any")
 url="http://click.pocoo.org/"
 license=("BSD")
 makedepends=("python-setuptools" "python2-setuptools")
-source=("https://github.com/pallets/click/archive/${pkgver}.tar.gz")
-sha512sums=('955dd75569a7179c204971b868ca17c666bddbaa84201d2b23fbf53ccbd35878c1d638cf70d5c42c2785276fea0cf1f1c062ff990c5869736d6cba0d9fca1486')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/pallets/click/archive/${pkgver}.tar.gz")
+sha512sums=('d0caf2fb0a258774a18a7b8f83bdfa73abeb70196a70b45a6cc35befaeb862d068d2f2cce4e27201ab2e3adcd02e7e2f099d6c37c497a507010eefa10ad16eba')
 
 prepare() {
     cp -a $_realname-$pkgver{,-python2}
