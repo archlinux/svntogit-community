@@ -5,8 +5,8 @@
 # Contributor: Jesus Alvarez
 
 pkgname=python-jedi
-_gitcommit=18f84d3af73c0de04883c10ab8745d7efb16593b
-pkgver=0.16.0
+_gitcommit=8aaa8e00446f801c023bb4b056f51ac6f3d99e99
+pkgver=0.17.0
 pkgrel=1
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
@@ -17,10 +17,10 @@ makedepends=('git' 'python-setuptools')
 checkdepends=('python-pytest' 'python-parso')
 source=("git+https://github.com/davidhalter/jedi#commit=${_gitcommit}"
         git+https://github.com/davidhalter/typeshed
-        0001-Jedi-understand-now-when-you-use-del-fixes-313.patch) 
+        git+https://github.com/typeddjango/django-stubs)
 sha256sums=('SKIP'
             'SKIP'
-            'c8ac3df187d59eb8a9ea18290a829b4b23e16b131b5580a6677d208fe8726d81')
+            'SKIP')
 
 pkgver() {
   cd jedi
@@ -28,25 +28,24 @@ pkgver() {
 }
 
 prepare() {
-  (cd jedi
-    git submodule init
-    git config submodule."jedi/third_party/typeshed".url "${srcdir}/typeshed"
-    git submodule update --recursive
+  cd jedi
+  git submodule init
+  git config submodule."jedi/third_party/typeshed".url "${srcdir}/typeshed"
+  git config submodule."jedi/third_party/django-stubs".url "${srcdir}/django-stubs"
+  git submodule update --recursive
 
-    patch -Np1 -i ${srcdir}/0001-Jedi-understand-now-when-you-use-del-fixes-313.patch
-  )
+  # Inc difference limit in TestSetupReadline::test_import for py3.8
+  git cherry-pick -n e7feeef64e9ef4a0e543afd13c9ed72decdcc533
 }
 
 build() {
-  (cd jedi
-    python setup.py build
-  )
+  cd jedi
+  python setup.py build
 }
 
 check() {
-  (cd jedi
-    pytest test
-  )
+  cd jedi
+  pytest test
 }
 
 package() {
