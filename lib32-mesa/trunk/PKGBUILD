@@ -5,7 +5,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgver=20.0.7
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
@@ -35,7 +35,7 @@ build() {
   arch-meson mesa-$pkgver build \
     --native-file crossfile.ini \
     --libdir=/usr/lib32 \
-    -D b_lto=true \
+    -D b_lto=false \
     -D b_ndebug=true \
     -D platforms=x11,wayland,drm,surfaceless \
     -D dri-drivers=i915,i965,r100,r200,nouveau \
