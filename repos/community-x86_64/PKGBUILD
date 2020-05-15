@@ -3,17 +3,17 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=29.0.6
+pkgver=30.0.0
 pkgrel=1
 tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
 url='http://tools.android.com/'
 license=(Apache MIT)
-depends=(pcre2 libusb protobuf)
+depends=(pcre2 libusb protobuf brotli)
 optdepends=('python: for mkbootimg script'
             'python2: for unpack_bootimg & avbtool scripts')
-# depend on 'vim' for 'xxd' tool.
+# it depends on 'vim' because of 'xxd' tool.
 makedepends=(git clang gtest ruby cmake ninja go vim)
 provides=(fastboot adb)
 conflicts=(fastboot adb)
@@ -27,13 +27,14 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$tag
         git+https://android.googlesource.com/platform/external/f2fs-tools#tag=$tag
         git+https://android.googlesource.com/platform/external/e2fsprogs#tag=$tag
         git+https://android.googlesource.com/platform/external/avb#tag=$tag
+        #git+https://android.googlesource.com/platform/external/boringssl#tag=$tag
         git+https://boringssl.googlesource.com/boringssl#commit=$_boringssl_commit
         generate_build.rb
 # deployagent.jar is a library built from Android sources.
 # Building this java library requires a lot of dependencies:
 #  java, protobuf-java, dex compiler, Android base libs.
 # To avoid the complexity we prebuilt the lib from the Android sources directly
-# using following instructiuons:
+# using following instructions:
 #   (See https://wiki.archlinux.org/index.php/Android for context)
 # 
 #   source build/envsetup.sh
@@ -54,14 +55,12 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
-          '37992d0d7547b7deb703f3232ec124a4c6b96aef'
+          '930c5d4b94f7cc09087fe599d4b868e7187abd74'
           'd9dfac30245faa0a96968b96f3acd9ad536f4910'
-          '31779cd6c0df710be9589bd2ee4f697f59b100fd'
+          '70abd4483233ee481490b3369dbdd4977772c57f'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
 prepare() {
-  PLATFORM_TOOLS_VERSION="$pkgver-$pkgrel" LDFLAGS='-Wl,-z,relro,-z,now' ./generate_build.rb > build.ninja
-
   cd "$srcdir"/core
   patch -p1 < ../fix_build_core.patch
 
@@ -71,10 +70,13 @@ prepare() {
   cd "$srcdir"/mkbootimg
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' unpack_bootimg.py
 
-  mkdir -p "$srcdir"/boringssl/build && cd "$srcdir"/boringssl/build && cmake -GNinja ..; ninja crypto/libcrypto.a
+  mkdir -p "$srcdir"/boringssl/build
 }
 
 build() {
+  (cd "$srcdir"/boringssl/build && cmake -GNinja ..; ninja crypto/libcrypto.a ssl/libssl.a)
+
+  PLATFORM_TOOLS_VERSION="$pkgver-$pkgrel" ./generate_build.rb > build.ninja
   ninja
 }
 
