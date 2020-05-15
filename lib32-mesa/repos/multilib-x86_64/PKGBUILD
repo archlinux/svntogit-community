@@ -4,8 +4,8 @@
 
 pkgbase=lib32-mesa
 pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
-pkgver=20.0.6
-pkgrel=2
+pkgver=20.0.7
+pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
@@ -14,14 +14,10 @@ makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgpro
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
-        0001-egl-allow-INVALID-format-for-linux_dmabuf.patch
-        0002-egl-wayland-Fix-zwp_linux_dmabuf-usage.patch
         LICENSE
         crossfile.ini)
-sha512sums=('a93dc3ed57ed7469b7c60cdbdcf4f29c5da4ec3986171c7b534e009e136ca21fec16207ffab38a6747437a9b1060e2e6c4b74c4e5cdc168b9aba0fc1940b5e90'
+sha512sums=('00baae50f14bf2b08b5654dffb11cf67499dc1825e1700b137fb5719e767e0e78e789979df2c194f677ea9c5e531f34965d47b9e37c239944c38d0570c7a9685'
             'SKIP'
-            '2371631512cd0f6aeaa9db3a8484da039fe98610123683520d0fe076dbf49860f00f8d44ecb0b0b149cee766946fe800080178c6fca8cff289329bf46ce97858'
-            'd8998785c373743932674eecdfc1f502b5ef58b3f53572a42b177bf5b367d43b4af3867e37bd71c6a23f1b740841aabf2d42c68eb95f1bc33c0e58d9b7e029b8'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
             'c7dbb390ebde291c517a854fcbe5166c24e95206f768cc9458ca896b2253aabd6df12a7becf831998721b2d622d0c02afdd8d519e77dea8e1d6807b35f0166fe')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
@@ -30,15 +26,6 @@ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l
               'A5CC9FEC93F2F837CB044912336909B6B25FADFA'  # Juan A. Suarez Romero <jasuarez@igalia.com>
               '71C4B75620BC75708B4BDB254C95FAAB3EB073EC'  # Dylan Baker <dylan@pnwbakers.com>
               '57551DE15B968F6341C248F68D8E31AFC32428A6') # Eric Engestrom <eric@engestrom.ch>
-
-prepare() {
-  cd mesa-$pkgver
-
-  # https://gitlab.gnome.org/GNOME/mutter/issues/987
-  # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/4294
-  patch -Np1 -i ../0001-egl-allow-INVALID-format-for-linux_dmabuf.patch
-  patch -Np1 -i ../0002-egl-wayland-Fix-zwp_linux_dmabuf-usage.patch
-}
 
 build() {
   export CC="gcc -m32"
