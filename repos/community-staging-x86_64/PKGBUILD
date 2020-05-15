@@ -1,0 +1,106 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Jan "heftig" Steffens <jan.steffens@gmail.com>
+# Contributor: farid <farid at archlinuc-br.org>
+# Contributor: Archie <Mymaud@gmail.com>
+
+pkgbase=gmic
+pkgname=(gmic zart gimp-plugin-gmic krita-plugin-gmic)
+pkgver=2.9.0
+pkgrel=6
+arch=(x86_64)
+url="https://gmic.eu/"
+license=(custom:CeCILL)
+makedepends=(cmake gimp qt5-base fftw openexr opencv eigen graphicsmagick qt5-tools)
+source=(https://gmic.eu/files/source/gmic_$pkgver.tar.gz zart-opencv4.patch)
+sha256sums=('6233695f9b27999dcc7cc3aa7480b0f192bd44de85209091a3b4b8a65ae8c4b5'
+            'f4295a2b9a6730060e1dd763c602bd5156570d623bc69c2214dfd11e94943296')
+
+prepare() {
+  mkdir -p build{,-qt,-krita,-gimp,-zart}
+
+  sed -e 's|pkg_check_modules(OPENCV opencv)|pkg_check_modules(OPENCV opencv4)|' -i gmic-$pkgver/CMakeLists.txt
+# fix build with openCV 4.0
+  cd gmic-$pkgver/zart
+  patch -p1 -i ../../zart-opencv4.patch
+  sed -e 's|opencv|opencv4|' -i zart.pro
+}
+
+build() {
+  cd build
+  cmake ../gmic-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DENABLE_DYNAMIC_LINKING=ON
+  make
+
+  export LDFLAGS="$LDFLAGS -L../build"
+  cd ../build-qt
+  cmake ../gmic-$pkgver/gmic-qt \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DENABLE_DYNAMIC_LINKING=ON \
+    -DGMIC_PATH="$srcdir"/gmic-$pkgver/src \
+    -DGMIC_QT_HOST=none
+  make
+
+  cd ../build-gimp
+  cmake ../gmic-$pkgver/gmic-qt \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DENABLE_DYNAMIC_LINKING=ON \
+    -DGMIC_PATH="$srcdir"/gmic-$pkgver/src \
+    -DGMIC_QT_HOST=gimp
+  make
+
+  cd ../build-krita
+  cmake ../gmic-$pkgver/gmic-qt \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DENABLE_DYNAMIC_LINKING=ON \
+    -DGMIC_PATH="$srcdir"/gmic-$pkgver/src \
+    -DGMIC_QT_HOST=krita
+  make
+
+  cd ../build-zart
+  export CXXFLAGS=${CXXFLAGS/-O2/} # https://github.com/c-koi/zart/issues/14
+  qmake ../gmic-$pkgver/zart \
+    GMIC_PATH="$srcdir"/gmic-$pkgver/src GMIC_DYNAMIC_LINKING=on QMAKE_CXXFLAGS+=" -DOPENCV2_HEADERS"
+  make
+}
+
+package_gmic() {
+  pkgdesc="GREYC's Magic Image Converter: image processing framework"
+  depends=(opencv fftw curl)
+  optdepends=('qt5-base: for the Qt UI')
+
+  cd build
+  make DESTDIR="$pkgdir" install
+  install -Dm644 ../gmic-$pkgver/COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  cd ../build-qt
+  make DESTDIR="$pkgdir" install
+}
+
+package_zart() {
+  pkgdesc="A GUI for G'MIC real-time manipulations on the output of a webcam"
+  depends=(gmic qt5-base)
+
+  cd build-zart
+  install -Dm755 zart -t "$pkgdir"/usr/bin
+  install -Dm644 ../gmic-$pkgver/zart/Licence_CeCILL_V2-en.html -t "$pkgdir"/usr/share/licenses/$pkgname
+}
+
+package_gimp-plugin-gmic() {
+  pkgdesc="Gimp plugin for the G'MIC image processing framework"
+  depends=(gimp gmic qt5-base)
+
+  cd build-gimp
+  make DESTDIR="$pkgdir" install
+  install -Dm644 ../gmic-$pkgver/COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_krita-plugin-gmic() {
+  pkgdesc="Krita plugin for the G'MIC image processing framework"
+  depends=(krita gmic)
+
+  cd build-krita
+  make DESTDIR="$pkgdir" install
+  install -Dm644 ../gmic-$pkgver/COPYING "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
