@@ -11,12 +11,16 @@ url='https://aiohttp.readthedocs.io'
 arch=('x86_64')
 license=('Apache')
 depends=('python' 'python-chardet' 'python-multidict' 'python-async-timeout'
-         'python-yarl' 'python-attrs' 'gunicorn')
+         'python-yarl' 'python-attrs')
 makedepends=('cython' 'python-setuptools' 'git')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
               'python-pytest-timeout' 'python-async_generator' 'python-brotlipy'
               'python-pytest-xdist' 'python-pytest-forked' 'python-pytest-cov'
-              'python-trustme' 'python-freezegun')
+              'python-trustme' 'python-freezegun' 'gunicorn')
+optdepends=('gunicorn: to deploy using Gunicorn'
+            'python-aiodns: for fast DNS resolving'
+            'python-cchardet: for faster encoding detection'
+            'python-brotlipy: for Brotli transfer-encodings support')
 source=(${pkgname}::"git+https://github.com/aio-libs/aiohttp#commit=${_gitcommit}"
         git+https://github.com/nodejs/http-parser)
 sha512sums=('SKIP'
