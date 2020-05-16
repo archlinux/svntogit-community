@@ -5,7 +5,7 @@
 # Contributor: nofxx <x@<nick>.com>
 
 pkgname=redis
-pkgver=6.0.1
+pkgver=6.0.3
 pkgrel=1
 pkgdesc='Advanced key-value store'
 arch=('x86_64')
@@ -21,7 +21,7 @@ source=(http://download.redis.io/releases/redis-$pkgver.tar.gz
         redis.logrotate
         redis.conf-sane-defaults.patch
         redis-5.0-use-system-jemalloc.patch)
-sha512sums=('bf1312f08433819941a5d64674d989d260930e2f2588e4a7d743950714e565684cfc35866763a66a3aeed2fe6f750c64a759e6227243784acc97975d49b9ecc2'
+sha512sums=('88978285db62cb8aa6e27fcd2075bbdb13f2606eaa702491047080bd6396d79d59336f0310d049d88a57e8e7b7096d716f9408b41cc658788a3902627770a807'
             '86018ddd6625f918295e10f9478da361f73a6dbd6c6b8e4b974201669bcccbd4dba443bb0844be68f6ab8d5a1762b32af04c5e12df53b1f0ea812b790d9f4e37'
             '2227dfb41bf5112f91716f011862ba5fade220aea3b6a8134a5a05ee3af6d1cca05b08d793a486be97df98780bf43ac5dc4e5e9989ae0c5cd4e1eedb6cee5d71'
             '68f7bc12e3b95cb199b71255c6aa5bfaa431fbabbc7d2308e54347c0d35e6d8091c4a79a5a6b56494ab3a294f9389e3ec63902931920862f60b1ffe77222eeeb'
