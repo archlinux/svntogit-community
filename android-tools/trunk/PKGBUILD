@@ -4,7 +4,7 @@
 
 pkgname=android-tools
 pkgver=30.0.0
-pkgrel=1
+pkgrel=2
 tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -73,7 +73,7 @@ prepare() {
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' unpack_bootimg.py
 
   cd "$srcdir"/boringssl
-  patch -p1 < ../../boringssl-disable-thirdpartydeps.patch
+  patch -p1 < ../boringssl-disable-thirdpartydeps.patch
   mkdir -p "$srcdir"/boringssl/src/build
 }
 
