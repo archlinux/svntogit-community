@@ -3,8 +3,8 @@
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
 
 pkgname=catch2
-_gitcommit=255aa5f2afe1a622c97422f65ace6ca915be0d8d
-pkgver=2.11.3
+_gitcommit=2e61d38c7c3078e600c331257b5bebfb81aaa685
+pkgver=2.12.1
 pkgrel=1
 pkgdesc="Modern, C++-native, header-only, test framework for unit-tests, TDD and BDD"
 arch=('any')
@@ -24,11 +24,10 @@ pkgver() {
 }
 
 build() {
-  mkdir -p ${pkgname}/build
-  cd ${pkgname}/build
+  cd ${pkgname}
   export CFLAGS+=" ${CPPFLAGS}"
   export CXXFLAGS+=" ${CPPFLAGS}"
-  cmake .. \
+  cmake -B build \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCATCH_USE_VALGRIND=OFF \
@@ -36,17 +35,17 @@ build() {
     -DCATCH_ENABLE_COVERAGE=OFF \
     -DCATCH_ENABLE_WERROR=OFF \
     -DBUILD_TESTING=ON
-  make
+  make -C build
 }
 
 check() {
-  cd ${pkgname}/build
-  make test
+  cd ${pkgname}
+  make -C build test
 }
 
 package() {
-  cd ${pkgname}/build
-  make DESTDIR="$pkgdir" install
+  cd ${pkgname}
+  make -C build DESTDIR="$pkgdir" install
 }
 
 # vim: ts=2 sw=2 et:
