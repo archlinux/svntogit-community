@@ -1,0 +1,69 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Bruno Pagani <archange@archlinux.org>
+# Contributor: Mirco Tischler <mt-ml at gmx dot de>
+
+pkgname=pesign
+pkgver=113
+pkgrel=1
+pkgdesc="Linux tools for signed PE-COFF binaries"
+arch=('x86_64')
+url="https://github.com/rhboot/pesign"
+license=('GPL3')
+depends=('glibc' 'efivar' 'libutil-linux' 'nspr' 'nss' 'popt')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/rhboot/${pkgname}/archive/${pkgver}.tar.gz"
+        "${pkgname}-113-remove_root_check.patch"
+        "${pkgname}-113-nss3.44.patch::https://github.com/rhboot/pesign/commit/b535d1ac5cbcdf18a97d97a92581e38080d9e521.patch"
+        "${pkgname}-113-assignment.patch::https://github.com/rhboot/pesign/commit/c555fd74c009242c3864576bd5f17a1f8f4fdffd.patch"
+        "${pkgname}.sysusers"
+        "${pkgname}.tmpfiles"
+        "${pkgname}.service"
+        "${pkgname}-create-db.service")
+sha512sums=('e71dc90c2ab8085d1b000c0d2cf9cb00ddaed1ea1393db75c2d19a96f1b1c188a26b76850533ba97ec254a3b48db6b07a69b597c329ac891e64422780a358c24'
+            '8541fed1dbdea3b5b36731c2982789db457db2d1c6d62cd8461a7ad10e3f26dc16aef62eb991ac2b6504f741442229195e9e2804b770e859f48c475c0467e457'
+            '03c871d9f03727a98709372d696d38a59d554d9dac487656135f2f043f1eb36515e6988b67a2d0f4d00535771839e934e4f2826959e76221334170837b577d2a'
+            'cfa001265bfda5428ef72134d05ec16bee679a3906832aab4100f2c567f22e62d089b8cd475b9707926485c30958e70ba48c4035e118c480d008114fb6876c62'
+            '46c9958170924632fdf8fdf7b07eac5b35fc2a9292c84e346d9fc69cbedbfb762fc911c5c5dbf6e8391fa38a4f747b891dd295f14b47f594814572a07fcbc44c'
+            '2dca9a1aba9485afe6f07b7a3d9ee1dd0cd7640264f7584e739cab126b501ac1962a3b37509744a2b77abc613c75222801daf2e4fd97dd5211d19fbb7bd9ec33'
+            '5e4eb101b01fd688ca915051e25978e6b7a27ad2588c6b04ed52c179a00c04c1298080f9c2c0ae982cd0d861c649e5e6c244e54cb4962ca39c1d2264d1ec12df'
+            '14a161ec3a883d5c17581a6743a9b5e67e1617228966c4972933a055618f157aafefe8b0f648cb07251f0076384dd19be605acc6b1d31e7dec67749a682f505c')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  # -Werror, not even once
+  sed -e 's/\-Werror//g' -i Make.defaults
+  # remove root check
+  patch -Np1 -i "../${pkgname}-113-remove_root_check.patch"
+  # fix assignment
+  patch -Np1 -i "../${pkgname}-113-assignment.patch"
+  # fix issues with nss >=3.44
+  patch -Np1 -i "../${pkgname}-113-nss3.44.patch"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  make
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  make DESTDIR="${pkgdir}" \
+       libdir=/usr/lib \
+       libexecdir=/usr/lib \
+       install
+  # removing a lot of stuff that we don't need
+  rm -rfv "${pkgdir}/var"
+  rm -rfv "${pkgdir}/etc/rpm"
+  rm -rfv "${pkgdir}/etc/pesign"
+  rm -rfv "${pkgdir}/etc/pki"
+  rm -rfv "${pkgdir}/usr/lib/"
+
+  install -vDm 644 "../${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+  install -vDm 644 "../${pkgname}.tmpfiles" \
+    "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+  # install custom service, that can run as separate user
+  # https://github.com/rhboot/pesign/issues/57
+  install -vDm 644 ../*.service \
+    -t "${pkgdir}/usr/lib/systemd/system/"
+  install -vdm 755 "${pkgdir}/etc/pki/pesign"
+}
