@@ -11,65 +11,53 @@
 # Contributor: Daniel YC Lin <dlin.tw@gmail.com>
 # Contributor: John Luebs <jkluebs@gmail.com>
 
-pkgbase=go
-pkgname=(go go-pie)
+pkgname=go
 epoch=2
-pkgver=1.14.2
+pkgver=1.14.3
 pkgrel=1
+pkgdesc='Core compiler tools for the Go programming language'
 arch=(x86_64)
 url='https://golang.org/'
 license=(BSD)
 makedepends=(git go perl)
-source=(https://storage.googleapis.com/golang/go$pkgver.src.tar.gz
-        default-buildmode-pie.patch)
-sha256sums=('98de84e69726a66da7b4e58eac41b99cbe274d7e8906eeb8a5b7eb0aadee7f7c'
-            'be1269689de3cf5c926cf7de07f88d2a6d1ecbfc86694baaf5baee3bdcfdd79a')
-
-prepare() {
-  cp -r $pkgbase $pkgbase-pie
-  cd $pkgbase-pie
-  patch -p1 -i "$srcdir/default-buildmode-pie.patch"
-}
+replaces=(go-pie)
+provides=(go-pie)
+options=(!strip staticlibs)
+source=(https://storage.googleapis.com/golang/go$pkgver.src.tar.gz{,.asc})
+validpgpkeys=('EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796')
+sha256sums=('93023778d4d1797b7bc6a53e86c3a9b150c923953225f8a48a2d5fabc971af56'
+            'SKIP')
 
 build() {
   export GOARCH=amd64
   export GOROOT_FINAL=/usr/lib/go
   export GOROOT_BOOTSTRAP=/usr/lib/go
   export GOPATH="$srcdir/"
+  export GOROOT="$srcdir/$pkgname"
+  export GOBIN="$GOROOT/bin"
 
-  for _pkgname in ${pkgname[@]}; do
-    export GOROOT="$srcdir/$_pkgname"
-    export GOBIN="$GOROOT/bin"
+  cd "$pkgname/src"
+  ./make.bash --no-clean -v
 
-    cd "$srcdir/$_pkgname/src"
-    ./make.bash --no-clean -v
-
-    PATH="$GOBIN:$PATH" go install -v -buildmode=shared std
-    PATH="$GOBIN:$PATH" go install -v -race std
-  done
+  PATH="$GOBIN:$PATH" go install -v -race std
+  PATH="$GOBIN:$PATH" go install -v -buildmode=shared std
 }
 
 check() {
   export GOARCH=amd64
   export GOROOT_FINAL=/usr/lib/go
   export GOROOT_BOOTSTRAP=/usr/lib/go
-  # Run test suite only for unpatched Go as it expects non-PIE ldBuildmode
-  export GOROOT="$srcdir/$pkgbase"
+  export GOROOT="$srcdir/$pkgname"
   export GOBIN="$GOROOT/bin"
-  export PATH="$srcdir/$pkgbase/bin:$PATH"
+  export PATH="$srcdir/$pkgname/bin:$PATH"
   export GO_TEST_TIMEOUT_SCALE=2
 
-  cd $pkgbase/src
+  cd $pkgname/src
   ./run.bash --no-rebuild -v -v -v -k
 }
 
-_package() {
-  export GOARCH=amd64
-  export GOROOT_FINAL=/usr/lib/go
-  export GOROOT_BOOTSTRAP=/usr/lib/go
-
-  options=(!strip staticlibs)
-  cd "$srcdir/$1"
+package() {
+  cd "$pkgname"
 
   install -d "$pkgdir/usr/bin" "$pkgdir/usr/lib/go" "$pkgdir/usr/share/doc/go"
   cp -a bin pkg src lib misc api test "$pkgdir/usr/lib/go"
@@ -86,26 +74,7 @@ _package() {
   # TODO: Figure out if really needed
   rm -rf "$pkgdir"/usr/lib/go/pkg/obj/go-build/*
 
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$1/LICENSE"
-}
-
-package_go() {
-  pkgdesc='Core compiler tools for the Go programming language'
-
-  _package $pkgname
-}
-
-package_go-pie() {
-  pkgdesc='Core compiler tools for the Go programming language (with PIE enabled by default)'
-  provides=("go=$epoch:$pkgver-$pkgrel")
-  conflicts=(go)
-
-  _package $pkgname
-
-  # linux_amd64 is essentially the content of linux_amd64_shared, however there might
-  # be cases where the user could generate the _shared directory as it's missing in go-pie.
-  # Make sure it exists without rebuilding std with -buildmode=pie.
-  cp -a "$pkgdir/usr/lib/go/pkg/linux_amd64/" "$pkgdir/usr/lib/go/pkg/linux_amd64_shared"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
 
 # vim: ts=2 sw=2 et
