@@ -3,14 +3,14 @@
 
 pkgbase=beats
 pkgname=(filebeat packetbeat metricbeat heartbeat-elastic auditbeat journalbeat)
-pkgver=7.6.1
+pkgver=7.7.0
 pkgrel=1
 pkgdesc='Data shippers for Elasticsearch'
 arch=('x86_64')
 url='https://www.elastic.co/products/beats'
 license=('Apache')
 depends=('glibc')
-makedepends=('go-pie' 'git' 'libpcap' 'rsync' 'python2-virtualenv' 'audit')
+makedepends=('go' 'git' 'libpcap' 'rsync' 'python-virtualenv' 'audit')
 optdepends=('elasticsearch: for standalone installation'
             'python: for migration script')
 options=('!makeflags')
@@ -21,30 +21,22 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "heartbeat.service"
         "auditbeat.service"
         "journalbeat.service"
-        "tmpfile.conf"
-        "magefile_text_file_busy.patch")
-sha256sums=('ab7921a6f76fa5010cc3f2ef6fcff8fba9fb06ac4afa703a5fb2901be0698c5b'
+        "tmpfile.conf")
+sha256sums=('d054b4792d16922b855c25fbbffea5fdf82299927cc66c1214ce47791c01b499'
             '7256be466b4255cf3ec9e3600998ec006e762508345a08db16e004a1f15083dc'
             '9f4e33fc768d3500fa3428dcbfda241c6473a2cae8cc4dbadf8f61ca9f2bbec5'
             '7d83a068e8c4da3de3f42bf21b840a86900e9cf02f5ba0851501a1620e5fa29d'
             '878b28a891c9683da4b3d8b6914212e3de0f5e832633c54c6263b3099eb96ba2'
             '5ee738b911022494bc9f8422a4fa7ab7862bd635ca7b08fa3bc8d789ef2785bf'
             'c3633d95314d11dd4e153197f22f308c239ced9240291a9aeaec4f6721911e01'
-            'f29361772f23ec42bb15b5e0ca7e93f17fe00d31cf08a9e2c0d0ab27f2277bbc'
-            'c93d5d2cf2dcb506a29ebc1360c313a1c584bca841e19fc783d4a8be4f11617f')
+            'f29361772f23ec42bb15b5e0ca7e93f17fe00d31cf08a9e2c0d0ab27f2277bbc')
 
 prepare() {
-    mkdir -p "$srcdir/bin"
-    ln -s /usr/bin/python2 "$srcdir/bin/python"
-    ln -s /usr/bin/pip2 "$srcdir/bin/pip"
-    ln -s /usr/bin/virtualenv2 "$srcdir/bin/virtualenv"
-
-    export GOPATH="$srcdir"/gopath
+    export GOPATH="$srcdir"/go
     mkdir -p "$GOPATH"
-    go get golang.org/x/sys/cpu
 
     cd "$srcdir"/beats-$pkgver
-    patch -p1 -i "$srcdir"/magefile_text_file_busy.patch
+    git init # git root required by one of the build scripts
 
     # Perform some timestomping to avoid make warnings
     LANG=C _t="$(date -r Makefile +'%Y-%m-%d %k:%M:%S')"
@@ -52,22 +44,18 @@ prepare() {
 
     # Use version instead of commit id
     sed -ri "s/^COMMIT_ID=.*/COMMIT_ID=$pkgver/" libbeat/scripts/Makefile
-
-    # Workaround to place extracted release into GOPATH
-    mkdir -p "$GOPATH"/src/github.com/elastic
-    ln -sf ../../../../beats-$pkgver "$GOPATH"/src/github.com/elastic/beats
-
-    # Patch go flags, remove -i for trimpath and add extldflags
-    sed -E 's|-i (-ldflags ")|-v -trimpath \1-extldflags='"${LDFLAGS}"' |' -i libbeat/scripts/Makefile
 }
 
 build() {
-    export GOPATH="$srcdir"/gopath
-    export PATH="$GOPATH/bin:$srcdir/bin:$PATH"
+    export CGO_LDFLAGS="${LDFLAGS}"
+    export CGO_CFLAGS="${CFLAGS}"
+    export CGO_CPPFLAGS="${CPPFLAGS}"
+    export CGO_CXXFLAGS="${CXXFLAGS}"
+    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+    export GOPATH="$srcdir"/go
+    export PATH="$GOPATH/bin:$PATH"
 
-    cd "$GOPATH"/src/github.com/elastic/beats
-    git init # git root required by one of the build scripts
-
+    cd "$srcdir"/beats-$pkgver
     cd libbeat
     make update
 
