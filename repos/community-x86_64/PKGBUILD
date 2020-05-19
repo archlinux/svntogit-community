@@ -1,8 +1,8 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=19.03.8
-pkgrel=2
+pkgver=19.03.9
+pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -18,7 +18,7 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
-_LIBNETWORK_COMMIT=9fd385be8302dbe1071a3ce124891893ff27f90f
+_LIBNETWORK_COMMIT=0941c3f409260d5f05cfa6fc68420d8ad45ee483
 _APP_TAG='v0.9.0-beta1'
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
@@ -33,7 +33,7 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            'a7a4b52000ed38ead62665eec9ed2366a4f763d61977ebd5414b041ff1c3d415')
+            '541826011a9836d05a2f42293d5f1beadf2ca8d89fb604487d61a013505678eb')
 
 prepare() {
   sed -i 's,/var/run,/run,' docker-ce/components/engine/contrib/init/systemd/docker.socket
