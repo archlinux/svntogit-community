@@ -3,8 +3,8 @@
 # Contributor: Daniel Maslowski <info@orangecms.org>
 
 pkgname=minio
-pkgver=2020.05.06
-_timever=T23:23:25Z
+pkgver=2020.05.16
+_timever=T01:33:21Z
 _pkgver="${pkgver//./-}${_timever//:/-}"
 pkgrel=1
 pkgdesc='Object storage server compatible with Amazon S3'
@@ -12,7 +12,7 @@ arch=('x86_64')
 url='https://minio.io'
 license=('APACHE')
 depends=('glibc')
-makedepends=('go-pie' 'git')
+makedepends=('go' 'git')
 options=('!strip')
 source=(git+https://github.com/minio/minio.git#tag=RELEASE.${_pkgver}
         minio.conf
@@ -26,7 +26,10 @@ sha512sums=('SKIP'
 
 build() {
   export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-trimpath"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
 
   cd minio
 
