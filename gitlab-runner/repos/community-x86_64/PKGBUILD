@@ -2,20 +2,19 @@
 # Contributor: Lubomir 'Kuci' Kucera <kuci24-at-gmail-dot-com>
 
 pkgname=gitlab-runner
-pkgver=12.10.1
+pkgver=12.10.2
 pkgrel=1
 pkgdesc="The official GitLab CI runner written in Go"
 arch=('x86_64')
 url='https://gitlab.com/gitlab-org/gitlab-runner'
 license=('GPL3')
 depends=('ca-certificates' 'curl' 'git' 'glibc' 'tar')
-makedepends=('git' 'go-pie' 'git' 'mercurial' 'gox')
+makedepends=('git' 'go' 'git' 'mercurial' 'gox')
 install=gitlab-runner.install
 replaces=('gitlab-ci-multi-runner')
 backup=('etc/gitlab-runner/config.toml')
 noextract=("prebuilt-${pkgver}-x86_64.tar.xz"
            "prebuilt-${pkgver}-arm.tar.xz")
-
 source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab-runner/repository/archive?sha=v${pkgver}"
         "prebuilt-${pkgver}-x86_64.tar.xz::https://gitlab-runner-downloads.s3.amazonaws.com/v${pkgver}/helper-images/prebuilt-x86_64.tar.xz"
         "prebuilt-${pkgver}-arm.tar.xz::https://gitlab-runner-downloads.s3.amazonaws.com/v${pkgver}/helper-images/prebuilt-arm.tar.xz"
@@ -23,9 +22,9 @@ source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%
         "gitlab-runner.sysusers"
         "gitlab-runner.tmpfiles"
         "config.toml")
-sha512sums=('a3ebeffab6e80d590d1a8e9e3470bed717250b029c5f56a308084d5d0b57cb3a2d4f3639d2096e2c6b4b54e33659729baf5487a99001b16426c0675386c91539'
-            'd6bc75834f8a51cbebd40ca294bba783f67069cd6a7e60a9bc54cb214530d71e5d0bb089598e87a56da23bb490d450a9071649255d4669cdce9068d80a5f3924'
-            'e69d8fa584b4a6ecfbaa07d090b036b16c2d9843bdcdccbd030048ac37598811ceb08e21dbc9f071d14523b563902140551692c75d381514367ec09743b67afb'
+sha512sums=('3a80ec9ec3c7c0e23044226fce39a936609ee392a27dfd7a394d19beb52fb2116170599725d2f37df8383977367f90b432d12da3c6a05b86b165a96ecdd5386a'
+            '7d3e5ff4bed9182b10c3bcd87189a7aa24a4be208e30ef8d84cd57df8500ea08c0330bbf1e6514748336a876b398a49dba5c4db7d9d849563a0c7c88398fb61f'
+            'abdf6cbdf0cee8d659db62596a4e36e1b1fe54b279117df99e58b1e2c6bada7678530838f0c47ed9b635308ced788da46a65ad348a711cef3ec93ee4a85b14eb'
             '8a5a8b7654d3864722e784b2814c6278c17876f1c0c4fc0676fbcf6817ad2ba4be55501e67ce88c62b5b63ca886b01afc6feac98ba49842acd244abdd1a8296f'
             '8aa7f08702e99053c696fcc2aaba83beb9e9cd6f31973d82862db9350ac46df3a095377625d31fe909677525290d2de922d7a97930ed235774cb8f0da8944d40'
             '6751d9fa0b27172d1b419c4138f5ac15cbc7c9147653a7258cf1470216142c637210bb60608c7ed0974e0e4057e5ddeae32225df1bb36e7dd1f20fec71e33cc3'
@@ -34,34 +33,39 @@ sha512sums=('a3ebeffab6e80d590d1a8e9e3470bed717250b029c5f56a308084d5d0b57cb3a2d4
 _srcdir="gitlab-runner-v${pkgver}-"
 
 prepare() {
-    local revision=$(ls -d ${_srcdir}* | rev | cut -c 33-40 | rev)
+  local revision=$(ls -d ${_srcdir}* | rev | cut -c 33-40 | rev)
 
-    mkdir -p "${srcdir}/src/gitlab.com/gitlab-org/"
-    ln -sf "${srcdir}/${_srcdir}"* "${srcdir}/src/gitlab.com/gitlab-org/gitlab-runner"
-    cd "${srcdir}/src/gitlab.com/gitlab-org/gitlab-runner"
+  cd "${_srcdir}"*
 
-    local version=$(cat VERSION)
+  local version=$(cat VERSION)
 
-    sed -i "s/export VERSION.*/export VERSION = $version/" Makefile
-    sed -i "s/REVISION := .*/REVISION := $revision/" Makefile
+  sed -i "s/export VERSION.*/export VERSION := $version/" Makefile
+  sed -i "s/REVISION := .*/REVISION := $revision/" Makefile
+  sed -i "s/var VERSION.*/var VERSION = \"$version\"/" common/version.go
 
-    make version
+  make version
 
-    ln -sf "${srcdir}/prebuilt-${pkgver}-x86_64.tar.xz" prebuilt-x86_64.tar.xz
-    ln -sf "${srcdir}/prebuilt-${pkgver}-arm.tar.xz" prebuilt-arm.tar.xz
+  ln -sf "${srcdir}/prebuilt-${pkgver}-x86_64.tar.xz" prebuilt-x86_64.tar.xz
+  ln -sf "${srcdir}/prebuilt-${pkgver}-arm.tar.xz" prebuilt-arm.tar.xz
 }
 
 build() {
-    cd "${srcdir}/src/gitlab.com/gitlab-org/gitlab-runner"
-    make BUILD_PLATFORMS='-osarch linux/amd64' build_all
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+
+  cd "${_srcdir}"*
+  go build -o gitlab-runner .
 }
 
 package() {
-    cd "${srcdir}/src/gitlab.com/gitlab-org/gitlab-runner"
+  cd "${_srcdir}"*
 
-    install -Dm644 "${srcdir}/config.toml" "${pkgdir}/etc/gitlab-runner/config.toml"
-    install -Dm644 "${srcdir}/gitlab-runner.service" "${pkgdir}/usr/lib/systemd/system/gitlab-runner.service"
-    install -Dm644 "${srcdir}/gitlab-runner.sysusers" "${pkgdir}/usr/lib/sysusers.d/gitlab-runner.conf"
-    install -Dm644 "${srcdir}/gitlab-runner.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/gitlab-runner.conf"
-    install -Dm755 out/binaries/gitlab-runner-linux-amd64 "${pkgdir}/usr/bin/gitlab-runner"
+  install -Dm644 "${srcdir}/config.toml" "${pkgdir}/etc/gitlab-runner/config.toml"
+  install -Dm644 "${srcdir}/gitlab-runner.service" "${pkgdir}/usr/lib/systemd/system/gitlab-runner.service"
+  install -Dm644 "${srcdir}/gitlab-runner.sysusers" "${pkgdir}/usr/lib/sysusers.d/gitlab-runner.conf"
+  install -Dm644 "${srcdir}/gitlab-runner.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/gitlab-runner.conf"
+  install -Dm755 gitlab-runner "${pkgdir}/usr/bin/gitlab-runner"
 }
