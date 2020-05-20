@@ -1,0 +1,58 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Javier Torres <javitonino [at] gmail [dot] com>
+
+pkgname=softhsm
+pkgver=2.6.1
+pkgrel=1
+pkgdesc="Software PKCS#11 store"
+arch=('x86_64')
+url="https://www.opendnssec.org/softhsm/"
+license=('BSD')
+depends=('botan' 'sqlite3' 'openssl' 'p11-kit')
+checkdepends=('cppunit')
+backup=("etc/softhsm2.conf")
+options=(!libtool)
+source=("https://dist.opendnssec.org/source/$pkgname-$pkgver.tar.gz"{,.sig}
+        "softhsm-2.6.1-rh1831086-exit.patch")
+sha256sums=('61249473054bcd1811519ef9a989a880a7bdcc36d317c9c25457fc614df475f2'
+            'SKIP'
+            '163338a73ab1bcc475e07b96f054d3c8f67ac9d2637b8f74ddaa97aa6b4171e1')
+validpgpkeys=('4D0388CE86BB398B387B663041F623BE4FCB0B94')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+  patch -p1 -i "$srcdir/softhsm-2.6.1-rh1831086-exit.patch"
+  sed -i 's:^full_libdir=":#full_libdir=":g' configure.ac
+  sed -i "s:libdir)/@PACKAGE@:libdir):" Makefile.in
+  autoreconf -vfi
+  ./configure \
+    --prefix=/usr \
+    --libdir=/usr/lib/pkcs11 \
+    --datarootdir=/usr/share \
+    --localstatedir=/var \
+    --sysconfdir=/etc \
+    --with-p11-kit=/usr/share/p11-kit/modules/ \
+    --with-migrate \
+    --enable-visibility \
+    --enable-ecc \
+    --enable-eddsa \
+    --disable-gost
+  make
+}
+
+check() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make check
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make DESTDIR="$pkgdir/" install
+  install -Dm0644 "LICENSE" "$pkgdir/usr/share/licenses/softhsm/LICENSE"
+  rm "$pkgdir/etc/softhsm2.conf.sample"
+
+  cd "$pkgdir/usr/lib"
+  install -dm0755 softhsm
+  ln -s pkcs11/libsofthsm2.so softhsm/
+  ln -s pkcs11/libsofthsm2.so
+}
