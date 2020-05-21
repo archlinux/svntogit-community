@@ -2,7 +2,7 @@
 # Contributor: Germán Osella Massa <gosella@gmail.com>
 
 pkgname=python-more-itertools
-pkgver=8.2.0
+pkgver=8.3.0
 pkgrel=1
 pkgdesc='More routines for operating on iterables, beyond itertools'
 arch=('any')
@@ -12,7 +12,7 @@ license=('MIT')
 depends=('python' 'python-six')
 makedepends=('python-setuptools')
 source=("https://files.pythonhosted.org/packages/source/m/more-itertools/more-itertools-$pkgver.tar.gz")
-sha512sums=('08b78a5a85a04296fad82857017ec2763250de0bd3159bc7bd8b23b54f90b363023b64e899e79603f2b4c8267d0bb2ed598d7e2910d541921252d66af656cba2')
+sha512sums=('34e5489277477a2b8a51de3e28c3d010f06c9071ad98e58901734431d5640a6a03e4239cf405f75e4dd0838e5e3fe8910b64ad542759874c0f25725e4b9e78ed')
 
 package() {
   cd "$srcdir/more-itertools-$pkgver"
