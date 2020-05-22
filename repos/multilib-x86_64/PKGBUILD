@@ -5,7 +5,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgver=20.0.7
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'gcc-multilib' 'lib32-libelf' 'lib32-llvm' 'lib32-libvdpau'
@@ -14,10 +14,12 @@ makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgpro
 url="http://mesa3d.sourceforge.net"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
+		0001-meson-Disable-GCC-s-dead-store-elimination-for-memor.patch
         LICENSE
         crossfile.ini)
 sha512sums=('00baae50f14bf2b08b5654dffb11cf67499dc1825e1700b137fb5719e767e0e78e789979df2c194f677ea9c5e531f34965d47b9e37c239944c38d0570c7a9685'
             'SKIP'
+            '566ad6f4195124b4af05d4bba1e01cc5e9ac466f11ddd900a2f5bfd830aa19cdccb3f9625901340b5fe62e7d8ea50aa336ab5031a658fe90916d847b2e9946e0'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7'
             'c7dbb390ebde291c517a854fcbe5166c24e95206f768cc9458ca896b2253aabd6df12a7becf831998721b2d622d0c02afdd8d519e77dea8e1d6807b35f0166fe')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
@@ -27,6 +29,13 @@ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l
               '71C4B75620BC75708B4BDB254C95FAAB3EB073EC'  # Dylan Baker <dylan@pnwbakers.com>
               '57551DE15B968F6341C248F68D8E31AFC32428A6') # Eric Engestrom <eric@engestrom.ch>
 
+prepare() {
+  cd mesa-$pkgver
+
+  # LTO fix
+  patch -Np1 -i ../0001-meson-Disable-GCC-s-dead-store-elimination-for-memor.patch
+}
+
 build() {
   export CC="gcc -m32"
   export CXX="g++ -m32"
@@ -35,7 +44,7 @@ build() {
   arch-meson mesa-$pkgver build \
     --native-file crossfile.ini \
     --libdir=/usr/lib32 \
-    -D b_lto=false \
+    -D b_lto=true \
     -D b_ndebug=true \
     -D platforms=x11,wayland,drm,surfaceless \
     -D dri-drivers=i915,i965,r100,r200,nouveau \
