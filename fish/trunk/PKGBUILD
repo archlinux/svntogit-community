@@ -7,7 +7,7 @@
 
 pkgname=fish
 pkgver=3.1.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
 arch=('x86_64')
@@ -16,6 +16,7 @@ depends=('glibc' 'gcc-libs' 'ncurses' 'pcre2')
 optdepends=('python: man page completion parser / web config tool'
             'pkgfile: command-not-found hook')
 makedepends=('cmake' 'python-sphinx')
+checkdepends=('expect')
 install=fish.install
 backup=(etc/fish/config.fish)
 source=(https://github.com/fish-shell/fish-shell/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz{,.asc})
@@ -36,6 +37,11 @@ build() {
     -DBUILD_DOCS=True \
     -Wno-dev
   make -C build VERBOSE=1
+}
+
+check() {
+  cd ${pkgname}-${pkgver}
+  make -C build test
 }
 
 package() {
