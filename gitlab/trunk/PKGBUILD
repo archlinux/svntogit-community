@@ -10,8 +10,8 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=12.10.4
-pkgrel=2
+pkgver=13.0.0
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -25,13 +25,10 @@ optdepends=('postgresql: database backend'
 backup=("etc/webapps/gitlab/application.rb"
         "etc/webapps/gitlab/gitlab.yml"
         "etc/webapps/gitlab/resque.yml"
-        "etc/webapps/gitlab/unicorn.rb"
         "etc/webapps/gitlab/puma.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         build_fix.patch
-        update-re2-to-1.2.0.patch
-        gitlab-unicorn.service
         gitlab-puma.service
         gitlab-sidekiq.service
         gitlab-backup.service
@@ -40,23 +37,19 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab.target
         gitlab.tmpfiles.d
         gitlab.logrotate
-        ruby27-pop-extra-arg.patch
-        kubertenes-ruby27.patch::https://gitlab.com/gitlab-org/gitlab/-/commit/6e8bdcb8dd5cfff373f47697610011ad1c97e33b.patch)
+        ruby27-pop-extra-arg.patch)
 install='gitlab.install'
 sha512sums=('SKIP'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
-            '556ad2b9561839b9de5bbd8cb4ebfd5dafe1c43257491ee77fed16106440021b97d252ffeec235da71741e56b657c4d53ef25bb15d58ec49a4f82f21cdf899c2'
-            '1ad15b48890ad48e97a6fcea56132582f2b22aa27f4a1a1f4590f3ea72de4726e13ef6f3db2bc0984da1ef140bde092e74e0c9f8f1778f207f3fac4a31a77e4b'
-            '9fcc8934a9e927838eb5b496a462b4895dfbbd5f65e14513c600c35356f1687fbfcfb43b5a6e580ccba38df826da462fc2f0b0406a86a48b9ff90afab7a1122f'
-            '8ca36771f7568b190823ec47afeaf6ff75f61c5b6f31ce5d837a6dcd84a5b3da23fb07a1eceeda0752b2e61c4a8f4d17bf368fa2913e1487567944a8d29eeb58'
+            '8d759f1ae3391a0bafe8cfbbddfa6e7bfb5b587439f9f750e34e0bbf85c6c514da7c6932d74be284746f596bf2c4bdddfeff66f81ae39f73e43a9b5326bc688f'
+            '31fccf265783fd6c95fd94036d2f1148945d5fc9b713d108632d931b0cc51a5e166972956d042d5f30fe411d68a056794461103832ce9afbd4654923a8bde531'
             '0cbb9a1631b529a83d5c6db95fd3a684c8f06073890b31f6262c339360444e7452275d804fb6a119a3d61a0ef1b76d0e956f260a12f032d54c00308e8d9520b0'
-            '159530b50ac560c46703ef9ddd788cebc614bc53daa5b545ed8ac55f7ff4f9bb81a5149220a48770e8264e2cd5ca173f0f1f0ef4881f4e2350aaef007ea3e933'
+            '15de5b11a31d733bd5b6fa50faa2395dbe53c252bd52f937e67cdc940de17554e946d1e7f9746538a6be0cc12024fc2816c2b64a56e16762abaca75562a7512d'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
-            'bf33b818e4ea671c16f58563997ba5fe0a09090e5c03577ff974d31324d4e9782b85a9bb4f1749b97257ce93400c692de935f003770d52b5994c9cab9aee57c6'
+            '879be339148123e32b58a5669fdd3d3bb8b5d711326cb618f95b1680a6ac3a83c85d8862f2691b352fa26c95e4764dbb827856e22a3e2b9e4a76c13fe42864b5'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
             '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121'
-            '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0'
-            'f8d6aab2d9f41c14e850bc36f555c318f37b74dbdb6bc95144ee855c438117dc82ae29ec6039c9af934e61f17555a6ada7f0a965e3b88d9d4f1bc2ba0e5b1213')
+            '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0')
 
 
 _datadir="/usr/share/webapps/gitlab"
@@ -71,8 +64,6 @@ prepare() {
   cd gitlab-foss
 
   patch -p1 < ../build_fix.patch
-  patch -p1 < ../update-re2-to-1.2.0.patch
-  patch -p1 < ../kubertenes-ruby27.patch
 
   # GitLab tries to read its revision information from a file.
   echo "${revision}" > REVISION
@@ -90,13 +81,6 @@ prepare() {
       -e "s|tmp/backups|${_homedir}/backups|" \
       -e "s|/home/git/gitlab/tmp/sockets/private/gitaly.socket|${_homedir}/sockets/gitlab-gitaly.socket|" \
       config/gitlab.yml.example > config/gitlab.yml
-
-  echo "Patching paths and timeout in unicorn.rb..."
-  sed -e "s|/home/git/gitlab/tmp/.*/|/run/gitlab/|g" \
-      -e "s|/var/run/|/run/|g" \
-      -e "s|/home/git/gitlab|${_datadir}|g" \
-      -e "s|${_datadir}/log/|${_logdir}/|g" \
-      config/unicorn.rb.example > config/unicorn.rb
 
   echo "Patching paths and timeout in puma.rb..."
   sed -e "s|/home/git/gitlab/tmp/.*/|/run/gitlab/|g" \
@@ -116,7 +100,7 @@ prepare() {
       config/resque.yml.example > config/resque.yml.patched
 
   echo "Setting up systemd service files ..."
-  for service_file in gitlab-sidekiq.service gitlab-unicorn.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
+  for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
     sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
     sed -i "s|<DATADIR>|${_datadir}|g" "${srcdir}/${service_file}"
     sed -i "s|<LOGDIR>|${_logdir}|g" "${srcdir}/${service_file}"
@@ -207,7 +191,7 @@ package() {
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
 
   # Install config files
-  for config_file in application.rb gitlab.yml unicorn.rb puma.rb resque.yml; do
+  for config_file in application.rb gitlab.yml puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
     [[ -f "${pkgdir}${_datadir}/config/${config_file}" ]] && rm "${pkgdir}${_datadir}/config/${config_file}"
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
@@ -232,7 +216,7 @@ package() {
   chown 105:105 "${pkgdir}${_datadir}/db/structure.sql"
 
   # Install systemd service files
-  for service_file in gitlab-unicorn.service gitlab-puma.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
+  for service_file in gitlab-puma.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
     install -Dm644 "${srcdir}/${service_file}" "${pkgdir}/usr/lib/systemd/system/${service_file}"
   done
 
