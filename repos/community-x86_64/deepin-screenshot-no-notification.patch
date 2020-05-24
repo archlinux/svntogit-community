@@ -1,0 +1,175 @@
+diff --git a/src/dbusservice/dbusscreenshotservice.cpp b/src/dbusservice/dbusscreenshotservice.cpp
+index 75ea15b..de057f3 100644
+--- a/src/dbusservice/dbusscreenshotservice.cpp
++++ b/src/dbusservice/dbusscreenshotservice.cpp
+@@ -80,8 +80,10 @@ void DBusScreenshotService::NoNotifyScreenshot()
+ {
+      qDebug() << "DBus screenshot service! nonofiy screenshot";
+     // handle method call com.deepin.Screenshot.NoNotify
+-     if (!m_singleInstance)
+-        parent()->noNotifyScreenshot();
++     if (!m_singleInstance) {
++        parent()->noNotify();
++        parent()->startScreenshot();
++     }
+      m_singleInstance = true;
+ }
+ 
+diff --git a/src/main.cpp b/src/main.cpp
+index 2ce8658..74668c6 100644
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -91,6 +91,11 @@ int main(int argc, char *argv[])
+          return 0;
+      }
+ 
++     if (cmdParser.isSet(prohibitNotifyOption)) {
++         qDebug() << "screenshot no notify!";
++         w.noNotify();
++     }
++
+      if (cmdParser.isSet(dbusOption))
+      {
+          qDebug() << "dbus register waiting!";
+@@ -108,9 +113,6 @@ int main(int argc, char *argv[])
+          } else if (cmdParser.isSet(savePathOption)) {
+              qDebug() << "cmd savepath screenshot";
+              w.savePathScreenshot(cmdParser.value(savePathOption));
+-         } else if (cmdParser.isSet(prohibitNotifyOption)) {
+-             qDebug() << "screenshot no notify!";
+-             w.noNotifyScreenshot();
+          } else if (cmdParser.isSet(iconOption)) {
+              w.delayScreenshot(0.2);
+          }  else {
+diff --git a/src/mainwindow.cpp b/src/mainwindow.cpp
+index def901e..f1e0a59 100644
+--- a/src/mainwindow.cpp
++++ b/src/mainwindow.cpp
+@@ -1042,8 +1042,9 @@ void MainWindow::saveSpecificedPath(QString path)
+ 
+     QString summary = QString(tr("Picture has been saved to %1")).arg(savePath);
+ 
+-    m_notifyDBInterface->Notify("Deepin Screenshot", 0,  "deepin-screenshot", "",
+-                                summary, actions, hints, 0);
++    if (!m_noNotify)
++        m_notifyDBInterface->Notify("Deepin Screenshot", 0,  "deepin-screenshot", "",
++                                    summary, actions, hints, 0);
+     exitApp();
+ }
+ 
+@@ -1073,15 +1074,7 @@ void MainWindow::saveSpecificedPath(QString path)
+ 
+ void MainWindow::noNotify()
+ {
+-    m_controlCenterDBInterface = new DBusControlCenter(this);
+-    m_hotZoneInterface = new DBusZone(this);
+-    m_interfaceExist = true;
+     m_noNotify = true;
+-
+-    initOriginUI();
+-    this->show();
+-    initSecondUI();
+-    initShortcut();
+ }
+ 
+ void MainWindow::topWindow()
+@@ -1414,7 +1407,8 @@ void MainWindow::sendNotify(SaveAction saveAction, QString saveFilePath, const b
+     if (!succeed)
+     {
+         const auto tips = tr("Save failed. Please save it in your home directory.");
+-        m_notifyDBInterface->Notify("Deepin Screenshot", 0, "deepin-screenshot", QString(), tips, QStringList(), QVariantMap(), 0);
++        if (!m_noNotify)
++            m_notifyDBInterface->Notify("Deepin Screenshot", 0, "deepin-screenshot", QString(), tips, QStringList(), QVariantMap(), 0);
+ 
+ 	exit(0);
+     }
+diff --git a/src/mainwindow.h b/src/mainwindow.h
+index d27eade..8915eff 100644
+--- a/src/mainwindow.h
++++ b/src/mainwindow.h
+@@ -72,6 +72,7 @@ public:
+     void initShapeWidget(QString type);
+     void initDBusInterface();
+     void initShortcut();
++    void noNotify();
+ 
+ signals:
+     void deleteShapes();
+@@ -86,7 +87,6 @@ public slots:
+     void savePath(const QString &path);
+     void saveSpecificedPath(QString path);
+ //    void delayScreenshot(int num);
+-    void noNotify();
+     void topWindow();
+     void expressSaveScreenshot();
+     //Indicate that this program's started by clicking desktop file.
+diff --git a/src/screenshot.cpp b/src/screenshot.cpp
+index 4ced427..94542f4 100644
+--- a/src/screenshot.cpp
++++ b/src/screenshot.cpp
+@@ -38,6 +38,14 @@ Screenshot::Screenshot(QObject *parent)
+ void Screenshot::initUI() {
+     m_eventContainer = new EventContainer(this);
+     m_window = new MainWindow;
++    if (m_noNotify) {
++        m_window->noNotify();
++    }
++}
++
++void Screenshot::noNotify()
++{
++    m_noNotify = true;
+ }
+ 
+ void Screenshot::startScreenshot()
+@@ -54,7 +62,7 @@ void Screenshot::delayScreenshot(double num)
+     QStringList actions = QStringList();
+     QVariantMap hints;
+     DBusNotify* notifyDBus = new DBusNotify(this);
+-    if (num >= 2) {
++    if (num >= 2 && !m_noNotify) {
+         notifyDBus->Notify("Deepin Screenshot", 0,  "deepin-screenshot", "",
+                                     summary, actions, hints, 0);
+     }
+@@ -82,13 +90,6 @@ void Screenshot::topWindowScreenshot()
+     m_window->topWindow();
+ }
+ 
+-void Screenshot::noNotifyScreenshot()
+-{
+-    initUI();
+-    m_window->show();
+-    m_window->noNotify();
+-}
+-
+ void Screenshot::savePathScreenshot(const QString &path)
+ {
+     initUI();
+diff --git a/src/screenshot.h b/src/screenshot.h
+index 76d3e72..1c1f0dd 100644
+--- a/src/screenshot.h
++++ b/src/screenshot.h
+@@ -29,12 +29,13 @@ public:
+     Screenshot(QObject* parent = 0);
+     ~Screenshot();
+ 
++    void noNotify();
++
+ public slots:
+     void startScreenshot();
+     void delayScreenshot(double num);
+     void fullscreenScreenshot();
+     void topWindowScreenshot();
+-    void noNotifyScreenshot();
+     void savePathScreenshot(const QString &path);
+ 
+ private:
+@@ -42,7 +43,7 @@ private:
+ 
+     EventContainer* m_eventContainer = nullptr;
+     MainWindow* m_window = nullptr;
+-
++    bool m_noNotify = false;
+ };
+ 
+ #endif // SCREENSHOT_H
