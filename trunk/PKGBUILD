@@ -3,7 +3,7 @@
 
 pkgbase=python-setuptools-scm
 pkgname=(python-setuptools-scm python2-setuptools-scm)
-pkgver=3.5.0
+pkgver=4.0.0
 pkgrel=1
 pkgdesc="Handles managing your python package versions in scm metadata."
 arch=('any')
@@ -13,9 +13,10 @@ makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'mercurial' 'git' 'python-pip' 'python2-pip'
               'python-toml' 'python2-toml')
 source=("https://pypi.io/packages/source/s/setuptools_scm/setuptools_scm-$pkgver.tar.gz")
-sha512sums=('f7e2cdae7a8a3d5ef3d12effcda5ce7f362c426e11aecaef69ef604bede9abbab2aa1eee6f5310cdd72a9bf11a927dbd1f42671e28bd467ad7b15f2dba5b81d9')
+sha512sums=('b66fadd51bef9d08dbacb87511e03b9abaed12ce48e140ac798b4107cfbd517f8153bf6f17a14dc4c9f61e8c8d5589fa87096c0e6403a7e1b0d8b6258f33e097')
 
 prepare() {
+  sed -i '/jaraco.windows/d' setuptools_scm-$pkgver/{setup.cfg,src/setuptools_scm.egg-info/requires.txt}
   cp -a setuptools_scm-$pkgver{,-py2}
 }
 
