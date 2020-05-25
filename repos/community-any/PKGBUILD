@@ -4,8 +4,8 @@
 
 pkgbase=python-pbr
 pkgname=(python-pbr python2-pbr)
-pkgver=5.4.4
-pkgrel=2
+pkgver=5.4.5
+pkgrel=1
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
@@ -14,11 +14,13 @@ makedepends=('python2-setuptools' 'python-setuptools' 'git')
 checkdepends=('python-stestr' 'python-testscenarios' 'python-testresources' 'python-testrepository'
               'python-mock' 'python-virtualenv' 'python-wheel' 'python-sphinx')
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
-sha512sums=('0b7d74a16fe2e08f8e39c445c922dbd53fc47c339f6d07993344479aeb2bfae569c02fa819c84bcedcf99a0c098b71f18880ff2434dea8af58ae1b71ffe0ac26')
+sha512sums=('8be0a3f63b9dc94db0f33a42b17bf402831dc42e085a129f39067437526d89d617d6dd8c2b8882afc12131b54c25e9eb99b6131997b890099f044669c92caa33')
 
 export PBR_VERSION=$pkgver
 
 prepare() {
+  sed -i 's/virtualenv.create_environment(path, clear=True)/virtualenv.cli_run([path, "--clear"])/' pbr-$pkgver/pbr/tests/test_packaging.py
+
   cp -a pbr-$pkgver{,-py2}
 
   find pbr-$pkgver-py2 -name \*.py -exec sed -i '1s/python$/&2/' {} +
