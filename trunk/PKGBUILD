@@ -9,7 +9,7 @@
 pkgbase=calibre
 pkgname=('calibre' 'calibre-common' 'calibre-python3')
 pkgver=4.17.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -28,19 +28,25 @@ checkdepends=('xorg-server-xvfb')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
         "0001-De-vendor-pychm.patch"
-        "calibre-alternatives.sh")
+        "calibre-alternatives.sh"
+        "calibre-qt5.15.patch")
 sha256sums=('aada09db377ef7f36253afd9458314f6c6c015f92b8630be00e11585b0e8ffe1'
             'SKIP'
             'f7b829aea1d33818808cbeeb9a295e18e49edf619a5bc89b8315c88f56ce4d25'
-            '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3')
+            '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3'
+            '178cf6989e1350eb698831d0c7fb65daf389bc0a0edbda70cb2d49973bbad84c')
 b2sums=('e1e9fbbb93cc14af0790e400d79b433c774f17bb06d99161e27769217ab7eed5c2660ab8a3e09109bade91684a8f5a8b52795667833ddf454343e530109eea63'
         'SKIP'
         'c35181c70084813772c4d593311b48b3e3bcc3b4e9e8ee58112b9beab2bbc0de1ee22aafc3d06cfd812f87a2e91292f7b7f1dc5f522c55440f415b6b265d5671'
-        '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91')
+        '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91'
+        'cd291d911d6305bf23f0f4aa16a7bafac28fb2efedb765bc996b4c6882b44f23c3813b5796cca619df79a2bac69b972a07b5c93b572bfdedf95d5675b79e6113')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
     cd "${pkgbase}-${pkgver}"
+
+    # Update fontconfig database for Qt 5.15
+    patch -p1 -i ../calibre-qt5.15.patch
 
     # Desktop integration (e.g. enforce arch defaults)
     # Use uppercase naming scheme, don't delete config files under fakeroot.
