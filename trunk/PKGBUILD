@@ -5,7 +5,7 @@
 # need this again at some point in the future.
 pkgname=gitlab-gitaly
 pkgver=13.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Speed up Git access using caching"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitaly"
@@ -16,18 +16,17 @@ makedepends=(go ruby-bundler cmake)
 backup=("etc/gitlab-gitaly/config.toml")
 _tag=v${pkgver}
 source=("https://gitlab.com/gitlab-org/gitaly/-/archive/${_tag}/gitaly-${_tag}.tar.gz"
+        "configs.patch"
         "gitlab-gitaly.service")
 sha512sums=('dc8cac8fec10e1d60acc192478a718ee8f0e059f84cfbfea77ff33f109b41aa26e6a232a948830598926d648170b3fff2116139d9c184ec398f295c1cc3a77a5'
+            '28bfb8f290d6d6206b75e2f35d8fd15b298baa005b533648550f224c6bf4fd16eeda4e2b8ff3231873ef208172f391a553956684f81867451bc08b7ad18d581f'
             'e6c31cab200424af118ee9da4def0963a52727f33025fdbdb515c6c1337a9b32f4a377bd925fdd33ffe7b91371ce1d5d70847e07c2b73eac1e85d3f38f5e1261')
-
-_homedir="/var/lib/gitlab"
 
 prepare() {
   cd gitaly-$_tag
 
-  sed -i "s|dir = \"/home/git/gitaly/ruby\"|dir = \"/usr/share/webapps/gitlab-gitaly/ruby\"|" config.toml.example
-  sed -i "s|dir = \"/home/git/gitlab-shell\"|dir = \"/usr/share/webapps/gitlab-shell\"|" config.toml.example
-  sed -i "s|bin_dir = \"/home/git/gitaly\"|bin_dir = \"/usr/bin\"|" config.toml.example
+  patch -p1 < ../configs.patch
+  # At this point the config file should not contain any references to '/home/git'
 
   # https://github.com/bundler/bundler/issues/6882
   sed -e '/BUNDLED WITH/,+1d' -i ruby/Gemfile.lock
@@ -44,16 +43,11 @@ package() {
   cd gitaly-$_tag
 
   make PREFIX=/usr DESTDIR=${pkgdir} install
-  mkdir -p "${pkgdir}/etc/${pkgname}"
-  sed \
-    -e "s|^socket_path =.*|socket_path = \"${_homedir}/sockets/gitlab-gitaly.socket\"|" \
-    -e "s|^path =.*|path = \"${_homedir}/repositories\"|" \
-    config.toml.example > "${pkgdir}/etc/${pkgname}/config.toml"
-
+  mkdir -p ${pkgdir}/etc/gitlab-gitaly
   mkdir -p ${pkgdir}/usr/share/webapps/gitlab-gitaly
   cp -r ruby ${pkgdir}/usr/share/webapps/gitlab-gitaly/ruby
 
-  install -Dm644 config.toml.example "${pkgdir}/usr/share/${pkgname}/config.toml.example"
+  install -Dm644 config.toml.example "${pkgdir}/etc/${pkgname}/config.toml"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install -Dm0644 "${srcdir}/gitlab-gitaly.service" "${pkgdir}/usr/lib/systemd/system/gitlab-gitaly.service"
 }
