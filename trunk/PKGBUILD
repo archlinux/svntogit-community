@@ -81,9 +81,6 @@ prepare() {
   cp config/resque.yml.example config/resque.yml
   cp config/puma.rb.example config/puma.rb
 
-  # We need this one untouched because otherwise assets will fail
-  # cp config/database.yml.postgresql config/database.yml.postgresql.orig
-
   echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
     sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
@@ -114,18 +111,9 @@ build() {
   patch -p1 < $srcdir/ruby27-pop-extra-arg.patch
   popd
 
-  # We'll temporarily stick this in here so we can build the assets
-  # cp config/database.yml.postgresql.orig config/database.yml
-  # cp config/resque.yml.example config/resque.yml
-  # sed -i 's/url.*/nope.sock/g' config/resque.yml
-
   yarn install --production --pure-lockfile
   bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
   bundle exec rake gettext:compile RAILS_ENV=production
-
-  # After building assets, clean this up again
-  # rm config/database.yml config/database.yml.postgresql.orig
-  # mv config/resque.yml.patched config/resque.yml
 }
 
 package() {
