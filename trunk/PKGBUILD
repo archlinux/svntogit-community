@@ -165,7 +165,7 @@ package() {
   sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
 
   # Install config files
-  for config_file in application.rb gitlab.yml puma.rb resque.yml; do
+  for config_file in application.rb gitlab.yml database.yml puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
     [[ -f "${pkgdir}${_datadir}/config/${config_file}" ]] && rm "${pkgdir}${_datadir}/config/${config_file}"
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
