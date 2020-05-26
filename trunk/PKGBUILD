@@ -23,6 +23,7 @@ optdepends=('postgresql: database backend'
             'python-docutils: reStructuredText markup language support'
             'smtp-server: mail server in order to receive mail notifications')
 backup=("etc/webapps/gitlab/application.rb"
+        "etc/webapps/gitlab/database.yml"
         "etc/webapps/gitlab/gitlab.yml"
         "etc/webapps/gitlab/resque.yml"
         "etc/webapps/gitlab/puma.rb"
