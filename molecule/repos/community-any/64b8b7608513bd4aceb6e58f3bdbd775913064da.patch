@@ -1,0 +1,71 @@
+From 64b8b7608513bd4aceb6e58f3bdbd775913064da Mon Sep 17 00:00:00 2001
+From: Arnaud Patard <apatard@hupstream.com>
+Date: Wed, 29 Apr 2020 16:44:58 +0200
+Subject: [PATCH] Fix environment handling for sh.py >= 1.13
+
+Since sh.py 1.13, a new check on the environment variables has been added
+with commit https://github.com/amoffat/sh/commit/5b274778fb4be647bbb95f9bec14153f186bcc1f.
+
+This leads to failures in the testsuite since the code is passing
+os.environ, which is not a dict().
+
+It's also breaking MOLECULE_ENV_FILE handling with errors like (from the testsuite):
+
+E           TypeError: Invalid special arguments:
+E
+E             'env': value None of env key 'MOLECULE_ENV_FILE' must be a str
+
+so:
+- use dict() to convert os.environ to a dict in _rebake_command(),
+- use str() when defining MOLECULE_ENV_FILE to make sure self.env_file is a string.
+
+To avoid any other surprise with 1.14 or newer, I've changed the sh.py requirement
+to < 1.14. The requirement is not 1.13 but 1.13.1 to get the fix for sh.py bug #520
+(https://github.com/amoffat/sh/issues/520).
+
+Signed-off-by: Arnaud Patard <apatard@hupstream.com>
+---
+ molecule/config.py        | 2 +-
+ molecule/test/conftest.py | 2 +-
+ setup.cfg                 | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/molecule/config.py b/molecule/config.py
+index 86b92acde..9d25f2c40 100644
+--- a/molecule/config.py
++++ b/molecule/config.py
+@@ -169,7 +169,7 @@ def env(self):
+         return {
+             "MOLECULE_DEBUG": str(self.debug),
+             "MOLECULE_FILE": self.config_file,
+-            "MOLECULE_ENV_FILE": self.env_file,
++            "MOLECULE_ENV_FILE": str(self.env_file),
+             "MOLECULE_STATE_FILE": self.state.state_file,
+             "MOLECULE_INVENTORY_FILE": self.provisioner.inventory_file,
+             "MOLECULE_EPHEMERAL_DIRECTORY": self.scenario.ephemeral_directory,
+diff --git a/molecule/test/conftest.py b/molecule/test/conftest.py
+index 23f53dc8d..649bdbd64 100644
+--- a/molecule/test/conftest.py
++++ b/molecule/test/conftest.py
+@@ -45,7 +45,7 @@ def run_command(cmd, env=os.environ, log=True):
+ 
+ 
+ def _rebake_command(cmd, env, out=LOG.out, err=LOG.error):
+-    return cmd.bake(_env=env, _out=out, _err=err)
++    return cmd.bake(_env=dict(env), _out=out, _err=err)
+ 
+ 
+ def is_subset(subset, superset):
+diff --git a/setup.cfg b/setup.cfg
+index db8631792..ddc213c3d 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -77,7 +77,7 @@ install_requires =
+ 	pexpect >= 4.6.0, < 5
+ 	pluggy >= 0.7.1, < 1.0
+ 	PyYAML >= 5.1, < 6
+-	sh >= 1.12.14, < 1.13
++	sh >= 1.13.1, < 1.14
+ 	tabulate >= 0.8.4
+ 	tree-format >= 0.1.2
+ 	yamllint >= 1.15.0, < 2
