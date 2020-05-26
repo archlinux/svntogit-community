@@ -28,6 +28,7 @@ backup=("etc/webapps/gitlab/application.rb"
         "etc/webapps/gitlab/puma.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
+        configs.patch
         build_fix.patch
         gitlab-puma.service
         gitlab-sidekiq.service
@@ -40,6 +41,7 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         ruby27-pop-extra-arg.patch)
 install='gitlab.install'
 sha512sums=('SKIP'
+            '9b054872e2017dae3acd0534c0608634cf7c5f996672e589c3b9988ce18b110423b63f5207585c2ba4941b516606a2a9a8db6fd320012a4d90cf3beca147a220'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
             '8d759f1ae3391a0bafe8cfbbddfa6e7bfb5b587439f9f750e34e0bbf85c6c514da7c6932d74be284746f596bf2c4bdddfeff66f81ae39f73e43a9b5326bc688f'
             '31fccf265783fd6c95fd94036d2f1148945d5fc9b713d108632d931b0cc51a5e166972956d042d5f30fe411d68a056794461103832ce9afbd4654923a8bde531'
@@ -70,34 +72,17 @@ prepare() {
 
   export SKIP_STORAGE_VALIDATION='true'
 
-  # Patching config files:
-  echo "Patching paths in and username gitlab.yml..."
-  sed -e "s|# user: git|user: gitlab|" \
-      -e "s|/home/git/gitaly/bin|/usr/bin|" \
-      -e "s|/home/git/repositories|${_homedir}/repositories|" \
-      -e "s|/home/git/gitlab-satellites|${_homedir}/satellites|" \
-      -e "s|# path: /mnt/gitlab|path: ${_homedir}/shared|" \
-      -e "s|/home/git/gitlab-shell|/usr/share/webapps/gitlab-shell|" \
-      -e "s|tmp/backups|${_homedir}/backups|" \
-      -e "s|/home/git/gitlab/tmp/sockets/private/gitaly.socket|${_homedir}/sockets/gitlab-gitaly.socket|" \
-      config/gitlab.yml.example > config/gitlab.yml
+  patch -p1 < ../configs.patch
+  # '/home/git' path in the config files indicates a default path that need to be adjusted
+  grep -FqR '/home/git' config || exit 1
 
-  echo "Patching paths and timeout in puma.rb..."
-  sed -e "s|/home/git/gitlab/tmp/.*/|/run/gitlab/|g" \
-      -e "s|/var/run/|/run/|g" \
-      -e "s|/home/git/gitlab|${_datadir}|g" \
-      -e "s|${_datadir}/log/|${_logdir}/|g" \
-      config/puma.rb.example > config/puma.rb
+  cp config/gitlab.yml.example config/gitlab.yml
+  cp config/database.yml.postgresql config/database.yml
+  cp config/resque.yml.example config/resque.yml
+  cp config/puma.rb.example config/puma.rb
 
   # We need this one untouched because otherwise assets will fail
-  cp config/database.yml.postgresql config/database.yml.postgresql.orig
-
-  echo "Patching username in database.yml.postgresql..."
-  sed -i -e "s|username: git|username: gitlab|" config/database.yml.postgresql
-
-  echo "Patching redis connection in resque.yml"
-  sed -e "s|production: unix:/var/run/redis/redis.sock|production: redis://localhost:6379|" \
-      config/resque.yml.example > config/resque.yml.patched
+  # cp config/database.yml.postgresql config/database.yml.postgresql.orig
 
   echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
@@ -130,17 +115,17 @@ build() {
   popd
 
   # We'll temporarily stick this in here so we can build the assets
-  cp config/database.yml.postgresql.orig config/database.yml
-  cp config/resque.yml.example config/resque.yml
-  sed -i 's/url.*/nope.sock/g' config/resque.yml
+  # cp config/database.yml.postgresql.orig config/database.yml
+  # cp config/resque.yml.example config/resque.yml
+  # sed -i 's/url.*/nope.sock/g' config/resque.yml
 
   yarn install --production --pure-lockfile
   bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
   bundle exec rake gettext:compile RAILS_ENV=production
 
   # After building assets, clean this up again
-  rm config/database.yml config/database.yml.postgresql.orig
-  mv config/resque.yml.patched config/resque.yml
+  # rm config/database.yml config/database.yml.postgresql.orig
+  # mv config/resque.yml.patched config/resque.yml
 }
 
 package() {
