@@ -61,26 +61,20 @@ _homedir="/var/lib/gitlab"
 _logdir="/var/log/gitlab"
 
 prepare() {
-  # Get first 7 characters from sha1 which has 40 characters in total
-  local revision=$(ls -d gitlab-foss | rev | cut -c 34-40 | rev)
-
   cd gitlab-foss
 
-  patch -p1 < ../build_fix.patch
-
   # GitLab tries to read its revision information from a file.
-  echo "${revision}" > REVISION
+  git rev-parse --short HEAD > REVISION
 
-  export SKIP_STORAGE_VALIDATION='true'
-
+  patch -p1 < ../build_fix.patch
   patch -p1 < ../configs.patch
   # '/home/git' path in the config files indicates a default path that need to be adjusted
   grep -FqR '/home/git' config || exit 1
 
   cp config/gitlab.yml.example config/gitlab.yml
   cp config/database.yml.postgresql config/database.yml
-  cp config/resque.yml.example config/resque.yml
   cp config/puma.rb.example config/puma.rb
+  cp config/resque.yml.example config/resque.yml
 
   echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
@@ -118,8 +112,9 @@ build() {
 }
 
 package() {
-  cd gitlab-foss
   depends+=('gitlab-shell')
+
+  cd gitlab-foss
 
   install -d "${pkgdir}/usr/share/webapps"
 
@@ -143,18 +138,16 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/gitlab"
 
-  ln -fs /run/gitlab "${pkgdir}${_homedir}/pids"
-  ln -fs /run/gitlab "${pkgdir}${_homedir}/sockets"
-  ln -fs ${_datadir}/log "${pkgdir}${_homedir}/log"
+  rm -r "${pkgdir}${_datadir}"/{builds,tmp,log}
 
-  rm -rf "${pkgdir}${_datadir}/public/uploads" && ln -fs "${_homedir}/uploads" "${pkgdir}${_datadir}/public/uploads"
-  rm -rf "${pkgdir}${_datadir}/builds" && ln -fs "${_homedir}/builds" "${pkgdir}${_datadir}/builds"
-  rm -rf "${pkgdir}${_datadir}/tmp" && ln -fs /var/tmp "${pkgdir}${_datadir}/tmp"
-  rm -rf "${pkgdir}${_datadir}/log" && ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
+  # TODO: Rails uses log dir under the rails root. Figure out if it is possible to configure rails
+  # to log right to /var/log/gitlab
+  ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
 
   # Fixes https://bugs.archlinux.org/task/59762
   ln -s "${_datadir}/config/boot.rb" "${pkgdir}"/${_etcdir}/boot.rb
 
+  # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
   mv "${pkgdir}${_datadir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chown root:105 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
@@ -167,26 +160,19 @@ package() {
   # Install config files
   for config_file in application.rb gitlab.yml database.yml puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
-    [[ -f "${pkgdir}${_datadir}/config/${config_file}" ]] && rm "${pkgdir}${_datadir}/config/${config_file}"
+    # TODO: configure rails app to use configs right from /etc
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
   done
 
-  # Install database symlink
-  ln -fs "${_etcdir}/database.yml" "${pkgdir}${_datadir}/config/database.yml"
-
   # Install secrets symlink
+  # TODO: ruby uses _datadir to load config files. Figure out if we can load files directly from /etc
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_datadir}/config/secrets.yml"
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/gitlab"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/gitlab/LICENSE"
 
-  # https://gitlab.com/gitlab-org/gitlab-foss/issues/765
-  cp -r "${pkgdir}${_datadir}/doc" "${pkgdir}${_datadir}/public/help"
-  find "${pkgdir}${_datadir}/public/help" -name "*.md" -exec rm {} \;
-  find "${pkgdir}${_datadir}/public/help/" -depth -type d -empty -exec rmdir {} \;
-
-  chown 105:105 "${pkgdir}${_datadir}/db/schema.rb"
+  # TODO: structure.sql looks more like an application data and should be stored under /var/lib/gitlab
   chown 105:105 "${pkgdir}${_datadir}/db/structure.sql"
 
   # Install systemd service files
