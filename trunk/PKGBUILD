@@ -1,8 +1,8 @@
 # Maintainer: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 
 pkgname=fig2dev
-pkgver=3.2.7
-pkgrel=2
+pkgver=3.2.7b
+pkgrel=1
 pkgdesc="Format conversion utility that can be used with xfig"
 arch=('x86_64')
 url="http://mcj.sourceforge.net/"
@@ -14,7 +14,7 @@ replaces=('transfig')
 provides=('transfig')
 source=("https://downloads.sourceforge.net/mcj/${pkgname}-${pkgver}.tar.xz"
         "LICENSE")
-sha1sums=('f3cb70171a683b3a7d5190935be154bde7e81c41'
+sha1sums=('8097c178b7fff1023112250938cc87837c0f564e'
           'b8b712871615308b8b6add92f86d218437d652f2')
 
 build() {
