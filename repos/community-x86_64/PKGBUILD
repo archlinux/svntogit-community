@@ -10,8 +10,8 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=13.0.0
-pkgrel=2
+pkgver=13.0.1
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -44,8 +44,8 @@ install='gitlab.install'
 sha512sums=('SKIP'
             '9b054872e2017dae3acd0534c0608634cf7c5f996672e589c3b9988ce18b110423b63f5207585c2ba4941b516606a2a9a8db6fd320012a4d90cf3beca147a220'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
-            '8d759f1ae3391a0bafe8cfbbddfa6e7bfb5b587439f9f750e34e0bbf85c6c514da7c6932d74be284746f596bf2c4bdddfeff66f81ae39f73e43a9b5326bc688f'
-            '31fccf265783fd6c95fd94036d2f1148945d5fc9b713d108632d931b0cc51a5e166972956d042d5f30fe411d68a056794461103832ce9afbd4654923a8bde531'
+            'af5c9d2247e7c1b340865253a3ba4134ee889f11733d055f758c186d9898c78b3d6877a61b88eb31e96670419d7acf21c758c281ab7d7022f81e17388032b9f9'
+            'cbaeea4ac8bb5a882eb8a75715ed1d7ac073b2b65074f9b3fbd31aaa10cce72e2580e888a34a40b39014eeaf2ea4fdf74e9589a44149d0d92bc8b55c468dfe07'
             '0cbb9a1631b529a83d5c6db95fd3a684c8f06073890b31f6262c339360444e7452275d804fb6a119a3d61a0ef1b76d0e956f260a12f032d54c00308e8d9520b0'
             '15de5b11a31d733bd5b6fa50faa2395dbe53c252bd52f937e67cdc940de17554e946d1e7f9746538a6be0cc12024fc2816c2b64a56e16762abaca75562a7512d'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
@@ -61,26 +61,20 @@ _homedir="/var/lib/gitlab"
 _logdir="/var/log/gitlab"
 
 prepare() {
-  # Get first 7 characters from sha1 which has 40 characters in total
-  local revision=$(ls -d gitlab-foss | rev | cut -c 34-40 | rev)
-
   cd gitlab-foss
 
-  patch -p1 < ../build_fix.patch
-
   # GitLab tries to read its revision information from a file.
-  echo "${revision}" > REVISION
+  git rev-parse --short HEAD > REVISION
 
-  export SKIP_STORAGE_VALIDATION='true'
-
+  patch -p1 < ../build_fix.patch
   patch -p1 < ../configs.patch
   # '/home/git' path in the config files indicates a default path that need to be adjusted
   grep -FqR '/home/git' config || exit 1
 
   cp config/gitlab.yml.example config/gitlab.yml
   cp config/database.yml.postgresql config/database.yml
-  cp config/resque.yml.example config/resque.yml
   cp config/puma.rb.example config/puma.rb
+  cp config/resque.yml.example config/resque.yml
 
   echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
@@ -118,8 +112,9 @@ build() {
 }
 
 package() {
-  cd gitlab-foss
   depends+=('gitlab-shell')
+
+  cd gitlab-foss
 
   install -d "${pkgdir}/usr/share/webapps"
 
@@ -143,18 +138,16 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/gitlab"
 
-  ln -fs /run/gitlab "${pkgdir}${_homedir}/pids"
-  ln -fs /run/gitlab "${pkgdir}${_homedir}/sockets"
-  ln -fs ${_datadir}/log "${pkgdir}${_homedir}/log"
+  rm -r "${pkgdir}${_datadir}"/{builds,tmp,log}
 
-  rm -rf "${pkgdir}${_datadir}/public/uploads" && ln -fs "${_homedir}/uploads" "${pkgdir}${_datadir}/public/uploads"
-  rm -rf "${pkgdir}${_datadir}/builds" && ln -fs "${_homedir}/builds" "${pkgdir}${_datadir}/builds"
-  rm -rf "${pkgdir}${_datadir}/tmp" && ln -fs /var/tmp "${pkgdir}${_datadir}/tmp"
-  rm -rf "${pkgdir}${_datadir}/log" && ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
+  # TODO: Rails uses log dir under the rails root. Figure out if it is possible to configure rails
+  # to log right to /var/log/gitlab
+  ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
 
   # Fixes https://bugs.archlinux.org/task/59762
   ln -s "${_datadir}/config/boot.rb" "${pkgdir}"/${_etcdir}/boot.rb
 
+  # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
   mv "${pkgdir}${_datadir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chown root:105 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
@@ -167,26 +160,19 @@ package() {
   # Install config files
   for config_file in application.rb gitlab.yml database.yml puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
-    [[ -f "${pkgdir}${_datadir}/config/${config_file}" ]] && rm "${pkgdir}${_datadir}/config/${config_file}"
+    # TODO: configure rails app to use configs right from /etc
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
   done
 
-  # Install database symlink
-  ln -fs "${_etcdir}/database.yml" "${pkgdir}${_datadir}/config/database.yml"
-
   # Install secrets symlink
+  # TODO: ruby uses _datadir to load config files. Figure out if we can load files directly from /etc
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_datadir}/config/secrets.yml"
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/gitlab"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/gitlab/LICENSE"
 
-  # https://gitlab.com/gitlab-org/gitlab-foss/issues/765
-  cp -r "${pkgdir}${_datadir}/doc" "${pkgdir}${_datadir}/public/help"
-  find "${pkgdir}${_datadir}/public/help" -name "*.md" -exec rm {} \;
-  find "${pkgdir}${_datadir}/public/help/" -depth -type d -empty -exec rmdir {} \;
-
-  chown 105:105 "${pkgdir}${_datadir}/db/schema.rb"
+  # TODO: structure.sql looks more like an application data and should be stored under /var/lib/gitlab
   chown 105:105 "${pkgdir}${_datadir}/db/structure.sql"
 
   # Install systemd service files
