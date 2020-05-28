@@ -22,8 +22,7 @@ makedepends=('cmake' 'postgresql' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
             'python-docutils: reStructuredText markup language support'
             'smtp-server: mail server in order to receive mail notifications')
-backup=("etc/webapps/gitlab/application.rb"
-        "etc/webapps/gitlab/database.yml"
+backup=("etc/webapps/gitlab/database.yml"
         "etc/webapps/gitlab/gitlab.yml"
         "etc/webapps/gitlab/resque.yml"
         "etc/webapps/gitlab/puma.rb"
@@ -144,9 +143,6 @@ package() {
   # to log right to /var/log/gitlab
   ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
 
-  # Fixes https://bugs.archlinux.org/task/59762
-  ln -s "${_datadir}/config/boot.rb" "${pkgdir}"/${_etcdir}/boot.rb
-
   # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
   mv "${pkgdir}${_datadir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
@@ -155,10 +151,8 @@ package() {
 
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
 
-  sed -i "s|require_relative '../lib|require '${_datadir}/lib|" config/application.rb
-
   # Install config files
-  for config_file in application.rb gitlab.yml database.yml puma.rb resque.yml; do
+  for config_file in gitlab.yml database.yml puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
     # TODO: configure rails app to use configs right from /etc
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
