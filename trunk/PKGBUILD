@@ -43,10 +43,10 @@ install='gitlab.install'
 sha512sums=('SKIP'
             '9b054872e2017dae3acd0534c0608634cf7c5f996672e589c3b9988ce18b110423b63f5207585c2ba4941b516606a2a9a8db6fd320012a4d90cf3beca147a220'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
-            'af5c9d2247e7c1b340865253a3ba4134ee889f11733d055f758c186d9898c78b3d6877a61b88eb31e96670419d7acf21c758c281ab7d7022f81e17388032b9f9'
-            'cbaeea4ac8bb5a882eb8a75715ed1d7ac073b2b65074f9b3fbd31aaa10cce72e2580e888a34a40b39014eeaf2ea4fdf74e9589a44149d0d92bc8b55c468dfe07'
-            '0cbb9a1631b529a83d5c6db95fd3a684c8f06073890b31f6262c339360444e7452275d804fb6a119a3d61a0ef1b76d0e956f260a12f032d54c00308e8d9520b0'
-            '15de5b11a31d733bd5b6fa50faa2395dbe53c252bd52f937e67cdc940de17554e946d1e7f9746538a6be0cc12024fc2816c2b64a56e16762abaca75562a7512d'
+            'bf735ab9cd25138fbe4bc900d29b703b6e9601b58a650133a997747db47db3711aa432d74c3991a36ab874646599cfc9ab21988bc3de569b55073affe82af225'
+            '42af7388358b2ad52ddb4b7239477d94a06ffdb4550c51d11fd5eb5e6efcc558ee5d8fd8c0094533102a855b15c64091289550dc8c7a39ed1af0dff963aaaa33'
+            'ec3ce0e0bb0cb3118c936a63e36bf760093c080a9fd529b200fc09b4cc715bb75cc2f14f66f67b7a7711718ef49710660654804978cfc31fc52f33d8386bc372'
+            'fa26f358d5a6d89affd015806e84d3e3820b91c0296d0a39af18e790fc2bd964a3f6cdbcc79f70fe3771ffb6b3fe310360907e656a030d432a6e0cfac0578bd5'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
             '879be339148123e32b58a5669fdd3d3bb8b5d711326cb618f95b1680a6ac3a83c85d8862f2691b352fa26c95e4764dbb827856e22a3e2b9e4a76c13fe42864b5'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
@@ -54,9 +54,9 @@ sha512sums=('SKIP'
             '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0')
 
 
-_datadir="/usr/share/webapps/gitlab"
+_appdir="/usr/share/webapps/gitlab" # the app source code location
 _etcdir="/etc/webapps/gitlab"
-_homedir="/var/lib/gitlab"
+_datadir="/var/lib/gitlab" # directory with gitlab data and it also $HOME for 'gitlab' user
 _logdir="/var/log/gitlab"
 
 prepare() {
@@ -77,8 +77,8 @@ prepare() {
 
   echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
-    sed -i "s|<HOMEDIR>|${_homedir}|g" "${srcdir}/${service_file}"
     sed -i "s|<DATADIR>|${_datadir}|g" "${srcdir}/${service_file}"
+    sed -i "s|<APPDIR>|${_appdir}|g" "${srcdir}/${service_file}"
     sed -i "s|<LOGDIR>|${_logdir}|g" "${srcdir}/${service_file}"
   done
 
@@ -117,57 +117,57 @@ package() {
 
   install -d "${pkgdir}/usr/share/webapps"
 
-  cp -r "${srcdir}"/gitlab-foss "${pkgdir}${_datadir}"
+  cp -r "${srcdir}"/gitlab-foss "${pkgdir}${_appdir}"
   # Remove unneeded directories: node_modules is only needed during build
-  rm -r "${pkgdir}${_datadir}/node_modules"
+  rm -r "${pkgdir}${_appdir}/node_modules"
   # https://gitlab.com/gitlab-org/omnibus-gitlab/blob/194cf8f12e51c26980c09de6388bbd08409e1209/config/software/gitlab-rails.rb#L179
   for dir in spec qa rubocop app/assets vendor/assets; do
-    rm -r "${pkgdir}${_datadir}/${dir}"
+    rm -r "${pkgdir}${_appdir}/${dir}"
   done
 
-  chown -R root:root "${pkgdir}${_datadir}"
-  chmod 755 "${pkgdir}${_datadir}"
+  chown -R root:root "${pkgdir}${_appdir}"
+  chmod 755 "${pkgdir}${_appdir}"
 
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/satellites"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/shared/"{,artifacts,lfs-objects}
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/builds"
-  install -dm700 -o 105 -g 105 "${pkgdir}${_homedir}/uploads"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_homedir}/backups"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/satellites"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/shared/"{,artifacts,lfs-objects}
+  install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/builds"
+  install -dm700 -o 105 -g 105 "${pkgdir}${_datadir}/uploads"
+  install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/backups"
   install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
   install -dm755 "${pkgdir}/usr/share/doc/gitlab"
 
-  rm -r "${pkgdir}${_datadir}"/{builds,tmp,log}
+  rm -r "${pkgdir}${_appdir}"/{builds,tmp,log}
 
   # TODO: Rails uses log dir under the rails root. Figure out if it is possible to configure rails
   # to log right to /var/log/gitlab
-  ln -fs "${_logdir}" "${pkgdir}${_datadir}/log"
+  ln -fs "${_logdir}" "${pkgdir}${_appdir}/log"
 
   # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
-  mv "${pkgdir}${_datadir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
+  mv "${pkgdir}${_appdir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   chown root:105 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
-  ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_datadir}/.gitlab_workhorse_secret"
+  ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_appdir}/.gitlab_workhorse_secret"
 
-  ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_datadir}/.gitlab_shell_secret"
+  ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_appdir}/.gitlab_shell_secret"
 
   # Install config files
   for config_file in gitlab.yml database.yml puma.rb resque.yml; do
     mv "config/${config_file}" "${pkgdir}${_etcdir}/"
     # TODO: configure rails app to use configs right from /etc
-    ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_datadir}/config/"
+    ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_appdir}/config/"
   done
 
   # Install secrets symlink
-  # TODO: ruby uses _datadir to load config files. Figure out if we can load files directly from /etc
-  ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_datadir}/config/secrets.yml"
+  # TODO: ruby uses _appdir to load config files. Figure out if we can load files directly from /etc
+  ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_appdir}/config/secrets.yml"
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/gitlab"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/gitlab/LICENSE"
 
   # TODO: structure.sql looks more like an application data and should be stored under /var/lib/gitlab
-  chown 105:105 "${pkgdir}${_datadir}/db/structure.sql"
+  chown 105:105 "${pkgdir}${_appdir}/db/structure.sql"
 
   # Install systemd service files
   for service_file in gitlab-puma.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
