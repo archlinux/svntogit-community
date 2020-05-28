@@ -5,23 +5,23 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=5.4.2
+pkgver=5.5.1
 pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
 license=('BSD')
 # git is needed for yarn...
-makedepends=('git' 'go-pie' 'yarn')
+makedepends=('git' 'go' 'yarn')
 source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('81c90a924dd27eeb0f9f264e729a0d047f9057949eebb42aec85f97fbb34627e07e23a3737fb419041de891126ccba2f0de55e5a37994ab96c46a7120ca25c21'
+sha512sums=('c203788c672168f506290ed02cee09e825103de047c02ce35515e7f509b2ca3a1e1bb1d2c895c8bfe484b9d0f175136cb4949a03f9d472181be8c33b388e7260'
             'SKIP'
-            'd672bdd308b2ab6f7b1248300f85f11b480e08149e1e4da5e01dac6c551b44dbfceb5c89d0fd17ce7a64c8b83cd4c7df14e24c31c2f37ae532abbb9099320290'
+            'dc52d7c3d5798d9b83a4e42ba70a071b1cd5cb95c8b695a4b7a33d85744762ae644feef58cf4d582c8d8c169be68d57f392c33ff0796490e88f01f09b4c207d2'
             '1485e41432218b88aff71bbe68d265baad18c8b91b3d51cacdb4ac9b09abfb6cde91b9b87cb861cffeff92830159552307a89462c8697bb066416bd897e7b68b')
-b2sums=('f3d9850c0dcc70e4111d131561df6f89188da261f0cb0ca78f36d9a3277c61c001e2ddcf73f25c44fcdb866a0060a6f8f4325b2fd5dd5fcc0dc4202194ea5f8f'
+b2sums=('b98738e47c300ba34de9b32ea97551607d6a311969d2b33dc5917dc11013b5e8666260bdbd90d969d92f1883f576dcf1bcb6d9b2a5c5e2983728040a3cda2f3a'
         'SKIP'
-        'db6d63df77aa73c230128b5c6cd278215e0dfac2b42db861127571a6c867d8a305c18a5ea12a616669c77bd072ab8b26aa52379cbd8167c34bc043bfdcefec1d'
+        'ac27d14a9625a3bca6a4ac87adbe5bb2f0aee0c4a88bf39ac8b3d235801743b2e40e6cd7db26089398f016a25046a674f521b890ddf73c3c6637d0d6bf6e1397'
         '164dd6f37fe38d3c840b2b92d41553e0be67985d7c8471833a9ff381c05b0c35f295bfc630aa3ce6e31afb70b805d071e8c0a438a504064d24f99720c1571b9a')
 validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Signing (v1) <code@keybase.io>
 
@@ -45,8 +45,19 @@ prepare() {
 build() {
     cd client-v${pkgver}/go/keybase
 
+    # None of this should be necessary, but we duplicate the work of
+    # makepkg.conf here since golang CGO can't be bothered to respect
+    # standardized CFLAGS and we don't have native packaging integration for
+    # either this or the go-specific flags. Must be done here to make sure
+    # we're using debug or !buildflags.
+
+    export CGO_CPPFLAGS="${CPPFLAGS}"
+    export CGO_CFLAGS="${CFLAGS}"
+    export CGO_CXXFLAGS="${CXXFLAGS}"
+    export CGO_LDFLAGS="${LDFLAGS}"
+    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+
     export GOPATH="${srcdir}/.gopath"
-    # go build -a -tags production -gccgoflags "$CFLAGS $LDFLAGS" github.com/keybase/client/go/keybase
     go build -a -tags production -o ../bin/keybase github.com/keybase/client/go/keybase
     go build -a -tags production -o ../bin/kbnm github.com/keybase/client/go/kbnm
     go build -a -tags production -o ../bin/kbfsfuse github.com/keybase/client/go/kbfs/kbfsfuse
