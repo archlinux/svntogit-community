@@ -10,7 +10,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=13.0.1
+pkgver=13.0.3
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -152,9 +152,7 @@ package() {
   ln -fs "${_datadir}/uploads" "${pkgdir}${_appdir}/public/uploads"
 
   # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
-  mv "${pkgdir}${_appdir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_appdir}/.gitlab_workhorse_secret"
-
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_appdir}/.gitlab_shell_secret"
 
   # Install config files
@@ -171,7 +169,7 @@ package() {
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_appdir}/config/secrets.yml"
 
   # files with passwords/secrets are set world-unreadable
-  for secret_file in gitlab_workhorse_secret smtp_settings.rb; do
+  for secret_file in smtp_settings.rb; do
     chmod 660 "${pkgdir}${_etcdir}/${secret_file}"
     # TODO: should we just leave the secret files root owned?
     chown root:105 "${pkgdir}${_etcdir}/${secret_file}"
