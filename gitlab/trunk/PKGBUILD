@@ -31,6 +31,7 @@ backup=("etc/webapps/gitlab/database.yml"
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         configs.patch
         build_fix.patch
+        environment
         gitlab-puma.service
         gitlab-sidekiq.service
         gitlab-backup.service
@@ -44,10 +45,11 @@ install='gitlab.install'
 sha512sums=('SKIP'
             '9b054872e2017dae3acd0534c0608634cf7c5f996672e589c3b9988ce18b110423b63f5207585c2ba4941b516606a2a9a8db6fd320012a4d90cf3beca147a220'
             '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
-            'bf735ab9cd25138fbe4bc900d29b703b6e9601b58a650133a997747db47db3711aa432d74c3991a36ab874646599cfc9ab21988bc3de569b55073affe82af225'
-            '42af7388358b2ad52ddb4b7239477d94a06ffdb4550c51d11fd5eb5e6efcc558ee5d8fd8c0094533102a855b15c64091289550dc8c7a39ed1af0dff963aaaa33'
-            'ec3ce0e0bb0cb3118c936a63e36bf760093c080a9fd529b200fc09b4cc715bb75cc2f14f66f67b7a7711718ef49710660654804978cfc31fc52f33d8386bc372'
-            'fa26f358d5a6d89affd015806e84d3e3820b91c0296d0a39af18e790fc2bd964a3f6cdbcc79f70fe3771ffb6b3fe310360907e656a030d432a6e0cfac0578bd5'
+            '5b1ca2958f03a5baf1c5576a1568072e8ed749e2d15745ecbcc4860d2dbd543f2f3ed077e8d87afac2670c9436b19fe498217b49916d56a4e31fb9811aeb9067'
+            '6e6a9be7a3985a20e3140553e95e39b08aa4d13005dd4496eea9d3cac6cc6c223018eb01a0ac496f94606d77d73c18d84c9c230e8869dac87b004b46125d67f7'
+            '18f4a31935d0626c26d1be1942b715128cf3edcb114f672af16e4a145d8ac693e1afc7d59094cae3702e47e4c6c4cb4a62a009bafcbec500e69120a2dd400a2a'
+            '8afffb8caafdaa7a39991a4e694efc5133af1dc201ae07f3dc3989dbabb983339941011ffdd1f97c63033c94a02a3a7a6eb3722001aa3e7155c16f6743aec4c8'
+            '35c1175ef4347d700e2331c3963ac871cada50c9274964eb4ac8cb80bb27a7d3459bed1548bd1f3a1681b6eb5dd94fe7ec4855cab7b33dddc4e524a91ca791d7'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
             '879be339148123e32b58a5669fdd3d3bb8b5d711326cb618f95b1680a6ac3a83c85d8862f2691b352fa26c95e4764dbb827856e22a3e2b9e4a76c13fe42864b5'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
@@ -171,6 +173,8 @@ package() {
     # TODO: should we just leave the secret files root owned?
     chown root:105 "${pkgdir}${_etcdir}/${secret_file}"
   done
+
+  install -Dm644 "${srcdir}/environment" "${pkgdir}${_appdir}"
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/gitlab"
