@@ -136,7 +136,8 @@ package() {
   install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/builds"
   install -dm700 -o 105 -g 105 "${pkgdir}${_datadir}/uploads"
   install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/backups"
-  install -dm750 -o 105 -g 105 "${pkgdir}${_etcdir}"
+  install -dm755 -o 105 -g 105 "${pkgdir}${_etcdir}"
+  install -dm755 -o 105 -g 105 "${pkgdir}${_logdir}"
   install -dm755 "${pkgdir}/usr/share/doc/gitlab"
 
   rm -r "${pkgdir}${_appdir}"/{.git,builds,tmp,log}
@@ -164,9 +165,10 @@ package() {
   # TODO: ruby uses _appdir to load config files. Figure out if we can load files directly from /etc
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_appdir}/config/secrets.yml"
 
-  # files with password/secrets are set world-unreadable
+  # files with passwords/secrets are set world-unreadable
   for secret_file in gitlab_workhorse_secret smtp_settings.rb; do
     chmod 660 "${pkgdir}${_etcdir}/${secret_file}"
+    # TODO: should we just leave the 
     chown root:105 "${pkgdir}${_etcdir}/${secret_file}"
   done
 
