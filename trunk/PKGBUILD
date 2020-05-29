@@ -26,6 +26,7 @@ backup=("etc/webapps/gitlab/database.yml"
         "etc/webapps/gitlab/gitlab.yml"
         "etc/webapps/gitlab/resque.yml"
         "etc/webapps/gitlab/puma.rb"
+        "etc/webapps/gitlab/smtp_settings.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         configs.patch
@@ -74,6 +75,7 @@ prepare() {
   cp config/database.yml.postgresql config/database.yml
   cp config/puma.rb.example config/puma.rb
   cp config/resque.yml.example config/resque.yml
+  cp config/initializers/smtp_settings.rb.sample config/initializers/smtp_settings.rb
 
   echo "Setting up systemd service files ..."
   for service_file in gitlab-sidekiq.service gitlab-puma.service gitlab.logrotate gitlab-backup.service gitlab-mailroom.service; do
@@ -145,8 +147,6 @@ package() {
 
   # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
   mv "${pkgdir}${_appdir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
-  chmod 660 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
-  chown root:105 "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_appdir}/.gitlab_workhorse_secret"
 
   ln -fs /etc/webapps/gitlab-shell/secret "${pkgdir}${_appdir}/.gitlab_shell_secret"
@@ -157,10 +157,18 @@ package() {
     # TODO: configure rails app to use configs right from /etc
     ln -fs "${_etcdir}/${config_file}" "${pkgdir}${_appdir}/config/"
   done
+  mv "config/initializers/smtp_settings.rb" "${pkgdir}${_etcdir}/"
+  ln -fs "${_etcdir}/smtp_settings.rb" "${pkgdir}${_appdir}/config/initializers/smtp_settings.rb"
 
   # Install secrets symlink
   # TODO: ruby uses _appdir to load config files. Figure out if we can load files directly from /etc
   ln -fs "${_etcdir}/secrets.yml" "${pkgdir}${_appdir}/config/secrets.yml"
+
+  # files with password/secrets are set world-unreadable
+  for secret_file in gitlab_workhorse_secret smtp_settings.rb; do
+    chmod 660 "${pkgdir}${_etcdir}/${secret_file}"
+    chown root:105 "${pkgdir}${_etcdir}/${secret_file}"
+  done
 
   # Install license and help files
   mv README.md MAINTENANCE.md CONTRIBUTING.md CHANGELOG.md PROCESS.md VERSION config/*.{example,postgresql} "${pkgdir}/usr/share/doc/gitlab"
