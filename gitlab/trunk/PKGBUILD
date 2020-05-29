@@ -168,7 +168,7 @@ package() {
   # files with passwords/secrets are set world-unreadable
   for secret_file in gitlab_workhorse_secret smtp_settings.rb; do
     chmod 660 "${pkgdir}${_etcdir}/${secret_file}"
-    # TODO: should we just leave the 
+    # TODO: should we just leave the secret files root owned?
     chown root:105 "${pkgdir}${_etcdir}/${secret_file}"
   done
 
