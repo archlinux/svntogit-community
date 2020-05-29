@@ -148,6 +148,9 @@ package() {
   # to log right to /var/log/gitlab
   ln -fs "${_logdir}" "${pkgdir}${_appdir}/log"
 
+  # public/uploads is used by Pages
+  ln -fs "${_datadir}/uploads" "${pkgdir}${_appdir}/public/uploads"
+
   # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
   mv "${pkgdir}${_appdir}/.gitlab_workhorse_secret" "${pkgdir}${_etcdir}/gitlab_workhorse_secret"
   ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_appdir}/.gitlab_workhorse_secret"
