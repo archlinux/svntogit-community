@@ -15,7 +15,7 @@ fs.closeSync(fd);
 process.argv.splice(0, 1);
 
 // Set application paths.
-const appPath = join(dirname(__dirname), "lib", `${name}.asar`);
+const appPath = join(dirname(__dirname), "lib", name);
 const packageJson = require(join(appPath, "package.json"));
 const productName = packageJson.productName;
 app.setAppPath(appPath);
