@@ -1,7 +1,7 @@
 # Maintainer: Bruno Pagani <archange@archlinux.org>
 
 pkgname=cozy-stack
-pkgver=1.4.7
+pkgver=1.4.12
 pkgrel=1
 epoch=1
 pkgdesc="Digital home: brings all your web services in the same private space – Stack component"
@@ -15,21 +15,30 @@ makedepends=(go-pie)
 optdepends=('nodejs: required for konnectors'
             'nsjail: run konnectors isolated'
             'smtp-forwarder: to allow sending mail to users')
-source=("https://apt.cozy.io/debian/pool/testing/c/${pkgname}/${pkgname}_${pkgver}.orig.tar.xz"
-        "cozy.yml"
-        "${pkgname}.service"
-        "${pkgname}.sysusers"
-        "${pkgname}.tmpfiles")
-sha256sums=('30b9e79ec4ae8236769d60150825a384d4a3984d2ba1283e42124178d33ba3f5'
+source=(https://github.com/cozy/cozy-stack/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz
+        cozy.yml
+        ${pkgname}.service
+        ${pkgname}.sysusers
+        ${pkgname}.tmpfiles)
+sha256sums=('1f8fd718c2ba87c97cde00a361398a19008c789a8d8a8edf046b464a4db67a94'
             'a6ae871ec726f81d091918dffae4025b993656551185662242dcc2f7de4516c3'
-            'bfeb24220fb8c6aea8268e1c453f5b05ed9a27844e1aa1c1a54fb463c866689e'
+            'd367c57b93ac97317e058626693fda431ae871fd19f6a04d767de9b7114426fb'
             'a6bea52350e85163c3141509a52903223fa0f6e7390b1b1f9336c326a8fff984'
             '04043ed0b2bf1c811417eec3b89a049f5353ad16f032497ff5c9a610eafa879d')
 
+prepare() {
+    cd ${pkgname}-${pkgver}
+    go mod vendor
+}
+
 build() {
-    cd ${pkgname}
-    export GOPATH="${PWD}/vendor"
-    go build -v -trimpath \
+    cd ${pkgname}-${pkgver}
+    export CGO_CPPFLAGS="${CPPFLAGS}"
+    export CGO_CFLAGS="${CFLAGS}"
+    export CGO_CXXFLAGS="${CXXFLAGS}"
+    export CGO_LDFLAGS="${LDFLAGS}"
+    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+    go build -v \
              -ldflags "-X github.com/cozy/cozy-stack/pkg/config.Version=${pkgver} \
                        -X github.com/cozy/cozy-stack/pkg/config.BuildTime=$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +"%Y-%m-%dT%H:%M:%SZ") \
                        -X github.com/cozy/cozy-stack/pkg/config.BuildMode=production \
@@ -42,7 +51,7 @@ package() {
     install -Dm644 ${pkgname}.service -t "${pkgdir}"/usr/lib/systemd/system/
     install -Dm644 ${pkgname}.sysusers "${pkgdir}"/usr/lib/sysusers.d/${pkgname}.conf
     install -Dm644 ${pkgname}.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/${pkgname}.conf
-    cd ${pkgname}
+    cd ${pkgname}-${pkgver}
     install -Dm755 ${pkgname} -t "${pkgdir}"/usr/bin/
     install -Dm644 cozy.example.yaml -t "${pkgdir}"/usr/share/cozy/
     install -Dm755 scripts/konnector-node-run.sh -t "${pkgdir}"/usr/share/cozy/
