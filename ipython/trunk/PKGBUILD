@@ -5,8 +5,8 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=7.14.0
-pkgrel=2
+pkgver=7.15.0
+pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
 url="https://ipython.org"
@@ -20,7 +20,7 @@ optdepends=("python-nose: for IPython's test suite")
 
 source=("ipython-$pkgver.tgz::https://github.com/ipython/ipython/archive/$pkgver.tar.gz"
         "https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-md5sums=('057266ea0820d5d58551cf4a49592eef'
+md5sums=('e54642e098c71305fe6842a8e901f202'
          '2901d65f1b1fe354e72850085cd1c072')
 
 # confirm that an update does not break sage?
