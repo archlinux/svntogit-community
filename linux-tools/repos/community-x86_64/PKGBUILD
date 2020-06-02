@@ -15,7 +15,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.6
+pkgver=5.7
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -37,7 +37,7 @@ makedepends+=('ncurses')
 makedepends+=('python-docutils')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
+#        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -46,7 +46,6 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
-            '75adbc3fae5ddd49e9292e9d0816f230c8bff3efd35dd2c06c3c9330c480d4ef'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'd2e8e5e8b22c6089a91f573aa1c59e442a1f3b67a2c9f047abe3b57d3d6558cc'
             'fa2560630576464739ede14c9292249f4007f36a684bc378add174fc88394550'
@@ -102,7 +101,7 @@ build() {
   echo ':: usbip'
   pushd linux/tools/usb/usbip
   # Fix gcc compilation
-  sed -i 's,-Wall -Werror -Wextra,,' configure.ac
+  sed -i 's,-Wall -Werror -Wextra,-fcommon,' configure.ac
   ./autogen.sh
   ./configure --prefix=/usr --sbindir=/usr/bin
   make
