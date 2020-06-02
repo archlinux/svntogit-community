@@ -113,7 +113,7 @@ adbdfiles = %w(
   transport_local.cpp
   types.cpp
 )
-libadbd = compile(expand("core/adb", adbdfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/include -Icore/diagnose_usb/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include', :order_deps => [key_type_h])
+libadbd = compile(expand("core/adb", adbdfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/src/include -Icore/diagnose_usb/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include', :order_deps => [key_type_h])
 
 apkent_h, apkent_c, apkent_o = protoc("core/adb/fastdeploy/proto/ApkEntry.proto")
 app_processes_h, app_processes_c, app_processes_o = protoc("core/adb/proto/app_processes.proto")
@@ -164,7 +164,7 @@ adbfiles = %w(
   tls/adb_ca_list.cpp
   tls/tls_connection.cpp
 )
-libadb = compile(expand("core/adb", adbfiles), "-D_GNU_SOURCE -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/include -Ibase/libs/androidfw/include -Inative/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include -Icore/adb/pairing_connection/include -Icore/libziparchive/include -Icore/adb/pairing_auth/include",
+libadb = compile(expand("core/adb", adbfiles), "-D_GNU_SOURCE -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/src/include -Ibase/libs/androidfw/include -Inative/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include -Icore/adb/pairing_connection/include -Icore/libziparchive/include -Icore/adb/pairing_auth/include",
     :order_deps => [apkent_h, key_type_h, app_processes_h, adb_known_hosts_h, pairing_h, deployagent_inc, deployagentscript_inc])
 androidfwfiles = %w(
   LocaleData.cpp
@@ -223,11 +223,11 @@ libdiagnoseusb = compile(expand("core/diagnose_usb", diagnoseusbfiles), "-Icore/
 libcryptofiles = %w(
   android_pubkey.c
 )
-libcrypto = compile(expand("core/libcrypto_utils", libcryptofiles), "-Icore/libcrypto_utils/include -Iboringssl/include")
+libcrypto = compile(expand("core/libcrypto_utils", libcryptofiles), "-Icore/libcrypto_utils/include -Iboringssl/src/include")
 
 # TODO: make subninja working
-#boringssl = subninja('boringssl/build/', ['ssl/libssl.a'])
-boringssl = ["boringssl/build/crypto/libcrypto.a", "boringssl/build/ssl/libssl.a"]
+#boringssl = subninja('boringssl/src/build/', ['ssl/libssl.a'])
+boringssl = ["boringssl/src/build/crypto/libcrypto.a", "boringssl/src/build/ssl/libssl.a"]
 boringssl_ldflags = "-Wl,--whole-archive " + boringssl.join(" ") + " -Wl,--no-whole-archive"
 
 fastbootfiles = %w(
