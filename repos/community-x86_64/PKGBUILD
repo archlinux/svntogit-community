@@ -6,7 +6,7 @@
 
 pkgname=mumble
 pkgver=1.3.0
-pkgrel=8
+pkgrel=9
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
