@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-nodeenv
-pkgver=1.3.5
+pkgver=1.4.0
 pkgrel=1
 pkgdesc="Node.js virtual environment builder"
 url="https://github.com/ekalinin/nodeenv"
@@ -11,7 +11,7 @@ depends=('python' 'make')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner' 'python-coverage' 'python-mock')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/ekalinin/nodeenv/archive/$pkgver.tar.gz")
-sha512sums=('c7e9068a220f183a217b15e724aa8197fca8f2234c76eafd230899963b6796e66e151c20c529e6540f7e3c59849bda3860d563b38f5feeff73601043f79cfba0')
+sha512sums=('0c4faa562ca00a1a4196f9eace87d32a7d5d9ea39c9272a886eeb2ce3538bf071041efb1f32fb7511793e6f5d12ecca1d7d8e6b8639b10a2feed35a2eb2712a6')
 
 build() {
   cd nodeenv-$pkgver
