@@ -1,0 +1,66 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Josip Ponjavic <josipponjavic at gmail dot com>
+# Contributor: Xu Fasheng <fasheng.xu[AT]gmail.com>
+
+pkgname=deepin-daemon
+pkgver=5.11.0.1
+pkgrel=1
+pkgdesc='Daemon handling the DDE session settings'
+arch=('x86_64')
+url="https://github.com/linuxdeepin/dde-daemon"
+license=('GPL3')
+depends=('deepin-desktop-schemas' 'deepin-api' 'gvfs' 'iso-codes' 'lsb-release'
+         'mobile-broadband-provider-info' 'deepin-polkit-agent'
+         'deepin-polkit-agent-ext-gnomekeyring' 'udisks2' 'upower'
+         'libxkbfile' 'accountsservice' 'deepin-desktop-base' 'bamf' 'pulseaudio'
+         'org.freedesktop.secrets' 'noto-fonts' 'imwheel')
+makedepends=('golang-github-linuxdeepin-go-dbus-factory' 'golang-deepin-gir' 'golang-deepin-lib'
+             'golang-deepin-dde-api' 'golang-github-nfnt-resize' 'golang-gopkg-yaml.v2' 'sqlite' 'deepin-gettext-tools'
+             'git' 'mercurial' 'python-gobject' 'networkmanager' 'bluez' 'go-pie')
+optdepends=('networkmanager: for network management support'
+            'bluez: for bluetooth support'
+            'iw: for miracast module'
+            'proxychains-ng: for proxy configuration module')
+conflicts=('dde-daemon')
+replaces=('dde-daemon')
+groups=('deepin')
+install="${pkgname}.install"
+source=("$pkgname-$pkgver.tar.gz::https://github.com/linuxdeepin/dde-daemon/archive/$pkgver.tar.gz"
+        dde-daemon_5.9.4.2.diff
+        'deepin-daemon.sysusers')
+sha512sums=('9f573b0c0abbbf2a65fd4897d76deab58178fca9b87f66cc5fd6406da9fcb4a793003dc9a71ce67213cfda77cc2975b87e8011c4c835060744eff73a1bf24aa8'
+            '188bb74fc4deddd2d9cbc210ec487b45664178524294d9a98e47cd4c8a70e369fd3441697bc50b696a975cfbbbfa16666d1798b1ae25469abee50eb84e4bef27'
+            '808c02d4fec4cbbb01119bbb10499090199e738b7dd72c28a57dde098eef6132723f3434c151f79e21d9f788c7f7bae8046573ac93ba917afe0e803fbffa6d5a')
+
+prepare() {
+  cd dde-daemon-$pkgver
+  patch -p1 -i ../dde-daemon_5.9.4.2.diff
+
+  export GOPATH="$srcdir/build:/usr/share/gocode"
+
+  # golang-deepin-lib's dependency, remove when go packaging resumes
+  go get github.com/cryptix/wav
+
+  go get github.com/axgle/mahonia github.com/msteinert/pam github.com/gosexy/gettext github.com/rickb777/date \
+         github.com/jinzhu/gorm github.com/kelvins/sunrisesunset github.com/mozillazg/go-pinyin github.com/teambition/rrule-go \
+         golang.org/x/xerrors github.com/mattn/go-sqlite3
+
+  sed -i 's#/usr/share/backgrounds/default_background.jpg#/usr/share/backgrounds/deepin/desktop.jpg#' accounts/user.go
+}
+
+build() {
+  cd dde-daemon-$pkgver
+  make -C network/nm_generator gen-nm-code
+  make
+}
+
+package() {
+  cd dde-daemon-$pkgver
+  make DESTDIR="$pkgdir" PAM_MODULE_DIR=usr/lib/security install
+
+  mv "$pkgdir"{,/usr}/lib/systemd
+  mv "$pkgdir"{,/usr}/lib/udev
+  rmdir "$pkgdir"/lib
+
+  install -Dm644 ../deepin-daemon.sysusers "$pkgdir/usr/lib/sysusers.d/deepin-daemon.conf"
+}
