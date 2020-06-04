@@ -1,43 +1,56 @@
 # Maintainer: Christian Rebischke <chris.rebischke@archlinux.org>
+# Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Lex Black <autumn-wind@web.de>
 # Contributor: gardar <aur@gardar.net>
 # Contributor: Morten Linderud <morten@linderud.pw>
 
-pkgbase="python-testinfra"
-pkgname="python-testinfra"
-_pkgname="testinfra"
-pkgver=5.0.0
+_name=testinfra
+pkgname=python-testinfra
+pkgver=5.1.0
 pkgrel=1
 pkgdesc='Testinfra test your infrastructures'
 url="https://github.com/philpep/testinfra"
 arch=('any')
 license=('Apache')
-depends=('python-six')
-makedepends=('python' 'python-setuptools' 'python-pbr' 'python-sphinx')
-#checkdepends=('python-mock' 'python-pytest-cov' 'python-pytest-xdist'
-#'python-paramiko' 'python-tornado' 'salt' 'ansible' 'python-pywinrm')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/philpep/testinfra/archive/${pkgver}.tar.gz")
-sha512sums=('915d4819b3d289b9b87dba614e2d5d9ca48e80c1e7dd0df60d64fad31f27c19b7914179422547c8eaab2e203f8d4a460972898599bc439348a6fb7cbb357991d')
+depends=('python-pytest')
+makedepends=('python-setuptools_scm' 'python-hacking' 'python-sphinx')
+checkdepends=('python-mock' 'python-paramiko' 'python-pytest-cov'
+'python-pytest-xdist' 'python-pywinrm' 'python-tornado' 'ansible' 'salt')
+# TODO: add salt to optdepends, after it has been ported to python3
+optdepends=('ansible: for tests using ansible inventories'
+            'docker: for test running docker containers'
+            'kubectl: for test running containers in kubernetes'
+            'lxd: for test running LXC or LXD containers'
+            'podman: for test running podman containers'
+            'python-paramiko: for testing remote hosts'
+            'python-pywinrm: for testing on Windows hosts')
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
+sha512sums=('4882507cc72486e3a6df0e933f37c15c27c1465e5528bac61bc8038013ceb4df61c8b11d1838db4713053cac7eeeea4df2b50d46d43828b4e7b70a4afb04ccfe')
 
-
-
-build() {
-    cd "${_pkgname}-${pkgver}"
-    SETUPTOOLS_SCM_PRETEND_VERSION="${pkgver}" python setup.py build
-    make -C doc html man
+prepare() {
+  mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
 }
 
-# This checks are disabled, because salt, doesn't support python3 yet.
-# See also: https://bugs.archlinux.org/task/61129
-#check() {
-#    cd "${_pkgname}-${pkgver}"
-#    SETUPTOOLS_SCM_PRETEND_VERSION="${pkgver}" python setup.py test
-#}
+build() {
+  cd "${pkgname}-${pkgver}"
+  python setup.py build
+  make -C doc man
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  export PYTHONPATH="build:$PYTHONPATH"
+  # salt is not python3 (yet): https://bugs.archlinux.org/task/61129
+  pytest -v -k 'not test_backend_importables'
+}
 
 package() {
-    cd "${_pkgname}-${pkgver}"
-    SETUPTOOLS_SCM_PRETEND_VERSION="${pkgver}" python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
-    install -d "${pkgdir}/usr/share/doc/${pkgname}"
-    cp -r doc/build/html/* "${pkgdir}/usr/share/doc/${pkgname}"
-    install -Dm 644 doc/build/man/testinfra.1 "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+  cd "${pkgname}-${pkgver}"
+  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  # man page
+  install -Dm 644 doc/build/man/${_name}.1 \
+    "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+  # docs
+  install -vDm 644 {CHANGELOG,CONTRIBUTING,README}.rst \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
