@@ -5,13 +5,13 @@
 
 pkgname=dnscrypt-proxy
 pkgver=2.0.42
-pkgrel=2
+pkgrel=3
 pkgdesc="DNS proxy, supporting encrypted DNS protocols such as DNSCrypt v2 and DNS-over-HTTPS"
 arch=('x86_64')
 url="https://github.com/DNSCrypt/dnscrypt-proxy"
-license=('custom:ISC')
+license=('ISC')
 depends=('glibc')
-makedepends=('git' 'go-pie')
+makedepends=('git' 'go')
 optdepends=('python-urllib3: for generate-domains-blacklist')
 install="${pkgname}.install"
 backup=("etc/${pkgname}/${pkgname}.toml"
@@ -41,7 +41,12 @@ prepare() {
 
 build() {
   cd "$pkgname-$pkgver/${pkgname}"
-  go build -ldflags="-linkmode external -extldflags ${LDFLAGS} -s -w"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  go build
 }
 
 package() {
