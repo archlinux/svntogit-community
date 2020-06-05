@@ -19,23 +19,23 @@
 
 pkgbase=kodi
 pkgname=(
-  'kodi' 'kodi-bin' 'kodi-wayland' 'kodi-gbm'
+  'kodi' 'kodi-x11' 'kodi-wayland' 'kodi-gbm'
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
-pkgver=18.6
-pkgrel=2
+pkgver=18.7.1
+pkgrel=3
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
 makedepends=(
-  'afpfs-ng' 'bluez-libs' 'cmake' 'curl' 'doxygen' 'glew'
+  'afpfs-ng' 'bluez-libs' 'cmake' 'curl' 'dav1d' 'doxygen' 'git' 'glew'
   'gperf' 'hicolor-icon-theme' 'java-runtime' 'libaacs' 'libass'
   'libbluray' 'libcdio' 'libcec' 'libgl' 'mariadb-libs' 'libmicrohttpd'
   'libmodplug' 'libmpeg2' 'libnfs' 'libplist' 'libpulse' 'libva'
   'libvdpau' 'libxrandr' 'libxslt' 'lirc' 'lzo' 'mesa' 'nasm'
   'python2-pycryptodomex' 'python2-pillow' 'python2-pybluez'
   'python2-simplejson' 'shairplay' 'smbclient' 'taglib' 'tinyxml' 'swig'
-  'upower' 'giflib' 'rapidjson' 'ghostscript'
+  'upower' 'giflib' 'rapidjson' 'ghostscript' 'meson' 'gtest' 'graphviz'
   # wayland
   'wayland-protocols' 'waylandpp' 'libxkbcommon'
   # gbm
@@ -65,18 +65,19 @@ source=(
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
   'cheat-sse-build.patch'
   'cpuinfo'
+  '17804.patch'
 )
 noextract=(
-  "$pkgbase-libdvdcss-$_libdvdcss_commit.tar.gz"
-  "$pkgbase-libdvdnav-$_libdvdnav_commit.tar.gz"
-  "$pkgbase-libdvdread-$_libdvdread_commit.tar.gz"
+  "$pkgbase-libdvdcss-$_libdvdcss_version.tar.gz"
+  "$pkgbase-libdvdnav-$_libdvdnav_version.tar.gz"
+  "$pkgbase-libdvdread-$_libdvdread_version.tar.gz"
   "$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz"
   "$pkgbase-fmt-$_fmt_version.tar.gz"
   "$pkgbase-crossguid-$_crossguid_version.tar.gz"
   "$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz"
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
 )
-sha512sums=('9dffb052e0adf7c838ace178dd1e0e7b5fb02f01d43f90e22aa7d225bc67496586daab9bed2d20c1aaca34d4e69a9973fec5065f5076def2eb32da630d9cb67d'
+sha512sums=('db44c2d3c998af37948ccd042932545c9d781b622dba85ec11b7dd97ec0be80f03d2687249a9483d1b2a7178179bf5a003f8d0f4c0e55c9f2a41f67a27a19e0f'
             '5185dbdbeb1bd13ea9d8723f1f4ab599d6f3102f5ba1096cd085aa1cda252c045f327c719227bba8e1b742352ade5e335106c8d0c1637a5a6b93ce661620dd7e'
             '11c93eaacd156f8fd7dec7c43d366438b201f31ad55b2870463a9e286912b6ada08882319a021fb7992190f87b909a49f2b83e0321cc17aedc29f7fe5898fa72'
             'b3419ba0a1a2dd70f1bb6236afdfe1c6e88c9ad4264198b289e3bba9375e077cecf7f89848c7b09debaa445327f3507101f3d157e692f7a7163b2bb52643e1e7'
@@ -86,7 +87,8 @@ sha512sums=('9dffb052e0adf7c838ace178dd1e0e7b5fb02f01d43f90e22aa7d225bc67496586d
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
             '0ba07dbe5b2fde1d0a6e14ee26ee2816062541d934eda204b846a30c019362f2626761b628c900293928b9b546dba8ca477c13182e022c3e0e0a142fd67f0696'
             '424dbde693c83d923f82fe22cf42564eb51077bd021fc1cc72d03318fe49d498082494fd57354908a2443aea41f47a280d750d59cee9e78cff4241111a6ceada'
-            '539b33f30f6735caaf57fb9f19de449b8a8902362ae9e66a6fceabd530d02888533d2ab262fb187670780c997e5c1d23bd715a3c6860fd50280c1031f47865f7')
+            '539b33f30f6735caaf57fb9f19de449b8a8902362ae9e66a6fceabd530d02888533d2ab262fb187670780c997e5c1d23bd715a3c6860fd50280c1031f47865f7'
+            '69e477773bf6f4160288e445c7c2492e4de7054960bfcd6833f206e5c994c6b7a7995c51c1a45c702c34343063912c4c61590129f87181b21738ba7e489cd01d')
 
 prepare() {
   # force python 'binary' as python2
@@ -103,6 +105,8 @@ prepare() {
 
   cd "xbmc-$pkgver-$_codename"
 
+  patch -p1 -i "$srcdir/17804.patch"
+
   # detect if building in arch chroot
   if [[ "$srcdir" =~ ^\/build.* ]]; then
     patch -p1 -i "$srcdir/cheat-sse-build.patch"
@@ -112,7 +116,7 @@ prepare() {
 build() {
   export PATH="$srcdir/path:$PATH"
 
-  msg2 "building kodi-x11"
+  echo "building kodi-x11"
   cd "$srcdir/kodi-build-x11"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=/usr/lib \
@@ -130,11 +134,12 @@ build() {
     -DCROSSGUID_URL="$srcdir/$pkgbase-crossguid-$_crossguid_version.tar.gz" \
     -DFSTRCMP_URL="$srcdir/$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz" \
     -DFLATBUFFERS_URL="$srcdir/$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz" \
+    -DX11_RENDER_SYSTEM=gl \
     ../"xbmc-$pkgver-$_codename"
   make
   make preinstall
 
-  msg2 "building kodi-wayland"
+  echo "building kodi-wayland"
   cd "$srcdir/kodi-build-wayland"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=/usr/lib \
@@ -158,7 +163,7 @@ build() {
   make
   make preinstall
 
-  msg2 "building kodi-gbm"
+  echo "building kodi-gbm"
   cd "$srcdir/kodi-build-gbm"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=/usr/lib \
@@ -191,7 +196,7 @@ package_kodi() {
   depends=(
     'desktop-file-utils' 'hicolor-icon-theme' 'mesa' 'python2-pycryptodomex'
     'python2-pillow' 'python2-simplejson' 'xorg-xdpyinfo'
-    'kodi-bin'
+    'KODI-BIN'
   )
   optdepends=(
     'afpfs-ng: Apple shares support'
@@ -233,8 +238,10 @@ package_kodi() {
 # kodi-x11
 # components: kodi-bin
 
-package_kodi-bin() {
+package_kodi-x11() {
   pkgdesc="x11 kodi binary"
+  provides=('KODI-BIN')
+  replaces=('kodi-bin')
   depends=(
     'bluez-libs' 'curl' 'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec'
     'libmicrohttpd' 'libnfs' 'libpulse' 'libva' 'libvdpau' 'libxrandr'
@@ -252,7 +259,7 @@ package_kodi-bin() {
 
 package_kodi-wayland() {
   pkgdesc="wayland kodi binary"
-  provides=('kodi-bin')
+  provides=('KODI-BIN')
   depends=(
     'bluez-libs' 'curl' 'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec'
     'libmicrohttpd' 'libnfs' 'libpulse' 'libva' 'libxkbcommon' 'libxslt'
@@ -269,7 +276,7 @@ package_kodi-wayland() {
 
 package_kodi-gbm() {
   pkgdesc="gbm kodi binary"
-  provides=('kodi-bin')
+  provides=('KODI-BIN')
   depends=(
     'bluez-libs' 'curl' 'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec'
     'libinput' 'libmicrohttpd' 'libnfs' 'libpulse' 'libva' 'libxkbcommon'
