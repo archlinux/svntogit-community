@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.2.1
+pkgver=3.2.2
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
@@ -13,10 +13,15 @@ url="https://helm.sh/"
 license=("Apache")
 depends=('glibc')
 makedepends=("go" "git")
-_commit=e11b7ce3b12db2941e90399e874513fbd24bcb71
+_commit=a6ea66349ae3015618da4f547677a14b9ecc09b3
 source=("git+https://github.com/helm/helm.git#commit=$_commit?signed")
 validpgpkeys=('672C657BE06B4B30969C4A57461449C25E36B98E')
 sha256sums=('SKIP')
+
+pkgver() {
+  cd "${pkgname}"
+  git describe --tags | sed 's/^v//;s/-/+/g'
+}
 
 build() {
     cd "${pkgname}"
