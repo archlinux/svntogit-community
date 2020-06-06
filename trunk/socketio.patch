@@ -1,0 +1,47 @@
+From d3a43ffe1bfe4c128d6ab7c390419dee68f4ca5a Mon Sep 17 00:00:00 2001
+From: lethliel <mstrigl@suse.de>
+Date: Wed, 19 Feb 2020 11:53:05 +0100
+Subject: [PATCH] wrap SocketIO in io.Buffered* for makefile
+
+In python3.8 the fp is wrapped in a Buffer.
+SSL.Connection.makefile returns a socketIO which is no buffer.
+
+SocketIO in 'r' mode:
+use io.BufferedReader
+
+SocketIO in 'rw' mode:
+use io.BufferedRWPair
+---
+ M2Crypto/SSL/Connection.py | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/M2Crypto/SSL/Connection.py b/M2Crypto/SSL/Connection.py
+index 7053aa6b..01bb61c5 100644
+--- a/M2Crypto/SSL/Connection.py
++++ b/M2Crypto/SSL/Connection.py
+@@ -12,6 +12,7 @@ Copyright 2008 Heikki Toivonen. All rights reserved.
+ 
+ import logging
+ import socket
++import io
+ 
+ from M2Crypto import BIO, Err, X509, m2, py27plus, six, util  # noqa
+ from M2Crypto.SSL import Checker, Context, timeout  # noqa
+@@ -582,9 +583,12 @@ class Connection(object):
+         return m2.ssl_set_cipher_list(self.ssl, cipher_list)
+ 
+     def makefile(self, mode='rb', bufsize=-1):
+-        # type: (AnyStr, int) -> socket._fileobject
++        # type: (AnyStr, int) -> Union[io.BufferedRWPair,io.BufferedReader]
+         if six.PY3:
+-            return socket.SocketIO(self, mode)
++            raw = socket.SocketIO(self, mode)
++            if 'rw' in mode:
++                return io.BufferedRWPair(raw, raw)
++            return io.BufferedReader(raw, io.DEFAULT_BUFFER_SIZE)
+         else:
+             return socket._fileobject(self, mode, bufsize)
+ 
+-- 
+2.26.2
+
