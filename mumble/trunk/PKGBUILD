@@ -5,8 +5,8 @@
 # Contributor: Doc Angelo
 
 pkgname=mumble
-pkgver=1.3.0
-pkgrel=9
+pkgver=1.3.1
+pkgrel=1
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
@@ -17,21 +17,10 @@ makedepends=('alsa-lib' 'avahi' 'boost' 'jack' 'libpulse' 'libsndfile' 'mesa'
 optdepends=('speech-dispatcher: Text-to-speech support'
             'espeak-ng: Text-to-speech support')
 url="https://www.mumble.info/"
-source=("https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble-${pkgver}.tar.gz"{,.sig}
-        "${pkgname}-1.3.0-jack.patch::https://github.com/mumble-voip/mumble/pull/3990.patch")
-sha512sums=('2a629fc97f3c7c587c9a3b40fc96cf15d668acada37282ec1c4a5b169ad37717d60af94d12c7bce45f2816c265f76a99ebad40a006adcf8ca38a117e7c0a4122'
-            'SKIP'
-            '11e4e1b65b8d1fb0aa07b0eff131026a6f8d6063ed57b67d9ea23152ff55e9fdb5f65691089fa8b0498d7609f6bad7e1367eb5c8b9adfd1db1d48c908618d217')
-validpgpkeys=('56D0B23AE00B1EE9A8BAAC0F5B8CF87BB893449B') # Mumble Automatic Build Infrastructure 2019 <mumble-auto-build-2019@mumble.info>
-
-prepare() {
-  cd "$pkgname-$pkgver"
-  # changing the default to *not* unconditionally and automatically start a
-  # JACK server, when mumble is started
-  # https://bugs.archlinux.org/task/62755
-  # https://github.com/mumble-voip/mumble/issues/3989
-  patch -Np1 -i "../${pkgname}-1.3.0-jack.patch"
-}
+source=("https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble-${pkgver}.tar.gz"{,.sig})
+sha512sums=('f622ae5e4f7cd00ef60d225ee6db3cc13fcae5fdc1b03252d17ad6a18156526517e7d019f796b5600219e90e8662d095102fc6d61033fb20fd109afdf427a6d7'
+            'SKIP')
+validpgpkeys=('76B50270322F0E3D78DCE8298AA328A315175AE3') # Mumble Automatic Build Infrastructure 2020 <mumble-auto-build-2020@mumble.info>
 
 build() {
   cd "$pkgname-$pkgver"
