@@ -8,7 +8,7 @@
 pkgname=python-keyring
 _pkgname=keyring
 pkgver=21.2.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Store and access your passwords safely'
 arch=('any')
 url='https://github.com/jaraco/keyring'
@@ -36,7 +36,7 @@ check() {
 package() {
   cd $_pkgname
 
-  pip install -I --no-deps --root "$pkgdir" dist/$_pkgname-$pkgver-py3-none-any.whl
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
   rm -rf "$pkgdir"/usr/lib/python3.8/site-packages/keyring/tests
