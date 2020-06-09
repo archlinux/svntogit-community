@@ -2,14 +2,14 @@
 # Contributor: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=1.0.0rc10
-pkgrel=2
+pkgver=1.0.0rc90
+pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
 url='https://runc.io/'
 license=(Apache)
 depends=(libseccomp)
-makedepends=(git go-pie go-md2man)
+makedepends=(git go go-md2man)
 _commit=dc9208a3303feef5b3839f4323d9beb36df0a9dd  # tags/v1.0.0-rc10
 source=("git+https://github.com/opencontainers/runc.git#commit=$_commit?signed")
 validpgpkeys=("5F36C6C61B5460124A75F5A69E18AA267DDB8DB4")
@@ -27,10 +27,13 @@ prepare() {
 
 build() {
   cd src/github.com/opencontainers/runc
-  export EXTRA_FLAGS="-gcflags all=-trimpath=${PWD} -asmflags all=-trimpath=${PWD}"
   export GOPATH="$srcdir"
-  export EXTRA_LDFLAGS="-extldflags ${LDFLAGS}"
   export BUILDTAGS='seccomp apparmor'
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
   make runc man
 }
 
