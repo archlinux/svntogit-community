@@ -8,13 +8,13 @@
 pkgname=python-keyring
 _pkgname=keyring
 pkgver=21.2.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Store and access your passwords safely'
 arch=('any')
 url='https://github.com/jaraco/keyring'
 license=('PSF' 'MIT')
 depends=('python-entrypoints' 'python-secretstorage')
-makedepends=('git' 'python-setuptools-scm' 'python-entrypoints' 'python-pip' 'python-wheel')
+makedepends=('git' 'python-setuptools-scm')
 checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python-pytest-black' 'python-pytest-cov' 'python-keyrings-alt')
 optdepends=('python-keyrings-alt: Alternative backends'
             'python-dbus: kwallet backend')
@@ -24,7 +24,7 @@ sha512sums=('SKIP')
 build() {
   cd $_pkgname
 
-  python setup.py sdist bdist_wheel
+  python setup.py build
 }
 
 check() {
