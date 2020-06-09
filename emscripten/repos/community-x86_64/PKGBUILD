@@ -4,8 +4,8 @@
 # Contributor: Vlad Kolotvin <vlad.kolotvin@gmail.com>
 
 pkgname=emscripten
-pkgver=1.39.16
-pkgrel=2
+pkgver=1.39.17
+pkgrel=1
 pkgdesc="LLVM-based project that compiles C and C++ into highly-optimizable JavaScript for the web"
 arch=('x86_64')
 url="http://emscripten.org"
@@ -18,33 +18,33 @@ optdepends=('java-environment: for using clojure'
 install=emscripten.install
 # Get commit SHAs from here:
 # https://chromium.googlesource.com/emscripten-releases/+/refs/heads/master/DEPS
-source=(emscripten-$pkgver.tar.gz::"https://github.com/kripken/emscripten/archive/$pkgver.tar.gz"
-        git+https://github.com/llvm/llvm-project.git#commit=2150a6d0d635dea12c23dc84f356deeacbc8fbc2
+source=("git+https://github.com/kripken/emscripten#tag=$pkgver"
+        git+https://github.com/llvm/llvm-project.git#commit=4c735439fd9a0cfea9ae366df8b36281436d4708
+        https://github.com/emscripten-core/emscripten/pull/11355.patch
         "emscripten.sh"
-        arch-template.patch
+        emscripten-config
         libcxxabi-include-libunwind.patch)
-sha512sums=('8a36cb7864f37c3c937bc4056ff5e583f7f5299ad1c6ee0d9370819a7655d8908d6c916220a3402507d00b34bed6a6cac2ea1a5e2b10a826861badf0afee8da9'
+sha512sums=('SKIP'
             'SKIP'
+            'ea8dc41ace8e8628b24e68a39ceb7a82a51fa9f1501adb09c9799a1105a0becf2be54ec78149e115797b84b646dffe92180bbe3f276aef143cb318d9ac7e6335'
             'fbe9b95b8d18e7d0c6ec5fded6f11b72fbe4ddd0391e5704b281ba79c479f3563e82423b790ddf3f0554a23d659193ca898a81fe3db509f16c30c7188b790e4d'
-            '04ffe0eac346d4accd54321aace952ccf3d6016243b98e3239de3fddc77c2c89ac4dfd66f65095c7f8a474e0e2b692bbbf3a150fde1dc410de920d5835f332a1'
+            'd273785602bb7b199e22269bdc7fdc6190a8dd4defe0bfa3e41455c4e3c40d647dcc82c64c13024fb071e0f16bb094a7a30b773eb39fe84027d637c918cd39a6'
             'b124ff6110810e3190bf05deda478c6fef044ff55a435df978fdb7ff7b4f312186add48cb99946b67a2467f7e28855e36606209c3c4dcee2898762ccc2e4c2ed')
 
 prepare() {
-  cd "$srcdir"/emscripten-$pkgver
+  cd emscripten
 
-  patch -Np1 --no-backup-if-mismatch -i "$srcdir"/arch-template.patch
+  patch -Np1 --no-backup-if-mismatch -i "$srcdir"/11355.patch
   patch -Np1 --no-backup-if-mismatch -i "$srcdir"/libcxxabi-include-libunwind.patch
-
-  mkdir "$srcdir"/llvm-project/llvm/build
 }
 
 build() {
-  cd "$srcdir"/llvm-project/llvm/build
+  cd llvm-project/llvm
 
-  # Inspired from https://github.com/WebAssembly/waterfall/blob/58e343a47ea02cb6daf19eefbdf626b23c24980c/src/build.py#L790
-  cmake .. \
+  # Inspired from https://github.com/WebAssembly/waterfall/blob/db2ea5eeb11b74cce9b9459be0cc88807744b1b5/src/build.py#L868
+  cmake . \
+    -Bbuild \
     -GNinja \
-    -DPYTHON_EXECUTABLE=/usr/bin/python \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_SKIP_RPATH=YES \
     -DLLVM_TARGETS_TO_BUILD="X86;WebAssembly" \
@@ -55,21 +55,22 @@ build() {
     -DLLVM_INCLUDE_TESTS=OFF \
     -DLLVM_ENABLE_PROJECTS="lld;clang" \
     -DCLANG_INCLUDE_TESTS=OFF
-  ninja
+  ninja -C build
 }
 
 package() {
-  # Install LLVM stuff according to https://github.com/emscripten-core/emscripten/blob/incoming/docs/process.md
+  # Install LLVM stuff according to https://github.com/emscripten-core/emscripten/blob/master/docs/packaging.md
   install -d "$pkgdir"/usr/lib
   cp -r "$srcdir"/llvm-project/llvm/build/bin "$pkgdir"/usr/lib/emscripten-llvm
 
   # Install emscripten
-  cd "$srcdir"/emscripten-$pkgver
-  install -d "$pkgdir"/usr/lib/emscripten
-  cp -rup em* cmake site src system third_party tests tools "$pkgdir"/usr/lib/emscripten
+  cd emscripten
+  make DESTDIR="$pkgdir"/usr/lib/emscripten install
+  install -Dm644 "$srcdir"/emscripten-config "$pkgdir"/usr/lib/emscripten/.emscripten
 
   # Remove clutter
-  rm "$pkgdir"/usr/lib/emscripten/*.bat
+  # See https://github.com/emscripten-core/emscripten/issues/11358
+  rm -r "$pkgdir"/usr/lib/emscripten/{*.bat,.circleci,.clang-format,.editorconfig,.flake8,.gitattributes,.github,.gitignore}
 
   install -d "$pkgdir"/usr/share/doc
   ln -s /usr/lib/emscripten/site/source/docs "$pkgdir"/usr/share/doc/$pkgname
