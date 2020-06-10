@@ -2,7 +2,7 @@
 
 _pkgname=build
 pkgname=python-$_pkgname
-pkgver=0.0.3
+pkgver=0.0.3.1
 pkgrel=1
 pkgdesc='A simple, correct PEP517 package builder'
 arch=('any')
