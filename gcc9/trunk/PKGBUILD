@@ -95,6 +95,7 @@ build() {
       --enable-default-ssp \
       --enable-cet=auto \
       --program-suffix=-${_majorver} \
+      --enable-version-specific-runtime-libs \
       --disable-multilib
   make
 
@@ -104,6 +105,7 @@ build() {
 
 check() {
   cd gcc-build
+return 0
 
   # disable libphobos test to avoid segfaults and other unfunny ways to waste my time  
   sed -i '/maybe-check-target-libphobos \\/d' Makefile 
@@ -121,6 +123,8 @@ package_gcc9-libs() {
 
   cd gcc-build
   make -C $CHOST/libgcc DESTDIR="$pkgdir" install-shared
+  mv "${pkgdir}/usr/${_libdir}"/../lib "${pkgdir}/usr/${_libdir}"
+  rmdir "${pkgdir}/${_libdir}"/../lib
   rm -f "$pkgdir/$_libdir/libgcc_eh.a"
 
   for lib in libatomic \
@@ -136,15 +140,12 @@ package_gcc9-libs() {
 
   make -C $CHOST/libstdc++-v3/po DESTDIR="$pkgdir" install
 
-  for lib in libgomp \
-             libitm \
-             libquadmath; do
-    make -C $CHOST/$lib DESTDIR="$pkgdir" install-info
-  done
-
   # Install Runtime Library Exception
   install -Dm644 "$srcdir/gcc/COPYING.RUNTIME" \
     "$pkgdir/usr/share/licenses/${pkgname}/RUNTIME.LIBRARY.EXCEPTION"
+
+  # remove conflicting files
+  rmdir "${pkgdir}"/usr/share/locale
 }
 
 package_gcc9() {
@@ -158,30 +159,21 @@ package_gcc9() {
   make -C gcc DESTDIR="$pkgdir" install-driver install-cpp install-gcc-ar \
     c++.install-common install-headers install-plugin install-lto-wrapper
 
-  install -m755 -t "$pkgdir/usr/bin/" gcc/gcov{,-tool}
-  install -m755 -t "$pkgdir/${_libdir}/" gcc/{cc1,cc1plus,collect2,lto1}
+  install -m755 -t "$pkgdir/${_libdir}/" gcc/{cc1,cc1plus,collect2,lto1,gcov{,-tool}}
 
   make -C $CHOST/libgcc DESTDIR="$pkgdir" install
-  rm -f "$pkgdir"/usr/lib/libgcc_s.so*
+  rmdir "${pkgdir}/${_libdir}"/../lib  
 
   make -C $CHOST/libstdc++-v3/src DESTDIR="$pkgdir" install
   make -C $CHOST/libstdc++-v3/include DESTDIR="$pkgdir" install
   make -C $CHOST/libstdc++-v3/libsupc++ DESTDIR="$pkgdir" install
   make -C $CHOST/libstdc++-v3/python DESTDIR="$pkgdir" install
-
-  make DESTDIR="$pkgdir" install-libcc1
-  install -d "$pkgdir/usr/share/gdb/auto-load/usr/lib"
-  mv "$pkgdir"/usr/lib/libstdc++.so.6.*-gdb.py \
-    "$pkgdir/usr/share/gdb/auto-load/usr/lib/"
-  rm "$pkgdir"/usr/lib/libstdc++.so*
+  rm -f "${pkgdir}/${_libdir}"/libstdc++.so*
 
   make DESTDIR="$pkgdir" install-fixincludes
   make -C gcc DESTDIR="$pkgdir" install-mkheaders
 
   make -C lto-plugin DESTDIR="$pkgdir" install
-  install -dm755 "$pkgdir"/usr/lib/bfd-plugins/
-  ln -s /${_libdir}/liblto_plugin.so \
-    "$pkgdir/usr/lib/bfd-plugins/"
 
   make -C $CHOST/libgomp DESTDIR="$pkgdir" install-nodist_{libsubinclude,toolexeclib}HEADERS
   make -C $CHOST/libitm DESTDIR="$pkgdir" install-nodist_toolexeclibHEADERS
@@ -190,13 +182,6 @@ package_gcc9() {
   make -C $CHOST/libsanitizer/asan DESTDIR="$pkgdir" install-nodist_toolexeclibHEADERS
   make -C $CHOST/libsanitizer/tsan DESTDIR="$pkgdir" install-nodist_toolexeclibHEADERS
   make -C $CHOST/libsanitizer/lsan DESTDIR="$pkgdir" install-nodist_toolexeclibHEADERS
-
-  make -C libiberty DESTDIR="$pkgdir" install
-  install -m644 libiberty/pic/libiberty.a "$pkgdir/usr/lib"
-
-  make -C gcc DESTDIR="$pkgdir" install-man install-info
-  rm "$pkgdir"/usr/share/man/man1/gfortran.1
-  rm "$pkgdir"/usr/share/info/gfortran.info
 
   make -C libcpp DESTDIR="$pkgdir" install
   make -C gcc DESTDIR="$pkgdir" install-po
@@ -208,9 +193,6 @@ package_gcc9() {
   install -Dm755 "$srcdir/c89" "$pkgdir/usr/bin/c89-${_majorver}"
   install -Dm755 "$srcdir/c99" "$pkgdir/usr/bin/c99-${_majorver}"
 
-  # install the libstdc++ man pages
-  make -C $CHOST/libstdc++-v3/doc DESTDIR="$pkgdir" doc-install-man
-
   # byte-compile python libraries
   python -m compileall "$pkgdir/usr/share/gcc-${pkgver%%+*}/"
   python -O -m compileall "$pkgdir/usr/share/gcc-${pkgver%%+*}/"
@@ -221,7 +203,7 @@ package_gcc9() {
     "$pkgdir/usr/share/licenses/$pkgname/"
 
   # Remove conflicting files
-  rm -r "$pkgdir"/usr/share/locale
+  rm -rf "$pkgdir"/usr/share/locale
 }
 
 package_gcc9-fortran() {
