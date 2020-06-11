@@ -1,4 +1,4 @@
-From 34bda6658067630dd28b732cc7b8ba259ebf919a Mon Sep 17 00:00:00 2001
+From 9e8c2fd8abef936fa483da40f3819100b5e3b520 Mon Sep 17 00:00:00 2001
 From: Eli Schwartz <eschwartz@archlinux.org>
 Date: Tue, 6 Aug 2019 19:43:13 -0400
 Subject: [PATCH] Do not override the system SSL certificates with the certifi
@@ -6,41 +6,42 @@ Subject: [PATCH] Do not override the system SSL certificates with the certifi
 
 We need to respect the system certification policy, and by default the
 ssl module will use our packaged ca-certificates.
+
+ssl.create_default_context(cafile=None) is the default to use the
+builtin (system) certs, but can be overridden on the command line. I
+don't know why one would wish to do so, but eh, this patch is less
+invasive than the previous patch.
 ---
- dephell/networking.py | 7 +------
+ dephell/networking.py | 3 +--
  setup.py              | 2 +-
- 2 files changed, 2 insertions(+), 7 deletions(-)
+ 2 files changed, 2 insertions(+), 3 deletions(-)
 
 diff --git a/dephell/networking.py b/dephell/networking.py
-index 9f862be..b33e1b1 100644
+index faa91d3..61f836f 100644
 --- a/dephell/networking.py
 +++ b/dephell/networking.py
-@@ -2,7 +2,6 @@
- from ssl import create_default_context
+@@ -6,7 +6,6 @@ from time import sleep
+ from typing import Any, Optional
  
  # external
 -import certifi
  import requests
- from aiohttp import ClientSession, TCPConnector
- 
-@@ -17,11 +16,7 @@ def aiohttp_session(*, auth=None, **kwargs):
-     headers = dict()
-     if auth:
-         headers['Authorization'] = auth.encode()
--    ssl_context = create_default_context(cafile=certifi.where())
--    try:
--        connector = TCPConnector(ssl=ssl_context)
--    except TypeError:
--        connector = TCPConnector(ssl_context=ssl_context)
-+    connector = TCPConnector()
-     return ClientSession(headers=headers, connector=connector, **kwargs)
- 
- 
+ from aiohttp import ClientError, ClientSession, TCPConnector
+ from requests.sessions import Session
+@@ -31,7 +30,7 @@ def aiohttp_session(*, auth: Optional[Auth] = None, **kwargs: Any) -> ClientSess
+     # setup SSL
+     cafile = config.get('ca')
+     if not cafile:
+-        cafile = certifi.where()
++        cafile = None
+     ssl_context = create_default_context(cafile=cafile)
+     try:
+         connector = TCPConnector(ssl=ssl_context)
 diff --git a/setup.py b/setup.py
-index 704ec43..4babe44 100644
+index 2db6286..7f18120 100644
 --- a/setup.py
 +++ b/setup.py
-@@ -54,7 +54,7 @@ setup(
+@@ -56,7 +56,7 @@ setup(
      package_dir={"": "."},
      package_data={"dephell": ["templates/*.j2", "templates/*.sh"]},
      install_requires=[
@@ -50,5 +51,5 @@ index 704ec43..4babe44 100644
          'dephell-changelogs', 'dephell-discover>=0.2.6',
          'dephell-licenses>=0.1.6', 'dephell-links>=0.1.4',
 -- 
-2.25.2
+2.27.0
 
