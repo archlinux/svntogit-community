@@ -7,7 +7,7 @@ pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
 pkgver=20.1.1
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'lib32-libvdpau'
@@ -41,6 +41,8 @@ build() {
 llvm-config = '/usr/bin/llvm-config32'
 END
 
+  # swr driver is broken with some cpu see FS#66972
+
   arch-meson mesa-$pkgver build \
     --native-file crossfile.ini \
     --libdir=/usr/lib32 \
@@ -48,7 +50,7 @@ END
     -D b_ndebug=true \
     -D platforms=x11,wayland,drm,surfaceless \
     -D dri-drivers=i915,i965,r100,r200,nouveau \
-    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,swr,iris \
+    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,iris \
     -D vulkan-drivers=amd,intel \
     -D vulkan-overlay-layer=true \
     -D vulkan-device-select-layer=true \
@@ -193,7 +195,7 @@ package_lib32-mesa() {
   _install fakeinstall/usr/lib32/lib{gbm,glapi}.so*
   _install fakeinstall/usr/lib32/libOSMesa.so*
   _install fakeinstall/usr/lib32/libxatracker.so*
-  _install fakeinstall/usr/lib32/libswrAVX*.so*
+  #_install fakeinstall/usr/lib32/libswrAVX*.so*
 
   # in vulkan-headers
   rm -rv fakeinstall/usr/include/vulkan
