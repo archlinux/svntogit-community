@@ -1,46 +1,53 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=nlohmann-json
-pkgver=3.7.3
+pkgver=3.8.0
+_test_pkgver=2.0.0
 # upstream doesn't use annotated tags:
-_commit=e7b3b40b5a95bc74b9a7f662830a27c49ffc01b4
-pkgrel=4
+_commit=e7452d87783fbf6e9d320d515675e26dfd1271c5
+pkgrel=1
 pkgdesc="JSON for Modern C++"
 arch=('any')
 url="https://github.com/nlohmann/json"
 license=('MIT')
 makedepends=('cmake' 'git' 'meson')
-source=("${pkgname}::git+https://github.com/nlohmann/json#commit=${_commit}?signed")
-md5sums=('SKIP')
+source=("${pkgname}::git+https://github.com/nlohmann/json#commit=${_commit}?signed"
+        "json_test_data-${_test_pkgver}.tar.gz::https://github.com/nlohmann/json_test_data/archive/v${_test_pkgver}.tar.gz")
+md5sums=('SKIP'
+         'bf82cbb8d540a624194def861e96c417')
 validpgpkeys=('797167AE41C0A6D9232E48457F3CEA63AE251B69') # Niels Lohmann <mail@nlohmann.me>
 
 prepare() {
-  mv -v "$pkgname" "$pkgname-$pkgver"
+  mkdir -vp "$pkgname/build"
+  mv -v "json_test_data-${_test_pkgver}/" "$pkgname/build/json_test_data/"
 }
 
 build() {
-  cd "$pkgname-$pkgver"
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+  cd "$pkgname"
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_INSTALL_LIBDIR='/usr/lib' \
+        -DCMAKE_BUILD_TYPE='None' \
         -DBUILD_TESTING=ON \
-        -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+        -DJSON_BuildTests=ON \
         -DJSON_MultipleHeaders=ON \
+        -Wno-dev \
         -B build \
         -S .
   make VERBOSE=1 -C build
   # create pkgconfig integration
   meson --prefix=/usr \
-             --libdir=lib \
-             meson-build
+        --libdir=lib \
+        meson-build
   ninja -C meson-build
 }
 
 check() {
-  cd "$pkgname-$pkgver"
-  make -k check
+  cd "$pkgname/build"
+  ctest --output-on-failure
 }
 
 package() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgname"
   # NOTE: installing first with meson, as it will install the single header
   # file, but cmake will install multiple headers.
   DESTDIR="${pkgdir}" meson install -C meson-build
