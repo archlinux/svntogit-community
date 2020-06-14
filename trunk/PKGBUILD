@@ -2,52 +2,45 @@
 # Contributor: Sébastien Luttringer
 
 pkgname=arpwatch
-pkgver=2.1a15
-pkgrel=15
+pkgver=3.1
+pkgrel=1
 pkgdesc='Ethernet/FDDI station activity monitor'
 arch=('x86_64')
 url='ftp://ftp.ee.lbl.gov/'
 license=('BSD')
 depends=('libpcap' 'smtp-forwarder')
-source=("ftp://ftp.ee.lbl.gov/$pkgname-$pkgver.tar.gz"
-        'ethercodes.dat.xz'
+source=("https://ee.lbl.gov/downloads/arpwatch/arpwatch-$pkgver.tar.gz"
         'LICENSE'
+        "ethercodes.dat.gz"
         "$pkgname.service")
-sha512sums=('f770b5b7954afe910dafb016e6e886a4e785564bcdc0ea0de9d7b1ca6a9a0b219a9d1b50b6f42a67afc2f836e782e8ff85ba5780583015d62c9694ac53f0bf90'
-            '3dea05c98fab494c48fe55085aa152dc8f13ab60168fe9887955c594a86928fb850f49612c1d69450c1d6ac4286efb86cf5f3e9105eadfec88225b18d45f2ca7'
+sha512sums=('2e6f6e388e1828e34626e36356a89f3bc95d268b9242955d6636ac05041bcf533e7625ed73b37b6ea5eab8cfed54b8c483547556c98664efff63c18639efa282'
             'ed46c36220507d8ffbd01a3cc90c9047536b8af26af8c9623fae7a6584ad922b6adebabb6de771b0dbdc802da1a6cb51b8b30a8902c92d71f8b31ee763d61624'
-            'f5b259b1d25d847ca60b8b29e8f198d418803c5ea1493599bbc5232278431dbe06553984f862f35f84046a892f0b12f7989fa4a4b42d2f6c74bc9786a9877cc8')
+            'dc9818e6453e0d9ef38864536ea66b15a8acb48091b609e422227538d3d4c6b93cc853778f8f4ea8cd887dc15c1c62da66f4325c540eb80f9c78705d63a65226'
+            '4a9460c8a376d9183265b73e2c3b02965223144fecfeeb630ec5e70d40d4aed5725e5a43ae370938afa0a2fd362785020eca679e585a7f400e4e67f255807a84')
 
 prepare() {
   cd $pkgname-$pkgver
-  # move arp database in /var/lib/arpwatch
-  # /var is used because arpwatch write its learned mac into this folder
-  sed -i 's|ARPDIR = $(prefix)/arpwatch|ARPDIR = /var/lib/arpwatch|' Makefile.in
-  # binary ownership to root
-  sed -i 's/-\(o\|g\) bin/-\1 root/g' Makefile.in
-  # Update ethercodes with recent OUI. See gen_ethercodes.sh
-  cp -f "$srcdir/ethercodes.dat" ethercodes.dat
-  # Do not spam root user
-  sed -i 's|root|arpwatch|' addresses.h.in
+  sed -i '/@HAVE_FREEBSD_TRUE@/d' Makefile.in
 }
 
 build() {
   cd $pkgname-$pkgver
-  ./configure --prefix=/usr --mandir=/usr/share/man --sbindir=/usr/bin
+  ./configure \
+    --prefix=/usr \
+    --mandir=/usr/share/man \
+    --sbindir=/usr/bin \
+    --with-watcher=arpwatch
   make SENDMAIL=/usr/bin/sendmail
 }
 
 package() {
   cd $pkgname-$pkgver
   install -d -m 0755 "$pkgdir"/usr/{bin,share/man/man8}
-  make DESTDIR="$pkgdir" install install-man
+  make DESTDIR="$pkgdir" install
   # install ether prefix database
-  install -Dm644 ethercodes.dat "$pkgdir/var/lib/$pkgname/ethercodes.dat"
-  cd "$srcdir"
+  install -Dm644 "$srcdir"/ethercodes.dat "$pkgdir/var/lib/$pkgname/ethercodes.dat"
   # license
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir"/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   # systemd
-  install -Dm644 $pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname@.service"
+  install -Dm644 "$srcdir"/$pkgname.service "$pkgdir/usr/lib/systemd/system/$pkgname@.service"
 }
-
-# vim:set ts=2 sw=2 et:
