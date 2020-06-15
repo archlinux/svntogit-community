@@ -1,0 +1,60 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Giancarlo Razzolini <grazzolini@archlinux.org>
+# Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: K900 <k0009000@gmail.com>
+
+pkgname=steam
+pkgver=1.0.0.63
+pkgrel=1
+pkgdesc="Valve's digital software delivery system"
+url='https://steampowered.com/'
+arch=('x86_64')
+license=('custom')
+depends=('bash' 'desktop-file-utils' 'hicolor-icon-theme' 'curl' 'dbus'
+         'freetype2' 'gdk-pixbuf2' 'ttf-font' 'zenity' 'lsb-release' 'nss' 'usbutils'
+         'xorg-xrandr' 'vulkan-driver' 'vulkan-icd-loader' 'lsof' 'python')
+depends_x86_64=('lib32-libgl' 'lib32-gcc-libs' 'lib32-libx11' 'lib32-libxss'
+                'lib32-alsa-plugins' 'lib32-libgpg-error'
+                'lib32-nss' 'lib32-vulkan-driver' 'lib32-vulkan-icd-loader')
+optdepends=('steam-native-runtime: steam native runtime support')
+source=(http://repo.steampowered.com/${pkgname}/pool/${pkgname}/s/${pkgname}/${pkgname}_${pkgver}.tar.gz
+        steam-runtime.sh)
+sha512sums=('5fd761bb9fd4915c98fbb402d71c1bb92c39be0b2a104ef864eb61644fad58d10314a098f899cb7a28945c2b58afc5e9c98761e1ad8dba0b3347111a6c0e10e9'
+            '5e75c019e9fe8c67d686c4e3343dac1180a69a4bdb7d39b333415c63201eef9b98da5619dbf6fd8daa6884e65bc7f8afc9e52778682425e5a75987d527eae6f0')
+b2sums=('5fbc08687b4e7d637371b6e4032ecbc17fef26b4ad33844fb4e7b5acc1ae96266d2529291b19c31890172fdf7fd76706fc8a37d417f96846f8a9044fae517e20'
+        'c6bac99336b7c30fec7cdbaf9e949555c687dd9dff50bcae136134d6314f4b841f5fc66ddb2caac1b003690b926fd4afbdc11da143b4674db4b75f27709fdd23')
+
+prepare() {
+  cd ${pkgname}-launcher
+  # apply roundups for udev rules
+  sed -r 's|("0666")|"0660", TAG+="uaccess"|g' -i subprojects/steam-devices/60-steam-input.rules
+  sed -r 's|("misc")|\1, OPTIONS+="static_node=uinput"|g' -i subprojects/steam-devices/60-steam-input.rules
+  sed -r 's|(, TAG\+="uaccess")|, MODE="0660"\1|g' -i subprojects/steam-devices/60-steam-vr.rules
+
+  # separated runtime/native desktop files
+  sed -r 's|(Name=Steam)|\1 (Runtime)|' -i steam.desktop
+  sed -r 's|(/usr/bin/steam)|\1-runtime|' -i steam.desktop
+}
+
+package() {
+  cd ${pkgname}-launcher
+  make DESTDIR="${pkgdir}" install
+
+  install -Dm 755 "${srcdir}/steam-runtime.sh" "${pkgdir}/usr/bin/steam-runtime"
+  install -d "${pkgdir}/usr/lib/steam"
+  mv "${pkgdir}/usr/bin/steam" "${pkgdir}/usr/lib/steam/steam"
+  ln -sf /usr/bin/steam-runtime "${pkgdir}/usr/bin/steam"
+
+  install -Dm 644 COPYING steam_subscriber_agreement.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -Dm 644 debian/changelog -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  # blank steamdeps because apt-get
+  ln -sf /usr/bin/true "${pkgdir}/usr/bin/steamdeps"
+
+  install -Dm 644 subprojects/steam-devices/60-steam-input.rules \
+    "${pkgdir}/usr/lib/udev/rules.d/70-steam-input.rules"
+  install -Dm 644 subprojects/steam-devices/60-steam-vr.rules \
+    "${pkgdir}/usr/lib/udev/rules.d/70-steam-vr.rules"
+}
+
+# vim: ts=2 sw=2 et:
