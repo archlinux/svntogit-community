@@ -1,16 +1,16 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgbase=fltk
-pkgname=('fltk' 'fltk-docs')
+pkgname=('fltk' 'fltk-docs' 'fltk-examples')
 pkgver=1.3.5
-pkgrel=1
+pkgrel=2
 pkgdesc="Graphical user interface toolkit for X"
 arch=('x86_64')
 license=('custom' 'LGPL')
 url="https://www.fltk.org/"
-makedepends=('alsa-lib' 'cairo' 'cmake' 'desktop-file-utils' 'doxygen' 'glu' 'libjpeg'
-'libxcursor' 'libxft' 'libxinerama' 'mesa' 'shared-mime-info')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/fltk/fltk/archive/release-${pkgver}.tar.gz"
+makedepends=('alsa-lib' 'cmake' 'doxygen' 'libglvnd' 'libjpeg' 'libpng' 'mesa'
+'libx11')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${pkgbase}/${pkgbase}/archive/release-${pkgver}.tar.gz"
         "${pkgname}-fix-lib-mess.patch")
 sha512sums=('35732df4d66573fdabf95f57069c5a2df63b0029d7b904d4ac02bd4c3ab3e5b287d4f06998b67129e8195c42c0b39e137e5d4f10baf4d73992077bb5ae0bef6c'
             '14592ba5616483df1b36f6e2b8309a3d1e898c5c4dcf0ddfbb374bbd1332eca6ba3490569fc8f903023a069b7771ed06baddef36140253e2e81eb409892bbba5')
@@ -21,50 +21,79 @@ prepare() {
   # fix bizarre renaming of shared libraries
   # https://github.com/fltk/fltk/issues/20
   patch -Np1 -i ../${pkgname}-fix-lib-mess.patch
-  mkdir -v build
 }
 
 build() {
-  cd "${pkgbase}-${pkgver}/build"
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DFLTK_LIBDIR=/usr/lib \
+  cd "${pkgbase}-${pkgver}"
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DFLTK_LIBDIR='/usr/lib' \
+        -DCMAKE_BUILD_TYPE='None' \
         -DOPTION_CREATE_LINKS=ON \
+        -DOPTION_BUILD_EXAMPLES=OFF \
         -DOPTION_BUILD_SHARED_LIBS=ON \
         -DOPTION_BUILD_HTML_DOCUMENTATION=ON \
         -DOPTION_INSTALL_HTML_DOCUMENTATION=ON \
-        ..
-  make VERBOSE=1
-  make -C documentation html
+        -Wno-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
+  make -C build/documentation html
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DFLTK_LIBDIR='/usr/lib' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DOPTION_BUILD_EXAMPLES=ON \
+        -Wno-dev \
+        -B build-examples \
+        -S .
+  make VERBOSE=1 -C build-examples
 }
 
 package_fltk() {
   pkgdesc="Graphical user interface toolkit for X"
-  depends=('cairo' 'desktop-file-utils' 'glu' 'hicolor-icon-theme' 'libjpeg'
-  'libxcursor' 'libxft' 'libxinerama' 'shared-mime-info' 'xdg-utils')
-  optdepends=('alsa-lib: for sudoku example application')
-  replaces=('fltk-games')
+  depends=('gcc-libs' 'glibc' 'hicolor-icon-theme' 'libglvnd' 'libjpeg'
+  'libpng' 'libx11' 'libxext' 'libxfixes')
+  provides=('libfltk_images.so' 'libfltk_gl.so' 'libfltk_forms.so' 'libfltk.so')
   options=('!docs' 'staticlibs')
-
-  cd "${pkgbase}-${pkgver}/build"
-  make DESTDIR="${pkgdir}/" install
-  install -vDm 644 ../COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
-  # example apps and integration files, that are not covered by make install
-  for app in {blocks,checkers,sudoku}; do
-    install -vDm 755 "bin/examples/$app" -t "${pkgdir}/usr/bin/"
-    install -vDm 644 "../test/desktop/$app.desktop" \
-      -t "${pkgdir}/usr/share/applications/"
-    install -vDm 644 "../test/desktop/$app-32.png" \
-      "${pkgdir}/usr/share/icons/hicolor/32x32/apps/$app.png"
-    install -vDm 644 "../test/desktop/$app-128.png" \
-      "${pkgdir}/usr/share/icons/hicolor/128x128/apps/$app.png"
-  done
+  cd "${pkgbase}-${pkgver}"
+  make DESTDIR="${pkgdir}/" install -C build
+  install -vDm 644 COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  # removing man pages of examples
+  rm -rvf "${pkgdir}/usr/share/man/man6"
 }
 
 package_fltk-docs() {
   pkgdesc="Graphical user interface toolkit for X (documentation)"
-
-  cd "${pkgbase}-${pkgver}/build"
-  make DESTDIR="$pkgdir" -C documentation install
-  install -vDm 644 ../COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  cd "${pkgbase}-${pkgver}"
+  make DESTDIR="$pkgdir" install -C build/documentation html
+  install -vDm 644 COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
 }
 
+package_fltk-examples() {
+  pkgdesc="Graphical user interface toolkit for X (examples)"
+  depends=('gcc-libs' 'glibc' 'hicolor-icon-theme' 'libasound.so' 'libjpeg'
+  'libpng' 'libx11' 'libxext' 'libxfixes')
+  options=('!docs')
+  cd "${pkgbase}-${pkgver}"
+  make DESTDIR="$pkgdir" install -C build-examples
+  # example apps and integration files, that are not covered by make install
+  for app in {blocks,checkers,sudoku}; do
+    install -vDm 755 "build-examples/bin/examples/$app" -t "${pkgdir}/usr/bin/"
+    install -vDm 644 "test/desktop/$app.desktop" \
+      -t "${pkgdir}/usr/share/applications/"
+    install -vDm 644 "test/desktop/$app-32.png" \
+      "${pkgdir}/usr/share/icons/hicolor/32x32/apps/$app.png"
+    install -vDm 644 "test/desktop/$app-128.png" \
+      "${pkgdir}/usr/share/icons/hicolor/128x128/apps/$app.png"
+  done
+  install -vDm 644 COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  # removing any non-examples files
+  rm -rfv "${pkgdir}/usr/bin/fltk-config" \
+          "${pkgdir}/usr/include" \
+          "${pkgdir}/usr/lib" \
+          "${pkgdir}/usr/share/applications/fluid.desktop" \
+          "${pkgdir}/usr/share/man/man"{1,3} \
+          "${pkgdir}/usr/share/fltk" \
+          "${pkgdir}/usr/share/icons/hicolor/"{48,64}* \
+          "${pkgdir}/usr/share/mime"
+  find "${pkgdir}" -type f -iname "*fluid*" -exec rm -rvf {} \;
+}
