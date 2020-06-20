@@ -2,19 +2,22 @@
 # Contributor: Eric Bélanger <eric@archlinux.org>
 
 pkgname=xaos
-pkgver=3.7
+pkgver=4.0
 pkgrel=1
 pkgdesc='Interactive fractal zoomer'
 arch=(x86_64)
 url='https://xaos-project.github.io/'
-license=(GPL)
-makedepends=(gendesk git)
-depends=(gsl gtk3)
-#options=(!makeflags)
-source=("git+https://github.com/xaos-project/XaoS#commit=1709b93d92eef541c66134db9776935a87b70f05") # tag: release-3.7
+license=(GPL2)
+makedepends=(gendesk git qt5-tools)
+depends=(qt5-base)
+source=("git+https://github.com/xaos-project/XaoS#commit=06c4b4c65cbe5515c3e40f541016a3b6b65d8ea8") # tag: release-4.0
 md5sums=('SKIP')
 
 prepare() {
+  # Add missing include
+  sed -i '30i#include <cstdlib>' XaoS/src/util/timers.cpp
+
+  # Desktop shortcut
   gendesk -f -n \
     --pkgname=XaoS \
     --pkgdesc="$pkgdesc" \
@@ -25,27 +28,32 @@ prepare() {
 
 build() {
   cd XaoS
-  autoreconf
-  ./configure \
-    --prefix=/usr \
-    --with-long-double=yes \
-    --with-mitshm=no \
-    --with-pthread=yes \
-    --with-png=yes \
-    --with-gsl=yes \
-    --with-x11-driver=no \
-    --with-gtk-driver=yes \
-    --with-win32-driver=no \
-    --with-aa-driver=yes
-  make
+  export DEFINES="USE_OPENGL USE_FLOAT128"
+  qmake && make
 }
 
 package() {
-  make -C XaoS DESTDIR="$pkgdir" install
-  install -Dm644 "XaoS/src/ui/ui-drv/qt/images/xaosbig.png" \
-    "$pkgdir/usr/share/pixmaps/$pkgname.png"
-  install -Dm644 XaoS.desktop \
+  cd XaoS
+
+  # Executable
+  install -Dm755 bin/xaos "$pkgdir/usr/bin/xaos"
+
+  # Tutorial and catalogs
+  install -d "$pkgdir/usr/share/XaoS/"
+  cp -r tutorial catalogs "$pkgdir/usr/share/XaoS"
+
+  # Examples
+  install -d "$pkgdir/usr/share/XaoS/examples"
+  find examples -name "*.xpf" -exec install -Dm644 -t "$pkgdir"/usr/share/XaoS/examples/ {} \;
+
+  # Desktop shortcut and icon
+  install -Dm644 ../XaoS.desktop \
     "$pkgdir/usr/share/applications/$pkgname.desktop"
+  install -Dm644 "src/ui/images/xaosbig.png" \
+    "$pkgdir/usr/share/pixmaps/$pkgname.png"
+
+  # Man page
+  install -Dm644 doc/xaos.6 "$pkgdir/usr/share/man/man6/xaos.6"
 }
 
 # vim: ts=2 sw=2 et:
