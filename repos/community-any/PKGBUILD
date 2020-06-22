@@ -4,7 +4,7 @@
 
 pkgname=python-certifi
 _libname=${pkgname/python-/}
-pkgver=2020.4.5.2
+pkgver=2020.6.20
 pkgrel=1
 pkgdesc="Python package for providing Mozilla's CA Bundle"
 arch=(any)
@@ -13,7 +13,7 @@ license=('GPL')
 depends=('python')
 makedepends=('python-setuptools')
 source=("https://pypi.io/packages/source/${_libname:0:1}/$_libname/$_libname-$pkgver.tar.gz")
-sha512sums=('8f30ff38a9af37799b4223402436b40e7fad68134221a0bb8842fe46d279943ecabe9eca1ff9d2511e1e865f865218cf2a7b52243ce342c33989a7e01d3c8281')
+sha512sums=('a0f22aec563636c270607ce1a27c9996b09f30cf7601b4ed7d7bc20572c411032134c92645f26962331936035cb7016d79b36680c71b7521e00dd0288827a0dc')
 
 build() {
   cd "$srcdir/$_libname-$pkgver"
