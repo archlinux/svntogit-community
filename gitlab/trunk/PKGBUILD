@@ -11,7 +11,7 @@
 # commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
 # need this again at some point in the future.
 pkgname=gitlab
-pkgver=13.1.0
+pkgver=13.1.1
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
