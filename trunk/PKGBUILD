@@ -14,11 +14,11 @@ _deps=('six' 'webencodings')
 makedepends=('python-setuptools' 'python2-setuptools' "${_deps[@]/#/python-}" "${_deps[@]/#/python2-}")
 _checkdeps=('pytest' 'pytest-expect' 'lxml' 'mock')
 checkdepends=("${_checkdeps[@]/#/python-}" "${_checkdeps[@]/#/python2-}")
-_test_commit=c305da74fae50fb018870de7a042da36c1a93b65
+_test_commit=71eebd59772d1d39aced0c0582ae9c09acf3ce6e
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz"
         "https://github.com/html5lib/html5lib-tests/archive/${_test_commit}.tar.gz")
 sha256sums=('66e9e24a53c10c27abb6be8a3cf2cf55824c6ea1cef8570a633cb223ec46e894'
-            'cb261423c644b3469ac66926e290060b481371d0952995d270492fc761d0209a')
+            'c866f5e4ae9ef34313e2b61fcb74849b6f8aef970bf8249956b6a5d142197087')
 
 prepare() {
     cd "${srcdir}"/html5lib-python-${pkgver}
