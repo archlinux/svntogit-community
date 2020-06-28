@@ -5,7 +5,7 @@
 pkgbase=lazarus
 pkgname=('lazarus' 'lazarus-gtk2' 'lazarus-qt5')
 pkgver=2.0.8
-pkgrel=1
+pkgrel=2
 url='http://www.lazarus.freepascal.org/'
 license=('GPL2' 'MPL' 'custom:modifiedLGPL')
 arch=('x86_64')
