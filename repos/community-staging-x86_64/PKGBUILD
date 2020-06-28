@@ -1,0 +1,57 @@
+# Maintainer: Alexander F Rødseth <xyproto@archlinux.org>
+# Contributor: Vesa Kaihlavirta <vesa@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=QuickCheck
+pkgname=haskell-quickcheck
+pkgver=2.14
+pkgrel=12
+pkgdesc='Automatic testing of Haskell programs'
+url='https://hackage.haskell.org/package/QuickCheck'
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-erf' 'haskell-random' 'haskell-splitmix')
+makedepends=('ghc')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz"
+        $_hkgname-splitmix-0.1.patch::https://github.com/nick8325/quickcheck/pull/299.patch)
+sha512sums=('400ec89b1852f2825eb1c6aadec9a3c5f8b284f12a6701277a6940bd7bf4560e635cea86eb6134e39be7c20b3afaa7c76e604c53249e7030bc47ee14099e6180'
+            'da77839ccb3a198e72f0ed2a26824de75ca0aba021f6034d29387f5ed782a4df183118750407b7048c3f79db9e8275210002c6e4f1d4a9cf23a66f30fecd8fb5')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  patch -p1 -i ../$_hkgname-splitmix-0.1.patch || :
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure \
+    -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir="/usr/share/doc/$pkgname" --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    -ftemplateHaskell
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir/usr/share/haskell/register/$pkgname.sh"
+  install -D -m744 unregister.sh "$pkgdir/usr/share/haskell/unregister/${pkgname}.sh"
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
+
+# vim: ts=2 sw=2 et:
