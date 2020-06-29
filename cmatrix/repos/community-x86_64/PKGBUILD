@@ -3,56 +3,53 @@
 
 pkgname=cmatrix
 pkgver=2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A curses-based scrolling 'Matrix'-like screen"
 arch=('x86_64')
-url="http://www.asty.org/cmatrix/"
+url="https://www.asty.org/cmatrix/"
 license=('GPL3')
 depends=('ncurses')
-makedepends=('fontconfig' 'cmake' 'kbd' 'xorg-fonts-alias')
-optdepends=('fontconfig: custom font'
-            'kbd: cmatrix-tty custom font'
+# source already ships prebuild fonts - no need to add more deps to satisfy cmake
+makedepends=('cmake')
+optdepends=('kbd: cmatrix-tty custom font'
             'xterm: cmatrix-tty custom font')
-# "http://www.asty.org/$pkgname/dist/$pkgname-$pkgver.tar.gz"
+# "https://www.asty.org/$pkgname/dist/$pkgname-$pkgver.tar.gz"
 source=("cmatrix-$pkgver.tgz::https://github.com/abishekvashok/cmatrix/archive/v$pkgver.tar.gz"
         "cmatrix-tty")
 md5sums=('c2aee6d44c4d46df6f16dca2a3dc18ad'
          '6bb2431c23350cb2082e14b6ba761760')
 
 prepare() {
-  cd "$pkgname-$pkgver"
-
-  sed -i 's|/usr/bin/mkfontdir|/usr/bin/true|' CMakeLists.txt
-  sed -i 's|"share/fonts/X11/misc"|"share/fonts/misc"|' CMakeLists.txt
-  sed -i 's|"share/consolefonts"|"share/kbd/consolefonts"|' CMakeLists.txt
-
-  sed -i 's|defined(HAVE_SETFONT)|1|' cmatrix.c
+  mkdir build
 }
 
 build() {
-  cd "$pkgname-$pkgver"
-  mkdir -p build
   cd build
-  cmake -DCMAKE_INSTALL_PREFIX=/usr ..
-
-  #CPPFLAGS="-D_FORTIFY_SOURCE=0" ./configure \
-  #  --prefix=/usr --mandir=/usr/share/man
-
+  cmake ../$pkgname-$pkgver \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    #-D CONSOLE_FONTS_DIRS=/usr/share/kbd/consolefonts \
+    #-D X_FONTS_DIRS=/usr/share/fonts/misc \
+    #-D UNIX=true
   make
 }
 
 package() {
-  cd "$pkgname-$pkgver/build"
+  # only the binary has a target to install
+  make -C build DESTDIR="$pkgdir" install
 
-  make DESTDIR="$pkgdir" install
+  cd $pkgname-$pkgver
 
-  # manually install stuff that cmake is being annoying about
-  rm -f "$pkgdir/usr/share/fonts/misc/fonts.dir"
- 
+  # install X font
+  install -D -m644 mtx.pcf "$pkgdir"/usr/share/fonts/misc/mtx.pcf
+
+  # install console font
+  install -D -m644 matrix.fnt "$pkgdir"/usr/share/kbd/consolefonts/matrix.fnt
+  install -D -m644 matrix.psf.gz "$pkgdir"/usr/share/kbd/consolefonts/matrix.psf.gz
+
   # todo: fix the pretty wrapper 
   #install -Dm755 "$srcdir/cmatrix-tty" "$pkgdir/usr/bin/cmatrix-tty"
 
-  cd ..
   for i in AUTHORS NEWS COPYING README ChangeLog INSTALL; do
     install -Dm644 $i "$pkgdir/usr/share/doc/$pkgname/$i"
   done
