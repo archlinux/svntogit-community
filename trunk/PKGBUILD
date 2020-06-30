@@ -6,7 +6,7 @@
 pkgname=thermald
 _pkgname=thermal_daemon
 pkgver=2.2
-pkgrel=2
+pkgrel=3
 pkgdesc='The Linux Thermal Daemon program from 01.org'
 arch=('x86_64')
 url='https://01.org/linux-thermal-daemon'
@@ -24,6 +24,7 @@ build() {
   ./configure \
     --prefix=/usr \
     --sysconfdir=/etc \
+    --with-dbus-sys-dir=/usr/share/dbus-1/system.d \
     --localstatedir=/var \
     --sbindir=/usr/bin
   make
