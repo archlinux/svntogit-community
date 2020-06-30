@@ -1,0 +1,112 @@
+commit 9cbdf3a6e2cb23a7673fe19b2a3f888714095019
+Author: Oliver Kurth <okurth@vmware.com>
+Date:   Wed Apr 1 11:31:36 2020 -0700
+
+    Add a Coverity annotation.
+    
+    The Coverity scan of open-vm-tools reports an out-of-bounds access
+    issue in Util_BacktraceWithFunc.  This is intentional, to compute
+    the base pointer for a stack trace.
+
+diff --git a/open-vm-tools/lib/user/utilBacktrace.c b/open-vm-tools/lib/user/utilBacktrace.c
+index dca33d26..e1259606 100644
+--- a/open-vm-tools/lib/user/utilBacktrace.c
++++ b/open-vm-tools/lib/user/utilBacktrace.c
+@@ -1,5 +1,5 @@
+ /*********************************************************
+- * Copyright (C) 2013-2019 VMware, Inc. All rights reserved.
++ * Copyright (C) 2013-2020 VMware, Inc. All rights reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU Lesser General Public License as published
+@@ -438,6 +438,7 @@ Util_BacktraceWithFunc(int bugNr,                // IN:
+    } else {
+       outFunc(outFuncData, "Backtrace for bugNr=%d\n",bugNr);
+    }
++   /* coverity[ptr_arith] */
+    UtilBacktraceFromPointerWithFunc(&x[-2], outFunc, outFuncData);
+ #endif
+ }
+commit bb11e038323893d2428eb2ce94f8742233b45546
+Author: Oliver Kurth <okurth@vmware.com>
+Date:   Wed Jun 10 12:05:43 2020 -0700
+
+    Changes to common source file not applicable to open-vm-tools.
+
+diff --git a/open-vm-tools/lib/user/utilBacktrace.c b/open-vm-tools/lib/user/utilBacktrace.c
+index e1259606..99871365 100644
+--- a/open-vm-tools/lib/user/utilBacktrace.c
++++ b/open-vm-tools/lib/user/utilBacktrace.c
+@@ -422,7 +422,7 @@ Util_BacktraceWithFunc(int bugNr,                // IN:
+    for (i = 0; i < frames; i++) {
+       if (dladdr(callstack[i], &dli)) {
+          outFunc(outFuncData, "SymBacktrace[%d] rip=%016lx in function %s "
+-                              "in object %s loaded at %#08x\n",
++                              "in object %s loaded at %016lx\n",
+                  i, callstack[i], dli.dli_sname, dli.dli_fname,
+                  dli.dli_fbase);
+       } else {
+
+commit 0cfda58aaa8bc0fea56f1211897e7f2237f6070a
+Author: Oliver Kurth <okurth@vmware.com>
+Date:   Wed Jun 10 12:05:46 2020 -0700
+
+    Make peeking back into the stack work for back traces
+    
+    GCC 10 doesn't like peeking back before the end of an arrary (which
+    is used to peek into the stack).  Fix this.
+    
+    https://github.com/vmware/open-vm-tools/issues/429
+
+diff --git a/open-vm-tools/lib/user/utilBacktrace.c b/open-vm-tools/lib/user/utilBacktrace.c
+index 99871365..d26d21e7 100644
+--- a/open-vm-tools/lib/user/utilBacktrace.c
++++ b/open-vm-tools/lib/user/utilBacktrace.c
+@@ -343,7 +343,8 @@ UtilBacktraceFromPointerWithFunc(uintptr_t *basePtr,       // IN:
+                                i, x[0], x[1], dli.dli_sname, dli.dli_fname,
+                                 dli.dli_fbase);
+       } else {
+-         outFunc(outFuncData, "SymBacktrace[%d] %#08x eip %#08x \n", i, x[0], x[1]);
++         outFunc(outFuncData, "SymBacktrace[%d] %#08x eip %#08x \n", i, x[0],
++                 x[1]);
+       }
+       x = (uintptr_t *) x[0];
+    }
+@@ -394,6 +395,7 @@ Util_Backtrace(int bugNr) // IN
+  *-----------------------------------------------------------------------------
+  */
+ 
++
+ void
+ Util_BacktraceWithFunc(int bugNr,                // IN:
+                        Util_OutputFunc outFunc,  // IN:
+@@ -413,7 +415,7 @@ Util_BacktraceWithFunc(int bugNr,                // IN:
+    if (bugNr == 0) {
+       outFunc(outFuncData, "Backtrace:\n");
+    } else {
+-      outFunc(outFuncData, "Backtrace for bugNr=%d\n",bugNr);
++      outFunc(outFuncData, "Backtrace for bugNr=%d\n", bugNr);
+    }
+    frames = backtrace(callstack, ARRAYSIZE(callstack));
+    for (i = 0; i < frames; i++) {
+@@ -431,14 +433,14 @@ Util_BacktraceWithFunc(int bugNr,                // IN:
+       }
+    }
+ #else
+-   uintptr_t *x = (uintptr_t *) &bugNr;
+-
+    if (bugNr == 0) {
+       outFunc(outFuncData, "Backtrace:\n");
+    } else {
+-      outFunc(outFuncData, "Backtrace for bugNr=%d\n",bugNr);
++      outFunc(outFuncData, "Backtrace for bugNr=%d\n", bugNr);
+    }
+-   /* coverity[ptr_arith] */
+-   UtilBacktraceFromPointerWithFunc(&x[-2], outFunc, outFuncData);
++
++   UtilBacktraceFromPointerWithFunc(__builtin_frame_address(0), outFunc,
++                                    outFuncData);
+ #endif
+ }
++
+
