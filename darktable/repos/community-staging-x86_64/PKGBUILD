@@ -7,13 +7,13 @@
 pkgname=darktable
 epoch=2
 pkgver=3.0.2
-pkgrel=6
+pkgrel=7
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
 license=(GPL3)
 depends=(pugixml libjpeg-turbo colord-gtk libgphoto2 openexr lensfun iso-codes zlib
-         exiv2 flickcurl openjpeg2 graphicsmagick lua osm-gps-map libsecret openmp
+         exiv2 flickcurl openjpeg2 graphicsmagick lua53 osm-gps-map libsecret openmp
          gmic)
 optdepends=('dcraw: base curve script'
             'perl-image-exiftool: base curve script'
