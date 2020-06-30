@@ -1,0 +1,68 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ponyc
+pkgver=0.35.1
+_llvmcommit=c1a0a213378a458fbea1a5c77b315c7dce08fd05
+pkgrel=1
+pkgdesc='An actor model, capabilities, high performance programming language'
+url='https://ponylang.org/'
+arch=('x86_64')
+license=('BSD')
+depends=('zlib')
+makedepends=('cmake' 'git' 'gmock' 'grpc' 'gtest')
+checkdepends=('pcre2')
+options=('!strip')
+optdepends=('pcre2: Needed for the regex package')
+source=("https://github.com/ponylang/ponyc/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        "https://github.com/llvm/llvm-project/archive/$_llvmcommit/llvm-$_llvmcommit.tar.gz")
+sha512sums=('a602442d8acb347b36d85ea77b181993704c52bff079d9d95f2b453b1db077554e1003e6456885b2d584fed816869699325a37d263407971cb1ca8469aa94995'
+            '0c0b5f2c32479c148abebcc170651f5e6fc02177d3cf5638381ef177815f6c2223de7d4c082faa9de765a56ef1fba021583a748a5d009860b84979dc8d5ee064')
+
+prepare() {
+  cd ponyc-$pkgver
+  rmdir lib/llvm/src
+  ln -sf "$srcdir"/llvm-project-$_llvmcommit lib/llvm/src
+
+  # Use system gmock/gtest/gbenchmark
+  sed -i 's|NO_DEFAULT_PATH||' CMakeLists.txt
+
+  # Don't download gbenchmark/gtest
+  sed -i '12,20d' lib/CMakeLists.txt
+  # sed -i 's/-Werror //' CMakeLists.txt
+}
+
+build() {
+  cd ponyc-$pkgver
+  make config=release prefix=/usr arch=x86-64 libs
+  make config=release prefix=/usr arch=x86-64 configure
+  make config=release prefix=/usr arch=x86-64 build
+
+  mkdir docs
+  build/release/ponyc packages/stdlib -rexpr -g -o docs
+}
+
+check() {
+  cd ponyc-$pkgver
+  make config=release prefix=/usr arch=x86-64 test
+}
+
+package() {
+  cd ponyc-$pkgver
+  make config=release arch= DESTDIR="$pkgdir"/usr/lib/pony install
+
+  install -dm755 "$pkgdir"/usr/{bin,lib,include/pony/detail}
+  ln -sf /usr/lib/pony/bin/ponyc "$pkgdir"/usr/bin/
+  for _lib in {libponyc,libponyrt,libponyrt-pic}.a; do
+    ln -sf /usr/lib/pony/lib/$_lib "$pkgdir"/usr/lib/
+  done
+  ln -sf /usr/lib/pony/include/pony.h "$pkgdir"/usr/include/
+  ln -sf /usr/lib/pony/include/pony/detail/atomics.h "$pkgdir"/usr/include/pony/detail/
+
+  # Let's include the examples as documentation is scarce.
+  install -dm755 "$pkgdir"/usr/share/doc/pony
+  cp -dr --no-preserve=ownership examples "$pkgdir"/usr/share/doc/pony
+
+  cp -dr docs/* "$pkgdir"/usr/share/doc/pony
+
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
+}
