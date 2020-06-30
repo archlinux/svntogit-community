@@ -1,28 +1,41 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=ponyc
-pkgver=0.33.2
-pkgrel=2
+pkgver=0.35.1
+_llvmcommit=c1a0a213378a458fbea1a5c77b315c7dce08fd05
+pkgrel=1
 pkgdesc='An actor model, capabilities, high performance programming language'
 url='https://ponylang.org/'
 arch=('x86_64')
 license=('BSD')
-depends=('llvm9-libs')
-makedepends=('llvm9')
+depends=('zlib')
+makedepends=('cmake' 'git' 'gmock' 'grpc' 'gtest')
 checkdepends=('pcre2')
 options=('!strip')
 optdepends=('pcre2: Needed for the regex package')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/ponylang/ponyc/archive/$pkgver.tar.gz")
-sha512sums=('cc02bdac029325689fbe7a5c9e8c9f8a8adf9346e17a6c626c9eca8dcae110c3cf4fb9af348b603e9804dff97183e02687f092d76b62e4bb13e571cd1c7585e8')
+source=("https://github.com/ponylang/ponyc/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        "https://github.com/llvm/llvm-project/archive/$_llvmcommit/llvm-$_llvmcommit.tar.gz")
+sha512sums=('a602442d8acb347b36d85ea77b181993704c52bff079d9d95f2b453b1db077554e1003e6456885b2d584fed816869699325a37d263407971cb1ca8469aa94995'
+            '0c0b5f2c32479c148abebcc170651f5e6fc02177d3cf5638381ef177815f6c2223de7d4c082faa9de765a56ef1fba021583a748a5d009860b84979dc8d5ee064')
 
 prepare() {
   cd ponyc-$pkgver
-  sed -i 's/-Werror //' Makefile
+  rmdir lib/llvm/src
+  ln -sf "$srcdir"/llvm-project-$_llvmcommit lib/llvm/src
+
+  # Use system gmock/gtest/gbenchmark
+  sed -i 's|NO_DEFAULT_PATH||' CMakeLists.txt
+
+  # Don't download gbenchmark/gtest
+  sed -i '12,20d' lib/CMakeLists.txt
+  # sed -i 's/-Werror //' CMakeLists.txt
 }
 
 build() {
   cd ponyc-$pkgver
-  make config=release prefix=/usr arch=x86-64 verbose= default_pic=true default_ssl=openssl_1.1.0 link=llvm-dynamic
+  make config=release prefix=/usr arch=x86-64 libs
+  make config=release prefix=/usr arch=x86-64 configure
+  make config=release prefix=/usr arch=x86-64 build
 
   mkdir docs
   build/release/ponyc packages/stdlib -rexpr -g -o docs
@@ -30,16 +43,20 @@ build() {
 
 check() {
   cd ponyc-$pkgver
-  make config=release prefix=/usr arch=x86-64 verbose= default_pic=true default_ssl=openssl_1.1.0 link=llvm-dynamic test
+  make config=release prefix=/usr arch=x86-64 test
 }
 
 package() {
   cd ponyc-$pkgver
-  make config=release prefix=/usr arch=x86-64 verbose= default_pic=true default_ssl=openssl_1.1.0 link=llvm-dynamic ponydir=/usr/lib/pony/"$pkgver" DESTDIR="$pkgdir" install
+  make config=release arch= DESTDIR="$pkgdir"/usr/lib/pony install
 
-  # Ponyc is designed to read its standard packages from the same directory.
-  install -dm755 "$pkgdir"/usr/bin
-  ln -sf /usr/lib/pony/"$pkgver"/bin/ponyc "$pkgdir"/usr/bin
+  install -dm755 "$pkgdir"/usr/{bin,lib,include/pony/detail}
+  ln -sf /usr/lib/pony/bin/ponyc "$pkgdir"/usr/bin/
+  for _lib in {libponyc,libponyrt,libponyrt-pic}.a; do
+    ln -sf /usr/lib/pony/lib/$_lib "$pkgdir"/usr/lib/
+  done
+  ln -sf /usr/lib/pony/include/pony.h "$pkgdir"/usr/include/
+  ln -sf /usr/lib/pony/include/pony/detail/atomics.h "$pkgdir"/usr/include/pony/detail/
 
   # Let's include the examples as documentation is scarce.
   install -dm755 "$pkgdir"/usr/share/doc/pony
