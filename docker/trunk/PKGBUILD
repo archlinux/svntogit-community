@@ -1,7 +1,7 @@
 # Maintainer: Sébastien "Seblu" Luttringer
 
 pkgname=docker
-pkgver=19.03.11
+pkgver=19.03.12
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -18,7 +18,7 @@ options=('!strip' '!buildflags')
 # Use exact commit version from Dockerfile, see them in:
 # https://github.com/docker/docker-ce/blob/master/components/engine/hack/dockerfile/install/
 _TINI_COMMIT=fec3683b971d9c3ef73f284f176672c44b448662
-_LIBNETWORK_COMMIT=153d0769a1181bf591a9637fd487a541ec7db1e6
+_LIBNETWORK_COMMIT=026aabaa659832804b01754aaadd2c0f420c68b6
 _APP_TAG='v0.9.1-beta3'
 source=("git+https://github.com/docker/docker-ce.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
