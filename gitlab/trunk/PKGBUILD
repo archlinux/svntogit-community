@@ -7,11 +7,8 @@
 # Contributor: Stefan Tatschner <stefan@sevenbyte.org>
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
-# NOTE: Gitlab isn't always compatible with modern Ruby versions. In that case, check the
-# commit log for an old fix on how to tell it to use older versions of Ruby. I'm afraid we'll
-# need this again at some point in the future.
 pkgname=gitlab
-pkgver=13.1.1
+pkgver=13.1.2
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
