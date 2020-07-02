@@ -1,0 +1,67 @@
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+# Contributor: Pierre Schmitz <pierre@archlinux.de>
+# Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi>
+
+pkgname=lib32-glib2
+pkgver=2.64.4
+pkgrel=1
+pkgdesc="Low level core library (32-bit)"
+url="https://wiki.gnome.org/Projects/GLib"
+license=(LGPL2.1)
+arch=(x86_64)
+depends=(lib32-pcre lib32-libffi lib32-util-linux lib32-zlib glib2)
+makedepends=(gettext gtk-doc shared-mime-info python lib32-libelf git util-linux
+             meson lib32-dbus)
+checkdepends=(desktop-file-utils lib32-glib2)
+_commit=551bd5c1d1db1aa10d71acb9cde6a088a374d8bb  # tags/2.64.4^0
+source=("git+https://gitlab.gnome.org/GNOME/glib.git#commit=$_commit"
+        multilib.diff
+        gio-querymodules-32.hook)
+sha256sums=('SKIP'
+            '2611ec4c97346c3c4eea61786ee20c801207135a9d52a771f5f340b41bf69fbc'
+            'c37b2777d6c7b9d2eb6003d8bdb72175f889013bc4d582b3f7a12fc7419a2d6d')
+
+pkgver() {
+  cd glib
+  git describe --tags | sed 's/-/+/g'
+}
+
+prepare() {
+  cd glib
+
+  # Test suite workaround
+  git apply -3 ../multilib.diff
+}
+
+build() {
+  export CC="gcc -m32 -mstackrealign"
+  export CXX="g++ -m32 -mstackrealign"
+  export PKG_CONFIG="i686-pc-linux-gnu-pkg-config"
+
+  CFLAGS+=" -DG_DISABLE_CAST_CHECKS"
+  arch-meson glib build \
+    -D selinux=disabled \
+    --libdir=/usr/lib32
+  meson compile -C build
+}
+
+check() {
+  # Spurious wakeups in g_cond_wait_until, only on lib32
+  meson test -C build --no-suite flaky --no-suite slow --print-errorlogs || :
+}
+
+package() {
+  depends+=(libmount.so)
+  provides+=(libgio-2.0.so libglib-2.0.so libgmodule-2.0.so libgobject-2.0.so
+             libgthread-2.0.so)
+
+  DESTDIR="$pkgdir" meson install -C build
+
+  rm -r "$pkgdir"/usr/{share,include}
+  find "$pkgdir/usr/bin" -type f -not -name gio-querymodules -printf 'Removing %P\n' -delete
+  mv "$pkgdir"/usr/bin/gio-querymodules{,-32}
+
+  install -Dt "$pkgdir/usr/share/libalpm/hooks" -m644 *.hook
+}
+
+# vim:set sw=2 et:
