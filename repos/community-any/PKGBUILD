@@ -5,8 +5,8 @@
 
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
-pkgver=1.0.1
-pkgrel=7
+pkgver=1.1
+pkgrel=1
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
@@ -16,16 +16,12 @@ _checkdeps=('pytest' 'pytest-expect' 'lxml' 'mock')
 checkdepends=("${_checkdeps[@]/#/python-}" "${_checkdeps[@]/#/python2-}")
 _test_commit=c305da74fae50fb018870de7a042da36c1a93b65
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz"
-        "https://github.com/html5lib/html5lib-tests/archive/${_test_commit}.tar.gz"
-        pytest4.patch)
-sha256sums=('fabbebd6a55d07842087f13849076eeed350aa8bb6c9ec840f6a6aba9388db06'
-            'cb261423c644b3469ac66926e290060b481371d0952995d270492fc761d0209a'
-            '6b627d2490d0cd16a801ec2787b8ce643f66d8ddf780fee9ff5268c8126d4f8c')
+        "https://github.com/html5lib/html5lib-tests/archive/${_test_commit}.tar.gz")
+sha256sums=('66e9e24a53c10c27abb6be8a3cf2cf55824c6ea1cef8570a633cb223ec46e894'
+            'cb261423c644b3469ac66926e290060b481371d0952995d270492fc761d0209a')
 
 prepare() {
     cd "${srcdir}"/html5lib-python-${pkgver}
-    # From https://github.com/html5lib/html5lib-python/pull/429
-    patch -p1 -i ../pytest4.patch
 
     rmdir html5lib/tests/testdata
     ln -sfT ../../../html5lib-tests-${_test_commit} html5lib/tests/testdata
