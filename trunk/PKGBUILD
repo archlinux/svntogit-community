@@ -3,7 +3,7 @@
 _pkgname=distlib
 pkgbase='python-distlib'
 pkgname=('python-distlib' 'python2-distlib')
-pkgver=0.3.0
+pkgver=0.3.1
 pkgrel=1
 pkgdesc="Low-level components of distutils2/packaging"
 arch=('any')
@@ -11,8 +11,8 @@ url="https://bitbucket.org/pypa/${_pkgname}"
 license=('PSF')
 makedepends=('python' 'python2')
 source=("https://files.pythonhosted.org/packages/source/${_pkgname:0:1}/${_pkgname}/${_pkgname}-${pkgver}.zip")
-sha256sums=('2e166e231a26b36d6dfe35a48c4464346620f8645ed0ace01ee31822b288de21')
-b2sums=('e90624e886a5c4c430c53ae621b845c23d8fa3e5e89557bd521516e2290997bacb930652a9cb430fc3144e609181bbaf20037bedcce39f8f3ab14eda41e4d853')
+sha256sums=('edf6116872c863e1aa9d5bb7cb5e05a022c519a4594dc703843343a9ddd9bff1')
+b2sums=('8fd78260ef56d2f356dd816b2c5b5e42104683cd893e8a3071e4b9865e3ceead64b37ec84c6a7be9d325844e48bb0411fb458f6ca71a8cfb8b86f9721d1ac855')
 
 prepare() {
     cd "${srcdir}"/${_pkgname}-${pkgver}
