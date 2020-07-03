@@ -8,52 +8,56 @@
 
 pkgbase=libappindicator
 pkgname=("${pkgbase}-gtk"{2,3})
-pkgver=12.10.0
-pkgrel=14
+_bzrtag=12.10.0
+_bzrrev=296
+pkgver=${_bzrtag}.r${_bzrrev}
+pkgrel=1
 pkgdesc='Allow applications to extend a menu via Ayatana indicators in Unity, KDE or Systray'
 url='https://launchpad.net/libappindicator'
 arch=('x86_64')
 license=('LGPL2.1' 'LGPL3')
-makedepends=('dbus-glib' 'gobject-introspection' 'libdbusmenu-gtk'{2,3} 'libindicator-gtk'{2,3} 'vala')
+makedepends=('bzr' 'dbus-glib' 'gnome-common' 'gobject-introspection' 'gtk-doc' 'libdbusmenu-gtk'{2,3} 'libindicator-gtk'{2,3} 'vala')
 options=('!emptydirs')
-source=(http://launchpad.net/${pkgbase}/${pkgver%.*}/${pkgver}/+download/${pkgbase}-${pkgver}.tar.gz{,.asc}
-        no-python.patch)
-sha512sums=('317a22a23c8ed84e74207b64b2e9683992d1fb7208176637a051dfe925974f966d1cfa31e650b45eaf839ab61641dee8fbebc8a07882a09b0dd766d88b8d5b9a'
-            'SKIP'
-            '0fd8ad2afa6ef25b9d006fb7c7fbbf1acd9b5af282a0373720f4ddc39d28bd5a9ae24b01f02c320593a543b316e5634d3a38dda6801aa9eff76a0b2fbc627fe0')
+source=(bzr+lp:libappindicator#revision=$_bzrrev
+        no-host.patch)
+sha512sums=('SKIP'
+            'cfc9481ad26712063f9d1bfdd1f94327f579c0c58385cec8adb4e5f12398ef2eb4427a62e6580cda75434d967623235940562f826a909501ee52eef8135703fa')
 validpgpkeys=('6FC05581A37D71FCECE165DB5BE41E162CD6358E')  # Charles Kerr <charles.kerr@canonical.com>
 
 prepare() {
-  (cd ${pkgbase}-${pkgver}
-    patch -p1 < "${srcdir}/no-python.patch"
+  (cd ${pkgbase}
+
+    # Fall back to tray icon when StatusNotifierHost is not available.
+    # https://code.launchpad.net/~muktupavels/libappindicator/no-host/+merge/386817
+    patch -p0 < "${srcdir}/no-host.patch"
+
     sed -i 's/-Werror//' src/Makefile.am
-    autoreconf -fi
+    ./autogen.sh
   )
-  cp -ra ${pkgbase}-${pkgver}{,-gtk2}
+  cp -ra ${pkgbase}{,-gtk2}
 }
 
 build() {
-  export CFLAGS="${CFLAGS} -Wno-deprecated-declarations"
-  export CSC='/usr/bin/mcs'
-
   msg2 'Building gtk3...'
-  (cd ${pkgbase}-${pkgver}
+  (cd ${pkgbase}
     ./configure --prefix=/usr \
       --sysconfdir=/etc \
       --localstatedir=/var \
-      --with-gtk=3
+      --with-gtk=3 \
+      --enable-gtk-doc
     sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
-    make
+    make -j1
   )
 
   msg2 'Building gtk2...'
-  (cd ${pkgbase}-${pkgver}-gtk2
+  (cd ${pkgbase}-gtk2
     ./configure --prefix=/usr \
       --sysconfdir=/etc \
       --localstatedir=/var \
-      --with-gtk=2
+      --with-gtk=2 \
+      --disable-introspection
     sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
-    make
+    make -j1
   )
 }
 
@@ -61,16 +65,15 @@ package_libappindicator-gtk2() {
   pkgdesc+=' (GTK+ 2 library)'
   depends=('libdbusmenu-gtk2' 'libindicator-gtk2')
 
-  cd ${pkgbase}-${pkgver}-gtk2
+  cd ${pkgbase}-gtk2
   make DESTDIR="${pkgdir}" install
-  rm -rf "${pkgdir}"/usr/share/gtk-doc
 }
 
 package_libappindicator-gtk3() {
   pkgdesc+=' (GTK+ 3 library)'
   depends=('libdbusmenu-gtk3' 'libindicator-gtk3')
 
-  cd ${pkgbase}-${pkgver}
+  cd ${pkgbase}
   make DESTDIR="${pkgdir}" install
 }
 
