@@ -3,7 +3,7 @@
 
 pkgname=libb64
 pkgver=1.2.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Base64 Encoding/Decoding Routines'
 url='http://libb64.sourceforge.net/'
 depends=('glibc')
