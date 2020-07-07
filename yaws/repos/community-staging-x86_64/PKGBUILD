@@ -1,0 +1,62 @@
+# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
+# Contributor: Vesa Kaihlavirta <vegai@iki.fi>
+# Contributor: Patrick Smits <mail@patricksmits.net>
+
+pkgname=yaws
+pkgver=2.0.7
+pkgrel=2
+pkgdesc='Web server for dynamic content written in Erlang'
+arch=(x86_64)
+url='http://yaws.hyber.org/'
+license=(BSD)
+depends=(erlang-nox pam)
+backup=(etc/yaws/yaws.conf)
+options=(!emptydirs)
+install=$pkgname.install
+source=("https://github.com/klacke/yaws/archive/$pkgname-$pkgver.tar.gz"
+        "$pkgname.service")
+sha256sums=('083b1b6be581fdfb66d77a151bbb2fc3897b1b0497352ff6c93c2256ef2b08f6'
+            '3628a0f6fdacc91c216cb782e3f3da638958cca6eee34a0a1e692482659109db')
+
+prepare() {
+  cd "$pkgname-$pkgname-$pkgver"
+
+  # python2 fix
+  sed -i 's:n/python:n/python2:' www/cgi{.yaws,-bin/foo.py}
+
+  # treat warnings as warnings
+  sed -i 's/-Werror//g' include.mk
+
+  # Prepare configure and make
+  autoreconf -fi
+}
+
+build() {
+  cd "$pkgname-$pkgname-$pkgver"
+
+  export wwwdir=/srv/http/yaws
+  ./configure --prefix=/usr --localstatedir=/var --sysconfdir=/etc
+  make
+}
+
+package() {
+  cd "$pkgname-$pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  install -d "$pkgdir/usr/lib/erlang/lib"
+  ln -s /usr/lib/yaws "$pkgdir/usr/lib/erlang/lib/$pkgname-$pkgver"
+  install -Dm644 "$srcdir/$pkgname.service" \
+    "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -Dm644 "$srcdir/$pkgname-$pkgname-$pkgver/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # path fix
+  cp -ru examples/include "$pkgdir/usr/lib/yaws-$pkgver/examples/"
+  mv "$pkgdir/srv/http/yaws/"* "$pkgdir/srv/http/www" || true
+  rmdir --ignore-fail-on-non-empty "$pkgdir/srv/http/yaws"
+  mv "$pkgdir/srv/http/www" "$pkgdir/srv/http/yaws" || true
+}
+
+# getver: raw.githubusercontent.com/klacke/yaws/master/vsn.mk
+# vim: ts=2 sw=2 et:
