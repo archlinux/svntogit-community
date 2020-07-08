@@ -1,15 +1,15 @@
+# Maintainer: Daurnimator <daurnimator@archlinux.org>
 # Maintainer: Jelle van der Waa <jelle@archlinux.org>
 
-pkgname=loki
+pkgname=('loki' 'promtail' 'logcli')
 pkgver=1.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc='like Prometheus, but for logs'
 url='https://github.com/grafana/loki'
 arch=('x86_64')
 license=('Apache')
 depends=('glibc')
 makedepends=('go' 'systemd')
-backup=('etc/loki/loki.yaml' 'etc/loki/promtail.yaml')
 source=($pkgname-$pkgver.tar.gz::https://github.com/grafana/loki/archive/v$pkgver.tar.gz
         promtail.sysusers promtail.service promtail.tmpfiles
         loki.sysusers loki.service loki.tmpfiles)
@@ -24,29 +24,18 @@ sha512sums=('31d61ba9cb47afeb0971fe35347683cf96e3b7a4da44b640b0065e64268109c2a1e
 build() {
   cd loki-$pkgver
 
-  go build \
-    -trimpath \
-    -buildmode=pie \
-    -mod=readonly \
-    -modcacherw \
-    -ldflags "-extldflags ${LDFLAGS}" \
-    ./cmd/loki
-
-  go build \
-    -trimpath \
-    -buildmode=pie \
-    -mod=readonly \
-    -modcacherw \
-    -ldflags "-extldflags ${LDFLAGS}" \
-    ./cmd/promtail
-
-  go build \
-    -trimpath \
-    -buildmode=pie \
-    -mod=readonly \
-    -modcacherw \
-    -ldflags "-extldflags ${LDFLAGS}" \
-    ./cmd/logcli
+  for cmd in loki promtail logcli; do
+    go build \
+      -trimpath \
+      -buildmode=pie \
+      -mod=readonly \
+      -modcacherw \
+      -ldflags " \
+         -X github.com/grafana/loki/pkg/build.Version=$pkgver
+         -X github.com/grafana/loki/pkg/build.BuildDate=$(date -u +'%Y-%m-%dT%H:%M:%SZ' --date=@${SOURCE_DATE_EPOCH})
+         -extldflags ${LDFLAGS}" \
+      ./cmd/"$cmd"
+  done
 }
 
 check() {
@@ -55,21 +44,39 @@ check() {
   go test -v $(go list  ./... | grep -v "distributor")
 }
 
-package() {
+package_loki() {
+  backup=('etc/loki/loki.yaml')
+
   cd loki-$pkgver
 
-  install -Dm755 -t "$pkgdir"/usr/bin loki promtail logcli
+  install -Dm755 -t "$pkgdir"/usr/bin loki
 
-  install -Dm644 cmd/promtail/promtail-local-config.yaml $pkgdir/etc/loki/promtail.yaml
   install -Dm644 cmd/loki/loki-local-config.yaml $pkgdir/etc/loki/loki.yaml
 
-  # Promtail
-  install -Dm644 ${srcdir}/promtail.sysusers "$pkgdir/usr/lib/sysusers.d/promtail.conf"
-  install -Dm644 ${srcdir}/promtail.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/promtail.conf"
-  install -Dm644 ${srcdir}/promtail.service "$pkgdir/usr/lib/systemd/system/promtail.service"
-
-  # Loki
   install -Dm644 ${srcdir}/loki.sysusers "$pkgdir/usr/lib/sysusers.d/loki.conf"
   install -Dm644 ${srcdir}/loki.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/loki.conf"
   install -Dm644 ${srcdir}/loki.service "$pkgdir/usr/lib/systemd/system/loki.service"
+}
+
+package_promtail() {
+  pkgdesc="An agent which ships the contents of local logs to a private Loki instance or Grafana Cloud"
+  backup=('etc/loki/promtail.yaml')
+
+  cd loki-$pkgver
+
+  install -Dm755 -t "$pkgdir"/usr/bin promtail
+
+  install -Dm644 cmd/promtail/promtail-local-config.yaml $pkgdir/etc/loki/promtail.yaml
+
+  install -Dm644 ${srcdir}/promtail.sysusers "$pkgdir/usr/lib/sysusers.d/promtail.conf"
+  install -Dm644 ${srcdir}/promtail.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/promtail.conf"
+  install -Dm644 ${srcdir}/promtail.service "$pkgdir/usr/lib/systemd/system/promtail.service"
+}
+
+package_logcli() {
+  pkgdesc="A command-line for loki"
+
+  cd loki-$pkgver
+
+  install -Dm755 -t "$pkgdir"/usr/bin logcli
 }
