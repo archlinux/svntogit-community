@@ -1,8 +1,8 @@
 # Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
 # Maintainer: Konstantin Gizdov <arch@kge.pw>
 pkgname=cuda
-pkgver=11.0.1
-_driverver=450.36.06
+pkgver=11.0.2
+_driverver=450.51.05
 pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
@@ -15,12 +15,12 @@ optdepends=('gdb: for cuda-gdb'
             'java-runtime=8: for nsight and nvvp')
 options=(!strip staticlibs)
 install=cuda.install
-source=(http://developer.download.nvidia.com/compute/cuda/11.0.1/local_installers/cuda_${pkgver}_${_driverver}_linux.run
+source=(http://developer.download.nvidia.com/compute/cuda/${pkgver}/local_installers/cuda_${pkgver}_${_driverver}_linux.run
         cuda.sh
         cuda.conf
         cuda-findgllib_mk.diff
         *.pc)
-sha512sums=('91228fd065a3f93ef0b56f158bb372bb4c4f7b0d6b691939a325eed660a19bf748042b58d49b77da9501e5f23b3d2d572aeda988574e9f54e03d3bcf0da25a01'
+sha512sums=('b20853fe7106c50b05419879172cbbfc3bb3deb381acbd8db3e6363e9963d4c944002da77014787cce3fe5151064c70436311892b6335579aa5b765cc6191d16'
             'b3691913027b8390161c7412d87a905712d90434cc82027a52f203f8ae3dda755738f734f8190277471e4541d685b524568ad03af58d4b7ebad346eee11c10e4'
             '714d973bc79446f73bebe85306b3566fe25b554bcbcba2fcbe76709a3eca71fb5d183ab4da2d3b5e9326cb9cd8d13a93f6d4a005ea5a41f7ef8e6c6e81e06b5e'
             '41d6b6cad934f135eafde610d1cbd862033977fd4416a4b6abaa47709a70bab7fcf6f8377c21329084fb9db13f2a8c8c20e93c15292d7d4a6448d70a33b23f1b'
