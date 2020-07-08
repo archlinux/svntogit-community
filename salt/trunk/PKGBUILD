@@ -4,8 +4,8 @@
 # Contributor: Christer Edwards <christer.edwards@gmail.com>
 
 pkgname=salt
-pkgver=2019.2.4
-pkgrel=1
+pkgver=3001
+pkgrel=2
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -15,19 +15,19 @@ license=('Apache')
 replaces=('salt-zmq' 'salt-raet')
 conflicts=('salt-zmq' 'salt-raet')
 
-depends=('python2-jinja'
-         'python2-msgpack'
-         'python2-yaml'
-         'python2-markupsafe'
-         'python2-requests'
-         'python2-pyzmq'
-         'python2-crypto'
-         'python2-m2crypto'
-         'python2-systemd'
-         'python2-tornado'
-         'python2-futures')
+depends=('python-jinja'
+         'python-msgpack'
+         'python-yaml'
+         'python-markupsafe'
+         'python-requests'
+         'python-pyzmq'
+         'python-pycryptodome'
+         'python-pycryptodomex'
+         'python-m2crypto'
+         'python-systemd'
+         'python-distro')
 optdepends=('dmidecode: decode SMBIOS/DMI tables'
-            'python2-pygit2: gitfs support')
+            'python-pygit2: gitfs support')
 
 backup=('etc/logrotate.d/salt'
         'etc/salt/master'
@@ -37,19 +37,25 @@ install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
-sha256sums=('afeb1c95db61c9008f95259c0b27e525c8a9957cbc6f51c40e824a92637d2847'
+sha256sums=('5ca60d1b2cc8e63db50995bd8b117914eeaf57c48ce2b3a3731ee57163adf154'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
+
+prepare() {
+  cd salt-$pkgver
+  find requirements salt.egg-info/requires.txt -type f -name \*.txt -exec \
+    sed -r 's;^pycrypto\b.*;pycryptodome;' -i {} +
+}
 
 build() {
   cd salt-$pkgver
-  python2 setup.py build
+  python setup.py build
 }
 
 package() {
   install -Dm644 salt.logrotate "$pkgdir"/etc/logrotate.d/salt
 
   cd salt-$pkgver
-  python2 setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
+  python setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
 
   # default config
   install -Dm644 conf/master "$pkgdir/etc/salt/master"
