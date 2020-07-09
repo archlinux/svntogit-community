@@ -1,0 +1,1526 @@
+From d01e9e652408c580a26724961ef11438aa6a69a5 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Thu, 9 Jul 2020 00:30:37 +0200
+Subject: [PATCH] Use GLib debug functions
+
+---
+ libgnac/Makefile.am                     |   4 +-
+ libgnac/libgnac-converter.c             |  27 +++---
+ libgnac/libgnac-debug.c                 | 120 ------------------------
+ libgnac/libgnac-debug.h                 |  94 -------------------
+ libgnac/libgnac-error.c                 |   7 +-
+ libgnac/libgnac-gst-utils.c             |  19 ++--
+ libgnac/libgnac-gst.c                   |  21 ++---
+ libgnac/libgnac-media-item.c            |  13 ++-
+ libgnac/libgnac-metadata.c              |  11 +--
+ libgnac/libgnac-output.c                |  13 ++-
+ src/gnac-file-list.c                    |   3 +-
+ src/gnac-main.c                         |  23 +++--
+ src/gnac-options.c                      |  61 ------------
+ src/gnac-prefs.c                        |   1 -
+ src/gnac-properties.c                   |   5 +-
+ src/gnac-settings.c                     |   5 +-
+ src/gnac-ui-utils.c                     |   3 +-
+ src/gnac-ui.c                           |  19 ++--
+ src/gnac-utils.c                        |   3 +-
+ src/profiles/gnac-profiles-default.c    |   3 +-
+ src/profiles/gnac-profiles-manager.c    |  31 +++---
+ src/profiles/gnac-profiles-properties.c |   5 +-
+ src/profiles/gnac-profiles-utils.c      |  21 ++---
+ 23 files changed, 108 insertions(+), 404 deletions(-)
+ delete mode 100644 libgnac/libgnac-debug.c
+ delete mode 100644 libgnac/libgnac-debug.h
+
+diff --git a/libgnac/Makefile.am b/libgnac/Makefile.am
+index 7fcba6a..eaf4305 100644
+--- a/libgnac/Makefile.am
++++ b/libgnac/Makefile.am
+@@ -18,9 +18,7 @@ libgnac_la_SOURCES = \
+ 	libgnac-marshallers.h\
+ 	libgnac-marshallers.c\
+ 	libgnac-error.h \
+-	libgnac-error.c \
+-	libgnac-debug.h \
+-	libgnac-debug.c
++	libgnac-error.c
+ 
+ libgnac_la_CPPFLAGS = \
+ 	$(DISABLE_DEPRECATED_CFLAGS) \
+diff --git a/libgnac/libgnac-converter.c b/libgnac/libgnac-converter.c
+index 35d9bc4..9ecdd0c 100644
+--- a/libgnac/libgnac-converter.c
++++ b/libgnac/libgnac-converter.c
+@@ -30,7 +30,6 @@
+ #include <glib/gi18n.h>
+ 
+ #include "libgnac-converter.h"
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-gst.h"
+ #include "libgnac-marshallers.h"
+@@ -487,7 +486,7 @@ libgnac_converter_start_next(LibgnacConverter *self)
+     gchar *uri = g_file_get_uri(item->source);
+ 
+     g_signal_emit(self, signals[FILE_STARTED], 0, uri);
+-    libgnac_info("File started %s", uri);
++    g_info("File started %s", uri);
+ 
+     g_clear_error(&error);
+     libgnac_item_run(item, &error);
+@@ -517,14 +516,14 @@ libgnac_converter_restart_current(LibgnacConverter *self)
+   LibgnacConverterPrivate *priv = LIBGNAC_CONVERTER_GET_PRIVATE(self);
+   if (!priv->current) return FALSE;
+ 
+-  libgnac_info("Restarting current pipeline");
++  g_info("Restarting current pipeline");
+ 
+   libgnac_converter_emit_plugin_installed(self);
+ 
+   GError *error = NULL;
+   libgnac_item_run(priv->current, &error);
+   if (error) {
+-    libgnac_debug("%s", error->message);
++    g_debug("%s", error->message);
+     g_clear_error(&error);
+     return FALSE;
+   }
+@@ -620,7 +619,7 @@ libgnac_converter_remove(LibgnacConverter  *self,
+   gpointer item;
+ 
+   if (!g_hash_table_lookup_extended(priv->file_table, uri, &key_uri, &item)) {
+-    libgnac_warning("File not found %s", uri);
++    g_warning("File not found %s", uri);
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_MISSING_FILE,
+         _("File %s is not in the list"), uri);
+     g_free(uri);
+@@ -689,7 +688,7 @@ libgnac_converter_start(LibgnacConverter  *self,
+ 
+   gchar *dbg_msg = g_strdup_printf(_("Encoding pipeline: %s"),
+       priv->profile->audio_desc);
+-  libgnac_info(dbg_msg);
++  g_info("%s", dbg_msg);
+   g_free(dbg_msg);
+ 
+   if (!libgnac_converter_start_next(self)) {
+@@ -789,7 +788,7 @@ libgnac_converter_delete_file(GFile *file)
+   g_file_delete(file, NULL, &error);
+   if (error) {
+     gchar *uri = g_file_get_uri(file);
+-    libgnac_warning("Unable to remove file %s: %s", uri, error->message);
++    g_warning("Unable to remove file %s: %s", uri, error->message);
+     g_free(uri);
+     g_clear_error(&error);
+   }
+@@ -802,7 +801,7 @@ libgnac_converter_error_sink(LibgnacMediaItem *item,
+                              gchar      *uri, 
+                              GError     *error)
+ {
+-  libgnac_debug("Sink error");
++  g_debug("Sink error");
+ 
+   g_return_val_if_fail(item, FALSE);
+   g_return_val_if_fail(item->destination, FALSE);
+@@ -817,12 +816,12 @@ libgnac_converter_error_sink(LibgnacMediaItem *item,
+ 
+   /* New folder create relaunch pipeline */
+   if (folder_created && !err) {
+-    libgnac_debug("Folder successfully created");
++    g_debug("Folder successfully created");
+     return TRUE;
+   }
+ 
+   if (!g_error_matches(err, G_IO_ERROR, G_IO_ERROR_EXISTS)) {
+-    libgnac_debug("Unable to create directory");
++    g_debug("Unable to create directory");
+     g_signal_emit(item->parent, signals[ERROR], 0, uri,
+         _("Unable to create destination directory"), NULL);
+     g_clear_error(&err);
+@@ -845,7 +844,7 @@ libgnac_converter_error_src(LibgnacMediaItem *item,
+                             gchar      *uri, 
+                             GError     *error)
+ {
+-  libgnac_debug("Source error");
++  g_debug("Source error");
+   libgnac_converter_delete_file(item->destination);
+   g_signal_emit(item->parent, signals[ERROR], 0, uri, 
+       _("Unable to read source file"), error);
+@@ -859,7 +858,7 @@ libgnac_converter_error_other(LibgnacMediaItem *item,
+                                gchar      *uri, 
+                                GError     *error)
+ {
+-  libgnac_debug("Other error");
++  g_debug("Other error");
+   libgnac_converter_delete_file(item->destination);
+   g_signal_emit(item->parent, signals[ERROR], 0, uri, 
+       _("An error occured during conversion"), error);
+@@ -884,7 +883,7 @@ libgnac_converter_error_cb(GstBus      *bus,
+   GError *error = NULL;
+   gst_message_parse_error(message, &error, NULL);
+ 
+-  libgnac_debug("An error has occured:\n"
++  g_debug("An error has occured:\n"
+                 "\tFile: %s\n"
+                 "\tOut file %s\n"
+                 "\tBin name: %s\n"
+@@ -941,7 +940,7 @@ libgnac_converter_missing_plugin_result_cb(GstInstallPluginsReturn result,
+         return;
+       }
+     } else {
+-      libgnac_debug("Failed to update GStreamer registry");
++      g_debug("Failed to update GStreamer registry");
+     }
+   } else {
+     gchar *uri = g_file_get_uri(item->source);
+diff --git a/libgnac/libgnac-debug.c b/libgnac/libgnac-debug.c
+deleted file mode 100644
+index 486143e..0000000
+--- a/libgnac/libgnac-debug.c
++++ /dev/null
+@@ -1,120 +0,0 @@
+-/*
+- * This file is part of GNAC - Gnome Audio Converter
+- *
+- * Copyright (C) 2007 - 2012 Gnac
+- *    
+- *    - DUPASQUIER  Benoit    <bdupasqu@src.gnome.org>
+- *    - JOAQUIM     David     <djoaquim@src.gnome.org>
+- *    - ROUX        Alexandre <alexroux@src.gnome.org>
+- *
+- * GNAC is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 3 of the License, or
+- * (at your option) any later version.
+- *
+- * GNAC is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with GNAC; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin St, Fifth Floor, 
+- * Boston, MA  02110-1301  USA
+- *
+- */ 
+-
+-#ifdef HAVE_CONFIG_H
+-#include "config.h"
+-#endif
+-
+-#include <glib/gprintf.h>
+-
+-#include "libgnac-debug.h"
+-
+-
+-gboolean LIBGNAC_DEBUG;
+-gboolean LIBGNAC_VERBOSE;
+-
+-void
+-libgnac_debug_real(const gchar *func,
+-                   const gchar *file,
+-                   const gint   line,
+-                   const gchar *format, 
+-                   ...)
+-{
+-  if (!LIBGNAC_DEBUG) return;
+-
+-	va_list args;
+-	gchar *buffer;
+-
+-	va_start(args, format);
+-	gint ret = g_vasprintf(&buffer, format, args);
+-	va_end(args);
+-
+-  if (ret != -1) {
+-    g_printerr("[DEBUG] %s:%d: %s\n", file, line, buffer);
+-    g_free(buffer);
+-  }
+-}
+-
+-
+-void
+-libgnac_critical_real(const gchar *func,
+-                      const gchar *file,
+-                      const gint   line,
+-                      const gchar *format,
+-                      ...)
+-{
+-	va_list args;
+-	gchar *buffer;
+-
+-	va_start(args, format);
+-	gint ret = g_vasprintf(&buffer, format, args);
+-	va_end(args);
+-
+-  if (ret != -1) {
+-    g_printerr("[CRITICAL] %s:%d: %s\n", file, line, buffer);
+-    g_free(buffer);
+-  }
+-}
+-
+-
+-void
+-libgnac_warning_real(const gchar *func,
+-                     const gchar *file,
+-                     const gint   line,
+-                     const gchar *format,
+-                     ...)
+-{
+-	va_list args;
+-	gchar *buffer;
+-
+-	va_start(args, format);
+-	gint ret = g_vasprintf(&buffer, format, args);
+-	va_end(args);
+-
+-  if (ret != -1) {
+-    g_printerr("[WARNING] %s:%d: %s\n", file, line, buffer);
+-    g_free(buffer);
+-  }
+-}
+-
+-
+-void
+-libgnac_info(const gchar *format, ...)
+-{
+-  if (!LIBGNAC_VERBOSE) return;
+-
+-	va_list args;
+-	gchar *buffer;
+-
+-	va_start(args, format);
+-	gint ret = g_vasprintf(&buffer, format, args);
+-	va_end(args);
+-
+-  if (ret != -1) {
+-    g_print("[INFO] %s\n", buffer);
+-    g_free(buffer);
+-  }
+-}
+diff --git a/libgnac/libgnac-debug.h b/libgnac/libgnac-debug.h
+deleted file mode 100644
+index 087e251..0000000
+--- a/libgnac/libgnac-debug.h
++++ /dev/null
+@@ -1,94 +0,0 @@
+-/*
+- * This file is part of GNAC - Gnome Audio Converter
+- *
+- * Copyright (C) 2007 - 2012 Gnac
+- *    
+- *    - DUPASQUIER  Benoit    <bdupasqu@src.gnome.org>
+- *    - JOAQUIM     David     <djoaquim@src.gnome.org>
+- *    - ROUX        Alexandre <alexroux@src.gnome.org>
+- *
+- * GNAC is free software; you can redistribute it and/or modify
+- * it under the terms of the GNU General Public License as published by
+- * the Free Software Foundation; either version 3 of the License, or
+- * (at your option) any later version.
+- *
+- * GNAC is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+- * GNU General Public License for more details.
+- *
+- * You should have received a copy of the GNU General Public License
+- * along with GNAC; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin St, Fifth Floor, 
+- * Boston, MA  02110-1301  USA
+- *
+- *  NOTES: log idea stolen from rhythmbox
+- */ 
+-
+-#ifndef __LIBGNAC_DEBUG_H__
+-#define __LIBGNAC_DEBUG_H__
+-
+-#include <glib.h>
+-
+-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+-#define libgnac_debug(...) \
+-        libgnac_debug_real (__func__, __FILE__, __LINE__, TRUE, __VA_ARGS__)
+-#elif defined(__GNUC__) && __GNUC__ >= 3
+-#define libgnac_debug(...) \
+-        libgnac_debug_real (__FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
+-#else
+-#define libgnac_debug
+-#endif
+-
+-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+-#define libgnac_warning(...) \
+-        libgnac_warning_real (__func__, __FILE__, __LINE__, TRUE, __VA_ARGS__)
+-#elif defined(__GNUC__) && __GNUC__ >= 3
+-#define libgnac_warning(...) \
+-        libgnac_warning_real (__FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
+-#else
+-#define libgnac_warning
+-#endif
+-
+-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
+-#define libgnac_critical(...) \
+-        libgnac_critical_real (__func__, __FILE__, __LINE__, TRUE, __VA_ARGS__)
+-#elif defined(__GNUC__) && __GNUC__ >= 3
+-#define libgnac_critical(...) \
+-        libgnac_critical_real (__FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
+-#else
+-#define libgnac_critical
+-#endif
+-
+-G_BEGIN_DECLS
+-
+-extern gboolean LIBGNAC_DEBUG;
+-extern gboolean LIBGNAC_VERBOSE;
+-
+-void 
+-libgnac_debug_real(const gchar *func,
+-				           const gchar *file,
+-				           gint         line,
+-				           const gchar *format, 
+-                   ...);
+-
+-void
+-libgnac_critical_real(const gchar *func,
+-				              const gchar *file,
+-				              gint         line,
+-				              const gchar *format, 
+-                      ...);
+-
+-void
+-libgnac_warning_real(const gchar *func,
+-				             const gchar *file,
+-				             gint         line,
+-				             const gchar *format, 
+-                     ...);
+-
+-void
+-libgnac_info(const gchar *format, ...);
+-
+-G_END_DECLS
+-
+-#endif /* __LIBGNAC_DEBUG_H__ */
+diff --git a/libgnac/libgnac-error.c b/libgnac/libgnac-error.c
+index 5f4662c..bef8fa1 100644
+--- a/libgnac/libgnac-error.c
++++ b/libgnac/libgnac-error.c
+@@ -30,7 +30,6 @@
+ #include <glib/gi18n.h>
+ 
+ #include "libgnac-converter.h"
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ 
+ GQuark
+@@ -57,7 +56,7 @@ libgnac_error_handle_missing_plugin(LibgnacMediaItem *item,
+       libgnac_converter_missing_plugin_result_cb, item->parent);
+   g_free(detail);
+   if (ret != GST_INSTALL_PLUGINS_STARTED_OK) {
+-    libgnac_warning("Could not launch installer for required plugins");
++    g_warning("Could not launch installer for required plugins");
+   } else {
+     libgnac_converter_emit_plugin_install(item->parent);
+   }
+@@ -68,7 +67,7 @@ static gboolean
+ libgnac_error_handle_overwrite(LibgnacMediaItem *item,
+                                const gchar      *uri)
+ {
+-  libgnac_debug("Destination file already exists");
++  g_debug("Destination file already exists");
+ 
+   gboolean overwrite = FALSE;
+ 
+@@ -88,7 +87,7 @@ libgnac_error_emit_dest_file_exists_error(LibgnacMediaItem *item,
+                                           const gchar      *uri)
+ {
+   GError *err = NULL;
+-  libgnac_debug(msg);
++  g_debug("%s", msg);
+   g_set_error_literal(&err, LIBGNAC_ERROR, LIBGNAC_ERROR_FILE_EXISTS, msg);
+   g_signal_emit(item->parent, signals[ERROR], 0, uri, msg, err);
+   g_clear_error(&err);
+diff --git a/libgnac/libgnac-gst-utils.c b/libgnac/libgnac-gst-utils.c
+index 25e2fb7..bed003e 100644
+--- a/libgnac/libgnac-gst-utils.c
++++ b/libgnac/libgnac-gst-utils.c
+@@ -29,7 +29,6 @@
+ 
+ #include <glib/gi18n.h>
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-gst-utils.h"
+ 
+@@ -42,14 +41,14 @@ libgnac_gstu_make_pipeline_element(GstElement   *bin,
+ {
+   GstElement *elem = gst_element_factory_make(element, name);
+   if (!elem) {
+-    libgnac_debug("Failed to create %s element", element);
++    g_debug("Failed to create %s element", element);
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_MISSING_PLUGIN,
+         "%s", element);
+     return NULL;
+   }
+ 
+   if (!gst_bin_add(GST_BIN(bin), elem)) {
+-    libgnac_debug("Failed to add %s element to the bin", element);
++    g_debug("Failed to add %s element to the bin", element);
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_PIPELINE_CREATION,
+         _("Failed to add %s element"), element);
+     return NULL;
+@@ -64,7 +63,7 @@ libgnac_gstu_pipeline_new(GError **error)
+ {
+   GstElement *pipeline = gst_pipeline_new("pipeline");
+   if (!pipeline) {
+-    libgnac_warning("Pipeline creation failed");
++    g_warning("Pipeline creation failed");
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_PIPELINE_CREATION,
+         _("Unable to create pipeline"));
+     return NULL;
+@@ -81,7 +80,7 @@ libgnac_gstu_bin_add(GstElement  *bin,
+ {
+   if (!gst_bin_add(GST_BIN(bin), elem)) {
+     gchar *name = gst_element_get_name(elem);
+-    libgnac_debug("Failed to add %s element to the bin", name);
++    g_debug("Failed to add %s element to the bin", name);
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_PIPELINE_CREATION,
+         _("Failed to add %s element"), name);
+     g_free(name);
+@@ -99,7 +98,7 @@ libgnac_gstu_element_link(GstElement  *src,
+ {
+   gboolean ret = gst_element_link(src, dst);
+   if (!ret) {
+-    libgnac_debug("Failed to link element %s to %s",
++    g_debug("Failed to link element %s to %s",
+         gst_element_get_name(src), gst_element_get_name(dst));
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_PIPELINE_CREATION,
+         _("Unable to link element %s to %s"),
+@@ -117,7 +116,7 @@ libgnac_gstu_pad_link(GstPad  *src,
+ {
+   GstPadLinkReturn ret = gst_pad_link(src, sink);
+   if (ret != GST_PAD_LINK_OK) {
+-    libgnac_debug("Failed to link pad %s to %s",
++    g_debug("Failed to link pad %s to %s",
+         gst_pad_get_name(src), gst_pad_get_name(sink));
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_PIPELINE_CREATION,
+         _("Unable to link pad %s to %s"),
+@@ -139,7 +138,7 @@ libgnac_gstu_get_compatible_pad(GstElement  *element,
+   GstPad *sink_pad = gst_element_get_compatible_pad(element, pad, caps);
+   if (!sink_pad) {
+     gchar *caps_str = gst_caps_to_string(caps);
+-    libgnac_debug("Unable to find a compatible %s pad "
++    g_debug("Unable to find a compatible %s pad "
+         "(sink_pad = %s, caps = %s\n)", type, pad_name, caps_str);
+     g_free(pad_name);
+     g_free(caps_str);
+@@ -149,10 +148,10 @@ libgnac_gstu_get_compatible_pad(GstElement  *element,
+ 
+   gchar *sink_pad_name = gst_pad_get_name(sink_pad);
+ 
+-  libgnac_debug("%s: %s -> %s", type, pad_name, sink_pad_name);
++  g_debug("%s: %s -> %s", type, pad_name, sink_pad_name);
+ 
+   if (GST_PAD_IS_LINKED(sink_pad)) {
+-    libgnac_debug("%s pad %s is already linked", type, sink_pad_name);
++    g_debug("%s pad %s is already linked", type, sink_pad_name);
+     g_free(pad_name);
+     g_free(sink_pad_name);
+     gst_object_unref(sink_pad);
+diff --git a/libgnac/libgnac-gst.c b/libgnac/libgnac-gst.c
+index 8cfa60d..f326f22 100644
+--- a/libgnac/libgnac-gst.c
++++ b/libgnac/libgnac-gst.c
+@@ -29,7 +29,6 @@
+ 
+ #include <glib/gi18n.h>
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-gst.h"
+ #include "libgnac-gst-utils.h"
+@@ -87,7 +86,7 @@ libgnac_gst_parse_error_missing_elem(GstParseContext  *ctx,
+     g_clear_error(error);
+     /* get the name of the missing elements */
+     gchar **missing = gst_parse_context_get_missing_elements(ctx);
+-    libgnac_debug("Failed to parse description: %s", descr);
++    g_debug("Failed to parse description: %s", descr);
+     /* set the "new" error */
+     g_set_error(error, LIBGNAC_ERROR,
+         LIBGNAC_ERROR_MISSING_PLUGIN, "%s", missing[0]);
+@@ -231,7 +230,7 @@ libgnac_gst_build_pipeline(LibgnacMediaItem  *item,
+ 
+   libgnac_gstu_element_link(source, decodebin, &err);
+   if (err) {
+-    libgnac_debug("link source->decodebin failed");
++    g_debug("link source->decodebin failed");
+     g_propagate_error(error, err);
+     return;
+   }
+@@ -241,7 +240,7 @@ libgnac_gst_build_pipeline(LibgnacMediaItem  *item,
+   /* audio_bin */
+   GstElement *audio_bin = libgnac_gst_get_audio_bin(item, profile, &err);
+   if (err) {
+-    libgnac_debug("audio_bin creation failed");
++    g_debug("audio_bin creation failed");
+     g_propagate_error(error, err);
+     return;
+   }
+@@ -280,7 +279,7 @@ libgnac_gst_build_pipeline(LibgnacMediaItem  *item,
+ 
+     libgnac_gstu_element_link(muxer, sink, &err);
+     if (err) {
+-      libgnac_debug("link encoder->sink failed");
++      g_debug("link encoder->sink failed");
+       g_propagate_error(error, err);
+       return;
+     }
+@@ -313,7 +312,7 @@ libgnac_gst_build_pipeline(LibgnacMediaItem  *item,
+ 
+     GstElement *video_bin = libgnac_gst_get_video_bin(item, profile, &err);
+     if (err) {
+-      libgnac_debug("video_bin creation failed");
++      g_debug("video_bin creation failed");
+       g_propagate_error(error, err);
+       return;
+     }
+@@ -334,14 +333,14 @@ libgnac_gst_build_pipeline(LibgnacMediaItem  *item,
+   {
+     libgnac_gstu_element_link(audio_bin, sink, &err);
+     if (err) {
+-      libgnac_debug("link encoder->sink failed");
++      g_debug("link encoder->sink failed");
+       g_propagate_error(error, err);
+       return;
+     }
+   }
+   else
+   {
+-    libgnac_debug("The file contains no usable audio or video data");
++    g_debug("The file contains no usable audio or video data");
+     g_set_error(error, LIBGNAC_ERROR, LIBGNAC_ERROR_PIPELINE_CREATION,
+         _("Unable to create pipeline"));
+     return;
+@@ -359,7 +358,7 @@ libgnac_gst_clean_pipeline(LibgnacMediaItem *item)
+ 
+   if (item->pipeline) {
+     if (!gst_element_set_state(item->pipeline, GST_STATE_NULL)) {
+-      libgnac_debug("Unable to set state to null");
++      g_debug("Unable to set state to null");
+       return;
+     }
+     gst_object_unref(item->pipeline);
+@@ -385,7 +384,7 @@ libgnac_gst_newpad_cb(GstElement *decodebin,
+ 	GstCaps *caps = gst_pad_get_caps(pad);
+ 
+ 	if (gst_caps_is_empty(caps) || gst_caps_is_any(caps)) {
+-    libgnac_debug("Got a bad caps: %s", gst_caps_to_string(caps));
++    g_debug("Got a bad caps: %s", gst_caps_to_string(caps));
+     gst_caps_unref(caps);
+     return;
+ 	}
+@@ -408,7 +407,7 @@ libgnac_gst_newpad_cb(GstElement *decodebin,
+       return;
+     }
+ 	} else {
+-    libgnac_debug("Unhandled mime-type: %s", mimetype);
++    g_debug("Unhandled mime-type: %s", mimetype);
+ 	}
+ 
+ 	gst_caps_unref(caps);
+diff --git a/libgnac/libgnac-media-item.c b/libgnac/libgnac-media-item.c
+index 6b19c7c..d19c789 100644
+--- a/libgnac/libgnac-media-item.c
++++ b/libgnac/libgnac-media-item.c
+@@ -29,7 +29,6 @@
+ 
+ #include <glib/gi18n.h>
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-gst.h"
+ #include "libgnac-gst-utils.h"
+@@ -99,7 +98,7 @@ libgnac_item_build(LibgnacMediaItem  *item,
+   libgnac_converter_free_config(config);
+ 
+   if (err) {
+-    libgnac_warning("Output creation failed");
++    g_warning("Output creation failed");
+     g_propagate_error(error, err);
+     return;
+   }
+@@ -112,7 +111,7 @@ libgnac_item_build(LibgnacMediaItem  *item,
+       libgnac_error_handle_missing_plugin(item, err);
+       return;
+     } else {
+-      libgnac_warning("Unable to build pipeline");
++      g_warning("Unable to build pipeline");
+       libgnac_gst_clean_pipeline(item);
+       g_propagate_error(error, err);
+       return;
+@@ -130,7 +129,7 @@ libgnac_item_has_audio(LibgnacMediaItem *item)
+   LibgnacTags *tags = libgnac_metadata_extract(metadata, item->source, &error);
+   if (error) {
+     gchar *filename = g_file_get_path(item->source);
+-    libgnac_debug("Failed to extract metadata for %s: %s",
++    g_debug("Failed to extract metadata for %s: %s",
+         filename, error->message);
+     g_free(filename);
+     g_clear_error(&error);
+@@ -146,7 +145,7 @@ libgnac_item_has_video(LibgnacMediaItem *item)
+   LibgnacTags *tags = libgnac_metadata_extract(metadata, item->source, &error);
+   if (error) {
+     gchar *filename = g_file_get_path(item->source);
+-    libgnac_debug("Failed to extract metadata for %s: %s",
++    g_debug("Failed to extract metadata for %s: %s",
+         filename, error->message);
+     g_free(filename);
+     g_clear_error(&error);
+@@ -174,7 +173,7 @@ libgnac_item_run(LibgnacMediaItem  *item,
+   
+   libgnac_gst_run(item, &err);
+   if (err) {
+-    libgnac_warning("Unable to run pipeline");
++    g_warning("Unable to run pipeline");
+     libgnac_gst_clean_pipeline(item);
+     g_propagate_error(error, err);
+     return;
+@@ -199,7 +198,7 @@ libgnac_item_stop(LibgnacMediaItem  *item,
+   if (G_IS_FILE(item->destination)) {
+     g_file_delete(item->destination, NULL, &err);
+     if (err) {
+-      libgnac_warning("Unable to remove partial file");
++      g_warning("Unable to remove partial file");
+       g_clear_error(&err);
+     }
+   }
+diff --git a/libgnac/libgnac-metadata.c b/libgnac/libgnac-metadata.c
+index c8f1d39..a6503bb 100644
+--- a/libgnac/libgnac-metadata.c
++++ b/libgnac/libgnac-metadata.c
+@@ -34,7 +34,6 @@
+ #include <gst/tag/tag.h>
+ #include <stdarg.h>
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-gst-utils.h"
+ #include "libgnac-metadata.h"
+@@ -235,7 +234,7 @@ libgnac_metadata_process_tag_image(const GstTagList *taglist,
+       guint size = GST_BUFFER_SIZE(buffer);
+ 
+       if (!gdk_pixbuf_loader_write(loader, data, size, &error)) {
+-        libgnac_debug("Error writing data to pixbuf: %s", error->message);
++        g_debug("Error writing data to pixbuf: %s", error->message);
+         gdk_pixbuf_loader_close(loader, NULL);
+         g_object_unref(loader);
+         g_clear_error(&error);
+@@ -243,7 +242,7 @@ libgnac_metadata_process_tag_image(const GstTagList *taglist,
+       }
+ 
+       if (!gdk_pixbuf_loader_close(loader, &error)) {
+-        libgnac_debug("Error closing pixbuf loader: %s", error->message);
++        g_debug("Error closing pixbuf loader: %s", error->message);
+         g_object_unref(loader);
+         g_clear_error(&error);
+         return;
+@@ -286,7 +285,7 @@ libgnac_metadata_process_tag(const GstTagList *taglist,
+   if (type == G_TYPE_STRING) {
+     gchar *str = g_value_dup_string(newval);
+     if (!g_utf8_validate(str, -1, NULL)) {
+-      libgnac_info("%s: %s", _("Invalid UTF-8 tag"), tag_name);
++      g_info("%s: %s", _("Invalid UTF-8 tag"), tag_name);
+       g_free(str);
+       libgnac_metadata_free_gvalue(newval);
+       return;
+@@ -469,7 +468,7 @@ libgnac_metadata_extract(LibgnacMetadata  *md,
+     GError *err = NULL;
+     GstDiscoverer *discoverer = gst_discoverer_new(5 * GST_SECOND, &err);
+     if (G_UNLIKELY(!discoverer)) {
+-      libgnac_debug("Failed to create discoverer: %s", err->message);
++      g_debug("Failed to create discoverer: %s", err->message);
+       g_propagate_error(error, err);
+       return NULL;
+     }
+@@ -477,7 +476,7 @@ libgnac_metadata_extract(LibgnacMetadata  *md,
+     GstDiscovererInfo *info = gst_discoverer_discover_uri(discoverer,
+         string_uri, &err);
+     if (G_UNLIKELY(!info)) {
+-      libgnac_debug("Failed to discover: %s", err->message);
++      g_debug("Failed to discover: %s", err->message);
+       g_propagate_error(error, err);
+       return NULL;
+     }
+diff --git a/libgnac/libgnac-output.c b/libgnac/libgnac-output.c
+index c01e980..6d9b511 100644
+--- a/libgnac/libgnac-output.c
++++ b/libgnac/libgnac-output.c
+@@ -32,7 +32,6 @@
+ #include <glib/gi18n.h>
+ #include <gst/gst.h>
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-metadata.h"
+ #include "libgnac-output.h"
+@@ -103,7 +102,7 @@ libgnac_output_remove_extension_from_file(GFile   *source_uri,
+       G_FILE_ATTRIBUTE_STANDARD_NAME,
+       G_FILE_QUERY_INFO_NONE, NULL, &err);
+   if (err) {
+-    libgnac_debug("Unable to query GFile information");
++    g_debug("Unable to query GFile information");
+     g_propagate_error(error, err);
+     return NULL;
+   }
+@@ -257,7 +256,7 @@ libgnac_output_replace_pattern(LibgnacRenamePattern *pattern,
+       return g_strdup(RENAME_PATTERN_DEFAULT_TRACK_NUMBER);
+ 
+     default:
+-      libgnac_debug("Unknown pattern: %s", pattern);
++      g_debug("Unknown pattern: %s", LIBGNAC_RENAME_PATTERN_GET_PATTERN(pattern));
+   }
+ 
+   return g_strdup_printf("%s", LIBGNAC_RENAME_PATTERN_GET_PATTERN(pattern));
+@@ -343,7 +342,7 @@ libgnac_output_get_filename(GFile        *source,
+   if (!output) {
+     output = libgnac_output_remove_extension_from_file(source, &err);
+     if (err) {
+-      libgnac_debug("Unable to remove extension");
++      g_debug("Unable to remove extension");
+       g_propagate_error(error, err);
+       return NULL;
+     }
+@@ -400,7 +399,7 @@ libgnac_output_build_output(GFile                *source,
+   gchar *filename = libgnac_output_get_filename(source,
+       config->rename_pattern, &output_error);
+   if (output_error) {
+-    libgnac_debug("Filename creation failed");
++    g_debug("Filename creation failed");
+     g_propagate_error(error, output_error);
+     return NULL;
+   }
+@@ -466,13 +465,13 @@ gboolean
+ libgnac_output_overwrite_dest_file(LibgnacMediaItem *item,
+                                    const gchar      *uri)
+ {
+-  libgnac_debug("Overwrite file");
++  g_debug("Overwrite file");
+ 
+   GError *err = NULL;
+ 
+   g_file_delete(item->destination, NULL, &err);
+   if (err) {
+-    libgnac_warning("Unable to overwrite file %s: %s", uri, err->message);
++    g_warning("Unable to overwrite file %s: %s", uri, err->message);
+     g_clear_error(&err);
+     return FALSE;
+   }
+diff --git a/src/gnac-file-list.c b/src/gnac-file-list.c
+index 98a5075..d38b1bf 100644
+--- a/src/gnac-file-list.c
++++ b/src/gnac-file-list.c
+@@ -33,7 +33,6 @@
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+ 
+-#include "libgnac-debug.h"
+ 
+ 
+ static GtkTreeView      *view = NULL;
+@@ -180,7 +179,7 @@ gnac_file_list_add_row(const gchar *uri)
+ 
+   GtkTreePath *path = gtk_tree_model_get_path(model, &iter);
+   if (!path) {
+-    libgnac_debug("Unable to create path");
++    g_debug("Unable to create path");
+     return;
+   }
+ 
+diff --git a/src/gnac-main.c b/src/gnac-main.c
+index d7040de..ef6513c 100644
+--- a/src/gnac-main.c
++++ b/src/gnac-main.c
+@@ -44,7 +44,6 @@
+ #include "gnac-utils.h"
+ 
+ #include "libgnac-converter.h"
+-#include "libgnac-debug.h"
+ #include "libgnac-error.h"
+ #include "libgnac-metadata.h"
+ 
+@@ -85,7 +84,7 @@ static void gnac_add(GFile *file);
+ static void
+ gnac_change_state(GnacState new_state)
+ {
+-  libgnac_debug("State changed to %s", states[new_state]);
++  g_debug("State changed to %s", states[new_state]);
+ 
+   prev_state = state;
+   state = new_state;
+@@ -149,7 +148,7 @@ gnac_add_directory(GFile *file)
+       G_FILE_ATTRIBUTE_STANDARD_TYPE "," G_FILE_ATTRIBUTE_STANDARD_NAME,
+       G_FILE_QUERY_INFO_NONE, NULL, &error);
+   if (error) {
+-    libgnac_debug("%s", error->message);
++    g_debug("%s", error->message);
+     g_clear_error(&error);
+     return;
+   }
+@@ -163,13 +162,13 @@ gnac_add_directory(GFile *file)
+   }
+ 
+   if (error) {
+-    libgnac_debug("%s", error->message);
++    g_debug("%s", error->message);
+     g_clear_error(&error);
+   }
+ 
+   g_file_enumerator_close(enumerator, NULL, &error);
+   if (error) {
+-    libgnac_debug("%s", error->message);
++    g_debug("%s", error->message);
+     g_clear_error(&error);
+   }
+ 
+@@ -264,7 +263,7 @@ gnac_add_files(GSList *files)
+       (GThreadFunc) gnac_add_files_thread_entry, files, TRUE, &error);
+ #endif
+   if (error) {
+-    libgnac_warning(_("Failed to add files: %s"), error->message);
++    g_warning(_("Failed to add files: %s"), error->message);
+     g_clear_error(&error);
+     gnac_return_prev_state();
+   }
+@@ -275,7 +274,7 @@ void
+ gnac_add_file(GFile *file)
+ {
+   gchar *uri = g_file_get_uri(file);
+-  libgnac_debug("Trying to add file %s", uri);
++  g_debug("Trying to add file %s", uri);
+ 
+   gchar *mime_type = gnac_utils_get_mime_type(file);
+ 
+@@ -283,10 +282,10 @@ gnac_add_file(GFile *file)
+     gnac_playlist_parse(file, mime_type);
+   } else if (gnac_utils_file_format_is_supported(mime_type)) {
+     GError *error = NULL;
+-    libgnac_info("Add file %s", uri);
++    g_info("Add file %s", uri);
+     libgnac_converter_add(converter, file, &error);
+     if (error) {
+-      libgnac_debug("Failed to add file %s: %s", uri, error->message);
++      g_debug("Failed to add file %s: %s", uri, error->message);
+       g_clear_error(&error);
+     }
+   }
+@@ -320,7 +319,7 @@ gnac_on_ui_destroy_cb(GtkWidget *widget,
+       GError *error = NULL;
+       libgnac_converter_stop(converter, &error);
+       if (error) {
+-        libgnac_debug("Error: %s", error->message);
++        g_debug("Error: %s", error->message);
+         g_clear_error(&error);
+       }
+       break;
+@@ -537,7 +536,7 @@ gnac_on_converter_completion_cb(LibgnacConverter *converter)
+   }
+ 
+   gnac_ui_on_conversion_completed(msg);
+-  libgnac_debug(msg);
++  g_debug("%s", msg);
+ }
+ 
+ 
+@@ -664,7 +663,7 @@ gnac_on_ui_convert_cb(GtkWidget *widget,
+   }
+ 
+   if (error) {
+-    libgnac_debug("Error: %s", error->message);
++    g_debug("Error: %s", error->message);
+     g_clear_error(&error);
+   }
+ }
+diff --git a/src/gnac-options.c b/src/gnac-options.c
+index 5b537ba..3be7a97 100644
+--- a/src/gnac-options.c
++++ b/src/gnac-options.c
+@@ -33,7 +33,6 @@
+ #include "gnac-main.h"
+ #include "gnac-options.h"
+ #include "gnac-settings.h"
+-#include "libgnac-debug.h"
+ #include "profiles/gnac-profiles-manager.h"
+ 
+ 
+@@ -49,18 +48,6 @@ gnac_options_list_profiles_cb(const gchar  *option_name,
+                               gpointer      data,
+                               GError      **error);
+ 
+-static gboolean
+-gnac_options_debug_cb(const gchar  *option_name,
+-                      const gchar  *value,
+-                      gpointer      data,
+-                      GError      **error);
+-
+-static gboolean
+-gnac_options_verbose_cb(const gchar  *option_name,
+-                        const gchar  *value,
+-                        gpointer      data,
+-                        GError      **error);
+-
+ G_GNUC_NORETURN static gboolean
+ gnac_options_version_cb(const gchar  *option_name,
+                         const gchar  *value,
+@@ -78,14 +65,6 @@ const GOptionEntry all_options[] = {
+         G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
+         gnac_options_list_profiles_cb,
+         N_("List available profiles and exit"), NULL },
+-  { "verbose", '\0', 
+-        G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
+-        gnac_options_verbose_cb,
+-        N_("Enable verbose output"), NULL },
+-  { "debug", '\0',
+-        G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
+-        gnac_options_debug_cb,
+-        N_("Show debugging information"), NULL },
+   { "version", '\0', 
+         G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, 
+         gnac_options_version_cb,
+@@ -120,26 +99,6 @@ gnac_options_list_profiles_cb(const gchar  *option_name,
+ }
+ 
+ 
+-static gboolean
+-gnac_options_debug_cb(const gchar  *option_name,
+-                      const gchar  *value,
+-                      gpointer      data,
+-                      GError      **error)
+-{
+-  return gnac_options_enable_debug();
+-}
+-
+-
+-static gboolean
+-gnac_options_verbose_cb(const gchar  *option_name,
+-                        const gchar  *value,
+-                        gpointer      data,
+-                        GError      **error)
+-{
+-  return gnac_options_enable_verbose();
+-}
+-
+-
+ G_GNUC_NORETURN static gboolean
+ gnac_options_version_cb(const gchar  *option_name,
+                         const gchar  *value,
+@@ -207,23 +166,3 @@ gnac_options_process_late(void)
+   gnac_options_process_filenames(options.filenames);
+   g_strfreev(options.filenames);
+ }
+-
+-
+-gboolean
+-gnac_options_enable_verbose(void)
+-{
+-  gboolean enable = TRUE;
+-  LIBGNAC_VERBOSE = enable;
+-  options.verbose = enable;
+-  return enable;
+-}
+-
+-
+-gboolean
+-gnac_options_enable_debug(void)
+-{
+-  gboolean enable = TRUE;
+-  LIBGNAC_DEBUG = enable;
+-  options.debug = enable;
+-  return gnac_options_enable_verbose();
+-}
+diff --git a/src/gnac-prefs.c b/src/gnac-prefs.c
+index 02323dc..ef7336b 100644
+--- a/src/gnac-prefs.c
++++ b/src/gnac-prefs.c
+@@ -38,7 +38,6 @@
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-output.h"
+ 
+ #include "profiles/gnac-profiles.h"
+diff --git a/src/gnac-properties.c b/src/gnac-properties.c
+index 381c457..9752add 100644
+--- a/src/gnac-properties.c
++++ b/src/gnac-properties.c
+@@ -37,7 +37,6 @@
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+ 
+-#include "libgnac-debug.h"
+ #include "libgnac-metadata.h"
+ 
+ 
+@@ -351,7 +350,7 @@ gnac_properties_set_entry(const gchar  *entry_name,
+     default:
+       gtk_entry_set_text(GTK_ENTRY(widget),
+           g_strdup_value_contents(entry_value));
+-      libgnac_debug("%s has an unknown type: %s",
++      g_debug("%s has an unknown type: %s",
+           entry_name, g_type_name(type));
+       return;
+   }
+@@ -498,7 +497,7 @@ gnac_properties_update_display(GtkTreeRowReference *reference)
+   GError *error = NULL;
+   tags = libgnac_metadata_extract(metadata, file, &error);
+   if (error) {
+-    libgnac_debug("Failed to extract metadata for %s: %s", uri, error->message);
++    g_debug("Failed to extract metadata for %s: %s", uri, error->message);
+     g_clear_error(&error);
+   }
+ 
+diff --git a/src/gnac-settings.c b/src/gnac-settings.c
+index 24f3685..4fccede 100644
+--- a/src/gnac-settings.c
++++ b/src/gnac-settings.c
+@@ -24,7 +24,6 @@
+  */
+ 
+ #include "gnac-settings.h"
+-#include "libgnac-debug.h"
+ 
+ 
+ GSettings *settings;
+@@ -129,9 +128,9 @@ gnac_settings_set(GSettings   *settings,
+   gboolean ret = g_settings_set_value(settings, key, value);
+ 
+   if (!ret) {
+-    libgnac_debug("Failed to set key \"%s\" to \"%s\"", key, val_str);
++    g_debug("Failed to set key \"%s\" to \"%s\"", key, val_str);
+   } else {
+-    libgnac_debug("Key \"%s\" set to \"%s\"", key, val_str);
++    g_debug("Key \"%s\" set to \"%s\"", key, val_str);
+   }
+ 
+   g_free(val_str);
+diff --git a/src/gnac-ui-utils.c b/src/gnac-ui-utils.c
+index 249f14b..6028c5b 100644
+--- a/src/gnac-ui-utils.c
++++ b/src/gnac-ui-utils.c
+@@ -31,7 +31,6 @@
+ #include <glib/gi18n.h>
+ 
+ #include "gnac-ui-utils.h"
+-#include "libgnac-debug.h"
+ 
+ #define GNAC_UTILS_ICON_BORDER_WIDTH 1
+ 
+@@ -188,7 +187,7 @@ gnac_ui_utils_get_object(GtkBuilder  *builder,
+ {
+   GObject *object = gtk_builder_get_object(builder, object_name);
+   if (!G_IS_OBJECT(object)) {
+-    libgnac_debug("Object %s not found\n", object_name);
++    g_debug("Object %s not found\n", object_name);
+   }
+   return object;
+ }
+diff --git a/src/gnac-ui.c b/src/gnac-ui.c
+index 76f6401..b774cb0 100644
+--- a/src/gnac-ui.c
++++ b/src/gnac-ui.c
+@@ -50,7 +50,6 @@
+ #include "gnac-ui.h"
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+-#include "libgnac-debug.h"
+ #include "profiles/gnac-profiles.h"
+ #include "profiles/gnac-profiles-manager.h"
+ 
+@@ -660,7 +659,7 @@ gnac_ui_notify(const gchar *msg)
+ 
+ #else /* HAVE_LIBNOTIFY */
+ 
+-  libgnac_info(msg);
++  g_info("%s", msg);
+ 
+ #endif /* !HAVE_LIBNOTIFY */
+ }
+@@ -965,7 +964,7 @@ gnac_ui_message_received_cb(UniqueApp         *app,
+       break;
+ 
+     default:
+-      libgnac_debug("Received unknown libunique command: %d", command);
++      g_debug("Received unknown libunique command: %d", command);
+       break;
+   }
+ 
+@@ -997,7 +996,7 @@ gnac_ui_init_unique(void)
+       G_CALLBACK(gnac_ui_message_received_cb), NULL);
+ 
+   if (unique_app_is_running(app)) {
+-    libgnac_info(_("An instance of Gnac is already running"));
++    g_info(_("An instance of Gnac is already running"));
+ 
+     UniqueResponse response;
+ 
+@@ -1008,13 +1007,13 @@ gnac_ui_init_unique(void)
+     if (options.debug) {
+       response = unique_app_send_message(app, UNIQUE_CMD_DEBUG, NULL);
+       if (response != UNIQUE_RESPONSE_OK) {
+-        libgnac_warning(_("Failed to transmit the debug option"));
++        g_warning(_("Failed to transmit the debug option"));
+       }
+     /* Transmit the verbose option */
+     } else if (options.verbose) {
+       response = unique_app_send_message(app, UNIQUE_CMD_VERBOSE, NULL);
+       if (response != UNIQUE_RESPONSE_OK) {
+-        libgnac_warning(_("Failed to transmit the verbose option"));
++        g_warning(_("Failed to transmit the verbose option"));
+       }
+     }
+ 
+@@ -1024,15 +1023,15 @@ gnac_ui_init_unique(void)
+       gchar **uris = gnac_utils_get_filenames_from_cmd_line(options.filenames);
+       g_strfreev(options.filenames);
+       if (!unique_message_data_set_uris(message, uris)) {
+-        libgnac_warning(_("Failed to convert some uris"));
++        g_warning(_("Failed to convert some uris"));
+       }
+       g_strfreev(uris);
+       response = unique_app_send_message(app, UNIQUE_CMD_ADD, message);
+       unique_message_data_free(message);
+       if (response != UNIQUE_RESPONSE_OK) {
+-        libgnac_warning(_("Failed to transmit filenames"));
++        g_warning(_("Failed to transmit filenames"));
+       } else {
+-        libgnac_info(_("Filenames transmitted to the running instance"));
++        g_info(_("Filenames transmitted to the running instance"));
+       }
+     }
+ 
+@@ -1156,7 +1155,7 @@ gnac_ui_query_tooltip_cb(GtkStatusIcon *status_icon,
+   GFile *tooltip_file = g_file_new_for_uri(tooltip_path);
+   LibgnacTags *tags = libgnac_metadata_extract(metadata, tooltip_file, &error);
+   if (error) {
+-    libgnac_debug("Failed to extract metadata for %s: %s",
++    g_debug("Failed to extract metadata for %s: %s",
+         tooltip_path, error->message);
+     g_clear_error(&error);
+   }
+diff --git a/src/gnac-utils.c b/src/gnac-utils.c
+index 980388e..1a08374 100644
+--- a/src/gnac-utils.c
++++ b/src/gnac-utils.c
+@@ -30,7 +30,6 @@
+ #include <glib/gi18n.h>
+ 
+ #include "gnac-utils.h"
+-#include "libgnac-debug.h"
+ 
+ 
+ static guint64 average = 0;
+@@ -80,7 +79,7 @@ gnac_utils_get_mime_type(GFile *file)
+       G_FILE_QUERY_INFO_NONE, NULL, &error);
+   if (error) {
+     gchar *uri = g_file_get_uri(file);
+-    libgnac_debug("Unable to query file info for %s: %s", uri, error->message);
++    g_debug("Unable to query file info for %s: %s", uri, error->message);
+     g_clear_error(&error);
+     g_free(uri);
+     return NULL;
+diff --git a/src/profiles/gnac-profiles-default.c b/src/profiles/gnac-profiles-default.c
+index 7ef94ba..46b3d75 100755
+--- a/src/profiles/gnac-profiles-default.c
++++ b/src/profiles/gnac-profiles-default.c
+@@ -28,7 +28,6 @@
+ #include "gnac-main.h"
+ #include "gnac-profiles-default.h"
+ #include "gnac-ui-utils.h"
+-#include "libgnac-debug.h"
+ 
+ 
+ static void
+@@ -41,7 +40,7 @@ gnac_profiles_default_init_ui(BasicFormatInfo *bfi,
+   if (!gtk_builder_add_from_file(bfi->builder,
+       PKGDATADIR "/profiles/gnac-profiles-base-advanced.xml", &error))
+   {
+-    libgnac_critical("%s", error->message);
++    g_critical("%s", error->message);
+     g_clear_error(&error);
+     gnac_exit(EXIT_FAILURE);
+   }
+diff --git a/src/profiles/gnac-profiles-manager.c b/src/profiles/gnac-profiles-manager.c
+index ba00b29..02b3b8d 100644
+--- a/src/profiles/gnac-profiles-manager.c
++++ b/src/profiles/gnac-profiles-manager.c
+@@ -38,7 +38,6 @@
+ #include "gnac-ui.h"
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+-#include "libgnac-debug.h"
+ 
+ /* Translators: Suffix added to a copied profile: 'profile (copy).xml' */
+ #define GNAC_COPY_SUFFIX N_(" (copy)")
+@@ -244,7 +243,7 @@ gnac_profiles_mgr_get_profiles_dir(void)
+   GError *error = NULL;
+ 
+   if (!g_file_make_directory_with_parents(dir, NULL, &error)) {
+-    libgnac_warning("%s: %s",
++    g_warning("%s: %s",
+         _("Unable to create the profiles directory"), error->message);
+     g_clear_error(&error);
+     return NULL;
+@@ -275,7 +274,7 @@ gnac_profiles_mgr_list_profiles(void)
+         G_FILE_QUERY_INFO_NONE, NULL, &error);
+     if (!files && error) {
+       g_printerr(_("No profiles available"));
+-      libgnac_warning("%s", error->message);
++      g_warning("%s", error->message);
+       g_clear_error(&error);
+       return;
+     }
+@@ -364,7 +363,7 @@ gnac_profiles_mgr_populate(void)
+   if (!g_file_query_exists(dir, NULL)) {
+     if (!g_file_make_directory_with_parents(dir, NULL, &error)) {
+       const gchar *msg = N_("Unable to create the profiles directory");
+-      libgnac_warning("%s %s: %s",
++      g_warning("%s %s: %s",
+           msg, _("You may not be able to save your profiles"), error->message);
+       gnac_profiles_mgr_display_status_message(NULL, msg);
+       g_clear_error(&error);
+@@ -380,7 +379,7 @@ gnac_profiles_mgr_populate(void)
+       G_FILE_QUERY_INFO_NONE, NULL, &error);
+   if (!files && error) {
+     const gchar *msg = N_("Unable to browse the profiles directory");
+-    libgnac_warning("%s: %s", msg, error->message);
++    g_warning("%s: %s", msg, error->message);
+     gnac_profiles_mgr_display_status_message(NULL, msg);
+     g_clear_error(&error);
+     return;
+@@ -413,7 +412,7 @@ gnac_profiles_mgr_populate(void)
+       if (profile) {
+         gnac_profiles_mgr_insert(profile);
+       } else if (error) {
+-        libgnac_warning("%s", error->message);
++        g_warning("%s", error->message);
+         g_clear_error(&error);
+       }
+     }
+@@ -436,7 +435,7 @@ gnac_profiles_mgr_get_default_profiles_enumerator(void)
+ {
+   GFile *dir = g_file_new_for_path(PKGDATADIR "/profiles/default");
+   if (!g_file_query_exists(dir, NULL)) {
+-    libgnac_warning("%s", _("Unable to find the default profiles directory"));
++    g_warning("%s", _("Unable to find the default profiles directory"));
+     return NULL;
+   }
+   
+@@ -446,7 +445,7 @@ gnac_profiles_mgr_get_default_profiles_enumerator(void)
+       G_FILE_ATTRIBUTE_STANDARD_TYPE,
+       G_FILE_QUERY_INFO_NONE, NULL, &error);
+   if (!files) {
+-    libgnac_warning("%s: %s",
++    g_warning("%s: %s",
+         _("Unable to browse the default profiles directory"),
+         error->message);
+     g_clear_error(&error);
+@@ -483,7 +482,7 @@ gnac_profiles_mgr_import_default_profiles(void)
+       if (profile) {
+         gnac_profiles_properties_save_profile(profile);
+       } else if (error) {
+-        libgnac_warning("%s", error->message);
++        g_warning("%s", error->message);
+         g_clear_error(&error);
+       }
+ 
+@@ -801,7 +800,7 @@ gnac_profiles_mgr_on_drag_data_received(GtkWidget        *widget,
+       tcopy_data, TRUE, &error);
+ #endif
+   if (error) {
+-    libgnac_debug("Failed to create thread: %s", error->message);
++    g_debug("Failed to create thread: %s", error->message);
+     gnac_profiles_mgr_display_status_message(NULL,
+         _("Impossible to import file(s)"));
+     g_clear_error(&error);
+@@ -822,7 +821,7 @@ gnac_profiles_mgr_get_file_name(GFile *file,
+       G_FILE_ATTRIBUTE_STANDARD_TYPE,
+       G_FILE_QUERY_INFO_NONE, NULL, &error);
+   if (error) {
+-    libgnac_warning("%s", error->message);
++    g_warning("%s", error->message);
+     g_clear_error(&error);
+     return NULL;
+   }
+@@ -895,7 +894,7 @@ gnac_profiles_mgr_copy_file(GFile       *src_file,
+       (GFileProgressCallback) gnac_profiles_mgr_on_drag_profile_copied,
+       &copy_data, &error);
+   if (error) {
+-    libgnac_warning("%s", error->message);
++    g_warning("%s", error->message);
+     g_clear_error(&error);
+   }
+ 
+@@ -928,12 +927,12 @@ gnac_profiles_mgr_copy_and_load_files(gpointer data)
+     gchar *name = gnac_profiles_mgr_get_file_name(file, tcopy_data->info);
+ 
+     if (!name) {
+-      libgnac_warning(
++      g_warning(
+           _("Impossible to import file \"%s\". File type not supported."),
+           uri);
+       profiles_error++;
+     } else if (gnac_profiles_properties_saved_profiles_contain_name(name)) {
+-      libgnac_warning(
++      g_warning(
+           _("Impossible to load file \"%s\": "
+             "a profile with the same name already exists."), uri);
+       profiles_error++;
+@@ -1088,7 +1087,7 @@ gnac_profiles_mgr_on_copy(GtkWidget *widget,
+   g_file_copy(src, dst, G_FILE_COPY_NONE, NULL, NULL, NULL, &error);
+   if (error)
+   {
+-    libgnac_debug("Failed to copy the profile %s: %s",
++    g_debug("Failed to copy the profile %s: %s",
+         generic->name, error->message);
+     gnac_profiles_mgr_display_status_message(
+         NULL, _("Failed to copy the profile"));
+@@ -1116,7 +1115,7 @@ gnac_profiles_mgr_on_copy(GtkWidget *widget,
+   } 
+   else if (error) 
+   {
+-    libgnac_debug("Failed to copy the profile %s: %s",
++    g_debug("Failed to copy the profile %s: %s",
+         (copy_profile->generic)->name, error->message);
+     gnac_profiles_mgr_display_status_message(
+         NULL, _("Failed to copy the profile"));
+diff --git a/src/profiles/gnac-profiles-properties.c b/src/profiles/gnac-profiles-properties.c
+index afe1440..a828fb2 100644
+--- a/src/profiles/gnac-profiles-properties.c
++++ b/src/profiles/gnac-profiles-properties.c
+@@ -46,7 +46,6 @@
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+ 
+-#include "libgnac-debug.h"
+ 
+ 
+ enum {
+@@ -232,7 +231,7 @@ gnac_profiles_properties_show(gpointer     profile,
+ 
+   FormatModule *format_module = g_hash_table_lookup(formats, format_id);
+   if (!format_module) {
+-    libgnac_warning(_("Format not supported"));
++    g_warning(_("Format not supported"));
+     return;
+   }
+ 
+@@ -263,7 +262,7 @@ gnac_profiles_properties_free_audio_profile(gpointer profile)
+ 
+   FormatModule *format_module = g_hash_table_lookup(formats, format_id);
+   if (!format_module) {
+-    libgnac_warning(_("Format not supported"));
++    g_warning(_("Format not supported"));
+     return;
+   }
+ 
+diff --git a/src/profiles/gnac-profiles-utils.c b/src/profiles/gnac-profiles-utils.c
+index c8fefef..e217604 100755
+--- a/src/profiles/gnac-profiles-utils.c
++++ b/src/profiles/gnac-profiles-utils.c
+@@ -26,7 +26,6 @@
+ #include "gnac-profiles-utils.h"
+ #include "gnac-ui-utils.h"
+ #include "gnac-utils.h"
+-#include "libgnac-debug.h"
+ 
+ static gchar *raw = NULL;
+ static gchar *audioconvert = NULL;
+@@ -70,7 +69,7 @@ gnac_profiles_utils_register_combo(GtkWidget   *widget,
+   ComboValues *values = gnac_profiles_xml_engine_get_combo_values(doc,
+       xpath_query);
+   if (!values) {
+-    libgnac_warning("Impossible to register combo with xpath query %s",
++    g_warning("Impossible to register combo with xpath query %s",
+         xpath_query);
+     return;
+   }
+@@ -98,7 +97,7 @@ gnac_profiles_utils_register_slider(GtkWidget   *widget,
+   SliderValues *values = gnac_profiles_xml_engine_get_slider_values(doc,
+       xpath_query);
+   if (!values) {
+-    libgnac_warning("Impossible to register slider with xpath query %s",
++    g_warning("Impossible to register slider with xpath query %s",
+         xpath_query);
+     return;
+   }
+@@ -116,7 +115,7 @@ gnac_profiles_utils_register_check(GtkWidget   *widget,
+   CheckValues *values = gnac_profiles_xml_engine_get_check_values(doc,
+       xpath_query);
+   if (!values) {
+-    libgnac_warning("Impossible to register check with xpath query %s",
++    g_warning("Impossible to register check with xpath query %s",
+         xpath_query);
+     return;
+   }
+@@ -220,7 +219,7 @@ gnac_profiles_utils_set_values(BasicFormatInfo *bfi, ...)
+       gdouble value = va_arg(ap, gdouble);
+       gnac_profiles_utils_set_value_slider(widget, value);
+     } else {
+-      libgnac_debug("Unhandled widget type: %s",
++      g_debug("Unhandled widget type: %s",
+           g_type_name(G_OBJECT_TYPE(widget)));
+     }
+ 
+@@ -273,7 +272,7 @@ gnac_profiles_utils_reset_values(BasicFormatInfo *bfi, ...)
+     } else if (GTK_IS_RANGE(widget)) {
+       gnac_profiles_utils_reset_value_slider(widget);
+     } else {
+-      libgnac_debug("Unhandled widget type: %s",
++      g_debug("Unhandled widget type: %s",
+           g_type_name(G_OBJECT_TYPE(widget)));
+     }
+ 
+@@ -310,7 +309,7 @@ gnac_profiles_utils_set_values_checked(BasicFormatInfo *bfi, ...)
+         gtk_range_set_value(GTK_RANGE(widget), value);
+       }
+     } else {
+-      libgnac_debug("Unhandled widget type: %s",
++      g_debug("Unhandled widget type: %s",
+           g_type_name(G_OBJECT_TYPE(widget)));
+     }
+ 
+@@ -357,7 +356,7 @@ gnac_profiles_utils_get_values_and_set(BasicFormatInfo *bfi, ...)
+       gdouble *value = va_arg(ap, gdouble *);
+       *value = gtk_range_get_value(GTK_RANGE(widget));
+     } else {
+-      libgnac_debug("Unhandled widget type: %s",
++      g_debug("Unhandled widget type: %s",
+           g_type_name(G_OBJECT_TYPE(widget)));
+     }
+     
+@@ -426,7 +425,7 @@ gnac_profiles_utils_add_description_tooltip(BasicFormatInfo *bfi,
+   gchar *description = gnac_profiles_xml_engine_get_text_node(bfi->doc,
+       xpath_query);
+   if (!description) {
+-    libgnac_warning("Impossible to find description in %s", xpath_query);
++    g_warning("Impossible to find description in %s", xpath_query);
+     return;
+   }
+ 
+@@ -562,7 +561,7 @@ gnac_profiles_utils_add_properties(gchar           *pipeline,
+     } else if (GTK_IS_CHECK_BUTTON(widget)) {
+       pipeline = gnac_profiles_utils_add_property_check(pipeline, widget);
+     } else {
+-      libgnac_debug("Unhandled widget type: %s",
++      g_debug("Unhandled widget type: %s",
+           g_type_name(G_OBJECT_TYPE(widget)));
+     }
+ 
+@@ -804,7 +803,7 @@ gnac_profiles_utils_free_values(BasicFormatInfo *bfi, ...)
+       SliderValues *values = g_object_get_data(G_OBJECT(widget), "slider-values");
+       gnac_profiles_xml_engine_free_slider_values(values);
+     } else {
+-      libgnac_debug("Unhandled widget type: %s",
++      g_debug("Unhandled widget type: %s",
+           g_type_name(G_OBJECT_TYPE(widget)));
+     }
+ 
+-- 
+2.27.0
+

@@ -1,0 +1,808 @@
+From 09f6b86e35dc8e51ba993b99292db68edddf36f7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Ball=C3=B3=20Gy=C3=B6rgy?= <ballogyor@gmail.com>
+Date: Wed, 8 Jul 2020 22:25:13 +0200
+Subject: [PATCH] Add support for OPUS format
+
+---
+ data/profiles/Makefile.am                     |   1 +
+ data/profiles/base.xml.in                     |   1 +
+ data/profiles/default/CD_Quality,_AAC.xml.in  |   2 +-
+ .../default/CD_Quality,_Lossless.xml.in       |   2 +-
+ .../profiles/default/CD_Quality,_Lossy.xml.in |   2 +-
+ data/profiles/default/CD_Quality,_MP3.xml.in  |   2 +-
+ data/profiles/default/Voice,_Lossless.xml.in  |   2 +-
+ data/profiles/default/Voice,_Lossy.xml.in     |   2 +-
+ data/profiles/opus.xml.in                     |  61 +++++
+ data/profiles/ui/Makefile.am                  |   1 +
+ data/profiles/ui/gnac-profiles-opus.xml       | 180 +++++++++++++
+ po/POTFILES.in                                |   2 +
+ src/Makefile.am                               |   2 +
+ src/profiles/formats/gnac-profiles-opus.c     | 255 ++++++++++++++++++
+ src/profiles/formats/gnac-profiles-opus.h     |  41 +++
+ src/profiles/formats/gnac-profiles-unknown.c  |   2 +-
+ src/profiles/gnac-profiles-properties.c       |   2 +
+ src/profiles/gnac-profiles-utils.c            |  10 +-
+ 18 files changed, 561 insertions(+), 9 deletions(-)
+ create mode 100644 data/profiles/opus.xml.in
+ create mode 100755 data/profiles/ui/gnac-profiles-opus.xml
+ create mode 100755 src/profiles/formats/gnac-profiles-opus.c
+ create mode 100644 src/profiles/formats/gnac-profiles-opus.h
+
+diff --git a/data/profiles/Makefile.am b/data/profiles/Makefile.am
+index 2ba31aa..50fd2bd 100755
+--- a/data/profiles/Makefile.am
++++ b/data/profiles/Makefile.am
+@@ -14,6 +14,7 @@ config_xml_in_files = \
+ 	flac.xml.in \
+ 	mp3-lame.xml.in \
+ 	vorbis.xml.in \
++	opus.xml.in \
+ 	speex.xml.in \
+ 	wav.xml.in \
+ 	wavpack.xml.in
+diff --git a/data/profiles/base.xml.in b/data/profiles/base.xml.in
+index bbef919..04e61f6 100755
+--- a/data/profiles/base.xml.in
++++ b/data/profiles/base.xml.in
+@@ -23,5 +23,6 @@
+   <pipeline>
+     <process id="gstreamer-audio">audio/x-raw</process>
+     <process id="audioconvert">audioconvert</process>
++    <process id="audioresample">audioresample</process>
+   </pipeline>
+ </audio-profiles>
+diff --git a/data/profiles/default/CD_Quality,_AAC.xml.in b/data/profiles/default/CD_Quality,_AAC.xml.in
+index a56cd75..e7a4239 100644
+--- a/data/profiles/default/CD_Quality,_AAC.xml.in
++++ b/data/profiles/default/CD_Quality,_AAC.xml.in
+@@ -8,7 +8,7 @@
+     <_description>Used for converting to CD-quality audio, but with the lossy AAC codec. Use this for preparing files for copying to devices that only support the AAC codec. Note that using this format may be illegal in your jurisdiction; contact your lawyer for advice.</_description>
+     <channels>2</channels>
+     <sample-rate>44100</sample-rate>
+-    <pipeline>audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! faac bitrate=128000 ! audio/mpeg, mpegversion=4, stream-format=adts ! aacparse</pipeline>
++    <pipeline>audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample ! faac bitrate=128000 ! audio/mpeg, mpegversion=4, stream-format=adts ! aacparse</pipeline>
+   </base>
+   <format-specific>
+     <bitrate>128000</bitrate>
+diff --git a/data/profiles/default/CD_Quality,_Lossless.xml.in b/data/profiles/default/CD_Quality,_Lossless.xml.in
+index dd26c4d..a26ae5a 100644
+--- a/data/profiles/default/CD_Quality,_Lossless.xml.in
++++ b/data/profiles/default/CD_Quality,_Lossless.xml.in
+@@ -8,7 +8,7 @@
+     <_description>Used for converting to CD-quality audio, but with a lossless compression codec. Use this if you later want to edit the file or burn it to CD.</_description>
+     <channels>2</channels>
+     <sample-rate>44100</sample-rate>
+-    <pipeline>audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! flacenc name=enc quality=5</pipeline>
++    <pipeline>audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample ! flacenc name=enc quality=5</pipeline>
+   </base>
+   <format-specific>
+     <quality>5</quality>
+diff --git a/data/profiles/default/CD_Quality,_Lossy.xml.in b/data/profiles/default/CD_Quality,_Lossy.xml.in
+index 52716e0..e3a7be9 100644
+--- a/data/profiles/default/CD_Quality,_Lossy.xml.in
++++ b/data/profiles/default/CD_Quality,_Lossy.xml.in
+@@ -8,7 +8,7 @@
+     <_description>Used for converting to CD-quality audio, but with a lossy compression codec. Use this for CD extraction and radio recordings.</_description>
+     <channels>2</channels>
+     <sample-rate>44100</sample-rate>
+-    <pipeline>audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! vorbisenc name=enc quality=0.5 ! oggmux</pipeline>
++    <pipeline>audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample ! vorbisenc name=enc quality=0.5 ! oggmux</pipeline>
+   </base>
+   <format-specific>
+     <quality>0.5</quality>
+diff --git a/data/profiles/default/CD_Quality,_MP3.xml.in b/data/profiles/default/CD_Quality,_MP3.xml.in
+index 9b98237..85def17 100644
+--- a/data/profiles/default/CD_Quality,_MP3.xml.in
++++ b/data/profiles/default/CD_Quality,_MP3.xml.in
+@@ -8,7 +8,7 @@
+     <_description>Used for converting to CD-quality audio, but with the lossy MP3 codec. Use this for preparing files for copying to devices that only support the MP3 codec. Note that using this format may be illegal in your jurisdiction; contact your lawyer for advice.</_description>
+     <channels>2</channels>
+     <sample-rate>44100</sample-rate>
+-    <pipeline>audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! lamemp3enc name=enc target=quality quality=4 ! xingmux ! id3v2mux</pipeline>
++    <pipeline>audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample ! lamemp3enc name=enc target=quality quality=4 ! xingmux ! id3v2mux</pipeline>
+   </base>
+   <format-specific>
+     <target>quality</target>
+diff --git a/data/profiles/default/Voice,_Lossless.xml.in b/data/profiles/default/Voice,_Lossless.xml.in
+index ab9f85c..130892f 100644
+--- a/data/profiles/default/Voice,_Lossless.xml.in
++++ b/data/profiles/default/Voice,_Lossless.xml.in
+@@ -8,7 +8,7 @@
+     <_description>Used for converting to lossless voice-quality audio. Use this for recording and editing speech.</_description>
+     <channels>2</channels>
+     <sample-rate>44100</sample-rate>
+-    <pipeline>audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! wavenc name=enc</pipeline>
++    <pipeline>audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample ! wavenc name=enc</pipeline>
+   </base>
+   <format-specific>
+   </format-specific>
+diff --git a/data/profiles/default/Voice,_Lossy.xml.in b/data/profiles/default/Voice,_Lossy.xml.in
+index 82b14a0..bd59ca8 100644
+--- a/data/profiles/default/Voice,_Lossy.xml.in
++++ b/data/profiles/default/Voice,_Lossy.xml.in
+@@ -8,7 +8,7 @@
+     <_description>Used for converting to lossy voice-quality audio. Use this for recording speech that doesn't need to be edited.</_description>
+     <channels>2</channels>
+     <sample-rate>44100</sample-rate>
+-    <pipeline>audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! speexenc name=enc quality=8 vad=false mode=0 ! oggmux</pipeline>
++    <pipeline>audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample ! speexenc name=enc quality=8 vad=false mode=0 ! oggmux</pipeline>
+   </base>
+   <format-specific>
+     <bitrate-cbr/>
+diff --git a/data/profiles/opus.xml.in b/data/profiles/opus.xml.in
+new file mode 100644
+index 0000000..f74b3e1
+--- /dev/null
++++ b/data/profiles/opus.xml.in
+@@ -0,0 +1,61 @@
++<?xml version="1.0" encoding="utf-8"?>
++<audio-profiles>
++  <profiles>
++    <profile id="opus">
++      <name>Opus</name>
++      <_description>A codec designed for interactive speech and music transmission over the Internet, but is also intended for storage and streaming applications.</_description>
++      <gst-plugin-name>opus</gst-plugin-name>
++      <output-file-extension>opus</output-file-extension>
++      <mimetype>audio/opus</mimetype>
++      <pipeline>
++        <process id="gstreamer-audio">opusenc</process>
++        <process id="multiplexer">
++          <value value="oggmux">Merge audio and video streams</value>
++        </process>
++        <variable id="audio-type" type="combo">
++          <name>Audio type</name>
++          <variable-name>audio-type</variable-name>
++          <default-value>generic</default-value>
++          <possible-values>
++            <_value value="generic">Generic audio</_value>
++            <_value value="voice">Voice</_value>
++            <_value value="restricted-lowdelay">Restricted low delay</_value>
++          </possible-values>
++        </variable>
++        <variable id="bitrate-mode" type="combo">
++          <name>Bitrate mode</name>
++          <variable-name>bitrate-type</variable-name>
++          <default-value>cbr</default-value>
++          <possible-values>
++            <_value value="cbr">Constant bitrate (CBR)</_value>
++            <_value value="vbr">Variable bitrate (VBR)</_value>
++          </possible-values>
++        </variable>
++        <variable id="bitrate" type="combo">
++          <name>Bitrate</name>
++          <variable-name>bitrate</variable-name>
++          <default-value>64000</default-value>
++          <possible-values>
++            <value value="8000">8 Kbps</value>
++            <value value="16000">16 Kbps</value>
++            <value value="24000">24 Kbps</value>
++            <value value="32000">32 Kbps</value>
++            <value value="40000">40 Kbps</value>
++            <value value="48000">48 Kbps</value>
++            <value value="56000">56 Kbps</value>
++            <value value="64000">64 Kbps</value>
++            <value value="80000">80 Kbps</value>
++            <value value="96000">96 Kbps</value>
++            <value value="112000">112 Kbps</value>
++            <value value="128000">128 Kbps</value>
++            <value value="160000">160 Kbps</value>
++            <value value="192000">192 Kbps</value>
++            <value value="224000">224 Kbps</value>
++            <value value="256000">256 Kbps</value>
++            <value value="320000">320 Kbps</value>
++          </possible-values>
++        </variable>
++      </pipeline>
++    </profile>
++  </profiles>
++</audio-profiles>
+diff --git a/data/profiles/ui/Makefile.am b/data/profiles/ui/Makefile.am
+index d5a4cfe..466193a 100755
+--- a/data/profiles/ui/Makefile.am
++++ b/data/profiles/ui/Makefile.am
+@@ -10,6 +10,7 @@ config_profiles_DATA = \
+ 	gnac-profiles-properties.xml \
+ 	gnac-profiles-unknown.xml \
+ 	gnac-profiles-vorbis.xml \
++	gnac-profiles-opus.xml \
+ 	gnac-profiles-speex.xml \
+ 	gnac-profiles-wav.xml \
+ 	gnac-profiles-wavpack.xml
+diff --git a/data/profiles/ui/gnac-profiles-opus.xml b/data/profiles/ui/gnac-profiles-opus.xml
+new file mode 100755
+index 0000000..d238148
+--- /dev/null
++++ b/data/profiles/ui/gnac-profiles-opus.xml
+@@ -0,0 +1,180 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!-- Generated with glade 3.36.0 -->
++<interface>
++  <requires lib="gtk+" version="3.0"/>
++  <object class="GtkAlignment" id="properties-alignment">
++    <property name="visible">True</property>
++    <property name="can_focus">False</property>
++    <child>
++      <object class="GtkGrid" id="table2">
++        <property name="visible">True</property>
++        <property name="can_focus">False</property>
++        <property name="hexpand">True</property>
++        <property name="column_spacing">10</property>
++        <child>
++          <object class="GtkHBox" id="hbox-bitrate">
++            <property name="visible">True</property>
++            <property name="can_focus">False</property>
++            <child>
++              <object class="GtkHBox" id="hbox-mode2">
++                <property name="visible">True</property>
++                <property name="can_focus">False</property>
++                <child>
++                  <object class="GtkComboBoxText" id="combo-bitrate-mode">
++                    <property name="visible">True</property>
++                    <property name="can_focus">False</property>
++                  </object>
++                  <packing>
++                    <property name="expand">False</property>
++                    <property name="fill">False</property>
++                    <property name="pack_type">end</property>
++                    <property name="position">0</property>
++                  </packing>
++                </child>
++              </object>
++              <packing>
++                <property name="expand">True</property>
++                <property name="fill">True</property>
++                <property name="position">0</property>
++              </packing>
++            </child>
++          </object>
++          <packing>
++            <property name="left_attach">1</property>
++            <property name="top_attach">0</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkLabel" id="label-bitrate">
++            <property name="visible">True</property>
++            <property name="can_focus">False</property>
++            <property name="label" translatable="yes">Bitrate</property>
++            <property name="xalign">0</property>
++          </object>
++          <packing>
++            <property name="left_attach">0</property>
++            <property name="top_attach">1</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkExpander" id="expander2">
++            <property name="visible">True</property>
++            <property name="can_focus">True</property>
++            <child>
++              <object class="GtkAlignment" id="alignment2">
++                <property name="visible">True</property>
++                <property name="can_focus">False</property>
++                <property name="left_padding">10</property>
++                <child>
++                  <object class="GtkGrid" id="properties-table-advanced">
++                    <property name="visible">True</property>
++                    <property name="can_focus">False</property>
++                    <property name="row_spacing">5</property>
++                    <property name="column_spacing">10</property>
++                    <child>
++                      <object class="GtkLabel" id="label-audio-type">
++                        <property name="visible">True</property>
++                        <property name="can_focus">False</property>
++                        <property name="label" translatable="yes">Audio type</property>
++                        <property name="xalign">0</property>
++                      </object>
++                      <packing>
++                        <property name="left_attach">0</property>
++                        <property name="top_attach">1</property>
++                      </packing>
++                    </child>
++                    <child>
++                      <object class="GtkHBox" id="hbox-mode">
++                        <property name="visible">True</property>
++                        <property name="can_focus">False</property>
++                        <child>
++                          <object class="GtkComboBoxText" id="combo-audio-type">
++                            <property name="visible">True</property>
++                            <property name="can_focus">False</property>
++                          </object>
++                          <packing>
++                            <property name="expand">False</property>
++                            <property name="fill">False</property>
++                            <property name="pack_type">end</property>
++                            <property name="position">0</property>
++                          </packing>
++                        </child>
++                      </object>
++                      <packing>
++                        <property name="left_attach">1</property>
++                        <property name="top_attach">1</property>
++                      </packing>
++                    </child>
++                    <child>
++                      <object class="GtkHBox" id="hbox-mode1">
++                        <property name="visible">True</property>
++                        <property name="can_focus">False</property>
++                        <child>
++                          <placeholder/>
++                        </child>
++                      </object>
++                      <packing>
++                        <property name="left_attach">0</property>
++                        <property name="top_attach">0</property>
++                      </packing>
++                    </child>
++                    <child>
++                      <placeholder/>
++                    </child>
++                  </object>
++                </child>
++              </object>
++            </child>
++            <child type="label">
++              <object class="GtkLabel" id="label2">
++                <property name="visible">True</property>
++                <property name="can_focus">False</property>
++                <property name="ypad">10</property>
++                <property name="label" translatable="yes">Advanced</property>
++              </object>
++            </child>
++          </object>
++          <packing>
++            <property name="left_attach">0</property>
++            <property name="top_attach">2</property>
++            <property name="width">2</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkLabel" id="label-bitrate-mode">
++            <property name="visible">True</property>
++            <property name="can_focus">False</property>
++            <property name="label" translatable="yes">Bitrate mode</property>
++            <property name="xalign">0</property>
++          </object>
++          <packing>
++            <property name="left_attach">0</property>
++            <property name="top_attach">0</property>
++          </packing>
++        </child>
++        <child>
++          <object class="GtkHBox" id="hbox4">
++            <property name="visible">True</property>
++            <property name="can_focus">False</property>
++            <child>
++              <object class="GtkComboBoxText" id="combo-bitrate">
++                <property name="visible">True</property>
++                <property name="can_focus">False</property>
++              </object>
++              <packing>
++                <property name="expand">False</property>
++                <property name="fill">False</property>
++                <property name="pack_type">end</property>
++                <property name="position">0</property>
++              </packing>
++            </child>
++          </object>
++          <packing>
++            <property name="left_attach">1</property>
++            <property name="top_attach">1</property>
++          </packing>
++        </child>
++      </object>
++    </child>
++  </object>
++</interface>
+diff --git a/po/POTFILES.in b/po/POTFILES.in
+index c581eab..9c9c9d2 100644
+--- a/po/POTFILES.in
++++ b/po/POTFILES.in
+@@ -15,6 +15,7 @@ data/org.gnome.gnac.gschema.xml.in
+ [type: gettext/glade]data/profiles/ui/gnac-profiles-properties.xml
+ [type: gettext/glade]data/profiles/ui/gnac-profiles-unknown.xml
+ [type: gettext/glade]data/profiles/ui/gnac-profiles-vorbis.xml
++[type: gettext/glade]data/profiles/ui/gnac-profiles-opus.xml
+ [type: gettext/glade]data/profiles/ui/gnac-profiles-speex.xml
+ [type: gettext/glade]data/profiles/ui/gnac-profiles-wav.xml
+ [type: gettext/glade]data/profiles/ui/gnac-profiles-wavpack.xml
+@@ -28,6 +29,7 @@ data/org.gnome.gnac.gschema.xml.in
+ [type: gettext/xml]data/profiles/default/Voice,_Lossy.xml.in
+ [type: gettext/xml]data/profiles/flac.xml.in
+ [type: gettext/xml]data/profiles/mp3-lame.xml.in
++[type: gettext/xml]data/profiles/opus.xml.in
+ [type: gettext/xml]data/profiles/speex.xml.in
+ [type: gettext/xml]data/profiles/vorbis.xml.in
+ [type: gettext/xml]data/profiles/wav.xml.in
+diff --git a/src/Makefile.am b/src/Makefile.am
+index 81c9fbc..2f21ed1 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -45,6 +45,8 @@ gnac_SOURCES = \
+ 	profiles/formats/gnac-profiles-flac.c \
+ 	profiles/formats/gnac-profiles-lame.h \
+ 	profiles/formats/gnac-profiles-lame.c \
++	profiles/formats/gnac-profiles-opus.h \
++	profiles/formats/gnac-profiles-opus.c \
+ 	profiles/formats/gnac-profiles-speex.h \
+ 	profiles/formats/gnac-profiles-speex.c \
+ 	profiles/formats/gnac-profiles-unknown.h \
+diff --git a/src/profiles/formats/gnac-profiles-opus.c b/src/profiles/formats/gnac-profiles-opus.c
+new file mode 100755
+index 0000000..5963a1d
+--- /dev/null
++++ b/src/profiles/formats/gnac-profiles-opus.c
+@@ -0,0 +1,255 @@
++/*
++ * This file is part of GNAC - Gnome Audio Converter
++ *
++ * Copyright (C) 2007 - 2012 Gnac
++ *    
++ *    - DUPASQUIER  Benoit    <bdupasqu@src.gnome.org>
++ *    - JOAQUIM     David     <djoaquim@src.gnome.org>
++ *    - ROUX        Alexandre <alexroux@src.gnome.org>
++ *
++ * GNAC is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * GNAC is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with GNAC; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, 
++ * Boston, MA  02110-1301  USA
++ */
++
++#include <glib/gstdio.h>
++
++#include "../gnac-profiles-properties.h"
++#include "gnac-profiles-opus.h"
++
++
++typedef struct
++{
++  AudioProfileGeneric *generic;
++
++  gchar *audio_type;
++  gchar *bitrate_mode;
++  gchar *bitrate;
++}
++AudioProfileOPUS;
++
++BasicFormatInfo opus_bfi = {
++  PKGDATADIR "/profiles/gnac-profiles-opus.xml",
++  NULL,
++  PKGDATADIR "/profiles/opus.xml",
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL,
++  NULL
++};
++
++
++static const gchar *
++gnac_profiles_opus_init(void)
++{
++  gnac_profiles_default_init(&opus_bfi);
++
++  // Audio type
++  gnac_profiles_utils_init_widget(&opus_bfi, "combo-audio-type",
++      "//variable[@id='audio-type']");
++
++  // Bitrate mode
++  gnac_profiles_utils_init_widget(&opus_bfi, "combo-bitrate-mode",
++      "//variable[@id='bitrate-mode']");
++
++  // Bitrate
++  gnac_profiles_utils_init_widget(&opus_bfi, "combo-bitrate",
++      "//variable[@id='bitrate']");
++  
++  gnac_profiles_xml_engine_free_doc_xpath(opus_bfi.doc);
++  opus_bfi.doc = NULL;
++
++  return opus_bfi.format_id;
++}
++
++
++void
++gnac_profiles_opus_generate_pipeline(void)
++{
++  gchar *pipeline = gnac_profiles_default_generate_pipeline(&opus_bfi);
++  pipeline = gnac_profiles_utils_add_properties(pipeline, &opus_bfi,
++      "combo-audio-type", "combo-bitrate-mode", "combo-bitrate", NULL);
++  
++  pipeline = gnac_profiles_utils_add_pipe(pipeline,
++      opus_bfi.pipeline_multiplexers);
++
++  gnac_profiles_properties_update_textbuffer(pipeline);
++
++  g_free(opus_bfi.pipeline);
++
++  opus_bfi.pipeline = pipeline;
++}
++
++
++static void
++gnac_profiles_opus_reset_ui(void)
++{
++  gnac_profiles_default_reset_ui(&opus_bfi);
++  gnac_profiles_utils_reset_values(&opus_bfi,
++       "combo-audio-type", "combo-bitrate-mode", "combo-bitrate", NULL);
++}
++
++
++static void
++gnac_profiles_opus_set_fields(gpointer data)
++{
++  if (!data) {
++    gnac_profiles_opus_reset_ui();
++    return;
++  }
++
++  AudioProfileOPUS *profile = (AudioProfileOPUS *) data;
++  gnac_profiles_utils_set_values(&opus_bfi,
++      "combo-audio-type", profile->audio_type,
++      "combo-bitrate-mode", profile->bitrate_mode,
++      "combo-bitrate", profile->bitrate,
++      NULL);
++}
++
++
++static gchar *
++gnac_profiles_opus_get_combo_format_name(void)
++{
++  return gnac_profiles_default_get_combo_format_name(&opus_bfi);
++}
++
++
++static void
++gnac_profiles_opus_free_audio_profile(gpointer data)
++{
++  if (!data) return;
++
++  AudioProfileOPUS *profile = (AudioProfileOPUS *) data;
++
++  gnac_profiles_utils_free_audio_profile_generic(profile->generic); 
++
++  g_free(profile->audio_type);
++  g_free(profile->bitrate_mode);
++  g_free(profile->bitrate);
++  g_free(profile);
++}
++
++
++static gpointer
++gnac_profiles_opus_generate_audio_profile(GError **error)
++{
++  AudioProfileGeneric *generic = gnac_profiles_default_generate_audio_profile(
++      &opus_bfi);
++  AudioProfileOPUS *profile = g_malloc(sizeof(AudioProfileOPUS));
++
++  profile->generic = generic;
++
++  gnac_profiles_utils_get_values_and_set(&opus_bfi,
++      "combo-audio-type", &profile->audio_type,
++      "combo-bitrate-mode", &profile->bitrate_mode,
++      "combo-bitrate", &profile->bitrate,
++      NULL);
++
++  return profile;
++}
++
++
++static GtkWidget *
++gnac_profiles_opus_get_widget(void)
++{
++  return gnac_profiles_default_get_properties_alignment(&opus_bfi);
++}
++
++
++static void
++gnac_profiles_opus_save_profile(gpointer data)
++{
++  if (!data) return;
++
++  AudioProfileOPUS *profile = (AudioProfileOPUS *) data;
++  XMLDoc *doc = gnac_profiles_default_save_profile(profile->generic, &opus_bfi);
++  gnac_profiles_xml_engine_add_values(doc,
++      "combo-audio-type", profile->audio_type,
++      "combo-bitrate-mode", profile->bitrate_mode,
++      "combo-bitrate", profile->bitrate,
++      NULL);
++  gnac_profiles_xml_engine_save_doc(doc, profile->generic->name);
++
++  gnac_profiles_xml_engine_free_doc_xpath(doc);
++}
++
++
++static gpointer
++gnac_profiles_opus_load_specific_properties(XMLDoc              *doc,
++                                            AudioProfileGeneric *generic)
++{
++  AudioProfileOPUS *profile = g_malloc(sizeof(AudioProfileOPUS));
++
++  profile->generic = generic;
++  gnac_profiles_utils_load_saved_profile(doc,
++      "/audio-profile/format-specific/",
++      "combo-audio-type", &profile->audio_type,
++      "combo-bitrate-mode", &profile->bitrate_mode,
++      "combo-bitrate", &profile->bitrate,
++      NULL);
++  
++  return profile;
++}
++
++
++static void
++gnac_profiles_opus_clean_up(void)
++{
++  gnac_profiles_default_clean_up(&opus_bfi);
++  gnac_profiles_utils_free_values(&opus_bfi,
++      "combo-audio-type", "combo-bitrate-mode", "combo-bitrate", NULL);
++  gnac_profiles_utils_free_basic_format_info(&opus_bfi);
++}
++
++
++static const gchar *
++gnac_profiles_opus_get_plugin_name(void)
++{
++  return opus_bfi.format_plugin_name;
++}
++
++
++static const gchar *
++gnac_profiles_opus_get_description(void)
++{
++  return opus_bfi.description;
++}
++
++
++FormatModuleFuncs
++gnac_profiles_opus_get_funcs(void)
++{
++  FormatModuleFuncs funcs = {
++    gnac_profiles_opus_init,
++    gnac_profiles_opus_get_description,
++    gnac_profiles_opus_generate_pipeline,
++    gnac_profiles_opus_generate_audio_profile,
++    gnac_profiles_opus_free_audio_profile,
++    gnac_profiles_opus_set_fields,
++    gnac_profiles_opus_get_widget,
++    gnac_profiles_opus_save_profile,
++    gnac_profiles_opus_load_specific_properties,
++    gnac_profiles_opus_clean_up,
++    NULL,
++    gnac_profiles_opus_get_combo_format_name,
++    gnac_profiles_opus_get_plugin_name
++  };
++
++  return funcs;
++}
+diff --git a/src/profiles/formats/gnac-profiles-opus.h b/src/profiles/formats/gnac-profiles-opus.h
+new file mode 100644
+index 0000000..6295414
+--- /dev/null
++++ b/src/profiles/formats/gnac-profiles-opus.h
+@@ -0,0 +1,41 @@
++/*
++ * This file is part of GNAC - Gnome Audio Converter
++ *
++ * Copyright (C) 2007 - 2012 Gnac
++ *    
++ *    - DUPASQUIER  Benoit    <bdupasqu@src.gnome.org>
++ *    - JOAQUIM     David     <djoaquim@src.gnome.org>
++ *    - ROUX        Alexandre <alexroux@src.gnome.org>
++ *
++ * GNAC is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 3 of the License, or
++ * (at your option) any later version.
++ *
++ * GNAC is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with GNAC; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin St, Fifth Floor, 
++ * Boston, MA  02110-1301  USA
++ */
++
++#ifndef GNAC_PROFILES_OPUS_H
++#define GNAC_PROFILES_OPUS_H
++
++#include "../gnac-profiles-default.h"
++
++G_BEGIN_DECLS
++
++FormatModuleFuncs
++gnac_profiles_opus_get_funcs(void);
++
++void
++gnac_profiles_opus_generate_pipeline(void);
++
++G_END_DECLS
++
++#endif /* GNAC_PROFILES_OPUS_H */
+diff --git a/src/profiles/formats/gnac-profiles-unknown.c b/src/profiles/formats/gnac-profiles-unknown.c
+index 4d7cb76..bf8e936 100644
+--- a/src/profiles/formats/gnac-profiles-unknown.c
++++ b/src/profiles/formats/gnac-profiles-unknown.c
+@@ -49,7 +49,7 @@ BasicFormatInfo unknown_bfi = {
+ };
+ 
+ const gchar *base_pipeline = 
+-    "audioconvert ! audio/x-raw, rate=44100, channels=2 ! audioconvert !";
++    "audioconvert ! audioresample ! audio/x-raw, rate=44100, channels=2 ! audioconvert ! audioresample !";
+ 
+ static GtkTextView *pipeline_text_view;
+ static GtkWidget   *pipeline_box;
+diff --git a/src/profiles/gnac-profiles-properties.c b/src/profiles/gnac-profiles-properties.c
+index afe1440..acfead3 100644
+--- a/src/profiles/gnac-profiles-properties.c
++++ b/src/profiles/gnac-profiles-properties.c
+@@ -34,6 +34,7 @@
+ #include "formats/gnac-profiles-aac.h"
+ #include "formats/gnac-profiles-flac.h"
+ #include "formats/gnac-profiles-lame.h"
++#include "formats/gnac-profiles-opus.h"
+ #include "formats/gnac-profiles-speex.h"
+ #include "formats/gnac-profiles-unknown.h"
+ #include "formats/gnac-profiles-vorbis.h"
+@@ -64,6 +65,7 @@ static FormatModuleGetFuncs formats_get_funcs[] = {
+   gnac_profiles_aac_get_funcs,
+   gnac_profiles_flac_get_funcs,
+   gnac_profiles_lame_get_funcs,
++  gnac_profiles_opus_get_funcs,
+   gnac_profiles_speex_get_funcs,
+   gnac_profiles_unknown_get_funcs,
+   gnac_profiles_vorbis_get_funcs,
+diff --git a/src/profiles/gnac-profiles-utils.c b/src/profiles/gnac-profiles-utils.c
+index c8fefef..e038765 100755
+--- a/src/profiles/gnac-profiles-utils.c
++++ b/src/profiles/gnac-profiles-utils.c
+@@ -30,6 +30,7 @@
+ 
+ static gchar *raw = NULL;
+ static gchar *audioconvert = NULL;
++static gchar *audioresample = NULL;
+ 
+ 
+ gchar *
+@@ -458,6 +459,11 @@ gnac_profiles_utils_init_raw_audioconvert(XMLDoc *doc)
+     audioconvert = gnac_profiles_xml_engine_get_text_node(doc,
+         "//process[@id='audioconvert']");
+   }
++
++  if (G_UNLIKELY(!audioresample)) {
++    audioresample = gnac_profiles_xml_engine_get_text_node(doc,
++        "//process[@id='audioresample']");
++  }
+ }
+ 
+ 
+@@ -465,8 +471,8 @@ gchar *
+ gnac_profiles_utils_get_basepipeline(const gchar *channels,
+                                      const gchar *rate)
+ {
+-  return g_strconcat(audioconvert, " ! ", raw, ", rate=", rate,
+-      ", channels=", channels, " ! ", audioconvert, NULL);
++  return g_strconcat(audioconvert, " ! ", audioresample, " ! ", raw, ", rate=", rate,
++      ", channels=", channels, " ! ", audioconvert, " ! ", audioresample, NULL);
+ }
+ 
+ 
+-- 
+2.27.0
+
