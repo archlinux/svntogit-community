@@ -2,7 +2,7 @@
 
 pkgname=goobox
 pkgver=3.6.0
-pkgrel=1
+pkgrel=2
 pkgdesc="CD player and ripper for GNOME"
 arch=('x86_64')
 url="https://people.gnome.org/~paobac/goobox/"
