@@ -1,42 +1,52 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
 pkgname=sc3-plugins
 pkgver=3.10.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Extension plugins for the SuperCollider3 audio synthesis server."
 arch=('x86_64')
 url="https://github.com/supercollider/sc3-plugins"
 license=('GPL2')
 groups=('pro-audio')
-depends=('stk' 'supercollider')
-makedepends=('cmake' 'git')
+depends=('gcc-libs' 'glibc' 'supercollider')
+makedepends=('cmake' 'stk')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/supercollider/${pkgname}/releases/download/Version-${pkgver}/${pkgname}-${pkgver}-Source.tar.bz2"
+        "${pkgname}-3.10.0-fix_missing_cstdio_include.patch::https://github.com/supercollider/sc3-plugins/commit/643709850b2f22f68792372aaece5fc6512defc6.patch"
         "fixing-supernova-check.patch")
 sha512sums=('2105e049046ae595ed7e2e57be5f3d7ba20b940530ea448bde098cd2cdfdddc6ab17d7f16b27ef41f9e245f879d287ecb51f66bc0535814e0a2be4b0a806e377'
+            'fcaffe181370f7b666873900e0be81b61b8de2e3e7097a99e0c5157194047bd24dd7c24d05ff14555e89302ccf1db203f4573d9b4ef7139c90b4e2ccd0a9b80d'
             '34a0753c116a763d4e3576c0207cf20ccc24043829d0b8a3ffa77e3928ffa98ccba9640854e4a728f698eeda23283c6f44f713c5bf155de3bf5f174f597f2805')
+b2sums=('266bc784fb9ff18d7b4967c47f402c6d6671fe5cb0318aafae156e77121436c12bfcafd6006c8e313fb9040bc3477193598c979d64b04ca473c0a46ca2577cf6'
+        '575b722932d1029f00120d756e8113c5180e24655902e7e26294a7476fdc1130f1496123ac1feefdf8b466bb30d9ebca27aed52b6dd4815be8c131b747984162'
+        'f9c2cf572ae9c7f1b2d1d9971e433f9bf1cbe46d2060018edc302cd6de34a9d5d240ff4c7b4503fbbe47b1142e407fe5e8286fb99ce50cf8c3627343874140ec')
 
 prepare() {
   mv -v "$pkgname-$pkgver-Source" "${pkgname}-${pkgver}"
   cd "${pkgname}-${pkgver}"
   # fixing wrong check for SUPERNOVA
   # https://github.com/supercollider/sc3-plugins/issues/185
-  patch -Np1 -i "${srcdir}/fixing-supernova-check.patch"
-  mkdir build
+  patch -Np1 -i "../fixing-supernova-check.patch"
+  # fixing missing include
+  patch -Np1 -i "../${pkgname}-3.10.0-fix_missing_cstdio_include.patch"
 }
 
 build() {
-  cd "$pkgname-$pkgver/build"
+  cd "$pkgname-$pkgver"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE='None' \
         -DSC_PATH=/usr/include/SuperCollider/ \
         -DSYSTEM_STK=ON \
         -DSUPERNOVA=ON \
-        ..
-  make
+        -W no-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
 }
 
 package() {
-  cd "$pkgname-$pkgver/build"
-  make DESTDIR="$pkgdir/" install
-  install -vDm 644 ../{{DEVELOPING,README}.md,TODO} \
+  depends+=('libfftw3f.so' 'libstk-4.6.1.so')
+  cd "$pkgname-$pkgver"
+  make VERBOSE=1 DESTDIR="$pkgdir/" install -C build
+  install -vDm 644 {{DEVELOPING,README}.md,TODO} \
     -t "${pkgdir}/usr/share/doc/${pkgname}/"
 }
