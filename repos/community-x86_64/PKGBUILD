@@ -3,8 +3,10 @@
 # Contributor: Konstantin Shalygin <k0ste@k0ste.ru>
 
 pkgname=nextcloud-client
-pkgver=2.6.4
-_commit=b45f5fd1a947dc21eb11c69049a99616a2ec950e
+# Upstream does not provide signed tarballs (yet)
+# https://github.com/nextcloud/desktop/issues/236#issuecomment-540538247
+pkgver=2.6.5
+_commit=adada8b2eecd65d7a587b6abe0ae2aabca9a0b75
 pkgrel=1
 pkgdesc='Nextcloud desktop client'
 arch=(x86_64)
@@ -18,18 +20,17 @@ optdepends=(
   'python-nautilus: integration with Nautilus'
   'python2-caja: integration with Caja'
 )
-source=("$pkgname::git+https://github.com/nextcloud/desktop.git?signed#commit=$_commit"
-        issue1458-workaround.patch::https://github.com/yan12125/desktop/commit/7da680ef7843a52c3136916744f50d4a003bb8b5.patch
-        issue1458-2.patch::https://github.com/yan12125/desktop/commit/2b313368325dac5b8d0e69394cfcc4faaa745f75.patch
+# Remove ?signed temporarily as the tagged commit is signed by nextcloud-bot,
+# whose GPG public key is missing. See https://github.com/nextcloud/desktop/issues/2185
+source=("$pkgname::git+https://github.com/nextcloud/desktop.git#commit=$_commit"
         $pkgname-fix-build.diff
         Nextcloud.conf)
 validpgpkeys=(
   A26B951528EA1BA1678C7AE5D406C75CEE1A36D6  # one of keys controlled by github.com/camilasan
   42E775EAA3E47F9E0D5CDB0E00819E3BF4177B28  # controlled by github.com/misch7
+  # 8B5274AEE6EC9C06B0DDAA96130DAB86D3FB356C # github.com/nextcloud-bot, public key missing
 )
 sha256sums=('SKIP'
-            '07cd68f54c004175b4a09cce25830a357d0ebaafaf4e4cabfb8b0d4deeded2f3'
-            '157c87a789219a3442ca5947c48dcd1ef3898612ff32070bf8842a42bfbe857a'
             '8b257a0554ceb54a7ed320dbfa3becb97d6845338e28a8aa0a4f6239f3141645'
             '5f51e41ef01d4e5b88a4735531105b84b4fb5317adc2a2996117c03fe5a44fc7')
 backup=('etc/Nextcloud/sync-exclude.lst'
@@ -37,15 +38,13 @@ backup=('etc/Nextcloud/sync-exclude.lst'
 
 prepare() {
   # tmpdir for check()
-  mkdir tmpdir $pkgname/build
+  mkdir tmpdir
 
   # Use system GNUInstallDirs.cmake so that we can benefit from
   # https://gitlab.kitware.com/cmake/cmake/merge_requests/3735
   rm -v $pkgname/cmake/modules/GNUInstallDirs.cmake
 
   cd $pkgname
-  patch -Np1 -i ../issue1458-workaround.patch
-  patch -Np1 -i ../issue1458-2.patch
 
   # https://github.com/nextcloud/desktop/pull/719
   # "Rename owncloud tests to nextcloud" - actually breaks building of tests
@@ -53,21 +52,20 @@ prepare() {
 }
 
 build() {
-  cd $pkgname/build
+  cd $pkgname
 
   # bundled breakpad in libcrashreporter-qt submodule is too old and does not build with glibc >= 2.26
   # Upstream fix: https://github.com/google/breakpad/commit/bddcc58860f522a0d4cbaa7e9d04058caee0db9d
-  cmake \
+  cmake -B build -S . \
+    -DCMAKE_BUILD_TYPE=None \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DNO_SHIBBOLETH=1 \
     -DWITH_CRASHREPORTER=OFF \
-    -DUNIT_TESTING=ON \
-    ..
+    -DUNIT_TESTING=ON
 
-  make
   # TODO: fix installation of PDF and HTML documents
   # WIP at https://github.com/yan12125/desktop/tree/doc-install-path
-  make doc-man
+  make -C build all doc-man
 }
 
 check() {
@@ -75,7 +73,7 @@ check() {
 
   # Tests fail if $TMPDIR is too small; specify an alternative for machines
   # with a small /tmp partition.
-  TMPDIR="$srcdir/tmpdir" make test ARGS="-V"
+  TMPDIR="$srcdir/tmpdir" make test
 }
 
 package() {
