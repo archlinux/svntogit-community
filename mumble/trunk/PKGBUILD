@@ -6,7 +6,7 @@
 
 pkgname=mumble
 pkgver=1.3.2
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 pkgdesc="A voice chat application similar to TeamSpeak"
 license=('BSD')
@@ -18,7 +18,7 @@ optdepends=('speech-dispatcher: Text-to-speech support'
             'espeak-ng: Text-to-speech support')
 url="https://www.mumble.info/"
 source=("https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble-${pkgver}.tar.gz"{,.sig})
-sha512sums=('22e23a682bc9c11420c6ae1d8ff01a80906ebbfb4f073ee25c6d2923d345d12031ddfeca3dabaaf5cf183b82b22eb3c788c88fa0f5313bc399e15795a945b874'
+sha512sums=('3f5e3b586efbe9b49c7f14119072f4842bbd885f9c5145cdaa129a87c7fc85107d0735a3107f5a2789cec9fdadda1200ab4a6d76c3caee409d3e38406a8ba27f'
             'SKIP')
 validpgpkeys=('76B50270322F0E3D78DCE8298AA328A315175AE3') # Mumble Automatic Build Infrastructure 2020 <mumble-auto-build-2020@mumble.info>
 
