@@ -4,7 +4,7 @@
 
 pkgname=lsb-release
 pkgver=1.4
-pkgrel=16
+pkgrel=17
 pkgdesc="LSB version query program"
 arch=('any')
 url="http://www.linuxbase.org/"
@@ -22,6 +22,10 @@ build() {
   patch -Np0 < "$srcdir/lsb_release_description.patch"
 
   make
+
+  # The automatically generated gzipped man page includes a timestamp and is therefore not reproducible,
+  # uncompress it again and rely on makepkg to compress the man page reproducibly
+  gunzip lsb_release.1.gz
 }
 
 package() {
@@ -33,6 +37,6 @@ package() {
   echo "DISTRIB_RELEASE=rolling" >> "$pkgdir/etc/lsb-release"
   echo "DISTRIB_DESCRIPTION=\"Arch Linux\"" >> "$pkgdir/etc/lsb-release"
 
-  install -Dm 644 lsb_release.1.gz "$pkgdir/usr/share/man/man1/lsb_release.1.gz"
+  install -Dm 644 lsb_release.1  "$pkgdir/usr/share/man/man1/lsb_release.1"
   install -Dm 755 lsb_release "$pkgdir/usr/bin/lsb_release"
 }
