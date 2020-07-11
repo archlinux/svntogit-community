@@ -3,7 +3,7 @@
 
 pkgname=chewing-editor
 pkgver=0.1.1
-pkgrel=6
+pkgrel=7
 pkgdesc="Cross platform chewing user phrase editor"
 arch=('x86_64')
 url="http://chewing.im"
@@ -13,10 +13,12 @@ makedepends=('cmake' 'qt5-tools' 'help2man' 'gtest')
 checkdepends=('valgrind')
 source=("https://github.com/chewing/$pkgname/archive/$pkgver/$pkgname-$pkgver.tar.gz"
         system-gtest.patch
-        chewing-editor-reproducibility.patch::https://github.com/chewing/chewing-editor/commit/7db328e7372f870dc741436ba2da8ceb5199f2f9.patch)
+        chewing-editor-reproducibility.patch::https://github.com/chewing/chewing-editor/commit/7db328e7372f870dc741436ba2da8ceb5199f2f9.patch
+        no-rebuild-manpage.diff)
 sha256sums=('ad59ba32bb258d7a1ee6c105a4be54357d2de18cc324277a1429f53fbb23709b'
             '17f115cc9352c85973f1a3f75c2f1f17c2e8cc3e52a6656914d3895478cc35fc'
-            '36a2aa702f58e90f306f3de07dee2cac74f013dff4762e277fd0048d9476c430')
+            '36a2aa702f58e90f306f3de07dee2cac74f013dff4762e277fd0048d9476c430'
+            '864a7f5a0b50a96edb21cbc76448010b375d65bb35e2f012640d41839fb13df3')
 
 prepare() {
     cd $pkgname-$pkgver
@@ -26,29 +28,32 @@ prepare() {
 
     patch -Np1 -i ../chewing-editor-reproducibility.patch
 
-    rm -r gmock
+    # Building the man page requires an environment for Qt (see below). This
+    # patch avoids preparing the environment twice.
+    patch -Np1 -i ../no-rebuild-manpage.diff
 
-    mkdir build
+    rm -r gmock
 }
 
 build() {
-    cd $pkgname-$pkgver/build
-
-    cmake \
+    cmake -S $pkgname-$pkgver -B build \
       -DCMAKE_INSTALL_PREFIX="/usr" \
-      ..
+      -DCMAKE_BUILD_TYPE=None
 
-    make
+    # Building the man page needs running `chewing-editor --version`, so
+    # preparing an environment for Qt
+    export XDG_RUNTIME_DIR="$PWD""$(mktemp -d runtimer_dir_XXXXXX)"
+    QT_QPA_PLATFORM=offscreen make -C build
 }
 
 check() {
-    cd $pkgname-$pkgver/build
+    cd build
 
     make test
 }
 
 package() {
-    cd $pkgname-$pkgver/build
+    cd build
 
     make DESTDIR="$pkgdir" install
 }
