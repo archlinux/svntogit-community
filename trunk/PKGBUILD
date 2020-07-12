@@ -3,7 +3,7 @@
 
 pkgname=python-tornado
 pkgver=6.0.4
-pkgrel=1
+pkgrel=2
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('x86_64')
 url='https://www.tornadoweb.org/'
@@ -21,6 +21,7 @@ export TORNADO_EXTENSION=1
 
 build() {
   cd tornado-$pkgver
+  export PYTHONHASHSEED=0
   python setup.py build
 }
 
