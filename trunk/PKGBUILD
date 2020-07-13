@@ -5,32 +5,35 @@
 
 pkgname=gpsbabel
 pkgver=1.7.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Read, write and manipulate GPS waypoints in a variety of formats"
 arch=(x86_64)
 url="https://www.gpsbabel.org/"
 license=(GPL)
-depends=(hicolor-icon-theme libusb qt5-base) # qt5-webengine
+depends=(hicolor-icon-theme libusb qt5-base)
 makedepends=(libicns qt5-tools)
 source=(https://github.com/gpsbabel/$pkgname/archive/${pkgname}_${pkgver//./_}.tar.gz
         gpsbabel.appdata.xml
-        drop-map.patch)
+        install.patch
+        no-map.patch)
 sha256sums=('30b186631fb43db576b8177385ed5c31a5a15c02a6bc07bae1e0d7af9058a797'
             '5eb52ab0c4bdde61c747856e849f9bce9ca660e942c15f730a4330a38fd6a39a'
-            'd18fd718973cc9efc6bee95ec7741b7d63a0fd46fd9e2d281f687fd465b7c19e')
+            'a12a48f2bcad5c2184cf2157488ee18d90f3415cb406eb8b70513f35dfe26b16'
+            '378202355f7dd5a01df554af6298b8871e8ab8112aa2a7fa727d26434623da21')
 
 prepare() {
   icns2png -x $pkgname-${pkgname}_${pkgver//./_}/gui/images/appicon.icns
 
   cd $pkgname-${pkgname}_${pkgver//./_}
 
+  # Support make install for GUI on Linux systems
+  # https://github.com/gpsbabel/gpsbabel/pull/391
+  patch -Np1 -i ../install.patch
+  sed -i '/INSTALLS +=/ s/ icon//' gui/app.pro
+
   # Remove map due to heavy WebEngine dependency
-  patch -Np1 -i ../drop-map.patch
-
-  # Fix path
-  sed -i 's|langPath_ = QApplication::applicationDirPath();|langPath_ = "/usr/share/gpsbabel";|' gui/mainwindow.cc
-  sed -i 's|baseFile =  QApplication::applicationDirPath() + "/gmapbase.html";|baseFile = "/usr/share/gpsbabel/gmapbase.html";|' gui/map.cc
-
+  # https://github.com/gpsbabel/gpsbabel/pull/606
+  patch -Np1 -i ../no-map.patch
 }
 
 build() {
@@ -40,7 +43,7 @@ build() {
 
   # GUI
   cd gui
-  qmake
+  qmake PREFIX=/usr
   lrelease *.ts
   make
 }
@@ -50,15 +53,12 @@ package() {
   make DESTDIR="$pkgdir" install
 
   # GUI
-  install -Dm755 gui/objects/gpsbabelfe "$pkgdir"/usr/bin/gpsbabelfe
-  install -Dm644 gui/gpsbabel.desktop "$pkgdir"/usr/share/applications/gpsbabel.desktop
-  install -Dm644 ../$pkgname.appdata.xml "$pkgdir/usr/share/metainfo/$pkgname.appdata.xml"
-  install -Dm644 gui/gmapbase.html "$pkgdir"/usr/share/gpsbabel/gmapbase.html
-  install -dm755 "$pkgdir"/usr/share/gpsbabel/translations/
-  install -Dm644 gui/*.qm "$pkgdir"/usr/share/gpsbabel/translations/
+  cd gui
+  make INSTALL_ROOT="$pkgdir" install
+  install -Dm644 ../../$pkgname.appdata.xml "$pkgdir/usr/share/metainfo/$pkgname.appdata.xml"
 
   for res in 16 32 128 256 512; do
-    install -Dm644 ../appicon_${res}x${res}x32.png \
+    install -Dm644 ../../appicon_${res}x${res}x32.png \
       "$pkgdir/usr/share/icons/hicolor/${res}x${res}/apps/$pkgname.png"
   done
 }
