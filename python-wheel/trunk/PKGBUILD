@@ -6,7 +6,7 @@ _pypiname=wheel
 pkgbase=python-wheel
 pkgname=('python-wheel' 'python2-wheel')
 pkgver=0.34.2
-pkgrel=2
+pkgrel=3
 pkgdesc="A built-package format for Python"
 arch=(any)
 url="https://pypi.python.org/pypi/wheel"
@@ -26,6 +26,8 @@ prepare() {
 }
 
 build() {
+  export PYTHONHASHSEED=0
+
   cd "$srcdir/wheel-$pkgver"
   python setup.py build
 
