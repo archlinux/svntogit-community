@@ -4,7 +4,7 @@
 
 pkgname=mypy
 pkgver=0.782
-pkgrel=1
+pkgrel=2
 pkgdesc='Optional static typing for Python 2 and 3 (PEP484)'
 url="http://www.mypy-lang.org/"
 arch=('any')
@@ -16,6 +16,7 @@ sha256sums=('eff7d4a85e9eea55afa34888dfeaccde99e7520b51f867ac28a48492c0b1130c')
 
 build() {
     cd "$pkgname-$pkgver"
+    export PYTHONHASHSEED=0
     python setup.py build
 }
 
