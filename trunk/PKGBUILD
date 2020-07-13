@@ -8,7 +8,7 @@ pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
 license=('custom:NVIDIA')
-depends=('gcc9-libs'  'gcc9' 'opencl-nvidia' 'nvidia-utils')
+depends=('gcc9-libs'  'gcc9' 'opencl-nvidia' "nvidia-utils>=${_driverver}")
 replaces=('cuda-toolkit' 'cuda-sdk')
 provides=('cuda-toolkit' 'cuda-sdk')
 optdepends=('gdb: for cuda-gdb'
