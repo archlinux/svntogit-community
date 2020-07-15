@@ -3,16 +3,16 @@
 # Refactored by Blaž "Speed" Hrastnik <https://github.com/archSeer>
 
 pkgname=elasticsearch
-pkgver=7.7.0
-pkgrel=2
+pkgver=7.8.0
+pkgrel=1
 pkgdesc="Distributed RESTful search engine built on top of Lucene"
 arch=('x86_64')
 url="https://www.elastic.co/products/elasticsearch"
 license=('Apache')
-depends=('java-runtime-headless' 'systemd')
+depends=('java-runtime-headless' 'systemd' 'libxml2')
+makedepends=('java-environment=11' 'gradle')
 source=(
-  "https://artifacts.elastic.co/downloads/$pkgname/$pkgname-oss-$pkgver-x86_64.rpm"
-  elasticsearch-env
+  $pkgname-$pkgver.tar.gz::"https://github.com/elastic/elasticsearch/archive/v${pkgver}.tar.gz"
   elasticsearch.service
   elasticsearch@.service
   elasticsearch-keystore.service
@@ -22,8 +22,7 @@ source=(
   elasticsearch-tmpfile.conf
   elasticsearch.default
 )
-sha256sums=('df2ba7e1991dd26f3dc14aa0cf6a90b0567ca5988636ab2a70bc9a12f9a7f6ef'
-            'cf5a7723e029a1dea0e7c5891dd0694d4ec46b36525a1fdaa0be61b7d0ae40f5'
+sha256sums=('6a04dac8da32755f53962a34b85b7dac7593b2a544f5bccb50344b2b345b3944'
             '9e1f68ff275ef2b5f2b93d2823efc5cc9643da696fcbe09a3ea7520ada35ffba'
             '8a76ad9a44a34eca8d6cb7ec9d8f1b01d46c114765b0a76094de8d72f0477351'
             'bac40d87acaa5bee209ceb6dfa253009a072e9243fe3b94be42fb5cd44727d6f'
@@ -38,44 +37,49 @@ backup=('etc/elasticsearch/elasticsearch.yml'
         'etc/elasticsearch/jvm.options'
         'etc/default/elasticsearch')
 
-prepare() {
-  cd "$srcdir"
-  find usr/share/elasticsearch/bin -type f ! -name \*.jar -exec \
-    sed -r 's;source .*/(.*)-env;source /usr/share/elasticsearch/\1-env;' -i {} +
-  find usr/share/elasticsearch/bin -type f -name "elasticsearch-*" ! -name elasticsearch-bin -exec \
-    sed 's/`dirname "$0"`/$(dirname "$(realpath "$0")")/' -i {} +
+build() {
+  cd $pkgname-$pkgver
+  export PATH=/usr/lib/jvm/java-11-openjdk/bin:$PATH
+  gradle assemble \
+      -x :distribution:docker:buildAarch64DockerImage \
+      -x :distribution:docker:buildAarch64OssDockerImage \
+      -x :distribution:docker:buildDockerImage \
+      -x :distribution:docker:buildOssDockerImage \
+      -x :distribution:docker:docker-export:exportDockerImage \
+      -x :distribution:docker:oss-docker-export:exportOssDockerImage
 }
 
 package() {
-  cd "$pkgdir"
-  install -dm2750 etc/elasticsearch
-  install -dm750 etc/elasticsearch/{scripts,jvm.options.d}
-  install -dm755 {usr/share,var/lib,var/log}/elasticsearch
-  install -dm755 usr/bin
+  cd $pkgname-$pkgver
 
-  cd "$srcdir"
-  find etc/elasticsearch/ -type f -exec \
-    install -Dm644 {} "$pkgdir/"{} \;
+  install -dm755 "$pkgdir"/{usr/share,var/lib,var/log}/elasticsearch
+  install -dm755 "$pkgdir"/usr/bin
 
-  cp -R usr/share/elasticsearch/{bin,lib,modules,plugins} "$pkgdir"/usr/share/elasticsearch
+  tar xf distribution/archives/linux-tar/build/distributions/elasticsearch-$pkgver-*linux-x86_64.tar.gz \
+      --strip 1 -C "$pkgdir"/usr/share/elasticsearch
+  rm -rf "$pkgdir"/usr/share/elasticsearch/jdk
 
-  cd "$pkgdir"/usr/share/elasticsearch
-  rm -rf bin/elasticsearch-env
+  install -dm755 "$pkgdir"/etc
+  mv "$pkgdir"/usr/share/elasticsearch/config "$pkgdir"/etc/elasticsearch
+  chmod 2750 "$pkgdir"/etc/elasticsearch
 
-  find bin/ -type f -name elasticsearch-\* ! -name elasticsearch-cli -exec \
-    ln -s ../share/elasticsearch/{} "$pkgdir"/usr/{} \;
+  for bin in "$pkgdir"/usr/share/elasticsearch/bin/*; do
+    ln -s /usr/share/elasticsearch/bin/$(basename $bin) "$pkgdir"/usr/bin/$(basename $bin)
+  done
 
-  ln -s ../../../var/log/elasticsearch logs
-  ln -s ../../../var/lib/elasticsearch data
+  ln -s /etc/elasticsearch "$pkgdir"/usr/share/elasticsearch/config
+  ln -s /var/log/elasticsearch "$pkgdir"/usr/share/elasticsearch/logs
+  ln -s /var/lib/elasticsearch "$pkgdir"/usr/share/elasticsearch/data
 
-  cd "$pkgdir"
-  install -Dm644 "$srcdir"/elasticsearch-env usr/share/elasticsearch/elasticsearch-env
-  install -Dm644 "$srcdir"/elasticsearch.service usr/lib/systemd/system/elasticsearch.service
-  install -Dm644 "$srcdir"/elasticsearch@.service usr/lib/systemd/system/elasticsearch@.service
-  install -Dm644 "$srcdir"/elasticsearch-keystore.service usr/lib/systemd/system/elasticsearch-keystore.service
-  install -Dm644 "$srcdir"/elasticsearch-keystore@.service usr/lib/systemd/system/elasticsearch-keystore@.service
-  install -Dm644 "$srcdir"/elasticsearch-user.conf usr/lib/sysusers.d/elasticsearch.conf
-  install -Dm644 "$srcdir"/elasticsearch-tmpfile.conf usr/lib/tmpfiles.d/elasticsearch.conf
-  install -Dm644 "$srcdir"/elasticsearch-sysctl.conf usr/lib/sysctl.d/elasticsearch.conf
-  install -Dm644 "$srcdir"/elasticsearch.default etc/default/elasticsearch
+  install -Dm644 "$srcdir"/elasticsearch.service "$pkgdir"/usr/lib/systemd/system/elasticsearch.service
+  install -Dm644 "$srcdir"/elasticsearch@.service "$pkgdir"/usr/lib/systemd/system/elasticsearch@.service
+  install -Dm644 "$srcdir"/elasticsearch-keystore.service "$pkgdir"/usr/lib/systemd/system/elasticsearch-keystore.service
+  install -Dm644 "$srcdir"/elasticsearch-keystore@.service "$pkgdir"/usr/lib/systemd/system/elasticsearch-keystore@.service
+  install -Dm644 "$srcdir"/elasticsearch-user.conf "$pkgdir"/usr/lib/sysusers.d/elasticsearch.conf
+  install -Dm644 "$srcdir"/elasticsearch-tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/elasticsearch.conf
+  install -Dm644 "$srcdir"/elasticsearch-sysctl.conf "$pkgdir"/usr/lib/sysctl.d/elasticsearch.conf
+  install -Dm644 "$srcdir"/elasticsearch.default "$pkgdir"/etc/default/elasticsearch
+
+  sed -i '2iJAVA_HOME=/usr/lib/jvm/default-runtime' "$pkgdir"/usr/share/elasticsearch/bin/elasticsearch-env
+  sed -i 's/ES_BUNDLED_JDK=true/ES_BUNDLED_JDK=false/g' "$pkgdir"/usr/share/elasticsearch/bin/elasticsearch-env
 }
