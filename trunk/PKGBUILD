@@ -4,62 +4,36 @@
 # Contributor: Thomas Dziedzic < gostrc at gmail >
 # Contributor: Chaiwat Suttipongsakul <cwt at bashell dot com>
 
-pkgbase=python-markdown
-pkgname=('python-markdown' 'python2-markdown')
+pkgname=python-markdown
 _pkgbasename=Markdown
-pkgver=3.1.1
-pkgrel=4
+pkgver=3.2.2
+pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
 license=('BSD')
 depends=('python' 'python-setuptools')
-makedepends=('python' 'python2' 'python-setuptools' 'python2-setuptools')
-checkdepends=('python-yaml' 'python2-yaml')
+checkdepends=('python-yaml')
 source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
-md5sums=('d84732ecc65b3a1bff693d9d4c24277f')
-
-prepare() {
-  cp -r $_pkgbasename-$pkgver "$srcdir/python2-markdown"
-  cd "$srcdir/python2-markdown"
-  find "$srcdir/python2-markdown" -name '*py' -exec sed -i 's|#!/usr/bin/env python$|&2|' {} +
-}
+md5sums=('6e8daf1e566bf3572c137ada399fe40b')
 
 build() {
   cd "$srcdir/$_pkgbasename-$pkgver"
   python setup.py build
-  cd "$srcdir/python2-markdown"
-  python2 setup.py build
 }
 
 check() {
   cd "$srcdir/$_pkgbasename-$pkgver"
   python -m unittest discover tests
-  cd "$srcdir/python2-markdown"
-  python2 -m unittest discover tests
 }
 
-package_python-markdown() {
-  depends=('python' 'python-setuptools')
+package() {
   cd "$srcdir/$_pkgbasename-$pkgver"
   python3 setup.py install --root="$pkgdir" --optimize=0
   install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/python-markdown/LICENSE"
 }
 
-package_python2-markdown() {
-  depends=('python2' 'python2-setuptools')
-  cd "$srcdir/python2-markdown"
-  python2 setup.py install --root="$pkgdir" --optimize=0
-  mv "$pkgdir/usr/bin/markdown_py" "$pkgdir/usr/bin/markdown_py2"
-  install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/python2-markdown/LICENSE"
-}
-
 check_python-markdown() {
   [[ $(python -c "import markdown; print(markdown.version)") == "$pkgver" ]]
   [[ $(python -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
-}
-
-check_python2-markdown() {
-  [[ $(python2 -c "import markdown; print(markdown.version)") == "$pkgver" ]]
-  [[ $(python2 -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
 }
