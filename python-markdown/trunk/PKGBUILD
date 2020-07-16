@@ -20,12 +20,6 @@ source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbas
 md5sums=('d84732ecc65b3a1bff693d9d4c24277f')
 
 prepare() {
-  # bug in 2.4, some DOS line endings slipped in
-  find "$_pkgbasename-$pkgver/" -name '*py' -exec sed -i 's|\r||g' {} +
-
-  # ImportError: No module named pkg_resources
-  sed -i 's/^from pkg_resources.*$/import packaging.version/' "$_pkgbasename-$pkgver/markdown/__init__.py"
-
   cp -r $_pkgbasename-$pkgver "$srcdir/python2-markdown"
   cd "$srcdir/python2-markdown"
   find "$srcdir/python2-markdown" -name '*py' -exec sed -i 's|#!/usr/bin/env python$|&2|' {} +
