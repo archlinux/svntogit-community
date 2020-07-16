@@ -5,8 +5,8 @@
 
 pkgbase=python-m2crypto
 pkgname=(python2-m2crypto python-m2crypto)
-pkgver=0.35.2
-pkgrel=3
+pkgver=0.36.0
+pkgrel=1
 pkgdesc="A crypto and SSL toolkit for Python"
 arch=('x86_64')
 url="https://pypi.python.org/pypi/M2Crypto"
@@ -15,19 +15,12 @@ makedepends=('python' 'python-setuptools'
              'python2' 'python2-setuptools'
              'swig')
 source=("${pkgname}-${pkgver}.tar.gz::https://gitlab.com/m2crypto/m2crypto/repository/${pkgver}/archive.tar.gz"
-    "socketio.patch"
-    "LICENSE")
-sha256sums=('57220b06de0622d0fad464ec2f16abe6f7aaa6d8ab5ab11372e6a17d7b52550b'
-            'd4937399c15c00986088f35c3a813584c4b171bea631ffe1a71e483c8236c304'
+        "LICENSE")
+sha256sums=('18e23c5a4d5962a5bd44feba00a521f662c4f7a391b27b8464df095494f21eda'
             '4eca478396f4b2b020729a111fce3f096456d74500bfd8f2b0388c3c69f997c0')
 
 prepare() {
   mv m2crypto-${pkgver}-* m2crypto-${pkgver}
-
-  cd "m2crypto-$pkgver"
-  patch -Np1 < "$srcdir/socketio.patch"
-  cd ..
-
   cp -a m2crypto-$pkgver{,-py2}
 }
 
