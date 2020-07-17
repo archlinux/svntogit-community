@@ -2,140 +2,41 @@
 # Contributor: NicoHood <archlinux {cat} nicohood {dog} de>
 # Contributor: brent s. <bts[at]square-r00t[dot]net>
 
-_name=GitPython
+_name=gitpython
 pkgdesc="A python library used to interact with Git repositories"
 pkgname=python-gitpython
-pkgver=3.1.3
+pkgver=3.1.7
 pkgrel=1
 url="https://github.com/gitpython-developers/gitpython"
 license=('BSD')
 arch=('any')
 depends=('git' 'python-gitdb')
 makedepends=('python-setuptools')
-checkdepends=('python-ddt' 'python-pytest')
-source=("https://pypi.org/packages/source/G/${_name}/${_name}-${pkgver}.tar.gz"{,.asc})
-sha512sums=('ea4043c8be79cec7ffc9c6b6383be37dcf7b4a877cf02d6fc8c9e7d39a5005e088c8780dd6e0fcd72c0711c997228f417773c82572f569c5ca1128f5ebe56736'
-            'SKIP')
+checkdepends=('python-ddt' 'python-nose' 'python-pytest' 'python-virtualenv')
+source=("git+https://github.com/gitpython-developers/gitpython.git#tag=${pkgver}?signed")
+sha512sums=('SKIP')
+b2sums=('SKIP')
 validpgpkeys=('2CF6E0B51AAF73F09B1C21174D1DA68C88710E60') # Sebastian Thiel (In Rust I trust!) <byronimo@gmail.com>
 
-prepare() {
-  mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
-}
-
 build() {
-  cd "${pkgname}-${pkgver}"
+  cd "${_name}"
   python setup.py build
 }
 
 check() {
-  cd "${pkgname}-${pkgver}"
-  local TEST_TMPDIR=$(mktemp -d -t gitpython.XXX)
-  local GITDB_TMPDIR=$(mktemp -d -t gitdb.XXX)
-  local SMMAP_TMPDIR=$(mktemp -d -t smmap.XXX)
+  cd "${_name}"
+  export TRAVIS="VERY CONVENIENT"
   git config --global user.name "Test User"
   git config --global user.email "test@user.org"
-  (
-    cd "$SMMAP_TMPDIR"
-    mkdir -vp bare
-    (
-      cd bare
-      git init --bare
-    )
-    git clone bare clone
-    cd clone
-    for commit in {1..50}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
-    done
-    git push
-  )
-  (
-    cd "$GITDB_TMPDIR"
-    mkdir -vp bare
-    (
-      cd bare
-      git init --bare
-    )
-    git clone bare clone
-    cd clone
-
-    mkdir -vp gitdb/ext
-    git submodule add --name 'smmap' "${SMMAP_TMPDIR}/clone" gitdb/ext/smmap
-    git submodule init gitdb/ext/smmap
-    git add gitdb/ext/smmap
-    git commit -m "Adding smmap submodule"
-
-    for commit in {1..50}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
-    done
-    git push
-  )
-  (
-    cd "$TEST_TMPDIR"
-    mkdir -vp bare
-    (
-      cd bare
-      git init --bare
-    )
-    git clone bare clone
-    cd clone
-
-    mkdir -vp git/ext
-    git submodule add --name 'gitdb' "${GITDB_TMPDIR}/clone" git/ext/gitdb
-    git submodule update --init --recursive git/ext/gitdb
-    git add git/ext/gitdb
-    git commit -m "Adding gitdb submodule"
-
-    # test hardcodes this file to test against
-    touch AUTHORS
-    git add AUTHORS
-    git commit -m "Adding AUTHORS."
-    # test hardcodes this file to test against
-    touch MANIFEST.in
-    git add MANIFEST.in
-    git commit -m "Adding MANIFEST.in."
-
-    for commit in {1..50}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
-    done
-    git tag -am '0.1.4' 0.1.4
-    for commit in {51..100}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
-    done
-    git tag -am '0.1.5' 0.1.5
-    for commit in {101..150}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
-    done
-    git tag -am '0.1.6' 0.1.6
-    for commit in {151..160}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
-    done
-    git tag -am '0.3.5' 0.3.5
-
-    git tag __testing_point__
-    git push
-    git push --tags
-  )
-  export GIT_PYTHON_TEST_GIT_REPO_BASE="${TEST_TMPDIR}/clone/.git"
-  pytest -v || echo "Test suite relies on checked out repository https://github.com/gitpython-developers/GitPython/issues/914"
+  ./init-tests-after-clone.sh
+  PYTHONDONTWRITEBYTECODE=1 pytest -v -k 'not test_reading and not test_writing and not test_base'
 }
 
 package() {
-  cd "${pkgname}-${pkgver}"
+  cd "${_name}"
+  export PYTHONHASHSEED=0
   python setup.py install --skip-build \
                           --optimize=1 \
-                          --prefix=/usr \
                           --root="${pkgdir}"
   install -vDm 644 {AUTHORS,CHANGES,{CONTRIBUTING,README}.md} \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
