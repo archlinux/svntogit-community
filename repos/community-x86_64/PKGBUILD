@@ -3,14 +3,14 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=1.34.3
-pkgrel=2
-pkgdesc="Electron application that links with Signal on mobile"
+pkgver=1.34.4
+pkgrel=1
+pkgdesc="Signal Private Messenger for Linux"
 license=('GPL3')
 replaces=('signal-desktop-bin')
 arch=('x86_64')
 url="https://signal.org"
-depends=('electron' 'libvips')
+depends=('libvips')
 makedepends=('yarn' 'git' 'nodejs' 'npm' 'python')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
@@ -21,12 +21,12 @@ source=(
   # See https://github.com/atom/node-spellchecker/issues/127
   "https://github.com/atom/node-spellchecker/archive/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"
 )
-sha512sums=('499e2214a05e167c5290f80442d1354fb955c16e4abf6ab46a0fa9dae6ab9a327f7da710236b9e68589a20e815e41c71fc2228f49d4549e1d2e4606dd942a03c'
+sha512sums=('78637d183555f71131077bc6363fa9250195372bd1e1bb59eb8cccd14d913c4dcd3062580d98c04df79f41f808494662e6e0b7512d3a2cdd0a753cd2a7a990fe'
             'c5ec0bf524e527ecf94207ef6aa1f2671346e115ec15de6d063cde0960151813752a1814e003705fc1a99d4e2eae1b3ca4d03432a50790957186e240527cc361'
             '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
             '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2'
             '42f57802fa91dafb6dbfb5a3f613c4c07df65e97f8da84c9a54292c97a4d170f8455461aac8f6f7819d1ffbea4bf6c28488f8950056ba988776d060be3f107dd')
-b2sums=('acb247ddb9944f3da1d3b6c92a4211e62337d5701baddec2ab464b60a2b563d5ca123bbfa8bf0fbb0bcfd325f386563ba2923034a2a4a50490b9af9750b2e697'
+b2sums=('fdea97e63384ac9ee3488789c1481c95ffc1c99c3deef396cf40cd99c8931e75e7df0a38a151786c03213cf01108eb75018fcfd897ff26c066cceb4e40c3c435'
         'c0ceb5b903965727714b1848c818877f4b740c4734deafcfaf777046002a445d79cd4d86bbbf3d763dbda8e8d542b60605ae2ca43196ea76b089f2e808926dbc'
         '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
         'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289'
@@ -39,9 +39,6 @@ prepare() {
   # See https://github.com/atom/node-spellchecker/issues/127
   sed -r 's#("spellchecker": ").*"#\1file:'"${srcdir}"'/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"#' -i package.json
 
-  # Set system Electron version for ABI compatibility
-  sed -r 's#("electron": ").*"#\1'$(cat /usr/lib/electron/version)'"#' -i package.json
-
   # Allow higher Node versions
   sed 's#"node": "#&>=#' -i package.json
 
@@ -51,7 +48,7 @@ prepare() {
   # https://github.com/sass/node-sass/issues/2716
   sed 's#"resolutions": {#"resolutions": {"node-sass/node-gyp": "^6.0.0",#' -i package.json
 
-  yarn install
+  yarn install --ignore-engines
 
   # Have SQLCipher dynamically link from OpenSSL
   # See https://github.com/signalapp/Signal-Desktop/issues/2634
@@ -68,20 +65,17 @@ build() {
   # See https://github.com/signalapp/Signal-Desktop/issues/2376
   yarn generate exec:build-protobuf exec:transpile concat copy:deps sass
 
-  yarn build-release
+  yarn build-release --dir
 }
 
 package() {
   cd "${_pkgname}-${pkgver}"
 
   install -d "${pkgdir}/usr/"{lib,bin}
-  cp -a release/linux-unpacked/resources "${pkgdir}/usr/lib/${pkgname}"
-  cat << EOF > "${pkgdir}"/usr/bin/${pkgname}
-#!/bin/sh
+  cp -a release/linux-unpacked "${pkgdir}/usr/lib/${pkgname}"
+  ln -s "/usr/lib/${pkgname}/${pkgname}" "${pkgdir}/usr/bin/"
 
-NODE_ENV=production electron /usr/lib/${pkgname}/app.asar "\$@"
-EOF
-  chmod +x "${pkgdir}/usr/bin/${pkgname}"
+  chmod u+s "${pkgdir}/usr/lib/signal-desktop/chrome-sandbox"
 
   install -Dm 644 "../${pkgname}.desktop" -t "${pkgdir}/usr/share/applications"
   for i in 16 24 32 48 64 128 256 512 1024; do
