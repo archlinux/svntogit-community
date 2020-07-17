@@ -1,7 +1,7 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=lsp-plugins
-pkgver=1.1.22
+pkgver=1.1.24
 pkgrel=1
 pkgdesc="Collection of free plugins compatible with LADSPA, LV2 and LinuxVST"
 arch=('x86_64')
@@ -13,27 +13,67 @@ makedepends=('jack' 'ladspa' 'libsndfile' 'lv2' 'php')
 optdepends=('jack: for standalone applications')
 checkdepends=('lv2lint')
 source=("https://github.com/sadko4u/${pkgname}/archive/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('6004136b55a990033d22e60af6c418a5ee708aaf0f4263fc3af8097876f7eea6e125a44392468ed8e30a92c0fa44eb65f40d80b25a5f243d3fd4f1c0f3af70d6')
+sha512sums=('20a82594aec51877255ca2808b6c8af03fcfc2f393fdbc6ae6826dd0da17c4a5cb14f02658c1f102600477d7d4d4fc9e24ee3c6a6ef704afc443499a43bd65ec')
+b2sums=('3d623d4a5b21f2b4dbd7263805b50c9cd9bf19733aeab774983d7a79695015d1e30201f3de46dde950adadcced347f878a272c1c3da9c5f0721c6effda05d9b4')
 
 prepare() {
   mv -v "$pkgname-$pkgname-$pkgver" "$pkgname-$pkgver"
 }
 
 build() {
-  local _test_path="$(pwd)/.build-test"
   cd "$pkgname-$pkgver"
   make
-  make OBJDIR="${_test_path}" clean
-  make OBJDIR="${_test_path}" test
+  make test
 }
 
 check() {
-  local _test_path="$(pwd)/.build-test"
+  local _plugin
+  local _lv2_uri="http://lsp-plug.in/plugins/lv2/"
+  local _lv2_plugins=('comp_delay_mono' 'comp_delay_stereo'
+  'comp_delay_x2_stereo' 'compressor_lr' 'compressor_mono' 'compressor_ms'
+  'compressor_stereo' 'dyna_processor_lr' 'dyna_processor_mono'
+  'dyna_processor_ms' 'dyna_processor_stereo' 'expander_lr' 'expander_mono'
+  'expander_ms' 'expander_stereo' 'gate_lr' 'gate_mono' 'gate_ms' 'gate_stereo'
+  'graph_equalizer_x16_lr' 'graph_equalizer_x16_mono' 'graph_equalizer_x16_ms'
+  'graph_equalizer_x16_stereo' 'graph_equalizer_x32_lr'
+  'graph_equalizer_x32_mono' 'graph_equalizer_x32_ms'
+  'graph_equalizer_x32_stereo' 'impulse_responses_mono'
+  'impulse_responses_stereo' 'impulse_reverb_mono' 'impulse_reverb_stereo'
+  'latency_meter' 'limiter_mono' 'limiter_stereo' 'loud_comp_mono'
+  'loud_comp_stereo' 'mb_compressor_lr' 'mb_compressor_mono' 'mb_compressor_ms'
+  'mb_compressor_stereo' 'mb_expander_lr' 'mb_expander_mono' 'mb_expander_ms'
+  'mb_expander_stereo' 'mb_gate_lr' 'mb_gate_mono' 'mb_gate_ms'
+  'mb_gate_stereo' 'multisampler_x12' 'multisampler_x12_do' 'multisampler_x24'
+  'multisampler_x24_do' 'multisampler_x48' 'multisampler_x48_do'
+  'oscillator_mono' 'para_equalizer_x16_lr' 'para_equalizer_x16_mono'
+  'para_equalizer_x16_ms' 'para_equalizer_x16_stereo' 'para_equalizer_x32_lr'
+  'para_equalizer_x32_mono' 'para_equalizer_x32_ms' 'para_equalizer_x32_stereo'
+  'phase_detector' 'profiler_mono' 'profiler_stereo' 'room_builder_mono'
+  'room_builder_stereo' 'sampler_mono' 'sampler_stereo' 'sc_compressor_lr'
+  'sc_compressor_mono' 'sc_compressor_ms' 'sc_compressor_stereo'
+  'sc_dyna_processor_lr' 'sc_dyna_processor_mono' 'sc_dyna_processor_ms'
+  'sc_dyna_processor_stereo' 'sc_expander_lr' 'sc_expander_mono'
+  'sc_expander_ms' 'sc_expander_stereo' 'sc_gate_lr' 'sc_gate_mono'
+  'sc_gate_ms' 'sc_gate_stereo' 'sc_limiter_mono' 'sc_limiter_stereo'
+  'sc_mb_compressor_lr' 'sc_mb_compressor_mono' 'sc_mb_compressor_ms'
+  'sc_mb_compressor_stereo' 'sc_mb_expander_lr' 'sc_mb_expander_mono'
+  'sc_mb_expander_ms' 'sc_mb_expander_stereo' 'sc_mb_gate_lr' 'sc_mb_gate_mono'
+  'sc_mb_gate_ms' 'sc_mb_gate_stereo' 'slap_delay_mono' 'slap_delay_stereo'
+  'spectrum_analyzer_x1' 'spectrum_analyzer_x12' 'spectrum_analyzer_x16'
+  'spectrum_analyzer_x2' 'spectrum_analyzer_x4' 'spectrum_analyzer_x8'
+  'surge_filter_mono' 'surge_filter_stereo' 'trigger_midi_mono'
+  'trigger_midi_stereo' 'trigger_mono' 'trigger_stereo')
   cd "$pkgname-$pkgver"
-  "${_test_path}/lsp-plugins-test" utest \
-    --nofork \
-    --debug \
-    --verbose || echo "Known flaky test: https://github.com/sadko4u/lsp-plugins/issues/19"
+  ./.test/lsp-plugins-test utest --nofork --debug --verbose \
+  || echo "Flaky unit test: https://github.com/sadko4u/lsp-plugins/issues/129"
+  mkdir -vp test/usr/bin
+  make PREFIX='/usr' \
+       DESTDIR="test" \
+       install_lv2
+  for _plugin in "${_lv2_plugins[@]}"; do
+    lv2lint -Mpack -I "test/usr/lib/lv2/${pkgname}.lv2/" "${_lv2_uri}${_plugin}" \
+    || echo "Known to fail: https://github.com/sadko4u/lsp-plugins/issues/128"
+  done
 }
 
 package() {
