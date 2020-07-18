@@ -2,7 +2,7 @@
 
 pkgname=docker
 pkgver=19.03.12
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -36,7 +36,7 @@ sha256sums=('SKIP'
             '541826011a9836d05a2f42293d5f1beadf2ca8d89fb604487d61a013505678eb')
 
 prepare() {
-  sed -i 's,/var/run,/run,' docker-ce/components/engine/contrib/init/systemd/docker.socket
+  sed -i 's,/var/run,/run,' docker-ce/components/packaging/systemd/docker.socket
 }
 
 # create a fake go path directory and pushd into it
@@ -135,15 +135,17 @@ package() {
   install -Dm755 libnetwork/proxy "$pkgdir/usr/bin/docker-proxy"
   ### init
   install -Dm755 tini/tini-static "$pkgdir/usr/bin/docker-init"
+  ### systemd units
+  cd "$srcdir"/docker-ce/components/packaging
+  install -Dm644 'systemd/docker.service' \
+    "$pkgdir/usr/lib/systemd/system/docker.service"
+  install -Dm644 'systemd/docker.socket' \
+    "$pkgdir/usr/lib/systemd/system/docker.socket"
   ### engine
   cd "$srcdir"/docker-ce/components/engine
   # binary
   install -Dm755 {bundles/dynbinary-daemon,"$pkgdir"/usr/bin}/dockerd
-  # systemd
-  install -Dm644 'contrib/init/systemd/docker.service' \
-    "$pkgdir/usr/lib/systemd/system/docker.service"
-  install -Dm644 'contrib/init/systemd/docker.socket' \
-    "$pkgdir/usr/lib/systemd/system/docker.socket"
+  # systemd rules
   install -Dm644 'contrib/udev/80-docker.rules' \
     "$pkgdir/usr/lib/udev/rules.d/80-docker.rules"
   install -Dm644 "$srcdir/$pkgname.sysusers" \
