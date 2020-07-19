@@ -5,7 +5,7 @@
 pkgname=intellij-idea-community-edition
 pkgver=2020.1.3
 _build=201.8538.31
-pkgrel=1
+pkgrel=2
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -13,8 +13,11 @@ arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
+depends=('giflib' 'java-environment=11' 'java11-openjfx' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
 makedepends=('ant' 'git' 'java8-openjfx' 'java-environment=8')
+optdepends=(
+  'lldb: lldb frontend integration'
+)
 source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
         idea-android::"git+https://github.com/JetBrains/android#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
@@ -24,7 +27,7 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
-            '5d4f998bec3249165b0e62b5e51e9b7fbe383bb9f1178ffefe070f2c9872eebb')
+            '115f1091edb138a7a7b15980e8538b4dfd28054cfab38b844df6d918b1b881c5')
 
 prepare() {
   cd intellij-community
