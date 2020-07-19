@@ -1,0 +1,52 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=wireplumber
+pkgver=0.3.0
+pkgrel=1
+pkgdesc="Session / policy manager implementation for PipeWire"
+arch=('x86_64')
+url="https://gitlab.freedesktop.org/pipewire/wireplumber"
+license=('MIT')
+depends=('gcc-libs' 'glibc')
+makedepends=('cmake' 'cpptoml' 'glib2' 'gobject-introspection' 'meson' 'pipewire')
+checkdepends=('pipewire-alsa' 'pipewire-jack' 'pipewire-pulse')
+provides=('libwireplumber-0.3.so')
+source=("$pkgname-$pkgver.tar.gz::https://gitlab.freedesktop.org/pipewire/${pkgname}/-/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}-0.3.0-devendor_cpptoml.patch")
+sha512sums=('4cdfa5e91ae5e0b7b9899a3aaa761e57f01af727df63d47f784f4128811d22bc2b9f22e1b37169a259fbef3c41a8ec2347c157bcc3fbebc91db67c5d2958c913'
+            'b1656d3f4ad510bd4942889ef8169387639f02a92de4c70a16d690908a807d3806617a668b07858acf8f43a6ab9f364c26827744c08b394d0d7b667bb81b5b0b')
+b2sums=('29e64b646681e1a556a6367b98e55e944f3cce60905ca9b201ec373720a2d8af3cc60ca1991fd8485677165d47e5bc9f3ad9f9ecf009a1d7fd607a03e468c01d'
+        'b589a0c88153f27c21ca4a1bdfeedd3b1a87b60abe8b4ed3568ba34b75919ef187aa686ee265c1444d44ff055d95d57e14a0947b1715c294cab380ecba0b68e7')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # allow using system cpptoml
+  # https://gitlab.freedesktop.org/pipewire/wireplumber/-/issues/17
+  patch -Np1 -i "../${pkgname}-0.3.0-devendor_cpptoml.patch"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  meson --prefix='/usr' \
+        --buildtype plain \
+        --wrap-mode nodownload \
+        -D b_lto=true \
+        -D b_pie=true \
+        -Dintrospection=enabled \
+        build
+  ninja -C build
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  ninja -C build test || echo "Known to fail: https://gitlab.freedesktop.org/pipewire/wireplumber/-/issues/18"
+}
+
+package() {
+  depends+=('libgio-2.0.so' 'libglib-2.0.so' 'libgmodule-2.0.so'
+  'libgobject-2.0.so' 'libpipewire-0.3.so')
+  cd "$pkgname-$pkgver"
+  DESTDIR="${pkgdir}" meson install -C build
+  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -vDm 644 {NEWS,README}.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
