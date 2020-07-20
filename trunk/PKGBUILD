@@ -8,7 +8,7 @@
 
 pkgbase=calibre
 pkgname=('calibre' 'calibre-common' 'calibre-python3')
-pkgver=4.20.0
+pkgver=4.21.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
@@ -29,11 +29,11 @@ source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
         "0001-De-vendor-pychm.patch"
         "calibre-alternatives.sh")
-sha256sums=('afb4ee02fab53e362e02b4bc67e97d22d05b414ce933c30b2bed8c90cfec3dee'
+sha256sums=('aa0cb9d5f3cbc85735f8c13bea1ec1268ba4bf00816f621b0385ab011c99e8c3'
             'SKIP'
             'f7b829aea1d33818808cbeeb9a295e18e49edf619a5bc89b8315c88f56ce4d25'
             '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3')
-b2sums=('28ee9539eda96809004f4c276c8dceba119122379867f4b9235ad52a3ec68337330c4cbc2e715462f27ea0c3a0c8470609a50273db49a69f69a60e7fbcef11a5'
+b2sums=('7797e1b99eefa795a84a1ce913b7739ce6961d58ea28c68e3f5a1b756bbec20c206bd7cab25f1ffacc33f39fed2cc4acf99b5bb90ba88b0607987801770d8b30'
         'SKIP'
         'c35181c70084813772c4d593311b48b3e3bcc3b4e9e8ee58112b9beab2bbc0de1ee22aafc3d06cfd812f87a2e91292f7b7f1dc5f522c55440f415b6b265d5671'
         '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91')
