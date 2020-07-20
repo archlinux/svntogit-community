@@ -3,7 +3,7 @@
 
 pkgname=fwupd
 pkgver=1.4.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
@@ -36,18 +36,16 @@ sha256sums=('d742d5f30b6018a936486c3e42f6f2542ed8724afe04f517eb7b14dda749d60f'
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
-    cd ${pkgname}-${pkgver}
-    arch-meson -D b_lto=false -D plugin_flashrom=true ../build
-    ninja -v -C ../build
+    arch-meson ${pkgname}-${pkgver} build -D b_lto=false -D plugin_flashrom=true
+    meson compile -C build
 }
 
 check() {
-    cd build
-    meson test
+    meson test -C build
 }
 
 package() {
-    DESTDIR="${pkgdir}" ninja -C build install
+    DESTDIR="${pkgdir}" meson install -C build
     # Fixup mode to match polkit
     install -d -o root -g 102 -m 750 "${pkgdir}"/usr/share/polkit-1/rules.d
     # Remove the tests
