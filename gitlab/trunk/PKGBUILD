@@ -131,7 +131,7 @@ package() {
   install -dm755 -o 105 -g 105 "${pkgdir}${_logdir}"
   install -dm755 "${pkgdir}/usr/share/doc/gitlab"
 
-  rm -r "${pkgdir}${_appdir}"/{.git,builds,tmp,log}
+  rm -r "${pkgdir}${_appdir}"/{.git,builds,tmp,log,shared}
 
   # TODO: Rails uses log dir under the rails root. Figure out if it is possible to configure rails
   # to log right to /var/log/gitlab
