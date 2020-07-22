@@ -3,7 +3,7 @@
 
 pkgname=python-pygments
 pkgver=2.6.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Python syntax highlighter"
 arch=('any')
 url="https://pygments.org/"
@@ -19,12 +19,13 @@ sha256sums=('647344a061c249a3b74e230c739f434d7ea4d8b1d5f3721bc0f3558049b38f44')
 
 build() {
   cd "$srcdir/Pygments-$pkgver"
+  export PYTHONHASHSEED=0
   make -C doc html
 }
 
 check() {
   cd "$srcdir/Pygments-$pkgver"
-  pytest
+  PYTHONDONTWRITEBYTECODE=1 pytest
 }
 
 package() {
