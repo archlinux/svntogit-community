@@ -3,9 +3,9 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2020.1.3
-_build=201.8538.31
-pkgrel=2
+pkgver=2020.1.4
+_build=201.8743.12
+pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
