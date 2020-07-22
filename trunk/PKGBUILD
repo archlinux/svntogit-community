@@ -133,12 +133,14 @@ package() {
 
   rm -r "${pkgdir}${_appdir}"/{.git,builds,tmp,log,shared}
 
-  # TODO: Rails uses log dir under the rails root. Figure out if it is possible to configure rails
-  # to log right to /var/log/gitlab
+  # Rails app hardcodes/configures by default that data is stored under $_appdir
+  # Create symlinks that point to data directories under /var
   ln -fs "${_logdir}" "${pkgdir}${_appdir}/log"
-
-  # public/uploads is used by Pages
+  ln -fs "${_datadir}/builds" "${pkgdir}${_appdir}/builds"
+  mkdir "${pkgdir}${_appdir}/tmp/"
+  ln -fs "${_datadir}/backups" "${pkgdir}${_appdir}/tmp/backups"
   ln -fs "${_datadir}/uploads" "${pkgdir}${_appdir}/public/uploads"
+  ln -fs "${_datadir}/shared" "${pkgdir}${_appdir}/shared"
 
   # TODO: workhorse and shell secret files are the application data and should be stored under /var/lib/gitlab
   ln -fs "${_etcdir}/gitlab_workhorse_secret" "${pkgdir}${_appdir}/.gitlab_workhorse_secret"
