@@ -8,7 +8,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=13.1.4
+pkgver=13.2.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -37,12 +37,11 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab-backup.timer
         gitlab.target
         gitlab.tmpfiles.d
-        gitlab.logrotate
-        ruby27-pop-extra-arg.patch)
+        gitlab.logrotate)
 install='gitlab.install'
 sha512sums=('SKIP'
-            '19c69797d268216e254f82dd9e865a70c8e79039a34b09efba42542b6e59e4d74f546be566ad923f39ed9e873273b7341619efa71ce7689d97e1a72df5677753'
-            '9623de113358d3d6e49047f688e272d9394579734ace1bd647497e8717a90784546d27e547a29197a16c80d72ad9f2c79eb65f8edc631deadf2ec90ee86ea44b'
+            '4fbc19b97cb9183e2f9b91a261b327262ba37dceff145ae4690ea0818dfb21175456f0ed174354b74cec0d186bb981087a1a590d51044c2a9c6034d94ee0727c'
+            '3fc0919e2995f36da9a98fa74e83955f91854fd2e214f66f0a32054b77c83161063f8c05e1126e57e474eb0f2909970641ccc4d13eea9625f36bf56cdf0c75a4'
             '5b1ca2958f03a5baf1c5576a1568072e8ed749e2d15745ecbcc4860d2dbd543f2f3ed077e8d87afac2670c9436b19fe498217b49916d56a4e31fb9811aeb9067'
             '75bf9e5ad238a862dfc2638101fb74101227d88958a5f0fdf1ced3833e403f91b6a5908dfb97c5172f75748737212bf87d05b7d39bbe90ed5d3a6c248c1c1ab6'
             '18f4a31935d0626c26d1be1942b715128cf3edcb114f672af16e4a145d8ac693e1afc7d59094cae3702e47e4c6c4cb4a62a009bafcbec500e69120a2dd400a2a'
@@ -51,8 +50,7 @@ sha512sums=('SKIP'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
             '879be339148123e32b58a5669fdd3d3bb8b5d711326cb618f95b1680a6ac3a83c85d8862f2691b352fa26c95e4764dbb827856e22a3e2b9e4a76c13fe42864b5'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
-            '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121'
-            '0cc5c1df3cd18978df9a01bb64680d3a375c1ff4de6a453045dd26355777b4f08e3a05f55f035c8012a9683100de0bc3d11c280debcb343eb7167fc25342d5c0')
+            '88e199d2f63e4f235930c35c6dfde80e6010e590907bd4de0af1fbfe6d5491ff56845aefcfe8edefa707712bd84fef96880655747b8bfb949ceeadc0456b0121')
 
 
 _appdir="/usr/share/webapps/gitlab" # the app source code location
@@ -99,13 +97,6 @@ build() {
   bundle config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
   bundle config force_ruby_platform true # some native gems are not available for newer ruby
   bundle install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
-
-  # workaround for a ruby2.7 issue
-  # https://gitlab.com/groups/gitlab-org/-/epics/2380
-  # https://github.com/ruby-grape/grape/issues/1967
-  pushd vendor/bundle/ruby/2.7.0/gems/grape-1.1.0/
-  patch -p1 < $srcdir/ruby27-pop-extra-arg.patch
-  popd
 
   yarn install --production --pure-lockfile
   bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
