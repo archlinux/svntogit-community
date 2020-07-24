@@ -1,0 +1,127 @@
+From 62fff7d03d8785a69f56115b27081fe1081edc9b Mon Sep 17 00:00:00 2001
+From: Konstantin Gizdov <kgizdov@gmail.com>
+Date: Fri, 24 Jul 2020 18:23:49 +0300
+Subject: [PATCH 1/2] fix regression in f8edeb9 not using correct string_view
+ when CUDA C++ standard allows it
+
+---
+ cmake/modules/RootConfiguration.cmake                  | 3 +++
+ config/RConfigure.in                                   | 1 +
+ tmva/tmva/inc/TMVA/DNN/Architectures/Cuda/CudaMatrix.h | 3 +++
+ tmva/tmva/src/DNN/Architectures/Cuda.cu                | 3 +++
+ tmva/tmva/src/DNN/Architectures/Cudnn.cu               | 5 ++++-
+ 5 files changed, 14 insertions(+), 1 deletion(-)
+
+diff --git a/cmake/modules/RootConfiguration.cmake b/cmake/modules/RootConfiguration.cmake
+index 1fe84d1515a..a19eafabb71 100644
+--- a/cmake/modules/RootConfiguration.cmake
++++ b/cmake/modules/RootConfiguration.cmake
+@@ -531,6 +531,9 @@ endif()
+ if(found_stdstringview)
+   CHECK_CXX_SOURCE_COMPILES("#include <string_view>
+      int main() { size_t pos; std::string_view str; std::stod(str,&pos); return 0;}" found_stod_stringview)
++  if(CMAKE_CUDA_STANDARD GREATER_EQUAL CMAKE_CXX_STANDARD)
++    set(cudahasstdstringview define)
++  endif()
+ elseif(found_stdexpstringview)
+   CHECK_CXX_SOURCE_COMPILES("#include <experimental/string_view>
+      int main() { size_t pos; std::experimental::string_view str; std::stod(str,&pos); return 0;}" found_stod_stringview)
+diff --git a/config/RConfigure.in b/config/RConfigure.in
+index 14921f244b0..43daff4cd66 100644
+--- a/config/RConfigure.in
++++ b/config/RConfigure.in
+@@ -33,6 +33,7 @@
+ #@usecxxmodules@ R__USE_CXXMODULES   /**/
+ #@uselibc++@ R__USE_LIBCXX    /**/
+ #@hasstdstringview@ R__HAS_STD_STRING_VIEW   /**/
++#@cudahasstdstringview@ R__CUDA_HAS_STD_STRING_VIEW   /**/
+ #@hasstdexpstringview@ R__HAS_STD_EXPERIMENTAL_STRING_VIEW   /**/
+ #@hasstodstringview@ R__HAS_STOD_STRING_VIEW /**/
+ #@hasopplusequalstringview@ R__HAS_OP_EQUAL_PLUS_STRING_VIEW /**/
+diff --git a/tmva/tmva/inc/TMVA/DNN/Architectures/Cuda/CudaMatrix.h b/tmva/tmva/inc/TMVA/DNN/Architectures/Cuda/CudaMatrix.h
+index 3c224f185f1..72581eaedcd 100644
+--- a/tmva/tmva/inc/TMVA/DNN/Architectures/Cuda/CudaMatrix.h
++++ b/tmva/tmva/inc/TMVA/DNN/Architectures/Cuda/CudaMatrix.h
+@@ -20,11 +20,14 @@
+ #define TMVA_DNN_ARCHITECTURES_CUDA_CUDAMATRIX
+ 
+ // in case we compile C++ code with std-17 and cuda with lower standard
++// use experimental string_view, otherwise keep as is
+ #include "RConfigure.h"
+ #ifdef R__HAS_STD_STRING_VIEW
++#ifndef R__CUDA_HAS_STD_STRING_VIEW
+ #undef R__HAS_STD_STRING_VIEW
+ #define R__HAS_STD_EXPERIMENTAL_STRING_VIEW
+ #endif
++#endif
+ 
+ #include "cuda.h"
+ #include "cuda_runtime.h"
+diff --git a/tmva/tmva/src/DNN/Architectures/Cuda.cu b/tmva/tmva/src/DNN/Architectures/Cuda.cu
+index 56daac79850..547460017b2 100644
+--- a/tmva/tmva/src/DNN/Architectures/Cuda.cu
++++ b/tmva/tmva/src/DNN/Architectures/Cuda.cu
+@@ -15,11 +15,14 @@
+ /////////////////////////////////////////////////////////////////
+ 
+ // in case we compile C++ code with std-17 and cuda with lower standard
++// use experimental string_view, otherwise keep as is
+ #include "RConfigure.h"
+ #ifdef R__HAS_STD_STRING_VIEW
++#ifndef R__CUDA_HAS_STD_STRING_VIEW
+ #undef R__HAS_STD_STRING_VIEW
+ #define R__HAS_STD_EXPERIMENTAL_STRING_VIEW
+ #endif
++#endif
+ 
+ #include "TMVA/DNN/Architectures/Cuda.h"
+ #include "Cuda/Propagation.cu"
+diff --git a/tmva/tmva/src/DNN/Architectures/Cudnn.cu b/tmva/tmva/src/DNN/Architectures/Cudnn.cu
+index 4b32d4b2d8e..15e4277d6be 100644
+--- a/tmva/tmva/src/DNN/Architectures/Cudnn.cu
++++ b/tmva/tmva/src/DNN/Architectures/Cudnn.cu
+@@ -15,11 +15,14 @@
+ ///////////////////////////////////////////////////////////////////
+ 
+ // in case we compile C++ code with std-17 and cuda with lower standard
++// use experimental string_view, otherwise keep as is
+ #include "RConfigure.h"
+ #ifdef R__HAS_STD_STRING_VIEW
++#ifndef R__CUDA_HAS_STD_STRING_VIEW
+ #undef R__HAS_STD_STRING_VIEW
+ #define R__HAS_STD_EXPERIMENTAL_STRING_VIEW
+ #endif
++#endif
+ 
+ #include "TMVA/DNN/Architectures/TCudnn.h"
+ #include "Cudnn/Propagate.cu"
+@@ -54,4 +57,4 @@ template class TCudnn<Double_t>;
+ // size_t TCudnn<Double_t>::CNNOptions::ConvMaxWorkspaceSize = 0;
+ 
+ } // end namespace DNN
+-} // end namespace TMVA
+\ No newline at end of file
++} // end namespace TMVA
+
+From d30bf0190f668434f23875e201a80450b6d2dddb Mon Sep 17 00:00:00 2001
+From: Konstantin Gizdov <kgizdov@gmail.com>
+Date: Fri, 24 Jul 2020 18:53:53 +0300
+Subject: [PATCH 2/2] set R__CUDA_HAS_STD_STRING_VIEW to undef in all other
+ cases
+
+---
+ cmake/modules/RootConfiguration.cmake | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/cmake/modules/RootConfiguration.cmake b/cmake/modules/RootConfiguration.cmake
+index a19eafabb71..c9f7206d12c 100644
+--- a/cmake/modules/RootConfiguration.cmake
++++ b/cmake/modules/RootConfiguration.cmake
+@@ -528,6 +528,7 @@ else()
+   endif()
+ endif()
+ 
++set(cudahasstdstringview undef)
+ if(found_stdstringview)
+   CHECK_CXX_SOURCE_COMPILES("#include <string_view>
+      int main() { size_t pos; std::string_view str; std::stod(str,&pos); return 0;}" found_stod_stringview)
