@@ -13,7 +13,7 @@ pkgname=emscripten
 # variable. It has the llvm commit to use here.
 _llvm_commit=55fa315b0352b63454206600d6803fafacb42d5e
 pkgver=1.39.20
-pkgrel=1
+pkgrel=2
 pkgdesc="LLVM-based project that compiles C and C++ into highly-optimizable JavaScript for the web"
 arch=('x86_64')
 url="http://emscripten.org"
@@ -32,7 +32,7 @@ source=("git+https://github.com/kripken/emscripten#tag=$pkgver"
 sha512sums=('SKIP'
             'SKIP'
             'a87cf5d4a5ac10a4f84ff02ea577d54b560929dc64457b874cd1cbd88311cf6c4dcfbf3242150f6e556f4ba6efd370a99b9f9065faf494f25d91fc012cd5aa58'
-            '4a93ea4291701a509f30541ad534f325b3e4f014a496e030bc19791095640931f18706264fa83a113225c6ee1a2ecd97bdefdc1dd15caaa5799105f7a96e3b7d'
+            '8b5951493f69631045f44736917144b7679beb2bf087fca8a8ba887224cfc598fe8c76c5a4e7aa4a09fbb8f1b7b42556b68f4aa9e5b93fb130fd8bdab79053d9'
             'b2e0c162335c40ee84968ab8c5bae5083a96f18dcc6c4d4f50e4a7f312d075ad965f9afb0a9d2ca290068ed1ef5fe2599c681162690c645ca1f36f3af592a05f')
 
 prepare() {
@@ -48,26 +48,52 @@ build() {
   cmake . \
     -Bbuild \
     -GNinja \
+    -DCMAKE_CXX_FLAGS=-Wno-nonportable-include-path \
+    -DLLVM_ENABLE_LIBXML2=OFF \
+    -DLLVM_INCLUDE_EXAMPLES=OFF \
+    -DCOMPILER_RT_BUILD_XRAY=OFF \
+    -DCOMPILER_RT_INCLUDE_TESTS=OFF \
+    -DCOMPILER_RT_ENABLE_IOS=OFF \
+    -DCMAKE_INSTALL_PREFIX=/opt/emscripten-llvm \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_SKIP_RPATH=YES \
-    -DLLVM_TARGETS_TO_BUILD="X86;WebAssembly" \
+    -DCMAKE_SKIP_RPATH=ON \
     -DLLVM_BUILD_RUNTIME=OFF \
     -DLLVM_TOOL_LTO_BUILD=ON \
     -DLLVM_INSTALL_TOOLCHAIN_ONLY=ON \
     -DLLVM_INCLUDE_EXAMPLES=OFF \
     -DLLVM_INCLUDE_TESTS=OFF \
+    -DLLVM_TARGETS_TO_BUILD="X86;WebAssembly" \
     -DLLVM_ENABLE_PROJECTS="lld;clang" \
     -DCLANG_INCLUDE_TESTS=OFF
   ninja -C build
 }
 
 package() {
-  # Install LLVM stuff according to https://github.com/emscripten-core/emscripten/blob/master/docs/packaging.md
-  install -d "$pkgdir"/usr/lib
-  cp -r "$srcdir"/llvm-project/llvm/build/bin "$pkgdir"/usr/lib/emscripten-llvm
+  # Install LLVM stuff according to
+  # https://github.com/emscripten-core/emscripten/blob/master/docs/packaging.md
+  # and
+  # https://github.com/WebAssembly/waterfall/blob/d4a504ffee488a68d09b336897c00d404544601d/src/build.py#L915
+  DESTDIR="$pkgdir" ninja -C "$srcdir"/llvm-project/llvm/build install
+  cd "$pkgdir"/opt/emscripten-llvm/bin
+  ln -s clang wasm32-clang
+  ln -s clang wasm32-wasi-clang
+  ln -s clang++ wasm32-clang++
+  ln -s clang++ wasm32-wasi-clang++
+
+  # Clean up some unnecessary bins and libs
+  rm clang-check clang-cl clang-cpp clang-extdef-mapping clang-format \
+      clang-offload-bundler clang-refactor clang-rename clang-scan-deps \
+      lld-link ld.lld llvm-lib
+  cd ../lib
+  rm libclang.so
+
+  # Copy some stuff that we need but that wasn't installed by default
+  for bin in FileCheck llc llvm-as llvm-dis llvm-link llvm-mc llvm-nm llvm-objdump llvm-readobj llvm-size opt llvm-dwarfdump; do
+      install -Dm755 "$srcdir"/llvm-project/llvm/build/bin/$bin "$pkgdir"/opt/emscripten-llvm/bin/$bin
+  done
 
   # Install emscripten
-  cd emscripten
+  cd "$srcdir"/emscripten
   make DESTDIR="$pkgdir"/usr/lib/emscripten install
   install -Dm644 "$srcdir"/emscripten-config "$pkgdir"/usr/lib/emscripten/.emscripten
 
