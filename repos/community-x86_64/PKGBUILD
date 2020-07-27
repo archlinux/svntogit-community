@@ -9,14 +9,15 @@ pkgname=(
  dotnet-sdk
  aspnet-runtime
 )
-pkgver=3.1.3.sdk103.2
-_runtimever=3.1.3
-_sdkver=3.1.103
+pkgver=3.1.6.sdk106
+_runtimever=3.1.6
+_sdkver=3.1.106
 pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
 makedepends=(
+  bash
   clang
   cmake
   curl
@@ -33,20 +34,24 @@ makedepends=(
   zlib
 )
 options=(staticlibs)
+_tag=bebae309898f714f8d3e79f1b86cb3d086487af0
 source=(
-  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=ed88943d2414b1abaaae657b5b3c2d38a1391164
+  dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
   9999-Fix-versionless-RID-computation.patch
   9999-Add-arch-RIDs.patch
+  9999-Fix-build-clang-10.patch
 )
 sha256sums=('SKIP'
             '0e500cd3d1e4a75bf58558020f1b6ad7720f9194dfea2aade7c148af5a031cd7'
-            '1d64778c9ac6a5aa49cda743e87ed31ace6aef8aa2e22f98ccd9bb7303cfd593')
+            '1d64778c9ac6a5aa49cda743e87ed31ace6aef8aa2e22f98ccd9bb7303cfd593'
+            '9eb32eb8a7baa0dfc3d68fa7f6c316fcd14ccd9075177a5d3c8a044edb2a07c2')
 
 prepare() {
   cd dotnet-source-build
 
   cp ../9999-Fix-versionless-RID-computation.patch patches/core-setup/
   cp ../9999-Add-arch-RIDs.patch patches/corefx/
+  cp ../9999-Fix-build-clang-10.patch patches/corefx/
 }
 
 build() {
@@ -61,7 +66,7 @@ package_dotnet-host() {
   pkgdesc='A generic driver for the .NET Core Command Line Interface'
   depends=(glibc)
 
-  cd dotnet-source-build/bin/x64/Release
+  cd dotnet-source-build/artifacts/x64/Release
 
   install -dm 755 "${pkgdir}"/usr/{bin,lib,share/{dotnet,licenses/dotnet-host}}
   bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner dotnet host
@@ -87,7 +92,7 @@ package_dotnet-runtime() {
   provides=(dotnet-runtime-3.1)
   conflicts=(dotnet-runtime-3.1)
 
-  cd dotnet-source-build/bin/x64/Release
+  cd dotnet-source-build/artifacts/x64/Release
 
   install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
   bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner shared/Microsoft.NETCore.App
@@ -103,7 +108,7 @@ package_dotnet-sdk() {
   provides=(dotnet-sdk-3.1)
   conflicts=(dotnet-sdk-3.1)
 
-  cd dotnet-source-build/bin/x64/Release
+  cd dotnet-source-build/artifacts/x64/Release
 
   install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
   bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner packs sdk templates
@@ -116,7 +121,7 @@ package_aspnet-runtime() {
   provides=(aspnet-runtime-3.1)
   conflicts=(aspnet-runtime-3.1)
 
-  cd dotnet-source-build/bin/x64/Release
+  cd dotnet-source-build/artifacts/x64/Release
 
   install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
   bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner shared/Microsoft.AspNetCore.App
