@@ -5,48 +5,48 @@
 _pkg=netcdf-fortran
 _mpi=openmpi
 pkgname=${_pkg}-${_mpi}
-pkgver=4.5.2
-pkgrel=2
+pkgver=4.5.3
+pkgrel=1
 pkgdesc="NetCDF fortran bindings with parallel support (${_mpi} version)"
 arch=(x86_64)
 url="https://github.com/Unidata/netcdf-fortran"
 license=(custom)
 depends=(gcc-libs netcdf-openmpi curl)
-makedepends=(gcc-fortran doxygen)
+makedepends=(cmake gcc-fortran doxygen)
 checkdepends=(valgrind)
 provides=("${_pkg}")
 conflicts=("${_pkg}")
 options=(!makeflags staticlibs)
 source=(${url}/archive/v${pkgver}/${_pkg}-${pkgver}.tar.gz)
-sha256sums=('0b05c629c70d6d224a3be28699c066bfdfeae477aea211fbf034d973a8309b49')
+sha256sums=('c6da30c2fe7e4e614c1dff4124e857afbd45355c6798353eccfa60c0702b495a')
 
 build() {
-    cd ${_pkg}-${pkgver}
-    ./configure \
-        CC=mpicc \
-        FC=mpifort \
-        --prefix=/usr \
-        --enable-extra-tests \
-        --enable-extra-example-tests \
-        --enable-large-file-tests \
-        --enable-parallel-tests \
-        --enable-valgrind-tests
-    make
+    # Failure with GCC 10+
+    export FCFLAGS="-fallow-argument-mismatch"
+    export FFLAGS="-fallow-argument-mismatch"
+    export CC=mpicc FC=mpifort
+    cmake -B build -S ${_pkg}-${pkgver} \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DENABLE_FILTER_TEST=ON \
+        -DENABLE_LARGE_FILE_TESTS=ON \
+        -DENABLE_PARALLEL_TESTS=ON \
+        -DTEST_WITH_VALGRIND=ON
+    make -C build
 }
 
 check() {
-    cd ${_pkg}-${pkgver}
-
     # This is required starting with OpenMPI 3.0 when trying to run more
     # processes than the number of available cores
     export OMPI_MCA_rmaps_base_oversubscribe=yes
 
     # https://github.com/Unidata/netcdf-fortran/issues/109
-    make LIBS="-lnetcdf -lhdf5_hl -lhdf5 -lpnetcdf -lz -lcurl -ldl -lm" check || warning "Tests failed"
+    make -C build test || warning "Tests failed"
 }
 
 package() {
-    cd ${_pkg}-${pkgver}
-    make DESTDIR="${pkgdir}" install
-    install -Dm644 COPYRIGHT -t "${pkgdir}"/usr/share/licenses/${_pkg}/
+    make -C build DESTDIR="${pkgdir}" install
+    install -Dm644 ${_pkg}-${pkgver}/COPYRIGHT -t "${pkgdir}"/usr/share/licenses/${_pkg}/
+    rmdir "${pkgdir}"/usr/include/CMakeFiles/{netcdff.dir,}
 }
+
