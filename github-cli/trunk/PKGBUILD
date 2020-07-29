@@ -25,6 +25,9 @@ build() {
     export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
 
     make GH_VERSION="v$pkgver" bin/gh manpages
+    bin/gh completion -s bash | install -Dm644 /dev/stdin share/bash-completion/completions/gh
+    bin/gh completion -s zsh | install -Dm644 /dev/stdin share/zsh/site-functions/_gh
+    bin/gh completion -s fish | install -Dm644 /dev/stdin share/fish/vendor_completions.d/gh.fish
 }
 
 check(){
@@ -35,12 +38,9 @@ check(){
 package() {
     cd "cli-$pkgver"
     install -Dm755 "bin/gh" "$pkgdir/usr/bin/gh"
+    cp -r share/ "$pkgdir"/usr
     install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
 
-    install -Dm644 -t "$pkgdir/usr/share/man/man1/" share/man/man1/*
 
-    bin/gh completion -s bash | install -Dm644 /dev/stdin "$pkgdir/usr/share/bash-completion/completions/gh"
-    bin/gh completion -s zsh | install -Dm644 /dev/stdin "$pkgdir/usr/share/zsh/site-functions/_gh"
-    bin/gh completion -s fish | install -Dm644 /dev/stdin "$pkgdir/usr/share/fish/vendor_completions.d/gh.fish"
 }
