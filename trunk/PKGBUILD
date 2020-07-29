@@ -4,8 +4,8 @@
 # Contributor: bjoern lindig (bjoern _dot_ lindig _at_ google.com)
 
 pkgname=faust
-pkgver=2.20.2
-pkgrel=5
+pkgver=2.27.1
+pkgrel=1
 pkgdesc="A functional programming language for realtime audio signal processing."
 arch=('x86_64')
 url="https://faust.grame.fr/"
@@ -15,6 +15,7 @@ depends=('gcc-libs' 'glibc' 'llvm-libs' 'libmicrohttpd')
 makedepends=('cmake' 'libsndfile' 'llvm' 'xxd')
 optdepends=('clang: for sound2reader'
             'csound: for faust2csound'
+            'gradle: for faust2android'
             'graphviz: for faust2sig{,viewer}'
             'gtk2: for faust2{jack,rosgtk}'
             'inkscape: for faust2{pdf,png}'
@@ -34,29 +35,41 @@ optdepends=('clang: for sound2reader'
 provides=('libfaustmachine.so' 'libfaust.so' 'libOSCFaust.so' 'libHTTPDFaust.so')
 options=('staticlibs')
 source=("https://github.com/grame-cncm/${pkgname}/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz"
-        "${pkgname}-2.20.2-fix_c-api.patch::https://github.com/grame-cncm/faust/commit/0bbc3e4b605d3cec5e8fa17162b342e761ae9a1a.patch"
-        "${pkgname}-2.20.2-llvm10.patch::https://github.com/grame-cncm/faust/commit/10a35c5341c110b7dcdd5310f46bb357605420d1.patch")
-sha512sums=('1b2a38d03f88679a542eae4f2150d127a5208bf18cdbe612789db4fa52284607cc3319d62a3e0427ce2dbfe215923b063452e8ad35cc3fa4a603ad66914f0a84'
-            '3a8fd90694e62ed89c4ee4ebf8e81bbff397a66ba58184f4334e6ad0559b4285f4d6c54338b4024b30cacf378e3291cd5d3ef08bb896f152cf5139a99c607b75'
-            '1c48b0b1c1bc8f8dc79e6d17da5bd91c5dd635a7ddd3a1622e20184eefc8cb82bcb874bfb229db95fdb08e68fc7c3d760ee657852cfbd99d0858100ccfda4675')
+        "${pkgname}-2.27.1-libmicrohttpd.patch::https://github.com/grame-cncm/faust/commit/afff11d4bdff0ce5bf945e165581de4f5a953520.patch"
+)
+sha512sums=('feff078784276ae026b76b833b460193c58c3f750fc5d9dc071015c19393d55af4b2d6bf2555d61a19b88ed0e8de9ce82a6785bfaa0754144e3246f52ebc7e4f'
+            'efe3fda4f67392763cc631bfaefd91af012ed0978288f237bcb965c19e37b65b99f87f392ee3518a62bbebc98b1d61993a70de68861f19046a7c6ecf47e3dcff')
+b2sums=('e6fc33dfe6a7aa0296533f43a6827b06dd39913cc28da2622e1e7eca2e6e342b03e508b10038fea33cd27860cc0e7395d3186eb86ee98d4370663a5dbea1b557'
+        '3f87c52493a97049f7b8ea2b1a4f1ed0c7dc3c598a2fd38e77136f9630b41394c360cbf5974d9f66b7d3e64d262182d73586fe8f5a98f27c7e0b9b2220db7d14')
 
 prepare() {
   cd "${pkgname}-${pkgver}"
-  # fixing broken C-API: https://bugs.archlinux.org/task/65086
-  patch -Np1 -i "../${pkgname}-2.20.2-fix_c-api.patch"
-  # fix build with llvm10: https://github.com/grame-cncm/faust/issues/427
-  patch -Np1 -i "../${pkgname}-2.20.2-llvm10.patch"
+  # fix build with libmicrohttpd >= 0.9.71
+  # https://github.com/grame-cncm/faust/issues/467
+  patch -Np1 -i "../${pkgname}-2.27.1-libmicrohttpd.patch"
 }
 
 build() {
   cd "${pkgname}-${pkgver}"
-  make PREFIX=/usr VERBOSE=1 world
+  cmake -C build/backends/all.cmake \
+        -C build/targets/all.cmake \
+        -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DINCLUDE_DYNAMIC=ON \
+        -DINCLUDE_STATIC=ON \
+        -DINCLUDE_ITP=ON \
+        -W no-dev \
+        -B "${pkgname}-build" \
+        -S build
+  make VERBOSE=1 -C "${pkgname}-build"
+  make VERBOSE=1 -C tools/sound2faust
 }
 
 package() {
   depends+=('libsndfile.so')
   cd "${pkgname}-${pkgver}"
-  make install PREFIX=/usr DESTDIR="$pkgdir"
+  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C "${pkgname}-build"
+  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C tools/sound2faust
 
   # docs
   install -vDm 644 documentation/{,misc/}*.pdf \
@@ -99,5 +112,9 @@ package() {
 
   # removing unusable scripts
   rm -v "${pkgdir}/usr/bin/${pkgname}2au"
+  # remove precompiled shared libraries for android:
+  # https://github.com/grame-cncm/faust/issues/370
+  rm -rvf "${pkgdir}/usr/share/faust/android/app/"{lib,oboe} \
+    "${pkgdir}/usr/share/faust/smartKeyboard/android/app/oboe"
 }
 
