@@ -1,4 +1,5 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
