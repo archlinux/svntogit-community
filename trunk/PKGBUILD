@@ -2,16 +2,16 @@
 # Contributor: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
 
 pkgname=firefox-developer-edition
-pkgver=79.0b8
+pkgver=80.0b1
 pkgrel=1
 pkgdesc="Developer Edition of the popular Firefox web browser"
 arch=('x86_64')
 license=('MPL' 'GPL' 'LGPL')
 url="https://www.mozilla.org/firefox/channel/#developer"
 depends=('gtk3' 'libxt' 'startup-notification' 'mime-types' 'dbus-glib' 'ffmpeg' 'ttf-font' 'libpulse' 'nss')
-makedepends=('unzip' 'zip' 'diffutils' 'python2-setuptools' 'yasm' 'mesa' 'imake' 'inetutils'
+makedepends=('unzip' 'zip' 'diffutils' 'python-setuptools' 'yasm' 'mesa' 'imake' 'inetutils'
              'xorg-server-xvfb' 'autoconf2.13' 'rust' 'clang' 'llvm' 'jack' 'gtk2'
-             'python' 'nodejs' 'python2-psutil' 'cbindgen' 'nasm')
+             'python' 'nodejs' 'python-psutil' 'cbindgen' 'nasm' 'lld')
 optdepends=('networkmanager: Location detection via available WiFi networks'
             'libnotify: Notification integration'
             'pulseaudio: Audio support'
@@ -22,11 +22,13 @@ options=(!emptydirs !makeflags !strip)
 source=(https://archive.mozilla.org/pub/firefox/releases/$pkgver/source/firefox-$pkgver.source.tar.xz{,.asc}
         firefox-install-dir.patch
         0001_Use_remoting_name_for_GDK_application_names.patch
+        bug1654465.diff
         "$pkgname".desktop)
-sha512sums=('ed4001a4fb1f1c4bf7482d12626595cea3745826de2ed419fc15fb89fd0be78044678b804c91c9be47fad94280b8d0fcb5c0c5b7185f161b879f39205908b7a3'
+sha512sums=('0ae8ec137f2c47bed33023d7fc7eea58c3e2c491aad5b2b3950102c8f8f6ecb639ec43f2af1330b5a39cc04d00c37fdae581d55b412ad37b11d5e7f0f5c489d1'
             'SKIP'
             'b66dbe7f262d036e5a5b895ab5b0dbb03313bca18b0823c001ef2dbaeb1a33169b57db0cf4dfd268499f28913845119902b5d62e8a6a9cc4820eb0ee2f322a1e'
             '812f0f34d16472a305ad78b5b22f4d0ef0ac63e47e10700954f4e3374cfe25d596a9ef137ea48a421128d504affb653cf310bd3c33bc313d505924f8f392ad8f'
+            'b97d1d3f47a779efa799e3a5c66d79df1298227aa7e1f218c905dcdcd5cfedb6f98b88997606f8d05af5ad0f5d6b4a179a0114741ed0da23a8d08976fcefdd9b'
             '3b42fe7dc8f53952330e57f1e85b46c5bd4b0c4ebc2796e0f5230446d10a67cf0fcbaadcbbb30888a99d43ca888a4e753aa5ddfbf93269cc22a6f640ba611ea3')
 validpgpkeys=('14F26682D0916CDD81E37B6D61B7B526D98F0353') # Mozilla Software Releases <release@mozilla.com>
 
@@ -50,6 +52,9 @@ prepare() {
   # https://bugzilla.mozilla.org/show_bug.cgi?id=1530052
   patch -Np1 -i ../0001_Use_remoting_name_for_GDK_application_names.patch
 
+  #https://bugzilla.mozilla.org/show_bug.cgi?id=1654465
+  patch -Np1 -i ../bug1654465.diff
+
   echo -n "$_google_api_key" > google-api-key
   echo -n "$_mozilla_api_key" > mozilla-api-key
 
@@ -61,6 +66,8 @@ ac_add_options --enable-release
 ac_add_options --enable-hardening
 ac_add_options --enable-optimize
 ac_add_options --enable-rust-simd
+ac_add_options --enable-linker=lld
+ac_add_options --disable-elf-hack
 export CC='clang --target=x86_64-unknown-linux-gnu'
 export CXX='clang++ --target=x86_64-unknown-linux-gnu'
 export AR=llvm-ar
@@ -125,15 +132,11 @@ END
     xvfb-run -s "-screen 0 1920x1080x24 -nolisten local" \
     ./mach python build/pgo/profileserver.py
 
-  if [[ ! -s merged.profdata ]]; then
-    error "No profile data produced."
-    return 1
-  fi
+  stat -c "Profile data found (%s bytes)" merged.profdata
+  test -s merged.profdata
 
-  if [[ ! -s jarlog ]]; then
-    error "No jar log produced."
-    return 1
-  fi
+  stat -c "Jar log found (%s bytes)" jarlog
+  test -s jarlog
 
   echo "Removing instrumented browser..."
   ./mach clobber
