@@ -3,7 +3,7 @@
 
 _target=aarch64-linux-gnu
 pkgname=$_target-gcc
-pkgver=10.1.0
+pkgver=10.2.0
 _islver=0.22
 pkgrel=1
 #_snapshot=8-20190111
@@ -17,10 +17,11 @@ options=(!emptydirs !strip staticlibs)
 source=(https://ftp.gnu.org/gnu/gcc/gcc-$pkgver/gcc-$pkgver.tar.xz{,.sig}
         #https://gcc.gnu.org/pub/gcc/snapshots/$_snapshot/gcc-$_snapshot.tar.xz
         http://isl.gforge.inria.fr/isl-$_islver.tar.bz2)
-sha256sums=('b6898a23844b656f1b68691c5c012036c2e694ac4b53a8918d4712ad876e7ea2'
+sha256sums=('b8dd4368bb9c7f0b98188317ee0254dd8cc99d1e3a18d0ff146c855fe16c1d8c'
             'SKIP'
             'b21d354acd613a91cb88328753ec3aaeb174d6af042d89c5fcf3bbcced370751')
-validpgpkeys=(33C235A34C46AA3FFB293709A328C3A2C3C45C06) # Jakub Jelinek <jakub@redhat.com>
+validpgpkeys=(33C235A34C46AA3FFB293709A328C3A2C3C45C06  # Jakub Jelinek <jakub@redhat.com>
+              13975A70E63C361C73AE69EF6EEB81F8981C74C7) # Richard Guenther <richard.guenther@gmail.com>
 
 if [ -n "$_snapshot" ]; then
   _basedir=gcc-$_snapshot
