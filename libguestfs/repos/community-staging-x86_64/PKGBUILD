@@ -1,0 +1,86 @@
+# Maintainer: Robin Broda <coderobe @ archlinux.org>
+# Contributor: Peter Wu <peter@lekensteyn.nl>
+# Contributor: Evaggelos Balaskas <eblaskas _AT_ ebalaskas _DOT_ gr>
+# Contributor: Xiao-Long Chen <chenxiaolong@cxl.epac.to>
+# Contributor: Nikos Skalkotos <skalkoto (at) Gmail.com>
+
+pkgname=libguestfs
+pkgver=1.42.0
+_pkgver_short=${pkgver%.*}
+pkgrel=4
+pkgdesc="Access and modify virtual machine disk images"
+arch=('x86_64')
+url="http://libguestfs.org/"
+license=('GPL2' 'LGPL2.1')
+_appliancedeps=('iproute2' 'mdadm' 'lvm2' 'libldm' 'btrfs-progs' 'dosfstools' 'gdisk' 'procps' 'psmisc'
+                'rsync' 'xfsprogs' 'dhcpcd' 'iputils' 'ntfs-3g' 'vim' 'systemd-sysvcompat' 'openssh'
+                'f2fs-tools' 'jfsutils' 'lsscsi' 'lsof' 'lzop' 'pciutils' 'squashfs-tools'
+                'strace' 'syslinux' 'debootstrap' 'exfat-utils' 'grub' 'lrzip' 'mtools'
+                'multipath-tools' 'nilfs-utils' 'reiserfsprogs' 'yara')
+#               'scrub' 'zerofree' 'hfsprogs')
+depends=('augeas' 'libvirt' 'jansson' 'fuse' 'hivex' 'sleuthkit' 'supermin' 'qemu-headless' 'libconfig'
+         'perl-libintl-perl' "${_appliancedeps[@]}")
+makedepends=('ocaml' 'ocaml-findlib' 'gperf' 'cdrtools' 'perl-module-build' 'python'
+             'gobject-introspection' 'vala' 'bash-completion' 'cpio' 'java-environment'
+             'php' 'erlang-nox' 'lua' 'go' 'rust')
+# 'ghc' 'ruby')
+checkdepends=('linux')
+optdepends=('ocaml: OCaml Bindings'
+            'python: Python Bindings'
+            'gobject-introspection: GObject-Introspection Bindings')
+provides=('libguestfs.so' 'libguestfs-gobject-1.0.so')
+backup=('etc/libguestfs-tools.conf'
+        'etc/xdg/virt-builder/repos.d/libguestfs.conf'
+        'etc/xdg/virt-builder/repos.d/libguestfs.gpg'
+        'etc/xdg/virt-builder/repos.d/opensuse.conf'
+        'etc/xdg/virt-builder/repos.d/opensuse.gpg')
+source=("http://download.libguestfs.org/$_pkgver_short-stable/$pkgname-$pkgver.tar.gz"{,.sig}
+        "libguestfs-erlang-23.patch::https://github.com/libguestfs/libguestfs/commit/987734fcca101cf782264756f7883cf48430a91b.patch"
+        "libguestfs-01.patch::https://github.com/libguestfs/libguestfs/commit/31e6b187100626cae44bcb505db153088245155c.patch")
+sha256sums=('4fee192cf3aaa597f142afb21fa2d7f380fdabcf34d054e37090163e4a74f024'
+            'SKIP'
+            '41eb5f6c77fb9bbdda6c4f08196f6d24475e5773a9e8364e3edc0eace0731758'
+            'f09ac113112011625cf6df204fa2e6c05577cf6977a1920fd8c40cc020152896')
+validpgpkeys=('F7774FB1AD074A7E8C8767EA91738F73E1B768A0') # Richard W.M. Jones <rjones@redhat.com>
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  patch -p1 < ../libguestfs-erlang-23.patch
+  patch -p1 < ../libguestfs-01.patch
+  sed -i 's/ Sys::Virt / /g' m4/guestfs-perl.m4
+  autoreconf -v
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --sbindir=/usr/bin \
+    --disable-static \
+    --disable-haskell \
+    --disable-ruby \
+    --with-extra-packages="libldm systemd-sysvcompat openssh qemu-headless"
+  # ^ haskell & ruby bindings do not build
+  make
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  #tests require /dev/kvm to be available
+#  make quickcheck
+#  make -k check ||: takes ages
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make INSTALLDIRS=vendor DESTDIR="$pkgdir" install
+  find "$pkgdir/usr/lib/perl5" -name '*.so' -exec chmod 644 {} +
+  find "$pkgdir/usr/lib/perl5" -name '*.bs' -exec rm -f {} +
+
+  # Remove obsolete binaries (RHBZ#1213298).
+  rm -f "$pkgdir"/usr/bin/virt-list-{filesystems,partitions}
+  rm -f "$pkgdir"/usr/bin/virt-tar
+  rm -f "$pkgdir"/usr/share/man/man1/virt-list-{filesystems,partitions}.1*
+  rm -f "$pkgdir"/usr/share/man/man1/virt-tar.1*
+}
