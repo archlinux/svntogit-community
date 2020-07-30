@@ -12,8 +12,11 @@ pkgname=emscripten
 # Replace that pre-filled SHA with the one from the release. Then search for the "llvm_project_revision"
 # variable. It has the llvm commit to use here.
 _llvm_commit=55fa315b0352b63454206600d6803fafacb42d5e
+# The compatible binaryen version can be found as the EXPECTED_BINARYEN_VERSION variable in
+# https://github.com/emscripten-core/emscripten/blob/1.39.20/tools/shared.py#L44 but I'm not sure how we're
+# going to use this information at this point.
 pkgver=1.39.20
-pkgrel=2
+pkgrel=3
 pkgdesc="LLVM-based project that compiles C and C++ into highly-optimizable JavaScript for the web"
 arch=('x86_64')
 url="http://emscripten.org"
@@ -28,17 +31,20 @@ source=("git+https://github.com/kripken/emscripten#tag=$pkgver"
         git+https://github.com/llvm/llvm-project.git#commit=$_llvm_commit
         "emscripten.sh"
         emscripten-config
+        no-version-check.patch
         https://patch-diff.githubusercontent.com/raw/emscripten-core/emscripten/pull/11713.patch)
 sha512sums=('SKIP'
             'SKIP'
             'a87cf5d4a5ac10a4f84ff02ea577d54b560929dc64457b874cd1cbd88311cf6c4dcfbf3242150f6e556f4ba6efd370a99b9f9065faf494f25d91fc012cd5aa58'
             '8b5951493f69631045f44736917144b7679beb2bf087fca8a8ba887224cfc598fe8c76c5a4e7aa4a09fbb8f1b7b42556b68f4aa9e5b93fb130fd8bdab79053d9'
+            '39f0e2cb8ade1f0b046495e835cc423674910009f3b539ae4952e360785bbc41e46d2d7337f30c2ff70d0c0c172365b55efcb8bc07385f533687498308959e02'
             'b2e0c162335c40ee84968ab8c5bae5083a96f18dcc6c4d4f50e4a7f312d075ad965f9afb0a9d2ca290068ed1ef5fe2599c681162690c645ca1f36f3af592a05f')
 
 prepare() {
   cd emscripten
 
   patch -Np1 --no-backup-if-mismatch -i "$srcdir"/11713.patch
+  patch -Np1 --no-backup-if-mismatch -i "$srcdir"/no-version-check.patch
 }
 
 build() {
@@ -75,10 +81,6 @@ package() {
   # https://github.com/WebAssembly/waterfall/blob/d4a504ffee488a68d09b336897c00d404544601d/src/build.py#L915
   DESTDIR="$pkgdir" ninja -C "$srcdir"/llvm-project/llvm/build install
   cd "$pkgdir"/opt/emscripten-llvm/bin
-  ln -s clang wasm32-clang
-  ln -s clang wasm32-wasi-clang
-  ln -s clang++ wasm32-clang++
-  ln -s clang++ wasm32-wasi-clang++
 
   # Clean up some unnecessary bins and libs
   rm clang-check clang-cl clang-cpp clang-extdef-mapping clang-format \
@@ -86,9 +88,11 @@ package() {
       lld-link ld.lld llvm-lib
   cd ../lib
   rm libclang.so
+  cd ..
+  rm -r share
 
   # Copy some stuff that we need but that wasn't installed by default
-  for bin in FileCheck llc llvm-as llvm-dis llvm-link llvm-mc llvm-nm llvm-objdump llvm-readobj llvm-size opt llvm-dwarfdump; do
+  for bin in llvm-as llvm-dis FileCheck llc llvm-link llvm-mc llvm-readobj opt llvm-dwarfdump; do
       install -Dm755 "$srcdir"/llvm-project/llvm/build/bin/$bin "$pkgdir"/opt/emscripten-llvm/bin/$bin
   done
 
