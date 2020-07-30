@@ -6,13 +6,16 @@ pkgbase=dotnet-core
 pkgname=(
  dotnet-host
  dotnet-runtime
- dotnet-sdk
  aspnet-runtime
+ dotnet-sdk
+ netstandard-targeting-pack
+ dotnet-targeting-pack
+ aspnet-targeting-pack
 )
 pkgver=3.1.6.sdk106
 _runtimever=3.1.6
 _sdkver=3.1.106
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -99,22 +102,6 @@ package_dotnet-runtime() {
   ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-runtime
 }
 
-package_dotnet-sdk() {
-  pkgdesc='The .NET Core SDK'
-  depends=(
-    dotnet-runtime
-    glibc
-  )
-  provides=(dotnet-sdk-3.1)
-  conflicts=(dotnet-sdk-3.1)
-
-  cd dotnet-source-build/artifacts/x64/Release
-
-  install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
-  bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner packs sdk templates
-  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-sdk
-}
-
 package_aspnet-runtime() {
   pkgdesc='The ASP.NET Core runtime'
   depends=(dotnet-runtime)
@@ -126,6 +113,63 @@ package_aspnet-runtime() {
   install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
   bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner shared/Microsoft.AspNetCore.App
   ln -s dotnet-host "${pkgdir}"/usr/share/licenses/aspnet-runtime
+}
+
+package_dotnet-sdk() {
+  pkgdesc='The .NET Core SDK'
+  depends=(
+    dotnet-runtime
+    dotnet-targeting-pack
+    glibc
+    netstandard-targeting-pack
+  )
+  optdepends=('aspnet-targeting-pack: Build ASP.NET Core applications')
+  provides=(dotnet-sdk-3.1)
+  conflicts=(dotnet-sdk-3.1)
+
+  cd dotnet-source-build/artifacts/x64/Release
+
+  install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
+  bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner sdk templates
+  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-sdk
+}
+
+package_netstandard-targeting-pack() {
+  pkgdesc='The .NET Standard targeting pack'
+  provides=(netstandard-targeting-pack-2.1)
+  conflicts=(netstandard-targeting-pack-2.1)
+
+  cd dotnet-source-build/artifacts/x64/Release
+
+  install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
+  bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner packs/NETStandard.Library.Ref
+  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/netstandard-targeting-pack
+}
+
+package_dotnet-targeting-pack() {
+  pkgdesc='The .NET Core targeting pack'
+  depends=(netstandard-targeting-pack)
+  provides=(dotnet-targeting-pack-3.1)
+  conflicts=(dotnet-targeting-pack-3.1)
+
+  cd dotnet-source-build/artifacts/x64/Release
+
+  install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
+  bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner packs/Microsoft.NETCore.App.{Host.arch-x64,Ref}
+  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-targeting-pack
+}
+
+package_aspnet-targeting-pack() {
+  pkgdesc='The ASP.NET Core targeting pack'
+  depends=(dotnet-targeting-pack)
+  provides=(aspnet-targeting-pack-3.1)
+  conflicts=(aspnet-targeting-pack-3.1)
+
+  cd dotnet-source-build/artifacts/x64/Release
+
+  install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
+  bsdtar -xf dotnet-sdk-${_sdkver}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner packs/Microsoft.AspNetCore.App.Ref
+  ln -s dotnet-host "${pkgdir}"/usr/share/licenses/aspnet-targeting-pack
 }
 
 # vim: ts=2 sw=2 et:
