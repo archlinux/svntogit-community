@@ -110,10 +110,9 @@ adbdfiles = %w(
   shell_service_protocol.cpp
   sockets.cpp
   transport.cpp
-  transport_local.cpp
   types.cpp
 )
-libadbd = compile(expand("core/adb", adbdfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/src/include -Icore/diagnose_usb/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include', :order_deps => [key_type_h])
+libadbd = compile(expand("core/adb", adbdfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -DADB_HOST=1 -Icore/include -Ilibbase/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/src/include -Icore/diagnose_usb/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include', :order_deps => [key_type_h])
 
 apkent_h, apkent_c, apkent_o = protoc("core/adb/fastdeploy/proto/ApkEntry.proto")
 app_processes_h, app_processes_c, app_processes_o = protoc("core/adb/proto/app_processes.proto")
@@ -143,6 +142,7 @@ adbfiles = %w(
   client/line_printer.cpp
   client/main.cpp
   client/pairing/pairing_client.cpp
+  client/transport_local.cpp
   client/transport_usb.cpp
   client/usb_dispatch.cpp
   client/usb_libusb.cpp
@@ -164,7 +164,7 @@ adbfiles = %w(
   tls/adb_ca_list.cpp
   tls/tls_connection.cpp
 )
-libadb = compile(expand("core/adb", adbfiles), "-D_GNU_SOURCE -DADB_HOST=1 -Icore/include -Icore/base/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/src/include -Ibase/libs/androidfw/include -Inative/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include -Icore/adb/pairing_connection/include -Icore/libziparchive/include -Icore/adb/pairing_auth/include",
+libadb = compile(expand("core/adb", adbfiles), "-D_GNU_SOURCE -DADB_HOST=1 -Icore/include -Ilibbase/include -Icore/adb -Icore/libcrypto_utils/include -Iboringssl/src/include -Ibase/libs/androidfw/include -Inative/include -Icore/adb/crypto/include -Icore/adb/proto -Icore/adb/tls/include -Icore/adb/pairing_connection/include -Ilibziparchive/include -Icore/adb/pairing_auth/include",
     :order_deps => [apkent_h, key_type_h, app_processes_h, adb_known_hosts_h, pairing_h, deployagent_inc, deployagentscript_inc])
 androidfwfiles = %w(
   LocaleData.cpp
@@ -172,7 +172,7 @@ androidfwfiles = %w(
   TypeWrappers.cpp
   ZipFileRO.cpp
 )
-libandroidfw = compile(expand("base/libs/androidfw", androidfwfiles), "-Icore/base/include -Ibase/libs/androidfw/include -Icore/libutils/include -Icore/liblog/include -Icore/libsystem/include -Inative/include -Icore/libcutils/include -Icore/libziparchive/include")
+libandroidfw = compile(expand("base/libs/androidfw", androidfwfiles), "-Ilibbase/include -Ibase/libs/androidfw/include -Icore/libutils/include -Icore/liblog/include -Icore/libsystem/include -Inative/include -Icore/libcutils/include -Ilibziparchive/include")
 
 basefiles = %w(
   chrono_utils.cpp
@@ -188,7 +188,7 @@ basefiles = %w(
   test_utils.cpp
   threads.cpp
 )
-libbase = compile(expand("core/base", basefiles), "-DADB_HOST=1 -Icore/base/include -Icore/include")
+libbase = compile(expand("libbase", basefiles), "-DADB_HOST=1 -Ilibbase/include -Icore/include")
 
 logfiles = %w(
   log_event_list.cpp
@@ -198,7 +198,7 @@ logfiles = %w(
   logprint.cpp
   properties.cpp
 )
-liblog = compile(expand("core/liblog", logfiles), "-DLIBLOG_LOG_TAG=1006 -D_XOPEN_SOURCE=700 -DFAKE_LOG_DEVICE=1 -Icore/log/include -Icore/include -Icore/base/include")
+liblog = compile(expand("core/liblog", logfiles), "-DLIBLOG_LOG_TAG=1006 -D_XOPEN_SOURCE=700 -DFAKE_LOG_DEVICE=1 -Icore/log/include -Icore/include -Ilibbase/include")
 
 cutilsfiles = %w(
   android_get_control_file.cpp
@@ -213,12 +213,12 @@ cutilsfiles = %w(
   sockets_unix.cpp
   threads.cpp
 )
-libcutils = compile(expand("core/libcutils", cutilsfiles), "-D_GNU_SOURCE -Icore/libcutils/include -Icore/include -Icore/base/include")
+libcutils = compile(expand("core/libcutils", cutilsfiles), "-D_GNU_SOURCE -Icore/libcutils/include -Icore/include -Ilibbase/include")
 
 diagnoseusbfiles = %w(
   diagnose_usb.cpp
 )
-libdiagnoseusb = compile(expand("core/diagnose_usb", diagnoseusbfiles), "-Icore/include -Icore/base/include -Icore/diagnose_usb/include")
+libdiagnoseusb = compile(expand("core/diagnose_usb", diagnoseusbfiles), "-Icore/include -Ilibbase/include -Icore/diagnose_usb/include")
 
 libcryptofiles = %w(
   android_pubkey.c
@@ -242,7 +242,7 @@ fastbootfiles = %w(
   usb_linux.cpp
   util.cpp
 )
-libfastboot = compile(expand("core/fastboot", fastbootfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -D_GNU_SOURCE -D_XOPEN_SOURCE=700 -DUSE_F2FS -Icore/base/include -Icore/include -Icore/adb -Icore/libsparse/include -Imkbootimg/include/bootimg -Iextras/ext4_utils/include -Iextras/f2fs_utils -Icore/libziparchive/include -Icore/fs_mgr/liblp/include -Icore/diagnose_usb/include -Iavb')
+libfastboot = compile(expand("core/fastboot", fastbootfiles), '-DPLATFORM_TOOLS_VERSION="\"$PLATFORM_TOOLS_VERSION\"" -D_GNU_SOURCE -D_XOPEN_SOURCE=700 -DUSE_F2FS -Ilibbase/include -Icore/include -Icore/adb -Icore/libsparse/include -Imkbootimg/include/bootimg -Iextras/ext4_utils/include -Iextras/f2fs_utils -Ilibziparchive/include -Icore/fs_mgr/liblp/include -Icore/diagnose_usb/include -Iavb')
 
 fsmgrfiles = %w(
   liblp/images.cpp
@@ -251,7 +251,7 @@ fsmgrfiles = %w(
   liblp/utility.cpp
   liblp/writer.cpp
 )
-libfsmgr = compile(expand("core/fs_mgr", fsmgrfiles), "-Icore/fs_mgr/liblp/include -Icore/base/include -Iextras/ext4_utils/include -Icore/libsparse/include")
+libfsmgr = compile(expand("core/fs_mgr", fsmgrfiles), "-Icore/fs_mgr/liblp/include -Ilibbase/include -Iextras/ext4_utils/include -Icore/libsparse/include")
 
 sparsefiles = %w(
   backed_block.cpp
@@ -261,7 +261,7 @@ sparsefiles = %w(
   sparse_err.cpp
   sparse_read.cpp
 )
-libsparse = compile(expand("core/libsparse", sparsefiles), "-Icore/libsparse/include -Icore/base/include")
+libsparse = compile(expand("core/libsparse", sparsefiles), "-Icore/libsparse/include -Ilibbase/include")
 
 f2fsfiles = %w(
 )
@@ -274,7 +274,7 @@ zipfiles = %w(
 )
 # we use -std=c++17 as this lib currently does not compile with c++20 standard due to
 # https://stackoverflow.com/questions/37618213/when-is-a-private-constructor-not-a-private-constructor/57430419#57430419
-libzip = compile(expand("core/libziparchive", zipfiles), "-std=c++17 -Icore/base/include -Icore/include -Icore/libziparchive/include")
+libzip = compile(expand("libziparchive", zipfiles), "-std=c++17 -Ilibbase/include -Icore/include -Ilibziparchive/include")
 
 utilfiles = %w(
   FileMap.cpp
@@ -284,14 +284,14 @@ utilfiles = %w(
   VectorImpl.cpp
   Unicode.cpp
 )
-libutil = compile(expand("core/libutils", utilfiles), "-Icore/include -Icore/base/include")
+libutil = compile(expand("core/libutils", utilfiles), "-Icore/include -Ilibbase/include")
 
 ext4files = %w(
   ext4_utils.cpp
   wipe.cpp
   ext4_sb.cpp
 )
-libext4 = compile(expand("extras/ext4_utils", ext4files), "-D_GNU_SOURCE -Icore/libsparse/include -Icore/include -Iselinux/libselinux/include -Iextras/ext4_utils/include -Icore/base/include")
+libext4 = compile(expand("extras/ext4_utils", ext4files), "-D_GNU_SOURCE -Icore/libsparse/include -Icore/include -Iselinux/libselinux/include -Iextras/ext4_utils/include -Ilibbase/include")
 
 selinuxfiles = %w(
   booleans.c
