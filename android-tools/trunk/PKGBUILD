@@ -21,8 +21,8 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
         git+https://android.googlesource.com/platform/frameworks/native#tag=$_tag
         git+https://android.googlesource.com/platform/system/core#tag=$_tag
         git+https://android.googlesource.com/platform/system/extras#tag=$_tag
-	git+https://android.googlesource.com/platform/system/libbase#tag=$_tag
-	git+https://android.googlesource.com/platform/system/libziparchive#tag=$_tag
+        git+https://android.googlesource.com/platform/system/libbase#tag=$_tag
+        git+https://android.googlesource.com/platform/system/libziparchive#tag=$_tag
         git+https://android.googlesource.com/platform/system/tools/mkbootimg#tag=$_tag
         git+https://android.googlesource.com/platform/external/selinux#tag=$_tag
         git+https://android.googlesource.com/platform/external/f2fs-tools#tag=$_tag
