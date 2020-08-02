@@ -45,7 +45,7 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
         deployagent.jar
 # we disable mDNS functionality as it does not compile with the Arch system version of the library
         fix_build_core.patch
-	fix_libziparchive.patch
+        fix_libziparchive.patch
         boringssl-disable-thirdpartydeps.patch
         bash_completion.fastboot)
         # Bash completion file was taken from https://github.com/mbrubeck/android-completion
