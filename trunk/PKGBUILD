@@ -1,29 +1,33 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
+# tests are tracked in separate repo
+_test_pkgver=3.0.0
+# upstream doesn't use annotated tags
+_commit=d34771cafc87b358ba421faca28facc7f8080174
 pkgname=nlohmann-json
-pkgver=3.8.0
-_test_pkgver=2.0.0
-# upstream doesn't use annotated tags:
-_commit=e7452d87783fbf6e9d320d515675e26dfd1271c5
-pkgrel=2
+pkgver=3.9.0
+pkgrel=1
 pkgdesc="JSON for Modern C++"
 arch=('any')
 url="https://github.com/nlohmann/json"
 license=('MIT')
-makedepends=('cmake' 'git' 'meson')
+makedepends=('cmake' 'git')
 source=("${pkgname}::git+https://github.com/nlohmann/json#commit=${_commit}?signed"
-        "${pkgname}-3.8.0-git_tests.patch::https://github.com/nlohmann/json/commit/e86b3fae98854312fc6e59c62e35919a8d8012b1.patch"
+        "${pkgname}-3.9.0-test_install.patch::https://github.com/nlohmann/json/pull/2318/commits/aa06a4761e24e59ceaa00e81be450b4d9a0c4d26.patch"
         "json_test_data-${_test_pkgver}.tar.gz::https://github.com/nlohmann/json_test_data/archive/v${_test_pkgver}.tar.gz")
 sha512sums=('SKIP'
-            'b8002761041d7ee47404fbac082efe161362ba26daca061a0ff37274302866c724cd54827459a3836b93c02b46b90960a5a5686e2eeaf0fc460bd2bc7b2c731e'
-            'eb08a31b09929a027cdacded2e11b9caf47fa0079619c0fa67bcb766bff1be1642a11c8ccd2f4c48521387fe1d42625d4f53f6a063a290d4664b17813f784051')
+            '7311d190d1b721379f0357627b4a9648166c1fa8be6f88cf0e372ac0fe2ef85bbcce436883b9711abb29f27ba82bd79fc5d35de7c4e20004c6e779e07fc1d97a'
+            'd9af8419b837c592ec7519cd5772651c761078a9c43cf2a309cee55c323aee0df0c233fb58a07d5ee2e77492ac8b16398de234b387eae037a60e3c9ba5b08891')
+b2sums=('SKIP'
+        '7c4b7821dbea71f8ad6c73ba794da3e870327a8572e1587dfd05b8ddf47af80d8db119c6ff4eb257680d9378571b44cb22d90c57107dfb0145d553834112e121'
+        'f0a47b41805bf1426f612e9a82efea2a3e5b1c15740c1c531d859e60dc5daeb85209b4fe363fd8fb84e3bbf01a2578c74538ba3e769726494047979f5a4d468d')
 validpgpkeys=('797167AE41C0A6D9232E48457F3CEA63AE251B69') # Niels Lohmann <mail@nlohmann.me>
 
 prepare() {
   mkdir -vp "$pkgname/build"
   mv -v "json_test_data-${_test_pkgver}/" "$pkgname/build/json_test_data/"
   cd "$pkgname"
-  patch -Np1 -i "../${pkgname}-3.8.0-git_tests.patch"
+  patch -Np1 -i "../${pkgname}-3.9.0-test_install.patch"
 }
 
 build() {
@@ -38,23 +42,27 @@ build() {
         -B build \
         -S .
   make VERBOSE=1 -C build
-  # create pkgconfig integration
-  meson --prefix=/usr \
-        --libdir=lib \
-        meson-build
-  ninja -C meson-build
+  # do a separate build because the tests interfere with the output directory
+  # https://github.com/nlohmann/json/issues/2324
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_INSTALL_LIBDIR='/usr/lib' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DBUILD_TESTING=ON \
+        -DJSON_BuildTests=ON \
+        -DJSON_MultipleHeaders=ON \
+        -Wno-dev \
+        -B build-test \
+        -S .
+  make VERBOSE=1 -C build-test
 }
 
 check() {
-  cd "$pkgname/build"
-  ctest --output-on-failure -LE git_required
+  cd "${pkgname}"
+  make -k test -C build-test
 }
 
 package() {
   cd "$pkgname"
-  # NOTE: installing first with meson, as it will install the single header
-  # file, but cmake will install multiple headers.
-  DESTDIR="${pkgdir}" meson install -C meson-build
   make DESTDIR="${pkgdir}" install -C build
   install -vDm 644 {CODE_OF_CONDUCT,README}.md \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
