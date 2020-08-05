@@ -5,7 +5,7 @@
 
 pkgname=wine
 pkgver=5.14
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -41,8 +41,7 @@ depends=(
   faudio          lib32-faudio
   desktop-file-utils
 )
-makedepends=(autoconf ncurses bison perl fontforge flex
-  'gcc>=4.5.0-2'
+makedepends=(autoconf ncurses bison perl fontforge flex mingw-w64-gcc
   giflib                lib32-giflib
   libpng                lib32-libpng
   gnutls                lib32-gnutls
