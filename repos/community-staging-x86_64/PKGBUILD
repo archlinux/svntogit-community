@@ -1,0 +1,88 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=ADLplug
+pkgbase=adlplug
+pkgname=('adlplug' 'opnplug')
+pkgver=1.0.1
+pkgrel=3
+pkgdesc="FM synthesizer plugins, based on OPL3 and OPN2 sound chip emulations"
+arch=('x86_64')
+url="https://github.com/jpcima/ADLplug"
+license=('Boost' 'GPL2' 'GPL3' 'LGPL2.1')
+groups=('pro-audio' 'lv2-plugins' 'vst-plugins')
+# TODO: devendor simpleini, if feasible
+depends=('gcc-libs' 'glibc' 'hicolor-icon-theme' 'libx11' 'libxext')
+makedepends=('alsa-lib' 'cmake' 'fmt' 'freetype2' 'jack' 'liblo' 'libxrandr'
+'libxinerama' 'libxcursor')
+source=("https://github.com/jpcima/${pkgbase}/releases/download/v${pkgver}/${_name}-${pkgver}.tar.xz"
+        "${pkgbase}-1.0.1-devendor_fmt.patch::https://github.com/jpcima/${pkgbase}/pull/55/commits/66fe594ddb2793ddc0464a0c6be4c5915b2f367f.patch"
+        "${pkgbase}-1.0.1-gcc9.patch::https://github.com/WeAreROLI/JUCE/commit/4e0adb2af8b424c43d22bd431011c9a6c57d36b6.patch"
+        "${pkgbase}-1.0.1-gcc10.patch::https://github.com/jpcima/ADLplug/commit/208002087a4ef4cb6292dc8ad750b751af7d9a36.patch")
+sha512sums=('20a5b976751a52e5dafd25b9eb5bd457990d53875e2ed172696365a31fdfc7e98a47289078248b1ec1aee51bd4d3c58e3ffef4498106d61934f13673f0e91cb8'
+            'd8ef4943ef88abab99a612769c0372120f3302953fa85fda06cc398d5541dbe46ff009f43fa5a683cb6f3dd4d8792f8f1147ec880ab72b8120629c19b55eb37f'
+            '263fe21e7362f4b8c4009d33e8a086ddf57ddd44267343b924f1304a58580a38e6bd2d36c9548ec706be733476d27e5c89f8095f401b9b841ade63d9cb812a77'
+            '624dcf7321d81fb092fbd2b62f43d77386e6a3af3270d9c103d575e318b8c4df6bded84705d574d9dcea21fcef6675dcae5236723ab17d6fc97f900af5430d5c')
+b2sums=('070e39edf6988916730a589aac3e6843ce64b0655a4981c8443c961947fae5bcbc027c03be5b05f2f00e039b4ad07116fd5d73e19387b9955d8f651ef59de39e'
+        'e5c83310b121bde57a9317cdc0bf52f8773d14d6fb580ecd27d354a2787781e9fcc4875f65425685fb698171674feae18b31e4b6159e381a9193af920f019b6b'
+        '356fe202072436cab89fdde3a06a5140d286d7636b663f32432f36b98170bef1aa7a931aeb6bedb2ff4d6b8f4b4c730f1760211b2fa9b709fe30bfedbe8df62f'
+        'db96c5530305d9b7dcd46953520851cb69d41bbceed549f9f7467e5c869edf5671c7a0df06c26f5c15f3cf5bbd3a480b7dd572b3ed7b7a6634f1833a898261fa')
+
+prepare() {
+  mv -v "${_name}-${pkgver}" "$pkgbase-$pkgver"
+  cd "$pkgbase-$pkgver"
+  # devendoring fmt: https://github.com/jpcima/ADLplug/pull/55
+  patch -Np1 -i ../"${pkgbase}-1.0.1-devendor_fmt.patch"
+  # fix issues with gcc >= 10.1.0
+  patch -Np1 -i ../"${pkgbase}-1.0.1-gcc10.patch"
+  # fix build with gcc9: https://github.com/jpcima/ADLplug/issues/54
+  (
+    cd thirdparty/JUCE
+    patch -Np1 -i "${srcdir}/${pkgbase}-1.0.1-gcc9.patch"
+  )
+}
+
+build() {
+  cd "$pkgbase-$pkgver"
+  # build opl3
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+        -DADLplug_CHIP=OPL3 \
+        -DSYSTEM_FMT=ON \
+        -W no-dev \
+        -B "build-${pkgname[0]}" \
+        -S .
+  make VERBOSE=1 -C "build-${pkgname[0]}"
+  # build opn2
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DCMAKE_INSTALL_LIBDIR=/usr/lib \
+        -DADLplug_CHIP=OPN2 \
+        -DSYSTEM_FMT=ON \
+        -W no-dev \
+        -B "build-${pkgname[1]}" \
+        -S .
+  make VERBOSE=1 -C "build-${pkgname[1]}"
+}
+
+package_adlplug() {
+  pkgdesc="FM synthesizer for ADLMIDI with OPL3 chip emulation"
+  depends+=('libasound.so' 'libfmt.so' 'libfreetype.so')
+  optdepends=('jack: for the standalone application'
+              'liblo: for new-session-manager support'
+              'new-session-manager: for session management')
+  cd "$pkgbase-$pkgver"
+  make VERBOSE=1 DESTDIR="$pkgdir/" install -C "build-${pkgname}"
+  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+package_opnplug() {
+  pkgdesc="FM synthesizer for OPNMIDI with OPN2 chip emulation"
+  depends+=('libasound.so' 'libfmt.so' 'libfreetype.so')
+  optdepends=('jack: for the standalone application'
+              'liblo: for new-session-manager support'
+              'new-session-manager: for session management')
+  cd "$pkgbase-$pkgver"
+  make VERBOSE=1 DESTDIR="$pkgdir/" install -C "build-${pkgname}"
+  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
