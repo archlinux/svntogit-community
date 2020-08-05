@@ -3,9 +3,9 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=30.0.0
-pkgrel=2
-tag=platform-tools-$pkgver
+pkgver=30.0.3
+pkgrel=1
+_tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
 url='http://tools.android.com/'
@@ -17,17 +17,18 @@ optdepends=('python: for mkbootimg script'
 makedepends=(git clang gtest ruby cmake ninja go vim)
 provides=(fastboot adb)
 conflicts=(fastboot adb)
-#_boringssl_commit=$(curl https://android.googlesource.com/platform/external/boringssl/+/refs/tags/$tag/BORINGSSL_REVISION?format=TEXT | base64 -d)
-source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$tag
-        git+https://android.googlesource.com/platform/frameworks/native#tag=$tag
-        git+https://android.googlesource.com/platform/system/core#tag=$tag
-        git+https://android.googlesource.com/platform/system/extras#tag=$tag
-        git+https://android.googlesource.com/platform/system/tools/mkbootimg#tag=$tag
-        git+https://android.googlesource.com/platform/external/selinux#tag=$tag
-        git+https://android.googlesource.com/platform/external/f2fs-tools#tag=$tag
-        git+https://android.googlesource.com/platform/external/e2fsprogs#tag=$tag
-        git+https://android.googlesource.com/platform/external/avb#tag=$tag
-        git+https://android.googlesource.com/platform/external/boringssl#tag=$tag
+source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
+        git+https://android.googlesource.com/platform/frameworks/native#tag=$_tag
+        git+https://android.googlesource.com/platform/system/core#tag=$_tag
+        git+https://android.googlesource.com/platform/system/extras#tag=$_tag
+	git+https://android.googlesource.com/platform/system/libbase#tag=$_tag
+	git+https://android.googlesource.com/platform/system/libziparchive#tag=$_tag
+        git+https://android.googlesource.com/platform/system/tools/mkbootimg#tag=$_tag
+        git+https://android.googlesource.com/platform/external/selinux#tag=$_tag
+        git+https://android.googlesource.com/platform/external/f2fs-tools#tag=$_tag
+        git+https://android.googlesource.com/platform/external/e2fsprogs#tag=$_tag
+        git+https://android.googlesource.com/platform/external/avb#tag=$_tag
+        git+https://android.googlesource.com/platform/external/boringssl#tag=$_tag
         #git+https://boringssl.googlesource.com/boringssl#commit=$_boringssl_commit
         generate_build.rb
 # deployagent.jar is a library built from Android sources.
@@ -42,7 +43,9 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$tag
 #   mmm system/core/adb/
 #   cp ./target/product/generic/system/framework/deployagent.jar .
         deployagent.jar
+# we disable mDNS functionality as it does not compile with the Arch system version of the library
         fix_build_core.patch
+	fix_libziparchive.patch
         boringssl-disable-thirdpartydeps.patch
         bash_completion.fastboot)
         # Bash completion file was taken from https://github.com/mbrubeck/android-completion
@@ -56,15 +59,21 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
-          '4aec96639c5a16e75fac907bc5a8ea6a7efca047'
+          'SKIP'
+          'SKIP'
+          '8c95ce0bbc39bf1fe37213497af924ad10f195b4'
           'd9dfac30245faa0a96968b96f3acd9ad536f4910'
-          '70abd4483233ee481490b3369dbdd4977772c57f'
+          '61b1bcf230be39a5f9544e82d43269a20bfb9ef2'
+          'ce8314d6b1e05e3f4f7ae7828d225fbb07a2a55c'
           '1c025855a3e7ea351685843a0df45c52a7e674dd'
           '7004dbd0c193668827174880de6f8434de8ceaee')
 
 prepare() {
   cd "$srcdir"/core
   patch -p1 < ../fix_build_core.patch
+
+  cd "$srcdir"/libziparchive
+  patch -p1 < ../fix_libziparchive.patch
 
   cd "$srcdir"/avb
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
