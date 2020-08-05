@@ -1,0 +1,49 @@
+# Maintainer: Jonas Witschel <diabonas@archlinux.org>
+pkgname=swtpm
+pkgver=0.3.3
+_tag=3fb784e16e074fb08ea17363d06164bb35ad9238 # git rev-parse "v$pkgver"
+pkgrel=1
+pkgdesc='Libtpms-based TPM emulator with socket, character device, and Linux CUSE interface'
+arch=('x86_64')
+url='https://github.com/stefanberger/swtpm'
+license=('BSD')
+depends=('fuse2' 'glib2' 'libseccomp' 'libtpms' 'libseccomp.so')
+makedepends=('git' 'expect' 'gnutls' 'libtasn1' 'python' 'socat')
+checkdepends=('softhsm')
+optdepends=('gnutls: swtpm_cert support') 
+source=("git+$url.git?signed#tag=$_tag")
+sha512sums=('SKIP')
+validpgpkeys=('B818B9CADF9089C2D5CEC66B75AD65802A0B4211') # Stefan Berger <stefanb@linux.vnet.ibm.com>
+
+pkgver() {
+	cd "$pkgname"
+	git describe | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+	cd "$pkgname"
+
+	# Remove make dependency on netstat (https://github.com/stefanberger/swtpm/pull/290)
+	git cherry-pick --no-commit 609dfd873a31fc0402752c50d1d5cfa58949507f
+
+	autoreconf --install --force
+}
+
+build() {
+	cd "$pkgname"
+	./configure --prefix=/usr --with-tss-user=tss --with-tss-group=tss --with-cuse --with-gnutls --with-seccomp
+	make
+}
+
+check() {
+	cd "$pkgname"
+	make check
+}
+
+package() {
+	cd "$pkgname"
+	make DESTDIR="$pkgdir" install
+	install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+	echo 'u tss - "tss user for tpm2"' | install -Dm644 /dev/stdin "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+	echo 'z /var/lib/swtpm-localca - tss tss' | install -Dm644 /dev/stdin "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+}
