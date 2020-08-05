@@ -1,1 +1,0 @@
-luarocks completion fish | source
