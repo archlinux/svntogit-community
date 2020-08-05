@@ -1,5 +1,5 @@
 diff --git a/adb/adb.cpp b/adb/adb.cpp
-index 08d3904c71..a73362acec 100644
+index 08986b77e0..46b6036502 100644
 --- a/adb/adb.cpp
 +++ b/adb/adb.cpp
 @@ -45,8 +45,6 @@
@@ -24,11 +24,69 @@ index 08d3904c71..a73362acec 100644
          android::base::GetExecutablePath().c_str());
  }
  
+@@ -1079,21 +1077,6 @@ void adb_set_reject_kill_server(bool value) {
+ }
+ 
+ static bool handle_mdns_request(std::string_view service, int reply_fd) {
+-    if (!android::base::ConsumePrefix(&service, "mdns:")) {
+-        return false;
+-    }
+-
+-    if (service == "check") {
+-        std::string check = mdns_check();
+-        SendOkay(reply_fd, check);
+-        return true;
+-    }
+-    if (service == "services") {
+-        std::string services_list = mdns_list_discovered_services();
+-        SendOkay(reply_fd, services_list);
+-        return true;
+-    }
+-
+     return false;
+ }
+ 
 diff --git a/adb/client/adb_wifi.cpp b/adb/client/adb_wifi.cpp
-index fa71028115..8c460f24fb 100644
+index 61a9a480c9..ded4f8f616 100644
 --- a/adb/client/adb_wifi.cpp
 +++ b/adb/client/adb_wifi.cpp
-@@ -242,5 +242,6 @@ void adb_wifi_pair_device(const std::string& host, const std::string& password,
+@@ -179,23 +179,6 @@ bool adb_wifi_is_known_host(const std::string& host) {
+ 
+ void adb_wifi_pair_device(const std::string& host, const std::string& password,
+                           std::string& response) {
+-    auto mdns_info = mdns_get_pairing_service_info(host);
+-
+-    if (!mdns_info.has_value()) {
+-        // Check the address for a valid address and port.
+-        std::string parsed_host;
+-        std::string err;
+-        int port = -1;
+-        if (!android::base::ParseNetAddress(host, &parsed_host, &port, nullptr, &err)) {
+-            response = "Failed to parse address for pairing: " + err;
+-            return;
+-        }
+-        if (port <= 0 || port > 65535) {
+-            response = "Invalid port while parsing address [" + host + "]";
+-            return;
+-        }
+-    }
+-
+     auto priv_key = adb_auth_get_user_privkey();
+     auto x509_cert = GenerateX509Certificate(priv_key.get());
+     if (!x509_cert) {
+@@ -224,10 +207,7 @@ void adb_wifi_pair_device(const std::string& host, const std::string& password,
+ 
+     PairingResultWaiter waiter;
+     std::unique_lock<std::mutex> lock(waiter.mutex_);
+-    if (!client->Start(mdns_info.has_value()
+-                               ? android::base::StringPrintf("%s:%d", mdns_info->addr.c_str(),
+-                                                             mdns_info->port)
+-                               : host,
++    if (!client->Start(host,
+                        waiter.OnResult, &waiter)) {
+         response = "Failed: Unable to start pairing client.";
+         return;
+@@ -250,5 +230,6 @@ void adb_wifi_pair_device(const std::string& host, const std::string& password,
      // Write to adb_known_hosts
      write_known_host_to_file(device_guid);
      // Try to auto-connect.
@@ -37,7 +95,7 @@ index fa71028115..8c460f24fb 100644
 +    // adb_secure_connect_by_service_name(device_guid.c_str());
  }
 diff --git a/adb/client/main.cpp b/adb/client/main.cpp
-index 05e210f607..99192831c5 100644
+index a19bd6d311..356aeb221a 100644
 --- a/adb/client/main.cpp
 +++ b/adb/client/main.cpp
 @@ -126,9 +126,6 @@ int adb_server_main(int is_daemon, const std::string& socket_spec, int ack_reply
@@ -100,6 +158,36 @@ index 0ac04e6913..de2aa740ea 100644
  #include <iomanip>
  #include <sstream>
  #include <vector>
+diff --git a/adb/socket_spec.cpp b/adb/socket_spec.cpp
+index 5cad70d094..9f97307191 100644
+--- a/adb/socket_spec.cpp
++++ b/adb/socket_spec.cpp
+@@ -196,24 +196,7 @@ bool socket_spec_connect(unique_fd* fd, std::string_view address, int* port, std
+             fd->reset(network_loopback_client(port_value, SOCK_STREAM, error));
+         } else {
+ #if ADB_HOST
+-            // Check if the address is an mdns service we can connect to.
+-            if (auto mdns_info = mdns_get_connect_service_info(address.substr(4));
+-                mdns_info != std::nullopt) {
+-                fd->reset(network_connect(mdns_info->addr, mdns_info->port, SOCK_STREAM, 0, error));
+-                if (fd->get() != -1) {
+-                    // TODO(joshuaduong): We still show the ip address for the serial. Change it to
+-                    // use the mdns instance name, so we can adjust to address changes on
+-                    // reconnects.
+-                    port_value = mdns_info->port;
+-                    if (serial) {
+-                        *serial = android::base::StringPrintf("%s.%s",
+-                                                              mdns_info->service_name.c_str(),
+-                                                              mdns_info->service_type.c_str());
+-                    }
+-                }
+-            } else {
+-                fd->reset(network_connect(hostname, port_value, SOCK_STREAM, 0, error));
+-            }
++            fd->reset(network_connect(hostname, port_value, SOCK_STREAM, 0, error));
+ #else
+             // Disallow arbitrary connections in adbd.
+             *error = "adbd does not support arbitrary tcp connections";
 diff --git a/adb/tls/tls_connection.cpp b/adb/tls/tls_connection.cpp
 index 853cdac08c..3613c3768b 100644
 --- a/adb/tls/tls_connection.cpp
@@ -162,15 +250,3 @@ index ba4846e33b..f3fccc4895 100644
  //
  // Deprecated: use `_Thread_local` in C or `thread_local` in C++.
  //
-diff --git a/libziparchive/zip_cd_entry_map.h b/libziparchive/zip_cd_entry_map.h
-index 4957f754e7..1cfb74dd5b 100644
---- a/libziparchive/zip_cd_entry_map.h
-+++ b/libziparchive/zip_cd_entry_map.h
-@@ -17,6 +17,7 @@
- #pragma once
- 
- #include <stdint.h>
-+#include <stdlib.h>
- 
- #include <map>
- #include <memory>
