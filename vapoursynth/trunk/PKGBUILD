@@ -3,7 +3,7 @@
 # Contributor: jackoneill <cantabile.desu@gmail.com>
 
 pkgname=vapoursynth
-pkgver=R50
+pkgver=R51
 pkgrel=1
 pkgdesc='A video processing framework with the future in mind'
 arch=(x86_64)
@@ -27,8 +27,9 @@ makedepends=(
   git
   python-sphinx
 )
+_tag=a095cbeed3c450fe6b8b4ba68632bf12c9797b35
 source=(
-  git+https://github.com/vapoursynth/vapoursynth.git#tag=297bd4b2045c35b89c336724505e23aa5bff6ceb
+  git+https://github.com/vapoursynth/vapoursynth.git#tag=${_tag}
   vapoursynth.xml
 )
 sha256sums=(
@@ -67,7 +68,7 @@ package() {
 
   make DESTDIR="${pkgdir}" install
 
-  install -Dm 644 ofl.txt -t "${pkgdir}"/usr/share/licenses/vapoursynth/
+  install -Dm 644 src/core/ter-116n.ofl.txt -t "${pkgdir}"/usr/share/licenses/vapoursynth/
   install -Dm 644 ../vapoursynth.xml -t "${pkgdir}"/usr/share/mime/packages/
 }
 
