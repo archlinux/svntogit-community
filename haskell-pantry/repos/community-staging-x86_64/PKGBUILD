@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=pantry
+pkgname=haskell-pantry
+pkgver=0.5.1.1
+pkgrel=14
+pkgdesc="Content addressable Haskell package management"
+url="https://github.com/commercialhaskell/pantry"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-ansi-terminal' 'haskell-casa-client'
+         'haskell-casa-types' 'haskell-conduit' 'haskell-conduit-extra' 'haskell-cryptonite'
+         'haskell-cryptonite-conduit' 'haskell-digest' 'haskell-filelock' 'haskell-generic-deriving'
+         'haskell-hackage-security' 'haskell-hpack' 'haskell-http-client' 'haskell-http-client-tls'
+         'haskell-http-conduit' 'haskell-http-download' 'haskell-http-types' 'haskell-memory'
+         'haskell-mono-traversable' 'haskell-network-uri' 'haskell-path' 'haskell-path-io'
+         'haskell-persistent' 'haskell-persistent-sqlite' 'haskell-persistent-template'
+         'haskell-primitive' 'haskell-resourcet' 'haskell-rio' 'haskell-rio-orphans'
+         'haskell-rio-prettyprint' 'haskell-tar-conduit' 'haskell-text-metrics'
+         'haskell-unix-compat' 'haskell-unliftio' 'haskell-unordered-containers' 'haskell-vector'
+         'haskell-yaml' 'haskell-zip-archive')
+makedepends=('ghc' 'haskell-hedgehog' 'haskell-hspec' 'haskell-quickcheck' 'haskell-raw-strings-qq')
+checkdepends=('git' 'mercurial')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('84c62ca4d299f41d1cf6fc403bf736ea15197e4f1ea5fcfd6d7de78785d74dd8bbca43243e183bc25722df7892fe1c856a411178c93d7dcf57f5d244c9eb2852')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
