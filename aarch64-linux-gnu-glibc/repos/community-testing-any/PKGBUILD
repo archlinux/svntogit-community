@@ -1,0 +1,75 @@
+# Maintainer: Anatol Pomozov
+# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+
+_target=aarch64-linux-gnu
+pkgname=$_target-glibc
+pkgver=2.32
+pkgrel=1
+_commit=be176490b818b65b5162c332eb6b581690b16e5c
+pkgdesc="GNU C Library ARM64 target"
+arch=(any)
+url='https://www.gnu.org/software/libc/'
+license=('GPL' 'LGPL')
+depends=($_target-gcc $_target-linux-api-headers)
+makedepends=(python)
+options=(!buildflags !strip staticlibs)
+source=(https://ftp.gnu.org/gnu/libc/glibc-$pkgver.tar.xz{,.sig})
+sha256sums=('1627ea54f5a1a8467032563393e0901077626dc66f37f10ee6363bb722222836'
+            'SKIP')
+validpgpkeys=(7273542B39962DF7B299931416792B4EA25340F8  # "Carlos O'Donell <carlos@systemhalted.org>"
+              BC7C7372637EC10C57D7AA6579C43DFBF1CF2187) # Siddhesh Poyarekar
+
+prepare() {
+  mkdir -p glibc-build
+}
+
+build() {
+  cd glibc-build
+
+  echo "slibdir=/lib" >> configparms
+  echo "rtlddir=/lib" >> configparms
+  echo "sbindir=/bin" >> configparms
+  echo "rootsbindir=/bin" >> configparms
+
+  # remove hardening options for building libraries
+  export CFLAGS="-U_FORTIFY_SOURCE -mlittle-endian -O2"
+  export CPPFLAGS="-U_FORTIFY_SOURCE -O2"
+  unset LD_LIBRARY_PATH
+
+  export BUILD_CC=gcc
+  export CC=${_target}-gcc
+  export CXX=${_target}-g++
+  export AR=${_target}-ar
+  export RANLIB=${_target}-ranlib
+
+  ../glibc-$pkgver/configure \
+      --prefix=/usr \
+      --target=$_target \
+      --host=$_target \
+      --build=$CHOST \
+      --includedir=/include \
+      --libdir=/lib \
+      --libexecdir=/lib \
+      --with-headers=/usr/$_target/include \
+      --with-bugurl=https://bugs.archlinux.org/ \
+      --enable-add-ons \
+      --enable-obsolete-rpc \
+      --enable-kernel=2.6.32 \
+      --enable-bind-now \
+      --disable-profile \
+      --enable-stackguard-randomization \
+      --enable-lock-elision \
+      --enable-multi-arch \
+      --disable-werror
+
+  echo "build-programs=no" >> configparms
+  make
+}
+
+package() {
+  cd glibc-build
+
+  make install_root="$pkgdir"/usr/$_target install
+
+  rm -r "$pkgdir"/usr/$_target/{etc,usr/share,var}
+}
