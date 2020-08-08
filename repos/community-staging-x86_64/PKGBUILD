@@ -1,0 +1,69 @@
+# Maintainer: Gaetan Bisson <bisson@archlinux.org>
+# Contributor: Hisato Tatekura <hisato_tatekura@excentrics.net>
+# Contributor: Massimiliano Torromeo <massimiliano DOT torromeo AT google mail service>
+
+pkgname=unbound
+pkgver=1.11.0
+pkgrel=2
+pkgdesc='Validating, recursive, and caching DNS resolver'
+url='https://unbound.net/'
+license=('custom:BSD')
+arch=('x86_64')
+makedepends=('expat' 'systemd')
+optdepends=('expat: unbound-anchor')
+depends=('fstrm' 'openssl' 'libsodium' 'protobuf-c' 'libevent' 'hiredis' 'ldns' 'dnssec-anchors')
+backup=('etc/unbound/unbound.conf')
+validpgpkeys=('EDFAA3F2CA4E6EB05681AF8E9F6F1C2D7E045F8D'
+              '21615A7F2478EA8C27DD26B830918D8275724222')
+source=("https://unbound.net/downloads/${pkgname}-${pkgver}.tar.gz"{,.asc}
+        'sysusers.d'
+        'tmpfiles.d'
+        'hook')
+sha256sums=('9f2f0798f76eb8f30feaeda7e442ceed479bc54db0e3ac19c052d68685e51ef7'
+            'SKIP'
+            '85b8f00881fb93bcce83bdfe3246463a396eb5b352c0d7f5fca32fcb839d22fa'
+            '31a573f43287dd7e3678be1680388bfc7d8dee8280eb2443f521a4b349aaa6b6'
+            'afb7a0a5e2da327c27c8f666b1ffaf34689121684c301928624221ac1d0c066a')
+
+prepare() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	sed '/# trust-anchor-file:/c\\ttrust-anchor-file: /etc/unbound/trusted-key.key' -i doc/example.conf.in
+}
+
+build() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	./configure \
+		--prefix=/usr \
+		--sysconfdir=/etc \
+		--localstatedir=/var \
+		--sbindir=/usr/bin \
+		--disable-rpath \
+		--enable-dnscrypt \
+		--enable-dnstap \
+		--enable-pie \
+		--enable-relro-now \
+		--enable-subnet \
+		--enable-systemd \
+		--enable-tfo-client \
+		--enable-tfo-server \
+		--enable-cachedb \
+		--with-libhiredis \
+		--with-conf-file=/etc/unbound/unbound.conf \
+		--with-pidfile=/run/unbound.pid \
+		--with-rootkey-file=/etc/trusted-key.key \
+		--with-libevent \
+
+	make
+}
+
+package() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	make DESTDIR="${pkgdir}" install
+	install -Dm644 contrib/unbound.service "${pkgdir}/usr/lib/systemd/system/unbound.service"
+	install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+	install -Dm644 ../sysusers.d "${pkgdir}/usr/lib/sysusers.d/unbound.conf"
+
+	# Trust anchor file available from within unbound's chroot.
+	install -Dm644 ../tmpfiles.d "${pkgdir}/usr/lib/tmpfiles.d/unbound.conf"
+	install -Dm644 ../hook "${pkgdir}/usr/share/libalpm/hooks/unbound-key.hook"
+}
