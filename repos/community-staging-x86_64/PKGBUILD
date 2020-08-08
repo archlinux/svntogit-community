@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=Agda
+pkgname=agda
+pkgver=2.6.1
+pkgrel=79
+pkgdesc="A dependently typed functional programming language and proof assistant"
+url="https://wiki.portal.chalmers.se/agda/"
+license=("custom")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-async' 'haskell-blaze-html' 'haskell-boxes'
+         'haskell-cpphs' 'haskell-data-hash' 'haskell-edit-distance' 'haskell-equivalence'
+         'haskell-geniplate-mirror' 'haskell-gitrev' 'haskell-hashable'
+         'haskell-hashtables' 'haskell-ieee754' 'haskell-murmur-hash' 'haskell-regex-tdfa'
+         'haskell-split' 'haskell-strict' 'haskell-unordered-containers' 'haskell-uri-encode'
+         'haskell-zlib')
+optdepends=('agda-stdlib: for standard library')
+makedepends=('alex' 'happy' 'ghc' 'haskell-filemanip')
+source=("$_hkgname-$pkgver.tar.gz::https://github.com/agda/agda/archive/v$pkgver.tar.gz")
+sha512sums=('e8dffa93e477dff44a91132f6163165dcb9f8804d68c4e218f5ce6ff297349c139c6aac0e52e4113d0fbe82e11b2b04ab47fce03f7b6a768b22fbcaeeb759f6f')
+
+prepare() {
+    cd $pkgname-$pkgver
+    sed -i '/fno-warn-overlapping-patterns/a \        , "-dynamic"' src/full/Agda/Compiler/MAlonzo/Compiler.hs
+    sed -e "s|(\"Agda_datadir\", agda_datadir) : e|[(\"Agda_datadir\", agda_datadir), (\"LD_LIBRARY_PATH\", \"$PWD/dist/build\")] ++ e|" \
+        -i Setup.hs
+    sed -i 's/< *1.5/<2/' $_hkgname.cabal
+}
+
+build() {
+    cd $pkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -fcpphs -f-debug -f-enable-cluster-counting
+    LC_CTYPE=en_US.UTF-8 runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd $pkgname-$pkgver
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+
+    # Symlink to avoid writing to this place when agda-lib is present
+    install -dm755 "$pkgdir"/usr/share/agda/lib/_build/$pkgver/agda
+    ln -s ../../../prim "$pkgdir"/usr/share/agda/lib/_build/$pkgver/agda/
+
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
