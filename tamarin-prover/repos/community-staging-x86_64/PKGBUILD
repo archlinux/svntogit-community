@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=tamarin-prover
+pkgver=1.4.1
+pkgrel=393
+pkgdesc="The Tamarin prover for security protocol analysis"
+url="https://tamarin-prover.github.io"
+license=("GPL")
+arch=('x86_64')
+depends=('ghc-libs' 'graphviz' 'maude' 'haskell-hunit' 'haskell-binary-instances' 'haskell-binary-orphans'
+         'haskell-blaze-builder' 'haskell-blaze-html' 'haskell-cmdargs' 'haskell-conduit'
+         'haskell-fclabels' 'haskell-file-embed' 'haskell-gitrev' 'haskell-http-types'
+         'haskell-lifted-base' 'haskell-monad-unlift'
+         'haskell-resourcet' 'haskell-safe' 'haskell-shakespeare' 'haskell-threads'
+         'haskell-wai' 'haskell-warp' 'haskell-yesod-core' 'haskell-yesod-static'
+         'haskell-tamarin-prover-utils' 'haskell-tamarin-prover-term'
+         'haskell-tamarin-prover-theory')
+optdepends=('ocaml: for sapic support')
+makedepends=('ghc' 'ocaml')
+source=("tamarin-prover-$pkgver.tar.gz::https://github.com/tamarin-prover/tamarin-prover/archive/$pkgver.tar.gz")
+sha512sums=('4d3aeae02be5d430bff6c55d78656e3c9a648674d235bfeb36ce227a39abd3054a132b99ff8040abf05d8e26506fe85d21ecfb6fce73062dd45b5ba98d941144')
+
+prepare() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    sed -i '/cp sapic/d' plugins/sapic/Makefile
+
+    sed -i 's/binary-orphans/binary-instances/' $pkgname.cabal
+    sed -i 's/Data.Binary.Orphans/Data.Binary.Instances/' src/Web/Types.hs
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-executable-dynamic --prefix=/usr \
+        --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+            -fthreaded -ftest-coverage -f-build-tests --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+
+    cd plugins/sapic
+    make -j1
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+    runhaskell Setup copy --destdir="${pkgdir}"
+
+    install -Dm644 etc/filetype.vim "$pkgdir"/usr/share/vim/vimfiles/ftdetect/tamarin.vim
+    install -Dm644 etc/spthy.vim "$pkgdir"/usr/share/vim/vimfiles/syntax/spthy.vim
+    install -Dm644 etc/sapic.vim "$pkgdir"/usr/share/vim/vimfiles/syntax/sapic.vim
+
+    cd plugins/sapic
+    install -Dm755 sapic "$pkgdir"/usr/bin/sapic
+}
