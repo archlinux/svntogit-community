@@ -1,0 +1,108 @@
+# Maintainer: Jaroslav Lichtblau <svetlemodry@archlinux.org>
+# Contributor: Martin Wimpress <code@flexion.org>
+# Contributor: Sauyon Lee <sauyonl@sauyon.com>
+# Contributor: Kevin MacMartin <prurigro@gmail.com>
+# Contributor: korjjj <korjjj+aur@gmail.com>
+
+pkgname=('syncthing' 'syncthing-relaysrv')
+pkgver=1.7.1
+pkgrel=1
+arch=('x86_64')
+url="https://syncthing.net/"
+license=('MPL')
+depends=('glibc')
+makedepends=('git' 'go' 'inetutils')
+# options=('!strip')
+source=(https://github.com/syncthing/syncthing/releases/download/v$pkgver/syncthing-source-v${pkgver}.tar.gz{,.asc}
+        syncthing-relaysrv.sysusers
+        syncthing-relaysrv.tmpfiles
+        syncthing-relaysrv.service
+        gcc-pie-segfaults-race.patch)
+validpgpkeys=('37C84554E7E0A261E4F76E1ED26E6ED000654A3E') # Syncthing Release Management
+sha256sums=('edf0d9adcc57e61efc270205ad89e594ee79cadb39d568c4628de4d6f8e8f4c8'
+            'SKIP'
+            '6ab96a5949e223d315d49663734ad27b70c72469c691a61ac198cb7794cb5eaa'
+            'f899998985f2d374af57f17ef6362c37a305467858195b74d1c1def71d97273f'
+            '7c2fbc9608d81f8080f8a9102b867a52a050b61f426a0c182ccc1cb5815e4981'
+            '4e00b06544a900b206fc41b9250ab75ea51b8e1489b1eff042da4f08d8a84ab0')
+
+prepare() {
+  install -d "src/github.com/syncthing"
+  mv "${pkgbase}" "src/github.com/syncthing/${pkgbase}"
+  # go-pie with -race segfaults
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  patch -Np1 -i "${srcdir}/gcc-pie-segfaults-race.patch"
+
+}
+
+build() {
+  export GOPATH="${srcdir}" GOROOT_FINAL="/usr/bin"
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  go run build.go -no-upgrade -version v${pkgver} build
+  go run build.go -no-upgrade -version v${pkgver} build strelaysrv
+}
+
+check() {
+  export GOPATH="${srcdir}" GOROOT_FINAL="/usr/bin"
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  if [ "${CARCH}" == "x86_64" ] ; then
+    go run build.go -no-upgrade test
+  fi
+}
+
+package_syncthing() {
+  pkgdesc="Open Source Continuous Replication / Cluster Synchronization Thing"
+  install=$pkgname.install
+
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  install -Dm755 ${pkgname} "${pkgdir}/usr/bin/${pkgname}"
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 "etc/linux-systemd/system/${pkgname}-resume.service" \
+    "${pkgdir}/usr/lib/systemd/system/${pkgname}-resume.service"
+  install -Dm644 "etc/linux-systemd/system/${pkgname}@.service" \
+    "${pkgdir}/usr/lib/systemd/system/${pkgname}@.service"
+  install -Dm644 "etc/linux-systemd/user/${pkgname}.service" \
+    "${pkgdir}/usr/lib/systemd/user/${pkgname}.service"
+
+  # license
+  install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+
+  # ufw preset
+  install -Dm644 etc/firewall-ufw/syncthing \
+    "$pkgdir/etc/ufw/applications.d/ufw-syncthing"
+
+  # man pages
+  cd "${srcdir}/src/github.com/syncthing/${pkgname}/man"
+#   for file in $(find . -name '*.1' -print); do
+#     install -Dm644 $file "${pkgdir}"/usr/share/man/man1/$file
+#   done
+  install -Dm644 $pkgname.1 "${pkgdir}"/usr/share/man/man1/$pkgname.1
+  for file in $(find . -name '*.5' -print); do
+    install -Dm644 $file "${pkgdir}"/usr/share/man/man5/$file
+  done
+  for file in $(find . -name '*.7' -print); do
+    install -Dm644 $file "${pkgdir}"/usr/share/man/man7/$file
+  done
+}
+
+package_syncthing-relaysrv() {
+  pkgdesc='Relay server for Syncthing'
+
+  cd "${srcdir}/src/github.com/syncthing/${pkgbase}"
+  install -Dm755 strelaysrv "${pkgdir}"/usr/bin/${pkgname}
+
+  install -Dm644 man/strelaysrv.1 \
+    "${pkgdir}"/usr/share/man/man1/$pkgname.1
+  
+  install -Dm644 "${srcdir}"/${pkgname}.service \
+    "${pkgdir}"/usr/lib/systemd/system/${pkgname}.service
+  install -Dm644 "${srcdir}/${pkgname}.tmpfiles" \
+    "$pkgdir/usr/lib/tmpfiles.d/${pkgname}.conf"
+  install -Dm644 "${srcdir}/${pkgname}.sysusers" \
+    "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+}
