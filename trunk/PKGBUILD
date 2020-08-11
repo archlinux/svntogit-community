@@ -2,7 +2,7 @@
 
 pkgname=i3-wm
 pkgver=4.18.2
-pkgrel=1
+pkgrel=2
 pkgdesc="An improved dynamic tiling window manager"
 url="https://i3wm.org/"
 arch=(x86_64)
@@ -20,10 +20,12 @@ backup=(etc/i3/config)
 groups=(i3)
 replaces=(i3 i3bar)
 source=("https://i3wm.org/downloads/i3-$pkgver.tar.bz2"{,.asc}
-        0001-Use-OVER-operator-for-drawing-text.patch)
+        0001-Use-OVER-operator-for-drawing-text.patch
+        0002-kick-tray-clients-before-destroying-the-bar.patch)
 sha256sums=('b28617d62f308b93817fc9949daffee74cf4a001685de389f3072cb44cf5120c'
             'SKIP'
-            'e49e147b1cd06f95188decbbe41f5c3a0aca18d0195750bc3ea16465b4aca563')
+            'e49e147b1cd06f95188decbbe41f5c3a0aca18d0195750bc3ea16465b4aca563'
+            'f8a3a307951f6a2f5fc740a0d5871e5fb502162d0269c6124d87aabb46e6e11a')
 validpgpkeys=('424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D') # Michael Stapelberg
 
 prepare() {
@@ -32,6 +34,9 @@ prepare() {
 
   # https://github.com/i3/i3/pull/2925
   patch -Np1 -i ../0001-Use-OVER-operator-for-drawing-text.patch
+
+  # https://github.com/i3/i3/issues/4159
+  patch -Np1 -i ../0002-kick-tray-clients-before-destroying-the-bar.patch
 
   autoreconf -fvi
 }
