@@ -4,7 +4,7 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=5.25.2
+pkgver=5.26.0
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
@@ -21,8 +21,8 @@ source=(${pkgname}-server-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgn
         ${pkgname}.service
         ${pkgname}.sysusers
         ${pkgname}.tmpfiles)
-sha256sums=('c9f69d9bde68d0b4e24868a3b67434dd3562426bcf8465c6b503ac0cce27a15e'
-            '23fde821e61ff1324ad22f10ad98a1d846a8e2aee31c07d002e90405c4d5402b'
+sha256sums=('00307a29634140345cb652a67da38718f26b2d2da3f267543a1ad108341d62c6'
+            'e53e0b17f2436285430e5ca5cad36da4ec497d7dbdb5a6cb10727a9cfc05b3a1'
             'ac54a04be1a9fd17dff4d3f2e0d5f411aa35984dfaa6e86fe9856ed3ed1f5357'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
@@ -55,7 +55,8 @@ build() {
     export CGO_LDFLAGS="${LDFLAGS}"
     export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
     go build -v \
-         -ldflags "-X \"github.com/mattermost/mattermost-server/v5/model.BuildNumber=${pkgver}-${pkgrel}\" \
+         -ldflags "-linkmode external
+                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildNumber=${pkgver}-${pkgrel}\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildDate=$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +"%Y-%m-%d %H:%M:%S")\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildHash=${pkgver}-${pkgrel} Arch Linux \(${CARCH}\)\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildHashEnterprise=none\" \
