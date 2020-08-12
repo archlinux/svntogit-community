@@ -3,7 +3,7 @@
 
 pkgname=go-tools
 epoch=2
-pkgver=1.14+3923+c00d67ef2
+pkgver=1.15+4895+c1934b75d
 pkgrel=1
 pkgdesc='Developer tools for the Go programming language'
 arch=(x86_64)
@@ -11,12 +11,9 @@ url='https://golang.org/'
 license=(BSD)
 depends=(glibc)
 makedepends=(git go)
-_commit=c00d67ef29d03e4dd86a6fb6a75dba1b71a5e294
-_net_commit=ef20fe5d793301b553005db740f730d87993f778
-source=(go-tools::git+https://go.googlesource.com/tools#commit=$_commit
-        golang-net::git+https://github.com/golang/net#commit=$_net_commit)
-md5sums=('SKIP'
-         'SKIP')
+_commit=c1934b75d054975b79a8179cb6f0a9b8b3fa33cd
+source=(go-tools::git+https://go.googlesource.com/tools#commit=$_commit)
+md5sums=('SKIP')
 
 _tools=(benchcmp callgraph compilebench cover digraph eg fiximports
         go-contrib-init godex godoc goimports gomvpkg gorename gotype 
@@ -24,41 +21,45 @@ _tools=(benchcmp callgraph compilebench cover digraph eg fiximports
         toolstash)
 
 pkgver() {
-  local _gover=1.14
+  local _gover=1.15
   cd go-tools
-  printf "%s+%s+%s" $_gover "$(git rev-list --count HEAD)" \
-    "$(git rev-parse --short HEAD)"
+  printf "%s+%s+%s" $_gover "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
 }
 
 prepare() {
-  mkdir -p gopath/src/golang.org/x
-  cp -rf go-tools gopath/src/golang.org/x/tools
-  cp -rf golang-net gopath/src/golang.org/x/net
+    cd go-tools
+    mkdir -p bin/
 }
 
 build() {
-  export GOPATH="$srcdir/gopath"
-  cd gopath/src/golang.org/x/tools
+  cd go-tools
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
   export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
-  go install -v -a ./cmd/...
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+  go build -o bin/ ./cmd/...
+
+  cd gopls
+  go build -o ../bin/ ./...
 }
 
 check() {
-  export GOPATH="$srcdir/gopath"
-  cd gopath/src/golang.org/x/tools
+  cd go-tools
   # Needs to be updated and godoc is failing the test suite
   # See https://github.com/golang/go/issues/35690
-  go test ./cmd/... || true
+  go test ./cmd/...  || true
+
+  # It's just broken.....
+  cd gopls
+  go test ./... || true
 }
 
 package() {
+  cd go-tools
   for tool in ${_tools[@]}; do
-    install -Dm755 gopath/bin/$tool "$pkgdir/usr/bin/$tool"
+    install -Dm755 bin/$tool "$pkgdir/usr/bin/$tool"
   done
 
-  install -Dm644 go-tools/LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
