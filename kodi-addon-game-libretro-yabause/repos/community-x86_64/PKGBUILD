@@ -1,7 +1,7 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-yabause
-pkgver=0.9.15.7
+pkgver=0.9.15.8
 _codename=Leia
 pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
@@ -12,7 +12,7 @@ groups=('kodi-addons' 'kodi-addons-game')
 depends=('kodi-addon-game-libretro' 'libretro-yabause')
 makedepends=('cmake' 'kodi-dev')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.yabause/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('9be56b6ac86f26a55f9aa176d92fd1503cfeb1c3479f0e9eb24f1470f2e6b9cb7dd15839ceb31d3aec3f11c3f8f22ab3a1eeda1e6a64b657a7e8b5f0199a3de2')
+sha512sums=('1eaa5b4989ad2c1c9ea84747e5854e7057cd8b57103ceaa574f2cd3f0ab8a472af2a6111d57ad75afa66336cae61d0abb4dcf804841d5dcba02e45b8ecfce0e0')
 
 build() {
     cd "game.libretro.yabause-$pkgver-$_codename"
