@@ -3,7 +3,7 @@
 pkgname=kodi-addon-game-libretro
 pkgver=1.1.1
 _codename=Leia
-pkgrel=7
+pkgrel=8
 pkgdesc="Libretro wrapper for Kodi's Game API"
 arch=('x86_64')
 url='https://github.com/kodi-game/game.libretro'
