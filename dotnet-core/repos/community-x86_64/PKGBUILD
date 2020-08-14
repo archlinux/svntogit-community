@@ -12,10 +12,10 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=3.1.6.sdk106
-_runtimever=3.1.6
-_sdkver=3.1.106
-pkgrel=2
+pkgver=3.1.7.sdk107
+_runtimever=3.1.7
+_sdkver=3.1.107
+pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -37,7 +37,7 @@ makedepends=(
   zlib
 )
 options=(staticlibs)
-_tag=bebae309898f714f8d3e79f1b86cb3d086487af0
+_tag=6997f78ba54e62145c4c335ee8f9bdab33155dea
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
   9999-Fix-versionless-RID-computation.patch
