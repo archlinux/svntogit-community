@@ -1,7 +1,7 @@
 # Maintainer: BlackEagle <ike.devolder@gmail.com>>
 
 pkgname=kodi-addon-game-libretro-flycast
-pkgver=0.1.0.17
+pkgver=0.1.0.18
 _codename=Leia
 pkgrel=1
 pkgdesc="Libretro wrapper for Kodi's Game API"
@@ -13,7 +13,7 @@ depends=('kodi-addon-game-libretro' 'libretro-flycast')
 makedepends=('cmake' 'kodi-dev')
 replaces=('kodi-addon-game-libretro-reicast')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/kodi-game/game.libretro.reicast/archive/$pkgver-$_codename.tar.gz")
-sha512sums=('955a6368eb66ee8d9247424620adea22e5bf3d0ca18bf66ce7b82f323a0f49ec9ab8e1ce41a829646ca10cc719ae0f840345e61de60a5a6513224c83acce630c')
+sha512sums=('f9dcffcf25fbb04e2e9ec8bebde1fea36fefc425e194cdf9ec1d6d54729516504377b38181621d7a8c3dcfdd89f8fb20c9f06fa0653dfac0f9c435fdfaa80522')
 
 build() {
     cd "game.libretro.flycast-$pkgver-$_codename"
