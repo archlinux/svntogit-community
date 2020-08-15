@@ -6,13 +6,13 @@ _pypiname=wheel
 pkgbase=python-wheel
 pkgname=('python-wheel' 'python2-wheel')
 pkgver=0.35.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A built-package format for Python"
 arch=(any)
 url="https://pypi.python.org/pypi/wheel"
 license=('MIT')
-makedepends=('python' 'python-setuptools'
-             'python2' 'python2-setuptools')
+makedepends=('python-packaging' 'python-setuptools'
+             'python2-packaging' 'python2-setuptools')
 checkdepends=('python-jsonschema' 'python-pytest' 'python-keyring' 'python-keyrings-alt'
               'python-xdg')
 source=("https://pypi.io/packages/source/w/wheel/$_pypiname-$pkgver.tar.gz")
@@ -22,6 +22,11 @@ sha512sums=('34cd6d1a649842abd895418c0183e68f44e228be905041e1dd8562987fbab8aa617
 prepare() {
   # don't depend on python-coverage for tests
   sed -i 's/--cov=wheel//' wheel-$pkgver/setup.cfg
+
+  # https://github.com/pypa/wheel/pull/365 but why?
+  rm -r wheel-$pkgver/src/wheel/vendored
+  sed -i 's/from .vendored.packaging import tags/from packaging import tags/' wheel-$pkgver/src/wheel/bdist_wheel.py
+
   cp -a wheel-$pkgver{,-py2}
 }
 
@@ -44,7 +49,7 @@ check() {
 }
 
 package_python-wheel() {
-  depends=('python')
+  depends=('python-packaging')
   optdepends=('python-keyring: for wheel.signatures')
   optdepends=('python-xdg: for wheel.signatures')
 
@@ -54,7 +59,7 @@ package_python-wheel() {
 }
 
 package_python2-wheel() {
-  depends=('python2')
+  depends=('python2-packaging')
   optdepends=('python2-keyring: for wheel.signatures')
   optdepends=('python2-xdg: for wheel.signatures')
 
