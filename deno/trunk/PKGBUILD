@@ -3,10 +3,10 @@
 
 pkgname=deno
 pkgver=1.3.0
-pkgrel=1
-pkgdesc="A secure JavaScript/TypeScript runtime built with V8, Rust, and Tokio"
+pkgrel=2
+pkgdesc="A secure runtime for JavaScript and TypeScript"
 arch=('x86_64')
-url="https://github.com/denoland/deno"
+url="https://deno.land"
 license=('MIT')
 depends=('gcc-libs')
 makedepends=('git' 'python' 'cargo' 'nodejs')
@@ -31,5 +31,13 @@ check() {
 package() {
   cd $pkgname
   install -Dm755 target/release/deno "$pkgdir"/usr/bin/deno
+
+  install -dm755 "$pkgdir"/usr/share/bash-completion/completions
+  ./target/release/deno completions bash > "$pkgdir"/usr/share/bash-completion/completions/deno
+  install -dm755 "$pkgdir"/usr/share/zsh/site-functions
+  ./target/release/deno completions zsh > "$pkgdir"/usr/share/zsh/site-functions/_deno
+  install -dm755 "$pkgdir"/usr/share/fish/vendor_functions.d
+  ./target/release/deno completions fish > "$pkgdir"/usr/share/fish/vendor_functions.d/deno.fish
+
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
