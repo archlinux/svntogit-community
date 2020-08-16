@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.2.4
+pkgver=3.3.0
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
@@ -13,15 +13,22 @@ url="https://helm.sh/"
 license=("Apache")
 depends=('glibc')
 makedepends=("go" "git")
-_commit=0ad800ef43d3b826f31a5ad8dfbb4fe05d143688
-source=("git+https://github.com/helm/helm.git#commit=$_commit?signed")
+_commit=8a4aeec08d67a7b84472007529e8097ec3742105
+source=("git+https://github.com/helm/helm.git#commit=$_commit?signed"
+        "go1.15-compat.patch::https://github.com/helm/helm/commit/83a5e620d0acde77502b1f814f749268e8d8ef6e.patch")
 validpgpkeys=('672C657BE06B4B30969C4A57461449C25E36B98E'
               '967F8AC5E2216F9F4FD270AD92AA783CBAAE8E3B')
-sha256sums=('SKIP')
+sha256sums=('SKIP'
+            '1ae04b9cc2641ef068ce6ad8fe1b29f4177e1451489cd4a7316bf566659d2da8')
 
 pkgver() {
   cd "${pkgname}"
   git describe --tags | sed 's/^v//;s/-/+/g'
+}
+
+prepare() {
+    cd "${pkgname}"
+    patch -Np1 < "$srcdir/go1.15-compat.patch"
 }
 
 build() {
@@ -30,7 +37,7 @@ build() {
     export CGO_CFLAGS="$CFLAGS"
     export CGO_CXXFLAGS="$CXXFLAGS"
     export CGO_CPPFLAGS="$CPPFLAGS"
-    make GOFLAGS="-buildmode=pie -trimpath"
+    make LDFLAGS="-s -w -linkmode external" GOFLAGS="-buildmode=pie -trimpath"
 }
 
 check(){
@@ -39,7 +46,7 @@ check(){
     export CGO_CFLAGS="$CFLAGS"
     export CGO_CXXFLAGS="$CXXFLAGS"
     export CGO_CPPFLAGS="$CPPFLAGS"
-    make GOFLAGS="-buildmode=pie -trimpath" test-unit
+    make LDFLAGS="-s -w -linkmode external" GOFLAGS="-buildmode=pie -trimpath" test-unit
 }
 
 package(){
