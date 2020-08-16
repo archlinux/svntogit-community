@@ -5,21 +5,19 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=5.15
+pkgver=5.15.1
 pkgrel=1
 
-_winever=${pkgver}
+_winever=${pkgver%.*}
 _pkgbasever=${pkgver/rc/-rc}
 
 source=(https://dl.winehq.org/wine/source/5.x/wine-$_winever.tar.xz{,.sign}
         "wine-staging-v$_pkgbasever.tar.gz::https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever.tar.gz"
-        https://github.com/wine-staging/wine-staging/commit/150ce22fa21ffa040816e725ead34ed1de516bd8.patch
         30-win32-aliases.conf
         wine-binfmt.conf)
 sha512sums=('90baf7df915cf1ce88022a4aebe4a6975b4b0defcc043a0c6738fefb9b853e0bfbcc645c39e33cdbb20673fab5df7561ab5b55e38a4e0a68907912a80e556ae3'
             'SKIP'
-            'fe5a7a5d50a8e937658891c1e172c83083e1ccd8d97dffdf858396c83dc5de7334a3752bdbe941f4ceceb17e2e6b2b58a3ba053298fc79818d58439af63dc692'
-            '7994f4b2217b060c69ef70c1dd2ee06f8be8c2a57e58cc876c125eea90b560a398e9fcd1743e123f4948982bb61fc41df9b00189deab4903d35a2703e145a3fe'
+            'd6ebfcc24467cef925852b67ba8fd2b7188258fa75a2e988fcf4b8a253a32c64ef50957bb4077b7dee83827c0089566b63127aba275aa1b4629b8d90161b18a3'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -122,9 +120,6 @@ install=wine.install
 prepare() {
   # Allow ccache to work
   mv wine-$_winever $pkgname
-
-  # https://bugs.winehq.org/show_bug.cgi?id=49705
-  patch -d wine-staging-$_pkgbasever -p1 < 150ce22fa21ffa040816e725ead34ed1de516bd8.patch
 
   # apply wine-staging patchset
   pushd wine-staging-$_pkgbasever/patches
