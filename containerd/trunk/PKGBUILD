@@ -5,8 +5,8 @@
 
 pkgname=containerd
 pkgver="1.4.0"
-_commit=be75852b8d7849474a20192f9ed1bf34fdd454f1
-pkgrel=1
+_commit=09814d48d50816305a8e6c1a4ae3e2bcc4ba725a
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
@@ -33,7 +33,7 @@ build() {
   export CGO_CXXFLAGS="${CXXFLAGS}"
   export CGO_LDFLAGS="${LDFLAGS}"
   export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
-  make EXTRA_LDFLAGS="-linkmode external" VERSION=v$pkgver.m REVISION=$_commit.m
+  make VERSION=v$pkgver.m REVISION=$_commit.m
 }
 
 check() {
