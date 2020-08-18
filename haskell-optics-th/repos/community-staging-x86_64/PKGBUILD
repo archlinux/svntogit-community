@@ -1,0 +1,50 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=optics-th
+pkgname=haskell-optics-th
+pkgver=0.3.0.1
+pkgrel=2
+pkgdesc="Optics construction using TemplateHaskell"
+url="https://github.com/well-typed/optics"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-optics-core' 'haskell-th-abstraction')
+makedepends=('ghc' 'haskell-tagged')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz
+        $pkgname-ghc-8.10.2.patch::https://github.com/well-typed/optics/pull/339.patch)
+sha512sums=('4a6c92fb3b9f1803f2b93cba83f0b2fc9b11cec6d22aad32357b1735ea75335c9249b646bd4ae9712b35156c0faf571474bfe789a39275ace1b1eb05db5ff0c1'
+            '043036fef711ee78203f73e0482f3bab214c628348287afa22fd31bdb15349de507aa76080f14551ed6b62a66c56d63bc81da4391fc8cc9c6565238aa9fb2a15')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p2 -i ../$pkgname-ghc-8.10.2.patch
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
