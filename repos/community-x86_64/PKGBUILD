@@ -5,25 +5,22 @@
 # Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
 
 pkgname=qcad
-pkgver=3.24.3.10
-pkgrel=2
+pkgver=3.25.0.0
+pkgrel=1
 pkgdesc='A 2D CAD package based upon Qt'
 arch=('x86_64')
 url="https://www.qcad.org"
 license=('GPL3')
 depends=('qt5-script' 'qt5-svg' 'gcc-libs' 'qt5-xmlpatterns' 'qt5-tools')
 makedepends=('glu')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/qcad/qcad/archive/v${pkgver}.tar.gz"
-        "RRulerQt.patch")
-sha512sums=('04c625c3e4900f8c5e2f907b43e9be96ad4f08b553b3b05cd2acbc7e3d8131fb74702b9a6d448fb313dcfbb757aec561f5fcbfa7394ac9d39aa8735907e29135'
-            'bcb26699aab6d16f9d180553adc17b5698c8a41758fe45820d25c402f41c29543d9293571677165387ba1fb6293ece09ac1814f70972bcb79e1b43b8e092e1a7')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/qcad/qcad/archive/v${pkgver}.tar.gz")
+sha512sums=('0eb541358723fe376ea68ad38d4173cfb002a24530b926d4a07b96caa3f0d21837e91eb38edcbca0ea5917236813bc14d6087793936aeb36c14afb1610e31563')
 
 prepare() {
   rm *.tar.gz
   cd qcad-$pkgver
   sed -e 's|$${QT_VERSION}|5.5.0|g' \
       -i src/3rdparty/3rdparty.pro # Don't require specific Qt version
-  patch -p1 -i "$srcdir/RRulerQt.patch"
 }
 
 build() {
