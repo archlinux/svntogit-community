@@ -11,8 +11,8 @@ url='https://github.com/willmcgugan/rich'
 license=('MIT')
 depends=('python-colorama' 'python-pygments' 'python-typing_extensions' 'python-commonmark')
 makedepends=('python-setuptools')
-source=("https://files.pythonhosted.org/packages/source/r/rich/rich-${pkgver}.tar.gz")
-b2sums=('a9ff2857c4e1174421257c40dbe82419015ec63977b34329525415d509ffa80de868b7562041543946dde1d37ed698ef4de0596f33a42fdc7716a2c1711f81f2')
+source=("https://github.com/willmcgugan/rich/archive/v${pkgver}/rich-${pkgver}.tar.gz")
+b2sums=('f294517c324a3c75c0c0e7fc3c52024e2ef39a1e70c7ebefc2eafec4212f628b6b5d1cf3e51eb1f9c6335ac082aec679276e1e4b51ff7adab9422bb5689103d2')
 
 build() {
   cd rich-${pkgver}
