@@ -1,5 +1,5 @@
 pkgname=maturin
-pkgver=0.8.2
+pkgver=0.8.3
 pkgrel=1
 
 pkgdesc="Build and publish crates with pyo3, rust-cpython and cffi bindings"
