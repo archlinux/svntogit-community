@@ -1,0 +1,124 @@
+From 933d3241eb23d6857716810bedfaf56123111a6a Mon Sep 17 00:00:00 2001
+From: Dan Schult <dschult@colgate.edu>
+Date: Sat, 7 Jul 2018 14:07:58 -0400
+Subject: [PATCH] Fix StopIteration handling which breaks in python 3.7
+
+See #3046
+---
+
+rebase against stable release
+
+ .../algorithms/connectivity/edge_augmentation.py     | 12 +++++++++---
+ networkx/algorithms/connectivity/edge_kcomponents.py |  2 +-
+ networkx/algorithms/traversal/edgedfs.py             |  2 +-
+ networkx/generators/classic.py                       |  2 ++
+ networkx/readwrite/sparse6.py                        | 10 ++++++++--
+ 5 files changed, 21 insertions(+), 7 deletions(-)
+
+diff --git a/networkx/algorithms/connectivity/edge_augmentation.py b/networkx/algorithms/connectivity/edge_augmentation.py
+index cd8c748f..21512d7c 100644
+--- a/networkx/algorithms/connectivity/edge_augmentation.py
++++ b/networkx/algorithms/connectivity/edge_augmentation.py
+@@ -813,7 +813,10 @@ def unconstrained_bridge_augmentation(G):
+         A2 = [tuple(leafs)]
+     else:
+         # Choose an arbitrary non-leaf root
+-        root = next(n for n, d in T.degree() if d > 1)
++        try:
++            root = next(n for n, d in T.degree() if d > 1)
++        except StopIteration:  # no nodes found with degree > 1
++            return
+         # order the leaves of C by (induced directed) preorder
+         v2 = [n for n in nx.dfs_preorder_nodes(T, root) if T.degree(n) == 1]
+         # connecting first half of the leafs in pre-order to the second
+@@ -954,7 +957,10 @@ def weighted_bridge_augmentation(G, avail, weight=None):
+     #     nx.least_common_ancestor on the reversed Tree.
+ 
+     # Pick an arbitrary leaf from C as the root
+-    root = next(n for n in C.nodes() if C.degree(n) == 1)
++    try:
++        root = next(n for n, d in C.degree() if d == 1)
++    except StopIteration:  # no nodes found with degree == 1
++        return
+     # Root C into a tree TR by directing all edges away from the root
+     # Note in their paper T directs edges towards the root
+     TR = nx.dfs_tree(C, root)
+@@ -1230,7 +1236,7 @@ def greedy_k_edge_augmentation(G, k, avail=None, weight=None, seed=None):
+ 
+     done = is_k_edge_connected(G, k)
+     if done:
+-        raise StopIteration()
++        return
+     if avail is None:
+         # all edges are available
+         avail_uv = list(complement_edges(G))
+diff --git a/networkx/algorithms/connectivity/edge_kcomponents.py b/networkx/algorithms/connectivity/edge_kcomponents.py
+index 37bf61dc..f9b4364c 100644
+--- a/networkx/algorithms/connectivity/edge_kcomponents.py
++++ b/networkx/algorithms/connectivity/edge_kcomponents.py
+@@ -573,7 +573,7 @@ def general_k_edge_subgraphs(G, k):
+     if G.number_of_nodes() < k:
+         for node in G.nodes():
+             yield G.subgraph([node]).copy()
+-        raise StopIteration()
++        return
+ 
+     # Intermediate results
+     R0 = {G.subgraph(cc).copy() for cc in find_ccs(G)}
+diff --git a/networkx/algorithms/traversal/edgedfs.py b/networkx/algorithms/traversal/edgedfs.py
+index 5434057d..b9d442b6 100644
+--- a/networkx/algorithms/traversal/edgedfs.py
++++ b/networkx/algorithms/traversal/edgedfs.py
+@@ -152,7 +152,7 @@ def edge_dfs(G, source=None, orientation='original'):
+     """
+     nodes = list(G.nbunch_iter(source))
+     if not nodes:
+-        raise StopIteration
++        return
+ 
+     kwds = {'data': False}
+     if G.is_multigraph():
+diff --git a/networkx/generators/classic.py b/networkx/generators/classic.py
+index 22741a37..10710db4 100644
+--- a/networkx/generators/classic.py
++++ b/networkx/generators/classic.py
+@@ -54,6 +54,8 @@ __all__ = ['balanced_tree',
+ # -------------------------------------------------------------------
+ 
+ def _tree_edges(n, r):
++    if n == 0:
++        return
+     # helper function for trees
+     # yields edges in rooted tree at 0 with n nodes and branching ratio r
+     nodes = iter(range(n))
+diff --git a/networkx/readwrite/sparse6.py b/networkx/readwrite/sparse6.py
+index 00ccae60..6f404ca3 100644
+--- a/networkx/readwrite/sparse6.py
++++ b/networkx/readwrite/sparse6.py
+@@ -163,7 +163,10 @@ def from_sparse6_bytes(string):
+ 
+         while 1:
+             if dLen < 1:
+-                d = next(chunks)
++                try:
++                    d = next(chunks)
++                except StopIteration:
++                    return
+                 dLen = 6
+             dLen -= 1
+             b = (d >> dLen) & 1  # grab top remaining bit
+@@ -171,7 +174,10 @@ def from_sparse6_bytes(string):
+             x = d & ((1 << dLen) - 1)  # partially built up value of x
+             xLen = dLen		# how many bits included so far in x
+             while xLen < k:  # now grab full chunks until we have enough
+-                d = next(chunks)
++                try:
++                    d = next(chunks)
++                except StopIteration:
++                    return
+                 dLen = 6
+                 x = (x << 6) + d
+                 xLen += 6
+-- 
+2.18.0
+
