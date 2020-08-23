@@ -4,13 +4,13 @@
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
 pkgver=1.34.5
-pkgrel=1
+pkgrel=2
 pkgdesc="Signal Private Messenger for Linux"
 license=('GPL3')
 replaces=('signal-desktop-bin')
 arch=('x86_64')
 url="https://signal.org"
-depends=('libvips')
+depends=('libvips' 'libxss')
 makedepends=('yarn' 'git' 'nodejs' 'npm' 'python')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
