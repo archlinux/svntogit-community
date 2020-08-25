@@ -2,21 +2,20 @@
 # Contributor: Ivan Shapovalov <intelfx@intelfx.name>
 
 pkgname=python-pynacl
-pkgver=1.3.0
-pkgrel=4
+pkgver=1.4.0
+pkgrel=1
 
 pkgdesc='Python binding to the Networking and Cryptography (NaCl) library'
 url='https://pypi.python.org/pypi/PyNaCl'
 arch=('x86_64')
 license=('Apache')
 
-depends=('libsodium')
 depends=('libsodium' 'python' 'python-six' 'python-cffi')
 makedepends=('python-setuptools' 'python-pycparser')
 
 source=("https://pypi.org/packages/source/P/PyNaCl/PyNaCl-$pkgver.tar.gz")
 
-sha512sums=('1762d7d9add6ca59ce83e394071861f78f27d0f06ad1481255ebb66023186127e1a67b49a2c2f51bcbd97bdd151a3a2adea099c47c2a9f456dda5e3b1508af50')
+sha512sums=('355b974010f94d551f631a2dd5ae792da3d4d0abf8ed70b6decc78aad24a9f965636988aebd14947b137ea14cdcbb73531775f08b1b4d5a9d72b5df3dba0b022')
 
 build() {
 	export SODIUM_INSTALL=system
