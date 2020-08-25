@@ -1,0 +1,193 @@
+From b43807a835fc878e5eefcb8b4a18aff62d7f4540 Mon Sep 17 00:00:00 2001
+From: Alon Zakai <azakai@google.com>
+Date: Wed, 19 Aug 2020 14:55:46 -0700
+Subject: [PATCH] wasm-emscripten-finalize: Make EM_ASM modifications optional
+ (#3044)
+
+wasm-emscripten-finalize renames EM_ASM calls to have the signature in
+the name. This isn't actually useful - emscripten doesn't benefit from that. I
+think it was optimized in fastcomp, and in upstream we copied the general
+form but not the optimizations, and then EM_JS came along which is
+easier to optimize anyhow.
+
+This PR makes those changes optional: when not doing them, it just
+leaves the calls as they are. Emscripten will need some changes to
+handle that, but those are simple.
+
+For convenience this adds a flag to "minimize wasm changes". The idea
+is that this flag avoids needing a double-roll or other inconvenience
+as the changes need to happen in tandem on the emscripten side.
+The same flag can be reused for later changes similar to this one.
+When they are all done we can remove the flag. (Note how the code
+ifdefed by the flag can be removed once we no longer need the old
+way of doing things - that is, the new approach is simpler on the
+binaryen side).
+
+See #3043
+---
+ src/tools/wasm-emscripten-finalize.cpp | 11 +++++++
+ src/wasm-emscripten.h                  |  4 +++
+ src/wasm/wasm-emscripten.cpp           | 40 +++++++++++++++++---------
+ 3 files changed, 42 insertions(+), 13 deletions(-)
+
+diff --git a/src/tools/wasm-emscripten-finalize.cpp b/src/tools/wasm-emscripten-finalize.cpp
+index ce1da4c9e1..960c6870cf 100644
+--- a/src/tools/wasm-emscripten-finalize.cpp
++++ b/src/tools/wasm-emscripten-finalize.cpp
+@@ -56,6 +56,7 @@ int main(int argc, const char* argv[]) {
+   bool checkStackOverflow = false;
+   uint64_t globalBase = INVALID_BASE;
+   bool standaloneWasm = false;
++  bool minimizeWasmChanges = false;
+ 
+   ToolOptions options("wasm-emscripten-finalize",
+                       "Performs Emscripten-specific transforms on .wasm files");
+@@ -163,6 +164,15 @@ int main(int argc, const char* argv[]) {
+          [&standaloneWasm](Options* o, const std::string&) {
+            standaloneWasm = true;
+          })
++    .add("--minimize-wasm-changes",
++         "",
++         "Modify the wasm as little as possible. This is useful during "
++         "development as we reduce the number of changes to the wasm, as it "
++         "lets emscripten control how much modifications to do.",
++         Options::Arguments::Zero,
++         [&minimizeWasmChanges](Options* o, const std::string&) {
++           minimizeWasmChanges = true;
++         })
+     .add_positional("INFILE",
+                     Options::Arguments::One,
+                     [&infile](Options* o, const std::string& argument) {
+@@ -222,6 +232,7 @@ int main(int argc, const char* argv[]) {
+   EmscriptenGlueGenerator generator(wasm);
+   generator.setStandalone(standaloneWasm);
+   generator.setSideModule(sideModule);
++  generator.setMinimizeWasmChanges(minimizeWasmChanges);
+ 
+   generator.fixInvokeFunctionNames();
+ 
+diff --git a/src/wasm-emscripten.h b/src/wasm-emscripten.h
+index 395c76a160..fe8b8ed36a 100644
+--- a/src/wasm-emscripten.h
++++ b/src/wasm-emscripten.h
+@@ -35,6 +35,9 @@ class EmscriptenGlueGenerator {
+ 
+   void setStandalone(bool standalone_) { standalone = standalone_; }
+   void setSideModule(bool sideModule_) { sideModule = sideModule_; }
++  void setMinimizeWasmChanges(bool minimizeWasmChanges_) {
++    minimizeWasmChanges = minimizeWasmChanges_;
++  }
+ 
+   Function* generateMemoryGrowthFunction();
+   Function* generateAssignGOTEntriesFunction();
+@@ -71,6 +74,7 @@ class EmscriptenGlueGenerator {
+   bool useStackPointerGlobal;
+   bool standalone;
+   bool sideModule;
++  bool minimizeWasmChanges;
+   // Used by generateDynCallThunk to track all the dynCall functions created
+   // so far.
+   std::unordered_set<Signature> sigs;
+diff --git a/src/wasm/wasm-emscripten.cpp b/src/wasm/wasm-emscripten.cpp
+index e4664e645c..f4da0e6e7a 100644
+--- a/src/wasm/wasm-emscripten.cpp
++++ b/src/wasm/wasm-emscripten.cpp
+@@ -320,6 +320,7 @@ std::string proxyingSuffix(Proxying proxy) {
+ 
+ struct AsmConstWalker : public LinearExecutionWalker<AsmConstWalker> {
+   Module& wasm;
++  bool minimizeWasmChanges;
+   std::vector<Address> segmentOffsets; // segment index => address offset
+ 
+   struct AsmConst {
+@@ -334,8 +335,9 @@ struct AsmConstWalker : public LinearExecutionWalker<AsmConstWalker> {
+   // last sets in the current basic block, per index
+   std::map<Index, LocalSet*> sets;
+ 
+-  AsmConstWalker(Module& _wasm)
+-    : wasm(_wasm), segmentOffsets(getSegmentOffsets(wasm)) {}
++  AsmConstWalker(Module& _wasm, bool minimizeWasmChanges)
++    : wasm(_wasm), minimizeWasmChanges(minimizeWasmChanges),
++      segmentOffsets(getSegmentOffsets(wasm)) {}
+ 
+   void noteNonLinear(Expression* curr);
+ 
+@@ -426,7 +428,9 @@ void AsmConstWalker::visitCall(Call* curr) {
+   int32_t address = value->value.geti32();
+   auto code = codeForConstAddr(wasm, segmentOffsets, address);
+   auto& asmConst = createAsmConst(address, code, sig, importName);
+-  fixupName(curr->target, baseSig, asmConst.proxy);
++  if (!minimizeWasmChanges) {
++    fixupName(curr->target, baseSig, asmConst.proxy);
++  }
+ }
+ 
+ Proxying AsmConstWalker::proxyType(Name name) {
+@@ -439,6 +443,9 @@ Proxying AsmConstWalker::proxyType(Name name) {
+ }
+ 
+ void AsmConstWalker::visitTable(Table* curr) {
++  if (minimizeWasmChanges) {
++    return;
++  }
+   for (auto& segment : curr->segments) {
+     for (auto& name : segment.data) {
+       auto* func = wasm.getFunction(name);
+@@ -515,24 +522,30 @@ void AsmConstWalker::addImports() {
+   }
+ }
+ 
+-AsmConstWalker fixEmAsmConstsAndReturnWalker(Module& wasm) {
++static AsmConstWalker fixEmAsmConstsAndReturnWalker(Module& wasm,
++                                                    bool minimizeWasmChanges) {
+   // Collect imports to remove
+   // This would find our generated functions if we ran it later
+   std::vector<Name> toRemove;
+-  for (auto& import : wasm.functions) {
+-    if (import->imported() && import->base.hasSubstring(EM_ASM_PREFIX)) {
+-      toRemove.push_back(import->name);
++  if (!minimizeWasmChanges) {
++    for (auto& import : wasm.functions) {
++      if (import->imported() && import->base.hasSubstring(EM_ASM_PREFIX)) {
++        toRemove.push_back(import->name);
++      }
+     }
+   }
+ 
+   // Walk the module, generate _sig versions of EM_ASM functions
+-  AsmConstWalker walker(wasm);
++  AsmConstWalker walker(wasm, minimizeWasmChanges);
+   walker.process();
+ 
+-  // Remove the base functions that we didn't generate
+-  for (auto importName : toRemove) {
+-    wasm.removeFunction(importName);
++  if (!minimizeWasmChanges) {
++    // Remove the base functions that we didn't generate
++    for (auto importName : toRemove) {
++      wasm.removeFunction(importName);
++    }
+   }
++
+   return walker;
+ }
+ 
+@@ -754,7 +767,8 @@ std::string EmscriptenGlueGenerator::generateEmscriptenMetadata(
+   std::stringstream meta;
+   meta << "{\n";
+ 
+-  AsmConstWalker emAsmWalker = fixEmAsmConstsAndReturnWalker(wasm);
++  AsmConstWalker emAsmWalker =
++    fixEmAsmConstsAndReturnWalker(wasm, minimizeWasmChanges);
+ 
+   // print
+   commaFirst = true;
+@@ -810,7 +824,7 @@ std::string EmscriptenGlueGenerator::generateEmscriptenMetadata(
+   commaFirst = true;
+   ModuleUtils::iterImportedFunctions(wasm, [&](Function* import) {
+     if (emJsWalker.codeByName.count(import->base.str) == 0 &&
+-        !import->base.startsWith(EM_ASM_PREFIX.str) &&
++        (minimizeWasmChanges || !import->base.startsWith(EM_ASM_PREFIX.str)) &&
+         !import->base.startsWith("invoke_")) {
+       if (declares.insert(import->base.str).second) {
+         meta << nextElement() << '"' << import->base.str << '"';
