@@ -18,7 +18,7 @@ source=("https://www.nethack.org/download/${pkgver}/${pkgname}-${pkgver//.}-src.
 _builddir="NetHack-NetHack-3.6.6_Released"
 
 prepare() {
-  cd "$srcdir/$_builddir"
+  cd $_builddir
 
   sed -e 's|^/\* \(#define LINUX\) \*/|\1|' \
       -e 's|^/\* \(#define TIMED_DELAY\) \*/|\1|' -i include/unixconf.h
@@ -44,33 +44,33 @@ prepare() {
 }
 
 build(){
-  cd "$srcdir/$_builddir/sys/unix"
+  cd $_builddir/sys/unix
   sh setup.sh hints/linux
 
-  cd "$srcdir/$_builddir"
+  cd "$srcdir"/$_builddir
   make
 }
   
 package() {
-  cd "$srcdir/$_builddir"
+  cd $_builddir
 
-  install -dm755 $pkgdir/usr/share/{man/man6,doc/nethack}
-  install -dm775 $pkgdir/var/games/
-  make PREFIX=$pkgdir -j1 install manpages # Multi-threaded builds fail.
+  install -dm755 "$pkgdir"/usr/share/{man/man6,doc/nethack}
+  install -dm775 "$pkgdir"/var/games/
+  make PREFIX="$pkgdir" -j1 install manpages # Multi-threaded builds fail.
   sed -e "s|HACKDIR=$pkgdir/|HACKDIR=/|" \
       -e 's|HACK=$HACKDIR|HACK=/usr/lib/nethack|' \
-      -i $pkgdir/usr/bin/nethack
+      -i "$pkgdir"/usr/bin/nethack
 
-  install -dm755 $pkgdir/usr/lib/nethack
-  mv $pkgdir/var/games/nethack/{nethack,recover} $pkgdir/usr/lib/nethack/
+  install -dm755 "$pkgdir"/usr/lib/nethack
+  mv "$pkgdir"/var/games/nethack/{nethack,recover} "$pkgdir"/usr/lib/nethack/
 
   # FS#43414: /var/games should be owned by root:games.
-  chown -R root:games $pkgdir/var/games/
-  chown root:games $pkgdir/usr/lib/nethack/nethack
-  #chmod 02755 $pkgdir/usr/lib/nethack/nethack
+  chown -R root:games "$pkgdir"/var/games/
+  chown root:games "$pkgdir"/usr/lib/nethack/nethack
+  #chmod 02755 "$pkgdir"/usr/lib/nethack/nethack
 
-  install -Dm644 doc/Guidebook.txt $pkgdir/usr/share/doc/nethack/Guidebook.txt
-  install -Dm644 dat/license $pkgdir/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 doc/Guidebook.txt "$pkgdir"/usr/share/doc/nethack/Guidebook.txt
+  install -Dm644 dat/license "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 md5sums=('6c9a75f556d24c66801d74d8727a602e')
