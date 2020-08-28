@@ -40,9 +40,9 @@ package_python-pytz(){
 
     cd pytz-$pkgver
 
-    python3 setup.py install --root=$pkgdir/
+    python3 setup.py install --root="$pkgdir"/
 
-    install -Dm644 LICENSE.txt $pkgdir/usr/share/licenses/$pkgname/LICENSE
+    install -Dm644 LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 
@@ -52,7 +52,7 @@ package_python2-pytz(){
 
     cd pytz2-$pkgver
 
-    python2 setup.py install --root="$pkgdir/"
+    python2 setup.py install --root="$pkgdir"/
 
-    install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -Dm644 LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
