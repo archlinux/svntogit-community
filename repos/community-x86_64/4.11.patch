@@ -1,0 +1,226 @@
+From 6cd51b88f0d651fc92f686e9b25180ac5e0b7bd4 Mon Sep 17 00:00:00 2001
+From: ygrek <ygrek@autistici.org>
+Date: Sun, 24 May 2020 09:26:27 -0400
+Subject: ci: build for matching branch
+
+---
+ .travis-ci.sh |  4 ++--
+ .travis.yml   | 12 +++++++++++-
+ configure     |  6 ++++++
+ 3 files changed, 19 insertions(+), 3 deletions(-)
+
+diff --git a/.travis-ci.sh b/.travis-ci.sh
+index 532221c01..879afb0d1 100644
+--- a/.travis-ci.sh
++++ b/.travis-ci.sh
+@@ -2,7 +2,7 @@ case $XARCH in
+ i386)
+   uname -a
+ 
+-  git clone git://github.com/ocaml/ocaml -b trunk --depth 1
++  git clone git://github.com/ocaml/ocaml -b $OCAML_BRANCH --depth 1
+   cd ocaml
+   ./configure
+   make world.opt
+@@ -17,7 +17,7 @@ i386)
+   cd ..
+   rm -rf ocamlbuild
+ 
+-  ./configure && make && sudo make install
++  ./configure $CONFIGURE_ARGS && make && sudo make install
+   ;;
+ *)
+   echo unknown arch
+diff --git a/.travis.yml b/.travis.yml
+index 3015c16d3..c20da1ef8 100644
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -1,4 +1,14 @@
+ language: c
+ script: bash -ex .travis-ci.sh
+ env:
+-   - XARCH=i386
++  - OCAML_BRANCH=4.10
++    XARCH=i386
++  - OCAML_BRANCH=4.11
++    XARCH=i386
++    CONFIGURE_ARGS=--skip-version-check
++  - OCAML_BRANCH=trunk
++    XARCH=i386
++    CONFIGURE_ARGS=--skip-version-check
++jobs:
++  allow_failures:
++    - if: CONFIGURE_ARGS = --skip-version-check
+diff --git a/configure b/configure
+index 7bb18bb6c..67ef85e92 100755
+--- a/configure
++++ b/configure
+@@ -7,6 +7,7 @@ unset LC_ALL LC_CTYPE LC_COLLATE LC_MESSAGES LC_MONETARY LC_NUMERIC LC_TIME
+ set -e
+ 
+ PINNED=0
++SKIP_VERSION_CHECK=0
+ for i in "$@"; do
+   case $i in
+     --bindir=*)
+@@ -21,6 +22,9 @@ for i in "$@"; do
+     --pinned*)
+       PINNED=1
+       ;;
++    --skip-version-check)
++      SKIP_VERSION_CHECK=1
++      ;;
+     *)
+       echo "usage: ./configure [--bindir=<dir>] [--libdir=<dir>] [--pkgdir=<dir>]" 1>&2
+       exit 2
+@@ -39,6 +43,8 @@ if [ $major -lt 4 -o \( $major -eq 4 -a $minor -lt 2 \) ]; then
+     echo "The standalone Camlp4 requires OCaml >= 4.02."
+     echo "For previous versions of OCaml use the Camlp4 distributed with OCaml."
+     exit 2
++elif [ $SKIP_VERSION_CHECK -eq 1 ]; then
++    echo "Skipping OCaml version check"
+ elif [ $major -ne 4 -o $minor -ne 10 ]; then
+     echo "This version of Camlp4 is for OCaml 4.10 but you are using OCaml $ocaml_version."
+     if [ -d .git ] ; then
+-- 
+2.27.0
+
+
+From aadf267a6b69bce8207caf7d607afd17873e39c2 Mon Sep 17 00:00:00 2001
+From: Kate <kit.ty.kate@disroot.org>
+Date: Tue, 9 Jun 2020 18:49:36 +0100
+Subject: OCaml 4.11 support
+
+---
+ camlp4/Camlp4/Struct/Camlp4Ast2OCamlAst.ml | 4 ++--
+ camlp4/boot/Camlp4.ml                      | 4 ++--
+ configure                                  | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/camlp4/Camlp4/Struct/Camlp4Ast2OCamlAst.ml b/camlp4/Camlp4/Struct/Camlp4Ast2OCamlAst.ml
+index 6ba906f4e..3040753d4 100644
+--- a/camlp4/Camlp4/Struct/Camlp4Ast2OCamlAst.ml
++++ b/camlp4/Camlp4/Struct/Camlp4Ast2OCamlAst.ml
+@@ -704,7 +704,7 @@ and row_field =
+         let is_closed = if wildcards = [] then Closed else Open in
+         mkpat loc (Ppat_record (List.map mklabpat ps, is_closed))
+     | PaStr loc s ->
+-        mkpat loc (Ppat_constant (Pconst_string (string_of_string_token loc s) None))
++        mkpat loc (Ppat_constant (Pconst_string (string_of_string_token loc s) (Loc.to_ocaml_location loc) None))
+     | <:patt@loc< ($p1$, $p2$) >> ->
+          mkpat loc (Ppat_tuple
+            (List.map patt (list_of_patt p1 (list_of_patt p2 []))))
+@@ -969,7 +969,7 @@ value varify_constructors var_names =
+           (Pexp_apply (mkexp loc (Pexp_ident (array_function loc "String" "get")))
+             [(Nolabel, expr e1); (Nolabel, expr e2)])
+     | ExStr loc s ->
+-        mkexp loc (Pexp_constant (Pconst_string (string_of_string_token loc s) None))
++        mkexp loc (Pexp_constant (Pconst_string (string_of_string_token loc s) (Loc.to_ocaml_location loc) None))
+     | ExTry loc e a -> mkexp loc (Pexp_try (expr e) (match_case a []))
+     | <:expr@loc< ($e1$, $e2$) >> ->
+          mkexp loc (Pexp_tuple (List.map expr (list_of_expr e1 (list_of_expr e2 []))))
+diff --git a/camlp4/boot/Camlp4.ml b/camlp4/boot/Camlp4.ml
+index 32b8a8865..029e306d7 100644
+--- a/camlp4/boot/Camlp4.ml
++++ b/camlp4/boot/Camlp4.ml
+@@ -16204,7 +16204,7 @@ module Struct =
+               | PaStr (loc, s) ->
+                   mkpat loc
+                     (Ppat_constant
+-                       (Pconst_string ((string_of_string_token loc s), None)))
++                       (Pconst_string ((string_of_string_token loc s), Loc.to_ocaml_location loc, None)))
+               | Ast.PaTup (loc, (Ast.PaCom (_, p1, p2))) ->
+                   mkpat loc
+                     (Ppat_tuple
+@@ -16529,7 +16529,7 @@ module Struct =
+               | ExStr (loc, s) ->
+                   mkexp loc
+                     (Pexp_constant
+-                       (Pconst_string ((string_of_string_token loc s), None)))
++                       (Pconst_string ((string_of_string_token loc s), Loc.to_ocaml_location loc, None)))
+               | ExTry (loc, e, a) ->
+                   mkexp loc (Pexp_try ((expr e), (match_case a [])))
+               | Ast.ExTup (loc, (Ast.ExCom (_, e1, e2))) ->
+diff --git a/configure b/configure
+index 67ef85e92..b7e3b04f8 100755
+--- a/configure
++++ b/configure
+@@ -45,7 +45,7 @@ if [ $major -lt 4 -o \( $major -eq 4 -a $minor -lt 2 \) ]; then
+     exit 2
+ elif [ $SKIP_VERSION_CHECK -eq 1 ]; then
+     echo "Skipping OCaml version check"
+-elif [ $major -ne 4 -o $minor -ne 10 ]; then
++elif [ $major -ne 4 -o $minor -ne 11 ]; then
+     echo "This version of Camlp4 is for OCaml 4.10 but you are using OCaml $ocaml_version."
+     if [ -d .git ] ; then
+       if [ $PINNED -eq 1 ] ; then
+-- 
+2.27.0
+
+
+From 9ec08f767b6a6f71163a1b5ee6d4f6ceb6c2e915 Mon Sep 17 00:00:00 2001
+From: ygrek <ygrek@autistici.org>
+Date: Tue, 9 Jun 2020 15:23:36 -0400
+Subject: ci: switch to 4.11
+
+---
+ .travis.yml | 3 ---
+ configure   | 8 ++++++--
+ opam        | 2 +-
+ 3 files changed, 7 insertions(+), 6 deletions(-)
+
+diff --git a/.travis.yml b/.travis.yml
+index c20da1ef8..3b58395fe 100644
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -1,11 +1,8 @@
+ language: c
+ script: bash -ex .travis-ci.sh
+ env:
+-  - OCAML_BRANCH=4.10
+-    XARCH=i386
+   - OCAML_BRANCH=4.11
+     XARCH=i386
+-    CONFIGURE_ARGS=--skip-version-check
+   - OCAML_BRANCH=trunk
+     XARCH=i386
+     CONFIGURE_ARGS=--skip-version-check
+diff --git a/configure b/configure
+index b7e3b04f8..bf1505841 100755
+--- a/configure
++++ b/configure
+@@ -39,14 +39,18 @@ ocaml_version=`ocamlc -version`
+ major=`echo $ocaml_version | cut -d. -f1`
+ minor=`echo $ocaml_version | cut -d. -f2`
+ 
++camlp4_version=4.11
++camlp4_major=`echo $camlp4_version | cut -d. -f1`
++camlp4_minor=`echo $camlp4_version | cut -d. -f2`
++
+ if [ $major -lt 4 -o \( $major -eq 4 -a $minor -lt 2 \) ]; then
+     echo "The standalone Camlp4 requires OCaml >= 4.02."
+     echo "For previous versions of OCaml use the Camlp4 distributed with OCaml."
+     exit 2
+ elif [ $SKIP_VERSION_CHECK -eq 1 ]; then
+     echo "Skipping OCaml version check"
+-elif [ $major -ne 4 -o $minor -ne 11 ]; then
+-    echo "This version of Camlp4 is for OCaml 4.10 but you are using OCaml $ocaml_version."
++elif [ $major -ne $camlp4_major -o $minor -ne $camlp4_minor ]; then
++    echo "This version of Camlp4 is for OCaml $camlp4_version but you are using OCaml $ocaml_version."
+     if [ -d .git ] ; then
+       if [ $PINNED -eq 1 ] ; then
+         echo "You've used the wrong opam pin URL for this switch.">&2
+diff --git a/opam b/opam
+index be0ce8b47..7866c87f6 100644
+--- a/opam
++++ b/opam
+@@ -1,5 +1,5 @@
+ opam-version: "2.0"
+-version: "4.10"
++version: "4.11"
+ authors: ["Daniel de Rauglaudre" "Nicolas Pouillard"]
+ maintainer: "ygrek@autistici.org"
+ homepage: "https://github.com/camlp4/camlp4"
+-- 
+2.27.0
+
