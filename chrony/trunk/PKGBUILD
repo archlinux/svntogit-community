@@ -8,33 +8,36 @@
 # Contributor: Elisamuel Resto <ryuji@simplysam.us>
 
 pkgname=chrony
-pkgver=3.5
-pkgrel=3
+pkgver=3.5.1
+pkgrel=1
 pkgdesc='Lightweight NTP client and server'
 url='https://chrony.tuxfamily.org/'
 arch=('x86_64')
 license=('GPL2')
-depends=('glibc' 'nss' 'readline' 'libcap' 'libedit' 'libseccomp' 'nettle')
+depends=('glibc' 'nss' 'readline' 'libcap' 'libcap.so' 'libedit' 'libseccomp' 'libseccomp.so' 'nettle')
 makedepends=('asciidoctor')
 options=('!emptydirs')
 backup=('etc/chrony.conf')
 source=(https://download.tuxfamily.org/chrony/${pkgname}-${pkgver}.tar.gz
         ${pkgname}-${pkgver}.tar.gz.asc::https://download.tuxfamily.org/chrony/${pkgname}-${pkgver}-tar-gz-asc.txt
         chrony.sysusers
-        chrony.tmpfiles)
-sha256sums=('4e02795b1260a4ec51e6ace84149036305cc9fc340e65edb9f8452aa611339b5'
+        chrony.tmpfiles
+        fix-util-unit-test-for-NTP-era-split.patch)
+sha256sums=('1ba82f70db85d414cd7420c39858e3ceca4b9eb8b028cbe869512c3a14a2dca7'
             'SKIP'
             '56aa817638c8f959169d514f1e7fc727ef31e7d3beda4fca5165292c7602ee42'
-            'c0b52787f68f3ef365eef64f53f22b4fb0046a91f0e38923f9d16f1ca19c3f3a')
+            'c0b52787f68f3ef365eef64f53f22b4fb0046a91f0e38923f9d16f1ca19c3f3a'
+            '69fad197b790f1fdb273b9d1905c3025dd38abf82fa93ffe675d096bf0f3d45b')
 validpgpkeys=('8B1F4A9ADA73D401E3085A0B5FF06F29BA1E013B') # Miroslav Lichvar <mlichvar@redhat.com> has a dsa1024 key *in the wild*
 
 prepare() {
   cd ${pkgname}-${pkgver}
+  patch -Np1 < ../fix-util-unit-test-for-NTP-era-split.patch
   sed -i \
-    -e 's|pool.ntp.org|3.arch.pool.ntp.org|g' \
-    -e 's|server foo.example.net|server 0.arch.pool.ntp.org iburst|g' \
-    -e 's|server bar.example.net|server 1.arch.pool.ntp.org iburst|g' \
-    -e 's|server baz.example.net|server 2.arch.pool.ntp.org iburst|g' \
+    -e 's|pool pool.ntp.org|pool 2.arch.pool.ntp.org|g' \
+    -e 's|server foo.example.net|server 0.arch.pool.ntp.org|g' \
+    -e 's|server bar.example.net|server 1.arch.pool.ntp.org|g' \
+    -e 's|server baz.example.net|server 3.arch.pool.ntp.org|g' \
     examples/chrony.conf.example*
   sed 's|/usr/sbin|/usr/bin|g' -i examples/*.service
 }
@@ -47,8 +50,15 @@ build() {
     --enable-ntp-signd \
     --with-user=chrony \
     --with-sendmail=/usr/bin/sendmail \
-    --with-hwclockfile=/etc/adjtime
+    --with-hwclockfile=/etc/adjtime \
+    --sbindir=/usr/bin \
+    --with-pidfile=/run/chrony/chronyd.pid
   make
+}
+
+check() {
+  cd ${pkgname}-${pkgver}
+  make check
 }
 
 package() {
@@ -63,11 +73,14 @@ package() {
   install -Dm 644 examples/* -t "${pkgdir}/usr/share/doc/${pkgname}/examples"
 
   install -Dm 644 examples/chrony.conf.example3 "${pkgdir}/etc/chrony.conf"
-  echo -e "\n# Enable kernel RTC sync\nrtcsync" >> "${pkgdir}/etc/chrony.conf"
-  sed -i '/^! rtconutc$/ s/^! //' "${pkgdir}/etc/chrony.conf"
+  sed -i \
+    -e '/^! pool /s/^! //' \
+    -e '/^! leapsectz right\/UTC/s/^! //' \
+    -e '/^! makestep 1.0 3/s/^! //' \
+    -e '/^! rtcsync/s/^! //' \
+    "${pkgdir}/etc/chrony.conf"
 
-  mv "${pkgdir}/usr/sbin/chronyd" "${pkgdir}/usr/bin"
-  rmdir "${pkgdir}"{/usr/sbin,/var/lib/chrony,/var/lib}
+  rmdir "${pkgdir}"{/var/lib/chrony,/var/lib}
 }
 
 # vim: ts=2 sw=2 et:
