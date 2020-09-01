@@ -7,14 +7,14 @@
 
 pkgname=po4a
 pkgver=0.61
-pkgrel=1
+pkgrel=2
 pkgdesc="Tools for helping translation of documentation"
 arch=('any')
 url="https://po4a.org/"
 license=('GPL')
-depends=('perl' 'gettext' 'perl-yaml-tiny')
-makedepends=('docbook-xsl' 'perl-text-wrapi18n' 'perl-locale-gettext' 'perl-term-readkey'
-             'perl-sgmls' 'perl-module-build' 'perl-unicode-linebreak' 'perl-pod-parser')
+depends=('perl' 'gettext' 'perl-yaml-tiny' 'perl-unicode-linebreak')
+makedepends=('perl-text-wrapi18n' 'perl-locale-gettext' 'perl-term-readkey'
+             'perl-sgmls' 'perl-module-build' 'perl-pod-parser' 'docbook-xsl')
 options=('!emptydirs')
 source=($pkgname-$pkgver.tar.gz::https://github.com/mquinson/$pkgname/archive/v$pkgver.tar.gz)
 sha256sums=('ccfd32e64afb33fbb955ca620bd7bfd275ed634c468c6c25c2df541b22895de0')
