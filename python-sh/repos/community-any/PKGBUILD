@@ -1,23 +1,36 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
 # Contributor: Alexander Rødseth <rodseth@gmail.com>
 
 pkgname=python-sh
 pkgver=1.14.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Subprocess interface that allows you to call any program as if it were a function'
 arch=('any')
 url='https://pypi.python.org/pypi/sh'
 license=('MIT')
 depends=('python')
 makedepends=('python-setuptools')
-checkdepends=('python-coverage' 'lsof')
-source=("https://pypi.io/packages/source/s/sh/sh-$pkgver.tar.gz")
-sha512sums=('816c0562f4f779ba79b5206d151893cd5043898d1b74ee109c0ea67f862a097ab9c7509e4a20459fc623f14fa3fb1a9e2a2ccec8257a68fcba14414779a20128')
+checkdepends=('lsof' 'python-pytest')
+source=("https://pypi.io/packages/source/s/sh/sh-$pkgver.tar.gz"
+        "${pkgname}-1.14.0-sleep_path.patch::https://github.com/amoffat/sh/pull/540/commits/83b189de4f461ed0370b0472f1938d3162ed00c7.patch"
+        "${pkgname}-1.14.0-collections.patch::https://github.com/amoffat/sh/pull/537/commits/3142379395fb20dbb716188973252edbe71af791.patch")
+sha512sums=('816c0562f4f779ba79b5206d151893cd5043898d1b74ee109c0ea67f862a097ab9c7509e4a20459fc623f14fa3fb1a9e2a2ccec8257a68fcba14414779a20128'
+            'f49ec809293037a50290b14ee62450e7fd3f00edd465785f2d34d07b934e4732ee14b88f8086a3344db2b7717f770c2d3b1ec39db8c198f8a1b6d09fb2b29d36'
+            '45dbce94358ef1ad46a2662f66d72001c4d3c922ec099c0a64b191dace4a637511657969ec9ebd63c07b15f7782a16a593a58658950a979afc0fcf2d72c1666f')
+b2sums=('9975944455077729d172a34dcf7847930f9bb943d5345729a9c09afeb411de72b59cd5e4f1192406ba8430a26439acd2ee4d477b10f31b5e55be936c711f70a9'
+        '2d081292e6d715fc074009e6df0740614e99dfa8020dd86704d3e309e68e54600c89011ea5669653a91484c870efc21ac5ca30116982fedd74642bdfa3a7d4d1'
+        'e4aa65077eec7836ea0e6081ae1d5956e14b3930ff134de9a333cb0b25914a864af1217bd32a842635424906bf9a18239028b72185e05e24f56fba0a7cba54d7')
 
 prepare() {
   cd sh-$pkgver
-  sed -i 's|/bin/sleep|/usr/bin/sleep|' test.py
+  # fix path to sleep executable:
+  # https://github.com/amoffat/sh/issues/539
+  patch -Np1 -i "../${pkgname}-1.14.0-sleep_path.patch"
+  # fix import of collections abstract classes:
+  # https://github.com/amoffat/sh/pull/537
+  patch -Np1 -i "../${pkgname}-1.14.0-collections.patch"
 }
 
 build() {
@@ -27,13 +40,25 @@ build() {
 
 check() {
   cd sh-$pkgver
-  python sh.py travis
+  export PYTHONPATH="build:${PYTHONPATH}"
+  # do not run failing tests:
+  # https://github.com/amoffat/sh/issues/538
+  # https://github.com/amoffat/sh/issues/541
+  pytest -v \
+         -k "not test_no_interfere1 \
+             and not test_no_interfere2 \
+             and not test_set_in_parent_function \
+             and not test_piped_exception1 \
+             and not test_piped_exception2" \
+         test.py
 }
 
 package() {
   cd sh-$pkgver
   python setup.py install -O1 --root="$pkgdir"
-  install -Dm644 LICENSE.txt "$pkgdir"/usr/share/licenses/python-sh/LICENSE
+  install -vDm 644 LICENSE.txt "$pkgdir"/usr/share/licenses/python-sh/LICENSE
+  install -vDm 644 {README.rst,CHANGELOG.md} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
 
 # vim:set ts=2 sw=2 et:
