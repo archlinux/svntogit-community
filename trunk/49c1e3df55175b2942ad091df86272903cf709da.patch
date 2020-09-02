@@ -1,0 +1,53 @@
+From 49c1e3df55175b2942ad091df86272903cf709da Mon Sep 17 00:00:00 2001
+From: Julien Salleyron <julien.salleyron@gmail.com>
+Date: Fri, 14 Aug 2020 11:03:58 +0200
+Subject: [PATCH] Fix server shutdown
+
+---
+ pkg/server/server_entrypoint_tcp.go | 13 ++++++++++---
+ 1 file changed, 10 insertions(+), 3 deletions(-)
+
+diff --git a/pkg/server/server_entrypoint_tcp.go b/pkg/server/server_entrypoint_tcp.go
+index bf8a5315b3..3b7efdf4c8 100644
+--- a/pkg/server/server_entrypoint_tcp.go
++++ b/pkg/server/server_entrypoint_tcp.go
+@@ -28,12 +28,14 @@ var httpServerLogger = stdlog.New(log.WithoutContext().WriterLevel(logrus.DebugL
+ type httpForwarder struct {
+ 	net.Listener
+ 	connChan chan net.Conn
++	errChan  chan error
+ }
+ 
+ func newHTTPForwarder(ln net.Listener) *httpForwarder {
+ 	return &httpForwarder{
+ 		Listener: ln,
+ 		connChan: make(chan net.Conn),
++		errChan:  make(chan error),
+ 	}
+ }
+ 
+@@ -44,8 +46,12 @@ func (h *httpForwarder) ServeTCP(conn tcp.WriteCloser) {
+ 
+ // Accept retrieves a served connection in ServeTCP.
+ func (h *httpForwarder) Accept() (net.Conn, error) {
+-	conn := <-h.connChan
+-	return conn, nil
++	select {
++	case conn := <-h.connChan:
++		return conn, nil
++	case err := <-h.errChan:
++		return nil, err
++	}
+ }
+ 
+ // TCPEntryPoints holds a map of TCPEntryPoint (the entrypoint names being the keys).
+@@ -169,7 +175,8 @@ func (e *TCPEntryPoint) Start(ctx context.Context) {
+ 			if netErr, ok := err.(net.Error); ok && netErr.Temporary() {
+ 				continue
+ 			}
+-
++			e.httpServer.Forwarder.errChan <- err
++			e.httpsServer.Forwarder.errChan <- err
+ 			return
+ 		}
+ 
