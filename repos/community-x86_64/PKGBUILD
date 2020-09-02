@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2020.1.4
-_build=201.8743.12
+pkgver=2020.2.1
+_build=202.6948.69
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -14,7 +14,7 @@ license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' 'java-environment=11' 'java11-openjfx' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
-makedepends=('ant' 'git' 'java8-openjfx' 'java-environment=8')
+makedepends=('ant' 'git' 'java-environment=8' 'java8-openjfx')
 optdepends=(
   'lldb: lldb frontend integration'
 )
@@ -46,8 +46,10 @@ prepare() {
 build() {
   cd intellij-community
   unset _JAVA_OPTIONS
-  export JAVA_HOME=/usr/lib/jvm/java-8-openjdk
+  export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
   export PATH="${JAVA_HOME}/bin:${PATH}"
+  export JDK_16_x64=/usr/lib/jvm/java-8-openjdk
+  export JDK_18_x64=/usr/lib/jvm/java-8-openjdk
   ant build
   tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
 }
