@@ -3,8 +3,8 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=1.34.5
-pkgrel=2
+pkgver=1.35.1
+pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('GPL3')
 replaces=('signal-desktop-bin')
@@ -21,12 +21,12 @@ source=(
   # See https://github.com/atom/node-spellchecker/issues/127
   "https://github.com/atom/node-spellchecker/archive/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"
 )
-sha512sums=('07c81b46791ab30e2ffa45f0bceb69dbf5a0029a6fa5da859c75917c012f97ed29154e19797d0ed962249516b9cf4365e54f6997d62c4069305f89eb54a86c01'
+sha512sums=('4fb8fc82f80d39145f461fd5f0b509e6a627296735a0a2052ca7acd2ee6162b71505c122e53fc73c5bc6a577b500f4a4316f0f5657562c1115752568e7f54b62'
             'd07220429c479e3b6aaafede95da117bdb735877162f584265a16434ed75a926c21534e8d291de53e58a1bf0a72cdd41a9a8ae7314e2f6fec98c938852a3b991'
             '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
             '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2'
             '42f57802fa91dafb6dbfb5a3f613c4c07df65e97f8da84c9a54292c97a4d170f8455461aac8f6f7819d1ffbea4bf6c28488f8950056ba988776d060be3f107dd')
-b2sums=('b2b7303c718ec4ee68af1e6a089837e4fe94e5f0fd3da2f64d3ea628679938f3a74dc2fb3462dcc186f7f792d2ce4759d98a1395ce65b13bdcee0a08e26da8c9'
+b2sums=('0028f7864c1478245a9fbf1d1cb5119c8706917b2ea4c4cbc238dce2653a859680558b814a22363979676d3170fe110a1d44b38fa2a5895eb7fe63128227d50d'
         'b05d190f28029c65d5cc15f69804db0b2775ff55b4db3a721c1dcf4aa8219b459453740fd26afecb6d72a515366af80af0b985d7b58e542a9edd76bb251ae000'
         '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
         'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289'
@@ -46,7 +46,7 @@ prepare() {
   sed 's#"node-gyp": "5.0.3"#"node-gyp": "6.1.0"#' -i package.json
   # https://github.com/sass/node-sass/pull/2841
   # https://github.com/sass/node-sass/issues/2716
-  sed 's#"resolutions": {#"resolutions": {"node-sass/node-gyp": "^6.0.0",#' -i package.json
+  sed -r 's#("dependencies": )#"resolutions": {"node-sass/node-gyp": "^6.0.0"},\1#' -i package.json
 
   yarn install --ignore-engines
 
