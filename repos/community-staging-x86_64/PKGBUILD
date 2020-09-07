@@ -1,0 +1,112 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Ainola
+# Contributor: speps
+# Contributor: Bernardo Barros
+
+pkgbase=csound
+pkgname=('csound' 'csound-doc')
+pkgver=6.15.0
+pkgrel=2
+pkgdesc="A programming language for sound rendering and signal processing."
+arch=('x86_64')
+url="https://csound.com"
+license=('LGPL2.1')
+# libpd needs to be packaged: https://github.com/libpd/libpd/releases
+# gmm > 5.1 breaks linear-algebra opcode: https://github.com/csound/csound/issues/920
+makedepends=('alsa-lib' 'boost' 'cmake' 'doxygen' 'dssi' 'eigen' 'faust' 'fltk'
+'fluidsynth' 'hdf5' 'jack' 'java-environment' 'ladspa' 'libmusicxml'
+'libsamplerate' 'libsndfile' 'libwebsockets' 'abletonlink' 'llvm' 'lua'
+'openssl' 'portaudio' 'portmidi' 'portsmf' 'stk' 'swig' 'wiiuse')
+checkdepends=('cunit')
+source=("${pkgbase}-${pkgver}.tar.gz::https://github.com/${pkgbase}/${pkgbase}/archive/${pkgver}.tar.gz"
+        "${pkgbase}.sh"
+        "https://github.com/${pkgbase}/${pkgbase}/releases/download/${pkgver}/Csound${pkgver}_manual_html.zip"
+        "https://github.com/${pkgbase}/${pkgbase}/releases/download/${pkgver}/Csound${pkgver}_manual_pdf.zip")
+sha512sums=('3462a544357b9ef7d8f2e6c7aed5f0659524fab08669950436da856c9854f81f658f1bd50061e7e6bfd28663a578ef2e0ea75ac4f0f9c72d476dddd82aa26185'
+            '53a8ae1e61db2a3a492930ef0f0881b613ae47108c5e8de0a6e2aa28bcf7a5c93c7fea8b7fc2bbae29ab92e1e68bf94ba406be1255ad8ab5725ea9078c1fd6dc'
+            'cf7df42f3b6d869a5e9f531c64a50287f9385927b26c48ff3c334b2ed95d17334be85a3ef671008504d1a365b1412e2715dcff61a41e3c83b60621df25d67946'
+            '0eca00951708d7064d789bdd0d98534e815ecc275e09b3020cce89d6f6b1009c0347e7d5fd400ed321bd7e05c89d79644f64c18f47b46013bb6b49c88e42fca0')
+b2sums=('9513ae484606bacd82971bad80a8a4e9e42fa7ff9af33a7850052b2c3941b5260817efe8c502310da815802dd75681fbf239782783566bb402333917c91dbd1b'
+        '8a556685d0f9ee55c4de521b3d76fc729936e98e991e8ea860d64b29a1b09d142ab0a51548b2dddadb41ecb796e84ba1f8ed114494b4c67d7d6d8ab3475b2ede'
+        'b15b3381f13c7877130dfec60803ba1cdd12e5d2d92e5ea02c4d0dd5c1c70cc2bbec5f76634b385a0ffd20e7397d6c33bbe374128f01345999f34e2e2a0b7dd1'
+        '898da87eb8b10a75f3f6256eeade7aa180ff5e6dd93de8d2bf462d01d1d1cf5f4c5d7c4ed73402aa019674d597ff3fd1b7ac436059d9df39e0d77a15365d529e')
+
+prepare() {
+  # fix file permissions in html manual
+  find html/ -type f -exec chmod -c 644 {} \;
+}
+
+build() {
+  local _java_major=$(java --version 2>/dev/null |grep 'openjdk'| cut -d ' ' -f2| cut -d '.' -f1)
+  cd "${pkgbase}-${pkgver}"
+  # without CMAKE_BUILD_TYPE=Release, csound is build as beta: https://bugs.archlinux.org/task/63348
+  # it's not allowed to redistribute the scansyn opcodes: https://github.com/csound/csound/issues/1148
+  # the python plugin is not python3 compatible: https://github.com/csound/csound/issues/631
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DBUILD_SCANSYN_OPCODES=OFF \
+        -DJAVA_AWT_LIBRARY="/usr/lib/jvm/java-${_java_major}-openjdk/jre/lib/libawt.so" \
+        -DJAVA_JVM_LIBRARY="/usr/lib/jvm/java-${_java_major}-openjdk/jre/lib" \
+        -DLUA_LIBRARY=/usr/lib/liblua.so \
+        -DBUILD_STATIC_LIBRARY=ON \
+        -DBUILD_ABLETON_LINK_OPCODES=ON \
+        -DABLETON_LINK_HOME=/usr/include/ableton \
+        -W no-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
+}
+
+check() {
+  cd "${pkgbase}-${pkgver}"
+  make test -C build
+}
+
+package_csound() {
+  groups=('pro-audio')
+  depends=('gcc-libs' 'glibc' 'libcurl.so' 'libsamplerate.so' 'libsndfile.so')
+  optdepends=('alsa-lib: for librtalsa plugin'
+              'csound-doc: for the canonical Csound Reference Manual'
+              'csoundqt: for frontend/ editor with integrated help'
+              'fltk: for libvirtual and libwidgets plugins'
+              'hdf5: for hdf5ops plugin'
+              'java-runtime: java integration'
+              'faust: for libfaustcsound plugin'
+              'fluidsynth: for libfluidOpcodes plugin'
+              'jack: for libjacko, librtjack and libjackTransport plugins'
+              'liblo: for libosc plugin'
+              'ncurses: for libfaustcsound plugin'
+              'libpng: for libimage plugin'
+              'portmidi: for libpmidi plugin'
+              'portaudio: for librtpa plugin'
+              'libpulse: for librtpulse plugin'
+              'stk: for libstkops plugin'
+              'libwebsockets: for libwebsocketIO plugin'
+              'wiiuse: for libwiimote plugin'
+              'libx11: for libwidgets plugin'
+              'lua: for LUA integration'
+              'openssl: for libfaustcsound plugin'
+              'vim-csound: vim integration'
+              'zlib: for libfaustcsound plugin')
+  provides=('libcsound64.so' 'libcsnd6.so')
+  cd "${pkgname}-${pkgver}"
+  make VERBOSE=1 DESTDIR="${pkgdir}/" install -C build
+
+  # export vars in profile.d
+  install -vDm 755 "${srcdir}/${pkgname}.sh" -t "${pkgdir}/etc/profile.d/"
+  # rename extract executable due to name conflict with libextractor
+  # https://github.com/csound/csound/issues/985
+  mv -v "${pkgdir}/usr/bin/extract" "${pkgdir}/usr/bin/${pkgname}-extract"
+  # moving csnd6.jar to /usr/share/java
+  install -vdm 755 "${pkgdir}/usr/share/java/"
+  mv -v "${pkgdir}/usr/lib/"*.jar "${pkgdir}/usr/share/java/"
+}
+
+package_csound-doc() {
+  license=('LGPL2.1' 'GPL')
+  install -vDm 644 "${srcdir}/Csound${pkgver}_manual.pdf" \
+    "${pkgdir}/usr/share/doc/${pkgname}/${pkgbase}-manual.pdf"
+  install -dv "${pkgdir}/usr/share/doc/${pkgname}/html"
+  cp -av "${srcdir}/html/"* "${pkgdir}/usr/share/doc/${pkgname}/html"
+}
+# vim:set ts=2 sw=2 et:
