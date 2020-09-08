@@ -3,7 +3,7 @@
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=0.11.1
+pkgver=0.12.0
 pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
@@ -12,8 +12,8 @@ license=("MIT")
 depends=("glibc")
 makedepends=("go")
 optdepends=("git: To interact with repositories")
-source=("$pkgname-$pkgver.tar.gz::https://github.com/cli/cli/archive/v$pkgver.tar.gz")
-sha256sums=('5ec8bab6a2c6f26cabc2a6b5f301d8971f9f654a85c6da5e7203e5e2d94cbec0')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+sha256sums=('227031cc381555da2a406bde7d5bfdd631979f635cda22537f206b5362cf6fc1')
 
 build() {
     cd "cli-$pkgver"
@@ -41,6 +41,4 @@ package() {
     cp -r share/ "$pkgdir"/usr
     install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
-
-
 }
