@@ -5,7 +5,7 @@
 # Contributor: nofxx <x@<nick>.com>
 
 pkgname=redis
-pkgver=6.0.7
+pkgver=6.0.8
 pkgrel=1
 pkgdesc='An in-memory database that persists on disk'
 arch=('x86_64')
@@ -21,7 +21,7 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/antirez/redis/archive/$
         redis.logrotate
         redis.conf-sane-defaults.patch
         redis-5.0-use-system-jemalloc.patch)
-sha512sums=('a2eb1779d0ce181dbcc032e26195fd6762aeb6918b337174e0223abeea16dc33d7883c6b4b5f1da58c00fbbead8a130eec37f61a96744cc169e3a4fb115d05ec'
+sha512sums=('792b2a21a123be82aa0b70f74f275ec12cdfe72bd34f0889fb9570efbf1f41ee0d9dc21400464321bdccb5fbe1dc5082ab08854f18e10a97135dd5fe92b5d798'
             '86018ddd6625f918295e10f9478da361f73a6dbd6c6b8e4b974201669bcccbd4dba443bb0844be68f6ab8d5a1762b32af04c5e12df53b1f0ea812b790d9f4e37'
             '2227dfb41bf5112f91716f011862ba5fade220aea3b6a8134a5a05ee3af6d1cca05b08d793a486be97df98780bf43ac5dc4e5e9989ae0c5cd4e1eedb6cee5d71'
             '68f7bc12e3b95cb199b71255c6aa5bfaa431fbabbc7d2308e54347c0d35e6d8091c4a79a5a6b56494ab3a294f9389e3ec63902931920862f60b1ffe77222eeeb'
