@@ -2,8 +2,8 @@
 # Contributor: Tyler Langlois <ty |at| tjll |dot| net>
 
 pkgbase=beats
-pkgname=(filebeat packetbeat metricbeat heartbeat-elastic auditbeat journalbeat)
-pkgver=7.7.1
+pkgname=(metricbeat filebeat packetbeat heartbeat-elastic auditbeat journalbeat)
+pkgver=7.9.1
 pkgrel=1
 pkgdesc='Data shippers for Elasticsearch'
 arch=('x86_64')
@@ -22,7 +22,7 @@ source=("https://github.com/elastic/beats/archive/v$pkgver/beats-$pkgver.tar.gz"
         "auditbeat.service"
         "journalbeat.service"
         "tmpfile.conf")
-sha512sums=('6be698f89e5f51491003c220640ab946c0ba5d95621e1dea1eea5229c38014af5ccb9c5a32ec0cb074bd5206428a0ba2173fb96625b21dfd17d93101e325e447'
+sha512sums=('ae113efca9ff997dc77b44b6d1962653ef2b752a2d1b77e3131b94d7139db5672e29d02d02c8c7447f3a53a13126beb7dbfaaf228261053b6520acfaaf13ab23'
             '4d8b160482ba27bdc63c79592f310f2c9bcd2e8e5d3aec5ba9d953f37916bffef57c0f21e3776f4712f87e9a1b90e42dba6058f72bbc4c75380a959276183a59'
             'f1e6fe6b677db31326433f4e3eef72356573c6947d653dbe6bc2151581444f80e09343fbf8544952aae82a061b87705e39c8741ea8e402ad53ac3552f532cfea'
             '7e4081b5173d1b58a783f1808f1a9ba4548498de87bdfc1960538d6df4f4da8f900f0e027aeff83ebfe0d81e6aa91db77c520bda76441e6bcaa6fd8a79fbb57a'
@@ -44,6 +44,13 @@ prepare() {
 
     # Use version instead of commit id
     sed -ri "s/^COMMIT_ID=.*/COMMIT_ID=$pkgver/" libbeat/scripts/Makefile
+    sed -ri "s/\bcommitHash, err =.*/commitHash = \"$pkgver\"\nerr = nil/;/github.com\/magefile\/mage\/sh/d" dev-tools/mage/settings.go
+
+    # Use version of MarkupSafe with fix for setuptools
+    sed -i "s/MarkupSafe==1\.0/MarkupSafe==1.1.1/" libbeat/tests/system/requirements.txt
+
+    # Missing BEAT_NAME in metricbeat Makefile
+    sed -i '1i BEAT_NAME?=metricbeat' metricbeat/Makefile
 }
 
 build() {
@@ -63,8 +70,13 @@ build() {
         beat="${beat%-elastic}"
         echo "-> Building $beat..."
         cd ../$beat
-        make $beat
-        make update
+        if [[ $beat == "metricbeat" ]]; then
+            make mage
+            mage build
+        else
+            make $beat
+        fi
+        mage update
     done
 }
 
