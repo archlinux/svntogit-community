@@ -2,8 +2,8 @@
 # Contributor: Timm Preetz <timm@preetz.us>
 
 pkgname=python-pygments
-pkgver=2.6.1
-pkgrel=3
+pkgver=2.7.0
+pkgrel=1
 pkgdesc="Python syntax highlighter"
 arch=('any')
 url="https://pygments.org/"
@@ -15,11 +15,10 @@ provides=('pygmentize')
 conflicts=('pygmentize')
 replaces=('pygmentize')
 source=(https://pypi.org/packages/source/P/Pygments/Pygments-$pkgver.tar.gz)
-sha256sums=('647344a061c249a3b74e230c739f434d7ea4d8b1d5f3721bc0f3558049b38f44')
+sha256sums=('2594e8fdb06fef91552f86f4fd3a244d148ab24b66042036e64f29a291515048')
 
 build() {
   cd "$srcdir/Pygments-$pkgver"
-  export PYTHONHASHSEED=0
   make -C doc html
 }
 
@@ -31,6 +30,7 @@ check() {
 package() {
   cd "$srcdir/Pygments-$pkgver"
 
+  export PYTHONHASHSEED=0
   python3 setup.py install --root="$pkgdir" -O1
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 
