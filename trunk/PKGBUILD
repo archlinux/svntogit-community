@@ -16,7 +16,7 @@ makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
              'gperf' 'gperftools' 'gptfdisk' 'gtest' 'inetutils' 'java-runtime'
              'jq' 'jre11-openjdk-headless' 'junit' 'keyutils' 'leveldb' 'libaio'
              'libatomic_ops' 'libcap' 'libcap-ng' 'libcroco' 'libcurl-compat'
-             'libedit' 'libgudev' 'librabbitmq-c' 'libtool' 'libutil-linux'
+             'libedit' 'libgudev' 'librabbitmq-c' 'libtool' 'util-linux-libs'
              'libuv' 'libxml2' 'lsb-release' 'lz4' 'ncurses'
              'nss' 'oath-toolkit' 'openssl' 'parted' 'pcre' 'pcre2' 'pkgconf'
              'procps-ng' 'python-astroid' 'python-attrs' 'python-bcrypt'
@@ -179,7 +179,7 @@ check() {
 }
 
 package_ceph-libs() {
-  depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'libutil-linux' 'lz4' 'nss'
+  depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'util-linux-libs' 'lz4' 'nss'
            'oath-toolkit' 'python' 'snappy' 'systemd-libs')
 
   cd "${srcdir}/${pkgbase}-${pkgver}/build"
@@ -199,7 +199,7 @@ package_ceph-libs() {
 package_ceph() {
   depends=("ceph-libs=${pkgver}-${pkgrel}"
            'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools' 'java-runtime'
-           'keyutils' 'leveldb' 'libaio' 'libutil-linux' 'lsb-release' 'ncurses'
+           'keyutils' 'leveldb' 'libaio' 'util-linux-libs' 'lsb-release' 'ncurses'
            'nss' 'oath-toolkit' 'python' 'python-bcrypt' 'python-setuptools'
            'python-cmd2' 'snappy' 'systemd-libs' 'xfsprogs')
 
