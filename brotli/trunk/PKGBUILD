@@ -1,61 +1,72 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: Lex Black <autumn-wind at web dot de>
 # Contributor: TingPing <tingping@tingping.se>
 # Contributor: Guillaume Horel <guillaume.horel@gmail.com>
 
 pkgbase=brotli
 pkgname=('brotli' 'python-brotli' 'brotli-testdata')
-pkgver=1.0.7
-pkgrel=3
-pkgdesc='Brotli compression library'
+_gitcommit=e61745a6b7add50d380cfd7d3883dd6c62fc2c71
+pkgver=1.0.9
+pkgrel=1
+pkgdesc='Generic-purpose lossless compression algorithm'
+url='https://github.com/google/brotli'
 arch=('x86_64')
 license=('MIT')
-url='https://github.com/google/brotli'
-depends=('gcc-libs')
-makedepends=('cmake' 'python-setuptools')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/google/$pkgbase/archive/v$pkgver.tar.gz")
-sha512sums=('a82362aa36d2f2094bca0b2808d9de0d57291fb3a4c29d7c0ca0a37e73087ec5ac4df299c8c363e61106fccf2fe7f58b5cf76eb97729e2696058ef43b1d3930a')
+makedepends=('git' 'glibc' 'gcc-libs' 'cmake' 'python-setuptools')
+source=(${pkgname}::"git+${url}#commit=${_gitcommit}")
+sha512sums=('SKIP')
 
-prepare() {
-  cp -a brotli-$pkgver{,-py2}
-  mkdir -p build
+pkgver() {
+  cd ${pkgbase}
+  git describe --tags --match 'v*' | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 build() {
-  cd "$srcdir"/brotli-$pkgver
+  cd ${pkgbase}
   python setup.py build
-
-  cd "$srcdir"/build
-  cmake ../brotli-$pkgver -DCMAKE_INSTALL_PREFIX="/usr" -DCMAKE_INSTALL_LIBDIR="/usr/lib"
-  make
+  cmake -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+	-DBUILD_SHARED_LIBS=True
+  make -C build VERBOSE=1
 }
 
 check() {
-  cd brotli-$pkgver
+  cd ${pkgbase}
   make test
   python setup.py test
 }
 
 package_brotli() {
-  cd build
-  make DESTDIR="$pkgdir" install
-  install -D -m644 "$srcdir"/brotli-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  depends=('gcc-libs' 'glibc')
+  provides=(libbrotlicommon.so libbrotlidec.so libbrotlienc.so)
+
+  cd ${pkgbase}
+  make -C build DESTDIR="$pkgdir" install
+  local man;
+  for man in docs/*.?; do
+    install -Dm 644 "$man" "$pkgdir/usr/share/man/man${man##*.}/${man##*/}"
+  done
+  install -Dm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
 
 package_python-brotli() {
-  depends=('python')
+  pkgdesc+=' - python library'
+  depends=('python' 'glibc' 'gcc-libs')
 
-  cd brotli-$pkgver
-
+  cd ${pkgbase}
   python setup.py install --skip-build -O1 --root="$pkgdir"
-  install -D -m644 "$srcdir"/brotli-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
 
 package_brotli-testdata() {
+  pkgdesc+=' - test data'
   depends=()
 
-  cd brotli-$pkgver
+  cd ${pkgbase}
   install -dm755 "$pkgdir"/usr/share/brotli
   cp -a tests/testdata "$pkgdir"/usr/share/brotli/
-  install -D -m644 "$srcdir"/brotli-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
