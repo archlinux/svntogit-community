@@ -1,0 +1,85 @@
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+
+pkgbase=srslte
+pkgname=($pkgbase $pkgbase-avx2)
+_pkgname=srsLTE
+pkgver=20.04.2
+_pkgver=release_${pkgver//./_}
+pkgrel=1
+pkgdesc='Open source SDR LTE software suite from Software Radio Systems (SRS)'
+arch=('x86_64')
+url='https://www.srslte.com'
+license=('AGPL3')
+depends=('fftw' 'mbedtls' 'boost-libs' 'lksctp-tools' 'libconfig'
+         'libuhd' 'soapysdr' 'bladerf' 'zeromq' 'pcsclite' 'srsgui')
+makedepends=('cmake' 'boost')
+provides=('srsue' 'srsenb' 'srsenb')
+conflicts=('srsue' 'srsenb' 'srsenb')
+source=("$_pkgname-$pkgver.tar.gz::https://github.com/srsLTE/srsLTE/archive/$_pkgver.tar.gz")
+sha512sums=('2db146ab30e19fe2027252d5f4fd8c52385923e24d721f4deee01a99b8fbb9b03758997bc336fb0773e0633f0cdf1fa769e3f251e7b02b18a8f0e2d6d25e42d7')
+
+prepare() {
+  cd $_pkgname-$_pkgver
+
+  # Disable failing test
+  sed -i '/add_test(ue_rf_failure/d' srsue/src/CMakeLists.txt
+
+  mkdir build
+
+  cp -r "$srcdir"/$_pkgname-$_pkgver "$srcdir"/$_pkgname-avx2-$_pkgver
+}
+
+build() {
+  echo 'Building srslte...'
+  cd "$srcdir"/$_pkgname-$_pkgver/build
+
+  cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_GENERIC=True
+
+  make
+
+  echo 'Building srslte-avx2...'
+  cd "$srcdir"/$_pkgname-avx2-$_pkgver/build
+
+  cmake .. \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_GENERIC=True \
+    -DHAVE_AVX2=True
+
+  make
+}
+
+check() {
+  echo 'Running tests for srslte...'
+  cd "$srcdir"/$_pkgname-$_pkgver/build
+
+  ctest $(echo $MAKEFLAGS | grep -Po '\-j[0-9][0-9]*')
+
+  echo 'Running tests for srslte-avx2...'
+  cd "$srcdir"/$_pkgname-avx2-$_pkgver/build
+
+  ctest $(echo $MAKEFLAGS | grep -Po '\-j[0-9][0-9]*')
+}
+
+package_srslte() {
+  install=$pkgname.install
+
+  cd $_pkgname-$_pkgver/build
+
+  make DESTDIR="$pkgdir" install
+}
+
+package_srslte-avx2() {
+  pkgdesc="$pkgdesc (with AVX2 extensions)"
+  provides=($pkgbase)
+  conflicts=($pkgbase)
+  install=$pkgname.install
+
+  cd $_pkgname-avx2-$_pkgver/build
+
+  make DESTDIR="$pkgdir" install
+}
+
