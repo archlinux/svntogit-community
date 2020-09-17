@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.3.1
+pkgver=3.3.2
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
@@ -13,7 +13,7 @@ url="https://helm.sh/"
 license=("Apache")
 depends=('glibc')
 makedepends=("go" "git")
-_commit=249e5215cde0c3fa72e27eb7a30e8d55c9696144    #refs/tags/v3.3.1^{}
+_commit=e5077257b6ca106d1f65652b4ca994736d221ab1 #refs/tags/v3.3.2^{}
 source=("git+https://github.com/helm/helm.git#commit=$_commit?signed"
         "go1.15-compat.patch::https://github.com/helm/helm/commit/83a5e620d0acde77502b1f814f749268e8d8ef6e.patch")
 validpgpkeys=('672C657BE06B4B30969C4A57461449C25E36B98E'
@@ -37,7 +37,7 @@ build() {
     export CGO_CFLAGS="$CFLAGS"
     export CGO_CXXFLAGS="$CXXFLAGS"
     export CGO_CPPFLAGS="$CPPFLAGS"
-    make LDFLAGS="-s -w -linkmode external" GOFLAGS="-buildmode=pie -trimpath"
+    make EXT_LDFLAGS="-linkmode external" GOFLAGS="-buildmode=pie -trimpath"
 }
 
 check(){
