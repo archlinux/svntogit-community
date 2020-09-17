@@ -3,17 +3,17 @@
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=0.12.0
+pkgver=1.0.0
 pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
 url="https://github.com/cli/cli"
 license=("MIT")
-depends=("glibc")
+depends=("glibc" "mailcap")
 makedepends=("go")
 optdepends=("git: To interact with repositories")
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('227031cc381555da2a406bde7d5bfdd631979f635cda22537f206b5362cf6fc1')
+sha256sums=('e3d1c341829f5b885dce9aa2bf4bc84db48072752250f6fdb2d62903caf07cfb')
 
 build() {
     cd "cli-$pkgver"
@@ -22,7 +22,7 @@ build() {
     export CGO_CFLAGS="${CFLAGS}"
     export CGO_CXXFLAGS="${CXXFLAGS}"
     export CGO_LDFLAGS="${LDFLAGS}"
-    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw -ldflags=-linkmode=external"
 
     make GH_VERSION="v$pkgver" bin/gh manpages
     bin/gh completion -s bash | install -Dm644 /dev/stdin share/bash-completion/completions/gh
