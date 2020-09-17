@@ -1,0 +1,49 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=dhall-lsp-server
+pkgver=1.0.10
+pkgrel=1
+pkgdesc="Language Server Protocol (LSP) server for Dhall"
+url="https://github.com/dhall-lang/dhall-haskell/tree/master/dhall-lsp-server#readme"
+license=("custom:MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-aeson-pretty' 'haskell-data-default' 'dhall'
+         'dhall-json' 'haskell-lsp' 'haskell-hslogger' 'haskell-lens' 'haskell-lens-family-core'
+         'haskell-megaparsec' 'haskell-network-uri' 'haskell-optparse-applicative'
+         'haskell-prettyprinter' 'haskell-rope-utf16-splay' 'haskell-unordered-containers'
+         'haskell-uri-encode')
+makedepends=('ghc' 'haskell-quickcheck' 'haskell-doctest' 'haskell-lsp-types' 'haskell-lsp-test'
+             'haskell-tasty' 'haskell-tasty-hspec')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('4b7341d9102734cfd5eb54aaeac454625192beb07865be14f35d4687b01fcb7c')
+
+build() {
+  cd $pkgname-$pkgver    
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  LD_LIBRARY_PATH="$PWD/dist/build" PATH="$PWD/dist/build/dhall-lsp-server:$PATH" runhaskell Setup test
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+}
