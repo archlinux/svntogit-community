@@ -1,0 +1,61 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: berberman <hatsue@typed.icu>
+
+pkgname=arch-hs
+pkgver=0.0.0
+pkgrel=1
+pkgdesc="Generating PKGBUILD for hackage packages."
+arch=('x86_64')
+url="https://github.com/berberman/arch-hs"
+license=('MIT')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-req' 'haskell-hackage-db' 'haskell-megaparsec'
+         'haskell-algebraic-graphs' 'haskell-conduit' 'haskell-tar-conduit' 'haskell-conduit-extra'
+         'haskell-split' 'haskell-neat-interpolation' 'haskell-microlens' 'haskell-microlens-th'
+         'haskell-polysemy' 'haskell-colourista' 'haskell-optparse-applicative')
+makedepends=('ghc')
+source=(https://github.com/berberman/arch-hs/archive/$pkgver/$pkgname-$pkgver.tar.gz)
+sha512sums=('aecf0e747a9f4a45f8a0fba15caffe09b2bd696184214fa8999a12bff4d0b87fce0bd56946d773f4cdfe25a6921f59fd63121bd65b3afe70fd3ce9706d3281e5')
+
+_gen_comp(){
+  LD_LIBRARY_PATH="$PWD/dist/build" dist/build/arch-hs${1}/arch-hs${1} --bash-completion-script "/usr/bin/arch-hs${1}" > bash${1}
+  LD_LIBRARY_PATH="$PWD/dist/build" dist/build/arch-hs${1}/arch-hs${1} --zsh-completion-script  "/usr/bin/arch-hs${1}" > zsh${1}
+  LD_LIBRARY_PATH="$PWD/dist/build" dist/build/arch-hs${1}/arch-hs${1} --fish-completion-script "/usr/bin/arch-hs${1}" > fish${1}
+}
+
+_install_comp(){
+  install -D -m644 bash${1} "$pkgdir/usr/share/bash-completion/completions/arch-hs${1}"
+  install -D -m644 zsh${1}  "$pkgdir/usr/share/zsh/site-functions/_arch-hs${1}"
+  install -D -m644 bash${1} "$pkgdir/usr/share/fish/vendor_completions.d/arch-hs${1}.fish"
+}
+
+build() {
+  cd $pkgname-$pkgver
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+  
+  _gen_comp
+  _gen_comp "-diff"
+  _gen_comp "-uusi" 
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE"
+  
+  _install_comp
+  _install_comp "-diff"
+  _install_comp "-uusi"
+} 
