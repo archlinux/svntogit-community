@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Thomas Dziedzic <gostrc@gmail.com>
+
+_hkgname=HTTP
+pkgname=haskell-http
+pkgver=4000.3.15
+pkgrel=3
+pkgdesc="A library for client-side HTTP"
+url="https://hackage.haskell.org/package/${_hkgname}"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-network' 'haskell-network-uri')
+makedepends=('ghc' 'haskell-hunit' 'haskell-httpd-shed' 'haskell-puremd5' 'haskell-split'
+             'haskell-test-framework' 'haskell-test-framework-hunit' 'haskell-case-insensitive'
+             'haskell-http-types' 'haskell-wai' 'haskell-warp' 'haskell-conduit'
+             'haskell-conduit-extra')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('74015725d15f5dcd1f7212100e26ae82da31201b77e729322ea95e88018ae1ef3a1bd5c2b8ac525f14276a24f2781de9de757aa5f83c71e260d6a61223b756d2')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/< *3.3/<4/' $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    if (( CHECKFUNC )); then
+        _opts=('--enable-tests')
+    else
+        _opts=('--disable-tests')
+    fi
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname "${_opts[@]}" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-mtl1 -f-warn-as-error -f-conduit10 -fwarp-tests -fnetwork-uri
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
