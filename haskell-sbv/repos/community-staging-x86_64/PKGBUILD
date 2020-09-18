@@ -1,0 +1,52 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=sbv
+pkgname=haskell-sbv
+pkgver=8.8
+pkgrel=5
+pkgdesc="SMT Based Verification: Symbolic Haskell theorem prover using SMT solving"
+url="https://leventerkok.github.com/sbv"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-quickcheck' 'haskell-cracknum' 'haskell-async' 'haskell-random'
+         'haskell-syb')
+makedepends=('ghc' 'haskell-doctest' 'haskell-glob' 'hlint' 'haskell-tasty' 'haskell-tasty-golden'
+             'haskell-tasty-hunit' 'haskell-tasty-quickcheck')
+checkdepends=('abc' 'cvc4' 'yices' 'z3')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('495bff0220c85ae3ce712b25983643a2f81dbdccd26f668963bd52b99cafccdae2d47dcd831fb6a6e4e571379be8a759b838b0c4b4ca9168bca07bf7e2892374')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    # Remove SMT solvers not in the repos
+    sed -i 's/, boolector//;s/, mathSAT//;s/, dReal//' SBVTestSuite/SBVConnectionTest.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
