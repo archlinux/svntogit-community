@@ -4,42 +4,47 @@
 # Contributor: Vlad Kolotvin <vlad.kolotvin@gmail.com>
 
 pkgname=emscripten
-# To figure out the llvm commit that upstream used for this emscripten release, go to
-# https://github.com/emscripten-core/emsdk/blob/master/emscripten-releases-tags.txt
-# and note the SHA provided there.
-# Then, get commit SHAs from here:
-# https://chromium.googlesource.com/emscripten-releases/+/e7e39da9c81faecd9ecf44065cee864d76e4e34d/DEPS
-# Replace that pre-filled SHA with the one from the release. Then search for the "llvm_project_revision"
-# variable. It has the llvm commit to use here.
-_llvm_commit=77152a6b7ac07ce65568d7c69305653e7cad4bb0
-# The compatible binaryen version can be found as the EXPECTED_BINARYEN_VERSION variable in
-# https://github.com/emscripten-core/emscripten/blob/1.39.20/tools/shared.py#L44 but I'm not sure how we're
-# going to use this information at this point.
+# NOTE: You need to run ./get-compatible-versions.sh after changing the pkgver!
+_binaryen_revision=bced89d2986bde990bf9bf52306e55772b02707e
+_llvm_project_revision=77152a6b7ac07ce65568d7c69305653e7cad4bb0
+# Sadly, upstream currently suggests bundling a binaryen version for the time being:
+# https://github.com/emscripten-core/emscripten/issues/12252
+# I'm obviously unhappy about that but it appears to be the only practical solution for the time being.
 pkgver=2.0.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Compile C and C++ into highly-optimizable JavaScript for the web"
 arch=('x86_64')
 url="http://emscripten.org"
 license=('custom')
-depends=('nodejs' 'python' 'binaryen' 'which' 'acorn')
+depends=('nodejs' 'python' 'which' 'acorn')
 makedepends=('cmake' 'libxml2' 'git' 'ninja')
 optdepends=('java-environment: for using clojure'
             'ruby: for using websockify addon'
             'cmake: for emcc --show-ports')
 install=emscripten.install
+conflicts=('binaryen')
+provides=('binaryen')
 source=("git+https://github.com/kripken/emscripten#tag=$pkgver"
-        git+https://github.com/llvm/llvm-project.git#commit=$_llvm_commit
+        git+https://github.com/llvm/llvm-project.git#commit=$_llvm_project_revision
+        git+https://github.com/WebAssembly/binaryen.git#commit=$_binaryen_revision
         "emscripten.sh"
         emscripten-config)
 sha512sums=('SKIP'
+            'SKIP'
             'SKIP'
             'a87cf5d4a5ac10a4f84ff02ea577d54b560929dc64457b874cd1cbd88311cf6c4dcfbf3242150f6e556f4ba6efd370a99b9f9065faf494f25d91fc012cd5aa58'
             '8b5951493f69631045f44736917144b7679beb2bf087fca8a8ba887224cfc598fe8c76c5a4e7aa4a09fbb8f1b7b42556b68f4aa9e5b93fb130fd8bdab79053d9')
 
 build() {
-  cd llvm-project/llvm
+  cd binaryen
+  cmake . \
+      -Bbuild \
+      -GNinja \
+      -DCMAKE_INSTALL_PREFIX=/usr
+  ninja -C build
 
   # Inspired from https://github.com/WebAssembly/waterfall/blob/db2ea5eeb11b74cce9b9459be0cc88807744b1b5/src/build.py#L868
+  cd "$srcdir"/llvm-project/llvm
   cmake . \
     -Bbuild \
     -GNinja \
@@ -64,11 +69,13 @@ build() {
 }
 
 package() {
+  DESTDIR="$pkgdir" ninja -C binaryen/build install
+
   # Install LLVM stuff according to
   # https://github.com/emscripten-core/emscripten/blob/master/docs/packaging.md
   # and
   # https://github.com/WebAssembly/waterfall/blob/d4a504ffee488a68d09b336897c00d404544601d/src/build.py#L915
-  DESTDIR="$pkgdir" ninja -C "$srcdir"/llvm-project/llvm/build install
+  DESTDIR="$pkgdir" ninja -C llvm-project/llvm/build install
   cd "$pkgdir"/opt/emscripten-llvm/bin
 
   # Clean up some unnecessary bins and libs
