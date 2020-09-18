@@ -1,4 +1,5 @@
 # Maintainer: Christian Rebischke <chris.rebischke@archlinux.org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: Ivan Shapovalov <intelfx@intelfx.name>
 # Contributor: larte <lauri.arte@gmail.com>
 # Contributor: Maxwell Pray a.k.a. Synthead <synthead@gmail.com>
@@ -6,39 +7,46 @@
 
 pkgname=kubectl
 pkgdesc="Kubernetes.io client binary"
-pkgver=1.18.7
+pkgver=1.19.2
 pkgrel=1
 arch=('x86_64')
 url="https://kubernetes.io"
 license=('Apache')
 depends=('glibc')
 makedepends=('go' 'rsync' 'git')
-#source=("git+https://github.com/kubernetes/kubernetes#tag=v${pkgver}")
-source=("kubernetes-$pkgver.tar.gz::https://dl.k8s.io/v$pkgver/kubernetes-src.tar.gz"
-        "gotags.patch")
-sha512sums=('ec84e6c2ec27af163eb4d016e44b47c0421cc68572aece159d5830bd1c1278d8dd523a35d2f33a9a1db6cd7262bae66e15c37d895a50e28fde6cffc6ce95f93b'
-            '413ddce3e475107db030a04d6ed53d145ead8d13d2d153c4cb6ce635643d7cc922cab90f528b7f8152b43f157c2c441759e6d48511be1a9a16e491e177bf97e8')
+source=(https://github.com/kubernetes/kubernetes/archive/v${pkgver}/kubernetes-${pkgver}.tar.gz
+        gotags.patch)
+sha512sums=('7a4e0efdf0e262c662aa87bd77d226275761cb774cb77796846385b41937ce2d8d5e1f9fbae4804c7a0fbc6e558227661c453b2d5bd1b20a5c4913c31eae1519'
+            '41a3ac1b849a8cfd824b21f5f3c0344a5b2342c51d33f2a79d3d25731a903e9338864faca495285868669be6926d7a9ce44febf40ecd2d40dec7cb1d79cb40b7')
+b2sums=('814f43f90f248ad428e7c68995a44a9c69722b8215bab3ab9237b06dcee53297a3f57cb2cf68b9e3d246e49944f3246e7d8d3587ab0abff4b8e2fb72e42152c1'
+        '9ccfe1fcee65e414bba3de3000c1c444590a662259d194c4c6b9fe4ad03dbd687350d7ee1f750b39224f298304eb0b18daa965cde2fcd3bce42e8c903062c30b')
 
-prepare(){
-  patch -Np1 < "$srcdir/gotags.patch"
+prepare() {
+  cd kubernetes-${pkgver}
+  patch -Np1 < ../gotags.patch
+  sed -E 's/(CGO_ENABLED)=0/\1=1/g' -i hack/lib/golang.sh
 }
 
 build() {
+  cd kubernetes-${pkgver}
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
   export CGO_LDFLAGS="${LDFLAGS}"
-  make WHAT=cmd/kubectl GOFLAGS="-buildmode=pie -trimpath"
-  # we don't need this anymore, but let's keep it.
-  #cd cmd/kubectl
-  #go build -trimpath -ldflags "-extldflags ${LDFLAGS}" -o kubectl
+  export GOFLAGS="-buildmode=pie -ldflags=-linkmode=external -trimpath -mod=readonly -modcacherw"
+  export GOLDFLAGS="-linkmode=external"
+
+  make WHAT=cmd/kubectl
+  hack/update-generated-docs.sh
 }
 
 package() {
+  cd kubernetes-${pkgver}
   install -Dm755 _output/bin/kubectl -t "$pkgdir/usr/bin"
-  # man page generation still seems to fail with 1.17.2 :(
-  # install -Dm644 docs/man/man1/* -t "$pkgdir/usr/share/man/man1"
+  install -Dm644 docs/man/man1/kubectl* -t "$pkgdir/usr/share/man/man1"
 
   "$pkgdir/usr/bin/kubectl" completion bash | install -Dm644 /dev/stdin "$pkgdir/usr/share/bash-completion/completions/kubectl"
   "$pkgdir/usr/bin/kubectl" completion zsh | install -Dm644 /dev/stdin "$pkgdir/usr/share/zsh/site-functions/_kubectl"
 }
+
+# vim: ts=2 sw=2 et:
