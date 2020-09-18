@@ -1,0 +1,50 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=parameterized-utils
+pkgname=haskell-parameterized-utils
+pkgver=2.1.0
+pkgrel=23
+pkgdesc="Classes and data structures for working with data-kind indexed types"
+url="https://github.com/GaloisInc/parameterized-utils"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-base-orphans' 'haskell-th-abstraction' 'haskell-constraints'
+         'haskell-hashable' 'haskell-hashtables' 'haskell-lens' 'haskell-vector')
+makedepends=('ghc' 'haskell-hedgehog' 'haskell-tasty' 'haskell-tasty-ant-xml' 'haskell-tasty-hunit'
+             'haskell-tasty-hedgehog')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('46b79deff82c6c3d242c060942de1ae9f92cb21055c0e1c2394f7a459de408060f08e794e9acc244893e0387300f4238c27f355714f30489928bd4f44d380e92')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/< *0/<1/;s/== 1.2/== 1.3/' $_hkgname.cabal
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver    
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
