@@ -7,9 +7,9 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgbase=calibre
-pkgname=('calibre' 'calibre-common' 'calibre-python3')
-pkgver=4.23.0
-pkgrel=2
+pkgname=calibre
+pkgver=5.0.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -17,29 +17,21 @@ license=('GPL3')
 _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython'
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
           'netifaces' 'unrardll' 'pillow' 'psutil' 'pychm' 'pygments' 'pyqt5'
-          'pyqtwebengine' 'regex')
-_py2_deps=("${_py_deps[@]}" 'ipaddress')
-_py3_deps=("${_py_deps[@]}" 'zeroconf')
+          'pyqtwebengine' 'regex' 'zeroconf')
 depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusbx'
-         'libwmf' 'mathjax' 'mtdev' 'optipng' 'podofo' 'qt5-svg' 'udisks2')
-makedepends=("${_py2_deps[@]/#/python2-}" "${_py3_deps[@]/#/python-}" 'qt5-x11extras'
-             'rapydscript-ng' 'sip' 'xdg-utils')
+         'libwmf' 'mathjax' 'mtdev' 'optipng' 'podofo'
+         "${_py_deps[@]/#/python-}" 'qt5-svg' 'udisks2')
+makedepends=('qt5-x11extras' 'sip5' 'pyqt-builder' 'xdg-utils' 'rapydscript-ng')
 checkdepends=('xorg-server-xvfb')
+optdepends=('poppler: required for converting pdf to html')
+conflicts=('calibre-common' 'calibre-python3')
+replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
-        "Dont-subclass-QLineEdit-in-QDateEdit.patch"
-        "0001-De-vendor-pychm.patch"
-        "calibre-alternatives.sh")
-sha256sums=('16de51473cf0e336f946a57251a1e4f4fbba1f857f17d8fc14aa132e7eb59518'
-            'SKIP'
-            'fb451d9d845a291412f8c26d1f39699d56c70d955b128f32aeed223aedcbadf3'
-            'f7b829aea1d33818808cbeeb9a295e18e49edf619a5bc89b8315c88f56ce4d25'
-            '940cc7081d0a64ba363bb0e1a1d8e0563c676458f90db845f2fbdd4195c075b3')
-b2sums=('3a950ac2b3aade547bb686cc99b963357e76b5931049ecb4a5e09ddaf1db26c74fa3b4ebd74e42d83f68c5c9827c534c0247a3c6a9b000641a778cfe5ac33599'
-        'SKIP'
-        '886e66191f63959b8bcc8b2de2b7c431260100f9f3b54dc0e5b7dbeae4ea908fda0d8dc75e1aa990edde79ae29d5ecd4d5a91a204914c208d0b40fa1cbdb2cf0'
-        'c35181c70084813772c4d593311b48b3e3bcc3b4e9e8ee58112b9beab2bbc0de1ee22aafc3d06cfd812f87a2e91292f7b7f1dc5f522c55440f415b6b265d5671'
-        '543df218dfd2d4152a941ab57118d69bf4c6927e8020ee53c9a8b38efe9c89f032dc6385207e134cc9f69bfdc9cbcf63cd92fa6ea1647cbd534c5a511a5d1e91')
+        "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
+sha256sums=('72b136273cba66c83cb780363500fab70974bf9f854ee3b98b7110ca719aea2e'
+            'SKIP')
+b2sums=('20554a8c60b48fb4fc5277db493cb520a38c93df584dc825b2b980483d8a879570fe6f94f13e263050f3fefdb5c54a47109564691d684f71644503f6fa9360c7'
+        'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
@@ -51,18 +43,6 @@ prepare(){
         -e "s/'ctc-posml'/'text' not in mt and 'pdf' not in mt and 'xhtml'/" \
         -e "s/^Name=calibre/Name=Calibre/g" \
         -i  src/calibre/linux.py
-
-    # cherry-picked bits of python2-backports.functools_lru_cache
-    # needed for frozen builds + beautifulsoup4
-    # see https://github.com/kovidgoyal/calibre/commit/b177f0a1096b4fdabd8772dd9edc66662a69e683#commitcomment-33169700
-    rm -r src/backports
-    # biplist is only used on macOS + python2
-    rm -r src/biplist/
-    # devendor pychm now, from the py3 building branch:
-    # https://github.com/kovidgoyal/calibre/commit/959b7e3fafff5faad6ae59263f825b23c7563dd4
-    patch -p1 -i ../0001-De-vendor-pychm.patch
-    # FS#67690 backport workaround for https://bugreports.qt.io/browse/QTBUG-86232
-    patch -p1 -i ../Dont-subclass-QLineEdit-in-QDateEdit.patch
 
     cd resources
 
@@ -76,12 +56,10 @@ prepare(){
 build() {
     cd "${pkgbase}-${pkgver}"
 
-    LANG='en_US.UTF-8' python2 setup.py build
-    LANG='en_US.UTF-8' python2 setup.py gui
-    LANG='en_US.UTF-8' python2 setup.py mathjax --path-to-mathjax /usr/share/mathjax --system-mathjax
-    LANG='en_US.UTF-8' python2 setup.py rapydscript
-
-    LANG='en_US.UTF-8' CALIBRE_PY3_PORT=1 python3 setup.py build
+    LANG='en_US.UTF-8' python setup.py build
+    LANG='en_US.UTF-8' python setup.py gui
+    LANG='en_US.UTF-8' python setup.py mathjax --path-to-mathjax /usr/share/mathjax --system-mathjax
+    LANG='en_US.UTF-8' python setup.py rapydscript
 }
 
 check() {
@@ -90,85 +68,26 @@ check() {
     # without xvfb-run this fails with much "Control socket failed to recv(), resetting"
     # ERROR: test_websocket_perf (calibre.srv.tests.web_sockets.WebSocketTest)
     # one or two tests are a bit flaky, but the python3 build seems to succeed more often
-    LANG='en_US.UTF-8' xvfb-run env CALIBRE_PY3_PORT=1 python3 setup.py test
-    LANG='en_US.UTF-8' xvfb-run python2 setup.py test
+    #
+    # test_ajax_book segfaults on qt >=5.15.1 inside of qt itself, but only in nspawn containers
+    # see https://github.com/kovidgoyal/calibre/commit/28ef780d9911d598314d98bdfc3b1c88a94681df
+    LANG='en_US.UTF-8' xvfb-run python setup.py test --exclude-test-name=test_ajax_book
 }
 
-package_calibre-common() {
-    pkgdesc+=" (common files)"
-    optdepends=('poppler: required for converting pdf to html')
-    conflicts=("calibre<${pkgver}-${pkgrel}")
-    install=calibre-common.install
+package() {
     cd "${pkgbase}-${pkgver}"
 
     # If this directory doesn't exist, zsh completion won't install.
     install -d "${pkgdir}/usr/share/zsh/site-functions"
 
-    LANG='en_US.UTF-8' python2 setup.py install \
+    LANG='en_US.UTF-8' python setup.py install \
         --staging-root="${pkgdir}/usr" \
         --prefix=/usr
-
-    for bin in "${pkgdir}"/usr/bin/*; do
-        ln -sfT "/usr/lib/calibre/bin/${bin##*/}" "${bin}"
-    done
-
-    install -Dm755 "${srcdir}"/calibre-alternatives.sh "${pkgdir}"/usr/bin/calibre-alternatives
 
     cp -a man-pages/ "${pkgdir}/usr/share/man"
 
     # not needed at runtime
     rm -r "${pkgdir}"/usr/share/calibre/rapydscript/
-
-    #cleanup overlapping files
-    rm -r "${pkgdir}"/usr/lib/python2.7
-    rm -r "${pkgdir}"/usr/lib/calibre/calibre/plugins/
-    find "${pkgdir}" -type f -name '*.py[co]' -delete
-}
-
-package_calibre() {
-    pkgdesc+=" (python2 build)"
-    depends=('calibre-common' "${_py2_deps[@]/#/python2-}")
-    optdepends+=('ipython2: to use calibre-debug')
-    install=calibre.install
-
-    cd "${pkgbase}-${pkgver}"
-
-    LANG='en_US.UTF-8' python2 setup.py install \
-        --staging-root="${pkgdir}/usr" \
-        --prefix=/usr \
-        --no-postinstall \
-        --bindir=/usr/lib/calibre/bin-py2 \
-        --staging-bindir="${pkgdir}/usr/lib/calibre/bin-py2" \
-        --staging-sharedir="${srcdir}"/temp
-
-    # Compiling bytecode FS#33392
-    # This is kind of ugly but removes traces of the build root.
-    while read -rd '' _file; do
-        _destdir="$(dirname "${_file#${pkgdir}}")"
-        python2 -m compileall -d "${_destdir}" "${_file}"
-        python2 -O -m compileall -d "${_destdir}" "${_file}"
-    done < <(find "${pkgdir}"/usr/lib/ -name '*.py' -print0)
-
-    # cleanup overlapping files
-    find "${pkgdir}"/usr/lib/calibre -name '*.py' -delete
-    rm -r "${pkgdir}"/usr/lib/calibre/calibre/plugins/3/
-}
-
-package_calibre-python3() {
-    pkgdesc+=" (experimental python3 port)"
-    depends=('calibre-common' "${_py3_deps[@]/#/python-}")
-    optdepends+=('ipython: to use calibre-debug')
-    install=calibre.install
-
-    cd "${pkgbase}-${pkgver}"
-
-    LANG='en_US.UTF-8' CALIBRE_PY3_PORT=1 python3 setup.py install \
-        --staging-root="${pkgdir}/usr" \
-        --prefix=/usr \
-        --no-postinstall \
-        --bindir=/usr/lib/calibre/bin-py3 \
-        --staging-bindir="${pkgdir}/usr/lib/calibre/bin-py3" \
-        --staging-sharedir="${srcdir}"/temp
 
     # Compiling bytecode FS#33392
     # This is kind of ugly but removes traces of the build root.
@@ -177,8 +96,4 @@ package_calibre-python3() {
         python3 -m compileall -d "${_destdir}" "${_file}"
         python3 -O -m compileall -d "${_destdir}" "${_file}"
     done < <(find "${pkgdir}"/usr/lib/ -name '*.py' -print0)
-
-    # cleanup overlapping files
-    find "${pkgdir}"/usr/lib/calibre -name '*.py' -delete
-    rm "${pkgdir}"/usr/lib/calibre/calibre/plugins/*.so
 }
