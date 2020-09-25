@@ -4,64 +4,47 @@
 
 pkgbase=pythia8
 pkgname=('pythia8' 'python-pythia8')
-pkgver=8.2.44
+pkgver=8.3.03
 _pkgid="${pkgbase:0:-1}${pkgver//./}"
-pkgrel=6
+pkgrel=1
 pkgdesc="High-energy physics events generator"
 arch=('x86_64')
 url="http://home.thep.lu.se/Pythia/"
 license=('GPL')
-depends=('python')
-makedepends=('fastjet' 'hepmc2' 'lhapdf>=6.2' 'root')
+depends=('python' 'openmp')
+makedepends=('fastjet' 'hepmc' 'hepmc2' 'lhapdf>=6.2' 'root')
 source=("http://home.thep.lu.se/~torbjorn/pythia8/${_pkgid}.tgz"
         'pythia8.sh'
-        'fix_lhapdf_build.patch'
-        'respect_lib_suffix.patch')
-sha256sums=('e34880f999daf19cdd893a187123927ba77d1bf851e30f6ea9ec89591f4c92ca'
+        'fix_python_lib_paths.patch')
+sha256sums=('cd7c2b102670dae74aa37053657b4f068396988ef7da58fd3c318c84dc37913e'
             '4e373b685960e410024b4e33e22c2dea360dfedd7962837087332f428c974ae5'
-            'f7c70b069b350005ac7e9028617713dece9b82c1e8b0dc5fb1f2870abec1d94c'
-            '4eb15725cfb5e287fdd9520cb4211b88ebc38a690b7522690ba0664d50bc8669')
+            '661d0d54bea576bccd0075cb1f7a0cbbf7df05b241d97eec6f7fbc1389b5f992')
 get_pyver () {
     python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
 }
 
 prepare() {
     cd "${srcdir}/${_pkgid}"
-
-    patch -p1 -i "${srcdir}/respect_lib_suffix.patch"
-    patch -p1 -i "${srcdir}/fix_lhapdf_build.patch"
+    patch -Np1 -i "${srcdir}/fix_python_lib_paths.patch"
 }
 
 build() {
+    _bin=/usr/bin
     _inc=/usr/include
     _lib=/usr/lib
-    _share=/usr/share/${pkgbase}
+    _share="/usr/share/${pkgbase}"
+    _pyver="$(get_pyver)"
 
     cd "${srcdir}/${_pkgid}"
-    # # no such package yet
-    # --with-evtgen \
-    # --with-evtgen-include=${_inc} \
-    # --with-evtgen-lib=${_lib} \
-    # # no such package yet
-    # --with-hepmc3 \
-    # --with-hepmc3-include=${_inc} \
-    # --with-hepmc3-lib=${_lib} \
-    # # no such package yet
-    # --with-powheg \
-    # --with-powheg-include=${_inc} \
-    # --with-powheg-lib=${_lib} \
-    # # no such package yet
-    # --with-promc \
-    # --with-promc-include=${_inc} \
-    # --with-promc-lib=${_lib} \
     ./configure \
         --prefix=/usr \
-        --prefix-include=${_inc} \
-        --prefix-lib=${_lib} \
-        --prefix-share=${_share} \
+        --prefix-bin="${_bin}" \
+        --prefix-include="${_inc}" \
+        --prefix-lib="${_lib}" \
+        --prefix-share="${_share}" \
+        --cxx=/usr/bin/g++ \
         --cxx-common="${CXXFLAGS} -fPIC" \
         --cxx-shared="-shared ${LDFLAGS} -ldl" \
-        --enable-shared \
         --with-fastjet3 \
         --with-fastjet3-include=${_inc} \
         --with-fastjet3-lib=${_lib} \
@@ -71,6 +54,9 @@ build() {
         --with-hepmc2 \
         --with-hepmc2-include=${_inc} \
         --with-hepmc2-lib=${_lib} \
+        --with-hepmc3 \
+        --with-hepmc3-include=${_inc} \
+        --with-hepmc3-lib=${_lib} \
         --with-lhapdf5 \
         --with-lhapdf5-include=${_inc} \
         --with-lhapdf5-lib=${_lib} \
@@ -78,17 +64,21 @@ build() {
         --with-lhapdf6-include=${_inc} \
         --with-lhapdf6-lib=${_lib} \
         --with-python \
-        --with-python-include="/usr/include/python$(get_pyver)" \
-        --with-python-lib="/usr/lib/python$(get_pyver)" \
+        --with-python-include="/usr/include/python${_pyver}" \
+        --with-python-lib="/usr/lib/python${_pyver}" \
         --with-root \
         --with-root-include=/usr/include/root \
-        --with-root-lib=/usr/lib/root
+        --with-root-lib=/usr/lib/root \
+        --with-openmp \
+        --with-openmp-include=${_inc} \
+        --with-openmp-lib=${_lib}
     make
 }
 
 package_pythia8() {
     optdepends=('fastjet: fast jet finding in pp and e+e- collisions'
-                'hepmc2: storing collisions from Monte Carlo'
+                'hepmc: storing collisions from Monte Carlo'
+                'hepmc2: storing collisions from Monte Carlo (old interface)'
                 'lhapdf: evaluate PDFs from discretised data files'
                 'root: integrated examples with CERN ROOT data analysis framework')
 
@@ -114,8 +104,13 @@ package_python-pythia8() {
     depends=('pythia8')
 
     cd "${srcdir}/${_pkgid}"
+    _pyver="$(get_pyver)"
 
-    install -Dm755 lib/_pythia8.so "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/_pythia8.so"
-    install -Dm755 lib/pythia8.py "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/pythia8.py"
-    install -Dm644 lib/__pycache__/pythia8.cpython-*.pyc  -t "${pkgdir}/usr/lib/python$(get_pyver)/site-packages/__pycache__/"
+    install -Dm755 lib/pythia8.so "${pkgdir}/usr/lib/python${_pyver}/site-packages/pythia8.so"
+
+    # recompile pycache to strip $pkgdir from embedded paths
+    python -m compileall -d "/usr/lib/python${_pyver}" \
+        "${pkgdir}/usr/lib/python${_pyver}"
+    python -O -m compileall -d "/usr/lib/python${_pyver}" \
+        "${pkgdir}/usr/lib/python${_pyver}"
 }
