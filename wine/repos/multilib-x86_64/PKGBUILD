@@ -5,7 +5,7 @@
 
 pkgname=wine
 pkgver=5.18
-pkgrel=1
+pkgrel=2
 
 _pkgbasever=${pkgver/rc/-rc}
 
@@ -170,6 +170,9 @@ package() {
   install -m644 "$srcdir/30-win32-aliases.conf" "$pkgdir/etc/fonts/conf.avail"
   ln -s ../conf.avail/30-win32-aliases.conf "$pkgdir/etc/fonts/conf.d/30-win32-aliases.conf"
   install -Dm 644 "$srcdir/wine-binfmt.conf" "$pkgdir/usr/lib/binfmt.d/wine.conf"
+
+  i686-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib32/wine/*.dll
+  x86_64-w64-mingw32-strip --strip-unneeded "$pkgdir"/usr/lib/wine/*.dll
 }
 
 # vim:set ts=8 sts=2 sw=2 et:
