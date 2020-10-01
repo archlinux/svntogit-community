@@ -1,0 +1,64 @@
+From 52c76d2380eaa057f083bcdad3bf7a93817f680c Mon Sep 17 00:00:00 2001
+From: Jonas Witschel <diabonas@gmx.de>
+Date: Fri, 10 Jul 2020 19:02:43 +0200
+Subject: [PATCH] genxpi: make XPI files reproducible
+
+zip records the mtime of packed files, making it harder to reproduce the
+generated file bit for bit. Use the SOURCE_DATE_EPOCH specification that is
+already respected in other places of this project (package/Makefile) to set the
+modification time to a known, reproducible value.
+
+To avoid embedding time zone information and Unix UIDs/GIDs as further sources
+of unreproducibilty use "export TZ=UTC" and "zip -X", resp. Also make the mtime
+of the generated XPI file reproducible using "zip -o" for good measure.
+---
+ util/genxpi | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
+
+diff --git a/util/genxpi b/util/genxpi
+index 1ef552ea..d2d1a384 100755
+--- a/util/genxpi
++++ b/util/genxpi
+@@ -55,9 +55,10 @@ find chrome/content/modules -name "*.js*" | LC_ALL=C sort > chrome/content/modul
+ 
+ echo "Creating ${xpiFile} file"
+ 
+-zip -9 --must-match\
+-    ../${xpiFile} \
+-    chrome/content/preferences/defaultPrefs.js \
++# Avoid embedding time zone information about the current system into the XPI
++export TZ=UTC
++
++set chrome/content/preferences/defaultPrefs.js \
+     chrome/content/modules/app.jsm \
+     chrome/content/modules/armor.jsm \
+     chrome/content/modules/buildDate.jsm \
+@@ -114,16 +115,22 @@ zip -9 --must-match\
+     chrome/content/modules/windows.jsm \
+     chrome/content/modules/all-modules.txt
+ 
++# Set modification timestamps to a fixed value for reproducibilty
++[ -n "$SOURCE_DATE_EPOCH" ] && touch --date "@$SOURCE_DATE_EPOCH" -- "$@"
++zip -9 -o -X --must-match ../${xpiFile} "$@"
++
+ if [ $? -ne 0 ]; then
+   exit 1
+ fi
+ 
+-zip -9 \
+-    ../${xpiFile} \
+-    chrome/content/ui/*.* \
++set chrome/content/ui/*.* \
+     chrome/content/skin/*.* \
+     chrome/locale/*/*.* \
+     webextension.js \
+     chrome.manifest \
+     schema.json \
+     manifest.json
++
++# Set modification timestamps to a fixed value for reproducibilty
++[ -n "$SOURCE_DATE_EPOCH" ] && touch --date "@$SOURCE_DATE_EPOCH" -- "$@"
++zip -9 -o -X ../${xpiFile} "$@"
+-- 
+2.28.0
+
