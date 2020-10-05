@@ -3,7 +3,7 @@
 
 pkgname=python-rich
 _name=rich
-pkgver=7.1.0
+pkgver=8.0.0
 pkgrel=1
 pkgdesc='Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal'
 arch=(any)
@@ -12,7 +12,7 @@ license=('MIT')
 depends=('python-colorama' 'python-pygments' 'python-typing_extensions' 'python-commonmark')
 makedepends=('python-setuptools' 'python-dephell')
 source=("https://github.com/willmcgugan/rich/archive/v${pkgver}/rich-${pkgver}.tar.gz")
-b2sums=('609d07d00d08efab5bab0ee397c83435b14f93006933323189d923213acb1cfd39a5ad1479802cf3908cb7e5637c7ee51ad419fd5a7e68e3d95a9ff12bc6e81d')
+b2sums=('a9241ed92dfd88634bc7196612df27a34cae9cd491fec0da4eb610765460675c9ba4f344740c9acfed8932578173c3a1579e143ea6736667f4286976be1102c3')
 
 prepare() {
   cd rich-${pkgver}
