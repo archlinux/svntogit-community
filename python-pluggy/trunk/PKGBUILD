@@ -3,10 +3,10 @@
 pkgbase=python-pluggy
 pkgname=(python-pluggy python2-pluggy)
 pkgver=0.13.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Plugin and hook calling mechanisms for python"
 arch=('any')
-url="https://www.pluggypayments.com/docs/python"
+url="https://github.com/pytest-dev/pluggy"
 license=('MIT')
 makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python-importlib-metadata'
              'python2-importlib-metadata')
