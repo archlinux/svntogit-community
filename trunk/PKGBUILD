@@ -1,7 +1,7 @@
 # Maintainer: Jonas Witschel <diabonas@archlinux.org>
 pkgname=swtpm
-pkgver=0.4.1
-_tag=899693a1f6f44146c135a2fe10b9096e96afd86a # git rev-parse "v$pkgver"
+pkgver=0.5.0
+_tag=8409bff1366434638bfaec1115b7c98e6456e5da # git rev-parse "v$pkgver"
 pkgrel=1
 pkgdesc='Libtpms-based TPM emulator with socket, character device, and Linux CUSE interface'
 arch=('x86_64')
@@ -9,9 +9,9 @@ url='https://github.com/stefanberger/swtpm'
 license=('BSD')
 depends=('fuse2' 'glib2' 'libseccomp' 'libtpms' 'libseccomp.so')
 makedepends=('git' 'expect' 'gnutls' 'libtasn1' 'python' 'python-cryptography' 'python-setuptools' 'socat')
-checkdepends=('net-tools' 'softhsm')
+checkdepends=('iproute2' 'softhsm')
 optdepends=('gnutls: swtpm_cert support'
-            'python-cryptography: swtpm_setup.sh support') 
+            'python-cryptography: swtpm_setup support') 
 source=("git+$url.git?signed#tag=$_tag")
 sha512sums=('SKIP')
 validpgpkeys=('B818B9CADF9089C2D5CEC66B75AD65802A0B4211') # Stefan Berger <stefanb@linux.vnet.ibm.com>
@@ -27,14 +27,7 @@ prepare() {
 	# Remove usage of /usr/bin/env to avoid PATH manipulation attacks
 	sed --in-place 's/env //' samples/swtpm-create-tpmca samples/swtpm-create-user-config-files.in \
 	                          samples/swtpm-localca.in src/swtpm_setup/py_swtpm_setup/swtpm_setup.py \
-	                          src/swtpm_setup/swtpm_setup.sh
-
-	# Remove superflous dependency check for python-pip (https://github.com/stefanberger/swtpm/pull/317)
-	git cherry-pick --no-commit fdaa6f1f1ce188af8d9ba8c1e25a6a25d9f4f792 
-
-	# Disable automatic installation of Python module to be able to follow the Python package guidelines
-	# (https://github.com/stefanberger/swtpm/pull/318)
-	git cherry-pick --no-commit --strategy-option=theirs 3dafa38eb7a041add94194f8b9d310e62b6551c9
+	                          src/swtpm_setup/swtpm_setup.in
 
 	autoreconf --install --force
 }
@@ -44,8 +37,7 @@ build() {
 	./configure --prefix=/usr --with-cuse --with-gnutls --with-seccomp --disable-python-installation
 	make
 
-	cd src/swtpm_setup
-	python setup.py build
+	for _dir in samples src/swtpm_setup; do (cd "$_dir"; python setup.py build); done
 }
 
 check() {
@@ -58,8 +50,10 @@ package() {
 	make DESTDIR="$pkgdir" install
 	install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 
-	cd src/swtpm_setup
-	python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+	for _dir in samples src/swtpm_setup
+	do
+		(cd "$_dir"; python setup.py install --root="$pkgdir" --optimize=1 --skip-build)
+	done
 
 	echo 'u tss - "tss user for tpm2"' | install -Dm644 /dev/stdin "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
 	echo 'z /var/lib/swtpm-localca 0750 tss root' | install -Dm644 /dev/stdin "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
