@@ -2,7 +2,7 @@
 # Contributor: onny <onny@project-insanity.org>
 
 pkgname=python-passlib
-pkgver=1.7.3
+pkgver=1.7.4
 pkgrel=1
 pkgdesc="A password hashing library for Python"
 arch=('any')
@@ -15,7 +15,7 @@ optdepends=("python-fastpbkdf2: accelerate PBKDF2-based hashes"
 makedepends=('python-setuptools')
 checkdepends=('python-nose' 'python-bcrypt' 'python-django' 'python-fastpbkdf2' 'python-scrypt')
 source=("https://pypi.io/packages/source/p/passlib/passlib-$pkgver.tar.gz")
-sha512sums=('1964f6ef30f0c98d9688e7dff96f31f1a9ae409c78703169e6690ca228fb96d590c20f03dfca7c01d8091c3384ffb58a40c866889c8195234657e11f140f39d9')
+sha512sums=('350bd6da5ac57e6c266ffe8bf9684c8c2cce3fc6b513eb6c7bc1b302d2d8a1b701e9c01c953782520a2ac37b7ec1f6d7bd5855f99f6ee0e2dbbf33f2d49a9530')
 
 check() {
   export PASSLIB_TEST_MODE=full
