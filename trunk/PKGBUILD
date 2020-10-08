@@ -14,7 +14,7 @@ depends=(pcre2 libusb protobuf brotli)
 optdepends=('python: for mkbootimg script'
             'python2: for unpack_bootimg & avbtool scripts')
 # it depends on 'vim' because of 'xxd' tool.
-makedepends=(git clang gtest ruby cmake ninja go vim)
+makedepends=(git clang gtest cmake ninja go vim)
 provides=(fastboot adb)
 conflicts=(fastboot adb)
 source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
