@@ -3,7 +3,7 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=30.0.3
+pkgver=30.0.4
 pkgrel=1
 _tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
@@ -29,8 +29,7 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
         git+https://android.googlesource.com/platform/external/e2fsprogs#tag=$_tag
         git+https://android.googlesource.com/platform/external/avb#tag=$_tag
         git+https://android.googlesource.com/platform/external/boringssl#tag=$_tag
-        #git+https://boringssl.googlesource.com/boringssl#commit=$_boringssl_commit
-        generate_build.rb
+	build.ninja # copied from https://github.com/anatol/android-platform-tools-build
 # deployagent.jar is a library built from Android sources.
 # Building this java library requires a lot of dependencies:
 #  java, protobuf-java, dex compiler, Android base libs.
@@ -61,9 +60,9 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
-          '8c95ce0bbc39bf1fe37213497af924ad10f195b4'
+          '3e6dc3afe68447212b6dbca74962e9b24a8159b2'
           'd9dfac30245faa0a96968b96f3acd9ad536f4910'
-          '61b1bcf230be39a5f9544e82d43269a20bfb9ef2'
+          'cc295dc7726821ea9e74158d898a1ff80d291c61'
           'ce8314d6b1e05e3f4f7ae7828d225fbb07a2a55c'
           '1c025855a3e7ea351685843a0df45c52a7e674dd'
           '7004dbd0c193668827174880de6f8434de8ceaee')
@@ -89,7 +88,6 @@ prepare() {
 build() {
   (cd "$srcdir"/boringssl/src/build && cmake -GNinja ..; ninja crypto/libcrypto.a ssl/libssl.a)
 
-  PLATFORM_TOOLS_VERSION="$pkgver-$pkgrel" ./generate_build.rb > build.ninja
   ninja
 }
 
