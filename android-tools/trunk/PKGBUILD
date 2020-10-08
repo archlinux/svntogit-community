@@ -4,7 +4,7 @@
 
 pkgname=android-tools
 pkgver=30.0.4
-pkgrel=1
+pkgrel=2
 _tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -29,7 +29,7 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
         git+https://android.googlesource.com/platform/external/e2fsprogs#tag=$_tag
         git+https://android.googlesource.com/platform/external/avb#tag=$_tag
         git+https://android.googlesource.com/platform/external/boringssl#tag=$_tag
-	build.ninja # copied from https://github.com/anatol/android-platform-tools-build
+        build.ninja # copied from https://github.com/anatol/android-platform-tools-build
 # deployagent.jar is a library built from Android sources.
 # Building this java library requires a lot of dependencies:
 #  java, protobuf-java, dex compiler, Android base libs.
@@ -83,6 +83,12 @@ prepare() {
   cd "$srcdir"/boringssl
   patch -p1 < ../boringssl-disable-thirdpartydeps.patch
   mkdir -p "$srcdir"/boringssl/src/build
+
+  cd "$srcdir"
+  sed "s/CFLAGS =.*/CFLAGS = $CFLAGS/" -i build.ninja
+  sed "s/CPPFLAGS =.*/CPPFLAGS = $CPPFLAGS/" -i build.ninja
+  sed "s/CXXFLAGS =.*/CXXFLAGS = $CXXFLAGS/" -i build.ninja
+  sed "s/LDFLAGS =.*/LDFLAGS = $LDFLAGS/" -i build.ninja
 }
 
 build() {
