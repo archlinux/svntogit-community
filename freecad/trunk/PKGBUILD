@@ -10,21 +10,21 @@
 
 pkgname=freecad
 pkgver=0.18.4
-pkgrel=2
+pkgrel=3
 pkgdesc='General purpose 3D CAD modeler'
 arch=(x86_64)
 url='https://freecadweb.org/'
 license=(LGPL)
-depends=(boost-libs glew hicolor-icon-theme jsoncpp libspnav med netcdf opencascade openmpi pyside2-tools python-matplotlib python-pivy python-pyside2 qt5-declarative qt5-svg qt5-tools qt5-webkit qt5-x11extras shared-mime-info xerces-c)
-makedepends=(boost cmake coin desktop-file-utils eigen gcc-fortran git ninja pyside2 python-shiboken2 shiboken2 swig)
-optdepends=(graphviz openscad python-matplotlib)
+depends=(boost-libs glew jsoncpp libspnav med netcdf opencascade openmpi
+         pyside2-tools python-matplotlib python-pivy python-pyside2 qt5-svg
+         qt5-tools qt5-webkit qt5-x11extras shared-mime-info xerces-c)
+makedepends=(boost cmake coin eigen gcc-fortran gendesk git ninja pyside2
+             python-shiboken2 shiboken2 swig)
 source=("git+https://github.com/FreeCAD/FreeCAD#commit=980bf9060e28555fecd9e3462f68ca74007b70f8" # tag: 0.18.4
         'https://raw.githubusercontent.com/FreeCAD/FreeCAD/d06d5687c1498354483aff95093d7f798c2985f2/cMake/FindPySide2Tools.cmake'
-        $pkgname.desktop
-        $pkgname.xml)
+        freecad.xml)
 sha256sums=('SKIP'
             '421a364ad214a25be578d81edc9960daab87d7b26f341022aa22dd15b9df621b'
-            '3f076dcd15114011b7f20d5f82fbb0bc89a2652cdbf0aa57f191dd4ea6cd4bf6'
             '4ee1daf47c8371a3e17173d85a0dd4a106dacd7899d783ccd97a6f3e0dd1a21f')
 
 prepare() {
@@ -46,10 +46,10 @@ prepare() {
   sed -i 's/\(.*\)include <QPainter>$/&\n\1include <QPainterPath>/' \
     Mod/Image/Gui/OpenGLImageBox.cpp
 
-  # Compansate for the unusual Shiboken versioning scheme
+  # Compensate for the unusual Shiboken versioning scheme
   sed -i 's/SHIBOKEN_MICRO_VERSION/0/g' Gui/WidgetFactory.cpp
 
-  # Add missing "std::" qualifiers, sledgehammer style
+  # Fix missing "std::" qualifiers, sledge hammer style
   find . \
     ! -wholename "*/Mod/Sketcher/*" \
     ! -wholename "*/Mod/PartDesign/*" \
@@ -57,7 +57,12 @@ prepare() {
     -exec sed -i '1i using namespace std;' {} \;
 
   # Add missing include
-  sed -i '1i \#include <Inventor\/SbByteBuffer.h>' Gui/Quarter/QuarterWidget.cpp
+  sed -i '1i \#include <Inventor\/SbByteBuffer.h>' \
+    Gui/Quarter/QuarterWidget.cpp
+
+  # Create desktop shortcut
+  gendesk -f -n --pkgname "$pkgname" --pkgdesc "$pkgdesc" --name FreeCAD \
+    --mimetypes='application/x-extension-fcstd' --startupnotify=true
 }
 
 build() {
@@ -86,18 +91,23 @@ build() {
 package() {
   DESTDIR="$pkgdir" ninja -C build install
 
+  # Package desktop shortcut
+  install -Dm644 FreeCAD/src/freecad.desktop \
+    "$pkgdir/usr/share/applications/freecad.desktop"
+
   # Package MIME info
   install -Dm644 freecad.xml "$pkgdir/usr/share/mime/packages/freecad.xml"
 
-  # Package desktop shortcut
-  desktop-file-install --dir="$pkgdir/usr/share/applications" $pkgname.desktop
+  cd FreeCAD/src/Gui/Icons
 
   # Package icons
-  cd FreeCAD/src/Gui/Icons
   for i in 16 32 48 64; do
-    install -Dm644 "freecad-icon-$i.png" "$pkgdir/usr/share/icons/hicolor/${i}x$i/apps/freecad.png"
+    install -Dm644 "freecad-icon-$i.png" \
+      "$pkgdir/usr/share/icons/hicolor/${i}x$i/apps/freecad.png"
   done
-  install -Dm644 freecad.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/freecad.svg"
+  install -Dm644 freecad.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/freecad.svg"
+
 
   # Package symlinks in /usr/bin
   install -d "$pkgdir/usr/bin"
