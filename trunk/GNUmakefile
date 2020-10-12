@@ -14,7 +14,7 @@ mandir ?= $(datarootdir)/man
 # includes and libs
 PKGCONF_DEPS := freetype2 harfbuzz libopenjp2 libjpeg x11 zlib
 override CPPFLAGS += -D_GNU_SOURCE -DFFP
-override CFLAGS += -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(shell pkg-config --cflags $(PKGCONF_DEPS))
+override CFLAGS := $(CFLAGS) -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(shell pkg-config --cflags $(PKGCONF_DEPS))
 LDLIBS := -lpthread -lmupdf -lmupdf-third -ljbig2dec $(shell pkg-config --libs $(PKGCONF_DEPS))
 
 # ocaml
