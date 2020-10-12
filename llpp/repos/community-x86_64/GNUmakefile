@@ -12,9 +12,9 @@ datarootdir ?= $(PREFIX)/share
 mandir ?= $(datarootdir)/man
 
 # includes and libs
-PKGCONF_DEPS := freetype2 harfbuzz libopenjp2 libjpeg x11 zlib
+PKGCONF_DEPS := gumbo freetype2 harfbuzz libopenjp2 libjpeg x11 zlib
 override CPPFLAGS += -D_GNU_SOURCE -DFFP
-override CFLAGS += -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(shell pkg-config --cflags $(PKGCONF_DEPS))
+override CFLAGS := $(CFLAGS) -g -std=c99 -pedantic -Wall -Wextra -Wshadow $(shell pkg-config --cflags $(PKGCONF_DEPS))
 LDLIBS := -lpthread -lmupdf -lmupdf-third -ljbig2dec $(shell pkg-config --libs $(PKGCONF_DEPS))
 
 # ocaml
@@ -77,8 +77,8 @@ confstruct.ml: genconfstr.sh
 %.cmi: %.mli
 	$(COMPILE.ocaml) $(OUTPUT_OPTION) $<
 
-%.1: %.adoc adoc/asciidoc.conf
-	a2x -d manpage -f manpage --asciidoc-opts="-f adoc/asciidoc.conf --out-file=$@.xml" $<
+%.1: %.adoc
+	asciidoctor -b manpage -o $@ $<
 
 # special targets
 clean:
