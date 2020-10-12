@@ -1,35 +1,56 @@
 # Maintainer: Jaroslav Lichtblau <svetlemodry@archlinux.org>
+# Contributor: Morten Linderud <foxboron@archlinux.org>
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 # Contributor: eric <eric@archlinux.org>
 # Contributor: Andrew Rose <ody@netrux.com>
 
 pkgname=gif2png
-pkgver=2.5.14
-pkgrel=2
+pkgver=3.0.0
+pkgrel=1
 pkgdesc="A GIF to PNG image format converter"
 arch=('x86_64')
 url="http://www.catb.org/~esr/gif2png/"
 license=('ZLIB')
 depends=('libpng')
+makedepends=('go' 'git')
 optdepends=('python2: for using web2png')
+# https://github.com/golang/crypto/tree/release-branch.go1.15
+_crypto_commit=75b288015ac94e66e3d6715fb68a9b41bf046ec2
+# https://github.com/golang/sys/tree/release-branch.go1.15
+_sys_commit=bc7a7d42d5c30f4d0fe808715c002826ce2c624e
 source=(http://www.catb.org/~esr/$pkgname/$pkgname-$pkgver.tar.gz
-        http://www.catb.org/~esr/gif2png/COPYING)
-sha256sums=('f7584dc0d15b8186182e47dcf6190924a3ba6d669acfce33be8512a79ae6fe20'
-            'c92396cd96373bf1bdaa08e028214479216be7278fe7732b59cd1df1632fe335')
+        http://www.catb.org/~esr/gif2png/COPYING
+        git+https://github.com/golang/crypto#commit=$_crypto_commit
+        git+https://github.com/golang/sys#commit=$_sys_commit)
+sha256sums=('98e185fa62d8d5b355a8b3980db0025b2fbdea991bd9f78547a1e0bc08b81d3a'
+            'c92396cd96373bf1bdaa08e028214479216be7278fe7732b59cd1df1632fe335'
+            'SKIP'
+            'SKIP')
+
+prepare() {
+  mkdir -p src/golang.org/x build
+  cp -r sys crypto src/golang.org/x/
+  mkdir -p src/gitlab.com/esr
+  ln -rTsf "$pkgname-$pkgver" "src/gitlab.com/esr/${pkgname}"
+  cd "src/gitlab.com/esr/${pkgname}"
+  sed -i 's#env python#env python2#' web2png
+  sed -i 's#GOFLAGS=.*##' Makefile
+  sed -i 's#$(GOFLAGS)##' Makefile
+}
 
 build() {
-  cd "${srcdir}"/${pkgname}-${pkgver}
-
-  sed -i 's#env python#env python2#' web2png
-
-#  ./configure --prefix=/usr \
-#              --mandir=/usr/share/man
+  cd "src/gitlab.com/esr/${pkgname}"
+  export GOPATH="$srcdir"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -gcflags=-N -gcflags=-l"
   make
 }
 
 package() {
-  cd "${srcdir}"/${pkgname}-${pkgver}
-
+  cd "src/gitlab.com/esr/${pkgname}"
   make install prefix="${pkgdir}"/usr
   install -Dm644 "${srcdir}"/COPYING "${pkgdir}"/usr/share/licenses/$pkgname/LICENSE
 }
