@@ -1,4 +1,4 @@
-#!/usr/bin/electron
+#!/usr/bin/electron9
 
 const name = 'min';
 
@@ -11,7 +11,7 @@ const fd = fs.openSync('/proc/self/comm', fs.constants.O_WRONLY);
 fs.writeSync(fd, name);
 fs.closeSync(fd);
 
-// Remove first command line argument (/usr/bin/electron).
+// Remove first command line argument (/usr/bin/electron9).
 process.argv.splice(0, 1);
 
 // Set application paths.
