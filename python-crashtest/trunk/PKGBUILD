@@ -3,12 +3,12 @@
 _pkgname=crashtest
 pkgname=python-crashtest
 pkgver=0.3.1
-pkgrel=1
+pkgrel=2
 pkgdesc="supposedly makes exceptions handling and inspection easier"
 arch=('any')
 url="https://github.com/sdispater/${_pkgname}"
 license=('MIT')
-depends=('python-clikit')
+depends=('python')
 makedepends=('python-dephell' 'python-setuptools')
 checkdepends=('python-pytest')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz")
