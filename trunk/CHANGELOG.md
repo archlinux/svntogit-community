@@ -1,4 +1,26 @@
-## 0.13.3 (Unreleased)
+## 0.13.4 (September 30, 2020)
+
+UPGRADE NOTES:
+
+* The built-in vendor (third-party) provisioners, which include `habitat`, `puppet`, `chef`, and `salt-masterless` are now deprecated and will be removed in a future version of Terraform. More information [on Discuss](https://discuss.hashicorp.com/t/notice-terraform-to-begin-deprecation-of-vendor-tool-specific-provisioners-starting-in-terraform-0-13-4/13997).
+* Deprecated interpolation-only expressions are detected in more contexts in addition to resources and provider configurations. Module calls, data sources, outputs, and locals are now also covered. Terraform also detects interpolation-only expressions in complex values such as lists and objects. An expression like `"${foo}"` should be rewritten as just `foo`. ([#27272](https://github.com/hashicorp/terraform/issues/27272)] [[#26334](https://github.com/hashicorp/terraform/issues/26334))
+
+BUG FIXES:
+
+* command: Include schemas from required but unused providers in the output of `terraform providers schema`. This allows development tools such as the Terraform language server to offer autocompletion for the first resource for a given provider. ([#26318](https://github.com/hashicorp/terraform/issues/26318))
+* core: create_before_destroy status is now updated in the state during refresh ([#26343](https://github.com/hashicorp/terraform/issues/26343))
+* core: data sources using `depends_on`, either directly or through their modules, are no longer are forced to wait until apply by other planned data source reads ([#26375](https://github.com/hashicorp/terraform/issues/26375))
+
+## 0.13.3 (September 16, 2020)
+
+BUG FIXES:
+
+* build: fix crash with terraform binary on openBSD ([#26250](https://github.com/hashicorp/terraform/issues/26250))
+* core: prevent create_before_destroy cycles by not connecting module close nodes to resource instance destroy nodes ([#26186](https://github.com/hashicorp/terraform/issues/26186))
+* core: fix error where plan action changes from CreateThenDelete to DeleteThenCreate ([#26192](https://github.com/hashicorp/terraform/issues/26192))
+* core: fix Cycle when create_before_destroy status wasn't checked from state ([#26263](https://github.com/hashicorp/terraform/issues/26263))
+* core: fix "inconsistent final plan" error when changing the number of referenced resources to 0 ([#26264](https://github.com/hashicorp/terraform/issues/26264))
+* states/remote: fix `state push -force` to work for all backends ([#26190](https://github.com/hashicorp/terraform/issues/26190))
 
 ## 0.13.2 (September 02, 2020)
 
