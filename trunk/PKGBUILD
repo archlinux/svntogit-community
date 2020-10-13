@@ -1,4 +1,5 @@
 # Maintainer: Andrew Crerar <crerar@archlinux.org>
+# Maintainer: Frederik Schwan <freswa at archlinux dot org>
 # Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
 # Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
 # Contributor: Jan-Erik Rediger <badboy at archlinux dot us>
@@ -6,15 +7,14 @@
 
 pkgname=redis
 pkgver=6.0.8
-pkgrel=2
+pkgrel=3
 pkgdesc='An in-memory database that persists on disk'
 arch=('x86_64')
 url='https://redis.io/'
 license=('BSD')
 depends=('jemalloc' 'grep' 'shadow' 'systemd-libs')
 # pkg-config fails to detect systemd libraries if systemd is not installed
-makedepends=('systemd')
-checkdepends=('tcl')
+makedepends=('systemd' 'openssl')
 backup=('etc/redis.conf'
         'etc/logrotate.d/redis')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/antirez/redis/archive/${pkgver}.tar.gz"
@@ -39,7 +39,9 @@ prepare() {
 }
 
 build() {
-  make -C $pkgname-$pkgver
+  make BUILD_TLS=yes \
+       USE_SYSTEMD=yes \
+       -C $pkgname-$pkgver
 }
 
 package() {
