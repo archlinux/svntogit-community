@@ -2,7 +2,7 @@
 
 _target=aarch64-linux-gnu
 pkgname=$_target-binutils
-pkgver=2.35
+pkgver=2.35.1
 pkgrel=1
 pkgdesc='A set of programs to assemble and manipulate binary and object files for the ARM64 target'
 arch=(x86_64)
@@ -10,7 +10,7 @@ url='https://www.gnu.org/software/binutils/'
 license=(GPL)
 depends=(zlib)
 source=(https://ftp.gnu.org/gnu/binutils/binutils-$pkgver.tar.bz2{,.sig})
-sha1sums=('148cd8a885276b89aee37ed35927ff3949eaaba8'
+sha1sums=('df4eb943bf65df4bbbd0a001efcc98113423c5dd'
           'SKIP')
 validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
               '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton (Chief Binutils Maintainer) <nickc@redhat.com>
