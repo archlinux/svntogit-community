@@ -2,8 +2,8 @@
 # Contributor: csslayer <wengxt AT gmail com>
 
 pkgname=fcitx5
-pkgver=0.0.0.20201002
-_commit=58b23acb76228cf3743f485924778072aa331643
+pkgver=0.0.0.20201015
+_commit=dd9dc94c42ee98ea04782bdb4d4aa3f7822e56f0
 _endictver=20121020
 pkgrel=1
 pkgdesc="Next generation of fcitx"
@@ -18,7 +18,7 @@ depends=('cairo' 'enchant' 'iso-codes' 'libgl' 'libxkbcommon-x11' 'pango' 'syste
 makedepends=('extra-cmake-modules')
 source=("https://github.com/fcitx/fcitx5/archive/$_commit/fcitx5-$_commit.tar.gz"
         https://download.fcitx-im.org/data/en_dict-$_endictver.tar.gz)
-sha512sums=('4f3749f1aca06f5f3d96af5599dd943c76511f5c675edc3c7d84ea6c01fd66bbd4b86e073f5137f6d00a66869e0e0c066f6b0413e8e401eaf59980b03316bafe'
+sha512sums=('07643bc56db31cd0a6394147eeaeaf7a5dd986633043ec58528dd951fa3789068958e47867b328ef7e39fb1c34f1877981b2552ee593cadbea9c6a86db850695'
             '8418bd02492bfd786c0fab93be4400ef027ec8e9fac02220cc1f653f5eb67f54573a6a84a15baba19bb34ab892745c87df16499d6304ea75009131e2ab3b97f2')
 
 prepare() {
