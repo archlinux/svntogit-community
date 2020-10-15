@@ -23,7 +23,7 @@ pkgname=(
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
 pkgver=18.8
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -43,6 +43,8 @@ makedepends=(
 )
 
 _codename=Leia
+
+_sse_workaround=1
 
 _libdvdcss_version="1.4.2-$_codename-Beta-5"
 _libdvdnav_version="6.0.0-$_codename-Alpha-3"
@@ -107,10 +109,7 @@ prepare() {
 
   patch -p1 -i "$srcdir/17804.patch"
 
-  # detect if building in arch chroot
-  if [[ "$srcdir" =~ ^\/build.* ]]; then
-    patch -p1 -i "$srcdir/cheat-sse-build.patch"
-  fi
+  [[ "$_sse_workaround" -eq 1 ]] && patch -p1 -i "$srcdir/cheat-sse-build.patch"
 }
 
 build() {
