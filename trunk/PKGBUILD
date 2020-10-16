@@ -3,14 +3,14 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=1.36.3
+pkgver=1.37.1
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('GPL3')
 replaces=('signal-desktop-bin')
 arch=('x86_64')
 url="https://signal.org"
-depends=('libvips' 'libxss')
+depends=('libvips' 'libxss' 'hicolor-icon-theme')
 makedepends=('yarn' 'git' 'nodejs' 'npm' 'python')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
@@ -21,12 +21,12 @@ source=(
   # See https://github.com/atom/node-spellchecker/issues/127
   "https://github.com/atom/node-spellchecker/archive/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"
 )
-sha512sums=('9b82e45c5cceee5ffc035cb82545d5b5f4dd1d4ddd96fb1be37b225ab2ca07d177494e5bdc8c0290fdf44aaca45534b09529f14b15aeaad6cfa0f017747180b4'
+sha512sums=('f131f5efec42d9c1d73786a6647d11598a9aba34cb9ab30c57136940720dd4f1415fdf4e7ccfff55902ebd5211656fe35179d7eabb041404ecb6fa0e24927638'
             'd07220429c479e3b6aaafede95da117bdb735877162f584265a16434ed75a926c21534e8d291de53e58a1bf0a72cdd41a9a8ae7314e2f6fec98c938852a3b991'
             '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
             '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2'
             '42f57802fa91dafb6dbfb5a3f613c4c07df65e97f8da84c9a54292c97a4d170f8455461aac8f6f7819d1ffbea4bf6c28488f8950056ba988776d060be3f107dd')
-b2sums=('b247c56d650b00c0ff17d359a03ad1080120a92cd0589724655d44238a4defdee969184660c6116c06181e670b0f561edaf6a4fcf6e7490c9ba1eb92eab60f22'
+b2sums=('d5ebfd64f544f8d68831da9f3725a6fa4a6875ce690b5d550adacb7f5ad2d2414a430071b45c4c885e4e29ea630de72a50aa3c160000e767a07b19edf81edcf6'
         'b05d190f28029c65d5cc15f69804db0b2775ff55b4db3a721c1dcf4aa8219b459453740fd26afecb6d72a515366af80af0b985d7b58e542a9edd76bb251ae000'
         '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
         'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289'
