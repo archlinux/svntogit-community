@@ -1,0 +1,72 @@
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+
+pkgname=tinygo
+pkgver=0.15.0
+pkgrel=2
+pkgdesc='Go compiler for small places. Microcontrollers, WebAssembly, and command-line tools. Based on LLVM.'
+arch=(x86_64)
+url='https://github.com/tinygo-org/tinygo'
+license=(BSD)
+options=(!strip)
+depends=(llvm-libs clang lld)
+makedepends=(go llvm git)
+# use git as we need to fetch submodules
+source=(git+https://github.com/tinygo-org/tinygo#tag=v$pkgver
+        git+https://github.com/NordicSemiconductor/nrfx
+        git+https://github.com/ARM-software/CMSIS
+        git+https://github.com/avr-rust/avr-mcu
+        git+https://github.com/tinygo-org/cmsis-svd
+        git+https://github.com/llvm-mirror/compiler-rt#branch=release_80
+        git+https://github.com/CraneStation/wasi-libc
+        git+https://github.com/keith-packard/picolibc
+        disable_static_llvm.patch
+        llvm11.patch::https://github.com/tinygo-org/tinygo/commit/b40f250530769330cec4a2ae0a9ba6e0c6ce058a.patch)
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            '7648bd3b4b78174d912908d35bff6f2b0fe5dfdf78e4aa2d3824b929fb244335'
+            'e1071587cd170c8e5c52d60fa9b21952385ccc714e218f88f729977e1aef82c5')
+
+prepare() {
+  cd tinygo
+
+  git submodule init
+  git config -f .gitmodules 'submodule.lib/nrfx.url' "$srcdir/nrfx"
+  git config -f .gitmodules 'submodule.lib/CMSIS.url' "$srcdir/CMSIS"
+  git config -f .gitmodules 'submodule.lib/avr.url' "$srcdir/avr-mcu"
+  git config -f .gitmodules 'submodule.lib/cmsis-svd.url' "$srcdir/cmsis-svd"
+  git config -f .gitmodules 'submodule.lib/compiler-rt.url' "$srcdir/compiler-rt"
+  git config -f .gitmodules 'submodule.lib/wasi-libc.url' "$srcdir/wasi-libc"
+  git config -f .gitmodules 'submodule.lib/picolibc.url' "$srcdir/picolibc"
+
+  git submodule sync
+  git submodule update
+
+  patch -p1 < ../disable_static_llvm.patch
+
+  patch -p1 < ../llvm11.patch # https://github.com/tinygo-org/tinygo/issues/1435
+}
+
+build() {
+  cd tinygo
+  make build/release
+}
+
+check() {
+  cd tinygo
+  # it reqreires a lot of dependencies. todo enable the tests
+  # make test tinygo-test smoketest
+}
+
+package() {
+  cd tinygo
+
+  install -d "$pkgdir"/usr/bin "$pkgdir"/usr/lib/tinygo
+  mv build/release/tinygo/* "$pkgdir"/usr/lib/tinygo
+  ln -s /usr/lib/tinygo/bin/tinygo "$pkgdir"/usr/bin/tinygo
+}
