@@ -5,8 +5,8 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=5.5.1
-pkgrel=2
+pkgver=5.5.2
+pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
 license=('BSD')
@@ -15,14 +15,14 @@ makedepends=('git' 'go' 'yarn')
 source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
         "keybase-gui"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('c203788c672168f506290ed02cee09e825103de047c02ce35515e7f509b2ca3a1e1bb1d2c895c8bfe484b9d0f175136cb4949a03f9d472181be8c33b388e7260'
+sha512sums=('78f771285aaf71da0b470c6897275a3ec1320e80fb95b1e8297adb31d6c302883d308f70398fbc65e8037c3b5e9438f9d6885488bfd208266bce74de4ba889f4'
             'SKIP'
-            '2cd6d153a39300a3a03de7aa62be832a1410de335df9e832794a483a76ec5f7856e9633b33137280679fb3624cf2b41bc9552261708e4aff6eaf4085f92bbc90'
-            '1485e41432218b88aff71bbe68d265baad18c8b91b3d51cacdb4ac9b09abfb6cde91b9b87cb861cffeff92830159552307a89462c8697bb066416bd897e7b68b')
-b2sums=('b98738e47c300ba34de9b32ea97551607d6a311969d2b33dc5917dc11013b5e8666260bdbd90d969d92f1883f576dcf1bcb6d9b2a5c5e2983728040a3cda2f3a'
+            'dc52d7c3d5798d9b83a4e42ba70a071b1cd5cb95c8b695a4b7a33d85744762ae644feef58cf4d582c8d8c169be68d57f392c33ff0796490e88f01f09b4c207d2'
+            'f759f69b774200261687842c66902a3c45638bb012ced9bd83d27491c8a0bbc0bc744dbb83ad7672d443f32d7303c15aeb0ded7a1a0d7ab56e7b1c1b64e263c3')
+b2sums=('c9b9753d916d623782f380494aed2e3a8893d3943df93d8161c588220643780e24837128701d811147a6cbc1189f615dd7a7d21fc8cc9c6b6efb8c9534d4c987'
         'SKIP'
-        '3a2e97e83555d63ec29c5e72fff3adf36ced7502ce1bf650833927f2810eb0eec240b881bcc25791ff571bb3c92030d9cdef229631c9866b53465b25abd38190'
-        '164dd6f37fe38d3c840b2b92d41553e0be67985d7c8471833a9ff381c05b0c35f295bfc630aa3ce6e31afb70b805d071e8c0a438a504064d24f99720c1571b9a')
+        'ac27d14a9625a3bca6a4ac87adbe5bb2f0aee0c4a88bf39ac8b3d235801743b2e40e6cd7db26089398f016a25046a674f521b890ddf73c3c6637d0d6bf6e1397'
+        '02d7876fb0d68b05e9ee262925a063049bfa2e5e063789008c4c74e406084d4441d2c860ecb2b08596f9d9a8c9a6e9136a2cdbd8312bcbf376d9d6e6c811bcfc')
 validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Signing (v1) <code@keybase.io>
 
 prepare() {
@@ -34,7 +34,7 @@ prepare() {
 
     # Fix paths to run electron /path/to/app (or our minimal wrapper script).
     # Also wire up "hideWindow" when running as a service or via XDG autostart.
-    sed -i 's@/opt/keybase/Keybase@/usr/bin/electron9 /usr/share/keybase-app@' \
+    sed -i 's@/opt/keybase/Keybase@/usr/bin/electron /usr/share/keybase-app@' \
         packaging/linux/systemd/keybase.gui.service
     sed -i 's/run_keybase/keybase-gui/g' \
         packaging/linux/keybase.desktop go/install/install_unix.go
@@ -99,7 +99,7 @@ package_kbfs() {
 
 package_keybase-gui() {
     pkgdesc="GUI frontend for GPG with keybase.io"
-    depends=('electron9' 'keybase' 'kbfs')
+    depends=('electron' 'keybase' 'kbfs')
 
     cd client-v${pkgver}/
 
