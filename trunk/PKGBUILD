@@ -3,7 +3,7 @@
 
 _srcname=SPIRV-LLVM-Translator
 pkgname=${_srcname,,}
-pkgver=10.0.0
+pkgver=11.0.0
 pkgrel=1
 pkgdesc="Tool and a library for bi-directional translation between SPIR-V and LLVM IR"
 arch=(x86_64)
@@ -12,18 +12,16 @@ license=(custom)
 depends=(llvm-libs)
 makedepends=(cmake llvm spirv-tools)
 checkdepends=(python python-setuptools clang)
-source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('7ccde52bac4c9ad967a362a3c5ec7261aa5b7b34d28cef0f3dec38d77c923049')
+source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
+sha256sums=('6464a722278d37fca783cb505caf44cc8473c22fd22ff6a5d07198bc92059c4f')
 
 build() {
-    # workaround to fix luxmark crashing issue: use -O0
-    # https://github.com/intel/compute-runtime/issues/218
     cmake -B build -S ${_srcname}-${pkgver} \
         -DBUILD_SHARED_LIBS=ON \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_CXX_FLAGS_RELEASE='-O0' \
         -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DCMAKE_SKIP_RPATH=ON \
         -DLLVM_INCLUDE_TESTS=ON \
         -DLLVM_EXTERNAL_LIT=/usr/bin/lit \
         -Wno-dev
@@ -31,7 +29,7 @@ build() {
 }
 
 check() {
-    make -C build test
+    LD_LIBRARY_PATH="${srcdir}/build/lib/SPIRV" make -C build test
 }
 
 package() {
