@@ -6,7 +6,7 @@
 
 pkgname=vtk
 pkgver=8.2.0
-pkgrel=14
+pkgrel=15
 pkgdesc="A software system for 3D computer graphics, image processing, and visualization"
 arch=(x86_64)
 url="https://www.vtk.org/"
@@ -47,7 +47,8 @@ source=("${url}/files/release/${pkgver%.*}/VTK-${pkgver}.tar.gz"
         proj6.patch
         vtk-python-3.8.patch::"https://gitlab.kitware.com/vtk/vtk/merge_requests/5883.patch"
         vtk-gcc10.patch::"https://gitlab.kitware.com/vtk/vtk/-/commit/a9079bdc.patch"
-        vtk-qt5.15.patch::"https://gitlab.kitware.com/vtk/vtk/-/commit/797f2869.patch")
+        vtk-qt5.15.patch::"https://gitlab.kitware.com/vtk/vtk/-/commit/797f2869.patch"
+        vtk-freetype-2.10.3.patch)
 options=(staticlibs)
 sha512sums=('521bd4dabedbc24b0e80a314a34ecd7554b04af28a7973245e3a9cf99a09b995d1b8ac42305c8e53369f226a0a6da3cdb29105ba2c90b46492736ef717760286'
             '517d0f6dfdb0c61f59df933f06d3a28c8a48ea684aaff311456213fe493e2a20128886144325fc4edfa376b2d375a2dae6c60ad6e3d5d2f4a7b0ac1d8545c87b'
@@ -55,10 +56,10 @@ sha512sums=('521bd4dabedbc24b0e80a314a34ecd7554b04af28a7973245e3a9cf99a09b995d1b
             'bd095a848c198752307d6924eaa46d07af4fbbba70f4665e10c8b5dd8d2a84cb6d9ea6c25705463a6c054c5afa5af4c68030ad90d37953672c0fc609eaf24b07'
             '9b85600812b6caf5007cdaeff34a504fa706bd0e1412dd306f8424b39edde430d8eedddcb53ce987afb6799ffc571f3fb9de80106324782e9d5b37947e92dcd6'
             '5432ae62773377301a6709de0b789b1d5a459e467e4796b3d275c8a1cec6962fd8ebf404f8f11ed63a8d525c2d5a8dd163080d8fd3e483f3a5e06739133acd8f'
-            'a82df18ed019fe798b740c707e6511ea28b200ddd887054346508ead0aa91a847de15aa5f668c9cb87792424d2ead3600e59f7acc76e003477bc5f630cbbadaa')
+            'a82df18ed019fe798b740c707e6511ea28b200ddd887054346508ead0aa91a847de15aa5f668c9cb87792424d2ead3600e59f7acc76e003477bc5f630cbbadaa'
+            '01df3947425b510f9c64e72ab2020b02f28141421ad29be94bf118cd7b56cc22702ae329db05bc336284d3edcf3b71d254de10a2784296c691447ee356c76683')
 
 prepare() {
-  mkdir build
   cd VTK-${pkgver}
 
   # Fix build with proj 6.0
@@ -77,11 +78,12 @@ prepare() {
   # Fix build with Java 12
   sed -i 's/VTK_JAVA_SOURCE_VERSION "1.6"/VTK_JAVA_SOURCE_VERSION "1.7"/
           s/VTK_JAVA_TARGET_VERSION "1.6"/VTK_JAVA_TARGET_VERSION "1.7"/' Wrapping/Java/CMakeLists.txt
+
+  # Fix build with FreeType 2.10.3
+  patch -p1 -i ../vtk-freetype-2.10.3.patch
 }
 
 build() {
-  cd build
-
   # to help cmake find java
   export JAVA_HOME=/usr/lib/jvm/default
 
@@ -100,12 +102,12 @@ build() {
 
   local _tkver=$(echo 'puts $tcl_version' | tclsh)
 
-  cmake ../VTK-${pkgver} \
-    -Wno-dev \
+  cmake -B build -S VTK-${pkgver} \
+    -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_SKIP_RPATH=ON \
+    -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DBUILD_SHARED_LIBS=ON \
-    -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_DOCUMENTATION=OFF \
     -DDOXYGEN_KEEP_TEMP=ON \
     -DDOCUMENTATION_HTML_HELP=OFF \
@@ -126,15 +128,12 @@ build() {
     -DVTK_INSTALL_INCLUDE_DIR=include/vtk \
     -DVTK_INSTALL_TCL_DIR=/usr/lib/tcl${_tkver}/vtk/ \
     ${VTK_USE_SYSTEM_LIB} \
-    -DCMAKE_BUILD_TYPE=Release
-
-  make
+    -Wno-dev
+  make -C build
 }
 
 package() {
-  cd build
-
-  make DESTDIR="${pkgdir}" install
+  make -C build DESTDIR="${pkgdir}" install
 
   # Move the vtk.jar to the arch-specific location
   install -dv "${pkgdir}"/usr/share/java/vtk
@@ -142,7 +141,7 @@ package() {
   rm -rf "${pkgdir}"/usr/lib/vtk-${pkgver%.*}/java
 
   # Install license
-  install -Dm644 ../VTK-${pkgver}/Copyright.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}/
+  install -Dm644 VTK-${pkgver}/Copyright.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}/
 
   # Fix path of QtDesigner plugin
   install -dv "${pkgdir}"/usr/lib/qt
