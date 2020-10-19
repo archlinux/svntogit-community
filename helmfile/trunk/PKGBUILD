@@ -10,7 +10,7 @@ license=('MIT')
 makedepends=('go')
 depends=('glibc')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/roboll/helmfile/archive/v${pkgver}.tar.gz")
-sha512sums=('96a6a6335d1846c945410b9a7c2e580f736ac2f9730a68f59cdce8f699a7e83910ba21116de8a9640d550c03c7156d684457421597d0d9bcd63067e6cbb03e81')
+sha512sums=('b807608b418610539ff0f7dd8e50927b19420328292fe4d1b9f6994ee6a18337d8496493987c5b1885a53673cd9bff5ab5f495d7b7a20283d96756ff420fe255')
 
 prepare() {
   export GOPATH="${srcdir}"
