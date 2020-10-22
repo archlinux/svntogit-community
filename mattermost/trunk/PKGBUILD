@@ -4,7 +4,7 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=5.27.0
+pkgver=5.28.1
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
@@ -21,9 +21,9 @@ source=(${pkgname}-server-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgn
         ${pkgname}.service
         ${pkgname}.sysusers
         ${pkgname}.tmpfiles)
-sha256sums=('5ff282b52c0ac7fbc4bcd2abfc3eeec2e5fdf68dea1040585f954932ff11dd7e'
-            '2da24bf4449540857ef6c36587fd74985481522fda038d0469e6a8785c10f4e3'
-            'ac54a04be1a9fd17dff4d3f2e0d5f411aa35984dfaa6e86fe9856ed3ed1f5357'
+sha256sums=('4d6235f8c545b33fcc788b018948093492c597ee12c81fe845ee2e5c6b43f3d8'
+            'e5ac8d00f40085f176d8cd0d1096940be0d81e63b8bae380778ba299da1f6c4a'
+            '8236235749e3f54b494159b80bf677a7c09cf8d87001fa431925a0e423d3f33e'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
 
@@ -58,7 +58,7 @@ build() {
          -ldflags "-linkmode external
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildNumber=${pkgver}-${pkgrel}\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildDate=$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +"%Y-%m-%d %H:%M:%S")\" \
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildHash=${pkgver}-${pkgrel} Arch Linux \(${CARCH}\)\" \
+                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildHash=${pkgver}-${pkgrel} Arch Linux (${CARCH})\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildHashEnterprise=none\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildEnterpriseReady=false\"" \
          -o bin/ ./...
