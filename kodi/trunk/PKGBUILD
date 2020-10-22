@@ -23,7 +23,7 @@ pkgname=(
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
 pkgver=18.8
-pkgrel=2
+pkgrel=4
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -66,7 +66,6 @@ source=(
   "$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/fstrcmp-$_fstrcmp_version.tar.gz"
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
   'cheat-sse-build.patch'
-  'cpuinfo'
   '17804.patch'
 )
 noextract=(
@@ -88,8 +87,7 @@ sha512sums=('242eaa9144ba0d9b15f02ab41282295de76d375cf66d595e7f6687d47c996133fcf
             '2682d63609d3dcdfcd8136be632e45df26ad88ce93b9c49745cf728bbd2e6254a7b05c8b059ab581d532372e504206a525a52564b64d076dfdae9c965a09fd16'
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
             '0ba07dbe5b2fde1d0a6e14ee26ee2816062541d934eda204b846a30c019362f2626761b628c900293928b9b546dba8ca477c13182e022c3e0e0a142fd67f0696'
-            '424dbde693c83d923f82fe22cf42564eb51077bd021fc1cc72d03318fe49d498082494fd57354908a2443aea41f47a280d750d59cee9e78cff4241111a6ceada'
-            '539b33f30f6735caaf57fb9f19de449b8a8902362ae9e66a6fceabd530d02888533d2ab262fb187670780c997e5c1d23bd715a3c6860fd50280c1031f47865f7'
+            '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a'
             '69e477773bf6f4160288e445c7c2492e4de7054960bfcd6833f206e5c994c6b7a7995c51c1a45c702c34343063912c4c61590129f87181b21738ba7e489cd01d')
 
 prepare() {
