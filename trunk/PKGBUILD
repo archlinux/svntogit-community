@@ -28,10 +28,10 @@ build() {
 
 check() {
   cd "$srcdir"/colorama-$pkgver
-  python -m unittest discover -p *_test.py || warning "Tests failed"
+  python -m unittest discover -p *_test.py || echo "Tests failed"
 
   cd "$srcdir"/colorama-$pkgver-py2
-  python2 -m unittest discover -p *_test.py || warning "Tests failed"
+  python2 -m unittest discover -p *_test.py || echo "Tests failed"
 }
 
 package_python-colorama() {
