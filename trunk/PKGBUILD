@@ -45,7 +45,7 @@ check() {
     python2 -m tornado.test.runtests --ioloop=tornado.platform.twisted.TwistedIOLoop
     python2 -m tornado.test.runtests --ioloop=tornado.platform.asyncio.AsyncIOLoop
     python2 -m tornado.test.runtests --resolver=tornado.netutil.ThreadedResolver
-  ) || warning "Tests failed"
+  ) || echo "Tests failed"
 }
 
 package() {
