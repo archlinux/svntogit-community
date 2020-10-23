@@ -21,7 +21,7 @@ check() {
   export PASSLIB_TEST_MODE=full
 
   cd "$srcdir"/passlib-$pkgver
-  python setup.py nosetests || warning "https://bitbucket.org/ecollins/passlib/issues/98/passlibextdjango-with-django-1112-fails"
+  python setup.py nosetests || echo "https://bitbucket.org/ecollins/passlib/issues/98/passlibextdjango-with-django-1112-fails"
 }
 
 package() {

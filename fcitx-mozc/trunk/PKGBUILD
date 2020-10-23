@@ -66,9 +66,9 @@ prepare() {
   find . -regex '.*\.gypi?$' -type f -exec sed -i -e "s|'python'|'python2'|g" {} +
 
   # Generate zip code seed
-  msg "Generating zip code seed..."
+  echo "Generating zip code seed..."
   PYTHONPATH="$PWD:$PYTHONPATH" python2 dictionary/gen_zip_code_seed.py --zip_code="${srcdir}/x-ken-all.csv" --jigyosyo="${srcdir}/JIGYOSYO.CSV" >> data/dictionary_oss/dictionary09.txt
-  msg "Done."
+  echo "Done."
 
   # Copy third party deps
   cd "$srcdir"
