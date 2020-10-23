@@ -15,7 +15,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.7
+pkgver=5.9
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -37,7 +37,7 @@ makedepends+=('ncurses')
 makedepends+=('python-docutils')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-#        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
+        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -46,9 +46,10 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
+            '7edb7b9d06b02f9b88d868c74ab618baf899c94edb19a73291f640dbea55c312'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'd2e8e5e8b22c6089a91f573aa1c59e442a1f3b67a2c9f047abe3b57d3d6558cc'
-            'fa2560630576464739ede14c9292249f4007f36a684bc378add174fc88394550'
+            '42d2ec9f1d9cc255ee7945a27301478364ef482f5a6ddfc960189f03725ccec2'
             '2e187734d8aec58a3046d79883510d779aa93fb3ab20bd3132c1a607ebe5498f'
             '16855c197d2334f820cb190312a5a7fffe9165189db01344a957e582e39e17d8'
             'b1315cb77a35454e1af9172f821a52e2a0cb18561be05a340d21cf337b01ae61'
@@ -165,6 +166,7 @@ package_libtraceevent() {
   cd linux/tools/lib/traceevent
   install -dm 755 "$pkgdir/usr/lib"
   install -m 644 libtraceevent.so "$pkgdir/usr/lib"
+  ln -sf libtraceevent.so "$pkgdir/usr/lib/libtraceevent.so.1"
 }
 
 package_perf() {
