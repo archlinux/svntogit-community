@@ -81,7 +81,7 @@ prepare() {
   local filename
   for filename in "${source[@]}"; do
     if [[ "${filename}" =~ \.patch$ ]]; then
-      msg2 "Applying patch ${filename##*/}"
+      echo "Applying patch ${filename##*/}"
       patch -p1 -N -i "${srcdir}/${filename##*/}"
     fi
   done
