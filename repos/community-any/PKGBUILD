@@ -2,7 +2,7 @@
 
 pkgbase=python-importlib-metadata
 pkgname=(python-importlib-metadata python2-importlib-metadata)
-pkgver=1.6.1
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="Read metadata from Python packages"
 url="https://importlib-metadata.readthedocs.io"
@@ -12,9 +12,9 @@ makedepends=('python-setuptools-scm' 'python2-setuptools-scm' 'python2-contextli
              'python2-pathlib2' 'python2-configparser' 'python-zipp' 'python2-zipp')
 checkdepends=('python-pip' 'python2-pip' 'python-pytest-runner' 'python2-pytest-runner'
               'python-importlib_resources' 'python2-importlib_resources' 'python-wheel'
-              'python2-wheel' 'python-pyfakefs')
+              'python2-wheel' 'python-pyfakefs' 'python-tests')
 source=("$pkgbase-$pkgver.tar.gz::https://gitlab.com/python-devs/importlib_metadata/-/archive/v$pkgver/importlib_metadata-v$pkgver.tar.bz2")
-sha512sums=('0f813ea597f25a31c6810b23d2ebd0e46c098e2a15a3dde5fc2ca9f22e7e97cc4d15403d00e8d2be040d5da992fc44bc8ab752d965ee4c2cd4b6d129d6844561')
+sha512sums=('f424973dca95dbbfcbddd21b0ce26873b6e732d93722789efe4a6f2367caa21cf18a22dc7ea089167d98568ecbbe2e0e3fff1155017bf2d9d50fc3775024cb37')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
