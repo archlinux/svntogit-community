@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.3.4
+pkgver=3.4.0
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
@@ -13,22 +13,14 @@ url="https://helm.sh/"
 license=("Apache")
 depends=('glibc')
 makedepends=("go" "git")
-_commit=a61ce5633af99708171414353ed49547cf05013d    #refs/tags/v3.3.4^{}
-source=("git+https://github.com/helm/helm.git#commit=$_commit?signed"
-        "go1.15-compat.patch::https://github.com/helm/helm/commit/83a5e620d0acde77502b1f814f749268e8d8ef6e.patch")
+source=("git+https://github.com/helm/helm.git#tag=v${pkgver}?signed")
 validpgpkeys=('672C657BE06B4B30969C4A57461449C25E36B98E'
               '967F8AC5E2216F9F4FD270AD92AA783CBAAE8E3B')
-sha256sums=('SKIP'
-            '1ae04b9cc2641ef068ce6ad8fe1b29f4177e1451489cd4a7316bf566659d2da8')
+sha256sums=('SKIP')
 
 pkgver() {
   cd "${pkgname}"
   git describe --tags | sed 's/^v//;s/-/+/g'
-}
-
-prepare() {
-    cd "${pkgname}"
-    patch -Np1 < "$srcdir/go1.15-compat.patch"
 }
 
 build() {
