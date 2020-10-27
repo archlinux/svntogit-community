@@ -1,0 +1,1096 @@
+diff --git a/src/cisco_lib/PolicyCompiler_cisco.cpp b/src/cisco_lib/PolicyCompiler_cisco.cpp
+index 21b89ff5..f80f04d4 100644
+--- a/src/cisco_lib/PolicyCompiler_cisco.cpp
++++ b/src/cisco_lib/PolicyCompiler_cisco.cpp
+@@ -773,7 +773,7 @@
+         string cmd(buf);
+         string::size_type n=cmd.find(' ');
+         
+-        list<string>::iterator s = ::find(commands.begin(),commands.end(),cmd.substr(0,n+1));
++        list<string>::iterator s = std::find(commands.begin(),commands.end(),cmd.substr(0,n+1));
+         if (s!=commands.end()) slot = *s;
+ 
+         script[slot].push_back(buf);
+diff --git a/src/iptlib/CompilerDriver_ipt_run.cpp b/src/iptlib/CompilerDriver_ipt_run.cpp
+index e5e4fc62..9146d7d8 100644
+--- a/src/iptlib/CompilerDriver_ipt_run.cpp
++++ b/src/iptlib/CompilerDriver_ipt_run.cpp
+@@ -678,6 +678,11 @@ QString CompilerDriver_ipt::run(const std::string &cluster_id,
+         script_buffer = "";
+
+         Configlet block_action(fw, "linux24", "block_action");
++        if (XMLTools::version_compare(fw_version, "1.4.20") >= 0)
++            block_action.setVariable("opt_wait", "-w");
++        else
++            block_action.setVariable("opt_wait", "");
++
+         block_action.collapseEmptyStrings(true);
+
+         // the name of the option is historical (including the typo)
+@@ -702,6 +707,11 @@ QString CompilerDriver_ipt::run(const std::string &cluster_id,
+         stop_action.setVariable("have_ipv4", have_ipv4);
+         stop_action.setVariable("have_ipv6", have_ipv6);
+
++        if (XMLTools::version_compare(fw_version, "1.4.20") >= 0)
++            stop_action.setVariable("opt_wait", "-w");
++        else
++            stop_action.setVariable("opt_wait", "");
++
+         script_skeleton.setVariable("stop_action", stop_action.expand());
+
+
+diff --git a/src/iptlib/NATCompiler_PrintRule.cpp b/src/iptlib/NATCompiler_PrintRule.cpp
+index ea19d173..3b63bede 100644
+--- a/src/iptlib/NATCompiler_PrintRule.cpp
++++ b/src/iptlib/NATCompiler_PrintRule.cpp
+@@ -121,8 +121,15 @@ string NATCompiler_ipt::PrintRule::_createChain(const string &chain)
+
+     if ( ipt_comp->minus_n_commands->count(chain)==0 )
+     {
++        string opt_wait;
++
++        if (XMLTools::version_compare(version, "1.4.20")>=0)
++            opt_wait = "-w ";
++        else
++            opt_wait = "";
++
+         string ipt_cmd = (ipt_comp->ipv6) ? "$IP6TABLES " : "$IPTABLES ";
+-	res << ipt_cmd << "-t nat -N " << chain << endl;
++	res << ipt_cmd << opt_wait << "-t nat -N " << chain << endl;
+ 	(*(ipt_comp->minus_n_commands))[chain] = true;
+     }
+     return res.str();
+@@ -132,7 +139,15 @@ string NATCompiler_ipt::PrintRule::_startRuleLine()
+ {
+     NATCompiler_ipt *ipt_comp = dynamic_cast<NATCompiler_ipt*>(compiler);
+     string res = (ipt_comp->ipv6) ? "$IP6TABLES " : "$IPTABLES ";
+-    return res + string("-t nat -A ");
++
++    string opt_wait;
++
++    if (XMLTools::version_compare(version, "1.4.20")>=0)
++        opt_wait = "-w ";
++    else
++        opt_wait = "";
++
++    return res + opt_wait + string("-t nat -A ");
+ }
+
+ string NATCompiler_ipt::PrintRule::_endRuleLine()
+diff --git a/src/iptlib/NATCompiler_ipt.cpp b/src/iptlib/NATCompiler_ipt.cpp
+index 35311377..d0c8ab88 100644
+--- a/src/iptlib/NATCompiler_ipt.cpp
++++ b/src/iptlib/NATCompiler_ipt.cpp
+@@ -1797,6 +1797,7 @@ bool NATCompiler_ipt::splitNATBranchRule::processNext()
+         if (branch)
+         {
+             string branch_name = branch->getName();
++
+             if (ipt_comp->branch_ruleset_to_chain_mapping)
+             {
+                 map<string, list<string> >::const_iterator lit =
+@@ -1828,25 +1829,37 @@ bool NATCompiler_ipt::splitNATBranchRule::processNext()
+                 }
+             }
+
+-            compiler->warning(rule,
+-                              "NAT branching rule does not have information"
+-                              " about targets used in the branch ruleset"
+-                              " to choose proper chain in the nat table."
+-                              " Will split the rule and place it in both"
+-                              " PREROUTNING and POSTROUTING");
+-            NATRule *r = compiler->dbcopy->createNATRule();
+-            compiler->temp_ruleset->add(r);
+-            r->duplicate(rule);
+-            r->setStr("ipt_chain", "POSTROUTING");
+-            r->setStr("ipt_target", branch_name);
+-            tmp_queue.push_back(r);
++            {
++                NATRule *r;
++                string prefix, new_chain, tgt_chain;
++                string prepost[] = { "PRE", "POST" };
++                int i;
++
++                compiler->warning(rule,
++                                  "NAT branching rule does not have information"
++                                  " about targets used in the branch ruleset"
++                                  " to choose proper chain in the nat table."
++                                  " Will split the rule and place it in both"
++                                  " PREROUTNING and POSTROUTING");
++
++                prefix = (ipt_comp->getRuleSetName() + "_");
++                if (prefix == string("NAT_")) prefix = "";
++
++                for (i = 0; i < 2; i++) {
++                   r = compiler->dbcopy->createNATRule();
++                   compiler->temp_ruleset->add(r);
++                   r->duplicate(rule);
++                   new_chain = prefix + prepost[i] + "ROUTING";
++                   tgt_chain = branch_name + "_" + prepost[i] + "ROUTING";
++
++                   ipt_comp->registerRuleSetChain(new_chain);
++                   ipt_comp->registerRuleSetChain(tgt_chain);
++                   r->setStr("ipt_chain", new_chain);
++                   r->setStr("ipt_target", tgt_chain);
++                   tmp_queue.push_back(r);
++                }
++            }
+
+-            r = compiler->dbcopy->createNATRule();
+-            compiler->temp_ruleset->add(r);
+-            r->duplicate(rule);
+-            r->setStr("ipt_chain", "PREROUTING");
+-            r->setStr("ipt_target", branch_name);
+-            tmp_queue.push_back(r);
+
+             return true;
+         }
+diff --git a/src/iptlib/OSConfigurator_linux24.cpp b/src/iptlib/OSConfigurator_linux24.cpp
+index 48913262..048edb1e 100644
+--- a/src/iptlib/OSConfigurator_linux24.cpp
++++ b/src/iptlib/OSConfigurator_linux24.cpp
+@@ -309,6 +309,7 @@ string OSConfigurator_linux24::printShellFunctions(bool have_ipv6)
+     QStringList output;
+     FWOptions* options = fw->getOptionsObject();
+
++    string version = fw->getStr("version");
+     // string host_os = fw->getStr("host_OS");
+     // string os_family = Resources::os_res[host_os]->
+     //     getResourceStr("/FWBuilderResources/Target/family");
+@@ -359,6 +360,11 @@ string OSConfigurator_linux24::printShellFunctions(bool have_ipv6)
+      * default policy
+      */
+     Configlet reset_iptables(fw, "linux24", "reset_iptables");
++    if (XMLTools::version_compare(version, "1.4.20") >= 0)
++        reset_iptables.setVariable("opt_wait", "-w");
++    else
++        reset_iptables.setVariable("opt_wait", "");
++
+     output.push_back(reset_iptables.expand());
+
+     Configlet addr_conf(fw, "linux24", "update_addresses");
+diff --git a/src/iptlib/PolicyCompiler_PrintRule.cpp b/src/iptlib/PolicyCompiler_PrintRule.cpp
+index 6d1859a2..0594c6f1 100644
+--- a/src/iptlib/PolicyCompiler_PrintRule.cpp
++++ b/src/iptlib/PolicyCompiler_PrintRule.cpp
+@@ -136,8 +136,15 @@ string PolicyCompiler_ipt::PrintRule::_createChain(const string &chain)
+
+     if ( ipt_comp->minus_n_commands->count(chain)==0 )
+     {
+-	res = string((ipt_comp->ipv6) ? "$IP6TABLES -N " : "$IPTABLES -N ") +
+-            chain;
++        string opt_wait;
++
++        if (XMLTools::version_compare(version, "1.4.20")>=0)
++            opt_wait = "-w ";
++        else
++            opt_wait = "";
++
++	res = string((ipt_comp->ipv6) ? "$IP6TABLES " : "$IPTABLES ") +
++            opt_wait + "-N " + chain;
+         if (ipt_comp->my_table != "filter") res += " -t " + ipt_comp->my_table;
+         res += "\n";
+ 	(*(ipt_comp->minus_n_commands))[chain] = true;
+@@ -149,6 +156,14 @@ string PolicyCompiler_ipt::PrintRule::_startRuleLine()
+ {
+     PolicyCompiler_ipt *ipt_comp = dynamic_cast<PolicyCompiler_ipt*>(compiler);
+     string res = (ipt_comp->ipv6) ? "$IP6TABLES " : "$IPTABLES ";
++    string opt_wait;
++
++    if (XMLTools::version_compare(version, "1.4.20")>=0)
++        opt_wait = "-w ";
++    else
++        opt_wait = "";
++
++    res += opt_wait;
+
+     if (ipt_comp->my_table != "filter") res += "-t " + ipt_comp->my_table + " ";
+
+@@ -1632,11 +1647,17 @@ string PolicyCompiler_ipt::PrintRule::PolicyRuleToString(PolicyRule *rule)
+ */
+     if (!ruleopt->getBool("stateless") || rule->getBool("force_state_check") )
+     {
++        string state_module_option;
+         /*
+          * But not, when the line already contains a state matching
+          */
+-        if (command_line.str().find("-m state --state", 0) == string::npos)
+-            command_line << " -m state --state NEW ";
++        if (XMLTools::version_compare(version, "1.4.4")>=0)
++            state_module_option = "conntrack --ctstate";
++        else
++            state_module_option = "state --state";
++
++        if (command_line.str().find("-m " + state_module_option, 0) == string::npos)
++            command_line << " -m " << state_module_option << " NEW ";
+     }
+
+     command_line << _printTimeInterval(rule);
+@@ -1708,6 +1729,7 @@ string PolicyCompiler_ipt::PrintRule::_printOptionalGlobalRules()
+     PolicyCompiler_ipt *ipt_comp = dynamic_cast<PolicyCompiler_ipt*>(compiler);
+     ostringstream res;
+     bool isIPv6 = ipt_comp->ipv6;
++    string state_module_option;
+
+     string s = compiler->getCachedFwOpt()->getStr("linux24_ip_forward");
+     bool ipforward= (s.empty() || s=="1" || s=="On" || s=="on");
+@@ -1729,6 +1751,13 @@ string PolicyCompiler_ipt::PrintRule::_printOptionalGlobalRules()
+                           compiler->getCachedFwOpt()->getBool("accept_established") &&
+                           ipt_comp->my_table=="filter");
+
++    if (XMLTools::version_compare(version, "1.4.4")>=0)
++        state_module_option = "conntrack --ctstate";
++    else
++        state_module_option = "state --state";
++
++    configlet.setVariable("state_module_option", state_module_option.c_str());
++
+     list<FWObject*> ll = compiler->fw->getByTypeDeep(Interface::TYPENAME);
+     for (FWObject::iterator i=ll.begin(); i!=ll.end(); i++)
+     {
+diff --git a/src/juniper_lib/CompilerDriver_junosacl.cpp b/src/juniper_lib/CompilerDriver_junosacl.cpp
+index 9478cc17..3136c9cc 100644
+--- a/src/juniper_lib/CompilerDriver_junosacl.cpp
++++ b/src/juniper_lib/CompilerDriver_junosacl.cpp
+@@ -19,6 +19,7 @@ string fs_separator = "/";
+ CompilerDriver_junosacl::CompilerDriver_junosacl(FWObjectDatabase *db) :
+     CompilerDriver(db)
+ {
++    comment_symbol = "#";
+ }
+
+ // create a copy of itself, including objdb
+diff --git a/src/juniper_lib/CompilerDriver_junosacl.h b/src/juniper_lib/CompilerDriver_junosacl.h
+index f528cda6..e3c6a912 100644
+--- a/src/juniper_lib/CompilerDriver_junosacl.h
++++ b/src/juniper_lib/CompilerDriver_junosacl.h
+@@ -26,6 +26,7 @@ namespace fwcompiler {
+ protected:
+     std::string system_configuration_script;
+     std::string policy_script;
++    std::string comment_symbol;
+
+     void printProlog(QTextStream &file, const std::string &prolog_code);
+
+diff --git a/src/juniper_lib/CompilerDriver_junosacl_run.cpp b/src/juniper_lib/CompilerDriver_junosacl_run.cpp
+index 8f14defc..5a3dc43e 100644
+--- a/src/juniper_lib/CompilerDriver_junosacl_run.cpp
++++ b/src/juniper_lib/CompilerDriver_junosacl_run.cpp
+@@ -72,7 +72,8 @@ QString CompilerDriver_junosacl::assembleFwScript(Cluster *cluster,
+     options->setStr("prolog_place", "");
+
+     assembleFwScriptInternal(cluster, fw, cluster_member,
+-                             oscnf, &script_skeleton, &top_comment, "!", true);
++                             oscnf, &script_skeleton, &top_comment,
++                             QString::fromStdString(comment_symbol), true);
+     return script_skeleton.expand();
+ }
+
+diff --git a/src/juniper_lib/juniper_lib.pro b/src/juniper_lib/juniper_lib.pro
+index 45a4bf6f..567a7098 100644
+--- a/src/juniper_lib/juniper_lib.pro
++++ b/src/juniper_lib/juniper_lib.pro
+@@ -31,7 +31,7 @@ HEADERS	 = ../../config.h                   \
+
+ macx:LIBS  += $$LIBS_FWCOMPILER
+
+-INCLUDEPATH += ../compiler_lib ../libfwbuilder/src
++INCLUDEPATH += ../compiler_lib ../libfwbuilder/src ..
+ DEPENDPATH  += ../compiler_lib ../libfwbuilder/src
+
+ win32:PRE_TARGETDEPS  = ../compiler_lib/release/libcompilerdriver.a
+diff --git a/src/libfwbuilder/src/fwbuilder/FWObject.cpp b/src/libfwbuilder/src/fwbuilder/FWObject.cpp
+index c2c2e53d..f2d0139c 100644
+--- a/src/libfwbuilder/src/fwbuilder/FWObject.cpp
++++ b/src/libfwbuilder/src/fwbuilder/FWObject.cpp
+@@ -992,6 +992,8 @@ void FWObject::removeAllInstances(FWObject *rm)
+
+ void FWObject::removeRef(FWObject *obj)
+ {
++    if (!obj) return;
++
+     int  obj_id = obj->getId();
+     for(list<FWObject*>::iterator m=begin(); m!=end(); ++m)
+     {
+diff --git a/src/libgui/GroupObjectDialog.cpp b/src/libgui/GroupObjectDialog.cpp
+index 4466abee..7acc85d0 100644
+--- a/src/libgui/GroupObjectDialog.cpp
++++ b/src/libgui/GroupObjectDialog.cpp
+@@ -769,6 +769,18 @@ void GroupObjectDialog::deleteObj()
+             qDebug("GroupObjectDialog::deleteObj()  (*it)=%d", (*it));
+
+         FWObject* selectedObject = m_project->db()->findInIndex(*it);
++
++        // Bugfix: Do not delete an object in locked group with the Delete key
++        set<FWObject*> res_tmp;
++        m_project->db()->getRoot()->findWhereObjectIsUsed(selectedObject, m_project->db()->getRoot(), res_tmp);
++        foreach(FWObject* o, res_tmp) {
++            if (FWObjectReference::cast(o))
++                if (Group::cast(o->getParent()))
++                    if (o->isReadOnly())
++                        return;
++        }
++
++
+         int o_id = selectedObject->getId();
+
+         for (int it=0; it<listView->topLevelItemCount(); ++it)
+diff --git a/src/libgui/ObjectManipulator.cpp b/src/libgui/ObjectManipulator.cpp
+index fe9b6ba9..ad52a493 100644
+--- a/src/libgui/ObjectManipulator.cpp
++++ b/src/libgui/ObjectManipulator.cpp
+@@ -403,8 +403,159 @@
+ }
+ 
+ 
++void ObjectManipulator::addSubfolderActions(QList<QAction*> &AddObjectActions, FWObject *currentObj, ObjectTreeViewItem *item, bool &addSubfolder)
++{
++    addSubfolder = item != 0;
++    string path;
++    if (currentObj == NULL) {
++        path = item->getUserFolderParent()->getPath(true);
++    }
++    else {
++        path = currentObj->getPath(true);
++    }
++
++    //Do not allow to create subfolders on real objects
++    if(item==0 && (currentObj!=NULL
++                      &&!Firewall::isA(currentObj)
++                      &&!Cluster::isA(currentObj)
++                      &&!IPv4::isA(currentObj)
++                      &&!IPv6::isA(currentObj)
++                      &&!DNSName::isA(currentObj)
++                      &&!AddressTable::isA(currentObj)
++                      &&!AddressRange::isA(currentObj)
++                      &&!Host::isA(currentObj)
++                      &&!Network::isA(currentObj)
++                      &&!NetworkIPv6::isA(currentObj)
++                      &&!DynamicGroup::isA(currentObj)
++                      &&!CustomService::isA(currentObj)
++                      &&!IPService::isA(currentObj)
++                      &&!ICMPService::isA(currentObj)
++                      &&!ICMP6Service::isA(currentObj)
++                      &&!TCPService::isA(currentObj)
++                      &&!UDPService::isA(currentObj)
++                      &&!TagService::isA(currentObj)
++                      &&!ServiceGroup::isA(currentObj)
++                      &&!UserService::isA(currentObj)
++                      &&!Interval::isA(currentObj)
++                      )) {
++        addSubfolder = true;
++    }
++
++    if (path.find("Firewalls") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, Firewall::TYPENAME));
++    }
++
++    if (path.find("Clusters") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, Cluster::TYPENAME));
++    }
++
++    if (path.find("Objects/Addresses") == 0)
++    {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, IPv4::TYPENAME));
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, IPv6::TYPENAME));
++    }
++
++    if (path.find("Objects/DNS Names") == 0)
++    {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, DNSName::TYPENAME));
++    }
++
++    if (path.find("Objects/Address Tables") == 0)
++    {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, AddressTable::TYPENAME));
++    }
++
++    if (path.find("Objects/Address Ranges") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, AddressRange::TYPENAME));
++    }
++
++    if (path.find("Objects/Hosts") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, Host::TYPENAME));
++    }
++
++    if (path.find("Objects/Networks") == 0)
++    {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, Network::TYPENAME));
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, NetworkIPv6::TYPENAME));
++    }
++
++    if (path.find("Objects/Groups") == 0) {
++        //We don't want to add subfolders to groups of objects.
++        //Unfortunately the main folders are objectgroups themselves.
++        //This is a temporary workaround
++        if(path!="Objects/Groups") {
++            addSubfolder = false;
++        }
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, ObjectGroup::TYPENAME));
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, DynamicGroup::TYPENAME));
++    }
++
++    if (path.find("Services/Custom") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, CustomService::TYPENAME));
++    }
++
++    if (path.find("Services/IP") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, IPService::TYPENAME));
++    }
++
++    if (path.find("Services/ICMP") == 0)
++    {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, ICMPService::TYPENAME));
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, ICMP6Service::TYPENAME));
++    }
++
++    if (path.find("Services/TCP") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, TCPService::TYPENAME));
++    }
++
++    if (path.find("Services/UDP") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, UDPService::TYPENAME));
++    }
++
++    if (path.find("Services/TagServices") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, TagService::TYPENAME));
++    }
++
++    if (path.find("Services/Groups") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, ServiceGroup::TYPENAME));
++    }
++
++    if (path.find("Services/Users") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, UserService::TYPENAME));
++    }
++
++    if (path.find("Time") == 0) {
++        AddObjectActions.append(
++            addNewObjectMenuItem(popup_menu, Interval::TYPENAME));
++    }
++}
++
+ void ObjectManipulator::contextMenuRequested(const QPoint &pos)
+ {
++    QList<QAction*>::iterator iter;
++    QList<QAction*> AddObjectActions;
++    bool addSubfolder = false;
+     if (popup_menu == NULL)
+     {
+         popup_menu = new QMenu(this);
+@@ -426,6 +577,8 @@
+     ObjectTreeViewItem *otvi=dynamic_cast<ObjectTreeViewItem*>(item);
+     if (otvi==NULL)  return;  // happens when user clicks outside an item
+ 
++    lastClickedItem = otvi;
++
+     FWObject *obj = otvi->getFWObject();
+     if (obj == 0) {
+         assert(otvi->getUserFolderParent() != 0);
+@@ -435,6 +588,12 @@
+         if (objTreeView->getNumSelected() > 0) {
+             action->setEnabled(false);
+         }
++
++        addSubfolderActions(AddObjectActions, NULL, otvi, addSubfolder);
++
++        for (iter=AddObjectActions.begin(); iter!=AddObjectActions.end(); iter++)
++            (*iter)->setEnabled(true);
++
+         popup_menu->exec(QCursor::pos());
+         return;
+     }
+@@ -549,8 +708,6 @@
+ 
+     popup_menu->addSeparator();
+ 
+-    QList<QAction*> AddObjectActions;
+-    
+     if (getCurrentObjectTree()->getNumSelected()==1)
+     {
+         bool addSubfolder = false;
+@@ -657,126 +814,8 @@
+                     popup_menu, StateSyncClusterGroup::TYPENAME));
+         }
+ 
+-        if (currentObj->getPath(true)=="Firewalls") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, Firewall::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Clusters") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, Cluster::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/Addresses")
+-        {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, IPv4::TYPENAME));
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, IPv6::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/DNS Names")
+-        {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, DNSName::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/Address Tables")
+-        {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, AddressTable::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/Address Ranges") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, AddressRange::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/Hosts") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, Host::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/Networks")
+-        {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, Network::TYPENAME));
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, NetworkIPv6::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Objects/Groups") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, ObjectGroup::TYPENAME));
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, DynamicGroup::TYPENAME));
+-        }
+ 
+-        if (currentObj->getPath(true)=="Services/Custom") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, CustomService::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/IP") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, IPService::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/ICMP")
+-        {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, ICMPService::TYPENAME));
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, ICMP6Service::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/TCP") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, TCPService::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/UDP") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, UDPService::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/TagServices") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, TagService::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/Groups") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, ServiceGroup::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Services/Users") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, UserService::TYPENAME));
+-        }
+-
+-        if (currentObj->getPath(true)=="Time") {
+-            addSubfolder = true;
+-            AddObjectActions.append(
+-                addNewObjectMenuItem(popup_menu, Interval::TYPENAME));
+-        }
++        addSubfolderActions(AddObjectActions, currentObj, NULL, addSubfolder);
+ 
+         if (addSubfolder) {
+             QAction *action =
+@@ -885,12 +924,11 @@
+     if (movetargets)
+         movetargets->setEnabled(delMenuItem);
+ 
+-    QList<QAction*>::iterator iter;
+-    for (iter=AddObjectActions.begin(); iter!=AddObjectActions.end(); iter++)
+-        (*iter)->setEnabled(newMenuItem);
+ 
+-//    if (inDeletedObjects) movID->setText( tr("Undelete...") );
+ 
++//    if (inDeletedObjects) movID->setText( tr("Undelete...") );
++    for (iter=AddObjectActions.begin(); iter!=AddObjectActions.end(); iter++)
++        (*iter)->setEnabled(newMenuItem);
+     popup_menu->exec(QCursor::pos());
+ }
+ 
+diff --git a/src/libgui/ObjectManipulator.h b/src/libgui/ObjectManipulator.h
+index b5605835..89f788f7 100644
+--- a/src/libgui/ObjectManipulator.h
++++ b/src/libgui/ObjectManipulator.h
+@@ -124,6 +124,8 @@
+ 
+     QMenu *popup_menu;
+ 
++    ObjectTreeViewItem *lastClickedItem;
++
+ /* this is a reverse idex of all objects in all trees. We use it to
+  * quickly locate given object in the tree and open it
+  */
+@@ -322,6 +324,8 @@
+                      const std::string &namesuffix);
+      void autorenameVlans(std::list<libfwbuilder::FWObject*> &obj_list);
+ 
++     std::string getFolderNameString(libfwbuilder::FWObject *obj);
++
+      void reload();
+ 
+      void loadObjects();
+@@ -488,6 +492,7 @@
+     
+      void reminderAboutStandardLib();
+      
++     void addSubfolderActions(QList<QAction*> &AddObjectActions, libfwbuilder::FWObject *currentObj, ObjectTreeViewItem *item, bool &addSubfolder);
+ signals:
+      void libraryAccessChanged(bool writable);
+ };
+diff --git a/src/libgui/ObjectManipulator_create_new.cpp b/src/libgui/ObjectManipulator_create_new.cpp
+index 0c6a5019..d0014d0e 100644
+--- a/src/libgui/ObjectManipulator_create_new.cpp
++++ b/src/libgui/ObjectManipulator_create_new.cpp
+@@ -246,6 +246,12 @@ void ObjectManipulator::createNewObject()
+                     m_project->getFileName(), ruleset->getId()));
+     }
+
++    //directly move object to it's subfolder
++    list<FWObject*> newObjs;
++    newObjs.push_back(new_obj);
++    moveItems(lastClickedItem, newObjs);
++    lastClickedItem = NULL;
++
+     m_project->undoStack->push(macro);
+ }
+
+@@ -711,7 +717,6 @@ FWObject* ObjectManipulator::newHost(QUndoCommand* macro)
+         parent->remove(o, false);
+         new_state->add(o);
+     }
+-
+     return o;
+ }
+
+diff --git a/src/libgui/ObjectManipulator_tree_ops.cpp b/src/libgui/ObjectManipulator_tree_ops.cpp
+index be839532..ec80537d 100644
+--- a/src/libgui/ObjectManipulator_tree_ops.cpp
++++ b/src/libgui/ObjectManipulator_tree_ops.cpp
+@@ -225,17 +225,39 @@ static ObjectTreeViewItem *findUserFolder(ObjectTreeViewItem *parent,
+ {
+     if (folder.isEmpty()) return parent;
+
+-    for (int ii = 0; ii < parent->childCount(); ii++) {
++    ObjectTreeViewItem *otvi = 0;
++
++    int childNo = 0;
++    while(parent->child(childNo) != NULL && otvi == 0) {
+         ObjectTreeViewItem *sub =
+-            dynamic_cast<ObjectTreeViewItem *>(parent->child(ii));
++            dynamic_cast<ObjectTreeViewItem *>(parent->child(childNo));
+         if (sub != 0 &&
+             sub->getUserFolderParent() != 0 &&
+             sub->getUserFolderName() == folder) {
+-            return sub;
++            otvi = sub;
++            return otvi;
++            break;
++        }
++        else {
++            otvi = findUserFolder(sub, folder);
+         }
++        childNo++;
+     }
+
+-    return 0;
++//    for (int ii = 0; ii < parent->childCount(); ii++) {
++//        while(parent->childCount() > 0) {
++//            ObjectTreeViewItem *sub =
++//                dynamic_cast<ObjectTreeViewItem *>(parent->child(ii));
++//            if (sub != 0 &&
++//                sub->getUserFolderParent() != 0 &&
++//                sub->getUserFolderName() == folder) {
++//                return sub;
++//            }
++//            parent = sub;
++//        }
++//    }
++
++    return otvi;
+ }
+
+
+@@ -250,7 +272,7 @@ ObjectTreeViewItem* ObjectManipulator::insertObject(ObjectTreeViewItem *itm,
+             obj->getTypeName() + "/hidden")) return NULL;
+
+     ObjectTreeViewItem *item = itm;
+-    if (!obj->getStr("folder").empty()) {
++     if (!obj->getStr("folder").empty()) {
+         item = findUserFolder(itm, obj->getStr("folder").c_str());
+
+         /* If we can't find the user folder, put it under the system
+@@ -259,6 +281,7 @@ ObjectTreeViewItem* ObjectManipulator::insertObject(ObjectTreeViewItem *itm,
+             item = itm;
+             obj->setStr("folder", "");
+         }
++
+     }
+
+     ObjectTreeViewItem *nitm = new ObjectTreeViewItem(item);
+@@ -279,6 +302,7 @@ ObjectTreeViewItem* ObjectManipulator::insertObject(ObjectTreeViewItem *itm,
+     }
+
+     nitm->setProperty("type", obj->getTypeName().c_str() );
++
+     nitm->setFWObject( obj );
+
+     allItems[obj] = nitm;
+@@ -310,6 +334,9 @@ void ObjectManipulator::insertSubtree(ObjectTreeViewItem *itm, FWObject *obj)
+     for (iter = subfolders.begin(); iter != subfolders.end(); ++iter) {
+         ObjectTreeViewItem *sub = new ObjectTreeViewItem(nitm);
+         sub->setUserFolderParent(obj);
++//        FWObject* newFolder = obj->getRoot()->create("ObjectGroup");
++//        newFolder->setParent(obj);
++//        sub->setFWObject(newFolder);
+         QString name = QString::fromUtf8((*iter).c_str());
+         sub->setUserFolderName(name);
+         sub->setText(0, name);
+@@ -774,10 +801,23 @@ void ObjectManipulator::moveItems(ObjectTreeViewItem *dest,
+ void ObjectManipulator::addUserFolderToTree(FWObject *obj,
+                                             const QString &folder)
+ {
++
+     ObjectTreeViewItem *item = allItems[obj];
++
+     if (item == 0) return;
+
+     ObjectTreeViewItem *sub = new ObjectTreeViewItem(item);
++
++
++    FWObject* newFolder = obj->getRoot()->create(ObjectGroup::TYPENAME);
++    newFolder->setParent(obj);
++    newFolder->setName(folder.toUtf8().constData()
++                       );
++    sub->setFWObject(newFolder);
++    allItems[newFolder] = sub;
++    obj->setStr("folder", folder.toUtf8().constData());
++    newFolder->setStr("folder", getFolderNameString(newFolder));
++
+     sub->setUserFolderParent(obj);
+     sub->setUserFolderName(folder);
+     sub->setText(0, folder);
+@@ -786,6 +826,21 @@ void ObjectManipulator::addUserFolderToTree(FWObject *obj,
+ }
+
+
++std::string ObjectManipulator::getFolderNameString(libfwbuilder::FWObject *obj) {
++    std::string result = "";
++    FWObject *parent = obj->getParent();
++
++
++    while(parent != NULL) {
++        result = parent->getName() + "/" + result;
++        parent = parent->getParent();
++    }
++
++    result = result  + obj->getName();
++
++    return result;
++}
++
+ void ObjectManipulator::removeUserFolderFromTree(FWObject *obj,
+                                                  const QString &folder)
+ {
+diff --git a/src/libgui/platforms.cpp b/src/libgui/platforms.cpp
+index 051f5ad5..a122a91e 100644
+--- a/src/libgui/platforms.cpp
++++ b/src/libgui/platforms.cpp
+@@ -438,6 +438,7 @@ void getVersionsForPlatform(const QString &platform, std::list<QStringPair> &res
+         res.push_back(QStringPair("1.4.1.1", QObject::tr("1.4.1.1 or later")));
+         res.push_back(QStringPair("1.4.3", QObject::tr("1.4.3")));
+         res.push_back(QStringPair("1.4.4", QObject::tr("1.4.4 or later")));
++        res.push_back(QStringPair("1.4.20", QObject::tr("1.4.20 or later")));
+     } else
+     {
+         // we list supported versions for the following platforms in
+diff --git a/src/res/configlets/linux24/automatic_rules b/src/res/configlets/linux24/automatic_rules
+index c773ad74..92b069a9 100644
+--- a/src/res/configlets/linux24/automatic_rules
++++ b/src/res/configlets/linux24/automatic_rules
+@@ -50,9 +50,9 @@
+ 
+ {{if accept_established}}
+ # accept established sessions
+-{{$begin_rule}} INPUT   -m state --state ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
+-{{$begin_rule}} OUTPUT  -m state --state ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
+-{{$begin_rule}} FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
++{{$begin_rule}} INPUT   -m {{$state_module_option}} ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
++{{$begin_rule}} OUTPUT  -m {{$state_module_option}} ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
++{{$begin_rule}} FORWARD -m {{$state_module_option}} ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
+ {{endif}}
+ 
+ 
+@@ -67,16 +67,16 @@
+ 
+ {{if mgmt_access}}
+ # backup ssh access
+-{{$begin_rule}} INPUT  -p tcp -m tcp  -s {{$ssh_management_address}}  --dport 22  -m state --state NEW,ESTABLISHED -j  ACCEPT {{$end_rule}}
+-{{$begin_rule}} OUTPUT  -p tcp -m tcp  -d {{$ssh_management_address}}  --sport 22  -m state --state ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
++{{$begin_rule}} INPUT  -p tcp -m tcp  -s {{$ssh_management_address}}  --dport 22  -m {{$state_module_option}} NEW,ESTABLISHED -j  ACCEPT {{$end_rule}}
++{{$begin_rule}} OUTPUT  -p tcp -m tcp  -d {{$ssh_management_address}}  --sport 22  -m {{$state_module_option}} ESTABLISHED,RELATED -j ACCEPT {{$end_rule}}
+ {{endif}}
+ 
+ {{if drop_new_tcp_with_no_syn}}
+ # drop TCP sessions opened prior firewall restart
+-{{$begin_rule}} INPUT   -p tcp -m tcp ! --tcp-flags SYN,RST,ACK SYN -m state --state NEW -j DROP {{$end_rule}}
+-{{$begin_rule}} OUTPUT  -p tcp -m tcp ! --tcp-flags SYN,RST,ACK SYN -m state --state NEW -j DROP {{$end_rule}}
++{{$begin_rule}} INPUT   -p tcp -m tcp ! --tcp-flags SYN,RST,ACK SYN -m {{$state_module_option}} NEW -j DROP {{$end_rule}}
++{{$begin_rule}} OUTPUT  -p tcp -m tcp ! --tcp-flags SYN,RST,ACK SYN -m {{$state_module_option}} NEW -j DROP {{$end_rule}}
+ {{if ipforw}}
+-{{$begin_rule}} FORWARD -p tcp -m tcp ! --tcp-flags SYN,RST,ACK SYN -m state --state NEW -j DROP {{$end_rule}}
++{{$begin_rule}} FORWARD -p tcp -m tcp ! --tcp-flags SYN,RST,ACK SYN -m {{$state_module_option}} NEW -j DROP {{$end_rule}}
+ {{endif}}
+ {{endif}}
+ 
+@@ -100,20 +100,20 @@
+ 
+ {{if drop_invalid}}
+ # drop packets that do not match any valid state 
+-{{$begin_rule}} OUTPUT   -m state --state INVALID  -j DROP {{$end_rule}}
+-{{$begin_rule}} INPUT    -m state --state INVALID  -j DROP {{$end_rule}}
++{{$begin_rule}} OUTPUT   -m {{$state_module_option}} --state INVALID  -j DROP {{$end_rule}}
++{{$begin_rule}} INPUT    -m {{$state_module_option}} --state INVALID  -j DROP {{$end_rule}}
+ {{if ipforw}}
+-{{$begin_rule}} FORWARD  -m state --state INVALID  -j DROP {{$end_rule}}
++{{$begin_rule}} FORWARD  -m {{$state_module_option}} --state INVALID  -j DROP {{$end_rule}}
+ {{endif}}
+ {{endif}}
+ 
+ {{if drop_invalid_and_log}}
+ # drop packets that do not match any valid state and log them
+ {{$create_drop_invalid_chain}}
+-{{$begin_rule}} OUTPUT   -m state --state INVALID  -j drop_invalid {{$end_rule}}
+-{{$begin_rule}} INPUT    -m state --state INVALID  -j drop_invalid {{$end_rule}}
++{{$begin_rule}} OUTPUT   -m {{$state_module_option}} --state INVALID  -j drop_invalid {{$end_rule}}
++{{$begin_rule}} INPUT    -m {{$state_module_option}} --state INVALID  -j drop_invalid {{$end_rule}}
+ {{if ipforw}}
+-{{$begin_rule}} FORWARD  -m state --state INVALID  -j drop_invalid {{$end_rule}}
++{{$begin_rule}} FORWARD  -m {{$state_module_option}} --state INVALID  -j drop_invalid {{$end_rule}}
+ {{endif}}
+ 
+ {{if use_ulog}}
+diff --git a/src/res/configlets/linux24/block_action b/src/res/configlets/linux24/block_action
+index 9ea3e913..1c6425c2 100644
+--- a/src/res/configlets/linux24/block_action
++++ b/src/res/configlets/linux24/block_action
+@@ -30,8 +30,8 @@ block_action() {
+
+ {{if mgmt_access}}
+     # backup ssh access
+-    $IPTABLES -A INPUT  -p tcp -m tcp  -s {{$ssh_management_address}}  --dport 22  -m state --state NEW,ESTABLISHED -j  ACCEPT
+-    $IPTABLES -A OUTPUT  -p tcp -m tcp  -d {{$ssh_management_address}}  --sport 22  -m state --state ESTABLISHED,RELATED -j ACCEPT
++    $IPTABLES {{$opt_wait}} -A INPUT  -p tcp -m tcp  -s {{$ssh_management_address}}  --dport 22  -m state --state NEW,ESTABLISHED -j  ACCEPT
++    $IPTABLES {{$opt_wait}} -A OUTPUT  -p tcp -m tcp  -d {{$ssh_management_address}}  --sport 22  -m state --state ESTABLISHED,RELATED -j ACCEPT
+ {{endif}}
+ }
+
+diff --git a/src/res/configlets/linux24/reset_iptables b/src/res/configlets/linux24/reset_iptables
+index 5757440f..da325939 100644
+--- a/src/res/configlets/linux24/reset_iptables
++++ b/src/res/configlets/linux24/reset_iptables
+@@ -12,32 +12,38 @@
+ ## {{if var}} is conditional operator.
+ ##
+ reset_iptables_v4() {
+-  $IPTABLES -P OUTPUT  DROP
+-  $IPTABLES -P INPUT   DROP
+-  $IPTABLES -P FORWARD DROP
++  local list
+
+-cat /proc/net/ip_tables_names | while read table; do
+-  $IPTABLES -t $table -L -n | while read c chain rest; do
++  $IPTABLES {{$opt_wait}} -P OUTPUT  DROP
++  $IPTABLES {{$opt_wait}} -P INPUT   DROP
++  $IPTABLES {{$opt_wait}} -P FORWARD DROP
++
++  while read table; do
++      list=$($IPTABLES {{$opt_wait}} -t $table -L -n)
++      printf "%s" "$list" | while read c chain rest; do
+       if test "X$c" = "XChain" ; then
+-        $IPTABLES -t $table -F $chain
++        $IPTABLES {{$opt_wait}} -t $table -F $chain
+       fi
+-  done
+-  $IPTABLES -t $table -X
+-done
++      done
++      $IPTABLES {{$opt_wait}} -t $table -X
++  done < /proc/net/ip_tables_names
+ }
+
+ reset_iptables_v6() {
+-  $IP6TABLES -P OUTPUT  DROP
+-  $IP6TABLES -P INPUT   DROP
+-  $IP6TABLES -P FORWARD DROP
++  local list
++
++  $IP6TABLES {{$opt_wait}} -P OUTPUT  DROP
++  $IP6TABLES {{$opt_wait}} -P INPUT   DROP
++  $IP6TABLES {{$opt_wait}} -P FORWARD DROP
+
+-cat /proc/net/ip6_tables_names | while read table; do
+-  $IP6TABLES -t $table -L -n | while read c chain rest; do
++  while read table; do
++      list=$($IP6TABLES {{$opt_wait}} -t $table -L -n)
++      printf "%s" "$list" | while read c chain rest; do
+       if test "X$c" = "XChain" ; then
+-        $IP6TABLES -t $table -F $chain
++        $IP6TABLES {{$opt_wait}} -t $table -F $chain
+       fi
+-  done
+-  $IP6TABLES -t $table -X
+-done
++      done
++      $IP6TABLES {{$opt_wait}} -t $table -X
++  done < /proc/net/ip6_tables_names
+ }
+
+diff --git a/src/res/configlets/linux24/stop_action b/src/res/configlets/linux24/stop_action
+index 2d59a888..6494cbdd 100644
+--- a/src/res/configlets/linux24/stop_action
++++ b/src/res/configlets/linux24/stop_action
+@@ -20,15 +20,15 @@ stop_action() {
+     reset_all
+
+ {{if have_ipv4}}
+-    $IPTABLES -P OUTPUT  ACCEPT
+-    $IPTABLES -P INPUT   ACCEPT
+-    $IPTABLES -P FORWARD ACCEPT
++    $IPTABLES {{$opt_wait}} -P OUTPUT  ACCEPT
++    $IPTABLES {{$opt_wait}} -P INPUT   ACCEPT
++    $IPTABLES {{$opt_wait}} -P FORWARD ACCEPT
+ {{endif}}
+
+ {{if have_ipv6}}
+-    $IP6TABLES -P OUTPUT  ACCEPT
+-    $IP6TABLES -P INPUT   ACCEPT
+-    $IP6TABLES -P FORWARD ACCEPT
++    $IP6TABLES {{$opt_wait}} -P OUTPUT  ACCEPT
++    $IP6TABLES {{$opt_wait}} -P INPUT   ACCEPT
++    $IP6TABLES {{$opt_wait}} -P FORWARD ACCEPT
+ {{endif}}
+ }
+
+diff --git a/src/res/objects_init.xml.in b/src/res/objects_init.xml.in
+index 42018a78..471d2962 100644
+--- a/src/res/objects_init.xml.in
++++ b/src/res/objects_init.xml.in
+@@ -430,7 +430,7 @@
+           <CustomServiceCommand platform="pix"></CustomServiceCommand>
+           <CustomServiceCommand platform="unknown"></CustomServiceCommand>
+         </CustomService>
+-        <CustomService id="id6861X14323" name="Fragment Small Offset IPv4 UDP" comment="" ro="False" protocol="udp" address_family="ipv4">
++        <CustomService id="id3B6CEB55" name="Fragment Small Offset IPv4 UDP" comment="Only implemented for Junos ACL." ro="False" protocol="udp" address_family="ipv4">
+           <CustomServiceCommand platform="fwsm"></CustomServiceCommand>
+           <CustomServiceCommand platform="iosacl"></CustomServiceCommand>
+           <CustomServiceCommand platform="ipf"></CustomServiceCommand>
+@@ -443,9 +443,9 @@
+           <CustomServiceCommand platform="procurve_acl"></CustomServiceCommand>
+           <CustomServiceCommand platform="unknown"></CustomServiceCommand>
+         </CustomService>
+-        <CustomService id="id191207X5261" name="Fragment IPv6" comment="" ro="False" protocol="fragment" address_family="ipv6">
++        <CustomService id="id3B6CEB56" name="Fragment IPv6 UDP" comment="Only implemented for Junos ACL." ro="False" protocol="fragment" address_family="ipv6">
+           <CustomServiceCommand platform="fwsm"></CustomServiceCommand>
+-          <CustomServiceCommand platform="iosacl">cccc</CustomServiceCommand>
++          <CustomServiceCommand platform="iosacl"></CustomServiceCommand>
+           <CustomServiceCommand platform="ipf"></CustomServiceCommand>
+           <CustomServiceCommand platform="ipfw"></CustomServiceCommand>
+           <CustomServiceCommand platform="iptables"></CustomServiceCommand>
+@@ -456,7 +456,7 @@
+           <CustomServiceCommand platform="procurve_acl"></CustomServiceCommand>
+           <CustomServiceCommand platform="unknown"></CustomServiceCommand>
+         </CustomService>
+-        <CustomService id="id573577X17557" name="Fragment IPv4" comment="" ro="False" protocol="udp" address_family="ipv4">
++        <CustomService id="id3B6CEB57" name="Fragment IPv4 UDP" comment="Only implemented for Junos ACL." ro="False" protocol="udp" address_family="ipv4">
+           <CustomServiceCommand platform="fwsm"></CustomServiceCommand>
+           <CustomServiceCommand platform="iosacl"></CustomServiceCommand>
+           <CustomServiceCommand platform="ipf"></CustomServiceCommand>
+diff --git a/src/res/templates.xml.in b/src/res/templates.xml.in
+index d9881aac..c0dfd9ac 100644
+--- a/src/res/templates.xml.in
++++ b/src/res/templates.xml.in
+@@ -105,7 +105,7 @@
+         <CustomServiceCommand platform="iosacl">established</CustomServiceCommand>
+         <CustomServiceCommand platform="ipfilter"/>
+         <CustomServiceCommand platform="ipfw">established</CustomServiceCommand>
+-        <CustomServiceCommand platform="iptables">-m state --state ESTABLISHED,RELATED</CustomServiceCommand>
++        <CustomServiceCommand platform="iptables">-m conntrack --ctstate ESTABLISHED,RELATED</CustomServiceCommand>
+         <CustomServiceCommand platform="procurve_acl">established</CustomServiceCommand>
+       </CustomService>
+       <CustomService id="stdid14_2" name="ESTABLISHED ipv6" comment="This service matches all packets which are part of network connections established through the firewall, or connections 'related' to those established through the firewall. Term 'established' refers to the state tracking mechanism which exists inside iptables and other stateful firewalls and does not mean any particular combination of packet header options. Packet is considered to correspond to the state 'ESTABLISHED' if it belongs to the network session, for which proper initiation has been seen by the firewall, so its stateful inspection module made appropriate record in the state table. Usually stateful firewalls keep track of network connections using not only tcp protocol, but also udp and sometimes even icmp protocols. 'RELATED' describes packet belonging to a separate network connection, related to the session firewall is keeping track of. One example is FTP command and FTP data sessions." ro="False" protocol="any" address_family="ipv6">
+@@ -114,7 +114,7 @@
+         <CustomServiceCommand platform="iosacl">established</CustomServiceCommand>
+         <CustomServiceCommand platform="ipfilter"/>
+         <CustomServiceCommand platform="ipfw">established</CustomServiceCommand>
+-        <CustomServiceCommand platform="iptables">-m state --state ESTABLISHED,RELATED</CustomServiceCommand>
++        <CustomServiceCommand platform="iptables">-m conntrack --ctstate ESTABLISHED,RELATED</CustomServiceCommand>
+         <CustomServiceCommand platform="procurve_acl">established</CustomServiceCommand>
+       </CustomService>
+       <ServiceGroup id="stdid10" name="Groups" comment="" ro="False">
