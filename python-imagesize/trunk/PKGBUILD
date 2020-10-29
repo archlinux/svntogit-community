@@ -24,11 +24,20 @@ build() {
   python2 setup.py build
 }
 
+check() {
+  cd "$srcdir"/imagesize-$pkgver
+  python -m unittest discover -v
+
+  cd "$srcdir"/imagesize-$pkgver-py2
+  python2 -m unittest discover -v
+}
+
 package_python-imagesize() {
   depends=('python')
 
   cd imagesize-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  install -Dm644 LICENSE.rst "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.rst
 }
 
 package_python2-imagesize() {
@@ -36,4 +45,5 @@ package_python2-imagesize() {
 
   cd imagesize-$pkgver-py2
   python2 setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  install -Dm644 LICENSE.rst "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.rst
 }
