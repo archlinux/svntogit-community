@@ -4,7 +4,7 @@
 
 pkgname=('python-jinja' 'python2-jinja')
 pkgver=2.11.2
-pkgrel=1
+pkgrel=2
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
 url="https://palletsprojects.com/p/jinja/"
@@ -40,7 +40,6 @@ package_python-jinja() {
 
 package_python2-jinja() {
   depends=('python2-setuptools' 'python2-markupsafe')
-  optdepends=('python2-babel: for i18n support')
 
   cd Jinja2-$pkgver
   python2 setup.py install --root="$pkgdir" --optimize=1 --skip-build
