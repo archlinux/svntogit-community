@@ -6,43 +6,46 @@
 
 _pkg=h5py
 pkgname=python-${_pkg}
-pkgver=2.10.0
-pkgrel=3
+pkgver=3.0.0
+pkgrel=1
 pkgdesc="General-purpose Python bindings for the HDF5 library"
 arch=(x86_64)
 url="https://www.h5py.org/"
 license=(BSD)
-depends=(hdf5 python-numpy python-six)
+depends=(hdf5 liblzf python-numpy python-six)
 makedepends=(cython python-pkgconfig)
-checkdepends=(python-pytest)
+checkdepends=(python-pytest python-pytest-mpi python-pytables)
 conflicts=(hdf5-openmpi)
 source=(https://files.pythonhosted.org/packages/source/h/${_pkg}/${_pkg}-${pkgver}.tar.gz
-        python-h5py-hd5-1.12.patch
-        h5py-2.10.0-hdf5-v1.12-h5i.patch)
-sha256sums=('84412798925dc870ffd7107f045d7659e60f5d46d1c70c700375248bf6bf512d'
-            '0533a13f65de73ea9b61220cdb367038b441a61ac7468ebcda549a15c47f879b'
-            'b8686225d69b3bb103b5153a4783569eec98ca49be136623bcad18d140427e64')
+        h5py-system-lzf.patch::https://github.com/h5py/h5py/commit/da96e2b8b9f73fc67c128c9b65787b3527be119c.patch
+        h5py-py3.8-cached_property.patch::https://github.com/h5py/h5py/commit/a87984f0bc2b2596948880d2ec38196017e275fc.patch)
+sha256sums=('7d3803be1b530c68c2955faba726dc0f591079b68941a0c0269b5384a42ab519'
+            '665c15ffc714788749f4e0d731775cb927593fed496097e4abf2174612d9a747'
+            '4d5cdf7af4ea5d79ec0ac39f178ef55fe6f571efb76a008e553c4b3030730372')
 validpgpkeys=(AC47F71DB275ECD0B3DA46E857FA4540DD4EFCF7  # Thomas A Caswell (Brookhaven National Lab) <tcaswell@bnl.gov>
               96B7334D7610EE3E68AFFE589E027116943D6A8B) # Thomas A Caswell <tcaswell@bnl.gov> (new key)
 # See https://github.com/h5py/h5py/issues/1299 about lack of GPG sigs for recent releases
 
 prepare() {
-  # Remove RPATH
-  sed -i "s/settings\\['runtime_library_dirs'\\] = settings\\['library_dirs'\\]/pass/" ${_pkg}-${pkgver}/setup_build.py
   cd ${_pkg}-${pkgver}
-  patch -p1 -i ../h5py-2.10.0-hdf5-v1.12-h5i.patch
-  patch -p1 -i ../python-h5py-hd5-1.12.patch
+  # Remove RPATH
+  sed -i "s/settings\\['runtime_library_dirs'\\] = settings\\['library_dirs'\\]/pass/" setup_build.py
+  # Build against system lzf
+  patch -Np1 -i ../h5py-system-lzf.patch
+  # cached_property is included in python 3.8
+  patch -Np1 -i ../h5py-py3.8-cached_property.patch
 }
 
 build() {
   cd ${_pkg}-${pkgver}
-  python setup.py build
+  H5PY_SYSTEM_LZF=1 python setup.py build
 }
 
 check() {
   cd ${_pkg}-${pkgver}
-  # Ongoing issues with hdf5 1.12 https://github.com/h5py/h5py/pull/1536
-  python setup.py test || warning "Tests failed"
+#  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+#  PYTHONPATH="$PWD/build/lib.linux-$CARCH-${python_version}" python -m pytest --pyargs h5py -rxXs
+  python setup.py test
 }
 
 package() {
