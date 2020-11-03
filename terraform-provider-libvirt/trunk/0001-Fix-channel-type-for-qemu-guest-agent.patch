@@ -1,0 +1,48 @@
+From 1aeecb038457c9859c58f1979a8162b1292d2bca Mon Sep 17 00:00:00 2001
+From: David Runge <dave@sleepmap.de>
+Date: Tue, 3 Nov 2020 15:46:57 +0100
+Subject: [PATCH] Fix channel type for qemu-guest-agent
+
+libvirt/domain_def.go:
+A previous refactoring
+(https://github.com/dmacvicar/terraform-provider-libvirt/commit/77982e7e171afb8354915ef286fa025f5ee77506#diff-f2a9373e453b366eb748c5f3ed0da608afbf1a97c876e8c044fea841c8e5aa78L46)
+for integrating a newer version of
+https://github.com/libvirt/libvirt-go-xml unset the explicit setting of
+the channel type (`"unix"`) for qemu-guest-agent integration.
+
+By default libvirt will use a type `"pty"` channel, if none is set,
+which is not supported for the qemu-guest-agent channel
+(https://wiki.libvirt.org/page/Qemu_guest_agent#Setting_QEMU_GA_up).
+This can be seen in the libvirtd logs:
+
+```
+error : qemuAgentOpen:706 : internal error: unable to handle agent type:
+pty
+```
+
+This pull request explicitely sets the correct Source of type `"unix"`
+again (based on the suggestion by @aaannz in
+https://github.com/dmacvicar/terraform-provider-libvirt/issues/710#issuecomment-663007825).
+
+Fixes #765
+---
+ libvirt/domain_def.go | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/libvirt/domain_def.go b/libvirt/domain_def.go
+index f68b7abd..04e55339 100644
+--- a/libvirt/domain_def.go
++++ b/libvirt/domain_def.go
+@@ -62,6 +62,9 @@ func newDomainDef() libvirtxml.Domain {
+ 			},
+ 			Channels: []libvirtxml.DomainChannel{
+ 				{
++					Source: &libvirtxml.DomainChardevSource{
++						UNIX: &libvirtxml.DomainChardevSourceUNIX{},
++					},
+ 					Target: &libvirtxml.DomainChannelTarget{
+ 						VirtIO: &libvirtxml.DomainChannelTargetVirtIO{
+ 							Name: "org.qemu.guest_agent.0",
+-- 
+2.29.2
+
