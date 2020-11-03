@@ -1,0 +1,50 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=terraform-provider-libvirt
+pkgver=0.6.2
+pkgrel=2
+pkgdesc="Terraform provider to provision infrastructure with Linux's KVM using libvirt"
+arch=("x86_64")
+url="https://github.com/dmacvicar/terraform-provider-libvirt"
+license=('Apache')
+depends=('glibc' 'terraform')
+makedepends=('go' 'git' 'libvirt')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/dmacvicar/${pkgname}/archive/v$pkgver.tar.gz")
+sha512sums=('9855fe2d0b7a827508dd41d779f1f160b1d230bf6ee1eeb7ae58418fffbd250899382e315a8ababdf0c89da21c011f874ead1d6f53a723290851e1bc47384c1d')
+b2sums=('ce150963be678dda1a4b11e3707140b7b819b8fe6e01799a769c2da737f6280d7eca64ac704c41426737a3a8432fd8c42f3c4d6c00a14cf291e123c4378842bd')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  mkdir -vp build
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+  go build -o "build/${pkgname}"
+}
+
+package() {
+  depends+=('libvirt.so' 'libvirt-lxc.so' 'libvirt-qemu.so')
+  cd "${pkgname}-${pkgver}"
+  # terraform unfortunately only accepts non-FHS compliant directories for plugins :(
+  install -vDm 755 "build/$pkgname" \
+    "$pkgdir/usr/share/terraform/plugins/registry.terraform.io/dmacvicar/libvirt/${pkgver}/linux_amd64/${pkgname}"
+  install -vDm 644 {CHANGELOG,CONTRIBUTING,README}.md -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  # examples
+  find examples/ -type f \( \
+      -iname "*.cfg" -or \
+      -iname "*.conf" -or \
+      -iname "*.md" -or \
+      -iname "*.mount" -or \
+      -iname "*.service" -or \
+      -iname "*.tf" -or \
+      -iname "*.xsl" -or \
+      -iname "*id_rsa*" \
+    \) -exec install -vDm 644 {} "${pkgdir}/usr/share/doc/${pkgname}/"{} \;
+  find website/ -type f -iname "*.markdown" -exec install -vDm 644 {} "${pkgdir}/usr/share/doc/${pkgname}/"{} \;
+}
