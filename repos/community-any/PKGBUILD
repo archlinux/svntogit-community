@@ -4,7 +4,7 @@
 # Contributor: Christer Edwards <christer.edwards@gmail.com>
 
 pkgname=salt
-pkgver=2019.2.4
+pkgver=2019.2.7
 pkgrel=1
 
 pkgdesc='Central system and configuration manager'
@@ -37,7 +37,7 @@ install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
-sha256sums=('afeb1c95db61c9008f95259c0b27e525c8a9957cbc6f51c40e824a92637d2847'
+sha256sums=('d648bcfb7f6c3f2e13b5dfd67dec1043fc25cc72ebebec94b00b1dc5b2e1b873'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 build() {
