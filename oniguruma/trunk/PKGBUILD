@@ -2,14 +2,14 @@
 # Contributor: Andreas Wagner <Andreas dot Wagner at em dot uni-frankfurt dot de>
 
 pkgname=oniguruma
-pkgver=6.9.5_rev1
+pkgver=6.9.6
 pkgrel=1
 pkgdesc="a regular expressions library"
 arch=('x86_64')
 url="https://github.com/kkos/oniguruma"
 license=('BSD')
 source=("https://github.com/kkos/oniguruma/releases/download/v$pkgver/onig-${pkgver/_/-}.tar.gz")
-sha256sums=('d33c849d1672af227944878cefe0a8fcf26fc62bedba32aa517f2f63c314a99e')
+sha256sums=('bd0faeb887f748193282848d01ec2dad8943b5dfcb8dc03ed52dcc963549e819')
 
 build() {
 	cd "$srcdir"/onig-${pkgver%_rev1}
