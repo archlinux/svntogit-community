@@ -4,12 +4,12 @@
 # Contributor: Michael 'manveru' Fellinger <m.fellinger@gmail.com>
 # Contributor: Dave Pretty <david dot pretty at gmail dot com>
 
-_core_i18n=8d6ec08
-_desktop_ftl=04f26f2
-_desktop_i18n=0c64190
+_core_i18n=aefd745
+_desktop_ftl=51320cd
+_desktop_i18n=67b07d5
 
 pkgname=anki
-pkgver=2.1.26
+pkgver=2.1.35
 pkgrel=1
 
 pkgdesc="Helps you remember facts (like words/phrases in a foreign language) efficiently"
@@ -24,26 +24,29 @@ depends=(
 	'python-wheel'
 
 	# anki
+	'python-pysocks' # requests[socks]
 	'python-decorator'
-	'python-distro'
-	# Currently not packaged.  Falls back to stdlib json module.
-	# 'python-orjson'
 	'python-protobuf'
+	'python-orjson'
+	'python-distro'
 
 	# aqt
-	'python-jsonschema'
-	'python-markdown'
-	'python-pyaudio'
-	'python-pyqt5'
-	'python-pyqtwebengine'
 	'python-send2trash'
+	'python-markdown'
+	'python-jsonschema'
+	'python-pyaudio'
+	'python-pyqtwebengine'
+	'python-flask'
+	# python-flask_cors unpackaged
+	'python-waitress'
+	'python-pyqt5'
 )
 makedepends=(
 	'git'
 	'rsync'
 
 	'maturin'
-	'rustup'
+	'rust'
 
 	'python-pip'
 	'python-mypy-protobuf'
@@ -57,7 +60,7 @@ optdepends=(
 )
 
 source=(
-	anki-$pkgver.tar.gz::https://github.com/ankitects/anki/archive/$pkgver.tar.gz
+	git+https://github.com/ankitects/anki.git#commit=84dcaa86380f9491c5f6240418235f87180831f7
 
 	ankitects-anki-core-i18n-$_core_i18n.tar.gz::https://github.com/ankitects/anki-core-i18n/tarball/$_core_i18n
 	ankitects-anki-desktop-ftl-$_desktop_ftl.tar.gz::https://github.com/ankitects/anki-desktop-ftl/tarball/$_desktop_ftl
@@ -67,22 +70,25 @@ source=(
 	0002-Remove-bad-build-steps-from-makefiles.patch
 	0003-Compile-.py-s-before-building-wheel.patch
 	0004-Disable-auto-updates.patch
+	0005-Make-pyenv-target-just-create-venv.patch
 )
-sha256sums=('f5a0c41f3eebe0e77de9d46f2a5cbbe20f7c3a4787f0f02e1d33f298428acbdf'
-            'b1cfb3bd01d9133759e9ad1f349974a79e59f262778dbe6beb88446dc6d1e089'
-            '7a3ddb027ce8ba35f8ef36f2092536ac33c40bf6f6f3337fa9738e31edb22ee7'
-            '325dd0ed4150d143c42bd2f2140ecde0f0fef14695a908e688a5a27784e6f322'
-            '26162e6370e7763a8ec37e1690dc39c8b0f71e9d2524c452c330276b357cb18f'
-            '1bf87c408fd9e2a09cb39d8353af1e0dc64930ac819b4ffae555b14ed4644981'
-            '401d31ac5992c342778ba748eac6179da9d594e1ef93d0db8170fad643bab069'
-            '97048aa118281311f17b1e2154f55a2a2f1d84cbebbdc93459bca49e8f8f06fd')
+sha256sums=('SKIP'
+            '36693fda3bb4515aa4832017155e6055e6063912bc7d62c918d1e0b3aaf8d424'
+            '30a8739badea5e2d8be263c2595e25534863d8d2af23608689ebface6a64787b'
+            '6500f5483d6121e9f07b64fac1bd00800107b01a353b8e15024ed30b773a26f1'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
 
 prepare() {
-	cd anki-$pkgver
+	cd anki
 	patch -p1 <"$srcdir"/0001-Move-aqt_data-to-sys.prefix-share.patch
 	patch -p1 <"$srcdir"/0002-Remove-bad-build-steps-from-makefiles.patch
 	patch -p1 <"$srcdir"/0003-Compile-.py-s-before-building-wheel.patch
 	patch -p1 <"$srcdir"/0004-Disable-auto-updates.patch
+	patch -p1 <"$srcdir"/0005-Make-pyenv-target-just-create-venv.patch
 
 	# Put translations in place.
 	ln -sf "$srcdir"/ankitects-anki-core-i18n-*/ rslib/ftl/repo
@@ -91,26 +97,21 @@ prepare() {
 }
 
 build() {
+	cd anki
+
 	# Built into the shared libraries so that the Python component can check
 	# that it has the same value.
-	cd anki-$pkgver/meta
-	echo arch-linux-$pkgver-$pkgrel > buildhash
+	echo arch-linux-$pkgver-$pkgrel > meta/buildhash
 
-	# rust ankirspy module
-	cd ../rspy
-	make build
+	# Installs development modules in venv, which is required by scripts used
+	# by various make targets.  The dependencies between targets are completely broken.
+	make develop
 
-	# python anki module
-	cd ../pylib
-	make build
-
-	# python aqt module
-	cd ../qt
 	make build
 }
 
 package() {
-	cd anki-$pkgver
+	cd anki
 
 	PIP_CONFIG_FILE=/dev/null pip install --isolated --root="$pkgdir" --ignore-installed --no-deps dist/*.whl
 
