@@ -3,7 +3,7 @@
 
 _name=pathspec
 pkgname=python-pathspec
-pkgver=0.8.0
+pkgver=0.8.1
 pkgrel=1
 pkgdesc='Utility library for gitignore style pattern matching of file paths'
 arch=('any')
@@ -12,7 +12,7 @@ license=('MPL2')
 depends=('python')
 makedepends=('python-setuptools')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('da45173eb3a6f2a5a487efba21f050af2b41948be6ab52b6a1e3ff22bb8b7061')
+sha256sums=('86379d6b86d75816baba717e64b1a3a3469deb93bb76d613c9ce79edc5cb68fd')
 
 build() {
   cd $_name-$pkgver
