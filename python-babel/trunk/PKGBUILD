@@ -18,11 +18,16 @@ checkdepends=('python-pytest' 'python-pytest-runner' 'python-freezegun'
               'python-pytest-runner' 'python2-pytest-runner' 'python2-freezegun')
 noextract=("cldr-core-$_core.zip")
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/python-babel/babel/archive/v$pkgver.tar.gz"
-        "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip")
+        "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip"
+        "python-3.9.patch")
 sha256sums=('2d4d29e73e85afd10ff260579303b5479b332eadc393663089dceb14ff6f8b9c'
-            '07279e56c1f4266d140b907ef3ec379dce0a99542303a9628562ac5fe460ba43')
+            '07279e56c1f4266d140b907ef3ec379dce0a99542303a9628562ac5fe460ba43'
+            '13adbc61cf0c59f215f38cd5b1a4dc3c29f2e35c9e9d054f64a9f03308401b0a')
 
 prepare() {
+  # Python 3.9 fixes
+  patch -Np1 -d babel-$pkgver <python-3.9.patch
+
   cp -a babel-$pkgver{,-py2}
   cp "$srcdir"/cldr-core-$_core.zip babel-$pkgver-py2/cldr/cldr-core-$_core.zip
   cp "$srcdir"/cldr-core-$_core.zip babel-$pkgver/cldr/cldr-core-$_core.zip
