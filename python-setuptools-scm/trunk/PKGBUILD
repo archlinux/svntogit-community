@@ -35,7 +35,7 @@ check() {
 
   cd "$srcdir"/setuptools_scm-$pkgver
   python setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.8/site-packages:$PYTHONPATH" py.test
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.9/site-packages:$PYTHONPATH" py.test
 
   cd "$srcdir"/setuptools_scm-$pkgver-py2
   python2 setup.py install --root="$PWD/tmp_install" --optimize=1

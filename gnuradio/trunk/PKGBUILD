@@ -56,9 +56,9 @@ build() {
   cd "$pkgbase-$pkgver"
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
     -DPYTHON_EXECUTABLE=$(which python3) \
-    -DPYTHON_INCLUDE_DIR=/usr/include/python3.8 \
-    -DPYTHON_LIBRARY=/usr/lib/libpython3.8.so \
-    -DGR_PYTHON_DIR=/usr/lib/python3.8/site-packages \
+    -DPYTHON_INCLUDE_DIR=/usr/include/python3.9 \
+    -DPYTHON_LIBRARY=/usr/lib/libpython3.9.so \
+    -DGR_PYTHON_DIR=/usr/lib/python3.9/site-packages \
     -DENABLE_INTERNAL_VOLK=OFF \
     -DENABLE_GRC=ON \
     -DENABLE_GR_QTGUI=ON \
@@ -128,4 +128,3 @@ package_gnuradio-companion() {
 # -DCMAKE_CXX_FLAGS:STRING="-march=armv7-a -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard"
 # -DCMAKE_C_FLAGS:STRING="-march=armv7-a -mcpu=cortex-a9 -mfpu=neon -mfloat-abi=hard"
 # line 341 add /usr/lib/arm-linux-gnueabihf /usr/lib/arm-linux-gnueabi
-
