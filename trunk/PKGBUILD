@@ -4,7 +4,7 @@
 pkgbase=python-requests-toolbelt
 pkgname=('python-requests-toolbelt' 'python2-requests-toolbelt')
 pkgver=0.9.1
-pkgrel=3
+pkgrel=4
 pkgdesc="A toolbelt of useful classes and functions to be used with python-requests."
 arch=('any')
 url="https://github.com/requests/toolbelt"
