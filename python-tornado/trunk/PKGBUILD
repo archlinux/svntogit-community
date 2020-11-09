@@ -3,7 +3,7 @@
 
 pkgname=python-tornado
 pkgver=6.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('x86_64')
 url='https://www.tornadoweb.org/'
