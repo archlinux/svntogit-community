@@ -27,7 +27,7 @@ build() {
 check() {
   cd jsonschema-$pkgver
   python setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.8/site-packages" JSON_SCHEMA_TEST_SUITE=json trial3 jsonschema
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.9/site-packages" JSON_SCHEMA_TEST_SUITE=json trial3 jsonschema
   python -m doctest README.rst
 }
 
