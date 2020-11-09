@@ -4,7 +4,7 @@
 pkgname=python-rich
 _name=rich
 pkgver=9.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal'
 arch=(any)
 url='https://github.com/willmcgugan/rich'
