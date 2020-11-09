@@ -19,7 +19,7 @@ sha256sums=('381985fcc551eb9d37c52088a32914e00517e57f4a21609f48141ba08e193fa0')
 
 build() {
   cd "$srcdir/Pygments-$pkgver"
-  make -C doc html
+  #make -C doc html  # Sphinx not usable yet, this early into the py39 rebuild
 }
 
 check() {
@@ -34,9 +34,9 @@ package() {
   python3 setup.py install --root="$pkgdir" -O1
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 
-  mkdir -p "$pkgdir/usr/share/doc"
-  cp -rT doc/_build/html "$pkgdir/usr/share/doc/$pkgname"
-  install -Dm644 doc/pygmentize.1 -t "$pkgdir/usr/share/man/man1"
+  #mkdir -p "$pkgdir/usr/share/doc"
+  #cp -rT doc/_build/html "$pkgdir/usr/share/doc/$pkgname"
+  #install -Dm644 doc/pygmentize.1 -t "$pkgdir/usr/share/man/man1"
   install -Dm644 external/pygments.bashcomp \
     "$pkgdir/usr/share/bash-completion/completions/pygmentize"
 }
