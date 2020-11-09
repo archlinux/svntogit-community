@@ -3,7 +3,7 @@
 pkgname=python-sphinx-issues
 _pyname=${pkgname/python-/}
 pkgver=1.2.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Sphinx extension for linking to your project's issue tracker"
 url='https://github.com/sloria/sphinx-issues'
 arch=('any')
