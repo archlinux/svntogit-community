@@ -39,7 +39,7 @@ package() {
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
-  rm -rf "$pkgdir"/usr/lib/python3.8/site-packages/keyring/tests
+  rm -rf "$pkgdir"/usr/lib/python3.9/site-packages/keyring/tests
 }
 
 # vim:set ts=2 sw=2 et:
