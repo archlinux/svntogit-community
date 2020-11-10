@@ -1,0 +1,50 @@
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+
+_pkgname=furo
+pkgname=python-sphinx-$_pkgname
+pkgver=2020.10.15.beta13
+pkgrel=2
+pkgdesc='A clean customizable documentation theme for Sphinx'
+arch=('any')
+url='https://github.com/pradyunsg/furo'
+license=('MIT')
+depends=('python-sphinx' 'python-beautifulsoup4')
+makedepends=('python-setuptools' 'python-dephell' 'python-myst-parser' 'python-sphinx-inline-tabs')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz")
+sha512sums=('025c5d853fc8fd12c7d4701cbffe948e530eec38b50e726a8c5a675216c9450a0ff7a495a68a72c80f8b7fc507ecc2e2d6708308625dfe89ee40d78516409a8c')
+
+prepare() {
+  cd $_pkgname-$pkgver
+
+  dephell deps convert --from pyproject.toml --to setup.py
+}
+
+build() {
+  cd $_pkgname-$pkgver
+
+  python setup.py build
+
+  # sphinx needs this theme installed because it is uses it.
+  # simply injecting the package to sys.path (via PYTHONPATH or similar)
+  # is not enough because sphinx looks for themes in the registered
+  # entrypoints, this means we actually have to install the package.
+  # for this we will create a venv with access to system packages and
+  # install the theme there, then we will build the documentation.
+
+  python -m venv --system-site-packages doc-env
+  doc-env/bin/python setup.py install --skip-build
+
+  doc-env/bin/python /usr/bin/sphinx-build -b dirhtml -v docs build/docs/html
+}
+
+package() {
+  cd $_pkgname-$pkgver
+
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+
+  install -dm 755 "$pkgdir"/usr/share/doc/$pkgname
+  cp -r -a --no-preserve=ownership build/docs/html "$pkgdir"/usr/share/doc/$pkgname
+  rm -rf "$pkgdir"/usr/share/doc/$pkgname/docs/.doctrees
+
+  install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
