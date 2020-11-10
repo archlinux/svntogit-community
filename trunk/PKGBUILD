@@ -3,7 +3,7 @@
 
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
-_zstdver=1.4.4
+_zstdver=1.4.5
 pkgver=14.2.8
 pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
