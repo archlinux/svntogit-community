@@ -10,14 +10,14 @@ license=('GPL')
 url='https://launchpad.net/python-distutils-extra'
 depends=('intltool' 'python')
 makedepends=('python-setuptools' 'intltool')
-source=(https://launchpad.net/$pkgbase/trunk/$pkgver/+download/$pkgbase-$pkgver.tar.gz{,.asc})
+source=(https://launchpad.net/$pkgname/trunk/$pkgver/+download/$pkgname-$pkgver.tar.gz{,.asc})
 # https://launchpad.net/python-distutils-extra/trunk/2.39/+download/python-distutils-extra-2.39.tar.gz.asc
-        #$pkgbase-$pkgver.tar.gz.sig::http://launchpad.net/$pkgbase/trunk/$pkgver/+download/dist-$pkgbase-$pkgver.tar.gz.sig)
+        #$pkgname-$pkgver.tar.gz.sig::http://launchpad.net/$pkgname/trunk/$pkgver/+download/dist-$pkgname-$pkgver.tar.gz.sig)
 validpgpkeys=('3DB46B55EFA59D40E6232148D14EF15DAFE11347')
 md5sums=('16e06db0ef73a35b4bff4b9eed5699b5'
          'SKIP')
 
 package() {
-  cd "${srcdir}/$pkgbase-$pkgver"
+  cd "${srcdir}/$pkgname-$pkgver"
   python3 setup.py install --root="${pkgdir}"
 }
