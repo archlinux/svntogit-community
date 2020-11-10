@@ -1,0 +1,93 @@
+From 99f770ca133c0d079532e4eefa519555d546164a Mon Sep 17 00:00:00 2001
+From: Masayuki Igawa <masayuki@igawa.io>
+Date: Thu, 18 Jul 2019 11:07:38 +0900
+Subject: [PATCH] Fix gate error "mysqladmin: command not found" and etc
+
+mysqladmin package is required in tools/test-setup.sh
+so adding bindep.txt file for this binary dependencies. And postgresql
+packages are also required as well.
+
+- http://lists.openstack.org/pipermail/openstack-discuss/2019-June/007272.html
+
+This commit also updated sphinx versions in test-requirements.txt to
+avoid this error.
+
+  ERROR: Sphinx requires Python '>=3.5' but the running Python is 2.7.15
+
+And also, this commit fixes a sqlalchemy error. This probably caused by
+sqlalchemy version updates. It might be better to fix the code rather
+than the sqlalchemy version cap.
+
+  sqlalchemy.exc.ArgumentError: Textual SQL expression
+    "tests.id='fake_null_test_..." should be explicitly declared as
+    text("tests.id='fake_null_test_...")
+
+Change-Id: Iff79081403fbc26442165ff5feb300bc317b0dfc
+---
+ bindep.txt                                      |  8 ++++++++
+ subunit2sql/tests/migrations/test_migrations.py |  2 +-
+ test-requirements.txt                           |  3 ++-
+ tox.ini                                         | 11 +++++++++++
+ 4 files changed, 22 insertions(+), 2 deletions(-)
+ create mode 100644 bindep.txt
+
+diff --git a/bindep.txt b/bindep.txt
+new file mode 100644
+index 0000000..2f11192
+--- /dev/null
++++ b/bindep.txt
+@@ -0,0 +1,8 @@
++# This is a cross-platform list tracking distribution packages needed by tests;
++# see http://docs.openstack.org/infra/bindep/ for additional information.
++
++mysql-client [platform:dpkg]
++mysql-server [platform:dpkg]
++postgresql
++postgresql-client [platform:dpkg]
++postgresql-server-dev-all [platform:dpkg]
+diff --git a/subunit2sql/tests/migrations/test_migrations.py b/subunit2sql/tests/migrations/test_migrations.py
+index 483d0aa..5df7067 100644
+--- a/subunit2sql/tests/migrations/test_migrations.py
++++ b/subunit2sql/tests/migrations/test_migrations.py
+@@ -321,7 +321,7 @@ class TestWalkMigrations(base.TestCase):
+         test_ids = [data['tests'][x]['id'] for x in data['tests']]
+         # Query the DB for the tests from the sample dataset above
+         where = ' OR '.join(["tests.id='%s'" % x for x in test_ids])
+-        result = tests.select(where).execute()
++        result = tests.select(sqlalchemy.sql.text(where)).execute()
+         run_time_pairs = list(map(lambda x: (x['id'], x['run_time']), result))
+         # Ensure the test with one failure is None
+         self.assertIn(('fake_null_test_id_fails', None), run_time_pairs)
+diff --git a/test-requirements.txt b/test-requirements.txt
+index 319d05c..fcf5c13 100644
+--- a/test-requirements.txt
++++ b/test-requirements.txt
+@@ -2,7 +2,8 @@ hacking>=0.12.0,!=0.13.0,<0.14
+ coverage>=3.6
+ fixtures>=0.3.14
+ mock>=1.0
+-sphinx>=1.6.2 # BSD
++sphinx!=1.6.6,!=1.6.7,<2.0.0;python_version=='2.7'  # BSD
++sphinx!=1.6.6,!=1.6.7,!=2.1.0;python_version>='3.4'  # BSD
+ testscenarios>=0.4
+ stestr>=1.0.0
+ testtools>=0.9.34
+diff --git a/tox.ini b/tox.ini
+index ae8b00d..8befe6f 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -63,3 +63,14 @@ commands =
+ [testenv:releasenotes]
+ basepython = python3
+ commands = sphinx-build -a -E -d releasenotes/build/doctrees -b html releasenotes/source releasenotes/build/html
++
++[testenv:bindep]
++# Do not install any requirements. We want this to be fast and work even if
++# system dependencies are missing, since it's used to tell you what system
++# dependencies are missing! This also means that bindep must be installed
++# separately, outside of the requirements files, and develop mode disabled
++# explicitly to avoid unnecessarily installing the checked-out repo too (this
++# further relies on "tox.skipsdist = True" above).
++usedevelop = False
++deps = bindep
++commands = bindep test
