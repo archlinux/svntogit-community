@@ -1,0 +1,63 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Hugo Osvaldo Barrera <hugo@barrera.io>
+
+pkgname=vdirsyncer
+pkgver=0.16.8
+pkgrel=4
+pkgdesc="Synchronize CalDAV and CardDAV."
+arch=('any')
+url="https://vdirsyncer.pimutils.org/en/stable/"
+license=('BSD')
+depends=('python-atomicwrites' 'python-click' 'python-click-log'
+'python-click-threading' 'python-requests' 'python-requests-toolbelt'
+'python-setuptools')
+makedepends=('git' 'python-setuptools-scm' 'python-sphinx')
+optdepends=('python-requests-oauthlib: Google support'
+            'python-etesync: Etesync support'
+            'python-django: Etesync support')
+checkdepends=('python-hypothesis' 'python-pytest' 'python-pytest-localserver'
+'python-pytest-subtesthack')
+source=("git+https://github.com/pimutils/vdirsyncer.git#tag=${pkgver}?signed"
+        "${pkgname}-0.16.8-python-click.patch")
+sha512sums=('SKIP'
+            'aa2b80f85b1122913f719c7d435d6c1ba7ac0d20adc925fa084c855bd0538069986342ba5de62755f1ea59af80f66e088d984e4545384ea034fb97c2c1e62e61')
+validpgpkeys=('951082781CA308E4A529DEFD6F9FFF122B98C0CD') # Hugo Osvaldo Barrera <hugo@barrera.io>
+
+prepare() {
+  cd "${pkgname}"
+  # fix failing test
+  # https://github.com/pimutils/vdirsyncer/issues/828
+  # fix python-click version pinning
+  # https://github.com/pimutils/vdirsyncer/issues/831
+  patch -Np1 -i ../"${pkgname}-0.16.8-python-click.patch"
+}
+
+build() {
+  cd "${pkgname}"
+  python setup.py build
+  export PYTHONPATH="build:${PYTHONPATH}"
+  sphinx-build -b man docs/ build/
+}
+
+check() {
+  cd "${pkgname}"
+  make DETERMINISTIC_TESTS=true test
+}
+
+package() {
+  cd "${pkgname}"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --prefix=/usr \
+    --root="${pkgdir}"
+  # license
+  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  # systemd
+  install -vDm 644 "contrib/${pkgname}."{service,timer} \
+    -t "${pkgdir}/usr/lib/systemd/user/"
+  # man page
+  install -vDm 644 "build/${pkgname}.1" -t "${pkgdir}/usr/share/man/man1"
+  # docs
+  install -vDm 644 {AUTHORS,CHANGELOG,README}.rst \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
