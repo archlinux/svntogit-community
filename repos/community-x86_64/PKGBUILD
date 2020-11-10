@@ -2,7 +2,7 @@
 # Maintainer: Bruno Pagani <archange@archlinux.org>
 
 pkgname=intel-compute-runtime
-pkgver=20.30.17454
+pkgver=20.44.18297
 pkgrel=1
 pkgdesc="Intel(R) Graphics Compute Runtime for oneAPI Level Zero and OpenCL(TM) Driver"
 arch=(x86_64)
@@ -13,27 +13,29 @@ makedepends=(cmake libva level-zero-headers)
 optdepends=('libva: for cl_intel_va_api_media_sharing'
             'libdrm: for cl_intel_va_api_media_sharing')
 provides=(opencl-driver level-zero-driver)
-source=(https://github.com/intel/compute-runtime/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha256sums=('835304d1862970a5aa0ec1080717d292b11e3d942f827371fb8ecd78420069ce')
+source=(https://github.com/intel/compute-runtime/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz
+        ${pkgname}-fix-ult-tests.patch::https://github.com/intel/compute-runtime/commit/f9e0c04b542ba6fd41952df7282a6984cf75d77a.patch)
+sha256sums=('ce0d3a50606bd88e7e5ad306b9a5f8755804e0d55645e7e836d6784447e34071'
+            'ae727e69778f811a534d249486987c62afefdd7c743fb9d3e9aed89b1c05de36')
+
+prepare() {
+  cd compute-runtime-${pkgver}
+  patch -Np1 -i ../${pkgname}-fix-ult-tests.patch
+}
 
 build() {
-    cmake -B build -S compute-runtime-${pkgver} \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_INSTALL_LIBDIR=lib \
-        -Wno-dev
-    make -C build
+  cmake -B build -S compute-runtime-${pkgver} \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -Wno-dev
+  make -C build
 }
 
 package() {
-    make -C build DESTDIR="${pkgdir}" install
-    install -Dm755 build/bin/libocloc.so -t "${pkgdir}"/usr/lib/intel-opencl
-    install -Dm644 compute-runtime-${pkgver}/LICENSE -t "${pkgdir}"/usr/share/licenses/${pkgname}
-    
-    local _lz_sover
-    local _lz_major
-    _lz_sover=$(find "${pkgdir}"/usr/lib -type f -name 'libze_intel_gpu.so.*.*.*' | sed 's/^.*\.so\.//')
-    _lz_major=${_lz_sover%%.*}
-    ln -s libze_intel_gpu.so.${_lz_sover} "${pkgdir}"/usr/lib/libze_intel_gpu.so
-    ln -s libze_intel_gpu.so.${_lz_sover} "${pkgdir}"/usr/lib/libze_intel_gpu.so.${_lz_major}
+  make -C build DESTDIR="${pkgdir}" install
+  install -Dm755 build/bin/libocloc.so -t "${pkgdir}"/usr/lib/intel-opencl
+  install -Dm644 compute-runtime-${pkgver}/LICENSE -t "${pkgdir}"/usr/share/licenses/${pkgname}
+  
+  ln -s $(find "${pkgdir}"/usr/lib -regex '.*libze_intel_gpu.so.[0-9]*' -exec basename {} \;) "${pkgdir}"/usr/lib/libze_intel_gpu.so
 }
