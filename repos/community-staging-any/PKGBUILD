@@ -4,7 +4,7 @@
 pkgbase=python-webencodings
 pkgname=('python2-webencodings' 'python-webencodings')
 pkgver=0.5.1
-pkgrel=5
+pkgrel=6
 arch=('any')
 url="https://github.com/gsnedders/python-webencodings"
 license=('BSD')
