@@ -28,11 +28,20 @@ checkdepends=('cython'
               'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
-source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
+source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc}
+        $pkgname-pygments-2.7.patch::https://github.com/sphinx-doc/sphinx/commit/85b24a2e88ea.patch)
 sha256sums=('321d6d9b16fa381a5306e5a0b76cd48ffbc588e6340059a729c6fdd66087e0e8'
-            'SKIP')
+            'SKIP'
+            '6b790f4b3b540924a6a7861452fcbac8123f1e0a6c1765f5caafd7cb94fcecec')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa
+
+prepare() {
+  cd Sphinx-$pkgver
+
+  # Fix test failure with pygments 2.7
+  patch -Np1 -i ../$pkgname-pygments-2.7.patch
+}
 
 build() {
   cd Sphinx-$pkgver
