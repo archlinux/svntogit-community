@@ -3,7 +3,7 @@
 _pkgname=pydantic
 pkgname=python-$_pkgname
 pkgver=1.7.2
-pkgrel=2
+pkgrel=3
 pkgdesc='Data parsing and validation using Python type hints'
 arch=('any')
 url='https://github.com/samuelcolvin/pydantic'
