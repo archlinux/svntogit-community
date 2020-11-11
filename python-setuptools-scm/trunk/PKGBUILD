@@ -4,7 +4,7 @@
 pkgbase=python-setuptools-scm
 pkgname=(python-setuptools-scm python2-setuptools-scm)
 pkgver=4.1.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Handles managing your python package versions in scm metadata."
 arch=('any')
 url="https://github.com/pypa/setuptools_scm"
