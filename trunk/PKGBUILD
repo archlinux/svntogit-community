@@ -6,8 +6,8 @@
 
 pkgname=python-markdown
 _pkgbasename=Markdown
-pkgver=3.3
-pkgrel=3
+pkgver=3.3.3
+pkgrel=0
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
@@ -15,7 +15,7 @@ license=('BSD')
 depends=('python' 'python-setuptools')
 checkdepends=('python-yaml')
 source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
-md5sums=('76eb34a058bb8b637ccadc4ce384bae4')
+sha256sums=('5d9f2b5ca24bc4c7a390d22323ca4bad200368612b5aaa7796babf971d2b2f18')
 
 build() {
   cd "$srcdir/$_pkgbasename-$pkgver"
