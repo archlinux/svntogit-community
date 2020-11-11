@@ -1,8 +1,9 @@
 # Maintainer: Brett Cornwall <ainola@archlinux.org>
+# Maintainer: Maxim Baz <$pkgname at maximbaz dot com>
 # Contributor: Omar Pakker
 
 pkgname=wlroots
-pkgver=0.11.0
+pkgver=0.12.0
 pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
@@ -29,25 +30,18 @@ source=(
     "$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz"
     "https://github.com/swaywm/wlroots/releases/download/$pkgver/wlroots-$pkgver.tar.gz.sig"
 )
-sha256sums=('a7645e77229aab4942748c621be8bdb8b073d94f35f3e032b867246862bf2d01'
+sha256sums=('c9e9f4f6d2f526d0b2886daf3ec37e64831773059aa669fb98a88522a1626bdb'
             'SKIP')
 validpgpkeys=(
+    '34FF9526CFEF0E97A340E2E40FDE7BE0E88F5E48' # Simon Ser
     '9DDA3B9FA5D58DD5392C78E652CB6609B22DA89A' # Drew DeVault
     '4100929B33EEB0FD1DB852797BC79407090047CA' # Sway signing key
 )
 
 build() {
-    meson "$pkgname-$pkgver" build \
-        --prefix=/usr \
-        --buildtype=plain \
-        -Dlibcap=enabled \
-        -Dlogind=enabled \
+    arch-meson "$pkgname-$pkgver" build \
         -Dlogind-provider=systemd \
-        -Dxcb-errors=enabled \
-        -Dxcb-icccm=enabled \
-        -Dxcb-xkb=enabled \
-        -Dxwayland=enabled \
-        -Dx11-backend=enabled
+        -Dlibseat=disabled
     ninja -C build
 }
 
