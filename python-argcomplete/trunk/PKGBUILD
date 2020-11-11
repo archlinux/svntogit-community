@@ -3,9 +3,9 @@
 
 pkgname=python-argcomplete
 _pyname=argcomplete
-pkgver=1.11.1
-_gitcommit=ee975823f997367b74169ce98744bbe48c9ce573
-pkgrel=2
+pkgver=1.12.1
+_gitcommit=36bc3b3e4230caacb11de6e49c24bff1406f8c1d
+pkgrel=0
 pkgdesc='Easy, extensible command line tab completion of arguments for your Python script'
 url='https://github.com/kislyuk/argcomplete'
 arch=('any')
