@@ -3,7 +3,7 @@
 _pkgname=crashtest
 pkgname=python-crashtest
 pkgver=0.3.1
-pkgrel=2
+pkgrel=3
 pkgdesc="supposedly makes exceptions handling and inspection easier"
 arch=('any')
 url="https://github.com/sdispater/${_pkgname}"
