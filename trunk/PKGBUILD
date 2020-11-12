@@ -3,7 +3,7 @@
 _pkgname=build
 pkgname=python-$_pkgname
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A simple, correct PEP517 package builder'
 arch=('any')
 url='https://github.com/pypa/build'
@@ -37,4 +37,3 @@ package() {
 
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
-
