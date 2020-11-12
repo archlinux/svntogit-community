@@ -2,7 +2,7 @@
 
 pkgname=pulseaudio-equalizer-ladspa
 pkgver=3.0.2
-pkgrel=3
+pkgrel=4
 pkgdesc='A 15-band equalizer for PulseAudio'
 arch=(any)
 url='https://github.com/pulseaudio-equalizer-ladspa/equalizer'
@@ -32,4 +32,3 @@ package() {
   # It's GLP3 but has a specific copyright string
   install -Dm 644 ../LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
-
