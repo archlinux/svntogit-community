@@ -8,8 +8,8 @@
 
 pkgbase=calibre
 pkgname=calibre
-pkgver=5.4.2
-pkgrel=2
+pkgver=5.5.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -27,15 +27,21 @@ optdepends=('poppler: required for converting pdf to html')
 conflicts=('calibre-common' 'calibre-python3')
 replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
-sha256sums=('e6bc37cbcfecf06d5d6d8cab132e6e4896a1bbade4e5385f26975111f1c0f517'
-            'SKIP')
-b2sums=('00373cdc9af56a8dacc70096d1e7925f8d3da4eaf37727ad58c211d18e6c593a21c3ad0f283048ae28b1bb83889c8c801baaa5e240eb65d972ebc78a79922ec1'
-        'SKIP')
+        "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
+        "0001-Do-not-build-WIP-espeak-plugin-before-it-is-ready.patch")
+sha256sums=('01cebfd1ee7b05cd7393991818ce829d8bb080db5d12fe86111d242864660224'
+            'SKIP'
+            '8ed4a9578d3dbbc4ada4dd08f318c861012f45260cdd68caadbeb29b12d58a05')
+b2sums=('af710b7554ce82e52c742789831fd4afee53ddd0ce3a5e36970fee6e1f6a0cf91aa5b03bff53ec0f1ca66c6bc73ace3c770f13c44468a352541ae29a2043335b'
+        'SKIP'
+        '25ed435277cb3e2ad843295df5cf4469e4ddb96c880e4d0c3003d59cc71719e1a3062220d612766ced6e42d30f800603375baef43106e0b447acca8f5f58e3f5')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
     cd "${pkgbase}-${pkgver}"
+
+    # wait until this is functional before building it
+    patch -p1 -i ../0001-Do-not-build-WIP-espeak-plugin-before-it-is-ready.patch
 
     # Desktop integration (e.g. enforce arch defaults)
     # Use uppercase naming scheme, don't delete config files under fakeroot.
