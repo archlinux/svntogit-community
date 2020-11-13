@@ -35,6 +35,8 @@ prepare() {
 build() {
   cd $pkgname-$_pkgver
 
+  CFLAGS+=' -fcommon' # https://github.com/aircrack-ng/aircrack-ng/issues/2138
+
   ./configure \
     --prefix=/usr \
     --libexecdir=/usr/lib \
