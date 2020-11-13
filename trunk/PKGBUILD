@@ -6,7 +6,7 @@
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
 pkgver=1.1
-pkgrel=3
+pkgrel=4
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
@@ -60,8 +60,7 @@ package_python-html5lib() {
 package_python2-html5lib() {
     pkgdesc="A Python2 HTML parser/tokenizer based on the WHATWG HTML5 spec"
     depends=("${_deps[@]/#/python2-}")
-    optdepends=('python2-lxml: lxml treebuilder'
-                'python2-genshi: genshi treewalker')
+    optdepends=('python2-lxml: lxml treebuilder')
     cd "${srcdir}"/html5lib-python-${pkgver}
 
     python2 setup.py install --root="${pkgdir}" --optimize=1 --skip-build
