@@ -5,7 +5,7 @@
 _name=Nuitka
 pkgname=nuitka
 pkgver=0.6.9.6
-pkgrel=3
+pkgrel=4
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=('any')
 url='https://nuitka.net/'
