@@ -1,0 +1,92 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=Nikola
+pkgname=nikola
+pkgver=8.1.1
+pkgrel=3
+pkgdesc="A static site and blog generator"
+arch=('any')
+url="https://getnikola.com/"
+license=('MIT')
+depends=('python-babel' 'python-blinker' 'python-doit' 'python-dateutil'
+'python-docutils' 'python-logbook' 'python-lxml' 'python-mako'
+'python-markdown' 'python-natsort' 'python-piexif' 'python-pillow'
+'python-pygments' 'python-pyrss2gen' 'python-requests' 'python-setuptools'
+'python-unidecode' 'python-yapsy')
+makedepends=('jupyter-notebook' 'python-aiohttp' 'python-ghp-import'
+'python-husl' 'python-ipykernel' 'python-jinja' 'python-micawber'
+'python-phpserialize' 'python-pygal' 'python-pyphen' 'python-ruamel-yaml'
+'python-toml' 'python-typogrify' 'python-watchdog')
+checkdepends=('python-freezegun' 'python-pytest')
+optdepends=('jupyter-notebook: for .ipynb support'
+            'python-aiohttp: for `nikola auto`'
+            'python-ghp-import: for upload to Github pages'
+            'python-husl: for optional color support'
+            'python-ipykernel: for .ipynb support'
+            'python-jinja: for jinja2 based themes'
+            'python-micawber: for embedding media in posts'
+            'python-phpserialize: for Wordpress import'
+            'python-pygal: for SVG graph plotting'
+            'python-pyphen: for hyphenation support'
+            'python-ruamel-yaml: for YAML support'
+            'python-toml: for TOML support'
+            'python-typogrify: for typographical enhancements'
+            'python-watchdog: for `nikola auto`')
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz"{,.asc}
+        "${pkgname}-8.1.1-fix_shortcode_log.patch::https://github.com/getnikola/nikola/commit/62c29c6382d663afbed9a23f68ea1cba881abcdb.patch")
+sha512sums=('a833cb7687077266a20f7043f99b03391f350b48ceea71250158e760b0e44b603de1d6e398a03ec848483775501ad248b6ac45a23ceb250d120a63f110d482b5'
+            'SKIP'
+            '10937750e24886a7e033c7148ffdea46b637793a80957a6e579f27aaa698028c18ad32e6c34947ebf398acab828dbfd6eb549730dccc9cec736e69f47df6c646')
+validpgpkeys=('DF32C99CFF84282CF9D4CF7171023DBD5EAAEA16') # Chris Warrick <kwpolska@gmail.com>
+
+prepare() {
+  mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
+  cd "$pkgname-$pkgver"
+  # remove options to pytest so that we don't require python-coverage et. al.
+  sed -e '/addopts/d' -i setup.cfg
+  # fix log argument handling for shortcodes (make compatible with python 3.9)
+  patch -Np 1 -i ../"${pkgname}-8.1.1-fix_shortcode_log.patch"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  python setup.py build
+  # shell completions
+  PYTHONPATH="build" \
+  python -m "${pkgname}" tabcompletion \
+    --shell bash \
+    --hardcode-tasks \
+    > "${pkgname}_bash"
+  PYTHONPATH="build" \
+  python -m "${pkgname}" tabcompletion \
+    --shell zsh \
+    --hardcode-tasks \
+    > "${pkgname}_zsh"
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+  export PYTHONPATH="build:${PYTHONPATH}"
+  # disabling failing test: https://github.com/getnikola/nikola/issues/3432
+  pytest -vv -k 'not test_compiling_markdown[hilite]' tests/
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  export PYTHONHASHSEED=0
+  python setup.py install --skip-build \
+                          --optimize=1 \
+                          --root="${pkgdir}"
+  install -vDm 644 LICENSE.txt \
+    -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -vDm 644 {AUTHORS,CHANGES}.txt {CONTRIBUTING,README}.rst \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 "${pkgname}_bash" \
+    "${pkgdir}/usr/share/bash-completion/completions/${pkgname}"
+  install -vDm 644 "${pkgname}_zsh" \
+    "${pkgdir}/usr/share/zsh/site-functions/_${pkgname}"
+  # removing tests as a top-level module
+  # https://github.com/getnikola/nikola/issues/3348
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  rm -rvf "${pkgdir}/${site_packages}/tests"
+}
