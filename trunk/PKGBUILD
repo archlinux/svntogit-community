@@ -2,7 +2,7 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=9.1.2
+pkgver=9.2
 _ghidra_data=60529abb6c1e28b689f539384a1ebd1fe13d6528
 _d2j=2.0
 _yajsw=12.12
@@ -13,7 +13,7 @@ url='https://ghidra-sre.org/'
 arch=('x86_64')
 license=('Apache')
 depends=('java-environment>=11' 'bash')
-makedepends=('git' 'gradle' 'unzip')
+makedepends=('git' 'gradle' 'unzip' 'java-environment=11')
 optdepends=('python2: Python feature'
             'pam: GhidraServer support')
 source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver}_build.tar.gz
@@ -25,7 +25,7 @@ source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver
 noextract=(AXMLPrinter2.jar
            yajsw-stable-${_yajsw}.zip
            hfsexplorer-${_hfsx/./_}-bin.zip)
-sha512sums=('48e200e11b87dc07e8381af3a8b50df509991e49bba0cf73d6494d9f606d2b61850c2ebe051092567da5098b2e298332fb01923325135037e1f2fd097ff2b22d'
+sha512sums=('a00bc715012c0989484d7610071d37b1991ebc4e994b5640a2d80d154b4794ff5f2644bca8a62b93664c8f31a469e18cd727dd859a3542820032bac0e1de6c59'
             'SKIP'
             'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
@@ -33,6 +33,7 @@ sha512sums=('48e200e11b87dc07e8381af3a8b50df509991e49bba0cf73d6494d9f606d2b61850
             'b85b4316115695acc78cc7c675c673058c05a238451562be0c6a48b2d11a28e5645a42cb62cdf063be015369df26201dfab6cf2e60f39e6468d1d53b23f94415')
 
 prepare() {
+  export PATH="/usr/lib/jvm/java-11-openjdk/bin:${PATH}"
   install -d hfsx
   unzip -u hfsexplorer-${_hfsx/./_}-bin.zip -d hfsx
 
