@@ -3,8 +3,8 @@
 # Contributor: Alucryd <alucryd at gmail dot com>
 
 pkgname=android-tools
-pkgver=30.0.4
-pkgrel=2
+pkgver=30.0.5
+pkgrel=1
 _tag=platform-tools-$pkgver
 pkgdesc='Android platform tools'
 arch=(x86_64)
@@ -60,9 +60,9 @@ sha1sums=('SKIP'
           'SKIP'
           'SKIP'
           'SKIP'
-          '3e6dc3afe68447212b6dbca74962e9b24a8159b2'
+          '933dc30da1c3db9c85c3623d20341fcf64ed2253'
           'd9dfac30245faa0a96968b96f3acd9ad536f4910'
-          'cc295dc7726821ea9e74158d898a1ff80d291c61'
+          '4583e794158ef08cec8e586cd26bc152fe26695c'
           'ce8314d6b1e05e3f4f7ae7828d225fbb07a2a55c'
           '1c025855a3e7ea351685843a0df45c52a7e674dd'
           '7004dbd0c193668827174880de6f8434de8ceaee')
