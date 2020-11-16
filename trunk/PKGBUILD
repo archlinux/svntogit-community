@@ -7,7 +7,7 @@
 pkgname=python-markdown
 _pkgbasename=Markdown
 pkgver=3.3.3
-pkgrel=0
+pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
