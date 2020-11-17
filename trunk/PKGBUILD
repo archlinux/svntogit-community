@@ -2,8 +2,8 @@
 
 _name=inflect
 pkgname=python-inflect
-pkgver=4.1.0
-pkgrel=4
+pkgver=5.0.2
+pkgrel=1
 pkgdesc="Correctly generate plurals, singular nouns, ordinals, indefinite articles"
 arch=('any')
 url="https://github.com/jazzband/inflect"
@@ -12,8 +12,8 @@ depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('9a2ba4777f01475390976f3ac28f046d39d1f86cfdafd161cc7c8d33526aca35d44e6598ccf2a0b68d3511a64b67ed0991b51c78bda8f279cd706fd29a3fa514')
-b2sums=('c15f6b0d5d93050283dfc4d691e9fdbc26bb2f71573d6b397834e87af62f3afb8f5cdb0448c531de37e84729c0c6ae0cf4ea7a7b081a9dd784f7c06b962d7def')
+sha512sums=('ea97ec4a4a1a94a6218e60c20d63e483026beb1901abe2fa69f186a823f8a786b9a82af231fc42bf705146f650fdbfa5ff660cfbe821eceb53891ef2e91eaec3')
+b2sums=('42b2524b00a8b71aca6f164de9b57708be172ce63bc62480e951d082bd68f082ad2fadb502321a5fc97ffa3af95f26935d0de855144863b9bd1dfbdf3bdae516')
 
 prepare() {
   mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
@@ -30,7 +30,7 @@ build() {
 check() {
   cd "$pkgname-$pkgver"
   export PYTHONPATH="build:${PYTHONPATH}"
-  pytest -v --ignore setup.py
+  pytest -v
 }
 
 package() {
@@ -38,7 +38,7 @@ package() {
   python setup.py install --skip-build \
                           --optimize=1 \
                           --root="${pkgdir}"
-  install -vDm 644 {{CHANGES,README}.rst,CONTRIBUTING.md} \
+  install -vDm 644 {CHANGES,README}.rst \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
   install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
 }
