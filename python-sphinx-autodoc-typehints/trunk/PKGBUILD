@@ -2,16 +2,16 @@
 
 pkgname=python-sphinx-autodoc-typehints
 _pyname=${pkgname/python-/}
-_gitcommit=a1afbaba3067aee273ec0b14036e0f4ac44f79a9
-pkgver=1.8.0
-pkgrel=4
+_gitcommit=2fac99f455855c832b22a272edde3f9852ba6a04
+pkgver=1.11.1
+pkgrel=1
 pkgdesc='Type hints support for the Sphinx autodoc extension'
 url='https://github.com/agronholm/sphinx-autodoc-typehints'
 arch=('any')
 license=('MIT')
 depends=('python' 'python-sphinx' 'python-typing_extensions')
 makedepends=('git' 'python-setuptools' 'python-setuptools-scm')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-sphobjinv')
 source=("git+https://github.com/agronholm/sphinx-autodoc-typehints#commit=${_gitcommit}")
 sha512sums=('SKIP')
 
@@ -27,7 +27,7 @@ build() {
 
 check() {
   cd ${_pyname}
-  PYTHONPATH=. py.test -k 'not test_sphinx_output'
+  PYTHONPATH=. pytest
 }
 
 package() {
