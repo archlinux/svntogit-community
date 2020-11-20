@@ -1,7 +1,7 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=giada
-pkgver=0.16.4
+pkgver=0.17.0
 pkgrel=1
 pkgdesc="A free, minimal, hardcore audio tool for DJs, live performers and electronic musicians"
 arch=('x86_64')
@@ -10,15 +10,18 @@ license=('GPL3')
 groups=('pro-audio')
 depends=('gcc-libs' 'glibc' 'libx11' 'libxpm')
 # upstream vendors a hacked rtaudio :(
-makedepends=('alsa-lib' 'fltk' 'gendesk' 'imagemagick' 'jack' 'libpulse'
-'libsamplerate' 'libsndfile' 'nlohmann-json' 'rtmidi')
+makedepends=('alsa-lib' 'cmake' 'fltk' 'gendesk' 'imagemagick' 'jack'
+'libpulse' 'libsamplerate' 'libsndfile' 'libxrandr' 'nlohmann-json' 'rtmidi')
 checkdepends=('catch2' 'xorg-server-xvfb')
 source=("https://www.giadamusic.com/data/${pkgname}-${pkgver}-src.tar.gz"
-        "$pkgname-0.16.2.2-devendor_nlohmann-json.patch")
-sha512sums=('f4e528ccdd4decef82db03ae11322f282949e3a3ef5184a9527d9678e009f955907010142c20da8f806ac702827238441401f3ee75544619f8d080554f53cd99'
-            '31cf5b2b1bba29e8c97109c04c6456a98b778017ef5d48a0f020d326d8a11a5e76c8613fc232a2492d16aa48bc2faaae4aae7316252d6b887bd2187032fb83f9')
-b2sums=('3faa310c4a7cb60067ba1ce56fcfb1c5f482612a3ec0812a3ab2c6ea2a2e696c22d1fa107e007c392d8824364c18a22b277b7702bcaedab00a8b748542760643'
-        'cdce9efc681fecd59338187a3e2f296acb095a04a148ed85f90acde9f6758cf107a3ba7ba12151fa081d40f3a87a1e283ce0804271c9438eb06a6ac56f48320a')
+        "$pkgname-0.17.0-rtmidi_cppflags.patch"
+        "$pkgname-0.17.0-devendor_nlohmann_json.patch")
+sha512sums=('1a94da20d0901315b05adc225aa3f21e83abaa27157b810bfcf9d55fa2fa77ebaea8305aa20e37851a21797f9a986dde38e76cdb70a0ef3ffdf3a6e0d82b32c6'
+            'ae222bb63b0388ef1b02ff2cda0e589545c80fae26cbf06c04e0963a661e32b4d6746eea424359a44bb20e7568dbb5335359c5226c36d9c8b86d10130e83fedc'
+            '5b4b6c6c421851f4da72b6fb4ff457156d3332c5c7a795edffe05386d48864830e7b3afb4011996a8cd5284d2fdbc2e0da3d590108e04d00227d25bc3127f506')
+b2sums=('5dc1dc140f38c59964a67bc7dc4b0a6f0ccb91887d29e5e35eeb4700f2e1f53557b71a384e7a17b8757cb568b5ca2a02e3e29ffccceced9b6fba7d983524b499'
+        'e38277a1c77b2bfe6249618524b15909a91dd33fc635e3698e240797d3a3464737060240fe3956a805855a29f3326216adf6df28726e267cc9a1d0f24bd5d7c8'
+        '804fa149c6a3e6f860136a7abe0b1a4263355fb5c3b899643c7f5c87775035669aa22ace3b51729ee976b4a84f57c255ba23ba82367483a739a8baaf520130b7')
 
 prepare() {
   mv -v "$pkgname-$pkgver-src" "$pkgname-$pkgver"
@@ -29,24 +32,25 @@ prepare() {
           --pkgdesc "${pkgdesc}" \
           --name Giada \
           --categories "AudioVideo;Audio;Midi;Sequencer"
+
+  # remove targets for missing files:
+  # https://github.com/monocasual/giada/issues/431
+  sed -e '/baseButton/d' -i Makefile.am
+
+  # add rtmidi cppflags:
+  # https://github.com/monocasual/giada/issues/417
+  patch -Np1 -i ../"$pkgname-0.17.0-rtmidi_cppflags.patch"
+
   # devendor nlohmann-json
-  patch -Np1 -i ../"$pkgname-0.16.2.2-devendor_nlohmann-json.patch"
+  patch -Np1 -i ../"$pkgname-0.17.0-devendor_nlohmann_json.patch"
+
   # fixing test includes to use system catch2
   sed -e 's|catch\.hpp|catch2/catch\.hpp|g' -i tests/*.cpp
-  # remove unused linking against X libs:
-  # https://github.com/monocasual/giada/issues/352
-  sed -e 's/-lXinerama//g' \
-      -e 's/-lXcursor//g' \
-      -e 's/-lXft//g' \
-      -e 's/-lXrender//g' \
-      -i Makefile.am
   autoreconf -vfi
 }
 
 build() {
   cd "$pkgname-$pkgver"
-  # TODO: build vst once the included juce is fixed for gcc >= 9.1.0
-  # https://github.com/monocasual/giada/issues/328
   ./configure --prefix=/usr \
               --target=linux \
               --enable-system-catch
@@ -55,6 +59,10 @@ build() {
 
 check(){
   cd "$pkgname-$pkgver"
+  # move binary to expected directory:
+  # https://github.com/monocasual/giada/issues/432
+  mkdir -vp build
+  cp -av "${pkgname}" build/
   xvfb-run -a make -k check
 }
 
@@ -65,8 +73,8 @@ package() {
   make DESTDIR="$pkgdir/" install
   # XDG integration
   install -vDm 644 "${pkgname}.desktop" -t "${pkgdir}/usr/share/applications"
-  install -vDm 644 "extras/${pkgname}-logo.png" \
-    "${pkgdir}/usr/share/pixmaps/${pkgname}.png"
+  install -vDm 644 "extras/${pkgname}-logo.svg" \
+    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/${pkgname}.svg"
   # docs
   install -vDm 644 {ChangeLog,README.md} \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
