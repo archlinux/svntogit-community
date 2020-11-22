@@ -1,4 +1,5 @@
-# Maintainer: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Maintainer : Daniel Bermond <dbermond@archlinux.org>
+# Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
 # Contributor: Thomas Dziedzic < gostrc at gmail >
 # Contributor: Laurent Carlier <lordheavym@gmail.com>
 # Contributor: Allan McRae <allan@archlinux.org>
@@ -6,39 +7,38 @@
 
 pkgname=mupen64plus
 pkgver=2.5
-pkgrel=15
+pkgrel=16
 pkgdesc='Nintendo64 Emulator'
 arch=('x86_64')
 url='https://github.com/mupen64plus/mupen64plus-core'
 license=('GPL')
-depends=('glu' 'libsamplerate' 'libpng' 'sdl' 'freetype2' 'boost-libs')
-makedepends=('mesa' 'boost')
-source=("https://github.com/mupen64plus/mupen64plus-core/releases/download/2.5/mupen64plus-bundle-src-${pkgver}.tar.gz"
-        'ui-console-pic.patch')
+depends=('boost-libs' 'freetype2' 'glu' 'libgl' 'libpng' 'libsamplerate' 'sdl'
+         'zlib' 'hicolor-icon-theme')
+makedepends=('boost' 'mesa')
+source=("https://github.com/mupen64plus/mupen64plus-core/releases/download/${pkgver}/mupen64plus-bundle-src-${pkgver}.tar.gz"
+        '010-mupen64plus-ui-console-pie.patch'
+        '020-mupen64plus-core-gcc10-fix.patch')
 sha256sums=('9c75b9d826f2d24666175f723a97369b3a6ee159b307f7cc876bbb4facdbba66'
-            'bb4784de177aaa4c0b4f5d07b14ae020f3b47e6aa524df65366ac00eb169ee8f')
+            '0b674779949ca90db9f156b56dd9d7be9847354f5b07ec73aa3a89dde79d6b6d'
+            'f84f262bcf2b748ccded4443735caba92926241f9238f545a621009f6ae64ef7')
 
 prepare() {
-  cd mupen64plus-bundle-src-$pkgver
-  patch -p1 -i ../ui-console-pic.patch
+    patch -d "mupen64plus-bundle-src-${pkgver}" -Np1 -i "${srcdir}/010-mupen64plus-ui-console-pie.patch"
+    patch -d "mupen64plus-bundle-src-${pkgver}" -Np1 -i "${srcdir}/020-mupen64plus-core-gcc10-fix.patch"
 }
 
 build() {
-  cd mupen64plus-bundle-src-${pkgver}
-
-  if [[ $CARCH = 'i686' ]]; then
-    export CFLAGS="${CFLAGS/-fno-plt/}"
-    export CXXFLAGS="${CXXFLAGS/-fno-plt/}"
-  fi
-
-  sh m64p_build.sh
+    cd "mupen64plus-bundle-src-${pkgver}"
+    ./m64p_build.sh
 }
 
 package() {
-  cd mupen64plus-bundle-src-$pkgver
-  
-  # set LDCONFIG since we are using fakeroot and scripts run root commands by checking the uid
-  ./m64p_install.sh DESTDIR="$pkgdir" PREFIX='/usr' MANDIR='/usr/share/man' LDCONFIG='true'
+    cd "mupen64plus-bundle-src-${pkgver}"
+    
+    # set LDCONFIG since we are using fakeroot and scripts run root commands by checking the uid
+    ./m64p_install.sh DESTDIR="$pkgdir" PREFIX='/usr' LDCONFIG='true'
+    
+    local _sover
+    _sover="$(find "${pkgdir}/usr/lib" -type f -name 'libmupen64plus.so.*.*.*' | sed 's/^.*\.so\.//')"
+    ln -s "libmupen64plus.so.${_sover}" "${pkgdir}/usr/lib/libmupen64plus.so"
 }
-
-# vim: ts=2:sw=2:et
