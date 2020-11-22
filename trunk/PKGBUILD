@@ -4,28 +4,28 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.5
-pkgver=14.2.8
+pkgver=15.2.6
 pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
 license=('GPL')
-makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
+makedepends=("zstd=${_zstdver}" 'bash' 'bc' 'boost' 'boost-libs' 'bzip2' 'c-ares' 'cmake' 'coreutils' 'coffeescript'
              'cpio' 'crypto++' 'cryptsetup' 'cunit' 'curl' 'cython' 'expat'
-             'fcgi' 'fontconfig' 'fuse2' 'gcc' 'gcc-libs' 'git' 'glibc' 'gmock'
-             'gperf' 'gperftools' 'gptfdisk' 'gtest' 'inetutils' 'java-runtime'
+             'fcgi' 'fontconfig' 'fuse2' 'fuse3' 'fmt' 'gcc' 'gcc-libs' 'git' 'glibc' 'gmock' 'gnutls'
+             'gperf' 'gperftools' 'gptfdisk' 'gtest' 'hwloc' 'inetutils' 'java-runtime'
              'jq' 'jre11-openjdk-headless' 'junit' 'keyutils' 'leveldb' 'libaio'
              'libatomic_ops' 'libcap' 'libcap-ng' 'libcroco' 'libcurl-compat'
-             'libedit' 'libgudev' 'librabbitmq-c' 'libtool' 'util-linux-libs'
-             'libuv' 'libxml2' 'lsb-release' 'lz4' 'ncurses'
-             'nss' 'oath-toolkit' 'openssl' 'parted' 'pcre' 'pcre2' 'pkgconf'
+             'libedit' 'libgudev' 'libnl' 'librabbitmq-c' 'libtool' 'util-linux'
+             'libuv' 'libxml2' 'librdkafka' 'libpciaccess' 'lsb-release' 'lz4' 'ncurses'
+             'nss' 'numactl' 'oath-toolkit' 'openssl' 'parted' 'pcre' 'pcre2' 'pkgconf' 'protobuf'
              'procps-ng' 'python-astroid' 'python-attrs' 'python-bcrypt'
-             'python-cheroot' 'python-cherrypy' 'python-coverage'
+             'python-cheroot' 'python-cherrypy' 'python-coverage' 'python-dateutil'
              'python-elasticsearch' 'python-flask' 'python-flask-restful'
              'python-google-api-python-client' 'python-google-auth'
              'python-google-auth-httplib2' 'python-grpcio' 'python-isort'
              'python-jinja' 'python-lazy-object-proxy' 'python-mccabe'
-             'python-isodate' 'python-defusedxml' 'python-pkgconfig'
+             'python-isodate' 'python-defusedxml' 'python-pkgconfig' 'python-protobuf'
              'python-lxml' 'python-xmlsec' 'python-yaml'
              'python-more-itertools' 'python-numpy' 'python-pbr' 'python-pecan'
              'python-pip' 'python-pluggy' 'python-portend' 'python-prettytable'
@@ -35,28 +35,40 @@ makedepends=("zstd=${_zstdver}" 'bc' 'boost' 'boost-libs' 'cmake' 'coffeescript'
              'python-setuptools' 'python-six' 'python-sphinx' 'python-tempora'
              'python-virtualenv' 'python-werkzeug' 'python-wrapt' 'rabbitmq'
              'sed' 'snappy' 'socat' 'systemd' 'systemd-libs' 'valgrind'
-             'xfsprogs' 'xmlstarlet' 'xxhash' 'yasm' 'zlib' )
+             'xfsprogs' 'xmlstarlet' 'xmlsec' 'xxhash' 'yaml-cpp' 'yasm' 'zlib' )
 checkdepends=('python-mock' 'python-nose' 'python-pycodestyle' 'python-pylint'
               'python-pytest' 'python-pytest-cov')
 options=('emptydirs')
-source=("https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
-        'ceph.sysusers'
-        'remove-distro-version-detection.patch'
-        'disable-empty-readable.sh-test.patch'
-        'use-threadsafe-death-tests-objectstore-memstore.patch'
-        'use-system-zstd-and-fix-zstd-1.4.0-compatbility.patch'
-        'suppress-pylint-warnings.patch'
-        'fix-mgr-dashboard-frontend-unittests-dist-stuff.patch'
-        "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz")
-sha512sums=('38b0c6df58579377528c8f8e06d0cbc40f471f6eb2fb4a05b395f6fddbd3f2117674545b2147d8730973b01967ddcd4322a769ba03f9c625417ed35cc39f195a'
+source=(
+  "https://download.ceph.com/tarballs/${pkgbase}-${pkgver}.tar.gz"
+  'ceph.sysusers'
+  "zstd-${_zstdver}.tar.gz::https://github.com/facebook/zstd/archive/v${_zstdver}.tar.gz"
+  'glibc2.32-strsignal-compat-backported.patch'
+  'ceph-14.2.0-cflags.patch'
+  'ceph-12.2.4-boost-build-none-options.patch'
+  'ceph-13.2.0-cflags.patch'
+  'ceph-13.2.2-dont-install-sysvinit-script.patch'
+  'ceph-14.2.0-link-crc32-statically.patch'
+  'ceph-14.2.0-cython-0.29.patch'
+  'ceph-15.2.0-rocksdb-cmake.patch'
+  'ceph-15.2.4-system-uring.patch'
+  'ceph-15.2.5-missing-includes.patch'
+  'disable-empty-readable.sh-test.patch'
+)
+sha512sums=('0bbbbc532fb9f29437c094a86a1e58040f03b679e4d52ea9cc752ecf411c594c8ec37dc5e9f0ee47712d32b93b4e60b0f3fded280867d41c41b8db806b375e4e'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
-            '02c9e8fd3c23fb4c9c4c576ee6d06e8525ca31decfd964fb7231e73c98fe2987a483dda680969752186f0918f47d9af4fb09a4901e5319077f45d870906716da'
-            '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
-            'a74aea7c0b0d1883c874f889c184bd2c766fa578d6ca0cbe5eaada840281bb947b3d80f142b30473058cd2652d2967d241ade6914d6be50e93e91728a31733c8'
-            '4345fc2f422c7c1910bfd4068ad39511fa63d8c1e4fc04af416bb0f3869e43327d4a4bfc980d5abf273693a532ac153ed1e4c03e033a127692c1254b99092b8a'
-            '4afd5c3b49a839531921e80b1204ef5b496531a31b3de13042bfcbb548d736851ef7698e41bc94a9bed356e7c2cab6bf30bc711796249cf10ee791974033c29b'
-            '6265e083e0e8cba481741c7492a47e8144381287c2cbaef220a64bd889d8bac43cb5cc3efb01600cf785d585c950982a908deed10bedf0688c5cd2015e004c1f'
-            'b03c497c3e0590c3d384cb856e3024f144b2bfac0d805d80e68deafa612c68237f12a2d657416d476a28059e80936c79f099fc42331464b417593895ea214387')
+            'b03c497c3e0590c3d384cb856e3024f144b2bfac0d805d80e68deafa612c68237f12a2d657416d476a28059e80936c79f099fc42331464b417593895ea214387'
+            'f4f725db5ce8ff01088557891382f28b014a18accbca40b9939899e611377dc71bc94aa47333bbff544b65a7f7cb680bac4a1359481afe24354a0b5c4a9469e4'
+            '9e6bb46d5bbdc5d93f4f026b2a8d6bdb692d9ea6e7018c1bb0188d95ea8574c76238d968b340fd67ddaa3d8183b310e393e3549dc3a63a795fde696413b0ca94'
+            '6ff46a90d76f667fa23be0f9eb1ed2fb7e30af9a2621aec19944d0a22a431a0f5721603c588286e483ff55c14aac920adfccb039c9678a87cc59640dd70367ae'
+            '8ec0d668fefee12d2c7f5b5297dd81fc6a559f5823d069e6395d9b4240110eb8f95049d3054697a459948c1f3784b4450539849cf9d7f3b1aa1c7fbd96c475df'
+            'ea069b75b786c22166c609b127b512802cc5c6e9512d792d7b7b34d276f5b86d57c8c35cfc7b5c855a59c0ba87ba1aabe2ca26da72b26bff46b6ba8410ddb27e'
+            '3efe70f826ebc207f1ce8744483c9a82ebbf8f3cfa81c9cbb3152b40f5b540cc9cc21e6bd3370197bee9a27a01c3e3725754d044069bb760c3dbfbc97fe4276d'
+            '82c1608928ee669ef60b8930ce82c443152c446e669e7bde9ce32f78571afb19a9620c3818b69ac8cb3ea33e7d7ac40f77c89162c71b19b157336d907fa23e3d'
+            '20256de5c3227caa149f8285bcc90fcbd67be8cefa568fb72ad0d43688f1f62db7c7fc231dfd4ecf2dd11be68bf1ccc284ebbc691a82a26f3968200f12c82097'
+            '8258661e56b5360f4260fdd29b07bac4d415068a112b61ca8c55c529fb1593d8d61a0d59a4eec8f1567b97167c058082198d008f55f8ee701cb46489df5f7823'
+            '84de66f64ea96cd59b40dfb5b8c5d093fe49df1139b45ad9d1bd6b9ebd2f1200b6e931adcf032639a4995af322cf05c1ef9050eb1cb6673e29e040d4e348b3d5'
+            '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222')
 
 
 # -fno-plt causes linker errors (undefined reference to internal methods)
@@ -64,22 +76,16 @@ sha512sums=('38b0c6df58579377528c8f8e06d0cbc40f471f6eb2fb4a05b395f6fddbd3f211767
 # https://github.com/intel/media-driver/commit/d95d8f7ab7ac94a2e0f4ee6a4b4794898dc2d3b7
 # as of today (2019-07-12) the upstream maintainers do not consider this a bug in their code
 # (IMHO rightfully so) and thus we strip the option here
-CFLAGS="${CFLAGS/-fno-plt/}"
-CXXFLAGS="${CXXFLAGS/-fno-plt/}"
+export CFLAGS="${CFLAGS/-fno-plt/}"
+export CXXFLAGS="${CXXFLAGS/-fno-plt/}"
 
 
 prepare() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
-  # the src/pybind/mgr/dashboard/run-frontend-unittests.sh helper will incorrectly
-  # rebuild the static assets to frontend/dist/ causing failures in run-tox-mgr-dashboard
-  # and in the final package
-  # with fix-mgr-dashboard-frontend-unittests-dist-stuff.patch we comment out
-  # the npm build and i18n commands of this helper and just use the remainder to run the actual tests
-
   # apply patches from the source array
   local filename
-  for filename in "${source[@]}"; do
+  for filename in "${source[@]%%::*}"; do
     if [[ "${filename}" =~ \.patch$ ]]; then
       echo "Applying patch ${filename##*/}"
       patch -p1 -N -i "${srcdir}/${filename##*/}"
@@ -92,6 +98,13 @@ prepare() {
   sed -i '/#ifndef CEPH_TYPES_H/i#define BOOST_ALLOW_DEPRECATED_HEADERS' \
     src/include/types.h
 
+  # fix boost stuff for system-boost
+  find . -name '*.cmake' -or -name 'CMakeLists.txt' -print0 | xargs --null \
+    sed -r \
+    -e 's|Boost::|boost_|g' \
+    -e 's|Boost_|boost_|g' \
+    -e 's|[Bb]oost_boost|boost_system|g' -i || exit 1
+
   # remove bundled zstd and replace with newer release
   rm -rf src/zstd
   ln -sf "${srcdir}/zstd-${_zstdver}" src/zstd
@@ -99,26 +112,22 @@ prepare() {
   # remove tests that require root privileges
   rm src/test/cli/ceph-authtool/cap*.t
 
-  # disable certain pylint test cases (we don't are about them for packaging)
-  sed -i 's/,py3-lint//' src/pybind/mgr/dashboard/run-tox.sh
-
-
-  # this test will try to perform btrfs operations when a btrfs mount
-  # is active on the build host, which will fail
-  # if mount | grep 'type btrfs' &>/dev/null; then
-  #   sed -i '/run-tox-ceph-disk/d' src/test/CMakeLists.txt
-  # fi
+  # disable/remove broken tests
+  sed -i '/add_ceph_test(smoke.sh/d' src/test/CMakeLists.txt
+  sed -i '/add_ceph_test(safe-to-destroy.sh/d' src/test/osd/CMakeLists.txt
 }
 
 build() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
-  mkdir -p build
-  cd build
-
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXFLAGS+=" ${CPPFLAGS}"
   export PYTHON_INCLUDE_DIR="$(python -c "from sysconfig import get_path; print(get_path('include'))")"
+  export CMAKE_BUILD_TYPE='RelWithDebInfo'
+  export CMAKE_WARN_UNUSED_CLI=no
 
   cmake \
+    -B build \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_INSTALL_SYSCONFDIR=/etc \
     -DCMAKE_INSTALL_SBINDIR=/usr/bin \
@@ -127,7 +136,6 @@ build() {
     -DCMAKE_INSTALL_LIBEXECDIR=/usr/lib \
     -DCMAKE_INSTALL_SYSTEMD_SERVICEDIR=/usr/lib/systemd/system \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
-    -DCMAKE_BUILD_TYPE=RelWithDebInf \
     -DENABLE_GIT_VERSION=ON \
     -DWITH_PYTHON2=OFF \
     -DWITH_PYTHON3=ON \
@@ -155,22 +163,22 @@ build() {
     -DWITH_RADOSGW_BEAST_OPENSSL=ON \
     -DWITH_RADOSGW_AMQP_ENDPOINT=OFF \
     -DWITH_SYSTEMD=ON \
-    -DWITH_SYSTEM_BOOST=OFF \
+    -DWITH_SYSTEM_BOOST=ON \
     -DWITH_BOOST_CONTEXT=ON \
     -DWITH_SYSTEM_GTEST=OFF \
     -DWITH_SYSTEM_NPM=OFF \
     -DENABLE_SHARED=ON \
     -DWITH_TESTS=ON \
-    ..
+    -Wno-dev
 
-  VERBOSE=1 make all
+  VERBOSE=1 make -C build all
 }
 
 check() {
-  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  cd "${srcdir}/${pkgbase}-${pkgver}"
 
   export CTEST_PARALLEL_LEVEL="8"
-  VERBOSE=1 make check
+  VERBOSE=1 make -C build check
 
   # sometimes processes are not properly terminated...
   for process in ceph-mon ceph-mgr ceph-osd; do
@@ -179,13 +187,13 @@ check() {
 }
 
 package_ceph-libs() {
-  depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'util-linux-libs' 'lz4' 'nss'
+  depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'libutil-linux' 'bzip2' 'lz4' 'nss'
            'oath-toolkit' 'python' 'snappy' 'systemd-libs')
 
-  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  cd "${srcdir}/${pkgbase}-${pkgver}"
 
   # main install
-  VERBOSE=1 make DESTDIR="${pkgdir}" install
+  VERBOSE=1 make DESTDIR="${pkgdir}" -C build install
 
   # remove stuff that goes into the ceph package
   rm -rf "${pkgdir}"/usr/lib/{ceph/mgr,systemd,sysusers.d,tmpfiles.d}
@@ -198,15 +206,17 @@ package_ceph-libs() {
 
 package_ceph() {
   depends=("ceph-libs=${pkgver}-${pkgrel}"
-           'boost-libs' 'curl' 'fuse2' 'glibc' 'gperftools' 'java-runtime'
-           'keyutils' 'leveldb' 'libaio' 'util-linux-libs' 'lsb-release' 'ncurses'
+           'boost-libs' 'curl' 'fuse2' 'fuse3' 'fmt' 'glibc' 'gperftools' 'java-runtime'
+           'keyutils' 'leveldb' 'libaio' 'libutil-linux' 'librdkafka'
+           'lsb-release' 'ncurses'
            'nss' 'oath-toolkit' 'python' 'python-bcrypt' 'python-setuptools'
-           'python-cmd2' 'snappy' 'systemd-libs' 'xfsprogs')
+           'python-prettytable' 'python-cmd2' 'python-dateutil' 'snappy' 'sudo' 'systemd-libs'
+           'python-flask' 'python-pecan' 'python-pyopenssl' 'python-requests' 'python-werkzeug' 'xfsprogs')
 
-  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  cd "${srcdir}/${pkgbase}-${pkgver}"
 
   # main install
-  VERBOSE=1 make DESTDIR="${pkgdir}" install
+  VERBOSE=1 make DESTDIR="${pkgdir}" -C build install
 
   # fix sbin dir (cmake opt seems to have no effect)
   mv "${pkgdir}"/usr/sbin/* "${pkgdir}/usr/bin/"
@@ -263,18 +273,18 @@ package_ceph-mgr() {
   depends=("ceph=${pkgver}-${pkgrel}" "ceph-libs=${pkgver}-${pkgrel}"
            'bash' 'boost-libs' 'coffeescript' 'curl' 'gperftools' 'nodejs' 'nss'
            'python' 'python-cherrypy' 'python-flask-restful' 'python-pecan'
-           'python-pyjwt' 'python-routes' 'python-requests' 'python-pyopenssl'
-           'python-prettytable' 'python-yaml')
+           'python-pyjwt' 'python-routes' 'python-jsonpatch' 'python-more-itertools' 'python-numpy'
+           'python-yaml' 'python-pyaml' 'python-scipy' 'python-six')
   optdepends=('python-influxdb: influx module'
               'python-kubernetes: rook module'
               'python-prometheus_client: prometheus module'
               'python-remoto: ssh module')
   conflicts=('ceph<14.2.1-1')
 
-  cd "${srcdir}/${pkgbase}-${pkgver}/build"
+  cd "${srcdir}/${pkgbase}-${pkgver}"
 
   # main install
-  VERBOSE=1 make DESTDIR="${pkgdir}" install
+  VERBOSE=1 make DESTDIR="${pkgdir}" -C build install
 
   # fix sbin dir (cmake opt seems to have no effect)
   mv "${pkgdir}"/usr/sbin/* "${pkgdir}/usr/bin/"
