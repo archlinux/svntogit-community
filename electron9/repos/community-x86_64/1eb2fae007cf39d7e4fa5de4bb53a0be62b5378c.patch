@@ -1,0 +1,128 @@
+From 1eb2fae007cf39d7e4fa5de4bb53a0be62b5378c Mon Sep 17 00:00:00 2001
+From: Cheng Zhao <zcbenz@gmail.com>
+Date: Mon, 16 Nov 2020 11:20:42 +0900
+Subject: [PATCH] fix: LC_ALL env should not be changed
+
+---
+ shell/browser/electron_browser_main_parts.cc | 25 ++++++++++-----
+ spec-main/chromium-spec.ts                   | 32 +++++++++++++-------
+ spec/fixtures/api/locale-check/main.js       | 10 ++++--
+ 3 files changed, 47 insertions(+), 20 deletions(-)
+
+diff --git a/shell/browser/electron_browser_main_parts.cc b/shell/browser/electron_browser_main_parts.cc
+index cd3cd1a65760..e53b22e31052 100644
+--- a/shell/browser/electron_browser_main_parts.cc
++++ b/shell/browser/electron_browser_main_parts.cc
+@@ -375,23 +375,34 @@ int ElectronBrowserMainParts::PreCreateThreads() {
+   // which keys off of getenv("LC_ALL").
+   // We must set this env first to make ui::ResourceBundle accept the custom
+   // locale.
+-  g_setenv("LC_ALL", locale.c_str(), TRUE);
++  std::unique_ptr<base::Environment> env(base::Environment::Create());
++  base::Optional<std::string> lc_all;
++  if (!locale.empty()) {
++    std::string str;
++    if (env->GetVar("LC_ALL", &str))
++      lc_all.emplace(std::move(str));
++    env->SetVar("LC_ALL", locale.c_str());
++  }
+ #endif
+ 
+   // Load resources bundle according to locale.
+   std::string loaded_locale = LoadResourceBundle(locale);
+ 
+-#if defined(OS_LINUX)
+-  // Reset to the loaded locale if the custom locale is invalid.
+-  if (loaded_locale != locale)
+-    g_setenv("LC_ALL", loaded_locale.c_str(), TRUE);
+-#endif
+-
+   // Initialize the app locale.
+   std::string app_locale = l10n_util::GetApplicationLocale(loaded_locale);
+   ElectronBrowserClient::SetApplicationLocale(app_locale);
+   fake_browser_process_->SetApplicationLocale(app_locale);
+ 
++#if defined(OS_LINUX)
++  // Reset to the original LC_ALL since we should not be changing it.
++  if (!locale.empty()) {
++    if (lc_all)
++      env->SetVar("LC_ALL", *lc_all);
++    else
++      env->UnSetVar("LC_ALL");
++  }
++#endif
++
+   // Force MediaCaptureDevicesDispatcher to be created on UI thread.
+   MediaCaptureDevicesDispatcher::GetInstance();
+ 
+diff --git a/spec-main/chromium-spec.ts b/spec-main/chromium-spec.ts
+index cfd64deabb65..510f62a0056c 100644
+--- a/spec-main/chromium-spec.ts
++++ b/spec-main/chromium-spec.ts
+@@ -291,22 +291,32 @@ describe('web security', () => {
+ describe('command line switches', () => {
+   describe('--lang switch', () => {
+     const currentLocale = app.getLocale();
+-    const testLocale = (locale: string, result: string, done: () => void) => {
++    const testLocale = async (locale: string, result: string, printEnv: boolean = false) => {
+       const appPath = path.join(fixturesPath, 'api', 'locale-check');
+-      const electronPath = process.execPath;
+-      let output = '';
+-      const appProcess = ChildProcess.spawn(electronPath, [appPath, `--set-lang=${locale}`]);
++      const args = [appPath, `--set-lang=${locale}`];
++      if (printEnv) {
++        args.push('--print-env');
++      }
++      const appProcess = ChildProcess.spawn(process.execPath, args);
+ 
++      let output = '';
+       appProcess.stdout.on('data', (data) => { output += data; });
+-      appProcess.stdout.on('end', () => {
+-        output = output.replace(/(\r\n|\n|\r)/gm, '');
+-        expect(output).to.equal(result);
+-        done();
+-      });
++      await emittedOnce(appProcess.stdout, 'end');
++      output = output.replace(/(\r\n|\n|\r)/gm, '');
++      expect(output).to.equal(result);
+     };
+ 
+-    it('should set the locale', (done) => testLocale('fr', 'fr', done));
+-    it('should not set an invalid locale', (done) => testLocale('asdfkl', currentLocale, done));
++    it('should set the locale', async () => testLocale('fr', 'fr'));
++    it('should not set an invalid locale', async () => testLocale('asdfkl', currentLocale));
++
++    const lcAll = String(process.env.LC_ALL);
++    ifit(process.platform === 'linux')('current process has a valid LC_ALL env', async () => {
++      // The LC_ALL env should not be set to DOM locale string.
++      expect(lcAll).to.not.equal(app.getLocale());
++    });
++    ifit(process.platform === 'linux')('should not change LC_ALL', async () => testLocale('fr', lcAll, true));
++    ifit(process.platform === 'linux')('should not change LC_ALL when setting invalid locale', async () => testLocale('asdfkl', lcAll, true));
++    ifit(process.platform === 'linux')('should not change LC_ALL when --lang is not set', async () => testLocale('', lcAll, true));
+   });
+ 
+   describe('--remote-debugging-port switch', () => {
+diff --git a/spec/fixtures/api/locale-check/main.js b/spec/fixtures/api/locale-check/main.js
+index d42b9ab1a110..929a9e0e9519 100644
+--- a/spec/fixtures/api/locale-check/main.js
++++ b/spec/fixtures/api/locale-check/main.js
+@@ -1,10 +1,16 @@
+ const { app } = require('electron');
+ 
+ const locale = process.argv[2].substr(11);
+-app.commandLine.appendSwitch('lang', locale);
++if (locale.length !== 0) {
++  app.commandLine.appendSwitch('lang', locale);
++}
+ 
+ app.whenReady().then(() => {
+-  process.stdout.write(app.getLocale());
++  if (process.argv[3] === '--print-env') {
++    process.stdout.write(String(process.env.LC_ALL));
++  } else {
++    process.stdout.write(app.getLocale());
++  }
+   process.stdout.end();
+ 
+   app.quit();
