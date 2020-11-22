@@ -5,8 +5,8 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=3.2.1
-pkgrel=3
+pkgver=3.3.1
+pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -28,20 +28,13 @@ checkdepends=('cython'
               'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
-source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc}
-        $pkgname-pygments-2.7.patch::https://github.com/sphinx-doc/sphinx/commit/85b24a2e88ea.patch)
-sha256sums=('321d6d9b16fa381a5306e5a0b76cd48ffbc588e6340059a729c6fdd66087e0e8'
-            'SKIP'
-            '6b790f4b3b540924a6a7861452fcbac8123f1e0a6c1765f5caafd7cb94fcecec')
+source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
+sha256sums=('1e8d592225447104d1172be415bc2972bd1357e3e12fdc76edf2261105db4300'
+            'SKIP')
+b2sums=('4eb9d8c9dccfd83690252ad6be05a3e69006e1e801bb0b37b77fb6ccf998f3a2fd99a90eba890cfb2baa5545ac0c2734fcd72d602fc2d1091e6754337f241b34'
+        'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa
-
-prepare() {
-  cd Sphinx-$pkgver
-
-  # Fix test failure with pygments 2.7
-  patch -Np1 -i ../$pkgname-pygments-2.7.patch
-}
 
 build() {
   cd Sphinx-$pkgver
