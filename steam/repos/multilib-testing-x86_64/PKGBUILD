@@ -1,0 +1,63 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Giancarlo Razzolini <grazzolini@archlinux.org>
+# Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: K900 <k0009000@gmail.com>
+
+pkgname=steam
+pkgver=1.0.0.67
+pkgrel=1
+pkgdesc="Valve's digital software delivery system"
+url='https://steampowered.com/'
+arch=('x86_64')
+license=('custom')
+depends=('bash' 'desktop-file-utils' 'hicolor-icon-theme' 'curl' 'dbus'
+         'freetype2' 'gdk-pixbuf2' 'ttf-font' 'zenity' 'lsb-release' 'nss' 'usbutils'
+         'xorg-xrandr' 'vulkan-driver' 'vulkan-icd-loader' 'lsof' 'python')
+depends_x86_64=('lib32-libgl' 'lib32-gcc-libs' 'lib32-libx11' 'lib32-libxss'
+                'lib32-alsa-plugins' 'lib32-libgpg-error'
+                'lib32-nss' 'lib32-vulkan-driver' 'lib32-vulkan-icd-loader')
+optdepends=('steam-native-runtime: steam native runtime support')
+source=(https://repo.steampowered.com/${pkgname}/pool/${pkgname}/s/${pkgname}/${pkgname}_${pkgver}{.tar.gz,.dsc}
+        steam-runtime.sh)
+sha512sums=('74af8019b9d216c02860654e9a0162b1089b979e63bbe13645be2ee79414f896e9e57cbb85d762725756e99ed6333a75c8712a827dd88de2b3631bc119b6b0b8'
+            'e7a0a05a69295fa34f8f005a504c9583d672ee2aca422d642daa87dec3feee6cebfa4ea2ccdb12a01d97a7c42e031ae0956d4452071919066737a7dcc375b84d'
+            '5e75c019e9fe8c67d686c4e3343dac1180a69a4bdb7d39b333415c63201eef9b98da5619dbf6fd8daa6884e65bc7f8afc9e52778682425e5a75987d527eae6f0')
+b2sums=('1a47f1d5a1fea7ba01c250f8765b2ee8bea87f0cd242ae52bdc78b51fb05c43c333efb667d3e7cf7b401a2fa5131efce176cead3c5ecdb214257fb2da75a36cf'
+        'bda198fe6c39b64ece0d8715ba8b5dbc89fa0b12b9e62130eb92efd277f2d7b73a96776903e842426cad09fd41b736faf1cadfc2a77fe601600343b8e0cea9d0'
+        'c6bac99336b7c30fec7cdbaf9e949555c687dd9dff50bcae136134d6314f4b841f5fc66ddb2caac1b003690b926fd4afbdc11da143b4674db4b75f27709fdd23')
+validpgpkeys=('BA1816EF8E75005FCF5E27A1F24AEA9FB05498B7') # linux@steampowered.com
+
+prepare() {
+  cd ${pkgname}-launcher
+  # apply roundups for udev rules
+  sed -r 's|("0666")|"0660", TAG+="uaccess"|g' -i subprojects/steam-devices/60-steam-input.rules
+  sed -r 's|("misc")|\1, OPTIONS+="static_node=uinput"|g' -i subprojects/steam-devices/60-steam-input.rules
+  sed -r 's|(, TAG\+="uaccess")|, MODE="0660"\1|g' -i subprojects/steam-devices/60-steam-vr.rules
+
+  # separated runtime/native desktop files
+  sed -r 's|(Name=Steam)|\1 (Runtime)|' -i steam.desktop
+  sed -r 's|(/usr/bin/steam)|\1-runtime|' -i steam.desktop
+}
+
+package() {
+  cd ${pkgname}-launcher
+  make DESTDIR="${pkgdir}" install
+
+  install -Dm 755 "${srcdir}/steam-runtime.sh" "${pkgdir}/usr/bin/steam-runtime"
+  install -d "${pkgdir}/usr/lib/steam"
+  mv "${pkgdir}/usr/bin/steam" "${pkgdir}/usr/lib/steam/steam"
+  ln -sf /usr/bin/steam-runtime "${pkgdir}/usr/bin/steam"
+
+  install -Dm 644 COPYING steam_subscriber_agreement.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -Dm 644 debian/changelog -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  # blank steamdeps because apt-get
+  ln -sf /usr/bin/true "${pkgdir}/usr/bin/steamdeps"
+
+  install -Dm 644 subprojects/steam-devices/60-steam-input.rules \
+    "${pkgdir}/usr/lib/udev/rules.d/70-steam-input.rules"
+  install -Dm 644 subprojects/steam-devices/60-steam-vr.rules \
+    "${pkgdir}/usr/lib/udev/rules.d/70-steam-vr.rules"
+}
+
+# vim: ts=2 sw=2 et:
