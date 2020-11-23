@@ -7,7 +7,7 @@
 pkgname=python-jedi
 _gitcommit=3b7106ae71cb7bd3431101d169a0110ee0c179aa
 pkgver=0.17.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
 arch=('any')
