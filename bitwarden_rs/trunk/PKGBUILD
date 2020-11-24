@@ -1,0 +1,57 @@
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
+# Contributor: Markus Richter <mqus at disroot dot org>
+# Contributor: Timothée Ravier <tim@siosm.fr
+
+pkgname=bitwarden_rs
+pkgver=1.17.0
+pkgrel=2
+pkgdesc='Unofficial Bitwarden compatible server written in Rust'
+arch=('x86_64')
+url=https://github.com/dani-garcia/bitwarden_rs
+license=('GPL3')
+depends=('mariadb-libs' 'openssl' 'postgresql-libs' 'sqlite')
+makedepends=('rustup')
+optdepends=('bitwarden_rs-vault: for the web app'
+            'mariadb: for the MySQL backend'
+            'postgresql: for the PostgreSQL backend')
+conflicts=("$pkgname-mysql" "$pkgname-postgresql")
+backup=('etc/bitwarden_rs.env')
+install=$pkgname.install
+source=("$url/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        "$pkgname.service"
+        "$pkgname.sysusers.conf"
+        "$pkgname.tmpfiles")
+b2sums=('faf4a3e0cba6905547c347bd8d7939e2412116d5c9b226e49cddd04306b6e69e00e1f5d7b1b09493ff02614d5417b34cd9c54cb3efffbf238e23e3f54bacd5d1'
+        '99ebd0c6dae3f3ef30283b6c45f30f64e7a0d0e8b4b18cc8b6eee7ae0d40a047813f5316858e8d3f758595bdb63e3ee3aa6e79a1c29371798cf98dd3430412f7'
+        '5a80dc0b4bca0eeb22e7cfb69be3d747ab98f7501ee1d78b7167e5f938fe48644799abfc9cfc89a0dbeb0b7597180050db980f4229f2b5e595328131ce3ae4e9'
+        'f874e011241c0ad39c72ea4f540ab57bafe5d7d577a3b37fc86905752cd646bcaf690d85ea0d9f0f5ee4559ba1ff3f330995b99e71a42b775e41c6c8a4a8a834')
+
+prepare() {
+  cd $pkgname-$pkgver
+  sed -i 's,# DATA_FOLDER=data,DATA_FOLDER=/var/lib/bitwarden_rs,
+  s,# WEB_VAULT_ENABLED=true,WEB_VAULT_ENABLED=false,
+  s,# LOG_FILE=/path/to/log,LOG_FILE=/var/log/bitwarden_rs.log,
+  /^# ROCKET_TLS/a ROCKET_LIMITS={json=10485760}' .env.template
+}
+
+build() {
+  cd $pkgname-$pkgver
+  rustup set profile minimal
+  BWRS_VERSION="$pkgver" cargo build --release --locked --features sqlite,mysql,postgresql
+}
+
+check() {
+  cd $pkgname-$pkgver
+  cargo test --release --locked --features sqlite,mysql,postgresql
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -Dm644 .env.template "$pkgdir"/etc/bitwarden_rs.env
+  install -Dt "$pkgdir"/usr/bin target/release/bitwarden_rs
+  install -Dm644 -t "$pkgdir"/usr/lib/systemd/system ../bitwarden_rs.service
+  install -Dm644 ../$pkgname.sysusers.conf "$pkgdir"/usr/lib/sysusers.d/bitwarden_rs.conf
+  install -Dm644 ../bitwarden_rs.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/bitwarden_rs.conf
+}
+
+# vim:set ts=2 sw=2 et:
