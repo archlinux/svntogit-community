@@ -3,7 +3,7 @@
 
 pkgname=fwupd
 pkgver=1.5.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
@@ -36,7 +36,7 @@ sha256sums=('3db590be144971c16d08ed01fea110bb534537689f81b71517cf79a4d1bb77a7'
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
-    arch-meson ${pkgname}-${pkgver} build -D b_lto=false -D plugin_flashrom=true
+    arch-meson ${pkgname}-${pkgver} build -D b_lto=false -D plugin_flashrom=true -D supported_build=true
     meson compile -C build
 }
 
