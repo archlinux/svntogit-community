@@ -1,0 +1,699 @@
+From d548f88376e0a174e68ede1926bafbbd88b5fbcf Mon Sep 17 00:00:00 2001
+From: Christian Hesse <mail@eworm.de>
+Date: Wed, 25 Nov 2020 17:54:18 +0100
+Subject: [PATCH 1/1] use Gtk MenuButton for context button
+
+The old implementation had issues with constant re-drawing of the
+button. Now that we use Gtk+ 3.x drop the old implementation and just
+use upstream MenuButton.
+
+Fixes #7
+
+Signed-off-by: Christian Hesse <mail@eworm.de>
+---
+ src/Makefile.am             |   8 +-
+ src/extended-interface.vala | 104 ++++-----
+ src/xfce-arrow-button.c     | 406 ------------------------------------
+ src/xfce-arrow-button.h     |  64 ------
+ src/xfce-arrow-button.vapi  |  15 --
+ 5 files changed, 45 insertions(+), 552 deletions(-)
+ delete mode 100644 src/xfce-arrow-button.c
+ delete mode 100644 src/xfce-arrow-button.h
+ delete mode 100644 src/xfce-arrow-button.vapi
+
+diff --git a/src/Makefile.am b/src/Makefile.am
+index dc0ac0a..1505c78 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -21,8 +21,7 @@ xfmpc_SOURCES =								\
+ 	preferences.vala						\
+ 	progress-bar.vala						\
+ 	main.vala							\
+-	mpdclient.c							\
+-	xfce-arrow-button.c
++	mpdclient.c
+ 
+ xfmpc_VALAFLAGS =							\
+ 	--header=xfmpc.h						\
+@@ -30,8 +29,7 @@ xfmpc_VALAFLAGS =							\
+ 	--vapidir=$(top_srcdir)/third-party				\
+ 	--pkg=libxfce4ui-2						\
+ 	--pkg=config							\
+-	--pkg=mpdclient							\
+-	--pkg=xfce-arrow-button
++	--pkg=mpdclient
+ 
+ xfmpc_CFLAGS =								\
+ 	@GTHREAD_CFLAGS@						\
+@@ -54,8 +52,6 @@ BUILT_SOURCES = xfmpc_vala.stamp
+ EXTRA_DIST =								\
+ 	mpdclient.h							\
+ 	mpdclient.vapi							\
+-	xfce-arrow-button.h						\
+-	xfce-arrow-button.vapi						\
+ 	xfmpc.h
+ 
+ # vi:set ts=8 sw=8 noet ai nocindent syntax=automake:
+diff --git a/src/extended-interface.vala b/src/extended-interface.vala
+index 8cc1687..23d87cc 100644
+--- a/src/extended-interface.vala
++++ b/src/extended-interface.vala
+@@ -26,7 +26,7 @@ namespace Xfmpc {
+ 		private unowned Xfmpc.Mpdclient mpdclient;
+ 		private unowned Xfmpc.Preferences preferences;
+ 
+-		private static Xfce.ArrowButton context_button;
++		private Gtk.MenuButton context_button;
+ 		private Gtk.ListStore list_store;
+ 		private Gtk.ComboBox combobox;
+ 		private Gtk.Notebook notebook;
+@@ -73,11 +73,48 @@ namespace Xfmpc {
+ 			image = new Gtk.Image.from_icon_name ("view-refresh", Gtk.IconSize.MENU);
+ 			button.set_image (image);
+ 
+-			this.context_button = new Xfce.ArrowButton (Gtk.ArrowType.DOWN);
+-			((Widget) this.context_button).set_tooltip_text (_("Context Menu"));
+-			((Button) this.context_button).pressed.connect (popup_context_menu);
+-			((Button) this.context_button).clicked.connect (cb_context_menu_clicked);
+-			hbox.pack_start (((Widget) this.context_button), false, false, 0);
++			context_button = new Gtk.MenuButton ();
++			context_button.set_tooltip_text (_("Context Menu"));
++			context_button.pressed.connect (popup_context_menu);
++			hbox.pack_start (context_button, false, false, 0);
++
++			context_menu = new Gtk.Menu ();
++			context_menu.deactivate.connect (cb_context_menu_deactivate);
++
++			repeat = new Gtk.CheckMenuItem.with_label (_("Repeat"));
++			repeat.activate.connect (cb_repeat_switch);
++			context_menu.append (repeat);
++
++			random = new Gtk.CheckMenuItem.with_label (_("Random"));
++			random.activate.connect (cb_random_switch);
++			context_menu.append (random);
++
++			single = new Gtk.CheckMenuItem.with_label (_("Single Mode"));
++			single.activate.connect (cb_single_switch);
++			context_menu.append (single);
++
++			consume = new Gtk.CheckMenuItem.with_label (_("Consume Mode"));
++			consume.toggled.connect (cb_consume_switch);
++			context_menu.append (consume);
++
++			var separator = new Gtk.SeparatorMenuItem ();
++			context_menu.append (separator);
++
++			var imi = new Gtk.MenuItem.with_mnemonic (_("_Preferences"));
++			imi.activate.connect (cb_preferences);
++			context_menu.append (imi);
++
++			imi = new Gtk.MenuItem.with_mnemonic (_("_Shortcuts"));
++			imi.activate.connect (cb_shortcuts);
++			context_menu.append (imi);
++
++			imi = new Gtk.MenuItem.with_mnemonic (_("_About"));
++			imi.activate.connect (cb_about);
++			context_menu.append (imi);
++
++			context_menu.show_all ();
++
++			context_button.set_popup (context_menu);
+ 
+ 			this.list_store = new Gtk.ListStore (Columns.N_COLUMNS,
+ 						  	     typeof (string),
+@@ -128,58 +165,10 @@ namespace Xfmpc {
+ 		}
+ 
+ 		private void popup_context_menu () {
+-			if (this.context_menu == null)
+-				this.context_menu_new ((Gtk.Widget) this.context_button);
+-
+ 			this.repeat.set_active (this.mpdclient.get_repeat ());
+ 			this.random.set_active (this.mpdclient.get_random ());
+ 			this.single.set_active (this.mpdclient.get_single ());
+ 			this.consume.set_active (this.mpdclient.get_consume ());
+-
+-			this.context_menu.popup_at_widget ((Gtk.Widget) this.context_button,
+-							   Gdk.Gravity.SOUTH_WEST,
+-							   Gdk.Gravity.NORTH_WEST,
+-							   null);
+-		}
+-
+-		private void context_menu_new (Gtk.Widget attach_widget) {
+-			this.context_menu = new Gtk.Menu ();
+-			this.context_menu.set_screen (attach_widget.get_screen ());
+-			this.context_menu.attach_to_widget (attach_widget, (Gtk.MenuDetachFunc) menu_detach);
+-			this.context_menu.deactivate.connect (cb_context_menu_deactivate);
+-
+-			this.repeat = new Gtk.CheckMenuItem.with_label (_("Repeat"));
+-			this.repeat.activate.connect (cb_repeat_switch);
+-			this.context_menu.append (this.repeat);
+-
+-			this.random = new Gtk.CheckMenuItem.with_label (_("Random"));
+-			this.random.activate.connect (cb_random_switch);
+-			this.context_menu.append (this.random);
+-
+-			this.single = new Gtk.CheckMenuItem.with_label (_("Single Mode"));
+-			this.single.activate.connect (cb_single_switch);
+-			this.context_menu.append (this.single);
+-
+-			this.consume = new Gtk.CheckMenuItem.with_label (_("Consume Mode"));
+-			this.consume.toggled.connect (cb_consume_switch);
+-			this.context_menu.append (this.consume);
+-
+-			var separator = new Gtk.SeparatorMenuItem ();
+-			this.context_menu.append (separator);
+-
+-			var imi = new Gtk.MenuItem.with_mnemonic (_("_Preferences"));
+-			imi.activate.connect (cb_preferences);
+-			this.context_menu.append (imi);
+-
+-			var mi = new Gtk.MenuItem.with_mnemonic (_("_Shortcuts"));
+-			mi.activate.connect (cb_shortcuts);
+-			this.context_menu.append (mi);
+-
+-			imi = new Gtk.MenuItem.with_mnemonic (_("_About"));
+-			imi.activate.connect (cb_about);
+-			this.context_menu.append (imi);
+-
+-			this.context_menu.show_all ();
+ 		}
+ 
+ 		private void menu_detach (Gtk.Widget attach_widget, Gtk.Menu menu) {
+@@ -211,13 +200,6 @@ namespace Xfmpc {
+ 			this.notebook.set_current_page (i);
+ 		}
+ 
+-		private void cb_context_menu_clicked () {
+-			if (!((Gtk.ToggleButton) this.context_button).get_active ())
+-				return;
+-
+-			popup_context_menu ();
+-		}
+-
+ 		private void cb_context_menu_deactivate () {
+ 			((Gtk.ToggleButton) this.context_button).set_active (false);
+ 		}
+diff --git a/src/xfce-arrow-button.c b/src/xfce-arrow-button.c
+deleted file mode 100644
+index cd05f93..0000000
+--- a/src/xfce-arrow-button.c
++++ /dev/null
+@@ -1,406 +0,0 @@
+-/*
+- * Copyright (c) 2004-2007 Jasper Huijsmans <jasper@xfce.org>
+- *
+- * This library is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU Library General Public
+- * License as published by the Free Software Foundation; either
+- * version 2 of the License, or (at your option) any later version.
+- *
+- * This library is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Library General Public License for more details.
+- *
+- * You should have received a copy of the GNU Library General Public
+- * License along with this library; if not, write to the
+- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+- * Boston, MA 02111-1307, USA.
+- */
+-
+-#ifdef HAVE_CONFIG_H
+-#include <config.h>
+-#endif
+-
+-#ifdef HAVE_STDIO_H
+-#include <stdio.h>
+-#endif
+-#ifdef HAVE_STRING_H
+-#include <string.h>
+-#endif
+-
+-#include <gtk/gtk.h>
+-#include "xfce-arrow-button.h"
+-
+-#define ARROW_WIDTH          8
+-#define ARROW_PADDING        2
+-#define DEFAULT_ARROW_TYPE   GTK_ARROW_UP
+-
+-
+-#ifndef _
+-#define _(x) (x)
+-#endif
+-
+-enum
+-{
+-    ARROW_TYPE_CHANGED,
+-    LAST_SIGNAL
+-};
+-
+-enum
+-{
+-    PROP_0,
+-    PROP_ARROW_TYPE
+-};
+-
+-typedef struct {
+-    gint x;
+-    gint y;
+-} xfce_arrow_button_thickness;
+-
+-static void      xfce_arrow_button_class_init    (XfceArrowButtonClass  *klass);
+-static void      xfce_arrow_button_init          (XfceArrowButton       *button);
+-static void      xfce_arrow_button_set_property  (GObject               *object,
+-                                                  guint                  prop_id,
+-                                                  const GValue          *value,
+-                                                  GParamSpec            *pspec);
+-static void      xfce_arrow_button_get_property  (GObject               *object,
+-                                                  guint                  prop_id,
+-                                                  GValue                *value,
+-                                                  GParamSpec            *pspec);
+-static gboolean  xfce_arrow_button_draw          (GtkWidget             *widget,
+-                                                  cairo_t               *cr);
+-static void      xfce_arrow_button_add           (GtkContainer          *container,
+-                                                  GtkWidget             *child);
+-static void      xfce_arrow_button_get_thickness (GtkStyleContext *context,
+-                                                  xfce_arrow_button_thickness *thickness);
+-static GType     xfce_arrow_button_child_type    (GtkContainer          *container);
+-static void      xfce_arrow_button_get_preferred_width  (GtkWidget      *widget,
+-                                                         gint           *minimal_width,
+-                                                         gint           *natural_width);
+-static void      xfce_arrow_button_get_preferred_height (GtkWidget      *widget,
+-                                                         gint           *minimal_height,
+-                                                         gint           *natural_height);
+-
+-
+-/* global vars */
+-static GtkToggleButtonClass *parent_class = NULL;
+-static guint                 arrow_button_signals[LAST_SIGNAL] = { 0 };
+-
+-
+-
+-GType
+-xfce_arrow_button_get_type (void)
+-{
+-    static GType type = G_TYPE_INVALID;
+-
+-    if (G_UNLIKELY (type == G_TYPE_INVALID))
+-    {
+-        static const GTypeInfo info =
+-        {
+-            sizeof (XfceArrowButtonClass),
+-            (GBaseInitFunc) NULL,
+-            (GBaseFinalizeFunc) NULL,
+-            (GClassInitFunc) xfce_arrow_button_class_init,
+-            (GClassFinalizeFunc) NULL,
+-            NULL,
+-            sizeof (XfceArrowButton),
+-            0,
+-            (GInstanceInitFunc) xfce_arrow_button_init,
+-            NULL
+-        };
+-        type = g_type_register_static (GTK_TYPE_TOGGLE_BUTTON, "XfceArrowButton", &info, 0);
+-    }
+-
+-    return type;
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_class_init (XfceArrowButtonClass * klass)
+-{
+-    GObjectClass      *gobject_class;
+-    GtkWidgetClass    *widget_class;
+-    GtkContainerClass *container_class;
+-
+-    parent_class = g_type_class_peek_parent (klass);
+-
+-    gobject_class = G_OBJECT_CLASS (klass);
+-    gobject_class->get_property = xfce_arrow_button_get_property;
+-    gobject_class->set_property = xfce_arrow_button_set_property;
+-
+-    widget_class = GTK_WIDGET_CLASS (klass);
+-    widget_class->draw  = xfce_arrow_button_draw;
+-    widget_class->get_preferred_width = xfce_arrow_button_get_preferred_width;
+-    widget_class->get_preferred_height = xfce_arrow_button_get_preferred_height;
+-
+-    container_class = GTK_CONTAINER_CLASS (klass);
+-    container_class->add        = xfce_arrow_button_add;
+-    container_class->child_type = xfce_arrow_button_child_type;
+-
+-    /* signals */
+-
+-    /**
+-    * XfceArrowButton::arrow-type-changed
+-    * @button: the object which emitted the signal
+-    * @type: the new #GtkArrowType of the button
+-    *
+-    * Emitted when the arrow direction of the menu button changes.
+-    * This value also determines the direction of the popup menu.
+-    **/
+-    arrow_button_signals[ARROW_TYPE_CHANGED] =
+-        g_signal_new ("arrow-type-changed",
+-                      G_OBJECT_CLASS_TYPE (klass),
+-                      G_SIGNAL_RUN_FIRST,
+-                      G_STRUCT_OFFSET (XfceArrowButtonClass, arrow_type_changed),
+-                      NULL, NULL,
+-                      g_cclosure_marshal_VOID__ENUM,
+-                      G_TYPE_NONE, 1, GTK_TYPE_ARROW_TYPE);
+-
+-    /* properties */
+-
+-    /**
+-     * XfceArrowButton:arrow-type
+-     *
+-     * The arrow type of the button. This value also determines the direction
+-     * of the popup menu.
+-     **/
+-    g_object_class_install_property (gobject_class,
+-                                     PROP_ARROW_TYPE,
+-                                     g_param_spec_enum ("arrow-type",
+-                                                        "Arrow type",
+-                                                        "The arrow type of the menu button",
+-                                                        GTK_TYPE_ARROW_TYPE,
+-                                                        GTK_ARROW_UP,
+-                                                        G_PARAM_READWRITE));
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_init (XfceArrowButton * arrow_button)
+-{
+-
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_set_property (GObject      *object,
+-                                guint         prop_id,
+-                                const GValue *value,
+-                                GParamSpec   *pspec)
+-{
+-    XfceArrowButton *button = XFCE_ARROW_BUTTON (object);
+-
+-    switch (prop_id)
+-    {
+-        case PROP_ARROW_TYPE:
+-            xfce_arrow_button_set_arrow_type (button, g_value_get_enum (value));
+-            break;
+-        default:
+-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+-            break;
+-    }
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_get_property (GObject    *object,
+-                                guint       prop_id,
+-                                GValue     *value,
+-                                GParamSpec *pspec)
+-{
+-    XfceArrowButton *button = XFCE_ARROW_BUTTON (object);
+-
+-    switch (prop_id)
+-    {
+-        case PROP_ARROW_TYPE:
+-            g_value_set_enum (value, button->arrow_type);
+-            break;
+-        default:
+-            G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
+-            break;
+-    }
+-}
+-
+-
+-
+-static gboolean
+-xfce_arrow_button_draw (GtkWidget      *widget,
+-                        cairo_t        *cr)
+-{
+-    gint x, y, w;
+-    GtkStyleContext *context;
+-    xfce_arrow_button_thickness thickness;
+-    GtkAllocation allocation;
+-
+-    if (G_LIKELY (gtk_widget_is_drawable (widget)))
+-    {
+-        context = gtk_widget_get_style_context (widget);
+-        xfce_arrow_button_get_thickness (context, &thickness);
+-        gtk_widget_get_allocation (widget, &allocation);
+-
+-        w = MIN (allocation.height - 2 * thickness.y,
+-                 allocation.width  - 2 * thickness.x);
+-        w = MIN (w, ARROW_WIDTH);
+-
+-        x = (allocation.width - w) / 2;
+-        y = (allocation.height - w) / 2;
+-
+-        GTK_WIDGET_CLASS (parent_class)->draw (widget, cr);
+-
+-        gtk_style_context_save (context);
+-        gtk_style_context_set_state (context, gtk_widget_get_state_flags (widget));
+-
+-        gtk_render_arrow (context, cr, G_PI, x, y, w);
+-
+-        gtk_style_context_restore (context);
+-    }
+-
+-    return TRUE;
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_get_preferred_width (GtkWidget *widget,
+-                                       gint      *minimal_width,
+-                                       gint      *natural_width)
+-{
+-    GtkStyleContext *context;
+-    xfce_arrow_button_thickness thickness;
+-    gint size;
+-
+-    context = gtk_widget_get_style_context (widget);
+-    xfce_arrow_button_get_thickness (context, &thickness);
+-
+-    size = ARROW_WIDTH + ARROW_PADDING +
+-                2 * MAX (thickness.x, thickness.y);
+-
+-    *minimal_width = *natural_width = size;
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_get_preferred_height (GtkWidget *widget,
+-                                        gint      *minimal_height,
+-                                        gint      *natural_height)
+-{
+-    GtkStyleContext *context;
+-    xfce_arrow_button_thickness thickness;
+-    gint size;
+-
+-    context = gtk_widget_get_style_context (widget);
+-    xfce_arrow_button_get_thickness (context, &thickness);
+-
+-    size = ARROW_WIDTH + ARROW_PADDING +
+-                2 * MAX (thickness.x, thickness.y);
+-
+-    *minimal_height = *natural_height = size;
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_get_thickness (GtkStyleContext *context, xfce_arrow_button_thickness *thickness)
+-{
+-    GtkBorder border;
+-    GtkBorder margin;
+-    GtkBorder padding;
+-    gint xthickness;
+-    gint ythickness;
+-
+-    gtk_style_context_get_border (context, GTK_STATE_FLAG_NORMAL, &border);
+-    gtk_style_context_get_margin (context, GTK_STATE_FLAG_NORMAL, &margin);
+-    gtk_style_context_get_padding (context, GTK_STATE_FLAG_NORMAL, &padding);
+-
+-    thickness->x = MAX (border.left + margin.left + padding.left,
+-                        border.right + margin.right + padding.right);
+-    thickness->y = MAX (border.top + margin.top + padding.top,
+-                        border.bottom + margin.bottom + padding.bottom);
+-}
+-
+-
+-
+-static void
+-xfce_arrow_button_add (GtkContainer *container,
+-                       GtkWidget    *child)
+-{
+-    g_warning ("XfceArrowButton cannot contain any children");
+-}
+-
+-
+-
+-static GType
+-xfce_arrow_button_child_type (GtkContainer *container)
+-{
+-    return G_TYPE_NONE;
+-}
+-
+-
+-
+-/* public interface */
+-
+-/**
+- * xfce_arrow_button_new:
+- * @type : #GtkArrowType for the arrow button
+- *
+- * Creates a new #XfceArrowButton widget.
+- *
+- * Returns: The newly created #XfceArrowButton widget.
+- **/
+-GtkWidget *
+-xfce_arrow_button_new (GtkArrowType type)
+-{
+-    return g_object_new (XFCE_TYPE_ARROW_BUTTON, "arrow-type", type, NULL);
+-}
+-
+-
+-
+-/**
+- * xfce_arrow_button_set_arrow_type:
+- * @button : a #XfceArrowButton
+- * @type   : a valid  #GtkArrowType
+- *
+- * Sets the arrow type for @button.
+- **/
+-void
+-xfce_arrow_button_set_arrow_type (XfceArrowButton *button,
+-                                  GtkArrowType     type)
+-{
+-    g_return_if_fail (XFCE_IS_ARROW_BUTTON (button));
+-
+-    button->arrow_type = type;
+-
+-    g_signal_emit (button, arrow_button_signals[ARROW_TYPE_CHANGED], 0, type);
+-
+-    g_object_notify (G_OBJECT (button), "arrow_type");
+-
+-    gtk_widget_queue_draw (GTK_WIDGET (button));
+-}
+-
+-
+-
+-/**
+- * xfce_arrow_button_get_arrow_type:
+- * @button : a #XfceArrowButton
+- *
+- * Returns the value of the ::arrow-type property.
+- *
+- * Returns: the #GtkArrowType of @button.
+- **/
+-GtkArrowType
+-xfce_arrow_button_get_arrow_type (XfceArrowButton *button)
+-{
+-    g_return_val_if_fail (XFCE_IS_ARROW_BUTTON (button), DEFAULT_ARROW_TYPE);
+-
+-    return button->arrow_type;
+-}
+-
+-
+-
+-#define __XFCE_ARROW_BUTTON_C__
+-
+diff --git a/src/xfce-arrow-button.h b/src/xfce-arrow-button.h
+deleted file mode 100644
+index 328320e..0000000
+--- a/src/xfce-arrow-button.h
++++ /dev/null
+@@ -1,64 +0,0 @@
+-/*
+- * Copyright (c) 2004-2007 Jasper Huijsmans <jasper@xfce.org>
+- *
+- * This library is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU Library General Public
+- * License as published by the Free Software Foundation; either
+- * version 2 of the License, or (at your option) any later version.
+- *
+- * This library is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Library General Public License for more details.
+- *
+- * You should have received a copy of the GNU Library General Public
+- * License along with this library; if not, write to the
+- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+- * Boston, MA 02111-1307, USA.
+- */
+-
+-#ifndef __XFCE_ARROW_BUTTON_H__
+-#define __XFCE_ARROW_BUTTON_H__
+-
+-#include <gtk/gtkenums.h>
+-#include <gtk/gtktogglebutton.h>
+-
+-G_BEGIN_DECLS
+-
+-typedef struct _XfceArrowButton      XfceArrowButton;
+-typedef struct _XfceArrowButtonClass XfceArrowButtonClass;
+-
+-#define XFCE_TYPE_ARROW_BUTTON            (xfce_arrow_button_get_type ())
+-#define XFCE_ARROW_BUTTON(obj)            (G_TYPE_CHECK_INSTANCE_CAST ((obj), XFCE_TYPE_ARROW_BUTTON, XfceArrowButton))
+-#define XFCE_ARROW_BUTTON_CLASS(klass)    (G_TYPE_CHECK_CLASS_CAST ((klass), XFCE_TYPE_ARROW_BUTTON, XfceArrowButtonClass))
+-#define XFCE_IS_ARROW_BUTTON(obj)         (G_TYPE_CHECK_INSTANCE_TYPE ((obj), XFCE_TYPE_ARROW_BUTTON))
+-#define XFCE_IS_ARROW_BUTTON_CLASS(klass) (G_TYPE_CHECK_CLASS_TYPE ((klass), XFCE_TYPE_ARROW_BUTTON))
+-#define XFCE_ARROW_BUTTON_GET_CLASS(obj)  (G_TYPE_INSTANCE_GET_CLASS ((obj), XFCE_TYPE_ARROW_BUTTON, XfceArrowButtonClass))
+-
+-struct _XfceArrowButton
+-{
+-    GtkToggleButton parent;
+-    GtkArrowType    arrow_type;
+-};
+-
+-struct _XfceArrowButtonClass
+-{
+-    GtkToggleButtonClass parent_class;
+-
+-    /* signals */
+-    void (*arrow_type_changed) (GtkWidget    *widget,
+-                                GtkArrowType  type);
+-};
+-
+-GType          xfce_arrow_button_get_type        (void) G_GNUC_CONST;
+-
+-GtkWidget     *xfce_arrow_button_new             (GtkArrowType      type) G_GNUC_MALLOC G_GNUC_WARN_UNUSED_RESULT;
+-
+-void           xfce_arrow_button_set_arrow_type  (XfceArrowButton  *button,
+-                                                  GtkArrowType      type);
+-
+-GtkArrowType   xfce_arrow_button_get_arrow_type  (XfceArrowButton  *button);
+-
+-G_END_DECLS
+-
+-#endif /* !__XFCE_ARROW_BUTTON_H__ */
+diff --git a/src/xfce-arrow-button.vapi b/src/xfce-arrow-button.vapi
+deleted file mode 100644
+index 7fd269c..0000000
+--- a/src/xfce-arrow-button.vapi
++++ /dev/null
+@@ -1,15 +0,0 @@
+-/* xfce-arrow-button.vapi generated by vapigen, do not modify. */
+-
+-[CCode (cprefix = "Xfce", lower_case_cprefix = "xfce_")]
+-namespace Xfce {
+-	[CCode (unref_function = "", free_function = "", cheader_filename = "xfce-arrow-button.h")]
+-	[Compact]
+-	public class ArrowButton {
+-		public Gtk.ArrowType arrow_type;
+-		public weak Gtk.ToggleButton parent;
+-		public Gtk.ArrowType get_arrow_type ();
+-		[CCode (type = "GtkWidget*", has_construct_function = false)]
+-		public ArrowButton (Gtk.ArrowType type);
+-		public void set_arrow_type (Gtk.ArrowType type);
+-	}
+-}
