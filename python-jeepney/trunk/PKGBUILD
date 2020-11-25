@@ -2,7 +2,7 @@
 
 pkgname=python-jeepney
 pkgver=0.6.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Low-level, pure Python DBus protocol wrapper"
 url="https://gitlab.com/takluyver/jeepney"
 license=('MIT')
