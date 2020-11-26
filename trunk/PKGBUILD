@@ -54,6 +54,8 @@ source=(
   'ceph-15.2.4-system-uring.patch'
   'ceph-15.2.5-missing-includes.patch'
   'disable-empty-readable.sh-test.patch'
+  'qa-src-update-mypy-to-0.782.patch'
+  'mgr-dashboard-update-pylint-to-2.6.0.patch'
 )
 sha512sums=('0bbbbc532fb9f29437c094a86a1e58040f03b679e4d52ea9cc752ecf411c594c8ec37dc5e9f0ee47712d32b93b4e60b0f3fded280867d41c41b8db806b375e4e'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
@@ -68,7 +70,9 @@ sha512sums=('0bbbbc532fb9f29437c094a86a1e58040f03b679e4d52ea9cc752ecf411c594c8ec
             '20256de5c3227caa149f8285bcc90fcbd67be8cefa568fb72ad0d43688f1f62db7c7fc231dfd4ecf2dd11be68bf1ccc284ebbc691a82a26f3968200f12c82097'
             '8258661e56b5360f4260fdd29b07bac4d415068a112b61ca8c55c529fb1593d8d61a0d59a4eec8f1567b97167c058082198d008f55f8ee701cb46489df5f7823'
             '84de66f64ea96cd59b40dfb5b8c5d093fe49df1139b45ad9d1bd6b9ebd2f1200b6e931adcf032639a4995af322cf05c1ef9050eb1cb6673e29e040d4e348b3d5'
-            '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222')
+            '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
+            '204741c65b8ceeddae0a58a49e2b4249ee7ffc624ce8d9faa6284af198abe63bffb6758e064eeff6d1857be044647f99749a45443e258b35e92cc36b9edeba80'
+            'f65a028832a7d8ec6db55b4399c4448f0f7182031d81c239e3d7a04d2d27394481af2e4313bcff54c775934389773658b0bb0574107677f377e581bd51876d59')
 
 
 # -fno-plt causes linker errors (undefined reference to internal methods)
@@ -91,6 +95,15 @@ prepare() {
       patch -p1 -N -i "${srcdir}/${filename##*/}"
     fi
   done
+
+  # temporarily disable unsubscriptable-object (buggy on Python 3.9)
+  # https://github.com/PyCQA/pylint/issues/3882
+  sed -i '/^disable=/a\        unsubscriptable-object,' \
+    src/pybind/mgr/dashboard/.pylintrc
+
+  # mypy complains about this but the exception is handled; not sure what's up
+  sed -i 's/from base64 import encodestring$/&  # type: ignore/' \
+    src/pybind/mgr/dashboard/awsauth.py
 
   # suppress deprecation warnings
   sed -i '/#ifndef CEPH_CONFIG_H/i#define BOOST_ALLOW_DEPRECATED_HEADERS' \
@@ -177,7 +190,8 @@ build() {
 check() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
-  export CTEST_PARALLEL_LEVEL="8"
+  export CTEST_PARALLEL_LEVEL=8
+  export CTEST_OUTPUT_ON_FAILURE=1
   VERBOSE=1 make -C build check
 
   # sometimes processes are not properly terminated...
