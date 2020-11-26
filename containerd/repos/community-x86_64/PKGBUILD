@@ -5,11 +5,12 @@
 
 pkgname=containerd
 pkgver=1.4.2
-pkgrel=1
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
-makedepends=('go' 'git' 'btrfs-progs' 'libseccomp')
+makedepends=('go' 'git' 'btrfs-progs' 'libseccomp' 'containers-common')
+provides=('container-runtime')
 arch=('x86_64')
 license=("Apache")
 source=("git+https://github.com/containerd/containerd.git#tag=v${pkgver}?signed")
