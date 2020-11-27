@@ -71,13 +71,16 @@ build() {
 check() {
     cd "${pkgbase}-${pkgver}"
 
+    _test_excludes=(
+        # test_ajax_book segfaults on qt >=5.15.1 inside of qt itself, but only in nspawn containers
+        # see https://github.com/kovidgoyal/calibre/commit/28ef780d9911d598314d98bdfc3b1c88a94681df
+        'ajax_book'
+    )
+
     # without xvfb-run this fails with much "Control socket failed to recv(), resetting"
     # ERROR: test_websocket_perf (calibre.srv.tests.web_sockets.WebSocketTest)
     # one or two tests are a bit flaky, but the python3 build seems to succeed more often
-    #
-    # test_ajax_book segfaults on qt >=5.15.1 inside of qt itself, but only in nspawn containers
-    # see https://github.com/kovidgoyal/calibre/commit/28ef780d9911d598314d98bdfc3b1c88a94681df
-    LANG='en_US.UTF-8' xvfb-run python setup.py test --exclude-test-name=test_ajax_book
+    LANG='en_US.UTF-8' xvfb-run python setup.py test "${_test_excludes[@]/#/--exclude-test-name=}"
 }
 
 package() {
