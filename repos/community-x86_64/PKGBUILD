@@ -3,20 +3,20 @@
 # Contributor: Ner0
 
 pkgname=nemo
-pkgver=4.6.5
+pkgver=4.8.0
 pkgrel=1
 pkgdesc="Cinnamon file manager (Nautilus fork)"
 arch=('x86_64')
 url="https://github.com/linuxmint/${pkgname}"
 license=('GPL')
 depends=('cinnamon-desktop' 'dconf' 'gvfs' 'exempi' 'libexif' 'libnotify' 'libxml2'
-         'python' 'xapps')
+         'python' 'xapp')
 optdepends=('cinnamon-translations: i18n'
             'ffmpegthumbnailer: support for video thumbnails')
 makedepends=('meson' 'samurai' 'gobject-introspection' 'intltool')
 source=("$pkgname-$pkgver.tar.gz::${url}/archive/${pkgver}.tar.gz")
-sha512sums=('3c8c95e75e8bc499b56d1fd133f5ccc86ad18dae2219772b732586fd684a4a7a36e51fa61e6b734ad182ffd96636bdf276b8645d049e5ca68795fac274236eb6')
-b2sums=('42b47300782745e4ae98db164ca547b0794caf8f0883db4241f2f0ed2e375e5c8564cff6d878142b55744ce41f49c60aad3f24930398ff68444e32c572d7e9bd')
+sha512sums=('041c429314b575f26fb7daec7fc6829346f3b9482d3b29eda0c3517416a1e6b7a5de9da8dbf87c5884b52930c170695ceabf0495cf146c1b6b9709ad81a12575')
+b2sums=('0226a9e0cf252030f5444467eada1b4e93cdb7367578050b8cc4b06c2f79ec200593f26eeadeb1a45ce9e103f5f23b305f7a2ec11fdc6761f9c19e10c935eb9d')
 
 prepare() {
     cd "${srcdir}"/${pkgname}-${pkgver}
