@@ -4,26 +4,26 @@
 pkgname=toxic
 pkgdesc='CLI Tox client'
 license=('GPL3')
-pkgver=0.8.4
+pkgver=0.9.1
 pkgrel=1
 depends=('curl'
          'desktop-file-utils'
          'freealut'
          'libnotify'
          'qrencode'
+         'libx11'
          'toxcore')
 arch=('x86_64')
 url='https://github.com/JFreegman/toxic'
 source=("$pkgname-$pkgver.tar.gz::https://github.com/JFreegman/$pkgname/archive/v$pkgver/$pkgname-$pkgver.tar.gz"
 	"$pkgname-$pkgver.tar.gz.asc::https://github.com/JFreegman/$pkgname/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz.asc"
 	)
-sha512sums=('877c725fe8add4cab4436b3aa8e07fccbc61096fb4553f21743d36ed5df8cb565c9d27c6a27a5596f1279b6c3845a05207a54efa2d2089646a9fca61732310c5'
+sha512sums=('550c6fdca4fe7d56f4e4409a6ad0f2c89fd17c538f8ac48275a4656baf67466f178d9a2ed738292b3c11710474e0306d8c16deceed78cde2d2d48c813604bd6f'
             'SKIP')
 validpgpkeys=('BABD00573A065BFA90D53D563627F3144076AE63')  # Jfreegman <jfreegman@gmail.com>
 
 prepare() {
   cd "$pkgname-$pkgver"
-  #patch -Np1 < ../ver0.8.0.patch
 }
 
 build() {
