@@ -1,52 +1,53 @@
-# Maintainer: Thorsten Töpper <atsutane-tu@freethoughts.de>
+# Maintainer: Jelle van der Waa <jelle@vdwaa.nl>
+# Maintainer: Levente Polyak <anthraxx@archlinux.org>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
+# Contributor: Thorsten Töpper <atsutane-tu@freethoughts.de>
 
 pkgname=i3-wm
-pkgver=4.18.3
+pkgver=4.19
 pkgrel=1
-pkgdesc="An improved dynamic tiling window manager"
-url="https://i3wm.org/"
-arch=(x86_64)
-license=(BSD)
-depends=(xcb-util-cursor xcb-util-keysyms xcb-util-wm xcb-util-xrm libev yajl startup-notification
-         pango libxkbcommon-x11)
-makedepends=(bison flex asciidoc xmlto)
-optdepends=('dmenu: As menu.'
-            'i3lock: For locking your screen.'
-            'i3status: To display systeminformation with a bar.'
-            'perl: i3-save-tree and i3-dmenu-desktop'
-            'perl-anyevent-i3: Features like saving the layout.'
-            'perl-json-xs: Features like saving the layout.')
-backup=(etc/i3/config)
-groups=(i3)
-replaces=(i3 i3bar)
-source=("https://i3wm.org/downloads/i3-$pkgver.tar.bz2"{,.asc}
-        0001-Use-OVER-operator-for-drawing-text.patch)
-sha256sums=('53ae7903fad6eea830d58e949698e4a502c432c0d0a582659a0a59b1b995b10d'
-            'SKIP'
-            'e49e147b1cd06f95188decbbe41f5c3a0aca18d0195750bc3ea16465b4aca563')
+pkgdesc='Improved dynamic tiling window manager'
+arch=('x86_64')
+url=https://i3wm.org
+license=('BSD')
+groups=('i3')
+depends=('libev' 'libxkbcommon-x11' 'pango' 'startup-notification'
+         'xcb-util-cursor' 'xcb-util-keysyms' 'xcb-util-wm' 'xcb-util-xrm'
+         'yajl')
+makedepends=('meson' 'xmlto')
+optdepends=('dmenu: for the default program launcher'
+            'rofi: for a modern dmenu replacement'
+            'i3lock: for the default screen locker'
+            'xss-lock: for the default screen locker'
+            'i3status: for the default status bar generator'
+            'perl: for i3-save-tree and i3-dmenu-desktop'
+            'perl-anyevent-i3: for i3-save-tree'
+            'perl-json-xs: for i3-save-tree')
+replaces=('i3' 'i3bar')
+backup=('etc/i3/config')
+source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc}
+        '0001-Use-OVER-operator-for-drawing-text.patch')
+b2sums=('3af5eac9cb618bc3b3da0bca430e1882701802f49e092d1e6fa7a35ceb3f2c0287b66eceeb0123a7dfda9976df06227bec34d7d98873aedc2292a2ba94584d84'
+        'SKIP'
+        '35be78fc8be805fa4b7f32c8a18c62a0436f433e9064ef5adf32baa9aa816276da3b53b977287640ab70f30eea14bbd4dc002d49d9149afa01e0706a45dba947')
 validpgpkeys=('424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D') # Michael Stapelberg
 
 prepare() {
-  mkdir build
   cd i3-$pkgver
-
   # https://github.com/i3/i3/pull/2925
   patch -Np1 -i ../0001-Use-OVER-operator-for-drawing-text.patch
-
-  autoreconf -fvi
 }
 
 build() {
-  cd build
-  ../i3-$pkgver/configure --prefix=/usr --sysconfdir=/etc --disable-sanitizers
-  make
+  cd i3-$pkgver
+  arch-meson build
+  ninja -C build
 }
 
 package() {
-  cd build
-  make DESTDIR="$pkgdir" install
-  install -Dt "$pkgdir/usr/share/man/man1" -m644 man/*.1
-  install -Dt "$pkgdir/usr/share/licenses/$pkgname" -m644 ../i3-$pkgver/LICENSE
+  cd i3-$pkgver
+  DESTDIR="$pkgdir" ninja -C build install
+  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 }
 
 # vim:set ts=2 sw=2 et:
