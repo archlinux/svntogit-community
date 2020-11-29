@@ -64,7 +64,7 @@ build() {
       --with-native-system-header-dir=/include \
       --libdir=/usr/lib --libexecdir=/usr/lib \
       --target=$_target --host=$CHOST --build=$CHOST \
-      --disable-nls \
+      --disable-nls --enable-default-pie \
       --enable-languages=c,c++,fortran \
       --enable-shared --enable-threads=posix \
       --with-system-zlib --with-isl --enable-__cxa_atexit \
