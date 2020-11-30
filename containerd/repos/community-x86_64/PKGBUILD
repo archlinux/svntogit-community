@@ -4,8 +4,8 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.4.2
-pkgrel=2
+pkgver=1.4.3
+pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
