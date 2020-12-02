@@ -3,7 +3,7 @@
 _name=inflect
 pkgname=python-inflect
 pkgver=5.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Correctly generate plurals, singular nouns, ordinals, indefinite articles"
 arch=('any')
 url="https://github.com/jazzband/inflect"
