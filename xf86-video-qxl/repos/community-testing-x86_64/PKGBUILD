@@ -1,0 +1,59 @@
+# Maintainer: Giancarlo Razzolini <grazzolini@archlinux.org>
+# Contributor: Christian Hesse <mail@eworm.de>
+# Contributor: Yonathan Dossow
+# Contributor: Ansgar Taflinski <ataflinski@uni-koblenz.de>
+
+pkgname=xf86-video-qxl
+# https://gitlab.freedesktop.org/xorg/driver/xf86-video-qxl/-/commits/master
+_commit=52c421c650f8813665b31890df691b31fabc366a # master 2020-02-05
+pkgver=0.1.5.r16.g52c421c
+pkgrel=1
+pkgdesc='Xorg X11 qxl video driver'
+arch=('x86_64')
+url='https://www.x.org'
+license=('MIT')
+groups=('xorg-drivers')
+depends=('spice')
+optdepends=('python: for Xspice')
+makedepends=('xorg-server-devel' 'X-ABI-VIDEODRV_VERSION=24.0' 'spice-protocol'
+	'xorgproto' 'git' 'libcacard')
+conflicts=('xf86-video-qxl-git' 'X-ABI-VIDEODRV_VERSION<24' 'X-ABI-VIDEODRV_VERSION>=25')
+validpgpkeys=('94A9F75661F77A6168649B23A9D8C21429AC6C82')
+source=(#"https://xorg.freedesktop.org/releases/individual/driver/${pkgname}-${pkgver}.tar.bz2"{,.sig}
+        "git+https://gitlab.freedesktop.org/xorg/driver/xf86-video-qxl#commit=$_commit"
+)
+sha256sums=('SKIP')
+
+pkgver() {
+	cd $pkgname
+	git describe --tags | sed 's/^xf86-video-qxl-//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+	cd "${srcdir}/${pkgname}" #-${pkgver}"
+}
+
+build() {
+	cd "${srcdir}/${pkgname}" #-${pkgver}"
+
+        # Since pacman 5.0.2-2, hardened flags are now enabled in makepkg.conf
+        # With them, module fail to load with undefined symbol.
+        # See https://bugs.archlinux.org/task/55102 / https://bugs.archlinux.org/task/54845
+        export CFLAGS=${CFLAGS/-fno-plt}
+        export CXXFLAGS=${CXXFLAGS/-fno-plt}
+        export LDFLAGS=${LDFLAGS/,-z,now}
+
+	autoreconf -fi
+	./configure \
+		--enable-xspice \
+		--prefix=/usr
+	make
+}
+
+package() {
+	cd "${srcdir}/${pkgname}" #-${pkgver}"
+
+	make DESTDIR="${pkgdir}/" install
+
+	install -v -D -m0755 scripts/Xspice "${pkgdir}"/usr/bin/Xspice
+}
