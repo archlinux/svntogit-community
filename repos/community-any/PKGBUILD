@@ -2,7 +2,7 @@
 
 pkgname=python-funcy
 pkgver=1.15
-pkgrel=1
+pkgrel=2
 pkgdesc='A fancy and practical functional tools'
 arch=('any')
 license=('BSD')
