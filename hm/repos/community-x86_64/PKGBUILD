@@ -1,40 +1,50 @@
 # Maintainer: Daniel Bermond <dbermond@archlinux.org>
 
 pkgname=hm
-pkgver=16.20
-_rev=4994
+pkgver=16.22
 pkgrel=1
 pkgdesc='HEVC Test Model - the reference software for HEVC'
 arch=('x86_64')
 url='https://hevc.hhi.fraunhofer.de/'
 license=('BSD')
 depends=('gcc-libs')
-makedepends=('nasm')
-source=("${pkgname}-${pkgver}.zip"::"https://hevc.hhi.fraunhofer.de/trac/hevc/browser/tags/HM-${pkgver}?rev=${_rev}&format=zip"
-        '010-hm-use-arch-flags.patch'
-        '020-hm-fix-build-with-gcc8.patch')
-sha256sums=('021ac73a08c23c4053f08636d3a435a1da02a56066f9f6e4710a7afadc154a9e'
-            '3b95cbc9ed5f29fc2cae75493b438aa0de8eae5a20934d8bba3cff1c5215e2c4'
-            'ac9cb3cd816a44f570cbfd16be3d1f8ef1d60694daeabc341acc105fe06aa66f')
+makedepends=('cmake' 'lsb-release' 'openmp')
+source=("https://vcgit.hhi.fraunhofer.de/jct-vc/HM/-/archive/HM-${pkgver}/HM-HM-${pkgver}.tar.bz2")
+sha256sums=('b2863d480860a48472f6fe55f7488ccdaeaaac1a1ccc65b946ba643e0b6c8637')
 
 prepare() {
-    # use Arch Linux build flags
-    patch -d "HM-${pkgver}" -Np1 -i "${srcdir}/010-hm-use-arch-flags.patch"
-    
-    # fix build with gcc8 and later
-    patch -d "HM-${pkgver}" -Np1 --binary -i "${srcdir}/020-hm-fix-build-with-gcc8.patch"
+    cp -a "HM-HM-${pkgver}" "HM-HM-${pkgver}-highbit"
 }
 
 build() {
-    # may randomly fail with multiple jobs
-    make -C "HM-${pkgver}/build/linux" -j1 -f makefile release{,_highbitdepth}
+    cmake -B build -S "HM-HM-${pkgver}" \
+        -DCMAKE_BUILD_TYPE:STRING='Release' \
+        -DCMAKE_INSTALL_PREFIX:PATH='/usr' \
+        -DHIGH_BITDEPTH:BOOL='OFF' \
+        -Wno-dev
+    make -C build
+    
+    cmake -B build-highbit -S "HM-HM-${pkgver}-highbit" \
+        -DCMAKE_BUILD_TYPE:STRING='Release' \
+        -DCMAKE_INSTALL_PREFIX:PATH='/usr' \
+        -DHIGH_BITDEPTH:BOOL='ON' \
+        -Wno-dev
+    make -C build-highbit
 }
 
 package() {
-    cd "HM-${pkgver}"
+    local _file
+    while read -r -d '' _file
+    do
+        install -D -m755 "$_file" -t "${pkgdir}/usr/bin"
+    done < <(find "HM-HM-${pkgver}/bin" -maxdepth 1 -type f -executable -print0)
     
-    install -D -m755 bin/*     -t "${pkgdir}/usr/bin"
-    install -D -m644 README    -t "${pkgdir}/usr/share/doc/${pkgname}"
-    install -D -m644 doc/*.pdf -t "${pkgdir}/usr/share/doc/${pkgname}"
-    install -D -m644 COPYING      "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    while read -r -d '' _file
+    do
+        install -D -m755 "HM-HM-${pkgver}-highbit/bin/${_file}" "${pkgdir}/usr/bin/${_file/Static/HighBitDepthStatic}"
+    done < <(find "HM-HM-${pkgver}-highbit/bin" -maxdepth 1 -type f -executable -print0 | sed -z "s|HM\-HM\-${pkgver}\-highbit/bin||")
+    
+    install -D -m644 "HM-HM-${pkgver}/README"    -t "${pkgdir}/usr/share/doc/${pkgname}"
+    install -D -m644 "HM-HM-${pkgver}/doc"/*.pdf -t "${pkgdir}/usr/share/doc/${pkgname}"
+    install -D -m644 "HM-HM-${pkgver}/COPYING" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
