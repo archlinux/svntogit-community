@@ -5,7 +5,7 @@
 _pypiname=wheel
 pkgbase=python-wheel
 pkgname=('python-wheel' 'python2-wheel')
-pkgver=0.36.0
+pkgver=0.36.1
 pkgrel=1
 pkgdesc="A built-package format for Python"
 arch=(any)
@@ -17,7 +17,7 @@ checkdepends=('python-jsonschema' 'python-pytest' 'python-keyring' 'python-keyri
               'python-xdg')
 source=("https://pypi.io/packages/source/w/wheel/$_pypiname-$pkgver.tar.gz")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
-sha512sums=('1f851dfc18fa96d67bb96c61eec15999c46ea77c490173b71121810480f3c30f2de770a2e6e0712d04f35c91fcadbb276b05968e2b5db76dea882929f555f983')
+sha512sums=('1f9a27604b0fa0d1ae4782bdba57956a70d74a9a736f4c41481b417cd1e8a86938705555c37835ffe1a061ef55f8adad3475bfc20e2c1fd8de8083dd5c72cca0')
 
 prepare() {
   # don't depend on python-coverage for tests
