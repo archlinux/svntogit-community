@@ -1,8 +1,9 @@
 # Maintainer: Sébastien "Seblu" Luttringer
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
 pkgver=19.03.14
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -83,7 +84,7 @@ build() {
   ### cli
   echo 'Building cli'
   _fake_gopath_pushd docker-ce/components/cli github.com/docker/cli
-  DISABLE_WARN_OUTSIDE_CONTAINER=1 make VERSION=$pkgver-ce dynbinary
+  DISABLE_WARN_OUTSIDE_CONTAINER=1 make VERSION=$pkgver dynbinary
   _fake_gopath_popd
 
   ### app cli plugin
