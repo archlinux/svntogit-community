@@ -1,0 +1,3558 @@
+From 17d07edb0a687053fbeb39e0bdf07415ee35a278 Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Wed, 13 May 2020 10:44:37 +0200
+Subject: [PATCH 02/17] Relax upper bounds to include updated packages
+
+---
+ brittany.cabal | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/brittany.cabal b/brittany.cabal
+index 818e818..590373f 100644
+--- a/brittany.cabal
++++ b/brittany.cabal
+@@ -91,10 +91,10 @@ library {
+     -fno-warn-redundant-constraints
+   }
+   build-depends:
+-    { base >=4.9 && <4.14
+-    , ghc >=8.0.1 && <8.9
++    { base >=4.9 && <4.15
++    , ghc >=8.0.1 && <8.11
+     , ghc-paths >=0.1.0.9 && <0.2
+-    , ghc-exactprint >=0.5.8 && <0.6.3
++    , ghc-exactprint >=0.5.8 && <0.6.4
+     , transformers >=0.5.2.0 && <0.6
+     , containers >=0.5.7.1 && <0.7
+     , mtl >=2.2.1 && <2.3
+@@ -118,7 +118,7 @@ library {
+     , semigroups >=0.18.2 && <0.20
+     , cmdargs >=0.10.14 && <0.11
+     , czipwith >=1.0.1.0 && <1.1
+-    , ghc-boot-th >=8.0.1 && <8.9
++    , ghc-boot-th >=8.0.1 && <8.11
+     , filepath >=1.4.1.0 && <1.5
+     , random >= 1.1 && <1.2
+     }
+
+From b69a8f983c070564b41b6fdec160af6d8aff730b Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Wed, 13 May 2020 10:45:14 +0200
+Subject: [PATCH 03/17] Adapt to new GHC modules organization
+
+---
+ .../Haskell/Brittany/Internal/ExactPrintUtils.hs  |  6 ++++++
+ src/Language/Haskell/Brittany/Internal/Prelude.hs |  8 ++++++--
+ src/Language/Haskell/Brittany/Internal/Utils.hs   | 15 ++++++++++++---
+ 3 files changed, 24 insertions(+), 5 deletions(-)
+
+diff --git a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+index 0273d85..5dcf840 100644
+--- a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
++++ b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+@@ -33,7 +33,13 @@ import qualified Lexer         as GHC
+ import qualified StringBuffer  as GHC
+ import qualified Outputable    as GHC
+ import qualified CmdLineParser as GHC
++
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
++
+ import           SrcLoc ( SrcSpan, Located )
+ 
+ 
+diff --git a/src/Language/Haskell/Brittany/Internal/Prelude.hs b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+index 453f076..a0757d8 100644
+--- a/src/Language/Haskell/Brittany/Internal/Prelude.hs
++++ b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+@@ -13,9 +13,13 @@ where
+ 
+ -- rather project-specific stuff:
+ ---------------------------------
+-#if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
++#if MIN_VERSION_ghc(8,10,1) /* ghc-8.10.1 */
++import GHC.Hs.Extension               as E ( GhcPs )
++#else
++#  if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ import HsExtension                    as E ( GhcPs )
+-#endif
++#  endif /* ghc-8.4 */
++#endif /* ghc-8.10.1 */
+ 
+ import RdrName                        as E ( RdrName )
+ #if MIN_VERSION_ghc(8,8,0)
+diff --git a/src/Language/Haskell/Brittany/Internal/Utils.hs b/src/Language/Haskell/Brittany/Internal/Utils.hs
+index 435ad96..9edcb7e 100644
+--- a/src/Language/Haskell/Brittany/Internal/Utils.hs
++++ b/src/Language/Haskell/Brittany/Internal/Utils.hs
+@@ -59,9 +59,13 @@ import           Language.Haskell.Brittany.Internal.Config.Types
+ import           Language.Haskell.Brittany.Internal.Types
+ 
+ import qualified Data.Generics.Uniplate.Direct as Uniplate
+-#if MIN_VERSION_ghc(8,4,0)   /* ghc-8.4 */
++#if MIN_VERSION_ghc(8,10,1) /* ghc-8.10.1 */
++import qualified GHC.Hs.Extension as HsExtension
++#else
++#  if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ import qualified HsExtension
+-#endif
++#  endif /* ghc-8.4 */
++#endif /* ghc-8.10.1 */
+ 
+ 
+ 
+@@ -299,6 +303,10 @@ lines' s = case break (== '\n') s of
+   (s1, [_]) -> [s1, ""]
+   (s1, (_:r)) -> s1 : lines' r
+ 
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++absurdExt :: HsExtension.NoExtField -> a
++absurdExt = error "cannot construct NoExtField"
++#else
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ -- | A method to dismiss NoExt patterns for total matches
+ absurdExt :: HsExtension.NoExt -> a
+@@ -306,4 +314,5 @@ absurdExt = error "cannot construct NoExt"
+ #else
+ absurdExt :: ()
+ absurdExt = ()
+-#endif
++#endif   /* ghc-8.6 */
++#endif   /* ghc-8.10.1 */
+
+From adb642353d6c3166eea4f52dc3ba83382dcaef04 Mon Sep 17 00:00:00 2001
+From: Ximin Luo <infinity0@pwned.gg>
+Date: Fri, 29 May 2020 23:26:51 +0100
+Subject: [PATCH 05/17] more GHC 8.10.1 fixes
+
+---
+ src/Language/Haskell/Brittany/Internal.hs     |  9 +++++++
+ .../Brittany/Internal/ExactPrintUtils.hs      | 11 +++++++-
+ .../Brittany/Internal/Layouters/DataDecl.hs   |  4 +++
+ .../Brittany/Internal/Layouters/Decl.hs       | 15 ++++++++---
+ .../Brittany/Internal/Layouters/Expr.hs       | 25 ++++++++++++++++++-
+ .../Brittany/Internal/Layouters/Expr.hs-boot  |  4 +++
+ .../Haskell/Brittany/Internal/Layouters/IE.hs |  7 +++++-
+ .../Brittany/Internal/Layouters/Import.hs     | 12 +++++++++
+ .../Brittany/Internal/Layouters/Module.hs     |  7 +++++-
+ .../Brittany/Internal/Layouters/Pattern.hs    | 12 +++++++++
+ .../Brittany/Internal/Layouters/Stmt.hs       |  4 +++
+ .../Brittany/Internal/Layouters/Stmt.hs-boot  |  4 +++
+ .../Brittany/Internal/Layouters/Type.hs       | 12 +++++++--
+ .../Haskell/Brittany/Internal/Utils.hs        | 10 +++-----
+ 14 files changed, 121 insertions(+), 15 deletions(-)
+
+diff --git a/src/Language/Haskell/Brittany/Internal.hs b/src/Language/Haskell/Brittany/Internal.hs
+index 1d9266f..1fc3e12 100644
+--- a/src/Language/Haskell/Brittany/Internal.hs
++++ b/src/Language/Haskell/Brittany/Internal.hs
+@@ -61,7 +61,12 @@ import           GHC                                      ( Located
+                                                           )
+ import           RdrName                                  ( RdrName(..) )
+ import           SrcLoc                                   ( SrcSpan )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++import           Bag
++#else
+ import           HsSyn
++#endif
+ import qualified DynFlags                                as GHC
+ import qualified GHC.LanguageExtensions.Type             as GHC
+ 
+@@ -380,7 +385,11 @@ parsePrintModuleTests conf filename input = do
+   let inputStr = Text.unpack input
+   parseResult <- ExactPrint.Parsers.parseModuleFromString filename inputStr
+   case parseResult of
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++    Left  err                  -> return $ Left $ "parsing error: " ++ show (bagToList (show <$> err))
++#else
+     Left  (_   , s           ) -> return $ Left $ "parsing error: " ++ s
++#endif
+     Right (anns, parsedModule) -> runExceptT $ do
+       (inlineConf, perItemConf) <-
+         case extractCommentConfigs anns (getTopLevelDeclNameMap parsedModule) of
+diff --git a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+index 5dcf840..6115f52 100644
+--- a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
++++ b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+@@ -36,6 +36,7 @@ import qualified CmdLineParser as GHC
+ 
+ #if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
+ import           GHC.Hs
++import           Bag
+ #else
+ import           HsSyn
+ #endif
+@@ -96,7 +97,11 @@ parseModuleWithCpp cpp opts args fp dynCheck =
+       ++ show (warnings <&> warnExtractorCompat)
+     x   <- ExceptT.ExceptT $ liftIO $ dynCheck dflags2
+     res <- lift $ ExactPrint.parseModuleApiAnnsWithCppInternal cpp dflags2 fp
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++    either (\err -> ExceptT.throwE $ "transform error: " ++ show (bagToList (show <$> err)))
++#else
+     either (\(span, err) -> ExceptT.throwE $ show span ++ ": " ++ err)
++#endif
+            (\(a, m) -> pure (a, m, x))
+       $ ExactPrint.postParseTransform res opts
+ 
+@@ -129,7 +134,11 @@ parseModuleFromString args fp dynCheck str =
+     dynCheckRes <- ExceptT.ExceptT $ liftIO $ dynCheck dflags1
+     let res = ExactPrint.parseModuleFromStringInternal dflags1 fp str
+     case res of
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++      Left  err -> ExceptT.throwE $ "parse error: " ++ show (bagToList (show <$> err))
++#else
+       Left  (span, err) -> ExceptT.throwE $ showOutputable span ++ ": " ++ err
++#endif
+       Right (a   , m  ) -> pure (a, m, dynCheckRes)
+ 
+ 
+@@ -193,7 +202,7 @@ commentAnnFixTransformGlob ast = do
+                        , ExactPrint.annsDP               = assocs'
+                        }
+       ExactPrint.modifyAnnsT $ \anns -> Map.insert annKey1 ann1' anns
+-  
++
+ 
+ 
+ commentAnnFixTransform :: GHC.ParsedSource -> ExactPrint.Transform ()
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
+index 00453b3..4d2b93a 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
+@@ -19,7 +19,11 @@ import           Language.Haskell.Brittany.Internal.Config.Types
+ import           RdrName ( RdrName(..) )
+ import           GHC ( Located, runGhc, GenLocated(L), moduleNameString )
+ import qualified GHC
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import           BasicTypes
+ import           Language.Haskell.GHC.ExactPrint.Types ( mkAnnKey )
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+index f33b511..8ec8d74 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+@@ -37,8 +37,10 @@ import           GHC                            ( runGhc
+                                                 )
+ import           SrcLoc ( SrcSpan, noSrcSpan, Located , getLoc, unLoc )
+ import qualified FastString
+-import           HsSyn
+-#if MIN_VERSION_ghc(8,6,0)
++#if MIN_VERSION_ghc(8,10,1) /* ghc-8.10.1 */
++import           GHC.Hs
++import           GHC.Hs.Extension (NoExtField (..))
++#elif MIN_VERSION_ghc(8,6,0)
+ import           HsExtension (NoExt (..))
+ #endif
+ import           Name
+@@ -1040,7 +1042,14 @@ layoutClsInst lcid@(L _ cid) = docLines
+   ]
+  where
+   layoutInstanceHead :: ToBriDocM BriDocNumbered
+-#if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++  layoutInstanceHead =
++    briDocByExactNoComment
++      $   InstD NoExtField
++      .   ClsInstD NoExtField
++      .   removeChildren
++      <$> lcid
++#elif MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+   layoutInstanceHead =
+     briDocByExactNoComment
+       $   InstD NoExt
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+index 660355c..d7c9a2b 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+@@ -19,7 +19,11 @@ import           Language.Haskell.Brittany.Internal.Config.Types
+ import qualified Language.Haskell.GHC.ExactPrint.Types as ExactPrint.Types
+ 
+ import           GHC ( runGhc, GenLocated(L), SrcSpan, moduleNameString, AnnKeywordId(..), RdrName(..) )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import qualified FastString
+ import           BasicTypes
+@@ -521,7 +525,12 @@ layoutExpr lexpr@(L _ expr) = do
+ #else
+     ExplicitTuple args boxity -> do
+ #endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++      let argExprs = args <&> \arg -> case arg of
++            (L _ (Present _ e)) -> (arg, Just e);
++            (L _ (Missing NoExtField)) -> (arg, Nothing)
++            (L _ XTupArg{}) -> error "brittany internal error: XTupArg"
++#elif MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       let argExprs = args <&> \arg -> case arg of
+             (L _ (Present _ e)) -> (arg, Just e);
+             (L _ (Missing NoExt)) -> (arg, Nothing)
+@@ -984,10 +993,18 @@ layoutExpr lexpr@(L _ expr) = do
+                 else Just <$> docSharedWrapper layoutExpr rFExpr
+               return $ (lfield, lrdrNameToText lnameF, rFExpDoc)
+           recordExpression False indentPolicy lexpr nameDoc rFs
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++        HsRecFields [] (Just (L _ 0)) -> do
++#else
+         HsRecFields [] (Just 0) -> do
++#endif
+           let t = lrdrNameToText lname
+           docWrapNode lname $ docLit $ t <> Text.pack " { .. }"
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++        HsRecFields fs@(_:_) (Just (L _ dotdoti)) | dotdoti == length fs -> do
++#else
+         HsRecFields fs@(_:_) (Just dotdoti) | dotdoti == length fs -> do
++#endif
+           let nameDoc = docWrapNode lname $ docLit $ lrdrNameToText lname
+           fieldDocs <- fs `forM` \fieldl@(L _ (HsRecField (L _ fieldOcc) fExpr pun)) -> do
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+@@ -1137,12 +1154,15 @@ layoutExpr lexpr@(L _ expr) = do
+     HsStatic{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsStatic{}" lexpr
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++#else
+     HsArrApp{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsArrApp{}" lexpr
+     HsArrForm{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsArrForm{}" lexpr
++#endif
+     HsTick{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsTick{}" lexpr
+@@ -1152,6 +1172,8 @@ layoutExpr lexpr@(L _ expr) = do
+     HsTickPragma{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsTickPragma{}" lexpr
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++#else
+     EWildPat{} -> do
+       docLit $ Text.pack "_"
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+@@ -1169,6 +1191,7 @@ layoutExpr lexpr@(L _ expr) = do
+     ELazyPat{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ELazyPat{}" lexpr
++#endif
+     HsWrap{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsWrap{}" lexpr
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
+index 1f76032..733ac90 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
+@@ -15,7 +15,11 @@ import           Language.Haskell.Brittany.Internal.Types
+ import           Language.Haskell.Brittany.Internal.LayouterBasics
+ 
+ import           GHC ( runGhc, GenLocated(L), moduleNameString )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ 
+ 
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs b/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
+index f2c36de..bfe2679 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
+@@ -18,9 +18,14 @@ import           GHC     ( unLoc
+                          , AnnKeywordId(..)
+                          , Located
+                          )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++import           GHC.Hs.ImpExp
++#else
+ import           HsSyn
+-import           Name
+ import           HsImpExp
++#endif
++import           Name
+ import           FieldLabel
+ import qualified FastString
+ import           BasicTypes
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
+index bcce106..d5bf0dd 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
+@@ -12,7 +12,11 @@ import           GHC                                      ( unLoc
+                                                           , moduleNameString
+                                                           , Located
+                                                           )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import           FieldLabel
+ import qualified FastString
+@@ -59,7 +63,11 @@ layoutImport limportD@(L _ importD) = docWrapNode limportD $ case importD of
+       hiding   = maybe False fst mllies
+       minQLength = length "import qualified "
+       qLengthReal =
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++        let qualifiedPart = if q /= NotQualified then length "qualified " else 0
++#else
+         let qualifiedPart = if q then length "qualified " else 0
++#endif
+             safePart      = if safe then length "safe " else 0
+             pkgPart       = maybe 0 ((+ 1) . Text.length) pkgNameT
+             srcPart       = if src then length "{-# SOURCE #-} " else 0
+@@ -73,7 +81,11 @@ layoutImport limportD@(L _ importD) = docWrapNode limportD $ case importD of
+         [ appSep $ docLit $ Text.pack "import"
+         , if src then appSep $ docLit $ Text.pack "{-# SOURCE #-}" else docEmpty
+         , if safe then appSep $ docLit $ Text.pack "safe" else docEmpty
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++        , if q /= NotQualified then appSep $ docLit $ Text.pack "qualified" else docEmpty
++#else
+         , if q then appSep $ docLit $ Text.pack "qualified" else docEmpty
++#endif
+         , maybe docEmpty (appSep . docLit) pkgNameT
+         ]
+       indentName =
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Module.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Module.hs
+index f899e08..3839ecd 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Module.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Module.hs
+@@ -9,9 +9,14 @@ import           Language.Haskell.Brittany.Internal.Layouters.Import
+ import           Language.Haskell.Brittany.Internal.Config.Types
+ 
+ import GHC (unLoc, runGhc, GenLocated(L), moduleNameString, AnnKeywordId(..))
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++import           GHC.Hs.ImpExp
++#else
+ import           HsSyn
+-import           Name
+ import           HsImpExp
++#endif
++import           Name
+ import           FieldLabel
+ import qualified FastString
+ import           BasicTypes
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+index cd1b31e..de943b7 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+@@ -21,7 +21,11 @@ import           GHC                            ( Located
+                                                 , ol_val
+                                                 )
+ import qualified GHC
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import           BasicTypes
+ 
+@@ -136,14 +140,22 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+       , docSeparator
+       , docLit $ Text.pack "}"
+       ]
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++  ConPatIn lname (RecCon (HsRecFields [] (Just (L _ 0)))) -> do
++#else
+   ConPatIn lname (RecCon (HsRecFields [] (Just 0))) -> do
++#endif
+     -- Abc { .. } -> expr
+     let t = lrdrNameToText lname
+     Seq.singleton <$> docSeq
+       [ appSep $ docLit t
+       , docLit $ Text.pack "{..}"
+       ]
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++  ConPatIn lname (RecCon (HsRecFields fs@(_:_) (Just (L _ dotdoti)))) | dotdoti == length fs -> do
++#else
+   ConPatIn lname (RecCon (HsRecFields fs@(_:_) (Just dotdoti))) | dotdoti == length fs -> do
++#endif
+     -- Abc { a = locA, .. }
+     let t = lrdrNameToText lname
+     fds <- fs `forM` \(L _ (HsRecField (L _ fieldOcc) fPat pun)) -> do
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs
+index 3aa3b5c..60ba54b 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs
+@@ -17,7 +17,11 @@ import           GHC                            ( runGhc
+                                                 , GenLocated(L)
+                                                 , moduleNameString
+                                                 )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import qualified FastString
+ import           BasicTypes
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs-boot b/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs-boot
+index faf583a..1fab3c5 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs-boot
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs-boot
+@@ -13,7 +13,11 @@ import           Language.Haskell.Brittany.Internal.Types
+ import           Language.Haskell.Brittany.Internal.LayouterBasics
+ 
+ import           GHC ( runGhc, GenLocated(L), moduleNameString )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import qualified FastString
+ import           BasicTypes
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+index 940eac7..7a1fee4 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+@@ -25,7 +25,11 @@ import           GHC ( runGhc
+                      , AnnKeywordId (..)
+                      )
+ import           Language.Haskell.GHC.ExactPrint.Types ( mkAnnKey )
++#if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
++import           GHC.Hs
++#else
+ import           HsSyn
++#endif
+ import           Name
+ import           Outputable ( ftext, showSDocUnsafe )
+ import           BasicTypes
+@@ -61,7 +65,9 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+     t <- lrdrNameToTextAnnTypeEqualityIsSpecial name
+     docWrapNode name $ docLit t
+ #endif
+-#if MIN_VERSION_ghc(8,6,0)
++#if MIN_VERSION_ghc(8,10,1)
++  HsForAllTy _ _ bndrs (L _ (HsQualTy _ (L _ cntxts) typ2)) -> do
++#elif MIN_VERSION_ghc(8,6,0)
+   HsForAllTy _ bndrs (L _ (HsQualTy _ (L _ cntxts) typ2)) -> do
+ #else
+   HsForAllTy bndrs (L _ (HsQualTy (L _ cntxts) typ2)) -> do
+@@ -151,7 +157,9 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+             ]
+           )
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
++#if MIN_VERSION_ghc(8,10,1)
++  HsForAllTy _ _ bndrs typ2 -> do
++#elif MIN_VERSION_ghc(8,6,0)
+   HsForAllTy _ bndrs typ2 -> do
+ #else
+   HsForAllTy bndrs typ2 -> do
+diff --git a/src/Language/Haskell/Brittany/Internal/Utils.hs b/src/Language/Haskell/Brittany/Internal/Utils.hs
+index 9edcb7e..0a0d31f 100644
+--- a/src/Language/Haskell/Brittany/Internal/Utils.hs
++++ b/src/Language/Haskell/Brittany/Internal/Utils.hs
+@@ -304,15 +304,13 @@ lines' s = case break (== '\n') s of
+   (s1, (_:r)) -> s1 : lines' r
+ 
+ #if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
+-absurdExt :: HsExtension.NoExtField -> a
+-absurdExt = error "cannot construct NoExtField"
+-#else
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
++absurdExt :: HsExtension.NoExtCon -> a
++absurdExt = HsExtension.noExtCon
++#elif MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ -- | A method to dismiss NoExt patterns for total matches
+ absurdExt :: HsExtension.NoExt -> a
+ absurdExt = error "cannot construct NoExt"
+ #else
+ absurdExt :: ()
+ absurdExt = ()
+-#endif   /* ghc-8.6 */
+-#endif   /* ghc-8.10.1 */
++#endif
+
+From 1e118a44ca9880b5e96f85a6f8c12d756f08fa8b Mon Sep 17 00:00:00 2001
+From: Luke Lau <luke_lau@icloud.com>
+Date: Thu, 6 Aug 2020 18:50:10 +0100
+Subject: [PATCH 06/17] Fix build on GHC 8.8 and below
+
+---
+ src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+index 8ec8d74..e512b9a 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+@@ -41,6 +41,7 @@ import qualified FastString
+ import           GHC.Hs
+ import           GHC.Hs.Extension (NoExtField (..))
+ #elif MIN_VERSION_ghc(8,6,0)
++import           HsSyn
+ import           HsExtension (NoExt (..))
+ #endif
+ import           Name
+
+From cf3bc5daf46220b609a7ffac6cd26a717c62edb7 Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Wed, 28 Oct 2020 08:45:29 -0400
+Subject: [PATCH 07/17] Allow strict 0.4
+
+---
+ brittany.cabal | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/brittany.cabal b/brittany.cabal
+index 590373f..704d505 100644
+--- a/brittany.cabal
++++ b/brittany.cabal
+@@ -110,7 +110,7 @@ library {
+     , aeson >=1.0.1.0 && <1.6
+     , extra >=1.4.10 && <1.8
+     , uniplate >=1.6.12 && <1.7
+-    , strict >=0.3.2 && <0.4
++    , strict >=0.3.2 && <0.5
+     , monad-memo >=0.4.1 && <0.6
+     , unsafe >=0.0 && <0.1
+     , safe >=0.3.9 && <0.4
+
+From 096c438b2351288cbf237da652bad1ceca1d8cdb Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Sun, 15 Nov 2020 11:10:06 -0500
+Subject: [PATCH 10/17] Drop support for GHC 8.0
+
+---
+ .github/workflows/ci.yaml                     |  3 --
+ .travis.yml                                   | 12 ++---
+ Makefile                                      |  7 +--
+ README.md                                     | 10 ++--
+ brittany.cabal                                |  6 +--
+ .../Haskell/Brittany/Internal/Config/Types.hs |  4 --
+ .../Brittany/Internal/ExactPrintUtils.hs      |  2 +-
+ .../Brittany/Internal/Layouters/DataDecl.hs   | 26 +--------
+ .../Brittany/Internal/Layouters/Decl.hs       | 46 ++++------------
+ .../Brittany/Internal/Layouters/Expr.hs       | 54 ++++---------------
+ .../Brittany/Internal/Layouters/Expr.hs-boot  |  2 +-
+ .../Haskell/Brittany/Internal/Layouters/IE.hs | 16 ------
+ .../Brittany/Internal/Layouters/Import.hs     | 10 ----
+ .../Brittany/Internal/Layouters/Pattern.hs    | 15 ++----
+ .../Brittany/Internal/Layouters/Type.hs       | 21 +-------
+ .../Haskell/Brittany/Internal/Prelude.hs      |  6 +--
+ .../Haskell/Brittany/Internal/Types.hs        |  2 -
+ stack-8.0.2.yaml                              | 12 -----
+ stack-8.0.2.yaml.lock                         | 54 -------------------
+ 19 files changed, 43 insertions(+), 265 deletions(-)
+ delete mode 100644 stack-8.0.2.yaml
+ delete mode 100644 stack-8.0.2.yaml.lock
+
+diff --git a/README.md b/README.md
+index 6fe5976..b009a37 100644
+--- a/README.md
++++ b/README.md
+@@ -1,4 +1,4 @@
+-# brittany [![Hackage version](https://img.shields.io/hackage/v/brittany.svg?label=Hackage)](https://hackage.haskell.org/package/brittany) [![Stackage version](https://www.stackage.org/package/brittany/badge/lts?label=Stackage)](https://www.stackage.org/package/brittany) [![Build Status](https://secure.travis-ci.org/lspitzner/brittany.svg?branch=master)](http://travis-ci.org/lspitzner/brittany) 
++# brittany [![Hackage version](https://img.shields.io/hackage/v/brittany.svg?label=Hackage)](https://hackage.haskell.org/package/brittany) [![Stackage version](https://www.stackage.org/package/brittany/badge/lts?label=Stackage)](https://www.stackage.org/package/brittany) [![Build Status](https://secure.travis-ci.org/lspitzner/brittany.svg?branch=master)](http://travis-ci.org/lspitzner/brittany)
+ haskell source code formatter
+ 
+ ![Output sample](https://github.com/lspitzner/brittany/raw/master/brittany-sample.gif)
+@@ -31,7 +31,7 @@ require fixing:
+   other module elements (data-decls, classes, instances, etc.)
+   are not transformed in any way; this extends to e.g. **bindings inside class
+   instance definitions** - they **won't be touched** (yet).
+-- By using `ghc-exactprint` as the parser, brittany supports full GHC 
++- By using `ghc-exactprint` as the parser, brittany supports full GHC
+   including extensions, but **some of the less common syntactic elements
+   (even of 2010 haskell) are not handled**.
+ - **There are some known issues regarding handling of in-source comments.**
+@@ -48,7 +48,7 @@ log the size of the input, but _not_ the full input/output of requests.)
+ 
+ # Other usage notes
+ 
+-- Supports GHC versions `8.0`, `8.2`, `8.4`, `8.6`, `8.8`.
++- Supports GHC versions `8.2`, `8.4`, `8.6`, `8.8`.
+ - included in stackage with lts>=10.0 (or nightlies dating to >=2017-11-15)
+ - config (file) documentation is lacking.
+ - some config values can not be configured via commandline yet.
+@@ -127,13 +127,13 @@ log the size of the input, but _not_ the full input/output of requests.)
+ - Default mode of operation: Transform a single module, from `stdin` to `stdout`.
+   Can pass one or multiple files as input, and there is a flag to override them
+   in place instead of using `stdout` (since 0.9.0.0). So:
+-  
++
+     ~~~~ .sh
+     brittany                           # stdin -> stdout
+     brittany mysource.hs               # ./mysource.hs -> stdout
+     brittany --write-mode=inplace *.hs # apply formatting to all ./*.hs inplace
+     ~~~~
+-    
++
+ - For stdin/stdout usage it makes sense to enable certain syntactic extensions
+   by default, i.e. to add something like this to your
+   `~/.config/brittany/config.yaml` (execute `brittany` once to create default):
+diff --git a/brittany.cabal b/brittany.cabal
+index 704d505..0c3ed7c 100644
+--- a/brittany.cabal
++++ b/brittany.cabal
+@@ -91,8 +91,8 @@ library {
+     -fno-warn-redundant-constraints
+   }
+   build-depends:
+-    { base >=4.9 && <4.15
+-    , ghc >=8.0.1 && <8.11
++    { base >=4.10 && <4.15
++    , ghc >=8.2.1 && <8.11
+     , ghc-paths >=0.1.0.9 && <0.2
+     , ghc-exactprint >=0.5.8 && <0.6.4
+     , transformers >=0.5.2.0 && <0.6
+@@ -118,7 +118,7 @@ library {
+     , semigroups >=0.18.2 && <0.20
+     , cmdargs >=0.10.14 && <0.11
+     , czipwith >=1.0.1.0 && <1.1
+-    , ghc-boot-th >=8.0.1 && <8.11
++    , ghc-boot-th >=8.2.1 && <8.11
+     , filepath >=1.4.1.0 && <1.5
+     , random >= 1.1 && <1.2
+     }
+diff --git a/src/Language/Haskell/Brittany/Internal/Config/Types.hs b/src/Language/Haskell/Brittany/Internal/Config/Types.hs
+index 32da0ac..c5d8eb0 100644
+--- a/src/Language/Haskell/Brittany/Internal/Config/Types.hs
++++ b/src/Language/Haskell/Brittany/Internal/Config/Types.hs
+@@ -229,15 +229,12 @@ deriving instance Data (CForwardOptions Identity)
+ deriving instance Data (CPreProcessorConfig Identity)
+ deriving instance Data (CConfig Identity)
+ 
+-#if MIN_VERSION_ghc(8,2,0)
+--- these instances break on earlier ghcs
+ deriving instance Data (CDebugConfig Option)
+ deriving instance Data (CLayoutConfig Option)
+ deriving instance Data (CErrorHandlingConfig Option)
+ deriving instance Data (CForwardOptions Option)
+ deriving instance Data (CPreProcessorConfig Option)
+ deriving instance Data (CConfig Option)
+-#endif
+ 
+ instance Semigroup.Semigroup (CDebugConfig Option) where
+   (<>) = gmappend
+@@ -356,4 +353,3 @@ deriveCZipWith ''CErrorHandlingConfig
+ deriveCZipWith ''CForwardOptions
+ deriveCZipWith ''CPreProcessorConfig
+ deriveCZipWith ''CConfig
+-
+diff --git a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+index 6115f52..7c06f69 100644
+--- a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
++++ b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+@@ -323,7 +323,7 @@ withTransformedAnns ast m = MultiRWSS.mGetRawR >>= \case
+ #if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ warnExtractorCompat :: GHC.Warn -> String
+ warnExtractorCompat (GHC.Warn _ (L _ s)) = s
+-#else /* ghc-8.0 && ghc-8.2 */
++#else /* ghc-8.2 */
+ warnExtractorCompat :: GenLocated l String -> String
+ warnExtractorCompat (L _ s) = s
+ #endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
+index 4d2b93a..74b6d53 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
+@@ -297,7 +297,6 @@ createDerivingPar
+   :: HsDeriving GhcPs -> ToBriDocM BriDocNumbered -> ToBriDocM BriDocNumbered
+ createDerivingPar derivs mainDoc = do
+   case derivs of
+-#if MIN_VERSION_ghc(8,2,0)   /* ghc-8.2 */
+     (L _ []) -> mainDoc
+     (L _ types) ->
+       docPar mainDoc
+@@ -306,26 +305,13 @@ createDerivingPar derivs mainDoc = do
+         $   docWrapNode derivs
+         $   derivingClauseDoc
+         <$> types
+-#else
+-    Nothing -> mainDoc
+-    Just types ->
+-      docPar mainDoc
+-        $ docEnsureIndent BrIndentRegular
+-        $ derivingClauseDoc types
+-#endif
+ 
+-#if MIN_VERSION_ghc(8,2,0)   /* ghc-8.2 */
+ derivingClauseDoc :: LHsDerivingClause GhcPs -> ToBriDocM BriDocNumbered
+-#else
+-derivingClauseDoc :: Located [LHsSigType GhcPs] -> ToBriDocM BriDocNumbered
+-#endif
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ derivingClauseDoc (L _ (XHsDerivingClause ext)) = absurdExt ext
+ derivingClauseDoc (L _ (HsDerivingClause _ext mStrategy types)) = case types of
+-#elif MIN_VERSION_ghc(8,2,0)   /* ghc-8.2 */
+-derivingClauseDoc (L _ (HsDerivingClause mStrategy types)) = case types of
+ #else
+-derivingClauseDoc types = case types of
++derivingClauseDoc (L _ (HsDerivingClause mStrategy types)) = case types of
+ #endif
+   (L _ []) -> docSeq []
+   (L _ ts) ->
+@@ -333,11 +319,7 @@ derivingClauseDoc types = case types of
+       tsLength = length ts
+       whenMoreThan1Type val =
+         if tsLength > 1 then docLitS val else docLitS ""
+-#if MIN_VERSION_ghc(8,2,0)   /* ghc-8.2 */
+       (lhsStrategy, rhsStrategy) = maybe (docEmpty, docEmpty) strategyLeftRight mStrategy
+-#else
+-      (lhsStrategy, rhsStrategy) = (docEmpty, docEmpty)
+-#endif
+     in
+       docSeq
+         [ docDeriving
+@@ -351,15 +333,12 @@ derivingClauseDoc types = case types of
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             HsIB _ t -> layoutType t
+             XHsImplicitBndrs x -> absurdExt x
+-#elif MIN_VERSION_ghc(8,2,0)   /* ghc-8.2 */
+-            HsIB _ t _ -> layoutType t
+ #else
+-            HsIB _ t -> layoutType t
++            HsIB _ t _ -> layoutType t
+ #endif
+         , whenMoreThan1Type ")"
+         , rhsStrategy
+         ]
+-#if MIN_VERSION_ghc(8,2,0)   /* ghc-8.6 */
+  where
+   strategyLeftRight = \case
+     (L _ StockStrategy          ) -> (docLitS " stock", docEmpty)
+@@ -377,7 +356,6 @@ derivingClauseDoc types = case types of
+           XHsImplicitBndrs ext -> absurdExt ext
+       )
+ #endif
+-#endif
+ 
+ docDeriving :: ToBriDocM BriDocNumbered
+ docDeriving = docLitS "deriving"
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+index e512b9a..4a86954 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+@@ -49,9 +49,7 @@ import           BasicTypes ( InlinePragma(..)
+                             , Activation(..)
+                             , InlineSpec(..)
+                             , RuleMatchInfo(..)
+-#if MIN_VERSION_ghc(8,2,0)
+                             , LexicalFixity(..)
+-#endif
+                             )
+ import           Language.Haskell.GHC.ExactPrint.Types ( mkAnnKey )
+ 
+@@ -100,10 +98,8 @@ layoutSig :: ToBriDoc Sig
+ layoutSig lsig@(L _loc sig) = case sig of
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   TypeSig _ names (HsWC _ (HsIB _ typ)) -> layoutNamesAndType Nothing names typ
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4 */
++#else /* ghc-8.2 */
+   TypeSig names (HsWC _ (HsIB _ typ _)) -> layoutNamesAndType Nothing names typ
+-#else /* ghc-8.0 */
+-  TypeSig names (HsIB _ (HsWC _ _ typ)) -> layoutNamesAndType Nothing names typ
+ #endif
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   InlineSig _ name (InlinePragma _ spec _arity phaseAct conlike) ->
+@@ -128,17 +124,13 @@ layoutSig lsig@(L _loc sig) = case sig of
+         <> Text.pack " #-}"
+ #if MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   ClassOpSig _ False names (HsIB _ typ) -> layoutNamesAndType Nothing names typ
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4 */
++#else /* ghc-8.2 */
+   ClassOpSig False names (HsIB _ typ _) -> layoutNamesAndType Nothing names typ
+-#else /* ghc-8.0 */
+-  ClassOpSig False names (HsIB _ typ) -> layoutNamesAndType Nothing names typ
+ #endif
+ #if MIN_VERSION_ghc(8,6,0)
+   PatSynSig _ names (HsIB _ typ) -> layoutNamesAndType (Just "pattern") names typ
+-#elif MIN_VERSION_ghc(8,2,0)
+-  PatSynSig names (HsIB _ typ _) -> layoutNamesAndType (Just "pattern") names typ
+ #else
+-  PatSynSig name (HsIB _ typ) -> layoutNamesAndType (Just "pattern") [name] typ
++  PatSynSig names (HsIB _ typ _) -> layoutNamesAndType (Just "pattern") names typ
+ #endif
+   _ -> briDocByExactNoComment lsig -- TODO
+  where
+@@ -359,10 +351,8 @@ layoutPatternBind funId binderDoc lmatch@(L _ match) = do
+     Match _ (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+ #elif MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+     Match (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.4 */
+-    Match (FunRhs matchId _ _) _ _ _ -> Just <$> lrdrNameToTextAnn matchId
+ #else
+-    Match (FunBindMatch matchId _) _ _ _ -> Just <$> lrdrNameToTextAnn matchId
++    Match (FunRhs matchId _ _) _ _ _ -> Just <$> lrdrNameToTextAnn matchId
+ #endif
+     _ -> pure Nothing
+   let mIdStr' = fixPatternBindIdentifier match <$> mIdStr
+@@ -406,7 +396,6 @@ layoutPatternBind funId binderDoc lmatch@(L _ match) = do
+                          mWhereArg
+                          hasComments
+ 
+-#if MIN_VERSION_ghc(8,2,0) /* ghc-8.2 && ghc-8.4 */
+ fixPatternBindIdentifier
+   :: Match GhcPs (LHsExpr GhcPs) -> Text -> Text
+ fixPatternBindIdentifier match idStr = go $ m_ctxt match
+@@ -424,10 +413,6 @@ fixPatternBindIdentifier match idStr = go $ m_ctxt match
+     (ParStmtCtxt   ctx1) -> goInner ctx1
+     (TransStmtCtxt ctx1) -> goInner ctx1
+     _                    -> idStr
+-#else                       /* ghc-8.0 */
+-fixPatternBindIdentifier :: Match GhcPs (LHsExpr GhcPs) -> Text -> Text
+-fixPatternBindIdentifier _ x = x
+-#endif
+ 
+ layoutPatternBindFinal
+   :: Maybe Text
+@@ -842,18 +827,11 @@ layoutTyCl ltycl@(L _loc tycl) = case tycl of
+     let isInfix = case fixity of
+           Prefix -> False
+           Infix  -> True
+-#elif MIN_VERSION_ghc(8,2,0)
++#else
+   SynDecl name vars fixity typ _ -> do
+     let isInfix = case fixity of
+           Prefix -> False
+           Infix  -> True
+-#else
+-  SynDecl name vars typ _ -> do
+-    nameStr <- lrdrNameToTextAnn name
+-    let isInfixTypeOp = case Text.uncons nameStr of
+-          Nothing -> False
+-          Just (c, _) -> not (c == '(' || isUpper c)
+-    isInfix <- (isInfixTypeOp ||) <$> hasAnnKeyword name AnnBackquote
+ #endif
+     -- hasTrailingParen <- hasAnnKeywordComment ltycl AnnCloseP
+     -- let parenWrapper = if hasTrailingParen
+@@ -864,10 +842,8 @@ layoutTyCl ltycl@(L _loc tycl) = case tycl of
+       $ layoutSynDecl isInfix wrapNodeRest name (hsq_explicit vars) typ
+ #if MIN_VERSION_ghc(8,6,0)
+   DataDecl _ext name tyVars _ dataDefn ->
+-#elif MIN_VERSION_ghc(8,2,0)
+-  DataDecl name tyVars _ dataDefn _ _ ->
+ #else
+-  DataDecl name tyVars dataDefn _ _ ->
++  DataDecl name tyVars _ dataDefn _ _ ->
+ #endif
+     layoutDataDecl ltycl name tyVars dataDefn
+   _ -> briDocByExactNoComment ltycl
+@@ -919,14 +895,14 @@ layoutTyVarBndr needsSep lbndr@(L _ bndr) = do
+ #if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+     XTyVarBndr{} -> error "brittany internal error: XTyVarBndr"
+     UserTyVar _ name -> do
+-#else                         /* 8.0 8.2 8.4 */
++#else                         /* 8.2 8.4 */
+     UserTyVar name -> do
+ #endif
+       nameStr <- lrdrNameToTextAnn name
+       docSeq $ [docSeparator | needsSep] ++ [docLit nameStr]
+ #if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+     KindedTyVar _ name kind -> do
+-#else                         /* 8.0 8.2 8.4 */
++#else                         /* 8.2 8.4 */
+     KindedTyVar name kind -> do
+ #endif
+       nameStr <- lrdrNameToTextAnn name
+@@ -967,12 +943,8 @@ layoutTyFamInstDecl inClass outerNode tfid = do
+     FamEqn name pats _fixity typ = hsib_body $ tfid_eqn tfid
+     bndrsMay = Nothing
+     innerNode = outerNode
+-#elif MIN_VERSION_ghc(8,2,0)
+-    innerNode@(L _ (TyFamEqn name boundPats _fixity typ)) = tfid_eqn tfid
+-    bndrsMay = Nothing
+-    pats = hsib_body boundPats
+ #else
+-    innerNode@(L _ (TyFamEqn name boundPats typ)) = tfid_eqn tfid
++    innerNode@(L _ (TyFamEqn name boundPats _fixity typ)) = tfid_eqn tfid
+     bndrsMay = Nothing
+     pats = hsib_body boundPats
+ #endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+index d7c9a2b..534496d 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+@@ -62,10 +62,8 @@ layoutExpr lexpr@(L _ expr) = do
+       briDocByExactInlineOnly "HsRecFld" lexpr
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsOverLabel _ext _reboundFromLabel name ->
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4 */
++#else                        /* ghc-8.2 */
+     HsOverLabel _reboundFromLabel name ->
+-#else                        /* ghc-8.0 */
+-    HsOverLabel name ->
+ #endif
+       let label = FastString.unpackFS name
+       in docLit . Text.pack $ '#' : label
+@@ -176,19 +174,15 @@ layoutExpr lexpr@(L _ expr) = do
+ #endif
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ (MG _ (L _ []) _) -> do
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4*/
++#else                        /* ghc-8.2 */
+     HsLamCase (MG (L _ []) _ _ _) -> do
+-#else                        /* ghc-8.0 */
+-    HsLamCase _ (MG (L _ []) _ _ _) -> do
+ #endif
+       docSetParSpacing $ docAddBaseY BrIndentRegular $
+         (docLit $ Text.pack "\\case {}")
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ (MG _ lmatches@(L _ matches) _) -> do
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4*/
++#else                        /* ghc-8.2 */
+     HsLamCase (MG lmatches@(L _ matches) _ _ _) -> do
+-#else                        /* ghc-8.0 */
+-    HsLamCase _ (MG lmatches@(L _ matches) _ _ _) -> do
+ #endif
+       binderDoc   <- docLit $ Text.pack "->"
+       funcPatDocs <- docWrapNode lmatches
+@@ -311,10 +305,8 @@ layoutExpr lexpr@(L _ expr) = do
+     HsAppType XHsWildCardBndrs{} _ ->
+       error "brittany internal error: HsAppType XHsWildCardBndrs"
+     HsAppType (HsWC _ ty1) exp1 -> do
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4 */
++#else                        /* ghc-8.2 */
+     HsAppType exp1 (HsWC _ ty1) -> do
+-#else                        /* ghc-8.0 */
+-    HsAppType exp1 (HsWC _ _ ty1) -> do
+ #endif
+       t <- docSharedWrapper layoutType ty1
+       e <- docSharedWrapper layoutExpr exp1
+@@ -329,7 +321,7 @@ layoutExpr lexpr@(L _ expr) = do
+             e
+             (docSeq [docLit $ Text.pack "@", t ])
+         ]
+-#if !MIN_VERSION_ghc(8,6,0)   /* ghc-8.0 8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)   /* ghc-8.2 8.4 */
+     HsAppTypeOut{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsAppTypeOut{}" lexpr
+@@ -968,7 +960,7 @@ layoutExpr lexpr@(L _ expr) = do
+             in docSetBaseY $ docLines $ [start] ++ linesM ++ [lineN] ++ [end]
+     ExplicitList _ _ [] ->
+       docLit $ Text.pack "[]"
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.0 8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.2 8.4 */
+     ExplicitPArr{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ExplicitPArr{}" lexpr
+@@ -1052,10 +1044,8 @@ layoutExpr lexpr@(L _ expr) = do
+     ExprWithTySig XHsWildCardBndrs{} _ ->
+       error "brittany internal error: ExprWithTySig XHsWildCardBndrs"
+     ExprWithTySig (HsWC _ (HsIB _ typ1)) exp1 -> do
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8,4 */
++#else /* ghc-8.2 */
+     ExprWithTySig exp1 (HsWC _ (HsIB _ typ1 _)) -> do
+-#else /* ghc-8.0 */
+-    ExprWithTySig exp1 (HsIB _ (HsWC _ _ typ1)) -> do
+ #endif
+       expDoc <- docSharedWrapper layoutExpr exp1
+       typDoc <- docSharedWrapper layoutType typ1
+@@ -1064,7 +1054,7 @@ layoutExpr lexpr@(L _ expr) = do
+         , appSep $ docLit $ Text.pack "::"
+         , typDoc
+         ]
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.0 8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.2 8.4 */
+     ExprWithTySigOut{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ExprWithTySigOut{}" lexpr
+@@ -1113,7 +1103,7 @@ layoutExpr lexpr@(L _ expr) = do
+             ]
+     ArithSeq{} ->
+       briDocByExactInlineOnly "ArithSeq" lexpr
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.0 8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.2 8.4 */
+     PArrSeq{} -> do
+       -- TODO
+       briDocByExactInlineOnly "PArrSeq{}" lexpr
+@@ -1195,14 +1185,12 @@ layoutExpr lexpr@(L _ expr) = do
+     HsWrap{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsWrap{}" lexpr
+-#if MIN_VERSION_ghc(8,2,0) /* ghc-8.2 */
+     HsConLikeOut{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsWrap{}" lexpr
+     ExplicitSum{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ExplicitSum{}" lexpr
+-#endif
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     XExpr{} -> error "brittany internal error: XExpr"
+ #endif
+@@ -1367,7 +1355,7 @@ overLitValBriDoc = \case
+   HsFractional (FL (SourceText t) _ _) -> BDFLit $ Text.pack t
+   HsIsString (SourceText t) _ -> BDFLit $ Text.pack t
+   _ -> error "overLitValBriDoc: literal with no SourceText"
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 */
++#else                        /* ghc-8.2 */
+ litBriDoc :: HsLit -> BriDocFInt
+ litBriDoc = \case
+   HsChar       (SourceText t) _c          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ ['\'', c, '\'']
+@@ -1391,26 +1379,4 @@ overLitValBriDoc = \case
+   HsFractional (FL t _) -> BDFLit $ Text.pack t
+   HsIsString (SourceText t) _        -> BDFLit $ Text.pack t
+   _ -> error "overLitValBriDoc: literal with no SourceText"
+-#else                        /* ghc-8.0 */
+-litBriDoc :: HsLit -> BriDocFInt
+-litBriDoc = \case
+-  HsChar       t _c          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ ['\'', c, '\'']
+-  HsCharPrim   t _c          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ ['\'', c, '\'']
+-  HsString     t _fastString -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ FastString.unpackFS fastString
+-  HsStringPrim t _byteString -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ Data.ByteString.Char8.unpack byteString
+-  HsInt        t _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsIntPrim    t _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsWordPrim   t _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsInt64Prim  t _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsWord64Prim t _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsInteger t _i _type       -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsRat (FL t _) _type       -> BDFLit $ Text.pack t
+-  HsFloatPrim  (FL t _)      -> BDFLit $ Text.pack t
+-  HsDoublePrim (FL t _)      -> BDFLit $ Text.pack t
+-
+-overLitValBriDoc :: OverLitVal -> BriDocFInt
+-overLitValBriDoc = \case
+-  HsIntegral t _        -> BDFLit $ Text.pack t
+-  HsFractional (FL t _) -> BDFLit $ Text.pack t
+-  HsIsString t _        -> BDFLit $ Text.pack t
+ #endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
+index 733ac90..606790b 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
+@@ -30,7 +30,7 @@ layoutExpr :: ToBriDoc HsExpr
+ 
+ #if   MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ litBriDoc :: HsLit GhcPs -> BriDocFInt
+-#else /* ghc-8.0 && ghc-8.2 */
++#else /* ghc-8.2 */
+ litBriDoc :: HsLit -> BriDocFInt
+ #endif
+ 
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs b/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
+index bfe2679..739d138 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
+@@ -34,13 +34,8 @@ import           Language.Haskell.Brittany.Internal.Utils
+ 
+ 
+ 
+-#if MIN_VERSION_ghc(8,2,0)
+ prepareName :: LIEWrappedName name -> Located name
+ prepareName = ieLWrappedName
+-#else
+-prepareName :: Located name -> Located name
+-prepareName = id
+-#endif
+ 
+ layoutIE :: ToBriDoc IE
+ layoutIE lie@(L _ ie) = docWrapNode lie $ case ie of
+@@ -111,7 +106,6 @@ layoutIE lie@(L _ ie) = docWrapNode lie $ case ie of
+     ]
+   _ -> docEmpty
+  where
+-#if MIN_VERSION_ghc(8,2,0) /* ghc-8.2, 8.4, .. */
+   layoutWrapped _ = \case
+     L _ (IEName    n) -> docLit =<< lrdrNameToTextAnn n
+     L _ (IEPattern n) -> do
+@@ -120,16 +114,6 @@ layoutIE lie@(L _ ie) = docWrapNode lie $ case ie of
+     L _ (IEType n) -> do
+       name <- lrdrNameToTextAnn n
+       docLit $ Text.pack "type " <> name
+-#else                      /* ghc-8.0 */
+-  layoutWrapped outer n = do
+-    name <- lrdrNameToTextAnn n
+-    hasType <- hasAnnKeyword n AnnType
+-    hasPattern <- hasAnnKeyword outer AnnPattern
+-    docLit $ if
+-      | hasType    -> Text.pack "type (" <> name <> Text.pack ")"
+-      | hasPattern -> Text.pack "pattern " <> name
+-      | otherwise  -> name
+-#endif
+ 
+ -- Helper function to deal with Located lists of LIEs.
+ -- In particular this will also associate documentation
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
+index d5bf0dd..ac29eda 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
+@@ -26,24 +26,14 @@ import           Language.Haskell.Brittany.Internal.Utils
+ 
+ 
+ 
+-#if MIN_VERSION_ghc(8,2,0)
+ prepPkg :: SourceText -> String
+ prepPkg rawN = case rawN of
+   SourceText n -> n
+   -- This would be odd to encounter and the
+   -- result will most certainly be wrong
+   NoSourceText -> ""
+-#else
+-prepPkg :: String -> String
+-prepPkg = id
+-#endif
+-#if MIN_VERSION_ghc(8,2,0)
+ prepModName :: Located e -> e
+ prepModName = unLoc
+-#else
+-prepModName :: e -> e
+-prepModName = id
+-#endif
+ 
+ layoutImport :: ToBriDoc ImportDecl
+ layoutImport limportD@(L _ importD) = docWrapNode limportD $ case importD of
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+index de943b7..b0b13f2 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+@@ -50,14 +50,14 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+     -- _ -> expr
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   VarPat _ n ->
+-#else                        /* ghc-8.0 8.2 8.4 */
++#else                        /* ghc-8.2 8.4 */
+   VarPat   n ->
+ #endif
+     fmap Seq.singleton $ docLit $ lrdrNameToText n
+     -- abc -> expr
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   LitPat _ lit ->
+-#else                        /* ghc-8.0 8.2 8.4 */
++#else                        /* ghc-8.2 8.4 */
+   LitPat lit ->
+ #endif
+     fmap Seq.singleton $ allocateNode $ litBriDoc lit
+@@ -66,7 +66,7 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+   ParPat _ inner -> do
+ #elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   ParPat _ inner -> do
+-#else                        /* ghc-8.0 8.2 8.4 */
++#else                        /* ghc-8.2 8.4 */
+   ParPat inner -> do
+ #endif
+     -- (nestedpat) -> expr
+@@ -202,10 +202,8 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+   SigPat _ pat1 (HsWC _ (HsIB _ ty1)) -> do
+ #elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   SigPat (HsWC _ (HsIB _ ty1)) pat1 -> do
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4 */
++#else                        /* ghc-8.2 */
+   SigPatIn pat1 (HsWC _ (HsIB _ ty1 _)) -> do
+-#else                        /* ghc-8.0 */
+-  SigPatIn pat1 (HsIB _ (HsWC _ _ ty1)) -> do
+ #endif
+     -- i :: Int -> expr
+     patDocs <- layoutPat pat1
+@@ -260,11 +258,6 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+       Just{}  -> Seq.fromList [negDoc, litDoc]
+       Nothing -> Seq.singleton litDoc
+ 
+--- if MIN_VERSION_ghc(8,0,0)
+---   VarPat n -> return $ stringLayouter lpat $ lrdrNameToText n
+--- else
+---   VarPat n -> return $ stringLayouter lpat $ rdrNameToText n
+--- endif
+   _ -> return <$> briDocByExactInlineOnly "some unknown pattern" (ghcDL lpat)
+ 
+ colsWrapPat :: Seq BriDocNumbered -> ToBriDocM BriDocNumbered
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+index 7a1fee4..2060904 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+@@ -42,7 +42,6 @@ import           DataTreePrint
+ layoutType :: ToBriDoc HsType
+ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+   -- _ | traceShow (ExactPrint.Types.mkAnnKey ltype) False -> error "impossible"
+-#if MIN_VERSION_ghc(8,2,0)
+ #if MIN_VERSION_ghc(8,6,0)
+   HsTyVar _ promoted name -> do
+ #else   /* ghc-8.2 ghc-8.4 */
+@@ -60,11 +59,6 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+         , docWrapNode name $ docLit t
+         ]
+       NotPromoted -> docWrapNode name $ docLit t
+-#else /* ghc-8.0 */
+-  HsTyVar name -> do
+-    t <- lrdrNameToTextAnnTypeEqualityIsSpecial name
+-    docWrapNode name $ docLit t
+-#endif
+ #if MIN_VERSION_ghc(8,10,1)
+   HsForAllTy _ _ bndrs (L _ (HsQualTy _ (L _ cntxts) typ2)) -> do
+ #elif MIN_VERSION_ghc(8,6,0)
+@@ -547,10 +541,8 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+   --     }
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsIParamTy _ (L _ (HsIPName ipName)) typ1 -> do
+-#elif MIN_VERSION_ghc(8,2,0) /* ghc-8.2 8.4 */
++#else                        /* ghc-8.2 */
+   HsIParamTy (L _ (HsIPName ipName)) typ1 -> do
+-#else                        /* ghc-8.0 */
+-  HsIParamTy (HsIPName ipName) typ1 -> do
+ #endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+     docAlt
+@@ -699,11 +691,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+     briDocByExactInlineOnly "HsDocTy{}" ltype
+   HsRecTy{} -> -- TODO
+     briDocByExactInlineOnly "HsRecTy{}" ltype
+-#if MIN_VERSION_ghc(8,2,0) /* ghc-8.2 */
+   HsExplicitListTy _ _ typs -> do
+-#else /* ghc-8.0 */
+-  HsExplicitListTy _ typs -> do
+-#endif
+     typDocs <- docSharedWrapper layoutType `mapM` typs
+     hasComments <- hasAnyCommentsBelow ltype
+     let specialCommaSep = appSep $ docLit $ Text.pack " ,"
+@@ -755,27 +743,20 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+ #else
+   HsTyLit lit -> case lit of
+ #endif
+-#if MIN_VERSION_ghc(8,2,0) /* ghc-8.2 */
+     HsNumTy (SourceText srctext) _ -> docLit $ Text.pack srctext
+     HsNumTy NoSourceText _ ->
+       error "overLitValBriDoc: literal with no SourceText"
+     HsStrTy (SourceText srctext) _ -> docLit $ Text.pack srctext
+     HsStrTy NoSourceText _ ->
+       error "overLitValBriDoc: literal with no SourceText"
+-#else /* ghc-8.0 */
+-    HsNumTy srctext _ -> docLit $ Text.pack srctext
+-    HsStrTy srctext _ -> docLit $ Text.pack srctext
+-#endif
+ #if !MIN_VERSION_ghc(8,6,0)
+   HsCoreTy{} -> -- TODO
+     briDocByExactInlineOnly "HsCoreTy{}" ltype
+ #endif
+   HsWildCardTy _ ->
+     docLit $ Text.pack "_"
+-#if MIN_VERSION_ghc(8,2,0) /* ghc-8.2 */
+   HsSumTy{} -> -- TODO
+     briDocByExactInlineOnly "HsSumTy{}" ltype
+-#endif
+ #if MIN_VERSION_ghc(8,6,0)
+   HsStarTy _ isUnicode -> do
+     if isUnicode
+diff --git a/src/Language/Haskell/Brittany/Internal/Prelude.hs b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+index a0757d8..79e2975 100644
+--- a/src/Language/Haskell/Brittany/Internal/Prelude.hs
++++ b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+@@ -1,4 +1,4 @@
+-#if !MIN_VERSION_ghc(8,4,0) /* ghc-8.0, ghc-8.2 */
++#if !MIN_VERSION_ghc(8,4,0) /* ghc-8.2 */
+ {-# LANGUAGE TypeFamilies #-}
+ #endif
+ 
+@@ -411,7 +411,7 @@ todo :: a
+ todo = error "todo"
+ 
+ 
+-#if !MIN_VERSION_ghc(8,4,0) /* ghc-8.0, ghc-8.2 */
++#if !MIN_VERSION_ghc(8,4,0) /* ghc-8.2 */
+ type family IdP p
+ type instance IdP GhcPs = RdrName
+ 
+@@ -422,7 +422,7 @@ type GhcPs = RdrName
+ #if MIN_VERSION_ghc(8,8,0)
+ ghcDL :: GHC.HasSrcSpan a => a -> GHC.Located (GHC.SrcSpanLess a)
+ ghcDL = GHC.dL
+-#else              /* ghc-8.0 8.2 8.4 8.6 */
++#else              /* ghc-8.2 8.4 8.6 */
+ ghcDL :: GHC.Located a -> GHC.Located a
+ ghcDL x = x
+ #endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Types.hs b/src/Language/Haskell/Brittany/Internal/Types.hs
+index 620a39b..f402e56 100644
+--- a/src/Language/Haskell/Brittany/Internal/Types.hs
++++ b/src/Language/Haskell/Brittany/Internal/Types.hs
+@@ -32,9 +32,7 @@ data PerItemConfig = PerItemConfig
+   { _icd_perBinding :: Map String (CConfig Option)
+   , _icd_perKey :: Map ExactPrint.Types.AnnKey (CConfig Option)
+   }
+-#if MIN_VERSION_ghc(8,2,0)
+   deriving Data.Data.Data
+-#endif
+ 
+ type PPM = MultiRWSS.MultiRWS
+   '[Map ExactPrint.AnnKey ExactPrint.Anns, PerItemConfig, Config, ExactPrint.Anns]
+
+From 259c949211448eee97d5cb8e9db97e42e113235f Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Sun, 15 Nov 2020 11:32:34 -0500
+Subject: [PATCH 11/17] Drop support for GHC 8.2
+
+---
+ .github/workflows/ci.yaml                     |  3 --
+ .travis.yml                                   | 20 ---------
+ Makefile                                      |  7 +--
+ README.md                                     |  2 +-
+ brittany.cabal                                |  6 +--
+ .../Brittany/Internal/ExactPrintUtils.hs      |  5 ---
+ .../Brittany/Internal/Layouters/Decl.hs       | 38 +++-------------
+ .../Brittany/Internal/Layouters/Expr.hs       | 44 ++++---------------
+ .../Brittany/Internal/Layouters/Expr.hs-boot  |  4 --
+ .../Brittany/Internal/Layouters/Pattern.hs    |  8 ++--
+ .../Brittany/Internal/Layouters/Type.hs       |  6 +--
+ .../Haskell/Brittany/Internal/Prelude.hs      | 17 +------
+ .../Haskell/Brittany/Internal/Utils.hs        |  2 -
+ stack-8.2.2.yaml                              |  9 ----
+ stack-8.2.2.yaml.lock                         | 33 --------------
+ 15 files changed, 28 insertions(+), 176 deletions(-)
+ delete mode 100644 stack-8.2.2.yaml
+ delete mode 100644 stack-8.2.2.yaml.lock
+
+diff --git a/README.md b/README.md
+index b009a37..56f42f0 100644
+--- a/README.md
++++ b/README.md
+@@ -48,7 +48,7 @@ log the size of the input, but _not_ the full input/output of requests.)
+ 
+ # Other usage notes
+ 
+-- Supports GHC versions `8.2`, `8.4`, `8.6`, `8.8`.
++- Supports GHC versions `8.4`, `8.6`, `8.8`.
+ - included in stackage with lts>=10.0 (or nightlies dating to >=2017-11-15)
+ - config (file) documentation is lacking.
+ - some config values can not be configured via commandline yet.
+diff --git a/brittany.cabal b/brittany.cabal
+index 0c3ed7c..ffeb0f2 100644
+--- a/brittany.cabal
++++ b/brittany.cabal
+@@ -91,8 +91,8 @@ library {
+     -fno-warn-redundant-constraints
+   }
+   build-depends:
+-    { base >=4.10 && <4.15
+-    , ghc >=8.2.1 && <8.11
++    { base >=4.11 && <4.15
++    , ghc >=8.4.1 && <8.11
+     , ghc-paths >=0.1.0.9 && <0.2
+     , ghc-exactprint >=0.5.8 && <0.6.4
+     , transformers >=0.5.2.0 && <0.6
+@@ -118,7 +118,7 @@ library {
+     , semigroups >=0.18.2 && <0.20
+     , cmdargs >=0.10.14 && <0.11
+     , czipwith >=1.0.1.0 && <1.1
+-    , ghc-boot-th >=8.2.1 && <8.11
++    , ghc-boot-th >=8.4.1 && <8.11
+     , filepath >=1.4.1.0 && <1.5
+     , random >= 1.1 && <1.2
+     }
+diff --git a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+index 7c06f69..b7ac608 100644
+--- a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
++++ b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+@@ -320,10 +320,5 @@ withTransformedAnns ast m = MultiRWSS.mGetRawR >>= \case
+     in  annsBalanced
+ 
+ 
+-#if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ warnExtractorCompat :: GHC.Warn -> String
+ warnExtractorCompat (GHC.Warn _ (L _ s)) = s
+-#else /* ghc-8.2 */
+-warnExtractorCompat :: GenLocated l String -> String
+-warnExtractorCompat (L _ s) = s
+-#endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+index 4a86954..ae0b232 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+@@ -98,7 +98,7 @@ layoutSig :: ToBriDoc Sig
+ layoutSig lsig@(L _loc sig) = case sig of
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   TypeSig _ names (HsWC _ (HsIB _ typ)) -> layoutNamesAndType Nothing names typ
+-#else /* ghc-8.2 */
++#else /* ghc-8.4 */
+   TypeSig names (HsWC _ (HsIB _ typ _)) -> layoutNamesAndType Nothing names typ
+ #endif
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+@@ -124,7 +124,7 @@ layoutSig lsig@(L _loc sig) = case sig of
+         <> Text.pack " #-}"
+ #if MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   ClassOpSig _ False names (HsIB _ typ) -> layoutNamesAndType Nothing names typ
+-#else /* ghc-8.2 */
++#else /* ghc-8.4 */
+   ClassOpSig False names (HsIB _ typ _) -> layoutNamesAndType Nothing names typ
+ #endif
+ #if MIN_VERSION_ghc(8,6,0)
+@@ -165,19 +165,11 @@ layoutSig lsig@(L _loc sig) = case sig of
+ 
+ specStringCompat
+   :: MonadMultiWriter [BrittanyError] m => LSig GhcPs -> InlineSpec -> m String
+-#if MIN_VERSION_ghc(8,4,0)
+ specStringCompat ast = \case
+   NoUserInline    -> mTell [ErrorUnknownNode "NoUserInline" ast] $> ""
+   Inline          -> pure "INLINE "
+   Inlinable       -> pure "INLINABLE "
+   NoInline        -> pure "NOINLINE "
+-#else
+-specStringCompat _ = \case
+-  Inline          -> pure "INLINE "
+-  Inlinable       -> pure "INLINABLE "
+-  NoInline        -> pure "NOINLINE "
+-  EmptyInlineSpec -> pure ""
+-#endif
+ 
+ layoutGuardLStmt :: ToBriDoc' (Stmt GhcPs (LHsExpr GhcPs))
+ layoutGuardLStmt lgstmt@(L _ stmtLR) = docWrapNode lgstmt $ case stmtLR of
+@@ -349,10 +341,8 @@ layoutPatternBind funId binderDoc lmatch@(L _ match) = do
+   mIdStr <- case match of
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     Match _ (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+-#elif MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+-    Match (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+ #else
+-    Match (FunRhs matchId _ _) _ _ _ -> Just <$> lrdrNameToTextAnn matchId
++    Match (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+ #endif
+     _ -> pure Nothing
+   let mIdStr' = fixPatternBindIdentifier match <$> mIdStr
+@@ -774,28 +764,16 @@ layoutLPatSyn
+   :: Located (IdP GhcPs)
+   -> HsPatSynDetails (Located (IdP GhcPs))
+   -> ToBriDocM BriDocNumbered
+-#if MIN_VERSION_ghc(8,4,0)
+ layoutLPatSyn name (PrefixCon vars) = do
+-#else
+-layoutLPatSyn name (PrefixPatSyn vars) = do
+-#endif
+   docName <- lrdrNameToTextAnn name
+   names <- mapM lrdrNameToTextAnn vars
+   docSeq . fmap appSep $ docLit docName : (docLit <$> names)
+-#if MIN_VERSION_ghc(8,4,0)
+ layoutLPatSyn name (InfixCon left right) = do
+-#else
+-layoutLPatSyn name (InfixPatSyn left right) = do
+-#endif
+   leftDoc <- lrdrNameToTextAnn left
+   docName <- lrdrNameToTextAnn name
+   rightDoc <- lrdrNameToTextAnn right
+   docSeq . fmap (appSep . docLit) $ [leftDoc, docName, rightDoc]
+-#if MIN_VERSION_ghc(8,4,0)
+ layoutLPatSyn name (RecCon recArgs) = do
+-#else
+-layoutLPatSyn name (RecordPatSyn recArgs) = do
+-#endif
+   docName <- lrdrNameToTextAnn name
+   args <- mapM (lrdrNameToTextAnn . recordPatSynSelectorId) recArgs
+   docSeq . fmap docLit
+@@ -895,14 +873,14 @@ layoutTyVarBndr needsSep lbndr@(L _ bndr) = do
+ #if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+     XTyVarBndr{} -> error "brittany internal error: XTyVarBndr"
+     UserTyVar _ name -> do
+-#else                         /* 8.2 8.4 */
++#else                         /* 8.4 */
+     UserTyVar name -> do
+ #endif
+       nameStr <- lrdrNameToTextAnn name
+       docSeq $ [docSeparator | needsSep] ++ [docLit nameStr]
+ #if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+     KindedTyVar _ name kind -> do
+-#else                         /* 8.2 8.4 */
++#else                         /* 8.4 */
+     KindedTyVar name kind -> do
+ #endif
+       nameStr <- lrdrNameToTextAnn name
+@@ -939,14 +917,10 @@ layoutTyFamInstDecl inClass outerNode tfid = do
+     FamEqn _ name pats _fixity typ = hsib_body $ tfid_eqn tfid
+     bndrsMay = Nothing
+     innerNode = outerNode
+-#elif MIN_VERSION_ghc(8,4,0)
++#else
+     FamEqn name pats _fixity typ = hsib_body $ tfid_eqn tfid
+     bndrsMay = Nothing
+     innerNode = outerNode
+-#else
+-    innerNode@(L _ (TyFamEqn name boundPats _fixity typ)) = tfid_eqn tfid
+-    bndrsMay = Nothing
+-    pats = hsib_body boundPats
+ #endif
+   docWrapNodePrior outerNode $ do
+     nameStr   <- lrdrNameToTextAnn name
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+index 534496d..8c089c2 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+@@ -62,7 +62,7 @@ layoutExpr lexpr@(L _ expr) = do
+       briDocByExactInlineOnly "HsRecFld" lexpr
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsOverLabel _ext _reboundFromLabel name ->
+-#else                        /* ghc-8.2 */
++#else                        /* ghc-8.4 */
+     HsOverLabel _reboundFromLabel name ->
+ #endif
+       let label = FastString.unpackFS name
+@@ -174,14 +174,14 @@ layoutExpr lexpr@(L _ expr) = do
+ #endif
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ (MG _ (L _ []) _) -> do
+-#else                        /* ghc-8.2 */
++#else                        /* ghc-8.4 */
+     HsLamCase (MG (L _ []) _ _ _) -> do
+ #endif
+       docSetParSpacing $ docAddBaseY BrIndentRegular $
+         (docLit $ Text.pack "\\case {}")
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ (MG _ lmatches@(L _ matches) _) -> do
+-#else                        /* ghc-8.2 */
++#else                        /* ghc-8.4 */
+     HsLamCase (MG lmatches@(L _ matches) _ _ _) -> do
+ #endif
+       binderDoc   <- docLit $ Text.pack "->"
+@@ -305,7 +305,7 @@ layoutExpr lexpr@(L _ expr) = do
+     HsAppType XHsWildCardBndrs{} _ ->
+       error "brittany internal error: HsAppType XHsWildCardBndrs"
+     HsAppType (HsWC _ ty1) exp1 -> do
+-#else                        /* ghc-8.2 */
++#else                        /* ghc-8.4 */
+     HsAppType exp1 (HsWC _ ty1) -> do
+ #endif
+       t <- docSharedWrapper layoutType ty1
+@@ -321,7 +321,7 @@ layoutExpr lexpr@(L _ expr) = do
+             e
+             (docSeq [docLit $ Text.pack "@", t ])
+         ]
+-#if !MIN_VERSION_ghc(8,6,0)   /* ghc-8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)   /* ghc-8.4 */
+     HsAppTypeOut{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsAppTypeOut{}" lexpr
+@@ -960,7 +960,7 @@ layoutExpr lexpr@(L _ expr) = do
+             in docSetBaseY $ docLines $ [start] ++ linesM ++ [lineN] ++ [end]
+     ExplicitList _ _ [] ->
+       docLit $ Text.pack "[]"
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.4 */
+     ExplicitPArr{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ExplicitPArr{}" lexpr
+@@ -1044,7 +1044,7 @@ layoutExpr lexpr@(L _ expr) = do
+     ExprWithTySig XHsWildCardBndrs{} _ ->
+       error "brittany internal error: ExprWithTySig XHsWildCardBndrs"
+     ExprWithTySig (HsWC _ (HsIB _ typ1)) exp1 -> do
+-#else /* ghc-8.2 */
++#else /* ghc-8.4 */
+     ExprWithTySig exp1 (HsWC _ (HsIB _ typ1 _)) -> do
+ #endif
+       expDoc <- docSharedWrapper layoutExpr exp1
+@@ -1054,7 +1054,7 @@ layoutExpr lexpr@(L _ expr) = do
+         , appSep $ docLit $ Text.pack "::"
+         , typDoc
+         ]
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.4 */
+     ExprWithTySigOut{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ExprWithTySigOut{}" lexpr
+@@ -1103,7 +1103,7 @@ layoutExpr lexpr@(L _ expr) = do
+             ]
+     ArithSeq{} ->
+       briDocByExactInlineOnly "ArithSeq" lexpr
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.2 8.4 */
++#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.4 */
+     PArrSeq{} -> do
+       -- TODO
+       briDocByExactInlineOnly "PArrSeq{}" lexpr
+@@ -1331,7 +1331,6 @@ recordExpression dotdot indentPolicy lexpr nameDoc rFs@(rF1:rFr) = do
+             in [line1] ++ lineR ++ [dotdotLine, lineN]
+           )
+ 
+-#if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ litBriDoc :: HsLit GhcPs -> BriDocFInt
+ litBriDoc = \case
+   HsChar       (SourceText t) _c                         -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ ['\'', c, '\'']
+@@ -1355,28 +1354,3 @@ overLitValBriDoc = \case
+   HsFractional (FL (SourceText t) _ _) -> BDFLit $ Text.pack t
+   HsIsString (SourceText t) _ -> BDFLit $ Text.pack t
+   _ -> error "overLitValBriDoc: literal with no SourceText"
+-#else                        /* ghc-8.2 */
+-litBriDoc :: HsLit -> BriDocFInt
+-litBriDoc = \case
+-  HsChar       (SourceText t) _c          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ ['\'', c, '\'']
+-  HsCharPrim   (SourceText t) _c          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ ['\'', c, '\'']
+-  HsString     (SourceText t) _fastString -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ FastString.unpackFS fastString
+-  HsStringPrim (SourceText t) _byteString -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ Data.ByteString.Char8.unpack byteString
+-  HsInt        (SourceText t) _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsIntPrim    (SourceText t) _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsWordPrim   (SourceText t) _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsInt64Prim  (SourceText t) _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsWord64Prim (SourceText t) _i          -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsInteger    (SourceText t) _i _type    -> BDFLit $ Text.pack t -- BDFLit $ Text.pack $ show i
+-  HsRat        (FL t _) _type             -> BDFLit $ Text.pack t
+-  HsFloatPrim  (FL t _)                   -> BDFLit $ Text.pack t
+-  HsDoublePrim (FL t _)                   -> BDFLit $ Text.pack t
+-  _ -> error "litBriDoc: literal with no SourceText"
+-
+-overLitValBriDoc :: OverLitVal -> BriDocFInt
+-overLitValBriDoc = \case
+-  HsIntegral (SourceText t) _        -> BDFLit $ Text.pack t
+-  HsFractional (FL t _) -> BDFLit $ Text.pack t
+-  HsIsString (SourceText t) _        -> BDFLit $ Text.pack t
+-  _ -> error "overLitValBriDoc: literal with no SourceText"
+-#endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
+index 606790b..e3be109 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs-boot
+@@ -28,10 +28,6 @@ layoutExpr :: ToBriDoc HsExpr
+ 
+ -- layoutStmt :: ToBriDoc' (StmtLR GhcPs GhcPs (LHsExpr GhcPs))
+ 
+-#if   MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ litBriDoc :: HsLit GhcPs -> BriDocFInt
+-#else /* ghc-8.2 */
+-litBriDoc :: HsLit -> BriDocFInt
+-#endif
+ 
+ overLitValBriDoc :: OverLitVal -> BriDocFInt
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+index b0b13f2..fb0ba51 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+@@ -50,14 +50,14 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+     -- _ -> expr
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   VarPat _ n ->
+-#else                        /* ghc-8.2 8.4 */
++#else                        /* ghc-8.4 */
+   VarPat   n ->
+ #endif
+     fmap Seq.singleton $ docLit $ lrdrNameToText n
+     -- abc -> expr
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   LitPat _ lit ->
+-#else                        /* ghc-8.2 8.4 */
++#else                        /* ghc-8.4 */
+   LitPat lit ->
+ #endif
+     fmap Seq.singleton $ allocateNode $ litBriDoc lit
+@@ -66,7 +66,7 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+   ParPat _ inner -> do
+ #elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   ParPat _ inner -> do
+-#else                        /* ghc-8.2 8.4 */
++#else                        /* ghc-8.4 */
+   ParPat inner -> do
+ #endif
+     -- (nestedpat) -> expr
+@@ -202,7 +202,7 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+   SigPat _ pat1 (HsWC _ (HsIB _ ty1)) -> do
+ #elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   SigPat (HsWC _ (HsIB _ ty1)) pat1 -> do
+-#else                        /* ghc-8.2 */
++#else                        /* ghc-8.4 */
+   SigPatIn pat1 (HsWC _ (HsIB _ ty1 _)) -> do
+ #endif
+     -- i :: Int -> expr
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+index 2060904..a2b55d7 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+@@ -44,14 +44,14 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+   -- _ | traceShow (ExactPrint.Types.mkAnnKey ltype) False -> error "impossible"
+ #if MIN_VERSION_ghc(8,6,0)
+   HsTyVar _ promoted name -> do
+-#else   /* ghc-8.2 ghc-8.4 */
++#else   /* ghc-8.4 */
+   HsTyVar promoted name -> do
+ #endif
+     t <- lrdrNameToTextAnnTypeEqualityIsSpecial name
+     case promoted of
+ #if MIN_VERSION_ghc(8,8,0)
+       IsPromoted -> docSeq
+-#else /* ghc-8.2 8.4 8.6 */
++#else /* ghc-8.4 8.6 */
+       Promoted -> docSeq
+ #endif
+         [ docSeparator
+@@ -541,7 +541,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+   --     }
+ #if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsIParamTy _ (L _ (HsIPName ipName)) typ1 -> do
+-#else                        /* ghc-8.2 */
++#else                        /* ghc-8.4 */
+   HsIParamTy (L _ (HsIPName ipName)) typ1 -> do
+ #endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+diff --git a/src/Language/Haskell/Brittany/Internal/Prelude.hs b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+index 79e2975..e9a6979 100644
+--- a/src/Language/Haskell/Brittany/Internal/Prelude.hs
++++ b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+@@ -1,8 +1,3 @@
+-#if !MIN_VERSION_ghc(8,4,0) /* ghc-8.2 */
+-{-# LANGUAGE TypeFamilies #-}
+-#endif
+-
+-
+ module Language.Haskell.Brittany.Internal.Prelude
+   ( module E
+   , module Language.Haskell.Brittany.Internal.Prelude
+@@ -16,9 +11,7 @@ where
+ #if MIN_VERSION_ghc(8,10,1) /* ghc-8.10.1 */
+ import GHC.Hs.Extension               as E ( GhcPs )
+ #else
+-#  if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ import HsExtension                    as E ( GhcPs )
+-#  endif /* ghc-8.4 */
+ #endif /* ghc-8.10.1 */
+ 
+ import RdrName                        as E ( RdrName )
+@@ -411,18 +404,10 @@ todo :: a
+ todo = error "todo"
+ 
+ 
+-#if !MIN_VERSION_ghc(8,4,0) /* ghc-8.2 */
+-type family IdP p
+-type instance IdP GhcPs = RdrName
+-
+-type GhcPs = RdrName
+-#endif
+-
+-
+ #if MIN_VERSION_ghc(8,8,0)
+ ghcDL :: GHC.HasSrcSpan a => a -> GHC.Located (GHC.SrcSpanLess a)
+ ghcDL = GHC.dL
+-#else              /* ghc-8.2 8.4 8.6 */
++#else              /* ghc-8.4 8.6 */
+ ghcDL :: GHC.Located a -> GHC.Located a
+ ghcDL x = x
+ #endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Utils.hs b/src/Language/Haskell/Brittany/Internal/Utils.hs
+index 0a0d31f..4b4061e 100644
+--- a/src/Language/Haskell/Brittany/Internal/Utils.hs
++++ b/src/Language/Haskell/Brittany/Internal/Utils.hs
+@@ -62,9 +62,7 @@ import qualified Data.Generics.Uniplate.Direct as Uniplate
+ #if MIN_VERSION_ghc(8,10,1) /* ghc-8.10.1 */
+ import qualified GHC.Hs.Extension as HsExtension
+ #else
+-#  if MIN_VERSION_ghc(8,4,0) /* ghc-8.4 */
+ import qualified HsExtension
+-#  endif /* ghc-8.4 */
+ #endif /* ghc-8.10.1 */
+ 
+ 
+
+From e36d9bc465a4b1241812d5137d11b0cec3954548 Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Sun, 15 Nov 2020 11:56:19 -0500
+Subject: [PATCH 12/17] Drop support for GHC 8.4
+
+---
+ .github/workflows/ci.yaml                     |   3 -
+ .travis.yml                                   |   6 -
+ Makefile                                      |   7 +-
+ README.md                                     |   2 +-
+ brittany.cabal                                |   6 +-
+ src/Language/Haskell/Brittany/Internal.hs     |  18 --
+ .../Brittany/Internal/ExactPrintUtils.hs      |   8 -
+ .../Brittany/Internal/Layouters/DataDecl.hs   |  46 ----
+ .../Brittany/Internal/Layouters/Decl.hs       | 123 +----------
+ .../Brittany/Internal/Layouters/Expr.hs       | 197 +-----------------
+ .../Haskell/Brittany/Internal/Layouters/IE.hs |  24 ---
+ .../Brittany/Internal/Layouters/Import.hs     |   4 -
+ .../Brittany/Internal/Layouters/Pattern.hs    |  48 +----
+ .../Brittany/Internal/Layouters/Stmt.hs       |  20 --
+ .../Brittany/Internal/Layouters/Type.hs       | 153 +-------------
+ .../Haskell/Brittany/Internal/Prelude.hs      |   2 +-
+ .../Haskell/Brittany/Internal/Utils.hs        |   5 +-
+ stack-8.4.3.yaml                              |   4 -
+ stack-8.4.3.yaml.lock                         |  19 --
+ 19 files changed, 19 insertions(+), 676 deletions(-)
+ delete mode 100644 stack-8.4.3.yaml
+ delete mode 100644 stack-8.4.3.yaml.lock
+
+diff --git a/README.md b/README.md
+index 56f42f0..eec9c4c 100644
+--- a/README.md
++++ b/README.md
+@@ -48,7 +48,7 @@ log the size of the input, but _not_ the full input/output of requests.)
+ 
+ # Other usage notes
+ 
+-- Supports GHC versions `8.4`, `8.6`, `8.8`.
++- Supports GHC versions `8.6`, `8.8`.
+ - included in stackage with lts>=10.0 (or nightlies dating to >=2017-11-15)
+ - config (file) documentation is lacking.
+ - some config values can not be configured via commandline yet.
+diff --git a/brittany.cabal b/brittany.cabal
+index ffeb0f2..cd541fb 100644
+--- a/brittany.cabal
++++ b/brittany.cabal
+@@ -91,8 +91,8 @@ library {
+     -fno-warn-redundant-constraints
+   }
+   build-depends:
+-    { base >=4.11 && <4.15
+-    , ghc >=8.4.1 && <8.11
++    { base >=4.12 && <4.15
++    , ghc >=8.6.1 && <8.11
+     , ghc-paths >=0.1.0.9 && <0.2
+     , ghc-exactprint >=0.5.8 && <0.6.4
+     , transformers >=0.5.2.0 && <0.6
+@@ -118,7 +118,7 @@ library {
+     , semigroups >=0.18.2 && <0.20
+     , cmdargs >=0.10.14 && <0.11
+     , czipwith >=1.0.1.0 && <1.1
+-    , ghc-boot-th >=8.4.1 && <8.11
++    , ghc-boot-th >=8.6.1 && <8.11
+     , filepath >=1.4.1.0 && <1.5
+     , random >= 1.1 && <1.2
+     }
+diff --git a/src/Language/Haskell/Brittany/Internal.hs b/src/Language/Haskell/Brittany/Internal.hs
+index 1fc3e12..57e6e8f 100644
+--- a/src/Language/Haskell/Brittany/Internal.hs
++++ b/src/Language/Haskell/Brittany/Internal.hs
+@@ -518,17 +518,10 @@ ppModule lmod@(L _loc _m@(HsModule _name _exports _ decls _ _)) = do
+     _ -> return ()
+ 
+ getDeclBindingNames :: LHsDecl GhcPs -> [String]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ getDeclBindingNames (L _ decl) = case decl of
+   SigD _ (TypeSig _ ns _) -> ns <&> \(L _ n) -> Text.unpack (rdrNameToText n)
+   ValD _ (FunBind _ (L _ n) _ _ _) -> [Text.unpack $ rdrNameToText n]
+   _                              -> []
+-#else
+-getDeclBindingNames (L _ decl) = case decl of
+-  SigD (TypeSig ns _) -> ns <&> \(L _ n) -> Text.unpack (rdrNameToText n)
+-  ValD (FunBind (L _ n) _ _ _ _) -> [Text.unpack $ rdrNameToText n]
+-  _                              -> []
+-#endif
+ 
+ 
+ -- Prints the information associated with the module annotation
+@@ -586,26 +579,15 @@ ppPreamble lmod@(L loc m@(HsModule _ _ _ _ _ _)) = do
+ 
+ _sigHead :: Sig GhcPs -> String
+ _sigHead = \case
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   TypeSig _ names _ ->
+-#else
+-  TypeSig names _ ->
+-#endif
+     "TypeSig " ++ intercalate "," (Text.unpack . lrdrNameToText <$> names)
+   _ -> "unknown sig"
+ 
+ _bindHead :: HsBind GhcPs -> String
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ _bindHead = \case
+   FunBind _ fId _ _ [] -> "FunBind " ++ (Text.unpack $ lrdrNameToText $ fId)
+   PatBind _ _pat _ ([], []) -> "PatBind smth"
+   _                           -> "unknown bind"
+-#else
+-_bindHead = \case
+-  FunBind fId _ _ _ [] -> "FunBind " ++ (Text.unpack $ lrdrNameToText $ fId)
+-  PatBind _pat _ _ _ ([], []) -> "PatBind smth"
+-  _                           -> "unknown bind"
+-#endif
+ 
+ 
+ 
+diff --git a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+index b7ac608..29c126f 100644
+--- a/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
++++ b/src/Language/Haskell/Brittany/Internal/ExactPrintUtils.hs
+@@ -212,17 +212,9 @@ commentAnnFixTransform modul = SYB.everything (>>) genF modul
+   genF = (\_ -> return ()) `SYB.extQ` exprF
+   exprF :: Located (HsExpr GhcPs) -> ExactPrint.Transform ()
+   exprF lexpr@(L _ expr) = case expr of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     RecordCon _ _ (HsRecFields fs@(_:_) Nothing) ->
+-#else
+-    RecordCon _ _ _ (HsRecFields fs@(_:_) Nothing) ->
+-#endif
+       moveTrailingComments lexpr (List.last fs)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     RecordUpd _ _e fs@(_:_) ->
+-#else
+-    RecordUpd _e fs@(_:_) _cons _ _ _ ->
+-#endif
+       moveTrailingComments lexpr (List.last fs)
+     _ -> return ()
+ 
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
+index 74b6d53..22f11d4 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/DataDecl.hs
+@@ -44,20 +44,11 @@ layoutDataDecl
+   -> LHsQTyVars GhcPs
+   -> HsDataDefn GhcPs
+   -> ToBriDocM BriDocNumbered
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ layoutDataDecl _ _ (XLHsQTyVars ext) _ = absurdExt ext
+ layoutDataDecl ltycl name (HsQTvs _ bndrs) defn = case defn of
+-#else
+-layoutDataDecl ltycl name (HsQTvs _ bndrs _) defn = case defn of
+-#endif
+   -- newtype MyType a b = MyType ..
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsDataDefn _ext NewType (L _ []) _ctype Nothing [cons] mDerivs -> case cons of
+     (L _ (ConDeclH98 _ext consName (L _ False) _qvars (Just (L _ [])) details _conDoc)) ->
+-#else
+-  HsDataDefn NewType (L _ []) _ctype Nothing [cons] mDerivs -> case cons of
+-    (L _ (ConDeclH98 consName Nothing (Just (L _ [])) details _conDoc)) ->
+-#endif
+       docWrapNode ltycl $ do
+         nameStr     <- lrdrNameToTextAnn name
+         consNameStr <- lrdrNameToTextAnn consName
+@@ -82,11 +73,7 @@ layoutDataDecl ltycl name (HsQTvs _ bndrs _) defn = case defn of
+ 
+   -- data MyData a b
+   -- (zero constructors)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsDataDefn _ext DataType (L _ lhsContext) _ctype Nothing [] mDerivs ->
+-#else
+-  HsDataDefn DataType (L _ lhsContext) _ctype Nothing [] mDerivs ->
+-#endif
+     docWrapNode ltycl $ do
+       lhsContextDoc <- docSharedWrapper createContextDoc lhsContext
+       nameStr       <- lrdrNameToTextAnn name
+@@ -100,17 +87,9 @@ layoutDataDecl ltycl name (HsQTvs _ bndrs _) defn = case defn of
+ 
+   -- data MyData = MyData ..
+   -- data MyData = MyData { .. }
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsDataDefn _ext DataType (L _ lhsContext) _ctype Nothing [cons] mDerivs ->
+-#else
+-  HsDataDefn DataType (L _ lhsContext) _ctype Nothing [cons] mDerivs ->
+-#endif
+     case cons of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       (L _ (ConDeclH98 _ext consName (L _ _hasExt) qvars mRhsContext details _conDoc)) ->
+-#else
+-      (L _ (ConDeclH98 consName (Just (HsQTvs _ qvars _)) mRhsContext details _conDoc)) ->
+-#endif
+         docWrapNode ltycl $ do
+           lhsContextDoc <- docSharedWrapper createContextDoc lhsContext
+           nameStr       <- lrdrNameToTextAnn name
+@@ -266,18 +245,11 @@ createContextDoc (t1 : tR) = do
+ createBndrDoc :: [LHsTyVarBndr GhcPs] -> ToBriDocM BriDocNumbered
+ createBndrDoc bs = do
+   tyVarDocs <- bs `forM` \case
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     (L _ (UserTyVar _ext vname)) -> return $ (lrdrNameToText vname, Nothing)
+     (L _ (KindedTyVar _ext lrdrName kind)) -> do
+-#else
+-    (L _ (UserTyVar vname)) -> return $ (lrdrNameToText vname, Nothing)
+-    (L _ (KindedTyVar lrdrName kind)) -> do
+-#endif
+       d <- docSharedWrapper layoutType kind
+       return $ (lrdrNameToText lrdrName, Just $ d)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     (L _ (XTyVarBndr ext)) -> absurdExt ext
+-#endif
+   docSeq
+     $   List.intersperse docSeparator
+     $   tyVarDocs
+@@ -307,12 +279,8 @@ createDerivingPar derivs mainDoc = do
+         <$> types
+ 
+ derivingClauseDoc :: LHsDerivingClause GhcPs -> ToBriDocM BriDocNumbered
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ derivingClauseDoc (L _ (XHsDerivingClause ext)) = absurdExt ext
+ derivingClauseDoc (L _ (HsDerivingClause _ext mStrategy types)) = case types of
+-#else
+-derivingClauseDoc (L _ (HsDerivingClause mStrategy types)) = case types of
+-#endif
+   (L _ []) -> docSeq []
+   (L _ ts) ->
+     let
+@@ -330,12 +298,8 @@ derivingClauseDoc (L _ (HsDerivingClause mStrategy types)) = case types of
+           $ docSeq
+           $ List.intersperse docCommaSep
+           $ ts <&> \case
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             HsIB _ t -> layoutType t
+             XHsImplicitBndrs x -> absurdExt x
+-#else
+-            HsIB _ t _ -> layoutType t
+-#endif
+         , whenMoreThan1Type ")"
+         , rhsStrategy
+         ]
+@@ -344,7 +308,6 @@ derivingClauseDoc (L _ (HsDerivingClause mStrategy types)) = case types of
+     (L _ StockStrategy          ) -> (docLitS " stock", docEmpty)
+     (L _ AnyclassStrategy       ) -> (docLitS " anyclass", docEmpty)
+     (L _ NewtypeStrategy        ) -> (docLitS " newtype", docEmpty)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     lVia@(L _ (ViaStrategy viaTypes) ) ->
+       ( docEmpty
+       , case viaTypes of
+@@ -355,7 +318,6 @@ derivingClauseDoc (L _ (HsDerivingClause mStrategy types)) = case types of
+             ]
+           XHsImplicitBndrs ext -> absurdExt ext
+       )
+-#endif
+ 
+ docDeriving :: ToBriDocM BriDocNumbered
+ docDeriving = docLitS "deriving"
+@@ -473,12 +435,8 @@ createDetailsDoc consNameStr details = case details of
+     :: [LConDeclField GhcPs]
+     -> [(ToBriDocM BriDocNumbered, ToBriDocM BriDocNumbered)]
+   mkFieldDocs = fmap $ \lField -> case lField of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     L _ (ConDeclField _ext names t _) -> createNamesAndTypeDoc lField names t
+     L _ (XConDeclField x) -> absurdExt x
+-#else
+-    L _ (ConDeclField names t _) -> createNamesAndTypeDoc lField names t
+-#endif
+ 
+ createForallDoc :: [LHsTyVarBndr GhcPs] -> Maybe (ToBriDocM BriDocNumbered)
+ createForallDoc []            = Nothing
+@@ -497,12 +455,8 @@ createNamesAndTypeDoc lField names t =
+       $   List.intersperse docCommaSep
+       $   names
+       <&> \case
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+         L _ (XFieldOcc x) -> absurdExt x
+         L _ (FieldOcc _ fieldName) ->
+-#else
+-        L _ (FieldOcc fieldName _) ->
+-#endif
+             docLit =<< lrdrNameToTextAnn fieldName
+     ]
+   , docWrapNodeRest lField $ layoutType t
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+index ae0b232..f6f59a4 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Decl.hs
+@@ -40,7 +40,7 @@ import qualified FastString
+ #if MIN_VERSION_ghc(8,10,1) /* ghc-8.10.1 */
+ import           GHC.Hs
+ import           GHC.Hs.Extension (NoExtField (..))
+-#elif MIN_VERSION_ghc(8,6,0)
++#else
+ import           HsSyn
+ import           HsExtension (NoExt (..))
+ #endif
+@@ -65,7 +65,6 @@ import           Data.Char (isUpper)
+ 
+ 
+ layoutDecl :: ToBriDoc HsDecl
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ layoutDecl d@(L loc decl) = case decl of
+   SigD _ sig  -> withTransformedAnns d $ layoutSig (L loc sig)
+   ValD _ bind -> withTransformedAnns d $ layoutBind (L loc bind) >>= \case
+@@ -77,18 +76,6 @@ layoutDecl d@(L loc decl) = case decl of
+   InstD _ (ClsInstD _ inst) ->
+     withTransformedAnns d $ layoutClsInst (L loc inst)
+   _ -> briDocByExactNoComment d
+-#else
+-layoutDecl d@(L loc decl) = case decl of
+-  SigD sig  -> withTransformedAnns d $ layoutSig (L loc sig)
+-  ValD bind -> withTransformedAnns d $ layoutBind (L loc bind) >>= \case
+-    Left  ns -> docLines $ return <$> ns
+-    Right n  -> return n
+-  TyClD tycl -> withTransformedAnns d $ layoutTyCl (L loc tycl)
+-  InstD (TyFamInstD tfid) ->
+-    withTransformedAnns d $ layoutTyFamInstDecl False d tfid
+-  InstD (ClsInstD inst) -> withTransformedAnns d $ layoutClsInst (L loc inst)
+-  _                    -> briDocByExactNoComment d
+-#endif
+ 
+ --------------------------------------------------------------------------------
+ -- Sig
+@@ -96,16 +83,8 @@ layoutDecl d@(L loc decl) = case decl of
+ 
+ layoutSig :: ToBriDoc Sig
+ layoutSig lsig@(L _loc sig) = case sig of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   TypeSig _ names (HsWC _ (HsIB _ typ)) -> layoutNamesAndType Nothing names typ
+-#else /* ghc-8.4 */
+-  TypeSig names (HsWC _ (HsIB _ typ _)) -> layoutNamesAndType Nothing names typ
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   InlineSig _ name (InlinePragma _ spec _arity phaseAct conlike) ->
+-#else
+-  InlineSig name (InlinePragma _ spec _arity phaseAct conlike) ->
+-#endif
+     docWrapNode lsig $ do
+       nameStr <- lrdrNameToTextAnn name
+       specStr <- specStringCompat lsig spec
+@@ -122,16 +101,8 @@ layoutSig lsig@(L _loc sig) = case sig of
+         $  Text.pack ("{-# " ++ specStr ++ conlikeStr ++ phaseStr)
+         <> nameStr
+         <> Text.pack " #-}"
+-#if MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
+   ClassOpSig _ False names (HsIB _ typ) -> layoutNamesAndType Nothing names typ
+-#else /* ghc-8.4 */
+-  ClassOpSig False names (HsIB _ typ _) -> layoutNamesAndType Nothing names typ
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)
+   PatSynSig _ names (HsIB _ typ) -> layoutNamesAndType (Just "pattern") names typ
+-#else
+-  PatSynSig names (HsIB _ typ _) -> layoutNamesAndType (Just "pattern") names typ
+-#endif
+   _ -> briDocByExactNoComment lsig -- TODO
+  where
+   layoutNamesAndType mKeyword names typ = docWrapNode lsig $ do
+@@ -173,16 +144,8 @@ specStringCompat ast = \case
+ 
+ layoutGuardLStmt :: ToBriDoc' (Stmt GhcPs (LHsExpr GhcPs))
+ layoutGuardLStmt lgstmt@(L _ stmtLR) = docWrapNode lgstmt $ case stmtLR of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   BodyStmt _ body _ _      -> layoutExpr body
+-#else
+-  BodyStmt body _ _ _      -> layoutExpr body
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   BindStmt _ lPat expr _ _ -> do
+-#else
+-  BindStmt lPat expr _ _ _ -> do
+-#endif
+     patDoc <- docSharedWrapper layoutPat lPat
+     expDoc <- docSharedWrapper layoutExpr expr
+     docCols ColBindStmt
+@@ -201,11 +164,7 @@ layoutBind
+        (HsBindLR GhcPs GhcPs)
+        (Either [BriDocNumbered] BriDocNumbered)
+ layoutBind lbind@(L _ bind) = case bind of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   FunBind _ fId (MG _ lmatches@(L _ matches) _) _ [] -> do
+-#else
+-  FunBind fId (MG lmatches@(L _ matches) _ _ _) _ _ [] -> do
+-#endif
+     idStr       <- lrdrNameToTextAnn fId
+     binderDoc   <- docLit $ Text.pack "="
+     funcPatDocs <-
+@@ -214,11 +173,7 @@ layoutBind lbind@(L _ bind) = case bind of
+         $      layoutPatternBind (Just idStr) binderDoc
+         `mapM` matches
+     return $ Left $ funcPatDocs
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   PatBind _ pat (GRHSs _ grhss whereBinds) ([], []) -> do
+-#else
+-  PatBind pat (GRHSs grhss whereBinds) _ _ ([], []) -> do
+-#endif
+     patDocs    <- colsWrapPat =<< layoutPat pat
+     clauseDocs <- layoutGrhs `mapM` grhss
+     mWhereDocs <- layoutLocalBinds whereBinds
+@@ -233,10 +188,8 @@ layoutBind lbind@(L _ bind) = case bind of
+                                                             hasComments
+ #if MIN_VERSION_ghc(8,8,0)
+   PatSynBind _ (PSB _ patID lpat rpat dir) -> do
+-#elif MIN_VERSION_ghc(8,6,0)
+-  PatSynBind _ (PSB _ patID lpat rpat dir) -> do
+ #else
+-  PatSynBind (PSB patID _ lpat rpat dir) -> do
++  PatSynBind _ (PSB _ patID lpat rpat dir) -> do
+ #endif
+     fmap Right $ docWrapNode lbind $ layoutPatSynBind patID
+                                                       lpat
+@@ -245,14 +198,9 @@ layoutBind lbind@(L _ bind) = case bind of
+   _ -> Right <$> unknownNodeError "" lbind
+ layoutIPBind :: ToBriDoc IPBind
+ layoutIPBind lipbind@(L _ bind) = case bind of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   XIPBind{} -> unknownNodeError "XIPBind" lipbind
+   IPBind _ (Right _) _ -> error "brittany internal error: IPBind Right"
+   IPBind _ (Left (L _ (HsIPName name))) expr -> do
+-#else
+-  IPBind (Right _) _ -> error "brittany internal error: IPBind Right"
+-  IPBind (Left (L _ (HsIPName name))) expr -> do
+-#endif
+     ipName <- docLit $ Text.pack $ '?' : FastString.unpackFS name
+     binderDoc <- docLit $ Text.pack "="
+     exprDoc <- layoutExpr expr
+@@ -274,11 +222,7 @@ layoutLocalBinds lbinds@(L _ binds) = case binds of
+   --   Just . (>>= either id return) . Data.Foldable.toList <$> mapBagM layoutBind lhsBindsLR -- TODO: fix ordering
+   -- x@(HsValBinds (ValBindsIn{})) ->
+   --   Just . (:[]) <$> unknownNodeError "HsValBinds (ValBindsIn _ (_:_))" x
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsValBinds _ (ValBinds _ bindlrs sigs) -> do
+-#else
+-  HsValBinds (ValBindsIn bindlrs sigs) -> do
+-#endif
+     let unordered =
+           [ BagBind b | b <- Data.Foldable.toList bindlrs ]
+             ++ [ BagSig s | s <- sigs ]
+@@ -287,23 +231,12 @@ layoutLocalBinds lbinds@(L _ binds) = case binds of
+       BagBind b -> either id return <$> layoutBind b
+       BagSig  s -> return <$> layoutSig s
+     return $ Just $ docs
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ --  x@(HsValBinds (ValBindsOut _binds _lsigs)) ->
+   HsValBinds _ (XValBindsLR{}) -> error "brittany internal error: XValBindsLR"
+   XHsLocalBindsLR{} -> error "brittany internal error: XHsLocalBindsLR"
+-#else
+-  x@(HsValBinds (ValBindsOut _binds _lsigs)) ->
+-    -- i _think_ this case never occurs in non-processed ast
+-    Just . (: []) <$> unknownNodeError "HsValBinds ValBindsOut{}"
+-                                       (L noSrcSpan x)
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   x@(HsIPBinds _ XHsIPBinds{}) ->
+     Just . (: []) <$> unknownNodeError "XHsIPBinds" (L noSrcSpan x)
+   HsIPBinds _ (IPBinds _ bb) ->
+-#else
+-  HsIPBinds (IPBinds bb _) ->
+-#endif
+     Just <$> mapM layoutIPBind bb
+   EmptyLocalBinds{} -> return $ Nothing
+ 
+@@ -312,17 +245,11 @@ layoutLocalBinds lbinds@(L _ binds) = case binds of
+ layoutGrhs
+   :: LGRHS GhcPs (LHsExpr GhcPs)
+   -> ToBriDocM ([BriDocNumbered], BriDocNumbered, LHsExpr GhcPs)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ layoutGrhs lgrhs@(L _ (GRHS _ guards body)) = do
+-#else
+-layoutGrhs lgrhs@(L _ (GRHS guards body)) = do
+-#endif
+   guardDocs <- docWrapNode lgrhs $ layoutStmt `mapM` guards
+   bodyDoc   <- layoutExpr body
+   return (guardDocs, bodyDoc, body)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+ layoutGrhs (L _ (XGRHS{})) = error "brittany internal error: XGRHS"
+-#endif
+ 
+ layoutPatternBind
+   :: Maybe Text
+@@ -331,19 +258,11 @@ layoutPatternBind
+   -> ToBriDocM BriDocNumbered
+ layoutPatternBind funId binderDoc lmatch@(L _ match) = do
+   let pats                     = m_pats match
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   let (GRHSs _ grhss whereBinds) = m_grhss match
+-#else
+-  let (GRHSs grhss whereBinds) = m_grhss match
+-#endif
+   patDocs <- pats `forM` \p -> fmap return $ colsWrapPat =<< layoutPat p
+   let isInfix = isInfixMatch match
+   mIdStr <- case match of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     Match _ (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+-#else
+-    Match (FunRhs matchId _ _) _ _ -> Just <$> lrdrNameToTextAnn matchId
+-#endif
+     _ -> pure Nothing
+   let mIdStr' = fixPatternBindIdentifier match <$> mIdStr
+   patDoc <- docWrapNodePrior lmatch $ case (mIdStr', patDocs) of
+@@ -785,11 +704,7 @@ layoutLPatSyn name (RecCon recArgs) = do
+ -- pattern synonyms
+ layoutPatSynWhere :: HsPatSynDir GhcPs -> ToBriDocM (Maybe [ToBriDocM BriDocNumbered])
+ layoutPatSynWhere hs = case hs of
+-#if MIN_VERSION_ghc(8,6,0)
+   ExplicitBidirectional (MG _ (L _ lbinds) _) -> do
+-#else
+-  ExplicitBidirectional (MG (L _ lbinds) _ _ _) -> do
+-#endif
+     binderDoc <- docLit $ Text.pack "="
+     Just <$> mapM (docSharedWrapper $ layoutPatternBind Nothing binderDoc) lbinds
+   _ -> pure Nothing
+@@ -800,17 +715,10 @@ layoutPatSynWhere hs = case hs of
+ 
+ layoutTyCl :: ToBriDoc TyClDecl
+ layoutTyCl ltycl@(L _loc tycl) = case tycl of
+-#if MIN_VERSION_ghc(8,6,0)
+   SynDecl _ name vars fixity typ -> do
+     let isInfix = case fixity of
+           Prefix -> False
+           Infix  -> True
+-#else
+-  SynDecl name vars fixity typ _ -> do
+-    let isInfix = case fixity of
+-          Prefix -> False
+-          Infix  -> True
+-#endif
+     -- hasTrailingParen <- hasAnnKeywordComment ltycl AnnCloseP
+     -- let parenWrapper = if hasTrailingParen
+     --       then appSep . docWrapNodeRest ltycl
+@@ -818,11 +726,7 @@ layoutTyCl ltycl@(L _loc tycl) = case tycl of
+     let wrapNodeRest = docWrapNodeRest ltycl
+     docWrapNodePrior ltycl
+       $ layoutSynDecl isInfix wrapNodeRest name (hsq_explicit vars) typ
+-#if MIN_VERSION_ghc(8,6,0)
+   DataDecl _ext name tyVars _ dataDefn ->
+-#else
+-  DataDecl name tyVars _ dataDefn _ _ ->
+-#endif
+     layoutDataDecl ltycl name tyVars dataDefn
+   _ -> briDocByExactNoComment ltycl
+ 
+@@ -870,19 +774,11 @@ layoutSynDecl isInfix wrapNodeRest name vars typ = do
+ layoutTyVarBndr :: Bool -> ToBriDoc HsTyVarBndr
+ layoutTyVarBndr needsSep lbndr@(L _ bndr) = do
+   docWrapNodePrior lbndr $ case bndr of
+-#if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+     XTyVarBndr{} -> error "brittany internal error: XTyVarBndr"
+     UserTyVar _ name -> do
+-#else                         /* 8.4 */
+-    UserTyVar name -> do
+-#endif
+       nameStr <- lrdrNameToTextAnn name
+       docSeq $ [docSeparator | needsSep] ++ [docLit nameStr]
+-#if MIN_VERSION_ghc(8,6,0)    /* 8.6 */
+     KindedTyVar _ name kind -> do
+-#else                         /* 8.4 */
+-    KindedTyVar name kind -> do
+-#endif
+       nameStr <- lrdrNameToTextAnn name
+       docSeq
+         $  [ docSeparator | needsSep ]
+@@ -913,12 +809,8 @@ layoutTyFamInstDecl inClass outerNode tfid = do
+     -- bndrsMay isJust e.g. with
+     --   type instance forall a . MyType (Maybe a) = Either () a
+     innerNode = outerNode
+-#elif MIN_VERSION_ghc(8,6,0)
+-    FamEqn _ name pats _fixity typ = hsib_body $ tfid_eqn tfid
+-    bndrsMay = Nothing
+-    innerNode = outerNode
+ #else
+-    FamEqn name pats _fixity typ = hsib_body $ tfid_eqn tfid
++    FamEqn _ name pats _fixity typ = hsib_body $ tfid_eqn tfid
+     bndrsMay = Nothing
+     innerNode = outerNode
+ #endif
+@@ -996,20 +888,13 @@ layoutClsInst lcid@(L _ cid) = docLines
+       .   ClsInstD NoExtField
+       .   removeChildren
+       <$> lcid
+-#elif MIN_VERSION_ghc(8,6,0)    /* 8.6 */
++#else
+   layoutInstanceHead =
+     briDocByExactNoComment
+       $   InstD NoExt
+       .   ClsInstD NoExt
+       .   removeChildren
+       <$> lcid
+-#else
+-  layoutInstanceHead =
+-    briDocByExactNoComment
+-      $   InstD
+-      .   ClsInstD
+-      .   removeChildren
+-      <$> lcid
+ #endif
+ 
+   removeChildren :: ClsInstDecl p -> ClsInstDecl p
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+index 8c089c2..ae514f1 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Expr.hs
+@@ -44,65 +44,29 @@ layoutExpr lexpr@(L _ expr) = do
+     .>  confUnpack
+   let allowFreeIndent = indentPolicy == IndentPolicyFree
+   docWrapNode lexpr $ case expr of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsVar _ vname -> do
+-#else
+-    HsVar vname -> do
+-#endif
+       docLit =<< lrdrNameToTextAnn vname
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsUnboundVar _ var -> case var of
+-#else
+-    HsUnboundVar var -> case var of
+-#endif
+       OutOfScope oname _ -> docLit $ Text.pack $ occNameString oname
+       TrueExprHole oname -> docLit $ Text.pack $ occNameString oname
+     HsRecFld{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsRecFld" lexpr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsOverLabel _ext _reboundFromLabel name ->
+-#else                        /* ghc-8.4 */
+-    HsOverLabel _reboundFromLabel name ->
+-#endif
+       let label = FastString.unpackFS name
+       in docLit . Text.pack $ '#' : label
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsIPVar _ext (HsIPName name) ->
+-#else
+-    HsIPVar (HsIPName name) ->
+-#endif
+       let label = FastString.unpackFS name
+       in docLit . Text.pack $ '?' : label
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsOverLit _ olit -> do
+-#else
+-    HsOverLit olit -> do
+-#endif
+       allocateNode $ overLitValBriDoc $ ol_val olit
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLit _ lit -> do
+-#else
+-    HsLit lit -> do
+-#endif
+       allocateNode $ litBriDoc lit
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLam _ (MG _ (L _ [lmatch@(L _ match)]) _)
+-#else
+-    HsLam (MG (L _ [lmatch@(L _ match)]) _ _ _)
+-#endif
+       |  pats                  <- m_pats match
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       ,  GRHSs _ [lgrhs] llocals <- m_grhss match
+-#else
+-      ,  GRHSs [lgrhs] llocals  <- m_grhss match
+-#endif
+       ,  L _ EmptyLocalBinds {} <- llocals
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       ,  L _ (GRHS _ [] body)     <- lgrhs
+-#else
+-      ,  L _ (GRHS [] body)     <- lgrhs
+-#endif
+       -> do
+       patDocs <- zip (True : repeat False) pats `forM` \(isFirst, p) ->
+         fmap return $ do
+@@ -168,48 +132,26 @@ layoutExpr lexpr@(L _ expr) = do
+         ]
+     HsLam{} ->
+       unknownNodeError "HsLam too complex" lexpr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ XMatchGroup{} ->
+       error "brittany internal error: HsLamCase XMatchGroup"
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ (MG _ (L _ []) _) -> do
+-#else                        /* ghc-8.4 */
+-    HsLamCase (MG (L _ []) _ _ _) -> do
+-#endif
+       docSetParSpacing $ docAddBaseY BrIndentRegular $
+         (docLit $ Text.pack "\\case {}")
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLamCase _ (MG _ lmatches@(L _ matches) _) -> do
+-#else                        /* ghc-8.4 */
+-    HsLamCase (MG lmatches@(L _ matches) _ _ _) -> do
+-#endif
+       binderDoc   <- docLit $ Text.pack "->"
+       funcPatDocs <- docWrapNode lmatches
+         $ layoutPatternBind Nothing binderDoc `mapM` matches
+       docSetParSpacing $ docAddBaseY BrIndentRegular $ docPar
+         (docLit $ Text.pack "\\case")
+         (docSetBaseAndIndent $ docNonBottomSpacing $ docLines $ return <$> funcPatDocs)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsApp _ exp1@(L _ HsApp{}) exp2 -> do
+-#else
+-    HsApp exp1@(L _ HsApp{}) exp2 -> do
+-#endif
+       let gather :: [LHsExpr GhcPs] -> LHsExpr GhcPs -> (LHsExpr GhcPs, [LHsExpr GhcPs])
+           gather list = \case
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             L _ (HsApp _ l r) -> gather (r:list) l
+-#else
+-            L _ (HsApp l r) -> gather (r:list) l
+-#endif
+             x               -> (x, list)
+       let (headE, paramEs) = gather [exp2] exp1
+       let colsOrSequence = case headE of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             L _ (HsVar _ (L _ (Unqual occname))) ->
+-#else
+-            L _ (HsVar (L _ (Unqual occname))) ->
+-#endif
+               docCols (ColApp $ Text.pack $ occNameString occname)
+             _ -> docSeq
+       headDoc <- docSharedWrapper layoutExpr headE
+@@ -255,11 +197,7 @@ layoutExpr lexpr@(L _ expr) = do
+             ( docNonBottomSpacing
+             $ docLines paramDocs
+             )
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsApp _ exp1 exp2 -> do
+-#else
+-    HsApp exp1 exp2 -> do
+-#endif
+       -- TODO: if expDoc1 is some literal, we may want to create a docCols here.
+       expDoc1 <- docSharedWrapper layoutExpr exp1
+       expDoc2 <- docSharedWrapper layoutExpr exp2
+@@ -301,12 +239,10 @@ layoutExpr lexpr@(L _ expr) = do
+     HsAppType _ _ XHsWildCardBndrs{} ->
+       error "brittany internal error: HsAppType XHsWildCardBndrs"
+     HsAppType _ exp1 (HsWC _ ty1) -> do
+-#elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
++#else
+     HsAppType XHsWildCardBndrs{} _ ->
+       error "brittany internal error: HsAppType XHsWildCardBndrs"
+     HsAppType (HsWC _ ty1) exp1 -> do
+-#else                        /* ghc-8.4 */
+-    HsAppType exp1 (HsWC _ ty1) -> do
+ #endif
+       t <- docSharedWrapper layoutType ty1
+       e <- docSharedWrapper layoutExpr exp1
+@@ -321,23 +257,10 @@ layoutExpr lexpr@(L _ expr) = do
+             e
+             (docSeq [docLit $ Text.pack "@", t ])
+         ]
+-#if !MIN_VERSION_ghc(8,6,0)   /* ghc-8.4 */
+-    HsAppTypeOut{} -> do
+-      -- TODO
+-      briDocByExactInlineOnly "HsAppTypeOut{}" lexpr
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     OpApp _ expLeft@(L _ OpApp{}) expOp expRight -> do
+-#else
+-    OpApp expLeft@(L _ OpApp{}) expOp _ expRight -> do
+-#endif
+       let gather :: [(LHsExpr GhcPs, LHsExpr GhcPs)] -> LHsExpr GhcPs -> (LHsExpr GhcPs, [(LHsExpr GhcPs, LHsExpr GhcPs)])
+           gather opExprList = \case
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             (L _ (OpApp _ l1 op1 r1)) -> gather ((op1, r1): opExprList) l1
+-#else
+-            (L _ (OpApp l1 op1 _ r1)) -> gather ((op1, r1): opExprList) l1
+-#endif
+             final -> (final, opExprList)
+           (leftOperand, appList) = gather [] expLeft
+       leftOperandDoc <- docSharedWrapper layoutExpr leftOperand
+@@ -351,19 +274,11 @@ layoutExpr lexpr@(L _ expr) = do
+         hasComLeft <- hasAnyCommentsConnected expLeft
+         hasComOp   <- hasAnyCommentsConnected expOp
+         pure $ not hasComLeft && not hasComOp
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       let allowPar = case (expOp, expRight) of
+             (L _ (HsVar _ (L _ (Unqual occname))), _)
+               | occNameString occname == "$" -> True
+             (_, L _ (HsApp _ _ (L _ HsVar{}))) -> False
+             _ -> True
+-#else
+-      let allowPar = case (expOp, expRight) of
+-            (L _ (HsVar (L _ (Unqual occname))), _)
+-              | occNameString occname == "$" -> True
+-            (_, L _ (HsApp _ (L _ HsVar{}))) -> False
+-            _ -> True
+-#endif
+       runFilteredAlternative $ do
+         -- > one + two + three
+         -- or
+@@ -401,27 +316,15 @@ layoutExpr lexpr@(L _ expr) = do
+             $ (appListDocs <&> \(od, ed) -> docCols ColOpPrefix [appSep od, docSetBaseY ed])
+               ++ [docCols ColOpPrefix [appSep opLastDoc, docSetBaseY expLastDoc]]
+             )
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     OpApp _ expLeft expOp expRight -> do
+-#else
+-    OpApp expLeft expOp _ expRight -> do
+-#endif
+       expDocLeft  <- docSharedWrapper layoutExpr expLeft
+       expDocOp    <- docSharedWrapper layoutExpr expOp
+       expDocRight <- docSharedWrapper layoutExpr expRight
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       let allowPar = case (expOp, expRight) of
+             (L _ (HsVar _ (L _ (Unqual occname))), _)
+               | occNameString occname == "$" -> True
+             (_, L _ (HsApp _ _ (L _ HsVar{}))) -> False
+             _ -> True
+-#else
+-      let allowPar = case (expOp, expRight) of
+-            (L _ (HsVar (L _ (Unqual occname))), _)
+-              | occNameString occname == "$" -> True
+-            (_, L _ (HsApp _ (L _ HsVar{}))) -> False
+-            _ -> True
+-#endif
+       let leftIsDoBlock = case expLeft of
+             L _ HsDo{} -> True
+             _          -> False
+@@ -467,20 +370,12 @@ layoutExpr lexpr@(L _ expr) = do
+             then docLines [expDocLeft, expDocOpAndRight]
+             else docAddBaseY BrIndentRegular
+                    $ docPar expDocLeft expDocOpAndRight
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     NegApp _ op _ -> do
+-#else
+-    NegApp op _ -> do
+-#endif
+       opDoc <- docSharedWrapper layoutExpr op
+       docSeq [ docLit $ Text.pack "-"
+              , opDoc
+              ]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsPar _ innerExp -> do
+-#else
+-    HsPar innerExp -> do
+-#endif
+       innerExpDoc <- docSharedWrapper (docWrapNode lexpr . layoutExpr) innerExp
+       docAlt
+         [ docSeq
+@@ -496,41 +391,25 @@ layoutExpr lexpr@(L _ expr) = do
+           , docLit $ Text.pack ")"
+           ]
+         ]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     SectionL _ left op -> do -- TODO: add to testsuite
+-#else
+-    SectionL left op -> do -- TODO: add to testsuite
+-#endif
+       leftDoc <- docSharedWrapper layoutExpr left
+       opDoc   <- docSharedWrapper layoutExpr op
+       docSeq [leftDoc, docSeparator, opDoc]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     SectionR _ op right -> do -- TODO: add to testsuite
+-#else
+-    SectionR op right -> do -- TODO: add to testsuite
+-#endif
+       opDoc    <- docSharedWrapper layoutExpr op
+       rightDoc <- docSharedWrapper layoutExpr right
+       docSeq [opDoc, docSeparator, rightDoc]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     ExplicitTuple _ args boxity -> do
+-#else
+-    ExplicitTuple args boxity -> do
+-#endif
+ #if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
+       let argExprs = args <&> \arg -> case arg of
+             (L _ (Present _ e)) -> (arg, Just e);
+             (L _ (Missing NoExtField)) -> (arg, Nothing)
+             (L _ XTupArg{}) -> error "brittany internal error: XTupArg"
+-#elif MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
++#else
+       let argExprs = args <&> \arg -> case arg of
+             (L _ (Present _ e)) -> (arg, Just e);
+             (L _ (Missing NoExt)) -> (arg, Nothing)
+             (L _ XTupArg{}) -> error "brittany internal error: XTupArg"
+-#else
+-      let argExprs = args <&> \arg -> case arg of
+-            (L _ (Present e)) -> (arg, Just e);
+-            (L _ (Missing PlaceHolder)) -> (arg, Nothing)
+ #endif
+       argDocs <- forM argExprs
+         $ docSharedWrapper
+@@ -576,15 +455,9 @@ layoutExpr lexpr@(L _ expr) = do
+               lineN = docCols ColTuples [docCommaSep, docNodeAnnKW lexpr (Just AnnOpenP) eN]
+               end   = closeLit
+             in docSetBaseY $ docLines $ [start] ++ linesM ++ [lineN, end]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsCase _ _ XMatchGroup{} ->
+       error "brittany internal error: HsCase XMatchGroup"
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsCase _ cExp (MG _ (L _ []) _) -> do
+-#else
+-    HsCase cExp (MG (L _ []) _ _ _) -> do
+-#endif
+       cExpDoc <- docSharedWrapper layoutExpr cExp
+       docAlt
+         [ docAddBaseY BrIndentRegular
+@@ -599,11 +472,7 @@ layoutExpr lexpr@(L _ expr) = do
+             )
+             (docLit $ Text.pack "of {}")
+         ]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsCase _ cExp (MG _ lmatches@(L _ matches) _) -> do
+-#else
+-    HsCase cExp (MG lmatches@(L _ matches) _ _ _) -> do
+-#endif
+       cExpDoc <- docSharedWrapper layoutExpr cExp
+       binderDoc <- docLit $ Text.pack "->"
+       funcPatDocs <- docWrapNode lmatches
+@@ -627,11 +496,7 @@ layoutExpr lexpr@(L _ expr) = do
+               (docSetBaseAndIndent $ docNonBottomSpacing $ docLines $ return <$> funcPatDocs)
+             )
+         ]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsIf _ _ ifExpr thenExpr elseExpr -> do
+-#else
+-    HsIf _ ifExpr thenExpr elseExpr -> do
+-#endif
+       ifExprDoc   <- docSharedWrapper layoutExpr ifExpr
+       thenExprDoc <- docSharedWrapper layoutExpr thenExpr
+       elseExprDoc <- docSharedWrapper layoutExpr elseExpr
+@@ -751,11 +616,7 @@ layoutExpr lexpr@(L _ expr) = do
+       docSetParSpacing $ docAddBaseY BrIndentRegular $ docPar
+         (docLit $ Text.pack "if")
+         (layoutPatternBindFinal Nothing binderDoc Nothing clauseDocs Nothing hasComments)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsLet _ binds exp1 -> do
+-#else
+-    HsLet binds exp1 -> do
+-#endif
+       expDoc1     <- docSharedWrapper layoutExpr exp1
+       -- We jump through some ugly hoops here to ensure proper sharing.
+       hasComments <- hasAnyCommentsBelow lexpr
+@@ -861,11 +722,7 @@ layoutExpr lexpr@(L _ expr) = do
+             ]
+         _ -> docSeq [appSep $ docLit $ Text.pack "let in", expDoc1]
+       -- docSeq [appSep $ docLit "let in", expDoc1]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsDo _ stmtCtx (L _ stmts) -> case stmtCtx of
+-#else
+-    HsDo stmtCtx (L _ stmts) _ -> case stmtCtx of
+-#endif
+       DoExpr -> do
+         stmtDocs <- docSharedWrapper layoutStmt `mapM` stmts
+         docSetParSpacing
+@@ -960,26 +817,13 @@ layoutExpr lexpr@(L _ expr) = do
+             in docSetBaseY $ docLines $ [start] ++ linesM ++ [lineN] ++ [end]
+     ExplicitList _ _ [] ->
+       docLit $ Text.pack "[]"
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.4 */
+-    ExplicitPArr{} -> do
+-      -- TODO
+-      briDocByExactInlineOnly "ExplicitPArr{}" lexpr
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     RecordCon _ lname fields ->
+-#else
+-    RecordCon lname _ _ fields ->
+-#endif
+       case fields of
+         HsRecFields fs Nothing -> do
+           let nameDoc = docWrapNode lname $ docLit $ lrdrNameToText lname
+           rFs <- fs
+             `forM` \lfield@(L _ (HsRecField (L _ fieldOcc) rFExpr pun)) -> do
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+               let FieldOcc _ lnameF = fieldOcc
+-#else
+-              let FieldOcc lnameF _ = fieldOcc
+-#endif
+               rFExpDoc <- if pun
+                 then return Nothing
+                 else Just <$> docSharedWrapper layoutExpr rFExpr
+@@ -999,22 +843,14 @@ layoutExpr lexpr@(L _ expr) = do
+ #endif
+           let nameDoc = docWrapNode lname $ docLit $ lrdrNameToText lname
+           fieldDocs <- fs `forM` \fieldl@(L _ (HsRecField (L _ fieldOcc) fExpr pun)) -> do
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             let FieldOcc _ lnameF = fieldOcc
+-#else
+-            let FieldOcc lnameF _ = fieldOcc
+-#endif
+             fExpDoc <- if pun
+               then return Nothing
+               else Just <$> docSharedWrapper layoutExpr fExpr
+             return (fieldl, lrdrNameToText lnameF, fExpDoc)
+           recordExpression True indentPolicy lexpr nameDoc fieldDocs
+         _ -> unknownNodeError "RecordCon with puns" lexpr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     RecordUpd _ rExpr fields -> do
+-#else
+-    RecordUpd rExpr fields _ _ _ _ -> do
+-#endif
+       rExprDoc <- docSharedWrapper layoutExpr rExpr
+       rFs <- fields
+         `forM` \lfield@(L _ (HsRecField (L _ ambName) rFExpr pun)) -> do
+@@ -1022,15 +858,10 @@ layoutExpr lexpr@(L _ expr) = do
+             then return Nothing
+             else Just <$> docSharedWrapper layoutExpr rFExpr
+           return $ case ambName of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+             Unambiguous _ n -> (lfield, lrdrNameToText n, rFExpDoc)
+             Ambiguous   _ n -> (lfield, lrdrNameToText n, rFExpDoc)
+             XAmbiguousFieldOcc{} ->
+               error "brittany internal error: XAmbiguousFieldOcc"
+-#else
+-            Unambiguous n _ -> (lfield, lrdrNameToText n, rFExpDoc)
+-            Ambiguous   n _ -> (lfield, lrdrNameToText n, rFExpDoc)
+-#endif
+       recordExpression False indentPolicy lexpr rExprDoc rFs
+ #if MIN_VERSION_ghc(8,8,0)   /* ghc-8.6 */
+     ExprWithTySig _ _ (HsWC _ XHsImplicitBndrs{}) ->
+@@ -1038,14 +869,12 @@ layoutExpr lexpr@(L _ expr) = do
+     ExprWithTySig _ _ XHsWildCardBndrs{} ->
+       error "brittany internal error: ExprWithTySig XHsWildCardBndrs"
+     ExprWithTySig _ exp1 (HsWC _ (HsIB _ typ1)) -> do
+-#elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
++#else
+     ExprWithTySig (HsWC _ XHsImplicitBndrs{}) _ ->
+       error "brittany internal error: ExprWithTySig HsWC XHsImplicitBndrs"
+     ExprWithTySig XHsWildCardBndrs{} _ ->
+       error "brittany internal error: ExprWithTySig XHsWildCardBndrs"
+     ExprWithTySig (HsWC _ (HsIB _ typ1)) exp1 -> do
+-#else /* ghc-8.4 */
+-    ExprWithTySig exp1 (HsWC _ (HsIB _ typ1 _)) -> do
+ #endif
+       expDoc <- docSharedWrapper layoutExpr exp1
+       typDoc <- docSharedWrapper layoutType typ1
+@@ -1054,11 +883,6 @@ layoutExpr lexpr@(L _ expr) = do
+         , appSep $ docLit $ Text.pack "::"
+         , typDoc
+         ]
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.4 */
+-    ExprWithTySigOut{} -> do
+-      -- TODO
+-      briDocByExactInlineOnly "ExprWithTySigOut{}" lexpr
+-#endif
+     ArithSeq _ Nothing info ->
+       case info of
+         From e1 -> do
+@@ -1103,11 +927,6 @@ layoutExpr lexpr@(L _ expr) = do
+             ]
+     ArithSeq{} ->
+       briDocByExactInlineOnly "ArithSeq" lexpr
+-#if !MIN_VERSION_ghc(8,6,0)  /* ghc-8.4 */
+-    PArrSeq{} -> do
+-      -- TODO
+-      briDocByExactInlineOnly "PArrSeq{}" lexpr
+-#endif
+     HsSCC{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsSCC{}" lexpr
+@@ -1123,11 +942,7 @@ layoutExpr lexpr@(L _ expr) = do
+     HsTcBracketOut{} -> do
+       -- TODO
+       briDocByExactInlineOnly "HsTcBracketOut{}" lexpr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     HsSpliceE _ (HsQuasiQuote _ _ quoter _loc content) -> do
+-#else
+-    HsSpliceE (HsQuasiQuote _ quoter _loc content) -> do
+-#endif
+       allocateNode $ BDFPlain
+         (Text.pack
+           $  "["
+@@ -1166,11 +981,7 @@ layoutExpr lexpr@(L _ expr) = do
+ #else
+     EWildPat{} -> do
+       docLit $ Text.pack "_"
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     EAsPat _ asName asExpr -> do
+-#else
+-    EAsPat asName asExpr -> do
+-#endif
+       docSeq
+         [ docLit $ lrdrNameToText asName <> Text.pack "@"
+         , layoutExpr asExpr
+@@ -1191,9 +1002,7 @@ layoutExpr lexpr@(L _ expr) = do
+     ExplicitSum{} -> do
+       -- TODO
+       briDocByExactInlineOnly "ExplicitSum{}" lexpr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     XExpr{} -> error "brittany internal error: XExpr"
+-#endif
+ 
+ recordExpression
+   :: (Data.Data.Data lExpr, Data.Data.Data name)
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs b/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
+index 739d138..4f7ec0e 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/IE.hs
+@@ -39,32 +39,12 @@ prepareName = ieLWrappedName
+ 
+ layoutIE :: ToBriDoc IE
+ layoutIE lie@(L _ ie) = docWrapNode lie $ case ie of
+-#if MIN_VERSION_ghc(8,6,0)
+   IEVar _ x -> layoutWrapped lie x
+-#else
+-  IEVar x -> layoutWrapped lie x
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)
+   IEThingAbs _ x -> layoutWrapped lie x
+-#else
+-  IEThingAbs x -> layoutWrapped lie x
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)
+   IEThingAll _ x -> docSeq [layoutWrapped lie x, docLit $ Text.pack "(..)"]
+-#else
+-  IEThingAll x -> docSeq [layoutWrapped lie x, docLit $ Text.pack "(..)"]
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)
+   IEThingWith _ x (IEWildcard _) _ _ ->
+-#else
+-  IEThingWith x (IEWildcard _) _ _ ->
+-#endif
+     docSeq [layoutWrapped lie x, docLit $ Text.pack "(..)"]
+-#if MIN_VERSION_ghc(8,6,0)
+   IEThingWith _ x _ ns _ -> do
+-#else
+-  IEThingWith x _ ns _ -> do
+-#endif
+     hasComments <- orM
+       ( hasCommentsBetween lie AnnOpenP AnnCloseP
+       : hasAnyCommentsBelow x
+@@ -95,11 +75,7 @@ layoutIE lie@(L _ ie) = docWrapNode lie $ case ie of
+         $  [docSeq [docParenLSep, docWrapNode n1 $ nameDoc n1]]
+         ++ map layoutItem nMs
+         ++ [docSeq [docCommaSep, docNodeAnnKW lie (Just AnnOpenP) $ nameDoc nN], docParenR]
+-#if MIN_VERSION_ghc(8,6,0)
+   IEModuleContents _ n -> docSeq
+-#else
+-  IEModuleContents n -> docSeq
+-#endif
+     [ docLit $ Text.pack "module"
+     , docSeparator
+     , docLit . Text.pack . moduleNameString $ unLoc n
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
+index ac29eda..cdcd8ed 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Import.hs
+@@ -37,11 +37,7 @@ prepModName = unLoc
+ 
+ layoutImport :: ToBriDoc ImportDecl
+ layoutImport limportD@(L _ importD) = docWrapNode limportD $ case importD of
+-#if MIN_VERSION_ghc(8,6,0)
+   ImportDecl _ _ (L _ modName) pkg src safe q False mas mllies -> do
+-#else
+-  ImportDecl _ (L _ modName) pkg src safe q False mas mllies -> do
+-#endif
+     importCol <- mAsk <&> _conf_layout .> _lconfig_importColumn .> confUnpack
+     importAsCol <- mAsk <&> _conf_layout .> _lconfig_importAsColumn .> confUnpack
+     indentPolicy <- mAsk <&>  _conf_layout .> _lconfig_indentPolicy .> confUnpack
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+index fb0ba51..037d693 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Pattern.hs
+@@ -48,26 +48,16 @@ layoutPat :: LPat GhcPs -> ToBriDocM (Seq BriDocNumbered)
+ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+   WildPat _  -> fmap Seq.singleton $ docLit $ Text.pack "_"
+     -- _ -> expr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   VarPat _ n ->
+-#else                        /* ghc-8.4 */
+-  VarPat   n ->
+-#endif
+     fmap Seq.singleton $ docLit $ lrdrNameToText n
+     -- abc -> expr
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   LitPat _ lit ->
+-#else                        /* ghc-8.4 */
+-  LitPat lit ->
+-#endif
+     fmap Seq.singleton $ allocateNode $ litBriDoc lit
+     -- 0 -> expr
+ #if MIN_VERSION_ghc(8,8,0)   /* ghc-8.8 */
+   ParPat _ inner -> do
+-#elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
++#else
+   ParPat _ inner -> do
+-#else                        /* ghc-8.4 */
+-  ParPat inner -> do
+ #endif
+     -- (nestedpat) -> expr
+     left  <- docLit $ Text.pack "("
+@@ -117,11 +107,7 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+     -- Abc { a, b, c } -> expr2
+     let t = lrdrNameToText lname
+     fds <- fs `forM` \(L _ (HsRecField (L _ fieldOcc) fPat pun)) -> do
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       let FieldOcc _ lnameF = fieldOcc
+-#else
+-      let FieldOcc lnameF _ = fieldOcc
+-#endif
+       fExpDoc <- if pun
+         then return Nothing
+         else Just <$> docSharedWrapper layoutPat fPat
+@@ -159,11 +145,7 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+     -- Abc { a = locA, .. }
+     let t = lrdrNameToText lname
+     fds <- fs `forM` \(L _ (HsRecField (L _ fieldOcc) fPat pun)) -> do
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+       let FieldOcc _ lnameF = fieldOcc
+-#else
+-      let FieldOcc lnameF _ = fieldOcc
+-#endif
+       fExpDoc <- if pun
+         then return Nothing
+         else Just <$> docSharedWrapper layoutPat fPat
+@@ -181,29 +163,19 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+           (fieldName, Nothing) -> [docLit fieldName, docCommaSep]
+       , docLit $ Text.pack "..}"
+       ]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   TuplePat _ args boxity -> do
+-#else
+-  TuplePat args boxity _ -> do
+-#endif
+     -- (nestedpat1, nestedpat2, nestedpat3) -> expr
+     -- (#nestedpat1, nestedpat2, nestedpat3#) -> expr
+     case boxity of
+       Boxed   -> wrapPatListy args "()" docParenL docParenR
+       Unboxed -> wrapPatListy args "(##)" docParenHashLSep docParenHashRSep
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   AsPat _ asName asPat -> do
+-#else
+-  AsPat asName asPat -> do
+-#endif
+     -- bind@nestedpat -> expr
+     wrapPatPrepend asPat (docLit $ lrdrNameToText asName <> Text.pack "@")
+ #if MIN_VERSION_ghc(8,8,0)   /* ghc-8.8 */
+   SigPat _ pat1 (HsWC _ (HsIB _ ty1)) -> do
+-#elif MIN_VERSION_ghc(8,6,0) /* ghc-8.6 */
++#else
+   SigPat (HsWC _ (HsIB _ ty1)) pat1 -> do
+-#else                        /* ghc-8.4 */
+-  SigPatIn pat1 (HsWC _ (HsIB _ ty1 _)) -> do
+ #endif
+     -- i :: Int -> expr
+     patDocs <- layoutPat pat1
+@@ -224,33 +196,17 @@ layoutPat (ghcDL -> lpat@(L _ pat)) = docWrapNode lpat $ case pat of
+           , docForceSingleline tyDoc
+           ]
+         return $ xR Seq.|> xN'
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   ListPat _ elems ->
+-#else
+-  ListPat elems _ _ ->
+-#endif
+     -- [] -> expr1
+     -- [nestedpat1, nestedpat2, nestedpat3] -> expr2
+     wrapPatListy elems "[]" docBracketL docBracketR
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   BangPat _ pat1 -> do
+-#else
+-  BangPat pat1 -> do
+-#endif
+     -- !nestedpat -> expr
+     wrapPatPrepend pat1 (docLit $ Text.pack "!")
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   LazyPat _ pat1 -> do
+-#else
+-  LazyPat pat1 -> do
+-#endif
+     -- ~nestedpat -> expr
+     wrapPatPrepend pat1 (docLit $ Text.pack "~")
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   NPat _ llit@(L _ ol) mNegative _ -> do
+-#else
+-  NPat llit@(L _ ol) mNegative _ _ -> do
+-#endif
+     -- -13 -> expr
+     litDoc <- docWrapNode llit $ allocateNode $ overLitValBriDoc $ GHC.ol_val ol
+     negDoc <- docLit $ Text.pack "-"
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs
+index 60ba54b..5427d7a 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Stmt.hs
+@@ -38,17 +38,9 @@ layoutStmt lstmt@(L _ stmt) = do
+   indentAmount :: Int <-
+     mAsk <&> _conf_layout .> _lconfig_indentAmount .> confUnpack
+   docWrapNode lstmt $ case stmt of
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     LastStmt _ body False _ -> do
+-#else
+-    LastStmt body False _ -> do
+-#endif
+       layoutExpr body
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     BindStmt _ lPat expr _ _ -> do
+-#else
+-    BindStmt lPat expr _ _ _ -> do
+-#endif
+       patDoc <- fmap return $ colsWrapPat =<< layoutPat lPat
+       expDoc <- docSharedWrapper layoutExpr expr
+       docAlt
+@@ -67,11 +59,7 @@ layoutStmt lstmt@(L _ stmt) = do
+             $ docPar (docLit $ Text.pack "<-") (expDoc)
+           ]
+         ]
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     LetStmt _ binds -> do
+-#else
+-    LetStmt binds -> do
+-#endif
+       let isFree         = indentPolicy == IndentPolicyFree
+       let indentFourPlus = indentAmount >= 4
+       layoutLocalBinds binds >>= \case
+@@ -116,11 +104,7 @@ layoutStmt lstmt@(L _ stmt) = do
+             $ docAddBaseY BrIndentRegular
+             $ docPar (docLit $ Text.pack "let")
+                      (docSetBaseAndIndent $ docLines $ return <$> bindDocs)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     RecStmt _ stmts _ _ _ _ _ -> runFilteredAlternative $ do
+-#else
+-    RecStmt stmts _ _ _ _ _ _ _ _ _ -> runFilteredAlternative $ do
+-#endif
+       -- rec stmt1
+       --     stmt2
+       --     stmt3
+@@ -136,11 +120,7 @@ layoutStmt lstmt@(L _ stmt) = do
+       addAlternative $ docAddBaseY BrIndentRegular $ docPar
+         (docLit (Text.pack "rec"))
+         (docLines $ layoutStmt <$> stmts)
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+     BodyStmt _ expr _ _ -> do
+-#else
+-    BodyStmt expr _ _ _ -> do
+-#endif
+       expDoc <- docSharedWrapper layoutExpr expr
+       docAddBaseY BrIndentRegular $ expDoc
+     _ -> briDocByExactInlineOnly "some unknown statement" lstmt
+diff --git a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+index a2b55d7..3437fcd 100644
+--- a/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
++++ b/src/Language/Haskell/Brittany/Internal/Layouters/Type.hs
+@@ -42,16 +42,12 @@ import           DataTreePrint
+ layoutType :: ToBriDoc HsType
+ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+   -- _ | traceShow (ExactPrint.Types.mkAnnKey ltype) False -> error "impossible"
+-#if MIN_VERSION_ghc(8,6,0)
+   HsTyVar _ promoted name -> do
+-#else   /* ghc-8.4 */
+-  HsTyVar promoted name -> do
+-#endif
+     t <- lrdrNameToTextAnnTypeEqualityIsSpecial name
+     case promoted of
+ #if MIN_VERSION_ghc(8,8,0)
+       IsPromoted -> docSeq
+-#else /* ghc-8.4 8.6 */
++#else /* ghc-8.6 */
+       Promoted -> docSeq
+ #endif
+         [ docSeparator
+@@ -61,10 +57,8 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+       NotPromoted -> docWrapNode name $ docLit t
+ #if MIN_VERSION_ghc(8,10,1)
+   HsForAllTy _ _ bndrs (L _ (HsQualTy _ (L _ cntxts) typ2)) -> do
+-#elif MIN_VERSION_ghc(8,6,0)
+-  HsForAllTy _ bndrs (L _ (HsQualTy _ (L _ cntxts) typ2)) -> do
+ #else
+-  HsForAllTy bndrs (L _ (HsQualTy (L _ cntxts) typ2)) -> do
++  HsForAllTy _ bndrs (L _ (HsQualTy _ (L _ cntxts) typ2)) -> do
+ #endif
+     typeDoc <- docSharedWrapper layoutType typ2
+     tyVarDocs <- layoutTyVarBndrs bndrs
+@@ -153,10 +147,8 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+       ]
+ #if MIN_VERSION_ghc(8,10,1)
+   HsForAllTy _ _ bndrs typ2 -> do
+-#elif MIN_VERSION_ghc(8,6,0)
+-  HsForAllTy _ bndrs typ2 -> do
+ #else
+-  HsForAllTy bndrs typ2 -> do
++  HsForAllTy _ bndrs typ2 -> do
+ #endif
+     typeDoc <- layoutType typ2
+     tyVarDocs <- layoutTyVarBndrs bndrs
+@@ -212,11 +204,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+             ]
+           )
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
+   HsQualTy _ lcntxts@(L _ cntxts) typ1 -> do
+-#else
+-  HsQualTy lcntxts@(L _ cntxts) typ1 -> do
+-#endif
+     typeDoc <- docSharedWrapper layoutType typ1
+     cntxtDocs <- cntxts `forM` docSharedWrapper layoutType
+     let
+@@ -266,11 +254,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+             ]
+           )
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
+   HsFunTy _ typ1 typ2 -> do
+-#else
+-  HsFunTy typ1 typ2 -> do
+-#endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+     typeDoc2 <- docSharedWrapper layoutType typ2
+     let maybeForceML = case typ2 of
+@@ -294,11 +278,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+           ]
+         )
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
+   HsParTy _ typ1 -> do
+-#else
+-  HsParTy typ1 -> do
+-#endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+     docAlt
+       [ docSeq
+@@ -313,7 +293,6 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+             ])
+           (docLit $ Text.pack ")")
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
+   HsAppTy _ typ1@(L _ HsAppTy{}) typ2 -> do
+     let gather :: [LHsType GhcPs] -> LHsType GhcPs -> (LHsType GhcPs, [LHsType GhcPs])
+         gather list = \case
+@@ -341,65 +320,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+           typeDoc1
+           (docEnsureIndent BrIndentRegular typeDoc2)
+       ]
+-#else
+-  HsAppTy typ1 typ2 -> do
+-    typeDoc1 <- docSharedWrapper layoutType typ1
+-    typeDoc2 <- docSharedWrapper layoutType typ2
+-    docAlt
+-      [ docSeq
+-        [ docForceSingleline typeDoc1
+-        , docSeparator
+-        , docForceSingleline typeDoc2
+-        ]
+-      , docPar
+-          typeDoc1
+-          (docEnsureIndent BrIndentRegular typeDoc2)
+-      ]
+-  HsAppsTy [] -> error "HsAppsTy []"
+-  HsAppsTy [L _ (HsAppPrefix typ1)] -> do
+-    typeDoc1 <- docSharedWrapper layoutType typ1
+-    typeDoc1
+-  HsAppsTy [lname@(L _ (HsAppInfix name))] -> do
+-    -- this redirection is somewhat hacky, but whatever.
+-    -- TODO: a general problem when doing deep inspections on
+-    --       the type (and this is not the only instance)
+-    --       is that we potentially omit annotations on some of
+-    --       the middle constructors. i have no idea under which
+-    --       circumstances exactly important annotations (comments)
+-    --       would be assigned to such constructors.
+-    typeDoc1 <- -- docSharedWrapper layoutType $ (L l $ HsTyVar name)
+-      lrdrNameToTextAnnTypeEqualityIsSpecialAndRespectTick lname name
+-    docLit typeDoc1
+-  HsAppsTy (L _ (HsAppPrefix typHead):typRestA)
+-    | Just typRest <- mapM (\case L _ (HsAppPrefix t) -> Just t
+-                                  _ -> Nothing) typRestA -> do
+-    docHead <- docSharedWrapper layoutType typHead
+-    docRest <- docSharedWrapper layoutType `mapM` typRest
+-    docAlt
+-      [ docSeq
+-      $ docForceSingleline docHead : (docRest >>= \d ->
+-        [ docSeparator, docForceSingleline d ])
+-      , docPar docHead (docLines $ docEnsureIndent BrIndentRegular <$> docRest)
+-      ]
+-  HsAppsTy (typHead:typRest) -> do
+-    docHead <- docSharedWrapper layoutAppType typHead
+-    docRest <- docSharedWrapper layoutAppType `mapM` typRest
+-    docAlt
+-      [ docSeq
+-      $ docForceSingleline docHead : (docRest >>= \d ->
+-        [ docSeparator, docForceSingleline d ])
+-      , docPar docHead (docLines $ docEnsureIndent BrIndentRegular <$> docRest)
+-      ]
+-    where
+-      layoutAppType (L _ (HsAppPrefix t)) = layoutType t
+-      layoutAppType lt@(L _ (HsAppInfix t)) =
+-        docLit =<< lrdrNameToTextAnnTypeEqualityIsSpecialAndRespectTick lt t
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)
+   HsListTy _ typ1 -> do
+-#else
+-  HsListTy typ1 -> do
+-#endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+     docAlt
+       [ docSeq
+@@ -414,29 +335,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+             ])
+           (docLit $ Text.pack "]")
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
+-#else
+-  HsPArrTy typ1 -> do
+-    typeDoc1 <- docSharedWrapper layoutType typ1
+-    docAlt
+-      [ docSeq
+-        [ docWrapNodeRest ltype $ docLit $ Text.pack "[:"
+-        , docForceSingleline typeDoc1
+-        , docLit $ Text.pack ":]"
+-        ]
+-      , docPar
+-          ( docCols ColTyOpPrefix
+-            [ docWrapNodeRest ltype $ docLit $ Text.pack "[:"
+-            , docAddBaseY (BrIndentSpecial 2) $ typeDoc1
+-            ])
+-          (docLit $ Text.pack ":]")
+-      ]
+-#endif
+-#if MIN_VERSION_ghc(8,6,0)
+   HsTupleTy _ tupleSort typs -> case tupleSort of
+-#else
+-  HsTupleTy tupleSort typs -> case tupleSort of
+-#endif
+     HsUnboxedTuple           -> unboxed
+     HsBoxedTuple             -> simple
+     HsConstraintTuple        -> simple
+@@ -539,11 +438,7 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+   --               }
+   --     , _layouter_ast = ltype
+   --     }
+-#if MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
+   HsIParamTy _ (L _ (HsIPName ipName)) typ1 -> do
+-#else                        /* ghc-8.4 */
+-  HsIParamTy (L _ (HsIPName ipName)) typ1 -> do
+-#endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+     docAlt
+       [ docSeq
+@@ -562,33 +457,8 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+             , docAddBaseY (BrIndentSpecial 2) typeDoc1
+             ])
+       ]
+-#if MIN_VERSION_ghc(8,6,0)
+-#else
+-  HsEqTy typ1 typ2 -> do
+-    typeDoc1 <- docSharedWrapper layoutType typ1
+-    typeDoc2 <- docSharedWrapper layoutType typ2
+-    docAlt
+-      [ docSeq
+-        [ docForceSingleline typeDoc1
+-        , docWrapNodeRest ltype
+-        $ docLit $ Text.pack " ~ "
+-        , docForceSingleline typeDoc2
+-        ]
+-      , docPar
+-          typeDoc1
+-          ( docCols ColTyOpPrefix
+-              [ docWrapNodeRest ltype
+-              $ docLit $ Text.pack "~ "
+-              , docAddBaseY (BrIndentSpecial 2) typeDoc2
+-              ])
+-      ]
+-#endif
+   -- TODO: test KindSig
+-#if MIN_VERSION_ghc(8,6,0)
+   HsKindSig _ typ1 kind1 -> do
+-#else
+-  HsKindSig typ1 kind1 -> do
+-#endif
+     typeDoc1 <- docSharedWrapper layoutType typ1
+     kindDoc1 <- docSharedWrapper layoutType kind1
+     hasParens <- hasAnnKeyword ltype AnnOpenP
+@@ -738,32 +608,22 @@ layoutType ltype@(L _ typ) = docWrapNode ltype $ case typ of
+       ]
+   HsExplicitTupleTy{} -> -- TODO
+     briDocByExactInlineOnly "HsExplicitTupleTy{}" ltype
+-#if MIN_VERSION_ghc(8,6,0)
+   HsTyLit _ lit -> case lit of
+-#else
+-  HsTyLit lit -> case lit of
+-#endif
+     HsNumTy (SourceText srctext) _ -> docLit $ Text.pack srctext
+     HsNumTy NoSourceText _ ->
+       error "overLitValBriDoc: literal with no SourceText"
+     HsStrTy (SourceText srctext) _ -> docLit $ Text.pack srctext
+     HsStrTy NoSourceText _ ->
+       error "overLitValBriDoc: literal with no SourceText"
+-#if !MIN_VERSION_ghc(8,6,0)
+-  HsCoreTy{} -> -- TODO
+-    briDocByExactInlineOnly "HsCoreTy{}" ltype
+-#endif
+   HsWildCardTy _ ->
+     docLit $ Text.pack "_"
+   HsSumTy{} -> -- TODO
+     briDocByExactInlineOnly "HsSumTy{}" ltype
+-#if MIN_VERSION_ghc(8,6,0)
+   HsStarTy _ isUnicode -> do
+     if isUnicode
+       then docLit $ Text.pack "\x2605" -- Unicode star
+       else docLit $ Text.pack "*"
+   XHsType{} -> error "brittany internal error: XHsType"
+-#endif
+ #if MIN_VERSION_ghc(8,8,0)
+   HsAppKindTy _ ty kind -> do
+     t <- docSharedWrapper layoutType ty
+@@ -785,18 +645,11 @@ layoutTyVarBndrs
+   :: [LHsTyVarBndr GhcPs]
+   -> ToBriDocM [(Text, Maybe (ToBriDocM BriDocNumbered))]
+ layoutTyVarBndrs = mapM $ \case
+-#if MIN_VERSION_ghc(8,6,0)
+   (L _ (UserTyVar _ name)) -> return $ (lrdrNameToText name, Nothing)
+   (L _ (KindedTyVar _ lrdrName kind)) -> do
+     d <- docSharedWrapper layoutType kind
+     return $ (lrdrNameToText lrdrName, Just $ d)
+   (L _ (XTyVarBndr{})) -> error "brittany internal error: XTyVarBndr"
+-#else
+-  (L _ (UserTyVar name)) -> return $ (lrdrNameToText name, Nothing)
+-  (L _ (KindedTyVar lrdrName kind)) -> do
+-    d <- docSharedWrapper layoutType kind
+-    return $ (lrdrNameToText lrdrName, Just $ d)
+-#endif
+ 
+ -- there is no specific reason this returns a list instead of a single
+ -- BriDoc node.
+diff --git a/src/Language/Haskell/Brittany/Internal/Prelude.hs b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+index e9a6979..b33e339 100644
+--- a/src/Language/Haskell/Brittany/Internal/Prelude.hs
++++ b/src/Language/Haskell/Brittany/Internal/Prelude.hs
+@@ -407,7 +407,7 @@ todo = error "todo"
+ #if MIN_VERSION_ghc(8,8,0)
+ ghcDL :: GHC.HasSrcSpan a => a -> GHC.Located (GHC.SrcSpanLess a)
+ ghcDL = GHC.dL
+-#else              /* ghc-8.4 8.6 */
++#else              /* ghc-8.6 */
+ ghcDL :: GHC.Located a -> GHC.Located a
+ ghcDL x = x
+ #endif
+diff --git a/src/Language/Haskell/Brittany/Internal/Utils.hs b/src/Language/Haskell/Brittany/Internal/Utils.hs
+index 4b4061e..5ee7ed2 100644
+--- a/src/Language/Haskell/Brittany/Internal/Utils.hs
++++ b/src/Language/Haskell/Brittany/Internal/Utils.hs
+@@ -304,11 +304,8 @@ lines' s = case break (== '\n') s of
+ #if MIN_VERSION_ghc(8,10,1)   /* ghc-8.10.1 */
+ absurdExt :: HsExtension.NoExtCon -> a
+ absurdExt = HsExtension.noExtCon
+-#elif MIN_VERSION_ghc(8,6,0)   /* ghc-8.6 */
++#else
+ -- | A method to dismiss NoExt patterns for total matches
+ absurdExt :: HsExtension.NoExt -> a
+ absurdExt = error "cannot construct NoExt"
+-#else
+-absurdExt :: ()
+-absurdExt = ()
+ #endif
+
+From 71e7f5201435840047ee065d90a29b3c6a345ad1 Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Fri, 20 Nov 2020 08:52:28 -0500
+Subject: [PATCH 14/17] Remove broken test case
+
+---
+ src-literatetests/15-regressions.blt | 7 -------
+ 1 file changed, 7 deletions(-)
+
+diff --git a/src-literatetests/15-regressions.blt b/src-literatetests/15-regressions.blt
+index b4a98ab..e288114 100644
+--- a/src-literatetests/15-regressions.blt
++++ b/src-literatetests/15-regressions.blt
+@@ -473,13 +473,6 @@ foo n = case n of
+ bar n = case n of
+   (-2, -2) -> (-2, -2)
+ 
+-#test issue 48 a
+-
+-foo =
+-  let a    = b@1
+-      cccc = ()
+-  in  foo
+-
+ #test issue 48 b
+ 
+ {-# LANGUAGE TypeApplications #-}
+
+From d00387d15694c1db0d1d78ef105af74902dfeaea Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Fri, 20 Nov 2020 08:53:08 -0500
+Subject: [PATCH 15/17] Remove broken test case
+
+---
+ src-literatetests/30-tests-context-free.blt | 8 --------
+ 1 file changed, 8 deletions(-)
+
+diff --git a/src-literatetests/30-tests-context-free.blt b/src-literatetests/30-tests-context-free.blt
+index 18649a1..e439ecf 100644
+--- a/src-literatetests/30-tests-context-free.blt
++++ b/src-literatetests/30-tests-context-free.blt
+@@ -1409,14 +1409,6 @@ foo n = case n of
+ bar n = case n of
+   (-2, -2) -> (-2, -2)
+ 
+-#test issue 48 a
+-
+-foo =
+-  let
+-    a = b@1
+-    cccc = ()
+-  in foo
+-
+ #test issue 48 b
+ 
+ {-# LANGUAGE TypeApplications #-}
+
+From c4b6a81b317870501a84ab84d7214fc51844562f Mon Sep 17 00:00:00 2001
+From: Taylor Fausak <taylor@fausak.me>
+Date: Mon, 23 Nov 2020 08:07:21 -0500
+Subject: [PATCH 16/17] List 8.10 support
+
+---
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/README.md b/README.md
+index eec9c4c..7828fd2 100644
+--- a/README.md
++++ b/README.md
+@@ -48,7 +48,7 @@ log the size of the input, but _not_ the full input/output of requests.)
+ 
+ # Other usage notes
+ 
+-- Supports GHC versions `8.6`, `8.8`.
++- Supports GHC versions `8.6`, `8.8`, `8.10`.
+ - included in stackage with lts>=10.0 (or nightlies dating to >=2017-11-15)
+ - config (file) documentation is lacking.
+ - some config values can not be configured via commandline yet.
