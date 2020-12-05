@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-tqdm
-pkgver=4.54.0
+pkgver=4.54.1
 pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
@@ -12,7 +12,7 @@ makedepends=('python-setuptools-scm')
 checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-numpy' 'python-pandas'
               'python-tensorflow')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tqdm/tqdm/archive/v$pkgver.tar.gz")
-sha512sums=('1cb70d351e1b9ea1b378aae2bdd767f839e89f591cae1a554afb925e43c935c2539a990ca59f8083dcd362f13afc835d8c1346852f61aac3183adc567c498217')
+sha512sums=('e08d50497396e7a45c878afff4cb264c36adc5540595db45ec39ea691a3dfe5106958eba57582cd82207c2563a1e23f3c6b332d4e84b95dcec8cf03dc27bfc90')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
