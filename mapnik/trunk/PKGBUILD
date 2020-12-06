@@ -14,12 +14,16 @@ depends=('boost-libs' 'cairo' 'freetype2' 'gdal' 'harfbuzz' 'icu' 'libjpeg-turbo
          'libtiff' 'libwebp' 'libxml2' 'postgresql-libs' 'proj' 'sqlite' 'zlib')
 makedepends=('boost' 'scons')
 source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2
+        mapnik-boost173.patch
         mapnik-freetype2.patch::https://github.com/mapnik/mapnik/pull/3892.patch)
 sha256sums=('4b1352e01f7ce25ab099e586d7ae98e0b74145a3bf94dd365cb0a2bdab3b9dc2'
+            'fc6fb17c90dd1b2d861a5d8886797a5536bc31ab4b018ba1688f41fb25be27b4'
             '774a8590b698e9dc2a483e6ff48781ed0400ba06b901f12a1ed50c9114833d47')
 
 prepare() {
   cd "${srcdir}"/$pkgname-v$pkgver
+
+  patch -Np1 -i ../mapnik-boost173.patch
 
   # Use pkg-config to find FreeType2 if available
   # https://github.com/mapnik/mapnik/pull/3892
