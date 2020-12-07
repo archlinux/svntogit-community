@@ -5,7 +5,7 @@ pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.5
 pkgver=15.2.6
-pkgrel=2
+pkgrel=3
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -132,6 +132,10 @@ prepare() {
 
 build() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
+
+  # workaround for boost 1.74 -- similar fix exists upstream but I could
+  # not get it to work: https://github.com/ceph/ceph/commit/3d708219092d
+  CPPFLAGS+=' -DBOOST_ASIO_USE_TS_EXECUTOR_AS_DEFAULT'
 
   export CFLAGS+=" ${CPPFLAGS}"
   export CXXFLAGS+=" ${CPPFLAGS}"
