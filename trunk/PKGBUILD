@@ -8,8 +8,8 @@
 
 pkgbase=calibre
 pkgname=calibre
-pkgver=5.6.0
-pkgrel=2
+pkgver=5.7.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -23,14 +23,15 @@ depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusb'
          "${_py_deps[@]/#/python-}" 'qt5-svg' 'udisks2')
 makedepends=('qt5-x11extras' 'sip5' 'pyqt-builder' 'xdg-utils' 'rapydscript-ng')
 checkdepends=('xorg-server-xvfb')
-optdepends=('poppler: required for converting pdf to html')
+optdepends=('poppler: required for converting pdf to html'
+            'speech-dispatcher: TTS support in the viewer')
 conflicts=('calibre-common' 'calibre-python3')
 replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
-sha256sums=('484a2e120fdbcff6c544d4c216afef0ff784c7665d3fd44d98acb0420d8f5e55'
+sha256sums=('31786bd09c551e87fcf2fe6544174099b0cac0e221f1ff73652c8e43e913b6b3'
             'SKIP')
-b2sums=('44941c50873c285aa552c5b4ac716e5d3dd6bc3e1a4f13b1003d42adb808566ec3a5083c683a40d9679524e4ae70eed6ec8bc4c70770991f9791bcea25387c42'
+b2sums=('265e33ddf8cc24ac71e68ea1146acdc14b3c47dc5aaa7fe4be3bc384678b1cc09b8835d209a4d2ca52832f73bada86d0d17a1c2319a58e451ee97a11a2da7f43'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
@@ -66,8 +67,7 @@ check() {
     cd "${pkgbase}-${pkgver}"
 
     _test_excludes=(
-        # merely testing if a runtime-optional feature works, but is not
-        # operative yet e.g. only tries checking if the optdepend is importable
+        # merely testing if a runtime-optional feature optdepend is importable
         'speech_dispatcher'
         # tests if a completely unused module is bundled
         'pycryptodome'
