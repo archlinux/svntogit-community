@@ -1,0 +1,492 @@
+commit 7a25bedb31159093300f525a6cda46cce5cfc450
+Author: Artem Pavlenko <artem@mapnik.org>
+Date:   Mon May 11 22:18:55 2020 +0100
+
+    Add support for boost 1.73
+
+diff --git a/include/mapnik/json/feature_generator_grammar.hpp b/include/mapnik/json/feature_generator_grammar.hpp
+index 7bfbbc5e2..5df0cf938 100644
+--- a/include/mapnik/json/feature_generator_grammar.hpp
++++ b/include/mapnik/json/feature_generator_grammar.hpp
+@@ -30,88 +30,86 @@
+ #include <mapnik/json/properties_generator_grammar.hpp>
+ 
+ // boost
++#include <boost/spirit/home/support/attributes.hpp>
+ #include <boost/spirit/include/karma.hpp>
++#include <boost/fusion/include/adapt_adt.hpp>
++#include <boost/spirit/include/support_adapt_adt_attributes.hpp>
++
++namespace mapnik {
++
++struct kv_store
++{
++    using value_type = mapnik::feature_impl::value_type;
++    using iterator_type = mapnik::feature_kv_iterator2;
++    kv_store(mapnik::feature_impl const& f)
++        : start_(mapnik::value_not_null(),f.begin(),f.end()),
++          end_(mapnik::value_not_null(),f.end(),f.end())
++    {}
++    iterator_type start_;
++    iterator_type end_;
++};
++
++}
+ 
+ namespace boost { namespace spirit { namespace traits {
+ 
+ template <>
+-struct is_container<mapnik::feature_impl const> : mpl::false_ {} ;
++struct is_container<mapnik::kv_store const> : mpl::false_ {} ;
+ 
+ template <>
+-struct container_iterator<mapnik::feature_impl const>
++struct container_iterator<mapnik::kv_store const>
+ {
+-    using type = mapnik::feature_kv_iterator2;
++    using type = mapnik::kv_store::iterator_type;
+ };
+ 
+ template <>
+-struct begin_container<mapnik::feature_impl const>
++struct begin_container<mapnik::kv_store const>
+ {
+-    static mapnik::feature_kv_iterator2
+-    call (mapnik::feature_impl const& f)
++    static mapnik::kv_store::iterator_type
++    call (mapnik::kv_store const& kv)
+     {
+-        return mapnik::feature_kv_iterator2(mapnik::value_not_null(),f.begin(),f.end());
++        return kv.start_;
+     }
+ };
+ 
+ template <>
+-struct end_container<mapnik::feature_impl const>
++struct end_container<mapnik::kv_store const>
+ {
+-    static mapnik::feature_kv_iterator2
+-    call (mapnik::feature_impl const& f)
++    static mapnik::kv_store::iterator_type
++    call (mapnik::kv_store const& kv)
+     {
+-        return mapnik::feature_kv_iterator2(mapnik::value_not_null(),f.end(),f.end());
++        return kv.end_;
+     }
+ };
+ 
+-#if BOOST_VERSION >= 106900
+-template <>
+-struct transform_attribute<const mapnik::feature_impl, const mapnik::feature_impl &, boost::spirit::karma::domain, void>
+-    : detail::transform_attribute_base<mapnik::feature_impl const, mapnik::feature_impl const&,  boost::spirit::karma::domain>
+-{};
+-
+-template <>
+-struct transform_attribute<const boost::fusion::cons<const mapnik::feature_impl &, boost::fusion::nil_>, const mapnik::feature_impl &,
+-      boost::spirit::karma::domain, void>
+-    : detail::transform_attribute_base<const boost::fusion::cons<const mapnik::feature_impl &, boost::fusion::nil_>, mapnik::feature_impl const&,  boost::spirit::karma::domain>
+-{};
+-#endif
+ }}}
+ 
+-namespace mapnik { namespace json {
+-
+-namespace karma = boost::spirit::karma;
++BOOST_FUSION_ADAPT_ADT(
++    mapnik::feature_impl,
++    (int, int, obj.id(), /**/)
++    (mapnik::geometry::geometry<double>const&, mapnik::geometry::geometry<double> const&, obj.get_geometry(),/**/)
++    (mapnik::kv_store const, mapnik::kv_store const, mapnik::kv_store(obj), /**/))
+ 
++namespace mapnik { namespace json {
++namespace detail {
+ template <typename T>
+-struct get_id
+-{
+-    using feature_type = T;
+-    using result_type = mapnik::value_integer;
+-    result_type operator() (feature_type const& f) const
+-    {
+-        return f.id();
+-    }
+-};
++#if BOOST_VERSION >= 107000
++struct attribute_type { using type = T();};
++#else
++struct attribute_type { using type = T const&();};
++#endif
++}
+ 
+-struct extract_geometry
+-{
+-    using result_type = mapnik::geometry::geometry<double> const&;
+-    template <typename T>
+-    result_type operator() (T const& f) const
+-    {
+-        return f.get_geometry();
+-    }
+-};
++namespace karma = boost::spirit::karma;
+ 
+ template <typename OutputIterator, typename FeatureType>
+ struct feature_generator_grammar :
+-        karma::grammar<OutputIterator, FeatureType const&()>
++        karma::grammar<OutputIterator, typename detail::attribute_type<FeatureType>::type>
+ {
+     feature_generator_grammar();
+-    karma::rule<OutputIterator, FeatureType const&()> feature;
+-    geometry_generator_grammar<OutputIterator, mapnik::geometry::geometry<double> > geometry;
+-    properties_generator_grammar<OutputIterator, FeatureType> properties;
+-    boost::phoenix::function<get_id<FeatureType> > id_;
+-    boost::phoenix::function<extract_geometry> geom_;
++    karma::rule<OutputIterator, typename detail::attribute_type<FeatureType>::type> feature;
++    geometry_generator_grammar<OutputIterator, mapnik::geometry::geometry<double>> geometry;
++    properties_generator_grammar<OutputIterator, mapnik::kv_store> properties;
+ };
+ 
+ }}
+diff --git a/include/mapnik/json/feature_generator_grammar_impl.hpp b/include/mapnik/json/feature_generator_grammar_impl.hpp
+index baf4be853..fd65e7320 100644
+--- a/include/mapnik/json/feature_generator_grammar_impl.hpp
++++ b/include/mapnik/json/feature_generator_grammar_impl.hpp
+@@ -29,13 +29,11 @@ feature_generator_grammar<OutputIterator, FeatureType>::feature_generator_gramma
+   : feature_generator_grammar::base_type(feature)
+ {
+     boost::spirit::karma::lit_type lit;
+-    boost::spirit::karma::uint_type uint_;
+-    boost::spirit::karma::_val_type _val;
+-    boost::spirit::karma::_1_type _1;
++    boost::spirit::karma::int_type int_;
+ 
+-    feature = lit("{\"type\":\"Feature\",\"id\":")
+-        << uint_[_1 = id_(_val)]
+-        << lit(",\"geometry\":") << geometry[_1 = geom_(_val)]
++    feature  = lit("{\"type\":\"Feature\"")
++        << lit(",\"id\":") << int_
++        << lit(",\"geometry\":") << geometry
+         << lit(",\"properties\":") << properties
+         << lit('}')
+         ;
+diff --git a/include/mapnik/json/properties_generator_grammar.hpp b/include/mapnik/json/properties_generator_grammar.hpp
+index 69145b8ab..4eb3123cc 100644
+--- a/include/mapnik/json/properties_generator_grammar.hpp
++++ b/include/mapnik/json/properties_generator_grammar.hpp
+@@ -30,6 +30,7 @@
+ #include <mapnik/warning_ignore.hpp>
+ #include <boost/spirit/include/karma.hpp>
+ #include <boost/spirit/include/phoenix_function.hpp>
++#include <boost/spirit/home/karma/domain.hpp>
+ #pragma GCC diagnostic pop
+ 
+ #include <string>
+@@ -50,7 +51,7 @@ struct escaped_string
+ 
+ struct extract_string
+ {
+-    using result_type = std::tuple<std::string,bool>;
++    using result_type = std::tuple<std::string, bool>;
+ 
+     result_type operator() (mapnik::value const& val) const
+     {
+@@ -60,19 +61,17 @@ struct extract_string
+ };
+ 
+ template <typename OutputIterator, typename KeyValueStore>
+-struct properties_generator_grammar : karma::grammar<OutputIterator, KeyValueStore const&()>
+-
++struct properties_generator_grammar
++    : karma::grammar<OutputIterator, KeyValueStore()>
+ {
+     using pair_type = std::tuple<std::string, mapnik::value>;
+     properties_generator_grammar();
+     // rules
+-    karma::rule<OutputIterator, KeyValueStore const&()> properties;
++    karma::rule<OutputIterator, KeyValueStore()> properties;
+     karma::rule<OutputIterator, pair_type()> pair;
+     karma::rule<OutputIterator, std::tuple<std::string,bool>()> value;
+-    karma::rule<OutputIterator, mapnik::value_null()> value_null_;
+-    karma::rule<OutputIterator, mapnik::value_unicode_string()> ustring;
++    //
+     escaped_string<OutputIterator> escaped_string_;
+-    typename karma::int_generator<mapnik::value_integer,10, false> int__;
+     boost::phoenix::function<extract_string> extract_string_;
+     std::string quote_;
+ };
+diff --git a/include/mapnik/json/properties_generator_grammar_impl.hpp b/include/mapnik/json/properties_generator_grammar_impl.hpp
+index 8f694f6ca..a81c75fa4 100644
+--- a/include/mapnik/json/properties_generator_grammar_impl.hpp
++++ b/include/mapnik/json/properties_generator_grammar_impl.hpp
+@@ -69,6 +69,7 @@ properties_generator_grammar<OutputIterator,KeyValueStore>::properties_generator
+     boost::spirit::karma::string_type kstring;
+     boost::spirit::karma::eps_type eps;
+     using boost::phoenix::at_c;
++
+     properties = lit('{')
+         << -(pair % lit(','))
+         << lit('}')
+@@ -84,7 +85,6 @@ properties_generator_grammar<OutputIterator,KeyValueStore>::properties_generator
+         |
+         kstring[_1 = at_c<0>(_val)]
+         ;
+-
+ }
+ 
+ }}
+diff --git a/include/mapnik/util/spirit_transform_attribute.hpp b/include/mapnik/util/spirit_transform_attribute.hpp
+deleted file mode 100644
+index c4176f1fa..000000000
+--- a/include/mapnik/util/spirit_transform_attribute.hpp
++++ /dev/null
+@@ -1,216 +0,0 @@
+-/*****************************************************************************
+- *
+- * This file is part of Mapnik (c++ mapping toolkit)
+- *
+- * Copyright (C) 2015 Artem Pavlenko
+- *
+- * This library is free software; you can redistribute it and/or
+- * modify it under the terms of the GNU Lesser General Public
+- * License as published by the Free Software Foundation; either
+- * version 2.1 of the License, or (at your option) any later version.
+- *
+- * This library is distributed in the hope that it will be useful,
+- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+- * Lesser General Public License for more details.
+- *
+- * You should have received a copy of the GNU Lesser General Public
+- * License along with this library; if not, write to the Free Software
+- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+- *
+- *****************************************************************************/
+-
+-#ifndef MAPNIK_UTIL_SPIRIT_TRANSFORM_ATTRIBUTE_HPP
+-#define MAPNIK_UTIL_SPIRIT_TRANSFORM_ATTRIBUTE_HPP
+-
+-#include <mapnik/geometry.hpp>
+-#include <mapnik/util/variant.hpp>
+-
+-#include <cstdint>
+-
+-#pragma GCC diagnostic push
+-#include <mapnik/warning_ignore.hpp>
+-#include <boost/spirit/include/karma.hpp>
+-#pragma GCC diagnostic pop
+-
+-namespace boost { namespace spirit { namespace traits {
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::point<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::point<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::point<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::line_string<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::line_string<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::line_string<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::polygon<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::polygon<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::polygon<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::polygon<double> const,
+-                               mapnik::geometry::polygon<double>::rings_container const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::polygon<double>::rings_container const&;
+-        static type pre(mapnik::geometry::polygon<double> const& poly)
+-        {
+-            return poly.interior_rings;
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::multi_point<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::multi_point<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::multi_point<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::multi_line_string<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::multi_line_string<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::multi_line_string<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::multi_polygon<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::multi_polygon<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::multi_polygon<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<double> const,
+-                               mapnik::geometry::geometry_collection<double> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::geometry_collection<double> const&;
+-        static type pre(mapnik::geometry::geometry<double> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::geometry_collection<double> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::point<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::point<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::point<std::int64_t> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::line_string<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::line_string<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::line_string<std::int64_t> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::polygon<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::polygon<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::polygon<std::int64_t> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::polygon<std::int64_t> const,
+-                               mapnik::geometry::polygon<std::int64_t>::rings_container const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::polygon<std::int64_t>::rings_container const&;
+-        static type pre(mapnik::geometry::polygon<std::int64_t> const& poly)
+-        {
+-            return poly.interior_rings;
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::multi_point<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::multi_point<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::multi_point<std::int64_t> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::multi_line_string<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::multi_line_string<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::multi_line_string<std::int64_t> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::multi_polygon<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::multi_polygon<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::multi_polygon<std::int64_t> >(geom);
+-        }
+-    };
+-
+-    template <>
+-    struct transform_attribute<mapnik::geometry::geometry<std::int64_t> const,
+-                               mapnik::geometry::geometry_collection<std::int64_t> const&, karma::domain>
+-    {
+-        using type = mapnik::geometry::geometry_collection<std::int64_t> const&;
+-        static type pre(mapnik::geometry::geometry<std::int64_t> const& geom)
+-        {
+-            return mapnik::util::get<mapnik::geometry::geometry_collection<std::int64_t> >(geom);
+-        }
+-    };
+-
+-}}}
+-
+-#endif // MAPNIK_UTIL_SPIRIT_TRANSFORM_ATTRIBUTE_HPP
+diff --git a/include/mapnik/wkt/wkt_grammar.hpp b/include/mapnik/wkt/wkt_grammar.hpp
+index 9d23f81ca..e7fd8fd99 100644
+--- a/include/mapnik/wkt/wkt_grammar.hpp
++++ b/include/mapnik/wkt/wkt_grammar.hpp
+@@ -29,6 +29,7 @@
+ #pragma GCC diagnostic push
+ #include <mapnik/warning_ignore.hpp>
+ #include <boost/assert.hpp>
++#include <boost/phoenix/core/reference.hpp>
+ #include <boost/spirit/include/qi.hpp>
+ #include <boost/spirit/include/phoenix_function.hpp>
+ #pragma GCC diagnostic pop
+diff --git a/src/json/mapnik_json_generator_grammar.cpp b/src/json/mapnik_json_generator_grammar.cpp
+index 72a1a74c9..b5aeecc94 100644
+--- a/src/json/mapnik_json_generator_grammar.cpp
++++ b/src/json/mapnik_json_generator_grammar.cpp
+@@ -29,6 +29,6 @@
+ 
+ using sink_type = std::back_insert_iterator<std::string>;
+ 
+-template struct mapnik::json::properties_generator_grammar<sink_type, mapnik::feature_impl>;
++template struct mapnik::json::properties_generator_grammar<sink_type, mapnik::kv_store>;
+ template struct mapnik::json::feature_generator_grammar<sink_type, mapnik::feature_impl>;
+ template struct mapnik::json::geometry_generator_grammar<sink_type, mapnik::geometry::geometry<double> >;
+diff --git a/src/tiff_reader.cpp b/src/tiff_reader.cpp
+index 65850e4c7..d1481f6b7 100644
+--- a/src/tiff_reader.cpp
++++ b/src/tiff_reader.cpp
+@@ -39,6 +39,7 @@ extern "C"
+ #endif
+ 
+ // stl
++#include <algorithm>
+ #include <memory>
+ #include <fstream>
+ 
