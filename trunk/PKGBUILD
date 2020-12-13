@@ -5,7 +5,7 @@
 
 pkgname=('python-pytz' 'python2-pytz')
 pkgver=2020.4
-pkgrel=3
+pkgrel=4
 arch=('any')
 url="https://pypi.python.org/pypi/pytz"
 license=("MIT")
@@ -40,7 +40,7 @@ package_python-pytz(){
 
     cd pytz-$pkgver
 
-    python3 setup.py install --root="$pkgdir"/
+    PYTHONHASHSEED=1 python3 setup.py install --root="$pkgdir"/
 
     install -Dm644 LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
