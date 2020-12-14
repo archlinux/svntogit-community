@@ -4,7 +4,7 @@
 _name=pathspec
 pkgname=python-pathspec
 pkgver=0.8.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Utility library for gitignore style pattern matching of file paths'
 arch=('any')
 url=https://github.com/cpburnz/python-path-specification
@@ -26,6 +26,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
+  export PYTHONHASHSEED=0
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 }
 
