@@ -6,7 +6,7 @@
 
 pkgname=ipython
 pkgver=7.19.0
-pkgrel=3
+pkgrel=4
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
 url="https://ipython.org"
@@ -27,6 +27,7 @@ md5sums=('b9c48f7fc3158ddf4215a12627115447'
 
 package() {
   cd "ipython-$pkgver"
+  export PYTHONHASHSEED=0
   python3 setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
   install -Dm644 docs/source/about/license_and_copyright.rst "$pkgdir/usr/share/licenses/ipython/LICENSE"
 

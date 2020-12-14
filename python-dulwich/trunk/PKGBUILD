@@ -4,7 +4,7 @@
 _name=dulwich
 pkgname=python-dulwich
 pkgver=0.20.14
-pkgrel=1
+pkgrel=2
 pkgdesc='Pure-Python implementation of the Git file formats and protocols'
 arch=('x86_64')
 url=https://www.dulwich.io
@@ -27,6 +27,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
+  export PYTHONHASHSEED=0
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 }
 
