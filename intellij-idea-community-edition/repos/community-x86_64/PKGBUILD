@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2020.2.3
-_build=202.7660.26
+pkgver=2020.3
+_build=203.5981.155
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
