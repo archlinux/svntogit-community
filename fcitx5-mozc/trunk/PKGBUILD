@@ -5,8 +5,9 @@
 
 ## Mozc compile option
 _bldtype=Release
-_mozc_commit=e7a97d0
+_mozc_commit=1882e33
 
+## follow the submodule commits in https://github.com/fcitx/mozc/tree/fcitx/src/third_party
 _abseil_cpp_commit=0f3bb46
 _breakpad_commit=216cea7
 _gtest_commit=703bd9c
@@ -15,12 +16,13 @@ _japanese_usage_dictionary_commit=e5b3425
 _jsoncpp_commit=11086dd
 _protobuf_commit=fde7cf7
 
+## the latest release from https://osdn.net/projects/ponsfoot-aur/storage/mozc/
 _zipcode_rel=202011
 
 _pkgbase=mozc
 pkgname=fcitx5-mozc
 pkgdesc="Fcitx5 Module of A Japanese Input Method for Chromium OS, Windows, Mac and Linux (the Open Source Edition of Google Japanese Input)"
-pkgver=2.26.4206.102.e7a97d0
+pkgver=2.26.4220.102.g1882e33
 pkgrel=1
 arch=('x86_64')
 url="https://github.com/google/mozc"
@@ -57,7 +59,7 @@ pkgver(){
   # change pkgver is OK because we fixed commit
   # parse major.minor.buildid from version template, revision is fixed to 102 for Linux
   _bzr_ver=$(sed 's/ //g;$ a echo $MAJOR.$MINOR.$BUILD.102' src/data/version/mozc_version_template.bzl | source /dev/stdin)
-  printf "%s.%s" "${_bzr_ver}" "${_mozc_commit}"
+  printf "%s.g%s" "${_bzr_ver}" "${_mozc_commit}"
 }
 
 prepare() {
@@ -72,9 +74,6 @@ prepare() {
   git config submodule.src/third_party/abseil-cpp.url "$srcdir/abseil-cpp"
   git submodule update
 
-  ## fix icon install
-  sed 's|32x32/apps/fcitx-mozc-alpha-full.png|48x48/apps/fcitx-mozc-alpha-full.png|' -i scripts/install_fcitx5_icons
-
   cd src
   # Generate zip code seed
   echo "Generating zip code seed..."
@@ -84,9 +83,6 @@ prepare() {
   # disable fcitx4 target
   rm unix/fcitx/fcitx.gyp
   
-  # fix mozc icon for kimpanel
-  sed -i "s|PREFIX|/usr|" unix/fcitx5/mozc.conf
-
   ## use libstdc++ instead of libc++
   sed "/stdlib=libc++/d;/-lc++/d" -i gyp/common.gypi
 }
