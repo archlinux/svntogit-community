@@ -3,8 +3,8 @@
 # Contributor : cyberdune <cyberdune@gmail.com>
 
 pkgname=octave
-pkgver=5.2.0
-pkgrel=7
+pkgver=6.1.0
+pkgrel=1
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="https://www.gnu.org/software/octave/"
@@ -17,32 +17,23 @@ optdepends=('texinfo: for help-support in octave'
             'portaudio: audio support'
             'java-runtime: java support'
             'fltk: FLTK GUI')
-source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig}
-        octave-sundials4.patch)
+source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig})
 options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
-sha512sums=('fa2076fb22415e0797964c66cfb8d24643f178f45eb9c14ebb4c082767e0a53509fde550f579fa4a816348bd0f7cbc74f24144f9a30a5b9c09ebe1b3949db498'
-            'SKIP'
-            '4b743602e8ca91e8be8dab69e09d3e476e9edd867b2eb0b9816fbe4ca344a16bff7a413c2e89b0c9fb769f4a815a696c4d67b70282b7e4fe8c24598bcce90d34')
-
-prepare() {
-  cd $pkgname-$pkgver
-  patch -p1 -i ../octave-sundials4.patch # Fix sundials support https://savannah.gnu.org/bugs/?52475
-  autoreconf -vif
-}
+sha512sums=('34abe6fa489aea94bfeb08027653cd83a73611c6032c8b3ddc4b59223f316ee275f74490048a45aebf178858494f6920593565e612f6e77351102494cb9f49f7'
+            'SKIP')
 
 build() {
   cd ${pkgname}-${pkgver}
 
   ./configure --prefix=/usr --libexecdir=/usr/lib \
     --enable-shared --disable-static \
-    --with-quantum-depth=16 \
-    --with-sundials_ida="-lsundials_ida -lsundials_sunlinsolklu"
+    --with-quantum-depth=16
   make
 }
 
 package(){
-  cd "${srcdir}/${pkgname}-${pkgver}"
+  cd ${pkgname}-${pkgver}
 
   make DESTDIR="${pkgdir}" install
 
