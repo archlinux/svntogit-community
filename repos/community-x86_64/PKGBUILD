@@ -3,7 +3,7 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=1.39.2
+pkgver=1.39.4
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('GPL3')
@@ -17,27 +17,18 @@ source=(
   "${pkgname}.desktop"
   "openssl-linking.patch"
   "expire-from-source-date-epoch.patch"
-  # Cherry-pick a specific commit for the node-spellchecker dependency
-  # See https://github.com/atom/node-spellchecker/issues/127
-  "https://github.com/atom/node-spellchecker/archive/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"
 )
-sha512sums=('20bdefdc963b93edc9db75cd1385079b27518b496a9ef269ef2cbb3f93612f9b790a7dcac31904f0c6783f8618e693d717940080d72444491e105bddd0c41c43'
+sha512sums=('366434cc75255d0de0dad6a3fd70385de47c2264898353f772cb324266e4d71d43cbc3ac30de4de2462a55c6a4f44529066d5d3f08f38fea5a6bcee3259bfd88'
             'd07220429c479e3b6aaafede95da117bdb735877162f584265a16434ed75a926c21534e8d291de53e58a1bf0a72cdd41a9a8ae7314e2f6fec98c938852a3b991'
             '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
-            '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2'
-            '42f57802fa91dafb6dbfb5a3f613c4c07df65e97f8da84c9a54292c97a4d170f8455461aac8f6f7819d1ffbea4bf6c28488f8950056ba988776d060be3f107dd')
-b2sums=('0294bae37a8bce7d3261791c49da0fbcaa348304b20c61b6943177cef8acceab6c221ff4f54c220d86623f6748444514bb857d3a45ff8f7e854d06109e11ff39'
+            '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2')
+b2sums=('5f5231ee7d69885c0b874cd9a5c5ea6ab1cb0ff7097a5d0b765a67d9a6c4b37c007fc428bf824e1101d2d94d9d3b59142d6a3cd414f0f624e02f22300a74c524'
         'b05d190f28029c65d5cc15f69804db0b2775ff55b4db3a721c1dcf4aa8219b459453740fd26afecb6d72a515366af80af0b985d7b58e542a9edd76bb251ae000'
         '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
-        'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289'
-        '53ad39f0bed69c5c5635d2e581f4ce56e3080fee16f184add08adee1164c2d68059d52071478a05cdacf04186f9964250f46f09e80553bf35e1f2f4cd1976d1b')
+        'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289')
 
 prepare() {
   cd "${_pkgname}-${pkgver}"
-
-  # Fix SpellChecker build with imminent Node 13
-  # See https://github.com/atom/node-spellchecker/issues/127
-  sed -r 's#("spellchecker": ").*"#\1file:'"${srcdir}"'/613ff91dd2d9a5ee0e86be8a3682beecc4e94887.tar.gz"#' -i package.json
 
   # Allow higher Node versions
   sed 's#"node": "#&>=#' -i package.json
