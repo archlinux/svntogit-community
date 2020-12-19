@@ -1,0 +1,72 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Contributor: t3ddy  <t3ddy1988 "at" gmail {dot} com>
+# Contributor: Adrián Chaves Fernández (Gallaecio) <adriyetichaves@gmail.com>
+pkgname=0ad
+pkgver=a23.1
+_pkgver=0.0.23b-alpha
+pkgrel=14
+pkgdesc="Cross-platform, 3D and historically-based real-time strategy game"
+arch=('x86_64')
+url="http://play0ad.com/"
+license=('GPL2' 'CCPL')
+depends=('binutils' 'boost-libs' 'curl' 'enet' 'libogg' 'libpng' 'libvorbis'
+         'libxml2' 'openal' 'sdl2' 'wxgtk3' 'zlib' 'libgl' '0ad-data' 'glu'
+         'gloox' 'miniupnpc' 'libminiupnpc.so' 'icu' 'nspr' 'libsodium')
+makedepends=('boost' 'cmake' 'mesa' 'zip' 'python2' 'libsm')
+source=("https://releases.wildfiregames.com/$pkgname-$_pkgver-unix-build.tar.xz"
+        icu68.patch
+        zen2-workaround.patch
+        missing-includes.patch
+        0ad-fcollada.patch)
+sha512sums=('82934313c46c4fd89e3841d5bbf901904abbd2108e9749529d7282bd24ac53b9e6878681c06e6019f4d8ec0e425c28300b0aafc9610a66a331777ffb58ed6135'
+            'f45626e6da1415e7012d9533afe2a936bc015df85fd76b0db279f4a176baf2334557b5402e9e4969d84341a1ca6f72c6168acc709f1c0be1b165e6d58462bf78'
+            '1aaab2a71b363b0acbb6beb724bbb4c4b3a8fc607c7958f65e9653e29dedfc502f84262955d1b5ba5dc54b2c97a3882809967e74dfd3de54ae09ee6b08816a90'
+            '4cd709847f50de291a7eb5f2049e06f6725799a793d845ac40b1ffdd8f3674d426736dc7ea226dc9f261e8edc3c68972edc704f4aa42b05ed37f6866b5680ddd'
+            '06b0641698c89bb0331f5af0254f0e224877580e196fc030bbe37140926c93d5392512f129dfd5922fcc588a28cad1832e94f36a523027678880b5b0522cff34')
+
+prepare() {
+  cd "$srcdir/$pkgname-$_pkgver/"
+  sed -i "s/env python/env python2/g" libraries/source/cxxtest-4.4/bin/cxxtestgen
+
+  patch -Np0 -i "$srcdir"/icu68.patch
+  patch -Np0 -i "$srcdir"/zen2-workaround.patch
+  patch -Np1 -i "$srcdir"/missing-includes.patch
+
+  # https://trac.wildfiregames.com/ticket/5709
+  patch -Np1 -i "$srcdir"/0ad-fcollada.patch
+}
+
+build() {
+  cd "$srcdir/$pkgname-$_pkgver/build/workspaces"
+
+  unset CPPFLAGS # for le spidermonkey
+
+  # http://site.icu-project.org/download/61#TOC-Migration-Issues
+  CXXFLAGS+=' -DU_USING_ICU_NAMESPACE=1'
+
+  export SDL2_CONFIG="pkg-config sdl2"
+  export WX_CONFIG="wx-config-gtk3"
+  ./update-workspaces.sh \
+      --without-pch \
+      --bindir=/usr/bin \
+      --libdir=/usr/lib/0ad \
+      --datadir=/usr/share/0ad/data
+
+  cd "$srcdir/$pkgname-$_pkgver/build/workspaces/gcc"
+
+  verbose=1 make
+}
+
+package() {
+  install -d "${pkgdir}"/usr/{bin,lib/0ad,share/"${pkgname}"/data}
+  cd "$srcdir/$pkgname-$_pkgver"
+
+  install -Dm755 binaries/system/pyrogenesis "${pkgdir}/usr/bin"
+  install -Dm755 binaries/system/*.so "${pkgdir}/usr/lib/0ad"
+
+  cp -r binaries/data/l10n/ "${pkgdir}/usr/share/${pkgname}/data/"
+
+  install -Dm755 build/resources/${pkgname}.sh "${pkgdir}/usr/bin/${pkgname}"
+  install -Dm644 build/resources/${pkgname}.desktop "${pkgdir}/usr/share/applications/${pkgname}.desktop"
+  install -Dm644 build/resources/${pkgname}.png "${pkgdir}/usr/share/pixmaps/${pkgname}.png"
+}
