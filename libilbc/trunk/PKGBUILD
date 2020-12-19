@@ -1,29 +1,40 @@
 # Maintainer: Daniel Bermond <dbermond@archlinux.org>
 
 pkgname=libilbc
-pkgver=2.0.2
-pkgrel=5
+pkgver=3.0.3
+pkgrel=1
 pkgdesc='A friendly copy of the iLBC codec from the WebRTC project'
 arch=('x86_64')
 url='https://github.com/TimothyGu/libilbc/'
 license=('BSD')
-depends=('glibc')
-source=("https://github.com/TimothyGu/libilbc/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.bz2")
-sha256sums=('88e2dc14e1fccd7b7a0d7f84e96ac22a33c3c86820cee4b0a05e3dcc08c2b096')
+depends=('gcc-libs')
+makedepends=('git' 'cmake')
+source=("git+https://github.com/TimothyGu/libilbc.git#tag=v${pkgver}?signed"
+        'git+https://github.com/abseil/abseil-cpp.git')
+validpgpkeys=('9456AFC0814A8139E99483517FE6B095B582B0D4') # Timothy Gu
+sha256sums=('SKIP'
+            'SKIP')
+
+prepare() {
+    git -C libilbc submodule init
+    git -C libilbc config --local submodule.abseil.url "${srcdir}/abseil-cpp"
+    git -C libilbc submodule update
+}
 
 build() {
-    cd "${pkgname}-${pkgver}"
-    
-    ./configure \
-        --prefix='/usr' \
-        --enable-static='no' \
-        --enable-shared='yes'
-        
-    make
+    cmake -B build -S libilbc \
+        -DCMAKE_BUILD_TYPE:STRING='None' \
+        -DCMAKE_INSTALL_PREFIX:PATH='/usr' \
+        -Wno-dev
+    make -C build
+}
+
+check() {
+    build/ilbc_test 20 libilbc/sample.pcm build/sample-encoded.ilbc build/sample-decoded.pcm
 }
 
 package() {
-    make -C "${pkgname}-${pkgver}" DESTDIR="$pkgdir" install
-    
-    install -D -m644 "${pkgname}-${pkgver}/COPYING" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    make -C build DESTDIR="$pkgdir" install
+    install -D -m644 libilbc/COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -D -m644 libilbc/PATENTS -t "${pkgdir}/usr/share/licenses/${pkgname}"
 }
