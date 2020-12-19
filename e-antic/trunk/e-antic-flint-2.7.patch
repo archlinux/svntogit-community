@@ -1,0 +1,254 @@
+diff --git a/e-antic/nf_elem.h b/e-antic/nf_elem.h
+index 1a49dc2..570b537 100644
+--- a/e-antic/nf_elem.h
++++ b/e-antic/nf_elem.h
+@@ -580,13 +580,13 @@ FLINT_DLL
+ void nf_elem_get_nmod_poly(nmod_poly_t pol, const nf_elem_t a, const nf_t nf);
+ 
+ FLINT_DLL
+-void _nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf);
++void _nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf, const fmpz_mod_ctx_t ctx);
+ 
+ FLINT_DLL
+-void nf_elem_get_fmpz_mod_poly_den(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf, int den);
++void nf_elem_get_fmpz_mod_poly_den(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf, int den, const fmpz_mod_ctx_t ctx);
+ 
+ FLINT_DLL
+-void nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf);
++void nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf, const fmpz_mod_ctx_t ctx);
+ 
+ /******************************************************************************
+  
+diff --git a/nf_elem/get_fmpz_mod_poly.c b/nf_elem/get_fmpz_mod_poly.c
+index 7c31021..eba9c64 100644
+--- a/nf_elem/get_fmpz_mod_poly.c
++++ b/nf_elem/get_fmpz_mod_poly.c
+@@ -25,57 +25,68 @@
+ 
+ #include "e-antic/nf_elem.h"
+ 
+-void _nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf)
++void _nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a,
++                                       const nf_t nf, const fmpz_mod_ctx_t ctx)
+ {
+     if (nf_elem_is_zero(a, nf))
+     {
+-        fmpz_mod_poly_zero(pol);
++        fmpz_mod_poly_zero(pol, ctx);
++        
+         return;
+     }
+     if (nf->flag & NF_LINEAR)
+     {
+         {
+-            fmpz_mod_poly_fit_length(pol, 1);
+-            fmpz_mod(pol->coeffs + 0, LNF_ELEM_NUMREF(a), &(pol->p));
++            fmpz_mod_poly_fit_length(pol, 1, ctx);
++        
++            fmpz_mod(pol->coeffs + 0, LNF_ELEM_NUMREF(a), ctx->n);
++        
+             _fmpz_mod_poly_set_length(pol, 1);
+             _fmpz_mod_poly_normalise(pol);
+ 
+         }
+     } else if (nf->flag & NF_QUADRATIC)
+     {
+-        fmpz_mod_poly_fit_length(pol, 3);
+-        fmpz_mod(pol->coeffs + 0, QNF_ELEM_NUMREF(a), &(pol->p));
+-        fmpz_mod(pol->coeffs + 1, QNF_ELEM_NUMREF(a) + 1, &(pol->p));
+-        fmpz_mod(pol->coeffs + 2, QNF_ELEM_NUMREF(a) + 2, &(pol->p));
++        fmpz_mod_poly_fit_length(pol, 3, ctx);
++        
++        fmpz_mod(pol->coeffs + 0, QNF_ELEM_NUMREF(a), ctx->n);
++        fmpz_mod(pol->coeffs + 1, QNF_ELEM_NUMREF(a) + 1, ctx->n);
++        fmpz_mod(pol->coeffs + 2, QNF_ELEM_NUMREF(a) + 2, ctx->n);
++        
+         _fmpz_mod_poly_set_length(pol, 3);
+         _fmpz_mod_poly_normalise(pol);
+     } else
+     {
+         slong len = NF_ELEM(a)->length;
+         slong i;
+-        fmpz_mod_poly_fit_length(pol, len);
++
++        fmpz_mod_poly_fit_length(pol, len, ctx);
++        
+         for (i = 0; i < len; i++)
+-            fmpz_mod(pol->coeffs + i, NF_ELEM_NUMREF(a) + i, &(pol->p));
++            fmpz_mod(pol->coeffs + i, NF_ELEM_NUMREF(a) + i, ctx->n);
++        
+         _fmpz_mod_poly_set_length(pol, len);
+         _fmpz_mod_poly_normalise(pol);
+     }
+ }
+ 
+-void nf_elem_get_fmpz_mod_poly_den(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf, int den)
++void nf_elem_get_fmpz_mod_poly_den(fmpz_mod_poly_t pol, const nf_elem_t a,
++                              const nf_t nf, int den, const fmpz_mod_ctx_t ctx)
+ {
+-    _nf_elem_get_fmpz_mod_poly(pol, a, nf);
++    _nf_elem_get_fmpz_mod_poly(pol, a, nf, ctx);
+     if (den)
+     {
+         if (nf->flag & NF_LINEAR)
+-            fmpz_mod_poly_scalar_div_fmpz(pol, pol, LNF_ELEM_DENREF(a));
++            fmpz_mod_poly_scalar_div_fmpz(pol, pol, LNF_ELEM_DENREF(a), ctx);
+         else if (nf->flag & NF_QUADRATIC)
+-            fmpz_mod_poly_scalar_div_fmpz(pol, pol, QNF_ELEM_DENREF(a));
++            fmpz_mod_poly_scalar_div_fmpz(pol, pol, QNF_ELEM_DENREF(a), ctx);
+         else
+-            fmpz_mod_poly_scalar_div_fmpz(pol, pol, NF_ELEM_DENREF(a));
++            fmpz_mod_poly_scalar_div_fmpz(pol, pol, NF_ELEM_DENREF(a), ctx);
+     }
+ }
+ 
+-void nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a, const nf_t nf)
++void nf_elem_get_fmpz_mod_poly(fmpz_mod_poly_t pol, const nf_elem_t a,
++                                       const nf_t nf, const fmpz_mod_ctx_t ctx)
+ {
+-    nf_elem_get_fmpz_mod_poly_den(pol, a, nf, 1);
++    nf_elem_get_fmpz_mod_poly_den(pol, a, nf, 1, ctx);
+ }
+diff --git a/nf_elem/test/t-get_fmpz_mod_poly.c b/nf_elem/test/t-get_fmpz_mod_poly.c
+index 814ebbd..1fd8e5e 100644
+--- a/nf_elem/test/t-get_fmpz_mod_poly.c
++++ b/nf_elem/test/t-get_fmpz_mod_poly.c
+@@ -45,6 +45,7 @@ main(void)
+         nf_elem_t a;
+         fmpz_mod_poly_t reduced_elem;
+         fmpz_t coeff, mod, reduced_coeff;
++        fmpz_mod_ctx_t ctx;
+ 
+         fmpz_init(mod);
+         fmpz_randtest_unsigned(mod, state, 2 * FLINT_BITS);
+@@ -52,7 +53,8 @@ main(void)
+ 
+         fmpz_init(coeff);
+         fmpz_init(reduced_coeff);
+-        fmpz_mod_poly_init(reduced_elem, mod);
++        fmpz_mod_ctx_init(ctx, mod);
++        fmpz_mod_poly_init(reduced_elem, ctx);
+ 
+         nf_init_randtest(nf, state, 2 + n_randint(state, 20), 200);
+ 
+@@ -60,13 +62,13 @@ main(void)
+ 
+         nf_elem_randtest(a, state, 200, nf);
+ 
+-        nf_elem_get_fmpz_mod_poly_den(reduced_elem, a, nf, 0);
++        nf_elem_get_fmpz_mod_poly_den(reduced_elem, a, nf, 0, ctx);
+ 
+         for (j = 0; j < nf_degree(nf); j++)
+         {
+             nf_elem_get_coeff_fmpz(coeff, a, j, nf);
+             fmpz_mod(coeff, coeff, mod);
+-            fmpz_mod_poly_get_coeff_fmpz(reduced_coeff, reduced_elem, j);
++            fmpz_mod_poly_get_coeff_fmpz(reduced_coeff, reduced_elem, j, ctx);
+             result = fmpz_equal(reduced_coeff, coeff);
+             if (!result)
+             {
+@@ -74,13 +76,14 @@ main(void)
+                 printf("f = "); fmpq_poly_print_pretty(nf->pol, "x"); printf("\n");
+                 printf("a = "); nf_elem_print_pretty(a, nf, "x"); printf("\n");
+                 printf("n = "); fmpz_print(mod); printf("\n");
+-                printf("a mod n = "); fmpz_mod_poly_print_pretty(reduced_elem, "x"); printf("\n");
++                printf("a mod n = "); fmpz_mod_poly_print_pretty(reduced_elem, "x", ctx); printf("\n");
+                 abort();
+             }
+         }
+ 
+         nf_elem_clear(a, nf);
+-        fmpz_mod_poly_clear(reduced_elem);
++        fmpz_mod_poly_clear(reduced_elem, ctx);
++        fmpz_mod_ctx_clear(ctx);
+         fmpz_clear(coeff);
+         fmpz_clear(reduced_coeff);
+         fmpz_clear(mod);
+@@ -94,6 +97,7 @@ main(void)
+         nf_elem_t a;
+         fmpz_mod_poly_t reduced_elem;
+         fmpz_t coeff, reduced_coeff, den, mod, d_mod, d_modinv;
++        fmpz_mod_ctx_t ctx;
+ 
+         fmpz_init(coeff);
+         fmpz_init(den);
+@@ -106,7 +110,9 @@ main(void)
+         fmpz_randtest_unsigned(mod, state, 2 * FLINT_BITS);
+         fmpz_add_ui(mod, mod, 2);
+ 
+-        fmpz_mod_poly_init(reduced_elem, mod);
++        fmpz_mod_ctx_init(ctx, mod);
++
++        fmpz_mod_poly_init(reduced_elem, ctx);
+ 
+         nf_init_randtest(nf, state, 40, 200);
+ 
+@@ -119,7 +125,7 @@ main(void)
+             fmpz_gcd(d_mod, d_mod, mod);
+         } while (!fmpz_is_one(d_mod));
+ 
+-        nf_elem_get_fmpz_mod_poly(reduced_elem, a, nf);
++        nf_elem_get_fmpz_mod_poly(reduced_elem, a, nf, ctx);
+ 
+         for (j = 0; j < nf_degree(nf); j++)
+         {
+@@ -128,14 +134,14 @@ main(void)
+             fmpz_invmod(d_modinv, den, mod);
+             fmpz_mul(coeff, coeff, d_modinv);
+             fmpz_mod(coeff, coeff, mod);
+-            fmpz_mod_poly_get_coeff_fmpz(reduced_coeff, reduced_elem, j);
++            fmpz_mod_poly_get_coeff_fmpz(reduced_coeff, reduced_elem, j, ctx);
+             result = (fmpz_equal(coeff, reduced_coeff));
+             if (!result)
+             {
+                 printf("FAIL: Reducing element with denominator\n");
+                 printf("a = "); nf_elem_print_pretty(a, nf, "x"); printf("\n");
+                 printf("n = "); fmpz_print(mod); flint_printf("\n");
+-                printf("a mod n = "); fmpz_mod_poly_print_pretty(reduced_elem, "x"); printf("\n");
++                printf("a mod n = "); fmpz_mod_poly_print_pretty(reduced_elem, "x", ctx); printf("\n");
+                 abort();
+             }
+         }
+@@ -147,7 +153,8 @@ main(void)
+         fmpz_clear(d_mod);
+         fmpz_clear(d_modinv);
+         nf_elem_clear(a, nf);
+-        fmpz_mod_poly_clear(reduced_elem);
++        fmpz_mod_poly_clear(reduced_elem, ctx);
++        fmpz_mod_ctx_clear(ctx);
+         nf_clear(nf);
+     }
+ 
+diff --git a/poly_extra/fmpz_poly_randtest_irreducible.c b/poly_extra/fmpz_poly_randtest_irreducible.c
+index 5bbbfa1..5b0e9d8 100644
+--- a/poly_extra/fmpz_poly_randtest_irreducible.c
++++ b/poly_extra/fmpz_poly_randtest_irreducible.c
+@@ -17,14 +17,16 @@ void fmpz_poly_randtest_irreducible(fmpz_poly_t p, flint_rand_t state, slong len
+     slong i;
+     fmpz_t c;
+     fmpz_mod_poly_t q;
++    fmpz_mod_ctx_t ctx;
+ 
+     fmpz_init(c);
+ 
+     fmpz_randprime(c, state, bits, 0);
+-    fmpz_mod_poly_init(q, c);
+-    fmpz_mod_poly_randtest_irreducible(q, state, len);
++    fmpz_mod_ctx_init(ctx, c);
++    fmpz_mod_poly_init(q, ctx);
++    fmpz_mod_poly_randtest_irreducible(q, state, len, ctx);
+ 
+-    fmpz_mod_poly_get_fmpz_poly(p, q);
++    fmpz_mod_poly_get_fmpz_poly(p, q, ctx);
+ 
+     /* After lifting, the coefficients belong to {0, ..., c-1}. We now  */
+     /* randomly subtract c so that some of them become negative.        */
+@@ -37,6 +39,7 @@ void fmpz_poly_randtest_irreducible(fmpz_poly_t p, flint_rand_t state, slong len
+                 c);
+     }
+ 
+-    fmpz_mod_poly_clear(q);
++    fmpz_mod_poly_clear(q, ctx);
++    fmpz_mod_ctx_clear(ctx);
+     fmpz_clear(c);
+ }
