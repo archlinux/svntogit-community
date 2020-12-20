@@ -4,7 +4,7 @@
 pkgname=openblas
 _pkgname=OpenBLAS
 pkgver=0.3.13
-pkgrel=1
+pkgrel=2
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD"
 arch=('x86_64')
 url="https://www.openblas.net/"
@@ -20,7 +20,7 @@ build() {
   cd "$srcdir/$_pkgname-$pkgver"
 
   make NO_STATIC=1 NO_LAPACK=1 NO_LAPACKE=1 NO_CBLAS=1 NO_AFFINITY=1 USE_OPENMP=1 \
-       CFLAGS="$CPPFLAGS $CFLAGS" DYNAMIC_ARCH=1 \
+       CFLAGS="$CPPFLAGS $CFLAGS" TARGET=CORE2 DYNAMIC_ARCH=1 \
        NUM_THREADS=64 MAJOR_VERSION=3 libs shared
 }
 
