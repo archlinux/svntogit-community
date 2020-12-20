@@ -6,14 +6,13 @@
 
 pkgname=distcc
 pkgver=3.3.3
-pkgrel=7
+pkgrel=8
 pkgdesc='Distributed compilation service for C, C++ and Objective-C'
 arch=(x86_64)
 url='https://github.com/distcc/distcc'
 license=(GPL)
 depends=(avahi popt python)
-makedepends=(git gtk2 setconf)
-optdepends=('gtk2: for distccmon-gnome')
+makedepends=(git)
 backup=(etc/conf.d/distccd
         etc/distcc/hosts)
 source=("git+$url#commit=4cde9bcfbda589abd842e3bbc652ce369085eaae" # tag: v3.3.3
@@ -27,18 +26,14 @@ sha256sums=('SKIP'
 
 prepare() {
   cd "$pkgname"
-
   ./autogen.sh
-  setconf gnome/distccmon-gnome.desktop Name 'DistCC Monitor'
   sed -i 's/ install-gnome-data//g' Makefile.in
-
   # FS#66418, support Python 3.9
   find . -name "*.py" -type f -exec sed -i 's/time.clock()/time.perf_counter()/g' {} \;
 }
 
 build() {
   cd "$pkgname"
-
   export CFLAGS+=' -fcommon'
   ./configure \
     --enable-rfc2553 \
@@ -46,7 +41,7 @@ build() {
     --prefix=/usr \
     --sbindir=/usr/bin \
     --sysconfdir=/etc \
-    --with-gtk
+    --without-gtk
   make WERROR_CFLAGS= INCLUDESERVER_PYTHON=/usr/bin/python
 }
 
@@ -55,21 +50,13 @@ package() {
     DESTDIR="$pkgdir" \
     INCLUDESERVER_PYTHON=/usr/bin/python \
     install
-
   # Configuration
   install -Dm644 distccd.conf.d "$pkgdir/etc/conf.d/distccd"
   install -Dm644 distccd.service \
     "$pkgdir/usr/lib/systemd/system/distccd.service"
-
-  # Desktop shortcut
-  install -Dm644 "$pkgname/gnome/distccmon-gnome-icon.png" \
-    "$pkgdir/usr/share/pixmaps/distccmon-gnome-icon.png"
-  install -Dm644 "$pkgname/gnome/distccmon-gnome.desktop" \
-    "$pkgdir/usr/share/applications/distccmon-gnome.desktop"
-
   # Symlinks
-  _targets=(c++ c89 c99 cc clang clang++ cpp g++ gcc x86_64-pc-linux-gnu-g++
-            x86_64-pc-linux-gnu-gcc x86_64-pc-linux-gnu-gcc-9.2.0)
+  _targets=(c++ c89 c99 cc clang clang++ cpp g++ gcc $CARCH-pc-linux-gnu-g++
+            $CARCH-pc-linux-gnu-gcc $CARCH-pc-linux-gnu-gcc-9.2.0)
   install -d "$pkgdir/usr/lib/$pkgname/bin"
   for bin in "${_targets[@]}"; do
     # For whitelist since version 3.3, see FS#57978
@@ -77,10 +64,8 @@ package() {
     # Needed for makepkg to work
     ln -sf "../../../bin/$pkgname" "$pkgdir/usr/lib/$pkgname/bin/$bin"
   done
-
   # FS#67629
   install -Dm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/distccd.conf"
 }
 
 # getver: distcc.org
-# vim: ts=2 sw=2 et:
