@@ -5,7 +5,7 @@
 
 pkgname=mapnik
 pkgver=3.0.23
-pkgrel=4
+pkgrel=5
 pkgdesc="Free Toolkit for developing mapping applications and rendering beautiful maps"
 arch=('x86_64')
 url="https://mapnik.org/"
