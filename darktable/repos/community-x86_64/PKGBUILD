@@ -6,8 +6,8 @@
 
 pkgname=darktable
 epoch=2
-pkgver=3.2.1
-pkgrel=3
+pkgver=3.4.0
+pkgrel=1
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
@@ -21,18 +21,11 @@ optdepends=('dcraw: base curve script'
             'ghostscript: noise profile script'
             'gnuplot: noise profile script')
 makedepends=(cmake intltool desktop-file-utils llvm clang python-jsonschema libwebp)
-source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc}
-        darktable-libavif-0.8.2.patch::https://github.com/darktable-org/darktable/commit/e531b66f486f31a7119b418ba0ecfee9cd49a79b.patch)
-sha256sums=('6e3683ea88dc0a0271be7eca4fd594b9e46b1b7194847825a8d0a0c12bdeb90c'
-            'SKIP'
-            '346a8240ab99e3f91b60a389a7ee870e82702939a863d20ec85522e527b3fa97')
+source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc})
+sha256sums=('6dd3de1f5ea9f94af92838c0be5ff30fdaa599aa1d737dcb562f9e0b2b2dbdda'
+            'SKIP')
 validpgpkeys=(C4CBC150699956E2A3268EF5BB5CC8295B1779C9  # darktable releases <release@darktable.org>
               F10F9686652B0E949FCD94C318DCA123F949BD3B) # Pascal Obry <pascal@obry.net>
-
-prepare() {
-    cd ${pkgname}-${pkgver}
-    patch -Np1 -i ../darktable-libavif-0.8.2.patch
-}
 
 build() {
     cmake -B build -S ${pkgname}-${pkgver} \
