@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=ormolu
+pkgname=haskell-ormolu
+pkgver=0.1.4.1
+pkgrel=11
+pkgdesc="A formatter for Haskell source code"
+url="https://github.com/tweag/ormolu"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-ansi-terminal' 'haskell-diff' 'haskell-dlist' 'haskell-ghc'
+         'haskell-ghc-boot' 'haskell-ghc-boot-th' 'haskell-gitrev' 'haskell-optparse-applicative'
+         'haskell-syb')
+makedepends=('ghc' 'uusi' 'haskell-hspec' 'haskell-path' 'haskell-path-io')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('b63b7c185bb80365dbc5359f3c8aed3015abcf50b4937dfe941dc65572b57c9403269e82cf4067cd8eca67130b98aea8f85d889a3270e066de4eb507260f0d6b')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -rghc-lib-parser:ghc,ghc-boot,ghc-boot-th $_hkgname.cabal
+  sed -i 's/using ghc-lib-parser/using ghc/;s/VERSION_ghc_lib_parser/VERSION_ghc/' app/Main.hs
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE.md
+}
