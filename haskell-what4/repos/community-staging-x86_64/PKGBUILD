@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=what4
+pkgname=haskell-what4
+pkgver=1.0
+pkgrel=74
+pkgdesc="Solver-agnostic symbolic values support for issuing queries"
+url="https://github.com/GaloisInc/what4"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-attoparsec' 'haskell-ansi-wl-pprint' 'haskell-bimap'
+         'haskell-bifunctors' 'haskell-bv-sized' 'haskell-deriving-compat'
+         'haskell-data-binary-ieee754' 'haskell-extra' 'haskell-fingertree' 'haskell-hashable'
+         'haskell-hashtables' 'haskell-io-streams' 'haskell-lens' 'haskell-panic'
+         'haskell-parameterized-utils' 'haskell-scientific' 'haskell-temporary'
+         'haskell-th-abstraction' 'haskell-unordered-containers' 'haskell-utf8-string'
+         'haskell-vector' 'haskell-versions' 'haskell-zenc')
+makedepends=('ghc' 'uusi' 'haskell-hedgehog' 'haskell-quickcheck' 'haskell-tasty' 'haskell-tasty-hedgehog'
+             'haskell-tasty-hunit' 'haskell-tasty-quickcheck')
+checkdepends=('cvc4' 'yices' 'z3')
+optdepends=('cvc4' 'yices' 'z3')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('fcfb36322d3cd82fa5c013d404cbe8c7c8e52dc8e1b8b530df8c1c174d67327e9a48ba1a4c0714d87925eecd69713b341c4c96055693d2b6788a0c6bf7fc56a9')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+    uusi $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver    
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    # https://github.com/GaloisInc/what4/issues/67
+    runhaskell Setup test || :
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
