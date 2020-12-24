@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Thomas Dziedzic <gostrc@gmail.com>
+
+_hkgname=hasql
+pkgname=haskell-hasql
+pkgver=1.4.4.2
+pkgrel=83
+pkgdesc="An efficient PostgreSQL driver and a flexible mapping API"
+url="https://github.com/nikita-volkov/hasql"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-attoparsec' 'haskell-base-prelude' 'haskell-bytestring-strict-builder'
+         'haskell-contravariant' 'haskell-contravariant-extras' 'haskell-dlist' 'haskell-hashable'
+         'haskell-hashtables' 'haskell-loch-th' 'haskell-placeholders' 'haskell-postgresql-binary'
+         'haskell-postgresql-libpq' 'haskell-profunctors' 'haskell-text-builder' 'haskell-vector')
+makedepends=('ghc' 'haskell-bug' 'haskell-tasty' 'haskell-tasty-quickcheck' 'haskell-tasty-hunit'
+             'haskell-quickcheck-instances' 'haskell-quickcheck' 'haskell-rebase' 'haskell-rerebase')
+checkdepends=('postgresql' 'pifpaf')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('86330d4fa35431c4982206a2694a4b8fd3f55c0a2ffa9753a73692b662f280e90d2b677b052c99c6732eea9ffbf9b7cedf1ee4ade31081c0bb26f5b5219118a6')
+
+prepare() {
+    cd $_hkgname-$pkgver
+
+    # Do not use default postgres port
+    sed -i 's/5432/9824/' tasty/Main/*.hs threads-test/*.hs profiling/*.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+
+    eval $(pifpaf run postgresql --host 127.0.0.1)
+    createuser -s postgres
+    runhaskell Setup test
+    pifpaf_stop
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
