@@ -17,28 +17,37 @@ for exclude_pkg in $(sed 's/PKGS_THAT_ARE_INTREE_ONLY := //p' -n src/ghc-${pkgve
   exclude[${exclude_pkg}]=1
 done
 
-cd src/ghc-${pkgver}/libraries
+cd src/ghc-${pkgver}
 
-# $1 is the name of the variable
+# $1 is the name of the field
 # $2 is the string for the test, either '=' or '<'
+# ..$@ are the files to search
 print_var() {
-  printf "  $1=("
-  for path in $(ls ./*/*.cabal ./containers/containers/*.cabal); do
+  field=$1
+  output_version=$2
+  shift
+  shift
+
+  printf "  $field=("
+  for path in $(ls $@); do
     dirname=$(echo $path | awk -F '/' '{ print $2 }')
     cabalfile=$(echo $path | awk -F '/' '{ print $3 }')
     cabalname=$(basename $cabalfile .cabal)
     [[ ${exclude[${dirname}]} ]] && continue
     version=$(awk 'tolower($0) ~ /^version:/ {print $2 }' $path)
-    printf "'haskell-$cabalname"
-    [[ -n "$2" ]] && printf "$2$version"
+    printf "'haskell-${cabalname,,}"
+    [[ -n "$output_version" ]] && printf "$output_version$version"
     printf "'\n            "
   done
-  # also add cabal
-  version=$(awk 'tolower($0) ~ /^version:/ { print $2 }' Cabal/Cabal/Cabal.cabal)
-  printf "'haskell-cabal"
-  [[ -n "$2" ]] && printf "$2$version"
+  printf "\033[1A'haskell-${cabalname,,}"
+  [[ -n "$output_version" ]] && printf "$output_version$version"
   printf "')\n"
 }
 
-print_var 'provides' '='
-print_var 'replaces'
+# For ghc-libs
+print_var 'provides' '=' libraries/*/*.cabal libraries/{containers/containers,Cabal/Cabal}/*.cabal utils/ghc-pkg/*.cabal
+print_var 'replaces' '' libraries/*/*.cabal libraries/{containers/containers,Cabal/Cabal}/*.cabal utils/ghc-pkg/*.cabal
+
+# For ghc
+print_var 'provides' '=' utils/{hpc,hsc2hs,haddock*,hp2ps}/*.cabal
+print_var 'replaces' '' utils/{hpc,hsc2hs,haddock*,hp2ps}/*.cabal
