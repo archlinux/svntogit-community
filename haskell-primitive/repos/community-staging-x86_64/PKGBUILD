@@ -1,0 +1,55 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+
+pkgname=haskell-primitive
+pkgver=0.7.1.0
+pkgrel=38
+pkgdesc="Wrappers for primitive operations"
+url="https://hackage.haskell.org/package/primitive"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs')
+makedepends=('ghc')
+checkdepends=('haskell-base-orphans' 'haskell-quickcheck' 'haskell-quickcheck-classes-base'
+              'haskell-tasty' 'haskell-tasty-quickcheck' 'haskell-tagged'
+              'haskell-transformers-compat')
+source=("https://hackage.haskell.org/packages/archive/primitive/${pkgver}/primitive-${pkgver}.tar.gz")
+sha512sums=('8ade11d0b2221cfdf042da0263b5b5367a7ca2a9b9e1141844e4a65bb0467df879c92cd3515440d715b59345860c1ec3cb3efd7a3d702269ea15e18692586367')
+
+prepare() {
+  cd primitive-$pkgver
+  sed -i '/semigroups/d;s/>= 2.13/>= 2.14/;s/>= 1.2/>= 1.3/' primitive.cabal
+}
+
+build() {
+  cd primitive-$pkgver
+
+  if (( CHECKFUNC )); then
+    _opts=('--enable-tests')
+  else
+    _opts=('--disable-tests')
+  fi
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+      --prefix=/usr --docdir=/usr/share/doc/$pkgname "${_opts[@]}" \
+      --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd primitive-$pkgver
+  runhaskell Setup test
+}
+
+package() {
+  cd primitive-$pkgver
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/${pkgname}/LICENSE
+  rm -f "$pkgdir"/usr/share/doc/${pkgname}/LICENSE
+}
