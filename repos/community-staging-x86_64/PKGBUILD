@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=stylish-haskell
+pkgver=0.12.1.0
+pkgrel=18
+pkgdesc="Haskell code prettifier"
+url="https://github.com/jaspervdj/stylish-haskell"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-file-embed' 'haskell-ghc' 'haskell-ghc-boot' 'haskell-optparse-applicative'
+         'haskell-strict' 'haskell-syb' 'haskell-hsyaml' 'haskell-hsyaml-aeson')
+makedepends=('ghc' 'uusi' 'haskell-hunit' 'haskell-random' 'haskell-test-framework'
+             'haskell-test-framework-hunit')
+source=("https://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('750a2a36f5b47983d65437a29c9a0c8e8993b4a8da1d1e7338b1024cf79083ed02c043f4298a14c5c35e5d172aa57d53a93cf023b699b59c9f6c016ec5dacbde')
+
+prepare() {
+    cd $pkgname-$pkgver
+    sed -i -e 's/ghc-lib-parser/ghc, ghc-boot/' $pkgname.cabal
+    uusi $pkgname.cabal
+}
+
+build() {
+    cd $pkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --enable-tests --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-old_base --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $pkgname-$pkgver
+    runhaskell Setup test
+}
+
+package() {
+    cd $pkgname-$pkgver
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
