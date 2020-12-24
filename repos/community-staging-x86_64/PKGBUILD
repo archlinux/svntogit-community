@@ -1,0 +1,48 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=cryptol
+pkgver=2.10.0
+pkgrel=21
+pkgdesc="The Language of Cryptography"
+url="https://www.cryptol.net"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'z3' 'haskell-async' 'haskell-base-compat' 'haskell-bv-sized'
+         'haskell-cryptohash-sha1' 'haskell-exceptions' 'haskell-gitrev' 'haskell-graphscc'
+         'haskell-heredoc' 'haskell-libbf' 'haskell-memotrie' 'haskell-monad-control'
+         'haskell-monadlib' 'haskell-parameterized-utils' 'haskell-panic' 'haskell-random'
+         'haskell-sbv' 'haskell-simple-smt' 'haskell-strict' 'haskell-tf-random'
+         'haskell-transformers-base' 'haskell-what4' 'haskell-ansi-terminal' 'haskell-blaze-html')
+makedepends=('ghc' 'alex' 'happy')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/GaloisInc/cryptol/archive/$pkgver.tar.gz"
+        sbv-8.8.patch)
+sha512sums=('efb5f048a23de2040716d210b3d59071744d97989920266206590320585850a84de989851ed94687995874d74a3e6986d2e735e636aaa9f70f8949604ab62904'
+            'da4ac99c538a935eed9efd98dd6c57f24ad12d8effe328a814661ed02395445d28c8b4f43b48492171dc0bd65c6568fe7641de94e32765d51ab208a38f09d2d2')
+
+prepare() {
+    patch -d $pkgname-$pkgver -p1 < sbv-8.8.patch
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-static -f-relocatable --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
