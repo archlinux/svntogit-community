@@ -2,8 +2,8 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=3.2.0
-pkgrel=2
+pkgver=3.3.0
+pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
 url='https://pypi.python.org/pypi/twine'
@@ -12,12 +12,12 @@ depends=('python-pkginfo' 'python-readme-renderer' 'python-requests' 'python-req
          'python-setuptools' 'python-tqdm' 'python-keyring' 'python-rfc3986' 'python-colorama')
 makedepends=('python-setuptools-scm')
 checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python-pretend'
-              'python-pytest-cov' 'python-pytest-services')
+              'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket')
 provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/twine/archive/$pkgver.tar.gz")
-sha512sums=('9959430913ea570d22f2d8b94e929af36b409b71691b3f66de8ddb77cfbfbe36590e21a6062db2a4a4f56ce2eb96984b0a474a93ea96b7734f53ada7a6411c28')
+source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('94fc7a9b3f2b5fc7c06baf55debf4fd55f6a2b4c4321c9bff46b844166769ce8bdcab10355c4967998149b62e13b26e11a30ff66042bfdd5af24d448321fd291')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
