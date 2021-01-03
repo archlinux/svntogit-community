@@ -1,10 +1,10 @@
 # Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
 # Maintainer: Konstantin Gizdov <arch@kge.pw>
-pkgname=(cuda cuda-tools cuda-static)
+pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=11.2.0
 _driverver=460.27.04
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -110,12 +110,14 @@ build() {
 }
 
 package_cuda() {
+  replaces+=('cuda-static')
+
   local _prepdir="${srcdir}/prep"
 
   cd "${_prepdir}"
   cp -al * "${pkgdir}"
 
-  rm -r "${pkgdir}"/opt/cuda/{bin/nvvp,bin/computeprof,libnvvp,nsight*,targets/x86_64-linux/lib/*.a}
+  rm -r "${pkgdir}"/opt/cuda/{bin/nvvp,bin/computeprof,libnvvp,nsight*}
 }
 
 package_cuda-tools() {
@@ -129,16 +131,6 @@ package_cuda-tools() {
   mv "${_prepdir}"/opt/cuda/bin/nvvp "${pkgdir}/opt/cuda/bin/nvvp"
   mv "${_prepdir}"/opt/cuda/bin/computeprof "${pkgdir}/opt/cuda/bin/computeprof"
   mv "${_prepdir}"/opt/cuda/libnvvp "${pkgdir}/opt/cuda"
-}
-
-package_cuda-static() {
-  pkgdesc="NVIDIA's GPU programming toolkit (static libs)"
-  depends=('cuda')
-
-  local _prepdir="${srcdir}/prep"
-
-  mkdir -p "${pkgdir}"/opt/cuda/targets/x86_64-linux/lib
-  cp -al "${_prepdir}"/opt/cuda/targets/x86_64-linux/lib/*.a "${pkgdir}"/opt/cuda/targets/x86_64-linux/lib
 }
 
 # vim:set ts=2 sw=2 et:
