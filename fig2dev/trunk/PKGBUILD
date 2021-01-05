@@ -1,9 +1,10 @@
-# Maintainer: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
+# Maintainer: Konstantin Gizdov <arch at kge dot pw>
+# Controbutor: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 
 pkgname=fig2dev
 pkgver=3.2.7.b
 _upstreamver=3.2.7b
-pkgrel=1
+pkgrel=2
 pkgdesc="Format conversion utility that can be used with xfig"
 arch=('x86_64')
 url="http://mcj.sourceforge.net/"
