@@ -9,7 +9,7 @@
 pkgbase=calibre
 pkgname=calibre
 pkgver=5.8.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -21,7 +21,7 @@ _py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dn
 depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusb'
          'libwmf' 'mathjax' 'mtdev' 'optipng' 'podofo'
          "${_py_deps[@]/#/python-}" 'qt5-svg' 'ttf-liberation' 'udisks2')
-makedepends=('qt5-x11extras' 'sip5' 'pyqt-builder' 'xdg-utils' 'rapydscript-ng')
+makedepends=('qt5-x11extras' 'sip' 'pyqt-builder' 'xdg-utils' 'rapydscript-ng')
 checkdepends=('xorg-server-xvfb')
 optdepends=('poppler: required for converting pdf to html'
             'speech-dispatcher: TTS support in the viewer')
