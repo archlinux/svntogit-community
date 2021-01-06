@@ -1,19 +1,20 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-# upstream has no annotated tags
-_commit=a953bed05844d4a0ba349f75c75b56a430c8b11a # 2020-07-14
 pkgname=distrho-ports
-pkgver=2020.07.14
-pkgrel=2
+pkgver=2020.12.27
+pkgrel=1
 pkgdesc="Linux audio plugins and LV2 ports"
 arch=('x86_64')
 url="https://github.com/distrho/distrho-ports"
 license=('GPL2' 'LGPL3')
-groups=('lv2-plugins' 'pro-audio' 'vst-plugins')
+groups=('lv2-plugins' 'pro-audio' 'vst-plugins' 'vst3-plugins')
 depends=('gcc-libs' 'glibc' 'libglvnd' 'libx11' 'libxext')
 makedepends=('alsa-lib' 'freetype2' 'git' 'libxcursor' 'lv2' 'meson')
 checkdepends=('kxstudio-lv2-extensions' 'lv2lint')
-source=("git+https://github.com/DISTRHO/${pkgname}#commit=${_commit}?signed")
+optdepends=('lv2-host: for LV2 plugins'
+            'vst-host: for VST plugins'
+            'vst3-host: for VST3 plugins')
+source=("git+https://github.com/DISTRHO/${pkgname}#tag=${pkgver//./-}?signed")
 md5sums=('SKIP')
 validpgpkeys=('62B11043D2F6EB6672D93103CDBAA37ABC74FBA0') # falkTX <falktx@falktx.com>
 
@@ -34,15 +35,19 @@ build() {
 }
 
 check() {
-  local _plugins _urls _plugin
-  _plugins=('Dexed' 'EasySSP' 'HiReSam' 'JuceOPL' 'KlangFalter' 'LUFSMeter'
-  'LUFSMeterMulti' 'Luftikus' 'Obxd' 'PitchedDelay' 'ReFine'
+  local _legacy_plugin _legacy_plugins _legacy_urls _plugins _urls _plugin
+  _plugins=('CHOW')
+  declare -A _urls=(
+    ["CHOW"]="https://github.com/jatinchowdhury18/CHOW"
+  )
+  _legacy_plugins=('Dexed' 'EasySSP' 'HiReSam' 'JuceOPL' 'KlangFalter'
+  'LUFSMeter' 'LUFSMeterMulti' 'Luftikus' 'Obxd' 'PitchedDelay' 'ReFine'
   'StereoSourceSeparation' 'TAL-Dub-3' 'TAL-Filter-2' 'TAL-Filter'
   'TAL-NoiseMaker' 'TAL-Reverb-2' 'TAL-Reverb-3' 'TAL-Reverb' 'TAL-Vocoder-2'
   'Temper' 'TheFunction' 'ThePilgrim' 'Wolpertinger' 'drowaudio-distortion'
   'drowaudio-distortionshaper' 'drowaudio-flanger' 'drowaudio-reverb'
   'drowaudio-tremolo' 'drumsynth' 'eqinox' 'vex')
-  declare -A _urls=(
+  declare -A _legacy_urls=(
     ["Dexed"]="https://github.com/asb2m10/dexed"
     ["EasySSP"]="http://au.tomatl.org/essp"
     ["HiReSam"]="https://github.com/klangfreund/SpectrumAnalyser"
@@ -77,13 +82,21 @@ check() {
     ["vex"]="urn:juce:Vex"
   )
   cd "$pkgname"
-  echo "Linting plugins: ${_plugins[*]}"
+  echo "Linting plugins: ${_legacy_plugins[*]}"
+  for _legacy_plugin in "${_legacy_plugins[@]}"; do
+    echo "Linting ${_plugin}: ${_legacy_urls[${_legacy_plugin}]}"
+    if [ -n "${_legacy_urls[${_legacy_plugin}]}" ]; then
+      # ignore lv2_generate_ttl symbol as it can not be removed easily:
+      # https://github.com/DISTRHO/DISTRHO-Ports/issues/58
+      lv2lint -Mpack -s lv2_generate_ttl -I "build/ports-legacy/${_legacy_plugin}.lv2/" "${_legacy_urls[${_legacy_plugin}]}"
+    fi
+  done
   for _plugin in "${_plugins[@]}"; do
     echo "Linting ${_plugin}: ${_urls[${_plugin}]}"
     if [ -n "${_urls[${_plugin}]}" ]; then
       # ignore lv2_generate_ttl symbol as it can not be removed easily:
       # https://github.com/DISTRHO/DISTRHO-Ports/issues/58
-      lv2lint -Mpack -s lv2_generate_ttl -I "build/ports-legacy/${_plugin}.lv2/" "${_urls[${_plugin}]}"
+      lv2lint -Mpack -s lv2_generate_ttl -I "build/ports/${_plugin}.lv2/" "${_urls[${_plugin}]}"
     fi
   done
   ninja -C build test
