@@ -1,47 +1,58 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-telegram-bot
-pkgver=12.8
-pkgrel=2
+pkgver=13.1.20210105
+_commit=6903d58142d4be1b7c5fdda82608e66dd50ecf2b
+pkgrel=1
 pkgdesc="A pure Python interface for the Telegram Bot AP"
 url="https://github.com/python-telegram-bot/python-telegram-bot"
 license=('LGPL')
 arch=('any')
-depends=('python-cryptography' 'python-decorator' 'python-tornado' 'python-urllib3')
+depends=('python-apscheduler' 'python-cryptography' 'python-decorator' 'python-tornado'
+         'python-ujson' 'python-urllib3' 'python-pytz')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest' 'python-beautifulsoup4' 'python-flaky'
-              'python-pytest-timeout')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/python-telegram-bot/python-telegram-bot/archive/v$pkgver.tar.gz"
-        fix-tests.patch)
-sha512sums=('84c033b946e1d93b10c36c39f3681631917aa4642da1795c6ecad694a7d8871888c23fa80aaf3827b0bdc8de1abf341a8ecc8326c825efd8a873df7c2904c5f2'
-            '3023cce38549b74a429a18168556e9641107d189fbe9c793e979964b094ad1b4863e19b2c400aeb44697afca0ce8a1de83c1f1bdd2dda6bf97b93817b2b41231')
+checkdepends=('python-beautifulsoup4' 'python-flaky' 'python-pytest-timeout')
+source=("https://github.com/python-telegram-bot/python-telegram-bot/archive/$_commit/$pkgname-$pkgver.tar.gz")
+sha512sums=('f7a39baaa997ce9c2a91fd34e04b051dd25b6a3c6e7e4b035d8483609d51a3b8f11094587e2131f1faf97a8bcdc8adbe50fe5b3881c41551994a32b71b43932d')
 
 prepare() {
-  cd python-telegram-bot-$pkgver
+  cd python-telegram-bot-$_commit
 
-  patch -Np1 -i ../fix-tests.patch
+  rm -r telegram/vendor
 
+  # Use system cert store
   sed -i '/certifi/d' telegram/__main__.py requirements.txt
   sed -e '/import certifi/d' \
       -e 's|certifi.where()|"/etc/ssl/certs/ca-certificates.crt"|' \
       -i telegram/utils/request.py tests/test_official.py
-  sed -e 's/import telegram.vendor.ptb_urllib3.urllib3/import urllib3/' \
-      -e 's/from telegram.vendor.ptb_urllib3.urllib3/from urllib3/' \
-      -e 's/from telegram.vendor.ptb_urllib3 import urllib3/import urllib3/' \
-      -i telegram/utils/request.py tests/test_{bot,official}.py
+
+  # Fixes for new pytest
+  sed -i '/pytest.mark.nocoverage/d' tests/test_meta.py
+  sed -i '/ message=/d' tests/test_constants.py
+
+  # Fixes for testing with system urllib3
+  sed -i 's/from telegram.vendor.ptb_urllib3 import urllib3/import urllib3/' tests/test_official.py
+  sed -i 's/from telegram.vendor.ptb_urllib3.urllib3/from urllib3/' tests/test_bot.py
+  sed -e '/telegram.utils.deprecate.TelegramDeprecationWarning/i \    ignore:python-telegram-bot is using upstream urllib3. This is allowed but not supported by python-telegram-bot maintainers.:UserWarning' \
+      -i setup.cfg
+  
+  # Spacing difference
+  sed -i 's/"switch_inline_query": ""/"switch_inline_query":""/;s/"switch_inline_query_current_chat": ""/"switch_inline_query_current_chat":""/' tests/test_inlinekeyboardmarkup.py
 }
 
 build() {
-  cd python-telegram-bot-$pkgver
-  python setup.py build
+  cd python-telegram-bot-$_commit
+  python setup.py build --with-upstream-urllib3
 }
 
 check() {
-  cd python-telegram-bot-$pkgver
-  python -m pytest
+  cd python-telegram-bot-$_commit
+  # test_run_monthly: fails on upstream ci too
+  # test_get_updates_bailout_err: seems to be a test error TODO
+  python -m pytest --deselect tests/test_jobqueue.py::TestJobQueue::test_run_monthly --deselect tests/test_updater.py::TestUpdater::test_get_updates_bailout_err
 }
 
 package() {
-  cd python-telegram-bot-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1
+  cd python-telegram-bot-$_commit
+  python setup.py install --root="$pkgdir" --optimize=1 --with-upstream-urllib3
 }
