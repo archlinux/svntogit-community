@@ -3,44 +3,40 @@
 # Contributor: Jo Christian Bergskås <jcberg@gmail.com>
 
 pkgname=fceux
-pkgver=2.2.3
-pkgrel=5
+pkgver=2.3.0
+pkgrel=1
 url='https://fceux.com/'
 pkgdesc='Fast and ultra-compatible NES/Famicom emulator'
 arch=(x86_64)
 license=(GPL)
-depends=(gd gtk3 sdl)
-makedepends=(glu mesa-libgl scons)
-source=("https://downloads.sourceforge.net/project/fceultra/Source%20Code/$pkgver%20src/$pkgname-$pkgver.src.tar.gz"
-        scons-python3.patch)
-sha256sums=('4be6dda9a347f941809a3c4a90d21815b502384adfdd596adaa7b2daf088823e'
-            'ba1828375e00b4a2076311f5ee1802a42d52eb1ef93b358a45459d475c55e6b9')
+depends=(gd minizip qt5-base sdl2)
+makedepends=(cmake git glu mesa-libgl ninja setconf scons)
+_commit='65c5b0d2a1c08db75bb41340bfa5534578926944' # fceux-2.3.0
+_url='https://github.com/TASVideos/fceux'
+source=("git+$_url#commit=$_commit")
+sha256sums=('SKIP')
 
 prepare() {
-  cd $pkgname-$pkgver
-  patch -p1 -i ../scons-python3.patch
+  cd $pkgname
+  sed -i 's/-interim git//g' src/version.h
+  setconf scripts/genGitHdr.sh GIT_URL "'""$_url""'"
+  setconf scripts/genGitHdr.sh GIT_REV $_commit
 }
 
 build() {
-  scons -C $pkgname-$pkgver RELEASE=1 GTK3=1 GTK=0
+  mkdir -p build
+  cd build
+  cmake ../$pkgname \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_C_FLAGS="$CFLAGS -fPIC -w" \
+    -DCMAKE_CXX_FLAGS="$CXXFLAGS -fPIC -w" \
+    -G Ninja
+  ninja
 }
 
 package() {
-  cd $pkgname-$pkgver
-
-  scons install -i --prefix="$pkgdir/usr" RELEASE=1 GTK3=1 GTK=0
-
-  # documentation
+  DESTDIR="$pkgdir" ninja -C build install
   install -d "$pkgdir/usr/share/doc/$pkgname"
-  cp -r documentation/* "$pkgdir/usr/share/doc/$pkgname/"
-  install -Dm644 changelog.txt "$pkgdir/usr/share/doc/$pkgname/"
-
-  # desktop shortcut and icon
-  install -Dm644 "$pkgname.desktop" \
-    "$pkgdir/usr/share/applications/$pkgname.desktop"
-  install -Dm644 "$pkgname.png" \
-    "$pkgdir/usr/share/pixmaps/$pkgname.png"
-
-  # clean up DLL files
-  rm -f "$pkgdir/usr/share/$pkgname/"*.dll
+  cp -r $pkgname/documentation/* "$pkgdir/usr/share/doc/$pkgname/"
+  install -Dm644 $pkgname/changelog.txt "$pkgdir/usr/share/doc/$pkgname/"
 }
