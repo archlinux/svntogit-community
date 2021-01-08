@@ -5,7 +5,7 @@
 pkgname=intellij-idea-community-edition
 pkgver=2021.3.1
 _build=203.6682.168
-pkgrel=1
+pkgrel=2
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -13,7 +13,7 @@ arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig')
+depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
 makedepends=('ant' 'git' 'java-environment=8')
 optdepends=(
   'lldb: lldb frontend integration'
