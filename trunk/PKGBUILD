@@ -3,8 +3,8 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2020.3
-_build=203.5981.155
+pkgver=2021.3.1
+_build=203.6682.168
 pkgrel=1
 epoch=2
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -13,7 +13,7 @@ arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' 'java-environment=11' 'java11-openjfx' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
+depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
 makedepends=('ant' 'git' 'java-environment=8' 'java8-openjfx')
 optdepends=(
   'lldb: lldb frontend integration'
