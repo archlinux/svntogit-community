@@ -13,8 +13,8 @@ arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea.vmoptions'
         'usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib')
-makedepends=('ant' 'git' 'java-environment=8' 'java8-openjfx')
+depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig')
+makedepends=('ant' 'git' 'java-environment=8')
 optdepends=(
   'lldb: lldb frontend integration'
 )
