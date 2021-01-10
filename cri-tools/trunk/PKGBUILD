@@ -2,9 +2,9 @@
 
 pkgbase=cri-tools
 pkgname=('crictl' 'critest')
-pkgver=1.19.0
-_commit='9818f3edfa31494f6df5ffdcad918fd6e874c305' # v1.19.0
-pkgrel=2
+pkgver=1.20.0
+_commit='ec9e336fd8c21c4bab89a6aed2c4a138c8cfae75' # v1.20.0
+pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
 arch=('x86_64')
 url="https://github.com/kubernetes-sigs/cri-tools"
