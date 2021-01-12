@@ -4,7 +4,7 @@
 # Contributor: orbisvicis <orbisvicis@gmail.com>
 
 pkgname=mapnik
-pkgver=3.0.24
+pkgver=3.1.0
 pkgrel=1
 pkgdesc="Free Toolkit for developing mapping applications and rendering beautiful maps"
 arch=('x86_64')
@@ -13,17 +13,8 @@ license=('LGPL')
 depends=('boost-libs' 'cairo' 'freetype2' 'gdal' 'harfbuzz' 'icu' 'libjpeg-turbo' 'libpng'
          'libtiff' 'libwebp' 'libxml2' 'postgresql-libs' 'proj' 'sqlite' 'zlib')
 makedepends=('boost' 'scons')
-source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2
-        mapnik-std-c++14.patch)
-sha256sums=('75520a98ff688f48e4dd36e86199530ea084b296f2d4972478db1fcb3475d71c'
-            '89b6f6be54feca2ba120516a39e20d3ae9706b7fbde140d73538f2727ab31fbe')
-
-prepare() {
-  cd "${srcdir}"/$pkgname-v$pkgver
-
-  # C++14 mode required by Boost.Geometry 1.75
-  patch -Np1 -i ../mapnik-std-c++14.patch
-}
+source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2)
+sha256sums=('43d76182d2a975212b4ad11524c74e577576c11039fdab5286b828397d8e6261')
 
 build() {
   cd "${srcdir}"/$pkgname-v$pkgver
