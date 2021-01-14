@@ -5,7 +5,7 @@
 pkgname=(cython cython2)
 pkgbase=cython
 pkgver=0.29.21
-pkgrel=3
+pkgrel=4
 pkgdesc="C-Extensions for Python"
 arch=(x86_64)
 url="https://cython.org"
@@ -33,7 +33,7 @@ build() {
 }
 
 package_cython() {
-  depends=(python-setuptools)
+  depends=(python)
 
   cd cython-$pkgver
   python setup.py install --root="$pkgdir" --skip-build
@@ -45,7 +45,7 @@ package_cython() {
 }
 
 package_cython2() {
-  depends=(python2-setuptools)
+  depends=(python2)
 
   cd cython2-$pkgver
   python2 setup.py install --root="$pkgdir" --skip-build
