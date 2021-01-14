@@ -3,7 +3,7 @@
 
 pkgname=docker
 pkgver=20.10.2
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -25,6 +25,7 @@ source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/docker/buildx.git#commit=$_BUILDX_COMMIT"
         "git+https://github.com/docker/app.git#commit=$_APP_COMMIT"
+        'https://github.com/moby/libnetwork/commit/c9ca976ccbab6ba9159c521cfd9093cba490b1c3.patch'
         "$pkgname.sysusers")
 sha256sums=('SKIP'
             'SKIP'
@@ -32,9 +33,12 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
+            '8db14ae0af84bdd7a892b907a118875c3c08003ef7ccbb0c1a11bbe8e00260ae'
             '541826011a9836d05a2f42293d5f1beadf2ca8d89fb604487d61a013505678eb')
 
 prepare(){
+  # fix FS#69258
+  patch -d libnetwork -p 1 < c9ca976ccbab6ba9159c521cfd9093cba490b1c3.patch
   cd cli
   sed -i 's/-v md2man/-v go-md2man/' scripts/docs/generate-man.sh
   sed -i 's/md2man/go-md2man/' man/md2man-all.sh
@@ -55,6 +59,26 @@ _fake_gopath_popd() {
 }
 
 build() {
+  ### check my mistakes on commit version
+  echo 'Checking commit mismatch'
+  (
+  local _cfile
+  for _cfile in tini proxy; do
+    . "moby/hack/dockerfile/install/$_cfile.installer"
+  done
+  local _commit _pkgbuild _dockerfile
+  err=0
+  for _commit in LIBNETWORK TINI; do
+    _pkgbuild=_${_commit}_COMMIT
+    _dockerfile=${_commit}_COMMIT
+    if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
+      echo "Invalid $_commit commit, should be ${!_dockerfile}" >&2
+      err=$(($err + 1))
+    fi
+  done
+  return $err
+  )
+
   ### globals
   export GOPATH="$srcdir"
   export PATH="$GOPATH/bin:$PATH"
@@ -62,8 +86,8 @@ build() {
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
   export CGO_LDFLAGS="${LDFLAGS}"
-  export LDFLAGS=""
-  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw -ldflags=-linkmode=external"
+  export LDFLAGS=''
+  export GOFLAGS='-buildmode=pie -trimpath -mod=readonly -modcacherw -ldflags=-linkmode=external'
 
   ### cli
   echo 'Building cli'
@@ -104,10 +128,11 @@ build() {
   ### buildx cli plugin
   echo 'Building buildx cli plugin'
   _fake_gopath_pushd buildx github.com/docker/buildx
-  go build -o docker-buildx -ldflags "-X github.com/docker/buildx/version.Version=$(git describe --match 'v[0-9]*' --always --tags)-tp-docker \
-                                      -X github.com/docker/buildx/version.Revision=$(git rev-parse HEAD) \
-                                      -X github.com/docker/buildx/version.Package=github.com/docker/buildx \
-                                      -X main.experimental=1 -linkmode=external" ./cmd/buildx
+  go build -o docker-buildx -ldflags "\
+    -X github.com/docker/buildx/version.Version=$(git describe --match 'v[0-9]*' --always --tags)-tp-docker \
+    -X github.com/docker/buildx/version.Revision=$(git rev-parse HEAD) \
+    -X github.com/docker/buildx/version.Package=github.com/docker/buildx \
+    -X main.experimental=1 -linkmode=external" ./cmd/buildx
   _fake_gopath_popd
 
 }
