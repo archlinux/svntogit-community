@@ -5,7 +5,7 @@ pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.5
 pkgver=15.2.8
-pkgrel=1
+pkgrel=2
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -209,7 +209,7 @@ build() {
 
 package_ceph-libs() {
   depends=('boost-libs' 'curl' 'glibc' 'keyutils' 'libutil-linux' 'bzip2' 'lz4' 'nss'
-           'oath-toolkit' 'python' 'snappy' 'systemd-libs')
+           'oath-toolkit' 'python' 'snappy' 'systemd-libs' 'fmt')
 
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
