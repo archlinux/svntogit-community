@@ -6,14 +6,15 @@
 
 pkgname=ipython
 pkgver=7.19.0
-pkgrel=4
+pkgrel=5
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
 url="https://ipython.org"
 license=('BSD')
 depends=('python' 'python-traitlets' 'python-pexpect' 'sqlite'
-         'python-setuptools' 'python-pickleshare' 'python-prompt_toolkit'
+         'python-pickleshare' 'python-prompt_toolkit'
          'python-jedi' 'python-pygments' 'python-backcall')
+makedepends=('python-setuptools')
 optdepends=("python-nose: for IPython's test suite")
 
 # new optional thing: ipyparallel
