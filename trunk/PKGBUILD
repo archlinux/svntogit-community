@@ -7,12 +7,13 @@
 pkgname=python-markdown
 _pkgbasename=Markdown
 pkgver=3.3.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
 url='https://python-markdown.github.io/'
 license=('BSD')
-depends=('python' 'python-setuptools')
+depends=('python')
+makedepends=('python-setuptools')
 checkdepends=('python-yaml')
 source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
 sha256sums=('5d9f2b5ca24bc4c7a390d22323ca4bad200368612b5aaa7796babf971d2b2f18')
@@ -24,6 +25,8 @@ build() {
 
 check() {
   cd "$srcdir/$_pkgbasename-$pkgver"
+  [[ $(python -c "import markdown; print(markdown.version)") == "$pkgver" ]]
+  [[ $(python -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
   python -m unittest discover tests
 }
 
@@ -33,7 +36,3 @@ package() {
   install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/python-markdown/LICENSE"
 }
 
-check_python-markdown() {
-  [[ $(python -c "import markdown; print(markdown.version)") == "$pkgver" ]]
-  [[ $(python -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
-}
