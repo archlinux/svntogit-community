@@ -3,7 +3,7 @@
 
 pkgname=docker
 pkgver=20.10.2
-pkgrel=2
+pkgrel=3
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -25,7 +25,7 @@ source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/docker/buildx.git#commit=$_BUILDX_COMMIT"
         "git+https://github.com/docker/app.git#commit=$_APP_COMMIT"
-        'https://github.com/moby/libnetwork/commit/c9ca976ccbab6ba9159c521cfd9093cba490b1c3.patch'
+        'https://github.com/moby/libnetwork/commit/c3fabc6892002c6cd556c37330eb95d1d84b2d9c.patch'
         "$pkgname.sysusers")
 sha256sums=('SKIP'
             'SKIP'
@@ -33,12 +33,12 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            '8db14ae0af84bdd7a892b907a118875c3c08003ef7ccbb0c1a11bbe8e00260ae'
+            '0c9e0065b8b67f771971b32bc1a8893f697e8f3c59c5dab5964da8528c8db174'
             '541826011a9836d05a2f42293d5f1beadf2ca8d89fb604487d61a013505678eb')
 
 prepare(){
   # fix FS#69258
-  patch -d libnetwork -p 1 < c9ca976ccbab6ba9159c521cfd9093cba490b1c3.patch
+  patch -d moby/vendor/github.com/docker/libnetwork -p 1 < c3fabc6892002c6cd556c37330eb95d1d84b2d9c.patch
   cd cli
   sed -i 's/-v md2man/-v go-md2man/' scripts/docs/generate-man.sh
   sed -i 's/md2man/go-md2man/' man/md2man-all.sh
