@@ -3,7 +3,7 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=1.39.5
+pkgver=1.39.6
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('GPL3')
@@ -18,11 +18,11 @@ source=(
   "openssl-linking.patch"
   "expire-from-source-date-epoch.patch"
 )
-sha512sums=('39c0823d55470e39508d03af05c5723283b2843c59d0538498732682895aad02de0199f99bcdf315151af1b5a2292b1e803d7088b77ddc802b8b6967256ef900'
+sha512sums=('d220cf4c4bb182fbb9156ee2dd01b3ca3bddd3756e060a7360f09b7df98d455511f69739fd65ceaca2892df04d4f4b51ef9700514ebea43b51927673d0c5fa0d'
             'd07220429c479e3b6aaafede95da117bdb735877162f584265a16434ed75a926c21534e8d291de53e58a1bf0a72cdd41a9a8ae7314e2f6fec98c938852a3b991'
             '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
             '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2')
-b2sums=('8682a105bd92e4e3465442273a54ded3dd7cef3fd79f782c4017b1a94e43544ce7a354ef65f35188b56492a2c55fc43280d24c5491dfe194ffb2c46cf9e093c9'
+b2sums=('4eeafec197508afba825eb6f6486e240c9b782d46b7590b64c09ff2a4a8c4c81d0533c25583ed11f2c9115135f49f1c6f5158aaedddaf8314cf6f8ae56a951c2'
         'b05d190f28029c65d5cc15f69804db0b2775ff55b4db3a721c1dcf4aa8219b459453740fd26afecb6d72a515366af80af0b985d7b58e542a9edd76bb251ae000'
         '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
         'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289')
@@ -40,6 +40,10 @@ prepare() {
   sed -r 's#("resolutions": \{)#"resolutions": {"node-sass/node-gyp": "^6.0.0",#' -i package.json
 
   yarn install --ignore-engines
+
+  # https://github.com/snyk/snyk/issues/1536
+  # https://github.com/snyk/snyk/pull/1537
+  find node_modules/ -name '.snyk-*.flag' -print -delete
 
   # Have SQLCipher dynamically link from OpenSSL
   # See https://github.com/signalapp/Signal-Desktop/issues/2634
