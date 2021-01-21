@@ -2,7 +2,7 @@
 # Contributor: Metal A-wing <1 at 233 dot email>
 
 pkgname=deno
-pkgver=1.6.3
+pkgver=1.7.0
 pkgrel=1
 pkgdesc="A secure runtime for JavaScript and TypeScript"
 arch=('x86_64')
@@ -39,5 +39,5 @@ package() {
   install -dm755 "$pkgdir"/usr/share/fish/vendor_functions.d
   ./target/release/deno completions fish > "$pkgdir"/usr/share/fish/vendor_functions.d/deno.fish
 
-  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 LICENSE.md -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
