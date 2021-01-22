@@ -3,8 +3,8 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r13184.2952f99f69
-pkgrel=2
+pkgver=5.0.r13495.caff472dbf
+pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=(x86_64)
@@ -46,7 +46,7 @@ makedepends=(
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-_commit=2952f99f691e69e450c5ac52dca9516483ade2ee
+_commit=caff472dbf27fbcc5b3d28cbf5b1789592a9f857
 source=(dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit})
 sha256sums=(SKIP)
 
