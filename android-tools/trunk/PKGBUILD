@@ -11,8 +11,8 @@ arch=(x86_64)
 url='http://tools.android.com/'
 license=(Apache MIT)
 depends=(pcre2 libusb protobuf brotli)
-optdepends=('python: for mkbootimg script'
-            'python2: for unpack_bootimg & avbtool scripts')
+optdepends=('python: for mkbootimg & avbtool scripts'
+            'python2: for unpack_bootimg script')
 # it depends on 'vim' because of 'xxd' tool.
 makedepends=(git clang gtest cmake ninja go vim)
 provides=(fastboot adb)
@@ -36,7 +36,7 @@ source=(git+https://android.googlesource.com/platform/frameworks/base#tag=$_tag
 # To avoid the complexity we prebuilt the lib from the Android sources directly
 # using following instructions:
 #   (See https://wiki.archlinux.org/index.php/Android for context)
-# 
+#
 #   source build/envsetup.sh
 #   lunch full-eng
 #   mmm system/core/adb/
@@ -73,9 +73,6 @@ prepare() {
 
   cd "$srcdir"/libziparchive
   patch -p1 < ../fix_libziparchive.patch
-
-  cd "$srcdir"/avb
-  sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' avbtool
 
   cd "$srcdir"/mkbootimg
   sed -i 's|/usr/bin/env python$|/usr/bin/env python2|g' unpack_bootimg.py
