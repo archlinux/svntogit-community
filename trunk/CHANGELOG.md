@@ -1,3 +1,16 @@
+## 0.14.5 (January 20, 2021)
+
+ENHANCEMENTS:
+
+* backend/pg: The Postgres backend now supports the "scram-sha-256" authentication method. ([#26886](https://github.com/hashicorp/terraform/issues/26886))
+
+BUG FIXES:
+
+* cli: Fix formatting of long integers in outputs and console ([#27479](https://github.com/hashicorp/terraform/issues/27479))
+* cli: Fix redundant check of remote workspace version for local operations ([#27498](https://github.com/hashicorp/terraform/pull/27498))
+* cli: Fix missing check of remote workspace version for state migration ([#27556](https://github.com/hashicorp/terraform/issues/27556))
+* cli: Fix world-writable permissions on dependency lock file ([#27205](https://github.com/hashicorp/terraform/issues/27205))
+
 ## 0.14.4 (January 06, 2021)
 
 UPGRADE NOTES:
@@ -6,11 +19,11 @@ UPGRADE NOTES:
 
 BUG FIXES:
 
-* backend/remote: Disable remote Terraform workspace version check when the remote workspace is in local operations mode ([[#27407](https://github.com/hashicorp/terraform/issues/27407)])
-* core: Fix panic when using `sensitive` values as arguments to data sources ([[#27335](https://github.com/hashicorp/terraform/issues/27335)])
-* core: Fix panic when using `sensitive` values as `count` arguments on validate ([[#27410](https://github.com/hashicorp/terraform/issues/27410)])
-* core: Fix panic when passing `sensitive` values to module input variables which have custom variable validation ([[#27412](https://github.com/hashicorp/terraform/issues/27412)])
-* dependencies: Upgrade HCL to v2.8.2, fixing several bugs with `sensitive` values ([[#27420](https://github.com/hashicorp/terraform/issues/27420)])
+* backend/remote: Disable remote Terraform workspace version check when the remote workspace is in local operations mode ([#27407](https://github.com/hashicorp/terraform/issues/27407))
+* core: Fix panic when using `sensitive` values as arguments to data sources ([#27335](https://github.com/hashicorp/terraform/issues/27335))
+* core: Fix panic when using `sensitive` values as `count` arguments on validate ([#27410](https://github.com/hashicorp/terraform/issues/27410))
+* core: Fix panic when passing `sensitive` values to module input variables which have custom variable validation ([#27412](https://github.com/hashicorp/terraform/issues/27412))
+* dependencies: Upgrade HCL to v2.8.2, fixing several bugs with `sensitive` values ([#27420](https://github.com/hashicorp/terraform/issues/27420))
 
 ## 0.14.3 (December 17, 2020)
 
