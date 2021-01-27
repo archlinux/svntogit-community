@@ -1,12 +1,13 @@
 # Maintainer: Lukas Jirkovsky <l.jirkovsky@gmail.com>
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2021.3.1
-_build=203.6682.168
-pkgrel=2
-epoch=2
+pkgver=2021.1
+_build=211.4961.30
+pkgrel=1
+epoch=3
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
 arch=('x86_64')
