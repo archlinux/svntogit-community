@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.5.0
+pkgver=3.5.1
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
