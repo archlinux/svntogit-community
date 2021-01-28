@@ -4,10 +4,10 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2021.1
-_build=211.4961.30
+pkgver=2020.3.2
+_build=203.7148.57
 pkgrel=1
-epoch=3
+epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
 arch=('x86_64')
