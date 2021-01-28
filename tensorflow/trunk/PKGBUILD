@@ -7,7 +7,7 @@ pkgbase=tensorflow
 pkgname=(tensorflow tensorflow-opt tensorflow-cuda tensorflow-opt-cuda python-tensorflow python-tensorflow-opt python-tensorflow-cuda python-tensorflow-opt-cuda)
 pkgver=2.4.1
 _pkgver=2.4.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Library for computation using data flow graphs for scalable machine learning"
 url="https://www.tensorflow.org/"
 license=('APACHE')
@@ -24,6 +24,9 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/tensorflow/tensorflow/archi
 sha512sums=('be8273f464c1c1c392f3ab0190dbba36d56a0edcc7991c1a86f16604c859056d3188737d11c3b41ec7918e1cf46d13814c50c00be8f459dde9f0fb618740ee3c'
             '9d7b71fed280ffaf4dfcd4889aa9ab5471874c153259f3e77ed6e6efa745e5c5aa8507d3d1f71dead5b6f4bea5f8b1c10c543929f37a6580c3f4a7cbec338a6a'
             'e51e3f3dced121db3a09fbdaefd33555536095584b72a5eb6f302fa6fa68ab56ea45e8a847ec90ff4ba076db312c06f91ff672e08e95263c658526582494ce08')
+
+# consolidate common dependencies to prevent mishaps
+_common_py_depends=(python-termcolor python-astor python-gast03 python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator python-opt_einsum python-astunparse python-pasta python-flatbuffers)
 
 get_pyver () {
   python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
@@ -158,7 +161,6 @@ build() {
   cd "${srcdir}"/tensorflow-${_pkgver}-opt-cuda
   export CC_OPT_FLAGS="-march=haswell -O3"
   export TF_NEED_CUDA=1
-  export TF_CUDA_CLANG=0
   ./configure
   bazel \
     build --config=avx2_linux \
@@ -187,6 +189,13 @@ _package() {
   rm -rf "${pkgdir}"/usr/bin
   rm -rf "${pkgdir}"/usr/lib
   rm -rf "${pkgdir}"/usr/share
+  # make sure no lib objects are outside valid paths
+  local _so_srch_path="${pkgdir}/usr/include"
+  check_dir "${_so_srch_path}"  # we need to quit on broken search paths
+  find "${_so_srch_path}" -type f,l \( -iname "*.so" -or -iname "*.so.*" \) -print0 | while read -rd $'\0' _so_file; do
+    # check if file is a dynamic executable
+    ldd "${_so_file}" &>/dev/null && rm -rf "${_so_file}"
+  done
 
   # install the rest of tensorflow
   tensorflow/c/generate-pc.sh --prefix=/usr --version=${pkgver}
@@ -262,7 +271,7 @@ package_tensorflow-opt-cuda() {
 }
 
 package_python-tensorflow() {
-  depends+=(tensorflow python-termcolor python-astor python-gast03 python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator python-opt_einsum python-astunparse python-pasta python-flatbuffers)
+  depends+=(tensorflow "${_common_py_depends[@]}")
 
   cd "${srcdir}"/tensorflow-${_pkgver}
   _python_package tmp
@@ -270,7 +279,7 @@ package_python-tensorflow() {
 
 package_python-tensorflow-opt() {
   pkgdesc="Library for computation using data flow graphs for scalable machine learning (with AVX2 CPU optimizations)"
-  depends+=(tensorflow-opt python-termcolor python-astor python-gast03 python-numpy python-protobuf absl-py python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator python-opt_einsum python-astunparse python-pasta python-flatbuffers)
+  depends+=(tensorflow-opt "${_common_py_depends[@]}")
   conflicts=(python-tensorflow)
   provides=(python-tensorflow)
 
@@ -280,7 +289,7 @@ package_python-tensorflow-opt() {
 
 package_python-tensorflow-cuda() {
   pkgdesc="Library for computation using data flow graphs for scalable machine learning (with CUDA)"
-  depends+=(tensorflow-cuda python-termcolor python-astor python-gast03 python-numpy cuda cudnn python-pycuda python-protobuf absl-py nccl python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator python-opt_einsum python-astunparse python-pasta python-flatbuffers)
+  depends+=(tensorflow-cuda cuda cudnn nccl python-pycuda "${_common_py_depends[@]}")
   conflicts=(python-tensorflow)
   provides=(python-tensorflow)
 
@@ -290,7 +299,7 @@ package_python-tensorflow-cuda() {
 
 package_python-tensorflow-opt-cuda() {
   pkgdesc="Library for computation using data flow graphs for scalable machine learning (with CUDA and AVX2 CPU optimizations)"
-  depends+=(tensorflow-opt-cuda python-termcolor python-astor python-gast03 python-numpy cuda cudnn python-pycuda python-protobuf absl-py nccl python-h5py python-keras-applications python-keras-preprocessing python-tensorflow-estimator python-opt_einsum python-astunparse python-pasta python-flatbuffers)
+  depends+=(tensorflow-opt-cuda cuda cudnn nccl python-pycuda "${_common_py_depends[@]}")
   conflicts=(python-tensorflow)
   provides=(python-tensorflow python-tensorflow-cuda)
 
