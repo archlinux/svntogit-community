@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-jaraco.context
-pkgver=3.0.0
+pkgver=4.0.0
 pkgrel=1
 pkgdesc="Context managers by jaraco"
 url="https://github.com/jaraco/jaraco.context"
@@ -12,7 +12,7 @@ makedepends=('python-setuptools-scm')
 checkdepends=('python-pytest-black' 'python-pytest-checkdocs' 'python-pytest-cov'
               'python-pytest-flake8' 'python-pytest-mypy' 'python-jaraco.test')
 source=("https://github.com/jaraco/jaraco.context/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('95143874235fb09dbc6f1922a8916fbbc4282c836a98f7a00547ea75d84a66cd9007b2846e783714e02f83221af3fb5e814db2992fc3243f8807ee406c2d7d78')
+sha512sums=('90a2010d87ac75f24c17bc054c664eeb442d9a7d4148d4f489a493aba9fdf654826f341b88ecad95943ce30aec934c5574d33dbd6cfcb67057315d7c3d5f31ff')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
@@ -36,10 +36,6 @@ check() {
 package() {
   cd jaraco.context-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
-
-  rm "$pkgdir"/usr/lib/python3.9/site-packages/jaraco/__init__.py \
-     "$pkgdir"/usr/lib/python3.9/site-packages/jaraco/__pycache__/__init__.cpython-39.pyc \
-     "$pkgdir"/usr/lib/python3.9/site-packages/jaraco/__pycache__/__init__.cpython-39.opt-1.pyc
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
