@@ -2,34 +2,32 @@
 # Co-Maintainer: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 # Contributor: Patrice Peterson <runiq at archlinux dot us>
 
-pkgname=python-sphinxcontrib-bibtex
-pkgver=1.0.0
-pkgrel=3
+_pkgname=sphinxcontrib-bibtex
+pkgname="python-${_pkgname}"
+pkgver=2.1.4
+pkgrel=1
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
 url="https://sphinxcontrib-bibtex.readthedocs.org"
 license=('BSD')
-depends=('python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-oset')
+depends=('python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-docutils')
 makedepends=('python-setuptools')
-checkdepends=('python-nose' 'python-sphinx-testing' 'python-coverage')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mcmtroffaes/sphinxcontrib-bibtex/archive/1.0.0.tar.gz")
-sha256sums=('964798058d91783bdd358c68e9f3a4e214a075dca91f8d91637f09ac467130d8')
+checkdepends=('python-pytest')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mcmtroffaes/${_pkgname}/archive/${pkgver}.tar.gz")
+sha256sums=('85a7a3fcd2bbe7b6f84f2d3c4495d50f2b0481cfd98c6e2efddc38464f520655')
 
 build() {
-  cd "$srcdir/sphinxcontrib-bibtex-$pkgver"
+  cd "${srcdir}/${_pkgname}-${pkgver}"
   python setup.py build
 }
 
 check() {
-  cd "$srcdir/sphinxcontrib-bibtex-$pkgver"
-  # Some tests fail because of a warning: https://github.com/mcmtroffaes/sphinxcontrib-bibtex/issues/163
-  local MY_YELLOW='\033[1;33m'
-  local MY_NOCOLOUR='\033[0m'
-  python setup.py nosetests || echo -e "${MY_YELLOW}WARNING: Some python3 tests failed!\n(https://github.com/mcmtroffaes/sphinxcontrib-bibtex/issues/163)${MY_NOCOLOUR}"
+  cd "${srcdir}/${_pkgname}-${pkgver}"
+  PYTHONPATH=".:${PYTHONPATH}" pytest
 }
 
 package() {
-  cd "$srcdir/sphinxcontrib-bibtex-$pkgver"
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
-  install -Dm644 LICENSE.rst "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  cd "${srcdir}/${_pkgname}-${pkgver}"
+  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  install -Dm644 LICENSE.rst "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
