@@ -2,7 +2,7 @@
 # Contributor: Elmar Klausmeier <Elmar.Klausmeier@gmail.com>
 
 pkgname=sundials
-pkgver=5.6.1
+pkgver=5.7.0
 pkgrel=1
 pkgdesc="Suite of nonlinear differential/algebraic equation solvers"
 arch=(x86_64)
@@ -11,7 +11,7 @@ license=(BSD)
 depends=(openmpi suitesparse)
 makedepends=(cmake gcc-fortran python)
 source=("https://computation.llnl.gov/projects/sundials/download/$pkgname-$pkgver.tar.gz")
-sha256sums=('16b77999ec7e7f2157aa1d04ca1de4a2371ca8150e056d24951d0c58966f2a83')
+sha256sums=('8d6dd094feccbb8d6ecc41340ec16a65fabac82ed4415023f6d7c1c2390ea2f3')
 
 build() {
   cmake -B build -S $pkgname-$pkgver \
