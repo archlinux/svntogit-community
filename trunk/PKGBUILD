@@ -3,15 +3,15 @@
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.0.10
-pkgrel=3
+pkgver=1.1.4
+pkgrel=1
 pkgdesc="Python dependency management and packaging made easy"
 arch=('any')
 url="https://poetry.eustace.io/"
 license=('MIT')
-_deps=('cachecontrol' 'cachy' 'cleo' 'html5lib' 'jsonschema' 'lockfile'
-       'pkginfo' 'pyparsing' 'pyrsistent' 'requests' 'requests-toolbelt'
-       'shellingham' 'tomlkit' 'keyring' 'pexpect')
+_deps=('cachecontrol' 'cachy' 'cleo' 'html5lib' 'lockfile'
+       'packaging' 'pkginfo' 'poetry-core' 'requests' 'requests-toolbelt'
+       'shellingham' 'tomlkit' 'keyring' 'pexpect' 'virtualenv')
 depends=("${_deps[@]/#/python-}")
 makedepends=('python-dephell')
 checkdepends=('git' 'python-pytest' 'python-pytest-mock' 'python-httpretty')
@@ -20,12 +20,15 @@ conflicts=('poetry')
 replaces=('poetry')
 source=("${_pkgname}-${pkgver}.tar.gz::https://github.com/sdispater/${_pkgname}/archive/${pkgver}.tar.gz"
         "0001-Suppress-dependency-versions-which-are-known-to-be-t.patch"
+        "0001-tests-cleanup-cache-and-http-usage.patch"
         "poetry-completions-generator")
-sha256sums=('fc6d236cca39c73e66f7467e875a02191fd0664303eff88b3723ab41508cad7c'
-            '14362e48099d14530905fe7b65650c7e074bfe10f05fffa516b0d0e095df16a8'
+sha256sums=('daa4d8e656efefa1433a6b83531af2bea690953708d7dfad85bda5d3b0855120'
+            '8bb321ae9ad06d4829c71727af7979bc68d7f325ccdaec919dda4fe8ac92f1a7'
+            '4658321c04f36fb3aced9acc44b61f2cf22c5f9d8b8c715111881b24c3e0c99b'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
-b2sums=('ffac88837810cc49687530fe8448335806182cdf04ac5a34c610e279c295159f0883f66994f4aa3731dbb5ebaf54bcb2993779738e086747676e3c4ba2859d87'
-        '241da60804f7c9a486c3d57efe1984345fa93b697d78d494f1f339fbe27c30e072e853c12cf5def124bfccc42dcc34daa6d393f9c41284352f541956103facce'
+b2sums=('a56b36705eb2a0d8bd715115805d414c80fb62dab7d429a138d696b369f62e1a8cb877ca5a20df32ad180450b5936cd89672030eb1225462dd717b7888bb262f'
+        'c1c65fdfa1153d3e4c872adc00f02aea055268d28cd385918a5a3d60fb355c39b15eab895cf4aebd1b74f126cc225f870d60aa971a6593855ce094b448786a02'
+        '8750de6ee2748a7dac079af1ff35b43dbce3f2c48249322f3322290d03f46ea95513dfd223adc232f7f73cf0ac19554de96a3b8793a0dc13b38041e87569ca19'
         '3fd62e7936d7547dcd06a1a7519f176a1597553ecc959144a4be799bb7e2d688e187f14604d3e359ed10c128c722ebd588c07ca318e0be0a31d276dcb388e2e1')
 
 prepare() {
@@ -33,6 +36,10 @@ prepare() {
 
     # fix various overly restrictive version pinning
     patch -p1 -i ../0001-Suppress-dependency-versions-which-are-known-to-be-t.patch
+
+    # fix tests trying to write to the root directory
+    # See: https://github.com/python-poetry/poetry/issues/1645
+    patch -p1 -i ../0001-tests-cleanup-cache-and-http-usage.patch
 
     dephell deps convert --from pyproject.toml --to setup.py
 }
@@ -46,16 +53,11 @@ build() {
 check() {
     cd "${srcdir}"/${_pkgname}-${pkgver}
 
-    # only works inside git repositories
-    pytest \
-        -k 'not test_default_with_excluded_data ' \
-        --ignore tests/console/commands/test_add.py \
-        --ignore tests/console/commands/test_export.py \
-        --ignore tests/console/commands/test_show.py \
-        --deselect tests/packages/test_locker.py::test_lock_file_data_is_ordered \
-        --deselect tests/packages/test_locker.py::test_lock_packages_with_null_description \
-        --deselect tests/packages/test_locker.py::test_lock_file_should_not_have_mixed_types \
-        --deselect tests/packages/test_locker.py::test_locking_legacy_repository_package_should_include_source_section
+    # tries to write all over sys.executable's containing directory, and fails
+    # use venv instead
+    # See (again): https://github.com/python-poetry/poetry/issues/1645
+    python -m venv --system-site-packages --without-pip poetrytests
+    ./poetrytests/bin/python -m pytest
 }
 
 package() {
