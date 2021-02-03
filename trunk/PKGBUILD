@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.3.3
-pkgrel=4
+pkgrel=5
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
@@ -22,18 +22,21 @@ makedepends+=('alsa-lib' 'hicolor-icon-theme' 'jack' 'libpulse' 'libsndfile'
 # murmur makedepends
 makedepends+=('grpc' 'libcap' 'zeroc-ice')
 source=("https://github.com/mumble-voip/mumble/releases/download/${pkgver}/mumble-${pkgver}.tar.gz"{,.sig}
+        "0001-Added-DBus-calls-to-activate-and-deactivate-push-to-talk.patch"
         "murmur.dbus.conf"
         "murmur.service"
         "murmur.sysusers"
         "murmur.tmpfiles")
 sha512sums=('be4c6d4de82a1059bf30d4c7e3c44e41e4bb50dc4a811b7d0def808c52059ff7bcccf65140db940f18cc1bb66d58ea4dab23ba5dcfae3b8b904866751f32edb3'
             'SKIP'
+            'ca751eb688e9de88064e2e11f155b4c69a55c9464fcd839ad8ce834af7e444a5683be62700fe7e6e7a60a5de37c0dc48575bb81d633607974e0f41d05b6a51be'
             '97c7effdddec324e40195c36ef4927950a5de26d2ee2d268d89df6fb547207bbbe30292773316cae6f57ec9923244f205fb0edc377b798771ba7385e3c11d86a'
             '2059eeac32cc078168a2ea56fe3034df69814516303adeffb8062c7b90a88177a536e6a6742196ee90370084d4e536f825b1744f8bed2bb704159a8a8bccb606'
             '5af28d0c2b2b072cfbd500b5f63549e88a86cf3fc15e4d2df89e787c4d2bafdecbe078a518e0d1b25d82f9873cb06838ec1c9ebed625ffb7e8c80fcd942ebf74'
             '411784e8e0dcf6c163780ae895ae1a6bdad0bb2dd2b128911c484ac3eff073d95c5791b625493a2b8296d24bd7e6ac72d3c42180817e48b29f0c6a8fd841807c')
 b2sums=('e5bf4d0a21f3c9af761b0892c4a5a7d86244d3283070976fe7a779a10567ffd857e0c19dad750cdbae40d851ce1dcf17b66c63a2cb5142a13358af6f272445dd'
         'SKIP'
+        'cb8d25c0e6e46a5d85c61b04586293180bf1804296aa338c8c67e05817fec41965eb46e44dab2f4c5bec24e29e08a8f6eb645500c7b6c0d63ce31f2f09c75250'
         'a416d071d9658fc3f3ea267d6ff24237317f5c05b59fe1578e5a4cb4911840896bf5e524a143f5c70a797da9f343312468720f03343b4b66bea20e94aa316cc2'
         'd3ff1099c98ccb01cb96608c9ce328b654fe8f6c1922cdb602223ba66267655b569b7113ad24820e37989448695b874872279d49f94d44ab569a228cf545498f'
         '9909371a0d1c06d2aa00f161aebb19266aad0253b407dd01da5325f4f307678bba28a89596bd2ec97df5844068856c10bb4b10acad7bf170dd2853b3e11c48cd'
@@ -48,6 +51,8 @@ prepare() {
       -e "s|;logfile=murmur.log|logfile=|" \
       -e "s|;uname=|uname=murmur|" \
       -i scripts/murmur.ini
+
+  patch -Np1 -i "$srcdir"/0001-Added-DBus-calls-to-activate-and-deactivate-push-to-talk.patch
 }
 
 build() {
