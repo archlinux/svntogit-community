@@ -2,8 +2,8 @@
 
 _pkgname=build
 pkgname=python-$_pkgname
-pkgver=0.1.0
-pkgrel=2
+pkgver=0.2.1
+pkgrel=1
 pkgdesc='A simple, correct PEP517 package builder'
 arch=('any')
 url='https://github.com/pypa/build'
@@ -11,6 +11,7 @@ license=('MIT')
 depends=('python-toml' 'python-pep517' 'python-packaging')
 makedepends=('git' 'python-setuptools'
              'python-sphinx' 'python-sphinxcontrib-autoprogram' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
+checkdepends=('python-pytest' 'python-filelock')
 source=("git+$url#tag=$pkgver?signed")
 validpgpkeys=('3DCE51D60930EBA47858BA4146F633CBB0EB4BF2') # Filipe Laíns (FFY00) <lains@archlinux.org>
 sha512sums=('SKIP')
@@ -20,9 +21,13 @@ build() {
 
   python setup.py build
 
-  cd docs
+  PYTHONPATH=src sphinx-build -b dirhtml -v docs docs/build/html
+}
 
-  PYTHONPATH=../src sphinx-build -b dirhtml -v source build/html
+check() {
+  cd $_pkgname
+
+#  PYTHONPATH=src pytest
 }
 
 package() {
