@@ -5,7 +5,7 @@
 
 pkgname=python-secretstorage
 _pkgname=SecretStorage
-pkgver=3.3.0
+pkgver=3.3.1
 pkgrel=1
 pkgdesc="Securely store passwords and other private data using the SecretService DBus API"
 arch=('any')
@@ -14,7 +14,7 @@ license=('BSD')
 depends=('python-cryptography' 'python-jeepney')
 checkdepends=('org.freedesktop.secrets' 'xorg-server-xvfb')
 source=("https://pypi.io/packages/source/${_pkgname:0:1}/$_pkgname/$_pkgname-$pkgver.tar.gz")
-sha512sums=('d33c11b98824d214eb67c5b11a7fe0d14af084edfebc1d83204bcfd167258fbc07be8c1de8824ec984d83d07bfd66271c44f751784429e574cb240b5add70e16')
+sha512sums=('5e874d08c9e00626a217db96b131884daf92429a91f690b32f62052747275ad0effbe2b4abe048e67fe7f81df97507f8375408898ff986e6f883b5fdfbf2a76c')
 
 build() {
   cd $_pkgname-$pkgver
