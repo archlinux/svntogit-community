@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=6.14.11
+pkgver=7.5.3
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -14,7 +14,7 @@ depends=('nodejs' 'node-gyp' 'semver')
 makedepends=('libgl' 'libxi' 'marked' 'marked-man' 'procps-ng' 'python')
 options=('!emptydirs')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/cli/archive/v$pkgver.tar.gz")
-sha512sums=('ad8e6c72c82f1b982fc5aaafcca96d40e26c1e8b6b09d41de68118574019bd6a9253acddf0c91384fa6c4c8d96a5ffac0a3c8e497f35b29e2e99f35c1bc21644')
+sha512sums=('2fc9ad1873e0245d9ec6f9e8b613198946db2e25033e79631f8fe1ea90c78be869a71b570af6eb533bf3e570536b996eb4c3274fe1208f15a9f3419a44b448b1')
 
 prepare() {
   cd cli-$pkgver
@@ -37,7 +37,7 @@ build() {
 
 package() {
   cd cli-$pkgver
-  make NPMOPTS="--prefix=\"$pkgdir/usr\"" install
+  node bin/npm-cli.js install -g -f --prefix="$pkgdir/usr" $(node bin/npm-cli.js pack | tail -1)
 
   # Non-deterministic race in npm gives 777 permissions to random directories.
   # See https://github.com/npm/npm/issues/9359 for details.
@@ -51,12 +51,13 @@ package() {
   _npmdir="$pkgdir"/usr/lib/node_modules/$pkgname
   rm -r "$_npmdir"/node_modules/{,.bin/}semver
   rm -r "$_npmdir"/node_modules/{,.bin/}node-gyp
-  sed -i '/node-gyp.js/c\  exec /usr/bin/node-gyp "$@"' \
-    "$_npmdir"/node_modules/npm-lifecycle/node-gyp-bin/node-gyp \
+  sed -i 's|../../node_modules/node-gyp/bin/node-gyp.js|../../../node-gyp/bin/node-gyp.js|' \
     "$_npmdir"/bin/node-gyp-bin/node-gyp
 
   install -dm755 "$pkgdir"/usr/share/bash-completion/completions
   node "$srcdir"/cli-$pkgver/bin/npm-cli.js completion > "$pkgdir"/usr/share/bash-completion/completions/npm
+
+  mv "$pkgdir"/usr/lib/node_modules/npm/man "$pkgdir"/usr/share/
 
   install -Dm644 "$srcdir"/cli-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
