@@ -1,45 +1,66 @@
 # Maintainer: Jan Alexander Steffens (heftig) <jan.steffens@gmail.com>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 
-_pkgbasename=libsndfile
-pkgname=lib32-$_pkgbasename
-pkgver=1.0.28
-pkgrel=3
-pkgdesc="A C library for reading and writing files containing sampled sound (32-bit)"
+_name=libsndfile
+pkgname=lib32-$_name
+pkgver=1.0.31
+pkgrel=1
+pkgdesc="A C library for reading and writing files containing sampled audio data (32-bit)"
 arch=('x86_64')
-url="http://www.mega-nerd.com/libsndfile"
-license=('LGPL')
-depends=('lib32-alsa-lib' 'lib32-flac' 'lib32-libvorbis' $_pkgbasename)
-makedepends=('gcc-multilib' 'libtool-multilib')
+url="https://libsndfile.github.io/libsndfile/"
+license=('LGPL2.1')
+depends=('lib32-opus' "${_name}=${pkgver}")
+makedepends=('cmake' 'lib32-alsa-lib' 'lib32-flac' 'lib32-libogg'
+'lib32-libvorbis' 'lib32-sqlite' 'python')
 provides=('libsndfile.so')
-source=(http://www.mega-nerd.com/libsndfile/files/${_pkgbasename}-${pkgver}.tar.gz{,.asc})
-sha1sums=('85aa967e19f6b9bf975601d79669025e5f8bc77d'
-          'SKIP')
-validpgpkeys=('73571E85C19F4281D8C97AA86CA41A7743B8D6C8'
-              '6A91A5CF22C24C99A35E013FCFDCF91FB242ACED')
+source=("https://github.com/${_name}/${_name}/releases/download/${pkgver}/${_name}-${pkgver}.tar.bz2"{,.sig})
+sha512sums=('62202092e5cac6346fd3c0a977380e9bf888fc59d08c9c9707dc254a8ef6ed6356da2ab0430bb970c7b06ba5bb1dafa5d7b0fe13898834c1fe4acb16f409f0e1'
+            'SKIP')
+b2sums=('33e3c3d111427e829d8233aec52c227188834936839da9a04cf1ea5d2595d6a3127e7ce86d7686ca0336cca2017e6e2466845c27c7fc399efae34a0902316e41'
+        'SKIP')
+validpgpkeys=('6A91A5CF22C24C99A35E013FCFDCF91FB242ACED'  # Erik de Castro Lopo <erikd@mega-nerd.com>
+              '9B1CFD2E92239C4B288E025F9D0D1F1CCB35FF8C'  # evpobr evpobr@gmail.com
+              '31D95CAB6D80D262244A1750A47620E801E47E95'  # David Seifert soap@gentoo.org
+)
 
 build() {
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
-  cd ${_pkgbasename}-${pkgver}
+  cd "${_name}-${pkgver}"
+  # tests can only be built with static libs
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DCMAKE_INSTALL_LIBDIR=lib32 \
+        -Wno-dev \
+        -B build-test \
+        -S .
+  make VERBOSE=1 -C build-test
 
-  export GETCONF="getconf -v POSIX_V7_ILP32_OFFBIG"
-  export GETCONF_DIR="/usr/lib32/getconf"
-
-  ./configure --prefix=/usr --disable-sqlite --libdir=/usr/lib32
-  make -C src
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DBUILD_SHARED_LIBS=ON \
+        -DCMAKE_INSTALL_LIBDIR=lib32 \
+        -Wno-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
 }
 
 check() {
-  cd ${_pkgbasename}-${pkgver}
-  make check
+  cd "${_name}-${pkgver}"
+  make test -C build-test
 }
 
 package() {
-  cd ${_pkgbasename}-${pkgver}
-  make -C src DESTDIR="${pkgdir}" install
-  make DESTDIR="$pkgdir" install-pkgconfigDATA
+  depends+=('libFLAC.so' 'libogg.so' 'libvorbis.so' 'libvorbisenc.so')
 
-  rm -rf "$pkgdir/usr/include"
+  cd "${_name}-${pkgver}"
+  make DESTDIR="$pkgdir" install -C build
+  install -vDm 644 {AUTHORS,ChangeLog,NEWS,README} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  # remove everything that is provided by libsndfile
+  rm -rf "$pkgdir/usr/"{bin,include,share/{man,doc/${_name}}}
 }
