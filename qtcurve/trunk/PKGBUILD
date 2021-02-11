@@ -8,7 +8,7 @@ pkgbase=qtcurve
 pkgname=(qtcurve-utils qtcurve-gtk2 qtcurve-qt5 qtcurve-kde)
 epoch=1
 pkgver=1.9
-pkgrel=4
+pkgrel=5
 pkgdesc='A configurable set of widget styles for KDE and Gtk'
 arch=(x86_64)
 url='https://github.com/KDE/qtcurve/'
@@ -16,64 +16,58 @@ license=(LGPL)
 groups=(qtcurve)
 makedepends=(extra-cmake-modules gtk2 kdelibs4support kdoctools frameworkintegration kdesignerplugin kinit)
 source=(https://download.kde.org/stable/$pkgbase/$pkgbase-$pkgver.tar.xz{,.sig}
-        qtcurve-gcc9.patch::"https://cgit.kde.org/qtcurve.git/patch/?id=ee2228ea")
+        qtcurve-gcc9.patch::"https://invent.kde.org/system/qtcurve/-/commit/ee2228ea.patch"
+        qtcurve-qt5.15.patch::"https://invent.kde.org/system/qtcurve/-/commit/44e2a35e.patch")
 sha256sums=('281f5e3d13b0c1c0aeea6f5c7e895aedcb8f4ce91bdbd12d068d3616bc6d2f99'
             'SKIP'
-            'be0167f269f3b0161bdcb3f8cbc0ab1043a0b1df5ecf09e22996a4cb8a946027')
+            'fddbc6a58f5ee14de38f42554a3b559835361524e5a416d62500ff62c4265748'
+            'b965861d96681b446de5693d87d762861a00feff77c79dc243edc2b60e82ad3e')
 validpgpkeys=(D88390B2991F8242FABD2A3C07F45E2A1937DD32) # Yichao Yu <yyc1992@gmail.com>
 
 prepare() {
-  mkdir -p build{,-kde}
-
   cd $pkgbase-$pkgver
   patch -p1 -i ../qtcurve-gcc9.patch # Fix build with GCC 9
+  patch -p1 -i ../qtcurve-qt5.15.patch # Fix build with Qt 5.15
 }
 
 build() {
-  cd build
-  cmake ../$pkgbase-$pkgver \
+  cmake -B build -S $pkgbase-$pkgver \
     -DQTC_QT5_ENABLE_KDE=false \
     -DCMAKE_INSTALL_PREFIX=/usr
-  make
+  cmake --build build
 
-  cd ../build-kde
-  cmake ../$pkgbase-$pkgver \
+  cmake -B build-kde S $pkgbase-$pkgver \
     -DENABLE_GTK2=false
-  make
+  cmake --build build-kde
 }
 
 package_qtcurve-utils() {
   pkgdesc='A configurable set of widget styles for KDE and Gtk (shared libraries)'
   depends=(libx11 gcc-libs)
-  cd build/lib/utils
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build/lib/utils
 
 # Install translations
   mkdir "$pkgdir"/usr/share
-  cp -r ../../locale "$pkgdir"/usr/share 
+  cp -r build/locale "$pkgdir"/usr/share 
 }
 
 package_qtcurve-gtk2() {
   pkgdesk='A configurable set of widget styles for Gtk2'
   depends=(qtcurve-utils gtk2 perl)
-  cd build/gtk2
-  make DESTDIR="$pkgdir" install
-  cd ../lib/cairo
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build/gtk2
+  DESTDIR="$pkgdir" cmake --install build/lib/cairo
 }
 
 package_qtcurve-qt5() {
   pkgdesc='A configurable set of widget styles for Qt5'
   depends=(qtcurve-utils qt5-svg qt5-x11extras)
   groups=()
-  cd build/qt5
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build/qt5
 }
 
 package_qtcurve-kde() {
   pkgdesc='A configurable set of widget styles for Qt5 (with KDE integration)'
   depends=(qtcurve-utils kdelibs4support frameworkintegration)
   conflicts=(qtcurve-qt5)
-  cd build-kde/qt5
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build-kde/qt5
 }
