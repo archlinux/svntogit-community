@@ -3,7 +3,8 @@
 
 pkgname=gitlab-runner
 pkgver=13.8.0
-pkgrel=1
+_commit=775dd39d7
+pkgrel=2
 pkgdesc="The official GitLab CI runner written in Go"
 arch=('x86_64')
 url='https://gitlab.com/gitlab-org/gitlab-runner'
@@ -15,53 +16,49 @@ replaces=('gitlab-ci-multi-runner')
 backup=('etc/gitlab-runner/config.toml')
 noextract=("prebuilt-${pkgver}-x86_64.tar.xz"
            "prebuilt-${pkgver}-arm.tar.xz")
-source=("$pkgname-$pkgver.tar.gz::https://gitlab.com/api/v4/projects/gitlab-org%2Fgitlab-runner/repository/archive?sha=v${pkgver}"
+source=("git+https://gitlab.com/gitlab-org/gitlab-runner.git#tag=${_commit}"
         "prebuilt-${pkgver}-x86_64.tar.xz::https://gitlab-runner-downloads.s3.amazonaws.com/v${pkgver}/helper-images/prebuilt-x86_64.tar.xz"
         "prebuilt-${pkgver}-arm.tar.xz::https://gitlab-runner-downloads.s3.amazonaws.com/v${pkgver}/helper-images/prebuilt-arm.tar.xz"
         "gitlab-runner.service"
         "gitlab-runner.sysusers"
         "gitlab-runner.tmpfiles"
         "config.toml")
-sha512sums=('8d4df6188a266950e03973229aaa7a6d6ae68b972b3898d684a7a46d5af480715aee9471d598f269f6025aceac507f21837dd37a20e49d15e2024ee8399b2fdd'
+sha512sums=('SKIP'
             'a366d4a86bd53eeeaaebfc264b51cb203dd4297a5e917d312569e8bb5003ce5a0df76a19c3d89e4745b2a4c4938d820a510fcdc4077fa51cc9ceeaadbaf44441'
             'f48429043bfa86dc4cddfbb196105a493c9580650d936511cd69588e75117a4e4384091b45d52ed603cc019d967cef723171407417731091fd0f96aa45a51817'
-            '8a5a8b7654d3864722e784b2814c6278c17876f1c0c4fc0676fbcf6817ad2ba4be55501e67ce88c62b5b63ca886b01afc6feac98ba49842acd244abdd1a8296f'
+            'c0af374b9986895aedcfaee6c67cfad68f0f7289f87e4611358adaff59a2f349f55764fe28b2b1f61f8bfeb61126d4f90d433c626fdf9b826a2de6217f86574f'
             '8aa7f08702e99053c696fcc2aaba83beb9e9cd6f31973d82862db9350ac46df3a095377625d31fe909677525290d2de922d7a97930ed235774cb8f0da8944d40'
             '6751d9fa0b27172d1b419c4138f5ac15cbc7c9147653a7258cf1470216142c637210bb60608c7ed0974e0e4057e5ddeae32225df1bb36e7dd1f20fec71e33cc3'
             '9718b94bd0ddb09095ffb8c1e60ca1e9649dabb1747e7fc95e58e404b2f9effdeb4cfd759f5b904443dc53a4e18c02003c38f85584713deb49f6a6d1007503de')
 
-_srcdir="gitlab-runner-v${pkgver}-"
-
 prepare() {
-  local revision=$(ls -d ${_srcdir}* | rev | cut -c 33-40 | rev)
+  cd gitlab-runner
 
-  cd "${_srcdir}"*
+  local version=$(make version | grep "Current version:" | sed -n "s/.*: \(.*\)/\1/p")
+  local revision=$(make version | grep "Current revision:" | sed -n "s/.*: \(.*\)/\1/p")
+  local branch=$(make version | grep "Current branch:" | sed -n "s/.*: \(.*\)/\1/p")
 
-  local version=$(cat VERSION)
-
-  sed -i "s/export VERSION.*/export VERSION := $version/" Makefile
-  sed -i "s/REVISION := .*/REVISION := $revision/" Makefile
   sed -i "s/var VERSION.*/var VERSION = \"$version\"/" common/version.go
-
-  make version
+  sed -i "s/var REVISION.*/var REVISION = \"$revision\"/" common/version.go
+  sed -i "s/var BRANCH.*/var BRANCH = \"$branch\"/" common/version.go
 
   ln -sf "${srcdir}/prebuilt-${pkgver}-x86_64.tar.xz" prebuilt-x86_64.tar.xz
   ln -sf "${srcdir}/prebuilt-${pkgver}-arm.tar.xz" prebuilt-arm.tar.xz
 }
 
 build() {
-  export CGO_LDFLAGS="${LDFLAGS}"
-  export CGO_CFLAGS="${CFLAGS}"
   export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
 
-  cd "${_srcdir}"*
+  cd gitlab-runner
   go build -o gitlab-runner .
 }
 
 package() {
-  cd "${_srcdir}"*
+  cd gitlab-runner
 
   install -Dm644 "${srcdir}/config.toml" "${pkgdir}/etc/gitlab-runner/config.toml"
   install -Dm644 "${srcdir}/gitlab-runner.service" "${pkgdir}/usr/lib/systemd/system/gitlab-runner.service"
