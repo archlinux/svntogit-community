@@ -11,7 +11,7 @@ license=('MIT')
 depends=('python-toml' 'python-pep517' 'python-packaging')
 makedepends=('git' 'python-setuptools'
              'python-sphinx' 'python-sphinxcontrib-autoprogram' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
-checkdepends=('python-pytest' 'python-filelock')
+checkdepends=('python-pytest' 'python-pytest-mock' 'python-filelock')
 source=("git+$url#tag=$pkgver?signed")
 validpgpkeys=('3DCE51D60930EBA47858BA4146F633CBB0EB4BF2') # Filipe Laíns (FFY00) <lains@archlinux.org>
 sha512sums=('SKIP')
@@ -27,7 +27,7 @@ build() {
 check() {
   cd $_pkgname
 
-#  PYTHONPATH=src pytest
+  PYTHONPATH=src pytest
 }
 
 package() {
