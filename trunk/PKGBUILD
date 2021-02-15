@@ -3,7 +3,7 @@
 _name=sphinxcontrib-htmlhelp
 pkgname=python-sphinxcontrib-htmlhelp
 pkgver=1.0.3
-pkgrel=3
+pkgrel=4
 pkgdesc='Sphinx extension which renders HTML help files'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-htmlhelp
@@ -25,6 +25,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
+  rm -r tests
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 }
