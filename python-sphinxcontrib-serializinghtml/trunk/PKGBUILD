@@ -3,7 +3,7 @@
 _name=sphinxcontrib-serializinghtml
 pkgname=python-sphinxcontrib-serializinghtml
 pkgver=1.1.4
-pkgrel=3
+pkgrel=4
 pkgdesc='Sphinx extension which outputs "serialized" HTML files (json and pickle)'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-serializinghtml
@@ -25,6 +25,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
+  rm -r tests
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 }
