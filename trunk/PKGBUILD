@@ -3,7 +3,7 @@
 _name=sphinxcontrib-applehelp
 pkgname=python-sphinxcontrib-applehelp
 pkgver=1.0.2
-pkgrel=3
+pkgrel=4
 pkgdesc='Sphinx extension which outputs Apple help books'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-applehelp
@@ -25,6 +25,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
+  rm -r tests
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 }
