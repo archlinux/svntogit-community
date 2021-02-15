@@ -5,7 +5,7 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=3.4.3
+pkgver=3.5.0
 pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
@@ -29,9 +29,9 @@ checkdepends=('cython'
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
 source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('41cad293f954f7d37f803d97eb184158cfd90f51195131e94875bc07cd08b93c'
+sha256sums=('deb468efb3abaa70d790add4147d18782d86fdeacf648d6e8afb7a99807f1546'
             'SKIP')
-b2sums=('73a488564d5889bfc6d7f6f797aa3b144b03cf5f086a4543c3f4b2a452b353f4d799b80a14a0d4118e227660b7f9367fe8f3a2e91f6127cdca489cf4fad215f3'
+b2sums=('7a6cf06264a62d6adbb79f80120e1182a37a73e3f600f30325a6c32d58423e4f7d02bf9d737c31c5ba7f91e23e6e19a59486c58ec0d4e31636ac39ffce6a46b0'
         'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa <shimizukawa@gmail.com>
@@ -44,12 +44,12 @@ build() {
 check() {
   cd Sphinx-$pkgver
   LC_ALL="en_US.UTF-8" make test
-  rm -r tests
 }
 
 package() {
   cd Sphinx-$pkgver
   export PYTHONHASHSEED=0
+  rm -r tests
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 }
