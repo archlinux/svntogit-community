@@ -3,7 +3,7 @@
 _name=sphinxcontrib-jsmath
 pkgname=python-sphinxcontrib-jsmath
 pkgver=1.0.1
-pkgrel=6
+pkgrel=7
 pkgdesc='Sphinx extension which renders display math in HTML via JavaScript'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-jsmath
@@ -25,6 +25,7 @@ check() {
 
 package() {
   cd $_name-$pkgver
+  rm -r tests
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 }
