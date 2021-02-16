@@ -15,8 +15,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.10
-pkgrel=2
+pkgver=5.11
+pkgrel=1
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
@@ -39,7 +39,7 @@ makedepends+=('readline' 'zlib' 'libelf' 'libcap' 'python-docutils')
 makedepends+=('libcap')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
-        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
+#        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
         'cpupower.service'
@@ -48,7 +48,6 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
 sha256sums=('SKIP'
-            '1b5ca3683e8ae99eee357d11a2f2bfe21561883d6288e29d7bddf3eb0e007fcd'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'b692f4859ed3fd9831a058a450a84d8c409bf7e3e45aac1c2896a14bb83f3d7a'
             '42d2ec9f1d9cc255ee7945a27301478364ef482f5a6ddfc960189f03725ccec2'
