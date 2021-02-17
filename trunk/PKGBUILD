@@ -7,20 +7,19 @@
 # Contributor: Christopher Grebs <cg@webshox.org>
 # Contributor: mutantmonkey
 
-pkgname=rabbitmq
+pkgbase=rabbitmq
+pkgname=(rabbitmq rabbitmqadmin)
 pkgver=3.8.12
-pkgrel=1
+pkgrel=2
 pkgdesc='Highly reliable and performant enterprise messaging implementation of AMQP written in Erlang/OTP'
 url='https://rabbitmq.com'
 arch=('any')
 license=('MPL')
-depends=('util-linux' 'inetutils' 'erlang-nox' 'socat')
-optdepends=('rabbitmqadmin: CLI management tool'
-            'logrotate: rotate log files')
-makedepends=('zip' 'unzip' 'libxslt' 'xmlto' 'systemd' 'elixir' 'python' 'python-simplejson' 'rsync')
-backup=('etc/rabbitmq/rabbitmq-env.conf')
+makedepends=(
+  'zip' 'unzip' 'libxslt' 'xmlto' 'systemd' 'elixir' 'python' 'python-simplejson' 'rsync'
+  'util-linux' 'inetutils' 'erlang-nox' 'socat'
+)
 options=('!makeflags')
-install=rabbitmq.install
 source=(https://github.com/rabbitmq/rabbitmq-server/releases/download/v${pkgver}/rabbitmq-server-${pkgver}.tar.xz{,.asc}
         rabbitmq-customize-systemd-service.patch
         rabbitmq-env.conf
@@ -37,21 +36,27 @@ sha512sums=('60ad1ec561a065c26941859ac24fc7744937455a104a389c88f5054485216a04a3a
 validpgpkeys=('0A9AF2115F4687BD29803A206B73A36E6026DFCA') # RabbitMQ Release Signing Key <info@rabbitmq.com>
 
 prepare() {
-  cd ${pkgname}-server-${pkgver}
+  cd ${pkgbase}-server-${pkgver}
   sed -E 's|^(SYS_PREFIX=).*$|\1""|' -i deps/rabbit/scripts/rabbitmq-defaults
   sed -E 's|@RABBITMQ_USER@|rabbitmq|g' -i scripts/rabbitmq-script-wrapper
   sed -E 's|@RABBITMQ_GROUP@|rabbitmq|g' -i scripts/rabbitmq-script-wrapper
   sed -E 's|@STDOUT_STDERR_REDIRECTION@||g' -i scripts/rabbitmq-script-wrapper
+  sed -e "s|%%VSN%%|${pkgver}|" -i deps/rabbitmq_management/bin/rabbitmqadmin
   patch -p1 < ../rabbitmq-customize-systemd-service.patch
 }
 
 build() {
-  cd ${pkgname}-server-${pkgver}
+  cd ${pkgbase}-server-${pkgver}
   make
 }
 
-package() {
-  cd ${pkgname}-server-${pkgver}
+package_rabbitmq() {
+  depends=('util-linux' 'inetutils' 'erlang-nox' 'socat')
+  optdepends=('rabbitmqadmin: CLI management tool'
+              'logrotate: rotate log files')
+  backup=('etc/rabbitmq/rabbitmq-env.conf')
+  install=rabbitmq.install
+  cd ${pkgbase}-server-${pkgver}
   make DESTDIR="${pkgdir}" PREFIX=/usr RMQ_ROOTDIR=/usr/lib/rabbitmq \
     install install-man install-bin
 
@@ -70,6 +75,15 @@ package() {
   install -Dm 644 "${srcdir}/rabbitmq.logrotate" "${pkgdir}/etc/logrotate.d/rabbitmq"
 
   chown -R 197:0 "${pkgdir}/etc/rabbitmq"
+}
+
+package_rabbitmqadmin() {
+  pkgdesc='Command-line tool for managing RabbitMQ server (requires "management" plugin)'
+  url='https://www.rabbitmq.com/management-cli.html'
+  depends=('python')
+  cd ${pkgbase}-server-${pkgver}/deps/rabbitmq_management
+  install -Dm 755 bin/rabbitmqadmin -t "${pkgdir}/usr/bin"
+  install -Dm 644 LICENSE-MPL-RabbitMQ -t "${pkgdir}/usr/share/licenses/${pkgname}"
 }
 
 # vim: ts=2 sw=2 et:
