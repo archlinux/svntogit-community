@@ -2,7 +2,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.5.5
+pkgver=1.5.6
 pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -32,12 +32,20 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/uefi_capsule.conf'
         'etc/fwupd/upower.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('06f60f8b1c09f500b0017dfb0d20dd3079e4f4848983c40dc3fd9f173e4e5530'
+sha256sums=('133f2836349f3f2884bedfb6bf24b6772ed6e503a714a6e2fb17d7fde8852fb5'
             'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
-    arch-meson ${pkgname}-${pkgver} build -D b_lto=false -D plugin_flashrom=true -D supported_build=true
+    arch-meson ${pkgname}-${pkgver} build \
+        -D b_lto=false \
+        -D plugin_flashrom=true \
+        -D supported_build=true \
+        -D efi_sbat_distro_id='arch' \
+        -D efi_sbat_distro_summary='Arch Linux' \
+        -D efi_sbat_distro_pkgname=${pkgname} \
+        -D efi_sbat_distro_version=${pkgver} \
+        -D efi_sbat_distro_url="https://archlinux.org/packages/community/x86_64/${pkgname}/"
     meson compile -C build
 }
 
