@@ -1,47 +1,34 @@
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
 
 pkgbase=ghdl
-pkgname=('ghdl-mcode' 'ghdl-llvm' 'ghdl-gcc')
+pkgname=('ghdl-mcode' 'ghdl-llvm' 'ghdl-gcc' 'python-pyghdl')
 _gcc=10.2.0
-_isl=0.22.1
-pkgver=0.37
-pkgrel=10
+_isl=0.23
+pkgver=1.0.0
+pkgrel=1
 pkgdesc='VHDL simulator'
 arch=('x86_64')
 url='https://github.com/ghdl/ghdl'
 license=('GPL2')
 depends=('gcc-ada')
-checkdepends=('python')
-makedepends=('gmp' 'mpfr' 'libmpc' 'zlib' 'llvm' 'clang')
-provides=('ghdl')
-conflicts=('ghdl')
+makedepends=('gmp' 'mpfr' 'libmpc' 'zlib' 'llvm' 'clang' 'python-setuptools')
 validpgpkeys=('33C235A34C46AA3FFB293709A328C3A2C3C45C06'  # Jakub Jelinek <jakub@redhat.com>
               '13975A70E63C361C73AE69EF6EEB81F8981C74C7') # richard.guenther@gmail.com
 source=("$pkgbase-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
         "https://ftp.gnu.org/gnu/gcc/gcc-$_gcc/gcc-$_gcc.tar.xz"{,.sig}
-        "http://isl.gforge.inria.fr/isl-$_isl.tar.bz2"
-        "ghdl-llvm10.patch::$url/commit/cfb359f0b05e9042c1045213b93b09e465fa8ccc.patch"
-        "ghdl-llvm11.patch::$url/commit/4315157db5914607126b64b92e2bfc2de66b2084.patch")
-sha512sums=('1ecb12379a99948740e795a51a5a7454a4231064e20b779355c4450ee6b3f6622285b6aa9b9cc53fc23352b1a017f0c735d7e567f42fbfff54d697c4cc0b6be9'
+        "http://isl.gforge.inria.fr/isl-$_isl.tar.bz2")
+sha512sums=('efaa277132de3caeafedace137b58fa05bfa61567f12480092b1e8f74a4438e40c85c6e21cd0c5d65fbba3d116b65265e3939a8b5df951baf74837c1eca3196f'
             '42ae38928bd2e8183af445da34220964eb690b675b1892bbeb7cd5bb62be499011ec9a93397dba5e2fb681afadfc6f2767d03b9035b44ba9be807187ae6dc65e'
             'SKIP'
-            '4ae77dc87e276433c27b36a0bc03d9e2ea9e9692d00ac51d593a54df041d4f46a05213e9afbc7bce7557f09a7be9e928064c780e1de145e97b12d24c6fe9c77b'
-            '67aff7e7bdcf4b517074a3f436ee2b1fc9b4b1d9d618fe6df0b7819cb44471d051682b1c78e95ce67616563e0714a6297c9936af79d784d49778a8a9cbdad36b'
-            'a043a4226dc7bef636dd967c7fb9866ba765c9a6843b28274a89851aa98f65a062e3f35aea58449f05254353bf0820102483470b88a0fa7e909f7b45a27a9732')
-
-export GNATMAKE="gnatmake $MAKEFLAGS"
+            '05dfbdbbe852e2440b272808b23210374ce4ce46298eeb4c18ca8725db834b0da607338a371e3d07a78585fc7e0de182e75bf09dff11477937228bd97b7b83f7')
 
 prepare() {
-  cd $pkgbase-$pkgver
-
-  patch -Np1 -i ../ghdl-llvm10.patch
-  patch -Np1 -i ../ghdl-llvm11.patch
-
   cd "$srcdir"
 
   cp -r $pkgbase-$pkgver ghdl-mcode
   cp -r $pkgbase-$pkgver ghdl-llvm
   cp -r $pkgbase-$pkgver ghdl-gcc
+  cp -r $pkgbase-$pkgver pyghdl
 
   mkdir gcc-build
 
@@ -62,11 +49,11 @@ _configure() {
       --enable-checks \
       --enable-libghdl \
       --enable-synth $@
-
-#      --enable-openieee \
 }
 
 build() {
+  export GNATMAKE="gnatmake $MAKEFLAGS"
+
   echo 'Building ghdl-mcode...'
   cd "$srcdir"/ghdl-mcode
 
@@ -119,6 +106,11 @@ build() {
       GHDL_GCC_BIN="$srcdir"/gcc-build/gcc/ghdl \
       GHDL1_GCC_BIN="--GHDL1=$srcdir/gcc-build/gcc/ghdl1" \
       ghdllib
+
+  echo 'Building pyghdl...'
+  cd "$srcdir"/pyghdl
+
+  python setup.py build
 }
 
 #check() {
@@ -136,6 +128,8 @@ build() {
 
 package_ghdl-mcode() {
   pkgdesc="$pkgdesc (mcode backend)"
+  provides=('ghdl')
+  conflicts=('ghdl')
 
   cd $pkgname
 
@@ -145,6 +139,8 @@ package_ghdl-mcode() {
 package_ghdl-llvm() {
   pkgdesc="$pkgdesc (LLVM backend)"
   depends+=('llvm-libs')
+  provides=('ghdl')
+  conflicts=('ghdl')
   options=(!emptydirs)
 
   cd $pkgname
@@ -181,3 +177,11 @@ package_ghdl-gcc() {
   make DESTDIR="$pkgdir" install
 }
 
+package_python-pyghdl() {
+  pkgdesc='Python bindings for GHDL'
+  depends=('ghdl' 'python-pydecor' 'python-pyvhdlmodel')
+
+  cd pyghdl
+
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
