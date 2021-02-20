@@ -3,7 +3,7 @@
 # Contributor: hexchain <i@hexchain.org>
 
 pkgname=mypy
-pkgver=0.800
+pkgver=0.812
 pkgrel=1
 pkgdesc='Optional static typing for Python 2 and 3 (PEP484)'
 url="http://www.mypy-lang.org/"
@@ -12,7 +12,7 @@ license=('MIT')
 depends=('python-setuptools' 'python-psutil' 'python-typed-ast' 'python-mypy_extensions' 'python-typing_extensions')
 makedepends=('git')
 source=("$pkgname-$pkgver.tar.gz::https://pypi.org/packages/source/m/$pkgname/$pkgname-$pkgver.tar.gz")
-sha256sums=('e0202e37756ed09daf4b0ba64ad2c245d357659e014c3f51d8cd0681ba66940a')
+sha256sums=('cd07039aa5df222037005b08fbbfd69b3ab0b0bd7a07d7906de75ae52c4e3119')
 
 build() {
     cd "$pkgname-$pkgver"
