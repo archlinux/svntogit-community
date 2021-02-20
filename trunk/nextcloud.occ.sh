@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-readonly default_config="/etc/php7/php.ini"
-readonly default_php_command="/usr/bin/php7"
+readonly default_config="/etc/php/php.ini"
+readonly default_php_command="/usr/bin/php"
 readonly default_user="nextcloud"
 
 config=""
