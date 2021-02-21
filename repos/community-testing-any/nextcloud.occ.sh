@@ -18,24 +18,24 @@ check_sudo() {
 check_sudo
 
 # allow overriding the php.ini
-if [[ -n "${PHP_CONFIG}" ]] && [[ -f "${PHP_CONFIG}" ]]; then
-  config="${PHP_CONFIG}"
+if [[ -n "${NEXTCLOUD_PHP_CONFIG}" ]] && [[ -f "${NEXTCLOUD_PHP_CONFIG}" ]]; then
+  config="${NEXTCLOUD_PHP_CONFIG}"
 else
   config="${default_config}"
 fi
 
 # allow overriding the php executable
-if [[ -n "${PHP}" ]] && command -v "${PHP}" > /dev/null; then
-  php_command="${PHP}"
+if [[ -n "${NEXTCLOUD_PHP}" ]] && command -v "${NEXTCLOUD_PHP}" > /dev/null; then
+  php_command="${NEXTCLOUD_PHP}"
 else
   php_command="${default_php_command}"
 fi
 
 # allow overriding the user to run as
-if [[ -n "${USER}" ]]; then
-  user="${USER}"
+if [[ -n "${NEXTCLOUD_USER}" ]] && uid "${NEXTCLOUD_USER}" > /dev/null 2>&1; then
+  user="${NEXTCLOUD_USER}"
 else
   user="${default_user}"
 fi
 
-sudo -u "${user}" "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
+sudo -u "$user" "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
