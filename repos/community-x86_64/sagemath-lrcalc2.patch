@@ -1,5 +1,5 @@
 diff --git a/build/pkgs/lrcalc/checksums.ini b/build/pkgs/lrcalc/checksums.ini
-index 7a0e6a1b96..60fa8705dd 100644
+index 7a0e6a1b96..70de56c40d 100644
 --- a/build/pkgs/lrcalc/checksums.ini
 +++ b/build/pkgs/lrcalc/checksums.ini
 @@ -1,4 +1,5 @@
@@ -7,17 +7,17 @@ index 7a0e6a1b96..60fa8705dd 100644
 -sha1=89c288875bc3e3e2919876cb645bdfd7316b5965
 -md5=6bba16c0cca9debccd0af847bd3d4a23
 -cksum=3738483656
-+sha1=1fc72c3ba8608e1393b6f75f2edad65225849067
-+md5=166404839402290cec165c63c1fd24d8
-+cksum=438483389
++sha1=2a98661eb39c7ef526c932f7886fc3142fd639ab
++md5=7cfa8f67287f2b70a15a833b94bc24b6
++cksum=2250996027
 +upstream_url=https://sites.math.rutgers.edu/~asbuch/lrcalc/lrcalc-VERSION.tar.gz
 diff --git a/build/pkgs/lrcalc/package-version.txt b/build/pkgs/lrcalc/package-version.txt
-index 92ab3427e8..cd5ac039d6 100644
+index 92ab3427e8..879b416e60 100644
 --- a/build/pkgs/lrcalc/package-version.txt
 +++ b/build/pkgs/lrcalc/package-version.txt
 @@ -1 +1 @@
 -1.2.p1
-+2.0
++2.1
 diff --git a/build/pkgs/lrcalc/patches/includes.patch b/build/pkgs/lrcalc/patches/includes.patch
 deleted file mode 100644
 index 707da176a6..0000000000
@@ -114,6 +114,17 @@ index 707da176a6..0000000000
 --- 
 -2.1.1.1.g1fb337f
 -
+diff --git a/build/pkgs/lrcalc/spkg-install.in b/build/pkgs/lrcalc/spkg-install.in
+index d6665bfb42..a34493b776 100644
+--- a/build/pkgs/lrcalc/spkg-install.in
++++ b/build/pkgs/lrcalc/spkg-install.in
+@@ -7,3 +7,6 @@ cp "$SAGE_ROOT"/config/config.sub .
+ sdh_configure
+ sdh_make
+ sdh_make_install
++
++cd python
++sdh_pip_install .
 diff --git a/src/sage/libs/lrcalc/lrcalc.pxd b/src/sage/libs/lrcalc/lrcalc.pxd
 deleted file mode 100644
 index 10b88db93f..0000000000
@@ -201,10 +212,10 @@ diff --git a/src/sage/libs/lrcalc/lrcalc.pyx b/src/sage/libs/lrcalc/lrcalc.py
 similarity index 65%
 rename from src/sage/libs/lrcalc/lrcalc.pyx
 rename to src/sage/libs/lrcalc/lrcalc.py
-index 1cf67dc15a..5834ab8370 100644
+index 1cf67dc15a..d4e2f5d538 100644
 --- a/src/sage/libs/lrcalc/lrcalc.pyx
 +++ b/src/sage/libs/lrcalc/lrcalc.py
-@@ -187,180 +187,15 @@ AUTHORS:
+@@ -187,180 +187,16 @@ AUTHORS:
  #                  https://www.gnu.org/licenses/
  # ****************************************************************************
  
@@ -384,14 +395,15 @@ index 1cf67dc15a..5834ab8370 100644
 +from sage.combinat.skew_tableau import SkewTableaux
 +from sage.combinat.skew_partition import SkewPartition
 +from sage.combinat.words.word import Word
++from sage.rings.integer import Integer
 +import lrcalc
  
 +def _lrcalc_dict_to_sage(result):
-+    return dict({_Partitions(i):k for i,k in result.items()})
++    return dict({_Partitions(i):Integer(k) for i,k in result.items()})
  
  def lrcoef_unsafe(outer, inner1, inner2):
      r"""
-@@ -392,18 +227,7 @@ def lrcoef_unsafe(outer, inner1, inner2):
+@@ -392,18 +228,7 @@ def lrcoef_unsafe(outer, inner1, inner2):
          sage: lrcoef_unsafe([2,1,1,1,1], [2,1], [2,1])
          0
      """
@@ -407,11 +419,11 @@ index 1cf67dc15a..5834ab8370 100644
 -    v_free(i1)
 -    v_free(i2)
 -    return Integer(result)
-+    return lrcalc.lrcoef(outer, inner1, inner2)
++    return Integer(lrcalc.lrcoef(outer, inner1, inner2))
  
  
  def lrcoef(outer, inner1, inner2):
-@@ -510,44 +334,21 @@ def mult(part1, part2, maxrows=None, level=None, quantum=None):
+@@ -510,44 +335,23 @@ def mult(part1, part2, maxrows=None, level=None, quantum=None):
      if quantum is not None and (level is None or maxrows is None):
          raise ValueError('missing parameters maxrows or level')
  
@@ -457,17 +469,19 @@ index 1cf67dc15a..5834ab8370 100644
 -
 -
 -def skew(outer, inner, maxrows=0):
-+    mf = lrcalc.mult_fusion(part1, part2, maxrows, level)
-+    q_degrees = [sum(int((v[i]+len(v)-i-1)/(len(v)+level)) for i in range(len(v))) for v in mf.keys()]
-+    mq = list(lrcalc.mult_quantum(part1, part2, maxrows, level).items())
-+    return dict({_Partitions(mq[i][0]):mq[i][1] * quantum**q_degrees[i] for i in range(len(mq))})
++    result = lrcalc.mult_quantum(part1, part2, maxrows, level, degrees=True)
++    P = quantum.parent()
++    output = {}
++    for i,k in result.items():
++        output[_Partitions(i[0])] = output.get(_Partitions(i[0]), P.zero()) + k*quantum**(i[1])
++    return output
 +
 +
 +def skew(outer, inner, maxrows=-1):
      """
      Compute the Schur expansion of a skew Schur function.
  
-@@ -572,14 +373,7 @@ def skew(outer, inner, maxrows=0):
+@@ -572,14 +376,7 @@ def skew(outer, inner, maxrows=0):
          sage: sorted(skew([2,1],[1]).items())
          [([1, 1], 1), ([2], 1)]
      """
@@ -483,7 +497,7 @@ index 1cf67dc15a..5834ab8370 100644
  
  
  def coprod(part, all=0):
-@@ -609,12 +403,8 @@ def coprod(part, all=0):
+@@ -609,12 +406,8 @@ def coprod(part, all=0):
          sage: sorted(coprod([2,1]).items())
          [(([1, 1], [1]), 1), (([2], [1]), 1), (([2, 1], []), 1)]
      """
@@ -494,11 +508,11 @@ index 1cf67dc15a..5834ab8370 100644
 -    hash_free(ht)
 -    return result
 +    result = lrcalc.coprod(part, all)
-+    return dict({tuple(_Partitions(j) for j in i):k for i,k in result.items()})
++    return dict({tuple(_Partitions(j) for j in i):Integer(k) for i,k in result.items()})
  
  
  def mult_schubert(w1, w2, rank=0):
-@@ -646,17 +436,11 @@ def mult_schubert(w1, w2, rank=0):
+@@ -646,17 +439,11 @@ def mult_schubert(w1, w2, rank=0):
           ([6, 4, 3, 1, 2, 5], 1), ([6, 5, 2, 1, 3, 4], 1),
           ([7, 3, 4, 1, 2, 5, 6], 1), ([7, 4, 2, 1, 3, 5, 6], 1)]
      """
@@ -511,7 +525,7 @@ index 1cf67dc15a..5834ab8370 100644
 -    hash_free(ht)
 -    return result
 +    result = lrcalc.schubmult(w1, w2, rank)
-+    return dict({Permutation(list(i)):k for i,k in result.items()})
++    return dict({Permutation(list(i)):Integer(k) for i,k in result.items()})
  
  
 -def lrskew(outer, inner, weight=None, maxrows=0):
@@ -519,7 +533,7 @@ index 1cf67dc15a..5834ab8370 100644
      r"""
      Iterate over the skew LR tableaux of shape ``outer / inner``.
  
-@@ -703,21 +487,23 @@ def lrskew(outer, inner, weight=None, maxrows=0):
+@@ -703,21 +490,23 @@ def lrskew(outer, inner, weight=None, maxrows=0):
          sage: list(lrskew([3,2,1],[2], weight=[3,1]))
          [[[None, None, 1], [1, 1], [2]]]
      """
