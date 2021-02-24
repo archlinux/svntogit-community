@@ -4,14 +4,14 @@ pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=11.2.1
 _driverver=460.32.03
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
 license=('custom:NVIDIA')
 depends=('gcc-libs'  'gcc' 'opencl-nvidia' 'nvidia-utils' 'python')
 replaces=('cuda-toolkit' 'cuda-sdk')
-provides=('cuda-toolkit' 'cuda-sdk')
+provides=('cuda-toolkit' 'cuda-sdk' "libcudart.so=$pkgver" "libcublas.so=$pkgver" "libcusolver.so=$pkgver" "libcusparse.so=$pkgver")
 optdepends=('gdb: for cuda-gdb')
 options=(!strip staticlibs)
 install=cuda.install
