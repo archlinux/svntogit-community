@@ -2,18 +2,18 @@
 
 _name=inflect
 pkgname=python-inflect
-pkgver=5.0.2
-pkgrel=2
+pkgver=5.2.0
+pkgrel=1
 pkgdesc="Correctly generate plurals, singular nouns, ordinals, indefinite articles"
 arch=('any')
 url="https://github.com/jazzband/inflect"
 license=('MIT')
 depends=('python')
-makedepends=('python-setuptools')
+makedepends=('python-setuptools_scm')
 checkdepends=('python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('ea97ec4a4a1a94a6218e60c20d63e483026beb1901abe2fa69f186a823f8a786b9a82af231fc42bf705146f650fdbfa5ff660cfbe821eceb53891ef2e91eaec3')
-b2sums=('42b2524b00a8b71aca6f164de9b57708be172ce63bc62480e951d082bd68f082ad2fadb502321a5fc97ffa3af95f26935d0de855144863b9bd1dfbdf3bdae516')
+sha512sums=('2883ffccd28c436908783855a282ff4346c74b14fe5899ed6b9fde0f0f1b97063119f7fbe927f1bf0d16761623abcdfe21439c12311bd2a11a70245b89fbce0b')
+b2sums=('cf2327eb0aca6319b43076a0f52d7e5c52bad3be45cbc094e620d6219b0b05021d05c289992b36d3221d1e582352497fb278d9225ece49ddc0630f91199b1617')
 
 prepare() {
   mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
