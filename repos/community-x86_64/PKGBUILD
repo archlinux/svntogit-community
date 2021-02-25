@@ -6,74 +6,43 @@
 # Contributor: Ben Alex <ben.alex@acegi.com.au>
 
 pkgname=influxdb
-pkgver=1.8.3
+pkgver=2.0.4
+_commit_sha=4e7a59b
 pkgrel=1
 pkgdesc='Scalable datastore for metrics, events, and real-time analytics'
 arch=('x86_64')
 url='https://github.com/InfluxData/influxdb'
 license=('MIT')
-makedepends=('go' 'git' 'asciidoc' 'xmlto' 'dep')
+makedepends=('go' 'git' 'bzr' 'protobuf' 'yarn' 'cargo' 'clang' 'llvm')
 backup=('etc/influxdb/influxdb.conf')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/influxdata/influxdb/archive/v${pkgver}.tar.gz"
-        "fix-go114.patch::https://github.com/Foxboron/influxdb/commit/f8453b48862b50fe44021e320332f75e32457f29.patch"
-        "fix-go115.patch::https://github.com/influxdata/influxdb/commit/3a03ad500a4b2bba65a4af74995ad54e88de7210.patch"
-        "influxdb.sysusers"
-        "influxdb.tmpfiles")
-sha256sums=('d8b89e324ed7343c1397124ac3cc68c405406faf74e7369e733611cada54656d'
-            '2812f5cd31bdf6b9f587d471c249fb90ea58c4000ce52e3b91de7b17ca74dc7d'
-            '616ce43eebc1cbbe5d6376dd6306ffddc3aa1ab0cd396e1b9918ae43e6a27572'
-            '809cca823ae3027984bc7ace70db75753d7d0d4f6658a36db9d94a33054ca5e9'
-            'e2aa59413a6204737383b86cedefd866d7073f56ace5b89aad38c530cc86e60c')
-prepare() {
-  cd "${pkgname}-${pkgver}"
-  patch -Np1 < "$srcdir/fix-go114.patch"
-  patch -Np1 < "$srcdir/fix-go115.patch"
-  mkdir -p build
-}
+source=("git+https://github.com/influxdata/influxdb.git#tag=v${pkgver}"
+        "influxdb.service")
+sha256sums=('SKIP'
+            'a22ba54f10fa98ec4e81e864c0c3181e53dedd9e23e1d112ac4ad22c4fa4d9ee')
 
 build(){
-  cd "$pkgname-$pkgver"
+  cd "$pkgname"
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
   export CGO_LDFLAGS="${LDFLAGS}"
   export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
-  _LDFLAGS="-linkmode external -X main.version=$pkgver -X main.branch=master"
-  go build -v -ldflags="$_LDFLAGS" -o build ./cmd/...
-  cd "man"
-  make
+  export LDFLAGS="-linkmode external"
+  make -j1 VERSION=$pkgver COMMIT=$_commit_sha INFLUXDB_SHA=$_commit_sha
 }
 
 check(){
-  cd "$pkgname-$pkgver"
-  export CGO_CPPFLAGS="${CPPFLAGS}"
-  export CGO_CFLAGS="${CFLAGS}"
-  export CGO_CXXFLAGS="${CXXFLAGS}"
-  export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
-  go test ./...
+  cd "$pkgname"
+  make test
 }
 
 package(){
-  cd "$pkgname-$pkgver"
-
-  install -Dm644 ../influxdb.sysusers "$pkgdir/usr/lib/sysusers.d/influxdb.conf"
-  install -Dm644 ../influxdb.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/influxdb.conf"
+  cd "$pkgname"
+  install -Dm644 ../influxdb.service "$pkgdir/usr/lib/systemd/system/influxdb.service"
 
   install -d "$pkgdir/usr/bin/"
-  install -Dm755 build/influx         "$pkgdir/usr/bin/"
-  install -Dm755 build/influxd        "$pkgdir/usr/bin/"
-  install -Dm755 build/influx_inspect "$pkgdir/usr/bin/"
-  install -Dm755 build/influx_stress  "$pkgdir/usr/bin/"
-  install -Dm755 build/influx_tools   "$pkgdir/usr/bin/"
-  install -Dm755 build/influx_tsm     "$pkgdir/usr/bin/"
-  # install -Dm755 store          "$pkgdir/usr/bin/"
+  install -Dm755 bin/linux/influx         "$pkgdir/usr/bin/"
+  install -Dm755 bin/linux/influxd        "$pkgdir/usr/bin/"
 
-  install -Dm644 scripts/influxdb.service "$pkgdir/usr/lib/systemd/system/influxdb.service"
-  install -Dm644 etc/config.sample.toml   "$pkgdir/etc/influxdb/influxdb.conf"
   install -Dm644 LICENSE                  "$pkgdir/usr/share/licenses/influxdb/LICENSE"
-
-  # Install man pages
-  install -d "$pkgdir/usr/share/man/man1"
-  install -Dm644 man/*.1 "$pkgdir/usr/share/man/man1/"
 }
