@@ -2,7 +2,7 @@
 
 _target=aarch64-linux-gnu
 pkgname=$_target-binutils
-pkgver=2.35.1
+pkgver=2.36.1
 pkgrel=1
 pkgdesc='A set of programs to assemble and manipulate binary and object files for the ARM64 target'
 arch=(x86_64)
@@ -10,7 +10,7 @@ url='https://www.gnu.org/software/binutils/'
 license=(GPL)
 depends=(zlib)
 source=(https://ftp.gnu.org/gnu/binutils/binutils-$pkgver.tar.bz2{,.sig})
-sha1sums=('df4eb943bf65df4bbbd0a001efcc98113423c5dd'
+sha1sums=('968cddc17354142ab7d60b93d7f169ec8373a9f4'
           'SKIP')
 validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
               '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton (Chief Binutils Maintainer) <nickc@redhat.com>
@@ -59,6 +59,7 @@ package() {
 
   # Remove file conflicting with host binutils and manpages for MS Windows tools
   rm "$pkgdir"/usr/share/man/man1/$_target-{dlltool,windres,windmc}*
+  rm "$pkgdir"/usr/lib/bfd-plugins/libdep.so
 
   # Remove info documents that conflict with host version
   rm -r "$pkgdir"/usr/share/info
