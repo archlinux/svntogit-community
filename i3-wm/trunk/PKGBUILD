@@ -4,7 +4,7 @@
 # Contributor: Thorsten Töpper <atsutane-tu@freethoughts.de>
 
 pkgname=i3-wm
-pkgver=4.19.1
+pkgver=4.19.2
 pkgrel=1
 pkgdesc='Improved dynamic tiling window manager'
 arch=('x86_64')
@@ -27,7 +27,7 @@ replaces=('i3' 'i3bar')
 backup=('etc/i3/config')
 source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc}
         '0001-Use-OVER-operator-for-drawing-text.patch')
-b2sums=('a4d01d10c076da092faef2111ba0fadb481257c0011419cc911be0b63c0ff78053a39ff4a2887f6344794ea895190ebf1ac3585b598dbb90ff77d4de8fad7c53'
+b2sums=('28d4dba50ae30cb620dcbd759e0ba29e284071234261aca2a217b6eef9194f72eca67d3632dc1e6a9b9879925e55c18b7a42676eaed41dd1354f772e48309d45'
         'SKIP'
         '35be78fc8be805fa4b7f32c8a18c62a0436f433e9064ef5adf32baa9aa816276da3b53b977287640ab70f30eea14bbd4dc002d49d9149afa01e0706a45dba947')
 validpgpkeys=('424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D') # Michael Stapelberg <michael@stapelberg.de>
