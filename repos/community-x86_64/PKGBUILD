@@ -2,8 +2,8 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.3
-pkgrel=3
+pkgver=20.10.4
+pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
 arch=('x86_64')
@@ -33,12 +33,6 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             '541826011a9836d05a2f42293d5f1beadf2ca8d89fb604487d61a013505678eb')
-
-prepare(){
-  cd cli
-  sed -i 's/-v md2man/-v go-md2man/' scripts/docs/generate-man.sh
-  sed -i 's/md2man/go-md2man/' man/md2man-all.sh
-}
 
 # create a fake go path directory and pushd into it
 # $1 real directory
