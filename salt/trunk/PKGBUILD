@@ -1,11 +1,13 @@
 # Maintainer: Johannes Löthberg <johannes@kyriasis.com>
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
 # Contributor: Sébastien Luttringer
 # Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
 # Contributor: Christer Edwards <christer.edwards@gmail.com>
+# Contributor: zer0def <zer0def@github>
 
 pkgname=salt
-pkgver=2019.2.7
-pkgrel=1
+pkgver=3002.5
+pkgrel=3
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -15,19 +17,19 @@ license=('Apache')
 replaces=('salt-zmq' 'salt-raet')
 conflicts=('salt-zmq' 'salt-raet')
 
-depends=('python2-jinja'
-         'python2-msgpack'
-         'python2-yaml'
-         'python2-markupsafe'
-         'python2-requests'
-         'python2-pyzmq'
-         'python2-crypto'
-         'python2-m2crypto'
-         'python2-systemd'
-         'python2-tornado'
-         'python2-futures')
+depends=('python-jinja'
+         'python-msgpack'
+         'python-yaml'
+         'python-markupsafe'
+         'python-requests'
+         'python-pyzmq'
+         'python-m2crypto'
+         'python-systemd'
+         'python-distro'
+         'python-pycryptodomex')
 optdepends=('dmidecode: decode SMBIOS/DMI tables'
-            'python2-pygit2: gitfs support')
+            'python-pygit2: gitfs support')
+#checkdepends=('python-pytest' 'python-psutil')
 
 backup=('etc/logrotate.d/salt'
         'etc/salt/master'
@@ -37,19 +39,26 @@ install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
-sha256sums=('d648bcfb7f6c3f2e13b5dfd67dec1043fc25cc72ebebec94b00b1dc5b2e1b873'
+sha256sums=('c8ab404335104351066ec1bcc42278aa77e24aaacc308603939d75aba05519af'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 build() {
   cd salt-$pkgver
-  python2 setup.py build
+  python setup.py build
 }
+
+# TODO: Missing salt-factories, pytest-tempdir
+# check() {
+#   cd salt-$pkgver
+#   python setup.py install --root="$PWD/tmp_install" --optimize=1
+#   PYTHONPATH="$PWD/tmp_install/usr/lib/python3.9/site-packages:$PYTHONPATH" py.test
+# }
 
 package() {
   install -Dm644 salt.logrotate "$pkgdir"/etc/logrotate.d/salt
 
   cd salt-$pkgver
-  python2 setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
+  python setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
 
   # default config
   install -Dm644 conf/master "$pkgdir/etc/salt/master"
