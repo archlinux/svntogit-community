@@ -2,12 +2,13 @@
 
 pkgname=python-tqdm
 pkgver=4.58.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
 license=('MIT' 'MPL')
 url='https://github.com/tqdm/tqdm'
 depends=('python')
+optdepends=('python-requests: telegram')
 makedepends=('python-setuptools-scm')
 checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-pytest-timeout' 'python-numpy'
               'python-pandas' 'python-tensorflow')
