@@ -9,7 +9,7 @@ license=('MIT' 'MPL')
 url='https://github.com/tqdm/tqdm'
 depends=('python')
 optdepends=('python-requests: telegram')
-makedepends=('python-setuptools-scm')
+makedepends=('python-setuptools-scm' 'python-toml')
 checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-pytest-timeout' 'python-numpy'
               'python-pandas' 'python-tensorflow')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tqdm/tqdm/archive/v$pkgver.tar.gz")
