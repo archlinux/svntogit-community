@@ -7,7 +7,7 @@
 
 pkgname=python-keyring
 _pkgname=keyring
-pkgver=22.0.1
+pkgver=22.3.0
 pkgrel=1
 pkgdesc='Store and access your passwords safely'
 arch=('any')
