@@ -38,4 +38,4 @@ else
   user="${default_user}"
 fi
 
-sudo -u "$user" "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
+sudo --preserve-env=NEXTCLOUD_CONFIG_DIR -u "$user" "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
