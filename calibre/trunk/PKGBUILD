@@ -8,13 +8,13 @@
 
 pkgbase=calibre
 pkgname=calibre
-pkgver=5.11.0
+pkgver=5.12.0
 pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
 license=('GPL3')
-_py_deps=('apsw' 'beautifulsoup4' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython'
+_py_deps=('apsw' 'beautifulsoup4' 'cchardet' 'cssselect' 'css-parser' 'dateutil' 'dbus' 'dnspython'
           'feedparser' 'html2text' 'html5-parser' 'lxml' 'markdown' 'mechanize' 'msgpack'
           'netifaces' 'unrardll' 'pillow' 'psutil' 'py7zr' 'pychm' 'pygments' 'pyqt5'
           'pyqtwebengine' 'regex' 'zeroconf')
@@ -29,9 +29,9 @@ conflicts=('calibre-common' 'calibre-python3')
 replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
-sha256sums=('3c8f8a20c9ec961a1a82ff54e8c726a3d3a77eef1c955a8048d9438abf09cd4c'
+sha256sums=('377ff2d64496c8cdfa2e9c1b8a67ed27aee1e337e4da3f6172f522fe940bdd85'
             'SKIP')
-b2sums=('fe543977be60fa36cb12bf3dc0e93a7385aa43d788d031daf815b351a014571a409f3378efd790e59a16e22c7ac9f0e52288fd8c725a79523cdb88478cd06acf'
+b2sums=('db74c89f24e25fd38a2781d06bf74eff54a2fc4ff43e6752785eccaff5b59bb736206b3f6c4e65e7a408a345f942979957ceeac300d8d76cee8b047432c9df54'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
