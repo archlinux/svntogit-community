@@ -7,13 +7,13 @@
 pkgname=aircrack-ng
 _pkgver=1.6
 pkgver=${_pkgver//-/}
-pkgrel=3
+pkgrel=4
 pkgdesc="Key cracker for the 802.11 WEP and WPA-PSK protocols"
 arch=('x86_64')
 url="https://www.aircrack-ng.org"
 license=('GPL2')
 depends=('openssl' 'sqlite' 'iw' 'net-tools' 'wireless_tools' 'ethtool'
-         'pcre' 'libpcap' 'python' 'zlib' 'libnl' 'hwloc')
+         'pcre' 'libpcap' 'python' 'zlib' 'libnl' 'hwloc' 'usbutils')
 checkdepends=('cmocka')
 conflicts=('aircrack-ng-scripts')
 replaces=('aircrack-ng-scripts')
