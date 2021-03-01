@@ -4,13 +4,12 @@ pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=11.2.1
 _driverver=460.32.03
-pkgrel=3
+pkgrel=4
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
 license=('custom:NVIDIA')
-depends=('gcc-libs'  'gcc' 'opencl-nvidia' 'nvidia-utils' 'python')
-replaces=('cuda-toolkit' 'cuda-sdk')
+depends=('gcc' 'gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'python')
 options=(!strip staticlibs)
 install=cuda.install
 source=(http://developer.download.nvidia.com/compute/cuda/${pkgver}/local_installers/cuda_${pkgver}_${_driverver}_linux.run
@@ -123,6 +122,7 @@ build() {
 
   mkdir -p "${_prepdir}/usr/share/licenses/${pkgname}"
   ln -s /opt/cuda/EULA.txt "${_prepdir}/usr/share/licenses/${pkgname}/EULA.txt"
+  ln -s /opt/cuda/README "${_prepdir}/usr/share/licenses/${pkgname}/README"
 
   # Allow newer compilers to work. This is not officially supported in the Arch package but
   # if users want to try, let them try.
@@ -138,8 +138,8 @@ build() {
 }
 
 package_cuda() {
-  replaces+=('cuda-static')
-  provides=('cuda-sdk' 'libcudart.so' 'libcublas.so' 'libcusolver.so' 'libcusparse.so')
+  replaces=('cuda-toolkit' 'cuda-sdk' 'cuda-static')
+  provides=('cuda-toolkit' 'cuda-sdk' 'libcudart.so' 'libcublas.so' 'libcusolver.so' 'libcusparse.so')
   optdepends=('gdb: for cuda-gdb'
               'glu: required for some profiling tools in CUPTI')
 
@@ -152,12 +152,11 @@ package_cuda() {
 }
 
 package_cuda-tools() {
-  pkgdesc="NVIDIA's GPU programming toolkit (extra tools: nvvp, nsight)"
+  pkgdesc="NVIDIA's GPU programming toolkit (extra tools: nvvp, nsight, samples)"
   depends=('cuda' 'java-runtime=8' 'nss')
   optdepends=('glu: required for some CUDA samples'
               'freeglut: required for some CUDA samples'
               'perl: required by some NVVP plugins')
-  provides=('cuda-toolkit')
 
   local _prepdir="${srcdir}/prep"
 
@@ -166,6 +165,10 @@ package_cuda-tools() {
   mv "${_prepdir}"/opt/cuda/bin/nvvp "${pkgdir}/opt/cuda/bin/nvvp"
   mv "${_prepdir}"/opt/cuda/bin/computeprof "${pkgdir}/opt/cuda/bin/computeprof"
   mv "${_prepdir}"/opt/cuda/{libnvvp,samples} "${pkgdir}/opt/cuda"
+  
+  # licenses
+  mkdir -p "${pkgdir}/usr/share/licenses"
+  ln -s /usr/share/licenses/cuda "${pkgdir}/usr/share/licenses/${pkgname}"
 }
 
 # vim:set ts=2 sw=2 et:
