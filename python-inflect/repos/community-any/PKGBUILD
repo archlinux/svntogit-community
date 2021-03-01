@@ -3,13 +3,13 @@
 _name=inflect
 pkgname=python-inflect
 pkgver=5.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Correctly generate plurals, singular nouns, ordinals, indefinite articles"
 arch=('any')
 url="https://github.com/jazzband/inflect"
 license=('MIT')
 depends=('python')
-makedepends=('python-pip' 'python-setuptools_scm')
+makedepends=('python-setuptools_scm' 'python-toml')
 checkdepends=('python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
 sha512sums=('2883ffccd28c436908783855a282ff4346c74b14fe5899ed6b9fde0f0f1b97063119f7fbe927f1bf0d16761623abcdfe21439c12311bd2a11a70245b89fbce0b')
