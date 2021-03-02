@@ -1,0 +1,53 @@
+From 990cf7531eedd5e54abf8b6668c510e1c91ade93 Mon Sep 17 00:00:00 2001
+From: Evangelos Foutras <evangelos@foutrelis.com>
+Date: Tue, 2 Mar 2021 18:05:08 +0200
+Subject: [PATCH] Fix build with poppler 21.3.0
+
+Update SlaOutputDev::tilingPatternFill's prototype after the commit:
+https://gitlab.freedesktop.org/poppler/poppler/-/commit/2589f3252fe3
+---
+ scribus/plugins/import/pdf/slaoutput.cpp | 10 ++++++++++
+ scribus/plugins/import/pdf/slaoutput.h   |  4 ++++
+ 2 files changed, 14 insertions(+)
+
+diff --git a/scribus/plugins/import/pdf/slaoutput.cpp b/scribus/plugins/import/pdf/slaoutput.cpp
+index 7cbc73e..9fb91f5 100644
+--- a/scribus/plugins/import/pdf/slaoutput.cpp
++++ b/scribus/plugins/import/pdf/slaoutput.cpp
+@@ -2292,10 +2292,20 @@ GBool SlaOutputDev::patchMeshShadedFill(GfxState *state, GfxPatchMeshShading *sh
+ 	return gTrue;
+ }
+ 
++#if POPPLER_ENCODED_VERSION >= POPPLER_VERSION_ENCODE(21, 3, 0)
++GBool SlaOutputDev::tilingPatternFill(GfxState *state, Gfx * /*gfx*/, Catalog *cat, GfxTilingPattern *tPat, const double *mat, int x0, int y0, int x1, int y1, double xStep, double yStep)
++#else
+ GBool SlaOutputDev::tilingPatternFill(GfxState *state, Gfx * /*gfx*/, Catalog *cat, Object *str, POPPLER_CONST_070 double *pmat, int paintType, int tilingType, Dict *resDict, POPPLER_CONST_070 double *mat, POPPLER_CONST_070 double *bbox, int x0, int y0, int x1, int y1, double xStep, double yStep)
++#endif
+ {
+ //	qDebug() << "SlaOutputDev::tilingPatternFill";
+ 	PDFRectangle box;
++#if POPPLER_ENCODED_VERSION >= POPPLER_VERSION_ENCODE(21, 3, 0)
++	const double *bbox = tPat->getBBox();
++	const double *pmat = tPat->getMatrix();
++	Dict *resDict = tPat->getResDict();
++	Object *str = tPat->getContentStream();
++#endif
+ 	Gfx *gfx;
+ 	QString id;
+ 	PageItem *ite;
+diff --git a/scribus/plugins/import/pdf/slaoutput.h b/scribus/plugins/import/pdf/slaoutput.h
+index 5149f19..4673bcf 100644
+--- a/scribus/plugins/import/pdf/slaoutput.h
++++ b/scribus/plugins/import/pdf/slaoutput.h
+@@ -197,7 +197,11 @@ public:
+ 	void stroke(GfxState *state) override;
+ 	void fill(GfxState *state) override;
+ 	void eoFill(GfxState *state) override;
++#if POPPLER_ENCODED_VERSION >= POPPLER_VERSION_ENCODE(21, 3, 0)
++	GBool tilingPatternFill(GfxState *state, Gfx *gfx, Catalog *cat, GfxTilingPattern *tPat, const double *mat, int x0, int y0, int x1, int y1, double xStep, double yStep) override;
++#else
+ 	GBool tilingPatternFill(GfxState *state, Gfx *gfx, Catalog *cat, Object *str, POPPLER_CONST_070 double *pmat, int paintType, int tilingType, Dict *resDict, POPPLER_CONST_070 double *mat, POPPLER_CONST_070 double *bbox, int x0, int y0, int x1, int y1, double xStep, double yStep) override;
++#endif
+ 	GBool functionShadedFill(GfxState * /*state*/, GfxFunctionShading * /*shading*/) override { qDebug() << "Function Shaded Fill";  return gFalse; }
+ 	GBool axialShadedFill(GfxState *state, GfxAxialShading *shading, double tMin, double tMax) override;
+ 	GBool axialShadedSupportExtend(GfxState *state, GfxAxialShading *shading)  override { return (shading->getExtend0() == shading->getExtend1()); }
