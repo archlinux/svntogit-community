@@ -3,8 +3,8 @@
 
 _pkgname=poetry-core
 pkgname=python-poetry-core
-pkgver=1.0.0
-pkgrel=2
+pkgver=1.0.2
+pkgrel=1
 pkgdesc="Poetry PEP 517 Build Backend & Core Utilities"
 arch=('any')
 url="https://github.com/python-poetry/${_pkgname}"
@@ -15,8 +15,8 @@ makedepends=('python-dephell')
 checkdepends=('git' 'python-pytest' 'python-pytest-mock' 'python-virtualenv')
 conflicts=('python-poetry<1.1.0')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz")
-sha256sums=('c8cff356f09b483cdbe752a18fa8a95716a55a225981e78410816659a9f82b87')
-b2sums=('62fe73c44a91569c92ec5f422211adeae3b9fc28547a0e37fdbe73ea92bfd4a01bdf35a2f6fb3dbbc4fd3d3e219ad2cfc5594229482dafe46051ded6cb04dab0')
+sha256sums=('fafe5585040b91e36a9ec1ea6ce0546701190453ba8207bd4b7ed03a2cffc227')
+b2sums=('483acd560b11cd78570781c8be1d9fb56437c592c762fecc54302f83fed3596f09fad1a8d42f7ce243cf19d0fe315e4b0fe8a9c114da814875f19357dc4261b2')
 
 prepare() {
     cd "${srcdir}"/${_pkgname}-${pkgver}
