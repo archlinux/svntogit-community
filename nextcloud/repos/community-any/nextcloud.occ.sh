@@ -32,7 +32,7 @@ else
 fi
 
 # allow overriding the user to run as
-if [[ -n "${NEXTCLOUD_USER}" ]] && uid "${NEXTCLOUD_USER}" > /dev/null 2>&1; then
+if [[ -n "${NEXTCLOUD_USER}" ]] && id "${NEXTCLOUD_USER}" > /dev/null 2>&1; then
   user="${NEXTCLOUD_USER}"
 else
   user="${default_user}"
