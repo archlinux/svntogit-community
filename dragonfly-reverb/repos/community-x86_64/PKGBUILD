@@ -2,7 +2,7 @@
 
 pkgname=dragonfly-reverb
 _name=DragonflyReverb
-pkgver=3.2.3
+pkgver=3.2.4
 pkgrel=1
 pkgdesc="A concert hall reverb and a room reverb"
 arch=('x86_64')
@@ -16,8 +16,8 @@ optdepends=('jack: for standalone applications'
             'lv2-host: for LV2 plugins'
             'vst-host: for VST plugins')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/michaelwillis/${pkgname}/releases/download/${pkgver}/${_name}-Source-v${pkgver}.tar.gz")
-sha512sums=('04ca36db8ba5a58c264a5b885d2f84a4ea4595145a1883e103d25e638eeaa0ee85a2abdd86e37f55875c8f432bdb6671c6f455babdd55496ea8fbe4f680481aa')
-b2sums=('43a75bc1aba4c8a6d4be6d4f01fd05024c1d58f8d4dc9421330ab5f12c46400df9803315bbca0a72fe210fed8e16bd7ee56bd14b5fcdfe5cee36bdb7b8f828d1')
+sha512sums=('2ef32257171d7d019314bc0446c58d535939026c55325a236bfcfe8715eb1ddc497843b0b50f283604f59d2722846c9af4add15200f5aad7a2bc57026fd20bb7')
+b2sums=('e36b9d2a285bcc523545df5797d5be3c1de51c11ccf56334a4f34b9bcf8691858d632c1d0784c5f1d13dba217da5ec2ffd29771abefe88c449a9ac5be8681d83')
 _names=('DragonflyEarlyReflections' 'DragonflyHallReverb' 'DragonflyPlateReverb' 'DragonflyRoomReverb')
 
 prepare() {
@@ -45,6 +45,11 @@ prepare() {
             --genericname "${generic[$name]}" \
             --categories "AudioVideo;Audio"
   done
+
+  # fix broken use of PKG_CONFIG in Makefiles:
+  # https://github.com/michaelwillis/dragonfly-reverb/issues/98
+  sed -e 's/$PKG_CONFIG/$(PKG_CONFIG)/g' \
+    -i plugins/dragonfly-{{hall,plate,room}-reverb,early-reflections}/Makefile
 }
 
 build() {
@@ -54,12 +59,19 @@ build() {
 }
 
 check() {
+  local _name=""
+  declare -A _urls=(
+    ["DragonflyHallReverb"]='https://github.com/michaelwillis/dragonfly-reverb'
+    ["DragonflyEarlyReflections"]='urn:dragonfly:early'
+    ["DragonflyPlateReverb"]='urn:dragonfly:plate'
+    ["DragonflyRoomReverb"]='urn:dragonfly:room'
+  )
+
   cd "$pkgname-$pkgver"
-  # TODO: add the other plugins via -I flag as soon as lv2lint supports providing
-  # it multiple times
-  lv2lint -I "${PWD}/bin/${_names[1]}.lv2/" \
-          "https://github.com/michaelwillis/dragonfly-reverb" \
-          || echo "Known to fail: https://github.com/michaelwillis/dragonfly-reverb/issues/65"
+  for _name in "${_names[@]}"; do
+    lv2lint -Mpack -s "lv2_generate_ttl" -I "${PWD}/bin/${_name}.lv2/" "${_urls[$_name]}" \
+            || echo "Known to fail: https://github.com/michaelwillis/dragonfly-reverb/issues/65"
+  done
 }
 
 package() {
