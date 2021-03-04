@@ -3,7 +3,7 @@
 
 pkgbase=python-setuptools-scm
 pkgname=(python-setuptools-scm python2-setuptools-scm)
-pkgver=5.0.1
+pkgver=5.0.2
 pkgrel=1
 pkgdesc="Handles managing your python package versions in scm metadata."
 arch=('any')
@@ -13,13 +13,12 @@ makedepends=('python-setuptools' 'python2-setuptools')
 checkdepends=('python-pytest' 'python2-pytest' 'mercurial' 'git' 'python-pip' 'python2-pip'
               'python-toml' 'python2-toml')
 source=("https://pypi.io/packages/source/s/setuptools_scm/setuptools_scm-$pkgver.tar.gz")
-sha512sums=('055403539a26caeb119f3d6623e7b32ef52ccc11a39757fdd9b265ba191265346be5a062a5926a381ba47bbd1a666ffa632653ee6055050689cc38fe0f90cd0f')
+sha512sums=('1e92d03e2d8473425c146a885eb641e98895c43afebcd3c66c1455ace2d81f187b87681072f8aacc5e8be166577f00138cc7c53e4b7d77cb1b598f835b72b010')
 
 prepare() {
   # https://github.com/pypa/setuptools/issues/2466
   sed -i 's/filterwarnings=error/filterwarnings =\n    error\n    ignore:Creating a LegacyVersion has been deprecated and will be removed in the next major release:DeprecationWarning/' \
       setuptools_scm-$pkgver/tox.ini
-  sed -i '/jaraco.windows/d' setuptools_scm-$pkgver/{setup.cfg,src/setuptools_scm.egg-info/requires.txt}
   cp -a setuptools_scm-$pkgver{,-py2}
 }
 
