@@ -4,12 +4,12 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.4.3
+pkgver=1.4.4
 pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
-makedepends=('go' 'git' 'btrfs-progs' 'libseccomp' 'containers-common')
+makedepends=('go' 'git' 'btrfs-progs' 'libseccomp' 'containers-common' 'go-md2man')
 provides=('container-runtime')
 arch=('x86_64')
 license=("Apache")
@@ -29,7 +29,9 @@ build() {
   export GOPATH="$srcdir"
   cd src/github.com/containerd/containerd
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
+  export GO111MODULE=off
   make VERSION=v$pkgver
+  make VERSION=v$pkgver man
 }
 
 check() {
