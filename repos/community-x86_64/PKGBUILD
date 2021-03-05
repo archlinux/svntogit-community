@@ -23,7 +23,7 @@ pkgname=(
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
 pkgver=19.0
-pkgrel=6
+pkgrel=9
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -55,6 +55,7 @@ _spdlog_version="1.5.0"
 _crossguid_version="8f399e8bd4"
 _fstrcmp_version="0.7.D001"
 _flatbuffers_version="1.11.0"
+_libudfread_version="1.1.0"
 
 source=(
   "$pkgbase-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
@@ -67,6 +68,7 @@ source=(
   "$pkgbase-crossguid-$_crossguid_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/crossguid-$_crossguid_version.tar.gz"
   "$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/fstrcmp-$_fstrcmp_version.tar.gz"
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
+  "$pkgbase-libudfread-$_libudfread_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/libudfread-$_libudfread_version.tar.gz"
   'cheat-sse-build.patch'
   '0001-allow-separate-windowing-binaries-being-launched-fro.patch'
 )
@@ -80,6 +82,7 @@ noextract=(
   "$pkgbase-crossguid-$_crossguid_version.tar.gz"
   "$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz"
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
+  "$pkgbase-libudfread-$_libudfread_version.tar.gz"
 )
 sha512sums=('d6c9fe7414b64d33d919d6c3de1ddb4800e36b786a460d2d2f5c1e5346cd4819487e54f212c37778103d44dd051f7df6c74e0a98a0b21d1e4dc9bedaa8570422'
             '5185dbdbeb1bd13ea9d8723f1f4ab599d6f3102f5ba1096cd085aa1cda252c045f327c719227bba8e1b742352ade5e335106c8d0c1637a5a6b93ce661620dd7e'
@@ -91,6 +94,7 @@ sha512sums=('d6c9fe7414b64d33d919d6c3de1ddb4800e36b786a460d2d2f5c1e5346cd4819487
             '2682d63609d3dcdfcd8136be632e45df26ad88ce93b9c49745cf728bbd2e6254a7b05c8b059ab581d532372e504206a525a52564b64d076dfdae9c965a09fd16'
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
             'e4a6fbc5813041194ac66d2d019aea711dad72239f52731f292675cd21248cba139768aa80f044c3a11cae2d308ae95b4b45de914d207b5b1d3d5d18620c8882'
+            '340a03fe90d26a8a5c78e1e4f558a0b448a14332a661494f44af7de3e6c98cd219125e19f69d2a611ecb4870648a5d5b55d794e665eb8ec4192c0b499a0701ed'
             '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a'
             '372eb5ef438458a3fd2d38c20ad9385e208d670bdc8e5ffb62c5bde2e3e93a3548704118aced33e6a956e12ae70a42316afafa482cf16e171dd0f07330de3509')
 
@@ -120,6 +124,7 @@ build() {
     -DENABLE_INTERNAL_CROSSGUID=ON
     -DENABLE_INTERNAL_FSTRCMP=ON
     -DENABLE_INTERNAL_FLATBUFFERS=ON
+    -DENABLE_INTERNAL_UDFREAD=ON
     -DENABLE_MYSQLCLIENT=ON
     -Dlibdvdcss_URL="$srcdir/$pkgbase-libdvdcss-$_libdvdcss_version.tar.gz"
     -Dlibdvdnav_URL="$srcdir/$pkgbase-libdvdnav-$_libdvdnav_version.tar.gz"
@@ -130,21 +135,14 @@ build() {
     -DCROSSGUID_URL="$srcdir/$pkgbase-crossguid-$_crossguid_version.tar.gz"
     -DFSTRCMP_URL="$srcdir/$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz"
     -DFLATBUFFERS_URL="$srcdir/$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
+    -DUDFREAD_URL="$srcdir/$pkgbase-libudfread-$_libudfread_version.tar.gz"
+    -DAPP_RENDER_SYSTEM=gl
   )
-
-  echo "building kodi-x11"
-  cmake \
-    ${_cmake_common_args[@]} \
-    -DCORE_PLATFORM_NAME=x11 \
-    -DAPP_RENDER_SYSTEM=gl \
-    ../"xbmc-$pkgver-$_codename"
-  make
 
   echo "building kodi-wayland"
   cmake \
     ${_cmake_common_args[@]} \
     -DCORE_PLATFORM_NAME=wayland \
-    -DAPP_RENDER_SYSTEM=gl \
     ../"xbmc-$pkgver-$_codename"
   make
 
@@ -152,22 +150,28 @@ build() {
   cmake \
     ${_cmake_common_args[@]} \
     -DCORE_PLATFORM_NAME=gbm \
-    -DAPP_RENDER_SYSTEM=gl \
+    ../"xbmc-$pkgver-$_codename"
+  make
+
+  # build x11 version last that will make it fallback in the launcher script
+  echo "building kodi-x11"
+  cmake \
+    ${_cmake_common_args[@]} \
+    -DCORE_PLATFORM_NAME=x11 \
     ../"xbmc-$pkgver-$_codename"
   make
 }
 
 # kodi
 # components: kodi
-
 package_kodi-common() {
   pkgdesc="A software media player and entertainment hub for digital media"
   depends=(
-    'bluez-libs' 'curl' 'desktop-file-utils' 'hicolor-icon-theme' 'lcms2'
-    'libass' 'libbluray' 'libcdio' 'libcec' 'libmicrohttpd' 'libnfs' 'libplist'
-    'libpulse' 'libva' 'libxslt' 'lirc' 'mariadb-libs' 'mesa' 'python'
-    'python-pillow' 'python-pycryptodomex' 'python-simplejson' 'shairplay'
-    'smbclient' 'taglib' 'tinyxml'
+    'bluez-libs' 'curl' 'dav1d' 'desktop-file-utils' 'hicolor-icon-theme'
+    'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec' 'libmicrohttpd' 'libnfs'
+    'libplist' 'libpulse' 'libva' 'libxslt' 'lirc' 'mariadb-libs' 'mesa'
+    'python' 'python-pillow' 'python-pycryptodomex' 'python-simplejson'
+    'shairplay' 'smbclient' 'sqlite' 'taglib' 'tinyxml'
   )
   optdepends=(
     'afpfs-ng: Apple shares support'
@@ -196,7 +200,6 @@ package_kodi-common() {
 
 # kodi-x11
 # components: kodi-bin
-
 package_kodi-x11() {
   pkgdesc="x11 kodi binary"
   provides=('kodi')
@@ -212,7 +215,6 @@ package_kodi-x11() {
 
 # kodi-wayland
 # components: kodi-bin
-
 package_kodi-wayland() {
   pkgdesc="wayland kodi binary"
   provides=('kodi')
@@ -227,13 +229,12 @@ package_kodi-wayland() {
 
 # kodi-gbm
 # components: kodi-bin
-
 package_kodi-gbm() {
   pkgdesc="gbm kodi binary"
   provides=('kodi')
   replaces=('kodi')
   depends=(
-    'kodi-common' 'libxkbcommon'
+    'kodi-common' 'libxkbcommon' 'libinput'
   )
 
   cd kodi-build
@@ -242,7 +243,6 @@ package_kodi-gbm() {
 
 # kodi-eventclients
 # components: kodi-eventclients-common kodi-eventclients-ps3 kodi-eventclients-kodi-send
-
 package_kodi-eventclients() {
   pkgdesc="Kodi Event Clients"
   optdepends=(
@@ -267,7 +267,6 @@ package_kodi-eventclients() {
 
 # kodi-tools-texturepacker
 # components: kodi-tools-texturepacker
-
 package_kodi-tools-texturepacker() {
   pkgdesc="Kodi Texturepacker tool"
   depends=('libpng' 'giflib' 'libjpeg-turbo' 'lzo')
@@ -287,7 +286,6 @@ package_kodi-tools-texturepacker() {
 
 # kodi-dev
 # components: kodi-addon-dev kodi-eventclients-dev
-
 package_kodi-dev() {
   pkgdesc="Kodi dev files"
   depends=('kodi-common')
