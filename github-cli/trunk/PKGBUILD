@@ -4,7 +4,7 @@
 
 pkgname=github-cli
 pkgver=1.7.0
-pkgrel=1
+pkgrel=2
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
 url="https://github.com/cli/cli"
@@ -49,6 +49,7 @@ check(){
 package() {
     cd "cli-$pkgver"
     make DESTDIR="${pkgdir}" prefix="/usr" install
+    cp -r share/ "$pkgdir"/usr
     install -Dm644 "LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
     install -Dm644 "README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
 }
