@@ -1,1 +1,0 @@
-u nsd - - /dev/null
