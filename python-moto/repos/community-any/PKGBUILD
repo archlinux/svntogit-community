@@ -3,49 +3,47 @@
 
 pkgname=python-moto
 _pkgname=moto
-pkgver=1.3.16
-pkgrel=5
+pkgver=2.0.0
+pkgrel=1
 pkgdesc='Moto is a library to mock out the boto library.'
 arch=(any)
 url='https://github.com/spulec/moto'
 license=(Apache)
-depends=(python-aws-xray-sdk python-boto python-boto3
-         python-cryptography python-dateutil python-docker python-jinja
-         python-jsondiff python-jose python-mock python-yaml
-         python-pytz python-requests python-responses python-xmltodict
-         python-werkzeug python-cfn-lint python-setuptools python-sshpubkeys)
-checkdepends=(python-flask python-freezegun python-nose python-parameterized
-              python-sure tk)
+# depends on python-setuptools as pkg_resources is used is several modules
+# NOTE: Keep the order of dependencies matching setup.py
+depends=(python-boto3 python-botocore python-cryptography python-requests python-xmltodict
+         python-six python-werkzeug python-pytz python-dateutil python-responses
+         # Below dependencies varied with Python versions
+         python-jinja python-mock python-more-itertools python-setuptools python-zipp)
+# See reqquirements-test.txt, excluding pytest-cov
+checkdepends=(python-pytest python-sure python-freezegun
+              # boto is vendored (#3503), but still imported in tests
+              python-boto)
+# Below are optional dependencies. The order matches _dep_* items in upstream `setup.py`.
+# Note that _dep_python_jose_ecdsa_pin and _dep_idna are excluded as they are pins and
+# not used by moto.
 optdepends=(
+  'python-yaml: for cloudformation, s3 and ssm'
+  'python-jose: for apigateway and cognitoidp'
+  'python-docker: for awslambda, batch, cloudformation, dynamodb2, dynamodbstreams, ec2, ses, sns, sqs and ssm'
+  'python-jsondiff: for iotdata'
+  'python-aws-xray-sdk: for xray'
+  'python-cfn-lint: for cloudformation and ssm'
+  'python-sshpubkeys: for ec2'
   'python-flask: for moto_server'
+  'python-flask-cors: for moto_server'
 )
+checkdepends+=(python-yaml python-jose python-docker python-jsondiff python-aws-xray-sdk
+               python-cfn-lint python-sshpubkeys python-flask python-flask-cors)
 source=("https://files.pythonhosted.org/packages/source/m/moto/moto-${pkgver}.tar.gz"
-        "$pkgname-cfn-lint-0.39.patch::https://github.com/spulec/moto/commit/403b06d9c5d9fda4d9c51f44d5213cf584d7dc11.patch"
-        "$pkgname-boto3-1.14.59.patch::https://github.com/spulec/moto/commit/9f0f230d130a839fb2de6bfc97af4182360fbcdb.patch"
-        "$pkgname-responses-0.12.1.patch::https://github.com/spulec/moto/commit/7749c1f75781cd5fb2367b089c31a92e127b07b1.patch"
-        # Rebased from https://github.com/spulec/moto/commit/9ecea2012a19cf929f03271dddf5ce3e17943f48
-        "$pkgname-botocore-1.19.41.patch"
         sdist-no-pyc.diff)
-sha256sums=('6c686b1f117563391957ce47c2106bc3868783d59d0e004d2446dce875bec07f'
-            'afb3a13ccfe1646403e5727c812e26ab88106c212b735d5ab9a55879fcb34e43'
-            'f902d1b01c12e8a1b8e87109a984ab1463b60b04e1dbdeaa94550276d2580a11'
-            'cca3d8749c07eac50a17cff7b6dffdb9aa8d5ce9ca974453a63516d35cb2025a'
-            'af4505592277c795d2abdf8418c528c7ef3669282077654954307c9d1ab321ad'
+sha256sums=('d2edc6bdd8a9548c56e7fb73329bdd508ece1530d4b8a054426a8716d6ef35f2'
             '4193bd88380f6ab8dac49be37d940993dee4e31351ffd60c8167b7c8e5ec3208')
 
 prepare() {
   cd $_pkgname-$pkgver
 
   patch -Np1 -i ../sdist-no-pyc.diff
-
-  # https://github.com/spulec/moto/pull/3412
-  patch -Np1 -i ../$pkgname-cfn-lint-0.39.patch
-  # https://github.com/spulec/moto/pull/3308
-  patch -Np1 -i ../$pkgname-boto3-1.14.59.patch
-  # https://github.com/spulec/moto/pull/3466
-  patch -Np1 -i ../$pkgname-responses-0.12.1.patch
-  # https://github.com/spulec/moto/pull/3575
-  patch -Np1 -i ../$pkgname-botocore-1.19.41.patch
 
   # Remove upper bounds of dependencies
   sed --in-place=.orig -r 's#,?<[0-9.]+,?##;s#==([0-9.]+)#>=\1#' setup.py
@@ -61,21 +59,16 @@ build() {
 check() {
   cd $_pkgname-$pkgver
 
-  # * test_lambda tests moto.awslambda, which requires a running docker.service
-  # * test_submit_job_by_name calls batch_client.submit_job, and the latter
-  #   creates a Job object, which requires docker
-  # * In test_create_stack_lambda_and_dynamodb, the CloudFormation template
-  #   contain AWS::Lambda resources and thus uses moto.awslambda
-  TZ=UTC nosetests -s ./tests/ \
-    --exclude='test_lambda' \
-    --exclude='test_list_jobs' \
-    --exclude='test_submit_job' \
-    --exclude='test_submit_job_by_name' \
-    --exclude='test_terminate_job' \
-    --exclude='test_create_stack_lambda_and_dynamodb' \
-    --exclude='test_delete_subscription_filter_errors' \
-    --exclude='test_put_subscription_filter_update' \
-    --exclude='test_put_subscription_filter_with_lambda'
+  # XXX: there are too many tests that depend on docker/podman, and there is no simple way
+  # other than listing one-by-one for exclusion. To make things worse, running docker/podman
+  # in systemd-nspawn containers appears impossible without special configurations. I gave
+  # it up and running podman _outside_ the container for testing.
+  # $ podman system service "unix:$XDG_RUNTIME_DIR/podman/podman.sock" -t 0
+  # $ extra-x86_64-build -- -d "$XDG_RUNTIME_DIR/podman:/tmp/podman"
+  PODMAN_SOCK=/tmp/podman/podman.sock
+  if [ -S $PODMAN_SOCK ]; then
+    DOCKER_HOST="unix://$PODMAN_SOCK" TZ=UTC pytest tests
+  fi
 }
 
 package() {
