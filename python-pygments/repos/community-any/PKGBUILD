@@ -2,7 +2,7 @@
 # Contributor: Timm Preetz <timm@preetz.us>
 
 pkgname=python-pygments
-pkgver=2.8.0
+pkgver=2.8.1
 pkgrel=1
 pkgdesc="Python syntax highlighter"
 arch=('any')
@@ -15,7 +15,7 @@ provides=('pygmentize')
 conflicts=('pygmentize')
 replaces=('pygmentize')
 source=(https://pypi.org/packages/source/P/Pygments/Pygments-$pkgver.tar.gz)
-sha256sums=('37a13ba168a02ac54cc5891a42b1caec333e59b66addb7fa633ea8a6d73445c0')
+sha256sums=('2656e1a6edcdabf4275f9a3640db59fd5de107d88e8663c5d4e9a0fa62f77f94')
 
 build() {
   cd "$srcdir/Pygments-$pkgver"
