@@ -25,7 +25,7 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/antirez/redis/archive/$
         redis.conf-sane-defaults.patch
         redis-5.0-use-system-jemalloc.patch)
 sha512sums=('79108a10911698aef64412792574e75d8b5e41fa45e7631a9cd39bc704d2fce8648a494f25868c4cf6775afa8b56287a21cafbaee8c306803a2ddcb2b355ff7e'
-            '78c996636fc3f4d404a01fbbc63978ee4c3bce9bc7f5728e8ca14b013cabc7df73ff882ec7f4a2e0b5494faf0d1da5a3c5e9570bd579597b0fea03a9d8d066cc'
+            'a3793d84f4da8eae68e0deda60ce2d7874a98562cd56be0bce07a54de99bad9ebba8db06051310a86587b6e8ddfcf401f6e1b089161981c68e25b6a63c56b52c'
             '2227dfb41bf5112f91716f011862ba5fade220aea3b6a8134a5a05ee3af6d1cca05b08d793a486be97df98780bf43ac5dc4e5e9989ae0c5cd4e1eedb6cee5d71'
             '68f7bc12e3b95cb199b71255c6aa5bfaa431fbabbc7d2308e54347c0d35e6d8091c4a79a5a6b56494ab3a294f9389e3ec63902931920862f60b1ffe77222eeeb'
             'df11492df0458b224f75fff31475d39b85116cba6deb06d80d0fd8c467d221db51a2a8f5fc5d2e3e8239c0718e1cf5dc12e99cac9019cb99d3f11835ad00aa5d'
