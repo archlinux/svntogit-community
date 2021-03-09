@@ -1,35 +1,30 @@
 # Maintainer: Anatol Pomozov
 
 pkgname=osquery
-pkgver=4.5.1
-pkgrel=8
+pkgver=4.6.0
+pkgrel=1
 pkgdesc='SQL powered operating system instrumentation, monitoring, and analytics'
 arch=(x86_64)
 url='https://osquery.io'
 license=(Apache GPL2)
-depends=(augeas boost-libs gflags google-glog aws-sdk-cpp librdkafka rocksdb gtest device-mapper rpm-tools dpkg pacman lvm2 libelfin lldpd rapidjson sleuthkit ssdeep thrift yara lmdb iptables)
+depends=(augeas boost-libs gflags google-glog aws-sdk-cpp librdkafka rocksdb gtest device-mapper rpm-tools dpkg pacman libelfin lldpd rapidjson sleuthkit ssdeep thrift yara lmdb iptables)
 makedepends=(cmake python boost linenoise-ng ninja)
 options=(!strip)
 # patched version of smartools that we need to build statically to avoid collision with the upstream version
 _smartmontools_commit=6afcf545d2ab86d13a3ecb9f656aa81622031f2a
-_patched_osquery_commit=f54b2ca8b18dee86077521789788f9e29c8db317
-# lvm2 2.03.x does no longer support lvm2app, so linking statically
-_lvm2_version=2_02_173
+_patched_osquery_commit=4.6.0-archlinux-1
 source=(osquery-$pkgver.zip::https://github.com/osquery/osquery/archive/$pkgver.zip
 	smartmontools-$_smartmontools_commit.zip::https://github.com/osquery/third-party-smartmontools/archive/$_smartmontools_commit.zip
 	devendorize.patch::https://github.com/anatol/osquery/compare/$pkgver...$_patched_osquery_commit.patch
-	tls_crash.patch::https://github.com/osquery/osquery/commit/d69380cb7713dd5f7f48849a028a7723e7a619bf.patch
-	nolvm2app.patch)
-sha256sums=('568af4bd2562e5321bbac68177b377b3ad386942e227511867981876cbce3e26'
+	tls_crash.patch::https://github.com/osquery/osquery/commit/d69380cb7713dd5f7f48849a028a7723e7a619bf.patch)
+sha256sums=('59dc5fce0f09133e17b8e4a5d2497ef3efd6c01243abf32564cf9ba1caa7fc44'
             '191848bf04ca6fe14a9634bdcff6f6e851aa59526f1f3fb168ad7c8c6d9b1d00'
-            'fbcfb24caa3786a37d371cd8e2e45fdc3095d6e526e97c0d403bba8be2683d0f'
-            'ec6378a531866320b6086c7ee90f333ec35598669a39f4621eed0beb252408ba'
-            'fa0e81fb9104a08d802420c56fe3484501c213a909966fe036a64fd6a0552d50')
+            'fb4ba54777c50e846edc82581085add9674732ca148d108f289329ebc1acb09b'
+            'ec6378a531866320b6086c7ee90f333ec35598669a39f4621eed0beb252408ba')
 
 prepare() {
   cd osquery-$pkgver
   patch -p1 < ../devendorize.patch
-  patch -p1 < ../nolvm2app.patch
   patch -p1 < ../tls_crash.patch
 
   rm -rf libraries/cmake/source/smartmontools/src
@@ -39,8 +34,12 @@ prepare() {
 build() {
   cd osquery-$pkgver
 
-  cmake -DCMAKE_BUILD_TYPE=Release -DOSQUERY_STATIC_BUILD=OFF -DCMAKE_INSTALL_PREFIX=/usr -DOSQUERY_VERSION=$pkgver -G Ninja -S . -B build
-  cmake --build build
+  # disable ebpfpub dependency as https://github.com/trailofbits/ebpfpub is not in community repo yet
+  cmake -DCMAKE_BUILD_TYPE=Release -DOSQUERY_STATIC_BUILD=OFF -DCMAKE_INSTALL_PREFIX=/usr -DOSQUERY_VERSION=$pkgver \
+      -DOSQUERY_IGNORE_CMAKE_MAX_VERSION_CHECK=TRUE \
+      -DOSQUERY_BUILD_BPF=OFF \
+      -G Ninja -S . -B build
+  ninja -C build
 }
 
 package() {
