@@ -1,58 +1,63 @@
 # Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: kpcyrd <kpcyrd[at]archlinux[dot]org>
 # Contributor: Daniel Micay <danielmicay@gmail.com>
 # Contributor: simo <simo@archlinux.org>
 # Contributor: Sid Karunaratne
 
 pkgname=tor
-pkgver=0.4.4.6
+pkgver=0.4.5.6
 pkgrel=1
 pkgdesc='Anonymizing overlay network.'
 arch=('x86_64')
 url='https://www.torproject.org/'
 license=('BSD')
-depends=('openssl' 'libevent' 'bash' 'libseccomp' 'zstd' 'libcap' 'systemd-libs')
+depends=('openssl' 'libevent' 'bash' 'libseccomp' 'zstd' 'libcap' 'systemd-libs'
+         'libsystemd.so' 'libzstd.so' 'libseccomp.so' 'libcap.so')
 optdepends=('torsocks: for torify')
 makedepends=('ca-certificates' 'systemd')
 backup=('etc/tor/torrc')
 source=("https://www.torproject.org/dist/${pkgname}-${pkgver}.tar.gz"{,.asc}
         'torrc.patch'
-        'torservice.patch'
         'tor.sysusers'
-        'tor.tmpfiles')
-b2sums=('8eb5f22825193a61be42105ad32bd82e662c1859971fb2248fe05da2f80d1a3a9cbc96ee4f47f4127da56c328f5c60a6f57d5641cfa90b79becc8bf622f56f3f'
+        'tor.tmpfiles'
+        'tor.service')
+b2sums=('fe7e2c0020f4c2bbfbcbdfb666413d19e4b58ec90c4e44324ab0e2a96871a4ce2ccf63cffaaa229f6d91948babde83c3ebd4600ebfd6c63694f2afde9ccff21c'
         'SKIP'
-        'ac2f3008108e736de3dd37895ad543d5c8cdcfa5ec3e09c93eed227d00a30a31636e3ef1db4cf8649a3c666e7844ea692ecd632a0ddba672efa3cfc1a64c529d'
-        '941e1b3ffdb9035219f484888c942db9c295b23feff571de0af8d3fe8836e1a4b0e606b6a3583aa581f2cd6e4f975aca0b883ef6ee7f2d5b50a4ef677fb5db52'
+        '3359e138d823a77df2a42ce3fe8c6ecb4004e9ec191863db7857aceea7c136c78f09518b1a199dfd3215f5d61f1c060f4a0e2141c5bdb6b847af60fb6e9a81a7'
         '9053da53926f2120ac57b6c1442238f5bbd89bf9270347c4e00b721b39939bebc6adfcf814a9d7289dfd14d085d91c193529305336db93190da5b7f586a031df'
-        '5d55d9a7e42b6ce78b8ab985bab37afe8f0bacddb5abd895c4a490adb8f98b9422f90b40066fef05ecf37b7b21e80aadc615c4b7f6e12b05581304113a1b1f1d')
+        '5d55d9a7e42b6ce78b8ab985bab37afe8f0bacddb5abd895c4a490adb8f98b9422f90b40066fef05ecf37b7b21e80aadc615c4b7f6e12b05581304113a1b1f1d'
+        '327c1a35c3d4c44f93edb47959c8c41ab6af4cbfcbb8f4e9f54f2f69d17d148bf85e2d2c8aefe2d3165e123056dd68a248af78d1ba713b94a4e6d27a9cf412f1')
 validpgpkeys=('2133BC600AB133E1D826D173FE43009C4607B1FB'  # Nick Mathewson
               'F65CE37F04BA5B360AE6EE17C218525819F78451') # Roger Dingledine
 
+prepare() {
+  cd ${pkgname}-${pkgver}
+  # uncomment essential config sections in the torrc file
+  patch -Np1 < "${srcdir}/torrc.patch"
+}
+
 build() {
   cd ${pkgname}-${pkgver}
-
-  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --localstatedir=/var
   make
 }
 
 package() {
-  # install arch custom files
-  install -Dm0644 tor.sysusers "${pkgdir}"/usr/lib/sysusers.d/tor.conf
-  install -Dm0644 tor.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/tor.conf
-  
   cd ${pkgname}-${pkgver}
-  # patch service file to fix FS#68157
-  patch -Np1 < "${srcdir}/torservice.patch"
-  # uncomment essential config sections in the torrc file
-  patch -Np1 < "${srcdir}/torrc.patch"
 
-  # invoke upstream install routine
   make DESTDIR="${pkgdir}" install
-  install -Dm0644 contrib/dist/tor.service "${pkgdir}"/usr/lib/systemd/system/tor.service
+  mv "${pkgdir}"/etc/tor/torrc{.sample,}
 
-  # install torrc
-  install -Dm0644 src/config/torrc.sample "${pkgdir}"/etc/tor/torrc
-  rm "${pkgdir}"/etc/tor/torrc.sample
+  # install arch custom files
+  install -Dm 644 "${srcdir}"/*.service -t "${pkgdir}"/usr/lib/systemd/system
+  install -Dm 644 "${srcdir}"/tor.sysusers "${pkgdir}"/usr/lib/sysusers.d/tor.conf
+  install -Dm 644 "${srcdir}"/tor.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/tor.conf
 
-  install -Dm0644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+  install -Dm 644 LICENSE -t "${pkgdir}"/usr/share/licenses/${pkgname}
 }
+
+# vim: ts=2 sw=2 et:
