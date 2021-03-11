@@ -7,7 +7,7 @@
 
 pkgname=redis
 pkgver=6.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='An in-memory database that persists on disk'
 arch=('x86_64')
 url='https://redis.io/'
@@ -17,6 +17,7 @@ depends=('jemalloc' 'grep' 'shadow' 'systemd-libs')
 makedepends=('systemd' 'openssl')
 backup=('etc/redis/redis.conf'
         'etc/redis/sentinel.conf')
+install=redis.install
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/redis/redis/archive/${pkgver}.tar.gz"
         redis.service
         redis-sentinel.service
