@@ -5,9 +5,9 @@
 # Contributor: Jesus Alvarez
 
 pkgname=python-jedi
-_gitcommit=3b7106ae71cb7bd3431101d169a0110ee0c179aa
-pkgver=0.17.2
-pkgrel=3
+_gitcommit=4b5b2e791b66f3a99542bc2a0e1d5730dc1491df
+pkgver=0.18.0
+pkgrel=1
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
 arch=('any')
@@ -16,11 +16,9 @@ depends=('python' 'python-parso')
 makedepends=('git' 'python-setuptools' 'python-sphinx' 'python-sphinx_rtd_theme')
 checkdepends=('python-pytest' 'python-parso')
 source=("git+https://github.com/davidhalter/jedi#commit=${_gitcommit}"
-        jedi-0.17.2-py39.patch
         git+https://github.com/davidhalter/typeshed
-        git+https://github.com/typeddjango/django-stubs)
+        git+https://github.com/davidhalter/django-stubs)
 sha256sums=('SKIP'
-            '9b5c13800f29f4c6954d63c0989210cc173162803e8546bfe084a975e3e25208'
             'SKIP'
             'SKIP')
 
@@ -35,9 +33,6 @@ prepare() {
   git config submodule."jedi/third_party/typeshed".url "${srcdir}/typeshed"
   git config submodule."jedi/third_party/django-stubs".url "${srcdir}/django-stubs"
   git submodule update --recursive
-
-  # two patches for Python 3.9 cherry-picked from upstream's master branch
-  patch -Np1 -i ../jedi-0.17.2-py39.patch
 }
 
 build() {
