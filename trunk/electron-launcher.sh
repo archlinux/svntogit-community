@@ -1,6 +1,9 @@
 #!/usr/bin/bash
 
-flags_file="${XDG_CONFIG_HOME:-$HOME/.config}/electron-flags.conf"
+set -euo pipefail
+
+name=electron
+flags_file="${XDG_CONFIG_HOME:-$HOME/.config}/${name}-flags.conf"
 
 declare -a flags
 
@@ -14,4 +17,4 @@ for line in "${MAPFILE[@]}"; do
     fi
 done
 
-exec /usr/lib/electron/electron "${flags[@]}"
+exec /usr/lib/${name}/electron "$@" "${flags[@]}"
