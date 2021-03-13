@@ -3,14 +3,13 @@
 _pkgname=pydantic
 pkgname=python-$_pkgname
 pkgver=1.8.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Data parsing and validation using Python type hints'
 arch=('any')
 url='https://github.com/samuelcolvin/pydantic'
 license=('MIT')
-depends=('python')
-optdepends=('python-email-validator: email'
-            'python-typing-extensions: typing_extensions')
+depends=('python' 'python-typing-extensions')
+optdepends=('python-email-validator: email')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner' 'python-pytest-mock')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
