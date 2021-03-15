@@ -11,10 +11,7 @@ arch=(x86_64)
 url='http://tools.android.com/'
 license=(Apache MIT)
 depends=(libusb protobuf brotli zstd)
-optdepends=('python: for mkbootimg & avbtool scripts'
-            'python2: for unpack_bootimg script')
-# it depends on 'vim' because of 'xxd' tool.
-makedepends=(pcre2 gtest cmake go vim ninja)
+makedepends=(pcre2 gtest cmake go ninja)
 source=(https://github.com/nmeum/android-tools/releases/download/$_tag/android-tools-$_tag.tar.xz
         bash_completion.fastboot)
         # Bash completion file was taken from https://github.com/mbrubeck/android-completion
