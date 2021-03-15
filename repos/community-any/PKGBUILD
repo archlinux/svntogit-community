@@ -1,18 +1,19 @@
-# Maintainer: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
+# Maintainer: Konstantin Gizdov <arch at kge dot pw>
+# Contributor: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 # Contributor: Immae
 
 pkgname=python-pybtex-docutils
-pkgver=0.2.2
-pkgrel=4
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="A docutils backend for pybtex"
 arch=("any")
 url="https://github.com/mcmtroffaes/pybtex-docutils"
 license=("MIT")
 depends=('python-six' 'python-docutils' 'python-pybtex')
 makedepends=('python-setuptools')
-checkdepends=('python-nose')
+checkdepends=('python-pytest')
 source=("https://pypi.io/packages/source/p/pybtex-docutils/pybtex-docutils-$pkgver.tar.gz")
-sha256sums=('ea90935da188a0f4de2fe6b32930e185c33a0e306154322ccc12e519ebb5fa7d')
+sha256sums=('cead6554b4af99c287dd29f38b1fa152c9542f56a51cb6cbc3997c95b2725b2e')
 
 build() {
   cd "$srcdir/pybtex-docutils-$pkgver"
@@ -22,7 +23,7 @@ build() {
 check() {
   cd "$srcdir/pybtex-docutils-$pkgver"
   export PYTHONPATH="$srcdir/pybtex-docutils-$pkgver"
-  nosetests
+  pytest
 }
 
 package() {
