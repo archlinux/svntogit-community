@@ -1,0 +1,67 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Guillaume Horel <guillaume.horel@gmail.com>
+
+_pkg=arrow-apache-arrow
+pkgname=python-pyarrow
+pkgver=3.0.0
+pkgrel=1
+pkgdesc="Columnar in-memory analytics layer for big data — Python module."
+arch=(x86_64)
+url="https://arrow.apache.org"
+license=(Apache)
+depends=(arrow python)
+makedepends=(git cmake cython python-setuptools python-setuptools-scm python-numpy)
+optdepends=(python-fsspec)
+checkdepends=(python-brotli python-hypothesis python-pytest python-pytest-lazy-fixture python-pytz)
+source=(https://github.com/apache/arrow/archive/apache-arrow-${pkgver}.tar.gz
+        git+https://github.com/apache/arrow-testing.git
+        tensorflow-abi.patch)
+sha256sums=('fc461c4f0a60e7470a7c58b28e9344aa8fb0be5cc982e9658970217e084c3a82'
+            'SKIP'
+            'd20e9cef6b18d3801a1ac1db50808631bec8097be58c194d6b036a5773e14958')
+
+prepare(){
+  cd ${_pkg}-${pkgver}
+  patch -Np1 -i ../tensorflow-abi.patch
+}
+
+build(){
+  cd ${_pkg}-${pkgver}/python
+  ARROW_HOME=/usr \
+  PARQUET_HOME=/usr \
+  python setup.py build_ext --build-type=release \
+    --with-parquet \
+    --with-plasma \
+    --with-flight \
+    --with-tensor \
+    --with-orc \
+    --with-dataset \
+    --inplace
+}
+
+check(){
+  cd ${_pkg}-${pkgver}/python
+  ARROW_TEST_DATA="${srcdir}"/arrow-testing/data \
+  PARQUET_HOME=/usr \
+  pytest pyarrow/tests --deselect=pyarrow/tests/test_memory.py::test_env_var
+}
+
+package(){
+  cd ${_pkg}-${pkgver}/python
+  ARROW_HOME=/usr \
+  PARQUET_HOME=/usr \
+  python setup.py build_ext --build-type=release \
+    --with-parquet \
+    --with-plasma \
+    --with-flight \
+    --with-tensor \
+    --with-orc \
+    install --prefix=/usr --root="${pkgdir}" --optimize=1 --skip-build
+
+  # Headers and binary already packaged in arrow
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  rm -r "${pkgdir}"${site_packages}/pyarrow/{include/{arrow,plasma},plasma-store-server}
+  ln -s /usr/include/arrow "${pkgdir}"${site_packages}/pyarrow/include/arrow
+  ln -s /usr/include/plasma "${pkgdir}"${site_packages}/pyarrow/include/plasma
+  ln -s /usr/bin/plasma-store-server "${pkgdir}"${site_packages}/pyarrow/plasma-store-server
+}
