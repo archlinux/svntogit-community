@@ -14,7 +14,7 @@ pkgname=(
  aspnet-targeting-pack
 )
 pkgver=5.0.3.sdk103
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -118,7 +118,7 @@ package_dotnet-runtime() {
     icu
     libgssapi_krb5.so
     libunwind
-    libz.so
+    zlib
     openssl
   )
 
