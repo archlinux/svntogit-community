@@ -8,7 +8,7 @@ url="https://github.com/jaraco/jaraco.context"
 license=('MIT')
 arch=('any')
 depends=('python-jaraco' 'python-yg.lockfile')
-makedepends=('python-setuptools-scm')
+makedepends=('python-setuptools-scm' 'python-toml')
 checkdepends=('python-pytest-black' 'python-pytest-checkdocs' 'python-pytest-cov'
               'python-pytest-flake8' 'python-pytest-mypy' 'python-jaraco.test')
 source=("https://github.com/jaraco/jaraco.context/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
