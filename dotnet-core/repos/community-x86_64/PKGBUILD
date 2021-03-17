@@ -13,8 +13,8 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=5.0.3.sdk103
-pkgrel=2
+pkgver=5.0.4.sdk104
+pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -38,19 +38,15 @@ makedepends=(
   zlib
 )
 options=(staticlibs)
-_tag=ccff33e9e87656ab8349dba6779363b15d53d56a
+_tag=269e323b5f2e2df4678c7763282c14fb1a530cfa
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
-  dotnet-source-build-arch-rid.patch
-  dotnet-source-build-fixup-runtime-link-order.patch
-  0000-runtime-link-order.patch
   9999-runtime-libicu-68.patch
+  9999-runtime-link-order.patch
 )
 b2sums=('SKIP'
-        '74c0e764fd22843fb64dad09d7678988980ed8fc39b9aef53d210ba60991b686a5e43a69a497fdaa9d97447144f22e328606a8b25cb6d3addab586e6e67de43b'
-        '8dcfe6ca1a5168b7fb7519903a3d1f16a0584ba7a86bd1e3ca1bdb21b34fe22afb115e3d97ccaf186d2edec346e3948c192e61e40fd1774e46f6eea2e82e87be'
-        'f338e7e971db82ee7699e36842e70c0e476af78cd18ed52a2a9d9bafa2c4d0b410565a9dae571ff89a9383fdaa5814c18d11e230a86c21606c2f31fec101d840'
-        '5e60cccee68ff6b5fa64a37364da099592890eda734472ed55e356718388ea0880a5558e1b3c1904208187207daf314c4abfdcf3a11985415e9a494aa04d1ddf')
+        '5e60cccee68ff6b5fa64a37364da099592890eda734472ed55e356718388ea0880a5558e1b3c1904208187207daf314c4abfdcf3a11985415e9a494aa04d1ddf'
+        '437e0b0956576795087f9e5299f6b847aaaef8158847a269d34331d42da6729721d121eed82b95e4833f9d01322da677d85db924bf43140360c5592d51324565')
 
 pkgver() {
   cd dotnet-source-build
@@ -68,12 +64,9 @@ pkgver() {
 prepare() {
   cd dotnet-source-build
 
-  patch -Np1 -i ../dotnet-source-build-arch-rid.patch
-  patch -Np1 -i ../dotnet-source-build-fixup-runtime-link-order.patch
-
   [ -d patches/runtime ] || mkdir patches/runtime
-  cp ../0000-runtime-link-order.patch patches/runtime/
   cp ../9999-runtime-libicu-68.patch patches/runtime/
+  cp ../9999-runtime-link-order.patch patches/runtime/
 
   # disable warnings
   sed -i 's|skiptests|skiptests ignorewarnings|' repos/runtime.common.props
