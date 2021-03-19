@@ -1,0 +1,83 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+
+pkgbase=unicorn
+pkgname=('unicorn' 'python-unicorn' 'ruby-unicorn-engine')
+pkgver=1.0.2
+pkgrel=2
+pkgdesc='Lightweight, multi-platform, multi-architecture CPU emulator framework based on QEMU'
+url='https://www.unicorn-engine.org'
+arch=('x86_64')
+license=('GPL2')
+makedepends=('python' 'python-setuptools' 'ruby' 'ruby-rdoc')
+checkdepends=('cmocka')
+options=('staticlibs' '!emptydirs')
+source=(https://github.com/unicorn-engine/unicorn/archive/${pkgver}/${pkgbase}-${pkgver}.tar.gz)
+sha512sums=('e459c849407ce3e42e40035953f6236f69518d0626ba5233ca4a36e0c70f50f7bac56ecfe4432a9741ac178d982192f588c6cc9795eb2a38c95a04de741fa33c')
+b2sums=('0768fbeea9e8d97eb6ba956cff804e21f7b00a41fb2bc454d713fd660985d3bf38bbc86a236d94a74acc99c7c4305029fe3311e22d0195d37e66a7a10da3c954')
+
+prepare() {
+  cd ${pkgbase}-${pkgver}
+  sed 's|-g ||g' -i qemu/configure
+  sed 's|UNICORN_DEBUG ?= yes|UNICORN_DEBUG ?= no|g' -i config.mk
+  sed 's|VERSION = "1.0.1"|VERSION = "'${pkgver}'"|' -i bindings/ruby/unicorn_gem/lib/unicorn_engine/version.rb
+}
+
+build() {
+  cd ${pkgbase}-${pkgver}
+  export unicorn_LDFLAGS="${LDFLAGS}"
+  export UNICORN_CFLAGS="${CFLAGS} ${CPPFLAGS}"
+  export UNICORN_QEMU_FLAGS="--extra-ldflags=\"$LDFLAGS\""
+  make
+  (cd bindings
+    python const_generator.py python
+    python const_generator.py ruby
+  )
+  (cd bindings/python
+    python setup.py build
+  )
+  (cd bindings/ruby/unicorn_gem
+    gem build unicorn-engine.gemspec
+  )
+}
+
+check() {
+  cd ${pkgbase}-${pkgver}
+  # Tests are not supported right now, hope they get some love soon
+  # make test
+}
+
+package_unicorn() {
+  depends=('glibc')
+  provides=('libunicorn.so')
+  cd ${pkgbase}-${pkgver}
+  make DESTDIR="${pkgdir}" install
+  install -Dm 644 samples/*.c -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_python-unicorn() {
+  depends=('python' 'unicorn')
+  cd ${pkgbase}-${pkgver}/bindings/python
+  python setup.py install --root="${pkgdir}" -O1 --skip-build
+  rm -r "${pkgdir}"/usr/lib/python*/site-packages/unicorn/lib
+  install -Dm 644 sample* shellcode.py -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_ruby-unicorn-engine() {
+  depends=('ruby' 'unicorn')
+  replaces=('ruby-unicorn')
+  cd ${pkgbase}-${pkgver}/bindings/ruby/unicorn_gem
+
+  local _gemdir="$(gem env gemdir)"
+  gem install --ignore-dependencies --no-user-install -i "${pkgdir}${_gemdir}" \
+    -n "${pkgdir}/usr/bin" ${pkgbase}-*.gem -- \
+    --with-opt-include="${srcdir}/${pkgbase}-${pkgver}/include" \
+    --with-opt-lib="${srcdir}/${pkgbase}-${pkgver}"
+
+  install -Dm 644 ../sample* -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+
+  cd "${pkgdir}/${_gemdir}"
+  rm -r cache gems/unicorn-engine-${pkgver}/ext \
+    extensions/*/*/unicorn-engine-${pkgver}/{mkmf.log,gem_make.out}
+}
+
+# vim: ts=2 sw=2 et:
