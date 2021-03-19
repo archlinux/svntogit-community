@@ -1,0 +1,61 @@
+# Maintainer: Tim Meusel <tim at bastelfreak dot de>
+# Contributor: Mario Finelli <mario at finel dot li>
+
+# https://github.com/puppetlabs/gettext-setup-gem/issues/73
+_gemname='gettext-setup'
+pkgname="ruby-${_gemname}"
+pkgver=0.34
+pkgrel=3
+pkgdesc='A gem that configures gettext for internationalization'
+arch=('any')
+url='https://github.com/puppetlabs/gettext-setup-gem'
+license=('Apache')
+makedepends=('ruby-rdoc' 'ruby-bundler')
+depends=('ruby' 'ruby-fast_gettext' 'ruby-gettext')
+checkdepends=('ruby-rake' 'ruby-rspec' 'git')
+source=("https://github.com/puppetlabs/gettext-setup-gem/archive/${pkgver}/${_gemname}-gem-${pkgver}.tar.gz" 'disable-simplecov.patch')
+options=("!emptydirs")
+sha512sums=('479e2a79768923796960b45f1e3b3963939a4166c636ad4c3af60840a5c8449fa7fff81271b4c938e5a441146b25fcdd9fd8bb60e1df7ef31bb39efc56577572'
+            '2c57b3984cc89f039da6dd537cd75c596ba8da31f9864be3e7e170c6d9bedf9aae70f5a0e660bb3ce5fddb66c223f05aae096b60bbe03646211f572d368e6136')
+
+prepare() {
+  cd "${srcdir}/${_gemname}-gem-${pkgver}"
+
+  # allow latest dependencies
+  sed --in-place 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # The Rakefile and a helper file try to load a bunch of gems to report the CI status to a cloud provider
+  # Also it tries to execute a ruby linter for a legacy Ruby version
+  # all those tools aren't required to build and test the software, also we don't have them in the repos.
+  sed --in-place "s/spec.version.*/spec.version       = '0.34'/" "${_gemname}.gemspec"
+  sed --in-place "/spec.add_development_dependency 'rubocop'/d" "${_gemname}.gemspec"
+  sed --in-place "/spec.add_development_dependency 'simplecov'/d" "${_gemname}.gemspec"
+
+  # allow latest gettext version (removes explicit upper boundary)
+  sed --in-place "s/.*'gettext'.*/  spec.add_dependency 'gettext'/" "${_gemname}.gemspec"
+  patch -p1 -N -i "${srcdir}/disable-simplecov.patch"
+}
+
+build() {
+  cd "${srcdir}/${_gemname}-gem-${pkgver}"
+  gem build "${_gemname}.gemspec"
+}
+
+check() {
+  cd "${srcdir}/${_gemname}-gem-${pkgver}"
+  rspec spec
+}
+
+package() {
+  cd "${_gemname}-gem-${pkgver}"
+  local _gemdir="$(gem env gemdir)"
+  gem install --verbose --ignore-dependencies --no-user-install --install-dir "${pkgdir}/${_gemdir}" --bindir "${pkgdir}/usr/bin" "${_gemname}-${pkgver}.gem"
+
+  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  install -Dm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  # delete cache files from the build process
+  rm -rf "${pkgdir}/${_gemdir}/cache"
+}
+
+# vim: ts=2 sw=2 et:
