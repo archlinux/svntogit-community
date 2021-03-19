@@ -1,0 +1,103 @@
+# Maintainer: Christian Rebischke <chris.rebischke at archlinux.org>
+# Maintainer: Thore Bödecker <foxxx0@archlinux.org>
+# Contributor: Tim Meusel <tim@bastelfreak.de>
+# Contributor: Jonathan Steel <jsteel at archlinux.org>
+# Contributor: Greg Sutcliffe <facter_aur (at) emeraldreverie.orgr>
+# Contributor: Hyacinthe Cartiaux <hyacinthe.cartiaux@free.fr>
+# Contributor: Thomas S Hatch <thatch45 (at) Gmail.com>
+# Contributor: Dave Simons <miouhpi (at) Gmail (dot) com>
+# Contributor: Niels Abspoel <aboe76 (at) Gmail (dot) com>
+
+pkgname=facter
+pkgver=3.14.16
+pkgrel=2
+pkgdesc="Collect and display system facts"
+arch=('x86_64')
+url="https://puppetlabs.com/facter"
+license=('APACHE')
+depends=('yaml-cpp' 'boost-libs' 'curl' 'libwhereami' 'libwhereami.so' 'cpp-hocon' 'libcpp-hocon.so'
+         'systemd-libs' 'leatherman' 'leatherman_curl.so' 'leatherman_ruby.so' 'leatherman_execution.so'
+         'leatherman_file_util.so' 'leatherman_util.so' 'leatherman_logging.so' 'leatherman_locale.so'
+         'openssl' 'gcc-libs' 'glibc' 'util-linux-libs' 'ruby' 'libblkid.so' 'yaml-cpp')
+makedepends=('boost' 'cmake' 'java-environment>=10' 'ruby' 'python' 'rapidjson')
+checkdepends=('ruby-rake' 'ruby-diff-lcs' 'ruby-mocha' 'ruby-rspec-support'
+              'ruby-rspec-core' 'ruby-rspec-expectations' 'ruby-rspec-mocks'
+              'ruby-rspec')
+optdepends=('java-runtime>=8: jruby support'
+            'puppet: retrieve puppet facts')
+replaces=('cfacter')
+provides=('libfacter.so')
+source=("https://downloads.puppet.com/facter/facter-${pkgver}.tar.gz"{,.asc}
+        'FindUDEV.cmake'
+        'fix-shared-libwhereami-detection.patch'
+        'shared_cpp_hcon.patch'
+        'rapidjson-1.1-compat.patch'
+        'workaround-broken-double-test.patch')
+validpgpkeys=('D6811ED3ADEEB8441AF5AA8F4528B6CD9E61EF26') # "Puppet, Inc. Release Key (Puppet, Inc. Release Key) <release@puppet.com>"
+sha512sums=('d17102d331a2bf71f38ecd295617a2f51f2f26b5a18a3b161a5588601065430db570b681c65af4b7aff75e17c80c8025da4817024cdc850fb6a89398f690d5ef'
+            'SKIP'
+            'c06f8b75a697c89c696729aaca88d30cf4d8652406245d457d97a0de973f6129a037e226847e71785070dc16d5b40b98f287258f961da7904cf5338eb601fc09'
+            '1f5d2595cd6b2a63fc01c92c84eccf8f92bd9e9f0721ea1a3f59836d7d02f5ec6e6e3711b223b240d46ca55f7377f27339b7458c12d6c21564a2764c76df12b2'
+            '15fdfb75bb1045e160c095b62025f10d0a04c167223340072a9b8d065a2a185e942d299f86c80449661f37be5e1807efb49e77def44b8de4a9a9f7c2cc111e1a'
+            'a1fb08be2c6c9b2a4085404f1d13b13c9d41e3c1a38d35cbad1d29bbd497380492dab368a0fa7288d141f7f94ff7a7a0ae5ce271119e7074e039868682cc766f'
+            '335c6db6a4953cf3678877ba81506c475d93f461ec2ee75c22fba4a3f938db0bca7f6cf3ee0376eb4c34b43f1f3fb1a35a0a0e64be5a484c344bd689641ddc2b')
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  # Puppet builds Facter in a way that the java library is compatible with Java 6
+  # We require at least Java 8. 7 technically works, but already throws a deprecation warning
+  sed --in-place 's/-source 1.6 -target 1.6/-source 1.8 -target 1.8/' CMakeLists.txt
+
+  # https://tickets.puppetlabs.com/browse/FACT-1968
+  # facter is designed for ruby 2.4, which uses rb_data_object_alloc.
+  # This is deprecated in our Ruby 2.6 version
+  sed --in-place 's/rb_data_object_alloc/rb_data_object_wrap/g' lib/src/ruby/*.cc
+
+  # strip version boundary of gems
+  sed -i -r 's|(gem .\w+.).*|\1|' lib/Gemfile
+
+  # add missing cmake helper to find the udev lib (provided by systemd)
+  install -Dm644 "${srcdir}/FindUDEV.cmake" cmake/
+
+  # patch *.cmake so that it works with shared libs
+  patch -p1 -N -i "${srcdir}/fix-shared-libwhereami-detection.patch"
+  patch -p1 -N -i "${srcdir}/shared_cpp_hcon.patch"
+  patch -p1 -N -i "${srcdir}/rapidjson-1.1-compat.patch"
+
+  patch -p1 -N -i "${srcdir}/workaround-broken-double-test.patch"
+}
+
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  export JAVA_HOME=/usr/lib/jvm/default
+  cmake \
+    -B build \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+    -DENABLE_CXX_WERROR=OFF \
+    -DBUILD_SHARED_LIBS=ON
+  make -C build
+}
+
+check(){
+  cd "${srcdir}/${pkgname}-${pkgver}/build"
+  make test
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  make -C build DESTDIR="${pkgdir}" install
+
+  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+
+  # install the gemspec file
+  # this allows other gems to load puppet as a library (for example puppet-strings)
+  install -Dm644 .gemspec "${pkgdir}/${_gemdir}/specifications/${pkgname}-${pkgver}.gemspec"
+}
+
+# vim: ts=2 sw=2 et:
