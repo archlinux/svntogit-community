@@ -5,15 +5,23 @@
 
 pkgname=godot
 pkgver=3.2.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
 arch=(x86_64)
 makedepends=(gcc scons yasm)
 depends=(alsa-lib freetype2 libglvnd libxcursor libxi libxinerama libxrandr pulseaudio)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-sha256sums=('4c2a8e7da1ad05c6223b0ff6cf2be124dad6708b56a8ec9910dc2aaf82a553ae')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz"
+        'https://github.com/godotengine/godot/commit/113b5ab1c45c01b8e6d54d13ac8876d091f883a8.patch')
+sha256sums=('4c2a8e7da1ad05c6223b0ff6cf2be124dad6708b56a8ec9910dc2aaf82a553ae'
+            '914b9df8e37c16f191acaca7baa1878fb8e420b5467f34bf248de8cb26905c8b')
+
+prepare() {
+  cd $pkgname-$pkgver-stable
+  # FS#70057
+  patch -p1 -i "$srcdir/113b5ab1c45c01b8e6d54d13ac8876d091f883a8.patch"
+}
 
 build() {
   cd $pkgname-$pkgver-stable
