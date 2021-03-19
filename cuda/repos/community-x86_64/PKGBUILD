@@ -2,9 +2,9 @@
 # Maintainer: Konstantin Gizdov <arch@kge.pw>
 pkgname=(cuda cuda-tools)
 pkgbase=cuda
-pkgver=11.2.1
+pkgver=11.2.2
 _driverver=460.32.03
-pkgrel=4
+pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -44,7 +44,7 @@ source=(http://developer.download.nvidia.com/compute/cuda/${pkgver}/local_instal
         nvjpeg.pc
         nvrtc.pc
         nvToolsExt.pc)
-sha512sums=('c39c03ee40099318fa68e8a884fae573fc75a6ab58dd37a641f7c615016dc3116793970590c7c3304fe61280c50a4638831d95a28ef44c962c8ec9f2153eb671'
+sha512sums=('e28d7d2eabd96df9e18f8e55f61adda39b07c2223605f77a6c2d92a02f7b57e9ce8b83d4b4de1124faa5670509d204d3db70c03b18af5cc5964b6ed6653d6a22'
             '79aa6fbeff13a2bcef5791c2288d4b072dfe7b17593261ee79302dc6c77ae368e73f5cac9ce38893fc0068e4895f5cde475faf507fac058fb697c8da3198587f'
             '714d973bc79446f73bebe85306b3566fe25b554bcbcba2fcbe76709a3eca71fb5d183ab4da2d3b5e9326cb9cd8d13a93f6d4a005ea5a41f7ef8e6c6e81e06b5e'
             '41d6b6cad934f135eafde610d1cbd862033977fd4416a4b6abaa47709a70bab7fcf6f8377c21329084fb9db13f2a8c8c20e93c15292d7d4a6448d70a33b23f1b'
@@ -165,7 +165,7 @@ package_cuda-tools() {
   mv "${_prepdir}"/opt/cuda/bin/nvvp "${pkgdir}/opt/cuda/bin/nvvp"
   mv "${_prepdir}"/opt/cuda/bin/computeprof "${pkgdir}/opt/cuda/bin/computeprof"
   mv "${_prepdir}"/opt/cuda/{libnvvp,samples} "${pkgdir}/opt/cuda"
-  
+
   # licenses
   mkdir -p "${pkgdir}/usr/share/licenses"
   ln -s /usr/share/licenses/cuda "${pkgdir}/usr/share/licenses/${pkgname}"
