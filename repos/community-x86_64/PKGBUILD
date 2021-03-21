@@ -5,13 +5,13 @@
 
 pkgname=mattermost
 pkgver=5.33.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
 url="https://mattermost.com"
 license=(AGPL Apache)
 depends=(glibc)
-makedepends=(go jq nodejs npm git python2)
+makedepends=(go jq nodejs npm git python)
 optdepends=('mariadb: SQL server storage'
             'percona-server: SQL server storage'
             'postgresql: SQL server storage')
