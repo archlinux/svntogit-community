@@ -2,7 +2,7 @@
 # Contributor: csslayer <wengxt AT gmail com>
 
 pkgname=fcitx5
-pkgver=5.0.5
+pkgver=5.0.6
 pkgrel=1
 pkgdesc="Next generation of fcitx"
 arch=('x86_64')
@@ -15,7 +15,7 @@ depends=('cairo' 'enchant' 'iso-codes' 'libgl' 'libxkbcommon-x11' 'pango' 'syste
          'unicode-cldr-annotations')
 makedepends=('extra-cmake-modules' 'ninja')
 source=("https://download.fcitx-im.org/fcitx5/fcitx5/fcitx5-${pkgver}_dict.tar.xz"{,.sig})
-sha512sums=('f9224ccc94350bc57e4d843601ffa27211ebed8c06a2306aa5bc19c345ee7e024a46cefbc99135cde2df9a8f177085dee47e726ddc598521b1a6799ee78d8d23'
+sha512sums=('7689b15b1a8a7bd07229ceef0c9c0738de950c5690073d6f7f085a4aa173ca60f507d74c8785e70b18b4662a7dad7bf20df1343c84268647491e8e4c56b503b0'
             'SKIP')
 validpgpkeys=('2CC8A0609AD2A479C65B6D5C8E8B898CBF2412F9') # Weng Xuetian <wengxt@gmail.com>
 
