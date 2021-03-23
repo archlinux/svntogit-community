@@ -2,8 +2,8 @@
 
 pkgname=semver
 pkgver=7.3.5
-pkgrel=1
-pkgdesc='The semantic version parser used by npm.'
+pkgrel=2
+pkgdesc='The semantic version parser used by npm'
 arch=('any')
 url='https://github.com/npm/node-semver'
 license=('ISC')
@@ -14,7 +14,7 @@ noextract=($pkgname-$pkgver.tgz)
 sha512sums=('3e878625887c1cae014cefdaf537fa646def7a8fc0ed956c62b480e89f27cbd9dbdc1d55ae992e37ecfd384e707c4e69e87e0b721619b1e8224206c90fde1915')
 
 package() {
-  npm install -g --user root --prefix "$pkgdir"/usr "$srcdir"/$pkgname-$pkgver.tgz
+  npm install -g --prefix "$pkgdir"/usr "$srcdir"/$pkgname-$pkgver.tgz
 
   # Non-deterministic race in npm gives 777 permissions to random directories.
   # See https://github.com/npm/npm/issues/9359 for details.
