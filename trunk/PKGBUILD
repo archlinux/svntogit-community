@@ -8,15 +8,15 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=13.9.4
+pkgver=13.10.0
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
 license=('MIT')
 options=(!buildflags)
-depends=('ruby' 'ruby-bundler' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl')
-makedepends=('cmake' 'postgresql' 'yarn' 'go' 'nodejs' 'ruby-rake')
+depends=('ruby2.7' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl')
+makedepends=('cmake' 'postgresql' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
             'python-docutils: reStructuredText markup language support'
             'smtp-server: mail server in order to receive mail notifications')
@@ -40,13 +40,13 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab.logrotate)
 install='gitlab.install'
 sha512sums=('SKIP'
-            'e6e4b72697c550f8564d3b3eea1588e0ecc9abdd8891ae24ccef7f5bf7df2ab90e2421e6332b57ee88057612e7a51184d7a1fa0d2badbdb2b480af10750fc49a'
-            '790611d868e8206b83694f8509c38e49f92fc85678b9ff81e0d158dcb3f4c8251f231b8e71b77e216eb254dedbaf68ea46348896aa327f04c6dd4cb08a661dbd'
+            'a50f76a24b0f2ece42f67a8bf194617e025c95f14e2010a5f91b3b1ae00ba81a4f1d8a067cec0d549820aa0a6df7eae029f93b81a2e1f339f9e80429cd4d8d37'
+            'd8800af5b58e25a7baba9d4aba024715afe166919532b2919b29fc4f8901049ec467f87000fa11f448feddf4f423b39248e97129e3677bdbd980de260104fe8c'
             '5b1ca2958f03a5baf1c5576a1568072e8ed749e2d15745ecbcc4860d2dbd543f2f3ed077e8d87afac2670c9436b19fe498217b49916d56a4e31fb9811aeb9067'
-            '75bf9e5ad238a862dfc2638101fb74101227d88958a5f0fdf1ced3833e403f91b6a5908dfb97c5172f75748737212bf87d05b7d39bbe90ed5d3a6c248c1c1ab6'
-            '18f4a31935d0626c26d1be1942b715128cf3edcb114f672af16e4a145d8ac693e1afc7d59094cae3702e47e4c6c4cb4a62a009bafcbec500e69120a2dd400a2a'
-            '8afffb8caafdaa7a39991a4e694efc5133af1dc201ae07f3dc3989dbabb983339941011ffdd1f97c63033c94a02a3a7a6eb3722001aa3e7155c16f6743aec4c8'
-            '35c1175ef4347d700e2331c3963ac871cada50c9274964eb4ac8cb80bb27a7d3459bed1548bd1f3a1681b6eb5dd94fe7ec4855cab7b33dddc4e524a91ca791d7'
+            '451a030940f124bccd6d29c1924861b361d52db32cff6e745c144286c2afc7065e117f825721145ed2dd4406f5bcfa97e228a80b968aaa9a675613b71b776eba'
+            '419848c668928276620b5229e457a39e0ed7e111f1da68a30c3e0ae1a644af1c869b004b35435ccec4ddcdf6cf7418b1ab71e6e2ee8a2c861c6625c8bfd908f6'
+            'd86e16747ad79f514ce180646c68bec8b6fa61764b2b14b1621db998f48955c3fb81f4e19ecb0fbab9d603dd25d95929e6d72a473652608373e6551f26244738'
+            'f8067d1ee444a50dc9b2ed871974225ad521c310eb191e075adb0e45e47168da7d16b92f2e40d7ce755041dd4426a05f0ad1385392b4db526aeaf8a638eb024f'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
             '879be339148123e32b58a5669fdd3d3bb8b5d711326cb618f95b1680a6ac3a83c85d8862f2691b352fa26c95e4764dbb827856e22a3e2b9e4a76c13fe42864b5'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
@@ -84,7 +84,7 @@ prepare() {
 
   # https://github.com/bundler/bundler/issues/6882
   sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
-  bundle lock --update=bundler-audit
+  bundle-2.7 lock --update=bundler-audit
   # 'lock' adds 'BUNDLED WITH' back. Remove it again.
   sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
 }
@@ -94,13 +94,13 @@ build() {
 
   echo "Fetching bundled gems..."
   # Gems will be installed into vendor/bundle
-  bundle config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
-  bundle config force_ruby_platform true # some native gems are not available for newer ruby
-  bundle install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
+  bundle-2.7 config build.gpgme --use-system-libraries  # See https://bugs.archlinux.org/task/63654
+  bundle-2.7 config force_ruby_platform true # some native gems are not available for newer ruby
+  bundle-2.7 install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
 
   yarn install --production --pure-lockfile
-  bundle exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
-  bundle exec rake gettext:compile RAILS_ENV=production
+  bundle-2.7 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
+  bundle-2.7 exec rake gettext:compile RAILS_ENV=production
 }
 
 package() {
