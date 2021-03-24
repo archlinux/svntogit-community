@@ -4,7 +4,7 @@
 
 pkgname=python-prompt_toolkit
 _name=prompt_toolkit
-pkgver=3.0.17
+pkgver=3.0.18
 pkgrel=1
 pkgdesc="Library for building powerful interactive command lines in Python"
 arch=('any')
@@ -16,7 +16,7 @@ url="https://github.com/jonathanslenders/python-prompt-toolkit"
 license=('BSD')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/p/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('9397a7162cf45449147ad6042fa37983a081b8a73363a5253dd4072666333137')
+sha256sums=('e1b4f11b9336a28fa11810bc623c357420f69dfdb6d2dac41ca2c21a55c033bc')
 
 build() {
   cd "$_name-$pkgver"
