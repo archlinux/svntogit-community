@@ -8,30 +8,32 @@
 pkgbase=julia
 pkgname=(julia julia-docs)
 epoch=2
-pkgver=1.5.4
-pkgrel=1
+pkgver=1.6.0
+pkgrel=2
 arch=(x86_64)
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
 license=(MIT)
 depends=(cblas fftw hicolor-icon-theme libgit2 libunwind libutf8proc openblas
-         suitesparse mbedtls openlibm pcre2 llvm10-libs)
-makedepends=(cmake gcc-fortran gmp python llvm10)
+         suitesparse mbedtls openlibm pcre2 llvm-libs)
+makedepends=(cmake gcc-fortran python llvm patchelf)
+checkdepends=(p7zip)
 source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
         julia-system-cblas.patch
         make-install-no-build.patch)
-sha256sums=('dbfb8cd544b223eff70f538da7bb9d5b6f76fd0b00dd2385e6254e74ad4e892f'
+sha256sums=('c4c6872ee79fbe6391991057c3d0007e578b28d42572b0b35dace4107fe8bdf4'
             'SKIP'
             'd4c8fe9eec1bc416549924ae328ceb3f63cc736ecd5e67886faa924e7c14bc5d'
-            '0b57e0bc6e25c92fde8a6474394f7a99bfb57f9b5d0f7b53f988622ae67de8b7')
+            '8be4605f92a009072ca7e843549c225fc4e959893498e7c4f8f79e861e63714d')
 # Julia (Binary signing key) <buildbot@julialang.org>
 validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495')
 
 prepare() {
+  mv julia-{f9720dc2eb,$pkgver}
   cd $pkgbase-$pkgver
 
-  # Add and use option to build with system cblas
-  patch -p1 -i ../julia-system-cblas.patch
+  patch -p1 -i ../julia-system-cblas.patch # Add and use option to build with system cblas
+  mkdir -p usr/lib && ln -s /usr/lib/libgcc_s.so.1 usr/lib # Workaround build failure with system gcc-libs
 
   # Don't build again in install
   patch -p1 -i ../make-install-no-build.patch
@@ -40,11 +42,11 @@ prepare() {
   sed -e 's|0.22314355f0 + 3.1415927f0im|0.22314355f0 - 3.1415927f0im|' -i stdlib/LinearAlgebra/test/lu.jl
 }
 
-build() {
-  env CFLAGS="$CFLAGS -w" CXXFLAGS="$CXXFLAGS -w" make VERBOSE=1 -C $pkgbase-$pkgver \
-    prefix=/usr \
+_buildopts="prefix=/usr \
     bindir=/usr/bin \
     sysconfdir=/etc \
+    libexecdir=/usr/lib \
+    USE_SYSTEM_CSL=1 \
     USE_SYSTEM_LLVM=1 \
     USE_SYSTEM_LIBUNWIND=1 \
     USE_SYSTEM_PCRE=1 \
@@ -64,7 +66,10 @@ build() {
     USE_SYSTEM_ZLIB=1 \
     USE_SYSTEM_P7ZIP=1 \
     USE_SYSTEM_OPENLIBM=1 \
-    MARCH=x86-64
+    MARCH=x86-64"
+
+build() {
+  env CFLAGS="$CFLAGS -w" CXXFLAGS="$CXXFLAGS -w" make VERBOSE=1 -C $pkgbase-$pkgver $_buildopts
 }
 
 check() {
@@ -72,19 +77,31 @@ check() {
 
  # this is the make testall target, plus the --skip option from
  # travis/appveyor/circleci (one test fails with DNS resolution errors)
- ../julia --check-bounds=yes --startup-file=no ./runtests.jl all --skip Sockets --skip Distributed --skip LibGit2/libgit2
+ ../julia --check-bounds=yes --startup-file=no ./runtests.jl all \
+   --skip Sockets \
+   --skip broadcast \
+   --skip Distributed \
+   --skip nghttp2_jll \
+   --skip libLLVM_jll \
+   --skip OpenBLAS_jll \
+   --skip GMP_jll \
+   --skip LibCURL \
+   --skip LibSSH2_jll \
+   --skip MbedTLS_jll \
+   --skip SuiteSparse_jll \
+   --skip PCRE2_jll \
+   --skip LibGit2_jll \
+   --skip MozillaCACerts_jll \
+   --skip NetworkOptions
  find ../stdlib \( -name \*.cov -o -name \*.mem \) -delete
- rm -r depot/compiled
 }
 
 package_julia() {
   backup=(etc/julia/startup.jl)
   optdepends=('gnuplot: If using the Gaston Package from julia')
 
-  make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install \
-    prefix=/usr \
-    libexecdir=/usr/lib \
-    sysconfdir=/etc
+  make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install $_buildopts
+  ln -s /usr/lib/libgcc_s.so.1 "$pkgdir"/usr/lib/julia
 
   # Documentation is in the julia-docs package.
   # Man pages in /usr/share/julia/doc/man are duplicate.
