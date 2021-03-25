@@ -1,0 +1,120 @@
+# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
+# Contributor: Lex Black <autumn-wind@web.de>
+# Contributor: Michael Jakl <jakl.michael@gmail.com>
+# Contributor: devmotion <nospam-archlinux.org@devmotion.de>
+# Contributor: Valentin Churavy <v.churavy@gmail.com>
+
+pkgbase=julia
+pkgname=(julia julia-docs)
+epoch=2
+pkgver=1.6.0
+pkgrel=1
+arch=(x86_64)
+pkgdesc='High-level, high-performance, dynamic programming language'
+url='https://julialang.org/'
+license=(MIT)
+depends=(cblas fftw hicolor-icon-theme libgit2 libunwind libutf8proc openblas
+         suitesparse mbedtls openlibm pcre2 llvm-libs)
+makedepends=(cmake gcc-fortran python llvm patchelf)
+checkdepends=(p7zip)
+source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
+        julia-system-cblas.patch
+        make-install-no-build.patch)
+sha256sums=('c4c6872ee79fbe6391991057c3d0007e578b28d42572b0b35dace4107fe8bdf4'
+            'SKIP'
+            'd4c8fe9eec1bc416549924ae328ceb3f63cc736ecd5e67886faa924e7c14bc5d'
+            '8be4605f92a009072ca7e843549c225fc4e959893498e7c4f8f79e861e63714d')
+# Julia (Binary signing key) <buildbot@julialang.org>
+validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495')
+
+prepare() {
+  mv julia-{f9720dc2eb,$pkgver}
+  cd $pkgbase-$pkgver
+
+  patch -p1 -i ../julia-system-cblas.patch # Add and use option to build with system cblas
+
+  # Don't build again in install
+  patch -p1 -i ../make-install-no-build.patch
+
+  # Fix test failure
+  sed -e 's|0.22314355f0 + 3.1415927f0im|0.22314355f0 - 3.1415927f0im|' -i stdlib/LinearAlgebra/test/lu.jl
+}
+
+_buildopts="prefix=/usr \
+    bindir=/usr/bin \
+    sysconfdir=/etc \
+    libexecdir=/usr/lib \
+    USE_SYSTEM_LLVM=1 \
+    USE_SYSTEM_LIBUNWIND=1 \
+    USE_SYSTEM_PCRE=1 \
+    USE_SYSTEM_BLAS=1 \
+    USE_SYSTEM_LAPACK=1 \
+    USE_SYSTEM_GMP=1 \
+    USE_SYSTEM_MPFR=1 \
+    USE_SYSTEM_SUITESPARSE=1 \
+    USE_SYSTEM_DSFMT=0 \
+    USE_SYSTEM_LIBUV=0 \
+    USE_SYSTEM_UTF8PROC=1 \
+    USE_SYSTEM_LIBGIT2=1 \
+    USE_SYSTEM_LIBSSH2=1 \
+    USE_SYSTEM_MBEDTLS=1 \
+    USE_SYSTEM_CURL=1 \
+    USE_SYSTEM_PATCHELF=1 \
+    USE_SYSTEM_ZLIB=1 \
+    USE_SYSTEM_P7ZIP=1 \
+    USE_SYSTEM_OPENLIBM=1 \
+    MARCH=x86-64"
+
+build() {
+  env CFLAGS="$CFLAGS -w" CXXFLAGS="$CXXFLAGS -w" make VERBOSE=1 -C $pkgbase-$pkgver $_buildopts
+}
+
+check() {
+ cd $pkgbase-$pkgver/test
+
+ # this is the make testall target, plus the --skip option from
+ # travis/appveyor/circleci (one test fails with DNS resolution errors)
+ ../julia --check-bounds=yes --startup-file=no ./runtests.jl all \
+   --skip Sockets \
+   --skip broadcast \
+   --skip Distributed \
+   --skip nghttp2_jll \
+   --skip libLLVM_jll \
+   --skip OpenBLAS_jll \
+   --skip GMP_jll \
+   --skip LibCURL \
+   --skip LibSSH2_jll \
+   --skip MbedTLS_jll \
+   --skip SuiteSparse_jll \
+   --skip PCRE2_jll \
+   --skip LibGit2_jll \
+   --skip MozillaCACerts_jll \
+   --skip NetworkOptions
+ find ../stdlib \( -name \*.cov -o -name \*.mem \) -delete
+}
+
+package_julia() {
+  backup=(etc/julia/startup.jl)
+  optdepends=('gnuplot: If using the Gaston Package from julia')
+
+  make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install $_buildopts
+
+  # Documentation is in the julia-docs package.
+  # Man pages in /usr/share/julia/doc/man are duplicate.
+  rm -rf "$pkgdir/usr/share/"{doc,julia/doc}
+
+  install -Dm644 $pkgbase-$pkgver/LICENSE.md \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+}
+
+package_julia-docs() {
+  pkgdesc='Documentation and examples for Julia'
+  depends=(julia)
+
+  install -d "$pkgdir/usr/share/doc"
+  cp -r $pkgbase-$pkgver/doc "$pkgdir/usr/share/doc/$pkgbase"
+  rm -rf "$pkgdir/usr/share/doc/julia/man"
+  install -Dm644 $pkgbase-$pkgver/LICENSE.md \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+}
