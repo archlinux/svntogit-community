@@ -5,11 +5,10 @@
 # Contributor: devmotion <nospam-archlinux.org@devmotion.de>
 # Contributor: Valentin Churavy <v.churavy@gmail.com>
 
-pkgbase=julia
-pkgname=(julia julia-docs)
+pkgname=julia
 epoch=2
 pkgver=1.6.0
-pkgrel=3
+pkgrel=4
 arch=(x86_64)
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
@@ -17,33 +16,35 @@ license=(MIT)
 depends=(cblas fftw hicolor-icon-theme libgit2 libunwind libutf8proc openblas
          suitesparse mbedtls openlibm pcre2 llvm-libs p7zip)
 makedepends=(cmake gcc-fortran python llvm patchelf)
-source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
+optdepends=('gnuplot: If using the Gaston Package from julia')
+replaces=(julia-docs)
+source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgname-$pkgver-full.tar.gz"{,.asc}
         julia-system-cblas.patch
         julia-hardcoded-libs.patch
-        make-install-no-build.patch)
+        make-install-no-build.patch
+        julia-system-gcc-libs.patch)
+backup=(etc/julia/startup.jl)
 sha256sums=('c4c6872ee79fbe6391991057c3d0007e578b28d42572b0b35dace4107fe8bdf4'
             'SKIP'
-            'd4c8fe9eec1bc416549924ae328ceb3f63cc736ecd5e67886faa924e7c14bc5d'
+            'e44c260e4111908337caa82e1c3fef563b9d40e0a30da68d6e91405bf6db24dc'
             '692a51efc1a9608720a8ec8899ad62e48f0f2bf43b71e495e16f0429e8a80441'
-            '8be4605f92a009072ca7e843549c225fc4e959893498e7c4f8f79e861e63714d')
-# Julia (Binary signing key) <buildbot@julialang.org>
-validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495')
+            '8be4605f92a009072ca7e843549c225fc4e959893498e7c4f8f79e861e63714d'
+            '223d706718d1ba5203613dbf626f28b05cfde775652bd319904fd304c339ea17')
+validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495') # Julia (Binary signing key) <buildbot@julialang.org>
 
 prepare() {
   mv julia-{f9720dc2eb,$pkgver}
-  cd $pkgbase-$pkgver
+  cd $pkgname-$pkgver
 
+# Fix build failure with system gcc-libs
+  patch -p1 -i ../julia-system-gcc-libs.patch
+# Add and use option to build with system cblas
   patch -p1 -i ../julia-system-cblas.patch # Add and use option to build with system cblas
-  mkdir -p usr/lib/julia
-  ln -s /usr/lib/libgcc_s.so.1 usr/lib # Workaround build failure with system gcc-libs
-
-  # Don't hardcode library names
+# Don't hardcode library names
   patch -p1 -i ../julia-hardcoded-libs.patch
-
-  # Don't build again in install
+# Don't build again in install
   patch -p1 -i ../make-install-no-build.patch
-
-  # Fix test failure
+# Fix test failure
   sed -e 's|0.22314355f0 + 3.1415927f0im|0.22314355f0 - 3.1415927f0im|' -i stdlib/LinearAlgebra/test/lu.jl
 }
 
@@ -74,54 +75,37 @@ _buildopts="prefix=/usr \
     MARCH=x86-64"
 
 build() {
-  env CFLAGS="$CFLAGS -w" CXXFLAGS="$CXXFLAGS -w" make VERBOSE=1 -C $pkgbase-$pkgver $_buildopts
+  cd $pkgname-$pkgver
+  make release VERBOSE=1 JLDFLAGS=${LDFLAGS} $_buildopts
 }
 
 check() {
- cd $pkgbase-$pkgver/test
+  cd $pkgname-$pkgver/test
 
- # this is the make testall target, plus the --skip option from
- # travis/appveyor/circleci (one test fails with DNS resolution errors)
- # Also skip tests that check for a hardcoded version number
- ../julia --check-bounds=yes --startup-file=no ./runtests.jl all \
-   --skip Sockets \
-   --skip broadcast \
-   --skip Distributed \
-   --skip nghttp2_jll \
-   --skip GMP_jll \
-   --skip LibCURL \
-   --skip LibSSH2_jll \
-   --skip MbedTLS_jll \
-   --skip SuiteSparse_jll \
-   --skip PCRE2_jll \
-   --skip LibGit2_jll \
-   --skip MozillaCACerts_jll \
-   --skip NetworkOptions
- find ../stdlib \( -name \*.cov -o -name \*.mem \) -delete
+  # this is the make testall target, plus the --skip option from
+  # travis/appveyor/circleci (one test fails with DNS resolution errors)
+  # Also skip tests that check for a hardcoded version number
+  ../julia --check-bounds=yes --startup-file=no ./runtests.jl all \
+    --skip Sockets \
+    --skip broadcast \
+    --skip Distributed \
+    --skip nghttp2_jll \
+    --skip GMP_jll \
+    --skip LibCURL \
+    --skip LibSSH2_jll \
+    --skip MbedTLS_jll \
+    --skip SuiteSparse_jll \
+    --skip PCRE2_jll \
+    --skip LibGit2_jll \
+    --skip MozillaCACerts_jll \
+    --skip NetworkOptions
+  find ../stdlib \( -name \*.cov -o -name \*.mem \) -delete
+  rm -fr ../stdlib/Artifacts/test/artifacts
 }
 
-package_julia() {
-  backup=(etc/julia/startup.jl)
-  optdepends=('gnuplot: If using the Gaston Package from julia')
+package() {
+  cd $pkgname-$pkgver
+  make DESTDIR="$pkgdir" install $_buildopts
 
-  make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install $_buildopts
-  ln -s /usr/lib/libgcc_s.so.1 "$pkgdir"/usr/lib/julia # https://github.com/JuliaLang/julia/issues/40201
-
-  # Documentation is in the julia-docs package.
-  # Man pages in /usr/share/julia/doc/man are duplicate.
-  rm -rf "$pkgdir/usr/share/"{doc,julia/doc}
-
-  install -Dm644 $pkgbase-$pkgver/LICENSE.md \
-    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
-}
-
-package_julia-docs() {
-  pkgdesc='Documentation and examples for Julia'
-  depends=(julia)
-
-  install -d "$pkgdir/usr/share/doc"
-  cp -r $pkgbase-$pkgver/doc "$pkgdir/usr/share/doc/$pkgbase"
-  rm -rf "$pkgdir/usr/share/doc/julia/man"
-  install -Dm644 $pkgbase-$pkgver/LICENSE.md \
-    "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+  install -Dm644 LICENSE.md -t "$pkgdir"/usr/share/licenses/$pkgname
 }
