@@ -9,21 +9,22 @@ pkgbase=julia
 pkgname=(julia julia-docs)
 epoch=2
 pkgver=1.6.0
-pkgrel=2
+pkgrel=3
 arch=(x86_64)
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
 license=(MIT)
 depends=(cblas fftw hicolor-icon-theme libgit2 libunwind libutf8proc openblas
-         suitesparse mbedtls openlibm pcre2 llvm-libs)
+         suitesparse mbedtls openlibm pcre2 llvm-libs p7zip)
 makedepends=(cmake gcc-fortran python llvm patchelf)
-checkdepends=(p7zip)
 source=("https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgbase-$pkgver-full.tar.gz"{,.asc}
         julia-system-cblas.patch
+        julia-hardcoded-libs.patch
         make-install-no-build.patch)
 sha256sums=('c4c6872ee79fbe6391991057c3d0007e578b28d42572b0b35dace4107fe8bdf4'
             'SKIP'
             'd4c8fe9eec1bc416549924ae328ceb3f63cc736ecd5e67886faa924e7c14bc5d'
+            '692a51efc1a9608720a8ec8899ad62e48f0f2bf43b71e495e16f0429e8a80441'
             '8be4605f92a009072ca7e843549c225fc4e959893498e7c4f8f79e861e63714d')
 # Julia (Binary signing key) <buildbot@julialang.org>
 validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495')
@@ -33,7 +34,11 @@ prepare() {
   cd $pkgbase-$pkgver
 
   patch -p1 -i ../julia-system-cblas.patch # Add and use option to build with system cblas
-  mkdir -p usr/lib && ln -s /usr/lib/libgcc_s.so.1 usr/lib # Workaround build failure with system gcc-libs
+  mkdir -p usr/lib/julia
+  ln -s /usr/lib/libgcc_s.so.1 usr/lib # Workaround build failure with system gcc-libs
+
+  # Don't hardcode library names
+  patch -p1 -i ../julia-hardcoded-libs.patch
 
   # Don't build again in install
   patch -p1 -i ../make-install-no-build.patch
@@ -77,13 +82,12 @@ check() {
 
  # this is the make testall target, plus the --skip option from
  # travis/appveyor/circleci (one test fails with DNS resolution errors)
+ # Also skip tests that check for a hardcoded version number
  ../julia --check-bounds=yes --startup-file=no ./runtests.jl all \
    --skip Sockets \
    --skip broadcast \
    --skip Distributed \
    --skip nghttp2_jll \
-   --skip libLLVM_jll \
-   --skip OpenBLAS_jll \
    --skip GMP_jll \
    --skip LibCURL \
    --skip LibSSH2_jll \
@@ -101,7 +105,7 @@ package_julia() {
   optdepends=('gnuplot: If using the Gaston Package from julia')
 
   make -C $pkgbase-$pkgver DESTDIR="$pkgdir" install $_buildopts
-  ln -s /usr/lib/libgcc_s.so.1 "$pkgdir"/usr/lib/julia
+  ln -s /usr/lib/libgcc_s.so.1 "$pkgdir"/usr/lib/julia # https://github.com/JuliaLang/julia/issues/40201
 
   # Documentation is in the julia-docs package.
   # Man pages in /usr/share/julia/doc/man are duplicate.
