@@ -4,8 +4,8 @@
 
 pkgbase=podman
 pkgname=(podman podman-docker)
-pkgver=3.0.1
-pkgrel=2
+pkgver=3.1.0
+pkgrel=1
 pkgdesc='Tool and library for running OCI-based containers in pods'
 arch=(x86_64)
 url='https://github.com/containers/libpod'
@@ -22,8 +22,22 @@ pkgver() {
   git describe --tags | sed 's/^v//;s/-/+/g'
 }
 
+prepare() {
+  cd libpod
+
+  # From
+  # Makefile: Fix make install.docker regression
+  # https://github.com/containers/podman/pull/9898
+
+  # Makefile: ensure install.docker creates BINDIR
+  git cherry-pick -n ab3b6df130f5ce21b126a666f5df3bd85aaf4c46
+
+  # Makefile: introduce install.docker-full
+  git cherry-pick -n 7801072851315cd1409d5d82a5e649659aa06b79
+}
+
 build() {
-  export BUILDTAGS='seccomp varlink systemd'
+  export BUILDTAGS='seccomp systemd'
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
@@ -31,7 +45,6 @@ build() {
   export GOFLAGS="-buildmode=pie -trimpath"
 
   cd libpod
-  go generate ./pkg/varlink/...
   make EXTRA_LDFLAGS='-s -w -linkmode=external'
 }
 
@@ -55,5 +68,5 @@ package_podman-docker() {
   provides=(docker)
 
   cd libpod
-  make install.docker DESTDIR="$pkgdir" PREFIX=/usr
+  make -j1 install.docker-full DESTDIR="$pkgdir" PREFIX=/usr
 }
