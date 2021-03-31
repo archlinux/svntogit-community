@@ -3,8 +3,8 @@
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=1.7.0
-pkgrel=2
+pkgver=1.8.0
+pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
 url="https://github.com/cli/cli"
@@ -13,7 +13,7 @@ depends=("glibc" "mailcap")
 makedepends=("go" "git")
 optdepends=("git: To interact with repositories")
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('8d737d4e4a2943ca6e08c030c0992468162de0fc1366862d101b8e1389bdc36a')
+sha256sums=('13576c42a0cb1486370b876eccebe498c1ef84868893ae41a1f717229be4d6bb')
 
 prepare() {
     cd "cli-${pkgver}"
@@ -38,11 +38,6 @@ build() {
 
 check(){
     cd "cli-$pkgver"
-    # export CGO_CPPFLAGS="${CPPFLAGS}"
-    # export CGO_CFLAGS="${CFLAGS}"
-    # export CGO_CXXFLAGS="${CXXFLAGS}"
-    # export CGO_LDFLAGS="${LDFLAGS}"
-    # export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw -ldflags=-linkmode=external"
     make test
 }
 
