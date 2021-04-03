@@ -2,29 +2,24 @@
 # Contributor: Hao Long <imlonghao@archlinuxcn.org>
 
 pkgname=python-rich
-pkgver=10.0.0
+pkgver=10.0.1
 pkgrel=1
 pkgdesc='Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal'
 arch=(any)
 url='https://github.com/willmcgugan/rich'
 license=('MIT')
 depends=('python-colorama' 'python-pygments' 'python-typing_extensions' 'python-commonmark')
-makedepends=('python-setuptools' 'python-dephell')
+makedepends=('python-pip' 'python-poetry')
 source=("https://github.com/willmcgugan/rich/archive/v${pkgver}/rich-${pkgver}.tar.gz")
-b2sums=('2604bf6a3bd57a9465fc2a001b497ff7f0afe83953d42fa8e5d9c0edfeadb0992503e2cf91cea30f177a641ebb3bb94d669945b601c88e5e796a107a08792e2f')
-
-prepare() {
-  cd rich-${pkgver}
-  dephell deps convert --from pyproject.toml --to setup.py
-}
+b2sums=('3992282b72ea97a364df3ca67e10a90baadb36ff207f64edee7e11df957b078d4b2c67bf3485efb7dddd0b3e8c2d3ae87e1d9b4d063db91f30c1a9510f7da976')
 
 build() {
   cd rich-${pkgver}
-  python3 setup.py build
+  poetry build --format wheel
 }
 
 package() {
   cd rich-${pkgver}
-  python3 setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  PIP_CONFIG_FILE=/dev/null pip install --isolated --root="${pkgdir}" --ignore-installed --no-deps dist/*.whl
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
