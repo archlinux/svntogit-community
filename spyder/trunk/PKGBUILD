@@ -4,7 +4,7 @@
 # Contributor: TDY <tdy@gmx.com>
 
 pkgname=spyder
-pkgver=4.2.5
+pkgver=5.0.0
 pkgrel=1
 pkgdesc="The Scientific Python Development Environment"
 arch=(any)
@@ -15,6 +15,7 @@ depends=(
     python-atomicwrites
     python-chardet
     python-cloudpickle
+   	python-cookiecutter
     python-diff-match-patch
     python-intervaltree
     ipython
@@ -38,6 +39,7 @@ depends=(
     python-xdg
     python-pyzmq
     python-qdarkstyle
+    python-qstylizer
     python-qtawesome
     python-qtconsole
     python-qtpy
@@ -47,7 +49,15 @@ depends=(
     python-textdistance
     python-three-merge
     python-watchdog
+    autopep8
+    flake8
+    python-pycodestyle
+    python-pydocstyle
+    python-pyflakes
+    python-rope
+    yapf
 )
+# Starting from autopep8, required optdeps of python-language-server
 optdepends=(
     'cython: run Cython files in the IPython Console'
     'python-matplotlib: 2D/3D plotting in the IPython Console'
@@ -64,7 +74,6 @@ checkdepends=(
     python-pytest-xvfb
     python-pytest-ordering
     python-pytest-lazy-fixture
-    python-mock
     python-flaky
     python-pandas
     python-scipy
@@ -76,14 +85,19 @@ checkdepends=(
     tk
 )
 source=(https://github.com/spyder-ide/${pkgname}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha256sums=('f84eb99505eaa489765b8d46273e564660f8947a376b72832e9ce982c9f44e1b')
+sha256sums=('49b0d42970f0bb114c7318b464bc70419327cf00c1d651821099ccf3d9ec6365')
 
 prepare() {
   cd ${pkgname}-${pkgver}
   # Allow our jedi/parso/pyls versions
-  sed -i "s|JEDI_REQVER = '=|JEDI_REQVER = '>=|" -i spyder/dependencies.py
-  sed -i "s|PARSO_REQVER = '=|PARSO_REQVER = '>=|" -i spyder/dependencies.py
-  sed -i "s|PYLS_REQVER = '>=0.36.2;<1.0.0'|PYLS_REQVER = '>=0.36.2'|" -i spyder/dependencies.py
+  sed "s|JEDI_REQVER = '=|JEDI_REQVER = '>=|" -i spyder/dependencies.py
+  sed "s|PARSO_REQVER = '=|PARSO_REQVER = '>=|" -i spyder/dependencies.py
+  sed "s|QDARKSTYLE_REQVER = '=|QDARKSTYLE_REQVER = '>=|" -i spyder/dependencies.py
+  # Allow our Qt version
+  sed "s|'pyqt5<5.13'|'pyqt5'|" -i setup.py
+  sed "s|'pyqtwebengine<5.13'|'pyqtwebengine'|" -i setup.py
+  # https://github.com/spyder-ide/spyder/pull/15100
+  sed "s|SPYDER_KERNELS_REQVER = '>=2.0.1,<2.1.0'|SPYDER_KERNELS_REQVER = '>=2.0.1;<2.1.0'|" -i spyder/dependencies.py
 }
 
 build() {
@@ -94,20 +108,24 @@ build() {
 check() {
   cd ${pkgname}-${pkgver}
   # Required per above patching
-  sed -i "s|jedi==|jedi>=|" -i setup.py
-  sed -i "s|parso==|parso>=|" -i setup.py
-  sed -i "s|python-language-server[all]>=0.36.2,<1.0.0|python-language-server[all]>=0.36.2|" -i setup.py
-  sed -i "s|jedi =|jedi >=|" -i requirements/conda.txt
-  sed -i "s|parso =|parso >=|" -i requirements/conda.txt
-  sed -i "s|jedi =|jedi >=|" -i binder/environment.yml
-  sed -i "s|parso =|parso >=|" -i binder/environment.yml
-  sed -i "s|python-language-server >=0.36.2,<1.0.0|python-language-server >=0.36.2|" -i binder/environment.yml
+  sed "s|jedi==|jedi>=|" -i setup.py
+  sed "s|parso==|parso>=|" -i setup.py
+  sed "s|qdarkstyle==|qdarkstyle>=|" -i setup.py
+  sed "s|jedi =|jedi >=|" -i binder/environment.yml
+  sed "s|parso =|parso >=|" -i binder/environment.yml
+  sed "s|qdarkstyle =|qdarkstyle >=|" -i binder/environment.yml
+  sed "s|jedi =|jedi >=|" -i requirements/conda.txt
+  sed "s|parso =|parso >=|" -i requirements/conda.txt
+  sed "s|qdarkstyle =|qdarkstyle >=|" -i requirements/conda.txt
+  sed "s|pyqt <5.13|pyqt|" -i binder/environment.yml
+  sed "s|pyqt <5.13|pyqt|" -i requirements/conda.txt
   # Some tests failures but upstream does not support us
   python runtests.py || echo "Tests failed"
 }
 
 package() {
   cd ${pkgname}-${pkgver}
+  export PYTHONHASHSEED=0
   python setup.py install --prefix=/usr --root="${pkgdir}" --optimize=1 --skip-build
   # Install license file
   install -Dm644 LICENSE.txt -t ${pkgdir}/usr/share/licenses/${pkgname}/
