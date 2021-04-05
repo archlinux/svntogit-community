@@ -2,7 +2,7 @@
 # Controbutor: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 
 pkgname=fig2dev
-pkgver=3.2.8a
+pkgver=3.2.8.a
 _upstreamver=3.2.8a
 pkgrel=1
 pkgdesc="Format conversion utility that can be used with xfig"
