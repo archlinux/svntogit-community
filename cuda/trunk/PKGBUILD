@@ -12,7 +12,7 @@ license=('custom:NVIDIA')
 depends=('gcc' 'gcc-libs' 'opencl-nvidia' 'nvidia-utils' 'python')
 options=(!strip staticlibs)
 install=cuda.install
-source=(http://developer.download.nvidia.com/compute/cuda/${pkgver}/local_installers/cuda_${pkgver}_${_driverver}_linux.run
+source=(https://developer.download.nvidia.com/compute/cuda/${pkgver}/local_installers/cuda_${pkgver}_${_driverver}_linux.run
         cuda.sh
         cuda.conf
         cuda-findgllib_mk.diff
