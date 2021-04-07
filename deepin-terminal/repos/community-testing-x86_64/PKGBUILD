@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Josip Ponjavic <josipponjavic at gmail dot com>
+# Contributor: Xu Fasheng <fasheng.xu[AT]gmail.com>
+
+pkgname=deepin-terminal
+pkgver=5.4.0.20
+pkgrel=1
+pkgdesc='Default terminal emulation application for Deepin'
+arch=('x86_64')
+url="https://github.com/linuxdeepin/deepin-terminal"
+license=('GPL3')
+depends=('at-spi2-core' 'deepin-qt5integration' 'libsecret')
+makedepends=('chrpath' 'cmake' 'expac' 'gmock' 'gtest' 'lxqt-build-tools' 'ninja' 'qt5-tools')
+checkdepends=('xorg-server-xvfb')
+optdepends=('zssh: for remote management support')
+groups=('deepin-extra')
+source=("https://github.com/linuxdeepin/deepin-terminal/archive/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('03879ea71fac9786ccdf0203f9c172acfc256f9ec8dca73aa2e9c83f14fa8fdf18e021fe94811ad330172394faec7f3cb990760438e63963f89a1d5ab8565018')
+
+prepare() {
+  mkdir -p build
+  cd deepin-terminal-$pkgver
+  # Devendor qtermwidget - disabled due to the vendored copy has changes
+  #rm -r terminalwidget
+  #sed -i '/terminalwidget/d;/build_qtermwidget/d' deepin-terminal.pro
+  #sed -i 's|terminalwidget/lib/qtermwidget.h|qtermwidget5/qtermwidget.h|' encodeplugin/encodelistmodel.cpp views/termwidget.h theme/themelistmodel.cpp
+
+  # ninja: error: '/build/deepin-terminal/src/deepin-terminal-5.4.0.6/default-config.json', needed by '/build/deepin-terminal/src/deepin-terminal-5.4.0.6/settings_translation.cpp', missing and no known rule to make it
+  sed -i 's|default-config.json|src/assets/other/default-config.json|' CMakeLists.txt
+
+  # ‘QString& QString::operator=(const char*)’ is private within this context
+  sed -i '/LXQtCompilerSettings/a remove_definitions(-DQT_NO_CAST_FROM_ASCII -DQT_NO_CAST_TO_ASCII)' 3rdparty/terminalwidget/CMakeLists.txt
+}
+
+build(){
+  cd build
+  cmake -GNinja -DDTKCORE_TOOL_DIR=/usr/lib/libdtk-$(expac %v dtkcore | cut -d - -f 1 | cut -d : -f 2)/DCore/bin ../deepin-terminal-$pkgver
+  ninja
+}
+
+check() {
+  cd build
+  LD_LIBRARY_PATH="$PWD/3rdparty/terminalwidget" xvfb-run ninja test || echo "Tests failed"
+}
+
+package() {
+  cd build
+  DESTDIR="$pkgdir" ninja install
+
+  chrpath --delete "$pkgdir"/usr/bin/deepin-terminal
+}
