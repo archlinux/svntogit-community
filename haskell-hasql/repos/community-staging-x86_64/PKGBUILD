@@ -1,0 +1,63 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Thomas Dziedzic <gostrc@gmail.com>
+
+_hkgname=hasql
+pkgname=haskell-hasql
+pkgver=1.4.5
+pkgrel=6
+pkgdesc="An efficient PostgreSQL driver and a flexible mapping API"
+url="https://github.com/nikita-volkov/hasql"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-attoparsec' 'haskell-bytestring-strict-builder' 'haskell-contravariant'
+         'haskell-contravariant-extras' 'haskell-dlist' 'haskell-hashable' 'haskell-hashtables'
+         'haskell-postgresql-binary' 'haskell-postgresql-libpq' 'haskell-profunctors'
+         'haskell-text-builder' 'haskell-vector')
+makedepends=('ghc' 'haskell-tasty' 'haskell-tasty-quickcheck' 'haskell-tasty-hunit'
+             'haskell-quickcheck-instances' 'haskell-quickcheck' 'haskell-rebase'
+             'haskell-rerebase')
+checkdepends=('postgresql' 'pifpaf')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz"
+        https://github.com/nikita-volkov/hasql/commit/fb5b48c46abdb99fee516f3a79bdab53eaa019f0.patch)
+sha512sums=('3ca2bae363720e3fa49b943a4d8070ac64c60cdec4c4d35bdc28783215d2d21b77655090fce2f71d557f9096ab5d5411f783024c1d48bc56e32e0bdd1408c144'
+            '6cfdcdd8389a31658b637fdb4af7f8e702367abe0fac787ca560c897e8da4267ce2e4eeb8f463e035e37d5ff2c8d89371f08ee618e0fafc775562804ad1dd082')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../fb5b48c46abdb99fee516f3a79bdab53eaa019f0.patch
+
+    # Do not use default postgres port
+    sed -i 's/5432/9824/' tasty/Main/*.hs threads-test/*.hs profiling/*.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+
+    eval $(pifpaf run postgresql --host 127.0.0.1)
+    createuser -s postgres
+    runhaskell Setup test
+    pifpaf_stop
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
