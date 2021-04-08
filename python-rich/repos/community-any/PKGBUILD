@@ -3,7 +3,7 @@
 
 pkgname=python-rich
 pkgver=10.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal'
 arch=(any)
 url='https://github.com/willmcgugan/rich'
@@ -20,6 +20,7 @@ build() {
 
 package() {
   cd rich-${pkgver}
+  export PYTHONHASHSEED=0
   PIP_CONFIG_FILE=/dev/null pip install --isolated --root="${pkgdir}" --ignore-installed --no-deps dist/*.whl
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
