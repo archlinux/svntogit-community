@@ -3,6 +3,7 @@
 readonly default_config="/etc/php/php.ini"
 readonly default_php_command="/usr/bin/php"
 readonly default_user="nextcloud"
+readonly preserved_environment_vars="NEXTCLOUD_CONFIG_DIR"
 
 config=""
 php_command=""
@@ -14,8 +15,6 @@ check_sudo() {
     exit 1
   fi
 }
-
-check_sudo
 
 # allow overriding the php.ini
 if [[ -n "${NEXTCLOUD_PHP_CONFIG}" ]] && [[ -f "${NEXTCLOUD_PHP_CONFIG}" ]]; then
@@ -38,4 +37,9 @@ else
   user="${default_user}"
 fi
 
-sudo --preserve-env=NEXTCLOUD_CONFIG_DIR -u "$user" "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
+if [[ "${UID}" -eq 0 ]]; then
+  runuser --whitelist-environment="${preserved_environment_vars}" -u "$user" -- "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
+else
+  check_sudo
+  sudo --preserve-env="${preserved_environment_vars}" -u "$user" "$php_command" -c "${config}" /usr/share/webapps/nextcloud/occ "$@"
+fi
