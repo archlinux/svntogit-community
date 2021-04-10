@@ -1,3 +1,9 @@
+## 0.14.10 (April 07, 2021)
+
+BUG FIXES:
+
+* cli: Only rewrite provider locks file if its contents has changed. ([#28230](https://github.com/hashicorp/terraform/issues/28230))
+
 ## 0.14.9 (March 24, 2021)
 
 BUG FIXES:
