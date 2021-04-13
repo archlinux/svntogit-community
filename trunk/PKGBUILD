@@ -3,7 +3,7 @@
 # Contributor: Grigorios Bouzakis <grbzks[at]gmail[dot]com>
 
 pkgname=tmux
-pkgver=3.1_c
+pkgver=3.2
 pkgrel=1
 pkgdesc='A terminal multiplexer'
 url='https://github.com/tmux/tmux/wiki'
@@ -11,7 +11,7 @@ arch=('x86_64')
 license=('BSD')
 depends=('ncurses' 'libevent' 'libutempter')
 source=("https://github.com/tmux/tmux/releases/download/${pkgver/_/}/tmux-${pkgver/_/}.tar.gz")
-sha256sums=('918f7220447bef33a1902d4faff05317afd9db4ae1c9971bef5c787ac6c88386')
+sha256sums=('664d345338c11cbe429d7ff939b92a5191e231a7c1ef42f381cebacb1e08a399')
 
 build() {
 	cd "$srcdir/$pkgname-${pkgver/_/}"
