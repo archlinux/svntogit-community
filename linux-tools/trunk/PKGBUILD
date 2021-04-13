@@ -38,7 +38,7 @@ makedepends+=('readline' 'zlib' 'libelf' 'libcap' 'python-docutils')
 # turbostat deps
 makedepends+=('libcap')
 groups=("$pkgbase")
-source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}"
+source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}?signed"
 #        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
         'cpupower.default'
         'cpupower.systemd'
@@ -47,6 +47,10 @@ source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#
         'hv_fcopy_daemon.service'
         'hv_kvp_daemon.service'
         'hv_vss_daemon.service')
+validpgpkeys=(
+  'ABAF11C65A2970B130ABE3C479BE3E4300411886'  # Linus Torvalds
+  '647F28654894E3BD457199BE38DBBDC86092693E'  # Greg Kroah-Hartman
+)
 sha256sums=('SKIP'
             '4fa509949d6863d001075fa3e8671eff2599c046d20c98bb4a70778595cd1c3f'
             'b692f4859ed3fd9831a058a450a84d8c409bf7e3e45aac1c2896a14bb83f3d7a'
