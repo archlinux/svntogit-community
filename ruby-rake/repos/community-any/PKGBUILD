@@ -3,7 +3,7 @@
 _gemname=rake
 pkgname=ruby-$_gemname
 pkgver=13.0.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Make-like build tool implemented in Ruby'
 provides=(rake)
 arch=(any)
