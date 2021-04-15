@@ -13,7 +13,7 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=5.0.4.sdk104
+pkgver=5.0.5.sdk202
 pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -38,17 +38,32 @@ makedepends=(
   zlib
 )
 options=(staticlibs)
-_tag=269e323b5f2e2df4678c7763282c14fb1a530cfa
+_tag=561d6ea60d5c3f914c0d2c4f88f1e955bc9c997a
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
-  9999-runtime-libicu-68.patch
+  https://dotnetcli.azureedge.net/dotnet/Runtime/3.1.1/dotnet-runtime-3.1.1-linux-x64.tar.gz
+  https://dotnetcli.azureedge.net/dotnet/Sdk/5.0.202/dotnet-sdk-5.0.202-linux-x64.tar.gz
+  dotnet.sh
   9999-runtime-link-order.patch
+  9999-sdk-telemetry-optout.patch
+)
+noextract=(
+  dotnet-runtime-3.1.1-linux-x64.tar.gz
+  dotnet-sdk-5.0.202-linux-x64.tar.gz
 )
 b2sums=('SKIP'
-        '5e60cccee68ff6b5fa64a37364da099592890eda734472ed55e356718388ea0880a5558e1b3c1904208187207daf314c4abfdcf3a11985415e9a494aa04d1ddf'
-        '437e0b0956576795087f9e5299f6b847aaaef8158847a269d34331d42da6729721d121eed82b95e4833f9d01322da677d85db924bf43140360c5592d51324565')
+        'c51b167da0624df2fb5b346652ffa5a7fcfb00f95104664329721d4cf4b563dfdc8f7f3ea36332af1f50e8eedff14d7f960b55793ef2ed6b467a672bd92b3acd'
+        'cbdc6ff24baff47dead2f6e2cc46b11527630a4481dbea2241c205bfd065032a97e9367678d1f0520ea2858f87f2f1f0f5d4872e8c442b375b1c09efae6cc596'
+        '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
+        '437e0b0956576795087f9e5299f6b847aaaef8158847a269d34331d42da6729721d121eed82b95e4833f9d01322da677d85db924bf43140360c5592d51324565'
+        '2d69b0eb110f49badbf411ec22be0b10913321275d4146a9e3ea2e5a160a7388e6b0f70200d8ed8640c742f7791694a13be89d85f8424078396ab29e28fca113')
 
 pkgver() {
+  mkdir dotnet
+
+  bsdtar -xf dotnet-runtime-3.1.1-linux-x64.tar.gz -C dotnet
+  bsdtar -xf dotnet-sdk-5.0.202-linux-x64.tar.gz -C dotnet
+
   cd dotnet-source-build
 
   if [[ $(git describe --tags) != *-SDK ]]; then
@@ -65,8 +80,9 @@ prepare() {
   cd dotnet-source-build
 
   [ -d patches/runtime ] || mkdir patches/runtime
-  cp ../9999-runtime-libicu-68.patch patches/runtime/
   cp ../9999-runtime-link-order.patch patches/runtime/
+  [ -d patches/sdk ] || mkdir patches/sdk
+  cp ../9999-sdk-telemetry-optout.patch patches/sdk/
 
   # disable warnings
   sed -i 's|skiptests|skiptests ignorewarnings|' repos/runtime.common.props
@@ -78,6 +94,7 @@ build() {
   export SOURCE_BUILD_SKIP_SUBMODULE_CHECK=1
 
   ./build.sh \
+    --with-sdk ../dotnet \
     /p:ArchiveDownloadedPackages=true \
     /p:ContinueOnPrebuiltBaselineError=true \
     /p:SkipPortableRuntimeBuild=true \
@@ -95,11 +112,12 @@ package_dotnet-host() {
 
   cd dotnet-source-build/artifacts/x64/Release
 
-  install -dm 755 "${pkgdir}"/usr/{bin,lib,share/{dotnet,licenses/dotnet-host}}
+  install -dm 755 "${pkgdir}"/{etc/profile.d,usr/{bin,lib,share/{dotnet,licenses/dotnet-host}}}
   bsdtar -xf dotnet-sdk-${pkgver%.*.sdk*}.${pkgver#*sdk}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner dotnet host
   bsdtar -xf dotnet-sdk-${pkgver%.*.sdk*}.${pkgver#*sdk}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/licenses/dotnet-host/ --no-same-owner LICENSE.txt ThirdPartyNotices.txt
   ln -s /usr/share/dotnet/dotnet "${pkgdir}"/usr/bin/dotnet
   ln -s /usr/share/dotnet/host/fxr/${pkgver%.sdk*}/libhostfxr.so "${pkgdir}"/usr/lib/libhostfxr.so
+  install -Dm 644 "${srcdir}"/dotnet.sh -t "${pkgdir}"/etc/profile.d/
 }
 
 package_dotnet-runtime() {
