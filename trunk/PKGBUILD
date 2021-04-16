@@ -3,7 +3,7 @@
 _name=sphinxcontrib-devhelp
 pkgname=python-sphinxcontrib-devhelp
 pkgver=1.0.2
-pkgrel=5
+pkgrel=6
 pkgdesc='Sphinx extension which outputs Devhelp document'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-devhelp
@@ -21,9 +21,6 @@ build() {
 check() {
   cd $_name-$pkgver
   pytest
-
-  # Remove created cache files for reproduciblity with rebuilderd
-  rm -r tests/__pycache__
 }
 
 package() {
