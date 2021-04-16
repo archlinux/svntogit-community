@@ -3,7 +3,7 @@
 _name=sphinxcontrib-jsmath
 pkgname=python-sphinxcontrib-jsmath
 pkgver=1.0.1
-pkgrel=8
+pkgrel=9
 pkgdesc='Sphinx extension which renders display math in HTML via JavaScript'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-jsmath
@@ -21,9 +21,6 @@ build() {
 check() {
   cd $_name-$pkgver
   pytest
-
-  # Remove created cache files for reproduciblity with rebuilderd
-  rm -r tests/__pycache__
 }
 
 package() {
