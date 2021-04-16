@@ -5,7 +5,7 @@
 
 pkgname=dnsperf
 pkgver=2.5.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Tools that measure performance of authoritative Domain Name services"
 arch=('x86_64')
 url="https://www.dns-oarc.net/tools/dnsperf"
