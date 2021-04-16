@@ -3,7 +3,7 @@
 _name=sphinxcontrib-serializinghtml
 pkgname=python-sphinxcontrib-serializinghtml
 pkgver=1.1.4
-pkgrel=5
+pkgrel=6
 pkgdesc='Sphinx extension which outputs "serialized" HTML files (json and pickle)'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-serializinghtml
@@ -21,9 +21,6 @@ build() {
 check() {
   cd $_name-$pkgver
   pytest
-
-  # Remove created cache files for reproduciblity with rebuilderd
-  rm -r tests/__pycache__
 }
 
 package() {
