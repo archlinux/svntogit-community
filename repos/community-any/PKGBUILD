@@ -6,7 +6,7 @@
 
 pkgname=python-sphinx
 pkgver=3.5.4
-pkgrel=1
+pkgrel=2
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -44,9 +44,6 @@ build() {
 check() {
   cd Sphinx-$pkgver
   LC_ALL="en_US.UTF-8" make test
-
-  # Remove created cache files for reproduciblity with rebuilderd
-  find tests -type d -name __pycache__ -exec rm -r {} +
 }
 
 package() {
