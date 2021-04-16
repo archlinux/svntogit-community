@@ -3,7 +3,7 @@
 _name=sphinxcontrib-htmlhelp
 pkgname=python-sphinxcontrib-htmlhelp
 pkgver=1.0.3
-pkgrel=5
+pkgrel=6
 pkgdesc='Sphinx extension which renders HTML help files'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-htmlhelp
@@ -21,9 +21,6 @@ build() {
 check() {
   cd $_name-$pkgver
   pytest
-
-  # Remove created cache files for reproduciblity with rebuilderd
-  rm -r tests/__pycache__
 }
 
 package() {
