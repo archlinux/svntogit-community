@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.3.4
-pkgrel=3
+pkgrel=4
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
@@ -97,6 +97,8 @@ package_mumble() {
   install -vDm 755 release/plugins/*.so -t "$pkgdir/usr/lib/mumble/"
   # XDG desktop integration
   install -vDm 644 scripts/mumble.desktop -t "$pkgdir/usr/share/applications"
+  # AppStream metadata
+  install -vDm 644 scripts/mumble.appdata.xml -t "$pkgdir/usr/share/metainfo"
   # man page
   install -vDm 644 "man/${pkgname}"*.1 -t "$pkgdir/usr/share/man/man1/"
   # XDG desktop icons
