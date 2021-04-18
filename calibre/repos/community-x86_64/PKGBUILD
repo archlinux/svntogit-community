@@ -8,8 +8,8 @@
 
 pkgbase=calibre
 pkgname=calibre
-pkgver=5.14.0
-pkgrel=2
+pkgver=5.16.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -20,7 +20,7 @@ _py_deps=('apsw' 'beautifulsoup4' 'cchardet' 'cssselect' 'css-parser' 'dateutil'
           'pyqtwebengine' 'regex' 'zeroconf')
 depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libusb'
          'libwmf' 'mathjax' 'mtdev' 'optipng' 'podofo'
-         "${_py_deps[@]/#/python-}" 'qt5-svg' 'ttf-liberation' 'udisks2')
+         "${_py_deps[@]/#/python-}" 'qt5-imageformats' 'qt5-svg' 'ttf-liberation' 'udisks2')
 makedepends=('qt5-x11extras' 'sip' 'pyqt-builder' 'xdg-utils' 'rapydscript-ng')
 checkdepends=('xorg-server-xvfb')
 optdepends=('poppler: required for converting pdf to html'
@@ -29,9 +29,9 @@ conflicts=('calibre-common' 'calibre-python3')
 replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
-sha256sums=('186cce57b6990af0b014282fa1d3d914fffc11e40d8495ea43d91485534e1271'
+sha256sums=('7e4b0d5ac59001361601953c56667c715d4a5081a80b71f4389314b447260735'
             'SKIP')
-b2sums=('3f503b2d32adb355a034b8573485fdedcebcc2670a9bf00fbeca07d84bc14f2c43530db1e15196f354d61adbad504cdb2d6cf8c6ca5bccc0cbf5e38869e6ff90'
+b2sums=('afd135b43960094682c234831ae44b1b714d313f5d01b4a26bc9252d54a8728faa57f3ad1db07241a819d91b70e90730957bcfb608f230efc4fc44a0f37e2857'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
@@ -88,7 +88,8 @@ package() {
 
     LANG='en_US.UTF-8' python setup.py install \
         --staging-root="${pkgdir}/usr" \
-        --prefix=/usr
+        --prefix=/usr \
+        --system-plugins-location=/usr/share/calibre/system-plugins
 
     cp -a man-pages/ "${pkgdir}/usr/share/man"
 
