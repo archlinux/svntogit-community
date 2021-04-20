@@ -6,8 +6,8 @@
 # Contributor: nofxx <x@<nick>.com>
 
 pkgname=redis
-pkgver=6.2.1
-pkgrel=2
+pkgver=6.2.2
+pkgrel=1
 pkgdesc='An in-memory database that persists on disk'
 arch=('x86_64')
 url='https://redis.io/'
@@ -25,7 +25,7 @@ source=("${pkgname}-${pkgver}.tar.gz::https://github.com/redis/redis/archive/${p
         redis.tmpfiles
         redis.conf-sane-defaults.patch
         redis-5.0-use-system-jemalloc.patch)
-sha512sums=('79108a10911698aef64412792574e75d8b5e41fa45e7631a9cd39bc704d2fce8648a494f25868c4cf6775afa8b56287a21cafbaee8c306803a2ddcb2b355ff7e'
+sha512sums=('0aa38612173ccf601f6ef6c41f6d4cf997c67b369af07b8a2600f611e992955443bd7ce0b3f42ed80dccfbe16f0c019822b01949a60b4fee63c0747bd693996b'
             '749c5eecfd6cd2ed949302672c20a7972dbef3a4b971ed569eb064362d7f20434b5c39077f665e178394158b5200375bc2e56614682fa08dbf99e868a9b75783'
             '2314c26920f5f0989fb98622f594b621a0b5035525146263da3fdfe640257118e03fc1903c15a62bcd4fbf260e0dcbf9249088292323739a607a11c9630795bf'
             '2227dfb41bf5112f91716f011862ba5fade220aea3b6a8134a5a05ee3af6d1cca05b08d793a486be97df98780bf43ac5dc4e5e9989ae0c5cd4e1eedb6cee5d71'
