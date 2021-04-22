@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 _pkgname=tqdm
-pkgname=$_pkgname-tqdm
+pkgname=python-$_pkgname
 pkgver=4.60.0
 pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
