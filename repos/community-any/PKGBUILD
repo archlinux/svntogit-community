@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-importlib-metadata
-pkgver=3.7.3
+pkgver=4.0.1
 pkgrel=1
 pkgdesc="Read metadata from Python packages"
 url="https://importlib-metadata.readthedocs.io"
@@ -12,7 +12,7 @@ makedepends=('python-setuptools-scm' 'python-toml' 'python-wheel')
 checkdepends=('python-pip' 'python-pytest' 'python-importlib_resources'
               'python-pyfakefs' 'python-tests')
 source=("https://github.com/python/importlib_metadata/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('c05fdf95ad8c708bde27dcf00b41d5adf5e2af8230a32b285ff9fbc5720bb2fff97e18d9c5e3f2dd05d4ca7b9f7f6161713caa346ba7d4508401b05497f45cb4')
+sha512sums=('4c99d3fbe3dd8091836d851550007bcd25f5e537614bfdd3941a748adf1d5fea434710784bba9677ab5d54985ce36e8c799205430ede9ddd5723c893ecf3bb15')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
