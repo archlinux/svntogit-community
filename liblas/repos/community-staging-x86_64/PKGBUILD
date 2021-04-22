@@ -1,0 +1,56 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+
+pkgname=liblas
+pkgver=1.8.1.r120+ge12742f4
+pkgrel=4
+pkgdesc="C/C++ library for reading and writing the very common LAS LiDAR format"
+arch=(x86_64)
+url="https://liblas.org/"
+license=(BSD)
+depends=(boost-libs gdal laszip2 libgeotiff proj)
+makedepends=(cmake boost git)
+#source=(https://download.osgeo.org/liblas/libLAS-${pkgver}.tar.bz2)
+#md5sums=('2e6a975dafdf57f59a385ccb87eb5919')
+#sha256sums=('9adb4a98c63b461ed2bc82e214ae522cbd809cff578f28511122efe6c7ea4e76')
+source=(git+https://github.com/libLAS/libLAS.git#commit=e12742f4152146d3a71f9b2de573257e91736c93
+        fix-gdal-2.5.patch)
+sha256sums=(SKIP c492dd229664c0f1be1a7ca7a7e2df0414a04e2ac89dc5b5ce61463fbe84a6af)
+
+pkgver() {
+  cd libLAS
+  git describe --tags | sed 's/^mfoc-//;s/\([^-]*-g\)/r\1/;s/-/./;s/-/+/'
+}
+
+prepare() {
+  cd libLAS
+  # https://github.com/libLAS/libLAS/issues/164
+  patch -Np1 -i ../fix-gdal-2.5.patch
+  # Find our laszip 2.x version
+  sed -i 's@laszip/@laszip2/@g' cmake/modules/FindLASzip.cmake
+  sed -i 's@laszip/@laszip2/@g' src/header.cpp
+  sed -i 's@laszip/@laszip2/@g' src/version.cpp
+  sed -i 's@laszip/@laszip2/@g' src/detail/zippoint.cpp
+  sed -i 's@laszip/@laszip2/@g' src/detail/reader/zipreader.cpp
+  sed -i 's@laszip/@laszip2/@g' src/detail/writer/zipwriter.cpp
+}
+
+build() {
+  #cmake -B build -S libLAS-${pkgver} \
+  cmake -B build -S libLAS \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DWITH_GDAL=True \
+    -DWITH_GEOTIFF=True \
+    -DWITH_LASZIP=True \
+    -DWITH_UTILITIES=True \
+    -DCMAKE_INSTALL_RPATH=/usr/lib/laszip2 \
+    -DLASZIP_INCLUDE_DIR=/usr/include \
+    -DLASZIP_LIBRARY=/usr/lib/laszip2/liblaszip.so \
+    -G "Unix Makefiles"
+  make -C build
+}
+
+package() {
+  make -C build DESTDIR="${pkgdir}" install
+  #install -Dm644 libLAS-${pkgver}/LICENSE.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}
+  install -Dm644 libLAS/LICENSE.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}
+}
