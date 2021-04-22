@@ -1,0 +1,55 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hiedb
+pkgname=haskell-hiedb
+pkgver=0.3.0.1
+pkgrel=28
+pkgdesc="Generates a references DB from .hie files"
+url="https://github.com/wz1000/HieDb"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-algebraic-graphs' 'haskell-ansi-terminal' 'haskell-extra' 'haskell-ghc'
+         'haskell-ghc-paths' 'haskell-hie-compat' 'haskell-lucid' 'haskell-optparse-applicative'
+         'haskell-sqlite-simple')
+makedepends=('ghc' 'haskell-hspec' 'haskell-temporary')
+# https://github.com/wz1000/HieDb/pull/27
+#source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+source=("https://github.com/wz1000/HieDb/archive/$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('7c0d3c56f7c0ea9b5af84f9c9f8547dc2a12abf0ab3e599c9ebdff3d2bf7b980')
+
+prepare() {
+  cd HieDb-$pkgver
+  sed -i 's/callProcess "ghc" \$/callProcess "ghc" $ "-dynamic" :/' test/Main.hs
+}
+
+build() {
+  cd HieDb-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd HieDb-$pkgver
+  # https://github.com/wz1000/HieDb/issues/28
+  PATH="$PWD/dist/build/hiedb:$PATH" LD_LIBRARY_PATH="$PWD/dist/build" runhaskell Setup test || echo "Tests failed"
+}
+
+package() {
+  cd HieDb-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
