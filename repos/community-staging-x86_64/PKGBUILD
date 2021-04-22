@@ -1,0 +1,45 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=th-compat
+pkgname=haskell-th-compat
+pkgver=0.1.2
+pkgrel=10
+pkgdesc="Backward- (and forward-)compatible Quote and Code types"
+url="https://github.com/haskell-compat/th-compat"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs')
+makedepends=('ghc' 'haskell-base-compat' 'haskell-hspec' 'haskell-hspec-discover')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('4910a8fdbd4ec9658205f78be0e5c832deaffe77c51695776563758de9b28e190c6134101c0467a7abc96a51a6ddf02c77943c252d2f3e41f0c4bc1fcb461073')
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
