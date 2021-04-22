@@ -1,0 +1,40 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=ghc-check
+pkgname=haskell-ghc-check
+pkgver=0.5.0.4
+pkgrel=3
+pkgdesc="detect mismatches between compile-time and run-time versions of the ghc api"
+url="https://hackage.haskell.org/package/ghc-check"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-ghc' 'haskell-ghc-paths' 'haskell-safe-exceptions' 'haskell-th-compat')
+makedepends=('ghc')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('57fca59c71c10d72bab2e28716e087ad764812ed7c043110d81d54d3239c92501a9ee8a987d96171e0c0725d4473714b0c42b27199d905ee69b169175429d7f5')
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
