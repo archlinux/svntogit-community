@@ -1,0 +1,57 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hie-bios
+pkgname=haskell-hie-bios
+pkgver=0.7.5
+pkgrel=14
+pkgdesc="Set up a GHC API session"
+url="https://github.com/mpickering/hie-bios"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-base16-bytestring' 'haskell-conduit'
+         'haskell-conduit-extra' 'haskell-cryptohash-sha1' 'haskell-extra' 'haskell-file-embed'
+         'haskell-hslogger' 'haskell-optparse-applicative' 'haskell-temporary'
+         'haskell-unix-compat' 'haskell-unordered-containers' 'haskell-vector' 'haskell-yaml')
+makedepends=('ghc' 'haskell-hspec-expectations' 'haskell-tasty' 'haskell-tasty-expected-failure'
+             'haskell-tasty-hunit')
+checkdepends=('cabal-install')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('decc7d47a5b44a041a43779d26a2db07d09754d3d1b40a90ee031f09487237890f9509256638aec9ec29fd92dcd37332c7bf36852586e2589b274eb42d5d9262')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  # https://github.com/mpickering/hie-bios/issues/290
+  chmod +x tests/projects/*/*.sh
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  cabal update  # Generate cabal config for tests
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
