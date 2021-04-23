@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hasql-transaction
+pkgname=haskell-hasql-transaction
+pkgver=1.0.0.2
+pkgrel=7
+pkgdesc="A composable abstraction over the retryable transactions for Hasql"
+url="https://github.com/nikita-volkov/hasql-transaction"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-bytestring-tree-builder' 'haskell-contravariant'
+         'haskell-contravariant-extras' 'haskell-hasql')
+makedepends=('ghc' 'uusi' 'haskell-async' 'haskell-rerebase')
+checkdepends=('postgresql' 'pifpaf')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('25b068f654c55f35d92e059d2876a09694ee6881935b7585d5fcf52f421a91a0d191f3339d40a01288c6847d5ae3b609665aeb3f83a119d5a4ee07e6cdcbd5b1')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/5432/9824/' conflicts-test/Main.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+
+    eval $(pifpaf run postgresql --host 127.0.0.1)
+    createuser -s postgres
+    runhaskell Setup test --show-details=direct
+    pifpaf_stop
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
