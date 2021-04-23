@@ -4,27 +4,20 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=3.2.3
-pkgrel=2
+pkgver=3.3
+pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
 arch=(x86_64)
 makedepends=(gcc scons yasm)
-depends=(alsa-lib freetype2 libglvnd libxcursor libxi libxinerama libxrandr pulseaudio)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz"
-        'https://github.com/godotengine/godot/commit/113b5ab1c45c01b8e6d54d13ac8876d091f883a8.patch')
-sha256sums=('4c2a8e7da1ad05c6223b0ff6cf2be124dad6708b56a8ec9910dc2aaf82a553ae'
-            '914b9df8e37c16f191acaca7baa1878fb8e420b5467f34bf248de8cb26905c8b')
-
-prepare() {
-  cd $pkgname-$pkgver-stable
-  # FS#70057
-  patch -p1 -i "$srcdir/113b5ab1c45c01b8e6d54d13ac8876d091f883a8.patch"
-}
+depends=(alsa-lib freetype2 libglvnd libxcursor libxinerama libxrandr pulseaudio)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
+b2sums=('280b3b371c96e7a39e23f843759754e932fe4fd62b774b5d2d0d0e687fdb5dc8be7d95a18465f52d6f00456f62451115b1bf2e4afc2923ce704ffcde0f06544d')
 
 build() {
   cd $pkgname-$pkgver-stable
+  export BUILD_NAME=arch_linux
   scons -j12 \
     bits=64 \
     colored=yes \
@@ -32,7 +25,10 @@ build() {
     pulseaudio=yes \
     target=release_debug \
     tools=yes \
-    use_llvm=no
+    use_llvm=no \
+    CFLAGS="$CFLAGS -Wl,-z,relro,-z-now -w" \
+    CXXFLAGS="$CXXFLAGS -Wl,-z,relro,-z-now -w" \
+    LINKFLAGS="$LDFLAGS -Wl,-z,relro,-z-now -w"
 }
 
 package() {
