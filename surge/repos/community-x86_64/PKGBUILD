@@ -3,7 +3,7 @@
 _name=Surge
 pkgname=surge
 pkgver=1.9.0
-pkgrel=1
+pkgrel=2
 pkgdesc="An Open Source Digital Synthesizer"
 arch=('x86_64')
 url="https://surge-synthesizer.github.io/"
@@ -19,9 +19,12 @@ optdepends=(
 )
 checkdepends=('lv2lint')
 replaces=('surge-synthesizer')
-source=("${pkgname}-${pkgver}.tgz::https://github.com/surge-synthesizer/releases/releases/download/${pkgver}/SurgeSrc_${pkgver}.tgz")
-sha512sums=('f06caae297026e9bbccdb097a47341dc1abd17dc7988d8d46368bec202fe701b1b7c9614b441f8d00a5a3a4f386d870a2da86c422ddd7324db216de7baa00836')
-b2sums=('b6574a48feefe6173afb2185be64423bb70d51d7376e9b5c44c4882d8e3e078c6b0430cb33aa23f9858a21db0be7b0dddfeebb57625149d79f066bb23639882e')
+source=("${pkgname}-${pkgver}.tgz::https://github.com/surge-synthesizer/releases/releases/download/${pkgver}/SurgeSrc_${pkgver}.tgz"
+        "${pkgname}-1.9.0-test.patch::https://github.com/baconpaul/surge/commit/ee42f4c727e69c79053ea9843be4c9d83f3679ee.patch")
+sha512sums=('f06caae297026e9bbccdb097a47341dc1abd17dc7988d8d46368bec202fe701b1b7c9614b441f8d00a5a3a4f386d870a2da86c422ddd7324db216de7baa00836'
+            '2d67c132ad15cdc52fa483120dd60827dfefa3def7217f2329bcad8dd122b726c6dc2142206eeb7c8fb2bf4237cd53d88a81c7fef90b8a11560b7dc0d9dc4faa')
+b2sums=('b6574a48feefe6173afb2185be64423bb70d51d7376e9b5c44c4882d8e3e078c6b0430cb33aa23f9858a21db0be7b0dddfeebb57625149d79f066bb23639882e'
+        'c6094291bcdc41e9c9d7fa4386380f43e2958e59803b230142e7a76f4d0bf43b20131f5af135cd56465d0c684b4159fa4c6703e84416d5a71f7db9abbd7e514c')
 
 prepare() {
   mv -v "$pkgname" "$pkgname-$pkgver"
@@ -37,6 +40,9 @@ prepare() {
       -e "s/@SURGE_BUILD_ARCH@/${CARCH}/g" \
       -e "s/@SURGE_FULL_VERSION@/${pkgver}/g" \
       -i src/common/version.cpp.in
+  # fix issue with a unit test:
+  # https://github.com/surge-synthesizer/surge/issues/4387
+  patch -Np1 -i ../"${pkgname}-1.9.0-test.patch"
 }
 
 build() {
@@ -51,16 +57,6 @@ build() {
         -B build \
         -S .
   make VERBOSE=1 -C build
-
-  # set datapath to local dir for testing
-  sed -e 's|/usr/share/Surge|resources/data|' -i src/common/SurgeStorage.cpp
-  # build surge-headless (test-suite
-  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
-        -DCMAKE_BUILD_TYPE='None' \
-        -W no-dev \
-        -B build-test \
-        -S .
-  make VERBOSE=1 -C build-test
 }
 
 check() {
@@ -68,7 +64,10 @@ check() {
   lv2lint -Mpack -I "build-test/surge_products/${_name}.lv2" \
     "https://surge-synthesizer.github.io/lv2/surge" \
     || echo "Known to fail: https://github.com/surge-synthesizer/surge/issues/2392"
-  build-test/surge-headless || echo "Known to fail: https://github.com/surge-synthesizer/surge/issues/4387"
+
+  mkdir -vp test_data/${pkgname}
+  cp -av resources/data/* test_data/${pkgname}
+  XDG_DATA_HOME=test_data build/surge-headless
 }
 
 package() {
