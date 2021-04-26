@@ -6,7 +6,6 @@ pkgname=(
   'cgroup_event_listener'
   'cpupower'
   'hyperv'
-  'libtraceevent'
   'linux-tools-meta'
   'perf'
 #  'python-perf'
@@ -15,7 +14,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.11
+pkgver=5.12
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -76,11 +75,6 @@ prepare() {
 }
 
 build() {
-  echo ':: libtraceevent'
-  pushd linux/tools/lib/traceevent
-  make
-  popd
-
   echo ':: perf'
   pushd linux/tools/perf
   make -f Makefile.perf \
@@ -151,7 +145,6 @@ package_linux-tools-meta() {
     'cgroup_event_listener'
     'cpupower'
     'hyperv'
-    'libtraceevent'
     'perf'
 #    'python-perf'
     'tmon'
@@ -162,16 +155,6 @@ package_linux-tools-meta() {
   conflicts=(
     'acpidump'
   )
-}
-
-package_libtraceevent() {
-  pkgdesc='Linux kernel trace event library'
-  depends=('glibc')
-
-  cd linux/tools/lib/traceevent
-  install -dm 755 "$pkgdir/usr/lib"
-  install -m 644 libtraceevent.so "$pkgdir/usr/lib"
-  ln -sf libtraceevent.so "$pkgdir/usr/lib/libtraceevent.so.1"
 }
 
 package_perf() {
