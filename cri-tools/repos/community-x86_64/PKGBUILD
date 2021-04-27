@@ -2,9 +2,9 @@
 
 pkgbase=cri-tools
 pkgname=('crictl' 'critest')
-pkgver=1.20.0
-_commit='ec9e336fd8c21c4bab89a6aed2c4a138c8cfae75' # v1.20.0
-pkgrel=2
+pkgver=1.21.0
+_commit='80bcedb1222865e848a4232a4bcf1a388b328ba9' # v1.21.0
+pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
 arch=('x86_64')
 url="https://github.com/kubernetes-sigs/cri-tools"
@@ -14,17 +14,17 @@ depends=('glibc')
 makedepends=('git' 'go')
 # can only build from git: https://github.com/kubernetes-sigs/cri-tools/issues/676
 source=("git+https://github.com/kubernetes-sigs/${pkgbase}#commit=${_commit}"
-        "${pkgbase}-1.19.0-makefile.patch"
+        "${pkgbase}-1.21.0-makefile.patch"
 )
 sha512sums=('SKIP'
-            'db51a5228b2ca0dcfe493a7178d4318b831e13c8461a68cc6239ab4ee717773b8955d2d86312bc518d4b4552289679ce71fac8961f29bb8b9d6ad5eba9332e75')
+            '272be756f3d2514b885e0e9db2c27d851fbea016d58502fa8f5954c6b79ebb240fdbe78577e6a07ca9d737706f0e409fac7a34c664e483359c817922ea8394c2')
 b2sums=('SKIP'
-        'b26bde7934ecd79b7afa18fdd2438451893a4d298aaad4d20d2361b4ef92601b2fab79145681ae6044561ef340a22dcc83cfb091feb0e9ca4900e944224c2f10')
+        '2f6c0bb70e38ed98de5f2f80a18b1852a82e6614c6acd5a968d6bdc0d4955bb2e8b81050daf50e35a4eb3637e48e879fe0c9b4fc58b4ae3d827246a3dff82710')
 
 prepare() {
   cd "${pkgbase}"
   # set CGO_ENABLED, honor GOFLAGS and allow adding to GO_LDFLAGS
-  patch -Np1 -i ../"${pkgbase}-1.19.0-makefile.patch"
+  patch -Np1 -i ../"${pkgbase}-1.21.0-makefile.patch"
 }
 
 build() {
@@ -40,11 +40,11 @@ build() {
   make
 
   # crictl shell completion
-  mkdir -v _output/completions
+  mkdir -vp build/completions
   local _binary
   for _binary in crictl; do
-    "_output/${_binary}" completion bash > "_output/completions/${_binary}"
-    "_output/${_binary}" completion zsh > "_output/completions/_${_binary}"
+    "build/bin/${_binary}" completion bash > "build/completions/${_binary}"
+    "build/bin/${_binary}" completion zsh > "build/completions/_${_binary}"
   done
 }
 
@@ -52,10 +52,10 @@ package_crictl() {
   pkgdesc="A CLI for CRI-compatible container runtimes"
 
   cd "$pkgbase"
-  make install-crictl BINDIR="${pkgdir}/usr/bin/"
+  install -vDm 755 "build/bin/${pkgname}" -t "${pkgdir}/usr/bin"
   # shell completion
-  install -vDm 644 "_output/completions/${pkgname}" -t "$pkgdir/usr/share/bash-completion/completions/"
-  install -vDm 644 "_output/completions/_${pkgname}" -t "$pkgdir/usr/share/zsh/site-functions/"
+  install -vDm 644 "build/completions/${pkgname}" -t "$pkgdir/usr/share/bash-completion/completions/"
+  install -vDm 644 "build/completions/_${pkgname}" -t "$pkgdir/usr/share/zsh/site-functions/"
   # docs
   install -vDm 644 "docs/${pkgname}.md" -t "${pkgdir}/usr/share/doc/${pkgname}/"
   install -vDm 644 docs/examples/*.{json,yaml} -t "${pkgdir}/usr/share/doc/${pkgname}/examples/"
@@ -67,7 +67,7 @@ package_critest() {
   pkgdesc="A benchmarking CLI for CRI-compatible container runtimes"
 
   cd "$pkgbase"
-  make install-critest BINDIR="${pkgdir}/usr/bin/"
+  install -vDm 755 "build/bin/${pkgname}" -t "${pkgdir}/usr/bin"
   # docs
   install -vDm 644 docs/{benchmark,validation}.md -t "${pkgdir}/usr/share/doc/${pkgname}/"
   install -vDm 644 {{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} \
