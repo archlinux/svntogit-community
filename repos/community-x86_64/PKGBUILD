@@ -2,7 +2,7 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=9.2.2
+pkgver=9.2.3
 _ghidra_data=7d843ec229d43c2d1a8178aaa892be90e37e95a2
 _d2j=2.0
 _yajsw=12.12
@@ -16,21 +16,24 @@ depends=('java-environment>=11' 'bash')
 makedepends=('git' 'gradle' 'unzip' 'java-environment=11')
 optdepends=('python2: Python feature'
             'pam: GhidraServer support')
+options=('!strip')
 source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver}_build.tar.gz
         "git+https://github.com/NationalSecurityAgency/ghidra-data#commit=${_ghidra_data}"
         https://github.com/pxb1988/dex2jar/releases/download/${_d2j}/dex-tools-${_d2j}.zip
         https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar
         https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-${_yajsw}/yajsw-stable-${_yajsw}.zip
-        https://sourceforge.net/projects/catacombae/files/HFSExplorer/${_hfsx}/hfsexplorer-${_hfsx/./_}-bin.zip)
+        https://sourceforge.net/projects/catacombae/files/HFSExplorer/${_hfsx}/hfsexplorer-${_hfsx/./_}-bin.zip
+        https://archive.archlinux.org/packages/g/gradle/gradle-6.8.3-1-any.pkg.tar.zst)
 noextract=(AXMLPrinter2.jar
            yajsw-stable-${_yajsw}.zip
            hfsexplorer-${_hfsx/./_}-bin.zip)
-sha512sums=('351108ccc32c4ade711d51bfdf6c5617d982e45d267acf899794a6871a03af375bbeffcbd39462fcc053b63d59f6b4ede1172571a47b34a3cf07e50749b252c8'
+sha512sums=('07491e03a503cdba62b1be6383adff55462c495a8feccfce2bad13e6ba77f857808e7ff1c7d4bd1db5c2d5534be2ab58feec0efb36abed4a5df6ee3af3e0df25'
             'SKIP'
             'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
             '0ff5a228ae1c5251c8ba59f9bcd9b4a199b0caaf688f6eccba42c3d227784d8f56f9164b2fad73fc173ec314340c036144123ce152fe911013df5598bd708944'
-            'b85b4316115695acc78cc7c675c673058c05a238451562be0c6a48b2d11a28e5645a42cb62cdf063be015369df26201dfab6cf2e60f39e6468d1d53b23f94415')
+            'b85b4316115695acc78cc7c675c673058c05a238451562be0c6a48b2d11a28e5645a42cb62cdf063be015369df26201dfab6cf2e60f39e6468d1d53b23f94415'
+            '5e0c4d7c71a080b292101e116de01500dc69d59d4f1fdb52d4b859aa9f6655b69ec125f6727606a926870bd619d3f5bcae9bcb40ffe50d439e6331cae61d79e0')
 
 prepare() {
   export PATH="/usr/lib/jvm/java-11-openjdk/bin:${PATH}"
@@ -57,6 +60,8 @@ prepare() {
 }
 
 build() {
+  export GRADLE_HOME="$(pwd)/usr/share/java/gradle/"
+  export PATH="$(pwd)/usr/share/java/gradle/bin/:${PATH}"
   cd ghidra-Ghidra_${pkgver}_build
   gradle yajswDevUnpack
   gradle prebuildNatives_linux64
