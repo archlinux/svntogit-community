@@ -7,7 +7,7 @@
 
 pkgname=salt
 pkgver=3003
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -58,6 +58,8 @@ package() {
   install -Dm644 salt.logrotate "$pkgdir"/etc/logrotate.d/salt
 
   cd salt-$pkgver
+
+  export PYTHONHASHSEED=0
   python setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
 
   # default config
