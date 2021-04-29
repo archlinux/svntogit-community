@@ -1,7 +1,7 @@
 # Maintainer: Daniel Bermond <dbermond@archlinux.org>
 
 pkgname=mujs
-pkgver=1.1.1
+pkgver=1.1.2
 pkgrel=1
 pkgdesc='An embeddable Javascript interpreter in C'
 arch=('x86_64')
@@ -10,7 +10,7 @@ license=('ISC')
 depends=('readline')
 source=("https://github.com/ccxvii/mujs/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz"
         '010-mujs-use-arch-flags.patch')
-sha256sums=('ade588c10e1cbed1eaca933a89f3199a1e6b826a6a00b48dc29b99630f017764'
+sha256sums=('e4812854238fd5c2d7923a2c949b225a841944472b806b1e011a2a9de8062849'
             'aa60ade4da8d0ef5261bf6c2e73b170ba47931ae6fc2cad61b5959cdb780c744')
 
 prepare() {
