@@ -1,0 +1,526 @@
+From d0cc2acd9dd67e51500b5ce96519ed21d2fc4776 Mon Sep 17 00:00:00 2001
+From: Christopher Davis <brainblasted@disroot.org>
+Date: Tue, 25 Aug 2020 18:03:29 -0700
+Subject: [PATCH] build: Add libportal as a subproject
+
+Should make Color Picker simpler to build on distros
+that don't yet ship libportal.
+---
+ .gitignore                 |  1 +
+ meson.build                | 11 ++++++-----
+ subprojects/libportal.wrap |  4 ++++
+ 3 files changed, 11 insertions(+), 5 deletions(-)
+ create mode 100644 subprojects/libportal.wrap
+
+diff --git a/.gitignore b/.gitignore
+index 797d03e..697ee9e 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,3 +6,4 @@ build/
+ *.lo
+ *.o
+ *.gresource
++/subprojects/libportal/
+diff --git a/meson.build b/meson.build
+index 5ffa858..195de61 100644
+--- a/meson.build
++++ b/meson.build
+@@ -1,14 +1,15 @@
+ project('gcolor3', 'c', version: '2.3.1',
+   license: 'GPL2+',
+   meson_version: '>= 0.40.0',
+-  default_options: [
+-    'c_std=c99',
+-    'werror=true'
+-  ]
+ )
+ 
+ dep_gtk = dependency('gtk+-3.0', version: '>= 3.20.0', required: true)
+-dep_libportal = dependency('libportal', required: true)
++dep_libportal = dependency(
++  'libportal',
++  required: true,
++  fallback: ['libportal', 'libportal_dep'],
++  default_options: ['gtk_doc=false'],
++)
+ cc = meson.get_compiler('c')
+ dep_lm = cc.find_library('m', required: true)
+ 
+diff --git a/subprojects/libportal.wrap b/subprojects/libportal.wrap
+new file mode 100644
+index 0000000..0ee4948
+--- /dev/null
++++ b/subprojects/libportal.wrap
+@@ -0,0 +1,4 @@
++[wrap-git]
++directory=libportal
++url=https://github.com/flatpak/libportal.git
++revision=origin/master
+From f68055ce3f91001503a31753b03836b6cf86b3dd Mon Sep 17 00:00:00 2001
+From: Christopher Davis <brainblasted@disroot.org>
+Date: Thu, 14 Nov 2019 16:09:21 -0800
+Subject: [PATCH] color-selection: Use libportal for Wayland suport
+
+Greatly simplify our color selection code by
+using libportal instead of implementing it manually.
+
+Fixes https://gitlab.gnome.org/World/gcolor3/issues/38
+---
+ meson.build                   |   1 +
+ nl.hjdskes.gcolor3.json       |  10 ++
+ src/gcolor3-color-selection.c | 275 +++++++---------------------------
+ src/meson.build               |   1 +
+ 4 files changed, 66 insertions(+), 221 deletions(-)
+
+diff --git a/meson.build b/meson.build
+index e5d737b..5ffa858 100644
+--- a/meson.build
++++ b/meson.build
+@@ -8,6 +8,7 @@ project('gcolor3', 'c', version: '2.3.1',
+ )
+ 
+ dep_gtk = dependency('gtk+-3.0', version: '>= 3.20.0', required: true)
++dep_libportal = dependency('libportal', required: true)
+ cc = meson.get_compiler('c')
+ dep_lm = cc.find_library('m', required: true)
+ 
+diff --git a/nl.hjdskes.gcolor3.json b/nl.hjdskes.gcolor3.json
+index 04d495a..8ad4423 100644
+--- a/nl.hjdskes.gcolor3.json
++++ b/nl.hjdskes.gcolor3.json
+@@ -17,6 +17,16 @@
+         "/share/man"
+     ],
+     "modules": [
++        {
++            "name": "libportal",
++            "buildsystem": "meson",
++            "sources": [
++                {
++                    "type": "git",
++                    "url": "https://github.com/flatpak/libportal.git"
++                }
++            ]
++        },
+         {
+             "name": "gcolor3",
+             "buildsystem": "meson",
+diff --git a/src/gcolor3-color-selection.c b/src/gcolor3-color-selection.c
+index 58503d7..6eccf43 100644
+--- a/src/gcolor3-color-selection.c
++++ b/src/gcolor3-color-selection.c
+@@ -37,11 +37,11 @@
+ #include <math.h>
+ #include <string.h>
+ #include <gdk/gdk.h>
+-#ifdef GDK_WINDOWING_WAYLAND
+-#include <gdk/gdkwayland.h>
+-#endif
++#include <gio/gio.h>
+ #include <gtk/gtk.h>
+ #include <glib/gi18n.h>
++#include <libportal/portal.h>
++#include <libportal/portal-gtk3.h>
+ 
+ #ifdef ENABLE_NLS
+ #define P_(String) g_dgettext(GETTEXT_PACKAGE "-properties",String)
+@@ -153,11 +153,7 @@ struct _Gcolor3ColorSelectionPrivate
+   GtkWidget *cur_sample;
+   GtkWidget *colorsel;
+ 
+-  /* Window for grabbing on */
+-  GtkWidget *dropper_grab_widget;
+-  guint32    grab_time;
+-  GdkDevice *keyboard_device;
+-  GdkDevice *pointer_device;
++  GCancellable *cancellable;
+ 
+   /* Connection to settings */
+   gulong settings_connection;
+@@ -179,8 +175,6 @@ static void gcolor3_color_selection_get_property    (GObject                 *ob
+ static void     gcolor3_color_selection_realize     (GtkWidget          *widget);
+ static void     gcolor3_color_selection_unrealize   (GtkWidget          *widget);
+ static void     gcolor3_color_selection_show_all    (GtkWidget          *widget);
+-static gboolean gcolor3_color_selection_grab_broken (GtkWidget          *widget,
+-                                                     GdkEventGrabBroken *event);
+ 
+ static void     gcolor3_color_selection_set_palette_color   (Gcolor3ColorSelection *colorsel,
+                                                              gint                   index,
+@@ -201,6 +195,9 @@ static void     make_all_relations                          (AtkObject
+ static void     hsv_changed                                 (GtkWidget             *hsv,
+                                                              gpointer               data);
+ static void     get_screen_color                            (GtkWidget             *button);
++static void     pick_color_cb                               (GObject               *source_object,
++                                                             GAsyncResult          *result,
++                                                             gpointer               user_data);
+ static void     adjustment_changed                          (GtkAdjustment         *adjustment,
+                                                              gpointer               data);
+ static void     opacity_entry_changed                       (GtkWidget             *opacity_entry,
+@@ -236,56 +233,12 @@ static void  palette_change_notify_instance                 (GObject    *object,
+                                                              GParamSpec *pspec,
+                                                              gpointer    data);
+ static void update_palette                                  (Gcolor3ColorSelection *colorsel);
+-static void shutdown_eyedropper                             (GtkWidget *widget);
+ 
+ static guint color_selection_signals[LAST_SIGNAL] = { 0 };
+ 
+ static Gcolor3ColorSelectionChangePaletteFunc noscreen_change_palette_hook = default_noscreen_change_palette_func;
+ static Gcolor3ColorSelectionChangePaletteWithScreenFunc change_palette_hook = default_change_palette_func;
+ 
+-static const guchar dropper_bits[] = {
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\377\377\377\377\377\377"
+-  "\377\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\0\0\0\377"
+-  "\0\0\0\377\0\0\0\377\377\377\377\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377"
+-  "\377\0\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\377\377\377\377"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377"
+-  "\377\377\377\377\377\377\377\377\377\377\377\0\0\0\377\0\0\0\377\0\0"
+-  "\0\377\0\0\0\377\0\0\0\377\377\377\377\377\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\0\0\0\377\0\0\0\377\0"
+-  "\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\377\377\377"
+-  "\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\377\377\377\377\0\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\0\0\0\377\0"
+-  "\0\0\377\377\377\377\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\377\0\0\0\377\0\0"
+-  "\0\377\0\0\0\377\377\377\377\377\377\377\377\377\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377"
+-  "\377\377\377\377\377\377\377\377\377\377\0\0\0\377\0\0\0\377\377\377"
+-  "\377\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\377\377\377\377\377\377\377\377\377\377\377\377\377"
+-  "\0\0\0\377\377\377\377\377\0\0\0\377\377\377\377\377\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377"
+-  "\377\377\377\377\377\377\377\377\377\0\0\0\377\0\0\0\0\0\0\0\0\377\377"
+-  "\377\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\377\377\377\377\377\377\377\377\377\377\377\377\377\0\0\0"
+-  "\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\377\377\377\377\377\377"
+-  "\377\377\377\0\0\0\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\377"
+-  "\377\377\377\377\377\377\377\377\0\0\0\377\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\377\377\377\377\377\377\377\377\377\377\377\377\377\0\0\0\377\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\377\377\377\377\377\377\377\377\0\0"
+-  "\0\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\0\0\0\0\0\0\0\377\0\0\0"
+-  "\377\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\377\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+-  "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"};
+-
+ G_DEFINE_TYPE_WITH_PRIVATE (Gcolor3ColorSelection, gcolor3_color_selection, GTK_TYPE_BOX)
+ 
+ static void
+@@ -304,7 +257,6 @@ gcolor3_color_selection_class_init (Gcolor3ColorSelectionClass *klass)
+   widget_class->realize = gcolor3_color_selection_realize;
+   widget_class->unrealize = gcolor3_color_selection_unrealize;
+   widget_class->show_all = gcolor3_color_selection_show_all;
+-  widget_class->grab_broken_event = gcolor3_color_selection_grab_broken;
+ 
+   g_object_class_install_property (gobject_class,
+                                    PROP_HAS_OPACITY_CONTROL,
+@@ -393,6 +345,7 @@ gcolor3_color_selection_init (Gcolor3ColorSelection *colorsel)
+   priv->changing = FALSE;
+   priv->default_set = FALSE;
+   priv->default_alpha_set = FALSE;
++  priv->cancellable = g_cancellable_new ();
+ 
+   top_hbox = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 12);
+   gtk_box_pack_start (GTK_BOX (colorsel), top_hbox, FALSE, FALSE, 0);
+@@ -430,25 +383,9 @@ gcolor3_color_selection_init (Gcolor3ColorSelection *colorsel)
+   gtk_widget_show (GTK_WIDGET (picker_image));
+   gtk_box_pack_end (GTK_BOX (hbox), button, FALSE, FALSE, 0);
+ 
+-#ifdef GDK_WINDOWING_WAYLAND
+-  if (GDK_IS_WAYLAND_DISPLAY (gdk_display_get_default()))
+-    {
+-      gtk_widget_set_sensitive (button, FALSE);
+-      gtk_widget_set_tooltip_text (button,
+-				   _("Picking a color is currently not supported on "
+-                                   "Wayland."));
+-    }
+-#else
+-  if (FALSE)
+-    {
+-    }
+-#endif
+-  else
+-    {
+-      gtk_widget_set_tooltip_text (button,
+-                                   _("Click the eyedropper, then click a color "
+-                                   "anywhere on your screen to select that color."));
+-    }
++  gtk_widget_set_tooltip_text (button,
++                               _("Click the eyedropper, then click a color "
++                               "anywhere on your screen to select that color."));
+ 
+   top_right_vbox = gtk_box_new (GTK_ORIENTATION_VERTICAL, 6);
+   gtk_box_pack_start (GTK_BOX (top_hbox), top_right_vbox, FALSE, FALSE, 0);
+@@ -656,14 +593,10 @@ gcolor3_color_selection_get_property (GObject     *object,
+ static void
+ gcolor3_color_selection_destroy (GtkWidget *widget)
+ {
+-  Gcolor3ColorSelection *cselection = GCOLOR3_COLOR_SELECTION (widget);
+-  Gcolor3ColorSelectionPrivate *priv = cselection->private_data;
++  Gcolor3ColorSelection *colorsel = GCOLOR3_COLOR_SELECTION (widget);
++  Gcolor3ColorSelectionPrivate *priv = colorsel->private_data;
+ 
+-  if (priv->dropper_grab_widget)
+-    {
+-      gtk_widget_destroy (priv->dropper_grab_widget);
+-      priv->dropper_grab_widget = NULL;
+-    }
++  g_cancellable_cancel (priv->cancellable);
+ 
+   GTK_WIDGET_CLASS (gcolor3_color_selection_parent_class)->destroy (widget);
+ }
+@@ -706,15 +639,6 @@ gcolor3_color_selection_show_all (GtkWidget *widget)
+   gtk_widget_show (widget);
+ }
+ 
+-static gboolean
+-gcolor3_color_selection_grab_broken (GtkWidget                 *widget,
+-                                     UNUSED GdkEventGrabBroken *event)
+-{
+-  shutdown_eyedropper (widget);
+-
+-  return TRUE;
+-}
+-
+ /*
+  *
+  * The Sample Color
+@@ -1636,34 +1560,6 @@ palette_new (Gcolor3ColorSelection *colorsel)
+ 
+ /* The actual Gcolor3ColorSelection widget */
+ 
+-static GdkCursor *
+-make_picker_cursor (GdkScreen *screen)
+-{
+-  GdkCursor *cursor;
+-
+-  cursor = gdk_cursor_new_from_name (gdk_screen_get_display (screen),
+-                                     "color-picker");
+-
+-  if (!cursor)
+-    {
+-      GdkPixbuf *pixbuf;
+-
+-      pixbuf = gdk_pixbuf_new_from_data (dropper_bits,
+-                                         GDK_COLORSPACE_RGB, TRUE, 8,
+-                                         DROPPER_WIDTH, DROPPER_HEIGHT,
+-                                         DROPPER_STRIDE,
+-                                         NULL, NULL);
+-
+-      cursor = gdk_cursor_new_from_pixbuf (gdk_screen_get_display (screen),
+-                                           pixbuf,
+-                                           DROPPER_X_HOT, DROPPER_Y_HOT);
+-
+-      g_object_unref (pixbuf);
+-    }
+-
+-  return cursor;
+-}
+-
+ static void
+ grab_color_at_pointer (GdkScreen *screen,
+                        GdkDevice *device,
+@@ -1710,27 +1606,6 @@ grab_color_at_pointer (GdkScreen *screen,
+   update_color (colorsel);
+ }
+ 
+-static void
+-shutdown_eyedropper (GtkWidget *widget)
+-{
+-  Gcolor3ColorSelection *colorsel;
+-  Gcolor3ColorSelectionPrivate *priv;
+-
+-  colorsel = GCOLOR3_COLOR_SELECTION (widget);
+-  priv = colorsel->private_data;
+-
+-  if (priv->has_grab)
+-    {
+-      gdk_seat_ungrab (gdk_device_get_seat (priv->keyboard_device));
+-      gdk_seat_ungrab (gdk_device_get_seat(priv->pointer_device));
+-      gtk_device_grab_remove (priv->dropper_grab_widget, priv->pointer_device);
+-
+-      priv->has_grab = FALSE;
+-      priv->keyboard_device = NULL;
+-      priv->pointer_device = NULL;
+-    }
+-}
+-
+ static void
+ mouse_motion (UNUSED GtkWidget      *invisible,
+               GdkEventMotion        *event,
+@@ -1755,8 +1630,6 @@ mouse_release (GtkWidget      *invisible,
+                          gdk_event_get_device ((GdkEvent *) event),
+                          event->x_root, event->y_root, data);
+ 
+-  shutdown_eyedropper (GTK_WIDGET (data));
+-
+   g_signal_handlers_disconnect_by_func (invisible,
+                                         mouse_motion,
+                                         data);
+@@ -1798,8 +1671,6 @@ key_press (GtkWidget   *invisible,
+       /* fall through */
+ 
+     case GDK_KEY_Escape:
+-      shutdown_eyedropper (data);
+-
+       g_signal_handlers_disconnect_by_func (invisible,
+                                             mouse_press,
+                                             data);
+@@ -1868,95 +1739,57 @@ get_screen_color (GtkWidget *button)
+ {
+   Gcolor3ColorSelection *colorsel = g_object_get_data (G_OBJECT (button), "COLORSEL");
+   Gcolor3ColorSelectionPrivate *priv = colorsel->private_data;
+-  GdkScreen *screen = gtk_widget_get_screen (GTK_WIDGET (button));
+-  GdkDevice *device, *keyb_device, *pointer_device;
+-  GdkSeat *keyb_seat, *pointer_seat;
+-  GdkCursor *picker_cursor;
+-  GdkGrabStatus grab_status;
+-  GdkWindow *window;
+-  GtkWidget *grab_widget, *toplevel;
+-
+-  guint32 time = gtk_get_current_event_time ();
+-
+-  device = gtk_get_current_event_device ();
+-
+-  if (gdk_device_get_source (device) == GDK_SOURCE_KEYBOARD)
+-    {
+-      keyb_device = device;
+-      keyb_seat = gdk_device_get_seat (keyb_device);
+-      pointer_device = gdk_device_get_associated_device (device);
+-      pointer_seat = gdk_device_get_seat (pointer_device);
+-    }
+-  else
+-    {
+-      pointer_device = device;
+-      pointer_seat = gdk_device_get_seat (pointer_device);
+-      keyb_device = gdk_device_get_associated_device (device);
+-      keyb_seat = gdk_device_get_seat (keyb_device);
+-    }
++  XdpPortal *portal;
++  XdpParent *parent;
++  GtkWindow *window;
++  GtkApplication *app;
+ 
+-  if (priv->dropper_grab_widget == NULL)
+-    {
+-      grab_widget = gtk_window_new (GTK_WINDOW_POPUP);
+-      gtk_window_set_screen (GTK_WINDOW (grab_widget), screen);
+-      gtk_window_resize (GTK_WINDOW (grab_widget), 1, 1);
+-      gtk_window_move (GTK_WINDOW (grab_widget), -100, -100);
+-      gtk_widget_show (grab_widget);
+-
+-      gtk_widget_add_events (grab_widget,
+-                             GDK_BUTTON_RELEASE_MASK | GDK_BUTTON_PRESS_MASK | GDK_POINTER_MOTION_MASK);
+-
+-      toplevel = gtk_widget_get_toplevel (GTK_WIDGET (colorsel));
++  app = GTK_APPLICATION (g_application_get_default ());
++  window = gtk_application_get_active_window (app);
+ 
+-      if (GTK_IS_WINDOW (toplevel))
+-        {
+-          if (gtk_window_has_group (GTK_WINDOW (toplevel)))
+-            gtk_window_group_add_window (gtk_window_get_group (GTK_WINDOW (toplevel)),
+-                                         GTK_WINDOW (grab_widget));
+-        }
++  portal = xdp_portal_new ();
++  parent = xdp_parent_new_gtk (window);
+ 
+-      priv->dropper_grab_widget = grab_widget;
+-    }
+-
+-  window = gtk_widget_get_window (priv->dropper_grab_widget);
+-
+-  if (gdk_seat_grab (keyb_seat,
+-                     window,
+-                     GDK_SEAT_CAPABILITY_ALL, FALSE,
+-                     NULL,
+-                     gtk_get_current_event (),
+-                     NULL, NULL) != GDK_GRAB_SUCCESS)
+-    return;
++  xdp_portal_pick_color (portal, parent,
++                         priv->cancellable,
++                         pick_color_cb, colorsel);
++}
+ 
+-  picker_cursor = make_picker_cursor (screen);
+-  grab_status = gdk_seat_grab (pointer_seat,
+-                               window,
+-                               GDK_SEAT_CAPABILITY_ALL, FALSE,
+-                               picker_cursor,
+-                               gtk_get_current_event (),
+-                               NULL, NULL);
++static void
++pick_color_cb (GObject      *source_object,
++               GAsyncResult *result,
++               gpointer      user_data)
++{
++  Gcolor3ColorSelection *colorsel;
++  Gcolor3ColorSelectionPrivate *priv;
++  GdkRGBA color;
++  GVariant *variant;
++  GError *error = NULL;
+ 
+-  g_object_unref (picker_cursor);
++  colorsel = GCOLOR3_COLOR_SELECTION (user_data);
++  priv = colorsel->private_data;
+ 
+-  if (grab_status != GDK_GRAB_SUCCESS)
++  variant = xdp_portal_pick_color_finish (XDP_PORTAL (source_object), result, &error);
++  if (!variant)
+     {
+-      gdk_seat_ungrab (keyb_seat);
++      if (!g_error_matches (error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
++        g_warning ("Failed to pick color: %s", error->message);
++      g_error_free (error);
+       return;
+     }
+ 
+-  gtk_device_grab_add (priv->dropper_grab_widget,
+-                       pointer_device,
+-                       TRUE);
+-
+-  priv->grab_time = time;
+-  priv->has_grab = TRUE;
+-  priv->keyboard_device = keyb_device;
+-  priv->pointer_device = pointer_device;
++  g_variant_get (variant, "(ddd)", &color.red, &color.green, &color.blue);
+ 
+-  g_signal_connect (priv->dropper_grab_widget, "button-press-event",
+-                    G_CALLBACK (mouse_press), colorsel);
+-  g_signal_connect (priv->dropper_grab_widget, "key-press-event",
+-                    G_CALLBACK (key_press), colorsel);
++  priv->color[COLORSEL_RED]   = color.red;
++  priv->color[COLORSEL_GREEN] = color.green;
++  priv->color[COLORSEL_BLUE]  = color.blue;
++  gtk_rgb_to_hsv (priv->color[COLORSEL_RED],
++                  priv->color[COLORSEL_GREEN],
++                  priv->color[COLORSEL_BLUE],
++                  &priv->color[COLORSEL_HUE],
++                  &priv->color[COLORSEL_SATURATION],
++                  &priv->color[COLORSEL_VALUE]);
++  update_color (colorsel);
+ }
+ 
+ static void
+diff --git a/src/meson.build b/src/meson.build
+index c95b557..3998f68 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -41,6 +41,7 @@ executable(
+   ],
+   dependencies: [
+     dep_gtk,
++    dep_libportal,
+     dep_lm
+   ],
+   install: true,
+-- 
+GitLab
+
