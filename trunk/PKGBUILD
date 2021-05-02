@@ -7,7 +7,7 @@ pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
 pkgver=21.0.3
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'lib32-libvdpau'
@@ -18,10 +18,12 @@ url="https://www.mesa3d.org/"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         0001-amd-common-Add-missing-line-from-backport-for-cohere.patch
+        0001-glx-Assign-unique-serial-number-to-GLXBadFBConfig-er.patch
         LICENSE)
 sha512sums=('4a8aee48a8ea7f32e8aa3bbbd91db26c6053b9a43e62ff88256929e6bc147884f0fef988726b5a3d59d7008663f017c746a0352fd3fcc1c476b8190af4a2531f'
             'SKIP'
             'f47c227dc888f2030491eaad42d42150539f2c9fc3bbc76d0fd46dc2d85482f520d929b01314cabb963dd36cc3729967f40c7bbfde28fc655024ef52d9fc71b7'
+            '7922e1c444e49f40c36d748f0fc0f76eba11d2d93d9c2f1c1dc4acbc5fe2ebf7c8f954a35265aef6dde3477cc6b5a49502786e1b6f01aa8027f7df215cde816c'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
               '946D09B5E4C9845E63075FF1D961C596A7203456'  # Andres Gomez <tanty@igalia.com>
@@ -35,6 +37,8 @@ prepare() {
 
   # fix FS#70554 - https://gitlab.freedesktop.org/mesa/mesa/-/issues/4691
   patch -Np1 -i ../0001-amd-common-Add-missing-line-from-backport-for-cohere.patch
+  # fix FS#70015
+  patch -Np1 -i ../0001-glx-Assign-unique-serial-number-to-GLXBadFBConfig-er.patch
 }
 
 build() {
