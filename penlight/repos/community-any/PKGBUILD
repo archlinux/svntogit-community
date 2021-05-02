@@ -7,38 +7,62 @@
 
 pkgbase=penlight
 pkgname=('lua-penlight' 'lua53-penlight' 'lua52-penlight' 'lua51-penlight')
-pkgver=1.9.2
+pkgver=1.10.0
 pkgrel=1
 pkgdesc='Lua libraries focusing on input data handling'
 url='https://github.com/lunarmodules/Penlight'
 arch=('any')
 license=('MIT')
-checkdepends=(
-  'lua' 'lua-filesystem'
-  'lua53' 'lua53-filesystem'
-  'lua52' 'lua52-filesystem'
-  'lua51' 'lua51-filesystem'
-)
-source=("https://github.com/lunarmodules/Penlight/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha256sums=('1094368bd95f84428ce1ce814028f8a73ee6a952e18dfffc5fa05d9ee1f0e486')
+makedepends=('luarocks'
+             'lua51' 'lua52' 'lua53' 'lua') # https://github.com/luarocks/luarocks/issues/1275
+checkdepends=('lua51-filesystem'
+              'lua52-filesystem'
+              'lua53-filesystem'
+              'lua-filesystem')
+source=("https://github.com/lunarmodules/Penlight/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        "https://github.com/lunarmodules/Penlight/commit/10dfaea6adfddab4f138faad67b563b7c33c90a3.patch")
+sha256sums=('570e77070ce31051f3054c418215cf3931f2026e181e44abcc69301a2f86ba67'
+            '4d12ec4f4b8718b9de62a376dce26b3c8fdace841dec7938a64ddb55fbeaf23f')
+
+prepare() {
+  cd Penlight-${pkgver}
+
+  # https://github.com/lunarmodules/Penlight/pull/379
+  patch -p1 < ../10dfaea6adfddab4f138faad67b563b7c33c90a3.patch
+}
+
+build() {
+  cd Penlight-${pkgver}
+
+  local _version
+  for _version in 5.1 5.2 5.3 5.4; do
+    mkdir -p "$_version/"
+    luarocks make --pack-binary-rock --lua-version="$_version" --deps-mode=none \
+      rockspecs/penlight-"$pkgver"-1.rockspec
+    mv penlight-"$pkgver"-1.*.rock "$_version/"
+  done
+}
 
 check() {
   cd Penlight-${pkgver}
+
   local _version
-  for _version in 5.4 5.3 5.2 5.1; do
-    export LUA_PATH="${PWD}/lua/?/init.lua;${PWD}/lua/?.lua;;"
-    lua$_version run.lua
+  for _version in 5.1 5.2 5.3 5.4; do
+    env LUA_PATH="${PWD}/lua/?/init.lua;${PWD}/lua/?.lua;;" \
+      "lua${_version}" run.lua
   done
 }
 
 _package() {
   lib_version="$1"
 
+  pkgdesc="$pkgdesc for Lua $lib_version"
+
   cd Penlight-${pkgver}
-  install -Dm 644 lua/pl/* -t "${pkgdir}/usr/share/lua/${lib_version}/pl"
+  luarocks install --lua-version="$lib_version" --tree="$pkgdir/usr/" --deps-mode=none --no-manifest "$lib_version"/*.rock
   install -Dm 644 CONTRIBUTING.md CHANGELOG.md README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
-  install -Dm 644 docs/manual/* -t "${pkgdir}/usr/share/doc/${pkgname}/manual"
-  install -Dm 644 examples/* -t "${pkgdir}/usr/share/doc/${pkgname}/examples"
+  ln -s "/usr/lib/luarocks/rocks-${lib_version}/penlight/${pkgver}-1/docs/manual" "${pkgdir}/usr/share/doc/${pkgname}/manual"
+  ln -s "/usr/lib/luarocks/rocks-${lib_version}/penlight/${pkgver}-1/docs/examples" "${pkgdir}/usr/share/doc/${pkgname}/examples"
   install -Dm 644 LICENSE.md -t "${pkgdir}/usr/share/licenses/${pkgname}"
 }
 
