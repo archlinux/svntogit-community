@@ -2,8 +2,8 @@
 # Contributor: Michael Yeatts <mwyeatts@gmail.com>
 
 pkgname=python-typing_extensions
-pkgver=3.7.4.3
-pkgrel=3
+pkgver=3.10.0.0
+pkgrel=1
 pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
 arch=(any)
 url=https://github.com/python/typing/tree/master/typing_extensions
@@ -15,7 +15,7 @@ makedepends=(
 )
 provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
-_tag=ffebbecbf4ad162572050ecfaac4335cc5431c24
+_tag=edd78b2253abffc5cc82c32a43c22845fb7c465f
 source=(git+https://github.com/python/typing.git#tag=${_tag})
 sha256sums=(SKIP)
 
