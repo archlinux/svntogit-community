@@ -2,7 +2,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.5.9
+pkgver=1.6.0
 pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -11,7 +11,7 @@ license=(LGPL)
 depends=(libxmlb efivar python libsmbios libgusb
          libsoup json-glib gcab libarchive gpgme
          libgudev polkit shared-mime-info tpm2-tss
-         flashrom libjcat)
+         flashrom libjcat fwupd-efi)
 optdepends=(
     'modemmanager: modem firmware upgrade support'
     'udisks2: UEFI firmware upgrade support'
@@ -32,7 +32,7 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/uefi_capsule.conf'
         'etc/fwupd/upower.conf')
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('c7a3459ed07e58857776ba3538928973a84ec173ed1c96f90265542de12c9457'
+sha256sums=('c4d9c5a870a60517470f7c4d2ae339eccb77bbca5b474c483984d0d4ece33f5e'
             'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
@@ -61,4 +61,6 @@ package() {
     rm -r "${pkgdir}"/usr/share/installed-tests/
     mv "${pkgdir}"/usr/bin/{,fwupd-}dbxtool
     mv "${pkgdir}"/usr/share/man/man1/{,fwupd-}dbxtool.1
+    # Remove msr module-load config as it is built-in
+     rm "${pkgdir}"/usr/lib/modules-load.d/fwupd-msr.conf
 }
