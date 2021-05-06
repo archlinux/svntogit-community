@@ -3,7 +3,7 @@
 
 pkgname=fwupd
 pkgver=1.6.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
