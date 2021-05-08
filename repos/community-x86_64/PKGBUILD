@@ -9,7 +9,7 @@
 pkgbase=gtest
 pkgname=('gtest' 'gmock')
 pkgver=1.10.0
-pkgrel=4
+pkgrel=5
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
@@ -48,7 +48,7 @@ check() {
 
 package_gtest() {
   pkgdesc='Google Test - C++ testing utility based on the xUnit framework (like JUnit)'
-  depends=('gmock' 'gcc-libs' 'sh')
+  depends=('gcc-libs' 'sh')
 
   DESTDIR="${pkgdir}" cmake --build build --target install
 
