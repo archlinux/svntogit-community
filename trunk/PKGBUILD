@@ -22,8 +22,8 @@ pkgname=(
   'kodi-common' 'kodi-x11' 'kodi-wayland' 'kodi-gbm'
   'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev'
 )
-pkgver=19.0
-pkgrel=9
+pkgver=19.1
+pkgrel=1
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -49,16 +49,16 @@ _sse_workaround=1
 _libdvdcss_version="1.4.2-Leia-Beta-5"
 _libdvdnav_version="6.0.0-Leia-Alpha-3"
 _libdvdread_version="6.0.0-Leia-Alpha-3"
-_ffmpeg_version="4.3.1-$_codename-Beta1"
+_ffmpeg_version="4.3.2-$_codename-19.1"
 _fmt_version="6.1.2"
 _spdlog_version="1.5.0"
 _crossguid_version="8f399e8bd4"
 _fstrcmp_version="0.7.D001"
-_flatbuffers_version="1.11.0"
+_flatbuffers_version="1.12.0"
 _libudfread_version="1.1.0"
 
 source=(
-  "$pkgbase-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/$pkgver-$_codename.tar.gz"
+  "$pkgbase-$pkgver-$_codename.tar.gz::https://github.com/xbmc/xbmc/archive/refs/tags/v$pkgver.tar.gz"
   "$pkgbase-libdvdcss-$_libdvdcss_version.tar.gz::https://github.com/xbmc/libdvdcss/archive/$_libdvdcss_version.tar.gz"
   "$pkgbase-libdvdnav-$_libdvdnav_version.tar.gz::https://github.com/xbmc/libdvdnav/archive/$_libdvdnav_version.tar.gz"
   "$pkgbase-libdvdread-$_libdvdread_version.tar.gz::https://github.com/xbmc/libdvdread/archive/$_libdvdread_version.tar.gz"
@@ -84,16 +84,16 @@ noextract=(
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
   "$pkgbase-libudfread-$_libudfread_version.tar.gz"
 )
-sha512sums=('d6c9fe7414b64d33d919d6c3de1ddb4800e36b786a460d2d2f5c1e5346cd4819487e54f212c37778103d44dd051f7df6c74e0a98a0b21d1e4dc9bedaa8570422'
+sha512sums=('725cbc270259ef5d3b79f9bc271b789dc8ef6616a6d4038e0cd449755ca4ed25198ad6e854b304aedc1fb911ecb98a0aad1b3e469857f8aed54fc4634193eb75'
             '5185dbdbeb1bd13ea9d8723f1f4ab599d6f3102f5ba1096cd085aa1cda252c045f327c719227bba8e1b742352ade5e335106c8d0c1637a5a6b93ce661620dd7e'
             '11c93eaacd156f8fd7dec7c43d366438b201f31ad55b2870463a9e286912b6ada08882319a021fb7992190f87b909a49f2b83e0321cc17aedc29f7fe5898fa72'
             'b3419ba0a1a2dd70f1bb6236afdfe1c6e88c9ad4264198b289e3bba9375e077cecf7f89848c7b09debaa445327f3507101f3d157e692f7a7163b2bb52643e1e7'
-            'ce43390e816dabeed4ca231f5f7adade6c721c38e17996a57810fb6025ea49b812133c2a6e29aac7c674d4e4af3a21dbd7e605d85fb966935a01bda983b884ac'
+            'd3719253d674b16638b873545583b82fba3176803c81ba8bcb37e90456dd956f1c2ee8996493840cff2d61c6399f06ed0524a759f46e4ce174bce23e9c6eda4a'
             '8770bf4bd2bb6d938e75e0cf1e665c41930dbd9d2a6825274a5a43cd1d85b9c9ca621bb040ed099429f0e16bddbc3399361c453eb1bf3fc01376e6ad9dd875b7'
             '78991c943dd95af563c4b29545b9b5d635caf1af5031262dde734ecf70c0b4ae866d954ee77b050f9f0cc089a3bc57ee9583895e51cb00dd1cc6c10ff905ca34'
             '2682d63609d3dcdfcd8136be632e45df26ad88ce93b9c49745cf728bbd2e6254a7b05c8b059ab581d532372e504206a525a52564b64d076dfdae9c965a09fd16'
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
-            'e4a6fbc5813041194ac66d2d019aea711dad72239f52731f292675cd21248cba139768aa80f044c3a11cae2d308ae95b4b45de914d207b5b1d3d5d18620c8882'
+            '8a0b88d739fa4694a69d3630140fe89fdd70d50bba4dadd1758d9aa2920cda16700bcafb8d89fe2a09ac907d3f378240c3cb4abc7106318136799836aba4b063'
             '340a03fe90d26a8a5c78e1e4f558a0b448a14332a661494f44af7de3e6c98cd219125e19f69d2a611ecb4870648a5d5b55d794e665eb8ec4192c0b499a0701ed'
             '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a'
             '372eb5ef438458a3fd2d38c20ad9385e208d670bdc8e5ffb62c5bde2e3e93a3548704118aced33e6a956e12ae70a42316afafa482cf16e171dd0f07330de3509')
@@ -102,7 +102,7 @@ prepare() {
   [[ -d kodi-build ]] && rm -rf kodi-build
   mkdir "$srcdir/kodi-build"
 
-  cd "xbmc-$pkgver-$_codename"
+  cd "xbmc-$pkgver"
 
   [[ "$_sse_workaround" -eq 1 ]] && patch -p1 -i "$srcdir/cheat-sse-build.patch"
 
@@ -143,14 +143,14 @@ build() {
   cmake \
     ${_cmake_common_args[@]} \
     -DCORE_PLATFORM_NAME=wayland \
-    ../"xbmc-$pkgver-$_codename"
+    ../"xbmc-$pkgver"
   make
 
   echo "building kodi-gbm"
   cmake \
     ${_cmake_common_args[@]} \
     -DCORE_PLATFORM_NAME=gbm \
-    ../"xbmc-$pkgver-$_codename"
+    ../"xbmc-$pkgver"
   make
 
   # build x11 version last that will make it fallback in the launcher script
@@ -158,7 +158,7 @@ build() {
   cmake \
     ${_cmake_common_args[@]} \
     -DCORE_PLATFORM_NAME=x11 \
-    ../"xbmc-$pkgver-$_codename"
+    ../"xbmc-$pkgver"
   make
 }
 
@@ -170,7 +170,7 @@ package_kodi-common() {
     'bluez-libs' 'curl' 'dav1d' 'desktop-file-utils' 'hicolor-icon-theme'
     'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec' 'libmicrohttpd' 'libnfs'
     'libplist' 'libpulse' 'libva' 'libxslt' 'lirc' 'mariadb-libs' 'mesa'
-    'python' 'python-pillow' 'python-pycryptodomex' 'python-simplejson'
+    'python-pillow' 'python-pycryptodomex' 'python-simplejson'
     'shairplay' 'smbclient' 'sqlite' 'taglib' 'tinyxml'
   )
   optdepends=(
@@ -187,7 +187,6 @@ package_kodi-common() {
   )
 
   cd kodi-build
-  # install eventclients
   for _cmp in ${_components[@]}; do
   DESTDIR="$pkgdir" /usr/bin/cmake \
     -DCMAKE_INSTALL_COMPONENT="$_cmp" \
@@ -205,7 +204,7 @@ package_kodi-x11() {
   provides=('kodi')
   replaces=('kodi')
   depends=(
-    'kodi-common' 'libva-vdpau-driver' 'libxrandr'
+    'kodi-common' 'libxrandr'
   )
 
   cd kodi-build
@@ -257,7 +256,6 @@ package_kodi-eventclients() {
   )
 
   cd kodi-build
-  # install eventclients
   for _cmp in ${_components[@]}; do
     DESTDIR="$pkgdir" /usr/bin/cmake \
       -DCMAKE_INSTALL_COMPONENT="$_cmp" \
@@ -276,7 +274,6 @@ package_kodi-tools-texturepacker() {
   )
 
   cd kodi-build
-  # install eventclients
   for _cmp in ${_components[@]}; do
     DESTDIR="$pkgdir" /usr/bin/cmake \
       -DCMAKE_INSTALL_COMPONENT="$_cmp" \
@@ -296,7 +293,6 @@ package_kodi-dev() {
   )
 
   cd kodi-build
-  # install eventclients
   for _cmp in ${_components[@]}; do
     DESTDIR="$pkgdir" /usr/bin/cmake \
       -DCMAKE_INSTALL_COMPONENT="$_cmp" \
