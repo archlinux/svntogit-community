@@ -4,7 +4,7 @@
 # Contributor: Tetsumi
 pkgname=python-pygame
 pkgver=2.0.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Python game library"
 arch=('x86_64')
 url="http://www.pygame.org"
@@ -21,5 +21,6 @@ build() {
 
 package() {
     cd pygame-"$pkgver"
+    export PYTHONHASHSEED=0
     python setup.py install --root="$pkgdir" --prefix=/usr --skip-build
 }
