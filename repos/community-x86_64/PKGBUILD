@@ -6,15 +6,19 @@
 # Contributor: Cody Maloney <cmaloney@theoreticalchaos.com>
 # Contributor: acxz <akashpatel2008 at yahoo dot com>
 
-pkgbase=gtest
-pkgname=('gtest' 'gmock')
+pkgname=gtest
 pkgver=1.10.0
-pkgrel=5
+pkgrel=6
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
 license=('BSD')
+depends=('gcc-libs' 'sh')
 makedepends=('python' 'cmake' 'gcc-libs' 'sh')
+optdepends=('python: gmock generator')
+conflicts=('gmock')
+replaces=('gmock')
+provides=('gmock')
 _srcname=googletest-release-${pkgver}
 source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
         gtest-1.10.0-libversion.patch)
@@ -39,27 +43,17 @@ build() {
     -DBUILD_SHARED_LIBS=ON \
     -Dgtest_build_tests=ON
   cmake --build build
-
 }
 
 check() {
   cmake --build build --target test
 }
 
-package_gtest() {
-  pkgdesc='Google Test - C++ testing utility based on the xUnit framework (like JUnit)'
-  depends=('gcc-libs' 'sh')
-
+package() {
   DESTDIR="${pkgdir}" cmake --build build --target install
 
   # Shouldn't be present
   find "${pkgdir}" -name '*.pump' -printf 'Removing %P\n' -delete
-
-  # Split gmock
-  mkdir -p gmock/{include,lib/pkgconfig}
-  mv "${pkgdir}"/usr/include/gmock gmock/include/
-  mv "${pkgdir}"/usr/lib/libgmock* gmock/lib/
-  mv "${pkgdir}"/usr/lib/pkgconfig/gmock* gmock/lib/pkgconfig/
 
   cd ${_srcname}/googletest
   install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
@@ -68,17 +62,8 @@ package_gtest() {
   install -Dm 644 cmake/* -t "${pkgdir}/usr/src/googletest/cmake"
   install -Dm 644 src/* -t "${pkgdir}/usr/src/googletest/src"
   install -Dm 644 CMakeLists.txt -t "${pkgdir}/usr/src/googletest"
-}
 
-package_gmock() {
-  pkgdesc='Google Mock - A library for writing and using C++ mock classes'
-  depends=('python' 'gtest' 'gcc-libs' 'sh')
-
-  mv gmock "${pkgdir}/usr"
-
-  cd ${_srcname}/googlemock
-  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
-  install -Dm 644 README.md CONTRIBUTORS -t "${pkgdir}/usr/share/doc/${pkgname}"
+  cd ../googlemock
   install -Dm 755 scripts/gmock-config.in -t "${pkgdir}/usr/bin"
   install -Dm 644 cmake/* -t "${pkgdir}/usr/src/gmock/cmake"
   install -Dm 644 src/* -t "${pkgdir}/usr/src/gmock/src"
