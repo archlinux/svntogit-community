@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-funcy
-pkgver=1.15
-pkgrel=2
+pkgver=1.16
+pkgrel=1
 pkgdesc='A fancy and practical functional tools'
 arch=('any')
 license=('BSD')
@@ -11,7 +11,7 @@ depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner' 'python-whatever')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/Suor/funcy/archive/$pkgver.tar.gz")
-sha512sums=('876a26905fb9f1a88c3d1e82984ee29772dbe22ed12ca7e6ff49ccae4dd8c06280802aa8d65e926e0d4bfe28a65770d4b5d4832318761ad6e1e0fec6d1ab1666')
+sha512sums=('b70e3781463a4b9df6ee892150889eacbfff707a90e1985f906173f0bb2fa512cb4bf4e2227c785f1066206b5c5be0e9eab5cf6be3a726f84eb4dbd06d88c575')
 
 build() {
   cd funcy-$pkgver
