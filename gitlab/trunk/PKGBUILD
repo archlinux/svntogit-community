@@ -8,7 +8,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=13.10.4
+pkgver=13.11.3
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -40,8 +40,8 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab.logrotate)
 install='gitlab.install'
 sha512sums=('SKIP'
-            'a50f76a24b0f2ece42f67a8bf194617e025c95f14e2010a5f91b3b1ae00ba81a4f1d8a067cec0d549820aa0a6df7eae029f93b81a2e1f339f9e80429cd4d8d37'
-            'd8800af5b58e25a7baba9d4aba024715afe166919532b2919b29fc4f8901049ec467f87000fa11f448feddf4f423b39248e97129e3677bdbd980de260104fe8c'
+            '4b68e99a170bd5d585ba6efc5fb153a9b6a355d359f21b1b2e91eb8a0e4a7dd5771a66d412c8c6895ed32b24a98e04d87e26ed5156ac9a0f77901d2c75ba7808'
+            'f8f9fd90c35b58828c7aeeaae920909f3b32d27c0112919aaa116a248764037d65388c61687d4b654bf03533a12c600876e2f173525f6696dfdfb0b7891f78aa'
             '5b1ca2958f03a5baf1c5576a1568072e8ed749e2d15745ecbcc4860d2dbd543f2f3ed077e8d87afac2670c9436b19fe498217b49916d56a4e31fb9811aeb9067'
             '451a030940f124bccd6d29c1924861b361d52db32cff6e745c144286c2afc7065e117f825721145ed2dd4406f5bcfa97e228a80b968aaa9a675613b71b776eba'
             '419848c668928276620b5229e457a39e0ed7e111f1da68a30c3e0ae1a644af1c869b004b35435ccec4ddcdf6cf7418b1ab71e6e2ee8a2c861c6625c8bfd908f6'
