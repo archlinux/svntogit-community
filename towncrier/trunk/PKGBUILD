@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=towncrier
-pkgver=19.9.0rc1
-pkgrel=3
+pkgver=21.3.0
+pkgrel=1
 pkgdesc="Utility to produce useful, summarised news files for your project"
 arch=('any')
 url="https://github.com/hawkowl/towncrier"
@@ -11,7 +11,12 @@ depends=('python-setuptools' 'python-click' 'python-click-default-group' 'python
          'python-jinja' 'python-toml')
 checkdepends=('git' 'python-twisted')
 source=("https://pypi.io/packages/source/t/towncrier/towncrier-$pkgver.tar.gz")
-sha512sums=('b0654da9f90356522d8ddb029c7564be469be64bfb4684e97cae9f44e028795f54c15a8a59d5bdb2710580b5a9649fd53a500b5eadeec846108d079a3318c241')
+sha512sums=('058a23dfed3a01d831be8034dd5fbdeac08bbaae3e06dfcd83fc4ac18c98ff8ac12d7c4c04e179794d40d305349c89aed0ee8f5fcd173c2793c8c24b35d58df3')
+
+prepare() {
+  cd towncrier-$pkgver
+  sed -i 's/import mock/from unittest import mock/' src/towncrier/test/test_create.py
+}
 
 build() {
   cd towncrier-$pkgver
@@ -20,7 +25,7 @@ build() {
 
 check() {
   cd towncrier-$pkgver
-  PYTHONPATH="$PWD/build/lib" trial3 towncrier
+  PYTHONPATH="$PWD/build/lib" trial towncrier
 }
 
 package() {
