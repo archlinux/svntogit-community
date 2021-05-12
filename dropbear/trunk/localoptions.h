@@ -41,3 +41,6 @@
 
 /* Default path */
 #define DEFAULT_PATH "/usr/bin"
+
+/* Enable GCM mode, ref. FS#70781 */
+#define DROPBEAR_ENABLE_GCM_MODE 1
