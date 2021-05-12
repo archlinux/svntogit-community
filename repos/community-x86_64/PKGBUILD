@@ -5,7 +5,7 @@
 
 pkgname=containerd
 pkgver=1.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
@@ -25,7 +25,7 @@ prepare() {
 build() {
   cd "${pkgname}" 
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
-  make VERSION=v$pkgver
+  make VERSION=v$pkgver EXTRA_LDFLAGS="-buildid="
   make VERSION=v$pkgver man
 }
 
