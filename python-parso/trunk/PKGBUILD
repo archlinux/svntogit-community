@@ -5,7 +5,7 @@
 _pkgbase=parso
 pkgname=python-parso
 epoch=1
-pkgver=0.8.1
+pkgver=0.8.2
 pkgrel=1
 pkgdesc="Python parser that supports error recovery and round-trip parsing for different Python versions"
 arch=('any')
@@ -15,8 +15,8 @@ depends=('python')
 makedepends=('python-setuptools' 'python-sphinx')
 checkdepends=('python-pytest')
 source=(https://github.com/davidhalter/parso/archive/v$pkgver/$_pkgbase-$pkgver.tar.gz)
-sha512sums=('10cc36a4f288d06b8d06bf3995eafe8c6b5d46d0ab01ce6db4557c82f8c64c6792b438a5b7dea570a9690bad586ab4216161268be9c1979b91b3af50e1c8801c')
-b2sums=('d8d2a025dfb6664d8deeabfc621f4dcf0c6f6e0769dc3a7081888436cce39685f7749ee4ed33c501e3690bec0c8b21d18195d585a8baf5fa8c1b1ae1bfad5680')
+sha512sums=('a90810ad89301d804d215392ed77593b015f13bc7ef8512302a8893b314a9e74c15e2aaa77157c8595a134d3481e8115f306f9628835271478837ec6f19e645f')
+b2sums=('f4e86ae55140adc9bbfdd34a8044e7fdfbf9d318a6385ac5feedc07127061943c2d690581af144f158846e3bf6f82124046c7e625369a4055ab92a54f9210c49')
 
 check() {
   cd "$_pkgbase-$pkgver"
@@ -35,7 +35,7 @@ package() {
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm 644 LICENSE.txt -t "$pkgdir/usr/share/licenses/$pkgname"
   install -Dm 644 CHANGELOG.rst README.rst docs/_build/text/*.txt -t "$pkgdir/usr/share/doc/$pkgname"
-  install -Dm 644 docs/_build/man/parso.1 "$pkgdir/usr/share/man/man1/$pkgname.1"
+  install -Dm 644 docs/_build/man/1/parso.1 "$pkgdir/usr/share/man/man1/$pkgname.1"
 }
 
 # vim: ts=2 sw=2 et:
