@@ -3,27 +3,24 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=5.0.0
+pkgver=5.1.0
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('AGPL3')
 arch=('x86_64')
 url="https://signal.org"
 depends=('gtk3' 'libvips' 'libxss' 'hicolor-icon-theme')
-makedepends=('yarn' 'git' 'git-lfs' 'nodejs-lts-erbium' 'npm6' 'python')
+makedepends=('yarn' 'git' 'git-lfs' 'nodejs-lts-fermium' 'npm6' 'python')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
   "${pkgname}.desktop"
-  "openssl-linking.patch"
   "expire-from-source-date-epoch.patch"
 )
-sha512sums=('6a41151735ca44e08cf6f2e6a8839b86a63084ecd94ea96c5e63a9fd4a1a3725196343bdeafae3a31304fa632b1bc9a74858e5c1adab55bc517907f9e91c5895'
+sha512sums=('006c7a57beb0627db9b5101b383a90ec35da0708825a0af01a13e259878a2eff9f8e988618e17c2cfb629de65442b799566b2b2576c827478410daf56ea9ea67'
             '90cfee563a985bc73c4e7984715d190ae0b5c7aa887a7dc15c665980ca5cc8420b02f6c7a54e032c29e18876d5d51cfbe5027a9f0a59de3903f50fd469d73ce0'
-            '6b846fdf70dae6c4657de523ec133d2f08325740863660b86e75d032bb07a4b97834ba0eeea4c77000c2c20b11739b8e8deaf06584f9279638e640c4b7633dd5'
             '6673066172d6c367961f3e2d762dd483e51a9f733d52e27d0569b333ad397375fd41d61b8a414b8c9e8dbba560a6c710678b3d105f8d285cb94d70561368d5a2')
-b2sums=('f82e42383925722f4863f09bcf44a39ee580cfb5eeb4cf2fc8fb7dd944d2c7b6428d40edb43814824cc617fcd5d3bf1cb664cc3ba3c5abbf8f6da0cb0dbc80ec'
+b2sums=('a577a99b230e0bb956a0738c9cf9025d403ee5c6b488ff5295555b3d218c2c44f380b06c179527650295e0b993a154fe999e7e6fe7691b9ec89abd2dbb7261b8'
         'b0974f1409bf77e917a3ecce68a9d066eaf24a6cd35e0d52b0d61fcf2fb014f19962bb445b6eaf668081d370c69c01b08420c056902907574a29a71a4f0f2457'
-        '91fe76cd2ef32bd523aa857a219209f93ca5a6a3f5caa35f67c489a8eb79c8e1e404f453bed9e866e543ed48b9df8e17b45ad2ea8891b48d1502a97589a144af'
         'b8171e6d881a6ffd5588d1cae00ed81412eff1602670003fc1f48b7e6cb2d680340d464b7b38ee8886a8bd8193166ad71e3ad10b0de8b2a397b383b72434e289')
 
 prepare() {
@@ -43,22 +40,14 @@ prepare() {
 
   yarn install --ignore-engines
 
-  # Have SQLCipher dynamically link from OpenSSL
-  # See https://github.com/signalapp/Signal-Desktop/issues/2634
-  patch --forward --strip=1 --input="${srcdir}/openssl-linking.patch"
-
   # We can't read the release date from git so we use SOURCE_DATE_EPOCH instead
   patch --forward --strip=1 --input="${srcdir}/expire-from-source-date-epoch.patch"
 }
 
 build() {
   cd "${_pkgname}-${pkgver}"
-
-  # Gruntfile expects Git commit information which we don't have in a tarball download
-  # See https://github.com/signalapp/Signal-Desktop/issues/2376
-  yarn generate exec:build-protobuf exec:transpile concat copy:deps sass
-
-  yarn build-release --dir
+  yarn generate
+  yarn build
 }
 
 package() {
