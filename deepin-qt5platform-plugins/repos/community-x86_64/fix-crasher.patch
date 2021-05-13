@@ -1,0 +1,121 @@
+From de6c9f3e735403077d66e8c8e9acfe236f06d6f5 Mon Sep 17 00:00:00 2001
+From: zccrs <zccrs@live.com>
+Date: Fri, 15 Jan 2021 10:28:34 +0800
+Subject: [PATCH] =?UTF-8?q?refactor:=20=E5=B9=B3=E5=8F=B0=E6=8F=92?=
+ =?UTF-8?q?=E4=BB=B6=E7=B1=BB=E6=94=AF=E6=8C=81=E5=A4=9A=E6=AC=A1=E5=88=9B?=
+ =?UTF-8?q?=E5=BB=BA=E4=BD=BF=E7=94=A8?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+主要是为了支持在程序运行期间销毁并重新创建QGuiApplication
+对象的场景, 如在deepin-turbo的booster中会预先创建一个
+QGuiApplication对象(主要是预加载数据), 之后可能会删除这个
+对象, 当booster开始加载一个程序时, 在程序的代码中会再次创建
+QGuiApplication对象.
+
+Log:
+Change-Id: Ie9811910d86945aa26b8ebb111d57b4bfdccdaf7
+---
+ src/vtablehook.h             |  6 ++++++
+ xcb/dhighdpi.cpp             | 19 +++++++++++++++----
+ xcb/dplatformintegration.cpp | 14 +++++++++-----
+ 3 files changed, 30 insertions(+), 9 deletions(-)
+
+diff --git a/src/vtablehook.h b/src/vtablehook.h
+index b1e73f0..ea7c51f 100644
+--- a/src/vtablehook.h
++++ b/src/vtablehook.h
+@@ -72,6 +72,12 @@ class VtableHook
+     static bool hasVtable(const void *obj);
+     static void resetVtable(const void *obj);
+     static quintptr resetVfptrFun(const void *obj, quintptr functionOffset);
++    template <typename Fun> // for class
++    static inline quintptr resetVfptrFun(Fun fun)
++    {
++        typedef QtPrivate::FunctionPointer<Fun> FunInfo;
++        return resetVfptrFun(getVtableOfClass<typename FunInfo::Object>(), toQuintptr(&fun));
++    }
+     static quintptr originalFun(const void *obj, quintptr functionOffset);
+     static bool forceWriteMemory(void *adr, const void *data, size_t length);
+     static QFunctionPointer resolve(const char *symbol);
+diff --git a/xcb/dhighdpi.cpp b/xcb/dhighdpi.cpp
+index 1f54d49..c507676 100644
+--- a/xcb/dhighdpi.cpp
++++ b/xcb/dhighdpi.cpp
+@@ -43,11 +43,16 @@ QPointF DHighDpi::fromNativePixels(const QPointF &pixelPoint, const QWindow *win
+     return QHighDpi::fromNativePixels(pixelPoint, window);
+ }
+ 
+-__attribute__((constructor)) // 在库被加载时就执行此函数
+-static void init()
++inline static void init()
+ {
++    // 禁用platform theme中的缩放机制
++    // 当DHighDpi存在时不应该再使用这个过时的机制
++    qputenv("D_DISABLE_RT_SCREEN_SCALE", "1");
++
+     DHighDpi::init();
+ }
++// 在插件被加载时先做一次初始化
++Q_CONSTRUCTOR_FUNCTION(init)
+ void DHighDpi::init()
+ {
+     if (QGuiApplication::testAttribute(Qt::AA_DisableHighDpiScaling)
+@@ -57,11 +62,17 @@ void DHighDpi::init()
+             || !DXcbXSettings::getOwner()
+             || (qEnvironmentVariableIsSet("QT_SCALE_FACTOR_ROUNDING_POLICY")
+                 && qgetenv("QT_SCALE_FACTOR_ROUNDING_POLICY") != "PassThrough")) {
++        // init函数可能会被重复调用, 此处应该清理VtableHook
++        if (active) {
++#if QT_VERSION < QT_VERSION_CHECK(5, 14, 0)
++            VtableHook::resetVfptrFun(&QXcbScreen::pixelDensity);
++#endif
++            VtableHook::resetVfptrFun(&QXcbScreen::logicalDpi);
++            active = false;
++        }
+         return;
+     }
+ 
+-    // 禁用platform theme中的缩放机制
+-    qputenv("D_DISABLE_RT_SCREEN_SCALE", "1");
+     // 设置为完全控制缩放比例，避免被Qt“4舍5入”了缩放比
+     qputenv("QT_SCALE_FACTOR_ROUNDING_POLICY", "PassThrough");
+ 
+diff --git a/xcb/dplatformintegration.cpp b/xcb/dplatformintegration.cpp
+index faa2c9b..aca0bcd 100644
+--- a/xcb/dplatformintegration.cpp
++++ b/xcb/dplatformintegration.cpp
+@@ -116,16 +116,19 @@ DPlatformIntegration::DPlatformIntegration(const QStringList &parameters, int &a
+     VtableHook::overrideVfptrFun(nativeInterface(),
+                                  &QPlatformNativeInterface::platformFunction,
+                                  &DPlatformNativeInterfaceHook::platformFunction);
++
++    // 不仅仅需要在插件被加载时初始化, 也有可能DPlatformIntegration会被创建多次, 也应当在
++    // DPlatformIntegration每次被创建时都重新初始化DHighDpi.
++    DHighDpi::init();
+ }
+ 
+ DPlatformIntegration::~DPlatformIntegration()
+ {
+ #ifdef Q_OS_LINUX
+-    if (!m_eventFilter)
+-        return;
+-
+-    qApp->removeNativeEventFilter(m_eventFilter);
+-    delete m_eventFilter;
++    if (m_eventFilter) {
++        qApp->removeNativeEventFilter(m_eventFilter);
++        delete m_eventFilter;
++    }
+ #endif
+ 
+ #ifdef USE_NEW_IMPLEMENTING
+@@ -134,6 +137,7 @@ DPlatformIntegration::~DPlatformIntegration()
+ 
+     if (m_xsettings) {
+         delete m_xsettings;
++        m_xsettings = nullptr;
+     }
+ #endif
+ }
