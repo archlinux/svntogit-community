@@ -1,0 +1,42 @@
+From 7194508dfedb1a29709927de6e8d9f8480a0017a Mon Sep 17 00:00:00 2001
+From: Jim Turner <git@turner.link>
+Date: Wed, 12 May 2021 19:07:41 -0400
+Subject: [PATCH] Fix monkey-patching of functions with annotations
+
+click 8.0.0 [added type annotations][1] which broke click-threading's
+monkey patching of these functions. This commit is a small change to
+fix the issue. Note that this commit uses the `inspect.Signature`
+type, which was added in Python 3.3.
+
+[1]: https://github.com/pallets/click/commit/0103c9570650daa59560baf42ad0a27e57b3157f
+---
+ click_threading/monkey.py | 16 ++++++++++------
+ 1 file changed, 10 insertions(+), 6 deletions(-)
+
+diff --git a/click_threading/monkey.py b/click_threading/monkey.py
+index 1c16cd6..20361ff 100644
+--- a/click_threading/monkey.py
++++ b/click_threading/monkey.py
+@@ -40,12 +40,16 @@ def patch_ui_functions(wrapper):
+ 
+         new_f = wrapper(_copy_fn(f), info)
+ 
+-        argspec = getargspec(f)
+-        signature = inspect.formatargspec(*argspec) \
+-            .lstrip('(') \
+-            .rstrip(')')
+-        args = ', '.join(arg.split('=')[0].split(':')[0].strip()
+-                         for arg in signature.split(','))
++        orig_sig_obj = inspect.signature(f)
++        sig_obj = orig_sig_obj.replace(
++            parameters=[
++                p.replace(annotation=inspect.Parameter.empty)
++                for p in orig_sig_obj.parameters.values()
++            ],
++            return_annotation=inspect.Signature.empty,
++        )
++        signature = str(sig_obj).lstrip('(').rstrip(')')
++        args = ', '.join(p for p in sig_obj.parameters.keys())
+ 
+         stub_f = eval('lambda {s}: {n}._real_click_fn({a})'
+                       .format(n=f.__name__, s=signature, a=args))
