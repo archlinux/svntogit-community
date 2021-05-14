@@ -13,7 +13,7 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=5.0.5.sdk202
+pkgver=5.0.6.sdk203
 pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -22,6 +22,8 @@ makedepends=(
   bash
   clang
   cmake
+  dotnet-runtime-3.1
+  dotnet-sdk
   git
   icu
   inetutils
@@ -38,45 +40,21 @@ makedepends=(
   zlib
 )
 options=(staticlibs)
-_tag=561d6ea60d5c3f914c0d2c4f88f1e955bc9c997a
+_tag=a8f12771179965da9f48646ded87068d379563b9
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
-  https://dotnetcli.azureedge.net/dotnet/Runtime/3.1.1/dotnet-runtime-3.1.1-linux-x64.tar.gz
-  https://dotnetcli.azureedge.net/dotnet/Sdk/5.0.202/dotnet-sdk-5.0.202-linux-x64.tar.gz
   dotnet.sh
   9999-runtime-link-order.patch
   9999-sdk-telemetry-optout.patch
 )
-noextract=(
-  dotnet-runtime-3.1.1-linux-x64.tar.gz
-  dotnet-sdk-5.0.202-linux-x64.tar.gz
-)
 b2sums=('SKIP'
-        'c51b167da0624df2fb5b346652ffa5a7fcfb00f95104664329721d4cf4b563dfdc8f7f3ea36332af1f50e8eedff14d7f960b55793ef2ed6b467a672bd92b3acd'
-        'cbdc6ff24baff47dead2f6e2cc46b11527630a4481dbea2241c205bfd065032a97e9367678d1f0520ea2858f87f2f1f0f5d4872e8c442b375b1c09efae6cc596'
         '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
         '437e0b0956576795087f9e5299f6b847aaaef8158847a269d34331d42da6729721d121eed82b95e4833f9d01322da677d85db924bf43140360c5592d51324565'
         '2d69b0eb110f49badbf411ec22be0b10913321275d4146a9e3ea2e5a160a7388e6b0f70200d8ed8640c742f7791694a13be89d85f8424078396ab29e28fca113')
 
-pkgver() {
-  mkdir dotnet
-
-  bsdtar -xf dotnet-runtime-3.1.1-linux-x64.tar.gz -C dotnet
-  bsdtar -xf dotnet-sdk-5.0.202-linux-x64.tar.gz -C dotnet
-
-  cd dotnet-source-build
-
-  if [[ $(git describe --tags) != *-SDK ]]; then
-    exit 1
-  fi
-
-  local _runtimever=$(xmllint --xpath "//Dependency[@Name='Microsoft.NETCore.App.Runtime.win-x64']/@Version" eng/Version.Details.xml | cut -d '=' -f 2 | sed 's/^"//; s/"$//')
-  local _sdkver=$(xmllint --xpath "//Dependency[@Name='Microsoft.NET.Sdk']/@Version" eng/Version.Details.xml | cut -d '=' -f 2 | sed 's/^"//; s/"$//; s/-rtm.*//; s/-servicing.*//')
-
-  echo "${_runtimever}.sdk${_sdkver##*.}"
-}
-
 prepare() {
+  cp -r /usr/share/dotnet .
+
   cd dotnet-source-build
 
   [ -d patches/runtime ] || mkdir patches/runtime
@@ -86,6 +64,19 @@ prepare() {
 
   # disable warnings
   sed -i 's|skiptests|skiptests ignorewarnings|' repos/runtime.common.props
+}
+
+pkgver() {
+  cd dotnet-source-build
+
+  if [[ $(git describe --tags) != v5.0.*-SDK ]]; then
+    exit 1
+  fi
+
+  local _runtimever=$(xmllint --xpath "//Dependency[@Name='Microsoft.NETCore.App.Runtime.win-x64']/@Version" eng/Version.Details.xml | cut -d '=' -f 2 | sed 's/^"//; s/"$//')
+  local _sdkver=$(xmllint --xpath "//Dependency[@Name='Microsoft.NET.Sdk']/@Version" eng/Version.Details.xml | cut -d '=' -f 2 | sed 's/^"//; s/"$//; s/-rtm.*//; s/-servicing.*//')
+
+  echo "${_runtimever}.sdk${_sdkver##*.}"
 }
 
 build() {
