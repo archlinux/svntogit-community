@@ -2,59 +2,37 @@
 # Contributor: chiku <chirantan.mitra@gmail.com>
 
 pkgname=ucblogo
-pkgver=6.1
+pkgver=6.2.1
 pkgrel=1
 pkgdesc='Interpreter for the Logo programming language'
 url='https://www.cs.berkeley.edu/~bh/logo.html'
 arch=(x86_64)
 license=(GPL)
-makedepends=(setconf svn)
+makedepends=(git texinfo texlive-bin texlive-core)
 depends=(libice libsm libx11 ncurses wxgtk3)
-source=("https://www.cs.berkeley.edu/~bh/downloads/$pkgname.tar.gz"
-        'https://people.eecs.berkeley.edu/~bh/logo-sample.html'
-        logo.sh)
-sha256sums=('f35d8faf2dd8c4347ff67816570b20d935c19e4f6acb5301708ef2b81d9f9339'
-            'd3dfeb90e5dd6cae6bc12c8b272e1203a2b2693963670a408d2a190d1ba819ab'
-            'b14dfea1bfc5f04df254e4067d8d6301851d42af6920bdb800fdd8ad4443682b')
+source=(configure.patch
+        "$pkgname::git+https://github.com/jrincayc/ucblogo-code#commit=e023b8fcadc2e1b35a37b911250b251e0ec1da0b") # tag: version_6.2.1
+b2sums=('609a8a2304d6867a83a581dfa8065c05c6847c0983a29fce39efdfc18cfecfeca54989937f472c4339b2bc7fa4bce51951083d2d48b33614bf751dc67abd0e61'
+        'SKIP')
 
 prepare() {
-  # Create an example logo file, to be placed in /usr/share/doc/ucblogo
-  echo '#!/usr/bin/env logo' > "$srcdir/sample.logo"
-  head -22 < "$srcdir/logo-sample.html" | grep -v '<' >> "$srcdir/sample.logo"
+  cd $pkgname
+  patch -p1 -i ../configure.patch
+  autoreconf -i
 }
 
 build() {
-  cd $pkgname-$pkgver
-
-  ./configure --prefix=/usr
-
-  setconf makefile LINKER '$(CXX)'
-
-  # The makefile does not respect CFLAGS, set it manually
-  setconf makefile CFLAGS "$CFLAGS -w -fPIC -pthread"
-  setconf makefile CXXFLAGS "$CXXFLAGS -w -fPIC -D_FILE_OFFSET_BITS=64 -D_LARGE_FILES -pthread"
-
+  cd $pkgname
+  ./configure \
+    --enable-docs \
+    --prefix=/usr \
+    --with-wx-config=/usr/bin/wx-config-gtk3
   make
-
-  # Cleanup
-  rm -rf $pkgname-$pkgver/csls/CVS
 }
 
 package() {
-  make -C $pkgname-$pkgver \
+  make -C $pkgname \
+    DESTDIR="$pkgdir" \
     INFODIR="$pkgdir/usr/share/info" \
-    prefix="$pkgdir/usr" \
     install
-
-  # Package executable and wrapper script
-  mv "$pkgdir/usr/bin/logo" "$pkgdir/usr/bin/logo.elf"
-  install -Dm755 logo.sh "$pkgdir/usr/bin/logo"
-
-  # Package documentation
-  install -d "$pkgdir/usr/share/doc"
-  mv "$pkgdir/usr/lib/logo/docs" "$pkgdir/usr/share/doc/$pkgname"
-  rm "$pkgdir/usr/share/doc/$pkgname/usermanual.ps"
-  install -Dm755 sample.logo "$pkgdir/usr/share/doc/$pkgname/sample.logo"
 }
-
-# vim: ts=2 sw=2 et:
