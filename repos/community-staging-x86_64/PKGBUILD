@@ -1,0 +1,55 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=http2
+pkgname=haskell-http2
+pkgver=3.0.1
+pkgrel=7
+pkgdesc="HTTP/2 library"
+url="https://github.com/kazu-yamamoto/http2"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-case-insensitive' 'haskell-http-types' 'haskell-network'
+         'haskell-network-byte-order' 'haskell-psqueues' 'haskell-time-manager'
+         'haskell-unix-time')
+makedepends=('ghc' 'haskell-async' 'haskell-aeson' 'haskell-aeson-pretty'
+             'haskell-base16-bytestring' 'haskell-cryptonite' 'haskell-glob' 'haskell-hspec'
+             'haskell-hspec-discover' 'haskell-network-run' 'haskell-typed-process'
+             'haskell-unordered-containers' 'haskell-vector')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('aaa32209fb9945cc33c557866acb053df403bbe37c2bd024ac52e7fc6a3e816d0249e48b83e8846017fe0df0998327cf3498f1bc96b57b0fa81ce9c4d35589c6')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    # Choose another port to bind, 8080 is too easy to conflict with build host
+    sed -i 's/"8080"/"59824"/' test2/ServerSpec.hs test/HTTP2/ServerSpec.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+            -f-devel
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
