@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ovmf_code=/usr/share/edk2-ovmf/x64/OVMF_CODE.fd
+ovmf_vars=/usr/share/edk2-ovmf/x64/OVMF_VARS.fd
+ipxe_image="${1}"
+
+if [[ ! -f "${ovmf_code}" ]]; then
+  printf "ERROR: %s is missing, install the edk2-ovmf package." "${ovmf_code}" >&2
+  exit 1
+fi
+if [[ ! -f "${ovmf_vars}" ]]; then
+  printf "ERROR: %s is missing, install the edk2-ovmf package." "${ovmf_vars}" >&2
+  exit 1
+fi
+if [[ ! -f "${ipxe_image}" ]]; then
+  echo "ERROR: No IPXE image to run provided as first argument." >&2
+  exit 1
+fi
+
+workdir=$(mktemp -d --tmpdir run_ipxe.XXXXXX)
+trap 'rm -rf $workdir' EXIT INT TERM QUIT
+
+cd "${workdir}"
+cp "${ovmf_vars}" efivars
+mkdir -p ./fat/EFI/Boot/
+cp "${ipxe_image}" ./fat/EFI/Boot/bootx64.efi
+
+exec qemu-system-x86_64 \
+  -boot order=d,menu=on,reboot-timeout=5000 \
+  -m "size=3072,slots=0,maxmem=$((3072*1024*1024))" \
+  -k en-us \
+  -name ipxe,process=ipxe_0 \
+  -device virtio-net-pci,romfile=,netdev=net0 \
+  -netdev user,ipv4,id=net0 \
+  -drive if=pflash,format=raw,unit=0,readonly,file="${ovmf_code}" \
+  -drive if=pflash,format=raw,unit=1,file=efivars \
+  -usb \
+  -enable-kvm \
+  -drive if=none,id=usb-fat,format=raw,file=fat:rw:./fat \
+  -device usb-storage,drive=usb-fat \
+  -vga virtio

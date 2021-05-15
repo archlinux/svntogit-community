@@ -1,0 +1,96 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=ipxe
+pkgver=1.21.1
+pkgrel=1
+pkgdesc="Network bootloader"
+arch=('x86_64')
+url="https://ipxe.org"
+license=('GPL2' 'custom:UBDL')
+makedepends=('cdrtools')
+optdepends=(
+  'bash: for run_ipxe'
+  'qemu: for run_ipxe'
+  'edk2-ovmf: for run_ipxe'
+)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/${pkgname}/${pkgname}/archive/refs/tags/v${pkgver}.tar.gz"
+        "arch.ipxe"
+        "dst_root_ca_x3.pem"
+        "letsencrypt_authority_x3.pem"
+        "codesigning_pierre_archlinux.pem"
+        "default.ipxe"
+        "general.h"
+        "run_${pkgname}")
+sha512sums=('47400975110ed4ab95835aa1b7c8d5a6917c19c5713c6ab88bc0741a3adcd62245a9c4251d1f46fffc45289c6b18bf893f86dbc3b67d3189c41b7f198367ecaa'
+            'ec41e20333ce91b555d4f6a64f211323315a183466d8437404dc548287b96cc8aa4d2953bb5a496677f77e73b7b99752dc973688ade0ccab842fabb8f6127f47'
+            '1f52b62aa9e3ec0656ea3cb5c8e52eda924d58728e64bb03ca6c112858b91b13cf0a9328b105bb232973e240406b240ed14e72b5bd325e82e6fddf3126dbcc58'
+            '0fa893f751f0880c7d89c398cae9708f5ff04d466832fb6160a824395032259ac52e02a44da531d0f8bf7e310298b0067b1e8257f816d3223034f391ecba491d'
+            'e3a8c74dcf95cb4b77ed379d2185ef56b6ab2f4c7bdaf5a68876d21aca4d7961b0d8090da7132c6f1797bdca24014dfea032129ee207282797b91e31b6dc4d48'
+            '9162f528cd0080b9231785795f08d3229c52ce3c18ca5a6efcfbea5028e103a294ddef79a0f28ab64b8d0cdcb9e6cdd7fee797766ad2c3d1dbc3891ddeb4b553'
+            '080b5b7f1a02d6e3a4691e0e65f12a554ede2a783284357f4ef940eb506fec7ec477dc3060c67cf31999af99eba26b0bfa1495cb2a5baa5af4c133bdca2152af'
+            '545680910b8b0cbe2dad8b4fd2745a1a58a176601fa3f3695c7f1750dccd67df78a04bc22c121cb8e78c58bdea85947c686e58ae20fca68c355710dc044f9a32')
+b2sums=('03871b5f89c6228a9082bb89c7b102d85e5f3afcd5fe0d93762e220fe162c9c3037a9918f30251fd103835d949335f99109a12559f560a5b686e65a7c24c6501'
+        '13f73fbd49867a087cbb036562f067ee30e3a3718402363fd6c6d318bb819dde5728510c1459d7bb5906bec37469b2046a2ad148175b6ea4fb58ce68ee614d91'
+        '417023f75b356003f60258522e4b68b46d0c4ebf8cb3f36faf47de300451cfc708e952b8bfa7e2579fa60c9c9cc5bdb49da5b2591b872087b7a19f6a1bdfa192'
+        'a055d8af4df3554310d13b92f4937672293fde506d31dde3a345a802abb051549a06e4609a29b8aab26100e874abc84f4112585b011b6e532d0e60a22672d33b'
+        'a61f76a2ecbf344bb26e064146e4c6821ee195c7b7579cbf8c61d60ded3c3946d53329a8c2e795435ef5498bec97042472f186c13b4e0dc274da34d047f8f326'
+        'f38eec3584967f9a8d4f9f2cc39803de9fa21fd1406efe802c3422f6de30c79e4cd679e775a886f778a40aacb81b9c4120d7205178284cacf69fa7d43557a906'
+        'a69a2dabf23b931aa062d20936510eda6bc9d6a61cded4b5e5960958b2a06642d527bb788b3fae9961dbf5d2ac18c63a6df69db52668cf904b75bd7366117b9b'
+        'ee372696fcb35f886ea30d7989f2b795e4f7575ee666cfe951737781079d6a2c7bdf94b597a29f8bd580549d8a2267272f654aa0ce6d50b31e01769524201ea9')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  # symlink header with custom configuration into place
+  ln -sv "${srcdir}/general.h" src/config/local/
+}
+
+build() {
+  local _file _certs=""
+  # add certs
+  for _file in "${source[@]}"; do
+    if [[ "${_file}" == *.pem ]]; then
+      _certs+="${srcdir}/${_file},"
+    fi
+  done
+
+  cd "$pkgname-$pkgver"
+  # build arch specific images
+  # TODO: adapt arch.ipxe as soon as we can fix https://bugs.archlinux.org/task/70767
+  # NOTE: to debug issues with TLS or codesigning, add "DEBUG=open,tls,x509:3,certstore,privkey"
+  make -C src NO_WERROR=1 \
+    EMBED="$srcdir/arch.ipxe" \
+    CERT="${_certs}" \
+    TRUST="${_certs}" \
+    bin/ipxe.lkrn \
+    bin/ipxe.pxe \
+    bin-i386-efi/ipxe.efi \
+    bin-x86_64-efi/ipxe.efi
+
+  # move binaries out of the way
+  mv -v src/bin/ipxe{,-arch}.lkrn
+  mv -v src/bin/ipxe{,-arch}.pxe
+  mv -v src/bin-i386-efi/ipxe{,-arch}.efi
+  mv -v src/bin-x86_64-efi/ipxe{,-arch}.efi
+
+  # build default images
+  make -C src NO_WERROR=1 \
+    EMBED="$srcdir/default.ipxe" \
+    bin/ipxe.lkrn \
+    bin/ipxe.pxe \
+    bin-i386-efi/ipxe.efi \
+    bin-x86_64-efi/ipxe.efi
+
+}
+
+package() {
+  local _arch
+
+  cd "$pkgname-$pkgver"
+  install -vDm 644 src/bin/ipxe{,-arch}.{lkrn,pxe} -t "${pkgdir}/usr/share/${pkgname}/"
+  for _arch in i386 x86_64; do
+    install -vDm 644 "src/bin-${_arch}-efi/ipxe"{,-arch}.efi -t "${pkgdir}/usr/share/${pkgname}/${_arch}/"
+  done
+  install -vDm 644 COPYING.UBDL -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+
+  install -vDm 755 ../"run_${pkgname}" -t "${pkgdir}/usr/bin"
+}
