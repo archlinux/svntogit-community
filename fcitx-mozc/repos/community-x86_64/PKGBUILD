@@ -5,7 +5,7 @@
 
 ## Mozc compile option
 _bldtype=Release
-_mozc_commit=1882e33
+_mozc_commit=ca82d39
 
 ## follow the submodule commits in https://github.com/fcitx/mozc/tree/fcitx/src/third_party
 _abseil_cpp_commit=0f3bb46
@@ -17,12 +17,12 @@ _jsoncpp_commit=11086dd
 _protobuf_commit=fde7cf7
 
 ## the latest release from https://osdn.net/projects/ponsfoot-aur/storage/mozc/
-_zipcode_rel=202011
+_zipcode_rel=202104
 
 _pkgbase=mozc
 pkgname=fcitx-mozc
 pkgdesc="Fcitx Module of A Japanese Input Method for Chromium OS, Windows, Mac and Linux (the Open Source Edition of Google Japanese Input)"
-pkgver=2.26.4220.102.g1882e33
+pkgver=2.26.4360.102.gca82d39
 pkgrel=1
 arch=('x86_64')
 url="https://github.com/google/mozc"
@@ -41,19 +41,17 @@ source=(git+https://github.com/fcitx/mozc.git#commit=${_mozc_commit}
         git+https://github.com/open-source-parsers/jsoncpp.git#commit=${_jsoncpp_commit}
         git+https://github.com/google/protobuf.git#commit=${_protobuf_commit}
         git+https://github.com/abseil/abseil-cpp.git#commit=${_abseil_cpp_commit}
-        0001-fix-install_fcitx-translation-files.patch
 	)
 sha512sums=('SKIP'
-            '0ef2d0abd9744900f9a50f941cf1f9b47640f3643c14a1be1761bcf0bd1053cb93560203c25280f58fccbd8ec98b9ca2e21c5d5a59844bbbffc9c988dfcf7bed'
-            '8a35672b4a525d8e4f3303bd83c6bf6075cd4f10e703bf656a4c9328f18a8783c3049b749092e6e8be57eaddce4f889e9dacae9b3b72ba7bb9240a0f5a93fd34'
+            'cadb43138597371d13d21a2766ba38f0940a73bd961a1142f3713f700d1b8e75bdb6ccc0600ea57518ad5bf1931eed329cd11faeb87b191aa460e379ed1fed93'
+            'b473bda282e12c448ec10522306035b10b566d7ebfb051602e287a7890405db9189ce60189ed47cc130d15a196cd8c7440c6cbb2aaacc7e8cd62b90e50bcb1d9'
             'SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
-            'SKIP'
-            'd6e055f69c628aa447ab7f59f9ab903f701e4ba0a1683d7f96a677504b26160a0fb97430ed9b37755473fdc20087eb83104710cbb2d8c3a4991c18128c7eef42')
+            'SKIP')
 validpgpkeys=('2CC8A0609AD2A479C65B6D5C8E8B898CBF2412F9')  # Weng Xuetian
 
 pkgver(){
@@ -75,8 +73,6 @@ prepare() {
   git config submodule.src/third_party/protobuf.url "$srcdir/protobuf"
   git config submodule.src/third_party/abseil-cpp.url "$srcdir/abseil-cpp"
   git submodule update
-
-  patch -Np1 -i "$srcdir/0001-fix-install_fcitx-translation-files.patch"
 
   cd src
   # Generate zip code seed
