@@ -35,7 +35,7 @@ package() {
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm 644 LICENSE.txt -t "$pkgdir/usr/share/licenses/$pkgname"
   install -Dm 644 CHANGELOG.rst README.rst docs/_build/text/*.txt -t "$pkgdir/usr/share/doc/$pkgname"
-  install -Dm 644 docs/_build/man/1/parso.1 "$pkgdir/usr/share/man/man1/$pkgname.1"
+  install -Dm 644 docs/_build/man/parso.1 "$pkgdir/usr/share/man/man1/$pkgname.1"
 }
 
 # vim: ts=2 sw=2 et:
