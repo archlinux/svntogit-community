@@ -4,7 +4,7 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.4.9
-pkgver=15.2.10
+pkgver=15.2.12
 pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
@@ -64,7 +64,7 @@ source=(
   # https://github.com/ceph/ceph/pull/34846
   'backport_mgr_disabled_modules_workaround_PR34846.patch'
 )
-sha512sums=('20202c07a068f99d5ce56b1969f703f996ad34c201ea3ab9bb05ea278afac71ccba43fb03e9de641dc3ab9692eecfcc6f52ff1ac03e13a1dc2f939bd8159fc2d'
+sha512sums=('08266a2e9a7ca5a37e03f340873571fd012c630dd898a87241cd97c29760b2bf41fe64c8883e7b08e0f83c26245072cd26e69ecb1db02378d1ec38335ba1cd0f'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             'f529db9c094f9ae26428bf1fdfcc91c6d783d400980e0f0d802d2cf13c2be2931465ef568907e03841ff76a369a1447e7371f8799d8526edb9a513ba5c6db133'
             '9e6bb46d5bbdc5d93f4f026b2a8d6bdb692d9ea6e7018c1bb0188d95ea8574c76238d968b340fd67ddaa3d8183b310e393e3549dc3a63a795fde696413b0ca94'
@@ -146,6 +146,7 @@ build() {
 
   export CFLAGS+=" ${CPPFLAGS}"
   export CXXFLAGS+=" ${CPPFLAGS}"
+  export PYTHON_VERSION="$(python --version | awk '{print $2}')"
   export PYTHON_INCLUDE_DIR="$(python -c "from sysconfig import get_path; print(get_path('include'))")"
   export CMAKE_BUILD_TYPE='RelWithDebInfo'
   export CMAKE_WARN_UNUSED_CLI=no
@@ -162,7 +163,7 @@ build() {
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DENABLE_GIT_VERSION=ON \
     -DWITH_PYTHON2=OFF \
-    -DWITH_PYTHON3=ON \
+    -DWITH_PYTHON3="${PYTHON_VERSION}" \
     -DMGR_PYTHON_VERSION=3 \
     -DPYTHON_INCLUDE_DIR="${PYTHON_INCLUDE_DIR:?}" \
     -DWITH_BABELTRACE=OFF \
