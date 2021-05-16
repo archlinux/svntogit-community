@@ -2,8 +2,8 @@
 
 _pkgname=pydantic
 pkgname=python-$_pkgname
-pkgver=1.8.1
-pkgrel=2
+pkgver=1.8.2
+pkgrel=1
 pkgdesc='Data parsing and validation using Python type hints'
 arch=('any')
 url='https://github.com/samuelcolvin/pydantic'
@@ -13,7 +13,7 @@ optdepends=('python-email-validator: email')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner' 'python-pytest-mock')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha512sums=('dc58ab2e411744e63408c952c92c589acf037e809c60b85e02f277af2c6342c99c4fbfa7a585f14e57256912c0e6471821973bd2f755aac3822eb3a7883fd407')
+sha512sums=('0a28c64b97678b932092e546da877a4a6d104fc7d3b7cb043b3494f0b7c6900cdc1ab8a83bdbd1879956a81da1b28ca27578b1a003bdca3e08f0f107e5690e06')
 
 prepare() {
   rm $_pkgname-$pkgver/tests/test_validators.py
