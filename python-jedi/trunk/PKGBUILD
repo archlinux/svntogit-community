@@ -7,7 +7,7 @@
 pkgname=python-jedi
 _gitcommit=4b5b2e791b66f3a99542bc2a0e1d5730dc1491df
 pkgver=0.18.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
 arch=('any')
@@ -51,6 +51,7 @@ check() {
 
 package() {
   cd jedi
+  export PYTHONHASHSEED=0
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm 644 LICENSE.txt -t "$pkgdir/usr/share/licenses/$pkgname"
   install -Dm 644 CHANGELOG.rst README.rst docs/_build/text/*.txt -t "$pkgdir/usr/share/doc/$pkgname"
