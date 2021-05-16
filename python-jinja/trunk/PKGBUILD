@@ -4,7 +4,7 @@
 
 pkgname=python-jinja
 pkgver=3.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
 url="https://palletsprojects.com/p/jinja/"
@@ -32,6 +32,7 @@ check() {
 
 package() {
   cd Jinja2-$pkgver
+  export PYTHONHASHSEED=0
   python3 setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 LICENSE.rst -t "$pkgdir/usr/share/licenses/$pkgname"
 }
