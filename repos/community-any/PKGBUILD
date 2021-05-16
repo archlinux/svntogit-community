@@ -4,7 +4,7 @@
 pkgname=python-click
 _realname=click
 pkgver=8.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A simple wrapper around optparse for powerful command line utilities"
 arch=("any")
 url="http://click.pocoo.org/"
@@ -21,6 +21,7 @@ build() {
 
 package() {
     cd "${srcdir}/${_realname}-${pkgver}"
+    export PYTHONHASHSEED=0
     python setup.py install --skip-build --root="${pkgdir}" --optimize=1
     install -Dm644 "LICENSE.rst" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.rst"
 }
