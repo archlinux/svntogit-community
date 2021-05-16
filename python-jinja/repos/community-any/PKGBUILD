@@ -4,7 +4,7 @@
 
 pkgname=python-jinja
 pkgver=3.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
 url="https://palletsprojects.com/p/jinja/"
@@ -17,6 +17,7 @@ sha256sums=('ea8d7dd814ce9df6de6a761ec7f1cac98afe305b8cdc4aaae4e114b8d8ce24c5')
 
 build() {
   cd Jinja2-$pkgver
+  export PYTHONHASHSEED=0
   python3 setup.py build
 }
 
