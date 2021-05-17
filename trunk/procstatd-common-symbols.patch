@@ -1,0 +1,208 @@
+diff --git a/jobslist.c b/jobslist.c
+index 5c6e83c..fe09671 100644
+--- a/jobslist.c
++++ b/jobslist.c
+@@ -2,6 +2,8 @@
+ #include "procstatd.h"
+ #include <dirent.h>
+ 
++int sendline(int fd, char *buffer, int length);
++
+ #define MAX_BUFFER 4096
+ 
+ static DIR* dp_proc = NULL;
+diff --git a/procstatd.c b/procstatd.c
+index 3cef9d8..980c73d 100644
+--- a/procstatd.c
++++ b/procstatd.c
+@@ -21,6 +21,27 @@
+ /* void fatal(const char *fmt, ...); */
+ void sigchld_handler(int);
+ char **outfields;
++int sendline(int fd, char *buffer, int length);
++int readline(int fd, char *buffer, int bufsize);
++
++int verbose;
++int daemonmode,port;
++int server_fd, serverlen, client_fd, clientlen;
++int input_fd,output_fd,error_fd;
++int buflen;
++char outbuf[BUFLEN];
++char hostname[BUFLEN];
++char hostip[BUFLEN];
++char clientname[BUFLEN];
++char statbuf[BUFLEN];
++char **fields;	/* for parsing via parse() */
++long int interval;
++struct sockaddr_in serverINETaddress;
++struct sockaddr_in clientINETaddress;
++FILE *stat_fd[N_SOURCES];
++FILE *sendstat_fd;
++Stathash stats[N_STATS];
++Kernel kernel;
+ 
+ int main(int argc, char **argv)
+ {
+diff --git a/procstatd.h b/procstatd.h
+index 5d2b07b..cd03e0a 100644
+--- a/procstatd.h
++++ b/procstatd.h
+@@ -37,6 +37,7 @@
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <sys/un.h>
++#include <sys/wait.h>
+ #include <netinet/in.h>
+ #include <arpa/inet.h>
+ #include <utmp.h>
+@@ -82,24 +83,24 @@ int parse(char *, char **, int, int);
+  * Standard globals.  Note we cannot use outbuf for input/strtok as
+  * strtok processes the line in place.
+  */
+- int verbose;
+- int daemonmode,port;
+- int server_fd, serverlen, client_fd, clientlen;
+- int input_fd,output_fd,error_fd;
+- int buflen;
+- char outbuf[BUFLEN];
+- char hostname[BUFLEN];
+- char hostip[BUFLEN];
+- char clientname[BUFLEN];
+- char statbuf[BUFLEN];
+- char **fields;	/* for parsing via parse() */
+- long int interval;
++extern int verbose;
++extern int daemonmode,port;
++extern int server_fd, serverlen, client_fd, clientlen;
++extern int input_fd,output_fd,error_fd;
++extern int buflen;
++extern char outbuf[BUFLEN];
++extern char hostname[BUFLEN];
++extern char hostip[BUFLEN];
++extern char clientname[BUFLEN];
++extern char statbuf[BUFLEN];
++extern char **fields;	/* for parsing via parse() */
++extern long int interval;
+ 
+ /*
+  * Globals for socket pair creation
+  */
+- struct sockaddr_in serverINETaddress;
+- struct sockaddr_in clientINETaddress;
++extern struct sockaddr_in serverINETaddress;
++extern struct sockaddr_in clientINETaddress;
+ 
+  /* 
+   * IDENT MUST BE FIRST!  This is because it isn't displayed with a unique
+@@ -221,8 +222,8 @@ int parse(char *, char **, int, int);
+    N_MODES
+  } Modes;
+ 
+- FILE *stat_fd[N_SOURCES];
+- FILE *sendstat_fd;
++extern FILE *stat_fd[N_SOURCES];
++extern FILE *sendstat_fd;
+ 
+ /*
+  * This is essential.  This struct is the one true hash for each statistic.
+@@ -236,7 +237,7 @@ int parse(char *, char **, int, int);
+    double rate;		/* (current-previous)/time */
+  } Stathash ;
+ 
+- Stathash stats[N_STATS];
++extern Stathash stats[N_STATS];
+ 
+ /*
+  * To handle kernel revisions
+@@ -247,4 +248,4 @@ int parse(char *, char **, int, int);
+    int revision;
+  } Kernel ;
+ 
+- Kernel kernel;
++extern Kernel kernel;
+diff --git a/procutils.c b/procutils.c
+index b538818..b08d5d5 100644
+--- a/procutils.c
++++ b/procutils.c
+@@ -18,6 +18,8 @@
+ 
+ #include "procstatd.h"
+ 
++int sendline(int fd, char *buffer, int length);
++
+ void send_error(char *msg)
+ {
+ 
+diff --git a/quiklist.c b/quiklist.c
+index 7b46091..5c64510 100644
+--- a/quiklist.c
++++ b/quiklist.c
+@@ -2,6 +2,8 @@
+ #include "procstatd.h"
+ #include <dirent.h>
+ 
++int sendline(int fd, char *buffer, int length);
++
+ static FILE* fpp_loadavg = NULL;
+ static FILE* fpp_stat = NULL;
+ 
+diff --git a/senddata.c b/senddata.c
+index f2a2d3c..8702379 100644
+--- a/senddata.c
++++ b/senddata.c
+@@ -18,6 +18,8 @@
+ 
+ #include "procstatd.h"
+ 
++int sendline(int fd, char *buffer, int length);
++
+ /* 
+  * send_statlist(buffer) prints (as in inetd), transmits (as in
+  * the forking daemon), or broadcast the statistics evaluated with 
+diff --git a/statlist.c b/statlist.c
+index bf1eb9c..d0da9b2 100644
+--- a/statlist.c
++++ b/statlist.c
+@@ -18,6 +18,42 @@
+ 
+ #include "procstatd.h"
+ 
++void eval_filestuff();
++void eval_ipcstuff();
++void eval_proc_loadavg();
++void eval_proc_lm78();
++void eval_proc_meminfo();
++void eval_proc_net_dev();
++void eval_proc_sensors();
++void eval_proc_stat();
++void eval_proc_uptime();
++void eval_time();
++void eval_users();
++void get_ipcstuff();
++void get_proc_lm78();
++void get_proc_loadavg();
++void get_proc_meminfo();
++void get_proc_net_dev();
++void get_proc_sensors();
++void get_proc_stat();
++void get_proc_uptime();
++void get_filestuff();
++void get_time();
++void get_users();
++void init_filestuff();
++void init_identity();
++void init_proc_lm78();
++void init_proc_loadavg();
++void init_proc_meminfo();
++void init_proc_net_dev();
++void init_proc_sensors();
++void init_proc_stat();
++void init_proc_uptime();
++void init_proc_version();
++void init_time();
++void init_users();
++void init_ipcstuff();
++
+ /*
+  * statlist routines are simple shells that initialize, retrieve, process,
+  * and transmit statistics derived from /proc/* or various systems calls.
