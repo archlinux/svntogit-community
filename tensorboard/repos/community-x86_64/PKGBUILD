@@ -3,7 +3,7 @@
 
 pkgname=tensorboard
 pkgver=2.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc="TensorFlow's Visualization Toolkit"
 url='https://github.com/tensorflow/tensorboard'
 arch=('x86_64')
@@ -11,16 +11,21 @@ license=('APACHE')
 depends=('python' 'python-werkzeug' 'python-numpy' 'python-bleach' 'python-wheel' 'python-markdown'
          'python-html5lib' 'python-protobuf' 'python-grpcio' 'python-google-auth-oauthlib'
          'python-tensorboard_plugin_wit' 'absl-py')
+makedepends=('bazel' 'python-setuptools' 'tree' 'rust' 'python-pip')
 optdepends=('python-tensorflow: advanced features for TensorBoard')
-makedepends=('bazel' 'python-setuptools' 'tree')
 source=("${pkgname}-${pkgver}::https://github.com/tensorflow/tensorboard/archive/${pkgver}.tar.gz")
 sha512sums=('f2c8e9d23dbfab2f21e90034275593a8761596afa5bc464b45a43058daf914d6d11425869e8d66c6be7cf057da9f2f9bc464e9df1f0a4dbab23a8c07b39f7a4d')
 
 build() {
   cd "$pkgname-$pkgver"
 
-  bazel build --experimental_repo_remote_exec tensorboard:tensorboard
-  bazel build --experimental_repo_remote_exec //tensorboard/pip_package:build_pip_package
+  bazel build //tensorboard
+  bazel build //tensorboard/pip_package:build_pip_package
+
+  cd tensorboard/data/server
+  cargo build --release
+  python pip_package/build.py --server-binary target/release/rustboard --out-dir /tmp
+  cd "$srcdir/$pkgname-$pkgver"
 
   mkdir pypackage
   cp -R bazel-bin/tensorboard/pip_package/build_pip_package.runfiles/org_tensorflow_tensorboard/external pypackage
@@ -35,6 +40,8 @@ package() {
   cd "$pkgname-$pkgver"
 
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  pip install --root "$pkgdir" /tmp/*.whl
 
   cd pypackage
   python setup.py install --root="$pkgdir" --optimize=1
