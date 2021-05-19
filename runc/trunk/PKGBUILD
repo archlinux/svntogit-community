@@ -2,7 +2,7 @@
 # Contributor: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=1.0.0rc94
+pkgver=1.0.0rc95
 pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
@@ -10,7 +10,7 @@ url='https://runc.io/'
 license=(Apache)
 depends=(libseccomp)
 makedepends=(git go go-md2man)
-_commit=2c7861bc5e1b3e756392236553ec14a78a09f8bf    #refs/tags/v1.0.0-rc94^{}
+_commit=b9ee9c6314599f1b4a7f497e1f1f856fe433d3b7    #refs/tags/v1.0.0-rc95^{}
 source=("git+https://github.com/opencontainers/runc.git#commit=$_commit?signed")
 # source=("git+https://github.com/opencontainers/runc.git#tag=v1.0.0-rc92?signed")
 validpgpkeys=("5F36C6C61B5460124A75F5A69E18AA267DDB8DB4"
