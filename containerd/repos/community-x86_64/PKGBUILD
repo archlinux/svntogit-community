@@ -4,7 +4,7 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.5.1
+pkgver=1.5.2
 pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
