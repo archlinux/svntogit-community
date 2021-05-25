@@ -2,7 +2,7 @@
 
 _pkgname=tqdm
 pkgname=python-$_pkgname
-pkgver=4.60.0
+pkgver=4.61.0
 pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
@@ -14,7 +14,7 @@ makedepends=('python-setuptools-scm' 'python-toml')
 checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-pytest-timeout' 'python-numpy'
               'python-pandas' 'python-tensorflow' 'python-rich' 'python-dask' 'tk')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tqdm/tqdm/archive/v$pkgver.tar.gz")
-sha512sums=('6a572bb3c4812620f562879793448b086ac07323dea9185177bc0c701060293443d4bdde9f7fcd90aa32094d82bb4fa519fa86c6f36ad5fcf68f1ef3d5ec5956')
+sha512sums=('27e439b9e03dfa4fba9d194a254efdffc625940f7182048da869f47f67d3223cb42ff1c91426c082caf50677c405469b75e510e3f8e9650cb2a5a512d4523888')
 
 build() {
   cd $_pkgname-$pkgver
