@@ -4,8 +4,9 @@
 # Contributor: Jan de Groot <jgc@archlinux.org>
 
 pkgname=lib32-librsvg
-pkgver=2.50.5
+pkgver=2.50.6
 pkgrel=1
+epoch=2
 pkgdesc="SVG rendering library (32-bit)"
 url="https://wiki.gnome.org/Projects/LibRsvg"
 arch=(x86_64)
@@ -14,11 +15,10 @@ depends=(lib32-gdk-pixbuf2 lib32-pango lib32-libxml2 librsvg)
 makedepends=(gobject-introspection gtk-doc git rust lib32-rust-libs)
 checkdepends=(ttf-dejavu)
 provides=(librsvg-${pkgver%%.*}.so)
-_commit=fd385e68b4eb50cdeffbd120d8165f5a695f44e8  # tags/2.50.5^0
+_commit=b78911f8dbcc218ac3fda63de37304fb332ca7fe  # tags/2.50.6^0
 source=("git+https://gitlab.gnome.org/GNOME/librsvg.git#commit=$_commit"
-        lto.diff multilib.diff)
+        multilib.diff)
 sha256sums=('SKIP'
-            '3cc8ad1af515b2cb4071f0647319c1cf3280dc054875634239061800af1616b6'
             '92818f59a43ba67d95fca36fc2fa51fd4b23ab0e010a1aec04ab797088a8964a')
 
 pkgver() {
@@ -29,9 +29,6 @@ pkgver() {
 prepare() {
   cd librsvg
 
-  # Turn LTO back on
-  git apply -3 ../lto.diff
-
   # Hack to cross-compile rust only
   git apply -3 ../multilib.diff
 
@@ -39,12 +36,16 @@ prepare() {
 }
 
 build() {
+  cd librsvg
+
   export CC='gcc -m32'
   export CXX='g++ -m32'
   export PKG_CONFIG=i686-pc-linux-gnu-pkg-config
   export RUST_TARGET=i686-pc-linux-gnu
 
-  cd librsvg
+  # Use LTO
+  export CARGO_PROFILE_RELEASE_LTO=true CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+
   ./configure --prefix=/usr --disable-static --disable-vala \
     --disable-gtk-doc --disable-introspection --libdir=/usr/lib32
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' libtool
@@ -53,8 +54,8 @@ build() {
 
 check() {
   cd librsvg
-  # Reftests are probably broken
-  # some reference images were created without the requested fonts
+  # Test suite is very dependent on the versions of
+  # Cairo, Pango, FreeType and HarfBuzz
   make check || :
 }
 
