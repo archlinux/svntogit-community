@@ -4,7 +4,7 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=3.3.1
+pkgver=3.3.2
 pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
@@ -13,7 +13,7 @@ arch=(x86_64)
 makedepends=(gcc scons yasm)
 depends=(alsa-lib freetype2 libglvnd libxcursor libxinerama libxrandr pulseaudio)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('63e5d52b0d0a666b62d2e69981ec8f245dc2fc177284eb19fe4c3f74eaf048215f93f0f5786822823d17c78264dab52ddc26d63fc8e8c13584f19bf422c5606c')
+b2sums=('1d7ee1703388d98c41524f64a99859216b060daad4502c4118adf31a95d45aa230d058630ae8735282a9b5d9f7c1ee464fb4caf9f92e3e55340370e007102f8d')
 
 build() {
   cd $pkgname-$pkgver-stable
