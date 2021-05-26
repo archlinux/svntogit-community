@@ -1,3 +1,39 @@
+## 0.15.4 (May 19, 2021)
+
+NEW FEATURES:
+
+* **Noting changes made outside of Terraform:** Terraform has always, by default, made a point during the planning operation of reading the current state of remote objects in order to detect any changes made outside of Terraform, to make sure the plan will take those into account.
+
+    Terraform will now report those detected changes as part of the plan result, in order to give additional context about the planned changes. We've often heard that people find it confusing when a plan includes a change that doesn't seem to be prompted by any recent change in the _configuration_, and so this feature is aiming to provide the previously-missing explanation for situations where Terraform is planning to undo a change.
+    
+    It can also be useful just as general information when the change _won't_ be undone by Terraform: if you've intentionally made a change outside of Terraform and mirrored that change in your configuration then Terraform will now confirm that it noticed the change you made and took it into account when planning.
+    
+    By default this new output is for information only and doesn't change any behavior. If Terraform detects a change you were _expecting_ then you don't need to take any additional action to respond to it. However, we've also added a new planning mode `-refresh-only` which allows you to explicitly plan and apply the action of writing those detected changes to the Terraform state, which serves as a plannable replacement for `terraform refresh`. We don't have any plans to remove the long-standing `terraform refresh` command, but we do recommend using `terraform apply -refresh-only` instead in most cases, because it will provide an opportunity to review what Terraform detected before updating the Terraform state.
+
+UPGRADE NOTES:
+
+* This release adds some new reserved reference prefixes to make them available for later work. These are `resource.`, `template.`, `arg.`, and `lazy.`. We don't expect these additions to cause problems for most existing configurations, but could cause a conflict if you are using a custom provider which has a resource type named exactly "resource", "template", "arg", or "lazy". In that unlikely event, you can escape references to resources of those types by adding a `resource.` prefix; for example, if you have a `resource "template" "foo"` then you can change references to it from `template.foo` to `resource.template.foo` in order to escape the new meaning.
+
+ENHANCEMENTS:
+
+* config: The various functions that compute hashs of files on disk, like `filesha256`, will now stream the contents of the given file into the hash function in smaller chunks. Previously they would always read the entire file into memory before hashing it, due to following a similar implementation strategy as the `file` function. ([#28681](https://github.com/hashicorp/terraform/issues/28681))
+* config: Some new escaping syntax which is not yet useful but will be part of the backward-compatibility story for certain future language editions. ([#28709](https://github.com/hashicorp/terraform/issues/28709))
+* core: Rsource diagnostics are no longer lost on remote state storage fails ([#28724](https://github.com/hashicorp/terraform/issues/28724))
+* core: Diagnostics from provisioner failures are now shown in CLI output ([#28753](https://github.com/hashicorp/terraform/issues/28753))
+* `terraform init`: add a new `-migrate-state` flag instead of automatic state migration, to prevent failing when old backend config is not usable ([#28718](https://github.com/hashicorp/terraform/issues/28718))
+* `terraform plan` and `terraform apply`: will now report any changes Terraform detects during the "refresh" phase for each managed object, providing confirmation that Terraform has seen those changes and, where appropriate, extra context to help understand the planned change actions that follow. ([#28634](https://github.com/hashicorp/terraform/issues/28634))
+* `terraform plan` and `terraform apply`: now have a new option `-refresh-only` to activate the "refresh only" planning mode, which causes Terraform to ignore any changes suggested by the configuration but still detect any changes made outside of Terraform since the latest `terraform apply`. ([#28634](https://github.com/hashicorp/terraform/issues/28634))
+* backend/gcs: Terraform Core now supports [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation). The federated JSON credentials must be loaded through the `GOOGLE_APPLICATION_CREDENTIALS` environment variable. This is also available in the Google Provider in versions newer than v3.61. ([#28296](https://github.com/hashicorp/terraform/issues/28296))
+* backend/remote: supports several new CLI options when running plans and applies with Terraform Cloud: `-refresh=false`, `-replace`, and `-refresh-only`. ([#28746](https://github.com/hashicorp/terraform/issues/28746))
+
+BUG FIXES:
+
+* core: Fix sensitivity handling with plan values, which could cause the sensitive marks to be lost during apply leading to a perpetual diff ([#28687](https://github.com/hashicorp/terraform/issues/28687))
+* core: Fix crash when specifying SSH `bastion_port` in a resource `connection` block ([#28665](https://github.com/hashicorp/terraform/issues/28665))
+* core: Terraform will now upgrade and refresh (unless disabled) deposed objects during planning, in a similar manner as for objects that have been removed from the configuration. "Deposed" is how Terraform represents the situation where a `create_before_destroy` replacement failed to destroy the old object, in which case Terraform needs to track both the new and old objects until the old object is successfully deleted. Refreshing these during planning means that you can, if you wish, delete a "deposed" object manually outside of Terraform and then have Terraform detect that you've done so. ([#28634](https://github.com/hashicorp/terraform/issues/28634))
+* config: Improve the sensitivity support for `lookup` and `length` functions, which were accidentally omitted from the larger update in 0.15.1 ([#28509](https://github.com/hashicorp/terraform/issues/28509))
+* backend/gcs: Fixed a bug where service account impersonation didn't work if the original identity was another service account ([#28139](https://github.com/hashicorp/terraform/issues/28139))
+
 ## 0.15.3 (May 06, 2021)
 
 ENHANCEMENTS:
@@ -23,7 +59,7 @@ BUG FIXES:
 * core: Fix JSON plan output to add sensitivity data for provider-specified sensitive attribute values ([#28523](https://github.com/hashicorp/terraform/issues/28523))
 * cli: Fix missing "forces replacement" UI for attribute changes which are marked as sensitive by the provider ([#28583](https://github.com/hashicorp/terraform/issues/28583))
 * cli: Fix crash when rendering diagnostic caused by missing trailing quote ([#28598](https://github.com/hashicorp/terraform/issues/28598))
-* functions: Fix crash when calling `setproduct` with one or more empty collections ([#28607](https://github.com/hashicorp/terraform/issues/28607))
+* config: Fix crash when calling `setproduct` with one or more empty collections ([#28607](https://github.com/hashicorp/terraform/issues/28607))
 
 ## 0.15.1 (April 26, 2021)
 
