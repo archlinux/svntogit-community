@@ -1,0 +1,130 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Albert Graef <aggraef at gmail.com>
+# Contributor: Bernardo Barros <bernardobarros at gmail dot com>
+# Contributor: bjoern lindig (bjoern _dot_ lindig _at_ google.com)
+
+pkgname=faust
+pkgver=2.30.5
+pkgrel=3
+pkgdesc="A functional programming language for realtime audio signal processing."
+arch=('x86_64')
+url="https://faust.grame.fr/"
+license=('GPL2')
+groups=('pro-audio')
+depends=('gcc-libs' 'glibc' 'llvm-libs' 'libmicrohttpd')
+makedepends=('cmake' 'libsndfile' 'llvm' 'xxd')
+optdepends=('clang: for sound2reader'
+            'csound: for faust2csound'
+            'gradle: for faust2android'
+            'graphviz: for faust2sig{,viewer}'
+            'gtk2: for faust2{jack,rosgtk}'
+            'inkscape: for faust2{pdf,png}'
+            'jack: for faust2{api,jack{,console,internal,server,rust},jaqt,netjackqt,nodejs,ros,rosgtk,rpinetjackconsole}'
+            'swig: for faust2android'
+            'libsndfile: for faust2{dummy,sndfile}'
+            'octave: for faust2octave'
+            'pd: for faust2puredata'
+            'portaudio: for faust2paqt'
+            'python: for faust2md and faust2atomsnippets'
+            'qt5-tools: for faust2{faustvst,jaqt,lv2}'
+            'rtaudio: for faust2raqt'
+            'ruby-rexml: for faust2sc and scbuilder'
+            'rust: for faust2jackrust'
+            'supercollider: for faust2supercollider'
+            'texlive-core: for faust2pdf')
+provides=('libfaustmachine.so' 'libfaust.so' 'libOSCFaust.so' 'libHTTPDFaust.so')
+options=('staticlibs')
+source=("https://github.com/grame-cncm/${pkgname}/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}-2.30.5-llvm_patch_level.patch::https://github.com/grame-cncm/faust/commit/5fbe04232cfcf28b3aa6e64a6dd4d9347f3735a8.patch"
+        "${pkgname}-2.30.5-missing_include.patch"
+        "${pkgname}-2.30.5-llvm12.patch")
+sha512sums=('33271a39a465d257d7ccac529d1dac822940d72a1f19dcbbacce5d4d2b9ab5d367e6be001fab6bfd944a1480a2429b054a07d424916419117389154cbcd4d1ef'
+            '71a891f4bc95f72744ffbccbb48eb8cd0d440933810ed6180336a2679beb55364dace63dbe5e4ed3f70cd292320667a98f5669c4a250d87c949e37012d05077b'
+            'd0a501a084ae57d226238c81293588242c04a3675c16de957e2f56609ac570ecdf613f1cdeae5687bd0e535bc4d495638b70b8f3fd13d8582e7f107c28e8431a'
+            'af75f018bf7288704269cfee8e888abdf07b6ad49357c1dd0ef00f5c86778faa56c2a2361fcd83a515a6629773e9566ef07c1aece23d363faa1d2fc8adc01d7e')
+b2sums=('116a6aba81c5b170528e08de2bf23f2f52800dea72a4beb550ff9796a71be7a7ce4415911ec54b7bf32d2eb8227d9193bc37e17750fa596d73a1022a3be2396e'
+        '3028a3bbbefcff40066156e9f6a2382596a0a9c623dda4237153480eacafdd67d480d9fb06d9dab8ab95f2f031d996538a3e8cdbf805c95269b94d56b1b8a41e'
+        'ba4d34661ed959b42495e6ef781544b00c6b5b3901db04e6550f5a66c4e94d34ce468742d8eeb2d900c2640145227e673022a010bf739262fdbef3fd2a0965fb'
+        'bccc62096bff05bf42840ffbf98b7cfc6f5ffe8dc809d0656fd7c209f0fe059c0d765bcb765b0c61293d899b7279d748fee0673cbb845b83ba8b9985cebea761')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  # make checks against llvm more generic
+  # https://github.com/grame-cncm/faust/issues/573
+  patch -Np1 -i "../${pkgname}-2.30.5-llvm_patch_level.patch"
+  # fix missing include
+  # https://github.com/grame-cncm/faust/issues/586
+  patch -Np1 -i "../${pkgname}-2.30.5-missing_include.patch"
+  # fix build against llvm12
+  patch -Np1 -i "../${pkgname}-2.30.5-llvm12.patch"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  cmake -C build/backends/all.cmake \
+        -C build/targets/all.cmake \
+        -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DINCLUDE_DYNAMIC=ON \
+        -DINCLUDE_STATIC=ON \
+        -DINCLUDE_ITP=ON \
+        -W no-dev \
+        -B "${pkgname}-build" \
+        -S build
+  make VERBOSE=1 -C "${pkgname}-build"
+  make VERBOSE=1 -C tools/sound2faust
+}
+
+package() {
+  depends+=('libsndfile.so')
+  cd "${pkgname}-${pkgver}"
+  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C "${pkgname}-build"
+  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C tools/sound2faust
+
+  # docs
+  install -vDm 644 documentation/{,misc/}*.pdf \
+    -t "${pkgdir}/usr/share/doc/${pkgname}" \
+
+  # examples
+  install -vd "${pkgdir}/usr/share/${pkgname}/examples"
+  cp -vR "examples/"* "${pkgdir}/usr/share/${pkgname}/examples/"
+
+  cd syntax-highlighting
+  # atom
+  install -vDm 644 "atom/language-${pkgname}/package.json" \
+    -t "${pkgdir}/usr/lib/atom/dot-atom/packages/language-${pkgname}/"
+  install -vDm 644 "atom/language-${pkgname}/grammars/${pkgname}.cson" \
+    -t "${pkgdir}/usr/lib/atom/dot-atom/packages/language-${pkgname}/grammars/"
+  install -vDm 644 "atom/language-${pkgname}/settings/language-${pkgname}.cson" \
+    -t "${pkgdir}/usr/lib/atom/dot-atom/packages/language-${pkgname}/settings/"
+  install -vDm 644 "atom/language-${pkgname}/snippets/"* \
+    -t "${pkgdir}/usr/lib/atom/dot-atom/packages/language-${pkgname}/snippets/"
+  install -vDm 644 "atom/language-${pkgname}/process-palette.json.linux" \
+    "${pkgdir}/usr/share/doc/${pkgname}/process-palette.json"
+  # kate
+  install -vDm 644 "${pkgname}.xml" \
+    -t "${pkgdir}/usr/share/apps/katepart/syntax/"
+  # gedit
+  install -vDm 644 "${pkgname}.lang" \
+    -t "${pkgdir}/usr/share/gtksourceview-2.0/language-specs/"
+  install -vDm 644 "${pkgname}.lang" \
+    -t "${pkgdir}/usr/share/gtksourceview-3.0/language-specs/"
+  # highlight
+  install -vDm 644 dsp.lang -t "$pkgdir/usr/share/highlight/langDefs/"
+  # nano
+  install -vDm 644 "${pkgname}.nanorc" -t "$pkgdir/usr/share/nano/"
+  # vim
+  install -vDm 644 "${pkgname}.vim" \
+    -t "${pkgdir}/usr/share/vim/vimfiles/syntax/"
+  # emacs
+  install -vDm 644 "${pkgname}-mode.el" \
+    -t "${pkgdir}/usr/share/emacs/site-lisp/"
+
+  # removing unusable scripts
+  rm -v "${pkgdir}/usr/bin/${pkgname}2au"
+  # remove precompiled shared libraries for android:
+  # https://github.com/grame-cncm/faust/issues/370
+  rm -rvf "${pkgdir}/usr/share/faust/android/app/"{lib,oboe} \
+    "${pkgdir}/usr/share/faust/smartKeyboard/android/app/oboe"
+}
+
