@@ -3,43 +3,48 @@
 pkgbase=zint
 pkgname=(zint zint-qt)
 pkgver=2.9.1
-pkgrel=1
-pkgdesc="Barcode encoding library supporting over 50 symbologies"
+pkgrel=2
+pkgdesc='Barcode encoding library supporting over 50 symbologies'
 arch=('x86_64')
-url="http://zint.org.uk/"
-license=('GPL')
+url='http://zint.org.uk/'
+license=('GPL3')
 depends=('hicolor-icon-theme' 'qt5-base')
-makedepends=('cmake' 'qt5-tools')
-source=("https://downloads.sourceforge.net/$pkgname/$pkgname-$pkgver-src.tar.gz"
-        zint-qt.appdata.xml)
+makedepends=('cmake' 'ninja' 'qt5-tools')
+source=("https://downloads.sourceforge.net/$pkgbase/$pkgbase-$pkgver-src.tar.gz"
+        'prevent-buffer-overflow.patch'
+        'zint-qt.appdata.xml')
 sha256sums=('bd286d863bc60d65a805ec3e46329c5273a13719724803b0ac02e5b5804c596a'
-            '6c99514fb9079b6e6322b3b11fed5ff2c43cdcdd24c15e3cbf2663b884fc2f0c')
+            '59e6d31aadb8d9c586dc4f450afca8e799f8a1e2907872d7951f0c8455a85f7e'
+            '4286c7f56f0ea8fcf8dfa164b3a3fea08a02ad3b5111c6ac63c4d55134b67564')
+
+prepare() {
+  # Fix arbitrary code execution (CVE-2021-27799, FS#70051)
+  patch -d $pkgbase-$pkgver-src -Np1 -i ../prevent-buffer-overflow.patch
+}
 
 build() {
-	cd $pkgbase-$pkgver-src
-	cmake -DCMAKE_INSTALL_PREFIX=/usr
-	make
+  cmake -S $pkgbase-$pkgver-src -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
 }
 
 package_zint() {
-	depends=('libpng')
+  depends=('libpng')
 
-	cd $pkgbase-$pkgver-src
-	make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build
 
-	rm "$pkgdir/usr/bin/zint-qt" \
-	   "$pkgdir/usr/include/qzint.h" \
-	   "$pkgdir/usr/lib/libQZint.so"*
+  rm "$pkgdir/usr/bin/zint-qt" \
+     "$pkgdir/usr/include/qzint.h" \
+     "$pkgdir/usr/lib/libQZint.so"*
 }
 
 package_zint-qt() {
-	pkgdesc="Zint Barcode Studio GUI"
-	depends=('hicolor-icon-theme' 'qt5-base' 'zint')
+  pkgdesc='Zint Barcode Studio GUI'
+  depends=('hicolor-icon-theme' 'qt5-base' 'zint')
 
-	cd $pkgbase-$pkgver-src
-	make -C backend_qt DESTDIR="$pkgdir" install
-	make -C frontend_qt DESTDIR="$pkgdir" install
-	install -Dm644 zint.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/zint.png"
-	install -Dm644 zint-qt.desktop "$pkgdir/usr/share/applications/zint-qt.desktop"
-	install -Dm644 ../zint-qt.appdata.xml "$pkgdir/usr/share/metainfo/zint-qt.appdata.xml"
+  DESTDIR="$pkgdir" cmake --install build/backend_qt
+  DESTDIR="$pkgdir" cmake --install build/frontend_qt
+
+  install -Dm644 $pkgbase-$pkgver-src/zint.png "$pkgdir/usr/share/icons/hicolor/48x48/apps/zint.png"
+  install -Dm644 $pkgbase-$pkgver-src/zint-qt.desktop "$pkgdir/usr/share/applications/zint-qt.desktop"
+  install -Dm644 zint-qt.appdata.xml "$pkgdir/usr/share/metainfo/zint-qt.appdata.xml"
 }
