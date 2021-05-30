@@ -49,7 +49,7 @@ depends=(
   desktop-file-utils
 )
 
-makedepends=(autoconf ncurses bison perl fontforge flex mingw-w64-gcc
+makedepends=(autoconf bison perl fontforge flex mingw-w64-gcc
   giflib                lib32-giflib
   libpng                lib32-libpng
   gnutls                lib32-gnutls
@@ -97,7 +97,6 @@ optdepends=(
   libjpeg-turbo         lib32-libjpeg-turbo
   libxcomposite         lib32-libxcomposite
   libxinerama           lib32-libxinerama
-  ncurses               lib32-ncurses
   opencl-icd-loader     lib32-opencl-icd-loader
   libxslt               lib32-libxslt
   libva                 lib32-libva
