@@ -6,6 +6,9 @@ const {app} = require("electron");
 const fs = require("fs");
 const {dirname, join} = require("path");
 
+// Set environment variables.
+process.env.PACKAGE = 'no';
+
 // Change command name.
 const fd = fs.openSync("/proc/self/comm", fs.constants.O_WRONLY);
 fs.writeSync(fd, name);
