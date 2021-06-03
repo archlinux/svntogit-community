@@ -1,16 +1,16 @@
 # Maintainer: Antonio Rojas <arojas@archlinux.org>
 
 pkgname=python-pkgconfig
-pkgver=1.5.2
+pkgver=1.5.3
 pkgrel=1
-pkgdesc="Python module to interface with the pkg-config command line tool"
+pkgdesc='Python module to interface with the pkg-config command line tool'
 arch=(any)
-url="https://github.com/matze/pkgconfig"
+url='https://github.com/matze/pkgconfig'
 license=(MIT)
 depends=(python)
 makedepends=(python-setuptools)
-source=("https://pypi.io/packages/source/p/pkgconfig/pkgconfig-$pkgver.tar.gz")
-sha256sums=('38d612488f0633755a2e7a8acab6c01d20d63dbc31af75e2a9ac98a6f638ca94')
+source=(https://pypi.io/packages/source/p/pkgconfig/pkgconfig-$pkgver.tar.gz)
+sha256sums=('41fb65d14fa918cedd7e205d95331162692dad2edee1441b485665b1f69a61c7')
 
 package() {
   cd pkgconfig-$pkgver
