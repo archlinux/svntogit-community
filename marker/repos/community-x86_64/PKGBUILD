@@ -3,32 +3,24 @@
 
 pkgname=marker
 pkgver=2020.04.04.2
-pkgrel=3
+pkgrel=4
 pkgdesc='Simple yet robust Markdown editor made with GTK'
-arch=(x86_64)
+arch=('x86_64')
 url='https://fabiocolacio.github.io/Marker/'
-license=(GPL3)
-depends=(gtksourceview3 gtkspell3 webkit2gtk)
-makedepends=(git meson)
+license=('GPL3')
+depends=('gtksourceview3' 'gtkspell3' 'webkit2gtk')
+makedepends=('git' 'meson')
 optdepends=('mathjax2: alternative backend for rendering formulas'
             'pandoc: export to RTF, ODT, DOCX')
 _commit=90f2667611a5017840dced736fd1ea801930a45f  # tags/2020.04.04.2^0
-source=(git+https://github.com/fabiocolacio/Marker.git#commit=$_commit
-        git+https://github.com/Mandarancio/scidown.git
-        git+https://github.com/Mandarancio/charter.git
-        git+https://github.com/codeplea/tinyexpr.git
-        mathjax.patch
-        elf_files_in_lib.patch
-        pdf-export.patch
-        optional-pandoc.patch)
+source=("git+https://github.com/fabiocolacio/Marker.git#commit=$_commit"
+        'git+https://github.com/Mandarancio/scidown.git'
+        'git+https://github.com/Mandarancio/charter.git'
+        'git+https://github.com/codeplea/tinyexpr.git')
 sha256sums=('SKIP'
             'SKIP'
             'SKIP'
-            'SKIP'
-            '00bed5a7b888a2872933b25c0d12c46c38b47f641308e7b87f876ffa34542be2'
-            '09c3394f7cdcd21aa184c42ad837c2b1cacc5326772e10f92f3b3585d5b443c2'
-            '9d80931b473a7c36d8ac116999484315f3f332d39b26199e87e62cb62edc3f81'
-            'ac8ecbdd9d49e14045c7508184aeaf267a5ec24aeb05a186486c1ebac20173fb')
+            'SKIP')
 
 pkgver() {
   cd Marker
@@ -37,23 +29,25 @@ pkgver() {
 
 prepare() {
   cd Marker
-
-  # ELF file must be in lib
-  patch -Np1 -i ../elf_files_in_lib.patch
-
-  # Unbundle mathjax
-  rm -r data/scripts/mathjax
-  patch -Np1 -i ../mathjax.patch
-
-  # Fix PDF export
-  patch -Np1 -i ../pdf-export.patch
-
-  # Make pandoc optional
-  patch -Np1 -i ../optional-pandoc.patch
-
   git submodule init
   git submodule set-url src/scidown "$srcdir/scidown"
   git submodule update
+
+  # Remove optimalization as it breaks charter
+  export CFLAGS=${CFLAGS/ -O2}
+ 
+  # ELF file must be in lib
+  git cherry-pick -n 135857107277648f9f0d762268ec687d556a67dc
+
+  # Unbundle mathjax
+  git cherry-pick -n 13bce947564a444ce825752a69110a55cf0f6774
+  sed -i 's|file:///usr/share/javascript/mathjax/MathJax.js|file:///usr/share/mathjax2/MathJax.js|' src/marker-markdown.c
+
+  # Fix PDF export
+  git cherry-pick -n fd383f5f0596afbbb28bf5c54cfc2da37ec4379c
+
+  # Make pandoc optional
+  git cherry-pick -n 9e9bf85e1ec80a3cf54aaab416f6cdbf85080c36
 
   cd src/scidown
   git submodule init
@@ -64,11 +58,14 @@ prepare() {
   git submodule init
   git submodule set-url src/tinyexpr "$srcdir/tinyexpr"
   git submodule update
+
+  # Fix PDF export when charter is used
+  git cherry-pick -n 958d5f06707932b48f383c06a2554da2657d6c17
 }
 
 build() {
   arch-meson Marker build
-  ninja -C build
+  meson compile -C build
 }
 
 package() {
