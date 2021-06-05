@@ -4,8 +4,8 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2021.1.1
-_build=211.7142.45
+pkgver=2021.1.2
+_build=211.7442.40
 pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -20,7 +20,7 @@ optdepends=(
   'lldb: lldb frontend integration'
 )
 source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
-        idea-android::"git+https://github.com/JetBrains/android#tag=idea/${_build}"
+        idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
         idea.desktop
         idea.sh)
