@@ -1,3 +1,13 @@
+## 0.15.5 (June 02, 2021)
+
+BUG FIXES:
+
+* `terraform plan` and `terraform apply`: Don't show "Objects have changed" notification when the detected changes are only internal details related to legacy SDK quirks. ([#28796](https://github.com/hashicorp/terraform/issues/28796))
+* core: Prevent crash during planning when encountering a deposed instance that has been removed from the configuration. ([#28766](https://github.com/hashicorp/terraform/issues/28766))
+* core: Fix crash when rendering changes to deposed instances outside of Terraform. ([#28796](https://github.com/hashicorp/terraform/issues/28796))
+* core: Restore a missing error when attempting to import a non-existent remote object. ([#28808](https://github.com/hashicorp/terraform/issues/28808))
+* core: Fix bug where Terraform failed to release the state lock when applying a stale saved plan failed. ([#28819](https://github.com/hashicorp/terraform/issues/28819))
+
 ## 0.15.4 (May 19, 2021)
 
 NEW FEATURES:
@@ -18,7 +28,7 @@ ENHANCEMENTS:
 
 * config: The various functions that compute hashs of files on disk, like `filesha256`, will now stream the contents of the given file into the hash function in smaller chunks. Previously they would always read the entire file into memory before hashing it, due to following a similar implementation strategy as the `file` function. ([#28681](https://github.com/hashicorp/terraform/issues/28681))
 * config: Some new escaping syntax which is not yet useful but will be part of the backward-compatibility story for certain future language editions. ([#28709](https://github.com/hashicorp/terraform/issues/28709))
-* core: Rsource diagnostics are no longer lost on remote state storage fails ([#28724](https://github.com/hashicorp/terraform/issues/28724))
+* core: Resource diagnostics are no longer lost on remote state storage failures ([#28724](https://github.com/hashicorp/terraform/issues/28724))
 * core: Diagnostics from provisioner failures are now shown in CLI output ([#28753](https://github.com/hashicorp/terraform/issues/28753))
 * `terraform init`: add a new `-migrate-state` flag instead of automatic state migration, to prevent failing when old backend config is not usable ([#28718](https://github.com/hashicorp/terraform/issues/28718))
 * `terraform plan` and `terraform apply`: will now report any changes Terraform detects during the "refresh" phase for each managed object, providing confirmation that Terraform has seen those changes and, where appropriate, extra context to help understand the planned change actions that follow. ([#28634](https://github.com/hashicorp/terraform/issues/28634))
