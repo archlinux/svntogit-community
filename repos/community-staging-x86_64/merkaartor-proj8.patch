@@ -1,0 +1,975 @@
+diff -Nur merkaartor-0.18.4/CHANGELOG merkaartor-0.18.4-proj-remove-legacy-api/CHANGELOG
+--- merkaartor-0.18.4/CHANGELOG	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/CHANGELOG	2021-03-08 11:58:40.084224018 +0100
+@@ -1,4 +1,8 @@
+ This is a shortened changelog. See git commits for full list of changes.
++backported to
++v0.18.4
++    * CHG: Projection engine no longer enables coordinate wrapping by default.
++    * CHG: Projection no longer guesses some EPSG projections only based on string contained, but rather requires it being an exact match.
+ 
+ v0.18.4
+     * FIX: Fixed "Create rectangular building" when panning (issue 125).
+diff -Nur merkaartor-0.18.4/CMakeLists.txt merkaartor-0.18.4-proj-remove-legacy-api/CMakeLists.txt
+--- merkaartor-0.18.4/CMakeLists.txt	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/CMakeLists.txt	2021-03-08 11:57:58.498796056 +0100
+@@ -2,6 +2,8 @@
+ 
+ project(merkaartor)
+ 
++enable_testing()
++
+ message(WARNING "
+ 
+ CMake build is experimental and missing quite a few features (no plugins, no version string, no configurable features, etc...). Please use qmake for production builds.
+@@ -189,7 +191,6 @@
+ src/ImportExport/ImportGPX.cpp
+ src/ImportExport/ImportExportGdal.cpp
+ src/MainWindow.h
+-src/Main.cpp
+ src/common/UploadMapDialog.ui
+ src/common/GotoDialog.ui
+ src/common/PropertiesDialog.ui
+@@ -389,7 +390,7 @@
+ )
+ 
+ # Find the QtWidgets library
+-find_package(Qt5 COMPONENTS Svg Network Xml Core Gui Concurrent PrintSupport Widgets CONFIG REQUIRED)
++find_package(Qt5 COMPONENTS Svg Network Xml Core Gui Concurrent PrintSupport Widgets Test CONFIG REQUIRED)
+ find_package(PkgConfig REQUIRED)
+ pkg_check_modules(EXIV2 REQUIRED exiv2 gdal proj)
+ 
+@@ -397,35 +398,53 @@
+ 
+ 
+ # Tell CMake to create the helloworld executable
+-add_executable(merkaartor ${merkaartor_SRCS})
++add_executable(merkaartor ${merkaartor_SRCS} src/Main.cpp)
+ # Use the Widgets module from Qt 5
+-target_link_libraries(merkaartor Qt5::Svg Qt5::Network Qt5::Xml Qt5::Core Qt5::Gui Qt5::Concurrent Qt5::PrintSupport Qt5::Widgets ${EXIV2_LIBRARIES} )
++set(MERKAARTOR_LINK_LIBS Qt5::Svg Qt5::Network Qt5::Xml Qt5::Core Qt5::Gui Qt5::Concurrent Qt5::PrintSupport Qt5::Widgets ${EXIV2_LIBRARIES})
++target_link_libraries(merkaartor ${MERKAARTOR_LINK_LIBS} )
+ target_compile_options(merkaartor PUBLIC ${EXIV2_CFLAGS_OTHER})
+ install( TARGETS merkaartor RUNTIME DESTINATION bin )
+ 
+-target_include_directories( merkaartor PUBLIC
+-${EXIV2_INCLUDE_DIRS}
+-${CMAKE_CURRENT_SOURCE_DIR}/interfaces
+-${CMAKE_CURRENT_SOURCE_DIR}/include
+-${CMAKE_CURRENT_SOURCE_DIR}/src
+-${CMAKE_CURRENT_SOURCE_DIR}/src/GPS
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Backend
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Preferences
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Render
+-${CMAKE_CURRENT_SOURCE_DIR}/src/PaintStyle
+-${CMAKE_CURRENT_SOURCE_DIR}/src/ImportExport
+-${CMAKE_CURRENT_SOURCE_DIR}/src/common
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Layers
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Utils
+-${CMAKE_CURRENT_SOURCE_DIR}/src/QToolBarDialog
+-${CMAKE_CURRENT_SOURCE_DIR}/src/NameFinder
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Interactions
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Sync
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Docks
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Features
+-${CMAKE_CURRENT_SOURCE_DIR}/src/Commands
+-${CMAKE_CURRENT_SOURCE_DIR}/src/qextserialport
+-${CMAKE_CURRENT_SOURCE_DIR}/src/QMapControl
+-${CMAKE_CURRENT_SOURCE_DIR}/src/TagTemplate
+-${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/qtsingleapplication-2.6_1-opensource/src
+-    )
++set(MERKAARTOR_INCLUDE_DIRECTORIES
++  ${EXIV2_INCLUDE_DIRS}
++  ${CMAKE_CURRENT_SOURCE_DIR}/interfaces
++  ${CMAKE_CURRENT_SOURCE_DIR}/include
++  ${CMAKE_CURRENT_SOURCE_DIR}/src
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/GPS
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Backend
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Preferences
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Render
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/PaintStyle
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/ImportExport
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/common
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Layers
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Utils
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/QToolBarDialog
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/NameFinder
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Interactions
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Sync
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Docks
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Features
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/Commands
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/qextserialport
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/QMapControl
++  ${CMAKE_CURRENT_SOURCE_DIR}/src/TagTemplate
++  ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/qtsingleapplication-2.6_1-opensource/src
++)
++
++target_include_directories( merkaartor PUBLIC ${MERKAARTOR_INCLUDE_DIRECTORIES})
++
++
++##############################################
++# Only test handling goes here
++##############################################
++
++# The test shall be placed in file "tests/<test_name>.cpp" file, followed by required includes
++function(MERK_ADD_TEST test_name)
++  add_executable(${test_name} tests/${test_name}.cpp ${ARGN})
++  target_link_libraries(${test_name} ${MERKAARTOR_LINK_LIBS} Qt5::Test )
++  add_test(${test_name} ${test_name})
++  target_include_directories(${test_name} PUBLIC ${MERKAARTOR_INCLUDE_DIRECTORIES})
++endfunction()
++
++MERK_ADD_TEST(test-projection src/common/Projection.cpp src/common/Coord.cpp)
+diff -Nur merkaartor-0.18.4/COMPILE.md merkaartor-0.18.4-proj-remove-legacy-api/COMPILE.md
+--- merkaartor-0.18.4/COMPILE.md	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/COMPILE.md	2021-03-08 11:57:58.499796042 +0100
+@@ -23,8 +23,8 @@
+ You will need the following packages installed:
+ 
+  - Working C++ compiler
+- - Qt 4.x (4.4.0 or newer) or Qt 5.x (5.3.1 or later)
+- - Proj.4
++ - Qt 5.9 or newer
++ - Proj 6.x or newer
+  - GDAL (2.0.0 or newer for GDAL exports)
+  - Exiv2 (for geoimage support)
+  - (For Windows Installer) NSIS-3
+@@ -37,13 +37,7 @@
+ look like this:
+ 
+ ```
+- $ sudo apt-get install build-essential libgdal-dev libproj-dev
+-```
+-
+-For Qt4:
+-
+-```
+- $ sudo apt-get install qt4-default libqt4-xml libqt4-network libqt4-gui libqt4-svg libqt4-webkit libqt4-dev qt4-qmake
++ $ sudo apt-get install build-essential libgdal-dev libproj-dev libexiv2-dev
+ ```
+ 
+ Or for Qt5: 
+diff -Nur merkaartor-0.18.4/interfaces/IProjection.h merkaartor-0.18.4-proj-remove-legacy-api/interfaces/IProjection.h
+--- merkaartor-0.18.4/interfaces/IProjection.h	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/interfaces/IProjection.h	2021-03-08 11:57:58.499796042 +0100
+@@ -10,7 +10,7 @@
+     virtual ~IProjection(void) {};
+ 
+     virtual QPointF project(const QPointF& pt) const = 0;
+-    virtual QPointF inverse2Point(const QPointF& pt) const = 0;
++    virtual QPointF inverse(const QPointF& pt) const = 0;
+ 
+     virtual QString getProjectionType() const = 0;
+ };
+diff -Nur merkaartor-0.18.4/src/common/AboutDialog.ui merkaartor-0.18.4-proj-remove-legacy-api/src/common/AboutDialog.ui
+--- merkaartor-0.18.4/src/common/AboutDialog.ui	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/common/AboutDialog.ui	2021-03-08 11:57:58.499796042 +0100
+@@ -31,7 +31,7 @@
+         <number>-1</number>
+        </property>
+        <item row="2" column="1">
+-        <widget class="QLabel" name="Proj4Version">
++        <widget class="QLabel" name="ProjVersion">
+          <property name="styleSheet">
+           <string notr="true">QLabel { font-size:small; font-weight:bold; }</string>
+          </property>
+@@ -91,12 +91,12 @@
+         </widget>
+        </item>
+        <item row="2" column="0">
+-        <widget class="QLabel" name="Proj4VersionLabel">
++        <widget class="QLabel" name="ProjVersionLabel">
+          <property name="styleSheet">
+           <string notr="true">QLabel { font-size: x-small; font-style: italic; }</string>
+          </property>
+          <property name="text">
+-          <string>PROJ.4 version</string>
++          <string>PROJ version</string>
+          </property>
+         </widget>
+        </item>
+diff -Nur merkaartor-0.18.4/src/common/FeatureManipulations.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/common/FeatureManipulations.cpp
+--- merkaartor-0.18.4/src/common/FeatureManipulations.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/common/FeatureManipulations.cpp	2021-03-08 11:57:58.576794983 +0100
+@@ -1658,12 +1658,12 @@
+         Node *n1;
+         Node *n2 = theWay->getNode(0);
+         QPointF p1;
+-        QPointF p2 = proj.project(n2);
++        QPointF p2 = proj.project(n2->position());
+         for (int j = 0; j < theWay->size()-1; ++j, ++i) {
+             n1 = n2;
+             n2 = theWay->getNode(j + 1);
+             p1 = p2;
+-            p2 = proj.project(n2);
++            p2 = proj.project(n2->position());
+             if (n1 == n2 || p1 == p2) {
+                 qWarning() << "ERROR: duplicate nodes found during axis align in" << theWay->id().numId;
+                 return false;
+@@ -1863,7 +1863,7 @@
+             Node *N = theWay->getNode(i);
+             if (!dups && node_pos.contains(N) && !(theWay->isClosed() && i == theWay->size()-1))
+                 dups = true;
+-            node_pos[N] = proj.project(N);
++            node_pos[N] = proj.project(N->position());
+         }
+     }
+ 
+@@ -1983,7 +1983,7 @@
+     foreach (Way *theWay, theWays) {
+         for (int i = 0; i < theWay->size(); ++i) {
+             Node *N = theWay->getNode(i);
+-            theList->add(new MoveNodeCommand(N, proj.inverse2Coord(node_pos[N]), theDocument->getDirtyOrOriginLayer(N->layer())));
++            theList->add(new MoveNodeCommand(N, proj.inverse(node_pos[N]), theDocument->getDirtyOrOriginLayer(N->layer())));
+         }
+     }
+     return AxisAlignSuccess;
+diff -Nur merkaartor-0.18.4/src/common/MapView.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/common/MapView.cpp
+--- merkaartor-0.18.4/src/common/MapView.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/common/MapView.cpp	2021-03-08 11:57:58.643794061 +0100
+@@ -514,7 +514,7 @@
+             continue;
+ //        QPoint pt = QPoint(0, p->theTransform.map(parallelLines.at(i).at(0)).y());
+         QPoint ptt = pt.toPoint() + QPoint(5, -5);
+-        P.drawText(ptt, QString("%1").arg(p->theProjection.inverse2Coord(parallelLines.at(i).at(0)).y(), 0, 'f', 2-prec));
++        P.drawText(ptt, QString("%1").arg(p->theProjection.inverse(parallelLines.at(i).at(0)).y(), 0, 'f', 2-prec));
+     }
+     for (int i=0; i<medianLines.size(); ++i) {
+ 
+@@ -534,7 +534,7 @@
+             continue;
+ //        QPoint pt = QPoint(p->theTransform.map(medianLines.at(i).at(0)).x(), 0);
+         QPoint ptt = pt.toPoint() + QPoint(5, 10);
+-        P.drawText(ptt, QString("%1").arg(p->theProjection.inverse2Coord(medianLines.at(i).at(0)).x(), 0, 'f', 2-prec));
++        P.drawText(ptt, QString("%1").arg(p->theProjection.inverse(medianLines.at(i).at(0)).x(), 0, 'f', 2-prec));
+     }
+ 
+     P.restore();
+@@ -760,7 +760,7 @@
+ 
+ Coord MapView::fromView(const QPoint& aPt) const
+ {
+-    return p->theProjection.inverse2Coord(p->theInvertedTransform.map(QPointF(aPt)));
++    return p->theProjection.inverse(p->theInvertedTransform.map(QPointF(aPt)));
+ }
+ 
+ 
+diff -Nur merkaartor-0.18.4/src/common/Painting.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/common/Painting.cpp
+--- merkaartor-0.18.4/src/common/Painting.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/common/Painting.cpp	2021-03-08 11:57:58.643794061 +0100
+@@ -160,7 +160,7 @@
+ {
+     for (int i=0; i<R->size(); ++i)
+         if (R->getNode(i)->isVisible() && !R->getNode(i)->isVirtual())
+-            Polygon.append(theProjection.project(R->getNode(i)));
++            Polygon.append(theProjection.project(R->getNode(i)->position()));
+ }
+ 
+ /// draws way with oneway markers
+diff -Nur merkaartor-0.18.4/src/common/Projection.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/common/Projection.cpp
+--- merkaartor-0.18.4/src/common/Projection.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/common/Projection.cpp	2021-03-08 11:57:58.643794061 +0100
+@@ -12,107 +12,50 @@
+ #define EQUATORIALMETERHALFCIRCUMFERENCE  20037508.34
+ #define EQUATORIALMETERPERDEGREE    222638.981555556
+ 
+-#include "Node.h"
+-
+-Projection::Projection(void)
++ProjectionBackend::ProjectionBackend(QString initProjection, std::function<QString(QString)> mapProjectionName)
+     : ProjectionRevision(0)
+     , IsMercator(false)
+     , IsLatLong(false)
++    , mapProjectionName(mapProjectionName)
+ {
+-#if defined(Q_OS_WIN) && !defined(_MOBILE)
++
++
++    projCtx = std::shared_ptr<PJ_CONTEXT>(proj_context_create(), proj_context_destroy);
++#if defined(Q_OS_WIN)
+     QString pdir(QDir::toNativeSeparators(qApp->applicationDirPath() + "/" STRINGIFY(SHARE_DIR) "/proj"));
+     const char* proj_dir = pdir.toUtf8().constData();
+-    //    const char* proj_dir = "E:\\cbro\\src\\merkaartor-devel\\binaries\\bin\\share\\proj";
+-    pj_set_searchpath(1, &proj_dir);
++    proj_context_set_search_paths(projCtx.get(), 1, &proj_dir);
+ #endif // Q_OS_WIN
+-
+-
+-#ifndef _MOBILE
+-    theProj = NULL;
+-    theWGS84Proj = Projection::getProjection("+proj=longlat +ellps=WGS84 +datum=WGS84");
+-    setProjectionType(M_PREFS->getProjectionType());
+-#endif
+-}
+-
+-Projection::~Projection(void)
+-{
+-    /* TODO: pj_free should be called, but it segfaults if two of the same
+-     * Projection objects have the same projPJ. A better machinism, perhaps
+-     * projPJ caching, should be provided.
+-     *
+-     * In the meantime, pj_free is not called, which does little harm as it's
+-     * usually called at exit only.
+-     * */
+-#ifndef _MOBILE
+-    if (theProj) {
+-        //pj_free(theProj);
+-    }
+-#endif // _MOBILE
+-}
+-
+-QPointF Projection::inverse2Point(const QPointF & Map) const
+-{
+-    if  (IsLatLong)
+-        return latlonInverse(Map);
+-    else
+-        if  (IsMercator)
+-            return mercatorInverse(Map);
+-#ifndef _MOBILE
+-        else
+-            return projInverse(Map);
+-#endif
+-    return QPointF();
++    projTransform = std::shared_ptr<PJ>(nullptr);
++    projMutex = std::shared_ptr<QMutex>(new QMutex());
++    setProjectionType(initProjection);
+ }
+ 
+-QPointF Projection::project(const QPointF & Map) const
++QPointF ProjectionBackend::project(const QPointF & Map) const
+ {
+     if  (IsMercator)
+         return mercatorProject(Map);
+-    else
+-        if  (IsLatLong)
+-            return latlonProject(Map);
+-#ifndef _MOBILE
+-        else
+-            return projProject(Map);
+-#endif
+-    return QPointF();
++    if  (IsLatLong)
++        return latlonProject(Map);
++    return projProject(Map);
+ }
+ 
+-QPointF Projection::project(Node* aNode) const
++QLineF ProjectionBackend::project(const QLineF & Map) const
+ {
+-    return project(aNode->position());
++    return QLineF(project(Map.p1()), project(Map.p2()));
+ }
+ 
+-QLineF Projection::project(const QLineF & Map) const
+-{
+-    if  (IsMercator)
+-        return QLineF (mercatorProject(Map.p1()), mercatorProject(Map.p2()));
+-    else
+-        if  (IsLatLong)
+-            return QLineF (latlonProject(Map.p1()), latlonProject(Map.p2()));
+-#ifndef _MOBILE
+-        else
+-            return QLineF(projProject(Map.p1()), projProject(Map.p2()));
+-#endif
+-    return QLineF();
+-}
+ 
+-
+-Coord Projection::inverse2Coord(const QPointF & projPoint) const
++QPointF ProjectionBackend::inverse(const QPointF & projPoint) const
+ {
+-    if  (IsLatLong)
++    if (IsLatLong)
+         return latlonInverse(projPoint);
+-    else
+-        if  (IsMercator)
+-            return mercatorInverse(projPoint);
+-#ifndef _MOBILE
+-        else
+-            return projInverse(projPoint);
+-#endif
+-    return Coord();
++    if (IsMercator)
++        return mercatorInverse(projPoint);
++    return projInverse(projPoint);
+ }
+ 
+-QRectF Projection::toProjectedRectF(const QRectF& Viewport, const QRect& screen) const
++QRectF ProjectionBackend::toProjectedRectF(const QRectF& Viewport, const QRect& screen) const
+ {
+     QPointF tl, br;
+     QRectF pViewport;
+@@ -143,88 +86,55 @@
+     return pViewport;
+ }
+ 
+-CoordBox Projection::fromProjectedRectF(const QRectF& Viewport) const
++CoordBox ProjectionBackend::fromProjectedRectF(const QRectF& Viewport) const
+ {
+     Coord tl, br;
+     CoordBox bbox;
+ 
+-    tl = inverse2Coord(Viewport.topLeft());
+-    br = inverse2Coord(Viewport.bottomRight());
++    tl = inverse(Viewport.topLeft());
++    br = inverse(Viewport.bottomRight());
+     bbox = CoordBox(tl, br);
+ 
+     return bbox;
+ }
+ 
+-#ifndef _MOBILE
+-
+-void Projection::projTransform(ProjProjection srcdefn,
+-                               ProjProjection dstdefn,
+-                               long point_count, int point_offset, qreal *x, qreal *y, qreal *z )
+-{
+-    pj_transform(srcdefn, dstdefn, point_count, point_offset, (double *)x, (double *)y, (double *)z);
+-}
+-
+-void Projection::projTransformFromWGS84(long point_count, int point_offset, qreal *x, qreal *y, qreal *z ) const
+-{
+-    pj_transform (theWGS84Proj, theProj, point_count, point_offset, (double *)x, (double *)y, (double *)z);
+-}
+-
+-void Projection::projTransformToWGS84(long point_count, int point_offset, qreal *x, qreal *y, qreal *z ) const
++QPointF ProjectionBackend::projProject(const QPointF & Map) const
+ {
+-    pj_transform(theProj, theWGS84Proj, point_count, point_offset, (double *)x, (double *)y, (double *)z);
+-}
+-
+-QPointF Projection::projProject(const QPointF & Map) const
+-{
+-    qreal x = angToRad(Map.x());
+-    qreal y = angToRad(Map.y());
+-
+-    projTransformFromWGS84(1, 0, &x, &y, NULL);
+-
+-    return QPointF(x, y);
++    QMutexLocker locker(projMutex.get());
++    auto trans = proj_trans(projTransform.get(), PJ_DIRECTION::PJ_FWD, {{Map.x(), Map.y(), 0}});
++    //qDebug() << "Project(fromWSG84, " << getProjectionType() << "): " << Map << " -> " << qSetRealNumberPrecision(20) << x << "," << y;
++    return QPointF(trans.xy.x, trans.xy.y);
+ }
+ 
+-Coord Projection::projInverse(const QPointF & pProj) const
++Coord ProjectionBackend::projInverse(const QPointF & pProj) const
+ {
+-    qreal x = pProj.x();
+-    qreal y = pProj.y();
+-
+-    projTransformToWGS84(1, 0, &x, &y, NULL);
+-
+-    return Coord(radToAng(x), radToAng(y));
++    QMutexLocker locker(projMutex.get());
++    auto trans = proj_trans(projTransform.get(), PJ_DIRECTION::PJ_INV, {{pProj.x(), pProj.y(), 0}});
++    return Coord(trans.xy.x, trans.xy.y);
+ }
+-#endif // _MOBILE
+ 
+-bool Projection::projIsLatLong() const
++bool ProjectionBackend::projIsLatLong() const
+ {
+     return IsLatLong;
+ }
+ 
+-//bool Projection::projIsMercator()
+-//{
+-//    return IsMercator;
+-//}
+-
+-
+-#ifndef _MOBILE
+-ProjProjection Projection::getProjection(QString projString)
++PJ* ProjectionBackend::getProjection(QString projString)
+ {
+-    ProjProjection theProj = pj_init_plus(QString("%1 +over").arg(projString).toLatin1());
+-    return theProj;
++    QString WGS84("+proj=longlat +ellps=WGS84 +datum=WGS84 +xy_in=deg");
++    PJ* proj = proj_create_crs_to_crs(projCtx.get(), WGS84.toLatin1(), projString.toLatin1(), 0);
++    if (!proj) {
++            qDebug() << "Failed to initialize projection" << WGS84 << "to" << projString << "with error:" << proj_errno_string(proj_errno(nullptr));
++    }
++    return proj;
+ }
+-#endif // _MOBILE
+ 
+-bool Projection::setProjectionType(QString aProjectionType)
++bool ProjectionBackend::setProjectionType(QString aProjectionType)
+ {
++    QMutexLocker locker(projMutex.get());
+     if (aProjectionType == projType)
+         return true;
+ 
+-#ifndef _MOBILE
+-    if (theProj) {
+-        pj_free(theProj);
+-        theProj = NULL;
+-    }
+-#endif // _MOBILE
++    projTransform = nullptr;
+ 
+     ProjectionRevision++;
+     projType = aProjectionType;
+@@ -246,77 +156,60 @@
+         return true;
+     }
+     // Hardcode "lat/long " projection
+-    if (
+-            projType.toUpper().contains("EPSG:4326")
+-            )
++    if ( projType.toUpper() == "EPSG:4326" )
+     {
+         IsLatLong = true;
+         projType = "EPSG:4326";
+         return true;
+     }
+ 
+-#ifndef _MOBILE
+-    try {
+-        projProj4 = M_PREFS->getProjection(aProjectionType).projection;
+-        theProj = getProjection(projProj4);
+-        if (!theProj) {
+-            projType = "EPSG:3857";
+-            IsMercator = true;
+-            return false;
+-        }
+-        //        else {
+-        //            if (pj_is_latlong(theProj))
+-        //                projType = "EPSG:4326";
+-        //                IsLatLong = true;
+-        //        }
+-    } catch (...) {
++    projProj4 = mapProjectionName(aProjectionType);
++    projTransform = std::shared_ptr<PJ>(getProjection(projProj4), proj_destroy);
++    if (!projTransform) {
++        // Fall back to the EPSG:3857 and return false. getProjection already logged the error into qDebug().
++        projType = "EPSG:3857";
++        IsMercator = true;
+         return false;
+     }
+-    return (theProj != NULL || IsLatLong || IsMercator);
+-#else
+-    return false;
+-#endif // _MOBILE
++    return (projTransform != NULL || IsLatLong || IsMercator);
+ }
+ 
+-QString Projection::getProjectionType() const
++QString ProjectionBackend::getProjectionType() const
+ {
+     return projType;
+ }
+ 
+-QString Projection::getProjectionProj4() const
++QString ProjectionBackend::getProjectionProj4() const
+ {
+-    if  (IsLatLong)
++  QMutexLocker locker(projMutex.get());
++    if (IsLatLong)
+         return "+init=EPSG:4326";
+-    else if  (IsMercator)
++    if (IsMercator)
+         return "+init=EPSG:3857";
+-#ifndef _MOBILE
+-    else
+-        return QString(pj_get_def(theProj, 0));
+-#endif
+-    return QString();
++    return QString(proj_pj_info(projTransform.get()).definition);
+ }
+ 
+-int Projection::projectionRevision() const
++int ProjectionBackend::projectionRevision() const
+ {
+     return ProjectionRevision;
+ }
+ 
+ // Common routines
+ 
+-qreal Projection::latAnglePerM() const
++qreal ProjectionBackend::latAnglePerM() const
+ {
+     qreal LengthOfOneDegreeLat = EQUATORIALRADIUS * M_PI / 180;
+     return 1 / LengthOfOneDegreeLat;
+ }
+ 
+-qreal Projection::lonAnglePerM(qreal Lat) const
++qreal ProjectionBackend::lonAnglePerM(qreal Lat) const
+ {
+     qreal LengthOfOneDegreeLat = EQUATORIALRADIUS * M_PI / 180;
+     qreal LengthOfOneDegreeLon = LengthOfOneDegreeLat * fabs(cos(Lat));
+     return 1 / LengthOfOneDegreeLon;
+ }
+ 
+-bool Projection::toXML(QXmlStreamWriter& stream)
++bool ProjectionBackend::toXML(QXmlStreamWriter& stream)
+ {
+     bool OK = true;
+ 
+@@ -331,7 +224,7 @@
+     return OK;
+ }
+ 
+-void Projection::fromXML(QXmlStreamReader& stream)
++void ProjectionBackend::fromXML(QXmlStreamReader& stream)
+ {
+     if (stream.name() == "Projection") {
+         QString proj;
+@@ -349,7 +242,7 @@
+     }
+ }
+ 
+-QPointF Projection::mercatorProject(const QPointF& c) const
++QPointF ProjectionBackend::mercatorProject(const QPointF& c) const
+ {
+     qreal x = c.x() / 180. * EQUATORIALMETERHALFCIRCUMFERENCE;
+     qreal y = log(tan(angToRad(c.y())) + 1/cos(angToRad(c.y()))) / M_PI * (EQUATORIALMETERHALFCIRCUMFERENCE);
+@@ -357,7 +250,7 @@
+     return QPointF(x, y);
+ }
+ 
+-Coord Projection::mercatorInverse(const QPointF& point) const
++Coord ProjectionBackend::mercatorInverse(const QPointF& point) const
+ {
+     qreal longitude = point.x()*180.0/EQUATORIALMETERHALFCIRCUMFERENCE;
+     qreal latitude = radToAng(atan(sinh(point.y()/EQUATORIALMETERHALFCIRCUMFERENCE*M_PI)));
+diff -Nur merkaartor-0.18.4/src/common/Projection.h merkaartor-0.18.4-proj-remove-legacy-api/src/common/Projection.h
+--- merkaartor-0.18.4/src/common/Projection.h	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/common/Projection.h	2021-03-08 11:57:58.643794061 +0100
+@@ -4,77 +4,53 @@
+ #include "IProjection.h"
+ #include "Coord.h"
+ 
+-#include <QPointF>
+-
+-#ifndef _MOBILE
+ #include "MerkaartorPreferences.h"
+ 
+-/* TODO: Proj.4 version 6.0.0 introduces new API changes, but is not widely
+- * available yet. Until it is available on most distros, we will keep using the legacy API.
+- * A migration will eventually be necessary (more research is needed). */
+-#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H 1
+-#include <proj_api.h>
+ 
+-typedef projPJ ProjProjection;
+-
+-#endif // _MOBILE
++#include <QPointF>
++#include <proj.h>
++#include <functional>
++#include <memory>
+ 
+ class QRect;
+ class Node;
+ 
+-class Projection : public IProjection
++class ProjectionBackend : public IProjection
+ {
+ public:
+-    Projection(void);
+-    virtual ~Projection(void);
++    ProjectionBackend(QString initProjection, std::function<QString(QString)> mapProjectionName);
+ 
+     qreal latAnglePerM() const;
+     qreal lonAnglePerM(qreal Lat) const;
+     QLineF project(const QLineF & Map) const;
+     QPointF project(const QPointF& Map) const;
+-    Coord inverse2Coord(const QPointF& Screen) const;
+-    QPointF inverse2Point(const QPointF& Map) const;
++    QPointF inverse(const QPointF& Map) const;
+ 
+     bool setProjectionType(QString aProjectionType);
+     QString getProjectionType() const;
+     bool projIsLatLong() const;
+ 
+-    QPointF project(Node* aNode) const;
+     QRectF toProjectedRectF(const QRectF& Viewport, const QRect& screen) const;
+     CoordBox fromProjectedRectF(const QRectF& Viewport) const;
+ 
+     int projectionRevision() const;
+     QString getProjectionProj4() const;
+ 
+-#ifndef _MOBILE
+-
+-    static ProjProjection getProjection(QString projString);
+-    static void projTransform(ProjProjection srcdefn,
+-                              ProjProjection dstdefn,
+-                              long point_count, int point_offset, qreal *x, qreal *y, qreal *z );
+-    void projTransformToWGS84(long point_count, int point_offset, qreal *x, qreal *y, qreal *z ) const;
+-    void projTransformFromWGS84(long point_count, int point_offset, qreal *x, qreal *y, qreal *z ) const;
+-
+-#endif
+     bool toXML(QXmlStreamWriter& stream);
+     void fromXML(QXmlStreamReader& stream);
+ 
+ protected:
+-#ifndef _MOBILE
+-    ProjProjection theProj;
++    PJ* getProjection(QString projString);
+     QPointF projProject(const QPointF& Map) const;
+     Coord projInverse(const QPointF& Screen) const;
+ 
+-    ProjProjection theWGS84Proj;
+-#endif
+-
+     QString projType;
+     QString projProj4;
+     QRectF ProjectedViewport;
+     int ProjectionRevision;
+     bool IsMercator;
+     bool IsLatLong;
+-
++    std::function<QString(QString)> mapProjectionName;
+ protected:
+     QPointF mercatorProject(const QPointF& c) const;
+     Coord mercatorInverse(const QPointF& point) const;
+@@ -88,7 +64,30 @@
+     {
+         return Coord(point.x()/*/EQUATORIALMETERPERDEGREE*/, point.y()/*/EQUATORIALMETERPERDEGREE*/);
+     }
++private:
++    // Note: keep the order of projCtx and projTransform, as projTransform depends on projCtx.
++    std::shared_ptr<PJ_CONTEXT> projCtx;
++    std::shared_ptr<PJ> projTransform;
++    std::shared_ptr<QMutex> projMutex;
++    // TODO: projTransform is not thread-safe by itself, so we need to protect
++    // it by a mutex.  In theory, each thread could have it's own projection
++    // object, but currently the object is copied around.  Until this changes,
++    // the mutex stays here.
++};
++
++/**
++ * Proxy class to inject M_PREFS externally and allow unit testing of ProjectionBackend itself.
++ */
++class Projection : public ProjectionBackend {
++  public:
++    static QString mapProjectionName(QString projName) {
++        return M_PREFS->getProjection(projName).projection;
++    }
+ 
++    Projection(void) :
++      ProjectionBackend(M_PREFS->getProjectionType(), mapProjectionName)
++    {
++    }
+ };
+ 
+ 
+diff -Nur merkaartor-0.18.4/src/Features/Node.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/Features/Node.cpp
+--- merkaartor-0.18.4/src/Features/Node.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/Features/Node.cpp	2021-03-08 11:57:58.644794048 +0100
+@@ -373,7 +373,8 @@
+ 
+     if ((i = findKey("_waypoint_")) != -1)
+         D += "<p><b>"+QApplication::translate("MapFeature", "Waypoint")+"</b><br/>";
+-    D += "<i>"+QApplication::translate("MapFeature", "coord")+": </i>" + COORD2STRING(position().y()) + " (" + Coord2Sexa(position().y()) + ") / " + COORD2STRING(position().x()) + " (" + Coord2Sexa(position().x()) + ")";
++    D += "<i>"+QApplication::translate("MapFeature", "WGS84 coordinates")+": </i>" + COORD2STRING(position().y()) + " (" + Coord2Sexa(position().y()) + ") / " + COORD2STRING(position().x()) + " (" + Coord2Sexa(position().x()) + ")<br/>";
++    D += "<i>"+QApplication::translate("MapFeature", "Projected coordinates")+": </i>" + COORD2STRING(projected().y()) + " / " + COORD2STRING(projected().x());
+ 
+     if ((i = findKey("_description_")) != -1)
+         D += "<br/><i>"+QApplication::translate("MapFeature", "description")+": </i>" + tagValue(i);
+diff -Nur merkaartor-0.18.4/src/ImportExport/ImportCSVDialog.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/ImportExport/ImportCSVDialog.cpp
+--- merkaartor-0.18.4/src/ImportExport/ImportCSVDialog.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/ImportExport/ImportCSVDialog.cpp	2021-03-08 11:57:58.732792837 +0100
+@@ -237,7 +237,7 @@
+     if (CSVProjection.projIsLatLong())
+         N->setPosition(p);
+     else
+-        N->setPosition(CSVProjection.inverse2Coord(p));
++        N->setPosition(CSVProjection.inverse(p));
+     return N;
+ }
+ 
+diff -Nur merkaartor-0.18.4/src/Layers/ImageMapLayer.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/Layers/ImageMapLayer.cpp
+--- merkaartor-0.18.4/src/Layers/ImageMapLayer.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/Layers/ImageMapLayer.cpp	2021-03-08 11:57:58.732792837 +0100
+@@ -97,8 +97,8 @@
+ 
+     p->theProjection.setProjectionType(p->theMapAdapter->projection());
+     QRectF r = p->theMapAdapter->getBoundingbox();
+-    Coord tl = p->theProjection.inverse2Coord(r.topLeft());
+-    Coord br = p->theProjection.inverse2Coord(r.bottomRight());
++    Coord tl = p->theProjection.inverse(r.topLeft());
++    Coord br = p->theProjection.inverse(r.bottomRight());
+     return CoordBox(tl, br);
+ }
+ 
+@@ -691,8 +691,8 @@
+ 
+     MapView::transformCalc(p->theTransform, p->theProjection, 0.0, CoordBox(alignedViewport), rect);
+ 
+-    CoordBox cViewport(p->theProjection.inverse2Coord(p->theTransform.inverted().map(fRect.bottomLeft())),
+-                     p->theProjection.inverse2Coord(p->theTransform.inverted().map(fRect.topRight())));
++    CoordBox cViewport(p->theProjection.inverse(p->theTransform.inverted().map(fRect.bottomLeft())),
++                     p->theProjection.inverse(p->theTransform.inverted().map(fRect.topRight())));
+     CoordBox Viewport = CoordBox(p->AlignementTransformList.at(0).mapRect(cViewport));
+     QPointF bl = theView.toView(Viewport.bottomLeft());
+     QPointF tr = theView.toView(Viewport.topRight());
+@@ -906,8 +906,8 @@
+     QPointF vp0Center = QPointF(projVp.width()/2, -projVp.height()/2);
+ 
+     Coord ulCoord, lrCoord;
+-    ulCoord = p->theProjection.inverse2Coord(vlm.topLeft());
+-    lrCoord = p->theProjection.inverse2Coord(vlm.bottomRight());
++    ulCoord = p->theProjection.inverse(vlm.topLeft());
++    lrCoord = p->theProjection.inverse(vlm.bottomRight());
+ 
+     const QPointF tl = theView.transform().map(theView.projection().project(ulCoord));
+     const QPointF br = theView.transform().map(theView.projection().project(lrCoord));
+diff -Nur merkaartor-0.18.4/src/Layers/OsmRenderLayer.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/Layers/OsmRenderLayer.cpp
+--- merkaartor-0.18.4/src/Layers/OsmRenderLayer.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/Layers/OsmRenderLayer.cpp	2021-03-08 11:57:58.732792837 +0100
+@@ -96,8 +96,8 @@
+         projR.setTop(projR.top()+dlat);
+         projR.setRight(projR.right()+dlon);
+ 
+-        Coord tl = p->theProjection.inverse2Coord(projR.topLeft());
+-        Coord br = p->theProjection.inverse2Coord(projR.bottomRight());
++        Coord tl = p->theProjection.inverse(projR.topLeft());
++        Coord br = p->theProjection.inverse(projR.bottomRight());
+         CoordBox invalidRect(tl, br);
+ 
+         QMap<RenderPriority, QSet <Feature*> > theFeatures;
+diff -Nur merkaartor-0.18.4/src/Main.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/Main.cpp
+--- merkaartor-0.18.4/src/Main.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/Main.cpp	2021-03-08 11:57:58.733792823 +0100
+@@ -9,10 +9,7 @@
+ #include <qtsingleapplication.h>
+ #include "MainWindow.h"
+ #include "Preferences/MerkaartorPreferences.h"
+-#ifndef ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+-#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+-#endif
+-#include "proj_api.h"
++#include "proj.h"
+ #include "gdal_version.h"
+ #include "Global.h"
+ 
+@@ -140,8 +137,8 @@
+ 
+     qDebug() << "**** " << QDateTime::currentDateTime().toString(Qt::ISODate) << " -- Starting " << QString("%1 %2").arg(qApp->applicationName()).arg(STRINGIFY(VERSION));
+     qDebug() <<	"-------" << QString("using Qt version %1 (built with %2)").arg(qVersion()).arg(QT_VERSION_STR);
+-    QString projVer = QString(STRINGIFY(PJ_VERSION));
+-    qDebug() <<	"-------" << QString("using PROJ4 version %1.%2.%3").arg(projVer.left(1)).arg(projVer.mid(1, 1)).arg(projVer.right(1));
++    PJ_INFO projVer = proj_info();
++    qDebug() <<	"-------" << QString("using PROJ version %1.%2.%3").arg(projVer.major).arg(projVer.minor).arg(projVer.patch);
+     qDebug() <<	"-------" << QString("using GDAL version %1").arg(GDAL_RELEASE_NAME);
+     qDebug() << "-------" << "with arguments: " << QCoreApplication::arguments();
+ 
+diff -Nur merkaartor-0.18.4/src/MainWindow.cpp merkaartor-0.18.4-proj-remove-legacy-api/src/MainWindow.cpp
+--- merkaartor-0.18.4/src/MainWindow.cpp	2019-11-12 15:09:05.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/src/MainWindow.cpp	2021-03-08 11:57:58.734792809 +0100
+@@ -102,11 +102,7 @@
+ #include <locale.h>
+ #include <limits.h>
+ 
+-//For About
+-#ifndef ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+-#define ACCEPT_USE_OF_DEPRECATED_PROJ_API_H
+-#endif
+-#include "proj_api.h"
++#include "proj.h"
+ #include "gdal_version.h"
+ 
+ #include "Utils/SlippyMapWidget.h"
+@@ -2103,8 +2099,8 @@
+     dlg.setWindowFlags(dlg.windowFlags() | Qt::MSWindowsFixedSizeDialogHint);
+     About.Version->setText(About.Version->text().arg(STRINGIFY(REVISION)));
+     About.QTVersion->setText(About.QTVersion->text().arg(qVersion()).arg(QT_VERSION_STR));
+-    QString projVer = QString(STRINGIFY(PJ_VERSION));
+-    About.Proj4Version->setText(About.Proj4Version->text().arg(QString("%1.%2.%3").arg(projVer.left(1)).arg(projVer.mid(1, 1)).arg(projVer.right(1))));
++    PJ_INFO projVer = proj_info();
++    About.ProjVersion->setText(About.ProjVersion->text().arg(QString("%1.%2.%3").arg(projVer.major).arg(projVer.minor).arg(projVer.patch)));
+     About.GdalVersion->setText(About.GdalVersion->text().arg(GDAL_RELEASE_NAME));
+ 
+     QFile ct(":/Utils/CHANGELOG");
+diff -Nur merkaartor-0.18.4/tests/test-projection.cpp merkaartor-0.18.4-proj-remove-legacy-api/tests/test-projection.cpp
+--- merkaartor-0.18.4/tests/test-projection.cpp	1970-01-01 01:00:00.000000000 +0100
++++ merkaartor-0.18.4-proj-remove-legacy-api/tests/test-projection.cpp	2021-03-08 11:57:58.734792809 +0100
+@@ -0,0 +1,85 @@
++#include <QtTest/QtTest>
++
++#include "common/Projection.h"
++
++class TestProjection: public QObject
++{
++  Q_OBJECT
++  private slots:
++
++
++  void projectionInit() {
++    ProjectionBackend proj("EPSG:3857", [](QString x) {return x;});
++    qDebug() << proj.getProjectionType();
++    qDebug() << proj.getProjectionProj4();
++    QCOMPARE(proj.getProjectionType(), "EPSG:3857"); // Would not be set if init failed.
++  }
++
++  /**
++   * This test verifies the Proj4 library is loaded and correctly identifies non-standard projection.
++   */
++  void projectionInitProj4() {
++    ProjectionBackend proj("EPSG:5514", [](QString x) {return x;});
++    qDebug() << proj.getProjectionType();
++    QCOMPARE(proj.getProjectionType(), "EPSG:5514");
++  }
++
++
++  void projectionWGS84toEPSG3031() {
++    ProjectionBackend proj("EPSG:3031", [](QString x) {return x;});
++    qDebug() << proj.getProjectionProj4();
++  }
++
++  /**
++   * This test verifies proj4 library is able to project correctly from WGS84 to a non-standard projection.
++   */
++  void projectionWGS84toEPSG5514() {
++    ProjectionBackend proj("+proj=krovak +lat_0=49.5 +lon_0=24.83333333333333 +alpha=30.28813972222222 +k=0.9999 +x_0=0 +y_0=0 +ellps=bessel +pm=greenwich +units=m +no_defs +towgs84=570.8,85.7,462.8,4.998,1.587,5.261,3.56", [](QString x) {return x;});
++    QList<QPair<QPointF,QPointF>> list = {
++      {{14.4157,50.1038},{-742955.5923625092255,-1041158.8852684112499}},
++      {{18.9816,50.1259},{-418013.62494312302442,-1073425.9725897577591}}
++    };
++    for(auto& pair : list) {
++      QCOMPARE(proj.project(pair.first), pair.second);
++      //QCOMPARE(proj.inverse(pair.second), pair.first); // TODO: This projection does not seem to converge very well.
++    }
++    QBENCHMARK(proj.project(QPointF(14.4157,50.1038)));
++  }
++
++  /**
++   * Use default "LatLong" projection, which is in fact identity.
++   */
++  void projectionWGS84toLatLong() {
++    ProjectionBackend proj("EPSG:4326", [](QString x) {return x;});
++    QPointF point(14.4157,50.1038);
++    QCOMPARE(proj.project(point), point);
++    QCOMPARE(proj.inverse(point), point);
++    QBENCHMARK(proj.project(point));
++  }
++
++  /**
++   * This test uses proj4 to do the identity projection. In process, it converts to radians from decimal degrees.
++   */
++  void projectionWGS84toWGS84() {
++    ProjectionBackend proj("+proj=longlat +datum=WGS84", [](QString x) {return x;});
++    QPointF point(14.4157,50.1038);
++    QCOMPARE(proj.project(point), point);
++    QCOMPARE(proj.inverse(point), point);
++    QBENCHMARK(proj.project(point));
++  }
++
++  /**
++   * Test the internal Mercator projection.
++   */
++  void projectionWGS84toMercator() {
++    ProjectionBackend proj("EPSG:3857", [](QString x) {return x;});
++    QPointF point(14.4157,50.1038);
++    QPointF projected(1604748.38320521079,6464271.615268512629);
++    QCOMPARE(proj.project(point),  projected);
++    QCOMPARE(proj.inverse(projected), point);
++    QBENCHMARK(proj.project(point));
++  }
++};
++
++QTEST_MAIN(TestProjection)
++#include "test-projection.moc"
