@@ -3,7 +3,7 @@
 
 _srcname=SPIRV-LLVM-Translator
 pkgname=${_srcname,,}
-pkgver=11.0.0
+pkgver=12.0.0
 pkgrel=1
 pkgdesc="Tool and a library for bi-directional translation between SPIR-V and LLVM IR"
 arch=(x86_64)
@@ -13,7 +13,7 @@ depends=(llvm-libs)
 makedepends=(cmake llvm spirv-tools)
 checkdepends=(python python-setuptools clang)
 source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha256sums=('6464a722278d37fca783cb505caf44cc8473c22fd22ff6a5d07198bc92059c4f')
+sha256sums=('6e4fad04203f25fcde4c308c53e9f59bd05a390978992db3212d4b63aff62108')
 
 build() {
     cmake -B build -S ${_srcname}-${pkgver} \
