@@ -2,7 +2,7 @@
 # Contributor: banbanchs <memory.silentvoyage@gmail.com>
 
 pkgname=libck
-pkgver=0.7.0
+pkgver=0.7.1
 pkgrel=1
 pkgdesc="A concurrency primitives, safe memory reclamation mechanisms C library"
 arch=('x86_64')
@@ -10,7 +10,7 @@ url="http://concurrencykit.org"
 license=('BSD' 'Apache' 'Custom')
 depends=('glibc')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/concurrencykit/ck/archive/${pkgver}.tar.gz")
-sha256sums=('e730cb448fb0ecf9d19bf4c7efe9efc3c04dd9127311d87d8f91484742b0da24')
+sha256sums=('97d2a21d5326ef79b4668be2e6eda6284ee77a64c0981b35fd9695c736c3d4ac')
 
 build() {
     cd "$srcdir/ck-$pkgver"
