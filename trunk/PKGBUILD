@@ -4,7 +4,7 @@
 # Contributor: Clayton Craft <clayton at craftyguy dot net>
 
 pkgname=python-setuptools-rust
-pkgver=0.12.0
+pkgver=0.12.1
 pkgrel=1
 pkgdesc="Compile and distribute Python extensions written in rust as easily as if they were written in C."
 arch=('any')
@@ -14,7 +14,7 @@ depends=('rust' 'python-setuptools' 'python-semantic-version' 'python-toml')
 makedepends=('python-setuptools-scm' 'python-wheel')
 checkdepends=('python-pytest' 'python-pytest-benchmark' 'python-beautifulsoup4' 'python-lxml' 'python-cffi')
 source=("https://github.com/PyO3/setuptools-rust/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('09f77fef0c46f444cbc690e02369e62920a887395334ed4b7501ab64976ade2cbf67c56e4bdcb2bdf2d212ea4dd3beb99b8d3340f93a706524b4f6385c46d4da')
+sha512sums=('25539edc55535391c6a787660ddca369b3615914c32db31718d9d17fbf36ba51e3f05c4764bd2261aa4d91b514dc741d500d093b9e96829082b68159958948a7')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
