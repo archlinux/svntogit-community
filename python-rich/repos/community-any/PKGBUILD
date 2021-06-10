@@ -2,7 +2,7 @@
 # Contributor: Hao Long <imlonghao@archlinuxcn.org>
 
 pkgname=python-rich
-pkgver=10.2.2
+pkgver=10.3.0
 pkgrel=1
 pkgdesc='Render rich text, tables, progress bars, syntax highlighting, markdown and more to the terminal'
 arch=(any)
@@ -11,7 +11,7 @@ license=('MIT')
 depends=('python-colorama' 'python-pygments' 'python-typing_extensions' 'python-commonmark')
 makedepends=('python-pip' 'python-poetry')
 source=("https://github.com/willmcgugan/rich/archive/v${pkgver}/rich-${pkgver}.tar.gz")
-b2sums=('1979ee6ac7fb78ba7743f25bd34a7547f1f49c42e1f5ead958f53fe0251e73fd0122dc89c7e5fc545a5af1c6eba8ff7a3788476b63b722c6158280b85d399d99')
+b2sums=('ddac8f2ed7b3b39e647179cd03cf59994729d7d82bdfad6670284a692871b79f2f6ceb86fae0d47d76401f756c122ebcb5978d241d4a95b4f3d6c54de67132a1')
 
 build() {
   cd rich-${pkgver}
