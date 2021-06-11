@@ -13,7 +13,7 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=5.0.6.sdk203
+pkgver=5.0.7.sdk204
 pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -40,7 +40,7 @@ makedepends=(
   zlib
 )
 options=(staticlibs)
-_tag=a8f12771179965da9f48646ded87068d379563b9
+_tag=05b7bc2775c53b3af47756ce71cf1cb04a7cbc9a
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
   dotnet.sh
