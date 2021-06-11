@@ -13,6 +13,7 @@ depends=('cinnamon-desktop' 'dconf' 'gvfs' 'exempi' 'libexif' 'libnotify' 'libxm
          'python' 'xapp')
 optdepends=('cinnamon-translations: i18n'
             'ffmpegthumbnailer: support for video thumbnails'
+            'ghostscript: search helpers support for PostScript files'
             'libgsf: search helpers support for MS Office files'
             'odt2txt: search helpers support for LibreOffice files'
             'poppler: search helpers support for PDF')
