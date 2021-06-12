@@ -3,10 +3,10 @@
 _npmname=nopt
 pkgname=nodejs-$_npmname
 pkgver=5.0.0
-pkgrel=1
-pkgdesc="Library to generate and consume the source map format"
+pkgrel=2
+pkgdesc="Node/npm Option Parsing library"
 arch=('any')
-url="https://github.com/mozilla/source-map"
+url="https://github.com/npm/nopt"
 license=('custom:ISC')
 depends=('nodejs')
 makedepends=('npm')
