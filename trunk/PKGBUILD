@@ -8,21 +8,17 @@ pkgname=wesnoth
 # NOTE: Odd minor versions are unstable! Do not package those.
 pkgver=1.14.16
 epoch=1
-pkgrel=2
+pkgrel=3
 pkgdesc="A turn-based strategy game on a fantasy world"
 arch=('x86_64')
 license=('GPL')
 url="http://www.wesnoth.org/"
-depends=('sdl2_ttf' 'sdl2_net' 'sdl2_mixer' 'sdl2_image' 'fribidi' 'boost-libs' 'pango' 'lua52' 'dbus' 'python2')
-makedepends=('boost' 'cmake' 'git')
+depends=('sdl2_ttf' 'sdl2_mixer' 'sdl2_image' 'fribidi' 'boost-libs' 'pango' 'dbus')
+makedepends=('boost' 'cmake' 'git' 'ninja')
 replaces=('wesnoth-data')
 options=(!emptydirs)
-source=("git://github.com/wesnoth/wesnoth.git#tag=${pkgver}"
-        wesnothd.tmpfiles.conf
-        wesnothd.service)
-sha512sums=('SKIP'
-            '6e776bf9d4e6f289b1dddbea03b0cc6972af9e926c8305fac823613b101d7f3bc40f30ab73708e9df355b28cc6459b138f3d8015528796ad94d3571d20dd54ed'
-            '9d648c8bd13a574364b4dede4b1084a2fe1bf50a38ad04aa1a9f72f168915fc67d29b3c048f881a32f38a785fd4256d48c864346db08326e279237b28d5ca884')
+source=("git://github.com/wesnoth/wesnoth.git#tag=${pkgver}")
+sha512sums=('SKIP')
 
 prepare() {
   cd $pkgname
@@ -30,25 +26,27 @@ prepare() {
 }
 
 build() {
-  cd "$srcdir/$pkgname"
+  cd "$pkgname"
 
-  mkdir build && cd build
-  cmake .. \
+  cmake \
+      -GNinja \
+      -Bbuild \
       -DCMAKE_INSTALL_PREFIX=/usr \
-      -DENABLE_OMP=ON \
       -DENABLE_TOOLS=ON \
-      -DMANDIR=share/man \
-      -DFIFO_DIR=/var/run/wesnothd \
+      -DFIFO_DIR=/run/wesnothd \
       -DENABLE_DISPLAY_REVISION=OFF
-  make
+  ninja -C build
 }
 
 package() {
-  cd "$srcdir/$pkgname"
+  cd "$pkgname"
 
-  cd build
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" ninja -C build install
 
-  install -Dm644 "$srcdir/wesnothd.tmpfiles.conf" "$pkgdir/usr/lib/tmpfiles.d/wesnothd.conf"
-  install -Dm644 "$srcdir/wesnothd.service" "$pkgdir/usr/lib/systemd/system/wesnothd.service"
+  # See http://forums.wesnoth.org/viewtopic.php?t=51038
+  echo "Linux repository" > "$pkgdir"/usr/share/wesnoth/data/dist
+
+  mkdir -p "$pkgdir"/usr/lib/{tmpfiles.d,systemd/system}
+  sed "s|@FIFO_DIR@|/run/wesnothd|" packaging/systemd/wesnothd.tmpfiles.conf.in > "$pkgdir"/usr/lib/tmpfiles.d/wesnothd.conf
+  sed -e "s|@FIFO_DIR@|/run/wesnothd|" -e "s|@BINARY_SUFFIX@||" -e "s|@CMAKE_INSTALL_FULL_BINDIR@|/usr/bin|" packaging/systemd/wesnothd.service.in > "$pkgdir"/usr/lib/systemd/system/wesnothd.service
 }
