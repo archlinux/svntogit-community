@@ -1,4 +1,4 @@
-From 6e3ea5b0cfdaec125472fc2132767f4fc8c92a65 Mon Sep 17 00:00:00 2001
+From d08e03282ccdd058a6b3dc209942d5fb9d261703 Mon Sep 17 00:00:00 2001
 From: "Carsten Haitzler (Rasterman)" <raster@rasterman.com>
 Date: Sun, 13 Jun 2021 12:59:26 +0100
 Subject: [PATCH] alpm - fix get-update-detail which uses totally wrong list of
@@ -11,11 +11,11 @@ single string anyway so thus fake an array of 2 eleemtns and replaces
 was all wrong trying to munge multiple replaces into a single string
 insted of producing a proper array of them.
 ---
- backends/alpm/pk-alpm-update.c | 35 +++++++++++++++++-----------------
- 1 file changed, 17 insertions(+), 18 deletions(-)
+ backends/alpm/pk-alpm-update.c | 42 +++++++++++++++++++---------------
+ 1 file changed, 24 insertions(+), 18 deletions(-)
 
 diff --git a/backends/alpm/pk-alpm-update.c b/backends/alpm/pk-alpm-update.c
-index aa641c02b..4071a10f6 100644
+index aa641c02b..f0d7bff2e 100644
 --- a/backends/alpm/pk-alpm-update.c
 +++ b/backends/alpm/pk-alpm-update.c
 @@ -39,33 +39,32 @@
@@ -64,18 +64,19 @@ index aa641c02b..4071a10f6 100644
  }
  
  static gchar **
-@@ -143,8 +142,8 @@ pk_backend_get_update_detail_thread (PkBackendJob *job, GVariant* params, gpoint
+@@ -143,8 +142,9 @@ pk_backend_get_update_detail_thread (PkBackendJob *job, GVariant* params, gpoint
  		PkRestartEnum restart = PK_RESTART_ENUM_NONE;
  		PkUpdateStateEnum state = PK_UPDATE_STATE_ENUM_STABLE;
  		alpm_time_t built, installed;
 -		g_autofree gchar *upgrades = NULL;
 -		g_autofree gchar *replaces = NULL;
-+		g_autofree gchar *upgrades[2] = { NULL, NULL };
-+		g_autofree gchar **replaces;
++		gchar *upgrades[2] = { NULL, NULL };
++		gchar **replaces;
++		gchar **charptr;
  		g_auto(GStrv) urls = NULL;
  		g_autofree gchar *issued = NULL;
  		g_autofree gchar *updated = NULL;
-@@ -158,7 +157,7 @@ pk_backend_get_update_detail_thread (PkBackendJob *job, GVariant* params, gpoint
+@@ -158,7 +158,7 @@ pk_backend_get_update_detail_thread (PkBackendJob *job, GVariant* params, gpoint
  
  		old = alpm_db_get_pkg (priv->localdb, alpm_pkg_get_name (pkg));
  		if (old != NULL) {
@@ -84,7 +85,7 @@ index aa641c02b..4071a10f6 100644
  			if (pk_alpm_pkg_same_pkgver (pkg, old)) {
  				reason = "Update to a newer release";
  			} else {
-@@ -188,8 +187,8 @@ pk_backend_get_update_detail_thread (PkBackendJob *job, GVariant* params, gpoint
+@@ -188,10 +188,16 @@ pk_backend_get_update_detail_thread (PkBackendJob *job, GVariant* params, gpoint
  				updated = pk_alpm_time_to_iso8601 (installed);
  		}
  
@@ -94,7 +95,15 @@ index aa641c02b..4071a10f6 100644
 +					      replaces, urls, NULL, NULL,
  					      restart, reason, NULL, state,
  					      issued, updated);
++		if (upgrades[0]) g_free (upgrades[0]);
++		if (replaces) {
++			for (charptr = replaces; charptr[0]; charptr++)
++				g_free (charptr[0]);
++			g_free(replaces);
++		}
  	}
+ 
+ 	pk_alpm_finish (job, error);
 -- 
 2.31.1
 
