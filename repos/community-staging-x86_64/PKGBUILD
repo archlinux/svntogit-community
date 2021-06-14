@@ -1,0 +1,70 @@
+# Maintainer: Jelle van der Waa <jelle@archlinux.org>
+# Contributor: Stéphane Gaudreault <stephane@archlinux.org>
+
+pkgname=cppcheck
+pkgver=2.4.1
+pkgrel=2
+pkgdesc="A tool for static C/C++ code analysis"
+arch=('x86_64')
+url="http://cppcheck.sourceforge.net/"
+license=('GPL')
+depends=('python-pygments' 'tinyxml2')
+makedepends=('docbook-xsl' 'qt5-tools' 'qt5-base' 'python' 'pandoc' 'cmake' 'clang')
+optdepends=('qt5-tools: run cppcheck-gui'
+            'python-pygments: cppcheck-htmlreport'
+            'clang: for cppcheck-gui integration')
+source=($pkgname-$pkgver.tar.gz::https://github.com/danmar/cppcheck/archive/${pkgver}.tar.gz
+        translations-location.patch
+        https://github.com/danmar/cppcheck/commit/8d682884.patch)
+sha1sums=('b2b19fa617aa4f2bd67609a15ba1f737909dbf66'
+          '03b0888438cf92ccdcbf307dbc3c35e65c91b844'
+          '7846c2e482320c2f6f9352dc134fdf0ad39faec8')
+
+prepare() {
+   cd "${pkgname}-${pkgver}"
+   patch -Np1 -i $srcdir/translations-location.patch
+   patch -p1 < ../8d682884.patch # Fix build with GCC 11
+
+   mkdir build
+}
+
+build() {
+   cd "${pkgname}-${pkgver}"
+   export CXXFLAGS+=" -DNDEBUG"
+
+   # Manuals
+   xsversion=$(pacman -Qi docbook-xsl | grep ^Version | sed -e 's/.*: //' -e 's/-[0-9]$//')
+   make DB2MAN=/usr/share/xml/docbook/xsl-stylesheets-${xsversion}-nons/manpages/docbook.xsl man
+   pandoc man/manual.md -o man/manual.html -s --number-sections --toc
+   pandoc man/reference-cfg-format.md -o man/reference-cfg-format.html -s --number-sections --toc
+
+   cd build
+   cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release \
+         -DUSE_MATCHCOMPILER=yes -DHAVE_RULES=yes \
+         -DBUILD_GUI=yes -DBUILD_SHARED_LIBS:BOOL=OFF \
+         -DBUILD_TESTS=yes -DFILESDIR=/usr/share/cppcheck \
+         -DUSE_BUNDLED_TINYXML2=OFF  \
+         ..
+
+   make
+}
+
+
+check() {
+   cd "${pkgname}-${pkgver}/build/bin"
+   ./testrunner -g -q
+}
+
+package() {
+   cd "${pkgname}-${pkgver}/build"
+   make DESTDIR="${pkgdir}" install
+
+   cd ..
+
+   install -D -p -m 644 cppcheck.1 "${pkgdir}"/usr/share/man/man1/cppcheck.1
+   install -D -p -m 755 htmlreport/cppcheck-htmlreport "${pkgdir}"/usr/bin/cppcheck-htmlreport
+
+   # Fix location of language files
+   install -d "${pkgdir}"/usr/share/cppcheck/cfg/lang
+   mv "${pkgdir}"/usr/bin/cppcheck_*.qm "${pkgdir}"/usr/share/cppcheck/cfg/lang/
+}
