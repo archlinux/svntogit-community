@@ -1,0 +1,108 @@
+# Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Contributor: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinxu.org>
+# Contributor: Wael Nasreddine <gandalf@siemens-mobiles.org>
+# Contributor: Tor Krill <tor@krill.nu>
+# Contributor: Will Rea <sillywilly@gmail.com>
+# Contributor: Valentine Sinitsyn <e_val@inbox.ru>
+# Contributor: Ryszard Knop <dragoon@dragonic.eu>
+
+pkgname=lib32-libnm
+pkgver=1.32.0
+pkgrel=1
+pkgdesc="NetworkManager client library"
+arch=(x86_64)
+url=https://wiki.gnome.org/Projects/NetworkManager
+license=(LGPL)
+depends=(
+  lib32-gcc-libs
+  lib32-glib2
+  lib32-nspr
+  lib32-nss
+  lib32-systemd
+  lib32-util-linux
+)
+makedepends=(
+  git
+  intltool
+  lib32-dbus
+  lib32-jansson
+  lib32-libndp
+  lib32-libpsl
+  lib32-polkit
+  libxslt
+  meson
+)
+provides=(libnm.so)
+_tag=d897368a0202938b2ba3adda8f244f514b7dc13e
+source=(git+https://gitlab.freedesktop.org/NetworkManager/NetworkManager.git#tag=${_tag})
+b2sums=(SKIP)
+
+prepare() {
+  cd NetworkManager
+  # https://bugs.archlinux.org/task/70710
+  git cherry-pick -n 8acad5a20cc61081438294efc634c0e245452e35
+}
+
+pkgver() {
+  cd NetworkManager
+  git describe --tags
+}
+
+build() {
+  export CC='gcc -m32'
+  export CXX='g++ -m32'
+  export PKG_CONFIG=i686-pc-linux-gnu-pkg-config
+  local meson_args=(
+    # system paths
+    --libdir=/usr/lib32
+    -D dbus_conf_dir=/usr/share/dbus-1/system.d
+
+    # platform
+    -D dist_version="${pkgver}-${pkgrel}"
+    -D libaudit=no
+    -D modify_system=true
+    -D selinux=false
+    -D session_tracking_consolekit=false
+    -D suspend_resume=systemd
+
+    # features
+    -D bluez5_dun=false
+    -D concheck=false
+    -D ebpf=false
+    -D iwd=false
+    -D modem_manager=false
+    -D nm_cloud_setup=false
+    -D nmcli=false
+    -D nmtui=false
+    -D ovs=false
+    -D ppp=false
+    -D teamdctl=false
+
+    # configuration plugins
+    -D config_plugins_default=keyfile
+
+    # handlers for resolv.conf
+    -D netconfig=no
+    -D config_dns_rc_manager_default=symlink
+
+    # miscellaneous
+    -D docs=false
+    -D introspection=false
+    -D more_asserts=no
+    -D more_logging=false
+    -D qt=false
+    -D tests=no
+    -D vapi=false
+  )
+
+  arch-meson NetworkManager build "${meson_args[@]}"
+  meson compile -C build
+}
+
+package() {
+  meson install -C build --destdir "${pkgdir}"
+  rm -rf "${pkgdir}"/{etc,usr/{bin,include,lib,lib32/NetworkManager,share},var}
+}
+
+# vim: ts=2 sw=2 et:
