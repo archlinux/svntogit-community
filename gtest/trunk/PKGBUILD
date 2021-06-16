@@ -7,8 +7,8 @@
 # Contributor: acxz <akashpatel2008 at yahoo dot com>
 
 pkgname=gtest
-pkgver=1.10.0
-pkgrel=6
+pkgver=1.11.0
+pkgrel=1
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
@@ -21,19 +21,15 @@ replaces=('gmock')
 provides=('gmock')
 _srcname=googletest-release-${pkgver}
 source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
-        gtest-1.10.0-libversion.patch)
-sha512sums=('bd52abe938c3722adc2347afad52ea3a17ecc76730d8d16b065e165bc7477d762bce0997a427131866a89f1001e3f3315198204ffa5d643a9355f1f4d0d7b1a9'
-            '57d18cdd2d7b744c4e759a51899372befc78624de00fccc71464293f8c36d32f7dd3bb87ec55fc0303031a397bbba5d45075662687cf5bba378f5001dabf2faa')
+        gtest-version.patch)
+sha512sums=('6fcc7827e4c4d95e3ae643dd65e6c4fc0e3d04e1778b84f6e06e390410fe3d18026c131d828d949d2f20dde6327d30ecee24dcd3ef919e21c91e010d149f3a28'
+            'e3e6476d938f65e74a0aa5bbfe58136db937205c8a0536399f46d0096ee728566247b85c82e0067300e465fcbc455a9e0d99611410dece70180aa92170357fbf')
 
 prepare() {
   cd ${_srcname}
-  cp ../gtest-1.10.0-libversion.patch gtest-1.10.0-libversion.patch
-  sed "s|__GOOGLETEST_VERSION__|${pkgver}|g" -i gtest-1.10.0-libversion.patch
-  # https://src.fedoraproject.org/rpms/gtest/tree/master
-  patch -Np1 -i gtest-1.10.0-libversion.patch
-
-  # fixup version as they are never correct
-  sed -E "s|(GOOGLETEST_VERSION) [0-9\\.]+|\\1 ${pkgver}|" -i CMakeLists.txt
+  cp ../gtest-version.patch gtest-version.patch
+  sed "s|__GOOGLETEST_VERSION__|${pkgver}|g" -i gtest-version.patch
+  patch -Np1 -i gtest-version.patch
 }
 
 build() {
@@ -55,16 +51,17 @@ package() {
   # Shouldn't be present
   find "${pkgdir}" -name '*.pump' -printf 'Removing %P\n' -delete
 
-  cd ${_srcname}/googletest
+  cd ${_srcname}
   install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
   install -Dm 644 README.md CONTRIBUTORS -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  cd googletest
   install -Dm 755 scripts/gtest-config.in -t "${pkgdir}/usr/bin"
   install -Dm 644 cmake/* -t "${pkgdir}/usr/src/googletest/cmake"
   install -Dm 644 src/* -t "${pkgdir}/usr/src/googletest/src"
   install -Dm 644 CMakeLists.txt -t "${pkgdir}/usr/src/googletest"
 
   cd ../googlemock
-  install -Dm 755 scripts/gmock-config.in -t "${pkgdir}/usr/bin"
   install -Dm 644 cmake/* -t "${pkgdir}/usr/src/gmock/cmake"
   install -Dm 644 src/* -t "${pkgdir}/usr/src/gmock/src"
   install -Dm 644 CMakeLists.txt -t "${pkgdir}/usr/src/gmock"
