@@ -1,9 +1,11 @@
 # Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Maintainer: Frederik Schwan <freswa at archlinux dot org>
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.6.0
-pkgrel=3
+pkgver=1.6.1
+pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
@@ -18,8 +20,9 @@ optdepends=(
 )
 makedepends=(meson valgrind gobject-introspection gtk-doc
              python-cairo noto-fonts noto-fonts-cjk python-gobject vala
-             bash-completion python-pillow help2man gnu-efi-libs)
+             bash-completion python-pillow help2man gnu-efi-libs modemmanager)
 checkdepends=(umockdev)
+provides=(libfwupd.so)
 backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/redfish.conf'
         'etc/fwupd/remotes.d/dell-esrt.conf'
@@ -31,21 +34,18 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/thunderbolt.conf'
         'etc/fwupd/uefi_capsule.conf'
         'etc/fwupd/upower.conf')
-source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc}
-        "fix-efi.patch::$url/commit/197d3dc3b9acb93be30c4a7f49e8c0ad3f554818.patch")
-sha256sums=('c4d9c5a870a60517470f7c4d2ae339eccb77bbca5b474c483984d0d4ece33f5e'
-            'SKIP'
-            'bc166b15607992362723341932cca193cb13c85e84300d42246e7e54a8041aa3')
+source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
+sha256sums=('e75735cd75815a5b371c0db415bece28db555974bfa42f114bd45d8e529ecc47'
+            'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
-
-prepare() {
-    cd ${pkgname}-${pkgver}
-    patch -p1 -i ../fix-efi.patch
-}
 
 build() {
     arch-meson ${pkgname}-${pkgver} build \
         -D b_lto=false \
+        -D plugin_modem_manager=true \
+        -D plugin_intel_spi=true \
+        -D lzma=true \
+        -D docs=gtkdoc \
         -D plugin_flashrom=true \
         -D supported_build=true \
         -D efi_sbat_distro_id='arch' \
@@ -69,5 +69,5 @@ package() {
     mv "${pkgdir}"/usr/bin/{,fwupd-}dbxtool
     mv "${pkgdir}"/usr/share/man/man1/{,fwupd-}dbxtool.1
     # Remove msr module-load config as it is built-in
-     rm "${pkgdir}"/usr/lib/modules-load.d/fwupd-msr.conf
+    rm "${pkgdir}"/usr/lib/modules-load.d/fwupd-msr.conf
 }
