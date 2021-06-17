@@ -35,5 +35,4 @@ package() {
 
     install -Dm755 -t "${pkgdir}/usr/bin/" "${pkgname}"
     install -Dm644 -t "${pkgdir}/usr/lib/systemd/user/" goimapnotify@.service
-    install -Dm644 -t "${pkgdir}/usr/share/licenses/${pkgname}/" LICENSE
 }
