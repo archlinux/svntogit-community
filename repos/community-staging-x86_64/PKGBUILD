@@ -1,0 +1,49 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=dyre
+pkgname=haskell-dyre
+pkgver=0.9.1
+pkgrel=3
+pkgdesc="Dynamic reconfiguration in Haskell"
+url="https://github.com/willdonnelly/dyre"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-executable-path' 'haskell-xdg-basedir' 'haskell-io-storage')
+makedepends=('ghc')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('33e26fe3f2fa7a41e766f1d070ecce975553aa374a06ee07dcb19c15fb1402b29fbbcd346f102fec3a69dfd14ee6e6681d2f012f47f145a45fdf0dd50b61dee2')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    # Not sure why the ln here is needed, but this makes the test suite find dyre itself...
+    sed -i 's/\$HC/$HC -dynamic/;/\$HC/i cp -r ../../../Config .' Tests/*/runTest.sh
+    sed -i 's/"-v0"/"-v0", "-dynamic"/' Config/Dyre/Compile.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver    
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
