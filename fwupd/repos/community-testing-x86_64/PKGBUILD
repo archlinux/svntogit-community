@@ -5,7 +5,7 @@
 
 pkgname=fwupd
 pkgver=1.6.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
@@ -13,14 +13,13 @@ license=(LGPL)
 depends=(libxmlb efivar python libsmbios libgusb
          libsoup json-glib gcab libarchive gpgme
          libgudev polkit shared-mime-info tpm2-tss
-         flashrom libjcat fwupd-efi)
+         flashrom libjcat fwupd-efi libmm-glib libqmi)
 optdepends=(
-    'modemmanager: modem firmware upgrade support'
     'udisks2: UEFI firmware upgrade support'
 )
 makedepends=(meson valgrind gobject-introspection gtk-doc
              python-cairo noto-fonts noto-fonts-cjk python-gobject vala
-             bash-completion python-pillow help2man gnu-efi-libs modemmanager)
+             bash-completion python-pillow help2man gnu-efi-libs)
 checkdepends=(umockdev)
 provides=(libfwupd.so)
 backup=('etc/fwupd/daemon.conf'
