@@ -11,9 +11,11 @@ arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
 license=(LGPL)
 depends=(libxmlb efivar python libsmbios libgusb
-         libsoup json-glib gcab libarchive gpgme
-         libgudev polkit shared-mime-info tpm2-tss
-         flashrom libjcat fwupd-efi libmm-glib libqmi)
+         polkit shared-mime-info tpm2-tss flashrom
+         libjcat fwupd-efi gcab
+         libarchive.so libcurl.so libgpgme.so
+         libjson-glib-1.0.so libgudev-1.0.so libmm-glib.so
+         libqmi-glib.so)
 optdepends=(
     'udisks2: UEFI firmware upgrade support'
 )
