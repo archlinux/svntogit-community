@@ -1,0 +1,64 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Felix Fung <fylixeoi@gmail.com>
+
+pkgname=timescaledb
+_versions=(
+  2.1.0 # first version to work with current postgresql version
+  2.1.1
+  2.2.0
+  2.2.1
+  2.3.0 # current ts version
+)
+pkgver="${_versions[-1]}"
+pkgrel=2
+pkgdesc="An open-source time-series database optimized for fast ingest and complex queries"
+arch=('x86_64')
+url="https://www.timescale.com/"
+license=('Apache' 'custom:Timescale')
+depends=('postgresql' 'postgresql-libs' 'openssl')
+makedepends=('gcc' 'cmake' 'git')
+install=timescaledb.install
+source=("$pkgname::git+https://github.com/timescale/timescaledb")
+sha512sums=('SKIP')
+
+prepare() {
+  mkdir build
+}
+
+build() {
+  for version in "${_versions[@]}"; do
+    cd "$srcdir/$pkgname"
+    git checkout "$version"
+    BUILD_DIR="$srcdir/build/$version" ./bootstrap \
+      -DWARNINGS_AS_ERRORS=OFF -DREGRESS_CHECKS=OFF
+
+    # build package or past shared library
+    cd "$srcdir/build/$version"
+    if [ "$version" == "${_versions[-1]}" ]; then
+      make
+    else
+      make timescaledb timescaledb-tsl
+    fi
+  done
+}
+
+package() {
+  cd "$pkgname"
+  # install licenses from latest version
+  git checkout "${_versions[-1]}"
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" \
+    LICENSE LICENSE-APACHE tsl/LICENSE-TIMESCALE
+
+  # install package or past shared library
+  for version in "${_versions[@]}"; do
+    cd "$srcdir/build/$version"
+    if [ "$version" == "${_versions[-1]}" ]; then
+      make DESTDIR="$pkgdir/" install
+    else
+      install -vDm644 -t "$pkgdir/usr/lib/postgresql" \
+        "src/$pkgname-$version.so" \
+        "tsl/src/$pkgname-tsl-$version.so"
+    fi
+  done
+}
