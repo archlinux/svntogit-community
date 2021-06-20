@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.3.4
-pkgrel=6
+pkgrel=7
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
