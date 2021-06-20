@@ -1,0 +1,73 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Guillaume Horel <guillaume.horel@gmail.com>
+
+_pkgname=arrow-apache-arrow
+pkgname=arrow
+pkgver=3.0.0
+pkgrel=4
+pkgdesc="Columnar in-memory analytics layer for big data."
+arch=(x86_64)
+url="https://arrow.apache.org"
+license=(Apache)
+depends=(boost-libs brotli double-conversion c-ares gflags
+         grpc google-glog libutf8proc lz4 protobuf rapidjson
+         snappy thrift uriparser zstd)
+provides=(parquet-cpp)
+conflicts=(parquet-cpp)
+makedepends=(apache-orc boost cmake flatbuffers gmock python-numpy git)
+source=(https://github.com/apache/arrow/archive/apache-arrow-${pkgver}.tar.gz
+        arrow-protobuf-3.15-r1.patch::https://github.com/apache/arrow/commit/06c795c948b594c16d3a48289519ce036a285aad.patch
+        git+https://github.com/apache/parquet-testing.git
+        git+https://github.com/apache/arrow-testing.git)
+sha256sums=('fc461c4f0a60e7470a7c58b28e9344aa8fb0be5cc982e9658970217e084c3a82'
+            '7cf129fdd1ea2fc987afbae55d93a910847158dad47424af7642c470b0747840'
+            'SKIP'
+            'SKIP')
+
+prepare(){
+  cd arrow-apache-arrow-${pkgver}
+  patch -Np1 -i ../arrow-protobuf-3.15-r1.patch
+}
+
+build(){
+  ARROW_BUILD_TOOLCHAIN=/usr \
+  ORC_HOME=/usr \
+  DOUBLE_CONVERSION_HOME=/usr \
+  cmake \
+    -B build -S arrow-apache-arrow-${pkgver}/cpp \
+    -DCMAKE_INSTALL_PREFIX="/usr" \
+    -DCMAKE_INSTALL_LIBDIR="lib" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DARROW_DEPENDENCY_SOURCE=SYSTEM \
+    -DARROW_BUILD_TESTS=ON \
+    -DARROW_ALTIVEC=OFF \
+    -DARROW_COMPUTE=ON \
+    -DARROW_FLIGHT=ON \
+    -DARROW_GANDIVA=OFF \
+    -DARROW_IPC=ON \
+    -DARROW_JEMALLOC=ON \
+    -DARROW_ORC=ON \
+    -DARROW_PARQUET=ON \
+    -DARROW_PLASMA=ON \
+    -DARROW_PYTHON=ON \
+    -DARROW_TENSORFLOW=ON \
+    -DARROW_SIMD_LEVEL=AVX2 \
+    -DARROW_PROTOBUF_USE_SHARED=ON \
+    -DARROW_GFLAGS_USE_SHARED=ON \
+    -DARROW_USE_GLOG=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DARROW_WITH_BROTLI=ON \
+    -DARROW_WITH_RE2=OFF
+  make -C build
+}
+
+check(){
+   PARQUET_TEST_DATA="${srcdir}"/parquet-testing/data \
+   ARROW_TEST_DATA="${srcdir}"/arrow-testing/data \
+   make -C build test
+}
+
+package(){
+  make -C build DESTDIR="${pkgdir}" install
+  find "${pkgdir}"/usr/lib/ -name '*testing*' -delete
+}
