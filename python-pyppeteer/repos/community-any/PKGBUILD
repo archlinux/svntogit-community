@@ -5,32 +5,42 @@
 _name=pyppeteer
 pkgname=python-pyppeteer
 pkgver=0.2.5
-pkgrel=1
+pkgrel=2
 pkgdesc='Headless chrome/chromium automation library'
 arch=('any')
 url=https://github.com/pyppeteer/pyppeteer
 license=('MIT')
 depends=('python-appdirs' 'python-pyee' 'python-tqdm' 'python-urllib3'
          'python-websockets')
-makedepends=('python-pip' 'python-poetry')
+makedepends=('python-build' 'python-install' 'python-poetry')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('c2974be1afa13b17f7ecd120d265d8b8cd324d536a231c3953ca872b68aba4af')
 b2sums=('16c07b0c6a8267a9bb42d58a592391caa9fc614b577f157d73ad6f3bee690b7ff44b17f2c5488bbfe5d68b9c2f70b6092e3c6a53cc9c8d5507195eccb9f88c4e')
 
 prepare() {
   cd $_name-$pkgver
+  # Remove include list https://github.com/pypa/wheel/issues/92
   sed -i '/^include/,/]/d' pyproject.toml
 }
 
 build() {
   cd $_name-$pkgver
-  poetry build --format wheel
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 package() {
   cd $_name-$pkgver
-  PIP_CONFIG_FILE=/dev/null pip install --isolated --root="$pkgdir" --ignore-installed --no-deps dist/*.whl
-  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
+  export PYTHONHASHSEED=0
+  python -m install --optimize=1 --destdir="$pkgdir" dist/*.whl
+
+  # https://github.com/FFY00/python-install/pull/6
+  chmod +x "$pkgdir"/usr/bin/*
+
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s $site_packages/$_name-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 # vim:set ts=2 sw=2 et:
