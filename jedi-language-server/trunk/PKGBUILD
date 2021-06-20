@@ -2,38 +2,37 @@
 
 pkgname=jedi-language-server
 pkgver=0.32.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Language server for Jedi'
 arch=('any')
 url=https://github.com/pappasam/jedi-language-server
 license=('MIT')
 depends=('python-docstring-to-markdown' 'python-jedi' 'python-pygls')
-makedepends=('python-pip' 'python-poetry')
+makedepends=('python-build' 'python-install' 'python-poetry')
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/$pkgname/$pkgname-$pkgver.tar.gz")
 sha256sums=('08eb5bff423d61ad56ae3bffb036638c1f6ae154daf57218148c274f4a9ea591')
 b2sums=('3265cb3c7118e520aeafd264a8e0089d0dad1537f12dd46358b2d96d86f1f4a894619e8fa9fc06421631f916a618249e0b35283d7ba0c39e8379caa190b96c1f')
 
 prepare() {
   cd $pkgname-$pkgver
-  # Avoid installing files directly under site-packages/
+  # Remove include list https://github.com/pypa/wheel/issues/92
   sed -i '/include = \["README.md"\]/d' pyproject.toml
 }
 
 build() {
   cd $pkgname-$pkgver
-  poetry build --format wheel
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 package() {
   cd $pkgname-$pkgver
   export PYTHONHASHSEED=0
-  export PIP_CONFIG_FILE=/dev/null
-  pip install --isolated \
-              --no-deps \
-              --root="$pkgdir" \
-              --ignore-installed \
-              --no-warn-script-location dist/*.whl
+  python -m install --optimize=1 --destdir="$pkgdir" dist/*.whl
 
+  # https://github.com/FFY00/python-install/pull/6
+  chmod +x "$pkgdir"/usr/bin/$pkgname
+
+  # Symlink license file
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
   install -d "$pkgdir"/usr/share/licenses/$pkgname
   ln -s $site_packages/${pkgname//-/_}-$pkgver.dist-info/LICENSE \
