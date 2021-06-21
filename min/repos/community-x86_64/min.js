@@ -1,4 +1,4 @@
-#!/usr/bin/electron12
+#!/usr/bin/electron
 
 const name = 'min';
 
