@@ -14,7 +14,7 @@ pkgname=(
  aspnet-targeting-pack
 )
 pkgver=5.0.7.sdk204
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -39,6 +39,7 @@ makedepends=(
   systemd
   zlib
 )
+optdepends=('bash-completion: Bash completion support')
 options=(staticlibs)
 _tag=05b7bc2775c53b3af47756ce71cf1cb04a7cbc9a
 source=(
@@ -108,7 +109,8 @@ package_dotnet-host() {
   bsdtar -xf dotnet-sdk-${pkgver%.*.sdk*}.${pkgver#*sdk}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/licenses/dotnet-host/ --no-same-owner LICENSE.txt ThirdPartyNotices.txt
   ln -s /usr/share/dotnet/dotnet "${pkgdir}"/usr/bin/dotnet
   ln -s /usr/share/dotnet/host/fxr/${pkgver%.sdk*}/libhostfxr.so "${pkgdir}"/usr/lib/libhostfxr.so
-  install -Dm 644 "${srcdir}"/dotnet.sh -t "${pkgdir}"/etc/profile.d/
+  install -Dm 644 ../../src/sdk.*/scripts/register-completions.bash "${pkgdir}"/usr/share/bash-completion/completions/dotnet
+  install -Dm 644 ../../../../dotnet.sh -t "${pkgdir}"/etc/profile.d/
 }
 
 package_dotnet-runtime() {
