@@ -2,7 +2,7 @@
 
 _pkgname=build
 pkgname=python-$_pkgname
-pkgver=0.4.0
+pkgver=0.5.1
 pkgrel=1
 pkgdesc='A simple, correct PEP517 package builder'
 arch=('any')
@@ -10,7 +10,7 @@ url='https://github.com/pypa/build'
 license=('MIT')
 depends=('python-toml' 'python-pep517' 'python-packaging')
 optdepends=('python-virtualenv: Use virtualenv for build isolation')
-makedepends=('git' 'python-setuptools'
+makedepends=('git' 'python-setuptools' 'python-wheel'
              'python-sphinx' 'python-sphinx-argparse-cli' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
 checkdepends=('python-pytest' 'python-pytest-mock' 'python-filelock')
 source=("git+$url#tag=$pkgver?signed")
