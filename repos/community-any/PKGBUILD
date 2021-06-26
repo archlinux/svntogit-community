@@ -7,7 +7,7 @@
 
 pkgname=salt
 pkgver=3003.1
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -41,6 +41,10 @@ source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
 
 sha256sums=('8a7184d3de4d1727618f0d3fbba79e54389aeff85b72f4ceb8200bcc167f6ebe'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
+
+prepare() {
+  sed -i '/^contextvars/d' $pkgname-$pkgver/requirements/base.txt
+}
 
 build() {
   cd salt-$pkgver
