@@ -5,9 +5,8 @@
 # Contributor: Tim Huetz <tim at huetz biz>
 
 pkgname=libsvm
-pkgver=3.24
-_srcver="${pkgver/./}"
-pkgrel=3
+pkgver=3.25
+pkgrel=1
 pkgdesc='A library for Support Vector Machines classification (includes binaries and bindings for python and java)'
 arch=('x86_64')
 url='https://www.csie.ntu.edu.tw/~cjlin/libsvm/'
@@ -18,60 +17,46 @@ optdepends=('qt5-base: for Qt5 interface with svm-toy'
             'python: for python modules and python CLI tools'
             'gnuplot: for using svm-easy.py'
             'java-runtime: for java bindings')
-source=("${pkgname}-${pkgver}.tar.gz"::"https://github.com/cjlin1/libsvm/archive/v${_srcver}.tar.gz"
+source=("https://github.com/cjlin1/libsvm/archive/v${pkgver/./}/${pkgname}-${pkgver}.tar.gz"
         '010-libsvm-fix-qt-headers-path.patch'
         '020-libsvm-use-archlinux-flags.patch'
         '030-libsvm-fix-tools-path.patch')
-sha256sums=('3ba1ac74ee08c4dd57d3a9e4a861ffb57dab88c6a33fd53eac472fc84fbb2a8f'
-            '01d28d48ca955921cff3ee39e6235fbcbe6f13587c056b05797388afc0c45432'
-            'ba986c03199445ec0a9d1d113f54753e61f691ad4c66cad80b1f7d6ccf0c2d17'
-            '58338a8eac252459c665eb6f1f03f4b86cd541b2c6942357329be022f3bb6fce')
+sha256sums=('1f587ec0df6fd422dfe50f942f8836ac179b0723b768fe9d2fabdfd1601a0963'
+            '07bc50e50c3e34823e1669fec1be84a50fcea2307dcf33b00300135e08d2de4d'
+            '6891fcbedf246c6b73d43551ce2476678dc473cee45d12d9fcaf124a1aac0d92'
+            '17c54ef795209112f2e1c8f15aaf74bb0214681df09a8abca16b5bfb2506e193')
 
 prepare() {
-    patch -d "${pkgname}-${_srcver}" -Np1 -i "${srcdir}/010-libsvm-fix-qt-headers-path.patch"
-    patch -d "${pkgname}-${_srcver}" -Np1 -i "${srcdir}/020-libsvm-use-archlinux-flags.patch"
-    patch -d "${pkgname}-${_srcver}" -Np1 -i "${srcdir}/030-libsvm-fix-tools-path.patch"
+    patch -d "${pkgname}-${pkgver/./}" -Np1 -i "${srcdir}/010-libsvm-fix-qt-headers-path.patch"
+    patch -d "${pkgname}-${pkgver/./}" -Np1 -i "${srcdir}/020-libsvm-use-archlinux-flags.patch"
+    patch -d "${pkgname}-${pkgver/./}" -Np1 -i "${srcdir}/030-libsvm-fix-tools-path.patch"
 }
 
 build() {
-    cd "${pkgname}-${_srcver}"
-    
-    printf '%s\n' '  -> Building library and CLI binaries...'
-    make lib all
-    
-    printf '%s\n' '  -> Building Qt5 interface...'
-    make -C svm-toy/qt
+    make -C "${pkgname}-${pkgver/./}" lib all
+    make -C "${pkgname}-${pkgver/./}/svm-toy/qt"
 }
 
 package() {
-    cd "${pkgname}-${_srcver}"
-    
-    local _pyver
-    local _sover
-    _pyver="$(python -c 'import sys; print("%s.%s" %sys.version_info[0:2])')"
-    _sover="$(find . -maxdepth 1 -type f -regextype posix-basic -regex '.*/libsvm.so.[0-9]*$' | awk -F'.' '{ print $NF }')"
+    cd "${pkgname}-${pkgver/./}"
     
     # binaries
-    install -D -m755 svm-predict        -t "${pkgdir}/usr/bin"
-    install -D -m755 svm-scale          -t "${pkgdir}/usr/bin"
-    install -D -m755 svm-train          -t "${pkgdir}/usr/bin"
-    install -D -m755 svm-toy/qt/svm-toy -t "${pkgdir}/usr/bin"
+    install -D -m755 svm-{{predict,scale,train},toy/qt/svm-toy} -t "${pkgdir}/usr/bin"
     
     # library
-    install -D -m755 "libsvm.so.${_sover}" -t "${pkgdir}/usr/lib"
-    ln -s "libsvm.so.${_sover}" "${pkgdir}/usr/lib/libsvm.so"
+    install -D -m755 libsvm.so.* -t "${pkgdir}/usr/lib"
+    ln -s "$(find "${pkgdir}/usr/lib" -regex '.*libsvm.so.[0-9]*' -exec basename '{}' ';')" "${pkgdir}/usr/lib/libsvm.so"
     
     # header
     install -D -m644 svm.h -t "${pkgdir}/usr/include/libsvm"
     
     # python modules
-    ## NOTE: 'grid.py' can be used either as a python module or a CLI/tool
-    ## https://github.com/cjlin1/libsvm/blob/v324/tools/README#L163-L164
-    install -D -m644 python/commonutil.py -t "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm"
-    install -D -m644 python/svm.py        -t "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm"
-    install -D -m644 python/svmutil.py    -t "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm"
-    ln -s ../../../../bin/svm-grid.py        "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm/grid.py"
-    printf '' | install -D -m644 /dev/stdin  "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm/__init__.py"
+    # NOTE: 'grid.py' can be used either as a python module or a CLI/tool
+    # https://github.com/cjlin1/libsvm/blob/v325/tools/README#L163-L164
+    local _pyver
+    _pyver="$(python -c 'import sys; print("%s.%s" %sys.version_info[0:2])')"
+    install -D -m644 python/libsvm/{{common,svm}util,svm,__init__}.py -t "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm"
+    ln -s ../../../../bin/svm-grid.py "${pkgdir}/usr/lib/python${_pyver}/site-packages/libsvm/grid.py"
     
     # python CLI/tools
     install -D -m755 tools/checkdata.py "${pkgdir}/usr/bin/svm-checkdata.py"
