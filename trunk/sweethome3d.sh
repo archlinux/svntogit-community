@@ -2,7 +2,7 @@
 
 APP_CLASSPATH=""
 JAVA_EXEC=""
-JAVA_OPTS="${JAVA_OPTS} -Xmx1024m"
+JAVA_OPTS="${JAVA_OPTS} -Xmx1024m --illegal-access=permit"
 
 if [ -n "${JAVA_HOME}" ]
 then
