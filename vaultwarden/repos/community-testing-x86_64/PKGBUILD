@@ -1,0 +1,58 @@
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Markus Richter <mqus at disroot dot org>
+# Contributor: Timothée Ravier <tim@siosm.fr
+
+pkgname=vaultwarden
+pkgver=1.22.0
+pkgrel=1
+pkgdesc='Unofficial Bitwarden compatible server written in Rust'
+arch=('x86_64')
+url=https://github.com/dani-garcia/vaultwarden
+license=('GPL3')
+depends=('mariadb-libs' 'openssl' 'postgresql-libs' 'sqlite')
+makedepends=('rustup')
+optdepends=('vaultwarden-web: for the web app')
+provides=('bitwarden_rs')
+replaces=('bitwarden_rs')
+backup=('etc/vaultwarden.env')
+install=$pkgname.install
+source=("$url/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        "$pkgname.service"
+        "$pkgname.sysusers.conf"
+        "$pkgname.tmpfiles")
+b2sums=('2e59648373373a55667d73507a83ab75b382ce3ad016cdd6612f0f2f775eb0371acfc62c4d60e6f017dde6b63d62f1d76ea1f953978154fa60b84dc5e9853b0f'
+        '9d9c8b1cb1773a23e23dc0c6c99c8311a85793502d4055a80a77934a2149a6da3af0b221456641f34bee8265197267908812e800c9655d6b484fd045264e458a'
+        '6580cf4031f262638abf11e529e8dfc489197afd6cd616c6a7810741e03c004706a5f9358f825aac6644c0ab6b251627ff988ed68f8264120b3575a655972390'
+        '9cdcd6c997c884eb3c1ad0c9b8cd91e68ec6762a27f9b80a7eb6c0cb1ffa4e500a654da6f17e9f985cc67add154efe737761f74e4e5f72892fc0e9d457314973')
+
+prepare() {
+  cd $pkgname-$pkgver
+  sed -i "s,# DATA_FOLDER=data,DATA_FOLDER=/var/lib/$pkgname,
+  s,web-vault/,/usr/share/webapps/$pkgname-web,
+  s,# WEB_VAULT_ENABLED=true,WEB_VAULT_ENABLED=false,
+  s,/path/to/log,/var/log/$pkgname.log,
+  /^# ROCKET_TLS/a ROCKET_LIMITS={json=10485760}" .env.template
+}
+
+build() {
+  cd $pkgname-$pkgver
+  rustup set profile minimal
+  BWRS_VERSION="$pkgver" cargo build --release --locked --features sqlite,mysql,postgresql
+}
+
+check() {
+  cd $pkgname-$pkgver
+  cargo test --release --locked --features sqlite,mysql,postgresql
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -Dm644 .env.template "$pkgdir"/etc/$pkgname.env
+  install -Dt "$pkgdir"/usr/bin target/release/$pkgname
+  install -Dm644 -t "$pkgdir"/usr/lib/systemd/system ../$pkgname.service
+  install -Dm644 ../$pkgname.sysusers.conf "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
+  install -Dm644 ../$pkgname.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+}
+
+# vim:set ts=2 sw=2 et:
