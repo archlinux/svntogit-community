@@ -3,7 +3,7 @@
 # Contributor: Omar Pakker
 
 pkgname=wlroots
-pkgver=0.13.0
+pkgver=0.14.0
 pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
@@ -11,6 +11,7 @@ url='https://github.com/swaywm/wlroots'
 arch=('x86_64')
 depends=(
     'libinput'
+    'libseat'
     'libxkbcommon'
     'opengl-driver'
     'pixman'
@@ -34,7 +35,7 @@ source=(
     "$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz"
     "https://github.com/swaywm/wlroots/releases/download/$pkgver/wlroots-$pkgver.tar.gz.sig"
 )
-sha256sums=('f6bea37fd4a6f5e5f552b83d61adae8c73e64b0bcb9ae0ab464ebcd9309d3cf3'
+sha256sums=('2a8435bf63681868699c4e3975df31cb111ad2d3f35740179036083f87382ac7'
             'SKIP')
 validpgpkeys=(
     '34FF9526CFEF0E97A340E2E40FDE7BE0E88F5E48' # Simon Ser
@@ -43,9 +44,7 @@ validpgpkeys=(
 )
 
 build() {
-    arch-meson "$pkgname-$pkgver" build \
-        -Dlogind-provider=systemd \
-        -Dlibseat=disabled
+    arch-meson "$pkgname-$pkgver" build
     ninja -C build
 }
 
