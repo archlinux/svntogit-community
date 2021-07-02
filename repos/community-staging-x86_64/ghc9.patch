@@ -1,0 +1,1061 @@
+From ddd3c1ee822c2759f9b67a6e199770e6097b5ef0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=C3=A4llberg?= <anka.213@gmail.com>
+Date: Tue, 30 Mar 2021 00:52:11 +0800
+Subject: [PATCH 1/7] Add non-backwards compatible support for ghc-9.0.1
+
+---
+ hiedb.cabal          |  4 +++-
+ src/HieDb/Create.hs  | 15 +++++++++------
+ src/HieDb/Query.hs   | 28 ++++++++++++++--------------
+ src/HieDb/Run.hs     | 41 +++++++++++++++++++++--------------------
+ src/HieDb/Types.hs   | 25 ++++++++++++++++---------
+ src/HieDb/Utils.hs   | 34 ++++++++++++++++++++++++++--------
+ test/Main.hs         | 26 ++++++++++++++------------
+ test/Test/Orphans.hs |  4 ++--
+ 8 files changed, 105 insertions(+), 72 deletions(-)
+
+diff --git a/hiedb.cabal b/hiedb.cabal
+index 82fc7b6..f198504 100644
+--- a/hiedb.cabal
++++ b/hiedb.cabal
+@@ -25,7 +25,7 @@ source-repository head
+ 
+ common common-options
+   default-language:    Haskell2010
+-  build-depends:       base >= 4.12 && < 4.15
++  build-depends:       base >= 4.12 && < 4.16
+   ghc-options:         -Wall
+                        -Wincomplete-uni-patterns
+                        -Wincomplete-record-updates
+@@ -69,6 +69,7 @@ library
+                      , optparse-applicative
+                      , extra
+                      , ansi-terminal
++                     , ghc-api-compat
+ 
+ test-suite hiedb-tests
+   import:             common-options
+@@ -85,3 +86,4 @@ test-suite hiedb-tests
+                     , hspec
+                     , process
+                     , temporary
++                    , ghc-api-compat
+diff --git a/src/HieDb/Create.hs b/src/HieDb/Create.hs
+index 3572843..57c3fac 100644
+--- a/src/HieDb/Create.hs
++++ b/src/HieDb/Create.hs
+@@ -34,6 +34,7 @@ import Database.SQLite.Simple
+ 
+ import HieDb.Types
+ import HieDb.Utils
++import GHC.Data.FastString  as FS      ( FastString )
+ 
+ sCHEMA_VERSION :: Integer
+ sCHEMA_VERSION = 5
+@@ -60,7 +61,7 @@ checkVersion k db@(getConn -> conn) = do
+ withHieDb :: FilePath -> (HieDb -> IO a) -> IO a
+ withHieDb fp f = withConnection fp (checkVersion f . HieDb)
+ 
+-{-| Given GHC LibDir and path to @.hiedb@ file, 
++{-| Given GHC LibDir and path to @.hiedb@ file,
+ constructs DynFlags (required for printing info from @.hie@ files)
+ and 'HieDb' and passes them to given function.
+ -}
+@@ -150,7 +151,7 @@ initConn (getConn -> conn) = do
+   execute_ conn "CREATE INDEX IF NOT EXISTS typerefs_mod ON typerefs(hieFile)"
+ 
+ {-| Add names of types from @.hie@ file to 'HieDb'.
+-Returns an Array mapping 'TypeIndex' to database ID assigned to the 
++Returns an Array mapping 'TypeIndex' to database ID assigned to the
+ corresponding record in DB.
+ -}
+ addArr :: HieDb -> A.Array TypeIndex HieTypeFlat -> IO (A.Array TypeIndex (Maybe Int64))
+@@ -166,7 +167,7 @@ addArr (getConn -> conn) arr = do
+       Just m -> do
+         let occ = nameOccName n
+             mod = moduleName m
+-            uid = moduleUnitId m
++            uid = moduleUnit m
+         execute conn "INSERT INTO typenames(name,mod,unit) VALUES (?,?,?)" (occ,mod,uid)
+         Just . fromOnly . head <$> query conn "SELECT id FROM typenames WHERE name = ? AND mod = ? AND unit = ?" (occ,mod,uid)
+ 
+@@ -179,7 +180,9 @@ addTypeRefs
+   -> IO ()
+ addTypeRefs db path hf ixs = mapM_ addTypesFromAst asts
+   where
++    arr :: A.Array TypeIndex HieTypeFlat
+     arr = hie_types hf
++    asts :: M.Map FS.FastString (HieAST TypeIndex)
+     asts = getAsts $ hie_asts hf
+     addTypesFromAst :: HieAST TypeIndex -> IO ()
+     addTypesFromAst ast = do
+@@ -187,7 +190,7 @@ addTypeRefs db path hf ixs = mapM_ addTypesFromAst asts
+         $ mapMaybe (\x -> guard (any (not . isOccurrence) (identInfo x)) *> identType x)
+         $ M.elems
+         $ nodeIdentifiers
+-        $ nodeInfo ast
++        $ nodeInfo' ast
+       mapM_ addTypesFromAst $ nodeChildren ast
+ 
+ {-| Adds all references from given @.hie@ file to 'HieDb'.
+@@ -219,7 +222,7 @@ addRefsFromLoaded db@(getConn -> conn) path sourceFile hash hf = liftIO $ withTr
+ 
+   let isBoot = "boot" `isSuffixOf` path
+       mod    = moduleName smod
+-      uid    = moduleUnitId smod
++      uid    = moduleUnit smod
+       smod   = hie_module hf
+       refmap = generateReferencesMap $ getAsts $ hie_asts hf
+       (srcFile, isReal) = case sourceFile of
+@@ -243,7 +246,7 @@ addRefsFromLoaded db@(getConn -> conn) path sourceFile hash hf = liftIO $ withTr
+ No action is taken if the corresponding @.hie@ file has not been indexed yet.
+ -}
+ addSrcFile
+-  :: HieDb 
++  :: HieDb
+   -> FilePath -- ^ Path to @.hie@ file
+   -> FilePath -- ^ Path to .hs file to be added to DB
+   -> Bool -- ^ Is this a real source file? I.e. does it come from user's project (as opposed to from project's dependency)?
+diff --git a/src/HieDb/Query.hs b/src/HieDb/Query.hs
+index 93f6132..9fe9913 100644
+--- a/src/HieDb/Query.hs
++++ b/src/HieDb/Query.hs
+@@ -41,11 +41,11 @@ import qualified HieDb.Html as Html
+ getAllIndexedMods :: HieDb -> IO [HieModuleRow]
+ getAllIndexedMods (getConn -> conn) = query_ conn "SELECT * FROM mods"
+ 
+-{-| Lookup UnitId associated with given ModuleName.
++{-| Lookup Unit associated with given ModuleName.
+ HieDbErr is returned if no module with given name has been indexed
+ or if ModuleName is ambiguous (i.e. there are multiple packages containing module with given name)
+ -}
+-resolveUnitId :: HieDb -> ModuleName -> IO (Either HieDbErr UnitId)
++resolveUnitId :: HieDb -> ModuleName -> IO (Either HieDbErr Unit)
+ resolveUnitId (getConn -> conn) mn = do
+   luid <- query conn "SELECT mod, unit, is_boot, hs_src, is_real, hash FROM mods WHERE mod = ? and is_boot = 0" (Only mn)
+   return $ case luid of
+@@ -53,7 +53,7 @@ resolveUnitId (getConn -> conn) mn = do
+     [x] -> Right $ modInfoUnit x
+     (x:xs) -> Left $ AmbiguousUnitId $ x :| xs
+ 
+-findReferences :: HieDb -> Bool -> OccName -> Maybe ModuleName -> Maybe UnitId -> [FilePath] -> IO [Res RefRow]
++findReferences :: HieDb -> Bool -> OccName -> Maybe ModuleName -> Maybe Unit -> [FilePath] -> IO [Res RefRow]
+ findReferences (getConn -> conn) isReal occ mn uid exclude =
+   queryNamed conn thisQuery ([":occ" := occ, ":mod" := mn, ":unit" := uid, ":real" := isReal] ++ excludedFields)
+   where
+@@ -65,8 +65,8 @@ findReferences (getConn -> conn) isReal occ mn uid exclude =
+             \((NOT :real) OR (mods.is_real AND mods.hs_src IS NOT NULL))"
+       <> " AND mods.hs_src NOT IN (" <> Query (T.intercalate "," (map (\(l := _) -> l) excludedFields)) <> ")"
+ 
+-{-| Lookup 'HieModule' row from 'HieDb' given its 'ModuleName' and 'UnitId' -}
+-lookupHieFile :: HieDb -> ModuleName -> UnitId -> IO (Maybe HieModuleRow)
++{-| Lookup 'HieModule' row from 'HieDb' given its 'ModuleName' and 'Unit' -}
++lookupHieFile :: HieDb -> ModuleName -> Unit -> IO (Maybe HieModuleRow)
+ lookupHieFile (getConn -> conn) mn uid = do
+   files <- query conn "SELECT * FROM mods WHERE mod = ? AND unit = ? AND is_boot = 0" (mn, uid)
+   case files of
+@@ -89,7 +89,7 @@ lookupHieFileFromSource (getConn -> conn) fp = do
+             ++ show fp ++ ". Entries: "
+             ++ intercalate ", " (map (show . toRow) xs)
+ 
+-findTypeRefs :: HieDb -> Bool -> OccName -> Maybe ModuleName -> Maybe UnitId -> [FilePath] -> IO [Res TypeRef]
++findTypeRefs :: HieDb -> Bool -> OccName -> Maybe ModuleName -> Maybe Unit -> [FilePath] -> IO [Res TypeRef]
+ findTypeRefs (getConn -> conn) isReal occ mn uid exclude
+   = queryNamed conn thisQuery ([":occ" := occ, ":mod" := mn, ":unit" := uid, ":real" := isReal] ++ excludedFields)
+   where
+@@ -103,14 +103,14 @@ findTypeRefs (getConn -> conn) isReal occ mn uid exclude
+       <> " AND mods.hs_src NOT IN (" <> Query (T.intercalate "," (map (\(l := _) -> l) excludedFields)) <> ")"
+       <> " ORDER BY typerefs.depth ASC"
+ 
+-findDef :: HieDb -> OccName -> Maybe ModuleName -> Maybe UnitId -> IO [Res DefRow]
++findDef :: HieDb -> OccName -> Maybe ModuleName -> Maybe Unit -> IO [Res DefRow]
+ findDef conn occ mn uid
+   = queryNamed (getConn conn) "SELECT defs.*, mods.mod,mods.unit,mods.is_boot,mods.hs_src,mods.is_real,mods.hash \
+                               \FROM defs JOIN mods USING (hieFile) \
+                               \WHERE occ = :occ AND (:mod IS NULL OR mod = :mod) AND (:unit IS NULL OR unit = :unit)"
+                               [":occ" := occ,":mod" := mn, ":unit" := uid]
+ 
+-findOneDef :: HieDb -> OccName -> Maybe ModuleName -> Maybe UnitId -> IO (Either HieDbErr (Res DefRow))
++findOneDef :: HieDb -> OccName -> Maybe ModuleName -> Maybe Unit -> IO (Either HieDbErr (Res DefRow))
+ findOneDef conn occ mn muid = wrap <$> findDef conn occ mn muid
+   where
+     wrap [x]    = Right x
+@@ -126,7 +126,7 @@ searchDef conn cs
+                          \LIMIT 200" (Only $ '_':cs++"%")
+ 
+ {-| @withTarget db t f@ runs function @f@ with HieFile specified by HieTarget @t@.
+-In case the target is given by ModuleName (and optionally UnitId) it is first resolved
++In case the target is given by ModuleName (and optionally Unit) it is first resolved
+ from HieDb, which can lead to error if given file is not indexed/Module name is ambiguous.
+ -}
+ withTarget
+@@ -151,7 +151,7 @@ withTarget conn target f = case target of
+       nc <- newIORef =<< makeNc
+       runDbM nc $ do
+         Right <$> withHieFile fp' (return . f)
+-  
++
+ 
+ type Vertex = (String, String, String, Int, Int, Int, Int)
+ 
+@@ -197,7 +197,7 @@ getVertices (getConn -> conn) ss = Set.toList <$> foldM f Set.empty ss
+     one s = do
+       let n = toNsChar (occNameSpace $ symName s) : occNameString (symName s)
+           m = moduleNameString $ moduleName $ symModule s
+-          u = unitIdString (moduleUnitId $ symModule s)
++          u = unitString (moduleUnit $ symModule s)
+       query conn "SELECT mods.mod, decls.hieFile, decls.occ, decls.sl, decls.sc, decls.el, decls.ec \
+                  \FROM decls JOIN mods USING (hieFile) \
+                  \WHERE ( decls.occ = ? AND mods.mod = ? AND mods.unit = ? ) " (n, m, u)
+@@ -224,9 +224,9 @@ getAnnotations db symbols = do
+         m2 = foldl' (f Html.Unreachable) m1        us
+     return m2
+   where
+-    f :: Html.Color 
+-      -> Map FilePath (ModuleName, Set Html.Span) 
+-      -> Vertex 
++    f :: Html.Color
++      -> Map FilePath (ModuleName, Set Html.Span)
++      -> Vertex
+       -> Map FilePath (ModuleName, Set Html.Span)
+     f c m v =
+         let (fp, mod', sp) = g c v
+diff --git a/src/HieDb/Run.hs b/src/HieDb/Run.hs
+index 1184748..0c98134 100644
+--- a/src/HieDb/Run.hs
++++ b/src/HieDb/Run.hs
+@@ -14,6 +14,7 @@ import Name
+ import Module
+ import Outputable ((<+>),hang,showSDoc,ppr,text)
+ import IfaceType (IfaceType)
++import SrcLoc
+ 
+ import qualified FastString as FS
+ 
+@@ -86,15 +87,15 @@ data Options
+ data Command
+   = Init
+   | Index [FilePath]
+-  | NameRefs String (Maybe ModuleName) (Maybe UnitId)
+-  | TypeRefs String (Maybe ModuleName) (Maybe UnitId)
+-  | NameDef  String (Maybe ModuleName) (Maybe UnitId)
+-  | TypeDef  String (Maybe ModuleName) (Maybe UnitId)
++  | NameRefs String (Maybe ModuleName) (Maybe Unit)
++  | TypeRefs String (Maybe ModuleName) (Maybe Unit)
++  | NameDef  String (Maybe ModuleName) (Maybe Unit)
++  | TypeDef  String (Maybe ModuleName) (Maybe Unit)
+   | Cat HieTarget
+   | Ls
+   | Rm [HieTarget]
+   | ModuleUIDs ModuleName
+-  | LookupHieFile ModuleName (Maybe UnitId)
++  | LookupHieFile ModuleName (Maybe Unit)
+   | RefsAtPoint  HieTarget (Int,Int) (Maybe (Int,Int))
+   | TypesAtPoint HieTarget (Int,Int) (Maybe (Int,Int))
+   | DefsAtPoint  HieTarget (Int,Int) (Maybe (Int,Int))
+@@ -195,9 +196,9 @@ cmdParser
+ posParser :: Char -> Parser (Int,Int)
+ posParser c = (,) <$> argument auto (metavar $ c:"LINE") <*> argument auto (metavar $ c:"COL")
+ 
+-maybeUnitId :: Parser (Maybe UnitId)
++maybeUnitId :: Parser (Maybe Unit)
+ maybeUnitId =
+-  optional (stringToUnitId <$> strOption (short 'u' <> long "unit-id" <> metavar "UNITID"))
++  optional (stringToUnit <$> strOption (short 'u' <> long "unit-id" <> metavar "UNITID"))
+ 
+ symbolParser :: Parser Symbol
+ symbolParser = argument auto $ metavar "SYMBOL"
+@@ -299,7 +300,7 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+         putStr "\t"
+         putStr $ moduleNameString $ modInfoName $ hieModInfo mod
+         putStr "\t"
+-        putStrLn $ unitIdString $ modInfoUnit $ hieModInfo mod
++        putStrLn $ unitString $ modInfoUnit $ hieModInfo mod
+     Rm targets -> do
+         forM_ targets $ \target -> do
+           case target of
+@@ -330,7 +331,7 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+             Nothing -> return $ Left (NotIndexed mn $ Just uid)
+             Just x -> Right <$> putStrLn (hieModuleHieFile x)
+     RefsAtPoint target sp mep -> hieFileCommand conn opts target $ \hf -> do
+-      let names = concat $ pointCommand hf sp mep $ rights . M.keys . nodeIdentifiers . nodeInfo
++      let names = concat $ pointCommand hf sp mep $ rights . M.keys . nodeIdentifiers . nodeInfo'
+       when (null names) $
+         reportAmbiguousErr opts (Left $ NoNameAtPoint target sp)
+       forM_ names $ \name -> do
+@@ -339,7 +340,7 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+           hPutStrLn stderr ""
+         case nameModule_maybe name of
+           Just mod -> do
+-            reportRefs opts =<< findReferences conn False (nameOccName name) (Just $ moduleName mod) (Just $ moduleUnitId mod) []
++            reportRefs opts =<< findReferences conn False (nameOccName name) (Just $ moduleName mod) (Just $ moduleUnit mod) []
+           Nothing -> do
+             let refmap = generateReferencesMap (getAsts $ hie_asts hf)
+                 refs = map (toRef . fst) $ M.findWithDefault [] (Right name) refmap
+@@ -349,19 +350,19 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+                             ,Just $ Right (hie_hs_src hf))
+             reportRefSpans opts refs
+     TypesAtPoint target sp mep -> hieFileCommand conn opts target $ \hf -> do
+-      let types' = concat $ pointCommand hf sp mep $ nodeType . nodeInfo
++      let types' = concat $ pointCommand hf sp mep $ nodeType . nodeInfo'
+           types = map (flip recoverFullType $ hie_types hf) types'
+       when (null types) $
+         reportAmbiguousErr opts (Left $ NoNameAtPoint target sp)
+       forM_ types $ \typ -> do
+         putStrLn $ renderHieType dynFlags typ
+     DefsAtPoint target sp mep -> hieFileCommand conn opts target $ \hf -> do
+-      let names = concat $ pointCommand hf sp mep $ rights . M.keys . nodeIdentifiers . nodeInfo
++      let names = concat $ pointCommand hf sp mep $ rights . M.keys . nodeIdentifiers . nodeInfo'
+       when (null names) $
+         reportAmbiguousErr opts (Left $ NoNameAtPoint target sp)
+       forM_ names $ \name -> do
+         case nameSrcSpan name of
+-          RealSrcSpan dsp -> do
++          RealSrcSpan dsp _ -> do
+             unless (quiet opts) $
+               hPutStrLn stderr $ unwords ["Name", ppName opts (nameOccName name),"at",ppSpan opts sp,"is defined at:"]
+             contents <- case nameModule_maybe name of
+@@ -369,7 +370,7 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+               Just mod
+                 | mod == hie_module hf -> pure $ Just $ Right $ hie_hs_src hf
+                 | otherwise -> unsafeInterleaveIO $ do
+-                    loc <- findOneDef conn (nameOccName name) (Just $ moduleName mod) (Just $ moduleUnitId mod)
++                    loc <- findOneDef conn (nameOccName name) (Just $ moduleName mod) (Just $ moduleUnit mod)
+                     pure $ case loc of
+                       Left _ -> Nothing
+                       Right (row:._) -> Just $ Left $ defSrc row
+@@ -384,7 +385,7 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+             case nameModule_maybe name of
+               Just mod -> do
+                 (row:.inf) <- reportAmbiguousErr opts
+-                    =<< findOneDef conn (nameOccName name) (Just $ moduleName mod) (Just $ moduleUnitId mod)
++                    =<< findOneDef conn (nameOccName name) (Just $ moduleName mod) (Just $ moduleUnit mod)
+                 unless (quiet opts) $
+                   hPutStrLn stderr $ unwords ["Name", ppName opts (nameOccName name),"at",ppSpan opts sp,"is defined at:"]
+                 reportRefSpans opts
+@@ -394,10 +395,10 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+                    ,Just $ Left $ defSrc row
+                    )]
+               Nothing -> do
+-                reportAmbiguousErr opts $ Left $ NameUnhelpfulSpan name (FS.unpackFS msg)
++                reportAmbiguousErr opts $ Left $ NameUnhelpfulSpan name (FS.unpackFS $ unhelpfulSpanFS msg)
+     InfoAtPoint target sp mep -> hieFileCommand conn opts target $ \hf -> do
+       mapM_ (uncurry $ printInfo dynFlags) $ pointCommand hf sp mep $ \ast ->
+-        (hieTypeToIface . flip recoverFullType (hie_types hf) <$> nodeInfo ast, nodeSpan ast)
++        (hieTypeToIface . flip recoverFullType (hie_types hf) <$> nodeInfo' ast, nodeSpan ast)
+     RefGraph -> declRefs conn
+     Dump path -> do
+       nc <- newIORef =<< makeNc
+@@ -450,13 +451,13 @@ showHieDbErr :: Options -> HieDbErr -> String
+ showHieDbErr opts e = case e of
+   NoNameAtPoint t spn -> unwords ["No symbols found at",ppSpan opts spn,"in",either id (\(mn,muid) -> ppMod opts mn ++ maybe "" (\uid -> "("++ppUnit opts uid++")") muid) t]
+   NotIndexed mn muid -> unwords ["Module", ppMod opts mn ++ maybe "" (\uid -> "("++ppUnit opts uid++")") muid, "not indexed."]
+-  AmbiguousUnitId xs -> unlines $ "UnitId could be any of:" : map ((" - "<>) . unitIdString . modInfoUnit) (toList xs)
++  AmbiguousUnitId xs -> unlines $ "Unit could be any of:" : map ((" - "<>) . unitString . modInfoUnit) (toList xs)
+     <> ["Use --unit-id to disambiguate"]
+   NameNotFound occ mn muid -> unwords
+     ["Couldn't find name:", ppName opts occ, maybe "" (("from module " ++) . moduleNameString) mn ++ maybe "" (\uid ->"("++ppUnit opts uid++")") muid]
+   NameUnhelpfulSpan nm msg -> unwords
+     ["Got no helpful spans for:", occNameString (nameOccName nm), "\nMsg:", msg]
+- 
++
+ reportRefSpans :: Options -> [(Module,(Int,Int),(Int,Int),Maybe (Either FilePath BS.ByteString))] -> IO ()
+ reportRefSpans opts xs = do
+   nc <- newIORef =<< makeNc
+@@ -530,7 +531,7 @@ ppName = colouredPP Red occNameString
+ ppMod :: Options -> ModuleName -> String
+ ppMod = colouredPP Green moduleNameString
+ 
+-ppUnit :: Options -> UnitId -> String
++ppUnit :: Options -> Unit -> String
+ ppUnit = colouredPP Yellow show
+ 
+ ppSpan :: Options -> (Int,Int) -> String
+diff --git a/src/HieDb/Types.hs b/src/HieDb/Types.hs
+index 3e1717a..11ee355 100644
+--- a/src/HieDb/Types.hs
++++ b/src/HieDb/Types.hs
+@@ -5,6 +5,7 @@
+ {-# LANGUAGE BlockArguments #-}
+ {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+ {-# LANGUAGE StandaloneDeriving #-}
++{-# LANGUAGE FlexibleInstances #-}
+ {-# OPTIONS_GHC -Wno-orphans #-}
+ module HieDb.Types where
+ 
+@@ -55,7 +56,7 @@ data SourceFile = RealFile FilePath | FakeFile (Maybe FilePath)
+ data ModuleInfo
+   = ModuleInfo
+   { modInfoName :: ModuleName
+-  , modInfoUnit :: UnitId -- ^ Identifies the package this module is part of
++  , modInfoUnit :: Unit -- ^ Identifies the package this module is part of
+   , modInfoIsBoot :: Bool -- ^ True, when this ModuleInfo was created by indexing @.hie-boot@  file;
+                           -- False when it was created from @.hie@ file
+   , modInfoSrcFile :: Maybe FilePath -- ^ The path to the haskell source file, from which the @.hie@ file was created
+@@ -79,6 +80,11 @@ instance ToField ModuleName where
+ instance FromField ModuleName where
+   fromField fld = mkModuleName . T.unpack <$> fromField fld
+ 
++instance ToField (GenUnit UnitId) where
++  toField uid = SQLText $ T.pack $ unitString uid
++instance FromField (GenUnit UnitId) where
++  fromField fld = stringToUnit . T.unpack <$> fromField fld
++
+ instance ToField UnitId where
+   toField uid = SQLText $ T.pack $ unitIdString uid
+ instance FromField UnitId where
+@@ -139,7 +145,7 @@ data RefRow
+   { refSrc :: FilePath
+   , refNameOcc :: OccName
+   , refNameMod :: ModuleName
+-  , refNameUnit :: UnitId
++  , refNameUnit :: Unit
+   , refSLine :: Int
+   , refSCol :: Int
+   , refELine :: Int
+@@ -175,7 +181,7 @@ instance FromRow DeclRow where
+ data TypeName = TypeName
+   { typeName :: OccName
+   , typeMod :: ModuleName
+-  , typeUnit :: UnitId
++  , typeUnit :: Unit
+   }
+ 
+ data TypeRef = TypeRef
+@@ -233,9 +239,9 @@ instance MonadIO m => NameCacheMonad (DbMonadT m) where
+ 
+ 
+ data HieDbErr
+-  = NotIndexed ModuleName (Maybe UnitId)
++  = NotIndexed ModuleName (Maybe Unit)
+   | AmbiguousUnitId (NonEmpty ModuleInfo)
+-  | NameNotFound OccName (Maybe ModuleName) (Maybe UnitId)
++  | NameNotFound OccName (Maybe ModuleName) (Maybe Unit)
+   | NoNameAtPoint HieTarget (Int,Int)
+   | NameUnhelpfulSpan Name String
+ 
+@@ -251,7 +257,8 @@ instance Show Symbol where
+            <> ":"
+            <> moduleNameString (moduleName $ symModule s)
+            <> ":"
+-           <> unitIdString (moduleUnitId $ symModule s)
++        --    <> unitIdString (moduleUnit $ symModule s)
++           <> unitString (moduleUnit $ symModule s)
+ 
+ instance Read Symbol where
+   readsPrec = const $ R.readP_to_S readSymbol
+@@ -275,7 +282,7 @@ readSymbol = do
+   u <- R.many1 R.get
+   R.eof
+   let mn  = mkModuleName m
+-      uid = stringToUnitId u
++      uid = stringToUnit u
+       sym = Symbol
+               { symName   = mkOccName ns n
+               , symModule = mkModule uid mn
+@@ -288,5 +295,5 @@ newtype LibDir = LibDir FilePath
+ 
+ -- | A way to specify which HieFile to operate on.
+ -- Either the path to @.hie@ file is given in the Left
+--- Or ModuleName (with optional UnitId) is given in the Right
+-type HieTarget = Either FilePath (ModuleName, Maybe UnitId)
++-- Or ModuleName (with optional Unit) is given in the Right
++type HieTarget = Either FilePath (ModuleName, Maybe Unit)
+diff --git a/src/HieDb/Utils.hs b/src/HieDb/Utils.hs
+index 9e5b34e..1ca1cab 100644
+--- a/src/HieDb/Utils.hs
++++ b/src/HieDb/Utils.hs
+@@ -26,6 +26,7 @@ import DynFlags
+ import SysTools
+ 
+ import qualified Data.Map as M
++import qualified Data.Set as S
+ 
+ import qualified FastString as FS
+ 
+@@ -71,7 +72,8 @@ addTypeRef (getConn -> conn) hf arr ixs sp = go 0
+ #endif
+         HTyConApp _ (HieArgs xs) -> mapM_ (next . snd) xs
+         HForAllTy ((_ , a),_) b -> mapM_ next [a,b]
+-        HFunTy a b -> mapM_ next [a,b]
++        -- HFunTy a b -> mapM_ next [a,b]
++        HFunTy a b _ -> mapM_ next [a,b]
+         HQualTy a b -> mapM_ next [a,b]
+         HLitTy _ -> pure ()
+         HCastTy a -> go d a
+@@ -115,9 +117,9 @@ findDefInFile occ mdl file = do
+   nc <- readIORef ncr
+   return $ case lookupOrigNameCache (nsNames nc) mdl occ of
+     Just name -> case nameSrcSpan name of
+-      RealSrcSpan sp -> Right (sp, mdl)
+-      UnhelpfulSpan msg -> Left $ NameUnhelpfulSpan name (FS.unpackFS msg)
+-    Nothing -> Left $ NameNotFound occ (Just $ moduleName mdl) (Just $ moduleUnitId mdl)
++      RealSrcSpan sp _ -> Right (sp, mdl)
++      UnhelpfulSpan msg -> Left $ NameUnhelpfulSpan name (FS.unpackFS $ unhelpfulSpanFS msg)
++    Nothing -> Left $ NameNotFound occ (Just $ moduleName mdl) (Just $ moduleUnit mdl)
+ 
+ pointCommand :: HieFile -> (Int, Int) -> Maybe (Int, Int) -> (HieAST TypeIndex -> a) -> [a]
+ pointCommand hf (sl,sc) mep k =
+@@ -158,7 +160,7 @@ genRefsAndDecls path smdl refmap = genRows $ flat $ M.toList refmap
+ 
+     goRef (Right name, (sp,_))
+       | Just mod <- nameModule_maybe name = Just $
+-          RefRow path occ (moduleName mod) (moduleUnitId mod) sl sc el ec
++          RefRow path occ (moduleName mod) (moduleUnit mod) sl sc el ec
+           where
+             occ = nameOccName name
+             sl = srcSpanStartLine sp
+@@ -198,7 +200,7 @@ genDefRow path smod refmap = genRows $ M.toList refmap
+   where
+     genRows = mapMaybe go
+     getSpan name dets
+-      | RealSrcSpan sp <- nameSrcSpan name = Just sp
++      | RealSrcSpan sp _ <- nameSrcSpan name = Just sp
+       | otherwise = do
+           (sp, _dets) <- find defSpan dets
+           pure sp
+@@ -222,8 +224,24 @@ genDefRow path smod refmap = genRows $ M.toList refmap
+     go _ = Nothing
+ 
+ identifierTree :: HieTypes.HieAST a -> Data.Tree.Tree ( HieTypes.HieAST a )
+-identifierTree HieTypes.Node{ nodeInfo, nodeSpan, nodeChildren } =
++identifierTree nd@HieTypes.Node{ nodeChildren } =
+   Data.Tree.Node
+-    { rootLabel = HieTypes.Node{ nodeInfo, nodeSpan, nodeChildren = mempty }
++    { rootLabel = nd { nodeChildren = mempty }
+     , subForest = map identifierTree nodeChildren
+     }
++
++-- nodeInfo' :: Ord a => HieAST a -> NodeInfo a
++nodeInfo' :: HieAST TypeIndex -> NodeInfo TypeIndex
++nodeInfo' = M.foldl' combineNodeInfo' emptyNodeInfo . getSourcedNodeInfo . sourcedNodeInfo
++
++combineNodeInfo' :: Ord a => NodeInfo a -> NodeInfo a -> NodeInfo a
++(NodeInfo as ai ad) `combineNodeInfo'` (NodeInfo bs bi bd) =
++  NodeInfo (S.union as bs) (mergeSorted ai bi) (M.unionWith (<>) ad bd)
++  where
++    mergeSorted :: Ord a => [a] -> [a] -> [a]
++    mergeSorted la@(a:as) lb@(b:bs) = case compare a b of
++                                        LT -> a : mergeSorted as lb
++                                        EQ -> a : mergeSorted as bs
++                                        GT -> b : mergeSorted la bs
++    mergeSorted as [] = as
++    mergeSorted [] bs = bs
+diff --git a/test/Main.hs b/test/Main.hs
+index c9023d2..42d2850 100644
+--- a/test/Main.hs
++++ b/test/Main.hs
+@@ -6,7 +6,7 @@ import HieDb.Query (getAllIndexedMods, lookupHieFile, resolveUnitId, lookupHieFi
+ import HieDb.Run (Command (..), Options (..), runCommand)
+ import HieDb.Types (HieDbErr (..), SourceFile(..), runDbM)
+ import HieDb.Utils (makeNc)
+-import Module (mkModuleName, moduleNameString, stringToUnitId)
++import Module (mkModuleName, moduleNameString, stringToUnit)
+ import System.Directory (findExecutable, getCurrentDirectory, removeDirectoryRecursive)
+ import System.Exit (ExitCode (..), die)
+ import System.FilePath ((</>))
+@@ -53,7 +53,7 @@ apiSpec = describe "api" $
+             res <- resolveUnitId conn (mkModuleName "Module1")
+             case res of
+               Left e       -> fail $ "Unexpected error: " <> show e
+-              Right unitId -> unitId `shouldBe` stringToUnitId "main"
++              Right unit   -> unit `shouldBe` stringToUnit "main"
+ 
+           it "returns NotIndexed error on not-indexed module" $ \conn -> do
+             let notIndexedModule = mkModuleName "NotIndexed"
+@@ -61,12 +61,12 @@ apiSpec = describe "api" $
+             case res of
+               Left (NotIndexed modName Nothing) -> modName `shouldBe` notIndexedModule
+               Left e                            -> fail $ "Unexpected error: " <> show e
+-              Right unitId                      -> fail $ "Unexpected success: " <> show unitId
++              Right unit                        -> fail $ "Unexpected success: " <> show unit
+ 
+         describe "lookupHieFile" $ do
+           it "Should lookup indexed Module" $ \conn -> do
+             let modName = mkModuleName "Module1"
+-            res <- lookupHieFile conn modName (stringToUnitId "main")
++            res <- lookupHieFile conn modName (stringToUnit "main")
+             case res of
+               Just modRow -> do
+                 hieModuleHieFile modRow `shouldEndWith` "Module1.hie"
+@@ -75,7 +75,7 @@ apiSpec = describe "api" $
+                 modInfoName modInfo `shouldBe` modName
+               Nothing -> fail "Should have looked up indexed file"
+           it "Should return Nothing for not indexed Module" $ \conn -> do
+-            res <- lookupHieFile conn (mkModuleName "NotIndexed") (stringToUnitId "main")
++            res <- lookupHieFile conn (mkModuleName "NotIndexed") (stringToUnit "main")
+             case res of
+               Nothing -> pure ()
+               Just _  -> fail "Lookup suceeded unexpectedly"
+@@ -203,18 +203,20 @@ cliSpec =
+             , "Identifiers:"
+             , "Symbol:c:Data1Constructor1:Sub.Module2:main"
+             , "Data1Constructor1 defined at test/data/Sub/Module2.hs:10:7-23"
+-            , "    IdentifierDetails Nothing {Decl ConDec (Just SrcSpanOneLine \"test/data/Sub/Module2.hs\" 10 7 24)}"
++            , "    Details:  Nothing {declaration of constructor bound at: test/data/Sub/Module2.hs:10:7-23}"
+             , "Types:\n"
+             ]
+       it "correctly prints type signatures" $
+         runHieDbCli ["point-info", "Module1", "10", "10"]
+           `suceedsWithStdin` unlines
+             [ "Span: test/data/Module1.hs:10:8-11"
+-            , "Constructors: {(HsVar, HsExpr), (HsWrap, HsExpr)}"
++            , "Constructors: {(HsVar, HsExpr), (XExpr, HsExpr)}"
+             , "Identifiers:"
+             , "Symbol:v:even:GHC.Real:base"
+             , "even defined at <no location info>"
+-            , "    IdentifierDetails Just forall a. Integral a => a -> Bool {Use}"
++            , "    Details:  Just forall a. Integral a => a -> Bool {usage}"
++            , "$dIntegral defined at <no location info>"
++            , "    Details:  Just Integral Int {usage of evidence variable}"
+             , "Types:"
+             , "Int -> Bool"
+             , "forall a. Integral a => a -> Bool"
+@@ -252,7 +254,7 @@ cliSpec =
+       it "lists uids for given module" $
+         runHieDbCli ["module-uids", "Module1"]
+           `suceedsWithStdin` "main\n"
+-    
++
+     describe "rm" $
+       it "removes given module from DB" $ do
+         runHieDbCli ["rm", "Module1"]
+@@ -260,7 +262,7 @@ cliSpec =
+         -- Check with 'ls' comand that there's just one module left
+         cwd <- getCurrentDirectory
+         runHieDbCli ["ls"] `suceedsWithStdin` (cwd </> testTmp </> "Sub/Module2.hie\tSub.Module2\tmain\n")
+-    
++
+ 
+ 
+ suceedsWithStdin :: IO (ExitCode, String, String) -> String -> Expectation
+diff --git a/test/Test/Orphans.hs b/test/Test/Orphans.hs
+index af1124a..3d7684b 100644
+--- a/test/Test/Orphans.hs
++++ b/test/Test/Orphans.hs
+@@ -3,7 +3,7 @@
+ module Test.Orphans where
+ 
+ import HieDb.Types
+-import Module (ModuleName, moduleName, moduleNameString, moduleUnitId)
++import Module (ModuleName, moduleName, moduleNameString, moduleUnit)
+ import Name (Name, nameModule, nameOccName)
+ import OccName (OccName, occNameString)
+ 
+@@ -14,7 +14,7 @@ instance Show Name where
+     let occ = nameOccName n
+         mod' = nameModule n
+         mn = moduleName mod'
+-        uid = moduleUnitId mod'
++        uid = moduleUnit mod'
+     in show uid <> ":" <> show mn <> ":" <> show occ
+ 
+ deriving instance Show HieDbErr
+
+From 511dbb8dfe85d7c1625cb92051948d550c69b5c1 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=C3=A4llberg?= <anka.213@gmail.com>
+Date: Tue, 30 Mar 2021 01:55:37 +0800
+Subject: [PATCH 2/7] Make changes backwards-compatible
+
+---
+ hiedb.cabal         |  1 +
+ src/HieDb/Compat.hs | 49 +++++++++++++++++++++++++++++++++++++++++++++
+ src/HieDb/Create.hs |  3 ++-
+ src/HieDb/Query.hs  |  1 +
+ src/HieDb/Run.hs    |  6 ++++++
+ src/HieDb/Types.hs  | 11 ++++------
+ src/HieDb/Utils.hs  | 33 +++++++++++++-----------------
+ 7 files changed, 77 insertions(+), 27 deletions(-)
+ create mode 100644 src/HieDb/Compat.hs
+
+diff --git a/hiedb.cabal b/hiedb.cabal
+index f198504..540a278 100644
+--- a/hiedb.cabal
++++ b/hiedb.cabal
+@@ -49,6 +49,7 @@ library
+                        HieDb.Utils,
+                        HieDb.Create,
+                        HieDb.Query,
++                       HieDb.Compat,
+                        HieDb.Types,
+                        HieDb.Dump,
+                        HieDb.Html,
+diff --git a/src/HieDb/Compat.hs b/src/HieDb/Compat.hs
+new file mode 100644
+index 0000000..9fe8b6c
+--- /dev/null
++++ b/src/HieDb/Compat.hs
+@@ -0,0 +1,49 @@
++
++{-# LANGUAGE CPP #-}
++module HieDb.Compat where
++
++import Compat.HieTypes
++
++#if __GLASGOW_HASKELL__ >= 900
++import Compat.HieUtils
++
++import qualified Data.Map as M
++import qualified Data.Set as S
++
++
++-- nodeInfo' :: Ord a => HieAST a -> NodeInfo a
++nodeInfo' :: HieAST TypeIndex -> NodeInfo TypeIndex
++nodeInfo' = M.foldl' combineNodeInfo' emptyNodeInfo . getSourcedNodeInfo . sourcedNodeInfo
++
++combineNodeInfo' :: Ord a => NodeInfo a -> NodeInfo a -> NodeInfo a
++(NodeInfo as ai ad) `combineNodeInfo'` (NodeInfo bs bi bd) =
++  NodeInfo (S.union as bs) (mergeSorted ai bi) (M.unionWith (<>) ad bd)
++  where
++    mergeSorted :: Ord a => [a] -> [a] -> [a]
++    mergeSorted la@(a:as) lb@(b:bs) = case compare a b of
++                                        LT -> a : mergeSorted as lb
++                                        EQ -> a : mergeSorted as bs
++                                        GT -> b : mergeSorted la bs
++    mergeSorted as [] = as
++    mergeSorted [] bs = bs
++#else
++import qualified FastString as FS
++
++import Module
++
++nodeInfo' :: HieAST TypeIndex -> NodeInfo TypeIndex
++nodeInfo' = nodeInfo
++type Unit = UnitId
++unitString :: Unit -> String
++unitString = unitIdString
++stringToUnit :: String -> Unit
++stringToUnit = stringToUnitId
++moduleUnit :: Module -> Unit
++moduleUnit = moduleUnitId
++unhelpfulSpanFS :: FS.FastString -> FS.FastString
++unhelpfulSpanFS = id
++#endif
++
++#if __GLASGOW_HASKELL__ >= 900
++#else
++#endif
+diff --git a/src/HieDb/Create.hs b/src/HieDb/Create.hs
+index 57c3fac..47e76a5 100644
+--- a/src/HieDb/Create.hs
++++ b/src/HieDb/Create.hs
+@@ -32,9 +32,10 @@ import System.Directory
+ 
+ import Database.SQLite.Simple
+ 
++import HieDb.Compat
+ import HieDb.Types
+ import HieDb.Utils
+-import GHC.Data.FastString  as FS      ( FastString )
++import FastString  as FS      ( FastString )
+ 
+ sCHEMA_VERSION :: Integer
+ sCHEMA_VERSION = 5
+diff --git a/src/HieDb/Query.hs b/src/HieDb/Query.hs
+index 9fe9913..29f44d5 100644
+--- a/src/HieDb/Query.hs
++++ b/src/HieDb/Query.hs
+@@ -33,6 +33,7 @@ import           Data.IORef
+ import Database.SQLite.Simple
+ 
+ import           HieDb.Dump (sourceCode)
++import           HieDb.Compat
+ import           HieDb.Types
+ import           HieDb.Utils
+ import qualified HieDb.Html as Html
+diff --git a/src/HieDb/Run.hs b/src/HieDb/Run.hs
+index 0c98134..b92adb2 100644
+--- a/src/HieDb/Run.hs
++++ b/src/HieDb/Run.hs
+@@ -1,3 +1,4 @@
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE FlexibleContexts #-}
+ {-# LANGUAGE OverloadedStrings #-}
+ {-# LANGUAGE BlockArguments #-}
+@@ -49,6 +50,7 @@ import qualified Data.ByteString.Char8 as BS
+ import Options.Applicative
+ 
+ import HieDb
++import HieDb.Compat
+ import HieDb.Dump
+ 
+ hiedbMain :: LibDir -> IO ()
+@@ -362,7 +364,11 @@ runCommand libdir opts cmd = withHieDbAndFlags libdir (database opts) $ \dynFlag
+         reportAmbiguousErr opts (Left $ NoNameAtPoint target sp)
+       forM_ names $ \name -> do
+         case nameSrcSpan name of
++#if __GLASGOW_HASKELL__ >= 900
+           RealSrcSpan dsp _ -> do
++#else
++          RealSrcSpan dsp -> do
++#endif
+             unless (quiet opts) $
+               hPutStrLn stderr $ unwords ["Name", ppName opts (nameOccName name),"at",ppSpan opts sp,"is defined at:"]
+             contents <- case nameModule_maybe name of
+diff --git a/src/HieDb/Types.hs b/src/HieDb/Types.hs
+index 11ee355..3bc2ec7 100644
+--- a/src/HieDb/Types.hs
++++ b/src/HieDb/Types.hs
+@@ -35,6 +35,8 @@ import Database.SQLite.Simple.FromField
+ 
+ import qualified Text.ParserCombinators.ReadP as R
+ 
++import HieDb.Compat
++
+ newtype HieDb = HieDb { getConn :: Connection }
+ 
+ data HieDbException
+@@ -80,16 +82,11 @@ instance ToField ModuleName where
+ instance FromField ModuleName where
+   fromField fld = mkModuleName . T.unpack <$> fromField fld
+ 
+-instance ToField (GenUnit UnitId) where
++instance ToField Unit where
+   toField uid = SQLText $ T.pack $ unitString uid
+-instance FromField (GenUnit UnitId) where
++instance FromField Unit where
+   fromField fld = stringToUnit . T.unpack <$> fromField fld
+ 
+-instance ToField UnitId where
+-  toField uid = SQLText $ T.pack $ unitIdString uid
+-instance FromField UnitId where
+-  fromField fld = stringToUnitId . T.unpack <$> fromField fld
+-
+ instance ToField Fingerprint where
+   toField hash = SQLText $ T.pack $ show hash
+ instance FromField Fingerprint where
+diff --git a/src/HieDb/Utils.hs b/src/HieDb/Utils.hs
+index 1ca1cab..d47a8b2 100644
+--- a/src/HieDb/Utils.hs
++++ b/src/HieDb/Utils.hs
+@@ -26,7 +26,6 @@ import DynFlags
+ import SysTools
+ 
+ import qualified Data.Map as M
+-import qualified Data.Set as S
+ 
+ import qualified FastString as FS
+ 
+@@ -46,6 +45,7 @@ import Data.Monoid
+ import Data.IORef
+ 
+ import HieDb.Types
++import HieDb.Compat
+ import Database.SQLite.Simple
+ 
+ addTypeRef :: HieDb -> FilePath -> A.Array TypeIndex HieTypeFlat -> A.Array TypeIndex (Maybe Int64) -> RealSrcSpan -> TypeIndex -> IO ()
+@@ -72,8 +72,11 @@ addTypeRef (getConn -> conn) hf arr ixs sp = go 0
+ #endif
+         HTyConApp _ (HieArgs xs) -> mapM_ (next . snd) xs
+         HForAllTy ((_ , a),_) b -> mapM_ next [a,b]
+-        -- HFunTy a b -> mapM_ next [a,b]
+-        HFunTy a b _ -> mapM_ next [a,b]
++#if __GLASGOW_HASKELL__ >= 900
++        HFunTy a b c -> mapM_ next [a,b,c]
++#else
++        HFunTy a b -> mapM_ next [a,b]
++#endif
+         HQualTy a b -> mapM_ next [a,b]
+         HLitTy _ -> pure ()
+         HCastTy a -> go d a
+@@ -117,7 +120,11 @@ findDefInFile occ mdl file = do
+   nc <- readIORef ncr
+   return $ case lookupOrigNameCache (nsNames nc) mdl occ of
+     Just name -> case nameSrcSpan name of
++#if __GLASGOW_HASKELL__ >= 900
+       RealSrcSpan sp _ -> Right (sp, mdl)
++#else
++      RealSrcSpan sp -> Right (sp, mdl)
++#endif
+       UnhelpfulSpan msg -> Left $ NameUnhelpfulSpan name (FS.unpackFS $ unhelpfulSpanFS msg)
+     Nothing -> Left $ NameNotFound occ (Just $ moduleName mdl) (Just $ moduleUnit mdl)
+ 
+@@ -200,7 +207,11 @@ genDefRow path smod refmap = genRows $ M.toList refmap
+   where
+     genRows = mapMaybe go
+     getSpan name dets
++#if __GLASGOW_HASKELL__ >= 900
+       | RealSrcSpan sp _ <- nameSrcSpan name = Just sp
++#else
++      | RealSrcSpan sp <- nameSrcSpan name = Just sp
++#endif
+       | otherwise = do
+           (sp, _dets) <- find defSpan dets
+           pure sp
+@@ -229,19 +240,3 @@ identifierTree nd@HieTypes.Node{ nodeChildren } =
+     { rootLabel = nd { nodeChildren = mempty }
+     , subForest = map identifierTree nodeChildren
+     }
+-
+--- nodeInfo' :: Ord a => HieAST a -> NodeInfo a
+-nodeInfo' :: HieAST TypeIndex -> NodeInfo TypeIndex
+-nodeInfo' = M.foldl' combineNodeInfo' emptyNodeInfo . getSourcedNodeInfo . sourcedNodeInfo
+-
+-combineNodeInfo' :: Ord a => NodeInfo a -> NodeInfo a -> NodeInfo a
+-(NodeInfo as ai ad) `combineNodeInfo'` (NodeInfo bs bi bd) =
+-  NodeInfo (S.union as bs) (mergeSorted ai bi) (M.unionWith (<>) ad bd)
+-  where
+-    mergeSorted :: Ord a => [a] -> [a] -> [a]
+-    mergeSorted la@(a:as) lb@(b:bs) = case compare a b of
+-                                        LT -> a : mergeSorted as lb
+-                                        EQ -> a : mergeSorted as bs
+-                                        GT -> b : mergeSorted la bs
+-    mergeSorted as [] = as
+-    mergeSorted [] bs = bs
+
+From 06db1ed8e2d97ba64b88d928f622c5a8adc7389d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Andreas=20K=C3=A4llberg?= <anka.213@gmail.com>
+Date: Tue, 30 Mar 2021 02:41:59 +0800
+Subject: [PATCH 3/7] Fix warnings and tests
+
+---
+ cabal.project        |  3 ---
+ src/HieDb/Compat.hs  | 15 ++++++++++++---
+ src/HieDb/Query.hs   |  2 +-
+ src/HieDb/Run.hs     |  2 --
+ test/Main.hs         | 16 +++++++++++++++-
+ test/Test/Orphans.hs |  3 ++-
+ 6 files changed, 30 insertions(+), 11 deletions(-)
+ delete mode 100644 cabal.project
+
+diff --git a/cabal.project b/cabal.project
+deleted file mode 100644
+index 5aaedaa..0000000
+--- a/cabal.project
++++ /dev/null
+@@ -1,3 +0,0 @@
+-packages: . 
+--- package hiedb
+---   ghc-options: -fwrite-ide-info -hiedir /home/zubin/hiedb/.hie/
+diff --git a/src/HieDb/Compat.hs b/src/HieDb/Compat.hs
+index 9fe8b6c..98c224a 100644
+--- a/src/HieDb/Compat.hs
++++ b/src/HieDb/Compat.hs
+@@ -1,10 +1,21 @@
+ 
+ {-# LANGUAGE CPP #-}
+-module HieDb.Compat where
++module HieDb.Compat (
++    nodeInfo'
++    , Unit
++    , unitString
++    , stringToUnit
++    , moduleUnit
++    , unhelpfulSpanFS
++
++) where
+ 
+ import Compat.HieTypes
+ 
++import Module
++
+ #if __GLASGOW_HASKELL__ >= 900
++import GHC.Types.SrcLoc
+ import Compat.HieUtils
+ 
+ import qualified Data.Map as M
+@@ -29,8 +40,6 @@ combineNodeInfo' :: Ord a => NodeInfo a -> NodeInfo a -> NodeInfo a
+ #else
+ import qualified FastString as FS
+ 
+-import Module
+-
+ nodeInfo' :: HieAST TypeIndex -> NodeInfo TypeIndex
+ nodeInfo' = nodeInfo
+ type Unit = UnitId
+diff --git a/src/HieDb/Query.hs b/src/HieDb/Query.hs
+index 29f44d5..cde533e 100644
+--- a/src/HieDb/Query.hs
++++ b/src/HieDb/Query.hs
+@@ -12,7 +12,7 @@ import qualified Algebra.Graph.Export.Dot as G
+ 
+ import           GHC
+ import           Compat.HieTypes
+-import           Module
++-- import           Module
+ import           Name
+ 
+ import           System.Directory
+diff --git a/src/HieDb/Run.hs b/src/HieDb/Run.hs
+index b92adb2..b0e737e 100644
+--- a/src/HieDb/Run.hs
++++ b/src/HieDb/Run.hs
+@@ -12,10 +12,8 @@ import GHC
+ import Compat.HieTypes
+ import Compat.HieUtils
+ import Name
+-import Module
+ import Outputable ((<+>),hang,showSDoc,ppr,text)
+ import IfaceType (IfaceType)
+-import SrcLoc
+ 
+ import qualified FastString as FS
+ 
+diff --git a/test/Main.hs b/test/Main.hs
+index 42d2850..a88d520 100644
+--- a/test/Main.hs
++++ b/test/Main.hs
+@@ -1,3 +1,4 @@
++{-# LANGUAGE CPP #-}
+ module Main where
+ 
+ import GHC.Paths (libdir)
+@@ -6,7 +7,8 @@ import HieDb.Query (getAllIndexedMods, lookupHieFile, resolveUnitId, lookupHieFi
+ import HieDb.Run (Command (..), Options (..), runCommand)
+ import HieDb.Types (HieDbErr (..), SourceFile(..), runDbM)
+ import HieDb.Utils (makeNc)
+-import Module (mkModuleName, moduleNameString, stringToUnit)
++import HieDb.Compat (stringToUnit)
++import Module (mkModuleName, moduleNameString)
+ import System.Directory (findExecutable, getCurrentDirectory, removeDirectoryRecursive)
+ import System.Exit (ExitCode (..), die)
+ import System.FilePath ((</>))
+@@ -203,20 +205,32 @@ cliSpec =
+             , "Identifiers:"
+             , "Symbol:c:Data1Constructor1:Sub.Module2:main"
+             , "Data1Constructor1 defined at test/data/Sub/Module2.hs:10:7-23"
++#if __GLASGOW_HASKELL__ >= 900
+             , "    Details:  Nothing {declaration of constructor bound at: test/data/Sub/Module2.hs:10:7-23}"
++#else
++            , "    IdentifierDetails Nothing {Decl ConDec (Just SrcSpanOneLine \"test/data/Sub/Module2.hs\" 10 7 24)}"
++#endif
+             , "Types:\n"
+             ]
+       it "correctly prints type signatures" $
+         runHieDbCli ["point-info", "Module1", "10", "10"]
+           `suceedsWithStdin` unlines
+             [ "Span: test/data/Module1.hs:10:8-11"
++#if __GLASGOW_HASKELL__ >= 900
+             , "Constructors: {(HsVar, HsExpr), (XExpr, HsExpr)}"
++#else
++            , "Constructors: {(HsVar, HsExpr), (HsWrap, HsExpr)}"
++#endif
+             , "Identifiers:"
+             , "Symbol:v:even:GHC.Real:base"
+             , "even defined at <no location info>"
++#if __GLASGOW_HASKELL__ >= 900
+             , "    Details:  Just forall a. Integral a => a -> Bool {usage}"
+             , "$dIntegral defined at <no location info>"
+             , "    Details:  Just Integral Int {usage of evidence variable}"
++#else
++            , "    IdentifierDetails Just forall a. Integral a => a -> Bool {Use}"
++#endif
+             , "Types:"
+             , "Int -> Bool"
+             , "forall a. Integral a => a -> Bool"
+diff --git a/test/Test/Orphans.hs b/test/Test/Orphans.hs
+index 3d7684b..b114dc4 100644
+--- a/test/Test/Orphans.hs
++++ b/test/Test/Orphans.hs
+@@ -2,8 +2,9 @@
+ {-# OPTIONS_GHC -fno-warn-orphans #-}
+ module Test.Orphans where
+ 
++import HieDb.Compat
+ import HieDb.Types
+-import Module (ModuleName, moduleName, moduleNameString, moduleUnit)
++import Module (ModuleName, moduleName, moduleNameString)
+ import Name (Name, nameModule, nameOccName)
+ import OccName (OccName, occNameString)
+ 
+
