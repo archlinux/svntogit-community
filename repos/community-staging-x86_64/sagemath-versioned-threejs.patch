@@ -1,0 +1,110 @@
+diff --git a/src/sage/env.py b/src/sage/env.py
+index e792ca8..c4f0e02 100644
+--- a/src/sage/env.py
++++ b/src/sage/env.py
+@@ -207,7 +207,7 @@ CREMONA_LARGE_DATA_DIR = var("CREMONA_LARGE_DATA_DIR", join(SAGE_SHARE, "cremona
+ JMOL_DIR = var("JMOL_DIR", join(SAGE_SHARE, "jmol"))
+ MATHJAX_DIR = var("MATHJAX_DIR", join(SAGE_SHARE, "mathjax"))
+ MTXLIB = var("MTXLIB", join(SAGE_SHARE, "meataxe"))
+-THREEJS_DIR = var("THREEJS_DIR", join(SAGE_SHARE, "threejs"))
++THREEJS_DIR = var("THREEJS_DIR", join(SAGE_SHARE, "threejs-sage"))
+ SINGULARPATH = var("SINGULARPATH", join(SAGE_SHARE, "singular"))
+ PPLPY_DOCS = var("PPLPY_DOCS", join(SAGE_SHARE, "doc", "pplpy"))
+ MAXIMA = var("MAXIMA", "maxima")
+diff --git a/src/sage/ext_data/threejs/threejs-version.txt b/src/sage/ext_data/threejs/threejs-version.txt
+new file mode 100644
+index 00000000..98ffb8e
+--- /dev/null
++++ b/src/sage/ext_data/threejs/threejs-version.txt
+@@ -0,0 +1 @@
++r122
+diff --git a/src/sage/repl/ipython_kernel/install.py b/src/sage/repl/ipython_kernel/install.py
+index a1d3ec7..2143c22 100644
+--- a/src/sage/repl/ipython_kernel/install.py
++++ b/src/sage/repl/ipython_kernel/install.py
+@@ -123,12 +123,12 @@ class SageKernelSpec(object):
+             sage: from sage.repl.ipython_kernel.install import SageKernelSpec
+             sage: spec = SageKernelSpec(prefix=tmp_dir())
+             sage: spec.use_local_threejs()
+-            sage: threejs = os.path.join(spec.nbextensions_dir, 'threejs')
++            sage: threejs = os.path.join(spec.nbextensions_dir, 'threejs-sage')
+             sage: os.path.isdir(threejs)
+             True
+         """
+         src = THREEJS_DIR
+-        dst = os.path.join(self.nbextensions_dir, 'threejs')
++        dst = os.path.join(self.nbextensions_dir, 'threejs-sage')
+         self.symlink(src, dst)
+ 
+     def _kernel_cmd(self):
+diff --git a/src/sage/repl/rich_output/backend_ipython.py b/src/sage/repl/rich_output/backend_ipython.py
+index b290e74..43835b4 100644
+--- a/src/sage/repl/rich_output/backend_ipython.py
++++ b/src/sage/repl/rich_output/backend_ipython.py
+@@ -413,8 +413,9 @@ class BackendIPythonCommandline(BackendIPython):
+             '...<script ...</script>...'
+         """
+         from sage.env import THREEJS_DIR
++        from sage.repl.rich_output.display_manager import _required_threejs_version
+ 
+-        script = os.path.join(THREEJS_DIR, 'build/three.min.js')
++        script = os.path.join(THREEJS_DIR, '{}/three.min.js'.format(_required_threejs_version()))
+ 
+         if sys.platform == 'cygwin':
+             import cygwin
+@@ -597,13 +598,15 @@ class BackendIPythonNotebook(BackendIPython):
+             sage: from sage.repl.rich_output.backend_ipython import BackendIPythonNotebook
+             sage: backend = BackendIPythonNotebook()
+             sage: backend.threejs_offline_scripts()
+-            '...<script src="/nbextensions/threejs/build/three.min...<\\/script>...'
++            '...<script src="/nbextensions/threejs-sage/r.../three.min.js...<\\/script>...'
+         """
+         from sage.repl.rich_output import get_display_manager
++        from sage.repl.rich_output.display_manager import _required_threejs_version
+         CDN_script = get_display_manager().threejs_scripts(online=True)
++        CDN_script = CDN_script.replace('</script>', r'<\/script>').replace('\n', ' \\\n')
+         return """
+-<script src="/nbextensions/threejs/build/three.min.js"></script>
++<script src="/nbextensions/threejs-sage/{}/three.min.js"></script>
+ <script>
+   if ( !window.THREE ) document.write('{}');
+ </script>
+-        """.format(CDN_script.replace('</script>', r'<\/script>').replace('\n', ' \\\n'))
++        """.format(_required_threejs_version(), CDN_script)
+diff --git a/src/sage/repl/rich_output/display_manager.py b/src/sage/repl/rich_output/display_manager.py
+index f91c56e..eb042a9 100644
+--- a/src/sage/repl/rich_output/display_manager.py
++++ b/src/sage/repl/rich_output/display_manager.py
+@@ -45,6 +45,20 @@ from sage.repl.rich_output.output_browser import (
+ )
+ from sage.repl.rich_output.preferences import DisplayPreferences
+ 
++def _required_threejs_version():
++    """
++    Return the version of threejs that Sage requires.
++
++    EXAMPLES::
++
++        sage: from sage.repl.rich_output.display_manager import _required_threejs_version
++        sage: _required_threejs_version()
++        'r...'
++    """
++    import os
++    import sage.env
++    with open(os.path.join(sage.env.SAGE_EXTCODE, 'threejs', 'threejs-version.txt')) as f:
++        return f.read().strip()
+ 
+ class DisplayException(Exception):
+     """
+@@ -749,10 +763,7 @@ class DisplayManager(SageObject):
+             offline threejs graphics
+         """
+         if online:
+-            import sage.env
+-            import os
+-            with open(os.path.join(sage.env.THREEJS_DIR, 'version')) as f:
+-                version = f.read().strip()
++            version = _required_threejs_version()
+             return """
+ <script src="https://cdn.jsdelivr.net/gh/sagemath/threejs-sage@{0}/build/three.min.js"></script>
+             """.format(version)
