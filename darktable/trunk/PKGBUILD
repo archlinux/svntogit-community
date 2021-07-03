@@ -6,8 +6,8 @@
 
 pkgname=darktable
 epoch=2
-pkgver=3.4.1
-pkgrel=7
+pkgver=3.6.0
+pkgrel=1
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
@@ -21,17 +21,11 @@ optdepends=('dcraw: base curve script'
             'ghostscript: noise profile script'
             'gnuplot: noise profile script')
 makedepends=(cmake intltool desktop-file-utils llvm clang python-jsonschema libwebp)
-source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc}
-         darktable-openexr3.patch)
-sha256sums=('7fc3f851da9bcd7c5053ecd09f21aa3eb6103be98a6c58f52010b6f22174941e'
-            'SKIP'
-            '534e7e82adb5cf3c9eda81bbdf3e373879bfa72bb6cd5f865750f6c589d57f51')
+source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc})
+sha256sums=('86bcd0184af38b93c3688dffd3d5c19cc65f268ecf9358d649fa11fe26c70a39'
+            'SKIP')
 validpgpkeys=(C4CBC150699956E2A3268EF5BB5CC8295B1779C9  # darktable releases <release@darktable.org>
               F10F9686652B0E949FCD94C318DCA123F949BD3B) # Pascal Obry <pascal@obry.net>
-
-prepare() {
-  patch -d $pkgname-$pkgver -p1 < darktable-openexr3.patch # Fix build with OpenEXR 3
-}
 
 build() {
     cmake -B build -S ${pkgname}-${pkgver} \
