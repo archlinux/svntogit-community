@@ -4,7 +4,7 @@
 
 _name=Nuitka
 pkgname=nuitka
-pkgver=0.6.16
+pkgver=0.6.16.2
 pkgrel=1
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=('any')
@@ -17,8 +17,8 @@ optdepends=('ccache: for build caching'
             'chrpath: for building standalone executables')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('fd2dcf9a7a9a5269113b07cc5796c7b64ddc22c7f1ee9d88932008cf749647146a9ad6e373368fa8ffbd896349335c869a678657d61929fc4f754d741fb7eaac')
-b2sums=('b2962cd353ffa76908f7d791647754a67b4e3718bdbf5178b8f8fb19cb5da4ab12b1c8467131bb0e88804f3b6f0977e4bbe0021c3606fa5bd874c6dcca41e8ae')
+sha512sums=('b79eefac69cad062ecaa6cb33835af9c6ed9c4dadc26706d8226c9fe90f29191005fc8dba1305f52398331d5b7b0f235626530c2d9ac8b2458a4fbe15c411b7a')
+b2sums=('96e5bbc3d504c84fc10d67f9ca9d5448eabd55a813eb55e7a93e1672abf6ab60a363996b9d389a5d3a76268975b3328efa8ba1d1cef83fe2ac87cb763e1a1862')
 
 prepare() {
   mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
