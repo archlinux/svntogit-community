@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=lsp-types
+pkgname=haskell-lsp-types
+pkgver=1.2.0.0
+pkgrel=17
+pkgdesc="Haskell library for the Microsoft Language Server Protocol, data types"
+url="https://github.com/haskell/lsp"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-data-default' 'haskell-dependent-sum'
+         'haskell-dependent-sum-template' 'haskell-hashable' 'haskell-hslogger' 'haskell-lens'
+         'haskell-network-uri' 'haskell-rope-utf16-splay' 'haskell-scientific' 'haskell-some'
+         'haskell-temporary' 'haskell-unordered-containers')
+makedepends=('ghc' 'uusi')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz"
+        ghc9.patch)
+sha512sums=('c413f16dac35e7096e439cf7e1b8ec8f1c80b0a7dfea681512ff1dccf9e1d8a436bab38ce2c6ab15a584a5ebceebd96a85a5694ef30889df6275163843cef18a'
+            '9e1ae0c72dba23b7065bc82e412392427aeba8a0cf2ec514b1918570d03f038c42c3dc2d0e23dc9e9efb081238e11c7f82083ee03b6625b683ae257f776c08a5')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  patch -p2 -i ../ghc9.patch
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
