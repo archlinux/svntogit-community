@@ -1,0 +1,67 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=haskell-language-server
+pkgver=1.2.0.0
+pkgrel=15
+pkgdesc="LSP server for GHC"
+url="https://github.com/haskell/haskell-language-server#readme"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-aeson-pretty' 'haskell-async'
+         'haskell-base16-bytestring' 'haskell-cryptohash-sha1' 'haskell-data-default'
+         'haskell-extra' 'haskell-ghc' 'haskell-ghc-api-compat' 'haskell-ghc-paths' 'haskell-gitrev'
+         'haskell-hashable' 'haskell-hie-bios' 'haskell-hiedb' 'haskell-hls-brittany-plugin'
+         'haskell-hls-explicit-imports-plugin'
+         'haskell-hls-floskell-plugin' 'haskell-hls-graph'
+         'haskell-hls-haddock-comments-plugin' 'haskell-hls-hlint-plugin'
+         'haskell-hls-module-name-plugin' 'haskell-hls-ormolu-plugin' 'haskell-hls-plugin-api'
+         'haskell-hls-pragmas-plugin'
+         'haskell-hls-retrie-plugin' 'haskell-hslogger'
+         'haskell-lens' 'haskell-lsp' 'haskell-optparse-applicative' 'haskell-optparse-simple'
+         'haskell-regex-tdfa' 'haskell-safe-exceptions' 'haskell-sqlite-simple' 'haskell-temporary'
+         'haskell-unordered-containers')
+# Disabled due to not compatible with GHC 9:
+# 'haskell-hls-brittany-plugin' 'haskell-hls-class-plugin' 'haskell-hls-eval-plugin'
+# 'haskell-hls-fourmolu-plugin' 'haskell-hls-ormolu-plugin' 'haskell-hls-refine-imports-plugin'
+# 'haskell-hls-splice-plugin' 'haskell-hls-stylish-haskell-plugin' 'haskell-hls-tactics-plugin'
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils' 'haskell-hspec-expectations' 'haskell-lsp-test'
+             'haskell-lsp-types')
+checkdepends=('cabal-install')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('c8ca57796be15796e7334e20ef3a983b4a77335d41084add87d102746e893fc80c43ee6c761d04d52afad846d4744007a0aec8d70a7e12e4576f847a684726ab')
+
+prepare() {
+  cd $pkgname-$pkgver
+  find test/testdata -name \*.cabal -exec uusi --add-options-all=-dynamic {} \;
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' -f-brittany -f-class -f-eval -f-fourmolu -f-ormolu -f-refineImports -f-splice -f-stylishHaskell -f-tactic
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  PATH="$PWD/dist/build/haskell-language-server:$PWD/dist/build/haskell-language-server-wrapper:$PATH" LD_LIBRARY_PATH="$PWD/dist/build" runhaskell Setup test || echo "Tests failed"
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
