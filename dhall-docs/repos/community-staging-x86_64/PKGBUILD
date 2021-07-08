@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=dhall-docs
+pkgver=1.0.6
+pkgrel=13
+pkgdesc="Generate HTML docs from a dhall package"
+url="https://github.com/dhall-lang/dhall-haskell/tree/master/dhall-docs"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-cryptonite' 'dhall' 'haskell-file-embed' 'haskell-lens-family-core'
+         'haskell-lucid' 'haskell-megaparsec' 'haskell-memory' 'haskell-mmark'
+         'haskell-optparse-applicative' 'haskell-path' 'haskell-path-io' 'haskell-prettyprinter')
+makedepends=('ghc' 'uusi' 'haskell-doctest' 'haskell-foldl' 'haskell-hashable' 'haskell-tasty'
+             'haskell-tasty-hunit' 'haskell-tasty-silver' 'haskell-turtle')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('d02c687404833bad6ad41110e52454216b5d0fd113ef2741d98e13c26dd00265032d0e8c1e65e6d8e6e11157567854467761b836f27d2c3d1f0d761a24ac87e8')
+
+prepare() {
+  cd $pkgname-$pkgver
+  uusi -u hashable -u path $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir="$pkgname" --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  # https://github.com/dhall-lang/dhall-haskell/issues/2179
+  runhaskell Setup test || echo "Tests failed"
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
