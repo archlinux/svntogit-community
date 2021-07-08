@@ -5,7 +5,7 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=5.6.1
+pkgver=5.7.1
 pkgrel=2
 arch=('x86_64')
 url='https://keybase.io/'
@@ -14,14 +14,17 @@ license=('BSD')
 makedepends=('git' 'go' 'yarn')
 source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
         "keybase-gui"
+        "0001-Maintain-current-contextIsolation-behavior-across-el.patch"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('1c975bf5381593e650d3fb7fc1c7345e66f04a8730f38d8f2d6f1985d41b34e349506e269ab6736dee6e50c4d5563f25465dbf01061b33ea385015a2856d1eee'
+sha512sums=('1cdf93a2e52e16eedd7fe4544a2b1f0e6f6d47802e17e029ae08b19302c44d5cca0b297aa827332a62202045f91c7c6b1d9d627f2915fcdb4cc2a77076adbd0d'
             'SKIP'
-            'a0b306e2ade02a218d11f5220e140011e225d888deb8194aa2642531dde0c390fdf95aad5873b805208142ef47da9ef35f07311af84f1d1b08aed4a3d616fd39'
+            'dc52d7c3d5798d9b83a4e42ba70a071b1cd5cb95c8b695a4b7a33d85744762ae644feef58cf4d582c8d8c169be68d57f392c33ff0796490e88f01f09b4c207d2'
+            '5cb3d93c4bb468fd47e1670f73cc3b8be14977ccf563a47d776285b6b9d96042647062427e58bd981727362caa23d17acdc0152dfd915efeeb6c4e76ca76ca65'
             'f759f69b774200261687842c66902a3c45638bb012ced9bd83d27491c8a0bbc0bc744dbb83ad7672d443f32d7303c15aeb0ded7a1a0d7ab56e7b1c1b64e263c3')
-b2sums=('95558b9fb9f9a887945180bcff8932ca80ed1052a99c9c338a4e11ca17ff50fbdd56718784ad0d25c3255f95b0b2d674765858d7b517369ba580b56779d44669'
+b2sums=('8f2501c3db8f0d3f82a5a597d1654af69a7d603b96d6143dc7df443290eb6b2ee299cc300f41061236b2738bc2a54018bc55705ddb903df326fd8850c12c506f'
         'SKIP'
-        'f98564298ff59de51e9c07172fc680e25ebab1280d06a9d2d8fef842b8bda3566ff8cfd210aee188bc7c55a18230a49e3060f38642dd12c9e57d8c5496bdfb5c'
+        'ac27d14a9625a3bca6a4ac87adbe5bb2f0aee0c4a88bf39ac8b3d235801743b2e40e6cd7db26089398f016a25046a674f521b890ddf73c3c6637d0d6bf6e1397'
+        '67f416c59b549606d037167c796c5b99f0ca9158fb767d52c101f41db6d31927b57618efb4d6eaf590cbd3c7aab4dd71a64bc3b52580e2383f5389c95264a499'
         '02d7876fb0d68b05e9ee262925a063049bfa2e5e063789008c4c74e406084d4441d2c860ecb2b08596f9d9a8c9a6e9136a2cdbd8312bcbf376d9d6e6c811bcfc')
 validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Signing (v1) <code@keybase.io>
 
@@ -34,12 +37,16 @@ prepare() {
 
     # Fix paths to run electron /path/to/app (or our minimal wrapper script).
     # Also wire up "hideWindow" when running as a service or via XDG autostart.
-    sed -i 's@/opt/keybase/Keybase@/usr/bin/electron11 /usr/share/keybase-app@' \
+    sed -i 's@/opt/keybase/Keybase@/usr/bin/electron /usr/share/keybase-app@' \
         packaging/linux/systemd/keybase.gui.service
     sed -i 's/run_keybase/keybase-gui/g' \
         packaging/linux/keybase.desktop go/install/install_unix.go
 
     patch -p1 -i ../0001-Don-t-use-electron-to-build.patch
+    # New versions of electron tighten sandboxing and applications need to adapt.
+    # Keybase did not, so loosen this back to pre v12 levels
+    # https://github.com/keybase/client/pull/24551
+    patch -p1 -i ../0001-Maintain-current-contextIsolation-behavior-across-el.patch
 }
 
 build() {
@@ -101,7 +108,7 @@ package_kbfs() {
 
 package_keybase-gui() {
     pkgdesc="GUI frontend for GPG with keybase.io"
-    depends=('electron11' 'keybase' 'kbfs')
+    depends=('electron' 'keybase' 'kbfs')
 
     cd client-v${pkgver}/
 
