@@ -6,7 +6,7 @@
 # Contributor: Jan Fader <jan.fader@web.de>
 
 pkgname=fish
-pkgver=3.3.0
+pkgver=3.3.1
 pkgrel=1
 pkgdesc='Smart and user friendly shell intended mostly for interactive use'
 url='https://fishshell.com/'
@@ -21,9 +21,9 @@ install=fish.install
 backup=(etc/fish/config.fish)
 source=(https://github.com/fish-shell/fish-shell/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.xz{,.asc})
 validpgpkeys=(003837986104878835FA516D7A67D962D88A709A) # David Adam <zanchey@gmail.com>
-sha256sums=('a4215e4cab2a5b101b0b8843720bda3c7eb98e8a14dca0950b8ef17e94282faa'
+sha256sums=('b5b4ee1a5269762cbbe993a4bd6507e675e4100ce9bbe84214a5eeb2b19fae89'
             'SKIP')
-sha512sums=('dd2288e93e5da9e34c6dcb4cb9accc164cb2b244d99e0b8df1f141789ba7e12b533cd2dc221bc42b96e1329daaba7f03b98e2f6111c558a887edb7047e8990cb'
+sha512sums=('fc50ca44fab3f2d942284d4f714150f7ccf1e49c73da36f8d4ae4a33a9b3280f98bed15848839f5d443b4274fd0ff90174bafa6a8e9a4da226dda63d7766a660'
             'SKIP')
 
 build() {
