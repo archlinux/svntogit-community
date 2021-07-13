@@ -4,16 +4,16 @@
 
 pkgname=(cython cython2)
 pkgbase=cython
-pkgver=0.29.23
+pkgver=0.29.24
 pkgrel=1
-pkgdesc="C-Extensions for Python"
+pkgdesc='C-Extensions for Python'
 arch=(x86_64)
-url="https://cython.org"
+url='https://cython.org'
 license=(APACHE)
 makedepends=(python-setuptools python2-setuptools)
-source=($pkgbase-$pkgver.tar.gz::"https://github.com/cython/cython/archive/$pkgver.tar.gz"
+source=(https://github.com/cython/cython/archive/$pkgver/$pkgbase-$pkgver.tar.gz
         cython-hash-int-conversion.patch::"https://github.com/cython/cython/commit/28251032.patch")
-sha256sums=('b10e32255418203c612b22d3647de75eafad20d79c55123ca696c7dda32d7f98'
+sha256sums=('a5efb97612f0f97164e87c54cc295b2e2d06c539487670079963adeab872de80'
             '28b2b065a9853e86d0bc09287e8a21f50ebc1f3cfee3b2ab03b6b917cb9e81d8')
 
 prepare() {
