@@ -3,7 +3,7 @@
 
 pkgname=hexchat
 pkgver=2.14.3
-pkgrel=8
+pkgrel=9
 pkgdesc='A popular and easy to use graphical IRC (chat) client'
 arch=('x86_64')
 url='https://hexchat.github.io/'
@@ -22,7 +22,7 @@ source=("git+https://github.com/hexchat/hexchat.git#tag=v${pkgver}"
         '0003-Use-pango_font_metrics_get_height-to-calculate-font-height.patch'
         '0004-fix_segfault_on_lua_pop_with_Lua_5.4.3.patch')
 sha256sums=('SKIP'
-            '92af0d106627c9b9716036ce81f697de35f37b4ba2e7bd34244824520e485bba'
+            '35067ddd80f982a7ffe029533a2a27faeb2c2272822451ddc91052a2c96276a0'
             '8d17ce657e744272815b5fb33d8ad959f79ece3294349637eaadcf86d90496fa'
             '691f344479a8b1186008516f0ebe7e3d482059cd297f58573634fa5a58f3d0ca'
             'a8d6917deec758b3a822471316f0bd7819d3661ef6f657c52953711227a2cbe6')
