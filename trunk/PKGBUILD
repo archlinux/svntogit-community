@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=19.1
-pkgrel=4
+pkgrel=5
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -244,7 +244,7 @@ package_kodi-tools-texturepacker() {
 # components: kodi-addon-dev kodi-eventclients-dev
 package_kodi-dev() {
   pkgdesc="Kodi dev files"
-  depends=('kodi-common')
+  depends=('kodi')
 
   _components=(
     'kodi-addon-dev'
