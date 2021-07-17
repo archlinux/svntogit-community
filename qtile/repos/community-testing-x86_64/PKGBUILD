@@ -1,0 +1,122 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=qtile
+pkgver=0.18.0
+pkgrel=1
+pkgdesc="A full-featured, pure-Python tiling window manager"
+arch=('x86_64')
+url="http://www.qtile.org"
+license=('MIT')
+depends=(
+  'gdk-pixbuf2'
+  'glibc'
+  'libnotify'
+  'librsvg'
+  'pango'
+  'python-cairocffi'
+  'python-cffi'
+  'python-xcffib'
+  'python-gobject'
+)
+makedepends=(
+  'git'
+  'jupyter_console'
+  'libpulse'
+  'python-ipykernel'
+  'python-setuptools'
+  'python-setuptools-scm'
+)
+checkdepends=(
+  'graphviz'
+  'imagemagick'
+  'libgnome-keyring'
+  'lm_sensors'
+  'procps-ng'
+  'python-bowler'
+  'python-dbus-next'
+  'python-iwlib'
+  'python-keyring'
+  'python-psutil'
+  'python-pytest'
+  'python-pywlroots'
+  'python-xdg'
+  'python-xvfbwrapper'
+  'xorg-xcalc'
+  'xorg-xclock'
+  'xorg-xeyes'
+  'xorg-server-xephyr'
+  'xorg-xrandr'
+  'xterm'
+)
+optdepends=(
+  'alsa-utils: volume widget'
+  'canto-daemon: canto widget'
+  'cmus: cmus widget'
+  'khal: khal_calendar widget'
+  'libpulse: for pulse_volume and pulseaudio_ffi widget'
+  'lm_sensors: sensors widget'
+  'moc: moc widget'
+  'python-dbus-next: for utils, notifications and several widgets'
+  'python-iwlib: wlan widget'
+  'python-keyring: imapwidget widget'
+  'python-mpd2: mpd2widget widget'
+  'python-psutil: graph, net and memory widget'
+  'python-pywlroots: for experimental wayland support'
+  'python-setproctitle: change process name to qtile'
+  'python-xdg: launchbar widget'
+)
+install="${pkgname}.install"
+source=("git+https://github.com/qtile/qtile#tag=v${pkgver}?signed")
+sha512sums=('SKIP')
+b2sums=('SKIP')
+validpgpkeys=('3CCAB226289DE0160C61BDB418D18F1BC464DCA3') # Tycho Andersen <tycho@tycho.pizza>
+
+build() {
+  cd "${pkgname}"
+  python setup.py build
+}
+
+check() {
+  local _python_version="$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
+  local _test_dir='test_dir'
+
+  cd "${pkgname}"
+
+  # install into test location
+  mkdir -vp "${_test_dir}"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --root="${_test_dir}"
+  # create dummy dir for executable and symlink the test executable to it for
+  # testing
+  mkdir -vp bin
+  ln -svf "../${_test_dir}/usr/bin/${pkgname}" "bin/${pkgname}"
+
+  export PYTHONPATH="${PWD}/${_test_dir}/usr/lib/python${_python_version}/site-packages/:${PYTHONPATH}"
+  export PATH="${PWD}/test_dir/usr/bin:${PATH}"
+  export LC_TYPE=en_US.UTF-8
+  ./scripts/ffibuild
+  # unresolved issues with the imapwidget tests: https://github.com/qtile/qtile/issues/2629
+  # some tests never return: https://github.com/qtile/qtile/issues/2628
+  pytest -vv \
+    --ignore "test/widgets/test_imapwidget.py" \
+    -k "not test_remove and not test_widget_init_config[ImapWidget-kwargs28]"
+}
+
+package() {
+  cd "${pkgname}"
+  python setup.py install --skip-build \
+    --optimize=1 \
+    --root="${pkgdir}"
+  # license
+  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  # config
+  install -vDm 644 libqtile/resources/default_config.py \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  # desktop file
+  install -vDm 644 "resources/${pkgname}.desktop" \
+    -t "${pkgdir}/usr/share/xsessions/"
+  # docs
+  install -vDm 644 {CHANGELOG,README.rst} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
