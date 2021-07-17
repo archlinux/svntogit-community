@@ -2,7 +2,7 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=9.2.4
+pkgver=10.0.1
 _ghidra_data=7d843ec229d43c2d1a8178aaa892be90e37e95a2
 _d2j=2.0
 _yajsw=12.12
@@ -22,18 +22,16 @@ source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver
         https://github.com/pxb1988/dex2jar/releases/download/${_d2j}/dex-tools-${_d2j}.zip
         https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar
         https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-${_yajsw}/yajsw-stable-${_yajsw}.zip
-        https://sourceforge.net/projects/catacombae/files/HFSExplorer/${_hfsx}/hfsexplorer-${_hfsx/./_}-bin.zip
-        https://archive.archlinux.org/packages/g/gradle/gradle-6.8.3-1-any.pkg.tar.zst)
+        https://sourceforge.net/projects/catacombae/files/HFSExplorer/${_hfsx}/hfsexplorer-${_hfsx/./_}-bin.zip)
 noextract=(AXMLPrinter2.jar
            yajsw-stable-${_yajsw}.zip
            hfsexplorer-${_hfsx/./_}-bin.zip)
-sha512sums=('c87975cd84088c146972b54f64cd5023d8fe362274ead85b93519bf7e551b6982de4b98dfaf914127b2dad37cb8907a3289fba9fcfdc9bdeada4cde62ed15b9a'
+sha512sums=('6cceb31e29080a653aca17f049778476431eaf779556ae039bc98d06ad81e6c19b3a2b72f9f5aabc4b255cc186ba97f02013ff387dedef82ac94593066e62ea4'
             'SKIP'
             'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
             '0ff5a228ae1c5251c8ba59f9bcd9b4a199b0caaf688f6eccba42c3d227784d8f56f9164b2fad73fc173ec314340c036144123ce152fe911013df5598bd708944'
-            'b85b4316115695acc78cc7c675c673058c05a238451562be0c6a48b2d11a28e5645a42cb62cdf063be015369df26201dfab6cf2e60f39e6468d1d53b23f94415'
-            '5e0c4d7c71a080b292101e116de01500dc69d59d4f1fdb52d4b859aa9f6655b69ec125f6727606a926870bd619d3f5bcae9bcb40ffe50d439e6331cae61d79e0')
+            'b85b4316115695acc78cc7c675c673058c05a238451562be0c6a48b2d11a28e5645a42cb62cdf063be015369df26201dfab6cf2e60f39e6468d1d53b23f94415')
 
 prepare() {
   export PATH="/usr/lib/jvm/java-11-openjdk/bin:${PATH}"
@@ -46,7 +44,7 @@ prepare() {
   install -Dm 644 ../dex2jar-${_d2j}/lib/dex-*.jar \
     ../AXMLPrinter2.jar \
     ../hfsx/lib/{csframework,hfsx*,iharder-base64}.jar \
-    -t flatRepo
+    -t dependencies/flatRepo
 
   # YAJSW expects this symlink
   ln -sf ghidra-Ghidra_${pkgver}_build ../ghidra.bin
