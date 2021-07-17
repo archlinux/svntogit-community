@@ -5,7 +5,7 @@
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
 pkgver=3.9.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
 url="https://gnuradio.org"
@@ -15,7 +15,7 @@ depends=('python-numpy' 'gsl' 'blas' 'libuhd' 'libvolk' 'log4cpp' 'python-yaml'
     'pybind11')
 makedepends=('alsa-lib' 'boost' 'cmake' 'fftw' 'glu' 'gtk3' 'jack' 'pango'
     'portaudio' 'python-gobject' 'python-lxml' 'python-pyqt5' 'python-cairo'
-    'qwt' 'swig' 'zeromq')
+    'qwt' 'zeromq')
 
 # todo
 # split the gui components?
@@ -85,7 +85,6 @@ package_gnuradio() {
   'libboost_program_options.so' 'libboost_thread.so' 'libfftw3f.so'
   'libfftw3f_threads.so' 'libjack.so' 'libportaudio.so' 'libzmq.so')
   optdepends=('boost: gr_modtool'
-              'swig: gr_modtool'
               'cmake: gr_modtool'
               'pkgconfig: libuhd')
   provides=(
