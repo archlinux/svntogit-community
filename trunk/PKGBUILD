@@ -5,47 +5,48 @@
 # Contributor: Tom K <tomk@runbox.com>
 
 pkgname=hdf5
-pkgver=1.12.0
-pkgrel=2
+pkgver=1.12.1
+pkgrel=1
 pkgdesc="General purpose library and file format for storing scientific data"
 arch=(x86_64)
 url="https://www.hdfgroup.org/hdf5"
 license=(custom)
 depends=(zlib libaec bash)
-makedepends=(cmake time gcc-fortran)
-replaces=(hdf5-cpp-fortran)
-provides=(hdf5-cpp-fortran)
-options=(staticlibs)
-source=("https://support.hdfgroup.org/ftp/HDF5/releases/${pkgname}-${pkgver:0:4}/${pkgname}-${pkgver/_/-}/src/${pkgname}-${pkgver/_/-}.tar.bz2"
-        hdf5-1.12.0-compat-1.6.patch)
-sha256sums=('97906268640a6e9ce0cde703d5a71c9ac3092eded729591279bf2e3ca9765f61'
-            '72ad497c56760bb3af8193c88d3fa264125829850b843697de55d934c56f7f44')
+makedepends=(cmake time gcc-fortran java-environment)
+replaces=(hdf5-java)
+provides=(hdf5-java)
+source=(https://support.hdfgroup.org/ftp/HDF5/releases/${pkgname}-${pkgver:0:4}/${pkgname}-${pkgver/_/-}/src/${pkgname}-${pkgver/_/-}.tar.bz2)
+sha256sums=('aaf9f532b3eda83d3d3adc9f8b40a9b763152218fa45349c3bc77502ca1f8f1c')
 
 build() {
     # Crazy workaround: run CMake to generate pkg-config file
+    #cmake -B build -S ${pkgname}-${pkgver/_/-} \
     mkdir -p build && cd build
     cmake ../${pkgname}-${pkgver/_/-} \
         -DCMAKE_INSTALL_PREFIX=/usr \
-        -DBUILD_SHARED_LIBS=ON \
+        -DBUILD_STATIC_LIBS=OFF \
         -DCMAKE_BUILD_TYPE=Release \
         -DHDF5_BUILD_HL_LIB=ON \
         -DHDF5_BUILD_CPP_LIB=ON \
         -DHDF5_BUILD_FORTRAN=ON \
+        -DHDF5_BUILD_JAVA=ON \
         -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
         -DHDF5_ENABLE_SZIP_SUPPORT=ON \
-        -DHDF5_ENABLE_SZIP_ENCODING=ON
+        -DHDF5_ENABLE_SZIP_ENCODING=ON \
+        -DUSE_LIBAEC=ON
     # But don’t build with it, it’s quite broken
     cd ../${pkgname}-${pkgver/_/-}
     ./configure \
         --prefix=/usr \
         --docdir=/usr/share/doc/hdf5/ \
-        --with-examplesdir='${DESTDIR}/${prefix}/share/doc/hdf5/examples' \
-        --enable-static \
+        --with-examplesdir=/usr/share/doc/hdf5/examples/ \
+        --disable-static \
         --disable-sharedlib-rpath \
         --enable-build-mode=production \
         --enable-hl \
         --enable-cxx \
         --enable-fortran \
+        --enable-java \
         --with-pic \
         --with-zlib \
         --with-szlib
@@ -69,8 +70,5 @@ package() {
     make DESTDIR="${pkgdir}" install
     install -Dm644 COPYING -t "${pkgdir}"/usr/share/licenses/${pkgname}
     # Install pkg-config files from CMake tree
-    install -Dm644 ../build/CMakeFiles/hdf5{,_hl}{,_cpp}-${pkgver}.pc -t "${pkgdir}"/usr/lib/pkgconfig/
-    # Fix 1.6 compatibility for h5py
-    cd "${pkgdir}"/usr/include/
-    patch -p1 -i "${srcdir}"/hdf5-1.12.0-compat-1.6.patch
+    install -Dm644 ../build/CMakeFiles/hdf5{,_hl}{,_cpp,_fortran}.pc -t "${pkgdir}"/usr/lib/pkgconfig/
 }
