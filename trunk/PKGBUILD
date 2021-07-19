@@ -1,10 +1,10 @@
 # Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Caleb Maclennan <alerque.com>
 # Contributor: William Gathoye <william + aur at gathoye dot be>
-# Contributor: Caleb Maclennan <caleb@alerque.com>
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=5.33.3
+pkgver=5.37.0
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
@@ -21,8 +21,8 @@ source=(${pkgname}-server-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgn
         ${pkgname}.service
         ${pkgname}.sysusers
         ${pkgname}.tmpfiles)
-sha256sums=('81a88a44b6739cb19595d38b0d16484740064b514f22bc9d5b12581fbf459cb7'
-            'c0ab5abe71eb92376ef8bc1e5c7da7539daedfcf5d003d7bbf9876dde14535c3'
+sha256sums=('272daceaeb07c657f19c2f8f75244560ac9dfae1d6a0191d921223c6f4477753'
+            'a15b8ad1e51226650435cb905bc84f6cfd86997f2f41971df5e0594e610034fa'
             '8236235749e3f54b494159b80bf677a7c09cf8d87001fa431925a0e423d3f33e'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
@@ -31,7 +31,7 @@ prepare() {
     cd ${pkgname}-server-${pkgver}
     go mod vendor
 
-    # The configuration isn't available at this time yet, modify the default.
+    # The configuration isn’t available at this time yet, modify the default.
     sed -r -i build/release.mk \
         -e  's!config/config.json!config/default.json!' \
         -e 's/\$\(DIST_PATH\)\/config\/config.json/\$\(DIST_PATH\)\/config\/default.json/'
@@ -68,7 +68,7 @@ build() {
     cd ../${pkgname}-webapp-${pkgver}
     make build
     cd ../${pkgname}-server-${pkgver}
-    export BUILD_WEBAPP_DIR="${srcdir}/${pkgname}-webapp-${pkgver}"
+    export BUILD_WEBAPP_DIR="${srcdir}"/${pkgname}-webapp-${pkgver}
     make package
 }
 
