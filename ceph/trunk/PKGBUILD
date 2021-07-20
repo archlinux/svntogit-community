@@ -4,8 +4,8 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.5.0
-pkgver=15.2.12
-pkgrel=3
+pkgver=15.2.13
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -48,11 +48,11 @@ source=(
   'ceph-12.2.4-boost-build-none-options.patch'
   'ceph-13.2.0-cflags.patch'
   'ceph-13.2.2-dont-install-sysvinit-script.patch'
-  'ceph-14.2.0-link-crc32-statically.patch'
+  # 'ceph-14.2.0-link-crc32-statically.patch'
   'ceph-14.2.0-cython-0.29.patch'
   'ceph-15.2.0-rocksdb-cmake.patch'
   'ceph-15.2.4-system-uring.patch'
-  'ceph-15.2.5-missing-includes.patch'
+  # 'ceph-15.2.5-missing-includes.patch'
   'disable-empty-readable.sh-test.patch'
   'qa-src-update-mypy-to-0.782.patch'
   'fix-mgr-dashboard-partial_dict.patch'
@@ -64,18 +64,16 @@ source=(
   # https://github.com/ceph/ceph/pull/34846
   'backport_mgr_disabled_modules_workaround_PR34846.patch'
 )
-sha512sums=('08266a2e9a7ca5a37e03f340873571fd012c630dd898a87241cd97c29760b2bf41fe64c8883e7b08e0f83c26245072cd26e69ecb1db02378d1ec38335ba1cd0f'
+sha512sums=('bde28c331c489db0845959f65c425146c317466a7793f56a83e2827dec35b8cd6f600bf9056151c1e6926cc0155deebbc8681c240ac9f37ad876b9a6afae96da'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '25b657529a698eec891f92ff4a085d1fd95d2ff938ce52c8a4ff6163eb0b668ec642dd09e0db190652638cd92371006afa01d8e437437762c4097ad301675c33'
             '9e6bb46d5bbdc5d93f4f026b2a8d6bdb692d9ea6e7018c1bb0188d95ea8574c76238d968b340fd67ddaa3d8183b310e393e3549dc3a63a795fde696413b0ca94'
             '6ff46a90d76f667fa23be0f9eb1ed2fb7e30af9a2621aec19944d0a22a431a0f5721603c588286e483ff55c14aac920adfccb039c9678a87cc59640dd70367ae'
             '8ec0d668fefee12d2c7f5b5297dd81fc6a559f5823d069e6395d9b4240110eb8f95049d3054697a459948c1f3784b4450539849cf9d7f3b1aa1c7fbd96c475df'
             'ea069b75b786c22166c609b127b512802cc5c6e9512d792d7b7b34d276f5b86d57c8c35cfc7b5c855a59c0ba87ba1aabe2ca26da72b26bff46b6ba8410ddb27e'
-            '3efe70f826ebc207f1ce8744483c9a82ebbf8f3cfa81c9cbb3152b40f5b540cc9cc21e6bd3370197bee9a27a01c3e3725754d044069bb760c3dbfbc97fe4276d'
             '82c1608928ee669ef60b8930ce82c443152c446e669e7bde9ce32f78571afb19a9620c3818b69ac8cb3ea33e7d7ac40f77c89162c71b19b157336d907fa23e3d'
             '20256de5c3227caa149f8285bcc90fcbd67be8cefa568fb72ad0d43688f1f62db7c7fc231dfd4ecf2dd11be68bf1ccc284ebbc691a82a26f3968200f12c82097'
             '8258661e56b5360f4260fdd29b07bac4d415068a112b61ca8c55c529fb1593d8d61a0d59a4eec8f1567b97167c058082198d008f55f8ee701cb46489df5f7823'
-            '84de66f64ea96cd59b40dfb5b8c5d093fe49df1139b45ad9d1bd6b9ebd2f1200b6e931adcf032639a4995af322cf05c1ef9050eb1cb6673e29e040d4e348b3d5'
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
             '204741c65b8ceeddae0a58a49e2b4249ee7ffc624ce8d9faa6284af198abe63bffb6758e064eeff6d1857be044647f99749a45443e258b35e92cc36b9edeba80'
             '79e337a78cc4bd9ed8c8ab66831b3efd5a3a34e16d2c73ecedef03d2a34c7ac65ea25641a808913cd2dc2dc0f992fac35822efe4188622add6898dce1e5f13e3'
