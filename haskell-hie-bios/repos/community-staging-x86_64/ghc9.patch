@@ -1,0 +1,761 @@
+From a2783dc0c55ccbe5647fe87c422c9a65354fc3ef Mon Sep 17 00:00:00 2001
+From: Fendor <power.walross@gmail.com>
+Date: Sat, 5 Sep 2020 13:50:09 +0200
+Subject: [PATCH 01/10] Make hie-bios compile with GHC-HEAD
+
+---
+ hie-bios.cabal              |   3 +-
+ src/HIE/Bios/Environment.hs |  19 +++---
+ src/HIE/Bios/Ghc/Api.hs     |   3 +-
+ src/HIE/Bios/Ghc/Check.hs   |   2 +-
+ src/HIE/Bios/Ghc/Doc.hs     |  10 +++-
+ src/HIE/Bios/Ghc/Gap.hs     | 113 ++++++++++++++++++++++++++++++++++--
+ src/HIE/Bios/Ghc/Load.hs    |   6 +-
+ src/HIE/Bios/Ghc/Logger.hs  |  23 +++++---
+ 8 files changed, 145 insertions(+), 34 deletions(-)
+
+diff --git a/hie-bios.cabal b/hie-bios.cabal
+index 1ee5a8c0..735efe34 100644
+--- a/hie-bios.cabal
++++ b/hie-bios.cabal
+@@ -156,8 +156,9 @@ Library
+                         filepath             >= 1.4.1 && < 1.5,
+                         time                 >= 1.8.0 && < 1.12,
+                         extra                >= 1.6.14 && < 1.8,
++                        exceptions,
+                         process              >= 1.6.1 && < 1.7,
+-                        ghc                  >= 8.4.1 && < 8.11,
++                        ghc-api-compat,
+                         transformers         >= 0.5.2 && < 0.6,
+                         temporary            >= 1.2 && < 1.4,
+                         text                 >= 1.2.3 && < 1.3,
+diff --git a/src/HIE/Bios/Environment.hs b/src/HIE/Bios/Environment.hs
+index 48ed0e4d..15670333 100644
+--- a/src/HIE/Bios/Environment.hs
++++ b/src/HIE/Bios/Environment.hs
+@@ -7,6 +7,7 @@ import qualified GHC as G
+ import qualified DriverPhases as G
+ import qualified Util as G
+ import DynFlags
++import qualified HIE.Bios.Ghc.Gap as Gap
+ 
+ import Control.Applicative
+ import Control.Monad (void)
+@@ -123,9 +124,8 @@ getCacheDir fp = do
+ -- (HscInterpreted) which implies LinkInMemory
+ -- HscInterpreted
+ setLinkerOptions :: DynFlags -> DynFlags
+-setLinkerOptions df = df {
++setLinkerOptions df = setNoCode $ df {
+     ghcLink   = LinkInMemory
+-  , hscTarget = HscNothing
+   , ghcMode = CompManager
+   }
+ 
+@@ -179,7 +179,7 @@ addCmdOpts cmdOpts df1 = do
+   let
+    (srcs, objs) = partition_args normal_fileish_paths [] []
+    df3 = df2 { ldInputs = map (FileOption "") objs ++ ldInputs df2 }
+-  ts <- mapM (uncurry G.guessTarget) srcs
++  ts <- mapM (uncurry Gap.guessTarget) srcs
+   return (df3, ts)
+     -- TODO: Need to handle these as well
+     -- Ideally it requires refactoring to work in GHCi monad rather than
+@@ -198,17 +198,14 @@ addCmdOpts cmdOpts df1 = do
+ -- This makes the 'DynFlags' independent of the current working directory.
+ makeDynFlagsAbsolute :: FilePath -> DynFlags -> DynFlags
+ makeDynFlagsAbsolute work_dir df =
+-  mapOverIncludePaths (work_dir </>)
++  mapOverIncludePaths makeAbs
+   $ df
+-    { importPaths = map (work_dir </>) (importPaths df)
++    { importPaths = map makeAbs (importPaths df)
+     , packageDBFlags =
+-        let makePackageDbAbsolute (PackageDB pkgConfRef) = PackageDB
+-              $ case pkgConfRef of
+-                PkgConfFile fp -> PkgConfFile (work_dir </> fp)
+-                conf -> conf
+-            makePackageDbAbsolute db = db
+-        in map makePackageDbAbsolute (packageDBFlags df)
++        map (Gap.overPkgDbRef makeAbs) (packageDBFlags df)
+     }
++  where
++    makeAbs = (work_dir </>)
+ 
+ -- partition_args, along with some of the other code in this file,
+ -- was copied from ghc/Main.hs
+diff --git a/src/HIE/Bios/Ghc/Api.hs b/src/HIE/Bios/Ghc/Api.hs
+index 487e62d8..8a6ca65e 100644
+--- a/src/HIE/Bios/Ghc/Api.hs
++++ b/src/HIE/Bios/Ghc/Api.hs
+@@ -14,6 +14,7 @@ import DynFlags
+ import qualified GHC as G
+ import qualified HscMain as G
+ import qualified GhcMake as G
++import qualified HIE.Bios.Ghc.Gap as Gap
+ 
+ import Control.Monad (void)
+ import HIE.Bios.Types
+@@ -61,7 +62,7 @@ initSessionWithMessage msg compOpts = (do
+ withDynFlags ::
+   (GhcMonad m)
+   => (DynFlags -> DynFlags) -> m a -> m a
+-withDynFlags setFlag body = G.gbracket setup teardown (\_ -> body)
++withDynFlags setFlag body = Gap.bracket setup teardown (\_ -> body)
+   where
+     setup = do
+         dflag <- G.getSessionDynFlags
+diff --git a/src/HIE/Bios/Ghc/Check.hs b/src/HIE/Bios/Ghc/Check.hs
+index 6bd33a7c..7505b6cb 100644
+--- a/src/HIE/Bios/Ghc/Check.hs
++++ b/src/HIE/Bios/Ghc/Check.hs
+@@ -4,7 +4,7 @@ module HIE.Bios.Ghc.Check (
+   ) where
+ 
+ import GHC (DynFlags(..), GhcMonad)
+-import Exception
++import Control.Exception
+ 
+ import HIE.Bios.Environment
+ import HIE.Bios.Ghc.Api
+diff --git a/src/HIE/Bios/Ghc/Doc.hs b/src/HIE/Bios/Ghc/Doc.hs
+index faaf9a9a..46d71539 100644
+--- a/src/HIE/Bios/Ghc/Doc.hs
++++ b/src/HIE/Bios/Ghc/Doc.hs
+@@ -2,16 +2,20 @@
+ module HIE.Bios.Ghc.Doc where
+ 
+ import GHC (DynFlags, getPrintUnqual, pprCols, GhcMonad)
+-import Outputable (PprStyle, SDoc, withPprStyleDoc, neverQualify)
++import Outputable (PprStyle, SDoc, runSDoc, neverQualify, initSDocContext)
+ import Pretty (Mode(..), Doc, Style(..), renderStyle, style)
+ 
+ import HIE.Bios.Ghc.Gap (makeUserStyle)
+ 
+ showPage :: DynFlags -> PprStyle -> SDoc -> String
+-showPage dflag stl = showDocWith dflag PageMode . withPprStyleDoc dflag stl
++showPage dflag stl sdoc = showDocWith dflag PageMode $ runSDoc sdoc scontext
++  where
++    scontext = initSDocContext dflag stl
+ 
+ showOneLine :: DynFlags -> PprStyle -> SDoc -> String
+-showOneLine dflag stl = showDocWith dflag OneLineMode . withPprStyleDoc dflag stl
++showOneLine dflag stl sdoc = showDocWith dflag OneLineMode $ runSDoc sdoc scontext
++  where
++    scontext = initSDocContext dflag stl
+ 
+ getStyle :: (GhcMonad m) => DynFlags -> m PprStyle
+ getStyle dflags = makeUserStyle dflags <$> getPrintUnqual
+diff --git a/src/HIE/Bios/Ghc/Gap.hs b/src/HIE/Bios/Ghc/Gap.hs
+index 0078daf8..af0d04cf 100644
+--- a/src/HIE/Bios/Ghc/Gap.hs
++++ b/src/HIE/Bios/Ghc/Gap.hs
+@@ -1,4 +1,4 @@
+-{-# LANGUAGE FlexibleInstances, CPP #-}
++{-# LANGUAGE FlexibleInstances, CPP, PatternSynonyms #-}
+ -- | All the CPP for GHC version compability should live in this module.
+ module HIE.Bios.Ghc.Gap (
+     WarnFlags
+@@ -7,13 +7,21 @@ module HIE.Bios.Ghc.Gap (
+   , getModuleName
+   , getTyThing
+   , fixInfo
++  , guessTarget
++  , setNoCode
++  , overPkgDbRef
++  , set_hsc_dflags
+   , getModSummaries
+   , mapOverIncludePaths
++  , pattern RealSrcSpan
+   , LExpression
+   , LBinding
+   , LPattern
+   , inTypes
+   , outType
++  , catch
++  , bracket
++  , handle
+   , mapMG
+   , mgModSummaries
+   , numLoadedPlugins
+@@ -21,9 +29,12 @@ module HIE.Bios.Ghc.Gap (
+   , unsetLogAction
+   ) where
+ 
+-import DynFlags (DynFlags, includePaths)
++import DynFlags (DynFlags, includePaths, LogAction)
++import qualified DynFlags as G
+ import GHC(LHsBind, LHsExpr, LPat, Type, ModSummary, ModuleGraph, HscEnv, setLogAction, GhcMonad)
++import qualified GHC as G
+ import Outputable (PrintUnqualified, PprStyle, Depth(AllTheWay), mkUserStyle)
++import qualified HscTypes as G
+ 
+ #if __GLASGOW_HASKELL__ >= 808
+ import qualified DynamicLoading (initializePlugins)
+@@ -31,6 +42,7 @@ import qualified Plugins (plugins)
+ #endif
+ 
+ 
++import qualified Control.Monad.Catch as E
+ 
+ 
+ 
+@@ -63,11 +75,91 @@ import HsExtension (GhcTc)
+ import HsExpr (MatchGroup)
+ #endif
+ 
++#if __GLASGOW_HASKELL__ >= 811
++import GHC.Core.Type
++#endif
++
++#if __GLASGOW_HASKELL__ >= 811
++bracket :: E.MonadMask m => m a -> (a -> m c) -> (a -> m b) -> m b
++bracket =
++  E.bracket
++#else
++bracket :: G.ExceptionMonad m => m a -> (a -> m c) -> (a -> m b) -> m b
++bracket =
++  G.gbracket
++#endif
++
++#if __GLASGOW_HASKELL__ >= 811
++handle :: (E.MonadCatch m, E.Exception e) => (e -> m a) -> m a -> m a
++handle = E.handle
++#else
++handle :: (G.ExceptionMonad m, E.Exception e) => (e -> m a) -> m a -> m a
++handle = G.ghandle
++#endif
++
++#if __GLASGOW_HASKELL__ >= 811
++catch :: (E.MonadCatch m, E.Exception e) => m a -> (e -> m a) -> m a
++catch =
++  E.catch
++#else
++catch :: (G.ExceptionMonad m, E.Exception e) => m a -> (e -> m a) -> m a
++catch =
++  G.gcatch
++#endif
++
++----------------------------------------------------------------
++
++pattern RealSrcSpan :: G.RealSrcSpan -> G.SrcSpan
++#if __GLASGOW_HASKELL__ >= 811
++pattern RealSrcSpan t <- G.RealSrcSpan t _
++#else
++pattern RealSrcSpan t <- G.RealSrcSpan t
++#endif
++
++----------------------------------------------------------------
++
++setNoCode :: DynFlags -> DynFlags
++#if __GLASGOW_HASKELL__ >= 811
++setNoCode d = d { G.backend = G.NoBackend }
++#else
++setNoCode d = d { G.hscTarget = G.HscNothing }
++#endif
++
++----------------------------------------------------------------
++
++set_hsc_dflags :: DynFlags -> HscEnv -> HscEnv
++#if __GLASGOW_HASKELL__ >= 811
++set_hsc_dflags dflags hsc_env = hsc_env { hsc_dflags = dflags }
++#else
++set_hsc_dflags dflags hsc_env = hsc_env { hsc_dflags = dflags }
++#endif
++
++overPkgDbRef :: (FilePath -> FilePath) -> G.PackageDBFlag -> G.PackageDBFlag
++overPkgDbRef f (G.PackageDB pkgConfRef) = G.PackageDB
++              $ case pkgConfRef of
++#if __GLASGOW_HASKELL__ >= 811
++                G.PkgDbPath fp -> G.PkgDbPath (f fp)
++#else
++                G.PkgConfFile fp -> G.PkgConfFile (f fp)
++#endif
++                conf -> conf
++overPkgDbRef _f db = db
++
+ ----------------------------------------------------------------
++
++guessTarget :: GhcMonad m => String -> Maybe G.Phase -> m G.Target
++#if __GLASGOW_HASKELL__ >= 811
++guessTarget a b = G.guessTarget a b
++#else
++guessTarget a b = G.guessTarget a b
++#endif
++
+ ----------------------------------------------------------------
+ 
+ makeUserStyle :: DynFlags -> PrintUnqualified -> PprStyle
+-#if __GLASGOW_HASKELL__ >= 804
++#if __GLASGOW_HASKELL__ >= 811
++makeUserStyle _dflags style = mkUserStyle style AllTheWay
++#elif __GLASGOW_HASKELL__ >= 804
+ makeUserStyle dflags style = mkUserStyle dflags style AllTheWay
+ #endif
+ 
+@@ -99,7 +191,7 @@ fixInfo (t,f,cs,fs,_) = (t,f,cs,fs)
+ 
+ mapOverIncludePaths :: (FilePath -> FilePath) -> DynFlags -> DynFlags
+ mapOverIncludePaths f df = df
+-  { includePaths = 
++  { includePaths =
+ #if __GLASGOW_HASKELL__ > 804
+       IncludeSpecs
+           (map f $ includePathsQuote  (includePaths df))
+@@ -117,7 +209,11 @@ type LBinding    = LHsBind GhcTc
+ type LPattern    = LPat    GhcTc
+ 
+ inTypes :: MatchGroup GhcTc LExpression -> [Type]
++#if __GLASGOW_HASKELL__ >= 811
++inTypes = map irrelevantMult . mg_arg_tys . mg_ext
++#else
+ inTypes = mg_arg_tys . mg_ext
++#endif
+ outType :: MatchGroup GhcTc LExpression -> Type
+ outType = mg_res_ty . mg_ext
+ #elif __GLASGOW_HASKELL__ >= 804
+@@ -149,7 +245,14 @@ initializePlugins _ df = return df
+ 
+ unsetLogAction :: GhcMonad m => m ()
+ unsetLogAction =
+-    setLogAction (\_df _wr _s _ss _pp _m -> return ())
++    setLogAction noopLogger
+ #if __GLASGOW_HASKELL__ < 806
+         (\_df -> return ())
++#endif
++
++noopLogger :: LogAction
++#if __GLASGOW_HASKELL__ >= 811
++noopLogger = (\_df _wr _s _ss _m -> return ())
++#else
++noopLogger = (\_df _wr _s _ss _pp _m -> return ())
+ #endif
+\ No newline at end of file
+diff --git a/src/HIE/Bios/Ghc/Load.hs b/src/HIE/Bios/Ghc/Load.hs
+index 0c814969..5a0e685d 100644
+--- a/src/HIE/Bios/Ghc/Load.hs
++++ b/src/HIE/Bios/Ghc/Load.hs
+@@ -119,7 +119,7 @@ collectASTs action = do
+                           { hscFrontendHook = Just (astHook ref1) }
+                         }
+   -- Modify session is much faster than `setSessionDynFlags`.
+-  modifySession $ \h -> h{ hsc_dflags = dflags1 }
++  modifySession $ Gap.set_hsc_dflags dflags1
+   res <- action
+   tcs <- liftIO $ readIORef ref1
+   -- Unset the hook so that we don't retain the reference ot the IORef so it can be gced.
+@@ -129,7 +129,7 @@ collectASTs action = do
+   let dflags2 = dflags1 { hooks = (hooks dflags_old)
+                           { hscFrontendHook = Nothing }
+                         }
+-  modifySession $ \h -> h{ hsc_dflags = dflags2 }
++  modifySession $ Gap.set_hsc_dflags dflags2
+ 
+   return (res, tcs)
+ 
+@@ -161,7 +161,7 @@ ghcInHsc gm = do
+ -- target file to be a temporary file.
+ guessTargetMapped :: (GhcMonad m) => (FilePath, FilePath) -> m Target
+ guessTargetMapped (orig_file_name, mapped_file_name) = do
+-  t <- G.guessTarget orig_file_name Nothing
++  t <- Gap.guessTarget orig_file_name Nothing
+   return (setTargetFilename mapped_file_name t)
+ 
+ setTargetFilename :: FilePath -> Target -> Target
+diff --git a/src/HIE/Bios/Ghc/Logger.hs b/src/HIE/Bios/Ghc/Logger.hs
+index d55ac292..7d64663f 100644
+--- a/src/HIE/Bios/Ghc/Logger.hs
++++ b/src/HIE/Bios/Ghc/Logger.hs
+@@ -1,4 +1,4 @@
+-{-# LANGUAGE BangPatterns #-}
++{-# LANGUAGE BangPatterns, CPP #-}
+ 
+ module HIE.Bios.Ghc.Logger (
+     withLogger
+@@ -8,7 +8,6 @@ import Bag (Bag, bagToList)
+ import CoreMonad (liftIO)
+ import DynFlags (LogAction, dopt, DumpFlag(Opt_D_dump_splices))
+ import ErrUtils
+-import Exception (ghandle)
+ import FastString (unpackFS)
+ import GHC (DynFlags(..), SrcSpan(..), GhcMonad)
+ import qualified GHC as G
+@@ -21,6 +20,7 @@ import System.FilePath (normalise)
+ 
+ import HIE.Bios.Ghc.Doc (showPage, getStyle)
+ import HIE.Bios.Ghc.Api (withDynFlags)
++import qualified HIE.Bios.Ghc.Gap as Gap
+ 
+ ----------------------------------------------------------------
+ 
+@@ -37,8 +37,12 @@ readAndClearLogRef (LogRef ref) = do
+     writeIORef ref id
+     return $! unlines (b [])
+ 
+-appendLogRef :: DynFlags -> LogRef -> LogAction
+-appendLogRef df (LogRef ref) _ _ sev src style msg = do
++appendLogRef :: DynFlags -> PprStyle -> LogRef -> LogAction
++appendLogRef df style (LogRef ref) _ _ sev src
++#if __GLASGOW_HASKELL__ < 811
++  _style
++#endif
++  msg = do
+         let !l = ppMsg src sev df style msg
+         modifyIORef ref (\b -> b . (l:))
+ 
+@@ -50,13 +54,14 @@ appendLogRef df (LogRef ref) _ _ sev src style msg = do
+ withLogger ::
+   (GhcMonad m)
+   => (DynFlags -> DynFlags) -> m () -> m (Either String String)
+-withLogger setDF body = ghandle sourceError $ do
++withLogger setDF body = Gap.handle sourceError $ do
+     logref <- liftIO newLogRef
++    dflags <- G.getSessionDynFlags
++    style <- getStyle dflags
++    let setLogger logref df = df { log_action =  appendLogRef df style logref }
+     withDynFlags (setLogger logref . setDF) $ do
+       body
+       liftIO $ Right <$> readAndClearLogRef logref
+-  where
+-    setLogger logref df = df { log_action =  appendLogRef df logref }
+ 
+ ----------------------------------------------------------------
+ 
+@@ -104,14 +109,14 @@ showSeverityCaption SevWarning = "Warning: "
+ showSeverityCaption _          = ""
+ 
+ getSrcFile :: SrcSpan -> Maybe String
+-getSrcFile (G.RealSrcSpan spn) = Just . unpackFS . G.srcSpanFile $ spn
++getSrcFile (Gap.RealSrcSpan spn) = Just . unpackFS . G.srcSpanFile $ spn
+ getSrcFile _                   = Nothing
+ 
+ isDumpSplices :: DynFlags -> Bool
+ isDumpSplices dflag = dopt Opt_D_dump_splices dflag
+ 
+ getSrcSpan :: SrcSpan -> Maybe (Int,Int,Int,Int)
+-getSrcSpan (RealSrcSpan spn) = Just ( G.srcSpanStartLine spn
++getSrcSpan (Gap.RealSrcSpan spn) = Just ( G.srcSpanStartLine spn
+                                     , G.srcSpanStartCol spn
+                                     , G.srcSpanEndLine spn
+                                     , G.srcSpanEndCol spn)
+
+From b62dbf840859ea7c1c6c40bf601a56fa5572d327 Mon Sep 17 00:00:00 2001
+From: Fendor <power.walross@gmail.com>
+Date: Sat, 5 Sep 2020 13:51:41 +0200
+Subject: [PATCH 02/10] Adapt hie-bios to compile with GHC HEAD
+
+---
+ src/HIE/Bios/Ghc/Gap.hs | 6 +-----
+ 1 file changed, 1 insertion(+), 5 deletions(-)
+
+diff --git a/src/HIE/Bios/Ghc/Gap.hs b/src/HIE/Bios/Ghc/Gap.hs
+index af0d04cf..9683ef28 100644
+--- a/src/HIE/Bios/Ghc/Gap.hs
++++ b/src/HIE/Bios/Ghc/Gap.hs
+@@ -128,11 +128,7 @@ setNoCode d = d { G.hscTarget = G.HscNothing }
+ ----------------------------------------------------------------
+ 
+ set_hsc_dflags :: DynFlags -> HscEnv -> HscEnv
+-#if __GLASGOW_HASKELL__ >= 811
+-set_hsc_dflags dflags hsc_env = hsc_env { hsc_dflags = dflags }
+-#else
+ set_hsc_dflags dflags hsc_env = hsc_env { hsc_dflags = dflags }
+-#endif
+ 
+ overPkgDbRef :: (FilePath -> FilePath) -> G.PackageDBFlag -> G.PackageDBFlag
+ overPkgDbRef f (G.PackageDB pkgConfRef) = G.PackageDB
+@@ -149,7 +145,7 @@ overPkgDbRef _f db = db
+ 
+ guessTarget :: GhcMonad m => String -> Maybe G.Phase -> m G.Target
+ #if __GLASGOW_HASKELL__ >= 811
+-guessTarget a b = G.guessTarget a b
++guessTarget a b = G.guessTarget a Nothing b
+ #else
+ guessTarget a b = G.guessTarget a b
+ #endif
+
+From ea2060569eab58afb8bb6cea130c8adc3ca1395e Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Fri, 12 Feb 2021 00:20:42 +0100
+Subject: [PATCH 04/10] Bump up ghc upper bound
+
+---
+ hie-bios.cabal | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hie-bios.cabal b/hie-bios.cabal
+index 735efe34..12abd9b9 100644
+--- a/hie-bios.cabal
++++ b/hie-bios.cabal
+@@ -159,6 +159,7 @@ Library
+                         exceptions,
+                         process              >= 1.6.1 && < 1.7,
+                         ghc-api-compat,
++                        ghc                  >= 8.4.1 && < 9.2,
+                         transformers         >= 0.5.2 && < 0.6,
+                         temporary            >= 1.2 && < 1.4,
+                         text                 >= 1.2.3 && < 1.3,
+
+From e9acdf8d8b871ec1eff3a02e8f6f9983e1daacbe Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Tue, 16 Feb 2021 23:26:33 +0100
+Subject: [PATCH 05/10] Update ghc head to 9.0
+
+---
+ src/HIE/Bios/Ghc/Gap.hs    | 22 +++++++++++-----------
+ src/HIE/Bios/Ghc/Logger.hs |  2 +-
+ 2 files changed, 12 insertions(+), 12 deletions(-)
+
+diff --git a/src/HIE/Bios/Ghc/Gap.hs b/src/HIE/Bios/Ghc/Gap.hs
+index 9683ef28..654e7df3 100644
+--- a/src/HIE/Bios/Ghc/Gap.hs
++++ b/src/HIE/Bios/Ghc/Gap.hs
+@@ -75,11 +75,11 @@ import HsExtension (GhcTc)
+ import HsExpr (MatchGroup)
+ #endif
+ 
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ import GHC.Core.Type
+ #endif
+ 
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ bracket :: E.MonadMask m => m a -> (a -> m c) -> (a -> m b) -> m b
+ bracket =
+   E.bracket
+@@ -89,7 +89,7 @@ bracket =
+   G.gbracket
+ #endif
+ 
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ handle :: (E.MonadCatch m, E.Exception e) => (e -> m a) -> m a -> m a
+ handle = E.handle
+ #else
+@@ -97,7 +97,7 @@ handle :: (G.ExceptionMonad m, E.Exception e) => (e -> m a) -> m a -> m a
+ handle = G.ghandle
+ #endif
+ 
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ catch :: (E.MonadCatch m, E.Exception e) => m a -> (e -> m a) -> m a
+ catch =
+   E.catch
+@@ -110,7 +110,7 @@ catch =
+ ----------------------------------------------------------------
+ 
+ pattern RealSrcSpan :: G.RealSrcSpan -> G.SrcSpan
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ pattern RealSrcSpan t <- G.RealSrcSpan t _
+ #else
+ pattern RealSrcSpan t <- G.RealSrcSpan t
+@@ -119,7 +119,7 @@ pattern RealSrcSpan t <- G.RealSrcSpan t
+ ----------------------------------------------------------------
+ 
+ setNoCode :: DynFlags -> DynFlags
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ setNoCode d = d { G.backend = G.NoBackend }
+ #else
+ setNoCode d = d { G.hscTarget = G.HscNothing }
+@@ -133,7 +133,7 @@ set_hsc_dflags dflags hsc_env = hsc_env { hsc_dflags = dflags }
+ overPkgDbRef :: (FilePath -> FilePath) -> G.PackageDBFlag -> G.PackageDBFlag
+ overPkgDbRef f (G.PackageDB pkgConfRef) = G.PackageDB
+               $ case pkgConfRef of
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+                 G.PkgDbPath fp -> G.PkgDbPath (f fp)
+ #else
+                 G.PkgConfFile fp -> G.PkgConfFile (f fp)
+@@ -144,7 +144,7 @@ overPkgDbRef _f db = db
+ ----------------------------------------------------------------
+ 
+ guessTarget :: GhcMonad m => String -> Maybe G.Phase -> m G.Target
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ guessTarget a b = G.guessTarget a Nothing b
+ #else
+ guessTarget a b = G.guessTarget a b
+@@ -153,7 +153,7 @@ guessTarget a b = G.guessTarget a b
+ ----------------------------------------------------------------
+ 
+ makeUserStyle :: DynFlags -> PrintUnqualified -> PprStyle
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ makeUserStyle _dflags style = mkUserStyle style AllTheWay
+ #elif __GLASGOW_HASKELL__ >= 804
+ makeUserStyle dflags style = mkUserStyle dflags style AllTheWay
+@@ -205,7 +205,7 @@ type LBinding    = LHsBind GhcTc
+ type LPattern    = LPat    GhcTc
+ 
+ inTypes :: MatchGroup GhcTc LExpression -> [Type]
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ inTypes = map irrelevantMult . mg_arg_tys . mg_ext
+ #else
+ inTypes = mg_arg_tys . mg_ext
+@@ -247,7 +247,7 @@ unsetLogAction =
+ #endif
+ 
+ noopLogger :: LogAction
+-#if __GLASGOW_HASKELL__ >= 811
++#if __GLASGOW_HASKELL__ >= 900
+ noopLogger = (\_df _wr _s _ss _m -> return ())
+ #else
+ noopLogger = (\_df _wr _s _ss _pp _m -> return ())
+diff --git a/src/HIE/Bios/Ghc/Logger.hs b/src/HIE/Bios/Ghc/Logger.hs
+index 7d64663f..47d855b2 100644
+--- a/src/HIE/Bios/Ghc/Logger.hs
++++ b/src/HIE/Bios/Ghc/Logger.hs
+@@ -39,7 +39,7 @@ readAndClearLogRef (LogRef ref) = do
+ 
+ appendLogRef :: DynFlags -> PprStyle -> LogRef -> LogAction
+ appendLogRef df style (LogRef ref) _ _ sev src
+-#if __GLASGOW_HASKELL__ < 811
++#if __GLASGOW_HASKELL__ < 900
+   _style
+ #endif
+   msg = do
+
+From 0277a32aa506a10f0f0b715f35a9c56594fd0452 Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Mon, 22 Feb 2021 23:33:02 +0100
+Subject: [PATCH 07/10] Adjust some defs to 9.0.1
+
+---
+ src/HIE/Bios/Ghc/Gap.hs | 18 ++++++++----------
+ 1 file changed, 8 insertions(+), 10 deletions(-)
+
+diff --git a/src/HIE/Bios/Ghc/Gap.hs b/src/HIE/Bios/Ghc/Gap.hs
+index 654e7df3..861cffbf 100644
+--- a/src/HIE/Bios/Ghc/Gap.hs
++++ b/src/HIE/Bios/Ghc/Gap.hs
+@@ -36,16 +36,8 @@ import qualified GHC as G
+ import Outputable (PrintUnqualified, PprStyle, Depth(AllTheWay), mkUserStyle)
+ import qualified HscTypes as G
+ 
+-#if __GLASGOW_HASKELL__ >= 808
+-import qualified DynamicLoading (initializePlugins)
+-import qualified Plugins (plugins)
+-#endif
+-
+-
+ import qualified Control.Monad.Catch as E
+ 
+-
+-
+ ----------------------------------------------------------------
+ ----------------------------------------------------------------
+ 
+@@ -59,6 +51,11 @@ import GHC (mgModSummaries, mapMG)
+ import DynFlags (IncludeSpecs(..))
+ #endif
+ 
++#if __GLASGOW_HASKELL__ >= 808
++import qualified DynamicLoading (initializePlugins)
++import qualified Plugins (plugins)
++#endif
++
+ #if __GLASGOW_HASKELL__ >= 810
+ import GHC.Hs.Extension (GhcTc)
+ import GHC.Hs.Expr (MatchGroup, MatchGroupTc(..), mg_ext)
+@@ -77,6 +74,7 @@ import HsExpr (MatchGroup)
+ 
+ #if __GLASGOW_HASKELL__ >= 900
+ import GHC.Core.Type
++import HscTypes (hsc_dflags)
+ #endif
+ 
+ #if __GLASGOW_HASKELL__ >= 900
+@@ -119,7 +117,7 @@ pattern RealSrcSpan t <- G.RealSrcSpan t
+ ----------------------------------------------------------------
+ 
+ setNoCode :: DynFlags -> DynFlags
+-#if __GLASGOW_HASKELL__ >= 900
++#if __GLASGOW_HASKELL__ >= 901
+ setNoCode d = d { G.backend = G.NoBackend }
+ #else
+ setNoCode d = d { G.hscTarget = G.HscNothing }
+@@ -144,7 +142,7 @@ overPkgDbRef _f db = db
+ ----------------------------------------------------------------
+ 
+ guessTarget :: GhcMonad m => String -> Maybe G.Phase -> m G.Target
+-#if __GLASGOW_HASKELL__ >= 900
++#if __GLASGOW_HASKELL__ >= 901
+ guessTarget a b = G.guessTarget a Nothing b
+ #else
+ guessTarget a b = G.guessTarget a b
+
+From 4fbeed80a429388ecb36d70c4352a0766b8065bc Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Mon, 22 Feb 2021 23:33:19 +0100
+Subject: [PATCH 08/10] Add ghc-api-compat to exe component
+
+---
+ hie-bios.cabal | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/hie-bios.cabal b/hie-bios.cabal
+index 12abd9b9..d6acd5ec 100644
+--- a/hie-bios.cabal
++++ b/hie-bios.cabal
+@@ -182,6 +182,7 @@ Executable hie-bios
+   Build-Depends:        base >= 4.9 && < 5
+                       , directory
+                       , filepath
++                      , ghc-api-compat
+                       , ghc
+                       , hie-bios
+                       , optparse-applicative
+
+From 9b1445ab5efcabfad54043fc9b8e50e9d8c5bbf3 Mon Sep 17 00:00:00 2001
+From: jneira <atreyu.bbb@gmail.com>
+Date: Tue, 23 Feb 2021 23:00:38 +0100
+Subject: [PATCH 10/10] Fix some definitions
+
+---
+ src/HIE/Bios/Ghc/Gap.hs | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/src/HIE/Bios/Ghc/Gap.hs b/src/HIE/Bios/Ghc/Gap.hs
+index 861cffbf..19d31fde 100644
+--- a/src/HIE/Bios/Ghc/Gap.hs
++++ b/src/HIE/Bios/Ghc/Gap.hs
+@@ -33,6 +33,7 @@ import DynFlags (DynFlags, includePaths, LogAction)
+ import qualified DynFlags as G
+ import GHC(LHsBind, LHsExpr, LPat, Type, ModSummary, ModuleGraph, HscEnv, setLogAction, GhcMonad)
+ import qualified GHC as G
++import qualified Exception as G
+ import Outputable (PrintUnqualified, PprStyle, Depth(AllTheWay), mkUserStyle)
+ import qualified HscTypes as G
+ 
+@@ -73,8 +74,7 @@ import HsExpr (MatchGroup)
+ #endif
+ 
+ #if __GLASGOW_HASKELL__ >= 900
+-import GHC.Core.Type
+-import HscTypes (hsc_dflags)
++import GHC.Core.Multiplicity (irrelevantMult)
+ #endif
+ 
+ #if __GLASGOW_HASKELL__ >= 900
+@@ -95,7 +95,7 @@ handle :: (G.ExceptionMonad m, E.Exception e) => (e -> m a) -> m a -> m a
+ handle = G.ghandle
+ #endif
+ 
+-#if __GLASGOW_HASKELL__ >= 900
++#if __GLASGOW_HASKELL__ >= 810
+ catch :: (E.MonadCatch m, E.Exception e) => m a -> (e -> m a) -> m a
+ catch =
+   E.catch
+@@ -126,7 +126,7 @@ setNoCode d = d { G.hscTarget = G.HscNothing }
+ ----------------------------------------------------------------
+ 
+ set_hsc_dflags :: DynFlags -> HscEnv -> HscEnv
+-set_hsc_dflags dflags hsc_env = hsc_env { hsc_dflags = dflags }
++set_hsc_dflags dflags hsc_env = hsc_env { G.hsc_dflags = dflags }
+ 
+ overPkgDbRef :: (FilePath -> FilePath) -> G.PackageDBFlag -> G.PackageDBFlag
+ overPkgDbRef f (G.PackageDB pkgConfRef) = G.PackageDB
