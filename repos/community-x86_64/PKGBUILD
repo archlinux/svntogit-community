@@ -1,36 +1,40 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=ponyc
-pkgver=0.42.0
-_llvmcommit=c1a0a213378a458fbea1a5c77b315c7dce08fd05
+pkgver=0.43.0
 pkgrel=1
 pkgdesc='An actor model, capabilities, high performance programming language'
 url='https://ponylang.org/'
 arch=('x86_64')
 license=('BSD')
-depends=('zlib')
-makedepends=('benchmark' 'cmake' 'git' 'gmock' 'grpc' 'gtest' 'python')
+depends=('llvm-libs')  # 'libb2'
+makedepends=('benchmark' 'cmake' 'gtest' 'llvm')
 checkdepends=('pcre2')
 options=('!strip')
 optdepends=('pcre2: Needed for the regex package')
 source=("https://github.com/ponylang/ponyc/archive/$pkgver/$pkgname-$pkgver.tar.gz"
-        "https://github.com/llvm/llvm-project/archive/$_llvmcommit/llvm-$_llvmcommit.tar.gz")
-sha512sums=('55e9303bd3ad6245454bf909dab8c51a56768cd15ab19ce97691e84bf163999aa604b4668c14eaec091006a19242b1befdd95736228943c6cec8c1b140625326'
-            '0c0b5f2c32479c148abebcc170651f5e6fc02177d3cf5638381ef177815f6c2223de7d4c082faa9de765a56ef1fba021583a748a5d009860b84979dc8d5ee064')
+        shared-libs.patch)
+sha512sums=('5b3bf863f0eb794c835a22edc1373bc4b96be4ca4390bfc30c5516542da54f2d87774d1fd70c93e9c7cce6162e222db9420d70f8d8e3a706bb6608a846b27f22'
+            '7dc4591d5e3ff7d321f4397f382d700e3778b984df3d1dc95ace1689ce3f7fe63d2b35c4986aea11cf15cfa34f53b96782eebe2cc8a729f47de45f72302ea594')
 
 prepare() {
   cd ponyc-$pkgver
-  rmdir lib/llvm/src
-  ln -sf "$srcdir"/llvm-project-$_llvmcommit lib/llvm/src
 
-  # Use system gmock/gtest/gbenchmark
-  sed -i 's|NO_DEFAULT_PATH||' CMakeLists.txt
+  patch -p2 -i ../shared-libs.patch
 
-  # Don't download gbenchmark/gtest
-  sed -i '12,20d' lib/CMakeLists.txt
+  # Use system gmock/gtest/gbenchmark, remove -Werror (https://github.com/ponylang/ponyc/issues/3806)
+  sed -i 's|NO_DEFAULT_PATH||;s/-Werror //' CMakeLists.txt
 
-  # https://github.com/ponylang/ponyc/issues/3628
-  sed -i '/        pony_assert(0);/a \        return false;' src/libponyc/expr/reference.c
+  # Don't build libponyc-standalone.a
+  # sed -i 's/else()/elseif(FALSE)/' src/libponyc/CMakeLists.txt
+
+  # System b2 - disabled: *** stack smashing detected ***: terminated
+  # sed -i 's/blake2/b2/' src/ponyc/CMakeLists.txt test/libponyc/CMakeLists.txt benchmark/libponyc/CMakeLists.txt
+  # Arguments ordering changed
+  # sed -i 's|blake2b(buf, SIGNATURE_LENGTH, array.ptr, array.size, NULL, 0);|blake2b(buf, array.ptr, NULL, SIGNATURE_LENGTH, array.size, 0);|' src/libponyc/pkg/package.c
+
+  # Missing LLVM components
+  sed -i 's/demangle/demangle amdgpucodegen avrcodegen bpfcodegen codegen hexagoncodegen lanaicodegen mipscodegen msp430codegen nativecodegen nvptxcodegen powerpccodegen riscvcodegen sparccodegen systemzcodegen webassemblycodegen xcorecodegen amdgpuasmparser asmparser avrasmparser bpfasmparser hexagonasmparser lanaiasmparser mipsasmparser msp430asmparser powerpcasmparser riscvasmparser sparcasmparser systemzasmparser webassemblyasmparser/' CMakeLists.txt
 }
 
 build() {
