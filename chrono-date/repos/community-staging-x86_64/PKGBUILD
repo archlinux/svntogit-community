@@ -1,0 +1,69 @@
+# Maintainer: Brett Cornwall <ainola@archlinux.org>
+
+pkgname=chrono-date
+pkgver=3.0.1
+pkgrel=1
+pkgdesc="A date and time library based on the C++11/14/17 <chrono> header"
+arch=(x86_64)
+url="https://howardhinnant.github.io/date/date.html"
+license=('MIT')
+makedepends=(
+    'cmake'
+    'git'
+)
+provides=(
+    'libdate-tz.so'
+)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/HowardHinnant/date/archive/v$pkgver.tar.gz"
+        "538-output-date-pc-for-pkg-config.patch::https://patch-diff.githubusercontent.com/raw/HowardHinnant/date/pull/538.patch"
+        "https://github.com/HowardHinnant/date/commit/052eebaf0086e6bbc5ead01c3f1a8f02496aa701.patch"
+        "https://github.com/HowardHinnant/date/commit/b49a7575ebbe127e8bd344900a52c14b5d69dd7b.patch"
+        "disable_buggy_libstdc++_tests.patch")
+sha256sums=('7a390f200f0ccd207e8cff6757e04817c1a0aec3e327b006b7eb451c57ee3538'
+            'c881ae3ae08b46a2137b987e593469d030669c37c9423921a1fac7de512676f3'
+            '9d8586fce2b98130dbfa5586250a74142f87cde97a9368ae07ebe89e5d6ea586'
+            '2a14544db6dad5e0f6a674384fccb86144915c45e9d3826f0c49ef2c01143884'
+            'bd770b44554790c8854dd433aa670ecb8071a69bbeb2855c97dc66570d442165')
+
+prepare() {
+    cd "date-$pkgver"
+
+    # https://github.com/HowardHinnant/date/issues/671
+    # These two patches were commited right after release of 3.0.1 and fix a
+    # failing test.
+    patch -p1 < ../052eebaf0086e6bbc5ead01c3f1a8f02496aa701.patch
+    patch -p1 < ../b49a7575ebbe127e8bd344900a52c14b5d69dd7b.patch
+    # https://github.com/HowardHinnant/date/issues/537
+    # Modified to link against date-tz as newer releases of date changed the library.
+    patch -p1 < ../538-output-date-pc-for-pkg-config.patch
+
+    # FIXME: one particular test suite will fail; according to the date author,
+    # GCC's std::time_get is buggy and bugs should be raised to that project.
+    # See:
+    # https://github.com/HowardHinnant/date/issues/334
+    # https://github.com/HowardHinnant/date/issues/455
+    # https://github.com/HowardHinnant/date/issues/496
+    patch -p1 < ../disable_buggy_libstdc++_tests.patch
+}
+
+
+build() {
+    cmake -B build -S "date-$pkgver" \
+        -DCMAKE_BUILD_TYPE=None \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DBUILD_SHARED_LIBS=true \
+        -DBUILD_TZ_LIB=true \
+        -DUSE_SYSTEM_TZ_DB=true \
+        -DENABLE_DATE_TESTING=true \
+        -Wno-dev
+}
+
+check() {
+    make -C build testit
+}
+
+package() {
+    make -C build DESTDIR="$pkgdir/" install
+    install -Dm644 "date-$pkgver/LICENSE.txt" -t "$pkgdir/usr/share/licenses/$pkgname"
+    install -Dm644 "date-$pkgver/README.md" -t "$pkgdir/usr/share/doc/$pkgname"
+}
