@@ -1,34 +1,24 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
-pkgbase=python-pytest-runner
-pkgname=('python-pytest-runner' 'python2-pytest-runner')
-pkgver=5.2
-pkgrel=3
+pkgname=python-pytest-runner
+pkgver=5.3.0
+pkgrel=1
 pkgdesc="Invoke py.test as distutils command with dependency resolution"
 arch=('any')
 license=('MIT')
 url="https://github.com/pytest-dev/pytest-runner"
-makedepends=('python-pytest' 'python2-pytest' 'python-setuptools-scm' 'python2-setuptools-scm')
+depends=('python-pytest' 'python-setuptools')
+makedepends=('python-setuptools-scm' 'python-toml')
 checkdepends=('python-pytest-black' 'python-pytest-cov' 'python-pytest-virtualenv'
-              'python-pytest-flake8')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/pytest-dev/pytest-runner/archive/$pkgver.tar.gz"
-        $pkgbase-black-fix.patch::https://github.com/pytest-dev/pytest-runner/commit/18b8fa1ace1b4ac0dbd53e14940da27c10db650d.patch)
-sha512sums=('0ce9c191481ab97795d0f45bdea7669cb61c3ac6aac476954d34c3e09e6fb08fd6bf73f192c014cb7ff2bd90dbfeb0f01d9a9ba7a9c6caeb371e40b42b558d63'
-            '92650ddf5c9ad43b92c0da3a0bb7f7669523897ca089a04ef46e4856de137fb6548536c4c024c5af2ff2bfbe96401aaaddb9c4448d7781b6accc72b2019f467f')
+              'python-pytest-flake8' 'python-pytest-enabler')
+source=("https://github.com/pytest-dev/pytest-runner/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('db62e26e58664c74bc3c1fa02c36e138f8a7b4aa617afa6abb13e394e1a216cc76b3b1303c256c43e1b364299ea7e9ca640ba7e0a2b0057734a93337dbcb815e')
 
-prepare() {
-  patch -d pytest-runner-$pkgver -p1 < $pkgbase-black-fix.patch || :
-  cp -a pytest-runner-$pkgver{,-py2}
-
-  export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
-}
+export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 build() {
-  cd "$srcdir"/pytest-runner-$pkgver
+  cd pytest-runner-$pkgver
   python setup.py build
-
-  cd "$srcdir"/pytest-runner-$pkgver-py2
-  python2 setup.py build
 }
 
 check() {
@@ -37,18 +27,8 @@ check() {
   PYTHONPATH="$PWD" pytest
 }
 
-package_python-pytest-runner() {
-  depends=('python-pytest')
-
+package() {
   cd pytest-runner-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-}
-
-package_python2-pytest-runner() {
-  depends=('python2-pytest')
-
-  cd pytest-runner-$pkgver-py2
-  python2 setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
