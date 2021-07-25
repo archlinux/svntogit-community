@@ -4,7 +4,7 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.5.2
+pkgver=1.5.4
 pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
@@ -25,14 +25,14 @@ prepare() {
 build() {
   cd "${pkgname}" 
   export GOFLAGS="-trimpath -mod=readonly -modcacherw"
-  make VERSION=v$pkgver EXTRA_LDFLAGS="-buildid="
+  make VERSION=v$pkgver GO_BUILD_FLAGS="-trimpath -mod=readonly -modcacherw" GO_GCFLAGS="" EXTRA_LDFLAGS="-buildid="
   make VERSION=v$pkgver man
 }
 
 check() {
   cd "${pkgname}" 
   # Ugly, but they are trying to do priviledged operations during testing
-  GOFLAGS="" make test || true
+  GOFLAGS="-trimpath" make test || true
 }
 
 package() {
