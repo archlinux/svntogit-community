@@ -13,8 +13,8 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=5.0.7.sdk204
-pkgrel=2
+pkgver=5.0.8.sdk205
+pkgrel=1
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -41,7 +41,7 @@ makedepends=(
 )
 optdepends=('bash-completion: Bash completion support')
 options=(staticlibs)
-_tag=05b7bc2775c53b3af47756ce71cf1cb04a7cbc9a
+_tag=42ac4d6d5a1d36cc92c89d0e810fdd2f5ed109c6
 source=(
   dotnet-source-build::git+https://github.com/dotnet/source-build.git#tag=${_tag}
   dotnet.sh
@@ -70,14 +70,16 @@ prepare() {
 pkgver() {
   cd dotnet-source-build
 
-  if [[ $(git describe --tags) != v5.0.*-SDK ]]; then
+  if [[ $(git describe --tags) != v5.0.*-runtime ]]; then
     exit 1
   fi
 
-  local _runtimever=$(xmllint --xpath "//Dependency[@Name='Microsoft.NETCore.App.Runtime.win-x64']/@Version" eng/Version.Details.xml | cut -d '=' -f 2 | sed 's/^"//; s/"$//')
-  local _sdkver=$(xmllint --xpath "//Dependency[@Name='Microsoft.NET.Sdk']/@Version" eng/Version.Details.xml | cut -d '=' -f 2 | sed 's/^"//; s/"$//; s/-rtm.*//; s/-servicing.*//')
+  local _majorver=$(xmllint --xpath "//*[local-name()='MajorVersion']/text()" eng/Versions.props)
+  local _minorver=$(xmllint --xpath "//*[local-name()='MinorVersion']/text()" eng/Versions.props)
+  local _runtimever=$(xmllint --xpath "//*[local-name()='RuntimePatchVersion']/text()" eng/Versions.props)
+  local _sdkver=$(xmllint --xpath "//*[local-name()='SdkPatchVersion']/text()" eng/Versions.props)
 
-  echo "${_runtimever}.sdk${_sdkver##*.}"
+  echo "${_majorver}.${_minorver}.${_runtimever}.sdk${_sdkver}"
 }
 
 build() {
