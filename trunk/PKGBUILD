@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.3.4
-pkgrel=7
+pkgrel=8
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
@@ -61,7 +61,7 @@ build() {
   # build mumble
   qmake-qt5 main.pro \
     CONFIG+="no-bundled-opus no-bundled-speex no-g15 no-xevie no-server \
-    no-embed-qt-translations no-update packaged" \
+    no-embed-qt-translations no-update packaged bundled-celt" \
     DEFINES+="PLUGIN_PATH=/usr/lib/mumble" \
     INCLUDEPATH+="/usr/include/speech-dispatcher"
   make release
