@@ -6,29 +6,28 @@
 
 pkgname=godot
 pkgver=3.3.2
-pkgrel=2
+pkgrel=3
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
 arch=(x86_64)
 makedepends=(gcc scons yasm alsa-lib pulseaudio)
-depends=(bullet embree freetype2 libglvnd libogg libpng libtheora libvorbis
-         libvpx libwebp libxcursor libxi libxinerama libxrandr mbedtls
-         miniupnpc opus opusfile pcre2 zlib zstd)
+depends=(bullet embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
+         libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
 optdepends=(alsa-lib pulseaudio)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz"
-         06c42d151cf7b70b73dda42eba78e91b05c12814.patch)
-b2sums=('1d7ee1703388d98c41524f64a99859216b060daad4502c4118adf31a95d45aa230d058630ae8735282a9b5d9f7c1ee464fb4caf9f92e3e55340370e007102f8d'
-        'b9c02d4620c6d70e5fa828d1cc8aa4a42311c988becec40f4f2c65ce59a637ebf3db45cb91734b8c8c45ff73ec02dff76bcec5326ae42106fc43210a9bd29040')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
+b2sums=('1d7ee1703388d98c41524f64a99859216b060daad4502c4118adf31a95d45aa230d058630ae8735282a9b5d9f7c1ee464fb4caf9f92e3e55340370e007102f8d')
 
 prepare() {
-  cd $pkgname-$pkgver-stable
-  patch -p1 -R -i../06c42d151cf7b70b73dda42eba78e91b05c12814.patch
+  # Disable the check that adds -no-pie to LINKFLAGS, for gcc != 6
+  sed -i 's,0] >,0] =,g' $pkgname-$pkgver-stable/platform/x11/detect.py
 }
 
 build() {
-  # Not unbundled: enet (contains no upstreamed IPv6 support), libwebm (AUR), recast,
-  #                squish (AUR), libsquish, wslay (AUR), xatlas
+  # Not unbundled yet:
+  #  enet (contains no upstreamed IPv6 support)
+  #  libsquish, recast, xatlas
+  #  AUR: libwebm, squish, wslay
   local to_unbundle="bullet certs embree freetype libogg libpng libtheora libvorbis libvpx libwebp mbedtls miniupnpc opus pcre2 zlib zstd"
   local system_libs=""
   for _lib in $to_unbundle; do
@@ -47,8 +46,8 @@ build() {
     target=release_debug \
     tools=yes \
     use_llvm=no \
-    CFLAGS="$CFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
+    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now" \
+    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now" \
     LINKFLAGS="$LDFLAGS" \
     $system_libs
 }
