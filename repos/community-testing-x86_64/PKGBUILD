@@ -1,0 +1,70 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=nix
+pkgver=2.3.15
+pkgrel=1
+pkgdesc="A purely functional package manager"
+arch=('x86_64')
+url="https://nixos.org/nix"
+license=('LGPL')
+depends=(
+  'boost'
+  'brotli'
+  'bzip2'
+  'curl'
+  'editline'
+  'gc'
+  'libseccomp'
+  'libsodium'
+  'openssl'
+  'sqlite'
+)
+backup=("etc/$pkgname/$pkgname.conf")
+install="$pkgname.install"
+source=(
+  "https://nixos.org/releases/nix/nix-$pkgver/nix-$pkgver.tar.xz"
+  'nix.conf'
+  'sysusers.conf'
+  'tmpfiles.conf'
+  'user.environment.conf'
+  'user.tmpfiles.conf'
+)
+sha256sums=('37e3310a55fde1e50e7d4321d29b9180d1e9d7af9c8d211db6a667e6ee4eb410'
+            'cf3c7a3a24ac0f553b6fd8ba6adb8f1375d8675911af12c4db94918a799f688e'
+            'cf6caa02e0b5224332c5945ba6fa08b1517802898290e6c2eb96046cad9598d8'
+            'f078cb60bdd549e9cb3b9af3dfacd33e1b7f16a7e7c02904f50f08bfc8c0d952'
+            'e45e45394a119a4ef2046a4a39403dda2df2af820c2d116763031c4689fc5717'
+            'c353524861487ef7f7e862bdaaa70e2a3a29e08d2ee31947ebf9e01237c5c50d')
+
+build () {
+  cd "$pkgname-$pkgver"
+  CXXFLAGS='-D_GLIBCXX_USE_CXX11_ABI=0' \
+    ./configure \
+    --prefix=/usr \
+    --libexecdir="/usr/lib/$pkgname" \
+    --sysconfdir=/etc \
+    --localstatedir=/nix/var \
+    --enable-gc
+  make
+}
+
+package() {
+  # systemd integration
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname-daemon.conf"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname-daemon.conf"
+  install -vDm644 user.tmpfiles.conf "$pkgdir/usr/share/user-tmpfiles.d/$pkgname-daemon.conf"
+  install -vDm644 user.environment.conf "$pkgdir/usr/lib/environment.d/$pkgname-daemon.conf"
+
+  # configuration
+  install -vDm644 nix.conf -t "$pkgdir/etc/$pkgname"
+
+  # package
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+
+  # remove unused files
+  rm -rf "$pkgdir/etc/init"
+
+  # license
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
