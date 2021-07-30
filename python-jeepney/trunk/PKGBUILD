@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-jeepney
-pkgver=0.7.0
+pkgver=0.7.1
 pkgrel=1
 pkgdesc="Low-level, pure Python DBus protocol wrapper"
 url="https://gitlab.com/takluyver/jeepney"
@@ -9,9 +9,9 @@ license=('MIT')
 arch=('any')
 depends=('python')
 checkdepends=('python-pytest' 'python-pytest-trio' 'python-pytest-asyncio' 'python-testpath'
-              'python-trio')
+              'python-trio' 'python-async-timeout')
 source=("https://pypi.io/packages/source/j/jeepney/jeepney-$pkgver.tar.gz")
-sha512sums=('b1fac480da0d8798b28eae30cb22ee97d4f73a11922f7b1bce86eebf938c2980414c2d026ef5a1cdcd95813724873700d348b04ba337aaac0706b2c8b38ea6c2')
+sha512sums=('f0af5a18a669f1a6322925201cad83ee01bc5a1b91577565042fd8a18b506a3650ff67b0ba333c8fb3b179f43ef243d16b07a9a1f7a7e5baec825dda0e6b0571')
 
 build() {
   cd jeepney-$pkgver
