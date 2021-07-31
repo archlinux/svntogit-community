@@ -9,7 +9,7 @@
 pkgbase=calibre
 pkgname=calibre
 pkgver=5.23.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -57,6 +57,7 @@ prepare(){
 build() {
     cd "${pkgbase}-${pkgver}"
 
+    export PYTHONHASHSEED=0
     LANG='en_US.UTF-8' python setup.py build
     LANG='en_US.UTF-8' python setup.py gui
     python setup.py liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation --system-liberation_fonts
