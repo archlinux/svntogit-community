@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pytest-runner
-pkgver=5.3.0
+pkgver=5.3.1
 pkgrel=1
 pkgdesc="Invoke py.test as distutils command with dependency resolution"
 arch=('any')
@@ -12,7 +12,7 @@ makedepends=('python-setuptools-scm' 'python-toml')
 checkdepends=('python-pytest-black' 'python-pytest-cov' 'python-pytest-virtualenv'
               'python-pytest-flake8' 'python-pytest-enabler')
 source=("https://github.com/pytest-dev/pytest-runner/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('db62e26e58664c74bc3c1fa02c36e138f8a7b4aa617afa6abb13e394e1a216cc76b3b1303c256c43e1b364299ea7e9ca640ba7e0a2b0057734a93337dbcb815e')
+sha512sums=('3b3197e86d64e4e62a7d12e70c3e68ef539f88db2acf610951fa61f74e2a00eb64ba4faa8eb787b846f57c9a8f791f8ce6774c5b48a212a4244067c33256a0fa')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
