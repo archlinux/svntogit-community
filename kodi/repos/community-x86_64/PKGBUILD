@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=19.1
-pkgrel=5
+pkgrel=6
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -154,7 +154,6 @@ build() {
     -DFLATBUFFERS_URL="$srcdir/$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
     -DUDFREAD_URL="$srcdir/$pkgbase-libudfread-$_libudfread_version.tar.gz"
     -DAPP_RENDER_SYSTEM=gl
-    -DCORE_PLATFORM_NAME="x11 wayland gbm"
   )
 
   echo "building kodi"
