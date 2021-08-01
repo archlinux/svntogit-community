@@ -1,36 +1,56 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
 pkgname=eq10q
 pkgver=2.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Audio plugin bundle over the LV2 standard for Linux"
 arch=('x86_64')
 url="http://eq10q.sourceforge.net/"
 license=('GPL3')
 groups=('lv2-plugins' 'pro-audio')
-depends=('fftw' 'gtkmm')
+depends=('atkmm' 'libatkmm-1.6.so' 'cairomm' 'libcairomm-1.0.so' 'gcc-libs'
+'glibc' 'fftw' 'libfftw3.so' 'glibmm' 'libglibmm-2.4.so' 'gtkmm' 'libsigc++'
+'libsigc-2.0.so')
 makedepends=('cmake' 'lv2')
-source=("https://sourceforge.net/projects/${pkgname}/files/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('4c6a79e9f1faeb431abd4e94b6bfa153b1ff5f55b3c2734d35a865ba23e3a7786ee45ee122cdcc26c9a8de915f1c4e2ec588a4c219ad6daf0ccf4a2b474b1e24')
+source=("https://sourceforge.net/projects/${pkgname}/files/${pkgname}-${pkgver}.tar.gz"
+  "${pkgname}-2.2-replace_pow10.patch"
+  "${pkgname}-2.2-lv2.patch"
+  "${pkgname}-2.2-cmakelists.patch"
+)
+sha512sums=('4c6a79e9f1faeb431abd4e94b6bfa153b1ff5f55b3c2734d35a865ba23e3a7786ee45ee122cdcc26c9a8de915f1c4e2ec588a4c219ad6daf0ccf4a2b474b1e24'
+            '40b3315597bfeccb5d34c5ff96ad300336f9da2e432d3278fbb371eb2cc33c0ac82a5b3d655f0a33e1868e993ffdb2b326891c37ed8ba8856d4ef52ef2a2f8f6'
+            '2e6ab8022413f28bd04f342c5d68608126f83c54fced1032863b11aaa809e4e931ba6257e71c48ffe18832acda33ba4091e83b159bad226ea0ac7e37bdee502d'
+            '62148cab1e0960740bc67acda7db8bcaf81ad12a4b2c283142d4cc93282e21d21195f103f3adadf956f95293e6324a279fae5b268d8f7bc70ff4eb477efe2994')
+b2sums=('453cf8e0dcb330e92dfa6be65a83c63c05450956ea9dcef49206d83758c8ea0746cde7d26932e709116a44eb2ce30bb29fa5a4753f5597e71128767b462cb024'
+        'd2396bd6880611181fde97a2eb009c14fc055b5b3dbee146cad9000b5ad38029fb33f5d28b3213e74da48867cdd44cc8adebd07072c264f89565b023103d24a5'
+        'ccd78f5751cc48acd63bcafd5cb714f6f4742a6725fc428485b69271585fc39edbaa60726528c10dfa5491a1b67541003adeda38e497b94995acd6cd4ffa376d'
+        '87d79c291e2da46626344bf8b7bebfb1eb9c8200b9818314db4d0fc732f17285338c9661bb3fb3a9c22963bff864f6ad51ee37e4d2cb816738056bf45805c755')
 
 prepare() {
   cd "$pkgname-$pkgver"
-  # replacing use of deprecated pow10 with standardized exp10:
+  # replace use of deprecated pow10 with standardized exp10:
   # https://sourceforge.net/p/eq10q/bugs/13/
-  sed -e 's/pow10/exp10/g' -i gui/widgets/{bandctl,bodeplot}.cpp
-  # fix install location: https://sourceforge.net/p/eq10q/bugs/20/
-  sed -e '/CMAKE_INSTALL_PREFIX/d' \
-      -e 's|sapista|lib/lv2/sapista|g' -i CMakeLists.txt
-  mkdir -v build
+  patch -Np1 -i ../"${pkgname}-2.2-replace_pow10.patch"
+  # fix for lv2 >= 1.18:
+  # https://sourceforge.net/p/eq10q/bugs/23/
+  patch -Np1 -i ../"${pkgname}-2.2-lv2.patch"
+  # fix install location:
+  # https://sourceforge.net/p/eq10q/bugs/20/
+  patch -Np1 -i ../"${pkgname}-2.2-cmakelists.patch"
 }
 
 build() {
-  cd "$pkgname-$pkgver/build"
-  cmake .. \
-        -DCMAKE_INSTALL_PREFIX=/usr
+  cd "$pkgname-$pkgver"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE='None' \
+        -Wno-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
 }
 
 package() {
-  cd "$pkgname-$pkgver/build"
-  make DESTDIR="$pkgdir/" install
-  install -vDm 644 ../README -t "${pkgdir}/usr/share/doc/${pkgname}"
+  cd "$pkgname-$pkgver"
+  make -C build DESTDIR="$pkgdir/" install
+  install -vDm 644 README -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
