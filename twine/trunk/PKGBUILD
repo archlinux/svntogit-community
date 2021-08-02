@@ -2,7 +2,7 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=3.4.1
+pkgver=3.4.2
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -11,16 +11,21 @@ license=('Apache')
 depends=('python-pkginfo' 'python-readme-renderer' 'python-requests' 'python-requests-toolbelt'
          'python-packaging' 'python-importlib-metadata' 'python-tqdm' 'python-keyring'
          'python-rfc3986' 'python-colorama')
-makedepends=('python-setuptools-scm')
+makedepends=('python-dephell' 'python-setuptools-scm')
 checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python-pretend'
               'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket')
 provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
 source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('eca2a7b6b1386868f67dec1182599a8331981585e1cc0b7eef762aa0e99b87b0c6725a2c776330a8b392254501880a68e01ed8569a169857e8079abb8da43b79')
+sha512sums=('3f6d8992294a35e2a26be64f56c88d31af63b05f3f477d545bc82d928ca1b9939d23fa489eca5232502a49def77d489eaf6a29663d150f78b5cdb99749ff9b50')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
+
+prepare() {
+  cd twine-$pkgver
+  dephell deps convert --from pyproject.toml --to setup.py
+}
 
 build() {
   cd twine-$pkgver
