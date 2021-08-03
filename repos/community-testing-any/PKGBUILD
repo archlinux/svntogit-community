@@ -1,0 +1,55 @@
+# Maintainer: Tim Meusel <tim@bastelfreak.de>
+# Contributor: arakmar
+pkgname=r10k
+pkgver=3.10.0
+pkgrel=1
+pkgdesc='Provides a general purpose toolset for deploying Puppet environments and modules.'
+arch=('any')
+url="https://github.com/puppetlabs/${pkgname}"
+license=('Apache')
+depends=('ruby' 'ruby-colored2' 'ruby-cri' 'ruby-gettext-setup' 'ruby-log4r' 'ruby-multi_json' 'ruby-semantic_puppet' 'ruby-puppet_forge' 'ruby-rugged' 'ruby-fast_gettext' 'ruby-gettext' 'ruby-faraday' 'ruby-faraday-net_http')
+makedepends=('ruby-minitar' 'ruby-yard')
+checkdepends=('ruby-rspec')
+source=("${url}/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('5fe227d1c853e70eb6cefcfeb33bfdaedee9929f8fe633f67ebbdce3ee46917fd56deabaa38362f71a3514da525a5bc29e7faaf0e3e4ca9d2b722c392c3d324e')
+options=('!emptydirs')
+
+prepare() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  # update the gemspec to allow newer versions
+  sed --in-place 's|~>|>=|g' "${pkgname}.gemspec"
+  # don't use git to detect files for the package
+  sed --in-place 's|git ls-files|find|g' "${pkgname}.gemspec"
+  # allow newer gettext versions
+  sed --in-place 's|< 3.3.0|< 4.0.0|' "${pkgname}.gemspec"
+  # allow newer version of cri
+  sed --in-place "s#, '2.15.10'##" r10k.gemspec
+  # drop dev/CI dependencies; they only create package dependecy circles
+  sed --in-place '/add_development_dependency/d' "${pkgname}.gemspec"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  gem build "${pkgname}.gemspec"
+}
+
+check() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  rspec --color --format documentation spec/unit
+}
+
+package() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+  local _gemdir="$(gem env gemdir)"
+  gem install --verbose --ignore-dependencies --no-user-install --install-dir "${pkgdir}/${_gemdir}" --bindir "${pkgdir}/usr/bin" "${pkgname}-${pkgver}.gem"
+
+  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  install -Dm 644 r10k.yaml.example CHANGELOG.mkd README.mkd CONTRIBUTING.mkd -t "${pkgdir}/usr/share/doc/${pkgname}"
+  mv doc docker integration "${pkgdir}/usr/share/doc/${pkgname}/"
+
+  rm -rf "${pkgdir}/${_gemdir}/gems/${pkgname}-${pkgver}/ext"
+  rm -rf "${pkgdir}/${_gemdir}/cache"
+}
+
+# vim: ts=2 sw=2 et:
