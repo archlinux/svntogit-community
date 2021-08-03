@@ -1,0 +1,62 @@
+# Maintainer: Tim Meusel <tim@bastelfreak.de>
+_gemname=log4r
+pkgname="ruby-${_gemname}"
+pkgver=1.1.10
+pkgrel=3
+pkgdesc='Log4r, logging framework for ruby'
+arch=(any)
+url="https://github.com/colbygk/${_gemname}"
+license=('LGPL')
+depends=('ruby')
+makedepends=('git' 'rake' 'ruby-bundler')
+checkdepends=('ruby-test-unit' 'ruby-builder')
+options=(!emptydirs)
+source=("git+${url}#commit=40e2c2edd657a21b34f09dec7de238f348b6f428" 'disable-broken-test.patch' 'e64ed5143aae17fef85fe191c967765409061266.patch')
+noextract=($_gemname-$pkgver.gem)
+sha512sums=('SKIP'
+            'e5c5a2b587af405b4b434c6db95a615ccb161c7e2f794c20e4c7203c7bace53beb26ba1a1d35b5acbeef71c97c3ecb4fca4354d289275bda6f513c451afb59f8'
+            '7efd5d5eedbc9c94e70180d9e66e73430d3272f3ddad771bca37f1941ca5d2adac150c82680e66963dc0c48af4163034c6beddaedc0915d2de31351d16d59c20')
+
+prepare() {
+  cd "${srcdir}/${_gemname}"
+  sed --in-place 's|~>|>=|g' "${_gemname}.gemspec"
+  # add missing license to gemspec, to please bundler during build
+  sed --in-place '22s/^$/  gem.license = "LGPL-3.0-or-later"/' "${_gemname}.gemspec"
+  # manipulate the broken LOADPATH so the tests can find tests/tests_helper.rb
+  for file in $(find tests/*.rb -type f ! -name '*_*'); do
+    sed --in-place 's|require.*|require "#{File.dirname(__FILE__)}/test_helper"|' "${file}"
+  done
+  # remove broken test - https://github.com/colbygk/log4r/issues/37
+  rm tests/testxmlconf.rb
+  # remove deprecated gemcutter to please rubygems
+  sed --in-place 's|:gemcutter|"https://rubygems.org"|' Gemfile
+  # one particular test needs to be disabled.
+  # It assumes that the test is executed with pure ruby, not wrapped with rake
+  # it fails upstream as well
+  patch -p1 -N -i "${srcdir}/disable-broken-test.patch"
+  # fix deprecated YAML lib method name
+  sed --in-place 's|YAML.load_documents|YAML.load_stream|' lib/log4r/yamlconfigurator.rb
+  # create directory where tests can write data
+  # path is hardcoded in the tests, but they don't create the directory
+  mkdir junk
+  # apply commit e64ed5143aae17fef85fe191c967765409061266
+  # it fixes broken tests. the fix is not yet released
+  patch -p1 -N -i "${srcdir}/e64ed5143aae17fef85fe191c967765409061266.patch"
+}
+
+build() {
+  cd "${srcdir}/${_gemname}"
+  gem build "${_gemname}.gemspec"
+}
+
+check() {
+  cd "${srcdir}/${_gemname}"
+  rake test --trace
+}
+
+package() {
+  cd "${srcdir}/${_gemname}"
+  local _gemdir="$(ruby -e'puts Gem.default_dir')"
+  gem install --ignore-dependencies --no-user-install -i "${pkgdir}${_gemdir}" -n "${pkgdir}/usr/bin" "${_gemname}-${pkgver}.gem"
+  rm "$pkgdir/$_gemdir/cache/$_gemname-$pkgver.gem"
+}
