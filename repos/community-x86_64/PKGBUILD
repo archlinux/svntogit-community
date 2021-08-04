@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.7
+pkgver=20.10.8
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -17,17 +17,15 @@ optdepends=('btrfs-progs: btrfs backend support'
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
 _LIBNETWORK_COMMIT=64b7a4574d1426139437d20e81c0b6d391130ec8
-_BUILDX_COMMIT=11057da37336192bfc57d81e02359ba7ba848e4a
-_APP_COMMIT=9d2c67f87b7338eb1a0fa2f18eb81af3d2aac0e1
+# https://github.com/docker/docker-ce-packaging/pull/562
+_BUILDX_COMMIT=260d07a9a19b03df969787496419a0808a27ac61
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/moby/moby.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "git+https://github.com/docker/buildx.git#commit=$_BUILDX_COMMIT"
-        "git+https://github.com/docker/app.git#commit=$_APP_COMMIT"
         "$pkgname.sysusers")
 sha256sums=('SKIP'
-            'SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
@@ -79,11 +77,12 @@ build() {
   export LDFLAGS=''
   export GOFLAGS='-buildmode=pie -trimpath -mod=readonly -modcacherw -ldflags=-linkmode=external'
   export GO111MODULE=off
+  export DISABLE_WARN_OUTSIDE_CONTAINER=1
 
   ### cli
   echo 'Building cli'
   _fake_gopath_pushd cli github.com/docker/cli
-  DISABLE_WARN_OUTSIDE_CONTAINER=1 make VERSION=$pkgver dynbinary
+  make VERSION=$pkgver dynbinary
   make manpages
   _fake_gopath_popd
 
@@ -110,22 +109,16 @@ build() {
   make tini-static
   _fake_gopath_popd
 
-  ### app cli plugin
-  echo 'Building app cli plugin'
-  _fake_gopath_pushd app github.com/docker/app
-  make dynamic
-  _fake_gopath_popd
-
   ### buildx cli plugin
   echo 'Building buildx cli plugin'
-  _fake_gopath_pushd buildx github.com/docker/buildx
-  go build -o docker-buildx -ldflags "\
-    -X github.com/docker/buildx/version.Version=$(git describe --match 'v[0-9]*' --always --tags)-tp-docker \
-    -X github.com/docker/buildx/version.Revision=$(git rev-parse HEAD) \
-    -X github.com/docker/buildx/version.Package=github.com/docker/buildx \
-    -X main.experimental=1 -linkmode=external" ./cmd/buildx
+  _buildx_r=github.com/docker/buildx
+  _fake_gopath_pushd buildx $_buildx_r
+  GO111MODULE=on go build -mod=vendor -o docker-buildx -ldflags "-linkmode=external \
+    -X $_buildx_r/version.Version=$(git describe --match 'v[0-9]*' --always --tags)-docker \
+    -X $_buildx_r/version.Revision=$(git rev-parse HEAD) \
+    -X $_buildx_r/version.Package=$_buildx_r" \
+    ./cmd/buildx
   _fake_gopath_popd
-
 }
 
 package() {
@@ -155,7 +148,6 @@ package() {
   cp -r man/man* "$pkgdir/usr/share/man"
   # cli-plugins
   cd "$srcdir"/src/github.com/docker
-  install -Dm755 app/bin/docker-app "$pkgdir/usr/lib/docker/cli-plugins/docker-app"
   install -Dm755 buildx/docker-buildx "$pkgdir/usr/lib/docker/cli-plugins/docker-buildx"
 }
 
