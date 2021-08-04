@@ -9,7 +9,7 @@ arch=('x86_64')
 license=('GPL2')
 groups=('sequoia')
 replaces=('sequoia')
-depends=('glibc' 'nettle' 'libnettle.so' 'nettle' 'libhogweed.so' 'libnettle.so'
+depends=('glibc' 'nettle' 'libnettle.so' 'libhogweed.so'
          'bzip2' 'libbz2.so' 'gcc-libs' 'gmp' 'openssl')
 makedepends=('git' 'cargo' 'clang')
 source=(sequoia::"git+https://gitlab.com/sequoia-pgp/sequoia.git#tag=sq/v${pkgver}?signed")
