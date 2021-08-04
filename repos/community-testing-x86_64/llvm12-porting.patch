@@ -1,0 +1,377 @@
+diff --git a/IGC/AdaptorOCL/SPIRV/SPIRVReader.cpp b/IGC/AdaptorOCL/SPIRV/SPIRVReader.cpp
+--- a/IGC/AdaptorOCL/SPIRV/SPIRVReader.cpp
++++ b/IGC/AdaptorOCL/SPIRV/SPIRVReader.cpp
+@@ -1561,7 +1561,7 @@ void SPIRVToLLVMDbgTran::transDbgInfo(SPIRVValue *SV, Value *V) {
+             Line->getColumn(), scope, iat);
+ 
+         if(scope && !isa<DIFile>(scope))
+-            I->setDebugLoc(DebugLoc::get(Line->getLine(), Line->getColumn(),
++            I->setDebugLoc(DILocation::get(scope->getContext(), Line->getLine(), Line->getColumn(),
+                 scope, iat));
+     }
+ }
+@@ -1977,7 +1977,7 @@ SPIRVToLLVM::transType(SPIRVType *T) {
+         auto name = isSubgroupAvcINTELTypeOpCode(OC) ?
+             OCLSubgroupINTELTypeOpCodeMap::rmap(OC) :
+             BuiltinOpaqueGenericTypeOpCodeMap::rmap(OC);
+-        auto *pST = M->getTypeByName(name);
++        auto *pST = StructType::getTypeByName(M->getContext(), name);
+         pST = pST ? pST : StructType::create(*Context, name);
+ 
+         return mapType(T, PointerType::get(pST, getOCLOpaqueTypeAddrSpace(OC)));
+diff --git a/IGC/AdaptorOCL/SPIRV/SPIRVUtil.cpp b/IGC/AdaptorOCL/SPIRV/SPIRVUtil.cpp
+--- a/IGC/AdaptorOCL/SPIRV/SPIRVUtil.cpp
++++ b/IGC/AdaptorOCL/SPIRV/SPIRVUtil.cpp
+@@ -76,7 +76,7 @@ saveLLVMModule(Module *M, const std::string &OutputFile) {
+ PointerType*
+ getOrCreateOpaquePtrType(Module *M, const std::string &Name,
+     unsigned AddrSpace) {
+-  auto OpaqueType = M->getTypeByName(Name);
++  auto OpaqueType = StructType::getTypeByName(M->getContext(), Name);
+   if (!OpaqueType)
+     OpaqueType = StructType::create(M->getContext(), Name);
+   return PointerType::get(OpaqueType, AddrSpace);
+diff --git a/IGC/Compiler/CISACodeGen/AdvMemOpt.cpp b/IGC/Compiler/CISACodeGen/AdvMemOpt.cpp
+--- a/IGC/Compiler/CISACodeGen/AdvMemOpt.cpp
++++ b/IGC/Compiler/CISACodeGen/AdvMemOpt.cpp
+@@ -118,7 +118,7 @@ bool AdvMemOpt::runOnFunction(Function& F) {
+     for (auto I = LI->begin(), E = LI->end(); I != E; ++I)
+         for (auto DFI = df_begin(*I), DFE = df_end(*I); DFI != DFE; ++DFI) {
+             Loop* L = *DFI;
+-            if (L->empty())
++            if (L->getSubLoops().empty())
+                 InnermostLoops.push_back(L);
+         }
+ 
+diff --git a/IGC/Compiler/CISACodeGen/LdShrink.cpp b/IGC/Compiler/CISACodeGen/LdShrink.cpp
+--- a/IGC/Compiler/CISACodeGen/LdShrink.cpp
++++ b/IGC/Compiler/CISACodeGen/LdShrink.cpp
+@@ -10,6 +10,7 @@ SPDX-License-Identifier: MIT
+ #include <llvm/Pass.h>
+ #include <llvm/IR/DataLayout.h>
+ #include <llvm/IR/IRBuilder.h>
++#include <llvm/IR/DerivedTypes.h>
+ #include <llvmWrapper/Support/Alignment.h>
+ #include <llvm/Support/Debug.h>
+ #include <llvm/Support/MathExtras.h>
+@@ -75,9 +76,11 @@ unsigned LdShrink::getExtractIndexMask(LoadInst* LI) const {
+     Type* Ty = VTy->getScalarType();
+     // Skip non-BYTE addressable data types. So far, check integer types
+     // only.
+-    if (IntegerType * ITy = dyn_cast<IntegerType>(Ty))
+-        if (!ITy->isPowerOf2ByteWidth())
++    if (IntegerType * ITy = dyn_cast<IntegerType>(Ty)) {
++        auto BitWidth = ITy->getBitWidth();
++        if (!((BitWidth > 7) && isPowerOf2_32(BitWidth)))
+             return 0;
++    }
+ 
+     unsigned Mask = 0; // Maxmimally 32 elements.
+ 
+diff --git a/IGC/Compiler/CISACodeGen/ShaderCodeGen.cpp b/IGC/Compiler/CISACodeGen/ShaderCodeGen.cpp
+--- a/IGC/Compiler/CISACodeGen/ShaderCodeGen.cpp
++++ b/IGC/Compiler/CISACodeGen/ShaderCodeGen.cpp
+@@ -631,9 +631,9 @@ static void AddLegalizationPasses(CodeGenContext& ctx, IGCPassManager& mpm, PSSi
+         if (IGC_GET_FLAG_VALUE(FunctionControl) == FLAG_FCALL_DEFAULT)
+         {
+             // Don't run IPConstantProp when debugging function calls, to avoid folding function arg/ret constants
+-            mpm.add(createIPConstantPropagationPass());
++            mpm.add(createIPSCCPPass());
+         }
+-        mpm.add(createConstantPropagationPass());
++        mpm.add(createInstSimplifyLegacyPass());
+         mpm.add(createDeadCodeEliminationPass());
+         mpm.add(createCFGSimplificationPass());
+     }
+@@ -1537,8 +1537,8 @@ void OptimizeIR(CodeGenContext* const pContext)
+             // possible which potentially allows late stage code sinking of
+             // those calls by the instruction combiner.
+             mpm.add(createPostOrderFunctionAttrsLegacyPass());
+-            mpm.add(createConstantPropagationPass());
+-            mpm.add(createIPConstantPropagationPass());
++            mpm.add(createInstSimplifyLegacyPass());
++            mpm.add(createIPSCCPPass());
+         }
+ 
+         // enable this only when Pooled EU is not supported
+diff --git a/IGC/Compiler/CISACodeGen/Simd32Profitability.cpp b/IGC/Compiler/CISACodeGen/Simd32Profitability.cpp
+--- a/IGC/Compiler/CISACodeGen/Simd32Profitability.cpp
++++ b/IGC/Compiler/CISACodeGen/Simd32Profitability.cpp
+@@ -982,7 +982,7 @@ static bool hasLongStridedLdStInLoop(Function* F, LoopInfo* LI, WIAnalysis* WI)
+     // Collect innermost simple loop.
+     for (auto I = LI->begin(), E = LI->end(); I != E; ++I) {
+         auto L = *I;
+-        if (!L->empty())
++        if (!L->getSubLoops().empty())
+             continue;
+         if (L->getNumBlocks() != 2)
+             continue;
+diff --git a/IGC/Compiler/GenTTI.cpp b/IGC/Compiler/GenTTI.cpp
+--- a/IGC/Compiler/GenTTI.cpp
++++ b/IGC/Compiler/GenTTI.cpp
+@@ -201,7 +201,7 @@ namespace llvm {
+ 
+         // Skip non-simple loop.
+         if (L->getNumBlocks() != 1) {
+-            if (IGC_IS_FLAG_ENABLED(EnableAdvRuntimeUnroll) && L->empty()) {
++            if (IGC_IS_FLAG_ENABLED(EnableAdvRuntimeUnroll) && L->getSubLoops().empty()) {
+                 auto countNonPHI = [](BasicBlock* BB) {
+                     unsigned Total = BB->size();
+                     unsigned PHIs = 0;
+diff --git a/IGC/Compiler/Optimizer/OpenCLPasses/AddressSpaceAliasAnalysis/AddressSpaceAliasAnalysis.cpp b/IGC/Compiler/Optimizer/OpenCLPasses/AddressSpaceAliasAnalysis/AddressSpaceAliasAnalysis.cpp
+--- a/IGC/Compiler/Optimizer/OpenCLPasses/AddressSpaceAliasAnalysis/AddressSpaceAliasAnalysis.cpp
++++ b/IGC/Compiler/Optimizer/OpenCLPasses/AddressSpaceAliasAnalysis/AddressSpaceAliasAnalysis.cpp
+@@ -6,6 +6,7 @@ SPDX-License-Identifier: MIT
+ 
+ ============================= end_copyright_notice ===========================*/
+ 
++#include <llvm/Analysis/TargetLibraryInfo.h>
+ #include "llvm/Config/llvm-config.h"
+ #include "Compiler/Optimizer/OpenCLPasses/AddressSpaceAliasAnalysis/AddressSpaceAliasAnalysis.h"
+ #include "Compiler/CodeGenPublic.h"
+diff --git a/IGC/Compiler/Optimizer/OpenCLPasses/DeviceEnqueueFuncs/TransformBlocks.cpp b/IGC/Compiler/Optimizer/OpenCLPasses/DeviceEnqueueFuncs/TransformBlocks.cpp
+--- a/IGC/Compiler/Optimizer/OpenCLPasses/DeviceEnqueueFuncs/TransformBlocks.cpp
++++ b/IGC/Compiler/Optimizer/OpenCLPasses/DeviceEnqueueFuncs/TransformBlocks.cpp
+@@ -936,7 +936,7 @@ namespace //Anonymous
+         {
+             auto ndrangeStructName = "struct.ndrange_t";
+             auto module = _deviceExecCall->getModule();
+-            auto ndrangeTy = module->getTypeByName(ndrangeStructName);
++            auto ndrangeTy = llvm::StructType::getTypeByName(module->getContext(), ndrangeStructName);
+             if (ndrangeTy == nullptr)
+             {
+                 //create struct type
+diff --git a/IGC/Compiler/Optimizer/OpenCLPasses/WIFuncs/WIFuncResolution.cpp b/IGC/Compiler/Optimizer/OpenCLPasses/WIFuncs/WIFuncResolution.cpp
+--- a/IGC/Compiler/Optimizer/OpenCLPasses/WIFuncs/WIFuncResolution.cpp
++++ b/IGC/Compiler/Optimizer/OpenCLPasses/WIFuncs/WIFuncResolution.cpp
+@@ -12,6 +12,7 @@ SPDX-License-Identifier: MIT
+ #include "common/LLVMWarningsPush.hpp"
+ #include <llvm/IR/Function.h>
+ #include <llvm/IR/Instructions.h>
++#include <llvm/IR/DerivedTypes.h>
+ #include "common/LLVMWarningsPop.hpp"
+ #include "Probe/Assertion.h"
+ #include <llvmWrapper/Support/Alignment.h>
+diff --git a/IGC/DebugInfo/DebugInfoUtils.hpp b/IGC/DebugInfo/DebugInfoUtils.hpp
+--- a/IGC/DebugInfo/DebugInfoUtils.hpp
++++ b/IGC/DebugInfo/DebugInfoUtils.hpp
+@@ -92,7 +92,7 @@ namespace IGC
+                 IGCLLVM::DIBuilder Builder(M);
+                 llvm::DIGlobalVariable* GV = GVs[j]->getVariable();
+                 llvm::DIScope* scopeToUse = GV->getScope();
+-                llvm::DILocation* locToUse = llvm::DebugLoc::get(GV->getLine(), 0, scopeToUse, loc);
++                llvm::DILocation* locToUse = llvm::DILocation::get(scopeToUse->getContext(), GV->getLine(), 0, scopeToUse, loc);
+                 if (llvm::isa<llvm::DICompileUnit>(GV->getScope()))
+                 {
+                     // Function has no DebugLoc so it is either internal
+diff --git a/IGC/DebugInfo/DwarfDebug.cpp b/IGC/DebugInfo/DwarfDebug.cpp
+--- a/IGC/DebugInfo/DwarfDebug.cpp
++++ b/IGC/DebugInfo/DwarfDebug.cpp
+@@ -2151,9 +2151,9 @@ static DebugLoc getFnDebugLoc(DebugLoc DL, const LLVMContext& Ctx)
+         // Check for number of operands since the compatibility is cheap here.
+         if (SP->getNumOperands() > 19)
+         {
+-            return DebugLoc::get(SP->getScopeLine(), 0, SP);
++            return DILocation::get(SP->getContext(), SP->getScopeLine(), 0, SP);
+         }
+-        return DebugLoc::get(SP->getLine(), 0, SP);
++        return DILocation::get(SP->getContext(), SP->getLine(), 0, SP);
+     }
+ 
+     return DebugLoc();
+diff --git a/IGC/VectorCompiler/lib/GenXCodeGen/GenXCFSimplification.cpp b/IGC/VectorCompiler/lib/GenXCodeGen/GenXCFSimplification.cpp
+--- a/IGC/VectorCompiler/lib/GenXCodeGen/GenXCFSimplification.cpp
++++ b/IGC/VectorCompiler/lib/GenXCodeGen/GenXCFSimplification.cpp
+@@ -285,8 +285,8 @@ BasicBlock *GenXCFSimplification::processBranchedOverBlock(BasicBlock *BB)
+         while (Restart) {
+           Restart = false;
+           for (auto ui = I->use_begin(), ue = I->use_end(); ui != ue; ++ui)
+-            if (recursivelySimplifyInstruction(
+-                  cast<Instruction>(ui->getUser()))) {
++            if (replaceAndRecursivelySimplify(
++                  cast<Instruction>(ui->getUser()), nullptr, nullptr, nullptr, nullptr, nullptr)) {
+               Restart = true;
+               break;
+             }
+diff --git a/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.cpp b/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.cpp
+--- a/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.cpp
++++ b/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.cpp
+@@ -38,7 +38,7 @@ static cl::opt<bool>
+                     cl::desc("Specify what surface should be used for stack"),
+                     cl::init(true));
+ 
+-void GenXSubtarget::resetSubtargetFeatures(StringRef CPU, StringRef FS) {
++void GenXSubtarget::resetSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS) {
+ 
+   DumpRegAlloc = false;
+   EmitCisa = false;
+@@ -80,13 +80,13 @@ void GenXSubtarget::resetSubtargetFeatures(StringRef CPU, StringRef FS) {
+   if (CPUName.empty())
+     CPUName = "generic";
+ 
+-  ParseSubtargetFeatures(CPUName, FS);
++  ParseSubtargetFeatures(CPUName, TuneCPU, FS);
+ }
+ 
+ GenXSubtarget::GenXSubtarget(const Triple &TT, const std::string &CPU,
+-                             const std::string &FS)
+-    : GenXGenSubtargetInfo(TT, CPU, FS), TargetTriple(TT) {
++                             const std::string &TC, const std::string &FS)
++    : GenXGenSubtargetInfo(TT, CPU, TC, FS), TargetTriple(TT) {
+ 
+-  resetSubtargetFeatures(CPU, FS);
++  resetSubtargetFeatures(CPU, TC, FS);
+ }
+ 
+diff --git a/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.h b/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.h
+--- a/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.h
++++ b/IGC/VectorCompiler/lib/GenXCodeGen/GenXSubtarget.h
+@@ -123,7 +123,7 @@ public:
+   // of the specified triple.
+   //
+   GenXSubtarget(const Triple &TT, const std::string &CPU,
+-                const std::string &FS);
++                const std::string &TC, const std::string &FS);
+ 
+   unsigned getGRFWidth() const { return 32; }
+ 
+@@ -131,10 +131,10 @@ public:
+ 
+   // ParseSubtargetFeatures - Parses features string setting specified
+   // subtarget options.  Definition of function is auto generated by tblgen.
+-  void ParseSubtargetFeatures(StringRef CPU, StringRef FS);
++  void ParseSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
+ 
+   // \brief Reset the features for the GenX target.
+-  void resetSubtargetFeatures(StringRef CPU, StringRef FS);
++  void resetSubtargetFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
+ 
+ public:
+ 
+diff --git a/IGC/VectorCompiler/lib/GenXCodeGen/GenXTargetMachine.cpp b/IGC/VectorCompiler/lib/GenXCodeGen/GenXTargetMachine.cpp
+--- a/IGC/VectorCompiler/lib/GenXCodeGen/GenXTargetMachine.cpp
++++ b/IGC/VectorCompiler/lib/GenXCodeGen/GenXTargetMachine.cpp
+@@ -193,7 +193,7 @@ GenXTargetMachine::GenXTargetMachine(const Target &T, const Triple &TT,
+                                  RM ? RM.getValue() : Reloc::Model::Static,
+                                  CM ? CM.getValue() : CodeModel::Model::Small,
+                                  OL),
+-      Is64Bit(Is64Bit), Subtarget(TT, CPU.str(), FS.str()) {}
++      Is64Bit(Is64Bit), Subtarget(TT, CPU.str(), CPU.str(), FS.str()) {}
+ 
+ GenXTargetMachine::~GenXTargetMachine() = default;
+ 
+diff --git a/IGC/VectorCompiler/lib/GenXOpts/CMPacketize/gen_builder.hpp b/IGC/VectorCompiler/lib/GenXOpts/CMPacketize/gen_builder.hpp
+--- a/IGC/VectorCompiler/lib/GenXOpts/CMPacketize/gen_builder.hpp
++++ b/IGC/VectorCompiler/lib/GenXOpts/CMPacketize/gen_builder.hpp
+@@ -122,12 +122,24 @@ CallInst* INT_MIN_REDUCE(Value *Src, bool IsSigned = false)
+ 
+ CallInst* FP_MAX_REDUCE(Value *Src, bool NoNaN = false)
+ {
+-    return IRB()->CreateFPMaxReduce(Src, NoNaN);
++    auto Rdx = IRB()->CreateFPMaxReduce(Src);
++    if (NoNaN) {
++        FastMathFlags FMF;
++        FMF.setNoNaNs();
++        Rdx->setFastMathFlags(FMF);
++    }
++    return Rdx;
+ }
+ 
+ CallInst* FP_MIN_REDUCE(Value *Src, bool NoNaN = false)
+ {
+-    return IRB()->CreateFPMinReduce(Src, NoNaN);
++    auto Rdx = IRB()->CreateFPMinReduce(Src);
++    if (NoNaN) {
++        FastMathFlags FMF;
++        FMF.setNoNaNs();
++        Rdx->setFastMathFlags(FMF);
++    }
++    return Rdx;
+ }
+ 
+ CallInst* LIFETIME_START(Value *Ptr, ConstantInt *Size = nullptr)
+@@ -170,9 +182,10 @@ CallInst* GC_STATEPOINT_CALL(uint64_t ID, uint32_t NumPatchBytes, Value *ActualC
+     return IRB()->CreateGCStatepointCall(ID, NumPatchBytes, ActualCallee, CallArgs, DeoptArgs, GCArgs, Name);
+ }
+ 
+-CallInst* GC_STATEPOINT_CALL(uint64_t ID, uint32_t NumPatchBytes, Value *ActualCallee, uint32_t Flags, ArrayRef<Use> CallArgs, ArrayRef<Use> TransitionArgs, ArrayRef<Use> DeoptArgs, ArrayRef<Value *> GCArgs, const Twine &Name = "")
++CallInst* GC_STATEPOINT_CALL(uint64_t ID, uint32_t NumPatchBytes, Value *ActualCallee, uint32_t Flags, ArrayRef<Value*> CallArgs, ArrayRef<Use> TransitionArgs, ArrayRef<Use> DeoptArgs, ArrayRef<Value *> GCArgs, const Twine &Name = "")
+ {
+-    return IRB()->CreateGCStatepointCall(ID, NumPatchBytes, ActualCallee, Flags, CallArgs, TransitionArgs, DeoptArgs, GCArgs, Name);
++    // !
++    return IRB()->CreateGCStatepointCall(ID, NumPatchBytes, ActualCallee, Flags, CallArgs, Optional(TransitionArgs), Optional(DeoptArgs), GCArgs, Name);
+ }
+ 
+ CallInst* GC_STATEPOINT_CALL(uint64_t ID, uint32_t NumPatchBytes, Value *ActualCallee, ArrayRef<Use> CallArgs, ArrayRef<Value *> DeoptArgs, ArrayRef<Value *> GCArgs, const Twine &Name = "")
+@@ -185,9 +198,10 @@ InvokeInst* GC_STATEPOINT_INVOKE(uint64_t ID, uint32_t NumPatchBytes, Value *Act
+     return IRB()->CreateGCStatepointInvoke(ID, NumPatchBytes, ActualInvokee, NormalDest, UnwindDest, InvokeArgs, DeoptArgs, GCArgs, Name);
+ }
+ 
+-InvokeInst* GC_STATEPOINT_INVOKE(uint64_t ID, uint32_t NumPatchBytes, Value *ActualInvokee, BasicBlock *NormalDest, BasicBlock *UnwindDest, uint32_t Flags, ArrayRef<Use> InvokeArgs, ArrayRef<Use> TransitionArgs, ArrayRef<Use> DeoptArgs, ArrayRef<Value *> GCArgs, const Twine &Name = "")
++InvokeInst* GC_STATEPOINT_INVOKE(uint64_t ID, uint32_t NumPatchBytes, Value *ActualInvokee, BasicBlock *NormalDest, BasicBlock *UnwindDest, uint32_t Flags, ArrayRef<Value*> InvokeArgs, ArrayRef<Use> TransitionArgs, ArrayRef<Use> DeoptArgs, ArrayRef<Value *> GCArgs, const Twine &Name = "")
+ {
+-    return IRB()->CreateGCStatepointInvoke(ID, NumPatchBytes, ActualInvokee, NormalDest, UnwindDest, Flags, InvokeArgs, TransitionArgs, DeoptArgs, GCArgs, Name);
++    // !
++    return IRB()->CreateGCStatepointInvoke(ID, NumPatchBytes, ActualInvokee, NormalDest, UnwindDest, Flags, InvokeArgs, Optional(TransitionArgs), Optional(DeoptArgs), GCArgs, Name);
+ }
+ 
+ InvokeInst* GC_STATEPOINT_INVOKE(uint64_t ID, uint32_t NumPatchBytes, Value *ActualInvokee, BasicBlock *NormalDest, BasicBlock *UnwindDest, ArrayRef<Use> InvokeArgs, ArrayRef<Value *> DeoptArgs, ArrayRef<Value *> GCArgs, const Twine &Name = "")
+diff --git a/IGC/WrapperLLVM/include/llvmWrapper/Support/TypeSize.h b/IGC/WrapperLLVM/include/llvmWrapper/Support/TypeSize.h
+--- a/IGC/WrapperLLVM/include/llvmWrapper/Support/TypeSize.h
++++ b/IGC/WrapperLLVM/include/llvmWrapper/Support/TypeSize.h
+@@ -17,9 +17,12 @@ using namespace llvm;
+ namespace IGCLLVM {
+ #if LLVM_VERSION_MAJOR < 11
+ inline unsigned getElementCount(unsigned EC) { return EC; }
+-#else
++#elif LLVM_VERSION_MAJOR < 12
+ inline ElementCount getElementCount(unsigned EC) {
+   return ElementCount(EC, false);
++#elif LLVM_VERSION_MAJOR < 13
++inline ElementCount getElementCount(unsigned EC) {
++  return LinearPolySize<ElementCount>::getFixed(EC);
+ }
+ #endif
+ } // namespace IGCLLVM
+diff --git a/IGC/WrapperLLVM/include/llvmWrapper/Transforms/Scalar.h b/IGC/WrapperLLVM/include/llvmWrapper/Transforms/Scalar.h
+--- a/IGC/WrapperLLVM/include/llvmWrapper/Transforms/Scalar.h
++++ b/IGC/WrapperLLVM/include/llvmWrapper/Transforms/Scalar.h
+@@ -26,7 +26,7 @@ namespace IGCLLVM
+     {
+         return llvm::createLoopUnrollPass(OptLevel, false, Threshold, Count, AllowPartial, Runtime, UpperBound, AllowPeeling);
+     }
+-#elif LLVM_VERSION_MAJOR == 9 || LLVM_VERSION_MAJOR == 10 || LLVM_VERSION_MAJOR == 11
++#elif LLVM_VERSION_MAJOR == 9 || LLVM_VERSION_MAJOR == 10 || LLVM_VERSION_MAJOR == 11 || LLVM_VERSION_MAJOR == 12
+     inline static llvm::Pass * createLoopUnrollPass(
+         int OptLevel = 2, int Threshold = -1, int Count = -1,
+         int AllowPartial = -1, int Runtime = -1,
+@@ -34,7 +34,7 @@ namespace IGCLLVM
+     {
+         return llvm::createLoopUnrollPass(OptLevel, false, false, Threshold, Count, AllowPartial, Runtime, UpperBound, AllowPeeling);
+     }
+-#elif LLVM_VERSION_MAJOR >= 12
++#elif LLVM_VERSION_MAJOR >= 13
+     //DO NOT assume same function signature for all incoming llvm versions! Double check to upgrade!
+ #error Not supported llvm version.
+ #endif
+diff --git a/IGC/common/igc_resourceDimTypes.h b/IGC/common/igc_resourceDimTypes.h
+--- a/IGC/common/igc_resourceDimTypes.h
++++ b/IGC/common/igc_resourceDimTypes.h
+@@ -11,6 +11,7 @@ SPDX-License-Identifier: MIT
+ #include "common/LLVMWarningsPush.hpp"
+ #include <llvm/IR/Module.h>
+ #include <llvm/IR/IRBuilder.h>
++#include <llvm/IR/DerivedTypes.h>
+ #include "common/LLVMWarningsPop.hpp"
+ #include "Probe/Assertion.h"
+ 
+@@ -50,6 +51,6 @@ namespace IGC
+             resourceDimTypeId == DIM_2D_TYPE || resourceDimTypeId == DIM_2D_ARRAY_TYPE ||
+             resourceDimTypeId == DIM_3D_TYPE || resourceDimTypeId == DIM_CUBE_TYPE || resourceDimTypeId == DIM_CUBE_ARRAY_TYPE));
+ 
+-        return module.getTypeByName(ResourceDimensionTypeName[resourceDimTypeId]);
++        return llvm::StructType::getTypeByName(module.getContext(), ResourceDimensionTypeName[resourceDimTypeId]);
+     }
+-}
+\ No newline at end of file
++}
