@@ -2,20 +2,18 @@
 # Maintainer: Jelle van der Waa <jelle@archlinux.org>
 
 pkgname=('loki' 'loki-canary' 'promtail' 'logcli')
-pkgver=2.2.1
-pkgrel=3
+pkgver=2.3.0
+pkgrel=1
 pkgdesc='like Prometheus, but for logs'
 url='https://github.com/grafana/loki'
 arch=('x86_64')
-license=('Apache')
+license=('AGPL3' 'Apache')
 depends=('glibc')
 makedepends=('go' 'systemd')
 source=($pkgname-$pkgver.tar.gz::https://github.com/grafana/loki/archive/v$pkgver.tar.gz
-        https://github.com/grafana/loki/commit/d6ecfd24313ecc9ad03e26875cb11394de7e988a.patch # Patch for Go 1.16; issue #3485
         promtail.sysusers promtail.service promtail.tmpfiles
         loki.sysusers loki.service loki.tmpfiles)
-sha512sums=('8777f66dda3893c52ad41244ca4c96950e2fe15c05b08e3f07f848b3672cbdda701958cf98781e9f6c848f4711df6f5d2fcbb5c31f7de2535faa367b3eceb1db'
-            '2b17d1146c07945d715da0bee8eb36490461e93c54931a6c1f0420a8b03e60b7fa6fd698f60f41951436bebc8fbc1ad4ffa58141081047b7da4b3479d8216dfc'
+sha512sums=('7f2855d8df69c551e182d0e27e2a6fb6960fa5bc525dcc90cb2dc2428f52aeb5e2bddd0a9232e1ab70cbe60a9d5bb3349ba749dbee82fc63c6fc43e61240feed'
             '2b6c44b18ea3c9f955a7450222180d0b20b5fc551d0b7e5d0d8949e40adc847c4166829146260f87a75732cc5473eab0347dd56fc2125517698bac0652738c74'
             '7ff5c7324a4c883f5156b55cd025d2df8d8be134c18b1ecc007f89cafe20b4bed6c612b81588c9c660dd2fd3b6091fd952fcd3ad69a44e1ffa02e1eaeb05b290'
             '598042c40673a7914c5a1eeccfb78f832379a61f4360212c5d86f667343cf2fc78e98d9025f9717ea64f3e16e0a28f08cd7709706d811656722019f6167dd788'
@@ -23,16 +21,10 @@ sha512sums=('8777f66dda3893c52ad41244ca4c96950e2fe15c05b08e3f07f848b3672cbdda701
             '03904b67617e4064a1eb39b6edfaec5d55bc85f142e867d115d3d0e12494a052fddf13bb6f5c541aaca29a18582df2332bb0cc6b8f29928cf6a0d5d2710ead74'
             'de40d1e6752edbf8c21317ce1ee10f98dfc869e569c07092c613f7144e261e9438683a145a2e0e37e2a9fc758c5c2f02e1d0ac1c60347e98b147e4a550ec6040')
 
-prepare() {
-  cd loki-$pkgver
-
-  patch -p1 < "${srcdir}/d6ecfd24313ecc9ad03e26875cb11394de7e988a.patch"
-}
-
 build() {
   cd loki-$pkgver
 
-  for cmd in loki loki-canary promtail logcli; do
+  for path in cmd/loki cmd/loki-canary cmd/logcli clients/cmd/promtail; do
     go build \
       -trimpath \
       -buildmode=pie \
@@ -43,14 +35,15 @@ build() {
          -X github.com/grafana/loki/pkg/build.BuildDate=$(date -u +'%Y-%m-%dT%H:%M:%SZ' --date=@${SOURCE_DATE_EPOCH})
          -linkmode external
          -extldflags \"${LDFLAGS}\"" \
-      ./cmd/"$cmd"
+      ./"$path"
   done
 }
 
 check() {
   cd loki-$pkgver
 
-  go test -v ./...
+  # https://github.com/grafana/loki/issues/4110
+  go test -v $(go list ./... | grep -v /pkg/storage/stores/shipper/compactor/retention)
 }
 
 package_loki() {
@@ -83,7 +76,7 @@ package_promtail() {
 
   install -Dm755 -t "$pkgdir"/usr/bin promtail
 
-  install -Dm644 cmd/promtail/promtail-local-config.yaml $pkgdir/etc/loki/promtail.yaml
+  install -Dm644 clients/cmd/promtail/promtail-local-config.yaml $pkgdir/etc/loki/promtail.yaml
 
   install -Dm644 ${srcdir}/promtail.sysusers "$pkgdir/usr/lib/sysusers.d/promtail.conf"
   install -Dm644 ${srcdir}/promtail.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/promtail.conf"
