@@ -1,13 +1,16 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
 
 pkgname=python-nbval
 pkgver=0.9.6
-pkgrel=1
+pkgrel=2
 pkgdesc="A py.test plugin to validate Jupyter notebooks"
 url="https://github.com/computationalmodelling/nbval"
 license=('BSD')
 arch=('any')
-depends=('python-pytest' 'python-jupyter_client' 'jupyter-nbformat' 'python-ipykernel'
+# python-six can be removed from dependencies in the next version
+# https://github.com/computationalmodelling/nbval/pull/162
+depends=('python-pytest' 'python-six' 'python-jupyter_client' 'jupyter-nbformat' 'python-ipykernel'
          'python-coverage')
 makedepends=('python-setuptools')
 checkdepends=('python-doit' 'python-matplotlib' 'python-pytest-cov' 'python-sympy')
@@ -22,9 +25,29 @@ build() {
 check() {
   cd nbval-$pkgver
   python setup.py egg_info
-  # size difference: tests/sample_notebook.ipynb::Cell 9
-  # unknown: "tests/latex-example.ipynb::Cell 1", "tests/test_unit_tests_in_notebooks.py::test_print[/build/python-nbval/src/nbval-0.9.6/tests/ipynb-test-samples/test-latex-pass-correctouput.ipynb]"
-  PYTHONPATH="$PWD" doit test || echo "Tests failed"
+
+  # XXX: workarounds for issues in dependencies...
+  # 1. ipython uses a function deprecated in matplotlib 3.4 [1]
+  #    This will be unneeded once the next version of IPython is out [2].
+  #    Note that matplotlib.MatplotlibDeprecationWarning is inherited from UserWarning
+  #    instead of DeprecationWarning [3] until its upcoming version [4].
+  export PYTHONWARNINGS="ignore::UserWarning"
+  # 2. ipython uses a different default figure size for inline matplotlib plots since 7.23
+  #    This is due to the switch to matplotlib-inline in ipython 7.23 [5]. ipykernel
+  #    has a similar change since 6.0.0 [6], while community/python-ipykernel is out-dated.
+  #    As nbval uses ipykernel to run notebooks [7], running nbval on Arch generates figures
+  #    with the old default size. Fortunately, matplotlib allows overriding the default
+  #    backend, as inspired by [6].
+  export MPLBACKEND=module://matplotlib_inline.backend_inline
+  # [1] https://github.com/computationalmodelling/nbval/issues/167
+  # [2] https://github.com/ipython/ipython/pull/12889
+  # [3] https://github.com/matplotlib/matplotlib/blob/v3.4.2/lib/matplotlib/_api/deprecation.py#L19
+  # [4] https://github.com/matplotlib/matplotlib/pull/20046
+  # [5] https://github.com/ipython/ipython/pull/12817
+  # [6] https://github.com/ipython/ipykernel/pull/591
+  # [7] https://github.com/computationalmodelling/nbval/blob/0.9.6/nbval/kernel.py
+
+  PYTHONPATH="$PWD" doit test
 }
 
 package() {
