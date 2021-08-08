@@ -3,7 +3,7 @@
 
 pkgname=python-moto
 _pkgname=moto
-pkgver=2.2.0
+pkgver=2.2.1
 pkgrel=1
 pkgdesc='Moto is a library to mock out the boto library.'
 arch=(any)
@@ -18,18 +18,20 @@ depends=(python-boto3 python-botocore python-cryptography python-requests python
 # See reqquirements-test.txt, excluding pytest-cov
 checkdepends=(python-pytest python-sure python-freezegun
               # boto is vendored (#3503), but still imported in tests
-              python-boto)
+              python-boto podman)
 # Below are optional dependencies. The order matches _dep_* items in upstream `setup.py`.
 # Note that _dep_python_jose_ecdsa_pin and _dep_idna are excluded as they are pins and
 # not used by moto.
 optdepends=(
   'python-yaml: for cloudformation, s3 and ssm'
   'python-jose: for apigateway and cognitoidp'
-  'python-docker: for awslambda, batch, cloudformation, dynamodb2, dynamodbstreams, ec2, ses, sns, sqs and ssm'
+  # SNS and SQS still uses docker indirectly, while upstream explicitly removes them
+  # https://github.com/spulec/moto/pull/4094
+  'python-docker: for awslambda, batch, cloudformation, dynamodb2 and dynamodbstreams'
   'python-jsondiff: for iotdata'
   'python-aws-xray-sdk: for xray'
   'python-cfn-lint: for cloudformation'
-  'python-sshpubkeys: for ec2'
+  'python-sshpubkeys: for ec2 and efs'
   'python-flask: for moto_server'
   'python-flask-cors: for moto_server'
 )
@@ -37,7 +39,7 @@ checkdepends+=(python-yaml python-jose python-docker python-jsondiff python-aws-
                python-cfn-lint python-sshpubkeys python-flask python-flask-cors)
 source=("https://files.pythonhosted.org/packages/source/m/moto/moto-${pkgver}.tar.gz"
         sdist-no-pyc.diff)
-sha256sums=('54824ad7fb5040d60558f7f34e0cb32e2de1d97612c03a1f9accfe3d5b94d2a6'
+sha256sums=('4ea538fe090b964c22bb98a6f87d3c589eaf754893d297d58b74dedb94d4448c'
             '4193bd88380f6ab8dac49be37d940993dee4e31351ffd60c8167b7c8e5ec3208')
 
 prepare() {
@@ -67,6 +69,13 @@ check() {
   # $ extra-x86_64-build -- -d "$XDG_RUNTIME_DIR/podman:/tmp/podman"
   PODMAN_SOCK=/tmp/podman/podman.sock
   if [ -S $PODMAN_SOCK ]; then
+    # XXX: a workaround to make tests work with podman
+    # Images are not pulled before usage since version 2.2.1 [1][2], and
+    # that is needed for podman [3]
+    # [1] https://github.com/spulec/moto/commit/338420c3b979b85501193d948ab442c1ebd0ae4a
+    # [2] https://github.com/spulec/moto/pull/4082
+    # [3] https://github.com/spulec/moto/pull/3702
+    podman-remote --url "unix:$PODMAN_SOCK" pull docker.io/library/busybox:latest
     DOCKER_HOST="unix://$PODMAN_SOCK" TZ=UTC pytest tests
   fi
 }
