@@ -1,0 +1,75 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+# Contributor: Geoffroy Carrier <geoffroy.carrier@koon.fr>
+# Contributor: michalzxc
+# Contributor: nbags <neilbags@gmail.com>
+
+pkgname=fail2ban
+pkgver=0.11.2
+pkgrel=2
+pkgdesc='Bans IPs after too many failed authentication attempts'
+url='https://www.fail2ban.org/'
+license=('GPL')
+arch=('any')
+depends=('iptables' 'python-pyinotify' 'whois' 'sqlite' 'python-systemd')
+makedepends=('python-setuptools')
+checkdepends=('python-coverage')
+backup=(etc/fail2ban/fail2ban.conf
+        etc/fail2ban/jail.conf
+        etc/logrotate.d/fail2ban)
+source=("$pkgname-$pkgver.tar.gz::https://github.com/fail2ban/$pkgname/archive/$pkgver.tar.gz"
+        "$pkgname-$pkgver_fix-test-suite.patch::https://github.com/fail2ban/fail2ban/commit/747d4683221b5584f9663695fb48145689b42ceb.patch"
+        "$pkgname-$pkgver_CVE-2021-32749.patch::https://github.com/fail2ban/fail2ban/commit/410a6ce5c80dd981c22752da034f2529b5eee844.patch")
+sha512sums=('46b27abd947b00ea64106dbac563ef8afef38eec86684024d47d9a0e8c1969ff864ad6df7f4f8de2aa3eb1af6d769fb6796592d9f0e35521d5f95f17b8cade97'
+            '5c0748c048031d88bc8fd2519bf99a35437b78a08fa942dbccdd2c0e4e9125560a847a8f1dc4414691c922dff558acff988492250be6a1f443a139b0e3762898'
+            '994de8a4fdd4535607cd1b21553266de015b57bdb7f84f931973cb4b3cadd93fb2fda2d402a4ecccf505dffabf146cd9eae2cd0b635c3cb3dfa2d312539d41be')
+
+prepare() {
+  cd $pkgname-$pkgver
+  sed -i 's|self.install_dir|"/usr/bin"|' setup.py
+  sed -i 's/^before = paths-debian.conf/before = paths-arch.conf/' config/jail.conf
+
+  patch -Np1 -i "$srcdir/$pkgname-$pkgver_fix-test-suite.patch"
+  patch -Np1 -i "$srcdir/$pkgname-$pkgver_CVE-2021-32749.patch"
+}
+
+build() {
+  cd $pkgname-$pkgver
+  ./fail2ban-2to3
+  python setup.py build
+}
+
+check() {
+  # make temp copy to run coverage since it messes with file permissions
+  cp -r $pkgname-$pkgver{,-coverage}
+  cd $pkgname-$pkgver-coverage
+  coverage run bin/fail2ban-testcases
+}
+
+package() {
+  cd $pkgname-$pkgver
+  python setup.py install --root "$pkgdir" --optimize=1
+
+  install -Dm644 build/fail2ban.service \
+    "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+  install -Dm644 files/fail2ban-tmpfiles.conf \
+    "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+  install -Dm644 files/fail2ban-logrotate \
+    "$pkgdir"/etc/logrotate.d/fail2ban
+  install -Dm644 files/bash-completion \
+    "$pkgdir"/usr/share/bash-completion/completions/fail2ban
+
+  # fix sendmail location
+  sed -i 's/sbin/bin/g' "$pkgdir"/etc/fail2ban/action.d/sendmail*.conf
+
+  install -Dm644 man/fail2ban.1 "$pkgdir"/usr/share/man/man1/fail2ban.1
+  install -Dm644 man/fail2ban-client.1 \
+    "$pkgdir"/usr/share/man/man1/fail2ban-client.1
+  install -Dm644 man/fail2ban-regex.1 \
+    "$pkgdir"/usr/share/man/man1/fail2ban-regex.1
+  install -Dm644 man/fail2ban-server.1 \
+    "$pkgdir"/usr/share/man/man1/fail2ban-server.1
+  install -Dm644 man/jail.conf.5 "$pkgdir"/usr/share/man/man5/jail.conf.5
+
+  rm -r "$pkgdir/run"
+}
