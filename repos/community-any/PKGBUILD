@@ -2,7 +2,7 @@
 
 _pkgname=installer
 pkgname=python-$_pkgname
-pkgver=0.2.0
+pkgver=0.2.3
 pkgrel=1
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
@@ -13,7 +13,7 @@ makedepends=('git' 'python-setuptools' 'python-dephell'
              'python-sphinx' 'python-sphinx-furo' 'python-myst-parser')
 checkdepends=('python-pytest' 'python-mock')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz")
-sha512sums=('f3acce41d5547e3a9dfcab79b52f81f479ac195b5f52884262a87b9b342658f23d235eb1e840bf8b18fb757bd3f25c63fc0120703bf33b8a177ff5078f8f983a')
+sha512sums=('daa80c11e734ffa520779c7e08df4779f41dec429ebf642f024d575cfd952da0bbd0cc78190ca1b50bbcff3adf5cf5d97c4f1f605714d5f8fd40a21a64fbe623')
 
 prepare() {
   cd $_pkgname-$pkgver
