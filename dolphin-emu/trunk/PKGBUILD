@@ -3,8 +3,8 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r14344.acc7d3710d
-pkgrel=2
+pkgver=5.0.r14790.3cc274880f
+pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=(x86_64)
@@ -23,6 +23,7 @@ depends=(
   libcurl.so
   libevdev
   libgl
+  #libmgba
   libminiupnpc.so
   libpng
   libpulse
@@ -42,31 +43,41 @@ depends=(
 makedepends=(
   cmake
   git
+  ninja
   python
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-_commit=acc7d3710d60552769f61f4b44bc8533a940df36
-source=(dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit})
-sha256sums=(SKIP)
+_commit=3cc274880f47d340bd508dba91aaf37c48acd367
+source=(
+  dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit}
+  dolphin-emu-system-libmgba.patch
+)
+b2sums=('SKIP'
+        '004692abcfa3a0a10996afba3a8fe71627300224a6f96cc5b6c6183c32d5f7bd1ece36775cd2642a0c4d7fc9225f72da39063cc68ff089e8d01685a2fbbd6957')
+
+prepare() {
+  cd dolphin-emu
+  #patch -Np1 -i ../dolphin-emu-system-libmgba.patch
+}
 
 pkgver() {
   cd dolphin-emu
-
   git describe | sed 's/-/.r/; s/-g/./'
 }
 
 build() {
-  cmake -S dolphin-emu -B build \
+  cmake -S dolphin-emu -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=None \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DUSE_SHARED_ENET=ON \
-    -DDISTRIBUTOR=archlinux.org
-  make -C build
+    -DDISTRIBUTOR=archlinux.org \
+    -DUSE_MGBA=OFF \
+    -DUSE_SHARED_ENET=ON
+  cmake --build build
 }
 
 package() {
-  make DESTDIR="${pkgdir}" -C build install
+  DESTDIR="${pkgdir}" cmake --install build
   install -Dm 644 dolphin-emu/Data/51-usb-device.rules -t "${pkgdir}"/usr/lib/udev/rules.d/
   rm -rf "${pkgdir}"/usr/{include,lib/libdiscord-rpc.a}
 }
