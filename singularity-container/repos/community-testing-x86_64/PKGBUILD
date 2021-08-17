@@ -1,0 +1,83 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Maciej Sieczka <msieczka at sieczka dot org>
+
+_pkgname=singularity
+pkgname=singularity-container
+pkgver=3.8.1
+pkgrel=1
+pkgdesc='Application containers for secure high performance computing'
+arch=('x86_64')
+url='https://singularity.hpcng.org'
+license=('BSD')
+backup=(
+  etc/singularity/capability.json
+  etc/singularity/cgroups/cgroups.toml
+  etc/singularity/ecl.toml
+  etc/singularity/global-pgp-public
+  etc/singularity/network/00_bridge.conflist
+  etc/singularity/network/10_ptp.conflist
+  etc/singularity/network/20_ipvlan.conflist
+  etc/singularity/network/30_macvlan.conflist
+  etc/singularity/network/40_fakeroot.conflist
+  etc/singularity/nvliblist.conf
+  etc/singularity/remote.yaml
+  etc/singularity/rocmliblist.conf
+  etc/singularity/seccomp-profiles/default.json
+  etc/singularity/singularity.conf
+)
+depends=('squashfs-tools' 'libseccomp')
+makedepends=('go' 'git' 'cryptsetup')
+optdepends=('bash-completion: for tab completion')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/hpcng/singularity/archive/v$pkgver.tar.gz"
+        'tmpfiles.conf')
+b2sums=('9c8ba43753f9874d7df91648a06352aef521ddaad43d93548e29ae283c052d84f2aca67c90876d34cae3f61e5c84dea5e86ce3679b2523a9c3ae864b46374cdb'
+        '33b6c0a8698d15155829af047df42ab2c408f7c604490bdb03210bcf2af175c86a5ad1aaba90452062b21f22f8e36b519f1a07c86ce812af89ebb6f31c160074')
+
+prepare() {
+  cd "$_pkgname-$pkgver"
+
+  # provide version to build script
+  echo "$pkgver" > VERSION
+
+  # fix bash completion path
+  sed -e "s|/etc/bash_completion.d|/usr/share/bash-completion/completions|" \
+    -e "s|\$(SYSCONFDIR)/bash_completion.d|/usr/share/bash-completion/completions|" \
+    -i  mlocal/frags/build_cli.mk
+}
+
+build() {
+  cd "$_pkgname-$pkgver"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+
+  ./mconfig \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --libexecdir=/usr/lib \
+    --localstatedir=/var/lib \
+    -P release-stripped \
+    -v
+
+  make -C builddir
+}
+
+package() {
+  cd "$_pkgname-$pkgver"
+
+  # binaries & man pages
+  make -C builddir DESTDIR="$pkgdir" install man
+
+  # license
+  install -vDm644 LICENSE.md -t "$pkgdir/usr/share/licenses/$pkgname"
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # let systemd-tmpfiles generate state directory
+  rm -rf "$pkgdir/var"
+  install -vDm644 "$srcdir/tmpfiles.conf" \
+    "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+}
