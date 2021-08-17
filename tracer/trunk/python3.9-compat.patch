@@ -1,0 +1,113 @@
+From 33bf201a58b4186fbe14c476f99e9375042d9e9d Mon Sep 17 00:00:00 2001
+From: Jakub Kadlcik <frostyx@email.cz>
+Date: Mon, 16 Aug 2021 21:44:19 +0200
+Subject: [PATCH] Use distro.id() instead of platform.linux_distribution()
+
+Fix #175
+
+We also needed to rename all variables named `distro` to not shadow
+the imported module name.
+---
+ tests/__meta__.py          |  1 -
+ tracer.spec                |  4 ++++
+ tracer/resources/system.py | 18 +++++++++---------
+ 3 files changed, 13 insertions(+), 10 deletions(-)
+
+diff --git a/tests/__meta__.py b/tests/__meta__.py
+index 1752456..aa510e0 100644
+--- a/tests/__meta__.py
++++ b/tests/__meta__.py
+@@ -4,7 +4,6 @@
+ os.sys.path.insert(0, parentdir)
+ 
+ import sys
+-import platform
+ import unittest
+ from tracer.resources.system import System
+ 
+diff --git a/tracer.spec b/tracer.spec
+index aba229f..bd8ccea 100644
+--- a/tracer.spec
++++ b/tracer.spec
+@@ -74,11 +74,13 @@ BuildRequires:  python2-pytest
+ BuildRequires:  python2-psutil
+ BuildRequires:  python2-six
+ BuildRequires:  dbus-python
++BuildRequires:  python2-distro
+ Requires:       dbus-python
+ Requires:       python2-psutil
+ Requires:       python2-setuptools
+ Requires:       python2-future
+ Requires:       python2-six
++Requires:       python2-distro
+ Requires:       %{name}-common = %{version}-%{release}
+ %if %{with suggest}
+ Suggests:       python-argcomplete
+@@ -102,12 +104,14 @@ BuildRequires:  python3-psutil
+ BuildRequires:  python3-six
+ BuildRequires:  python3-dbus
+ BuildRequires:  python3-rpm
++BuildRequires:  python3-distro
+ Requires:       python3-rpm
+ Requires:       python3-psutil
+ Requires:       python3-lxml
+ Requires:       python3-setuptools
+ Requires:       python3-dbus
+ Requires:       python3-six
++Requires:       python3-distro
+ Requires:       %{name}-common = %{version}-%{release}
+ %if %{with suggest}
+ Suggests:       python3-argcomplete
+diff --git a/tracer/resources/system.py b/tracer/resources/system.py
+index 3dc9adf..32599f6 100644
+--- a/tracer/resources/system.py
++++ b/tracer/resources/system.py
+@@ -24,7 +24,7 @@
+ import os
+ import pwd
+ import importlib
+-import platform
++import distro
+ import psutil
+ from sys import version_info
+ from tracer.resources.PackageManager import PackageManager
+@@ -37,7 +37,7 @@ def distribution():
+ 		"""
+ 		Checks if /etc/os-release exists, and if it does, uses it to divine the name of the distribution or
+ 		distribution like. e.g It will return 'debian' on Ubuntu systems.
+-		Otherwise, revert to using platform.linux_distribution()
++		Otherwise, revert to using distro.id()
+ 		"""
+ 		if os.path.isfile("/etc/os-release"):
+ 			with open("/etc/os-release") as os_release_file:
+@@ -56,11 +56,11 @@ def distribution():
+ 					return os_release_data["ID"]
+ 				else:
+ 					if "ID_LIKE" in os_release_data:
+-						for distro in os_release_data["ID_LIKE"].split():
+-							if distro in distros:
+-								return distro
++						for distribution in os_release_data["ID_LIKE"].split():
++							if distribution in distros:
++								return distribution
+ 		else:
+-			return platform.linux_distribution(full_distribution_name=False)[0]
++			return distro.id()
+ 
+ 	@staticmethod
+ 	def package_manager(**kwargs):
+@@ -95,11 +95,11 @@ def get_instance(pair):
+ 			"suse":  [("tracer.packageManagers.dnf", "Dnf")],
+ 		}
+ 
+-		distro = System.distribution()
+-		if distro not in managers:
++		distribution = System.distribution()
++		if distribution not in managers:
+ 			return None
+ 
+-		return PackageManager(*list(map(get_instance, managers[distro])))
++		return PackageManager(*list(map(get_instance, managers[distribution])))
+ 
+ 	@staticmethod
+ 	def init_system():
