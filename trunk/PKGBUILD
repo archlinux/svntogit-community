@@ -6,7 +6,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
-pkgver=21.2.0
+pkgver=21.2.1
 pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
@@ -18,7 +18,7 @@ url="https://www.mesa3d.org/"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         LICENSE)
-sha512sums=('14323ac474bbcf178177506b5a68976238d2e7bdbdcdf4d1355dd43f5bd551c6cdebed76558c34f49ed057477ec88775306b7b8484b437325e4cb4a77e16127e'
+sha512sums=('d4056287ec86f7a95ce534a251a1ccbc3a3b08a2f7112152def2f054fc8a9424501d5883c463554ee95fe2dafb832613efd7145e989ee8281948233942730c2c'
             'SKIP'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
@@ -46,7 +46,7 @@ END
     -D b_ndebug=true \
     -D platforms=x11,wayland \
     -D dri-drivers=i915,i965,r100,r200,nouveau \
-    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,iris,zink \
+    -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,iris,crocus,zink \
     -D vulkan-drivers=amd,intel \
     -D vulkan-layers=device-select,intel-nullhw,overlay \
     -D swr-arches=avx,avx2 \
