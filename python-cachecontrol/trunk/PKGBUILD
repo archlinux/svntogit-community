@@ -9,7 +9,8 @@ pkgdesc="httplib2 caching for requests"
 arch=('any')
 url="https://github.com/ionrock/${_pkgname}"
 license=('Apache')
-makedepends=('python-msgpack' 'python-requests' 'python2-msgpack' 'python2-requests')
+makedepends=('python-msgpack' 'python-requests' 'python2-msgpack' 'python2-requests'
+             'python-setuptools' 'python2-setuptools')
 checkdepends=('python-mock' 'python-pytest' 'python-lockfile' 'python-cherrypy'
               'python2-mock' 'python2-pytest' 'python2-lockfile' 'python2-cherrypy')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz"
