@@ -1,0 +1,76 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Thor77 <thor77 at thor77 dot org>
+# Contributor: Clar Charr <clar@charr.xyz>
+# Contributor: somini <dev at somini dot xyz>
+
+pkgname=miniflux
+pkgver=2.0.32
+pkgrel=2
+pkgdesc="Minimalist and opinionated feed reader"
+arch=('x86_64')
+url="https://miniflux.app"
+license=('Apache')
+optdepends=(
+  'postgresql: for local PostgreSQL instance'
+)
+makedepends=('go' 'git')
+backup=('etc/miniflux.conf')
+source=(
+  "$pkgname-$pkgver.tar.gz::https://github.com/miniflux/v2/archive/$pkgver.tar.gz"
+  'sysusers.conf'
+)
+b2sums=('16b76a79d807dbd89ca4849ed1fa0eca70adab1ee80ba490740257fa40798a3428c850644164dbdcbc436b529eacceb1ecde8f1c9a84d524d5214cfc2b28055e'
+        '71a1cba0e015c6b33897e3492dd014efbfac240d3c6f007f86ff7bade830ce0f2809d4d0ad1d8ca1189627e2961dddc7ff6682cd445587f5145bee0eab8a7bf6')
+
+prepare() {
+  cd "v2-$pkgver"
+
+  # create directory for build output
+  mkdir -p build
+
+  # download dependencies
+  go mod vendor
+}
+
+build() {
+  cd "v2-$pkgver"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  # ensure build date is reproducible
+  local BUILD_DATE="$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y-%m-%d)"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS} \
+    -X miniflux.app/version.Version=${pkgver} \
+    -X miniflux.app/version.Commit=tarball \
+    -X miniflux.app/version.BuildDate=${BUILD_DATE}" \
+    -o build \
+    .
+}
+
+package() {
+  cd "v2-$pkgver"
+
+  # binary
+  install -vDm755 "build/$pkgname.app" "$pkgdir/usr/bin/$pkgname"
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/man/man1" "$pkgname.1"
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" *.md ChangeLog
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+
+  # systemd integration
+  install -vDm644 -t "$pkgdir/usr/lib/systemd/system" "packaging/systemd/$pkgname.service"
+  install -vDm644 "$srcdir/sysusers.conf" "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 -t "$pkgdir/etc" "packaging/$pkgname.conf"
+}
