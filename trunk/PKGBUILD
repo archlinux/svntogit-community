@@ -2,8 +2,8 @@
 # Controbutor: Baptiste Jonglez <archlinux at bitsofnetworks dot org>
 
 pkgname=fig2dev
-pkgver=3.2.8.a
-_upstreamver=3.2.8a
+pkgver=3.2.8.b
+_upstreamver=3.2.8b
 pkgrel=1
 pkgdesc="Format conversion utility that can be used with xfig"
 arch=('x86_64')
@@ -16,8 +16,8 @@ replaces=('transfig')
 provides=('transfig')
 source=("https://downloads.sourceforge.net/mcj/${pkgname}-${_upstreamver}.tar.xz"
         "LICENSE")
-sha1sums=('9f607b31aae1ecf27b45c0fe374f2705fb00ec05'
-          'b8b712871615308b8b6add92f86d218437d652f2')
+sha256sums=('418a164aa9fad72d25bb4fec8d7b452fe3a2f12f990cf22e05c0eb16cecb68cb'
+            'e7b5050c353602ff95c6baefea92eebabacbd90b8538495438c574f85c7f7514')
 
 build() {
   cd "${pkgname}-${_upstreamver}"
