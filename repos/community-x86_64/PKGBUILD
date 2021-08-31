@@ -4,14 +4,14 @@
 
 pkgname=runc
 pkgver=1.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
 url='https://runc.io/'
 license=(Apache)
 depends=(libseccomp)
 makedepends=(git go go-md2man)
-opdepends=(
+optdepends=(
   'criu: checkpoint support'
 )
 _commit=52b36a2dd837e8462de8e01458bf02cf9eea47dd	#refs/tags/v1.0.2^{}
