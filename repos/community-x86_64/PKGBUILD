@@ -4,8 +4,8 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.5.0
-pkgver=15.2.13
-pkgrel=2
+pkgver=15.2.14
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -57,14 +57,18 @@ source=(
   'qa-src-update-mypy-to-0.782.patch'
   'fix-mgr-dashboard-partial_dict.patch'
 
+  # snappy 1.1.9 removed major parts from their namespace, including the
+  # snappy::uint32 which was an alias for std::uint32_t
+  'fix_snappy_namespace_uint.patch'
+
   # Add python >= 3.8 workaround logic for incompatible modules
   # This has been designated for upstream backporting into the octupus (15) and pacific (16) branches.
   # TODO: check if merged and included in next releases
   # https://tracker.ceph.com/issues/45147
   # https://github.com/ceph/ceph/pull/34846
-  'backport_mgr_disabled_modules_workaround_PR34846.patch'
+  # 'backport_mgr_disabled_modules_workaround_PR34846.patch'
 )
-sha512sums=('bde28c331c489db0845959f65c425146c317466a7793f56a83e2827dec35b8cd6f600bf9056151c1e6926cc0155deebbc8681c240ac9f37ad876b9a6afae96da'
+sha512sums=('eacc4dea0d8dfe2753aff78d89324d81c5634a784313c3da8ded778e2734958c216f8c705b25f070d7ba66b559424ad3c47cb68852f66f8c9c83a83ca78ad5a5'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             '25b657529a698eec891f92ff4a085d1fd95d2ff938ce52c8a4ff6163eb0b668ec642dd09e0db190652638cd92371006afa01d8e437437762c4097ad301675c33'
             '9e6bb46d5bbdc5d93f4f026b2a8d6bdb692d9ea6e7018c1bb0188d95ea8574c76238d968b340fd67ddaa3d8183b310e393e3549dc3a63a795fde696413b0ca94'
@@ -77,7 +81,7 @@ sha512sums=('bde28c331c489db0845959f65c425146c317466a7793f56a83e2827dec35b8cd6f6
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
             '204741c65b8ceeddae0a58a49e2b4249ee7ffc624ce8d9faa6284af198abe63bffb6758e064eeff6d1857be044647f99749a45443e258b35e92cc36b9edeba80'
             '79e337a78cc4bd9ed8c8ab66831b3efd5a3a34e16d2c73ecedef03d2a34c7ac65ea25641a808913cd2dc2dc0f992fac35822efe4188622add6898dce1e5f13e3'
-            'b6e08b21d73fe1485c32b283812f3cf39e31e2fb0f5fc750b2e6ec3c5c4bfd7ac9170c7d5168d172e8af5d98e74d0313c2d090d22490fbd94269b016034a902f')
+            '4b4d0528d909fb735975db290bc8495ee626fc78d68b82b3525326cb69326cfc310c3078c529246f3d76cec590a3a7c4e92950009211590ebfe55583c4f5b71d')
 
 
 # -fno-plt causes linker errors (undefined reference to internal methods)
