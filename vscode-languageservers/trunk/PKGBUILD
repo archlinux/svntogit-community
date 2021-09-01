@@ -1,0 +1,65 @@
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
+# Contributor: Ilango Rajagopal <ilangokul@gmail.com>
+
+pkgname=('vscode-css-languageserver' 'vscode-html-languageserver' 'vscode-json-languageserver')
+pkgbase=vscode-languageservers
+pkgver=1.59.1
+pkgrel=1
+pkgdesc='VS Code language servers'
+arch=('any')
+url=https://github.com/Microsoft/vscode
+license=('MIT')
+depends=('nodejs')
+makedepends=('git' 'typescript' 'yarn')
+source=("git+$url.git#tag=$pkgver")
+b2sums=('SKIP')
+
+prepare() {
+  for i in 'css' 'html' 'json'; do
+    pushd vscode/extensions/$i-language-features/server
+    yarn --frozen-lockfile
+    popd
+  done
+}
+
+build() {
+  for i in 'css' 'html' 'json'; do
+    pushd vscode/extensions/$i-language-features/server
+    tsc || true
+    popd
+  done
+}
+
+_package() {
+  install -d "$pkgdir"/usr/{bin,lib/node_modules/"$1"}
+
+  cd vscode/extensions
+
+  case "$1" in
+    vscode-css-languageserver)
+      pkgdesc='VS Code CSS language server'
+
+      printf '%s\n' '#!/usr/bin/env node' "require('/usr/lib/node_modules/$1/out/node/cssServerMain');" > "$pkgdir"/usr/bin/"$1"
+      cd css-language-features/server;;
+    vscode-html-languageserver)
+      pkgdesc='VS Code HTML language server'
+
+      printf '%s\n' '#!/usr/bin/env node' "require('/usr/lib/node_modules/$1/out/node/htmlServerMain');" > "$pkgdir"/usr/bin/"$1"
+      cd html-language-features/server;;
+    vscode-json-languageserver)
+      pkgdesc='VS Code JSON language server'
+
+      printf '%s\n' '#!/usr/bin/env node' "require('/usr/lib/node_modules/$1/out/node/jsonServerMain');" > "$pkgdir"/usr/bin/"$1"
+      cd json-language-features/server;;
+  esac
+
+  chmod +x "$pkgdir"/usr/bin/"$1"
+  rm -r node_modules/@types
+  cp -r node_modules out package.json "$pkgdir"/usr/lib/node_modules/"$1"
+  install -Dm644 -t "$pkgdir"/usr/share/licenses/"$1" \
+    "$srcdir"/vscode/LICENSE.txt
+}
+
+for _pkgname in "${pkgname[@]}"; do
+  eval "package_$_pkgname() { _package $_pkgname; }"
+done
