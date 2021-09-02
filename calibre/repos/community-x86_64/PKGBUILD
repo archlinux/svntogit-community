@@ -8,8 +8,8 @@
 
 pkgbase=calibre
 pkgname=calibre
-pkgver=5.23.0
-pkgrel=2
+pkgver=5.26.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -29,9 +29,9 @@ conflicts=('calibre-common' 'calibre-python3')
 replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
         "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
-sha256sums=('e1e5db8b88b6608e3214c62e9aa6214d7e5142bffb9a9eb0be6bb42caddb15fb'
+sha256sums=('86e6dd593187327f866c9ded2ce20a1f36b909d0b79d7a71197a90c7832ee386'
             'SKIP')
-b2sums=('065183b28d929a82e200f5bad6a7bf2bc2fe6902cb4c3738139e88eb90fab44a91984f50151b0713274c8f904776130175ea210cc6e165ea39856abf657575a7'
+b2sums=('c2c400bd498998badb5c6bee1ae9a71b5f74ff42a4481a16ce6dba9345fa03a5c91e3930bf4783e01458230343aeb366433fdd278cdb619b190695d3c530a83d'
         'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
