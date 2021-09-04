@@ -3,8 +3,8 @@
 # Contributor: Daniel Maslowski <info@orangecms.org>
 
 pkgname=minio
-pkgver=2021.07.22
-_timever=T05:23:32Z
+pkgver=2021.09.03
+_timever=T03:56:13Z
 _pkgver="${pkgver//./-}${_timever//:/-}"
 pkgrel=1
 pkgdesc='Object storage server compatible with Amazon S3'
@@ -20,7 +20,7 @@ source=(git+https://github.com/minio/minio.git#tag=RELEASE.${_pkgver}
         minio.sysusers)
 backup=('etc/minio/minio.conf')
 sha512sums=('SKIP'
-            '630a5d109409074b67be71b663a43ad09104121cca3637bb0542df19e375023bff7d7e2cbf39e52cc3cd060d41c363a90bd4ff7734aed1a5ca43a600f6d6d275'
+            '9fb09d19af9d7a00e4680cd92d208ddd44ce52328f6efee68d7ee47f591cbe77ee88ce139a677bcf8836de0643de18c6c7c4005d50b0056f9b861c3d595e5233'
             '59aa13b47494564c8eea23dd48fdccef0e65adc0defd4bbd9ca039fd602de0791e1311e444bddca71a1bec7a58cb4eaafad09a8d9ae61eb1e534287dfdf610c2'
             '7e4617aed266cf48a2ff9b0e80e31641d998537c78d2c56ce97b828cfc77d96dbf64728d4235dac7382d6e5b201388bef6722959302de5e2298d93f4ec1e0e63')
 
@@ -45,7 +45,7 @@ package() {
   install -dm750 -o 103 -g 103 "${pkgdir}/var/lib/minio"
 
   install -Dm755 minio/minio "${pkgdir}/usr/bin/minio"
-  install -Dm644 "${srcdir}/minio.conf" "${pkgdir}/etc/minio/minio.conf"
+  install -Dm600 "${srcdir}/minio.conf" "${pkgdir}/etc/minio/minio.conf"
   install -Dm644 "${srcdir}/minio.service" "${pkgdir}/usr/lib/systemd/system/minio.service"
   install -Dm644 "${srcdir}/minio.sysusers" "${pkgdir}/usr/lib/sysusers.d/minio.conf"
 }
