@@ -6,8 +6,8 @@
 # Contributor: zer0def <zer0def@github>
 
 pkgname=salt
-pkgver=3003.1
-pkgrel=2
+pkgver=3003.2
+pkgrel=1
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -39,7 +39,7 @@ install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
-sha256sums=('8a7184d3de4d1727618f0d3fbba79e54389aeff85b72f4ceb8200bcc167f6ebe'
+sha256sums=('73c86c44b176d8cfdc033bb1e42e4fdc8dd3424833faa2ea0d0938fa173856a9'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
