@@ -20,7 +20,6 @@ build() {
 
 package() {
   cd rich-${pkgver}
-  export PYTHONHASHSEED=0
   PIP_CONFIG_FILE=/dev/null pip install --isolated --root="${pkgdir}" --ignore-installed --no-deps dist/*.whl
   install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
