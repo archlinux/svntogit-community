@@ -31,7 +31,7 @@ build() {
 check() {
     cd "${srcdir}"/${_pkgname}-${pkgver}
 
-    PYTHONHASHSEED=0 python setup.py test
+    python setup.py test
     python2 setup.py test
 }
 
