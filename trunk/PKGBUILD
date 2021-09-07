@@ -17,7 +17,6 @@ sha256sums=('704098302473cb31a218f1775a873b376b30b4c18229421e9e9dc8916fd16150')
 
 build() {
     cd "$pkgname-$pkgver"
-    export PYTHONHASHSEED=0
     python setup.py build
 }
 
