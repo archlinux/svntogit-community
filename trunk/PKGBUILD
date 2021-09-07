@@ -63,7 +63,6 @@ package() {
 
   cd salt-$pkgver
 
-  export PYTHONHASHSEED=0
   python setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
 
   # default config
