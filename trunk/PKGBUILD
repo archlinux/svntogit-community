@@ -38,7 +38,6 @@ check(){
 
 package_python-babel() {
   cd "babel-$pkgver"
-  export PYTHONHASHSEED=0
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -D -m0644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
