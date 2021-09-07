@@ -21,7 +21,6 @@ export TORNADO_EXTENSION=1
 
 build() {
   cd tornado-$pkgver
-  export PYTHONHASHSEED=0
   python setup.py build
 }
 
