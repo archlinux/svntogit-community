@@ -40,7 +40,7 @@ package_python-pytz(){
 
     cd pytz-$pkgver
 
-    PYTHONHASHSEED=1 python3 setup.py install --root="$pkgdir"/
+    python3 setup.py install --root="$pkgdir"/
 
     install -Dm644 LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
