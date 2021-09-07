@@ -57,7 +57,6 @@ prepare(){
 build() {
     cd "${pkgbase}-${pkgver}"
 
-    export PYTHONHASHSEED=0
     LANG='en_US.UTF-8' python setup.py build
     LANG='en_US.UTF-8' python setup.py gui
     python setup.py liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation --system-liberation_fonts
