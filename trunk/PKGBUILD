@@ -21,7 +21,6 @@ build() {
 
 package() {
     cd "${srcdir}/${_realname}-${pkgver}"
-    export PYTHONHASHSEED=0
     python setup.py install --skip-build --root="${pkgdir}" --optimize=1
     install -Dm644 "LICENSE.rst" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.rst"
 }
