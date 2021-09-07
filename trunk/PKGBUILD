@@ -33,7 +33,6 @@ check() {
 
 package() {
   cd $_name-$pkgver
-  export PYTHONHASHSEED=0
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 }
 
