@@ -31,7 +31,6 @@ check() {
 
 package() {
   cd msgpack-python-$pkgver
-  export PYTHONHASHSEED=0
   python setup.py install --skip-build --root="$pkgdir" --optimize=1
 }
 

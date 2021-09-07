@@ -21,6 +21,5 @@ build() {
 
 package() {
     cd pygame-"$pkgver"
-    export PYTHONHASHSEED=0
     python setup.py install --root="$pkgdir" --prefix=/usr --skip-build
 }

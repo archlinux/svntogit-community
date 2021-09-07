@@ -31,8 +31,6 @@ prepare() {
 }
 
 build() {
-  export PYTHONHASHSEED=0
-
   cd "$srcdir/wheel-$pkgver"
   python setup.py build
 

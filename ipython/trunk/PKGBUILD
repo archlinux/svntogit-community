@@ -41,7 +41,6 @@ check() {
 
 package() {
   cd $pkgname-$pkgver
-  export PYTHONHASHSEED=0
   python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 docs/source/about/license_and_copyright.rst "$pkgdir/usr/share/licenses/ipython/LICENSE"
 

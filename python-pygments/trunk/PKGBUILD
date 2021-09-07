@@ -30,7 +30,6 @@ check() {
 package() {
   cd "$srcdir/Pygments-$pkgver"
 
-  export PYTHONHASHSEED=0
   python3 setup.py install --root="$pkgdir" -O1
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 
