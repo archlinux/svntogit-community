@@ -17,7 +17,6 @@ sha256sums=('703f484b47a6af502e743c9122595cc812b0271f661722403114f71a79d0f5a4')
 
 build() {
   cd Jinja2-$pkgver
-  export PYTHONHASHSEED=0
   python3 setup.py build
 }
 
@@ -33,7 +32,6 @@ check() {
 
 package() {
   cd Jinja2-$pkgver
-  export PYTHONHASHSEED=0
   python3 setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 LICENSE.rst -t "$pkgdir/usr/share/licenses/$pkgname"
 }
