@@ -2,7 +2,7 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=10.0.2
+pkgver=10.0.3
 _ghidra_data=7d843ec229d43c2d1a8178aaa892be90e37e95a2
 _d2j=2.0
 _yajsw=12.12
@@ -26,7 +26,7 @@ source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver
 noextract=(AXMLPrinter2.jar
            yajsw-stable-${_yajsw}.zip
            hfsexplorer-${_hfsx/./_}-bin.zip)
-sha512sums=('f701f81ea8d207464cd5582221320aceddeebeeab6b0290870c61a9b26d7ed2b98edafc2ea3323f398653e928e9ca49543d9a240d9bd66b2da27e42f3922b172'
+sha512sums=('1dc7cf0fc40cbff2c92941010761800982042a0f2a6b18a7f33246d99a9a1108d2a05c608441c3a9cb5c164f59b09a4e5bd66e7cdf8ff8fa3e75b277cc5f1233'
             'SKIP'
             'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
