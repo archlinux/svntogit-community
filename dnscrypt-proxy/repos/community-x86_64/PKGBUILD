@@ -4,8 +4,8 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.0.45
-pkgrel=2
+pkgver=2.1.0
+pkgrel=1
 pkgdesc="A flexible DNS proxy, with support for encrypted DNS protocols"
 arch=('x86_64')
 url="https://github.com/DNSCrypt/dnscrypt-proxy"
@@ -25,11 +25,11 @@ backup=("etc/${pkgname}/${pkgname}.toml"
 source=("git+https://github.com/dnscrypt/${pkgname}#tag=${pkgver}?signed"
         "${pkgname}.service"
         "${pkgname}.socket"
-        "${pkgname}-${pkgver}-configuration.patch::https://github.com/dvzrv/dnscrypt-proxy/commit/6dc7bcbcaf17bc56bb566f8b3b4fde12abc1d824.patch")
+        "${pkgname}-${pkgver}-configuration.patch::https://github.com/dvzrv/dnscrypt-proxy/commit/c3b021adcfc564f331ba531c35b4501adfee53d3.patch")
 sha512sums=('SKIP'
             '49a9e7ab55e3d5a61017ab2d3a9d8baa503a7737b3b23402d1685f3fda2b59c5e08810bb18be30b2f099da7fa8686ce1bb4052cdd705e9397fd40b663bef3f21'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
-            '980dd07cd68cf4b2ba41460d1946d1c71dc9e8e275556933fbc547961ba92b9e9d2f0409d3e2e97f285c049b1408d84d02a43036421874b6caf7e3be02f1f6c3')
+            '5153386b92ff3540c9e564fa9224a7300e31fe9d0e0a0dd1a262c389e8d115eac549cb863e822c727de52a28d8f2a7a31188d4c793899ae42809f55a0e299b63')
 validpgpkeys=('54A2B8892CC3D6A597B92B6C210627AABA709FE1') # Frank Denis (Jedi/Sector One) <pgp@pureftpd.org
 
 prepare() {
