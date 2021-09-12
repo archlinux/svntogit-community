@@ -4,8 +4,8 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2021.1.3
-_build=211.7628.21
+pkgver=2021.2.1
+_build=212.5080.55
 pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -23,12 +23,16 @@ source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_bui
         idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
         idea.desktop
-        idea.sh)
+        idea.sh
+        kotlin_dist_for_ide.patch
+        skip_jps_build.patch)
 sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
-            '115f1091edb138a7a7b15980e8538b4dfd28054cfab38b844df6d918b1b881c5')
+            '115f1091edb138a7a7b15980e8538b4dfd28054cfab38b844df6d918b1b881c5'
+            '438be6cb2ee731f6f89ba56506e0fac8aac7136c7dc89d3b4f332351d60d7a1e'
+            'b023d7621674f335c32790e25bddadcec483342835af24ab9a3b80d0afc16a0e')
 
 prepare() {
   cd intellij-community
@@ -37,10 +41,17 @@ prepare() {
   mv "${srcdir}"/idea-android android
   mv "${srcdir}"/idea-adt-tools-base android/tools-base
 
+  # https://youtrack.jetbrains.com/issue/KTIJ-19348
+  patch -p0 -i ../kotlin_dist_for_ide.patch
+
+  # https://youtrack.jetbrains.com/issue/IDEA-276102
+  # https://youtrack.jetbrains.com/issue/IDEA-277775
+  patch -p0 -i ../skip_jps_build.patch
+
   sed '/def targetOs =/c def targetOs = "linux"' -i build/dependencies/setupJbre.gradle
   sed '/String targetOS/c   String targetOS = OS_LINUX' -i platform/build-scripts/groovy/org/jetbrains/intellij/build/BuildOptions.groovy
   sed -E 's|(<sysproperty key="jna.nosys")|<sysproperty key="intellij.build.target.os" value="linux" />\1|' -i build.xml
-  sed -E 's/-Xmx[0-9]+m/-XX:-UseGCOverheadLimit/' -i build.xml
+  sed -E 's/-Xmx[0-9]+m/-XX:-UseGCOverheadLimit -Didea.home.path=/' -i build.xml
   echo ${_build} > build.txt
 }
 
@@ -51,7 +62,7 @@ build() {
   export PATH="${JAVA_HOME}/bin:${PATH}"
   export JDK_16_x64=/usr/lib/jvm/java-8-openjdk
   export JDK_18_x64=/usr/lib/jvm/java-8-openjdk
-  ant build
+  ant -Dintellij.build.target.os=linux build
   tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
 }
 
