@@ -4,7 +4,7 @@
 
 _pkgname=sphinxcontrib-bibtex
 pkgname="python-${_pkgname}"
-pkgver=2.3.0
+pkgver=2.4.1
 pkgrel=1
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
@@ -14,7 +14,7 @@ depends=('python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-docuti
 makedepends=('python-setuptools')
 checkdepends=('python-pytest')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mcmtroffaes/${_pkgname}/archive/${pkgver}.tar.gz")
-sha256sums=('9898c5374f097e647d6fc7cd08b4779f84f3232caa7cd8f1b49f3b71438e978f')
+sha256sums=('7272daddda98884c7655bf10d34312c275b05b79bb5f3fb9fd5e4b6e43eb513d')
 
 build() {
   cd "${srcdir}/${_pkgname}-${pkgver}"
@@ -23,7 +23,7 @@ build() {
 
 check() {
   cd "${srcdir}/${_pkgname}-${pkgver}"
-  PYTHONPATH=".:${PYTHONPATH}" pytest
+  PYTHONPATH=".:./src:${PYTHONPATH}" pytest
 }
 
 package() {
