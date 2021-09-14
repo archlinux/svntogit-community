@@ -1,0 +1,114 @@
+# Maintainer: Tim Meusel <tim@bastelfreak.de>
+# Contributor: Christian Rebischke <chris.rebischke@archlinux.org>
+# Contributor: Jonathan Steel <jsteel at archlinux.org>
+# Contributor: Greg Sutcliffe <puppet-aur (at) emeraldreverie (dot) org>
+# Contributor: Hyacinthe Cartiaux <hyacinthe (dot) cartiaux (at) free (dot) fr>
+# Contributor: Thomas S Hatch <thatch45 (at) Gmail (dot) com>
+# Contributor: Xavion <Xavion (dot) 0 (at) Gmail (dot) com>
+# Contributor: Miah Johnson <miah (at) chia-pet dot org>
+# Contributor: Dave Simons <miouhpi (at) Gmail (dot) com>
+# Contributor: Niels Abspoel <aboe76 (at) Gmail (dot) com>
+
+pkgname=puppet
+pkgver=7.10.0
+pkgrel=1
+pkgdesc='Server automation framework and application'
+arch=('any')
+url='https://puppet.com/products/open-source-projects'
+license=('Apache')
+depends=(ruby facter ruby-semantic_puppet ruby-augeas ruby-shadow ruby-concurrent ruby-multi_json ruby-puppet-resource_api ruby-deep_merge ruby-fast_gettext hiera ruby-locale ruby-scanf)
+makedepends=('git' 'rake' 'ruby-rdoc')
+checkdepends=('ruby-rspec' 'ruby-yard' 'ruby-rspec-its' 'ruby-webmock')
+backup=('etc/puppetlabs/puppet/auth.conf'
+        'etc/puppetlabs/puppet/puppet.conf'
+        'etc/puppetlabs/puppet/hiera.yaml')
+install="$pkgname.install"
+
+_augeas_commit=8e2d9aa99f43941a37cdd08e191efb6d5bba154a
+_cron_commit=b4e1054fdc2f819b6f45821afe954e7b24620958
+_host_commit=34dca65fe54ba08bd764691e2619371c213df70b
+_mount_commit=1e56e2588058551360269472823bf3426c5e1900
+_selinux_commit=d07dfb309c575a0528396f16673780ec9d4a39d4
+_sshkeys_commit=313a6cfa7580141a8e9a1c07c187b9ad7643435e
+_yumrepo_commit=4bf78c89309e2539342aaed5b9c92ea6a0a96281
+_zfs_commit=04da7f3099541216600167587d4b1dd82144b038
+_zone_commit=7880999cdcf15b9a3594b78a06e47399c78baba1
+
+source=("https://github.com/puppetlabs/puppet/archive/${pkgver}/puppet-${pkgver}.tar.gz"
+        "augeas_core::git+https://github.com/puppetlabs/puppetlabs-augeas_core#commit=${_augeas_commit}"
+        "cron_core::git+https://github.com/puppetlabs/puppetlabs-cron_core#commit=${_cron_commit}"
+        "host_core::git+https://github.com/puppetlabs/puppetlabs-host_core#commit=${_host_commit}"
+        "mount_core::git+https://github.com/puppetlabs/puppetlabs-mount_core#commit=${_mount_commit}"
+        "selinux_core::git+https://github.com/puppetlabs/puppetlabs-selinux_core#commit=${_selinux_commit}"
+        "sshkeys_core::git+https://github.com/puppetlabs/puppetlabs-sshkeys_core#commit=${_sshkeys_commit}"
+        "yumrepo_core::git+https://github.com/puppetlabs/puppetlabs-yumrepo_core#commit=${_yumrepo_commit}"
+        "zfs_core::git+https://github.com/puppetlabs/puppetlabs-zfs_core#commit=${_zfs_commit}"
+        "zone_core::git+https://github.com/puppetlabs/puppetlabs-zone_core#commit=${_zone_commit}"
+        )
+sha512sums=('787f17cd2d8b5d04da29c24d5120905ac2758a8e65b87a3cf4f6367f124530966d76f2ad0e7448f5cc7cf633b12aa487b3510012ca7a688187b146b6350f657d'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+conflicts=('puppet5' 'puppet6')
+provides=('puppet')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+
+  # FS#45044: fix file location
+  sed -i 's_/opt/puppetlabs/puppet_/usr_' ext/systemd/puppet.service
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  # This breaks right now due to missing dependencies
+  #rake --tasks             # show all tasks
+  #rake commits             # requires a git repo
+  #rake warnings            # requires a git repo
+  #rake spec                # run tests single threaded
+  #rake parallel:spec[8]
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  # install the gemspec file
+  # this allows other gems to load puppet as a library (for example puppet-strings)
+  install -Dm644 .gemspec "${pkgdir}/${_gemdir}/specifications/puppet-${pkgver}.gemspec"
+
+  # generate manpages | this breaks right now..
+  #rake gen_manpages
+
+  ruby install.rb --destdir="$pkgdir" --sitelibdir="$( ruby -e 'puts RbConfig::CONFIG["vendorlibdir"]' )"
+
+  install -d "$pkgdir"/usr/lib/{sysusers.d,tmpfiles.d}
+
+  echo 'u puppet 52 "Puppet" /var/lib/puppet' > "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
+  echo "d /run/puppetlabs 0755 $pkgname $pkgname -" > "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+
+  # systemd
+  install -Dm644 "$srcdir"/$pkgname-$pkgver/ext/systemd/$pkgname.service "$pkgdir"/usr/lib/systemd/system/$pkgname.service
+
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  # Match permissions that puppet sets when running
+  install -dm775 "$pkgdir"/var/lib/puppet
+  chmod 750 "$pkgdir"/var/log/puppetlabs/puppet
+
+  rm -r "$pkgdir"/var/run
+
+  cd ..
+  install --directory "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/"
+  mv *_core "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/"
+  # Search for unwanted directories and files and delete them
+  find "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/" -type d -name .git -or -name spec -exec rm -rf {} +
+  find "${pkgdir}/opt/puppetlabs/puppet/vendor_modules/" -name '.*' -exec rm -rf {} +
+}
