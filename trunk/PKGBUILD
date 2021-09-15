@@ -4,14 +4,14 @@
 
 pkgname=wlroots
 pkgver=0.14.1
-pkgrel=1
+pkgrel=2
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://github.com/swaywm/wlroots'
 arch=('x86_64')
 depends=(
     'libinput'
-    'libseat'
+    'libseat.so'
     'libxkbcommon'
     'opengl-driver'
     'pixman'
