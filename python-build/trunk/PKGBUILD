@@ -2,7 +2,7 @@
 
 _pkgname=build
 pkgname=python-$_pkgname
-pkgver=0.6.0
+pkgver=0.7.0
 pkgrel=1
 pkgdesc='A simple, correct PEP517 package builder'
 arch=('any')
@@ -12,7 +12,7 @@ depends=('python-tomli' 'python-pep517' 'python-packaging')
 optdepends=('python-virtualenv: Use virtualenv for build isolation')
 makedepends=('git' 'python-setuptools' 'python-wheel'
              'python-sphinx' 'python-sphinx-argparse-cli' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
-checkdepends=('python-pytest' 'python-pytest-mock' 'python-filelock')
+checkdepends=('python-pytest' 'python-pytest-mock' 'python-pytest-rerunfailures' 'python-filelock')
 source=("git+$url#tag=$pkgver?signed")
 validpgpkeys=('3DCE51D60930EBA47858BA4146F633CBB0EB4BF2') # Filipe Laíns (FFY00) <lains@archlinux.org>
 sha512sums=('SKIP')
