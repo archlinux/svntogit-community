@@ -1,23 +1,26 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=molecule-podman
-pkgver=0.3.0
-pkgrel=2
+pkgver=1.0.1
+pkgrel=1
 pkgdesc="Molecule Podman Driver allows use of podman as backend for testing"
 arch=('any')
 url="https://github.com/ansible-community/molecule-podman"
 license=('MIT')
-depends=('molecule' 'python-selinux')
-makedepends=('python-setuptools_scm')
-checkdepends=('python-pytest' 'python-pytest-helpers-namespace')
+depends=('molecule' 'python-ansible-compat' 'python-selinux')
+makedepends=('python-setuptools-scm' 'python-setuptools-scm-git-archive')
+checkdepends=('podman' 'python-pytest' 'python-pytest-helpers-namespace')
 optdepends=('podman: for using a local podman setup')
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/${pkgname}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('66ea0cca135c51b9563a865318c35ef36bc0f3ea24eefc8aea3c04f0ad57e84f5d45536268e57c48600d2449d3b409f89d2e80d548d0ab900de976d66b7ad3ce')
-b2sums=('98115b549f435079317a5d7e37a249357e67db2f4bf821148c6194b2d9e2ebf47f0fad93d94d99d969f5a028c0222b82d714f85562cba065153d969e7000625b')
+sha512sums=('0558e2e9289cce30cfaf0a032be718604010fb19d12d1111d480e59c373fd4285aff4cc1d0fdb750650a23577f1a19fcfdf1143904cc3bab1b19a861e966534a')
+b2sums=('cce76cbcfda5e3a6378be242889c5274e54c96858dba9b125253c82b10ef613fb2919ced9c12b06cd57a8a6cf3d9369b3b54e5ffabbe4dc8f94e512b3b74275a')
 
 prepare() {
   cd "$pkgname-$pkgver"
+  # remove additional pytest options
+  # remove fitler to raise warnings as errors: https://github.com/ansible-community/molecule/issues/3004
   sed -e '/addopts/d' \
+      -e '/error/d' \
       -i setup.cfg
 }
 
@@ -29,16 +32,14 @@ build() {
 check() {
   cd "$pkgname-$pkgver"
   export PYTHONPATH="build:${PYTHONPATH}"
-  # NOTE: we can only run the detection test, as the other tests require
-  # running podman (which requires unprivileged_userns_clone)
-  pytest -v "lib/${pkgname//-/_}/test/test_driver.py"
+  # disable tests that require the driver to be installed for the system
+  # version of molecule that we are testing with
+  pytest -v --ignore src/molecule_podman/test/test_func.py
 }
 
 package() {
   cd "$pkgname-$pkgver"
-  python setup.py install --skip-build \
-                          --optimize=1 \
-                          --root="${pkgdir}"
+  python setup.py install --optimize=1 --root="${pkgdir}"
   install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
   install -vDm 644 README.rst \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
