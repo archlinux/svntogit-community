@@ -1,0 +1,100 @@
+# Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Contributor: Piotr Balcerowski <piotr@balcerowski.org>
+
+pkgbase=libcurl
+pkgname=(libcurl-compat libcurl-gnutls)
+_pkgname=curl
+pkgver=7.79.0
+pkgrel=2
+pkgdesc='An URL retrieval library'
+arch=('x86_64')
+url='https://curl.haxx.se'
+license=('MIT')
+depends=("${_pkgname}")
+makedepends=('gnutls' 'openssl')
+options=('strip')
+source=("https://curl.haxx.se/download/curl-${pkgver}.tar.gz"{,.asc}
+        '0001-Curl_http2_setup-do-not-change-connection-data-on-repeat-invokes.patch')
+sha512sums=('6529645774bd2687535cfaec5949281f305c2910da3bd4de22713ab370fde0d05c416579b46aef7eaaf5f73d882e96b8268b80b6802b978f9c54b0a837420dad'
+            'SKIP'
+            'f83ba83073a90ab369c7c0e06d440d6d8be87c72800095c35d803bca246ea5ee73b811b210ce9d8a7ee137583ca3e839afd8eb9accf699f655e9db82a7bdef71')
+validpgpkeys=('27EDEAF22F3ABCEB50DB9A125CC908FDB71E12C2') # Daniel Stenberg
+
+_configure_options=(
+    --prefix='/usr'
+    --disable-ldap
+    --disable-ldaps
+    --disable-manual
+    --disable-versioned-symbols
+    --enable-ipv6
+    --enable-threaded-resolver
+    --with-gssapi
+    --with-libssh2
+    --with-openssl
+    --with-random='/dev/urandom'
+    --with-ca-bundle='/etc/ssl/certs/ca-certificates.crt'
+)
+
+prepare() {
+  cd "curl-${pkgver}"
+
+  patch -Np1 < ../0001-Curl_http2_setup-do-not-change-connection-data-on-repeat-invokes.patch
+}
+
+build() {
+  mkdir build-{compat,gnutls}
+
+  # build compat (disable-versioned-symbols)
+  cd "${srcdir}"/build-compat
+
+  "${srcdir}/curl-${pkgver}"/configure \
+    "${_configure_options[@]}"
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make -C lib
+
+  # build gnutls (without-ssl)
+  cd "${srcdir}"/build-gnutls
+
+  "${srcdir}/curl-${pkgver}"/configure \
+    "${_configure_options[@]}" \
+    --without-ssl \
+    --with-gnutls='/usr'
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make -C lib
+}
+
+package_libcurl-compat() {
+  pkgdesc='An URL retrieval library (without versioned symbols)'
+  depends+=('openssl')
+
+  cd "${srcdir}"/build-compat
+
+  make -C lib DESTDIR="${pkgdir}" install
+
+  mv "${pkgdir}"/usr/lib/libcurl{,-compat}.so.4.7.0
+  rm "${pkgdir}"/usr/lib/libcurl.{a,so}*
+  for version in 3 4.0.0 4.1.0 4.2.0 4.3.0 4.4.0 4.5.0 4.6.0; do
+    ln -s libcurl-compat.so.4.7.0 "${pkgdir}"/usr/lib/libcurl.so.${version}
+  done
+
+  install -dm 755 "${pkgdir}"/usr/share/licenses
+  ln -s curl "${pkgdir}"/usr/share/licenses/libcurl-compat
+}
+
+package_libcurl-gnutls() {
+  pkgdesc='An URL retrieval library (without versioned symbols and linked against gnutls)'
+  depends+=('gnutls')
+
+  cd "${srcdir}"/build-gnutls
+
+  make -C lib DESTDIR="${pkgdir}" install
+
+  mv "${pkgdir}"/usr/lib/libcurl{,-gnutls}.so.4.7.0
+  rm "${pkgdir}"/usr/lib/libcurl.{a,so}*
+  for version in 3 4 4.0.0 4.1.0 4.2.0 4.3.0 4.4.0 4.5.0 4.6.0; do
+    ln -s libcurl-gnutls.so.4.7.0 "${pkgdir}"/usr/lib/libcurl-gnutls.so.${version}
+  done
+
+  install -dm 755 "${pkgdir}"/usr/share/licenses
+  ln -s curl "${pkgdir}"/usr/share/licenses/libcurl-gnutls
+}
