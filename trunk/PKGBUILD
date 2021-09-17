@@ -1,8 +1,8 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=qtile
-pkgver=0.18.0
-pkgrel=2
+pkgver=0.18.1
+pkgrel=1
 pkgdesc="A full-featured, pure-Python tiling window manager"
 arch=('x86_64')
 url="http://www.qtile.org"
@@ -20,45 +20,37 @@ depends=(
 )
 makedepends=(
   'git'
-  'jupyter_console'
   'libpulse'
-  'python-ipykernel'
-  'python-setuptools'
   'python-setuptools-scm'
 )
 checkdepends=(
   'graphviz'
+  'gtk3'
   'imagemagick'
-  'libgnome-keyring'
   'lm_sensors'
   'procps-ng'
   'python-bowler'
   'python-dbus-next'
-  'python-iwlib'
-  'python-keyring'
-  'python-psutil'
+  'python-gobject'
   'python-pytest'
   'python-pywlroots'
   'python-xdg'
-  'python-xvfbwrapper'
-  'xorg-xcalc'
-  'xorg-xclock'
-  'xorg-xeyes'
   'xorg-server-xephyr'
+  'xorg-server-xvfb'
   'xorg-xrandr'
-  'xterm'
 )
 optdepends=(
-  'alsa-utils: volume widget'
-  'canto-daemon: canto widget'
-  'cmus: cmus widget'
-  'khal: khal_calendar widget'
+  'alsa-utils: for volume widget'
+  'canto-daemon: for canto widget'
+  'cmus: for cmus widget'
+  'jupyter_console: for interaction with qtile via Jupyter'
+  'khal: for khal_calendar widget'
   'libpulse: for pulse_volume and pulseaudio_ffi widget'
-  'lm_sensors: sensors widget'
-  'moc: moc widget'
+  'lm_sensors: for sensors widget'
+  'moc: for moc widget'
   'python-dbus-next: for utils, notifications and several widgets'
-  'python-iwlib: wlan widget'
-  'python-keyring: imapwidget widget'
+  'python-iwlib: for wlan widget'
+  'python-keyring: for imapwidget widget'
   'python-mpd2: mpd2widget widget'
   'python-psutil: graph, net and memory widget'
   'python-pywlroots: for experimental wayland support'
@@ -69,51 +61,26 @@ install="${pkgname}.install"
 source=("git+https://github.com/qtile/qtile#tag=v${pkgver}?signed")
 sha512sums=('SKIP')
 b2sums=('SKIP')
-validpgpkeys=('3CCAB226289DE0160C61BDB418D18F1BC464DCA3') # Tycho Andersen <tycho@tycho.pizza>
-
-
-prepare() {
-  cd "${pkgname}"
-  # fix issue with imapwidget tests
-  # https://github.com/qtile/qtile/issues/2629
-  git cherry-pick -n '7ab816f84db3a9982c0ae0006fe0be45b632aa04'
-}
+validpgpkeys=(
+  '3CCAB226289DE0160C61BDB418D18F1BC464DCA3' # Tycho Andersen <tycho@tycho.pizza>
+  '35D92E7CC7357A81173EA1C974F9FDD20984FBEC' # Matt Colligan <mcol@posteo.net>
+)
 
 build() {
   cd "${pkgname}"
   python setup.py build
+  ./scripts/ffibuild
 }
 
 check() {
-  local _python_version="$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
-  local _test_dir='test_dir'
-
   cd "${pkgname}"
-
-  # install into test location
-  mkdir -vp "${_test_dir}"
-  python setup.py install --skip-build \
-    --optimize=1 \
-    --root="${_test_dir}"
-  # create dummy dir for executable and symlink the test executable to it for
-  # testing
-  mkdir -vp bin
-  ln -svf "../${_test_dir}/usr/bin/${pkgname}" "bin/${pkgname}"
-
-  export PYTHONPATH="${PWD}/${_test_dir}/usr/lib/python${_python_version}/site-packages/:${PYTHONPATH}"
-  export PATH="${PWD}/test_dir/usr/bin:${PATH}"
   export LC_TYPE=en_US.UTF-8
-  ./scripts/ffibuild
-  # some tests never return: https://github.com/qtile/qtile/issues/2628
-  pytest -vv \
-    -k "not test_remove"
+  pytest -vv --backend x11 --backend wayland
 }
 
 package() {
   cd "${pkgname}"
-  python setup.py install --skip-build \
-    --optimize=1 \
-    --root="${pkgdir}"
+  python setup.py install --optimize=1 --root="${pkgdir}"
   # license
   install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
   # config
