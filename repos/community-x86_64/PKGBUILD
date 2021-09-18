@@ -2,7 +2,7 @@
 # Contributor: David Anderson <dave@natulte.net>
 
 pkgname=tailscale
-pkgver=1.14.2
+pkgver=1.14.3
 pkgrel=1
 pkgdesc="A mesh VPN that makes it easy to connect your devices, wherever they are."
 arch=("x86_64")
@@ -11,7 +11,7 @@ license=("MIT")
 makedepends=("git" "go")
 depends=("glibc")
 backup=("etc/default/tailscaled")
-_commit=8704fb308d6109baf9797231c09bcc6af9681771	#refs/tags/v1.14.2^{}
+_commit=a5b1456410a24519fc11cb49d4f43b7b7befbee4	#refs/tags/v1.14.3^{}
 source=("git+https://github.com/tailscale/tailscale.git#commit=${_commit}")
 sha256sums=('SKIP')
 
@@ -27,7 +27,6 @@ prepare() {
 
 build() {
     cd "${pkgname}"
-    eval "$(./version/version.sh)"
     export CGO_CPPFLAGS="${CPPFLAGS}"
     export CGO_CFLAGS="${CFLAGS}"
     export CGO_CXXFLAGS="${CXXFLAGS}"
@@ -35,9 +34,9 @@ build() {
     export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
     GO_LDFLAGS="\
         -linkmode=external \
-        -X tailscale.com/version.Long=${VERSION_LONG} \
-        -X tailscale.com/version.Short=${VERSION_SHORT} \
-        -X tailscale.com/version.GitCommit=${VERSION_GIT_HASH}"
+        -X tailscale.com/version.Long=${pkgver} \
+        -X tailscale.com/version.Short=$(cut -d+ -f1 <<< "${pkgver}") \
+        -X tailscale.com/version.GitCommit=${_commit}"
     for cmd in ./cmd/tailscale ./cmd/tailscaled; do
         go build -v -tags xversion -ldflags "$GO_LDFLAGS" "$cmd"
     done
