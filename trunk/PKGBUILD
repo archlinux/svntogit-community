@@ -28,32 +28,42 @@ b2sums=('ac0f4b33497f3c7bcbbe9db1c10cfce0fe5de5a19a674ec51d9d62e7aca52e4e8705926
 
 prepare() {
   cd $pkgname-$pkgver
+
+  # change various defaults
   sed -i "s,# DATA_FOLDER=data,DATA_FOLDER=/var/lib/$pkgname,
   s,web-vault/,/usr/share/webapps/$pkgname-web,
   s,# WEB_VAULT_ENABLED=true,WEB_VAULT_ENABLED=false,
   s,/path/to/log,/var/log/$pkgname.log,
   /^# ROCKET_TLS/a ROCKET_LIMITS={json=10485760}" .env.template
-  cargo fetch --locked
+
+  # download dependencies
+  cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
 }
 
 build() {
   cd $pkgname-$pkgver
   rustup set profile minimal
-  BWRS_VERSION="$pkgver" cargo build --release --locked --offline --features sqlite,mysql,postgresql
+  BWRS_VERSION="$pkgver" cargo build --release --frozen --features sqlite,mysql,postgresql
 }
 
 check() {
   cd $pkgname-$pkgver
-  cargo test --release --locked --offline --features sqlite,mysql,postgresql
+  cargo test --frozen --features sqlite,mysql,postgresql
 }
 
 package() {
+  # systemd integration
+  install -Dm644 -t "$pkgdir"/usr/lib/systemd/system $pkgname.service
+  install -Dm644 $pkgname.sysusers.conf "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
+  install -Dm644 $pkgname.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+
   cd $pkgname-$pkgver
+
+  # configuration
   install -Dm644 .env.template "$pkgdir"/etc/$pkgname.env
+
+  # binary
   install -Dt "$pkgdir"/usr/bin target/release/$pkgname
-  install -Dm644 -t "$pkgdir"/usr/lib/systemd/system ../$pkgname.service
-  install -Dm644 ../$pkgname.sysusers.conf "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
-  install -Dm644 ../$pkgname.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
 }
 
 # vim:set ts=2 sw=2 et:
