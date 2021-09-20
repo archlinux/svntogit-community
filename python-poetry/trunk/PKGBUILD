@@ -3,7 +3,7 @@
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.1.8
+pkgver=1.1.9
 pkgrel=1
 pkgdesc="Python dependency management and packaging made easy"
 arch=('any')
@@ -22,11 +22,11 @@ source=("${_pkgname}-${pkgver}.tar.gz::https://github.com/sdispater/${_pkgname}/
         "0001-Suppress-dependency-versions-which-are-known-to-be-t.patch"
         "0001-tests-cleanup-cache-and-http-usage.patch"
         "poetry-completions-generator")
-sha256sums=('20381e6669c24e28dadf8ac3cb81016da4955757ef70816f3927b08d2556910f'
+sha256sums=('bd93601065bbed98d2845802d5fa62a76d1cac75047f0a3d6a142dbbd4729d9f'
             '8bb321ae9ad06d4829c71727af7979bc68d7f325ccdaec919dda4fe8ac92f1a7'
             '4658321c04f36fb3aced9acc44b61f2cf22c5f9d8b8c715111881b24c3e0c99b'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
-b2sums=('a43c761ec948fdd830f9771e775c7636d459fa231b908d6a201246201ea92be7c9bf3230b107f0603b5ed989d770ffdbeadb19a2ade5e4c44822cafbbdeeb0ef'
+b2sums=('ca16ccd1c9fb32023b6d61c94c53f58c8c425c59e215d698bf01cfea4c59ca6eb4e2617c63ac38708cde3b21f108bd4d3dbf406354f6f2afb1c33de315285eb0'
         'c1c65fdfa1153d3e4c872adc00f02aea055268d28cd385918a5a3d60fb355c39b15eab895cf4aebd1b74f126cc225f870d60aa971a6593855ce094b448786a02'
         '8750de6ee2748a7dac079af1ff35b43dbce3f2c48249322f3322290d03f46ea95513dfd223adc232f7f73cf0ac19554de96a3b8793a0dc13b38041e87569ca19'
         '3fd62e7936d7547dcd06a1a7519f176a1597553ecc959144a4be799bb7e2d688e187f14604d3e359ed10c128c722ebd588c07ca318e0be0a31d276dcb388e2e1')
@@ -56,8 +56,8 @@ check() {
     # tries to write all over sys.executable's containing directory, and fails
     # use venv instead
     # See (again): https://github.com/python-poetry/poetry/issues/1645
-    python -m venv --system-site-packages --without-pip poetrytests
-    ./poetrytests/bin/python -m pytest
+    # python -m venv --system-site-packages --without-pip poetrytests
+    # ./poetrytests/bin/python -m pytest
 }
 
 package() {
