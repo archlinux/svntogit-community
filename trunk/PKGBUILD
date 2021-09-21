@@ -1,48 +1,55 @@
 # Maintainer: kpcyrd <kpcyrd[at]archlinux[dot]org>
 
-pkgname=rebuilderd
-pkgver=0.13.0
+pkgbase=rebuilderd
+pkgname=(rebuilderd rebuilderd-tools)
+pkgver=0.14.0
 pkgrel=1
 pkgdesc='Independent verification system of binary packages'
 url='https://github.com/kpcyrd/rebuilderd'
 arch=('x86_64')
 license=('GPL3')
-depends=('libsodium' 'sqlite' 'archlinux-repro')
-makedepends=('cargo' 'scdoc')
-backup=('etc/rebuilderd.conf'
-        'etc/rebuilderd-sync.conf'
-        'etc/rebuilderd-worker.conf')
+depends=('libsodium' 'openssl' 'shared-mime-info' 'xz' 'libzstd.so')
+makedepends=('cargo' 'sqlite' 'scdoc')
 source=(https://github.com/kpcyrd/${pkgname}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
         https://github.com/kpcyrd/${pkgname}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz.asc)
-sha512sums=('477e3396881f9abbd1464a86d2f57222178193279bff092c0c7bd75fbb40f4460668ab860ee867b78105b2f97d96148b7fc40fe310dcbe2a7ef91c044587e325'
+sha512sums=('1926c56b97b60579ee1218ba2a1cf1e620101dbecd566ca4a6466b6d9562ef1a7203466302036572197acb5d4feb039da5c156647bd8b0df66e7c666278aa365'
             'SKIP')
-b2sums=('f1caf429ece4803bdcf3db9eab5cce19a2aed69d82a620bc519152904cbe97df06fff7d23d6056db95f4fbd901e427c2b56a0d5fe936ecdf4426739f95c69b6f'
+b2sums=('6c6208f1b2e89a546f527e7b24fbb18467e4760777aa25648d3097e9828df3b185061f66c172a4219bee45091dc3b400d15ebfbb7603cd269f9513b839a28e3d'
         'SKIP')
 
 validpgpkeys=("64B13F7117D6E07D661BBCE0FE763A64F5E54FD6")
 
+prepare() {
+  cd ${pkgbase}-${pkgver}
+  cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
 build() {
-  cd ${pkgname}-${pkgver}
-  cargo build --release --locked
+  cd ${pkgbase}-${pkgver}
+  cargo build --frozen --release --workspace
   make docs
 }
 
 check() {
-  cd ${pkgname}-${pkgver}
-  cargo test --release --locked
+  cd ${pkgbase}-${pkgver}
+  cargo test --frozen --workspace
 }
 
-package() {
-  cd ${pkgname}-${pkgver}
+package_rebuilderd() {
+  pkgdesc='Independent verification system of binary packages (server package)'
+  depends=('rebuilderd-tools' 'libsodium' 'sqlite' 'archlinux-repro')
+  backup=('etc/rebuilderd.conf'
+          'etc/rebuilderd-sync.conf'
+          'etc/rebuilderd-worker.conf')
+
+  cd ${pkgbase}-${pkgver}
   install -Dm 755 -t "${pkgdir}/usr/bin" \
     target/release/rebuilderd \
-    target/release/rebuilderd-worker \
-    target/release/rebuildctl
+    target/release/rebuilderd-worker
 
   # install rebuilder scripts
   install -Dm 755 -t "${pkgdir}/usr/libexec/rebuilderd" \
-    worker/rebuilder-archlinux.sh \
-    worker/rebuilder-debian.sh
+    worker/rebuilder-*.sh
 
   # install config files
   install -Dm 644 -t "${pkgdir}/etc" \
@@ -50,14 +57,6 @@ package() {
   install -Dm 640 -g 212 -t "${pkgdir}/etc" \
     contrib/confs/rebuilderd-worker.conf \
     contrib/confs/rebuilderd.conf
-
-  # install completions
-  install -d "${pkgdir}/usr/share/bash-completion/completions" \
-             "${pkgdir}/usr/share/zsh/site-functions" \
-             "${pkgdir}/usr/share/fish/vendor_completions.d"
-  "${pkgdir}/usr/bin/rebuildctl" completions bash > "${pkgdir}/usr/share/bash-completion/completions/rebuildctl"
-  "${pkgdir}/usr/bin/rebuildctl" completions zsh > "${pkgdir}/usr/share/zsh/site-functions/_rebuildctl"
-  "${pkgdir}/usr/bin/rebuildctl" completions fish > "${pkgdir}/usr/share/fish/vendor_completions.d/rebuildctl.fish"
 
   # install systemd configs
   install -Dm 644 -t "${pkgdir}/usr/lib/systemd/system" \
@@ -70,15 +69,34 @@ package() {
   install -Dm 644 contrib/systemd/rebuilderd.tmpfiles "${pkgdir}/usr/lib/tmpfiles.d/rebuilderd.conf"
 
   # install docs
-  install -Dm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
   install -Dm 644 -t "${pkgdir}/usr/share/man/man1" \
     contrib/docs/rebuilderd.1 \
-    contrib/docs/rebuildctl.1 \
     contrib/docs/rebuilderd-worker.1
   install -Dm 644 -t "${pkgdir}/usr/share/man/man5" \
     contrib/docs/rebuilderd.conf.5 \
     contrib/docs/rebuilderd-sync.conf.5 \
     contrib/docs/rebuilderd-worker.conf.5
+}
+
+package_rebuilderd-tools() {
+  pkgdesc='Independent verification system of binary packages (tools package)'
+
+  cd ${pkgbase}-${pkgver}
+  install -Dm 755 -t "${pkgdir}/usr/bin" \
+    target/release/rebuildctl
+
+  # install completions
+  install -d "${pkgdir}/usr/share/bash-completion/completions" \
+             "${pkgdir}/usr/share/zsh/site-functions" \
+             "${pkgdir}/usr/share/fish/vendor_completions.d"
+  "${pkgdir}/usr/bin/rebuildctl" completions bash > "${pkgdir}/usr/share/bash-completion/completions/rebuildctl"
+  "${pkgdir}/usr/bin/rebuildctl" completions zsh > "${pkgdir}/usr/share/zsh/site-functions/_rebuildctl"
+  "${pkgdir}/usr/bin/rebuildctl" completions fish > "${pkgdir}/usr/share/fish/vendor_completions.d/rebuildctl.fish"
+
+  # install docs
+  install -Dm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgbase}"
+  install -Dm 644 -t "${pkgdir}/usr/share/man/man1" \
+    contrib/docs/rebuildctl.1
 }
 
 # vim: ts=2 sw=2 et:
