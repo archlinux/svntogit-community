@@ -3,7 +3,7 @@
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.1.9
+pkgver=1.1.10
 pkgrel=1
 pkgdesc="Python dependency management and packaging made easy"
 arch=('any')
@@ -22,11 +22,11 @@ source=("${_pkgname}-${pkgver}.tar.gz::https://github.com/sdispater/${_pkgname}/
         "0001-Suppress-dependency-versions-which-are-known-to-be-t.patch"
         "0001-tests-cleanup-cache-and-http-usage.patch"
         "poetry-completions-generator")
-sha256sums=('bd93601065bbed98d2845802d5fa62a76d1cac75047f0a3d6a142dbbd4729d9f'
+sha256sums=('fbe606581dcf2200d63d15c3fc8d2b24895f459d805c9c8b62e8061b9409f31b'
             '8bb321ae9ad06d4829c71727af7979bc68d7f325ccdaec919dda4fe8ac92f1a7'
             '4658321c04f36fb3aced9acc44b61f2cf22c5f9d8b8c715111881b24c3e0c99b'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
-b2sums=('ca16ccd1c9fb32023b6d61c94c53f58c8c425c59e215d698bf01cfea4c59ca6eb4e2617c63ac38708cde3b21f108bd4d3dbf406354f6f2afb1c33de315285eb0'
+b2sums=('b65dd506eaefea49db20aafd21fcf7a48178625686f6f412cb97e76e8e8366a79843a2ee13550e4822828694c2bf8f17b7fb31be94a2e1197344b2d363cfef7a'
         'c1c65fdfa1153d3e4c872adc00f02aea055268d28cd385918a5a3d60fb355c39b15eab895cf4aebd1b74f126cc225f870d60aa971a6593855ce094b448786a02'
         '8750de6ee2748a7dac079af1ff35b43dbce3f2c48249322f3322290d03f46ea95513dfd223adc232f7f73cf0ac19554de96a3b8793a0dc13b38041e87569ca19'
         '3fd62e7936d7547dcd06a1a7519f176a1597553ecc959144a4be799bb7e2d688e187f14604d3e359ed10c128c722ebd588c07ca318e0be0a31d276dcb388e2e1')
