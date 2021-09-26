@@ -352,6 +352,7 @@ enum VstPlugInToHostOpcodes
     , audioMasterWillReplaceOrAccumulate = hostOpcodeWillReplace
 
 };
+typedef enum VstPlugInToHostOpcodes AudioMasterOpcodesX;
 
 //==============================================================================
 enum VstProcessingSampleType
