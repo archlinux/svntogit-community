@@ -2,21 +2,23 @@
 
 _name=IEMPluginSuite
 pkgname=iempluginsuite
-pkgver=1.11.1
+pkgver=1.12.0
 pkgrel=1
 pkgdesc="Plug-in suite including Ambisonic plug-ins up to 7th order"
 arch=('x86_64')
 url="https://plugins.iem.at"
 license=('GPL3')
 groups=('pro-audio' 'vst-plugins')
-depends=('gcc-libs' 'glibc' 'libglvnd' 'libjpeg-turbo' 'libogg' 'libpng'
-'libx11' 'libxext' 'libxinerama' 'zlib')
+depends=('gcc-libs' 'glibc' 'libglvnd' 'libpng'
+'libx11' 'libxcursor' 'libxext' 'libxinerama' 'libxrandr' 'zlib')
 makedepends=('alsa-lib' 'curl' 'fftw' 'flac' 'freetype2' 'gendesk' 'jack'
-'juce' 'libvorbis' 'xorg-server-xvfb')
+'juce' 'libjpeg-turbo' 'libogg' 'libvorbis' 'xorg-server-xvfb')
 source=("$pkgname-$pkgver.tar.gz::https://git.iem.at/audioplugins/${_name}/-/archive/v${pkgver}/${_name}-v${pkgver}.tar.gz"
+        "${pkgname}-1.12.0-juce_gl.patch"
         "$pkgname.directory"
         "$pkgname.menu")
-sha512sums=('d811d31723895ace79b4a6000c841db813f3d9b26fa5136c88c42c242b122d9d4f7fdf439c980ed847dc0d1083d7a22d77f909259b209c93a77c4f3c4da1aebd'
+sha512sums=('6178d8baadcf05b5c5bd5281c318a6023377d2b8db91042fbb3100d21930865514271deec98a5577e369c1516d059dd39c0a776cfb64a5071535330db908d52f'
+            '0882d004ed147709f748270efe3f815ec22b3837cb9881f714b3be38d5a7addca8bd818a33e51bc2bf33e4176c1e5add5d01c5eb45aa4f9e3560784812e659bd'
             '412ac2581089babfe57b10c06dca86c19a8b708b76af70283d3b35dd1deffc8f7c654d9e7d182da8b0fa2f40cafe46fc855890e0aed7d11530de3c0d56bf17dd'
             '2d290b5b8c9320013abb97e0a9051c6687a92700433454c88d4c89fe122c9b1537e128faf7060715c63eb28e93ad9f3f1a98765a7a5934e4f8bd0a8c20254ab3')
 _standalones=('AllRADecoder' 'BinauralDecoder' 'CoordinateConverter'
@@ -82,25 +84,34 @@ prepare() {
             --genericname "${generic[$name]}" \
             --categories "${pkgname}"
   done
+
+  # fix issue with juce::gl namespaces
+  # https://git.iem.at/audioplugins/IEMPluginSuite/-/issues/121
+  patch -Np1 -i ../"${pkgname}-1.12.0-juce_gl.patch"
 }
 
 build() {
   cd "$pkgname-$pkgver"
+
   for _jucer in */*.jucer; do
     _name="$(dirname ${_jucer})"
     ln -sv ../resources/ "${_name}/"
     xvfb-run Projucer --resave "${_jucer}"
     # remove -march=native as only supplying -DTARGET_ARCH is not enough
     sed -e 's/\-march=native//g' -i "${_name}/Builds/LinuxMakefile/Makefile"
-    CPPFLAGS+=" -I/usr/share/juce/modules/juce_audio_processors/format_types/ -DJUCE_JACK=1" \
-      make CONFIG=Release AR=gcc-ar -j$(nproc) V=1 -C "${_name}/Builds/LinuxMakefile"
+
+    # enable synchronous modal loops again:
+    # https://git.iem.at/audioplugins/IEMPluginSuite/-/issues/120
+    export CPPFLAGS+=" -DJUCE_MODAL_LOOPS_PERMITTED=1"
+    make CONFIG=Release AR=gcc-ar -j$(nproc) V=1 -C "${_name}/Builds/LinuxMakefile"
   done
 }
 
 package() {
   depends+=('libasound.so' 'libcurl.so' 'libFLAC.so' 'libfftw3f.so'
-  'libfreetype.so' 'libjack.so' 'libvorbis.so' 'libvorbisenc.so'
-  'libvorbisfile.so')
+  'libfreetype.so' 'libjack.so' 'libjpeg.so' 'libogg.so' 'libvorbis.so'
+  'libvorbisenc.so' 'libvorbisfile.so')
+
   cd "$pkgname-$pkgver"
   for _jucer in */*.jucer; do
     _name="$(dirname "${_jucer}")"
@@ -109,6 +120,7 @@ package() {
     install -vDm 755 "${_name}/Builds/LinuxMakefile/build/${_name##_}.so" \
       -t "${pkgdir}/usr/lib/vst"
   done
+
   # XDG desktop integration
   install -vDm 644 *.desktop -t "${pkgdir}/usr/share/applications"
   install -vDm 644 "../${pkgname}.menu" \
