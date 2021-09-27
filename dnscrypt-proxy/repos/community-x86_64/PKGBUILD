@@ -4,7 +4,7 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.1.0
+pkgver=2.1.1
 pkgrel=1
 pkgdesc="A flexible DNS proxy, with support for encrypted DNS protocols"
 arch=('x86_64')
