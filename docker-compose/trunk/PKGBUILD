@@ -6,29 +6,34 @@
 # Contributor: Josh VanderLinden <arch@cloudlery.com>
 
 pkgname=docker-compose
-pkgver=1.29.2
+pkgver=2.0.0
 pkgrel=1
 pkgdesc="Fast, isolated development environments using Docker"
 arch=('any')
 url="https://www.docker.com/"
 license=("Apache")
-depends=('python-cached-property' 'python-docopt' 'python-yaml' 'python-requests'
-         'python-texttable' 'python-websocket-client' 'python-distro' 'python-docker'
-         'python-dockerpty' 'python-six' 'python-jsonschema' 'python-dotenv' 'docker')
-makedepends=('python-setuptools')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/docker/compose/archive/$pkgver.tar.gz")
-sha512sums=('09f2ae2ae7a17ab5fb3e22580f7a80f1a8253f7ad9fc8f29aca432911bcde46ed22030ff3073cdd7eff3d55aaba17f56e628a178ec05c3a9b4f28495d6045111')
+makedepends=('go')
+checkdepends=('docker')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/docker/compose/archive/v$pkgver.tar.gz")
+sha512sums=('c00f51fbb4ef4c21f964a4fd3bc32a36955a2ae1a4af884cdfcee7389f448950b5a7a8cbf127de83b21ffb3295584f02e0e7bdb64cd5c25df89b26cd9ffc7583')
 
 build() {
   cd "compose-$pkgver"
-  python setup.py build
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -ldflags=-X=github.com/docker/compose/v2/internal.Version=${pkgver} -mod=readonly -modcacherw"
+  go build -trimpath -tags "e2e,kube" -o compose ./cmd
+}
+
+check(){
+  cd "compose-$pkgver"
+  go test -tags "e2e,kube" -v $(go list -tags "e2e,kube" ./... | grep -vE 'e2e')
 }
 
 package() {
   cd "compose-$pkgver"
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-  install -Dm644 contrib/completion/bash/docker-compose      "$pkgdir"/usr/share/bash-completion/completions/docker-compose
-  install -Dm644 contrib/completion/fish/docker-compose.fish "$pkgdir"/usr/share/fish/vendor_completions.d/docker-compose.fish
-  install -Dm644 contrib/completion/zsh/_docker-compose      "$pkgdir"/usr/share/zsh/site-functions/_docker-compose
+  install -Dm755 compose "$pkgdir"/usr/lib/docker/cli-plugins/docker-compose
 }
