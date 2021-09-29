@@ -1,26 +1,46 @@
 # Maintainer: Konstantin Gizdov <arch at kge dot pw>
 # Contributor: Baptiste Jonglez <baptiste--aur at jonglez dot org>
 # Contributor: nfnty
-pkgname='kea'
-pkgver=1.9.10
-_upstreamver=1.9.10
+pkgbase='kea'
+pkgname=("${pkgbase}" "${pkgbase}-docs")
+pkgver=1.9.11
+_upstreamver="${pkgver}"
 pkgrel=1
 pkgdesc='High-performance, extensible DHCP server engine from ISC, supporting both DHCPv4 and DHCPv6'
 arch=('x86_64')
 url='https://kea.isc.org'
 license=('MPL2')
-depends=('botan' 'boost-libs' 'log4cplus' 'mariadb-libs' 'openssl' 'postgresql-libs')
+depends=('boost-libs' 'log4cplus' 'mariadb-libs' 'openssl' 'postgresql-libs')
 makedepends=(
   'boost'
-  'postgresql'  # Needed for some headers
+  'mariadb'
+  'postgresql'
   'python'  # kea-shell
+  'python-sphinx'
+  'python-sphinx_rtd_theme'
+  'doxygen'
+  # texlive-most group
+  'texlive-bibtexextra'
+  'texlive-core'
+  'texlive-fontsextra'
+  'texlive-formatsextra'
+  'texlive-games'
+  'texlive-humanities'
+  'texlive-latexextra'
+  'texlive-music'
+  'texlive-pictures'
+  'texlive-pstricks'
+  'texlive-publishers'
+  'texlive-science'
 )
 optdepends=('mariadb: lease information database'
             'postgresql: lease information database'
             'python: to use kea-shell'
-            'kea-devel-docs: developer documentation')
+            'krb5: Kerberos support'
+            'kea-docs: user and developer documentation')
 # Checks are disabled for now
-# checkdepends=('gtest' 'postgresql' 'mariadb' 'python' 'procps-ng') # procps-ng needed for 'pgrep'
+# We can ignore mysql/pgsql, but admin tests use custom scripts that break everything
+checkdepends=('benchmark' 'gtest' 'procps-ng') # procps-ng needed for 'pgrep'
 backup=(
   # New config files as of Kea 1.3
   'etc/kea/kea-dhcp4.conf'
@@ -30,11 +50,9 @@ backup=(
   'etc/kea/kea-ctrl-agent.conf'
   'etc/kea/kea-netconf.conf'
 )
-checkdepends=('gtest' 'procps-ng')
 install=kea.install
-
 source=(
-  "https://ftp.isc.org/isc/${pkgname}/${_upstreamver}/${pkgname}-${_upstreamver}.tar.gz"{,.asc}
+  "https://ftp.isc.org/isc/${pkgbase}/${_upstreamver}/${pkgbase}-${_upstreamver}.tar.gz"{,.asc}
   'tmpfiles-kea.conf'
   'kea-dhcp4.service'
   'kea-dhcp6.service'
@@ -42,7 +60,7 @@ source=(
   'kea-ctrl-agent.service'
   'kea.install'
 )
-sha512sums=('9d18c45d24edc18cb951120f039621d1566d89854790e7d2f03c59293ae4512fca6b0d7e3fd0a0821b14ef418e7d914aa0e8de8cd9f3846a835aafcdf579d93e'
+sha512sums=('5d7739d74b6fbed9733719af1aa068498fcc1eaa1ed423b93b9b4dd92de970e3cd036ad60377534a58e7d22e909404673358fa72307b6c32492f952684c180c0'
             'SKIP'
             'b83479f0b90caf4022b1c858f99d8310848a90b0cc45aaa222cb2bf08b2a97312816b8f64c8c0232b612795bc7a0bbe5b05dbc508b2f1214c1ea88dc84200a2d'
             '1b62dace9f9a955b21c5dd5b5466fb3a4f1d8057ad2a30ea89e222a769dc721ad2fe4913c41ec407e018b1b38ddde757e9b7b8fc12d4763ddde077a0abb0c971'
@@ -53,8 +71,13 @@ sha512sums=('9d18c45d24edc18cb951120f039621d1566d89854790e7d2f03c59293ae4512fca6
 validpgpkeys=('BE0E9748B718253A28BB89FFF1B11BF05CF02E57'  # Internet Systems Consortium, Inc. (Signing key, 2017-2018) <codesign@isc.org>
               'AE3FAC796711EC59FC007AA474BB6B9A4CBB3D38'  # Internet Systems Consortium, Inc. (Signing key, 2019-2020) <codesign@isc.org>
               '7E1C91AC8030A5A59D1EFAB9750F3C87723E4012') # Internet Systems Consortium, Inc. (Signing key, 2021-2022) <codesign@isc.org>
+
 build() {
-  cd "${srcdir}/${pkgname}-${_upstreamver}"
+  cd "${srcdir}/${pkgbase}-${_upstreamver}"
+  # make sure Google Benchmark can be linked to
+  sed -e 's/dir\/lib\/libbenchmark.a/dir\/lib\/libbenchmark.so/g' \
+      -e 's/BENCHMARK_LDADD="$dir\/lib\/libbenchmark.so/BENCHMARK_LDADD="-lbenchmark/' \
+      -i configure.ac
   autoreconf --install
   ./configure \
       --prefix='/usr' \
@@ -62,25 +85,40 @@ build() {
       --libexecdir='/usr/bin' \
       --sysconfdir='/etc' \
       --localstatedir='/var' \
-      --with-openssl \
-      --with-gtest \
-      --with-mysql \
-      --with-pgsql \
-      --with-log4cplus \
+      --enable-benchmark \
       --enable-perfdhcp \
       --enable-generate-messages \
       --enable-generate-parser \
-      --enable-shell
+      --enable-generate-docs \
+      --enable-shell \
+      --with-openssl \
+      --with-gtest \
+      --with-benchmark \
+      --with-mysql \
+      --with-pgsql \
+      --with-gssapi \
+      --with-log4cplus
+  # do not treat sphinx warnings as errors
+  sed -e 's/sphinxopts = -v -E -a -W/sphinxopts = -v -E -a/g' \
+      -i doc/Makefile.in \
+      -i doc/Makefile \
+      -i doc/sphinx/Makefile.in \
+      -i doc/sphinx/Makefile
   make
+  make -C doc
+  make -C doc/sphinx
+  make -C doc/devel devel
 }
 
 check() {
   cd "${srcdir}/${pkgname}-${_upstreamver}"
-  # Disable for now, some tests fail (for instance dhcp-ddns.sigterm_test)
+  # Disable mysql and postgresql for now, tests require live DBs
+  export GTEST_FILTER='-mysql.*:*mysql*:*MySql*:*MySQL*:pgsql.*:*pgsql*:*PgSql*:*PgSQL*'
+  # the above works, but admin tests use custom scripts that ignore it and break everything
   # make check
 }
 
-package() {
+package_kea() {
   cd "${srcdir}/kea-${_upstreamver}"
   make DESTDIR="${pkgdir}" install
   # Handle /var/run -> /run symlink
@@ -92,4 +130,20 @@ package() {
   install -Dm644 "${srcdir}"/kea-dhcp6.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp6.service
   install -Dm644 "${srcdir}"/kea-dhcp-ddns.service "${pkgdir}"/usr/lib/systemd/system/kea-dhcp-ddns.service
   install -Dm644 "${srcdir}"/kea-ctrl-agent.service "${pkgdir}"/usr/lib/systemd/system/kea-ctrl-agent.service
+  # split docs in a separate package
+  rm -rf "${pkgdir}"/usr/share/doc
+}
+
+package_kea-docs() {
+  depends=()
+  optdepends=()
+  provides=('kea-devel-docs')
+  replaces=('kea-devel-docs')
+  cd "${srcdir}/${pkgbase}-${_upstreamver}"
+  install -d "${pkgdir}/usr/share/doc/${pkgbase}/"
+  make DESTDIR="${pkgdir}" install
+  rm -rf "${pkgdir}"/{etc,var,usr/{bin,lib,include,share/kea}}
+  make DESTDIR="${pkgdir}" -C doc install
+  make DESTDIR="${pkgdir}" -C doc/devel install
+  cp -r doc/devel/html "${pkgdir}/usr/share/doc/${pkgbase}/devel"
 }
