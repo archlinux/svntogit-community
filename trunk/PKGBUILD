@@ -5,8 +5,8 @@
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=5.7.1
-pkgrel=3
+pkgver=5.8.1
+pkgrel=1
 arch=('x86_64')
 url='https://keybase.io/'
 license=('BSD')
@@ -16,12 +16,12 @@ source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbas
         "keybase-gui"
         "0001-Maintain-current-contextIsolation-behavior-across-el.patch"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('1cdf93a2e52e16eedd7fe4544a2b1f0e6f6d47802e17e029ae08b19302c44d5cca0b297aa827332a62202045f91c7c6b1d9d627f2915fcdb4cc2a77076adbd0d'
+sha512sums=('413b6e952eea8cfc4f7a8a32c62f0fb989a569284c35a3a1d6de9be42e3fe0bc2008899fb534b8b8a4bc2f0432783b7caa13ae3969568c4743f984dc8174a537'
             'SKIP'
             'bdecad57f8703eb6011b0c9ff238b9f3d78192031adfb5a27a7e6910119c600726b87aaacada88877eaeddcd6134fbe72b014bcaeb6cc7563c3753fcb33c52c9'
             '5cb3d93c4bb468fd47e1670f73cc3b8be14977ccf563a47d776285b6b9d96042647062427e58bd981727362caa23d17acdc0152dfd915efeeb6c4e76ca76ca65'
             'f759f69b774200261687842c66902a3c45638bb012ced9bd83d27491c8a0bbc0bc744dbb83ad7672d443f32d7303c15aeb0ded7a1a0d7ab56e7b1c1b64e263c3')
-b2sums=('8f2501c3db8f0d3f82a5a597d1654af69a7d603b96d6143dc7df443290eb6b2ee299cc300f41061236b2738bc2a54018bc55705ddb903df326fd8850c12c506f'
+b2sums=('8a2485f0307749fcdf1887abcba508bf36f1a71d09d4f0ba14f2f5323bfd2485f8ac41b25ede49445f7d89b704c9f92fb67d53b86fe90b9e0e07bebd2c0f6060'
         'SKIP'
         '1ecf08e4a0b2836828fc4f9283a69e1fbda6f268195ae56433050d54070038aacf1ae3057202324c678b242c88345cc8f453c7798129753f083c33db256517a4'
         '67f416c59b549606d037167c796c5b99f0ca9158fb767d52c101f41db6d31927b57618efb4d6eaf590cbd3c7aab4dd71a64bc3b52580e2383f5389c95264a499'
