@@ -4,7 +4,7 @@
 
 pkgname=octave
 pkgver=6.3.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="https://www.gnu.org/software/octave/"
@@ -16,7 +16,8 @@ optdepends=('texinfo: for help-support in octave'
             'gnuplot: alternative plotting'
             'portaudio: audio support'
             'java-runtime: java support'
-            'fltk: FLTK GUI')
+            'fltk: FLTK GUI'
+            'texlive-bin: for the publish command')
 source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig})
 options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
