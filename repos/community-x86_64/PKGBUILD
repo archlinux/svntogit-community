@@ -6,14 +6,14 @@
 
 pkgname=godot
 pkgver=3.3.4
-pkgrel=1
+pkgrel=2
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
 arch=(x86_64)
 makedepends=(gcc scons yasm alsa-lib pulseaudio)
 depends=(bullet embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
-         libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
+         libwslay libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
 optdepends=(alsa-lib pulseaudio)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
 b2sums=('27536d0e98fcd4b30b76154f03e68398db69fdf2da81c71adef78b04e884f00104c9213110dd95fdb61ad7f2496f765e071362a1c951b20b6e6f03f4dc718c1e')
@@ -27,8 +27,8 @@ build() {
   # Not unbundled yet:
   #  enet (contains no upstreamed IPv6 support)
   #  libsquish, recast, xatlas
-  #  AUR: libwebm, squish, wslay
-  local to_unbundle="bullet certs embree freetype libogg libpng libtheora libvorbis libvpx libwebp mbedtls miniupnpc opus pcre2 zlib zstd"
+  #  AUR: libwebm, squish
+  local to_unbundle="bullet certs embree freetype libogg libpng libtheora libvorbis libvpx libwebp mbedtls miniupnpc opus pcre2 wslay zlib zstd"
   local system_libs=""
   for _lib in $to_unbundle; do
     system_libs+="builtin_"$_lib"=no "
