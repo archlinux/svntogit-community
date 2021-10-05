@@ -1,34 +1,36 @@
 # Maintainer: Anatol Pomozov
 
 pkgname=aws-sdk-cpp
-pkgver=1.8.149
+pkgver=1.8.187
 pkgrel=1
 pkgdesc='AWS SDK for C++'
 arch=(x86_64)
 url='https://github.com/aws/aws-sdk-cpp'
 license=(Apache)
 depends=(openssl curl zlib util-linux-libs aws-c-common aws-c-event-stream libpulse)
-makedepends=(cmake)
-source=(aws-sdk-cpp-$pkgver.zip::https://github.com/aws/aws-sdk-cpp/archive/$pkgver.zip)
-sha256sums=('da9bee0d5cddce39876e4cddcdb8e027114e92fdc2d05131d1918189cf1efaa2')
+makedepends=(cmake ninja)
+source=(aws-sdk-cpp-$pkgver.zip::https://github.com/aws/aws-sdk-cpp/archive/$pkgver.zip
+       fix_null.patch) # https://github.com/aws/aws-sdk-cpp/pull/1506
+sha256sums=('7dfe63338631acfbfe31981924029bc359ba83fda2003a2af856facfc1b8242e'
+            '2260270b5f05c79232b106ad4c73856c05db1f5866174934e0f03e56668868c3')
 
-# AWS C++ SDK is a huge project. Install size of the whole project is ~500MiB. To reduce it
-# we build only a small subset of components used by other packages. Add more components to
-# this list if you need it.
-_components="core;ec2;kinesis;firehose;sts;s3"
-# TOTHINK: it would be interesting to explore an idea of breaking sdk into set of small
-# per-component packages "aws-sdk-cpp-ec2, aws-sdk-cpp-kinesis, ...".
+prepare() {
+  cd aws-sdk-cpp-$pkgver
+
+  patch -p1 < ../fix_null.patch
+}
 
 build() {
   cd aws-sdk-cpp-$pkgver
 
-  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCUSTOM_MEMORY_MANAGEMENT=OFF -DENABLE_TESTING=OFF -DBUILD_DEPS=OFF -DBUILD_ONLY="$_components" -S . -B build
-  cmake --build build
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DCUSTOM_MEMORY_MANAGEMENT=OFF -DENABLE_TESTING=OFF -DBUILD_DEPS=OFF \
+      -S . -B build -G Ninja
+  ninja -C build -j 2 # the build is so heavy that it gets OOM killed even at powerful machines
 }
 
 package() {
   cd aws-sdk-cpp-$pkgver
 
-  cmake --build build --target install -- DESTDIR="$pkgdir"
+  DESTDIR="$pkgdir" ninja -C build install
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
