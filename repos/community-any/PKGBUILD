@@ -3,7 +3,7 @@
 
 pkgname=python-typing_extensions
 pkgver=3.10.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
 arch=(any)
 url=https://github.com/python/typing/tree/master/typing_extensions
@@ -13,6 +13,7 @@ makedepends=(
   git
   python-setuptools
 )
+checkdepends=(python-tests)
 provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
 _tag=7552efe8b5f96f0e63f8e77711a4cf03cae92921
@@ -33,6 +34,15 @@ build() {
   cd typing/typing_extensions
 
   python setup.py build
+}
+
+check() {
+  cd typing/typing_extensions
+
+  mkdir -p temp
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  python setup.py install --root=temp --optimize=1 --skip-build
+  PYTHONPATH="${PWD}/temp/${site_packages}" python src_py3/test_typing_extensions.py
 }
 
 package() {
