@@ -2,8 +2,8 @@
 # Contributor: Arch Haskell Team <arch-haskell@haskell.org>
 
 pkgname=postgrest
-pkgver=7.0.1
-pkgrel=334
+pkgver=8.0.0
+pkgrel=21
 pkgdesc="REST API for any Postgres database"
 url="https://github.com/begriffs/postgrest"
 license=("MIT")
@@ -11,32 +11,32 @@ arch=('x86_64')
 depends=('ghc-libs' 'haskell-http' 'haskell-ranged-sets' 'haskell-aeson' 'haskell-ansi-wl-pprint'
          'haskell-base64-bytestring' 'haskell-case-insensitive' 'haskell-cassava'
          'haskell-configurator-pg' 'haskell-contravariant' 'haskell-contravariant-extras'
-         'haskell-cookie' 'haskell-either' 'haskell-gitrev' 'haskell-hasql' 'haskell-hasql-pool'
+         'haskell-cookie' 'haskell-either' 'haskell-fast-logger' 'haskell-gitrev' 'haskell-hasql'
+         'haskell-hasql-dynamic-statements' 'haskell-hasql-notifications' 'haskell-hasql-pool'
          'haskell-hasql-transaction' 'haskell-heredoc' 'haskell-http-types'
          'haskell-insert-ordered-containers' 'haskell-interpolatedstring-perl6' 'haskell-jose'
          'haskell-lens' 'haskell-lens-aeson' 'haskell-network-uri' 'haskell-optparse-applicative'
          'haskell-parsec' 'haskell-protolude' 'haskell-regex-tdfa' 'haskell-scientific'
          'haskell-swagger2' 'haskell-unordered-containers' 'haskell-vector' 'haskell-wai'
-         'haskell-wai-cors' 'haskell-wai-extra' 'haskell-wai-middleware-static'
+         'haskell-wai-cors' 'haskell-wai-extra' 'haskell-wai-logger' 'haskell-wai-middleware-static'
          'haskell-auto-update' 'haskell-retry' 'haskell-warp')
 makedepends=('ghc' 'uusi' 'haskell-aeson-qq' 'haskell-async' 'haskell-hspec' 'haskell-hspec-wai'
              'haskell-hspec-wai-json' 'haskell-monad-control' 'haskell-transformers-base')
 checkdepends=('pifpaf' 'postgresql' 'procps-ng')
-source=("$pkgname-$pkgver.tar.bz2::https://github.com/begriffs/postgrest/archive/v$pkgver.tar.gz")
-sha512sums=('0e6270ff4762b444b4d3791ceea4bb468bc316c9d2103f9d355e2e6108bb4bb51b302499b68a5cfc4ff14f503bdd95985481f7fb6eb6dbb158f1f5350857cf1b')
+source=("https://github.com/begriffs/postgrest/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('ae3f004d3042e236ffd3870c980cdfbb615a3de5433bd917816e8c0e719edb0bfcba763bb3c920dad64461410374231a6ab7710d48b310cdc30d5dd6f1f58337')
 
 prepare() {
     cd $pkgname-$pkgver
-    sed -i 's/5432/9824/' test/fixtures/dumpfixture.sh
-    uusi $pkgname.cabal
+    uusi -u base -u hspec -u retry $pkgname.cabal
 }
 
 build() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd $pkgname-$pkgver
 
     runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
         --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --enable-tests \
-        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
             -f-CI --ghc-option='-pie'
     runhaskell Setup build $MAKEFLAGS
     runhaskell Setup register --gen-script
@@ -49,10 +49,8 @@ check() {
     cd $pkgname-$pkgver
 
     eval $(pifpaf run postgresql --host 127.0.0.1)
-    createdb postgrest_test
-
-    # TODO: user authentication issue?
-    POSTGREST_TEST_CONNECTION=$(test/create_test_db "postgres://$USER@localhost" postgrest_test) runhaskell Setup test || echo "Tests failed"
+    createuser -s postgrest_test
+    POSTGREST_TEST_CONNECTION=$(test/create_test_db "postgres://$USER@localhost" postgrest_test) runhaskell Setup test --show-details=direct
 
     # Disabled: uses stack
     # test/io-tests.sh
@@ -61,7 +59,7 @@ check() {
 }
 
 package() {
-    cd "${srcdir}/${pkgname}-${pkgver}"
+    cd $pkgname-$pkgver
 
     install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
     install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
