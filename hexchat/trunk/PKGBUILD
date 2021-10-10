@@ -3,7 +3,7 @@
 
 pkgname=hexchat
 pkgver=2.16.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A popular and easy to use graphical IRC (chat) client'
 arch=('x86_64')
 url='https://hexchat.github.io/'
@@ -22,7 +22,7 @@ sha256sums=('SKIP')
 build() {
   arch-meson hexchat build \
     -Dwith-lua='lua' \
-    -Dwith-text='true'
+    -Dtext-frontend='true'
   ninja -C build
 }
 
