@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pyjwt
-pkgver=1.7.1
-pkgrel=6
+pkgver=2.2.0
+pkgrel=1
 pkgdesc='JSON Web Token implementation in Python'
 arch=('any')
 url='https://github.com/jpadilla/pyjwt'
@@ -11,7 +11,7 @@ depends=('python-setuptools')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-runner')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/jpadilla/pyjwt/archive/$pkgver.tar.gz")
-sha512sums=('0f61ad132309f896b6ea7f1a689854e643f4db6baf3a44d9f5b544b62e3fce384b95c3a04fe2a46aa3e1a5843c3550d57eaec5449c7faa56ca06562571940171')
+sha512sums=('b7f30089f0c0152636469be3555c4e865bb47bd9d30947c7d6ec4011d4b2a02a0ea9e78c8e93eb803cc90010cf3eeacc51854e517dc1873e8bca59f27227ea1b')
 
 prepare() {
   sed -i 's/pytest==2.7.3/pytest/;/pytest-cov/d' pyjwt-$pkgver/setup.py
