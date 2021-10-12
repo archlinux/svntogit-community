@@ -3,7 +3,7 @@
 
 pkgname=python-click
 _realname=click
-pkgver=8.0.2
+pkgver=8.0.3
 pkgrel=1
 pkgdesc="A simple wrapper around optparse for powerful command line utilities"
 arch=("any")
@@ -12,7 +12,7 @@ license=("BSD")
 depends=("python")
 makedepends=("python-setuptools")
 source=("https://github.com/pallets/click/archive/${pkgver}/$pkgname-$pkgver.tar.gz")
-sha512sums=('473184751fde7a09b0730e84db2204fa3bc72d583e0edf5a2897a4bae8f1d2ffdf01c69ae971d9158cc59d22eb852eb83f28428a2635a95c43596abbc9257891')
+sha512sums=('73d29b73d5f90132282753fa1b53f42a690ebf713e8e4f2e3ff3c8820ef71ed82c5165bf61563341170a263c4202adb5690540fdeb6501fb9d81d2db06a5e89e')
 
 build() {
     cd "${srcdir}/${_realname}-${pkgver}"
