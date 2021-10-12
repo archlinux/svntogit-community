@@ -3,34 +3,41 @@
 
 pkgname=eslint
 pkgver=8.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='An AST-based pattern checker for JavaScript'
 arch=('any')
 url='https://eslint.org'
 license=('MIT')
-depends=('nodejs' 'acorn')
-makedepends=('npm')
-source=("https://registry.npmjs.org/$pkgname/-/$pkgname-$pkgver.tgz")
-noextract=("$pkgname-$pkgver.tgz")
-sha512sums=('d37b29ccfccc00ee291259b8e26eb4363d3c9d8a273c64179b0e8279a8bf4b840af36220c163b5117c75b3d9da98acd595b56edc97fcd616fe37ef3ebf6d7f1d')
+depends=('acorn' 'nodejs')
+makedepends=('npm' 'rsync')
+options=('!emptydirs')
+source=("https://github.com/eslint/eslint/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+b2sums=('78b0db3e1cd3aa0ce8b7bde0f85d09cd7162b7f29c2e4d7b260770f720a40cf124bedd7fd7c6449a8a726a9e599cb38a71afdceda08b6e0634181b1edf96e740')
+
+prepare() {
+  cd eslint-$pkgver
+  # Downstreams still pin older ESLint
+  npm install --force
+}
+
+check() {
+  cd eslint-$pkgver
+  node Makefile mocha
+}
 
 package() {
-  npm install -g --prefix "$pkgdir"/usr "$srcdir"/$pkgname-$pkgver.tgz
+  cd eslint-$pkgver
 
-  # Non-deterministic race in npm gives 777 permissions to random directories.
-  # See https://github.com/npm/npm/issues/9359 for details.
-  chmod -R u=rwX,go=rX "$pkgdir"
+  npm prune --production
 
-  # npm installs package.json owned by build user
-  # https://bugs.archlinux.org/task/63396
-  chown -R root:root "$pkgdir"
-
-  install -dm755 "${pkgdir}/usr/share/licenses/${pkgname}"
-  ln -s ../../../lib/node_modules/eslint/LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -d "$pkgdir"/usr/bin
+  ln -s ../lib/node_modules/$pkgname/bin/$pkgname.js "$pkgdir"/usr/bin/$pkgname
+  install -Dt "$pkgdir"/usr/lib/node_modules/$pkgname/bin bin/$pkgname.js
+  rsync -r --exclude .cache conf lib messages node_modules package.json \
+    "$pkgdir"/usr/lib/node_modules/$pkgname
+  install -Dm644 -t "$pkgdir"/usr/share/doc/$pkgname README.md
+  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
 
   # Experimental dedup
-  cd "$pkgdir"/usr/lib/node_modules/$pkgname/node_modules
-  for dep in acorn; do
-    rm -r $dep;
-  done
+  rm -r "$pkgdir"/usr/lib/node_modules/$pkgname/node_modules/acorn
 }
