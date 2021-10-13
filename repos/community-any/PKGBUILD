@@ -3,24 +3,37 @@
 pkgbase=python-tensorboard_plugin_wit
 pkgname=(python-tensorboard_plugin_wit python-witwidget)
 _pkgbase=tensorboard_plugin_wit
+_bzlver=3.6.0  # latest Bazel that is supported for building
 pkgdesc='The What-If Tool (WIT): An easy-to-use interface for expanding understanding of a black-box classification or regression ML model.'
 url='https://pair-code.github.io/what-if-tool'
 license=('Apache')
-pkgver=1.8.0
+pkgver=1.8.1
 pkgrel=1
 arch=('any')
-source=("${_pkgbase}-${pkgver}::git+https://github.com/PAIR-code/what-if-tool#tag=v${pkgver}")
+source=("${_pkgbase}-${pkgver}::git+https://github.com/PAIR-code/what-if-tool#tag=v${pkgver}"
+        "https://github.com/bazelbuild/bazel/releases/download/${_bzlver}/bazel-${_bzlver}-linux-x86_64"{,.sig})
 _common_depends=('python-google-api-python-client' 'python-ipywidgets')
-makedepends=('bazel' 'git' 'jupyter' 'npm' 'python-virtualenv' 'python-pip' "${_common_depends[@]}")
+makedepends=('git' 'jupyter' 'npm' 'python-virtualenv' 'python-pip' "${_common_depends[@]}")
+validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')  # "Bazel Developer (Bazel APT repository key) <bazel-dev@googlegroups.com>"
 depends=('python-werkzeug' 'tensorboard')
-sha256sums=('SKIP')
+sha256sums=('SKIP'
+            'b2985c3ad1ec0284a66749b635ac11b323bc6b964d2cfcf33721746243a19530'
+            'SKIP')
 
 get_pyver () {
-    python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
+  python -c 'import sys; print(str(sys.version_info[0]) + "." + str(sys.version_info[1]))'
+}
+
+_bzlcmd () {
+  echo "${srcdir}/bazel-${_bzlver}-local-binary"
 }
 
 prepare() {
+  cp "${srcdir}/bazel-${_bzlver}-linux-x86_64" "$(_bzlcmd)"
+  chmod +x "$(_bzlcmd)"
   cd "${srcdir}/${_pkgbase}-${pkgver}"
+  sed -e "s@version=\"1.8.0\"@version=\"${pkgver}\"@g" -i \
+    tensorboard_plugin_wit/pip_package/setup.py
   sed -e 's@/tmp/wit-pip@${BUILD_WORKSPACE_DIRECTORY}/wit-pip@g' -i \
     tensorboard_plugin_wit/pip_package/build_pip_package.sh \
     witwidget/pip_package/build_pip_package.sh
@@ -28,10 +41,10 @@ prepare() {
 
 build() {
   cd "${srcdir}/${_pkgbase}-${pkgver}"
-  bazel --output_user_root "${srcdir}/build-plugin" run tensorboard_plugin_wit/pip_package:build_pip_package
+  "$(_bzlcmd)" --output_user_root "${srcdir}/build-plugin" run --incompatible_restrict_string_escapes=false tensorboard_plugin_wit/pip_package:build_pip_package
 
   cd "${srcdir}/${_pkgbase}-${pkgver}"  
-  bazel --output_user_root "${srcdir}/build-witwidget" run witwidget/pip_package:build_pip_package
+  "$(_bzlcmd)" --output_user_root "${srcdir}/build-witwidget" run --incompatible_restrict_string_escapes=false witwidget/pip_package:build_pip_package
 }
 
 package_python-tensorboard_plugin_wit() {
