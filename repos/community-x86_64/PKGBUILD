@@ -1,7 +1,8 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=maturin
-pkgver=0.11.4
+pkgver=0.11.5
+_commit=0220fd94fd51be3eaf747e0539bd93177337e553  # 0.11.5
 pkgrel=1
 pkgdesc="Build and publish crates with pyo3, rust-cpython and cffi bindings"
 url="https://github.com/PyO3/maturin"
@@ -9,7 +10,7 @@ arch=(x86_64)
 license=(Apache)
 depends=(gcc-libs glibc rust)
 makedepends=(bzip2 dbus git)
-source=(git+https://github.com/PyO3/maturin#tag=v$pkgver)
+source=(git+https://github.com/PyO3/maturin#commit=${_commit})
 sha256sums=('SKIP')
 validpgpkeys=('07515D832489235391FD5799305BDEA95BCA5CBF')  # konstin <konstin@mailbox.org>
 
