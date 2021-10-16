@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=minisign
-pkgver=0.9
+pkgver=0.10
 pkgrel=1
 pkgdesc="A dead simple tool to sign files and verify digital signatures."
 arch=('x86_64')
@@ -10,7 +10,7 @@ license=('custom:ISC')
 depends=('libsodium')
 makedepends=('cmake')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/jedisct1/minisign/archive/$pkgver.tar.gz")
-sha512sums=('7970f3e72ff759f3f02416de5d6035e1c8dd4e92ea718083cc5091c7e2355b59c4e178c60ca934985ba1e1afcd970967d4fb39a434ba54b140f3fc9be661253d')
+sha512sums=('6a38500ed896c17b100bca47443f9806debe6e44d3ce09189f5f8913a41d4913434397175d1caa770fb0cc0918078dfc71c01b82b9bf919fdfba00434f4ce100')
 
 prepare() {
   mkdir -p build
