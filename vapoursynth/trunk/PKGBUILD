@@ -3,7 +3,7 @@
 # Contributor: jackoneill <cantabile.desu@gmail.com>
 
 pkgname=vapoursynth
-pkgver=R56
+pkgver=R57
 pkgrel=1
 pkgdesc='A video processing framework with the future in mind'
 arch=(x86_64)
@@ -27,7 +27,7 @@ makedepends=(
   git
   python-sphinx
 )
-_tag=c01d24fd53d6c7ac560375a971ccb6a4aeca6805
+_tag=325756ed04588b31840fdb74479537cddcba4bf7
 source=(
   git+https://github.com/vapoursynth/vapoursynth.git#tag=${_tag}
   vapoursynth.xml
