@@ -4,8 +4,8 @@
 # Contributor: TDY <tdy@gmx.com>
 
 pkgname=spyder
-pkgver=5.0.1
-pkgrel=1
+pkgver=5.1.5
+pkgrel=2
 pkgdesc="The Scientific Python Development Environment"
 arch=(any)
 url="https://www.spyder-ide.org/"
@@ -33,8 +33,8 @@ depends=(
     python-pyqt5
     python-pyqtwebengine
     qt5-webkit
-    python-language-server
-    python-pyls-black
+    python-lsp-server
+    python-lsp-black
     python-pyls-spyder
     python-xdg
     python-pyzmq
@@ -43,6 +43,7 @@ depends=(
     python-qtawesome
     python-qtconsole
     python-qtpy
+    python-rtree
     python-setuptools
     python-sphinx
     python-spyder-kernels
@@ -72,7 +73,7 @@ checkdepends=(
     python-pytest-mock
     python-pytest-cov
     python-pytest-xvfb
-    python-pytest-ordering
+    python-pytest-order
     python-pytest-lazy-fixture
     python-flaky
     python-pandas
@@ -84,23 +85,25 @@ checkdepends=(
     git
     tk
 )
-source=(https://github.com/spyder-ide/${pkgname}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('af0c622ef295d91af079daec70bd8299afe248f43d602b2bb6bf345dac09284a6a74092b40fcca3905f3373e2dae9f43b0ed3f0ef1f9ad99bd78989e7bed579e')
+source=(https://github.com/spyder-ide/${pkgname}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
+        fix-pylint-2.10.patch)
+sha512sums=('2204fe46ad3e4e14bebb51ef6a53074b657f6d970553decd0b2f9d0a7fba71b2f14b4efc3248bb4fb944860e85851e4a8add475ff12c6466e864be75b8cc38bb'
+            '7837cb8af529df9f63041a883348a199d549d60bc7ea65913ca07728a087c503830aa2f09e80198f05c3b3b8d0c5de096d5d021e8c148b63d45d7b338d4b3e0e')
 
 prepare() {
   cd ${pkgname}-${pkgver}
-  # Allow our jedi/parso/pyls versions
-  sed "s|JEDI_REQVER = '=|JEDI_REQVER = '>=|" -i spyder/dependencies.py
-  sed "s|PARSO_REQVER = '=|PARSO_REQVER = '>=|" -i spyder/dependencies.py
+  # Remove pylint limit, we have a patched lsp (https://github.com/spyder-ide/spyder/pull/16565)
+  patch -p1 -i ../fix-pylint-2.10.patch
+  # Allow our python libraries versions
+  #sed "s|JEDI_REQVER = '=|JEDI_REQVER = '>=|" -i spyder/dependencies.py
+  #sed "s|PARSO_REQVER = '=|PARSO_REQVER = '>=|" -i spyder/dependencies.py
   sed "s|QDARKSTYLE_REQVER = '=|QDARKSTYLE_REQVER = '>=|" -i spyder/dependencies.py
-  sed "s|jedi==|jedi>=|" -i setup.py
-  sed "s|parso==|parso>=|" -i setup.py
+  #sed "s|jedi==|jedi>=|" -i setup.py
+  #sed "s|parso==|parso>=|" -i setup.py
   sed "s|qdarkstyle==|qdarkstyle>=|" -i setup.py
   # Allow our Qt version
   sed "s|'pyqt5<5.13'|'pyqt5'|" -i setup.py
   sed "s|'pyqtwebengine<5.13'|'pyqtwebengine'|" -i setup.py
-  # https://github.com/spyder-ide/spyder/pull/15100
-  sed "s|SPYDER_KERNELS_REQVER = '>=2.0.1,<2.1.0'|SPYDER_KERNELS_REQVER = '>=2.0.1;<2.1.0'|" -i spyder/dependencies.py
 }
 
 build() {
@@ -111,21 +114,21 @@ build() {
 check() {
   cd ${pkgname}-${pkgver}
   # Required per above patching
-  sed "s|jedi =|jedi >=|" -i binder/environment.yml
-  sed "s|parso =|parso >=|" -i binder/environment.yml
+  #sed "s|jedi =|jedi >=|" -i binder/environment.yml
+  #sed "s|parso =|parso >=|" -i binder/environment.yml
   sed "s|qdarkstyle =|qdarkstyle >=|" -i binder/environment.yml
   sed "s|pyqt <5.13|pyqt|" -i binder/environment.yml
-  sed "s|jedi =|jedi >=|" -i requirements/conda.txt
-  sed "s|parso =|parso >=|" -i requirements/conda.txt
+  #sed "s|jedi =|jedi >=|" -i requirements/conda.txt
+  #sed "s|parso =|parso >=|" -i requirements/conda.txt
   sed "s|qdarkstyle =|qdarkstyle >=|" -i requirements/conda.txt
   sed "s|pyqt <5.13|pyqt|" -i requirements/conda.txt
-  # Some tests failures but upstream does not support us
-  python runtests.py || echo "Tests failed"
+  # Failures from Qt5.12-targeted tests, non-CI tests, etc.
+  # Some even segfaults, but upstream does not support us
+  python runtests.py --color=yes || echo "Tests failed"
 }
 
 package() {
   cd ${pkgname}-${pkgver}
-  export PYTHONHASHSEED=0
   python setup.py install --prefix=/usr --root="${pkgdir}" --optimize=1 --skip-build
   # Install license file
   install -Dm644 LICENSE.txt -t ${pkgdir}/usr/share/licenses/${pkgname}/
