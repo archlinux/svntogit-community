@@ -8,8 +8,8 @@
 
 pkgbase=coq
 pkgname=("${pkgbase}" "${pkgbase}ide" "${pkgbase}-doc")
-pkgver=8.13.2
-pkgrel=2
+pkgver=8.14.0
+pkgrel=1
 pkgdesc='Formal proof management system'
 arch=('x86_64')
 url='https://coq.inria.fr/'
@@ -18,6 +18,8 @@ groups=('coq')
 options=('!emptydirs')
 depends=('ocaml>=4.12.0' 'ocaml-num' 'ocaml-zarith' 'gtk3' 'gtksourceview3')
 makedepends=('ocaml-findlib'
+             'dune'
+             'git'
              'lablgtk3' 'gendesk' # coqide
              'texlive-bin' 'texlive-latexextra' 'texlive-pictures' # coq-doc
              'texlive-fontsextra' 'texlive-science'
@@ -25,7 +27,7 @@ makedepends=('ocaml-findlib'
              'python' 'python-sphinx' 'python-sphinx_rtd_theme' 'python-pexpect'
              'python-beautifulsoup4' 'python-sphinxcontrib-bibtex' 'python-antlr4')
 source=("coq-${pkgver}.tar.gz::https://github.com/coq/coq/archive/V${pkgver}.tar.gz")
-sha512sums=('d5c16689a3a08d9be58e15d502e5c9bbe13ce8b9755334d1c096307260a804eeb59116c3a7b5fd85910e7f468ee728c69d04735769998a6e6369bf5352f5ec05')
+sha512sums=('041b8e8deedefa8b48bf99e87026988b783fcf89ec555ec96c4e64dbf3a230e0b78e8ae9effe6bc738171b58fba725ddafe49abf3a84f332c67f12435c304d5d')
 
 build() {
   # generate a desktop file
@@ -38,14 +40,19 @@ build() {
   # build package
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
+  make clean
   ./configure \
     -prefix '/usr' \
     -mandir '/usr/share/man' \
     -configdir '/etc/xdg/coq/' \
+    -flambda-opts '-O3 -unbox-closures' \
+    -nomacintegration \
+    -nodebug \
+    -warn-error no \
     -coqide opt \
     -with-doc yes
   # https://github.com/coq/coq/issues/12332
-  SPHINXWARNERROR=0 make world
+  CAML_LD_LIBRARY_PATH=/usr/lib/ocaml/zarith SPHINXWARNERROR=0 make world
 }
 
 package_coq() {
@@ -63,13 +70,15 @@ package_coq() {
   # fix intermittent bug with folder creation
   install -d "${pkgdir}/usr/bin"
   install -d "${pkgdir}/usr/lib/coq"
+  install -d "${pkgdir}/usr/lib/coq-core"
   # Workaround for FS#58203
-  mkdir -p "${pkgdir}/usr/lib/ocaml/"
+  install -d "${pkgdir}/usr/lib/ocaml"
   ln -s /usr/lib/coq "${pkgdir}/usr/lib/ocaml/coq"
+  ln -s /usr/lib/coq-core "${pkgdir}/usr/lib/ocaml/coq-core"
 
   # The second target is needed to install coqidetop.cmxs (needed for some
   # frontend other than coqide, for instance coquille)
-  make COQINSTALLPREFIX="${pkgdir}" install-coq install-ide-toploop install-meta
+  make DESTDIR="${pkgdir}" install-coq install-coqide
   rm -f "${pkgdir}/usr/share/man/man1/coqide.1"
 }
 
@@ -80,7 +89,7 @@ package_coqide() {
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
   mkdir -p "${pkgdir}/usr/bin"
-  make COQINSTALLPREFIX="${pkgdir}" install-coqide
+  make DESTDIR="${pkgdir}" install-coqide
   install -D -m 644 -t "${pkgdir}/usr/share/man/man1/" man/coqide.1
 
   # Remove toploop files installed by "install-ide-toploop" in the main package
@@ -100,5 +109,5 @@ package_coq-doc() {
 
   cd "${srcdir}/${pkgbase}-${pkgver}"
 
-  make COQINSTALLPREFIX="${pkgdir}" install-doc
+  make DESTDIR="${pkgdir}" install-doc
 }
