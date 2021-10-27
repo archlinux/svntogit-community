@@ -1,0 +1,70 @@
+# Maintainer: Lukas Jirkovsky <l.jirkovsky@gmail.com>
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+
+pkgname=ispc
+pkgver=1.16.1
+pkgrel=2
+pkgdesc="Compiler for high-performance SIMD programming on the CPU"
+arch=(x86_64)
+url="https://ispc.github.io/"
+license=(BSD)
+depends=(ncurses zlib llvm-libs clang spirv-llvm-translator)
+makedepends=(llvm python lib32-glibc cmake level-zero-headers level-zero-loader openmp vc-intrinsics)
+optdepends=(
+    'intel-compute-runtime: GPU support'
+    'level-zero-loader: GPU support'
+    'openmp: GPU support'
+)
+_gtestcommit=6a7ed316a5cdc07b6d26362c90770787513822d4
+source=(https://github.com/ispc/ispc/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
+        googletest-${_gtestcommit}.zip::https://github.com/google/googletest/archive/${_gtestcommit}.zip
+        ispc-fix-missing-string.patch::https://patch-diff.githubusercontent.com/raw/ispc/ispc/pull/2126.patch
+        ispc-llvm13-file-open-flags.patch::https://github.com/ispc/ispc/commit/8b5d0f26916e.patch
+        ispc-llvm13.patch::https://github.com/ispc/ispc/commit/8c08eb9267e0.patch
+        ispc-libclang-cpp.patch)
+sha256sums=('e5dcd0d85df6ed5feb454ad9ec295083a07d7459fcaba00d5dd6266ceb476399'
+            '718cc64f6f563399a228fc439b6ea9cb58d062e66e5340b92ca0f26adecfaac5'
+            '6b4a7b1809ad502951d67c82f9a589b66e58596f78bab5b2ba5a0e1df2a97c52'
+            '49d9f960d8a07a9a6bcdab440a3b98e371c72fe265f287196f275aff79fe5415'
+            '0490d9a6456a217d87ec63d6a0a4489c995e9afcaaa60715e8b6e6f58041f482'
+            '51ae0943cbce2b3f29549c5fb262e8620ad5e171283a83255e15dac20c86bf9f')
+
+prepare() {
+  cd ${pkgname}-${pkgver}
+  patch -p1 -i ../ispc-llvm13-file-open-flags.patch
+  patch -p1 -i ../ispc-llvm13.patch
+  patch -p1 -i ../ispc-libclang-cpp.patch # Build with unified libclang-cpp.so
+  # Remove tests that requires DUMPS (https://github.com/ispc/ispc/issues/1752)
+  sed -i '/debug-phase/d' tests/lit-tests/arg_parsing_errors.ispc
+  # Add Google Test
+  rmdir ispcrt/tests/vendor/google/googletest
+  mv ../googletest-${_gtestcommit} ispcrt/tests/vendor/google/googletest
+  # Broken check?
+  sed -i 's|NOT EXISTS "${PROJECT_SOURCE_DIR}/ispcrt/tests/vendor/google/googletest/CMakeLists.txt"|FALSE|' ispcrt/tests/CMakeLists.txt
+  # Missing includes https://github.com/ispc/ispc/pull/2126
+  patch -p1 -i ../ispc-fix-missing-string.patch
+  # https://github.com/google/googletest/issues/3427
+  sed -i 's/-Werror//' ispcrt/tests/vendor/google/googletest/googletest/cmake/internal_utils.cmake
+}
+
+build() {
+  cmake -B build -S ${pkgname}-${pkgver} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DISPC_INCLUDE_EXAMPLES=OFF \
+    -DISPC_NO_DUMPS=ON \
+    -DGENX_ENABLED=ON \
+    -DGENX_DEPS_DIR=/usr
+  make -C build
+}
+
+check() {
+  make -C build check-all
+}
+
+package() {
+  make -C build DESTDIR="${pkgdir}" install
+  install -Dm644 ${pkgname}-${pkgver}/LICENSE.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}
+  # Remove uneeded files
+  rm -r "${pkgdir}"/build
+  rm "${pkgdir}"/usr/lib/libispcrt_static.a
+}
