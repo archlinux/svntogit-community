@@ -2,7 +2,7 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=1.29.0
+pkgver=1.29.1
 pkgrel=1
 _jslibcommit='764dc40b36e0000807e59b8d6feea5ac4577270d'
 _electronversion=14
@@ -18,7 +18,7 @@ source=(${pkgname}-${pkgver}.tar.gz::https://github.com/bitwarden/desktop/archiv
         messaging.main.ts.patch
         ${pkgname}.sh
         ${pkgname}.desktop)
-sha512sums=('70323734681fa766390ac00831f371bff3ee023169e27b5348216e9cbf9fbaa8e14d4d689d5d5aa3ffc36b88c0b71b23a90c0cf418f7fc60ac5feae6f8bfea2d'
+sha512sums=('d5d011cb085bc56bee56212bfd72b7be9438c10985bb88c48329979cd7ebe4ee9ae6b1da54b5bd0f7fb6ef35a697a7681d47c18ed77a1d5b13c2837819b4c2fb'
             '08fcfa6e23e405d1a01238268ae55bef263f91173d1d28ec96e20cdc892229304c0b84dfcb3c722615f8dd6bb46cb9c3fad21ace46da06d4a349e1008e49e559'
             '87cdb8287cbc0c4eb49b0fd456a66e200551b5da5c14991505f6301cf1b11132d938dfdf795c4df2a4b3e1ae2badf5dfe33c1207923ec8abc6f9b3e064af6015'
             '822d97be407c2ac2a6926f5c925b0fd188c541014a623dd3815fdbf5ef67c0542f43aaf8d11535571a83a265f620e330f5326244f42c3902fddab442128fda95'
