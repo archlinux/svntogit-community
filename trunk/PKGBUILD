@@ -6,7 +6,7 @@
 # Contributor: zer0def <zer0def@github>
 
 pkgname=salt
-pkgver=3003.3
+pkgver=3004
 pkgrel=1
 
 pkgdesc='Central system and configuration manager'
@@ -39,7 +39,7 @@ install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
         salt.logrotate)
 
-sha256sums=('a6f9c8c8b5e2600ea8620b4a67371de17611beb4f8d97e4bb9b0b308a37ed1e2'
+sha256sums=('3d53561bc86e014dca2ec3dc981079be04d55ea047890cabde25e5b10bfa5b13'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
@@ -66,15 +66,16 @@ package() {
   python setup.py --salt-pidfile-dir="/run/salt" install --root="$pkgdir" --optimize=1 --skip-build
 
   # default config
-  install -Dm644 conf/master "$pkgdir/etc/salt/master"
-  install -Dm644 conf/minion "$pkgdir/etc/salt/minion"
+  install -v -Dm644 conf/master "$pkgdir/etc/salt/master"
+  install -v -Dm644 conf/minion "$pkgdir/etc/salt/minion"
 
   # systemd services
   for _svc in salt-master.service salt-syndic.service salt-minion.service salt-api.service; do
-    install -Dm644 pkg/$_svc "$pkgdir/usr/lib/systemd/system/$_svc"
+    install -v -Dm644 pkg/$_svc "$pkgdir/usr/lib/systemd/system/$_svc"
   done
-  install -Dm644 pkg/salt.bash "$pkgdir/usr/share/bash-completion/completions/salt"
-  install -Dm644 pkg/zsh_completion.zsh "$pkgdir/usr/share/zsh/site-functions/_salt"
+  install -v -Dm644 pkg/salt.bash "$pkgdir/usr/share/bash-completion/completions/salt"
+  install -v -Dm644 pkg/salt.zsh "$pkgdir/usr/share/zsh/site-functions/_salt"
+  install -v -Dm644 -t "$pkgdir/usr/share/fish/vendor_completions.d" pkg/fish-completions/*
 }
 
 # vim:set ts=2 sw=2 et:
