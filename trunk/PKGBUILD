@@ -6,7 +6,7 @@ _pypiname=wheel
 pkgbase=python-wheel
 pkgname=('python-wheel' 'python2-wheel')
 pkgver=0.37.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A built-package format for Python"
 arch=(any)
 url="https://pypi.python.org/pypi/wheel"
@@ -48,8 +48,8 @@ check() {
 
 package_python-wheel() {
   depends=('python-packaging')
-  optdepends=('python-keyring: for wheel.signatures')
-  optdepends=('python-xdg: for wheel.signatures')
+  optdepends=('python-keyring: for wheel.signatures'
+              'python-xdg: for wheel.signatures')
 
   cd "$srcdir/$_pypiname-$pkgver"
   python setup.py install --root="$pkgdir/" --optimize=1 --skip-build
@@ -58,9 +58,6 @@ package_python-wheel() {
 
 package_python2-wheel() {
   depends=('python2-packaging')
-  optdepends=('python2-keyring: for wheel.signatures')
-  optdepends=('python2-xdg: for wheel.signatures')
-
   cd "$srcdir/$_pypiname-$pkgver"
   python2 setup.py install --root="$pkgdir/" --optimize=1 --skip-build
   install -D -m644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
