@@ -2,6 +2,7 @@
 
 pkgbase=linux-tools
 pkgname=(
+  'bootconfig'
   'bpf'
   'cgroup_event_listener'
   'cpupower'
@@ -14,7 +15,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.14
+pkgver=5.15
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -135,12 +136,18 @@ build() {
   # runqslower, require kernel binary path to build, skip it
   make -W runqslower
   popd
+
+  echo ':: bootconfig'
+  pushd linux/tools/bootconfig
+  make
+  popd
 }
 
 package_linux-tools-meta() {
   pkgdesc='Linux kernel tools meta package'
   groups=()
   depends=(
+    'bootconfig'
     'bpf'
     'cgroup_event_listener'
     'cpupower'
@@ -289,6 +296,15 @@ package_bpf() {
   rmdir "$pkgdir"/usr/sbin
   # install man pages
   make -C bpftool doc-install prefix=/usr/share DESTDIR="$pkgdir"
+}
+
+package_bootconfig() {
+  pkgdesc='Apply, delete or show boot config to initrd'
+  depends=('glibc')
+
+  cd linux/tools/bootconfig
+  install -dm755 "$pkgdir/usr/bin"
+  make install DESTDIR="$pkgdir"
 }
 
 # vim:set ts=2 sw=2 et:
