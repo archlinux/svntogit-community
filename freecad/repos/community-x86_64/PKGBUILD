@@ -11,42 +11,43 @@
 
 pkgname=freecad
 pkgver=0.19.2
-pkgrel=4
-_commit=7b5e18a0759de778b74d3a5c17eba9cb815035ac # tag: 0.19.2
+pkgrel=5
 pkgdesc='General purpose 3D CAD modeler'
 arch=(x86_64)
 url='https://freecadweb.org/'
 license=(LGPL)
 depends=(boost-libs glew jsoncpp libspnav med netcdf opencascade openmpi
-         pyside2-tools python-matplotlib python-pivy python-ply python-pyside2
-         qt5-svg qt5-tools qt5-webkit qt5-x11extras qt5-xmlpatterns
-         xerces-c)
-makedepends=(boost cmake coin eigen gcc-fortran gendesk git ninja
-             python-shiboken2 shiboken2 swig python-mpi4py postgresql-libs pdal liblas libharu adios2 utf8cpp jdk-openjdk openvr)
-source=("git+https://github.com/FreeCAD/FreeCAD#commit=$_commit" freecad.xml
-         freecad-vtk9.patch
-         freecad-boost.patch)
-b2sums=('SKIP'
-        'f5f295b9b5f268126feffbe3f3344c124faf5e2263f3f071348bd7f5d0bf2e30eb33fcf174d0ab76ad80ca7bd8ddea95ccbaf7f33f0896189ac78603fecb9485'
+         pyside2-tools python-gitpython python-matplotlib python-pivy
+         python-ply python-pyside2 qt5-svg qt5-tools qt5-webkit qt5-x11extras
+         qt5-xmlpatterns xerces-c)
+makedepends=(adios2 boost cmake coin eigen gcc-fortran gendesk git jdk-openjdk
+             libharu liblas ninja openvr pdal postgresql-libs python-mpi4py
+             python-shiboken2 shiboken2 swig utf8cpp)
+source=(freecad.xml
+        freecad-boost.patch
+        freecad-vtk9.patch
+        "git+https://github.com/FreeCAD/FreeCAD#commit=7b5e18a0759de778b74d3a5c17eba9cb815035ac") # tag: 0.19.2
+b2sums=('f5f295b9b5f268126feffbe3f3344c124faf5e2263f3f071348bd7f5d0bf2e30eb33fcf174d0ab76ad80ca7bd8ddea95ccbaf7f33f0896189ac78603fecb9485'
+        '6ec5dcead7f3438b387aeb3f608b910105d493aafcd47ae84715cdfe6f8651926056283ec4aeeab542b89df9fd9ffc2dbb74f5593e864acd23c8b352033ed1dc'
         '242702f926101c57774046548068d17b22bd582ba1a1c45534ac8ceaa174c56277db80f32bed8ad1475b37006a1d777193b6c098ed8a733772152a898d1dd825'
-        '6ec5dcead7f3438b387aeb3f608b910105d493aafcd47ae84715cdfe6f8651926056283ec4aeeab542b89df9fd9ffc2dbb74f5593e864acd23c8b352033ed1dc')
+        'SKIP')
 
 prepare() {
-  patch -d FreeCAD -p1 -i "$srcdir"/freecad-vtk9.patch # Fix build with VTK 9 (Fedora)
-  patch -d FreeCAD -p1 -i "$srcdir"/freecad-boost.patch # Fix Boost linking with VTK 9
-
-  cd FreeCAD/src
+  # Fix Boost linking with VTK 9 (thanks Fedora)
+  patch -d FreeCAD -p1 -i ../freecad-boost.patch
+  # Fix build with VTK 9 (thanks Fedora)
+  patch -d FreeCAD -p1 -i ../freecad-vtk9.patch
+  # Generate desktop shortcut
   gendesk -f -n --pkgname "$pkgname" --pkgdesc "$pkgdesc" --name FreeCAD \
     --mimetypes='application/x-extension-fcstd' --startupnotify=true
 }
 
 build() {
-  # OpenCascade requires that /bin comes before /usr/bin in $PATH
+  # OpenCascade requires that /usr/bin comes before /bin in $PATH
   export PATH="/usr/bin:$PATH"
 
-  mkdir -p build
-  cd build
-  cmake ../FreeCAD \
+  cmake \
+    -B build \
     -D BUILD_ENABLE_CXX_STD=C++14 \
     -D BUILD_QT5=ON \
     -D CMAKE_BUILD_TYPE=Release \
@@ -61,22 +62,24 @@ build() {
     -D PYTHON_EXECUTABLE=/usr/bin/python \
     -D OpenVR_INCLUDE_DIR=/usr/include/openvr/ \
     -D OpenVR_LIBRARY=/usr/lib/libopenvr_api.so \
-    -G Ninja
-  ninja
+    -G Ninja \
+    -S FreeCAD
+  ninja -C build
 }
 
 package() {
   DESTDIR="$pkgdir" ninja -C build install
 
   # Desktop shortcut
-  install -Dm644 FreeCAD/src/freecad.desktop \
+  install -Dm644 freecad.desktop \
     "$pkgdir/usr/share/applications/freecad.desktop"
 
   # MIME info
   install -Dm644 freecad.xml "$pkgdir/usr/share/mime/packages/freecad.xml"
 
   # Thumbnailer, see FS#71592
-  install -Dm644 "$pkgdir/usr/lib/freecad/share/thumbnailers/FreeCAD.thumbnailer" \
+  install -Dm644 \
+    "$pkgdir/usr/lib/freecad/share/thumbnailers/FreeCAD.thumbnailer" \
     "$pkgdir/usr/share/thumbnailers/FreeCAD.thumbnailer"
   rm -f "$pkgdir/usr/lib/freecad/share/thumbnailers/FreeCAD.thumbnailer"
 
@@ -95,5 +98,6 @@ package() {
   ln -sf /usr/lib/freecad/bin/FreeCAD "$pkgdir/usr/bin/FreeCAD"
   ln -sf /usr/lib/freecad/bin/FreeCADCmd "$pkgdir/usr/bin/freecadcmd"
   ln -sf /usr/lib/freecad/bin/FreeCADCmd "$pkgdir/usr/bin/FreeCADCmd"
-  ln -sf /usr/lib/freecad/bin/freecad-thumbnailer "$pkgdir/usr/bin/freecad-thumbnailer"
+  ln -sf /usr/lib/freecad/bin/freecad-thumbnailer \
+    "$pkgdir/usr/bin/freecad-thumbnailer"
 }
