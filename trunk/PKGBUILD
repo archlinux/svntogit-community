@@ -2,7 +2,7 @@
 
 pkgname=sequoia-sq
 pkgver=0.25.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Command-line frontends for Sequoia'
 url='https://sequoia-pgp.org/'
 arch=('x86_64')
@@ -18,6 +18,12 @@ validpgpkeys=(
   D2F2C5D45BE9FDE6A4EE0AAF31855247603831FD # justus@sequoia-pgp.org
   CBCD8F030588653EEDD7E2659B7DD433F254904A # justus@sequoia-pgp.org
 )
+
+prepare() {
+  cd sequoia
+  # sq: When merging keyrings, produce output in a reproducible order
+  git cherry-pick -n 8b0506f8b1570b34ccec908ed4fa3797cbe9222f
+}
 
 build() {
   cd sequoia/sq
