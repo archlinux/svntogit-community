@@ -4,7 +4,7 @@
 
 pkgname=neovim
 pkgver=0.5.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
@@ -17,8 +17,17 @@ optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
             'xsel: for clipboard support on X11 (or xclip) (see :help clipboard)'
             'wl-clipboard: for clipboard support on wayland (see :help clipboard)')
-source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('a5a976c4998e821e0d9a9038d3f0c9e7c424a951f6bfc6d75898916d6a004ac668f31a34c3472fc4fca6b1d9652ac662b06780dd04dc6a77ecdc81564ec05709')
+source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        '0001-patch_terminfo_bugs-Extend-smglr-ignores-to-smglp-an.patch')
+sha512sums=('a5a976c4998e821e0d9a9038d3f0c9e7c424a951f6bfc6d75898916d6a004ac668f31a34c3472fc4fca6b1d9652ac662b06780dd04dc6a77ecdc81564ec05709'
+            '0771c9d141bc4253f8750b5ffdd8f4768cb8b2cefd70c2ae23c95bc659d598c91c15e94da58198fa1fb883d15984cafcf2d6e94c81c3892ce9f6e286854af184')
+
+prepare() {
+  cd neovim-${pkgver}
+
+  # https://github.com/neovim/neovim/issues/16238
+  patch -Np1 -i ../0001-patch_terminfo_bugs-Extend-smglr-ignores-to-smglp-an.patch
+}
 
 build() {
   cd neovim-${pkgver}
@@ -28,7 +37,7 @@ build() {
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DUSE_BUNDLED=OFF
-  ninja -C build
+  cmake --build build
 }
 
 check() {
@@ -39,7 +48,7 @@ check() {
 
 package() {
   cd neovim-${pkgver}
-  DESTDIR="${pkgdir}" ninja -C build install
+  DESTDIR="${pkgdir}" cmake --install build
 
   cd "${srcdir}/neovim-${pkgver}"
   install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
@@ -56,4 +65,4 @@ package() {
   echo "set runtimepath+=/usr/share/vim/vimfiles" > "${pkgdir}"/usr/share/nvim/archlinux.vim
 }
 
-# vim:set sw=2 sts=2 et:
+# vim:set ft=sh sw=2 sts=2 et:
