@@ -1,8 +1,9 @@
 # Maintainer: Daniel M. Capella <polyzen@archlinux.org>
+# Maintainer: Bruno Pagani <archange@archlinux.org>
 
 _name=matplotlib-inline
 pkgname=python-matplotlib-inline
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc='Inline Matplotlib backend for Jupyter'
 arch=('any')
@@ -13,8 +14,8 @@ makedepends=('python-setuptools')
 checkdepends=('ipython' 'python-matplotlib')
 optdepends=('python-matplotlib')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('f41d5ff73c9f5385775d5c0bc13b424535c8402fe70ea8210f93e11f3683993e')
-b2sums=('361941d7454e4a9cc6dc7be6d34e48b2ac73a01db0fc341712708295ba922f4a1d94020f41569ea4c7192b8494ddb1187a43287f721fe4fc806d5d5ab1c5ef6d')
+sha256sums=('a04bfba22e0d1395479f866853ec1ee28eea1485c1d69a6faf00dc3e24ff34ee')
+b2sums=('9f532fc46064c905ad50f4a6d39579848609790eef08d182a5765140781e87b38706221cab3451581627c73ae4e505afcf9c1a5f324aad5bfbf4441a4f95fd08')
 
 build() {
   cd $_name-$pkgver
@@ -23,10 +24,9 @@ build() {
 
 check() {
   cd $_name-$pkgver
-  mkdir -p temp
-  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
-  python setup.py install --skip-build --root=temp
-  PATH="$PWD/temp/usr/bin:$PATH" PYTHONPATH="$PWD/temp/$sitepackages" python -c 'from matplotlib_inline.backend_inline import show'
+  python -m venv --system-site-packages test-env
+  test-env/bin/python setup.py install --skip-build
+  test-env/bin/python -c 'from matplotlib_inline.backend_inline import show'
 }
 
 package() {
