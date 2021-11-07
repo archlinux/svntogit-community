@@ -5,8 +5,8 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=3.3.4
-pkgrel=3
+pkgver=3.4
+pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
@@ -16,7 +16,7 @@ depends=(bullet embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
          libwslay libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
 optdepends=(alsa-lib pulseaudio)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('27536d0e98fcd4b30b76154f03e68398db69fdf2da81c71adef78b04e884f00104c9213110dd95fdb61ad7f2496f765e071362a1c951b20b6e6f03f4dc718c1e')
+b2sums=('372a48f20b5b04a23ea0c43ee8b4364f51f4223e61abf4b4375721c1fe20662419ec0d06bf1a980ce3b2bfadb24de3f5543c7cda87778df49043c355d65fcf6d')
 
 prepare() {
   # Disable the check that adds -no-pie to LINKFLAGS, for gcc != 6
@@ -38,11 +38,11 @@ build() {
   cd $pkgname-$pkgver-stable
   export BUILD_NAME=arch_linux
   scons -j16 \
-    system_certs_path=/etc/ssl/certs/ca-certificates.crt \
     bits=64 \
     colored=yes \
     platform=x11 \
     pulseaudio=yes \
+    system_certs_path=/etc/ssl/certs/ca-certificates.crt \
     target=release_debug \
     tools=yes \
     use_llvm=no \
@@ -54,7 +54,8 @@ build() {
 
 package() {
   cd $pkgname-$pkgver-stable
-  install -Dm644 misc/dist/linux/org.godotengine.Godot.desktop "$pkgdir/usr/share/applications/godot.desktop"
+  install -Dm644 misc/dist/linux/org.godotengine.Godot.desktop \
+    "$pkgdir/usr/share/applications/godot.desktop"
   install -Dm644 icon.svg "$pkgdir/usr/share/pixmaps/godot.svg"
   install -Dm755 bin/godot.x11.opt.tools.64 "$pkgdir/usr/bin/$pkgname"
   install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/godot/LICENSE"
