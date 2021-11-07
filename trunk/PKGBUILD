@@ -39,10 +39,9 @@ build() {
 check() {
   cd typing/typing_extensions
 
-  mkdir -p temp
-  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
-  python setup.py install --root=temp --optimize=1 --skip-build
-  PYTHONPATH="${PWD}/temp/${site_packages}" python src_py3/test_typing_extensions.py
+  python -m venv --system-site-packages test-env
+  test-env/bin/python setup.py install --optimize=1 --skip-build
+  test-env/bin/python src_py3/test_typing_extensions.py
 }
 
 package() {
