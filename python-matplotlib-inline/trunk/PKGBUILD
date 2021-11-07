@@ -25,7 +25,7 @@ build() {
 check() {
   cd $_name-$pkgver
   python -m venv --system-site-packages test-env
-  test-env/bin/python setup.py install --skip-build
+  test-env/bin/python setup.py install --optimize=1 --skip-build
   test-env/bin/python -c 'from matplotlib_inline.backend_inline import show'
 }
 
