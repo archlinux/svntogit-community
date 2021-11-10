@@ -3,7 +3,7 @@
 
 _pkgname=poetry-core
 pkgname=python-poetry-core
-pkgver=1.0.3
+pkgver=1.0.7
 pkgrel=1
 pkgdesc="Poetry PEP 517 Build Backend & Core Utilities"
 arch=('any')
@@ -15,11 +15,11 @@ makedepends=('python-dephell')
 checkdepends=('git' 'python-pytest' 'python-pytest-mock' 'python-virtualenv')
 conflicts=('python-poetry<1.1.0')
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz")
-sha256sums=('b5a9f8284c685c638796a322ea868843da5e2094c664436e44061e6bcea367ea')
-b2sums=('38f6ffcc0eca97db3de213ca5aca97c0c7d458e317b568094f6b3fdb276ebeae230c831f117d8e39c17757e72d78beed2bf1b3f7f40cab2971bb5882fd27ed85')
+sha256sums=('a4a99d2d0adb54d69acaa6d852bc9d41818b5a2d751aa23a9543e32bc4e6660d')
+b2sums=('570f13e3c7298fd822a38b75c49c623bde4fa780b3787c3c9cfa3939bb68fee3eeaf6190013117a6e751cb6f87a15b343ba183529fcc07d30e37988097954d4a')
 
 prepare() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+    cd ${_pkgname}-${pkgver}
 
     # remove vendored dependencies
     sed -i '/^__version__/!d' poetry/core/__init__.py
@@ -32,13 +32,13 @@ prepare() {
 }
 
 build() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+    cd ${_pkgname}-${pkgver}
 
     python setup.py build
 }
 
 check() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+    cd ${_pkgname}-${pkgver}
 
     # only works inside git repositories
     pytest \
@@ -46,7 +46,7 @@ check() {
 }
 
 package() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+    cd ${_pkgname}-${pkgver}
 
     python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
     install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
