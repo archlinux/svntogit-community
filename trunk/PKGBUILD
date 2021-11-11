@@ -3,7 +3,7 @@
 # Contributor: Peter Baldwin <bald_pete@hotmail.com>
 
 pkgname=python-jinja
-pkgver=3.0.2
+pkgver=3.0.3
 pkgrel=1
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
@@ -13,7 +13,7 @@ depends=('python-setuptools' 'python-markupsafe')
 optdepends=('python-babel: for i18n support')
 checkdepends=('python-pytest')
 source=(https://files.pythonhosted.org/packages/source/J/Jinja2/Jinja2-$pkgver.tar.gz)
-sha256sums=('827a0e32839ab1600d4eb1c4c33ec5a8edfbc5cb42dafa13b81f182f97784b45')
+sha256sums=('611bb273cd68f3b993fabdc4064fc858c5b47a973cb5aa7999ec1ba405c87cd7')
 
 build() {
   cd Jinja2-$pkgver
@@ -26,6 +26,8 @@ check() {
   PYTHONPATH=build/lib pytest \
     --deselect tests/test_loader.py::test_package_dir_list \
     --deselect tests/test_loader.py::test_package_dir_source \
+    --deselect tests/test_loader.py::test_package_file_list \
+    --deselect tests/test_loader.py::test_package_file_source \
     --deselect tests/test_loader.py::test_package_zip_list \
     --deselect tests/test_loader.py::test_package_zip_omit_curdir \
     --deselect tests/test_loader.py::test_package_zip_source
