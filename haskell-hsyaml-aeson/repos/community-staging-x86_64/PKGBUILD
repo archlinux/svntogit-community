@@ -1,0 +1,48 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=HsYAML-aeson
+pkgname=haskell-hsyaml-aeson
+pkgver=0.2.0.0
+pkgrel=186
+pkgdesc="JSON to YAML Adapter"
+url="https://github.com/hvr/hsyaml-aeson"
+license=('GPL')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-hsyaml' 'haskell-scientific'
+         'haskell-unordered-containers' 'haskell-vector')
+makedepends=('ghc')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('09da59c38e9fead3b11bbb6752cef803ae2d60392b710ea3958091d6256ff267f0b0f9b27293bbbc96a9d3af08464e463feafcba4a7caab6fd78286127f91527')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/< *4.14/<5/;s/\^>/>/' $_hkgname.cabal
+    echo -e "import Distribution.Simple\nmain = defaultMain" > Setup.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver    
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    rm -f "${pkgdir}/usr/share/doc/${pkgname}/LICENSE.GPLv2"
+}
