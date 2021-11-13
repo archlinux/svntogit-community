@@ -1,0 +1,50 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=dependent-sum-template
+pkgname=haskell-dependent-sum-template
+pkgver=0.1.0.3
+pkgrel=50
+pkgdesc="Template Haskell code to generate instances of classes in dependent-sum package"
+url="https://github.com/obsidiansystems/dependent-sum"
+license=("custom:PublicDomain")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-dependent-sum' 'haskell-th-extras')
+makedepends=('ghc' 'haskell-constraints-extras')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz"
+        ghc9.patch)
+sha256sums=('c8eb17d3fa9966182e041836abefce2e7e42e30d3b01463a254fb7cf806ca4df'
+            '59a2d3b292148ff515dafa7987b3b2533e971884a016d79fbfede894be726f0e')
+
+prepare() {
+  patch -d $_hkgname-$pkgver -p2 < ghc9.patch
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  # Tests are broken: https://github.com/obsidiansystems/dependent-sum/pull/57#issuecomment-865277051
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --disable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  #runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+}
