@@ -1,0 +1,70 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Baptiste Jonglez <baptiste--aur at jonglez dot org>
+
+pkgname=jami-daemon
+pkgver=20211104
+pkgrel=1
+pkgdesc="Free and universal communication platform which preserves the users’ privacy and freedoms (daemon component)"
+arch=(x86_64)
+url="https://jami.net"
+license=(GPL3)
+groups=(jami)
+depends=(glibc opendht asio gnutls nettle libgit2 libsecp256k1 ffmpeg speexdsp
+         fmt yaml-cpp jsoncpp zlib dbus-c++ alsa-lib libpulse jack
+         libupnp libnatpmp openssl webrtc-audio-processing systemd-libs
+         libarchive)
+# portaudio needs a not-yet-upstream patch https://git.jami.net/savoirfairelinux/jami-daemon/-/issues/650
+makedepends=(git cmake perl msgpack-c msgpack-cxx restinio systemd autoconf-archive) # meson
+checkdepends=(cppunit)
+_commit=c28f0af5bce653864c494a4e8c1ad9f74d934945
+_pjprojectver=e1f389d0b905011e0cb62cbdf7a8b37fc1bcde1a
+source=(git+https://git.jami.net/savoirfairelinux/${pkgname}.git#commit=${_commit}
+        https://github.com/savoirfairelinux/pjproject/archive/${_pjprojectver}/pjproject-${_pjprojectver}.tar.gz)
+noextract=(pjproject-${_pjprojectver}.tar.gz)
+sha512sums=(SKIP a1ed0519ddf8dc91f47042497530cbcb1c8736506d0c2b677751a3368c0a202952ff563946664705dbf5806bed8ade784885db62f8278a204f516a4e60917b1e)
+
+prepare() {
+  cd ${pkgname}
+  cp ../pjproject-${_pjprojectver}.tar.gz contrib/tarballs
+  mkdir contrib/native
+  autoreconf -fvi
+}
+
+build() {
+  cd ${pkgname}/contrib/native
+  ../bootstrap \
+      --disable-downloads \
+      --disable-all \
+      --enable-pjproject
+  make DEPS_pjproject=
+
+  cd ../..
+  ./configure \
+    --prefix=/usr \
+    --sbindir=/usr/bin \
+    --libexecdir=/usr/lib \
+    --sysconfdir=/etc
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make
+
+# https://git.jami.net/savoirfairelinux/jami-daemon/-/issues/651
+  #cd "${srcdir}"
+  #export PATH="$PATH:${PWD}/${pgname}/contrib/$(cc -dumpmachine)/bin"
+  #arch-meson ${pkgname} build -D interfaces=library,dbus -D opensl=disabled -D portaudio=disabled -D tests=false \
+  #                            -D pkg_config_path="${PWD}/${pkgname}/contrib/$(cc -dumpmachine)/lib/pkgconfig"
+  #meson compile -C build
+}
+
+#check() {
+# https://git.jami.net/savoirfairelinux/jami-daemon/-/issues/651
+#  cd ${pkgname}
+#  make -k check
+# https://git.jami.net/savoirfairelinux/jami-daemon/-/issues/649
+#  meson test -C build --print-errorlogs
+#}
+
+package() {
+  cd ${pkgname}
+  make DESTDIR="${pkgdir}" install
+  #meson install -C build --destdir "${pkgdir}"
+}
