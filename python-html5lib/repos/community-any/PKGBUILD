@@ -6,14 +6,14 @@
 pkgbase=python-html5lib
 pkgname=('python2-html5lib' 'python-html5lib')
 pkgver=1.1
-pkgrel=7
+pkgrel=8
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
 _deps=('six' 'webencodings')
 makedepends=('python-setuptools' 'python2-setuptools' "${_deps[@]/#/python-}" "${_deps[@]/#/python2-}")
 _checkdeps=('pytest' 'pytest-expect' 'mock')
-checkdepends=("${_checkdeps[@]/#/python-}" 'python-lxml' "${_checkdeps[@]/#/python2-}")
+checkdepends=("${_checkdeps[@]/#/python-}" 'python-lxml')
 _test_commit=71eebd59772d1d39aced0c0582ae9c09acf3ce6e
 source=("$pkgbase-$pkgver.tar.gz::https://github.com/html5lib/html5lib-python/archive/${pkgver}.tar.gz"
         "https://github.com/html5lib/html5lib-python/commit/2c19b9899ab3a3e8bd0ca35e5d78544334204169.patch"
@@ -43,7 +43,6 @@ check() {
     cd "${srcdir}"/html5lib-python-${pkgver}
 
     py.test
-    py.test2 -m 'not lxml'
 }
 
 package_python-html5lib() {
