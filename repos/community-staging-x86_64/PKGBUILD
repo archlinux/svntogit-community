@@ -1,0 +1,48 @@
+# Maintainer: Sergej Pupykin <arch+pub@sergej.pp.ru>
+
+_hkgname=haddock-library
+pkgname=haskell-haddock-library
+pkgver=1.10.0
+pkgrel=60
+pkgdesc="A documentation-generation tool for Haskell libraries"
+url="https://www.haskell.org/haddock/"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs')
+makedepends=('ghc' 'uusi' 'haskell-base-compat' 'haskell-hspec' 'haskell-hspec-discover'
+             'haskell-quickcheck' 'haskell-optparse-applicative' 'haskell-tree-diff')
+source=("https://hackage.haskell.org/packages/archive/haddock-library/${pkgver}/haddock-library-${pkgver}.tar.gz")
+sha512sums=('dac536a2b8e2764de1a1b1a16fc328e15455656c2992fb3b3bccdeae2bb6ac81fe94e164aa2a70cff7cea3b97347b8510aadb5fa1c0564bb2429947f0aace0d1')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    uusi -u tree-diff -u QuickCheck -u hspec -u optparse-applicative $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
