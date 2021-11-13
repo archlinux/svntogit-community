@@ -1,0 +1,56 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=citeproc
+pkgname=haskell-citeproc
+pkgver=0.4.1
+pkgrel=38
+pkgdesc="Generates citations and bibliography from CSL styles."
+url="https://github.com/jgm/citeproc"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-aeson-pretty' 'haskell-attoparsec'
+         'haskell-case-insensitive' 'haskell-data-default' 'haskell-file-embed'
+         'haskell-pandoc-types' 'haskell-safe' 'haskell-scientific' 'haskell-text-icu'
+         'haskell-unicode-collation' 'haskell-uniplate' 'haskell-vector' 'haskell-xml-conduit')
+makedepends=('ghc' 'uusi' 'haskell-diff' 'haskell-timeit')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz"
+        icu-shifted.patch::https://github.com/jgm/citeproc/commit/50d14d938c883a8835550933df4004050b0b3902.patch)
+sha512sums=('64a62485d322e3032b1d7754c40ae37c9decb0e1cc4446352ecaa80552bf4673447cebc09a2e8756063923231d2f623925b3d5ec07bd64e23ccd18c72703eb15'
+            'd05f2d86e71d166a66cc85e40f0ff34b1e0216abaece76b2200823c22f4d9d1fc72549a9c14e4999a0d8cf8d4fb2cfd184573e5298c13266c5168bc56ba59674')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  patch -p1 -i ../icu-shifted.patch
+  gen-setup
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' -fexecutable -ficu
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
