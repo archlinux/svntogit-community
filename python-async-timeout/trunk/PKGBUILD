@@ -6,7 +6,7 @@
 _pkgname=async-timeout
 pkgname=python-async-timeout
 pkgver=4.0.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Asyncio-compatible timeout class'
 url='https://github.com/aio-libs/async-timeout'
 arch=('any')
@@ -25,8 +25,7 @@ build() {
 
 check() {
   cd ${_pkgname}-${pkgver}
-  # requires latest aiohttp which requires async-timeout
-  # PYTHONPATH=. py.test tests
+  PYTHONPATH=. py.test tests
 }
 
 
