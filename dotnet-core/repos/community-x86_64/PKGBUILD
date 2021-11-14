@@ -14,7 +14,7 @@ pkgname=(
  aspnet-targeting-pack
 )
 pkgver=6.0.0.sdk100
-pkgrel=1
+pkgrel=2
 _bootstrapver=0.1.0-6.0.100-bootstrap.29
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -87,10 +87,7 @@ build() {
   cd dotnet-installer
   ./build.sh \
     /p:ArcadeBuildTarball=true \
-    /p:BuildPortableRuntime=false \
-    /p:BuildPortableSdk=false \
-    /p:TarballDir="${srcdir}"/sources \
-    /p:UseSystemLibraries=true
+    /p:TarballDir="${srcdir}"/sources
   cd ../sources
   pushd src/runtime.*
   patch -Np1 -i ../../../dotnet-core-runtime-disable-package-validation.patch
@@ -176,7 +173,7 @@ package_dotnet-sdk() {
   cd sources/artifacts/x64/Release
 
   install -dm 755 "${pkgdir}"/usr/share/{dotnet,licenses}
-  bsdtar -xf dotnet-sdk-${pkgver%.*.sdk*}.${pkgver#*sdk}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner sdk templates
+  bsdtar -xf dotnet-sdk-${pkgver%.*.sdk*}.${pkgver#*sdk}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/dotnet/ --no-same-owner sdk sdk-manifests templates
   ln -s dotnet-host "${pkgdir}"/usr/share/licenses/dotnet-sdk
 }
 
