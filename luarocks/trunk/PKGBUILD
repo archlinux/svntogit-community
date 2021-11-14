@@ -4,7 +4,7 @@
 # Contributor: Geoffroy Carrier <geoffroy@archlinux.org>
 
 pkgname=luarocks
-pkgver=3.7.0
+pkgver=3.8.0
 pkgrel=1
 pkgdesc='Deployment and management system for Lua modules'
 backup=(etc/luarocks/config-5.{1,2,3,4}.lua)
@@ -30,7 +30,7 @@ source=("https://luarocks.org/releases/$pkgname-$pkgver.tar.gz"{,.asc}
         "luarocks-admin.bash"
         "luarocks-admin.fish"
         "luarocks-admin.zsh")
-sha512sums=('cc3c555c488da9f95a118eedb74cb9e2a38b572e172958843dabebce125524e58a13ac65e89a349deb8fef13b6de751074fc3adbb430ab55d4e4109288119153'
+sha512sums=('6c30884c60da57706228a9870f510a1bce435b2d5d67c63c5f2958b152c7a2b334bd74a016995871e3b05b98374f4c4e008993ede81f9fc564980e183bdf06b2'
             'SKIP'
             'cd90cba877c0dd435b44328a0869e3102c52eb36ed5b764c3ee8a78de95772fe094419dc032db2e2c91d9a0aa35ab7c6e8a13e29b9feeb3a3172d7a129d005c0'
             '25b2303f39ecf8e6ce44bd6c9f59d322eb748eea89e4ca31991fe36eae46949062bd4d3c876de488b4dd7354fcb0531b5e29454dec99a7f981f3dc857776d2bb'
