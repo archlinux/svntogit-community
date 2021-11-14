@@ -1,10 +1,11 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Jonas Witschel <diabonas@archlinux.org>
 # Contributor: Philipp A. <flying-sheep@web.de>
 
 _pkgname=aiohttp
 pkgname=python-aiohttp
-_gitcommit=208a4eb6dbf5373d9f5a9f18efac839a6448eadc
-pkgver=3.8.0
+_gitcommit=cc6dc0c49f5d002485f9a3cdf9bc3127a3ac1388
+pkgver=3.8.1
 pkgrel=1
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
