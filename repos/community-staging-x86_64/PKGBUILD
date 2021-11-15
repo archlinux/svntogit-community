@@ -1,0 +1,56 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=hledger-web
+pkgver=1.22.2
+pkgrel=52
+pkgdesc="Web-based user interface for the hledger accounting system"
+url="http://hledger.org"
+license=("GPL")
+arch=('x86_64')
+depends=('ghc-libs' 'hledger' 'haskell-hledger-lib' 'haskell-aeson' 'haskell-blaze-html'
+         'haskell-blaze-markup' 'haskell-case-insensitive' 'haskell-clientsession'
+         'haskell-cmdargs' 'haskell-conduit' 'haskell-conduit-extra' 'haskell-data-default'
+         'haskell-decimal' 'haskell-extra' 'haskell-hjsmin' 'haskell-hspec' 'haskell-http-conduit'
+         'haskell-http-client' 'haskell-http-types' 'haskell-megaparsec' 'haskell-network'
+         'haskell-shakespeare' 'haskell-unix-compat' 'haskell-unordered-containers'
+         'haskell-utf8-string' 'haskell-wai' 'haskell-wai-cors' 'haskell-wai-extra'
+         'haskell-wai-handler-launch' 'haskell-warp' 'haskell-yesod' 'haskell-yesod-core'
+         'haskell-yesod-form' 'haskell-yesod-static' 'haskell-yesod-test')
+makedepends=('ghc' 'uusi')
+replaces=('hledger-api')
+source=("https://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('48fed07556b4756c12ff303362e3ad042da00b34b59835d447f8a97dc6d63996a823613ccff0059fea33f58d3fed43546b0e6c13345e5c9936a48305e64369ca')
+
+prepare() {
+    cd $pkgname-$pkgver
+    uusi -u megaparsec $pkgname.cabal
+}
+
+build() {
+    cd $pkgname-$pkgver
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/$pkgname" --datasubdir="$pkgname" --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-dev -f-library-only -fthreaded
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $pkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $pkgname-$pkgver
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+
+    install -Dm644 hledger-web.1 -t "$pkgdir"/usr/share/man/man1/
+}
