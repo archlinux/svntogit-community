@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-eval-plugin
+pkgname=haskell-hls-eval-plugin
+pkgver=1.1.2.0
+pkgrel=20
+pkgdesc="Eval plugin for Haskell Language Server"
+url="https://github.com/haskell/haskell-language-server"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-diff' 'haskell-quickcheck' 'haskell-aeson' 'haskell-dlist'
+         'haskell-extra' 'haskell-ghc' 'haskell-ghc-api-compat' 'haskell-ghc-paths' 'haskell-ghcide'
+         'haskell-hashable' 'haskell-hls-plugin-api' 'haskell-lens' 'haskell-lsp'
+         'haskell-lsp-types' 'haskell-megaparsec' 'haskell-parser-combinators'
+         'haskell-pretty-simple' 'haskell-safe-exceptions' 'haskell-temporary' 'haskell-unliftio'
+         'haskell-unordered-containers')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils')
+checkdepends=('git')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('8597144404060b56aa84d2a6549306924de6aa99ff8fa121f0a3e6fbf2facc979e36dc9304fd041833201044f59e1745574eb1a1e3459b22baf0fae3f40d96e1')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -u ghc-api-compat $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  # https://github.com/haskell/haskell-language-server/issues/1809
+  runhaskell Setup test --show-details=direct || echo "Tests failed"
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
