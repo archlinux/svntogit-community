@@ -1,0 +1,56 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=servant-client
+pkgname=haskell-servant-client
+pkgver=0.18.3
+pkgrel=49
+pkgdesc="Automatic derivation of querying functions for servant"
+url="http://docs.servant.dev/"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-base-compat' 'haskell-http-client' 'haskell-http-media'
+         'haskell-http-types' 'haskell-kan-extensions' 'haskell-monad-control'
+         'haskell-semigroupoids' 'haskell-servant' 'haskell-servant-client-core'
+         'haskell-transformers-base' 'haskell-transformers-compat')
+makedepends=('ghc' 'uusi' 'haskell-hunit' 'haskell-quickcheck' 'haskell-aeson' 'haskell-entropy'
+             'haskell-hspec' 'haskell-hspec-discover' 'haskell-http-api-data'
+             'haskell-markdown-unlit' 'haskell-network' 'haskell-servant-server' 'haskell-sop-core'
+             'haskell-tdigest' 'haskell-wai' 'haskell-warp')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('d05f8d35ea397cfabafe0ee74314d5411d98c98093b095ed1ce7077a6d052d59f32785e0667930cf0a6763eebfc4da0deaee032ba73550597971348096617de2')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -u transformers-compat $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
