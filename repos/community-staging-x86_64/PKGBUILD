@@ -1,0 +1,44 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=misfortune
+pkgver=0.1.1.2
+pkgrel=96
+pkgdesc="fortune-mod clone"
+url="https://github.com/mokus0/misfortune"
+license=("custom:PublicDomain")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-cereal' 'haskell-knob' 'haskell-monad-loops' 'haskell-random-fu'
+         'haskell-regex-base' 'haskell-regex-pcre' 'haskell-utf8-string'
+         'haskell-vector')
+makedepends=('ghc')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('ae4b44215f811e7af6af756c813b9bd6e4161be555f30dd817324f8d1ffe2349')
+
+prepare() {
+  cd $pkgname-$pkgver
+  sed -i '/semigroups/d' $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+}
