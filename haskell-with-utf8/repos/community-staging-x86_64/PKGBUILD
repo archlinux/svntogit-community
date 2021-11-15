@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=with-utf8
+pkgname=haskell-with-utf8
+pkgver=1.0.2.2
+pkgrel=61
+pkgdesc="Get your IO right on the first try"
+url="https://github.com/serokell/haskell-with-utf8#readme"
+license=("MPL2")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-safe-exceptions' 'haskell-th-env')
+makedepends=('ghc' 'uusi' 'haskell-hunit' 'haskell-hedgehog' 'haskell-tasty' 'haskell-tasty-discover'
+             'haskell-tasty-hedgehog' 'haskell-tasty-hunit' 'haskell-temporary')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('bbca524e926a248be562f8ddfbccd296f286e0cf58d4358fd1cb6fc5f7fa8f5f7f79252323e0ee9496f63ad6e709d4133970e9e1919586c7dadf97d47e6da025')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -u base $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSES/MPL-2.0.txt
+}
