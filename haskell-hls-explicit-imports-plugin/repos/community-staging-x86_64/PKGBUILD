@@ -1,0 +1,47 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-explicit-imports-plugin
+pkgname=haskell-hls-explicit-imports-plugin
+pkgver=1.0.1.0
+pkgrel=19
+pkgdesc="Explicit imports plugin for Haskell Language Server"
+url="https://hackage.haskell.org/package/hls-explicit-imports-plugin"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-ghc' 'haskell-ghc-api-compat' 'haskell-ghcide'
+         'haskell-hls-graph' 'haskell-hls-plugin-api' 'haskell-lsp' 'haskell-unordered-containers')
+makedepends=('ghc' 'uusi')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('7691ecc341fb511e51ccb6c1f67cd6f3c908f771b62423d7713d05bf13893b7ac53ae9c453ab8b6ca227ed8c9b42191cd30b9745b57f00c51f3f3646954955b8')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -u ghc-api-compat $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
