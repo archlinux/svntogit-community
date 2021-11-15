@@ -1,0 +1,68 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: berberman <hatsue@typed.icu>
+
+pkgname=arch-hs
+pkgver=0.9.1.0
+pkgrel=58
+pkgdesc="Distribute hackage packages to archlinux"
+arch=('x86_64')
+url="https://github.com/berberman/arch-hs"
+license=('MIT')
+depends=('ghc-libs' 'pacman' 'haskell-diff' 'haskell-aeson' 'haskell-algebraic-graphs'
+         'haskell-arch-web' 'haskell-conduit' 'haskell-conduit-extra' 'haskell-hackage-db'
+         'haskell-http-client' 'haskell-http-client-tls' 'haskell-megaparsec' 'haskell-microlens'
+         'haskell-microlens-th' 'haskell-neat-interpolation' 'haskell-optparse-simple'
+         'haskell-polysemy' 'haskell-prettyprinter' 'haskell-prettyprinter-ansi-terminal'
+         'haskell-servant-client' 'haskell-split' 'haskell-tar-conduit')
+makedepends=('ghc' 'uusi')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('aa7b011dd2753b596df53f4adce4a131ef42fffe37eb5bfd815678b1d34bc87f83f1af36a9fc9db34b5c7d5b68e48120bab7abedfe92e0cc7530feba91c04f83')
+
+_gen_comp(){
+  LD_LIBRARY_PATH="$PWD/dist/build" dist/build/arch-hs${1}/arch-hs${1} --bash-completion-script "/usr/bin/arch-hs${1}" > bash${1}
+  LD_LIBRARY_PATH="$PWD/dist/build" dist/build/arch-hs${1}/arch-hs${1} --zsh-completion-script  "/usr/bin/arch-hs${1}" > zsh${1}
+  LD_LIBRARY_PATH="$PWD/dist/build" dist/build/arch-hs${1}/arch-hs${1} --fish-completion-script "/usr/bin/arch-hs${1}" > fish${1}
+}
+
+_install_comp(){
+  install -D -m644 bash${1} "$pkgdir/usr/share/bash-completion/completions/arch-hs${1}"
+  install -D -m644 zsh${1}  "$pkgdir/usr/share/zsh/site-functions/_arch-hs${1}"
+  install -D -m644 fish${1} "$pkgdir/usr/share/fish/vendor_completions.d/arch-hs${1}.fish"
+}
+
+prepare() {
+  cd $pkgname-$pkgver
+  uusi -u megaparsec $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' -falpm
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+  
+  _gen_comp
+  _gen_comp "-diff"
+  _gen_comp "-sync"
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+  
+  _install_comp
+  _install_comp "-diff"
+  _install_comp "-sync"
+} 
