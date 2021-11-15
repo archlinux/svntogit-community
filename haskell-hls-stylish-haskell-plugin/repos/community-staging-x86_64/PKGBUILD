@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-stylish-haskell-plugin
+pkgname=haskell-hls-stylish-haskell-plugin
+pkgver=1.0.0.2
+pkgrel=19
+pkgdesc="Integration with the Stylish Haskell code formatter"
+url="https://hackage.haskell.org/package/hls-stylish-haskell-plugin"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-ghc' 'haskell-ghc-api-compat' 'haskell-ghcide' 'haskell-hls-plugin-api'
+         'haskell-lsp-types' 'stylish-haskell')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils')
+checkdepends=('git')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('d850d4be6cc746b6279512bb359efda197aeebd467a59a21670f3b95977c6ba086852dedde3c48171f0cff8405c8e340dea44fe3e187e4731a06eb112502ad9c')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -r ghc:ghc,ghc-api-compat $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
