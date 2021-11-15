@@ -1,0 +1,50 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=mustache
+pkgname=haskell-mustache
+pkgver=2.3.1
+pkgrel=386
+pkgdesc="A mustache template parser library."
+url="https://github.com/JustusAdam/mustache"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-either' 'haskell-unordered-containers' 'haskell-vector'
+         'haskell-scientific' 'haskell-th-lift' 'haskell-cmdargs' 'haskell-yaml')
+makedepends=('ghc' 'haskell-hspec' 'haskell-base-unicode-symbols' 'haskell-wreq' 'haskell-zlib'
+             'haskell-tar' 'haskell-lens' 'haskell-temporary')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz
+        ghc9.patch)
+sha512sums=('162360cb635d40086721d4dd350036884207679b240d30420b9fc71eebef847e542bd143275931a22a42c583d513d0c906a6b112d780824dc189ad07e3027aa3'
+            'bb1a1df1ce2972998b65014a020dcab8467a89325a332df4b842881f11f3263f9720167c958b4164061443db44ea2bea82de07fcc57be90120e75d0eaca0c649')
+
+prepare() {
+    patch -d $_hkgname-$pkgver -p1 < ghc9.patch
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
