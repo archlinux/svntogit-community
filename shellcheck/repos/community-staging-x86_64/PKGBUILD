@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=ShellCheck
+pkgname=shellcheck
+pkgver=0.7.2
+pkgrel=104
+pkgdesc="Shell script analysis tool"
+url="https://www.shellcheck.net"
+license=("GPL")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-diff' 'haskell-quickcheck' 'haskell-regex-tdfa')
+makedepends=('ghc' 'pandoc' 'uusi')
+source=("$_hkgname-$pkgver.tar.gz::https://github.com/koalaman/shellcheck/archive/v$pkgver.tar.gz")
+sha512sums=('87b7377add4ce37766f9fd812cd9bf03097c9ba452b646e7ae1dc65946a7210c9d24d8c83b4be4146a0f100aff5bc9a3a562b3990c74f1c29ee191e249f97714')
+
+prepare() {
+    cd $pkgname-$pkgver
+    gen-setup
+}
+
+build() {
+    cd $pkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+        --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+
+    ./manpage
+}
+
+check() {
+    cd $pkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $pkgname-$pkgver
+
+    install -D -m644 ${pkgname}.1   "${pkgdir}/usr/share/man/man1/${pkgname}.1"
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
