@@ -6,7 +6,7 @@ _pkgname=aiohttp
 pkgname=python-aiohttp
 _gitcommit=cc6dc0c49f5d002485f9a3cdf9bc3127a3ac1388
 pkgver=3.8.1
-pkgrel=1
+pkgrel=2
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
 arch=('x86_64')
@@ -58,7 +58,7 @@ check() {
 
   # Without --pythonwarnings=default, the test suite does not even start due to
   # an unrelated DeprecationWarning from python-packaging
-  PYTHONPATH="$PWD/build/lib.linux-$CARCH-${_python_version}" pytest --pythonwarnings=default
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/build/lib.linux-$CARCH-${_python_version}" pytest --pythonwarnings=default
 }
 
 package() {
