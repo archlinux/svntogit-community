@@ -1,0 +1,111 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Khorne <khorne AT khorne DOT me>
+
+pkgbase=drone
+pkgname=(
+  'drone'
+  'drone-oss'
+)
+pkgver=2.5.0
+pkgrel=1
+pkgdesc="Continuous Delivery platform built on container technology"
+arch=('x86_64')
+url="https://drone.io"
+makedepends=('go' 'git')
+source=(
+  "$pkgbase-$pkgver.tar.gz::https://github.com/drone/drone/archive/v$pkgver.tar.gz"
+  'systemd.service'
+  'tmpfiles.conf'
+  'sysusers.conf'
+)
+sha512sums=('b9c28f93e06d7da73a4481cebdd6613f46dcb6615d0430ce5e3db7ca1b141b288c9b0fd6e064d6c8fd59ca8f7e0478b7b0dc23f92822e1b4de37df2304356e6e'
+            '51f274d1edf1f8ee127cb84ca420c32de1e5c0a8a2363b4221034be430a1c93a7517deb997fddade4988b90735b2fbe50ce450058510e1dd64944ee18a96af49'
+            'dfdc522b0e17f6b68d86f6599020bc75328de84aa1a393c53a0edc5ed229fb6ef99a0b544eebca6f9eee1b9f2ce04906bcca105792bccf2e49cdd51f10026886'
+            '9488ba861487ecaf96e6b39afc3aeabd0951b9c0ee552cdb552d12f08f73cdcf2c57e5a322139f34e0aa5b2c9b2f5751f08bf66dca2bd8dd041b60b96e41c710')
+b2sums=('9e1d6ee9de56cbba9772c23f5b680c66d0c88d10444a701b54bf088bc757b063fc746d03506fe4d31840158f1d162336cb9064f5ec5b41247fdcede37ce028a1'
+        'e7bec2be6fc60c36e8c880dcedffde8ec7d0c1b5cbe0fef07526221b48820314f69a8282f341478a89711216b91b58114c0e7e1270d941bc7bd175f952837452'
+        '9c1bf8e4a382190f2d1bd560ef5c4a9fadad8c38dcd3cf3b79af42f6d0c16de533ba2d5f6cf676003e4ca6b745833e5e100baf4328111cf540ac5f43f67c6145'
+        '18e5c4ea19348479dc3408bd2546f324f0908acc759c7c79c350006c6c5e6db02cd388a9aa9bd3d4f6b4b1f2efcf6aa7f7e67eac43f8d55566afe341b7ec142e')
+
+prepare() {
+  cd "$pkgbase-$pkgver"
+
+  # create directory for build output
+  mkdir build build-oss
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgbase-$pkgver"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  # enterprise version
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\"" \
+    -o build \
+    ./cmd/...
+
+  # community version
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\"" \
+    -tags "oss nolimit" \
+    -o build-oss \
+    ./cmd/...
+}
+
+check() {
+  cd "$pkgbase-$pkgver"
+  go test -v ./...
+}
+
+package_drone() {
+  pkgdesc+=" (Enterprise Edition)"
+  license=('custom:Drone-Non-Commercial')
+  # ref: https://discourse.drone.io/t/exec-runner-404-error-on-ping/7922
+  depends=('glibc')
+  conflicts=('drone-oss')
+
+  # systemd integration
+  install -vDm644 systemd.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  cd "$pkgbase-$pkgver"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/*
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE NOTICE
+}
+
+package_drone-oss() {
+  pkgdesc+=" (Community Edition)"
+  license=('Apache')
+  depends=('glibc' 'docker')
+  conflicts=('drone')
+
+  # systemd integration
+  install -vDm644 systemd.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  cd "$pkgbase-$pkgver"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build-oss/*
+}
