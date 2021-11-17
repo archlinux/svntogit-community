@@ -1,4 +1,5 @@
 # Maintainer: Kyle Keen <keenerd@gmail.com>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
 # Contributor: Angel Velasquez <angvp@archlinux.org>
 # Contributor: Andrew Antle <andrew dot antle at gmail dot com>
 # Contributor: Thomas Dziedzic < gostrc at gmail >
@@ -6,7 +7,7 @@
 
 pkgname=python-markdown
 _pkgbasename=Markdown
-pkgver=3.3.5
+pkgver=3.3.6
 pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
@@ -16,22 +17,22 @@ depends=('python-importlib-metadata')
 makedepends=('python-setuptools')
 checkdepends=('python-yaml')
 source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
-sha256sums=('26e9546bfbcde5fcd072bd8f612c9c1b6e2677cb8aadbdf65206674f46dde069')
+sha256sums=('76df8ae32294ec39dcf89340382882dfa12975f87f45c3ed1ecdb1e8cefc7006')
 
 build() {
-  cd "$srcdir/$_pkgbasename-$pkgver"
+  cd "$_pkgbasename-$pkgver"
   python setup.py build
 }
 
 check() {
-  cd "$srcdir/$_pkgbasename-$pkgver"
+  cd "$_pkgbasename-$pkgver"
   [[ $(python -c "import markdown; print(markdown.version)") == "$pkgver" ]]
   [[ $(python -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
   python -m unittest discover tests
 }
 
 package() {
-  cd "$srcdir/$_pkgbasename-$pkgver"
-  python3 setup.py install --root="$pkgdir" --optimize=0
+  cd "$_pkgbasename-$pkgver"
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
   install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/python-markdown/LICENSE"
 }
