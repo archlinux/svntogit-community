@@ -1,30 +1,32 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-pkgname=lsp-plugins
+pkgbase=lsp-plugins
+pkgname=(lsp-plugins lsp-plugins-docs)
 pkgver=1.1.30
-pkgrel=1
+pkgrel=2
 pkgdesc="Collection of free plugins compatible with LADSPA, LV2 and LinuxVST"
-arch=('x86_64')
+arch=(x86_64)
 url="https://lsp-plug.in"
-license=('LGPL3')
-groups=('ladspa-plugins' 'lv2-plugins' 'pro-audio' 'vst-plugins')
-depends=('cairo' 'gcc-libs' 'glibc' 'hicolor-icon-theme' 'libglvnd' 'libx11')
-makedepends=('jack' 'ladspa' 'libsndfile' 'lv2' 'php')
-optdepends=('jack: for standalone applications'
-            'ladspa-host: for LADSPA plugins'
-            'lv2-host: for LV2 plugins'
-            'vst-host: for VST plugins')
-checkdepends=('lv2lint')
+license=(LGPL3)
+makedepends=(cairo gcc-libs glibc hicolor-icon-theme libglvnd libx11 jack ladspa libsndfile lv2 php)
+checkdepends=(lv2lint)
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/sadko4u/${pkgname}/archive/${pkgver}/${pkgver}.tar.gz"
+  "$pkgbase-1.1.30-shared_object_ldflags.patch"
 )
-sha512sums=('fb3d63aa1bd86c716ae912a17ec3ed4c385af7c7c14788e86073e1076aae011962519ec3757f19af9cba9f2a4ee9c484c888935a77cd9a02d1bac3a10dfe17f4')
-b2sums=('d94a0eb5289e5a2a6e925747bee32b59693c54e9ec2fa08c8dde0aff934141d799f3d305f492710c6080385305cd21cdbd85f46aa4736d3d6f472094bb4f811c')
+sha512sums=('fb3d63aa1bd86c716ae912a17ec3ed4c385af7c7c14788e86073e1076aae011962519ec3757f19af9cba9f2a4ee9c484c888935a77cd9a02d1bac3a10dfe17f4'
+            '4ffd405bccf5d86e9c88a8de86da804914fe955ecbfac56b6b323f2ed9a34e9a65bb27357ec9fa13fc3d00c5439efa44d4d60fbf212675aecc4282e5ec920b5c')
+b2sums=('d94a0eb5289e5a2a6e925747bee32b59693c54e9ec2fa08c8dde0aff934141d799f3d305f492710c6080385305cd21cdbd85f46aa4736d3d6f472094bb4f811c'
+        'c63f14733a8c2ff31fc35a532c5572046d002a6ad812988694dc528c77d727a902d8022060b13a4ac93fbe3cbc144c89379c4496f9aa5840b4a3dfc27e9102ac')
+
+prepare() {
+  cd "$pkgbase-$pkgver"
+  patch -Np1 -i ../"$pkgbase-1.1.30-shared_object_ldflags.patch"
+}
 
 build() {
-  cd "$pkgname-$pkgver"
-  make
-  make test
+  make -C "$pkgbase-$pkgver"
+  make -C "$pkgbase-$pkgver" test
 }
 
 check() {
@@ -67,25 +69,46 @@ check() {
   'surge_filter_stereo' 'trigger_midi_mono' 'trigger_midi_stereo'
   'trigger_mono' 'trigger_stereo')
 
-  cd "$pkgname-$pkgver"
-  ./.test/lsp-plugins-test utest --nofork --debug --verbose
+  (
+    cd "$pkgbase-$pkgver"
+    ./.test/lsp-plugins-test utest --nofork --debug --verbose
+  )
 
-  mkdir -vp test/usr/bin
-  make PREFIX='/usr' \
-       DESTDIR="test" \
-       install_lv2
+  mkdir -vp "$pkgbase-$pkgver/test/usr/bin"
+  make -C "$pkgbase-$pkgver" PREFIX='/usr' DESTDIR="test" install_lv2
   for _plugin in "${_lv2_plugins[@]}"; do
-    lv2lint -Mpack -I "test/usr/lib/lv2/${pkgname}.lv2/" "${_lv2_uri}${_plugin}"
+    lv2lint -Mpack -I "$pkgbase-$pkgver/test/usr/lib/lv2/${pkgname}.lv2/" "${_lv2_uri}${_plugin}"
   done
 }
 
-package() {
-  depends+=('libsndfile.so')
-  cd "$pkgname-$pkgver"
-  make PREFIX='/usr' \
-       DESTDIR="$pkgdir/" \
-       install
-  make PREFIX='/usr' \
-       DESTDIR="$pkgdir/" \
-       install_xdg
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+package_lsp-plugins() {
+  groups=(ladspa-plugins lv2-plugins pro-audio vst-plugins)
+  depends=(cairo gcc-libs glibc hicolor-icon-theme libglvnd libsndfile.so libx11)
+  optdepends=(
+    'jack: for standalone applications'
+    'ladspa-host: for LADSPA plugins'
+    'lsp-plugins-docs: for documentation'
+    'lv2-host: for LV2 plugins'
+    'vst-host: for VST plugins'
+  )
+
+  make -C "$pkgbase-$pkgver" PREFIX='/usr' DESTDIR="$pkgdir/" install
+  make -C "$pkgbase-$pkgver" PREFIX='/usr' DESTDIR="$pkgdir/" install_xdg
+  _pick docs "${pkgdir}/usr/share/doc"
+}
+
+package_lsp-plugins-docs() {
+  pkgdesc+=" (documentation)"
+
+  mv -v docs/* "$pkgdir"
 }
