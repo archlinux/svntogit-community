@@ -4,53 +4,65 @@
 # Contributor: Limao Luo <luolimao+AUR at gmail dot com>
 # Contributor: SpepS <dreamspepser at yahoo dot it>
 
-pkgname=rtaudio
-pkgver=5.1.0
-pkgrel=3
+pkgbase=rtaudio
+pkgname=(rtaudio rtaudio-docs)
+pkgver=5.2.0
+pkgrel=1
 pkgdesc="A set of C++ classes that provide a common API for realtime audio input/output."
-arch=('x86_64')
+arch=(x86_64)
 url="https://www.music.mcgill.ca/~gary/rtaudio/"
 license=('custom:RtAudio')
-depends=('alsa-lib' 'gcc-libs' 'glibc' 'libjack.so' 'libpulse')
-makedepends=('cmake' 'doxygen')
-provides=('librtaudio.so')
+makedepends=(alsa-lib doxygen gcc-libs glibc jack meson libpulse)
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/thestk/${pkgname}/archive/${pkgver}.tar.gz")
-sha512sums=('338a3a14cd4ea665ac7e94a275cb017bffd87cb10eb8ab6784fad320345ee828b8874439edd08c39efa48736edf9aa0622620784adc320473b03a8f81e17fff6')
-
-prepare() {
-  cd "${pkgname}-${pkgver}"
-  # license is in README.md
-  # https://github.com/thestk/rtaudio/issues/197
-  tail -n 25 README.md | sed 's/^\ \ \ \ //g' > LICENSE
-  autoreconf -fi
-}
+sha512sums=('34e78522778db13d95d4465d7c6a808a63b34d4e1bd0b88113b6390f7b192017e405d0d9ac8fbb1151129627688626d17569dc47da420f7b4631892eb1adff11')
+b2sums=('1949885c3cbb2846e083fd25ec06ed5ca716563dd4c121f6985e2487488d88b9ffb62078185fe2f4261083c8c1ed4c3e8502d25614767d70d2ab316d77f51eeb')
 
 build() {
-  cd "${pkgname}-${pkgver}"
-  ./configure --prefix=/usr \
-              --with-alsa \
-              --with-jack \
-              --with-pulse
-  make
-  # python bindings not compatible with python3:
-  # https://github.com/thestk/rtaudio/issues/199
+  local meson_options=(
+    -D core=disabled
+    -D dsound=disabled
+    -D asio=disabled
+    -D wasapi=disabled
+    -D docs=true
+    -D install_docs=true
+  )
+
+  arch-meson ${pkgbase}-${pkgver} build "${meson_options[@]}"
+  meson compile -C build
 }
 
 check() {
-  cd "${pkgname}-${pkgver}"
-  make -C tests -k
+  meson test -C build --print-errorlogs
 }
 
-package() {
-  cd "${pkgname}-${pkgver}"
-  make DESTDIR="${pkgdir}" install
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+package_rtaudio() {
+  provides=(librtaudio.so)
+  depends=(gcc-libs glibc libasound.so libjack.so libpulse.so libpulse-simple.so)
+  optdepends=('rtaudio-docs: for documentation')
+
+  meson install -C build --destdir "$pkgdir"
   # docs
-  install -vDm 644 {README.md,ChangeLog,doc/release.txt} \
+  install -vDm 644 ${pkgbase}-${pkgver}/{README.md,ChangeLog,doc/release.txt} \
     -t "${pkgdir}/usr/share/doc/${pkgname}"
-  # html
-  install -vDm 644 doc/html/* -t "${pkgdir}/usr/share/doc/${pkgname}/html"
-  install -vDm 644 doc/images/* \
-    -t "${pkgdir}/usr/share/doc/${pkgname}/images"
+  _pick docs "${pkgdir}/usr/share/doc"
   # license
-  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -vDm 644 ${pkgbase}-${pkgver}/LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
+
+package_rtaudio-docs() {
+  pkgdesc+=" (documentation)"
+
+  mv -v docs/* "$pkgdir"
+
+  install -vDm 644 ${pkgbase}-${pkgver}/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
