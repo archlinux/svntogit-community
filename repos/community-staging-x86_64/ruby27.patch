@@ -1,0 +1,109 @@
+commit 939e0390baecae6c4d4283c58c48921857ae8183
+Author: Anatol Pomozov <anatol.pomozov@gmail.com>
+Date:   Mon Mar 22 18:23:32 2021 -0700
+
+    Pin sources to ruby2.7 package
+
+diff --git a/Makefile b/Makefile
+index 1d636216c..5ee9fd24f 100644
+--- a/Makefile
++++ b/Makefile
+@@ -253,7 +253,7 @@ race-go: test-go
+ 
+ .PHONY: rspec
+ rspec: build prepare-tests
+-	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
++	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle-2.7 exec rspec
+ 
+ .PHONY: verify
+ verify: check-mod-tidy check-formatting notice-up-to-date check-proto rubocop
+@@ -303,7 +303,7 @@ check-proto: proto no-proto-changes lint-proto
+ 
+ .PHONY: rubocop
+ rubocop: ${SOURCE_DIR}/.ruby-bundle
+-	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel
++	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 exec rubocop --parallel
+ 
+ .PHONY: cover
+ cover: GO_BUILD_TAGS := ${GO_BUILD_TAGS},postgres
+@@ -370,9 +370,9 @@ libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
+ # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
+ # _build. Hence the '../' in front.
+ ${SOURCE_DIR}/.ruby-bundle: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
+-	${Q}cd ${GITALY_RUBY_DIR} && bundle config set --local deployment "${BUNDLE_DEPLOYMENT}"
+-	${Q}cd ${GITALY_RUBY_DIR} && bundle config # for debugging
+-	${Q}cd ${GITALY_RUBY_DIR} && bundle install
++	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 config set --local deployment "${BUNDLE_DEPLOYMENT}"
++	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 config # for debugging
++	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 install
+ 	${Q}touch $@
+ 
+ ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
+diff --git a/_support/generate-proto-ruby b/_support/generate-proto-ruby
+index 6ddb15cbb..bf4bc51f0 100755
+--- a/_support/generate-proto-ruby
++++ b/_support/generate-proto-ruby
+@@ -20,7 +20,7 @@ def main
+     # locations. `protoc` requires this.
+     proto_include_abs = File.absolute_path(File.join('..', PROTO_INCLUDE))
+ 
+-    run!(%W[bundle exec grpc_tools_ruby_protoc -I #{proto_include_abs} --ruby_out=../#{ruby_lib_gitaly} --grpc_out=../#{ruby_lib_gitaly}] + PROTO_FILES)
++    run!(%W[bundle-2.7 exec grpc_tools_ruby_protoc -I #{proto_include_abs} --ruby_out=../#{ruby_lib_gitaly} --grpc_out=../#{ruby_lib_gitaly}] + PROTO_FILES)
+   end
+ 
+   write_ruby_requires
+diff --git a/internal/gitaly/linguist/linguist.go b/internal/gitaly/linguist/linguist.go
+index 42218e32a..c0652292a 100644
+--- a/internal/gitaly/linguist/linguist.go
++++ b/internal/gitaly/linguist/linguist.go
+@@ -81,7 +81,7 @@ func (inst *Instance) Color(language string) string {
+ }
+ 
+ func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
+-	bundle, err := exec.LookPath("bundle")
++	bundle, err := exec.LookPath("bundle-2.7")
+ 	if err != nil {
+ 		return nil, err
+ 	}
+@@ -143,7 +143,7 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
+ 	// We use a symlink because we cannot trust Bundler to not print garbage
+ 	// on its stdout.
+ 	rubyScript := `FileUtils.ln_sf(Bundler.rubygems.find_name('github-linguist').first.full_gem_path, ARGV.first)`
+-	cmd := exec.Command("bundle", "exec", "ruby", "-rfileutils", "-e", rubyScript, linguistPathSymlink.Name())
++	cmd := exec.Command("bundle-2.7", "exec", "ruby-2.7", "-rfileutils", "-e", rubyScript, linguistPathSymlink.Name())
+ 	cmd.Dir = cfg.Ruby.Dir
+ 
+ 	// We have learned that in practice the command we are about to run is a
+diff --git a/internal/gitaly/rubyserver/rubyserver.go b/internal/gitaly/rubyserver/rubyserver.go
+index 6292d1d66..0244056ee 100644
+--- a/internal/gitaly/rubyserver/rubyserver.go
++++ b/internal/gitaly/rubyserver/rubyserver.go
+@@ -129,7 +129,7 @@ func (s *Server) start() error {
+ 		// Use 'ruby-cd' to make sure gitaly-ruby has the same working directory
+ 		// as the current process. This is a hack to sort-of support relative
+ 		// Unix socket paths.
+-		args := []string{"bundle", "exec", "bin/ruby-cd", wd, gitalyRuby, strconv.Itoa(os.Getpid()), socketPath}
++		args := []string{"bundle-2.7", "exec", "bin/ruby-cd", wd, gitalyRuby, strconv.Itoa(os.Getpid()), socketPath}
+ 
+ 		events := make(chan supervisor.Event)
+ 		check := func() error { return ping(socketPath) }
+diff --git a/ruby/bin/gitaly-ruby b/ruby/bin/gitaly-ruby
+index d37352945..7f096fa33 100755
+--- a/ruby/bin/gitaly-ruby
++++ b/ruby/bin/gitaly-ruby
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env ruby
++#!/usr/bin/env ruby-2.7
+ 
+ # Gitaly always spawns this executable with LANG=en_US.UTF-8. In case the
+ # system doesn't have this local, Ruby will fall back to the C locale and as a
+diff --git a/ruby/bin/ruby-cd b/ruby/bin/ruby-cd
+index 9c60fcd42..15f0cb05a 100755
+--- a/ruby/bin/ruby-cd
++++ b/ruby/bin/ruby-cd
+@@ -1,4 +1,4 @@
+-#!/usr/bin/env ruby
++#!/usr/bin/env ruby-2.7
+ 
+ # This script lets you run `bundle exec` in one directory, and then changes into another.
+ 
