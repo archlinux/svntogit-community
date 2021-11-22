@@ -1,0 +1,52 @@
+# Maintainer: George Rawlinson <george@rawlinson.net.nz>
+# Maintainer: Thore Bödecker <foxxx0@archlinux.org>
+
+# This must be built against the version of dovecot being used,
+# otherwise it will fail to load and thus work.
+# Specify the version of dovecot to be used here:
+_dcpkgver=2.3.16
+# Make sure to bump pkgrel if changing this.
+
+pkgname=dovecot-fts-xapian
+_pkgname="${pkgname#dovecot-}"
+pkgver=1.5.1
+pkgrel=2
+pkgdesc="Dovecot FTS plugin based on Xapian"
+arch=('x86_64')
+url="https://github.com/grosjo/fts-xapian"
+license=('LGPL2.1')
+depends=("dovecot=${_dcpkgver}" 'icu' 'xapian-core')
+install="$pkgname.install"
+source=("$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz")
+sha512sums=('ad5512ea703a49d0dffe3a18ff890570650019831c9742a3db2d5c58bb9d4254e0709e7abe5cd9d80c991a3ce621eb9e8fcc89a27b4af7f569238821a684d7cd')
+b2sums=('e1121e2842ec486f0161206e1928098cc4d402704e72dbe1740210bd49e4bf4c1e9b0b4f60156a5c2afb6fe624deb8e0fc1e9e2263281a2c713a71492d889df6')
+
+build() {
+  cd "$_pkgname-$pkgver"
+  autoreconf -vi
+  ./configure \
+    --prefix=/usr \
+    --with-dovecot=/usr/lib/dovecot
+
+  make
+
+  # generate systemd unit files
+  mkdir build
+  sed "s:@@prefix@@:/usr/bin:" contrib/systemd/dovecot-fts-optimize.service.in \
+    > build/dovecot-fts-optimize.service
+  sed "s:@@index_frequency@@:daily:" contrib/systemd/dovecot-fts-optimize.timer.in \
+    > build/dovecot-fts-optimize.timer
+}
+
+package() {
+  cd "$_pkgname-$pkgver"
+
+  make DESTDIR="$pkgdir" install
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # systemd integration
+  install -vDm644 -t "$pkgdir/usr/lib/systemd/system" \
+    build/dovecot-fts-optimize.{service,timer}
+}
