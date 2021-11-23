@@ -1,8 +1,30 @@
+From ef095d953b7632654dcd93aa3151508dfefa22d3 Mon Sep 17 00:00:00 2001
+From: Konstantin Gizdov <kgizdov@gmail.com>
+Date: Thu, 11 Nov 2021 01:57:36 +0200
+Subject: [PATCH] backport 'address some -Wnonnull issue and follow-up
+ improvements' to v6-24-00-patches
+
+RooFit::HistFactory::ConfigParser: fix null dereferences, improve logic, modernise, fix some edge cases, optimise performance
+RooAddModel: fix null dereferences
+TMVA::DataLoader: calling .front() in an empty container is undefined, fix also null ptr dereference
+RooDataHist and RooRealSumFunc fixes for null dereferences
+RooAbsCollection: safer Int_t getSize() and RooAbsArg* front(), offer alternatives
+RooDataHist::_adjustBinning throw std::logic_error when pass type is not derived from real
+clang-format applied
+---
+ roofit/histfactory/src/ConfigParser.cxx       | 469 ++++++++----------
+ roofit/roofitcore/inc/RooAbsCollection.h      |  17 +-
+ roofit/roofitcore/src/RooAddModel.cxx         | 114 +++--
+ roofit/roofitcore/src/RooDataHist.cxx         |  15 +-
+ roofit/roofitcore/src/RooRealSumFunc.cxx      |   5 +-
+ .../Architectures/Reference/DataLoader.cxx    |  12 +
+ 6 files changed, 299 insertions(+), 333 deletions(-)
+
 diff --git a/roofit/histfactory/src/ConfigParser.cxx b/roofit/histfactory/src/ConfigParser.cxx
-index 227a16b6a0..f1d7eba4f4 100644
+index 227a16b6a0a9..3ec032579037 100644
 --- a/roofit/histfactory/src/ConfigParser.cxx
 +++ b/roofit/histfactory/src/ConfigParser.cxx
-@@ -260,280 +260,210 @@ std::vector< RooStats::HistFactory::Measurement > ConfigParser::GetMeasurementsF
+@@ -260,280 +260,215 @@ std::vector< RooStats::HistFactory::Measurement > ConfigParser::GetMeasurementsF
    return measurement_list;
  
  }
@@ -104,7 +126,8 @@ index 227a16b6a0..f1d7eba4f4 100644
 +   TXMLAttr *curAttr = nullptr;
 +   while ((/**/ curAttr = dynamic_cast<TXMLAttr *>(attribIt()) /**/) != nullptr) {
 +      // curAttr is guaranteed non-null above
-+      const std::string curAttrName(curAttr->GetName()), curAttrValue(curAttr->GetValue());
++      const std::string curAttrName(curAttr->GetName() ? curAttr->GetName() : ""),
++         curAttrValue(curAttr->GetValue() ? curAttr->GetValue() : "");
 +      if (curAttrName == "") {
 +         cxcoutEHF << "Found XML attribute in Measurement with no name.\n";
 +         // ADD Output Here
@@ -174,7 +197,9 @@ index 227a16b6a0..f1d7eba4f4 100644
 +   // Then, get the properties of the children nodes
 +   TXMLNode *child = node->GetChildren();
 +   while (child != nullptr) {
-+      const std::string childName(child->GetName()), childNodeName(child->GetNodeName()), childText(child->GetText());
++      const std::string childName(child->GetName() ? child->GetName() : ""),
++         childNodeName(child->GetNodeName() ? child->GetNodeName() : ""),
++         childText(child->GetText() ? child->GetText() : "");
 +      if (childNodeName.empty()) {
 +         cxcoutEHF << "Found XML child node of Measurement with no name\n";
 +         throw hf_exc();
@@ -190,7 +215,7 @@ index 227a16b6a0..f1d7eba4f4 100644
 +         TXMLAttr *curParam = nullptr;
 +         while ((/**/ curParam = dynamic_cast<TXMLAttr *>(paramIt()) /**/) != nullptr) {
 +            // curParam is guaranteed non-null above
-+            const std::string curParamName(curParam->GetName());
++            const std::string curParamName(curParam->GetName() ? curParam->GetName() : "");
 +            if (curParamName.empty()) {
 +               cxcoutEHF << "Error: Found tag attribute with no name in ParamSetting\n";
 +               throw hf_exc();
@@ -228,7 +253,8 @@ index 227a16b6a0..f1d7eba4f4 100644
 +         attribIt = child->GetAttributes();
 +         curAttr = nullptr;
 +         while ((/**/ curAttr = dynamic_cast<TXMLAttr *>(attribIt()) /**/) != nullptr) {
-+            const std::string curAttrName(curAttr->GetName()), curAttrValue(curAttr->GetValue());
++            const std::string curAttrName(curAttr->GetName() ? curAttr->GetName() : ""),
++               curAttrValue(curAttr->GetValue() ? curAttr->GetValue() : "");
 +            if (curAttrName.empty()) {
 +               cxcoutEHF << "Error: Found tag attribute with no name in ConstraintTerm\n";
 +               throw hf_exc();
@@ -267,7 +293,8 @@ index 227a16b6a0..f1d7eba4f4 100644
 +         attribIt = child->GetAttributes();
 +         curAttr = nullptr;
 +         while ((/**/ curAttr = dynamic_cast<TXMLAttr *>(attribIt()) /**/) != nullptr) {
-+            const std::string curAttrName(curAttr->GetName()), curAttrValue(curAttr->GetValue());
++            const std::string curAttrName(curAttr->GetName() ? curAttr->GetName() : ""),
++               curAttrValue(curAttr->GetValue() ? curAttr->GetValue() : "");
 +            if (curAttrName.empty()) {
 +               cxcoutEHF << "Error: Found tag attribute with no name in ConstraintTerm\n";
 +               throw hf_exc();
@@ -481,10 +508,10 @@ index 227a16b6a0..f1d7eba4f4 100644
  
    /*
 diff --git a/roofit/roofitcore/inc/RooAbsCollection.h b/roofit/roofitcore/inc/RooAbsCollection.h
-index 5c2d733a06..0ea54abd33 100644
+index 5c2d733a0674..0ea54abd33b4 100644
 --- a/roofit/roofitcore/inc/RooAbsCollection.h
 +++ b/roofit/roofitcore/inc/RooAbsCollection.h
-@@ -179,14 +179,17 @@ public:
+@@ -179,14 +179,17 @@ class RooAbsCollection : public TObject, public RooPrintable {
      removeAll();
    }
  
@@ -510,7 +537,7 @@ index 5c2d733a06..0ea54abd33 100644
  
    RooAbsArg * operator[](Storage_t::size_type i) const {
 diff --git a/roofit/roofitcore/src/RooAddModel.cxx b/roofit/roofitcore/src/RooAddModel.cxx
-index cc72e8e55a..ce072f9eb7 100644
+index cc72e8e55aa2..ce072f9eb745 100644
 --- a/roofit/roofitcore/src/RooAddModel.cxx
 +++ b/roofit/roofitcore/src/RooAddModel.cxx
 @@ -97,63 +97,71 @@ RooAddModel::RooAddModel(const char *name, const char *title, const RooArgList&
@@ -639,7 +666,7 @@ index cc72e8e55a..ce072f9eb7 100644
  /// Copy constructor
  
 diff --git a/roofit/roofitcore/src/RooDataHist.cxx b/roofit/roofitcore/src/RooDataHist.cxx
-index 5bd49acdbe..3b132c7766 100644
+index 5bd49acdbeab..3b132c776695 100644
 --- a/roofit/roofitcore/src/RooDataHist.cxx
 +++ b/roofit/roofitcore/src/RooDataHist.cxx
 @@ -573,10 +573,17 @@ void RooDataHist::importDHistSet(const RooArgList& /*vars*/, RooCategory& indexC
@@ -665,7 +692,7 @@ index 5bd49acdbe..3b132c7766 100644
    const double xlo = theirVar.getMin();
    const double xhi = theirVar.getMax();
 diff --git a/roofit/roofitcore/src/RooRealSumFunc.cxx b/roofit/roofitcore/src/RooRealSumFunc.cxx
-index cbff7435b6..6e9fa40f5d 100644
+index cbff7435b648..6e9fa40f5da5 100644
 --- a/roofit/roofitcore/src/RooRealSumFunc.cxx
 +++ b/roofit/roofitcore/src/RooRealSumFunc.cxx
 @@ -152,8 +152,9 @@ RooRealSumFunc::RooRealSumFunc(const char *name, const char *title, const RooArg
@@ -681,7 +708,7 @@ index cbff7435b6..6e9fa40f5d 100644
        }
        _funcList.add(*func);
 diff --git a/tmva/tmva/src/DNN/Architectures/Reference/DataLoader.cxx b/tmva/tmva/src/DNN/Architectures/Reference/DataLoader.cxx
-index 2465abf308..1724805382 100644
+index 2465abf3085f..1724805382ac 100644
 --- a/tmva/tmva/src/DNN/Architectures/Reference/DataLoader.cxx
 +++ b/tmva/tmva/src/DNN/Architectures/Reference/DataLoader.cxx
 @@ -145,6 +145,9 @@ void TDataLoader<TMVAInput_t, TReference<Real_t>>::CopyInput(TMatrixT<Real_t> &m
