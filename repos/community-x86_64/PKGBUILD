@@ -5,7 +5,7 @@
 
 pkgname=mapnik
 pkgver=3.1.0
-pkgrel=5
+pkgrel=6
 pkgdesc="Free Toolkit for developing mapping applications and rendering beautiful maps"
 arch=('x86_64')
 url="https://mapnik.org/"
@@ -13,8 +13,17 @@ license=('LGPL')
 depends=('boost-libs' 'cairo' 'freetype2' 'gdal' 'harfbuzz' 'icu' 'libjpeg-turbo' 'libpng'
          'libtiff' 'libwebp' 'libxml2' 'postgresql-libs' 'proj' 'sqlite' 'zlib')
 makedepends=('boost' 'scons')
-source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2)
-sha256sums=('43d76182d2a975212b4ad11524c74e577576c11039fdab5286b828397d8e6261')
+source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2
+        scons4.patch)
+sha256sums=('43d76182d2a975212b4ad11524c74e577576c11039fdab5286b828397d8e6261'
+            '79a85ddba3ec17b86cb216e21442611498a9f2612f03e98708057b3c3a6e8b06')
+
+prepare() {
+  cd "${srcdir}"/$pkgname-v$pkgver
+
+  # Partial fix to build with SCons 4 (https://bugs.archlinux.org/task/71630)
+  patch -Np1 -i ../scons4.patch
+}
 
 build() {
   cd "${srcdir}"/$pkgname-v$pkgver
