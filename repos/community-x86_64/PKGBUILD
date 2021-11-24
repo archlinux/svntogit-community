@@ -9,7 +9,7 @@
 
 pkgname=gitlab
 pkgver=14.3.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -27,6 +27,7 @@ backup=("etc/webapps/gitlab/database.yml"
         "etc/webapps/gitlab/smtp_settings.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
+        nodejs-17.patch
         configs.patch
         fixes.patch
         environment
@@ -40,6 +41,7 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab.logrotate)
 install='gitlab.install'
 sha512sums=('SKIP'
+            'c42207f143239cbeda2adb69a94a073655857acecbfe9cf9459ef71fd9e3418359cdd1f02d1a93948ab024c2aa0424825fbb2ae3b40ca860a815c277faadd41e'
             '1f1adbb5a641ec9272931c823c7bf4822dde9df4242a039ec5916167742f1148f555bf05774b0eae69a7f52417092db4a7925cd553d43d37544713036da7f50b'
             '7efb9a6f1aa0c05780f173dd61039e9bec2321ef1015e6ad11bc5ecbf83689be6c3af2a8e4b42bd216a0bfe9618f90c53ae92d6aabeb0563378f3bd62c95ac57'
             '5b1ca2958f03a5baf1c5576a1568072e8ed749e2d15745ecbcc4860d2dbd543f2f3ed077e8d87afac2670c9436b19fe498217b49916d56a4e31fb9811aeb9067'
@@ -66,6 +68,7 @@ prepare() {
 
   patch -p1 < ../fixes.patch
   patch -p1 < ../configs.patch
+  patch -p1 -F3 < ../nodejs-17.patch
   # '/home/git' path in the config files indicates a default path that need to be adjusted
   grep -FqR '/home/git' config || exit 1
 
