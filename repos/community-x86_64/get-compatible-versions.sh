@@ -7,7 +7,7 @@
 # This will fetch, print and substitute into the PKGBUILD the compatible binaryen and llvm versions.
 
 pkgver=$(makepkg --printsrcinfo | sed -rn 's/.*pkgver = (.*)/\1/gp')
-tag_hash=$(curl -Ls https://github.com/emscripten-core/emsdk/raw/main/emscripten-releases-tags.txt | jq ".releases[\"$pkgver\"]" | sed s/\"//g)
+tag_hash=$(curl -Ls https://github.com/emscripten-core/emsdk/raw/main/emscripten-releases-tags.json | jq ".releases[\"$pkgver\"]" | sed s/\"//g)
 deps_file=$(curl -Ls "https://chromium.googlesource.com/emscripten-releases/+/$tag_hash/DEPS?format=TEXT" | base64 -d)
 binaryen_revision=$(echo "$deps_file" | sed -rn "s/.*'binaryen_revision': '(.*)',/\\1/gp")
 llvm_project_revision=$(echo "$deps_file" | sed -rn "s/.*'llvm_project_revision': '(.*)',/\\1/gp")
