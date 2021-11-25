@@ -1,0 +1,127 @@
+# Maintainer: Evgeniy Alekseev <arcanis at archlinux dot org>
+# Maintainer: Bruno Pagani <archange at archlinux dot org>
+# Contributor: Michael Migliore <mcmigliore+aur@gmail.com>
+# Contributor: Ray Rashif <schiv at archlinux dot org>
+# Contributor: Andrzej Giniewicz <gginiu at gmail dot com>
+# Contributor: Thomas Dziedzic <gostrc at gmail>
+
+pkgname=vtk
+pkgver=9.1.0
+pkgrel=3
+pkgdesc="Software system for 3D computer graphics, image processing, and visualization"
+arch=(x86_64)
+url="https://www.vtk.org/"
+license=(BSD)
+depends=(gcc-libs double-conversion tbb)
+makedepends=(adios2 cmake boost doxygen ffmpeg gdal git gnuplot java-environment=11
+             liblas libxt openimagedenoise openmp openmpi openvdb openvr ospray pdal
+             postgresql python-matplotlib qt5-base qt5-tools qt5-webkit
+             qt5-x11extras tk unixodbc wget
+             cgns double-conversion eigen expat fmt freetype2 gl2ps glew hdf5 libjpeg
+             jsoncpp libharu proj libxml2 lz4 xz python-mpi4py netcdf libogg
+             libpng pugixml rapidjson sqlite libtheora libtiff utf8cpp zfp zlib)
+# pegtl https://gitlab.kitware.com/vtk/vtk/-/issues/18151
+optdepends=('gnuplot: plotting tools'
+            'graphviz: drawing tools'
+            'java-runtime=11: java bindings'
+            'python: python bindings'
+            'python-mpi4py: OpenMPI python support'
+            'python-matplotlib: for Matplotlib rendering'
+            'openmpi: OpenMPI support'
+            'qt5-x11extras'
+            'qt5-webkit: WebKit support'
+            'tk: tcl bindings'
+            adios2
+            cgns
+            ffmpeg
+            gdal
+            gl2ps
+            glew
+            hdf5
+            jsoncpp
+            libarchive
+            libharu
+            liblas
+            lz4
+            netcdf
+            openimagedenoise
+            openvdb
+            openvr
+            ospray
+            pdal
+            postgresql
+            pugixml
+            proj
+            sqlite
+            unixodbc)
+source=(${url}/files/release/${pkgver%.*}/VTK-${pkgver}.tar.gz
+        vtk-tbb-2021.patch::https://gitlab.kitware.com/vtk/vtk-m/-/merge_requests/2509.patch)
+options=(staticlibs)
+sha256sums=('8fed42f4f8f1eb8083107b68eaa9ad71da07110161a3116ad807f43e5ca5ce96'
+            '37cff664c4eaacf44ecb995e62e9e54e54880bae0857d598c74660a2159ccb2e')
+
+prepare() {
+  cd VTK-${pkgver}
+  # We have a patched libharu
+  sed -i "s|2.4.0|2.3.0|" ThirdParty/libharu/CMakeLists.txt
+  # We have a patched fmt
+  sed -i "s|8.1.0|8.0.1|" ThirdParty/fmt/CMakeLists.txt
+  # Fix build with TBB 2021
+  patch -d ThirdParty/vtkm/vtkvtkm/vtk-m -p1 -i "$srcdir"/vtk-tbb-2021.patch
+}
+
+build() {
+  # To help cmake find java
+  export JAVA_HOME=/usr/lib/jvm/default
+  # To set tcl lib path
+  local _tkver=$(echo 'puts $tcl_version' | tclsh)
+  # We do not have packages for cli11, exprtk, ioss
+  cmake -B build -S VTK-${pkgver} \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LICENSEDIR=share/licenses/vtk \
+    -DCMAKE_SKIP_RPATH=OFF \
+    -DCMAKE_SKIP_INSTALL_RPATH=ON \
+    -DBUILD_SHARED_LIBS=ON \
+    -DVTK_BUILD_ALL_MODULES=ON \
+    -DVTK_INSTALL_TCL_DIR=/usr/lib/tcl${_tkver}/vtk/ \
+    -DVTK_LEGACY_REMOVE=ON \
+    -DVTK_SMP_ENABLE_OPENMP=ON \
+    -DVTK_SMP_IMPLEMENTATION_TYPE=TBB \
+    -DVTK_PYTHON_VERSION=3 \
+    -DVTK_USE_MPI=ON \
+    -DVTK_USE_TK=ON \
+    -DVTK_VERSIONED_INSTALL=OFF \
+    -DVTK_WRAP_JAVA=ON \
+    -DVTK_WRAP_PYTHON=ON \
+    -DVTKOSPRAY_ENABLE_DENOISER=ON \
+    -DVTKm_ENABLE_HDF5_IO=ON \
+    -DVTKm_ENABLE_MPI=ON \
+    -DVTKm_ENABLE_OPENMP=ON \
+    -DVTK_USE_EXTERNAL=ON \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_cli11=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_exprtk=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_ioss=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_pegtl=OFF \
+    -DVTK_MODULE_ENABLE_VTK_DomainsMicroscopy=NO \
+    -DVTK_MODULE_ENABLE_VTK_FiltersOpenTURNS=NO \
+    -Wno-dev
+#    -DFIDES_USE_EXTERNAL_RAPIDJSON=ON \
+  make -C build
+}
+
+package() {
+  make -C build DESTDIR="${pkgdir}" install
+
+  # Move the vtk.jar to the arch-specific location…
+  install -dv "${pkgdir}"/usr/share/java/vtk
+  mv -v "${pkgdir}"/usr/lib/java/vtk.jar "${pkgdir}"/usr/share/java/vtk
+  # …and the libs to the proper place
+  mv "${pkgdir}"/usr/lib/java/vtk-Linux-x86_64/*.so "${pkgdir}"/usr/lib/
+  rmdir "${pkgdir}"/usr/lib/java/{vtk-Linux-x86_64/,}
+
+  # Remove third party CMake patching for older versions than ours
+  rm -rv "${pkgdir}"/usr/lib/cmake/vtk/patches/3.{1{3,6,8,9},20}
+  # … as well as duplicate copies
+  rm -rv "${pkgdir}"/usr/lib/cmake/vtk/vtkm/cmake/{Find*.cmake,3.15}
+}
