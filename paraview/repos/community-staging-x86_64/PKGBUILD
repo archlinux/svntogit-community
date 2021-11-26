@@ -1,0 +1,83 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Mathieu Westphal <mathieu.westphal@kitware.com>
+# Contributor: Stéphane Gaudreault <stephane@archlinux.org>
+# Contributor: <xantares09@hotmail.com>
+
+_pkg=paraview
+_mpi=openmpi
+pkgname=${_pkg}
+#-${_mpi}
+pkgver=5.9.1
+pkgrel=6
+pkgdesc="Parallel Visualization application using VTK (${_mpi} version)"
+arch=(x86_64)
+url="https://www.paraview.org"
+license=(BSD custom)
+depends=(boost-libs qt5-tools qt5-x11extras qt5-svg intel-tbb openmpi ffmpeg
+         adios2 liblas ospray pdal python-numpy cgns protobuf
+         double-conversion expat freetype2 gdal gl2ps glew hdf5 libjpeg jsoncpp
+         libjsoncpp.so libharu libxml2 lz4 xz python-mpi4py netcdf libogg
+         libpng pugixml rapidjson libtheora libtiff zlib)
+optdepends=(python-matplotlib python-pandas)
+makedepends=(cmake boost mesa gcc-fortran ninja qt5-tools qt5-xmlpatterns eigen utf8cpp)
+# pegtl https://gitlab.kitware.com/vtk/vtk/-/issues/18151
+conflicts=(vtk)
+source=(${url}/files/v${pkgver:0:3}/ParaView-v${pkgver/R/-R}.tar.xz
+        vtk-gcc11.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7554.patch
+        vtk-fix-shader-initialization.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7978.patch
+        paraview-tbb-2021.patch
+        paraview-vtkm-tbb-2021.patch)
+sha256sums=('0d486cb6fbf55e428845c9650486f87466efcb3155e40489182a7ea85dfd4c8d'
+            'c9959adcb59e2f2657f0144b0b68239d4174947fb2ab8051f2575241281e4d68'
+            '10864f69e2d6577c56cc536438b5dd7a52b004f6bb253a17569899922d804fe8'
+            '7091f7b4052688191ca5594f8e1dc1ed00dcc882343b9d360fbacd187161a914'
+            'ee0b5b28fdb2e906ee04b5eb28d87fa1e6646601d48b523d3d8f1760a811c416')
+
+prepare() {
+  cd ParaView-v${pkgver/R/-R}
+  # We have a patched libharu
+  sed -i "s|2.4.0|2.3.0|" VTK/ThirdParty/libharu/CMakeLists.txt
+  # Missing includes with GCC11
+  patch -p1 -d VTK < ../vtk-gcc11.patch
+  # FS#71081
+  patch -p1 -d VTK < ../vtk-fix-shader-initialization.patch
+  # Fix build with HDF5 1.12.1, https://gitlab.kitware.com/vtk/vtk/-/issues/18265
+  sed -i 's/typedef int hid_t;/typedef int64_t hid_t;/' VTK/ThirdParty/xdmf3/vtkxdmf3/core/XdmfHDF5Controller.hpp
+  # Fix build with TBB 2021
+  patch -p1 -d VTK < ../paraview-tbb-2021.patch
+  cp VTK/CMake/FindTBB.cmake VTK/ThirdParty/vtkm/vtkvtkm/vtk-m/CMake/FindTBB.cmake
+  patch -p1 -d VTK/ThirdParty/vtkm/vtkvtkm/vtk-m < "$srcdir"/paraview-vtkm-tbb-2021.patch
+}
+
+build() {
+  # LICENSEDIR blocked by https://gitlab.kitware.com/vtk/vtk/-/issues/18266
+  cmake -B build -S ParaView-v${pkgver/R/-R} -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_SKIP_INSTALL_RPATH=ON \
+    -DPARAVIEW_ENABLE_ADIOS2=ON \
+    -DPARAVIEW_ENABLE_FFMPEG=ON \
+    -DPARAVIEW_ENABLE_FIDES=ON \
+    -DPARAVIEW_ENABLE_GDAL=ON \
+    -DPARAVIEW_ENABLE_LAS=ON \
+    -DPARAVIEW_ENABLE_MOTIONFX=ON \
+    -DPARAVIEW_ENABLE_PDAL=ON \
+    -DPARAVIEW_ENABLE_RAYTRACING=ON \
+    -DPARAVIEW_ENABLE_VISITBRIDGE=ON \
+    -DPARAVIEW_ENABLE_XDMF3=ON \
+    -DPARAVIEW_USE_MPI=ON \
+    -DPARAVIEW_USE_PYTHON=ON \
+    -DPARAVIEW_VERSIONED_INSTALL=OFF \
+    -DPARAVIEW_BUILD_WITH_EXTERNAL=ON \
+    -DVTK_SMP_IMPLEMENTATION_TYPE=TBB \
+    -DVTKm_ENABLE_MPI=ON \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_pegtl=OFF \
+    -Wno-dev
+  ninja -C build ${MAKEFLAGS}
+}
+
+package() {
+  DESTDIR="${pkgdir}" ninja -C build install
+  # Fix licenses install
+  mv "${pkgdir}"/usr/share/licenses/{ParaView,paraview}
+}
