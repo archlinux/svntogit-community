@@ -1,0 +1,77 @@
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+
+pkgbase=passenger
+pkgname=(passenger mod_passenger nginx-mod-passenger)
+pkgver=6.0.12
+pkgrel=2
+pkgdesc="Fast and robust web server and application server for Ruby, Python and Node.js"
+arch=('x86_64')
+url="https://www.phusionpassenger.com"
+_watch="https://github.com/phusion/passenger/releases"
+license=('MIT')
+makedepends=('ruby-rake' 'ruby-rack' 'curl' 'apache' 'nginx-src')
+options=('!emptydirs' 'staticlibs')
+validpgpkeys=('D5F0851426939232F437AB722AC745A50A212A8C'
+              '16378A33A6EF16762922526E561F9B9CAC40B2F7'  # auto-software-signing@phusion.nl
+              'B0F4253373F8F6F510D42178520A9993A1C052F8') # Maxim Dounin <mdounin@mdounin.ru>
+source=(https://s3.amazonaws.com/phusion-passenger/releases/passenger-$pkgver.tar.gz{,.asc})
+sha256sums=('4d15063dea6bce195e251d2b42e7bb67fab0049b8d6c423188566bc11ce9a8ad'
+            'SKIP')
+
+prepare() {
+	mkdir -p build
+	cd build
+	ln -sf /usr/src/nginx/auto
+	ln -sf /usr/src/nginx/src
+}
+
+build(){
+  cd build
+  /usr/src/nginx/configure --with-compat --add-dynamic-module=../$pkgbase-$pkgver/src/nginx_module
+  make modules
+
+  cd "$srcdir"/$pkgbase-$pkgver
+  rake nginx CACHING=false
+  ./bin/passenger-install-apache2-module -a
+}
+
+package_passenger() {
+  cd "$srcdir"/passenger-$pkgver
+  depends=('ruby' 'ruby-rack' 'curl' 'libnsl')
+
+  mkdir -p "$pkgdir"/usr/lib/passenger/
+  cp -R * "$pkgdir"/usr/lib/passenger/
+
+  install -Dm644 "$srcdir"/$pkgbase-$pkgver/LICENSE \
+                 "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_mod_passenger() {
+  pkgdesc="Passenger apache module"
+  depends=('passenger' 'apache')
+  install=passenger.install
+
+  cd "$srcdir"/passenger-$pkgver
+
+  mkdir -p "$pkgdir"/usr/lib/httpd/modules
+  ln -sf /usr/lib/passenger/buildout/apache2/mod_passenger.so "$pkgdir"/usr/lib/httpd/modules/mod_passenger.so
+
+  install -Dm644 "$srcdir"/$pkgbase-$pkgver/LICENSE \
+                 "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_nginx-mod-passenger() {
+  pkgdesc="Passenger nginx module"
+  depends=('passenger' "nginx")
+
+  install -Dm644 "$srcdir"/$pkgbase-$pkgver/LICENSE \
+                 "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  cd build/objs
+  for mod in ngx_*.so; do
+    install -Dm755 $mod "$pkgdir"/usr/lib/nginx/modules/$mod
+  done
+
+  install -Dm644 "$srcdir"/$pkgbase-$pkgver/LICENSE \
+                 "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
