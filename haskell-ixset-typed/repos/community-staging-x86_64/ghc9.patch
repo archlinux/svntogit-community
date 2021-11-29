@@ -1,0 +1,54 @@
+commit fb8a9ae632ae7685e7fe9e1f9024b22f2e980b4a
+Author: Felix Yan <felixonmars@archlinux.org>
+Date:   Tue Jun 22 09:59:29 2021 +0800
+
+    Add support for template-haskell 2.17
+
+diff --git a/ixset-typed.cabal b/ixset-typed.cabal
+index 458577b..43c784c 100644
+--- a/ixset-typed.cabal
++++ b/ixset-typed.cabal
+@@ -38,7 +38,7 @@ library
+                      deepseq          >= 1.3 && < 2,
+                      safecopy         >= 0.8 && < 0.11,
+                      syb              >= 0.4 && < 1,
+-                     template-haskell >= 2.8 && < 2.17
++                     template-haskell >= 2.8 && < 2.18
+ 
+   hs-source-dirs:    src
+   exposed-modules:
+diff --git a/src/Data/IxSet/Typed.hs b/src/Data/IxSet/Typed.hs
+index 75be66d..fc628ea 100644
+--- a/src/Data/IxSet/Typed.hs
++++ b/src/Data/IxSet/Typed.hs
+@@ -594,7 +594,13 @@ inferIxSet ixset typeName calName entryPoints
+                    getCalType t' = error ("Unexpected type in getCalType: " ++ pprint t')
+                    -}
+                    mkEntryPoint n = (conE 'Ix) `appE`
+-                                    (sigE (varE 'Map.empty) (forallT binders (return context) $
++                                    (sigE (varE 'Map.empty) (forallT
++#if MIN_VERSION_template_haskell(2,17,0)
++                                                             (map (SpecifiedSpec <$) binders)
++#else
++                                                             binders
++#endif
++                                                             (return context) $
+                                                              appT (appT (conT ''Map) (conT n))
+                                                                       (appT (conT ''Set) typeCon))) `appE`
+                                     (varE 'flattenWithCalcs `appE` varE calName)
+@@ -610,9 +616,15 @@ inferIxSet ixset typeName calName entryPoints
+                      return $ [i, ixType']  -- ++ d
+            _ -> error "IxSet.inferIxSet calInfo unexpected match"
+ 
++#if MIN_VERSION_template_haskell(2,17,0)
++tyVarBndrToName :: TyVarBndr () -> Name
++tyVarBndrToName (PlainTV nm _) = nm
++tyVarBndrToName (KindedTV nm _ _) = nm
++#else
+ tyVarBndrToName :: TyVarBndr -> Name
+ tyVarBndrToName (PlainTV nm) = nm
+ tyVarBndrToName (KindedTV nm _) = nm
++#endif
+ 
+ -- | Generically traverses the argument to find all occurences of
+ -- values of type @b@ and returns them as a list.
