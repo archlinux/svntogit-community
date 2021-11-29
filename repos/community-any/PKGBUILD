@@ -1,42 +1,32 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
-pkgbase=python-filelock
-pkgname=(python-filelock python2-filelock)
-pkgver=3.0.12
-pkgrel=5
+pkgname=python-filelock
+pkgver=3.4.0
+pkgrel=1
 pkgdesc="A platform independent file lock"
 url="https://github.com/benediktschmitt/py-filelock"
 license=('custom:Unlicense')
 arch=('any')
-makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-pytest' 'python2-pytest')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/benediktschmitt/py-filelock/archive/v$pkgver.tar.gz")
-sha512sums=('0f30b54b9de2540f023855effcc582b18fedcee6681f21e1733f1b60dbd39eb148e3830bc798a44c5e8c22e7ea8ca26b6d4547fae79dacc78c62b819a3d84683')
+depends=('python')
+makedepends=('python-setuptools' 'python-setuptools-scm')
+checkdepends=('python-pytest' 'python-pytest-timeout')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/benediktschmitt/py-filelock/archive/$pkgver.tar.gz")
+sha512sums=('0dc85f083a8c60605dfbd0b6fe55a96b5872e5b8ce3fd746925444571d02e243459bed6cd2d8aa9d7eda7d197bdc31b289cfcf1f0aef295779ca900d24abcbd8')
+
+export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 build() {
   cd py-filelock-$pkgver
   python setup.py build
-  python2 setup.py build
 }
 
 check() {
   cd py-filelock-$pkgver
-  pytest test.py
-  pytest2 test.py
+  PYTHONPATH=src pytest tests
 }
 
-package_python-filelock() {
-  depends=('python')
-
+package() {
   cd py-filelock-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
-}
-
-package_python2-filelock() {
-  depends=('python2')
-
-  cd py-filelock-$pkgver
-  python2 setup.py install --root="$pkgdir" --optimize=1
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
 }
