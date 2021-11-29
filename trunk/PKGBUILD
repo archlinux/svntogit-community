@@ -1,32 +1,24 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Contributor: Tomislav Ivek <tomislav.ivek@gmail.com>
 
-pkgbase=python-distro
-pkgname=('python-distro' 'python2-distro')
+pkgname=python-distro
 pkgver=1.6.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux OS platform information API'
 url='https://github.com/python-distro/distro'
 arch=('any')
 license=('Apache')
-makedepends=('python-setuptools' 'python-sphinx' 'python2-setuptools')
-checkdepends=('python-pytest' 'python2-pytest')
+depends=('python' 'python-setuptools')
+makedepends=('python-setuptools' 'python-sphinx')
+checkdepends=('python-pytest')
 options=('!makeflags')
-source=(${url}/archive/v${pkgver}/${pkgbase}-${pkgver}.tar.gz)
+source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
 sha512sums=('48cff21ea152ec57c4505a72ffb1af5a138199f10ea908e138d16f48732f602a5b4f8bec2ee76b629981a1625453adf1b6895f4573229002b3b3ff7b76efbede')
 b2sums=('558c4b1fcb93882b589375dd719f0f6100e4a78bbe9f167821c1588f82abbe00afd68f22f191f3722f0dd4358d76a6e295c8e69af29fdcd6ba7399d927e96f1c')
-
-prepare() {
-  cp -a distro-${pkgver}{,-py2}
-}
 
 build() {
   (cd distro-${pkgver}
     python setup.py build
-    make man SPHINXBUILD=sphinx-build
-  )
-  (cd distro-${pkgver}-py2
-    python2 setup.py build
     make man SPHINXBUILD=sphinx-build
   )
 }
@@ -35,24 +27,12 @@ check() {
   (cd distro-${pkgver}
     py.test
   )
-  (cd distro-${pkgver}-py2
-    py.test2
-  )
 }
 
-package_python-distro() {
-  depends=('python' 'python-setuptools')
+package() {
   cd distro-${pkgver}
   python setup.py install -O1 --root="${pkgdir}" --skip-build
   install -Dm 644 README.md CHANGELOG.md -t "${pkgdir}/usr/share/doc/${pkgname}"
-}
-
-package_python2-distro() {
-  depends=('python2' 'python2-setuptools')
-  cd distro-${pkgver}-py2
-  python2 setup.py install -O1 --root="${pkgdir}" --skip-build
-  install -Dm 644 README.md CHANGELOG.md -t "${pkgdir}/usr/share/doc/${pkgname}"
-  mv "${pkgdir}/usr/bin/distro"{,2}
 }
 
 # vim: ts=2 sw=2 et:
