@@ -2,21 +2,28 @@
 
 _pkgname=cachecontrol
 pkgname=python-cachecontrol
-pkgver=0.12.10
+# Before bumping, watch out for:
+# https://github.com/ionrock/cachecontrol/issues/262
+pkgver=0.12.6
 pkgrel=1
+epoch=1
 pkgdesc="httplib2 caching for requests"
 arch=('any')
 url="https://github.com/ionrock/${_pkgname}"
 license=('Apache')
 depends=('python-msgpack' 'python-requests')
-makedepends=('python-msgpack' 'python-requests' 'python-setuptools')
+makedepends=('python-setuptools')
 checkdepends=('python-mock' 'python-pytest' 'python-lockfile' 'python-cherrypy')
 optdepends=('python-lockfile: for the FileCache')
-source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz")
-sha256sums=('fc8bc1ecc67ac2946b79a6a79da57c8ad510517787afd3db997ca0d432e56e3d')
+source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz"
+        "0001-Remove-unnecessary-console-script.patch")
+sha256sums=('2ec120838f445bff473cd8b8206ddae3650679142976927179743fabb876f3e3'
+            'a2c93d4852887152027140bdd54030d5363876b02e5eabee6a018d4e946a87b1')
 
 prepare() {
     cd "${srcdir}"/${_pkgname}-${pkgver}
+
+    patch -p1 -i ../0001-Remove-unnecessary-console-script.patch
 }
 
 build() {
