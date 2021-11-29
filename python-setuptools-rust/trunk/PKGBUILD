@@ -29,7 +29,7 @@ check() {
   for _dir in examples/*; do
     pushd $_dir
     PYTHONPATH="$PWD/../.." python setup.py build
-    [[ -d tests || -d test ]] && PYTHONPATH="$PWD/build/lib:build/lib.linux-$CARCH-3.9" pytest
+    [[ -d tests || -d test ]] && PYTHONPATH="$PWD/build/lib:build/lib.linux-$CARCH-3.10" pytest
     popd
   done
 }
