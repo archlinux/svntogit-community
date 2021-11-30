@@ -4,7 +4,7 @@
 _name=matplotlib-inline
 pkgname=python-matplotlib-inline
 pkgver=0.1.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Inline Matplotlib backend for Jupyter'
 arch=('any')
 url=https://github.com/ipython/matplotlib-inline
