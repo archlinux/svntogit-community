@@ -8,8 +8,8 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=14.3.3
-pkgrel=2
+pkgver=14.5.0
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -27,7 +27,6 @@ backup=("etc/webapps/gitlab/database.yml"
         "etc/webapps/gitlab/smtp_settings.rb"
         "etc/logrotate.d/gitlab")
 source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
-        nodejs-17.patch
         configs.patch
         fixes.patch
         environment
@@ -41,9 +40,8 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab.logrotate)
 install='gitlab.install'
 sha512sums=('SKIP'
-            'c42207f143239cbeda2adb69a94a073655857acecbfe9cf9459ef71fd9e3418359cdd1f02d1a93948ab024c2aa0424825fbb2ae3b40ca860a815c277faadd41e'
-            '1f1adbb5a641ec9272931c823c7bf4822dde9df4242a039ec5916167742f1148f555bf05774b0eae69a7f52417092db4a7925cd553d43d37544713036da7f50b'
-            '7efb9a6f1aa0c05780f173dd61039e9bec2321ef1015e6ad11bc5ecbf83689be6c3af2a8e4b42bd216a0bfe9618f90c53ae92d6aabeb0563378f3bd62c95ac57'
+            '0b688a96583bd7e230765d2c32406c2bd082665818564e927cc9eef4e3fc08e0674a3830d1d0c3e6744ae51f2b07ceaa76bd43770f1655fe7a498f9086c596c0'
+            '4f3ba368c2330db4d58277fe927a9707e5a80ec5479b4e15b5b7086132aa3f7ca5d139c29b6443e24ee804b07b3346c69a6b87244e5f774440c62dc2d9240ffe'
             '5b1ca2958f03a5baf1c5576a1568072e8ed749e2d15745ecbcc4860d2dbd543f2f3ed077e8d87afac2670c9436b19fe498217b49916d56a4e31fb9811aeb9067'
             '451a030940f124bccd6d29c1924861b361d52db32cff6e745c144286c2afc7065e117f825721145ed2dd4406f5bcfa97e228a80b968aaa9a675613b71b776eba'
             '419848c668928276620b5229e457a39e0ed7e111f1da68a30c3e0ae1a644af1c869b004b35435ccec4ddcdf6cf7418b1ab71e6e2ee8a2c861c6625c8bfd908f6'
@@ -68,7 +66,6 @@ prepare() {
 
   patch -p1 < ../fixes.patch
   patch -p1 < ../configs.patch
-  patch -p1 -F3 < ../nodejs-17.patch
   # '/home/git' path in the config files indicates a default path that need to be adjusted
   grep -FqR '/home/git' config || exit 1
 
