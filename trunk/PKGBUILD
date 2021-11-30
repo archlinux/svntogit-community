@@ -6,7 +6,7 @@
 pkgname=python-secretstorage
 _pkgname=SecretStorage
 pkgver=3.3.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Securely store passwords and other private data using the SecretService DBus API"
 arch=('any')
 url="https://github.com/mitya57/secretstorage"
