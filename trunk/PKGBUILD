@@ -11,7 +11,7 @@ arch=('x86_64')
 license=('Apache')
 
 depends=('libsodium' 'python' 'python-six' 'python-cffi')
-makedepends=('python-setuptools' 'python-pycparser')
+makedepends=('python-setuptools' 'python-pycparser' 'python-wheel')
 
 source=("https://pypi.org/packages/source/P/PyNaCl/PyNaCl-$pkgver.tar.gz")
 
