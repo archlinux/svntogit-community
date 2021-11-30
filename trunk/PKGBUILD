@@ -4,7 +4,7 @@
 
 pkgname=python-jinja
 pkgver=3.0.3
-pkgrel=1
+pkgrel=2
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
 url="https://palletsprojects.com/p/jinja/"
