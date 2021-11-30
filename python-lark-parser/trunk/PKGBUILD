@@ -3,7 +3,7 @@
 pkgname=python-lark-parser
 pkgver=0.11.3
 _nearley_commit=a46b37471db486db0f6e1ce6a2934fb238346b44
-pkgrel=2
+pkgrel=3
 pkgdesc="A modern parsing library"
 url="https://github.com/lark-parser/lark"
 license=('MIT')
