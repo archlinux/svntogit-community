@@ -2,7 +2,7 @@
 
 pkgname=python-jaraco.context
 pkgver=4.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Context managers by jaraco"
 url="https://github.com/jaraco/jaraco.context"
 license=('MIT')
