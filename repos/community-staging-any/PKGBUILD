@@ -3,7 +3,7 @@
 
 pkgname=python-typing_extensions
 pkgver=3.10.0.2
-pkgrel=3
+pkgrel=4
 pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
 arch=(any)
 url=https://github.com/python/typing/tree/master/typing_extensions
