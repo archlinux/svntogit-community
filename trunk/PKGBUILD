@@ -3,7 +3,7 @@
 
 pkgname=python-more-itertools
 pkgver=8.10.0
-pkgrel=3
+pkgrel=4
 pkgdesc='More routines for operating on iterables, beyond itertools'
 arch=('any')
 url='https://github.com/erikrose/more-itertools'
