@@ -7,7 +7,7 @@
 
 pkgname=salt
 pkgver=3004
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
