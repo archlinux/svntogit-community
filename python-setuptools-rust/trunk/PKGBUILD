@@ -5,7 +5,7 @@
 
 pkgname=python-setuptools-rust
 pkgver=0.12.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Compile and distribute Python extensions written in rust as easily as if they were written in C."
 arch=('any')
 license=('MIT')
