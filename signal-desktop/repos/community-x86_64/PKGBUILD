@@ -3,23 +3,23 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=5.24.0
+pkgver=5.25.0
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('AGPL3')
 arch=('x86_64')
 url="https://signal.org"
 depends=('gtk3' 'libvips' 'libxss' 'hicolor-icon-theme')
-makedepends=('yarn' 'git' 'git-lfs' 'nodejs-lts-fermium' 'npm6' 'python')
+makedepends=('yarn' 'git' 'git-lfs' 'nodejs-lts-gallium' 'npm' 'python')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
   "${pkgname}.desktop"
   "expire-from-source-date-epoch.patch"
 )
-sha512sums=('38d9212322b7cd60a7597e34249161bc8bea87a14a6e6dbcc3c4efd49b6bb8b953fbd7a2674f6241fde5a493e8efb528627ac79748c6d5e6b25ebb7c65675d06'
+sha512sums=('bb018da7f685aeb890fb0ab4ffc585f2f7934e3472837a810fa9ebcca1b52203cdbea2dd1984bb9f99d952d1e37bb6f7e7334081d780ab45172d622583659289'
             '90cfee563a985bc73c4e7984715d190ae0b5c7aa887a7dc15c665980ca5cc8420b02f6c7a54e032c29e18876d5d51cfbe5027a9f0a59de3903f50fd469d73ce0'
             '4bdb1812575072a838ce2183bab0b407e3f31bcdb81ee62f6a6424c459779bf7739e3c6c65cb06a191e5a10f940e140f51ddf50ab094023a8e8ce9497ed72e82')
-b2sums=('c97f8e239dcdf19bc74789f89eab8b66180e59109bb57f9b482d5ba945e655db572aa468bc3b579594d4e8bb80fabeb26e4c0c1fa9b7759c3d092ec017f0e08f'
+b2sums=('ffb52eeb298de81fe1b4eeeb7c55b0d4ecadcdec88fb0e5e259261a9332d036dd4cbe8a213f84c9c0e7afd2a52808e9f0b857c7a02ffcb02ce846b2eb8b1b4a2'
         'b0974f1409bf77e917a3ecce68a9d066eaf24a6cd35e0d52b0d61fcf2fb014f19962bb445b6eaf668081d370c69c01b08420c056902907574a29a71a4f0f2457'
         '4d1c85e4f5b0c797a679ad33f685c4ec1693a6d73b23dd10565d1b1a560558ca50c283e7e652dbab891150c70f0accb1d5dd011c7c87a11efb9714ef1ab5e8c5')
 
