@@ -4,7 +4,7 @@
 _pkgname=tomlkit
 pkgname=python-tomlkit
 pkgver=0.7.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Style-preserving TOML library for Python"
 url="https://github.com/sdispater/tomlkit"
 license=('MIT')
