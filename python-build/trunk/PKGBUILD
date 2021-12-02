@@ -3,7 +3,7 @@
 _pkgname=build
 pkgname=python-$_pkgname
 pkgver=0.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc='A simple, correct PEP517 package builder'
 arch=('any')
 url='https://github.com/pypa/build'
