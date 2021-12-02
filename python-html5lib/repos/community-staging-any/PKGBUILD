@@ -5,7 +5,7 @@
 
 pkgname=python-html5lib
 pkgver=1.1
-pkgrel=10
+pkgrel=11
 arch=('any')
 url="https://github.com/html5lib"
 license=('MIT')
