@@ -3,7 +3,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=0.6.17.7
+pkgver=0.6.18
 pkgrel=1
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=(any)
@@ -11,14 +11,14 @@ url='https://nuitka.net/'
 license=(Apache)
 depends=(python-appdirs scons)
 makedepends=(python-setuptools)
-checkdepends=(ccache fuse2 python-boto3 python-brotli strace)
+checkdepends=(ccache fuse2 patchelf python-boto3 python-brotli strace)
 optdepends=('ccache: for build caching'
             'chrpath: for building standalone executables'
             'pyside2: for using Qt5 APIs')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/N/${pkgname^}/${pkgname^}-${pkgver}.tar.gz")
-sha512sums=('18b524e5e23f89b6023678aa001b8803455237effa7236af63776361ef4ab18221bbdc6b9af410b522ccd05e067df9ba40c397f33cd52c7aa8961f0df0a2fe55')
-b2sums=('d2bece7fa9143ffe836a436111b5a81facde067c751cbd5f09b5f207e03dbb492182a200658d15896b3314443574ba8a5e03b276a9899569dfd44872defc15d7')
+sha512sums=('d727f569b0efef133eaa2f647bdc215cc2f87fe762682691909d5a3d9f55299805766d0fdc0bfae09388b0eb3a450d6211a5252e92039d23ccb130117eaa412b')
+b2sums=('5ef7da5b1f065d7ff23c82b5cb26e001c486546f4a169d9a5db442d9ff2e91c8dcc052232b6355c19f9388ca34d7b4c7199c42922ba3b4a6284101d77430dac1')
 
 prepare() {
   cd ${pkgname^}-$pkgver
