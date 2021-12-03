@@ -1,0 +1,62 @@
+diff --git a/Makefile b/Makefile
+index 73d2411..7e545ba 100644
+--- a/Makefile
++++ b/Makefile
+@@ -21,7 +21,7 @@ FAKEROOT := $(shell command -v fakeroot 2> /dev/null)
+ TESTDIR := $(shell mktemp -u -d)
+ 
+ build: etckeeper.spec etckeeper.version
+-	-$(PYTHON) ./etckeeper-bzr/__init__.py build || echo "** bzr support not built"
++	-$(PYTHON) ./etckeeper-brz/__init__.py build || echo "** brz support not built"
+ 	-$(PYTHON) ./etckeeper-dnf/etckeeper.py build || echo "** DNF support not built"
+ 
+ install: etckeeper.version
+@@ -68,7 +68,7 @@ ifeq ($(HIGHLEVEL_PACKAGE_MANAGER),zypper)
+ 	mkdir -p $(DESTDIR)$(prefix)/lib/zypp/plugins/commit
+ 	$(INSTALL) zypper-etckeeper.py $(DESTDIR)$(prefix)/lib/zypp/plugins/commit/zypper-etckeeper.py
+ endif
+-	-$(PYTHON) ./etckeeper-bzr/__init__.py install --root=$(DESTDIR) ${PYTHON_INSTALL_OPTS} || echo "** bzr support not installed"
++	-$(PYTHON) ./etckeeper-brz/__init__.py install --root=$(DESTDIR) ${PYTHON_INSTALL_OPTS} || echo "** brz support not installed"
+ 	echo "** installation successful"
+ 
+ clean: etckeeper.spec etckeeper.version
+diff --git a/etckeeper-brz/__init__.py b/etckeeper-brz/__init__.py
+new file mode 100644
+index 0000000..5f04ba6
+--- /dev/null
++++ b/etckeeper-brz/__init__.py
+@@ -0,0 +1,34 @@
++#
++# Breezy plugin that runs etckeeper pre-commit when necessary
++
++"""Runs etckeeper pre-commit when necessary."""
++
++from breezy.errors import BzrError
++import os
++
++def etckeeper_startcommit_hook(tree):
++    abspath = getattr(tree, "abspath", None)
++    if abspath is None or not os.path.exists(abspath(".etckeeper")):
++        # Only run the commit hook when this is an etckeeper branch
++        return
++    import subprocess
++    ret = subprocess.call(["etckeeper", "pre-commit", abspath(".")])
++    if ret != 0:
++        raise BzrError("etckeeper pre-commit failed")
++
++try:
++    from breezy.hooks import install_lazy_named_hook
++except ImportError:
++    from breezy.mutabletree import MutableTree
++    MutableTree.hooks.install_named_hook('start_commit',
++        etckeeper_startcommit_hook, 'etckeeper')
++else:
++    install_lazy_named_hook(
++        "breezy.mutabletree", "MutableTree.hooks",
++        'start_commit', etckeeper_startcommit_hook, 'etckeeper')
++
++if __name__ == "__main__":
++    from distutils.core import setup
++    setup(name="brz-etckeeper",
++          packages=["breezy.plugins.etckeeper"],
++          package_dir={"breezy.plugins.etckeeper":"etckeeper-brz"})
