@@ -1,0 +1,360 @@
+diff --git a/.github/workflows/codeqa-test.yml b/.github/workflows/codeqa-test.yml
+index c068ee3..5f0bb03 100644
+--- a/.github/workflows/codeqa-test.yml
++++ b/.github/workflows/codeqa-test.yml
+@@ -19,9 +19,9 @@ jobs:
+         path: ~/.cache/pip
+         key: pip-lint
+     - name: Install dependencies
+-      run: pip install flake8 isort
++      run: pip install pyproject-flake8 isort
+     - name: Run flake8
+-      run: flake8 sphinx_autodoc_typehints.py tests
++      run: pflake8 sphinx_autodoc_typehints.py tests
+     - name: Run isort
+       run: isort -c sphinx_autodoc_typehints.py tests
+ 
+@@ -31,7 +31,7 @@ jobs:
+       fail-fast: false
+       matrix:
+         os: [ubuntu-latest]
+-        python-version: [3.6, 3.7, 3.8, 3.9, 3.10.0-alpha.5]
++        python-version: ["3.6", "3.7", "3.8", "3.9", "3.10"]
+     runs-on: ${{ matrix.os }}
+     steps:
+     - uses: actions/checkout@v2
+diff --git a/pre-commit-config.sample.yaml b/.pre-commit-config.yaml
+similarity index 85%
+rename from pre-commit-config.sample.yaml
+rename to .pre-commit-config.yaml
+index 7f86457..00f00ce 100644
+--- a/pre-commit-config.sample.yaml
++++ b/.pre-commit-config.yaml
+@@ -22,3 +22,7 @@ repos:
+     hooks:
+     - id: isort
+       additional_dependencies: [toml]
++-   repo: https://github.com/csachs/pyproject-flake8
++    rev: v0.0.1a2.post1
++    hooks:
++    - id: pyproject-flake8
+diff --git a/pyproject.toml b/pyproject.toml
+index eeb699e..68d7eab 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -14,6 +14,9 @@ multi_line_output = 4
+ [tool.autopep8]
+ max_line_length = 99
+ 
++[tool.flake8]
++max-line-length = 99
++
+ [tool.pytest.ini_options]
+ addopts = "-rsx --tb=short"
+ testpaths = ["tests"]
+diff --git a/setup.cfg b/setup.cfg
+index c872ff3..4e57ff5 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -38,10 +38,3 @@ test =
+     Sphinx >= 3.2.0
+ type_comments =
+     typed_ast >= 1.4.0; python_version < "3.8"
+-
+-[flake8]
+-max-line-length = 99
+-
+-[tool:pytest]
+-addopts = -rsx --tb=short
+-testpaths = tests
+diff --git a/sphinx_autodoc_typehints.py b/sphinx_autodoc_typehints.py
+index 0b69b1c..5a4ed95 100644
+--- a/sphinx_autodoc_typehints.py
++++ b/sphinx_autodoc_typehints.py
+@@ -170,13 +170,19 @@ def normalize_source_lines(sourcelines: str) -> str:
+     for i, l in enumerate(sourcelines):
+         if l.lstrip().startswith("def"):
+             idx = i
++            whitespace_separator = "def"
+             break
++        elif l.lstrip().startswith("async def"):
++            idx = i
++            whitespace_separator = "async def"
++            break
++
+     else:
+         return "\n".join(sourcelines)
+     fn_def = sourcelines[idx]
+ 
+     # Get a string representing the amount of leading whitespace
+-    whitespace = fn_def.split("def")[0]
++    whitespace = fn_def.split(whitespace_separator)[0]
+ 
+     # Add this leading whitespace to all lines before and after the `def`
+     aligned_prefix = [whitespace + remove_prefix(s, whitespace) for s in sourcelines[:idx]]
+@@ -251,15 +257,37 @@ def process_signature(app, what: str, name: str, obj, options, signature, return
+     return stringify_signature(signature).replace('\\', '\\\\'), None
+ 
+ 
++def _future_annotations_imported(obj):
++    if sys.version_info < (3, 7):
++        # Only Python ≥ 3.7 supports PEP563.
++        return False
++
++    _annotations = getattr(inspect.getmodule(obj), "annotations", None)
++    if _annotations is None:
++        return False
++
++    # Make sure that annotations is imported from __future__
++    CO_FUTURE_ANNOTATIONS = 0x1000000  # defined in cpython/Lib/__future__.py
++    return _annotations.compiler_flag == CO_FUTURE_ANNOTATIONS
++
++
+ def get_all_type_hints(obj, name):
+     rv = {}
+ 
+     try:
+         rv = get_type_hints(obj)
+-    except (AttributeError, TypeError, RecursionError):
++    except (AttributeError, TypeError, RecursionError) as exc:
+         # Introspecting a slot wrapper will raise TypeError, and and some recursive type
+         # definitions will cause a RecursionError (https://github.com/python/typing/issues/574).
+-        pass
++
++        # If one is using PEP563 annotations, Python will raise a (e.g.,)
++        # TypeError("TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'")
++        # on 'str | None', therefore we accept TypeErrors with that error message
++        # if 'annotations' is imported from '__future__'.
++        if (isinstance(exc, TypeError)
++            and _future_annotations_imported(obj)
++                and "unsupported operand type" in str(exc)):
++            rv = obj.__annotations__
+     except NameError as exc:
+         logger.warning('Cannot resolve forward reference in type annotations of "%s": %s',
+                        name, exc)
+diff --git a/tests/roots/test-dummy/dummy_module_future_annotations.py b/tests/roots/test-dummy/dummy_module_future_annotations.py
+new file mode 100644
+index 0000000..119159d
+--- /dev/null
++++ b/tests/roots/test-dummy/dummy_module_future_annotations.py
+@@ -0,0 +1,11 @@
++from __future__ import annotations
++
++
++def function_with_py310_annotations(self, x: bool, y: int, z: str | None = None) -> str:
++    """
++    Method docstring.
++
++    :param x: foo
++    :param y: bar
++    :param z: baz
++    """
+diff --git a/tests/roots/test-dummy/future_annotations.rst b/tests/roots/test-dummy/future_annotations.rst
+new file mode 100644
+index 0000000..3d774cb
+--- /dev/null
++++ b/tests/roots/test-dummy/future_annotations.rst
+@@ -0,0 +1,4 @@
++Dummy Module
++============
++
++.. autofunction:: dummy_module_future_annotations.function_with_py310_annotations
+diff --git a/tests/test_sphinx_autodoc_typehints.py b/tests/test_sphinx_autodoc_typehints.py
+index 7ef8d73..ca43b71 100644
+--- a/tests/test_sphinx_autodoc_typehints.py
++++ b/tests/test_sphinx_autodoc_typehints.py
+@@ -6,13 +6,14 @@ import typing
+ from typing import (
+     IO, Any, AnyStr, Callable, Dict, Generic, Mapping, Match, NewType, Optional, Pattern, Tuple,
+     Type, TypeVar, Union)
++from unittest.mock import patch
+ 
+ import pytest
+ import typing_extensions
+ 
+ from sphinx_autodoc_typehints import (
+     format_annotation, get_annotation_args, get_annotation_class_name, get_annotation_module,
+-    process_docstring)
++    normalize_source_lines, process_docstring)
+ 
+ T = TypeVar('T')
+ U = TypeVar('U', covariant=True)
+@@ -85,6 +86,10 @@ class Metaclass(type):
+     pytest.param(A.Inner, __name__, 'A.Inner', (), id='Inner')
+ ])
+ def test_parse_annotation(annotation, module, class_name, args):
++    if sys.version_info[:2] >= (3, 10) and annotation == W:
++        module = "test_sphinx_autodoc_typehints"
++        class_name = "W"
++        args = ()
+     assert get_annotation_module(annotation) == module
+     assert get_annotation_class_name(annotation, module) == class_name
+     assert get_annotation_args(annotation, module, class_name) == args
+@@ -127,7 +132,10 @@ def test_parse_annotation(annotation, module, class_name, args):
+                                     ':py:data:`~typing.Any`]',
+                  marks=pytest.mark.skipif((3, 5, 0) <= sys.version_info[:3] <= (3, 5, 2),
+                                           reason='Union erases the str on 3.5.0 -> 3.5.2')),
+-    (Optional[str],                 ':py:data:`~typing.Optional`\\[:py:class:`str`]'),
++    (Optional[str],                 ':py:data:`~typing.Optional`\\' + (
++                                    '[:py:class:`str`]'
++                                    if sys.version_info[:2] < (3, 10) else
++                                    '[:py:class:`str`, :py:obj:`None`]')),
+     (Optional[Union[str, bool]],    ':py:data:`~typing.Union`\\[:py:class:`str`, '
+                                     ':py:class:`bool`, :py:obj:`None`]'),
+     (Callable,                      ':py:data:`~typing.Callable`'),
+@@ -151,7 +159,10 @@ def test_parse_annotation(annotation, module, class_name, args):
+     (D,                             ':py:class:`~%s.D`' % __name__),
+     (E,                             ':py:class:`~%s.E`' % __name__),
+     (E[int],                        ':py:class:`~%s.E`\\[:py:class:`int`]' % __name__),
+-    (W,                             ':py:func:`~typing.NewType`\\(:py:data:`~W`, :py:class:`str`)')
++    (W,                             ':py:func:`~typing.NewType`\\(:py:data:`~W`, :py:class:`str`)'
++                                    if sys.version_info[:2] < (3, 10) else
++                                    ':py:class:`~test_sphinx_autodoc_typehints.W`'
++     )
+ ])
+ def test_format_annotation(inv, annotation, expected_result):
+     result = format_annotation(annotation)
+@@ -223,17 +234,39 @@ def test_process_docstring_slot_wrapper():
+     assert not lines
+ 
+ 
+-@pytest.mark.parametrize('always_document_param_types', [True, False])
+-@pytest.mark.sphinx('text', testroot='dummy')
+-def test_sphinx_output(app, status, warning, always_document_param_types):
++def set_python_path():
+     test_path = pathlib.Path(__file__).parent
+ 
+     # Add test directory to sys.path to allow imports of dummy module.
+     if str(test_path) not in sys.path:
+         sys.path.insert(0, str(test_path))
+ 
++
++def maybe_fix_py310(expected_contents):
++    if sys.version_info[:2] >= (3, 10):
++        for old, new in [
++                ("*str** | **None*", '"Optional"["str", "None"]'),
++                ("(*bool*)", '("bool")'),
++                ("(*int*)", '("int")'),
++                ("   str", '   "str"'),
++                ('"Optional"["str"]', '"Optional"["str", "None"]'),
++                ('"Optional"["Callable"[["int", "bytes"], "int"]]',
++                 '"Optional"["Callable"[["int", "bytes"], "int"], "None"]'),
++        ]:
++            expected_contents = expected_contents.replace(old, new)
++    return expected_contents
++
++
++@pytest.mark.parametrize('always_document_param_types', [True, False])
++@pytest.mark.sphinx('text', testroot='dummy')
++@patch('sphinx.writers.text.MAXWIDTH', 2000)
++def test_sphinx_output(app, status, warning, always_document_param_types):
++    set_python_path()
++
+     app.config.always_document_param_types = always_document_param_types
+     app.config.autodoc_mock_imports = ['mailbox']
++    if sys.version_info < (3, 7):
++        app.config.autodoc_mock_imports.append('dummy_module_future_annotations')
+     app.build()
+ 
+     assert 'build succeeded' in status.getvalue()  # Build succeeded
+@@ -352,7 +385,7 @@ def test_sphinx_output(app, status, warning, always_document_param_types):
+               Return type:
+                  "str"
+ 
+-           property a_property
++           property a_property: str
+ 
+               Property docstring
+ 
+@@ -489,8 +522,7 @@ def test_sphinx_output(app, status, warning, always_document_param_types):
+               Method docstring.
+ 
+               Parameters:
+-                 **x** ("Optional"["Callable"[["int", "bytes"], "int"]]) --
+-                 foo
++                 **x** ("Optional"["Callable"[["int", "bytes"], "int"]]) -- foo
+ 
+               Return type:
+                  "ClassWithTypehintsNotInline"
+@@ -506,9 +538,7 @@ def test_sphinx_output(app, status, warning, always_document_param_types):
+ 
+            Class docstring.{undoc_params_0}
+ 
+-           __init__(x)
+-
+-              Initialize self.  See help(type(self)) for accurate signature.{undoc_params_1}
++           __init__(x){undoc_params_1}
+ 
+         @dummy_module.Decorator(func)
+ 
+@@ -525,4 +555,56 @@ def test_sphinx_output(app, status, warning, always_document_param_types):
+               **x** ("Mailbox") -- function
+         ''')
+         expected_contents = expected_contents.format(**format_args).replace('–', '--')
+-        assert text_contents == expected_contents
++        assert text_contents == maybe_fix_py310(expected_contents)
++
++
++@pytest.mark.skipif(sys.version_info < (3, 7),
++                    reason="Future annotations are not implemented in Python < 3.7")
++@pytest.mark.sphinx('text', testroot='dummy')
++@patch('sphinx.writers.text.MAXWIDTH', 2000)
++def test_sphinx_output_future_annotations(app, status, warning):
++    set_python_path()
++
++    app.config.master_doc = "future_annotations"
++    app.build()
++
++    assert 'build succeeded' in status.getvalue()  # Build succeeded
++
++    text_path = pathlib.Path(app.srcdir) / '_build' / 'text' / 'future_annotations.txt'
++    with text_path.open('r') as f:
++        text_contents = f.read().replace('–', '--')
++        expected_contents = textwrap.dedent('''\
++        Dummy Module
++        ************
++
++        dummy_module_future_annotations.function_with_py310_annotations(self, x, y, z=None)
++
++           Method docstring.
++
++           Parameters:
++              * **x** (*bool*) -- foo
++
++              * **y** (*int*) -- bar
++
++              * **z** (*str** | **None*) -- baz
++
++           Return type:
++              str
++        ''')
++        assert text_contents == maybe_fix_py310(expected_contents)
++
++
++def test_normalize_source_lines_async_def():
++    source = textwrap.dedent("""
++    async def async_function():
++        class InnerClass:
++            def __init__(self): pass
++    """)
++
++    expected = textwrap.dedent("""
++    async def async_function():
++        class InnerClass:
++            def __init__(self): pass
++    """)
++
++    assert normalize_source_lines(source) == expected
+diff --git a/tox.ini b/tox.ini
+index 54e9bb4..57e4a78 100644
+--- a/tox.ini
++++ b/tox.ini
+@@ -9,6 +9,6 @@ extras = test, type_comments
+ commands = python -m pytest {posargs}
+ 
+ [testenv:flake8]
+-deps = flake8
+-commands = flake8 sphinx_autodoc_typehints.py tests
++deps = pyproject-flake8
++commands = pflake8 sphinx_autodoc_typehints.py tests
+ skip_install = true
