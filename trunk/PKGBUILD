@@ -5,9 +5,9 @@
 # Contributor: Jesus Alvarez
 
 pkgname=python-jedi
-_gitcommit=4b5b2e791b66f3a99542bc2a0e1d5730dc1491df
-pkgver=0.18.0
-pkgrel=3
+_gitcommit=fae26fa7a427b94a21e11500503d8008647e6309
+pkgver=0.18.1
+pkgrel=1
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
 arch=('any')
