@@ -1,0 +1,55 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
+# Contributor: Konstantin Gizdov <arch at kge dot pw>
+
+pkgname=tensorboard
+pkgver=2.7.0
+pkgrel=2
+pkgdesc="TensorFlow's Visualization Toolkit"
+url='https://github.com/tensorflow/tensorboard'
+arch=('x86_64')
+license=('APACHE')
+depends=('python' 'python-werkzeug' 'python-numpy' 'python-bleach' 'python-wheel' 'python-markdown'
+         'python-html5lib' 'python-protobuf' 'python-grpcio' 'python-google-auth-oauthlib'
+         'python-tensorboard_plugin_wit' 'absl-py')
+makedepends=('bazel' 'python-setuptools' 'tree' 'rust' 'python-pip')
+optdepends=('python-tensorflow: advanced features for TensorBoard')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/tensorflow/tensorboard/archive/${pkgver}.tar.gz")
+sha512sums=('ede5aea29a7e2a373d027a67bc4bc1ec4d175e16df075430782da39a80f06110b4c648c0eee14840ce6f2027d26780cee8cb830505c6eb74f1d769cf01f74382')
+
+build() {
+  cd "$pkgname-$pkgver"
+
+  PYTHONWARNINGS=ignore bazel build //tensorboard
+  bazel build //tensorboard/pip_package:build_pip_package
+
+  cd tensorboard/data/server
+  cargo build --release
+  python pip_package/build.py --server-binary target/release/rustboard --out-dir /tmp
+  cd "$srcdir/$pkgname-$pkgver"
+
+  mkdir pypackage
+  cp -R bazel-bin/tensorboard/pip_package/build_pip_package.runfiles/org_tensorflow_tensorboard/external pypackage
+  cp -R bazel-bin/tensorboard/pip_package/build_pip_package.runfiles/org_tensorflow_tensorboard/tensorboard pypackage
+  cp tensorboard/pip_package/{README.rst,MANIFEST.in,setup.py,requirements.txt} pypackage
+  cp README.md pypackage
+  cd pypackage
+  python setup.py build
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  pip install --ignore-installed --root "$pkgdir" /tmp/*.whl
+
+  cd pypackage
+  python setup.py install --root="$pkgdir" --optimize=1
+
+  rm -r "$pkgdir"/usr/lib/python3.10/site-packages/external/
+
+  _requires="$pkgdir"/usr/lib/python3.10/site-packages/tensorboard-${pkgver}-py3.10.egg-info/requires.txt
+  sed -i 's/tensorboard-data-server.*/tensorboard-data-server/' ${_requires}
+}
+
+# vim:set ts=2 sw=2 et:
