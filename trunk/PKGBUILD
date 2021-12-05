@@ -4,24 +4,19 @@
 
 pkgname=(cython cython2)
 pkgbase=cython
-pkgver=0.29.24
-pkgrel=3
+pkgver=0.29.25
+pkgrel=1
 pkgdesc='C-Extensions for Python'
 arch=(x86_64)
 url='https://cython.org'
 license=(APACHE)
 makedepends=(python-setuptools python2-setuptools)
-source=(https://github.com/cython/cython/archive/$pkgver/$pkgbase-$pkgver.tar.gz
-        cython-hash-int-conversion.patch::"https://github.com/cython/cython/commit/28251032.patch")
-sha256sums=('a5efb97612f0f97164e87c54cc295b2e2d06c539487670079963adeab872de80'
-            '28b2b065a9853e86d0bc09287e8a21f50ebc1f3cfee3b2ab03b6b917cb9e81d8')
+source=(https://github.com/cython/cython/archive/$pkgver/$pkgbase-$pkgver.tar.gz)
+sha256sums=('dcee4374bff7a0fbd6802dacaf77b2edb1c1324380f11b8646acae9f9efa4fcc')
 
 prepare() {
   cp -r cython-$pkgver cython2-$pkgver
   find cython2-$pkgver -name '*.py' | xargs sed -e 's|/usr/bin/env python|/usr/bin/env python2|' -e 's|/usr/bin/python|/usr/bin/python2|' -i
-
-  cd cython-$pkgver
-  patch -p1 -i ../cython-hash-int-conversion.patch # Allow non-int conversion to Py_hash_t, needed by sagemath
 }
 
 build() {
