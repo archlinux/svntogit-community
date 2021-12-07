@@ -46,12 +46,8 @@ package() {
 
   cd "examples/IPython Kernel"
   # FS#45120
-  sed -i 's/gnome-netstatus-idle/ipython/' *.desktop
-  install -Dm644 ipython.desktop "$pkgdir/usr/share/applications/ipython.desktop"
-  #install -Dm644 ipython-qtconsole.desktop "$pkgdir/usr/share/applications/ipython-qtconsole.desktop"
+  sed -i 's/gnome-netstatus-idle/ipython/' ipython.desktop
+  install -Dm644 -t "$pkgdir/usr/share/applications" ipython.desktop
   # FS#47046
   install -Dm644 "$srcdir/icon.png" "$pkgdir/usr/share/pixmaps/ipython.png"
-
-  #cd $srcdir/ipython-$pkgver/IPython/qt/console/resources/icon/
-  #install -Dm644 IPythonConsole.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/ipython.svg"
 }
