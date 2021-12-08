@@ -2,9 +2,9 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=1.29.1
+pkgver=1.30.0
 pkgrel=1
-_jslibcommit='764dc40b36e0000807e59b8d6feea5ac4577270d'
+_jslibcommit='f4c66b2c8c243935bf25f689b16afaa5d6345f1b'
 _electronversion=14
 pkgdesc='A secure and free password manager for all of your devices'
 arch=('x86_64')
@@ -18,8 +18,8 @@ source=(${pkgname}-${pkgver}.tar.gz::https://github.com/bitwarden/desktop/archiv
         messaging.main.ts.patch
         ${pkgname}.sh
         ${pkgname}.desktop)
-sha512sums=('d5d011cb085bc56bee56212bfd72b7be9438c10985bb88c48329979cd7ebe4ee9ae6b1da54b5bd0f7fb6ef35a697a7681d47c18ed77a1d5b13c2837819b4c2fb'
-            '08fcfa6e23e405d1a01238268ae55bef263f91173d1d28ec96e20cdc892229304c0b84dfcb3c722615f8dd6bb46cb9c3fad21ace46da06d4a349e1008e49e559'
+sha512sums=('b15c4b90b2f541231b090e711b078204de2d9115301b126018b9ab3d828f4d0376a7771ffb30c9eb33e005b684bbc4deb11a83841b9c570eaabd5ebadb38d5ff'
+            'b0fa3cd70031dcb87c515beecda35fadb8980ec696a90bbe051a750fd6fdd202902c3c717285a7ccb99d8629b106fbd365b25b39f629001c64123dab2e5521f0'
             '87cdb8287cbc0c4eb49b0fd456a66e200551b5da5c14991505f6301cf1b11132d938dfdf795c4df2a4b3e1ae2badf5dfe33c1207923ec8abc6f9b3e064af6015'
             '822d97be407c2ac2a6926f5c925b0fd188c541014a623dd3815fdbf5ef67c0542f43aaf8d11535571a83a265f620e330f5326244f42c3902fddab442128fda95'
             '44ee70d71abf9cf399736d00df0aa6815d452792c9589f5517fed4454bdfff6ad2a39ffee401eab0db180718b19e9565d9ecff8d1bd96a93d13e4f63eaf4d5fc'
