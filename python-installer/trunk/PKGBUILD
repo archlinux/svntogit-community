@@ -3,7 +3,7 @@
 _pkgname=installer
 pkgname=python-$_pkgname
 pkgver=0.2.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
 url='https://github.com/pradyunsg/installer'
