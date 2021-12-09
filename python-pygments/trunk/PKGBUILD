@@ -3,7 +3,7 @@
 
 pkgname=python-pygments
 pkgver=2.10.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Python syntax highlighter"
 arch=('any')
 url="https://pygments.org/"
@@ -19,7 +19,7 @@ sha256sums=('f398865f7eb6874156579fdf36bc840a03cab64d1cde9e93d68f46a425ec52c6')
 
 build() {
   cd "$srcdir/Pygments-$pkgver"
-  #make -C doc html
+  make -C doc html
 }
 
 check() {
@@ -33,9 +33,9 @@ package() {
   python3 setup.py install --root="$pkgdir" -O1
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 
-  #mkdir -p "$pkgdir/usr/share/doc"
-  #cp -rT doc/_build/html "$pkgdir/usr/share/doc/$pkgname"
-  #install -Dm644 doc/pygmentize.1 -t "$pkgdir/usr/share/man/man1"
+  mkdir -p "$pkgdir/usr/share/doc"
+  cp -rT doc/_build/html "$pkgdir/usr/share/doc/$pkgname"
+  install -Dm644 doc/pygmentize.1 -t "$pkgdir/usr/share/man/man1"
   install -Dm644 external/pygments.bashcomp \
     "$pkgdir/usr/share/bash-completion/completions/pygmentize"
 }
