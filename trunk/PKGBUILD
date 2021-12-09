@@ -23,7 +23,7 @@ build() {
 
   python setup.py build
 
-  PYTHONPATH=. sphinx-build -b dirhtml -v docs docs/build/html
+  #PYTHONPATH=. sphinx-build -b dirhtml -v docs docs/build/html
 }
 
 check() {
@@ -38,9 +38,9 @@ package() {
   python setup.py install --root="$pkgdir" --skip-build
   python -m compileall --invalidation-mode=checked-hash "$pkgdir"
 
-  install -dm 755 "$pkgdir"/usr/share/doc/$pkgname
-  cp -r -a --no-preserve=ownership docs/build/html "$pkgdir"/usr/share/doc/$pkgname
-  rm -rf "$pkgdir"/usr/share/doc/$pkgname/html/.doctrees
+  #install -dm 755 "$pkgdir"/usr/share/doc/$pkgname
+  #cp -r -a --no-preserve=ownership docs/build/html "$pkgdir"/usr/share/doc/$pkgname
+  #rm -rf "$pkgdir"/usr/share/doc/$pkgname/html/.doctrees
 
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
