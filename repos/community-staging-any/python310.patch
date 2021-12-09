@@ -1,0 +1,1276 @@
+From 4cace55bfbbc1439d08209641e49e886b7808f20 Mon Sep 17 00:00:00 2001
+From: Eric Jolibois <em.jolibois@gmail.com>
+Date: Mon, 19 Jul 2021 15:23:07 +0200
+Subject: [PATCH 1/3] Add python 3.10 support (#2885)
+
+* refactor: extra `BaseConfig` and `Extra` in dedicated `config` module
+
+* refactor: clean useless `#noqa: F401`
+
+* refactor: clean useless `#noqa: F811`
+
+* refactor: replace enum check
+
+Error with 3.10
+> DeprecationWarning: accessing one member from another is not supported
+
+* refactor: avoid using `distutils` directly
+
+error with python 3.10
+> DeprecationWarning: The distutils package is deprecated and slated
+> for removal in Python 3.12.
+> Use setuptools or check PEP 632 for potential alternatives
+
+* fix: `__annotations__` always exists
+
+* fix: origin of `typing.Hashable` is not `None`
+
+* ci: add run with 3.10.0b2
+
+* docs: add 3.10
+
+* feat: support `|` union operator properly
+
+`|` operator has origin `types.Union` (and not `typing.Union`)
+
+* fix: enum repr is different with 3.10+
+
+* fix: error message changed a bit
+
+change from basic `__init__` to `test_hashable_required.<locals>.MyDataclass.__init__()` (with `__qualname__`)
+
+* fix:  always exists and is not inherited anymore
+
+* fix: avoid calling `asyncio.get_event_loop` directly
+
+With python 3.10, calling it results in
+> DeprecationWarning: There is no current event loop
+
+* fix(ci): do not run 3.10 on linux for now
+
+For now it can not be compiled.
+Let's just skip the check on linux for now instead of tuning the CI pipeline
+
+* fix(ci): ignore DeprecationWarning raised by `mypy` on windows
+
+* docs: add change file
+
+(cherry picked from commit 4a54f393ad20ee91b51cd7a49ec46771ba4f8a18)
+---
+ .github/workflows/ci.yml     |   2 +-
+ changes/2885-PrettyWood.md   |   1 +
+ docs/contributing.md         |   2 +-
+ docs/install.md              |   2 +-
+ pydantic/__init__.py         |   6 +-
+ pydantic/annotated_types.py  |   7 +-
+ pydantic/class_validators.py |   2 +-
+ pydantic/config.py           | 124 +++++++++++++++++++++++++++++++++++
+ pydantic/dataclasses.py      |   3 +-
+ pydantic/decorator.py        |   3 +-
+ pydantic/env_settings.py     |   3 +-
+ pydantic/error_wrappers.py   |   4 +-
+ pydantic/fields.py           |  18 ++---
+ pydantic/main.py             | 121 ++--------------------------------
+ pydantic/networks.py         |   2 +-
+ pydantic/schema.py           |  11 ++--
+ pydantic/types.py            |   4 +-
+ pydantic/typing.py           |  14 ++++
+ pydantic/utils.py            |  15 +++--
+ pydantic/validators.py       |   7 +-
+ setup.cfg                    |   3 +
+ setup.py                     |   3 +-
+ tests/test_dataclasses.py    |   2 +-
+ tests/test_decorator.py      |   2 +-
+ tests/test_edge_cases.py     |   5 +-
+ tests/test_main.py           |  25 ++++++-
+ tests/test_types.py          |  10 ++-
+ tests/test_utils.py          |   6 +-
+ 28 files changed, 242 insertions(+), 165 deletions(-)
+ create mode 100644 changes/2885-PrettyWood.md
+ create mode 100644 pydantic/config.py
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 2c865ed..7f847eb 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -119,7 +119,7 @@ jobs:
+       fail-fast: false
+       matrix:
+         os: [macos, windows]
+-        python-version: ['3.6', '3.7', '3.8', '3.9']
++        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10.0-beta.2']
+     env:
+       PYTHON: ${{ matrix.python-version }}
+       OS: ${{ matrix.os }}
+diff --git a/changes/2885-PrettyWood.md b/changes/2885-PrettyWood.md
+new file mode 100644
+index 0000000..1cc2afe
+--- /dev/null
++++ b/changes/2885-PrettyWood.md
+@@ -0,0 +1 @@
++add python 3.10 support
+diff --git a/docs/contributing.md b/docs/contributing.md
+index dfbacbc..b0e0dc5 100644
+--- a/docs/contributing.md
++++ b/docs/contributing.md
+@@ -33,7 +33,7 @@ To make contributing as easy and fast as possible, you'll want to run tests and
+ *pydantic* has few dependencies, doesn't require compiling and tests don't need access to databases, etc.
+ Because of this, setting up and running the tests should be very simple.
+ 
+-You'll need to have **python 3.6**, **3.7**, **3.8**, or **3.9**, **virtualenv**, **git**, and **make** installed.
++You'll need to have a version between **python 3.6 and 3.10**, **virtualenv**, **git**, and **make** installed.
+ 
+ ```bash
+ # 1. clone your fork and cd into the repo directory
+diff --git a/docs/install.md b/docs/install.md
+index 9cbd9e2..c50d20c 100644
+--- a/docs/install.md
++++ b/docs/install.md
+@@ -4,7 +4,7 @@ Installation is as simple as:
+ pip install pydantic
+ ```
+ 
+-*pydantic* has no required dependencies except python 3.6, 3.7, 3.8, or 3.9,
++*pydantic* has no required dependencies except python 3.6, 3.7, 3.8, 3.9 or 3.10,
+ [`typing-extensions`](https://pypi.org/project/typing-extensions/), and the
+ [`dataclasses`](https://pypi.org/project/dataclasses/) backport package for python 3.6.
+ If you've got python 3.6+ and `pip` installed, you're good to go.
+diff --git a/pydantic/__init__.py b/pydantic/__init__.py
+index 2e7aab4..79917a4 100644
+--- a/pydantic/__init__.py
++++ b/pydantic/__init__.py
+@@ -2,6 +2,7 @@
+ from . import dataclasses
+ from .annotated_types import create_model_from_namedtuple, create_model_from_typeddict
+ from .class_validators import root_validator, validator
++from .config import BaseConfig, Extra
+ from .decorator import validate_arguments
+ from .env_settings import BaseSettings
+ from .error_wrappers import ValidationError
+@@ -25,6 +26,9 @@ __all__ = [
+     # class_validators
+     'root_validator',
+     'validator',
++    # config
++    'BaseConfig',
++    'Extra',
+     # decorator
+     'validate_arguments',
+     # env_settings
+@@ -35,9 +39,7 @@ __all__ = [
+     'Field',
+     'Required',
+     # main
+-    'BaseConfig',
+     'BaseModel',
+-    'Extra',
+     'compiled',
+     'create_model',
+     'validate_model',
+diff --git a/pydantic/annotated_types.py b/pydantic/annotated_types.py
+index bffcdc6..0a2a24f 100644
+--- a/pydantic/annotated_types.py
++++ b/pydantic/annotated_types.py
+@@ -42,9 +42,10 @@ def create_model_from_namedtuple(namedtuple_cls: Type['NamedTuple'], **kwargs: A
+     but also with `collections.namedtuple`, in this case we consider all fields
+     to have type `Any`.
+     """
+-    namedtuple_annotations: Dict[str, Type[Any]] = getattr(
+-        namedtuple_cls, '__annotations__', {k: Any for k in namedtuple_cls._fields}
+-    )
++    # With python 3.10+, `__annotations__` always exists but can be empty hence the `getattr... or...` logic
++    namedtuple_annotations: Dict[str, Type[Any]] = getattr(namedtuple_cls, '__annotations__', None) or {
++        k: Any for k in namedtuple_cls._fields
++    }
+     field_definitions: Dict[str, Any] = {
+         field_name: (field_type, Required) for field_name, field_type in namedtuple_annotations.items()
+     }
+diff --git a/pydantic/class_validators.py b/pydantic/class_validators.py
+index 9cd951a..a93d570 100644
+--- a/pydantic/class_validators.py
++++ b/pydantic/class_validators.py
+@@ -33,8 +33,8 @@ class Validator:
+ if TYPE_CHECKING:
+     from inspect import Signature
+ 
++    from .config import BaseConfig
+     from .fields import ModelField
+-    from .main import BaseConfig
+     from .types import ModelOrDc
+ 
+     ValidatorCallable = Callable[[Optional[ModelOrDc], Any, Dict[str, Any], ModelField, Type[BaseConfig]], Any]
+diff --git a/pydantic/config.py b/pydantic/config.py
+new file mode 100644
+index 0000000..acd20da
+--- /dev/null
++++ b/pydantic/config.py
+@@ -0,0 +1,124 @@
++import json
++from enum import Enum
++from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple, Type, Union
++
++from .typing import AnyCallable
++from .utils import GetterDict
++
++if TYPE_CHECKING:
++    from typing import overload
++
++    import typing_extensions
++
++    from .fields import ModelField
++    from .main import BaseModel
++
++    ConfigType = Type['BaseConfig']
++
++    class SchemaExtraCallable(typing_extensions.Protocol):
++        @overload
++        def __call__(self, schema: Dict[str, Any]) -> None:
++            pass
++
++        @overload
++        def __call__(self, schema: Dict[str, Any], model_class: Type[BaseModel]) -> None:
++            pass
++
++
++else:
++    SchemaExtraCallable = Callable[..., None]
++
++__all__ = 'BaseConfig', 'Extra', 'inherit_config', 'prepare_config'
++
++
++class Extra(str, Enum):
++    allow = 'allow'
++    ignore = 'ignore'
++    forbid = 'forbid'
++
++
++class BaseConfig:
++    title = None
++    anystr_lower = False
++    anystr_strip_whitespace = False
++    min_anystr_length = None
++    max_anystr_length = None
++    validate_all = False
++    extra = Extra.ignore
++    allow_mutation = True
++    frozen = False
++    allow_population_by_field_name = False
++    use_enum_values = False
++    fields: Dict[str, Union[str, Dict[str, str]]] = {}
++    validate_assignment = False
++    error_msg_templates: Dict[str, str] = {}
++    arbitrary_types_allowed = False
++    orm_mode: bool = False
++    getter_dict: Type[GetterDict] = GetterDict
++    alias_generator: Optional[Callable[[str], str]] = None
++    keep_untouched: Tuple[type, ...] = ()
++    schema_extra: Union[Dict[str, Any], 'SchemaExtraCallable'] = {}
++    json_loads: Callable[[str], Any] = json.loads
++    json_dumps: Callable[..., str] = json.dumps
++    json_encoders: Dict[Type[Any], AnyCallable] = {}
++    underscore_attrs_are_private: bool = False
++
++    # Whether or not inherited models as fields should be reconstructed as base model
++    copy_on_model_validation: bool = True
++
++    @classmethod
++    def get_field_info(cls, name: str) -> Dict[str, Any]:
++        """
++        Get properties of FieldInfo from the `fields` property of the config class.
++        """
++
++        fields_value = cls.fields.get(name)
++
++        if isinstance(fields_value, str):
++            field_info: Dict[str, Any] = {'alias': fields_value}
++        elif isinstance(fields_value, dict):
++            field_info = fields_value
++        else:
++            field_info = {}
++
++        if 'alias' in field_info:
++            field_info.setdefault('alias_priority', 2)
++
++        if field_info.get('alias_priority', 0) <= 1 and cls.alias_generator:
++            alias = cls.alias_generator(name)
++            if not isinstance(alias, str):
++                raise TypeError(f'Config.alias_generator must return str, not {alias.__class__}')
++            field_info.update(alias=alias, alias_priority=1)
++        return field_info
++
++    @classmethod
++    def prepare_field(cls, field: 'ModelField') -> None:
++        """
++        Optional hook to check or modify fields during model creation.
++        """
++        pass
++
++
++def inherit_config(self_config: 'ConfigType', parent_config: 'ConfigType', **namespace: Any) -> 'ConfigType':
++    if not self_config:
++        base_classes: Tuple['ConfigType', ...] = (parent_config,)
++    elif self_config == parent_config:
++        base_classes = (self_config,)
++    else:
++        base_classes = self_config, parent_config
++
++    namespace['json_encoders'] = {
++        **getattr(parent_config, 'json_encoders', {}),
++        **getattr(self_config, 'json_encoders', {}),
++        **namespace.get('json_encoders', {}),
++    }
++
++    return type('Config', base_classes, namespace)
++
++
++def prepare_config(config: Type[BaseConfig], cls_name: str) -> None:
++    if not isinstance(config.extra, Extra):
++        try:
++            config.extra = Extra(config.extra)
++        except ValueError:
++            raise ValueError(f'"{cls_name}": {config.extra} is not a valid value for "extra"')
+diff --git a/pydantic/dataclasses.py b/pydantic/dataclasses.py
+index 42ae685..a61dbc8 100644
+--- a/pydantic/dataclasses.py
++++ b/pydantic/dataclasses.py
+@@ -9,7 +9,8 @@ from .typing import resolve_annotations
+ from .utils import ClassAttribute
+ 
+ if TYPE_CHECKING:
+-    from .main import BaseConfig, BaseModel  # noqa: F401
++    from .config import BaseConfig
++    from .main import BaseModel
+     from .typing import CallableGenerator, NoArgAnyCallable
+ 
+     DataclassT = TypeVar('DataclassT', bound='Dataclass')
+diff --git a/pydantic/decorator.py b/pydantic/decorator.py
+index 266195c..869afee 100644
+--- a/pydantic/decorator.py
++++ b/pydantic/decorator.py
+@@ -2,8 +2,9 @@ from functools import wraps
+ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional, Tuple, Type, TypeVar, Union, overload
+ 
+ from . import validator
++from .config import Extra
+ from .errors import ConfigError
+-from .main import BaseModel, Extra, create_model
++from .main import BaseModel, create_model
+ from .typing import get_all_type_hints
+ from .utils import to_camel
+ 
+diff --git a/pydantic/env_settings.py b/pydantic/env_settings.py
+index 71b5a97..2c8c11f 100644
+--- a/pydantic/env_settings.py
++++ b/pydantic/env_settings.py
+@@ -3,8 +3,9 @@ import warnings
+ from pathlib import Path
+ from typing import AbstractSet, Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
+ 
++from .config import BaseConfig, Extra
+ from .fields import ModelField
+-from .main import BaseConfig, BaseModel, Extra
++from .main import BaseModel
+ from .typing import display_as_type
+ from .utils import deep_update, path_type, sequence_like
+ 
+diff --git a/pydantic/error_wrappers.py b/pydantic/error_wrappers.py
+index 92d957f..59301eb 100644
+--- a/pydantic/error_wrappers.py
++++ b/pydantic/error_wrappers.py
+@@ -5,8 +5,8 @@ from .json import pydantic_encoder
+ from .utils import Representation
+ 
+ if TYPE_CHECKING:
+-    from .main import BaseConfig  # noqa: F401
+-    from .types import ModelOrDc  # noqa: F401
++    from .config import BaseConfig
++    from .types import ModelOrDc
+     from .typing import ReprArgs
+ 
+     Loc = Tuple[Union[int, str], ...]
+diff --git a/pydantic/fields.py b/pydantic/fields.py
+index 0c95d8a..3fdb88f 100644
+--- a/pydantic/fields.py
++++ b/pydantic/fields.py
+@@ -1,5 +1,5 @@
+ from collections import defaultdict, deque
+-from collections.abc import Iterable as CollectionsIterable
++from collections.abc import Hashable as CollectionsHashable, Iterable as CollectionsIterable
+ from typing import (
+     TYPE_CHECKING,
+     Any,
+@@ -41,6 +41,7 @@ from .typing import (
+     is_literal_type,
+     is_new_type,
+     is_typeddict,
++    is_union,
+     new_type_supertype,
+ )
+ from .utils import PyObjectStr, Representation, lenient_issubclass, sequence_like, smart_deepcopy
+@@ -68,11 +69,11 @@ class UndefinedType:
+ Undefined = UndefinedType()
+ 
+ if TYPE_CHECKING:
+-    from .class_validators import ValidatorsList  # noqa: F401
++    from .class_validators import ValidatorsList
++    from .config import BaseConfig
+     from .error_wrappers import ErrorList
+-    from .main import BaseConfig, BaseModel  # noqa: F401
+-    from .types import ModelOrDc  # noqa: F401
+-    from .typing import ReprArgs  # noqa: F401
++    from .types import ModelOrDc
++    from .typing import ReprArgs
+ 
+     ValidateReturn = Tuple[Optional[Any], Optional[ErrorList]]
+     LocStr = Union[Tuple[Union[int, str], ...], str]
+@@ -514,7 +515,8 @@ class ModelField(Representation):
+             return
+ 
+         origin = get_origin(self.type_)
+-        if origin is None:
++        # add extra check for `collections.abc.Hashable` for python 3.10+ where origin is not `None`
++        if origin is None or origin is CollectionsHashable:
+             # field is not "typing" object eg. Union, Dict, List etc.
+             # allow None for virtual superclasses of NoneType, e.g. Hashable
+             if isinstance(self.type_, type) and isinstance(None, self.type_):
+@@ -526,7 +528,7 @@ class ModelField(Representation):
+             return
+         if origin is Callable:
+             return
+-        if origin is Union:
++        if is_union(origin):
+             types_ = []
+             for type_ in get_args(self.type_):
+                 if type_ is NoneType:
+@@ -919,7 +921,7 @@ class ModelField(Representation):
+         """
+         Whether the field is "complex" eg. env variables should be parsed as JSON.
+         """
+-        from .main import BaseModel  # noqa: F811
++        from .main import BaseModel
+ 
+         return (
+             self.shape != SHAPE_SINGLETON
+diff --git a/pydantic/main.py b/pydantic/main.py
+index a77e101..0d9dac2 100644
+--- a/pydantic/main.py
++++ b/pydantic/main.py
+@@ -1,4 +1,3 @@
+-import json
+ import sys
+ import warnings
+ from abc import ABCMeta
+@@ -22,10 +21,10 @@ from typing import (
+     Union,
+     cast,
+     no_type_check,
+-    overload,
+ )
+ 
+ from .class_validators import ValidatorGroup, extract_root_validators, extract_validators, inherit_validators
++from .config import BaseConfig, Extra, inherit_config, prepare_config
+ from .error_wrappers import ErrorWrapper, ValidationError
+ from .errors import ConfigError, DictError, ExtraError, MissingError
+ from .fields import MAPPING_LIKE_SHAPES, ModelField, ModelPrivateAttr, PrivateAttr, Undefined
+@@ -39,6 +38,7 @@ from .typing import (
+     get_origin,
+     is_classvar,
+     is_namedtuple,
++    is_union,
+     resolve_annotations,
+     update_field_forward_refs,
+ )
+@@ -61,11 +61,9 @@ from .utils import (
+ if TYPE_CHECKING:
+     from inspect import Signature
+ 
+-    import typing_extensions
+-
+     from .class_validators import ValidatorListDict
+     from .types import ModelOrDc
+-    from .typing import (  # noqa: F401
++    from .typing import (
+         AbstractSetIntStr,
+         CallableGenerator,
+         DictAny,
+@@ -76,21 +74,8 @@ if TYPE_CHECKING:
+         TupleGenerator,
+     )
+ 
+-    ConfigType = Type['BaseConfig']
+     Model = TypeVar('Model', bound='BaseModel')
+ 
+-    class SchemaExtraCallable(typing_extensions.Protocol):
+-        @overload
+-        def __call__(self, schema: Dict[str, Any]) -> None:
+-            pass
+-
+-        @overload  # noqa: F811
+-        def __call__(self, schema: Dict[str, Any], model_class: Type['Model']) -> None:  # noqa: F811
+-            pass
+-
+-
+-else:
+-    SchemaExtraCallable = Callable[..., None]
+ 
+ try:
+     import cython  # type: ignore
+@@ -102,103 +87,7 @@ else:  # pragma: no cover
+     except AttributeError:
+         compiled = False
+ 
+-__all__ = 'BaseConfig', 'BaseModel', 'Extra', 'compiled', 'create_model', 'validate_model'
+-
+-
+-class Extra(str, Enum):
+-    allow = 'allow'
+-    ignore = 'ignore'
+-    forbid = 'forbid'
+-
+-
+-class BaseConfig:
+-    title = None
+-    anystr_lower = False
+-    anystr_strip_whitespace = False
+-    min_anystr_length = None
+-    max_anystr_length = None
+-    validate_all = False
+-    extra = Extra.ignore
+-    allow_mutation = True
+-    frozen = False
+-    allow_population_by_field_name = False
+-    use_enum_values = False
+-    fields: Dict[str, Union[str, Dict[str, str]]] = {}
+-    validate_assignment = False
+-    error_msg_templates: Dict[str, str] = {}
+-    arbitrary_types_allowed = False
+-    orm_mode: bool = False
+-    getter_dict: Type[GetterDict] = GetterDict
+-    alias_generator: Optional[Callable[[str], str]] = None
+-    keep_untouched: Tuple[type, ...] = ()
+-    schema_extra: Union[Dict[str, Any], 'SchemaExtraCallable'] = {}
+-    json_loads: Callable[[str], Any] = json.loads
+-    json_dumps: Callable[..., str] = json.dumps
+-    json_encoders: Dict[Type[Any], AnyCallable] = {}
+-    underscore_attrs_are_private: bool = False
+-
+-    # Whether or not inherited models as fields should be reconstructed as base model
+-    copy_on_model_validation: bool = True
+-
+-    @classmethod
+-    def get_field_info(cls, name: str) -> Dict[str, Any]:
+-        """
+-        Get properties of FieldInfo from the `fields` property of the config class.
+-        """
+-
+-        fields_value = cls.fields.get(name)
+-
+-        if isinstance(fields_value, str):
+-            field_info: Dict[str, Any] = {'alias': fields_value}
+-        elif isinstance(fields_value, dict):
+-            field_info = fields_value
+-        else:
+-            field_info = {}
+-
+-        if 'alias' in field_info:
+-            field_info.setdefault('alias_priority', 2)
+-
+-        if field_info.get('alias_priority', 0) <= 1 and cls.alias_generator:
+-            alias = cls.alias_generator(name)
+-            if not isinstance(alias, str):
+-                raise TypeError(f'Config.alias_generator must return str, not {alias.__class__}')
+-            field_info.update(alias=alias, alias_priority=1)
+-        return field_info
+-
+-    @classmethod
+-    def prepare_field(cls, field: 'ModelField') -> None:
+-        """
+-        Optional hook to check or modify fields during model creation.
+-        """
+-        pass
+-
+-
+-def inherit_config(self_config: 'ConfigType', parent_config: 'ConfigType', **namespace: Any) -> 'ConfigType':
+-    if not self_config:
+-        base_classes: Tuple['ConfigType', ...] = (parent_config,)
+-    elif self_config == parent_config:
+-        base_classes = (self_config,)
+-    else:
+-        base_classes = self_config, parent_config
+-
+-    namespace['json_encoders'] = {
+-        **getattr(parent_config, 'json_encoders', {}),
+-        **getattr(self_config, 'json_encoders', {}),
+-        **namespace.get('json_encoders', {}),
+-    }
+-
+-    return type('Config', base_classes, namespace)
+-
+-
+-EXTRA_LINK = 'https://pydantic-docs.helpmanual.io/usage/model_config/'
+-
+-
+-def prepare_config(config: Type[BaseConfig], cls_name: str) -> None:
+-    if not isinstance(config.extra, Extra):
+-        try:
+-            config.extra = Extra(config.extra)
+-        except ValueError:
+-            raise ValueError(f'"{cls_name}": {config.extra} is not a valid value for "extra"')
++__all__ = 'BaseModel', 'compiled', 'create_model', 'validate_model'
+ 
+ 
+ def validate_custom_root_type(fields: Dict[str, ModelField]) -> None:
+@@ -287,7 +176,7 @@ class ModelMetaclass(ABCMeta):
+                 elif is_valid_field(ann_name):
+                     validate_field_name(bases, ann_name)
+                     value = namespace.get(ann_name, Undefined)
+-                    allowed_types = get_args(ann_type) if get_origin(ann_type) is Union else (ann_type,)
++                    allowed_types = get_args(ann_type) if is_union(get_origin(ann_type)) else (ann_type,)
+                     if (
+                         is_untouched(value)
+                         and ann_type != PyObject
+diff --git a/pydantic/networks.py b/pydantic/networks.py
+index edace1f..187bb23 100644
+--- a/pydantic/networks.py
++++ b/pydantic/networks.py
+@@ -32,8 +32,8 @@ from .validators import constr_length_validator, str_validator
+ if TYPE_CHECKING:
+     import email_validator
+ 
++    from .config import BaseConfig
+     from .fields import ModelField
+-    from .main import BaseConfig  # noqa: F401
+     from .typing import AnyCallable
+ 
+     CallableGenerator = Generator[AnyCallable, None, None]
+diff --git a/pydantic/schema.py b/pydantic/schema.py
+index 32a4367..e4b90d4 100644
+--- a/pydantic/schema.py
++++ b/pydantic/schema.py
+@@ -71,12 +71,13 @@ from .typing import (
+     is_callable_type,
+     is_literal_type,
+     is_namedtuple,
++    is_union,
+ )
+ from .utils import ROOT_KEY, get_model, lenient_issubclass, sequence_like
+ 
+ if TYPE_CHECKING:
+-    from .dataclasses import Dataclass  # noqa: F401
+-    from .main import BaseModel  # noqa: F401
++    from .dataclasses import Dataclass
++    from .main import BaseModel
+ 
+ default_prefix = '#/definitions/'
+ default_ref_template = '#/definitions/{model}'
+@@ -364,7 +365,7 @@ def get_flat_models_from_field(field: ModelField, known_models: TypeModelSet) ->
+     :return: a set with the model used in the declaration for this field, if any, and all its sub-models
+     """
+     from .dataclasses import dataclass, is_builtin_dataclass
+-    from .main import BaseModel  # noqa: F811
++    from .main import BaseModel
+ 
+     flat_models: TypeModelSet = set()
+ 
+@@ -765,7 +766,7 @@ def field_singleton_schema(  # noqa: C901 (ignore complexity)
+ 
+     Take a single Pydantic ``ModelField``, and return its schema and any additional definitions from sub-models.
+     """
+-    from .main import BaseModel  # noqa: F811
++    from .main import BaseModel
+ 
+     definitions: Dict[str, Any] = {}
+     nested_models: Set[str] = set()
+@@ -959,7 +960,7 @@ def get_annotation_with_constraints(annotation: Any, field_info: FieldInfo) -> T
+ 
+             if origin is Annotated:
+                 return go(args[0])
+-            if origin is Union:
++            if is_union(origin):
+                 return Union[tuple(go(a) for a in args)]  # type: ignore
+ 
+             if issubclass(origin, List) and (field_info.min_items is not None or field_info.max_items is not None):
+diff --git a/pydantic/types.py b/pydantic/types.py
+index 2e4eb28..94db8f3 100644
+--- a/pydantic/types.py
++++ b/pydantic/types.py
+@@ -105,8 +105,8 @@ OptionalIntFloatDecimal = Union[OptionalIntFloat, Decimal]
+ StrIntFloat = Union[str, int, float]
+ 
+ if TYPE_CHECKING:
+-    from .dataclasses import Dataclass  # noqa: F401
+-    from .main import BaseConfig, BaseModel  # noqa: F401
++    from .dataclasses import Dataclass
++    from .main import BaseModel
+     from .typing import CallableGenerator
+ 
+     ModelOrDc = Type[Union['BaseModel', 'Dataclass']]
+diff --git a/pydantic/typing.py b/pydantic/typing.py
+index 1a3bf43..b98b543 100644
+--- a/pydantic/typing.py
++++ b/pydantic/typing.py
+@@ -189,6 +189,19 @@ else:
+         return _typing_get_args(tp) or getattr(tp, '__args__', ()) or _generic_get_args(tp)
+ 
+ 
++if sys.version_info < (3, 10):
++
++    def is_union(tp: Type[Any]) -> bool:
++        return tp is Union
++
++
++else:
++    import types
++
++    def is_union(tp: Type[Any]) -> bool:
++        return tp is Union or tp is types.Union
++
++
+ if TYPE_CHECKING:
+     from .fields import ModelField
+ 
+@@ -238,6 +251,7 @@ __all__ = (
+     'get_origin',
+     'typing_base',
+     'get_all_type_hints',
++    'is_union',
+ )
+ 
+ 
+diff --git a/pydantic/utils.py b/pydantic/utils.py
+index 8a8351c..c50863f 100644
+--- a/pydantic/utils.py
++++ b/pydantic/utils.py
+@@ -31,10 +31,11 @@ if TYPE_CHECKING:
+     from inspect import Signature
+     from pathlib import Path
+ 
+-    from .dataclasses import Dataclass  # noqa: F401
+-    from .fields import ModelField  # noqa: F401
+-    from .main import BaseConfig, BaseModel  # noqa: F401
+-    from .typing import AbstractSetIntStr, DictIntStrAny, IntStr, MappingIntStrAny, ReprArgs  # noqa: F401
++    from .config import BaseConfig
++    from .dataclasses import Dataclass
++    from .fields import ModelField
++    from .main import BaseModel
++    from .typing import AbstractSetIntStr, DictIntStrAny, IntStr, MappingIntStrAny, ReprArgs
+ 
+ __all__ = (
+     'import_string',
+@@ -202,6 +203,8 @@ def generate_model_signature(
+     """
+     from inspect import Parameter, Signature, signature
+ 
++    from .config import Extra
++
+     present_params = signature(init).parameters.values()
+     merged_params: Dict[str, Parameter] = {}
+     var_kw = None
+@@ -232,7 +235,7 @@ def generate_model_signature(
+                 param_name, Parameter.KEYWORD_ONLY, annotation=field.outer_type_, **kwargs
+             )
+ 
+-    if config.extra is config.extra.allow:
++    if config.extra is Extra.allow:
+         use_var_kw = True
+ 
+     if var_kw and use_var_kw:
+@@ -258,7 +261,7 @@ def generate_model_signature(
+ 
+ 
+ def get_model(obj: Union[Type['BaseModel'], Type['Dataclass']]) -> Type['BaseModel']:
+-    from .main import BaseModel  # noqa: F811
++    from .main import BaseModel
+ 
+     try:
+         model_cls = obj.__pydantic_model__  # type: ignore
+diff --git a/pydantic/validators.py b/pydantic/validators.py
+index 57a1a23..6d14c53 100644
+--- a/pydantic/validators.py
++++ b/pydantic/validators.py
+@@ -1,6 +1,6 @@
+ import re
+ from collections import OrderedDict, deque
+-from collections.abc import Hashable
++from collections.abc import Hashable as CollectionsHashable
+ from datetime import date, datetime, time, timedelta
+ from decimal import Decimal, DecimalException
+ from enum import Enum, IntEnum
+@@ -14,6 +14,7 @@ from typing import (
+     Dict,
+     FrozenSet,
+     Generator,
++    Hashable,
+     List,
+     NamedTuple,
+     Pattern,
+@@ -45,8 +46,8 @@ from .utils import almost_equal_floats, lenient_issubclass, sequence_like
+ 
+ if TYPE_CHECKING:
+     from .annotated_types import TypedDict
++    from .config import BaseConfig
+     from .fields import ModelField
+-    from .main import BaseConfig
+     from .types import ConstrainedDecimal, ConstrainedFloat, ConstrainedInt
+ 
+     ConstrainedNumber = Union[ConstrainedDecimal, ConstrainedFloat, ConstrainedInt]
+@@ -662,7 +663,7 @@ def find_validators(  # noqa: C901 (ignore complexity)
+     if type_ is Pattern:
+         yield pattern_validator
+         return
+-    if type_ is Hashable:
++    if type_ is Hashable or type_ is CollectionsHashable:
+         yield hashable_validator
+         return
+     if is_callable_type(type_):
+diff --git a/setup.cfg b/setup.cfg
+index 93865e1..2e24183 100644
+--- a/setup.cfg
++++ b/setup.cfg
+@@ -5,6 +5,9 @@ filterwarnings =
+     error
+     ignore::DeprecationWarning:distutils
+     ignore::DeprecationWarning:Cython
++    # for python 3.10+: mypy still relies on distutils on windows. We hence ignore those warnings
++    ignore:The distutils package is deprecated and slated for removal in Python 3.12:DeprecationWarning
++    ignore:The distutils.sysconfig module is deprecated, use sysconfig instead:DeprecationWarning
+ 
+ [flake8]
+ max-line-length = 120
+diff --git a/setup.py b/setup.py
+index 52baae2..88db225 100644
+--- a/setup.py
++++ b/setup.py
+@@ -7,7 +7,7 @@ from pathlib import Path
+ from setuptools import setup
+ 
+ if os.name == 'nt':
+-    from distutils.command import build_ext
++    from setuptools.command import build_ext
+ 
+     def get_export_symbols(self, ext):
+         """
+@@ -106,6 +106,7 @@ setup(
+         'Programming Language :: Python :: 3.7',
+         'Programming Language :: Python :: 3.8',
+         'Programming Language :: Python :: 3.9',
++        'Programming Language :: Python :: 3.10',
+         'Intended Audience :: Developers',
+         'Intended Audience :: Information Technology',
+         'Intended Audience :: System Administrators',
+diff --git a/tests/test_dataclasses.py b/tests/test_dataclasses.py
+index fd122f8..c5e6a1e 100644
+--- a/tests/test_dataclasses.py
++++ b/tests/test_dataclasses.py
+@@ -637,7 +637,7 @@ def test_hashable_required():
+     ]
+     with pytest.raises(TypeError) as exc_info:
+         MyDataclass()
+-    assert str(exc_info.value) == "__init__() missing 1 required positional argument: 'v'"
++    assert "__init__() missing 1 required positional argument: 'v'" in str(exc_info.value)
+ 
+ 
+ @pytest.mark.parametrize('default', [1, None, ...])
+diff --git a/tests/test_decorator.py b/tests/test_decorator.py
+index 6b11fb2..cbfc2dd 100644
+--- a/tests/test_decorator.py
++++ b/tests/test_decorator.py
+@@ -267,7 +267,7 @@ def test_async():
+         v = await foo(1, 2)
+         assert v == 'a=1 b=2'
+ 
+-    loop = asyncio.get_event_loop()
++    loop = asyncio.get_event_loop_policy().get_event_loop()
+     loop.run_until_complete(run())
+     with pytest.raises(ValidationError) as exc_info:
+         loop.run_until_complete(foo('x'))
+diff --git a/tests/test_edge_cases.py b/tests/test_edge_cases.py
+index 6e77f26..f8662a6 100644
+--- a/tests/test_edge_cases.py
++++ b/tests/test_edge_cases.py
+@@ -859,7 +859,10 @@ def test_annotation_inheritance():
+     class B(A):
+         integer = 2
+ 
+-    assert B.__annotations__['integer'] == int
++    if sys.version_info < (3, 10):
++        assert B.__annotations__['integer'] == int
++    else:
++        assert B.__annotations__ == {}
+     assert B.__fields__['integer'].type_ == int
+ 
+     class C(A):
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 5eefe3b..5351e0a 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -801,10 +801,15 @@ def test_literal_enum_values():
+     with pytest.raises(ValidationError) as exc_info:
+         Model(baz=FooEnum.bar)
+ 
++    if sys.version_info < (3, 10):
++        enum_repr = "<FooEnum.foo: 'foo_value'>"
++    else:
++        enum_repr = 'FooEnum.foo'
++
+     assert exc_info.value.errors() == [
+         {
+             'loc': ('baz',),
+-            'msg': "unexpected value; permitted: <FooEnum.foo: 'foo_value'>",
++            'msg': f'unexpected value; permitted: {enum_repr}',
+             'type': 'value_error.const',
+             'ctx': {'given': FooEnum.bar, 'permitted': (FooEnum.foo,)},
+         },
+@@ -1753,3 +1758,21 @@ def test_class_kwargs_custom_config():
+         a: int
+ 
+     assert Model.__config__.some_config == 'new_value'
++
++
++@pytest.mark.skipif(sys.version_info < (3, 10), reason='need 3.10 version')
++def test_new_union_origin():
++    """On 3.10+, origin of `int | str` is `types.Union`, not `typing.Union`"""
++
++    class Model(BaseModel):
++        x: int | str
++
++    assert Model(x=3).x == 3
++    assert Model(x='3').x == 3
++    assert Model(x='pika').x == 'pika'
++    assert Model.schema() == {
++        'title': 'Model',
++        'type': 'object',
++        'properties': {'x': {'title': 'X', 'anyOf': [{'type': 'integer'}, {'type': 'string'}]}},
++        'required': ['x'],
++    }
+diff --git a/tests/test_types.py b/tests/test_types.py
+index 4b6ef72..ab1f0aa 100644
+--- a/tests/test_types.py
++++ b/tests/test_types.py
+@@ -794,7 +794,10 @@ def test_enum_successful():
+     m = CookingModel(tool=2)
+     assert m.fruit == FruitEnum.pear
+     assert m.tool == ToolEnum.wrench
+-    assert repr(m.tool) == '<ToolEnum.wrench: 2>'
++    if sys.version_info < (3, 10):
++        assert repr(m.tool) == '<ToolEnum.wrench: 2>'
++    else:
++        assert repr(m.tool) == 'ToolEnum.wrench'
+ 
+ 
+ def test_enum_fails():
+@@ -814,7 +817,10 @@ def test_enum_fails():
+ def test_int_enum_successful_for_str_int():
+     m = CookingModel(tool='2')
+     assert m.tool == ToolEnum.wrench
+-    assert repr(m.tool) == '<ToolEnum.wrench: 2>'
++    if sys.version_info < (3, 10):
++        assert repr(m.tool) == '<ToolEnum.wrench: 2>'
++    else:
++        assert repr(m.tool) == 'ToolEnum.wrench'
+ 
+ 
+ def test_enum_type():
+diff --git a/tests/test_utils.py b/tests/test_utils.py
+index 0f331a5..b68ca41 100644
+--- a/tests/test_utils.py
++++ b/tests/test_utils.py
+@@ -5,10 +5,10 @@ import re
+ import string
+ import sys
+ from copy import copy, deepcopy
+-from distutils.version import StrictVersion
+ from typing import Callable, Dict, List, NewType, Tuple, TypeVar, Union
+ 
+ import pytest
++from pkg_resources import safe_version
+ from typing_extensions import Annotated, Literal
+ 
+ from pydantic import VERSION, BaseModel, ConstrainedList, conlist
+@@ -328,8 +328,8 @@ def test_version_info():
+     assert s.count('\n') == 5
+ 
+ 
+-def test_version_strict():
+-    assert str(StrictVersion(VERSION)) == VERSION
++def test_standard_version():
++    assert safe_version(VERSION) == VERSION
+ 
+ 
+ def test_class_attribute():
+
+From 1d0682053cfdca249b39afda03939b2600fb8376 Mon Sep 17 00:00:00 2001
+From: Eric Jolibois <em.jolibois@gmail.com>
+Date: Mon, 19 Jul 2021 20:25:05 +0200
+Subject: [PATCH 2/3] chore(ci): update python 3.10 version (#3000)
+
+* chore(ci): update python 3.10 version
+
+* Revert "fix: enum repr is different with 3.10+"
+
+This reverts commit b1c8d9ef1396959ff9d88bb2ed16d99dd3146151.
+
+(cherry picked from commit 0c26c1c4e288e0d41d2c3890d5b3befa7579455c)
+---
+ .github/workflows/ci.yml |  2 +-
+ tests/test_main.py       |  7 +------
+ tests/test_types.py      | 10 ++--------
+ 3 files changed, 4 insertions(+), 15 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 7f847eb..2b3e0d6 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -119,7 +119,7 @@ jobs:
+       fail-fast: false
+       matrix:
+         os: [macos, windows]
+-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10.0-beta.2']
++        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10.0-beta.4']
+     env:
+       PYTHON: ${{ matrix.python-version }}
+       OS: ${{ matrix.os }}
+diff --git a/tests/test_main.py b/tests/test_main.py
+index 5351e0a..75ed3fd 100644
+--- a/tests/test_main.py
++++ b/tests/test_main.py
+@@ -801,15 +801,10 @@ def test_literal_enum_values():
+     with pytest.raises(ValidationError) as exc_info:
+         Model(baz=FooEnum.bar)
+ 
+-    if sys.version_info < (3, 10):
+-        enum_repr = "<FooEnum.foo: 'foo_value'>"
+-    else:
+-        enum_repr = 'FooEnum.foo'
+-
+     assert exc_info.value.errors() == [
+         {
+             'loc': ('baz',),
+-            'msg': f'unexpected value; permitted: {enum_repr}',
++            'msg': "unexpected value; permitted: <FooEnum.foo: 'foo_value'>",
+             'type': 'value_error.const',
+             'ctx': {'given': FooEnum.bar, 'permitted': (FooEnum.foo,)},
+         },
+diff --git a/tests/test_types.py b/tests/test_types.py
+index ab1f0aa..4b6ef72 100644
+--- a/tests/test_types.py
++++ b/tests/test_types.py
+@@ -794,10 +794,7 @@ def test_enum_successful():
+     m = CookingModel(tool=2)
+     assert m.fruit == FruitEnum.pear
+     assert m.tool == ToolEnum.wrench
+-    if sys.version_info < (3, 10):
+-        assert repr(m.tool) == '<ToolEnum.wrench: 2>'
+-    else:
+-        assert repr(m.tool) == 'ToolEnum.wrench'
++    assert repr(m.tool) == '<ToolEnum.wrench: 2>'
+ 
+ 
+ def test_enum_fails():
+@@ -817,10 +814,7 @@ def test_enum_fails():
+ def test_int_enum_successful_for_str_int():
+     m = CookingModel(tool='2')
+     assert m.tool == ToolEnum.wrench
+-    if sys.version_info < (3, 10):
+-        assert repr(m.tool) == '<ToolEnum.wrench: 2>'
+-    else:
+-        assert repr(m.tool) == 'ToolEnum.wrench'
++    assert repr(m.tool) == '<ToolEnum.wrench: 2>'
+ 
+ 
+ def test_enum_type():
+
+From e5a072a7427bf1616afad333ee042cadf35e2564 Mon Sep 17 00:00:00 2001
+From: Eric Jolibois <em.jolibois@gmail.com>
+Date: Fri, 3 Sep 2021 22:56:11 +0200
+Subject: [PATCH 3/3] chore(ci): update to python 3.10.0-rc.1 (#3085)
+
+* refactor: rename `is_union` into `is_union_origin`
+
+* fix: "new" union and generic types are not the same as `typing.GenericAlias`
+
+* chore: rename param
+
+* fix(ci): name changed for 3.10
+
+* fix: mypy
+
+(cherry picked from commit 21d002ec6e5ac4d38eed88b1ec1808f5c44b24e6)
+---
+ .github/workflows/ci.yml |  2 +-
+ pydantic/fields.py       |  4 ++--
+ pydantic/main.py         |  4 ++--
+ pydantic/schema.py       |  4 ++--
+ pydantic/typing.py       | 22 +++++++++++++---------
+ pydantic/utils.py        |  4 ++--
+ 6 files changed, 22 insertions(+), 18 deletions(-)
+
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index 2b3e0d6..9820267 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -119,7 +119,7 @@ jobs:
+       fail-fast: false
+       matrix:
+         os: [macos, windows]
+-        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10.0-beta.4']
++        python-version: ['3.6', '3.7', '3.8', '3.9', '3.10.0-rc.1']
+     env:
+       PYTHON: ${{ matrix.python-version }}
+       OS: ${{ matrix.os }}
+diff --git a/pydantic/fields.py b/pydantic/fields.py
+index 3fdb88f..725ec11 100644
+--- a/pydantic/fields.py
++++ b/pydantic/fields.py
+@@ -41,7 +41,7 @@ from .typing import (
+     is_literal_type,
+     is_new_type,
+     is_typeddict,
+-    is_union,
++    is_union_origin,
+     new_type_supertype,
+ )
+ from .utils import PyObjectStr, Representation, lenient_issubclass, sequence_like, smart_deepcopy
+@@ -528,7 +528,7 @@ class ModelField(Representation):
+             return
+         if origin is Callable:
+             return
+-        if is_union(origin):
++        if is_union_origin(origin):
+             types_ = []
+             for type_ in get_args(self.type_):
+                 if type_ is NoneType:
+diff --git a/pydantic/main.py b/pydantic/main.py
+index 0d9dac2..3745ebd 100644
+--- a/pydantic/main.py
++++ b/pydantic/main.py
+@@ -38,7 +38,7 @@ from .typing import (
+     get_origin,
+     is_classvar,
+     is_namedtuple,
+-    is_union,
++    is_union_origin,
+     resolve_annotations,
+     update_field_forward_refs,
+ )
+@@ -176,7 +176,7 @@ class ModelMetaclass(ABCMeta):
+                 elif is_valid_field(ann_name):
+                     validate_field_name(bases, ann_name)
+                     value = namespace.get(ann_name, Undefined)
+-                    allowed_types = get_args(ann_type) if is_union(get_origin(ann_type)) else (ann_type,)
++                    allowed_types = get_args(ann_type) if is_union_origin(get_origin(ann_type)) else (ann_type,)
+                     if (
+                         is_untouched(value)
+                         and ann_type != PyObject
+diff --git a/pydantic/schema.py b/pydantic/schema.py
+index e4b90d4..cce1566 100644
+--- a/pydantic/schema.py
++++ b/pydantic/schema.py
+@@ -71,7 +71,7 @@ from .typing import (
+     is_callable_type,
+     is_literal_type,
+     is_namedtuple,
+-    is_union,
++    is_union_origin,
+ )
+ from .utils import ROOT_KEY, get_model, lenient_issubclass, sequence_like
+ 
+@@ -960,7 +960,7 @@ def get_annotation_with_constraints(annotation: Any, field_info: FieldInfo) -> T
+ 
+             if origin is Annotated:
+                 return go(args[0])
+-            if is_union(origin):
++            if is_union_origin(origin):
+                 return Union[tuple(go(a) for a in args)]  # type: ignore
+ 
+             if issubclass(origin, List) and (field_info.min_items is not None or field_info.max_items is not None):
+diff --git a/pydantic/typing.py b/pydantic/typing.py
+index b98b543..7004c7b 100644
+--- a/pydantic/typing.py
++++ b/pydantic/typing.py
+@@ -28,10 +28,10 @@ except ImportError:
+     from typing import _Final as typing_base  # type: ignore
+ 
+ try:
+-    from typing import GenericAlias  # type: ignore
++    from typing import GenericAlias as TypingGenericAlias  # type: ignore
+ except ImportError:
+     # python < 3.9 does not have GenericAlias (list[int], tuple[str, ...] and so on)
+-    GenericAlias = ()
++    TypingGenericAlias = ()
+ 
+ 
+ if sys.version_info < (3, 7):
+@@ -191,15 +191,19 @@ else:
+ 
+ if sys.version_info < (3, 10):
+ 
+-    def is_union(tp: Type[Any]) -> bool:
++    def is_union_origin(tp: Type[Any]) -> bool:
+         return tp is Union
+ 
++    WithArgsTypes = (TypingGenericAlias,)
+ 
+ else:
+     import types
++    import typing
+ 
+-    def is_union(tp: Type[Any]) -> bool:
+-        return tp is Union or tp is types.Union
++    def is_union_origin(origin: Type[Any]) -> bool:
++        return origin is Union or origin is types.UnionType  # noqa: E721
++
++    WithArgsTypes = (typing._GenericAlias, types.GenericAlias, types.UnionType)
+ 
+ 
+ if TYPE_CHECKING:
+@@ -246,12 +250,12 @@ __all__ = (
+     'CallableGenerator',
+     'ReprArgs',
+     'CallableGenerator',
+-    'GenericAlias',
++    'WithArgsTypes',
+     'get_args',
+     'get_origin',
+     'typing_base',
+     'get_all_type_hints',
+-    'is_union',
++    'is_union_origin',
+ )
+ 
+ 
+@@ -260,10 +264,10 @@ NONE_TYPES: Set[Any] = {None, NoneType, Literal[None]}
+ 
+ 
+ def display_as_type(v: Type[Any]) -> str:
+-    if not isinstance(v, typing_base) and not isinstance(v, GenericAlias) and not isinstance(v, type):
++    if not isinstance(v, typing_base) and not isinstance(v, WithArgsTypes) and not isinstance(v, type):
+         v = v.__class__
+ 
+-    if isinstance(v, GenericAlias):
++    if isinstance(v, WithArgsTypes):
+         # Generic alias are constructs like `list[int]`
+         return str(v).replace('typing.', '')
+ 
+diff --git a/pydantic/utils.py b/pydantic/utils.py
+index c50863f..31de6c6 100644
+--- a/pydantic/utils.py
++++ b/pydantic/utils.py
+@@ -24,7 +24,7 @@ from typing import (
+     no_type_check,
+ )
+ 
+-from .typing import GenericAlias, NoneType, display_as_type
++from .typing import NoneType, WithArgsTypes, display_as_type
+ from .version import version_info
+ 
+ if TYPE_CHECKING:
+@@ -153,7 +153,7 @@ def lenient_issubclass(cls: Any, class_or_tuple: Union[Type[Any], Tuple[Type[Any
+     try:
+         return isinstance(cls, type) and issubclass(cls, class_or_tuple)
+     except TypeError:
+-        if isinstance(cls, GenericAlias):
++        if isinstance(cls, WithArgsTypes):
+             return False
+         raise  # pragma: no cover
+ 
