@@ -6,13 +6,13 @@
 
 pkgname=godot
 pkgver=3.4
-pkgrel=2
+pkgrel=3
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
 arch=(x86_64)
 makedepends=(gcc scons yasm alsa-lib pulseaudio)
-depends=(bullet embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
+depends=(embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
          libwslay libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
 optdepends=(alsa-lib pulseaudio)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
@@ -24,11 +24,13 @@ prepare() {
 }
 
 build() {
-  # Not unbundled yet:
+  # Not unbundled (yet):
+  #  bullet (FS#72924, https://github.com/godotengine/godot/issues/55599)
+  #  certs (FS#72762)
   #  enet (contains no upstreamed IPv6 support)
   #  libsquish, recast, xatlas
   #  AUR: libwebm, squish
-  local to_unbundle="bullet certs embree freetype libogg libpng libtheora libvorbis libvpx libwebp mbedtls miniupnpc opus pcre2 wslay zlib zstd"
+  local to_unbundle="embree freetype libogg libpng libtheora libvorbis libvpx libwebp mbedtls miniupnpc opus pcre2 wslay zlib zstd"
   local system_libs=""
   for _lib in $to_unbundle; do
     system_libs+="builtin_"$_lib"=no "
@@ -60,4 +62,6 @@ package() {
   install -Dm755 bin/godot.x11.opt.tools.64 "$pkgdir/usr/bin/$pkgname"
   install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/godot/LICENSE"
   install -Dm644 misc/dist/linux/godot.6 "$pkgdir/usr/share/man/man6/godot.6"
+  install -Dm644 misc/dist/linux/org.godotengine.Godot.xml \
+    "$pkgdir/usr/share/mime/packages/org.godotengine.Godot.xml"
 }
