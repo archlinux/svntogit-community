@@ -2,7 +2,7 @@
 
 pkgname=urjtag
 pkgver=2021.03
-pkgrel=1
+pkgrel=2
 pkgdesc='Enhanced, modern tool for communicating over JTAG with flash chips, CPUs, and many more'
 arch=('x86_64')
 url='http://urjtag.org'
