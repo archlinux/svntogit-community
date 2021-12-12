@@ -5,7 +5,7 @@
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.1.12
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url='https://poetry.eustace.io'
