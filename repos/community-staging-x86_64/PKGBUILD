@@ -1,0 +1,112 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Ray Rashif <schiv@archlinux.org>
+# Contributor: Juergen Hoetzel <juergen@archlinux.org>
+
+pkgname=snd
+pkgver=21.9
+pkgrel=2
+pkgdesc="An advanced sound editor"
+arch=('x86_64')
+url="https://ccrma.stanford.edu/software/snd/"
+license=('custom:free')
+groups=('pro-audio')
+depends=('glibc' 'glu' 'gmp' 'gsl' 'libglvnd' 'libmpc' 'libx11' 'libxext'
+'libxpm' 'libxt' 'mpfr' 'openmotif')
+# TODO: maybe replace mpg123 with mpg321
+makedepends=('alsa-lib' 'fftw' 'flac' 'gendesk' 'jack' 'ladspa' 'libpulse'
+'libsamplerate' 'mpg123' 'ruby' 'speex' 'timidity++' 'vorbis-tools' 'wavpack')
+optdepends=(
+  'flac: For flac support'
+  'mpg123: For MPEG support'
+  'pulseaudio: For pulseaudio support'
+  'ruby: for snd-ruby'
+  'speex: For speex support'
+  'timidity++: For MIDI to WAVE support'
+  'vorbis-tools: For OGG support'
+  'wavpack: For wav support'
+)
+source=("https://sourceforge.net/projects/${pkgname}/files/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('7117963c3868f98bb994eedc79a051f9f94c5bd4545467328e41e0a55072189f2e9b811f4fd7d4b0574236152b4bed8a0e9084c017f3c44cb267ecb03def3ee4')
+b2sums=('a5db209d2aa44ac6abe4d42626874e7bc94ec837f4dccf577a9b8222821d58bbbd9bcd174cfdbe85a17edd1afe4b3d5907f6b9fa6bb79f2cb50746335216cb4e')
+
+prepare() {
+  gendesk -f -n \
+          --pkgname "edu.stanford.ccrma.${pkgname}-s7" \
+          --name "${pkgname} (s7)" \
+          --exec "${pkgname}-s7" \
+          --genericname "Sound Editor" \
+          --categories "AudioVideo;Audio"
+  gendesk -f -n \
+          --pkgname "edu.stanford.ccrma.${pkgname}-ruby" \
+          --name "${pkgname} (ruby)" \
+          --exec "${pkgname}-ruby" \
+          --genericname "Sound Editor" \
+          --categories "AudioVideo;Audio"
+  gendesk -f -n \
+          --pkgname "edu.stanford.ccrma.${pkgname}" \
+          --name "${pkgname}" \
+          --exec "${pkgname}" \
+          --genericname "Sound Editor" \
+          --categories "AudioVideo;Audio"
+  rm -v "${pkgname}-${pkgver}/"*.desktop
+  cp -av "${pkgname}-${pkgver}" "${pkgname}-ruby-${pkgver}"
+}
+
+build() {
+  (
+  cd "${pkgname}-${pkgver}"
+  ./configure --prefix=/usr \
+              --with-alsa \
+              --with-gl \
+              --with-gmp \
+              --with-jack \
+              --with-ladspa \
+              --with-motif \
+              --with-pulseaudio \
+              --with-s7
+  make
+  )
+  (
+  cd "${pkgname}-ruby-${pkgver}"
+  ./configure --prefix=/usr \
+              --with-alsa \
+              --with-gl \
+              --with-gmp \
+              --with-jack \
+              --with-ladspa \
+              --with-motif \
+              --with-pulseaudio \
+              --with-ruby
+  make
+  )
+}
+
+package() {
+  depends+=('libasound.so' 'libfftw3.so' 'libjack.so' 'libsamplerate.so')
+
+  (
+  cd "${pkgname}-${pkgver}"
+  make prefix="${pkgdir}/usr" install
+  mv -v "${pkgdir}/usr/bin/snd"{,-s7}
+  )
+
+  cd "${pkgname}-ruby-${pkgver}"
+  make prefix="${pkgdir}/usr" install
+  mv -v "${pkgdir}/usr/bin/snd"{,-ruby}
+
+  # set s7 version as default
+  ln -sv snd-s7 "${pkgdir}/usr/bin/snd"
+
+  # XDG desktop integration
+  install -vDm 644 ../*.desktop -t "${pkgdir}/usr/share/applications/"
+  # license
+  install -vDm 644 COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  # docs
+  install -vDm 644 {{HISTORY,README}.Snd,NEWS} \
+    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  install -vDm 644 *.html -t "${pkgdir}/usr/share/doc/${pkgname}/html"
+  install -vDm 644 pix/*.png -t "${pkgdir}/usr/share/doc/${pkgname}/html/pix"
+
+  # remove examples of unsupported extension language forth (not in the repos)
+  rm -v "${pkgdir}/usr/share/${pkgname}/"*.fs
+}
