@@ -2,11 +2,10 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=10.0.4
+pkgver=10.1
 _ghidra_data=7d843ec229d43c2d1a8178aaa892be90e37e95a2
 _d2j=2.0
-_yajsw=12.12
-_hfsx=0.21
+_yajsw=13.01
 pkgrel=1
 pkgdesc='Software reverse engineering framework'
 url='https://ghidra-sre.org/'
@@ -21,34 +20,27 @@ source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver
         "git+https://github.com/NationalSecurityAgency/ghidra-data#commit=${_ghidra_data}"
         https://github.com/pxb1988/dex2jar/releases/download/${_d2j}/dex-tools-${_d2j}.zip
         https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar
-        https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-${_yajsw}/yajsw-stable-${_yajsw}.zip
-        https://sourceforge.net/projects/catacombae/files/HFSExplorer/${_hfsx}/hfsexplorer-${_hfsx/./_}-bin.zip)
+        https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-beta-${_yajsw}/yajsw-beta-${_yajsw}.zip)
 noextract=(AXMLPrinter2.jar
-           yajsw-stable-${_yajsw}.zip
-           hfsexplorer-${_hfsx/./_}-bin.zip)
-sha512sums=('498f0a65dd62ac55194dba3fc82c3789b605805f20987e1f144b019f6e47575fbd811f621e540f190d97515f13026c226627456abaeadbcf1c2027f49a2e7290'
+           yajsw-beta-${_yajsw}.zip)
+sha512sums=('bde9018986fcbbdbd9466d1dcb058742c6d071d6385c5b7671904996b21d59d69ac4b1c559fd7c85b3f271aa620af3be5fe918eaf49cb178ca2a18844dc3fd85'
             'SKIP'
             'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
-            '0ff5a228ae1c5251c8ba59f9bcd9b4a199b0caaf688f6eccba42c3d227784d8f56f9164b2fad73fc173ec314340c036144123ce152fe911013df5598bd708944'
-            'b85b4316115695acc78cc7c675c673058c05a238451562be0c6a48b2d11a28e5645a42cb62cdf063be015369df26201dfab6cf2e60f39e6468d1d53b23f94415')
+            'ed8758920b98003094c79824a9304abbb8ddd40b1a0e1d294093f9b1df81fe7af0770dce1fb64345734ba20eacea52cc6f4b439960b4cdffa808d401994a0e95')
 
 prepare() {
   export PATH="/usr/lib/jvm/java-11-openjdk/bin:${PATH}"
-  install -d hfsx
-  unzip -u hfsexplorer-${_hfsx/./_}-bin.zip -d hfsx
-
   cd ghidra-Ghidra_${pkgver}_build
 
   # Copy needed libraries into flat repo folder
   install -Dm 644 ../dex2jar-${_d2j}/lib/dex-*.jar \
     ../AXMLPrinter2.jar \
-    ../hfsx/lib/{csframework,hfsx*,iharder-base64}.jar \
     -t dependencies/flatRepo
 
   # YAJSW expects this symlink
   ln -sf ghidra-Ghidra_${pkgver}_build ../ghidra.bin
-  install -Dm 644 ../yajsw-stable-${_yajsw}.zip -t Ghidra/Features/GhidraServer
+  install -Dm 644 ../yajsw-beta-${_yajsw}.zip -t dependencies/GhidraServer
 
   # Add FID datasets
   install -Dm 644 ../ghidra-data/FunctionID/*.fidb -t Ghidra/Features/FunctionID/src/main/fidb
@@ -62,7 +54,7 @@ build() {
   export PATH="$(pwd)/usr/share/java/gradle/bin/:${PATH}"
   cd ghidra-Ghidra_${pkgver}_build
   gradle yajswDevUnpack
-  gradle prebuildNatives_linux64
+  gradle buildNatives_linux_x86_64
   gradle sleighCompile
   gradle buildGhidra
 }
@@ -74,7 +66,7 @@ package() {
   install -d "${pkgdir}"/{opt,usr/bin}
   _appver=$(grep -oP '(?<=^application.version=).*$' Ghidra/application.properties)
   _relname=$(grep -oP '(?<=^application.release.name=).*$' Ghidra/application.properties)
-  unzip -u "build/dist/ghidra_${_appver}_${_relname}"_*_linux64.zip -d "${pkgdir}"/opt
+  unzip -u "build/dist/ghidra_${_appver}_${_relname}"_*_linux_x86_64.zip -d "${pkgdir}"/opt
 
   # Simplify some directory and binary names
   mv "${pkgdir}"/opt/ghidra{_*,}
