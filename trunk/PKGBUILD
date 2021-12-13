@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.11
+pkgver=20.10.12
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -13,12 +13,13 @@ depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'systemd-lib
          'libseccomp' 'libtool' 'runc' 'containerd')
 makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd' 'go-md2man' 'sed')
 optdepends=('btrfs-progs: btrfs backend support'
-            'pigz: parallel gzip compressor support')
+            'pigz: parallel gzip compressor support'
+            'docker-scan: vulnerability scanner')
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
 _LIBNETWORK_COMMIT=64b7a4574d1426139437d20e81c0b6d391130ec8
-# https://github.com/docker/docker-ce-packaging/pull/562
-_BUILDX_COMMIT=260d07a9a19b03df969787496419a0808a27ac61
+# TODO: Split into `docker-buildx` and make it a dependency
+_BUILDX_COMMIT=05846896d149da05f3d6fd1e7770da187b52a247
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/moby/moby.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
