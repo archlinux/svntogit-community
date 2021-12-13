@@ -4,7 +4,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.7.2
+pkgver=1.7.3
 pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -36,7 +36,7 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/uefi_capsule.conf'
 )
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('8632df69c3bafc59387cdcb517c3ce31a597a09026e44f5907d8384671b9f834'
+sha256sums=('109dacc16ed0db71eb08b852e96b070b8c2c53516a3071b9d0683acd8ecd42d9'
             'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
