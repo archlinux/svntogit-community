@@ -5,13 +5,13 @@ _name=toml
 pkgbase=python-toml
 pkgname=('python-toml' 'python2-toml')
 pkgver=0.10.2
-pkgrel=5
+pkgrel=6
 pkgdesc="A Python library for parsing and creating TOML"
 arch=('any')
 url="https://github.com/uiri/toml"
 license=('MIT')
 makedepends=('python-setuptools' 'python2-setuptools')
-checkdepends=('python-numpy' 'python-pytest' 'python2-numpy' 'python2-pytest')
+checkdepends=('python-numpy' 'python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz"
         "${pkgbase}-0.10.1-install_type_hints.patch")
 sha256sums=('b3bda1d108d5dd99f4a20d24d9c348e91c4db7ab1b749200bded2f839ccbe68f'
@@ -36,7 +36,6 @@ check() {
   export PYTHONPATH="../build/lib/:${PYTHONPATH}"
   # disable useless tests
   pytest -v tests -k 'not test_invalid_tests and not test_valid_tests'
-  pytest2 -v tests -k 'not test_invalid_tests and not test_valid_tests'
 }
 
 package_python-toml() {
