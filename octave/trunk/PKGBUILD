@@ -4,7 +4,7 @@
 
 pkgname=octave
 pkgver=6.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A high-level language, primarily intended for numerical computations."
 arch=('x86_64')
 url="https://www.gnu.org/software/octave/"
@@ -18,11 +18,17 @@ optdepends=('texinfo: for help-support in octave'
             'java-runtime: java support'
             'fltk: FLTK GUI'
             'texlive-bin: for the publish command')
-source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig})
+source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig}
+        octave-sundials-6.0.patch)
 options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
 sha512sums=('91ff031f6dfff8506fa738fd4f1f07276501fdfe003f8ed992cccf91da14d9d33da6d08923322b0dae5f5b696b49856b0f5c5065e26b0701b0d1630173807435'
-            'SKIP')
+            'SKIP'
+            '6c6f5e9589456fd360c81d117518642de6389783f7f4e58dcec4762c4ee3c9f8a1da3ce04999c66a52ae812cb523196c94bae9e78daaa49bbda3d20f763ec15e')
+
+prepare() {
+  patch -d $pkgname-$pkgver -p1 < octave-sundials-6.0.patch # Fix build with sundials 6
+}
 
 build() {
   cd ${pkgname}-${pkgver}
