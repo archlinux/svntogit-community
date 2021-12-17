@@ -32,7 +32,7 @@ provides=(
     'libwlroots.so'
 )
 source=(
-    "$pkgname-$pkgver.tar.gz::https://gitlab.freedesktop.org/wlroots/wlroots/-/archive/$pkgver/wlroots-$pkgver.tar.gz"
+    "$pkgname-$pkgver.tar.gz::https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$pkgver/downloads/wlroots-$pkgver.tar.gz"
     "https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$pkgver/downloads/wlroots-$pkgver.tar.gz.sig"
 )
 sha256sums=('2921a38cea79dbb6f1da895a4dbe1faedba8d7ff2c0c2468dad94ccba12e4278'
