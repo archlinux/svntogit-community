@@ -1,5 +1,6 @@
 # Maintainer: Jelle van der Waa <jelle@vdwaa.nl>
-# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 # Contributor: Petrov Roman <nwhisper@gmail.com>
@@ -9,7 +10,7 @@
 pkgbase=calibre
 pkgname=calibre
 pkgver=5.34.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -22,7 +23,6 @@ depends=('hunspell' 'hyphen' 'icu' 'jxrlib' 'libmtp' 'libstemmer' 'libusb'
          'libwmf' 'mathjax' 'mtdev' 'optipng' 'podofo'
          "${_py_deps[@]/#/python-}" 'qt5-imageformats' 'qt5-svg' 'ttf-liberation' 'udisks2')
 makedepends=('qt5-x11extras' 'sip' 'pyqt-builder' 'xdg-utils' 'rapydscript-ng')
-checkdepends=('xorg-server-xvfb')
 optdepends=('poppler: required for converting pdf to html'
             'speech-dispatcher: TTS support in the viewer')
 conflicts=('calibre-common' 'calibre-python3')
@@ -76,10 +76,7 @@ check() {
         'pycryptodome'
     )
 
-    # without xvfb-run this fails with much "Control socket failed to recv(), resetting"
-    # ERROR: test_websocket_perf (calibre.srv.tests.web_sockets.WebSocketTest)
-    # one or two tests are a bit flaky, but the python3 build seems to succeed more often
-    LANG='en_US.UTF-8' xvfb-run python setup.py test "${_test_excludes[@]/#/--exclude-test-name=}"
+    LANG='en_US.UTF-8' python setup.py test "${_test_excludes[@]/#/--exclude-test-name=}"
 }
 
 package() {
