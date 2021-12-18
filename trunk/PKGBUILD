@@ -1,0 +1,61 @@
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Gabriel Magno <gabrielmagno1@gmail.com>
+# Contributor: Michał Pałubicki <maln0ir@gmx.com>
+
+_pyname=agate
+pkgname=python-$_pyname
+pkgver=1.6.3
+pkgrel=3
+pkgdesc='A data analysis library that is optimized for humans instead of machines'
+arch=(any)
+url='https://agate.readthedocs.org/'
+license=(MIT)
+_pydeps=(babel
+         isodate
+         leather
+         parsedatetime
+         pyicu
+         pytimeparse
+         six
+         slugify
+         sphinx_rtd_theme)
+depends=(python "${_pydeps[@]/#/python-}")
+makedepends=(python-setuptools
+             python-sphinx)
+checkdepends=(python-cssselect
+              python-lxml
+              python-nose)
+_archive="$_pyname-$pkgver"
+source=("https://files.pythonhosted.org/packages/source/${_pyname::1}/$_pyname/$_archive.tar.gz")
+sha256sums=('e0f2f813f7e12311a4cdccc97d6ba0a6781e9c1aa8eca0ab00d5931c0113a308')
+
+prepare() {
+	cd "$_archive"
+	# Note: Upstream test suite is currently badly broken; it depends on the
+	# system local and fails on some. Part of the trouble is tracable to
+	# parsedatetime bugs so they limit allowed versions. We're going to skip
+	# known problematic tests to allow Arch's packaged version.
+	sed -i -e "/parsedatetime/s/>.*'/'/" setup.py
+}
+
+build() {
+	cd "$_archive"
+	python setup.py build
+	python setup.py build_sphinx
+	_rtd_theme_path="$(python -c 'import sphinx_rtd_theme; print(sphinx_rtd_theme.get_html_theme_path())')"
+	rm -rvf "build/sphinx/html/_static"
+	ln -svf "$_rtd_theme_path/sphinx_rtd_theme/static" "build/sphinx/html/_static"
+}
+
+check() {
+	cd "$_archive"
+	LC_ALL=POSIX nosetests --exclude=test_cast_format_locale
+}
+
+package() {
+	cd "$_archive"
+	python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+	mkdir -p "$pkgdir/usr/share/doc"
+	cp -rv "build/sphinx/html" "$pkgdir/usr/share/doc/$pkgname"
+	install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" COPYING
+}
