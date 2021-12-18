@@ -8,8 +8,8 @@
 
 pkgbase=calibre
 pkgname=calibre
-pkgver=5.33.2
-pkgrel=2
+pkgver=5.34.0
+pkgrel=1
 pkgdesc="Ebook management application"
 arch=('x86_64')
 url="https://calibre-ebook.com/"
@@ -28,13 +28,17 @@ optdepends=('poppler: required for converting pdf to html'
 conflicts=('calibre-common' 'calibre-python3')
 replaces=('calibre-common' 'calibre-python3')
 source=("https://download.calibre-ebook.com/${pkgver}/calibre-${pkgver}.tar.xz"
-        "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig")
-sha256sums=('c2db77b9c09a16af702e4efd09e0b3db4b4c33a01b2ed6782e7e93c4ec7476f2'
-            'SKIP')
+        "https://calibre-ebook.com/signatures/${pkgbase}-${pkgver}.tar.xz.sig"
+         https://github.com/kovidgoyal/calibre/commit/dafa08e9.patch)
+sha256sums=('d4d401eefadc534851df4f3ff247949ffac785dbc993901bd2938c3f2894d7e3'
+            'SKIP'
+            '72f5fa0a38b24867400efafac1dcb3bf71c1ba0ea8620c1dafdbbdde8c978b38')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
     cd "${pkgbase}-${pkgver}"
+
+    patch -p1 -i ../dafa08e9.patch # Fix python lib dir
 
     # Desktop integration (e.g. enforce arch defaults)
     # Use uppercase naming scheme, don't delete config files under fakeroot.
