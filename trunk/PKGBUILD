@@ -1,8 +1,8 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=maturin
-pkgver=0.12.4
-pkgrel=2
+pkgver=0.12.5
+pkgrel=1
 pkgdesc="Build and publish crates with pyo3, rust-cpython and cffi bindings"
 url="https://github.com/PyO3/maturin"
 arch=(x86_64)
@@ -10,8 +10,8 @@ license=(Apache)
 depends=(gcc-libs glibc rust)
 makedepends=(bzip2 dbus git)
 source=(${pkgname}-${pkgver}.tar.gz::https://github.com/PyO3/${pkgname}/archive/refs/tags/v${pkgver}.tar.gz)
-sha512sums=('fff317651501f142586826692adf1152dd82bd3d8a5aade337edf1f688a1c12ecb13a5ac1978c23f1c798ea140d5dc87ae3cc68ed73974a52dac3ff30ee1d031')
-b2sums=('422eec4148114dbcca7f8a9a8c60c872ba67df330ffa96972abc5481f593e17770e01c08adae2f763424b09f7172701d94d598a57ef068a599b4a6df38288a50')
+sha512sums=('1db5cdeae9e8e7bf1ef5aa7b6ce9ad1030e86ecd21e0e5b7b263e0f0a850bc559f26dbb58fee902c3f297d0e445c67cbf35a2a390ad2c27a271491083a4a8114')
+b2sums=('d04c65a017ad42659d7321143a11630b65a9064a3a11119ccef21c57f56a46fe2db6846b500a2004b8878b788df9e43b010502563fe3d21a6dde5c81a5225dff')
 
 prepare() {
   cd ${pkgname}-${pkgver}
