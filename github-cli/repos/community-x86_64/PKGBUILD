@@ -1,9 +1,10 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
 # Contributor: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=2.3.0
+pkgver=2.4.0
 pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
@@ -13,7 +14,7 @@ depends=("glibc" "mailcap")
 makedepends=("go" "git")
 optdepends=("git: To interact with repositories")
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('56bcf353adc17c386377ffcdfc980cbaff36123a1c1132ba09c3c51a7d1c9b82')
+sha256sums=('3c87db4d9825a342fc55bd7f27461099dd46291aea4a4a29bb95d3c896403f94')
 
 prepare() {
     cd "cli-${pkgver}"
