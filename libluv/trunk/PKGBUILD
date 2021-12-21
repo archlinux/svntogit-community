@@ -1,42 +1,80 @@
-# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
 # Contributor: Jurica Bradarić <jbradaric@gmail.com>
+# Contributor: jprjr <john@jrjrtech.com>
 
-pkgname=libluv
-pkgver=1.42.0
+pkgname=('libluv' 'lua-luv' 'lua51-luv' 'lua52-luv' 'lua53-luv')
+pkgbase=libluv
+pkgver=1.42.0_1
 pkgrel=1
 pkgdesc='Bare libuv bindings for lua'
 arch=('x86_64')
 url='https://github.com/luvit/luv'
-license=('apache')
-provides=('libluv')
-depends=('luajit' 'libuv')
-makedepends=('cmake' 'luajit' 'libuv' 'ninja')
-source=("https://github.com/luvit/luv/releases/download/${pkgver}-0/luv-${pkgver}-0.tar.gz"
-        https://github.com/luvit/luv/raw/df03f2ac6d4e7269cb0c88be3ef44cf1f0de9b24/libluv.pc.in)
-sha256sums=('b5228a9d0eaacd9f862b6270c732d5c90773a28ce53b6d9e32a14050e7947f36'
-            'be2a4909c724e09a50de42b1caa3c82c1b1afee8b80abf20c6944f1df1c7fd0e')
-
-prepare() {
-  # They forgot to ship this file in this release. Hopefully they'll fix it in the next release.
-  cp "$srcdir"/libluv.pc.in "$srcdir"/luv-${pkgver}-0/
-}
+license=('APACHE')
+depends=('libuv')
+makedepends=('cmake' 'libuv' 'ninja' 'luajit' 'lua>=5.4.0' 'lua<5.5.0' 'lua51' 'lua52' 'lua53')
+source=("https://github.com/luvit/luv/releases/download/${pkgver//_/-}/luv-${pkgver//_/-}.tar.gz")
+sha256sums=('4b6fbaa89d2420edf6070ad9e522993e132bd7eb2540ff754c2b9f1497744db2')
 
 build() {
-    mkdir "${srcdir}/build"
-    cd "${srcdir}/build"
+    # build per-lua versions
+    for ver in 5.1 5.2 5.3 5.4; do
+      incdir="/usr/include/lua${ver}"
+      if [ "$ver" = "5.4" ] ; then
+        incdir="/usr/include"
+      fi
+      cmake -GNinja \
+        -Bbuild-lua${ver//./} \
+        -DLUA=/usr/bin/lua${ver} \
+        -DLUA_INCDIR=${incdir} \
+        -DLUADIR=/usr/share/lua/${ver} \
+        -DLIBDIR=/usr/lib/lua/${ver} \
+        -DWITH_SHARED_LIBUV=ON \
+        -DLUA_BUILD_TYPE=System \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        "luv-${pkgver//_/-}"
+      ninja -C "build-lua${ver//./}"
+    done
+
+    # build shared library version
     cmake -GNinja \
+      -Bbuild \
       -DWITH_SHARED_LIBUV=ON \
       -DLUA_BUILD_TYPE=System \
       -DBUILD_MODULE=OFF \
       -DBUILD_SHARED_LIBS=ON \
       -DCMAKE_INSTALL_PREFIX=/usr \
-      "${srcdir}/luv-${pkgver}-0"
-    ninja
+      "luv-${pkgver//_/-}"
+    ninja -C "build"
 }
 
-package() {
-    cd "${srcdir}/build"
-    DESTDIR="${pkgdir}" ninja install
+package_libluv() {
+    depends+=('luajit')
+    provides+=('libluv')
+    DESTDIR="${pkgdir}" ninja -C "build" install
+}
+
+package_lua-luv() {
+    pkgdesc+=' - Lua module'
+    depends+=('lua')
+    DESTDIR="${pkgdir}" ninja -C "build-lua54" install
+}
+
+package_lua51-luv() {
+    pkgdesc+=' - Lua 5.1 module'
+    depends+=('lua51')
+    DESTDIR="${pkgdir}" ninja -C "build-lua51" install
+}
+
+package_lua52-luv() {
+    pkgdesc+=' - Lua 5.2 module'
+    depends+=('lua52')
+    DESTDIR="${pkgdir}" ninja -C "build-lua52" install
+}
+
+package_lua53-luv() {
+    pkgdesc+=' - Lua 5.3 module'
+    depends+=('lua53')
+    DESTDIR="${pkgdir}" ninja -C "build-lua53" install
 }
 
 # vim:set ts=2 sw=2 et:
