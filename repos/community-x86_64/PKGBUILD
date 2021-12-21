@@ -1,31 +1,33 @@
-# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: Felix Yan <felixonmars@archlinux.org>
 # Contributor: Michael Hansen <zrax0111 gmail com>
 
 pkgbase=keybase
 pkgname=('keybase' 'kbfs' 'keybase-gui')
 pkgdesc='CLI tool for GPG with keybase.io'
-pkgver=5.8.1
+pkgver=5.9.0
 pkgrel=1
 arch=('x86_64')
-url='https://keybase.io/'
+url='https://keybase.io'
+_url='https://github.com/keybase/client'
 license=('BSD')
 # git is needed for yarn...
 makedepends=('git' 'go' 'yarn')
-source=("https://github.com/keybase/client/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
+source=("$_url/releases/download/v${pkgver}/${pkgbase}-v${pkgver}.tar.xz"{,.sig}
         "keybase-gui"
         "0001-Maintain-current-contextIsolation-behavior-across-el.patch"
         "0001-Don-t-use-electron-to-build.patch")
-sha512sums=('413b6e952eea8cfc4f7a8a32c62f0fb989a569284c35a3a1d6de9be42e3fe0bc2008899fb534b8b8a4bc2f0432783b7caa13ae3969568c4743f984dc8174a537'
+sha512sums=('3fa530e7c8df99b3a1668a63a3b88fefd89f84b9cf7b28cd7f5cef556be8984fedd70c039ca06358eefb8a0c8225f4a2ec89a761c5b02d5aeeb88e1aced29ef9'
             'SKIP'
             'bdecad57f8703eb6011b0c9ff238b9f3d78192031adfb5a27a7e6910119c600726b87aaacada88877eaeddcd6134fbe72b014bcaeb6cc7563c3753fcb33c52c9'
             '5cb3d93c4bb468fd47e1670f73cc3b8be14977ccf563a47d776285b6b9d96042647062427e58bd981727362caa23d17acdc0152dfd915efeeb6c4e76ca76ca65'
-            'f759f69b774200261687842c66902a3c45638bb012ced9bd83d27491c8a0bbc0bc744dbb83ad7672d443f32d7303c15aeb0ded7a1a0d7ab56e7b1c1b64e263c3')
-b2sums=('8a2485f0307749fcdf1887abcba508bf36f1a71d09d4f0ba14f2f5323bfd2485f8ac41b25ede49445f7d89b704c9f92fb67d53b86fe90b9e0e07bebd2c0f6060'
+            '3d38410574ac9d3a09a9ed4ba82bffb3078b15986d8447fe53d7499f538f5c54093f0893667ee64ddd22609b83a8c9c15e50f11f61ddb48cff3ecdf5b8c4628e')
+b2sums=('bb304308132b60c93dfe937ab507548d28776b8c7841402e6ace841e2fbdb9feb0dfc55c388f66ab273e534916f46347eb49d2748c2cb3b85dcd02e2dc3b85d3'
         'SKIP'
         '1ecf08e4a0b2836828fc4f9283a69e1fbda6f268195ae56433050d54070038aacf1ae3057202324c678b242c88345cc8f453c7798129753f083c33db256517a4'
         '67f416c59b549606d037167c796c5b99f0ca9158fb767d52c101f41db6d31927b57618efb4d6eaf590cbd3c7aab4dd71a64bc3b52580e2383f5389c95264a499'
-        '02d7876fb0d68b05e9ee262925a063049bfa2e5e063789008c4c74e406084d4441d2c860ecb2b08596f9d9a8c9a6e9136a2cdbd8312bcbf376d9d6e6c811bcfc')
+        'd556694526d973431012c36891d82578aeafdd159e7f7f9108325946e874cef4303dff8dc12f0ec7d2c5b731d5cf20bec26c7f18b6483d8f2910c93e3a1a7a68')
 validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Signing (v1) <code@keybase.io>
 
 prepare() {
@@ -47,10 +49,13 @@ prepare() {
     # Keybase did not, so loosen this back to pre v12 levels
     # https://github.com/keybase/client/pull/24551
     patch -p1 -i ../0001-Maintain-current-contextIsolation-behavior-across-el.patch
+
+    cd go
+    go mod tidy
 }
 
 build() {
-    cd client-v${pkgver}/go/keybase
+    cd client-v${pkgver}/go
 
     # None of this should be necessary, but we duplicate the work of
     # makepkg.conf here since golang CGO can't be bothered to respect
@@ -62,17 +67,15 @@ build() {
     export CGO_CFLAGS="${CFLAGS}"
     export CGO_CXXFLAGS="${CXXFLAGS}"
     export CGO_LDFLAGS="${LDFLAGS}"
-    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
-
-    export GO111MODULE=off
+    export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
 
     export GOPATH="${srcdir}/.gopath"
-    go build -a -tags production -o ../bin/keybase github.com/keybase/client/go/keybase
-    go build -a -tags production -o ../bin/kbnm github.com/keybase/client/go/kbnm
-    go build -a -tags production -o ../bin/kbfsfuse github.com/keybase/client/go/kbfs/kbfsfuse
-    go build -a -tags production -o ../bin/git-remote-keybase github.com/keybase/client/go/kbfs/kbfsgit/git-remote-keybase
+    go build -a -tags production -o ./bin/keybase github.com/keybase/client/go/keybase
+    go build -a -tags production -o ./bin/kbnm github.com/keybase/client/go/kbnm
+    go build -a -tags production -o ./bin/kbfsfuse github.com/keybase/client/go/kbfs/kbfsfuse
+    go build -a -tags production -o ./bin/git-remote-keybase github.com/keybase/client/go/kbfs/kbfsgit/git-remote-keybase
 
-    cd ../../shared
+    cd ../shared
     yarn install
     yarn run package --appVersion $pkgver
 }
