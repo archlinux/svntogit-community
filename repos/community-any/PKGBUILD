@@ -4,24 +4,24 @@
 # Contributor: Vianney le Clément <vleclement AT gmail·com>
 # Contributor: Peter Simons <simons@cryp.to>
 
-pkgname=parallel
-pkgver=20211122
+pkgbase=parallel
+pkgname=('parallel' 'parallel-docs')
+pkgver=20211222
 pkgrel=1
 pkgdesc='A shell tool for executing jobs in parallel'
 arch=('any')
 url='https://www.gnu.org/software/parallel/'
 license=('GPL3')
-depends=('perl' 'procps')
 source=(https://ftp.gnu.org/gnu/$pkgname/$pkgname-$pkgver.tar.bz2{,.sig}
         0001-Remove-citation-things.patch
         0002-Remove-GNU-branding.patch)
-sha512sums=('3cadf5be292e28c7a24653ed7d712a087d98cf7332a677a7f10c5abb260d82b8e5cbd9c61f25c77b1b08427716bd47a3483e6c1e188a594c0ef2e881aa055e83'
+sha512sums=('864d9e9ab690008d0900544c409cef28758ff24a74ca4909ad7ada877ad7fd308995a929f626618ad6779daeaf44d13dda6c7aae274bbf66b8053d6d10ea809a'
             'SKIP'
-            '0450c81cf68d6d42814418e012f8cf64f515e1c89c2b2e833ee0e660518af76fd7046fd8aaf7dd04d0272a9c766930a63a3388e3cdbd7ea8030da0d780af27e0'
+            '0857bb0639fc79a81bd9bc2a35008f80898f3314d26f0138195aeee54f3ff14ef257db32c8b322ac93ed5bd52b2196ce636550c08b57ab9ac1a0c191f09550fd'
             '304fc64ce5b5b664bdd1480da54863c061940f5f6255d13462f3bec5ff742636f34769650c64875dc7dda7c552b7ba6ee63f8fea1aa914f6d2210f2d49a2ba7b')
-b2sums=('55a9243f8781a781b75d51d0d6864ae2ccd5ef80d3da5227272826b400ec9e05dc62cbfbca09cd2e342d286b4eac3f99ec6c647c285e606cc903ab05808636a9'
+b2sums=('f2258632ab4a8f0a13dcf7e617155a30eda32f792d2dcda3d31a0e0515d06546df42abd369e17badfd1ab5ec5099d390ee42bd70fbd603c98a974db142940b32'
         'SKIP'
-        'a4bfe7d7e7a0c9fa30e10b291e08f31c807ef99dfa9f5054d6e9a4ddf9edcb2f9a33a4af3b6080f53be1d4fe559e4204692bb833c2aa83d69bb03409db7d5e71'
+        '1b32ab5d4dc3999197eda525e8a46aca1d5fba5a8ebbf639b6d977d98bd00f2abe0533f4b0fee3aedc9eca31907ff61ca99ffff496099a0be0589aa6ad3deb5c'
         '684576067936f30e24a00c0283b961f56451eb8924a26c6f426a23521b1e272890772e51d817de7386ebf6863c5f8ba9c5598d17d56f3df1875f4b36bcee13d3')
 validpgpkeys=('CDA01A4208C4F74506107E7BD1AB451688888888')
 
@@ -37,9 +37,21 @@ build() {
   make
 }
 
-package() {
+package_parallel() {
+  depends=('perl' 'procps')
+
   cd parallel-$pkgver
-  make DESTDIR="$pkgdir/" install
+  make DESTDIR="$pkgdir" install
+  mv "$pkgdir/usr/share/doc" docs
+}
+
+package_parallel-docs() {
+  pkgdesc+=' (documentation)'
+
+  cd parallel-$pkgver
+
+  install -vd "$pkgdir/usr/share/doc"
+  mv -v docs/* "$pkgdir/usr/share/doc"
 }
 
 # vim:set ts=2 sw=2 et:
