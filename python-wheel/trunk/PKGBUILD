@@ -4,8 +4,8 @@
 
 _pypiname=wheel
 pkgname=python-wheel
-pkgver=0.37.0
-pkgrel=5
+pkgver=0.37.1
+pkgrel=1
 pkgdesc="A built-package format for Python"
 arch=(any)
 url="https://pypi.python.org/pypi/wheel"
@@ -15,9 +15,9 @@ optdepends=('python-keyring: for wheel.signatures'
             'python-xdg: for wheel.signatures')
 makedepends=('python-setuptools')
 checkdepends=('python-jsonschema' 'python-pytest' 'python-keyring' 'python-keyrings-alt'
-              'python-xdg')
+              'python-xdg' 'python-pytest-cov')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
-sha512sums=('2e0eb1c5560a0229be9de450da8b2bc62153744abb6d8ab9a0625c150dc00d3fc3e24dbe37cc26f4ca6b6876b5c63298427b2076ee42b8f772c75010bfc135a8')
+sha512sums=('9493db2f29e16d17ca06a4d47854b3df5dfd17f21c77efd42befd54470858256fd59f56aa9585cbf0a09830927b657d546324f793e1b1153665bf0b74d0c0457')
 
 prepare() {
   # don't depend on python-coverage for tests
