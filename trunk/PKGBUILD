@@ -1,19 +1,21 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
-# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
 
 _pkgname=tomlkit
 pkgname=python-tomlkit
-pkgver=0.7.2
-pkgrel=4
+pkgver=0.8.0
+pkgrel=1
 pkgdesc="Style-preserving TOML library for Python"
 url="https://github.com/sdispater/tomlkit"
 license=('MIT')
 arch=('any')
 depends=('python')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest' 'python-yaml')
+checkdepends=('python-pytest'
+              'python-yaml')
 source=("https://files.pythonhosted.org/packages/source/${_pkgname:0:1}/${_pkgname}/${_pkgname}-${pkgver}.tar.gz")
-sha512sums=('cfb17d133463c22ae8b76dd03587f23f6dafedfd2decdf15ae29fe5c05117ebd3e17057f49bdb17345386f5ce3073b1e5b1937c6ab6683aefb0fc0abd7571580')
+sha512sums=('77b267201021e740d8134d0d5edfbef2cf077adac0b320d80887fdedda3f63f74df1957e8230976f16c80fcc58fd4cfabb195cccf0eda7d6cd29f5f65d362147')
 
 build() {
   cd tomlkit-$pkgver
@@ -22,12 +24,11 @@ build() {
 
 check() {
   cd tomlkit-$pkgver
-  python -m pytest
+  pytest
 }
 
 package() {
   cd tomlkit-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1
-
-  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
 }
