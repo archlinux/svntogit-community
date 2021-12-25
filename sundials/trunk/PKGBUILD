@@ -3,7 +3,7 @@
 
 pkgname=sundials
 pkgver=6.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Suite of nonlinear differential/algebraic equation solvers'
 arch=(x86_64)
 url='https://computation.llnl.gov/casc/sundials/main.html'
@@ -17,6 +17,7 @@ sha256sums=('c7178e54df20a9363ae3e5ac5b3ee9db756a4ddd4b8fff045127e93b73b151f4'
 
 prepare() {
   patch -d $pkgname-$pkgver -p1 < sundials-fix-cmake-targets.patch # FS#70399
+  sed -e '/SHOW_IF SUNDIALS_BUILD_WITH_PROFILING/d' -i $pkgname-$pkgver/cmake/SundialsTPLOptions.cmake # Workaround broken cmake config
 }
 
 build() {
