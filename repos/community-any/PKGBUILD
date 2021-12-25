@@ -5,8 +5,8 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=4.3.1
-pkgrel=5
+pkgver=4.3.2
+pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -30,9 +30,9 @@ checkdepends=('cython'
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
 source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('32a5b3e9a1b176cc25ed048557d4d3d01af635e6b76c5bc7a43b0a34447fbd45'
+sha256sums=('0a8836751a68306b3fe97ecbe44db786f8479c3bf4b80e3a7f5c838657b4698c'
             'SKIP')
-b2sums=('eacc9d39e1a108dba1f8d3bd96d7f78f1755f23233c8068dbe598f3d3539d9cf0ea9c12374e0ffc4f471004bbe7cbd6e80ebfa7bcfbf85e5d8c34ed4adfb2acb'
+b2sums=('952cecc20e3f7e046c3ae2abc8524091af82f7947f889320deab3ec82947f793d4dab86ae47f117c84ecdb2e4e50fe531469dffca2806c45500a06c7322bb11b'
         'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa <shimizukawa@gmail.com>
