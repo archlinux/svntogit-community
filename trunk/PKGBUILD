@@ -3,7 +3,7 @@
 
 pkgname=sundials
 pkgver=6.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Suite of nonlinear differential/algebraic equation solvers'
 arch=(x86_64)
 url='https://computation.llnl.gov/casc/sundials/main.html'
@@ -11,13 +11,15 @@ license=(BSD)
 depends=(openmpi suitesparse)
 makedepends=(cmake gcc-fortran python)
 source=(https://github.com/LLNL/sundials/releases/download/v$pkgver/$pkgname-$pkgver.tar.gz
-        sundials-fix-cmake-targets.patch)
+        sundials-fix-cmake-targets.patch
+        sundials-fix-cmake-config.patch)
 sha256sums=('c7178e54df20a9363ae3e5ac5b3ee9db756a4ddd4b8fff045127e93b73b151f4'
-            '949206b3237fb918700c87664da5618de49fe019f342583e560e4ce63ebe3a61')
+            '949206b3237fb918700c87664da5618de49fe019f342583e560e4ce63ebe3a61'
+            '89ba61913fd1a66a135a5bdaa7cf851af2f3badb84cf2de20522da549fb30294')
 
 prepare() {
   patch -d $pkgname-$pkgver -p1 < sundials-fix-cmake-targets.patch # FS#70399
-  sed -e '/SHOW_IF SUNDIALS_BUILD_WITH_PROFILING/d' -i $pkgname-$pkgver/cmake/SundialsTPLOptions.cmake # Workaround broken cmake config
+  patch -d $pkgname-$pkgver -p1 < sundials-fix-cmake-config.patch # FS#73143
 }
 
 build() {
