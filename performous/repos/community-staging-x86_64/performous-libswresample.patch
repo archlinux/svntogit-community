@@ -1,0 +1,380 @@
+diff --git a/.gitignore b/.gitignore
+index 8f3cd966..908da8e1 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -7,4 +7,5 @@ CMakeLists.txt.user*
+ dylibbundler.log
+ performous-app-build.sh
+ osx-utils/out
+-osx-utils/Performous.dmg
+\ No newline at end of file
++osx-utils/Performous.dmg
++.vscode/
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 73993f92..2a7ec01a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -86,7 +86,7 @@ endif()
+ include(CPack)
+ SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "Niek Nooijens")
+ SET(CPACK_PACKAGE_CONTACT "nieknooijens@gmail.com")
+-SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libavcodec54, libavformat54, libavresample1, libsdl2-2.0-0, libportaudiocpp0, libboost-all-dev, libswscale2, libxml++2.6-2, libopencv-dev, librsvg2-2, libpango-1.0-0, libcairo2, libjpeg8, libpng12-0, libportmidi0 ")
++SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libavcodec54, libavformat54, libswresample2, libsdl2-2.0-0, libportaudiocpp0, libboost-all-dev, libswscale2, libxml++2.6-2, libopencv-dev, librsvg2-2, libpango-1.0-0, libcairo2, libjpeg8, libpng12-0, libportmidi0 ")
+ SET(CPACK_DEBIAN_PACKAGE_DESCRIPTION_SUMMARY "A free music rhythm game similar to SingStar, Guitar Hero and DDR")
+ SET(CPACK_DEBIAN_PACKAGE_VERSION ${PROJECT_VERSION})
+ SET(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
+diff --git a/cmake/Modules/FindSWResample.cmake b/cmake/Modules/FindSWResample.cmake
+new file mode 100644
+index 00000000..ce4dffd1
+--- /dev/null
++++ b/cmake/Modules/FindSWResample.cmake
+@@ -0,0 +1,44 @@
++# - Try to find FFMPEG libswresample
++# Once done, this will define
++#
++#  SWResample_FOUND - the library is available
++#  SWResample_INCLUDE_DIRS - the include directories
++#  SWResample_LIBRARIES - the libraries
++#  SWResample_INCLUDE - the file to include (may be used in config.h)
++#
++# See documentation on how to write CMake scripts at
++# http://www.cmake.org/Wiki/CMake:How_To_Find_Libraries
++
++include(LibFindMacros)
++
++libfind_package(SWResample AVUtil)
++
++libfind_pkg_check_modules(SWResample_PKGCONF libswresample)
++
++find_path(SWResample_INCLUDE_DIR
++  NAMES libswresample/swresample.h ffmpeg/swresample.h swresample.h
++  HINTS ${SWResample_PKGCONF_INCLUDE_DIRS}
++  PATH_SUFFIXES ffmpeg
++)
++
++if(SWResample_INCLUDE_DIR)
++  foreach(suffix libswresample/ ffmpeg/ "")
++    if(NOT SWResample_INCLUDE)
++      if(EXISTS "${SWResample_INCLUDE_DIR}/${suffix}swresample.h")
++        set(SWResample_INCLUDE "${suffix}swresample.h")
++      endif(EXISTS "${SWResample_INCLUDE_DIR}/${suffix}swresample.h")
++    endif(NOT SWResample_INCLUDE)
++  endforeach(suffix)
++
++  if(NOT SWResample_INCLUDE)
++    message(FATAL_ERROR "Found swresample.h include dir, but not the header file. Maybe you need to clear CMake cache?")
++  endif(NOT SWResample_INCLUDE)
++endif(SWResample_INCLUDE_DIR)
++
++find_library(SWResample_LIBRARY
++  NAMES libswresample.dll.a swresample
++  HINTS ${SWResample_PKGCONF_LIBRARY_DIRS}
++)
++
++libfind_process(SWResample)
++
+diff --git a/game/CMakeLists.txt b/game/CMakeLists.txt
+index c75dbf62..dd57328f 100644
+--- a/game/CMakeLists.txt
++++ b/game/CMakeLists.txt
+@@ -71,7 +71,7 @@ include_directories(${LibEpoxy_INCLUDE_DIRS})
+ list(APPEND LIBS ${LibEpoxy_LIBRARIES})
+ 
+ # Find all the libs that don't require extra parameters
+-foreach(lib ${OUR_LIBS} SDL2 PangoCairo LibRSVG LibXML++ AVFormat AVResample SWScale Z Jpeg Png PortAudio Fontconfig)
++foreach(lib ${OUR_LIBS} SDL2 PangoCairo LibRSVG LibXML++ AVFormat SWResample SWScale Z Jpeg Png PortAudio Fontconfig)
+ 	find_package(${lib} REQUIRED)
+ 	message(STATUS "${lib} includes: ${${lib}_INCLUDE_DIRS}")
+ 	include_directories(${${lib}_INCLUDE_DIRS})
+diff --git a/game/config.cmake.hh b/game/config.cmake.hh
+index 118c5e77..3a89b423 100644
+--- a/game/config.cmake.hh
++++ b/game/config.cmake.hh
+@@ -15,8 +15,8 @@
+ #define AVCODEC_INCLUDE <@AVCodec_INCLUDE@>
+ #define AVFORMAT_INCLUDE <@AVFormat_INCLUDE@>
+ #define SWSCALE_INCLUDE <@SWScale_INCLUDE@>
++#define SWRESAMPLE_INCLUDE <@SWResample_INCLUDE@>
+ //libav 0.9 fix
+-#define AVRESAMPLE_INCLUDE <@AVResample_INCLUDE@>
+ #define AVUTIL_INCLUDE <@AVUtil_INCLUDE@>
+ #define AVUTIL_OPT_INCLUDE <@AVUtil_INCLUDE_DIRS@/libavutil/opt.h> //HACK to get AVOption class!
+ #define AVUTIL_MATH_INCLUDE <@AVUtil_INCLUDE_DIRS@/libavutil/mathematics.h>
+diff --git a/game/ffmpeg.cc b/game/ffmpeg.cc
+index fc4ca441..651aa60e 100644
+--- a/game/ffmpeg.cc
++++ b/game/ffmpeg.cc
+@@ -12,7 +12,7 @@ extern "C" {
+ #include AVCODEC_INCLUDE
+ #include AVFORMAT_INCLUDE
+ #include SWSCALE_INCLUDE
+-#include AVRESAMPLE_INCLUDE
++#include SWRESAMPLE_INCLUDE
+ #include AVUTIL_INCLUDE
+ #include AVUTIL_OPT_INCLUDE
+ #include AVUTIL_MATH_INCLUDE
+@@ -58,7 +58,7 @@ FFmpeg::FFmpeg(fs::path const& _filename, unsigned int rate):
+ 			  " avutil:" + ffversion(LIBAVUTIL_VERSION_INT) +
+ 			  " avcodec:" + ffversion(LIBAVCODEC_VERSION_INT) +
+ 			  " avformat:" + ffversion(LIBAVFORMAT_VERSION_INT) +
+-			  " avresample:" + ffversion(LIBAVRESAMPLE_VERSION_INT) +
++			  " swresample:" + ffversion(LIBSWRESAMPLE_VERSION_INT) +
+ 			  " swscale:" + ffversion(LIBSWSCALE_VERSION_INT)
+ 			  << std::endl;
+ 		} else {
+@@ -66,7 +66,7 @@ FFmpeg::FFmpeg(fs::path const& _filename, unsigned int rate):
+ 			  " avutil:" + ffversion(LIBAVUTIL_VERSION_INT) + "/" + ffversion(avutil_version()) +
+ 			  " avcodec:" + ffversion(LIBAVCODEC_VERSION_INT) + "/" + ffversion(avcodec_version()) +
+ 			  " avformat:" + ffversion(LIBAVFORMAT_VERSION_INT) + "/" + ffversion(avformat_version()) +
+-			  " avresample:" + ffversion(LIBAVRESAMPLE_VERSION_INT) + "/" + ffversion(avresample_version()) +
++			  " swresample:" + ffversion(LIBSWRESAMPLE_VERSION_INT) + "/" + ffversion(swresample_version()) +
+ 			  " swscale:" + ffversion(LIBSWSCALE_VERSION_INT) + "/" + ffversion(swscale_version())
+ 			  << std::endl;
+ 		}
+@@ -99,14 +99,14 @@ void FFmpeg::open() {
+ 
+ 	switch (m_mediaType) {
+ 	case AVMEDIA_TYPE_AUDIO:
+-		m_resampleContext = avresample_alloc_context();
++		m_resampleContext = swr_alloc();
+ 		av_opt_set_int(m_resampleContext, "in_channel_layout", m_codecContext->channel_layout ? m_codecContext->channel_layout : av_get_default_channel_layout(m_codecContext->channels), 0);
+ 		av_opt_set_int(m_resampleContext, "out_channel_layout", av_get_default_channel_layout(AUDIO_CHANNELS), 0);
+ 		av_opt_set_int(m_resampleContext, "in_sample_rate", m_codecContext->sample_rate, 0);
+ 		av_opt_set_int(m_resampleContext, "out_sample_rate", m_rate, 0);
+ 		av_opt_set_int(m_resampleContext, "in_sample_fmt", m_codecContext->sample_fmt, 0);
+ 		av_opt_set_int(m_resampleContext, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
+-		avresample_open(m_resampleContext);
++		swr_init(m_resampleContext);
+ 		if (!m_resampleContext) throw std::runtime_error("Cannot create resampling context");
+ 		audioQueue.setSamplesPerSecond(AUDIO_CHANNELS * m_rate);
+ 		break;
+@@ -147,7 +147,7 @@ void FFmpeg::operator()() {
+ 	videoQueue.reset();
+ 	// TODO: use RAII for freeing resources (to prevent memory leaks)
+ 	boost::mutex::scoped_lock l(s_avcodec_mutex); // avcodec_close is not thread-safe
+-	if (m_resampleContext) avresample_close(m_resampleContext);
++	if (m_resampleContext) swr_close(m_resampleContext);
+ 	if (m_codecContext) avcodec_close(m_codecContext);
+ #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(53, 17, 0)
+ 	if (m_formatContext) avformat_close_input(&m_formatContext);
+@@ -229,13 +229,11 @@ void FFmpeg::processAudio(AVFrame* frame) {
+ 	// resample to output
+ 	int16_t *output;
+ 	int out_linesize;
+-	int out_samples = avresample_available(m_resampleContext) +
+-		av_rescale_rnd(avresample_get_delay(m_resampleContext) +
+-		frame->nb_samples, frame->sample_rate, m_rate, AV_ROUND_UP);
++	int out_samples = swr_get_out_samples(m_resampleContext, frame->nb_samples);
+ 	av_samples_alloc((uint8_t**)&output, &out_linesize, AUDIO_CHANNELS, out_samples,
+ 		AV_SAMPLE_FMT_S16, 0);
+-	out_samples = avresample_convert(m_resampleContext, (uint8_t**)&output, 0, out_samples,
+-		&frame->data[0], 0, frame->nb_samples);
++	out_samples = swr_convert(m_resampleContext, (uint8_t**)&output, out_samples,
++		(const uint8_t**)&frame->data[0], frame->nb_samples);
+ 	// The output is now an interleaved array of 16-bit samples
+ 	std::vector<int16_t> m_output(output, output+out_samples*AUDIO_CHANNELS);
+ 	audioQueue.push(m_output,m_position);
+diff --git a/game/ffmpeg.hh b/game/ffmpeg.hh
+index 7f817078..5b67c4e7 100644
+--- a/game/ffmpeg.hh
++++ b/game/ffmpeg.hh
+@@ -162,7 +162,7 @@ extern "C" {
+   struct AVCodecContext;
+   struct AVFormatContext;
+   struct AVFrame;
+-  struct AVAudioResampleContext;
++  struct SwrContext;
+   struct SwsContext;
+ }
+ 
+@@ -203,7 +203,7 @@ class FFmpeg {
+ 	int m_mediaType;  // enum AVMediaType
+ 	AVFormatContext* m_formatContext;
+ 	AVCodecContext* m_codecContext;
+-	AVAudioResampleContext* m_resampleContext;
++	SwrContext* m_resampleContext;
+ 	SwsContext* m_swsContext;
+ 	// Make sure the thread starts only after initializing everything else
+ 	boost::scoped_ptr<boost::thread> m_thread;
+diff --git a/patch b/patch
+new file mode 100644
+index 00000000..5e0eaba0
+--- /dev/null
++++ b/patch
+@@ -0,0 +1,175 @@
++diff --git a/.gitignore b/.gitignore
++index 8f3cd966..908da8e1 100644
++--- a/.gitignore
+++++ b/.gitignore
++@@ -7,4 +7,5 @@ CMakeLists.txt.user*
++ dylibbundler.log
++ performous-app-build.sh
++ osx-utils/out
++-osx-utils/Performous.dmg
++\ No newline at end of file
+++osx-utils/Performous.dmg
+++.vscode/
++diff --git a/CMakeLists.txt b/CMakeLists.txt
++index 73993f92..2a7ec01a 100644
++--- a/CMakeLists.txt
+++++ b/CMakeLists.txt
++@@ -86,7 +86,7 @@ endif()
++ include(CPack)
++ SET(CPACK_DEBIAN_PACKAGE_MAINTAINER "Niek Nooijens")
++ SET(CPACK_PACKAGE_CONTACT "nieknooijens@gmail.com")
++-SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libavcodec54, libavformat54, libavresample1, libsdl2-2.0-0, libportaudiocpp0, libboost-all-dev, libswscale2, libxml++2.6-2, libopencv-dev, librsvg2-2, libpango-1.0-0, libcairo2, libjpeg8, libpng12-0, libportmidi0 ")
+++SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libc6, libavcodec54, libavformat54, libswresample2, libsdl2-2.0-0, libportaudiocpp0, libboost-all-dev, libswscale2, libxml++2.6-2, libopencv-dev, librsvg2-2, libpango-1.0-0, libcairo2, libjpeg8, libpng12-0, libportmidi0 ")
++ SET(CPACK_DEBIAN_PACKAGE_DESCRIPTION_SUMMARY "A free music rhythm game similar to SingStar, Guitar Hero and DDR")
++ SET(CPACK_DEBIAN_PACKAGE_VERSION ${PROJECT_VERSION})
++ SET(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
++diff --git a/cmake/Modules/FindSWResample.cmake b/cmake/Modules/FindSWResample.cmake
++new file mode 100644
++index 00000000..ce4dffd1
++--- /dev/null
+++++ b/cmake/Modules/FindSWResample.cmake
++@@ -0,0 +1,44 @@
+++# - Try to find FFMPEG libswresample
+++# Once done, this will define
+++#
+++#  SWResample_FOUND - the library is available
+++#  SWResample_INCLUDE_DIRS - the include directories
+++#  SWResample_LIBRARIES - the libraries
+++#  SWResample_INCLUDE - the file to include (may be used in config.h)
+++#
+++# See documentation on how to write CMake scripts at
+++# http://www.cmake.org/Wiki/CMake:How_To_Find_Libraries
+++
+++include(LibFindMacros)
+++
+++libfind_package(SWResample AVUtil)
+++
+++libfind_pkg_check_modules(SWResample_PKGCONF libswresample)
+++
+++find_path(SWResample_INCLUDE_DIR
+++  NAMES libswresample/swresample.h ffmpeg/swresample.h swresample.h
+++  HINTS ${SWResample_PKGCONF_INCLUDE_DIRS}
+++  PATH_SUFFIXES ffmpeg
+++)
+++
+++if(SWResample_INCLUDE_DIR)
+++  foreach(suffix libswresample/ ffmpeg/ "")
+++    if(NOT SWResample_INCLUDE)
+++      if(EXISTS "${SWResample_INCLUDE_DIR}/${suffix}swresample.h")
+++        set(SWResample_INCLUDE "${suffix}swresample.h")
+++      endif(EXISTS "${SWResample_INCLUDE_DIR}/${suffix}swresample.h")
+++    endif(NOT SWResample_INCLUDE)
+++  endforeach(suffix)
+++
+++  if(NOT SWResample_INCLUDE)
+++    message(FATAL_ERROR "Found swresample.h include dir, but not the header file. Maybe you need to clear CMake cache?")
+++  endif(NOT SWResample_INCLUDE)
+++endif(SWResample_INCLUDE_DIR)
+++
+++find_library(SWResample_LIBRARY
+++  NAMES libswresample.dll.a swresample
+++  HINTS ${SWResample_PKGCONF_LIBRARY_DIRS}
+++)
+++
+++libfind_process(SWResample)
+++
++diff --git a/game/CMakeLists.txt b/game/CMakeLists.txt
++index c75dbf62..dd57328f 100644
++--- a/game/CMakeLists.txt
+++++ b/game/CMakeLists.txt
++@@ -71,7 +71,7 @@ include_directories(${LibEpoxy_INCLUDE_DIRS})
++ list(APPEND LIBS ${LibEpoxy_LIBRARIES})
++ 
++ # Find all the libs that don't require extra parameters
++-foreach(lib ${OUR_LIBS} SDL2 PangoCairo LibRSVG LibXML++ AVFormat AVResample SWScale Z Jpeg Png PortAudio Fontconfig)
+++foreach(lib ${OUR_LIBS} SDL2 PangoCairo LibRSVG LibXML++ AVFormat SWResample SWScale Z Jpeg Png PortAudio Fontconfig)
++ 	find_package(${lib} REQUIRED)
++ 	message(STATUS "${lib} includes: ${${lib}_INCLUDE_DIRS}")
++ 	include_directories(${${lib}_INCLUDE_DIRS})
++diff --git a/game/config.cmake.hh b/game/config.cmake.hh
++index 118c5e77..3a89b423 100644
++--- a/game/config.cmake.hh
+++++ b/game/config.cmake.hh
++@@ -15,8 +15,8 @@
++ #define AVCODEC_INCLUDE <@AVCodec_INCLUDE@>
++ #define AVFORMAT_INCLUDE <@AVFormat_INCLUDE@>
++ #define SWSCALE_INCLUDE <@SWScale_INCLUDE@>
+++#define SWRESAMPLE_INCLUDE <@SWResample_INCLUDE@>
++ //libav 0.9 fix
++-#define AVRESAMPLE_INCLUDE <@AVResample_INCLUDE@>
++ #define AVUTIL_INCLUDE <@AVUtil_INCLUDE@>
++ #define AVUTIL_OPT_INCLUDE <@AVUtil_INCLUDE_DIRS@/libavutil/opt.h> //HACK to get AVOption class!
++ #define AVUTIL_MATH_INCLUDE <@AVUtil_INCLUDE_DIRS@/libavutil/mathematics.h>
++diff --git a/game/ffmpeg.cc b/game/ffmpeg.cc
++index fc4ca441..651aa60e 100644
++--- a/game/ffmpeg.cc
+++++ b/game/ffmpeg.cc
++@@ -12,7 +12,7 @@ extern "C" {
++ #include AVCODEC_INCLUDE
++ #include AVFORMAT_INCLUDE
++ #include SWSCALE_INCLUDE
++-#include AVRESAMPLE_INCLUDE
+++#include SWRESAMPLE_INCLUDE
++ #include AVUTIL_INCLUDE
++ #include AVUTIL_OPT_INCLUDE
++ #include AVUTIL_MATH_INCLUDE
++@@ -58,7 +58,7 @@ FFmpeg::FFmpeg(fs::path const& _filename, unsigned int rate):
++ 			  " avutil:" + ffversion(LIBAVUTIL_VERSION_INT) +
++ 			  " avcodec:" + ffversion(LIBAVCODEC_VERSION_INT) +
++ 			  " avformat:" + ffversion(LIBAVFORMAT_VERSION_INT) +
++-			  " avresample:" + ffversion(LIBAVRESAMPLE_VERSION_INT) +
+++			  " swresample:" + ffversion(LIBSWRESAMPLE_VERSION_INT) +
++ 			  " swscale:" + ffversion(LIBSWSCALE_VERSION_INT)
++ 			  << std::endl;
++ 		} else {
++@@ -66,7 +66,7 @@ FFmpeg::FFmpeg(fs::path const& _filename, unsigned int rate):
++ 			  " avutil:" + ffversion(LIBAVUTIL_VERSION_INT) + "/" + ffversion(avutil_version()) +
++ 			  " avcodec:" + ffversion(LIBAVCODEC_VERSION_INT) + "/" + ffversion(avcodec_version()) +
++ 			  " avformat:" + ffversion(LIBAVFORMAT_VERSION_INT) + "/" + ffversion(avformat_version()) +
++-			  " avresample:" + ffversion(LIBAVRESAMPLE_VERSION_INT) + "/" + ffversion(avresample_version()) +
+++			  " swresample:" + ffversion(LIBSWRESAMPLE_VERSION_INT) + "/" + ffversion(swresample_version()) +
++ 			  " swscale:" + ffversion(LIBSWSCALE_VERSION_INT) + "/" + ffversion(swscale_version())
++ 			  << std::endl;
++ 		}
++@@ -99,14 +99,14 @@ void FFmpeg::open() {
++ 
++ 	switch (m_mediaType) {
++ 	case AVMEDIA_TYPE_AUDIO:
++-		m_resampleContext = avresample_alloc_context();
+++		m_resampleContext = swr_alloc();
++ 		av_opt_set_int(m_resampleContext, "in_channel_layout", m_codecContext->channel_layout ? m_codecContext->channel_layout : av_get_default_channel_layout(m_codecContext->channels), 0);
++ 		av_opt_set_int(m_resampleContext, "out_channel_layout", av_get_default_channel_layout(AUDIO_CHANNELS), 0);
++ 		av_opt_set_int(m_resampleContext, "in_sample_rate", m_codecContext->sample_rate, 0);
++ 		av_opt_set_int(m_resampleContext, "out_sample_rate", m_rate, 0);
++ 		av_opt_set_int(m_resampleContext, "in_sample_fmt", m_codecContext->sample_fmt, 0);
++ 		av_opt_set_int(m_resampleContext, "out_sample_fmt", AV_SAMPLE_FMT_S16, 0);
++-		avresample_open(m_resampleContext);
+++		swr_init(m_resampleContext);
++ 		if (!m_resampleContext) throw std::runtime_error("Cannot create resampling context");
++ 		audioQueue.setSamplesPerSecond(AUDIO_CHANNELS * m_rate);
++ 		break;
++@@ -147,7 +147,7 @@ void FFmpeg::operator()() {
++ 	videoQueue.reset();
++ 	// TODO: use RAII for freeing resources (to prevent memory leaks)
++ 	boost::mutex::scoped_lock l(s_avcodec_mutex); // avcodec_close is not thread-safe
++-	if (m_resampleContext) avresample_close(m_resampleContext);
+++	if (m_resampleContext) swr_close(m_resampleContext);
++ 	if (m_codecContext) avcodec_close(m_codecContext);
++ #if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(53, 17, 0)
++ 	if (m_formatContext) avformat_close_input(&m_formatContext);
++@@ -229,13 +229,11 @@ void FFmpeg::processAudio(AVFrame* frame) {
++ 	// resample to output
++ 	int16_t *output;
++ 	int out_linesize;
++-	int out_samples = avresample_available(m_resampleContext) +
++-		av_rescale_rnd(avresample_get_delay(m_resampleContext) +
++-		frame->nb_samples, frame->sample_rate, m_rate, AV_ROUND_UP);
+++	int out_samples = swr_get_out_samples(m_resampleContext, frame->nb_samples);
++ 	av_samples_alloc((uint8_t**)&output, &out_linesize, AUDIO_CHANNELS, out_samples,
++ 		AV_SAMPLE_FMT_S16, 0);
++-	out_samples = avresample_convert(m_resampleContext, (uint8_t**)&output, 0, out_samples,
++-		&frame->data[0], 0, frame->nb_samples);
+++	out_samples = swr_convert(m_resampleContext, (uint8_t**)&output, out_samples,
+++		(const uint8_t**)&frame->data[0], frame->nb_samples);
++ 	// The output is now an interleaved array of 16-bit samples
++ 	std::vector<int16_t> m_output(output, output+out_samples*AUDIO_C
+\ No newline at end of file
