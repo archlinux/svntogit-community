@@ -1,0 +1,69 @@
+# Maintainer: Alexander F. Rødseth <xyproto@archlinux.org>
+# Contributor: Daichi Shinozaki <dsdseg@gmail.com>
+# Contributor: Andy Li <andy@onthewings.net>
+# Contributor: Kyle Brady  <kyle at spark-gap dot com>
+# Contributor: Patrick Hof <courts@offensivethinking.org>
+# Contributor: Michael Fellinger <mf@rubyists.com>
+
+pkgname=haxe
+pkgver=4.2.4
+pkgrel=2
+pkgdesc='Cross-platform toolkit and programming language'
+arch=(x86_64)
+url='https://haxe.org/'
+license=(GPL LGPL MIT)
+depends=(neko mbedtls)
+makedepends=(camlp5 dune git neko ocaml opam zlib perl-string-shellquote perl-ipc-system-simple)
+optdepends=(java-environment mono php python)
+options=(!strip)
+source=("$pkgname-$pkgver::git+https://github.com/HaxeFoundation/haxe#commit=ab0c0548ff80fcbbbc140a381a9031af13b5782c") # tag: 4.2.4
+b2sums=('SKIP')
+
+prepare() {
+  cd $pkgname-$pkgver
+  git submodule update --init
+
+  # Prepare opam and ocamlfind before building
+  export HOME="$srcdir"
+  opam init -a --disable-sandboxing
+  eval $(opam env)
+
+  # Install required OCaml packages
+  opam install -y extlib jbuilder luv ocamlfind ppx_tools_versioned ptmap sedlex sha xml-light
+
+  # Create the script that will be placed in /etc/profile.d
+  echo 'export HAXE_STD_PATH=/usr/share/haxe/std' > haxe.sh
+}
+
+build() {
+  # Needed to make Haxe build with OCaml 4.06 and 4.07
+  # For more info, see: https://github.com/HaxeFoundation/haxe/issues/6883#issuecomment-370142073
+  export OCAMLPARAM='safe-string=0,_'
+
+  # Prepare opam and ocamlfind before building
+  eval $(opam env)
+
+  cd $pkgname-$pkgver
+  make libs haxe
+
+  # "make tools" did not work. These are the replacement commands:
+  cd "$srcdir/$pkgname-$pkgver/extra/haxelib_src"
+  ../../haxe client.hxml || true
+  nekotools boot run.n
+  mv run ../../haxelib
+}
+
+check() {
+  $pkgname-$pkgver/haxe -version
+  $pkgname-$pkgver/haxelib version
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -d "$pkgdir/usr/"{bin/,share/haxe/}
+  install -m 755 haxe{,lib} "$pkgdir"/usr/bin/
+  cp -rf std "$pkgdir/usr/share/$pkgname/"
+  install -Dm 644 haxe.sh "$pkgdir/etc/profile.d/haxe.sh"
+  install -Dm 644 extra/LICENSE.txt \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
+}
