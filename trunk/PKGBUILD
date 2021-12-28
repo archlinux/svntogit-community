@@ -1,79 +1,37 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
 # Contributor: Geoffroy Carrier <geoffroy.carrier@koon.fr>
 # Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
-# Maintainer: schuay <jakob.gruber@gmail.com>
+# Contributor: schuay <jakob.gruber@gmail.com>
 
 pkgname=puzzles
-pkgver=20200524
+pkgver=20211212
 pkgrel=1
+_commit=b56c994
 pkgdesc="Simon Tatham's Portable Puzzle Collection"
 arch=('x86_64')
-url="https://www.chiark.greenend.org.uk/~sgtatham/puzzles/"
-license=('MIT')
-makedepends=('pkgconfig' 'git')
-depends=('gtk2' 'desktop-file-utils')
-source=("git://git.tartarus.org/simon/puzzles.git#commit=66b9e8c7de0eecb3d85d9a1766fab1082848448b"
-        "icons.tar.xz")
-md5sums=('SKIP'
-         '71488c328e2381c27a5084b30ea3516a')
-
-prepare() {
-    tar xvf icons.tar.xz
-
-    cd ${pkgname}
-
-    # Generate the makefiles.
-    ./mkfiles.pl
-    sed -i 's|\$(gamesdir)|\$(bindir)|' Makefile.gtk
-    sed -i 's_-Werror __' Makefile.gtk
-    sed -i 's_CFLAGS := -O2_CFLAGS := -O2 -Wno-variadic-macros -Wno-long-long_g' Makefile.gtk
-
-    # Tweak desktop file generation to use proper icon paths.
-    sed -i 's_\$icondir\/\$id-48d24.png_$id_' desktop.pl
-
-    # And add to LogicGame category (FS#43512).
-    sed -i 's_\(Categories=Game;\)_\1LogicGame;_' desktop.pl
-}
+url='https://www.chiark.greenend.org.uk/~sgtatham/puzzles/'
+license=(MIT)
+depends=(gtk3)
+makedepends=(cmake imagemagick)
+source=(https://www.chiark.greenend.org.uk/~sgtatham/puzzles/puzzles-$pkgver.$_commit.tar.gz)
+sha256sums=('0795a58fb0e958be178b5531f2e4793c18993907162fdf77b22e0106d62daa1a')
 
 build() {
-    cd ${pkgname}
-    make -f Makefile.gtk prefix=/usr
-
-    # Generating icons no longer works, xvfb-run reports
-    # 'headless mode not supported below GTK3'. We now keep previously
-    # generated icons manually.
+  cmake -B build -S puzzles-$pkgver.$_commit \
+   -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
 }
 
 package() {
-    # Install the icons.
-    cd icons
+  DESTDIR="$pkgdir" cmake --install build
 
-    install -d "${pkgdir}"/usr/share/icons/hicolor/48x48/apps/
-    for f in ./*.png; do
-        install -Dm644 ${f} "${pkgdir}"/usr/share/icons/hicolor/48x48/apps/${f}
-    done
+  install -Dm644 puzzles-$pkgver.$_commit/LICENCE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
-    # Generate .desktop files.
-    cd "${srcdir}"/${pkgname}
-
-    install -d "${pkgdir}"/usr/share/applications
-    ./desktop.pl "${pkgdir}"/usr/share/applications \
-                 /usr/bin \
-                 /unused/argument
-
-    # And finally, install the games.
-    cd "${srcdir}"/${pkgname}
-
-    install -d "${pkgdir}"/usr/{bin,share/licenses/${pkgname}}
-    install -Dm644 LICENCE "${pkgdir}"/usr/share/licenses/${pkgname}/
-
-    make -f Makefile.gtk prefix=/usr DESTDIR="${pkgdir}" install
-
-    # Fix FS#14600 (name conflicts with other packages).
-    cd "${pkgdir}"/usr/bin
-    for oldname in *; do
-        newname=puzzles-${oldname}
-        mv "${pkgdir}"/usr/bin/${oldname} "${pkgdir}"/usr/bin/${newname}
-        sed -i "s_Exec=/usr/bin/${oldname}_Exec=/usr/bin/${newname}_" \
-            "${pkgdir}"/usr/share/applications/${oldname}.desktop
-    done
+# Fix FS#14600 (name conflicts with other packages).
+  cd "$pkgdir"/usr/bin
+  for oldname in *; do
+    newname=puzzles-$oldname
+    mv "$pkgdir"/usr/bin/{$oldname,$newname}
+    sed -e "s|Exec=$oldname|Exec=$newname|" -i "$pkgdir"/usr/share/applications/$oldname.desktop
+  done
 }
