@@ -4,7 +4,7 @@
 
 pkgname=wlroots
 pkgver=0.15.0
-pkgrel=1
+pkgrel=2
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://github.com/swaywm/wlroots'
@@ -20,8 +20,10 @@ depends=(
     'xcb-util-wm'
 )
 makedepends=(
+    'glslang'
     'meson'
     'ninja'
+    'vulkan-headers'
     'wayland-protocols'
     'xorg-xwayland'
 )
@@ -44,9 +46,7 @@ validpgpkeys=(
 )
 
 build() {
-    # Vulkan renderer is still experimental but since mesa comes with
-    # libvulkan.so Meson autodetects this as wanting to build with Vulkan.
-    arch-meson -Drenderers=gles2 "$pkgname-$pkgver" build
+    arch-meson "$pkgname-$pkgver" build
     ninja -C build
 }
 
