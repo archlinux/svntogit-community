@@ -1,23 +1,20 @@
 # Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
 # Contributor: Michael Yeatts <mwyeatts@gmail.com>
 
 pkgname=python-typing_extensions
-pkgver=3.10.0.2
-pkgrel=4
+pkgver=4.0.1
+pkgrel=1
 pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
 arch=(any)
 url=https://github.com/python/typing/tree/master/typing_extensions
 license=(custom)
 depends=(python)
-makedepends=(
-  git
-  python-setuptools
-)
+makedepends=(git python-build python-flit-core python-install)
 checkdepends=(python-tests)
 provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
-_tag=7552efe8b5f96f0e63f8e77711a4cf03cae92921
-source=(git+https://github.com/python/typing.git#tag=${_tag})
+source=("git+https://github.com/python/typing.git#tag=${pkgver}")
 sha256sums=(SKIP)
 
 pkgver() {
@@ -26,29 +23,30 @@ pkgver() {
   git describe --tags
 }
 
-prepare() {
-  sed 's/3.7.4.2/3.7.4.3/g' -i typing/typing_extensions/setup.py
-}
-
 build() {
   cd typing/typing_extensions
 
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
   cd typing/typing_extensions
 
   python -m venv --system-site-packages test-env
-  test-env/bin/python setup.py install --optimize=1 --skip-build
-  test-env/bin/python src_py3/test_typing_extensions.py
+  test-env/bin/python -m install --optimize=1 dist/*.whl
+  test-env/bin/python src/test_typing_extensions.py
 }
 
 package() {
   cd typing/typing_extensions
 
-  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
-  install -Dm 644 LICENSE -t "${pkgdir}"/usr/share/licenses/python-typing_extensions/
+  python -m install --optimize=1 --destdir="${pkgdir}" dist/*.whl
+
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "${pkgdir}"/usr/share/licenses/${pkgname}
+  ln -s "${site_packages}"/typing_extensions-$pkgver.dist-info/LICENSE \
+    "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
 # vim: ts=2 sw=2 et:
