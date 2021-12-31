@@ -1,0 +1,55 @@
+# Maintainer: Justin Kromlinger <hashworks@archlinux.org>
+
+pkgname='opensearch-dashboards-alerting-plugin'
+_pluginname='alerting-dashboards-plugin'
+pkgver=1.2.0.0
+_dashboardsver=1.2.0
+pkgrel=1
+pkgdesc='OpenSearch Dashboards Alerting Plugin'
+url='https://opensearch.org/docs/latest/monitoring-plugins/alerting'
+arch=('x86_64')
+license=('Apache')
+depends=('opensearch-dashboards' 'coffeescript')
+makedepends=('yarn' 'python' 'git')
+options=('!strip' 'emptydirs')
+source=(
+  "git+https://github.com/opensearch-project/${_pluginname}.git#tag=${pkgver}"
+  "git+https://github.com/opensearch-project/OpenSearch-Dashboards.git#tag=${_dashboardsver}"
+)
+sha256sums=(
+  'SKIP'
+  'SKIP'
+)
+
+prepare() {
+  nodeVersion="$(node -v)"
+  # Yes, you support this version. You just don't know it yet.
+  sed -i "s/    \"node\": \"[0-9\.]*\",/    \"node\": \"${nodeVersion:1}\",/" \
+    "${_pluginname}/package.json" \
+    "OpenSearch-Dashboards/package.json"
+}
+
+build() {
+  mv "${_pluginname}" "OpenSearch-Dashboards/plugins"
+  cd "OpenSearch-Dashboards/plugins/${_pluginname}"
+  yarn osd bootstrap
+  yarn plugin-helpers build --skip-archive # `yarn build` will always create the ZIP
+}
+
+check() {
+  cd "OpenSearch-Dashboards/plugins/${_pluginname}"
+  yarn test:jest
+}
+
+package() {
+  cd "${srcdir}/OpenSearch-Dashboards/plugins/${_pluginname}"
+
+  install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -dm755 "${pkgdir}/usr/share/opensearch-dashboards/plugins/"
+
+  cp -r "build/opensearch-dashboards/"* "${pkgdir}/usr/share/opensearch-dashboards/plugins/"
+
+  find "${pkgdir}/usr/share/opensearch-dashboards/plugins" -type d -empty -delete
+}
+
+# vim: ts=2 sw=2 et:
