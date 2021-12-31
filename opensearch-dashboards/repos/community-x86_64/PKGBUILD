@@ -1,0 +1,98 @@
+# Maintainer: Justin Kromlinger <hashworks@archlinux.org>
+# Contributor: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Spider.007 <archlinux AT spider007 DOT net>
+
+pkgname=opensearch-dashboards
+pkgver=1.2.0
+pkgrel=1
+pkgdesc='Open source visualization dashboards for OpenSearch'
+url='https://opensearch.org/docs/dashboards/index/'
+arch=('x86_64')
+license=('Apache')
+depends=('nodejs-lts-erbium')
+optdepends=(
+  'opensearch'
+  #'nodejs: System nodejs instead of the included version'
+)
+makedepends=('yarn' 'git' 'python')
+backup=('etc/opensearch-dashboards/opensearch_dashboards.yml')
+options=('!strip' 'emptydirs')
+source=(
+  "git+https://github.com/opensearch-project/OpenSearch-Dashboards.git#tag=${pkgver}"
+  #"https://artifacts.opensearch.org/releases/core/${pkgname}/${pkgver}/${pkgname}-min-${pkgver}-linux-x64.tar.gz"{,.sig}
+  opensearch-dashboards
+  opensearch-dashboards-keystore
+  opensearch-dashboards-plugin
+  opensearch-dashboards.service
+  tmpfile.conf
+  user.conf
+)
+#validpgpkeys=('C5B7498965EFD1C2924BA9D539D319879310D3FC') # OpenSearch project <opensearch@amazon.com>
+sha512sums=('SKIP'
+            'c404c8f576ccc5d9202b6808eaf0ec4a1545eec63480ea5189f0f5b66f3e22f431090ece3e7488f6e7d20472e55e784110d4d393bef94ad959c8ee0665290d36'
+            '55bb1b7e86bafb9938b787c973aab318848bdb7a498d547948d58ee06fc8b96f9a184d6c00a9f1e7accb5caf64992b0db86cf4b31b0d0eb66c8a88f09b609d3e'
+            'bd3bb6a1d64b80bc0a5a5d73ccce7689b8aaf035262424414de404083085ae8e482770f62e5d8219313adeecd65003b7ce1bbe8943418dbd6a432e739e124493'
+            'bec175171d7ce2d9769b4247931f13e73713f6f6f5eba1c1c184c450e694ae52e54d16e79853331df5fa6b50ebc42e1408cf022dbb8e025526c9be783dfca5c2'
+            'b310d30d6c307106985fe9d835eae6b98241fbf37165cffee134b9e4ba8a2b96a43340fe4cc6276c7b48a7230611815aa8e5acc70348e30a21fd473c7a56f06a'
+            '51cef07f4f4cdd467aa4a2665ee8aaa870ea8f11449f4be1cb239826292ee4044cc656204ab8836730ac1555387ddb20c2cfb9a50ba70f5c5fe59c271a332ab4')
+
+prepare() {
+  #cd "${pkgbase}-${pkgver}-linux-x64"
+  cd "OpenSearch-Dashboards"
+
+  nodeVersion="$(node -v)"
+  # Yes, you support this version. You just don't know it yet.
+  sed -i "s/    \"node\": \"[0-9\.]*\",/    \"node\": \"${nodeVersion:1}\",/" "package.json"
+
+  # Remove nodejs strict version requirements
+  # Since we use the included node this isn't required, but we want to give users the option to use the system nodejs
+  #sed "s@^var isVersionValid = .*@var isVersionValid = true;@" -i src/setup_node_env/node_version_validator.js
+
+  # set default quiet mode for systemd, cli option forces specified values
+  sed -r 's|#(logging.quiet:) false|\1 true|' -i config/opensearch_dashboards.yml
+}
+
+build() {
+  cd "OpenSearch-Dashboards"
+
+  yarn osd bootstrap
+  yarn build --skip-os-packages
+
+  # TODO: How to tell yarn that we don't want to create a SNAPSHOT version?
+  sed -i "s/  \"version\": \"${pkgver}-SNAPSHOT\",/  \"version\": \"${pkgver}\",/" "build/opensearch-dashboards/package.json"
+}
+
+package() {
+  cd "OpenSearch-Dashboards/build/opensearch-dashboards"
+
+  install -dm755 "${pkgdir}"/{usr/share,var/lib,etc}/opensearch-dashboards
+
+  ln -s /etc/opensearch-dashboards "${pkgdir}/usr/share/opensearch-dashboards/config"
+  ln -s /var/lib/opensearch-dashboards "${pkgdir}/usr/share/opensearch-dashboards/data"
+  rm -Rf data
+
+  install -Dm644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
+  install -Dm644 NOTICE.txt "${pkgdir}/usr/share/licenses/${pkgname}/NOTICE.txt"
+  install -Dm644 README.txt "${pkgdir}/usr/share/doc/${pkgname}/README.txt"
+  rm ./*.txt
+
+  install -Dm 640 config/opensearch_dashboards.yml -t "${pkgdir}/etc/opensearch-dashboards"
+  install -Dm 640 config/node.options -t "${pkgdir}/etc/opensearch-dashboards"
+  rm -Rf config
+
+  rm -Rf bin
+  install -dm 755 "${pkgdir}/usr/bin"
+  install -Dm 755 "${srcdir}/opensearch-dashboards" -t "${pkgdir}/usr/bin"
+  install -Dm 755 "${srcdir}/opensearch-dashboards-keystore" -t "${pkgdir}/usr/bin"
+  install -Dm 755 "${srcdir}/opensearch-dashboards-plugin" -t "${pkgdir}/usr/bin"
+
+  install -dm 755 "${pkgdir}/usr/share/opensearch-dashboards"
+  cp -a ./* "${pkgdir}/usr/share/opensearch-dashboards"
+
+  install -Dm 644 "${srcdir}/opensearch-dashboards.service" -t "${pkgdir}/usr/lib/systemd/system"
+  install -Dm 644 "${srcdir}/user.conf" "${pkgdir}/usr/lib/sysusers.d/opensearch-dashboards.conf"
+  install -Dm 644 "${srcdir}/tmpfile.conf" "${pkgdir}/usr/lib/tmpfiles.d/opensearch-dashboards.conf"
+}
+
+# vim: ts=2 sw=2 et:
