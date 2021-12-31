@@ -1,0 +1,110 @@
+# Maintainer: Justin Kromlinger <hashworks@archlinux.org>
+# Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Marcello "mererghost" Rocha <https://github.com/mereghost>
+# Contributor: Blaž "Speed" Hrastnik <https://github.com/archSeer>
+
+pkgname=opensearch
+pkgver=1.2.1
+pkgrel=1
+pkgdesc="Open source distributed and RESTful search engine"
+arch=('x86_64')
+url="https://opensearch.org/docs/opensearch/index/"
+license=('Apache')
+depends=('java-runtime<=16' 'systemd' 'libxml2')
+optdepends=(
+  'opensearch-cli'
+  'opensearch-dashboards'
+  'opensearch-alerting-plugin'
+  'opensearch-anomaly-detection-plugin'
+  'opensearch-asynchronous-search-plugin'
+  'opensearch-cross-cluster-replication-plugin'
+  'opensearch-index-management-plugin'
+  'opensearch-job-scheduler-plugin'
+  'opensearch-knn-plugin'
+  'opensearch-observability-plugin'
+  'opensearch-performance-analyzer-plugin'
+  'opensearch-reports-scheduler-plugin'
+  'opensearch-security-plugin'
+  'opensearch-sql-plugin'
+)
+# See https://github.com/opensearch-project/OpenSearch/blob/main/.ci/java-versions.properties
+makedepends=('java-environment=11')
+source=(
+  "OpenSearch-${pkgver}.tar.gz::https://github.com/opensearch-project/OpenSearch/archive/${pkgver}.tar.gz"
+  opensearch.service
+  opensearch@.service
+  opensearch-keystore.service
+  opensearch-keystore@.service
+  opensearch-sysctl.conf
+  opensearch-user.conf
+  opensearch-tmpfile.conf
+  opensearch.default
+  remove-systemd-distribution-check.patch
+)
+sha256sums=('b358d53e33c38324a59a216dd8f24dcf617f891c02311025b44aed1bb8ca8201'
+            'b59d064ce8e348f22b969cc2b7522a1c7b64d4b4e3fd98d9ad1f01d842e94d46'
+            '02bfe1e723f6522d7b5bf72d43c7847c4d9329d105b543583aa5b9c952e7d54d'
+            '097de1fc6ef1f12e99d2b3def9c9803cf0dd8609aeace608048d599a2cb85c5c'
+            'a133b8944d57d81224caf03f8d0e5b127f2570123b2a1e2d2f6eb199446448ae'
+            'b3feb1e9c7e7ce6b33cea6c727728ed700332aae942ca475c3bcc1d56b9f113c'
+            '79cb5856b7105da7f25c6da2a25be88ccba2b849fd92cc32c3204e2fad530efc'
+            'c9045725cf2d262257ae2d7074bb4f6d82bdfc1059725ee856440b695c23361a'
+            '66401172f710e80e1f715c89bc6ed5a6d0ad567c58ad03101e59556c52245158'
+            '0d158e9fc2ac6375ae9c140eb79e0308794c1a0220d3634a2b98e94b37b6f8dc')
+
+backup=('etc/opensearch/opensearch.yml'
+  'etc/opensearch/log4j2.properties'
+  'etc/opensearch/jvm.options'
+  'etc/default/opensearch')
+
+prepare() {
+  cd "OpenSearch-${pkgver}"
+  patch -Np1 -i "${srcdir}/remove-systemd-distribution-check.patch"
+}
+
+build() {
+  cd "OpenSearch-${pkgver}"
+  export PATH=/usr/lib/jvm/default/bin:$PATH
+  export GRADLE_OPTS="-Dbuild.snapshot=false"
+  ./gradlew :distribution:buildSystemdModule
+  ./gradlew :distribution:archives:linux-tar:build
+}
+
+package() {
+  cd "OpenSearch-${pkgver}"
+
+  install -dm755 "${pkgdir}"/{usr/share,var/lib,var/log}/opensearch
+  install -dm755 "${pkgdir}/usr/bin"
+
+  tar xf distribution/archives/linux-tar/build/distributions/opensearch-min-$pkgver-linux-x64.tar.gz \
+    --strip 1 -C "${pkgdir}/usr/share/opensearch"
+  rm -r "${pkgdir}"/usr/share/opensearch/{jdk,logs}
+
+  install -dm755 "${pkgdir}/etc"
+  mv "${pkgdir}/usr/share/opensearch/config" "${pkgdir}/etc/opensearch"
+  chmod 2750 "${pkgdir}/etc/opensearch"
+
+  for bin in "${pkgdir}/usr/share/opensearch/bin/"*; do
+    ln -sT "/usr/share/opensearch/bin/$(basename ${bin})" "${pkgdir}/usr/bin/$(basename ${bin})"
+  done
+
+  ln -s /etc/opensearch "${pkgdir}/usr/share/opensearch/config"
+  ln -s /var/log/opensearch "${pkgdir}/usr/share/opensearch/logs"
+  ln -s /var/lib/opensearch "${pkgdir}/usr/share/opensearch/data"
+
+  install -Dm644 "$srcdir"/opensearch.service "${pkgdir}/usr/lib/systemd/system/opensearch.service"
+  install -Dm644 "$srcdir"/opensearch@.service "${pkgdir}/usr/lib/systemd/system/opensearch@.service"
+  install -Dm644 "$srcdir"/opensearch-keystore.service "${pkgdir}/usr/lib/systemd/system/opensearch-keystore.service"
+  install -Dm644 "$srcdir"/opensearch-keystore@.service "${pkgdir}/usr/lib/systemd/system/opensearch-keystore@.service"
+  install -Dm644 "$srcdir"/opensearch-user.conf "${pkgdir}/usr/lib/sysusers.d/opensearch.conf"
+  install -Dm644 "$srcdir"/opensearch-tmpfile.conf "${pkgdir}/usr/lib/tmpfiles.d/opensearch.conf"
+  install -Dm644 "$srcdir"/opensearch-sysctl.conf "${pkgdir}/usr/lib/sysctl.d/opensearch.conf"
+  install -Dm644 "$srcdir"/opensearch.default "${pkgdir}/etc/default/opensearch"
+
+  cp -r distribution/build/outputs/systemd/modules/systemd "${pkgdir}/usr/share/opensearch/modules/"
+
+  sed -i '2iJAVA_HOME=/usr/lib/jvm/default-runtime' "${pkgdir}/usr/share/opensearch/bin/opensearch-env"
+  sed -i 's/OPENSEARCH_BUNDLED_JDK=true/OPENSEARCH_BUNDLED_JDK=false/g' "${pkgdir}/usr/share/opensearch/bin/opensearch-env"
+
+  install -Dm644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
+}
