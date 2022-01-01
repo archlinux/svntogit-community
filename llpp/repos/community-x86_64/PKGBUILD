@@ -1,11 +1,10 @@
-# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: earnestly
 
 pkgname=llpp
-pkgver=33
-# Often breaks with mupdf, which means I'll occasionally need to pin a specific commit.
-_commit=3fb41e63167a01638c1bf808e876e2380fe7a1f6
-pkgrel=2
+pkgver=34
+pkgrel=1
 pkgdesc='opengl accelerated pdf viewer based on mupdf'
 arch=('x86_64')
 url="https://github.com/moosotc/${pkgname}"
@@ -17,54 +16,33 @@ optdepends=('djvulibre: llppac djvu conversion'
             'librsvg: llppac svg conversion'
             'imagemagick: llppac image conversion'
             'inotify-tools: for the llpp.inotify autoreload wrapper')
-makedepends=('git' 'asciidoctor' 'ocaml' 'ocaml-lablgl' 'libmupdf')
-
-# llpp seems to go through build systems like fasion, holomorph has provided a
-# very nice Makefile for building this software which has served well for
-# months.  It was contributed, or offered, to the author malc, but he concluded
-# that make was bad and needed constant effort to prevent "bitrot" as
-# justification for using a terrible shell script that downloaded arbitrary
-# commits of bundled libraries.  Then he used ninja.  Then he moved on to
-# shake, a haskell NIH implementation of make requiring that you now also have
-# ghc and the shake library to build this software.  Now he is back to a (new)
-# shell script.
-
-# For obvious reasons I'm sticking with the custom makefile which greatly
-# reduces maintainence burden and unecessary dependency bloat.
-source=("git+${url}#commit=${_commit}"
-        'no-quit-on-escape.patch'
-        'GNUmakefile')
+makedepends=('git' 'asciidoc' 'ocaml' 'ocaml-lablgl' 'libmupdf')
+options=('!strip')
+source=("git+${url}#tag=v${pkgver}"
+        'system-makedeps.patch')
 sha256sums=('SKIP'
-            '5814846ad19d9ddd8e1412bf36d4c2dc1a32186261126ec63cdf19f308396458'
-            '5771cc554407ff32ddd8c8982e8260687f31af37a4cb5e32875897ff5426a91f')
-
-pkgver() {
-    cd "${srcdir}"/${pkgname}
-
-    git describe --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
-}
+            'c4e3f3fb6b74ffe7e9dccb7eff2cccda8177ba7e4574f894a06e3fc3a820e6db')
 
 prepare() {
     cd "${srcdir}"/${pkgname}
 
-    patch -Np1 -i "${srcdir}"/no-quit-on-escape.patch
     # apparently the desktop file went "stale"
     git revert --no-commit aad4b1e65e581ff7a096a3c3901b222a9c127a1c
 
-    # This symlink ruins all the fun
-    rm wsi/x11/wsi.mli
-
-    ln -sf ../GNUmakefile GNUmakefile
+    patch --forward --strip=1 --input=../system-makedeps.patch
 }
 
 build() {
     cd "${srcdir}"/${pkgname}
 
-    make
+    bash ./build.bash build
+    bash ./build.bash build doc
 }
 
 package() {
     cd "${srcdir}"/${pkgname}
 
-    make PREFIX=/usr DESTDIR="${pkgdir}" install
+    install -Dt "${pkgdir}"/usr/bin build/llpp misc/llpp{.inotify,ac}
+    install -Dm644 -t "${pkgdir}"/usr/share/applications misc/llpp.desktop
+    install -Dm644 -t "${pkgdir}"/usr/share/man/man1 build/doc/*.1
 }
