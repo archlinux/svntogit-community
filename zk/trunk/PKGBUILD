@@ -1,0 +1,63 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Nogweii <me@nogweii.net>
+
+pkgname=zk
+pkgver=0.9.0
+pkgrel=1
+pkgdesc='A command-line tool helping you to maintain a Zettelkasten or personal wiki'
+arch=('x86_64')
+url="https://github.com/mickael-menu/zk"
+license=('GPL3')
+depends=('icu')
+makedepends=('go' 'git')
+options=('!lto')
+_commit='f8ef8cc09358434e3615e4babe9bdf75066904fb'
+source=("$pkgname::git+$url.git#commit=$_commit")
+md5sums=('SKIP')
+
+prepare() {
+  cd "$pkgname"
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgname"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags $LDFLAGS \
+    -X main.Version=$(git describe --tags HEAD) \
+    -X main.Build=$(git rev-parse --short HEAD)" \
+    -tags "fts5 icu" \
+    -o build \
+    .
+}
+
+check() {
+  cd "$pkgname"
+  go test -v -race -tags "fts5 icu" ./...
+}
+
+package() {
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/zk
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" *.md
+  cp -vr docs "$pkgdir/usr/share/doc/$pkgname"
+}
