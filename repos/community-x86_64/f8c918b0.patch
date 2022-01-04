@@ -1,0 +1,236 @@
+From f8c918b00f7c62e204d324a827e2ee2ef05bb66a Mon Sep 17 00:00:00 2001
+From: pchintalapudi <34727397+pchintalapudi@users.noreply.github.com>
+Date: Wed, 10 Nov 2021 17:56:26 -0500
+Subject: [PATCH] Move PTLS load emission from codegen to late-gc-lowering
+ (#42572)
+
+* Move PTLS load emission from codegen to late-gc-lowering
+
+* Address PR comments
+
+* Fix tests and move TBAA node generation to codegen_shared
+
+* Add check for null metadata node
+
+Co-authored-by: Prem Chintalapudi <premc@csail.mit.edu>
+---
+ src/Makefile                         |  2 +-
+ src/cgutils.cpp                      | 12 +---
+ src/codegen.cpp                      | 18 +-----
+ src/codegen_shared.h                 | 83 +++++++++++++++++++++++++++
+ src/llvm-late-gc-lowering.cpp        |  4 +-
+ test/llvmpasses/alloc-opt-gcframe.jl | 86 +++++++++++++---------------
+ test/llvmpasses/late-lower-gc.ll     | 58 +++++++++++--------
+ 7 files changed, 167 insertions(+), 96 deletions(-)
+
+diff --git a/src/Makefile b/src/Makefile
+index 17e70fe6d01f..1494fe3be40a 100644
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -293,7 +293,7 @@ $(build_shlibdir)/libllvmcalltest.$(SHLIB_EXT): $(SRCDIR)/codegen_shared.h $(BUI
+ $(BUILDDIR)/llvm-alloc-opt.o $(BUILDDIR)/llvm-alloc-opt.dbg.obj: $(SRCDIR)/codegen_shared.h
+ $(BUILDDIR)/llvm-final-gc-lowering.o $(BUILDDIR)/llvm-final-gc-lowering.dbg.obj: $(SRCDIR)/llvm-pass-helpers.h
+ $(BUILDDIR)/llvm-gc-invariant-verifier.o $(BUILDDIR)/llvm-gc-invariant-verifier.dbg.obj: $(SRCDIR)/codegen_shared.h
+-$(BUILDDIR)/llvm-late-gc-lowering.o $(BUILDDIR)/llvm-late-gc-lowering.dbg.obj: $(SRCDIR)/llvm-pass-helpers.h
++$(BUILDDIR)/llvm-late-gc-lowering.o $(BUILDDIR)/llvm-late-gc-lowering.dbg.obj: $(SRCDIR)/llvm-pass-helpers.h $(SRCDIR)/codegen_shared.h
+ $(BUILDDIR)/llvm-multiversioning.o $(BUILDDIR)/llvm-multiversioning.dbg.obj: $(SRCDIR)/codegen_shared.h
+ $(BUILDDIR)/llvm-pass-helpers.o $(BUILDDIR)/llvm-pass-helpers.dbg.obj: $(SRCDIR)/llvm-pass-helpers.h $(SRCDIR)/codegen_shared.h
+ $(BUILDDIR)/llvm-ptls.o $(BUILDDIR)/llvm-ptls.dbg.obj: $(SRCDIR)/codegen_shared.h
+diff --git a/src/cgutils.cpp b/src/cgutils.cpp
+index a1fef5279a6b..219b42dae75a 100644
+--- a/src/cgutils.cpp
++++ b/src/cgutils.cpp
+@@ -2,14 +2,6 @@
+ 
+ // utility procedures used in code generation
+ 
+-static Instruction *tbaa_decorate(MDNode *md, Instruction *inst)
+-{
+-    inst->setMetadata(llvm::LLVMContext::MD_tbaa, md);
+-    if (isa<LoadInst>(inst) && md == tbaa_const)
+-        inst->setMetadata(LLVMContext::MD_invariant_load, MDNode::get(md->getContext(), None));
+-    return inst;
+-}
+-
+ static Value *track_pjlvalue(jl_codectx_t &ctx, Value *V)
+ {
+     assert(V->getType() == T_pjlvalue);
+@@ -3218,9 +3210,9 @@ static void emit_cpointercheck(jl_codectx_t &ctx, const jl_cgval_t &x, const std
+ // allocation for known size object
+ static Value *emit_allocobj(jl_codectx_t &ctx, size_t static_size, Value *jt)
+ {
+-    Value *ptls_ptr = emit_bitcast(ctx, get_current_ptls(ctx), T_pint8);
++    Value *current_task = get_current_task(ctx);
+     Function *F = prepare_call(jl_alloc_obj_func);
+-    auto call = ctx.builder.CreateCall(F, {ptls_ptr, ConstantInt::get(T_size, static_size), maybe_decay_untracked(ctx, jt)});
++    auto call = ctx.builder.CreateCall(F, {current_task, ConstantInt::get(T_size, static_size), maybe_decay_untracked(ctx, jt)});
+     call->setAttributes(F->getAttributes());
+     return call;
+ }
+diff --git a/src/codegen.cpp b/src/codegen.cpp
+index 6ab179bb5446..3e0457972caf 100644
+--- a/src/codegen.cpp
++++ b/src/codegen.cpp
+@@ -634,7 +634,7 @@ static const auto jlegalx_func = new JuliaFunction{
+ static const auto jl_alloc_obj_func = new JuliaFunction{
+     "julia.gc_alloc_obj",
+     [](LLVMContext &C) { return FunctionType::get(T_prjlvalue,
+-                {T_pint8, T_size, T_prjlvalue}, false); },
++                {T_ppjlvalue, T_size, T_prjlvalue}, false); },
+     [](LLVMContext &C) { return AttributeList::get(C,
+             AttributeSet::get(C, makeArrayRef({Attribute::getWithAllocSizeArgs(C, 1, None)})), // returns %1 bytes
+             Attributes(C, {Attribute::NoAlias, Attribute::NonNull}),
+@@ -1131,7 +1131,7 @@ static jl_cgval_t emit_invoke(jl_codectx_t &ctx, const jl_cgval_t &lival, const
+ 
+ static Value *literal_pointer_val(jl_codectx_t &ctx, jl_value_t *p);
+ static GlobalVariable *prepare_global_in(Module *M, GlobalVariable *G);
+-static Instruction *tbaa_decorate(MDNode *md, Instruction *inst);
++Instruction *tbaa_decorate(MDNode *md, Instruction *inst);
+ 
+ static GlobalVariable *prepare_global_in(Module *M, JuliaVariable *G)
+ {
+@@ -4792,19 +4792,7 @@ static Value *get_current_task(jl_codectx_t &ctx)
+ // Get PTLS through current task.
+ static Value *get_current_ptls(jl_codectx_t &ctx)
+ {
+-    const int ptls_offset = offsetof(jl_task_t, ptls);
+-    Value *pptls = ctx.builder.CreateInBoundsGEP(
+-        T_pjlvalue, get_current_task(ctx),
+-        ConstantInt::get(T_size, ptls_offset / sizeof(void *)),
+-        "ptls_field");
+-    LoadInst *ptls_load = ctx.builder.CreateAlignedLoad(
+-        emit_bitcast(ctx, pptls, T_ppjlvalue), Align(sizeof(void *)), "ptls_load");
+-    // Note: Corresponding store (`t->ptls = ptls`) happens in `ctx_switch` of tasks.c.
+-    tbaa_decorate(tbaa_gcframe, ptls_load);
+-    // Using `CastInst::Create` to get an `Instruction*` without explicit cast:
+-    auto ptls = CastInst::Create(Instruction::BitCast, ptls_load, T_ppjlvalue, "ptls");
+-    ctx.builder.Insert(ptls);
+-    return ptls;
++    return get_current_ptls_from_task(ctx.builder, get_current_task(ctx));
+ }
+ 
+ // Store world age at the entry block of the function. This function should be
+diff --git a/src/codegen_shared.h b/src/codegen_shared.h
+index ca876b9b0310..93c913fd7a76 100644
+--- a/src/codegen_shared.h
++++ b/src/codegen_shared.h
+@@ -5,6 +5,8 @@
+ #include <llvm/Support/Debug.h>
+ #include <llvm/IR/DebugLoc.h>
+ #include <llvm/IR/IRBuilder.h>
++#include <llvm/IR/MDBuilder.h>
++#include "julia.h"
+ 
+ enum AddressSpace {
+     Generic = 0,
+@@ -19,6 +21,24 @@ enum AddressSpace {
+     LastSpecial = Loaded,
+ };
+ 
++namespace JuliaType {
++    static inline llvm::StructType* get_jlvalue_ty(llvm::LLVMContext &C) {
++        return llvm::StructType::get(C);
++    }
++
++    static inline llvm::PointerType* get_pjlvalue_ty(llvm::LLVMContext &C) {
++        return llvm::PointerType::get(get_jlvalue_ty(C), 0);
++    }
++
++    static inline llvm::PointerType* get_prjlvalue_ty(llvm::LLVMContext &C) {
++        return llvm::PointerType::get(get_jlvalue_ty(C), AddressSpace::Tracked);
++    }
++
++    static inline llvm::PointerType* get_ppjlvalue_ty(llvm::LLVMContext &C) {
++        return llvm::PointerType::get(get_pjlvalue_ty(C), 0);
++    }
++}
++
+ // JLCALL with API arguments ([extra], arg0, arg1, arg2, ...) has the following ABI calling conventions defined:
+ #define JLCALL_F_CC (CallingConv::ID)37     // (jl_value_t *arg0, jl_value_t **argv, uint32_t nargv)
+ #define JLCALL_F2_CC (CallingConv::ID)38    // (jl_value_t *arg0, jl_value_t **argv, uint32_t nargv, jl_value_t *extra)
+@@ -68,3 +88,66 @@ static inline void llvm_dump(llvm::DebugLoc *dbg)
+     dbg->print(llvm::dbgs());
+     llvm::dbgs() << "\n";
+ }
++
++static inline std::pair<llvm::MDNode*,llvm::MDNode*> tbaa_make_child_with_context(llvm::LLVMContext &ctxt, const char *name, llvm::MDNode *parent=nullptr, bool isConstant=false)
++{
++    llvm::MDBuilder mbuilder(ctxt);
++    llvm::MDNode *jtbaa = mbuilder.createTBAARoot("jtbaa");
++    llvm::MDNode *tbaa_root = mbuilder.createTBAAScalarTypeNode("jtbaa", jtbaa);
++    llvm::MDNode *scalar = mbuilder.createTBAAScalarTypeNode(name, parent ? parent : tbaa_root);
++    llvm::MDNode *n = mbuilder.createTBAAStructTagNode(scalar, scalar, 0, isConstant);
++    return std::make_pair(n, scalar);
++}
++
++static inline llvm::MDNode *get_tbaa_gcframe(llvm::LLVMContext &ctxt) {
++    return tbaa_make_child_with_context(ctxt, "jtbaa_gcframe").first;
++}
++static inline llvm::MDNode *get_tbaa_const(llvm::LLVMContext &ctxt) {
++    return tbaa_make_child_with_context(ctxt, "jtbaa_const", nullptr, true).first;
++}
++
++static inline llvm::Instruction *tbaa_decorate(llvm::MDNode *md, llvm::Instruction *inst)
++{
++    inst->setMetadata(llvm::LLVMContext::MD_tbaa, md);
++    if (llvm::isa<llvm::LoadInst>(inst) && md && md == get_tbaa_const(md->getContext()))
++        inst->setMetadata(llvm::LLVMContext::MD_invariant_load, llvm::MDNode::get(md->getContext(), llvm::None));
++    return inst;
++}
++
++// bitcast a value, but preserve its address space when dealing with pointer types
++static inline llvm::Value *emit_bitcast_with_builder(llvm::IRBuilder<> &builder, llvm::Value *v, llvm::Type *jl_value)
++{
++    using namespace llvm;
++    if (isa<PointerType>(jl_value) &&
++        v->getType()->getPointerAddressSpace() != jl_value->getPointerAddressSpace()) {
++        // Cast to the proper address space
++        Type *jl_value_addr =
++                PointerType::get(cast<PointerType>(jl_value)->getElementType(),
++                                 v->getType()->getPointerAddressSpace());
++        return builder.CreateBitCast(v, jl_value_addr);
++    }
++    else {
++        return builder.CreateBitCast(v, jl_value);
++    }
++}
++
++// Get PTLS through current task.
++static inline llvm::Value *get_current_ptls_from_task(llvm::IRBuilder<> &builder, llvm::Value *current_task)
++{
++    using namespace llvm;
++    auto T_ppjlvalue = JuliaType::get_ppjlvalue_ty(builder.getContext());
++    auto T_size = builder.GetInsertBlock()->getModule()->getDataLayout().getIntPtrType(builder.getContext());
++    const int ptls_offset = offsetof(jl_task_t, ptls);
++    llvm::Value *pptls = builder.CreateInBoundsGEP(
++        JuliaType::get_pjlvalue_ty(builder.getContext()), current_task,
++        ConstantInt::get(T_size, ptls_offset / sizeof(void *)),
++        "ptls_field");
++    LoadInst *ptls_load = builder.CreateAlignedLoad(
++        emit_bitcast_with_builder(builder, pptls, T_ppjlvalue), Align(sizeof(void *)), "ptls_load");
++    // Note: Corresponding store (`t->ptls = ptls`) happens in `ctx_switch` of tasks.c.
++    tbaa_decorate(get_tbaa_gcframe(builder.getContext()), ptls_load);
++    // Using `CastInst::Create` to get an `Instruction*` without explicit cast:
++    auto ptls = CastInst::Create(Instruction::BitCast, ptls_load, T_ppjlvalue, "ptls");
++    builder.Insert(ptls);
++    return ptls;
++}
+\ No newline at end of file
+diff --git a/src/llvm-late-gc-lowering.cpp b/src/llvm-late-gc-lowering.cpp
+index b4e1f5009424..ed5fe7c43a59 100644
+--- a/src/llvm-late-gc-lowering.cpp
++++ b/src/llvm-late-gc-lowering.cpp
+@@ -2296,10 +2296,12 @@ bool LateLowerGCFrame::CleanupIR(Function &F, State *S) {
+                 // Create a call to the `julia.gc_alloc_bytes` intrinsic, which is like
+                 // `julia.gc_alloc_obj` except it doesn't set the tag.
+                 auto allocBytesIntrinsic = getOrDeclare(jl_intrinsics::GCAllocBytes);
++                auto ptlsLoad = get_current_ptls_from_task(builder, CI->getArgOperand(0));
++                auto ptls = builder.CreateBitCast(ptlsLoad, Type::getInt8PtrTy(builder.getContext()));
+                 auto newI = builder.CreateCall(
+                     allocBytesIntrinsic,
+                     {
+-                        CI->getArgOperand(0),
++                        ptls,
+                         builder.CreateIntCast(
+                             CI->getArgOperand(1),
+                             allocBytesIntrinsic->getFunctionType()->getParamType(1),
