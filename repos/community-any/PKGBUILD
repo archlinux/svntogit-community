@@ -5,10 +5,10 @@
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.1.12
-pkgrel=2
+pkgrel=3
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
-url='https://poetry.eustace.io'
+url=https://python-poetry.org
 license=(MIT)
 _deps=(cachecontrol
        cachy
@@ -33,7 +33,7 @@ checkdepends=(git
               python-pytest-mock)
 provides=(poetry)
 _archive="$_pkgname-$pkgver"
-source=("$_archive.tar.gz::https://github.com/sdispater/$_pkgname/archive/$pkgver.tar.gz"
+source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
         0001-Suppress-dependency-versions-which-are-known-to-be-t.patch
         0001-tests-cleanup-cache-and-http-usage.patch
         poetry-completions-generator)
@@ -50,6 +50,7 @@ prepare() {
 	# See: https://github.com/python-poetry/poetry/issues/1645
 	patch -p1 -i ../0001-tests-cleanup-cache-and-http-usage.patch
 	dephell deps convert --from pyproject.toml --to setup.py
+	install -m0755 -t ./ ../poetry-completions-generator
 }
 
 build() {
@@ -68,16 +69,17 @@ check() {
 
 package() {
 	cd "$_archive"
-	python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
-	install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+	python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+	install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
 	# install completions, which for some crazy reason hardcode the filename
 	# used to invoke which is __main__.py if we use python -m poetry, and also
 	# adds the full directory path???
-	install -m755 "${srcdir}"/poetry-completions-generator ./poetry-completions-generator
-	./poetry-completions-generator completions bash | sed "\|${srcdir}|d" | \
-		install -Dm644 /dev/stdin "${pkgdir}"/usr/share/bash-completion/completions/poetry
-	./poetry-completions-generator completions zsh | sed "\|${srcdir}|d" | \
-		install -Dm644 /dev/stdin "${pkgdir}"/usr/share/zsh/site-functions/_poetry
-	./poetry-completions-generator completions fish | \
-		install -Dm644 /dev/stdin "${pkgdir}"/usr/share/fish/vendor_completions.d/poetry.fish
+	./poetry-completions-generator completions bash |
+		sed "#$srcdir#d" |
+		install -Dm644 /dev/stdin "$pkgdir/usr/share/bash-completion/completions/poetry"
+	./poetry-completions-generator completions zsh |
+		sed "#$srcdir#d" |
+		install -Dm644 /dev/stdin "$pkgdir/usr/share/zsh/site-functions/_poetry"
+	./poetry-completions-generator completions fish |
+		install -Dm644 /dev/stdin "$pkgdir/usr/share/fish/vendor_completions.d/poetry.fish"
 }
