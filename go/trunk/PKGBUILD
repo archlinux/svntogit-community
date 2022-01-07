@@ -14,7 +14,7 @@
 
 pkgname=go
 epoch=2
-pkgver=1.17.5
+pkgver=1.17.6
 pkgrel=1
 pkgdesc='Core compiler tools for the Go programming language'
 arch=(x86_64)
@@ -26,7 +26,7 @@ provides=(go-pie)
 options=(!strip staticlibs)
 source=(https://storage.googleapis.com/golang/go$pkgver.src.tar.gz{,.asc})
 validpgpkeys=('EB4C1BFD4F042F6DDDCCEC917721F63BD38B4796')
-sha256sums=('3defb9a09bed042403195e872dcbc8c6fae1485963332279668ec52e80a95a2d'
+sha256sums=('4dc1bbf3ff61f0c1ff2b19355e6d88151a70126268a47c761477686ef94748c8'
             'SKIP')
 
 build() {
@@ -34,18 +34,12 @@ build() {
   export GOAMD64=v1 # make sure we're building for the right x86-64 version
   export GOROOT_FINAL=/usr/lib/go
   export GOROOT_BOOTSTRAP=/usr/lib/go
-  export GOPATH="$srcdir/"
-  export GOROOT="$srcdir/$pkgname"
 
   cd "$pkgname/src"
   ./make.bash -v
 }
 
 check() {
-  export GOARCH=amd64
-  export GOROOT_FINAL=/usr/lib/go
-  export GOROOT_BOOTSTRAP=/usr/lib/go
-  export GOROOT="$srcdir/$pkgname"
   export GO_TEST_TIMEOUT_SCALE=3
 
   cd $pkgname/src
