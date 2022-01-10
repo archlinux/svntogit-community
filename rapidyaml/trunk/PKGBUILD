@@ -7,7 +7,7 @@ pkgname=(
   python-rapidyaml
 )
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A library to parse and emit YAML, and do it fast'
 arch=(x86_64)
 url='https://github.com/biojppm/rapidyaml'
@@ -26,7 +26,7 @@ _tag=ee581f85707da11eb25e48fc0b7f161167d58a7e
 source=(
   git+https://github.com/biojppm/rapidyaml.git#tag=${_tag}
   git+https://github.com/biojppm/c4core.git
-  git+https://github.com/biojppm/cmake.git
+  c4core-cmake::git+https://github.com/biojppm/cmake.git
 )
 b2sums=('SKIP'
         'SKIP'
@@ -44,7 +44,7 @@ prepare() {
   git submodule update
   cd ext/c4core
   git submodule init
-  git config submodule.cmake.url "${srcdir}"/cmake
+  git config submodule.cmake.url "${srcdir}"/c4core-cmake
   git submodule update
 }
 
@@ -63,7 +63,10 @@ package_rapidyaml() {
     gcc-libs
     glibc
   )
-  provides=(c4core)
+  provides=(
+    libc4core.so
+    libryml.so
+  )
 
   DESTDIR="${pkgdir}" cmake --install build
   rm "${pkgdir}"/usr/{_ryml.so,ryml.py}
