@@ -6,7 +6,7 @@ pkgname=(
   rapidyaml
   python-rapidyaml
 )
-pkgver=v0.3.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc='A library to parse and emit YAML, and do it fast'
 arch=(x86_64)
@@ -17,8 +17,9 @@ makedepends=(
   git
   ninja
   python-setuptools
+  python-setuptools-git
   python-setuptools-scm
-  #python-cmake-build-extension
+  python-cmake-build-extension
   swig
 )
 _tag=ee581f85707da11eb25e48fc0b7f161167d58a7e
@@ -33,7 +34,7 @@ b2sums=('SKIP'
 
 pkgver() {
   cd rapidyaml
-  git describe --tags
+  git describe --tags | sed 's/^v//'
 }
 
 prepare() {
