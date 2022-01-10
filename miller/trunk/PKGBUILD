@@ -1,32 +1,63 @@
 # Maintainer: George Rawlinson <grawlinson@archlinux.org>
 
 pkgname=miller
-pkgver=5.10.3
+pkgver=6.0.0
 pkgrel=1
 pkgdesc="Name-indexed data processing tool"
 arch=('x86_64')
 url="https://github.com/johnkerl/miller"
 license=('BSD')
 depends=('glibc')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-b2sums=('5b5bf8d2e3149ae7afb5afc9154e4e06ef77cbf8dfe1a1752df4ada184f46b141dc431d5ec547f24574a5a099ee36809cfdc23984cd0ca88147c2b4b6f5a9e4a')
+makedepends=('go' 'git')
+options=('!lto')
+_commit='8346d332a216f377731e2dcaa2c7902c391dd91b' # v6.0.0
+source=("$pkgname::git+$url#commit=$_commit")
+md5sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+  git describe --tags | sed "s/^v//"
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # download dependencies
+  go mod download
+}
 
 build() {
-  cd "$pkgname-$pkgver"
-  ./configure --prefix=/usr
-  make
+  cd "$pkgname"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS}" \
+    ./cmd/mlr
 }
 
 check() {
-  cd "$pkgname-$pkgver"
-  make -k check
+  cd "$pkgname"
+
+  go test -v ./internal/pkg/...
+  go test -v ./regression_test.go
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-  make DESTDIR="$pkgdir" install
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" mlr
 
   # documentation
+  install -vDm644 -t "$pkgdir/usr/share/man/man1" man/mlr.1
   install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
 
   # license
