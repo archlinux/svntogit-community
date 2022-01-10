@@ -15,8 +15,8 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.15
-pkgrel=2
+pkgver=5.16
+pkgrel=1
 license=('GPL2')
 arch=('x86_64')
 url='https://www.kernel.org'
