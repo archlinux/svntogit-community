@@ -6,7 +6,7 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
-pkgver=21.3.3
+pkgver=21.3.4
 pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
@@ -17,13 +17,9 @@ makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgpro
 url="https://www.mesa3d.org/"
 license=('custom')
 source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
-        swr-llvm13-patch1.patch
-        swr-llvm13-patch2.patch
         LICENSE)
-sha512sums=('0263d75435f8c16d40eba3eae29bf372e8994816718deec153c582a17c4dd6ef1c67b3236ed31e63f98bf4e1089fac5cfafae9fb84d3e1fa919b274f43e7e673'
+sha512sums=('7aeea3dba0d39f4ac9f23c54aa0e6853d48000f50c4dd484618c28debe705cdd765ae8fafb5ddea0773976f7189849d9128be3f2282fea74394b59019cb786b9'
             'SKIP'
-            '073ea2bb4778b3151717b26e0ec737abb4916ea340c7193a7382c2e2197534e93e95622d530e2f731ae156fd6ca1fc86f315f6ecae0baaeab88846773fb98bba'
-            'b59f18f4bc69b872e97b5f33a53b9c2398143bc1d0a1b42787ca2a0c204fc11b2837ca40f6f773a0b1bd49756754f9d755ac14d4eb10df6269570477ba8484fc'
             'f9f0d0ccf166fe6cb684478b6f1e1ab1f2850431c06aa041738563eb1808a004e52cdec823c103c9e180f03ffc083e95974d291353f0220fe52ae6d4897fecc7')
 validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l.velikov@gmail.com>
               '946D09B5E4C9845E63075FF1D961C596A7203456'  # Andres Gomez <tanty@igalia.com>
@@ -31,15 +27,6 @@ validpgpkeys=('8703B6700E7EE06D7A39B8D6EDAE37B02CEB490D'  # Emil Velikov <emil.l
               'A5CC9FEC93F2F837CB044912336909B6B25FADFA'  # Juan A. Suarez Romero <jasuarez@igalia.com>
               '71C4B75620BC75708B4BDB254C95FAAB3EB073EC'  # Dylan Baker <dylan@pnwbakers.com>
               '57551DE15B968F6341C248F68D8E31AFC32428A6') # Eric Engestrom <eric@engestrom.ch>
-
-prepare() {
-  cd mesa-$pkgver
-
-  # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/11568
-  patch -Np1 -i ../swr-llvm13-patch1.patch
-  # https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/13267
-  patch -Np1 -i ../swr-llvm13-patch2.patch
-}
 
 build() {
   export CC="gcc -m32"
