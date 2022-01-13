@@ -2,7 +2,7 @@
 # Contributor: David Anderson <dave@natulte.net>
 
 pkgname=tailscale
-pkgver=1.18.2
+pkgver=1.20.0
 pkgrel=1
 pkgdesc="A mesh VPN that makes it easy to connect your devices, wherever they are."
 arch=("x86_64")
@@ -11,7 +11,7 @@ license=("MIT")
 makedepends=("git" "go")
 depends=("glibc")
 backup=("etc/default/tailscaled")
-_commit=b04815c9cdee8b3117b2578f39689aba60f06611	#refs/tags/v1.18.2^{}
+_commit=958917dce8ba6e215972eaf654a89ac06f82ec3b	#refs/tags/v1.20.0^{}
 source=("git+https://github.com/tailscale/tailscale.git#commit=${_commit}")
 sha256sums=('SKIP')
 
