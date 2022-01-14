@@ -5,7 +5,7 @@
 
 pkgname=containerd
 pkgver=1.5.9
-pkgrel=1
+pkgrel=2
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
