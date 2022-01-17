@@ -3,33 +3,25 @@
 # Contributor: Omar Pakker
 
 pkgname=wlroots
-pkgver=0.15.0
+pkgver=0.14.1
 pkgrel=3
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://gitlab.freedesktop.org/wlroots/wlroots'
 arch=('x86_64')
 depends=(
-    'libglvnd'
     'libinput'
-    'seatd' 'libseat.so'
-    'libxcb'
-    'libxkbcommon' 'libxkbcommon.so'
+    'libseat.so'
+    'libxkbcommon'
     'opengl-driver'
-    'pixman' 'libpixman-1.so'
-    'systemd-libs' 'libudev.so'
-    'vulkan-icd-loader' 'libvulkan.so'
-    'wayland'
+    'pixman'
     'xcb-util-errors'
     'xcb-util-renderutil'
     'xcb-util-wm'
 )
 makedepends=(
-    'glslang'
     'meson'
     'ninja'
-    'systemd'
-    'vulkan-headers'
     'wayland-protocols'
     'xorg-xwayland'
 )
@@ -40,10 +32,10 @@ provides=(
     'libwlroots.so'
 )
 source=(
-    "$pkgname-$pkgver.tar.gz::https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$pkgver/downloads/wlroots-$pkgver.tar.gz"
-    "https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$pkgver/downloads/wlroots-$pkgver.tar.gz.sig"
+    "$pkgname-$pkgver.tar.gz::https://github.com/swaywm/wlroots/archive/$pkgver.tar.gz"
+    "https://github.com/swaywm/wlroots/releases/download/$pkgver/wlroots-$pkgver.tar.gz.sig"
 )
-sha256sums=('2921a38cea79dbb6f1da895a4dbe1faedba8d7ff2c0c2468dad94ccba12e4278'
+sha256sums=('448a83d579ac280357c8a4e902b9477bacbab81cc4d9c140e443642d458869db'
             'SKIP')
 validpgpkeys=(
     '34FF9526CFEF0E97A340E2E40FDE7BE0E88F5E48' # Simon Ser
