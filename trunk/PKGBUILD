@@ -2,16 +2,16 @@
 
 pkgbase=cri-tools
 pkgname=('crictl' 'critest')
-pkgver=1.22.0
-_commit='d82b602a7282356d4f675735a3ed4595fc7d73ce' # v1.22.0
+pkgver=1.23.0
+_commit='dbe2d141dc73d0c3b7c05aafbe3d01ee2698b197'  # v1.23.0
 pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
-arch=('x86_64')
+arch=(x86_64)
 url="https://github.com/kubernetes-sigs/cri-tools"
-license=('Apache')
-groups=('kubernetes-tools')
-depends=('glibc')
-makedepends=('git' 'go')
+license=(Apache)
+groups=(kubernetes-tools)
+depends=(glibc)
+makedepends=(git go)
 # can only build from git: https://github.com/kubernetes-sigs/cri-tools/issues/676
 source=("git+https://github.com/kubernetes-sigs/${pkgbase}#commit=${_commit}"
         "${pkgbase}-1.21.0-makefile.patch"
@@ -59,8 +59,7 @@ package_crictl() {
   # docs
   install -vDm 644 "docs/${pkgname}.md" -t "${pkgdir}/usr/share/doc/${pkgname}/"
   install -vDm 644 docs/examples/*.{json,yaml} -t "${pkgdir}/usr/share/doc/${pkgname}/examples/"
-  install -vDm 644 {{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} \
-    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 {{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
 
 package_critest() {
@@ -70,6 +69,5 @@ package_critest() {
   install -vDm 755 "build/bin/${pkgname}" -t "${pkgdir}/usr/bin"
   # docs
   install -vDm 644 docs/{benchmark,validation}.md -t "${pkgdir}/usr/share/doc/${pkgname}/"
-  install -vDm 644 {{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} \
-    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 {{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
