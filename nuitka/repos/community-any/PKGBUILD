@@ -3,7 +3,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=0.6.18.4
+pkgver=0.6.19.3
 pkgrel=1
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=(any)
@@ -17,8 +17,8 @@ optdepends=('ccache: for build caching'
             'pyside2: for using Qt5 APIs')
 options=(!emptydirs)
 source=("https://files.pythonhosted.org/packages/source/N/${pkgname^}/${pkgname^}-${pkgver}.tar.gz")
-sha512sums=('03c0af323da75e7797778c85de60c8b9d04942270d9c81a6b3e69a5f4296e6ed1a17650c296a8593c98b762bbdb9f25d4a13861723d7a3a5cd4721b0eab1b938')
-b2sums=('8ee93fe1dec164b2b9a4d297aba990cddde6916720c6527365ebe9b3f4ecafed97223b10c78b63765804e58b3270833dd18de756a3b6f6fef747d2a16c990c85')
+sha512sums=('3b3b0d3efc74f5817e2aaf0d8a4c474bffe0b7e2a66b7c9947f1ed715b80e51136f017a8ed5f04cbaaea329f89141a0485435d6f0b4e39426d509c4c5794a1bc')
+b2sums=('7150c8b32ce36ded34a66c3c0c3005924d5d6f2dbfa5ea65209a125cef878837149d155cf4dbcde9ee8e1d12f73a5f2f9075d3734c46b81d14c0008e6b87c05c')
 
 prepare() {
   cd ${pkgname^}-$pkgver
@@ -33,9 +33,9 @@ build() {
 
 check() {
   cd ${pkgname^}-$pkgver
-  # skip tests for other interpreters and those that require network access
+  # skip tests for other interpreters, jinja2 and for those that require network access
   # NOTE: the test uses "strace", which is currently not supported by the reproducible build system
-  ./tests/run-tests --no-other-python --skip-onefile-tests --skip-other-cpython-tests
+  ./tests/run-tests --no-other-python --skip-onefile-tests --skip-other-cpython-tests --skip-reflection-test
 }
 
 package() {
