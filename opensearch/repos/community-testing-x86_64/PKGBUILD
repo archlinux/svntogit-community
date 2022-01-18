@@ -1,0 +1,323 @@
+# Maintainer: Justin Kromlinger <hashworks@archlinux.org>
+# Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Marcello "mererghost" Rocha <https://github.com/mereghost>
+# Contributor: Blaž "Speed" Hrastnik <https://github.com/archSeer>
+
+pkgbase=opensearch
+pkgname=(
+  opensearch
+  opensearch-analysis-icu-plugin
+  opensearch-analysis-kuromoji-plugin
+  opensearch-analysis-nori-plugin
+  opensearch-analysis-phonetic-plugin
+  opensearch-analysis-smartcn-plugin
+  opensearch-analysis-stempel-plugin
+  opensearch-analysis-ukrainian-plugin
+  opensearch-discovery-azure-classic-plugin
+  opensearch-discovery-ec2-plugin
+  opensearch-discovery-gce-plugin
+  opensearch-ingest-attachment-plugin
+  opensearch-mapper-annotated-text-plugin
+  opensearch-mapper-murmur3-plugin
+  opensearch-mapper-size-plugin
+  opensearch-repository-azure-plugin
+  opensearch-repository-gcs-plugin
+  opensearch-repository-hdfs-plugin
+  opensearch-repository-s3-plugin
+  opensearch-store-smb-plugin
+  opensearch-transport-nio-plugin
+)
+pkgver=1.2.4
+pkgrel=1
+# See https://github.com/opensearch-project/OpenSearch/blob/main/.ci/java-versions.properties
+# https://github.com/opensearch-project/OpenSearch/issues/1689
+_jrever=11
+_jdkver=11
+arch=('x86_64')
+url="https://opensearch.org/docs/opensearch/index/"
+license=('Apache')
+makedepends=("jdk${_jdkver}-openjdk" 'unzip')
+source=(
+  "OpenSearch-${pkgver}.tar.gz::https://github.com/opensearch-project/OpenSearch/archive/${pkgver}.tar.gz"
+  opensearch.service
+  opensearch@.service
+  opensearch-keystore.service
+  opensearch-keystore@.service
+  opensearch-sysctl.conf
+  opensearch-user.conf
+  opensearch-tmpfile.conf
+  opensearch.default
+  remove-systemd-distribution-check.patch
+)
+sha256sums=('d4d2483bcaa6c0397fc40dcb66ef6ef0f77b17a3f0e318590914a4563c36b076'
+            'b59d064ce8e348f22b969cc2b7522a1c7b64d4b4e3fd98d9ad1f01d842e94d46'
+            '02bfe1e723f6522d7b5bf72d43c7847c4d9329d105b543583aa5b9c952e7d54d'
+            '097de1fc6ef1f12e99d2b3def9c9803cf0dd8609aeace608048d599a2cb85c5c'
+            'a133b8944d57d81224caf03f8d0e5b127f2570123b2a1e2d2f6eb199446448ae'
+            'b3feb1e9c7e7ce6b33cea6c727728ed700332aae942ca475c3bcc1d56b9f113c'
+            '79cb5856b7105da7f25c6da2a25be88ccba2b849fd92cc32c3204e2fad530efc'
+            '12c4feb01c5c42e98e53f9d6fd457727ec0bf0b19bf9c4bc2ee216f31afe7afc'
+            '66401172f710e80e1f715c89bc6ed5a6d0ad567c58ad03101e59556c52245158'
+            '0d158e9fc2ac6375ae9c140eb79e0308794c1a0220d3634a2b98e94b37b6f8dc')
+
+prepare() {
+  cd "OpenSearch-${pkgver}"
+  patch -Np1 -i "${srcdir}/remove-systemd-distribution-check.patch"
+}
+
+build() {
+  cd "OpenSearch-${pkgver}"
+  export JAVA_HOME="/usr/lib/jvm/java-${_jdkver}-openjdk"
+  export PATH="/usr/lib/jvm/java-${_jdkver}-openjdk/bin:$PATH"
+  export GRADLE_OPTS="-Dbuild.snapshot=false"
+
+  # OpenSearch
+  ./gradlew :distribution:buildSystemdModule
+  ./gradlew :distribution:archives:no-jdk-linux-tar:build
+
+  # Plugins
+  for p in \
+    analysis-icu \
+    analysis-kuromoji \
+    analysis-nori \
+    analysis-phonetic \
+    analysis-smartcn \
+    analysis-stempel \
+    analysis-ukrainian \
+    discovery-azure-classic \
+    discovery-ec2 \
+    discovery-gce \
+    ingest-attachment \
+    mapper-annotated-text \
+    mapper-murmur3 \
+    mapper-size \
+    repository-azure \
+    repository-gcs \
+    repository-hdfs \
+    repository-s3 \
+    store-smb \
+    transport-nio; do
+    ./gradlew :plugin:${p}:build
+  done
+}
+
+package_opensearch() {
+  pkgdesc="Open source distributed and RESTful search engine"
+  depends=("jre${_jrever}-openjdk-headless" 'systemd' 'libxml2')
+  optdepends=(
+    'opensearch-analysis-icu-plugin'
+    'opensearch-analysis-kuromoji-plugin'
+    'opensearch-analysis-nori-plugin'
+    'opensearch-analysis-phonetic-plugin'
+    'opensearch-analysis-smartcn-plugin'
+    'opensearch-analysis-stempel-plugin'
+    'opensearch-analysis-ukrainian-plugin'
+    'opensearch-discovery-azure-classic-plugin'
+    'opensearch-discovery-ec2-plugin'
+    'opensearch-discovery-gce-plugin'
+    'opensearch-ingest-attachment-plugin'
+    'opensearch-mapper-annotated-text-plugin'
+    'opensearch-mapper-murmur3-plugin'
+    'opensearch-mapper-size-plugin'
+    'opensearch-repository-azure-plugin'
+    'opensearch-repository-gcs-plugin'
+    'opensearch-repository-hdfs-plugin'
+    'opensearch-repository-s3-plugin'
+    'opensearch-store-smb-plugin'
+    'opensearch-transport-nio-plugin'
+    'opensearch-alerting-plugin'
+    'opensearch-anomaly-detection-plugin'
+    'opensearch-asynchronous-search-plugin'
+    'opensearch-cross-cluster-replication-plugin'
+    'opensearch-index-management-plugin'
+    'opensearch-job-scheduler-plugin'
+    'opensearch-knn-plugin'
+    'opensearch-observability-plugin'
+    'opensearch-performance-analyzer-plugin'
+    'opensearch-reports-scheduler-plugin'
+    'opensearch-security-plugin'
+    'opensearch-sql-plugin'
+  )
+  backup=(
+    'etc/opensearch/opensearch.yml'
+    'etc/opensearch/log4j2.properties'
+    'etc/opensearch/jvm.options'
+    'etc/default/opensearch'
+  )
+
+  cd "OpenSearch-${pkgver}"
+
+  install -dm755 "${pkgdir}"/{usr/share,var/lib,var/log}/opensearch
+  install -dm755 "${pkgdir}/usr/bin"
+
+  tar xf distribution/archives/no-jdk-linux-tar/build/distributions/opensearch-min-$pkgver-no-jdk-linux-x64.tar.gz \
+    --strip 1 -C "${pkgdir}/usr/share/opensearch"
+  rm -r "${pkgdir}"/usr/share/opensearch/logs
+
+  install -dm755 "${pkgdir}/etc"
+  mv "${pkgdir}/usr/share/opensearch/config" "${pkgdir}/etc/opensearch"
+  chmod 2755 "${pkgdir}/etc/opensearch/"{,jvm.options.d}
+  chmod -R 644 "${pkgdir}/etc/opensearch/"{jvm.options,log4j2.properties}
+  chmod 640 "${pkgdir}/etc/opensearch/opensearch.yml" # Might contain sensitive information
+
+  ln -sT "/usr/share/opensearch/bin/opensearch" "${pkgdir}/usr/bin/opensearch"
+  for b in opensearch-keystore opensearch-node opensearch-plugin opensearch-shard opensearch-upgrade; do
+    ln -sT "/usr/share/opensearch/bin/${b}" "${pkgdir}/usr/bin/${b}"
+    sed 's|"`dirname "$0"`"|/usr/share/opensearch/bin|' -i "${pkgdir}/usr/share/opensearch/bin/${b}"
+  done
+
+  ln -s /etc/opensearch "${pkgdir}/usr/share/opensearch/config"
+  ln -s /var/log/opensearch "${pkgdir}/usr/share/opensearch/logs"
+  ln -s /var/lib/opensearch "${pkgdir}/usr/share/opensearch/data"
+
+  install -Dm644 "$srcdir"/opensearch.service "${pkgdir}/usr/lib/systemd/system/opensearch.service"
+  install -Dm644 "$srcdir"/opensearch@.service "${pkgdir}/usr/lib/systemd/system/opensearch@.service"
+  install -Dm644 "$srcdir"/opensearch-keystore.service "${pkgdir}/usr/lib/systemd/system/opensearch-keystore.service"
+  install -Dm644 "$srcdir"/opensearch-keystore@.service "${pkgdir}/usr/lib/systemd/system/opensearch-keystore@.service"
+  install -Dm644 "$srcdir"/opensearch-user.conf "${pkgdir}/usr/lib/sysusers.d/opensearch.conf"
+  install -Dm644 "$srcdir"/opensearch-tmpfile.conf "${pkgdir}/usr/lib/tmpfiles.d/opensearch.conf"
+  install -Dm644 "$srcdir"/opensearch-sysctl.conf "${pkgdir}/usr/lib/sysctl.d/opensearch.conf"
+  install -Dm644 "$srcdir"/opensearch.default "${pkgdir}/etc/default/opensearch"
+
+  cp -r distribution/build/outputs/systemd/modules/systemd "${pkgdir}/usr/share/opensearch/modules/"
+
+  sed -i "2iJAVA_HOME=/usr/lib/jvm/java-${_jrever}-openjdk" "${pkgdir}/usr/share/opensearch/bin/opensearch-env"
+
+  # Since this warning only affects official OpenSearch releases we can remove it on our end
+  sed -i 's/echo "warning: no-jdk distributions that do not bundle a JDK are deprecated and will be removed in a future release" >&2/:/g' "${pkgdir}/usr/share/opensearch/bin/opensearch-env"
+
+  install -Dm644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
+}
+
+_package_plugin() {
+  plugin="$1"
+
+  install -dm755 "${pkgdir}/usr/share/opensearch/plugins/${plugin}"
+  install -dm755 "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  cd "${pkgdir}/usr/share/opensearch/plugins/${plugin}"
+  unzip "${srcdir}/OpenSearch-${pkgver}/plugins/${plugin}/build/distributions/${plugin}-${pkgver}.zip"
+
+  mv LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
+  mv NOTICE.txt "${pkgdir}/usr/share/licenses/${pkgname}/NOTICE.txt"
+}
+
+package_opensearch-analysis-icu-plugin() {
+  pkgdesc="The ICU Analysis plugin integrates the Lucene ICU module into OpenSearch, adding ICU-related analysis components."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-icu
+}
+
+package_opensearch-analysis-kuromoji-plugin() {
+  pkgdesc="The Japanese (kuromoji) Analysis plugin integrates Lucene kuromoji analysis module into opensearch."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-kuromoji
+}
+
+package_opensearch-analysis-nori-plugin() {
+  pkgdesc="The Korean (nori) Analysis plugin integrates Lucene nori analysis module into opensearch."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-nori
+}
+
+package_opensearch-analysis-phonetic-plugin() {
+  pkgdesc="The Phonetic Analysis plugin integrates phonetic token filter analysis with opensearch."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-phonetic
+}
+
+package_opensearch-analysis-smartcn-plugin() {
+  pkgdesc="Smart Chinese Analysis plugin integrates Lucene Smart Chinese analysis module into opensearch."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-smartcn
+}
+
+package_opensearch-analysis-stempel-plugin() {
+  pkgdesc="The Stempel (Polish) Analysis plugin integrates Lucene stempel (polish) analysis module into opensearch."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-stempel
+}
+
+package_opensearch-analysis-ukrainian-plugin() {
+  pkgdesc="The Ukrainian Analysis plugin integrates the Lucene UkrainianMorfologikAnalyzer into opensearch."
+  depends=("opensearch=${pkgver}")
+  _package_plugin analysis-ukrainian
+}
+
+package_opensearch-discovery-azure-classic-plugin() {
+  pkgdesc="The Azure Classic Discovery plugin allows to use Azure Classic API for the unicast discovery mechanism"
+  depends=("opensearch=${pkgver}")
+  _package_plugin discovery-azure-classic
+}
+
+package_opensearch-discovery-ec2-plugin() {
+  pkgdesc="The EC2 discovery plugin allows to use AWS API for the unicast discovery mechanism."
+  depends=("opensearch=${pkgver}")
+  _package_plugin discovery-ec2
+}
+
+package_opensearch-discovery-gce-plugin() {
+  pkgdesc="The Google Compute Engine (GCE) Discovery plugin allows to use GCE API for the unicast discovery mechanism."
+  depends=("opensearch=${pkgver}")
+  _package_plugin discovery-gce
+}
+
+package_opensearch-ingest-attachment-plugin() {
+  pkgdesc="Ingest processor that uses Apache Tika to extract contents"
+  depends=("opensearch=${pkgver}")
+  _package_plugin ingest-attachment
+}
+
+package_opensearch-mapper-annotated-text-plugin() {
+  pkgdesc="The Mapper Annotated_text plugin adds support for text fields with markup used to inject annotation tokens into the index."
+  depends=("opensearch=${pkgver}")
+  _package_plugin mapper-annotated-text
+}
+
+package_opensearch-mapper-murmur3-plugin() {
+  pkgdesc="The Mapper Murmur3 plugin allows to compute hashes of a field\'s values at index-time and to store them in the index."
+  depends=("opensearch=${pkgver}")
+  _package_plugin mapper-murmur3
+}
+
+package_opensearch-mapper-size-plugin() {
+  pkgdesc="The Mapper Size plugin allows document to record their uncompressed size at index time."
+  depends=("opensearch=${pkgver}")
+  _package_plugin mapper-size
+}
+
+package_opensearch-repository-azure-plugin() {
+  pkgdesc="The Azure Repository plugin adds support for Azure storage repositories."
+  depends=("opensearch=${pkgver}")
+  _package_plugin repository-azure
+}
+
+package_opensearch-repository-gcs-plugin() {
+  pkgdesc="The GCS repository plugin adds Google Cloud Storage support for repositories."
+  depends=("opensearch=${pkgver}")
+  _package_plugin repository-gcs
+}
+
+package_opensearch-repository-hdfs-plugin() {
+  pkgdesc="The HDFS repository plugin adds support for Hadoop Distributed File-System (HDFS) repositories."
+  depends=("opensearch=${pkgver}")
+  _package_plugin repository-hdfs
+}
+
+package_opensearch-repository-s3-plugin() {
+  pkgdesc="The S3 repository plugin adds S3 repositories"
+  depends=("opensearch=${pkgver}")
+  _package_plugin repository-s3
+}
+
+package_opensearch-store-smb-plugin() {
+  pkgdesc="The Store SMB plugin adds support for SMB stores."
+  depends=("opensearch=${pkgver}")
+  _package_plugin store-smb
+}
+
+package_opensearch-transport-nio-plugin() {
+  pkgdesc="The nio transport."
+  depends=("opensearch=${pkgver}")
+  _package_plugin transport-nio
+}
