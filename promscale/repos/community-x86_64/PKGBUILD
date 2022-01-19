@@ -1,33 +1,41 @@
 # Maintainer: George Rawlinson <george@rawlinson.net.nz>
 
 pkgname=promscale
-pkgver=0.7.1
+pkgver=0.8.0
 pkgrel=1
 pkgdesc="An analytical platform for Prometheus metrics"
 arch=('x86_64')
 url="https://github.com/timescale/promscale"
 license=('Apache')
 depends=('glibc')
-makedepends=('go')
+makedepends=('git' 'go')
 optdepends=(
   'timescaledb: for a local timescaledb instance'
   'prometheus: for a local prometheus instance'
   'promscale_extension: for optimised postgresql performance'
 )
+backup=('etc/promscale.conf')
+options=('!lto')
+_commit='6caab16b3e0a0bc237f290f3288f2e7cd5c28f4b'
 source=(
-  "$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz"
+  "$pkgname::git+$url.git#commit=$_commit"
   'systemd.service'
   'sysusers.conf'
 )
-sha512sums=('d0ad6914dfa772dc992f113738871df7f6adb461303fb57158396d4be0743c1be30c93cfb1466bbaa193121f4c82474f1b6dcb8e15e72abbcdd24a004b31c376'
-            '926bfd97c57d8d146a260aaa0983f7e7181688662537f803679b7bf82a43f41197ddc82ad8fa5087dfc5daca95adef0a35c19e5fbfbb29012944e42ba9f651a3'
+sha512sums=('SKIP'
+            '28a4f7b02c7ba36887c4b3906048fc7574d0c66424d20aad5c5c191954c7416adf19d14d6ac7dbb0fef7ff2f4457ed1014c324e9a56f9d08fc47257d8d915ddd'
             'ec5e6ec6b967119722d8fdaaaaf1a4d8dea9ad0b78707a1ddd6b55da524b571c7ecd4c2b97776c6ce9f49d4549d760482a2346c11ab287650469448d9c662726')
-b2sums=('f576c4771bef80a8f472b3b4408762632810ed287278e4b9e0fec0ac01a012f61b835385db378044160c30cde8cf17c475ef6f4d1dab90948cfaebe05f89e78f'
-        '98ad7412c94ff5a6643e9eec7a1cf4c7828ef84b25ec18b4469b70cc11ccbe933cde4e822c9b33977ae8bb25bf10de6baef13f84a83bde82b3922c7056f2f712'
+b2sums=('SKIP'
+        '00c948fad197fcedcb4171d253b430304673681dd5761f25a6ee545a3c146e37e00f89c4f9d44fdd5ffafcfee5d5eaa5bc3cacd43a0cf46467a9eb7a7f82a281'
         '1e720f8e453d9acad5f0ed39a51b59c429322b9e9e885f3d71d0e2fd37276268e639422f8d39ca9fca14e0e5ccf646d717fbe89e0dd696980d03467cfb7d3e0f')
 
+pkgver() {
+  cd "$pkgname"
+  git describe --tags | sed 's/^v//'
+}
+
 prepare() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgname"
 
   # create directory for build output
   mkdir build_output
@@ -37,7 +45,7 @@ prepare() {
 }
 
 build() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgname"
 
   # set Go flags
   export CGO_CPPFLAGS="${CPPFLAGS}"
@@ -49,7 +57,9 @@ build() {
     -trimpath \
     -mod=readonly \
     -modcacherw \
-    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\"" \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS} \
+    -X version.CommitHash=$($ git rev-parse HEAD) \
+    -X telemetry.BuildPlatform=archlinux" \
     -o build_output ./cmd/...
 }
 
@@ -59,7 +69,7 @@ package() {
   install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
 
   # documentation
-  cd "$pkgname-$pkgver"
+  cd "$pkgname"
   install -vDm644 cmd/prom-migrator/README.md "$pkgdir/usr/share/doc/$pkgname/prom-migrator.md"
   install -vDm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
   cp -vr docs "$pkgdir/usr/share/doc/$pkgname"
@@ -68,4 +78,7 @@ package() {
   install -vDm755 -t "$pkgdir/usr/bin" \
     "build_output/$pkgname" \
     build_output/prom-migrator
+
+  # configuration
+  install -vDm644 -t "$pkgdir/etc" build/conf/promscale.conf
 }
