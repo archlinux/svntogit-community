@@ -6,7 +6,7 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=8.0.0
+pkgver=8.0.1
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
@@ -23,9 +23,9 @@ checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-testpath'
               'python-matplotlib' 'python-curio' 'python-pandas' 'tcsh')
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/$pkgname/$pkgname-$pkgver.tar.gz"
         "IPython-icon.png::https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-sha256sums=('004a0d05aeecd32adec4841b6e2586d5ca35785b1477db4d8333a39333e0ce98'
+sha256sums=('ab564d4521ea8ceaac26c3a2c6e5ddbca15c8848fd5a5cc325f960da88d42974'
             '3c44a6fa1e3a8afc24754c90469404770b639cb960361988999a4cdd677699d8')
-b2sums=('8844372c423c4b33a2a77b376c033aa00a4d44d1735cad42c4c85b05950370fcafea109025f4f02d124643656673ebf45ef27f78a93d31083b94e13d9364b32c'
+b2sums=('9088faf779e2783ce97c6a45f0baa3c7163e12f63546aa65eb961de2b2fbacaac8ba1cf0c3c705bc326b4c999fe3ce672f31e3abaa7168d912504880ad8d3c2f'
         'd445e2bc7a037db8715ea103611720e965987e155c32e445b0ef783e519fca8a0301b16c5763fd9a5d8d169c3b0d7b4db6c0bd0f9772842258b135dcb1d6d5a2')
 
 # confirm that an update does not break sage?
