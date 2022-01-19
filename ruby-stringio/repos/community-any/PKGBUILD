@@ -1,0 +1,58 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='stringio'
+pkgname="ruby-${_gemname}"
+pkgver=3.0.1
+pkgrel=2
+pkgdesc='Pseudo `IO` class from/to `String`.'
+arch=('any')
+url='https://github.com/ruby/stringio'
+license=('BSD' 'RUBY')
+depends=('ruby')
+makedepends=('ruby-bundler' 'ruby-rake' 'ruby-rake-compiler')
+checkdepends=('ruby-test-unit')
+options=(!emptydirs)
+source=(
+    "${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
+    # based on https://github.com/ruby/stringio/commit/413071acea91ebb5eeeafe163d6d146d3b36211c
+    cleanup_rakefile.patch)
+sha512sums=('7781ee20f7f3d546ee227d7366ac88731b65ea743c39280c4f3d2107d9001eef4a4d583760110817c31f4433f0a45812acd88a0b1b31b2863a8fdc3f54b19ea7'
+            '022dcd37e23d30d028bd8d81d99fff21991ebfc78aab606ba990c4bf12dd15bcc0169124bbe3bd7ad737fde35f81b03f92c31209d1fb72e85abfa515c3320220')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  patch --verbose --strip=1 --input=../cleanup_rakefile.patch
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  rake build
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+  local _platform="$(gem env platform | cut -d':' -f2)"
+  local _extension_api_version="$(ruby -e'puts Gem.extension_api_version')"
+
+  gem install --ignore-dependencies --no-user-install --install-dir "${pkgdir}/${_gemdir}" --bindir "${pkgdir}/usr/bin" "pkg/${_gemname}-${pkgver}.gem"
+
+  rm "${pkgdir}/${_gemdir}/cache/${_gemname}-${pkgver}.gem" \
+      "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/ext/stringio/Makefile" \
+      "${pkgdir}/${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/gem_make.out"
+
+  install -Dm 644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -Dm 644 COPYING README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
