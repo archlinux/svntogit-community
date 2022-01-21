@@ -1,0 +1,65 @@
+# Maintainer: Tim Meusel <tim@bastelfreak.de>
+# Contributor: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Alfredo Palhares <masterkorp@masterkorp.net>
+# Contributor: Jochen Schalanda <jochen+aur@schalanda.name>
+
+_gemname='faraday'
+pkgname="ruby-${_gemname}"
+pkgver=1.9.1
+pkgrel=1
+pkgdesc='HTTP/REST API client library.'
+arch=('any')
+url="https://github.com/lostisland/${_gemname}"
+license=('MIT')
+depends=('ruby' 'ruby-multipart-post' 'ruby-ruby2_keywords' 'ruby-faraday-net_http' 'ruby-faraday-em_http' 'ruby-faraday-em_synchrony' 'ruby-faraday-excon' 'ruby-faraday-httpclient' 'ruby-faraday-net_http' 'ruby-faraday-net_http_persistent' 'ruby-faraday-patron' 'ruby-faraday-rack' 'ruby-faraday-retry' 'ruby-faraday-multipart')
+makedepends=('ruby-rdoc' 'ruby-rake' 'ruby-rspec')
+checkdepends=('ruby-rack' 'ruby-webmock' 'ruby-rspec-expectations' 'ruby-multipart-parser' 'ruby-rack-test')
+options=('!emptydirs')
+source=("${url}/archive/v${pkgver}/${_gemname}-v${pkgver}.tar.gz" 'disable-simplecov-and-coveralls.patch')
+sha512sums=('6e2943fa542d9e6807cdcefcd1d2553e8f9dd8bc2ec0625938d840a940547fcd0c1c2a03342fbcaa3e73d9fb11ada4d1901d6161437ab83acb4ca05968df48c4'
+            '8ab1687d1c0e7d217b20df673acc8038507dd8a24e2f833e32de8da4e0034b73f7140df750c74733b8c9260e190f271620171aeeb600cc04c056d4a77ccf4480')
+
+prepare() {
+  cd "${srcdir}/${_gemname}-${pkgver}"
+  # allow latest dependencies
+  sed --in-place 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # drop coverage reporting. We don't have simplecov in our repos
+  patch -p1 -N -i "${srcdir}/disable-simplecov-and-coveralls.patch"
+  # don't load pry during tests. that's only required for interactive debugging
+  sed --in-place '/pry/d' spec/spec_helper.rb
+  # disable testing/support for faraday with em-http. We don't have em-http in our repos
+  rm spec/faraday/adapter/em_http_spec.rb
+  # disable testing for em-synchrony. We don't have the gem in our repos
+  rm spec/faraday/adapter/em_synchrony_spec.rb
+  # We don't have exon in the repos
+  rm spec/faraday/adapter/excon_spec.rb
+  # we don't have typheus in the repos
+  rm spec/faraday/adapter/typhoeus_spec.rb
+  # we don't have patron in our repos
+  rm spec/faraday/adapter/patron_spec.rb
+}
+
+build() {
+  cd "${srcdir}/${_gemname}-${pkgver}"
+  gem build "${_gemname}.gemspec"
+}
+
+check() {
+  cd "${srcdir}/${_gemname}-${pkgver}"
+  # tests don't yet pass because some deps are missing in the repos
+  rake spec
+}
+
+package() {
+cd "${srcdir}/${_gemname}-${pkgver}"
+  local _gemdir="$(gem env gemdir)"
+  gem install --verbose --ignore-dependencies --no-user-install --install-dir "${pkgdir}/${_gemdir}" --bindir "${pkgdir}/usr/bin" "${_gemname}-${pkgver}.gem"
+
+  install -Dm 644 LICENSE.md -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+
+  install -Dm 644 README.md UPGRADING.md CHANGELOG.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  rm -rf "${pkgdir}/${_gemdir}/cache"
+}
