@@ -4,7 +4,7 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=5.39.2
+pkgver=5.39.3
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
@@ -15,14 +15,15 @@ makedepends=(go jq nodejs npm git python)
 optdepends=('mariadb: SQL server storage'
             'percona-server: SQL server storage'
             'postgresql: SQL server storage')
+options=(!lto)
 backup=(etc/webapps/${pkgname}/config.json)
 source=(${pkgname}-server-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}-server/archive/v${pkgver}.tar.gz
         ${pkgname}-webapp-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}-webapp/archive/v${pkgver}.tar.gz
         ${pkgname}.service
         ${pkgname}.sysusers
         ${pkgname}.tmpfiles)
-sha256sums=('65366b53121b88156eaa49dfb250676a4c2b945c139b375fad921f69821fe2f8'
-            '8ca17e2fe75ee6791b3508187a1e1dbd6755f3ff870d03eea547d84cfea369f8'
+sha256sums=('d217b49bedb645c8cee9438e63b9e91b18639a30c5afc5c130471975821edeae'
+            '7ef110e45c623f7083390e7afe649bdea08fc1bef3cb3531c585e6335df24299'
             'e5ba4a4f9c5f32816b997d5c02f6ddf3ef1e8259ae8dff5ef18865d076b70316'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
