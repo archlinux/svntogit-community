@@ -2,8 +2,8 @@
 
 _name=pure_eval
 pkgname=python-pure-eval
-pkgver=0.2.1
-pkgrel=2
+pkgver=0.2.2
+pkgrel=1
 pkgdesc='Safely evaluate AST nodes without side effects'
 arch=('any')
 url=https://github.com/alexmojaki/pure_eval
@@ -13,8 +13,8 @@ makedepends=('python-build' 'python-install' 'python-setuptools-scm'
              'python-wheel')
 checkdepends=('python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('0f04483b16c9429532d2c0ddc96e2b3bb6b2dc37a2bfb0e986248dbfd0b78873')
-b2sums=('6907cf2fc2a7118274a80dacdebeae163be57cc31086bc66f8ad9960f4624accde78149db9098bfba902774b367e2e0e9c5aac53c4e75119465d5f07cabbf17d')
+sha256sums=('2b45320af6dfaa1750f543d714b6d1c520a1688dec6fd24d339063ce0aaa9ac3')
+b2sums=('19f86a1436e5f1a026a24f62c435e8970d84960f4cde1de80c58949b1aede6aa7562e8430e10e3f7171212c31d5699a3321fad5fb2ea1eed961a30d43a632a79')
 
 build() {
   cd "$_name-$pkgver"
