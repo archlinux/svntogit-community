@@ -1,32 +1,26 @@
-# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
 # Maintainer: Konstantin Gizdov <arch@kge.pw>
 # Contributor: Frederik Schwan <frederik dot schwan at linux dot com>
 # Contributor: Simon Legner <Simon.Legner@gmail.com>
 
 pkgname=bazel
-pkgver=4.2.2
+pkgver=5.0.0
 pkgrel=1
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
 url='https://bazel.build/'
 depends=('java-environment=11' 'libarchive' 'zip' 'unzip')
-makedepends=('gcc10' 'git' 'protobuf' 'python')
+makedepends=('git' 'protobuf' 'python')
 options=('!distcc' '!strip')
 source=("https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip"
         "https://github.com/bazelbuild/bazel/releases/download/${pkgver}/bazel-${pkgver}-dist.zip.sig")
-sha512sums=('123f73dc87053e37705bb729f82bd722d6d2799fe106f79c51cf5566fb2771d824108cbe275aad55ae590b970c549008b433704cbf1245394769e950796eb8db'
+sha512sums=('2a9a972d1cce6b50f959fec3d37506914208169c8aa36e5ec5f9a27942e9beff1080a544a18e9bd5eb13dc434c1864cda0594e6da5b78c2f41085abf808c22d7'
             'SKIP')
 validpgpkeys=('71A1D0EFCFEB6281FD0437C93D5919B448457EE0')
 
 build() {
-  # https://github.com/bazelbuild/bazel/issues/13613
-  CC=/usr/bin/gcc-10 \
-  CXX=/usr/bin/g++-10 \
   EMBED_LABEL=$pkgver EXTRA_BAZEL_ARGS="--host_javabase=@local_jdk//:jdk" ./compile.sh
-  # https://github.com/bazelbuild/bazel/issues/13613
-  CC=/usr/bin/gcc-10 \
-  CXX=/usr/bin/g++-10 \
   ./output/bazel build scripts:bazel-complete.bash
   cd output
   ./bazel shutdown
