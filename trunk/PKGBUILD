@@ -4,32 +4,34 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=5.39.3
+pkgver=6.3.1
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
 url="https://mattermost.com"
 license=(AGPL Apache)
 depends=(glibc)
-makedepends=(go jq nodejs npm git python)
+makedepends=(go jq nodejs-lts-gallium npm git python)
 optdepends=('mariadb: SQL server storage'
             'percona-server: SQL server storage'
             'postgresql: SQL server storage')
 options=(!lto)
 backup=(etc/webapps/${pkgname}/config.json)
-source=(${pkgname}-server-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}-server/archive/v${pkgver}.tar.gz
-        ${pkgname}-webapp-${pkgver}.tar.gz::https://github.com/${pkgname}/${pkgname}-webapp/archive/v${pkgver}.tar.gz
-        ${pkgname}.service
-        ${pkgname}.sysusers
-        ${pkgname}.tmpfiles)
-sha256sums=('d217b49bedb645c8cee9438e63b9e91b18639a30c5afc5c130471975821edeae'
-            '7ef110e45c623f7083390e7afe649bdea08fc1bef3cb3531c585e6335df24299'
+_server_archive="$pkgname-server-$pkgver"
+_webapp_archive="$pkgname-webapp-$pkgver"
+source=(https://github.com/$pkgname/$pkgname-server/archive/v$pkgver/$_server_archive.tar.gz
+        https://github.com/$pkgname/$pkgname-webapp/archive/v$pkgver/$_webapp_archive.tar.gz
+        $pkgname.service
+        $pkgname.sysusers
+        $pkgname.tmpfiles)
+sha256sums=('dc30aab660d64006490ab809cc54d6e80a399cd9e86ddd122c5009003867cfd2'
+            '607fcac8913d1524a59c5ef065f9996499f0b8c99ca794155e756028c270d59a'
             'e5ba4a4f9c5f32816b997d5c02f6ddf3ef1e8259ae8dff5ef18865d076b70316'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
 
 prepare() {
-    cd ${pkgname}-server-${pkgver}
+    cd "$_server_archive"
     go mod vendor
 
     # The configuration isn’t available at this time yet, modify the default.
@@ -39,66 +41,75 @@ prepare() {
 
     # Don’t embed a precompiled mmctl
     sed '/@#Download MMCTL/,+2d' -i build/release.mk
-    # Remove platform specific lines from the Makefile from the line beginning
-    # with that statement to the end of file (we do not care of the additional
-    # file copy, nor the tar compression defined below the file).
-    sed '/# Download prepackaged plugins/,//d' -i build/release.mk
+
+    # Remove platform specific precompiled plugin downloads
+    sed '/# Download prepackaged plugins/,+8d' -i build/release.mk
+
+    cd "../$_webapp_archive"
+
+    # Upstream 6.3.1 release has outdated checksum for their own toolkit
+    sed -i package-lock.json \
+        -e 's!sha512-wHUORQrEsVFMgSBJvkXnRPJ1/PpcyNP9B+SHzN35/Y0tGvRqGAN+ZwIPBewIq91b5iEZWxRZX1ufrDnI0rAOwg==!sha512-zfhfE1GH3uedf2eA/tfkFRyS7GnxMne2tEdnhdKFbs7CQe4DkNCmgWYb6MZCsPNaVHNYqnteyUYgtMuhiK51og==!'
+
+    # Modify npm commands to always use srcdir cache
+    sed -r -i Makefile \
+        -e "/^\tnpm /s!npm!npm --cache '$srcdir/npm-cache' --no-audit --no-fund!"
+    make node_modules -W package.json
 
     # Enforce build hash to Arch Linux for the field corresponding to the webapp.
-    cd ../${pkgname}-webapp-${pkgver}
     sed -r -i webpack.config.js \
-        -e "s/^(\s*)COMMIT_HASH:(.*),$/\1COMMIT_HASH: JSON.stringify\(\"${pkgver}-${pkgrel} Arch Linux \(${CARCH}\)\"\),/"
+        -e "s/^(\s*)COMMIT_HASH:(.*),$/\1COMMIT_HASH: JSON.stringify\(\"$pkgver-$pkgrel Arch Linux \($CARCH\)\"\),/"
 }
 
 build() {
-    cd ${pkgname}-server-${pkgver}
-    export CGO_CPPFLAGS="${CPPFLAGS}"
-    export CGO_CFLAGS="${CFLAGS}"
-    export CGO_CXXFLAGS="${CXXFLAGS}"
-    export CGO_LDFLAGS="${LDFLAGS}"
+    cd "$_server_archive"
+    export CGO_CPPFLAGS="$CPPFLAGS"
+    export CGO_CFLAGS="$CFLAGS"
+    export CGO_CXXFLAGS="$CXXFLAGS"
+    export CGO_LDFLAGS="$LDFLAGS"
     export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
     go build -v \
          -ldflags "-linkmode external
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildNumber=${pkgver}-${pkgrel}\" \
+                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildNumber=$pkgver-$pkgrel\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildDate=$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +"%Y-%m-%d %H:%M:%S")\" \
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildHash=${pkgver}-${pkgrel} Arch Linux (${CARCH})\" \
+                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildHash=$pkgver-$pkgrel Arch Linux ($CARCH)\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildHashEnterprise=none\" \
                    -X \"github.com/mattermost/mattermost-server/v5/model.BuildEnterpriseReady=false\"" \
          -o bin/ ./...
     # Move to the client directory to avoid LDFLAGS pollution of a `make build-client` invocation
-    cd ../${pkgname}-webapp-${pkgver}
+    cd "../$_webapp_archive"
     make build
-    cd ../${pkgname}-server-${pkgver}
-    export BUILD_WEBAPP_DIR="${srcdir}"/${pkgname}-webapp-${pkgver}
-    make package
+    cd "../$_server_archive"
+    export BUILD_WEBAPP_DIR="$srcdir"/$_webapp_archive
+    make package-prep
 }
 
 package() {
     # systemd files
-    install -Dm644 ${pkgname}.service -t "${pkgdir}"/usr/lib/systemd/system/
-    install -Dm644 ${pkgname}.sysusers "${pkgdir}"/usr/lib/sysusers.d/${pkgname}.conf
-    install -Dm644 ${pkgname}.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/${pkgname}.conf
+    install -Dm644 $pkgname.service -t "$pkgdir"/usr/lib/systemd/system/
+    install -Dm644 $pkgname.sysusers "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
+    install -Dm644 $pkgname.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
 
     # core stuff
-    cd ${pkgname}-server-${pkgver}
+    cd "$_server_archive"
 
-    install -dm755 "${pkgdir}"/usr/share/webapps
-    cp -a dist/${pkgname} "${pkgdir}"/usr/share/webapps/
+    install -dm755 "$pkgdir"/usr/share/webapps
+    cp -a dist/$pkgname "$pkgdir"/usr/share/webapps/
 
-    install -Dm755 bin/${pkgname} -t "${pkgdir}"/usr/bin
-    install -dm755 "${pkgdir}"/usr/share/webapps/${pkgname}/bin/
-    ln -sf /usr/bin/${pkgname} "${pkgdir}"/usr/share/webapps/${pkgname}/bin/${pkgname}
+    install -Dm755 bin/$pkgname -t "$pkgdir"/usr/bin
+    install -dm755 "$pkgdir"/usr/share/webapps/$pkgname/bin/
+    ln -sf /usr/bin/$pkgname "$pkgdir"/usr/share/webapps/$pkgname/bin/$pkgname
 
     # fixes
-    cd "${pkgdir}"/usr/share/webapps/${pkgname}
+    cd "$pkgdir"/usr/share/webapps/$pkgname
 
     # Move logs to right location
     rm -rf logs
-    ln -s "/var/log/${pkgname}" logs
+    ln -s "/var/log/$pkgname" logs
 
     # Readme and docs
-    install -dm755 "${pkgdir}"/usr/share/doc/${pkgname}
-    mv NOTICE.txt README.md "${pkgdir}"/usr/share/doc/${pkgname}
+    install -dm755 "$pkgdir"/usr/share/doc/$pkgname
+    mv NOTICE.txt README.md "$pkgdir"/usr/share/doc/$pkgname
 
     # Config file management
     cp config/default.json config/config.json
@@ -112,25 +123,25 @@ package() {
        --arg mmVarLib '/var/lib/mattermost' \
        config/config.json > config/config-new.json
     mv config/config-new.json config/config.json
-    install -dm755 "${pkgdir}"/etc/webapps
-    mv config "${pkgdir}"/etc/webapps/${pkgname}
-    ln -sf /etc/webapps/${pkgname} config
+    install -dm755 "$pkgdir"/etc/webapps
+    mv config "$pkgdir"/etc/webapps/$pkgname
+    ln -sf /etc/webapps/$pkgname config
 
     # Avoid access denied when Mattermost tries to rewrite its asset data
     # (root.html, manifest.json and *.css) during runtime. Reuse var tmpfile
     # directory SELinux security context.
     # cf. https://github.com/mattermost/mattermost-server/blob/f8d31def8eb463fcd866ebd08f3e6ef7a24e2109/utils/subpath.go#L48
     # cf. https://wiki.archlinux.org/index.php/Web_application_package_guidelines
-    install -dm770 "${pkgdir}"/var/lib/mattermost/client
+    install -dm770 "$pkgdir"/var/lib/mattermost/client
 
     # We want recursivity as Mattermost wants to modify files in
     # client/files/code_themes/ as well.
     # Not recursive: for file in root.html manifest.json *.css; do
     find client -type f -iname 'root.html' -o -iname 'manifest.json' -o -iname '*.css' |
         while IFS= read -r fileAndPath; do
-            install -dm770 "${pkgdir}"/var/lib/mattermost/"${fileAndPath%/*}"
-            install -m660 "${fileAndPath}" "${pkgdir}"/var/lib/mattermost/"${fileAndPath%/*}"
-            rm "${fileAndPath}"
-            ln -s /var/lib/mattermost/"${fileAndPath}" "${fileAndPath}"
+            install -dm770 "$pkgdir"/var/lib/mattermost/"${fileAndPath%/*}"
+            install -m660 "$fileAndPath" "$pkgdir"/var/lib/mattermost/"${fileAndPath%/*}"
+            rm "$fileAndPath"
+            ln -s /var/lib/mattermost/"$fileAndPath" "$fileAndPath"
         done
 }
