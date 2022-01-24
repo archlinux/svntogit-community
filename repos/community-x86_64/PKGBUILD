@@ -3,7 +3,7 @@
 
 _name=dulwich
 pkgname=python-dulwich
-pkgver=0.20.30
+pkgver=0.20.32
 pkgrel=1
 pkgdesc='Pure-Python implementation of the Git file formats and protocols'
 arch=('x86_64')
@@ -18,8 +18,8 @@ optdepends=('python-fastimport: for fast-import support'
             'python-pyopenssl: for HTTPS support via urllib3'
             'python-pyinotify: to watch for changes to refs')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('42c090a96bf617ba198611257b0333b07c37bce6975fb4c090b32e309c534e41')
-b2sums=('6b5b10a37f2901424b632dad081b9972da5af7475e11389c73f8a64a57ebf421700c6591bfddc5418b9c02d61916894aeeb2371a3ceb514532fd1b9e63dffb2c')
+sha256sums=('dc5498b072bdc12c1effef4b6202cd2a4542bb1c6dbb4ddcfc8c6d53e08b488c')
+b2sums=('21d41a7b1e491848a11ab3e3b1b63bfbe1798b38ef331136b07609f004e780672477e91a637dd3b1ccd3b26e359461e1a16d759ac2cb98d1091fbdb1968c00a9')
 
 build() {
   cd $_name-$pkgver
