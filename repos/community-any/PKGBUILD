@@ -3,8 +3,8 @@
 
 _name=decorator
 pkgname=python-decorator
-pkgver=5.1.0
-pkgrel=3
+pkgver=5.1.1
+pkgrel=1
 pkgdesc='Python Decorator module'
 arch=('any')
 url='https://pypi.python.org/pypi/decorator'
@@ -13,7 +13,7 @@ depends=('python')
 makedepends=('python' 'python-setuptools')
 source=("https://pypi.python.org/packages/source/${_name:0:1}/${_name}/${_name}-${pkgver}.tar.gz"
         'LICENSE.txt')
-sha512sums=('4acc0967af79f61c56adea3084c4e9f9de1c34fcbc7906db4bb1b0759e07ffed6eff0e4b21645dda5f37e96662742621f3d043e8c06a401841c7199a915afe18'
+sha512sums=('584857ffb0c3e52344b473ceb9e28adfd7d789d480a528471f8ab37be055ebe5feb170f41077010e25350e1c311189d45b90773cf12f0043de98ea8ebcde20ab'
             '0a06dfb3f470b8d3b056bd4e4776df715876d04d0acc86dec536fa7cff0214ba5255833923558d1778db730d080960f31d5e12f939e761530823b6e70646b5c2')
 
 build() {
