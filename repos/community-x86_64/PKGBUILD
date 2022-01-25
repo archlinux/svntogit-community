@@ -1,0 +1,90 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Christian Muehlhaeuser <muesli at gmail dot com>
+
+pkgname=soft-serve
+pkgver=0.1.3
+pkgrel=2
+pkgdesc="A self-hosted Git server for the command line"
+arch=('x86_64')
+url="https://github.com/charmbracelet/soft-serve"
+license=('MIT')
+depends=('glibc')
+makedepends=('git' 'go')
+backup=('etc/soft-serve.conf')
+options=('!lto')
+_commit='3aa9bf3066d9e746324d374ef9af1787d8448023'
+source=(
+  "git+$url.git#commit=$_commit"
+  'soft-serve.conf'
+  'systemd.service'
+  'sysusers.conf'
+  'tmpfiles.conf'
+)
+sha512sums=('SKIP'
+            'aabe56fe8a242724e25e5c30412802fddcd377b54093c00a2581a87031d8b04b797561d612412caf56aa413f29495ff548af7cac83ff2c8bdbab946b208fab58'
+            '1748823790423d23b0d4abaee3078d4908c197142145f4d703c13ce66c83a982ef38e351d4bca513734e74e2b76191ed007c64d3b658b1208b156ba81b0a893c'
+            '81fd8d61cdadb194a224eb3d3f293968fd9d78e0488399eff933f2b376eb927e29d8d083c4d76b92eb7ef313a513023866dc80f651ff5d1f5d2a1573fd4f02e9'
+            'ece4b43029ac22bbac3b2afebab134df5781d92deed5ef24a96d720da3a0f1a033f0cf3a4a5f6ab40d379f5fb4d10730e8873b1ef94943876cdca8f209b89a59')
+b2sums=('SKIP'
+        '193864256a1330347f1f9c015cad82a38fa2b3fcc43bfd37c6926d0444f8c5a25463c357a13c7842db54cc8ebaf503845511a9b05f5e4f7526511b6caddf323c'
+        '85ed30ee809aaffe05d6784adc6478d564be51a6115c4ecbbf176ca9022008bce34269af75e151e1b8cf3ebd67f879749d4f3e2eee992ac43026736fdc0ccec9'
+        '7e8593e368507d96bdfd7cf8a4b73bb02f473deba3d99017101487fb0843161e14e929f5641f66c1bec015aa4f4505708d26453a7d0bcc1f23a4daa47e009393'
+        '9866f155a948357582b464e4a5ea79464ed06c4067add77c444378f4bfc7aab57e7afc455e23a51725e1c0d2ceecda087d811dae3f49178e07ae60afc7361b8b')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgname"
+
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags $LDFLAGS \
+    -X main.Version=$pkgver \
+    -X main.CommitSHA=$_commit" \
+    -o build \
+    ./cmd/...
+}
+
+check() {
+  cd "$pkgname"
+
+  go test -v ./...
+}
+
+package() {
+  # systemd integration
+  install -vDm644 systemd.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+  install -vDm644 soft-serve.conf -t "$pkgdir/etc"
+
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/soft
+
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
+
+# vim:set ts=2 sw=2 et:
