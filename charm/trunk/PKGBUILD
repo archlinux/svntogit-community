@@ -1,0 +1,98 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Christian Muehlhaeuser <muesli at gmail dot com>
+
+pkgname=charm
+pkgver=0.9.2
+pkgrel=2
+pkgdesc="The backend for the Charm cloud"
+arch=('x86_64')
+url="https://github.com/charmbracelet/charm"
+license=('MIT')
+depends=('glibc')
+makedepends=('git' 'go')
+conflicts=('charm-tool')
+replaces=('charm-tool')
+backup=('etc/charm.conf')
+options=('!lto')
+_commit='0f72edad6a9bd986079c6d25101b9363933beeae'
+source=(
+  "git+$url.git#commit=$_commit"
+  'charm.conf'
+  'systemd.service'
+  'sysusers.conf'
+  'tmpfiles.conf'
+)
+b2sums=('SKIP'
+        'c6414097223dde827dfcbaf500d29c45843b3b0a08600a3a69c7d4ec9781675f7b677cc9bc59f88c6c3734a8ee349ee589e5d2070a3aa6afa35f4825766270e6'
+        'ad16df43405a2969abfaf3e6f4cd6edcb2a29661a8a27bbaa13b34d3febb979356538340940383d5c737b9bd4fa434920395ea4e960951660073f8d31d225dac'
+        'b6b509de048f1d63d3d08dda04f3e5743fc212ec44f4a7a83a98a429f9a8fdf01194b83aba7588d02b5712f9bef3efcface1197d3ca458aee5d1be955f6782cd'
+        '2eee2c889e4efe83a534249c7048340b67819d81096a0fd7a23522d2eda46b833709eab1a0359538fdfbe27dbe4154c9d235535374e27c441dc7c030277f7218')
+
+pkgver() {
+  cd charm
+
+  git describe --tags | sed 's/^v//'
+}
+prepare() {
+  cd charm
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd charm 
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags $LDFLAGS \
+    -X main.Version=$pkgver \
+    -X main.CommitSHA=$_commit" \
+    -o build \
+    .
+
+  # generate shell completion
+  for shell in bash fish zsh; do
+    ./build/charm completion "$shell" > "build/$shell.completion"
+  done
+}
+
+check() {
+  cd charm
+
+  go test -v ./...
+}
+
+package() {
+  # systemd integration
+  install -vDm644 systemd.service "$pkgdir/usr/lib/systemd/system/charm.service"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/charm.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/charm.conf"
+  install -vDm644 charm.conf "$pkgdir/etc/charm.conf"
+
+  cd charm
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/charm
+
+  # shell completion
+  install -vDm644 build/bash.completion "$pkgdir/usr/share/bash-completion/completions/charm"
+  install -vDm644 build/fish.completion "$pkgdir/usr/share/fish/vendor_completions.d/charm.fish"
+  install -vDm644 build/zsh.completion "$pkgdir/usr/share/zsh/site-functions/_charm"
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
+
+# vim:set ts=2 sw=2 et:
