@@ -1,0 +1,122 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+
+pkgbase=nix
+pkgname=('nix' 'nix-docs')
+pkgver=2.6.0
+pkgrel=1
+pkgdesc="A purely functional package manager"
+arch=('x86_64')
+url="https://nixos.org/nix"
+license=('LGPL')
+makedepends=(
+  'autoconf-archive'
+  'jq'
+  'libcpuid'
+  'gtest'
+  'lowdown'
+  'mdbook'
+  'boost'
+  'brotli'
+  'bzip2'
+  'curl'
+  'editline'
+  'gc'
+  'libseccomp'
+  'libsodium'
+  'nlohmann-json'
+  'openssl'
+  'sqlite'
+)
+source=(
+  "https://github.com/NixOS/nix/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+  'nix.conf'
+  'sysusers.conf'
+  'tmpfiles.conf'
+  'user.environment.conf'
+  'user.tmpfiles.conf'
+  'devendor-nlohmann.patch::https://patch-diff.githubusercontent.com/raw/NixOS/nix/pull/5996.patch'
+)
+sha512sums=('9c57e9a946bbb0d6d2b4c1a8a90ab9bbbac9c31259bdc2b763b1dd7d4d147659ac05bde6abd9b326721577444fcc17d24fcc2ff31aebc70aae09d5738cdd65b7'
+            '46fdd1134626da81f0ec3ada47b69bb803277e8dd379052db5d8606475f5ff7ece63c8ae41b5f8ba6d2174465e1e977212c648a11c853b199e11b2014789a661'
+            '6511badd6e4c71d9b7f6e6a87ea521a9727a5569ecf48dca11ee0d04151adf083453dcf7e05eadd5c28278fd8aee9fe44bbb90067f5fc8067c99c5e9665affd9'
+            '879bc28faf877a560ac67500388d9774ec890391ef08d367a18f98ef17faeef8c7d208e747fed1fd501b07c3a3b2286af436eb1bd137de2d8ea9a9c32b48088a'
+            '5f66bbb07912fb5eb52002558ca5eec49e8b7787787c3fbb3ec7cb9831d29f1f064c392dd68807e98bc3a45fa6be87a5d420f75b7cfd52f68a821616e4cdbe70'
+            'da5b6d449f8e69c9211e6bd97b1ce4c6e398da5a34fea9a8a89a28084489a1549188e52f66ce7536903afeb75e690e764188daac20a16227b66cc14a72b7311a'
+            '5f976c2b1e1e4957b4a75764ed55ca792405ffac0b7743b1adace6cbd62983cd7b7fdc28182f31a763f4f2745d8485871f250cb16e8c785e5dab207f1c7a3877')
+b2sums=('9a888c303b753a369671b0642680e552ef33161f90b30969f9967a8ba926daacbc5bc25bd6ccf9721d35c2dea35047c9ac15bd62d1545dd707a61c76f2fd0e41'
+        'e79ceeb12faf7c38a167857ded355a74511c1d98e7fcb1efb589072c16b35f017239e6723bad04e13ed5b16cbebc91923363e36c130bf51d06a66a4d4ef54f6b'
+        'e92b8192bae89f0bc8c62371fbe63b4bfd68352699e5ea6900bf4313fd573322a06cb85074b292a005cbf644a50abbb67694f9458f071b0fd223d220494f6b6c'
+        'bffaabbe8c9efee79c7761e72a189796f35c0a40805b53fe954c10590ab9bfd0a321b45c7050ddf30810e36fa4431768f36f19fdc55085c0396ac5338b88f839'
+        'b644b6313745dca057e265281c318982750e9d55ce9b7705f47832ae66f07006cec97e9cbd79bb918a4c1174c8d20c159f8874d212381596f6fb684cb8ea928d'
+        '57610fc5fa370f9c3df50ab411dfe154b273349b3b321ad01768cacdf371e27603e8446a4e4269ccf4ca6cdb59b4a70fdcac59cda29c47eb7e7224555ec7e2e2'
+        '1485712a491ab08e28feba677c9b5d6b8968b1b5b46e353eb107ab650644b68e58825706e4af81d0479b829ab4738bd48703dc8cef1d10743c3b8a615585a51a')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  sed -i "s:\$(bindir):src/nix:g" doc/manual/local.mk
+  patch -p1 < ../devendor-nlohmann.patch
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  ./bootstrap.sh
+  ./configure \
+    --prefix=/usr \
+    --libexecdir="/usr/lib/$pkgname" \
+    --sysconfdir=/etc \
+    --localstatedir=/nix/var \
+    --enable-gc
+  make
+}
+
+package_nix() {
+  depends=(
+    'boost-libs'
+    'brotli'
+    'curl'
+    'editline'
+    'gc'
+    'libarchive'
+    'libcpuid'
+    'lowdown'
+    'libseccomp'
+    'libsodium'
+    'openssl'
+    'sqlite'
+  )
+  backup=("etc/$pkgname/$pkgname.conf")
+  install="$pkgname.install"
+
+  # systemd integration
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname-daemon.conf"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname-daemon.conf"
+  install -vDm644 user.tmpfiles.conf "$pkgdir/usr/share/user-tmpfiles.d/$pkgname-daemon.conf"
+  install -vDm644 user.environment.conf "$pkgdir/usr/lib/environment.d/$pkgname-daemon.conf"
+
+  # configuration
+  install -vDm644 nix.conf -t "$pkgdir/etc/$pkgname"
+
+  # package
+  cd "$pkgbase-$pkgver"
+  make DESTDIR="$pkgdir" install
+
+  # remove unused files - FS#73120
+  rm -rf \
+    "$pkgdir/etc/init" \
+    "$pkgdir/etc/profile.d/nix.sh"
+
+  # move docs out for nix-docs split-package
+  mv "$pkgdir/usr/share/doc" nix-docs
+
+  # license
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_nix-docs() {
+  pkgdesc+=" (documentation)"
+
+  cd "$pkgbase-$pkgver"
+  install -vd "$pkgdir/usr/share/doc"
+  mv nix-docs/nix "$pkgdir/usr/share/doc"
+}
