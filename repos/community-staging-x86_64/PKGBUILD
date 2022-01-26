@@ -1,0 +1,75 @@
+# Maintainer: Jaroslav Lichtblau <svetlemodry@archlinux.org>
+# Contributor: Alois Nespor <alois.nespor@gmail.com>
+
+pkgbase=kid3
+pkgname=('kid3-common' 'kid3-qt' 'kid3')
+pkgver=3.9.1
+pkgrel=2
+pkgdesc="An MP3, Ogg/Vorbis and FLAC tag editor"
+arch=('x86_64')
+url="https://kid3.kde.org/"
+license=('GPL')
+depends=('chromaprint' 'flac' 'id3lib' 'kxmlgui' 'libmp4v2'
+         'qt5-declarative' 'qt5-multimedia' 'taglib' 'kio')
+makedepends=('cmake' 'docbook-xsl' 'extra-cmake-modules' 'kdoctools' 'python' 'qt5-tools')
+changelog=$pkgbase.changelog
+source=(https://prdownloads.sourceforge.net/$pkgbase/$pkgbase-$pkgver.tar.gz{,.sig}
+        ffmpeg5.patch)
+validpgpkeys=('7D09794C2812F62194B081C14CAD34426E354DD2') # Urs Fleisch
+sha256sums=('e5f126697f773dbaa10476a76810ce91c2f3f60025d38688098e075bdb561dca'
+            'SKIP'
+            'e5e485e541411dec96864e25883e831b9e542944d017cb9a4838f22d6e4585ed')
+
+prepare() {
+  cd "${srcdir}"
+  [[ ! -d build ]] && mkdir build
+
+  patch -d $pkgbase-$pkgver -p1 < ffmpeg5.patch # Fix build with FFmpeg 5
+}
+
+build() {
+  cd "${srcdir}"/build
+  export CXXFLAGS+=' -DNDEBUG' # FS#69904
+  cmake \
+    ../${pkgbase}-${pkgver} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DWITH_APPS="CLI;Qt;KDE" \
+    -DWITH_MP4V2=ON \
+    -DWITH_FFMPEG=ON \
+    -DWITH_GSTREAMER=ON
+  make
+}
+
+package_kid3-common() {
+  pkgdesc="An MP3, Ogg/Vorbis and FLAC tag editor, CLI version and common files"
+  depends=('chromaprint' 'flac' 'id3lib' 'libmp4v2' 'libvorbis' 'qt5-base' 'taglib')
+  optdepends=('qt5-declarative: GUI support library'
+              'qt5-multimedia: GUI support library')
+
+  cd "$srcdir"/build
+  make DESTDIR="${pkgdir}" install
+
+  rm -r "$pkgdir"/usr/bin/kid3{,-qt} \
+        "$pkgdir"/usr/share/{applications,icons,kxmlgui5,metainfo}
+}
+
+package_kid3-qt() {
+  pkgdesc="An MP3, Ogg/Vorbis and FLAC tag editor, Qt version"
+  depends=("kid3-common=$pkgver" 'qt5-declarative' 'qt5-multimedia')
+
+  cd "$srcdir"/build
+  make -C src/app/qt DESTDIR="${pkgdir}" install
+}
+
+package_kid3() {
+  pkgdesc="An MP3, Ogg/Vorbis and FLAC tag editor, KDE version"
+  depends=("kid3-common=$pkgver" 'kxmlgui' 'qt5-declarative' 'qt5-multimedia' 'kio')
+
+  cd "$srcdir"/build
+  make -C src/app DESTDIR="${pkgdir}" install
+
+  rm -r "$pkgdir"/usr/bin/kid3-{cli,qt} \
+        "$pkgdir"/usr/share/applications/org.kde.kid3-qt.desktop \
+        "$pkgdir"/usr/share/icons/hicolor/*/apps/kid3-qt.{png,svg} \
+        "$pkgdir"/usr/share/metainfo/org.kde.kid3-qt.appdata.xml
+}
