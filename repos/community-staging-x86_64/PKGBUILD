@@ -1,0 +1,83 @@
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Caleb Maclennan <caleb@alerque.com>
+
+pkgbase=gimagereader
+pkgname=(gimagereader-gtk gimagereader-qt gimagereader-common)
+pkgver=3.3.1
+pkgrel=5
+url='https://github.com/manisandro/gImageReader'
+pkgdesc='Gtk/Qt front-end to tesseract-ocr'
+arch=('x86_64')
+license=('GPL3')
+depends=('djvulibre' 'gtksourceviewmm' 'gtkspellmm' 'libtesseract.so' 'libxml++' 'libzip' 'podofo' 'poppler-glib'
+         'poppler-qt5' 'qt5-imageformats' 'qtspell' 'quazip' 'sane' 'tesseract')
+makedepends=('cmake' 'intltool' 'ninja' 'python-gobject')
+_fedora_patch_base='https://src.fedoraproject.org/rpms/gimagereader/raw/65159207e55fc99b8ec72425ca7324409d7f20c6/f'
+source=("$url/releases/download/v$pkgver/$pkgbase-$pkgver.tar.xz"
+        'openmp.patch'
+        'gimagereader-quazip1.patch'
+        'gimagereader-qt5.14.patch::https://github.com/manisandro/gImageReader/commit/6209e25d.patch'
+        "$_fedora_patch_base/gimagereader-automoc.patch"
+        "$_fedora_patch_base/gimagereader-tesseract5.patch")
+sha256sums=('7688c9c20cbf2fa4f5b6ba0a8d77bd8d2e5929882ed965c7c07ccc529673f0dd'
+            'ee84de7fee390ee54152b4e332e50d8f585b0c9a3aa8b40a04f865b5250607c2'
+            '6c58c753ade526ffc712609bf880bf95bd571fd32a513b4354d8f036a9b16edc'
+            '5e213cde5d5078c18031dfd0922c5399e387303cfca12b421e220c1dad07a506'
+            '987f8c9ba6d2ed52e0d2c12ed758df7826191e4b2f5da773e88d4e11b0adab7d'
+            '97e441ee850285d5f05328ab354cf072723a87874133aa1ef837e45adff43828')
+
+prepare() {
+  cd $pkgbase-$pkgver
+
+  # Run OpenMP once before calling tesseract
+  # https://github.com/manisandro/gImageReader/issues/285
+  patch -Np1 -i ../openmp.patch
+
+  patch -p1 -i ../gimagereader-quazip1.patch # Fix build with quazip 1.x
+  patch -p1 -i ../gimagereader-qt5.14.patch # Fix build with Qt 5.14
+  patch -p1 -i ../gimagereader-automoc.patch # Fix linking errors (Fedora)
+  patch -p1 -i ../gimagereader-tesseract5.patch # Make Tesseract 5 compatible (Fedora)
+}
+
+build() {
+  cmake -S $pkgbase-$pkgver -B build-gtk -G Ninja \
+    -DCMAKE_INSTALL_PREFIX='/usr' \
+    -DINTERFACE_TYPE=gtk
+  cmake --build build-gtk
+
+  cmake -S $pkgbase-$pkgver -B build-qt -G Ninja \
+    -DCMAKE_INSTALL_PREFIX='/usr' \
+    -DINTERFACE_TYPE=qt5
+  cmake --build build-qt
+}
+
+package_gimagereader-gtk() {
+  pkgdesc='Gtk front-end to tesseract-ocr'
+  depends=('gimagereader-common' 'djvulibre' 'gtksourceviewmm' 'gtkspellmm' 'libxml++' 'libzip'
+           'podofo' 'poppler-glib' 'sane' 'tesseract')
+
+  DESTDIR="$pkgdir" cmake --install build-gtk
+
+  # Split gimagereader-common
+  mkdir gimagereader-common
+  mv "$pkgdir"/usr/share/{doc,icons,locale} gimagereader-common
+}
+
+package_gimagereader-qt() {
+  pkgdesc='Qt front-end to tesseract-ocr'
+  depends=('gimagereader-common' 'djvulibre' 'podofo' 'poppler-qt5' 'qt5-imageformats' 'qtspell'
+           'quazip' 'sane' 'tesseract')
+
+  DESTDIR="$pkgdir" cmake --install build-qt
+
+  # Split gimagereader-common
+  rm -r "$pkgdir"/usr/share/{doc,icons,locale}
+}
+
+package_gimagereader-common() {
+  pkgdesc='Common files for gImageReader'
+  depends=('hicolor-icon-theme')
+
+  mkdir -p "$pkgdir"/usr/share
+  mv gimagereader-common/* "$pkgdir/usr/share"
+}
