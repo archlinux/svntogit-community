@@ -23,9 +23,9 @@ optdepends=('dmenu: for the default program launcher'
             'perl: for i3-save-tree and i3-dmenu-desktop'
             'perl-anyevent-i3: for i3-save-tree'
             'perl-json-xs: for i3-save-tree')
-options=(debug)
 replaces=('i3' 'i3bar')
 backup=('etc/i3/config')
+options=('debug')
 source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc}
         '0001-Use-OVER-operator-for-drawing-text.patch')
 b2sums=('a7943b3bc680eb3df596b008d751d034fc6ccf2b6891db731b9af5164fdcfc2872c0756c81c3f11f94a30aa9bdc4ecf4b47d20022a214bb6eb6c06fd78458fb3'
