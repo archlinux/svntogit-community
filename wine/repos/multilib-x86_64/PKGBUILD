@@ -4,7 +4,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine
-pkgver=7.0rc5
+pkgver=7.0
 pkgrel=1
 
 _pkgbasever=${pkgver/rc/-rc}
@@ -12,7 +12,7 @@ _pkgbasever=${pkgver/rc/-rc}
 source=(https://dl.winehq.org/wine/source/7.0/$pkgname-$_pkgbasever.tar.xz{,.sign}
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('d49f83f7fb71dde03b7182fd6e17fa22de68991fc897daf962992257d0b3e190f7f493042577637f7218f8d1d693c918dd794cb25d1dc21c3ea806fc17a2717f'
+sha512sums=('eec17b046ed5447eb540f421c9b2748d9419ce087496c2743a9914fd27bbe5ff9da0cfe47d3cd76fa97323bd1188a1d82b1eef4968d86ed1957dc1a95e28529c'
             'SKIP'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
@@ -22,7 +22,7 @@ validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
 pkgdesc="A compatibility layer for running Windows programs"
 url="http://www.winehq.com"
 arch=(x86_64)
-options=(staticlibs)
+options=(staticlibs !lto)
 license=(LGPL)
 depends=(
   fontconfig      lib32-fontconfig
@@ -105,7 +105,7 @@ prepare() {
   mv $pkgname-$_pkgbasever $pkgname
 
   # Doesn't compile without remove these flags as of 4.10
-  export CFLAGS="${CFLAGS/-fno-plt/}"
+  export CFLAGS="${CFLAGS/-fno-plt/} -ffat-lto-objects"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
 
   sed 's|OpenCL/opencl.h|CL/opencl.h|g' -i $pkgname/configure*
