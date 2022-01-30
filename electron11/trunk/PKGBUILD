@@ -4,7 +4,7 @@ pkgname=electron11
 pkgver=11.5.0
 _commit=3d0705d81fd8b829372a732577b5c275352a9da6
 _chromiumver=87.0.4280.141
-pkgrel=3
+pkgrel=4
 pkgdesc='Build cross platform desktop apps with web technologies'
 arch=('x86_64')
 url='https://electronjs.org/'
@@ -18,6 +18,7 @@ optdepends=('kde-cli-tools: file deletion support (kioclient5)'
             'libappindicator-gtk3: StatusNotifierItem support'
             'trash-cli: file deletion support (trash-put)'
             "xdg-utils: open URLs with desktop's default (xdg-email, xdg-open)")
+options=('!lto') # Electron adds its own flags for ThinLTO
 source=('git+https://github.com/electron/electron.git'
         'git+https://chromium.googlesource.com/chromium/tools/depot_tools.git'
         "${pkgname}.desktop"
@@ -34,6 +35,7 @@ source=('git+https://github.com/electron/electron.git'
         'chromium-include-stddef.patch'
         'chromium-skia-harmony.patch'
         'sql-make-VirtualCursor-standard-layout-type.patch'
+        'ffmpeg5.patch'
         'd62de64e2fd20a4811593cb2248bb476aebfadf5.patch'
        )
 sha256sums=('SKIP'
@@ -52,6 +54,7 @@ sha256sums=('SKIP'
             '2c76f4b2572ec9f065433199e0cfaf58a5cfc869920c6c851150e9bcfe4d6d2a'
             '771292942c0901092a402cc60ee883877a99fb804cb54d568c8c6c94565a48e1'
             'dd317f85e5abfdcfc89c6f23f4c8edbcdebdd5e083dcec770e5da49ee647d150'
+            '4f32b815349357ef1f17b36059cee588c994472b9754a194fff41ec21a93826b'
             '6aa5b18ae8fcc9c5bacf28dc5cb8bd06f04574087c951ec3bc3ae795a2cd696c'
            )
 
@@ -140,6 +143,13 @@ prepare() {
   cd ..
 
   echo "Applying local patches..."
+
+  patch -Np1 -i ../ffmpeg5.patch
+  # Patches to build with ffmpeg 4.4; remove when ffmpeg 5.0 moves to stable
+  if ! pkg-config --atleast-version 59 libavformat; then
+    patch -Rp1 -i ../ffmpeg5.patch
+  fi
+
   patch -Np1 -i ../icu68.patch
   patch -Np1 -d v8 <../v8-icu68.patch
   patch -Np1 -d v8 <../v8-call-new-ListFormatter-createInstance.patch
@@ -180,6 +190,14 @@ build() {
   export CXX=clang++
   export AR=ar
   export NM=nm
+
+  CFLAGS="${CFLAGS/-fexceptions/}"
+  CXXFLAGS="${CXXFLAGS/-fexceptions/}"
+
+  # This appears to cause random segfaults when combined with ThinLTO
+  # https://bugs.archlinux.org/task/73518
+  CFLAGS=${CFLAGS/-fstack-clash-protection}
+  CXXFLAGS=${CXXFLAGS/-fstack-clash-protection}
 
   # Do not warn about unknown warning options
   CFLAGS+='   -Wno-unknown-warning-option'
