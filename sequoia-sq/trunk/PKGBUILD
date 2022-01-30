@@ -12,6 +12,7 @@ replaces=('sequoia')
 depends=('glibc' 'nettle' 'libnettle.so' 'libhogweed.so'
          'bzip2' 'libbz2.so' 'gcc-libs' 'gmp' 'openssl')
 makedepends=('git' 'cargo' 'clang')
+options=('!lto')
 source=(sequoia::"git+https://gitlab.com/sequoia-pgp/sequoia.git#tag=sq/v${pkgver}?signed")
 sha512sums=('SKIP')
 validpgpkeys=(
