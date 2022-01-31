@@ -7,13 +7,13 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.4.230
-pkgrel=2
+pkgrel=3
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
 license=('BSD')
 # shared depends
-depends=('gcc-libs' 'glibc' 'lsb-release' 'openssl' 'qt5-base')
+depends=('gcc-libs' 'glibc' 'openssl' 'qt5-base')
 # shared makedepends
 makedepends=('avahi' 'boost' 'cmake' 'poco' 'protobuf' 'python' 'qt5-tools' 'speech-dispatcher')
 # mumble makedepends
@@ -54,28 +54,30 @@ prepare() {
 }
 
 build() {
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=None \
-        -Dwarnings-as-errors=OFF \
+  # upstream requires adding arbitrary build number specifically, as otherwise the version string is wrong:
+  # https://github.com/mumble-voip/mumble/issues/5538
+  local _build_number="$(cut -d '.' -f 3 <<< "$pkgver")"
+  local _default_options=(
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D CMAKE_BUILD_TYPE=None
+    -D BUILD_NUMBER="$_build_number"
+    -D warnings-as-errors=OFF
+    -W no-dev
+    -S "${pkgbase}-${pkgver}.src"
+  )
+
+  cmake "${_default_options[@]}" \
         -Dbundled-opus=OFF \
         -Dbundled-speex=OFF \
         -Dupdate=OFF \
         -Dserver=OFF \
-        -Wno-dev \
-        -B build-client \
-        -S "${pkgbase}-${pkgver}.src"
+        -B build-client
   make VERBOSE=1 -C build-client
 
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=None \
-        -Dwarnings-as-errors=OFF \
-        -Dbundled-opus=OFF \
-        -Dbundled-speex=OFF \
-        -Dupdate=OFF \
+  cmake "${_default_options[@]}" \
+        -Dgrpc=ON \
         -Dclient=OFF \
-        -Wno-dev \
-        -B build-server \
-        -S "${pkgbase}-${pkgver}.src"
+        -B build-server
   make VERBOSE=1 -C build-server
 }
 
@@ -98,7 +100,7 @@ package_mumble() {
 package_murmur() {
   pkgdesc+=" (server)"
   # NOTE: avahi is dlopen'ed
-  depends+=('avahi' 'grpc' 'libcap.so' 'libdns_sd.so' 'libprotobuf.so' 'zeroc-ice')
+  depends+=('avahi' 'libcap.so' 'libdns_sd.so' 'libgrpc++.so' 'libprotobuf.so' 'zeroc-ice')
   backup=('etc/murmur.ini')
   install=murmur.install
 
