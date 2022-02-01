@@ -1,4 +1,5 @@
 # Maintainer: Jaroslav Lichtblau <svetlemodry@archlinux.org>
+# Contributor: George Rawlinson <grawlinson@archlinux.org>
 # Contributor: Morten Linderud <foxboron@archlinux.org>
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 # Contributor: eric <eric@archlinux.org>
@@ -6,52 +7,67 @@
 
 pkgname=gif2png
 pkgver=3.0.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A GIF to PNG image format converter"
 arch=('x86_64')
 url="http://www.catb.org/~esr/gif2png/"
 license=('ZLIB')
-depends=('libpng')
-makedepends=('go' 'git')
-optdepends=('python2: for using web2png')
-# https://github.com/golang/crypto/tree/release-branch.go1.15
-_crypto_commit=75b288015ac94e66e3d6715fb68a9b41bf046ec2
-# https://github.com/golang/sys/tree/release-branch.go1.15
-_sys_commit=bc7a7d42d5c30f4d0fe808715c002826ce2c624e
-source=(http://www.catb.org/~esr/$pkgname/$pkgname-$pkgver.tar.gz
-        http://www.catb.org/~esr/gif2png/COPYING
-        git+https://github.com/golang/crypto#commit=$_crypto_commit
-        git+https://github.com/golang/sys#commit=$_sys_commit)
-sha256sums=('98e185fa62d8d5b355a8b3980db0025b2fbdea991bd9f78547a1e0bc08b81d3a'
-            'c92396cd96373bf1bdaa08e028214479216be7278fe7732b59cd1df1632fe335'
-            'SKIP'
-            'SKIP')
+depends=('glibc')
+makedepends=('go' 'xmlto' 'docbook-xsl')
+options=('!lto')
+source=("https://gitlab.com/esr/gif2png/-/archive/$pkgver/gif2png-$pkgver.tar.gz" 'go.mod' 'go.sum')
+sha512sums=('4f35995e89c2da65b538a88600f0f8f7b42ded8d7c41c8d11c46a7e8ad52d7bcb3a8cb497a96e18df40e7a53cd1fd0fd42b01a174400b54a8a8b3b79f533b2de'
+            '2b7c190c89ce856b16c29337ad431de9c8e384864e7d7a2387ca3fa65d2d23e61856e352b3a5884d5d9b70e5372a63baaa284c2b6632cc882b7554da7b48d748'
+            'fb8fef8a65388a11674f456904eafedc3107f3d10b24b9b7955382b47beb10d8314862537b5a18c2edbcd5a5f2d3e61ccd16b66cf21d327665b83d08c54a1bc7')
+b2sums=('5e3a0e425ec1f18ef669b0ad0f7ac79235ded0fa9cbc8e215f53b8bcdb8a286c0b6b55005c804999843726a7884832c4e17bae574d9d326269bbbdae87279d28'
+        '42c54423ce062a4bdcc38f7e7fc16412f5a40ee1ed5a0aaa3c121ea4adee0a3af073a7dcca01875305e6ba8447d950580a6b20f11d821a1391f962e0e77f3968'
+        '788b7b466d86e77e5075296471b7f1fdd9b02ff6de351f78ff5a40116a62de364004d8d37a0b0f6119d8297455886943b99e2c8d106536651f5ed3249d2141fb')
 
 prepare() {
-  mkdir -p src/golang.org/x build
-  cp -r sys crypto src/golang.org/x/
-  mkdir -p src/gitlab.com/esr
-  ln -rTsf "$pkgname-$pkgver" "src/gitlab.com/esr/${pkgname}"
-  cd "src/gitlab.com/esr/${pkgname}"
-  sed -i 's#env python#env python2#' web2png
-  sed -i 's#GOFLAGS=.*##' Makefile
-  sed -i 's#$(GOFLAGS)##' Makefile
+  cd "$pkgname-$pkgver"
+
+  # ensure reproducible builds with pinned dependencies
+  cp ../go.{mod,sum} .
+
+  # download dependencies
+  go mod download
 }
 
 build() {
-  cd "src/gitlab.com/esr/${pkgname}"
-  export GO111MODULE=off                #https://archlinux.org/todo/go-116-rebuild/
-  export GOPATH="$srcdir"
+  cd "$pkgname-$pkgver"
+
+  # set Go flags
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
-  export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -gcflags=-N -gcflags=-l"
-  make
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\"" \
+    .
+
+  # man page
+  xmlto man gif2png.xml
+}
+
+check() {
+  cd "$pkgname-$pkgver"
+
+  make -C test gif2png-test
 }
 
 package() {
-  cd "src/gitlab.com/esr/${pkgname}"
-  make install prefix="${pkgdir}"/usr
-  install -Dm644 "${srcdir}"/COPYING "${pkgdir}"/usr/share/licenses/$pkgname/LICENSE
+  cd "$pkgname-$pkgver"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" gif2png
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/man/man1" gif2png.1
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" COPYING
 }
