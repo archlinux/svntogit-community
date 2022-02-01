@@ -3,12 +3,12 @@
 
 pkgname=python-raven
 pkgver=6.10.0
-pkgrel=9
+pkgrel=10
 pkgdesc="Python client for Sentry"
 arch=('any')
 url="https://pypi.python.org/pypi/raven"
 license=('BSD')
-depends=('python')
+depends=('python' 'ca-certificates')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest-cov' 'python-bottle' 'python-celery' 'python-django'
               'python-pycodestyle' 'python-mock' 'python-nose' 'python-pytz' 'python-exam'
@@ -17,11 +17,18 @@ checkdepends=('python-pytest-cov' 'python-bottle' 'python-celery' 'python-django
               'python-pytest-django' 'python-flask-login' 'python-pytest-timeout' 'python-zconfig'
               'python-pytest-xdist')
 optdepends=('python-setuptools: for "raven" script')
-source=("$pkgbase-$pkgver.tar.gz::https://github.com/getsentry/raven-python/archive/$pkgver.tar.gz")
-sha512sums=('4e65c03b1c5d084588ef381223b06c7b2ded3239fb2f2da4b2694fcf897a590ba5b03ac421b6dd88e0ce408f2fafd605d92a2b544b4f975ece5510eb6010583b')
+source=("https://github.com/getsentry/raven-python/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        system-ca-certificates.patch)
+sha512sums=('4e65c03b1c5d084588ef381223b06c7b2ded3239fb2f2da4b2694fcf897a590ba5b03ac421b6dd88e0ce408f2fafd605d92a2b544b4f975ece5510eb6010583b'
+            '540725fa9bd02b00a26795462787bc3d3965ced5d2383f2e90eb1b58e70f6c29f486c206b2ef725d99985238e25dde1c9b0da6e92d1446f3664a9d8f2d9ce1d7')
+
+prepare() {
+  patch -d raven-python-$pkgver -p1 < system-ca-certificates.patch
+  sed -i 's/get_marker/get_closest_marker/' raven-python-$pkgver/conftest.py
+}
 
 build() {
-  cd "$srcdir"/raven-python-$pkgver
+  cd raven-python-$pkgver
   python setup.py build
 }
 
@@ -29,14 +36,21 @@ check() {
   # Hack distribution check by installing it
   # "-p no:logging": https://github.com/getsentry/raven-python/issues/1164
 
-  cd "$srcdir"/raven-python-$pkgver
+  cd raven-python-$pkgver
   python setup.py install --root="$PWD/tmp_install" --optimize=1
+  # https://github.com/getsentry/raven-python/issues/1275
+  # Doesn't work with tornado 5 and celery 5
   PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages:$PYTHONPATH" \
-    py.test -p no:logging tests || echo "https://github.com/getsentry/raven-python/issues/1275"
+    py.test -p no:logging tests --ignore tests/contrib/django/tests.py \
+                                --ignore tests/contrib/tornado/tests.py \
+                                --deselect tests/contrib/django/test_resolver.py::test_newstyle_django20_urlconf \
+                                --deselect tests/contrib/flask/tests.py::FlaskTest::test_get \
+                                --deselect tests/transport/tornado/tests.py::TornadoTransportTests::test__sending_successfully_calls_success_callback \
+                                --deselect tests/transport/tornado/tests.py::TornadoTransportTests::test_send
 }
 
 package() {
-  cd "$srcdir"/raven-python-$pkgver
+  cd raven-python-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
   install -Dm664 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
