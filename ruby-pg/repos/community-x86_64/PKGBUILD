@@ -3,36 +3,48 @@
 
 _gemname=pg
 pkgname=ruby-$_gemname
-pkgver=1.2.3
+pkgver=1.3.1
 pkgrel=1
 pkgdesc='Ruby interface to the PostgreSQL RDBMS'
 url='https://github.com/ged/ruby-pg'
 arch=('x86_64')
 license=('custom:BSDL')
-depends=('ruby' 'ruby-rspec-core' 'postgresql-libs')
+depends=('glibc' 'ruby' 'ruby-rspec-core' 'postgresql-libs')
+makedepends=('git' 'ruby-rdoc')
 options=('!emptydirs')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-b2sums=('27249d2916bdf3707d485a2ccebd582a6e8a9231501027b400bd9a4a540392e4428b4ec55e2e42d16be909ad80a8b45e5cef10973f2e95904160a9170314cb65')
+_commit='6c436bda9aaf7bc053ef348afd99e2e035d5d0a3' # v1.3.1
+source=("$pkgname::git+$url.git#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
 
 prepare() {
-  cd ${pkgname}-${pkgver}
+  cd "$pkgname"
+
   sed 's|"ChangeLog".freeze, ||' -i ${_gemname}.gemspec
   sed 's|"lib/pg/deprecated_constants.rb".freeze, ||' -i ${_gemname}.gemspec
   sed "s|^  s.version = .*$|  s.version = '${pkgver}'|" -i ${_gemname}.gemspec
 }
 
 build() {
-  cd ${pkgname}-${pkgver}
-  gem build ${_gemname}.gemspec
+  cd "$pkgname"
+
+  gem build "$_gemname.gemspec"
 }
 
 package() {
-  cd "$pkgname-$pkgver"
+  cd "$pkgname"
+
   local _gemdir="$(ruby -e'puts Gem.default_dir')"
 
   gem install \
     --verbose \
     --ignore-dependencies \
+    --no-document \
     --no-user-install \
     --install-dir "$pkgdir/$_gemdir" \
     --bindir "$pkgdir/usr/bin" \
@@ -46,7 +58,18 @@ package() {
     -o -name 'mkmf.log' -delete
   rm -rf cache
   cd "gems/$_gemname-$pkgver"
-  rm -vrf spec ext POSTGRES Manifest.txt Rakefile* Gemfile
+  find . -type f -name ".*" -delete
+  rm -vrf .github certs sample misc spec ext POSTGRES Manifest.txt Rakefile* Gemfile "$_gemname.gemspec"
+
+  # generate reproducible documentation
+  install -vd "$pkgdir/$_gemdir/doc/$_gemname-$pkgver"
+  cd "$pkgdir/$_gemdir/gems/$_gemname-$pkgver"
+  rdoc \
+    --format ri \
+    --output "$pkgdir$_gemdir/doc/$_gemname-$pkgver/ri" \
+    ./lib
+  # delete unnecessary rdoc metadata file
+  rm -f "$pkgdir$_gemdir/doc/$_gemname-$pkgver/ri/created.rid"
 
   # move documentation
   install -vd "$pkgdir/usr/share/doc/$pkgname"
