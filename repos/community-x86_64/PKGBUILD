@@ -4,18 +4,17 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2021.3.1
-_build=213.6461.79
+pkgver=2021.3.2
+_build=213.6777.52
 pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
 arch=('x86_64')
 license=('Apache')
-backup=('usr/share/idea/bin/idea.vmoptions'
-        'usr/share/idea/bin/idea64.vmoptions')
+backup=('usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
-makedepends=('ant' 'git' 'java-environment=8')
+makedepends=('ant' 'git' 'java-environment=11')
 optdepends=(
   'lldb: lldb frontend integration'
 )
@@ -60,8 +59,8 @@ build() {
   unset _JAVA_OPTIONS
   export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
   export PATH="${JAVA_HOME}/bin:${PATH}"
-  export JDK_16_x64=/usr/lib/jvm/java-8-openjdk
-  export JDK_18_x64=/usr/lib/jvm/java-8-openjdk
+  export JDK_16_x64=/usr/lib/jvm/java-11-openjdk
+  export JDK_18_x64=/usr/lib/jvm/java-11-openjdk
   ant -Dintellij.build.target.os=linux build
   tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
 }
