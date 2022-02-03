@@ -1,9 +1,9 @@
-# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
 # Maintainer: Konstantin Gizdov <arch@kge.pw>
 pkgname=(cuda cuda-tools)
 pkgbase=cuda
-pkgver=11.5.1
-_driverver=495.29.05
+pkgver=11.6.0
+_driverver=510.39.01
 pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
@@ -15,7 +15,6 @@ install=cuda.install
 source=(https://developer.download.nvidia.com/compute/cuda/${pkgver}/local_installers/cuda_${pkgver}_${_driverver}_linux.run
         cuda.sh
         cuda.conf
-        cuda-findgllib_mk.diff
         accinj64.pc
         cublas.pc
         cuda.pc
@@ -44,10 +43,9 @@ source=(https://developer.download.nvidia.com/compute/cuda/${pkgver}/local_insta
         nvjpeg.pc
         nvrtc.pc
         nvToolsExt.pc)
-sha512sums=('71fb354714cac09265b5102223f919e34e3a8503593dd4f2e7b9542ae7787de96d64c490276b36b685da9e691cc2704419b67cfa376dcd3647e4d0f93b02db9b'
+sha512sums=('257b7b0bce1fa93cc442d8f335aec78681a3e4d457e31f04fb1cd01b91208aa35833f3793d8e2ef6d5db15e86c4d7659adb6ad127c57cbdabaa8dd14ef36a931'
             '35f1f56411eecb2d978553f5606a0d6e70ad363cfaa9f37b9e6f12a799b041caa4aeca183341055d4789425dc4d62bee0aac68cc9d864155084b1ea571ee998f'
             '714d973bc79446f73bebe85306b3566fe25b554bcbcba2fcbe76709a3eca71fb5d183ab4da2d3b5e9326cb9cd8d13a93f6d4a005ea5a41f7ef8e6c6e81e06b5e'
-            '41d6b6cad934f135eafde610d1cbd862033977fd4416a4b6abaa47709a70bab7fcf6f8377c21329084fb9db13f2a8c8c20e93c15292d7d4a6448d70a33b23f1b'
             'a4b3b03682801a98a1d8c1d14c084fd35efd384d92d497e230e3a28e0bd97b1fa48a93ccb2150f892f0b4154ca4ea2d66f5484a6a59b5c9b49963de42ecf1736'
             'd69d3ec0e270648f55d8c3e420f89d056b120eca5b25e9e7fc1cca799d1a252909ee31ff399c137223eca57cdf82b856221a251b6ff1daf5d6f75c1a582b1e32'
             'e463a596d34cc7d7e42c32e8a72b327aedb8707902dda8767f2c22a6a7e6dda7fcd297c0036b004ce4f1677408084acb6f4ed683cd6c79558ba8bb4e1a83867f'
@@ -79,11 +77,6 @@ sha512sums=('71fb354714cac09265b5102223f919e34e3a8503593dd4f2e7b9542ae7787de96d6
 
 prepare() {
   sh cuda_${pkgver}_${_driverver}_linux.run --target "${srcdir}" --noexec
-
-  # Fix up samples tht use findgllib_mk
-  for f in builds/cuda_samples/*/*/findgllib.mk; do
-    patch $f cuda-findgllib_mk.diff
-  done
 }
 
 build() {
