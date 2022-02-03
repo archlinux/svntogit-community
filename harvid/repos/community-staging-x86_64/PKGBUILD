@@ -1,0 +1,46 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: speps <speps dot aur dot archlinux dot org>
+
+pkgname=harvid
+pkgver=0.8.3
+pkgrel=3
+pkgdesc="HTTP Ardour Video Daemon"
+arch=(x86_64)
+url="https://x42.github.io/harvid/"
+license=(GPL2)
+depends=(glibc libpng)
+makedepends=(ffmpeg4.4 libjpeg-turbo xxd)
+options=(debug)
+source=(
+  "$pkgname-$pkgver.tar.gz::https://github.com/x42/${pkgname}/archive/v$pkgver.tar.gz"
+  "${pkgname}-0.8.3-fix_dep_detection.patch::https://github.com/x42/harvid/commit/2c9960770ff692b4e2bddc98981b096af8efeab1.patch"
+)
+sha512sums=('748475602c7279f10790523cbd5cbf34c9cd283ca9e959ac0535fbb5b4ee6d2fcab976c5ddba3fa40862552b49d73df7145f36d26c9fe708063505812537a8ac'
+            'aae761b56b9fb7d4cd00190271dbe125b292d25f666039cbd6ba76cab162659425cd1e116507bda0cce87c2e5d3d4d6769a58f7b7563f42849335f0a02bb34e8')
+b2sums=('b245166ab2244a7afdddabb463296974c0d995d70ad8af6e93f549f045245597cb4ca3abf47c608eea15089ac5e6f82972b789d9a3f268b8be98f3080fd6e5e7'
+        '2229dc7bea3c22ebc1c9a28401bbfa8159588f560a8aac5e977b9d4cae0e7918828127000d7cd108de86bbc4dad5b7c10687098686a6309d7c8c8e0b36efa344')
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  # fix issues with newer versions of make:
+  # https://github.com/x42/harvid/issues/7
+  patch -Np1 -i "../${pkgname}-0.8.3-fix_dep_detection.patch"
+}
+build() {
+  # not compatible with ffmpeg >= 5: https://github.com/x42/harvid/issues/8
+  export PKG_CONFIG_PATH="/usr/lib/ffmpeg4.4/pkgconfig:$PKG_CONFIG_PATH"
+  # different job setting needed to not crash build
+  make -j1 -C "${pkgname}-${pkgver}"
+}
+
+package() {
+  depends+=(libavcodec.so libavformat.so libavutil.so libjpeg.so libswscale.so)
+
+  make PREFIX=/usr DESTDIR="${pkgdir}/" install -C "${pkgname}-${pkgver}"
+
+  # ffmpeg and ffprobe symlinks (for ardour)
+  ln -sv ffmpeg "${pkgdir}/usr/bin/ffmpeg_${pkgname}"
+  ln -sv ffprobe "${pkgdir}/usr/bin/ffprobe_${pkgname}"
+
+  install -vDm 644 "${pkgname}-${pkgver}/"{ChangeLog,README.md} -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
