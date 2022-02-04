@@ -43,6 +43,9 @@ prepare() {
   git submodule update --recursive
   sed 's|.install-cython ||' -i Makefile
 
+  # Make tests compatible with python-proxy.py 2.4.0
+  git cherry-pick --no-commit 674948f588022584e5e5168dd329e31a6557f401
+
   # If these tests are passing, who are we to judge
   patch -Np1 -i ../non-derpy-tests.patch
 
