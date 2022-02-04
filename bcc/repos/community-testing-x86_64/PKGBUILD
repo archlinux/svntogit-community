@@ -1,0 +1,89 @@
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Gordian Edenhofer <gordian.edenhofer@gmail.com>
+# Contributor: Troy Engel <troyengel+arch@gmail.com>
+
+pkgbase=bcc
+pkgname=('bcc' 'bcc-tools' 'python-bcc')
+pkgver=0.24.0
+pkgrel=1
+pkgdesc='BPF Compiler Collection'
+arch=('x86_64')
+url='https://github.com/iovisor/bcc'
+license=('Apache')
+makedepends=('cmake' 'clang' 'llvm' 'flex' 'bison' 'python')
+checkdepends=('netperf' 'iperf')
+source=("bcc-$pkgver.tar.gz"::"https://github.com/iovisor/bcc/releases/download/v$pkgver/bcc-src-with-submodule.tar.gz")
+sha512sums=('6d3c2d415abcf515f6d4afc480d0f0ea8ee8692bee1d0e774c1a1afe76ade03993a57c7242ba937af707f3a237a4149631b9f293223b5e27b2b7552a66398970')
+
+build() {
+  mkdir -p bcc/build
+  cd bcc/build
+  export CFLAGS+=" -ffat-lto-objects"
+  export CXXFLAGS+=" -ffat-lto-objects"
+
+  # The python version is irrelevant at this stage
+  cmake -DREVISION=$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=/usr/lib .. \
+    -DENABLE_LLVM_SHARED=1   # FS#71163
+
+  make
+}
+
+package_bcc() {
+  pkgdesc='BPF Compiler Collection - C library and examples'
+  depends=('clang' 'libelf')
+  optdepends=('linux-headers: build modules against the Arch kernel'
+    'linux-lts-headers: build modules against the LTS kernel'
+    'linux-zen-headers: build modules against the ZEN kernel'
+    'linux-hardened-headers: build modules against the HARDENED kernel'
+    'bcc-tools: Python utilites using the BCC library'
+    'python-bcc: Python 3 bindings for BCC')
+  provides=('bcc' 'libbcc')
+
+  cd bcc/build
+
+  # Install the kitchen sink
+  make DESTDIR="$pkgdir" install
+
+  # These go in a split package python*-bcc
+  rm -rf "$pkgdir"/usr/lib/python*
+
+  # These go in a split package bcc-tools
+  rm -rf "$pkgdir"/usr/share/bcc/{tools,man}
+}
+
+package_bcc-tools() {
+  pkgdesc='BPF Compiler Collection - Tools'
+  depends=('bcc' 'libedit' 'ethtool')
+  optdepends=(
+  	'python-bcc: Python 3 bindings for BCC'
+    'luajit: Lua bindings for BCC'
+  )
+
+  cd bcc/build
+
+  make -C tools DESTDIR="$pkgdir" install
+  make -C man DESTDIR="$pkgdir" install
+}
+
+package_python-bcc() {
+  pkgdesc='BPF Compiler Collection - Python 3 bindings'
+  depends=('bcc' 'python')
+  optdepends=(
+  	'python-netaddr: Network address representation and manipulation'
+    'python-pyroute2: Netlink and Linux network configuration'
+  )
+
+  cd bcc/build
+
+  # Force a quick python3 binding build (C library is already built)
+  cmake -DREVISION=$pkgver \
+    -DPYTHON_CMD="python" \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=/usr/lib ..
+  make -C "src/python"
+
+  # Install just those bindings
+  make -C "src/python" DESTDIR="$pkgdir" install
+}
