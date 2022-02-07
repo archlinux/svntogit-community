@@ -1,71 +1,63 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=molecule
-pkgver=3.5.2
-pkgrel=3
+pkgver=3.6.0
+pkgrel=1
 pkgdesc="Aids in the development and testing of Ansible roles"
-arch=('any')
+arch=(any)
 url="https://github.com/ansible-community/molecule"
-license=('MIT')
-depends=('ansible' 'ansible-lint' 'python-ansible-compat' 'python-cerberus'
-'python-click' 'python-click-help-colors' 'python-cookiecutter' 'python-enrich'
-'python-jinja' 'python-packaging' 'python-paramiko' 'python-pluggy'
-'python-rich' 'python-selinux' 'python-subprocess-tee' 'python-yaml')
-makedepends=('python-setuptools-scm' 'python-setuptools-scm-git-archive' 'python-simplejson' 'python-toml')
-checkdepends=('python-ansi2html' 'python-pexpect' 'python-pytest'
-'python-pytest-html' 'python-pytest-mock' 'python-pytest-testinfra'
-'python-pytest-verbose-parametrize' 'python-pytest-xdist' 'yamllint')
-optdepends=('molecule-docker: for the docker driver'
-            'molecule-podman: for the podman driver'
-            'molecule-vagrant: for the vagrant driver'
-            'python-pywinrm: for Windows support'
-            'python-pytest-testinfra: for the testinfra verifier')
+license=(MIT)
+depends=(python-ansible-compat python-cerberus python-click
+python-click-help-colors python-cookiecutter python-enrich python-jinja
+python-packaging python-paramiko python-pluggy python-rich python-yaml)
+makedepends=(python-build python-setuptools-scm python-setuptools-scm-git-archive python-install)
+checkdepends=(ansible python-ansi2html python-filelock python-pexpect
+python-pytest python-pytest-html python-pytest-mock python-pytest-testinfra
+python-pytest-xdist yamllint)
+optdepends=(
+  'ansible: for local ansible support'
+  'molecule-docker: for the docker driver'
+  'molecule-podman: for the podman driver'
+  'molecule-vagrant: for the vagrant driver'
+  'python-pywinrm: for Windows support'
+  'python-pytest-testinfra: for the testinfra verifier'
+)
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/${pkgname}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('04a7d1f7e7e098c0ada71d8dc9a3e3a94320033942d8ee03f2c51ec185405d2ee13fcb44000a4942ec66923f0426717ab7e2c3a785ddda7a23515096474dc3c3')
-b2sums=('b6c6bb8ecdb4230d23161e25fa003c8979f48fc1705bfba7d14204fbaa3e9c235a71db0c4ccbab5c4328ddb8a0725d3c2ba7cb4b624afda21c6453c8be824f3e')
+sha512sums=('6e60387f43c6a8a4e50951d6b71c5e161be0bc42d79f03483ea306598cf8cf6d4872034316dea1021a40fea505e4b0c6e656867ad62bf0ce8a0c802e18eb3085')
+b2sums=('a46f238c301b2b707e40c1e4e36f203d8da187a1184ac105245fe6a253a484efbffed400a685fa21b74ae147ac884d12f71b108fda8fe6a061bb91230a40799e')
 
 prepare() {
   cd "$pkgname-$pkgver"
-  # remove additional pytest options
-  # remove fitler to raise warnings as errors: https://github.com/ansible-community/molecule/issues/3004
-  sed -e '/addopts/d' \
-      -e '/testpaths/d' \
-      -e '/error/d' \
-      -i setup.cfg
   # allegedly cerberus is not compatible with py39, but we don't mind:
   # https://github.com/pyeve/cerberus/issues/568
-  sed -e '/cerberus/ s/,.*//' \
-      -i setup.cfg
+  sed -e '/cerberus/ s/,.*//' -i setup.cfg
 }
 
 build() {
   cd "$pkgname-$pkgver"
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
   cd "$pkgname-$pkgver"
-  local _python_version="$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')"
-  local _test_dir='test_dir'
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  local _test_dir="${PWD}/test_dir"
 
   # install into test location
   mkdir -vp "${_test_dir}"
-  python setup.py install --skip-build \
-    --optimize=1 \
-    --root="${_test_dir}"
+  python -m install --optimize=1 --destdir="$_test_dir" dist/*.whl
+  chmod +x "$_test_dir"/usr/bin/*
 
-  export PYTHONPATH="${PWD}/${_test_dir}/usr/lib/python${_python_version}/site-packages/:${PYTHONPATH}"
-  export PATH="${PWD}/test_dir/usr/bin:${PATH}"
-
-  pytest -v "${_test_dir}/usr/lib/python${_python_version}/site-packages/molecule/test/unit/"
+  export PYTHONPATH="${_test_dir}/${_site_packages}:${PYTHONPATH}"
+  export PATH="${_test_dir}/usr/bin:${PATH}"
+  pytest -v "${_test_dir}/${_site_packages}/molecule/test/unit/" -c /dev/null
 }
 
 package() {
   cd "$pkgname-$pkgver"
-  python setup.py install --skip-build \
-                          --optimize=1 \
-                          --root="${pkgdir}"
+  python -m install --optimize=1 --destdir="$pkgdir" dist/*.whl
+  # https://github.com/FFY00/python-install/pull/6
+  chmod +x "$pkgdir"/usr/bin/*
   install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
-  install -vDm 644 README.rst \
-    -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 README.rst -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
