@@ -2,10 +2,12 @@
 # Contributor: Sven-Hendrik Haase <svenstaro@gmail.com>
 # Contributor: Eli Schwartz <eschwartz@archlinux.org>
 
+BUILDENV+=(!check)
+
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.1.12
-pkgrel=3
+pkgver=1.1.13
+pkgrel=1
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -37,15 +39,15 @@ source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
         0001-Suppress-dependency-versions-which-are-known-to-be-t.patch
         0001-tests-cleanup-cache-and-http-usage.patch
         poetry-completions-generator)
-sha256sums=('9e43946a1a1e021ad7ed579470dc847d53dc3f7db5aeeec380c1064a7d5bff3d'
-            'db185e7c46a2c747baa4ed19f131a47f072aa149607a6076d23e64e0c766496a'
+sha256sums=('c2f4691a00d82e717a5861f62c6234757852ed1cd9b662e1d2d803157e7a7018'
+            '06afd8fc75287658d7b240b6eac9e4b84e36f8393545bc6c2c45170a818cadff'
             '4658321c04f36fb3aced9acc44b61f2cf22c5f9d8b8c715111881b24c3e0c99b'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
 
 prepare() {
 	cd "$_archive"
 	# fix various overly restrictive version pinning
-		patch -p1 -i ../0001-Suppress-dependency-versions-which-are-known-to-be-t.patch
+	patch -p1 -i ../0001-Suppress-dependency-versions-which-are-known-to-be-t.patch
 	# fix tests trying to write to the root directory
 	# See: https://github.com/python-poetry/poetry/issues/1645
 	patch -p1 -i ../0001-tests-cleanup-cache-and-http-usage.patch
