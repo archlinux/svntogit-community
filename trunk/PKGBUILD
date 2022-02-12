@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-jaraco.context
-pkgver=4.0.0
-pkgrel=3
+pkgver=4.1.1
+pkgrel=1
 pkgdesc="Context managers by jaraco"
 url="https://github.com/jaraco/jaraco.context"
 license=('MIT')
@@ -13,7 +13,7 @@ checkdepends=('python-pytest-black' 'python-pytest-checkdocs' 'python-pytest-cov
               'python-pytest-flake8' 'python-pytest-mypy' 'python-jaraco.test'
               'python-pip')
 source=("https://github.com/jaraco/jaraco.context/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('90a2010d87ac75f24c17bc054c664eeb442d9a7d4148d4f489a493aba9fdf654826f341b88ecad95943ce30aec934c5574d33dbd6cfcb67057315d7c3d5f31ff')
+sha512sums=('d1def3f0f701d36f584a60c57837d5e4bf9121c5ce8387f734ac371164f5ba0fe04b73d4d0e16367cfcd6a13cf11ab5dab2afe798f18dfddba15700fe6779fe0')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
