@@ -1,0 +1,77 @@
+# Maintainer: Andreas 'Segaja' Schleifer <archlinux at segaja dot de>
+
+_gemname='puma'
+pkgname="ruby-$_gemname"
+pkgver=5.6.2
+pkgrel=1
+pkgdesc='A Ruby/Rack web server built for concurrency'
+arch=('x86_64')
+url='https://puma.io/'
+license=('BSD-3-CLAUSE')
+options=(!emptydirs)
+depends=('ruby' 'ruby-nio4r' 'ruby-sd_notify')
+makedepends=('ruby-bundler' 'ruby-minitest' 'ruby-minitest-proveit' 'ruby-minitest-retry' 'ruby-minitest-stub-const' 'ruby-rack' 'ruby-rake' 'ruby-rake-compiler' 'ruby-rdoc')
+source=("https://github.com/puma/puma/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        tests.patch)
+sha512sums=('e08ebb968cb139136d11cfb12f7ebef7f4cafcbf3f26cf229c063aa0e55769ba8c4bc1df1dd9e04a4969d6f423cae1a09ce87e154315c9df80d61ec56b6f96e7'
+            '1a81082dd3e8722d6da4cdbec958d8dee38ba0c89478f29e837903094d84777d6c00460612d4915399aec53b8c6534b31ae39eb71ca562b1bfb5a9b7d631bacf')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # remove some tests and fix others
+  patch --verbose --strip=1 --input=../tests.patch
+
+  # we built based on a tar archive, not a git repo
+  sed --in-place 's/git ls-files/find/' "${_gemname}.gemspec"
+
+  # update gemspec/Gemfile to allow newer version of the deps
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec" Gemfile
+
+  # disable rubocop, we don't have that in our repos and it doesn't provide any benefits during building
+  sed --in-place '/rubocop/Id' Rakefile Gemfile
+
+  # disable m. Only required for debugging during development
+  sed --in-place "/'m'/d" Gemfile
+
+  # disable localhost. Only required for self-signed certificates during development
+  sed --in-place "/localhost/d" Gemfile
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  rake compile
+  rake build
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  # https://github.com/puma/puma/blob/master/CONTRIBUTING.md#file-limits
+  ulimit -Sn 5000
+
+  # some seeds cause random errors ( https://github.com/puma/puma/issues/2825 ) so we use a fixed seed
+  export TESTOPTS="--seed=21082"
+
+  rake test:all
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+  local _platform="$(gem env platform | cut -d':' -f2)"
+  local _extension_api_version="$(ruby -e'puts Gem.extension_api_version')"
+
+  gem install --ignore-dependencies --no-user-install --install-dir "${pkgdir}/${_gemdir}" --bindir "${pkgdir}/usr/bin" "pkg/${_gemname}-${pkgver}.gem"
+
+  rm "${pkgdir}/${_gemdir}/cache/${_gemname}-${pkgver}.gem" \
+      "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/ext/puma_http11/Makefile" \
+      "${pkgdir}/${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/mkmf.log" \
+      "${pkgdir}/${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/gem_make.out" \
+      "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/puma_http11/page-Makefile.ri"
+
+  install -D --mode=644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -D --mode=644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
