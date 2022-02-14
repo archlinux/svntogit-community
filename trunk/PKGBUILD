@@ -4,7 +4,7 @@
 
 _name=setuptools_scm
 pkgname=python-setuptools-scm
-pkgver=6.4.1
+pkgver=6.4.2
 pkgrel=1
 pkgdesc="Handles managing your python package versions in scm metadata"
 arch=('any')
@@ -14,8 +14,8 @@ depends=('python-packaging' 'python-setuptools' 'python-tomli')
 checkdepends=('git' 'mercurial' 'python-pip' 'python-pytest'
               'python-virtualenv')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('9bd9ff7fd5fa1cf469fe28a632336b9cfd351476c6d09379ff676d3945f669b9')
-b2sums=('984b60de24e3090bfa7284ef91f40cfb8481cd9008d57012564e6631727dc1e1bb6820265a4fd3576581ce836224599bdd8ddef73446ddc3040e51ddad4b6140')
+sha256sums=('6833ac65c6ed9711a4d5d2266f8024cfa07c533a0e55f4c12f6eff280a5a9e30')
+b2sums=('e1b5191425cf5db8334761a6857b0bc39c547c167901cbdf8401af441c5941cd75744162417ff42dbac792ae867d71c7576c5e9e533fe8039a75954f4c2ba439')
 
 build() {
   cd $_name-$pkgver
