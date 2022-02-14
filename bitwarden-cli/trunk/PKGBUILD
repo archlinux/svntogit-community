@@ -3,42 +3,52 @@
 
 pkgname=bitwarden-cli
 pkgver=1.21.0
-_jslibcommit='995ad076cca1795ec78f87b81ed3cd2e727703d1'
-pkgrel=1
+pkgrel=2
 pkgdesc="The command line vault"
-arch=('x86_64')
+arch=('any')
 url="https://github.com/bitwarden/cli"
 license=('GPL3')
-depends=('gcc-libs')
-makedepends=('git' 'npm' 'node-gyp' 'nodejs-lts-gallium')
-options=('!strip')
-source=("bitwarden-cli-${pkgver}.tar.gz::https://github.com/bitwarden/cli/archive/v${pkgver}.tar.gz"
-        "jslib-${_jslibcommit}.tar.gz::https://github.com/bitwarden/jslib/archive/${_jslibcommit}.tar.gz")
-sha512sums=('6883b2ee9641066f22cb70003f164c93d12b4e02377b6287435e053b4cc4969de4f3b6524e6f5b1b19d9df231e6eb38ea21fa3e3b06be561e89ca6c80432684c'
-            'ae138e86f05f6b151b66e4242f5a9c4bb1b124dd83ce3ffbf71584090bfcce21c7845b74598c84a1380575d514c5e5857e0ab2999e89abafec5e9c799299437d')
+depends=('nodejs>=16')
+makedepends=('git' 'npm' 'modclean')
+options=(!emptydirs)
+source=(bitwarden-cli::git+https://github.com/bitwarden/cli.git#tag=v${pkgver}
+        bitwarden-jslib::git+https://github.com/bitwarden/jslib.git)
+sha512sums=('SKIP'
+            'SKIP')
 
 prepare() {
-	cd cli-${pkgver}
-	rmdir -v jslib
-	ln -sv ../jslib-${_jslibcommit} jslib
+	cd bitwarden-cli
+	# Link jslib
+	git submodule init
+	git config submodule.jslib.url "$srcdir/bitwarden-jslib"
+	git submodule update
 }
 
 build() {
-	cd cli-${pkgver}
+	cd bitwarden-cli
 	export npm_config_cache="$srcdir/npm_cache"
-	pushd jslib
 	npm install
-	popd
-	npm install
-	npm run build:prod
+	npm run build
 	npm run clean
-	npm run package:lin
-	./dist/linux/bw completion --shell zsh > _bw
+	node ./build/bw.js completion --shell zsh > _bw
 }
 
 package() {
-	cd cli-${pkgver}
-	install -vDm755 dist/linux/bw -t "${pkgdir}/usr/bin"
+	cd bitwarden-cli
+	npm install --production -g --prefix "$pkgdir"/usr $(npm pack . | tail -1)
+
+	# Non-deterministic race in npm gives 777 permissions to random directories.
+	# See https://github.com/npm/npm/issues/9359 for details.
+	chmod -R u=rwX,go=rX "$pkgdir"
+	# npm gives ownership of ALL FILES to build user
+	# https://bugs.archlinux.org/task/63396
+	chown -R root:root "${pkgdir}"
+
 	# package zsh completions
-	install -vDm644 "${srcdir}/cli-${pkgver}/_bw" -t "${pkgdir}/usr/share/zsh/site-functions"
+	install -vDm644 _bw -t "${pkgdir}/usr/share/zsh/site-functions"
+
+	# cleanup
+	sed -e "s|${srcdir}|/|" -i "$pkgdir"/usr/lib/node_modules/@bitwarden/cli/package.json
+	find "$pkgdir"/usr/lib/node_modules -name 'package.json' -exec sed -e "s|${srcdir}||" -i {} \;
+	modclean --path "$pkgdir"/usr/lib -r -a "*.ts,.bin,.github,.vscode,bin.js" --ignore='license'
 }
