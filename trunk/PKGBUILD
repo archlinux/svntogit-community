@@ -2,7 +2,7 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=3.5.0
+pkgver=3.6.0
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -11,35 +11,38 @@ license=('Apache')
 depends=('python-pkginfo' 'python-readme-renderer' 'python-requests' 'python-requests-toolbelt'
          'python-packaging' 'python-importlib-metadata' 'python-tqdm' 'python-keyring'
          'python-rfc3986' 'python-colorama')
-makedepends=('python-dephell' 'python-setuptools-scm')
+makedepends=('python-pyproject2setuppy' 'python-setuptools-scm')
 checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python-pretend'
               'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket')
 provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
 source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('37219c1078bb7209123aee79c2d2bd73390c8ce4ab2bf6b5493a54e4ccb9c714a6422ee4a782b3c19d3a5344c1431285c666230729f44615b7761c7a5aff07d6')
+sha512sums=('41da4d89ac69c692a98545aefffd9afd4c7b0287179807906504b4121bf9257095b227ec2966d98983939fa76fb8509f6ffa2577c0e7b4c7f43f614f44745460')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 prepare() {
   cd twine-$pkgver
-  dephell deps convert --from pyproject.toml --to setup.py
+  # This is needed because twine uses setuptools-scm's file finder hook to include package data,
+  # but the git checkout we use don't contain the needed SCM info.
+  # dephell generates a pattern for this automatically.
+  echo "recursive-include twine *.typed" > MANIFEST.in
 }
 
 build() {
   cd twine-$pkgver
-  python setup.py build
+  python -m pyproject2setuppy build
 }
 
 check() {
   cd twine-$pkgver
-  python setup.py egg_info
+  python -m pyproject2setuppy egg_info
   python -m pytest
 }
 
 package() {
   cd twine-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1
+  python -m pyproject2setuppy install --root="$pkgdir" --optimize=1
   ln -s twine "$pkgdir"/usr/bin/twine3
 }
