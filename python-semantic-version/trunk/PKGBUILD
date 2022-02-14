@@ -3,8 +3,8 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-semantic-version
-pkgver=2.8.5
-pkgrel=5
+pkgver=2.9.0
+pkgrel=1
 pkgdesc="A library implementing the 'SemVer' scheme."
 url="https://github.com/rbarrois/python-semanticversion"
 license=('BSD')
@@ -12,8 +12,8 @@ arch=('any')
 depends=('python')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest' 'python-django')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/rbarrois/python-semanticversion/archive/$pkgver.tar.gz")
-sha512sums=('e59508b12ac0f1b46f1d97f633f5bead99c41542c51c2714a4074eda9da6a04cd103be20eafd031b541834b6ee99b4f9f9ee9baec58b9f8a313d0c727aeab68d')
+source=("https://github.com/rbarrois/python-semanticversion/archive/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('6db53e9993b635a7bb2e2b168329d359136d914fb146aa5102a5cd0e8395978942fa84e7bed0fdb00b1768b1acd38e1a1b0cedfdc2efc073dddf4973178043db')
 
 build() {
   cd python-semanticversion-$pkgver
@@ -22,11 +22,12 @@ build() {
 
 check() {
   cd python-semanticversion-$pkgver
-  py.test
+  python setup.py egg_info
+  pytest
 }
 
 package() {
   cd python-semanticversion-$pkgver
   python setup.py install --root="$pkgdir" --optimize=1
-  install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
