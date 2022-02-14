@@ -2,8 +2,8 @@
 # Contributor: TingPing <tingping@tingping.se>
 
 pkgname=hexchat
-pkgver=2.16.0
-pkgrel=3
+pkgver=2.16.1
+pkgrel=1
 pkgdesc='A popular and easy to use graphical IRC (chat) client'
 arch=('x86_64')
 url='https://hexchat.github.io/'
