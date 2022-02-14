@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-filelock
-pkgver=3.4.0
-pkgrel=3
+pkgver=3.4.1
+pkgrel=1
 pkgdesc="A platform independent file lock"
 url="https://github.com/benediktschmitt/py-filelock"
 license=('custom:Unlicense')
@@ -11,7 +11,7 @@ depends=('python')
 makedepends=('python-setuptools' 'python-setuptools-scm')
 checkdepends=('python-pytest' 'python-pytest-timeout')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/benediktschmitt/py-filelock/archive/$pkgver.tar.gz")
-sha512sums=('0dc85f083a8c60605dfbd0b6fe55a96b5872e5b8ce3fd746925444571d02e243459bed6cd2d8aa9d7eda7d197bdc31b289cfcf1f0aef295779ca900d24abcbd8')
+sha512sums=('a745aa036a361813d760b1ed0eaef96851db2a3827a1c0940482cf6f41c32fd681dc4f076bbececc278bcc4bed1c32c5952a6bd68137263ffbde09f63140befe')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
