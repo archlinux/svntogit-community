@@ -2,7 +2,7 @@
 
 _name=stack_data
 pkgname=python-stack-data
-pkgver=0.1.4
+pkgver=0.2.0
 pkgrel=1
 pkgdesc='Extract data from python stack frames and tracebacks for informative displays'
 arch=('any')
@@ -11,11 +11,11 @@ license=('MIT')
 depends=('python-asttokens' 'python-executing' 'python-pure-eval')
 makedepends=('python-build' 'python-install' 'python-setuptools-scm'
              'python-wheel')
-checkdepends=('python-littleutils' 'python-pygments' 'python-pytest'
+checkdepends=('cython' 'python-littleutils' 'python-pygments' 'python-pytest'
               'python-typeguard')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('7769ed2482ce0030e00175dd1bf4ef1e873603b6ab61cd3da443b410e64e9477')
-b2sums=('277d403a441ddd6e3d3019fa8e49e5703d140ee0df7ceac81b7a3b513241ed3759a105b8ada896c328804e35965a26527608477870435d4d6506e58651249d40')
+sha256sums=('45692d41bd633a9503a5195552df22b583caf16f0b27c4e58c98d88c8b648e12')
+b2sums=('af79e5c46d03967a8ea6a992a0672a5bd3676a8b088be412782b8c6be6f58a14de1c6e6ff0cd4ae764a65c539a83aa4d7491bb7fe81761452d430d30f70d20fb')
 
 build() {
   cd "$_name-$pkgver"
