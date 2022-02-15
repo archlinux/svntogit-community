@@ -2,7 +2,7 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=1.31.2
+pkgver=1.31.3
 pkgrel=1
 _electronversion=16
 pkgdesc='A secure and free password manager for all of your devices'
@@ -47,7 +47,7 @@ build() {
 	electronVer=$(electron$_electronversion --version | tail -c +2)
 	export npm_config_cache="$srcdir/npm_cache"
 	export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-	npm install
+	npm install --build-from-source
 	npm run build
 	npm run clean:dist 
 	npm exec -c "electron-builder --linux --x64 --dir -c.electronDist=$electronDist \
