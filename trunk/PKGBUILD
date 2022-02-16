@@ -16,7 +16,7 @@ depends=('python' 'python-traitlets' 'python-pexpect' 'sqlite'
          'python-pickleshare' 'python-prompt_toolkit'
          'python-jedi' 'python-pygments' 'python-backcall'
          'python-matplotlib-inline' 'python-black' 'python-stack-data')
-makedepends=('python-build' 'python-install' 'python-setuptools' 'python-wheel')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 # texlive-bin checkdep excluded due to test_latex_to_png_color failure
 checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-testpath'
               'jupyter-nbformat' 'python-ipykernel' 'python-numpy' 'python-trio'
@@ -38,16 +38,13 @@ build() {
 check() {
   cd $pkgname-$pkgver
   python -m venv --system-site-packages test-env
-  test-env/bin/python -m install --optimize=1 dist/*.whl
+  test-env/bin/python -m installer --compile-bytecode=1 dist/*.whl
   test-env/bin/python -m pytest
 }
 
 package() {
   cd $pkgname-$pkgver
-  python -m install --optimize=1 --destdir="$pkgdir" dist/*.whl
-
-  # https://github.com/FFY00/python-install/pull/6
-  chmod +x "$pkgdir"/usr/bin/*
+  python -m installer --destdir="$pkgdir" --compile-bytecode=1 dist/*.whl
 
   cd "examples/IPython Kernel"
   # FS#45120
