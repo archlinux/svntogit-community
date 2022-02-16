@@ -9,7 +9,7 @@ arch=('any')
 url=https://github.com/alexmojaki/executing
 license=('MIT')
 depends=('python')
-makedepends=('python-build' 'python-install' 'python-setuptools-scm'
+makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
              'python-wheel')
 checkdepends=('python-asttokens' 'python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
@@ -24,14 +24,14 @@ build() {
 check() {
   cd "$_name-$pkgver"
   python -m venv --system-site-packages test-env
-  test-env/bin/python -m install --optimize=1 dist/*.whl
+  test-env/bin/python -m installer --compile-bytecode=1 dist/*.whl
   test-env/bin/python tests/test_main.py
   test-env/bin/python -m pytest tests/test_pytest.py
 }
 
 package() {
   cd "$_name-$pkgver"
-  python -m install --optimize=1 --destdir="$pkgdir" dist/*.whl
+  python -m installer --destdir="$pkgdir" --compile-bytecode=1 dist/*.whl
 
   # Symlink license file
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
