@@ -13,7 +13,6 @@ url="https://refspecs.linuxfoundation.org/lsb.shtml"
 license=('GPL')
 depends=('sh')
 makedepends=('git')
-install=lsb-release.install
 source=("git+https://github.com/LinuxStandardBase/lsb-samples.git#commit=$_commit"
         lsb-release
         lsb_release_make_man_page_reproducible.patch)
