@@ -1,25 +1,22 @@
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
 
 _pkgname=installer
 pkgname=python-$_pkgname
-pkgver=0.2.3
-pkgrel=2
+pkgver=0.5.0
+pkgrel=1
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
 url='https://github.com/pradyunsg/installer'
 license=('MIT')
 depends=('python')
-makedepends=('git' 'python-setuptools' 'python-dephell'
-             'python-sphinx' 'python-sphinx-furo' 'python-myst-parser')
+makedepends=('git' 'python-flit-core' 'python-setuptools'
+             'python-sphinx' 'python-sphinx-furo' 'python-myst-parser'
+             'python-sphinx-argparse')
 checkdepends=('python-pytest' 'python-mock')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz")
-sha512sums=('daa80c11e734ffa520779c7e08df4779f41dec429ebf642f024d575cfd952da0bbd0cc78190ca1b50bbcff3adf5cf5d97c4f1f605714d5f8fd40a21a64fbe623')
-
-prepare() {
-  cd $_pkgname-$pkgver
-
-  dephell deps convert --from pyproject.toml --to setup.py
-}
+source=("https://files.pythonhosted.org/packages/source/${_pkgname::1}/${_pkgname}/${_pkgname}-${pkgver}.tar.gz")
+sha256sums=('0cd6bdab3b358cf7e8749370b99aef9e12202751271c5ddb22126599b34dc665')
+sha512sums=('7ff44c24d43080737261ad6b422b202638a414429cfc674d54f66a53e28a451dc29c73dc721bcd26bb447b80e965dc2c6a1c8bc5543eb39763776f6f4ed2bfcc')
 
 build() {
   cd $_pkgname-$pkgver
