@@ -4,8 +4,8 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.5.9
-pkgrel=2
+pkgver=1.6.0
+pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
@@ -37,7 +37,7 @@ check() {
 
 package() {
   cd "${pkgname}" 
-  make DESTDIR="$pkgdir/usr" install
+  make PREFIX=/usr DESTDIR="$pkgdir/usr" install
   install -Dm644 containerd.service "$pkgdir"/usr/lib/systemd/system/containerd.service
   install -Dm644 man/*.8 -t "$pkgdir/usr/share/man/man8"
   install -Dm644 man/*.5 -t "$pkgdir/usr/share/man/man5"
