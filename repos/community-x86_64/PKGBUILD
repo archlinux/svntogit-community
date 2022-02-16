@@ -5,7 +5,7 @@
 
 pkgname=mattermost
 pkgver=6.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
 url="https://mattermost.com"
@@ -68,13 +68,14 @@ build() {
     export CGO_CXXFLAGS="$CXXFLAGS"
     export CGO_LDFLAGS="$LDFLAGS"
     export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+    local _config=github.com/mattermost/mattermost-server/v6/model
     go build -v \
          -ldflags "-linkmode external
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildNumber=$pkgver-$pkgrel\" \
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildDate=$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +"%Y-%m-%d %H:%M:%S")\" \
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildHash=$pkgver-$pkgrel Arch Linux ($CARCH)\" \
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildHashEnterprise=none\" \
-                   -X \"github.com/mattermost/mattermost-server/v5/model.BuildEnterpriseReady=false\"" \
+                   -X \"$_config.BuildNumber=$pkgver-$pkgrel\" \
+                   -X \"$_config.BuildDate=$(date --utc --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +"%Y-%m-%d %H:%M:%S")\" \
+                   -X \"$_config.BuildHash=$pkgver-$pkgrel Arch Linux ($CARCH)\" \
+                   -X \"$_config.BuildHashEnterprise=none\" \
+                   -X \"$_config.BuildEnterpriseReady=false\"" \
          -o bin/ ./...
     # Move to the client directory to avoid LDFLAGS pollution of a `make build-client` invocation
     cd "../$_webapp_archive"
