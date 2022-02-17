@@ -4,7 +4,7 @@ pkgname=electron9
 pkgver=9.4.4
 _commit=f981f3a7c41767fa5ec13cbc8e2242129db96e7a
 _chromiumver=83.0.4103.122
-pkgrel=4
+pkgrel=5
 pkgdesc='Build cross platform desktop apps with web technologies'
 arch=('x86_64')
 url='https://electronjs.org/'
@@ -18,6 +18,7 @@ optdepends=('kde-cli-tools: file deletion support (kioclient5)'
             'libappindicator-gtk3: StatusNotifierItem support'
             'trash-cli: file deletion support (trash-put)'
             "xdg-utils: open URLs with desktop's default (xdg-email, xdg-open)")
+options=('!lto') # Electron adds its own flags for ThinLTO
 source=('git+https://github.com/electron/electron.git'
         'git+https://chromium.googlesource.com/chromium/tools/depot_tools.git'
         'electron9.desktop'
@@ -33,6 +34,7 @@ source=('git+https://github.com/electron/electron.git'
         'chromium-include-limits.patch'
         'chromium-skia-harmony.patch'
         'sql-make-VirtualCursor-standard-layout-type.patch'
+        'ffmpeg5.patch'
         'disk_data_allocator-Metadata-constructor.patch'
         'clean-up-a-call-to-set_utf8.patch'
         'include-memory-header-to-get-the-definition-of-std-u.patch'
@@ -57,6 +59,7 @@ sha256sums=('SKIP'
             'cb8e4c347169f145d2f08329e25125eb2a3682bfc3530c674cf1ffad89431bdf'
             '771292942c0901092a402cc60ee883877a99fb804cb54d568c8c6c94565a48e1'
             'dd317f85e5abfdcfc89c6f23f4c8edbcdebdd5e083dcec770e5da49ee647d150'
+            '4f32b815349357ef1f17b36059cee588c994472b9754a194fff41ec21a93826b'
             '52a63a84a10dc501a0712a76170cfa12abc02ed4efe93486a1e6139b1670f90c'
             '58c41713eb6fb33b6eef120f4324fa1fb8123b1fbc4ecbe5662f1f9779b9b6af'
             '071326135bc25226aa165639dff80a03670a17548f2d2ff5cc4f40982b39c52a'
@@ -146,6 +149,13 @@ prepare() {
   cd ..
 
   echo "Applying local patches..."
+
+  patch -Np1 -i ../ffmpeg5.patch
+  # Patches to build with ffmpeg 4.4; remove when ffmpeg 5.0 moves to stable
+  if ! pkg-config --atleast-version 59 libavformat; then
+    patch -Rp1 -i ../ffmpeg5.patch
+  fi
+
   patch -Np1 -i ../add-missing-algorithm-header-in-crx_install_error.cc.patch
   patch -Np1 -i ../avoid-double-destruction-of-ServiceWorkerObjectHost.patch
   patch -Np1 -i ../chromium-83-gcc-10.patch
@@ -196,6 +206,14 @@ build() {
 
   # Workaround for building with ICU 68.x
   CPPFLAGS+=' -DU_DEFINE_FALSE_AND_TRUE=1'
+
+  CFLAGS="${CFLAGS/-fexceptions/}"
+  CXXFLAGS="${CXXFLAGS/-fexceptions/}"
+
+  # This appears to cause random segfaults when combined with ThinLTO
+  # https://bugs.archlinux.org/task/73518
+  CFLAGS=${CFLAGS/-fstack-clash-protection}
+  CXXFLAGS=${CXXFLAGS/-fstack-clash-protection}
 
   # Do not warn about unknown warning options
   CFLAGS+='   -Wno-unknown-warning-option'
