@@ -4,24 +4,24 @@
 _pkgname=installer
 pkgname=python-$_pkgname
 pkgver=0.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
 url='https://github.com/pradyunsg/installer'
 license=('MIT')
 depends=('python')
-makedepends=('git' 'python-flit-core' 'python-setuptools'
+makedepends=('git' 'python-flit-core' 'python-build'
              'python-sphinx' 'python-sphinx-furo' 'python-myst-parser'
              'python-sphinx-argparse')
 checkdepends=('python-pytest' 'python-mock')
-source=("https://files.pythonhosted.org/packages/source/${_pkgname::1}/${_pkgname}/${_pkgname}-${pkgver}.tar.gz")
-sha256sums=('0cd6bdab3b358cf7e8749370b99aef9e12202751271c5ddb22126599b34dc665')
-sha512sums=('7ff44c24d43080737261ad6b422b202638a414429cfc674d54f66a53e28a451dc29c73dc721bcd26bb447b80e965dc2c6a1c8bc5543eb39763776f6f4ed2bfcc')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz")
+sha256sums=('e993aa80138d7aa463f1950f013a884c7bad9b1148f083753351d97f3727dc4c')
+sha512sums=('8731bbf8a51b1094dc87f84575eec07a650988bdeddf205d04cf80a5088eac0d8b2927022864f4011a9562fcaae9f511747e5672f94ec3cce1dccdfa833c4fce')
 
 build() {
   cd $_pkgname-$pkgver
 
-  python setup.py build
+  python -m build -wn
 
   PYTHONPATH=src sphinx-build -b dirhtml -v docs docs/build/html
 }
@@ -35,7 +35,7 @@ check() {
 package() {
   cd $_pkgname-$pkgver
 
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  PYTHONPATH=src python -m installer --destdir="$pkgdir" dist/*.whl
 
   # remove windows entrypoint scripts executables
   rm "$pkgdir"/usr/lib/python*/site-packages/installer/_scripts/*.exe
