@@ -1,4 +1,5 @@
-# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
 # Contributor: George Rawlinson <george@rawlinson.net.nz>
 
 _pkgname=poetry-core
