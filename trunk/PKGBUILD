@@ -13,8 +13,8 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=6.0.0.sdk100
-pkgrel=2
+pkgver=6.0.2.sdk102
+pkgrel=1
 _bootstrapver=0.1.0-6.0.100-bootstrap.29
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -23,6 +23,7 @@ makedepends=(
   bash
   clang
   cmake
+  dotnet-sdk
   git
   icu
   inetutils
@@ -39,8 +40,11 @@ makedepends=(
   zlib
 )
 optdepends=('bash-completion: Bash completion support')
-options=(staticlibs)
-_tag=9e8b04bbff820c93c142f99a507a46b976f5c14c
+options=(
+  !lto
+  staticlibs
+)
+_tag=49861cb924cdd74be8de19206b48de4f04c0ecbe
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
@@ -56,9 +60,11 @@ b2sums=('SKIP'
         '95b083b842da6049a084ca015b7ddc099550aa818fc382d556cca832fee52265be568d20a2c50e70819aef6cf879e7a368f7dd3b5966356643b2efdd756e73f4')
 
 prepare() {
+  cp -r /usr/share/dotnet .
   cd dotnet-installer
   # fix bootstrap
   git remote set-url origin https://github.com/dotnet/installer.git
+  git cherry-pick -n f8e115fadf6e8b392fa007e78d9b77fc64590cdd
 }
 
 pkgver() {
@@ -84,20 +90,45 @@ pkgver() {
 }
 
 build() {
+  export COMPlus_LTTng=0
+  export VERBOSE=1
+
+  CFLAGS=$(echo $CFLAGS  | sed -e 's/-fstack-clash-protection//' )
+  CXXFLAGS=$(echo $CXXFLAGS  | sed -e 's/-fstack-clash-protection//' )
+  export EXTRA_CFLAGS="$CFLAGS"
+  export EXTRA_CXXFLAGS="$CXXFLAGS"
+  export EXTRA_LDFLAGS="$LDFLAGS"
+  unset CFLAGS
+  unset CXXFLAGS
+  unset LDFLAGS
+
   cd dotnet-installer
+
   ./build.sh \
     /p:ArcadeBuildTarball=true \
     /p:TarballDir="${srcdir}"/sources
+
   cd ../sources
-  pushd src/runtime.*
-  patch -Np1 -i ../../../dotnet-core-runtime-disable-package-validation.patch
-  popd
+
+  sed -i -E 's|( /p:BuildDebPackage=false)|\1 /p:EnablePackageValidation=false|' src/runtime.*/eng/SourceBuild.props
+  sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_LIBUNWIND=TRUE|' src/runtime.*/eng/SourceBuild.props
+
   pushd src/sdk.*
   patch -Np1 -i ../../../dotnet-core-sdk-telemetry-optout.patch
   popd
+
   ln -sf "${srcdir}"/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz packages/archive/
+
   ./prep.sh
-  ./build.sh
+  ./build.sh \
+    --with-sdk "${srcdir}"/dotnet \
+    -- \
+    /v:n \
+    /p:ContinueOnPrebuiltBaselineError=true \
+    /p:LogVerbosity=n \
+    /p:MinimalConsoleLogOutput=false \
+    /p:PrebuiltPackagesPath="${srcdir}"/sources/packages \
+    /p:SkipPortableRuntimeBuild=true
 }
 
 package_dotnet-host() {
