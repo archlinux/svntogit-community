@@ -3,9 +3,8 @@
 
 pkgname=keycloak
 pkgver=17.0.0
-_postgresql_jdbc=42.3.2
 _java=11
-pkgrel=1
+pkgrel=2
 pkgdesc="Open Source Identity and Access Management For Modern Applications and Services"
 arch=('any')
 url="https://www.keycloak.org/"
@@ -13,36 +12,26 @@ license=('Apache')
 depends=("java-runtime=${_java}" 'grep' 'bash' 'coreutils' 'util-linux')
 makedepends=('maven' 'git' "java-environment=${_java}")
 backup=(
-  opt/keycloak/standalone/configuration/application-roles.properties
-  opt/keycloak/standalone/configuration/application-users.properties
-  opt/keycloak/standalone/configuration/logging.properties
-  opt/keycloak/standalone/configuration/mgmt-groups.properties
-  opt/keycloak/standalone/configuration/mgmt-users.properties
-  opt/keycloak/standalone/configuration/standalone-ha.xml
-  opt/keycloak/standalone/configuration/standalone.xml
+  'etc/keycloak/keycloak.conf'
 )
+install=keycloak.install
 options=(emptydirs)
 source=(https://github.com/keycloak/keycloak/archive/$pkgver/$pkgname-$pkgver.tar.gz
         keycloak.service
         keycloak.sysusers
         keycloak.tmpfiles
-        layers.conf
-        postgresql-module.xml
-        https://jdbc.postgresql.org/download/postgresql-${_postgresql_jdbc}.jar
         common.sh
         pin-java-version.patch)
 sha512sums=('5d6cde979db234dc58d591958fbf4acdb45d461666e4fa9d9616551ce792c18c750f4d5336853052408c0e88ca445944937f1f167ec9ce1eb50732981e84b770'
-            'dd10a38e4c8867de6d1fcbb4939c6c5946684842462eba3d5355bf1de13fa059edfd5eba37adce587c824ddd618b6bb88d4bbe1ee568ca5abd0f72296da3ddfe'
-            'c53b734598ccf675930754514bd2af628355025197e77541e5acb8718629a8ece763c814e8373278758a30475e6a716febeff10bdebf0847d914bc193e732c79'
-            '9382b42f09040e34fe1a27d9ff4fb87cabd41525ca26f8ea9629df0169cf93d95cc4bb62bcc5c2ca30efdfd7eeeb13a6f090df9a05823baf701ba729a47f6fd1'
-            'd54a04c120edb933c4f7168460bd813ff92a4e3771cedcabfeeb76c5d3e057b3cd0d0486dc11ddbd91e8d87ca90193e4c74cc3414e45106dd556d455ac7e60b2'
-            '5eece4f3eb57372969f0e5319804198b546455828e938ff7f37bbcfb58be08efde43a5b0376c98f359c4bc5eb069e0cd9410daefe19da1c03e9e9c57d3c1b75b'
-            'e28b5a2b15b7b12f3b0c76b914f9aca25867175bc87a0ca84da58e50a5c518c5de94e27ea6d570499b1320c9f8072f1022d08356e9a0e96b3bf9b1084e1f9aea'
+            '1512520528b6893997b8a3c4899fbb84a897f604f279f64fc1228785a27544499f1c8951f8997129fb2b857d2d3c11b09fb9493f83faa20a0594c759adbe0823'
+            '2e2ba147007ad74e38579a8838d79de47beac509b4bd1a14d7f80905953d79a7396d781f141b461ec688f5ceef9a1081a825a4ca8afc1ea12c178d8ae7f5a7dd'
+            '362be58e0f18094a6849aaec56ee51aeb72bf62805c87709aa1f435770891138a6cfe2a7de9a1f106212bda0b905f225fcace299a8b811cc6d977783449538e6'
             '4ae3f9fc42bfee602480c1c8cc2d65b44305622b426b74070758fe1c92a06ff12901ffebacbfe2ba34cbf783a8787f6073f74db3674c96e7a6109ed5b45d3a07'
-            'cb7d95aef66303c7935714c58c51aa1714419c455a6f46c32a79e80dbe4b6523d0dd77bb5f606c5cfdf0380f01220af720f93285658fc19a38b860344a2b9198')
+            'c0351896427c7b7b73f446481a30dc735365a91541e7039cd613d1c7357c55c9559e388bc260e004c2a52211df1d23d9e24cc9c8ca956398f6e508ef96cb0ee2')
 
 prepare() {
   cd $pkgname-$pkgver
+
   patch -Np1 -i "$srcdir"/pin-java-version.patch
 }
 
@@ -50,39 +39,47 @@ build() {
   cd $pkgname-$pkgver
 
   export PATH="/usr/lib/jvm/java-${_java}-openjdk/bin:$PATH"
-  mvn -Pdistribution \
+  mvn -am \
     -s maven-settings.xml \
-    -pl distribution/server-dist \
-    -am \
-    -Dmaven.test.skip \
-    clean install
+    -DskipTestsuite \
+    -DskipExamples \
+    -DskipTests \
+    -Dproject.build.outputTimestamp="$SOURCE_DATE_EPOCH" \
+    clean package
 }
 
 package() {
   cd $pkgname-$pkgver
 
-  mkdir -p "$pkgdir/opt"
-  cp -r "distribution/server-dist/target/keycloak-$pkgver" "$pkgdir/opt/keycloak"
-  install -Dm 644 "$srcdir"/layers.conf -t "$pkgdir/opt/keycloak/modules"
-  install -d "$pkgdir"/opt/keycloak/standalone/{data,log}
+  install -vdm 755 "${pkgdir}"/{usr/share/java,var/log}/"${pkgname}"
+  install -vdm 755 "${pkgdir}"/var/lib/"${pkgname}"/{deployments,data}
+  install -vdm 755 "${pkgdir}"/usr/bin
 
-  install -Dm644 "$srcdir"/postgresql-${_postgresql_jdbc}.jar "$pkgdir"/opt/keycloak/modules/system/layers/keycloak/org/postgresql/main/postgresql-${_postgresql_jdbc}.jar
-  sed "s/@JDBC_POSTGRESQL_JAR@/postgresql-${_postgresql_jdbc}.jar/g" "$srcdir"/postgresql-module.xml > "$pkgdir"/opt/keycloak/modules/system/layers/keycloak/org/postgresql/main/module.xml
+  tar xf quarkus/dist/target/${pkgname}-${pkgver}.tar.gz --strip 1 \
+    -C "${pkgdir}/usr/share/java/${pkgname}"
+  install -vDm 755 "${srcdir}/common.sh" "${pkgdir}/usr/share/java/${pkgname}/bin/common.sh"
+  # Clean up unwanted files
+  rm -rvf "${pkgdir}/usr/share/java/${pkgname}"/LICENSE.txt
+  rm -rvf "${pkgdir}/usr/share/java/${pkgname}"/bin/*.bat
+  # Fix permissions from untar
+  chown -R root:root "${pkgdir}/usr/share/java/${pkgname}"
 
-  install -d "$pkgdir/"{etc,var/log,var/lib/keycloak}
-  ln -s /opt/keycloak/standalone/configuration "$pkgdir/etc/keycloak"
-  ln -s /opt/keycloak/standalone/log "$pkgdir/var/log/keycloak"
-  ln -s /opt/keycloak/standalone/deployments "$pkgdir/var/lib/keycloak/deployments"
+  install -vdm 755 "${pkgdir}/etc"
+  mv -v "${pkgdir}/usr/share/java/${pkgname}/conf" "${pkgdir}/etc/${pkgname}"
 
-  install -Dm644 "$srcdir"/keycloak.service "$pkgdir"/usr/lib/systemd/system/keycloak.service
-  install -Dm644 "$srcdir"/keycloak.sysusers "$pkgdir"/usr/lib/sysusers.d/keycloak.conf
-  install -Dm644 "$srcdir"/keycloak.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/keycloak.conf
+  ln -svf /var/log/keycloak "${pkgdir}/usr/share/java/${pkgname}/log"
+  ln -svf /var/lib/keycloak/deployments "${pkgdir}/usr/share/java/${pkgname}/deployments"
+  ln -svf /var/lib/keycloak/data "${pkgdir}/usr/share/java/${pkgname}/data"
 
-  mkdir -p "$pkgdir"/usr/bin
-  ln -s /opt/keycloak/bin/kcadm.sh "$pkgdir"/usr/bin/kcadm
-  ln -s /opt/keycloak/bin/kcreg.sh "$pkgdir"/usr/bin/kcreg
+  install -vDm 644 "${srcdir}"/keycloak.service "${pkgdir}"/usr/lib/systemd/system/keycloak.service
+  install -vDm 644 "${srcdir}"/keycloak.sysusers "${pkgdir}"/usr/lib/sysusers.d/keycloak.conf
+  install -vDm 644 "${srcdir}"/keycloak.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/keycloak.conf
 
-  install -Dm644 "$srcdir"/common.sh "$pkgdir"/opt/keycloak/bin/common.sh
+  ln -svf /usr/share/java/keycloak/bin/kc.sh "${pkgdir}"/usr/bin/kc.sh
+  ln -svf /usr/share/java/keycloak/bin/kcadm.sh "${pkgdir}"/usr/bin/kcadm.sh
+  ln -svf /usr/share/java/keycloak/bin/kcreg.sh "${pkgdir}"/usr/bin/kcreg.sh
+
+  install -Dm 644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
 }
 
 # vim: ts=2 sw=2 et:
