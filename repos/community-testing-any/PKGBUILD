@@ -1,0 +1,85 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
+# Contributor: Nikita Volodin <volodin.n at gmail dot com>
+
+pkgname=keycloak
+pkgver=17.0.0
+_java=11
+pkgrel=2
+pkgdesc="Open Source Identity and Access Management For Modern Applications and Services"
+arch=('any')
+url="https://www.keycloak.org/"
+license=('Apache')
+depends=("java-runtime=${_java}" 'grep' 'bash' 'coreutils' 'util-linux')
+makedepends=('maven' 'git' "java-environment=${_java}")
+backup=(
+  'etc/keycloak/keycloak.conf'
+)
+install=keycloak.install
+options=(emptydirs)
+source=(https://github.com/keycloak/keycloak/archive/$pkgver/$pkgname-$pkgver.tar.gz
+        keycloak.service
+        keycloak.sysusers
+        keycloak.tmpfiles
+        common.sh
+        pin-java-version.patch)
+sha512sums=('5d6cde979db234dc58d591958fbf4acdb45d461666e4fa9d9616551ce792c18c750f4d5336853052408c0e88ca445944937f1f167ec9ce1eb50732981e84b770'
+            '1512520528b6893997b8a3c4899fbb84a897f604f279f64fc1228785a27544499f1c8951f8997129fb2b857d2d3c11b09fb9493f83faa20a0594c759adbe0823'
+            '2e2ba147007ad74e38579a8838d79de47beac509b4bd1a14d7f80905953d79a7396d781f141b461ec688f5ceef9a1081a825a4ca8afc1ea12c178d8ae7f5a7dd'
+            '362be58e0f18094a6849aaec56ee51aeb72bf62805c87709aa1f435770891138a6cfe2a7de9a1f106212bda0b905f225fcace299a8b811cc6d977783449538e6'
+            '4ae3f9fc42bfee602480c1c8cc2d65b44305622b426b74070758fe1c92a06ff12901ffebacbfe2ba34cbf783a8787f6073f74db3674c96e7a6109ed5b45d3a07'
+            'c0351896427c7b7b73f446481a30dc735365a91541e7039cd613d1c7357c55c9559e388bc260e004c2a52211df1d23d9e24cc9c8ca956398f6e508ef96cb0ee2')
+
+prepare() {
+  cd $pkgname-$pkgver
+
+  patch -Np1 -i "$srcdir"/pin-java-version.patch
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  export PATH="/usr/lib/jvm/java-${_java}-openjdk/bin:$PATH"
+  mvn -am \
+    -s maven-settings.xml \
+    -DskipTestsuite \
+    -DskipExamples \
+    -DskipTests \
+    -Dproject.build.outputTimestamp="$SOURCE_DATE_EPOCH" \
+    clean package
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -vdm 755 "${pkgdir}"/{usr/share/java,var/log}/"${pkgname}"
+  install -vdm 755 "${pkgdir}"/var/lib/"${pkgname}"/{deployments,data}
+  install -vdm 755 "${pkgdir}"/usr/bin
+
+  tar xf quarkus/dist/target/${pkgname}-${pkgver}.tar.gz --strip 1 \
+    -C "${pkgdir}/usr/share/java/${pkgname}"
+  install -vDm 755 "${srcdir}/common.sh" "${pkgdir}/usr/share/java/${pkgname}/bin/common.sh"
+  # Clean up unwanted files
+  rm -rvf "${pkgdir}/usr/share/java/${pkgname}"/LICENSE.txt
+  rm -rvf "${pkgdir}/usr/share/java/${pkgname}"/bin/*.bat
+  # Fix permissions from untar
+  chown -R root:root "${pkgdir}/usr/share/java/${pkgname}"
+
+  install -vdm 755 "${pkgdir}/etc"
+  mv -v "${pkgdir}/usr/share/java/${pkgname}/conf" "${pkgdir}/etc/${pkgname}"
+
+  ln -svf /var/log/keycloak "${pkgdir}/usr/share/java/${pkgname}/log"
+  ln -svf /var/lib/keycloak/deployments "${pkgdir}/usr/share/java/${pkgname}/deployments"
+  ln -svf /var/lib/keycloak/data "${pkgdir}/usr/share/java/${pkgname}/data"
+
+  install -vDm 644 "${srcdir}"/keycloak.service "${pkgdir}"/usr/lib/systemd/system/keycloak.service
+  install -vDm 644 "${srcdir}"/keycloak.sysusers "${pkgdir}"/usr/lib/sysusers.d/keycloak.conf
+  install -vDm 644 "${srcdir}"/keycloak.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/keycloak.conf
+
+  ln -svf /usr/share/java/keycloak/bin/kc.sh "${pkgdir}"/usr/bin/kc.sh
+  ln -svf /usr/share/java/keycloak/bin/kcadm.sh "${pkgdir}"/usr/bin/kcadm.sh
+  ln -svf /usr/share/java/keycloak/bin/kcreg.sh "${pkgdir}"/usr/bin/kcreg.sh
+
+  install -Dm 644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
+}
+
+# vim: ts=2 sw=2 et:
