@@ -10,7 +10,7 @@ arch=(any)
 url=https://github.com/python/typing/tree/master/typing_extensions
 license=(custom)
 depends=(python)
-makedepends=(git python-build python-flit-core python-install)
+makedepends=(git python-build python-flit-core python-installer)
 checkdepends=(python-tests)
 provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
@@ -33,14 +33,14 @@ check() {
   cd typing/typing_extensions
 
   python -m venv --system-site-packages test-env
-  test-env/bin/python -m install --optimize=1 dist/*.whl
+  test-env/bin/python -m installer dist/*.whl
   test-env/bin/python src/test_typing_extensions.py
 }
 
 package() {
   cd typing/typing_extensions
 
-  python -m install --optimize=1 --destdir="${pkgdir}" dist/*.whl
+  python -m installer --destdir="${pkgdir}" dist/*.whl
 
   # Symlink license file
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
