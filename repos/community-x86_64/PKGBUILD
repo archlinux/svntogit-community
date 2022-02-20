@@ -5,24 +5,34 @@
 _name=setBfree
 pkgname=setbfree
 pkgver=0.8.11
-pkgrel=2
+pkgrel=3
 pkgdesc="DSP tonewheel organ"
-arch=('x86_64')
+arch=(x86_64)
 url="http://setbfree.org"
-license=('GPL2')
-groups=('lv2-plugins' 'pro-audio')
-depends=('cairo' 'ftgl' 'glibc' 'libglvnd' 'libx11')
-makedepends=('gendesk' 'glib2' 'jack' 'liblo' 'lv2' 'pango' 'ttf-dejavu')
-optdepends=('jack: for standalone applications'
-            'liblo: for standalone applications'
-            'lv2-host: for LV2 plugin')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/pantherb/${_name}/archive/v${pkgver}.tar.gz")
-sha512sums=('1db2ee90032efee3c24ee99071e11c064a2fbc82f1126346ec0667e1e91f09ffab781bcdb8fa766613711779cdfd85b486e0043f99073d8072ac92e214241c88')
-b2sums=('63b89fb4865ef449d3e291c547f2e115b5fcb0e5de280353e58b3b25e9b9c4d7291df09b2c486d8819295e367a1f3128c0fb5a6bf3b144a999e8ae634eda5f4c')
+license=(GPL2)
+groups=(lv2-plugins pro-audio)
+depends=(cairo ftgl glibc libglvnd libx11)
+makedepends=(gendesk glib2 jack liblo lv2 pango ttf-dejavu)
+checkdepends=(lv2lint)
+optdepends=(
+  'jack: for standalone applications'
+  'liblo: for standalone applications'
+  'lv2-host: for LV2 plugin'
+)
+options=(debug)
+source=(
+  "$pkgname-$pkgver.tar.gz::https://github.com/pantherb/${_name}/archive/v${pkgver}.tar.gz"
+  "$pkgname-0.8.11-gl.patch"
+)
+sha512sums=('1db2ee90032efee3c24ee99071e11c064a2fbc82f1126346ec0667e1e91f09ffab781bcdb8fa766613711779cdfd85b486e0043f99073d8072ac92e214241c88'
+            'a381781e1a2e9d71267f156ff0c4879ff7b3c73da1be7a7e437fda5208154330914911e46b16c1e0290ded9ccc339b402dbc0ad32766e13d777afc95ce5c9133')
+b2sums=('63b89fb4865ef449d3e291c547f2e115b5fcb0e5de280353e58b3b25e9b9c4d7291df09b2c486d8819295e367a1f3128c0fb5a6bf3b144a999e8ae634eda5f4c'
+        '796907c3ae4398cfed56c4109325eeeaf853dd467fbbb386f67c8f6e61cd04bb6d341bbe97c16c21ae5ea770f9c6574a35bb4f9ab460b93ba54bf86eab7a24c9')
 
 prepare() {
-  mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
-  # XDG desktop files
+  # add missing library to link against: https://github.com/pantherb/setBfree/pull/84
+  patch -d $_name-$pkgver -p1 -i ../$pkgname-0.8.11-gl.patch
+
   gendesk -n \
           --pkgname "${pkgname}" \
           --name "${_name}" \
@@ -40,23 +50,26 @@ prepare() {
 }
 
 build() {
-  cd "$pkgname-$pkgver"
   export FONTFILE=/usr/share/fonts/TTF/DejaVuSans-Bold.ttf
-  make PREFIX=/usr
+  make PREFIX=/usr -C $_name-$pkgver
+}
+
+check() {
+  lv2lint -Mpack -I $_name-$pkgver/b_synth "http://gareus.org/oss/lv2/b_synth"
+  lv2lint -Mpack -I $_name-$pkgver/b_whirl "http://gareus.org/oss/lv2/b_whirl#simple"
+  lv2lint -Mpack -I $_name-$pkgver/b_whirl "http://gareus.org/oss/lv2/b_whirl#extended"
 }
 
 package() {
-  depends+=('libgobject-2.0.so' 'libpango-1.0.so' 'libpangocairo-1.0.so')
-  cd "$pkgname-$pkgver"
-  make PREFIX=/usr DESTDIR="$pkgdir/" install
+  depends+=(libgobject-2.0.so libpango-1.0.so libpangocairo-1.0.so)
+
+  make PREFIX=/usr DESTDIR="$pkgdir" install -C $_name-$pkgver
   # xdg desktop files
-  install -vDm 644 ../*.desktop -t "${pkgdir}/usr/share/applications"
+  install -vDm 644 *.desktop -t "$pkgdir/usr/share/applications"
   # icons
-  install -vDm 644 doc/{${_name},x42-whirl}.png \
-    -t "${pkgdir}/usr/share/pixmaps/"
+  install -vDm 644 $_name-$pkgver/doc/{$_name,x42-whirl}.png -t "$pkgdir/usr/share/pixmaps/"
   # man
-  install -vDm 644 doc/*.1 -t "${pkgdir}/usr/share/man/man1/"
+  install -vDm 644 $_name-$pkgver/doc/*.1 -t "$pkgdir/usr/share/man/man1/"
   # docs
-  install -vDm 644 {AUTHORS,ChangeLog,README.md} doc/*.png \
-    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  install -vDm 644 $_name-$pkgver/{AUTHORS,ChangeLog,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
