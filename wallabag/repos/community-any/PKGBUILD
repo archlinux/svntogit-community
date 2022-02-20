@@ -1,0 +1,78 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Cedric Girard <cgirard [dot] archlinux [at] valinor [dot] fr>
+# Contributor: Philipp Schmitt (philipp<at>schmitt<dot>co)
+
+pkgname=wallabag
+pkgver=2.4.3
+pkgrel=1
+pkgdesc='Self hostable application for saving web pages'
+arch=('any')
+url='https://www.wallabag.org/'
+license=('MIT')
+makedepends=('systemd')
+depends=(
+  'php'
+  'php-gd'
+  'php-tidy'
+  'php-intl'
+  'pcre'
+)
+optdepends=(
+  'php-fpm: to run in FastCGI process manager'
+  'php-pgsql: to use a local PostgreSQL server'
+  'php-sqlite: to use the SQLite database backend'
+  'rabbitmq: to use a local RabbitMQ server for async import'
+  'redis: to use a local Redis server for async import'
+)
+options=('!strip')
+backup=("etc/$pkgname/parameters.yml")
+source=(
+  "https://github.com/wallabag/wallabag/releases/download/$pkgver/wallabag-$pkgver.tar.gz"
+  'sysusers.conf'
+  'tmpfiles.conf'
+)
+sha512sums=('50c7603382941a3aa66ab32c0b3a9ae4bcb76abe38e266fe2264cb68686cb20ef2f3c7228d31a06dc67e2f455cea79b1f7e86cacc52bee1afecdfd348ef648e2'
+            'ca908931c495211128686209444df943634ddae2b143f7ff2c01367041d0dbf2e33c8020d65dcc2b087c0b834fb1b10f20fe80ba04a4323ed8aeb9118596184f'
+            '5f7afac354f496d0f3507b771774fe192f124365c92b016f752b02bacccfe785f189374ed68a3bb9adc7024d4878490c279318642d3b1a6ccdc90939631f1d3e')
+b2sums=('b4e4d8faacfae74db984a7c0574148e0934a404be1285f86a107494c8d97ed79758aa873989c8f28088ff32fce265fe74d6c7cc78413083704360c9da1e7dbdb'
+        'a54033dcdaf35462252f6252f990ee7808ee36ac83bcf16b3ec473f7003f0ae5b7e361dacadeef3f0b52ab0abb24cfe44983ab580fbdc5b6b9f7c2f7faf24254'
+        '3105875aae0131ae9728f96bde67917ad2906a08dd9dfe908dd193e48158cad600e4225523c088d6ce99aa8f9b5e779b3a6bb469b3f083acabe23004eac6ff12')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+
+  # fix directory
+  sed -i \
+    -e "s@__DIR__.'/../@'/usr/share/$pkgname/@" \
+    var/bootstrap.php.cache
+}
+
+package() {
+  # create required directories
+  install -vd \
+    "$pkgdir/usr/share" \
+    "$pkgdir/etc/$pkgname" \
+    "$pkgdir/var/lib/$pkgname"
+
+  cp -r "$pkgname-$pkgver" "$pkgdir/usr/share/$pkgname"
+
+  # setup configuration file
+  mv -v "$pkgdir/usr/share/$pkgname/app/config/parameters.yml" "$pkgdir/etc/$pkgname"
+  ln -vsf "/etc/$pkgname/parameters.yml" "$pkgdir/usr/share/$pkgname/app/config/parameters.yml"
+
+  # setup data/var directories
+  mv -v "$pkgdir/usr/share/$pkgname/"{data,var} "$pkgdir/var/lib/$pkgname"
+  ln -vsf "/var/lib/$pkgname/"{data,var} "$pkgdir/usr/share/$pkgname/"
+
+
+  # allow 'download images locally' option
+  mv -v "$pkgdir/usr/share/$pkgname/web/assets/images" "$pkgdir/var/lib/$pkgname"
+  ln -vsf "/var/lib/$pkgname/images" "$pkgdir/usr/share/$pkgname/web/assets/images"
+
+  # systemd integration
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" "$pkgname-$pkgver/COPYING.md"
+}
