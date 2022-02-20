@@ -1,0 +1,62 @@
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+
+pkgbase=podman
+pkgname=(podman podman-docker)
+pkgver=4.0.0
+pkgrel=1
+pkgdesc='Tool and library for running OCI-based containers in pods'
+arch=(x86_64)
+url='https://github.com/containers/podman'
+license=(Apache)
+makedepends=(apparmor btrfs-progs device-mapper go go-md2man git gpgme
+             libseccomp systemd)
+# https://github.com/containers/podman/issues/13297
+options=(!lto)
+source=("git+$url#tag=v$pkgver?signed")
+validpgpkeys=(
+  'B7DBDCA456F7335E91F1C25CD3624C551D0515C4'  # Matthew Heon <mheon@redhat.com>
+  '7CE1E6F8C90CB53E7E4D8F2D502E08DB0BBF8EEE'  # Ashley Cui <acui@redhat.com>
+)
+sha256sums=('SKIP')
+
+pkgver() {
+  cd $pkgname
+  git describe --tags | sed 's/^v//;s/-/+/g'
+}
+
+build() {
+  # NOTE: the BUILDTAGS may change over time
+  export BUILDTAGS='apparmor seccomp systemd'
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath"
+
+  make EXTRA_LDFLAGS='-s -w -linkmode=external' -C $pkgbase
+  make docker-docs -C $pkgbase
+}
+
+package_podman() {
+  depends=(conmon containers-common crun fuse-overlayfs iptables
+  libdevmapper.so libgpgme.so libseccomp.so slirp4netns)
+  optdepends=('apparmor: for AppArmor support'
+              'btrfs-progs: support btrfs backend devices'
+              'catatonit: --init flag support'
+              'podman-docker: for Docker-compatible CLI')
+
+  make install install.completions DESTDIR="$pkgdir" PREFIX=/usr LIBEXECDIR=/usr/lib -C $pkgbase
+  # remove man pages provided by containers-common
+  rm -rvf "$pkgdir/usr/share/man/man5"
+}
+
+package_podman-docker() {
+  pkgdesc='Emulate Docker CLI using podman'
+  depends=(podman)
+  conflicts=(docker)
+  provides=(docker)
+
+  make -j1 install.docker-full DESTDIR="$pkgdir" PREFIX=/usr -C $pkgbase
+}
