@@ -1,0 +1,86 @@
+diff --git a/src/mailman/app/moderator.py b/src/mailman/app/moderator.py
+index 513d0108e..aa044b83d 100644
+--- a/src/mailman/app/moderator.py
++++ b/src/mailman/app/moderator.py
+@@ -189,7 +189,7 @@ def handle_message(mlist, id, action, comment=None, forward=None):
+     # Delete the request and message if it's not being kept.
+     if not keep:
+         # There are two pended tokens.  The request id has the moderator
+-        # token, but wee need to delete the user token too.
++        # token, but we need to delete the user token too.
+         user_token = None
+         pendings = getUtility(IPendings)
+         for token, data in pendings.find(pend_type='held message'):
+@@ -200,7 +200,14 @@ def handle_message(mlist, id, action, comment=None, forward=None):
+         if user_token is not None:
+             pendings.confirm(user_token, expunge=True)
+         requestdb.delete_request(id)
+-        message_store.delete_message(message_id)
++        # Only delete the message from the message store if there's no other
++        # request for it.
++        delete = True
++        for token, data in pendings.find(pend_type='data'):
++            if data['_mod_message_id'] == message_id:
++                delete = False
++        if delete:
++            message_store.delete_message(message_id)
+     # Log the rejection
+     if rejection:
+         note = """%s: %s posting:
+diff --git a/src/mailman/app/tests/test_moderation.py b/src/mailman/app/tests/test_moderation.py
+index a99048a48..1206611f5 100644
+--- a/src/mailman/app/tests/test_moderation.py
++++ b/src/mailman/app/tests/test_moderation.py
+@@ -206,9 +206,36 @@ Message-ID: <alpha>
+         self.assertIsNone(message)
+         self.assertIsNone(getUtility(IPendings).confirm(hash))
+ 
++    def test_handled_cross_posted_message_not_removed(self):
++        # A cross posted message is not removed when handled on the first list.
++        mlist2 = create_list('test2@example.com')
++        request_db2 = IListRequests(mlist2)
++        request_id = hold_message(self._mlist, self._msg)
++        request_id2 = hold_message(mlist2, self._msg)
++        # Get the hashes for these pending requests.
++        hash0 = list(self._request_db.held_requests)[0].data_hash
++        hash1 = list(request_db2.held_requests)[0].data_hash
++        # Handle the first list's message.
++        handle_message(self._mlist, request_id, Action.discard)
++        # There's now only the request for list2.
++        self.assertEqual(self._request_db.count, 0)
++        self.assertEqual(request_db2.count, 1)
++        message = getUtility(IMessageStore).get_message_by_id('<alpha>')
++        self.assertIsNotNone(message)
++        self.assertIsNone(getUtility(IPendings).confirm(hash0))
++        self.assertIsNotNone(getUtility(IPendings).confirm(hash1,
++                                                           expunge=False))
++        # Handle the second list's message.
++        handle_message(mlist2, request_id2, Action.discard)
++        # Now the request and message are gone.
++        self.assertEqual(request_db2.count, 0)
++        message = getUtility(IMessageStore).get_message_by_id('<alpha>')
++        self.assertIsNone(message)
++        self.assertIsNone(getUtility(IPendings).confirm(hash1))
++
+     def test_all_pendings_removed(self):
+         # A held message pends two tokens, One for the moderator and one for
+-        # the user.  Ensure both are removed when meddage is handled.
++        # the user.  Ensure both are removed when message is handled.
+         request_id = hold_message(self._mlist, self._msg)
+         # The hold chain does more.
+         pendings = getUtility(IPendings)
+diff --git a/src/mailman/app/moderator.py b/src/mailman/app/moderator.py
+index aa044b83d..898b14160 100644
+--- a/src/mailman/app/moderator.py
++++ b/src/mailman/app/moderator.py
+@@ -204,8 +204,9 @@ def handle_message(mlist, id, action, comment=None, forward=None):
+         # request for it.
+         delete = True
+         for token, data in pendings.find(pend_type='data'):
+-            if data['_mod_message_id'] == message_id:
++            if data and data.get('_mod_message_id') == message_id:
+                 delete = False
++                break
+         if delete:
+             message_store.delete_message(message_id)
+     # Log the rejection
