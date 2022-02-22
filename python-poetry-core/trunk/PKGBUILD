@@ -5,7 +5,7 @@
 _pkgname=poetry-core
 pkgname=python-poetry-core
 pkgver=1.0.7
-pkgrel=4
+pkgrel=5
 pkgdesc="Poetry PEP 517 Build Backend & Core Utilities"
 arch=('any')
 url="https://github.com/python-poetry/${_pkgname}"
@@ -25,6 +25,8 @@ prepare() {
 	# remove vendored dependencies
 	sed -i '/^__version__/!d' poetry/core/__init__.py
 	rm -r poetry/core/_vendor
+	# be a proper namespace, python3-only ;)
+	rm poetry/__init__.py
 }
 
 build() {
