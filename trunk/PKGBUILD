@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.1.13
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -28,7 +28,7 @@ _deps=(cachecontrol
        tomlkit
        virtualenv)
 depends=("${_deps[@]/#/python-}")
-makedepends=(python-dephell)
+makedepends=(python-{build,installer})
 checkdepends=(git
               python-httpretty
               python-pytest
@@ -51,13 +51,12 @@ prepare() {
 	# fix tests trying to write to the root directory
 	# See: https://github.com/python-poetry/poetry/issues/1645
 	patch -p1 -i ../0001-tests-cleanup-cache-and-http-usage.patch
-	dephell deps convert --from pyproject.toml --to setup.py
 	install -m0755 -t ./ ../poetry-completions-generator
 }
 
 build() {
 	cd "$_archive"
-	python setup.py build
+	python -m build -wn
 }
 
 check() {
@@ -71,7 +70,7 @@ check() {
 
 package() {
 	cd "$_archive"
-	python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+	python -m installer -d "$pkgdir" dist/*.whl
 	install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
 	# install completions, which for some crazy reason hardcode the filename
 	# used to invoke which is __main__.py if we use python -m poetry, and also
