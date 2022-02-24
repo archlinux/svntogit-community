@@ -2,36 +2,33 @@
 # Contributor: Tomislav Ivek <tomislav.ivek@gmail.com>
 
 pkgname=python-distro
-pkgver=1.6.0
-pkgrel=4
+pkgver=1.7.0
+pkgrel=1
 pkgdesc='Linux OS platform information API'
 url='https://github.com/python-distro/distro'
 arch=('any')
 license=('Apache')
 depends=('python' 'python-setuptools')
-makedepends=('python-setuptools' 'python-sphinx')
+makedepends=('python-sphinx' 'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest')
 options=('!makeflags')
 source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('48cff21ea152ec57c4505a72ffb1af5a138199f10ea908e138d16f48732f602a5b4f8bec2ee76b629981a1625453adf1b6895f4573229002b3b3ff7b76efbede')
-b2sums=('558c4b1fcb93882b589375dd719f0f6100e4a78bbe9f167821c1588f82abbe00afd68f22f191f3722f0dd4358d76a6e295c8e69af29fdcd6ba7399d927e96f1c')
+sha512sums=('6d2e2640b5233f9503adec1290d61cfe58a75faba75b42c71c219c73cf32d7a071018543721894d2565219d3d41b616300469bac8d6d4c5a91db89120343d32e')
+b2sums=('18f92f51d912ab0a64dce54dfbb90b8300b927d59a1715b8e00ee4100b7183010f0093032dcd23bfbf0e51b8f2d5fd017cb66f5e25f0510db42032cf403ca0a8')
 
 build() {
-  (cd distro-${pkgver}
-    python setup.py build
-    make man SPHINXBUILD=sphinx-build
-  )
+  cd distro-${pkgver}
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  (cd distro-${pkgver}
-    py.test
-  )
+  cd distro-${pkgver}
+  PYTHONPATH="build/lib" pytest
 }
 
 package() {
   cd distro-${pkgver}
-  python setup.py install -O1 --root="${pkgdir}" --skip-build
+  python -m installer --destdir="${pkgdir}" dist/*.whl
   install -Dm 644 README.md CHANGELOG.md -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
 
