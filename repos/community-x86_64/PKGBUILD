@@ -3,7 +3,7 @@
 
 pkgname=goimapnotify
 pkgver=2.3.7
-pkgrel=1
+pkgrel=2
 pkgdesc="Execute scripts on IMAP mailbox changes (new/deleted/updated messages) using IDLE, golang version."
 url="https://gitlab.com/shackra/goimapnotify"
 license=('GPL3')
@@ -12,6 +12,7 @@ depends=('glibc')
 makedepends=('git' 'go')
 source=("${pkgname}-${pkgver}.tar.gz::${url}/-/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('7551ec498c3414448b21bf4202a69bbab8815dd9423638b3adbf31fb2857a008fb6f1ac78e41ce695550931dfe4ba9c49050f3bfcab2d646f37547a7efcdaff7')
+options=(!lto)
 
 build() {
     cd "${pkgname}-${pkgver}"
