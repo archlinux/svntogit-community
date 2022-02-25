@@ -4,8 +4,8 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=6.4.0
-pkgrel=3
+pkgver=6.4.1
+pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
 url="https://mattermost.com"
@@ -25,8 +25,8 @@ source=(https://github.com/$pkgname/$pkgname-server/archive/v$pkgver/$_server_ar
         $pkgname.service
         $pkgname.sysusers
         $pkgname.tmpfiles)
-sha256sums=('d23e2f740795d490eb1ad4dc9412906a00892967c8d4f801b254228ab7dcedec'
-            'bb617fcbf5cd75dde3dbd729c385971bd5bafae7de41aa1c1ef253d11436053a'
+sha256sums=('46c8e88eac5449d742659ba1139529bc7a5729a39e9748141167521e6e28a033'
+            '18b586c60fba3f85a5d2b8c0cc4a5f0cfdd79fc18e705e2aa26e08157df7ee64'
             'e5ba4a4f9c5f32816b997d5c02f6ddf3ef1e8259ae8dff5ef18865d076b70316'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
@@ -47,10 +47,6 @@ prepare() {
     sed '/# Download prepackaged plugins/,+8d' -i build/release.mk
 
     cd "../$_webapp_archive"
-
-    # Upstream 6.3.1 release has outdated checksum for their own toolkit
-    sed -i package-lock.json \
-        -e 's!sha512-wHUORQrEsVFMgSBJvkXnRPJ1/PpcyNP9B+SHzN35/Y0tGvRqGAN+ZwIPBewIq91b5iEZWxRZX1ufrDnI0rAOwg==!sha512-zfhfE1GH3uedf2eA/tfkFRyS7GnxMne2tEdnhdKFbs7CQe4DkNCmgWYb6MZCsPNaVHNYqnteyUYgtMuhiK51og==!'
 
     # Modify npm commands to always use srcdir cache
     sed -r -i Makefile \
