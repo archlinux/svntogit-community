@@ -6,7 +6,7 @@
 # Contributor: Douglas Soares de Andrade <dsa@aur.archlinux.org>
 
 pkgname=ipython
-pkgver=8.0.1
+pkgver=8.1.0
 pkgrel=1
 pkgdesc="An enhanced Interactive Python shell."
 arch=('any')
@@ -15,17 +15,19 @@ license=('BSD')
 depends=('python' 'python-traitlets' 'python-pexpect' 'sqlite'
          'python-pickleshare' 'python-prompt_toolkit'
          'python-jedi' 'python-pygments' 'python-backcall'
-         'python-matplotlib-inline' 'python-black' 'python-stack-data')
+         'python-matplotlib-inline' 'python-stack-data')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 # texlive-bin checkdep excluded due to test_latex_to_png_color failure
 checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-testpath'
               'jupyter-nbformat' 'python-ipykernel' 'python-numpy' 'python-trio'
               'python-matplotlib' 'python-curio' 'python-pandas' 'tcsh')
+optdepends=('python-black: to auto format with Black'
+            'yapf: to auto format with YAPF')
 source=("https://files.pythonhosted.org/packages/source/${pkgname::1}/$pkgname/$pkgname-$pkgver.tar.gz"
         "IPython-icon.png::https://www.packal.org/sites/default/files/public/styles/icon_large/public/workflow-files/nkeimipynbworkflow/icon/icon.png")
-sha256sums=('ab564d4521ea8ceaac26c3a2c6e5ddbca15c8848fd5a5cc325f960da88d42974'
+sha256sums=('42c23e90b2deaae631266885de1656a517a1673d7e1db57e8eb3a4bb6cd5ce1b'
             '3c44a6fa1e3a8afc24754c90469404770b639cb960361988999a4cdd677699d8')
-b2sums=('9088faf779e2783ce97c6a45f0baa3c7163e12f63546aa65eb961de2b2fbacaac8ba1cf0c3c705bc326b4c999fe3ce672f31e3abaa7168d912504880ad8d3c2f'
+b2sums=('9a44555dcb91655c5d483a7ba5d99074b9c2c4af3ec272d0adabc345352359b061ea4fd92198c3910945139edb80c8837afe1ae3c34b0bddb517d226584f28a1'
         'd445e2bc7a037db8715ea103611720e965987e155c32e445b0ef783e519fca8a0301b16c5763fd9a5d8d169c3b0d7b4db6c0bd0f9772842258b135dcb1d6d5a2')
 
 # confirm that an update does not break sage?
