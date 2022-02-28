@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=19.3
-pkgrel=5
+pkgrel=6
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -38,7 +38,7 @@ makedepends=(
   # gbm
   'libinput'
 )
-options=(!lto)
+options=(!lto debug)
 
 _codename=Matrix
 
