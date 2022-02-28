@@ -3,7 +3,7 @@
 
 pkgname=bitwarden
 pkgver=1.31.3
-pkgrel=1
+pkgrel=2
 _electronversion=16
 pkgdesc='A secure and free password manager for all of your devices'
 arch=('x86_64')
@@ -36,14 +36,14 @@ prepare() {
 	export ELECTRONVERSION=$_electronversion
 	sed -i "s|@electronversion@|${ELECTRONVERSION}|" ../bitwarden.sh
 	jq < package.json \
-	   '.build["electronVersion"]=$ENV.SYSTEM_ELECTRON_VERSION | .build["electronDist"]="/usr/lib/electron"' \
+	   '.build["electronVersion"]=$ENV.SYSTEM_ELECTRON_VERSION | .build["electronDist"]="/usr/lib/electron\(env.ELECTRONVERSION)"' \
 	   > package.json.patched
 	mv package.json.patched package.json
 }
 
 build() {
 	cd bitwarden
-	electronDist=/usr/lib/electron
+	electronDist=/usr/lib/electron$_electronversion
 	electronVer=$(electron$_electronversion --version | tail -c +2)
 	export npm_config_cache="$srcdir/npm_cache"
 	export ELECTRON_SKIP_BINARY_DOWNLOAD=1
