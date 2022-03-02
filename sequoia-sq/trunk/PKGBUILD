@@ -1,8 +1,8 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=sequoia-sq
-pkgver=0.25.0
-pkgrel=2
+pkgver=0.26.0
+pkgrel=1
 pkgdesc='Command-line frontends for Sequoia'
 url='https://sequoia-pgp.org/'
 arch=('x86_64')
@@ -29,12 +29,12 @@ prepare() {
 build() {
   cd sequoia/sq
   export CARGO_TARGET_DIR=../target
-  cargo build --release --locked --features 'crypto-nettle compression net autocrypt'
+  cargo build --release --locked --features 'crypto-nettle compression-bzip2 autocrypt'
 }
 
 check() {
   cd sequoia/sq
-  cargo test --release --locked --features 'crypto-nettle compression net autocrypt'
+  cargo test --release --locked --features 'crypto-nettle compression-bzip2 autocrypt'
 }
 
 package() {
