@@ -19,8 +19,8 @@
 
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
-pkgver=19.3
-pkgrel=6
+pkgver=19.4
+pkgrel=2
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -81,7 +81,7 @@ noextract=(
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
   "$pkgbase-libudfread-$_libudfread_version.tar.gz"
 )
-sha512sums=('ccb8f26ff8a9ca0cec50e069ff9c658de89a868093a8da25d6a55317d68656de6fd7107c5348c545b4f3cdd541293cfd58f8d171877bfa7533d39e072df68c04'
+sha512sums=('2804c57d85877873dae8e62f083b86f51fceebb802819523654a231f50f9850022956e1a9b91702e7c8b3f7ab437ceea7b10319239a8289dbf877ce94bba07c9'
             '5185dbdbeb1bd13ea9d8723f1f4ab599d6f3102f5ba1096cd085aa1cda252c045f327c719227bba8e1b742352ade5e335106c8d0c1637a5a6b93ce661620dd7e'
             '11c93eaacd156f8fd7dec7c43d366438b201f31ad55b2870463a9e286912b6ada08882319a021fb7992190f87b909a49f2b83e0321cc17aedc29f7fe5898fa72'
             'b3419ba0a1a2dd70f1bb6236afdfe1c6e88c9ad4264198b289e3bba9375e077cecf7f89848c7b09debaa445327f3507101f3d157e692f7a7163b2bb52643e1e7'
