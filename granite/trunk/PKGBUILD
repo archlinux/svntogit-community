@@ -3,7 +3,7 @@
 
 pkgname=granite
 pkgver=6.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Library that extends Gtk+'
 arch=(x86_64)
 url=https://github.com/elementary/granite
