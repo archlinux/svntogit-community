@@ -8,7 +8,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=14.5.2
+pkgver=14.8.2
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
@@ -99,8 +99,8 @@ build() {
   bundle-2.7 install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
 
   yarn install --production --pure-lockfile
-  bundle-2.7 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production NODE_OPTIONS="--max_old_space_size=4096"
-  bundle-2.7 exec rake gettext:compile RAILS_ENV=production
+  bundle-2.7 exec rake gettext:compile RAILS_ENV=production NODE_ENV=production USE_DB=false SKIP_STORAGE_VALIDATION=true NODE_OPTIONS="--max_old_space_size=3584"
+  bundle-2.7 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production USE_DB=false SKIP_STORAGE_VALIDATION=true NODE_OPTIONS="--max_old_space_size=3584"
 }
 
 package() {
