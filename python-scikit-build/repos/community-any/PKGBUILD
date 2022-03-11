@@ -5,15 +5,15 @@
 # TODO: think about including check() after #460 and #469 are fixed upstream
 
 pkgname=python-scikit-build
-pkgver=0.12.0
-pkgrel=3
+pkgver=0.13.1
+pkgrel=1
 pkgdesc="Improved build system generator for CPython C, C++, Cython and Fortran extensions"
 arch=('any')
 url="https://scikit-build.org"
 license=('MIT')
 depends=('cmake' 'python-distro' 'python-wheel')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/scikit-build/scikit-build/archive/${pkgver}.tar.gz")
-sha256sums=('c32a415d2e7920a4a966b037403c93b02c8a958d8badf3c60abd4b4493f7d988')
+sha256sums=('d7e16ba91ea68b8c349a455793dbad39df79539da7cd3afaa0c90feaa1f791f9')
 
 build() {
   cd "${srcdir}/scikit-build-${pkgver}"
