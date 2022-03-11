@@ -3,11 +3,11 @@
 
 _pkgname=installer
 pkgname=python-$_pkgname
-pkgver=0.5.0
-pkgrel=2
+pkgver=0.5.1
+pkgrel=1
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
-url='https://github.com/pradyunsg/installer'
+url='https://github.com/pypa/installer'
 license=('MIT')
 depends=('python')
 makedepends=('git' 'python-flit-core' 'python-build'
@@ -15,8 +15,7 @@ makedepends=('git' 'python-flit-core' 'python-build'
              'python-sphinx-argparse')
 checkdepends=('python-pytest' 'python-mock')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz")
-sha256sums=('e993aa80138d7aa463f1950f013a884c7bad9b1148f083753351d97f3727dc4c')
-sha512sums=('8731bbf8a51b1094dc87f84575eec07a650988bdeddf205d04cf80a5088eac0d8b2927022864f4011a9562fcaae9f511747e5672f94ec3cce1dccdfa833c4fce')
+sha512sums=('0320c1795c98a593b5da46775465e26bdf8736f59835970517cb02f2756030a3744b9385a9342e8062362d0769d585ff6cce504fdf105e99d27d6ba40281842b')
 
 build() {
   cd $_pkgname-$pkgver
