@@ -1,36 +1,49 @@
 # Maintainer: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
 
 pkgname=networkmanager-fortisslvpn
-pkgver=1.4rc1
-pkgrel=4
-_pppver=2.4.9
-pkgdesc='Fortinet SSLVPN support for NetworkManager'
+pkgver=1.4.0
+pkgrel=1
+pkgdesc="NetworkManager VPN plugin for Fortinet SSLVPN"
+url="https://wiki.gnome.org/Projects/NetworkManager"
 arch=(x86_64)
 license=(GPL)
-url='https://gitlab.gnome.org/GNOME/NetworkManager-fortisslvpn'
-depends=(networkmanager nm-connection-editor openfortivpn libsecret)
-makedepends=(git intltool python)
-_commit=9688d63ecacec97d0c9217281eb7b85053f1f4a1
-source=("git+https://gitlab.gnome.org/GNOME/NetworkManager-fortisslvpn.git#commit=$_commit")
-sha256sums=('SKIP')
+_pppver=2.4.9
+depends=(libnm libsecret "ppp=$_pppver" openfortivpn)
+makedepends=(libnma intltool python git)
+optdepends=('libnma: GUI support')
+_commit=308987d45faee919e54547eb7ff0120c32c5a84e  # tags/1.4.0^0
+source=("git+https://gitlab.gnome.org/GNOME/NetworkManager-fortisslvpn.git#commit=$_commit"
+        gtk4-optional.diff)
+sha256sums=('SKIP'
+            '576ceb6b9471bc54c75b81ea25650e1caad780af769e6497b219c7bfd8a8e98b')
+
+pkgver() {
+  cd NetworkManager-fortisslvpn
+  git describe --tags | sed 's/-dev/dev/;s/[^-]*-g/r&/;s/-/+/g'
+}
 
 prepare() {
   cd NetworkManager-fortisslvpn
-  autoreconf -fi
+
+  # Fix built without GTK 4
+  git apply -3 ../gtk4-optional.diff
+
+  intltoolize --automake --copy
+  autoreconf -fvi
 }
 
 build() {
   cd NetworkManager-fortisslvpn
-  ./configure --prefix=/usr \
-    --sysconfdir=/etc \
-    --localstatedir=/var \
-    --libexecdir=/usr/lib/networkmanager \
-    --disable-static \
+  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var \
+    --libexecdir=/usr/lib --disable-static \
     --with-pppd-plugin-dir=/usr/lib/pppd/$_pppver
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
   make
 }
 
 package() {
   cd NetworkManager-fortisslvpn
-  make DESTDIR="$pkgdir" install
+  make DESTDIR="$pkgdir" install dbusservicedir=/usr/share/dbus-1/system.d
 }
+
+# vim:set sw=2 et:
