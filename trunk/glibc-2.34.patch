@@ -1,0 +1,119 @@
+diff --git a/src/core/cpu_core.h b/src/core/cpu_core.h
+index 66059635..252ee860 100644
+--- a/src/core/cpu_core.h
++++ b/src/core/cpu_core.h
+@@ -56,6 +56,9 @@ struct State
+ 
+   // data cache (used as scratchpad)
+   std::array<u8, DCACHE_SIZE> dcache = {};
++
++  static constexpr u32 GPRRegisterOffset(u32 index) { return offsetof(State, regs.r) + (sizeof(u32) * index); }
++  static constexpr u32 GTERegisterOffset(u32 index) { return offsetof(State, gte_regs.r32) + (sizeof(u32) * index); }
+ };
+ 
+ extern State g_state;
+diff --git a/src/core/cpu_recompiler_code_generator.cpp b/src/core/cpu_recompiler_code_generator.cpp
+index 1c7ae0db..a454d4f5 100644
+--- a/src/core/cpu_recompiler_code_generator.cpp
++++ b/src/core/cpu_recompiler_code_generator.cpp
+@@ -14,11 +14,6 @@ Log_SetChannel(CPU::Recompiler);
+ 
+ namespace CPU::Recompiler {
+ 
+-u32 CodeGenerator::CalculateRegisterOffset(Reg reg)
+-{
+-  return u32(offsetof(State, regs.r[0]) + (static_cast<u32>(reg) * sizeof(u32)));
+-}
+-
+ bool CodeGenerator::CompileBlock(const CodeBlock* block, CodeBlock::HostCodePointer* out_host_code,
+                                  u32* out_host_code_size)
+ {
+@@ -1991,7 +1986,7 @@ Value CodeGenerator::DoGTERegisterRead(u32 index)
+ 
+     default:
+     {
+-      EmitLoadCPUStructField(value.host_reg, RegSize_32, offsetof(State, gte_regs.r32[index]));
++      EmitLoadCPUStructField(value.host_reg, RegSize_32, State::GTERegisterOffset(index));
+     }
+     break;
+   }
+@@ -2020,7 +2015,7 @@ void CodeGenerator::DoGTERegisterWrite(u32 index, const Value& value)
+     {
+       // sign-extend z component of vector registers
+       Value temp = ConvertValueSize(value.ViewAsSize(RegSize_16), RegSize_32, true);
+-      EmitStoreCPUStructField(offsetof(State, gte_regs.r32[index]), temp);
++      EmitStoreCPUStructField(State::GTERegisterOffset(index), temp);
+       return;
+     }
+     break;
+@@ -2033,7 +2028,7 @@ void CodeGenerator::DoGTERegisterWrite(u32 index, const Value& value)
+     {
+       // zero-extend unsigned values
+       Value temp = ConvertValueSize(value.ViewAsSize(RegSize_16), RegSize_32, false);
+-      EmitStoreCPUStructField(offsetof(State, gte_regs.r32[index]), temp);
++      EmitStoreCPUStructField(State::GTERegisterOffset(index), temp);
+       return;
+     }
+     break;
+@@ -2044,15 +2039,15 @@ void CodeGenerator::DoGTERegisterWrite(u32 index, const Value& value)
+       Value temp = m_register_cache.AllocateScratch(RegSize_32);
+ 
+       // SXY0 <- SXY1
+-      EmitLoadCPUStructField(temp.host_reg, RegSize_32, offsetof(State, gte_regs.r32[13]));
+-      EmitStoreCPUStructField(offsetof(State, gte_regs.r32[12]), temp);
++      EmitLoadCPUStructField(temp.host_reg, RegSize_32, State::GTERegisterOffset(13));
++      EmitStoreCPUStructField(State::GTERegisterOffset(12), temp);
+ 
+       // SXY1 <- SXY2
+-      EmitLoadCPUStructField(temp.host_reg, RegSize_32, offsetof(State, gte_regs.r32[14]));
+-      EmitStoreCPUStructField(offsetof(State, gte_regs.r32[13]), temp);
++      EmitLoadCPUStructField(temp.host_reg, RegSize_32, State::GTERegisterOffset(14));
++      EmitStoreCPUStructField(State::GTERegisterOffset(13), temp);
+ 
+       // SXY2 <- SXYP
+-      EmitStoreCPUStructField(offsetof(State, gte_regs.r32[14]), value);
++      EmitStoreCPUStructField(State::GTERegisterOffset(14), value);
+       return;
+     }
+     break;
+@@ -2075,7 +2070,7 @@ void CodeGenerator::DoGTERegisterWrite(u32 index, const Value& value)
+     default:
+     {
+       // written as-is, 2x16 or 1x32 bits
+-      EmitStoreCPUStructField(offsetof(State, gte_regs.r32[index]), value);
++      EmitStoreCPUStructField(State::GTERegisterOffset(index), value);
+       return;
+     }
+   }
+diff --git a/src/core/cpu_recompiler_code_generator.h b/src/core/cpu_recompiler_code_generator.h
+index b5999233..94af334e 100644
+--- a/src/core/cpu_recompiler_code_generator.h
++++ b/src/core/cpu_recompiler_code_generator.h
+@@ -19,7 +19,6 @@ public:
+   CodeGenerator(JitCodeBuffer* code_buffer);
+   ~CodeGenerator();
+ 
+-  static u32 CalculateRegisterOffset(Reg reg);
+   static const char* GetHostRegName(HostReg reg, RegSize size = HostPointerSize);
+   static void AlignCodeBuffer(JitCodeBuffer* code_buffer);
+ 
+diff --git a/src/core/cpu_recompiler_code_generator_generic.cpp b/src/core/cpu_recompiler_code_generator_generic.cpp
+index b652cb24..8b8b2d76 100644
+--- a/src/core/cpu_recompiler_code_generator_generic.cpp
++++ b/src/core/cpu_recompiler_code_generator_generic.cpp
+@@ -5,13 +5,13 @@ namespace CPU::Recompiler {
+ 
+ void CodeGenerator::EmitLoadGuestRegister(HostReg host_reg, Reg guest_reg)
+ {
+-  EmitLoadCPUStructField(host_reg, RegSize_32, CalculateRegisterOffset(guest_reg));
++  EmitLoadCPUStructField(host_reg, RegSize_32, State::GPRRegisterOffset(static_cast<u32>(guest_reg)));
+ }
+ 
+ void CodeGenerator::EmitStoreGuestRegister(Reg guest_reg, const Value& value)
+ {
+   DebugAssert(value.size == RegSize_32);
+-  EmitStoreCPUStructField(CalculateRegisterOffset(guest_reg), value);
++  EmitStoreCPUStructField(State::GPRRegisterOffset(static_cast<u32>(guest_reg)), value);
+ }
+ 
+ void CodeGenerator::EmitStoreInterpreterLoadDelay(Reg reg, const Value& value)
