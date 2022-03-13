@@ -1,0 +1,45 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=doctest-driver-gen
+pkgname=haskell-doctest-driver-gen
+pkgver=0.3.0.5
+pkgrel=18
+pkgdesc="Generate driver file for doctest's cabal integration"
+url="https://github.com/Hexirp/doctest-driver-gen#readme"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs')
+makedepends=('ghc' 'haskell-doctest')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('ed7fef22116fb690bc5373ad2cbddd09285f67e7182b690209172c83859ddb05493175e5e5263b51bf214a5542fabe355f7bebfb1355b7c1a74e117c986d0ff0')
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  LD_LIBRARY_PATH="$PWD/dist/build" runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  LD_LIBRARY_PATH="$PWD/dist/build" PATH="$PWD/dist/build/doctest-driver-gen:$PATH" runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
