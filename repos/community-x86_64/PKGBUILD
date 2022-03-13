@@ -4,61 +4,45 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=gpsbabel
-pkgver=1.7.0
-pkgrel=2
+pkgver=1.8.0
+pkgrel=1
 pkgdesc="Read, write and manipulate GPS waypoints in a variety of formats"
 arch=(x86_64)
 url="https://www.gpsbabel.org/"
 license=(GPL)
-depends=(hicolor-icon-theme libusb qt5-base)
-makedepends=(libicns qt5-tools)
+depends=(hicolor-icon-theme libusb shapelib qt6-serialport qt6-5compat)
+makedepends=(cmake libicns qt6-tools)
 source=(https://github.com/gpsbabel/$pkgname/archive/${pkgname}_${pkgver//./_}.tar.gz
-        gpsbabel.appdata.xml
-        install.patch
-        no-map.patch)
-sha256sums=('30b186631fb43db576b8177385ed5c31a5a15c02a6bc07bae1e0d7af9058a797'
-            '5eb52ab0c4bdde61c747856e849f9bce9ca660e942c15f730a4330a38fd6a39a'
-            'a12a48f2bcad5c2184cf2157488ee18d90f3415cb406eb8b70513f35dfe26b16'
-            '378202355f7dd5a01df554af6298b8871e8ab8112aa2a7fa727d26434623da21')
+        gpsbabel.appdata.xml)
+sha256sums=('448379f0bf5f5e4514ed9ca8a1069b132f4d0e2ab350e2277e0166bf126b0832'
+            '5eb52ab0c4bdde61c747856e849f9bce9ca660e942c15f730a4330a38fd6a39a')
 
 prepare() {
   icns2png -x $pkgname-${pkgname}_${pkgver//./_}/gui/images/appicon.icns
-
-  cd $pkgname-${pkgname}_${pkgver//./_}
-
-  # Support make install for GUI on Linux systems
-  # https://github.com/gpsbabel/gpsbabel/pull/391
-  patch -Np1 -i ../install.patch
-  sed -i '/INSTALLS +=/ s/ icon//' gui/app.pro
-
-  # Remove map due to heavy WebEngine dependency
-  # https://github.com/gpsbabel/gpsbabel/pull/606
-  patch -Np1 -i ../no-map.patch
 }
 
 build() {
-  cd $pkgname-${pkgname}_${pkgver//./_}
-  ./configure --prefix=/usr
-  make
-
-  # GUI
-  cd gui
-  qmake PREFIX=/usr
-  lrelease *.ts
-  make
+  cmake -B build -S $pkgname-${pkgname}_${pkgver//./_} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DGPSBABEL_WITH_ZLIB=pkgconfig \
+    -DGPSBABEL_WITH_SHAPELIB=pkgconfig \
+    -DGPSBABEL_WITH_LIBUSB=pkgconfig \
+    -DGPSBABEL_MAPPREVIEW=OFF
+  cmake --build build
 }
 
 package() {
-  cd $pkgname-${pkgname}_${pkgver//./_}
-  make DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build
 
-  # GUI
-  cd gui
-  make INSTALL_ROOT="$pkgdir" install
-  install -Dm644 ../../$pkgname.appdata.xml "$pkgdir/usr/share/metainfo/$pkgname.appdata.xml"
+# make install is broken
+  install -Dm755 build/gpsbabel build/gui/GPSBabelFE/gpsbabelfe -t "$pkgdir"/usr/bin
+  install -Dm644 $pkgname-${pkgname}_${pkgver//./_}/gui/*.qm $pkgname-${pkgname}_${pkgver//./_}/gui/coretool/*.qm -t "$pkgdir"/usr/share/gpsbabel/translations
+  install -Dm644 $pkgname-${pkgname}_${pkgver//./_}/gui/gmapbase.html -t "$pkgdir"/usr/share/gpsbabel
+  install -Dm644 $pkgname-${pkgname}_${pkgver//./_}/gui/gpsbabel.desktop -t "$pkgdir"/usr/share/applications
+  install -Dm644 $pkgname.appdata.xml -t "$pkgdir/usr/share/metainfo"
 
   for res in 16 32 128 256 512; do
-    install -Dm644 ../../appicon_${res}x${res}x32.png \
+    install -Dm644 appicon_${res}x${res}x32.png \
       "$pkgdir/usr/share/icons/hicolor/${res}x${res}/apps/$pkgname.png"
   done
 }
