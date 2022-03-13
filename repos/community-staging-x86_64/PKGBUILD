@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=double-conversion
+pkgname=haskell-double-conversion
+pkgver=2.0.4.1
+pkgrel=2
+pkgdesc="Fast conversion between single and double precision floating point and text"
+url="https://github.com/Haskell-mouse/double-conversion"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'double-conversion')
+makedepends=('ghc' 'haskell-hunit' 'haskell-test-framework' 'haskell-test-framework-hunit'
+             'haskell-test-framework-quickcheck2')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz
+        system-double-conversion.patch::https://github.com/bos/double-conversion/pull/25.patch)
+sha512sums=('1a5ad9595ef9026d1b862d3ca16d75e857a308ce94a360191dfc6d8a35ae9ebd427a30ee7279e2eb052f7d118a4c73250c3c8a949606bf27609265c55435c67d'
+            'fca512e2787ab4faf587db28b1212c99681926dc32b95a739df8fb33925439385862b55aaf68dfe737b1709335ec44f8e959e40b74012d56f3506e36b31ddabe')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../system-double-conversion.patch
+}
+
+build() {
+    cd $_hkgname-$pkgver    
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-embedded_double_conversion
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
