@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=cryptol
+pkgver=2.12.0
+pkgrel=31
+pkgdesc="The Language of Cryptography"
+url="https://www.cryptol.net"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'z3' 'haskell-arithmoi' 'haskell-async' 'haskell-base-compat' 'haskell-bv-sized'
+         'haskell-cryptohash-sha1' 'haskell-extra' 'haskell-gitrev'
+         'haskell-graphscc' 'haskell-heredoc' 'haskell-libbf' 'haskell-memotrie'
+         'haskell-monad-control' 'haskell-monadlib' 'haskell-optparse-applicative'
+         'haskell-parameterized-utils' 'haskell-panic' 'haskell-prettyprinter' 'haskell-sbv'
+         'haskell-simple-smt' 'haskell-strict' 'haskell-temporary' 'haskell-tf-random'
+         'haskell-transformers-base' 'haskell-what4' 'haskell-ansi-terminal' 'haskell-blaze-html')
+makedepends=('ghc' 'uusi' 'alex' 'happy')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/GaloisInc/cryptol/archive/$pkgver.tar.gz"
+        ghc9.patch)
+sha512sums=('3e7a58de47e5ae1fdc5067b2bcca66c04ee06c71e84f890104b64c59d1cd125667a23f537c3afd0503c059c97f5d168e6afa0df4fdc6c1e9448aae434e616bc8'
+            'f41afa8f65b01aaa5fc92a6433ed09ae85e86f58cb86e64b72de7e6765b32835974cb998305235d5c1ed8ff1112595f61400e16bd2ffd16c578c0c499d02486b')
+
+prepare() {
+    cd $pkgname-$pkgver
+    patch -p1 -i ../ghc9.patch
+    uusi -u base-compat $pkgname.cabal
+}
+
+build() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir="/usr/share/doc/${pkgname}" --datasubdir="$pkgname" \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-static -f-relocatable --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+    cd "${srcdir}/${pkgname}-${pkgver}"
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
