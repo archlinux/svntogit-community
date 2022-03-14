@@ -3,7 +3,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=0.7
+pkgver=0.7.3
 pkgrel=1
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=(any)
@@ -16,8 +16,8 @@ optdepends=('ccache: for build caching'
             'chrpath: for building standalone executables'
             'pyside2: for using Qt5 APIs')
 source=("https://files.pythonhosted.org/packages/source/N/${pkgname^}/${pkgname^}-${pkgver}.tar.gz")
-sha512sums=('c097cbb1677caa7ab31f0a4542b57ac110f443a84a7feb44b6e6939599dcbd75e29fb5288861627aee7af6d5ddd2153ea9a8030fc3e9ec2c04b5b34195447925')
-b2sums=('265aa830d2230c052a51dd6774f6382ed5fe581a29cf00cbff2b23e6b3e2bb5c49bab35e96584ab519b668fb3ef3a84d3285cd85e561c24bee3afe9ebc78f261')
+sha512sums=('23f2b89886a1fc91499ba22393121e86f1cf6388276b2ee27f6e1f04fc0db665b35d81138b0f31473ed729500dd6611c12aa051a7fc64bad12881891cd0035bf')
+b2sums=('ab45d31b474b281bac64b3a8caa1f16b97e416a16f7cf1499c781b354fd80d75c3e439df0f981bf7f2b48f7a0eb4e4981ae3906b4fd71afed6ed83e54cac7153')
 
 prepare() {
   cd ${pkgname^}-$pkgver
