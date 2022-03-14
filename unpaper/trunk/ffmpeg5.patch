@@ -1,0 +1,240 @@
+diff --git a/file.c b/file.c
+index c92994d..6ee4174 100644
+--- a/file.c
++++ b/file.c
+@@ -40,17 +40,14 @@
+  * @param type returns the type of the loaded image
+  */
+ void loadImage(const char *filename, AVFrame **image) {
+-    int ret, got_frame = 0;
+     AVFormatContext *s = NULL;
+-    AVCodecContext *avctx = avcodec_alloc_context3(NULL);
+-    AVCodec *codec;
++    AVCodecContext *ctx = NULL;
++    const AVCodec *codec = NULL;
+     AVPacket pkt;
+     AVFrame *frame = av_frame_alloc();
++    int ret;
+     char errbuff[1024];
+ 
+-    if (!avctx)
+-        errOutput("cannot allocate a new context");
+-
+     ret = avformat_open_input(&s, filename, NULL, NULL);
+     if (ret < 0) {
+         av_strerror(ret, errbuff, sizeof(errbuff));
+@@ -65,20 +62,23 @@ void loadImage(const char *filename, AVFrame **image) {
+     if (s->nb_streams < 1)
+         errOutput("unable to open file %s: missing streams", filename);
+ 
+-    if (s->streams[0]->codec->codec_type != AVMEDIA_TYPE_VIDEO)
+-        errOutput("unable to open file %s: wrong stream", filename);
++    codec = avcodec_find_decoder(s->streams[0]->codecpar->codec_id);
++    if (!codec) {
++      errOutput("unable to open file %s: unsupported format", filename);
++    }
++  
++    ctx = avcodec_alloc_context3(codec);
++    if (!ctx) {
++      errOutput("cannot allocate decoder context for %s", filename);
++    }
+ 
+-    ret = avcodec_copy_context(avctx, s->streams[0]->codec);
++    ret = avcodec_parameters_to_context(ctx, s->streams[0]->codecpar);
+     if (ret < 0) {
+-        av_strerror(ret, errbuff, sizeof(errbuff));
+-        errOutput("cannot set the new context for %s: %s", filename, errbuff);
++      av_strerror(ret, errbuff, sizeof errbuff);
++      errOutput("unable to copy parameters to context: %s", errbuff);
+     }
+ 
+-    codec = avcodec_find_decoder(avctx->codec_id);
+-    if (!codec)
+-        errOutput("unable to open file %s: unsupported format", filename);
+-
+-    ret = avcodec_open2(avctx, codec, NULL);
++    ret = avcodec_open2(ctx, codec, NULL);
+     if (ret < 0) {
+         av_strerror(ret, errbuff, sizeof(errbuff));
+         errOutput("unable to open file %s: %s", filename, errbuff);
+@@ -93,10 +93,16 @@ void loadImage(const char *filename, AVFrame **image) {
+     if (pkt.stream_index != 0)
+         errOutput("unable to open file %s: invalid stream.", filename);
+ 
+-    ret = avcodec_decode_video2(avctx, frame, &got_frame, &pkt);
++    ret = avcodec_send_packet(ctx, &pkt);
+     if (ret < 0) {
+         av_strerror(ret, errbuff, sizeof(errbuff));
+-        errOutput("unable to open file %s: %s", filename, errbuff);
++        errOutput("cannot send packet to decoder: %s", errbuff);
++  }
++
++    ret = avcodec_receive_frame(ctx, frame);
++    if (ret < 0) {
++      av_strerror(ret, errbuff, sizeof errbuff);
++      errOutput("error while receiving frame from decoder: %s", errbuff);
+     }
+ 
+     switch(frame->format) {
+@@ -135,19 +141,19 @@ void loadImage(const char *filename, AVFrame **image) {
+  * @return true on success, false on failure
+  */
+ void saveImage(char *filename, AVFrame *image, int outputPixFmt) {
+-    AVOutputFormat *fmt = NULL;
+-    enum AVCodecID output_codec = -1;
+-    AVCodec *codec;
+-    AVFormatContext *out_ctx;
+-    AVCodecContext *codec_ctx;
+-    AVStream *video_st;
++    const AVOutputFormat *format = NULL;
++    enum AVCodecID output_codec_id;
++    const AVCodec *codec = NULL;
++    AVFormatContext *out_ctx = NULL;
++    AVCodecContext *codec_ctx = NULL;
++    AVStream *video_st = NULL;
++    AVFrame *output = image;
++    AVPacket *pkt = NULL;
+     int ret;
+     char errbuff[1024];
+ 
+-    fmt = av_guess_format("image2", NULL, NULL);
+-
+-    if ( !fmt ) {
+-        errOutput("could not find suitable output format.");
++    format = av_guess_format("image2", NULL, NULL);
++    if (!format) {        errOutput("could not find suitable output format.");
+     }
+ 
+     out_ctx = avformat_alloc_context();
+@@ -155,22 +161,25 @@ void saveImage(char *filename, AVFrame *image, int outputPixFmt) {
+         errOutput("unable to allocate output context.");
+     }
+ 
+-    out_ctx->oformat = fmt;
+-    snprintf(out_ctx->filename, sizeof(out_ctx->filename), "%s", filename);
++    out_ctx->oformat = format;
++    out_ctx->url = av_strdup(filename);
+ 
+     switch (outputPixFmt) {
+     case AV_PIX_FMT_RGB24:
+-        output_codec = AV_CODEC_ID_PPM;
++        output_codec_id = AV_CODEC_ID_PPM;
+         break;
+     case AV_PIX_FMT_Y400A:
+     case AV_PIX_FMT_GRAY8:
+         outputPixFmt = AV_PIX_FMT_GRAY8;
+-        output_codec = AV_CODEC_ID_PGM;
++        output_codec_id = AV_CODEC_ID_PGM;
+         break;
+     case AV_PIX_FMT_MONOBLACK:
+     case AV_PIX_FMT_MONOWHITE:
+         outputPixFmt = AV_PIX_FMT_MONOWHITE;
+-        output_codec = AV_CODEC_ID_PBM;
++        output_codec_id = AV_CODEC_ID_PBM;
++        break;
++    default:
++        output_codec_id = -1;
+         break;
+     }
+ 
+@@ -183,7 +192,7 @@ void saveImage(char *filename, AVFrame *image, int outputPixFmt) {
+         image = output;
+     }
+ 
+-    codec = avcodec_find_encoder(output_codec);
++    codec = avcodec_find_encoder(output_codec_id);
+     if ( !codec ) {
+         errOutput("output codec not found");
+     }
+@@ -193,10 +202,16 @@ void saveImage(char *filename, AVFrame *image, int outputPixFmt) {
+         errOutput("could not alloc output stream");
+     }
+ 
+-    codec_ctx = video_st->codec;
++    codec_ctx = avcodec_alloc_context3(codec);
++    if (!codec_ctx) {
++      errOutput("could not alloc codec context");
++    }
+     codec_ctx->width = image->width;
+     codec_ctx->height = image->height;
+     codec_ctx->pix_fmt = image->format;
++    video_st->codecpar->width = output->width;
++    video_st->codecpar->height = output->height;
++    video_st->codecpar->format = output->format;
+     video_st->time_base.den = codec_ctx->time_base.den = 1;
+     video_st->time_base.num = codec_ctx->time_base.num = 1;
+ 
+@@ -210,33 +225,40 @@ void saveImage(char *filename, AVFrame *image, int outputPixFmt) {
+     if (verbose >= VERBOSE_MORE)
+         av_dump_format(out_ctx, 0, filename, 1);
+ 
+-    if (avio_open(&out_ctx->pb, filename, AVIO_FLAG_WRITE) < 0) {
+-        errOutput("could not open '%s'", filename);
++    if ((ret = avio_open(&out_ctx->pb, filename, AVIO_FLAG_WRITE)) < 0) {
++        av_strerror(ret, errbuff, sizeof errbuff);
++        errOutput("cannot alloc I/O context for %s: %s", filename, errbuff);
+     }
+ 
+-    avformat_write_header(out_ctx, NULL);
+-
+-    AVPacket pkt = { 0 };
+-    int got_packet;
+-    av_init_packet(&pkt);
++    if ((ret = avformat_write_header(out_ctx, NULL)) < 0) {
++        av_strerror(ret, errbuff, sizeof errbuff);
++        errOutput("error writing header to '%s': %s", filename, errbuff);
++    }
++    
++    pkt = av_packet_alloc();
++    if (!pkt) {
++        errOutput("unable to allocate output packet");
++    }
+ 
+-    /* encode the image */
+-    ret = avcodec_encode_video2(video_st->codec, &pkt, image, &got_packet);
++    ret = avcodec_send_frame(codec_ctx, output);
++    if (ret < 0) {
++        av_strerror(ret, errbuff, sizeof errbuff);
++        errOutput("unable to send frame to encoder: %s", errbuff);
++    }
+ 
++    ret = avcodec_receive_packet(codec_ctx, pkt);
+     if (ret < 0) {
+         av_strerror(ret, errbuff, sizeof(errbuff));
+-        errOutput("unable to write file %s: %s", filename, errbuff);
++        errOutput("unable to receive packet from encoder: %s", errbuff);
+     }
+-    av_write_frame(out_ctx, &pkt);
+-
++    av_write_frame(out_ctx, pkt);
+     av_write_trailer(out_ctx);
+-    avcodec_close(codec_ctx);
+-
+-    av_free(codec_ctx);
+-    av_free(video_st);
+-
+-    avio_close(out_ctx->pb);
+-    av_free(out_ctx);
++    av_packet_free(&pkt);
++    avcodec_free_context(&codec_ctx);
++    avformat_free_context(out_ctx);
++    if (output != image) {
++        av_frame_free(&output);
++    }
+ }
+ 
+ /**
+diff --git a/unpaper.c b/unpaper.c
+index d3d91ad..05ff1ba 100644
+--- a/unpaper.c
++++ b/unpaper.c
+@@ -944,9 +944,6 @@ int main(int argc, char* argv[]) {
+     deskewScanStepRad = degreesToRadians(deskewScanStep);
+     deskewScanDeviationRad = degreesToRadians(deskewScanDeviation);
+ 
+-    avcodec_register_all();
+-    av_register_all();
+-
+     for (int nr = startSheet; (endSheet == -1) || (nr <= endSheet); nr++) {
+         char inputFilesBuffer[2][255];
+         char outputFilesBuffer[2][255];
