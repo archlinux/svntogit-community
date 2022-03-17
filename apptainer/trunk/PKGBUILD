@@ -1,0 +1,96 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Maciej Sieczka <msieczka at sieczka dot org>
+
+pkgname=apptainer
+pkgver=1.0.1
+pkgrel=1
+pkgdesc='Application containers for secure high performance computing'
+arch=('x86_64')
+url='https://apptainer.org/'
+license=('BSD' 'custom:LBNL')
+backup=(
+  'etc/apptainer/apptainer.conf'
+  'etc/apptainer/capability.json'
+  'etc/apptainer/cgroups/cgroups.toml'
+  'etc/apptainer/dmtcp-conf.yaml'
+  'etc/apptainer/ecl.toml'
+  'etc/apptainer/global-pgp-public'
+  'etc/apptainer/network/00_bridge.conflist'
+  'etc/apptainer/network/10_ptp.conflist'
+  'etc/apptainer/network/20_ipvlan.conflist'
+  'etc/apptainer/network/30_macvlan.conflist'
+  'etc/apptainer/network/40_fakeroot.conflist'
+  'etc/apptainer/nvliblist.conf'
+  'etc/apptainer/remote.yaml'
+  'etc/apptainer/rocmliblist.conf'
+  'etc/apptainer/seccomp-profiles/default.json'
+)
+depends=('squashfs-tools' 'libseccomp')
+makedepends=('git' 'go' 'cryptsetup')
+conflicts=('singularity-container')
+replaces=('singularity-container')
+options=('!lto')
+_commit='a308dd1a664a0bf01ff74b39c69d07442c7fac4f'
+source=(
+  "$pkgname::git+https://github.com/apptainer/apptainer.git#commit=$_commit"
+  'tmpfiles.conf'
+)
+sha512sums=('SKIP'
+            '5f10f162e7e48d2ca821529906a4ef692fc32cec8f61d8f03ea60361e1a204eacbeca8b6214bea0accd019c765d9c4c15300ca01c83ab3cbbdc44e82c7e4908d')
+b2sums=('SKIP'
+        'dc9bfeb268d297b8785348c83f89a68ff760de278c8f101831a930ca0b42d2052d0498d7dd8c66f48b9fef2eb3c901de082939e85b22d0a99f7db4e22744bced')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # provide version to build script
+  echo "$pkgver" > VERSION
+
+  # fix bash completion path
+  sed -e "s|/etc/bash_completion.d|/usr/share/bash-completion/completions|" \
+    -e "s|\$(SYSCONFDIR)/bash_completion.d|/usr/share/bash-completion/completions|" \
+    -i  mlocal/frags/build_cli.mk
+}
+
+build() {
+  cd "$pkgname"
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
+
+  ./mconfig \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --libexecdir=/usr/lib \
+    --localstatedir=/var/lib \
+    -P release-stripped \
+    -v
+
+  make -C builddir
+}
+
+package() {
+  cd "$pkgname"
+
+  # binaries & man pages
+  make -C builddir DESTDIR="$pkgdir" install
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE.md
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # let systemd-tmpfiles generate state directory
+  rm -rf "$pkgdir/var"
+  install -vDm644 "$srcdir/tmpfiles.conf" \
+    "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+}
