@@ -8,7 +8,7 @@ _mpi=openmpi
 pkgname=${_pkg}
 #-${_mpi}
 pkgver=5.9.1
-pkgrel=14
+pkgrel=15
 pkgdesc="Parallel Visualization application using VTK (${_mpi} version)"
 arch=(x86_64)
 url="https://www.paraview.org"
@@ -21,8 +21,10 @@ depends=(boost-libs qt5-tools qt5-x11extras qt5-svg intel-tbb openmpi ffmpeg
 optdepends=(python-matplotlib python-pandas)
 makedepends=(cmake boost mesa gcc-fortran ninja qt5-tools qt5-xmlpatterns eigen utf8cpp)
 # pegtl https://gitlab.kitware.com/vtk/vtk/-/issues/18151
-conflicts=(vtk)
 source=(${url}/files/v${pkgver%.*}/ParaView-v${pkgver/R/-R}.tar.xz
+        paraview-wrapper.sh
+        paraview.sh
+        pvpython.sh
         vtk-gcc11.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7554.patch
         vtk-fix-shader-initialization.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7978.patch
         vtk-tbb-2021.patch
@@ -30,6 +32,9 @@ source=(${url}/files/v${pkgver%.*}/ParaView-v${pkgver/R/-R}.tar.xz
         vtkm-tbb-2021.patch::https://gitlab.kitware.com/vtk/vtk-m/-/merge_requests/2509.patch
         vtk-ffmpeg5.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/8863.patch)
 sha256sums=('0d486cb6fbf55e428845c9650486f87466efcb3155e40489182a7ea85dfd4c8d'
+            '05bd6268b3a6dddfcdbc106a3414d0aa9663ae48ce4775fdd9f5ed02c1bbae02'
+            'e81fa887b484d98fd0df3b13e9ba19f57e50131c173ea126265cec0b529dd3f5'
+            '0f3557fd21de013628826c2c971a48564dca63cbf943c76a6f7021a9a84e6223'
             'c9959adcb59e2f2657f0144b0b68239d4174947fb2ab8051f2575241281e4d68'
             '10864f69e2d6577c56cc536438b5dd7a52b004f6bb253a17569899922d804fe8'
             '5e621ed053ae6e27fea32c09ff64a700684983703d2361c658e1701b0b413189'
@@ -38,6 +43,10 @@ sha256sums=('0d486cb6fbf55e428845c9650486f87466efcb3155e40489182a7ea85dfd4c8d'
             '066ad5eb3f7cd101c4bbbe4d91ba97419f18537f9dadf6654776b7151c7c6a8d')
 
 prepare() {
+  # Specify python version in wrapper
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  sed -i "s|@PYTHON@|${python_version}|" paraview-wrapper.sh
+  # Arch required changes
   cd ParaView-v${pkgver/R/-R}
   # We have a patched libharu
   sed -i "s|2.4.0|2.3.0|" VTK/ThirdParty/libharu/CMakeLists.txt
@@ -66,7 +75,7 @@ build() {
   export CXXFLAGS+=" -ffat-lto-objects"
   cmake -B build -S ParaView-v${pkgver/R/-R} -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_PREFIX=/opt/paraview \
     -DCMAKE_INSTALL_LICENSEDIR=share/licenses/paraview \
     -DCMAKE_SKIP_INSTALL_RPATH=OFF \
     -DPARAVIEW_ENABLE_ADIOS2=ON \
@@ -92,4 +101,17 @@ build() {
 
 package() {
   DESTDIR="${pkgdir}" ninja -C build install
+
+  # Install wrappers
+  for file in paraview-wrapper.sh paraview.sh pvpython.sh
+  do
+      install -Dm755 ${file} "${pkgdir}"/usr/bin/${file%.sh}
+  done
+
+  # Install licenses, shortcuts, icons
+  install -dm755 "${pkgdir}"/usr/share
+  mv "${pkgdir}"/{opt/paraview,usr}/share/applications
+  mv "${pkgdir}"/{opt/paraview,usr}/share/icons
+  mv "${pkgdir}"/{opt/paraview,usr}/share/licenses
+  mv "${pkgdir}"/{opt/paraview,usr}/share/metainfo
 }
