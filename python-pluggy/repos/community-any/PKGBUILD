@@ -1,35 +1,32 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pluggy
-pkgver=0.13.1
-pkgrel=8
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="Plugin and hook calling mechanisms for python"
 arch=('any')
 url="https://github.com/pytest-dev/pluggy"
 license=('MIT')
-depends=('python-importlib-metadata')
+depends=('python')
 makedepends=('python-setuptools-scm')
-checkdepends=('python-pytest-runner')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/pytest-dev/pluggy/archive/$pkgver.tar.gz")
-sha512sums=('3269f7ad7801a70ba8aa3182c568f70e2ee88a90b6f6335be631f9737dd42fac3fb1b27c5b6fe6422de128ddcc58736f0c41ed60b7c0177126dd676b98ece301')
+checkdepends=('python-pytest')
+source=("https://github.com/pytest-dev/pluggy/archive/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('88f1180d2607115d6516cba07fa7c1f0e284d1e16fb7ed42c4a05d5d2b0dc1419d2bdbdadc34e2eb7f6b0cc9fc97715c6b184542c01f6bc33242a872c46d7903')
 
-prepare() {
-  export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
-}
+export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 build() {
-  cd "$srcdir"/pluggy-$pkgver
+  cd pluggy-$pkgver
   python setup.py build
 }
 
 check() {
-  cd "$srcdir"/pluggy-$pkgver
-  python setup.py pytest
+  cd pluggy-$pkgver
+  PYTHONPATH="$PWD"/src pytest
 }
 
 package() {
   cd pluggy-$pkgver
   python setup.py install -O1 --root "$pkgdir"
-
-  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
