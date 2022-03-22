@@ -1,0 +1,54 @@
+# Maintainer: Alexander Epaneshnikov <alex19ep@archlinux.com>
+# Contributor: libertylocked <libertylocked@disroot.org>
+
+pkgname=bitwarden-cli
+pkgver=1.22.0
+pkgrel=2
+pkgdesc="The command line vault"
+arch=('any')
+url="https://github.com/bitwarden/cli"
+license=('GPL3')
+depends=('nodejs-lts-gallium')
+makedepends=('git' 'npm' 'modclean')
+options=(!emptydirs)
+source=(bitwarden-cli::git+https://github.com/bitwarden/cli.git#tag=v${pkgver}
+        bitwarden-jslib::git+https://github.com/bitwarden/jslib.git)
+sha512sums=('SKIP'
+            'SKIP')
+
+prepare() {
+	cd bitwarden-cli
+	# Link jslib
+	git submodule init
+	git config submodule.jslib.url "$srcdir/bitwarden-jslib"
+	git submodule update
+}
+
+build() {
+	cd bitwarden-cli
+	export npm_config_cache="$srcdir/npm_cache"
+	npm install
+	npm run build
+	npm run clean
+	node ./build/bw.js completion --shell zsh > _bw
+}
+
+package() {
+	cd bitwarden-cli
+	npm install --production -g --prefix "$pkgdir"/usr $(npm pack . | tail -1)
+
+	# Non-deterministic race in npm gives 777 permissions to random directories.
+	# See https://github.com/npm/npm/issues/9359 for details.
+	chmod -R u=rwX,go=rX "$pkgdir"
+	# npm gives ownership of ALL FILES to build user
+	# https://bugs.archlinux.org/task/63396
+	chown -R root:root "${pkgdir}"
+
+	# package zsh completions
+	install -vDm644 _bw -t "${pkgdir}/usr/share/zsh/site-functions"
+
+	# cleanup
+	sed -e "s|${srcdir}|/|" -i "$pkgdir"/usr/lib/node_modules/@bitwarden/cli/package.json
+	find "$pkgdir"/usr/lib/node_modules -name 'package.json' -exec sed -e "s|${srcdir}||" -i {} \;
+	modclean --path "$pkgdir"/usr/lib -r -a "*.ts,.bin,.github,.vscode,bin.js" --ignore='license'
+}
