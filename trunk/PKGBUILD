@@ -14,7 +14,7 @@ license=('Apache')
 depends=('python' 'python-chardet' 'python-multidict' 'python-async-timeout'
          'python-yarl' 'python-attrs' 'python-charset-normalizer'
          'python-aiosignal' 'python-frozenlist')
-makedepends=('cython' 'python-setuptools' 'git' 'npm')
+makedepends=('git' 'cython' 'npm' 'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
               'python-pytest-timeout' 'python-async_generator' 'python-brotli'
               'python-pytest-xdist' 'python-pytest-forked' 'python-pytest-cov'
@@ -57,7 +57,7 @@ prepare() {
 build() {
   cd ${pkgname}
   make generate-llhttp cythonize
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
@@ -71,7 +71,7 @@ check() {
 
 package() {
   cd ${pkgname}
-  python setup.py install --root="${pkgdir}" -O1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
 }
 
 # vim: ts=2 sw=2 et:
