@@ -7,40 +7,37 @@ _pkg=paraview
 _mpi=openmpi
 pkgname=${_pkg}
 #-${_mpi}
-pkgver=5.9.1
-pkgrel=15
+pkgver=5.10.1
+pkgrel=1
 pkgdesc="Parallel Visualization application using VTK (${_mpi} version)"
 arch=(x86_64)
 url="https://www.paraview.org"
 license=(BSD custom)
-depends=(boost-libs qt5-tools qt5-x11extras qt5-svg intel-tbb openmpi ffmpeg
-         adios2 liblas ospray pdal python-numpy cgns protobuf
-         double-conversion expat freetype2 gdal gl2ps glew hdf5 libjpeg jsoncpp
-         libjsoncpp.so libharu libxml2 lz4 xz python-mpi4py netcdf libogg
-         libpng pugixml rapidjson libtheora libtiff zlib)
+depends=(boost-libs qt5-tools qt5-svg intel-tbb openmpi ffmpeg
+         adios2 liblas ospray pdal python-numpy protobuf
+         cgns double-conversion expat freetype2 gdal gl2ps glew hdf5 libjpeg
+         jsoncpp libjsoncpp.so libharu libxml2 lz4 xz python-mpi4py netcdf
+         libogg libpng pugixml libtheora libtiff zlib)
 optdepends=(python-matplotlib python-pandas)
-makedepends=(cmake boost mesa gcc-fortran ninja qt5-tools qt5-xmlpatterns eigen utf8cpp)
-# pegtl https://gitlab.kitware.com/vtk/vtk/-/issues/18151
+makedepends=(cmake boost mesa gcc-fortran ninja qt5-xmlpatterns cli11 eigen utf8cpp)
+# pegtl: https://gitlab.kitware.com/vtk/vtk/-/issues/18151
+# rapidjson: https://gitlab.kitware.com/vtk/vtk/-/issues/18366
+# fmt: https://gitlab.kitware.com/paraview/paraview/-/issues/21315
+# catalyst, exprtk, ioss: not packaged
 source=(${url}/files/v${pkgver%.*}/ParaView-v${pkgver/R/-R}.tar.xz
         paraview-wrapper.sh
         paraview.sh
         pvpython.sh
-        vtk-gcc11.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7554.patch
-        vtk-fix-shader-initialization.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7978.patch
-        vtk-tbb-2021.patch
-        vtkm-tbb-2021-pre.patch::https://gitlab.kitware.com/vtk/vtk-m/-/merge_requests/2452.patch
         vtkm-tbb-2021.patch::https://gitlab.kitware.com/vtk/vtk-m/-/merge_requests/2509.patch
-        vtk-ffmpeg5.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/8863.patch)
-sha256sums=('0d486cb6fbf55e428845c9650486f87466efcb3155e40489182a7ea85dfd4c8d'
+        vtk-ffmpeg5.patch::https://gitlab.kitware.com/vtk/vtk/-/merge_requests/8863.patch
+        revert-smp-info.patch) # Derived from https://gitlab.kitware.com/paraview/paraview/-/merge_requests/5131
+sha256sums=('520e3cdfba4f8592be477314c2f6c37ec73fb1d5b25ac30bdbd1c5214758b9c2'
             '05bd6268b3a6dddfcdbc106a3414d0aa9663ae48ce4775fdd9f5ed02c1bbae02'
             'e81fa887b484d98fd0df3b13e9ba19f57e50131c173ea126265cec0b529dd3f5'
             '0f3557fd21de013628826c2c971a48564dca63cbf943c76a6f7021a9a84e6223'
-            'c9959adcb59e2f2657f0144b0b68239d4174947fb2ab8051f2575241281e4d68'
-            '10864f69e2d6577c56cc536438b5dd7a52b004f6bb253a17569899922d804fe8'
-            '5e621ed053ae6e27fea32c09ff64a700684983703d2361c658e1701b0b413189'
-            '39a84440097147338fcfcc937a2efed4ff887e83c2040d43abb97f5532bdb2fc'
             '37cff664c4eaacf44ecb995e62e9e54e54880bae0857d598c74660a2159ccb2e'
-            '066ad5eb3f7cd101c4bbbe4d91ba97419f18537f9dadf6654776b7151c7c6a8d')
+            '066ad5eb3f7cd101c4bbbe4d91ba97419f18537f9dadf6654776b7151c7c6a8d'
+            'fb7496032d3e9fc8575b533127b5d93c7a2d0a1a2c2abad859f4f40ea06e55c7')
 
 prepare() {
   # Specify python version in wrapper
@@ -51,23 +48,13 @@ prepare() {
   # We have a patched libharu
   sed -i "s|2.4.0|2.3.0|" VTK/ThirdParty/libharu/CMakeLists.txt
   # Fix licences install (upstreamed but not released)
-  sed -i 's|CACHE PATH "License|CACHE STRING "License|g' CMakeLists.txt
   sed -i 's|CACHE PATH "License|CACHE STRING "License|g' VTK/CMakeLists.txt
-  # Missing includes with GCC11
-  patch -p1 -d VTK < ../vtk-gcc11.patch
-  # FS#71081
-  patch -p1 -d VTK < ../vtk-fix-shader-initialization.patch
-  # Fix build with HDF5 1.12.1, https://gitlab.kitware.com/vtk/vtk/-/issues/18265
-  sed -i 's/typedef int hid_t;/typedef int64_t hid_t;/' VTK/ThirdParty/xdmf3/vtkxdmf3/core/XdmfHDF5Controller.hpp
   # Fix build with TBB 2021
-  # https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7650
-  # https://gitlab.kitware.com/vtk/vtk/-/merge_requests/7765
-  # https://gitlab.kitware.com/vtk/vtk/-/merge_requests/8011
-  patch -p1 -d VTK < ../vtk-tbb-2021.patch
-  patch -p1 -d VTK/ThirdParty/vtkm/vtkvtkm/vtk-m < ../vtkm-tbb-2021-pre.patch
   patch -p1 -d VTK/ThirdParty/vtkm/vtkvtkm/vtk-m < ../vtkm-tbb-2021.patch
   # Fix build with FFmpeg 5
   patch -p1 -d VTK < ../vtk-ffmpeg5.patch
+  # https://gitlab.kitware.com/paraview/paraview/-/issues/21323
+  patch -p1 -R < ../revert-smp-info.patch
 }
 
 build() {
@@ -94,6 +81,12 @@ build() {
     -DPARAVIEW_BUILD_WITH_EXTERNAL=ON \
     -DVTK_SMP_IMPLEMENTATION_TYPE=TBB \
     -DVTKm_ENABLE_MPI=ON \
+    -DCATALYST_USE_MPI=ON \
+    -DFIDES_USE_EXTERNAL_RAPIDJSON=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_ParaView_vtkcatalyst=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_exprtk=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_fmt=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_ioss=OFF \
     -DVTK_MODULE_USE_EXTERNAL_VTK_pegtl=OFF \
     -Wno-dev
   ninja -C build ${MAKEFLAGS}
