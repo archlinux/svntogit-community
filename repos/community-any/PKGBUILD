@@ -3,8 +3,8 @@
 
 pkgname=python-argcomplete
 _pyname=argcomplete
-pkgver=1.12.3
-_gitcommit=ce54b6dfd51f9f01b4ef85bb8692a9f804a11771
+pkgver=2.0.0
+_gitcommit=bf16566adcfb2fd0307c6ecdf24304b21b0b5752
 pkgrel=1
 pkgdesc='Easy, extensible command line tab completion of arguments for your Python script'
 url='https://github.com/kislyuk/argcomplete'
@@ -29,7 +29,9 @@ build() {
 
 check() {
   cd ${_pyname}
-  LC_CTYPE=en_US.UTF-8 python test/test.py -v
+  # workaround for https://github.com/kislyuk/argcomplete/issues/337
+  echo "set enable-bracketed-paste off" > .inputrc
+  INPUTRC=$PWD/.inputrc python test/test.py -v
 }
 
 package() {
