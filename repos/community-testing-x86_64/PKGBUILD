@@ -1,0 +1,56 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+
+pkgname=r2ghidra
+_gitcommit=a4ba1ddc85c84a98df1d39fe6c611894daa97474
+_ghidra_native=e45b661d59978b371e30a5540064a31e6ea647f0
+pkgver=5.6.2.r1.ga4ba1ddc
+pkgrel=1
+pkgdesc='Deep ghidra decompiler integration for radare2 and iaito'
+url='https://github.com/radareorg/r2ghidra'
+arch=('x86_64')
+license=('LGPL3')
+depends=('radare2' 'glibc')
+makedepends=('git' 'cmake')
+provides=('radare2-r2ghidra')
+replaces=('r2ghidra-dec')
+source=("git+https://github.com/radareorg/r2ghidra#commit=${_gitcommit}"
+        "git+https://github.com/radareorg/ghidra-native.git#commit=${_ghidra_native}"
+        git+https://github.com/zeux/pugixml.git)
+sha512sums=('SKIP'
+            'SKIP'
+            'SKIP')
+
+pkgver() {
+  cd ${pkgname}
+  git describe --tags --match '5*' | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+  cd ${pkgname}
+  git submodule init
+  git config submodule."third-party/pugixml".url "${srcdir}/pugixml"
+  git submodule update --recursive
+  ln -sf "${srcdir}/ghidra-native" ghidra-native
+}
+
+build() {
+  cd ${pkgname}
+  make -C ghidra-native patch
+  r2version=$(r2 -v|grep radare2|sed -E 's/radare2 ([0-9\.]+) .*/\1/')
+  cmake \
+    -B build \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=None \
+    -DBUILD_SLASPECS=ON \
+    -DRADARE2_INSTALL_PLUGDIR=lib/radare2/${r2version}
+  make -C build VERBOSE=1
+}
+
+package() {
+  cd ${pkgname}
+  make -C build -j1 DESTDIR="${pkgdir}" install
+  r2version=$(r2 -v|grep radare2|sed -E 's/radare2 ([0-9\.]+) .*/\1/')
+  ln -s /usr/lib/radare2/${r2version} "${pkgdir}/usr/lib/radare2/last"
+}
+
+# vim: ts=2 sw=2 et:
