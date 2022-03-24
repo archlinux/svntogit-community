@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.13
+pkgver=20.10.14
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -19,7 +19,7 @@ optdepends=('btrfs-progs: btrfs backend support'
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
 _LIBNETWORK_COMMIT=64b7a4574d1426139437d20e81c0b6d391130ec8
 # TODO: Split into `docker-buildx` and make it a dependency
-_BUILDX_COMMIT=c8f7c1e93ffa9cfcf926cd3e6450af957f235b07
+_BUILDX_COMMIT=5fac64c2c49dae1320f2b51f1a899ca451935554
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/moby/moby.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
@@ -57,14 +57,14 @@ build() {
   done
   local _commit _pkgbuild _dockerfile
   err=0
-  for _commit in LIBNETWORK TINI; do
+  # FIXME: Do not check TINI anymore, use tag instead of commit
+  for _commit in LIBNETWORK; do
     _pkgbuild=_${_commit}_COMMIT
     _dockerfile=${_commit}_COMMIT
-    # TODO: We need to patch upstream to not use tags
-    #if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
-    #  echo "Invalid $_commit commit, should be ${!_dockerfile}" >&2
-    #  err=$(($err + 1))
-    #fi
+    if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
+      echo "Invalid $_commit commit, should be ${!_dockerfile}" >&2
+      err=$(($err + 1))
+    fi
   done
   return $err
   )
