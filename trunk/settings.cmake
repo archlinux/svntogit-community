@@ -9,6 +9,8 @@ set (CMAKE_INSTALL_SYSCONFDIR /etc/root CACHE PATH "" FORCE)
 set (CMAKE_INSTALL_DATAROOTDIR /usr/share CACHE PATH "" FORCE)
 set (CMAKE_CXX_STANDARD 17 CACHE STRING "" FORCE)
 set (CMAKE_CUDA_STANDARD 17 CACHE STRING "" FORCE)
+set (LLVM_CXX_STD c++17 CACHE STRING "" FORCE)
+set (LLVM_BUILD_TYPE Release CACHE STRING "" FORCE)
 set (PYTHIA8_DATA /usr/share/pythia8/xmldoc CACHE PATH "" FORCE)  # sync with pythia8 package
 set (GLEW_DIR /usr/include/GL CACHE PATH "" FORCE)  # need to set manually
 set (alien OFF CACHE BOOL "" FORCE)
@@ -103,6 +105,7 @@ set (tmva-cpu ON CACHE BOOL "" FORCE)
 set (tmva-gpu OFF CACHE BOOL "" FORCE)
 set (tmva-pymva ON CACHE BOOL "" FORCE)
 set (unuran ON CACHE BOOL "" FORCE)
+set (uring ON CACHE BOOL "" FORCE)
 set (vc ON CACHE BOOL "" FORCE)
 set (vdt ON CACHE BOOL "" FORCE)
 set (winrtdebug OFF CACHE BOOL "" FORCE)  # windows only
