@@ -3,12 +3,13 @@
 
 pkgname=python-hatchling
 pkgver=0.21.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A modern project, package, and virtual env manager (backend)"
 arch=('any')
 url="https://github.com/ofek/hatch"
-license=('MIT' 'Apache')
-depends=('python')
+license=('MIT')
+depends=('python' 'python-tomli' 'python-packaging' 'python-pathspec'
+        'python-pluggy')
 makedepends=('python-pip' 'python-build' 'python-setuptools')
 
 _name=${pkgname/python-/}
@@ -24,6 +25,9 @@ build() {
 
 package() {
   cd "${srcdir}/hatch-${_name}-v${pkgver}"
+
+  install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+  install -Dm644 backend/LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
 
   PIP_CONFIG_FILE=/dev/null pip install --isolated --root="${pkgdir}" \
             --ignore-installed --no-deps backend/dist/*.whl
