@@ -15,7 +15,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.16
+pkgver=5.17
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -37,6 +37,8 @@ makedepends+=('ncurses')
 makedepends+=('readline' 'zlib' 'libelf' 'libcap' 'python-docutils')
 # turbostat deps
 makedepends+=('libcap')
+# bpftool
+makedepends+=('llvm' 'clang')
 groups=("$pkgbase")
 source=("git+https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git#tag=v${pkgver//_/-}?signed"
 #        "https://cdn.kernel.org/pub/linux/kernel/v5.x/patch-$pkgver.1.xz"
