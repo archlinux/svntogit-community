@@ -3,8 +3,9 @@
 # Contributor: Peter Baldwin <bald_pete@hotmail.com>
 
 pkgname=python-jinja
-pkgver=3.1.0
+pkgver=3.0.3
 pkgrel=1
+epoch=1
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
 url="https://palletsprojects.com/p/jinja/"
@@ -13,7 +14,7 @@ depends=('python-setuptools' 'python-markupsafe')
 optdepends=('python-babel: for i18n support')
 checkdepends=('python-pytest')
 source=(https://files.pythonhosted.org/packages/source/J/Jinja2/Jinja2-$pkgver.tar.gz)
-sha256sums=('a2f09a92f358b96b5f6ca6ecb4502669c4acb55d8733bbb2b2c9c4af5564c605')
+sha256sums=('611bb273cd68f3b993fabdc4064fc858c5b47a973cb5aa7999ec1ba405c87cd7')
 
 build() {
   cd Jinja2-$pkgver
