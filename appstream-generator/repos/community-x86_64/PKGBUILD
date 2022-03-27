@@ -2,22 +2,33 @@
 
 pkgname=appstream-generator
 pkgver=0.8.7
-pkgrel=1
+pkgrel=2
 pkgdesc='A fast AppStream metadata generator'
 arch=(x86_64)
 url='https://github.com/ximion/appstream-generator'
 license=(GPL3)
 depends=(appstream libarchive librsvg optipng glibd lmdb)
 makedepends=(ldc meson ninja mustache-d curl gir-to-d gobject-introspection docbook-xsl)
-source=(https://github.com/ximion/appstream-generator/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
-sha256sums=('0e8432549e55b653ebd971421aac208956ec8e197dc23c5533a6c1932f125793')
+options=(debug)
+source=(https://github.com/ximion/appstream-generator/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        stack-size.diff)
+sha256sums=('0e8432549e55b653ebd971421aac208956ec8e197dc23c5533a6c1932f125793'
+            '73f68b4b85611ddabbcac7189266e49af4bc012d4fb610fb6fc87bae57970c2a')
+
+prepare() {
+  cd $pkgname-$pkgver
+
+  # Fix crash due to stack exhaustion trying to initialize iconv in a Generator fiber
+  # https://github.com/ximion/appstream-generator/issues/101
+  patch -Np1 -i ../stack-size.diff
+}
 
 build() {
-  export LDFLAGS="$(echo -ne $LDFLAGS | sed -e 's/-flto/--flto=full/')"
-  meson build $pkgname-$pkgver -Ddownload-js=false --prefix=/usr
-  ninja -C build
+  export LDFLAGS="$(echo -ne $LDFLAGS | sed -e 's/-flto=auto/--flto=full/')"
+  arch-meson $pkgname-$pkgver build -D download-js=false
+  meson compile -C build
 }
 
 package() {
-  DESTDIR="$pkgdir" ninja install -C build
+  meson install -C build --destdir="$pkgdir"
 }
