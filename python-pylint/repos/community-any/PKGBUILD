@@ -6,13 +6,14 @@
 
 _pyname=pylint
 pkgname=python-$_pyname
-pkgver=2.12.2
-pkgrel=2
+pkgver=2.13.2
+pkgrel=1
 pkgdesc='Analyzes Python code looking for bugs and signs of poor quality'
 arch=(any)
 url=https://pylint.org
 license=(GPL)
 _pydeps=(astroid
+         dill
          isort
          mccabe
          platformdirs
@@ -20,37 +21,42 @@ _pydeps=(astroid
          typing_extensions) # for python<3.10
 depends=(python
          "${_pydeps[@]/#/python-}")
-makedepends=(python-setuptools
-             python-sphinx)
+makedepends=(python-{build,installer}
+             python-setuptools
+             python-sphinx
+             python-wheel)
 checkdepends=(mpdecimal
-              python-pytest
-              python-gitpython)
+              python-gitpython
+              python-pytest{,-timeout})
 optdepends=('graphviz: Enable output formats other than dot or vcg'
             'tk: Pylint GUI')
 _archive="$_pyname-$pkgver"
 source=("https://github.com/PyCQA/pylint/archive/v$pkgver/$_archive.tar.gz")
-sha256sums=('411308682f3d4578bb769e7fa549c8f34edf1033871d2e8cd5c3ce16a5741c59')
+sha256sums=('f6d9d0fc4f09877b7231b5bed3cf349ca2d35e5621dd905d222bed59dc882610')
 
 prepare() {
 	cd "$_archive"
 	# Remove overly restrictive dependency pinning that ends up in runtime checks
 	sed -i -e '/>=/{s/>.*//;p}' -e '/python_requires/d' setup.cfg
+	# Give ourselves a way to granularly disable test dependent on installed path
+	sed -i -e '/^markers =/a\    pathdependent: Does not play nice' setup.cfg
+	sed -i -e '/test_do_not_import_files_from_local_directory_with_pythonpath/i\    @pytest.mark.pathdependent' tests/test_self.py
 }
 
 build() {
 	cd "$_archive"
-	python setup.py build
+	python -m build -wn
 	make PYTHONPATH="$PWD/build/lib" -C doc man
 }
 
 check() {
 	cd "$_archive"
-	PYTHONPATH="$PWD/build/lib" pytest \
+	PYTHONPATH="$PWD:$PWD/build/lib" pytest -m 'not pathdependent' \
 		--deselect tests/benchmark/test_baseline_benchmarks.py
 }
 
 package() {
 	cd "$_archive"
-	python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+	python -m installer -d "$pkgdir" dist/*.whl
 	install -Dm0644 -t "$pkgdir/usr/share/man/man1/" doc/_build/man/*
 }
