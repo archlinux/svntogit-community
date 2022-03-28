@@ -3,8 +3,8 @@
 
 _pkg=orc
 pkgname=apache-${_pkg}
-pkgver=1.7.1
-pkgrel=2
+pkgver=1.7.3
+pkgrel=1
 pkgdesc="Columnar storage for Hadoop workloads."
 arch=(x86_64)
 url="https://orc.apache.org"
@@ -13,19 +13,20 @@ depends=(lz4 protobuf snappy zlib zstd)
 makedepends=(cmake)
 checkdepends=(gtest)
 options=(staticlibs)
-source=(https://downloads.apache.org/${_pkg}/${_pkg}-${pkgver}/${_pkg}-${pkgver}.tar.gz{,.asc})
-sha256sums=(65d71e571238cbcb7c3cbb9a10f7ad988f452d17c58479154be3b9d6ec27d005 SKIP)
+source=(https://archive.apache.org/dist/${_pkg}/${_pkg}-${pkgver}/${_pkg}-${pkgver}.tar.gz{,.asc}
+        ${pkgname}-fix-ByteSize-Long.patch::https://github.com/apache/orc/commit/ffbd34115322cf3e0eb6963002c540ea449362d2.patch)
+sha256sums=(535c4d7588172e85b8fc941cd0575d67f2155a55e4cd65d87d5b194b0bb28a31 SKIP
+            cab14490e0cf8f229bb22b3d4269899a9c2522bcedba5878008b1900001d3b20)
 validpgpkeys=(F28C9C925C188C35E345614DEDA00CE834F0FC5C) # Dongjoon Hyun (CODE SIGNING KEY) <dongjoon@apache.org>
 
 prepare(){
   cd ${_pkg}-${pkgver}
-  sed -i "s|ByteSize|ByteSizeLong|g" c++/test/CreateTestFiles.cc
-  sed -i "s|ByteSize|ByteSizeLong|g" c++/test/TestBufferedOutputStream.cc 
+  patch -p1 < ../${pkgname}-fix-ByteSize-Long.patch
 }
 
 build(){
   cmake -B build -S ${_pkg}-${pkgver} \
-    -DCMAKE_CXX_FLAGS="${CXXFLAGS} -fPIC" \
+    -DCMAKE_CXX_FLAGS="${CXXFLAGS} -fPIC -ffat-lto-objects" \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="/usr" \
     -DLZ4_HOME="/usr" \
@@ -41,7 +42,7 @@ build(){
 }
 
 check(){
-  # TestDecompression.testLzoLong is failing
+  # Some tests failures https://github.com/apache/orc/issues/1068
   make -C build test-out || echo "Warning: Tests failed"
 }
 
