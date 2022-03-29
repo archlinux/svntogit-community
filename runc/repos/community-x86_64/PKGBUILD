@@ -3,7 +3,7 @@
 # Contributor: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=1.1.0
+pkgver=1.1.1
 pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
@@ -14,20 +14,16 @@ makedepends=(git go go-md2man)
 optdepends=(
   'criu: checkpoint support'
 )
-_commit=067aaf8548d78269dcb2c13b856775e27c410f9c	#refs/tags/v1.1.0^{}
-source=("git+https://github.com/opencontainers/runc.git#commit=$_commit?signed")
+source=("${pkgname}-${pkgver}.tar.xz::https://github.com/opencontainers/runc/releases/download/v${pkgver}/runc.tar.xz"
+        "${pkgname}-${pkgver}.tar.xz.sig::https://github.com/opencontainers/runc/releases/download/v${pkgver}/runc.tar.xz.asc")
 validpgpkeys=("5F36C6C61B5460124A75F5A69E18AA267DDB8DB4"
 			  "C9C370B246B09F6DBCFC744C34401015D1D2D386")
-sha256sums=('SKIP')
-
-pkgver() {
-  cd runc
-  git describe | sed 's/^v//;s/-//;s/-/+/g'
-}
+sha256sums=('75c1f0bb19b209412c52599e24b33ac306cf7caf772c97577b7ebe964837a54b'
+            'SKIP')
 
 prepare() {
   mkdir -p src/github.com/opencontainers
-  cp -r runc src/github.com/opencontainers/
+  cp -r runc-${pkgver} src/github.com/opencontainers/runc
 }
 
 build() {
