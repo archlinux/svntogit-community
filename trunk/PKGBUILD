@@ -38,16 +38,13 @@ backup=('etc/logrotate.d/salt'
 
 install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
-        "patch-requirements.patch::https://github.com/saltstack/salt/commit/be9879c5d5b30ea0997b1cfca9ad830a54a900b0.patch"
         salt.logrotate)
 
 sha256sums=('7f344a2432648a4f078daa5accc68dcdffe1095cea13ec21e50413560f04c298'
-            '84e9f80f684a3d7059e8a3636ec67f3d088c6250643ee17e58fb0032f2ef84a0'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
   cd salt-$pkgver
-  patch -Np1 < "$srcdir/patch-requirements.patch"
   sed -i '/^contextvars/d' requirements/base.txt
 
   # remove version requirements for pyzmq, there's no point in it
