@@ -7,7 +7,7 @@
 
 pkgname=salt
 pkgver=3004.1
-pkgrel=1
+pkgrel=2
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -49,6 +49,11 @@ prepare() {
   cd salt-$pkgver
   patch -Np1 < "$srcdir/patch-requirements.patch"
   sed -i '/^contextvars/d' requirements/base.txt
+
+  # remove version requirements for pyzmq, there's no point in it
+  # we only have one version and the "python_version <=> *" checks are discarded
+  # so pyzmq<=20.0.0 ends up in the final requirements.txt
+  echo -e '-r crypto.txt\n\npyzmq' > requirements/zeromq.txt
 }
 
 build() {
