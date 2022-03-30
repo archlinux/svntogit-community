@@ -8,7 +8,7 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=14.8.4
+pkgver=14.9.1
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
