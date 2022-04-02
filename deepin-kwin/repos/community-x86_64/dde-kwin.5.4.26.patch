@@ -1,0 +1,161 @@
+commit 5e5abf523b637a431f398349ea6315b0ac041aba
+Author: justforlxz <justforlxz@gmail.com>
+Date:   Sat Apr 2 15:01:25 2022 +0800
+
+    fix: cannot build on archlinux
+    
+    add options
+    
+    - USE_KWIN_NO_SCALE
+    - USE_PLUGINS
+    - USE_SCRIPTS
+    - USE_DEEPIN_WM_DBUS
+    - USE_TABBOX
+    - USE_WINDOW_TOOL
+    - ENABLE_BUILTIN_BLACK_SCREEN
+    - ENABLE_BUILTIN_MULTITASKING
+    - ENABLE_BUILTIN_SCISSOR_WINDOW
+    - ENABLE_BUILTIN_BLUR
+    
+    Log: 修复在 archlinux 上构建的问题
+    Change-Id: Ib1f40b5729545e56c8a75c8bc50660e3a9eade4a
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index cbbf79e0c..ec3af9a1e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -15,6 +15,11 @@ add_definitions(
+     -DPROJECT_VERSION=\\"${PROJECT_VERSION}\\"
+ )
+ 
++option(USE_PLUGINS "use dde-kwin plugins" ON)
++option(USE_SCRIPTS "use scripts" ON)
++option(USE_DEEPIN_WM_DBUS "use deepin-wm dbus service" ON)
++option(USE_TABBOX "use deepin style tabbox" ON)
++
+ #when "KWIN_VERSION > KWIN_VERSION_CHECK(5, 18, 90, 0)"
+ find_path(
+     KWaylandServerPath
+@@ -92,13 +97,23 @@ if (KWIN_VERSION)
+ endif()
+ 
+ add_subdirectory(configures)
+-set(DDE_KWIN_SUPPORTED_VERSION "5.21.5")
+-if (${KWIN_VERSION} STRLESS ${DDE_KWIN_SUPPORTED_VERSION} OR  ${KWIN_VERSION} STREQUAL ${DDE_KWIN_SUPPORTED_VERSION})
+-    add_subdirectory(plugins)
+-    add_subdirectory(scripts)
+-    add_subdirectory(deepin-wm-dbus)
+-    add_subdirectory(tabbox)
+-    if (BUILD_TESTING)
+-        add_subdirectory(tests)
+-    endif()
++
++if (USE_PLUGINS)
++  add_subdirectory(plugins)
++endif()
++
++if (USE_SCRIPTS)
++  add_subdirectory(scripts)
++endif()
++
++if (USE_DEEPIN_WM_DBUS)
++  add_subdirectory(deepin-wm-dbus)
++endif()
++
++if (USE_TABBOX)
++add_subdirectory(tabbox)
++endif()
++
++if (BUILD_TESTING)
++    add_subdirectory(tests)
+ endif()
+diff --git a/configures/CMakeLists.txt b/configures/CMakeLists.txt
+index 4ac0a906d..3b2301b36 100644
+--- a/configures/CMakeLists.txt
++++ b/configures/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-configure_file(kwin_no_scale.in kwin_no_scale)
++option(USE_KWIN_NO_SCALE "use deepin LD_PRELOAD kwin_no_scale" ON)
+ 
+ install(
+     FILES
+@@ -11,4 +11,7 @@ install(
+     "/etc/xdg"
+ )
+ 
+-install_files("/bin" FILES ${CMAKE_CURRENT_BINARY_DIR}/kwin_no_scale)
++if (USE_KWIN_NO_SCALE)
++    configure_file(kwin_no_scale.in kwin_no_scale)
++    install_files("/bin" FILES ${CMAKE_CURRENT_BINARY_DIR}/kwin_no_scale)
++endif()
+diff --git a/deepin-wm-dbus/CMakeLists.txt b/deepin-wm-dbus/CMakeLists.txt
+index 3312af1d9..3807bc8f9 100644
+--- a/deepin-wm-dbus/CMakeLists.txt
++++ b/deepin-wm-dbus/CMakeLists.txt
+@@ -3,6 +3,7 @@ set(TARGET_NAME "deepin-wm-dbus")
+ 
+ find_package(Qt5Core REQUIRED)
+ find_package(Qt5DBus REQUIRED)
++find_package(X11 REQUIRED)
+ find_package(KF5Config REQUIRED)
+ find_package(KF5WindowSystem REQUIRED)
+ find_package(KF5GlobalAccel REQUIRED)
+diff --git a/plugins/CMakeLists.txt b/plugins/CMakeLists.txt
+index 11695a379..7a7e4bcbb 100644
+--- a/plugins/CMakeLists.txt
++++ b/plugins/CMakeLists.txt
+@@ -1,3 +1,9 @@
+ add_subdirectory(platforms)
+-add_subdirectory(kdecoration)
++
++option(ENABLE_KDECORATION "enable deepin kdecoration plugin" ON)
++
++if (ENABLE_KDECORATION)
++    add_subdirectory(kdecoration)
++endif()
++
+ add_subdirectory(kwineffects)
+diff --git a/plugins/kwineffects/CMakeLists.txt b/plugins/kwineffects/CMakeLists.txt
+index 9832df92a..96d95c98d 100644
+--- a/plugins/kwineffects/CMakeLists.txt
++++ b/plugins/kwineffects/CMakeLists.txt
+@@ -4,7 +4,23 @@ find_package(KF5WindowSystem REQUIRED)
+ 
+ set(INSTALL_PATH "${QT_INSTALL_PLUGINS}/kwin/effects/plugins")
+ 
+-add_subdirectory(scissor-window)
+-add_subdirectory(blur)
+-add_subdirectory(multitasking)
+-add_subdirectory(black-screen)
++option(ENABLE_BUILTIN_SCISSOR_WINDOW "enable deepin built-in scissor window plugin" ON)
++option(ENABLE_BUILTIN_BLUR "enable deepin built-in blur plugin" ON)
++option(ENABLE_BUILTIN_MULTITASKING "enable deepin built-in multitasking plugin" ON)
++option(ENABLE_BUILTIN_BLACK_SCREEN "enable deepin built-in black screen plugin" ON)
++
++if (ENABLE_BUILTIN_SCISSOR_WINDOW)
++    add_subdirectory(scissor-window)
++endif()
++
++if (ENABLE_BUILTIN_BLUR)
++    add_subdirectory(blur)
++endif()
++
++if (ENABLE_BUILTIN_MULTITASKING)
++    add_subdirectory(multitasking)
++endif()
++
++if (ENABLE_BUILTIN_BLACK_SCREEN)
++    add_subdirectory(black-screen)
++endif()
+diff --git a/plugins/platforms/lib/CMakeLists.txt b/plugins/platforms/lib/CMakeLists.txt
+index 9dbf2474f..06379d0ab 100644
+--- a/plugins/platforms/lib/CMakeLists.txt
++++ b/plugins/platforms/lib/CMakeLists.txt
+@@ -3,6 +3,7 @@ set(TARGET_NAME "kwin-xcb")
+ find_package(Qt5Core REQUIRED)
+ find_package(Qt5X11Extras REQUIRED)
+ find_package(Qt5Qml REQUIRED)
++find_package(X11 REQUIRED)
+ find_package(KF5Config REQUIRED)
+ find_package(KF5WindowSystem REQUIRED)
+ find_package(KF5CoreAddons REQUIRED)
