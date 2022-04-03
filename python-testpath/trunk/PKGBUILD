@@ -2,26 +2,36 @@
 # Contributor: Philipp A. <flying-sheep@web.de>
 _name=testpath
 pkgname=python-testpath
-pkgver=0.5.0
-pkgrel=3
+pkgver=0.6.0
+pkgrel=1
 pkgdesc='Test utilities for code working with files and commands'
 arch=('any')
 url="https://pypi.python.org/pypi/testpath"
 license=('MIT')
 depends=('python')
-#makedepends=('python-pip')
-_wheel="$_name-$pkgver-py2.py3-none-any.whl"
+makedepends=('python-build' 'python-installer' 'python-flit-core')
+checkdepends=('python-pytest')
 source=("https://pypi.io/packages/source/t/$_name/$_name-$pkgver.tar.gz")
-md5sums=('b3a41d75aadeab905f7014a3189e852b')
+md5sums=('9fd4339f76da12d15bc718e4aa2566e9')
 
 prepare() {
-  cd "$_name-$pkgver"
+  cd $_name-$pkgver
   rm testpath/cli*.exe
 }
 
-package() {
-  cd "$_name-$pkgver"
-  python setup.py install --root="$pkgdir" --optimize=1
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
+}
 
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+check() {
+  cd $_name-$pkgver
+  pytest -v
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
