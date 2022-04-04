@@ -1,54 +1,51 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=trace-cmd
-pkgver=2.9.7
+pkgver=3.0.3
 pkgrel=1
 pkgdesc="Interact with Ftrace Linux kernel internal tracer"
 arch=(x86_64)
 url="https://git.kernel.org/pub/scm/utils/trace-cmd/trace-cmd.git"
 license=(GPL2 LGPL2.1)
 depends=(glibc)
-makedepends=(asciidoc audit bash-completion libtraceevent libtracefs python swig xmlto)
+makedepends=(asciidoc audit bash-completion cunit libtraceevent libtracefs python swig xmlto zstd)
 optdepends=('python: for Python plugins')
 provides=(libtracecmd.so)
-source=("https://git.kernel.org/pub/scm/utils/trace-cmd/trace-cmd.git/snapshot/trace-cmd-v${pkgver}.tar.gz"
-        "${pkgname}-2.9-make_install.patch"
-        "${pkgname}-2.9.3-python3.patch"
-        "${pkgname}-2.9.3-docs_makefile.patch"
-        "${pkgname}-2.9.5-full_relro.patch")
-sha512sums=('f678ea380c0fe7e4ea9ed43d9024e418376fdf435043937e680d65a3728b9eefda2e6dcff0e02846267485317f764e7f7123812f5d5df5b63761a169f57520b9'
+options=(debug)
+source=(
+  https://git.kernel.org/pub/scm/utils/trace-cmd/trace-cmd.git/snapshot/trace-cmd-v$pkgver.tar.gz
+  $pkgname-2.9-make_install.patch
+  $pkgname-2.9.3-python3.patch
+)
+sha512sums=('896a5b2d230eb0ee19e27bb71e485acd163a3225062015a0dae5b4b55eb48d8d1cdc034f7881751523384f13e20adfd8b7bc0a53392fff8029bf1403445cc785'
             'c9321b2b885d88557a057d7064690274799ab1d67a8babb78b1c54c4d81546fdea7313286cfd5fb9efbbcf87cf8394dcb17202ac88434a351aa652e7109e1db6'
-            'a1834b382cbee920697d08c7eb7292c4a5ea606e4f32459a60e0b236ad057536c987f3e162c9c99affa46396248e98c8f4ecd21031141f0221dbadf0bd33737d'
-            '1d43fc0fec3b386a741467966bcecdcacdfbe36e21c63d644ec281ff9577332e2d6cff95cef22bab85d2209017eb39d36def35f24b86e54720d6913a44fc3cbd'
-            '56f2c7e0e3e277770670af58dee7fce3910342cd792a2d8c3da311bad5dfb75b72f1456b1124c2f0ee74a84601434ed9dd6cce98464acfebd17551490f0d3061')
-b2sums=('b0dc72c0194172ce048df7870f82b75af7c0072e9606e844572e6e894eb0abc62958488bd447cc6ff6070c0327b03adfd8325d0cf39bd098fabebf63b6b084f1'
+            'a1834b382cbee920697d08c7eb7292c4a5ea606e4f32459a60e0b236ad057536c987f3e162c9c99affa46396248e98c8f4ecd21031141f0221dbadf0bd33737d')
+b2sums=('4c45b290d5d8ecb79d60886c24e6dbf4b43ff73792ca14fd30f0dd1ea91aa1fcd61551616ef0b89cd301d4c6c2b20fad1272b2e04ed374c59e2c8f3a9f022683'
         '8a644be295417b1fd5fb807285a7176ef0ceb737352bbb4c7a88441f9b955a90befe974d890a58f2b8fb6de8a68a1b3c5d207f057c4b08db79caf6e97fa66f50'
-        'dac368fc62d99eba6d36f2c7d81475c28211dfe5d1d59ca5e468daff31d36710637943dc822fb266784feb5355ca0bfb525819bb96095c8e0c0fa91f32558877'
-        '86104406eb8694a96cd6ed34f2dcdf06039d4342ebacbb492759945b7b156d41806986fc96e421557a7a224f18a5786ec999c5c07f2a9ffff051351911cc8095'
-        '5d2a4b6f0f1b7f085dbcfcc53b96ef30e9e3d6b676e23c79776a73685ae813d5c92fae2e9b0fd1cf203947c1a06391f518ef462be780e07b5cce2c89c41b46d5')
+        'dac368fc62d99eba6d36f2c7d81475c28211dfe5d1d59ca5e468daff31d36710637943dc822fb266784feb5355ca0bfb525819bb96095c8e0c0fa91f32558877')
 
 prepare() {
   cd $pkgname-v$pkgver
   patch -Np1 -i ../$pkgname-2.9-make_install.patch
-  patch -Np1 -i ../$pkgname-2.9.3-docs_makefile.patch
   patch -Np1 -i ../$pkgname-2.9.3-python3.patch
-  patch -Np1 -i ../$pkgname-2.9.5-full_relro.patch
 }
 
 build() {
   export PYTHON_VERS=python3
   make prefix=/usr libdir_relative=lib all libs -C $pkgname-v$pkgver
-  make -C $pkgname-v$pkgver/Documentation
+  make prefix=/usr doc -C $pkgname-v$pkgver
+  make test -C $pkgname-v$pkgver
+}
+
+check() {
+  ./$pkgname-v$pkgver/utest/trace-utest
 }
 
 package() {
-  depends+=(libaudit.so libtraceevent.so libtracefs.so)
+  depends+=(libaudit.so libtraceevent.so libtracefs.so libzstd.so)
 
-  make prefix=/usr \
-       libdir_relative=lib \
-       DESTDIR="$pkgdir" \
-       BASH_COMPLETE_DIR="$(pkgconf --variable=completionsdir bash-completion)" \
-       install_cmd install_libs -C $pkgname-v$pkgver
-  make prefix=/usr DESTDIR="$pkgdir" install -C $pkgname-v$pkgver/Documentation
+  make prefix=/usr libdir_relative=lib DESTDIR="$pkgdir" BASH_COMPLETE_DIR="$(pkgconf --variable=completionsdir bash-completion)" install_cmd install_libs -C $pkgname-v$pkgver
+  # NOTE: for unknown reasons upstream does not use DESTDIR here...
+  make prefix="$pkgdir/usr" install_doc -C $pkgname-v$pkgver
   install -vDm 644 $pkgname-v$pkgver/tracecmd/$pkgname.bash "$pkgdir/usr/share/bash/bash-completion/completions/$pkgname"
 }
