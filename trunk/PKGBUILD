@@ -2,23 +2,26 @@
 
 pkgname=dragonfly-reverb
 _name=DragonflyReverb
-pkgver=3.2.5
+pkgver=3.2.6
 pkgrel=1
 pkgdesc="A concert hall reverb and a room reverb"
-arch=('x86_64')
+arch=(x86_64)
 url="https://michaelwillis.github.io/dragonfly-reverb/"
-license=('GPL3')
-groups=('lv2-plugins' 'pro-audio' 'vst-plugins')
-depends=('gcc-libs' 'glibc' 'libglvnd' 'libx11')
-makedepends=('freeverb3' 'gendesk' 'jack' 'lv2')
-checkdepends=('lv2lint')
-optdepends=('jack: for standalone applications'
-            'lv2-host: for LV2 plugins'
-            'vst-host: for VST plugins')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/michaelwillis/${pkgname}/releases/download/${pkgver}/${_name}-Source-v${pkgver}.tar.gz")
-sha512sums=('fa1a46d6f1b01682094a1407ef26251c6fc0454b55702de6383882ebaade015c5fc44b0ec57d3d38daa447b92b0d4b37f5abd6b59d00efa49bf3e7165a31291e')
-b2sums=('3142fa18b9a8a79b663cb627c250a5d7f6271c8cf28d128eb5bdf1a2b60d5abf7cb19e0ac97f174b12084051d252eb8da0f69f279c0925e7093ecf4ccc7b1790')
-_names=('DragonflyEarlyReflections' 'DragonflyHallReverb' 'DragonflyPlateReverb' 'DragonflyRoomReverb')
+license=(GPL3)
+groups=(lv2-plugins pro-audio vst-plugins)
+depends=(gcc-libs glibc libglvnd libx11)
+makedepends=(freeverb3 gendesk jack libsamplerate lv2)
+checkdepends=(lv2lint)
+optdepends=(
+  'jack: for standalone applications'
+  'lv2-host: for LV2 plugins'
+  'vst-host: for VST plugins'
+)
+options=(debug)
+source=(https://github.com/michaelwillis/$pkgname/releases/download/$pkgver/$pkgname-source-v$pkgver.tar.gz)
+sha512sums=('0c1b9023e0ecfff07119fd4b48035622570f5c7a85ce6f10bc771a3df3b75bd13a36ef570bfa1f3ba912ef0608a7a71ec606621098cc56919066a0633afcd06b')
+b2sums=('e9d39f00f21866f22cf0b3a93121755b3eecf50c7c2da2fab71c26523ee5a155ad788a48a03f205130d297803f7223867fcfaf99119f960a28e4be8bf6848a39')
+_names=(DragonflyEarlyReflections DragonflyHallReverb DragonflyPlateReverb DragonflyRoomReverb)
 
 prepare() {
   declare -A _description=(
@@ -33,14 +36,17 @@ prepare() {
     ["DragonflyPlateReverb"]="Plate Reverb"
     ["DragonflyRoomReverb"]="Room Reverb"
   )
-  mv -v "DragonflyReverb-Source-v${pkgver}" "$pkgname-$pkgver"
-  cd "$pkgname-$pkgver"
+
+  cd $_name-Source-v$pkgver
+
+  # explicitly remove vendored freeverb as it causes issues: https://github.com/michaelwillis/dragonfly-reverb/issues/129
+  rm -frv common/freeverb/
 
   for name in "${_names[@]}"; do
     gendesk -n \
-            --pkgname "io.github.michaelwillis.${name}" \
-            --name "${name}" \
-            --exec "${name}" \
+            --pkgname io.github.michaelwillis.$name \
+            --name $name \
+            --exec $name \
             --pkgdesc "${comments[$name]}" \
             --genericname "${generic[$name]}" \
             --categories "AudioVideo;Audio"
@@ -48,13 +54,12 @@ prepare() {
 }
 
 build() {
-  cd "$pkgname-$pkgver"
   export SYSTEM_FREEVERB3="true"
-  make
+  make -C $_name-Source-v$pkgver
 }
 
 check() {
-  local _name=""
+  local _plugin_name=""
   declare -A _urls=(
     ["DragonflyHallReverb"]='https://github.com/michaelwillis/dragonfly-reverb'
     ["DragonflyEarlyReflections"]='urn:dragonfly:early'
@@ -62,23 +67,21 @@ check() {
     ["DragonflyRoomReverb"]='urn:dragonfly:room'
   )
 
-  cd "$pkgname-$pkgver"
-  for _name in "${_names[@]}"; do
-    lv2lint -Mpack -s "lv2_generate_ttl" -I "${PWD}/bin/${_name}.lv2/" "${_urls[$_name]}"
+  for _plugin_name in "${_names[@]}"; do
+    lv2lint -Mpack -s "lv2_generate_ttl" -I $_name-Source-v$pkgver/bin/$_plugin_name.lv2/ "${_urls[$_plugin_name]}"
   done
 }
 
 package() {
-  depends+=('libfreeverb3.so')
-  cd "$pkgname-$pkgver"
+  depends+=(libfreeverb3.so)
+
+  cd $_name-Source-v$pkgver
   for name in "${_names[@]}"; do
-    install -vDm 755 "bin/${name}" -t "${pkgdir}/usr/bin"
-    install -vDm 755 "bin/${name}-vst.so" -t "${pkgdir}/usr/lib/vst"
-    install -vDm 755 "bin/${name}.lv2/"*.so \
-      -t "${pkgdir}/usr/lib/lv2/${name}.lv2/"
-    install -vDm 644 "bin/${name}.lv2/"*.ttl \
-      -t "${pkgdir}/usr/lib/lv2/${name}.lv2/"
+    install -vDm 755 bin/$name -t "$pkgdir/usr/bin"
+    install -vDm 755 bin/$name-vst.so -t "$pkgdir/usr/lib/vst"
+    install -vDm 755 bin/$name.lv2/*.so -t "$pkgdir/usr/lib/lv2/$name.lv2/"
+    install -vDm 644 bin/$name.lv2/*.ttl -t "$pkgdir/usr/lib/lv2/$name.lv2/"
   done
-  install -vDm 644 *".desktop" -t "${pkgdir}/usr/share/applications/"
-  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -vDm 644 *.desktop -t "$pkgdir/usr/share/applications/"
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgname"
 }
