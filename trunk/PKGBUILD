@@ -1,23 +1,23 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-zipp
-pkgver=3.7.0
+pkgver=3.8.0
 pkgrel=1
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
 license=('MIT')
 arch=('any')
 depends=('python')
-makedepends=('python-setuptools-scm' 'python-toml')
+makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-toml' 'python-wheel')
 checkdepends=('python-jaraco' 'python-func-timeout')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/jaraco/zipp/archive/v$pkgver.tar.gz")
-sha512sums=('3bbcd9a30548fa7537d8e9bebbfae1f6cf66ceb197d953511e2e105ea83fe53b9352d8228978dfe9bcecc2f07113e936aded79d84e67bc7f570801a4bc60747a')
+source=("https://github.com/jaraco/zipp/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('25a8f78be5dbfaacdd39f0492958486aa2a5a7eb1af3724e484676fb69eeb97ca558add0d5fa1f281a11cc410f67dc3959affe903a472b0bdbc78eb753096ef0')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 build() {
   cd zipp-$pkgver
-  python setup.py build
+  python -m build -nw
 }
 
 check() {
@@ -27,6 +27,6 @@ check() {
 
 package() {
   cd zipp-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
