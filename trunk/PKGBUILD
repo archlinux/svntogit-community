@@ -5,33 +5,31 @@
 _name=gitdb
 pkgdesc="A pure-Python git object database"
 pkgname=python-gitdb
-pkgver=4.0.7
-pkgrel=3
+_commit=1c976835c5d1779a28b9e11afd1656152db26a68  # refs/tags/4.0.9^{}
+pkgver=4.0.9
+pkgrel=1
 epoch=1
 url="https://github.com/gitpython-developers/gitdb"
-license=('BSD')
-arch=('any')
-depends=('git' 'python-smmap')
-makedepends=('python-setuptools')
-checkdepends=('python-nose')
-source=("https://pypi.org/packages/source/g/${_name}/${_name}-${pkgver}.tar.gz"{,.asc})
-sha512sums=('db63a613ee59249a3fccbd09fc0eca5747b166180bb5885737f849e339e81dfacd04f65e438fef241cf013cde33fe8c99a569c1599b2b5defd37b50e87dbdb0a'
-            'SKIP')
+license=(BSD)
+arch=(any)
+depends=(git python-smmap)
+makedepends=(python-build python-installer python-setuptools python-wheel)
+checkdepends=(python-nose python-pytest)
+# switch to git sources as tarball signatures are broken
+# source=("https://pypi.org/packages/source/g/${_name}/${_name}-${pkgver}.tar.gz"{,.asc})
+source=(git+$url#commit=$_commit?signed)
+sha512sums=('SKIP')
 validpgpkeys=('27C50E7F590947D7273A741E85194C08421980C9') # Sebastian Thiel (In Rust I trust!) <byronimo@gmail.com>
 
-prepare() {
-  mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
-}
-
 build() {
-  cd "${pkgname}-${pkgver}"
-  python setup.py build
+  cd $_name
+  python -m build --wheel --no-isolation
 }
 
 # some tests need to be disabled, because of coupling with the project
 # repository: https://github.com/gitpython-developers/gitdb/issues/51
 check() {
-  cd "${pkgname}-${pkgver}"
+  cd $_name
   local TEST_TMPDIR=$(mktemp -d)
   (
     cd "$TEST_TMPDIR"
@@ -39,22 +37,18 @@ check() {
     git config user.name "Test User"
     git config user.email "test@user.org"
     for commit in {1..50}; do
-      touch "file${commit}"
-      git add "file${commit}"
-      git commit -m "file${commit}"
+      touch "file$commit"
+      git add "file$commit"
+      git commit -m "file$commit"
     done
   )
-  export GITDB_TEST_GIT_REPO_BASE="${TEST_TMPDIR}/.git"
-  nosetests -vd -e 'test_pack_writing'
+  export GITDB_TEST_GIT_REPO_BASE="$TEST_TMPDIR/.git"
+  pytest -vv -k "not test_pack_writing"
 }
 
 package() {
-  cd "${pkgname}-${pkgver}"
-  python setup.py install --skip-build \
-                          --optimize=1 \
-                          --prefix=/usr \
-                          --root="${pkgdir}"
-  install -vDm 644 {AUTHORS,README.rst} \
-    -t "${pkgdir}/usr/share/doc/${pkgname}/"
-  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  cd $_name
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 {AUTHORS,README.rst} -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
 }
