@@ -1,0 +1,69 @@
+# Maintainer: Sébastien Luttringer
+# Contributor: Patrik Cyvoct <patrik at ptrk dot io>
+# Contributor: Mikkel Oscar Lyderik <mikkeloscar at gmail dot com>
+
+pkgname=scaleway-cli
+pkgver=2.5.1
+pkgrel=1
+pkgdesc='Command line interface for Scaleway Cloud'
+arch=('x86_64')
+url='https://www.scaleway.com/cli/'
+license=('Apache')
+depends=('glibc')
+makedepends=('go' 'git')
+source=("git+https://github.com/scaleway/scaleway-cli.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+prepare() {
+  cd $pkgname
+  # apply patch from the source array (should be a pacman feature)
+  local src
+  for src in "${source[@]}"; do
+    src="${src%%::*}"
+    src="${src##*/}"
+    [[ $src = *.patch ]] || continue
+    echo "Applying patch $src..."
+    patch -Np1 < "../$src"
+  done
+  :
+}
+
+build() {
+  cd $pkgname
+  export CGO_CPPFLAGS="$CPPFLAGS"
+  export CGO_CFLAGS="$CFLAGS"
+  export CGO_CXXFLAGS="$CXXFLAGS"
+  export CGO_LDFLAGS="$LDFLAGS"
+  go build \
+    -buildmode=pie \
+    -trimpath \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\" -X main.Version=$pkgver-$pkgrel -X main.BuildDate=$(date -u '+%Y-%m-%dT%I:%M:%S%p')" \
+    -o scw ./cmd/scw/main.go
+  PATH=. scw autocomplete script shell=zsh > zshcomp
+  PATH=. scw autocomplete script shell=bash > bashcomp
+}
+
+check() {
+  cd $pkgname
+  export CGO_CPPFLAGS="$CPPFLAGS"
+  export CGO_CFLAGS="$CFLAGS"
+  export CGO_CXXFLAGS="$CXXFLAGS"
+  export CGO_LDFLAGS="$LDFLAGS"
+  go test ./... \
+    -buildmode=pie \
+    -trimpath \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\" -X main.Version=$pkgver-$pkgrel -X main.BuildDate=$(date -u '+%Y-%m-%dT%I:%M:%S%p')"
+}
+
+package() {
+  cd $pkgname
+  install -Dm755 scw "$pkgdir"/usr/bin/scw
+  install -Dm644 bashcomp "$pkgdir"/usr/share/bash-completion/completions/scw
+  install -Dm644 zshcomp "$pkgdir"/usr/share/zsh/site-functions/_scw
+}
+
+# vim:set ts=2 sw=2 ft=PKGBUILD et:
