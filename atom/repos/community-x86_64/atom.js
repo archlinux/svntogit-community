@@ -1,4 +1,4 @@
-#!/usr/bin/electron9
+#!/usr/bin/env @ELECTRON@
 
 const name = "atom";
 
