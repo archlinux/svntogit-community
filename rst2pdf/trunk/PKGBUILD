@@ -1,67 +1,79 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=rst2pdf
-pkgver=0.98
-pkgrel=4
+pkgver=0.99
+pkgrel=1
 pkgdesc="Use a text editor. Make a PDF"
-arch=('any')
+arch=(any)
 url="https://github.com/rst2pdf/rst2pdf"
-license=('MIT')
-depends=('python-docutils' 'python-importlib-metadata' 'python-jinja'
-'python-packaging' 'python-pygments' 'python-reportlab' 'python-smartypants')
-makedepends=('python-setuptools')
-# TODO: package dvipng, python-svg2rlg, python-pypdf2, python-xhtml2pdf
+license=(MIT)
+depends=(python-docutils python-importlib-metadata python-jinja
+python-packaging python-pygments python-reportlab python-smartypants
+python-yaml)
+makedepends=(python-build python-installer python-setuptools-scm python-wheel)
+# TODO: package python-xhtml2pdf
+# https://github.com/xhtml2pdf/xhtml2pdf/issues/560
 checkdepends=(
-  'plantuml'
-  'python-aafigure'
-  'python-matplotlib'
-  'python-pytest'
-  'python-pytest-xdist'
-  'python-pymupdf'
-  'python-sphinx'
-  'python-svglib'
+  graphviz
+  plantuml
+  python-aafigure
+  python-matplotlib
+  python-pytest
+  python-pymupdf
+  python-sphinx
+  python-svglib
 )
 # TODO: package python-xhtml2pdf
 optdepends=(
+  'plantuml: for UML diagram support'
   'python-aafigure: for ASCII image support'
   'python-matplotlib: for math support'
   'python-sphinx: for sphinx support'
   'python-svglib: for SVG support'
 )
-source=("$pkgname-$pkgver.tar.gz::https://github.com/${pkgname}/${pkgname}/archive/refs/tags/${pkgver}.tar.gz")
-sha512sums=('6e251528f4b7fc87c760542c7d53b69f5dff3cbefce8740e2591cc13a6bfeea68dda3e17033900dfcc33200fa8d150869369854174587dcba7cc51f978728365')
-b2sums=('028b75573f4a939e58157f0b69eefe50cd8fb78874917495b5736594834bb1addb67dfaed674d13892d250c837358b230f2eaa7e8d9e36f26ee95c6eeceadde4')
-
-prepare() {
-  cd "$pkgname-$pkgver"
-}
+source=($pkgname-$pkgver.tar.gz::https://github.com/$pkgname/$pkgname/archive/refs/tags/$pkgver.tar.gz)
+sha512sums=('c688a43c5df2ef92ee305d1d549ac9696e23aae9743da33c9d7b928006fe9b1c2f96b444526752afb7bcf11b6c158a913dd14cf624d2aa885a874728fbba6a7a')
+b2sums=('06f0492c366e1b3351a0651e8fd01c5d6d8277b7e03ceec52d38022f90e1e22c87520822b1704f11fd8ab20b5c03229db755aaa10ba7cbb5d1c590154b680d02')
 
 build() {
-  cd "$pkgname-$pkgver"
-  python setup.py build
+  cd $pkgname-$pkgver
+  export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
+  python -m build --wheel --no-isolation
 }
 
 check() {
   local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
   local _test_dir="test_dir"
 
-  cd "$pkgname-$pkgver"
-  mkdir -vp "${_test_dir}"
-  python setup.py install --skip-build \
-                          --optimize=1 \
-                          --root="${_test_dir}"
+  cd $pkgname-$pkgver
+  mkdir -vp $_test_dir
+  python -m installer --destdir="$_test_dir" dist/*.whl
 
-  export PYTHONPATH="${PWD}/${_test_dir}/${_site_packages}:${PYTHONPATH}"
-  export PATH="${PWD}/${_test_dir}/usr/bin:${PATH}"
-  pytest -vv || echo "Tests broken probably due to missing deps or other issues: https://github.com/rst2pdf/rst2pdf/issues/1015"
+  export PYTHONPATH="$PWD/$_test_dir/$_site_packages:$PYTHONPATH"
+  export PATH="$PWD/$_test_dir/usr/bin:$PATH"
+  # NOTE: disable all broken tests: https://github.com/rst2pdf/rst2pdf/issues/1067
+  pytest -vv \
+    -k "not test_box_widths \
+      and not test_header_footer_in_stylesheet \
+      and not test_issue_110 \
+      and not test_issue_110_2 \
+      and not test_issue_110_3 \
+      and not test_issue_126 \
+      and not test_issue_261 \
+      and not test_issue_274_2 \
+      and not test_issue_288 \
+      and not test_issue_295 \
+      and not test_preprocessor \
+      and not test_raw_html \
+      and not test_stylesheet_includes \
+      and not test_table_in_header \
+      and not test_uml_extension \
+      and not sphinx-footnotes-order"
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-  python setup.py install --skip-build \
-                          --optimize=1 \
-                          --root="${pkgdir}"
-  install -vDm 644 {CHANGES,MAINTAINERS,README}.rst \
-    -t "${pkgdir}/usr/share/doc/${pkgname}"
-  install -vDm 644 LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  cd $pkgname-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 {CHANGES,MAINTAINERS,README}.rst -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 LICENSE.txt -t "$pkgdir/usr/share/licenses/$pkgname/"
 }
