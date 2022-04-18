@@ -5,7 +5,7 @@
 
 pkgname=neovim
 pkgver=0.7.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
@@ -18,35 +18,36 @@ optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
             'xsel: for clipboard support on X11 (or xclip) (see :help clipboard)'
             'wl-clipboard: for clipboard support on wayland (see :help clipboard)')
+options=(debug)
 source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('3597c54fb925a4d607bca9ba0fdb37df90ecb816da99f52baf46cc2ec79727a55048ba1d8d22c8e7d61f0e8e35546326b1d0d15c0a91de8bf5bc529c45fb1ce0')
 
 build() {
-  cd neovim-${pkgver}
   cmake \
     -Bbuild \
     -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DUSE_BUNDLED=OFF
+    -DUSE_BUNDLED=OFF \
+    -D LIBVTERM_INCLUDE_DIR=/usr/include/libvterm01 \
+    -D LIBVTERM_LIBRARY=/usr/lib/libvterm01/libvterm.so \
+    -W no-dev \
+    -S neovim-$pkgver
   cmake --build build
 }
 
 check() {
-  cd neovim-${pkgver}/build
-  ./bin/nvim --version
-  ./bin/nvim --headless -u NONE -i NONE -c ':quit'
+  ./build/bin/nvim --version
+  ./build/bin/nvim --headless -u NONE -i NONE -c ':quit'
 }
 
 package() {
-  cd neovim-${pkgver}
-  DESTDIR="${pkgdir}" cmake --install build
+  DESTDIR="$pkgdir" cmake --install build
 
-  cd "${srcdir}/neovim-${pkgver}"
-  install -Dm644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
-  install -Dm644 runtime/nvim.desktop "${pkgdir}/usr/share/applications/nvim.desktop"
-  install -Dm644 runtime/nvim.appdata.xml "${pkgdir}/usr/share/metainfo/nvim.appdata.xml"
-  install -Dm644 runtime/nvim.png "${pkgdir}/usr/share/pixmaps/nvim.png"
+  install -Dm644 neovim-$pkgver/LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  install -Dm644 neovim-$pkgver/runtime/nvim.desktop -t "${pkgdir}/usr/share/applications/"
+  install -Dm644 neovim-$pkgver/runtime/nvim.appdata.xml -t "${pkgdir}/usr/share/metainfo/"
+  install -Dm644 neovim-$pkgver/runtime/nvim.png -t "${pkgdir}/usr/share/pixmaps/"
 
   # Make Arch vim packages work
   mkdir -p "${pkgdir}"/etc/xdg/nvim
