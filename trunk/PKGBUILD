@@ -4,17 +4,17 @@
 
 _pkgname=sphinxcontrib-bibtex
 pkgname="python-${_pkgname}"
-pkgver=2.4.1
-pkgrel=2
+pkgver=2.4.2
+pkgrel=1
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
 url="https://sphinxcontrib-bibtex.readthedocs.org"
 license=('BSD')
 depends=('python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-docutils')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest')
+checkdepends=('python-pytest' 'python-numpydoc')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mcmtroffaes/${_pkgname}/archive/${pkgver}.tar.gz")
-sha256sums=('7272daddda98884c7655bf10d34312c275b05b79bb5f3fb9fd5e4b6e43eb513d')
+sha256sums=('4f69e266c1ebb3cd1a2912be790f905359ee3e02f38d8d1f32bf16cc7b127ab1')
 
 build() {
   cd "${srcdir}/${_pkgname}-${pkgver}"
