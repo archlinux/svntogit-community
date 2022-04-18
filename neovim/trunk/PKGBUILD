@@ -5,7 +5,7 @@
 
 pkgname=neovim
 pkgver=0.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
@@ -13,7 +13,7 @@ backup=('etc/xdg/nvim/sysinit.vim')
 license=('custom:neovim')
 provides=('vim-plugin-runtime')
 depends=('libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm01' 'luajit' 'libluv' 'tree-sitter')
-makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg' 'gperf')
+makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg' 'gperf' 'patchelf')
 optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
             'xsel: for clipboard support on X11 (or xclip) (see :help clipboard)'
@@ -23,17 +23,16 @@ source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver
 sha512sums=('3597c54fb925a4d607bca9ba0fdb37df90ecb816da99f52baf46cc2ec79727a55048ba1d8d22c8e7d61f0e8e35546326b1d0d15c0a91de8bf5bc529c45fb1ce0')
 
 build() {
+  export PKG_CONFIG_PATH="/usr/lib/libvterm01/pkgconfig:$PKG_CONFIG_PATH"
   cmake \
     -Bbuild \
     -GNinja \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DUSE_BUNDLED=OFF \
-    -D LIBVTERM_INCLUDE_DIR=/usr/include/libvterm01 \
-    -D LIBVTERM_LIBRARY=/usr/lib/libvterm01/libvterm.so \
     -W no-dev \
     -S neovim-$pkgver
-  cmake --build build
+  cmake --build build --verbose
 }
 
 check() {
@@ -56,6 +55,10 @@ package() {
 
   mkdir -p "${pkgdir}"/usr/share/vim
   echo "set runtimepath+=/usr/share/vim/vimfiles" > "${pkgdir}"/usr/share/nvim/archlinux.vim
+
+  # NOTE: this is very ugly and needs to be removed as soon as neovim supports libvterm >= 0.2.0
+  # (both libvterm01 and libvterm provide libvterm.so.0)
+  patchelf --add-rpath '/usr/lib/libvterm01' "$pkgdir/usr/bin/nvim"
 }
 
 # vim:set ft=sh sw=2 sts=2 et:
