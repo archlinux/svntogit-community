@@ -3,7 +3,7 @@
 # Contributor: Michael Yeatts <mwyeatts@gmail.com>
 
 pkgname=python-typing_extensions
-pkgver=4.1.0
+pkgver=4.2.0
 pkgrel=1
 pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
 arch=(any)
@@ -16,12 +16,6 @@ provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
 source=("git+https://github.com/python/typing.git#tag=${pkgver}")
 sha256sums=(SKIP)
-
-pkgver() {
-  cd typing
-
-  git describe --tags
-}
 
 build() {
   cd typing/typing_extensions
