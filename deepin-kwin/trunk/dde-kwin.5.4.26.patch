@@ -1,8 +1,19 @@
+commit df1937194c07b850425bd047ed4fc8a8986b0609
+Author: justforlxz <justforlxz@gmail.com>
+Date:   Wed Apr 6 20:24:55 2022 +0800
+
+    refactor: scissor-window
+    
+    Adapt to kwin 4.24
+    
+    Log: Adapt to kwin 4.24
+    Change-Id: I5da82f2b20cfc6ed165e2e0559fa556624de1d77
+
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index cbbf79e0c..8321a362c 100644
+index cbbf79e0c..60c2f3cd8 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -15,6 +15,20 @@ add_definitions(
+@@ -15,6 +15,26 @@ add_definitions(
      -DPROJECT_VERSION=\\"${PROJECT_VERSION}\\"
  )
  
@@ -11,6 +22,8 @@ index cbbf79e0c..8321a362c 100644
 +option(USE_DEEPIN_WM_DBUS "use deepin-wm dbus service" ON)
 +option(USE_TABBOX "use deepin style tabbox" ON)
 +option(USE_WINDOW_TOOL "support wayland and x11" ON)
++option(USE_DEEPIN_WAYLAND "use deepin wayland" ON)
++option(USE_KWIN_NO_SCALE "use kwin_no_scale script" ON)
 +option(ENABLE_BUILTIN_SCISSOR_WINDOW "enable deepin built-in scissor window plugin" ON)
 +option(ENABLE_BUILTIN_BLUR "enable deepin built-in blur plugin" ON)
 +option(ENABLE_BUILTIN_MULTITASKING "enable deepin built-in multitasking plugin" ON)
@@ -20,10 +33,14 @@ index cbbf79e0c..8321a362c 100644
 +     add_definitions(-DENABLE_BUILTIN_BLUR)
 +endif(ENABLE_BUILTIN_BLUR)
 +
++if (USE_DEEPIN_WAYLAND)
++    add_definitions(-DUSE_DEEPIN_WAYLAND)
++endif(USE_DEEPIN_WAYLAND)
++
  #when "KWIN_VERSION > KWIN_VERSION_CHECK(5, 18, 90, 0)"
  find_path(
      KWaylandServerPath
-@@ -91,14 +105,28 @@ if (KWIN_VERSION)
+@@ -91,14 +111,28 @@ if (KWIN_VERSION)
      )
  endif()
  
@@ -63,13 +80,12 @@ index cbbf79e0c..8321a362c 100644
 +
 +add_subdirectory(configures)
 diff --git a/configures/CMakeLists.txt b/configures/CMakeLists.txt
-index 4ac0a906d..dfbdeaf48 100644
+index 4ac0a906d..99e0d0970 100644
 --- a/configures/CMakeLists.txt
 +++ b/configures/CMakeLists.txt
 @@ -1,9 +1,17 @@
--configure_file(kwin_no_scale.in kwin_no_scale)
-+option(USE_KWIN_NO_SCALE "use deepin LD_PRELOAD kwin_no_scale" ON)
-+
+ configure_file(kwin_no_scale.in kwin_no_scale)
+ 
 +if(ENABLE_BUILTIN_BLUR)
 +     set(ENABLE_BUILTIN_BLUR_STRING "false")
 + else()
@@ -77,7 +93,7 @@ index 4ac0a906d..dfbdeaf48 100644
 + endif()
 +
 +configure_file(kwinrc.in kwinrc)
- 
++
  install(
      FILES
      kglobalshortcutsrc
@@ -86,15 +102,57 @@ index 4ac0a906d..dfbdeaf48 100644
      kwinrulesrc
      klaunchrc
      kdeglobals
-@@ -11,4 +19,7 @@ install(
+@@ -11,4 +19,9 @@ install(
      "/etc/xdg"
  )
  
 -install_files("/bin" FILES ${CMAKE_CURRENT_BINARY_DIR}/kwin_no_scale)
 +if (USE_KWIN_NO_SCALE)
 +    configure_file(kwin_no_scale.in kwin_no_scale)
-+    install_files("/bin" FILES ${CMAKE_CURRENT_BINARY_DIR}/kwin_no_scale)
++    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kwin_no_scale
++            DESTINATION bin
++            PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 +endif()
+diff --git a/configures/kwin_no_scale.in b/configures/kwin_no_scale.in
+old mode 100755
+new mode 100644
+index d34aba1f7..8b4a5b18a
+--- a/configures/kwin_no_scale.in
++++ b/configures/kwin_no_scale.in
+@@ -1,20 +1,19 @@
+-#!/bin/sh
+-
+-KWIN_VERSION=`kwin_x11 --version 2>/dev/null`
+-DDE_KWIN_SUPPORTED_VERSION='kwin 5.21.5'
+-if [ "$KWIN_VERSION" \> "$DDE_KWIN_SUPPORTED_VERSION" ]; then
+-    kwin_x11 $@
+-    exit 0
+-fi
++#!/bin/bash
+ 
+ if [ -n "$HOME" ];then
+     cp -n /etc/xdg/kglobalshortcutsrc $HOME/.config/kglobalshortcutsrc
+ fi
+ 
+-EXECUTE_PATH=$(cd `dirname $0`; pwd)
++ARGS=$@
++
++function runDeepinKWin() {
++    local EXECUTE_PATH=$1
++    export LD_PRELOAD=${PLUGIN_INSTALL_PATH}/libdde-kwin-xcb.so:$LD_PRELOAD
++    export QT_SCALE_FACTOR=1
++    #":"后的"appFilePath=..."会传递给QPlatformIntegration::create调用
++    # appFilePath 的值会覆盖 QCoreApplication::applicationPath，以确保kwin崩溃自动重启时也是启动的kwin_no_scale脚本
++    kwin_x11 -platform dde-kwin-xcb:appFilePath=$EXECUTE_PATH/kwin_no_scale $ARGS
++    return $?
++}
+ 
+-export "LD_PRELOAD=${PLUGIN_INSTALL_PATH}/libdde-kwin-xcb.so:$LD_PRELOAD"
+-export QT_SCALE_FACTOR=1
+-#":"后的"appFilePath=..."会传递给QPlatformIntegration::create调用
+-# appFilePath 的值会覆盖 QCoreApplication::applicationPath，以确保kwin崩溃自动重启时也是启动的kwin_no_scale脚本
+-kwin_x11 -platform dde-kwin-xcb:appFilePath=$EXECUTE_PATH/kwin_no_scale $@
++runDeepinKWin "$(cd `dirname $0`; pwd)" || kwin_x11 $ARGS
 diff --git a/configures/kwinrc b/configures/kwinrc.in
 similarity index 98%
 rename from configures/kwinrc
@@ -122,21 +180,6 @@ index 3312af1d9..3807bc8f9 100644
  find_package(KF5Config REQUIRED)
  find_package(KF5WindowSystem REQUIRED)
  find_package(KF5GlobalAccel REQUIRED)
-diff --git a/plugins/CMakeLists.txt b/plugins/CMakeLists.txt
-index 11695a379..7a7e4bcbb 100644
---- a/plugins/CMakeLists.txt
-+++ b/plugins/CMakeLists.txt
-@@ -1,3 +1,9 @@
- add_subdirectory(platforms)
--add_subdirectory(kdecoration)
-+
-+option(ENABLE_KDECORATION "enable deepin kdecoration plugin" ON)
-+
-+if (ENABLE_KDECORATION)
-+    add_subdirectory(kdecoration)
-+endif()
-+
- add_subdirectory(kwineffects)
 diff --git a/plugins/kdecoration/CMakeLists.txt b/plugins/kdecoration/CMakeLists.txt
 index 0a34ea25d..60196cf37 100644
 --- a/plugins/kdecoration/CMakeLists.txt
@@ -197,7 +240,7 @@ index 6bfde0b16..4eed1e543 100644
  
  #endif // CHAMELEON_H
 diff --git a/plugins/kdecoration/chameleonconfig.cpp b/plugins/kdecoration/chameleonconfig.cpp
-index 8b6a03b8e..505a5639d 100644
+index 8b6a03b8e..3a12e93a1 100644
 --- a/plugins/kdecoration/chameleonconfig.cpp
 +++ b/plugins/kdecoration/chameleonconfig.cpp
 @@ -141,7 +141,7 @@ void ChameleonConfig::onConfigChanged()
@@ -218,12 +261,16 @@ index 8b6a03b8e..505a5639d 100644
      connect(KWinUtils::workspace(), SIGNAL(unmanagedAdded(KWin::Unmanaged*)), this, SLOT(onUnmanagedAdded(KWin::Unmanaged*)));
      connect(KWinUtils::compositor(), SIGNAL(compositingToggled(bool)), this, SLOT(onCompositingToggled(bool)));
      connect(KWinUtils::instance(), &KWinUtils::windowPropertyChanged, this, &ChameleonConfig::onWindowPropertyChanged);
-@@ -1225,7 +1225,7 @@ void ChameleonConfig::buildKWinX11Shadow(QObject *window)
+@@ -1225,7 +1225,11 @@ void ChameleonConfig::buildKWinX11Shadow(QObject *window)
          effect = window->findChild<KWin::EffectWindow*>(QString(), Qt::FindDirectChildrenOnly);
  
          if (effect) {
 -            QRect shape_rect = effect->shape().boundingRect();
++#if !defined(KWIN_VERSION) || KWIN_VERSION < KWIN_VERSION_CHECK(5, 23, 4, 0)
++            QRect shape_rect = effect->geometry();
++#else
 +            QRect shape_rect = effect->clientGeometry();
++#endif
              const QRect window_rect(QPoint(0, 0), window->property("size").toSize());
  
              // 减去窗口的shape区域
@@ -297,7 +344,7 @@ similarity index 100%
 rename from plugins/kwineffects/scissor-window/fullmask.frag.110
 rename to plugins/kwineffects/scissor-window/fullmask_core.frag
 diff --git a/plugins/kwineffects/scissor-window/glsl.qrc b/plugins/kwineffects/scissor-window/glsl.qrc
-index 8b2ecb6f3..69dd34a7e 100644
+index 8b2ecb6f3..2e6bc448d 100644
 --- a/plugins/kwineffects/scissor-window/glsl.qrc
 +++ b/plugins/kwineffects/scissor-window/glsl.qrc
 @@ -1,10 +1,16 @@
@@ -311,8 +358,8 @@ index 8b2ecb6f3..69dd34a7e 100644
      <qresource prefix="/effect-shaders-1.10">
 -        <file alias="corner-mask.frag">cornermask.frag.110</file>
 -        <file alias="full-mask.frag">fullmask.frag.110</file>
-+        <file alias="corner-mask.frag">cornermask_core.frag</file>
-+        <file alias="full-mask.frag">fullmask_core.frag</file>
++        <file alias="cornermask.frag">cornermask_core.frag</file>
++        <file alias="fullmask.frag">fullmask_core.frag</file>
      </qresource>
      <qresource prefix="/effect-shaders-1.40">
 -        <file alias="corner-mask.frag">cornermask.frag.140</file>
@@ -322,7 +369,7 @@ index 8b2ecb6f3..69dd34a7e 100644
      </qresource>
  </RCC>
 diff --git a/plugins/kwineffects/scissor-window/main.cpp b/plugins/kwineffects/scissor-window/main.cpp
-index 73544556c..58438b49e 100644
+index 73544556c..8d9659e19 100644
 --- a/plugins/kwineffects/scissor-window/main.cpp
 +++ b/plugins/kwineffects/scissor-window/main.cpp
 @@ -23,19 +23,27 @@
@@ -330,7 +377,7 @@ index 73544556c..58438b49e 100644
  {
      Q_OBJECT
 -    Q_INTERFACES(KPluginFactory)
-+#if defined(KWIN_VERSION) && KWIN_VERSION < KWIN_VERSION_CHECK(5, 23, 4, 0)
++#if KWIN_VERSION_MAJ <= 5 && KWIN_VERSION_MIN < 23
      Q_PLUGIN_METADATA(IID KPluginFactory_iid FILE "scissor-window.json")
 -
 +#else
@@ -398,7 +445,7 @@ index e2ebdc65d..56522ecd1 100644
 +    "X-Plasma-MainScript": ""
  }
 diff --git a/plugins/kwineffects/scissor-window/scissorwindow.cpp b/plugins/kwineffects/scissor-window/scissorwindow.cpp
-index a80118421..b250d891a 100644
+index a80118421..4785c1f22 100644
 --- a/plugins/kwineffects/scissor-window/scissorwindow.cpp
 +++ b/plugins/kwineffects/scissor-window/scissorwindow.cpp
 @@ -19,10 +19,6 @@
@@ -420,15 +467,23 @@ index a80118421..b250d891a 100644
  
  Q_DECLARE_METATYPE(QPainterPath)
  
-@@ -178,16 +175,16 @@ ScissorWindow::ScissorWindow(QObject *, const QVariantList &)
+@@ -178,16 +175,24 @@ ScissorWindow::ScissorWindow(QObject *, const QVariantList &)
      : Effect()
  {
      // 构建用于窗口圆角特效的着色器
 -    m_shader = KWin::ShaderManager::instance()->generateShaderFromResources(KWin::ShaderTrait::MapTexture, QString(), "corner-mask.frag");
++#if KWIN_VERSION_MAJ <= 5 && KWIN_VERSION_MIN < 23
++    m_shader = KWin::ShaderManager::instance()->generateShaderFromResources(KWin::ShaderTrait::MapTexture, QString(), ":/cornermask.frag");
++#else
 +    m_shader = KWin::ShaderManager::instance()->generateShaderFromFile(KWin::ShaderTrait::MapTexture, QString(), ":/cornermask.frag");
++#endif
      // 构建用于自定义窗口形状的着色器
 -    m_fullMaskShader = KWin::ShaderManager::instance()->generateShaderFromResources(KWin::ShaderTrait::MapTexture, QString(), "full-mask.frag");
++#if KWIN_VERSION_MAJ <= 5 && KWIN_VERSION_MIN < 23
++    m_fullMaskShader = KWin::ShaderManager::instance()->generateShaderFromResources(KWin::ShaderTrait::MapTexture, QString(), ":/fullmask.frag");
++#else
 +    m_fullMaskShader = KWin::ShaderManager::instance()->generateShaderFromFile(KWin::ShaderTrait::MapTexture, QString(), ":/fullmask.frag");
++#endif
  
      if (!m_shader->isValid()) {
 -        // qWarning() << Q_FUNC_INFO << "Invalid fragment shader of corner mask";
@@ -441,7 +496,7 @@ index a80118421..b250d891a 100644
      }
  }
  
-@@ -205,6 +202,10 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -205,6 +210,10 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
          return Effect::drawWindow(w, mask, region, data);
      }
  
@@ -452,16 +507,19 @@ index a80118421..b250d891a 100644
      MaskCache::TextureData mask_texture = MaskCache::instance()->getTextureByWindow(w);
  
      if (!mask_texture) {
-@@ -214,7 +215,7 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -214,7 +223,11 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
      QRegion corner_region;
  
      if (!mask_texture->customMask) {
--        const QRect window_rect = w->geometry();
++#if KWIN_VERSION_MAJ <= 5 && KWIN_VERSION_MIN < 23
+         const QRect window_rect = w->geometry();
++#else
 +        const QRect window_rect = w->frameGeometry();
++#endif
          QRect corner_rect(window_rect.topLeft(), mask_texture->size);
  
          // top left
-@@ -241,6 +242,7 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -241,6 +254,7 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
          }
      }
  
@@ -469,7 +527,7 @@ index a80118421..b250d891a 100644
      KWin::WindowQuadList decoration_quad_list;
      KWin::WindowQuadList content_quad_list;
  
-@@ -257,20 +259,65 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -257,20 +271,65 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
              break;
          }
      }
@@ -535,7 +593,7 @@ index a80118421..b250d891a 100644
              Effect::drawWindow(w, mask, new_region, data);
          }
  
-@@ -278,6 +325,9 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -278,6 +337,9 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
          region = region - new_region;
      }
  
@@ -545,7 +603,7 @@ index a80118421..b250d891a 100644
      // 将mask材质绑定到第二个材质
      glActiveTexture(GL_TEXTURE1);
      mask_texture->bind();
-@@ -303,52 +353,13 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -303,52 +365,13 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
  
      // 此时只允许绘制窗口内容
      auto old_shader = data.shader;
@@ -602,7 +660,7 @@ index a80118421..b250d891a 100644
  
      data.shader = old_shader;
  
-@@ -357,4 +368,6 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
+@@ -357,4 +380,6 @@ void ScissorWindow::drawWindow(KWin::EffectWindow *w, int mask, QRegion region,
      glActiveTexture(GL_TEXTURE1);
      mask_texture->unbind();
      glActiveTexture(GL_TEXTURE0);
