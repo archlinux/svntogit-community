@@ -23,7 +23,7 @@ _pkgbase=mozc
 pkgname=fcitx-mozc
 pkgdesc="Fcitx Module of A Japanese Input Method for Chromium OS, Windows, Mac and Linux (the Open Source Edition of Google Japanese Input)"
 pkgver=2.26.4360.102.gca82d39
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="https://github.com/google/mozc"
 license=('custom')
@@ -85,6 +85,14 @@ prepare() {
   
   ## use libstdc++ instead of libc++
   sed "/stdlib=libc++/d;/-lc++/d" -i gyp/common.gypi
+
+  # Fix build with python 3.10
+  cd third_party/gyp
+  git cherry-pick -n bc83cdacf5428ab6ddcc92fd0b0fc494cc9a4d4f
+
+  # Fix build with GCC 11
+  cd ../abseil-cpp
+  git checkout 5bf048b8425cc0a342e4647932de19e25ffd6ad7
 }
 
 build() {
