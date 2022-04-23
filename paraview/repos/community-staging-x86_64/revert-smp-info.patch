@@ -1,0 +1,172 @@
+From 2f378aea29c406a41d9cb4f8cda5c165efd969ad Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timoth=C3=A9e=20Couble?= <timothee.couble@kitware.com>
+Date: Mon, 23 Aug 2021 10:41:48 +0200
+Subject: [PATCH] Add SMP backend information in about dialog
+
+Add in about dialog:
+- SMP Tools backend in use
+- SMP max number of thread
+
+Fix #20894
+---
+ .../release/dev/AddSMPInfoAboutDialog.md      |  5 ++++
+ Qt/Components/pqAboutDialog.cxx               |  7 ++++++
+ Remoting/Core/vtkPVServerInformation.cxx      | 23 +++++++++++++++++++
+ Remoting/Core/vtkPVServerInformation.h        | 18 +++++++++++++++
+ 4 files changed, 53 insertions(+)
+ create mode 100644 Documentation/release/dev/AddSMPInfoAboutDialog.md
+
+diff --git a/Qt/Components/pqAboutDialog.cxx b/Qt/Components/pqAboutDialog.cxx
+index 623d1ceee8..2d0003da15 100644
+--- a/Qt/Components/pqAboutDialog.cxx
++++ b/Qt/Components/pqAboutDialog.cxx
+@@ -49,6 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ #include "vtkPVServerInformation.h"
+ #include "vtkProcessModule.h"
+ #include "vtkRemotingCoreConfiguration.h"
++#include "vtkSMPTools.h"
+ #include "vtkSMProxyManager.h"
+ #include "vtkSMSession.h"
+ #include "vtkSMViewProxy.h"
+@@ -164,6 +165,9 @@ void pqAboutDialog::AddClientInformation()
+   ::addItem(tree, "Test Directory", QString::fromStdString(pqConfig->testDirectory()));
+   ::addItem(tree, "Data Directory", QString::fromStdString(pqConfig->dataDirectory()));
+ 
++  ::addItem(tree, "SMP Backend", vtkSMPTools::GetBackend());
++  ::addItem(tree, "SMP Max Number of Threads", vtkSMPTools::GetEstimatedNumberOfThreads());
++
+   // For local OpenGL info, we ask Qt, as that's more truthful anyways.
+   QOpenGLContext* ctx = QOpenGLContext::currentContext();
+   if (QOpenGLFunctions* f = ctx ? ctx->functions() : nullptr)
+@@ -226,6 +230,9 @@ void pqAboutDialog::AddServerInformation(pqServer* server, QTreeWidget* tree)
+ 
+   ::addItem(tree, "vtkIdType size", QString("%1bits").arg(serverInfo->GetIdTypeSize()));
+ 
++  ::addItem(tree, "SMP Backend", serverInfo->GetSMPBackendName().c_str());
++  ::addItem(tree, "SMP Max Number of Threads", serverInfo->GetSMPMaxNumberOfThreads());
++
+   vtkSMSession* session = server->session();
+   vtkNew<vtkPVPythonInformation> pythonInfo;
+   session->GatherInformation(vtkPVSession::SERVERS, pythonInfo.GetPointer(), 0);
+diff --git a/Remoting/Core/vtkPVServerInformation.cxx b/Remoting/Core/vtkPVServerInformation.cxx
+index e7f4071a16..aa6c14d488 100644
+--- a/Remoting/Core/vtkPVServerInformation.cxx
++++ b/Remoting/Core/vtkPVServerInformation.cxx
+@@ -24,6 +24,7 @@
+ #include "vtkPVSession.h"
+ #include "vtkProcessModule.h"
+ #include "vtkRemotingCoreConfiguration.h"
++#include "vtkSMPTools.h"
+ #if VTK_MODULE_ENABLE_ParaView_nvpipe
+ #include <nvpipe.h>
+ #endif
+@@ -97,6 +98,9 @@ vtkPVServerInformation::vtkPVServerInformation()
+   this->IsInTileDisplay = false;
+   this->IsInCave = false;
+   this->TileDimensions[0] = this->TileDimensions[1] = 0;
++
++  this->SMPBackendName = vtkSMPTools::GetBackend() ? vtkSMPTools::GetBackend() : "";
++  this->SMPMaxNumberOfThreads = vtkSMPTools::GetEstimatedNumberOfThreads();
+ }
+ 
+ //----------------------------------------------------------------------------
+@@ -121,6 +125,8 @@ void vtkPVServerInformation::PrintSelf(ostream& os, vtkIndent indent)
+   os << indent << "IsInCave: " << this->IsInCave << endl;
+   os << indent << "TileDimensions: " << this->TileDimensions[0] << ", " << this->TileDimensions[1]
+      << endl;
++  os << indent << "SMPBackendName: " << this->SMPBackendName << endl;
++  os << indent << "SMPMaxNumberOfThreads: " << this->SMPMaxNumberOfThreads << endl;
+ }
+ 
+ //----------------------------------------------------------------------------
+@@ -138,6 +144,8 @@ void vtkPVServerInformation::DeepCopy(vtkPVServerInformation* info)
+   this->IsInTileDisplay = info->GetIsInTileDisplay();
+   this->IsInCave = info->GetIsInCave();
+   info->GetTileDimensions(this->TileDimensions);
++  this->SMPBackendName = info->GetSMPBackendName();
++  this->SMPMaxNumberOfThreads = info->GetSMPMaxNumberOfThreads();
+ }
+ 
+ //----------------------------------------------------------------------------
+@@ -219,6 +227,8 @@ void vtkPVServerInformation::AddInformation(vtkPVInformation* info)
+     {
+       this->ClientId = serverInfo->ClientId;
+     }
++    this->SMPBackendName = serverInfo->GetSMPBackendName();
++    this->SMPMaxNumberOfThreads = serverInfo->GetSMPMaxNumberOfThreads();
+     this->SetIdTypeSize(serverInfo->GetIdTypeSize());
+   }
+ }
+@@ -242,6 +252,8 @@ void vtkPVServerInformation::CopyToStream(vtkClientServerStream* css)
+   *css << this->IsInTileDisplay;
+   *css << this->IsInCave;
+   *css << this->TileDimensions[0] << this->TileDimensions[1];
++  *css << this->SMPBackendName;
++  *css << this->SMPMaxNumberOfThreads;
+   *css << vtkClientServerStream::End;
+ }
+ 
+@@ -329,6 +341,17 @@ void vtkPVServerInformation::CopyFromStream(const vtkClientServerStream* css)
+     vtkErrorMacro("Error parsing TileDimensions from message.");
+     return;
+   }
++
++  if (!css->GetArgument(0, idx++, &this->SMPBackendName))
++  {
++    vtkErrorMacro("Error parsing SMPBackendName from message.");
++    return;
++  }
++  if (!css->GetArgument(0, idx++, &this->SMPMaxNumberOfThreads))
++  {
++    vtkErrorMacro("Error parsing SMPMaxNumberOfThreads from message.");
++    return;
++  }
+ }
+ 
+ //----------------------------------------------------------------------------
+diff --git a/Remoting/Core/vtkPVServerInformation.h b/Remoting/Core/vtkPVServerInformation.h
+index fd12529cfe..7f2f1fe085 100644
+--- a/Remoting/Core/vtkPVServerInformation.h
++++ b/Remoting/Core/vtkPVServerInformation.h
+@@ -24,6 +24,8 @@
+ #ifndef vtkPVServerInformation_h
+ #define vtkPVServerInformation_h
+ 
++#include <string>
++
+ #include "vtkPVInformation.h"
+ #include "vtkRemotingCoreModule.h" //needed for exports
+ 
+@@ -140,6 +142,20 @@ public:
+   vtkGetMacro(IdTypeSize, int);
+   //@}
+ 
++  //@{
++  /**
++   * Get the SMP Tools backend name of the server.
++   */
++  vtkGetMacro(SMPBackendName, std::string);
++  //@}
++
++  //@{
++  /**
++   * Get the max number of threads of the server.
++   */
++  vtkGetMacro(SMPMaxNumberOfThreads, int);
++  //@}
++
+ protected:
+   vtkPVServerInformation();
+   ~vtkPVServerInformation() override;
+@@ -158,6 +174,8 @@ protected:
+   bool IsInTileDisplay;
+   bool IsInCave;
+   int TileDimensions[2];
++  std::string SMPBackendName;
++  int SMPMaxNumberOfThreads;
+ 
+ private:
+   vtkPVServerInformation(const vtkPVServerInformation&) = delete;
+-- 
+GitLab
+
