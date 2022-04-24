@@ -3,9 +3,9 @@
 # Contributor : Giedrius Slavinskas <giedrius25@gmail.com>
 
 pkgname=python-babel
-pkgver=2.9.1
-_core=37
-pkgrel=3
+pkgver=2.10.1
+_core=41
+pkgrel=1
 pkgdesc="A collection of tools for internationalizing Python applications"
 url="http://babel.pocoo.org/"
 license=("BSD")
@@ -16,8 +16,8 @@ checkdepends=('python-pytest' 'python-pytest-runner' 'python-freezegun')
 noextract=("cldr-core-$_core.zip")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/python-babel/babel/archive/v$pkgver.tar.gz"
         "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip")
-sha256sums=('96102878b273d0160c210d9323406d26c4a5cf0f5d3a0097a059836a624231f9'
-            'ba93f5ba256a61a6f8253397c6c4b1a9b9e77531f013cc7ffa7977b5f7e4da57')
+sha256sums=('7a61207b1d269a09462313ef3065d7bc1b54c9a14ae00f5006e169639674b230'
+            '823c6170c41e2de2c229574e8a436332d25f1c9723409867fe721e00bc92d853')
 
 prepare() {
   cp "$srcdir"/cldr-core-$_core.zip babel-$pkgver/cldr/cldr-core-$_core.zip
