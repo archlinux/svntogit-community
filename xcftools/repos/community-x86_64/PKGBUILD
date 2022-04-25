@@ -4,7 +4,7 @@
 
 pkgname=xcftools
 pkgver=1.0.7
-pkgrel=7
+pkgrel=8
 pkgdesc='Command line tools for use with the open XCF image format (includes xcf2png)'
 # no https available
 url='http://henning.makholm.net/software'
