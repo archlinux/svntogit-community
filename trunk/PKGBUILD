@@ -4,9 +4,8 @@
 # Contributor: David Keogh <davekeogh@archlinux.us>
 
 pkgname=pycharm-community-edition
-pkgver=2021.3.3
-_build=213.7172.26
-_gitcommit=5f5131338c845aa17374cea2ade8441dd3b86f60
+pkgver=2022.1
+_build=221.5080.212
 pkgrel=1
 pkgdesc='Python IDE for Professional Developers'
 arch=(x86_64)
@@ -27,15 +26,14 @@ optdepends=(
   'ipython: IPython integration for Python 3'
 )
 makedepends=(
-  ant
   git
   java-environment=11
   python2-setuptools
   python-setuptools
 )
 source=(
-  "git+https://github.com/JetBrains/intellij-community.git#commit=${_gitcommit}"
-  idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/212.5457.46"
+  "git+https://github.com/JetBrains/intellij-community.git#tag=pycharm/${_build}"
+  idea-android::"git://git.jetbrains.org/idea/android.git#tag=pycharm/${_build}"
   pycharm.desktop
   pycharm.sh
 )
@@ -50,22 +48,16 @@ prepare() {
   echo ${_build} > build.txt
   mv "${srcdir}"/idea-android android
 
-  # https://youtrack.jetbrains.com/issue/IDEA-266631
-  sed '/intellij.cwm.plugin/d' -i python/build/plugin-list.txt
-  sed '/intellij.marketplace/d' -i python/build/plugin-list.txt
-
-  sed '/def targetOs =/c def targetOs = "linux"' -i build/dependencies/setupJbre.gradle
   sed '/String targetOS/c   String targetOS = OS_LINUX' -i platform/build-scripts/groovy/org/jetbrains/intellij/build/BuildOptions.groovy
-  sed -E 's|(<sysproperty key="jna.nosys")|<sysproperty key="intellij.build.target.os" value="linux" />\1|' -i build.xml
-  sed -E 's|(<sysproperty key="java.awt.headless")|<sysproperty key="intellij.build.target.os" value="linux" />\1|' -i python/build.xml
-  sed "s/-Xmx612m -XX:MaxPermSize=152m/-Xmx2048m -XX:MaxPermSize=512m/" -i python/build.xml
-  sed "s|-Didea.build.number=\${idea.build.number}|-Didea.build.number=\${idea.build.number} -Didea.home.path=|" -i python/build.xml
   sed 's|../build/plugins-autoupload.txt|plugins-autoupload.txt|' -i platform/build-scripts/groovy/org/jetbrains/intellij/build/impl/DistributionJARsBuilder.groovy
   touch plugins-autoupload.txt
+  # Fix pycharm python/installer.cmd & python/plugin.cmd
+  sed 's|intellij.pycharm.community.build|"$(cd "$(dirname "$0")"; pwd)/../" intellij.pycharm.community.build|' -i python/installers.cmd
+  sed 's|intellij.pycharm.community.build|"$(cd "$(dirname "$0")"; pwd)/../" intellij.pycharm.community.build|' -i python/plugin.cmd
 }
 
 build() {
-  cd intellij-community/python
+  cd intellij-community
 
   unset _JAVA_OPTIONS
   export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
@@ -73,10 +65,12 @@ build() {
   export JDK_16_x64=/usr/lib/jvm/java-11-openjdk
   export JDK_18_x64=/usr/lib/jvm/java-11-openjdk
 
-  ant -Dintellij.build.target.os=linux build
-  tar -xf ../out/pycharm-ce/artifacts/pycharmPC-${_build}-no-jbr.tar.gz -C "${srcdir}"
+  ./python/installers.cmd -Dintellij.build.target.os=linux
+  ./python/plugin.cmd -Dintellij.build.target.os=linux
 
-  cd ../../pycharm-community-${pkgver}
+  tar -xf out/pycharm-ce/artifacts/pycharmPC-${_build}-no-jbr.tar.gz -C "${srcdir}"
+
+  cd ../pycharm-community-${pkgver}
 
   python2 plugins/python-ce/helpers/pydev/setup_cython.py build_ext --build-temp build --build-lib .
   python3 plugins/python-ce/helpers/pydev/setup_cython.py build_ext --build-temp build --build-lib .
