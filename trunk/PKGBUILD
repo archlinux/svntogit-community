@@ -2,7 +2,7 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=1.32.1
+pkgver=1.33.0
 pkgrel=1
 _electronversion=16
 pkgdesc='A secure and free password manager for all of your devices'
@@ -60,7 +60,7 @@ package(){
 	install -vDm644 build/package.json -t "${pkgdir}/usr/lib/${pkgname}"
 	cp -vr dist/linux-unpacked/resources/app.asar.unpacked -t "${pkgdir}/usr/lib/${pkgname}"
 
-	for i in 16 32 48 64 128 256 512; do
+	for i in 16 32 64 128 256 512 1024; do
 		install -vDm644 resources/icons/${i}x${i}.png "${pkgdir}/usr/share/icons/hicolor/${i}x${i}/apps/${pkgname}.png"
 	done
 	install -vDm644 resources/icon.png "${pkgdir}/usr/share/icons/hicolor/1024x1024/apps/${pkgname}.png"
