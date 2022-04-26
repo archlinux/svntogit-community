@@ -6,8 +6,8 @@ pkgname=(
   rapidyaml
   python-rapidyaml
 )
-pkgver=0.3.0
-pkgrel=3
+pkgver=0.4.1
+pkgrel=1
 pkgdesc='A library to parse and emit YAML, and do it fast'
 arch=(x86_64)
 url='https://github.com/biojppm/rapidyaml'
@@ -22,7 +22,7 @@ makedepends=(
   python-cmake-build-extension
   swig
 )
-_tag=ee581f85707da11eb25e48fc0b7f161167d58a7e
+_tag=213b201d264139cd1b887790197e08850af628e3
 source=(
   git+https://github.com/biojppm/rapidyaml.git#tag=${_tag}
   git+https://github.com/biojppm/c4core.git
