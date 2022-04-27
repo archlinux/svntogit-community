@@ -14,7 +14,8 @@ license=('Apache')
 depends=('python' 'python-chardet' 'python-multidict' 'python-async-timeout'
          'python-yarl' 'python-attrs' 'python-charset-normalizer'
          'python-aiosignal' 'python-frozenlist')
-makedepends=('git' 'cython' 'npm' 'python-build' 'python-installer' 'python-wheel')
+makedepends=('git' 'cython' 'npm' 'python-build' 'python-installer'
+             'python-setuptools' 'python-wheel')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-mock'
               'python-pytest-timeout' 'python-async_generator' 'python-brotli'
               'python-pytest-xdist' 'python-pytest-forked' 'python-pytest-cov'
@@ -66,7 +67,7 @@ check() {
 
   # Without --pythonwarnings=default, the test suite does not even start due to
   # an unrelated DeprecationWarning from python-packaging
-  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD/build/lib.linux-$CARCH-${_python_version}" pytest --pythonwarnings=default
+  PYTHONPATH="$PWD/build/lib.linux-$CARCH-${_python_version}" pytest --pythonwarnings=default
 }
 
 package() {
