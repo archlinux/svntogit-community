@@ -2,7 +2,7 @@
 
 pkgname=helmfile
 pkgver=0.143.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Manage multiple helm charts with a single helmfile"
 arch=('x86_64')
 url="https://github.com/roboll/helmfile"
