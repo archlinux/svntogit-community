@@ -7,7 +7,7 @@ pkgbase=keybase
 pkgname=(keybase kbfs keybase-gui)
 pkgdesc='CLI tool for GPG with keybase.io'
 pkgver=5.9.3
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url=https://keybase.io
 _url=https://github.com/keybase/client
@@ -36,6 +36,9 @@ validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Sign
 prepare() {
 	ln -sf "${_archive/$pkgbase/client}" "$_archive"
 	cd "$_archive"
+
+	# Fixup unsecured git access blocked by GitHub
+	sed -i -E 's#git://#git+https://#' shared/package.json shared/yarn.lock
 
 	export GOPATH="${srcdir}/.gopath"
 	mkdir -p "${GOPATH}"/src/github.com/keybase
