@@ -5,7 +5,7 @@
 
 pkgname=mattermost
 pkgver=6.6.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
 url="https://mattermost.com"
