@@ -5,7 +5,7 @@
 
 pkgname=github-cli
 pkgver=2.9.0
-pkgrel=1
+pkgrel=2
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
 url="https://github.com/cli/cli"
