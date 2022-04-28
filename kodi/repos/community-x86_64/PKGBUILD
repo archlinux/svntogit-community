@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=19.4
-pkgrel=2
+pkgrel=4
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
