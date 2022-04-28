@@ -4,13 +4,14 @@
 
 pkgname=python-jinja
 pkgver=3.0.3
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
 url="https://palletsprojects.com/p/jinja/"
 license=('BSD')
-depends=('python-setuptools' 'python-markupsafe')
+depends=('python-markupsafe')
+makedepends=('python-setuptools')
 optdepends=('python-babel: for i18n support')
 checkdepends=('python-pytest')
 source=(https://files.pythonhosted.org/packages/source/J/Jinja2/Jinja2-$pkgver.tar.gz)
