@@ -5,7 +5,7 @@
 
 pkgname=mapnik
 pkgver=3.1.0
-pkgrel=9
+pkgrel=10
 pkgdesc="Free Toolkit for developing mapping applications and rendering beautiful maps"
 arch=('x86_64')
 url="https://mapnik.org/"
@@ -32,7 +32,7 @@ build() {
     INPUT_PLUGINS=all \
     XMLPARSER=libxml2 \
     DESTDIR="$pkgdir" \
-    CUSTOM_CXXFLAGS="$CXXFLAGS" \
+    CUSTOM_CXXFLAGS="$CXXFLAGS -ffat-lto-objects" \
     CUSTOM_LDFLAGS="$LDFLAGS" \
     CUSTOM_DEFINES="-DACCEPT_USE_OF_DEPRECATED_PROJ_API_H=1"
   scons $(expr "$MAKEFLAGS" : '.*\(\-j[0-9]\+\)')
