@@ -1,0 +1,55 @@
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Carlos Galindo < arch -at - cgj.es >
+
+pkgname=nextcloud-app-notify_push
+pkgver=0.4.0
+pkgrel=1
+pkgdesc='Update notifications for nextcloud clients'
+arch=(x86_64)
+url="https://github.com/nextcloud/${pkgname##*-}"
+license=(AGPL3)
+depends=('nextcloud<25')
+makedepends=(cargo
+             rsync)
+optdepends=('redis: use a local redis instance')
+options=(debug !lto)
+install="$pkgname.install"
+_archive="${pkgname##*-}-$pkgver"
+source=("$url/archive/v$pkgver/$_archive.tar.gz"
+        "$pkgname.service")
+sha256sums=('c53ccb6df9fd7319d9ec3a3c21b5a602666b88bd6e05e769dd9fc290eefa2df0'
+            '82d985fc60a140e8f2a42e3f914c627d0d4c010d930e1580a10e1980e32172c1')
+
+prepare() {
+	cd "$_archive"
+	cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+	sed -i -e "s/@ARCH@/$CARCH/" "../$pkgname.service"
+}
+
+build() {
+	cd "$_archive"
+	cargo build --frozen --release --all-features
+}
+
+check() {
+	cd "$_archive"
+	cargo test --frozen --all-features
+}
+
+package() {
+	cd "$_archive"
+	_appdir="$pkgdir/usr/share/webapps/nextcloud/apps/${pkgname##*-}"
+	rsync -a --mkpath \
+		--include='appinfo/***' \
+		--include='js/***' \
+		--include='lib/***' \
+		--include='templates/***' \
+		--include='vendor/***' \
+		--include=.php_cs.dist \
+		--include=webpack.common.js \
+		--include=webpack.prod.js \
+		--exclude='*' \
+		./ $_appdir/
+	install -Dm0755 -t "$_appdir/bin/$CARCH/" "target/release/${pkgname##*-}"
+	install -Dm0644 -t "$pkgdir/usr/lib/systemd/system/" "$srcdir/$pkgname.service"
+}
