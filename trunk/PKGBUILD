@@ -36,8 +36,8 @@ package() {
   # Symlink license file
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
   install -d "$pkgdir"/usr/share/licenses/$pkgname
-  ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE \
-    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE.txt \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
 }
 
 # vim:set ts=2 sw=2 et:
