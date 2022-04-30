@@ -6,8 +6,8 @@
 # Contributor: Dan Ziemba <zman0900@gmail.com>
 
 pkgname=nut
-pkgver=2.7.4
-pkgrel=3
+pkgver=2.8.0
+pkgrel=1
 pkgdesc='A collection of programs which provide a common interface for monitoring and administering UPS, PDU and SCD hardware'
 arch=(x86_64)
 url=https://networkupstools.org/
@@ -46,8 +46,9 @@ backup=(
   etc/nut/upsstats.html
   etc/nut/upsstats-single.html
 )
+_tag=ff16dabca191e5fd8ddc20137317bdebee554d8d
 source=(
-  git+https://github.com/networkupstools/nut.git#tag=0b4bfddbc609c59ac0a117c758e6893635121166
+  git+https://github.com/networkupstools/nut.git#tag=${_tag}
   nut.sysusers
   nut.tmpfiles
   nut-lowspeed-buffer-size.patch
@@ -55,38 +56,30 @@ source=(
   nut-openssl-1.1.patch
   nut-snmp-usb-order.patch
 )
-sha256sums=('SKIP'
-            '3001e24969545136361670c5d615684d2b37830525e090c2ab3bcfa90d90e4ac'
-            'c924ccaae9ec75ee7795c872e1708d10201402642a6d5de2304cc644744bbcc5'
-            '40d6fc328ad2e127f580bb359bd5c2fb721a2c6cf1860334be96c18552d6f8f7'
-            'b35a8d28fde10668e8e54e97be9c5505f296c989e67da847c5abf1acab6a219b'
-            '717e116aa93f42ccca901de920da3ff97407672003f721b4976caf525f3e5f08'
-            'c2c7d3b72f94f9c7987ab047bba466923c63ddb80b468485f100b1e44997ec84')
+b2sums=('SKIP'
+        'b136678723bae38f2e1b99d682e5bad6c4387c2d709052681f1dc0d41e8dd6d061115f6d3e573400bded671296ca61e5e194258e801c83f26bf309313b3f2319'
+        'b5466d4142fdeadd07859c030a9e6f7a73f1a4f3902a07b6e8b9a5ead738279ff557ac21770edef21e55b015a3b19cd9579e638da0a37f102ed130ed749ac03b'
+        'cdd11335a8d60b2cada25a2cd9be2d0f1c911029a46e3adf8eda7d8687c1b2caf0fd66cd92c41ecbd660d44bc2606e92aa81d4a2c9746b2ef9e15c4048679487'
+        '0314fe2358fab9d49a8bc5b939c2855151c4f35b2b51e6d1accf25469c9d55831960cd5f9b53ee151fb5a45ae7068c9bfcc91c84a7623b783f6c3c5d5da75d65'
+        '17877276e46372aa17d357efc0851b9cdb33b14ac0c40913b47ea513a8ecaa6eebe3241ae8b324583070d76b6c12d3cf18c043778754b5774af846fb8a33b4d7'
+        'e39f049413cb3d393befe5795c895128271f4ca2791b5723eba5c5f20be0b770369ee6144a1e5d6793727709b1ba578d8ace6cbf91695a2771453047827e5334')
 
 pkgver() {
   cd nut
-
   git describe --tags | sed 's/^v//'
 }
 
 prepare() {
   cd nut
-
-  git cherry-pick -n eea0c5e9e5566c36a8b1e364ed4909231901a8f5
-  patch -Np1 -i ../nut-lowspeed-buffer-size.patch
-  patch -Np1 -i ../nut-no-libdummy.patch
-  patch -Np1 -i ../nut-openssl-1.1.patch
-  patch -Np1 -i ../nut-snmp-usb-order.patch
-
   ./autogen.sh
 }
 
 build() {
   cd nut
-
   ./configure \
     --prefix=/usr \
     --datadir=/usr/share/nut \
+    --libexecdir=/usr/lib/nut \
     --sbindir=/usr/bin \
     --sysconfdir=/etc/nut \
     --disable-static \
@@ -102,7 +95,7 @@ build() {
     --with-udev-dir=/usr/lib/udev \
     --with-cgi \
     --with-dev \
-    --with-doc=html-single \
+    --with-doc=man \
     --with-libltdl \
     --with-neon \
     --with-openssl \
@@ -110,18 +103,16 @@ build() {
     --with-snmp \
     --with-usb \
     --without-avahi \
-    --without-doc \
     --without-ipmi \
     --without-freeipmi \
     --without-powerman \
     --without-wrap
-  make -j1
+  make
 }
 
 package() {
   make DESTDIR="${pkgdir}" -C nut install
   find "${pkgdir}"/etc/nut -name *.sample -exec rename '.sample' '' {} \;
-
   install -Dm 644 nut.sysusers "${pkgdir}"/usr/lib/sysusers.d/nut.conf
   install -Dm 644 nut.tmpfiles "${pkgdir}"/usr/lib/tmpfiles.d/nut.conf
 }
