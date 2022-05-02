@@ -5,7 +5,7 @@
 
 pkgname=r
 pkgver=4.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Language and environment for statistical computing and graphics'
 arch=(x86_64)
 license=(GPL)
@@ -35,6 +35,7 @@ prepare() {
 
 build() {
   cd R-$pkgver
+  CFLAGS+=" -ffat-lto-objects" \
   ./configure  --prefix=/usr \
                --libdir=/usr/lib \
                --sysconfdir=/etc/R \
