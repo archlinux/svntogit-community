@@ -1,29 +1,33 @@
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
-# Maintainer: Jan de Groot <jgc@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinux.org>
 # Contributor: Tom Gundersen <teg@jklm.no>
 # Contributor: John Proctor <jproctor@prium.net>
 
-_pkgbasename=libxml2
-pkgname=lib32-$_pkgbasename
-pkgver=2.9.13
-pkgrel=2
+pkgname=lib32-libxml2
+pkgver=2.9.14
+pkgrel=1
 pkgdesc='XML parsing library, version 2 (32-bit)'
 url='http://www.xmlsoft.org/'
 arch=(x86_64)
 license=(MIT)
 depends=(lib32-zlib lib32-readline lib32-ncurses lib32-xz lib32-icu libxml2)
 makedepends=(git)
-_commit=a075d256fd9ff15590b86d981b75a50ead124fca  # tags/v2.9.13^0
+provides=(libxml2.so)
+options=(debug)
+_commit=7846b0a677f8d3ce72486125fa281e92ac9970e8  # tags/v2.9.14^0
 source=("git+https://gitlab.gnome.org/GNOME/libxml2.git#commit=$_commit")
 sha256sums=('SKIP')
 
 pkgver() {
-  cd ${_pkgbasename}
-  git describe --always --tags | sed 's/-rc/rc/;s/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+  cd libxml2
+  git describe --tags | sed 's/-rc/rc/;s/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 prepare() {
-  cd ${_pkgbasename}
+  mkdir build
+
+  cd libxml2
 
   NOCONFIGURE=1 ./autogen.sh
 }
@@ -31,27 +35,32 @@ prepare() {
 build() {
   export CC="gcc -m32"
   export CXX="g++ -m32"
-  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+  export PKG_CONFIG="i686-pc-linux-gnu-pkg-config"
 
-  cd ${_pkgbasename}
+  cd build
 
-  ./configure \
+  ../libxml2/configure \
     --prefix=/usr \
+    --libdir=/usr/lib32 \
     --with-threads \
     --with-history \
-    --with-icu \
-    --libdir=/usr/lib32
+    --without-python \
+    --with-icu
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0 /g' libtool
   make
 }
 
-package() {
-  cd ${_pkgbasename}
-  make DESTDIR="${pkgdir}" install
-
-  rm -rf "${pkgdir}"/usr/{include,share,bin} "$pkgdir/usr/lib32/xml2Conf.sh"
-  mkdir -p "$pkgdir/usr/share/licenses"
-  ln -s $_pkgbasename "$pkgdir/usr/share/licenses/$pkgname"
+check() {
+  make -C build check
 }
 
-# vim: ts=2 sw=2 et:
+package() {
+  make -C build DESTDIR="$pkgdir" install
+
+  rm -r "$pkgdir"/usr/{include,share,bin}
+  rm "$pkgdir/usr/lib32/xml2Conf.sh"
+
+  install -Dm 644 build/COPYING -t "$pkgdir/usr/share/licenses/$pkgname"
+}
+
+# vim:set sw=2 et:
