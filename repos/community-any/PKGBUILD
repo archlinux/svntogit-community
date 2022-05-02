@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.1.13
-pkgrel=2
+pkgrel=3
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -38,11 +38,13 @@ _archive="$_pkgname-$pkgver"
 source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
         0001-Suppress-dependency-versions-which-are-known-to-be-t.patch
         0001-tests-cleanup-cache-and-http-usage.patch
-        poetry-completions-generator)
+        poetry-completions-generator
+        https://github.com/felixonmars/poetry/commit/b4a74c7.patch)
 sha256sums=('c2f4691a00d82e717a5861f62c6234757852ed1cd9b662e1d2d803157e7a7018'
             '06afd8fc75287658d7b240b6eac9e4b84e36f8393545bc6c2c45170a818cadff'
             '4658321c04f36fb3aced9acc44b61f2cf22c5f9d8b8c715111881b24c3e0c99b'
-            '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
+            '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6'
+            '44802ac51dc4f41f661c691b3ffe1ac892df6a5b0cb67d072348a0d15ae660e5')
 
 prepare() {
 	cd "$_archive"
@@ -52,6 +54,8 @@ prepare() {
 	# See: https://github.com/python-poetry/poetry/issues/1645
 	patch -p1 -i ../0001-tests-cleanup-cache-and-http-usage.patch
 	install -m0755 -t ./ ../poetry-completions-generator
+	# https://github.com/python-poetry/poetry/issues/5216
+	patch -p1 -i ../b4a74c7.patch
 }
 
 build() {
