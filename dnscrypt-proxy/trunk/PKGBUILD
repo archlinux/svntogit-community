@@ -5,7 +5,7 @@
 
 pkgname=dnscrypt-proxy
 pkgver=2.1.1
-pkgrel=2
+pkgrel=3
 pkgdesc="A flexible DNS proxy, with support for encrypted DNS protocols"
 arch=(x86_64)
 url="https://github.com/DNSCrypt/dnscrypt-proxy"
@@ -15,7 +15,7 @@ makedepends=(git go)
 optdepends=('python-urllib3: for generate-domains-blocklist')
 install=$pkgname.install
 backup=(
-  etc/$pkgname/${pkgname}.toml
+  etc/$pkgname/$pkgname.toml
   etc/$pkgname/allowed-ips.txt
   etc/$pkgname/allowed-names.txt
   etc/$pkgname/blocked-ips.txt
@@ -59,7 +59,7 @@ package() {
   # config files
   install -vDm 644 $pkgname/example-$pkgname.toml "$pkgdir/etc/$pkgname/$pkgname.toml"
   for _config in {{allowed,blocked}-{ips,names},{cloaking,forwarding}-rules,captive-portals}.txt; do
-    install -vDm 644 "$pkgname/example-$_config" "$pkgdir/etc/$pkgname/$_config"
+    install -vDm 644 $pkgname/example-$_config "$pkgdir/etc/$pkgname/$_config"
   done
   # utils
   install -vDm 644 utils/generate-domains-blocklist/*.{conf,txt} -t "$pkgdir/usr/share/$pkgname/utils/generate-domains-blocklist"
