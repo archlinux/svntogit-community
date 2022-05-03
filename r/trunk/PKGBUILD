@@ -35,6 +35,7 @@ prepare() {
 
 build() {
   cd R-$pkgver
+# -ffat-lto-objects is needed for third-party packages shipping static libraries
   CFLAGS+=" -ffat-lto-objects" \
   ./configure  --prefix=/usr \
                --libdir=/usr/lib \
