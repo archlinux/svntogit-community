@@ -4,8 +4,8 @@
 # Contributor:	Jonatan Sastre <jsastreh [ at ] hotmail.com>
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
-pkgver=3.9.4.0
-pkgrel=2
+pkgver=3.10.2.0
+pkgrel=1
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
 url="https://gnuradio.org"
@@ -15,7 +15,7 @@ depends=('python-numpy' 'gsl' 'blas' 'libuhd' 'libvolk' 'log4cpp' 'python-yaml'
     'pybind11')
 makedepends=('alsa-lib' 'boost' 'cmake' 'fftw' 'glu' 'gtk3' 'jack' 'pango'
     'portaudio' 'python-gobject' 'python-lxml' 'python-pyqt5' 'python-cairo'
-    'qwt' 'zeromq')
+    'python-jsonschema' 'qwt' 'zeromq' 'spdlog')
 
 # todo
 # split the gui components?
@@ -40,22 +40,17 @@ source=("gnuradio-$pkgver.tgz::https://github.com/gnuradio/gnuradio/archive/refs
         #"https://github.com/gnuradio/gnuradio/releases/download/v$pkgver/gnuradio-$pkgver.tar.gz"
         # "https://github.com/gnuradio/gnuradio/releases/download/v$pkgver/gnuradio-$pkgver.tar.gz.asc"
         gnuradio-bind-placeholders.patch
-        gnuradio-qwt-6.2.patch
         "21-fcd.rules")
 validpgpkeys=('B90DDFAC56989BF62262EB812987C77CBB8ED9B2'  # GNU Radio Project
               'D74F9F146E7F755783583158B343B2BA293E5174') # Marcus Müller
-sha512sums=('61c8a943f3cc0b33e4d4994b9e0bf5f79458bb21a2648fe6094dfb9b50edea7452f1bd35e6b1e566e331cf7fb4ea2a342d59bbd8798d5710d80eb037f427a183'
+sha512sums=('f34cd3aee1a5d72da387246c25f8494d9a28b2d66aa58ec99a6ff2ae45672f3ec65111af095282f026e2ef267bca2e64042a2aa3ee284ce770351629963fe468'
             'f4e52e6e9ef6054f358d3ee00cbcb70bab65c36dfac8975c3182f6514c547905f36801a049f0918d69c9ffd98ce801891a3bfc4e4faeb8fb33582d84140a70b7'
-            'e169f3ac23930d4d42dabb96c3142dc254e7eb453e3e4bd3a96acdbccb1952e232447801e13eedad46874995a8f3c7ac1dc5abe79571b81f0715b70b593dbb98'
             '6f02dc8e20a7a1cd11099c851a7c8427fcd21e9652e6cddd0a72ca747b0e93cd4fd1b7b7b7e426b6231348bcc34fb2417716a2f03c92ec141889edc65031c3a0')
 
 prepare() {
   cd "$srcdir/$pkgbase-$pkgver"
   #patch -Np1 -i ../gnuradio-bind-placeholders.patch
-  patch -p1 -i ../gnuradio-qwt-6.2.patch # Fix build with qwt 6.2
   sed -i -e "s|GR_PKG_LIBEXEC_DIR|GR_RUNTIME_DIR|" grc/scripts/freedesktop/CMakeLists.txt
-  #sed -i -e "s|/qwt$|/qwt5|" -e "s| qwt | qwt5 |" cmake/Modules/FindQwt.cmake
-  #sed -i -e "s| sphinx-build$| sphinx-build2|" cmake/Modules/FindSphinx.cmake
 }
 
 build() {
@@ -79,13 +74,11 @@ build() {
 check() {
   cd "$pkgbase-$pkgver"
   # TODO: investigate zeromq related test failures
-  # export PYTHON=python3
   # make VERBOSE=1 test -C build
 }
 
 package_gnuradio() {
-  depends+=('libasound.so' 'libboost_filesystem.so'
-  'libboost_program_options.so' 'libboost_thread.so' 'libfftw3f.so'
+  depends+=('libasound.so' 'libboost_program_options.so' 'libboost_thread.so' 'libfftw3f.so'
   'libfftw3f_threads.so' 'libjack.so' 'libportaudio.so' 'libzmq.so')
   optdepends=('boost: gr_modtool'
               'cmake: gr_modtool'
@@ -120,7 +113,7 @@ package_gnuradio() {
 package_gnuradio-companion() {
   pkgdesc="GUI frontend for gnuradio and SDR."
   depends=('gnuradio' 'qwt' 'python-lxml'
-           'python-opengl' 'python-cairo' 'python-gobject' 'python-pyqt5')
+           'python-opengl' 'python-cairo' 'python-gobject' 'python-pyqt5' 'python-jsonschema')
   # Yup, nothing in the package except dependencies,
   # because more than five optdeps is too many for most people.
 }
