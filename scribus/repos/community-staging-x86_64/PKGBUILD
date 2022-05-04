@@ -1,0 +1,71 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Gaetan Bisson <bisson@archlinux.org>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Ronald van Haren <ronald.archlinux.org>
+# Contributor: tobias <tobias@archlinux.org>
+# Contributor: Ben <ben@benmazer.net>
+
+pkgname=scribus
+pkgver=1.5.8
+pkgrel=5
+pkgdesc="Desktop publishing software"
+arch=(x86_64)
+url="https://www.scribus.net/"
+license=(GPL)
+depends=(boost-libs cairo fontconfig freetype2 harfbuzz-icu
+         hunspell lcms2 libcdr libcups libfreehand libicuuc.so libjpeg libmspub
+         libpagemaker libpng libqxp librevenge libtiff libvisio libxml2 libzmf
+         openscenegraph openssl podofo poppler python3 qt5-base zlib) #graphicsmagick
+makedepends=(cmake boost mesa qt5-tools)
+optdepends=('tk: scripts based on tkinter'
+            'hyphen-lang: hyphenation patterns for desired languages')
+options=(!lto)
+source=("https://downloads.sourceforge.net/${pkgname}/${pkgname}-${pkgver}.tar.xz"{,.asc}
+        poppler-22.02.0.patch
+        poppler-22.03.0.patch)
+sha256sums=('47816e8fcf6d05788ff16aa4499f97ff22431c777a7789149b0a88b451e16b74'
+            'SKIP'
+            '016ae42c6b33b78d579c62e19bee22c442c49baf452032f9fb62580327ca24e5'
+            'dd66c1cc7a4be041b0e9d6fcacb819a1e1a1ce45fd06057e9485edb7644332a7')
+validpgpkeys=(5086B8D68E70FDDF4C40045AEF7B95E7F60166DA  # Peter Linnell <plinnell@scribus.net>
+              757F5E9B13DD648887AD50092D47C099E782504E  # The Scribus Team (www.scribus.net) <the_scribus_team@scribus.net>
+              6558BE84D27273A438A151198BEA48118AEBEE64) # Craig Bradney <cbradney@zipworld.com.au>
+
+prepare() {
+  cd ${pkgname}-${pkgver}
+  # https://bugs.scribus.net/view.php?id=16734
+  patch -Np1 -i ../poppler-22.02.0.patch
+  # https://bugs.scribus.net/view.php?id=16764
+  patch -Np1 -i ../poppler-22.03.0.patch
+}
+
+build() {
+  cmake -B build -S ${pkgname}-${pkgver} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_SKIP_RPATH=ON \
+    -DWANT_CPP17=ON \
+    -DWANT_HUNSPELL=ON \
+    -DWITH_BOOST=ON \
+    -DWITH_PODOFO=ON \
+    -DWANT_GRAPHICSMAGICK=ON
+  make -C build
+}
+
+package() {
+  make -C build DESTDIR="${pkgdir}" install
+
+  cd ${pkgname}-${pkgver}
+
+  install -Dm644 scribus.desktop -t "${pkgdir}"/usr/share/applications
+
+  for i in 16x16 32x32 128x128 256x256 512x512 1024x1024
+  do
+    install -Dm644 resources/iconsets/artwork/icon_${i}.png "${pkgdir}"/usr/share/icons/hicolor/${i}/apps/scribus.png
+  done
+
+  # Use system hyphen
+  rm -rf "${pkgdir}"/usr/share/scribus/dicts/hyph
+  ln -sf /usr/share/hyphen "${pkgdir}"/usr/share/scribus/dicts/hyph
+}
