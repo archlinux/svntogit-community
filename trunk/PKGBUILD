@@ -3,8 +3,8 @@
 # Contributor: Bart Verhagen <barrie.verhagen at gmail dot com>
 
 pkgname=catch2
-_gitcommit=216713a4066b79d9803d374f261ccb30c0fb451f
-pkgver=2.13.8
+_gitcommit=62fd660583d3ae7a7886930b413c3c570e89786c
+pkgver=2.13.9
 pkgrel=1
 pkgdesc="Modern, C++-native, header-only, test framework for unit-tests, TDD and BDD"
 arch=('any')
