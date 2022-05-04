@@ -5,14 +5,14 @@
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
 pkgver=3.10.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
 url="https://gnuradio.org"
 license=('GPL')
 depends=('python-numpy' 'gsl' 'blas' 'libuhd' 'libvolk' 'log4cpp' 'python-yaml'
     'gmp' 'gsm' 'codec2' 'python-mako' 'python-click-plugins' 'soapysdr'
-    'pybind11')
+    'pybind11' 'libsndfile')
 makedepends=('alsa-lib' 'boost' 'cmake' 'fftw' 'glu' 'gtk3' 'jack' 'pango'
     'portaudio' 'python-gobject' 'python-lxml' 'python-pyqt5' 'python-cairo'
     'python-jsonschema' 'qwt' 'zeromq' 'spdlog')
