@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.14
+pkgver=20.10.15
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -17,7 +17,7 @@ optdepends=('btrfs-progs: btrfs backend support'
             'docker-scan: vulnerability scanner')
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
-_LIBNETWORK_COMMIT=64b7a4574d1426139437d20e81c0b6d391130ec8
+_LIBNETWORK_COMMIT=339b972b464ee3d401b5788b2af9e31d09d6b7da
 # TODO: Split into `docker-buildx` and make it a dependency
 _BUILDX_COMMIT=5fac64c2c49dae1320f2b51f1a899ca451935554
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
