@@ -14,21 +14,21 @@ FILES=(
 
 # download files if they don't exist
 for file in "${FILES[@]}"; do
-  if [ ! -f "$(basename ${file})" ]; then
+	if [ ! -f "$(basename ${file})" ]; then
 		curl --location --remote-name "$file"
 	fi
 done
 
 if [ ! -f 'README.md' ]; then
-	html2text index.html > README.md
+	html2text index.html >README.md
 fi
 
 if [ ! -f 'FAQ.md' ]; then
-	html2text faq.html > FAQ.md
+	html2text faq.html >FAQ.md
 fi
 
 if [ ! -f 'LICENSE' ]; then
-	sed -n '/Copyright/,/from the author./p' README.md | sed -e 's/^      //' > LICENSE
+	sed -n '/Copyright/,/from the author./p' README.md | sed -e 's/^      //' >LICENSE
 fi
 
 # strip trailing whitespace from generated files
