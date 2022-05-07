@@ -3,40 +3,65 @@
 # SPDX-FileCopyrightText: 2019 Max Mehl
 # SPDX-License-Identifier: CC0-1.0
 
-pkgname='python-license-expression'
-_name=${pkgname#python-}
+pkgname=python-license-expression
 pkgver=21.6.14
-pkgrel=4
+pkgrel=5
 pkgdesc='Utility to parse, normalize and compare license expressions'
 arch=('any')
 url='https://github.com/nexB/license-expression'
 license=('Apache')
-depends=('python' 'python-boolean.py')
-makedepends=('python-setuptools' 'python-wheel' 'python-pip')
-checkdepends=('python-pytest' 'python-pytest-xdist')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha512sums=('12c4333a53f30c73f123434c9e50ee50163a3bad5831e756cc1350c14daa062b939e8382f4bcf2fef11020f8bec5185f71302f3c68ae88cd59b8da9a5f2964f4')
+depends=(
+  'python'
+  'python-boolean.py'
+)
+makedepends=(
+  'git'
+  'python-setuptools'
+  'python-wheel'
+  'python-pip'
+)
+checkdepends=(
+  'python-pytest'
+  'python-pytest-xdist'
+)
+_commit='475a246eb3d5281cc63b90345fcba080bfefb21b'
+source=("$pkgname::git+$url#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
 
 prepare() {
-  cd "$_name-$pkgver"
+  cd "$pkgname"
 
   # Fix file to comply with PEP-440
-  sed -i "s/^fallback_version =.*/fallback_version = \"$pkgver\"/" pyproject.toml
+  sed \
+    -i pyproject.toml \
+    -e "s/^fallback_version =.*/fallback_version = \"$pkgver\"/"
+
+  # remove version constraint for python-boolean.py
+  sed \
+    -i setup.cfg \
+    -e 's/\(boolean.py\).*$/\1/'
 }
 
 build() {
-  cd "$_name-$pkgver"
+  cd "$pkgname"
+
   python setup.py build
 }
 
 check() {
-  cd "$_name-$pkgver"
+  cd "$pkgname"
+
   pytest
 }
 
 package() {
-  cd "$_name-$pkgver"
+  cd "$pkgname"
+
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 }
-
-# vim: ts=2 sw=2 et:
