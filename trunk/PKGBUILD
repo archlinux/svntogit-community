@@ -5,7 +5,7 @@
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
 pkgver=3.10.2.0
-pkgrel=4
+pkgrel=5
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
 url="https://gnuradio.org"
