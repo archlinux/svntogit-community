@@ -5,7 +5,7 @@
 
 pkgname=r
 pkgver=4.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Language and environment for statistical computing and graphics'
 arch=(x86_64)
 license=(GPL)
@@ -37,6 +37,7 @@ build() {
   cd R-$pkgver
 # -ffat-lto-objects is needed for third-party packages shipping static libraries
   CFLAGS+=" -ffat-lto-objects" \
+  CXXFLAGS+=" -ffat-lto-objects" \
   ./configure  --prefix=/usr \
                --libdir=/usr/lib \
                --sysconfdir=/etc/R \
