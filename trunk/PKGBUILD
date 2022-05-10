@@ -3,22 +3,22 @@
 # Contributor: Limao Luo <luolimao+AUR@gmail.com>
 
 pkgname=python-pbr
-pkgver=5.8.1
+pkgver=5.9.0
 pkgrel=1
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
 license=('Apache')
-depends=('python-setuptools')
+depends=('python-importlib-metadata' 'python-setuptools')
 checkdepends=('python-stestr' 'python-testscenarios' 'python-testresources' 'python-testrepository'
               'python-mock' 'python-virtualenv' 'python-wheel' 'python-sphinx' 'git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
-sha512sums=('a2cd53ec9c1d3c529a651c762e71645097a616f83f1299b5509e41c57ceb42cd96537e92fbd12bd825c3cfac7e6995ecc1ff9938f7760d48e2488fe8b63e28e5')
+sha512sums=('e71dd312e2242b7123fda9d53a84423381a8c48f9ab6c8c3a67e7c52ca46f366b22c67fbba6ec8085a1adf7267fdf3d59752a7a3a2748cd1b1f1ef4721665931')
 
 export PBR_VERSION=$pkgver
 
 build() {
-  cd "$srcdir"/pbr-$pkgver
+  cd pbr-$pkgver
   python setup.py build
 }
 
