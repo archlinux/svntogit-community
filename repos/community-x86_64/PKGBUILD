@@ -4,8 +4,8 @@
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=2.9.0
-pkgrel=2
+pkgver=2.10.0
+pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
 url="https://github.com/cli/cli"
@@ -14,7 +14,7 @@ depends=("glibc" "mailcap")
 makedepends=("go" "git")
 optdepends=("git: To interact with repositories")
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('730b600d33afb67d84af4dca1af80cb1fbff79d302ac4f840fc8e9e4c25fceb7')
+sha256sums=('87b0b4e40a753add0897589b751616563b18ab4d18388ea3f84b5aab48cfe868')
 
 prepare() {
     cd "cli-${pkgver}"
