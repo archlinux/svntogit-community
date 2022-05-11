@@ -1,0 +1,57 @@
+# Maintainer: Leonidas Spyropoulos <artafinde@archlinux.org>
+
+pkgname=prometheus-systemd-exporter
+_pkgname=systemd_exporter
+pkgver=0.4.0
+pkgrel=1
+pkgdesc="Application-level metrics for systemd units"
+url="https://github.com/povilasv/systemd_exporter"
+arch=('x86_64')
+license=('Apache')
+depends=('glibc')
+makedepends=('go' 'git')
+options=(!lto)
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/povilasv/systemd_exporter/archive/v${pkgver}.tar.gz"
+        prometheus-systemd-exporter.conf
+        prometheus-systemd-exporter.service
+        prometheus-systemd-exporter.sysusers)
+sha256sums=('dba92f33cda8476c84cd86cf3f8c66844fae1a107e57aca1e96e86ffdca6e472'
+            '24c91b7bb90cb65bf5edddc93cce810f57f2e06f265cef955303325526508f23'
+            '9230d7a3092418da27e0690387700a8d1c143bcc1f1666657c62548be5bd169a'
+            '3deec7e797e31ad3b3149efbbef529e7bd2b7072268d948ae2e299790a46613b')
+
+build() {
+  cd "${_pkgname}-${pkgver}"
+
+  go build \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS} \
+      -X github.com/prometheus/common/version.Version=$pkgver \
+      -X github.com/prometheus/common/version.Revision=$pkgver \
+      -X github.com/prometheus/common/version.Branch=tarball \
+      -X github.com/prometheus/common/version.BuildUser=someone@builder \
+      -X github.com/prometheus/common/version.BuildDate=$(date -d=@"$SOURCE_DATE_EPOCH" +%Y%m%d-%H:%M:%S)" \
+    .
+}
+
+check() {
+  cd "${_pkgname}-${pkgver}"
+
+  go test ./...
+}
+
+package() {
+  install -Dm644 prometheus-systemd-exporter.conf "$pkgdir"/etc/conf.d/prometheus-systemd-exporter
+  install -Dm644 prometheus-systemd-exporter.service "$pkgdir"/usr/lib/systemd/system/prometheus-systemd-exporter.service
+  install -Dm644 prometheus-systemd-exporter.sysusers "$pkgdir"/usr/lib/sysusers.d/prometheus-systemd-exporter.conf
+  
+  cd "${_pkgname}-${pkgver}"
+
+  install -Dm755 systemd_exporter "${pkgdir}/usr/bin/${pkgname}"
+  install -D -m644 LICENSE  "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
+
+# vim:set ts=2 sw=2 et:
