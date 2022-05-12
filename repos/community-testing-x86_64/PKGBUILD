@@ -2,8 +2,8 @@
 
 pkgbase=cri-tools
 pkgname=(crictl critest)
-pkgver=1.24.0
-_commit='f9710f792992ae7264d83cc894621174454d719c'  # v1.24.0
+pkgver=1.24.1
+_commit='d1d0120c55730038c65fa6baf98418b199f4b919'  # v1.24.1
 pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
 arch=(x86_64)
@@ -15,16 +15,16 @@ makedepends=(git go)
 # can only build from git: https://github.com/kubernetes-sigs/cri-tools/issues/676
 source=(
   git+https://github.com/kubernetes-sigs/$pkgbase#commit=$_commit
-  $pkgbase-1.21.0-makefile.patch
+  $pkgbase-1.24.1-makefile.patch
 )
 sha512sums=('SKIP'
-            '272be756f3d2514b885e0e9db2c27d851fbea016d58502fa8f5954c6b79ebb240fdbe78577e6a07ca9d737706f0e409fac7a34c664e483359c817922ea8394c2')
+            'b3c47dfd7a624faecc94627dbcb6279af6927a5c4bd470b244619b2dc24b1afc2a3378491583686e0c763c98191d1f2122afa75cdf9c4f4a7a70e344f5c7e5a4')
 b2sums=('SKIP'
-        '2f6c0bb70e38ed98de5f2f80a18b1852a82e6614c6acd5a968d6bdc0d4955bb2e8b81050daf50e35a4eb3637e48e879fe0c9b4fc58b4ae3d827246a3dff82710')
+        '51e53be22879437df77507c1157a80081cfd5db12ecd3f24e3ed7d4f421e79ad8c48347ba3e2888e896b2cbb658a13f61bbbe123e4ed34ef315864e5eef9ca85')
 
 prepare() {
   # set CGO_ENABLED, honor GOFLAGS and allow adding to GO_LDFLAGS
-  patch -Np1 -d $pkgbase -i ../$pkgbase-1.21.0-makefile.patch
+  patch -Np1 -d $pkgbase -i ../$pkgbase-1.24.1-makefile.patch
 }
 
 build() {
