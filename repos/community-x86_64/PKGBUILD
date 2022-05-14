@@ -2,8 +2,8 @@
 # Contributor: Igor Dyatlov <dyatlov.igor@protonmail.com>
 
 pkgname=rnote
-pkgver=0.5.2
-_gitcommit=9d99d6028d923862a39c49aa4fe003f1b1c43afb
+pkgver=0.5.3
+_gitcommit=dcb9016079a96a02ac8267c54a5140e13b578197
 pkgrel=1
 pkgdesc="A simple drawing application to create handwritten notes"
 arch=('x86_64')
