@@ -1,4 +1,4 @@
-# Maintainer: Sven-Hendrik Haase <svenstaro@gmail.com>
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
 # Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Lauri Niskanen <ape@ape3000.com>
 # Contributor: Sebastian.Salich@gmx.de
@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.4.230
-pkgrel=5
+pkgrel=6
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
@@ -27,6 +27,8 @@ source=(
   "murmur.service"
   "murmur.sysusers"
   "murmur.tmpfiles"
+  "${pkgname}-1.4.230-missing-include.patch"
+  "${pkgname}-1.4.230-find-poco.patch"
   "${pkgname}-1.4.230-configuration.patch"
 )
 sha512sums=('6cffc7a95d88b33876f4093b99266468210f5c14f190fbd2fbe4991bef91a567e55296e7c8c6cc99e19c054853211085cc3cc08109e367e6776afb70766b3a53'
@@ -35,6 +37,8 @@ sha512sums=('6cffc7a95d88b33876f4093b99266468210f5c14f190fbd2fbe4991bef91a567e55
             'a4d82a28e0e4277ca2f198285d164ae55e052a5f6b582ac1b4aa98409fea425c93e8f86f61878bd0b176ed33d307d16b877f34941f32e2147a38778a8554e25d'
             '5af28d0c2b2b072cfbd500b5f63549e88a86cf3fc15e4d2df89e787c4d2bafdecbe078a518e0d1b25d82f9873cb06838ec1c9ebed625ffb7e8c80fcd942ebf74'
             '411784e8e0dcf6c163780ae895ae1a6bdad0bb2dd2b128911c484ac3eff073d95c5791b625493a2b8296d24bd7e6ac72d3c42180817e48b29f0c6a8fd841807c'
+            '07448a7c1c3557c360a9448764ecffadb331576a1e1c4da33a663a5c78f63bb2f7d18a52d7aeeb83c1868507f48bcc7da74bff3050e43a94ff1cb17db9aa9cbe'
+            '6ab68c8d89b1eb6e79a31216e4348c972847ce8687e45c59c29ed2343da56a586ea20dffd9066146faa56749cd94deb99fa22b3eb05df2ba705d04d46cb0bbdb'
             'e35dee4ce1cca15747330ba21892064adec85feb9937a89aea95ccf2c668746075fbe1c343e26ba2ac26a9e36144fb0b3eb0f44d85e6d258040bcd3500818a31')
 b2sums=('da433f3c15d7e45dfac0c8a78c9dbe86ba8d5cd078d2d87fd4d90718968fc9e5928c3c5c5ba2e40a8a54d02a646c5fc6a7ee2fff4b71dfa411d74f395b097c26'
         'SKIP'
@@ -42,6 +46,8 @@ b2sums=('da433f3c15d7e45dfac0c8a78c9dbe86ba8d5cd078d2d87fd4d90718968fc9e5928c3c5
         '4d8f84bccb7064e401f9d0ca2723b4a072a30e0eda0b458e22324f2c672c2684253776c441abdcccf29ab7d27887ffe8dc6394c08eb43ae9cf4498d5b00ca888'
         '9909371a0d1c06d2aa00f161aebb19266aad0253b407dd01da5325f4f307678bba28a89596bd2ec97df5844068856c10bb4b10acad7bf170dd2853b3e11c48cd'
         '999b2848c718f25a2d8257595194521e08d36d101906d76b137218f0a19f2451b7e1adc0c013e1f1c3448145b89a1e88f46cb1c9da27777737379227d3574d10'
+        '0df6753085dfdc9ed9739aa9a0565b7166b07798cdf57aee12cd1c240e98c46adba8c4182af22869cdd59d0c9063ac9a368b3760f418ea3721f5380fc5df89a8'
+        '2c9322e21b3d2b468fee36213ac8f87767008f699350b9a2cd93158783dd0cf6d3ddf5e81f1685fc2b5cc07569e4e2f0be01e07a080564aaedfbc7aaea73596f'
         'd77b81c5ac39561e3df087ad325e88909b083dad95a25c7106a941645354c87d07ea5d41eec5aa4a77a402cadbe8230a4a1c641d8414d11174e4b3254fc18647')
 # See https://github.com/mumble-voip/mumble-gpg-signatures
 validpgpkeys=(
@@ -50,6 +56,8 @@ validpgpkeys=(
 
 prepare() {
   cd "${pkgbase}-${pkgver}.src"
+  patch -Np1 -i ../"${pkgname}-1.4.230-missing-include.patch"
+  patch -Np1 -i ../"${pkgname}-1.4.230-find-poco.patch"
   patch -Np1 -i ../"${pkgname}-1.4.230-configuration.patch"
 }
 
