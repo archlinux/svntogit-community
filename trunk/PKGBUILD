@@ -5,7 +5,7 @@
 # Contributor: Tom K <tomk@runbox.com>
 
 pkgname=hdf5
-pkgver=1.12.1
+pkgver=1.12.2
 pkgrel=1
 pkgdesc="General purpose library and file format for storing scientific data"
 arch=(x86_64)
@@ -16,7 +16,7 @@ makedepends=(cmake time gcc-fortran java-environment)
 replaces=(hdf5-java)
 provides=(hdf5-java)
 source=(https://support.hdfgroup.org/ftp/HDF5/releases/${pkgname}-${pkgver:0:4}/${pkgname}-${pkgver/_/-}/src/${pkgname}-${pkgver/_/-}.tar.bz2)
-sha256sums=('aaf9f532b3eda83d3d3adc9f8b40a9b763152218fa45349c3bc77502ca1f8f1c')
+sha256sums=('1a88bbe36213a2cea0c8397201a459643e7155c9dc91e062675b3fb07ee38afe')
 
 build() {
     # Crazy workaround: run CMake to generate pkg-config file
