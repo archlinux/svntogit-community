@@ -6,14 +6,14 @@
 # Contributor: AUR[Severus]
 
 pkgname=mattermost-desktop
-pkgver=5.0.4
+pkgver=5.1.0
 pkgrel=1
 pkgdesc='Mattermost Desktop application'
 arch=(x86_64)
 url="https://github.com/${pkgname/-//}"
 license=(Apache)
-_electron=electron14
-_builderVersion='^22.14.5'
+_electron=electron # 18
+_builderVersion='^23.0.3'
 depends=($_electron)
 makedepends=(git
              gendesk
@@ -23,7 +23,7 @@ makedepends=(git
 _archive="${pkgname#*-}-$pkgver"
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
         "$pkgname.sh")
-sha256sums=('a33689b517719630b7211722015972f194b1b645c9b198ef35a0772c824a760c'
+sha256sums=('2a343739afc52d996a24d9259df09f93cf593639858b22e63bf70c9618a9035e'
             '1c2bf48b6397d04a5a536c5c9f4960db53249c838c380f03f808c612b00ba4c6')
 
 _npmargs="--cache '$srcdir/npm-cache' --no-audit --no-fund"
