@@ -1,7 +1,7 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=maturin
-pkgver=0.12.15
+pkgver=0.12.16
 pkgrel=1
 pkgdesc="Build and publish crates with pyo3, rust-cpython and cffi bindings"
 url="https://github.com/PyO3/maturin"
@@ -12,8 +12,8 @@ makedepends=(bzip2 dbus git)
 # disable LTO until ring can be built with it: https://github.com/briansmith/ring/issues/1444
 options=(!lto)
 source=($pkgname-$pkgver.tar.gz::https://github.com/PyO3/$pkgname/archive/refs/tags/v$pkgver.tar.gz)
-sha512sums=('0ae2f8ac7b32c4560b7c5ebb9305c2587a5bd10fb9a2d0a32a35a6df315ff8c5511bf2a5b5e76e2c4eeba73868e87e718b304854ce8964207af832c72a5014d0')
-b2sums=('dde49d096561afac552567bd54b06b9ece49a7d4c57e461d94869d1b57028f959287e18ec816101b9d972fb1ba5d2124fa5dea5e7d178e7c0a538a8f7d4176ff')
+sha512sums=('e568836e04296523c0bf8b673d1ce67103a34a6fb8c5d73f7aab3e58a883fc0daaffa730b2e2e1849bbad9f59f080ac1aaa4a0da7f4acd2439fd359e8ed755c5')
+b2sums=('401107c57d2919683f4cd21579354e89d7916a3f723130d40d1e8e9aea606e4d9e0ac133e1d2a863367ebe93473c89429839d37ddf012a5139734f7cf6597c1e')
 
 prepare() {
   cd $pkgname-$pkgver
