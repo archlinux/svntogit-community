@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.4.230
-pkgrel=6
+pkgrel=7
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
@@ -18,7 +18,7 @@ depends=('gcc-libs' 'glibc' 'openssl' 'qt5-base')
 makedepends=('avahi' 'boost' 'cmake' 'poco' 'protobuf' 'python' 'qt5-tools' 'speech-dispatcher')
 # mumble makedepends
 makedepends+=('alsa-lib' 'hicolor-icon-theme' 'jack' 'libpulse' 'libsndfile'
-'libspeechd' 'libx11' 'libxi' 'mesa' 'opus' 'qt5-svg' 'speex' 'xdg-utils')
+'libspeechd' 'libx11' 'libxi' 'mesa' 'opus' 'qt5-svg' 'speex' 'xdg-utils' 'lib32-gcc-libs')
 # murmur makedepends
 makedepends+=('grpc' 'libcap' 'zeroc-ice')
 source=(
@@ -30,6 +30,7 @@ source=(
   "${pkgname}-1.4.230-missing-include.patch"
   "${pkgname}-1.4.230-find-poco.patch"
   "${pkgname}-1.4.230-configuration.patch"
+  "${pkgname}-PR5648.patch"::https://github.com/mumble-voip/mumble/pull/5648.patch
 )
 sha512sums=('6cffc7a95d88b33876f4093b99266468210f5c14f190fbd2fbe4991bef91a567e55296e7c8c6cc99e19c054853211085cc3cc08109e367e6776afb70766b3a53'
             'SKIP'
@@ -39,7 +40,8 @@ sha512sums=('6cffc7a95d88b33876f4093b99266468210f5c14f190fbd2fbe4991bef91a567e55
             '411784e8e0dcf6c163780ae895ae1a6bdad0bb2dd2b128911c484ac3eff073d95c5791b625493a2b8296d24bd7e6ac72d3c42180817e48b29f0c6a8fd841807c'
             '07448a7c1c3557c360a9448764ecffadb331576a1e1c4da33a663a5c78f63bb2f7d18a52d7aeeb83c1868507f48bcc7da74bff3050e43a94ff1cb17db9aa9cbe'
             '6ab68c8d89b1eb6e79a31216e4348c972847ce8687e45c59c29ed2343da56a586ea20dffd9066146faa56749cd94deb99fa22b3eb05df2ba705d04d46cb0bbdb'
-            'e35dee4ce1cca15747330ba21892064adec85feb9937a89aea95ccf2c668746075fbe1c343e26ba2ac26a9e36144fb0b3eb0f44d85e6d258040bcd3500818a31')
+            'e35dee4ce1cca15747330ba21892064adec85feb9937a89aea95ccf2c668746075fbe1c343e26ba2ac26a9e36144fb0b3eb0f44d85e6d258040bcd3500818a31'
+            'b533085452af6397ae9cd6a5b539143335260adcbd9412f42d3e0a5eb28729c9628f5a2945f5d0ed8aecc36e8ce406ac5c11e29a7e455b24e956cacc969c8f05')
 b2sums=('da433f3c15d7e45dfac0c8a78c9dbe86ba8d5cd078d2d87fd4d90718968fc9e5928c3c5c5ba2e40a8a54d02a646c5fc6a7ee2fff4b71dfa411d74f395b097c26'
         'SKIP'
         'a416d071d9658fc3f3ea267d6ff24237317f5c05b59fe1578e5a4cb4911840896bf5e524a143f5c70a797da9f343312468720f03343b4b66bea20e94aa316cc2'
@@ -48,7 +50,8 @@ b2sums=('da433f3c15d7e45dfac0c8a78c9dbe86ba8d5cd078d2d87fd4d90718968fc9e5928c3c5
         '999b2848c718f25a2d8257595194521e08d36d101906d76b137218f0a19f2451b7e1adc0c013e1f1c3448145b89a1e88f46cb1c9da27777737379227d3574d10'
         '0df6753085dfdc9ed9739aa9a0565b7166b07798cdf57aee12cd1c240e98c46adba8c4182af22869cdd59d0c9063ac9a368b3760f418ea3721f5380fc5df89a8'
         '2c9322e21b3d2b468fee36213ac8f87767008f699350b9a2cd93158783dd0cf6d3ddf5e81f1685fc2b5cc07569e4e2f0be01e07a080564aaedfbc7aaea73596f'
-        'd77b81c5ac39561e3df087ad325e88909b083dad95a25c7106a941645354c87d07ea5d41eec5aa4a77a402cadbe8230a4a1c641d8414d11174e4b3254fc18647')
+        'd77b81c5ac39561e3df087ad325e88909b083dad95a25c7106a941645354c87d07ea5d41eec5aa4a77a402cadbe8230a4a1c641d8414d11174e4b3254fc18647'
+        '97249a2f9aa4754d72a7ac14d6d888efa5a7bbd0f6a5d5467f0e5f5c9af5b96cc3e4e636b4b3f8c28fb226dbf183af4750deb1a267e89698efc96a94c565816b')
 # See https://github.com/mumble-voip/mumble-gpg-signatures
 validpgpkeys=(
 '1EDEBE2A93CB97FA9903D52E25F63C66245DFC60'  # Mumble Automatic Build Infrastructure 2022 <mumble-auto-build-2022@mumble.info>
@@ -59,6 +62,7 @@ prepare() {
   patch -Np1 -i ../"${pkgname}-1.4.230-missing-include.patch"
   patch -Np1 -i ../"${pkgname}-1.4.230-find-poco.patch"
   patch -Np1 -i ../"${pkgname}-1.4.230-configuration.patch"
+  patch -Np1 -i ../"${pkgname}-PR5648.patch"
 }
 
 build() {
