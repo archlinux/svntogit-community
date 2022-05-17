@@ -3,13 +3,13 @@
 
 pkgname=python-hatchling
 pkgver=0.25.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A modern project, package, and virtual env manager (backend)"
 arch=('any')
 url="https://github.com/ofek/hatch"
 license=('MIT')
 depends=('python' 'python-tomli' 'python-packaging' 'python-pathspec'
-        'python-pluggy')
+        'python-pluggy' 'python-editables')
 makedepends=('python-pip' 'python-build' 'python-setuptools')
 
 _name=${pkgname/python-/}
