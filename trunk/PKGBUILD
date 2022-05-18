@@ -10,8 +10,14 @@ license=('BSD')
 depends=('common-lisp' 'cl-asdf' 'cl-ppcre')
 makedepends=('git' 'sbcl' 'cl-flexi-streams')
 _commit='2790a6b8912be1cb051437f463400b4a7198748a'
-source=("$pkgname::git+https://github.com/edicl/cl-unicode#commit=$_commit")
-b2sums=('SKIP')
+source=(
+  "$pkgname::git+https://github.com/edicl/cl-unicode#commit=$_commit"
+  'run-tests.lisp'
+  'generate-extra.lisp'
+)
+b2sums=('SKIP'
+        'df42754269b551883dfb21293e12aa6555a111742468874efe4c2357b322dc0007443aeaea44da1843fe05d13d2fef371202df2c084468d90d3d537fe7b16ece'
+        '5a48d4727c515f071821d89a13f97216133214c78aef54ee4f4c1026bd7c935575196cd2246aabb1e072c75e3afbf3c2610516779e9ce4468e6cb9b99c4dfc12')
 
 pkgver() {
   cd "$pkgname"
@@ -22,6 +28,7 @@ pkgver() {
 prepare() {
   cd "$pkgname"
 
+  # license extraction
   sed \
     -n '/;;; Copyright/,/;;; SOFTWARE/p' "$pkgname.asd" \
     | sed -e 's/^;;; //' \
@@ -32,26 +39,21 @@ build() {
   cd "$pkgname"
 
   # cl-unicode generates parts of it's own source code automatically
-  sbcl \
-    --eval '(require :asdf)' \
-    --eval "(progn (push \"$(pwd)/\" asdf:*central-registry*) (asdf:load-system :${pkgname}/build))" \
-    --quit
+  sbcl --script ../generate-extra.lisp
+}
+
+check() {
+  cd "$pkgname"
+
+  sbcl --script ../run-tests.lisp
 }
 
 package() {
   cd "$pkgname"
 
-  # create directories
-  install -vd \
-    "$pkgdir/usr/share/common-lisp/source/$pkgname" \
-    "$pkgdir/usr/share/common-lisp/systems"
-
   # library
-  cp -vr build test ./*.lisp "$pkgname.asd" "$pkgdir/usr/share/common-lisp/source/$pkgname"
-
-  pushd "$pkgdir/usr/share/common-lisp/systems"
-  ln -s "../source/$pkgname/$pkgname.asd"
-  popd
+  install -vd "$pkgdir/usr/share/common-lisp/source/$pkgname"
+  cp -vr build test ./*.{lisp,asd} "$pkgdir/usr/share/common-lisp/source/$pkgname"
 
   # license
   install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
