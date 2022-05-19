@@ -2,12 +2,12 @@
 
 pkgname=ipxe
 pkgver=1.21.1
-pkgrel=3
+pkgrel=4
 pkgdesc="Network bootloader"
-arch=('x86_64')
+arch=(x86_64)
 url="https://ipxe.org"
-license=('GPL2' 'custom:UBDL')
-makedepends=('cdrtools')
+license=(GPL2 custom:UBDL)
+makedepends=(cdrtools)
 optdepends=(
   'bash: for run_ipxe'
   'qemu-desktop: for run_ipxe'
@@ -17,15 +17,17 @@ optdepends=(
 # https://letsencrypt.org/certificates/
 # the code signing setup is described in Arch Linux's releng repository:
 # https://gitlab.archlinux.org/archlinux/releng/-/blob/master/README.rst#code-signing
-source=("$pkgname-$pkgver.tar.gz::https://github.com/${pkgname}/${pkgname}/archive/refs/tags/v${pkgver}.tar.gz"
-        "${pkgname}-1.21.1-fragmented_handshake.patch::https://github.com/ipxe/ipxe/pull/116/commits/ca9f5fc5645c60c00c3ca232d2a492aa1eb29c58.patch"
-        "arch.ipxe"
-        "isrgrootx1.pem"
-        "lets-encrypt-r3.pem"
-        "codesigning_pierre_archlinux.pem"
-        "default.ipxe"
-        "general.h"
-        "run_${pkgname}")
+source=(
+  $pkgname-$pkgver.tar.gz::https://github.com/$pkgname/$pkgname/archive/refs/tags/v$pkgver.tar.gz
+  $pkgname-1.21.1-fragmented_handshake.patch::https://github.com/ipxe/ipxe/pull/116/commits/ca9f5fc5645c60c00c3ca232d2a492aa1eb29c58.patch
+  arch.ipxe
+  isrgrootx1.pem
+  lets-encrypt-r3.pem
+  codesigning_pierre_archlinux.pem
+  remote.ipxe
+  general.h
+  run_$pkgname
+)
 sha512sums=('47400975110ed4ab95835aa1b7c8d5a6917c19c5713c6ab88bc0741a3adcd62245a9c4251d1f46fffc45289c6b18bf893f86dbc3b67d3189c41b7f198367ecaa'
             '7b021b5720ddf71d3162d2d326a05e4d883562d91effce92a8c90368e69424ccf581d2d3bf6c5e1517e3b6cc5e4ab5edfdcd41c36368488b6d357d2fd00f63b0'
             'ec41e20333ce91b555d4f6a64f211323315a183466d8437404dc548287b96cc8aa4d2953bb5a496677f77e73b7b99752dc973688ade0ccab842fabb8f6127f47'
@@ -46,35 +48,36 @@ b2sums=('03871b5f89c6228a9082bb89c7b102d85e5f3afcd5fe0d93762e220fe162c9c3037a991
         '9c7a8eb0f9aafdc336d7eac984b6f1fcbb875d1589fb4b67f45393054f66e916c1157e1bb4e8d02af68e6438dff68a812e57bbf685a0b477634891e49c1c3284')
 
 prepare() {
-  cd "$pkgname-$pkgver"
   # fix issues with fragmented handshakes (e.g. fullchain.pem when using a letsencrypt certificate):
   # https://github.com/ipxe/ipxe/issues/407
-  patch -Np1 -i "../${pkgname}-1.21.1-fragmented_handshake.patch"
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-1.21.1-fragmented_handshake.patch
   # symlink header with custom configuration into place
-  ln -sv "${srcdir}/general.h" src/config/local/
+  ln -sv ../../../../general.h $pkgname-$pkgver/src/config/local/
 }
 
 build() {
   local _file _certs=""
+  local _options=(
+    NO_WERROR=1
+    bin/ipxe.lkrn
+    bin/ipxe.pxe
+    bin-i386-efi/ipxe.efi
+    bin-x86_64-efi/ipxe.efi
+    -C src
+  )
+
   # add certs
   for _file in "${source[@]}"; do
-    if [[ "${_file}" == *.pem ]]; then
-      _certs+="${srcdir}/${_file},"
+    if [[ "$_file" == *.pem ]]; then
+      _certs+="$srcdir/$_file,"
     fi
   done
 
-  cd "$pkgname-$pkgver"
+  cd $pkgname-$pkgver
   # build arch specific images
   # TODO: adapt arch.ipxe as soon as we can fix https://bugs.archlinux.org/task/70767
   # NOTE: to debug issues with TLS or codesigning, add "DEBUG=open,tls,x509:3,certstore,privkey"
-  make -C src NO_WERROR=1 \
-    EMBED="$srcdir/arch.ipxe" \
-    CERT="${_certs}" \
-    TRUST="${_certs}" \
-    bin/ipxe.lkrn \
-    bin/ipxe.pxe \
-    bin-i386-efi/ipxe.efi \
-    bin-x86_64-efi/ipxe.efi
+  make EMBED="$srcdir/arch.ipxe" CERT="$_certs" TRUST="$_certs" "${_options[@]}"
 
   # move binaries out of the way
   mv -v src/bin/ipxe{,-arch}.lkrn
@@ -82,13 +85,17 @@ build() {
   mv -v src/bin-i386-efi/ipxe{,-arch}.efi
   mv -v src/bin-x86_64-efi/ipxe{,-arch}.efi
 
+  # build remote images
+  make EMBED="$srcdir/remote.ipxe" "${_options[@]}"
+
+  # move binaries out of the way
+  mv -v src/bin/ipxe{,-remote}.lkrn
+  mv -v src/bin/ipxe{,-remote}.pxe
+  mv -v src/bin-i386-efi/ipxe{,-remote}.efi
+  mv -v src/bin-x86_64-efi/ipxe{,-remote}.efi
+
   # build default images
-  make -C src NO_WERROR=1 \
-    EMBED="$srcdir/default.ipxe" \
-    bin/ipxe.lkrn \
-    bin/ipxe.pxe \
-    bin-i386-efi/ipxe.efi \
-    bin-x86_64-efi/ipxe.efi
+  make "${_options[@]}"
 
 }
 
@@ -96,11 +103,11 @@ package() {
   local _arch
 
   cd "$pkgname-$pkgver"
-  install -vDm 644 src/bin/ipxe{,-arch}.{lkrn,pxe} -t "${pkgdir}/usr/share/${pkgname}/"
+  install -vDm 644 src/bin/ipxe{,-arch,-remote}.{lkrn,pxe} -t "$pkgdir/usr/share/$pkgname/"
   for _arch in i386 x86_64; do
-    install -vDm 644 "src/bin-${_arch}-efi/ipxe"{,-arch}.efi -t "${pkgdir}/usr/share/${pkgname}/${_arch}/"
+    install -vDm 644 src/bin-$_arch-efi/ipxe{,-arch,-remote}.efi -t "$pkgdir/usr/share/$pkgname/$_arch/"
   done
-  install -vDm 644 COPYING.UBDL -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  install -vDm 644 COPYING.UBDL -t "$pkgdir/usr/share/licenses/$pkgname/"
 
-  install -vDm 755 ../"run_${pkgname}" -t "${pkgdir}/usr/bin"
+  install -vDm 755 ../run_$pkgname -t "$pkgdir/usr/bin/"
 }
