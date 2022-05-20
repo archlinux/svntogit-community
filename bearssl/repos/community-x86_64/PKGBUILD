@@ -1,0 +1,64 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Issam E. Maghni <issam.e.maghni at mailbox dot org>
+
+pkgname=bearssl
+pkgver=0.6
+pkgrel=5
+pkgdesc='Implementation of the SSL/TLS protocol (RFC 5246) written in C'
+arch=('x86_64')
+url='https://bearssl.org'
+license=('MIT')
+depends=('glibc')
+makedepends=('git' 'doxygen' 'graphviz')
+_commit='7d8e767e79bb1750345e571ec89cca1da13b52df'
+source=("$pkgname::git+https://www.bearssl.org/git/BearSSL#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+build() {
+  cd "$pkgname"
+
+  # compile library
+  make \
+    CFLAGS="${CFLAGS} -fpic" \
+    LDFLAGS="$LDFLAGS" \
+    LDDLLFLAGS="${LDFLAGS} -shared -Wl,-soname,lib${pkgname}.so.${pkgver%%.*}" \
+    D=".so.${pkgver}"
+
+  # generate documentation
+  doxygen
+}
+
+check() {
+  cd "$pkgname/build"
+
+  ./testcrypto all
+  ./testx509
+}
+
+package() {
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/brssl
+
+  # headers
+  install -vDm644 -t "$pkgdir/usr/include" inc/*.h
+
+  # shared library
+  install -vDm644 -t "$pkgdir/usr/lib" "build/lib$pkgname.so.$pkgver"
+  ln -s "lib$pkgname.so.$pkgver" "$pkgdir/usr/lib/lib$pkgname.so.${pkgver%%.*}"
+  ln -s "lib$pkgname.so.${pkgver%%.*}" "$pkgdir/usr/lib/lib$pkgname.so"
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.txt
+  cp -vr apidoc/html "$pkgdir/usr/share/doc/$pkgname"
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE.txt
+}
