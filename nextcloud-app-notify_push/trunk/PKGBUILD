@@ -3,22 +3,72 @@
 
 pkgname=nextcloud-app-notify_push
 pkgver=0.4.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Update notifications for nextcloud clients'
 arch=(x86_64)
 url="https://github.com/nextcloud/${pkgname##*-}"
 license=(AGPL3)
-depends=('nextcloud<25')
 makedepends=(cargo
              rsync)
 optdepends=('redis: use a local redis instance')
 options=(debug)
 install="$pkgname.install"
+groups=('nextcloud-apps')
 _archive="${pkgname##*-}-$pkgver"
 source=("$url/archive/v$pkgver/$_archive.tar.gz"
         "$pkgname.service")
 sha256sums=('c53ccb6df9fd7319d9ec3a3c21b5a602666b88bd6e05e769dd9fc290eefa2df0'
             'b22b470f9e02d2bbe0c266431948daaadd7e7f007c27a989bdfcb063ee58fac6')
+
+# BEGIN boilerplate nextcloud app versioning code, see nextcloud-app-* packages
+makedepends+=(nextcloud ripgrep yq)
+_get_nextcloud_versions() {
+	_app_min_major_version="$(< appinfo/info.xml xq -r '.info.dependencies.nextcloud["@min-version"] | values')"
+	_app_max_major_version="$(< appinfo/info.xml xq -r '.info.dependencies.nextcloud["@max-version"] | values | tonumber | .+1')"
+}
+_get_php_versions() {
+	local _phps=(php7 php)
+	_app_min_php="$(< appinfo/info.xml xq -r '.info.dependencies.php["@min-version"] | values')"
+	_app_max_php="$(< appinfo/info.xml xq -r '.info.dependencies.php["@max-version"] | values | tonumber | .+0.1')"
+	_system_php=""
+	for _php in "${_phps[@]}"; do
+		if command -v "$_php" > /dev/null; then
+			_system_php="$_php"
+			break
+		fi
+	done
+}
+_nextcloud_app_check() {
+	_get_nextcloud_versions
+	_get_php_versions
+	local _nextcloud_major_version="$("$_system_php" <(cat /usr/share/webapps/nextcloud/version.php; echo 'print($OC_Version[0]);'))"
+	if [[ "$(vercmp "$_nextcloud_major_version" "$_app_min_major_version")" -lt 0 ]] \
+	|| [[ "$(vercmp "$_nextcloud_major_version" "$_app_max_major_version")" -gt 0 ]] ; then
+		printf "%s requires nextcloud >= %s/ nextcloud <= %s, but nextcloud %s is provided.\n" \
+			"$pkgname" "$_app_min_major_version" "$_app_max_major_version" "$_nextcloud_major_version"
+		exit 1
+	fi
+	local _php_version="$("$_system_php" -r 'print(phpversion());')"
+	if [[ "$(vercmp "$_php_version" "$_app_min_php" )" -lt 0 ]]; then
+		printf "%s requires php-interpreter >= %s, but %s is provided\n" "$pkgname" "$_app_min_php" "$_php_version"
+		exit 1
+	fi
+	if [[ -n $_app_max_php ]]; then
+		if [[ "$(vercmp "$_php_version" "$_app_max_php" )" -ge 0 ]]; then
+		printf "%s requires php-interpreter < %s, but %s is provided\n" "$pkgname" "$_app_max_php" "$_php_version"
+		exit 1
+		fi
+	fi
+}
+_nextcloud_app_package() {
+  _get_nextcloud_versions
+  _get_php_versions
+  depends=("nextcloud>=$_app_min_major_version" "nextcloud<$_app_max_major_version")
+  [[ -z "$_app_min_php" ]] || depends+=("php-interpreter>=$_app_min_php")
+  [[ -z "$_app_max_php" ]] || depends+=("php-interpreter<$_app_max_php")
+  [[ -z "$_app_min_php" && -z "$_app_max_php" ]] || depends+=(php-interpreter)
+}
+# END boilerplate nextcloud app versioning code
 
 prepare() {
 	cd "$_archive"
@@ -34,11 +84,13 @@ build() {
 
 check() {
 	cd "$_archive"
+	_nextcloud_app_check
 	cargo test --frozen --all-features
 }
 
 package() {
 	cd "$_archive"
+	_nextcloud_app_package
 	_appdir="$pkgdir/usr/share/webapps/nextcloud/apps/${pkgname##*-}"
 	rsync -a --mkpath \
 		--include='appinfo/***' \
