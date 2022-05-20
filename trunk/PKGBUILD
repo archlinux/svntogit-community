@@ -3,7 +3,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=0.7.7
+pkgver=0.8
 pkgrel=1
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=(any)
@@ -16,7 +16,7 @@ optdepends=('ccache: for build caching'
             'chrpath: for building standalone executables'
             'pyside2: for using Qt5 APIs')
 source=("https://files.pythonhosted.org/packages/source/N/${pkgname^}/${pkgname^}-${pkgver}.tar.gz")
-b2sums=('e83b28f23330f07c2c51f865d480fe574bce2cc30222438be9b55fd431f29b1e235f667498b777faf027b410a7ca8c2a007d9715e392ca69baa72a75a73e4b36')
+b2sums=('314d730bcb92d0cd5d979b2d91e59eef605dfe27a30c959753f803346f919872cc13d0bcc71803a3425fd73c3fcfe292852b79a390a9d7a373a8433895fbbef6')
 
 prepare() {
   cd ${pkgname^}-$pkgver
