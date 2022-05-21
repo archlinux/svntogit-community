@@ -7,7 +7,7 @@
 # Contributor: Sparadox <etienne.lafarge at gmail.com>
 
 pkgname=cloud-init
-pkgver=22.1
+pkgver=22.2
 pkgrel=1
 pkgdesc="Cloud instance initialization"
 arch=(any)
@@ -15,9 +15,9 @@ url="https://cloud-init.io"
 license=(GPL3)
 depends=(dhclient netplan python-configobj python-jinja
 python-jsonpatch python-jsonschema python-netifaces python-oauthlib
-python-requests python-yaml sudo systemd)
-makedepends=(python-setuptools)
-checkdepends=(python-httpretty python-prettytable python-pytest)
+python-requests python-pyyaml sudo systemd)
+makedepends=(python-build python-installer python-setuptools python-wheel)
+checkdepends=(python-httpretty python-prettytable python-pytest python-pytest-mock python-responses)
 optdepends=('cloud-guest-utils: for growpart')
 backup=(
   etc/cloud/cloud.cfg
@@ -28,10 +28,10 @@ source=(
   $pkgname-22.1-lib_dir.patch
   $pkgname-22.1-python-configobj.patch
 )
-sha512sums=('485e358777379a22dd2b0f6aa7afb1751eb44831c6e03ecbbd9c6823eaa20535e6e83fc245818ce1bb207425976839b356dadcfa3cfe62385b9d340b08ff21ab'
+sha512sums=('07fec2f1d6eab20a1161672bb339a0c6b2826540bcb03936f95458b179fcb1b3142773c9a4038fe02b30bb05a5ca48a4153b6b0f59015b43bd6c6602832f9d6f'
             '32b7521f0ae4d61a4d86f2f840fb0670e2cdc7bab708fc7b7676b5178b6d660beb3a46b803f5bcd7e0f18c6d6339fc96e20a951dfafadbb0312e4a0cafce325f'
             '16e414661be0fc382d25ff18fd35147bf6115e64984d8a7e83c479f206a8d20ba0da1901a69eee9e07fe3d7b3c7cebc5702b2932f1847e19b43eccb5c89fa63b')
-b2sums=('ca55378db822cdf58808de1bd2b519861c50ad8b08ed699212827833e0134fdc0968b76a4c2a13f39eae1d20ef8b22a99ff99b85ef77e496fd41593f4e2f2d55'
+b2sums=('ae95bf04a0229ed0c7bbf6dc6889793eb020ffe6e6223b02f4003b3f38253781a1ed22a41f535b5064a8ba4bde20b197d58eb5d55789d4decd9b39aabd46d1c3'
         '4e03bd647ca9e1bc3d9c507824d43e4013a20d5bbcb7215755b427d0c7ded9ee48dbfb9faaae703ab2d519aee7c48a40277603c8f874347b574b7ac2b1e1a9fd'
         'e3470a365ecf7b5fe0ce0df30fab4160770ec128904a36ad57676af3c2c3a6730290a379c623d10fde588378149ef9c1b936f7f01f06fdb524a3f3d12f8d5112')
 
@@ -45,20 +45,47 @@ prepare() {
 
 build() {
   cd $pkgname-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
   cd $pkgname-$pkgver
-  export PYTHONPATH="build:$PYTHONPATH"
-  pytest -v
+  pytest -vv
 }
 
 package() {
-  cd $pkgname-$pkgver
-  python setup.py install --optimize=1 --init-system=systemd --root="$pkgdir"
+  local _file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
 
-  # /etc/systemd is for administrative purposes, not for vendoring purposes
-  mv -v "$pkgdir/"{etc,usr/lib}/systemd/system/sshd-keygen@.service.d/
-  rm -rf "$pkgdir/etc/systemd"
+  cd $pkgname-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  # NOTE: due to limitations with PEP517, files are installed to site-packages,
+  # not to the correct global locations (e.g. /etc and /usr), so we remove them
+  # and install them manually below.
+  rm -frv "$pkgdir/$site_packages/"{usr,etc}
+
+  # configuration and hooks
+  install -vDm 644 config/cloud.cfg.d/* -t "$pkgdir/etc/cloud/cloud.cfg.d/"
+  ./tools/render-cloudcfg --variant arch ./config/cloud.cfg.tmpl "$pkgdir/etc/cloud/cloud.cfg"
+  install -vDm 644 templates/*.tmpl -t "$pkgdir/etc/cloud/templates/"
+  install -vDm 755 tools/hook-network-manager -t "$pkgdir/etc/NetworkManager/dispatcher.d/"
+  install -vDm 755 tools/hook-dhclient -t "$pkgdir/etc/dhcp/dhclient-exit-hooks.d/"
+  install -vDm 755 tools/{ds-identify,hook-hotplug,uncloud-init,write-ssh-key-fingerprints} -t "$pkgdir/usr/lib/$pkgname/"
+  # documentation, man pages and shell completion
+  install -vDm 644 doc/*.txt -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 doc/examples/*.txt -t "$pkgdir/usr/share/doc/$pkgname/examples/"
+  install -vDm 644 doc/examples/seed/* -t "$pkgdir/usr/share/doc/$pkgname/examples/seed/"
+  install -vDm 644 doc/man/*.1 -t "$pkgdir/usr/share/man/man1/"
+  install -vDm 655 bash_completion/$pkgname -t "$pkgdir/usr/share/bash-completion/completions/"
+  # udev rules
+  install -vDm 644 udev/*.rules -t "$pkgdir/usr/lib/udev/rules.d/"
+  # systemd integration
+  install -vdm 755 "$pkgdir/usr/lib/systemd/system"{,-generators}
+  for _file in cloud-{config,final,init-local,init}.service; do
+    ./tools/render-cloudcfg --variant arch ./systemd/$_file.tmpl "$pkgdir/usr/lib/systemd/system/$_file"
+  done
+  install -vDm 644 systemd/*.{service,socket,target} "$pkgdir/usr/lib/systemd/system/"
+  ./tools/render-cloudcfg --variant arch ./systemd/cloud-init-generator.tmpl "$pkgdir/usr/lib/systemd/system-generators/cloud-init-generator"
+  chmod 755 "$pkgdir/usr/lib/systemd/system-generators/cloud-init-generator"
+  install -vDm 644 systemd/disable-sshd-keygen-if-cloud-init-active.conf -t "$pkgdir/usr/lib/systemd/system/sshd-keygen@.service.d/"
 }
