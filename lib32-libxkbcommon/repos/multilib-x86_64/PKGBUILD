@@ -8,10 +8,10 @@ pkgname=(
   lib32-libxkbcommon
   lib32-libxkbcommon-x11
 )
-pkgver=1.4.0
+pkgver=1.4.1
 pkgrel=1
 pkgdesc='Keymap handling library for toolkits and window systems (32-bit)'
-url=https://xkbcommon.org/
+url='https://xkbcommon.org/'
 arch=(x86_64)
 license=(custom)
 makedepends=(
@@ -21,20 +21,27 @@ makedepends=(
   lib32-wayland
   meson
   wayland-protocols
-  xorg-util-macros
+  xkeyboard-config
+  xorgproto
 )
 checkdepends=(
-  xorg-server-xvfb
   libgl
+  xorg-server-xvfb
 )
-_tag=6e8f0d331715a3672f5c663b704b9ea5caabe113
-source=(git+https://github.com/xkbcommon/libxkbcommon#tag=${_tag})
+options=(
+  debug
+)
+_commit=57af9cb71f19f37394399b549f7cb7b0d9fe3988  # tags/xkbcommon-1.4.1^0
+source=("git+https://github.com/xkbcommon/libxkbcommon#commit=$_commit")
 sha256sums=('SKIP')
 
 pkgver() {
   cd libxkbcommon
+  git describe --tags | sed 's/^xkbcommon-//;s/[^-]*-g/r&/;s/-/+/g'
+}
 
-  git describe --tags | sed 's/^xkbcommon-//'
+prepare() {
+  cd libxkbcommon
 }
 
 build() {
@@ -52,9 +59,20 @@ check() {
   xvfb-run -s '-nolisten local' meson test -C build --print-errorlogs
 }
 
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
 package_lib32-libxkbcommon() {
   depends=(
     lib32-libxml2
+    xkeyboard-config
     libxkbcommon
   )
   provides=(
@@ -62,34 +80,30 @@ package_lib32-libxkbcommon() {
     libxkbregistry.so
   )
 
-  meson install -C build --destdir "${pkgdir}"
-  rm -rf "${pkgdir}"/usr/{bin,include,lib,share}
+  meson install -C build --destdir "$pkgdir"
+  rm -r "$pkgdir/usr/include"
 
-  install -dm 755 "${pkgdir}"/usr/share/licenses
-  ln -s libxkbcommon "${pkgdir}"/usr/share/licenses/lib32-libxkbcommon
+  _pick x11 "$pkgdir"/usr/lib32/*x11*
+  _pick x11 "$pkgdir"/usr/lib32/pkgconfig/*x11*
 
-  mkdir -p x11/usr/lib32/pkgconfig
-  mv "${pkgdir}"/usr/lib32/*x11* x11/usr/lib32
-  mv "${pkgdir}"/usr/lib32/pkgconfig/*x11* x11/usr/lib32/pkgconfig
+  install -Dt "$pkgdir/usr/share/licenses/$pkgname" -m644 libxkbcommon/LICENSE
 }
 
 package_lib32-libxkbcommon-x11() {
   pkgdesc='Keyboard handling library using XKB data for X11 XCB clients (32-bit)'
   depends=(
+    lib32-libxcb
     lib32-libxkbcommon
     libxkbcommon.so
-    lib32-libxcb
     libxkbcommon-x11
   )
   provides=(
     libxkbcommon-x11.so
   )
 
-  mv x11/* "${pkgdir}"/
-  find "${pkgdir}" -type d -exec chmod 755 {} +
+  mv x11/* "$pkgdir"/
 
-  install -dm 755 "${pkgdir}"/usr/share/licenses
-  ln -s libxkbcommon-x11 "${pkgdir}"/usr/share/licenses/lib32-libxkbcommon-x11
+  install -Dt "$pkgdir/usr/share/licenses/$pkgname" -m644 libxkbcommon/LICENSE
 }
 
-# vim: ts=2 sw=2 et:
+# vim:set sw=2 sts=-1 et:
