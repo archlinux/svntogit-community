@@ -1,0 +1,240 @@
+diff -ru topcom-0.17.8.old/configure.ac topcom-0.17.8.new/configure.ac
+--- topcom-0.17.8.old/configure.ac	2022-05-21 19:34:33.504824555 +0200
++++ topcom-0.17.8.new/configure.ac	2022-05-21 19:46:42.628998268 +0200
+@@ -4,26 +4,13 @@
+ 
+ dnl Init automake.
+ AM_INIT_AUTOMAKE
++AC_CONFIG_MACRO_DIR([m4])
+ 
+ dnl Checks for programs.
+ AC_PROG_CC
+-AC_PROG_INSTALL
+ AC_PROG_CXX
+-AC_PROG_RANLIB
+-
+-dnl Checks for libraries.
+-dnl Replace `main' with a function in -lg:
+-dnl AC_CHECK_LIB(g, main)
+-dnl Replace `main' with a function in -lstdc:
+-dnl AC_CHECK_LIB(stdc, main)
+-dnl Replace `main' with a function in -lstdc++:
+-dnl AC_CHECK_LIB(stdc++, main)
+-dnl Make libgmp:
+-make -C external gmp
+-dnl Make libcddgmp:
+-make -C external cdd
+-dnl Check for soplex:
+-AC_CHECK_LIB(soplex, main, , csh -c 'echo soplex not found: --soplex will not work.')
++AC_PROG_INSTALL
++LT_INIT
+ 
+ dnl Checks for header files.
+ AC_HEADER_STDC
+@@ -31,6 +18,73 @@
+ dnl Checks for typedefs, structures, and compiler characteristics.
+ AC_C_CONST
+ 
+-dnl Checks for library functions.
+ 
+-AC_OUTPUT(wrap-gmp-gmpxx/Makefile lib-src/Makefile lib-src-reg/Makefile src/Makefile src-reg/Makefile examples/Makefile Makefile)
++dnl ===== Begin checks for libraries ================
++
++dnl Removed check for soplex because SPXinterface will not compile with
++dnl Soplex 2.0.1.  (Header file spxdefaultpr.h does not exist any more.)
++dnl dnl Check for soplex:
++dnl AC_TRY_LINKCHECK_LIB(soplex, main, ,
++dnl              [csh -c 'echo soplex not found: --soplex will not work.'])
++
++dnl Find the GNU Multiple Precision Arithmetic Library
++AC_ARG_WITH(gmp,
++  [AS_HELP_STRING([--with-gmp=<path>],	
++     	          [prefix of GMP installation. e.g. /usr/local or /usr])],
++  [GMP_PREFIX="$with_gmp"],
++  [AC_CHECK_LIB([gmp], [__gmpz_init], ,
++    AC_MSG_ERROR([GNU Multiple Precision Arithmetic Library not found.
++    Maybe you want to call configure with the --with-gmp=<path> option?
++    This tells configure where to find the GMP library and headers.
++    e.g. --with-gmp=/usr/local or --with-gmp=/usr]))]
++)
++if test "x$GMP_PREFIX" != x ; then
++  GMP_LIBS=" -L${GMP_PREFIX}/lib"
++  GMP_CFLAGS=" -I${GMP_PREFIX}/include"
++else
++  GMP_LIBS=""
++  GMP_CFLAGS=""
++fi
++GMP_LIBS="${GMP_LIBS} -lgmp -lgmpxx"
++AC_SUBST(GMP_LIBS)
++AC_SUBST(GMP_CFLAGS)
++
++
++dnl Find the cdd library
++AC_ARG_WITH(cdd,
++  [AS_HELP_STRING([--with-cdd=<path>],	
++     	          [prefix of cddlib installation. e.g. /usr/local or /usr])],
++  [CDD_PREFIX="$with_cdd"],
++  [AC_CHECK_LIB([cdd], [ddd_init], ,
++    AC_MSG_ERROR([Komei Fukuda's cdd library not found.
++    Maybe you want to call configure with the --with-cdd=<path> option?
++    This tells configure where to find the cdd library and headers.
++    e.g. --with-cdd=/usr/local or --with-cdd=/usr]))]
++)
++if test "x$CDD_PREFIX" != x ; then
++  CDD_LIBS=" -L${CDD_PREFIX}/lib"
++  CDD_CFLAGS=" -I${CDD_PREFIX}/include"
++else
++  CDD_LIBS=""
++  # Fedora 12 installs the headers here
++  CDD_CFLAGS=" -I/usr/include/cddlib"
++fi
++CDD_LIBS="${CDD_LIBS} -lcddgmp"
++AC_SUBST(CDD_LIBS)
++AC_SUBST(CDD_CFLAGS)
++
++
++dnl ===== End checks for libraries ================
++
++
++dnl Finishing it up
++AC_CONFIG_FILES([
++  lib-src/Makefile 
++  lib-src-reg/Makefile 
++  src/Makefile 
++  src-reg/Makefile 
++  examples/Makefile 
++  wrap-gmp-gmpxx/Makefile
++  Makefile
++])
++AC_OUTPUT
+diff -ru topcom-0.17.8.old/lib-src/Makefile.am topcom-0.17.8.new/lib-src/Makefile.am
+--- topcom-0.17.8.old/lib-src/Makefile.am	2022-05-21 19:34:33.568158113 +0200
++++ topcom-0.17.8.new/lib-src/Makefile.am	2022-05-21 19:43:44.071975962 +0200
+@@ -1,6 +1,6 @@
+-lib_LIBRARIES       = libTOPCOM.a
++lib_LTLIBRARIES       = libTOPCOM.la
+ 
+-libTOPCOM_a_SOURCES = \
++libTOPCOM_la_SOURCES = \
+ Admissibles.cc \
+ CheckTriang.cc \
+ Circuits.cc \
+@@ -88,11 +88,11 @@
+ VertexFacetTableArray.hh \
+ VirtualChiro.hh
+ 
+-AM_CPPFLAGS     = -I../lib-src-reg
+-AM_CPPFLAGS    += -I../wrap-gmp-gmpxx
+-AM_CPPFLAGS    += -I../external/include
+-AM_CPPFLAGS    += -I$(includedir)
+ 
+-AM_CPPFLAGS    += -DVERBOSE -DGMPRATIONAL -ftemplate-depth-35
++libTOPCOM_la_CPPFLAGS = \
++	-DVERBOSE -DGMPRATIONAL -ftemplate-depth-35 \
++	$(GMP_CFLAGS) $(CDD_CFLAGS) \
++	-I../lib-src-reg -I../wrap-gmp-gmpxx 
++
++libTOPCOM_la_LIBADD = $(GMP_LIBS) $(CDD_LIBS)
+ 
+-AM_CXXFLAGS     = -O2 -g
+diff -ru topcom-0.17.8.old/lib-src-reg/Makefile.am topcom-0.17.8.new/lib-src-reg/Makefile.am
+--- topcom-0.17.8.old/lib-src-reg/Makefile.am	2022-05-21 19:34:33.568158113 +0200
++++ topcom-0.17.8.new/lib-src-reg/Makefile.am	2022-05-21 19:43:56.005330600 +0200
+@@ -1,6 +1,6 @@
+-lib_LIBRARIES = libCHECKREG.a
++lib_LTLIBRARIES = libCHECKREG.la
+ 
+-libCHECKREG_a_SOURCES = \
++libCHECKREG_la_SOURCES = \
+ SPXinterface.cc \
+ LPinterface.cc \
+ RegularityCheck.cc
+@@ -10,11 +10,9 @@
+ RegularityCheck.hh \
+ LPinterface.hh
+ 
+-AM_CPPFLAGS     = -I../lib-src 
+-AM_CPPFLAGS    += -I../wrap-gmp-gmpxx
+-AM_CPPFLAGS    += -I../external/include
+-AM_CPPFLAGS    += -I$(includedir)
++libCHECKREG_la_CPPFLAGS = \
++	-DVERBOSE -DGMPRATIONAL -ftemplate-depth-30 \
++	$(GMP_CFLAGS) $(CDD_CFLAGS) \
++	-I../lib-src -I../wrap-gmp-gmpxx
+ 
+-AM_CPPFLAGS    += -DVERBOSE -DGMPRATIONAL -ftemplate-depth-30
+-
+-AM_CXXFLAGS     = -O2
++libCHECKREG_la_LIBADD = $(CDD_LIBS)
+diff -ru topcom-0.17.8.old/Makefile.am topcom-0.17.8.new/Makefile.am
+--- topcom-0.17.8.old/Makefile.am	2022-05-21 19:34:33.504824555 +0200
++++ topcom-0.17.8.new/Makefile.am	2022-05-21 19:44:12.408693841 +0200
+@@ -1,6 +1,2 @@
+-SUBDIRS      = wrap-gmp-gmpxx lib-src-reg lib-src src-reg src examples
+-EXTRA_DIST   = external/Makefile
+-EXTRA_DIST  += external/gmp-6.1.1.tar.bz2
+-EXTRA_DIST  += external/cddlib-0.94f-TOPCOM.tar.gz
+-EXTRA_DIST  += external/gmpxx-patch
+-
++ACLOCAL_AMFLAGS = -I m4
++SUBDIRS      = lib-src-reg lib-src src-reg src
+diff -ru topcom-0.17.8.old/src/Makefile.am topcom-0.17.8.new/src/Makefile.am
+--- topcom-0.17.8.old/src/Makefile.am	2022-05-21 19:34:33.578158149 +0200
++++ topcom-0.17.8.new/src/Makefile.am	2022-05-21 19:44:34.015400998 +0200
+@@ -83,18 +83,12 @@
+ santos_dim4_triang_SOURCES         = santos_dim4_triang.cc
+ santos_22_triang_SOURCES           = santos_22_triang.cc
+ 
+-LDADD           = ../lib-src/libTOPCOM.a \
+-                  ../lib-src-reg/libCHECKREG.a \
+-                  ../external/lib/libcddgmp.a \
+-                  ../external/lib/libgmpxx.a \
+-                  ../external/lib/libgmp.a
+-
+-AM_CPPFLAGS     = -I../lib-src
+-AM_CPPFLAGS    += -I../lib-src-reg
+-AM_CPPFLAGS    += -I../wrap-gmp-gmpxx
+-AM_CPPFLAGS    += -I../external/include
+-AM_CPPFLAGS    += -I$(includedir)
++LDADD           = ../lib-src/libTOPCOM.la \
++                  ../lib-src-reg/libCHECKREG.la 
+ 
++AM_CPPFLAGS     = $(GMP_CFLAGS) $(CDD_CFLAGS)
+ AM_CPPFLAGS    += -DVERBOSE -DGMPRATIONAL -ftemplate-depth-30
+-
+-AM_CXXFLAGS     = -O2
++AM_CPPFLAGS    += -I../wrap-gmp-gmpxx
++AM_CPPFLAGS    += -I../lib-src
++AM_CPPFLAGS    += -I../lib-src-reg
++AM_LDFLAGS      = $(CDD_LIBS) $(GMP_LIBS)
+diff -ru topcom-0.17.8.old/src-reg/Makefile.am topcom-0.17.8.new/src-reg/Makefile.am
+--- topcom-0.17.8.old/src-reg/Makefile.am	2022-05-21 19:34:33.578158149 +0200
++++ topcom-0.17.8.new/src-reg/Makefile.am	2022-05-21 19:44:45.382089445 +0200
+@@ -2,20 +2,12 @@
+ 
+ checkregularity_SOURCES = checkregularity.cc
+ 
+-LDADD           = ../lib-src-reg/libCHECKREG.a \
+-                  ../lib-src/libTOPCOM.a \
+-                  ../external/lib/libcddgmp.a \
+-                  ../external/lib/libgmpxx.a \
+-                  ../external/lib/libgmp.a
+-
+-AM_CPPFLAGS     = -I../lib-src
+-AM_CPPFLAGS    += -I../lib-src-reg
+-AM_CPPFLAGS    += -I../wrap-gmp-gmpxx
+-AM_CPPFLAGS    += -I../external/include
+-AM_CPPFLAGS    += -I$(includedir)
+-
++LDADD           = ../lib-src-reg/libCHECKREG.la \
++                  ../lib-src/libTOPCOM.la  
+ 
++AM_CPPFLAGS     = $(GMP_CFLAGS) $(CDD_CFLAGS)
+ AM_CPPFLAGS    += -DVERBOSE -DGMPRATIONAL -ftemplate-depth-30
+-
+-AM_CXXFLAGS     = -O2
+-
++AM_CPPFLAGS    += -I../wrap-gmp-gmpxx
++AM_CPPFLAGS    += -I../lib-src
++AM_CPPFLAGS    += -I../lib-src-reg
++AM_LDFLAGS      = $(CDD_LIBS) $(GMP_LIBS)
