@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 pkgname=python-license-expression
-pkgver=21.6.14
-pkgrel=5
+pkgver=30.0.0
+pkgrel=1
 pkgdesc='Utility to parse, normalize and compare license expressions'
 arch=('any')
 url='https://github.com/nexB/license-expression'
@@ -24,7 +24,7 @@ checkdepends=(
   'python-pytest'
   'python-pytest-xdist'
 )
-_commit='475a246eb3d5281cc63b90345fcba080bfefb21b'
+_commit='5f4febb6df2b644706839e42ba4310de9e2dccba'
 source=("$pkgname::git+$url#commit=$_commit")
 b2sums=('SKIP')
 
@@ -41,11 +41,6 @@ prepare() {
   sed \
     -i pyproject.toml \
     -e "s/^fallback_version =.*/fallback_version = \"$pkgver\"/"
-
-  # remove version constraint for python-boolean.py
-  sed \
-    -i setup.cfg \
-    -e 's/\(boolean.py\).*$/\1/'
 }
 
 build() {
