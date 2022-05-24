@@ -7,7 +7,7 @@
 
 pkgname=salt
 pkgver=3004.1
-pkgrel=2
+pkgrel=3
 
 pkgdesc='Central system and configuration manager'
 arch=('any')
@@ -38,14 +38,19 @@ backup=('etc/logrotate.d/salt'
 
 install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
+        jinja-3.1.patch
         salt.logrotate)
 
 sha256sums=('7f344a2432648a4f078daa5accc68dcdffe1095cea13ec21e50413560f04c298'
+            'bfce486e45a37c6e78af545cd653f932da20c6d13c2bbbc874686924838fbcdf'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
   cd salt-$pkgver
   sed -i '/^contextvars/d' requirements/base.txt
+
+  # https://github.com/saltstack/salt/pull/61856
+  patch -Np1 -i ../jinja-3.1.patch
 
   # remove version requirements for pyzmq, there's no point in it
   # we only have one version and the "python_version <=> *" checks are discarded
