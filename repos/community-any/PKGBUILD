@@ -2,28 +2,33 @@
 
 _pkgname=httpx
 pkgname=python-httpx
-pkgver=0.22.0
-pkgrel=2
+pkgver=0.23.0
+pkgrel=1
 pkgdesc="A next generation HTTP client for Python"
 arch=('any')
 url="https://github.com/encode/${_pkgname}"
 license=('BSD')
-depends=('python-charset-normalizer' 'python-httpcore' 'python-idna' 'python-rfc3986' 'python-sniffio' 'python-rich')
-optdepends=('python-brotlicffi: for brotli response decompression')
+depends=('python-httpcore' 'python-idna' 'python-rfc3986' 'python-sniffio')
+optdepends=(
+  'python-brotlicffi: for brotli response decompression'
+  'python-h2: HTTP/2 support'
+  'python-socksio: SOCKS proxy support'
+  'python-click: command line client support'
+  'python-rich: command line client support'
+  'python-trio: alternative async library'
+)
 makedepends=('python-setuptools')
-checkdepends=('python-pytest-asyncio' 'python-pytest-trio' 'python-typing_extensions' 'python-brotlicffi' 'python-h2' 'python-trustme' 'uvicorn' 'python-socksio')
+checkdepends=('python-pytest-asyncio' 'python-pytest-trio' 'python-typing_extensions' 'python-brotlicffi' 'python-h2' 'python-trustme' 'uvicorn' 'python-socksio'
+              'python-rich' 'python-chardet')
 source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz"
         "0001-Do-not-override-the-system-SSL-certificates-with-the.patch"
-        "uvicorn-test-server-use-h11.diff"
-        "CVE-2021-41945.diff")
-sha512sums=('a7360f5355f75f07425b42d49697e480319f3fe606d4601bb6d64b870c8a8fce6fad8bd857ef422fc48e6141201307ee94876d5bc54a68557c7dc32ce8f1451b'
-            'faf90f908ab8d5054d096eef1ba4e9cee733eb8178d2df0dfe922923bf8a98eebf880b9a6be3386caffed88229f82f1199c026ede455a57998246821a37e5748'
-            'd86ec2b97ca0dda68f023f9d1fbed0cb143e4ae118ac71fe6651f8f65d7130f014c0cc14a9ab490fc09583370141d5827976c334bd1c58aaebcf1a00762214c9'
-            'b57e7f3bdc2df8814032b1cffcbebf293a53f4c1fc9a79d4ae210a65ac23272e57b67f911b1f9c77229f7d039240383d4e1c8e880de603f2bfdf7d7d0080c2b5')
-b2sums=('bb08a7c4b72478d24264c0dca5630205ff386af73294dca66dcd12b646de602ad64e308feedaabd58742cb7a9d799fa23cd2f922e685e74f8181e1b5e9f1c4ee'
-        '3e020b5f3c3aeeede6304851023eed4ab10f74df68203b504b5564892aa960d5c52521279a0b9cf40ead1e18b5ce9ee3998ad4502e6008f07808817d0405b7c7'
-        'b67493e9c8d38ae9b64d831b178d8b943a90a3382e381f08792a35c935fa702b094ea962eb653e5b6ad1b5990466d3d0814d166093aa7b9e921632e61d4ebd45'
-        'a6d756c382eb79d94cc675625fcbf0e7dca36be26820cc56d7a60465066750ba15442e42a8bcbf420416aabb80e0f34ed24776e00affda5d7f971623214539b3')
+        "uvicorn-test-server-use-h11.diff")
+sha512sums=('3cfdf2b3b2f15967a1eec0be05ed947c5e18a46576b68a9cbfd5147dfd4736cb7c389f5431732b93f3a11f3ec6c6f25f7cbb3d96d845f00b58e2b8dae047c1d5'
+            '163665f984ef33fb8ddfdbc4d5f6fe7bec1a8c7aa5bce9acd6fc21e917ac3329ad70c2d6c642831fcc52d21ba030c072434f6492bc64ffaf143d54982fff435f'
+            'd86ec2b97ca0dda68f023f9d1fbed0cb143e4ae118ac71fe6651f8f65d7130f014c0cc14a9ab490fc09583370141d5827976c334bd1c58aaebcf1a00762214c9')
+b2sums=('036c66b2c3f743cd069716297f331f0d75043a98180b9db3e156c5692ae8bf9c68d1db87169953a7f44aaf7ee8554d0166f70b508f77b7ff4b0ebc0500bc02ad'
+        '14043504b8369655bd9a6db78f24bbffd3b687d437276d62314320b59f9b2ef09618bef27612353078cbc9554ed7c2b7e2468e2ef3a155bca35ae72b7aa1f1ee'
+        'b67493e9c8d38ae9b64d831b178d8b943a90a3382e381f08792a35c935fa702b094ea962eb653e5b6ad1b5990466d3d0814d166093aa7b9e921632e61d4ebd45')
 
 prepare() {
   cd ${_pkgname}-${pkgver}
@@ -32,9 +37,9 @@ prepare() {
   patch -p1 -i ../0001-Do-not-override-the-system-SSL-certificates-with-the.patch
   # fix tests
   patch -Np1 -i ../uvicorn-test-server-use-h11.diff
-  # Manual backport of https://github.com/encode/httpx/commit/e9b0c85dd4f4e4469c57c4b38e5101fd12081b5c
-  # That commit does not apply cleanly on 0.22.0
-  patch -Np1 -i ../CVE-2021-41945.diff
+
+  # disable -Werror, which often causes failures due to newer dependencies in Arch
+  sed -i '/\berror\b/d' setup.cfg
 }
 
 build() {
@@ -46,9 +51,7 @@ build() {
 check() {
   cd ${_pkgname}-${pkgver}
 
-  # Encoding-related tests failed since charset-normalizer 2.0.7; there are many related discussions upstream:
-  # https://github.com/encode/httpx/search?q=charset-normalizer&type=discussions
-  pytest -W ignore::DeprecationWarning -k 'not text_decoder[data3-iso-8859-1] and not response_no_charset_with_iso_8859_1_content'
+  pytest
 }
 
 package() {
