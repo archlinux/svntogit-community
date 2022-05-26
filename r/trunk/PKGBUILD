@@ -5,7 +5,7 @@
 
 pkgname=r
 pkgver=4.2.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Language and environment for statistical computing and graphics'
 arch=(x86_64)
 license=(GPL)
@@ -86,4 +86,12 @@ package() {
 
 # Install ld.so.conf.d file to ensure other applications access the shared lib
   install -Dm644 "$srcdir"/R.conf -t "$pkgdir"/etc/ld.so.conf.d
+
+# Add provides for bundled packages
+  for _f in "$pkgdir"/usr/lib/R/library/*/DESCRIPTION; do
+    _pkg=$(grep Package: $_f | cut -d' ' -f2 | tr '[:upper:]' '[:lower:]')
+    _ver=$(grep Version $_f | cut -d' ' -f2)
+    _prov="r-$_pkg=${_ver/-/.}"
+    provides+=($_prov)
+  done
 }
