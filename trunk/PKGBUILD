@@ -3,8 +3,8 @@
 # Contributor: <kastor@fobos.org.ar>
 
 pkgname=lrzip
-pkgver=0.641
-pkgrel=2
+pkgver=0.651
+pkgrel=1
 pkgdesc='Multi-threaded compression with rzip/lzma, lzo, and zpaq'
 url='https://github.com/ckolivas/lrzip'
 license=('GPL')
