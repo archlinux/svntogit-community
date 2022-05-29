@@ -1,0 +1,194 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Iwan Timmer <irtimmer@gmail.com>
+
+pkgbase=pcp
+pkgname=(pcp pcp-gui pcp-pmda-activemq pcp-pmda-bcc pcp-pmda-bind2 pcp-pmda-bpftrace pcp-pmda-libvirt
+         pcp-pmda-mysql pcp-pmda-nginx pcp-pmda-nutcracker pcp-pmda-openmetrics
+         pcp-pmda-podman pcp-pmda-postgresql pcp-pmda-snmp)
+pkgver=5.3.7
+pkgrel=2
+arch=('x86_64')
+url="https://pcp.io"
+license=('LGPL')
+makedepends=('avahi' 'procps-ng' 'which' 'libuv'
+             'rsync'
+             'qt5-svg' # gui
+             'python-openpyxl' # pcp2xlsx
+             'python-jsonpointer' 'python-six' # json
+             'libvirt-python' # libvirt
+             'python-lxml' # libvirt
+             'python-requests' # influxdb
+             'bpftrace' 'python-bcc' # bcc
+             'perl-net-snmp' # snmp
+             'perl-libwww' # nginx, activemq, bind2
+             'perl-xml-libxml' # bind2
+             'perl-file-slurp' # bind2
+             'perl-yaml-libyaml' # nutcracker
+             'perl-json' # nutcracker
+             'perl-dbd-mysql' # mysql
+             'python-psycopg2' # postgresql
+             'libvarlink' # podman
+            )
+source=("https://github.com/performancecopilot/pcp/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        "sysuser.conf"
+        "tmpfile.conf")
+sha256sums=('cd4914d65321462a6dd8212f40de18482e7cd778d83b837a9b3ff7ca68b95856'
+            '3e21ef7925296f73c91fe85c8dba341ce00366163845dd8993e2813b0ad5e4a4'
+            '0166ffea180527de5a48a8e8f145cc80860b93e8f44bc5f96836c3d1cb4b01a2')
+
+build() {
+  cd "$pkgbase-$pkgver"
+  ./configure \
+    --prefix=/usr \
+    --sbindir=/usr/bin \
+    --libexecdir=/usr/lib \
+    --sysconfdir=/etc \
+    --localstatedir=/var \
+    --with-rundir=/run/pcp \
+    --without-dstat-symlink \
+    --with-python=no
+  make
+
+  mkdir -p "$srcdir"/installskel
+  make DIST_ROOT="$srcdir/installskel" NO_CHOWN=true install_pcp
+  rm -rf "$srcdir"/installskel/{var/lib/pcp/testsuite,run,var/tmp}
+
+  echo -e /{etc/pcp,var/lib/pcp/config}/{pmchart,pmsnap} \
+    /usr/share/applications/pmchart.desktop \
+    /usr/lib/pcp/bin/pmsnap \
+    /usr/bin/{pmchart,pmconfirm,pmdumptext,pmmessage,pmquery,pmtime} \
+    /usr/share/bash-completion/completions/pmdumptext \
+    | sed -r 's/ +/\n/g' > ../gui.list
+}
+
+_package_module() {
+  local module="$1"
+
+  for moddir in {etc/pcp,var/lib/pcp/config/pmlogconf} {var,usr}/lib/pcp/pmdas; do
+    [ ! -e "$srcdir/installskel/$moddir/$module" ] && continue
+    install -dm0755 "$pkgdir/$moddir"
+    mv "$srcdir/installskel/$moddir/$module" "$pkgdir"/$moddir/
+  done
+
+  if [ -e "$srcdir/installskel/usr/share/man/man1/pmda$module.1.gz" ]; then
+    install -dm0755 "$pkgdir/usr/share/man/man1/"
+    mv "$srcdir/installskel/usr/share/man/man1/pmda$module.1.gz" "$pkgdir/usr/share/man/man1/"
+  fi
+}
+
+package_pcp() {
+  pkgdesc='System performance analysis toolkit'
+  depends=('python' 'perl' 'avahi' 'procps-ng' 'which' 'libuv' 'inetutils')
+  optdepends=('perl-xml-tokeparser: sar2pcp'
+              'perl-date-parse: sar2pcp'
+              'python-openpyxl: pcp2xlsx')
+  install=pcp.install
+
+  cd "$pkgbase-$pkgver"
+  rsync -vaHAX --exclude-from=../gui.list --exclude-from=<(echo /{etc/pcp,var/lib/pcp/config/pmlogconf,{usr,var}/lib/pcp/pmdas}/{activemq,bcc,bind2,bpftrace,libvirt,json,mysql,nginx,nutcracker,openmetrics,podman,postgresql,snmp} /usr/share/man/man1/pmda{activemq,bcc,bind2,bpftrace,libvirt,json,mysql,nginx,nutcracker,openmetrics,podman,postgresql,snmp}.1.gz | sed -r 's/ +/\n/g') "$srcdir"/installskel/ "$pkgdir"/
+
+  install -D -m644 "$srcdir"/sysuser.conf "$pkgdir"/usr/lib/sysusers.d/pcp.conf
+  install -D -m644 "$srcdir"/tmpfile.conf "$pkgdir"/usr/lib/tmpfiles.d/pcp.conf
+}
+
+package_pcp-gui() {
+  pkgdesc='Visualization tools for the Performance Co-Pilot toolkit'
+  depends=('pcp' 'qt5-svg')
+
+  while read f; do
+    [[ "$f" = "" ]] && continue
+    install -dm0755 "$pkgdir"/$(dirname "$f")
+    mv "$srcdir/installskel$f" "$pkgdir$f"
+  done < gui.list
+}
+
+package_pcp-pmda-activemq() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from ActiveMQ'
+  depends=('pcp' 'perl-libwww')
+
+  _package_module activemq
+}
+
+package_pcp-pmda-bcc() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from eBPF/BCC modules'
+  depends=('pcp' 'python-bcc')
+
+  _package_module bcc
+}
+
+package_pcp-pmda-bind2() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from BIND via its REST interface'
+  depends=('pcp' 'perl-libwww' 'perl-xml-libxml' 'perl-file-slurp')
+
+  _package_module bind2
+}
+
+package_pcp-pmda-bpftrace() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from bpftrace scripts'
+  depends=('pcp' 'bpftrace')
+
+  _package_module bpftrace
+}
+
+package_pcp-pmda-libvirt() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from libvirt virtual machines'
+  depends=('pcp' 'libvirt-python' 'python-lxml')
+
+  _package_module libvirt
+}
+
+package_pcp-pmda-json() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from JSON data'
+  depends=('pcp' 'python-jsonpointer' 'python-six')
+
+  _package_module json
+}
+
+package_pcp-pmda-nginx() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from Nginx'
+  depends=('pcp' 'perl-libwww')
+
+  _package_module nginx
+}
+
+package_pcp-pmda-mysql() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from MySQL'
+  depends=('pcp' 'perl-dbd-mysql')
+
+  _package_module mysql
+}
+
+package_pcp-pmda-nutcracker() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from NutCracker (TwemCache)'
+  depends=('pcp' 'perl-yaml-libyaml' 'perl-json')
+
+  _package_module nutcracker
+}
+
+package_pcp-pmda-openmetrics() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from OpenMetrics endpoints'
+  depends=('pcp' 'python-requests')
+
+  _package_module openmetrics
+}
+
+package_pcp-pmda-podman() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from podman'
+  depends=('pcp' 'libvarlink')
+
+  _package_module podman
+}
+
+package_pcp-pmda-postgresql() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from PostgreSQL'
+  depends=('pcp' 'python-psycopg2')
+
+  _package_module postgresql
+}
+
+package_pcp-pmda-snmp() {
+  pkgdesc='PCP Performance Metrics Domain Agent (PMDA) for collecting metrics from SNMP'
+  depends=('pcp' 'perl-net-snmp')
+
+  _package_module snmp
+}
