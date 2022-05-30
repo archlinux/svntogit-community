@@ -1,0 +1,88 @@
+# Maintainer: Robin Broda <coderobe @ archlinux.org>
+# Contributor: Peter Wu <peter@lekensteyn.nl>
+# Contributor: Evaggelos Balaskas <eblaskas _AT_ ebalaskas _DOT_ gr>
+# Contributor: Xiao-Long Chen <chenxiaolong@cxl.epac.to>
+# Contributor: Nikos Skalkotos <skalkoto (at) Gmail.com>
+
+pkgname=libguestfs
+pkgver=1.48.1
+pkgrel=4
+pkgdesc="Access and modify virtual machine disk images"
+arch=('x86_64')
+url="https://libguestfs.org/"
+license=('GPL2' 'LGPL2.1')
+_appliancedeps=('iproute2' 'mdadm' 'lvm2' 'libldm' 'btrfs-progs' 'dosfstools' 'gptfdisk' 'procps-ng' 'psmisc'
+                'rsync' 'xfsprogs' 'dhcpcd' 'iputils' 'ntfs-3g' 'vim' 'systemd-sysvcompat' 'openssh'
+                'f2fs-tools' 'jfsutils' 'lsscsi' 'lsof' 'lzop' 'pciutils' 'squashfs-tools'
+                'strace' 'syslinux' 'debootstrap' 'exfatprogs' 'grub' 'lrzip' 'mtools'
+                'multipath-tools' 'nilfs-utils' 'reiserfsprogs' 'yara')
+#               'scrub' 'zerofree' 'hfsprogs')
+depends=('augeas' 'libvirt' 'jansson' 'fuse2' 'hivex' 'sleuthkit' 'supermin' 'qemu' 'libconfig'
+         'perl-libintl-perl' "${_appliancedeps[@]}")
+makedepends=('ocaml' 'ocaml-findlib' 'gperf' 'cdrtools' 'perl-module-build' 'python'
+             'gobject-introspection' 'vala' 'bash-completion' 'cpio' 'java-environment'
+             'php' 'lua' 'ruby-rake' 'ruby-rdoc' 'ruby' 'rust')
+# 'go' 'ghc' 'erlang-nox')
+# using linux-lts for the tests, because of md test failures
+# possibly related to: https://bugs.archlinux.org/task/74888
+checkdepends=('linux-lts' ruby-test-unit)
+optdepends=(
+  'gobject-introspection: GObject-Introspection Bindings'
+  'java-runtime: for Java bindings'
+  'ocaml: OCaml Bindings'
+  'php: for PHP module'
+  'python: Python Bindings'
+  'ruby: for Ruby bindings'
+)
+provides=('libguestfs.so' 'libguestfs-gobject-1.0.so')
+backup=('etc/libguestfs-tools.conf'
+        'etc/xdg/virt-builder/repos.d/libguestfs.conf'
+        'etc/xdg/virt-builder/repos.d/libguestfs.gpg'
+        'etc/xdg/virt-builder/repos.d/opensuse.conf'
+        'etc/xdg/virt-builder/repos.d/opensuse.gpg')
+options=(debug)
+source=(
+  "http://download.libguestfs.org/${pkgver%.*}-stable/$pkgname-$pkgver.tar.gz"{,.sig}
+  $pkgname-1.48.1-disable_php_tests.patch
+  $pkgname-1.48.1-test_isoinfo_device_0_as_cdrom.patch
+)
+sha256sums=('4c3e84ae257b48fa6628734c8b305e3a0b8653928aef02caa423341413a90f1f'
+            'SKIP'
+            '151d7ab43e7150c7d645eb0bad9681ce5ecc59cae44f254f08ef617ce3d9932f'
+            'c94e07adc1c8d34b2bf852362159671c35cde1ffa7b031686b1b48984da61636')
+validpgpkeys=('F7774FB1AD074A7E8C8767EA91738F73E1B768A0') # Richard W.M. Jones <rjones@redhat.com>
+
+prepare() {
+  # disable php tests, as missing arginfo definition makes them fail: https://github.com/libguestfs/libguestfs/issues/78
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-1.48.1-disable_php_tests.patch
+  # isoinfo_device for some reason adds iso_volume_id as CDROM, not ISOIMAGE (and tests fail): https://github.com/libguestfs/libguestfs/issues/79
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-1.48.1-test_isoinfo_device_0_as_cdrom.patch
+
+  cd "$pkgname-$pkgver"
+  autoreconf -vi
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  # TODO: build haskell bindings
+  CFLAGS+=" -ffat-lto-objects" \
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc \
+    --sbindir=/usr/bin \
+    --disable-static \
+    --disable-haskell \
+    --with-extra-packages="libldm systemd-sysvcompat openssh qemu" \
+    --with-guestfs-path=/usr/lib/guestfs
+
+  make
+}
+
+check() {
+  LIBGUESTFS_TRACE=1 make -k check -C $pkgname-$pkgver
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make INSTALLDIRS=vendor DESTDIR="$pkgdir" install
+}
