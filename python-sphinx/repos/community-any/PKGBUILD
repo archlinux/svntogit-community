@@ -5,7 +5,7 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=4.5.0
+pkgver=5.0.0
 pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
@@ -29,13 +29,21 @@ checkdepends=('cython'
               'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
-source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('7bf8ca9637a4ee15af412d1a1d9689fec70523a68ca9bb9127c2f3eeb344e2e6'
-            'SKIP')
-b2sums=('e6c46d35492c3d3068c4f97e497d33973ca86b40934578804fcec901fa89d2c52b45a7546b835b873846dd16936c1bd34a7b053aec8206c688d974671155fd56'
-        'SKIP')
+source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc}
+        'sphinx-fix_testcase.patch::https://github.com/sphinx-doc/sphinx/commit/a904ab563a14ee5891551fdecf0d66d26774979f.patch')
+sha256sums=('464d9c1bd5613bcebe76b46658763f3f3dbb184da7406e632a84596d3cd8ee90'
+            'SKIP'
+            '9d6c995585945a0a3f996c3c965a4018cb052aa91b0037cd5539212dab1c3cbd')
+b2sums=('95f2b85c7de6d900922730c3e431259e2333b3fe27e25cbe35e9584ccf1ac3442ca0949018e64ca8481e60f2298b46f6a77523a7a67e6aafe7492b62ff97aa70'
+        'SKIP'
+        'bcb94aefbdbb418b14bdc320c0fd796633c34a1f23f0934a0b78a555e460906de86496f3f85a1304d9adaf6c3914f3cc57a20ab837aa8f23362f5779833f4ce6')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa <shimizukawa@gmail.com>
+
+prepare() {
+  cd Sphinx-$pkgver
+  patch --forward --strip=1 --input=../sphinx-fix_testcase.patch
+}
 
 build() {
   cd Sphinx-$pkgver
