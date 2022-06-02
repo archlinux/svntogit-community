@@ -5,8 +5,8 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=5.0.0
-pkgrel=2
+pkgver=5.0.1
+pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -29,25 +29,13 @@ checkdepends=('cython'
               'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
-source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc}
-        'sphinx-fix_testcase.patch::https://github.com/sphinx-doc/sphinx/commit/a904ab563a14ee5891551fdecf0d66d26774979f.patch'
-        'sphinx-fix_findall.patch::https://github.com/sphinx-doc/sphinx/pull/10504.patch')
-sha256sums=('464d9c1bd5613bcebe76b46658763f3f3dbb184da7406e632a84596d3cd8ee90'
-            'SKIP'
-            '9d6c995585945a0a3f996c3c965a4018cb052aa91b0037cd5539212dab1c3cbd'
-            '5b347e3c37cffcce47684be53cda7239eefdf449d2fb6bdf9dcf8494c8a9a399')
-b2sums=('95f2b85c7de6d900922730c3e431259e2333b3fe27e25cbe35e9584ccf1ac3442ca0949018e64ca8481e60f2298b46f6a77523a7a67e6aafe7492b62ff97aa70'
-        'SKIP'
-        'bcb94aefbdbb418b14bdc320c0fd796633c34a1f23f0934a0b78a555e460906de86496f3f85a1304d9adaf6c3914f3cc57a20ab837aa8f23362f5779833f4ce6'
-        '6f1e0f5a374cf520926897ab7232f776a4cd54f625ddfd93fa6e1272b5bb40858ccf3a2e858eebcffe65e7577f1699b79cab7561312dcf4794e27bcf36f6afd5')
+source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
+sha256sums=('f4da1187785a5bc7312cc271b0e867a93946c319d106363e102936a3d9857306'
+            'SKIP')
+b2sums=('fe75d6bae6c035ee8ce24e3edb8ed8df9973835bdc935170775a7e80e1420bb0dee31976343dd0c3791508cc944f7b9ea44793569a94dc03756ab02d313e26d6'
+        'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa <shimizukawa@gmail.com>
-
-prepare() {
-  cd Sphinx-$pkgver
-  patch --forward --strip=1 --input=../sphinx-fix_testcase.patch
-  patch --forward --strip=1 --input=../sphinx-fix_findall.patch
-}
 
 build() {
   cd Sphinx-$pkgver
