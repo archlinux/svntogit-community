@@ -4,18 +4,27 @@
 pkgbase=flatbuffers
 pkgname=(flatbuffers python-flatbuffers)
 pkgver=2.0.6
-pkgrel=1
+pkgrel=2
 pkgdesc='An efficient cross platform serialization library for C++, with support for Java, C# and Go'
 arch=(x86_64)
 url='https://google.github.io/flatbuffers/'
 license=(Apache)
 depends=(gcc-libs)
 makedepends=(cmake python-setuptools)
-source=(https://github.com/google/$pkgbase/archive/v$pkgver/$pkgbase-$pkgver.tar.gz)
-sha256sums=('e2dc24985a85b278dd06313481a9ca051d048f9474e0f199e372fea3ea4248c9')
+source=(https://github.com/google/$pkgbase/archive/v$pkgver/$pkgbase-$pkgver.tar.gz
+        $pkgbase-7426.patch::https://github.com/google/flatbuffers/commit/9d1ce9a10039416d98d3d88e029cb7b1931d1eed.patch)
+sha256sums=('e2dc24985a85b278dd06313481a9ca051d048f9474e0f199e372fea3ea4248c9'
+            'e99a56fc20abf228651462063387e799628ee789afe7437a57706e574aff1da3')
 
 prepare() {
   sed -i 's/-Werror=/-W/g;s/-Werror//g' $pkgname-$pkgver/CMakeLists.txt
+
+  # Backport https://github.com/google/flatbuffers/pull/7246 (merged upstream)
+  cd $pkgbase-$pkgver
+  patch -Np1 -i ../$pkgbase-7426.patch
+
+  # Work-around missing out-of-source build support in Python tests
+  sed -i 's#${test_dir}/../flatc#${test_dir}/../../build/flatc#' tests/PythonTest.sh
 }
 
 build() {
@@ -31,7 +40,11 @@ build() {
 }
 
 check() {
-  cmake --build build --target test || true # tests are broken
+  # tests are broken with out-of-source builds
+  # https://github.com/google/flatbuffers/issues/7282
+  cmake --build build --target test || true
+
+  ./$pkgbase-$pkgver/tests/PythonTest.sh
 }
 
 package_flatbuffers() {
