@@ -2,17 +2,17 @@
 
 _pkgname=build
 pkgname=python-$_pkgname
-pkgver=0.7.0
-pkgrel=4
-pkgdesc='A simple, correct PEP517 package builder'
+pkgver=0.8.0
+pkgrel=1
+pkgdesc='A simple, correct PEP 517 build frontend'
 arch=('any')
 url='https://github.com/pypa/build'
 license=('MIT')
 depends=('python-tomli' 'python-pep517' 'python-packaging')
 optdepends=('python-virtualenv: Use virtualenv for build isolation')
-makedepends=('git' 'python-setuptools' 'python-wheel'
+makedepends=('git' 'python-setuptools'
              'python-sphinx' 'python-sphinx-argparse-cli' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
-checkdepends=('python-pytest' 'python-pytest-mock' 'python-pytest-rerunfailures' 'python-filelock')
+checkdepends=('python-pytest' 'python-pytest-mock' 'python-pytest-rerunfailures' 'python-filelock' 'python-toml' 'python-wheel')
 source=("git+$url#tag=$pkgver?signed")
 validpgpkeys=('3DCE51D60930EBA47858BA4146F633CBB0EB4BF2') # Filipe Laíns (FFY00) <lains@archlinux.org>
 sha512sums=('SKIP')
