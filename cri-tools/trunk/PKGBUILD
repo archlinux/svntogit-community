@@ -2,8 +2,8 @@
 
 pkgbase=cri-tools
 pkgname=(crictl critest)
-pkgver=1.24.1
-_commit='d1d0120c55730038c65fa6baf98418b199f4b919'  # v1.24.1
+pkgver=1.24.2
+_commit=d9642f137ca8d378782c6502fd345439bfb29777  # v1.24.1
 pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
 arch=(x86_64)
