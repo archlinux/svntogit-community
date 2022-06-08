@@ -5,39 +5,37 @@ Date:   Mon Mar 22 18:23:32 2021 -0700
     Pin sources to ruby2.7 package
 
 diff --git a/Makefile b/Makefile
-index 1d636216c..5ee9fd24f 100644
+index 9ae6572..ef68e36 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -253,7 +253,7 @@ race-go: test-go
- 
+@@ -370,7 +370,7 @@ race-go: test-go
  .PHONY: rspec
- rspec: build prepare-tests
+ ## Run Ruby tests.
+ rspec: prepare-tests
 -	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle exec rspec
 +	${Q}cd ${GITALY_RUBY_DIR} && PATH='${SOURCE_DIR}/internal/testhelper/testdata/home/bin:${PATH}' bundle-2.7 exec rspec
- 
- .PHONY: verify
- verify: check-mod-tidy check-formatting notice-up-to-date check-proto rubocop
-@@ -303,7 +303,7 @@ check-proto: proto no-proto-changes lint-proto
- 
+
+ # This is a workaround for our unprivileged CI builds. We manually execute the
+ # build target as privileged user, but then run the rspec target unprivileged.
+@@ -421,7 +421,7 @@ clean-ruby-vendor-go:
  .PHONY: rubocop
+ ## Run Rubocop.
  rubocop: ${SOURCE_DIR}/.ruby-bundle
--	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel
-+	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 exec rubocop --parallel
- 
+-	${Q}cd ${GITALY_RUBY_DIR} && bundle exec rubocop --parallel --config ${GITALY_RUBY_DIR}/.rubocop.yml ${GITALY_RUBY_DIR} ${SOURCE_DIR}/_support/test-boot
++	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 exec rubocop --parallel --config ${GITALY_RUBY_DIR}/.rubocop.yml ${GITALY_RUBY_DIR} ${SOURCE_DIR}/_support/test-boot
+
  .PHONY: cover
- cover: GO_BUILD_TAGS := ${GO_BUILD_TAGS},postgres
-@@ -370,9 +370,9 @@ libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
+ ## Generate coverage report via Go tests.
+@@ -493,7 +493,9 @@ libgit2: ${LIBGIT2_INSTALL_DIR}/lib/libgit2.a
  # step. Both Omnibus and CNG assume it is in the Gitaly root, not in
  # _build. Hence the '../' in front.
  ${SOURCE_DIR}/.ruby-bundle: ${GITALY_RUBY_DIR}/Gemfile.lock ${GITALY_RUBY_DIR}/Gemfile
--	${Q}cd ${GITALY_RUBY_DIR} && bundle config set --local deployment "${BUNDLE_DEPLOYMENT}"
--	${Q}cd ${GITALY_RUBY_DIR} && bundle config # for debugging
 -	${Q}cd ${GITALY_RUBY_DIR} && bundle install
-+	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 config set --local deployment "${BUNDLE_DEPLOYMENT}"
++	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 config set --local deployment "true"
 +	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 config # for debugging
 +	${Q}cd ${GITALY_RUBY_DIR} && bundle-2.7 install
  	${Q}touch $@
- 
+
  ${SOURCE_DIR}/NOTICE: ${BUILD_DIR}/NOTICE
 diff --git a/_support/generate-proto-ruby b/_support/generate-proto-ruby
 index 6ddb15cbb..bf4bc51f0 100755
@@ -56,16 +54,16 @@ diff --git a/internal/gitaly/linguist/linguist.go b/internal/gitaly/linguist/lin
 index 42218e32a..c0652292a 100644
 --- a/internal/gitaly/linguist/linguist.go
 +++ b/internal/gitaly/linguist/linguist.go
-@@ -81,7 +81,7 @@ func (inst *Instance) Color(language string) string {
+@@ -88,7 +88,7 @@ func (inst *Instance) Color(language string) string {
  }
  
- func startGitLinguist(ctx context.Context, cfg config.Cfg, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
+ func (inst *Instance) startGitLinguist(ctx context.Context, repoPath string, commitID string, linguistCommand string) (*command.Command, error) {
 -	bundle, err := exec.LookPath("bundle")
 +	bundle, err := exec.LookPath("bundle-2.7")
  	if err != nil {
- 		return nil, err
+ 		return nil, fmt.Errorf("finding bundle executable: %w", err)
  	}
-@@ -143,7 +143,7 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
+@@ -155,7 +155,7 @@ func openLanguagesJSON(cfg config.Cfg) (io.ReadCloser, error) {
  	// We use a symlink because we cannot trust Bundler to not print garbage
  	// on its stdout.
  	rubyScript := `FileUtils.ln_sf(Bundler.rubygems.find_name('github-linguist').first.full_gem_path, ARGV.first)`
@@ -78,7 +76,7 @@ diff --git a/internal/gitaly/rubyserver/rubyserver.go b/internal/gitaly/rubyserv
 index 6292d1d66..0244056ee 100644
 --- a/internal/gitaly/rubyserver/rubyserver.go
 +++ b/internal/gitaly/rubyserver/rubyserver.go
-@@ -129,7 +129,7 @@ func (s *Server) start() error {
+@@ -200,7 +200,7 @@ func (s *Server) start() error {
  		// Use 'ruby-cd' to make sure gitaly-ruby has the same working directory
  		// as the current process. This is a hack to sort-of support relative
  		// Unix socket paths.
