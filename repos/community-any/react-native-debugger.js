@@ -1,4 +1,4 @@
-#!/usr/bin/electron11
+#!/usr/bin/electron
 
 const name = "react-native-debugger";
 
