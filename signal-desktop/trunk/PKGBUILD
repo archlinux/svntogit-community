@@ -4,12 +4,12 @@
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
 pkgver=5.45.1
-pkgrel=1
+pkgrel=2
 pkgdesc="Signal Private Messenger for Linux"
 license=('AGPL3')
 arch=('x86_64')
 url="https://signal.org"
-depends=('gtk3' 'libvips' 'libxss' 'hicolor-icon-theme')
+depends=('gtk3' 'libvips' 'libxss' 'hicolor-icon-theme' 'alsa-lib')
 makedepends=('yarn' 'git' 'git-lfs' 'nodejs-lts-gallium' 'npm' 'python' 'libxcrypt-compat')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
