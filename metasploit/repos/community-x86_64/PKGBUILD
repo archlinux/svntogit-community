@@ -5,12 +5,12 @@
 
 pkgname=metasploit
 pkgver=6.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Advanced open-source platform for developing, testing, and using exploit code'
 url='https://www.metasploit.com/'
 arch=('x86_64')
 license=('BSD')
-depends=('ruby2.7' 'libpcap' 'postgresql-libs' 'sqlite' 'libxslt' 'libxml2' 'inetutils' 'git')
+depends=('ruby' 'ruby-bundler' 'libpcap' 'postgresql-libs' 'sqlite' 'libxslt' 'libxml2' 'inetutils' 'git')
 options=('!strip' '!emptydirs')
 source=(https://github.com/rapid7/metasploit-framework/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
 sha512sums=('98014297bc1601ebb8bfba2933607b709e5674f7f85f8e3934c82258d30c250ecdf49a6d99656894a6cec85d140bcd69ea47fd559d6ac44af36b44bdebfd6eee')
@@ -19,17 +19,18 @@ b2sums=('57262140499d4b87b9b8d493ed45887bba30130b9c093b910ce1cf45343327cb60ddde8
 prepare() {
   cd ${pkgname}-framework-${pkgver}
 
-  # https://github.com/bundler/bundler/issues/6882
+  # https://github.com/undler/bundler/issues/6882
   sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
 
-  bundle-2.7 config build.nokogiri --use-system-libraries
+  bundle config build.nokogiri --use-system-libraries
+  bundle config set --local deployment 'true'
   sed 's|git ls-files|find -type f|' -i metasploit-framework.gemspec
 }
 
 build() {
   cd ${pkgname}-framework-${pkgver}
   CFLAGS+=" -I/usr/include/libxml2"
-  bundle-2.7 install -j"$(nproc)" --no-cache --deployment
+  bundle install -j"$(nproc)" --no-cache
   find vendor/bundle/ruby -exec chmod o+r '{}' \;
   find vendor/bundle/ruby \( -name gem_make.out -or -name mkmf.log \) -delete
 }
@@ -42,14 +43,14 @@ package() {
 
   for f in "${pkgdir}"/opt/${pkgname}/msf*; do
     local _msffile="${pkgdir}/usr/bin/`basename "${f}"`"
-    echo -e "#!/bin/sh\nBUNDLE_GEMFILE=/opt/${pkgname}/Gemfile exec bundle-2.7 exec ruby-2.7 /opt/${pkgname}/`basename "${f}"` \"\$@\"" > "${_msffile}"
+    echo -e "#!/bin/sh\nBUNDLE_GEMFILE=/opt/${pkgname}/Gemfile exec bundle exec ruby /opt/${pkgname}/`basename "${f}"` \"\$@\"" > "${_msffile}"
     chmod 755 "${_msffile}"
   done
 
   (cd "${pkgdir}/opt/${pkgname}"
     for f in tools/*/*.rb; do
       install -Dm 755 "${f}" ".${f}"
-      echo -e "#!/bin/sh\nBUNDLE_GEMFILE=/opt/${pkgname}/Gemfile exec bundle-2.7 exec ruby-2.7 /opt/${pkgname}/."${f}" \"\$@\"" > "${f}"
+      echo -e "#!/bin/sh\nBUNDLE_GEMFILE=/opt/${pkgname}/Gemfile exec bundle exec ruby /opt/${pkgname}/."${f}" \"\$@\"" > "${f}"
       chmod 755 "${f}"
     done
   )
