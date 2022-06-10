@@ -7,13 +7,14 @@ pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
 pkgver=22.1.1
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'lib32-libvdpau'
              'lib32-libva' 'lib32-wayland' 'wayland-protocols' 'lib32-zstd' 'lib32-libelf'
              'lib32-llvm' 'libclc' 'clang' 'lib32-clang' 'lib32-libglvnd' 'lib32-libunwind'
-             'lib32-lm_sensors' 'lib32-libxrandr' 'lib32-vulkan-icd-loader' 'glslang' 'cmake' 'meson')
+             'lib32-lm_sensors' 'lib32-libxrandr' 'lib32-vulkan-icd-loader' 'lib32-systemd'
+             'glslang' 'cmake' 'meson')
 url="https://www.mesa3d.org/"
 license=('custom')
 options=('debug')
@@ -135,7 +136,8 @@ package_lib32-opencl-mesa() {
 
 package_lib32-vulkan-intel() {
   pkgdesc="Intel's Vulkan mesa driver (32-bit)"
-  depends=('lib32-wayland' 'lib32-libx11' 'lib32-libxshmfence' 'lib32-libdrm' 'lib32-zstd')
+  depends=('lib32-wayland' 'lib32-libx11' 'lib32-libxshmfence' 'lib32-libdrm' 'lib32-zstd'
+           'lib32-systemd')
   optdepends=('lib32-vulkan-mesa-layers: additional vulkan layers')
   provides=('lib32-vulkan-driver')
 
@@ -148,7 +150,7 @@ package_lib32-vulkan-intel() {
 package_lib32-vulkan-radeon() {
   pkgdesc="Radeon's Vulkan mesa driver (32-bit)"
   depends=('lib32-wayland' 'lib32-libx11' 'lib32-libxshmfence' 'lib32-libelf' 'lib32-libdrm'
-           'lib32-zstd' 'lib32-llvm-libs')
+           'lib32-zstd' 'lib32-llvm-libs' 'lib32-systemd')
   optdepends=('lib32-vulkan-mesa-layers: additional vulkan layers')
   provides=('lib32-vulkan-driver')
 
