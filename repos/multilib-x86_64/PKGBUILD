@@ -2,33 +2,45 @@
 
 pkgbase=yabridge
 pkgname=(yabridge yabridgectl)
-pkgver=3.8.1
-_commit=b2ac08436f15382129127b524872c289f10566ec  # 3.8.1^{}
+pkgver=4.0.0
+_commit=b826f800374d0b6392ac17847fb599e47ec2accc  # 4.0.0^{}
 pkgrel=3
 pkgdesc="A modern and transparent way to use Windows VST2 and VST3 plugins on Linux"
 arch=(x86_64)
 url="https://github.com/robbert-vdh/yabridge"
 license=(GPL3)
-makedepends=(bitsery boost cmake function2 git lib32-boost lib32-libxcb libxcb meson rust tomlplusplus vst3sdk wine)
+makedepends=(asio bitsery cmake function2 ghc-filesystem git lib32-libxcb libxcb meson rust tomlplusplus vst3sdk wine)
 # if LTO is enabled the cmake detection will explode because of wine
-# NOTE: debug package includes garbae because of rust
-options=(!lto)
+# NOTE: debug package includes garbage because of rust
+options=(debug !lto)
 source=(
   git+https://github.com/robbert-vdh/$pkgbase.git#commit=$_commit
-  $pkgbase-3.8.0-vst3sdk_meson.build::https://raw.githubusercontent.com/robbert-vdh/vst3sdk/a129e37aa9996d58c4d6cc1bdf428f7b29392a6d/meson.build
+  $pkgbase-4.0.0-asio_detection.patch::https://github.com/robbert-vdh/yabridge/commit/c4c4bacd14e22b0e3d5e442e23196abfec83fdf7.patch
+  $pkgbase-4.0.0-ghc_filesystem_detection.patch::https://github.com/robbert-vdh/yabridge/commit/84ab5a4cd5f7ab55aaa67f21bb4a145f57e1d8df.patch
+  $pkgbase-4.0.0-vst3sdk_meson.build::https://raw.githubusercontent.com/robbert-vdh/vst3sdk/7a30caa588ff48eabae5f4f8cdac2c7c053800fa/meson.build
 )
 sha512sums=('SKIP'
-            '4e0013c911cc7e145853fc8ac33c71a8a0bb17d8d915cd5f9a1b9f51e830769c567e7edd2f0e91c68cb03cc708a5d46b7bb191a4576b862b8f319dd1e307aa13')
+            'be12b6018a6d101f62e91de90d7acdb0df4fcf30855683e82d78812f55d110564e17b0acae03cc2ce0b9ec4a5bc979c40f3ca9e1ad333750ecbc35d9f96afdf1'
+            'e4cd898238a0488a338c8de5ae3283306cca1c8c09f4a5ec04ab6fba9920cbd2d571e125d24bf4117ba1987a70701d1e039a3d0f91341d7c65093eb17f16b94a'
+            '0b59cd5929434cadfcf3a2ad2cddbc1ad82f38a1d778040619b825439d6acb4f1fafa17512ad2eb5fc1c5b3ba45656f12e77e57834d85ee7f23e5754a9b8cb13')
 b2sums=('SKIP'
-        '97eb8d44aa7958a32ca705280efb8bc9c2a2a673aca1aa26daaed9a2757ed0734f70f0d9ede020a13359788b7d65d2d2784193e9eca507a7b5c61368f4618c5f')
+        '5d60521954b453fb0fee30f963ca01450f7905d8615ffb8ceb32b2863e72721161d20e48a13060b44e1f92d47416ba6ac1ab1c26c19a4cf62ad1abadd3283c3e'
+        '35c08043b6c546118aa21cf4df2fa0d209cd16a182740ea6c22b61654abffd23c9ee6150dd6a5e6b26276aa26beb0d7bd510fa5ce9ddfeecdaf4dc3ba54bff06'
+        '4bf8b6c2390db5657026539869cada55accd38aee8d514d84a34c5c4b56bdc5e1ea3d1d4b2e323ed304b9f28eb767f29d316622a73dc2af9f5587da8e75c85f8')
 
 prepare() {
+  # fix detection of asio
+  patch -Np1 -d $pkgbase -i ../$pkgbase-4.0.0-asio_detection.patch
+  # fix detection of ghc-filesystem
+  patch -Np1 -d $pkgbase -i ../$pkgbase-4.0.0-ghc_filesystem_detection.patch
+
   # remove all wraps as they are ignored anyways
   rm -rv $pkgname/subprojects/*
+
   # put system-installed vst3sdk in place and add upstream meson.build file from https://github.com/robbert-vdh/vst3sdk/
   mkdir -vp $pkgname/subprojects/vst3
   cp -av /usr/include/vst3sdk/* $pkgname/subprojects/vst3/
-  cp -v $pkgbase-3.8.0-vst3sdk_meson.build $pkgname/subprojects/vst3/meson.build
+  cp -v $pkgbase-*-vst3sdk_meson.build $pkgname/subprojects/vst3/meson.build
 
   cd $pkgname/tools/yabridgectl
   cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
@@ -38,14 +50,15 @@ build() {
   # NOTE: we need to add -mwindows to cpp_link_args as we are otherwise overriding it
   local _options=(
     --cross-file=$pkgname/cross-wine.conf
-    -Dwith-bitbridge=true
+    -Dbitbridge=true
+    -Dsystem-asio=true
     -Db_lto=false
     -Db_pie=false
     -Dbuild.cpp_link_args="$LDFLAGS"
     -Dcpp_link_args="$LDFLAGS -mwindows"
   )
 
-  arch-meson "$pkgname" build "${_options[@]}"
+  arch-meson $pkgbase build "${_options[@]}"
   ninja -C build
 
   cd $pkgname/tools/yabridgectl
@@ -54,12 +67,12 @@ build() {
 
 package_yabridge() {
   groups=(pro-audio)
-  depends=(boost-libs lib32-boost-libs lib32-libxcb libxcb wine)
+  depends=(lib32-libxcb libxcb wine)
   optdepends=('yabridgectl: for optional setup and management utility')
 
   # project has no install target
-  install -vDm 755 build/$pkgname-{host,group}{,-32}.exe{,.so} -t "$pkgdir/usr/bin"
-  install -vDm 755 build/lib$pkgname-{vst2,vst3}.so -t "$pkgdir/usr/lib/"
+  install -vDm 755 build/$pkgname-host{,-32}.exe{,.so} -t "$pkgdir/usr/bin"
+  install -vDm 755 build/lib$pkgname-{,chainloader-}{vst2,vst3}.so -t "$pkgdir/usr/lib/"
 }
 
 package_yabridgectl() {
