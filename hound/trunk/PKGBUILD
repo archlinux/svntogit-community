@@ -1,0 +1,96 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Bebbum <bebbumman@gmail.com>
+# Contributor: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Contributor: Jelle van der Waa
+
+pkgname=hound
+pkgver=0.5.0
+pkgrel=1
+pkgdesc='Lightning fast code searching made easy'
+arch=('x86_64')
+url='https://github.com/hound-search/hound'
+license=('MIT')
+depends=('glibc' 'git')
+makedepends=('go') # no need for npm as the UI is pre-compiled
+optdepends=(
+  'bzr: for bazaar repositories'
+  'mercurial: for mercurial repositories'
+  'svn: for subversion repositories'
+)
+options=('!lto')
+install=hound.install
+_commit='27fa1efd2fad3216acc41da5ed7998cff1c2744c'
+source=(
+  "$pkgname::git+$url#commit=$_commit"
+  'systemd.service'
+  'sysusers.conf'
+  'tmpfiles.conf'
+)
+sha512sums=('SKIP'
+            '341e423b1572dea500e9f914ef9bb9dfba7fc19a1cdba0d92e0ba5cf021150bda4322981920902f1ffcade222f26df808fafd681d29841b4892e43af1bd2ec1f'
+            'f683d969f29a84251ef00aa8e1d713a3331756530ef50a3ad738baf15956e5e2b83c8f1611a9e8e8a1c3161c17d375fde54fb42c451849b4578c6a7342226121'
+            '9a26a065237d3edd2f09d399ad1999276304db71398a7737b846a5e70eb0740baab4bdd56dfb225060c3ca995f4c13db9cfec1aebe1825473a6299484bdac5b9')
+b2sums=('SKIP'
+        '09ba5894d734ae51126e515192e307b7ece3c5a6def93f5218b445c146e5081c6094f86449eadb724517c09c5f5b8d309b1bfea15b6c402a6b31b9c7366c3198'
+        'cc66b8408c35c73911fd01c1c4137401ea223db828085e8750f25f4f41f42c2eda3f3fc5a0b3f64e08495ad4a6367a0ff35b132c924f396bfbe4da47899c6edd'
+        '509003822d9bd826b5921d52483c79a5275b1da121e6f88bf66a644681c2a76a7abac5cf8241a094100c164f32e510da04b9f6037cf5e0910c98b062c68742e5')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgname"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags \"${LDFLAGS}\"" \
+    -o build \
+    ./cmds/...
+}
+
+check() {
+  cd "$pkgname"
+
+  go test -v ./...
+}
+
+package() {
+  # systemd integration
+  install -vDm644 systemd.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/*
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" \
+    CONTRIBUTING.md README.md config-example.json default-config.json docs/*
+}
+
