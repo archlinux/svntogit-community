@@ -38,7 +38,7 @@ prepare() {
 
 	# Fix paths to run electron /path/to/app (or our minimal wrapper script).
 	# Also wire up "hideWindow" when running as a service or via XDG autostart.
-	sed -i 's@/opt/keybase/Keybase@/usr/bin/electron13 /usr/share/keybase-app@' \
+	sed -i 's@/opt/keybase/Keybase@/usr/bin/electron17 /usr/share/keybase-app@' \
 		packaging/linux/systemd/keybase.gui.service
 
     # Don't let desktop launcher automatically start services on boot
@@ -109,7 +109,7 @@ package_kbfs() {
 
 package_keybase-gui() {
 	pkgdesc='GUI frontend for GPG with keybase.io'
-	depends=(electron13 keybase kbfs)
+	depends=(electron17 keybase kbfs)
 
 	cd "$_archive"
 
