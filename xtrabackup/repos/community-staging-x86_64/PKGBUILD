@@ -1,0 +1,62 @@
+# Maintainer: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
+# Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+
+pkgname=xtrabackup
+pkgver=8.0.27_19
+_boost_ver=1.73.0
+pkgrel=4
+pkgdesc='Non-blocking backup tool for MySQL'
+arch=('x86_64')
+url='https://www.percona.com/software/mysql-database/percona-xtrabackup'
+license=('GPL')
+depends=('libaio' 'libev' 'libgcrypt' 'curl' 'perl-dbd-mysql' 'numactl')
+makedepends=('cmake' 'python-sphinx' 'zlib' 'vim' 'libedit' 'libevent' 'protobuf' 're2')
+optdepends=('qpress: for compressed backups')
+options=('debug')
+source=("https://www.percona.com/downloads/Percona-XtraBackup-LATEST/Percona-XtraBackup-${pkgver//_/-}/source/tarball/percona-xtrabackup-${pkgver//_/-}.tar.gz"
+        "https://boostorg.jfrog.io/artifactory/main/release/$_boost_ver/source/boost_${_boost_ver//./_}.tar.gz"
+        gcc12.patch)
+
+sha256sums=('0bcfc60b2b19723ea348e43b04bd904c49142f58d326ab32db11e69dda00b733'
+            '9995e192e68528793755692917f9eb6422f3052a53c5e13ba278a228af6c7acf'
+            'c0ec91be6ea6c1068b8f75b31c7ab4d743a628a808646afc0fdd9345a8d075f2')
+prepare() {
+  mkdir build
+  patch -Np1 -d percona-xtrabackup-${pkgver//_/-} <gcc12.patch
+}
+
+build() {
+  cd build
+  cmake -DBUILD_CONFIG=xtrabackup_release \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DMYSQL_DATADIR=/var/lib/mysql \
+        -DMYSQL_UNIX_ADDR=/run/mysqld/mysqld.sock \
+        -DWITH_LIBEVENT=system \
+        -DWITH_SSL=system \
+        -DWITH_EDITLINE=system \
+        -DWITH_LZ4=system \
+        -DWITH_LZMA=bundled \
+        -DWITH_PROTOBUF=system \
+        -DWITH_RE2=system \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DINSTALL_PLUGINDIR="/usr/lib/xtrabackup/plugin" \
+        -DINSTALL_MANDIR="/usr/share/man" \
+        -DINSTALL_STATIC_LIBRARIES=OFF \
+        -DWITH_BOOST="../boost_${_boost_ver//./_}" \
+        ../percona-xtrabackup-${pkgver//_/-}
+  make
+}
+
+package() {
+  cd build
+  make DESTDIR="$pkgdir" install
+
+  cd "$pkgdir"
+  rm -rf usr/xtrabackup-test \
+         usr/lib/xtrabackup/plugin/debug \
+         usr/lib/*.a \
+         usr/include \
+         usr/docs \
+         usr/share/man/man8 \
+         usr/share/man/man1/{c,i,m,l,p,z}*
+}
