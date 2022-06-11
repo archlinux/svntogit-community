@@ -5,7 +5,7 @@
 pkgname=android-tools
 pkgver=31.0.3
 _tag=${pkgver}p1 # https://github.com/nmeum/android-tools sometimes carries extra patch version on top of the upstream versioning
-pkgrel=5
+pkgrel=6
 pkgdesc='Android platform tools'
 arch=(x86_64)
 url='http://tools.android.com/'
