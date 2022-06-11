@@ -1,0 +1,49 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=clash-ghc
+pkgver=1.6.1
+pkgrel=32
+pkgdesc="CAES Language for Synchronous Hardware"
+url="https://clash-lang.org/"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-clash-lib' 'haskell-clash-prelude' 'haskell-concurrent-supply'
+         'haskell-data-binary-ieee754' 'haskell-extra' 'haskell-ghc' 'haskell-ghc-typelits-extra'
+         'haskell-ghc-typelits-knownnat' 'haskell-ghc-typelits-natnormalise' 'haskell-hashable'
+         'haskell-lens' 'haskell-primitive' 'haskell-reflection' 'haskell-split' 'haskell-uniplate'
+         'haskell-unordered-containers' 'haskell-utf8-string' 'haskell-vector')
+makedepends=('ghc' 'uusi')
+conflicts=('clash')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('3a4b1bae4bb9debda2987579baa8c60e546c588ab969a6ae9ee1c847c3fc83cd7bb43cf16b8334499ac7c70ff56ed409d575b1f2ada2c1a28601b12b2508ee67')
+
+prepare() {
+  cd $pkgname-$pkgver
+  LC_CTYPE=en_US.UTF-8 uusi -u lens $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
