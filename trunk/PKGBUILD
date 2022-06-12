@@ -3,7 +3,7 @@
 
 pkgname=sundials
 pkgver=6.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Suite of nonlinear differential/algebraic equation solvers'
 arch=(x86_64)
 url='https://computation.llnl.gov/casc/sundials/main.html'
