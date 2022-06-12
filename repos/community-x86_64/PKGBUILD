@@ -4,7 +4,7 @@
 
 pkgname=arpack
 pkgver=3.8.0
-pkgrel=2
+pkgrel=3
 arch=(x86_64)
 pkgdesc='Fortran77 subroutines for solving large scale eigenvalue problems'
 url='https://github.com/opencollab/arpack-ng'
