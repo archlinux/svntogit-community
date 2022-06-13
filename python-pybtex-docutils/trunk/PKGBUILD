@@ -3,8 +3,8 @@
 # Contributor: Immae
 
 pkgname=python-pybtex-docutils
-pkgver=1.0.1
-pkgrel=3
+pkgver=1.0.2
+pkgrel=1
 pkgdesc="A docutils backend for pybtex"
 arch=("any")
 url="https://github.com/mcmtroffaes/pybtex-docutils"
@@ -13,7 +13,7 @@ depends=('python-six' 'python-docutils' 'python-pybtex')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest')
 source=("https://pypi.io/packages/source/p/pybtex-docutils/pybtex-docutils-$pkgver.tar.gz")
-sha256sums=('d53aa0c31dc94d61fd30ea3f06c749e6f510f9ff0e78cb2765a9300f173d8626')
+sha256sums=('43aa353b6d498fd5ac30f0073a98e332d061d34fe619d3d50d1761f8fd4aa016')
 
 build() {
   cd "${srcdir}/pybtex-docutils-${pkgver}"
