@@ -3,8 +3,8 @@
 
 pkgname=nextcloud-app-deck
 _name=deck
-pkgver=1.6.2
-pkgrel=1
+pkgver=1.7.0
+pkgrel=2
 # upstream doesn't adhere to semver:
 # https://github.com/nextcloud/deck/issues/1197
 epoch=1
@@ -14,9 +14,9 @@ url="https://github.com/nextcloud/deck"
 license=(AGPL3)
 groups=(nextcloud-apps)
 makedepends=(nextcloud ripgrep yq)
-source=(https://github.com/nextcloud/$_name/releases/download/v$pkgver/$_name.tar.gz)
-sha512sums=('8ea6e35fe5bce13971b3d82e4e8d655e1644c062240721d1ce8e71cd388887c952bc943a90578a402271532dab2503a17317092aacfa2a719996f43413c181e5')
-b2sums=('a89ae7e0e7cca5de63c02f73f3238f6630329613be25013f147aabce3279f7d493dc55476770d5ea47daf747e4813f7c39c4068c2ab57985646e6fb487d6ad47')
+source=($_name-$pkgver.tar.gz::https://github.com/nextcloud/$_name/releases/download/v$pkgver/$_name.tar.gz)
+sha512sums=('cf8a74e6469be2bf143ce4a3e4065384c014080b996f9e4877333a308ce7c29af43502399e88be824ca37aeb85b208d149c3425dda7ea7445f7f1a2f660bff54')
+b2sums=('586dbaf964fd9b14115b0042f79347fd527e15c7faaf01b2e90e0bc40136e42598a8dc3b701fe09aecdf8047de9ab7c0e229ddc0246610768612d5b99400d89b')
 
 _get_nextcloud_versions() {
   _app_min_major_version="$(xq '.info.dependencies.nextcloud["@min-version"]' "${_name}/appinfo/info.xml"| sed 's/"//g')"
@@ -25,8 +25,21 @@ _get_nextcloud_versions() {
 }
 
 _get_php_versions() {
+  local _phps=(php7 php)
+
   _app_min_php="$(xq '.info.dependencies.php["@min-version"]' "$_name/appinfo/info.xml"| sed 's/"//g')"
   _app_max_php="$(xq '.info.dependencies.php["@max-version"]' "$_name/appinfo/info.xml"| sed 's/"//g')"
+  if [[ $_app_max_php != 'null' ]]; then
+    _app_max_php="$(echo $_app_max_php | awk -F '.' '{print $1"."$2+1}')"
+  fi
+  _system_php=""
+  for _php in "${_phps[@]}"; do
+    if command -v "$_php" > /dev/null; then
+      if [[ -z "$_system_php" ]]; then
+        _system_php="$_php"
+      fi
+    fi
+  done
 }
 
 check() {
@@ -43,12 +56,12 @@ check() {
 
   local _php_version="$(php --version |head -n1 |cut -d ' ' -f2 |sed 's/.[0-9]*$//g')"
   if [[ "$(vercmp "$_php_version" "$_app_min_php" )" -lt 0 ]]; then
-    printf "%s requires php >= %s, but %s is provided\n" $pkgname $_app_min_php $_php_version
+    printf "%s requires php-interpreter >= %s, but %s is provided\n" $pkgname $_app_min_php $_php_version
     exit 1
   fi
   if [[ $_app_max_php != 'null' ]]; then
-    if [[ "$(vercmp "$_php_version" "$_app_min_php" )" -lt 0 ]]; then
-      printf "%s requires php <= %s, but %s is provided\n" $pkgname $_app_min_php $_php_version
+    if [[ "$(vercmp "$_php_version" "$_app_max_php" )" -lt 0 ]]; then
+      printf "%s requires php-interpreter < %s, but %s is provided\n" $pkgname $_app_max_php $_php_version
       exit 1
     fi
   fi
@@ -61,12 +74,19 @@ package() {
   depends=(
     "nextcloud>=$_app_min_major_version"
     "nextcloud<$_app_max_major_version"
-    "php>=$_app_min_php"
   )
+  if [[ "$_app_min_php" != 'null' ]]; then
+    depends+=(
+      "php-interpreter>=$_app_min_php"
+    )
+  fi
   if [[ "$_app_max_php" != 'null' ]]; then
     depends+=(
-      "php<=$_app_max_php"
+      "php-interpreter<$_app_max_php"
     )
+  fi
+  if [[ "$_app_min_php" == 'null' ]] && [[ "$_app_max_php" == 'null' ]]; then
+    depends+=(php-interpreter)
   fi
 
   install -vdm 755 "${pkgdir}/usr/share/webapps/nextcloud/apps/"
