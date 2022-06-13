@@ -2,17 +2,17 @@
 # Contributor: Germán Osella Massa <gosella@gmail.com>
 
 pkgname=python-more-itertools
-pkgver=8.12.0
-pkgrel=2
+pkgver=8.13.0
+pkgrel=1
 pkgdesc='More routines for operating on iterables, beyond itertools'
 arch=('any')
 url='https://github.com/erikrose/more-itertools'
 #url='https://pypi.python.org/pypi/more-itertools'
 license=('MIT')
 depends=('python')
-makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel' 'python-flit')
 source=("https://files.pythonhosted.org/packages/source/m/more-itertools/more-itertools-$pkgver.tar.gz")
-sha512sums=('73759f05d178bd6fe98cadac401707faf90a4f7b456c4aac3f0b3f6c13a2284600971e0b271f1768cacd3ae9b69848404f85432199ca51b8160fbe67045dfd17')
+sha512sums=('2f3473cdd67ddcb2c658f60638b91a25c4ce9d9a92bbda5ca937dd4748857408bfe8dd9d4e699f53bd9f10d7b433db57e499bd28f184b8faa58b2004f2c92004')
 
 build() {
   cd more-itertools-$pkgver
