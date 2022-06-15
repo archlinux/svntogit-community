@@ -2,7 +2,7 @@
 
 _name=stack_data
 pkgname=python-stack-data
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc='Extract data from python stack frames and tracebacks for informative displays'
 arch=('any')
@@ -14,8 +14,8 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
 checkdepends=('cython' 'python-littleutils' 'python-pygments' 'python-pytest'
               'python-typeguard')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('45692d41bd633a9503a5195552df22b583caf16f0b27c4e58c98d88c8b648e12')
-b2sums=('af79e5c46d03967a8ea6a992a0672a5bd3676a8b088be412782b8c6be6f58a14de1c6e6ff0cd4ae764a65c539a83aa4d7491bb7fe81761452d430d30f70d20fb')
+sha256sums=('77bec1402dcd0987e9022326473fdbcc767304892a533ed8c29888dacb7dddbc')
+b2sums=('9202ddb2e6e8c8c9e050e085cfe6e1bdbf26124eb85c19516558336d46876aba5ede1b6a87cf17e09c2b44629063a8f5e1f558fdaf64db2db029978a5860cd99')
 
 build() {
   cd "$_name-$pkgver"
