@@ -3,7 +3,7 @@
 # Contributor : Giedrius Slavinskas <giedrius25@gmail.com>
 
 pkgname=python-babel
-pkgver=2.10.1
+pkgver=2.10.3
 _core=41
 pkgrel=1
 pkgdesc="A collection of tools for internationalizing Python applications"
@@ -15,12 +15,15 @@ makedepends=('python-setuptools')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-freezegun')
 noextract=("cldr-core-$_core.zip")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/python-babel/babel/archive/v$pkgver.tar.gz"
-        "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip")
-sha256sums=('7a61207b1d269a09462313ef3065d7bc1b54c9a14ae00f5006e169639674b230'
+        "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip"
+        "cldr-common-$_core.0.zip::http://unicode.org/Public/cldr/$_core/cldr-common-$_core.0.zip")
+sha256sums=('960d7a36861836081929735afe5a98aa2fb0d3720e3abc44e2d0950092e0a573'
+            '823c6170c41e2de2c229574e8a436332d25f1c9723409867fe721e00bc92d853'
             '823c6170c41e2de2c229574e8a436332d25f1c9723409867fe721e00bc92d853')
 
 prepare() {
   cp "$srcdir"/cldr-core-$_core.zip babel-$pkgver/cldr/cldr-core-$_core.zip
+  cp "$srcdir"/cldr-common-$_core.0.zip babel-$pkgver/cldr/cldr-common-$_core.0.zip
 }
 
 build(){
