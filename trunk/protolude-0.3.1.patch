@@ -1,0 +1,123 @@
+From 47b13f4c99e89c958ed817cc2df56f46599f54a8 Mon Sep 17 00:00:00 2001
+From: Laurence Isla <lau.isla.c@gmail.com>
+Date: Mon, 6 Jun 2022 21:25:11 -0500
+Subject: [PATCH 1/3] Fix Config.hs cabal build
+
+---
+ src/PostgREST/Config.hs | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/PostgREST/Config.hs b/src/PostgREST/Config.hs
+index 9dbd08529..3fd9e6245 100644
+--- a/src/PostgREST/Config.hs
++++ b/src/PostgREST/Config.hs
+@@ -359,17 +359,17 @@ parser optPath env dbSettings =
+ 
+     coerceInt :: (Read i, Integral i) => C.Value -> Maybe i
+     coerceInt (C.Number x) = rightToMaybe $ floatingOrInteger x
+-    coerceInt (C.String x) = readMaybe $ toS x
++    coerceInt (C.String x) = readMaybe (toS x :: [Char])
+     coerceInt _            = Nothing
+ 
+     coerceBool :: C.Value -> Maybe Bool
+     coerceBool (C.Bool b)   = Just b
+     coerceBool (C.String s) =
+       -- parse all kinds of text: True, true, TRUE, "true", ...
+-      case readMaybe . toS $ T.toTitle $ T.filter isAlpha $ toS s of
++      case readMaybe (toS $ T.toTitle $ T.filter isAlpha $ toS s :: [Char]) of
+         Just b  -> Just b
+         -- numeric instead?
+-        Nothing -> (> 0) <$> (readMaybe $ toS s :: Maybe Integer)
++        Nothing -> (> 0) <$> (readMaybe (toS s :: [Char]) :: Maybe Integer)
+     coerceBool _            = Nothing
+ 
+     splitOnCommas :: C.Value -> [Text]
+
+From ee86d0d2a8d71e294531dd2d3410fe8facf3c873 Mon Sep 17 00:00:00 2001
+From: Laurence Isla <lau.isla.c@gmail.com>
+Date: Tue, 7 Jun 2022 18:11:46 -0500
+Subject: [PATCH 2/3] Upgrade protolude to 0.3.1
+
+---
+ nix/overlays/haskell-packages.nix    |  9 +++++++++
+ postgrest.cabal                      | 10 +++++-----
+ src/PostgREST/Config.hs              |  6 +++---
+ src/PostgREST/Request/QueryParams.hs |  4 ++--
+ stack.yaml                           |  1 +
+ 5 files changed, 20 insertions(+), 10 deletions(-)
+
+diff --git a/src/PostgREST/Config.hs b/src/PostgREST/Config.hs
+index 3fd9e6245..a623ed264 100644
+--- a/src/PostgREST/Config.hs
++++ b/src/PostgREST/Config.hs
+@@ -359,17 +359,17 @@ parser optPath env dbSettings =
+ 
+     coerceInt :: (Read i, Integral i) => C.Value -> Maybe i
+     coerceInt (C.Number x) = rightToMaybe $ floatingOrInteger x
+-    coerceInt (C.String x) = readMaybe (toS x :: [Char])
++    coerceInt (C.String x) = readMaybe x
+     coerceInt _            = Nothing
+ 
+     coerceBool :: C.Value -> Maybe Bool
+     coerceBool (C.Bool b)   = Just b
+     coerceBool (C.String s) =
+       -- parse all kinds of text: True, true, TRUE, "true", ...
+-      case readMaybe (toS $ T.toTitle $ T.filter isAlpha $ toS s :: [Char]) of
++      case readMaybe $ T.toTitle $ T.filter isAlpha $ toS s of
+         Just b  -> Just b
+         -- numeric instead?
+-        Nothing -> (> 0) <$> (readMaybe (toS s :: [Char]) :: Maybe Integer)
++        Nothing -> (> 0) <$> (readMaybe s :: Maybe Integer)
+     coerceBool _            = Nothing
+ 
+     splitOnCommas :: C.Value -> [Text]
+diff --git a/src/PostgREST/RangeQuery.hs b/src/PostgREST/RangeQuery.hs
+index 8e77146..8d4a46a 100644
+--- a/src/PostgREST/RangeQuery.hs
++++ b/src/PostgREST/RangeQuery.hs
+@@ -27,7 +27,6 @@ import Network.HTTP.Types.Header
+ import Network.HTTP.Types.Status
+ 
+ import Protolude      hiding (toS)
+-import Protolude.Conv (toS)
+ 
+ type NonnegRange = Range Integer
+ 
+@@ -37,7 +36,7 @@ rangeParse range = do
+ 
+   case listToMaybe (range =~ rangeRegex :: [[BS.ByteString]]) of
+     Just parsedRange ->
+-      let [_, mLower, mUpper] = readMaybe . toS <$> parsedRange
++      let [_, mLower, mUpper] = readMaybe <$> parsedRange
+           lower         = maybe emptyRange rangeGeq mLower
+           upper         = maybe allRange rangeLeq mUpper in
+       rangeIntersection lower upper
+diff --git a/src/PostgREST/Request/ApiRequest.hs b/src/PostgREST/Request/ApiRequest.hs
+index dbf73bf..c3ff6db 100644
+--- a/src/PostgREST/Request/ApiRequest.hs
++++ b/src/PostgREST/Request/ApiRequest.hs
+@@ -377,9 +377,9 @@ userApiRequest conf@AppConfig{..} dbStructure req reqBody
+   headerRange = rangeRequested hdrs
+   replaceLast x s = T.intercalate "." $ L.init (T.split (=='.') s) ++ [x]
+   limitParams :: M.HashMap ByteString NonnegRange
+-  limitParams  = M.fromList [(toS (replaceLast "limit" k), restrictRange (readMaybe . toS =<< v) allRange) | (k,v) <- qParams, isJust v, endingIn ["limit"] k]
++  limitParams  = M.fromList [(toS (replaceLast "limit" k), restrictRange (readMaybe =<< v) allRange) | (k,v) <- qParams, isJust v, endingIn ["limit"] k]
+   offsetParams :: M.HashMap ByteString NonnegRange
+-  offsetParams = M.fromList [(toS (replaceLast "limit" k), maybe allRange rangeGeq (readMaybe . toS =<< v)) | (k,v) <- qParams, isJust v, endingIn ["offset"] k]
++  offsetParams = M.fromList [(toS (replaceLast "limit" k), maybe allRange rangeGeq (readMaybe =<< v)) | (k,v) <- qParams, isJust v, endingIn ["offset"] k]
+ 
+   urlRange = M.unionWith f limitParams offsetParams
+     where
+diff --git a/src/PostgREST/Request/DbRequestBuilder.hs b/src/PostgREST/Request/DbRequestBuilder.hs
+index abd44c3..489cc4e 100644
+--- a/src/PostgREST/Request/DbRequestBuilder.hs
++++ b/src/PostgREST/Request/DbRequestBuilder.hs
+@@ -53,7 +53,7 @@ import PostgREST.Request.Types
+ 
+ import qualified PostgREST.DbStructure.Relationship as Relationship
+ 
+-import Protolude hiding (from)
++import Protolude hiding (from, isInfixOf)
+ 
+ -- | Builds the ReadRequest tree on a number of stages.
+ -- | Adds filters, order, limits on its respective nodes.
