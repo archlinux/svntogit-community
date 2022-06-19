@@ -1,0 +1,52 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=coverage-conditional-plugin
+pkgname=python-coverage-conditional-plugin
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Conditional coverage based on any rules you define"
+arch=(any)
+url="https://github.com/wemake-services/coverage-conditional-plugin"
+license=(MIT)
+depends=(python-coverage python-packaging)
+makedepends=(python-build python-installer python-poetry python-wheel)
+checkdepends=(python-pytest python-pytest-cov python-pytest-randomly)
+# no tests in sdist tarball: https://github.com/wemake-services/coverage-conditional-plugin/issues/153
+# source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
+source=(
+  $_name-$pkgver.tar.gz::https://github.com/wemake-services/$_name/archive/refs/tags/$pkgver.tar.gz
+  $pkgname-0.5.0-poetry.patch
+)
+sha256sums=('930db4b1c2ef9f456b2379a78b7773db701a3915fb5b0fa205fe964914de40c4'
+            '250df5cedfb0ae89744b82f6f6a0ee062501f15ad58acde6a6e294b38ef4b502')
+b2sums=('2ccbb03eeaff2c1526454c4ee134778e31b5f0b07491715bfab39d4ae8c69cc4625269d0910ebef2f2b6a6fc7ee1556352b0d14ba8395ae3e2a2b882ed90d692'
+        '79e8a786df0e36e5a9f29d54ad343d50c2aff64b2d413094082dd0d0af785b2da0168a14bddff85285a5d1b43d7240fb46d1d0742facb65befbe587b9499ef71')
+
+prepare() {
+  # fix incompatibility with PEP517: https://github.com/wemake-services/coverage-conditional-plugin/issues/155
+  patch -Np1 -d $_name-$pkgver -i ../$pkgname-0.5.0-poetry.patch
+}
+
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  # ignore integration and code style checks
+  # ignore unwanted pulling in of python-pytest-pythonpath: https://github.com/wemake-services/coverage-conditional-plugin/issues/154
+  # ignore broken integration test
+  pytest -vv -c /dev/null --ignore tests/test_integration.py
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
