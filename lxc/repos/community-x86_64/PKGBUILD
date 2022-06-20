@@ -7,13 +7,13 @@
 
 pkgname=lxc
 epoch=1
-pkgver=4.0.12
-pkgrel=1
+pkgver=5.0.0
+pkgrel=3
 pkgdesc="Linux Containers"
 arch=('x86_64')
 url="https://linuxcontainers.org"
-depends=('bash' 'perl' 'libseccomp' 'libcap' 'python' 'rsync' 'wget')
-makedepends=('docbook2x' 'lua' 'python-setuptools' 'apparmor')
+depends=('systemd' 'bash' 'perl' 'libseccomp' 'libcap' 'python' 'rsync' 'wget')
+makedepends=('docbook2x' 'lua' 'python-setuptools' 'apparmor' 'meson')
 optdepends=('dnsmasq: lxc-net.service'
 	    'lua'
 	    'lua-filesystem: lxc-top'
@@ -27,7 +27,7 @@ source=("https://linuxcontainers.org/downloads/lxc/$pkgname-${pkgver}.tar.gz"{,.
 	"lxc.tmpfiles.d"
 	"lxc.service"
 	"lxc-auto.service")
-sha256sums=('db242f8366fc63e8c7588bb2017b354173cf3c4b20abc18780debdc48b14d3ef'
+sha256sums=('72a1a5feb05dba2ef04e696304aeefd7cc314477f1fff890f7a2b4cec63b6cbe'
             'SKIP'
             '10e4f661872f773bf3122a2f9f2cb13344fea86a4ab72beecb4213be4325c479'
             'bbe7e0447bc3bf5f75f312c34d647f5218024731628a5e8633b1ea1801ebe16b'
@@ -35,36 +35,20 @@ sha256sums=('db242f8366fc63e8c7588bb2017b354173cf3c4b20abc18780debdc48b14d3ef'
 
 prepare() {
   cd "$pkgname-${pkgver/_/-}"
-  sed -i \
-    -e 's|"\\"-//Davenport//DTD DocBook V3.0//EN\\""|"\\"-//OASIS//DTD DocBook XML\\" \\"https://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd\\""|' \
-    configure.ac
+  sed -i "s|if sanitize == 'none'|if false|g" src/lxc/cmd/meson.build
 }
 
 build() {
   cd "$pkgname-${pkgver/_/-}"
-  ./autogen.sh
-  bashcompdir=/usr/share/bash-completion/completions ./configure \
-    --prefix=/usr \
-    --sbindir=/usr/bin \
-    --localstatedir=/var \
-    --libexecdir=/usr/lib \
-    --libdir=/usr/lib \
-    --sysconfdir=/etc \
-    --enable-apparmor \
-    --enable-seccomp \
-    --enable-capabilities \
-    --with-init-script=systemd \
-    --with-systemdsystemunitdir=/usr/lib/systemd/system \
-    --enable-pam \
-    --disable-werror \
-    --with-pamdir=/usr/lib/security
-  make
+  meson --prefix=/usr --libexecdir=/usr/lib --sbindir=/usr/bin --buildtype=plain . build
+  meson compile -C build
 }
 
 package() {
   cd "$pkgname-${pkgver/_/-}"
 
-  make DESTDIR="$pkgdir" install
+  meson install -C build --destdir "$pkgdir"
+
   install -d -m755 "$pkgdir/var/lib/lxc"
   install -d -m755 "$pkgdir/usr/lib/lxc/rootfs/dev"
   install -D -m644 "$srcdir"/lxc.service "$pkgdir"/usr/lib/systemd/system/lxc@.service
