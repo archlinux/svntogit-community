@@ -4,8 +4,8 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2022.1.2
-_build=221.5787.30
+pkgver=2022.1.3
+_build=221.5921.22
 pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
