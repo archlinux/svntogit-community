@@ -1,0 +1,96 @@
+From ed9851b020f8b6c05d604e2dd60dc2f53a62af0d Mon Sep 17 00:00:00 2001
+From: Valentin Churavy <v.churavy@gmail.com>
+Date: Fri, 18 Feb 2022 14:37:31 -0500
+Subject: [PATCH] AttrBuilder now takes LLVMContext
+
+---
+ src/ccall.cpp   | 46 +++++++++++++++++++++++++++++-----------------
+ src/cgutils.cpp |  4 ++++
+ src/codegen.cpp |  8 ++++++++
+ 3 files changed, 41 insertions(+), 17 deletions(-)
+
+diff --git a/src/ccall.cpp b/src/ccall.cpp
+index 332c057afa5c4..5f260d9178ffa 100644
+--- a/src/ccall.cpp
++++ b/src/ccall.cpp
+@@ -1020,7 +1020,11 @@ std::string generate_func_sig(const char *fname)
+             abi->use_sret(jl_voidpointer_type, jl_LLVMContext);
+         }
+         else if (abi->use_sret((jl_datatype_t*)rt, jl_LLVMContext)) {
++#if JL_LLVM_VERSION >= 140000
++            AttrBuilder retattrs(lrt->getContext());
++#else
+             AttrBuilder retattrs = AttrBuilder();
++#endif
+ #if !defined(_OS_WINDOWS_) // llvm used to use the old mingw ABI, skipping this marking works around that difference
+ #if JL_LLVM_VERSION < 120000
+             retattrs.addAttribute(Attribute::StructRet);
+@@ -1042,7 +1046,11 @@ std::string generate_func_sig(const char *fname)
+     }
+ 
+     for (size_t i = 0; i < nccallargs; ++i) {
++#if JL_LLVM_VERSION >= 140000
++        AttrBuilder ab(lrt->getContext());
++#else
+         AttrBuilder ab;
++#endif
+         jl_value_t *tti = jl_svecref(at, i);
+         Type *t = NULL;
+         bool isboxed;
+@@ -1120,7 +1128,11 @@ std::string generate_func_sig(const char *fname)
+         fargt.push_back(t);
+         fargt_isboxed.push_back(isboxed);
+         fargt_sig.push_back(pat);
+-        paramattrs.push_back(AttributeSet::get(jl_LLVMContext, ab));
++#if JL_LLVM_VERSION >= 140000
++        paramattrs.push_back(AttrBuilder(lrt->getContext(), AttributeSet::get(jl_LLVMContext, ab)));
++#else
++        paramattrs.push_back(AttributeSet::get(jl_LLVMContext, ab));
++#endif
+     }
+ 
+     for (size_t i = 0; i < nccallargs + sret; ++i) {
+diff --git a/src/cgutils.cpp b/src/cgutils.cpp
+index b219498315905..e04abe8c06e03 100644
+--- a/src/cgutils.cpp
++++ b/src/cgutils.cpp
+@@ -340,7 +340,11 @@ static unsigned julia_alignment(jl_value_t *jt)
+ 
+ static inline void maybe_mark_argument_dereferenceable(Argument *A, jl_value_t *jt)
+ {
++#if JL_LLVM_VERSION >= 140000
++    AttrBuilder B(A->getContext());
++#else
+     AttrBuilder B;
++#endif
+     B.addAttribute(Attribute::NonNull);
+     // The `dereferencable` below does not imply `nonnull` for non addrspace(0) pointers.
+     size_t size = dereferenceable_size(jt);
+diff --git a/src/codegen.cpp b/src/codegen.cpp
+index be6d8e2f66325..83946391e40c8 100644
+--- a/src/codegen.cpp
++++ b/src/codegen.cpp
+@@ -1952,7 +1952,11 @@ static void jl_init_function(Function *F)
+     // upon entry to any function. This achieves compatibility
+     // with both MinGW-GCC (which assumes an 16-byte-aligned stack) and
+     // i686 Windows (which uses a 4-byte-aligned stack)
++#if JL_LLVM_VERSION >= 140000
++    AttrBuilder attr(F->getContext());
++#else
+     AttrBuilder attr;
++#endif
+     attr.addStackAlignmentAttr(16);
+     F->addAttributes(AttributeList::FunctionIndex, attr);
+ #endif
+@@ -5311,7 +5315,11 @@ static Function* gen_cfun_wrapper(
+         }
+ 
+         // Add the new nest attribute
++#if JL_LLVM_VERSION >= 140000
++        AttrBuilder attrBuilder(M->getContext());
++#else
+         AttrBuilder attrBuilder;
++#endif
+         attrBuilder.addAttribute(Attribute::Nest);
+         newAttributes.emplace_back(it, AttributeSet::get(M->getContext(), attrBuilder));
+ 
