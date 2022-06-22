@@ -3,17 +3,17 @@
 
 _srcname=SPIRV-LLVM-Translator
 pkgname=${_srcname,,}
-pkgver=13.0.0.r27+gd7a03044
+pkgver=14.0.0.r1+ga16f3db3
 pkgrel=1
 pkgdesc="Tool and a library for bi-directional translation between SPIR-V and LLVM IR"
 arch=(x86_64)
 url="https://github.com/KhronosGroup/SPIRV-LLVM-Translator"
 license=(custom)
-depends=(llvm-libs)
-makedepends=(git cmake llvm spirv-headers spirv-tools)
+depends=(llvm-libs spirv-tools)
+makedepends=(git cmake llvm spirv-headers)
 checkdepends=(python python-setuptools clang)
 # Required by ISPC
-_commit=d7a030447802718de76355c248b6bb292669683b
+_commit=a16f3db323862cc49d31135697309a3188a024a8
 source=(git+${url}.git#commit=$_commit)
 sha256sums=(SKIP)
 
