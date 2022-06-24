@@ -6,7 +6,7 @@
 
 pkgbase=parallel
 pkgname=('parallel' 'parallel-docs')
-pkgver=20220522
+pkgver=20220622
 pkgrel=1
 pkgdesc='A shell tool for executing jobs in parallel'
 arch=('any')
@@ -15,13 +15,16 @@ license=('GPL3')
 source=(
   "https://ftp.gnu.org/gnu/$pkgbase/$pkgbase-$pkgver.tar.bz2"{,.sig}
   '0001-Remove-citation-things.patch'
+  '0002-Fix-makefile.patch'
 )
-sha512sums=('45dd1abe8652d29cd054505263b4ed792f42d7d6799ebdbfec07c21d54437d7243a054adff1d6c987eb85260d7ead2a9bb4dacb9d54a8a5b332218e27cf4f62c'
+sha512sums=('d01d86cd2ac373534d147eee8aa666fe26e7207362ea9c036c3744125f72c936d15cf2059429636454f21c8e8c6b3a60c8d761ddfde97ba7388d2cd00495bfa4'
             'SKIP'
-            '0222471b1e59a8864d79674e147df0a9452f24f9fdefad336eada8f50da3bd21caefdc98705cdf6ab0b3194962f032f63be118c3ae2eec7b1239023012281eab')
-b2sums=('e32f62930a4147dc950f5bdab1da58bef19c83b75e7257511d44257ef1569b40a34c670c63831f46daabcb390a197b7293aabb66f2dacd9848dd64910fd3b912'
+            '5c98641615a391a0e27a0a4091c8e9faa8689fa1fd7fd6c514ad571ee0e5f63219cc8df4e57c38ebd2d977d5fe13192190849c1c949039cc6433d30f673214cd'
+            'b9fd9645a32376244ce075402783d404842445d3d510d7cffe743e07038d304443bc99a01da74ece20709e8c97c8751b1e097b2e5e8b362a23f851686b2c54df')
+b2sums=('a0fdb1ab330360c28d85ea5608760a961e663a5401b900e6e8eee944250bf233ae1e3f66e6a2b9d54f0c32702127593dab787d29eda636bd457dcc5d4b046785'
         'SKIP'
-        '26509c87a6b45aa4659e5cad9b3251e0fcdb44634ddecb29789e25b303d17fb9805967c5fafdcba7720015c2e6c445dfe771bd7538c5800cc6534bddd95dc4a6')
+        '6c6292c983be25992990f0d307c48f351de7a2fdb2a442ab196f2c6fce708b00e2ee784382acb3b14c755c9a9eb5ee3b5bb4faf3be6672e7d756fee740800902'
+        '5a8fd71c7aec3de071acfd0765cca417a6f4db5ca10e04b7786a70e890ecf608c1b4214b4d8d09d7f9c2d7f83c1beb3c569e80a40986d3fa037dc15b2b58bd66')
 validpgpkeys=('CDA01A4208C4F74506107E7BD1AB451688888888')
 
 prepare() {
@@ -29,6 +32,9 @@ prepare() {
 
   # remove citation warnings
   patch -p1 <"$srcdir"/0001-Remove-citation-things.patch
+
+  # patch in DESTDIR support to makefile
+  patch -p1 <"$srcdir"/0002-Fix-makefile.patch
 
   # remove gnu branding
   sed \
