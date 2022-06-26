@@ -2,53 +2,50 @@
 
 _pkgname=authlib
 pkgname=python-authlib
-pkgver=0.15.5
-_commit=d8e428c9350c792fc3d25dbaaffa3bfefaabd8e3
+pkgver=1.0.1
 pkgrel=3
 pkgdesc="The ultimate Python library in building OAuth and OpenID Connect servers"
 arch=('any')
-url="https://github.com/lepture/${_pkgname}"
+url="https://github.com/lepture/authlib"
 license=('BSD')
 depends=('python-cryptography')
-makedepends=('git' 'python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 checkdepends=('python-pytest-asyncio' 'python-pytest-django' 'python-requests'
-              'python-django' 'python-flask-sqlalchemy' 'python-httpx' 'python-starlette')
-source=("git+${url}.git#commit=${_commit}?signed")
-b2sums=('SKIP')
+              'python-django' 'python-flask-sqlalchemy' 'python-httpx' 'python-starlette' 'python-cachelib')
+source=("https://github.com/lepture/authlib/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('e560775b2a829eab380a085cdb61cf52cfaab42bc748c44bd95a3519d35c8fd8')
 validpgpkeys=('72F8E895A70CEBDF4F2ADFE07E55E3E0118B2B4C') # Hsiaoming (UJET) <lepture@ujet.co>
 
-pkgver() {
-    cd "${srcdir}"/${_pkgname}
-
-    git describe --exact-match --tags | sed 's/^v//'
-}
-
 prepare() {
-    cd "${srcdir}"/${_pkgname}
+  cd ${_pkgname}-$pkgver
 
-    # no need to install an additional copy of the stdlib
-    find tests -name \*.py -exec sed -i 's/^import mock$/from unittest import mock/' {} +
+  # no need to install an additional copy of the stdlib
+  find tests -name \*.py -exec sed -i 's/^import mock$/from unittest import mock/' {} +
 }
 
 build() {
-    cd "${srcdir}"/${_pkgname}
+  cd ${_pkgname}-$pkgver
 
-    python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
-    cd "${srcdir}"/${_pkgname}
+  cd ${_pkgname}-$pkgver
 
-    # Some tests fail is run with Django with Flask tests
-    # https://github.com/lepture/authlib/issues/284
-    python -m pytest --ignore tests/django --ignore tests/flask
-    python -m pytest tests/django
-    python -m pytest tests/flask
+  export PYTHONPATH="$PWD"
+  pytest tests/core -v
+  pytest tests/flask -v
+# https://github.com/lepture/authlib/issues/456
+  pytest tests/jose -v -k 'not (test_dir_alg_xc20p or test_xc20p_content_encryption_decryption)'
+  export DJANGO_SETTINGS_MODULE=tests.clients.test_django.settings
+  pytest tests/clients -v
+  export DJANGO_SETTINGS_MODULE=tests.django.settings
+  pytest tests/django -v
 }
 
 package() {
-    cd "${srcdir}"/${_pkgname}
+  cd ${_pkgname}-$pkgver
 
-    python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
-    install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+  python -m installer --destdir="${pkgdir}" dist/*.whl
+  install -Dm644 LICENSE "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
