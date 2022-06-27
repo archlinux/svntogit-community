@@ -1,0 +1,54 @@
+# Maintainer: Daniel Bermond <dbermond@archlinux.org>
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+
+pkgname=intel-graphics-compiler
+epoch=1
+pkgver=1.0.11378
+pkgrel=2
+pkgdesc="Intel Graphics Compiler for OpenCL"
+arch=(x86_64)
+url="https://github.com/intel/intel-graphics-compiler"
+license=(MIT)
+depends=(llvm-libs intel-opencl-clang ncurses spirv-tools zlib)
+makedepends=(git cmake clang lld llvm python libunwind spirv-headers vc-intrinsics)
+# https://github.com/intel/intel-graphics-compiler/issues/237
+options=(!emptydirs !lto)
+source=(${url}/archive/igc-${pkgver}.tar.gz
+        fix-zlib-linking.patch
+        ${pkgname}-${pkgver}-llvm14.patch::https://github.com/liushuyu/intel-graphics-compiler/commit/6a318ce3467f84ef88188e9ac7e2eca251975441.patch)
+sha256sums=('527229e8b7d7773e128a12fa5577ea0193643479b0bc23906d9872384604a7dc'
+            '41ad4d72b4f5e00161d736c8f51c9a2421548d226511cd133143408fccc4bfd0'
+            'aa8994212c65d237ee7211fadb7c422c162716e204feaf6b48a9e3e7d6c39970')
+
+prepare() {
+  patch -p1 -d ${pkgname}-igc-${pkgver} < fix-zlib-linking.patch
+  patch -p1 -d ${pkgname}-igc-${pkgver} < ${pkgname}-${pkgver}-llvm14.patch
+}
+
+build() {
+  export CFLAGS="$CFLAGS -Wno-error=deprecated-declarations"
+  export CXXFLAGS="$CXXFLAGS -Wno-error=deprecated-declarations"
+  cmake -B build -S ${pkgname}-igc-${pkgver} \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_INSTALL_LIBDIR=lib \
+    -DIGC_OPTION__ARCHITECTURE_TARGET='Linux64' \
+    -DIGC_OPTION__CLANG_MODE=Prebuilds \
+    -DIGC_OPTION__LLD_MODE=Prebuilds \
+    -DIGC_OPTION__LLVM_PREFERRED_VERSION='14.0.6' \
+    -DIGC_OPTION__LLVM_MODE=Prebuilds \
+    -DIGC_OPTION__LINK_KHRONOS_SPIRV_TRANSLATOR=ON \
+    -DIGC_OPTION__USE_PREINSTALLED_SPRIV_HEADERS=ON \
+    -DIGC_OPTION__SPIRV_TOOLS_MODE=Prebuilds \
+    -DIGC_OPTION__SPIRV_TRANSLATOR_MODE=Prebuilds \
+    -DIGC_OPTION__VC_INTRINSICS_MODE=Prebuilds \
+    -DINSTALL_GENX_IR=ON \
+    -Wno-dev
+  make -C build
+}
+
+package() {
+  make -C build DESTDIR="${pkgdir}" install
+  install -D -m644 ${pkgname}-igc-${pkgver}/LICENSE.md -t "${pkgdir}"/usr/share/licenses/${pkgname}
+  mv "${pkgdir}"/usr/lib/igc/NOTICES.txt "${pkgdir}"/usr/share/licenses/${pkgname}
+}
