@@ -1,0 +1,59 @@
+# Maintainer:: Tim Meusel <tim@bastelfreak.de>
+
+_gemname=introspection
+pkgname="ruby-${_gemname}"
+pkgver=0.0.4
+pkgrel=1
+pkgdesc='Dynamic inspection of the hierarchy of method definitions on a Ruby object.'
+arch=('any')
+url="https://github.com/floehopper/${_gemname}"
+license=('MIT')
+depends=('ruby')
+checkdepends=('ruby-rake')
+makedepends=('ruby-minitest')
+options=('!emptydirs')
+source=("${pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz"
+        'disable-bundler.patch'
+        'disable-blankslate.patch')
+sha512sums=('0e5820fb31a69e561faa10bd9871a6dcffc6b1e452c543971244cfb65cb0237fbe50b2137006606db18f856957156a3b2ee521b05be7cae7e7602d1489d3e15f'
+            'f95a588a4184a13b4e7a56cd62d115d8dfc79a8cec143b45a632be816403f603f8eeb0b17575b2ef743317ab16e2c67f7b9fbb6bba0cb488b3b66f9186cda408'
+            '963fadf5411ad142d7dd72b7564289ef8b135d787e8596a2cef68b692da886f6a234a6373d3f926af5010414cc4a091cdd38c4c5e52536f7441bdea13de6549a')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # `git` doesn't work within src dir, because we downloaded an archive
+  sed --in-place 's|git ls-files|find|' ${_gemname}.gemspec
+  sed --in-place '/s.test_files/d' ${_gemname}.gemspec
+  sed --in-place '/s.executables/d' ${_gemname}.gemspec
+
+  patch --forward --verbose --strip=1 --input='../disable-bundler.patch'
+  patch --forward --verbose --strip=1 --input='../disable-blankslate.patch'
+
+  # Disable deprecated gemspec option
+  sed --in-place '/s.rubyforge_project/d' ${_gemname}.gemspec
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+  rake test
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+  gem build ${_gemname}.gemspec
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+  local _gemdir="$(gem env gemdir)"
+  gem install --ignore-dependencies --no-user-install --install-dir "${pkgdir}${_gemdir}" --bindir "${pkgdir}/usr/bin" "${_gemname}-${pkgver}.gem"
+  install -Dm 644 README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 COPYING.txt --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  # delete unneeded files
+  rm "${pkgdir}/${_gemdir}/cache/${_gemname}-${pkgver}.gem"
+  rm -rf "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/"{test,yard-templates,gemfiles,bin,.github,.gemtest,mocha.gemspec.orig}
+}
+
+# vim: ts=2 sw=2 et:
