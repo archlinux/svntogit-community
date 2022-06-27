@@ -6,7 +6,7 @@
 # Contributor: AUR[Severus]
 
 pkgname=mattermost-desktop
-pkgver=5.1.0
+pkgver=5.1.1
 pkgrel=1
 pkgdesc='Mattermost Desktop application'
 arch=(x86_64)
@@ -23,7 +23,7 @@ makedepends=(git
 _archive="${pkgname#*-}-$pkgver"
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
         "$pkgname.sh")
-sha256sums=('2a343739afc52d996a24d9259df09f93cf593639858b22e63bf70c9618a9035e'
+sha256sums=('ff1c0937a1cbbb6ef64bf536cb19ef1c9254feca38a5b1e8054e255ba3d22fe7'
             '1c2bf48b6397d04a5a536c5c9f4960db53249c838c380f03f808c612b00ba4c6')
 
 _npmargs="--cache '$srcdir/npm-cache' --no-audit --no-fund"
