@@ -1,4 +1,3 @@
-# $Cambridge: exim/src/src/EDITME,v 4.93 $
 ##################################################
 #          The Exim mail transport agent         #
 ##################################################
@@ -14,12 +13,11 @@
 
 # Things that depend on the operating system have default settings in
 # OS/Makefile-Default, but these are overridden for some OS by files
-# called called OS/Makefile-<osname>. You can further override these by
-# creating files called Local/Makefile-<osname>, and
-# Local/Makefile-<buildname> (where "<osname>" stands for the name of
-# your operating system - look at the names in the OS directory to see
-# which names are recognized, and "<buildname>" is derived from the
-# environment variable "build")
+# called OS/Makefile-<osname>. You can further override these settings by
+# creating files Local/Makefile-<osname>, and Local/Makefile-<build>.
+# The suffix "<osname>" stands for the name of your operating system - look
+# at the names in the OS directory to see which names are recognized,
+# and "<build>" is the content of the environment variable "build".
 
 # However, if you are building Exim for a single OS only, you don't need to
 # worry about setting up Local/Makefile-<osname>. Any build-time configuration
@@ -203,7 +201,7 @@ SPOOL_DIRECTORY=/var/spool/exim
 # the libraries and headers are installed, as the pkg-config .pc
 # specification should include all -L/-I information necessary.
 # Enabling the USE_*_PC options should be sufficient. If not using
-# pkg-config, then you have to specify the libraries, and you mmight
+# pkg-config, then you have to specify the libraries, and you might
 # need to specify the locations too.
 
 # Uncomment the following lines if you want
@@ -212,7 +210,7 @@ SPOOL_DIRECTORY=/var/spool/exim
 # Unless you do this, you must define one of USE_OPENSSL or USE_GNUTLS
 # below.
 
-# If you are buliding with TLS, the library configuration must be done:
+# If you are building with TLS, the library configuration must be done:
 
 # Uncomment this if you are using OpenSSL
 USE_OPENSSL=yes
@@ -280,6 +278,9 @@ USE_OPENSSL_PC=openssl
 # You don't need to set TLS_INCLUDE if the relevant directories are already
 # specified in INCLUDE.
 
+
+# Uncomment the following line to remove support for TLS Resumption
+# DISABLE_TLS_RESUME=yes
 
 
 ###############################################################################
@@ -416,6 +417,8 @@ LOOKUP_DSEARCH=yes
 # LOOKUP_IBASE=yes
 # LOOKUP_JSON=yes
 LOOKUP_LDAP=yes
+# LOOKUP_LMDB=yes
+
 # LOOKUP_MYSQL=yes
 # LOOKUP_MYSQL_PC=mariadb
 # LOOKUP_NIS=yes
@@ -457,19 +460,19 @@ LDAP_LIB_TYPE=OPENLDAP2
 
 
 #------------------------------------------------------------------------------
-# The PCRE library is required for Exim.  There is no longer an embedded
+# The PCRE2 library is required for Exim.  There is no longer an embedded
 # version of the PCRE library included with the source code, instead you
-# must use a system library or build your own copy of PCRE.
+# must use a system library or build your own copy of PCRE2.
 # In either case you must specify the library link info here.  If the
-# PCRE header files are not in the standard search path you must also
+# PCRE2 header files are not in the standard search path you must also
 # modify the INCLUDE path (above)
 #
 # Use PCRE_CONFIG to query the pcre-config command (first found in $PATH)
 # to find the include files and libraries, else use PCRE_LIBS and set INCLUDE
 # too if needed.
 
-PCRE_CONFIG=yes
-# PCRE_LIBS=-lpcre
+PCRE2_CONFIG=yes
+# PCRE_LIBS=-lpcre2
 
 
 #------------------------------------------------------------------------------
@@ -492,8 +495,16 @@ SUPPORT_DANE=yes
 # You do not need to use this for any lookup information added via pkg-config.
 
 # LOOKUP_INCLUDE=-I /usr/local/ldap/include -I /usr/local/mysql/include -I /usr/local/pgsql/include
-# LOOKUP_LIBS=-L/usr/local/lib -lldap -llber -lmysqlclient -lpq -lgds -lsqlite3
+# LOOKUP_INCLUDE +=-I /usr/local/include
+# LOOKUP_LIBS=-L/usr/local/lib -lldap -llber -lmysqlclient -lpq -lgds -lsqlite3 -llmdb
 LOOKUP_LIBS=-lldap -llber
+
+#------------------------------------------------------------------------------
+# If you included LOOKUP_LMDB above you will need the library. Depending
+# on where installed you may also need an include directory
+#
+# LOOKUP_INCLUDE += -I/usr/local/include
+# LOOKUP_LIBS += -llmdb
 
 
 #------------------------------------------------------------------------------
@@ -566,13 +577,20 @@ DISABLE_MAL_MKS=yes
 # DISABLE_DNSSEC=yes
 
 # To disable support for Events set DISABLE_EVENT to "yes"
-
 # DISABLE_EVENT=yes
 
 
-# Uncomment this line to include support for early pipelining, per
+# Uncomment this line to remove support for early pipelining, per
 # https://datatracker.ietf.org/doc/draft-harris-early-pipe/
-# SUPPORT_PIPE_CONNECT=yes
+# DISABLE_PIPE_CONNECT=yes
+
+
+# Uncomment the following to remove the fast-ramp two-phase-queue-run support
+# DISABLE_QUEUE_RAMP=yes
+
+# Uncomment the following lines to add SRS (Sender Rewriting Scheme) support
+# using only native facilities.
+# SUPPORT_SRS=yes
 
 
 #------------------------------------------------------------------------------
@@ -586,21 +604,10 @@ DISABLE_MAL_MKS=yes
 
 # EXPERIMENTAL_DCC=yes
 
-# Uncomment the following lines to add SRS (Sender rewriting scheme) support.
-# You need to have libsrs_alt installed on your system (srs.mirtol.com).
-# Depending on where it is installed you may have to edit the CFLAGS and
-# LDFLAGS lines.
-
-# EXPERIMENTAL_SRS=yes
-# CFLAGS  += -I/usr/local/include
-# LDFLAGS += -lsrs_alt
-
-# Uncomment the following lines to add SRS (Sender rewriting scheme) support
-# using only native facilities.
-# EXPERIMENTAL_SRS_NATIVE=yes
-
 # Uncomment the following line to add DMARC checking capability, implemented
 # using libopendmarc libraries. You must have SPF and DKIM support enabled also.
+# Library version libopendmarc-1.4.1-1.fc33.x86_64  (on Fedora 33) is known broken;
+# 1.3.2-3 works.  I seems that the OpenDMARC project broke their API.
 # SUPPORT_DMARC=yes
 # CFLAGS += -I/usr/local/include
 # LDFLAGS += -lopendmarc
@@ -624,18 +631,8 @@ DISABLE_MAL_MKS=yes
 # Uncomment the following to include extra information in fail DSN message (bounces)
 # EXPERIMENTAL_DSN_INFO=yes
 
-# Uncomment the following to add LMDB lookup support
-# You need to have LMDB installed on your system (https://github.com/LMDB/lmdb)
-# Depending on where it is installed you may have to edit the CFLAGS and LDFLAGS lines.
-# EXPERIMENTAL_LMDB=yes
-# CFLAGS += -I/usr/local/include
-# LDFLAGS += -llmdb
-
 # Uncomment the following line to add queuefile transport support
 # EXPERIMENTAL_QUEUEFILE=yes
-
-# Uncomment the following line to include support for TLS Resumption
-# EXPERIMENTAL_TLS_RESUME=yes
 
 ###############################################################################
 #                 THESE ARE THINGS YOU MIGHT WANT TO SPECIFY                  #
@@ -788,6 +785,9 @@ AUTH_TLS=yes
 # AUTH_LIBS=-lsasl2
 # AUTH_LIBS=-lgsasl
 # AUTH_LIBS=-lgssapi -lheimntlm -lkrb5 -lhx509 -lcom_err -lhcrypto -lasn1 -lwind -lroken -lcrypt
+
+# If using AUTH_GSASL with SCRAM methods, you should also be defining
+# SUPPORT_I18N to get standards-conformant support of utf8 normalization.
 
 
 #------------------------------------------------------------------------------
@@ -1493,5 +1493,10 @@ PID_FILE_PATH=/run/exim.pid
 #------------------------------------------------------------------------------
 # For development, add this to include code to time various stages and report.
 # CFLAGS += -DMEASURE_TIMING
+
+# For a very slightly smaller build, for constrained systems, uncomment this.
+# The feature involved is purely for debugging.
+
+# DISABLE_CLIENT_CMD_LOG=yes
 
 # End of EDITME for Exim 4.
