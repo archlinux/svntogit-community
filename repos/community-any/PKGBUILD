@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=8.5.5
+pkgver=8.6.0
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -11,27 +11,21 @@ depends=('nodejs' 'node-gyp' 'nodejs-nopt' 'semver')
 # libgl: TODO
 # libvips: for sharp (doc build) (disabled as current version of gatsby imports a broken sharp)
 # libxi: for cwebp (doc build)
-makedepends=('libgl' 'libxi' 'marked' 'marked-man' 'procps-ng' 'python')
+makedepends=('libgl' 'libxi' 'procps-ng' 'python')
 options=('!emptydirs')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/npm/cli/archive/v$pkgver.tar.gz")
-sha512sums=('19c92af65450c9b0534ad79b8c1f503594d6bed15bdb3f35fb82b64bce01b770f902a59b50ebe867497c81b173cde28eb818b8c2ef4bd35b308f19a33b3cdcbc')
+source=("https://github.com/npm/cli/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('8a2702fdd07fd6231381396834b879c04c3becb5355384b2ea6b5838d9d24b0f70db524a1dd5a640b11e1a9f45b9e99e8c51a322d9a9ed77c03c4f9ae36fe93d')
 
 prepare() {
   cd cli-$pkgver
-  mkdir -p node_modules/.bin
-  ln -sf /usr/bin/marked{,-man} node_modules/.bin/
-
-  # Use local marked/marked-man
-  sed -i 's|node bin/npm-cli.js install marked|true |' Makefile
-
-  # Don't build twice
-  sed -i 's/install: all/install:/' Makefile
-
-  mkdir -p man/man1
+  # 'deps' was added as a dep for many Makefile targets since 8.6 but it's not easy to fix.
+  # Let's skip and do it ourselves instead.
+  sed -i 's|node bin/npm-cli.js run resetdeps|true|' Makefile
 }
 
 build() {
   cd cli-$pkgver
+  node . i --ignore-scripts --no-audit --no-fund
   NODE_PATH=/usr/lib/node_modules make
 }
 
@@ -60,5 +54,5 @@ package() {
 
   mv "$pkgdir"/usr/lib/node_modules/npm/man "$pkgdir"/usr/share/
 
-  install -Dm644 "$srcdir"/cli-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 "$srcdir"/cli-$pkgver/LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
