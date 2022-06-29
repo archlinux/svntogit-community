@@ -4,35 +4,40 @@
 
 _name=setuptools_scm
 pkgname=python-setuptools-scm
-pkgver=6.4.2
+pkgver=7.0.3
 pkgrel=1
 pkgdesc="Handles managing your python package versions in scm metadata"
 arch=('any')
 url="https://github.com/pypa/setuptools_scm"
 license=('MIT')
-depends=('python-packaging' 'python-setuptools' 'python-tomli')
+depends=('python-packaging' 'python-setuptools' 'python-tomli'
+         'python-typing_extensions')
+makedepends=('python-build' 'python-installer' 'python-wheel')
 checkdepends=('git' 'mercurial' 'python-pip' 'python-pytest'
               'python-virtualenv')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('6833ac65c6ed9711a4d5d2266f8024cfa07c533a0e55f4c12f6eff280a5a9e30')
-b2sums=('e1b5191425cf5db8334761a6857b0bc39c547c167901cbdf8401af441c5941cd75744162417ff42dbac792ae867d71c7576c5e9e533fe8039a75954f4c2ba439')
+sha256sums=('cf8ab8e235bed840cd4559b658af0d8e8a70896a191bbc510ee914ec5325332d')
+b2sums=('dea8fcdb3cafb040dd2bcdc5efeb8bcba1906d35fee83b17646e1df10a4fee642a01df7d115d66e93c1c177c2ddfa0f4260fb9fe9bf54d24955c3c7014611d35')
 
 build() {
   cd $_name-$pkgver
-  python setup.py build
-  python setup.py egg_info
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
-  cd $_name-$pkgver
-  mkdir -p temp
-  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
-  python setup.py install --root=temp --optimize=1 --skip-build
-  PYTHONPATH="$PWD/temp/$site_packages" pytest
+ cd $_name-$pkgver
+  python -m venv --system-site-packages test-env
+  test-env/bin/python -m installer dist/*.whl
+  PYTHONPATH="$PWD/test-env/$site_packages"  test-env/bin/python -m pytest
 }
 
 package() {
   cd $_name-$pkgver
-  python setup.py install --root "$pkgdir" --optimize=1 --skip-build
-  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/setuptools_scm-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
