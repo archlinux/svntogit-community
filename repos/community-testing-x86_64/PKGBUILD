@@ -1,0 +1,59 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Baptiste Jonglez <baptiste--aur at jonglez dot org>
+
+pkgname=jami-daemon
+pkgver=20220629
+pkgrel=1
+pkgdesc="Free and universal communication platform which preserves the users’ privacy and freedoms (daemon component)"
+arch=(x86_64)
+url="https://jami.net"
+license=(GPL3)
+groups=(jami)
+depends=(glibc opendht gnutls nettle libgit2 libsecp256k1 ffmpeg speexdsp
+         fmt yaml-cpp jsoncpp zlib alsa-lib libpulse jack libupnp libnatpmp
+         openssl webrtc-audio-processing systemd-libs libarchive)
+# portaudio needs a not-yet-upstream patch https://git.jami.net/savoirfairelinux/jami-daemon/-/issues/650
+makedepends=(git cmake perl asio msgpack-c msgpack-cxx restinio systemd meson)
+checkdepends=(cppunit)
+_commit=72a7d2339a1ba9bb1cf356f19c28deeb2f9be76e
+_pjprojectver=ffca1df9bb3d0d08777f66c2bff55f4134150571
+source=(git+https://git.jami.net/savoirfairelinux/${pkgname}.git#commit=${_commit}
+        https://github.com/savoirfairelinux/pjproject/archive/${_pjprojectver}/pjproject-${_pjprojectver}.tar.gz)
+noextract=(pjproject-${_pjprojectver}.tar.gz)
+sha512sums=(SKIP 57ccc66c91c8f2ac1acc88bc9eaf503b561d6e2eeb2a1ac2c1bc7293459d45f1356b462c32242071012d4883ef1d4ea1c4a9da1c6dd15cb4d677af84bedd00f2)
+
+pkgver() {
+  cd ${pkgname}
+  TZ=UTC git show -s --pretty=%cd --date=format-local:%Y%m%d HEAD
+}
+
+prepare() {
+  cd ${pkgname}
+  cp ../pjproject-${_pjprojectver}.tar.gz contrib/tarballs
+  mkdir contrib/native
+}
+
+build() {
+  cd ${pkgname}/contrib/native
+  export CXXFLAGS+=' -fpermissive'
+  ../bootstrap \
+      --disable-downloads \
+      --disable-all \
+      --enable-pjproject
+  make DEPS_pjproject=
+
+  cd "${srcdir}"
+  arch-meson ${pkgname} build -D interfaces=library -D opensl=disabled -D portaudio=disabled \
+                              $( ((CHECKFUNC)) && echo -D tests=true) \
+                              -D pkg_config_path="${PWD}/${pkgname}/contrib/$(cc -dumpmachine)/lib/pkgconfig"
+  meson compile -C build
+}
+
+#check() {
+# https://git.jami.net/savoirfairelinux/jami-daemon/-/issues/649
+#  meson test -C build --print-errorlogs
+#}
+
+package() {
+  meson install -C build --destdir "${pkgdir}"
+}
