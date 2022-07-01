@@ -8,7 +8,7 @@
 pkgname=darktable
 epoch=2
 pkgver=3.8.1
-pkgrel=4
+pkgrel=5
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
@@ -23,6 +23,7 @@ optdepends=('dcraw: base curve script'
             'portmidi: game and midi controller input devices'
             'gnuplot: noise profile script')
 makedepends=(cmake intltool desktop-file-utils llvm clang portmidi python-jsonschema libwebp)
+options=(debug)
 source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc})
 sha256sums=('81ee069054dbde580749b2d3a81cda01b7d169a82ba48731823f3ea560b2bef6'
             'SKIP')
