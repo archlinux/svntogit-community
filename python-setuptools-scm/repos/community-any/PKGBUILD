@@ -4,7 +4,7 @@
 
 _name=setuptools_scm
 pkgname=python-setuptools-scm
-pkgver=7.0.3
+pkgver=7.0.4
 pkgrel=1
 pkgdesc="Handles managing your python package versions in scm metadata"
 arch=('any')
@@ -16,8 +16,8 @@ makedepends=('python-build' 'python-installer' 'python-wheel')
 checkdepends=('git' 'mercurial' 'python-pip' 'python-pytest'
               'python-virtualenv')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('cf8ab8e235bed840cd4559b658af0d8e8a70896a191bbc510ee914ec5325332d')
-b2sums=('dea8fcdb3cafb040dd2bcdc5efeb8bcba1906d35fee83b17646e1df10a4fee642a01df7d115d66e93c1c177c2ddfa0f4260fb9fe9bf54d24955c3c7014611d35')
+sha256sums=('c27bc1f48593cfc9527251f1f0fc41ce282ea57bbc7fd5a1ea3acb99325fab4c')
+b2sums=('07acfccdbeb0c7f6a6773ff93fa10c35aa8cc2451ede42cce269e2278606fed4acd17e8fda8294ac84b596e776a5ba02ae5ef1203dff42738291798e624cd991')
 
 build() {
   cd $_name-$pkgver
