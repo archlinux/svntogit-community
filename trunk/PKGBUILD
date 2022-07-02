@@ -2,7 +2,7 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=2022.5.1 
+pkgver=2022.6.0
 pkgrel=1
 _electronversion=16
 pkgdesc='A secure and free password manager for all of your devices'
@@ -25,6 +25,10 @@ sha512sums=('SKIP'
 prepare() {
 	cd bitwarden/apps/desktop
 
+	export npm_config_build_from_source=true
+	export npm_config_cache="$srcdir/npm_cache"
+	export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+
 	# Link jslib
 	git submodule init
 	git config 'submodule.apps/browser/jslib.url' "$srcdir/bitwarden-jslib"
@@ -42,6 +46,8 @@ prepare() {
 	#    '.build["electronVersion"]=$ENV.SYSTEM_ELECTRON_VERSION | .build["electronDist"]="/usr/lib/electron\(env.ELECTRONVERSION)"' \
 	#    > package.json.patched
 	# mv package.json.patched package.json
+	cd ../../
+	npm ci
 }
 
 build() {
@@ -51,7 +57,6 @@ build() {
 	export npm_config_build_from_source=true
 	export npm_config_cache="$srcdir/npm_cache"
 	export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-	npm install
 	npm run build
 	npm run clean:dist 
 	npm exec -c "electron-builder --linux --x64 --dir -c.electronDist=$electronDist \
