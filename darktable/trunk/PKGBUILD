@@ -7,15 +7,15 @@
 
 pkgname=darktable
 epoch=2
-pkgver=3.8.1
-pkgrel=5
+pkgver=4.0.0
+pkgrel=1
 pkgdesc="Utility to organize and develop raw images"
 arch=(x86_64)
 url="https://darktable.org"
 license=(GPL3)
 depends=(pugixml libjpeg-turbo colord-gtk libgphoto2 openexr lensfun iso-codes zlib
          exiv2 flickcurl openjpeg2 graphicsmagick lua osm-gps-map libsecret openmp
-         gmic libavif)
+         gmic libavif jasper)
 optdepends=('dcraw: base curve script'
             'perl-image-exiftool: base curve script'
             'imagemagick: base curve and noise profile scripts'
@@ -25,7 +25,7 @@ optdepends=('dcraw: base curve script'
 makedepends=(cmake intltool desktop-file-utils llvm clang portmidi python-jsonschema libwebp)
 options=(debug)
 source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc})
-sha256sums=('81ee069054dbde580749b2d3a81cda01b7d169a82ba48731823f3ea560b2bef6'
+sha256sums=('1416f8f59717e65a6220541aaa12eacca93888ce5176f2c9ab6c17b9cc53cc2d'
             'SKIP')
 validpgpkeys=(C4CBC150699956E2A3268EF5BB5CC8295B1779C9  # darktable releases <release@darktable.org>
               F10F9686652B0E949FCD94C318DCA123F949BD3B) # Pascal Obry <pascal@obry.net>
