@@ -1,0 +1,47 @@
+# Maintainer: Sebastian Zwierzchowski <seba@angrysoft.ovh>
+
+pkgname=zigbee2mqtt
+pkgver=1.25.2
+pkgrel=2
+pkgdesc='A Zigbee to MQTT bridge'
+arch=('x86_64')
+url='https://www.zigbee2mqtt.io'
+license=('GPL3')
+depends=('nodejs')
+makedepends=('typescript' 'npm')
+backup=('etc/zigbee2mqtt/configuration.yaml')
+install=zigbee2mqtt.install
+options=('!strip')
+optdepends=('mosquitto: MQTT broker')
+source=("https://github.com/Koenkk/${pkgname}/archive/${pkgver}.tar.gz" 'zigbee2mqtt.service'
+  	'zigbee2mqtt.sysusers' 'zigbee2mqtt.tmpfiles')
+sha256sums=('96896ac656a1a60d2ec4b814b7e054b13360ce2415be4f3d61fda5b40f87328b'
+            '3e065dd87c9ae7573165721a60d56756952bd8199b411a508dd343f64c755c7a'
+            '3a86716e9036e97d885e9b5f37c7f87d9c2872435e4acf9fc4c9157264cf387b'
+            '8f0fbe06c8d6e8fdf37feb31f244930025d76785451f9049fd90fe6e23c259f6')
+
+package() {
+  npm install -g --prefix "${pkgdir}/usr" --cache "${srcdir}/npm-cache" "${srcdir}/${pkgver}.tar.gz"
+  cd "${pkgdir}/usr/lib/node_modules/zigbee2mqtt"
+  npm install --save-dev
+  tsc -b .
+  npm prune --production
+  node index.js writehash
+  cp lib/util/settings.schema.json dist/util
+  cd -
+  find ${pkgdir} -name "*.d.ts" -delete
+  find ${pkgdir} -name "*.d.ts.map" -delete
+  find ${pkgdir} -name "*.js.map" -delete
+
+  find "${pkgdir}/usr" -type d -exec chmod 755 {} +
+  chown -R root:root "${pkgdir}"
+
+  find "${pkgdir}" -name package.json -print0 | xargs -r -0 sed -i '/_where/d'
+
+  cd "${pkgname}-${pkgver}"
+  install -Dm644 data/configuration.yaml "${pkgdir}/etc/${pkgname}/configuration.yaml"
+
+  install -Dm644 "${srcdir}/${pkgname}.service" "${pkgdir}/usr/lib/systemd/system/${pkgname}.service"
+  install -Dm644 "${srcdir}/${pkgname}.sysusers" "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+  install -Dm644 "${srcdir}/${pkgname}.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+}
