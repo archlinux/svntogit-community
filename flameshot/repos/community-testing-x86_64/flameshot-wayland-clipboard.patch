@@ -1,0 +1,154 @@
+From 27961143dd8d73cb9a5cfda8f79f7890e20bf4f5 Mon Sep 17 00:00:00 2001
+From: Jeremy Borgman <borgman.jeremy@pm.me>
+Date: Wed, 19 Jan 2022 05:16:36 -0600
+Subject: [PATCH] working on wayland clipboard
+
+---
+ .github/workflows/Linux-pack.yml              |  1 +
+ CMakeLists.txt                                |  2 ++
+ packaging/flatpak/org.flameshot.Flameshot.yml |  5 ++--
+ snapcraft.yaml                                |  2 ++
+ src/CMakeLists.txt                            | 10 +++++++
+ src/utils/screenshotsaver.cpp                 | 26 +++++++++++++++----
+ 6 files changed, 39 insertions(+), 7 deletions(-)
+
+diff --git a/.github/workflows/Linux-pack.yml b/.github/workflows/Linux-pack.yml
+index da5ab0d00..9e714965d 100644
+--- a/.github/workflows/Linux-pack.yml
++++ b/.github/workflows/Linux-pack.yml
+@@ -484,6 +484,7 @@ jobs:
+             fcitx-frontend-qt5 \
+             openssl \
+             ca-certificates
++
+       - name: Get go-appimage tool
+       # Will not use linuxdeployqt anymore, because it suopprts currently still-supported mainstream distribution,
+       # which is glibc 2.23. For more information, please see https://github.com/probonopd/linuxdeployqt/issues/340.
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 66fd0581e..ec6479a7e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -67,6 +67,7 @@ option(USE_MONOCHROME_ICON "Build using monochrome icon as default" OFF)
+ option(GENERATE_TS "Regenerate translation source files" OFF)
+ option(USE_EXTERNAL_SINGLEAPPLICATION "Use external QtSingleApplication library" OFF)
+ option(USE_LAUNCHER_ABSOLUTE_PATH "Use absolute path for the desktop launcher" ON)
++option(USE_WAYLAND_CLIPBOARD "USE KF Gui Wayland Clipboard" OFF)
+ 
+ include(cmake/StandardProjectSettings.cmake)
+ 
+@@ -108,6 +109,7 @@ option(BUILD_STATIC_LIBS ON)
+ option(BUILD_SHARED_LIBS OFF)
+ add_subdirectory(external/Qt-Color-Widgets EXCLUDE_FROM_ALL) 
+ 
++
+ if (APPLE)
+   add_subdirectory(external/QHotkey)
+ endif()
+diff --git a/packaging/flatpak/org.flameshot.Flameshot.yml b/packaging/flatpak/org.flameshot.Flameshot.yml
+index 183a241b5..31a3d8af5 100644
+--- a/packaging/flatpak/org.flameshot.Flameshot.yml
++++ b/packaging/flatpak/org.flameshot.Flameshot.yml
+@@ -26,8 +26,9 @@ modules:
+   - name: flameshot
+     buildsystem: cmake-ninja
+     config-opts:
+-      - -DCMAKE_BUILD_TYPE=Release
++      - -DCMAKE_BUILD_TYPE=Release 
++      - -DUSE_WAYLAND_CLIPBOARD=1
+     sources:
+       - type: git
+         url: https://github.com/flameshot-org/flameshot.git
+-        branch: master
+\ No newline at end of file
++        branch: master
+diff --git a/snapcraft.yaml b/snapcraft.yaml
+index 6714d9f3d..8da86f9a9 100644
+--- a/snapcraft.yaml
++++ b/snapcraft.yaml
+@@ -46,6 +46,8 @@ parts:
+       - kde-frameworks-5-qt-5-15-core20
+     source: https://github.com/flameshot-org/flameshot.git
+     plugin: cmake
++    cmake-parameters:
++      - -DUSE_WAYLAND_CLIPBOARD=1
+     source-type: git
+     override-pull: |
+       snapcraftctl pull
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 4ae982cb7..4adc66a90 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -10,6 +10,10 @@ find_package(
+         DBus
+         LinguistTools)
+ 
++if (USE_WAYLAND_CLIPBOARD)
++    find_package(KF5GuiAddons)
++endif()
++
+ set(CMAKE_AUTOMOC ON)
+ set(CMAKE_AUTORCC ON)
+ set(CMAKE_AUTOUIC ON)
+@@ -190,8 +194,14 @@ target_link_libraries(
+         Qt5::Widgets
+         ${QTSINGLEAPPLICATION_LIBRARY}
+         QtColorWidgets
++
+ )
+ 
++if (USE_WAYLAND_CLIPBOARD)
++  target_compile_definitions(flameshot PRIVATE USE_WAYLAND_CLIPBOARD=1)
++  target_link_libraries(flameshot KF5::GuiAddons)
++endif()
++
+ if (APPLE)
+     set(MACOSX_BUNDLE_IDENTIFIER "org.flameshot")
+     set_target_properties(
+diff --git a/src/utils/screenshotsaver.cpp b/src/utils/screenshotsaver.cpp
+index 317a0d65e..8f0d4d9d9 100644
+--- a/src/utils/screenshotsaver.cpp
++++ b/src/utils/screenshotsaver.cpp
+@@ -9,6 +9,11 @@
+ #include "src/utils/filenamehandler.h"
+ #include "src/utils/globalvalues.h"
+ #include "utils/desktopinfo.h"
++
++#if USE_WAYLAND_CLIPBOARD
++#include <KSystemClipboard>
++#endif
++
+ #include <QApplication>
+ #include <QBuffer>
+ #include <QClipboard>
+@@ -33,15 +38,26 @@ void ScreenshotSaver::saveToClipboardMime(const QPixmap& capture,
+     QImageWriter imageWriter{ &buffer, imageType.toUpper().toUtf8() };
+     imageWriter.write(capture.toImage());
+ 
+-    QPixmap pngPixmap;
++    QPixmap formattedPixmap;
+     bool isLoaded =
+-      pngPixmap.loadFromData(reinterpret_cast<uchar*>(array.data()),
+-                             array.size(),
+-                             imageType.toUpper().toUtf8());
++      formattedPixmap.loadFromData(reinterpret_cast<uchar*>(array.data()),
++                                   array.size(),
++                                   imageType.toUpper().toUtf8());
+     if (isLoaded) {
+-        QMimeData* mimeData = new QMimeData;
++
++        auto mimeData = new QMimeData();
++
++#ifdef USE_WAYLAND_CLIPBOARD
++        mimeData->setImageData(formattedPixmap.toImage());
++        mimeData->setData(QStringLiteral("x-kde-force-image-copy"),
++                          QByteArray());
++        KSystemClipboard::instance()->setMimeData(mimeData,
++                                                  QClipboard::Clipboard);
++#else
+         mimeData->setData("image/" + imageType, array);
+         QApplication::clipboard()->setMimeData(mimeData);
++#endif
++
+     } else {
+         AbstractLogger::error()
+           << QObject::tr("Error while saving to clipboard");
