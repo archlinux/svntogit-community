@@ -1,8 +1,8 @@
 # Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
 
 pkgname=python-magic
-pkgver=5.40
-pkgrel=3
+pkgver=5.42
+pkgrel=1
 pkgdesc="Python bindings to the magic library"
 arch=('any')
 url='https://darwinsys.com/file/'
@@ -10,7 +10,7 @@ depends=('python')
 makedepends=('python-setuptools')
 license=('custom')
 source=("ftp://ftp.astron.com/pub/file/file-${pkgver}.tar.gz")
-sha512sums=('3b70df75fa4c9050d55b1ffdc28e5f3c8b8ef7d4efd1a06bf53f113b676d81114a85aae56e0897d32b53716662d64ad18ab251ca8c92c6405c69eb758bb99afb')
+sha512sums=('33c3c339a561c6cf787cc06a16444a971c62068b01827612c948207a9714107b617bed8148cd67e6280cb1c62ad4dfb1205fb8486ea9c042ce7e19b067d3bb05')
 
 package_python-magic() {
   cd "${srcdir}/file-${pkgver}/python"
