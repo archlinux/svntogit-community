@@ -3,7 +3,7 @@
 
 pkgname=fcitx5
 pkgver=5.0.18
-pkgrel=1
+pkgrel=2
 pkgdesc="Next generation of fcitx"
 arch=('x86_64')
 url="https://github.com/fcitx/fcitx5"
@@ -14,6 +14,7 @@ depends=('cairo' 'enchant' 'iso-codes' 'libgl' 'libxkbcommon-x11' 'pango' 'syste
          'wayland-protocols' 'xcb-imdkit' 'xcb-util-wm' 'libxkbfile' 'fmt' 'gdk-pixbuf2'
          'unicode-cldr-annotations')
 makedepends=('extra-cmake-modules' 'ninja')
+options=('debug')
 source=("https://download.fcitx-im.org/fcitx5/fcitx5/fcitx5-${pkgver}_dict.tar.xz"{,.sig})
 sha512sums=('a03cd2b8c556fe26470869a624061cc33ac7c6f19be0ba7e01b17c3e7866dee07dc7fed95b2376d670193ed67258abfba8914279ad23507b55312fd48a486be0'
             'SKIP')
