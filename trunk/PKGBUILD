@@ -7,8 +7,8 @@
 # Contributor: acxz <akashpatel2008 at yahoo dot com>
 
 pkgname=gtest
-pkgver=1.11.0
-pkgrel=4
+pkgver=1.12.0
+pkgrel=1
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
@@ -20,26 +20,12 @@ conflicts=('gmock')
 replaces=('gmock')
 provides=('gmock')
 _srcname=googletest-release-${pkgver}
-source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
-        gtest-gcc11-fix.patch::https://github.com/google/googletest/commit/d5ad28dbe14fca51038fb8c7610f11602b98f682.patch
-        gtest-version.patch)
-sha512sums=('6fcc7827e4c4d95e3ae643dd65e6c4fc0e3d04e1778b84f6e06e390410fe3d18026c131d828d949d2f20dde6327d30ecee24dcd3ef919e21c91e010d149f3a28'
-            'd566b3e0a72a4bb8ee0290342006829802502e246267b543ff4e4a63506366e9b5251b78a5951a3abf81a91889856ef2188394fa4a9d51c057f7478395fc12f7'
-            'e3e6476d938f65e74a0aa5bbfe58136db937205c8a0536399f46d0096ee728566247b85c82e0067300e465fcbc455a9e0d99611410dece70180aa92170357fbf')
-
-prepare() {
-  cd ${_srcname}
-  cp ../gtest-version.patch gtest-version.patch
-  sed "s|__GOOGLETEST_VERSION__|${pkgver}|g" -i gtest-version.patch
-  patch -Np1 -i gtest-version.patch
-  patch -p1 < ../gtest-gcc11-fix.patch
-  rm googletest/include/gtest/gtest-matchers.h.orig
-}
+source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz)
+sha512sums=('6216e76a8c988b6b3739f3988c85f369eef2a8036c4412621a0d3d04ceeada00d35e487363be0a265035ac78f1a5065e1fe054a285c43df23b6abcc69f8bfe3d')
 
 build() {
   cmake -H${_srcname} -Bbuild \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_INSTALL_LIBDIR=lib \
     -DBUILD_SHARED_LIBS=ON \
     -Dgtest_build_tests=ON
   cmake --build build
@@ -60,7 +46,6 @@ package() {
   install -Dm 644 README.md CONTRIBUTORS -t "${pkgdir}/usr/share/doc/${pkgname}"
 
   cd googletest
-  install -Dm 755 scripts/gtest-config.in -t "${pkgdir}/usr/bin"
   install -Dm 644 cmake/* -t "${pkgdir}/usr/src/googletest/cmake"
   install -Dm 644 src/* -t "${pkgdir}/usr/src/googletest/src"
   install -Dm 644 CMakeLists.txt -t "${pkgdir}/usr/src/googletest"
@@ -69,8 +54,6 @@ package() {
   install -Dm 644 cmake/* -t "${pkgdir}/usr/src/gmock/cmake"
   install -Dm 644 src/* -t "${pkgdir}/usr/src/gmock/src"
   install -Dm 644 CMakeLists.txt -t "${pkgdir}/usr/src/gmock"
-  install -Dm 644 scripts/generator/{*.py,LICENSE,README*} -t "${pkgdir}/usr/share/gmock/generator"
-  install -Dm 644 scripts/generator/cpp/* -t "${pkgdir}/usr/share/gmock/generator/cpp"
 
   sed -i 's|src/||' "${pkgdir}/usr/src/gmock/src/gmock-all.cc"
 
