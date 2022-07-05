@@ -5,7 +5,7 @@
 
 pkgname=r
 pkgver=4.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Language and environment for statistical computing and graphics'
 arch=(x86_64)
 license=(GPL)
@@ -47,6 +47,7 @@ build() {
                rdocdir=/usr/share/doc/R/ \
                --with-x \
                --enable-R-shlib \
+               --enable-memory-profiling \
                --with-lapack \
                --with-blas \
                F77=gfortran \
