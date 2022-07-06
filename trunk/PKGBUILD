@@ -1,10 +1,10 @@
 # Maintainer: Nicola Squartini <tensor5@gmail.com>
 
 _use_suffix=0
-pkgver=18.2.4
-_commit=f4ba63536a3558f814a81015ecbfaf3451be5694
-_chromiumver=100.0.4896.160
-_gcc_patchset=4
+pkgver=19.0.7
+_commit=2f4e7679f826c9c6d8ba08aa860f283e5d52e5ad
+_chromiumver=102.0.5005.134
+_gcc_patchset=6
 # shellcheck disable=SC2034
 pkgrel=1
 
@@ -35,7 +35,7 @@ optdepends=('kde-cli-tools: file deletion support (kioclient5)'
             'libappindicator-gtk3: StatusNotifierItem support'
             'pipewire: WebRTC desktop sharing under Wayland'
             'trash-cli: file deletion support (trash-put)'
-            "xdg-utils: open URLs with desktop's default (xdg-email, xdg-open)")
+            'xdg-utils: open URLs with desktop’s default (xdg-email, xdg-open)')
 if [[ ${_use_suffix} == 0 ]]; then
   # shellcheck disable=SC2034
   conflicts=("electron${_major_ver}")
@@ -52,34 +52,27 @@ source=('git+https://github.com/electron/electron.git'
         "electron.desktop"
         'default_app-icon.patch'
         'jinja-python-3.10.patch'
-        'std-vector-non-const.patch'
         'use-system-libraries-in-node.patch'
-        'webcodecs-stop-using-AudioOpusEncoder.patch'
-        'webrtc-check-existence-of-cursor-metadata.patch'
-        'fix-no-member-named-tie-in-namespace-std.patch'
-        'iwyu-add-utility-for-std-exchange.patch'
-        'iwyu-add-vector-needed-by-statsentry.patch'
-        'enable-GlobalMediaControlsCastStartStop.patch'
+        'std-vector-non-const.patch'
+        'roll-src-third_party-ffmpeg.patch'
+        'chromium-libxml-unbundle.patch'
         'sql-make-VirtualCursor-standard-layout-type.patch'
+        'remove-no-opaque-pointers-flag.patch'
        )
 # shellcheck disable=SC2034
 sha256sums=('SKIP'
             'SKIP'
-            'a6120e7d4eb5e131b87b6ab3b922e0c6cd78e15501e54cfb2019875173688d80'
+            '23f2a772c4a6e31394d6ee7b8dbb5967d3b92bd859093444913377934bede594'
             '3953f532a3ea5fce19ee33600c6ead89dcd066df6a01d3c3ab4c24f96e46fca2'
             '4484200d90b76830b69eea3a471c103999a3ce86bb2c29e6c14c945bf4102bae'
             'dd2d248831dd4944d385ebf008426e66efe61d6fdf66f8932c963a12167947b4'
             '55dbe71dbc1f3ab60bf1fa79f7aea7ef1fe76436b1d7df48728a1f8227d2134e'
-            '880abb38ea94058ad553eaec9989cb33aa3b10c54b44afcfddacef3e975152de'
             'c70652a8b24c237bcfd27469de32797a2cb46d9f0d63d897bb6418314a25644c'
-            '064daaa2b9d95b96ec04d8ddebf4af441f92263d123365b58fe73966866080af'
-            '88b2c8d9c6c1917f6632453f18aad7a3fd94d605eecb6c77ae2394ac5856ba95'
-            '7ad0106161bbf25e2e603ae1a723ae4217155ebb26eb4778363ad396e8c14156'
-            '6f666ef0acb08704ca58cc0d5e97e7ce64d8fea51042e593adae1ce15a61231c'
-            '0ec88c8022c946ac333cbc1060d6b9cacbef6c4a86fe8763d23add6939a3c490'
-            '779fb13f2494209d3a7f1f23a823e59b9dded601866d3ab095937a1a04e19ac6'
+            '76b969e1534e8c355b8b524a686cbf3b24136eaa6bd40b0c09fdd9866049f159'
+            '30df59a9e2d95dcb720357ec4a83d9be51e59cc5551365da4c0073e68ccdec44'
+            'fd3bf124aacc45f2d0a4f1dd86303fa7f2a3d4f4eeaf33854631d6cb39e12485'
             'b94b2e88f63cfb7087486508b8139599c89f96d7a4181c61fec4b4e250ca327a'
-           )
+            'e8ea8528ecb119de3380555c60ac8495ebdef502359fa2114c6c5c98f84698cd')
 
 _system_libs=('ffmpeg'
               'flac'
@@ -172,24 +165,24 @@ prepare() {
   cd ..
 
   echo "Applying local patches..."
-  # Upstream fixes
-  patch -Np1 -i ../webcodecs-stop-using-AudioOpusEncoder.patch
-  patch -Np1 -d third_party/webrtc <../webrtc-check-existence-of-cursor-metadata.patch
+  # Remove '-Xclang -no-opaque-pointers' flag not supported by our clang
+  patch -Np1 -i ../remove-no-opaque-pointers-flag.patch
 
-  # Upstream fixes
-  patch -Np1 -i ../fix-no-member-named-tie-in-namespace-std.patch
-  patch -Np1 -i ../iwyu-add-utility-for-std-exchange.patch
-  patch -Np1 -i ../iwyu-add-vector-needed-by-statsentry.patch
+  # Revert ffmpeg roll requiring new channel layout API support
+  # https://crbug.com/1325301
+  patch -Rp1 -i ../roll-src-third_party-ffmpeg.patch
 
-  # Revert kGlobalMediaControlsCastStartStop enabled by default
-  # https://crbug.com/1314342
-  patch -Rp1 -F3 -i ../enable-GlobalMediaControlsCastStartStop.patch
+  # https://chromium-review.googlesource.com/c/chromium/src/+/3488058
+  patch -Np1 -i ../chromium-libxml-unbundle.patch
 
   # https://chromium-review.googlesource.com/c/chromium/src/+/2862724
   patch -Np1 -i ../sql-make-VirtualCursor-standard-layout-type.patch
 
   # Fixes for building with libstdc++ instead of libc++
-  #patch -Np1 -i ../patches/
+  patch -Np1 -i ../patches/chromium-102-fenced_frame_utils-include.patch
+  patch -Np1 -i ../patches/chromium-102-regex_pattern-array.patch
+  patch -Np1 -i ../patches/chromium-102-swiftshader-template-instantiation.patch
+  patch -Np1 -i ../patches/chromium-102-symbolize-include.patch
 
   # Electron specific fixes
   patch -d third_party/electron_node/tools/inspector_protocol/jinja2 \
@@ -223,8 +216,24 @@ build() {
   export AR=ar
   export NM=nm
 
-  CFLAGS="${CFLAGS/-fexceptions/}"
-  CXXFLAGS="${CXXFLAGS/-fexceptions/}"
+  # Facilitate deterministic builds (taken from build/config/compiler/BUILD.gn)
+  CFLAGS+='   -Wno-builtin-macro-redefined'
+  CXXFLAGS+=' -Wno-builtin-macro-redefined'
+  CPPFLAGS+=' -D__DATE__=  -D__TIME__=  -D__TIMESTAMP__='
+
+  # Do not warn about unknown warning options
+  CFLAGS+='   -Wno-unknown-warning-option'
+  CXXFLAGS+=' -Wno-unknown-warning-option'
+
+  # Let Chromium set its own symbol level
+  CFLAGS=${CFLAGS/-g }
+  CXXFLAGS=${CXXFLAGS/-g }
+
+  # https://github.com/ungoogled-software/ungoogled-chromium-archlinux/issues/123
+  CFLAGS=${CFLAGS/-fexceptions}
+  CFLAGS=${CFLAGS/-fcf-protection}
+  CXXFLAGS=${CXXFLAGS/-fexceptions}
+  CXXFLAGS=${CXXFLAGS/-fcf-protection}
 
   # This appears to cause random segfaults when combined with ThinLTO
   # https://bugs.archlinux.org/task/73518
@@ -241,19 +250,19 @@ build() {
   cd src || exit
   export CHROMIUM_BUILDTOOLS_PATH="${PWD}/buildtools"
   GN_EXTRA_ARGS='
-    blink_symbol_level = 0
-    chrome_pgo_phase = 0
-    clang_use_chrome_plugins = false
     custom_toolchain = "//build/toolchain/linux/unbundle:default"
     host_toolchain = "//build/toolchain/linux/unbundle:default"
-    icu_use_data_file = false
-    is_component_ffmpeg = false
-    link_pulseaudio = true
-    rtc_use_pipewire = true
+    clang_use_chrome_plugins = false
+    symbol_level = 0
+    chrome_pgo_phase = 0
     treat_warnings_as_errors = false
-    use_custom_libcxx = false
+    rtc_use_pipewire = true
+    link_pulseaudio = true
     use_gnome_keyring = false
     use_sysroot = false
+    use_custom_libcxx = false
+    icu_use_data_file = false
+    is_component_ffmpeg = false
   '
   gn gen out/Release \
       --args="import(\"//electron/build/args/release.gn\") ${GN_EXTRA_ARGS}"
