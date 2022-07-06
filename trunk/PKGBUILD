@@ -8,7 +8,7 @@
 
 pkgname=gtest
 pkgver=1.12.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
@@ -20,11 +20,19 @@ conflicts=('gmock')
 replaces=('gmock')
 provides=('gmock')
 _srcname=googletest-release-${pkgver}
-source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz)
-sha512sums=('6216e76a8c988b6b3739f3988c85f369eef2a8036c4412621a0d3d04ceeada00d35e487363be0a265035ac78f1a5065e1fe054a285c43df23b6abcc69f8bfe3d')
+source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
+        gtest-version.patch)
+sha512sums=('6216e76a8c988b6b3739f3988c85f369eef2a8036c4412621a0d3d04ceeada00d35e487363be0a265035ac78f1a5065e1fe054a285c43df23b6abcc69f8bfe3d'
+            'ebfd53ac33298e870c04a1f89609d8327152d3d73e7842219af3a11d5ee484033543064b557cc9c8f45057e608e0ee347318070a3ea5d17040bace02110ed8df')
+
+prepare() {
+  cd ${_srcname}
+  sed "s|__GOOGLETEST_VERSION__|${pkgver}|g" -i ../gtest-version.patch
+  patch -Np1 -i ../gtest-version.patch
+}
 
 build() {
-  cmake -H${_srcname} -Bbuild \
+ cmake -H${_srcname} -Bbuild \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DBUILD_SHARED_LIBS=ON \
     -Dgtest_build_tests=ON
