@@ -7,13 +7,13 @@
 
 pkgname=mattermost-desktop
 pkgver=5.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Mattermost Desktop application'
 arch=(x86_64)
 url="https://github.com/${pkgname/-//}"
 license=(Apache)
-_electron=electron # 18
-_builderVersion='^23.0.3'
+_electron=electron # 19
+_builderVersion='^23.0.8'
 depends=($_electron)
 makedepends=(git
              gendesk
