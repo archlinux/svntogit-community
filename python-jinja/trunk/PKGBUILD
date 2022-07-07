@@ -4,7 +4,7 @@
 
 pkgname=python-jinja
 pkgver=3.1.2
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
@@ -25,7 +25,7 @@ build() {
 check() {
   cd Jinja2-$pkgver
   # https://github.com/pypa/setuptools/issues/2466
-  PYTHONPATH=build/lib pytest \
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=build/lib pytest \
     --deselect tests/test_loader.py::test_package_dir_list \
     --deselect tests/test_loader.py::test_package_dir_source \
     --deselect tests/test_loader.py::test_package_file_list \
