@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=npm
-pkgver=8.13.0
+pkgver=8.13.1
 pkgrel=1
 pkgdesc='A package manager for javascript'
 arch=('any')
@@ -14,7 +14,7 @@ depends=('nodejs' 'node-gyp' 'nodejs-nopt' 'semver')
 makedepends=('libgl' 'libxi' 'procps-ng' 'python')
 options=('!emptydirs')
 source=("https://github.com/npm/cli/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('1b67202f1842c2eba42c1b3d898c80aff0ffce04680368db3aa2ec348bb3b059ae3308fe8bb088ccf2ca28e0c3cb380d2181def1377da8817b731dd96bd3d4b2')
+sha512sums=('c70b7b0ea4ca7c5835187778bdc88f93b9084c59a20356de3f25c8fcff28812c913dbffbf408a6b1b60163653df587be32e60275778c7bc07347ff25e4aa3207')
 
 prepare() {
   cd cli-$pkgver
