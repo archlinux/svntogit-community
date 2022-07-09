@@ -1,0 +1,66 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
+# Contributor: FigoDaPaura <ffigoDaPaura>
+
+pkgname=lib32-virtualgl
+pkgver=3.0.1
+pkgrel=1
+pkgdesc="32-bit serverside components for 64-bit VirtualGL servers"
+arch=('x86_64')
+url="https://virtualgl.org"
+license=('LGPL')
+depends=('virtualgl' 'lib32-libxv' 'lib32-glu' 'lib32-libjpeg-turbo' 'lib32-opencl-driver' 'lib32-ocl-icd')
+makedepends=('lib32-libxv' 'lib32-glu' 'virtualgl' 'cmake' 'gcc-multilib' 'lib32-mesa' 'lib32-mesa-libgl' 'lib32-libxtst' 'opencl-headers' 'ninja')
+source=("https://downloads.sourceforge.net/project/virtualgl/${pkgver}/VirtualGL-${pkgver}.tar.gz"{,.sig}
+        https://github.com/VirtualGL/virtualgl/commit/46d09529563127fef0d42a4fb2681ae8d65a856b.patch)
+sha512sums=('d953b9c31ec3608a05da0069d83e7115a42e2c98bf169dcf97bf2d271cf7a5673e32d66247f0184aa40741597ca0732edb5f7992a82c5bc48bac25f1cb1889ef'
+            'SKIP'
+            'f17715b21f91439675981d2e6dad635cccbb36ddc012f037ff9d0859a21179f6881aac1ad7f5630e2311146bec7b10284bad982986b1e2f43beb3b24a0a8796b')
+b2sums=('7ed73406361a5032806a6d9196328b48e23caf4dea668f6cbbf2ebcee3a0e76925141a826072f3b317327c71773683df65d5ecb16ffd92a1c5ddb088a63a3f6f'
+        'SKIP'
+        'b37e84af828c4d7e37a9ec424aa92dc25330be9362f0c7bdc2624eac0898d5995be1647c690b2b7be9e656747785325aed961ea11ef5f653ea05ab44b4b3e4d7')
+validpgpkeys=('AE1A7BA4EFFF9A9987E1474C4BACCAB36E7FE9A1') # The VirtualGL Project (Signing key for official binaries) <information@VirtualGL.org>
+
+prepare() {
+  cd "VirtualGL-$pkgver"
+
+  # FS#48403
+  export LDFLAGS="${LDFLAGS/--as-needed,}"
+
+  patch -Np1 -i "$srcdir"/46d09529563127fef0d42a4fb2681ae8d65a856b.patch
+}
+
+build() {
+  cd "VirtualGL-$pkgver"
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
+
+  cmake \
+      -GNinja \
+      -Bbuild \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DCMAKE_INSTALL_LIBDIR=/usr/lib32 \
+      -DCMAKE_INSTALL_BINDIR=/usr/bin \
+      -DCMAKE_BUILD_TYPE='None' \
+      -DTJPEG_INCLUDE_DIR=/usr/include \
+      -DTJPEG_LIBRARY=/usr/lib32/libturbojpeg.so \
+      -DX11_X11_LIB=/usr/lib32/libX11.so \
+      -DX11_Xext_LIB=/usr/lib32/libXext.so \
+      -DOPENGL_gl_LIBRARY=/usr/lib32/libGL.so
+  ninja -C build
+}
+
+package() {
+  cd "VirtualGL-$pkgver"
+  DESTDIR="$pkgdir" ninja install -C build
+
+  cd "$pkgdir/usr"
+  mv bin/glxspheres glxspheres32
+  rm -rf bin
+  mkdir -p bin
+  mv glxspheres32 bin/
+
+  rm -rf "$pkgdir/usr/share"
+  rm -rf "$pkgdir/usr/include"
+}
