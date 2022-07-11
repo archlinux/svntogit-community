@@ -6,7 +6,7 @@
 
 pkgname=python-sphinx
 pkgver=5.0.2
-pkgrel=2
+pkgrel=3
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -42,6 +42,7 @@ validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tk
 
 prepare() {
   cd Sphinx-$pkgver
+  sed -i 's/0.19/0.20/' setup.py
   patch --forward --strip=1 --input=../sphinx-use-get_settings.patch
 }
 
