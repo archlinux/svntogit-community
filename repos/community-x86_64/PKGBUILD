@@ -5,7 +5,7 @@
 
 pkgname=fwupd
 pkgver=1.8.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
 url="https://github.com/fwupd/fwupd"
@@ -13,6 +13,7 @@ license=(LGPL)
 depends=(libxmlb efivar python libsmbios libgusb
          polkit shared-mime-info tpm2-tss flashrom
          libjcat fwupd-efi gcab hicolor-icon-theme
+         bluez gnutls
          libarchive.so libcurl.so libcbor.so
          libjson-glib-1.0.so libgudev-1.0.so libmm-glib.so
          libqmi-glib.so libprotobuf-c.so)
@@ -43,14 +44,10 @@ validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richar
 build() {
     arch-meson ${pkgname}-${pkgver} build \
         -D b_lto=false \
-        -D gresource_quirks=disabled \
-        -D plugin_modem_manager=enabled \
-        -D plugin_intel_spi=true \
-        -D lzma=enabled \
-        -D cbor=enabled \
         -D docs=enabled \
-        -D plugin_flashrom=true \
-        -D supported_build=true \
+        -D gresource_quirks=disabled \
+        -D plugin_intel_spi=true \
+        -D supported_build=enabled \
         -D efi_binary=false
     meson compile -C build
 }
@@ -69,4 +66,5 @@ package() {
     mv "${pkgdir}"/usr/share/man/man1/{,fwupd-}dbxtool.1
     # Remove msr module-load config as it is built-in
     rm "${pkgdir}"/usr/lib/modules-load.d/fwupd-msr.conf
+    rmdir "${pkgdir}"/usr/lib/modules-load.d
 }
