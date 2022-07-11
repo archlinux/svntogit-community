@@ -4,7 +4,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.8.1
+pkgver=1.8.2
 pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -19,7 +19,7 @@ depends=(libxmlb efivar python libsmbios libgusb
 optdepends=(
     'udisks2: UEFI firmware upgrade support'
 )
-makedepends=(meson valgrind gobject-introspection gtk-doc
+makedepends=(meson valgrind gobject-introspection gi-docgen
              python-cairo noto-fonts noto-fonts-cjk python-gobject vala
              bash-completion python-pillow help2man gnu-efi-libs)
 checkdepends=(umockdev)
@@ -36,18 +36,19 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/uefi_capsule.conf'
 )
 source=("https://people.freedesktop.org/~hughsient/releases/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha256sums=('5756466442eb9134fb40cdc8a46f9e01003247c8eac82fa5d8b16f6420375b79'
+sha256sums=('8baaf567d8e23600363a4ed3df1dcebbdff66593704c19ebd164ba78ea8598de'
             'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
 build() {
     arch-meson ${pkgname}-${pkgver} build \
         -D b_lto=false \
-        -D plugin_modem_manager=true \
+        -D gresource_quirks=disabled \
+        -D plugin_modem_manager=enabled \
         -D plugin_intel_spi=true \
-        -D lzma=true \
+        -D lzma=enabled \
         -D cbor=enabled \
-        -D docs=gtkdoc \
+        -D docs=enabled \
         -D plugin_flashrom=true \
         -D supported_build=true \
         -D efi_binary=false
