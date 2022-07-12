@@ -1,43 +1,37 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
 
-_pkgname=pydantic
-pkgname=python-$_pkgname
-pkgver=1.8.2
-pkgrel=3
+_name=pydantic
+pkgname=python-$_name
+pkgver=1.9.1
+pkgrel=1
 pkgdesc='Data parsing and validation using Python type hints'
-arch=('any')
-url='https://github.com/samuelcolvin/pydantic'
-license=('MIT')
-depends=('python' 'python-typing-extensions')
-optdepends=('python-email-validator: email')
-makedepends=('python-setuptools')
-checkdepends=('python-pytest-runner' 'python-pytest-mock')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
-        python310.patch)
-sha512sums=('0a28c64b97678b932092e546da877a4a6d104fc7d3b7cb043b3494f0b7c6900cdc1ab8a83bdbd1879956a81da1b28ca27578b1a003bdca3e08f0f107e5690e06'
-            '488ffd8a76a0b99a830a1765518da4e67cec42c45db9ca45600fb78f3f5b17542522cdc4aa0f1b74618b7cdebd7410f162cb717bb146478746dfd31a0e2f6991')
-
-prepare() {
-  cd $_pkgname-$pkgver
-  patch -Np1 -i ../python310.patch
-}
+arch=(any)
+url="https://github.com/samuelcolvin/pydantic"
+license=(MIT)
+depends=(python python-typing-extensions)
+optdepends=(
+  'python-dotenv: for .env file support'
+  'python-email-validator: for email validation'
+)
+makedepends=(python-build python-installer python-setuptools python-wheel)
+checkdepends=(python-pytest python-pytest-mock)
+source=($_name-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz)
+sha512sums=('6343a4cbaf49c38bcf038da21ace9f37cbcd3f05364307c0b9b5006f3fe4c9db4513f557b5388783dbb08892dbdc2a54689988edf7d1bdc6e794b0e755213ecb')
+b2sums=('94022c7ca8cfa29f51f814171d85d1b95f5a605fd685d47309f3f233bbb10d434a1f691f95c40dc99619284c81556d322cad7f63d486f7c3dcbe3d875827617c')
 
 build() {
-  cd $_pkgname-$pkgver
-
-  python setup.py build
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  cd $_pkgname-$pkgver
-
-  python setup.py pytest
+  cd $_name-$pkgver
+  pytest -vv
 }
 
 package() {
-  cd $_pkgname-$pkgver
-
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
-
-  install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
 }
