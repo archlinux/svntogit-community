@@ -1,11 +1,14 @@
+# Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+# Maintainer: Tim Meusel <tim@bastelfreak.de>
 # Contributor: Thomas Dziedzic <gostrc@gmail.com>
 # Contributor: Allan McRae <allan@archlinux.org>
 # Contributor: John Proctor <jproctor@prium.net>
 # Contributor: Jeramy Rutley <jrutley@gmail.com>
 
-pkgname=(ruby ruby-docs)
+pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -38,7 +41,7 @@ check() {
 
 package_ruby() {
   pkgdesc='An object-oriented language for quick and easy programming'
-  depends=(gdbm openssl libffi libyaml libxcrypt gmp zlib rubygems ruby-irb)
+  depends=(gdbm openssl libffi libyaml libxcrypt gmp zlib rubygems ruby-stdlib ruby-bundledgems)
   optdepends=(
       'ruby-docs: Ruby documentation'
       'tk: for Ruby/TK'
@@ -60,18 +63,15 @@ package_ruby() {
   # remove bundler as it shipped as a separate package
   rm -r "${pkgdir}"/usr/lib/ruby/${rubyver}/{bundler,bundler.rb}
   rm "${pkgdir}"/usr/bin/{bundle,bundler}
-  rm "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/bundler-*.gemspec
 
   # remove bundled rdoc gem
   rm -r "${pkgdir}"/usr/lib/ruby/${rubyver}/{rdoc,rdoc.rb}
   rm "${pkgdir}"/usr/bin/{rdoc,ri}
-  rm "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/rdoc-*.gemspec
   rm "${pkgdir}"/usr/share/man/man1/ri.1
 
   # remove irb as it is a separate package now
   rm -r "${pkgdir}"/usr/lib/ruby/${rubyver}/{irb,irb.rb}
   rm "${pkgdir}"/usr/bin/irb
-  rm "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/irb-*.gemspec
   rm "${pkgdir}"/usr/share/man/man1/irb.1
 
   # remove other binaries that are shipped as separate packages
@@ -82,6 +82,21 @@ package_ruby() {
   rm -r "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/gems/*
   rm "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/*.gemspec
   rm "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/cache/*.gem
+
+  # remove already packaged stdlib gems (needs to be as dependency in ruby-stdlib)
+  local stdlib_gems=(
+    bundler
+    irb
+    json
+    psych
+    rdoc
+    reline
+    stringio
+  )
+
+  for stdlib_gem in "${stdlib_gems[@]}"; do
+    rm -v "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/${stdlib_gem}-*.gemspec
+  done
 }
 
 package_ruby-docs() {
@@ -93,4 +108,118 @@ package_ruby-docs() {
 
   install -D -m644 COPYING "${pkgdir}/usr/share/licenses/ruby-docs/LICENSE"
   install -D -m644 BSDL "${pkgdir}/usr/share/licenses/ruby-docs/BSDL"
+}
+
+package_ruby-stdlib() {
+  # upstream list of gems contained in stdlib ( https://github.com/ruby/ruby/tree/master/{ext,lib} )
+  pkgdesc='A vast collection of classes and modules that you can require in your code for additional features'
+
+  depends=(
+    #ruby-abbrev
+    #ruby-base64
+    #ruby-benchmark
+    #ruby-bigdecimal
+    ruby-bundler
+    #ruby-cgi
+    #ruby-csv
+    #ruby-date
+    #ruby-dbm   # removed in 3.1.2
+    #ruby-debug   # removed in 3.1.2
+    #ruby-delegate
+    #ruby-did_you_mean
+    #ruby-digest
+    #ruby-drb
+    #ruby-english
+    #ruby-erb
+    #ruby-etc
+    #ruby-fcntl
+    #ruby-fiddle
+    #ruby-fileutils
+    #ruby-find
+    #ruby-forwardable
+    #ruby-gdbm   # removed in 3.1.2
+    #ruby-getoptlong
+    #ruby-io-console
+    #ruby-io-nonblock
+    #ruby-io-wait
+    #ruby-ipaddr
+    ruby-irb
+    ruby-json
+    #ruby-logger
+    #ruby-matrix   # removed in 3.1.2
+    #ruby-mutex_m
+    #ruby-net-ftp   # removed in 3.1.2
+    #ruby-net-http
+    #ruby-net-imap   # removed in 3.1.2
+    #ruby-net-pop   # removed in 3.1.2
+    #ruby-net-protocol
+    #ruby-net-smtp   # removed in 3.1.2
+    #ruby-nkf
+    #ruby-observer
+    #ruby-open-uri
+    #ruby-open3
+    #ruby-openssl
+    #ruby-optparse
+    #ruby-ostruct
+    #ruby-pathname
+    #ruby-pp
+    #ruby-prettyprint
+    #ruby-prime   # removed in 3.1.2
+    #ruby-pstore
+    ruby-psych
+    #ruby-racc
+    ruby-rdoc
+    #ruby-readline
+    #ruby-readline-ext
+    ruby-reline
+    #ruby-resolv
+    #ruby-resolv-replace
+    #ruby-rinda
+    #ruby-securerandom
+    #ruby-set
+    #ruby-shellwords
+    #ruby-singleton
+    ruby-stringio
+    #ruby-strscan
+    #ruby-syslog
+    #ruby-tempfile
+    #ruby-time
+    #ruby-timeout
+    #ruby-tmpdir
+    #ruby-tracer   # removed in 3.1.2
+    #ruby-tsort
+    #ruby-un
+    #ruby-uri
+    #ruby-weakref
+    #ruby-yaml
+    #ruby-zlib
+
+    #ruby-error_highlight   # new in 3.2.1
+    #ruby2_keywords   # new in 3.1.2 - already exists in [community]
+  )
+}
+
+package_ruby-bundledgems() {
+  # upstream list of bundled gems ( https://github.com/ruby/ruby/blob/master/gems/bundled_gems )
+  pkgdesc='Ruby Gems (third-party libraries) that are installed by default when Ruby is installed'
+
+  depends=(
+    ruby-minitest
+    ruby-power_assert
+    ruby-rake
+    #ruby-rbs
+    ruby-rexml
+    #ruby-rss
+    ruby-test-unit
+    #ruby-typeprof
+
+    # --- new in 3.1.2
+    #ruby-debug
+    #ruby-matrix
+    #ruby-net-ftp
+    #ruby-net-imap
+    #ruby-net-pop
+    #ruby-net-smtp
+    #ruby-prime
+  )
 }
