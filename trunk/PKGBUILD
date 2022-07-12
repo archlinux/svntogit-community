@@ -1,53 +1,89 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
 
-_pkgname=fastapi
-pkgname=python-$_pkgname
-pkgver=0.68.1
-pkgrel=2
+_name=fastapi
+pkgname=python-$_name
+pkgver=0.78.0
+pkgrel=1
 pkgdesc='FastAPI framework, high performance, easy to learn, fast to code, ready for production'
-arch=('any')
-url='https://github.com/tiangolo/fastapi'
-license=('MIT')
-depends=('python-starlette' 'python-pydantic')
-optdepends=('python-requests' 'python-aiofiles' 'python-jinja' 'python-itsdangerous'
-            'python-yaml' 'python-graphene' 'python-ujson' 'python-orjson'
-            'python-email-validator' 'python-python-multipart')
-makedepends=('python-setuptools' 'python-dephell')
-checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-asyncio'
-              'python-requests' 'python-aiofiles' 'python-jinja' 'python-itsdangerous'
-              'python-yaml' 'python-graphene' 'python-ujson' 'python-orjson'
-              'python-email-validator'  'python-pyjwt' 'python-sqlalchemy'
-              'python-peewee' 'python-flask' 'python-passlib'
-              'python-bcrypt' 'python-httpx' 'python-python-multipart'
-              'python-databases' 'python-aiosqlite' 'python-jose')
-source=("$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz")
-sha512sums=('754f6ede434fcf09fc71753a47b101254350dfda35cf0f500583c531a3dd6439694b61998091a104b79921e6c5855d6696e2736b2b45e44e63b8cbdf66aede79')
+arch=(any)
+url="https://github.com/tiangolo/fastapi"
+license=(MIT)
+depends=(python-pydantic python-starlette)
+optdepends=(
+  'hypercorn: for Hypercorn as ASGI server'
+  'python-email-validator: for email validation'
+  'python-itsdangerous: for SessionMiddleware support'
+  'python-jinja: for default starlette template configuration'
+  'python-orjson: for ORJSONResponse'
+  'python-python-multipart: for form parsing support'
+  'python-pyyaml: for starlette SchemaGenerator support'
+  'python-requests: for TestClient support'
+  'python-ujson: for faster JSON parsing and UJSONResponse'
+  'uvicorn: for Uvicorn as ASGI server'
+)
+makedepends=(python-build python-installer python-flit python-wheel)
+checkdepends=(
+  # test dependencies
+  python-aiosqlite
+  python-anyio
+  python-databases
+  python-flask
+  python-httpx
+  python-peewee
+  python-pytest
+  python-pytest-cov
+  python-sqlalchemy
+  python-trio
+
+  # optdepends
+  python-email-validator
+  python-itsdangerous
+  python-jinja
+  python-orjson
+  python-python-multipart
+  python-pyyaml
+  python-requests
+  python-ujson
+  uvicorn
+
+  # dev depends
+  python-bcrypt
+  python-cryptography
+  python-jose
+  python-passlib
+)
+source=($_name-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz)
+sha512sums=('75def8903b957ab4e3f975ae6c60ad45ef66e0054d649d326f45286e5fe2b5edeb76fd727b8710f71aa68413df2f4398f1af070526594dde8dfe54b1ef516f0c')
+b2sums=('d15e35c8d33eb025dda3de4e6351016ede481cc7bbdd15c2defc966fe4139dacf4a7ca8e1781ac373e7a6e6d1c437b1f650ab7a980f0d4d345beb72726b29a6a')
 
 prepare() {
-  cd $_pkgname-$pkgver
-
-  dephell deps convert --from pyproject.toml --to setup.py
-
-  # don't pin starlette dependency
+  cd $_name-$pkgver
+  # do not pin starlette dependency
   sed -i 's|starlette.*"|starlette"|' pyproject.toml
 }
 
 build() {
-  cd $_pkgname-$pkgver
-
-  python setup.py build
+  cd $_name-$pkgver
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
-  cd $_pkgname-$pkgver
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  local _deselected=(
+    --deselect docs_src/sql_databases/sql_app_py310/tests/test_sql_app.py::test_create_user
+    --deselect docs_src/sql_databases/sql_app_py39/tests/test_sql_app.py::test_create_user
+  )
 
-  python -m pytest -p no:warnings
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  pytest -vv -p no:warnings "${_deselected[@]}"
 }
 
 package() {
-  cd $_pkgname-$pkgver
-
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
-
-  install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
 }
