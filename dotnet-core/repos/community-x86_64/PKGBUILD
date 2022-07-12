@@ -13,9 +13,9 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=6.0.2.sdk102
+pkgver=6.0.6.sdk106
 pkgrel=1
-_bootstrapver=0.1.0-6.0.100-bootstrap.29
+_bootstrapver=6.0.105
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -44,7 +44,7 @@ options=(
   !lto
   staticlibs
 )
-_tag=49861cb924cdd74be8de19206b48de4f04c0ecbe
+_tag=12b1eb5c5887038494f4ebc15110f0349d5b2d19
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
@@ -54,13 +54,13 @@ source=(
 )
 noextract=(Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz)
 b2sums=('SKIP'
-        'a0171c3a8acdb3f5c56359e274984081f5e2c54bd02df677987dc57711e856ccde9266a739bc7db4b17da3ff7f922a3370a23d2be2e5d92e9ebf17c016c2e6e7'
+        '86f31d7a3a262051b865832cfa31e41b886182044e8ed3506103cd2f1c1d73644762b8167aa8e86c950e21b983e86f92021cc61b71331a1330b05f06c0b42ace'
         '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
         'b9472b3967c9d7549ee2bbf0180d919748b40b1f9a65b1c3789be40f62ed17a9d37c2020409f7835570620108bd5ec43e728966d075d66bf0b7261cdd36a60c3'
         '95b083b842da6049a084ca015b7ddc099550aa818fc382d556cca832fee52265be568d20a2c50e70819aef6cf879e7a368f7dd3b5966356643b2efdd756e73f4')
 
 prepare() {
-  cp -r /usr/share/dotnet .
+  #cp -r /usr/share/dotnet .
   cd dotnet-installer
   # fix bootstrap
   git remote set-url origin https://github.com/dotnet/installer.git
@@ -110,10 +110,10 @@ build() {
 
   cd ../sources
 
-  sed -i -E 's|( /p:BuildDebPackage=false)|\1 /p:EnablePackageValidation=false|' src/runtime.*/eng/SourceBuild.props
-  sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_LIBUNWIND=TRUE|' src/runtime.*/eng/SourceBuild.props
+  sed -i -E 's|( /p:BuildDebPackage=false)|\1 /p:EnablePackageValidation=false|' src/runtime/eng/SourceBuild.props
+  sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_LIBUNWIND=TRUE|' src/runtime/eng/SourceBuild.props
 
-  pushd src/sdk.*
+  pushd src/sdk
   patch -Np1 -i ../../../dotnet-core-sdk-telemetry-optout.patch
   popd
 
@@ -121,7 +121,6 @@ build() {
 
   ./prep.sh
   ./build.sh \
-    --with-sdk "${srcdir}"/dotnet \
     -- \
     /v:n \
     /p:ContinueOnPrebuiltBaselineError=true \
@@ -129,6 +128,7 @@ build() {
     /p:MinimalConsoleLogOutput=false \
     /p:PrebuiltPackagesPath="${srcdir}"/sources/packages \
     /p:SkipPortableRuntimeBuild=true
+    #--with-sdk "${srcdir}"/dotnet \
 }
 
 package_dotnet-host() {
@@ -146,8 +146,8 @@ package_dotnet-host() {
   bsdtar -xf dotnet-sdk-${pkgver%.*.sdk*}.${pkgver#*sdk}-arch-x64.tar.gz -C "${pkgdir}"/usr/share/licenses/dotnet-host/ --no-same-owner LICENSE.txt ThirdPartyNotices.txt
   ln -s /usr/share/dotnet/dotnet "${pkgdir}"/usr/bin/dotnet
   ln -s /usr/share/dotnet/host/fxr/${pkgver%.sdk*}/libhostfxr.so "${pkgdir}"/usr/lib/libhostfxr.so
-  install -Dm 644 ../../../src/sdk.*/scripts/register-completions.bash "${pkgdir}"/usr/share/bash-completion/completions/dotnet
-  install -Dm 644 ../../../src/sdk.*/scripts/register-completions.zsh "${pkgdir}"/usr/share/zsh/site-functions/_dotnet
+  install -Dm 644 ../../../src/sdk/scripts/register-completions.bash "${pkgdir}"/usr/share/bash-completion/completions/dotnet
+  install -Dm 644 ../../../src/sdk/scripts/register-completions.zsh "${pkgdir}"/usr/share/zsh/site-functions/_dotnet
   install -Dm 644 ../../../../dotnet.sh -t "${pkgdir}"/etc/profile.d/
 }
 
