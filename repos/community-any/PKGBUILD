@@ -1,22 +1,35 @@
-# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Lukas Fleischer <lfleischer@archlinux.org>
 
 pkgname=python-magic
-pkgver=5.42
+pkgver=0.4.27
 pkgrel=1
-pkgdesc="Python bindings to the magic library"
-arch=('any')
-url='https://darwinsys.com/file/'
-depends=('python')
-makedepends=('python-setuptools')
-license=('custom')
-source=("ftp://ftp.astron.com/pub/file/file-${pkgver}.tar.gz")
-sha512sums=('33c3c339a561c6cf787cc06a16444a971c62068b01827612c948207a9714107b617bed8148cd67e6280cb1c62ad4dfb1205fb8486ea9c042ce7e19b067d3bb05')
+epoch=1
+pkgdesc="A python wrapper for libmagic"
+arch=(any)
+url="https://github.com/ahupp/python-magic"
+depends=(file python)
+makedepends=(python-build python-installer python-setuptools python-wheel)
+checkdepends=(python-pytest)
+license=(MIT)
+# tests not in pypi sdist tarball
+# source=(https://files.pythonhosted.org/packages/source/${pkgname::1}/$pkgname/$pkgname-$pkgver.tar.gz)
+source=($pkgname-$pkgver.tar.gz::https://github.com/ahupp/$pkgname/archive/refs/tags/$pkgver.tar.gz)
+sha512sums=('a476730a5caa9a2a784187f57743d5cec4b1829a6a76d4d1fb4e0112caf5487888961df293bc38074ef1a5d313b0fc4aed4cc99b980f5336e8a907c44a33e84e')
+b2sums=('4ba22d0f8bd5e70eb37e3b46eba1b885d49682bf45d703ad7966bcc67614427ebe597e3100575f863b7e54421c6de6fc875af24a9d5b49742fe07b361b65f198')
 
-package_python-magic() {
-  cd "${srcdir}/file-${pkgver}/python"
+build() {
+  cd $pkgname-$pkgver
+  python -m build --wheel --no-isolation
+}
 
-  python setup.py install --root="${pkgdir}" --optimize=1
+check() {
+  cd $pkgname-$pkgver
+  LC_ALL=en_US.UTF-8 pytest -vv
+}
 
-  install -Dm0644 "${srcdir}/file-${pkgver}/COPYING" \
-    "${pkgdir}/usr/share/licenses/${pkgname}/COPYING"
+package() {
+  cd $pkgname-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
 }
