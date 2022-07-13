@@ -4,12 +4,12 @@
 _name=pydantic
 pkgname=python-$_name
 pkgver=1.9.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Data parsing and validation using Python type hints'
-arch=(any)
+arch=(x86_64)
 url="https://github.com/samuelcolvin/pydantic"
 license=(MIT)
-depends=(python python-typing-extensions)
+depends=(cython python python-typing-extensions)
 optdepends=(
   'python-dotenv: for .env file support'
   'python-email-validator: for email validation'
