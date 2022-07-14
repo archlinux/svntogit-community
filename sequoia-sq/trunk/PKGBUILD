@@ -1,7 +1,7 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=sequoia-sq
-pkgver=0.26.0
+pkgver=0.27.0
 pkgrel=1
 pkgdesc='Command-line frontends for Sequoia'
 url='https://sequoia-pgp.org/'
@@ -19,12 +19,6 @@ validpgpkeys=(
   D2F2C5D45BE9FDE6A4EE0AAF31855247603831FD # justus@sequoia-pgp.org
   CBCD8F030588653EEDD7E2659B7DD433F254904A # justus@sequoia-pgp.org
 )
-
-prepare() {
-  cd sequoia
-  # sq: When merging keyrings, produce output in a reproducible order
-  git cherry-pick -n 8b0506f8b1570b34ccec908ed4fa3797cbe9222f
-}
 
 build() {
   cd sequoia/sq
@@ -45,7 +39,7 @@ package() {
 	install -Dm 644 target/_sq -t "${pkgdir}/usr/share/zsh/site-functions"
 	install -Dm 644 target/sq.fish -t "${pkgdir}/usr/share/fish/vendor_completions.d"
 
-  install -Dm 644 sq/man-sq-net-autocrypt/*.1 -t "${pkgdir}/usr/share/man/man1"
+  install -Dm 644 sq/man-sq-autocrypt/*.1 -t "${pkgdir}/usr/share/man/man1"
 }
 
 # vim: ts=2 sw=2 et:
