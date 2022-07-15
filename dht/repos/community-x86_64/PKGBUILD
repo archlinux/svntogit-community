@@ -3,7 +3,7 @@
 
 pkgname=dht
 pkgver=0.27
-pkgrel=1
+pkgrel=2
 pkgdesc='BitTorrent DHT library'
 arch=(x86_64)
 url='https://github.com/jech/dht'
