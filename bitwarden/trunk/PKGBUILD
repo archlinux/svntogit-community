@@ -3,8 +3,8 @@
 
 pkgname=bitwarden
 pkgver=2022.6.2
-pkgrel=1
-_electronversion=16
+pkgrel=2
+_electronversion=19
 pkgdesc='A secure and free password manager for all of your devices'
 arch=('x86_64')
 url='https://github.com/bitwarden/clients/tree/master/apps/desktop'
@@ -52,7 +52,7 @@ prepare() {
 
 build() {
 	cd bitwarden/apps/desktop
-	electronDist=/usr/lib/electron$_electronversion
+	electronDist=/usr/lib/electron
 	electronVer=$(electron$_electronversion --version | tail -c +2)
 	export npm_config_build_from_source=true
 	export npm_config_cache="$srcdir/npm_cache"
