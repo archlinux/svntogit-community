@@ -4,7 +4,7 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=7.1.0
+pkgver=7.1.1
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
@@ -25,8 +25,8 @@ source=(https://github.com/$pkgname/$pkgname-server/archive/v$pkgver/$_server_ar
         $pkgname.service
         $pkgname.sysusers
         $pkgname.tmpfiles)
-sha256sums=('47062174cebc21a715e4a39d060be7e7cc057c213b807d113d68d16ded770174'
-            '5991dfe1fb41aced3e6af89babd4f08574a101c2fb5989f4ad020b59519910cd'
+sha256sums=('4f72b35fcb4015f1a210b7f84d68f78fe2b9da5ee8bfc4661889abb492424784'
+            '61bf4f7766263582ba8d1adb62709031edb46abdd807085f248a3ed786c318b7'
             'e5ba4a4f9c5f32816b997d5c02f6ddf3ef1e8259ae8dff5ef18865d076b70316'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
