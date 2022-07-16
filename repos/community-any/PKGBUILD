@@ -2,8 +2,8 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-jaraco.text
-pkgver=3.8.0
-pkgrel=2
+pkgver=3.8.1
+pkgrel=1
 pkgdesc='Module for text manipulation'
 arch=('any')
 url='https://github.com/jaraco/jaraco.text'
@@ -13,7 +13,7 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-w
 conflicts=('python-jaraco')
 replaces=('python-jaraco')
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.text/jaraco.text-$pkgver.tar.gz")
-sha512sums=('3526f1371d8f2e7c79dff61941b1b4ead3d0f4b5144f0e22dbd098ec244b9ffddba4bbeaa0d817a80ff422fa5c7ae11d0959d3f56044d7c5f95d8c8a5de8ad2f')
+sha512sums=('2dfdd2b3bfef7c0a38a633b810a63a4337ce79b0c871f08beb369bea04585ef1b9e53afa7cef0b54c172ca25eed068af92215526d2f5cee232ccf7e72c914cfa')
 
 build() {
   cd "$srcdir/jaraco.text-$pkgver"
