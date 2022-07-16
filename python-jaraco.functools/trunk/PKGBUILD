@@ -2,8 +2,8 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-jaraco.functools
-pkgver=3.5.0
-pkgrel=2
+pkgver=3.5.1
+pkgrel=1
 pkgdesc='Functools like those found in stdlib'
 arch=('any')
 url='https://github.com/jaraco/jaraco.functools'
@@ -13,7 +13,7 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-w
 conflicts=('python-jaraco')
 replaces=('python-jaraco')
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.functools/jaraco.functools-$pkgver.tar.gz")
-sha512sums=('7257f41506f90ca2fda1bd12fed58fa4d4ff5738547f8cdae8ccad1901e0c818afb701dd8e9050fc77ca1271bc2466d5a542990138bc3db2cf9b04d12850844c')
+sha512sums=('4496c80eae72834e5bc214f40de91a6aa603ce296b3866e0b363014c2919843f515efe9b314f18667e6b09d183a0985760e47f3340aed42dfbdba01884896df5')
 
 build() {
   cd "$srcdir/jaraco.functools-$pkgver"
