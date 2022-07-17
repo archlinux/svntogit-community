@@ -1,39 +1,41 @@
-# Maintainer: Eli Schwartz <eschwartz@archlinux.org>
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Eli Schwartz <eschwartz@archlinux.org>
 
-_pkgname=distlib
-pkgname='python-distlib'
-pkgver=0.3.4
+pkgname=python-distlib
+_pkgname="${pkgname#python-}"
+pkgver=0.3.5
 pkgrel=1
-pkgdesc="Low-level components of distutils2/packaging"
+pkgdesc='Low-level functions that relate to packaging and distribution of Python software'
 arch=('any')
-url="https://github.com/pypa/distlib/"
+url='https://distlib.readthedocs.io'
 license=('PSF')
 depends=('python')
-makedepends=('python')
-source=("https://files.pythonhosted.org/packages/source/${_pkgname:0:1}/${_pkgname}/${_pkgname}-${pkgver}.zip")
-sha256sums=('e4b58818180336dc9c529bfb9a0b58728ffc09ad92027a3f30b7cd91e3458579')
-b2sums=('60cf55ae7ab704748c932ac313e4ebd3e2d2d7bc4b6ea19b7d489eb896f342636f8202a2911e90d695ccf0e8a74e042461f6a954db17e83780353b055563ad21')
+makedepends=('python-setuptools' 'python-build' 'python-installer' 'python-wheel')
+source=("https://github.com/pypa/distlib/releases/download/$pkgver/distlib-$pkgver.tar.gz"{,.asc})
+b2sums=('cded3b02873192b5ca77a654729d25ff7fb3d03bf81dc29a4031bee1cec3c26cbd400d1f3f346868a83d8986008439b119667f23f9878ec31eb59a3cefa1a7df'
+        'SKIP')
+validpgpkeys=('CA749061914EAC138E66EADB9147B477339A9B86') # Vinay Sajip <vinay_sajip@yahoo.co.uk>
 
 prepare() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+  cd "$_pkgname-$pkgver"
 
-    rm distlib/*.exe
-
+  rm distlib/*.exe
 }
 
 build() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+  cd "$_pkgname-$pkgver"
 
-    python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
+  cd "$_pkgname-$pkgver"
 
-    python setup.py test || true
+  python tests/test_all.py
 }
 
 package() {
-    cd "${srcdir}"/${_pkgname}-${pkgver}
-    python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  cd "$_pkgname-$pkgver"
+
+  python -m installer --destdir="$pkgdir" dist/*.whl
 }
