@@ -7,8 +7,8 @@
 # Contributor: acxz <akashpatel2008 at yahoo dot com>
 
 pkgname=gtest
-pkgver=1.12.0
-pkgrel=2
+pkgver=1.12.1
+pkgrel=1
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
 arch=('x86_64')
@@ -22,7 +22,7 @@ provides=('gmock')
 _srcname=googletest-release-${pkgver}
 source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
         gtest-version.patch)
-sha512sums=('6216e76a8c988b6b3739f3988c85f369eef2a8036c4412621a0d3d04ceeada00d35e487363be0a265035ac78f1a5065e1fe054a285c43df23b6abcc69f8bfe3d'
+sha512sums=('a9104dc6c53747e36e7dd7bb93dfce51a558bd31b487a9ef08def095518e1296da140e0db263e0644d9055dbd903c0cb69380cb2322941dbfb04780ef247df9c'
             'ebfd53ac33298e870c04a1f89609d8327152d3d73e7842219af3a11d5ee484033543064b557cc9c8f45057e608e0ee347318070a3ea5d17040bace02110ed8df')
 
 prepare() {
