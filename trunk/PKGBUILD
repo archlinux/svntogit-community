@@ -7,7 +7,7 @@
 
 pkgname=python-markdown
 _pkgbasename=Markdown
-pkgver=3.3.7
+pkgver=3.4.1
 pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown."
 arch=('any')
@@ -17,7 +17,7 @@ depends=('python-importlib-metadata')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 checkdepends=('python-yaml')
 source=("https://files.pythonhosted.org/packages/source/M/$_pkgbasename/$_pkgbasename-$pkgver.tar.gz")
-sha256sums=('cbb516f16218e643d8e0a95b309f77eb118cb138d39a4f27851e6a63581db874')
+sha256sums=('3b809086bb6efad416156e00a0da66fe47618a5d6918dd688f53f40c8e4cfeff')
 
 build() {
   cd "$_pkgbasename-$pkgver"
@@ -26,7 +26,7 @@ build() {
 
 check() {
   cd "$_pkgbasename-$pkgver"
-  [[ $(python -c "import markdown; print(markdown.version)") == "$pkgver" ]]
+  [[ $(python -c "import markdown; print(markdown.__version__)") == "$pkgver" ]]
   [[ $(python -c "import markdown; print(markdown.markdown('*test*'))") == "<p><em>test</em></p>" ]]
   python -m unittest discover tests
 }
