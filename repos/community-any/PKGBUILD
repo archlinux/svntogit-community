@@ -2,15 +2,15 @@
 
 _name=fastjsonschema
 pkgname=python-fastjsonschema
-_commit=d03f3835da4899bdeb597a9d3f30a709e7c3254f  # refs/tags/v2.15.3
-pkgver=2.15.3
+_commit=98399bb4029b2d7020d8abd9770661a5b2c4f9f8  # refs/tags/v2.16.1
+pkgver=2.16.1
 pkgrel=1
 pkgdesc="Fast JSON schema validator for Python"
 arch=(any)
 url="https://github.com/horejsek/python-fastjsonschema"
 license=(BSD)
 depends=(python)
-makedepends=(git python-setuptools)
+makedepends=(git python-build python-installer python-setuptools python-wheel)
 checkdepends=(python-pytest)
 # tests and additional assets not in sdist tarball: https://github.com/horejsek/python-fastjsonschema/issues/138
 # source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
@@ -32,20 +32,22 @@ prepare() {
 
 build() {
   cd $pkgname
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
+  local _deselected=(
+    # https://github.com/horejsek/python-fastjsonschema/issues/154
+    --deselect tests/test_compile_to_code.py::test_compile_to_code_custom_format
+  )
+
   cd $pkgname
-  PYTHONPATH="build:$PYTHONPATH"
-  # disable failing test (probably related to missing pytest-cache):
-  # https://github.com/horejsek/python-fastjsonschema/issues/139
-  pytest -v -m "not benchmark" -k "not test_compile_to_code_custom_format_with_refs"
+  pytest -vv -m "not benchmark" "${_deselected[@]}"
 }
 
 package() {
   cd $pkgname
-  python setup.py install --optimize=1 --root="$pkgdir"
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -vDm 644 README.rst -t "$pkgdir/usr/share/doc/$pkgname"
   install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 }
