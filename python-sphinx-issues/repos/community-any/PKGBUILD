@@ -2,8 +2,8 @@
 
 pkgname=python-sphinx-issues
 _pyname=${pkgname/python-/}
-pkgver=1.2.0
-pkgrel=7
+pkgver=3.0.1
+pkgrel=1
 pkgdesc="Sphinx extension for linking to your project's issue tracker"
 url='https://github.com/sloria/sphinx-issues'
 arch=('any')
@@ -12,7 +12,7 @@ depends=('python' 'python-sphinx')
 makedepends=('python-setuptools')
 checkdepends=('python-pytest')
 source=(https://github.com/sloria/sphinx-issues/archive/${pkgver}/${_pyname}-${pkgver}.tar.gz)
-sha512sums=('8814e910b111f0b241bc40a93de8b6ff1acd24437f1b014b24691b3bbaaadaadaded82175067d8992bb482f4bfcdec570cdd26b4c6858d7af60d5dd3f0638b64')
+sha512sums=('dd64e1611eb58fc455bedb1658473fd71e4deab1371d8a42e6fa7fe3b128a991251add12e463b9a5826fd4eb5aa12e9a117dcf953feeb8df980a7951e43d8baa')
 
 build() {
   cd ${_pyname}-${pkgver}
@@ -21,7 +21,7 @@ build() {
 
 check() {
   cd ${_pyname}-${pkgver}
-  PYTHONPATH=. py.test
+  PYTHONPATH="$PWD" py.test
 }
 
 package() {
