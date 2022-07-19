@@ -8,7 +8,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=5.44.0
+pkgver=6.1.0
 pkgrel=1
 pkgdesc='Ebook management application'
 arch=(x86_64)
@@ -30,13 +30,15 @@ _pydeps=(apsw
          mechanize
          msgpack
          netifaces
+         pdftotext
          pillow
          psutil
          py7zr
          pychm
+         pycryptodome
          pygments
-         pyqt5
-         pyqtwebengine
+         pyqt6
+         pyqt6-webengine
          regex
          unrardll
          zeroconf)
@@ -53,12 +55,13 @@ depends=(hunspell
          optipng
          podofo
          "${_pydeps[@]/#/python-}"
-         qt5-imageformats
-         qt5-svg
+         qt6-imageformats
+         qt6-svg
+         qt6-webengine
          ttf-liberation
          udisks2)
-makedepends=(pyqt-builder
-             qt5-x11extras
+makedepends=(cmake
+             pyqt-builder
              rapydscript-ng
              sip
              xdg-utils)
@@ -66,11 +69,11 @@ optdepends=('poppler: required for converting pdf to html'
             'speech-dispatcher: TTS support in the viewer')
 conflicts=(calibre-common
            calibre-python3)
-replaces=("${replaces[@]}")
+replaces=("${conflicts[@]}")
 _archive="$pkgname-$pkgver"
 source=("https://download.calibre-ebook.com/$pkgver/$_archive.tar.xz"
         "$url/signatures/$_archive.tar.xz.sig")
-sha256sums=('6ffaa3eafd36a24355e5957f0f838db6db6d3456cfa17cb4d139fd94ebaf88ec'
+sha256sums=('7e43827d723f5b808024b16fd22959ee52559bc9b4adeeb7b9d7572595a8990e'
             'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
