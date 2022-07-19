@@ -2,7 +2,7 @@
 
 _name=inflect
 pkgname=python-inflect
-pkgver=5.6.1
+pkgver=5.6.2
 pkgrel=1
 pkgdesc="Correctly generate plurals, singular nouns, ordinals, indefinite articles"
 arch=(any)
@@ -12,8 +12,8 @@ depends=(python)
 makedepends=(python-build python-installer python-setuptools-scm python-toml python-wheel)
 checkdepends=(python-pytest)
 source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
-sha512sums=('d908786d82e56871344aee716a2b8dd8da51b0f47af363916b47bceb04468ce6f3c321f5f429e12b10f06c100b0a2ebc249b94110518f33ed0844694cf0f108f')
-b2sums=('c465a962abbdda852fd778d09e3966bdb06dd34f56ef624a3f7d63e277b6e178d891aa23709d6591fe31a07acb3c25a7640aabb790ddf4493df82ab735963f98')
+sha512sums=('0bf66803c888575be478d45c1ddaf96432b8883af2b854a874678643e7b92a6a1bc60eb0d6ee324346dd4df7482364a7525a40f04f31910263c840196ba49d38')
+b2sums=('d20739928bc0a5e181456c3bbc583e5816bd87b615ad1f6c1ec6edede3a67614ff4a97db4973d940d2615f40958efcf24f0de3cecaaaf2e892defec322481b4c')
 
 build() {
   cd $_name-$pkgver
