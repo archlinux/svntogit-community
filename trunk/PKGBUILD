@@ -7,7 +7,7 @@
 pkgbase=mumble
 pkgname=('mumble' 'murmur')
 pkgver=1.4.230
-pkgrel=11
+pkgrel=12
 pkgdesc="An Open Source, low-latency, high quality voice chat software"
 arch=('x86_64')
 url="https://www.mumble.info/"
@@ -63,6 +63,9 @@ prepare() {
   patch -Np1 -i ../"${pkgname}-1.4.230-find-poco.patch"
   patch -Np1 -i ../"${pkgname}-1.4.230-configuration.patch"
   patch -Np1 -i ../"${pkgname}-PR5648.patch"
+
+  # fix Unknown CMake command "CHECK_INCLUDE_FILE"
+  sed '1 i include(CheckIncludeFile)' -i overlay_gl/CMakeLists.txt
 }
 
 build() {
