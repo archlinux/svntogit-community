@@ -2,62 +2,60 @@
 # Contributor: Ray Rashif <schiv@archlinux.org>
 # Contributor: speps <speps at aur dot archlinux dot org>
 
-pkgname=sratom
-pkgver=0.6.10
-pkgrel=3
+pkgbase=sratom
+pkgname=(sratom sratom-docs)
+pkgver=0.6.12
+pkgrel=1
 pkgdesc="An LV2 Atom RDF serialisation library"
 arch=(x86_64)
 url="https://drobilla.net/software/sratom.html"
 license=(ISC)
-depends=(glibc lv2)
-makedepends=(serd sord waf)
-provides=(libsratom-0.so)
+makedepends=(doxygen lv2 meson python-sphinx python-sphinx-lv2-theme serd sord)
 options=(debug)
-source=(https://download.drobilla.net/$pkgname-$pkgver.tar.bz2{,.sig})
-sha512sums=('cc5d2848d61de45a37d1f844b2c741016decf065bcac975214dd01108171ba332f0a51526f2f1078d5f501055af0a48716704515cbe7a9f73526fd878621ca4b'
+source=(https://download.drobilla.net/$pkgname-$pkgver.tar.xz{,.sig})
+sha512sums=('e677945f59494970c8c723319216cf6543ed38c590b6db94e5e928e830004e96dc957a2cf2fb0b76278cf55f0d62ea03ba705fbc449424c467e29593eaa948dc'
             'SKIP')
-b2sums=('6205a0269216099556556cd251649eba58fdf1a2c8a80611367f3b9564fe410ed7ff1c565ab7b628743fa99ca893eb7a86fed631872eff86e19de9ba534fae49'
+b2sums=('76a01c84e418ee3ffeb1e0e44214e9b02ab58b9b572372ee43309650a7a674a55e49384e8b62657af30933b7bdb02faf38ff100030e2ec86947972cacf32db69'
         'SKIP')
 validpgpkeys=('907D226E7E13FA337F014A083672782A9BF368F3') # David Robillard <d@drobilla.net>
 
-prepare() {
-  cd $pkgname-$pkgver
-  # remove local ldconfig call
-  sed -i '/ldconfig/d' wscript
-  # let wscript(s) find the custom waf scripts
-  mkdir -pv tools
-  touch __init__.py
-  cp -v waflib/extras/{autoship,autowaf,lv2}.py tools/
-  mkdir -pv plugins/tools/
-  cp -v waflib/extras/{autoship,autowaf,lv2}.py plugins/tools/
-  rm -rv waflib
-  sed -e 's/waflib.extras/tools/g' \
-      -e "s/load('autowaf'/load('autowaf', tooldir='tools'/g" \
-      -e "s/load('lv2'/load('lv2', tooldir='tools'/g" \
-      -i wscript
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
 }
 
 build() {
-  export LINKFLAGS="$LDFLAGS"
-
-  cd $pkgname-$pkgver
-  waf configure --prefix=/usr \
-                --test
-  waf build
+  arch-meson $pkgname-$pkgver build
+  meson compile -C build
 }
 
 check() {
-  cd $pkgname-$pkgver
-  waf test
+  meson test -C build
 }
 
 
-package() {
-  depends+=(libserd-0.so libsord-0.so)
+package_sratom() {
+  depends=(glibc libserd-0.so libsord-0.so lv2)
+  provides=(libsratom-0.so)
+  optdepends=('sratom-docs: for developer documentation')
 
-  cd $pkgname-$pkgver
-  waf install --destdir="$pkgdir"
-  install -vDm 644 COPYING -t "$pkgdir/usr/share/licenses/$pkgname/"
-  install -vDm 644 {NEWS,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+  meson install -C build --destdir "$pkgdir"
+  (
+    cd "$pkgdir"
+    _pick $pkgname-docs usr/share/doc
+  )
+  install -vDm 644 $pkgname-$pkgver/COPYING -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgname-$pkgver/{NEWS,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
-# vim:set ts=2 sw=2 et:
+
+package_sratom-docs() {
+  pkgdesc+=" - documentation"
+
+  mv -v $pkgname/* "$pkgdir"
+  mv -v "$pkgdir/usr/share/doc/"sratom{-0,}
+}
