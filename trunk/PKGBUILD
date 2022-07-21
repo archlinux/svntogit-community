@@ -3,7 +3,7 @@
 # Contributor: Felipe Machado aka arch_audio <machado.felipe@gmail.com>
 
 pkgname=rubberband
-pkgver=2.0.2
+pkgver=3.0.0
 pkgrel=1
 pkgdesc="Time-stretching and pitch-shifting audio library and utility"
 arch=(x86_64)
@@ -18,27 +18,36 @@ optdepends=(
   'vamp-plugin-sdk: for VAMP plugin'
 )
 provides=(librubberband.so librubberband-jni.so)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/breakfastquay/rubberband/archive/v$pkgver.tar.gz")
-sha512sums=('56e33f3a6f5755242e46f9cb224e372bea7a367756f08d3322c8951a40b3907f1a2957775de6f2584a093e6adf82ca91015119650d5a624afe39086a47843ddc')
-b2sums=('b0175fe71fa5070b6268b4242815e43c8f588bedf77639db3d7f766b358d948394a1fd54e9e32f63f75431077ea826a2b58593dc11a3f5081e51f3f579354f82')
+source=(
+  $pkgname-$pkgver.tar.gz::https://github.com/breakfastquay/$pkgname/archive/v$pkgver.tar.gz
+  $pkgname-3.0.0-jni_allocators_include.patch
+)
+sha512sums=('384985e58a3fc5d9646428678ee6bcef2d232abed6d86b623302a78a4bf6e59e2fd5f5939e28bb988e82aa6f424fd1510e8e014a4ad1c96efe0010b61651a133'
+            '8d161b95a873bbf07d1ac12b2f15c5d99401d2472d1ee869f39bea3e8d1034c85958caef6f2b1edeb74a77278274707bfbea29c6934839a714cfaa2ab3276098')
+b2sums=('d0080c336ae7c86ad3a99d9974f6be2fa5ed19cf21790d84bfacb57ec333a29fac626314af4787e98d1329bffe66919185de9da0f38d91430a07a5017f89c324'
+        '091259da4d3b62ec61f976d1194f1ea48131764c75d17708475dc38866b06f97454361cb628313b92e43350b986077ee305b1b46e1f9d1cec59cd2471c188ef5')
+
+prepare() {
+  # fix broken include: https://github.com/breakfastquay/rubberband/pull/64
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-3.0.0-jni_allocators_include.patch
+}
 
 build() {
   local java_major=$(java --version 2>/dev/null |grep 'openjdk'| cut -d ' ' -f2| cut -d '.' -f1)
-  export JAVA_HOME="/usr/lib/jvm/java-${java_major}-openjdk"
+  local meson_options=(
+    -Dfft=fftw
+    -Dresampler=libsamplerate
+    -Dextra_include_dirs="/usr/lib/jvm/java-$java_major-openjdk/include,/usr/lib/jvm/java-$java_major-openjdk/include/linux"
+  )
+  export JAVA_HOME="/usr/lib/jvm/java-$java_major-openjdk"
 
-  cd "$pkgname-$pkgver"
-  arch-meson -Dfft=fftw \
-            -Dresampler=libsamplerate \
-            -Dextra_include_dirs="/usr/lib/jvm/java-${java_major}-openjdk/include,/usr/lib/jvm/java-${java_major}-openjdk/include/linux" \
-            build
+  arch-meson build $pkgname-$pkgver "${meson_options[@]}"
   ninja -C build
 }
 
 package() {
   depends+=(libfftw3.so libsamplerate.so libsndfile.so)
 
-  cd "$pkgname-$pkgver"
-  DESTDIR="${pkgdir}" meson install -C build
-  # docs
-  install -vDm 644 {CHANGELOG,README.md} -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  DESTDIR="$pkgdir" meson install -C build
+  install -vDm 644 $pkgname-$pkgver/{CHANGELOG,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
