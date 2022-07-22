@@ -4,7 +4,7 @@
 # Contributor: Ner0
 
 pkgname=nemo
-pkgver=5.4.1
+pkgver=5.4.2
 pkgrel=1
 pkgdesc="Cinnamon file manager (Nautilus fork)"
 arch=(x86_64)
@@ -22,29 +22,20 @@ optdepends=('cinnamon-translations: i18n'
             'poppler: search helpers support for PDF')
 makedepends=(meson samurai gobject-introspection intltool libgsf)
 source=(${url}/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('95bc6beb2b5a6eacc5f7914e367644d4b93c4c8f63dac86395aa25838123189b24f930a602e255812d218ab40f654e0c6471a9ff96a432f3eb6fa1418f34bc69')
-b2sums=('7fe2485d19eae983aacf04a0b052e2f4edc8a295e7cd3fdc14c8b31e2185dda9ba3cab551efac5711de6d203f0160c4139584a1e916bbd0ebe0094df13c27dc6')
+sha512sums=('15a83c549f11a3f7f9b91f80db8b14393ec235c36c8e55324de3aca28dd128bdf987e6b8cdba34960864d5396f8b6bfb97f59141cedad3439db7555d1357e492')
+b2sums=('255f5e70cc5bf398d87c17ccb95027232ab0f6e2d97fe3311919cd40504b9bd6af87474e916ea3d86e82a66877c3be30d81440ae36fa40e2c96d51e891d5b35a')
 
 prepare() {
   cd ${pkgname}-${pkgver}
-
   # Rename 'Files' app name to avoid having the same as nautilus
   sed -i '/^\[Desktop Entry/,/^\[Desktop Action/ s/^Name\(.*\)=.*/Name\1=Nemo/' data/nemo.desktop.in
 }
 
 build() {
-  mkdir -p ${pkgname}-${pkgver}/build
-  cd ${pkgname}-${pkgver}/build
-
-  meson --prefix=/usr \
-        --libexecdir=lib/${pkgname} \
-        --buildtype=plain \
-        ..
-  samu
+  arch-meson --libexecdir=lib/${pkgname} ${pkgname}-${pkgver} build
+  samu -C build
 }
 
 package() {
-  cd ${pkgname}-${pkgver}/build
-
-  DESTDIR="${pkgdir}" samu install
+  DESTDIR="${pkgdir}" samu -C build install
 }
