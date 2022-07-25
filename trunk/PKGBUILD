@@ -2,7 +2,7 @@
 
 _name=executing
 pkgname=python-executing
-pkgver=0.8.3
+pkgver=0.9.0
 pkgrel=1
 pkgdesc='Get the currently executing AST node of a frame, and other information'
 arch=('any')
@@ -13,8 +13,8 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
              'python-wheel')
 checkdepends=('python-asttokens' 'python-littleutils' 'python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('c6554e21c6b060590a6d3be4b82fb78f8f0194d809de5ea7df1c093763311501')
-b2sums=('dd877f0b61d40d6b80a055a0ff2c3f08f397b232b178086233c4a3cf9a90800e846240497a1b784211d9f90da3c98f2d189aaa2e7c8aa0acb0ed9a1c97202a56')
+sha256sums=('ade7276b4b108df69b8480064264db856335585efe170833601f30bcaaed7bc7')
+b2sums=('c0fc2202b65e3c9de274ff0aa8e89fac8c95b40ff3075916f29e5c562ac2fe3e60d135581cb9b09b6281f5772f24eafb52b8bccf7c7b08115922809cc4616721')
 
 build() {
   cd "$_name-$pkgver"
@@ -39,5 +39,3 @@ package() {
   ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE.txt \
     "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
 }
-
-# vim:set ts=2 sw=2 et:
