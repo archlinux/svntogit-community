@@ -5,8 +5,8 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=5.0.2
-pkgrel=3
+pkgver=5.1.0
+pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -29,22 +29,14 @@ checkdepends=('cython'
               'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
-source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc}
-        'sphinx-use-get_settings.patch::https://github.com/sphinx-doc/sphinx/commit/8d99168794ab8be0de1e6281d1b76af8177acd3d.patch')
-sha256sums=('b18e978ea7565720f26019c702cd85c84376e948370f1cd43d60265010e1c7b0'
-            'SKIP'
-            'ac64c53c1d64a41cbe9d76d8440f169614cd4a7b63286583d37bc64f64781fc5')
-b2sums=('a2cbf8efca673d15e364d0db74a8c5e2c0ff469f2a102317fb9bf23aac12c12ced2593e3a5e2dd0ee2bc114f2018356d382d601a3c7ff9b2943e38b59fe45db4'
-        'SKIP'
-        'dbc83bac75e802915e6720975a27110d52e9721ac714fbc6dc579b7bcde9ed80ec13fa3a628bdec5fe4f4792e45300f47429ff92a6a5d9080037f690aef3f40c')
+source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
+sha256sums=('7893d10d9d852c16673f9b1b7e9eda1606b420b7810270294d6e4b44c0accacc'
+            'SKIP')
+b2sums=('7a36f019aaf2bbb672bfae828ac9aa8b48dbc75557f7eff133287dc4f5bc2fb251b13a0af520b768dc14c8a12a68b6736f0e9f5f0dde0f9c3a040b79f56e246a'
+        'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
-              'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07') # Takayuki Shimizukawa <shimizukawa@gmail.com>
-
-prepare() {
-  cd Sphinx-$pkgver
-  sed -i 's/0.19/0.20/' setup.py
-  patch --forward --strip=1 --input=../sphinx-use-get_settings.patch
-}
+              'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07'  # Takayuki Shimizukawa <shimizukawa@gmail.com>
+              'D3549119BD51B4AFE643E59752C8F72A61F0FB52') # Adam Turner <9087854+aa-turner@users.noreply.github.com>
 
 build() {
   cd Sphinx-$pkgver
