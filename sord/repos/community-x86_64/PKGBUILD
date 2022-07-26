@@ -2,62 +2,59 @@
 # Contributor: Ray Rashif <schiv@archlinux.org>
 # Contributor: speps <speps at aur dot archlinux dot org>
 
-pkgname=sord
-pkgver=0.16.10
-pkgrel=2
+pkgbase=sord
+pkgname=(sord sord-docs)
+pkgver=0.16.12
+pkgrel=3
 pkgdesc="A lightweight C library for storing RDF data in memory"
 arch=(x86_64)
 url="https://drobilla.net/software/sord.html"
 license=(custom:ISC)
-depends=(glibc pcre)
-makedepends=(serd waf)
-provides=(libsord-0.so)
+makedepends=(doxygen glibc meson pcre python-sphinx serd)
 options=(debug)
-source=(https://download.drobilla.net/$pkgname-$pkgver.tar.bz2{,.sig})
-sha512sums=('715201eaf4a13a3635337cf8fa7c1a1f229f1d589f70cdf8f67183d90df29cd8b4af180650ce9cd0c651c712d11901bfdc6b51f9b8d7c6e70d8d8f30b1861281'
+source=(https://download.drobilla.net/$pkgname-$pkgver.tar.xz{,.sig})
+sha512sums=('d63cc1473d12676dac3724a096c85fd47745e456cf4b191fd9f8aaf8bb9399510c6878948fd045cc1942356e61dbefd8d88374c1ef6b327057e0bb8bfa03f926'
             'SKIP')
-b2sums=('6737d3495846529e6e4d14cbb2ac47ce4e67d04298381a119ba0107144deb56a53de9aa363397c2e302535f998c7c3ad44d340f52f70ac341ad6b635db608cb6'
+b2sums=('9b89848440a994145a934e66e6fe7b844e82e926cb48d05223faef9357d315db981cd68b1174d7c47e5d63b97f8e15d8cc6b2b992a6bd790b8b117ebbb6c059a'
         'SKIP')
 validpgpkeys=('907D226E7E13FA337F014A083672782A9BF368F3') # David Robillard <d@drobilla.net>
 
-prepare() {
-  cd $pkgname-$pkgver
-  # remove local call to ldconfig
-  sed -i "/ldconfig/d" wscript
-  # let wscript(s) find the custom waf scripts
-  mkdir -pv tools
-  touch __init__.py
-  cp -v waflib/extras/{autoship,autowaf,lv2}.py tools/
-  mkdir -pv plugins/tools/
-  cp -v waflib/extras/{autoship,autowaf,lv2}.py plugins/tools/
-  rm -rv waflib
-  sed -e 's/waflib.extras/tools/g' \
-      -e "s/load('autowaf'/load('autowaf', tooldir='tools'/g" \
-      -e "s/load('lv2'/load('lv2', tooldir='tools'/g" \
-      -i wscript
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
 }
 
 build() {
-  export LINKFLAGS="$LDFLAGS"
-
-  cd $pkgname-$pkgver
-  waf configure --prefix=/usr \
-                --test
-  waf build
+  arch-meson $pkgname-$pkgver build
+  meson compile -C build
 }
 
 check() {
-  cd $pkgname-$pkgver
-  waf test
+  meson test -C build
 }
 
-package() {
-  depends+=(libserd-0.so)
+package_sord() {
+  depends=(glibc libserd-0.so pcre)
+  provides=(libsord-0.so)
+  optdepends=('sord-docs: for developer documentation')
 
-  cd $pkgname-$pkgver
-  waf install --destdir="$pkgdir"
-  install -vDm 644 COPYING -t "$pkgdir/usr/share/licenses/$pkgname/"
-  install -vDm 644 {AUTHORS,NEWS,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+  meson install -C build --destdir "$pkgdir"
+  (
+    cd "$pkgdir"
+    _pick $pkgname-docs usr/share/doc
+  )
+  install -vDm 644 $pkgname-$pkgver/COPYING -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgname-$pkgver/{AUTHORS,NEWS,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
 
-# vim:set ts=2 sw=2 et:
+package_sord-docs() {
+  pkgdesc+=" - documentation"
+
+  mv -v $pkgname/* "$pkgdir"
+  mv -v "$pkgdir/usr/share/doc/"sord{-0,}
+}
