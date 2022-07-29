@@ -4,7 +4,7 @@
 
 pkgname=(cython cython2)
 pkgbase=cython
-pkgver=0.29.31
+pkgver=0.29.32
 pkgrel=1
 pkgdesc='C-Extensions for Python'
 arch=(x86_64)
@@ -12,7 +12,7 @@ url='https://cython.org'
 license=(APACHE)
 makedepends=(python-setuptools python2-setuptools)
 source=(https://github.com/cython/cython/archive/$pkgver/$pkgbase-$pkgver.tar.gz)
-sha256sums=('1654177ac0cb0c2cdb579c80f2457589642a2a0573d3ed81f6df44b718347f40')
+sha256sums=('3f53fbe1398666e77fd4ce388f939309a11efd273d16f20f58f0df7b03d6b4cc')
 
 prepare() {
   cp -r cython-$pkgver cython2-$pkgver
