@@ -22,7 +22,7 @@ then
 fi
 
 # Find Java version
-JAVA_VERSION="$(${JAVA_EXEC} -version 2>&1 | head -1 | cut -d' ' -f 3 | tr -d '"')"
+JAVA_VERSION="$(${JAVA_EXEC} -version 2>&1 | grep ' version ' | head -1 | cut -d' ' -f 3 | tr -d '"')"
 
 # Skip Java versions higher than 16 as Sweethome3D actually is not yet compatible
 # Fallback to any previous version available
@@ -30,7 +30,7 @@ JAVA_VERSION="$(${JAVA_EXEC} -version 2>&1 | head -1 | cut -d' ' -f 3 | tr -d '"
 if [ $(vercmp "${JAVA_VERSION}" "17") -gt 0 ]
 then
   echo "Warning: Sweethome 3D actually is not compatible with Java version > 16"
-  _PREVIOUS_JAVA_VERSION="$(archlinux-java status | tail -n +2 | sort | cut -d ' ' -f 3 | sort -nr -k 2 -t '-' | grep -vE '17-' -m 1)"
+  _PREVIOUS_JAVA_VERSION="$(archlinux-java status | tail -n +2 | sort | cut -d ' ' -f 3 | sort -nr -k 2 -t '-' | grep -vE '17-|18-' -m 1)"
   if [ -z "${_PREVIOUS_JAVA_VERSION}" ]
   then
     echo "No others Java version are available, please install a Java version < 17"
@@ -39,7 +39,7 @@ then
     echo "Falling back to ${_PREVIOUS_JAVA_VERSION}"
     export JAVA_HOME="/usr/lib/jvm/${_PREVIOUS_JAVA_VERSION}"
     export JAVA_EXEC="${JAVA_HOME}/bin/java"
-    export JAVA_VERSION="$(${JAVA_EXEC} -version 2>&1 | head -1 | cut -d' ' -f 3 | tr -d '"')"
+    export JAVA_VERSION="$(${JAVA_EXEC} -version 2>&1 | grep ' version ' | head -1 | cut -d' ' -f 3 | tr -d '"')"
   fi
 fi
 
