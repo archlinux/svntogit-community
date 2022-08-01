@@ -2,33 +2,27 @@
 
 _pkgname=sphinx-inline-tabs
 pkgname=python-$_pkgname
-pkgver=2020.10.19.beta4
-pkgrel=5
+pkgver=2022.01.02.beta11
+pkgrel=1
 pkgdesc='Add inline tabbed content to your Sphinx documentation'
 arch=('any')
 url='https://github.com/pradyunsg/sphinx-inline-tabs'
 license=('MIT')
 depends=('python-sphinx')
-makedepends=('python-setuptools' 'python-dephell')
+makedepends=('python-build' 'python-installer' 'python-flit-core')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz")
-sha512sums=('4f2d6c373a189f2fc86b33bb7ebb13b25063b897718e5678e61f4b5d7fb1fe49fd7016c1bfd07df7d29220a7be6ebceb63193546b9cbaab6184926d7d2e0b4ff')
-
-prepare() {
-  cd $_pkgname-$pkgver
-
-  dephell deps convert --from pyproject.toml --to setup.py
-}
+sha512sums=('353e9168cd8e2e3ad395f4f2c7f94f40def3445f2d5e45f1610b463fa718b4b15c1070ec95930d769e6f28bdb319dbc447aac0801ddb12c31899a160a8abd1a9')
 
 build() {
   cd $_pkgname-$pkgver
 
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 package() {
   cd $_pkgname-$pkgver
 
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
