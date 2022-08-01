@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.1.14
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -56,6 +56,8 @@ prepare() {
 	install -m0755 -t ./ ../poetry-completions-generator
 	# https://github.com/python-poetry/poetry/issues/5216
 	patch -p1 -i ../b4a74c7.patch
+        # relax dependency version constraints
+        sed -e 's|packaging = .*|packaging = \">=20.4\"|' -i pyproject.toml
 }
 
 build() {
