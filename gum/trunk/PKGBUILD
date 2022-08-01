@@ -1,0 +1,76 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=gum
+pkgver=0.2.0
+pkgrel=3
+pkgdesc='A tool for glamorous shell scripts'
+arch=('x86_64')
+url='https://github.com/charmbracelet/gum'
+license=('MIT')
+depends=('glibc')
+makedepends=('git' 'go')
+options=('!lto')
+_commit='b7f04e04ef7c2eeae0d90b2303eb8cee2c6e599d'
+source=("$pkgname::git+$url#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgname"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS}" \
+    -o build \
+    .
+
+  ./build/gum man > build/gum.1
+
+  for shell in bash fish zsh; do
+    ./build/gum completion "$shell" > "build/$shell-completion"
+  done
+}
+
+package() {
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/gum
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # man pages
+  install -vDm644 -t "$pkgdir/usr/share/man/man1" build/gum.1
+
+  # completions
+  install -vDm644 build/bash-completion "$pkgdir/usr/share/bash-completion/completions/gum"
+  install -vDm644 build/fish-completion "$pkgdir/usr/share/fish/vendor_completions.d/gum.fish"
+  install -vDm644 build/zsh-completion "$pkgdir/usr/share/zsh/site-functions/_gum"
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
