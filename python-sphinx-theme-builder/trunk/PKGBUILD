@@ -2,31 +2,25 @@
 
 _pkgname=sphinx-theme-builder
 pkgname=python-$_pkgname
-pkgver=0.2.0a12
-pkgrel=2
+pkgver=0.2.0b1
+pkgrel=1
 pkgdesc='Python build backend for Sphinx themes'
 arch=('any')
 url='https://github.com/pradyunsg/sphinx-theme-builder'
 license=('BSD')
-depends=('python' 'python-packaging' 'python-rich' 'python-tomli' 'python-nodeenv' 'python-setuptools' 'python-pep621')
+depends=('python' 'python-packaging' 'python-rich' 'python-tomli' 'python-nodeenv' 'python-setuptools' 'python-pep621' 'python-pyproject-metadata')
 optdepends=('python-build: CLI'
             'python-click: CLI'
             'python-sphinx-autobuild: CLI')
-makedepends=('python-setuptools' 'python-dephell')
-checkdepends=('python-pytest' 'python-build' 'python-click' 'python-sphinx-autobuild')
+makedepends=('python-build' 'python-installer' 'python-flit-core')
+checkdepends=('python-pytest' 'python-click' 'python-sphinx-autobuild')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz")
-sha512sums=('58aa883d200ac26f357b1d1b0df500b0a4a05cbc143e97532eb32e5a422f2db2d33d6bb27445964f6833e2c9538115e85517245b16fd1cb6f538ab39122bc5b3')
-
-prepare() {
-  cd $_pkgname-$pkgver
-
-  dephell deps convert --from pyproject.toml --to setup.py
-}
+sha512sums=('dd7a5ff4f0765abc0ed92d6588e9d46e40c521787340578016a2dc9acc6f0da1eb40ad7eb08ca76901ce724db47a126132d6d6a96041b36f9000d5299d36e246')
 
 build() {
   cd $_pkgname-$pkgver
 
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
@@ -38,7 +32,7 @@ check() {
 package() {
   cd $_pkgname-$pkgver
 
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
