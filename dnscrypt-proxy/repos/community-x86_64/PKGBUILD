@@ -4,8 +4,9 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.1.1
-pkgrel=3
+pkgver=2.1.2
+_commit=a769cdadf11753914b0448ba289f7fafa27ec7c9  # refs/tags/2.1.2
+pkgrel=1
 pkgdesc="A flexible DNS proxy, with support for encrypted DNS protocols"
 arch=(x86_64)
 url="https://github.com/DNSCrypt/dnscrypt-proxy"
@@ -23,16 +24,17 @@ backup=(
   etc/$pkgname/cloaking-rules.txt
   etc/$pkgname/forwarding-rules.txt
 )
+options=(debug)
 source=(
-  git+https://github.com/dnscrypt/$pkgname#tag=$pkgver?signed
+  git+https://github.com/dnscrypt/$pkgname#tag=$_commit?signed
   $pkgname.service
   $pkgname.socket
-  $pkgname-$pkgver-configuration.patch::https://github.com/dvzrv/dnscrypt-proxy/commit/c3b021adcfc564f331ba531c35b4501adfee53d3.patch
+  $pkgname-$pkgver-configuration.patch::https://github.com/dvzrv/dnscrypt-proxy/commit/4589ad77802b17bf781d6a625afb2e2775e1fb9a.patch
 )
 sha512sums=('SKIP'
             '5589eddf9d5fda86778ebc91c9e20d8acfdcf86bc1f1a5d34279f33c402f32dc73539c0c0ba6bd74b80617e9abcc49c8c68cc06f171f74c66f2ffc92dfeecd75'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
-            '5153386b92ff3540c9e564fa9224a7300e31fe9d0e0a0dd1a262c389e8d115eac549cb863e822c727de52a28d8f2a7a31188d4c793899ae42809f55a0e299b63')
+            'f029f2b30db3d44c17350b736e558cdaaa2e8c7b5a36bf738f613a9a506047cd3f720881e2e957902d41cb4d20e6a252c97976f542bf552213039c54c9f731bb')
 validpgpkeys=('54A2B8892CC3D6A597B92B6C210627AABA709FE1') # Frank Denis (Jedi/Sector One) <pgp@pureftpd.org
 
 prepare() {
