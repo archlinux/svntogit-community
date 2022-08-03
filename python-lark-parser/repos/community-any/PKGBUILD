@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-lark-parser
-pkgver=0.12.0
-_nearley_commit=a46b37471db486db0f6e1ce6a2934fb238346b44
+pkgver=1.1.2
+_nearley_commit=326831689826cb1b9a4d21d1ce0d5db9278e9636 
 pkgrel=1
 pkgdesc="A modern parsing library"
 url="https://github.com/lark-parser/lark"
@@ -13,8 +13,8 @@ makedepends=('python-setuptools')
 checkdepends=('python-js2py')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/lark-parser/lark/archive/$pkgver.tar.gz"
         "nearley-$_nearley_commit.tar.gz::https://github.com/kach/nearley/archive/$_nearley_commit.tar.gz")
-sha512sums=('d9d0e2531c139d8c75d47c21af996cc5f13588231e0082e2c698f1e295aebc0323297f75fe737b8854836c5a1556f7eb699d02554e218916e691e730ed68e538'
-            'fe14909f8a1d1626f8a632e8d48bf83602923f468b7bbb819557b85ab5e384cb042241ba15525e9850f2bbd65cad12497ed0b7ff6bc86c04d78b63d0c1bb66b4')
+sha512sums=('0f520798ee636ebde151596a5cd35dfbc55e251c7f7f16a2d2395b928d37ed5ee7b3e7d3f457e64ea062635f58fa9f9baa53e9eeb68b9be4054785edb3a872ae'
+            '88849bfa609c112a7687d8aba1fc140b1b6be119f7001869e7c05019e87c31874a6d0c9fb2c68b5729c4b4427ff05e36057857cea11bd51d2b5d89e7710196b7')
 
 prepare() {
   rmdir lark-$pkgver/tests/test_nearley/nearley
