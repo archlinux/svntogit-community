@@ -1,0 +1,58 @@
+diff --git a/src/mailman/rest/helpers.py b/src/mailman/rest/helpers.py
+index 6f5d02872551d68942bfcc09b89dfec2934dce27..3efd772411769b502a2d32fec19e83d87d44a47c 100644
+--- a/src/mailman/rest/helpers.py
++++ b/src/mailman/rest/helpers.py
+@@ -249,6 +249,8 @@ class GetterSetter:
+         """
+         if self.decoder is None:
+             return value
++        if self.decoder is as_boolean and isinstance(value, bool):
++            return value
+         return self.decoder(value)
+ 
+ 
+diff --git a/src/mailman/rest/tests/test_listconf.py b/src/mailman/rest/tests/test_listconf.py
+index e9f1844fb0d5393c66b91b1ff9a01597a7a48e9b..59885bd9ef57f9258cb224281244dd2983788ebe 100644
+--- a/src/mailman/rest/tests/test_listconf.py
++++ b/src/mailman/rest/tests/test_listconf.py
+@@ -292,6 +292,17 @@ class TestConfiguration(unittest.TestCase):
+             'Invalid Parameter "archive_policy": Accepted Values are:'
+             ' never, private, public.')
+ 
++    def test_patch_with_json_boolean(self):
++        # Ensure we can patch with JSON boolean value.
++        with transaction():
++            self._mlist.gateway_to_mail = False
++        response = call_api(
++            'http://localhost:9001/3.0/lists/ant.example.com/config',
++            method='PATCH', headers={'Content-Type': 'application/json'},
++            json={'gateway_to_mail': True})
++        self.assertEqual(response[1].status_code, 204)
++        self.assertTrue(self._mlist.gateway_to_mail)
++
+     def test_bad_pipeline_name(self):
+         with self.assertRaises(HTTPError) as cm:
+             call_api(
+diff --git a/src/mailman/rest/tests/test_validator.py b/src/mailman/rest/tests/test_validator.py
+index 32c4a60c8d8920592a83d8296934a404f89eadfe..664770d7261872f428ac4a7991df7015d1414679 100644
+--- a/src/mailman/rest/tests/test_validator.py
++++ b/src/mailman/rest/tests/test_validator.py
+@@ -19,6 +19,7 @@
+ 
+ import unittest
+ 
++from lazr.config import as_boolean
+ from mailman.app.lifecycle import create_list
+ from mailman.core.api import API30, API31
+ from mailman.database.transaction import transaction
+@@ -170,3 +171,10 @@ class TestGetterSetter(unittest.TestCase):
+                          ['application/octet-stream'])
+         self.assertEqual(list(self._mlist.pass_extensions),
+                          ['.pdf'])
++
++    def test_set_boolean_as_bool(self):
++        # Non-pythonic POST data can contain JSON booleans. Ensure we can
++        # handle that.
++        getset = helpers.GetterSetter(as_boolean)
++        self.assertTrue(getset(True))
++        self.assertFalse(getset(False))
