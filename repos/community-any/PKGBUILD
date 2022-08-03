@@ -4,36 +4,29 @@
 # Contributor: Ismo Toijala <ismo.toijala@gmail.com>
 
 pkgname=python-jsonschema
-pkgver=3.2.0
-pkgrel=6
+pkgver=4.9.0
+pkgrel=1
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
 url="https://pypi.python.org/pypi/jsonschema"
 license=('MIT')
-depends=('python-attrs' 'python-importlib-metadata' 'python-pyrsistent' 'python-setuptools')
-makedepends=('python-setuptools-scm')
+depends=('python-attrs' 'python-importlib-metadata' 'python-pyrsistent' 'python-rfc3987' 'python-jsonpointer' 'python-typing_extensions' 'python-webcolors')
+makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-hatch-vcs')
 checkdepends=('python-twisted' 'python-idna' 'python-jsonpointer' 'python-strict-rfc3339'
-              'python-rfc3987' 'python-webcolors')
-source=("$pkgname-$pkgver.tar.bz2::https://github.com/Julian/jsonschema/archive/v$pkgver.tar.gz"
-        $pkgname-webcolors.patch::https://github.com/Julian/jsonschema/commit/09595a50f507.patch)
-sha512sums=('a575e9e7b0668220854e7ae45f2afd433643c3f0bfeb9769413cfc072ae01513a8d97bddbb6317f42348e09081e72bbad801d00ee5e3c0ac840bd19e934955cd'
-            '31fac0a4ea816660cd815ba28578e8b80e69e884ec9a450a6bf582e7c311036025927239a72cac2b667547ce2c5088b310f006ecce88a2c926fa3915780b7dac')
+              'python-rfc3987' 'python-webcolors' 'python-pip')
+source=("$pkgname-$pkgver.tar.bz2::https://github.com/Julian/jsonschema/archive/v$pkgver.tar.gz")
+sha512sums=('0ce28e0211651c8a7b1c923157c395888dd165f635f848db65c243def2f6bd921f2a21f69c3f7d2ceee6d6ae74d5272f9cac4ec243172d35da31908285dd61c5')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
-prepare() {
-  cd jsonschema-$pkgver
-  patch -Np1 -i ../$pkgname-webcolors.patch
-}
-
 build() {
   cd jsonschema-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
   cd jsonschema-$pkgver
-  python setup.py install --root="$PWD/tmp_install" --optimize=1
+  python -m installer --destdir="$PWD/tmp_install" dist/*.whl
   PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages" \
     JSON_SCHEMA_TEST_SUITE=json trial jsonschema
   python -m doctest README.rst
@@ -41,6 +34,6 @@ check() {
 
 package() {
   cd jsonschema-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -D -m644 json/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
