@@ -5,8 +5,8 @@
 _pkgbase=parso
 pkgname=python-parso
 epoch=1
-pkgver=0.8.2
-pkgrel=3
+pkgver=0.8.3
+pkgrel=1
 pkgdesc="Python parser that supports error recovery and round-trip parsing for different Python versions"
 arch=('any')
 url="https://github.com/davidhalter/parso"
@@ -14,17 +14,9 @@ license=('MIT')
 depends=('python')
 makedepends=('python-setuptools' 'python-sphinx')
 checkdepends=('python-pytest')
-source=(https://github.com/davidhalter/parso/archive/v$pkgver/$_pkgbase-$pkgver.tar.gz
-        7652d3904be3fd5513581a8250d95df31a8cef06.patch::https://github.com/davidhalter/parso/commit/7652d3904be3fd5513581a8250d95df31a8cef06.patch)
-sha512sums=('a90810ad89301d804d215392ed77593b015f13bc7ef8512302a8893b314a9e74c15e2aaa77157c8595a134d3481e8115f306f9628835271478837ec6f19e645f'
-            'a60f8e1030e08b18251dac49e81a9e9cfac5e367af44fae94c4ef19ba857311df49264b2c3327d4fdc17005f03c0d71d67a4fbb907627a96869ed18ec0d25bfa')
-b2sums=('f4e86ae55140adc9bbfdd34a8044e7fdfbf9d318a6385ac5feedc07127061943c2d690581af144f158846e3bf6f82124046c7e625369a4055ab92a54f9210c49'
-        '767f63dcb6a8368a94162bd1e30614d19ae234b0554a00ef2821260b0992eb7f3ca2d8342571822e5bc8afd5c81b68f538de20ac976414f8f9878a82b4ecd10c')
-
-prepare() {
-  cd "$_pkgbase-$pkgver"
-  patch -p1 <"$srcdir"/7652d3904be3fd5513581a8250d95df31a8cef06.patch
-}
+source=(https://github.com/davidhalter/parso/archive/v$pkgver/$_pkgbase-$pkgver.tar.gz)
+sha512sums=('7874460053662d40c2cfcf0015e330e1c8201eeb07682e2079a636db553a82dc25b70b14ad0f0c82fb817f655359d695101a17f616abf9a39f49c61ae5fd49b1')
+b2sums=('8942408e27198075c92ef51f7a191cc7781eb3a5110119b91fd95f86e13ebe2fbfee11022a2bfec794150f60b3af8c4d5f324cb011703cd581c17f92232ae5bf')
 
 check() {
   cd "$_pkgbase-$pkgver"
