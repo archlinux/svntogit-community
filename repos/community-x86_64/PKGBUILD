@@ -1,5 +1,5 @@
 # Maintainer: Caleb Maclennan <caleb@alerque.com>
-# Maintainer: Bruno Pagani <archange at archlinux dot org>
+# Maintainer: Bruno Pagani <archange@archlinux.org>
 # Contributor: William Gathoye <william + aur at gathoye dot be>
 # Contributor: Aleksandar Trifunović <akstrfn at gmail dot com>
 # Contributor: Jan Was <janek dot jan at gmail dot com>
@@ -7,12 +7,12 @@
 
 pkgname=mattermost-desktop
 pkgver=5.1.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Mattermost Desktop application'
 arch=(x86_64)
 url="https://github.com/${pkgname/-//}"
 license=(Apache)
-_electron=electron # 19
+_electron=electron19
 _builderVersion='^23.0.8'
 depends=($_electron)
 makedepends=(git
