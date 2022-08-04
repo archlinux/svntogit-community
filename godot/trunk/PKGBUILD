@@ -5,8 +5,8 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=3.4.4
-pkgrel=2
+pkgver=3.4.5
+pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
@@ -16,7 +16,7 @@ depends=(embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
          libwslay libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
 optdepends=(pipewire-alsa pipewire-pulse)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('c1e93eaec776967ef6a2a4237776e022075497a36c39bf59ca7003de3311729c7a6465698d6beff652274675a0be73fe7e00a880c127bbb33888d360f47fe10e')
+b2sums=('52e98543a27c1f00d37fe8850d3f2d247fb7e54acdd23b1e036b50ff23f80b18ca4d90b96ed9ce83c8a6dbad34aaeaee44f49b24accab01b7125b95e12ea6784')
 
 prepare() {
   # Disable the check that adds -no-pie to LINKFLAGS, for gcc != 6
@@ -48,8 +48,8 @@ build() {
     target=release_debug \
     tools=yes \
     use_llvm=no \
-    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now" \
-    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now" \
+    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
+    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
     LINKFLAGS="$LDFLAGS" \
     $system_libs
 }
