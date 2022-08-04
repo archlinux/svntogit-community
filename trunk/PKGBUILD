@@ -9,37 +9,42 @@
 _name=scipy
 pkgname=python-scipy
 pkgver=1.9.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Open-source software for mathematics, science, and engineering'
 arch=(x86_64)
 url='https://www.scipy.org/'
 license=(BSD)
 depends=(python-numpy)
 provides=(scipy)
-makedepends=(gcc-fortran python-setuptools cython python-pythran pybind11)
+makedepends=(gcc-fortran cython python-pythran pybind11 meson-python python-build python-installer)
 checkdepends=(python-pytest)
 optdepends=('python-pillow: for image saving module')
 source=(https://pypi.python.org/packages/source/${_name:0:1}/$_name/$_name-$pkgver.tar.gz)
 sha256sums=('c0dfd7d2429452e7e94904c6a3af63cbaa3cf51b348bd9d35b42db7e9ad42791')
 
+prepare() {
+  cd $_name-$pkgver
+# meson-python does not allow passing options to meson yet
+  sed -e 's|blas=openblas|blas=blas|' -e 's|lapack=openblas|lapack=lapack|' -i meson.build
+# Relax dependency versions
+  sed -e 's|==|>=|g' -e 's|\,<[0-9]*\(.[0-9]\)*||g' -i pyproject.toml
+}
+
 build() {
-  cd scipy-${pkgver}
-  python setup.py config_fc build
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  cd scipy-${pkgver}
-  python setup.py config_fc install \
-    --prefix=/usr --root="$srcdir"/test --optimize=1
-  export PYTHONPATH="$srcdir"/test/usr/lib/python3.10/site-packages
-  cd ..
-  python -c "from scipy import test; test('full')"
+  cd $_name-$pkgver
+  python -m venv --system-site-packages test-env
+  test-env/bin/python -m installer dist/*.whl
+  cd test-env
+  bin/python -c "from scipy import test; test('full')"
 }
 
 package() {
-  cd scipy-$pkgver
-  python3 setup.py config_fc install \
-    --prefix=/usr --root="$pkgdir" --optimize=1
-
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname
 }
