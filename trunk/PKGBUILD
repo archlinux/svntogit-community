@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=2
+pkgrel=3
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -122,7 +122,7 @@ package_ruby-stdlib() {
     ruby-bundler
     #ruby-cgi
     #ruby-csv
-    #ruby-date
+    ruby-date
     #ruby-dbm   # removed in 3.1.2
     #ruby-debug   # removed in 3.1.2
     #ruby-delegate
@@ -156,7 +156,7 @@ package_ruby-stdlib() {
     #ruby-net-smtp   # removed in 3.1.2
     #ruby-nkf
     #ruby-observer
-    #ruby-open-uri
+    ruby-open-uri
     #ruby-open3
     #ruby-openssl
     #ruby-optparse
@@ -183,13 +183,13 @@ package_ruby-stdlib() {
     #ruby-strscan
     #ruby-syslog
     #ruby-tempfile
-    #ruby-time
+    ruby-time
     #ruby-timeout
     #ruby-tmpdir
     #ruby-tracer   # removed in 3.1.2
     #ruby-tsort
     #ruby-un
-    #ruby-uri
+    ruby-uri
     #ruby-weakref
     #ruby-yaml
     #ruby-zlib
