@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=3
+pkgrel=4
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -86,12 +86,16 @@ package_ruby() {
   # remove already packaged stdlib gems (needs to be as dependency in ruby-stdlib)
   local stdlib_gems=(
     bundler
+    date
     irb
     json
+    open-uri
     psych
     rdoc
     reline
     stringio
+    time
+    uri
   )
 
   for stdlib_gem in "${stdlib_gems[@]}"; do
