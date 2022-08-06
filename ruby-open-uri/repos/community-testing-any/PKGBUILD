@@ -1,0 +1,80 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='open-uri'
+pkgname="ruby-${_gemname}"
+pkgver=0.2.0
+pkgrel=1
+pkgdesc='An easy-to-use wrapper for Net::HTTP, Net::HTTPS and Net::FTP'
+arch=('any')
+url='https://github.com/ruby/open-uri'
+license=('BSD' 'RUBY')
+depends=('ruby' 'ruby-stringio' 'ruby-time' 'ruby-uri')
+checkdepends=('ruby-rake' 'ruby-webrick')
+options=(!emptydirs)
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('cc6d739282364f729ea36c2bc3b92d00ed0348727393cce1df5c5565e76877c0434a8726abdfb16e8e91f6d8fc21601c2eefd4a35275ed37ad409851ab9a32f5')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # we build based on a tar archive, not a git repo
+  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\n"|' "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  gem build "${_gemname}.gemspec"
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  gem install \
+    --local \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "${pkgdir}/${_gemdir}" \
+    --bindir "${pkgdir}/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
+
+  # remove unrepreducible files
+  rm -frv \
+    "${pkgdir}/${_gemdir}/cache/" \
+    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "${pkgdir}/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "${pkgdir}/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+
+  install -D --mode=644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -D --mode=644 README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
