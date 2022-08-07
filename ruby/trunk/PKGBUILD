@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=4
+pkgrel=5
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -89,6 +89,7 @@ package_ruby() {
     date
     irb
     json
+    net-http
     open-uri
     psych
     rdoc
@@ -153,7 +154,7 @@ package_ruby-stdlib() {
     #ruby-matrix   # removed in 3.1.2
     #ruby-mutex_m
     #ruby-net-ftp   # removed in 3.1.2
-    #ruby-net-http
+    ruby-net-http
     #ruby-net-imap   # removed in 3.1.2
     #ruby-net-pop   # removed in 3.1.2
     #ruby-net-protocol
