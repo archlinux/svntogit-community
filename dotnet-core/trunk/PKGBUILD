@@ -13,9 +13,9 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=6.0.6.sdk106
+pkgver=6.0.7.sdk107
 pkgrel=1
-_bootstrapver=6.0.105
+_bootstrapver=6.0.106
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -44,7 +44,7 @@ options=(
   !lto
   staticlibs
 )
-_tag=12b1eb5c5887038494f4ebc15110f0349d5b2d19
+_tag=f6ec7508e3b20ad6fbc4ffa8ea4ed8818ffccc1d
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
@@ -54,13 +54,13 @@ source=(
 )
 noextract=(Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz)
 b2sums=('SKIP'
-        '86f31d7a3a262051b865832cfa31e41b886182044e8ed3506103cd2f1c1d73644762b8167aa8e86c950e21b983e86f92021cc61b71331a1330b05f06c0b42ace'
+        '693462812f8d7f042659d10ce62b384f9659a7d42f6228a5450f49439eef6ea3846ddc185d5f6fb331c6040cf5d57108cdfc111167208680ca1d49c4cc117ed1'
         '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
         'b9472b3967c9d7549ee2bbf0180d919748b40b1f9a65b1c3789be40f62ed17a9d37c2020409f7835570620108bd5ec43e728966d075d66bf0b7261cdd36a60c3'
         '95b083b842da6049a084ca015b7ddc099550aa818fc382d556cca832fee52265be568d20a2c50e70819aef6cf879e7a368f7dd3b5966356643b2efdd756e73f4')
 
 prepare() {
-  #cp -r /usr/share/dotnet .
+  cp -r /usr/share/dotnet .
   cd dotnet-installer
   # fix bootstrap
   git remote set-url origin https://github.com/dotnet/installer.git
@@ -121,6 +121,7 @@ build() {
 
   ./prep.sh
   ./build.sh \
+    --with-sdk "${srcdir}"/dotnet \
     -- \
     /v:n \
     /p:ContinueOnPrebuiltBaselineError=true \
@@ -128,7 +129,6 @@ build() {
     /p:MinimalConsoleLogOutput=false \
     /p:PrebuiltPackagesPath="${srcdir}"/sources/packages \
     /p:SkipPortableRuntimeBuild=true
-    #--with-sdk "${srcdir}"/dotnet \
 }
 
 package_dotnet-host() {
