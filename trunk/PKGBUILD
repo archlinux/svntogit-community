@@ -2,8 +2,8 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=2022.6.2
-pkgrel=2
+pkgver=2022.8.0 
+pkgrel=1
 _electronversion=19
 pkgdesc='A secure and free password manager for all of your devices'
 arch=('x86_64')
@@ -12,12 +12,10 @@ license=('GPL3')
 depends=("electron$_electronversion" 'libnotify' 'libsecret' 'libxtst' 'libxss' 'libnss_nis')
 makedepends=('git' 'npm' 'python' 'node-gyp' 'nodejs-lts-gallium' 'jq')
 source=(bitwarden::git+https://github.com/bitwarden/clients.git#tag=desktop-v$pkgver
-        bitwarden-jslib::git+https://github.com/bitwarden/jslib.git
         messaging.main.ts.patch
         ${pkgname}.sh
         ${pkgname}.desktop)
 sha512sums=('SKIP'
-            'SKIP'
             'babcae0dba4d036e5d2cd04d8932b63253bc7b27b14d090932066e9d39383f7565c06d72dae9f96e741b494ef7e50a1fe7ec33905aa3124b427a8bf404df5762'
             '98d2860bef2283fd09710fbbc5362d7ef2cd8eca26f35805ea258f2dacba78bd6aab14c834388a5089a8150eb0f32a82577aab10f8ad68e1a6371959b2802ad4'
             '05b771e72f1925f61b710fb67e5709dbfd63855425d2ef146ca3770b050e78cb3933cffc7afb1ad43a1d87867b2c2486660c79fdfc95b3891befdff26c8520fd')
@@ -28,12 +26,6 @@ prepare() {
 	export npm_config_build_from_source=true
 	export npm_config_cache="$srcdir/npm_cache"
 	export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-
-	# Link jslib
-	git submodule init
-	git config 'submodule.apps/browser/jslib.url' "$srcdir/bitwarden-jslib"
-	git config 'submodule.apps/desktop/jslib.url' "$srcdir/bitwarden-jslib"
-	git submodule update
 
 	# This patch is required to make "Start automatically on login" work
 	patch --strip=1 src/main/messaging.main.ts "$srcdir/messaging.main.ts.patch"
@@ -52,7 +44,7 @@ prepare() {
 
 build() {
 	cd bitwarden/apps/desktop
-	electronDist=/usr/lib/electron
+	electronDist=/usr/lib/electron$_electronversion
 	electronVer=$(electron$_electronversion --version | tail -c +2)
 	export npm_config_build_from_source=true
 	export npm_config_cache="$srcdir/npm_cache"
