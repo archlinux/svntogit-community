@@ -9,8 +9,8 @@ pkgname=(
   renpy
   renpy-demos
 )
-pkgver=7.4.11
-pkgrel=3
+pkgver=8.0.1
+pkgrel=1
 pkgdesc="The Ren'Py Visual Novel Engine"
 arch=(x86_64)
 url=https://www.renpy.org
@@ -18,45 +18,56 @@ license=(MIT)
 depends=(
   ffmpeg
   glew
-  python2-future
-  python2-pygame-sdl2
+  python-future
+  python-pygame-sdl2
+  python-six
 )
 makedepends=(
-  cython2
-  python2-setuptools
+  cython
+  git
+  python-pefile
+  python-setuptools
+  python-sphinx
+  python-sphinx-bootstrap-theme
 )
 optdepends=(
-  'atom: Default editor'
-  'code: Another editor'
+  'code: Default editor'
 )
 options=(!emptydirs)
+_tag=eb40f32c96e79843c3d9df935cfd7d2edade2430
 source=(
-  https://www.renpy.org/dl/${pkgver}/renpy-${pkgver}-source.tar.bz2
-  renpy
+  git+https://github.com/renpy/renpy.git#tag=${_tag}
+  renpy.bin
   renpy.desktop
   renpy.png
   renpy-system-fribidi.patch
+  renpy-version.patch
+  LICENSE.txt
 )
-b2sums=('05f6b0c4022fd80dcbc0c409538cf09462063e810edefaf874f87d49658d10d5597826b9f4e61cf57a0a4fc2cca83863eda40751363e05bbad275f43cef81139'
-        '1b6ebdbca74d03c86a3b90d8c749fbb433d4427bf2f5e38dc976819a61a911015d059995463a3be81661080a28bae8042c24a552c5b5a3ef0efb6acd83df1053'
+b2sums=('SKIP'
+        'bbf0d25ad1671f7046cced56024a9c023533a1c28e9cff62e77203bbecae220d35cbe00a896483324ee3b778a1335c1d156894d6f2b692b4960a5bf48bf5d502'
         'b5bec9d19a25ae849d0e86e483040b320be9048b55ba002cc83d4ee018e99ff7549ba26a60afe6522c2efe2abb724f2679750e25f8d7c161847ad1babeccf006'
         'd0b22e3f970f28096a6ea50019d708a568cfca489acc3c5b1bbce78a0b5afc35d43712b5348ab88b643543ce4f627c31a83eacaab293bede55de2eeabfea2238'
-        '1e1c8b1a8d670c7ec1587b13140972d463ba6a442f895e73ba9df45f36c52babe86783180b0d265e4bb93df44ad31ed5c0e9e859d656d253ad086b8fdb784281')
+        '1e1c8b1a8d670c7ec1587b13140972d463ba6a442f895e73ba9df45f36c52babe86783180b0d265e4bb93df44ad31ed5c0e9e859d656d253ad086b8fdb784281'
+        '12c237ed94d210fee5de799be2c827d38aa994b2727299e1c8a4e8d4e9e60141ff4cc5764ebf070ec3cf50640fe4b851eab95819a401c7880037bc4483815d30'
+        '0d5258d59d9bbcd4122b2ffda82b088838b134c250edb0a3e95f727a3bd0c0263d3942d4e27877d192fb14433fce0f8d99aa20e9efcb7df86c884418ba6e1b80')
 
 prepare() {
-  cd renpy-${pkgver}-source
-
-  sed 's/python/python2/' -i atom/Atom.edit.py launcher/game/tkaskdir.py
-
+  cd renpy
+  git cherry-pick -n 909e61decbc2d9c63a5c05f0a27a849f4ab205fc
   patch -Np1 -i ../renpy-system-fribidi.patch
+  patch -Np1 -i ../renpy-version.patch
 }
 
 build() {
-  cd renpy-${pkgver}-source
-
-  export RENPY_CYTHON=cython2
-
-  python2 module/setup.py build
+  cd renpy
+  python module/setup.py build
+  python -m compileall renpy
+  PYTHONPATH=module/build/lib.linux-x86_64-3.10 python renpy.py . compile
+  PYTHONPATH=module/build/lib.linux-x86_64-3.10 python renpy.py the_question compile
+  PYTHONPATH=module/build/lib.linux-x86_64-3.10 python renpy.py tutorial compile
+  cd sphinx
+  PYTHONPATH=../module/build/lib.linux-x86_64-3.10 ./build.sh
 }
 
 package_renpy() {
@@ -65,31 +76,23 @@ package_renpy() {
     'tk: Set projects directory'
   )
 
-  cd renpy-${pkgver}-source
-
-  python2 module/setup.py install --root="${pkgdir}" --prefix=/usr --optimize=1 --skip-build
-
+  cd renpy
+  python module/setup.py install --root="${pkgdir}" --optimize=1 --skip-build
   install -dm 755 "${pkgdir}"/usr/share/{renpy,doc}
-
-  cp -dr --no-preserve=ownership atom doc gui launcher renpy renpy.py "${pkgdir}"/usr/share/renpy/
+  cp -dr --no-preserve=ownership doc gui launcher renpy renpy.py sdk-fonts "${pkgdir}"/usr/share/renpy/
   ln -s /usr/share/renpy/doc "${pkgdir}"/usr/share/doc/renpy
-
-  install -Dm 755 ../renpy -t "${pkgdir}"/usr/bin/
+  install -Dm 755 ../renpy.bin "${pkgdir}"/usr/bin/renpy
   install -Dm 644 ../renpy.desktop -t "${pkgdir}"/usr/share/applications/
   install -Dm 644 ../renpy.png -t "${pkgdir}"/usr/share/pixmaps/
-
-  install -Dm 644 LICENSE.txt -t "${pkgdir}"/usr/share/licenses/renpy/
+  install -Dm 644 ../LICENSE.txt -t "${pkgdir}"/usr/share/licenses/renpy/
 }
 
 package_renpy-demos() {
   depends=(renpy)
 
-  cd renpy-${pkgver}-source
-
+  cd renpy
   install -dm 755 "${pkgdir}"/usr/share/renpy
-
   cp -dr --no-preserve=ownership the_question tutorial "${pkgdir}"/usr/share/renpy/
-
   install -dm 755 "${pkgdir}"/usr/share/licenses
   ln -s renpy "${pkgdir}"/usr/share/licenses/renpy-demos
 }
