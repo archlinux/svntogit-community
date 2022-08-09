@@ -3,7 +3,7 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r16380.8335ec70e5
+pkgver=5.0.r16793.3cd82b6193
 pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
@@ -49,7 +49,7 @@ makedepends=(
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-_commit=8335ec70e5fe253eb21509408ca6b5736ed57dfc
+_commit=3cd82b619388d0877436390093a6edc2319a6904
 source=(
   dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit}
   dolphin-emu-system-libmgba.patch
