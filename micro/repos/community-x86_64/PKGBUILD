@@ -8,9 +8,9 @@
 
 pkgname=micro
 pkgver=2.0.11
-pkgrel=3
+pkgrel=4
 # manually set date instead of "go run tools/build-date.go", for reproducible builds
-_build_date='August 05, 2022'
+_build_date='August 09, 2022'
 pkgdesc='Modern and intuitive terminal-based text editor'
 arch=(x86_64)
 url='https://micro-editor.github.io/'
@@ -21,12 +21,16 @@ optdepends=('wl-clipboard: for copying/pasting text using Wayland'
 source=("git+https://github.com/zyedidia/micro#commit=225927b9a25f0d50ea63ea18bc7bb68e404c0cfd") # tag: v2.0.11
 b2sums=('SKIP')
 
-build() {
+prepare() {
   cd $pkgname
-  local version=$(go run tools/build-version.go)
-  local hash=$(git rev-parse --short HEAD)
-  local govars="-X github.com/zyedidia/micro/v2/internal/util.Version=$version -X github.com/zyedidia/micro/v2/internal/util.CommitHash=$hash -X 'github.com/zyedidia/micro/v2/internal/util.CompileDate=$_build_date'"
-  go build -v -buildmode=pie -trimpath -ldflags="-s -w ${govars} -linkmode=external -extldflags \"${LDFLAGS}\"" ./cmd/micro
+  # Let tools/build-date.go always return the same date, to make the package reproducible
+  echo -e '//+build ignore\npackage main\nimport "fmt"\nfunc main() { fmt.Println("'$_build_date'") }' > tools/build-date.go
+  # Modify the Go build flags
+  sed -i 's/-trimpath/-buildmode=pie -trimpath/g;s/GS)/GS) -linkmode=external -extldflags \\"$(LDFLAGS)\\"/g' Makefile
+}
+
+build() {
+  make -C $pkgname
 }
 
 check() {
@@ -36,9 +40,8 @@ check() {
 package() {
   cd $pkgname
   install -Dm755 $pkgname "$pkgdir/usr/bin/$pkgname"
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 LICENSE-THIRD-PARTY "$pkgdir/usr/share/licenses/$pkgname/LICENSE-THIRD-PARTY"
   install -Dm644 assets/packaging/micro.1 -t "$pkgdir/usr/share/man/man1"
   install -Dm644 assets/packaging/micro.desktop -t "$pkgdir/usr/share/applications"
   install -Dm644 assets/micro-logo-mark.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/$pkgname.svg"
+  install -Dm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE LICENSE-THIRD-PARTY
 }
