@@ -2,7 +2,7 @@
 
 _target=aarch64-linux-gnu
 pkgname=$_target-binutils
-pkgver=2.38
+pkgver=2.39
 pkgrel=1
 pkgdesc='A set of programs to assemble and manipulate binary and object files for the ARM64 target'
 arch=(x86_64)
@@ -10,10 +10,9 @@ url='https://www.gnu.org/software/binutils/'
 license=(GPL)
 depends=(zlib libelf)
 source=(https://ftp.gnu.org/gnu/binutils/binutils-$pkgver.tar.bz2{,.sig})
-sha1sums=('50e0acc9ffe920e90b699e8e5db0aa9449c22cb4'
+sha1sums=('d9028547385694d61d98fb4e2882a2b9c40ce7e9'
           'SKIP')
-validpgpkeys=('EAF1C276A747E9ED86210CBAC3126D3B4AE55E93'  # Tristan Gingold <gingold@adacore.com>
-              '3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton (Chief Binutils Maintainer) <nickc@redhat.com>
+validpgpkeys=('3A24BC1E8FB409FA9F14371813FCEF89DD9E3C4F') # Nick Clifton (Chief Binutils Maintainer) <nickc@redhat.com>
 
 prepare() {
   cd binutils-$pkgver
@@ -60,6 +59,9 @@ package() {
   # Remove file conflicting with host binutils and manpages for MS Windows tools
   rm "$pkgdir"/usr/share/man/man1/$_target-{dlltool,windres,windmc}*
   rm "$pkgdir"/usr/lib/bfd-plugins/libdep.so
+  rm "$pkgdir"/usr/etc/gprofng.rc
+  rm -r "$pkgdir"/usr/include
+  rm -r "$pkgdir"/usr/lib/gprofng/
 
   # Remove info documents that conflict with host version
   rm -r "$pkgdir"/usr/share/info
