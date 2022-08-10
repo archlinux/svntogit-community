@@ -6,7 +6,7 @@
 
 pkgname=helm
 pkgver=3.9.3
-pkgrel=1
+pkgrel=2
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
 url="https://github.com/helm/helm"
