@@ -2,7 +2,7 @@
 
 _name=stack_data
 pkgname=python-stack-data
-pkgver=0.3.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc='Extract data from python stack frames and tracebacks for informative displays'
 arch=('any')
@@ -14,8 +14,8 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
 checkdepends=('cython' 'python-littleutils' 'python-pygments' 'python-pytest'
               'python-typeguard')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('77bec1402dcd0987e9022326473fdbcc767304892a533ed8c29888dacb7dddbc')
-b2sums=('9202ddb2e6e8c8c9e050e085cfe6e1bdbf26124eb85c19516558336d46876aba5ede1b6a87cf17e09c2b44629063a8f5e1f558fdaf64db2db029978a5860cd99')
+sha256sums=('a90ae7e260f7d15aefeceb46f0a028d4ccb9eb8856475c53e341945342d41ea7')
+b2sums=('1395ce2ba5ce12af2ab4e9c3d4b42c2b5c14fe09013469fb8c659899b0d9a78ce9d12b4a37223d651d4e8bafeb5c1d97437690084dc4592cf8c04fb7236f5b0d')
 
 build() {
   cd "$_name-$pkgver"
@@ -39,5 +39,3 @@ package() {
   ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE.txt \
     "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
 }
-
-# vim:set ts=2 sw=2 et:
