@@ -3,28 +3,28 @@
 # Contributor: Michael Yeatts <mwyeatts@gmail.com>
 
 pkgname=python-typing_extensions
-pkgver=4.2.0
+pkgver=4.3.0
 pkgrel=1
-pkgdesc='Backported and Experimental Type Hints for Python 3.5+'
+pkgdesc='Backported and Experimental Type Hints for Python 3.7+'
 arch=(any)
-url=https://github.com/python/typing/tree/master/typing_extensions
+url=https://github.com/python/typing_extensions
 license=(custom)
 depends=(python)
 makedepends=(git python-build python-flit-core python-installer)
 checkdepends=(python-tests)
 provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
-source=("git+https://github.com/python/typing.git#tag=${pkgver}")
-sha256sums=(SKIP)
+source=("git+$url.git#tag=${pkgver}")
+b2sums=(SKIP)
 
 build() {
-  cd typing/typing_extensions
+  cd typing_extensions
 
   python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
-  cd typing/typing_extensions
+  cd typing_extensions
 
   python -m venv --system-site-packages test-env
   test-env/bin/python -m installer dist/*.whl
@@ -32,7 +32,7 @@ check() {
 }
 
 package() {
-  cd typing/typing_extensions
+  cd typing_extensions
 
   python -m installer --destdir="${pkgdir}" dist/*.whl
 
