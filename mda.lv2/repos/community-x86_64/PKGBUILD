@@ -2,62 +2,44 @@
 
 _name=mda-lv2
 pkgname=mda.lv2
-pkgver=1.2.6
+pkgver=1.2.10
 pkgrel=1
 pkgdesc="A port of the MDA VST plugins to LV2"
-arch=('x86_64')
+arch=(x86_64)
 url="https://gitlab.com/drobilla/mda-lv2"
-license=('GPL3')
-groups=('lv2-plugins' 'pro-audio')
-depends=('gcc-libs' 'glibc')
-checkdepends=('lv2lint')
-makedepends=('lv2' 'waf')
-optdepends=('lv2-host: for LV2 plugins')
-source=("https://download.drobilla.net/${_name}-${pkgver}.tar.bz2"{,.asc})
-sha512sums=('0b49c8d4868010726bdf4b969b4822ffe17d705d81c956afabcfa27135c1bf54bb4fd00168d2606ddcd3f9b1930247655e700ae8d6039b43ff1a779cb8a617cc'
+license=(GPL3)
+groups=(lv2-plugins pro-audio)
+depends=(gcc-libs glibc lv2-host)
+checkdepends=(lv2lint)
+makedepends=(lv2 meson)
+options=(debug)
+source=(https://download.drobilla.net/$_name-$pkgver.tar.xz{,.sig})
+sha512sums=('be490887be25b2578a4f0a0f7d571aaa1bad37a640094ffde7bdca21a285ddf7d7650f96f735cb0ec01e262bddb945ab9e8923a2d8b94afb5dc6940cf4e2b054'
             'SKIP')
-b2sums=('d9c6de99a3bac080df2a58db56673712a7c050fea76906bd8e1704f28b3588d990cc8c3ce2fe94b598b1b9a4acd751696775d6c19baee2bd7982853f2e2ae18b'
+b2sums=('f201cff828fcef037795935bbeb56b0c2067a2f66666f99d8f90507333249c128d5d6202bc38a96dafa9f9aab28f5c9b571f9e8d88f7a77fd1b23f5fca1376d4'
         'SKIP')
 validpgpkeys=('907D226E7E13FA337F014A083672782A9BF368F3') # David Robillard <d@drobilla.net>
 
-prepare() {
-  mv -v "${_name}-$pkgver" "$pkgname-$pkgver"
-  cd "$pkgname-$pkgver"
-  # let wscript(s) find the custom waf scripts
-  mkdir -pv tools
-  touch __init__.py
-  cp -v waflib/extras/{autoship,autowaf,lv2}.py tools/
-  mkdir -pv plugins/tools/
-  cp -v waflib/extras/{autoship,autowaf,lv2}.py plugins/tools/
-  rm -rv waflib
-  sed -e 's/waflib.extras/tools/g' \
-      -e "s/load('autowaf'/load('autowaf', tooldir='tools'/g" \
-      -e "s/load('lv2'/load('lv2', tooldir='tools'/g" \
-      -i wscript
-}
-
 build() {
-  cd "$pkgname-$pkgver"
-  waf configure --prefix=/usr
-  waf
+  # NOTE: disable tests because some weird internal tooling is required otherwise
+  arch-meson $_name-$pkgver build -D tests=disabled
+  meson compile -C build
 }
 
 check() {
   local _plugins _plugin
-  _plugins=( 'Ambience' 'Bandisto' 'BeatBox' 'Combo' 'DX10' 'DeEss' 'Degrade'
-  'Delay' 'Detune' 'Dither' 'DubDelay' 'Dynamics' 'EPiano' 'Image' 'JX10'
-  'Leslie' 'Limiter' 'Loudness' 'MultiBand' 'Overdrive' 'Piano' 'RePsycho'
-  'RezFilter' 'RingMod' 'RoundPan' 'Shepard' 'Splitter' 'Stereo' 'SubSynth'
-  'TalkBox' 'TestTone' 'ThruZero' 'Tracker' 'Transient' 'VocInput' 'Vocoder')
+  _plugins=(Ambience Bandisto BeatBox Combo DX10 DeEss Degrade Delay Detune
+  Dither DubDelay Dynamics EPiano Image JX10 Leslie Limiter Loudness MultiBand
+  Overdrive Piano RePsycho RezFilter RingMod RoundPan Shepard Splitter Stereo
+  SubSynth TalkBox TestTone ThruZero Tracker Transient VocInput Vocoder)
 
-  cd "$pkgname-$pkgver"
   for _plugin in "${_plugins[@]}"; do
-    lv2lint -Mpack -I "build/lv2/${pkgname}" "http://drobilla.net/plugins/mda/${_plugin}" || echo "Known to fail: https://gitlab.com/drobilla/mda-lv2/-/issues/2"
+    # NOTE: whitelist globally visible library: https://gitlab.com/drobilla/mda-lv2/-/issues/2
+    lv2lint -Mpack -s lvz_new_audioeffectx -I "build/$pkgname/" "http://drobilla.net/plugins/mda/$_plugin"
   done
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-  waf install --destdir="$pkgdir/"
-  install -vDm 644 {NEWS,README.md} -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  meson install -C build --destdir "$pkgdir"
+  install -vDm 644 $_name-$pkgver/{NEWS,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
