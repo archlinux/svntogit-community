@@ -14,7 +14,7 @@ makedepends=(git python-build python-flit-core python-installer)
 checkdepends=(python-tests)
 provides=(python-typing-extensions)
 conflicts=(python-typing-extensions)
-source=("git+$url.git#tag=${pkgver}")
+source=("git+${url}.git#tag=${pkgver}")
 b2sums=(SKIP)
 
 build() {
@@ -39,7 +39,7 @@ package() {
   # Symlink license file
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
   install -d "${pkgdir}"/usr/share/licenses/${pkgname}
-  ln -s "${site_packages}"/typing_extensions-$pkgver.dist-info/LICENSE \
+  ln -s "${site_packages}"/typing_extensions-${pkgver}.dist-info/LICENSE \
     "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
