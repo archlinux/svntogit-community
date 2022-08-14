@@ -5,15 +5,14 @@ pkgname=ghidra
 pkgver=10.1.5
 _d2j=2.0
 _yajsw=13.01
-pkgrel=1
+pkgrel=2
 pkgdesc='Software reverse engineering framework'
 url='https://ghidra-sre.org/'
 arch=('x86_64')
 license=('Apache')
 depends=('java-environment>=11' 'bash')
 makedepends=('git' 'gradle' 'unzip' 'java-environment=11')
-optdepends=('python2: Python feature'
-            'pam: GhidraServer support')
+optdepends=('pam: GhidraServer support')
 options=('!strip')
 source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver}_build.tar.gz
         "git+https://github.com/NationalSecurityAgency/ghidra-data#tag=Ghidra_${pkgver}"
