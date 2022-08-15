@@ -2,22 +2,28 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-jaraco.text
-pkgver=3.8.1
+pkgver=3.9.0
 pkgrel=1
 pkgdesc='Module for text manipulation'
 arch=('any')
 url='https://github.com/jaraco/jaraco.text'
 license=('MIT')
-depends=('python-jaraco.functools' 'python-jaraco.context')
+depends=('python-jaraco.functools' 'python-jaraco.context' 'python-autocommand' 'python-inflect' 'python-more-itertools')
 makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
+checkdepends=('python-pytest')
 conflicts=('python-jaraco')
 replaces=('python-jaraco')
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.text/jaraco.text-$pkgver.tar.gz")
-sha512sums=('2dfdd2b3bfef7c0a38a633b810a63a4337ce79b0c871f08beb369bea04585ef1b9e53afa7cef0b54c172ca25eed068af92215526d2f5cee232ccf7e72c914cfa')
+sha512sums=('c895646f87af5fb0035fa22470b02d2742fdbbe90bfd65a23d367108a922fbffd7cdf6e8882850c6b4454b8a9e177cefab636f90adde1e583c4cc9f4cbb33f26')
 
 build() {
   cd "$srcdir/jaraco.text-$pkgver"
   python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$srcdir/jaraco.text-$pkgver"
+  PYTHONPATH="$PWD" pytest
 }
 
 package() {
