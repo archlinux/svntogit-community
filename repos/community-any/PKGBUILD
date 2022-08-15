@@ -2,7 +2,7 @@
 
 _name=asttokens
 pkgname=python-asttokens
-pkgver=2.0.7
+pkgver=2.0.8
 pkgrel=1
 pkgdesc='Get the currently executing AST node of a frame, and other information'
 arch=('any')
@@ -13,8 +13,8 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
              'python-wheel')
 #checkdepends=('python-astroid' 'python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('8444353e4e2a99661c8dfb85ec9c02eedded08f0006234bff7db44a06840acc2')
-b2sums=('845445b83db124025b1d6908a455faea440111e33e45b376ad5038598a5f285d55104ce9334cf53084c09c3d6a0eff06650df1a16ea14df696779f72beca2eac')
+sha256sums=('c61e16246ecfb2cde2958406b4c8ebc043c9e6d73aaa83c941673b35e5d3a76b')
+b2sums=('ca0d3086ef5c2bdf6cacb1edc2f8849c01fcfacb39e1f1b88e6c29dd65c15debe35ffa05cfce99fc914cf67909ddcf5340ccb70e7d7e194a8b4abd531b7f725b')
 
 build() {
   cd "$_name-$pkgver"
