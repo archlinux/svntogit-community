@@ -1,17 +1,17 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=towncrier
-pkgver=21.3.0
-pkgrel=3
+pkgver=21.9.0
+pkgrel=1
 pkgdesc="Utility to produce useful, summarised news files for your project"
 arch=('any')
 url="https://github.com/hawkowl/towncrier"
 license=('MIT')
 depends=('python-setuptools' 'python-click' 'python-click-default-group' 'python-incremental'
-         'python-jinja' 'python-toml')
+         'python-jinja' 'python-tomli')
 checkdepends=('git' 'python-twisted')
 source=("https://pypi.io/packages/source/t/towncrier/towncrier-$pkgver.tar.gz")
-sha512sums=('058a23dfed3a01d831be8034dd5fbdeac08bbaae3e06dfcd83fc4ac18c98ff8ac12d7c4c04e179794d40d305349c89aed0ee8f5fcd173c2793c8c24b35d58df3')
+sha512sums=('9a54eca115b1d1810de6ea383eaec3a40ae27fc50c1c9fdd19e45b6dd6d355286f8baa1085c876976623121580488d9507279b80c951e5bff327443c6f12d6d4')
 
 prepare() {
   cd towncrier-$pkgver
@@ -25,7 +25,8 @@ build() {
 
 check() {
   cd towncrier-$pkgver
-  PYTHONPATH="$PWD/build/lib" trial towncrier
+  python setup.py install --root="$PWD/tmp_install" --optimize=1
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages" PATH="$PWD/tmp_install/usr/bin:$PATH" trial towncrier
 }
 
 package() {
