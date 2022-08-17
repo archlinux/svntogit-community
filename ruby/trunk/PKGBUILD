@@ -8,12 +8,12 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=5
+pkgrel=6
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
 makedepends=(gdbm openssl libffi doxygen graphviz libyaml ttf-dejavu tk)
-options=(!emptydirs !lto) # Disable LTO until fixes for https://bugs.ruby-lang.org/issues/18062 released
+options=(debug !emptydirs !lto) # Disable LTO until fixes for https://bugs.ruby-lang.org/issues/18062 released
 source=(https://cache.ruby-lang.org/pub/ruby/${pkgver:0:3}/ruby-${pkgver}.tar.xz)
 sha512sums=('53bf7dd403b0c68af9691882ad8ed7422c8d1f496627428fb4c3caf0b0313715524b744c5f453aced2d49e16e55f3f45b46b9a77aa3097dbfcae7caa0208194b')
 
@@ -85,7 +85,13 @@ package_ruby() {
 
   # remove already packaged stdlib gems (needs to be as dependency in ruby-stdlib)
   local stdlib_gems=(
+    abbrev
+    base64
+    benchmark
+    bigdecimal
     bundler
+    cgi
+    csv
     date
     irb
     json
@@ -120,13 +126,13 @@ package_ruby-stdlib() {
   pkgdesc='A vast collection of classes and modules that you can require in your code for additional features'
 
   depends=(
-    #ruby-abbrev
-    #ruby-base64
-    #ruby-benchmark
-    #ruby-bigdecimal
+    ruby-abbrev
+    ruby-base64
+    ruby-benchmark
+    ruby-bigdecimal
     ruby-bundler
-    #ruby-cgi
-    #ruby-csv
+    ruby-cgi
+    ruby-csv
     ruby-date
     #ruby-dbm   # removed in 3.1.2
     #ruby-debug   # removed in 3.1.2
