@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=6
+pkgrel=7
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -93,6 +93,10 @@ package_ruby() {
     cgi
     csv
     date
+    delegate
+    did_you_mean
+    digest
+    drb
     irb
     json
     net-http
@@ -136,10 +140,10 @@ package_ruby-stdlib() {
     ruby-date
     #ruby-dbm   # removed in 3.1.2
     #ruby-debug   # removed in 3.1.2
-    #ruby-delegate
-    #ruby-did_you_mean
-    #ruby-digest
-    #ruby-drb
+    ruby-delegate
+    ruby-did_you_mean
+    ruby-digest
+    ruby-drb
     #ruby-english
     #ruby-erb
     #ruby-etc
