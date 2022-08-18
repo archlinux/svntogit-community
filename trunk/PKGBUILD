@@ -1,0 +1,79 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='digest'
+pkgname="ruby-${_gemname}"
+pkgver=3.1.0
+pkgrel=1
+pkgdesc='Provides a framework for message digest libraries'
+arch=('x86_64')
+url="https://github.com/ruby/${_gemname}"
+license=('BSD' 'RUBY')
+depends=('ruby')
+makedepends=('ruby-rake' 'ruby-rake-compiler')
+options=(!emptydirs)
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('2a5d58d4b92f5391f55e43405d515ea045f8d0b0b09602ac8dc57e784b42787956904a8c51ffba026d2f0ecc2efff17a1d39c632d59afaf7941b455d8b2dcd39')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  rake compile
+  rake build
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "${pkgdir}/${_gemdir}" \
+    --bindir "${pkgdir}/usr/bin" \
+    "pkg/${_gemname}-${pkgver}.gem"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "${pkgdir}/${_gemdir}/cache/" \
+    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "${pkgdir}/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "${pkgdir}/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+
+  install -D --mode=644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -D --mode=644 README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
