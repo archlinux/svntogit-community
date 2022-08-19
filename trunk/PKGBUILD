@@ -4,8 +4,8 @@
 pkgbase='ceph'
 pkgname=('ceph' 'ceph-libs' 'ceph-mgr')
 _zstdver=1.5.2
-pkgver=15.2.14
-pkgrel=6
+pkgver=15.2.17
+pkgrel=1
 pkgdesc='Distributed, fault-tolerant storage platform delivering object, block, and file system'
 arch=('x86_64')
 url='https://ceph.com/'
@@ -56,7 +56,7 @@ source=(
   # 'ceph-15.2.5-missing-includes.patch'
   'ceph-15.2.14-gcc12.patch'
   'disable-empty-readable.sh-test.patch'
-  'qa-src-update-mypy-to-0.782.patch'
+  # 'qa-src-update-mypy-to-0.782.patch'
   'fix-mgr-dashboard-partial_dict.patch'
 
   # snappy 1.1.9 removed major parts from their namespace, including the
@@ -70,7 +70,7 @@ source=(
   # https://github.com/ceph/ceph/pull/34846
   # 'backport_mgr_disabled_modules_workaround_PR34846.patch'
 )
-sha512sums=('eacc4dea0d8dfe2753aff78d89324d81c5634a784313c3da8ded778e2734958c216f8c705b25f070d7ba66b559424ad3c47cb68852f66f8c9c83a83ca78ad5a5'
+sha512sums=('952cd4db057fcab5efa3c6331fbc19cf1e904f5855266c2ed13e41ffb2e5a7d18ed133bd113fea493149005a182f429eef39931c4ceac7776aefe84a208a745a'
             '4354001c1abd9a0c385ba7bd529e3638fb6660b6a88d4e49706d4ac21c81b8e829303a20fb5445730bdac18c4865efb10bc809c1cd56d743c12aa9a52e160049'
             'e107508a41fca50845cc2494e64adaba93efb95a2fa486fc962510a8ba4b2180d93067cae9870f119e88e5e8b28a046bc2240b0b23cdd8933d1fb1a6a9668c1e'
             '9e6bb46d5bbdc5d93f4f026b2a8d6bdb692d9ea6e7018c1bb0188d95ea8574c76238d968b340fd67ddaa3d8183b310e393e3549dc3a63a795fde696413b0ca94'
@@ -82,7 +82,6 @@ sha512sums=('eacc4dea0d8dfe2753aff78d89324d81c5634a784313c3da8ded778e2734958c216
             '8258661e56b5360f4260fdd29b07bac4d415068a112b61ca8c55c529fb1593d8d61a0d59a4eec8f1567b97167c058082198d008f55f8ee701cb46489df5f7823'
             '69b058e7b215f85f347b1e4528800ed62635864fa32b24b0f9db97b08fe6576f30d260bf6a19bb5166482f43928feb535e9a6dca8f3c2b3ce7700c108db9fb7a'
             '2234d005df71b3b6013e6b76ad07a5791e3af7efec5f41c78eb1a9c92a22a67f0be9560be59b52534e90bfe251bcf32c33d5d40163f3f8f7e7420691f0f4a222'
-            '204741c65b8ceeddae0a58a49e2b4249ee7ffc624ce8d9faa6284af198abe63bffb6758e064eeff6d1857be044647f99749a45443e258b35e92cc36b9edeba80'
             '79e337a78cc4bd9ed8c8ab66831b3efd5a3a34e16d2c73ecedef03d2a34c7ac65ea25641a808913cd2dc2dc0f992fac35822efe4188622add6898dce1e5f13e3'
             '4b4d0528d909fb735975db290bc8495ee626fc78d68b82b3525326cb69326cfc310c3078c529246f3d76cec590a3a7c4e92950009211590ebfe55583c4f5b71d')
 
