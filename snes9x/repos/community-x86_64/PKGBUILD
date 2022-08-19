@@ -6,8 +6,8 @@ pkgname=(
   snes9x
   snes9x-gtk
 )
-pkgver=1.60
-pkgrel=8
+pkgver=1.61
+pkgrel=1
 pkgdesc='Portable Super Nintendo Entertainment System (TM) emulator'
 arch=(x86_64)
 url=http://www.snes9x.com/
@@ -15,11 +15,13 @@ license=(custom)
 makedepends=(
   alsa-lib
   cairo
+  clang
   gdk-pixbuf2
   git
   glib2
   glslang
   gtk3
+  gtkmm3
   intltool
   libepoxy
   libpng
@@ -36,44 +38,48 @@ makedepends=(
   sdl2
   zlib
 )
+_tag=7e97bb59a1a65a95ad47549f52d301cc09dd8db5
 source=(
-  git+https://github.com/snes9xgit/snes9x.git#tag=${pkgver}
+  git+https://github.com/snes9xgit/snes9x.git#tag=${_tag}
   git+https://github.com/KhronosGroup/SPIRV-Cross.git
+  git+https://github.com/KhronosGroup/glslang.git
 )
-sha256sums=('SKIP'
-            'SKIP')
+b2sums=('SKIP'
+        'SKIP'
+        'SKIP')
 
 prepare() {
   cd snes9x
-
-  for submodule in shaders/SPIRV-Cross; do
+  for submodule in shaders/{SPIRV-Cross,glslang}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../${submodule#*/}
     git submodule update ${submodule}
   done
-
   cd unix
-
   autoreconf -fiv
 }
 
-build() {
-  pushd snes9x/unix
+pkgver() {
+  cd snes9x
+  git describe --tags
+}
 
-  CXXFLAGS+=" -I/usr/include/glslang"
+build() {
+  export CC=clang
+  export CXX=clang++
+  pushd snes9x/unix
   ./configure \
     --prefix='/usr' \
     --enable-netplay
   make
-
   popd
-
   arch-meson snes9x/gtk build
   ninja -C build
 }
 
 package_snes9x() {
   depends=(
+    alsa-lib
     libpng
     libx11
     libxext
@@ -83,12 +89,9 @@ package_snes9x() {
     zlib
   )
 
-  cd snes9x/unix
-
-  install -Dm 755 snes9x -t "${pkgdir}"/usr/bin/
-  install -Dm 644 ../docs/{control-inputs.txt,controls.txt,snapshots.txt} -t "${pkgdir}"/usr/share/doc/snes9x
-  install -Dm 644 ../LICENSE "${pkgdir}"/usr/share/licenses/snes9x/LICENSE
-
+  install -Dm 755 snes9x/unix/snes9x -t "${pkgdir}"/usr/bin/
+  install -Dm 644 snes9x/docs/{control-inputs.txt,controls.txt,snapshots.txt} -t "${pkgdir}"/usr/share/doc/snes9x
+  install -Dm 644 snes9x/LICENSE "${pkgdir}"/usr/share/licenses/snes9x/LICENSE
 }
 
 package_snes9x-gtk() {
@@ -97,8 +100,8 @@ package_snes9x-gtk() {
     cairo
     gdk-pixbuf2
     glib2
-    glslang
     gtk3
+    gtkmm3
     hicolor-icon-theme
     libepoxy
     libpng
@@ -114,8 +117,7 @@ package_snes9x-gtk() {
     zlib
   )
 
-  DESTDIR="${pkgdir}" ninja -C build install
-
+  DESTDIR="${pkgdir}" ninja install -C build
   install -Dm 644 snes9x/docs/{control-inputs.txt,controls.txt,snapshots.txt} -t "${pkgdir}"/usr/share/doc/snes9x-gtk
   install -Dm 644 snes9x/LICENSE "${pkgdir}"/usr/share/licenses/snes9x-gtk/LICENSE
 }
