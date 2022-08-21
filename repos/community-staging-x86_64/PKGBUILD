@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+
+_hkgname=citeproc
+pkgname=haskell-citeproc
+pkgver=0.7
+pkgrel=11
+pkgdesc="Generates citations and bibliography from CSL styles."
+url="https://github.com/jgm/citeproc"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-aeson-pretty' 'haskell-attoparsec'
+         'haskell-case-insensitive' 'haskell-data-default' 'haskell-file-embed'
+         'haskell-pandoc-types' 'haskell-safe' 'haskell-scientific' 'haskell-text-icu'
+         'haskell-unicode-collation' 'haskell-uniplate' 'haskell-vector' 'haskell-xml-conduit')
+makedepends=('ghc' 'uusi' 'haskell-diff' 'haskell-timeit')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('e24675c0d9227bd6ff5f13788c251647df1e61a65a1b0fe94d80c0bf064bd3018285ace6397d0c5f2b5d6e4ee9b91de8b90e6e4251e9914fb8fcbf58ed3c4539')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' -fexecutable -ficu
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  LANG=en_US.UTF-8 runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
