@@ -6,8 +6,8 @@ BUILDENV+=(!check)
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.1.14
-pkgrel=2
+pkgver=1.1.15
+pkgrel=1
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -40,7 +40,7 @@ source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
         0001-tests-cleanup-cache-and-http-usage.patch
         poetry-completions-generator
         https://github.com/felixonmars/poetry/commit/b4a74c7.patch)
-sha256sums=('b1f6f0e466d23ae32c0c4d54c2f4e3acc60c570e062fccfe544761098e3ff74f'
+sha256sums=('806faa098b43e2264183bd1d45d7014e4f03e7e924d7b33e8cf3156be77e3c7b'
             '06afd8fc75287658d7b240b6eac9e4b84e36f8393545bc6c2c45170a818cadff'
             '4658321c04f36fb3aced9acc44b61f2cf22c5f9d8b8c715111881b24c3e0c99b'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6'
