@@ -4,7 +4,7 @@ pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=11.7.1
 _driverver=515.65.01
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -140,8 +140,9 @@ package_cuda() {
 
   cd "${_prepdir}"
   cp -al * "${pkgdir}"
-  # remove broken link
+  # remove broken links
   rm "${pkgdir}"/opt/cuda/include/include
+  rm "${pkgdir}"/opt/cuda/lib64/lib64
 
   rm -r "${pkgdir}"/opt/cuda/{bin/nvvp,bin/computeprof,libnvvp,nsight*}
 }
