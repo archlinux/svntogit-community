@@ -1,27 +1,23 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-jaraco.context
-pkgver=4.1.1
-pkgrel=2
+pkgver=4.1.2
+pkgrel=1
 pkgdesc="Context managers by jaraco"
 url="https://github.com/jaraco/jaraco.context"
 license=('MIT')
 arch=('any')
 depends=('python')
-makedepends=('python-setuptools-scm' 'python-toml')
+makedepends=('python-setuptools-scm' 'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest')
 source=("https://github.com/jaraco/jaraco.context/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('d1def3f0f701d36f584a60c57837d5e4bf9121c5ce8387f734ac371164f5ba0fe04b73d4d0e16367cfcd6a13cf11ab5dab2afe798f18dfddba15700fe6779fe0')
+sha512sums=('bac276b2c5f3e9b3941c8ba48a87aec044591580c1d3ac9350dcaa79e5a421f56a58d8fffc4e0cb57cdcb63b2afffb33bf1e525f858316b084ff9c4c55df797f')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
-prepare() {
-  cd jaraco.context-$pkgver
-}
-
 build() {
   cd jaraco.context-$pkgver
-  python setup.py build
+  python -m build -wn
 }
 
 check() {
@@ -31,7 +27,7 @@ check() {
 
 package() {
   cd jaraco.context-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1
+  python -m installer -d "$pkgdir" dist/*.whl
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
