@@ -3,8 +3,8 @@
 
 _name=matplotlib-inline
 pkgname=python-matplotlib-inline
-pkgver=0.1.3
-pkgrel=3
+pkgver=0.1.6
+pkgrel=1
 pkgdesc='Inline Matplotlib backend for Jupyter'
 arch=('any')
 url=https://github.com/ipython/matplotlib-inline
@@ -14,8 +14,8 @@ makedepends=('python-setuptools')
 checkdepends=('ipython' 'python-matplotlib')
 optdepends=('python-matplotlib')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('a04bfba22e0d1395479f866853ec1ee28eea1485c1d69a6faf00dc3e24ff34ee')
-b2sums=('9f532fc46064c905ad50f4a6d39579848609790eef08d182a5765140781e87b38706221cab3451581627c73ae4e505afcf9c1a5f324aad5bfbf4441a4f95fd08')
+sha256sums=('f887e5f10ba98e8d2b150ddcf4702c1e5f8b3a20005eb0f74bfdbd360ee6f304')
+b2sums=('3c8579660c36f790604c2ddcc99b587b8f54135f823d1a04b3e7ad5709bf7ba49cecd22da164c7bd6ffba4b84d61681f063ca036fba2d4a0cfaf81a9ea66a7e2')
 
 build() {
   cd $_name-$pkgver
