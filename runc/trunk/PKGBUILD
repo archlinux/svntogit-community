@@ -4,11 +4,12 @@
 
 pkgname=runc
 pkgver=1.1.3
-pkgrel=1
+pkgrel=2
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
 url='https://runc.io/'
 license=(Apache)
+provides=('oci-runtime')
 depends=(libseccomp)
 makedepends=(git go go-md2man)
 optdepends=(
