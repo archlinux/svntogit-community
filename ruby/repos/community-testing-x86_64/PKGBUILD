@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=8
+pkgrel=9
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -121,6 +121,7 @@ package_ruby() {
     reline
     stringio
     time
+    tmpdir
     uri
   )
 
@@ -215,7 +216,7 @@ package_ruby-stdlib() {
     #ruby-tempfile
     ruby-time
     #ruby-timeout
-    #ruby-tmpdir
+    ruby-tmpdir
     #ruby-tracer   # removed in 3.1.2
     #ruby-tsort
     #ruby-un
