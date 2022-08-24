@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=7
+pkgrel=8
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -97,8 +97,23 @@ package_ruby() {
     did_you_mean
     digest
     drb
+    english
+    erb
+    etc
+    fcntl
+    fiddle
+    fileutils
+    find
+    forwardable
+    getoptlong
+    io-console
+    io-nonblock
+    io-wait
+    ipaddr
     irb
     json
+    logger
+    mutex_m
     net-http
     open-uri
     psych
@@ -144,25 +159,25 @@ package_ruby-stdlib() {
     ruby-did_you_mean
     ruby-digest
     ruby-drb
-    #ruby-english
-    #ruby-erb
-    #ruby-etc
-    #ruby-fcntl
-    #ruby-fiddle
-    #ruby-fileutils
-    #ruby-find
-    #ruby-forwardable
+    ruby-english
+    ruby-erb
+    ruby-etc
+    ruby-fcntl
+    ruby-fiddle
+    ruby-fileutils
+    ruby-find
+    ruby-forwardable
     #ruby-gdbm   # removed in 3.1.2
-    #ruby-getoptlong
-    #ruby-io-console
-    #ruby-io-nonblock
-    #ruby-io-wait
-    #ruby-ipaddr
+    ruby-getoptlong
+    ruby-io-console
+    ruby-io-nonblock
+    ruby-io-wait
+    ruby-ipaddr
     ruby-irb
     ruby-json
-    #ruby-logger
+    ruby-logger
     #ruby-matrix   # removed in 3.1.2
-    #ruby-mutex_m
+    ruby-mutex_m
     #ruby-net-ftp   # removed in 3.1.2
     ruby-net-http
     #ruby-net-imap   # removed in 3.1.2
