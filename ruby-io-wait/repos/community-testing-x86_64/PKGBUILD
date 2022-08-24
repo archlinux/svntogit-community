@@ -1,0 +1,86 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='io-wait'
+pkgname="ruby-${_gemname}"
+pkgver=0.2.3
+pkgrel=1
+pkgdesc='Waits until IO is readable or writable without blocking'
+arch=('x86_64')
+url="https://github.com/ruby/${_gemname}"
+license=('BSD' 'RUBY')
+depends=('ruby')
+makedepends=('ruby-rake' 'ruby-rake-compiler')
+options=(!emptydirs)
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('2fbea3419152cd83e411742dd074491bd78b6a077b68a2ea5d802bac671b839bb484a06654ca11f18f45deb1e33a9019dfae0a33eeda0696c1c14b05706a95ba')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # we build based on a tar archive, not a git repo
+  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' "${_gemname}.gemspec"
+
+  rm --verbose \
+    rakelib/changelogs.rake \
+    rakelib/epoch.rake
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  rake compile
+  rake build
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "${pkgdir}/${_gemdir}" \
+    --bindir "${pkgdir}/usr/bin" \
+    "pkg/${_gemname}-${pkgver}.gem"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "${pkgdir}/${_gemdir}/cache/" \
+    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "${pkgdir}/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "${pkgdir}/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+
+  install -D --mode=644 COPYING "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install -D --mode=644 README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
