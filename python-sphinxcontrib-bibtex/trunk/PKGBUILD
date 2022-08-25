@@ -4,30 +4,30 @@
 
 _pkgname=sphinxcontrib-bibtex
 pkgname="python-${_pkgname}"
-pkgver=2.4.2
+pkgver=2.5.0
 pkgrel=1
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
 url="https://sphinxcontrib-bibtex.readthedocs.org"
 license=('BSD')
 depends=('python-sphinx' 'python-pybtex' 'python-pybtex-docutils' 'python-docutils')
-makedepends=('python-setuptools')
-checkdepends=('python-pytest' 'python-numpydoc')
+makedepends=('python-setuptools-scm' 'python-build' 'python-installer' 'python-wheel')
+checkdepends=('python-pytest' 'python-pytest-cov' 'python-numpydoc')
 source=("${pkgname}-${pkgver}.tar.gz::https://github.com/mcmtroffaes/${_pkgname}/archive/${pkgver}.tar.gz")
-sha256sums=('4f69e266c1ebb3cd1a2912be790f905359ee3e02f38d8d1f32bf16cc7b127ab1')
+b2sums=('9018b99064ac02efabcf9a0470a04c62ae7fa3d6e17f919e06249c5c882f85b1324e40e88f2491f0a9547e7a40a0183a56757c51a29a609f9dd93a3df00990f5')
 
 build() {
   cd "${srcdir}/${_pkgname}-${pkgver}"
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
   cd "${srcdir}/${_pkgname}-${pkgver}"
-  PYTHONPATH=".:./src:${PYTHONPATH}" pytest
+  PYTHONPATH="${PWD}/build/lib:${PWD}/src:${PYTHONPATH}" pytest -k 'not test_citation_rinoh'
 }
 
 package() {
   cd "${srcdir}/${_pkgname}-${pkgver}"
-  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  python -m installer --destdir="${pkgdir}" dist/*.whl
   install -Dm644 LICENSE.rst "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
