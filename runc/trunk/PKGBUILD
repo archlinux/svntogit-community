@@ -3,8 +3,8 @@
 # Contributor: Sébastien "Seblu" Luttringer
 
 pkgname=runc
-pkgver=1.1.3
-pkgrel=2
+pkgver=1.1.4
+pkgrel=1
 pkgdesc='CLI tool for managing OCI compliant containers'
 arch=(x86_64)
 url='https://runc.io/'
@@ -19,7 +19,7 @@ source=("${pkgname}-${pkgver}.tar.xz::https://github.com/opencontainers/runc/rel
         "${pkgname}-${pkgver}.tar.xz.sig::https://github.com/opencontainers/runc/releases/download/v${pkgver}/runc.tar.xz.asc")
 validpgpkeys=("5F36C6C61B5460124A75F5A69E18AA267DDB8DB4"
 			  "C9C370B246B09F6DBCFC744C34401015D1D2D386")
-sha256sums=('2db1f3a01ffd2f8fa3a259b9b512ca7d4dbf89be5765cc58d306e45658668453'
+sha256sums=('9f5972715dffb0b2371e4d678c1206cc8c4ec5eb80f2d48755d150bac49be35b'
             'SKIP')
 
 prepare() {
