@@ -3,7 +3,7 @@
 pkgname=intel-oneapi-openmp
 pkgver=2022.1.0
 _debpkgrel='3768'
-pkgrel=3
+pkgrel=4
 pkgdesc="Intel oneAPI OpenMP runtime library"
 arch=('x86_64')
 url='https://software.intel.com/content/www/us/en/develop/tools/oneapi.html'
@@ -12,7 +12,7 @@ source=("https://apt.repos.intel.com/oneapi/pool/main/${pkgname}-${pkgver}-${pkg
         "https://apt.repos.intel.com/oneapi/pool/main/${pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb")
 b2sums=('4bc045f0d1288f19c76ddc985673661335d9e72be5aee4de0d79241d32db8c7889a097aa33f0a613f774e37b04b0b0d916fd0789efca04e41521f935c3b71e9b'
         '2540d20e5da610f4cfea0632920c81e270704a316af5831e13c17bc31aab8687ed35708c7342270a76a0b456070323ad054f989e78968f5460166b23fed46cbc')
-depends=('intel-oneapi-common')
+depends=('intel-oneapi-common' 'libelf')
 noextract=(
     "${pkgname}-${pkgver}-${pkgver}-${_debpkgrel}_amd64.deb"
     "${pkgname}-common-${pkgver}-${pkgver}-${_debpkgrel}_all.deb"
@@ -35,6 +35,23 @@ build() {
 
 package() {
     mv "${srcdir}"/package/opt "${pkgdir}"
+
+    # latest symlink
+    local _prefix=/opt/intel/oneapi/compiler
+    ln -s "${_prefix}/${pkgver}" "${pkgdir}/${_prefix}/latest"
+
+    # fix pkgconfig
+    sed "s@prefix=.*@prefix=${_prefix}/latest@g" \
+        -i "${pkgdir}/${_prefix}/${pkgver}"/lib/pkgconfig/openmp.pc
+    mv "${pkgdir}/${_prefix}/${pkgver}"/lib/pkgconfig/{,'oneapi-'}openmp.pc
+    install -d "${pkgdir}"/usr/lib/pkgconfig
+    ln -s {"${_prefix}"/latest/lib/pkgconfig/,"${pkgdir}"/usr/lib/pkgconfig/}oneapi-openmp.pc
+
+    # ldconfig
+    install -d "${pkgdir}"/etc/ld.so.conf.d
+    echo "${_prefix}"/latest/"$(sed -n 's/libdir=${prefix}\///p' "${pkgdir}/${_prefix}/${pkgver}"/lib/pkgconfig/oneapi-openmp.pc)" \
+        > "${pkgdir}/etc/ld.so.conf.d/${pkgname}.conf"
+
     install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
     ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
     ln -s /opt/intel/oneapi/compiler/"${pkgver}"/licensing/openmp "${pkgdir}"/usr/share/licenses/"${pkgname}"/openmp
