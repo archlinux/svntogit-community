@@ -2,7 +2,7 @@
 # Contributor: Bruno Galeotti <bgaleotti at gmail dot com>
 
 pkgname=typescript
-pkgver=4.7.4
+pkgver=4.8.2
 pkgrel=1
 pkgdesc="TypeScript is a language for application scale JavaScript development"
 arch=('any')
@@ -12,7 +12,7 @@ depends=('nodejs')
 makedepends=('npm')
 source=(https://registry.npmjs.org/$pkgname/-/$pkgname-$pkgver.tgz)
 noextract=($pkgname-$pkgver.tgz)
-sha512sums=('0b45904f481ecc7bb0e80758d4cda3c543bcdd18dfd073fb4a4d43b578fa8f5130910359ac7020d973d696aeb6a2a12162f38dab9a640b663da0f963593a0b99')
+sha512sums=('0b423552caeb0c7a367d8239a1a0866d27a3c17e1c87ef58e634d010bbe8bdf98590adc71d264907c31225c58b982501cd005c842ad9f6b31157a1ae36bbc6b7')
 
 package() {
   npm install -g --prefix "$pkgdir"/usr "$srcdir"/$pkgname-$pkgver.tgz
