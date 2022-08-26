@@ -5,8 +5,8 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.9.3
-pkgrel=2
+pkgver=3.9.4
+pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
 url="https://github.com/helm/helm"
