@@ -2,7 +2,7 @@
 
 _name=django_compressor
 pkgname=python-django-compressor
-pkgver=4.0
+pkgver=4.1
 pkgrel=1
 pkgdesc="Compresses linked and inline javascript or CSS into a single cached file"
 arch=(any)
@@ -13,14 +13,26 @@ makedepends=(python-build python-installer python-setuptools python-wheel)
 checkdepends=(python-beautifulsoup4 python-brotli python-calmjs python-coverage
 python-csscompressor python-django-sekizai python-html5lib python-jinja
 python-lxml python-mock slimit)
+optdepends=(
+  'python-beautifulsoup4: for compressor.parser.BeautifulSoupParser and compressor.parser.LxmlParser'
+  'python-brotli: for compressor.storage.BrotliCompressorFileStorage'
+  'python-calmjs: for compressor.filters.jsmin.CalmjsFilter'
+  'python-csscompressor: for compressor.filters.cssmin.CSSCompressorFilter'
+  'python-html5lib: for compressor.parser.Html5LibParser'
+  'python-jinja: for jinja2 templating support'
+  'python-lxml: for compressor.parser.LxmlParser'
+  'python-django-sekizai: for including template code into main template'
+)
 source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
-sha512sums=('d93750f8eda0957c1dacccc157b6a4a3db4966d8aa36d2d025ca9fd91695ad79ffb2598d1c65a547c7d97adaf03e7520316b96100b4646800b5c87bee2ef6cc5')
-b2sums=('0a23282051de239ecbbe55f0ccf61dad68735048eb1a20b763c0037a11250e98fae7a34a671e4dc71b424ea5910bcc0892189d7b826a97802178b613dbadfd41')
+sha512sums=('6624336fdecff85205f73e1545c3bd704dc8aa8d46bd56fa14db33688555a3ddf409fac292f1c129fe17e7c8f4ad9401e903bb8c44e3166761df351bfc10d4ac')
+b2sums=('ed0dd4403dc2024d0cb4664094c2f05a7eba9f018184b6de6100635b5bf2cf1dcc397884219530a8e216b064b6f34dd8f3d314d1fcbf34c6da1fdf2c02bb2b65')
 
 prepare() {
   cd $_name-$pkgver
   # version pinning is just bad...
   sed -e 's/rcssmin ==/rcssmin >=/;s/rjsmin ==/rjsmin >=/' -i setup.py
+  # fix test using superseded jinja extension: https://github.com/django-compressor/django-compressor/issues/1139
+  sed '/jinja2.ext.with_/d' -i compressor/tests/test_offline.py
 }
 
 build() {
@@ -29,8 +41,13 @@ build() {
 }
 
 check() {
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
   cd $_name-$pkgver
-  export PYTHONPATH="build:$PYTHONPATH"
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  cd test_dir/$_site_packages
   django-admin test --settings=compressor.test_settings compressor
 }
 
