@@ -1,0 +1,124 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Contributor: Evgeniy Alekseev <arcanis.arch at gmail dot com>
+# Contributor: Daniel Wallace <danielwallace at gtmanfred dot com>
+# Contributor: Thomas Dziedzic <gostrc at gmail dot com>
+# Contributor: Osman Ugus <ugus11 at yahoo dot com>
+# Contributor: Stefan Husmann <stefan-husmann at t-online dot de>
+
+pkgname=sagemath
+pkgver=9.6
+pkgrel=7
+pkgdesc='Open Source Mathematics Software, free alternative to Magma, Maple, Mathematica, and Matlab'
+arch=(x86_64)
+url='http://www.sagemath.org'
+license=(GPL)
+depends=(palp brial cliquer maxima-fas gfan sympow nauty python-rpy2 python-fpylll python-cypari2
+  python-matplotlib python-scipy python-sympy python-networkx python-pplpy python-sphinx python-ipywidgets python-memory-allocator
+  gap flintqs lcalc lrcalc arb eclib zn_poly gd python-cvxopt singular linbox m4rie pari-galdata pari-seadata-small planarity rankwidth tachyon
+  sage-data-combinatorial_designs sage-data-elliptic_curves sage-data-graphs sage-data-polytopes_db sage-data-conway_polynomials
+  iml giac libhomfly libbraiding symmetrica threejs-sage python-primecountpy)
+optdepends=('cython: to compile cython code'
+  'python-pkgconfig: to compile cython code'
+  'jmol: alternative 3D plot engine'
+  'jupyter-jsmol: alternative 3D plot engine in the Jupyter notebook'
+  'sagemath-doc: HTML documentation'
+  'python-igraph: igraph backend for graph theory'
+  'bliss: bliss backend for graph theory'
+  'sage-numerical-backends-coin: COIN mixed integer linear programming backend'
+  'coin-or-csdp: for computing Lovász theta-function of graphs'
+  'buckygen: for generating fullerene graphs'
+  'plantri: for generating some classes of graphs'
+  'benzene: for generating fusenes and benzenoids'
+  'ffmpeg: to export animations to video'
+  'imagemagick: to show animations'
+  'coxeter: Coxeter groups implementation'
+  'rubiks: Rubiks cube algorithms'
+  'lrs: Algorithms for linear reverse search used in game theory and for computing volume of polytopes'
+  'python-pynormaliz: Normaliz backend for polyhedral computations'
+  'latte-integrale: integral point count in polyhedra'
+  'python-jupymake: polymake backend for polyhedral computations'
+  'shared_meataxe: faster matrix arithmetic over finite fields'
+  'openblas: faster linear algebra'
+  'sirocco: for computing the fundamental group of the complement of a plane curve'
+  'dot2tex: for displaying some diagrams'
+  'cryptominisat5: SAT solver'
+  'python-pycosat: picosat SAT solver'
+  'python-pip: to install optional packages with sage -pip'
+  'sage-notebook-exporter: convert flask notebooks to Jupyter'
+  'python-database-knotinfo: interface to the KnotInfo and LinkInfo databases'
+  'python-phitigra: graph editor'
+  'topcom: to compute triangulations of point configurations')
+makedepends=(cython boost python-jinja sirocco mcqd coxeter bliss tdlib python-pkgconfig shared_meataxe)
+conflicts=(sagemath-jupyter)
+replaces=(sagemath-jupyter)
+source=(https://github.com/sagemath/sage/archive/$pkgver/$pkgname-$pkgver.tar.gz
+        sagemath-optional-packages.patch
+        latte-count.patch
+        test-optional.patch
+        sagemath-linbox-1.7.patch
+        sagemath-bliss-0.77.patch
+        sagemath-tachyon-0.99.patch
+        sagemath-jupyter-jsmol.patch
+        sagemath-gap-4.12.patch)
+sha256sums=('c6225d48f70ac955fceed5c1fddfdd7294001d460b43a686329d5d44d836f6a3'
+            'e24c075a9f8e562fe9d85e6fd5b01eac4691683c01d4d22c83cde145b63f4dba'
+            'bd188af45ce31579b82407adee8e9bf6033a996f7ea6e328fabca526f31c08ba'
+            '89c1f82dbba376087f08b39b11f43bf781cec199d7d894713167d09dc32e3e18'
+            'eacea27b214d32cb886a75695153dfc36b5bad2fd2517e8e4eee18e74220e9e3'
+            'b467a41e1e0a0850f7722d875a743233751966a206c2f61401c7582aa722f84e'
+            '4ee8071efd7b9ad66ac5bbfe081fe670cc58cfcac8fb783d5a40b6da3593cbf4'
+            '14431ef93a68324ed276d79d7be66b0fb6b73df74f0e049be522480153e22afa'
+            '17b8ea5ff1f7da2781ec9c190c094f17ba555f1a66d4300d8ee14d6b608c0fd0')
+
+prepare(){
+  cd sage-$pkgver
+
+# Upstream patches
+# Fix build with linbox 1.7 https://trac.sagemath.org/ticket/32959
+  patch -p1 -i ../sagemath-linbox-1.7.patch
+# Fix build with bliss 0.77 https://trac.sagemath.org/ticket/33010
+  patch -p1 -i ../sagemath-bliss-0.77.patch
+# Fix tests with tachyon 0.99 https://trac.sagemath.org/ticket/23712
+  patch -p1 -i ../sagemath-tachyon-0.99.patch
+# Port to GAP 4.12
+  patch -p1 -i ../sagemath-gap-4.12.patch
+
+# Arch-specific patches
+# assume all optional packages are installed
+  patch -p1 -i ../sagemath-optional-packages.patch
+# don't list optional packages when running tests
+  patch -p1 -i ../test-optional.patch
+# use correct latte-count binary name
+  patch -p1 -i ../latte-count.patch
+# port to new jupyter-jsmol extension name
+  patch -p1 -i ../sagemath-jupyter-jsmol.patch
+
+  cd build/pkgs/sagelib
+  ./bootstrap
+}
+
+build() {
+  cd sage-$pkgver/pkgs/sagemath-standard
+
+  export SAGE_NUM_THREADS=10
+  export PYTHONPATH="$PWD"/../sage-setup
+  export CPPFLAGS+=" -DUSE_GASMAN=1"
+  python setup.py build
+}
+
+package() {
+  cd sage-$pkgver/pkgs/sagemath-standard
+
+  python setup.py install --root="$pkgdir" --optimize=1
+
+# fix symlinks to assets
+  _pythonpath=`python -c "from sysconfig import get_path; print(get_path('platlib'))"`
+  for _i in $(ls "$srcdir"/sage-$pkgver/src/sage/ext_data/notebook-ipython); do
+    rm "$pkgdir"/usr/share/jupyter/kernels/sagemath/$_i
+    ln -s $_pythonpath/sage/ext_data/notebook-ipython/$_i "$pkgdir"/usr/share/jupyter/kernels/sagemath/
+  done
+
+# adjust threejs version
+  rm "$pkgdir"$_pythonpath/sage/ext_data/threejs/threejs-version.txt
+  ln -s /usr/share/threejs-sage/version "$pkgdir"$_pythonpath/sage/ext_data/threejs/threejs-version.txt
+}
