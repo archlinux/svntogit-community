@@ -2,18 +2,18 @@
 
 _pyname=frozenlist
 pkgname=python-${_pyname}
-pkgver=1.3.0
+pkgver=1.3.1
 pkgrel=1
 pkgdesc='FrozenList is a list-like structure which can be made immutable'
 url='https://github.com/aio-libs/frozenlist'
 arch=('x86_64')
 license=('Apache')
 depends=('python')
-makedepends=('python-setuptools' 'cython')
+makedepends=('cython' 'python-build' 'python-installer' 'python-wheel' 'python-setuptools')
 checkdepends=('python-pytest' 'python-pytest-cov' 'python-pytest-runner')
 source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('780f0ec0e1a701b009e5afcd7f62b2950eda5365140ad5842c09db85b0a3cf282ab70ff9ba752ea6dc7a97542fc7399023aaaca8fdd8ecbd5c26bf64f305f5f4')
-b2sums=('d09e18455893f7ede59c37a080e79ea5e085cc3362e53bc7016db64338b2cf26baf44e95ec0c691535527b0eef4a40ec1fbe814e5d4ae238300125438d21b467')
+sha512sums=('4986f3635ebd2d3ca9623299a66375b03938a7be72f7a1d3437b1bf8c0739513942e6babf00476b61055c9ebee3638ec807dad521c52990104d4d57017efdfb2')
+b2sums=('7428d936926978acb90a857e0f76b303dddea684c3e815b3fd583e888102e114cc629fcd8e862a4e72775f8525193becfd4b9cd844a36f5b2c7964605008bb84')
 
 prepare() {
   cd "${_pyname}-${pkgver}"
@@ -23,18 +23,18 @@ prepare() {
 build() {
   cd "${_pyname}-${pkgver}"
   make cythonize
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
   cd "${_pyname}-${pkgver}"
-  local _python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
-  PYTHONPATH="$PWD/build/lib.linux-$CARCH-${_python_version}" pytest
+  local _python_version=$(python -c 'import sys; print("".join(map(str, sys.version_info[:2])))')
+  PYTHONPATH="$PWD/build/lib.linux-$CARCH-cpython-${_python_version}" pytest
 }
 
 package() {
   cd "${_pyname}-${pkgver}"
-  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
   install -Dm 644 CHANGES.rst README.rst -t "${pkgdir}/usr/share/doc/${pkgname}"
 }
