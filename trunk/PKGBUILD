@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=9
+pkgrel=10
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -61,16 +61,13 @@ package_ruby() {
   rm "${pkgdir}"/usr/bin/gem
 
   # remove bundler as it shipped as a separate package
-  rm -r "${pkgdir}"/usr/lib/ruby/${rubyver}/{bundler,bundler.rb}
   rm "${pkgdir}"/usr/bin/{bundle,bundler}
 
   # remove bundled rdoc gem
-  rm -r "${pkgdir}"/usr/lib/ruby/${rubyver}/{rdoc,rdoc.rb}
   rm "${pkgdir}"/usr/bin/{rdoc,ri}
   rm "${pkgdir}"/usr/share/man/man1/ri.1
 
   # remove irb as it is a separate package now
-  rm -r "${pkgdir}"/usr/lib/ruby/${rubyver}/{irb,irb.rb}
   rm "${pkgdir}"/usr/bin/irb
   rm "${pkgdir}"/usr/share/man/man1/irb.1
 
@@ -98,6 +95,7 @@ package_ruby() {
     digest
     drb
     english
+    English
     erb
     etc
     fcntl
@@ -126,8 +124,13 @@ package_ruby() {
   )
 
   for stdlib_gem in "${stdlib_gems[@]}"; do
-    rm -v "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/${stdlib_gem}-*.gemspec
+    rm --force --recursive --verbose \
+      "${pkgdir}"/usr/lib/ruby/${rubyver}/${stdlib_gem}* \
+      "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/${stdlib_gem}.so \
+      "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/${stdlib_gem}-*.gemspec
   done
+
+  rm "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so
 }
 
 package_ruby-docs() {
