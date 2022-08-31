@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=10
+pkgrel=11
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -95,7 +95,6 @@ package_ruby() {
     digest
     drb
     english
-    English
     erb
     etc
     fcntl
@@ -125,12 +124,15 @@ package_ruby() {
 
   for stdlib_gem in "${stdlib_gems[@]}"; do
     rm --force --recursive --verbose \
-      "${pkgdir}"/usr/lib/ruby/${rubyver}/${stdlib_gem}* \
+      "${pkgdir}"/usr/lib/ruby/${rubyver}/${stdlib_gem} \
+      "${pkgdir}"/usr/lib/ruby/${rubyver}/${stdlib_gem}.rb \
       "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/${stdlib_gem}.so \
       "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/${stdlib_gem}-*.gemspec
   done
 
-  rm "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so
+  rm --verbose \
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/English.rb \
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so
 }
 
 package_ruby-docs() {
