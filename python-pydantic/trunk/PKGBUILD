@@ -3,11 +3,11 @@
 
 _name=pydantic
 pkgname=python-$_name
-pkgver=1.9.2
+pkgver=1.10.0
 pkgrel=1
 pkgdesc='Data parsing and validation using Python type hints'
 arch=(x86_64)
-url="https://github.com/samuelcolvin/pydantic"
+url="https://github.com/pydantic/pydantic"
 license=(MIT)
 depends=(cython python python-typing-extensions)
 optdepends=(
@@ -17,8 +17,8 @@ optdepends=(
 makedepends=(python-build python-installer python-setuptools python-wheel)
 checkdepends=(python-pytest python-pytest-mock)
 source=($_name-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz)
-sha512sums=('06c2c45d553e622f1c71283468016ea507982dd8c74af673c18818d61a5712c8ec6820f2caaa392c5582802c413a4cf14e5ff67586da7c6ddf5b4e85a936d335')
-b2sums=('a271032d0e128a91897b5b10f0dae797f41d0d969fef65792cbf3d790b72ae0523a78c2f0d88599b2c3c7e2c9a917883809a88a7aa66e915d0749fabfed0c61f')
+sha512sums=('159b6d75ee3c633f3b6869aefe66bfb85bb4f21e1d93a00945263eb10fb63483fe70c70801588467e3569a0ded1649d66b7f433e8d0aabd4ad36540383aec353')
+b2sums=('ce65b50840558ed7610045890dd852a998c8c1cef4694fc557068e70e7cbf93d5180c055b369a369c268f6b28ca1f4c208085df465ddfc1a3122747f2161a702')
 
 build() {
   cd $_name-$pkgver
