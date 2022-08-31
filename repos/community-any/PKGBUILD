@@ -2,7 +2,7 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=3.6.0
+pkgver=3.7.0
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -17,13 +17,16 @@ checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python
 provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
-source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('41da4d89ac69c692a98545aefffd9afd4c7b0287179807906504b4121bf9257095b227ec2966d98983939fa76fb8509f6ffa2577c0e7b4c7f43f614f44745460')
+source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz"
+        $pkgname-update-sampleproject.patch::https://github.com/pypa/twine/pull/885.patch)
+sha512sums=('d7ddfdfcbaa7a5e3eba3657a06da090eeecbf373646e64d659f420fae4ba10c16c2c02e85bdf9c1f050b86177f19c85aa20183ad9d546cb053a11d60db0851f3'
+            '6fe0126a79e1a681d9308ff7fd35b15a7e1e50437d634c7119d6b96aa3487b02b78cd575878673572276d630771014f1df5c63910715371c671b139addad8f73')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 prepare() {
   cd twine-$pkgver
+  patch -p1 -i ../$pkgname-update-sampleproject.patch
   # This is needed because twine uses setuptools-scm's file finder hook to include package data,
   # but the git checkout we use don't contain the needed SCM info.
   # dephell generates a pattern for this automatically.
