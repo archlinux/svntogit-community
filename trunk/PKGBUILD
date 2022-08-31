@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -43,6 +43,9 @@ sha256sums=('a5a9531e52bcfc3f93d1c378e1b41c2256e9b1378a044f0b4787e91744d35f78'
 prepare() {
 	cd "$_archive"
 	install -m0755 -t ./ ../poetry-completions-generator
+	# Unpin crashtest which we have packaged at 0.4.0
+	# https://bugs.archlinux.org/task/75733
+	sed -i -e '/^crashtest/s/\^/>=/' pyproject.toml
 }
 
 build() {
