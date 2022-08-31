@@ -4,7 +4,7 @@
 
 _pkgname=poetry-core
 pkgname=python-poetry-core
-pkgver=1.0.8
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Poetry PEP 517 Build Backend & Core Utilities"
 arch=('any')
@@ -13,21 +13,12 @@ license=('MIT')
 _deps=('jsonschema' 'lark-parser' 'packaging' 'tomlkit')
 depends=("${_deps[@]/#/python-}")
 makedepends=(python-{build,installer})
-checkdepends=(git python-pytest python-pytest-mock python-virtualenv)
+checkdepends=(git python-pytest python-pytest-mock python-setuptools python-virtualenv)
 conflicts=('python-poetry<1.1.0')
 _archive="$_pkgname-$pkgver"
 source=("$url/archive/$pkgver/$_archive.tar.gz")
-sha256sums=('b8795006e169a24e0e114ba1c03217716cd190e8d2716c796ddc5ed0382dbca8')
-b2sums=('1f663d927aee1f18a9ff38cbf95809538bf9c9e8079d040c240fbc1ffa9e492c6fd20c69f89ddf7e68ddea05beee3b909fdee02e93f47437fffa687dc492ec9a')
-
-prepare() {
-	cd "$_archive"
-	# remove vendored dependencies
-	sed -i '/^__version__/!d' poetry/core/__init__.py
-	rm -r poetry/core/_vendor
-	# be a proper namespace, python3-only ;)
-	rm poetry/__init__.py
-}
+sha256sums=('44535d5c20e20189041714a45758774f713e4a53c3db071dca11a59d32aeba44')
+b2sums=('c5dc37579da5d260577c8027520ee9b4a31ca0c4f20f3dc6f233f4f686060aa2c2ae5af46f1d906939364f26cd04155f2c84dea9d209e8d09564b28c19d2220a')
 
 build() {
 	cd "$_archive"
@@ -36,6 +27,7 @@ build() {
 
 check() {
 	cd "$_archive"
+	export PYTHONPATH="$PWD/src"
 	# only works inside git repositories
 	pytest \
 		-k 'not test_default_with_excluded_data and not test_default_src_with_excluded_data'
