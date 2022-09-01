@@ -4,7 +4,7 @@
 # Contributor: Clayton Craft <clayton at craftyguy dot net>
 
 pkgname=python-setuptools-rust
-pkgver=1.1.0
+pkgver=1.1.1
 pkgrel=1
 pkgdesc="Compile and distribute Python extensions written in rust as easily as if they were written in C."
 arch=('any')
@@ -14,7 +14,7 @@ depends=('rust' 'python-setuptools' 'python-semantic-version' 'python-tomli' 'py
 makedepends=('python-setuptools-scm' 'python-wheel')
 checkdepends=('python-pytest' 'python-pytest-benchmark' 'python-beautifulsoup4' 'python-lxml' 'python-cffi')
 source=("https://github.com/PyO3/setuptools-rust/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('c2bbb8adc02f2b1c9617e6095840a315794466d8312af082f1352129ef07061b96c7512e4e33e4591f75a4d6a7a339085c2760d6f47e0999d79a1e3a626320dc')
+sha512sums=('a580c7283074f516251386c0dc3f9e7cc770bb8760bc9ce7b263e1db93bae99c1f1de0d31ceb2038b9163002c9a2ccd5f443f5112187021c9bd692e53ea0b99f')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
@@ -32,6 +32,7 @@ check() {
     [[ -d tests || -d test ]] && PYTHONPATH="$PWD/build/lib:build/lib.linux-$CARCH-cpython-310" pytest
     popd
   done
+  pytest --doctest-modules setuptools_rust
 }
 
 package() {
