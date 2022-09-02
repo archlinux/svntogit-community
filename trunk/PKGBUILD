@@ -3,32 +3,31 @@
 
 _pkgname=cleo
 pkgname=python-cleo
-pkgver=0.8.1
-pkgrel=4
+pkgver=1.0.0a5
+pkgrel=1
 pkgdesc="create beautiful and testable command-line interfaces"
-arch=('any')
-url="https://github.com/sdispater/${_pkgname}"
-license=('MIT')
-depends=('python-clikit')
-makedepends=('python-pyproject2setuppy')
-checkdepends=('python-pytest' 'python-pytest-mock')
+arch=(any)
+url="https://github.com/python-poetry/${_pkgname}"
+license=(MIT)
+depends=(python-crashtest python-pylev)
+makedepends=(python-build python-installer python-poetry-core python-wheel)
+checkdepends=(python-pytest python-pytest-mock)
 source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/${pkgver}.tar.gz")
-sha256sums=('3ff6fe33d9e440dba4d9b0947e65ebebf95671d18d89b67bed1e1a09d2266bc1')
-b2sums=('57971f6254a31ecf5101d89e96607b5915ab5138d727279d445172b89a10acd6b76619d344973fa2bdbc320866fa1dbdf05c889f4eca879839fa6bcbbad0af7c')
+sha256sums=('b75424b2c3f71dec06342290b255d725a4c02f83f3baa98b0a805162f09515da')
+b2sums=('351ae54e6068fd76233934316ffe65eb4394d59115b0c1f3a96ba1e587245b08399c7d7c784562dd97baa7ebcbce227e780269f2b13a6922bb05e3eb29d764c3')
 
 build(){
     cd ${_pkgname}-${pkgver}
-    python -m pyproject2setuppy build
+    python -m build --wheel --no-isolation
 }
 
 check() {
     cd ${_pkgname}-${pkgver}
-    python -m pytest
+    pytest -vv
 }
 
 package() {
     cd ${_pkgname}-${pkgver}
-
-    python -m pyproject2setuppy install --root="$pkgdir" --optimize=1 --skip-build
+    python -m installer --destdir="$pkgdir" dist/*.whl
     install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/${pkgname}/
 }
