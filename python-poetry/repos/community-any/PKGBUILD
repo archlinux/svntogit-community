@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.2.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -17,6 +17,7 @@ _deps=(cachecontrol
        cleo
        crashtest
        dulwich
+       filelock
        html5lib
        jsonschema
        keyring
