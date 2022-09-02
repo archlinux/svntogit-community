@@ -3,16 +3,14 @@
 
 pkgname=python-jaraco.classes
 pkgver=3.2.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Module for classes manipulation'
 arch=('any')
 url='https://github.com/jaraco/jaraco.classes'
 license=('MIT')
 depends=('python-more-itertools')
 makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
-checkdepends=('python-pytest-black' 'python-pytest-checkdocs' 'python-pytest-cov'
-              'python-pytest-enabler' 'python-pytest-flake8' 'python-pytest-mypy'
-              'python-pip')
+checkdepends=('python-pytest-enabler' 'python-pytest-mypy' 'python-pip')
 conflicts=(python-jaraco)
 replaces=(python-jaraco)
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.classes/jaraco.classes-$pkgver.tar.gz")
