@@ -4,16 +4,14 @@
 
 pkgname=python-jaraco.collections
 pkgver=3.5.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Models and classes to supplement the stdlib 'collections' module."
 arch=('any')
 url='https://github.com/jaraco/jaraco.collections'
 license=('MIT')
 depends=('python-jaraco.text' 'python-jaraco.classes')
 makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
-checkdepends=('python-pytest-black' 'python-pytest-checkdocs' 'python-pytest-cov'
-              'python-pytest-enabler' 'python-pytest-flake8' 'python-pytest-mypy'
-              'python-pip')
+checkdepends=('python-pytest-enabler' 'python-pytest-mypy')
 conflicts=('python-jaraco')
 replaces=('python-jaraco')
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.collections/jaraco.collections-$pkgver.tar.gz")
@@ -32,7 +30,7 @@ check() {
 package() {
   cd jaraco.collections-$pkgver
   python -m installer --destdir="$pkgdir" dist/*.whl
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
 
 # vim:set ts=2 sw=2 et:
