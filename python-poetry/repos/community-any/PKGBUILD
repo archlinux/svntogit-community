@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -15,17 +15,22 @@ license=(MIT)
 _deps=(cachecontrol
        cachy
        cleo
+       crashtest
+       dulwich
        html5lib
+       jsonschema
        keyring
-       lockfile
        packaging
        pexpect
        pkginfo
+       platformdirs
        poetry-core
+       poetry-plugin-export
        requests
        requests-toolbelt
        shellingham
        tomlkit
+       urllib3
        virtualenv)
 depends=("${_deps[@]/#/python-}")
 makedepends=(python-{build,installer})
