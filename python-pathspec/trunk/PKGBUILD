@@ -3,18 +3,17 @@
 
 _name=pathspec
 pkgname=python-pathspec
-pkgver=0.10.0
+pkgver=0.10.1
 pkgrel=1
 pkgdesc='Utility library for gitignore style pattern matching of file paths'
 arch=('any')
 url=https://github.com/cpburnz/python-pathspec
 license=('MPL2')
 depends=('python')
-makedepends=('python-build' 'python-installer' 'python-setuptools'
-             'python-wheel')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('01eecd304ba0e6eeed188ae5fa568e99ef10265af7fd9ab737d6412b4ee0ab85')
-b2sums=('28f53bc760f2ad474223f80c46f8be473e3723898b7ea923fe86f25a46c71d9f69687fdb4a7962b1922e2e35595d0b6134c97d29c60b08fd7e0b6cb2ca75ec14')
+sha256sums=('7ace6161b621d31e7902eb6b5ae148d12cfd23f4a249b9ffb6b9fee12084323d')
+b2sums=('5a690b6ec5215932074e54bf7c9dac2097261ca421421e86f9a90733fc2fbbbbf6ae8735c685de682919349bbe4bca6b1abce2d572871ba4111cc143b9637491')
 
 build() {
   cd $_name-$pkgver
