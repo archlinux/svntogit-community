@@ -17,7 +17,7 @@ diff --git a/Make.inc b/Make.inc
 index b00a41b356d8..7bc6cd69e863 100644
 --- a/Make.inc
 +++ b/Make.inc
-@@ -1109,6 +1109,7 @@ endif
+@@ -1059,6 +1059,7 @@ endif
  ifeq ($(USE_SYSTEM_BLAS), 1)
  ifeq ($(OS), Darwin)
  USE_BLAS64 := 0
@@ -25,7 +25,7 @@ index b00a41b356d8..7bc6cd69e863 100644
  USE_SYSTEM_LAPACK := 0
  LIBBLAS := -L$(build_libdir) -lgfortblas
  LIBBLASNAME := libgfortblas
-@@ -1121,12 +1122,21 @@ LIBBLAS := -L$(build_shlibdir) -lopenblas
+@@ -1071,12 +1072,21 @@ LIBBLAS := -L$(build_shlibdir) -lopenblas
  LIBBLASNAME := libopenblas
  endif
  
@@ -52,7 +52,7 @@ diff --git a/Makefile b/Makefile
 index 6063e79ae956..7df60b8170d6 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -198,6 +198,9 @@ endif
+@@ -199,6 +199,9 @@ endif
  endif
  
  JL_PRIVATE_LIBS-$(USE_SYSTEM_BLAS) += $(LIBBLASNAME)
@@ -66,7 +66,7 @@ diff --git a/base/Makefile b/base/Makefile
 index 70e6da933d70..8ecfa6902b59 100644
 --- a/base/Makefile
 +++ b/base/Makefile
-@@ -54,6 +54,7 @@ else
+@@ -48,6 +48,7 @@ else
  endif
  	@echo "const libm_name = \"$(LIBMNAME)\"" >> $@
  	@echo "const libblas_name = \"$(LIBBLASNAME)\"" >> $@
@@ -74,9 +74,9 @@ index 70e6da933d70..8ecfa6902b59 100644
  	@echo "const liblapack_name = \"$(LIBLAPACKNAME)\"" >> $@
  ifeq ($(USE_BLAS64), 1)
  	@echo "const USE_BLAS64 = true" >> $@
-@@ -183,6 +184,9 @@ endif
- $(eval $(call symlink_system_library,PCRE,libpcre2-8))
+@@ -224,6 +225,9 @@ endif
  $(eval $(call symlink_system_library,DSFMT,libdSFMT))
+ $(eval $(call symlink_system_library,LIBBLASTRAMPOLINE,libblastrampoline))
  $(eval $(call symlink_system_library,BLAS,$(LIBBLASNAME)))
 +ifneq ($(LIBCBLASNAME),$(LIBBLASNAME))
 +$(eval $(call symlink_system_library,CBLAS,$(LIBCBLASNAME)))
@@ -84,50 +84,25 @@ index 70e6da933d70..8ecfa6902b59 100644
  ifneq ($(LIBLAPACKNAME),$(LIBBLASNAME))
  $(eval $(call symlink_system_library,LAPACK,$(LIBLAPACKNAME)))
  endif
-diff --git a/stdlib/LinearAlgebra/src/blas.jl b/stdlib/LinearAlgebra/src/blas.jl
-index 661e9e2b15..9bc1034682 100644
---- a/stdlib/LinearAlgebra/src/blas.jl
-+++ b/stdlib/LinearAlgebra/src/blas.jl
-@@ -71,6 +71,7 @@ libblastrampoline_handle = C_NULL
- # should not look at these, instead preferring to parse the output
- # of BLAS.get_config()
- const libblas = libblastrampoline
-+const libcblas = Base.libcblas_name
- const liblapack = libblastrampoline
- 
- import LinearAlgebra
-@@ -109,6 +110,16 @@ else
-     end
- end
- 
-+if libcblas == libblastrampoline
-+     macro cblasfunc(x)
-+        return @blasfunc(x)
-+    end
-+else
-+    macro cblasfunc(x)
-+        return Expr(:quote, x)
-+    end
-+end
-+
- _tryparse_env_int(key) = tryparse(Int, get(ENV, key, ""))
- 
- 
-@@ -327,7 +338,7 @@ for (fname, elty) in ((:cblas_zdotc_sub,:ComplexF64),
-                 #       DOUBLE PRECISION DX(*),DY(*)
-         function dotc(n::Integer, DX::Union{Ptr{$elty},AbstractArray{$elty}}, incx::Integer, DY::Union{Ptr{$elty},AbstractArray{$elty}}, incy::Integer)
-             result = Ref{$elty}()
--            ccall((@blasfunc($fname), libblastrampoline), Cvoid,
-+            ccall((@cblasfunc($fname), libcblas), Cvoid,
-                 (BlasInt, Ptr{$elty}, BlasInt, Ptr{$elty}, BlasInt, Ptr{$elty}),
-                  n, DX, incx, DY, incy, result)
-             result[]
-@@ -345,7 +356,7 @@ for (fname, elty) in ((:cblas_zdotu_sub,:ComplexF64),
-                 #       DOUBLE PRECISION DX(*),DY(*)
-         function dotu(n::Integer, DX::Union{Ptr{$elty},AbstractArray{$elty}}, incx::Integer, DY::Union{Ptr{$elty},AbstractArray{$elty}}, incy::Integer)
-             result = Ref{$elty}()
--            ccall((@blasfunc($fname), libblastrampoline), Cvoid,
-+            ccall((@cblasfunc($fname), libcblas), Cvoid,
-                 (BlasInt, Ptr{$elty}, BlasInt, Ptr{$elty}, BlasInt, Ptr{$elty}),
-                  n, DX, incx, DY, incy, result)
-             result[]
+diff --git a/stdlib/LinearAlgebra/src/LinearAlgebra.jl b/stdlib/LinearAlgebra/src/LinearAlgebra.jl
+index 9e1e751262..b1e5450241 100644
+--- a/stdlib/LinearAlgebra/src/LinearAlgebra.jl
++++ b/stdlib/LinearAlgebra/src/LinearAlgebra.jl
+@@ -565,12 +565,17 @@ end
+ function __init__()
+     try
+         libblas_path = find_library_path(Base.libblas_name)
++        libcblas_path = find_library_path(Base.libcblas_name)
+         liblapack_path = find_library_path(Base.liblapack_name)
+         # We manually `dlopen()` these libraries here, so that we search with `libjulia-internal`'s
+         # `RPATH` and not `libblastrampoline's`.  Once it's been opened, when LBT tries to open it,
+         # it will find the library already loaded.
+         libblas_path = Libdl.dlpath(Libdl.dlopen(libblas_path))
+         BLAS.lbt_forward(libblas_path; clear=true)
++        if libcblas_path != libblas_path
++            libcblas_path = Libdl.dlpath(Libdl.dlopen(libcblas_path))
++            BLAS.lbt_forward(libcblas_path)
++        end
+         if liblapack_path != libblas_path
+             liblapack_path = Libdl.dlpath(Libdl.dlopen(liblapack_path))
+             BLAS.lbt_forward(liblapack_path)
