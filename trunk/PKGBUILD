@@ -4,18 +4,19 @@
 # Contributor: Ismo Toijala <ismo.toijala@gmail.com>
 
 pkgname=python-jsonschema
-pkgver=4.14.0
+pkgver=4.15.0
 pkgrel=1
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
 url="https://pypi.python.org/pypi/jsonschema"
 license=('MIT')
-depends=('python-attrs' 'python-importlib-metadata' 'python-pyrsistent' 'python-rfc3987' 'python-jsonpointer' 'python-typing_extensions' 'python-webcolors')
-makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-hatch-vcs' 'python-hatch-fancy-pypi-readme')
+depends=('python-attrs' 'python-pyrsistent')
+makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-hatch-vcs'
+             'python-hatch-fancy-pypi-readme')
 checkdepends=('python-twisted' 'python-idna' 'python-jsonpointer' 'python-strict-rfc3339'
-              'python-rfc3987' 'python-webcolors' 'python-pip')
+              'python-pip' 'python-rfc3987' 'python-webcolors')
 source=("$pkgname-$pkgver.tar.bz2::https://github.com/Julian/jsonschema/archive/v$pkgver.tar.gz")
-sha512sums=('58201fd7c58fe966807737cca45707ae2e3a980f3cc6d5c72c4342bad927de0fbd0156578c06cf39ad280e0026742a2f492388a0b7d4063507174b319c38071e')
+sha512sums=('bb1c7f52978cd3369013e172c3c1e4cdef937b7b380d71bd4ab0566ae1e8e95b62ca0af075acc48598574e7b86d0b5ddff4a87866612fde4c9f8ec32b3400993')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
@@ -35,5 +36,5 @@ check() {
 package() {
   cd jsonschema-$pkgver
   python -m installer --destdir="$pkgdir" dist/*.whl
-  install -D -m644 json/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 json/LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
