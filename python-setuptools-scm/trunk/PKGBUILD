@@ -32,7 +32,7 @@ check() {
   python -m venv --system-site-packages test-env
   test-env/bin/python -m installer dist/*.whl
   ln ../.git_archival.txt test-env/lib/python3.10/site-packages/setuptools_scm
-  PYTHONPATH="$PWD/test-env/$site_packages"  test-env/bin/python -m pytest
+  test-env/bin/python -m pytest
 }
 
 package() {

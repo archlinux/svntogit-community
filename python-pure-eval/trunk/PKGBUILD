@@ -38,5 +38,3 @@ package() {
   ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE.txt \
     "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.txt
 }
-
-# vim:set ts=2 sw=2 et:
