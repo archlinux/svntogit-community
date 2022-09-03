@@ -7,14 +7,14 @@
 
 pkgname=python-keyring
 _pkgname=keyring
-pkgver=23.4.0
-pkgrel=1 
+pkgver=23.9.0
+pkgrel=1
 pkgdesc='Store and access your passwords safely'
 arch=('any')
 url='https://github.com/jaraco/keyring'
 license=('PSF' 'MIT')
 depends=('python-entrypoints' 'python-secretstorage' 'python-importlib-metadata')
-makedepends=('git' 'python-setuptools-scm')
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
 checkdepends=('python-pytest-flake8' 'python-pytest-runner' 'python-pytest-black' 'python-pytest-cov' 'python-pytest-mypy')
 optdepends=('python-keyrings-alt: Alternative backends'
             'python-dbus: kwallet backend')
@@ -24,19 +24,19 @@ sha512sums=('SKIP')
 build() {
   cd $_pkgname
 
-  python setup.py build
+  python -m build
 }
 
 check() {
   cd $_pkgname
 
-  python setup.py pytest
+  python -m pytest
 }
 
 package() {
   cd $_pkgname
 
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  python -m installer -d "$pkgdir" dist/*.whl
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
   rm -rf "$pkgdir"/usr/lib/python3.10/site-packages/keyring/tests
