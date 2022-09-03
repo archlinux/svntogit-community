@@ -2,31 +2,28 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=3.7.1
+pkgver=4.0.1
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
-url='https://pypi.python.org/pypi/twine'
+url='https://github.com/pypa/twine/'
 license=('Apache')
 depends=('python-pkginfo' 'python-readme-renderer' 'python-requests' 'python-requests-toolbelt'
          'python-packaging' 'python-importlib-metadata' 'python-tqdm' 'python-keyring'
          'python-rfc3986' 'python-colorama')
-makedepends=('python-pyproject2setuppy' 'python-setuptools-scm')
-checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python-pretend'
-              'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket')
+makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
+checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python-pretend' 'python-tox'
+              'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket' 'python-rich')
 provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
-source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz"
-        $pkgname-update-sampleproject.patch::https://github.com/pypa/twine/pull/885.patch)
-sha512sums=('1c24283c956d96228ec12aae4d748e37d9e35b23bd07ada90565cdbbb82f268b313faba619b72baf801f0cc841c94bd7d362639f3a512c217fc8b944043e6e33'
-            '6fe0126a79e1a681d9308ff7fd35b15a7e1e50437d634c7119d6b96aa3487b02b78cd575878673572276d630771014f1df5c63910715371c671b139addad8f73')
+source=("$url/archive/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('0b5d24c56731239400b6713e0e52d1cfdb399a84e886b02ea4b59e7af69cc1578e03bf442cca4b2ea5f400995955d27c8d9d3cc17a6ea59013bdaaf6ac63a567')
 
-export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
 prepare() {
-  cd twine-$pkgver
-  patch -p1 -i ../$pkgname-update-sampleproject.patch
+  cd $pkgname-$pkgver
+
   # This is needed because twine uses setuptools-scm's file finder hook to include package data,
   # but the git checkout we use don't contain the needed SCM info.
   # dephell generates a pattern for this automatically.
@@ -34,18 +31,21 @@ prepare() {
 }
 
 build() {
-  cd twine-$pkgver
-  python -m pyproject2setuppy build
+  cd $pkgname-$pkgver
+
+  SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver python -m build -nw
 }
 
 check() {
-  cd twine-$pkgver
-  python -m pyproject2setuppy egg_info
-  python -m pytest
+  cd $pkgname-$pkgver
+
+  SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver python -m pytest
 }
 
 package() {
-  cd twine-$pkgver
-  python -m pyproject2setuppy install --root="$pkgdir" --optimize=1
+  cd $pkgname-$pkgver
+
+  python -m installer -d "$pkgdir" dist/*.whl
+
   ln -s twine "$pkgdir"/usr/bin/twine3
 }
