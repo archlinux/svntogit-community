@@ -2,7 +2,7 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=3.7.0
+pkgver=3.7.1
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -19,7 +19,7 @@ conflicts=('python-twine')
 replaces=('python-twine')
 source=("https://github.com/pypa/twine/archive/$pkgver/$pkgname-$pkgver.tar.gz"
         $pkgname-update-sampleproject.patch::https://github.com/pypa/twine/pull/885.patch)
-sha512sums=('d7ddfdfcbaa7a5e3eba3657a06da090eeecbf373646e64d659f420fae4ba10c16c2c02e85bdf9c1f050b86177f19c85aa20183ad9d546cb053a11d60db0851f3'
+sha512sums=('1c24283c956d96228ec12aae4d748e37d9e35b23bd07ada90565cdbbb82f268b313faba619b72baf801f0cc841c94bd7d362639f3a512c217fc8b944043e6e33'
             '6fe0126a79e1a681d9308ff7fd35b15a7e1e50437d634c7119d6b96aa3487b02b78cd575878673572276d630771014f1df5c63910715371c671b139addad8f73')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
