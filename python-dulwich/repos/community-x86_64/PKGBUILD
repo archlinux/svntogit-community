@@ -4,13 +4,14 @@
 _name=dulwich
 pkgname=python-dulwich
 pkgver=0.20.45
-pkgrel=1
+pkgrel=2
 pkgdesc='Pure-Python implementation of the Git file formats and protocols'
 arch=('x86_64')
 url=https://www.dulwich.io
 license=('GPL')
 depends=('python-certifi' 'python-urllib3')
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools'
+             'python-wheel')
 checkdepends=('python-gpgme' 'python-paramiko')
 optdepends=('python-fastimport: for fast-import support'
             'python-gpgme: for PGP signature support'
@@ -24,17 +25,17 @@ b2sums=('4eb6731312bd8bb45d35efdc1e640dd2cfb118b633de461c4f9ffa2a9e50258bada2c77
 
 build() {
   cd $_name-$pkgver
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
   cd $_name-$pkgver
   python -m venv --system-site-packages test-env
-  test-env/bin/python setup.py install --optimize=1 --skip-build
+  test-env/bin/python -m installer dist/*.whl
   test-env/bin/python -m unittest dulwich.tests.test_suite
 }
 
 package() {
   cd $_name-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
 }
