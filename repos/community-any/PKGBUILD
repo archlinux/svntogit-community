@@ -4,13 +4,14 @@
 _name=toml
 pkgname=python-toml
 pkgver=0.10.2
-pkgrel=7
+pkgrel=8
 pkgdesc="A Python library for parsing and creating TOML"
 arch=('any')
 url="https://github.com/uiri/toml"
 license=('MIT')
 depends=('python')
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools'
+             'python-wheel')
 checkdepends=('python-numpy' 'python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz"
         "${pkgname}-0.10.1-install_type_hints.patch")
@@ -27,7 +28,7 @@ prepare() {
 
 build() {
   cd "$pkgname-$pkgver"
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
@@ -39,10 +40,12 @@ check() {
 
 package() {
   cd "$pkgname-$pkgver"
-  python setup.py install --skip-build \
-    --optimize=1 \
-    --prefix=/usr \
-    --root="${pkgdir}"
-  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -vDm 644 README.rst -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
