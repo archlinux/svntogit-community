@@ -3,7 +3,7 @@
 
 _name=pydantic
 pkgname=python-$_name
-pkgver=1.10.1
+pkgver=1.10.2
 pkgrel=1
 pkgdesc='Data parsing and validation using Python type hints'
 arch=(x86_64)
@@ -17,8 +17,8 @@ optdepends=(
 makedepends=(python-build python-installer python-setuptools python-wheel)
 checkdepends=(python-pytest python-pytest-mock)
 source=($_name-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz)
-sha512sums=('2be3f10a82d655a94b3f250ed4c78439b4195dde3f7f6aa66028105b5c9b0e56aa8176701d563e5372533ae34e0b6d0fe2254df9429b04815607bcfc94e40370')
-b2sums=('5ca8d11528c7a7666136224c97dd0b078cf6f936a23227aa9dcd62af3c6a0af8f07c4c92751bd2c203497a626d4f93a78fd594bfc71dd0c43886c2dacc257af4')
+sha512sums=('dc2acfb271cd62b6de08bbaa48dbc76ec8d3a3f3142778ffa2cb9a2a1cad62dbdb3c7470a50e9a2825837b65a48c6aefb8736411f32c398aa9ca779841b53ac5')
+b2sums=('9aac69ace185ccc56255cf36f9af472caf4c6bcbdcbb81eec66353f755673e9a240e7713c0a2ecff00a02e07b0069e4b3f1edda41f345698a979b79dd54b354a')
 
 build() {
   cd $_name-$pkgver
