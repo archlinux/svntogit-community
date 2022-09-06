@@ -4,14 +4,15 @@
 
 pkgname=vdirsyncer
 pkgver=0.18.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Synchronize CalDAV and CardDAV."
 arch=(any)
 url="https://vdirsyncer.pimutils.org/en/stable/"
 license=(BSD)
 depends=(python-atomicwrites python-click python-click-log
 python-click-threading python-requests python-requests-toolbelt)
-makedepends=(git python-setuptools-scm python-sphinx)
+makedepends=(git python-build python-installer python-setuptools-scm
+             python-sphinx python-wheel)
 checkdepends=(python-hypothesis python-pytest python-pytest-localserver
 python-pytest-subtesthack)
 optdepends=('python-requests-oauthlib: Google support'
@@ -34,7 +35,8 @@ prepare() {
 
 build() {
   cd "${pkgname}"
-  python setup.py build
+  export SETUPTOOLS_SCM_PRETEND_VERSION=${pkgver}
+  python -m build --wheel --skip-dependency-check --no-isolation
   export PYTHONPATH="build:${PYTHONPATH}"
   sphinx-build -b man docs/ build/
 }
@@ -47,13 +49,17 @@ check() {
 
 package() {
   cd "${pkgname}"
-  python setup.py install --optimize=1 --root="${pkgdir}"
-  # license
-  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  python -m installer --destdir="${pkgdir}" dist/*.whl
   # systemd
   install -vDm 644 "contrib/${pkgname}."{service,timer} -t "${pkgdir}/usr/lib/systemd/user/"
   # man page
   install -vDm 644 "build/${pkgname}.1" -t "${pkgdir}/usr/share/man/man1"
   # docs
   install -vDm 644 {AUTHORS,CHANGELOG,README}.rst -t "${pkgdir}/usr/share/doc/${pkgname}"
+
+  # symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "${pkgdir}"/usr/share/licenses/${pkgname}
+  ln -s "${site_packages}"/${pkgname}-${pkgver}.dist-info/LICENSE \
+    "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
