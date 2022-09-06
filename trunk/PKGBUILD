@@ -1,16 +1,17 @@
 # Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
 
 _pkgname=build
 pkgname=python-$_pkgname
 pkgver=0.8.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A simple, correct PEP 517 build frontend'
 arch=('any')
 url='https://github.com/pypa/build'
 license=('MIT')
 depends=('python-tomli' 'python-pep517' 'python-packaging')
 optdepends=('python-virtualenv: Use virtualenv for build isolation')
-makedepends=('git' 'python-setuptools'
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel'
              'python-sphinx' 'python-sphinx-argparse-cli' 'python-sphinx-autodoc-typehints' 'python-sphinx-furo')
 checkdepends=('python-pytest' 'python-pytest-mock' 'python-pytest-rerunfailures' 'python-filelock' 'python-toml' 'python-wheel')
 source=("git+$url#tag=$pkgver?signed")
@@ -20,7 +21,7 @@ sha512sums=('SKIP')
 build() {
   cd $_pkgname
 
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 
   PYTHONPATH=src sphinx-build -b dirhtml -v docs docs/build/html
 }
@@ -34,12 +35,15 @@ check() {
 package() {
   cd $_pkgname
 
-  python setup.py install --root="$pkgdir" --skip-build
-  python -m compileall --invalidation-mode=checked-hash "$pkgdir"
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
   install -dm 755 "$pkgdir"/usr/share/doc/$pkgname
   cp -r -a --no-preserve=ownership docs/build/html "$pkgdir"/usr/share/doc/$pkgname
   rm -rf "$pkgdir"/usr/share/doc/$pkgname/html/.doctrees
 
-  install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/$_pkgname-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
