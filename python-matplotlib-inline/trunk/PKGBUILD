@@ -4,13 +4,14 @@
 _name=matplotlib-inline
 pkgname=python-matplotlib-inline
 pkgver=0.1.6
-pkgrel=1
+pkgrel=2
 pkgdesc='Inline Matplotlib backend for Jupyter'
 arch=('any')
 url=https://github.com/ipython/matplotlib-inline
 license=('BSD')
 depends=('python-traitlets')
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools'
+             'python-wheel')
 checkdepends=('ipython' 'python-matplotlib')
 optdepends=('python-matplotlib')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
@@ -19,20 +20,25 @@ b2sums=('3c8579660c36f790604c2ddcc99b587b8f54135f823d1a04b3e7ad5709bf7ba49cecd22
 
 build() {
   cd $_name-$pkgver
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
   cd $_name-$pkgver
   python -m venv --system-site-packages test-env
-  test-env/bin/python setup.py install --optimize=1 --skip-build
+  test-env/bin/python -m installer dist/*.whl
   test-env/bin/python -c 'from matplotlib_inline.backend_inline import show'
 }
 
 package() {
   cd $_name-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
-  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/matplotlib_inline-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 # vim:set ts=2 sw=2 et:
