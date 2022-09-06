@@ -6,7 +6,7 @@
 
 pkgname=python-sphinx
 pkgver=5.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -21,7 +21,8 @@ depends=('python-babel'
          'python-snowballstemmer'
          'python-sphinx-alabaster-theme'
          'python-sphinxcontrib-'{{apple,dev,html}help,jsmath,qthelp,serializinghtml})
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools'
+             'python-wheel')
 checkdepends=('cython'
               'imagemagick' 'librsvg'
               'python-html5lib'
@@ -40,7 +41,7 @@ validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tk
 
 build() {
   cd Sphinx-$pkgver
-  make build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
@@ -50,8 +51,13 @@ check() {
 
 package() {
   cd Sphinx-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
-  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/sphinx-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
 
 # vim:set ts=2 sw=2 et:
