@@ -4,36 +4,41 @@
 _name=flake8-black
 pkgname=python-flake8-black
 pkgver=0.3.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Flake8 plugin to call black as a code style validator'
 arch=('any')
 url=https://github.com/peterjc/flake8-black
 license=('MIT')
 depends=('flake8' 'python-black' 'python-tomli')
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools'
+             'python-wheel')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 sha256sums=('8211f5e20e954cb57c709acccf2f3281ce27016d4c4b989c3e51f878bb7ce12a')
 b2sums=('35b782024519ca75075b0389b0cec3746c30e2dc4c5f07a9bee54636fa3708936eebf6ab0e1e203f1227db97778373b5c2127714c10bf7f2c801a96d010eaea3')
 
 build() {
   cd $_name-$pkgver
-  python setup.py build
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 check() {
   cd $_name-$pkgver
   python -m venv --system-site-packages test-env
   source test-env/bin/activate
-  python setup.py install --optimize=1 --skip-build
+  python -m installer dist/*.whl
   cd tests
-  ./run_tests.sh
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  PYTHONPATH="../build:$site_packages" ./run_tests.sh
   deactivate
 }
 
 package() {
   cd $_name-$pkgver
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
-  install -Dm644 -t "$pkgdir"/usr/share/licenses/$pkgname LICENSE.rst
-}
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
-# vim:set ts=2 sw=2 et:
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/flake8_black-$pkgver.dist-info/LICENSE.rst \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE.rst
+}
