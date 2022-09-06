@@ -1,0 +1,51 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=genvalidity-hspec
+pkgname=haskell-genvalidity-hspec
+pkgver=1.0.0.0
+pkgrel=47
+pkgdesc="Standard spec's for GenValidity instances"
+url="https://github.com/NorfairKing/validity"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-genvalidity' 'haskell-genvalidity-property' 'haskell-hspec'
+         'haskell-hspec-core' 'haskell-quickcheck' 'haskell-validity')
+makedepends=('ghc' 'uusi')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz
+        $pkgname-hspec-2.10.patch::https://github.com/NorfairKing/validity/pull/107.patch)
+sha512sums=('90818ec5bbf91ebe67ae9d079a695de2520c48b93cb7344e003f1b85963a6bb64addc15f1d5789b263b13a390b03c1bb49efecb52bc3de2d4b6988dad96d0626'
+            '6a482e9053457414f581f498031358e6b8134f852665e5bad82e1839feee8ce8d3052c31d2925582283f47de0d3399a73080099244c1dd6ff3a220527409c8ca')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p2 -i ../$pkgname-hspec-2.10.patch
+    gen-setup
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
