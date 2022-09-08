@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=11
+pkgrel=12
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -130,8 +130,9 @@ package_ruby() {
       "${pkgdir}"/usr/lib/ruby/gems/${rubyver}/specifications/default/${stdlib_gem}-*.gemspec
   done
 
-  rm --verbose \
+  rm --recursive --verbose \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/English.rb \
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/digest \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so
 }
 
