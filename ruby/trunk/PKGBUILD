@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=12
+pkgrel=13
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -132,6 +132,7 @@ package_ruby() {
 
   rm --recursive --verbose \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/English.rb \
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/cgi \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/digest \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so
 }
