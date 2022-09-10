@@ -2,11 +2,11 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.17
+pkgver=20.10.18
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 url='https://www.docker.com/'
 license=('Apache')
 depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'systemd-libs'
@@ -14,20 +14,17 @@ depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'systemd-lib
 makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd' 'go-md2man' 'sed')
 optdepends=('btrfs-progs: btrfs backend support'
             'pigz: parallel gzip compressor support'
-            'docker-scan: vulnerability scanner')
+            'docker-scan: vulnerability scanner',
+            'docker-buildx: extended build capabilities')
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
-_LIBNETWORK_COMMIT=f6ccccb1c082a432c2a5814aaedaca56af33d9ea
-# TODO: Split into `docker-buildx` and make it a dependency
-_BUILDX_COMMIT=6224def4dd2c3d347eee19db595348c50d7cb491
+_LIBNETWORK_COMMIT=0dde5c895075df6e3630e76f750a447cf63f4789
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/moby/moby.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
-        "git+https://github.com/docker/buildx.git#commit=$_BUILDX_COMMIT"
         "$pkgname.sysusers")
 sha256sums=('SKIP'
-            'SKIP'
             'SKIP'
             'SKIP'
             'SKIP'
@@ -110,17 +107,6 @@ build() {
   # we must use the static binary because it's started in a foreign os
   make tini-static
   _fake_gopath_popd
-
-  ### buildx cli plugin
-  echo 'Building buildx cli plugin'
-  _buildx_r=github.com/docker/buildx
-  _fake_gopath_pushd buildx $_buildx_r
-  GO111MODULE=on go build -mod=vendor -o docker-buildx -ldflags "-linkmode=external \
-    -X $_buildx_r/version.Version=$(git describe --match 'v[0-9]*' --always --tags)-docker \
-    -X $_buildx_r/version.Revision=$(git rev-parse HEAD) \
-    -X $_buildx_r/version.Package=$_buildx_r" \
-    ./cmd/buildx
-  _fake_gopath_popd
 }
 
 package() {
@@ -148,9 +134,6 @@ package() {
   # man
   install -dm755 "$pkgdir/usr/share/man"
   cp -r man/man* "$pkgdir/usr/share/man"
-  # cli-plugins
-  cd "$srcdir"/src/github.com/docker
-  install -Dm755 buildx/docker-buildx "$pkgdir/usr/lib/docker/cli-plugins/docker-buildx"
 }
 
 # vim:set ts=2 sw=2 et:
