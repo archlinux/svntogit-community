@@ -3,7 +3,7 @@
 _gemname='benchmark'
 pkgname="ruby-${_gemname}"
 pkgver=0.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='a performance benchmarking library'
 arch=('any')
 url="https://github.com/ruby/${_gemname}"
@@ -11,17 +11,21 @@ license=('BSD' 'RUBY')
 depends=('ruby')
 checkdepends=('ruby-rake')
 options=(!emptydirs)
-source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('0538e9aebbf5932b05e7a7edfedc1659b0fd1d0cad2de9735c4f9017befac1a08788654fedab1f8a98480408f88ef096b05fbcbf201e183f045a0bd0cd65d55b')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
+    "${pkgname}_fix_gemspec.patch")
+sha512sums=('0538e9aebbf5932b05e7a7edfedc1659b0fd1d0cad2de9735c4f9017befac1a08788654fedab1f8a98480408f88ef096b05fbcbf201e183f045a0bd0cd65d55b'
+            'bda2f07165e50d55d69711dc3438efc7738658ba70926e29145c0717391a2ae86e43659edcefa5429422a463f7961f70fc45fa1e7babb311e174a5e205b31715')
 
 prepare() {
   cd "${_gemname}-${pkgver}"
+
+  patch --verbose --strip=1 --input="../${pkgname}_fix_gemspec.patch"
 
   # update gemspec/Gemfile to allow newer version of the dependencies
   sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
 
   # we build based on a tar archive, not a git repo
-  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' "${_gemname}.gemspec"
+  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git*" -printf "%P\\\\0"|' "${_gemname}.gemspec"
 }
 
 build() {
@@ -40,6 +44,8 @@ package() {
   cd "${_gemname}-${pkgver}"
 
   local _gemdir="$(gem env gemdir)"
+  local _platform="$(gem env platform | cut -d':' -f2)"
+  local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
 
   gem install \
     --local \
@@ -50,32 +56,24 @@ package() {
     --bindir "${pkgdir}/usr/bin" \
     "${_gemname}-${pkgver}.gem"
 
+  install --verbose --directory --mode=0755 \
+    "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "${pkgdir}${_gemdir}/specifications/default"
+
+  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/${_gemname}.gemspec" "${pkgdir}${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
+  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}"
+
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}/${_gemdir}/cache/" \
-    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
-    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "${pkgdir}${_gemdir}/cache/" \
+    "${pkgdir}${_gemdir}/build_info/" \
+    "${pkgdir}${_gemdir}/extensions/" \
+    "${pkgdir}${_gemdir}/gems/" \
+    "${pkgdir}${_gemdir}/plugins/" \
+    "${pkgdir}${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" \
+    "${pkgdir}${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
 
-  find "${pkgdir}/${_gemdir}/gems/" \
-    -type f \
-    \( \
-      -iname "*.o" -o \
-      -iname "*.c" -o \
-      -iname "*.so" -o \
-      -iname "*.time" -o \
-      -iname "gem.build_complete" -o \
-      -iname "Makefile" \
-    \) \
-    -delete
-
-  find "${pkgdir}/${_gemdir}/extensions/" \
-    -type f \
-    \( \
-      -iname "mkmf.log" -o \
-      -iname "gem_make.out" \
-    \) \
-    -delete
-
-  install -D --mode=644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-  install -D --mode=644 README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+  install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
