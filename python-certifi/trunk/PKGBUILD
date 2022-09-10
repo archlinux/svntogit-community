@@ -1,19 +1,20 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: Massimiliano Torromeo <massimiliano.torromeo@gmail.com>
 # Contributor: William J Bowman <bluephoenix47@gmail.com>
 
 pkgname=python-certifi
-pkgver=2022.06.15 
+pkgver=2022.06.15.1
 pkgrel=1
 pkgdesc="Python package for providing Mozilla's CA Bundle (using system CA store)"
 arch=(any)
 url="https://github.com/certifi/python-certifi"
-license=('GPL')
+license=(MPL2)
 depends=('python' 'ca-certificates')
-makedepends=('python-setuptools')
+makedepends=(python-build python-installer python-setuptools python-wheel)
 checkdepends=('python-pytest')
 source=("https://github.com/certifi/python-certifi/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('ffd2b2f38ff297cb49a6efe912d43b5b87bc028c8ee44f07276ac3a2a98186692e496b5579a544bfee2724214aa6e91397c679837ee856513cc8635e3470f34f')
+sha512sums=('615c5f659f3b5da78770e84d663e5e548c0a68dd07d14194e2984bb9c1d6378a9fbfd829ab9eeba38788b56348396a36ee38cf3f9b8921f2edb52c5951889cd1')
 
 prepare() {
   cd python-certifi-$pkgver
@@ -26,7 +27,7 @@ prepare() {
 
 build() {
   cd python-certifi-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
@@ -35,11 +36,13 @@ check() {
 }
 
 package() {
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
   cd python-certifi-$pkgver
-  python setup.py install --skip-build -O1 --root="$pkgdir"
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
   # Replace CA store here again because the symlink was installed as a file
-  ln -sf /etc/ssl/certs/ca-certificates.crt "$pkgdir"/usr/lib/python3.10/site-packages/certifi/cacert.pem
+  ln -sf /etc/ssl/certs/ca-certificates.crt "$pkgdir"/$site_packages/certifi/cacert.pem
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
