@@ -3,7 +3,7 @@
 # Contributor: Panagiotis Mavrogiorgos <pmav99@gmail.com>
 
 pkgname=nuitka
-pkgver=1.0.6
+pkgver=1.0.7
 pkgrel=1
 pkgdesc='Python compiler with full language support and CPython compatibility'
 arch=(any)
@@ -15,7 +15,7 @@ checkdepends=(ccache fuse2 python-boto3 python-brotli strace)
 optdepends=('ccache: for build caching'
             'pyside2: for using Qt5 APIs')
 source=("https://nuitka.net/releases/${pkgname^}-${pkgver}.tar.bz2")
-b2sums=('9bb6348ae285eba8790b992669e2ac6ad5cf4e4081e2402456aeb2dae6dcfa5896326572951d1ba3de4b45d2d45a3a466f0e1b45a7ba53d5d9940b6de025e71a')
+b2sums=('506f49f1cb7725ab7f55ed1b5db23f00d281b91f7b8edb9c3dc58a02059a36032eec3eae01fad1eb245ac6e076555d3d19130cc71a1ee3d08f94f94098a005ab')
 
 prepare() {
   cd ${pkgname^}-$pkgver
@@ -29,10 +29,11 @@ build() {
 }
 
 # TODO: Make tests pass and/or report issues upstream (some have already been reported)
-#check() {
-#  cd ${pkgname^}-$pkgver
-#  ./tests/run-tests --no-other-python --skip-onefile-tests --skip-other-cpython-tests --skip-reflection-test
-#}
+check() {
+ cd ${pkgname^}-$pkgver/tests
+ rm -r programs/pkgutil_usage
+ ./run-tests --no-other-python --skip-onefile-tests --skip-other-cpython-tests --skip-reflection-test
+}
 
 package() {
   cd ${pkgname^}-$pkgver
