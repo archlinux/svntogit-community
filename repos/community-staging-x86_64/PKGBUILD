@@ -1,0 +1,66 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=Stochas
+pkgname=stochas
+pkgver=1.3.5
+pkgrel=2
+pkgdesc="A probabilistic polyrhythmic sequencer"
+arch=('x86_64')
+url="https://surge-synth-team.org/stochas"
+license=('GPL3')
+groups=(pro-audio vst3-plugins)
+depends=(gcc-libs glibc hicolor-icon-theme libpng zlib)
+makedepends=(alsa-lib cmake flac freetype2 gendesk jack libogg libvorbis libx11 libxcursor libxinerama libxrandr juce)
+checkdepends=()
+optdepends=(
+  'jack: to use standalone with JACK'
+  'vst3-host: for VST3 plugin'
+)
+source=(
+  "${pkgname}-${pkgver}.tar.gz::https://github.com/surge-synthesizer/${pkgname}/archive/refs/tags/v${pkgver}.tar.gz"
+  "${pkgname}-1.3.4-devendor_juce.patch"
+)
+sha512sums=('5e30b51006c6f87652cd48cc45ec58993c7e44dff3890a834c9c80db0e20ce43e40f4dc4587c0c65ba905f5cfd3c91acb1dd96bdf3a3644cedc6e1fe78883656'
+            '32da969ddd4693c4b753269cc4169487dd7bcf42551f1e20ee8a9d9d23d24f850ffde2f7228863ad0a92e461680e885ee71444f8ba5c440b3dbc242a792b435c')
+b2sums=('cae43e17ff88ddd23a2f7ec29f981c74809a1043bc0fdf0c6611dcbaa62397c4c43317643077ee66fd0890dc1227c561711391e792f004e6f037803f44fdb5a3'
+        'f57cc2bd496c49f8cc55429031330ebc54fe202d18d4b719070b1f550dbb5f5ffb01fe9e7148a898b3b62acfcc1410fbdc6c56de103364c4d91f0660cf5a2fdb')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+  patch -Np1 -i ../"${pkgname}-1.3.4-devendor_juce.patch"
+
+  gendesk -n \
+          --pkgname "org.surge-synth-team.${_name}" \
+          --pkgdesc "${pkgdesc}" \
+          --exec "${_name}" \
+          --name "${_name}" \
+          --icon "org.surge-synth-team.${_name}" \
+          --genericname "Audio Sequencer" \
+          --categories "AudioVideo;Audio"
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  export CFLAGS+=" -DNDEBUG"
+  export CXXFLAGS+=" -DNDEBUG"
+  cmake -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE='None' \
+        -DBoost_NO_BOOST_CMAKE=ON \
+        -Wno-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
+}
+
+package() {
+  depends+=(libFLAC.so libasound.so libfreetype.so libjpeg.so libogg.so libvorbis.so libvorbisenc.so libvorbisfile.so)
+
+  cd "$pkgname-$pkgver"
+  # project has no install target :(
+  install -vDm 755 build/${pkgname}_artefacts/None/Standalone/${_name} -t "${pkgdir}/usr/bin/"
+  install -vDm 755 build/${pkgname}_artefacts/None/VST3/${_name}.vst3/Contents/${CARCH}-linux/${_name}.so \
+    -t "${pkgdir}/usr/lib/vst3/Stochas.vst3/Contents/${CARCH}-linux/"
+
+  install -vDm 644 *.desktop -t "${pkgdir}/usr/share/applications/"
+  install -vDm 644 image/app_logo_512.png "${pkgdir}/usr/share/icons/hicolor/512x512/apps/org.surge-synth-team.${_name}.png"
+}
