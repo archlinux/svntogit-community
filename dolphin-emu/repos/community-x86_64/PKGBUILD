@@ -3,7 +3,7 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r16793.3cd82b6193
+pkgver=5.0.r17269.48c9c224cf
 pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
@@ -22,11 +22,10 @@ depends=(
   libavutil.so
   libcurl.so
   libevdev
-  #libfmt.so
+  libfmt.so
   libgl
   #libmgba
   libminiupnpc.so
-  libpng
   libpulse
   libswscale.so
   libudev.so
@@ -36,8 +35,9 @@ depends=(
   libxrandr
   lzo
   mbedtls
+  minizip-ng
   pugixml
-  qt5-base
+  qt6-base
   sfml
   zlib
 )
@@ -49,17 +49,25 @@ makedepends=(
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-_commit=3cd82b619388d0877436390093a6edc2319a6904
+_commit=48c9c224cf9f82f0f9f2690b7cc6283d7448480c
 source=(
   dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit}
-  dolphin-emu-system-libmgba.patch
+  git+https://github.com/randy408/libspng.git
+  git+https://github.com/KhronosGroup/SPIRV-Cross.git
+  git+https://github.com/zlib-ng/zlib-ng.git
 )
 b2sums=('SKIP'
-        '004692abcfa3a0a10996afba3a8fe71627300224a6f96cc5b6c6183c32d5f7bd1ece36775cd2642a0c4d7fc9225f72da39063cc68ff089e8d01685a2fbbd6957')
+        'SKIP'
+        'SKIP'
+        'SKIP')
 
 prepare() {
   cd dolphin-emu
-  #patch -Np1 -i ../dolphin-emu-system-libmgba.patch
+  for submodule in Externals/{libspng/libspng,spirv_cross/SPIRV-Cross,zlib-ng/zlib-ng}; do
+    git submodule init ${submodule}
+    git config submodule.${submodule}.url ../${submodule##*/}
+    git submodule update ${submodule}
+  done
 }
 
 pkgver() {
@@ -68,13 +76,13 @@ pkgver() {
 }
 
 build() {
-  export CXXFLAGS+=" -fpermissive"
   cmake -S dolphin-emu -B build -G Ninja \
     -DCMAKE_BUILD_TYPE=None \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DDISTRIBUTOR=archlinux.org \
     -DUSE_MGBA=OFF \
-    -DUSE_SHARED_ENET=ON
+    -DUSE_SHARED_ENET=ON \
+    -Wno-dev
   cmake --build build
 }
 
