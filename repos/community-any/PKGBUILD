@@ -4,7 +4,7 @@
 # Contributor: William J Bowman <bluephoenix47@gmail.com>
 
 pkgname=python-certifi
-pkgver=2022.06.15.2
+pkgver=2022.09.14
 pkgrel=1
 pkgdesc="Python package for providing Mozilla's CA Bundle (using system CA store)"
 arch=(any)
@@ -14,7 +14,7 @@ depends=('python' 'ca-certificates')
 makedepends=(python-build python-installer python-setuptools python-wheel)
 checkdepends=('python-pytest')
 source=("https://github.com/certifi/python-certifi/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('bd6e3943d54b1c607231045ca60d8d386c46dafcec74546ec9c039f5b9d2331ce046f62bc088f67dc19f8230ac128b123b9ba1989d885a20798eec1474e46196')
+sha512sums=('09ecd867619dd5282fab92212f8a41557cf6899fc5b6a46be3e4dbb2b7f3af7fe51272e3d6c5dab9345d8988fd282752b08e0f04e505be8046d2afbf09fa2ffc')
 
 prepare() {
   cd python-certifi-$pkgver
