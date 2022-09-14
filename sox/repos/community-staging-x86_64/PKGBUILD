@@ -1,0 +1,102 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Eric Bélanger <eric@archlinux.org>
+# Contributor: mysta
+
+pkgname=sox
+# using a git snapshot as 14.4.2 has many unfixed security vulns
+pkgver=14.4.2+r182+g42b3557e
+pkgrel=1
+pkgdesc="The Swiss Army knife of sound processing tools"
+arch=('x86_64')
+url="http://sox.sourceforge.net/"
+license=('GPL2' 'LGPL2.1')
+depends=(
+  'file'
+  'libid3tag'
+  'libltdl'
+  'libpng'
+)
+makedepends=(
+  'alsa-lib'
+  'autoconf-archive'
+  'flac'
+  'git'
+  'gsm'
+  'lame'
+  'libao'
+  'libmad'
+  'libpulse'
+  'libsndfile'
+  'libvorbis'
+  'opencore-amr'
+  'opusfile'
+  'twolame'
+  'wavpack'
+)
+checkdepends=('time')
+optdepends=(
+  'alsa-lib: alsa plugin'
+  'flac: flac plugin'
+  'gsm: gsm plugin'
+  'lame: mp3 plugin'
+  'libao: ao plugin'
+  'libmad: mp3 plugin'
+  'libpulse: pulse plugin'
+  'libsndfile: caf, fap, mat4, mat5, paf, pvf, sd2, sndfile, w64 and xi plugins'
+  'libvorbis: vorbis plugin'
+  'opencore-amr: amr_nb and amr_wb plugins'
+  'opusfile: opus plugin'
+  'twolame: mp3 plugin'
+  'wavpack: wavpack plugin'
+)
+provides=('libsox.so')
+options=('debug')
+_commit=42b3557e13e0fe01a83465b672d89faddbe65f49  # master
+source=("sox-code::git+https://git.code.sf.net/p/sox/code#commit=${_commit}")
+sha512sums=('SKIP')
+
+pkgver() {
+  cd sox-code
+  git describe --tags | sed 's/^sox-//;s/[^-]*-g/r&/;s/-/+/g'
+}
+
+
+prepare() {
+  cd sox-code
+  autoreconf -vfi
+}
+
+build() {
+  local configure_flags=(
+    --prefix=/usr
+    --sysconfdir=/etc
+    --localstatedir=/var
+    --enable-formats=dyn
+    --with-distro="Arch Linux"
+  )
+
+  cd sox-code
+  ./configure "${configure_flags[@]}"
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make all README
+}
+
+check() (
+  cd sox-code/src
+
+  export DESTDIR="${PWD}/tmp"
+  mkdir -p "${DESTDIR}"
+
+  export LD_LIBRARY_PATH="${DESTDIR}/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+  make sox_sample_test
+  make install
+  make installcheck
+)
+
+package() {
+  cd sox-code
+  make DESTDIR="${pkgdir}" install
+  install -vDm644 AUTHORS ChangeLog README \
+    -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
