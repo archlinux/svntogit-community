@@ -13,9 +13,9 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=6.0.8.sdk108
+pkgver=6.0.9.sdk109
 pkgrel=1
-_bootstrapver=6.0.107
+_bootstrapver=6.0.108
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -44,7 +44,7 @@ options=(
   !lto
   staticlibs
 )
-_tag=4e3a463d2b2ad382a04bdf570e9154c8ec7fe37e
+_tag=58a93139d80490d0724b4d862ba8ee00ceae45d3
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
@@ -54,7 +54,7 @@ source=(
 )
 noextract=(Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz)
 b2sums=('SKIP'
-        '7d5b5150ded30d4bc76c4bee5f27899a7d6a2440f6708f267fe8f2d6e1cbec9191fed83ac887b423aaf29fae7a41b140e6086fe64bc55c88dd2c61c94e8ec2bc'
+        '632069443c4225524e9b2cf6aa351e90a7a47e1cd78398985302f5aaf86713fb7cbbc74db6f22cfa0f0169c38411aba2af9474656c621167206a8b5c92360668'
         '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
         'b9472b3967c9d7549ee2bbf0180d919748b40b1f9a65b1c3789be40f62ed17a9d37c2020409f7835570620108bd5ec43e728966d075d66bf0b7261cdd36a60c3'
         '95b083b842da6049a084ca015b7ddc099550aa818fc382d556cca832fee52265be568d20a2c50e70819aef6cf879e7a368f7dd3b5966356643b2efdd756e73f4')
