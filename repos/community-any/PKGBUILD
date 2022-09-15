@@ -4,7 +4,7 @@
 # Contributor: Ismo Toijala <ismo.toijala@gmail.com>
 
 pkgname=python-jsonschema
-pkgver=4.15.0
+pkgver=4.16.0
 pkgrel=1
 pkgdesc="An implementation of JSON Schema validation for Python"
 arch=('any')
@@ -16,7 +16,7 @@ makedepends=('python-build' 'python-installer' 'python-hatchling' 'python-hatch-
 checkdepends=('python-twisted' 'python-idna' 'python-jsonpointer' 'python-strict-rfc3339'
               'python-pip' 'python-rfc3987' 'python-webcolors')
 source=("$pkgname-$pkgver.tar.bz2::https://github.com/Julian/jsonschema/archive/v$pkgver.tar.gz")
-sha512sums=('bb1c7f52978cd3369013e172c3c1e4cdef937b7b380d71bd4ab0566ae1e8e95b62ca0af075acc48598574e7b86d0b5ddff4a87866612fde4c9f8ec32b3400993')
+sha512sums=('02815455d9e145206db002a16769085d7ba705ada32342d890fb2b88a03ec17a8420449354b8b320eee3c55d34a12ad55fe7876d6eaa895fba64db47aad485fe')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
