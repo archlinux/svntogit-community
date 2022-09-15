@@ -1,16 +1,16 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=bespokesynth
-pkgver=1.1.0
-_commit=bd41884b9032b585c6271b6d91f8942d3fac4e2b  # v1.1.0
-pkgrel=4
+pkgver=1.1.0.r154.g0acb8ebf
+_commit=0acb8ebff6e59f8b000da240e11f31ccee9cca72  # current HEAD
+pkgrel=1
 pkgdesc="A software modular synth"
 arch=(x86_64)
 url="https://www.bespokesynth.com/"
 license=(GPL3)
 groups=(pro-audio)
 depends=(gcc-libs glibc hicolor-icon-theme libglvnd libpng python zlib)
-makedepends=(alsa-lib cmake flac git jack juce libusb libvorbis libx11
+makedepends=(abletonlink alsa-lib cmake freetype2 git jack libusb libx11
 libxcursor libxinerama pybind11 tuning-library xorg-xrandr)
 optdepends=(
   'jack: to use with JACK'
@@ -18,49 +18,54 @@ optdepends=(
 )
 provides=(vst3-host)
 source=(
-  "$pkgname::git+https://github.com/${pkgname}/${pkgname}#commit=${_commit}"
-  "MTS-ESP::git+https://github.com/ODDSound/MTS-ESP"
+  $pkgname::git+https://github.com/$pkgname/$pkgname#commit=$_commit
+  MTS-ESP::git+https://github.com/ODDSound/MTS-ESP
+  $pkgname-1.1.0-devendor_ableton_link.patch
 )
 sha512sums=('SKIP'
-            'SKIP')
+            'SKIP'
+            '29f6ea325ae9ab974443bfc87ace59a89b18c8ec355224a4d15ad5bda6601c1901381259761f561b96426ab4688680f0409297eb8750b2d6516e6ca49da16f73')
 b2sums=('SKIP'
-        'SKIP')
+        'SKIP'
+        'f1d45e9220ec4d33327fb96594b6b3b5db2b4d3fc8716946568fe695de8ad5a8558218f803a9906cb31f955fc3f44ce9fd5265db65a94ea4cd538cb7777c88f4')
+
+pkgver() {
+  cd $pkgname
+  git describe --exclude Nightly --long --tags | sed 's/v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
 
 prepare() {
-  cd "$pkgname"
-  git cherry-pick -n d134b0aa015c9876f9bba9a68ecd910cd71b0ba1  # remove 3dxware
-  git cherry-pick -n 5b44c1ba7228e8b3cb5076099b087dfa14fa56a9  # devendor jsoncpp
-  git cherry-pick -n f4490398600e33054be6e4e05298d9d60d4724f7  # devendor pybind11
-  git cherry-pick -n f900e132f30fc6a266467f815183f20c417925b6  # devendor juce
-  git cherry-pick -n 7e98b949c1be23d0cae3bf80b479ae3a933fe8d5  # devendor tuning-library
+  # devendor abletonlink
+  patch -Np1 -d $pkgname -i ../$pkgname-1.1.0-devendor_ableton_link.patch
 
+  cd $pkgname
   git submodule init
-  git config submodule.libs/oddsound-mts/MTS-ESP.url "${srcdir}/MTS-ESP"
-  git submodule deinit libs/JUCE
+  git config submodule.libs/oddsound-mts/MTS-ESP.url "$srcdir/MTS-ESP"
+  # NOTE: use bundled juce as upstream is seemingly not interested in doing releases: https://github.com/BespokeSynth/BespokeSynth/issues/918
+  # git submodule deinit libs/JUCE
   git submodule deinit libs/pybind11
   git submodule deinit libs/tuning-library
   git submodule deinit libs/json/jsoncpp
   git submodule update
-
 }
 
 build() {
   cmake -DCMAKE_INSTALL_PREFIX=/usr \
         -DCMAKE_BUILD_TYPE=None \
+        -DBESPOKE_SYSTEM_ABLETONLINK=ON \
         -DBESPOKE_SYSTEM_PYBIND11=ON \
         -DBESPOKE_SYSTEM_JSONCPP=ON \
         -DBESPOKE_SYSTEM_TUNING_LIBRARY=ON \
-        -DBESPOKE_SYSTEM_JUCE=ON \
-        -DBESPOKE_DEVENDORED_SYSTEM_JUCE=ON \
+        -DBESPOKE_SYSTEM_JUCE=OFF \
+        -DBESPOKE_DEVENDORED_SYSTEM_JUCE=OFF \
         -Wno-dev \
         -B build \
-        -S "$pkgname"
+        -S $pkgname
   make VERBOSE=1 -C build
 }
 
 package() {
-  depends+=(libasound.so libFLAC.so libfreetype.so libjpeg.so libjsoncpp.so
-  libogg.so libusb-1.0.so libvorbis.so libvorbisenc.so libvorbisfile.so)
+  depends+=(libasound.so libfreetype.so libjsoncpp.so libusb-1.0.so)
 
   make DESTDIR="$pkgdir/" install -C build
 }
