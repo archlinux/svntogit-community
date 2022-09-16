@@ -4,8 +4,8 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2022.1.4
-_build=221.6008.13
+pkgver=2022.2.2
+_build=222.4167.29
 pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
@@ -22,14 +22,12 @@ source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_bui
         idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
         idea.desktop
-        idea.sh
-        skip_jps_build.patch)
+        idea.sh)
 sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
-            '115f1091edb138a7a7b15980e8538b4dfd28054cfab38b844df6d918b1b881c5'
-            'b023d7621674f335c32790e25bddadcec483342835af24ab9a3b80d0afc16a0e')
+            '115f1091edb138a7a7b15980e8538b4dfd28054cfab38b844df6d918b1b881c5')
 
 prepare() {
   cd intellij-community
@@ -38,9 +36,10 @@ prepare() {
   mv "${srcdir}"/idea-android android
   mv "${srcdir}"/idea-adt-tools-base android/tools-base
 
-  # https://youtrack.jetbrains.com/issue/IDEA-276102
-  # https://youtrack.jetbrains.com/issue/IDEA-277775
-  patch -p0 -i ../skip_jps_build.patch
+  # The class src/com/intellij/openapi/projectRoots/ex/JavaSdkUtil.java:56 (git commit 0ea5972cdad569407078fb27070c80e2b9235c53)
+  # assumes the user's maven repo is at {$HOME}/.m2/repository and it contains junit-3.8.1.jar
+  mkdir -p /build/.m2/repository/junit/junit/3.8.1/
+  curl https://repo1.maven.org/maven2/junit/junit/3.8.1/junit-3.8.1.jar -o /build/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar
 
   echo ${_build} > build.txt
 }
@@ -52,7 +51,8 @@ build() {
   export PATH="${JAVA_HOME}/bin:${PATH}"
   export JDK_16_x64=/usr/lib/jvm/java-11-openjdk
   export JDK_18_x64=/usr/lib/jvm/java-11-openjdk
-  ./installers.cmd -Dintellij.build.target.os=linux
+  export MAVEN_REPOSITORY=/build/.m2/repository
+  ./installers.cmd -Dintellij.build.use.compiled.classes=false -Dintellij.build.target.os=linux
   tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
 }
 
