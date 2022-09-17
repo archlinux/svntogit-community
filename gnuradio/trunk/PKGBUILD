@@ -15,7 +15,7 @@ depends=('python-numpy' 'gsl' 'blas' 'libuhd' 'libvolk' 'log4cpp' 'python-yaml'
     'pybind11' 'libsndfile' 'spdlog')
 makedepends=('alsa-lib' 'boost' 'cmake' 'fftw' 'glu' 'gtk3' 'jack' 'pango'
     'portaudio' 'python-gobject' 'python-lxml' 'python-pyqt5' 'python-cairo'
-    'python-jsonschema' 'qwt' 'zeromq')
+    'python-jsonschema' 'python-packaging' 'qwt' 'zeromq')
 
 # todo
 # split the gui components?
