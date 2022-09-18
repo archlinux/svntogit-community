@@ -14,12 +14,15 @@ depends=('boost-libs' 'cairo' 'freetype2' 'gdal' 'harfbuzz' 'icu' 'libjpeg-turbo
          'libtiff' 'libwebp' 'libxml2' 'postgresql-libs' 'proj' 'sqlite' 'zlib')
 makedepends=('boost' 'scons')
 source=(https://github.com/$pkgname/$pkgname/releases/download/v$pkgver/$pkgname-v$pkgver.tar.bz2
+        boost-1.80.patch
         scons4.patch)
 sha256sums=('43d76182d2a975212b4ad11524c74e577576c11039fdab5286b828397d8e6261'
+            'b80085fba71ea6ecd86ff98ebdf652490bf56507cb798076192ab3ce136f5eeb'
             '79a85ddba3ec17b86cb216e21442611498a9f2612f03e98708057b3c3a6e8b06')
 
 prepare() {
   cd "${srcdir}"/$pkgname-v$pkgver
+  patch -Np1 -i ../boost-1.80.patch
 
   # Partial fix to build with SCons 4 (https://bugs.archlinux.org/task/71630)
   patch -Np1 -i ../scons4.patch
