@@ -1,36 +1,30 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-pyjwt
-pkgver=2.4.0
+pkgver=2.5.0
 pkgrel=1
 pkgdesc='JSON Web Token implementation in Python'
 arch=('any')
 url='https://github.com/jpadilla/pyjwt'
 license=('MIT')
-depends=('python-setuptools')
+depends=('python')
 makedepends=('python-setuptools')
-checkdepends=('python-pytest-runner')
+checkdepends=('python-pytest' 'python-cryptography')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/jpadilla/pyjwt/archive/$pkgver.tar.gz")
-sha512sums=('c1044de436394d7758bdfcc9256a1ff4534881b9e5cd29b6055bcfed349b4d0d3e0b802a8163740adf63f624394e7ef7f61a91e3b49f7bae914165a2549ce771')
-
-prepare() {
-  sed -i 's/pytest==2.7.3/pytest/;/pytest-cov/d' pyjwt-$pkgver/setup.py
-  # do not use python-coverage
-  sed -i 's/--cov-report term-missing --cov-config=.coveragerc --cov .//' pyjwt-$pkgver/setup.cfg
-}
+sha512sums=('7db32dd621a9744d561ec1dc1fe923326fd2425c56ae76df78e024146cf1520ac703a78d250b37090393747ea1d01872903cc86eba803b733beac11b4f803422')
 
 build() {
-  cd "$srcdir"/pyjwt-$pkgver
+  cd pyjwt-$pkgver
   python setup.py build
 }
 
 check() {
-  cd "$srcdir"/pyjwt-$pkgver
-  python setup.py pytest
+  cd pyjwt-$pkgver
+  pytest
 }
 
 package() {
   cd pyjwt-$pkgver
-  python3 setup.py install --root="$pkgdir" -O1
-  install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  python setup.py install --root="$pkgdir" -O1
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
