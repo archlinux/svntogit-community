@@ -1,0 +1,138 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Ryan Algar <ryzer@arch-linux>
+# Upstream: TheWaveWarden (Frederik Siepe) <info AT thewavewarden DOT com>
+
+pkgname=odin2-synthesizer
+pkgver=2.3.4
+pkgrel=1
+pkgdesc='24 voice polyphonic synthesizer with modulation and FX'
+arch=('x86_64')
+url='https://www.thewavewarden.com/odin2'
+license=('GPL3')
+groups=('pro-audio' 'vst3-plugins' 'lv2-plugins' 'clap-plugins')
+depends=(
+  'alsa-lib'
+  'libglvnd'
+  'freetype2'
+  'hicolor-icon-theme'
+)
+makedepends=(
+  'git'
+  'cmake'
+  'curl'
+  'lv2'
+  'mesa'
+  'ttf-font'
+  'jack'
+  'webkit2gtk'
+  'libx11'
+  'gendesk'
+)
+optdepends=(
+  'vst3-host: for VST3 plugins'
+  'lv2-host: for LV2 plugins'
+  'clap-host: for CLAP plugins'
+)
+install='odin2-synthesizer.install'
+_commit='57272428423eb2655b4d482aeb547bf2fb4d2cbe'
+source=(
+  "$pkgname::git+https://github.com/TheWaveWarden/odin2#commit=$_commit"
+  'add-missing-include.patch'
+  'fix-lv2-include.patch'
+  'github.com-surge-synthesizer-tuning-library::git+https://github.com/surge-synthesizer/tuning-library'
+  'github.com-juce-framework-JUCE::git+https://github.com/juce-framework/JUCE'
+  'github.com-free-audio-clap-juce-extensions::git+https://github.com/free-audio/clap-juce-extensions'
+  'github.com-lv2-porting-project-JUCE::git+https://github.com/lv2-porting-project/JUCE'
+  'github.com-free-audio-clap::git+https://github.com/free-audio/clap'
+  'github.com-free-audio-clap-helpers::git+https://github.com/free-audio/clap-helpers'
+)
+b2sums=('SKIP'
+        '6025efd0d3b66d7638ea3f9facbc29f9b06f0101dcff317ecab5b6fdea3d31bb48b29b9858d6e0025ae28b72415a7b6e98ab39d097e466b1e5d760743552c55c'
+        '3f90bce1520a648ccc0b46b54a7eaebfb6d2e669ffef545df9e80e8f1724a7ae0f1ae15e21c8e5fa29d667a78c8db40774e917ce1049ebcf90dae19f96ce1f24'
+        'SKIP'
+        'SKIP'
+        'SKIP'
+        'SKIP'
+        'SKIP'
+        'SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # setup git submodules
+  git submodule init
+  git config submodule.tuning-library.url "$srcdir/github.com-surge-synthesizer-tuning-library"
+  git config submodule.libs/JUCE.url "$srcdir/github.com-juce-framework-JUCE"
+  git config submodule.libs/clap-juce-extensions.url "$srcdir/github.com-free-audio-clap-juce-extensions"
+  git config submodule.libs/libs/JUCELV2.url "$srcdir/github.com-lv2-porting-project-JUCE"
+  git submodule update
+
+  # setup git submodules for clap-juce-extensions
+  pushd libs/clap-juce-extensions
+  git submodule init
+  git config submodule.clap-libs/clap.url "$srcdir/github.com-free-audio-clap"
+  git config submodule.clap-libs/clap-helpers.url "$srcdir/github.com-free-audio-clap-helpers"
+  git submodule update
+  popd
+
+  # fix FTBFS due to missing include directives
+  pushd libs/JUCELV2
+  git apply "$srcdir/add-missing-include.patch"
+  git apply "$srcdir/fix-lv2-include.patch"
+  popd
+
+  # generate desktop file
+  gendesk -n \
+    --exec odin2 \
+    --name Odin2 \
+    --pkgname odin2 \
+    --pkgdesc "$pkgdesc" \
+    --icon odin2 \
+    --genericname "Virtual polyphonic synthesizer"
+}
+
+build() {
+  cmake \
+    -S "$pkgname" \
+    -B build \
+    -DCMAKE_BUILD_TYPE='Release'
+
+  cmake --build build
+}
+
+package() {
+  pushd build/Odin2_artefacts/Release
+
+  # create required directories
+  install -vd "$pkgdir/usr/"{bin,lib/lv2,lib/vst3,lib/clap}
+
+  # VST3
+  cp -vr VST3/Odin2.vst3 "$pkgdir/usr/lib/vst3"
+
+  # LV2
+  cp -vr LV2/Odin2.lv2 "$pkgdir/usr/lib/lv2"
+
+  # CLAP
+  cp -vr CLAP/Odin2.clap "$pkgdir/usr/lib/clap"
+
+  # standalone
+  install -vDm755 Standalone/Odin2 "$pkgdir/usr/bin/odin2"
+  popd
+
+  cd "$pkgname"
+
+  # desktop file
+  install -vDm644 -t "$pkgdir/usr/share/applications" odin2.desktop
+
+  # application icon
+  install -vDm644 manual/graphics/logo.png "$pkgdir/usr/share/icons/hicolor/512x512/apps/odin2.png"
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md screenshot.png manual/manual.pdf
+}
