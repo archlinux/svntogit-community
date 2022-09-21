@@ -1,0 +1,86 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=klystrack-plus
+pkgver=0.10.0.alpha1
+pkgrel=1
+pkgdesc='A tracker for making C64/NES/Amiga-style chiptunes on a modern platform'
+arch=('x86_64')
+url='https://github.com/LTVA1/klystrack'
+license=('MIT')
+depends=(
+  'alsa-lib'
+  'sdl2'
+  'sdl2_image'
+  'hicolor-icon-theme'
+)
+makedepends=('git')
+_commit='b94ccfac7071e030a25f6c5635c072ae9bf940e9'
+source=(
+  "$pkgname::git+$url#commit=$_commit"
+  'github.com-LTVA1-klystron::git+https://github.com/LTVA1/klystron'
+)
+b2sums=('SKIP'
+        'SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed -e 's/^v//' -e 's/-/./g'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # prepare git submodules
+  git submodule init
+  git config submodule.klystron.url "$srcdir/github.com-LTVA1-klystron"
+  git submodule update
+
+  # remove png prefix from desktop file
+  sed -e 's/\.png//' -i linux/klystrack.desktop
+
+  # rename klystrack -> klystrack-plus
+  sed -e 's/klystrack/klystrack-plus/g' -i linux/klystrack.desktop
+
+  # use resource path klystrack-plus instead of klystrack
+  sed -e 's:/lib/klystrack:/lib/klystrack-plus:' -i Makefile
+
+  # first pass at ensuring reproducibility by using git commit date
+  sed -e 's/$(Q)date +"%Y%m%d"/$(Q)git show --no-patch --format=%cd --date=format:%Y%m%d/' -i Makefile
+
+  cd klystron
+  sed -e 's/$(Q)date +"%Y%m%d"/$(Q)git show --no-patch --format=%cd --date=format:%Y%m%d/' -i Makefile
+}
+
+build() {
+  cd "$pkgname"
+
+  make CFG=release RES_PATH=/usr/lib/klystrack-plus
+}
+
+package() {
+  cd "$pkgname"
+
+  make DESTDIR="$pkgdir" CFG=release RES_PATH=/usr/lib/klystrack-plus install
+
+  # rename binary
+  mv -v "$pkgdir/usr/bin/"klystrack{,-plus}
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # additional data
+  cp -vr examples "$pkgdir/usr/share/$pkgname"
+
+  # man page
+  install -vDm644 doc/klystrack.1 "$pkgdir/usr/share/man/man1/$pkgname.1"
+
+  # desktop file
+  install -vDm644 linux/klystrack.desktop "$pkgdir/usr/share/applications/$pkgname.desktop"
+
+  # application icon
+  install -vDm644 icon/256x256.png "$pkgdir/usr/share/icons/hicolor/256x256/apps/$pkgname.png"
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
