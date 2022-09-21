@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=16
+pkgrel=17
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -141,7 +141,8 @@ package_ruby() {
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/digest \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/console.so \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/nonblock.so \
-    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so \
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/json
 }
 
 package_ruby-docs() {
