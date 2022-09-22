@@ -2,23 +2,28 @@
 
 pkgname=seamonkey
 pkgver=2.53.13
-pkgrel=1
+pkgrel=2
 pkgdesc="SeaMonkey internet suite"
 arch=('x86_64')
 license=('MPL')
 depends=('dbus-glib' 'gtk3' 'hunspell' 'icu'
          'libevent' 'libpulse' 'libvpx' 'libxt' 'mime-types'
          'nss' 'sqlite' 'startup-notification')
-makedepends=('autoconf2.13' 'clang' 'imake' 'llvm' 'mesa' 'python' 'python2-setuptools'
-             'rust' 'yasm' 'unzip' 'zip' 'nasm')
+makedepends=('autoconf2.13' 'clang' 'imake' 'llvm' 'mesa' 'python'
+             'rustup' 'yasm' 'unzip' 'zip' 'nasm')
 optdepends=('networkmanager: Location detection via available WiFi networks'
 	    'libnotify: Notification integration'
 	    'pulseaudio: Audio support')
+_python2_pkgver=2.7.18
 url="https://www.seamonkey-project.org/"
 source=("https://archive.mozilla.org/pub/seamonkey/releases/$pkgver/source/seamonkey-$pkgver.source.tar.xz"
-        "mozconfig")
+        "mozconfig"
+        "https://www.python.org/ftp/python/$_python2_pkgver/Python-$_python2_pkgver.tar.xz"{,.asc})
 sha256sums=('553c03441b1f02a784d38a2caa3f428e73eac081be16b20bbae3e455c44837d9'
-            '05bbf05f6a2f060ba3b69a420d57e95766880869a3e416cb05f60894bce1213b')
+            '05bbf05f6a2f060ba3b69a420d57e95766880869a3e416cb05f60894bce1213b'
+            'b62c0e7937551d0cc02b8fd5cb0f544f9405bafc9a54d3808ed4594812edef43'
+            'SKIP')
+validpgpkeys=('C01E1CAD5EA2C4F0B8E3571504C367C218ADD4FF')  # Benjamin Peterson
 install="$pkgname.install"
 options=(!lto)
 
@@ -38,6 +43,9 @@ prepare() {
   cd "$pkgname-$pkgver"
   cp ../mozconfig .mozconfig
 
+  # Build failure with rust 1.63.0 https://bugzilla.mozilla.org/show_bug.cgi?id=1783784
+  rustup toolchain install 1.62.0
+
   echo -n "$_google_api_key" > google-api-key
   echo -n "$_mozilla_api_key" > mozilla-api-key
 
@@ -49,6 +57,15 @@ EOF
 }
 
 build() {
+  #Python 2 is EOL https://bugzilla.mozilla.org/show_bug.cgi?id=1756371
+  cd "Python-$_python2_pkgver"
+  ./configure --prefix=/usr \
+              --disable-optimizations \
+              --without-lto \
+              --without-ensurepip
+  DESTDIR="$srcdir"/fakeinstall make install
+  cd ..
+  export PATH="$PWD/fakeinstall/usr/bin:$PATH"
   cd "$pkgname-$pkgver"
 
   ./mach build
