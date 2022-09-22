@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=17
+pkgrel=18
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
@@ -114,6 +114,7 @@ package_ruby() {
     net-http
     open-uri
     psych
+    racc
     rdoc
     reline
     stringio
@@ -142,7 +143,8 @@ package_ruby() {
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/console.so \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/nonblock.so \
     "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/io/wait.so \
-    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/json
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/json \
+    "${pkgdir}"/usr/lib/ruby/${rubyver}/x86_64-linux/racc
 }
 
 package_ruby-docs() {
@@ -213,7 +215,7 @@ package_ruby-stdlib() {
     #ruby-prime   # removed in 3.1.2
     #ruby-pstore
     ruby-psych
-    #ruby-racc
+    ruby-racc
     ruby-rdoc
     #ruby-readline
     #ruby-readline-ext
