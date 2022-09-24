@@ -2,8 +2,8 @@
 
 _name=fastjsonschema
 pkgname=python-fastjsonschema
-_commit=98399bb4029b2d7020d8abd9770661a5b2c4f9f8  # refs/tags/v2.16.1
-pkgver=2.16.1
+_commit=1aad747bab39d4b1201ab99917463f4079955ecd # refs/tags/v2.16.2
+pkgver=2.16.2
 pkgrel=1
 pkgdesc="Fast JSON schema validator for Python"
 arch=(any)
@@ -15,8 +15,8 @@ checkdepends=(python-pytest)
 # tests and additional assets not in sdist tarball: https://github.com/horejsek/python-fastjsonschema/issues/138
 # source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
 source=(
-  "git+https://github.com/horejsek/python-fastjsonschema#commit=$_commit"
-  "git+https://github.com/json-schema-org/JSON-Schema-Test-Suite"
+  git+https://github.com/horejsek/python-fastjsonschema#commit=$_commit
+  git+https://github.com/json-schema-org/JSON-Schema-Test-Suite
 )
 sha512sums=('SKIP'
             'SKIP')
@@ -36,13 +36,8 @@ build() {
 }
 
 check() {
-  local _deselected=(
-    # https://github.com/horejsek/python-fastjsonschema/issues/154
-    --deselect tests/test_compile_to_code.py::test_compile_to_code_custom_format
-  )
-
   cd $pkgname
-  pytest -vv -m "not benchmark" "${_deselected[@]}"
+  pytest -vv -m "not benchmark"
 }
 
 package() {
