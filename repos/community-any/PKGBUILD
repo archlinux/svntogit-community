@@ -5,8 +5,8 @@
 # Contributor: Fabio Volpe <volpefabio@gmail.com>
 
 pkgname=python-sphinx
-pkgver=5.1.1
-pkgrel=2
+pkgver=5.2.1
+pkgrel=1
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
@@ -21,19 +21,19 @@ depends=('python-babel'
          'python-snowballstemmer'
          'python-sphinx-alabaster-theme'
          'python-sphinxcontrib-'{{apple,dev,html}help,jsmath,qthelp,serializinghtml})
-makedepends=('python-build' 'python-installer' 'python-setuptools'
-             'python-wheel')
+makedepends=('python-build' 'python-flit-core' 'python-installer')
 checkdepends=('cython'
               'imagemagick' 'librsvg'
               'python-html5lib'
               'python-pytest'
+              'python-setuptools'
               'texlive-fontsextra' 'texlive-latexextra')
 optdepends=('imagemagick: for ext.imgconverter'
             'texlive-latexextra: for generation of PDF documentation')
 source=("https://pypi.org/packages/source/S/Sphinx/Sphinx-$pkgver.tar.gz"{,.asc})
-sha256sums=('ba3224a4e206e1fbdecf98a4fae4992ef9b24b85ebf7b584bb340156eaf08d89'
+sha256sums=('c009bb2e9ac5db487bcf53f015504005a330ff7c631bb6ab2604e0d65bae8b54'
             'SKIP')
-b2sums=('ddab15dec188837bb7a8eabdb5a342569f861c59351b162a6f5a4d1e21c671d6ba6780fc4e36d388c131260bc57811620688873b42c23bad398057b8ac405a22'
+b2sums=('4c541247685a7a42362bc49f484efa3303eb7d41605fa8737b02f37224ffade78503cc43d21d9347b56b6c33e0da5b77768933eae61f3e79ebf79e34200b66b3'
         'SKIP')
 validpgpkeys=('8A11B79A5D0D749A66F0A030102C2C17498D6B9E'  # Takeshi KOMIYA <i.tkomiya@gmail.com>
               'E9BEABB07E7B9CC3F56E62C91425F8CE5EBA0E07'  # Takayuki Shimizukawa <shimizukawa@gmail.com>
@@ -46,7 +46,7 @@ build() {
 
 check() {
   cd Sphinx-$pkgver
-  LC_ALL="en_US.UTF-8" make test
+  LC_ALL="en_US.UTF-8" python -X dev -X warn_default_encoding -m pytest -v
 }
 
 package() {
