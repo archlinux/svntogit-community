@@ -4,7 +4,7 @@
 
 _pkgname=poetry-core
 pkgname=python-poetry-core
-pkgver=1.1.0
+pkgver=1.2.0
 pkgrel=1
 pkgdesc="Poetry PEP 517 Build Backend & Core Utilities"
 arch=('any')
@@ -17,8 +17,8 @@ checkdepends=(git python-pytest python-pytest-mock python-setuptools python-virt
 conflicts=('python-poetry<1.1.0')
 _archive="$_pkgname-$pkgver"
 source=("$url/archive/$pkgver/$_archive.tar.gz")
-sha256sums=('44535d5c20e20189041714a45758774f713e4a53c3db071dca11a59d32aeba44')
-b2sums=('c5dc37579da5d260577c8027520ee9b4a31ca0c4f20f3dc6f233f4f686060aa2c2ae5af46f1d906939364f26cd04155f2c84dea9d209e8d09564b28c19d2220a')
+sha256sums=('c37cf60e14584692f9e0bb2fa0a6ea43db7e4aa99322f91306ea2c4fc0f79603')
+b2sums=('0ba82bfa320d65ce794a4f2346198d252139c03960298ede02f55d8b23367e05e9336b3d5030032b1feab4ffa327974af26ce2918d4d40889f68fbec79ccb490')
 
 build() {
 	cd "$_archive"
