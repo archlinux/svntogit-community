@@ -2,8 +2,8 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-jaraco.classes
-pkgver=3.2.2
-pkgrel=2
+pkgver=3.2.3
+pkgrel=1
 pkgdesc='Module for classes manipulation'
 arch=('any')
 url='https://github.com/jaraco/jaraco.classes'
@@ -14,7 +14,7 @@ checkdepends=('python-pytest-enabler' 'python-pytest-mypy' 'python-pip')
 conflicts=(python-jaraco)
 replaces=(python-jaraco)
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.classes/jaraco.classes-$pkgver.tar.gz")
-sha512sums=('56eaf8420f0319137ecae04c61e5a866909b83d3638343ea45ed3739524c8314bb6aac7ee9b5f899e2a1a5238c2caeaa971ed1cd0dbd28d9ac01ad6716549deb')
+sha512sums=('73fe80de5c50b553efee6aa51fff98e30e72dcb4167b6056628d3cbbb897e29abde4fa9da79a2b413830d8440055a43ea97ace4daa62853d874419cb36c43fee')
 
 build() {
   cd "$srcdir/jaraco.classes-$pkgver"
