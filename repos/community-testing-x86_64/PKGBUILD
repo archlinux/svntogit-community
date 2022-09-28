@@ -1,0 +1,65 @@
+# Maintainer: Antonio Rojas <arojas@archlinux.org>
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
+# Contributor: Daichi Shinozaki <dsdseg@gmail.com>
+
+pkgbase=flatbuffers
+pkgname=(flatbuffers python-flatbuffers)
+# https://github.com/google/flatbuffers/blob/master/CHANGELOG.md
+pkgver=22.9.24
+pkgrel=1
+pkgdesc='An efficient cross platform serialization library for C++, with support for Java, C# and Go'
+arch=(x86_64)
+url='https://google.github.io/flatbuffers/'
+license=(Apache)
+depends=(gcc-libs)
+makedepends=(cmake python-setuptools python-numpy)
+source=(https://github.com/google/$pkgbase/archive/v$pkgver/$pkgbase-$pkgver.tar.gz)
+sha256sums=('40e0788873012def4d66a2fdbac15fbe012784473c01a703ccb5be33383556bf')
+
+prepare() {
+  sed -i 's/-Werror=/-W/g;s/-Werror//g' $pkgname-$pkgver/CMakeLists.txt
+
+  cd $pkgbase-$pkgver
+  # Work-around missing out-of-source build support in Python tests
+  sed -i 's#${test_dir}/../flatc#${test_dir}/../../build/flatc#' tests/PythonTest.sh
+  # This script no longer works for us after https://github.com/google/flatbuffers/pull/7529
+  # TODO: notify upstream about this and that the Python workflow [1] doesn't work [2]
+  # [1] https://github.com/google/flatbuffers/blob/v22.9.24/.github/workflows/build.yml#L413
+  # [2] https://github.com/google/flatbuffers/actions/runs/3103852116/jobs/5034196360
+  sed -i 's#${test_dir}/../../python#${test_dir}/../python#' tests/PythonTest.sh
+}
+
+build() {
+  cmake -B build -S $pkgbase-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DFLATBUFFERS_BUILD_FLATLIB=OFF \
+    -DFLATBUFFERS_BUILD_SHAREDLIB=ON
+  cmake --build build
+
+# Python bindings
+  cd $pkgbase-$pkgver/python
+  VERSION=$pkgver python setup.py build
+}
+
+check() {
+  # tests are broken with out-of-source builds
+  # https://github.com/google/flatbuffers/issues/7282
+  cmake --build build --target test || true
+
+  ./$pkgbase-$pkgver/tests/PythonTest.sh
+}
+
+package_flatbuffers() {
+  DESTDIR="$pkgdir" cmake --install build
+}
+
+package_python-flatbuffers() {
+  pkgdesc='An efficient cross platform serialization library for Python'
+  depends=(python)
+  optdepends=(
+    'python-numpy: support for Numpy arrays'
+  )
+
+  cd $pkgbase-$pkgver/python
+  VERSION=$pkgver python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+}
