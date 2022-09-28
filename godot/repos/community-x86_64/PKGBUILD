@@ -5,7 +5,7 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=3.5
+pkgver=3.5.1
 pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
@@ -16,7 +16,7 @@ depends=(embree freetype2 libglvnd libtheora libvorbis libvpx libwebp
          libwslay libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
 optdepends=(pipewire-alsa pipewire-pulse)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('a700546f1776f223bb63bea1c79a29610394a6a0846fee7c73ef97ae7c27630c3eafc8a32364b2e6de672a7ff62dd5ca27bc26af1cdef514165b4b6335c8d1a9')
+b2sums=('e8a209972fc680ce9c024762715c64ea36f9d1ca223c6911a5179ff1cff3c2a143b703bb5b41f198b8b3ed5bd2c474316177bda094a3ef34d06e2dcf2adb2815')
 
 prepare() {
   # Disable the check that adds -no-pie to LINKFLAGS, for gcc != 6
