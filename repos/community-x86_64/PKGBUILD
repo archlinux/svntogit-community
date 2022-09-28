@@ -1,0 +1,66 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=go-swagger
+pkgver=0.30.3
+pkgrel=2
+pkgdesc='Swagger 2.0 implementation in Go'
+arch=('x86_64')
+url='https://goswagger.io'
+license=('Apache')
+depends=('glibc')
+makedepends=('git' 'go')
+options=('!lto')
+_commit='ecf6f05b6ecc1b1725c8569534f133fa27e9de6b'
+source=("$pkgname::git+https://github.com/go-swagger/go-swagger#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgname"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS} \
+    -X github.com/go-swagger/go-swagger/cmd/swagger/commands.Commit=$_commit \
+    -X github.com/go-swagger/go-swagger/cmd/swagger/commands.Version=$pkgver" \
+    -o build \
+    ./cmd/...
+}
+
+package() {
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/swagger
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # shell completion
+  cd cmd/swagger/completion
+  install -vDm644 swagger.bash-completion "$pkgdir/usr/share/bash-completion/completions/swagger"
+  install -vDm644 swagger.zsh-completion "$pkgdir/usr/share/zsh/site-functions/_swagger"
+}
