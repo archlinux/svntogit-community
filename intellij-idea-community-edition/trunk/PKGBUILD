@@ -6,15 +6,17 @@
 pkgname=intellij-idea-community-edition
 pkgver=2022.2.2
 _build=222.4167.29
-pkgrel=1
+_jrever=17
+_jdkver=17
+pkgrel=2
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
 arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' 'java-environment=11' 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
-makedepends=('ant' 'git' 'java-environment=11')
+depends=('giflib' "jre${_jrever}-openjdk" 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
+makedepends=('ant' 'git' "jdk${_jdkver}-openjdk")
 optdepends=(
   'lldb: lldb frontend integration'
 )
@@ -27,7 +29,7 @@ sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
-            '115f1091edb138a7a7b15980e8538b4dfd28054cfab38b844df6d918b1b881c5')
+            'd7e4a325fccd48b8c8b0a6234df337b58364e648bb9b849e85ca38a059468e71')
 
 prepare() {
   cd intellij-community
@@ -46,12 +48,11 @@ prepare() {
 
 build() {
   cd intellij-community
-  unset _JAVA_OPTIONS
-  export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
-  export PATH="${JAVA_HOME}/bin:${PATH}"
-  export JDK_16_x64=/usr/lib/jvm/java-11-openjdk
-  export JDK_18_x64=/usr/lib/jvm/java-11-openjdk
+  
+  export JAVA_HOME="/usr/lib/jvm/java-${_jdkver}-openjdk"
+  export PATH="/usr/lib/jvm/java-${_jdkver}-openjdk/bin:$PATH"
   export MAVEN_REPOSITORY=/build/.m2/repository
+  
   ./installers.cmd -Dintellij.build.use.compiled.classes=false -Dintellij.build.target.os=linux
   tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
 }
