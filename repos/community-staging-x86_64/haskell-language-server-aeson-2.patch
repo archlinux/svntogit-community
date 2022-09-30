@@ -1,0 +1,153 @@
+From 2625689ad4308f5ca207b24fbec2a569ed229347 Mon Sep 17 00:00:00 2001
+From: Javier Neira <atreyu.bbb@gmail.com>
+Date: Wed, 12 Jan 2022 17:24:53 +0100
+Subject: [PATCH] Add support for brittany (needs aeson-2) and floskell with
+ ghc-9.0.1 (#2551)
+
+* Enable tests for brittany and 9.0.2
+
+* Enable tests for floskell plugin
+
+* cabal-ghc901.project: naively enable brittany
+
+* haskell-language-server.cabal: bump brittany flag <(9.0.1->9.2.1)
+
+* Trying to add support for brittany
+
+* Use last hackage floskell version
+
+* Activate floskell in func-test suite
+
+* Restrict brittany in hackage for ghc<9.0.1
+
+* Adapt to Aeson.Key
+
+* Update lsp source repo package
+
+* Refer pr for butcher
+
+* Add missing prefix
+
+* Adapt to aeson-2 (incomplete)
+
+* Use compat module
+
+* Support for aeson-2 and extra-1.7.10
+
+* Remove lsp
+
+* Allow newer aeson for stylish-haskell
+
+* Add needed import for non windows
+
+* Remove insertJson and toJsonKey
+
+* Update cabal-ghc901.project
+
+* Missing import
+
+* Avoid CPP by using lens-aeson
+
+* Update hls-plugin-api/src/Ide/Plugin/ConfigUtils.hs
+
+* Use ghcide compat module
+
+* Use type alias in cpp
+
+* Fix stack build for ghc-8.6.5
+
+* Use lens-aeson key
+
+* Use lens-aeson in func-test
+
+* Fixup shake-bench
+
+* Update docs
+
+* Switch to lens ix
+
+* Try this
+
+Co-authored-by: Anton-Latukha <anton.latukha@gmail.com>
+Co-authored-by: Michael Peyton Jones <me@michaelpj.com>
+Co-authored-by: mergify[bot] <37929162+mergify[bot]@users.noreply.github.com>
+---
+ .github/workflows/test.yml                    |  2 +-
+ cabal-ghc901.project                          | 15 ++++---
+ ghcide/ghcide.cabal                           |  3 +-
+ ghcide/src/Control/Concurrent/Strict.hs       | 11 +++---
+ ghcide/src/Development/IDE/GHC/Orphans.hs     | 23 ++++++-----
+ haskell-language-server.cabal                 |  5 ++-
+ hls-plugin-api/hls-plugin-api.cabal           |  1 +
+ hls-plugin-api/src/Ide/Plugin/ConfigUtils.hs  | 39 +++++++++----------
+ hls-plugin-api/src/Ide/Plugin/Properties.hs   | 27 ++++++-------
+ hls-plugin-api/src/Ide/Types.hs               |  2 +-
+ .../hls-brittany-plugin.cabal                 |  1 -
+ .../src/Ide/Plugin/Brittany.hs                | 32 ++++++++-------
+ shake-bench/shake-bench.cabal                 |  2 +
+ .../src/Development/Benchmark/Rules.hs        | 31 ++++++++-------
+ stack-8.10.6.yaml                             |  2 +
+ stack-8.10.7.yaml                             |  2 +
+ stack-8.6.5.yaml                              |  5 ++-
+ stack-8.8.4.yaml                              |  3 +-
+ stack-9.0.1.yaml                              | 12 ++++--
+ stack.yaml                                    |  2 +
+ test/functional/FunctionalCodeAction.hs       | 20 +++++-----
+ 21 files changed, 134 insertions(+), 106 deletions(-)
+
+diff --git a/haskell-language-server.cabal b/haskell-language-server.cabal
+index c35e8c0a37..e5898b8d1e 100644
+--- a/haskell-language-server.cabal
++++ b/haskell-language-server.cabal
+@@ -433,6 +433,7 @@ test-suite func-test
+     , data-default
+     , hspec-expectations
+     , lens
++    , lens-aeson
+     , ghcide
+     , hls-test-utils ^>= 1.1.0.0
+     , lsp-types
+diff --git a/test/functional/FunctionalCodeAction.hs b/test/functional/FunctionalCodeAction.hs
+index cf368b0613..3d160931b7 100644
+--- a/test/functional/FunctionalCodeAction.hs
++++ b/test/functional/FunctionalCodeAction.hs
+@@ -4,17 +4,17 @@
+ 
+ module FunctionalCodeAction (tests) where
+ 
+-import           Control.Lens                    hiding (List)
++import           Control.Lens            hiding (List)
+ import           Control.Monad
+ import           Data.Aeson
+-import qualified Data.HashMap.Strict             as HM
++import           Data.Aeson.Lens         (_Object)
+ import           Data.List
+-import qualified Data.Map                        as M
++import qualified Data.Map                as M
+ import           Data.Maybe
+-import qualified Data.Text                       as T
++import qualified Data.Text               as T
+ import           Ide.Plugin.Config
+-import           Language.LSP.Test               as Test
+-import qualified Language.LSP.Types.Lens         as L
++import           Language.LSP.Test       as Test
++import qualified Language.LSP.Types.Lens as L
+ import           Test.Hls
+ import           Test.Hspec.Expectations
+ 
+@@ -56,11 +56,11 @@ renameTests = testGroup "rename suggestions" [
+ 
+             cars <- getAllCodeActions doc
+             cmd <- liftIO $ inspectCommand cars ["Replace with", "putStrLn"]
+-            let Just (List [Object args]) = cmd ^. L.arguments
+-                Object editParams = args HM.! "fallbackWorkspaceEdit"
++            let Just (List [args]) = cmd ^. L.arguments
++                editParams = args ^. ix "fallbackWorkspaceEdit" . _Object
+             liftIO $ do
+-                "changes" `HM.member` editParams @? "Contains changes"
+-                not ("documentChanges" `HM.member` editParams) @? "Doesn't contain documentChanges"
++                (editParams & has (ix "changes"))  @? "Contains changes"
++                not (editParams & has (ix "documentChanges")) @? "Doesn't contain documentChanges"
+ 
+             executeCommand cmd
+             _ <- anyRequest
