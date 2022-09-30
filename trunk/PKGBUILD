@@ -5,7 +5,7 @@
 
 pkgname=neovim
 pkgver=0.8.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
@@ -13,12 +13,12 @@ backup=('etc/xdg/nvim/sysinit.vim')
 license=('custom:neovim')
 provides=('vim-plugin-runtime')
 depends=('libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm' 'luajit' 'libluv' 'tree-sitter')
-makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg' 'gperf' 'patchelf')
+makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg')
 optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
             'xsel: for clipboard support on X11 (or xclip) (see :help clipboard)'
             'wl-clipboard: for clipboard support on wayland (see :help clipboard)')
-options=(debug)
+options=('debug')
 source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('e9504e33df292043656b0ef064e465069c93d4be52bbe29ec33c111f3e00ed83647148d653e3f143e2243dac537eede6a9351990bd858ac20abc8edbc5249432')
 
