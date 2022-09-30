@@ -5,14 +5,14 @@
 
 pkgname=neovim
 pkgver=0.8.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
 backup=('etc/xdg/nvim/sysinit.vim')
 license=('custom:neovim')
 provides=('vim-plugin-runtime')
-depends=('libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm' 'luajit' 'libluv' 'tree-sitter')
+depends=('libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm>0.1.4' 'luajit' 'libluv' 'tree-sitter')
 makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg')
 optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
