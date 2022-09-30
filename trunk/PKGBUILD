@@ -4,15 +4,15 @@
 # Contributor: Florian Hahn <flo@fhahn.com>
 
 pkgname=neovim
-pkgver=0.7.2
-pkgrel=3
+pkgver=0.8.0
+pkgrel=1
 pkgdesc='Fork of Vim aiming to improve user experience, plugins, and GUIs'
 arch=('x86_64')
 url='https://neovim.io'
 backup=('etc/xdg/nvim/sysinit.vim')
 license=('custom:neovim')
 provides=('vim-plugin-runtime')
-depends=('libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm01' 'luajit' 'libluv' 'tree-sitter')
+depends=('libtermkey' 'libuv' 'msgpack-c' 'unibilium' 'libvterm' 'luajit' 'libluv' 'tree-sitter')
 makedepends=('cmake' 'ninja' 'lua51-mpack' 'lua51-lpeg' 'gperf' 'patchelf')
 optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
@@ -20,16 +20,9 @@ optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'wl-clipboard: for clipboard support on wayland (see :help clipboard)')
 options=(debug)
 source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('04d0fa5b23018531b70b53271821bf6944cde1bcec2210b99f5888e1339cd38f57feaa8e40874a3a504930e6614980947f31852185cbcd2ce106a0867896dd79')
+sha512sums=('e9504e33df292043656b0ef064e465069c93d4be52bbe29ec33c111f3e00ed83647148d653e3f143e2243dac537eede6a9351990bd858ac20abc8edbc5249432')
 
 build() {
-  # Neovim does not support libvterm 0.2 yet
-  export PKG_CONFIG_PATH="/usr/lib/libvterm01/pkgconfig"
-
-  # Neovim breaks with GCC 12
-  # https://github.com/neovim/neovim/issues/19125
-  CFLAGS+=" -fno-strict-aliasing"
-
   cmake \
     -Bbuild \
     -GNinja \
@@ -60,10 +53,6 @@ package() {
 
   mkdir -p "${pkgdir}"/usr/share/vim
   echo "set runtimepath+=/usr/share/vim/vimfiles" > "${pkgdir}"/usr/share/nvim/archlinux.vim
-
-  # NOTE: this is very ugly and needs to be removed as soon as neovim supports libvterm >= 0.2.0
-  # (both libvterm01 and libvterm provide libvterm.so.0)
-  patchelf --add-rpath '/usr/lib/libvterm01' "$pkgdir/usr/bin/nvim"
 }
 
 # vim:set ft=sh sw=2 sts=2 et:
