@@ -1,0 +1,114 @@
+# Maintainer: Ivy Foster <iff@archlinux.org>
+# Contributor: Jakob Gruber <jakob.gruber@gmail.com>
+
+pkgbase=crawl
+pkgname=(crawl-data crawl-ncurses crawl-tiles)
+pkgdesc='Dungeon Crawl Stone Soup: open-source, single-player, role-playing roguelike game of exploration and treasure-hunting'
+url='https://crawl.develz.org/'
+license=(custom:crawl GPL2)
+
+pkgver=0.29.1
+pkgrel=1
+arch=(x86_64)
+
+# line-by-line: both versions, graphical, ncurses
+makedepends=(
+	bison flex lua51 mesa pcre perl python-yaml pngcrush sqlite
+	freetype2 glu libpng sdl2_image ttf-dejavu
+	ncurses
+)
+
+source=("crawl-$pkgver.tar.xz::https://github.com/crawl/crawl/releases/download/$pkgver-debian/crawl_$pkgver.orig.tar.xz")
+# checksums provided by packager; take with a grain of salt
+# <makepkg -g
+md5sums=(ec90b3a63161c6a4e00e1a2b6d34877b)
+
+prepare() {
+	cp -a "stone_soup-$pkgver" "stone_soup-ncurses-$pkgver"
+}
+
+build() {
+	cd "stone_soup-$pkgver/source"
+	make DESTDIR="$pkgdir" \
+		EXTERNAL_FLAGS="$CFLAGS" \
+		EXTERNAL_LDFLAGS="$LDFLAGS" \
+		prefix=/usr \
+		bin_prefix=bin \
+		TILES=y \
+		GAME=crawl-tiles
+
+	cd "$srcdir/stone_soup-ncurses-$pkgver/source"
+	make DESTDIR="${pkgdir}" \
+		EXTERNAL_FLAGS="$CFLAGS" \
+		EXTERNAL_LDFLAGS="$LDFLAGS" \
+		prefix=/usr \
+		bin_prefix=bin
+}
+
+package_crawl-data() {
+	pkgdesc="Data files for $pkgdesc"
+	depends=(crawl-game)
+	optdepends=(
+		'crawl-ncurses: ncurses user interface'
+		'crawl-tiles: graphical user interface'
+	)
+	conflicts=(stone-soup)
+	replaces=(stone-soup)
+	arch=(any)
+
+	cd "stone_soup-ncurses-$pkgver/source"
+	make DESTDIR="$pkgdir" \
+		EXTERNAL_FLAGS="$CFLAGS" \
+		EXTERNAL_LDFLAGS="$LDFLAGS" \
+		prefix=/usr \
+		bin_prefix=bin \
+		install-data
+
+	install -D -m644 "../LICENSE" \
+		"$pkgdir/usr/share/licenses/crawl-data/LICENSE"
+}
+
+package_crawl-ncurses() {
+	pkgdesc="$pkgdesc (ncurses version)"
+	provides=(crawl-game)
+	depends=(crawl-data hicolor-icon-theme lua51 python-yaml sqlite ncurses)
+
+	cd "stone_soup-ncurses-$pkgver/source"
+	make DESTDIR="$pkgdir" \
+		EXTERNAL_FLAGS="$CFLAGS" \
+		EXTERNAL_LDFLAGS="$LDFLAGS" \
+		prefix=/usr \
+		bin_prefix=bin \
+		install install-xdg-data
+
+	install -D -m644 "../LICENSE" \
+		"$pkgdir/usr/share/licenses/crawl-ncurses/LICENSE"
+
+	rm -rf "$pkgdir/usr/share/crawl"
+}
+
+package_crawl-tiles() {
+	pkgdesc="$pkgdesc (graphical version)"
+	provides=(crawl-game)
+	depends=(
+		crawl-data hicolor-icon-theme lua51 python-yaml sqlite
+		freetype2 glu libpng sdl2_image ttf-dejavu
+	)
+
+	cd "stone_soup-$pkgver/source"
+	make DESTDIR="$pkgdir" \
+		EXTERNAL_FLAGS="$CFLAGS" \
+		EXTERNAL_LDFLAGS="$LDFLAGS" \
+		prefix=/usr \
+		bin_prefix=bin \
+		TILES=y \
+		GAME=crawl-tiles \
+		install install-xdg-data
+
+	install -D -m644 "../LICENSE" \
+		"$pkgdir/usr/share/licenses/crawl-tiles/LICENSE"
+
+	cd "$pkgdir/usr/share/crawl/"
+	mv dat/tiles .; rm -rf dat/*; mv tiles dat
+	rm -rf docs settings
+}
