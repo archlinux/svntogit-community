@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=brittany
+pkgname=haskell-brittany
+pkgver=0.14.0.0
+pkgrel=1
+pkgdesc="Haskell source code formatter"
+url="https://github.com/lspitzner/brittany/"
+license=("AGPL")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-butcher' 'haskell-cmdargs' 'haskell-czipwith'
+         'haskell-data-tree-print' 'haskell-extra' 'haskell-ghc' 'haskell-ghc-exactprint'
+         'haskell-monad-memo' 'haskell-multistate' 'haskell-random' 'haskell-safe'
+         'haskell-strict' 'haskell-syb' 'haskell-uniplate' 'haskell-yaml')
+makedepends=('ghc' 'uusi' 'haskell-hspec')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('eccc1113e7ce64d7ec8e283fe4c71eeae8dc4b1694f3a919ee658f220f6f7b07b4a7b440227972a44172cec8823dd5b384b1ebe0624045281b2c14143b42c274')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -r semigroups:Cabal -u hspec $_hkgname.cabal
+  gen-setup
+
+  # Hack to use Cabal's compatibility layer of semigroups
+  sed -i 's/import Data.Semigroup.Generic/import Distribution.Compat.Semigroup/' source/library/Language/Haskell/Brittany/Internal/Config/Types.hs
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  mkdir output
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
