@@ -4,8 +4,8 @@
 # Contributor:	Jonatan Sastre <jsastreh [ at ] hotmail.com>
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
-pkgver=3.10.2.0
-pkgrel=8
+pkgver=3.10.4.0
+pkgrel=1
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
 url="https://gnuradio.org"
@@ -44,7 +44,7 @@ source=("gnuradio-$pkgver.tgz::https://github.com/gnuradio/gnuradio/archive/refs
         "21-fcd.rules")
 validpgpkeys=('B90DDFAC56989BF62262EB812987C77CBB8ED9B2'  # GNU Radio Project
               'D74F9F146E7F755783583158B343B2BA293E5174') # Marcus Müller
-sha512sums=('f34cd3aee1a5d72da387246c25f8494d9a28b2d66aa58ec99a6ff2ae45672f3ec65111af095282f026e2ef267bca2e64042a2aa3ee284ce770351629963fe468'
+sha512sums=('a8690016513df3928cb2f63eef190c7306bc3cc452dfeafab2e47b43aa1dd3f61515df49832e99530535f94deabfb614388a27212b09e1c816782f3fdd4915eb'
             'f4e52e6e9ef6054f358d3ee00cbcb70bab65c36dfac8975c3182f6514c547905f36801a049f0918d69c9ffd98ce801891a3bfc4e4faeb8fb33582d84140a70b7'
             'cb45360160325fb8904a7d2edf2eaf09143327c3133575f91cfe2fb41a4ce06102b1ba364ac5917fddd78b24ebc0038f1eabc02476e211429410a39242069851'
             '6f02dc8e20a7a1cd11099c851a7c8427fcd21e9652e6cddd0a72ca747b0e93cd4fd1b7b7b7e426b6231348bcc34fb2417716a2f03c92ec141889edc65031c3a0')
