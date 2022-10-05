@@ -3,13 +3,14 @@
 _gemname='digest'
 pkgname="ruby-${_gemname}"
 pkgver=3.1.0
-pkgrel=1
+pkgrel=5
 pkgdesc='Provides a framework for message digest libraries'
 arch=('x86_64')
 url="https://github.com/ruby/${_gemname}"
 license=('BSD' 'RUBY')
 depends=('ruby')
 makedepends=('ruby-rake' 'ruby-rake-compiler')
+checkdepends=('ruby-digest')
 options=(!emptydirs)
 source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('2a5d58d4b92f5391f55e43405d515ea045f8d0b0b09602ac8dc57e784b42787956904a8c51ffba026d2f0ecc2efff17a1d39c632d59afaf7941b455d8b2dcd39')
@@ -31,6 +32,7 @@ build() {
 check() {
   cd "${_gemname}-${pkgver}"
 
+  rake check
   rake test
 }
 
@@ -38,6 +40,8 @@ package() {
   cd "${_gemname}-${pkgver}"
 
   local _gemdir="$(gem env gemdir)"
+  local _platform="$(gem env platform | cut -d':' -f2)"
+  local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
 
   gem install \
     --local \
@@ -48,32 +52,25 @@ package() {
     --bindir "${pkgdir}/usr/bin" \
     "pkg/${_gemname}-${pkgver}.gem"
 
+  install --verbose --directory --mode=0755 \
+    "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "${pkgdir}${_gemdir}/specifications/default"
+
+  mv --verbose "${pkgdir}${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" "${pkgdir}${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
+  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}"
+  mv --verbose "${pkgdir}${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}.so" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}.so"
+  mv --verbose "${pkgdir}${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}"
+
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}/${_gemdir}/cache/" \
-    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
-    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "${pkgdir}${_gemdir}/cache/" \
+    "${pkgdir}${_gemdir}/build_info/" \
+    "${pkgdir}${_gemdir}/extensions/" \
+    "${pkgdir}${_gemdir}/gems/" \
+    "${pkgdir}${_gemdir}/plugins/" \
+    "${pkgdir}${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
 
-  find "${pkgdir}/${_gemdir}/gems/" \
-    -type f \
-    \( \
-      -iname "*.o" -o \
-      -iname "*.c" -o \
-      -iname "*.so" -o \
-      -iname "*.time" -o \
-      -iname "gem.build_complete" -o \
-      -iname "Makefile" \
-    \) \
-    -delete
-
-  find "${pkgdir}/${_gemdir}/extensions/" \
-    -type f \
-    \( \
-      -iname "mkmf.log" -o \
-      -iname "gem_make.out" \
-    \) \
-    -delete
-
-  install -D --mode=644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
-  install -D --mode=644 README.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+  install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
