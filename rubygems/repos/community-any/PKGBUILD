@@ -1,45 +1,70 @@
 # Maintainer: Anatol Pomozov <anatol.pomozov@gmail.com>
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
 
-pkgname=rubygems
-pkgdesc='Package management framework for Ruby'
+pkgname='rubygems'
 pkgver=3.3.21
-pkgrel=1
-arch=(any)
+pkgrel=2
+pkgdesc='Package management framework for Ruby'
+arch=('any')
 url='https://rubygems.org/'
-license=(MIT)
-# To avoid circular dependency with ruby, move it to makedepends
-makedepends=(ruby)
-backup=(etc/gemrc)
-checkdepends=(rake)
-source=(rubygems-$pkgver.zip::https://github.com/rubygems/rubygems/archive/v${pkgver}.zip
-        stop_so_duplication.patch
-	gemrc)
-sha512sums=('5b551eb15a68efcca6b351b44f3089263a43314e977da1d341296fe98eb424311680ac140e78b13944dc60e23d41e73f948bc70eb3bdec4837f374c3105a87b8'
+license=('MIT')
+depends=('ruby')
+#checkdepends=('git' 'ruby-rake' 'ruby-webrick')
+backup=('etc/gemrc')
+options=('!emptydirs')
+source=("https://github.com/rubygems/rubygems/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}_stop_so_duplication.patch"
+        'gemrc')
+sha512sums=('aff9e9357f415053db18354b102f560a1a82c771e206551ceeb386ed42966ebfcb6480f8b493f94455323a5d74cd48a53cc8637ba7a87abdabc7a32c9cf50be7'
             '9919490bbf7dba979a1df7543e62eb3fca48e8a516e6b6ab0a73080952e1b58599b7f233259d122dc66bf93f032b434d70e0dd448a1cb86513f01acb51b2120e'
             '8cafd14d414ee3c16aa94f79072bc6c100262f925dc1300e785846c3fabbbbffc1356b8e2223af5684e3340c55032d41231179ffa948bb12e01dbae0f4131911')
 
 prepare() {
-  cd rubygems-${pkgver}
-  patch -p1 < ../stop_so_duplication.patch
+  cd "rubygems-${pkgver}"
+
+  patch --verbose --strip=1 --input="../${pkgname}_stop_so_duplication.patch"
 }
 
-check() {
-  cd rubygems-${pkgver}
-
-  # disable as it requires a lot of ruby-* dependencies
-  #rake test
-}
+# https://github.com/rubygems/rubygems/issues/5951
+#check() {
+#  cd "rubygems-${pkgver}"
+#
+#  rake test
+#}
 
 package() {
-  depends+=(ruby)
-  cd rubygems-${pkgver}
+  cd "rubygems-${pkgver}"
 
-  install -D -m644 "${srcdir}"/gemrc "${pkgdir}/etc/gemrc"
 
-  local rubyver=$(ruby --version | sed -r 's|^ruby ([[:digit:]]+\.[[:digit:]]+\.).*$|\1|')0
+  local _gemdir="$(ruby -e 'puts Gem.dir')"
+  local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
 
-  install -d "${pkgdir}/usr/lib/ruby/${rubyver}/"
-  install -D -m755 bin/gem "${pkgdir}/usr/bin/gem"
-  cp -r lib/* "${pkgdir}/usr/lib/ruby/${rubyver}/"
-  install -D -m644 MIT.txt "${pkgdir}/usr/share/licenses/rubygems/MIT.txt"
+  export GEM_HOME="${pkgdir}${_gemdir}"
+
+  install --verbose -d --mode=0755 \
+      "${GEM_HOME}" \
+      "${pkgdir}/usr/lib/ruby/${_extension_api_version}"
+
+  # define the current version as previous version to avoid printing the changelog
+  ruby setup.rb \
+    --destdir="${pkgdir}" \
+    --prefix="/usr" \
+    --previous-version="${pkgver}" \
+    --verbose
+
+  # fix package structure
+  mv --verbose "${pkgdir}/usr/lib/${pkgname}.rb" "${pkgdir}/usr/lib/ruby/${_extension_api_version}"
+  mv --verbose "${pkgdir}/usr/lib/${pkgname}" "${pkgdir}/usr/lib/ruby/${_extension_api_version}"
+
+  # cleanup - remove any bundler references as they are provided by https://archlinux.org/packages/community/any/ruby-bundler/
+  rm --verbose --recursive \
+    "${pkgdir}/usr/bin/"{bundle*,rake} \
+    "${pkgdir}/usr/gems" \
+    "${pkgdir}/usr/lib/bundler.rb" \
+    "${pkgdir}/usr/lib/bundler" \
+    "${pkgdir}/usr/specifications"
+
+  install --verbose -D --mode=0644 ../gemrc "${pkgdir}/etc/gemrc"
+  install --verbose -D --mode=0644 LICENSE.txt MIT.txt --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
