@@ -2,9 +2,9 @@
 # Maintainer: Konstantin Gizdov <arch@kge.pw>
 pkgname=(cuda cuda-tools)
 pkgbase=cuda
-pkgver=11.7.1
-_driverver=515.65.01
-pkgrel=3
+pkgver=11.8.0
+_driverver=520.61.05
+pkgrel=1
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -43,7 +43,7 @@ source=(https://developer.download.nvidia.com/compute/cuda/${pkgver}/local_insta
         nvjpeg.pc
         nvrtc.pc
         nvToolsExt.pc)
-sha512sums=('c2b40879a4903ed6d3201ea8c0d51fb0fdc21a27445f007aba1c9827add9a2d8326ccd764d324266d8f742a1c63aca9631158886b3de49899a864224517f1c03'
+sha512sums=('e96e1389abed34b5093b3a1d4e6ae9f3d4f8406621b1475f378efae65868657efce22da03b5b4e0a548d9635e406b8690b18b17b186d03ecb3ca0703c5d5787a'
             '35f1f56411eecb2d978553f5606a0d6e70ad363cfaa9f37b9e6f12a799b041caa4aeca183341055d4789425dc4d62bee0aac68cc9d864155084b1ea571ee998f'
             '714d973bc79446f73bebe85306b3566fe25b554bcbcba2fcbe76709a3eca71fb5d183ab4da2d3b5e9326cb9cd8d13a93f6d4a005ea5a41f7ef8e6c6e81e06b5e'
             'a4b3b03682801a98a1d8c1d14c084fd35efd384d92d497e230e3a28e0bd97b1fa48a93ccb2150f892f0b4154ca4ea2d66f5484a6a59b5c9b49963de42ecf1736'
