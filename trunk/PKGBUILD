@@ -3,7 +3,7 @@
 
 pkgname=postgrest
 pkgver=10.0.0
-pkgrel=6
+pkgrel=7
 pkgdesc="REST API for any Postgres database"
 url="https://github.com/begriffs/postgrest"
 license=("MIT")
@@ -22,13 +22,19 @@ depends=('ghc-libs' 'haskell-http' 'haskell-ranged-sets' 'haskell-aeson' 'haskel
 makedepends=('ghc' 'uusi' 'haskell-aeson-qq' 'haskell-async' 'haskell-doctest' 'haskell-hspec'
              'haskell-hspec-wai' 'haskell-hspec-wai-json' 'haskell-monad-control'
              'haskell-pretty-simple' 'haskell-transformers-base')
-checkdepends=('pifpaf' 'postgresql' 'procps-ng')
+checkdepends=('pifpaf' 'postgresql' 'pg-safeupdate' 'postgis' 'procps-ng' 'python-pytest'
+              'python-pyjwt' 'python-requests' 'python-requests-unixsocket' 'python-yaml')
 source=("https://github.com/begriffs/postgrest/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
 sha512sums=('c7a4d631b0cdd4bc79501433f21e4a4366bc496e8ae3e94fe5124defcf79cab07a937b51349972bfcb0759198af453e9239653f97eb16efad1afe251026e5f35')
 
 prepare() {
     cd $pkgname-$pkgver
     uusi -u hspec -u HTTP -u jose -u lens-aeson -u optparse-applicative $pkgname.cabal
+
+    # Hack LD_LIBRARY_PATH
+    sed -e "/^    env\[\"HPCTIXFILE/a \    env[\"LD_LIBRARY_PATH\"] = \"$PWD/dist/build\"" \
+        -e "/^        env\[\"HPCTIXFILE/a \        env[\"LD_LIBRARY_PATH\"] = \"$PWD/dist/build\"" \
+        -i test/io/test_io.py
 }
 
 build() {
@@ -49,13 +55,15 @@ check() {
     cd $pkgname-$pkgver
 
     eval $(pifpaf run postgresql --host 127.0.0.1)
-    createuser -s postgrest_test
-    # https://github.com/PostgREST/postgrest/issues/1857
-    POSTGREST_TEST_CONNECTION=$(test/create_test_db "postgres://$USER@localhost" postgrest_test) runhaskell Setup test --show-details=direct || echo "Tests failed"
+    psql -v ON_ERROR_STOP=1 -f test/spec/fixtures/load.sql
+    runhaskell Setup test --show-details=direct
+    pifpaf_stop
 
-    # Disabled: uses stack
-    # test/io-tests.sh
-
+    eval $(pifpaf run postgresql --host 127.0.0.1 --port 5432)
+    createuser postgrest_test_authenticator
+    psql -v ON_ERROR_STOP=1 -f test/io/fixtures.sql
+    # TODO
+    PATH="$PWD/dist/build/postgrest:$PATH" LD_LIBRARY_PATH="$PWD/dist/build" PGUSER=postgrest_test_authenticator PGDATABASE=postgres pytest -v test/io || echo "Tests failed"
     pifpaf_stop
 }
 
