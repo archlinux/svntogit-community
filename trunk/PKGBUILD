@@ -1,46 +1,64 @@
-# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
 
-_gemname=pycall
-pkgname="ruby-${_gemname}"
+pkgname=ruby-pycall
 pkgver=1.4.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Calling Python functions from the Ruby language'
-arch=('x86_64')
-url="https://github.com/mrkn/pycall.rb"
-license=('MIT')
-depends=('ruby' 'python')
-checkdepends=('ruby-rake' 'ruby-rake-compiler' 'ruby-rspec')
+arch=(x86_64)
+url='https://github.com/mrkn/pycall.rb'
+license=(MIT)
+depends=(ruby python)
+makedepends=(ruby-rake ruby-rake-compiler ruby-rspec)
+checkdepends=(python-numpy)
 options=(!emptydirs)
-source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+source=(https://github.com/mrkn/pycall.rb/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
 sha512sums=('2704e0d28533ddab3c972e69c5c08eea04e6184fd1fc1670302d7471013468de07b1ae0200bbaf030cf5b266f2ff07b2c050682f5e050d7b86b819673bdbe695')
 
 prepare() {
   cd pycall.rb-$pkgver
 
   # we build based on a tar archive, not a git repo
-  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git*" -printf "%P\\\\0"|' "${_gemname}.gemspec"
+  sed -r -e 's|git ls-files -z|find . -type f -not -path "*/\.git*" -printf "%P\\\\0"|' \
+         -e '/rake-compiler-dock/d' -e '/launchy/d' -e '/"pry/d' \
+         -i pycall.gemspec
 }
 
 build() {
+  local _gemdir="$(gem env gemdir)"
   cd pycall.rb-$pkgver
-
-  gem build "${_gemname}.gemspec"
+  rake build
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    pkg/pycall-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r "tmp_install/$_gemdir/"{cache,gems/pycall-$pkgver/ext}
 }
 
 check() {
+  local _gemdir="$(gem env gemdir)"
   cd pycall.rb-$pkgver
-
-  rake test
+  GEM_HOME="tmp_install/$_gemdir" rake spec || echo "Tests failed"
 }
 
 package() {
-  local _gemdir="$(gem env gemdir)"
   cd pycall.rb-$pkgver
-  gem install --ignore-dependencies --no-user-install -i "${pkgdir}/${_gemdir}" \
-    -n "${pkgdir}/usr/bin" ${_gemname}-${pkgver}.gem
+  cp -a tmp_install/* "$pkgdir"/
 
-  install -Dm 644 LICENSE.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
-
-  cd "${pkgdir}/${_gemdir}"
-  rm -r cache gems/${_gemname}-${pkgver}/ext
+  install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
