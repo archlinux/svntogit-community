@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-mapping
+pkgver=1.1.1
+pkgrel=1
+pkgdesc='Map model objects based on their class to a given output model'
+arch=(any)
+url='https://github.com/ioquatix/mapping'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-rake ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/ioquatix/mapping/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        $pkgname-ruby-3.patch::https://github.com/ioquatix/mapping/pull/2.patch)
+sha256sums=('2192133e389bcfc08ef1cacd4e2ae9cd3b9e3e25b92aeda4f56c628dc59780b7'
+            '360142f6cd80488e4296ad56aa786e8c899de76e4ba4d43a4b6eea0edf13e0b2')
+
+prepare() {
+  cd mapping-$pkgver
+  patch -p1 -i ../$pkgname-ruby-3.patch
+  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' mapping.gemspec
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd mapping-$pkgver
+  rake build
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    pkg/mapping-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd mapping-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake spec
+}
+
+package() {
+  cd mapping-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
