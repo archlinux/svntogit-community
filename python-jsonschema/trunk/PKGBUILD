@@ -39,14 +39,14 @@ checkdepends=(
   'python-webcolors'
 )
 optdepends=(
-  'python-isoduration: check duration format'
-  'python-fqdn: check hostname format'
-  'python-idna: check idn-hostname format'
-  'python-jsonpointer: check json-pointer & relative-json-pointer format'
-  'python-rfc3339-validator: check date-time format'
+  'python-isoduration: for duration format'
+  'python-fqdn: for hostname format'
+  'python-idna: for idn-hostname format'
+  'python-jsonpointer: for json-pointer & relative-json-pointer format'
+  'python-rfc3339-validator: for date-time format'
   'python-rfc3987: for iri, iri-reference, uri & uri-reference format'
   'python-uri-template: for uri-template format'
-  'python-webcolors: check color format'
+  'python-webcolors: for color format'
 )
 _commit='ee024ffc61bee56b25e816f489d7365fe1445c6d'
 source=("$pkgname::git+$url#commit=$_commit")
