@@ -1,14 +1,11 @@
 #!/bin/sh
 
-# WARNING:
-# Running IntelliJ PYCHARM with java other than java 11
-# may cause various problems, such as Graddle import not working
 if [ -z "$PYCHARM_JDK" ] ; then
-  PYCHARM_JDK="/usr/lib/jvm/java-11-openjdk/"
+  PYCHARM_JDK="/usr/lib/jvm/java-17-openjdk/"
 fi
 # open-jfx location that should match the JDK version
 if [ -z "$PYCHARM_JFX" ] ; then
-  PYCHARM_JFX="/usr/lib/jvm/java-11-openjfx/"
+  PYCHARM_JFX="/usr/lib/jvm/java-17-openjfx/"
 fi
 # classpath according to defined JDK/JFX
 if [ -z "$PYCHARM_CLASSPATH" ] ; then
