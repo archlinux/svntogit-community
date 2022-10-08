@@ -1,14 +1,11 @@
 #!/bin/sh
 
-# WARNING:
-# Running IntelliJ IDEA with java other than java 11
-# may cause various problems, such as Graddle import not working
 if [ -z "$IDEA_JDK" ] ; then
-  IDEA_JDK="/usr/lib/jvm/java-11-openjdk/"
+  IDEA_JDK="/usr/lib/jvm/java-17-openjdk/"
 fi
 # open-jfx location that should match the JDK version
 if [ -z "$IDEA_JFX" ] ; then
-  IDEA_JFX="/usr/lib/jvm/java-11-openjfx/"
+  IDEA_JFX="/usr/lib/jvm/java-17-openjfx/"
 fi
 # classpath according to defined JDK/JFX
 if [ -z "$IDEA_CLASSPATH" ] ; then
