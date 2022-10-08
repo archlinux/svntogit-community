@@ -4,19 +4,19 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2022.2.2
-_build=222.4167.29
+pkgver=2022.2.3
+_build=222.4345.14
 _jrever=17
 _jdkver=17
-pkgrel=2
+pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
 arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea64.vmoptions')
-depends=('giflib' "jre${_jrever}-openjdk" 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
-makedepends=('ant' 'git' "jdk${_jdkver}-openjdk")
+depends=('giflib' "java-runtime=${_jrever}" 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
+makedepends=('ant' 'git' "java-environment-openjdk=${_jdkver}")
 optdepends=(
   'lldb: lldb frontend integration'
 )
