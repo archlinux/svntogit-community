@@ -2,8 +2,8 @@
 # Contributor: Igor Dyatlov <dyatlov.igor@protonmail.com>
 
 pkgname=rnote
-pkgver=0.5.4
-_gitcommit=abedd7795da72372cd0c822745fb8bbb92c00581
+pkgver=0.5.5
+_gitcommit=1d42ff8fb8d58e6ff58d3678bc3c17a2aba805a1
 pkgrel=1
 pkgdesc="A simple drawing application to create handwritten notes"
 arch=('x86_64')
@@ -14,9 +14,11 @@ makedepends=('meson' 'cargo' 'git')
 #checkdepends=('appstream-glib')
 source=(
   "${pkgname}-${pkgver}::git+$url#commit=$_gitcommit"
+  "${pkgname}-piet-gpu::git+https://github.com/flxzt/piet-gpu"
   "${pkgname}-piet::git+https://github.com/flxzt/piet"
 )
 b2sums=('SKIP'
+        'SKIP'
         'SKIP')
 options=('!lto')
 
@@ -24,6 +26,7 @@ prepare() {
   cd "$pkgname-$pkgver"
   git submodule init
   git config submodule."piet".url "${srcdir}/${pkgname}"-piet
+  git config submodule."piet-gpu".url "${srcdir}/${pkgname}"-piet-gpu
   git submodule update --init --recursive
 }
 
