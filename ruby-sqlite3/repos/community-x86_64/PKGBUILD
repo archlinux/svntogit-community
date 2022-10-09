@@ -1,51 +1,85 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 # Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
 
-_gemname=sqlite3
-pkgname=ruby-${_gemname}
-pkgver=1.4.4
+_gemname='sqlite3'
+pkgname="ruby-${_gemname}"
+pkgver=1.5.2
 pkgrel=1
 pkgdesc='Ruby bindings for the SQLite3 embedded database'
 url='https://github.com/luislavena/sqlite3-ruby'
 arch=('x86_64')
 license=('BSD')
-depends=('ruby' 'sqlite')
 options=('!emptydirs')
-makedepends=('ruby-rdoc' 'ruby-rake' 'ruby-rake-compiler' 'ruby-hoe' 'ruby-mini_portile2' 'ruby-minitest')
-source=(https://github.com/sparklemotion/sqlite3-ruby/archive/v${pkgver}/${pkgname}-v${pkgver}.tar.gz)
-sha256sums=('d6a1030c69dc4066fef55f05226ca2f885de468b31d9aa4fa5c431d74255179b')
-sha512sums=('fd06f9163f915af9f9e35e9405574319095968da66d66da97bf30dfdfe813a555115dcbc918ff087d0887dd214979f074ee717c3defc879125dafe214692c174')
+depends=('ruby' 'sqlcipher' 'sqlite')
+makedepends=('ruby-mini_portile2' 'ruby-rake' 'ruby-rake-compiler' 'ruby-rake-compiler-dock')
+source=("https://github.com/sparklemotion/sqlite3-ruby/archive/v${pkgver}/${pkgname}-v${pkgver}.tar.gz")
+sha512sums=('9f69d7fa3394da6fdf679d75f4426a6425b3b6d39ccd594be16b9dec184f6c10a0bb5f556a55149f60017634ce7668942227491ee39c57dee3141fe67bbd684a')
 
 prepare() {
-  cd ${_gemname}-ruby-${pkgver}
+  cd "${_gemname}-ruby-${pkgver}"
 
-  sed 's|~>|>=|g' -i Gemfile
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
 }
 
 build() {
-  cd ${_gemname}-ruby-${pkgver}
-  rake compile
-  rake gem
+  cd "${_gemname}-ruby-${pkgver}"
+
+  rake compile -- --enable-system-libraries --with-sqlcipher
+  rake build
 }
 
 check() {
-  cd ${_gemname}-ruby-${pkgver}
+  cd "${_gemname}-ruby-${pkgver}"
+
   rake test
 }
 
 package() {
-  cd ${_gemname}-ruby-${pkgver}
+  cd "${_gemname}-ruby-${pkgver}"
+
   local _gemdir="$(gem env gemdir)"
-  gem install --ignore-dependencies --no-user-install -i "${pkgdir}/${_gemdir}" \
-    -n "${pkgdir}/usr/bin" pkg/${_gemname}-${pkgver}.gem
 
-  install -Dm 644 README.rdoc CHANGELOG.rdoc API_CHANGES.rdoc -t "${pkgdir}/usr/share/doc/${pkgname}"
-  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "${pkgdir}/${_gemdir}" \
+    --bindir "${pkgdir}/usr/bin" \
+    "pkg/${_gemname}-${pkgver}.gem" \
+    -- \
+    --enable-system-libraries \
+    --with-sqlcipher
 
-  cd "${pkgdir}/${_gemdir}"
-  rm -r cache gems/${_gemname}-${pkgver}/ext
-  rm -rf "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
-  rm extensions/*/*/${_gemname}-${pkgver}/{mkmf.log,gem_make.out}
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "${pkgdir}/${_gemdir}/cache/" \
+    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "${pkgdir}/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "${pkgdir}/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+
+  install --verbose -D --mode=0644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
 
 # vim: ts=2 sw=2 et:
