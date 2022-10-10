@@ -24,10 +24,7 @@ b2sums=('SKIP')
 pkgver() {
   cd "$pkgname"
 
-  # temporary workaround until this is resolved
-  # https://github.com/more-itertools/more-itertools/issues/648
-  #git describe --tags | sed 's/^v//'
-  grep __version__ more_itertools/__init__.py | cut -d ' ' -f 3 | sed -e "s/'//g"
+  git describe --tags | sed 's/^v//'
 }
 
 build() {
