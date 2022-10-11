@@ -6,7 +6,7 @@ BUILDENV+=(!check)
 
 _pkgname=poetry
 pkgname=python-poetry
-pkgver=1.2.1
+pkgver=1.2.2
 pkgrel=1
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
@@ -43,7 +43,7 @@ provides=(poetry)
 _archive="$_pkgname-$pkgver"
 source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
         poetry-completions-generator)
-sha256sums=('6be8d7e4c198045924a25efb90285b92918a0d7e539bfa1c76127cd41b01466c'
+sha256sums=('b0f49bfc5c19386738b56ef135ab70678b8fda2ef11dda678311d0548ffac563'
             '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
 
 prepare() {
