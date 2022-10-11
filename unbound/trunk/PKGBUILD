@@ -1,5 +1,6 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 # Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: T.J. Townsend <blakkheim@archlinux.org>
 # Contributor: Gaetan Bisson <bisson@archlinux.org>
 # Contributor: Hisato Tatekura <hisato_tatekura@excentrics.net>
 # Contributor: Massimiliano Torromeo <massimiliano DOT torromeo AT google mail service>
