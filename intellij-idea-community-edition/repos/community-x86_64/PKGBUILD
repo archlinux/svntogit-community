@@ -8,7 +8,7 @@ pkgver=2022.2.3
 _build=222.4345.14
 _jrever=17
 _jdkver=17
-pkgrel=1
+pkgrel=2
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -16,7 +16,7 @@ arch=('x86_64')
 license=('Apache')
 backup=('usr/share/idea/bin/idea64.vmoptions')
 depends=('giflib' "java-runtime=${_jrever}" 'python' 'sh' 'ttf-font' 'libdbusmenu-glib' 'fontconfig' 'hicolor-icon-theme')
-makedepends=('ant' 'git' "java-environment-openjdk=${_jdkver}")
+makedepends=('ant' 'git' "java-environment-openjdk=${_jdkver}" maven)
 optdepends=(
   'lldb: lldb frontend integration'
 )
@@ -24,12 +24,17 @@ source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_bui
         idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
         idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
         idea.desktop
-        idea.sh)
+        idea.sh
+        # The class src/com/intellij/openapi/projectRoots/ex/JavaSdkUtil.java:56 (git commit 0ea5972cdad569407078fb27070c80e2b9235c53)
+        # assumes the user's maven repo is at {$HOME}/.m2/repository and it contains junit-3.8.1.jar
+        https://repo1.maven.org/maven2/junit/junit/3.8.1/junit-3.8.1.jar)
+noextract=('junit-3.8.1.jar')
 sha256sums=('SKIP'
             'SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
-            'd7e4a325fccd48b8c8b0a6234df337b58364e648bb9b849e85ca38a059468e71')
+            'd7e4a325fccd48b8c8b0a6234df337b58364e648bb9b849e85ca38a059468e71'
+            'b58e459509e190bed737f3592bc1950485322846cf10e78ded1d065153012d70')
 
 prepare() {
   cd intellij-community
@@ -38,10 +43,14 @@ prepare() {
   mv "${srcdir}"/idea-android android
   mv "${srcdir}"/idea-adt-tools-base android/tools-base
 
-  # The class src/com/intellij/openapi/projectRoots/ex/JavaSdkUtil.java:56 (git commit 0ea5972cdad569407078fb27070c80e2b9235c53)
-  # assumes the user's maven repo is at {$HOME}/.m2/repository and it contains junit-3.8.1.jar
-  mkdir -p /build/.m2/repository/junit/junit/3.8.1/
-  curl https://repo1.maven.org/maven2/junit/junit/3.8.1/junit-3.8.1.jar -o /build/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar
+  export MAVEN_REPOSITORY=${srcdir}/.m2/repository
+  mvn install:install-file \
+    -Dfile="${srcdir}"/junit-3.8.1.jar \
+    -DgroupId=junit \
+    -DartifactId=junit \
+    -Dversion=3.8.1 \
+    -Dpackaging=jar \
+    -DgeneratePom=true
 
   echo ${_build} > build.txt
 }
@@ -51,7 +60,7 @@ build() {
   
   export JAVA_HOME="/usr/lib/jvm/java-${_jdkver}-openjdk"
   export PATH="/usr/lib/jvm/java-${_jdkver}-openjdk/bin:$PATH"
-  export MAVEN_REPOSITORY=/build/.m2/repository
+  export MAVEN_REPOSITORY=${srcdir}/.m2/repository
   
   ./installers.cmd -Dintellij.build.use.compiled.classes=false -Dintellij.build.target.os=linux
   tar -xf out/idea-ce/artifacts/ideaIC-${_build}-no-jbr.tar.gz -C "${srcdir}"
