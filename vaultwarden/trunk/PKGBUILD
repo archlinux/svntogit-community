@@ -5,30 +5,39 @@
 
 pkgname=vaultwarden
 pkgver=1.25.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Unofficial Bitwarden compatible server written in Rust'
 arch=('x86_64')
 url=https://github.com/dani-garcia/vaultwarden
 license=('GPL3')
 depends=('mariadb-libs' 'openssl' 'postgresql-libs' 'sqlite')
-makedepends=('rustup')
+makedepends=('git' 'rust')
 optdepends=('vaultwarden-web: for the web app')
 provides=('bitwarden_rs')
 replaces=('bitwarden_rs')
 backup=('etc/vaultwarden.env')
 options=('!lto')
 install=$pkgname.install
-source=("$url/archive/$pkgver/$pkgname-$pkgver.tar.gz"
-        "$pkgname.service"
-        "$pkgname.sysusers.conf"
-        "$pkgname.tmpfiles")
-b2sums=('d28d205a542c03c3f715c1aac1e84232bbdb82fea5d0f5c1153b104e997df7d22025cf3f29f823177e6c9562649bf8f8b90226df1f6d02183c69cc199c8537b7'
+_commit='ce9d93003cd37a79edba1ba830a6c6d3fa22c2c8'
+source=(
+  "$pkgname::git+$url#commit=$_commit"
+  'systemd.service'
+  'sysusers.conf'
+  'tmpfiles.conf'
+)
+b2sums=('SKIP'
         'ff8e896f820b88f079d3d4f4c2eb394362569c921f53693e25d3badaf9fdca841e4d7665862e09d22421f544802f3a64014696fd92d7f0b923faf41f8d99e472'
         '6580cf4031f262638abf11e529e8dfc489197afd6cd616c6a7810741e03c004706a5f9358f825aac6644c0ab6b251627ff988ed68f8264120b3575a655972390'
         '9cdcd6c997c884eb3c1ad0c9b8cd91e68ec6762a27f9b80a7eb6c0cb1ffa4e500a654da6f17e9f985cc67add154efe737761f74e4e5f72892fc0e9d457314973')
 
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
 prepare() {
-  cd $pkgname-$pkgver
+  cd "$pkgname"
 
   # change various defaults
   sed -i "s,# DATA_FOLDER=data,DATA_FOLDER=/var/lib/$pkgname,
@@ -39,32 +48,37 @@ prepare() {
 
   # download dependencies
   cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+
+  # FS#76133
+  # Upstream discussion: https://github.com/dani-garcia/vaultwarden/discussions/2802
+  git cherry-pick -n 42b9cc73acb8afa0bcf73c38b448c5f34615418a
 }
 
 build() {
-  cd $pkgname-$pkgver
-  rustup set profile minimal
-  BWRS_VERSION="$pkgver" cargo build --release --frozen --features sqlite,mysql,postgresql
+  cd "$pkgname"
+
+  VW_VERSION="$pkgver" cargo build --release --frozen --features sqlite,mysql,postgresql
 }
 
 check() {
-  cd $pkgname-$pkgver
+  cd "$pkgname"
+
   cargo test --frozen --features sqlite,mysql,postgresql
 }
 
 package() {
   # systemd integration
-  install -Dm644 -t "$pkgdir"/usr/lib/systemd/system $pkgname.service
-  install -Dm644 $pkgname.sysusers.conf "$pkgdir"/usr/lib/sysusers.d/$pkgname.conf
-  install -Dm644 $pkgname.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/$pkgname.conf
+  install -vDm644 systemd.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+  install -vDm644 sysusers.conf "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm644 tmpfiles.conf "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
 
-  cd $pkgname-$pkgver
+  cd "$pkgname"
 
   # configuration
   install -Dm644 .env.template "$pkgdir"/etc/$pkgname.env
 
   # binary
-  install -Dt "$pkgdir"/usr/bin target/release/$pkgname
+  install -vDm755 -t "$pkgdir/usr/bin" "target/release/$pkgname"
 }
 
 # vim:set ts=2 sw=2 et:
