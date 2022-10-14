@@ -4,8 +4,8 @@
 _name=Audacity
 pkgbase=audacity
 pkgname=(audacity audacity-docs)
-pkgver=3.1.3
-pkgrel=3
+pkgver=3.2.1
+pkgrel=1
 epoch=1
 pkgdesc="A program that lets you manipulate digital audio waveforms"
 arch=(x86_64)
@@ -16,7 +16,7 @@ makedepends=(
   alsa-lib
   chrpath
   cmake
-  ffmpeg4.4
+  ffmpeg
   flac
   gcc-libs
   glibc
@@ -34,6 +34,7 @@ makedepends=(
   libvorbis
   lilv
   lv2
+  mpg123
   portaudio
   portmidi
   portsmf
@@ -42,34 +43,27 @@ makedepends=(
   sqlite
   suil
   twolame
+  wavpack
   wxwidgets-gtk3
   vamp-plugin-sdk
+  vst3sdk
 )
+provides=(ladspa-host lv2-host vamp-host vst-host vst3-host)
 options=(debug)
 source=(
-  $_name-$pkgver-Source.tar.gz::https://github.com/$pkgbase/$pkgbase/releases/download/Audacity-$pkgver/$pkgbase-$pkgver-source.tar.gz
-  https://github.com/$pkgbase/$pkgbase/releases/download/Audacity-$pkgver/$pkgbase-manual-$pkgver.tar.gz
-  $pkgbase-3.1.3-wxbitmap_constructor.patch::https://github.com/audacity/audacity/pull/2776/commits/342c4b588f2f069a2df2157ac166237a54277b3a.patch
-  $pkgbase-3.1.3-wxwidgets_3.1.6.patch::https://github.com/audacity/audacity/pull/2776/commits/efc11c4ac50ac51cd71d4dcfa84e63b11000c3f5.patch
+  https://github.com/audacity/audacity/archive/refs/tags/$_name-$pkgver.tar.gz
+  https://github.com/$pkgbase/$pkgbase/releases/download/$_name-$pkgver/$pkgbase-manual-$pkgver.tar.gz
 )
-sha512sums=('f3bb9a6cbf90c40d50f47bc296cf677e799fb8beb74e21ea3cd389de35a58ccd7df898f176a9326b682736b5dd9a9cfe56e83f56f2428f8ababb32037397fb53'
-            '077fcf3b3d1650c7eab62d9e324d13e5b2f14079ab4b0b105bd3689fee1cc3c56936997b8f4b5c3d44b9d003419acb604f4065129a6cfd6b254b5e10a857887f'
-            '29998229eac80e2b54cf457ebff6a56d8dad30e2b58f42956dea313610bd9d012bfa3ea6546fe520fcd05e45e9a96f1a17bab68fc3254fff56743c20c14c0e92'
-            '26a8910d0e86f96fd58ac7dfa9da823dee16fb37640632ba5cbc6687666acc628589be6a115435d01be02b898dbfc2774151df92854d6380349365731148736d')
-b2sums=('e2f9160b244bef703ddb2808246ab22e499c9c68283b3ff648343c397d5760c08b9761f4c57bcab6bcbe42b0d4ea01ce6234bdf531de588871706ef41e1e841e'
-        '5f3106193b81210f8fd0fe9c7034ce3f7306e641fa4024f3120726b2f8fba7e9a48719813367ca56df85b84ac141cd3ac850cfcb69d0a1f24e932e24dac1f068'
-        'fb33a3b5db4f292578c1c38db1b4122c1c2081d91ed437b78b0357bbea565d347e8c6b40f3989bce1b3cbf4c3513b63f244f3443f463166fc4616485704d148a'
-        '71d23b62d7d73131cb264141422b340e1a998d432aef0161bf1544efdc07e51f7852559ebcfe15a7df17b974fad1c75872dcb6ada6d311f54ce67df26f530851')
-
-prepare() {
-  patch -Np1 -d $_name-$pkgver-Source -i ../$pkgbase-3.1.3-wxbitmap_constructor.patch
-  patch -Np1 -d $_name-$pkgver-Source -i ../$pkgbase-3.1.3-wxwidgets_3.1.6.patch
-}
+sha512sums=('8203d655461bda8c3b1a6773dbd260e7e6a50db858c26b328a8cc2caa4d557027622afd9d08124017d934f79a4f48c210584883a63f92fd4cc8eed5928537e18'
+            '9c3021c8830e99ac063113a856b658be5813fcb7d24723c2316399d93447b0ef9d6ffcf1cea8e752f89a615e82aa651ebaac3f56cc78797b85a669c63da49188')
+b2sums=('2c21409fcc1dacd2f6121b20602b0e257645c050126123b7136e2f2d6e244e10dd6c8160ea1c871677f63afcc957d535106775f27d582e797296f14099946a2e'
+        '445568c3fe1728cf19c211917c58c5ce811af41773a5d1e37f6e320fe106be4261e1bdb5b2943b5bda2b5aa0543357d2a68a015b579d88c45dc6d368e4b7f385')
 
 build() {
   local cmake_options=(
     -D CMAKE_BUILD_TYPE=None
     -D CMAKE_INSTALL_PREFIX=/usr
+    -D AUDACITY_BUILD_LEVEL=2
     -D audacity_conan_enabled=OFF
     -D audacity_has_networking=OFF
     -D audacity_has_crashreports=OFF
@@ -77,9 +71,13 @@ build() {
     -D audacity_has_sentry_reporting=OFF
     -D audacity_lib_preference=system
     -D audacity_obey_system_dependencies=ON
+    -D audacity_use_vst3sdk=system
   )
 
-  cmake "${cmake_options[@]}" -B build -S $_name-$pkgver-Source -Wno-dev
+  export VST3SDK='/usr/share/vst3sdk'
+  export CFLAGS+=" -DNDEBUG"
+  export CXXFLAGS+=" -DNDEBUG"
+  cmake "${cmake_options[@]}" -B build -S $pkgname-$_name-$pkgver -Wno-dev
   cmake --build build
 }
 
@@ -90,47 +88,44 @@ check() {
 package_audacity() {
   license+=(BSD)
   depends=(
-    alsa-lib
-    flac
+    alsa-lib libasound.so
+    flac libFLAC.so libFLAC++.so
     gcc-libs
     glibc
-    gdk-pixbuf2
-    glib2
-    gtk3
-    jack
-    lame
-    libid3tag
+    gdk-pixbuf2 libgdk_pixbuf-2.0.so
+    glib2 libglib-2.0.so libgobject-2.0.so
+    gtk3 libgdk-3.so libgtk-3.so
+    jack libjack.so
+    lame libmp3lame.so
+    libid3tag libid3tag.so
     libmad
-    libogg
-    libsbsms
-    libsndfile
+    libogg libogg.so
+    libsbsms libsbsms.so
+    libsndfile libsndfile.so
     libsoxr
-    libvorbis
-    lilv
-    portaudio
-    portmidi
-    portsmf
+    libvorbis libvorbis.so libvorbisenc.so libvorbisfile.so
+    lilv liblilv-0.so
+    mpg123 libmpg123.so
+    portaudio libportaudio.so
+    portmidi libportmidi.so
+    portsmf libportSMF.so
     python
     soundtouch
-    sqlite
-    suil
-    twolame
+    sqlite libsqlite3.so
+    suil libsuil-0.so
+    twolame libtwolame.so
     wxwidgets-gtk3
-    vamp-plugin-sdk
+    vamp-plugin-sdk libvamp-hostsdk.so
+    wavpack
   )
-  depends+=(libFLAC.so libFLAC++.so libasound.so libgdk-3.so
-  libgdk_pixbuf-2.0.so libglib-2.0.so libgobject-2.0.so libgtk-3.so
-  libid3tag.so libjack.so liblilv-0.so libogg.so libportaudio.so libportmidi.so
-  libsbsms.so libsndfile.so libsuil-0.so libtwolame.so libvamp-hostsdk.so
-  libvorbis.so libvorbisenc.so libvorbisfile.so libportSMF.so)
   optdepends=(
     'audacity-docs: for documentation'
-    'ffmpeg4.4: for additional import/export capabilities'
+    'ffmpeg: for additional import/export capabilities'
   )
 
 
   DESTDIR="$pkgdir" cmake --install build
-  install -vDm 644 $_name-$pkgver-Source/lib-src/libnyquist/nyquist/license.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.nyquist"
+  install -vDm 644 $pkgname-$_name-$pkgver/lib-src/libnyquist/nyquist/license.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.nyquist"
 
   # remove unsafe RPATH: https://github.com/audacity/audacity/issues/3289
   (
@@ -147,9 +142,7 @@ package_audacity() {
     chmod 755 "$_lib"
   done
   )
-  # upstream installes a non-compliant script that we don't need:
-  # https://github.com/audacity/audacity/issues/3290
-  rm -frv "$pkgdir/usr/$pkgname"
+  # NOTE: private libraries are public: https://github.com/audacity/audacity/issues/3812
 }
 
 package_audacity-docs() {
