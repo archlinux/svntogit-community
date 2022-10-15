@@ -1,0 +1,117 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Ray Rashif <schiv@archlinux.org>
+# Contributor: SpepS <dreamspepser at yahoo dot it>
+
+_name=Ardour
+pkgname=ardour
+pkgver=7.0
+_commit=a1e19f7ed7687692d05459a425e5b14f34a835ba  # refs/tags/7.0
+pkgrel=1
+pkgdesc="Professional-grade digital audio workstation"
+arch=(x86_64)
+url="https://ardour.org/"
+license=(GPL2)
+groups=(pro-audio)
+depends=(cairo gcc-libs glibc gtkmm libx11 taglib)
+makedepends=(atkmm aubio boost cairomm cppunit curl dbus doxygen fftw flac
+fluidsynth fontconfig freetype2 gdk-pixbuf2 git glib2 glibmm graphviz gtk2
+hidapi itstool jack libarchive liblo liblrdf libltc libogg libpulse
+libsamplerate libsndfile libusb libwebsockets libxml2 lilv lv2 pango pangomm
+readline rubberband serd sord sratom suil vamp-plugin-sdk waf)
+optdepends=(
+  'harvid: for video timeline and MP3 export'
+  'new-session-manager: for session management'
+  'xjadeo: for video monitoring'
+)
+provides=(ladspa-host lv2-host vamp-host vst-host vst3-host)
+options=(debug)
+source=(
+  $pkgname::git+https://github.com/$pkgname/$pkgname.git#tag=$_commit
+  $pkgname-7.0-re-vendor_qm-dsp.patch
+)
+sha512sums=('SKIP'
+            'a3da14925bc25d8a57ba3e137c4b2b04010054667ac4ae2aec116ce6c157b03c9dd76bf4d73c313022282362d19b91683f062d6ab2ee0c73a576d3fa6272bd1d')
+b2sums=('SKIP'
+        '73845adce9a48938cd7aef5fbc65f492e470de316620d278365d247c80caef44531e850fbd3d2f5de65a8562e67aabfd982c938439bd3670726a27bc003be017')
+
+prepare() {
+  # using vendored version of qm-dsp because qm-dsp >= 1.8.0 is not compatible
+  patch -Np1 -d $pkgname -i ../$pkgname-7.0-re-vendor_qm-dsp.patch
+
+  cd $pkgname
+  # unsetting gtk2 rc (FS#54389)
+  sed -e '8iexport GTK2_RC_FILES=/dev/null' -i gtk2_ardour/ardour.sh.in
+
+  # Fixes to use system waf:
+  # making sure, that subdirectories can be picked up with local includes
+  touch __init__.py
+  # making ancient 'misc.py' include available to system installed waf
+  sed -e "s/('misc')/('misc', tooldir='tools')/" \
+      -i {gtk2_ardour,headless,luasession,session_utils,libs/fst}/wscript
+  # make custom 'autowaf' include compatible with system installed waf
+  find . -type f \
+         -iname "*wscript*" \
+         -exec sed -e 's/from waflib.extras import autowaf/from tools import autowaf/g' \
+                   -e 's/import waflib.extras.autowaf/from tools import autowaf/g' \
+                   -i {} \;
+}
+
+build() {
+  cd $pkgname
+  export LINKFLAGS="$LDFLAGS"
+  waf configure --prefix=/usr \
+                --configdir=/etc \
+                --cxx11 \
+                --freedesktop \
+                --lxvst \
+                --nls \
+                --no-phone-home \
+                --optimize \
+                --ptformat \
+                --use-external-libs \
+                --with-backends="alsa,dummy,jack,pulseaudio"
+  waf build -v
+}
+
+package() {
+  depends+=(
+    alsa-lib libasound.so
+    atkmm libatkmm-1.6.so
+    aubio libaubio.so
+    cairomm libcairomm-1.0.so
+    curl libcurl.so
+    dbus libdbus-1.so
+    fftw libfftw3f.so libfftw3f_threads.so
+    fluidsynth libfluidsynth.so
+    fontconfig libfontconfig.so
+    gdk-pixbuf2 libgdk_pixbuf-2.0.so
+    glib2 libglib-2.0.so libgobject-2.0.so
+    glibmm libglibmm-2.4.so
+    gtk2 libgdk-x11-2.0.so libgtk-x11-2.0.so 
+    jack libjack.so
+    libarchive libarchive.so
+    liblo liblo.so
+    libpulse libpulse.so
+    liblrdf liblrdf.so
+    libltc libltc.so
+    libsamplerate libsamplerate.so
+    libsndfile libsndfile.so
+    libusb libusb-1.0.so
+    libwebsockets libwebsockets.so
+    libxml2 libxml2.so
+    lilv liblilv-0.so
+    pango libpango-1.0.so libpangocairo-1.0.so libpangoft2-1.0.so
+    pangomm libpangomm-1.4.so
+    readline libreadline.so
+    rubberband librubberband.so
+    suil libsuil-0.so
+    vamp-plugin-sdk libvamp-hostsdk.so libvamp-sdk.so
+  )
+
+  cd $pkgname
+  waf i18n --destdir="$pkgdir"
+  waf install --destdir="$pkgdir"
+  # man pages
+  install -vDm 644 $pkgname.1 -t "$pkgdir/usr/share/man/man1/"
+}
+# vim:set ts=2 sw=2 et:
