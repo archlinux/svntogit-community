@@ -3,8 +3,8 @@
 # Contributor: Victor Aurélio Santos <victoraur.santos@gmail.com>
 
 pkgbase='grpc'
-pkgname=('grpc' 'python-grpcio' 'php-grpc' 'php7-grpc' 'grpc-cli')
-pkgver=1.48.0
+pkgname=('grpc' 'python-grpcio' 'python-grpcio-tools' 'php-grpc' 'php7-grpc' 'grpc-cli')
+pkgver=1.50.0
 _gtestver=0e402173c97aea7a00749e825b194bfede4f2e45
 pkgrel=1
 pkgdesc="High performance, open source, general RPC framework that puts mobile and HTTP/2 first."
@@ -17,7 +17,7 @@ options=('debug')
 checkdepends=('python-six')
 source=("https://github.com/grpc/grpc/archive/v$pkgver/$pkgbase-$pkgver.tar.gz"
         "https://github.com/google/googletest/archive/$_gtestver/googletest-$_gtestver.tar.gz")
-sha256sums=('9b1f348b15a7637f5191e4e673194549384f2eccf01fcef7cc1515864d71b424'
+sha256sums=('76900ab068da86378395a8e125b5cc43dfae671e09ff6462ddfef18676e2165a'
             'c8de6c60e12ad014a28225c5247ee735861d85cf906df617f6a29954ca05f547')
 
 prepare() {
@@ -27,6 +27,14 @@ prepare() {
     third_party/googletest
 
   cp -a src/php{,7}
+
+  # use system protobuf for grpcio_tools
+  sed -r -i \
+      -e 's/^(CC_FILES=\[).*(\])/\1\2/' \
+      -e "s@^((CC|PROTO)_INCLUDE=')[^']+'@\1/usr/include'@" \
+      -e '/^PROTOBUF_SUBMODULE_VERSION=/d' \
+      tools/distrib/python/grpcio_tools/protoc_lib_deps.py
+  ln -s ../../../.. tools/distrib/python/grpcio_tools/grpc_root
 
   cmake -Bbuild \
     -DCMAKE_BUILD_TYPE=None \
@@ -78,27 +86,30 @@ build() {
   make
 
   # Python
+  export GRPC_PYTHON_LDFLAGS="$(pkg-config --libs protobuf)"
+  export GRPC_PYTHON_BUILD_WITH_CYTHON=1
+  export GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1
+  export GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1
+  export GRPC_PYTHON_BUILD_SYSTEM_CARES=1
+  export GRPC_PYTHON_BUILD_SYSTEM_RE2=1
+  export GRPC_PYTHON_BUILD_SYSTEM_ABSL=1
+  export GRPC_BUILD_WITH_BORING_SSL_ASM=0
+
   cd "$srcdir/$pkgbase-$pkgver"
   GRPC_PYTHON_CFLAGS="-fvisibility=hidden -fno-wrapv -fno-exceptions $(pkg-config --cflags protobuf) -std=c++17" \
-  GRPC_PYTHON_LDFLAGS="$(pkg-config --libs protobuf)" \
-  GRPC_PYTHON_BUILD_WITH_CYTHON=1 \
-  GRPC_PYTHON_BUILD_SYSTEM_OPENSSL=1 \
-  GRPC_PYTHON_BUILD_SYSTEM_ZLIB=1 \
-  GRPC_PYTHON_BUILD_SYSTEM_CARES=1 \
-  GRPC_PYTHON_BUILD_SYSTEM_RE2=1 \
-  GRPC_PYTHON_BUILD_SYSTEM_ABSL=1 \
-  GRPC_BUILD_WITH_BORING_SSL_ASM=0 \
   python setup.py build
 
   # grpcio-tools
-  cd tools/distrib/python
-  python make_grpcio_tools.py
+  cd tools/distrib/python/grpcio_tools
+  GRPC_PYTHON_CFLAGS="-fno-wrapv -frtti $(pkg-config --cflags protobuf)" \
+  GRPC_PYTHON_LDFLAGS="$(pkg-config --libs protobuf) -lprotoc" \
+  python setup.py build
 }
 
 check() {
   cd "$srcdir/$pkgbase-$pkgver"
-  local _pyver=$(python -c "import sys; print('{0}.{1}'.format(*sys.version_info[:2]))")
-  PYTHONPATH="python_build/lib.linux-$CARCH-$_pyver" python -c 'import grpc'
+  local _pyver=$(python -c "import sys; print('{0}{1}'.format(*sys.version_info[:2]))")
+  PYTHONPATH="python_build/lib.linux-$CARCH-cpython-$_pyver" python -c 'import grpc'
 }
 
 package_grpc() {
@@ -130,6 +141,17 @@ package_python-grpcio() {
   cd "$srcdir/$pkgbase-$pkgver"
   python setup.py install -O1 --skip-build --root="$pkgdir"
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+}
+
+package_python-grpcio-tools() {
+  pkgdesc='Python protobuf generator for GRPC'
+  depends=('python-grpcio' 'python-protobuf')
+
+  cd "$srcdir/$pkgbase-$pkgver"
+  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+
+  cd tools/distrib/python/grpcio_tools
+  python setup.py install -O1 --skip-build --root="$pkgdir"
 }
 
 package_php-grpc() {
