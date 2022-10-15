@@ -8,7 +8,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=6.7.0
+pkgver=6.7.1
 pkgrel=1
 pkgdesc='Ebook management application'
 arch=(x86_64)
@@ -74,7 +74,7 @@ replaces=("${conflicts[@]}")
 _archive="$pkgname-$pkgver"
 source=("https://download.calibre-ebook.com/$pkgver/$_archive.tar.xz"
         "$url/signatures/$_archive.tar.xz.sig")
-sha256sums=('475a6853daa1a9fd4361927db64ba926b3d1f7da67e674e9912eaf90ccebc028'
+sha256sums=('07ffeb06cbce5c0e54a868ddd8c2dc0210c50afade23b526b5f129bb1688b1ad'
             'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
