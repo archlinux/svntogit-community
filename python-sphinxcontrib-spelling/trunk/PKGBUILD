@@ -2,7 +2,7 @@
 
 _name=sphinxcontrib-spelling
 pkgname=python-$_name
-pkgver=7.6.1
+pkgver=7.6.2
 pkgrel=1
 pkgdesc="Spelling checker for Sphinx"
 arch=('any')
@@ -11,7 +11,7 @@ license=('BSD')
 depends=('python-sphinx' 'python-pyenchant')
 makedepends=('python-setuptools' 'python-pbr')
 source=(https://files.pythonhosted.org/packages/source/s/$_name/$_name-$pkgver.tar.gz)
-sha256sums=('444857579dd61914f3970ad1046c74bf6758136f7e144b46ca9c28108870f508')
+sha256sums=('a129d5dd0c00c9d414bcdf599afddb55bae01f1d543636e7ebb09491ba2babd4')
 
 build() {
   cd $_name-$pkgver
