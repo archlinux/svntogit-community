@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-sus
+pkgver=0.14.0
+pkgrel=1
+pkgdesc='A fast and scalable test runner'
+arch=(any)
+url='https://github.com/ioquatix/sus'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-bake-test ruby-bake-test-external git)
+options=(!emptydirs)
+source=(https://github.com/ioquatix/sus/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('66070d715ae0531e9dac48db04f97c111c40bae6be2ca504d2ffc4c2900c2f00')
+
+prepare() {
+  cd sus-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/[cC]overed/d' -e '/signing_key/d' -i sus.gemspec config/sus.rb
+  echo "gemspec" > gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd sus-$pkgver
+  gem build sus.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    sus-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd sus-$pkgver
+  PATH="$PWD/tmp_install/usr/bin:$PATH" GEM_HOME="tmp_install/$_gemdir" bake test
+  GEM_HOME="tmp_install/$_gemdir" bake test:external
+}
+
+package() {
+  cd sus-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
