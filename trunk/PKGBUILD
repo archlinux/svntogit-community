@@ -14,7 +14,7 @@ depends=('glibc' 'bridge-utils' 'iproute2' 'device-mapper' 'sqlite' 'systemd-lib
 makedepends=('git' 'go' 'btrfs-progs' 'cmake' 'systemd' 'go-md2man' 'sed')
 optdepends=('btrfs-progs: btrfs backend support'
             'pigz: parallel gzip compressor support'
-            'docker-scan: vulnerability scanner',
+            'docker-scan: vulnerability scanner'
             'docker-buildx: extended build capabilities')
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
