@@ -1,0 +1,57 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-bake-test
+pkgver=0.2.0
+pkgrel=1
+pkgdesc='Run local test suites without knowing exactly how to run them'
+arch=(any)
+url='https://github.com/ioquatix/bake-test'
+license=(MIT)
+depends=(ruby-bake)
+makedepends=(ruby-sus)
+options=(!emptydirs)
+source=(https://github.com/ioquatix/bake-test/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('19834a13d42b4f83c357c9e49186428e2614511f108e65ebe1bd8d692d204b72')
+
+prepare() {
+  cd bake-test-$pkgver
+  sed -e '/signing_key/d' -i bake-test.gemspec
+  echo gemspec > gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd bake-test-$pkgver
+  gem build bake-test.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    bake-test-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd bake-test-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd bake-test-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
