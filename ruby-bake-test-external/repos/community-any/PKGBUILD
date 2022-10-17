@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-bake-test-external
+pkgver=0.3.2
+pkgrel=1
+pkgdesc='Run external test suites to check for breakage'
+arch=(any)
+url='https://github.com/ioquatix/bake-test-external'
+license=(MIT)
+depends=(ruby-bake)
+makedepends=(ruby-rspec)
+checkdepends=(ruby-bake-test ruby-sus git)
+options=(!emptydirs)
+source=(https://github.com/ioquatix/bake-test-external/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('fbdd191defd7d3b95e81907c4246a1d60bbfd55fa1da21455ecec5bbd6b49e06')
+
+prepare() {
+  cd bake-test-external-$pkgver
+  sed -e '/signing_key/d' -i bake-test-external.gemspec
+  sed -i '/bake-gem/d;/bake-modernize/d' gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd bake-test-external-$pkgver
+  gem build bake-test-external.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    bake-test-external-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd bake-test-external-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd bake-test-external-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
