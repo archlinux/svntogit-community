@@ -7,13 +7,12 @@
 
 pkgname=nethack
 pkgver=3.6.6
-pkgrel=3
+pkgrel=4
 pkgdesc='A single player dungeon exploration game'
 arch=(x86_64)
-url='https://www.nethack.org/index.html'
+url='https://www.nethack.org'
 license=(custom)
 depends=(filesystem ncurses gzip)
-install=nethack.install
 source=(
 	"https://www.nethack.org/download/${pkgver}/nethack-${pkgver//.}-src.tgz"
 	nethack.tmpfiles
@@ -40,7 +39,7 @@ prepare() {
 	sed -e '/^HACKDIR/ s|/games/lib/\$(GAME)dir|/var/games/nethack/|' \
 		-e '/^SHELLDIR/ s|/games|/usr/bin|' \
 		-e '/^VARDIRPERM/ s|0755|0775|' \
-		-e '/^VARFILEPERM/ s|0600|066|' \
+		-e '/^VARFILEPERM/ s|0600|0664|' \
 		-e '/^GAMEPERM/ s|0755|02755|' \
 		-e '/-DTIMED_DELAY/d' \
 		-e 's|\(DSYSCF_FILE=\)\\"[^"]*\\"|\1\\"/var/games/nethack/sysconf\\"|' \
