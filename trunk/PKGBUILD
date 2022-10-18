@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-async-container
+pkgver=0.16.12
+pkgrel=1
+pkgdesc='Abstract container-based parallelism using threads and processes where appropriate'
+arch=(any)
+url='https://github.com/socketry/async-container'
+license=(MIT)
+depends=(ruby-async ruby-async-io)
+makedepends=(ruby-async-rspec ruby-rspec)
+checkdepends=(psmisc)
+options=(!emptydirs)
+source=(https://github.com/socketry/async-container/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('dc298856d04c5d91f0a8dcba36f437062af4c3e721f997a8b726d537fb0b4bd0')
+
+prepare() {
+  cd async-container-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -i async-container.gemspec spec/spec_helper.rb
+  echo gemspec > gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd async-container-$pkgver
+  gem build async-container.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    async-container-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd async-container-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rspec
+  # https://github.com/socketry/async-container/issues/24
+  killall --ns $$ -e bundle -u builduser
+}
+
+package() {
+  cd async-container-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
