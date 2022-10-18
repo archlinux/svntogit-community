@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-localhost
+pkgver=1.1.9
+pkgrel=1
+pkgdesc='Manage a local certificate authority for self-signed localhost development servers'
+arch=(any)
+url='https://github.com/socketry/localhost'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-rspec)
+checkdepends=(ruby-async-io ruby-async-rspec ruby-async-process)
+options=(!emptydirs)
+source=(https://github.com/socketry/localhost/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('c5cda0ac1a6beb53fb2ecf6cf84edd4b6e8643d412d525e157926adf35b0a4be')
+
+prepare() {
+  cd localhost-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/signing_key/d' -i localhost.gemspec spec/spec_helper.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd localhost-$pkgver
+  gem build localhost.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    localhost-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd localhost-$pkgver
+  # https://github.com/socketry/localhost/issues/19
+  GEM_HOME="tmp_install/$_gemdir" rspec || echo "Tests failed"
+}
+
+package() {
+  cd localhost-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
