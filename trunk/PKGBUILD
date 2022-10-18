@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-rspec-files
+pkgver=1.1.3
+pkgrel=1
+pkgdesc='RSpec helpers for buffering and detecting file descriptor leaks'
+arch=(any)
+url='https://github.com/socketry/rspec-files'
+license=(MIT)
+depends=(ruby-rspec)
+checkdepends=(ruby-bake-test)
+options=(!emptydirs)
+source=(https://github.com/socketry/rspec-files/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('b75a82ee456ee677b5590b763eb8825195e2d3ab76c70fe75954923ee80ef463')
+
+prepare() {
+  cd rspec-files-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/signing_key/d' -i rspec-files.gemspec spec/spec_helper.rb
+  sed -i '/bake-modernize/d;/bake-gem/d' gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd rspec-files-$pkgver
+  gem build rspec-files.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    rspec-files-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd rspec-files-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd rspec-files-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
