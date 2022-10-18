@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-traces
+pkgver=0.7.0
+pkgrel=1
+pkgdesc='Application instrumentation and tracing'
+arch=(any)
+url='https://github.com/socketry/traces'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-bake-test ruby-sus)
+checkdepends=(ruby-console)
+options=(!emptydirs)
+source=(https://github.com/socketry/traces/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('cdac2a4581bd84020adf575e2c900bde2d5b4207bbb13030cd144c040f4412c4')
+
+prepare() {
+  cd traces-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/bake-test-external/d' -e '/signing_key/d' -i traces.gemspec
+  sed -i '/[cC]overed/d' config/sus.rb
+  sed -i '/bake-modernize/d;/bake-gem/d;/bake-github-pages/d;/utopia-project/d;/ddtrace/d' gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd traces-$pkgver
+  gem build traces.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    traces-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd traces-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd traces-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
