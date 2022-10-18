@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-async-rest
+pkgver=0.12.4
+pkgrel=1
+pkgdesc='A library for RESTful clients (and hopefully servers)'
+arch=(any)
+url='https://github.com/socketry/async-rest'
+license=(MIT)
+depends=(ruby-async-http ruby-protocol-http)
+makedepends=(ruby-async-rspec ruby-bake ruby-rake ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/socketry/async-rest/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        https://github.com/felixonmars/async-rest/commit/279bf0bd28c7e9a209c95fc0e1b458bf3a494b36.patch)
+sha256sums=('7aa5959a4684090a6d1d9edb0a74ca1961376160580e815cff8f502ad6b151d6'
+            '0738f594b3671b65a94602af4f4e95150e56e5b2d3f9a0d142a52f5da67fbba4')
+
+prepare() {
+  cd async-rest-$pkgver
+  patch -p1 -i ../279bf0bd28c7e9a209c95fc0e1b458bf3a494b36.patch
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -i async-rest.gemspec spec/spec_helper.rb
+  echo gemspec > gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd async-rest-$pkgver
+  rake build
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    pkg/async-rest-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd async-rest-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rspec
+}
+
+package() {
+  cd async-rest-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
