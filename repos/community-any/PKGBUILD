@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-protocol-http2
+pkgver=0.14.2
+pkgrel=1
+pkgdesc='A low level implementation of the HTTP/2 protocol'
+arch=(any)
+url='https://github.com/socketry/protocol-http2'
+license=(MIT)
+depends=(ruby-protocol-hpack ruby-protocol-http)
+makedepends=(ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/socketry/protocol-http2/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        https://github.com/socketry/protocol-http2/commit/6edb02066976aa79d5c52e25835364324b01e722.patch)
+sha256sums=('2029cea59f863988ab40afee0b16fbd7c545cd86977f458de41d1409bf4949bc'
+            '22e0fc2c5f9525cf680e9fe064578d3a4102b958377f75f14c5b9cc8ea55c901')
+
+prepare() {
+  cd protocol-http2-$pkgver
+  patch -p1 -i ../6edb02066976aa79d5c52e25835364324b01e722.patch
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/signing_key/d' -i protocol-http2.gemspec spec/spec_helper.rb
+  echo gemspec > gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd protocol-http2-$pkgver
+  gem build protocol-http2.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    protocol-http2-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd protocol-http2-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rspec
+}
+
+package() {
+  cd protocol-http2-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
