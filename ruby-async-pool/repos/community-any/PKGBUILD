@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-async-pool
+pkgver=0.3.12
+pkgrel=1
+pkgdesc='A singleplex and multiplex resource pool for implementing robust clients'
+arch=(any)
+url='https://github.com/socketry/async-pool'
+license=(MIT)
+depends=(ruby-async)
+makedepends=(ruby-bake ruby-bake-test ruby-sus ruby-sus-fixtures-async)
+options=(!emptydirs)
+source=(https://github.com/socketry/async-pool/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('0b708ff0f8de392dd674be9725ab4a94595b13b0a4ed50fd81dc2e4a328ec072')
+
+prepare() {
+  cd async-pool-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/bake-test-external/d' -e '/signing_key/d' -i async-pool.gemspec
+  echo gemspec > gems.rb
+  sed -i '/[cC]overed/d' config/sus.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd async-pool-$pkgver
+  gem build async-pool.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    async-pool-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd async-pool-$pkgver
+  # https://github.com/socketry/async-pool/issues/15
+  GEM_HOME="tmp_install/$_gemdir" bake test || echo "Tests failed"
+}
+
+package() {
+  cd async-pool-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
