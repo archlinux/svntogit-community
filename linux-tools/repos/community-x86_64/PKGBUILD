@@ -15,7 +15,7 @@ pkgname=(
   'usbip'
   'x86_energy_perf_policy'
 )
-pkgver=5.19
+pkgver=6.0
 pkgrel=1
 license=('GPL2')
 arch=('x86_64')
@@ -26,7 +26,7 @@ makedepends=('git')
 # kernel source deps
 makedepends+=('asciidoc' 'xmlto')
 # perf deps
-makedepends+=('perl' 'python' 'slang' 'elfutils' 'libunwind' 'numactl' 'audit' 'zstd' 'libcap')
+makedepends+=('perl' 'python' 'python-setuptools' 'slang' 'elfutils' 'libunwind' 'numactl' 'audit' 'zstd' 'libcap')
 # cpupower deps
 makedepends+=('pciutils')
 # usbip deps
