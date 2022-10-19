@@ -7,7 +7,7 @@ pkgbase=keybase
 pkgname=(keybase kbfs keybase-gui)
 pkgdesc='CLI tool for GPG with keybase.io'
 pkgver=6.0.2
-pkgrel=1
+pkgrel=2
 arch=(x86_64)
 url=https://keybase.io
 _url=https://github.com/keybase/client
@@ -24,7 +24,7 @@ source=("$_url/releases/download/v$pkgver/$_archive.tar.xz"{,.sig}
         0001-Don-t-use-electron-to-build.patch)
 sha256sums=('22e5ae4d1f951ea9f3ffc3cb74de9b9f41b828b2c8a4e5cb6401de6fbccf497b'
             'SKIP'
-            '1eca47356815ad95437911d9abe80e2d68eb96dabaedf7f95dce7d361501dc9f'
+            '1fd0f32b6b65927f9e0fea093e1b5cbee2f8f9a0929ae7ccb6d35741180dd01b'
             '74fd7a777275bdf2128f121e27f722f692302a50d89c6c1d3ec82df1deaffee3')
 validpgpkeys=('222B85B0F90BE2D24CFEB93F47484E50656D16C7') # Keybase.io Code Signing (v1) <code@keybase.io>
 
