@@ -1,0 +1,85 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Felix Fung <fylixeoi@gmail.com>
+
+pkgname=timescaledb
+_commit=65078486025a5cfdd00663f524831619066c5946
+# limit to last 5 releases
+_versions=(
+  2.7.0
+  2.7.1
+  2.7.2
+  2.8.0
+  2.8.1 # current ts version
+)
+pkgver="${_versions[-1]}"
+pkgrel=2
+pkgdesc='An open-source time-series database optimized for fast ingest and complex queries'
+arch=('x86_64')
+url='https://www.timescale.com/'
+license=('Apache' 'custom:Timescale')
+depends=('postgresql<15' 'postgresql-libs<15' 'openssl')
+makedepends=('gcc' 'cmake' 'git')
+optdepends=(
+  'timescaledb-tune: tune postgresql.conf for better performance'
+  'timescaledb-old-upgrade: upgrade from previous major version of PostgreSQL'
+)
+options=('debug')
+install=timescaledb.install
+source=("$pkgname::git+https://github.com/timescale/timescaledb#commit=$_commit")
+sha512sums=('SKIP')
+
+prepare() {
+  mkdir build
+}
+
+build() {
+  for version in "${_versions[@]}"; do
+    cd "$srcdir/$pkgname"
+
+    git checkout "$version"
+
+    BUILD_DIR="$srcdir/build/$version" ./bootstrap \
+      -DWARNINGS_AS_ERRORS=OFF \
+      -DREGRESS_CHECKS=OFF \
+      -DTAP_CHECKS=OFF \
+      -DGENERATE_DOWNGRADE_SCRIPT=ON
+
+    # build package or past shared library
+    cd "$srcdir/build/$version"
+
+    # ensure reproducible builds (value from `lsb_release -r`)
+    # TODO: resolve https://github.com/timescale/timescaledb/issues/3480
+    sed \
+      -e "s:BUILD_OS_VERSION \".*\"$:BUILD_OS_VERSION \"rolling\":" \
+      -i src/config.h
+
+    if [ "$version" == "${_versions[-1]}" ]; then
+      make
+    else
+      make timescaledb timescaledb-tsl sqlfile
+    fi
+  done
+}
+
+package() {
+  cd "$pkgname"
+  # install licenses from latest version
+  git checkout "${_versions[-1]}"
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" \
+    LICENSE LICENSE-APACHE tsl/LICENSE-TIMESCALE
+
+  # install package or past shared library
+  for version in "${_versions[@]}"; do
+    cd "$srcdir/build/$version"
+    if [ "$version" == "${_versions[-1]}" ]; then
+      make DESTDIR="$pkgdir/" install
+    else
+      install -vDm755 -t "$pkgdir/usr/lib/postgresql" \
+        "src/$pkgname-$version.so" \
+        "tsl/src/$pkgname-tsl-$version.so"
+      install -Dm644 -t "$pkgdir/usr/share/postgresql/extension" \
+        "sql/timescaledb--$version.sql"
+    fi
+  done
+}
