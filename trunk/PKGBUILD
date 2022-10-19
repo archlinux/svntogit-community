@@ -1,0 +1,62 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-character_set
+pkgver=1.6.0
+pkgrel=1
+pkgdesc='Build, read, write and compare sets of Unicode codepoints'
+arch=(x86_64)
+url='https://github.com/jaynetics/character_set'
+license=(MIT)
+depends=(ruby-sorted_set)
+checkdepends=(ruby-benchmark-ips ruby-get_process_mem ruby-rake ruby-rake-compiler
+              ruby-range_compressor ruby-regexp_parser ruby-regexp_property_values ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/jaynetics/character_set/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('ae4c70f7fe99b138d91b0cab271b5c13196f2e31d3ef5f3b8d3ef0ca2099bb0a')
+
+prepare() {
+  cd character_set-$pkgver
+  sed -i -r -e 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -not -path "*\.gem" -printf "%P\\\\0"|' -e 's|~>|>=|' character_set.gemspec
+  sed -i -e '/codecov/d' -e '/gouteur/d' -e '/rubocop/d' Gemfile
+  # Don't recompile
+  sed -i '/compile/d' Rakefile
+  sed -i '/bundler/d' spec/spec_helper.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd character_set-$pkgver
+  gem build character_set.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    character_set-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd character_set-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd character_set-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
