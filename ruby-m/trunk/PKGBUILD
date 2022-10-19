@@ -1,0 +1,65 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-m
+pkgver=1.6.0
+pkgrel=1
+pkgdesc='Run test/unit tests by line number. Metal!'
+arch=(any)
+url='https://github.com/qrush/m'
+license=(MIT)
+depends=(ruby-method_source ruby-rake)
+makedepends=(ruby-activesupport ruby-rdiscount)
+options=(!emptydirs)
+source=(https://github.com/qrush/m/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        m-minitest-5.16.patch::https://github.com/qrush/m/pull/92.patch)
+sha256sums=('3b1150de67902a717558bcca1acf3e76a0fe05b6eaba8c6869f8d40d6a0d3d3e'
+            '8db7c67f52e71f1457b1a6cac9655f62cdf5640676987f869cdef82bd85f04a8')
+
+prepare() {
+  cd m-$pkgver
+  patch -p1 -i ../m-minitest-5.16.patch
+  sed 's|git ls-files -- bin/\*|find bin -type f|' -i m.gemspec
+  sed 's|git ls-files -- {test,spec,features}/\*|echo|' -i m.gemspec
+  sed 's|git ls-files|find -type f|' -i m.gemspec
+  sed '/[rR]occo/d;/appraisal/d;/coveralls/d' -i m.gemspec Rakefile
+  echo gemspec > Gemfile
+  rm Gemfile.lock
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd m-$pkgver
+  gem build m.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    m-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd m-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd m-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
