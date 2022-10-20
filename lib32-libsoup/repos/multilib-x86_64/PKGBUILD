@@ -2,20 +2,22 @@
 # Contributor: Maximilian Stein <theoddbird@posteo.org>
 # Contributor: josephgbr <rafael.f.f1@gmail.com>
 
-pkgname=lib32-libsoup
-pkgver=2.74.2
+pkgbase=lib32-libsoup
+pkgname=(lib32-libsoup)
+pkgver=2.74.3
 pkgrel=1
-pkgdesc='HTTP client/server library for GNOME'
-url=https://wiki.gnome.org/Projects/libsoup
+pkgdesc="HTTP client/server library for GNOME (32-bit)"
+url="https://wiki.gnome.org/Projects/libsoup"
 arch=(x86_64)
 license=(LGPL)
 depends=(
   lib32-brotli
   lib32-glib-networking
+  lib32-glib2
   lib32-krb5
+  lib32-libpsl
   lib32-libxml2
   lib32-sqlite
-  lib32-libpsl
   libsoup
 )
 makedepends=(
@@ -27,26 +29,38 @@ checkdepends=(
   apache
   php-apache
 )
-optdepends=('samba: Windows Domain SSO')
-_commit=2add3502a7de754f4aed61571f6cb45094e8f443  # tags/2.74.2^0
-source=(git+https://gitlab.gnome.org/GNOME/libsoup.git#tag=${_commit})
-sha256sums=('SKIP')
+options=(debug)
+_commit=4a6b9178ded85e269872ffedfb2b18f2754a75d9  # tags/2.74.3^0
+source=("git+https://gitlab.gnome.org/GNOME/libsoup.git#commit=$_commit"
+        disable-flaky-test.diff)
+b2sums=('SKIP'
+        '4d71171b26ed107884a22696f9df1609c45c377e27baaaeb4ec5d890f9fbd62f09607ba3da0acdb42b4f86b9e828014471e6731437ec80de3b6ad98d7f0a2f60')
 
 pkgver() {
   cd libsoup
   git describe --tags | sed 's/[^-]*-g/r&/;s/-/+/g'
 }
 
+prepare() {
+  cd libsoup
+
+  # https://gitlab.gnome.org/GNOME/libsoup/-/issues/120
+  git apply -3 ../disable-flaky-test.diff
+}
+
 build() {
+  local meson_options=(
+    --libdir=/usr/lib32
+    -D introspection=disabled
+    -D sysprof=disabled
+    -D vapi=disabled
+  )
+
   export CC='gcc -m32'
   export CXX='g++ -m32'
   export PKG_CONFIG='i686-pc-linux-gnu-pkg-config'
 
-  arch-meson libsoup build \
-    --libdir=/usr/lib32 \
-    -D introspection=disabled \
-    -D sysprof=disabled \
-    -D vapi=disabled
+  arch-meson libsoup build "${meson_options[@]}"
   meson compile -C build
 }
 
@@ -54,17 +68,19 @@ check() {
   meson test -C build --print-errorlogs
 }
 
-package() {
+package_lib32-libsoup() {
   depends+=(
     libbrotlidec.so
     libgssapi_krb5.so
     libg{lib,object,io}-2.0.so
     libpsl.so
   )
+  optdepends=('samba: Windows Domain SSO')
   provides+=(libsoup{,-gnome}-2.4.so)
 
-  meson install -C build --destdir "${pkgdir}"
-  rm -rf "${pkgdir}"/usr/{include,share}
+  meson install -C build --destdir "$pkgdir"
+
+  rm -r "$pkgdir"/usr/{include,share}
 }
 
-# vim:set sw=2 et:
+# vim:set sw=2 sts=-1 et:
