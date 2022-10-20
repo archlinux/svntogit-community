@@ -1,0 +1,114 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=HyperKitty
+pkgname=hyperkitty
+pkgver=1.3.5.r207.g6f6a7587
+_commit=6f6a7587e519d45a6f005a031ee7be1ce0d13061  # somewhere post 1.3.5 on master
+pkgrel=1
+pkgdesc="A web interface to access GNU Mailman v3 archives"
+arch=(any)
+url="https://gitlab.com/mailman/hyperkitty"
+license=(GPL3)
+depends=(python-dateutil python-django python-django-compressor
+python-django-extensions python-django-gravatar python-django-haystack
+python-django-mailman3 python-django-q python-django-rest-framework
+python-flufl-lock python-mailmanclient python-mistune python-networkx
+python-pytz python-robot-detection python-whoosh sassc)
+makedepends=(git python-build python-installer python-isort python-setuptools python-wheel)
+checkdepends=(python-beautifulsoup4 python-django-debug-toolbar
+python-elasticsearch python-lxml python-pytest python-whoosh)
+optdepends=(
+  'python-django-debug-toolbar: for debugging'
+  'python-elasticsearch: for using elasticsearch as search backend'
+  'python-xapian-haystack: for using xapian as search backend'
+  'uwsgi-plugin-python: for running inside uwsgi'
+  'ruby-sassc: alternative to sassc'
+)
+backup=(
+  etc/uwsgi/$pkgname.ini
+  etc/webapps/$pkgname/settings_local.py
+  etc/webapps/$pkgname/urls.py
+)
+install=$pkgname.install
+source=(
+  git+https://gitlab.com/mailman/hyperkitty#commit=$_commit
+  $pkgname-1.3.5-settings.patch
+  $pkgname-qcluster.service
+  $pkgname.sysusers
+  $pkgname.tmpfiles
+  $pkgname.uwsgi
+)
+sha512sums=('SKIP'
+            'd33a2ec2fb4547da56795c450882bbedbcce962ed2e96e26817fdaa8045859c444f215107fabcf71d62f2b76f41212f5fb49b7e2ed432ccd970eb13988f2f67d'
+            'a41c938082ceee555143ddb21c3a95835f9832b9aff423142d78d3e52f12500561f80e0ce43c67a4f190065c9d045945741ac71ab3307db1419c4dc0686db09a'
+            '3267427109b08b8c9336b187381ed14357a07370bdcdfc24da94555020ad0424c5bbebc09e131e981e0540c51db443ffe558209e1bca7c2a1b7b1f602ed0805b'
+            'c943d82b8640a513728e3f07fa44c0ddb5a3bb8ec84a3a70990e51287ca01977887f895b901688fc4643d8fcb106d524259a86a51bccaafd77c69b241f1b23ba'
+            '351f40a6bc1fd1735c883408f9941808e081206927a7c02467e03228243dd156378cac21f851b498702bd4f96fde8e4c80536dbcc6f3c384bf708bed4e988971')
+b2sums=('SKIP'
+        '62793fe38541dd570163ab0cd740fd6aeae9eb652164fbb066c1b958dcdba845c5ee3d5ca05770a8179ef292c584c9fbd293ad88956c58ad306ab8b352ea679c'
+        'e8ae1d123e74b0c6984df3e5fff720e03dcbc3f007123718fe845024b42e5c13b7eac4da6bde04a9e1372d446bfa50ac12479730a9092e8396b73434e59663d3'
+        'f4e912e75c5127897837d67626ba94a418ec408f0f3a9bcd1767633347e107600cc43825caa5737a84362273a353bf03097879ff5b9065663150f6db4b96238a'
+        'e4fd83e38703d8ff9a714b238296e4e12791b8ce0c19446709e5c20b4012ed10b97504cafda66cdbe12e56a9f943c094147b6a02db3bd9c854e609adca38ff01'
+        '767f334add0dd0e83b27e198415a2ef8ae3c505aa7f37d12138e37a98dc5575e43f83eb665431464ed488a5bf6b8913cd675eb112dc880cf17ff51511a3f07e6')
+validpgpkeys=('541EA0448453394FF77A0ECC9D9B2BA061D0A67C') # Abhilash Raj <raj.abhilash1@gmail.com>
+
+pkgver() {
+  cd $pkgname
+  git describe --long | sed 's/\([^-]*-g\)/r\1/;s/v//g;s/-/./g'
+}
+
+prepare() {
+  # setting FHS compliant default paths, remove debug options
+  patch -d $pkgname -p1 -i ../$pkgname-1.3.5-settings.patch
+
+  touch $pkgname/settings_local.py
+}
+
+build() {
+  cd $pkgname
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd $pkgname
+  export PYTHONPATH="build:$PYTHONPATH"
+  python example_project/manage.py test --settings=hyperkitty.tests.settings_test hyperkitty
+}
+
+package() {
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  local python_stdlib_basepath="$(python -c "from sysconfig import get_path; print(get_path('stdlib'))")"
+
+  cd $pkgname
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  # remove example_project from top level site-packages:
+  # https://gitlab.com/mailman/hyperkitty/issues/279
+  rm -rfv "$pkgdir/$site_packages/example_project/"
+  # remove tests
+  rm -rfv "$pkgdir/$site_packages/$pkgname/tests/"
+
+  # doc
+  install -vDm 644 README.rst -t "$pkgdir/usr/share/doc/$pkgname"
+  # django project
+  install -vDm 644 example_project/{__init__,manage,settings,wsgi}.py -t "$pkgdir/usr/share/webapps/$pkgname"
+  # symlink locale and static dirs to state dir
+  ln -svf /var/lib/$pkgname/locale/ "$pkgdir/usr/share/webapps/$pkgname"
+  ln -svf /var/lib/$pkgname/static/ "$pkgdir/usr/share/webapps/$pkgname"
+  # state dir
+  install -vdm 750 "$pkgdir/var/lib/$pkgname/data"
+  install -vdm 755 "$pkgdir/var/lib/$pkgname/"{locale,static}
+  # log dir
+  install -vdm 750 "$pkgdir/var/log/$pkgname"
+  # config
+  install -vDm 640 settings_local.py example_project/urls.py -t "$pkgdir/etc/webapps/$pkgname"
+  ln -svf /etc/webapps/$pkgname/settings_local.py "$pkgdir/usr/share/webapps/$pkgname/settings_local.py"
+  ln -svf /etc/webapps/$pkgname/urls.py "$pkgdir/usr/share/webapps/$pkgname/urls.py"
+  # systemd service
+  install -vDm 644 ../$pkgname-qcluster.service -t "$pkgdir/usr/lib/systemd/system"
+  # uwsgi
+  install -vDm 644 ../$pkgname.uwsgi "$pkgdir/etc/uwsgi/$pkgname.ini"
+  # tmpfiles.d
+  install -vDm 644 ../$pkgname.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+  # sysusers.d
+  install -vDm 644 ../$pkgname.sysusers "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+}
