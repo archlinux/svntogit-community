@@ -1,0 +1,99 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=postorius
+pkgver=1.3.6.r155.g1fad482b
+_commit=1fad482b5830c7910e250ab2933180bd96276921  # somewhere on master past 1.3.6
+pkgrel=1
+pkgdesc="The New Mailman Web UI"
+arch=(any)
+url="https://gitlab.com/mailman/postorius"
+license=(GPL3)
+depends=(python-cmarkgfm python-django python-django-mailman3
+python-mailmanclient python-readme-renderer)
+makedepends=(git python-build python-installer python-setuptools python-wheel)
+checkdepends=(mailman3 python-beautifulsoup4 python-isort python-pytest
+python-pytest-django python-vcrpy)
+optdepends=(
+  'python-django-debug-toolbar: for debugging'
+  'mailman3: for configuring a local mailman instance'
+  'uwsgi-plugin-python: for running inside uwsgi'
+)
+replaces=(python-django-postorius)
+backup=(
+  etc/uwsgi/${pkgname}.ini
+  etc/webapps/$pkgname/settings_local.py
+  etc/webapps/$pkgname/urls.py
+)
+install=$pkgname.install
+source=(
+  git+https://gitlab.com/mailman/$pkgname#commit=$_commit
+  $pkgname-1.3.6-settings.patch
+  $pkgname.sysusers
+  $pkgname.tmpfiles
+  $pkgname.uwsgi
+)
+sha512sums=('SKIP'
+            '0fc6611c4d8846a387c1ec3d74b01cba9bc10e22abc6fa6aa4bff11711b66155623fd356adbd548244998e0c76e936b3488141d1c13a70ad7df04b327cb474bf'
+            '3884b818da2deb148279e50316f720c95f0aaa529777b1b3662d8ab253cda823a90682a9eb47e941ca5ba80eefcb9a2d4afacd29f0340d7f9828b36ebcee23b3'
+            '44925c7ce6d1c13bd5bdd2cb449fa978b8eaadaac7ecff74075c23a13478decc4acd1f2cd0399bf55c312d6a08985a3e80f6e7a6e85be9e3dcb93ffb526ca9fb'
+            'c042f00d0d8dc72dadd19023152e55246c4d7a4b9d53bca3a05e7b8cb38cac5116417440d4ae82350820c7cb0cd414dcce45fa6af9be19296c4ebd0862dba896')
+b2sums=('SKIP'
+        'ea175042786a1c2647fccc2026544c552ba56850582251a367873288daff136812556c47b3836cc040c684dbc129abe7fcdbf2faab896ffc5f864b378ffd5f00'
+        '1ef6dc98c6751e6d65e49812d08d813879b791a7f13622ea31ecadae6dd1859a918761d7723732ed2e4872b9cae61b84c8dbfec2dd2522de9f0929a1ee1cec24'
+        '502d59cb0009b7cdf108a1611d17470d1a73c2d06bf6d9509799b63d4bbb4bb0a2cb71a39eddb0dc5990ee6489625174de6ce2d7e04e77a601c90a6da6d69c84'
+        '4b80d60c88d46edd0e6e61ad2ff37ba3568c6c56a2abd449f903f7302aeec4a3bc91bbd3ee846731513fa1906df2e3d7d1c52b75a55214051fb96b048f9b4999')
+validpgpkeys=('541EA0448453394FF77A0ECC9D9B2BA061D0A67C') # Abhilash Raj <raj.abhilash1@gmail.com>
+
+pkgver() {
+  cd $pkgname
+  git describe --long | sed 's/\([^-]*-g\)/r\1/;s/v//g;s/-/./g'
+}
+
+prepare() {
+  # become FHS compliant and disable the use of debug
+  patch -d $pkgname -p1 -i ../$pkgname-1.3.6-settings.patch
+
+  touch settings_local.py
+}
+
+build() {
+  cd $pkgname
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd $pkgname/example_project
+  # disable broken tests: https://gitlab.com/mailman/postorius/-/issues/556
+  pytest -vv ../src/$pkgname/tests -k "not test_change_subscription_from_address_to_primary and not test_access_list_options_multiple_subscriptions"
+}
+
+package() {
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $pkgname
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # remove tests
+  rm -frv "$pkgdir/$site_packages/$pkgname/tests/"
+
+  # django project
+  install -vDm 644 example_project/{__init__,manage,settings,wsgi}.py -t "$pkgdir/usr/share/webapps/$pkgname"
+  # symlink locale and static dirs to state dir
+  ln -svf /var/lib//$pkgname/locale/ "$pkgdir/usr/share/webapps/$pkgname"
+  ln -svf /var/lib/$pkgname/static/ "$pkgdir/usr/share/webapps/$pkgname"
+  # state dir
+  install -vdm 750 "$pkgdir/var/lib/$pkgname/data"
+  install -vdm 755 "$pkgdir/var/lib/$pkgname/"{locale,static}
+  # log dir
+  install -vdm 750 "$pkgdir/var/log/$pkgname"
+  # config
+  install -vDm 640 ../settings_local.py example_project/urls.py -t "$pkgdir/etc/webapps/$pkgname"
+  ln -svf /etc/webapps/$pkgname/settings_local.py "$pkgdir/usr/share/webapps/$pkgname/settings_local.py"
+  ln -svf /etc/webapps/$pkgname/urls.py "$pkgdir/usr/share/webapps/$pkgname/urls.py"
+  # uwsgi
+  install -vDm 644 ../$pkgname.uwsgi "$pkgdir/etc/uwsgi/$pkgname.ini"
+  # tmpfiles.d
+  install -vDm 644 ../$pkgname.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+  # sysusers.d
+  install -vDm 644 ../$pkgname.sysusers "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+}
