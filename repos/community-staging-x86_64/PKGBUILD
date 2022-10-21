@@ -1,0 +1,58 @@
+# Maintainer: Jelle van der Waa <jelle@archlinux.org>
+# Contributor: Graham Edgecombe <graham@grahamedgecombe.com>
+
+pkgname=openrct2
+pkgver=0.4.2
+pkgrel=2
+pkgdesc='Open source re-implementation of Roller Coaster Tycoon 2 (requires full
+         copy of the game)'
+arch=('x86_64')
+url='https://openrct2.io'
+license=('GPL3')
+depends=('hicolor-icon-theme' 'sdl2' 'curl' 'speexdsp' 'fontconfig'
+         'libpng' 'openssl' 'libzip' 'icu' 'benchmark'
+	 'flac' 'libvorbis')
+makedepends=('cmake' 'gtest' 'nlohmann-json')
+options=(!lto)
+optdepends=('zenity: System dialog box support (GNOME/GTK)'
+            'kdialog: System dialog box support (KDE)'
+            'alsa-lib: ALSA audio driver'
+            'libpulse: PulseAudio audio driver')
+source=($pkgname-$pkgver.tar.gz::https://github.com/OpenRCT2/OpenRCT2/archive/v$pkgver.tar.gz
+        googletest-fix-maybe-uninitialized.patch)
+sha256sums=('e313f29ad757d8c4870c166e7342accd642d1e6e7b245385d60e161ef4a0028f'
+            '6c4becab25ec1824883a4c1946d4aa4b45534b9a6199b782db7879b78178ff84')
+
+prepare() {
+  cd "$srcdir/OpenRCT2-$pkgver"
+  mkdir build
+
+  # add cmake command to patch googletest with https://github.com/google/googletest/pull/3024
+  sed '/URL https:\/\/github.com\/google\/googletest/ a PATCH_COMMAND patch -p1 -i ../../../../../googletest-fix-maybe-uninitialized.patch' -i test/tests/CMakeLists.txt
+}
+
+build() {
+  cd "$srcdir/OpenRCT2-$pkgver/build"
+
+  # https://github.com/OpenRCT2/OpenRCT2/issues/17371
+  export CXXFLAGS+=" -Wno-error=maybe-uninitialized  -Wno-error=restrict  -Wno-error=null-dereference"
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr \
+    -DSTATIC=off -DWITH_TESTS=on -DCMAKE_INSTALL_LIBDIR=/usr/lib ..
+  make all g2
+}
+
+check() {
+  cd "$srcdir/OpenRCT2-$pkgver"
+
+  mkdir -p build
+  make test
+}
+
+package() {
+  cd "$srcdir/OpenRCT2-$pkgver/build"
+
+  make DESTDIR="$pkgdir" install
+
+  rm "$pkgdir/usr/lib/libopenrct2.a"
+  rmdir "$pkgdir/usr/lib"
+}
