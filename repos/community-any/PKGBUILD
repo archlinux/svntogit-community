@@ -1,0 +1,62 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-sus-fixtures-async-http
+pkgver=0.2.3
+pkgrel=1
+pkgdesc='Test fixtures for running in Async::HTTP'
+arch=(any)
+url='https://github.com/socketry/sus-fixtures-async-http'
+license=(MIT)
+depends=(ruby-async-http ruby-async-io ruby-sus ruby-sus-fixtures-async)
+checkdepends=(ruby-bake-test)
+options=(!emptydirs)
+source=(https://github.com/socketry/sus-fixtures-async-http/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        $pkgname-missing-dep-on-async-http.patch::https://github.com/socketry/sus-fixtures-async-http/pull/2.patch)
+sha256sums=('a921939b2bd69140444c9acd6f327a27881addba213bf9a6f14a2fd574f0e885'
+            'f4bfb377270b9d5ff36a86adf8bbc4a25084bc9caacf4895fb7634a4aee8d58b')
+
+prepare() {
+  cd sus-fixtures-async-http-$pkgver
+  patch -p1 -i ../$pkgname-missing-dep-on-async-http.patch
+  sed -r -e 's|~>|>=|g' -e '/signing_key/d' -i sus-fixtures-async-http.gemspec
+  sed -i '/bake-gem/d;/bake-modernize/d;/covered/d' gems.rb
+  sed -i '/[cC]overed/d' config/sus.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd sus-fixtures-async-http-$pkgver
+  gem build sus-fixtures-async-http.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    sus-fixtures-async-http-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd sus-fixtures-async-http-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd sus-fixtures-async-http-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
