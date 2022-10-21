@@ -1,0 +1,78 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Gaetan Bisson <bisson@archlinux.org>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+# Contributor: Ronald van Haren <ronald.archlinux.org>
+# Contributor: tobias <tobias@archlinux.org>
+# Contributor: Ben <ben@benmazer.net>
+
+pkgname=scribus
+pkgver=1.5.8
+pkgrel=11
+pkgdesc="Desktop publishing software"
+arch=(x86_64)
+url="https://www.scribus.net/"
+license=(GPL)
+depends=(boost-libs cairo fontconfig freetype2 harfbuzz-icu
+         hunspell lcms2 libcdr libcups libfreehand libicuuc.so libjpeg libmspub
+         libpagemaker libpng libqxp librevenge libtiff libvisio libxml2 libzmf
+         openscenegraph openssl podofo poppler python3 qt5-base zlib) #graphicsmagick
+makedepends=(cmake boost mesa qt5-tools)
+optdepends=('tk: scripts based on tkinter'
+            'hyphen-lang: hyphenation patterns for desired languages')
+options=(!lto)
+source=("https://downloads.sourceforge.net/${pkgname}/${pkgname}-${pkgver}.tar.xz"{,.asc}
+        $pkgname-poppler-22.02.0.patch::https://github.com/scribusproject/scribus/commit/85c0dff3422f.patch
+        $pkgname-poppler-22.02.0-fixup.patch::https://github.com/scribusproject/scribus/commit/f75c1613db67.patch
+        $pkgname-poppler-22.03.0.patch::https://github.com/scribusproject/scribus/commit/f19410ac3b27.patch
+        $pkgname-poppler-22.04.0.patch::https://github.com/scribusproject/scribus/commit/f2237b8f0b5c.patch
+	scribus-1.5.8-poppler-22.09.0.patch)
+sha256sums=('47816e8fcf6d05788ff16aa4499f97ff22431c777a7789149b0a88b451e16b74'
+            'SKIP'
+            '718ae9c882889b56919ab9718185b915a75e75e193a028539722b537f528c3dd'
+            '2b57c0c6dbc93037b83e392d4721523efbccd8af1fe6fc11a26f1d2933b14a85'
+            '986717d7c99a418d765e6b3d8b37165067548e62b6febb9c31f8831689f3540e'
+            '1649ca7476fc2f548b64e72773aa94933a3993f3fd2cbb54a30486dc49575816'
+            'd1712c200f7be2eb4f791cc046379747af39a1f9a262a090ae2de990b939b9b3')
+validpgpkeys=(5086B8D68E70FDDF4C40045AEF7B95E7F60166DA  # Peter Linnell <plinnell@scribus.net>
+              757F5E9B13DD648887AD50092D47C099E782504E  # The Scribus Team (www.scribus.net) <the_scribus_team@scribus.net>
+              6558BE84D27273A438A151198BEA48118AEBEE64) # Craig Bradney <cbradney@zipworld.com.au>
+
+prepare() {
+  cd ${pkgname}-${pkgver}
+  patch -Np1 -i ../$pkgname-poppler-22.02.0.patch
+  patch -Np1 -i ../$pkgname-poppler-22.02.0-fixup.patch
+  patch -Np1 -i ../$pkgname-poppler-22.03.0.patch
+  patch -Np1 -i ../$pkgname-poppler-22.04.0.patch
+  patch -Np1 -i ../scribus-1.5.8-poppler-22.09.0.patch
+}
+
+build() {
+  cmake -B build -S ${pkgname}-${pkgver} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_SKIP_RPATH=ON \
+    -DWANT_CPP17=ON \
+    -DWANT_HUNSPELL=ON \
+    -DWITH_BOOST=ON \
+    -DWITH_PODOFO=ON \
+    -DWANT_GRAPHICSMAGICK=ON
+  make -C build
+}
+
+package() {
+  make -C build DESTDIR="${pkgdir}" install
+
+  cd ${pkgname}-${pkgver}
+
+  install -Dm644 scribus.desktop -t "${pkgdir}"/usr/share/applications
+
+  for i in 16x16 32x32 128x128 256x256 512x512 1024x1024
+  do
+    install -Dm644 resources/iconsets/artwork/icon_${i}.png "${pkgdir}"/usr/share/icons/hicolor/${i}/apps/scribus.png
+  done
+
+  # Use system hyphen
+  rm -rf "${pkgdir}"/usr/share/scribus/dicts/hyph
+  ln -sf /usr/share/hyphen "${pkgdir}"/usr/share/scribus/dicts/hyph
+}
