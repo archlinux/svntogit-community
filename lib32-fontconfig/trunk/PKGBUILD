@@ -3,30 +3,28 @@
 # Contributor: Jan de Groot <jgc@archlinux.org>
 
 pkgname=lib32-fontconfig
-pkgver=2.14.0
+pkgver=2.14.1
 pkgrel=1
 epoch=2
-pkgdesc='Library for configuring and customizing font access'
+pkgdesc="Library for configuring and customizing font access"
 url=https://www.freedesktop.org/wiki/Software/fontconfig/
 arch=(x86_64)
 license=(custom)
 depends=(
   fontconfig
   lib32-expat
-  libfreetype.so
+  lib32-freetype2
 )
 makedepends=(
   git
-  meson
   gperf
-  lib32-freetype2
+  meson
 )
-provides=(libfontconfig.so)
 install=fontconfig-32.install
 options=(debug)
-_tag=358ced9ac07d0660841645ac8ad06001cd9c3dd6
+_commit=c45e09df1ef235d653d56aef05012f6a3cc57979  # tags/2.14.1^0
 source=(
-  git+https://gitlab.freedesktop.org/fontconfig/fontconfig.git#tag=${_tag}
+  "git+https://gitlab.freedesktop.org/fontconfig/fontconfig.git#commit=$_commit"
   fontconfig-32.hook
 )
 b2sums=('SKIP'
@@ -38,16 +36,20 @@ prepare() {
 
 pkgver() {
   cd fontconfig
-  git describe --tags
+  git describe --tags | sed 's/[^-]*-g/r&/;s/-/+/g'
 }
 
 build() {
+  local meson_options=(
+    --libdir=/usr/lib32
+    -D doc=disabled
+  )
+
   export CC='gcc -m32'
   export CXX='g++ -m32'
   export PKG_CONFIG=i686-pc-linux-gnu-pkg-config
-  arch-meson fontconfig build \
-    --libdir=/usr/lib32 \
-    -D doc=disabled
+
+  arch-meson fontconfig build "${meson_options[@]}"
   meson compile -C build
 }
 
@@ -56,13 +58,21 @@ check() {
 }
 
 package() {
-  meson install -C build --destdir "${pkgdir}"
-  rm -r "${pkgdir}"/{etc,usr/{include,share}}
-  mv "${pkgdir}"/usr/bin/fc-cache{,-32}
-  find "${pkgdir}"/usr/bin -type f -not -name '*-32' -delete
-  install -Dm 644 *.hook -t "${pkgdir}"/usr/share/libalpm/hooks/
-  install -dm 755 "${pkgdir}"/usr/share/licenses
-  ln -s fontconfig "${pkgdir}"/usr/share/licenses/lib32-fontconfig
+  depends+=(
+    libexpat.so
+    libfreetype.so
+  )
+  provides+=(libfontconfig.so)
+
+  meson install -C build --destdir "$pkgdir"
+
+  rm -r "$pkgdir"/{etc,usr/{include,share}}
+
+  mv "$pkgdir"/usr/bin/fc-cache{,-32}
+  find "$pkgdir"/usr/bin -type f -not -name '*-32' -delete
+
+  install -Dm644 *.hook -t "$pkgdir/usr/share/libalpm/hooks"
+  install -Dm644 fontconfig/COPYING -t "$pkgdir/usr/share/licenses/$pkgname"
 }
 
-# vim:set sw=2 et:
+# vim:set sw=2 sts=-1 et:
