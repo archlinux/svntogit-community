@@ -9,7 +9,7 @@
 
 pkgname=calibre
 pkgver=6.7.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Ebook management application'
 arch=(x86_64)
 url=https://calibre-ebook.com
