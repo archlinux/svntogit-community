@@ -1,0 +1,66 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-snowglobe
+# https://github.com/mcmire/snowglobe/issues/4
+pkgver=0.3.0.20200907
+_gemver=0.3.0
+_commit=408ee4c08f823a4d9f89902fa0fa29aff7cafe6d
+pkgrel=1
+pkgdesc='Snowglobe is a gem that helps erect and destroy Rails applications for use in tests'
+arch=(any)
+url='https://github.com/mcmire/snowglobe'
+license=(MIT)
+depends=(ruby)
+checkdepends=(ruby-rake ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/mcmire/snowglobe/archive/$_commit/$pkgname-$_commit.tar.gz
+        $pkgname-missing-requires.patch::https://github.com/mcmire/snowglobe/pull/5.patch)
+sha256sums=('4683fed34e5915a5ee155c3fbd840a21e7fc50c00963e60afe35fbb50706f719'
+            '8472428e53a6863f1f13f43d0a670b4e32824b5f16b989b174a68462c889fe8d')
+
+prepare() {
+  cd snowglobe-$_commit
+  patch -Np1 -i ../$pkgname-missing-requires.patch
+  sed -r -e 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' -i snowglobe.gemspec
+  sed -i '/appraisal/d;/pry/d;/rails/d;/rubocop/d;/super_diff/d' Gemfile
+  sed -i '/assert_appraisal/d;/current_bundle/d;/super_diff/d;/rails/d;/pry/d' spec/spec_helper.rb
+  rm spec/unit/rails_application_spec.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd snowglobe-$_commit
+  gem build snowglobe.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    snowglobe-$_gemver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd snowglobe-$_commit
+  GEM_HOME="tmp_install/$_gemdir" rspec
+}
+
+package() {
+  cd snowglobe-$_commit
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
