@@ -1,0 +1,57 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-build-environment
+pkgver=1.13.0
+pkgrel=1
+pkgdesc='A nested hash data structure for controlling build environments'
+arch=(any)
+url='https://github.com/ioquatix/build-environment'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-rspec ruby-rake)
+options=(!emptydirs)
+source=(https://github.com/ioquatix/build-environment/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('51e5a811a6d43a32754f5472088ed96f7b5ee1930bc655a91ebaaf399393bbea')
+
+prepare() {
+  cd build-environment-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -i build-environment.gemspec spec/spec_helper.rb
+  sed -r 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' -i build-environment.gemspec
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd build-environment-$pkgver
+  gem build build-environment.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    build-environment-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd build-environment-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd build-environment-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
