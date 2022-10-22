@@ -3,7 +3,7 @@
 # Contributor: Michael Yeatts <mwyeatts@gmail.com>
 
 pkgname=python-typing_extensions
-pkgver=4.3.0
+pkgver=4.4.0
 pkgrel=1
 pkgdesc='Backported and Experimental Type Hints for Python 3.7+'
 arch=(any)
@@ -26,9 +26,7 @@ build() {
 check() {
   cd typing_extensions
 
-  python -m venv --system-site-packages test-env
-  test-env/bin/python -m installer dist/*.whl
-  test-env/bin/python src/test_typing_extensions.py
+  python -m unittest discover src
 }
 
 package() {
