@@ -1,0 +1,72 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Jelle van der Waa <jelle@archlinux.org>
+# Contributor: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Vesa Kaihlavirta <vegai@iki.fi>
+# Contributor: shild <shildv@gmail.com>
+
+pkgname=xmonad
+pkgver=0.17.1
+pkgrel=39
+pkgdesc='Lightweight X11 tiled window manager written in Haskell'
+url='https://xmonad.org/'
+arch=('x86_64')
+license=('BSD')
+depends=('ghc' 'haskell-x11' 'haskell-data-default-class' 'haskell-setlocale')
+makedepends=('gendesk' 'pandoc' 'haskell-quickcheck' 'haskell-quickcheck-instances')
+optdepends=('xorg-xmessage: for displaying visual error messages')
+source=(${pkgname}-${pkgver}.tar.gz::https://github.com/xmonad/xmonad/archive/v${pkgver}.tar.gz
+        dynamic-compilation.patch
+        xmonad.svg)
+sha512sums=('606f0f94ded7d62790e65157333787579a74e3f948a56eab1eddf5dbffd989e5d308b2a79a41b0b81435b8f62d3962f2a9f629274a9fed6688b750f471128665'
+            'ddfc766627459c804c3d675250132d0d9b34db0d1c6191ec91717801f6ee495521303d3f0f288cc162abf9d141ee3d276167b6540fa6c806340b90f9229bb377'
+            '31f0ceb724a9931aeda75ab706c8908b5d8341af4df50ab1d749814baacb748ad3622601cd99ac03bf936b698fcd854b23d1541e1772306e3337a13a79b110b6')
+
+prepare() {
+  gendesk --pkgname "${pkgname}" --pkgdesc "${pkgdesc}"
+  cd ${pkgname}-${pkgver}
+  patch -p1 -i "${srcdir}/dynamic-compilation.patch"
+}
+
+build() {
+  cd ${pkgname}-${pkgver}
+
+  runhaskell Setup configure -O \
+    --enable-shared \
+    --enable-executable-dynamic \
+    --disable-library-vanilla \
+    --prefix=/usr \
+    --dynlibdir=/usr/lib \
+    --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname \
+    --enable-tests \
+    --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+  
+  make -C man xmonad.1 --always-make
+}
+
+check() {
+  cd ${pkgname}-${pkgver}
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd ${pkgname}-${pkgver}
+
+  install -Dm 744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+  install -Dm 744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+
+  runhaskell Setup.lhs copy --destdir="${pkgdir}"
+
+  install -Dm 644 man/xmonad.1 -t "${pkgdir}/usr/share/man/man1"
+  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/xmonad"
+  install -Dm 644 "$srcdir/xmonad.svg" -t "${pkgdir}/usr/share/pixmaps"
+  install -Dm 644 "$srcdir/xmonad.desktop" -t "${pkgdir}/usr/share/xsessions"
+}
+
+# vim: ts=2 sw=2 et:
