@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-pry
+pkgver=0.14.1
+pkgrel=1
+pkgdesc='A runtime developer console and IRB alternative with powerful introspection capabilities'
+arch=(any)
+url='http://pry.github.io/'
+license=(MIT)
+depends=(ruby-coderay ruby-method_source)
+checkdepends=(ruby-rake ruby-rspec ruby-yard)
+options=(!emptydirs)
+source=(https://github.com/pry/pry/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('28161bad1d4a0d65bd17dbd1807f1fe88578adb9190175eae1bdf2bcbe6131a7')
+
+prepare() {
+  cd pry-$pkgver
+  sed -i -r -e 's|~>|>=|' -e 's|git ls-files bin lib \*.md LICENSE|find bin lib *.md LICENSE -type f|' pry.gemspec
+  # Tests expected to run in the `pry` directory
+  sed -i "s|pry/foo|pry-$pkgver/foo|" spec/cli_spec.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd pry-$pkgver
+  gem build pry.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    pry-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd pry-$pkgver
+  EDITOR=vim TERM=screen-256color GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd pry-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
