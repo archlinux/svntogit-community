@@ -1,0 +1,62 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-bump
+# https://github.com/gregorym/bump/issues/97
+_commit=73c206174ca02549d120402b9a007db0d0bc9699
+pkgver=0.10.0
+pkgrel=1
+pkgdesc='Bump your gem version file'
+arch=(any)
+url='https://github.com/gregorym/bump'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-rake ruby-rspec)
+checkdepends=(git ruby-byebug)
+options=(!emptydirs)
+source=(https://github.com/gregorym/bump/archive/$_commit/$pkgname-$_commit.tar.gz)
+sha256sums=('5c9cadc741b565a01fb860261f4ff0c5128147245505e0b55d5360335ca26fa4')
+
+prepare() {
+  cd bump-$_commit
+  sed -e '/[rR]ubo[cC]op/d' -e 's|git ls-files lib README.md|find lib README.md -type f|' -i bump.gemspec Rakefile
+  git config --global user.email "pony@arch"
+  git config --global user.name "Lucky Pony"
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd bump-$_commit
+  gem build bump.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "../tmp_install/$_gemdir" \
+    --bindir "../tmp_install/usr/bin" \
+    bump-$pkgver.gem
+  find "../tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r ../tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd bump-$_commit
+  GEM_HOME="../tmp_install/$_gemdir" rake spec
+}
+
+package() {
+  cd bump-$_commit
+  cp -a ../tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
