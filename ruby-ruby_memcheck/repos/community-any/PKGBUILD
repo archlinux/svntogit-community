@@ -1,0 +1,57 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-ruby_memcheck
+pkgver=1.2.0
+pkgrel=1
+pkgdesc='Use Valgrind memcheck without going crazy'
+arch=(any)
+url='https://github.com/Shopify/ruby_memcheck'
+license=(MIT)
+depends=(valgrind ruby-nokogiri)
+makedepends=(ruby-minitest ruby-minitest-parallel_fork ruby-rake ruby-rake-compiler ruby-rspec-core)
+options=(!emptydirs)
+source=(https://github.com/Shopify/ruby_memcheck/archive/$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('f498e761b734c0664b2acdbd3cf4ee841d0cd1132fde959de64081fb91a965be')
+
+prepare() {
+  cd ruby_memcheck-$pkgver
+  sed -r -e '/rubocop/d' -e 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' -i ruby_memcheck.gemspec
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd ruby_memcheck-$pkgver
+  gem build ruby_memcheck.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    ruby_memcheck-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd ruby_memcheck-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd ruby_memcheck-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
