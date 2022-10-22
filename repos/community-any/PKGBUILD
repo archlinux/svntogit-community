@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-fakefs
+pkgver=1.8.0
+pkgrel=1
+pkgdesc='A fake filesystem. Use it in your tests.'
+arch=(any)
+url='https://github.com/fakefs/fakefs'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-bump ruby-maxitest ruby-rake ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/fakefs/fakefs/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('371533d8a0f924db3b918ca7b5e859ce48cccaf58921f05291b255bae244af1c')
+
+prepare() {
+  cd fakefs-$pkgver
+  sed -r -e 's|~>|>=|' -e '/rubocop/d' -e 's|git ls-files lib README.md LICENSE|find lib README.md LICENSE -type f|' -i fakefs.gemspec
+  sed -i -e "/rubocop/d" Rakefile
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd fakefs-$pkgver
+  gem build fakefs.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    fakefs-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd fakefs-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake test spec
+}
+
+package() {
+  cd fakefs-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
