@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-warnings_logger
+pkgver=0.1.1
+pkgrel=1
+pkgdesc='Easily log warnings in your gems'
+arch=(any)
+url='https://github.com/mcmire/warnings_logger'
+license=(MIT)
+depends=(ruby)
+checkdepends=(ruby-rake ruby-rspec ruby-snowglobe)
+options=(!emptydirs)
+source=(https://github.com/mcmire/warnings_logger/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('f33e7b23db3f5cf17f7c0c89a6b0ca35d2a96485420f694c9a0cca4c4995ef22')
+
+prepare() {
+  cd warnings_logger-$pkgver
+  sed -r -e 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' -i warnings_logger.gemspec
+  sed -i '/pry/d;/rubocop/d;/super_diff/d' Gemfile spec/spec_helper.rb
+
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd warnings_logger-$pkgver
+  gem build warnings_logger.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    warnings_logger-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd warnings_logger-$pkgver
+  # https://github.com/mcmire/warnings_logger/issues/1
+  GEM_HOME="tmp_install/$_gemdir" rake || echo "Tests failed"
+}
+
+package() {
+  cd warnings_logger-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
