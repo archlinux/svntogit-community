@@ -1,0 +1,65 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-byebug
+pkgver=11.1.3
+pkgrel=1
+pkgdesc='A simple to use and feature rich debugger for Ruby'
+arch=(x86_64)
+url='https://github.com/deivid-rodriguez/byebug'
+license=(BSD)
+depends=(ruby)
+checkdepends=(ruby-mdl ruby-minitest ruby-pry ruby-rake ruby-rake-compiler ruby-rexml ruby-simplecov
+              ruby-yard)
+options=(!emptydirs)
+source=(https://github.com/deivid-rodriguez/byebug/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        minitest-5.16.patch)
+sha256sums=('1482205e562425e5adf1525b0b72e06e49a6ae7640ff3a742f5b60c485fdc3b7'
+            '5082ae41ad5dd2c096a532b0d64fc8ae7d40050193a0b42528f5a3f3d38b131a')
+
+prepare() {
+  cd byebug-$pkgver
+  patch -p1 -i ../minitest-5.16.patch
+  sed -e '/chandler/d;/[rR]ubo[cC]op/d' -e 's|~>|>=|' -e 's/"mdl", "0.9.0"/"mdl", ">= 0.9.0"/' -i Rakefile Gemfile
+  rm Gemfile.lock
+  sed -i '/bundler/d' bin/minitest
+  # TODO
+  sed -i '/test_finish_inside_autoloaded_files/a skip' test/commands/finish_test.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd byebug-$pkgver
+  gem build byebug.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    byebug-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd byebug-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake test
+}
+
+package() {
+  cd byebug-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
