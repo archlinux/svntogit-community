@@ -1,0 +1,65 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-falcon
+pkgver=0.42.3
+pkgrel=1
+pkgdesc='A fast, asynchronous, rack-compatible web server'
+arch=(any)
+url='https://github.com/socketry/falcon'
+license=(MIT)
+depends=(ruby-async ruby-async-container ruby-async-http ruby-async-http ruby-async-http-cache
+         ruby-async-io ruby-build-environment ruby-localhost ruby-process-metrics ruby-protocol-rack
+         ruby-samovar)
+makedepends=(ruby-async-process ruby-async-rspec ruby-async-websocket ruby-bake ruby-rspec)
+checkdepends=(ruby-bake-test ruby-puma)
+options=(!emptydirs)
+source=(https://github.com/socketry/falcon/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        https://github.com/socketry/falcon/commit/e93d153d53faf42710d7a2890425b6b77e188914.patch)
+sha256sums=('d43ce8a64d0c95e5d783738142374b11586e51cbe6aea0da3cb6d4be47e2c7d5'
+            '3238b59daf1c7c62a59c0f86188e73745252be962098d7cb67655ca083577113')
+
+prepare() {
+  cd falcon-$pkgver
+  # Revert for openssl < 3.0 support
+  patch -Rp1 -i ../e93d153d53faf42710d7a2890425b6b77e188914.patch
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/signing_key/d' -i falcon.gemspec spec/spec_helper.rb
+  sed -i '/bake-gem/d;/bake-modernize/d;/bake-github-pages/d;/utopia-project/d;/bake-test-external/d;/ruby-prof/d' gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd falcon-$pkgver
+  gem build falcon.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    falcon-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd falcon-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd falcon-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
