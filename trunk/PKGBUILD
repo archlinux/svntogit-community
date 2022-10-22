@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-protocol-websocket
+pkgver=0.9.1
+pkgrel=1
+pkgdesc='A low level implementation of the WebSocket protocol'
+arch=(any)
+url='https://github.com/socketry/protocol-websocket'
+license=(MIT)
+depends=(ruby-protocol-http ruby-protocol-http1)
+makedepends=(ruby-sus)
+checkdepends=(ruby-bake-test ruby-async-websocket ruby-async-http ruby-falcon)
+options=(!emptydirs)
+source=(https://github.com/socketry/protocol-websocket/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('f72a9c90bf385b835f9988470b0cd64352b3805ab70a403dad3d74702af649ad')
+
+prepare() {
+  cd protocol-websocket-$pkgver
+  sed -r -e 's|~>|>=|g' -e '/covered/d' -e '/signing_key/d' -i protocol-websocket.gemspec
+  sed -i '/bake-modernize/d;/bake-gem/d;/utopia-project/d;/bake-test-external/d' gems.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd protocol-websocket-$pkgver
+  gem build protocol-websocket.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    protocol-websocket-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd protocol-websocket-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" bake test
+}
+
+package() {
+  cd protocol-websocket-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 license.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
