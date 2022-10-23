@@ -1,0 +1,71 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=esqueleto
+pkgname=haskell-esqueleto
+pkgver=3.5.4.1
+pkgrel=3
+pkgdesc="Type-safe EDSL for SQL queries on persistent backends."
+url="https://github.com/bitemyapp/esqueleto"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-attoparsec' 'haskell-blaze-html' 'haskell-conduit'
+         'haskell-monad-logger' 'haskell-persistent' 'haskell-resourcet' 'haskell-tagged'
+         'haskell-unliftio' 'haskell-unordered-containers')
+makedepends=('ghc' 'haskell-hspec' 'haskell-hspec-core' 'haskell-mysql' 'haskell-mysql-simple'
+             'haskell-persistent-mysql' 'haskell-persistent-postgresql' 'haskell-persistent-sqlite'
+             'haskell-postgresql-simple')
+checkdepends=('mariadb' 'pifpaf' 'postgresql')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('2c3b58ac3b439023fc23ac59eee48da1a4dc4e3699812ca0b5d0033e723ea2b858f2c8ff1cb82056ba9441b4b3f33aa32ff4f14bc73cefca0c6b7b80f3bd5dc3')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/port=5432/port=9824/' test/PostgreSQL/Test.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-mysql -f-postgresql
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    # Copied from haskell-persistent-mysql
+    mkdir -p /tmp/mysql_test
+    mysql_install_db --datadir=/tmp/mysql_test
+    mysqld --datadir=/tmp/mysql_test --socket=/tmp/socket.mysql --port 33306 --skip-grant-tables &
+    MYSQL_PID=$!
+    sleep 5
+    mysql -h 127.0.0.1 -P 33306 -u root -e "create database IF NOT EXISTS esqutest;"
+
+    # Copied from haskell-persistent-postgresql
+    eval $(pifpaf run postgresql --host 127.0.0.1)
+    createuser -s esqutest
+    createdb -O esqutest esqutest
+    
+    # mysql tests fail the same way as haskell-persistent-mysql, due to incompatibility with mariadb
+    TRAVIS=true runhaskell Setup test --show-details=direct || echo "Tests failed"
+
+    kill $MYSQL_PID
+    pifpaf_stop
+}
+
+package() {
+    cd $_hkgname-$pkgver
+    
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
