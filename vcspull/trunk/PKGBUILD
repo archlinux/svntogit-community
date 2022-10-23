@@ -1,0 +1,54 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+pkgname='vcspull'
+pkgver=1.17.0
+pkgrel=1
+pkgdesc='Synchronize projects via yaml/json manifest. Built using `libvcs`'
+arch=('any')
+url='https://vcspull.git-pull.com/'
+license=('MIT')
+depends=('python' 'python-colorama' 'python-libvcs' 'python-shtab' 'python-typing_extensions' 'python-yaml')
+makedepends=('python-build' 'python-installer' 'python-poetry-core')
+checkdepends=('git' 'python-pytest' 'python-pytest-rerunfailures')
+optdepends=(
+  'bash-completion: for command line completion in bash'
+)
+source=("https://github.com/vcs-python/vcspull/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('9b8eae95db598e072ec3dbd0b1535495c696c9a60a8bbd026d336762dc4f401fb326382a2a77e5176f7184b6c8b0bbad6612070d7fedbd440029c104bb67329b')
+
+build() {
+  cd  "${pkgname}-${pkgver}"
+
+  python -m build --wheel --skip-dependency-check --no-isolation
+}
+
+check() {
+  cd  "${pkgname}-${pkgver}"
+
+  local _site_packages="$(python -c "import site; print(site.getsitepackages()[0])")"
+
+  python -m installer --destdir=test_dir dist/*.whl
+
+  export PYTHONPATH="test_dir${_site_packages}:${PYTHONPATH}"
+
+  pytest -vv tests
+}
+
+package() {
+  cd  "${pkgname}-${pkgver}"
+
+  python -m installer --destdir="${pkgdir}" dist/*.whl
+
+  install --verbose --directory --mode=0755 \
+      "${pkgdir}/usr/share/bash-completion/completions" \
+      "${pkgdir}/usr/share/zsh/site-functions" \
+      "${pkgdir}/etc/profile.d"
+
+  shtab --shell=bash --error-unimportable vcspull.cli.create_parser > "${pkgdir}/usr/share/bash-completion/completions/${pkgname}"
+  shtab --shell=zsh --error-unimportable vcspull.cli.create_parser > "${pkgdir}/usr/share/zsh/site-functions/_${pkgname}"
+  shtab --shell=tcsh --error-unimportable vcspull.cli.create_parser > "${pkgdir}/etc/profile.d/${pkgname}.completion.csh"
+
+  install --verbose -D --mode=0644 LICENSE --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
+  install --verbose -D --mode=0644 *.md CHANGES MIGRATION --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+  install --verbose -D --mode=0644 examples/* --target-directory "${pkgdir}/usr/share/doc/${pkgname}/examples"
+}
