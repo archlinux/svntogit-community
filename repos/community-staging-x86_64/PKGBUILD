@@ -1,0 +1,61 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=shake
+pkgname=haskell-shake
+pkgver=0.19.6
+pkgrel=41
+pkgdesc="Build system library, like Make, but more accurate dependencies."
+url="https://shakebuild.com"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-extra' 'haskell-filepattern' 'haskell-hashable'
+         'haskell-heaps' 'haskell-js-dgtable' 'haskell-js-flot' 'haskell-js-jquery'
+         'haskell-primitive' 'haskell-random' 'haskell-unordered-containers' 'haskell-utf8-string')
+makedepends=('ghc' 'haskell-quickcheck')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz")
+sha512sums=('da9cc21226603a7828b0bcef418ee4f896c22f40413d67672f5f28474ab9b7b2222131d595f103d068437c72506532b138146bd69f9d049821b80722283cbfd3')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/ghc --make/ghc -dynamic --make/' src/Test/{Command.hs,CloseFileHandles.hs}
+    sed -e 's/ghc -package=Cabal/ghc -package=Cabal -dynamic/' \
+        -e 's/ghc -fno-code/ghc -dynamic -fno-code/' \
+        -e 's/"configure",/"configure","--enable-executable-dynamic","--disable-library-vanilla",/' \
+        -e '/newValue/i \            ,"free = undefined"' \
+        -i src/Test/Docs.hs
+    sed -i 's/cmd "ghc" flags/cmd "ghc" "-dynamic" flags/' src/Test/Self.hs src/Test/SelfMake.hs
+    sed -i 's/ghc --make/ghc -dynamic --make/' docs/manual/build.sh
+
+    # Not sure about this one:
+    sed -i 's/at cmd, called at/at want, called at/' src/Test/Errors.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-portable -f-cloud -f-embed-files
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
