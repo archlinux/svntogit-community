@@ -1,0 +1,65 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-cucumber
+pkgver=8.0.0
+pkgrel=1
+pkgdesc="Behaviour Driven Development with elegance and joy"
+arch=(any)
+url='https://github.com/cucumber/cucumber-ruby'
+license=(MIT)
+depends=(ruby-builder ruby-cucumber-ci-environment ruby-cucumber-core
+         ruby-cucumber-cucumber-expressions ruby-cucumber-gherkin ruby-cucumber-html-formatter
+         ruby-cucumber-messages ruby-diff-lcs ruby-mime-types ruby-multi_test ruby-sys-uname)
+makedepends=(ruby-cucumber-compatibility-kit ruby-nokogiri ruby-pry ruby-rake ruby-rspec
+             ruby-simplecov ruby-syntax ruby-test-unit ruby-webrick ruby-octokit ruby-rack-test
+             ruby-sinatra)
+options=(!emptydirs)
+source=(https://github.com/cucumber/cucumber-ruby/archive/v$pkgver/cucumber-cucumber-ruby-$pkgver.tar.gz)
+sha256sums=('5e382fc00fd04842813f58c7c7a1b43c2ddf6a8e5c53ae9916daba95462cdb6a')
+
+prepare() {
+  cd cucumber-ruby-$pkgver
+  sed -i -e '/capybara/d' -e 's|~>|>=|' cucumber.gemspec
+  sed -i '/[rR]ubo[cC]op/d' Rakefile
+  rm Gemfile
+  sed -i -e 's/bundle exec //' spec/cck/cck_spec.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd cucumber-ruby-$pkgver
+  gem build cucumber.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    cucumber-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd cucumber-ruby-$pkgver
+  # cck disabled: "ci" is not supported in latest cucumber-messages
+  PATH="$PWD/tmp_install/usr/bin:$PATH" GEM_HOME="tmp_install/$_gemdir" rake spec cucumber
+}
+
+package() {
+  cd cucumber-ruby-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
