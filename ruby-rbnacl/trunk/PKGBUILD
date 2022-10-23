@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-rbnacl
+pkgver=7.1.1
+pkgrel=1
+pkgdesc='Ruby FFI binding to the Networking and Cryptography (NaCl) library (libsodium)'
+arch=(any)
+url='https://github.com/RubyCrypto/rbnacl'
+license=(MIT)
+depends=(libsodium ruby-ffi)
+makedepends=(ruby-rspec ruby-rake)
+options=(!emptydirs)
+source=(https://github.com/RubyCrypto/rbnacl/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('89048b825f128f412de8b1b365bef3599586a496f9fca7247084382c3d859a3e')
+
+prepare() {
+  cd rbnacl-$pkgver
+  sed 's/git ls-files/find -type f/' -i rbnacl.gemspec
+  sed -i '/rubocop/d;/guard-rspec/d;/[cC]overalls/d' Rakefile Gemfile spec/spec_helper.rb
+  rm tasks/rubocop.rake
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd rbnacl-$pkgver
+  gem build rbnacl.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    rbnacl-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd rbnacl-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake spec
+}
+
+package() {
+  cd rbnacl-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
