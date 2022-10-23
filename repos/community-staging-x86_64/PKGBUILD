@@ -1,0 +1,56 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=coinbase-pro
+pkgname=haskell-coinbase-pro
+pkgver=0.9.3.0
+pkgrel=17
+pkgdesc="Client for Coinbase Pro"
+url="https://github.com/mdunnio/coinbase-pro#readme"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-hsopenssl' 'haskell-aeson' 'haskell-aeson-casing' 'haskell-async'
+         'haskell-cryptonite' 'haskell-http-api-data' 'haskell-http-client'
+         'haskell-http-client-tls' 'haskell-http-streams' 'haskell-http-types' 'haskell-io-streams'
+         'haskell-memory' 'haskell-network' 'haskell-servant' 'haskell-servant-client'
+         'haskell-servant-client-core' 'haskell-tasty' 'haskell-tasty-hunit' 'haskell-unagi-streams'
+         'haskell-unordered-containers' 'haskell-uuid' 'haskell-vector' 'haskell-websockets'
+         'haskell-wuss')
+makedepends=('ghc' 'uusi')
+source=("https://github.com/mdunnio/coinbase-pro/archive/$pkgver/$pkgname-$pkgver.tar.gz.tar.gz")
+sha256sums=('3a528ca36814c3d866ea63ae85c9dda23bd4481aca3eb89ad0179b980ddf33fb')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -u aeson -u cryptonite -u http-api-data -u http-client -u memory -u servant -u servant-client -u servant-client-core -u vector -u wuss $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' 
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
