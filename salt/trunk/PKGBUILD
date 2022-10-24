@@ -6,7 +6,7 @@
 # Contributor: zer0def <zer0def@github>
 
 pkgname=salt
-pkgver=3005
+pkgver=3005.1
 pkgrel=1
 
 pkgdesc='Central system and configuration manager'
@@ -38,9 +38,11 @@ backup=('etc/logrotate.d/salt'
 
 install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
+        "fix-entrypoint.patch::https://github.com/saltstack/salt/commit/b676e6338a7c094cb3335d11f851ac0e12222017.patch"
         salt.logrotate)
 
-sha256sums=('1d200c45b88046178ea56fb5a75726dc620cc5e51411076a04df80ff52f79cd4'
+sha256sums=('fa14c5d873f863b50950121d7e23a2449502745490c7c48c0cf045406cfe57c1'
+            '219f23ddd44003c8572201495834cf8d84967b182d29157fa3ce73270785b7ab'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
@@ -51,6 +53,8 @@ prepare() {
   # we only have one version and the "python_version <=> *" checks are discarded
   # so pyzmq<=20.0.0 ends up in the final requirements.txt
   echo -e '-r crypto.txt\n\npyzmq' > requirements/zeromq.txt
+
+  patch -Np1 < "$srcdir/fix-entrypoint.patch"
 }
 
 build() {
