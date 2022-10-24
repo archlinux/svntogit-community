@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-shellany
+pkgver=0.0.1
+pkgrel=1
+pkgdesc='MRI+JRuby compatible command output capturing'
+arch=(any)
+url='https://github.com/guard/shellany'
+license=(MIT)
+depends=(ruby)
+makedepends=(ruby-nenv ruby-rake ruby-rspec)
+options=(!emptydirs)
+source=(https://github.com/guard/shellany/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('410e663d9bb7d508fef05cbc730065ac9c1021a6b70cc98d08d23795c3c4eb4a')
+
+prepare() {
+  cd shellany-$pkgver
+  sed -i 's|git ls-files -z|find . -type f -not -path "*/\.git/*" -printf "%P\\\\0"|' shellany.gemspec
+  sed -i '1i require "shellany"' spec/shellany_spec.rb
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd shellany-$pkgver
+  gem build shellany.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    shellany-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd shellany-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd shellany-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
