@@ -4,7 +4,7 @@
 # Contributor: Dimitris Kiziridis <ragouel@outlook.com>
 
 pkgname=python-charset-normalizer
-pkgver=2.1.1
+pkgver=3.0.0
 pkgrel=1
 pkgdesc='Encoding and language detection alternative to chardet'
 arch=(any)
@@ -16,7 +16,7 @@ makedepends=(
   python-setuptools
 )
 checkdepends=(python-pytest)
-_tag=47c8e714accc5aa8a9446319a9a6f3f002f2e248
+_tag=0ec52eff710ede4924eb0bb2a243b781ea547cb6
 source=(git+https://github.com/Ousret/charset_normalizer.git#tag=${_tag})
 b2sums=(SKIP)
 
