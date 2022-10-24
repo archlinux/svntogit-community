@@ -3,7 +3,7 @@
 _name=pure_eval
 pkgname=python-pure-eval
 pkgver=0.2.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Safely evaluate AST nodes without side effects'
 arch=('any')
 url=https://github.com/alexmojaki/pure_eval
