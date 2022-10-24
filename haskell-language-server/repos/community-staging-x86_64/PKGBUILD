@@ -1,0 +1,70 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=haskell-language-server
+pkgver=1.5.0.0
+pkgrel=19
+pkgdesc="LSP server for GHC"
+url="https://github.com/haskell/haskell-language-server#readme"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-aeson-pretty' 'haskell-async'
+         'haskell-base16-bytestring' 'haskell-cryptohash-sha1' 'haskell-data-default'
+         'haskell-extra' 'haskell-ghc' 'haskell-ghc-api-compat' 'haskell-ghc-paths' 'haskell-gitrev'
+         'haskell-hashable' 'haskell-hie-bios' 'haskell-hiedb' 'haskell-hls-call-hierarchy-plugin'
+         'haskell-hls-eval-plugin' 'haskell-hls-explicit-imports-plugin'
+         'haskell-hls-floskell-plugin' 'haskell-hls-fourmolu-plugin' 'haskell-hls-ormolu-plugin'
+         'haskell-hls-graph' 'haskell-hls-haddock-comments-plugin' 'haskell-hls-hlint-plugin'
+         'haskell-hls-module-name-plugin' 'haskell-hls-ormolu-plugin' 'haskell-hls-plugin-api'
+         'haskell-hls-pragmas-plugin' 'haskell-hls-retrie-plugin'
+         'haskell-hls-stylish-haskell-plugin' 'haskell-hslogger' 'haskell-lens' 'haskell-lens-aeson'
+         'haskell-lsp' 'haskell-optparse-applicative' 'haskell-optparse-simple' 'haskell-regex-tdfa'
+         'haskell-safe-exceptions' 'haskell-sqlite-simple' 'haskell-temporary'
+         'haskell-unordered-containers')
+# Disabled due to not compatible with GHC 9:
+# 'haskell-hls-brittany-plugin' 'haskell-hls-class-plugin' 'haskell-hls-splice-plugin' 'haskell-hls-tactics-plugin' 'haskell-hls-refine-imports-plugin'
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils' 'haskell-hspec-expectations' 'haskell-lsp-test'
+             'haskell-lsp-types')
+checkdepends=('cabal-install')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz"
+        haskell-language-server-aeson-2.patch)
+sha512sums=('7e79501fd3f52620731d92c54d41de3137d81fd8a548ce5790f56539ecef5f2f38a6f119c79f9b38defcc48c370a2f5b4fc2a8875b93be732246327fc0232cc1'
+            'ef13dbef55343271d4bd5bd8ae3150597113c5b6503fb6bb39544e11345172f38798b1d9bb131c5734bce366a59d98387ae288c2d5b5a3f3740ee135b48bbf8f')
+
+prepare() {
+  cd $pkgname-$pkgver
+  patch -p1 -i ../haskell-language-server-aeson-2.patch
+  find test/testdata -name \*.cabal -exec uusi --add-options-all=-dynamic {} \;
+  uusi -u ghc-api-compat $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' \
+    -fignore-plugins-ghc-bounds -f-brittany -f-class -f-refineImports -f-tactic -f-splice
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  PATH="$PWD/dist/build/haskell-language-server:$PWD/dist/build/haskell-language-server-wrapper:$PATH" LD_LIBRARY_PATH="$PWD/dist/build" runhaskell Setup test || echo "Tests failed"
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
