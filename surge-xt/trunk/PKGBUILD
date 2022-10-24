@@ -6,12 +6,12 @@
 
 pkgname=surge-xt
 pkgver=1.1.1
-pkgrel=4
+pkgrel=5
 pkgdesc='Subtractive hybrid synthesizer'
 arch=('x86_64')
 url='https://surge-synthesizer.github.io'
 license=('GPL3')
-groups=('pro-audio' 'vst3-plugins' 'clap-plugins')
+groups=('pro-audio' 'vst3-plugins' 'clap-plugins' 'lv2-plugins')
 depends=(
   'glibc'
   'gcc-libs'
@@ -43,12 +43,15 @@ makedepends=(
   'jack'
   'webkit2gtk'
   'ripgrep'
+  'lv2'
+  'juce'
 )
 optdepends=(
   'jack: backend for standalone'
   'alsa-lib: backend for standalone'
   'vst3-host: for VST3 plugins'
   'clap-host: for CLAP plugins'
+  'lv2-host: for LV2 plugins'
 )
 options=('!lto' 'debug') # LTO disabled due to crashes at application startup
 _commit='ecf7fe632390e6539685c9538a968c3d367c0f2c'
@@ -56,6 +59,7 @@ source=(
   "$pkgname::git+https://github.com/surge-synthesizer/surge#commit=$_commit"
   'improve-reproducibility.patch'
   'devendor-libs.patch'
+  'fix-lv2-ftbfs.patch'
   'github.com-surge-synthesizer-tuning-library::git+https://github.com/surge-synthesizer/tuning-library'
   'github.com-surge-synthesizer-eurorack::git+https://github.com/surge-synthesizer/eurorack'
   'github.com-surge-synthesizer-JUCE::git+https://github.com/surge-synthesizer/JUCE'
@@ -71,10 +75,13 @@ source=(
   'github.com-LuaJIT-LuaJIT::git+https://github.com/LuaJIT/LuaJIT'
   'github.com-taocpp-PEGTL::git+https://github.com/taocpp/PEGTL'
   'github.com-gulrak-filesystem::git+https://github.com/gulrak/filesystem'
+  'github.com-lv2-porting-project-JUCE::git+https://github.com/lv2-porting-project/JUCE#branch=lv2'
 )
 b2sums=('SKIP'
         '6e71b56ffde699319def99e03637d9c3fb6197a6e0637b9f44b52a9207a8e06c8d482c05cdd711ec2c5901f403381dda70e786bca6b56cce14dc449325f24761'
         '6bbeef320c380fb8bf9339add847bf7db237a2f93f544c2237e2d51ef9a1f497916539ace523c9b0911acabc755d872d5318170887aa62b27654eee40de6b693'
+        'c43e5a1b9605243be07ab3903885836a2199787f0c7a8dc6ae2be9d8d4a91bcf07fde520c3440f1be425194476065cb287b99446b144c5cd76d012fb0f10f35e'
+        'SKIP'
         'SKIP'
         'SKIP'
         'SKIP'
@@ -158,6 +165,10 @@ prepare() {
   patch -p1 -i "$srcdir/devendor-libs.patch"
   rg --files-with-matches 'include "fmt/core.h"' | xargs -I@ sed 's|"fmt/core.h"|<fmt/core.h>|g' -i @
   rg --files-with-matches 'include "samplerate.h"' | xargs -I@ sed 's|"samplerate.h"|<samplerate.h>|g' -i @
+
+  # add missing LV2 header
+  cd "$srcdir/github.com-lv2-porting-project-JUCE"
+  patch -p1 -i "$srcdir/fix-lv2-ftbfs.patch"
 }
 
 build() {
@@ -175,10 +186,28 @@ build() {
     -DSURGE_BUILD_TESTRUNNER=OFF
 
   cmake --build build
+
+  # build LV2 plugin
+  cmake \
+    -B build-lv2 \
+    -S "$pkgname" \
+    -DCMAKE_INSTALL_PREFIX='/usr' \
+    -DCMAKE_INSTALL_LIBDIR='/usr/lib' \
+    -DCMAKE_BUILD_TYPE=Release \
+    -W no-dev \
+    -DSURGE_BUILD_TESTRUNNER=OFF \
+    -DJUCE_SUPPORTS_LV2=True \
+    -DSURGE_JUCE_PATH="$srcdir/github.com-lv2-porting-project-JUCE"
+
+  cmake --build build-lv2 --target surge-xt_LV2 surge-fx_LV2 --parallel
 }
 
 package() {
   DESTDIR="$pkgdir" cmake --install build
+
+  # LV2 plugin
+  install -vd "$pkgdir/usr/lib/lv2"
+  cp -vr build-lv2/surge_xt_products/*.lv2 "$pkgdir/usr/lib/lv2"
 
   cd "$pkgname"
 
