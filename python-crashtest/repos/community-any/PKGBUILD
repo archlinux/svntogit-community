@@ -4,14 +4,14 @@
 _pkgname=crashtest
 pkgname=python-crashtest
 pkgver=0.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc='supposedly makes exceptions handling and inspection easier'
 arch=(any)
 url="https://github.com/sdispater/${_pkgname}"
 license=(MIT)
 depends=(python)
 makedepends=(python-{build,installer,wheel}
-             python-poetry)
+             python-poetry-core)
 checkdepends=(python-pytest)
 _archive="$_pkgname-$pkgver"
 source=("$url/archive/$pkgver/$_archive.tar.gz")
