@@ -4,17 +4,18 @@
 _pkgname=cachy
 pkgname=python-cachy
 pkgver=0.3.0
-pkgrel=7
+pkgrel=8
 pkgdesc='simple yet effective caching library'
 arch=(any)
 url="https://github.com/sdispater/${_pkgname}"
 license=(MIT)
 depends=(python)
-makedepends=(python-{build,installer}
-             python-wheel # todo: make this go away
-             python-poetry)
+makedepends=(python-{build,installer,wheel}
+             python-poetry-core)
 _checkdeps=(flexmock pytest-mock memcached fakeredis)
-checkdepends=("${_checkdeps[@]/#/python-}" pifpaf memcached)
+checkdepends=("${_checkdeps[@]/#/python-}"
+              pifpaf
+              memcached)
 _archive="$_pkgname-$pkgver"
 source=("https://files.pythonhosted.org/packages/source/${_pkgname:0:1}/$_pkgname/$_archive.tar.gz"
         fix-flexmock_teardown-import.patch)
