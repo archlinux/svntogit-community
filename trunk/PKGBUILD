@@ -5,7 +5,7 @@
 _pkgname=tomlkit
 pkgname=python-tomlkit
 pkgver=0.11.5
-pkgrel=1
+pkgrel=2
 pkgdesc="Style-preserving TOML library for Python"
 url="https://github.com/sdispater/tomlkit"
 license=('MIT')
@@ -13,7 +13,7 @@ arch=('any')
 depends=('python')
 makedepends=('python-build'
              'python-installer'
-             'python-poetry'
+             'python-poetry-core'
              'python-wheel')
 checkdepends=('python-pytest'
               'python-yaml')
