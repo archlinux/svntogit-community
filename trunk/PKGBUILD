@@ -4,14 +4,14 @@
 # Contributor: Iwan Timmer <irtimmer@gmail.com>
 
 pkgname=containerd
-pkgver=1.6.8
+pkgver=1.6.9
 pkgrel=1
 pkgdesc='An open and reliable container runtime'
 url='https://containerd.io/'
 depends=('runc')
 makedepends=('go' 'git' 'btrfs-progs' 'libseccomp' 'containers-common' 'go-md2man')
 provides=('container-runtime')
-arch=('x86_64')
+arch=('x86_64' 'aarch64')
 license=("Apache")
 source=("git+https://github.com/containerd/containerd.git#tag=v${pkgver}?signed")
 validpgpkeys=("8C7A111C21105794B0E8A27BF58C5D0A4405ACDB") # Derek McGowan
