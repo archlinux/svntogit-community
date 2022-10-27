@@ -3,8 +3,8 @@
 
 _pkgname=build
 pkgname=python-$_pkgname
-pkgver=0.8.0
-pkgrel=2
+pkgver=0.9.0
+pkgrel=1
 pkgdesc='A simple, correct PEP 517 build frontend'
 arch=('any')
 url='https://github.com/pypa/build'
