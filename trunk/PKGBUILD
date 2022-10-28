@@ -2,60 +2,72 @@
 
 pkgname=spectmorph
 pkgver=0.5.2
-pkgrel=1
+pkgrel=3
 pkgdesc="Analyze samples of musical instruments and combine them (morphing)"
-arch=('x86_64')
+arch=(x86_64)
 url="http://spectmorph.org/"
-license=('LGPL3')
-groups=('lv2-plugins' 'pro-audio' 'vst-plugins')
-depends=('cairo' 'gcc-libs' 'glibc' 'libglvnd' 'libx11' 'zlib')
-makedepends=('fftw' 'freetype2' 'glib2' 'jack' 'lv2' 'libao' 'libsndfile'
-'qt5-base')
-checkdepends=('lv2lint')
-optdepends=('jack: for smjack and smsampleedit'
-            'qt5-base: for sminspector and smsampleedit')
-provides=('libspectmorphjack.so' 'libspectmorphgui.so' 'libspectmorphglui.so'
-'libspectmorph.so')
-source=("http://www.spectmorph.org/files/releases/${pkgname}-${pkgver}.tar.bz2"
-        "http://spectmorph.org/files/instruments/${pkgname}-instruments-${pkgver}.tar.xz")
+license=(LGPL3)
+groups=(lv2-plugins pro-audio vst-plugins)
+depends=(cairo gcc-libs glibc libx11 zlib)
+makedepends=(fftw freetype2 glib2 jack lv2 libao libglvnd libsndfile
+qt5-base)
+checkdepends=(lv2lint)
+optdepends=(
+  'jack: for smjack and smsampleedit'
+  'qt5-base: for sminspector and smsampleedit'
+)
+provides=(libspectmorphjack.so libspectmorphgui.so libspectmorphglui.so
+libspectmorph.so)
+options=(debug)
+source=(
+  http://www.spectmorph.org/files/releases/$pkgname-$pkgver.tar.bz2
+  http://spectmorph.org/files/instruments/$pkgname-instruments-$pkgver.tar.xz
+)
 sha512sums=('c98607ca3dc0f1a3063bf376431e2d43241a1ccbc864e03ed8726e366d9ab8d43a1f82547743bbb3111494ba819ece8b96deac34c151beccee479e2c4055013c'
             '7c1353be42b04e0b0107a994a0236b4be5ddf387e436786eeca7173751961f4dcf3b887de84c538d43119a3c9fb3b50cab3850afee4d1634e64803a83daef7da')
 b2sums=('0abba1ae9e7e37880ba0b7ae8c6e4de535e863d14bd8d579be1afa432d62d44ba0b04bd28b007513c6095e5d132b1a0ed51675841f3cc712a4a252aa40c9bd8c'
         '213d844979c262af63d78f28cba301a2d255c9b31442c3c31b0ce900ffb56d1d0fd38829b3156c159e476b9321790b2af0279dd1dfbf88dd9c86ed2d0863a979')
 
 prepare() {
-  cd "$pkgname-$pkgver"
+  cd $pkgname-$pkgver
   autoreconf -vfi
 }
 
 build() {
-  cd "$pkgname-$pkgver"
+  cd $pkgname-$pkgver
   ./configure --prefix=/usr \
               --with-lv2 \
               --with-jack \
               --with-qt
+  # prevent excessive overlinking due to libtool
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
   make
 }
 
 check() {
-  cd "$pkgname-$pkgver"
+  cd $pkgname-$pkgver
   cp -v lv2/.libs/*.so lv2/
   LV2_PATH="${PWD}" lv2lint "http://spectmorph.org/plugins/spectmorph" || echo "Known failing tests: https://github.com/swesterfeld/spectmorph/issues/8"
   rm -v lv2/*.so
 }
 
 package() {
-  depends+=('libao.so' 'libfftw3f.so' 'libfftw3f_threads.so' 'libfreetype.so'
-  'libglib-2.0.so' 'libsndfile.so')
-  cd "$pkgname-$pkgver"
+  depends+=(
+    libao libao.so
+    fftw libfftw3f.so libfftw3f_threads.so
+    freetype2 libfreetype.so
+    glib2 libglib-2.0.so
+    libglvnd libGL.so
+    libsndfile libsndfile.so
+  )
+
+  cd $pkgname-$pkgver
   make DESTDIR="$pkgdir/" install
   # standard instruments
-  install -vDm 644 ../instruments/standard/* \
-    -t "${pkgdir}/usr/share/${pkgname}/instruments/standard/"
+  install -vDm 644 ../instruments/standard/* -t "$pkgdir/usr/share/$pkgname/instruments/standard/"
   # docs
-  install -vDm 644 {AUTHORS,DESIGN,NEWS,README.md,TODO} \
-    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  install -vDm 644 {AUTHORS,DESIGN,NEWS,README.md,TODO} -t "$pkgdir/usr/share/doc/$pkgname/"
   # sminstbuilder is not compatible with python3:
   # https://github.com/swesterfeld/spectmorph/issues/6
-  rm -v "${pkgdir}/usr/bin/sminstbuilder"
+  rm -v "$pkgdir/usr/bin/sminstbuilder"
 }
