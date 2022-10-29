@@ -2,7 +2,7 @@
 
 _name=executing
 pkgname=python-executing
-pkgver=1.1.1
+pkgver=1.2.0
 pkgrel=1
 pkgdesc='Get the currently executing AST node of a frame, and other information'
 arch=('any')
@@ -13,8 +13,8 @@ makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
              'python-wheel')
 checkdepends=('python-asttokens' 'python-littleutils' 'python-pytest')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('b0d7f8dcc2bac47ce6e39374397e7acecea6fdc380a6d5323e26185d70f38ea8')
-b2sums=('cac459eb66650ce8915331fd0f8482dd5bf92cbf9053eefe671ba0e9a6f4ec9c9881c4d998b653390e22ca758dfa2ab2c0e58b33be1190114b8d9dbccb06dcf6')
+sha256sums=('19da64c18d2d851112f09c287f8d3dbbdf725ab0e569077efb6cdcbd3497c107')
+b2sums=('662048e98a1eb3128dd57bbd61a8b7d7fb90dcf5adabc532c69f9ecce2a8ca73cf496ce7ba9b19c94d40083be1382b59dd673b36840e004a7cd0add888292ada')
 
 build() {
   cd "$_name-$pkgver"
