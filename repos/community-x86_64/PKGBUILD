@@ -1,0 +1,70 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=myMPD
+pkgname=mympd
+pkgver=10.0.3
+pkgrel=3
+pkgdesc="A standalone and lightweight web-based MPD client"
+arch=(x86_64)
+url="https://github.com/jcorporation/myMPD"
+license=(GPL3)
+depends=(glibc lua53 openssl)
+makedepends=(cmake flac jq libid3tag pcre2 perl)
+options=(debug)
+source=(
+  $pkgname-$pkgver.tar.gz::https://github.com/jcorporation/$pkgname/archive/refs/tags/v$pkgver.tar.gz
+  $pkgname-10.0.3-harden_systemd.patch::https://github.com/jcorporation/myMPD/pull/875/commits/fecb778ce5e5b4423362d872ba125944d647c020.patch
+  $pkgname-10.0.3-full_relro.patch
+)
+sha512sums=('c4365c091b535fd30914c7ac53d8cdb4edd446c769f11b3279bab7b11f53992278692c40b1ec26c33bba43818d723e0be2a13713b9b880c0a24e903cc13827e1'
+            'b1786c015b505c014fa38242141e7d57ab83aaa8b569bdfb432c74b43dbcb710e87b9137e7cf75d19249ae253714e0e89e7392066e197d2d0d75aca051435581'
+            'c7d50053eeb06ac80c8019c7554ab16b77e7625867f703d9e6342258613516053af1ac14fe1b1f7846fbb06909c3f671c87484b4b128f10b0a9346b60945d488')
+b2sums=('5a7fe7adb9ab26c29b223d4adb8b0a82178ade961eb904fd85c2d2150b2383132bfbc0ab678463349f1e8be24673d4ac0edc30d5d69b7351c136d42e64fcb37a'
+        '99788ddf1f664034f7422cfeafd1a93b2a3d8bf5f1d6588de57b94fb6b1ca9d2427c944381ec0121a74530337024562b30f8d4c7fa68ff395c4035add0a6cef0'
+        'f199bed4ef3baec3b04df1315b0e6a12a6c1c6064b7fc2e1256a2199edbdee34bc43593cec4bb297b8fcf9f2e2a9383b8f29c10674e0e26b412f1383e11f78e4')
+
+prepare() {
+  # harden systemd service: https://github.com/jcorporation/myMPD/issues/873
+  patch -Np1 -d $_name-$pkgver -i ../$pkgname-10.0.3-harden_systemd.patch
+  # do not do a debug build when unsetting CMAKE_BUILD_TYPE: https://github.com/jcorporation/myMPD/issues/872
+  patch -Np1 -d $_name-$pkgver -i ../$pkgname-10.0.3-full_relro.patch
+
+  cd $_name-$pkgver
+  mkdir -vp build
+  ./build.sh createassets
+  mv -v release/* build/
+}
+
+build() {
+  cd $_name-$pkgver
+  # NOTE: out-of-tree builds currently not possible: https://github.com/jcorporation/myMPD/issues/871
+  cmake \
+    -B build \
+    -S . \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DEMBEDDED_ASSETS=ON \
+    -DENABLE_FLAC=ON \
+    -DENABLE_FLAC=ON \
+    -DENABLE_IPV6=ON \
+    -DENABLE_LIBID3TAG=ON \
+    -DENABLE_LUA=ON \
+    -DENABLE_SSL=ON \
+    -Wno-dev
+  cmake --build build
+}
+
+check() {
+  ctest --test-dir $_name-$pkgver/build --output-on-failure
+}
+
+package() {
+  depends+=(
+    flac libFLAC.so
+    libid3tag libid3tag.so
+    pcre2 libpcre2-8.so
+  )
+
+  DESTDIR="$pkgdir" cmake --install $_name-$pkgver/build
+  install -vDm 644 $_name-$pkgver/{CHANGELOG,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
