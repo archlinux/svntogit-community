@@ -18,7 +18,7 @@ optdepends=(python-aiobotocore python-aiohttp python-bottle python-django
             python-pg8000 python-psycopg2 python-pymongo python-pymysql
             python-pynamodb python-requests python-sqlalchemy)
 makedepends=(python-setuptools ${optdepends[@]})
-checkdepends=(python-pytest python-pytest-aiohttp python-testing.postgresql
+checkdepends=(python-pytest python-pytest-asyncio python-pytest-aiohttp python-testing.postgresql
               python-webtest python-django-fake-model python-mock python-pytest-benchmark)
 # Not using PyPI source tarball as it does not include tests
 source=("https://github.com/aws/aws-xray-sdk-python/archive/$pkgver/$pkgname-$pkgver.tar.gz"
@@ -38,6 +38,11 @@ prepare() {
 
   # https://github.com/aws/aws-xray-sdk-python/issues/321
   patch -Np1 -i ../python310.diff
+
+  cat > pytest.ini <<EOF
+[pytest]
+asyncio_mode = auto
+EOF
 }
 
 build() {
@@ -53,10 +58,13 @@ check() {
   export AWS_SECRET_ACCESS_KEY=fake_key
   export AWS_ACCESS_KEY_ID=fake_id
 
-  # the test suite for pymysql uses testing.mysqld, which is not
-  # compatible with MariaDB
-  # https://github.com/tk0miya/testing.mysqld/issues/3
-  pytest -v tests --ignore tests/ext/pymysql
+  # * the test suite for aiohttp uses test_client fixture, which is
+  #   dropped in the latest pytest-aiohttp
+  # * the test suite for pymysql uses testing.mysqld, which is not
+  #   compatible with MariaDB [1]
+  # [1] https://github.com/tk0miya/testing.mysqld/issues/3
+  pytest -v tests --ignore tests/ext/aiohttp \
+                  --ignore tests/ext/pymysql
 }
 
 package() {
