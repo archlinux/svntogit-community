@@ -1,7 +1,7 @@
 # Maintainer:
 
 pkgname=python-hatch-fancy-pypi-readme
-pkgver=22.3.0
+pkgver=22.8.0
 pkgrel=1
 pkgdesc='Fancy PyPI READMEs with Hatch'
 arch=(any)
@@ -11,7 +11,7 @@ depends=(python-hatchling)
 makedepends=(python-build python-installer)
 checkdepends=(python-pytest python-wheel)
 source=(https://github.com/hynek/hatch-fancy-pypi-readme/archive/$pkgver/$pkgname-$pkgver.tar.gz)
-sha256sums=('3a51bbe0eb5044f012083ce2954e0875116553429289d29712b824defe90fab0')
+sha256sums=('4563ec6793d10b076f6f2e5a4ab576b6005ac0ed15b5ed108b62901e82880685')
 
 build() {
   cd hatch-fancy-pypi-readme-$pkgver
