@@ -20,9 +20,13 @@ checkdepends=(python-pytest python-pytest-xdist python-jsonschema python-mock pr
 provides=(aws-cli)
 conflicts=(aws-cli)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/aws/aws-cli/archive/$pkgver.tar.gz"
-        prompt-toolkit-3.0.29.diff)
+        prompt-toolkit-3.0.29.diff
+        build-ac.index-in-tmp.diff
+        fix-env.diff)
 sha256sums=('0ca266c345099fd7edea4befddf1bc571e84a21870c5ba0fc5fd7612c04ccc0c'
-            'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636')
+            'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636'
+            '3f5633c7f83b346f79a9af2baee476e6967ef8fa62636a535dee1e011ef978db'
+            '893d61d7e958c3c02bfa1e03bf58f6f6abd98849d248cc661f1c56423df9f312')
 
 prepare() {
   cd aws-cli-$pkgver
@@ -32,15 +36,20 @@ prepare() {
 
   # See: https://github.com/prompt-toolkit/python-prompt-toolkit/commit/97ac51413f8d412599233fc3da44d4c7fc456f8c
   patch -Np1 -i ../prompt-toolkit-3.0.29.diff
+
+  # ac.index is an SQLite database, and building it on copy-on-write filesystems (ex: BTRFS) takes ages
+  patch -Np1 -i ../build-ac.index-in-tmp.diff
+
+  # Fix conflicts between tests/functional/test_clidriver.py::TestSession and tests/functional/botocore/leak/test_resource_leaks.py
+  patch -Np1 -i ../fix-env.diff
 }
 
 build() {
   cd aws-cli-$pkgver
 
-  echo "Generating auto-complete index. Takes a few minutes..."
-  PYTHONPATH="$PWD" ./scripts/gen-ac-index --index-location=./awscli/data/ac.index
-
   python -m build --wheel --no-isolation --skip-dependency-check
+  # Copy the built ac.index for tests
+  cp -v build/unpacked_wheel/awscli/data/ac.index awscli/data/ac.index
 }
 
 check() {
@@ -51,9 +60,9 @@ check() {
 
   export PYTHONPATH="$PWD"
 
-  # --basetemp is for tests/backends
   # Use --dist=loadfile following upstream. The default --dist=load may cause test failures and is not faster
-  pytest tests -n auto --dist loadfile --basetemp="$PWD/tmp" --ignore=tests/integration
+  # Disable backend tests - those tests check if aws-cli can be installed or not, and are not compatible with all kinds of environments
+  pytest tests -n auto --dist loadfile --ignore=tests/backends --ignore=tests/integration
 }
 
 package() {
