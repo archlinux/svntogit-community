@@ -1,15 +1,9 @@
 # Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Angel Velasquez <angvp@archlinux.org>
 # Contributor: Felix Yan <felixonmars@archlinux.org>
 # Contributor: Stéphane Gaudreault <stephane@archlinux.org>
 # Contributor: Alexander Fehr <pizzapunk gmail com>
-
-# Upstream test suite does not current pass in our build environment. Among
-# other issues one test seems to be intended to lint a bogus import, but it
-# ends up actually trying to run the code—of course throwing an error. This
-# seems to build and work as expected but until I figure out how to either pass
-# all tests or disable the ones that don't make sense...
-BUILDENV+=(!check)
 
 _pyname=pylint
 pkgname=python-$_pyname
@@ -49,9 +43,6 @@ prepare() {
 	sed -i -E '/^requires/s/~=[0-9.]+//g' pyproject.toml
 	# Remove overly restrictive dependency pinning that ends up in runtime checks
 	sed -i -e '/>=/{s/>.*//;p}' -e '/python_requires/d' setup.cfg
-	# Give ourselves a way to granularly disable test dependent on installed path
-	sed -i -e '/^markers =/a\    pathdependent: Does not play nice' setup.cfg
-	sed -i -e '/test_do_not_import_files_from_local_directory_with_pythonpath/i\    @pytest.mark.pathdependent' tests/test_self.py
 }
 
 build() {
@@ -61,10 +52,15 @@ build() {
 }
 
 check() {
-	cd "$_archive"
-	PYTHONPATH="$PWD:$PWD/build/lib" pytest -vv --color=yes \
-		-m 'not pathdependent' \
+	local deselected=(
+		--deselect tests/test_functional.py::test_functional
+		--deselect tests/test_self.py::TestRunTC::test_do_not_import_files_from_local_directory
+		--deselect tests/testutils/test_testutils_utils.py::test__test_environ_pythonpath_no_arg
 		--deselect tests/benchmark/test_baseline_benchmarks.py
+	)
+	cd "$_archive"
+	export PYTHONPATH="$PWD:$PWD/build/lib"
+	pytest -vv --color=yes "${deselected[@]}"
 }
 
 package() {
