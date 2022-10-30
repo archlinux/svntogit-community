@@ -1,0 +1,61 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-pandoc-ruby
+pkgver=2.1.6
+pkgrel=1
+pkgdesc='Ruby wrapper for pandoc'
+arch=(any)
+url='https://github.com/xwmx/pandoc-ruby'
+license=(MIT)
+depends=(pandoc ruby)
+checkdepends=(ruby-minitest ruby-mocha ruby-rake)
+options=(!emptydirs)
+source=(https://github.com/xwmx/pandoc-ruby/archive/$pkgver/$pkgname-$pkgver.tar.gz
+        $pkgname-pandoc-2.19.2.patch::https://github.com/xwmx/pandoc-ruby/pull/42.patch)
+sha256sums=('d7600d5a609d6b9aca50180804ace8f8950fafb42ba54a381855f835531779d9'
+            '17dad2b171b247df2eedfa42cf3385f4969be8beca6854c27ee6b75c1216b7dd')
+
+prepare() {
+  cd pandoc-ruby-$pkgver
+  patch -p1 -i ../$pkgname-pandoc-2.19.2.patch
+  rm Gemfile.lock
+  sed -i '/Gemfile.lock/d' pandoc-ruby.gemspec
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd pandoc-ruby-$pkgver
+  gem build pandoc-ruby.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    pandoc-ruby-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd pandoc-ruby-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake
+}
+
+package() {
+  cd pandoc-ruby-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
