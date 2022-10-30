@@ -1,0 +1,61 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-lemon
+pkgver=0.8.4
+pkgrel=1
+pkgdesc='Pucker-Strength Unit Testing'
+arch=(any)
+url='https://github.com/rubyworks/lemon'
+license=(BSD)
+depends=(ruby-rubytest ruby-ae ruby-ansi)
+checkdepends=(ruby-qed ruby-rake)
+options=(!emptydirs)
+source=(https://github.com/rubyworks/lemon/archive/$pkgver/$pkgname-$pkgver.tar.gz
+        $pkgname-fix-gemspec.patch::https://github.com/rubyworks/lemon/commit/286b191b41ddbd6b02bf63fbc435f36531a71dca.patch)
+sha256sums=('08f13991ab22e20c89864fa4daf47ca87ffa98d0c3ac4b5a44b739da1b64f40d'
+            '9da41ff1fc37a06a2519892760849fcda944cddedc6cefcfb0f2849fbf488b05')
+
+prepare() {
+  cd lemon-$pkgver
+  patch -p1 -i ../$pkgname-fix-gemspec.patch
+  # Patch version back
+  sed -i "s/0\\.8\\.5/$pkgver/" .ruby
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd lemon-$pkgver
+  gem build lemon.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    lemon-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd lemon-$pkgver
+  PATH="$PWD/tmp_install/usr/bin:$PATH" GEM_HOME="tmp_install/$_gemdir" rake test:qed test:unit
+}
+
+package() {
+  cd lemon-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+  install -Dm644 COPYING.rdoc -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
