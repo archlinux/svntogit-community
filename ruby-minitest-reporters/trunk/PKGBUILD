@@ -1,0 +1,91 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+# Contributor: Mario Finelli <mario at finel dot li>
+
+_gemname='minitest-reporters'
+pkgname="ruby-${_gemname}"
+pkgver=1.5.0
+pkgrel=2
+pkgdesc='Extend Minitest through simple hooks'
+arch=('any')
+url="https://github.com/minitest-reporters/${_gemname}"
+license=('MIT')
+depends=('ruby' 'ruby-ansi' 'ruby-builder' 'ruby-minitest' 'ruby-ruby-progressbar')
+makedepends=('rubygems' 'ruby-rdoc')
+checkdepends=('ruby-bundler' 'ruby-maruku' 'ruby-rake')
+options=('!emptydirs')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('40eebf49b740af556d8c817badf1e380d86b9b3f225708e981907dcb4becaf3b')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # replace git based file detection as we don't build from a git source
+  sed --in-place '/executable/d' "${_gemname}.gemspec"
+  sed --in-place --regexp-extended 's|git ls-files -- \{test,spec,features\}/\*|find test -type f|g' "${_gemname}.gemspec"
+  sed --in-place --regexp-extended 's|git ls-files|find . -type f -not -path "\*/\.git/*"|g' "${_gemname}.gemspec"
+
+  # remove rubocop
+  sed --in-place '/Run RuboCop on the lib directory/,+7d' Rakefile
+  sed --in-place '/rubocop/d' Rakefile "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  gem build "${_gemname}.gemspec"
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "$pkgdir/$_gemdir" \
+    --bindir "$pkgdir/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "${pkgdir}/${_gemdir}/cache/" \
+    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "${pkgdir}/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "${pkgdir}/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+
+  install --verbose -D --mode=0644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+# vim: set ts=2 sw=2 et:
