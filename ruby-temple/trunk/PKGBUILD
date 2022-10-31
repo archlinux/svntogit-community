@@ -1,0 +1,87 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='temple'
+pkgname="ruby-${_gemname}"
+pkgver=0.9.1
+pkgrel=1
+pkgdesc='Template compilation framework in Ruby'
+arch=('any')
+url="https://github.com/judofyr/${_gemname}"
+license=('MIT')
+depends=('ruby')
+checkdepends=('ruby-erubi' 'ruby-rspec' 'ruby-tilt')
+options=('!emptydirs')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('d0dded662825db43ec9c9f4331acff5166567f96600ce4acbd4eb360810146167b4d7fd41ec98327592e544ce1a3c27094a48af5f8e33eebf4b6726f3e8fd0c3')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # replace git based file detection as we don't build from a git source
+  sed --in-place '/executable/d' "${_gemname}.gemspec"
+  sed --in-place --regexp-extended 's|git ls-files -- \{test,spec,features\}/\*|find spec -type f|g' "${_gemname}.gemspec"
+  sed --in-place --regexp-extended 's|git ls-files|find . -type f -not -path "\*/\.git/*"|g' "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  gem build "${_gemname}.gemspec"
+
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "tmp_install/${_gemdir}/cache/" \
+    "tmp_install/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "tmp_install/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "tmp_install/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "tmp_install/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  GEM_HOME="tmp_install/${_gemdir}" rake spec
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
+
+  install --verbose -D --mode=0644 LICENSE* --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
+  install --verbose -D --mode=0644 CHANGES *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
