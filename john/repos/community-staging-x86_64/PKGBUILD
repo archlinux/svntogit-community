@@ -1,0 +1,152 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Maintainer: Thorsten Töpper <atsutane-tu@freethoughts.de>
+# Contributor: Andrea Scarpino <andrea@archlinux.org>
+# Contributor: Dale Blount <dale@archlinux.org>
+# Contributor: Tom Newsom <Jeepster@gmx.co.uk>
+# Contributor: Michal Krenek <mikos@sg1.cz>
+
+pkgname=john
+_jumbover=1
+_johnver=1.9.0
+pkgver=${_johnver}.jumbo${_jumbover}
+pkgrel=8
+pkgdesc='John the Ripper password cracker'
+url='https://www.openwall.com/john'
+arch=('x86_64')
+license=('GPL2' 'custom')
+depends=('openssl' 'gmp' 'libpcap' 'openmpi' 'gcc-libs' 'opencl-icd-loader'
+         'libxcrypt' 'libcrypt.so')
+optdepends=(
+  'bash-completion: completion for bash'
+  'lua: lua based john scripts'
+  'perl: perl based john scripts'
+  'ruby: ruby based john scripts'
+  'python: python based john scripts')
+makedepends=('pkg-config' 'opencl-headers')
+backup=('etc/john/john.conf')
+source=(https://www.openwall.com/john/k/john-${_johnver}-jumbo-${_jumbover}.tar.xz{,.sign}
+        john-pdf2john-path-fix.patch::https://github.com/openwall/john/commit/66cf12d17e9fa453b34bcd9d0b8dc4f1954e8cff.patch
+        john-fix-gcc11-build.patch::https://github.com/openwall/john/commit/8152ac071bce1ebc98fac6bed962e90e9b92d8cf.patch
+        john-fix-opencl-topology.patch::https://raw.githubusercontent.com/hlein/gentoo/bfdb9a0c7b1a88f607a7f33137ff60f2bf8002c0/app-crypt/johntheripper-jumbo/files/johntheripper-jumbo-1.9.0-opencl-fix.patch)
+sha512sums=('c5cb5dc739ee4c666f8479cdf10511fddc391b590c59f90c060d3ccd8449b794ac7b831a6d1f7553883892499e709a66578cfa4d62caef9b7e0a831eb827e808'
+            'SKIP'
+            '8ab1eb9736aa9114fc2ac6713a186e9938caeeb642ace820a6403a7f76959bb6b2fa42587a5ce7ce9e8569892d92bbd1c26248a4a577ecacfb5ed141958bf281'
+            '340e7effa0560665dc06c85bde464fad2b2e0aa051ba206e306c3286f43db83af089196cda79feb6fc0e512cb27b80808ee11436f07fd2d2956d7f10bb972cd8'
+            '81f9dabc6d8ad54944be7eb9b3c7204ce426db842325c31662038e213775c0a86288c860712e6d3c24f7a9d0b7a0fd8962126a25242f45e5f242307691a97d38')
+validpgpkeys=(
+  '297AD21CF86C948081520C1805C027FD4BDC136E' # Openwall offline signing key
+)
+
+prepare() {
+  cd ${pkgname}-${_johnver}-jumbo-${_jumbover}
+  patch -Np1 < "${srcdir}/john-pdf2john-path-fix.patch"
+  patch -Np1 < "${srcdir}/john-fix-gcc11-build.patch"
+  patch -Np1 < "${srcdir}/john-fix-opencl-topology.patch"
+  cd src
+  sed 's|$prefix/bin|/usr/lib/john|' -i configure.ac
+  autoreconf -fiv
+}
+
+build() {
+  cd ${pkgname}-${_johnver}-jumbo-${_jumbover}/src
+
+  CFLAGS+=' -fcommon' # https://wiki.gentoo.org/wiki/Gcc_10_porting_notes/fno_common
+
+  local CFLAGS="${CFLAGS} -DCPU_FALLBACK"
+  local options=(
+    --prefix=/usr
+    --with-systemwide
+    --disable-native-tests
+    --enable-openmp
+    --enable-mpi
+    --enable-opencl
+    --enable-pkg-config
+    --enable-pcap
+  )
+
+  if [[ "${CARCH}" == "x86_64" ]]; then
+    ./configure "${options[@]}" CFLAGS="${CFLAGS/-DCPU_FALLBACK}"
+    make clean; make
+    mv ../run/john{,-non-avx}
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mavx"
+    make clean; make
+    mv ../run/john{,-non-xop}
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mxop"
+    make clean; make
+  elif [[ "${CARCH}" == "i686" ]]; then
+    ./configure "${options[@]}" CFLAGS="${CFLAGS}"
+    make clean; make
+    mv ../run/john{,-non-mmx}
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mmmx"
+    make clean; make
+    mv ../run/john{,-non-sse}
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -msse2"
+    make clean; make
+    mv ../run/john{,-non-avx}
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mavx"
+    make clean; make
+    mv ../run/john{,-non-xop}
+    ./configure "${options[@]}" CFLAGS="${CFLAGS} -mxop"
+    make clean; make
+  else
+    ./configure "${options[@]}" CFLAGS="${CFLAGS}"
+    make clean; make
+  fi
+}
+
+package() {
+  cd ${pkgname}-${_johnver}-jumbo-${_jumbover}
+
+  # config
+  install -Dm 644 run/john.conf -t "${pkgdir}/etc/john"
+  install -Dm 644 run/*.conf -t "${pkgdir}/usr/share/john"
+
+  # opencl
+  install -Dm 644 run/kernels/* -t "${pkgdir}/usr/share/john/kernels"
+
+  # docs
+  install -d "${pkgdir}/usr/share/doc/john"
+  cp -r doc/* "${pkgdir}/usr/share/doc/john"
+  rm "${pkgdir}/usr/share/doc/john/README"
+  install -Dm 644 README.md "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 doc/LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  chmod -R o+r "${pkgdir}"/usr/share/doc/john/*
+
+  # completion
+  install -Dm 644 run/john.bash_completion "${pkgdir}/usr/share/bash-completion/completions/john"
+  install -Dm 644 run/john.zsh_completion "${pkgdir}/usr/share/zsh/site-functions/_john"
+
+  # scripts
+  install -d "${pkgdir}/usr/bin" "${pkgdir}/usr/lib/john"
+  install -Dm 755 run/{*.py,*.pl,*.rb,*.lua,*.js,mailer,benchmark-unify} -t "${pkgdir}/usr/lib/john"
+  for ext in lua pl rb py; do
+    for script in run/*."${ext}"; do
+      ln -sf "/usr/lib/john/$(basename "${script}")" "${pkgdir}/usr/bin/$(basename "${script/.${ext}/}")"
+    done
+  done
+  install -Dm 755 run/lib/* -t "${pkgdir}/usr/lib/john/lib"
+
+  # binaries
+  install -Dm 755 run/john -t "${pkgdir}/usr/bin"
+  install -Dm 755 run/john-non-* -t "${pkgdir}/usr/lib/john"||true
+  local john_bins=(bitlocker2john calc_stat cprepair dmg2john eapmd5tojohn genmkvpwd hccap2john \
+                   keepass2john mkvcalcproba putty2john racf2john raw2dyna SIPdump uaf2john \
+                   vncpcap2john wpapcap2john)
+  for bin in "${john_bins[@]}"; do
+    install -Dm 755 "run/${bin}" -t "${pkgdir}/usr/lib/john"
+    ln -sf "/usr/lib/john/${bin}" "${pkgdir}/usr/bin/${bin}"
+  done
+
+  # symlink john
+  for link in $(find run -maxdepth 1 -type l); do
+    ln -s john "${pkgdir}/usr/bin/$(basename "${link}")"
+    ln -s /usr/bin/john "${pkgdir}/usr/lib/john/$(basename "${link}")"
+  done
+
+  # data
+  install -Dm 644 run/*.chr run/*.lst run/dictionary* run/stats -t "${pkgdir}/usr/share/john"
+  install -Dm 644 run/rules/* -t "${pkgdir}/usr/share/john/rules"
+}
+
+# vim: ts=2 sw=2 et:
