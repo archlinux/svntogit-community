@@ -1,0 +1,97 @@
+# Maintainer:
+# Contributor: Fabian Bornschein <fabiscafe-cat-mailbox-dog-org>
+
+pkgbase=libgda6
+pkgname=(libgda6 libgda6-{postgres,sqlcipher})
+pkgver=6.0.0+r73+g94fa90ca2
+pkgrel=1
+pkgdesc="Database access library"
+arch=(x86_64)
+url="https://gitlab.gnome.org/GNOME/libgda"
+license=(GPL2)
+makedepends=(postgresql-libs sqlcipher json-glib iso-codes libsecret gtk3 graphviz
+             intltool gobject-introspection valgrind vala meson git)
+options=(debug)
+_commit=94fa90ca28bf68d1f819bd6b226345864a5c2ff4
+source=("git+https://gitlab.gnome.org/GNOME/libgda.git#commit=$_commit")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd libgda
+  git describe --tags | sed 's/LIBGDA_//;s/_/./g;s/[^-]*-g/r&/;s/-/+/g'
+}
+
+prepare() {
+  cd libgda
+  sed -i 's/libcryp-config/libgcrypt-config/g;s/libcryp-config/libcrypt-config/' meson.build
+}
+
+build() {
+
+  local meson_options=(
+    -D ui=true
+    -D help=true
+    -D graphviz=true
+    -D json=true
+    -D sqlcipher=true
+    -D libsoup=false # If enabled, will break apps that also depend on libsoup3
+    -D libsecret=true
+    -D examples=false
+    -D tools=false
+    -D doc=true
+    -D experimental=false
+    -D ldap=true
+    -D web=false # If enabled, pulls in libsoup, see -D libsoup
+    -D flatpak=false
+    -D vapi=true
+  )
+  
+  arch-meson libgda build "${meson_options[@]}"
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+package_libgda6() {
+  depends=(json-glib iso-codes libsecret gtk3 graphviz)
+  optdepends=('libgda6-postgres: provider for PostgreSQL'
+              'libgda6-sqlcipher: provider for SQLCipher')
+  meson install -C build --destdir "$pkgdir"
+  
+  cd "$pkgdir"
+  
+  # PostgreSQL
+  _pick libgda-postgres usr/lib/pkgconfig/libgda-postgres-*.pc
+  _pick libgda-postgres usr/lib/libgda-*/providers/libgda-postgres-*.so
+  
+  # SQLCipher
+  _pick libgda-sqlcipher usr/lib/pkgconfig/libgda-sqlcipher-*.pc
+  _pick libgda-sqlcipher usr/lib/libgda-*/providers/libgda-sqlcipher-*.so
+  _pick libgda-sqlcipher usr/include/libgda-*/providers/sqlcipher/gda-sqlcipher-provider.h
+}
+
+package_libgda6-postgres() {
+  pkgdesc="libgda6 provider for PostgreSQL"
+  depends=(libgda6 postgresql-libs)
+  
+  mv libgda-postgres/* "$pkgdir"
+}
+
+package_libgda6-sqlcipher() {
+  pkgdesc="libgda6 provider for SQLCipher"
+  depends=(libgda6 sqlcipher)
+  
+  mv libgda-sqlcipher/* "$pkgdir"
+}
