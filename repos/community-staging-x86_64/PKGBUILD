@@ -1,0 +1,67 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: David Runge <dvzrv@archlinux.org>
+# Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+# Contributor: Robert Knauer <robert@privatdemail.net>
+# Contributor: xav <xav at ethertricks dot net>
+
+pkgname=umurmur
+pkgver=0.2.20
+pkgrel=2
+pkgdesc='Minimalistic Mumble server'
+url="https://github.com/umurmur/umurmur"
+arch=('x86_64')
+license=('BSD')
+depends=('glibc' 'openssl')
+makedepends=('cmake' 'libconfig' 'protobuf-c')
+backup=('etc/umurmur/umurmur.conf')
+source=(${pkgname}-${pkgver}.tar.gz::https://github.com/umurmur/umurmur/archive/${pkgver}.tar.gz
+        "${pkgname}-0.2.19-config_location.patch::https://github.com/dvzrv/umurmur/commit/4f3ed41357bb6fcb7afddd5343b59cfef54d65a4.patch"
+        umurmur.sysusers
+        umurmur.service
+        umurmur.tmpfiles)
+sha512sums=('0913f5ba84b30fec4ae6a1521c442ff8c48121bbbca5de9082e04e41b36434fadb5f81cb2ea0bd0a8c63f6e541d15eeda3637667d8cc7113d38935ded320cef4'
+            'f18b5509e28b79ca7cc81425466fe9a483a3a644109e5bcb4aa01117649a0da355bc34cbf70610914d0b46092e3b0904f3b52a46f7363e51dc68a2a7cf37fef9'
+            'd84950a32ab8a2e84f5fe333cd2894e52aba624531644d106c982aa4ff04271d318543398fa7f48c719f26338679fa971bb5332472e9040ac9aa8a9b4a1f2832'
+            '0d34548ce1d1b3bc240664f5538d8b7dc31969731ef6ce04c99c9fab011e1d946eb5d5e91b14d66242d4a4955936f08752de9dd9ac7244886a53628079e8cfac'
+            'b49b65a1e87cba9d8b453dee23f9f1e89d9eeb326e9ce98a32605ac62f72d36c1efbca70ed1a87efe9294ef137d3f673429cd70b5051e03e0e85db310943c39e')
+b2sums=('7850d0f3a5c35db1f5ed2b2eea7725d288901eb7e49b9bf2f715963a102c6c6345ed90fd066d80a2666137918c73a58dd2c954321b69d0ce59f686e1c6d01e5a'
+        '77784dbc65eb7b5e238ae0888387f88d5c26d0402e5d6b6fd03e312339d68be05945c9ddf934a15a2c0643f685a01a7bbc12931e574b2adbf3a4422329a18101'
+        '549dda6277c3758d221a259d08d3f91658d7615b0c06ebf2af6f3966fd798ce6228ff9ccb653daeb1d2b592e029e96e756df779ad0d4a809e224f2071e5d76cc'
+        '82783532ec4c21bdd8484175b8eeba53a593c86a92e11d441ee2f92410df90fab132a9bf7d5de24af48ed42eec57ece97b5399545094558d73a370827bbe4118'
+        '935f8ea09c8cbb32dc508959181b707bfadd564c038b2c7a4ce213372242cdefaf75c7f3d76644f28246b666c93a0d89c5b4741f12f63261f19b99d8c0603219')
+
+prepare() {
+  cd ${pkgname}-${pkgver}
+  # install configuration file to a namespaced location and make it the default
+  # for the application as well: https://github.com/umurmur/umurmur/pull/170
+  patch -Np1 -i ../"${pkgname}-0.2.19-config_location.patch"
+
+  # https://github.com/umurmur/umurmur/issues/176
+  sed -i '/CRYPTO_mem_ctrl(CRYPTO_MEM_CHECK_ON);/d' src/ssli_openssl.c
+}
+
+build() {
+  cd ${pkgname}-${pkgver}
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXFLAGS+=" ${CPPFLAGS}"
+  cmake -DCMAKE_INSTALL_PREFIX='/usr' \
+        -DCMAKE_BUILD_TYPE='None' \
+        -Wno-dev \
+        -B build \
+        -S .
+  make VERBOSE=1 -C build
+}
+
+package() {
+  depends+=('libconfig.so' 'libprotobuf-c.so')
+  cd ${pkgname}-${pkgver}
+  make VERBOSE=1 DESTDIR="${pkgdir}" install -C build
+  install -vdm 750 "${pkgdir}/etc/${pkgname}"
+  install -vDm 644 "${srcdir}/umurmur.service" -t "${pkgdir}/usr/lib/systemd/system"
+  install -vDm 644 "${srcdir}/umurmur.sysusers" "${pkgdir}/usr/lib/sysusers.d/umurmur.conf"
+  install -vDm 644 "${srcdir}/umurmur.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/umurmur.conf"
+  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+  install -vDm 644 {AUTHORS,ChangeLog,README.md} -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+# vim: ts=2 sw=2 et:
