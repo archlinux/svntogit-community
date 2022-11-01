@@ -1,0 +1,81 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Santiago Torres-Arias <santiago@archlinux.org>
+# Contributor: Tom Newsom <Jeepster@gmx.co.uk>
+
+pkgbase=ettercap
+pkgname=(ettercap ettercap-gtk)
+pkgver=0.8.3.1
+pkgrel=2
+pkgdesc='Network sniffer/interceptor/logger for ethernet LANs'
+url='https://ettercap.github.com/ettercap/'
+arch=('x86_64')
+license=('GPL')
+depends=('glibc' 'openssl' 'zlib' 'libpcap' 'pcre' 'libltdl' 'libnet' 'ethtool' 'curl' 'geoip'
+         'ncurses' 'libncursesw.so' 'libformw.so' 'libpanelw.so' 'libmenuw.so' 'libcurl.so')
+makedepends=('ghostscript' 'cmake' 'gtk3' 'harfbuzz' 'check')
+options=('!emptydirs')
+backup=(etc/ettercap/etter.{conf,dns,mdns,nbns})
+source=(https://github.com/Ettercap/ettercap/archive/v${pkgver}/${pkgbase}-${pkgver}.tar.gz
+        cmake-harfbuzz.patch)
+sha512sums=('9bd71dcc1730293ee83934aca3587dfde662cb3890c12fafa557b6359f12226e5cb6f59a0db1aa11245a132b275e355e3bcc8952db921171d27b792827f148b5'
+            '56e75ae2fe6b3761a121d7062133c53d9b15894662c9ce341dd67eb4913983e926975f4a0901e2f2bf1c85933eb45e1842500e1c6a9af4738c761b328b3b8745')
+b2sums=('2680b97454626a6f1af3b21f689ba8eed7a023c3ef5cd84d5b2b5859382f398b3a6fc622270ca41941a8a18a7bdd260af64165344a33b2e195c86ee61567f2eb'
+        'da9a1306637e28b5c00b4e2615b999a92d3365f8fad7ba956c10e16e09c1fb8dbe3e529fb70758fc891d8741975026aa167f957316deb814def76014750cc50f')
+
+prepare() {
+  cd ${pkgbase}-${pkgver}
+  patch -Np1 < "${srcdir}/cmake-harfbuzz.patch"
+}
+
+build() {
+  export CFLAGS+=" ${CPPFLAGS}"
+  export CXXLAGS+=" ${CPPFLAGS}"
+
+  cd ${pkgbase}-${pkgver}
+  cmake -B build \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D INSTALL_PREFIX=/usr \
+    -D ENABLE_GTK=OFF \
+    -D ENABLE_TESTS=ON \
+    -D ENABLE_IPV6=ON
+  make -C build VERBOSE=1
+
+  cmake -B build-gtk \
+    -D CMAKE_BUILD_TYPE=Release \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D INSTALL_PREFIX=/usr \
+    -D ENABLE_GTK=ON \
+    -D ENABLE_TESTS=ON \
+    -D ENABLE_IPV6=ON
+  make -C build-gtk VERBOSE=1
+}
+
+check() {
+  cd ${pkgbase}-${pkgver}
+  make -C build test
+  make -C build-gtk test
+}
+
+package_ettercap() {
+  pkgdesc+=" - console"
+  provides=('libettercap.so')
+
+  cd ${pkgbase}-${pkgver}
+  make -C build DESTDIR="${pkgdir}" install
+  install -Dm 644 CHANGELOG README* -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+package_ettercap-gtk() {
+  pkgdesc+=" - GTK frontend"
+  depends+=('gtk3' 'harfbuzz')
+  optdepends=('polkit: run ettercap directly from menu')
+  provides=('ettercap' 'libettercap.so')
+  conflicts=('ettercap')
+
+  cd ${pkgbase}-${pkgver}
+  make -C build-gtk DESTDIR="${pkgdir}" install
+  install -Dm 644 CHANGELOG README* -t "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+# vim: ts=2 sw=2 et:
