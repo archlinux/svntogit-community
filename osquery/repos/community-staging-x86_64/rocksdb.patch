@@ -1,0 +1,117 @@
+commit 5c151f702a5622aaabb1f1bb5ff4cf9532c1cf92
+Author: Martin Pöhlmann <poehlmann@cqse.eu>
+Date:   Sat Oct 2 11:11:23 2021 +0200
+
+    Compile RocksDB with snappy 1.1.9 support enabled
+    
+    This allows us to load existing osquery db files created on Arch Linux.
+    See: https://bugs.archlinux.org/task/72251
+
+diff --git a/.gitmodules b/.gitmodules
+index 236ffd86b..408fdceb7 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -148,3 +148,6 @@
+ [submodule "libraries/cmake/source/aws-sdk-cpp/src/aws-sdk-cpp"]
+ 	path = libraries/cmake/source/aws-sdk-cpp/src/aws-sdk-cpp
+ 	url = https://github.com/aws/aws-sdk-cpp
++[submodule "libraries/cmake/source/snappy/src"]
++	path = libraries/cmake/source/snappy/src
++	url = https://github.com/google/snappy
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 225397101..a53c8c744 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -109,6 +109,7 @@ function(importLibraries)
+     "Linux,Darwin:popt"
+     "Linux,Darwin,Windows:rapidjson"
+     "Linux,Darwin,Windows:rocksdb"
++    "Linux,Darwin,Windows:snappy"
+     "Linux,Darwin,Windows:sleuthkit"
+     "Linux,Darwin,Windows:sqlite"
+     "Linux,Darwin,Windows:thrift"
+diff --git a/libraries/cmake/source/modules/Findsnappy.cmake b/libraries/cmake/source/modules/Findsnappy.cmake
+new file mode 100644
+index 000000000..32c9f911e
+--- /dev/null
++++ b/libraries/cmake/source/modules/Findsnappy.cmake
+@@ -0,0 +1,15 @@
++# Copyright (c) 2014-present, The osquery authors
++#
++# This source code is licensed as defined by the LICENSE file found in the
++# root directory of this source tree.
++#
++# SPDX-License-Identifier: (Apache-2.0 OR GPL-2.0-only)
++
++include("${CMAKE_CURRENT_LIST_DIR}/utils.cmake")
++
++importSourceSubmodule(
++  NAME "snappy"
++
++  SHALLOW_SUBMODULES
++    "src"
++)
+diff --git a/libraries/cmake/source/rocksdb/CMakeLists.txt b/libraries/cmake/source/rocksdb/CMakeLists.txt
+index 72caacbb1..1a5045889 100644
+--- a/libraries/cmake/source/rocksdb/CMakeLists.txt
++++ b/libraries/cmake/source/rocksdb/CMakeLists.txt
+@@ -370,6 +370,7 @@ function(rocksdbMain)
+           ROCKSDB_PTHREAD_ADAPTIVE_MUTEX
+           ROCKSDB_RANGESYNC_PRESENT
+           ROCKSDB_SCHED_GETCPU_PRESENT
++          SNAPPY
+       )
+ 
+     elseif(TARGET_PROCESSOR STREQUAL "aarch64")
+@@ -444,6 +445,7 @@ function(rocksdbMain)
+   target_link_libraries(thirdparty_rocksdb
+     PRIVATE
+       thirdparty_cxx_settings
++      thirdparty_snappy
+ 
+     PUBLIC
+       ${library_list}
+diff --git a/libraries/cmake/source/snappy/CMakeLists.txt b/libraries/cmake/source/snappy/CMakeLists.txt
+new file mode 100644
+index 000000000..47eeb853f
+--- /dev/null
++++ b/libraries/cmake/source/snappy/CMakeLists.txt
+@@ -0,0 +1,38 @@
++# Copyright (c) 2014-present, Facebook, Inc.
++# All rights reserved.
++#
++# This source code is licensed in accordance with the terms specified in
++# the LICENSE file found in the root directory of this source tree.
++
++function(snappyMain)
++  set(library_root "${CMAKE_CURRENT_SOURCE_DIR}/src")
++
++  set(HAVE_SYS_UIO_H_01 1)
++  configure_file(
++    "${library_root}/snappy-stubs-public.h.in"
++    "${library_root}/snappy-stubs-public.h")
++
++  add_library(thirdparty_snappy
++    "${library_root}/snappy-internal.h"
++    "${library_root}/snappy-stubs-internal.h"
++    "${library_root}/snappy-stubs-public.h"
++    "${library_root}/snappy-c.cc"
++    "${library_root}/snappy-sinksource.cc"
++    "${library_root}/snappy-stubs-internal.cc"
++    "${library_root}/snappy.cc"
++  )
++
++  target_link_libraries(thirdparty_snappy PRIVATE
++    thirdparty_c_settings
++  )
++
++  target_include_directories(thirdparty_snappy PRIVATE
++    "${library_root}"
++  )
++
++  target_include_directories(thirdparty_snappy SYSTEM INTERFACE
++    "${library_root}"
++  )
++endfunction()
++
++snappyMain()
