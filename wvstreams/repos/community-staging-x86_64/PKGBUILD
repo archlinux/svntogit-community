@@ -1,0 +1,64 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Andrea Scarpino <andrea@archlinux.org>
+# Contributor: dorphell <dorphell@archlinux.org>
+
+pkgname=wvstreams
+pkgver=4.6.1
+pkgrel=20
+pkgdesc="A network programming library written in C++"
+arch=('x86_64')
+url="https://github.com/apenwarr/wvstreams/"
+license=('LGPL')
+depends=('zlib' 'pam' 'xplc' 'openssl' 'readline')
+source=(https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/wvstreams/wvstreams-$pkgver.tar.gz
+        wvstreams-4.6.1-glibc212.patch
+        wvstreams-4.6.1-gcc47.patch
+        wvstreams-4.6.1-gcc10.patch
+        wvstreams_openssl1.1.patch
+        openssl-buildfix.patch
+        gcc-6.patch)
+sha256sums=('8403f5fbf83aa9ac0c6ce15d97fd85607488152aa84e007b7d0621b8ebc07633'
+            '278c73140b963daa8aae85dfbba4917e2963e72c187bbb97b6252a5a70f54bc2'
+            '7b83dad8e3931686962823a7008af0034a430f35e1eb617f5c8137141e14ccdd'
+            '25aa17989936479a095837a354e0f0727f7a6fa393967a86f2e67e310a72e944'
+            'e1294644eb44c3d58789f2aca51fa28d15af799bd1b7bc2ff2583c41c74efae5'
+            '57b55ed6a2a6aa8abef00711d9e03bed664f2c4357404cd38ae778f8b3b97482'
+            '1f750516825dc8c3ef7de980b90dadf22c5132eab828a5dd634fa2a88624b6d9')
+options=('!makeflags')
+
+prepare() {
+  cd ${pkgname}-${pkgver}
+
+  patch -p0 -i "$srcdir/wvstreams-4.6.1-glibc212.patch"
+  patch -p0 -i "$srcdir/wvstreams-4.6.1-gcc47.patch"
+  patch -p1 -i "$srcdir/openssl-buildfix.patch"
+  patch -p1 -i "$srcdir/gcc-6.patch"
+  patch -p1 -i "$srcdir/wvstreams-4.6.1-gcc10.patch" # Gentoo patch
+  patch -p1 -i "$srcdir/wvstreams_openssl1.1.patch" # Debian patch
+}
+
+build() {
+  cd ${pkgname}-${pkgver}
+
+  ./configure --prefix=/usr \
+     --sbin=/usr/bin \
+     --sysconfdir=/etc \
+     --localstatedir=/var \
+     --without-dbus \
+     --with-pam \
+     --with-openssl \
+     --without-tcl \
+     --without-qt
+  make COPTS="$CFLAGS -ffat-lto-objects -fPIC" CXXOPTS="$CXXFLAGS -ffat-lto-objects -fPIC -fpermissive -fno-tree-dce -fno-optimize-sibling-calls" VERBOSE=1
+}
+
+package() {
+  cd ${pkgname}-${pkgver}
+  make DESTDIR="${pkgdir}" install
+
+  # FS#15974
+  # --without-dbus still installs the pkg-config file
+  rm "${pkgdir}/usr/lib/pkgconfig/libwvdbus.pc"
+  # --without-qt still installs the pkg-config file
+  rm "${pkgdir}/usr/lib/pkgconfig/libwvqt.pc"
+}
