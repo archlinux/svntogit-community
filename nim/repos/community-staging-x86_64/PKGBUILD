@@ -1,0 +1,109 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Alexander F Rødseth <xyproto@archlinux.org>
+# Contributor: Dominik Picheta <morfeusz8@gmail.com>
+# Contributor: Sven-Hendrik Haase <sh@lutzhaase.com>
+# Contributor: Jesus Alvarez <jeezusjr@gmail.com>
+
+pkgname=nim
+_pkgname=Nim
+pkgver=1.6.6
+_csourcesver=561b417c65791cd8356b5f73620914ceff845d10
+pkgrel=2
+pkgdesc='Imperative, multi-paradigm, compiled programming language'
+url='https://nim-lang.org/'
+arch=('x86_64')
+license=('MIT')
+depends=('bash')
+makedepends=('git')
+provides=('nimble')
+conflicts=('nimble')
+replaces=('nimble')
+options=('!emptydirs')
+backup=(
+  etc/nim/nim.cfg
+  etc/nim/nimdoc.cfg
+  etc/nim/nimdoc.tex.cfg
+  etc/nim/rename.rules.cfg
+)
+source=(https://github.com/nim-lang/Nim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
+        "git+https://github.com/nim-lang/csources_v1.git#commit=${_csourcesver}")
+sha256sums=('59836a85c1291b59af699a121b0b765703d6a0e44ed9f3ede363ff2b3e09d527'
+            'SKIP')
+b2sums=('5e7a986ee17e731815fb58a52747e56900e7d2cdc37c6aafa31378f27b4431b3bab8851c1aa67fd3ddeb235584db3ef8261fa276ce7221a591da780fe6487acd'
+        'SKIP')
+
+prepare() {
+  cd ${_pkgname}-${pkgver}
+  cp -r ../csources_v1/* .
+  rm bin/empty.txt
+  for nimcfg in {compiler,config}/nim.cfg; do
+    echo "gcc.options.always %= \"\${gcc.options.always} ${CFLAGS:-} ${CPPFLAGS}\"" >> "${nimcfg}"
+    echo "gcc.options.linker %= \"\${gcc.options.linker} ${LDFLAGS:-}\"" >> "${nimcfg}"
+  done
+}
+
+build() {
+  cd ${_pkgname}-${pkgver}
+  export PATH="${srcdir}/${_pkgname}-${pkgver}/bin:${PATH}"
+
+  echo "Building nim"
+  sh build.sh
+
+  echo "Building koch"
+  nim c -d:release koch
+  ./koch boot -d:release -d:nativeStacktrace -d:useGnuReadline
+
+  echo "Building libs"
+  (cd lib
+    nim c --app:lib -d:createNimRtl -d:release nimrtl.nim
+  )
+
+  echo "Building tools"
+  ./koch tools
+  (cd tools
+    nim c -d:release nimgrep.nim
+  )
+
+  echo "Building nimsuggest"
+  nim c -d:release nimsuggest/nimsuggest.nim
+}
+
+package() {
+  cd ${_pkgname}-${pkgver}
+  export PATH="${srcdir}/${_pkgname}-${pkgver}/bin:${PATH}"
+
+  ./koch install "${pkgdir}"
+
+  install -d "${pkgdir}/usr/lib"
+  cp -a lib "${pkgdir}/usr/lib/nim"
+  cp -a compiler "${pkgdir}/usr/lib/nim"
+  install -Dm 644 compiler.nimble "${pkgdir}/usr/lib/nim/compiler"
+  install -m 755 lib/libnimrtl.so "${pkgdir}/usr/lib/libnimrtl.so"
+
+  install -Dm 644 config/* -t "${pkgdir}/etc/nim"
+  install -Dm 755 bin/* -t "${pkgdir}/usr/bin"
+
+  # Fix FS#50252, unusual placement of header files
+  install -d "${pkgdir}/usr/include"
+  cp -a "${pkgdir}/usr/lib/nim/"*.h "${pkgdir}/usr/include"
+
+  # Fix FS#48118, related to the doc2 command
+  ln -s /usr/share/nim/doc "${pkgdir}/usr/lib/nim/doc"
+  install -d "${pkgdir}/usr/share/nim/doc"
+  cp -a doc/* "${pkgdir}/usr/share/nim/doc"
+
+  install -Dm 644 copying.txt -t "${pkgdir}/usr/share/licenses/${pkgname}"
+
+  # completions
+  for comp in tools/*.bash-completion; do
+    install -Dm 644 "${comp}" "${pkgdir}/usr/share/bash-completion/completions/$(basename "${comp/.bash-completion}")"
+  done
+  for comp in tools/*.zsh-completion; do
+    install -Dm 644 "${comp}" "${pkgdir}/usr/share/zsh/site-functions/_$(basename "${comp/.zsh-completion}")"
+  done
+
+  rm -r "${pkgdir}/nim"
+  rm "${pkgdir}"/usr/bin/nim-gdb.bat
+}
+
+# vim: ts=2 sw=2 et:
