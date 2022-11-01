@@ -8,7 +8,7 @@
 
 pkgname=(ruby ruby-docs ruby-stdlib ruby-bundledgems)
 pkgver=3.0.4
-pkgrel=18
+pkgrel=19
 arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
