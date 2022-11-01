@@ -1,0 +1,87 @@
+# Maintainer: Sergej Pupykin <pupykin.s+arch@gmail.com>
+# Contributor: Sebastian Faltoni <sebastian.faltoni@gmail.com>
+
+pkgname=dbmail
+pkgver=3.2.6
+pkgrel=4
+pkgdesc="Fast and scalable sql based mail services"
+arch=('x86_64')
+depends=('gmime' 'libzdb' 'mhash' 'libevent')
+makedepends=('asciidoc' 'xmlto' 'docbook-xsl' 'docbook-xml' 'postgresql-libs>=8.4.1'
+	     'sqlite' 'mariadb-libs' 'libldap>=2.4.18' 'libsieve' 'git' 'systemd')
+optdepends=('libldap: for LDAP authentication'
+	    'libsieve: for dbmail-sieve')
+#	    'python2-mysql2pgsql: migrate from MySQL to PostreSQL')
+url="https://www.dbmail.org"
+license=('GPL')
+options=('zipman')
+backup=(etc/xinetd.d/dbmail-imapd
+	etc/xinetd.d/dbmail-pop3d
+	etc/xinetd.d/dbmail-lmtpd
+	etc/xinetd.d/dbmail-timsieved)
+#source=("dbmail-$pkgver::git://git.subdir.eu/paul/dbmail#branch=dbmail_3_2"
+#source=("dbmail-$pkgver.tar.gz::http://git.dbmail.eu/paul/dbmail/snapshot/dbmail-$pkgver.tar.gz"
+#source=("https://www.dbmail.org/download/3.2/dbmail-${pkgver}.tar.gz"
+source=("$pkgname-$pkgver.tar.gz::https://github.com/dbmail/dbmail/archive/refs/tags/v$pkgver.tar.gz"
+	"dbmail-imapd.xinetd"
+	"dbmail-lmtpd.xinetd"
+	"dbmail-pop3d.xinetd"
+	"dbmail-timsieved.xinetd"
+	noop-fetch-response-fix2.patch
+	log-imap.patch
+	build-fix.patch)
+sha256sums=('bc073c3f15c5e73516e4b066958fbe4fc56d41b3ab334f0fa2bd362f036a2b01'
+            'fc534af5c8df94bedbf0dcef5801a9144ca799e590bc8e9c2903ae9a9bc6043e'
+            '6edc52b5f45480509849d2fda5c6a38cb436c40c49c8c65aaa0ae6490a85a881'
+            '380d10300a9d0bffebe8d775a9642f520981576f4179e570f3bde07f2146564e'
+            'c7ac3f0c9588ec0eacffdb023a3d8e1c24d8f3e874597880fcb136757d01aa93'
+            '8d775abeb55f60969641a61b895df22577255f212737f4db01b138dbb40d2064'
+            '9d10d5c1a5dc00d33ef4394aed5416a4bd9fea3e7c96653633965e15d3c11f43'
+            'a730f1bdf43337291b19f97c4e7540e92cd7cae90f560d9acaf7fa4d634584c1')
+
+prepare() {
+  cd "$srcdir"/dbmail-${pkgver}/
+  patch -p1 <"$srcdir"/noop-fetch-response-fix2.patch
+  sed -i \
+    -e 's|@runstatedir@|/run|g' \
+    -e 's|dbmail:dbmail|nobody:nobody|g' \
+    systemd/*.service.in
+  sed -i \
+    -e 's|dbmail dbmail|nobody nobody|g' \
+    systemd/*.tmpfiles.in
+#  patch -p1 <"$srcdir"/build-fix.patch
+#  patch -p1 <"$srcdir"/log-imap.patch
+}
+
+build() {
+  cd "$srcdir"/dbmail-${pkgver}/
+  aclocal
+  automake --add-missing
+  autoreconf
+  [ -f Makefile ] || ./configure \
+    --prefix=/usr \
+    --sbindir=/usr/bin \
+    --sysconfdir=/etc \
+    --runstatedir=/run \
+    --with-ldap --with-sieve \
+    --enable-systemd --enable-manpages
+  make
+}
+
+package() {
+  cd "$srcdir"/dbmail-${pkgver}/
+
+  install -dm0755 "$pkgdir"/usr/lib/systemd/system
+  install -dm0755 "$pkgdir"/usr/lib/tmpfiles.d
+  install -dm0755 "$pkgdir"/usr/share/dbmail
+  make DESTDIR="$pkgdir" install
+
+  install -Dm644 dbmail.conf "$pkgdir"/etc/dbmail.conf.sample
+  cp -r sql/* "$pkgdir"/usr/share/dbmail/
+  cp -a contrib "$pkgdir"/usr/share/dbmail/
+  cp dbmail.schema "$pkgdir"/usr/share/dbmail/
+
+  for i in dbmail-imapd dbmail-lmtpd dbmail-pop3d dbmail-timsieved; do
+    install -Dm0644 "$srcdir"/$i.xinetd "$pkgdir"/etc/xinetd.d/$i
+  done
+}
