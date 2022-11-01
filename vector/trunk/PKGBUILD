@@ -1,0 +1,98 @@
+# Maintainer: Justin Kromlinger <hashworks@archlinux.org>
+
+pkgname=vector
+pkgver=master
+pkgver=0.25.0
+pkgrel=1
+pkgdesc="A high-performance observability data pipeline"
+arch=("x86_64")
+_target="x86_64-unknown-linux-gnu"
+url="https://vector.dev"
+license=("MPL2")
+options=(!lto) # TODO: Build with LTO
+backup=(
+    "etc/vector/vector.toml"
+    "etc/vector/agent/vector.yaml"
+    "etc/vector/aggregator/vector.yaml"
+)
+replaces=("vector-bin")
+conflicts=("vector-bin" "vector-git")
+depends=("gcc-libs")
+# https://github.com/vectordotdev/vector/blob/master/docs/DEVELOPING.md#bring-your-own-toolbox
+makedepends=(
+    "cargo"
+    "protobuf"
+    "python"
+    "perl"
+    "cmake"
+)
+checkdepends=(
+    "cargo-nextest"
+)
+source=(
+    "${pkgname}-${pkgver}.tar.gz::https://github.com/vectordotdev/vector/archive/refs/tags/v${pkgver}.tar.gz"
+    "${pkgname}.sysusers"
+    "${pkgname}.tmpfiles"
+)
+sha512sums=('50ad53825dc7aa65300a576abe0e6cdd3ee5cb2b3b86c5a5288f39fb6580f3a8c66266de4a3d061ec74a00e3413e2c9310f4d8416f6dabff7c86e1648792c335'
+            '4f7a5d63f4e89018d1f0e9aa0fba2bb5c448d7031a7ff40c82878f574243e075c2fca020e78c4c71b1caa1a5bd1f06b496a5d3ab432f01d145233fd6c9ec4b87'
+            'c192492df09d131f9174d2acbb7f265c280eb6d678589b8c93bacc47ae55c51573a5477d715897f8580ced420730992fb68bee78b374f1cc042888ea6b5512fd')
+
+prepare() {
+    cd "${pkgname}-${pkgver}"
+
+    cargo fetch \
+        --locked
+}
+
+build() {
+    cd "${pkgname}-${pkgver}"
+    cargo build \
+        --frozen \
+        --release \
+        --locked \
+        --target "${_target}"
+}
+
+check() {
+    cd "${pkgname}-${pkgver}"
+    # Unit-Tests only, integration tests require services
+    cargo nextest run \
+        --workspace \
+        --fail-fast \
+        --test-threads num-cpus \
+        --frozen \
+        --release \
+        --locked \
+        --offline \
+        --no-default-features \
+        --target "${_target}"
+}
+
+package() {
+    install -Dm644 "${pkgname}.sysusers" "${pkgdir}/usr/lib/sysusers.d/${pkgname}.conf"
+    install -Dm644 "${pkgname}.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/${pkgname}.conf"
+
+    cd "${pkgname}-${pkgver}"
+
+    install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+    install -Dm644 "NOTICE" "${pkgdir}/usr/share/licenses/${pkgname}/NOTICE"
+
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/PRIVACY.md"
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/RELEASES.md"
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/VERSIONING.md"
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/RELEASES.md"
+    install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/CHANGELOG.md"
+
+    install -Dm755 "target/${_target}/release/vector" "${pkgdir}/usr/bin/vector"
+
+    install -Dm644 "config/vector.toml" "${pkgdir}/etc/vector/vector.toml"
+    install -Dm644 "config/agent/vector.yaml" "${pkgdir}/etc/vector/agent/vector.yaml"
+    install -Dm644 "config/aggregator/vector.yaml" "${pkgdir}/etc/vector/aggregator/vector.yaml"
+    cp -r config/examples "${pkgdir}/usr/share/doc/${pkgname}/examples"
+
+    install -Dm644 "distribution/systemd/vector.service" "${pkgdir}/usr/lib/systemd/system/vector.service"
+    install -Dm644 "distribution/systemd/hardened-vector.service" "${pkgdir}/usr/lib/systemd/system/hardened-vector.service"
+    install -Dm644 "distribution/systemd/vector.default" "${pkgdir}/etc/default/vector"
+}
