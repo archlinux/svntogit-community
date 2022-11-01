@@ -1,0 +1,31 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: David Roheim <david dot roheim at gmail dot com>
+# Contributor: Chris Heien <chris.h.heien@gmail.com>
+# Contributor: Jonny Gerold <jonny@fsk141.com>
+
+pkgname=s3fs-fuse
+pkgver=1.91
+pkgrel=2
+pkgdesc="FUSE-based file system backed by Amazon S3"
+arch=('x86_64')
+url="https://github.com/s3fs-fuse/s3fs-fuse/wiki"
+license=('GPL2')
+depends=('fuse2' 'curl' 'libxml2')
+conflicts=('s3fs')
+provides=('s3fs')
+replaces=('s3fs')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/s3fs-fuse/s3fs-fuse/archive/v$pkgver.tar.gz")
+sha512sums=('5b57af18395f34885b4b8a98e93b0e3f9043c9af78e415a0a6c15489611d7e21ae619e69655737de369edee15762d8726b82bc2651b5b7f5c20e26fe866a96bc')
+
+build() {
+  cd "$srcdir/$pkgname-$pkgver"
+
+  ./autogen.sh
+  ./configure --prefix=/usr
+  make
+}
+
+package() {
+  cd "$srcdir/$pkgname-$pkgver"
+  make DESTDIR="$pkgdir/" install
+}
