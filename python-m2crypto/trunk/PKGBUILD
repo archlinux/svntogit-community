@@ -5,7 +5,7 @@
 
 pkgname=python-m2crypto
 pkgver=0.38.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A crypto and SSL toolkit for Python"
 arch=('x86_64')
 url="https://pypi.python.org/pypi/M2Crypto"
