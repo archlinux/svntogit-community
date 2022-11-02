@@ -1,0 +1,335 @@
+diff --git a/test/config/ssl_self_signed_config.rb b/test/config/ssl_self_signed_config.rb
+deleted file mode 100644
+index d70b51d1..00000000
+--- a/test/config/ssl_self_signed_config.rb
++++ /dev/null
+@@ -1,7 +0,0 @@
+-require "localhost"
+-
+-ssl_bind "0.0.0.0", 9292
+-
+-app do |env|
+-  [200, {}, ["self-signed certificate app"]]
+-end
+diff --git a/test/test_config.rb b/test/test_config.rb
+index 56f31ca0..a8497190 100644
+--- a/test/test_config.rb
++++ b/test/test_config.rb
+@@ -58,22 +58,6 @@ class TestConfigFile < TestConfigFileBase
+     assert_equal [200, {}, ["embedded app"]], app.call({})
+   end
+ 
+-  def test_ssl_self_signed_configuration_from_DSL
+-    skip_if :jruby
+-    skip_unless :ssl
+-    conf = Puma::Configuration.new do |config|
+-      config.load "test/config/ssl_self_signed_config.rb"
+-    end
+-
+-    conf.load
+-
+-    bind_configuration = conf.options.file_options[:binds].first
+-    app = conf.app
+-
+-    ssl_binding = "ssl://0.0.0.0:9292?&verify_mode=none"
+-    assert_equal [ssl_binding], conf.options[:binds]
+-  end
+-
+   def test_ssl_bind
+     skip_if :jruby
+     skip_unless :ssl
+diff --git a/test/test_integration_single.rb b/test/test_integration_single.rb
+index fd930fe6..cb5e202c 100644
+--- a/test/test_integration_single.rb
++++ b/test/test_integration_single.rb
+@@ -85,7 +85,7 @@ class TestIntegrationSingle < TestIntegration
+     rejected_curl_wait_thread.join
+ 
+     assert_match(/Slept 10/, curl_stdout.read)
+-    assert_match(/Connection refused/, rejected_curl_stderr.read)
++    assert_match(/Connection refused|Couldn't connect to server/, rejected_curl_stderr.read)
+ 
+     Process.wait(@server.pid)
+     @server.close unless @server.closed?
+diff --git a/test/test_integration_ssl.rb b/test/test_integration_ssl.rb
+index 3c05b419..f74e1f8d 100644
+--- a/test/test_integration_ssl.rb
++++ b/test/test_integration_ssl.rb
+@@ -152,30 +152,6 @@ RUBY
+ 
+ activate_control_app 'tcp://#{HOST}:#{control_tcp_port}', { auth_token: '#{TOKEN}' }
+ 
+-app do |env|
+-  [200, {}, [env['rack.url_scheme']]]
+-end
+-RUBY
+-
+-    with_server(config) do |http|
+-      body = nil
+-      http.start do
+-        req = Net::HTTP::Get.new '/', {}
+-        http.request(req) { |resp| body = resp.body }
+-      end
+-      assert_equal 'https', body
+-    end
+-  end
+-
+-  def test_ssl_run_with_localhost_authority
+-    skip_if :jruby
+-
+-    config = <<RUBY
+-  require 'localhost'
+-  ssl_bind '#{HOST}', '#{bind_port}'
+-
+-activate_control_app 'tcp://#{HOST}:#{control_tcp_port}', { auth_token: '#{TOKEN}' }
+-
+ app do |env|
+   [200, {}, [env['rack.url_scheme']]]
+ end
+diff --git a/test/test_launcher.rb b/test/test_launcher.rb
+index 370e0c38..05257020 100644
+--- a/test/test_launcher.rb
++++ b/test/test_launcher.rb
+@@ -13,9 +13,9 @@ class TestLauncher < Minitest::Test
+     dirs = launcher.send(:files_to_require_after_prune)
+ 
+     assert_equal(2, dirs.length)
+-    assert_match(%r{puma/lib$}, dirs[0]) # lib dir
+-    assert_match(%r{puma-#{Puma::Const::PUMA_VERSION}$}, dirs[1]) # native extension dir
+-    refute_match(%r{gems/rdoc-[\d.]+/lib$}, dirs[2])
++    assert_match(%r{/build/ruby-puma/src/puma-#{Puma::Const::PUMA_VERSION}/lib$}, dirs[0]) # lib dir
++    assert_match(%r{/build/ruby-puma/src/extensions/x86_64-linux/3.0.0/puma-#{Puma::Const::PUMA_VERSION}$}, dirs[1]) # native extension dir
++    refute_match(%r{/usr/lib/ruby/gems/3.0.0/gems/rdoc-[\d.]+/lib$}, dirs[2])
+   end
+ 
+   def test_files_to_require_after_prune_is_correctly_built_with_extra_deps
+@@ -27,9 +27,9 @@ class TestLauncher < Minitest::Test
+     dirs = launcher(conf).send(:files_to_require_after_prune)
+ 
+     assert_equal(3, dirs.length)
+-    assert_match(%r{puma/lib$}, dirs[0]) # lib dir
+-    assert_match(%r{puma-#{Puma::Const::PUMA_VERSION}$}, dirs[1]) # native extension dir
+-    assert_match(%r{gems/rdoc-[\d.]+/lib$}, dirs[2]) # rdoc dir
++    assert_match(%r{/build/ruby-puma/src/puma-#{Puma::Const::PUMA_VERSION}/lib$}, dirs[0]) # lib dir
++    assert_match(%r{/build/ruby-puma/src/extensions/x86_64-linux/3.0.0/puma-#{Puma::Const::PUMA_VERSION}$}, dirs[1]) # native extension dir
++    assert_match(%r{/usr/lib/ruby/gems/3.0.0/gems/rdoc-[\d.]+/lib$}, dirs[2])
+   end
+ 
+   def test_extra_runtime_deps_directories_is_empty_for_no_config
+diff --git a/test/test_preserve_bundler_env.rb b/test/test_preserve_bundler_env.rb
+deleted file mode 100644
+index 2a2692ea..00000000
+--- a/test/test_preserve_bundler_env.rb
++++ /dev/null
+@@ -1,110 +0,0 @@
+-require_relative "helper"
+-require_relative "helpers/integration"
+-
+-class TestPreserveBundlerEnv < TestIntegration
+-  def setup
+-    skip_unless :fork
+-    super
+-  end
+-
+-  def teardown
+-    return if skipped?
+-    FileUtils.rm current_release_symlink, force: true
+-    super
+-  end
+-
+-  # It does not wipe out BUNDLE_GEMFILE et al
+-  def test_usr2_restart_preserves_bundler_environment
+-    skip_unless_signal_exist? :USR2
+-
+-    @tcp_port = UniquePort.call
+-    env = {
+-      # Intentionally set this to something we wish to keep intact on restarts
+-      "BUNDLE_GEMFILE" => "Gemfile.bundle_env_preservation_test",
+-      # Don't allow our (rake test's) original env to interfere with the child process
+-      "BUNDLER_ORIG_BUNDLE_GEMFILE" => nil
+-    }
+-    # Must use `bundle exec puma` here, because otherwise Bundler may not be defined, which is required to trigger the bug
+-    cmd = "bundle exec puma -q -w 1 --prune-bundler -b tcp://#{HOST}:#{@tcp_port}"
+-    Dir.chdir(File.expand_path("bundle_preservation_test", __dir__)) do
+-      @server = IO.popen(env, cmd.split, "r")
+-    end
+-    wait_for_server_to_boot
+-    @pid = @server.pid
+-    connection = connect
+-    initial_reply = read_body(connection)
+-    assert_match("Gemfile.bundle_env_preservation_test", initial_reply)
+-    restart_server connection
+-    new_reply = read_body(connection)
+-    assert_match("Gemfile.bundle_env_preservation_test", new_reply)
+-  end
+-
+-  def test_worker_forking_preserves_bundler_config_path
+-    skip_unless_signal_exist? :TERM
+-
+-    @tcp_port = UniquePort.call
+-    env = {
+-      # Disable the .bundle/config file in the bundle_app_config_test directory
+-      "BUNDLE_APP_CONFIG" => "/dev/null",
+-      # Don't allow our (rake test's) original env to interfere with the child process
+-      "BUNDLE_GEMFILE" => nil,
+-      "BUNDLER_ORIG_BUNDLE_GEMFILE" => nil
+-    }
+-    cmd = "bundle exec puma -q -w 1 --prune-bundler -b tcp://#{HOST}:#{@tcp_port}"
+-    Dir.chdir File.expand_path("bundle_app_config_test", __dir__) do
+-      @server = IO.popen(env, cmd.split, "r")
+-    end
+-    wait_for_server_to_boot
+-    @pid = @server.pid
+-    reply = read_body(connect)
+-    assert_equal("Hello World", reply)
+-  end
+-
+-  def test_phased_restart_preserves_unspecified_bundle_gemfile
+-    skip_unless_signal_exist? :USR1
+-
+-    @tcp_port = UniquePort.call
+-    env = {
+-      "BUNDLE_GEMFILE" => nil,
+-      "BUNDLER_ORIG_BUNDLE_GEMFILE" => nil
+-    }
+-    set_release_symlink File.expand_path("bundle_preservation_test/version1", __dir__)
+-    cmd = "bundle exec puma -q -w 1 --prune-bundler -b tcp://#{HOST}:#{@tcp_port}"
+-    Dir.chdir(current_release_symlink) do
+-      @server = IO.popen(env, cmd.split, "r")
+-    end
+-    wait_for_server_to_boot
+-    @pid = @server.pid
+-    connection = connect
+-
+-    # Bundler itself sets ENV['BUNDLE_GEMFILE'] to the Gemfile it finds if ENV['BUNDLE_GEMFILE'] was unspecified
+-    initial_reply = read_body(connection)
+-    expected_gemfile = File.expand_path("bundle_preservation_test/version1/Gemfile", __dir__).inspect
+-    assert_equal(expected_gemfile, initial_reply)
+-
+-    set_release_symlink File.expand_path("bundle_preservation_test/version2", __dir__)
+-    start_phased_restart
+-
+-    connection = connect
+-    new_reply = read_body(connection)
+-    expected_gemfile = File.expand_path("bundle_preservation_test/version2/Gemfile", __dir__).inspect
+-    assert_equal(expected_gemfile, new_reply)
+-  end
+-
+-  private
+-
+-  def current_release_symlink
+-    File.expand_path "bundle_preservation_test/current", __dir__
+-  end
+-
+-  def set_release_symlink(target_dir)
+-    FileUtils.rm current_release_symlink, force: true
+-    FileUtils.symlink target_dir, current_release_symlink, force: true
+-  end
+-
+-  def start_phased_restart
+-    Process.kill :USR1, @pid
+-
+-    true while @server.gets !~ /booted in [.0-9]+s, phase: 1/
+-  end
+-end
+diff --git a/test/test_puma_localhost_authority.rb b/test/test_puma_localhost_authority.rb
+deleted file mode 100644
+index 8599980b..00000000
+--- a/test/test_puma_localhost_authority.rb
++++ /dev/null
+@@ -1,95 +0,0 @@
+-# Nothing in this file runs if Puma isn't compiled with ssl support
+-#
+-# helper is required first since it loads Puma, which needs to be
+-# loaded so HAS_SSL is defined
+-require_relative "helper"
+-require "localhost/authority"
+-
+-if ::Puma::HAS_SSL && !Puma::IS_JRUBY
+-  require "puma/minissl"
+-  require "net/http"
+-
+-  # net/http (loaded in helper) does not necessarily load OpenSSL
+-  require "openssl" unless Object.const_defined? :OpenSSL
+-end
+-
+-class TestPumaLocalhostAuthority < Minitest::Test
+-  parallelize_me!
+-  def setup
+-    @http = nil
+-    @server = nil
+-  end
+-
+-  def teardown
+-    @http.finish if @http && @http.started?
+-    @server.stop(true) if @server
+-  end
+-
+-  # yields ctx to block, use for ctx setup & configuration
+-  def start_server
+-    @host = "localhost"
+-    app = lambda { |env| [200, {}, [env['rack.url_scheme']]] }
+-
+-    @events = SSLEventsHelper.new STDOUT, STDERR
+-    @server = Puma::Server.new app, @events
+-    @server.app = app
+-    @server.add_ssl_listener @host, 0,nil
+-    @http = Net::HTTP.new @host, @server.connected_ports[0]
+-
+-    @http.use_ssl = true
+-    # Disabling verification since its self signed
+-    @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+-    # @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+-
+-    @server.run
+-  end
+-
+-  def test_localhost_authority_file_generated
+-    # Initiate server to create localhost authority
+-    unless File.exist?(File.join(Localhost::Authority.path,"localhost.key"))
+-      start_server
+-    end
+-    assert_equal(File.exist?(File.join(Localhost::Authority.path,"localhost.key")), true)
+-    assert_equal(File.exist?(File.join(Localhost::Authority.path,"localhost.crt")), true)
+-  end
+-
+-end if ::Puma::HAS_SSL &&  !Puma::IS_JRUBY
+-
+-class TestPumaSSLLocalhostAuthority < Minitest::Test
+-  def test_self_signed_by_localhost_authority
+-    @host = "localhost"
+-
+-    app = lambda { |env| [200, {}, [env['rack.url_scheme']]] }
+-
+-    @events = SSLEventsHelper.new STDOUT, STDERR
+-
+-    @server = Puma::Server.new app, @events
+-    @server.app = app
+-
+-    @server.add_ssl_listener @host, 0,nil
+-
+-    @http = Net::HTTP.new @host, @server.connected_ports[0]
+-    @http.use_ssl = true
+-
+-    OpenSSL::PKey::RSA.new File.read(File.join(Localhost::Authority.path,"localhost.key"))
+-    local_authority_crt = OpenSSL::X509::Certificate.new File.read(File.join(Localhost::Authority.path,"localhost.crt"))
+-
+-    @http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+-    @server.run
+-    @cert = nil
+-    begin
+-      @http.start do
+-        req = Net::HTTP::Get.new "/", {}
+-        @http.request(req)
+-        @cert = @http.peer_cert
+-      end
+-    rescue OpenSSL::SSL::SSLError, EOFError, Errno::ECONNRESET
+-      # Errno::ECONNRESET TruffleRuby
+-      # closes socket if open, may not close on error
+-      @http.send :do_finish
+-    end
+-    sleep 0.1
+-
+-    assert_equal(@cert.to_pem, local_authority_crt.to_pem)
+-  end
+-end  if ::Puma::HAS_SSL && !Puma::IS_JRUBY
