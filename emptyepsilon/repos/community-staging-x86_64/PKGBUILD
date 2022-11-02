@@ -1,0 +1,52 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: Mewp <aur.archlinux.org@mewp.pl>
+
+pkgname=emptyepsilon
+pkgver=2022.03.16
+pkgrel=2
+pkgdesc='Open source spaceship bridge simulator'
+url='https://github.com/daid/EmptyEpsilon'
+arch=('x86_64')
+license=('GPL2')
+depends=('libglvnd' 'libx11' 'libxrandr' 'glibc' 'gcc-libs' 'sdl2')
+makedepends=('git' 'cmake' 'mesa' 'python')
+source=("git+https://github.com/daid/EmptyEpsilon.git#tag=EE-${pkgver}"
+        "git+https://github.com/daid/SeriousProton.git#tag=EE-${pkgver}"
+        gcc12.patch)
+sha512sums=('SKIP'
+            'SKIP'
+            '479b76b604b4a4fc8152da11775533b8d56eb4bfd688a28ea6c64a39bfe40e5d365ee035f34cf3fa2cfa16d877cb5324bd2b911270e19f55e77d60386b08ed13')
+
+prepare() {
+  patch -Np0 <gcc12.patch
+  # fix shader loading, should be upstreamed
+  sed 's|new Engine();|chdir(RESOURCE_BASE_DIR); new Engine();|' -i EmptyEpsilon/src/main.cpp
+}
+
+build() {
+  mkdir -p EmptyEpsilon/build
+  cd EmptyEpsilon/build
+  # add cppflags to use fortify
+  export CXXFLAGS="${CXXFLAGS} ${CPPFLAGS}"
+  # release type is important here to get optimisation flags
+  # defined in the project's cmake files
+  cmake -DSERIOUS_PROTON_DIR="${srcdir}/SeriousProton" \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCPACK_PACKAGE_VERSION_MAJOR="$(echo ${pkgver} | cut -d. -f1)" \
+        -DCPACK_PACKAGE_VERSION_MINOR="$(echo ${pkgver} | cut -d. -f2)" \
+        -DCPACK_PACKAGE_VERSION_PATCH="$(echo ${pkgver} | cut -d. -f3)" \
+        -DOpenGL_GL_PREFERENCE=GLVND \
+        ..
+  make
+}
+
+package() {
+  cd EmptyEpsilon
+  make -C build DESTDIR="${pkgdir}" install
+  install -Dm 644 README.md -t "${pkgdir}/usr/share/doc/emptyepsilon"
+  mv "${pkgdir}"/usr/share/doc/EmptyEpsilon/script_reference.html "${pkgdir}/usr/share/doc/emptyepsilon"
+  rmdir "${pkgdir}"/usr/share/doc/EmptyEpsilon
+}
+
+# vim: ts=2 sw=2 et:
