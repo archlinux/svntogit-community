@@ -3,32 +3,46 @@
 _name=enrich
 pkgname=python-enrich
 pkgver=1.2.7
-pkgrel=1
+pkgrel=2
 pkgdesc="Extends rich library functionality with a set of changes that were not accepted"
 arch=(any)
 url="https://github.com/pycontribs/enrich"
 license=(MIT)
 depends=(python-rich)
-makedepends=(python-setuptools-scm python-pip)
+makedepends=(python-build python-installer python-setuptools-scm python-setuptools-scm-git-archive python-wheel)
 checkdepends=(python-mock python-pytest python-pytest-mock python-pytest-xdist)
-source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
+source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
 sha512sums=('4e3d8598e82d7d013ff74dd325be02245086159fef819431a1ba7505e2e1557992ccbefc0b5a37d0e81487b4e378bef02179c6b74fd50528d6710ff297f0832a')
 b2sums=('f8fdcc9322a60d8885faf44efbbeaea2a423dea956941679f96560ed9c6b2db5ec3f143c241fa60d579034e0fdbf8b0e490f8c5dd38cd519a55964135623f804')
 
+prepare() {
+  cd $_name-$pkgver
+  sed -e '/pip/d' -i pyproject.toml
+}
+
 build() {
-  cd "${_name}-$pkgver"
-  python setup.py build
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  cd "${_name}-$pkgver"
-  export PYTHONPATH="build/lib:${PYTHONPATH}"
-  pytest -v -c /dev/null
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  # disable broken test: https://github.com/pycontribs/enrich/issues/40
+  pytest -vv -c /dev/null -k "not test_rich_console_ex" test_dir/$_site_packages
 }
 
 package() {
-  cd "${_name}-$pkgver"
-  python setup.py install --optimize=1 --root="${pkgdir}"
-  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
-  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+
+  # remove tests
+  rm -frv "$pkgdir/$_site_packages/$_name/test/"
 }
