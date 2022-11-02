@@ -1,0 +1,74 @@
+# Maintainer: kpcyrd <kpcyrd[at]archlinux[dot]org>
+# Contributor: Caleb Maclennan <caleb@alerque.com>
+
+pkgname=acme-redirect
+pkgver=0.5.3
+pkgrel=2
+pkgdesc='Minimal http daemon that answers acme challenges and redirects everything else to https'
+url='https://github.com/kpcyrd/acme-redirect'
+arch=('x86_64')
+license=('GPL3')
+depends=('openssl')
+makedepends=('cargo' 'scdoc')
+backup=('etc/acme-redirect.conf')
+source=(https://github.com/kpcyrd/${pkgname}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz
+        https://github.com/kpcyrd/${pkgname}/releases/download/v${pkgver}/${pkgname}-${pkgver}.tar.gz.asc)
+sha512sums=('51de13d2aa93b04eaed7c6df2846e3631cded6186bed2d16f479591704c44111a2226b450644e7405d73d99602032283ac84ab183e6d8abba2e3584144d41158'
+            'SKIP')
+b2sums=('5f9e62dbff00857a50eaec7e08620608f8b0e4ba9841ca5551ba111ef4e7768032e523304c15b2afacd43d19462df47f982a59b726268a75c775dd2ce958f180'
+        'SKIP')
+
+validpgpkeys=("64B13F7117D6E07D661BBCE0FE763A64F5E54FD6")
+
+prepare() {
+  cd "${pkgname}-${pkgver}"
+  cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+  cd "${pkgname}-${pkgver}"
+  CFLAGS+=' -ffat-lto-objects'
+  cargo build --frozen --release
+  make docs
+}
+
+check() {
+  cd "${pkgname}-${pkgver}"
+  cargo test --frozen
+}
+
+package() {
+  cd "${pkgname}-${pkgver}"
+  install -Dm 755 -t "${pkgdir}/usr/bin" \
+    target/release/acme-redirect
+
+  # install completions
+  install -d "${pkgdir}/usr/share/bash-completion/completions" \
+             "${pkgdir}/usr/share/zsh/site-functions" \
+             "${pkgdir}/usr/share/fish/vendor_completions.d"
+  "${pkgdir}/usr/bin/acme-redirect" completions bash > "${pkgdir}/usr/share/bash-completion/completions/acme-redirect"
+  "${pkgdir}/usr/bin/acme-redirect" completions zsh > "${pkgdir}/usr/share/zsh/site-functions/_acme-redirect"
+  "${pkgdir}/usr/bin/acme-redirect" completions fish > "${pkgdir}/usr/share/fish/vendor_completions.d/acme-redirect.fish"
+
+  # install configs
+  install -Dm 644 contrib/confs/acme-redirect.conf -t "${pkgdir}/etc"
+  install -Dm 644 contrib/confs/certs.d/example.com.conf "${pkgdir}/etc/acme-redirect.d/example.com.conf.sample"
+
+  # install systemd configs
+  install -Dm 644 -t "${pkgdir}/usr/lib/systemd/system" \
+    contrib/systemd/acme-redirect-renew.service \
+    contrib/systemd/acme-redirect-renew.timer \
+    contrib/systemd/acme-redirect.service
+  install -Dm 644 contrib/systemd/acme-redirect.sysusers "${pkgdir}/usr/lib/sysusers.d/acme-redirect.conf"
+  install -Dm 644 contrib/systemd/acme-redirect.tmpfiles "${pkgdir}/usr/lib/tmpfiles.d/acme-redirect.conf"
+
+  # install docs
+  install -Dm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 -t "${pkgdir}/usr/share/man/man1" \
+    contrib/docs/acme-redirect.1
+  install -Dm 644 -t "${pkgdir}/usr/share/man/man5" \
+    contrib/docs/acme-redirect.conf.5 \
+    contrib/docs/acme-redirect.d.5
+}
+
+# vim: ts=2 sw=2 et:
