@@ -5,8 +5,8 @@
 # Contributor: Ismo Toijala <ismo.toijala@gmail.com>
 
 pkgname=python-jsonschema
-pkgver=4.16.0
-pkgrel=2
+pkgver=4.17.0
+pkgrel=1
 pkgdesc='An implementation of JSON Schema validation for Python'
 arch=('any')
 url='https://github.com/python-jsonschema/jsonschema'
@@ -48,7 +48,7 @@ optdepends=(
   'python-uri-template: for uri-template format'
   'python-webcolors: for color format'
 )
-_commit='ee024ffc61bee56b25e816f489d7365fe1445c6d'
+_commit='7448523b98dcc8498a5add4bea34a8c89109b885'
 source=("$pkgname::git+$url#commit=$_commit")
 b2sums=('SKIP')
 
