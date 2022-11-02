@@ -20,7 +20,7 @@ sha512sums=('0320c1795c98a593b5da46775465e26bdf8736f59835970517cb02f2756030a3744
 build() {
   cd $_pkgname-$pkgver
 
-  python -m build -wn
+  python -m build -wn --skip-dependency-check
 
   PYTHONPATH=src sphinx-build -b dirhtml -v docs docs/build/html
 }
