@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=19.4
-pkgrel=5
+pkgrel=6
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -62,7 +62,8 @@ source=(
   "$pkgbase-libdvdnav-$_libdvdnav_version.tar.gz::https://github.com/xbmc/libdvdnav/archive/$_libdvdnav_version.tar.gz"
   "$pkgbase-libdvdread-$_libdvdread_version.tar.gz::https://github.com/xbmc/libdvdread/archive/$_libdvdread_version.tar.gz"
   #"$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz::https://github.com/xbmc/FFmpeg/archive/$_ffmpeg_version.tar.gz"
-  "$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz::https://github.com/BlackIkeEagle/kodi-FFmpeg/archive/refs/heads/fix/4.3-kodi-dav1d-1.0.tar.gz"
+  #"$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz::https://github.com/BlackIkeEagle/kodi-FFmpeg/archive/refs/heads/fix/4.3-kodi-dav1d-1.0.tar.gz"
+  "https://sources.archlinux.org/other/community/kodi/$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz"
   "$pkgbase-fmt-$_fmt_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/fmt-$_fmt_version.tar.gz"
   "$pkgbase-spdlog-$_spdlog_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/spdlog-$_spdlog_version.tar.gz"
   "$pkgbase-crossguid-$_crossguid_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/crossguid-$_crossguid_version.tar.gz"
@@ -154,6 +155,9 @@ build() {
     -DUDFREAD_URL="$srcdir/$pkgbase-libudfread-$_libudfread_version.tar.gz"
     -DAPP_RENDER_SYSTEM=gl
   )
+
+  # https://github.com/google/flatbuffers/issues/7404
+  CXXFLAGS+=' -Wno-error=restrict'
 
   echo "building kodi"
   cmake \
