@@ -14,7 +14,7 @@ pkgname=(
  aspnet-targeting-pack
 )
 pkgver=6.0.10.sdk110
-pkgrel=1
+pkgrel=2
 _bootstrapver=6.0.109-2
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -23,7 +23,7 @@ makedepends=(
   bash
   clang
   cmake
-  dotnet-sdk
+  #dotnet-sdk
   git
   icu
   inetutils
@@ -60,7 +60,7 @@ b2sums=('SKIP'
         '95b083b842da6049a084ca015b7ddc099550aa818fc382d556cca832fee52265be568d20a2c50e70819aef6cf879e7a368f7dd3b5966356643b2efdd756e73f4')
 
 prepare() {
-  cp -r /usr/share/dotnet .
+  #cp -r /usr/share/dotnet .
   cd dotnet-installer
   # fix bootstrap
   git remote set-url origin https://github.com/dotnet/installer.git
@@ -91,6 +91,7 @@ pkgver() {
 build() {
   export COMPlus_LTTng=0
   export VERBOSE=1
+  export OPENSSL_ENABLE_SHA1_SIGNATURES=1
 
   CFLAGS=$(echo $CFLAGS  | sed -e 's/-fstack-clash-protection//' )
   CXXFLAGS=$(echo $CXXFLAGS  | sed -e 's/-fstack-clash-protection//' )
@@ -120,7 +121,6 @@ build() {
 
   ./prep.sh
   ./build.sh \
-    --with-sdk "${srcdir}"/dotnet \
     -- \
     /v:n \
     /p:ContinueOnPrebuiltBaselineError=true \
@@ -128,6 +128,7 @@ build() {
     /p:MinimalConsoleLogOutput=false \
     /p:PrebuiltPackagesPath="${srcdir}"/sources/packages \
     /p:SkipPortableRuntimeBuild=true
+    #--with-sdk "${srcdir}"/dotnet \
 }
 
 package_dotnet-host() {
