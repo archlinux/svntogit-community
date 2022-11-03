@@ -3,15 +3,15 @@
 # Contributor : cyberdune <cyberdune@gmail.com>
 
 pkgname=octave
-pkgver=7.2.0
-pkgrel=5
+pkgver=7.3.0
+pkgrel=1
 pkgdesc="A high-level language, primarily intended for numerical computations"
 arch=('x86_64')
 url="https://www.gnu.org/software/octave/"
 license=('GPL')
 depends=('fftw' 'curl' 'graphicsmagick' 'glpk' 'hdf5' 'qhull' 'arpack' 'glu' 'ghostscript'
  	   'sundials' 'gl2ps' 'qscintilla-qt5' 'libsndfile' 'qt5-tools' 'qrupdate' 'pcre')
-makedepends=('gcc-fortran' 'texlive-core' 'suitesparse' 'texinfo' 'gnuplot' 'fltk' 'portaudio' 'jdk8-openjdk' 'rapidjson')
+makedepends=('gcc-fortran' 'texlive-core' 'suitesparse' 'texinfo' 'gnuplot' 'fltk' 'portaudio' 'jdk-openjdk' 'rapidjson')
 optdepends=('texinfo: for help-support in octave'
             'gnuplot: alternative plotting'
             'portaudio: audio support'
@@ -21,7 +21,7 @@ optdepends=('texinfo: for help-support in octave'
 source=(https://ftp.gnu.org/gnu/octave/octave-$pkgver.tar.gz{,.sig})
 options=('!emptydirs')
 validpgpkeys=('DBD9C84E39FE1AAE99F04446B05F05B75D36644B')  # John W. Eaton
-sha512sums=('b1f484fb97ca9270c3090f73b01f1ec0dcd6d3f838ecf7f46c50eb6245a1fa454fbc15dcf87b462a71532ba324cccd4d547b8a5b6a8e7a0914ea14981386b024'
+sha512sums=('1289d22582f3b23d3cc843d2fc73e401371802ac6eab837026fd51170e78a2ae1cbaa856b9aad84e47d8e177345e8053b673280db411da5ab1164c6efa17b58c'
             'SKIP')
 
 build() {
