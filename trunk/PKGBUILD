@@ -3,7 +3,7 @@
 # Contributor : Giedrius Slavinskas <giedrius25@gmail.com>
 
 pkgname=python-babel
-pkgver=2.10.3
+pkgver=2.11.0
 _core=41
 pkgrel=1
 pkgdesc="A collection of tools for internationalizing Python applications"
@@ -17,7 +17,7 @@ noextract=("cldr-core-$_core.zip")
 source=("$pkgname-$pkgver.tar.gz::https://github.com/python-babel/babel/archive/v$pkgver.tar.gz"
         "cldr-core-$_core.zip::http://unicode.org/Public/cldr/$_core/core.zip"
         "cldr-common-$_core.0.zip::http://unicode.org/Public/cldr/$_core/cldr-common-$_core.0.zip")
-sha256sums=('960d7a36861836081929735afe5a98aa2fb0d3720e3abc44e2d0950092e0a573'
+sha256sums=('ae1eef5784c3399df3df9ceb62f1236d0347b0d1f6ac15d22234ff75eccbe470'
             '823c6170c41e2de2c229574e8a436332d25f1c9723409867fe721e00bc92d853'
             '823c6170c41e2de2c229574e8a436332d25f1c9723409867fe721e00bc92d853')
 
