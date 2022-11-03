@@ -4,7 +4,7 @@
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=2.18.1
+pkgver=2.19.0
 pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
@@ -15,7 +15,7 @@ makedepends=("go" "git")
 checkdepends=("openssh")
 optdepends=("git: To interact with repositories")
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('b66c15f03de1fa964fdd60641aec7f1d5c09b338ee10e9475c645bb0d8fa1e98')
+sha256sums=('522aeaa5e1ed885d89cf44fe8e1c84da6a372046d4e173a5cd290821ac5afdc8')
 
 prepare() {
     cd "cli-${pkgver}"
