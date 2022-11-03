@@ -2,33 +2,33 @@
 # Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
 
 pkgname=ghidra
-pkgver=10.1.5
+pkgver=10.2
 _d2j=2.0
-_yajsw=13.01
-pkgrel=2
+_yajsw=13.05
+pkgrel=1
 pkgdesc='Software reverse engineering framework'
 url='https://ghidra-sre.org/'
 arch=('x86_64')
 license=('Apache')
-depends=('java-environment>=11' 'bash')
-makedepends=('git' 'gradle' 'unzip' 'java-environment=11')
+depends=('java-environment>=17' 'bash')
+makedepends=('git' 'gradle' 'unzip' 'java-environment=17')
 optdepends=('pam: GhidraServer support')
 options=('!strip')
 source=(https://github.com/NationalSecurityAgency/ghidra/archive/Ghidra_${pkgver}_build.tar.gz
         "git+https://github.com/NationalSecurityAgency/ghidra-data#tag=Ghidra_${pkgver}"
         https://github.com/pxb1988/dex2jar/releases/download/${_d2j}/dex-tools-${_d2j}.zip
         https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/android4me/AXMLPrinter2.jar
-        https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-beta-${_yajsw}/yajsw-beta-${_yajsw}.zip)
+        https://sourceforge.net/projects/yajsw/files/yajsw/yajsw-stable-${_yajsw}/yajsw-stable-${_yajsw}.zip)
 noextract=(AXMLPrinter2.jar
            yajsw-beta-${_yajsw}.zip)
-sha512sums=('18ff9977687acf8c0c6313bf227784be5c2c74741c1af5092e19711a194b25b6e8b7391c5f093f55bbc5826376a2f31441fb6f4467aec43cd986262ff51a1498'
+sha512sums=('dc930f7ad5380239a447cfa193cb1ac3da19b66d791450e5415ea0b68ab2df71f6bfd4aee2f90463d53d0ba01d0b6aaf033a4224114e66c47b3f6d20440f71cd'
             'SKIP'
             'c4a6c72ea09b58a44fcb8918cfada600467f10f99a02b53d2436ac68295e73c8daf9ba0a8bc7160ba1e28e87f032ee034435ebe40af35b6e2fe9fa4607581358'
             'c1168ec913f1fbb0675915d4fd865ec9a8e8573f6c8aedcb6e68166f61f11aeaececc7548d54d78134843c0102c57d6350973f6d3027d0ffdae52a5c57a7f601'
-            'ed8758920b98003094c79824a9304abbb8ddd40b1a0e1d294093f9b1df81fe7af0770dce1fb64345734ba20eacea52cc6f4b439960b4cdffa808d401994a0e95')
+            'ba6421fcc9d5fd5edf0b5f299914a54a8e3d8cbe79b83cf9b1a4a1828eb26f32f8d04299235233581a848e274665c6d2da9b8394be1d7a824e443efd2508413c')
 
 prepare() {
-  export PATH="/usr/lib/jvm/java-11-openjdk/bin:${PATH}"
+  export PATH="/usr/lib/jvm/java-17-openjdk/bin:${PATH}"
   cd ghidra-Ghidra_${pkgver}_build
 
   # Copy needed libraries into flat repo folder
@@ -38,7 +38,7 @@ prepare() {
 
   # YAJSW expects this symlink
   ln -sf ghidra-Ghidra_${pkgver}_build ../ghidra.bin
-  install -Dm 644 ../yajsw-beta-${_yajsw}.zip -t dependencies/GhidraServer
+  install -Dm 644 ../yajsw-stable-${_yajsw}.zip -t dependencies/GhidraServer
 
   # Add FID datasets
   install -Dm 644 ../ghidra-data/FunctionID/*.fidb -t Ghidra/Features/FunctionID/src/main/fidb
