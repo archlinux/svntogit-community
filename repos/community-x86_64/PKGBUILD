@@ -7,7 +7,7 @@
 
 pkgname=redis
 pkgver=7.0.5
-pkgrel=1
+pkgrel=2
 pkgdesc='An in-memory database that persists on disk'
 arch=('x86_64')
 url='https://redis.io/'
