@@ -5,7 +5,7 @@
 
 pkgname=dnsperf
 pkgver=2.9.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Tools that measure performance of authoritative Domain Name services"
 arch=('x86_64')
 url="https://www.dns-oarc.net/tools/dnsperf"
@@ -24,4 +24,3 @@ package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
   make DESTDIR="${pkgdir}" install
 }
-
