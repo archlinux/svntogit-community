@@ -5,7 +5,7 @@
 
 pkgname=python-license-expression
 pkgver=30.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Utility to parse, normalize and compare license expressions'
 arch=('any')
 url='https://github.com/nexB/license-expression'
@@ -16,9 +16,11 @@ depends=(
 )
 makedepends=(
   'git'
-  'python-setuptools'
+  'python-build'
+  'python-installer'
   'python-wheel'
-  'python-pip'
+  'python-setuptools-scm'
+  'python-wheel'
 )
 checkdepends=(
   'python-pytest'
@@ -46,17 +48,17 @@ prepare() {
 build() {
   cd "$pkgname"
 
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
   cd "$pkgname"
 
-  pytest
+  pytest -v
 }
 
 package() {
   cd "$pkgname"
 
-  python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
 }
