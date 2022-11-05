@@ -1,0 +1,83 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='rubocop-rspec'
+pkgname="ruby-${_gemname}"
+pkgver=2.15.0
+pkgrel=1
+pkgdesc='Code style checking for RSpec files. A plugin for the RuboCop code style enforcing & linting tool'
+arch=('any')
+url="https://github.com/rubocop/${_gemname}"
+license=('MIT')
+depends=('ruby' 'rubocop')
+checkdepends=('ruby-bump' 'ruby-parallel' 'ruby-rack' 'ruby-rspec' 'ruby-rubocop-performance' 'ruby-rubocop-rake' 'ruby-yard')
+options=('!emptydirs')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('152500dc809f9026488451e9e4145c643c3da24beadfde18f4a034013bb10c7f8e693dbad16813b505234aeb064f850f0d292e9f251d79edcc4e0e9b4dd1e73f')
+b2sums=('394e2fcd824a9f9e3d20c4261efdd19cd200c59fa96fd3f3dd4c6ecd712b5f25d24dc644d7b2002ffd16f3ca7221853dd00bce2005b02e3bd7ac879b1f79c917')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  gem build "${_gemname}.gemspec"
+
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "tmp_install/${_gemdir}/cache/" \
+    "tmp_install/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "tmp_install/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "tmp_install/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "tmp_install/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  GEM_HOME="tmp_install/${_gemdir}" rake spec
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
+
+  install --verbose -D --mode=0644 MIT-LICENSE.md --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
