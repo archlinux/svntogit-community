@@ -1,10 +1,11 @@
 # Maintainer: Kyle Keen <keenerd@gmail.com>
 # Contributor: Dominik Heidler <dheidler@gmail.com>
+
 pkgname=gnuradio-iqbal
 _pkgname=gr-iqbal
 pkgver=0.38.2
-_commit=fbee239a  # WHY didn't they tag a release for gr3.9 & pybind?
-pkgrel=8
+_commit=fbee239a6fb36dd2fb564f6e6a0d393c4bc844db
+pkgrel=9
 pkgdesc="Gnuradio I/Q balancing"
 arch=('x86_64')
 url="https://cgit.osmocom.org/gr-iqbal/"
@@ -12,42 +13,35 @@ license=('GPL')
 depends=('gnuradio' 'fftw' 'libunwind')
 replaces=('gr-iqbal')
 makedepends=('git' 'cmake' 'boost' 'spdlog')
-#source=("git://git.osmocom.org/gr-iqbal/#tag=v$pkgver")
-source=("git://git.osmocom.org/gr-iqbal/#commit=$_commit")
-md5sums=('SKIP')
+source=("git+https://gitea.osmocom.org/sdr/gr-iqbal.git#commit=$_commit"
+        "git+https://gitea.osmocom.org/sdr/libosmo-dsp.git")
+sha256sums=('SKIP'
+            'SKIP')
 
 prepare() {
-  cd "$srcdir/$_pkgname"
+  cd $_pkgname
+
   git submodule init
-  git submodule update
+  git submodule set-url libosmo-dsp "$srcdir/libosmo-dsp"
+  git -c protocol.file.allow=always submodule update
 
-  #sed -i 's/LIBOSMODSP_LIBRARIES ""/LIBOSMODSP_LIBRARIES ${FFTW3F_LIBRARIES}/' CMakeLists.txt 
-  #sed -i 's/lib64/lib/'   CMakeLists.txt
   sed -i 's/this, _1/this, boost::placeholders::_1/' lib/fix_cc.cc
-
-  # upstream mixed tabs and spaces
   sed -i 's/\t/        /' python/__init__.py
 }
 
 build() {
-  cd "$srcdir/$_pkgname"
-  mkdir -p build
-  cd build
-  cmake \
+  cmake -B build -S $_pkgname \
     -Wno-dev \
     -DCMAKE_BUILD_TYPE=Release \
-    -DPYTHON_EXECUTABLE=$(which python3) \
+    -DPYTHON_EXECUTABLE=/usr/bin/python3 \
     -DPYTHON_INCLUDE_DIR=$(echo /usr/include/python3*) \
     -DPYTHON_LIBRARY=$(echo /usr/lib/libpython3.*.so) \
     -DGR_PYTHON_DIR=$(echo /usr/lib/python3.*/site-packages/) \
     -DCMAKE_LIBRARY_PATH=/usr/lib \
-    -DCMAKE_INSTALL_PREFIX=/usr ../
-  make
-    #-DGnuradio_DIR=/usr/lib/cmake/gnuradio \
-    #-DVolk_DIR=/usr/lib/cmake/vol \
+    -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
 }
 
 package() {
-  cd "$srcdir/$_pkgname/build/"
-  make DESTDIR="${pkgdir}" install
+  DESTDIR="$pkgdir" cmake --install build
 }
