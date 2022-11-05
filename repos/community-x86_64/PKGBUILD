@@ -3,7 +3,7 @@
 
 pkgname=tailscale
 pkgver=1.32.2
-pkgrel=1
+pkgrel=2
 pkgdesc="A mesh VPN that makes it easy to connect your devices, wherever they are."
 arch=("x86_64")
 url="https://tailscale.com"
@@ -11,6 +11,7 @@ license=("MIT")
 makedepends=("git" "go")
 depends=("glibc")
 backup=("etc/default/tailscaled")
+options=(debug)
 # Important: Check if the version has been published before updating
 # curl -s "https://pkgs.tailscale.com/stable/?mode=json"
 _commit=54e8fa172b725b354598daaa7007d261fd932d10	#refs/tags/v1.32.2^{}
@@ -33,8 +34,9 @@ build() {
     export CGO_CFLAGS="${CFLAGS}"
     export CGO_CXXFLAGS="${CXXFLAGS}"
     export CGO_LDFLAGS="${LDFLAGS}"
-    export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+    export GOFLAGS="-buildmode=pie -mod=readonly -modcacherw"
     GO_LDFLAGS="\
+        -compressdwarf=false \
         -linkmode=external \
         -X tailscale.com/version.Long=${pkgver} \
         -X tailscale.com/version.Short=$(cut -d+ -f1 <<< "${pkgver}") \
