@@ -1,0 +1,95 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Lex Black <autumn-wind@web.de>
+# Contributor: Alex Gentilucci <alexander.gentilucci@gmail.com>
+
+pkgname=ft2-clone
+pkgver=1.60
+pkgrel=2
+pkgdesc='Portable Fasttracker II clone'
+arch=('x86_64')
+url='https://16-bits.org/ft2.php'
+license=(
+  'BSD'
+  'MIT'
+  'custom:CC-BY-NC-SA-4.0'
+)
+depends=(
+  'alsa-lib'
+  'sdl2'
+  'flac'
+  'hicolor-icon-theme'
+)
+makedepends=(
+  'git'
+  'libicns'
+  'cmake'
+  'gendesk'
+)
+_commit='0a8961b61a0abcd44395efb423484b18a8e7ad69'
+source=(
+  "$pkgname::git+https://github.com/8bitbubsy/ft2-clone#commit=$_commit"
+  'use-git-commit-date.patch'
+)
+sha256sums=('SKIP'
+            'cb4745add303d26130435eb9fd83a08c5d2ae55a60af5b6c18b4865bb1120398')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # convert icons
+  icns2png -x \
+    release/macos/ft2-clone-macos.app/Contents/Resources/ft2-clone-macos.icns
+
+  # generate desktop file
+  gendesk -n \
+    --exec "$pkgname" \
+    --name 'Fasttracker II Clone' \
+    --pkgname "$pkgname" \
+    --pkgdesc "$pkgdesc" \
+    --icon "$pkgname" \
+    --genericname 'Chiptune Tracker'
+
+  # attempt repro build
+  patch -p1 -i "$srcdir/use-git-commit-date.patch"
+  sed \
+    -e "s/@DATE@/$(git show --no-patch --format=%cd --date=format:'%d %B %Y')/" \
+    -i src/ft2_header.h
+}
+
+build() {
+  cmake \
+    -S "$pkgname" \
+    -B build \
+    -DEXTERNAL_LIBFLAC=ON \
+    -DCMAKE_BUILD_TYPE='None' \
+    -DCMAKE_INSTALL_PREFIX='/usr' \
+    -Wno-dev
+
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+
+  cd "$pkgname"
+
+  # application icons
+  for i in 16 32 48 128 256; do
+    install -vDm644 "ft2-clone-macos_${i}x${i}x32.png" "$pkgdir/usr/share/icons/hicolor/${i}x${i}/apps/ft2-clone.png"
+  done
+
+  # desktop file
+  install -vDm644 -t "$pkgdir/usr/share/applications" ft2-clone.desktop
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+
+  # licensing
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" release/LICENSES.txt
+}
