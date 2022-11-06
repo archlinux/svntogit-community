@@ -1,10 +1,8 @@
 # Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
 
 _gemname='kpeg'
-# can't use version tag as it doesn't exist: https://github.com/evanphx/kpeg/issues/52
-_commit='2c66601458e1012adf4b1ff21835d9208caa5298'
 pkgname="ruby-${_gemname}"
-pkgver=1.3.1
+pkgver=1.3.2
 pkgrel=3
 pkgdesc='A simple PEG library for ruby'
 arch=('any')
@@ -13,60 +11,40 @@ license=('MIT')
 depends=('ruby')
 makedepends=('ruby-hoe' 'ruby-rake')
 options=('!emptydirs')
-source=("${url}/archive/${_commit}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('7f901cedf015d37e249d0db394a992e9d76d9c4248035477b8ac8cc8845de68e315bb790765c58622bb887ce59752b10e2d35ba122bc04d747890bc15465acc3')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('8c05529af8c5ee1defb4401109ad8fd62cd39b6c278202e01781b294ee94395e8acdfe10d7e984b9ed5f1c11006dcbfa694c3315a0d9e5a085adb81bfbaa0848')
+b2sums=('91494f7e92bed6e285b4ed9be20738afba82ca75316e7e4537c4d15032dff906416c94f02ca1f5dec56d412c3910cbac072b63918b3ca1bbb71d1ca896d015da')
 
 prepare() {
-  cd "${_gemname}-${_commit}"
+  cd "${_gemname}-${pkgver}"
 
   # update gemspec/Gemfile to allow newer version of the dependencies
   sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
-
-  # remove non-existing files from gemspec: https://github.com/evanphx/kpeg/issues/51
-  sed --in-place --regexp-extended 's|, ".gemtest"||g' "${_gemname}.gemspec"
-  sed --in-place --regexp-extended 's|, ".travis.yml"||g' "${_gemname}.gemspec"
-
-  # fix version in gemspec: https://github.com/evanphx/kpeg/issues/52
-  sed --in-place --regexp-extended "s|1\.0\.0\.20140103162640|${pkgver}|g" "${_gemname}.gemspec"
 }
 
 build() {
-  cd "${_gemname}-${_commit}"
-
-  gem build "${_gemname}.gemspec"
-}
-
-check() {
-  cd "${_gemname}-${_commit}"
-
-  rake test
-}
-
-package() {
-  cd "${_gemname}-${_commit}"
+  cd "${_gemname}-${pkgver}"
 
   local _gemdir="$(gem env gemdir)"
+
+  gem build "${_gemname}.gemspec"
 
   gem install \
     --local \
     --verbose \
     --ignore-dependencies \
     --no-user-install \
-    --install-dir "${pkgdir}/${_gemdir}" \
-    --bindir "${pkgdir}/usr/bin" \
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
     "${_gemname}-${pkgver}.gem"
-
-  install --verbose --directory --mode=0755 "${pkgdir}/usr/share/vim/vimfiles/"
-
-  mv --verbose vim/syntax_kpeg/* "${pkgdir}/usr/share/vim/vimfiles/"
 
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}/${_gemdir}/cache/" \
-    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
-    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "tmp_install/${_gemdir}/cache/" \
+    "tmp_install/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "tmp_install/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
 
-  find "${pkgdir}/${_gemdir}/gems/" \
+  find "tmp_install/${_gemdir}/gems/" \
     -type f \
     \( \
       -iname "*.o" -o \
@@ -78,14 +56,36 @@ package() {
     \) \
     -delete
 
-  find "${pkgdir}/${_gemdir}/extensions/" \
+  find "tmp_install/${_gemdir}/extensions/" \
     -type f \
     \( \
       -iname "mkmf.log" -o \
       -iname "gem_make.out" \
     \) \
     -delete
+}
 
-  install --verbose -D --mode=0644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  # workaround to get tests working - https://github.com/evanphx/kpeg/issues/56
+  export GEM_HOME="tmp_install/${_gemdir}"
+  find test/ -iname '*.rb' | while read testfile; do ruby "${testfile}"; done
+  unset GEM_HOME
+
+  #GEM_HOME="tmp_install/${_gemdir}" rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
+
+  install --verbose --directory --mode=0755 "${pkgdir}/usr/share/vim/vimfiles/"
+  mv --verbose vim/syntax_kpeg/* "${pkgdir}/usr/share/vim/vimfiles/"
+
+  install --verbose -D --mode=0644 LICENSE --target-directory "${pkgdir}/usr/share/licenses/${pkgname}"
   install --verbose -D --mode=0644 *.rdoc --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
