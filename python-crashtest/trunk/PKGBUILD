@@ -3,8 +3,8 @@
 
 _pkgname=crashtest
 pkgname=python-crashtest
-pkgver=0.4.0
-pkgrel=2
+pkgver=0.4.1
+pkgrel=1
 pkgdesc='supposedly makes exceptions handling and inspection easier'
 arch=(any)
 url="https://github.com/sdispater/${_pkgname}"
@@ -15,8 +15,8 @@ makedepends=(python-{build,installer,wheel}
 checkdepends=(python-pytest)
 _archive="$_pkgname-$pkgver"
 source=("$url/archive/$pkgver/$_archive.tar.gz")
-sha256sums=('fe89907fc06ca3c5fbd7175d2001a150929297badef177e17ed2b662045cf86e')
-b2sums=('9c29694f5c96a981e19cce16853460cfed7277a2a933c14be9bdefcac9f79e9d835454fd79b3da2fb5f62946f933452202eee05199dfa048b919a3fc3dd93f40')
+sha256sums=('4ff59d9bee6d2bc581d462888ec28beb30ad448042c885a2b4ab45dc4910780b')
+b2sums=('aa46efb2dbabfeaab54f9149da42cb033f5dca3ab1c75032ca2542018058cf16775f56450cadf3e1272e738d602f32f21b9a6668a99f2733cd53d23c1754a0bc')
 
 build(){
 	cd "$_archive"
