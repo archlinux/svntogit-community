@@ -4,7 +4,7 @@
 
 _pypiname=wheel
 pkgname=python-wheel
-pkgver=0.38.0
+pkgver=0.38.1
 pkgrel=1
 pkgdesc="A built-package format for Python"
 arch=(any)
@@ -17,19 +17,21 @@ makedepends=('python-setuptools')
 checkdepends=('python-jsonschema' 'python-pytest' 'python-keyring' 'python-keyrings-alt'
               'python-xdg' 'python-pytest-cov')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
-sha512sums=('0ffdf531c03d1f0866632002b163fdf8642b613604e74d1cfa5844e8c327946baf303bc0410fc7ec034f8a79cb4ad59536dfdaaa5cc8fa23a3b7d21faf5e6161')
+sha512sums=('1818b50a4ee50861aac3c9ac4058c5fee2de4a428ca04e7a9b1ce570dab6f1b64f4528f812aa23e87705ed15e360d0bd5b01523bd4360875c25054b1ccbf9179')
 
 prepare() {
+  cd wheel-$pkgver
   # don't depend on python-coverage for tests
-  sed -i 's/--cov=wheel//' wheel-$pkgver/setup.cfg
+  sed -i 's/--cov=wheel//' setup.cfg
 
   # https://github.com/pypa/wheel/pull/365 but why?
-  rm -r wheel-$pkgver/src/wheel/vendored
-  sed -i 's/from .vendored.packaging import tags/from packaging import tags/' wheel-$pkgver/src/wheel/bdist_wheel.py
+  rm -r src/wheel/vendored
+  sed -i 's/from .vendored.packaging import tags/from packaging import tags/' src/wheel/bdist_wheel.py
+  sed -i 's/from wheel.vendored.packaging import tags/from packaging import tags/' tests/test_bdist_wheel.py
 }
 
 build() {
-  cd "$srcdir/wheel-$pkgver"
+  cd wheel-$pkgver
   python setup.py build
 }
 
@@ -38,11 +40,11 @@ check() {
 
   cd wheel-$pkgver
   python setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages:$PYTHONPATH" py.test
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages" pytest
 }
 
 package() {
-  cd "$srcdir/$_pypiname-$pkgver"
+  cd wheel-$pkgver
   python setup.py install --root="$pkgdir/" --optimize=1 --skip-build
-  install -D -m644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
+  install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
