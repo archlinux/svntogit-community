@@ -1,0 +1,62 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=ruby-markly
+pkgver=0.7.0
+_cmark_gfm_commit=766f161ef6d61019acf3a69f5099489e7d14cd49
+pkgrel=1
+pkgdesc='CommonMark parser and renderer. Written in C, wrapped in Ruby.'
+arch=(x86_64)
+url='https://github.com/ioquatix/markly'
+license=(MIT)
+depends=(ruby)
+checkdepends=(ruby-rspec ruby-rake-compiler)
+options=(!emptydirs)
+source=(https://github.com/ioquatix/markly/archive/v$pkgver/$pkgname-$pkgver.tar.gz
+        https://github.com/github/cmark-gfm/archive/$_cmark_gfm_commit/cmark-gfm-$_cmark_gfm_commit.tar.gz)
+sha256sums=('95171c4bbdd621c01e133c5c813343a38d818fef0204651fbe097b9867d288c4'
+            'e95a1300cfe4c5b5ad68af6a77855df823b5d813334910a41991af0f70575d66')
+
+prepare() {
+  cd markly-$pkgver
+  rmdir cmark-gfm
+  ln -s ../cmark-gfm-$_cmark_gfm_commit cmark-gfm
+  sed 's/~>/>=/' -i markly.gemspec
+  sed -i "/task 'test:unit' => :compile/d" Rakefile
+}
+
+build() {
+  local _gemdir="$(gem env gemdir)"
+  cd markly-$pkgver
+  gem build markly.gemspec
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/$_gemdir" \
+    --bindir "tmp_install/usr/bin" \
+    markly-$pkgver.gem
+  find "tmp_install/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+  rm -r tmp_install/$_gemdir/cache
+}
+
+check() {
+  local _gemdir="$(gem env gemdir)"
+  cd markly-$pkgver
+  GEM_HOME="tmp_install/$_gemdir" rake test
+}
+
+package() {
+  cd markly-$pkgver
+  cp -a tmp_install/* "$pkgdir"/
+}
