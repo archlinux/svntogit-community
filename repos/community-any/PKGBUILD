@@ -3,8 +3,8 @@
 # Contributor: Kyle Keen <keenerd@gmail.com>
 
 pkgname=python-jaraco.collections
-pkgver=3.5.1
-pkgrel=3
+pkgver=3.5.2
+pkgrel=1
 pkgdesc="Models and classes to supplement the stdlib 'collections' module."
 arch=('any')
 url='https://github.com/jaraco/jaraco.collections'
@@ -15,7 +15,7 @@ checkdepends=('python-pytest-enabler' 'python-pytest-mypy')
 conflicts=('python-jaraco')
 replaces=('python-jaraco')
 source=("https://files.pythonhosted.org/packages/source/j/jaraco.collections/jaraco.collections-$pkgver.tar.gz")
-sha512sums=('2918be537296ca81e5f78a3966a47451dc9dc2d233d997c3f01461c489b44051c497dab55496f85883ac1b91a28850a9d77ff154a3f5e074da1ed07f3259c246')
+sha512sums=('9567ee44fbc5010cc81ee24de792e53b5a225759b5f7d2e7dd932b0cae38e2035fddb5bd3dee5dc08fea9c61e2bf9087418cd192d81c72760f1e0d95a7b3788c')
 
 build() {
   cd jaraco.collections-$pkgver
