@@ -2,10 +2,11 @@
 # Contributor: David Runge <dvzrv@archlinux.org>
 # Contributor: Dominik Heidler <dheidler@gmail.com>
 # Contributor:	Jonatan Sastre <jsastreh [ at ] hotmail.com>
+
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
 pkgver=3.10.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc="General purpose DSP and SDR toolkit.  With drivers for usrp and fcd."
 arch=('x86_64')
 url="https://gnuradio.org"
