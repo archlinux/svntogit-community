@@ -64,12 +64,12 @@ source=(
   #"$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz::https://github.com/xbmc/FFmpeg/archive/$_ffmpeg_version.tar.gz"
   #"$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz::https://github.com/BlackIkeEagle/kodi-FFmpeg/archive/refs/heads/fix/4.3-kodi-dav1d-1.0.tar.gz"
   "https://sources.archlinux.org/other/community/kodi/$pkgbase-ffmpeg-$_ffmpeg_version.tar.gz"
-  "$pkgbase-fmt-$_fmt_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/fmt-$_fmt_version.tar.gz"
-  "$pkgbase-spdlog-$_spdlog_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/spdlog-$_spdlog_version.tar.gz"
-  "$pkgbase-crossguid-$_crossguid_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/crossguid-$_crossguid_version.tar.gz"
-  "$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/fstrcmp-$_fstrcmp_version.tar.gz"
-  "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
-  "$pkgbase-libudfread-$_libudfread_version.tar.gz::http://mirrors.kodi.tv/build-deps/sources/libudfread-$_libudfread_version.tar.gz"
+  "$pkgbase-fmt-$_fmt_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/fmt-$_fmt_version.tar.gz"
+  "$pkgbase-spdlog-$_spdlog_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/spdlog-$_spdlog_version.tar.gz"
+  "$pkgbase-crossguid-$_crossguid_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/crossguid-$_crossguid_version.tar.gz"
+  "$pkgbase-fstrcmp-$_fstrcmp_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/fstrcmp-$_fstrcmp_version.tar.gz"
+  "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
+  "$pkgbase-libudfread-$_libudfread_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/libudfread-$_libudfread_version.tar.gz"
   'cheat-sse-build.patch'
 )
 noextract=(
