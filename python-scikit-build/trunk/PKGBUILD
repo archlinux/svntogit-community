@@ -41,6 +41,8 @@ build() {
 
 check() {
   cd scikit-build
+  # Disable coverage
+  sed -i 's|\"--cov\"\, \"--cov-report=xml\"||' noxfile.py
   # Tests need a rw version of site-packages
   python -m venv --system-site-packages test-env
   # https://github.com/scikit-build/scikit-build/issues/727
