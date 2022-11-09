@@ -4,7 +4,7 @@
 # Contributor: Ben Greiner <code-arch@bnavigator.de>
 
 pkgname=python-scikit-build
-pkgver=0.15.0
+pkgver=0.16.2
 pkgrel=1
 pkgdesc="Improved build system generator for CPython C, C++, Cython and Fortran extensions"
 arch=(any)
@@ -27,9 +27,9 @@ checkdepends=(
     python-six
     python-virtualenv
 )
-_tag=7da7674cc98f22579fb6b077fdfff09ca48536d9 # git rev-parse ${pkgver}
+_tag=f15effa826c77c8be7b208d6681c87086ba461fb # git rev-parse ${pkgver}
 source=(git+https://github.com/scikit-build/scikit-build.git#tag=${_tag}?signed)
-sha256sums=(SKIP)
+sha256sums=('SKIP')
 validpgpkeys=(2FDEC9863E5E14C7BC429F27B9D0E45146A241E8) # Henry Schreiner <hschrein@cern.ch>
 
 build() {
@@ -41,8 +41,6 @@ build() {
 
 check() {
   cd scikit-build
-  # Disable coverage
-  sed -i 's|--cov --cov-report xml ||' setup.cfg
   # Tests need a rw version of site-packages
   python -m venv --system-site-packages test-env
   # https://github.com/scikit-build/scikit-build/issues/727
