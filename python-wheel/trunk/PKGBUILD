@@ -4,7 +4,7 @@
 
 _pypiname=wheel
 pkgname=python-wheel
-pkgver=0.38.1
+pkgver=0.38.2
 pkgrel=1
 pkgdesc="A built-package format for Python"
 arch=(any)
@@ -17,7 +17,7 @@ makedepends=('python-setuptools')
 checkdepends=('python-jsonschema' 'python-pytest' 'python-keyring' 'python-keyrings-alt'
               'python-xdg' 'python-pytest-cov')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
-sha512sums=('1818b50a4ee50861aac3c9ac4058c5fee2de4a428ca04e7a9b1ce570dab6f1b64f4528f812aa23e87705ed15e360d0bd5b01523bd4360875c25054b1ccbf9179')
+sha512sums=('59a55e35f641dc6e97bcd58755ef39dd771f8ed442843321878054db3c54234befde368ae500a93fffde6ea1bbcb0e3981975b2c7574fc5a58693a70430e474b')
 
 prepare() {
   cd wheel-$pkgver
