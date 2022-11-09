@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=19.4
-pkgrel=6
+pkgrel=8
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -177,6 +177,7 @@ package_kodi() {
     'mesa' 'python-pillow' 'python-pycryptodomex' 'python-simplejson'
     'shairplay' 'smbclient' 'sqlite' 'taglib' 'tinyxml'
     'libxrandr' 'libxkbcommon' 'waylandpp' 'libinput'
+    'pcre'
   )
   optdepends=(
     'afpfs-ng: Apple shares support'
