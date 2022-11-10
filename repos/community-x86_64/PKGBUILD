@@ -4,7 +4,7 @@
 
 _pkgname=rapidfuzz
 pkgname=python-$_pkgname
-pkgver=2.10.2
+pkgver=2.13.2
 pkgrel=1
 pkgdesc='Rapid fuzzy string matching in Python using various string metrics'
 arch=(x86_64)
@@ -15,7 +15,7 @@ makedepends=(python-build python-installer python-scikit-build python-rapidfuzz-
 checkdepends=(python-hypothesis python-pandas python-pytest)
 optdepends=(python-numpy)
 source=(https://files.pythonhosted.org/packages/source/${_pkgname::1}/$_pkgname/$_pkgname-$pkgver.tar.gz)
-sha256sums=('26a80cfe249a3100f94737c0207626b0b6f3ac4e77077248599f6dbe7860a9d0')
+sha256sums=('1c67007161655c59e13bba130a2db29d7c9e5c81bcecb8846a3dd7386065eb24')
 
 build() {
   cd $_pkgname-$pkgver
