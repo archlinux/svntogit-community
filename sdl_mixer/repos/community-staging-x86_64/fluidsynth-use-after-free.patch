@@ -1,0 +1,37 @@
+From 452a55c5d8cd78621114b8aaa258377403797ea7 Mon Sep 17 00:00:00 2001
+From: Ozkan Sezer <sezeroz@gmail.com>
+Date: Fri, 22 Jan 2021 17:47:01 +0300
+Subject: [PATCH] Fix use-after-free in music_fluidsynth.c (backport from
+ default branch)
+
+Tom M.
+
+There is a dangerous use-after-free in FLUIDSYNTH_Delete(): the settings
+object is deleted **before** the synth. Since the settings have been
+created first to initialize the synth, you must first delete the synth
+and then delete the settings. This currently crashes all applications
+that use fluidsynth 2.1.6 and SDL2_mixer.
+
+Originally reported at https://github.com/FluidSynth/fluidsynth/issues/748
+---
+ fluidsynth.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/fluidsynth.c b/fluidsynth.c
+index 717d8aa..179d79c 100644
+--- a/fluidsynth.c
++++ b/fluidsynth.c
+@@ -152,10 +152,12 @@ FluidSynthMidiSong *fluidsynth_loadsong_RW(SDL_RWops *rw, int freerw)
+ 
+ void fluidsynth_freesong(FluidSynthMidiSong *song)
+ {
++	fluid_settings_t *settings;
+ 	if (!song) return;
++	settings = fluidsynth.fluid_synth_get_settings(song->synth);
+ 	fluidsynth.delete_fluid_player(song->player);
+-	fluidsynth.delete_fluid_settings(fluidsynth.fluid_synth_get_settings(song->synth));
+ 	fluidsynth.delete_fluid_synth(song->synth);
++	fluidsynth.delete_fluid_settings(settings);
+ 	SDL_free(song);
+ }
+ 
