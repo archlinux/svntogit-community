@@ -13,9 +13,9 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=6.0.10.sdk110
-pkgrel=2
-_bootstrapver=6.0.109-2
+pkgver=7.0.0.sdk100
+pkgrel=1
+_bootstrapver=7.0.100-rc.2
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
 license=(MIT)
@@ -23,7 +23,6 @@ makedepends=(
   bash
   clang
   cmake
-  #dotnet-sdk
   git
   icu
   inetutils
@@ -44,23 +43,20 @@ options=(
   !lto
   staticlibs
 )
-_tag=ce0a42998a3d2a725f5bd08413b140d907f48177
+_tag=e12b7af219b96b5e07039ea8e3e268380329d72c
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
   dotnet.sh
   dotnet-core-runtime-disable-package-validation.patch
-  dotnet-core-sdk-telemetry-optout.patch
 )
 noextract=(Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz)
 b2sums=('SKIP'
-        'edbe904f7e24ba8f231012a947955ba8379a199d44eaaff39deab220d422cc99efb9159e89e2ba3c6af4dd7771e075066602f103871bc58d52a64c90d77ee543'
+        'fe4c4fcbfd052166d80bc15784966dfb12cb79a1e6ecaade27280d8a5ca1a8caaacd32cb7c472260725e38496d04cc6afc7b766f8072d972a375d0bee055b03f'
         '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
-        'b9472b3967c9d7549ee2bbf0180d919748b40b1f9a65b1c3789be40f62ed17a9d37c2020409f7835570620108bd5ec43e728966d075d66bf0b7261cdd36a60c3'
-        '95b083b842da6049a084ca015b7ddc099550aa818fc382d556cca832fee52265be568d20a2c50e70819aef6cf879e7a368f7dd3b5966356643b2efdd756e73f4')
+        'b9472b3967c9d7549ee2bbf0180d919748b40b1f9a65b1c3789be40f62ed17a9d37c2020409f7835570620108bd5ec43e728966d075d66bf0b7261cdd36a60c3')
 
 prepare() {
-  #cp -r /usr/share/dotnet .
   cd dotnet-installer
   # fix bootstrap
   git remote set-url origin https://github.com/dotnet/installer.git
@@ -69,21 +65,27 @@ prepare() {
 pkgver() {
   cd dotnet-installer
 
-  if [[ $(git describe --tags) != v6.0.* ]]; then
-    echo "Invalid SDK version"
+  if [[ $(git describe --tags) != v7.0.* ]]; then
+    msg "Invalid SDK version"
     exit 1
   fi
 
   local _standardver=$(xmllint --xpath "//*[local-name()='NETStandardLibraryRefPackageVersion']/text()" eng/Versions.props)
 
   if [[ $_standardver != 2.1.0 ]]; then
-    echo "Invalid Standard version"
+    msg "Invalid Standard version '$_standardver'"
+    exit 1
+  fi
+
+  local _newbootstrapver=$(xmllint --xpath "//*[local-name()='PrivateSourceBuiltArtifactsPackageVersion']/text()" eng/Versions.props)
+
+  if [[ $_newbootstrapver != $_bootstrapver ]]; then
+    msg "Invalid Bootstrap version '$_newbootstrapver'"
     exit 1
   fi
 
   local _sdkver=$(xmllint --xpath "//*[local-name()='VersionSDKMinor']/text()" eng/Versions.props)$(xmllint --xpath "//*[local-name()='VersionFeature']/text()" eng/Versions.props)
   local _runtimever=$(xmllint --xpath "//*[local-name()='MicrosoftNETCoreAppRuntimewinx64PackageVersion']/text()" eng/Versions.props)
-
 
   echo "${_runtimever}.sdk${_sdkver}"
 }
@@ -113,10 +115,6 @@ build() {
   sed -i -E 's|( /p:BuildDebPackage=false)|\1 /p:EnablePackageValidation=false|' src/runtime/eng/SourceBuild.props
   sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_LIBUNWIND=TRUE|' src/runtime/eng/SourceBuild.props
 
-  pushd src/sdk
-  patch -Np1 -i ../../../dotnet-core-sdk-telemetry-optout.patch
-  popd
-
   ln -sf "${srcdir}"/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz packages/archive/
 
   ./prep.sh
@@ -128,7 +126,6 @@ build() {
     /p:MinimalConsoleLogOutput=false \
     /p:PrebuiltPackagesPath="${srcdir}"/sources/packages \
     /p:SkipPortableRuntimeBuild=true
-    #--with-sdk "${srcdir}"/dotnet \
 }
 
 package_dotnet-host() {
@@ -165,8 +162,8 @@ package_dotnet-runtime() {
   )
 
   optdepends=('lttng-ust2.12: CoreCLR tracing')
-  provides=(dotnet-runtime-6.0)
-  conflicts=(dotnet-runtime-6.0)
+  provides=(dotnet-runtime-7.0)
+  conflicts=(dotnet-runtime-7.0)
 
   cd sources/artifacts/x64/Release
 
@@ -178,8 +175,8 @@ package_dotnet-runtime() {
 package_aspnet-runtime() {
   pkgdesc='The ASP.NET Core runtime'
   depends=(dotnet-runtime)
-  provides=(aspnet-runtime-6.0)
-  conflicts=(aspnet-runtime-6.0)
+  provides=(aspnet-runtime-7.0)
+  conflicts=(aspnet-runtime-7.0)
 
   cd sources/artifacts/x64/Release
 
@@ -198,8 +195,8 @@ package_dotnet-sdk() {
     netstandard-targeting-pack
   )
   optdepends=('aspnet-targeting-pack: Build ASP.NET Core applications')
-  provides=(dotnet-sdk-6.0)
-  conflicts=(dotnet-sdk-6.0)
+  provides=(dotnet-sdk-7.0)
+  conflicts=(dotnet-sdk-7.0)
 
   cd sources/artifacts/x64/Release
 
@@ -223,8 +220,8 @@ package_netstandard-targeting-pack() {
 package_dotnet-targeting-pack() {
   pkgdesc='The .NET Core targeting pack'
   depends=(netstandard-targeting-pack)
-  provides=(dotnet-targeting-pack-6.0)
-  conflicts=(dotnet-targeting-pack-6.0)
+  provides=(dotnet-targeting-pack-7.0)
+  conflicts=(dotnet-targeting-pack-7.0)
 
   cd sources/artifacts/x64/Release
 
@@ -236,8 +233,8 @@ package_dotnet-targeting-pack() {
 package_aspnet-targeting-pack() {
   pkgdesc='The ASP.NET Core targeting pack'
   depends=(dotnet-targeting-pack)
-  provides=(aspnet-targeting-pack-6.0)
-  conflicts=(aspnet-targeting-pack-6.0)
+  provides=(aspnet-targeting-pack-7.0)
+  conflicts=(aspnet-targeting-pack-7.0)
 
   cd sources/artifacts/x64/Release
 
