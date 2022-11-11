@@ -1,0 +1,77 @@
+# Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Contributor: Florian Maunier <fmauneko@dissidence.ovh>
+# Contributor: jtmb <packaging at technologicalwizardry dot com>
+
+pkgbase=mono-msbuild
+pkgname=(
+  mono-msbuild
+  mono-msbuild-sdkresolver
+)
+pkgver=16.10.1.xamarinxplat.2021.05.26.14.00
+pkgrel=4
+pkgdesc='Xamarin implementation of the Microsoft build system'
+arch=(x86_64)
+url=https://github.com/mono/linux-packaging-msbuild
+license=(MIT)
+depends=(mono)
+makedepends=(
+  bash
+  git
+  dotnet-sdk
+  unzip
+)
+_tag=33648164f64f8e2d9b0458fab1c229eecfebc0a6
+source=(
+  mono-msbuild::git+https://github.com/mono/linux-packaging-msbuild#tag=${_tag}
+  mono-msbuild-license-case.patch
+  mono-msbuild-use-bash.patch
+)
+b2sums=('SKIP'
+        '0eca24ffd366836975c722b32016bf734c73ae0906d2e81c9bdfce00338c0df655a8a98126049af2b59e23ef1f5bfa9bc0d531b9b0de6646388170e30a219241'
+        'c495053e8d02b7bfcc199650ab947eb2f9198ea49ab07702e17ca10d7834e9fd62ad039fd4187116b25305d78d2676fb1e317251ca6b1e48e5172ca09623f171')
+
+pkgver() {
+  cd mono-msbuild
+  git describe --tags | sed 's/.*\///; s/+/./'
+}
+
+prepare() {
+  cd mono-msbuild
+  patch -Np1 -i ../mono-msbuild-license-case.patch
+  patch -Np1 -i ../mono-msbuild-use-bash.patch
+}
+
+build() {
+  cd mono-msbuild
+  export DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR=/usr/share/dotnet
+  ./eng/cibuild_bootstrapped_msbuild.sh --host_type mono --configuration Release --skip_tests /p:DisableNerdbankVersioning=true
+  ./stage1/mono-msbuild/msbuild mono/build/install.proj /p:MonoInstallPrefix="${srcdir}"/target/usr /p:Configuration=Release-MONO /p:IgnoreDiffFailure=true
+  sed "s@${srcdir}/target@@g" -i "${srcdir}"/target/usr/bin/msbuild
+  find "${srcdir}"/target/usr/lib/mono/ -name Microsoft.DiaSymReader.Native.*dll -delete
+  find "${srcdir}"/target/usr/lib/mono/ -name *.dylib -delete
+  find "${srcdir}"/target/usr/lib/mono/ -name *.so -delete
+}
+
+package_mono-msbuild() {
+  conflicts=(msbuild)
+  provides=(msbuild)
+
+  cp -dr --no-preserve=ownership target/usr "${pkgdir}"/
+  rm -rf "${pkgdir}"/usr/lib/mono/msbuild/Current/bin/SdkResolvers/Microsoft.DotNet.MSBuildSdkResolver
+  find "${pkgdir}" -name *.pdb -delete
+}
+
+package_mono-msbuild-sdkresolver() {
+  depends=(
+    mono-msbuild
+    dotnet-host
+  )
+  conflicts=(msbuild-sdkresolver)
+  provides=(msbuild-sdkresolver)
+
+  install -dm 755 "${pkgdir}"/usr/lib/mono/msbuild/Current/bin/SdkResolvers
+  cp -dr --no-preserve=ownership target/usr/lib/mono/msbuild/Current/bin/SdkResolvers/Microsoft.DotNet.MSBuildSdkResolver "${pkgdir}"/usr/lib/mono/msbuild/Current/bin/SdkResolvers/
+  find "${pkgdir}" -name *.pdb -delete
+}
+
+# vim: ts=2 sw=2 et:
