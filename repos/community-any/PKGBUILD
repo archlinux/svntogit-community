@@ -4,7 +4,7 @@
 # Contributor: William Rea <sillywilly@gmail.com>
 
 pkgname=python-pytz
-pkgver=2022.1
+pkgver=2022.6
 pkgrel=1
 arch=('any')
 url="https://pypi.python.org/pypi/pytz"
@@ -14,7 +14,7 @@ depends=('python')
 makedepends=('python')
 source=("https://pypi.io/packages/source/p/pytz/pytz-${pkgver}.tar.gz"
         "0001-Use-the-system-zoneinfo-from-the-tzdata-package.patch")
-sha512sums=('7737aa28626743026b7de932b27bf44d7b209f495d9dd7f90c6448ec271e007f23004fcd04982e2ca6d0a4075206e1dae7b8836319c299b5559c514366d518a6'
+sha512sums=('ea0343453d011e252fba64502984e2a43ea7c7437a211025ca68a4a45178c8aaef4c2b65261434289b21166a99a1941ec9e2d9d26bb3d22a76cbaa421250131d'
             '3cbd497313c3049a2ae04298118aefb6dfa9ec4626078c665c95c13a78ae944b33a68813aea0c53b02b0532b64221cca4a0cd2153bd91b3760916bc3c0f6df8f')
 validpgpkeys=('C7ECC365AB6F255E1EB9BA1701FA998FBAC6374A')
 
