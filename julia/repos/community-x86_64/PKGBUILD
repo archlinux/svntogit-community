@@ -9,7 +9,7 @@
 pkgname=julia
 epoch=2
 pkgver=1.8.2
-pkgrel=1
+pkgrel=3
 arch=(x86_64)
 pkgdesc='High-level, high-performance, dynamic programming language'
 url='https://julialang.org/'
@@ -26,7 +26,8 @@ source=(https://github.com/JuliaLang/julia/releases/download/v$pkgver/$pkgname-$
         julia-libunwind-1.6.patch
         julia-system-cblas.patch
         julia-hardcoded-libs.patch
-        make-install-no-build.patch)
+        make-install-no-build.patch
+        julia-suitesparse-version-mismatch.patch)
 backup=(etc/julia/startup.jl)
 sha256sums=('e57cfc2e6d891750a47f7cf03559a4e8f7212bf54900f26a9f12fd6d009d4ca9'
             'SKIP'
@@ -36,7 +37,8 @@ sha256sums=('e57cfc2e6d891750a47f7cf03559a4e8f7212bf54900f26a9f12fd6d009d4ca9'
             'cea321f7e16381dd795ee20d7bd5eda64f9b453c01d13e960962eb2723907e24'
             '65f24275edb8357ded3c53fd8a10c3d1ed13fa3d34a3869df0c04da10dba6c9d'
             '929a52a5503b6d1a21774c170ece0981cb7da1c1e7a5b7a2892cfb1251689b55'
-            'f2dc0b7164868dc56d3f8744c4a1596e964c66265023751c95e1976bb15bd5f8')
+            'f2dc0b7164868dc56d3f8744c4a1596e964c66265023751c95e1976bb15bd5f8'
+            '52c481d691940bbc4714d54cfde20fb1973350ba4a4c2386941a32fc007fdd85')
 validpgpkeys=('3673DF529D9049477F76B37566E3C7DC03D6E495') # Julia (Binary signing key) <buildbot@julialang.org>
 options=(!lto)
 
@@ -58,6 +60,17 @@ prepare() {
 # Fix test failures due to using system blas
   sed -e 's|0.22314355f0 + 3.1415927f0im|0.22314355f0 - 3.1415927f0im|' -i stdlib/LinearAlgebra/test/lu.jl
   sed -e 's|\$Int|Int32|' -i stdlib/LinearAlgebra/test/lu.jl
+# Supress suitesparse version mismatch warnings
+  cd stdlib/srccache
+  tar -xzf SuiteSparse-f63732c1c6adecb277d8f2981cc8c1883c321bcc.tar.gz
+  patch -d JuliaSparse-SuiteSparse.jl-f63732c -p1 < "$srcdir"/julia-suitesparse-version-mismatch.patch
+  rm SuiteSparse-f63732c1c6adecb277d8f2981cc8c1883c321bcc.tar.gz
+  tar -czf SuiteSparse-f63732c1c6adecb277d8f2981cc8c1883c321bcc.tar.gz JuliaSparse-SuiteSparse.jl-f63732c
+  _suitesparse_md5=$(md5sum SuiteSparse-f63732c1c6adecb277d8f2981cc8c1883c321bcc.tar.gz | cut -d ' ' -f 1)
+  _suitesparse_sha512=$(sha512sum SuiteSparse-f63732c1c6adecb277d8f2981cc8c1883c321bcc.tar.gz | cut -d ' ' -f 1)
+  sed -e "s|baeb73b8ac38dd04174ed04fa1ea8cef|${_suitesparse_md5}|" \
+      -e "s|a95e6ebafe948f419a65a9630b01cda380f3ce19499afe57e212a75dd43aa7a09ddd038e90d1215ae55566a676e392e696565d2d7a96853ec4fca7f73762b268|${_suitesparse_sha512}|" \
+      -i ../../deps/checksums/suitesparse
 }
 
 _buildopts="prefix=/usr \
