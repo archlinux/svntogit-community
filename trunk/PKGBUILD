@@ -3,42 +3,56 @@
 _name=subprocess-tee
 pkgname=python-subprocess-tee
 pkgver=0.3.5
-pkgrel=3
+_commit=c1b451090d0770740b5f29897771a95f7e2d8484  # refs/tags/0.3.5
+pkgrel=4
 pkgdesc="A subprocess.run that works like tee"
-arch=('any')
+arch=(any)
 url="https://github.com/pycontribs/subprocess-tee"
-license=('MIT')
-depends=('python')
-makedepends=('python-setuptools-scm' 'python-setuptools-scm-git-archive' 'python-toml')
-checkdepends=('molecule' 'python-mock' 'python-pytest' 'python-pytest-xdist' 'python-enrich')
+license=(MIT)
+depends=(python)
+makedepends=(git python-build python-installer python-setuptools python-setuptools-scm python-wheel)
+checkdepends=(ansible-core molecule python-enrich python-pytest python-pytest-xdist)
 optdepends=('python-enrich: for rich text rendering')
-source=("https://files.pythonhosted.org/packages/source/${_name::1}/${_name}/${_name}-${pkgver}.tar.gz")
-sha512sums=('47de075e7b6c75598dac0ad1899e1cce9dc1131b49c35ccade2b67c8d2a2d0248ce22a20c336519ff00bfd57269613bc663012e48cf0afa087c93ee74e18e4d4')
-b2sums=('6eb25085eb2b2ee4557efd556d8035ab8f6b781b47783f24f227db04b3f82fffcfa29d69f0e3588c3fa6188446a3d96d4421e6b1ea5b3292f42635e19a404bab')
+# NOTE: switch to git source to not backport own patches: https://github.com/pypa/setuptools/issues/3672
+source=(
+  git+https://github.com/pycontribs/subprocess-tee#tag=$_commit
+  # https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz
+  $pkgname-0.3.5-dependencies.patch
+  $pkgname-0.3.5-remove_mock.patch
+)
+sha512sums=('SKIP'
+            'ce6c2b49c5fa86c914e4713e495b3126024836995cdd7549b811c91cc3c7e4a76e8b62518d61a753080ba827118f0522f7cae521c23339191ca12fe8164f38ae'
+            'ecc3b991d8b856aa1a72640e7404fe873e095ae7628be3df6083be844363012917610b90cb49ba70af1213482fdcee946fe9ccc93dc0e55e298760dffe70ef92')
+b2sums=('SKIP'
+        '40045907ce596107a8a56e6d76dc6637b9cfafec46ae496817a8e19599c7de492f422dd2abd830bf39b1a2a367b40690948de4012fb22106bab85ec5fba3b2d5'
+        'e2d330fffbb8664a4042940cec8a05a41fc85ad877ca4147dfeb650c8fcbfd4cf7180c5d101f34733f21fac1d326bccabbeedcc1546a28fd9d6adc9570ed891b')
 
 prepare() {
-  mv -v "${_name}-${pkgver}" "$pkgname-$pkgver"
-  cd "$pkgname-$pkgver"
-  # do not require to run with python-pytest-cov
-  sed -e '/addopts/d' -i setup.cfg
+  # remove pip, wheel and python-setuptools-scm-git-archive: https://github.com/pycontribs/subprocess-tee/pull/60
+  patch -Np1 -d $_name -i ../$pkgname-0.3.5-dependencies.patch
+  # remove mock: https://github.com/pycontribs/subprocess-tee/pull/62
+  patch -Np1 -d $_name -i ../$pkgname-0.3.5-remove_mock.patch
 }
 
 build() {
-  cd "$pkgname-$pkgver"
-  python setup.py build
+  cd $_name
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  cd "$pkgname-$pkgver"
-  export PYTHONPATH="build:${PYTHONPATH}"
-  pytest -v
+  cd $_name
+  export PYTHONPATH="build:$PYTHONPATH"
+  # disable broken test: https://github.com/pycontribs/subprocess-tee/issues/58
+  pytest -vv -c /dev/null -k "not test_rich_console_ex"
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-  python setup.py install --skip-build \
-    --optimize=1 \
-    --root="${pkgdir}"
-  install -vDm 644 README.md -t "${pkgdir}/usr/share/doc/${pkgname}/"
-  install -vDm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  # remove tests: https://github.com/pycontribs/subprocess-tee/issues/61
+  rm -frv "$pkgdir/$_site_packages/subprocess_tee/test/"
 }
