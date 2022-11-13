@@ -3,7 +3,7 @@
 
 pkgname=python-tornado
 pkgver=6.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc='open source version of the scalable, non-blocking web server and tools'
 arch=('x86_64')
 url='https://www.tornadoweb.org/'
@@ -13,7 +13,7 @@ optdepends=('python-pycurl: for tornado.curl_httpclient'
             'python-twisted: for tornado.platform.twisted')
             # 'python-pycares: an alternative non-blocking DNS resolver'
 makedepends=('python-setuptools')
-checkdepends=('python-pycurl' 'python-mock' 'python-twisted')
+checkdepends=('python-pycurl' 'python-twisted')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/tornadoweb/tornado/archive/v$pkgver.tar.gz")
 sha512sums=('b8f98b76198f21bb3a13f44e8698397d7906a415e75621550dfeea8ae3a7e9405f5e314136a93b6714455062501051c145dfd32c71b433715fc8ed591fcb882b')
 
