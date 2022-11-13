@@ -4,14 +4,14 @@
 
 pkgname=python-pbr
 pkgver=5.11.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
 license=('Apache')
 depends=('python-importlib-metadata' 'python-setuptools')
 checkdepends=('python-stestr' 'python-testscenarios' 'python-testresources' 'python-testrepository'
-              'python-mock' 'python-virtualenv' 'python-wheel' 'python-sphinx' 'git')
+              'python-virtualenv' 'python-wheel' 'python-sphinx' 'git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
 sha512sums=('dbce8a76c06b2c60c2f4c9bbe94333504506563c0366b5e1ec6da2c784e612c47048cc6391501f3103ba1cd3b246283b466c73ebf264702bfe6896ddd501bdb6')
 
