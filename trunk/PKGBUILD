@@ -4,7 +4,7 @@
 _name=decorator
 pkgname=python-decorator
 pkgver=5.1.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Python Decorator module'
 arch=('any')
 url='https://pypi.python.org/pypi/decorator'
@@ -34,5 +34,5 @@ package() {
 check() {
   cd "$srcdir/${_name}-$pkgver"
 
-  python3 setup.py test
+  python3 -m unittest discover -vs .
 }
