@@ -1,7 +1,7 @@
 # Maintainer: Tim Meusel <tim@bastelfreak.de>
 # Contributor: arakmar
 pkgname=r10k
-pkgver=3.15.0
+pkgver=3.15.2
 pkgrel=1
 pkgdesc='Provides a general purpose toolset for deploying Puppet environments and modules.'
 arch=('any')
@@ -11,7 +11,7 @@ depends=('ruby' 'ruby-colored2' 'ruby-cri' 'ruby-gettext-setup' 'ruby-log4r' 'ru
 makedepends=('ruby-minitar' 'ruby-yard')
 checkdepends=('ruby-rspec')
 source=("${url}/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('03a6f96252fc877c215cd196400178ad7d6f6474b8537328009c977ec6611a74024dd6a040c4228ab1b3945197df525442dff16fa28c7bc5595dc78918c3fc4d')
+sha512sums=('8bbfe63dde5849d54199b9374c70d67311531144ebbc3b111ac2057064d31ba990ec78077205614f39a2ef772a1fcab27dc7acb8abb8df59076e45849a5de063')
 options=('!emptydirs')
 
 prepare() {
@@ -23,6 +23,10 @@ prepare() {
   sed --in-place 's|git ls-files|find|g' "${pkgname}.gemspec"
   # drop dev/CI dependencies; they only create package dependecy circles
   sed --in-place '/add_development_dependency/d' "${pkgname}.gemspec"
+  # lockfiles should be removed
+  rm -fv Gemfile.lock
+  # do not rely on Gemfiles (unless the project *really* needs it)
+  rm -fv Gemfile
 }
 
 build() {
@@ -38,14 +42,37 @@ check() {
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
   local _gemdir="$(gem env gemdir)"
-  gem install --verbose --ignore-dependencies --no-user-install --install-dir "${pkgdir}/${_gemdir}" --bindir "${pkgdir}/usr/bin" "${pkgname}-${pkgver}.gem"
-
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "${pkgdir}/${_gemdir}" \
+    --bindir "${pkgdir}/usr/bin" \
+    "${pkgname}-${pkgver}.gem"
   install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}/"
   install -Dm 644 r10k.yaml.example CHANGELOG.mkd README.mkd CONTRIBUTING.mkd -t "${pkgdir}/usr/share/doc/${pkgname}"
   mv doc docker integration "${pkgdir}/usr/share/doc/${pkgname}/"
 
-  rm -rf "${pkgdir}/${_gemdir}/gems/${pkgname}-${pkgver}/"{ext,spec,integration,.github}
-  rm -rf "${pkgdir}/${_gemdir}/cache"
+  # remove unrepreducible files
+  rm -frv \
+    "$pkgdir/$_gemdir/cache/" \
+    "$pkgdir/$_gemdir/spec/" \
+    "$pkgdir/$_gemdir/integration/" \
+    "$pkgdir/$_gemdir/gems/$_name-$pkgver/vendor/" \
+    "$pkgdir/$_gemdir/doc/$_name-$pkgver/ri/ext/"
+
+  find "$pkgdir/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
 }
 
 # vim: ts=2 sw=2 et:
