@@ -15,7 +15,8 @@ makedepends=('python-setuptools')
 
 source=("https://pypi.org/packages/source/a/alabaster/alabaster-$pkgver.tar.gz")
 
-md5sums=('3591827fde96d1dd23970fb05410ed04')
+sha256sums=('a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02')
+b2sums=('5690d9c0b8aabfc2c95c4279183d174d6a5768f89732028f7ec6eb790531499a2017b9f3b9896442e298f3189f79070178b3e281b6d0bcfad3741625caa99c48')
 
 build() {
 	cd alabaster-"$pkgver"
