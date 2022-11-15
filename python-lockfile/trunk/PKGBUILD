@@ -11,7 +11,7 @@ depends=(python)
 makedepends=(python-setuptools python-pbr)
 checkdepends=(python-nose)
 source=(https://files.pythonhosted.org/packages/source/l/lockfile/lockfile-$pkgver.tar.gz)
-sha1sums=('c2ac46e48585e5f8f8d57ccc55ca83faa8b53b86')
+sha256sums=('6aed02de03cba24efabcd600b30540140634fc06cfa603822d508d5361e9f799')
 
 prepare() {
   cp -a lockfile-$pkgver{,-py2}
