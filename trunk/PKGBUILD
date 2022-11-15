@@ -12,7 +12,7 @@ depends=('python')
 makedepends=('python' 'python-setuptools')
 checkdepends=('python-nose')
 source=($pkgname-$pkgver.tar.gz::https://github.com/gsnedders/python-webencodings/archive/v${pkgver}.tar.gz)
-md5sums=('7eb67377743cd55eaa356496c439471e')
+sha256sums=('082367f568a7812aa5f6922ffe3d9d027cd83829dc32bcaac4c874eeed618000')
 
 package_python-webencodings() {
     cd ${pkgbase}-${pkgver}
