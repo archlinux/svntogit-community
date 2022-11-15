@@ -12,7 +12,7 @@ depends=('python')
 makedepends=('python-build' 'python-installer' 'python-flit-core')
 checkdepends=('python-pytest')
 source=("https://pypi.io/packages/source/t/$_name/$_name-$pkgver.tar.gz")
-md5sums=('9fd4339f76da12d15bc718e4aa2566e9')
+sha256sums=('2f1b97e6442c02681ebe01bd84f531028a7caea1af3825000f52345c30285e0f')
 
 prepare() {
   cd $_name-$pkgver
