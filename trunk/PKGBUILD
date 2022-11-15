@@ -12,7 +12,7 @@ arch=('any')
 depends=('python')
 makedepends=('python-setuptools')
 source=("https://files.pythonhosted.org/packages/source/w/$_name/$_name-$pkgver.tar.gz")
-md5sums=('a07a75f99d316e14838ac760c831ea37')
+sha256sums=('c4d647b99872929fdb7bdcaa4fbe7f01413ed3d98077df798530e5b04f116c83')
 
 package() {
   cd "$srcdir/$_name-$pkgver"
