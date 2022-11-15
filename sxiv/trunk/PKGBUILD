@@ -13,7 +13,7 @@ license=('GPL2')
 url='https://github.com/muennich/sxiv'
 depends=('imlib2' 'desktop-file-utils' 'xdg-utils' 'hicolor-icon-theme' 'libexif' 'libxft')
 source=("$pkgname-$pkgver.tar.gz"::"https://github.com/muennich/sxiv/archive/v$pkgver.tar.gz")
-md5sums=('969d086bff438ae882433f8729d2b95d')
+sha256sums=('a382ad57734243818e828ba161fc0357b48d8f3a7f8c29cac183492b46b58949')
 
 prepare() {
   cd "$pkgname-$pkgver"
