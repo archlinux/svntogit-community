@@ -3,14 +3,14 @@
 
 pkgname=python-hatchling
 pkgver=1.11.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A modern project, package, and virtual env manager (backend)"
 arch=('any')
-url="https://github.com/ofek/hatch"
+url="https://github.com/pypa/hatch"
 license=('MIT')
 depends=('python' 'python-tomli' 'python-packaging' 'python-pathspec'
         'python-pluggy' 'python-editables')
-makedepends=('python-pip' 'python-build' 'python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 
 _name=${pkgname/python-/}
 source=(
@@ -20,16 +20,13 @@ sha256sums=('614ae622aee0747e0d350e2eedab9bfddb624e03e3f8e5db655af724792eecc1')
 
 build() {
   cd "${srcdir}/hatch-${_name}-v${pkgver}"
-  python -m build backend
+  python -m build --wheel --no-isolation backend
 }
 
 package() {
   cd "${srcdir}/hatch-${_name}-v${pkgver}"
 
+  python -m installer --destdir="$pkgdir" backend/dist/*.whl
   install -Dm644 README.md "${pkgdir}/usr/share/doc/${pkgname}/README.md"
   install -Dm644 backend/LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE.txt"
-
-  PIP_CONFIG_FILE=/dev/null pip install --isolated --root="${pkgdir}" \
-            --ignore-installed --no-deps backend/dist/*.whl
-
 }
