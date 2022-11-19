@@ -1,0 +1,106 @@
+# Maintainer: Laurent Carlier <lordheavym@gmail.com>
+# Contributor: Konsta Kokkinen <kray@tsundere.fi>
+
+pkgname=('minetest' 'minetest-server' 'minetest-common')
+pkgver=5.6.1
+pkgrel=2
+arch=('x86_64')
+url='https://www.minetest.net/'
+license=('LGPL')
+makedepends=('sqlite' 'freetype2' 'leveldb' 'postgresql' 'spatialindex' 'openal' 'libvorbis' 'curl'
+             'hicolor-icon-theme' 'cmake' 'ninja' 'hiredis' 'luajit')
+makedepends+=('libjpeg' 'libgl' 'libxi' 'git') # irrlichtmt
+source=(${pkgname}-${pkgver}.tar.gz::https://github.com/minetest/minetest/archive/${pkgver}.tar.gz
+        ${pkgname}-data-${pkgver}.tar.gz::https://github.com/minetest/minetest_game/archive/${pkgver}.tar.gz
+        minetest.service
+        sysusers.d
+        tmpfiles.d)
+sha256sums=('1440603e19dca70e2691e86a74c822ee2c4a36fceee32b2d85ae74772149e9a3'
+            '5dc857003d24bb489f126865fcd6bf0d9c0cb146ca4c1c733570699d15abd0e3'
+            '2d80b4ff925770bdf3d857debb2ad11227cc9b022eb01a358b18f8d5f2641a5c'
+            'e4166d639b35efda2cd72269208184ab1e72c54541344cd202ff2005c90b9433'
+            'd9405cf7cd0a657ef06082570783383a1f527fbc0bd122ea506d4fbe26950d4a')
+
+prepare() {
+  install -d build-{client,server}
+
+  git clone https://github.com/minetest/irrlicht.git ${pkgname}-${pkgver}/lib/irrlichtmt
+  cd ${pkgname}-${pkgver}/lib/irrlichtmt
+  git checkout tags/1.9.0mt8
+}
+
+build() {
+  cd build-client
+  cmake -G Ninja ../${pkgname}-${pkgver} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_CLIENT=1 \
+    -DENABLE_GETTEXT=1 \
+    -DENABLE_FREETYPE=1 \
+    -DENABLE_LEVELDB=0 \
+    -DENABLE_POSTGRESQL=1 \
+    -DENABLE_SPATIAL=1 \
+    -DENABLE_REDIS=0
+  ninja
+
+  cd ../build-server
+  cmake -G Ninja ../${pkgname}-${pkgver} \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_CLIENT=0 \
+    -DBUILD_SERVER=1 \
+    -DENABLE_LEVELDB=1 \
+    -DENABLE_POSTGRESQL=1 \
+    -DENABLE_SPATIAL=1 \
+    -DENABLE_REDIS=1
+  ninja
+}
+
+package_minetest() {
+  pkgdesc='Multiplayer infinite-world block sandbox game'
+  depends=('minetest-common' 'curl' 'libvorbis' 'sqlite'
+           'openal' 'hicolor-icon-theme' 'desktop-file-utils' 'xdg-utils'
+           'freetype2' 'luajit' 'postgresql-libs' 'spatialindex' 'jsoncpp'
+           'libgl' 'libjpeg' 'libxi') # irrlichtmt
+
+  cd build-client
+  DESTDIR="${pkgdir}" ninja install
+
+  rm -rf "${pkgdir}"/usr/share/{minetest,doc}
+  rm "${pkgdir}"/usr/share/man/man6/minetestserver.6
+}
+
+package_minetest-server() {
+  pkgdesc='Server of infinite-world block sandbox game'
+  depends=('minetest-common' 'leveldb' 'curl' 'sqlite' 'hiredis' 'luajit'
+           'postgresql-libs' 'spatialindex' 'jsoncpp')
+
+  cd build-server
+  DESTDIR="${pkgdir}" ninja install
+  install -d  "${pkgdir}"/etc/minetest
+  install -Dm644 ../minetest.service \
+    "${pkgdir}"/usr/lib/systemd/system/minetest@.service
+
+  rm -rf "${pkgdir}"/usr/share/{minetest,metainfo,appdata,applications,icons,doc}
+  mv "${pkgdir}"/usr/share/man/man6/minetest.6 "${pkgdir}"/usr/share/man/man6/minetestserver.6
+
+  install -Dm644 "${srcdir}"/tmpfiles.d "${pkgdir}"/usr/lib/tmpfiles.d/minetest-server.conf
+  install -Dm644 "${srcdir}"/sysusers.d "${pkgdir}"/usr/lib/sysusers.d/minetest-server.conf
+}
+
+package_minetest-common() {
+  pkgdesc='Common data files for minetest and minetest-server'
+  license=('custom')
+
+  cd $pkgbase-${pkgver}
+  install -d "${pkgdir}"/usr/share/minetest
+
+  cp -r games builtin client fonts textures "${pkgdir}"/usr/share/minetest/
+  cp -r "${srcdir}"/build-client/locale "${pkgdir}"/usr/share/minetest/
+  cp -r "${srcdir}"/minetest_game-${pkgver} "${pkgdir}"/usr/share/minetest/games/minetest
+  rm "${pkgdir}"/usr/share/minetest/games/minetest/.gitignore
+
+  for file in doc/{fst_api,lua_api,menu_lua_api,protocol,world_format}.txt; do
+    install -Dm644 $file "${pkgdir}"/usr/share/minetest/doc/$(basename $file)
+  done
+
+  install -Dm644 LICENSE.txt "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE.txt
+}
