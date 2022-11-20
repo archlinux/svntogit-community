@@ -11,15 +11,14 @@ pkgname=('dmd' 'dmd-docs' 'libphobos')
 pkgdesc='D programming language compiler and standard library'
 groups=('dlang' 'dlang-dmd')
 pkgbase=dmd
-pkgver=2.100.2
-_docsvers=2.100.2
+pkgver=2.101.0
+_docsvers=2.101.0
 pkgrel=1
 epoch=1
 arch=('x86_64')
 url='https://www.dlang.org'
 makedepends=('git' 'ldc')
 source=("git+https://github.com/dlang/dmd.git#tag=v$pkgver"
-        "git+https://github.com/dlang/druntime.git#tag=v$pkgver"
         "git+https://github.com/dlang/phobos.git#tag=v$pkgver"
         "http://downloads.dlang.org/releases/2.x/$_docsvers/dmd.$_docsvers.linux.tar.xz"
         "http://downloads.dlang.org/releases/2.x/$_docsvers/dmd.$_docsvers.linux.tar.xz.sig"
@@ -27,13 +26,15 @@ source=("git+https://github.com/dlang/dmd.git#tag=v$pkgver"
         'dmd-doc.desktop')
 sha256sums=('SKIP'
             'SKIP'
-            'SKIP'
-            'b81c76df52c573b14adbb2b676eaa2d86f8b5253b3dec4d0d3101c18790acb60'
+            '23438a903c5ef14363df7c8efd10f562d7d622d93a00bfb1902479e41d8e0f40'
             'SKIP'
             '3d639e89528fed1da90006f4dfb2b0fdc41308da5a96d953381ff4ccf257c035'
             '4b7b8722b3fa11082f0f332397b1b66c85b30ce773c43c3fedcba5768a1484b1')
 # Key from https://dlang.org/gpg_keys.html
-validpgpkeys=('F8A26D5D7572ECA06EC7973182C52E37A8BC8393') # Martin Nowak <code@dawg.eu>
+validpgpkeys=(
+    'F8A26D5D7572ECA06EC7973182C52E37A8BC8393' # Martin Nowak <code@dawg.eu>
+    '30AE2FC45DE4153268ED91754CF5FA5326CC62EB' # Iain Buclaw <ibuclaw@gdcproject.org>
+)
 noextract=("dmd.$_docsvers.linux.tar.xz")
 
 prepare() {
@@ -41,7 +42,7 @@ prepare() {
     tar xfJ "dmd.$_docsvers.linux.tar.xz" dmd2/html
 
     # Make sure the version is not -dirty
-    sed -i "s/\.git/.nope/" "$srcdir"/dmd/src/build.d
+    sed -i "s/\.git/.nope/" "$srcdir"/dmd/compiler/src/build.d
 }
 
 build() {
@@ -49,20 +50,21 @@ build() {
     export HOST_DMD=ldmd2
 
     cd "$srcdir"/dmd
+    GENERATED="$srcdir"/dmd/generated
     # Make the build tool. Instructions from src/posix.mak
     mkdir generated
-    $HOST_DMD -ofgenerated/build -g src/build.d -release -O
+    $HOST_DMD -ofgenerated/build -g compiler/src/build.d -release -O
     # Actually build dmd
     generated/build BUILD=release HOST_DMD="$HOST_DMD" CXX="c++" ENABLE_RELEASE=1 DFLAGS="$DFLAGS" dmd -v $MAKEFLAGS
 
-    cd "$srcdir"/druntime
-    make -f posix.mak DMD="$srcdir"/dmd/generated/linux/release/*/dmd BUILD=release ENABLE_RELEASE=1 PIC=1
+    cd "$srcdir"/dmd/druntime
+    make -f posix.mak DMD=$GENERATED/linux/release/*/dmd BUILD=release ENABLE_RELEASE=1 PIC=1
 
     cd "$srcdir"/phobos
-    make -f posix.mak DMD="$srcdir"/dmd/generated/linux/release/*/dmd BUILD=release ENABLE_RELEASE=1 PIC=1
+    make -f posix.mak DMD=$GENERATED/linux/release/*/dmd BUILD=release ENABLE_RELEASE=1 PIC=1
 
     # This requires object.d to compile, thus need to be after druntime is built
-    cd "$srcdir"/dmd
+    cd "$srcdir"/dmd/compiler
     make -C docs DMD=$HOST_DMD
 }
 
@@ -107,7 +109,7 @@ package_dmd-docs() {
     install -Dm644 "$srcdir"/dmd-doc.desktop "$pkgdir"/usr/share/applications/dmd-doc.desktop
 
     mkdir -p "$pkgdir"/usr/share/d/samples/
-    cp -r samples/* "$pkgdir"/usr/share/d/samples/
+    cp -r compiler/samples/* "$pkgdir"/usr/share/d/samples/
 
     mkdir -p "$pkgdir"/usr/share/d/html
     cp -r "$srcdir"/dmd2/html/* "$pkgdir"/usr/share/d/html/
@@ -125,14 +127,15 @@ package_libphobos() {
     license=('Boost')
 
     mkdir -p "$pkgdir"/usr/lib
-    cp -P $(find "$srcdir"/{druntime,phobos}/generated/linux/release/ \( -iname "*.a" -a \! -iname "*.so.a" \) -o \( -iname "*.so*" -a \! -iname "*.o" -a \! -iname "*.a" \) ) "$pkgdir"/usr/lib
+    cp -P $(find "$srcdir"/dmd/generated/linux/release/*/ \( -iname "*.a" -a \! -iname "*.so.a" \) -o \( -iname "*.so*" -a \! -iname "*.o" -a \! -iname "*.a" \) ) "$pkgdir"/usr/lib
+    cp -P $(find "$srcdir"/phobos/generated/linux/release/ \( -iname "*.a" -a \! -iname "*.so.a" \) -o \( -iname "*.so*" -a \! -iname "*.o" -a \! -iname "*.a" \) ) "$pkgdir"/usr/lib
 
     mkdir -p "$pkgdir"/usr/include/dlang/dmd
     cp -r "$srcdir"/phobos/{*.d,etc,std} "$pkgdir"/usr/include/dlang/dmd
-    cp -r "$srcdir"/druntime/import/* "$pkgdir"/usr/include/dlang/dmd/
+    cp -r "$srcdir"/dmd/druntime/import/* "$pkgdir"/usr/include/dlang/dmd/
 
     find "$pkgdir"/usr -type f | xargs chmod 0644
 
-    install -Dm644 "$srcdir"/druntime/LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE-druntime
+    install -Dm644 "$srcdir"/dmd/LICENSE.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE-druntime
     install -Dm644 "$srcdir"/phobos/LICENSE_1_0.txt "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
