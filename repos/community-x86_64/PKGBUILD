@@ -3,33 +3,27 @@
 # Contributor: Adrian Benson <adrian_benson@yahoo.co.nz>
 
 pkgname=qrupdate
-pkgver=1.1.2
-pkgrel=4
-pkgdesc="Fortran library for fast updates of QR and Cholesky decompositions"
-url="https://sourceforge.net/projects/qrupdate"
-makedepends=(gcc-fortran)
+pkgver=1.1.5
+pkgrel=1
+pkgdesc='Fortran library for fast updates of QR and Cholesky decompositions'
+url='https://sourceforge.net/projects/qrupdate'
+makedepends=(gcc-fortran cmake)
 depends=(lapack)
 arch=(x86_64)
 license=(GPL3)
-source=(https://downloads.sourceforge.net/project/qrupdate/qrupdate/1.2/$pkgname-$pkgver.tar.gz)
-sha256sums=('e2a1c711dc8ebc418e21195833814cb2f84b878b90a2774365f0166402308e08')
-
-prepare() {
-# Honor system build flags
-  sed -e 's|^FFLAGS.*|FFLAGS=${CFLAGS} ${LDFLAGS}|' -i $pkgname-$pkgver/Makeconf
-}
+source=(https://github.com/mpimd-csc/qrupdate-ng/archive/v$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('912426f7cb9436bb3490c3102a64d9a2c3883d700268a26d4d738b7607903757')
 
 build() {
-  cd $pkgname-$pkgver
-  make PREFIX=/usr solib
+  cmake -B build -S $pkgname-ng-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr
+  cmake --build build
 }
 
 check() {
-  cd $pkgname-$pkgver
-  make test
+  cmake --build build --target test
 }
 
 package() {
-  cd $pkgname-$pkgver
-  make PREFIX=/usr DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build
 }
