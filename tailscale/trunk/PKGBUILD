@@ -2,8 +2,8 @@
 # Contributor: David Anderson <dave@natulte.net>
 
 pkgname=tailscale
-pkgver=1.32.2
-pkgrel=2
+pkgver=1.32.3
+pkgrel=1
 pkgdesc="A mesh VPN that makes it easy to connect your devices, wherever they are."
 arch=("x86_64")
 url="https://tailscale.com"
@@ -14,7 +14,7 @@ backup=("etc/default/tailscaled")
 options=(debug)
 # Important: Check if the version has been published before updating
 # curl -s "https://pkgs.tailscale.com/stable/?mode=json"
-_commit=54e8fa172b725b354598daaa7007d261fd932d10	#refs/tags/v1.32.2^{}
+_commit=9dd89b8c263d8a15dec313ea3ce77a6f2fcf2aaf	#refs/tags/v1.32.3^{}
 source=("git+https://github.com/tailscale/tailscale.git#commit=${_commit}")
 sha256sums=('SKIP')
 
@@ -34,6 +34,8 @@ build() {
     export CGO_CFLAGS="${CFLAGS}"
     export CGO_CXXFLAGS="${CXXFLAGS}"
     export CGO_LDFLAGS="${LDFLAGS}"
+    # pacman bug
+    # export GOPATH="${srcdir}"
     export GOFLAGS="-buildmode=pie -mod=readonly -modcacherw"
     GO_LDFLAGS="\
         -compressdwarf=false \
