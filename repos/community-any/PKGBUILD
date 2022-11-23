@@ -3,24 +3,24 @@
 # Contributor: Michel Zou
 
 pkgname=python-nbsphinx
-pkgver=0.8.9
+pkgver=0.8.10
 pkgrel=1
 pkgdesc="Jupyter Notebook Tools for Sphinx"
 url="http://nbsphinx.rtfd.org/"
 arch=(any)
 license=('MIT')
 depends=('python-docutils' 'python-jinja' 'jupyter-nbconvert' 'jupyter-nbformat' 'python-sphinx')
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools-scm')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/spatialaudio/nbsphinx/archive/${pkgver}.tar.gz")
-sha256sums=('f66e4ef55e3cc39fb3db32af4f2e2cb682203b67a18436c6e1305595ba6fa979')
+sha256sums=('568de199d1c42e74679f3a42feead828b43de48273079b6e05a228cc3a48b2f0')
 
 build() {
   cd "${srcdir}"/nbsphinx-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 package() {
   cd "${srcdir}/nbsphinx-$pkgver"
-  python setup.py install --root="${pkgdir}" --optimize=1
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }
