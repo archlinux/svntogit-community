@@ -4,11 +4,11 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2022.2.3
-_build=222.4345.14
+pkgver=2022.2.4
+_build=222.4459.24
 _jrever=17
 _jdkver=17
-pkgrel=2
+pkgrel=3
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -22,7 +22,6 @@ optdepends=(
 )
 source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
         idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
-        idea-adt-tools-base::"git://git.jetbrains.org/idea/adt-tools-base.git#commit=17e9c8b666cac0b974b1efc5e1e4c33404f72904"
         idea.desktop
         idea.sh
         # The class src/com/intellij/openapi/projectRoots/ex/JavaSdkUtil.java:56 (git commit 0ea5972cdad569407078fb27070c80e2b9235c53)
@@ -30,7 +29,6 @@ source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_bui
         https://repo1.maven.org/maven2/junit/junit/3.8.1/junit-3.8.1.jar)
 noextract=('junit-3.8.1.jar')
 sha256sums=('SKIP'
-            'SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
             'd7e4a325fccd48b8c8b0a6234df337b58364e648bb9b849e85ca38a059468e71'
@@ -41,7 +39,6 @@ prepare() {
 
   # build system doesn't like symlinks
   mv "${srcdir}"/idea-android android
-  mv "${srcdir}"/idea-adt-tools-base android/tools-base
 
   export MAVEN_REPOSITORY=${srcdir}/.m2/repository
   mvn install:install-file \
