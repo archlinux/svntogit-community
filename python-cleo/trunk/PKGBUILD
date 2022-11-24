@@ -4,13 +4,12 @@
 _pkgname=cleo
 pkgname=python-cleo
 pkgver=2.0.1
-pkgrel=2
+pkgrel=3
 pkgdesc="create beautiful and testable command-line interfaces"
 arch=(any)
 url="https://github.com/python-poetry/$_pkgname"
 license=(MIT)
 depends=(python-crashtest
-         python-pylev
          python-rapidfuzz
          python-typing_extensions)
 makedepends=(python-{build,installer,wheel}
