@@ -4,18 +4,19 @@
 _pkgname=cleo
 pkgname=python-cleo
 pkgver=2.0.1
-pkgrel=1
+pkgrel=2
 pkgdesc="create beautiful and testable command-line interfaces"
 arch=(any)
 url="https://github.com/python-poetry/$_pkgname"
 license=(MIT)
 depends=(python-crashtest
-         python-pylev)
+         python-pylev
+         python-rapidfuzz
+         python-typing_extensions)
 makedepends=(python-{build,installer,wheel}
              python-poetry-core)
 checkdepends=(python-pytest
-              python-pytest-mock
-              python-rapidfuzz)
+              python-pytest-mock)
 _archive="$_pkgname-$pkgver"
 source=("$url/archive/$pkgver/$_archive.tar.gz")
 sha256sums=('cb9b60c9559d26a289b0536b134f9efe1b59632f51dc38b20c8a9076b99e0f07')
