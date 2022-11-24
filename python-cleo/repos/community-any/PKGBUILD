@@ -3,36 +3,45 @@
 
 _pkgname=cleo
 pkgname=python-cleo
-pkgver=1.0.0a5
-pkgrel=2
+pkgver=2.0.0
+pkgrel=1
 pkgdesc="create beautiful and testable command-line interfaces"
 arch=(any)
 url="https://github.com/python-poetry/$_pkgname"
 license=(MIT)
-depends=(python-crashtest python-pylev)
-makedepends=(python-build python-installer python-poetry-core python-wheel)
-checkdepends=(python-pytest python-pytest-mock)
-source=($_pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz)
-sha256sums=('b75424b2c3f71dec06342290b255d725a4c02f83f3baa98b0a805162f09515da')
-b2sums=('351ae54e6068fd76233934316ffe65eb4394d59115b0c1f3a96ba1e587245b08399c7d7c784562dd97baa7ebcbce227e780269f2b13a6922bb05e3eb29d764c3')
+depends=(python-crashtest
+         python-pylev)
+makedepends=(python-{build,installer,wheel}
+             python-poetry-core)
+checkdepends=(python-pytest
+              python-pytest-mock
+              python-rapidfuzz)
+_archive="$_pkgname-$pkgver"
+source=("$url/archive/$pkgver/$_archive.tar.gz")
+sha256sums=('3f46178e2cd0e76c0f1f763e48f9053ef5bd6c77111899607f897a1a81ea7b1d')
+b2sums=('98d7834b674253cd93574ba57b81247fa987f23afb251bbb62e5f237514001e88522003a753251e5a0d7cd5d810f90315b7c70b979d28871ae3fe4296924d620')
 
 prepare() {
+    cd "$_archive"
     # we do not use overly strict version constraints
-    sed 's/\^/>=/g' -i $_pkgname-$pkgver/pyproject.toml
+    sed -e 's/\^/>=/g' \
+        -e 's/~=/>=/g' \
+        -i pyproject.toml
 }
 
 build(){
-    cd $_pkgname-$pkgver
-    python -m build --wheel --no-isolation
+    cd "$_archive"
+    python -m build -wn
 }
 
 check() {
-    cd $_pkgname-$pkgver
+    cd "$_archive"
+    export PYTHONPATH="$PWD/src"
     pytest -vv
 }
 
 package() {
-    cd $_pkgname-$pkgver
-    python -m installer --destdir="$pkgdir" dist/*.whl
-    install -vDm 644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+    cd "$_archive"
+    python -m installer -d "$pkgdir" dist/*.whl
+    install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
 }
