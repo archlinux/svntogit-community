@@ -1,0 +1,501 @@
+diff --git a/src/poetry/console/application.py b/src/poetry/console/application.py
+index 533233cadf..7c60f99836 100644
+--- a/src/poetry/console/application.py
++++ b/src/poetry/console/application.py
+@@ -6,13 +6,13 @@
+ from contextlib import suppress
+ from importlib import import_module
+ from typing import TYPE_CHECKING
+-from typing import Any
+ from typing import cast
+ 
+ from cleo.application import Application as BaseApplication
++from cleo.events.console_command_event import ConsoleCommandEvent
+ from cleo.events.console_events import COMMAND
+ from cleo.events.event_dispatcher import EventDispatcher
+-from cleo.exceptions import CleoException
++from cleo.exceptions import CleoError
+ from cleo.formatters.style import Style
+ from cleo.io.null_io import NullIO
+ 
+@@ -24,7 +24,7 @@
+ if TYPE_CHECKING:
+     from collections.abc import Callable
+ 
+-    from cleo.events.console_command_event import ConsoleCommandEvent
++    from cleo.events.event import Event
+     from cleo.io.inputs.argv_input import ArgvInput
+     from cleo.io.inputs.definition import Definition
+     from cleo.io.inputs.input import Input
+@@ -93,7 +93,7 @@ def _load() -> Command:
+ ]
+ 
+ 
+-class Application(BaseApplication):  # type: ignore[misc]
++class Application(BaseApplication):
+     def __init__(self) -> None:
+         super().__init__("poetry", __version__)
+ 
+@@ -137,8 +137,8 @@ def poetry(self) -> Poetry:
+ 
+     @property
+     def command_loader(self) -> CommandLoader:
+-        command_loader: CommandLoader | None = self._command_loader
+-        assert command_loader is not None
++        command_loader = self._command_loader
++        assert isinstance(command_loader, CommandLoader)
+         return command_loader
+ 
+     def reset_poetry(self) -> None:
+@@ -194,7 +194,7 @@ def _configure_io(self, io: IO) -> None:
+         # We need to check if the command being run
+         # is the "run" command.
+         definition = self.definition
+-        with suppress(CleoException):
++        with suppress(CleoError):
+             io.input.bind(definition)
+ 
+         name = io.input.first_argument
+@@ -215,7 +215,7 @@ def _configure_io(self, io: IO) -> None:
+                         for shortcut in shortcuts:
+                             run_input.add_parameter_option("-" + shortcut.lstrip("-"))
+ 
+-            with suppress(CleoException):
++            with suppress(CleoError):
+                 run_input.bind(definition)
+ 
+             for option_name, value in input.options.items():
+@@ -227,12 +227,13 @@ def _configure_io(self, io: IO) -> None:
+         super()._configure_io(io)
+ 
+     def register_command_loggers(
+-        self, event: ConsoleCommandEvent, event_name: str, _: Any
++        self, event: Event, event_name: str, _: EventDispatcher
+     ) -> None:
+         from poetry.console.logging.filters import POETRY_FILTER
+         from poetry.console.logging.io_formatter import IOFormatter
+         from poetry.console.logging.io_handler import IOHandler
+ 
++        assert isinstance(event, ConsoleCommandEvent)
+         command = event.command
+         if not isinstance(command, Command):
+             return
+@@ -277,12 +278,11 @@ def register_command_loggers(
+ 
+             logger.setLevel(_level)
+ 
+-    def configure_env(
+-        self, event: ConsoleCommandEvent, event_name: str, _: Any
+-    ) -> None:
++    def configure_env(self, event: Event, event_name: str, _: EventDispatcher) -> None:
+         from poetry.console.commands.env_command import EnvCommand
+         from poetry.console.commands.self.self_command import SelfCommand
+ 
++        assert isinstance(event, ConsoleCommandEvent)
+         command = event.command
+         if not isinstance(command, EnvCommand) or isinstance(command, SelfCommand):
+             return
+@@ -305,10 +305,11 @@ def configure_env(
+ 
+     @classmethod
+     def configure_installer_for_event(
+-        cls, event: ConsoleCommandEvent, event_name: str, _: Any
++        cls, event: Event, event_name: str, _: EventDispatcher
+     ) -> None:
+         from poetry.console.commands.installer_command import InstallerCommand
+ 
++        assert isinstance(event, ConsoleCommandEvent)
+         command = event.command
+         if not isinstance(command, InstallerCommand):
+             return
+diff --git a/src/poetry/console/command_loader.py b/src/poetry/console/command_loader.py
+index a590552078..74ae8bcd08 100644
+--- a/src/poetry/console/command_loader.py
++++ b/src/poetry/console/command_loader.py
+@@ -2,7 +2,7 @@
+ 
+ from typing import TYPE_CHECKING
+ 
+-from cleo.exceptions import LogicException
++from cleo.exceptions import CleoLogicError
+ from cleo.loaders.factory_command_loader import FactoryCommandLoader
+ 
+ 
+@@ -12,11 +12,11 @@
+     from cleo.commands.command import Command
+ 
+ 
+-class CommandLoader(FactoryCommandLoader):  # type: ignore[misc]
++class CommandLoader(FactoryCommandLoader):
+     def register_factory(
+         self, command_name: str, factory: Callable[[], Command]
+     ) -> None:
+         if command_name in self._factories:
+-            raise LogicException(f'The command "{command_name}" already exists.')
++            raise CleoLogicError(f'The command "{command_name}" already exists.')
+ 
+         self._factories[command_name] = factory
+diff --git a/src/poetry/console/commands/command.py b/src/poetry/console/commands/command.py
+index 4bc26ad567..2aba4e6be2 100644
+--- a/src/poetry/console/commands/command.py
++++ b/src/poetry/console/commands/command.py
+@@ -4,7 +4,7 @@
+ from typing import Any
+ 
+ from cleo.commands.command import Command as BaseCommand
+-from cleo.exceptions import ValueException
++from cleo.exceptions import CleoValueError
+ 
+ 
+ if TYPE_CHECKING:
+@@ -12,7 +12,7 @@
+     from poetry.poetry import Poetry
+ 
+ 
+-class Command(BaseCommand):  # type: ignore[misc]
++class Command(BaseCommand):
+     loggers: list[str] = []
+ 
+     _poetry: Poetry | None = None
+@@ -28,7 +28,10 @@ def set_poetry(self, poetry: Poetry) -> None:
+         self._poetry = poetry
+ 
+     def get_application(self) -> Application:
+-        application: Application = self.application
++        from poetry.console.application import Application
++
++        application = self.application
++        assert isinstance(application, Application)
+         return application
+ 
+     def reset_poetry(self) -> None:
+@@ -37,5 +40,5 @@ def reset_poetry(self) -> None:
+     def option(self, name: str, default: Any = None) -> Any:
+         try:
+             return super().option(name)
+-        except ValueException:
++        except CleoValueError:
+             return default
+diff --git a/src/poetry/console/commands/debug/info.py b/src/poetry/console/commands/debug/info.py
+index f90d8e794d..d76c808cee 100644
+--- a/src/poetry/console/commands/debug/info.py
++++ b/src/poetry/console/commands/debug/info.py
+@@ -22,7 +22,7 @@ def handle(self) -> int:
+                 ]
+             )
+         )
+-        command = self.application.get("env info")
++        command = self.get_application().get("env info")
+ 
+         exit_code: int = command.run(self.io)
+         return exit_code
+diff --git a/src/poetry/console/commands/debug/resolve.py b/src/poetry/console/commands/debug/resolve.py
+index cd8bd3ed46..05cf4b1573 100644
+--- a/src/poetry/console/commands/debug/resolve.py
++++ b/src/poetry/console/commands/debug/resolve.py
+@@ -1,5 +1,7 @@
+ from __future__ import annotations
+ 
++from typing import TYPE_CHECKING
++
+ from cleo.helpers import argument
+ from cleo.helpers import option
+ from cleo.io.outputs.output import Verbosity
+@@ -8,6 +10,10 @@
+ from poetry.console.commands.show import ShowCommand
+ 
+ 
++if TYPE_CHECKING:
++    from cleo.ui.table import Rows
++
++
+ class DebugResolveCommand(InitCommand):
+     name = "debug resolve"
+     description = "Debugs dependency resolution."
+@@ -86,7 +92,7 @@ def handle(self) -> int:
+         self.line("")
+ 
+         if self.option("tree"):
+-            show_command = self.application.find("show")
++            show_command = self.get_application().find("show")
+             assert isinstance(show_command, ShowCommand)
+             show_command.init_styles(self.io)
+ 
+@@ -103,7 +109,7 @@ def handle(self) -> int:
+ 
+         table = self.table(style="compact")
+         table.style.set_vertical_border_chars("", " ")
+-        rows = []
++        rows: Rows = []
+ 
+         if self.option("install"):
+             env = EnvManager(self.poetry).get()
+diff --git a/src/poetry/console/commands/init.py b/src/poetry/console/commands/init.py
+index e34fa2a7d3..329afc4d37 100644
+--- a/src/poetry/console/commands/init.py
++++ b/src/poetry/console/commands/init.py
+@@ -176,7 +176,7 @@ def handle(self) -> int:
+                 self._determine_requirements(self.option("dependency"))
+             )
+ 
+-        question = "Would you like to define your main dependencies interactively?"
++        question_text = "Would you like to define your main dependencies interactively?"
+         help_message = """\
+ You can specify a package in the following forms:
+   - A single name (<b>requests</b>): this will search for matches on PyPI
+@@ -190,7 +190,7 @@ def handle(self) -> int:
+ """
+ 
+         help_displayed = False
+-        if self.confirm(question, True):
++        if self.confirm(question_text, True):
+             if self.io.is_interactive():
+                 self.line(help_message)
+                 help_displayed = True
+@@ -206,10 +206,10 @@ def handle(self) -> int:
+                 self._determine_requirements(self.option("dev-dependency"))
+             )
+ 
+-        question = (
++        question_text = (
+             "Would you like to define your development dependencies interactively?"
+         )
+-        if self.confirm(question, True):
++        if self.confirm(question_text, True):
+             if self.io.is_interactive() and not help_displayed:
+                 self.line(help_message)
+ 
+@@ -338,8 +338,8 @@ def _determine_requirements(
+                         "Enter the version constraint to require "
+                         "(or leave blank to use the latest version):"
+                     )
+-                    question.attempts = 3
+-                    question.validator = lambda x: (x or "").strip() or False
++                    question.set_max_attempts(3)
++                    question.set_validator(lambda x: (x or "").strip() or None)
+ 
+                     package_constraint = self.ask(question)
+ 
+diff --git a/src/poetry/console/commands/show.py b/src/poetry/console/commands/show.py
+index 5f8e4f0db0..3c92574bc3 100644
+--- a/src/poetry/console/commands/show.py
++++ b/src/poetry/console/commands/show.py
+@@ -12,6 +12,7 @@
+
+ if TYPE_CHECKING:
+     from cleo.io.io import IO
++    from cleo.ui.table import Rows
+     from packaging.utils import NormalizedName
+     from poetry.core.packages.dependency import Dependency
+     from poetry.core.packages.package import Package
+@@ -183,7 +184,7 @@
+
+                 return 0
+
+-            rows = [
++            rows: Rows = [
+                 ["<info>name</>", f" : <c1>{pkg.pretty_name}</>"],
+                 ["<info>version</>", f" : <b>{pkg.pretty_version}</b>"],
+                 ["<info>description</>", f" : {pkg.description}"],
+diff --git a/src/poetry/console/commands/source/show.py b/src/poetry/console/commands/source/show.py
+index 9643118c5e..8a89a39a55 100644
+--- a/src/poetry/console/commands/source/show.py
++++ b/src/poetry/console/commands/source/show.py
+@@ -1,10 +1,16 @@
+ from __future__ import annotations
+ 
++from typing import TYPE_CHECKING
++
+ from cleo.helpers import argument
+ 
+ from poetry.console.commands.command import Command
+ 
+ 
++if TYPE_CHECKING:
++    from cleo.ui.table import Rows
++
++
+ class SourceShowCommand(Command):
+     name = "source show"
+     description = "Show information about sources configured for the project."
+@@ -40,7 +46,7 @@ def handle(self) -> int:
+                 continue
+ 
+             table = self.table(style="compact")
+-            rows = [
++            rows: Rows = [
+                 ["<info>name</>", f" : <c1>{source.name}</>"],
+                 ["<info>url</>", f" : {source.url}"],
+                 [
+diff --git a/src/poetry/console/exceptions.py b/src/poetry/console/exceptions.py
+index 09fa60ad81..aadc8c17e7 100644
+--- a/src/poetry/console/exceptions.py
++++ b/src/poetry/console/exceptions.py
+@@ -1,7 +1,7 @@
+ from __future__ import annotations
+ 
+-from cleo.exceptions import CleoSimpleException
++from cleo.exceptions import CleoError
+ 
+ 
+-class PoetrySimpleConsoleException(CleoSimpleException):  # type: ignore[misc]
++class PoetryConsoleError(CleoError):
+     pass
+diff --git a/src/poetry/console/io/inputs/run_argv_input.py b/src/poetry/console/io/inputs/run_argv_input.py
+index b27f19cab3..964d88c2c1 100644
+--- a/src/poetry/console/io/inputs/run_argv_input.py
++++ b/src/poetry/console/io/inputs/run_argv_input.py
+@@ -9,7 +9,7 @@
+     from cleo.io.inputs.definition import Definition
+ 
+ 
+-class RunArgvInput(ArgvInput):  # type: ignore[misc]
++class RunArgvInput(ArgvInput):
+     def __init__(
+         self,
+         argv: list[str] | None = None,
+diff --git a/src/poetry/mixology/solutions/providers/python_requirement_solution_provider.py b/src/poetry/mixology/solutions/providers/python_requirement_solution_provider.py
+index dba0d58480..b7d6e83bed 100644
+--- a/src/poetry/mixology/solutions/providers/python_requirement_solution_provider.py
++++ b/src/poetry/mixology/solutions/providers/python_requirement_solution_provider.py
+@@ -6,17 +6,15 @@
+ 
+ from crashtest.contracts.has_solutions_for_exception import HasSolutionsForException
+ 
++from poetry.puzzle.exceptions import SolverProblemError
++
+ 
+ if TYPE_CHECKING:
+     from crashtest.contracts.solution import Solution
+ 
+-    from poetry.puzzle.exceptions import SolverProblemError
+-
+ 
+-class PythonRequirementSolutionProvider(HasSolutionsForException):  # type: ignore[misc]
++class PythonRequirementSolutionProvider(HasSolutionsForException):
+     def can_solve(self, exception: Exception) -> bool:
+-        from poetry.puzzle.exceptions import SolverProblemError
+-
+         if not isinstance(exception, SolverProblemError):
+             return False
+ 
+@@ -28,9 +26,10 @@ def can_solve(self, exception: Exception) -> bool:
+ 
+         return bool(m)
+ 
+-    def get_solutions(self, exception: SolverProblemError) -> list[Solution]:
++    def get_solutions(self, exception: Exception) -> list[Solution]:
+         from poetry.mixology.solutions.solutions.python_requirement_solution import (
+             PythonRequirementSolution,
+         )
+ 
++        assert isinstance(exception, SolverProblemError)
+         return [PythonRequirementSolution(exception)]
+diff --git a/src/poetry/mixology/solutions/solutions/python_requirement_solution.py b/src/poetry/mixology/solutions/solutions/python_requirement_solution.py
+index 54e6c81910..b625e12461 100644
+--- a/src/poetry/mixology/solutions/solutions/python_requirement_solution.py
++++ b/src/poetry/mixology/solutions/solutions/python_requirement_solution.py
+@@ -10,7 +10,7 @@
+     from poetry.puzzle.exceptions import SolverProblemError
+ 
+ 
+-class PythonRequirementSolution(Solution):  # type: ignore[misc]
++class PythonRequirementSolution(Solution):
+     def __init__(self, exception: SolverProblemError) -> None:
+         from poetry.core.constraints.version import parse_constraint
+ 
+diff --git a/src/poetry/puzzle/provider.py b/src/poetry/puzzle/provider.py
+index 4d2e2d30b6..91e589b15a 100644
+--- a/src/poetry/puzzle/provider.py
++++ b/src/poetry/puzzle/provider.py
+@@ -59,7 +59,7 @@
+ logger = logging.getLogger(__name__)
+ 
+ 
+-class Indicator(ProgressIndicator):  # type: ignore[misc]
++class Indicator(ProgressIndicator):
+     CONTEXT: str | None = None
+ 
+     @staticmethod
+diff --git a/src/poetry/vcs/git/backend.py b/src/poetry/vcs/git/backend.py
+index 7b37d25969..786a9689b9 100644
+--- a/src/poetry/vcs/git/backend.py
++++ b/src/poetry/vcs/git/backend.py
+@@ -17,7 +17,7 @@
+ from dulwich.refs import ANNOTATED_TAG_SUFFIX
+ from dulwich.repo import Repo
+ 
+-from poetry.console.exceptions import PoetrySimpleConsoleException
++from poetry.console.exceptions import PoetryConsoleError
+ from poetry.utils.authenticator import get_default_authenticator
+ from poetry.utils.helpers import remove_directory
+ 
+@@ -223,7 +223,7 @@ def _clone_legacy(url: str, refspec: GitRefSpec, target: Path) -> Repo:
+         try:
+             SystemGit.clone(url, target)
+         except CalledProcessError:
+-            raise PoetrySimpleConsoleException(
++            raise PoetryConsoleError(
+                 f"Failed to clone {url}, check your git configuration and permissions"
+                 " for this repository."
+             )
+@@ -235,9 +235,7 @@ def _clone_legacy(url: str, refspec: GitRefSpec, target: Path) -> Repo:
+         try:
+             SystemGit.checkout(revision, target)
+         except CalledProcessError:
+-            raise PoetrySimpleConsoleException(
+-                f"Failed to checkout {url} at '{revision}'"
+-            )
++            raise PoetryConsoleError(f"Failed to checkout {url} at '{revision}'")
+ 
+         repo = Repo(str(target))
+         return repo
+@@ -264,7 +262,7 @@ def _clone(cls, url: str, refspec: GitRefSpec, target: Path) -> Repo:
+         try:
+             refspec.resolve(remote_refs=remote_refs)
+         except KeyError:  # branch / ref does not exist
+-            raise PoetrySimpleConsoleException(
++            raise PoetryConsoleError(
+                 f"Failed to clone {url} at '{refspec.key}', verify ref exists on"
+                 " remote."
+             )
+@@ -313,7 +311,7 @@ def _clone(cls, url: str, refspec: GitRefSpec, target: Path) -> Repo:
+                 e,
+             )
+ 
+-            raise PoetrySimpleConsoleException(
++            raise PoetryConsoleError(
+                 f"Failed to clone {url} at '{refspec.key}', verify ref exists on"
+                 " remote."
+             )
+diff --git a/tests/integration/test_utils_vcs_git.py b/tests/integration/test_utils_vcs_git.py
+index 1ca7ea0c84..5c399d5311 100644
+--- a/tests/integration/test_utils_vcs_git.py
++++ b/tests/integration/test_utils_vcs_git.py
+@@ -16,7 +16,7 @@
+ from dulwich.repo import Repo
+ from poetry.core.pyproject.toml import PyProjectTOML
+ 
+-from poetry.console.exceptions import PoetrySimpleConsoleException
++from poetry.console.exceptions import PoetryConsoleError
+ from poetry.utils.authenticator import Authenticator
+ from poetry.vcs.git import Git
+ from poetry.vcs.git.backend import GitRefSpec
+@@ -146,7 +146,7 @@ def test_git_clone_default_branch_head(
+ def test_git_clone_fails_for_non_existent_branch(source_url: str):
+     branch = uuid.uuid4().hex
+ 
+-    with pytest.raises(PoetrySimpleConsoleException) as e:
++    with pytest.raises(PoetryConsoleError) as e:
+         Git.clone(url=source_url, branch=branch)
+ 
+     assert f"Failed to clone {source_url} at '{branch}'" in str(e.value)
+@@ -155,7 +155,7 @@ def test_git_clone_fails_for_non_existent_branch(source_url: str):
+ def test_git_clone_fails_for_non_existent_revision(source_url: str):
+     revision = sha1(uuid.uuid4().bytes).hexdigest()
+ 
+-    with pytest.raises(PoetrySimpleConsoleException) as e:
++    with pytest.raises(PoetryConsoleError) as e:
+         Git.clone(url=source_url, revision=revision)
+ 
+     assert f"Failed to clone {source_url} at '{revision}'" in str(e.value)

@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.2.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -42,9 +42,11 @@ checkdepends=(git
 provides=(poetry)
 _archive="$_pkgname-$pkgver"
 source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
-        poetry-completions-generator)
+        poetry-completions-generator
+        fix-for-python-cleo-2.0.0.patch)
 sha256sums=('b0f49bfc5c19386738b56ef135ab70678b8fda2ef11dda678311d0548ffac563'
-            '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
+            '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6'
+            '9ace42400818b3eea1a6c18a93ec03c0e4db46a8b51edfbd5c84d8269453c628')
 
 prepare() {
 	cd "$_archive"
@@ -52,6 +54,7 @@ prepare() {
 	# Unpin crashtest which we have packaged at 0.4.0
 	# https://bugs.archlinux.org/task/75733
 	sed -i -e '/^crashtest/s/\^/>=/' pyproject.toml
+	patch -Np1 -i ../fix-for-python-cleo-2.0.0.patch
 }
 
 build() {
