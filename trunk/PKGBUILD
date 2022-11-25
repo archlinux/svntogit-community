@@ -1,0 +1,82 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=git-bug
+pkgver=0.8.0
+pkgrel=1
+pkgdesc='Distributed, offline-first bug tracker embedded in git, with bridges '
+arch=('x86_64')
+url='https://github.com/MichaelMure/git-bug'
+license=('GPL3')
+depends=('gcc-libs' 'git')
+makedepends=('go')
+options=('!lto')
+_commit='a3fa445a9c76631c4cd16f93e1c1c68a954adef7'
+source=("$pkgname::git+$url#commit=$_commit")
+b2sums=('SKIP')
+
+# NOTE: webui assets seem to be pregenerated & committed into the repo
+# so there is very little point in regenerating them
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # create directory for build output
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$pkgname"
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+
+  local GIT_COMMIT="$(git rev-list -1 HEAD)"
+  local GIT_LAST_TAG="$(git describe --abbrev=0 --tags)"
+  local GIT_EXACT_TAG="$(git name-rev --name-only --tags HEAD)"
+  local COMMANDS_PATH="github.com/MichaelMure/git-bug/commands"
+
+  go generate
+
+  go build -v \
+    -trimpath \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS} \
+    -X ${COMMANDS_PATH}.GitCommit=${GIT_COMMIT} \
+	  -X ${COMMANDS_PATH}.GitLastTag=${GIT_LAST_TAG} \
+	  -X ${COMMANDS_PATH}.GitExactTag=${GIT_EXACT_TAG}" \
+    -o build \
+    .
+}
+
+package() {
+  cd "$pkgname"
+
+  # binary
+  install -vDm755 -t "$pkgdir/usr/bin" build/git-bug
+
+  # man pages
+  install -vDm644 -t "$pkgdir/usr/share/man/man1" doc/man/*.1
+
+  # shell completion
+  install -vDm644 misc/completion/bash/git-bug "$pkgdir/usr/share/bash-completion/completions/$pkgname"
+  install -vDm644 misc/completion/fish/git-bug "$pkgdir/usr/share/fish/vendor_completions.d/$pkgname.fish"
+  install -vDm644 misc/completion/zsh/git-bug "$pkgdir/usr/share/zsh/site-functions/_$pkgname"
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" README.md
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname/doc" doc/*.{md,png}
+  cp -vr doc/md "$pkgdir/usr/share/doc/$pkgname/doc"
+}
