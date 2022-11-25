@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-jaraco.context
-pkgver=4.1.2
+pkgver=4.2.0
 pkgrel=1
 pkgdesc="Context managers by jaraco"
 url="https://github.com/jaraco/jaraco.context"
@@ -11,7 +11,7 @@ depends=('python')
 makedepends=('python-setuptools-scm' 'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest')
 source=("https://github.com/jaraco/jaraco.context/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('bac276b2c5f3e9b3941c8ba48a87aec044591580c1d3ac9350dcaa79e5a421f56a58d8fffc4e0cb57cdcb63b2afffb33bf1e525f858316b084ff9c4c55df797f')
+sha512sums=('3e4dcff86c02e4a297c3e26180c07a5c58375713f878c490f5908ef373f1126ea353ca3009befee0233269570f260476182833310f8437f37d58a58be1aaf480')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
