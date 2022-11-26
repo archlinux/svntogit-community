@@ -3,6 +3,7 @@
 # Contributor: David Birks <david@birks.dev>
 
 pkgname=aws-cli-v2
+# UPDATE_BLOCKED: blocked as python-botocore is blocked
 pkgver=2.8.5
 pkgrel=1
 pkgdesc='Unified command line interface for Amazon Web Services (version 2)'
@@ -47,6 +48,10 @@ prepare() {
 build() {
   cd aws-cli-$pkgver
 
+  # flit-core adds runtime dependencies to reported build-time dependencies [1],
+  # and upstream often lags behind the latest dependencies [2], thus --skip-dependency-check
+  # [1] https://github.com/pypa/flit/issues/354
+  # [2] https://github.com/aws/aws-cli/issues/5943
   python -m build --wheel --no-isolation --skip-dependency-check
   # Copy the built ac.index for tests
   cp -v build/unpacked_wheel/awscli/data/ac.index awscli/data/ac.index
