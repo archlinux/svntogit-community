@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-zipp
-pkgver=3.10.0
+pkgver=3.11.0
 pkgrel=1
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
@@ -11,7 +11,7 @@ depends=('python')
 makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-toml' 'python-wheel')
 checkdepends=('python-jaraco.itertools' 'python-func-timeout' 'python-more-itertools')
 source=("https://github.com/jaraco/zipp/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('ca0103742051648531b2df57545018f779b166fb25117254ea4826ec5364b1fb501fab68aa56d5ffe86df563116027a68858e87a9eacb9b67fb50ad51cbf1066')
+sha512sums=('e2235fc684bbe974db02298de36220e202372e13a97fa652e4e49bf1b365918d7b523ce588d273474736c12c2c23cffa39ab529ee9e75d1d1eb07d35bae3d620')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
 
