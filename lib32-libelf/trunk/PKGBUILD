@@ -4,7 +4,7 @@
 
 _name=elfutils
 pkgname=lib32-libelf
-pkgver=0.187
+pkgver=0.188
 pkgrel=1
 pkgdesc="Handle ELF object files and DWARF debugging information (libraries) (32-bit)"
 arch=(x86_64)
@@ -22,9 +22,9 @@ depends=(
 options=(debug staticlibs)
 # NOTE: the shared objects can not be added to provides as they are not versioned
 source=(https://sourceware.org/elfutils/ftp/$pkgver/elfutils-$pkgver.tar.bz2{,.sig})
-sha512sums=('a9b9e32b503b8b50a62d4e4001097ed2721d3475232a6380e6b9853bd1647aec016440c0ca7ceb950daf1144f8db9814ab43cf33cc0ebef7fc91e9e775c9e874'
+sha512sums=('585551b2d937d19d1becfc2f28935db1dd1a3d25571a62f322b70ac8da98c1a741a55d070327705df6c3e2ee026652e0b9a3c733b050a0b0ec5f2fc75d5b74b5'
             'SKIP')
-b2sums=('00ba3efa689d137808f5f53ecda93fd006be0c18d690ce76616ed1dba442281098579fa4b9a9e91b8ba865a3de15968f0ae06703a7b50b15c48a4beb5c970a46'
+b2sums=('6b0474f1436eaf6af73b735b9b2ddd5448ab9c03fbaa0be745a31c89ae8f15b0e21a651409c38643ca125794ce82c19d7b46db4a079f3e72cb919d643560e7a4'
         'SKIP')
 validpgpkeys=(
   '47CC0331081B8BC6D0FD4DA08370665B57816A6A' # Mark J. Wielaard <mark@klomp.org>
@@ -32,6 +32,9 @@ validpgpkeys=(
 )
 
 prepare() {
+  # remove failing test due to missing glibc debug package during test: https://bugs.archlinux.org/task/74875
+  sed -e 's/run-backtrace-native.sh//g' -i $_name-$pkgver/tests/Makefile.am
+
   (
     cd $_name-$pkgver
     autoreconf -fiv
@@ -41,31 +44,32 @@ prepare() {
 }
 
 build() {
+  local configure_options=(
+    --prefix=/usr
+    --sysconfdir=/etc
+    --libdir=/usr/lib32
+    --disable-debuginfod
+  )
+
   export CC="gcc -m32"
   export CXX="g++ -m32"
   export PKG_CONFIG_PATH="/usr/lib32/pkgconfig"
 
   (
-  # fat-lto-objects is required for non-mangled .a files in libelf
-  CFLAGS+=" -ffat-lto-objects"
-  cd $_name-$pkgver
-  ./configure --prefix=/usr \
-    --sysconfdir=/etc \
-    --libdir=/usr/lib32 \
-    --disable-debuginfod
-  make
+    # fat-lto-objects is required for non-mangled .a files in libelf
+    CFLAGS+=" -ffat-lto-objects"
+    cd $_name-$pkgver
+    ./configure "${configure_options[@]}"
+    make
   )
   (
-  # debugging information is required for test-suite
-  CFLAGS+=" -g"
-  # fat-lto-objects is required for non-mangled .a files in libelf
-  CFLAGS+=" -ffat-lto-objects"
-  cd $_name-test-$pkgver
-  ./configure --prefix=/usr \
-    --sysconfdir=/etc \
-    --libdir=/usr/lib32 \
-    --disable-debuginfod
-  make
+    # debugging information is required for test-suite
+    CFLAGS+=" -g"
+    # fat-lto-objects is required for non-mangled .a files in libelf
+    CFLAGS+=" -ffat-lto-objects"
+    cd $_name-test-$pkgver
+    ./configure "${configure_options[@]}"
+    make
   )
 }
 
