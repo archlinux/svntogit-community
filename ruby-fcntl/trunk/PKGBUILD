@@ -3,16 +3,17 @@
 _gemname='fcntl'
 pkgname="ruby-${_gemname}"
 pkgver=1.0.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Loads constants defined in the OS fcntl.h C header file'
 arch=('x86_64')
 url="https://github.com/ruby/${_gemname}"
 license=('BSD' 'RUBY')
 depends=('ruby')
 makedepends=('ruby-rake' 'ruby-rake-compiler')
-options=(!emptydirs)
+options=('!emptydirs')
 source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('39c4584cc1815d6e622b4c5de438b5be370542760d16bf6598247a85e8048132b05b03e99a31a9698ad89ca12379471ef515af746d0e5f916720782641c61837')
+b2sums=('f8c1f5a06efb7752c93e7f68f27a162040f3ca9a19d27b73cd1d84484e3a0226bb01e8226135865ff0660ec77c7822505abc6e68b9d59dc54153bbd49dad4f82')
 
 prepare() {
   cd "${_gemname}-${pkgver}"
@@ -24,42 +25,57 @@ prepare() {
 build() {
   cd "${_gemname}-${pkgver}"
 
-  rake compile
-  rake build
-}
-
-package() {
-  cd "${_gemname}-${pkgver}"
-
   local _gemdir="$(gem env gemdir)"
   local _platform="$(gem env platform | cut -d':' -f2)"
   local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
+
+  install --verbose --directory --mode=0755 \
+    "tmp_install_default/gemspec/specifications/gems/${_gemname}-${pkgver}" \
+    "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "tmp_install${_gemdir}/specifications/default"
+
+  gem build "${_gemname}.gemspec"
 
   gem install \
     --local \
     --verbose \
     --ignore-dependencies \
     --no-user-install \
-    --install-dir "${pkgdir}/${_gemdir}" \
-    --bindir "${pkgdir}/usr/bin" \
-    "pkg/${_gemname}-${pkgver}.gem"
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
 
-  install --verbose --directory --mode=0755 \
-    "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}" \
-    "${pkgdir}${_gemdir}/specifications/default"
+  gem install \
+    --default \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install_default/gemspec" \
+    --bindir "tmp_install_default/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
 
-  mv --verbose "${pkgdir}${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" "${pkgdir}${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
-  mv --verbose "${pkgdir}${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}.so" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}.so"
+  mv --verbose "tmp_install_default/gemspec/specifications/default/${_gemname}-${pkgver}.gemspec" "tmp_install${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "tmp_install${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}.so" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}.so"
 
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}${_gemdir}/cache/" \
-    "${pkgdir}${_gemdir}/build_info/" \
-    "${pkgdir}${_gemdir}/extensions/" \
-    "${pkgdir}${_gemdir}/gems/" \
-    "${pkgdir}${_gemdir}/plugins/" \
-    "${pkgdir}${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "tmp_install${_gemdir}/cache/" \
+    "tmp_install${_gemdir}/build_info/" \
+    "tmp_install${_gemdir}/extensions/" \
+    "tmp_install${_gemdir}/gems/" \
+    "tmp_install${_gemdir}/plugins/" \
+    "tmp_install${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" \
+    "tmp_install${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
 
   install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
+
+# vim: tabstop=2 shiftwidth=2 expandtab:
