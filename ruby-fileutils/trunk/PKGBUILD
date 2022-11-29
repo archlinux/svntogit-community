@@ -3,16 +3,17 @@
 _gemname='fileutils'
 pkgname="ruby-${_gemname}"
 pkgver=1.6.0
-pkgrel=3
+pkgrel=4
 pkgdesc='Several file utility methods for copying, moving, removing, etc'
 arch=('any')
 url="https://github.com/ruby/${_gemname}"
 license=('BSD' 'RUBY')
 depends=('ruby')
 checkdepends=('ruby-rake')
-options=(!emptydirs)
+options=('!emptydirs')
 source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('ed299a2c84e1e8ad69f6eb94eebba91f0d9c4f2c30c07aced73c23282f5ae110d6c4d49faf2904eb552b4d7c6e2dfb561c866a32885916be6df1287de57fe176')
+b2sums=('cc141fb1525742b81fff0cd75407eab2a1c94aec2ce1d85e9b2a730b7f48ac79827fda6060df5e82425d50f1b2b1b45b29f607e2eb77649f303b0069eef9a6c9')
 
 prepare() {
   cd "${_gemname}-${pkgver}"
@@ -27,47 +28,65 @@ prepare() {
 build() {
   cd "${_gemname}-${pkgver}"
 
-  gem build "${_gemname}.gemspec"
-}
-
-check() {
-  cd "${_gemname}-${pkgver}"
-
-  rake test
-}
-
-package() {
-  cd "${_gemname}-${pkgver}"
-
   local _gemdir="$(gem env gemdir)"
   local _platform="$(gem env platform | cut -d':' -f2)"
   local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
+
+  install --verbose --directory --mode=0755 \
+    "tmp_install_default/gemspec/specifications/gems/${_gemname}-${pkgver}" \
+    "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "tmp_install${_gemdir}/specifications/default"
+
+  gem build "${_gemname}.gemspec"
 
   gem install \
     --local \
     --verbose \
     --ignore-dependencies \
     --no-user-install \
-    --install-dir "${pkgdir}/${_gemdir}" \
-    --bindir "${pkgdir}/usr/bin" \
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
     "${_gemname}-${pkgver}.gem"
 
-  install --verbose --directory --mode=0755 \
-    "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}" \
-    "${pkgdir}${_gemdir}/specifications/default"
+  gem install \
+    --default \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install_default/gemspec" \
+    --bindir "tmp_install_default/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
 
-  mv --verbose "${pkgdir}${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" "${pkgdir}${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
-  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
+  mv --verbose "tmp_install_default/gemspec/specifications/default/${_gemname}-${pkgver}.gemspec" "tmp_install${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
 
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}${_gemdir}/cache/" \
-    "${pkgdir}${_gemdir}/build_info/" \
-    "${pkgdir}${_gemdir}/extensions/" \
-    "${pkgdir}${_gemdir}/gems/" \
-    "${pkgdir}${_gemdir}/plugins/" \
-    "${pkgdir}${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "tmp_install${_gemdir}/cache/" \
+    "tmp_install${_gemdir}/build_info/" \
+    "tmp_install${_gemdir}/extensions/" \
+    "tmp_install${_gemdir}/gems/" \
+    "tmp_install${_gemdir}/plugins/" \
+    "tmp_install${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" \
+    "tmp_install${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  GEM_HOME="tmp_install/${_gemdir}" rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
 
   install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
+
+# vim: tabstop=2 shiftwidth=2 expandtab:
