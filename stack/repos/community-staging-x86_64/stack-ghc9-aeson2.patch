@@ -1,0 +1,677 @@
+From a9f00ffe4908b7f55af938f5a85943859f1e7af4 Mon Sep 17 00:00:00 2001
+From: Mike Pilgrem <mpilgrem@users.noreply.github.com>
+Date: Fri, 1 Apr 2022 01:54:03 +0100
+Subject: [PATCH] Allow stack to build with lts-19.1 (GHC 9.0.2)
+
+Uses C pre-processor (CPP) directives to not disturb the existing code that builds with versions of GHC before 9.0.2.
+
+Tested by building stack on Windows 11. The built stack executable was, in turn, then tested by using it to build stack on Windows 11.
+---
+ src/Stack/Build.hs          | 24 ++++++++++++++++-
+ src/Stack/Build/Execute.hs  |  5 ++++
+ src/Stack/BuildPlan.hs      |  5 ++++
+ src/Stack/ConfigCmd.hs      | 11 ++++++++
+ src/Stack/Init.hs           | 52 +++++++++++++++++++++++++------------
+ src/Stack/New.hs            | 16 +++++++++---
+ src/Stack/Package.hs        | 37 ++++++++++++++++++++++++++
+ src/Stack/Script.hs         |  7 +++++
+ src/Stack/Setup.hs          | 22 ++++++++++++++++
+ src/Stack/Types/Package.hs  |  8 ++++++
+ src/Stack/Types/Resolver.hs | 11 ++++++++
+ stack-ghc-902.yaml          | 27 +++++++++++++++++++
+ stack.cabal                 |  6 ++++-
+ 13 files changed, 209 insertions(+), 22 deletions(-)
+ create mode 100644 stack-ghc-902.yaml
+
+diff --git a/src/Stack/Build.hs b/src/Stack/Build.hs
+index 23b9a97199..067f82bf58 100644
+--- a/src/Stack/Build.hs
++++ b/src/Stack/Build.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds #-}
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE DeriveDataTypeable #-}
+ {-# LANGUAGE FlexibleContexts #-}
+ {-# LANGUAGE OverloadedStrings #-}
+@@ -19,7 +20,12 @@ module Stack.Build
+ 
+ import           Stack.Prelude hiding (loadPackage)
+ import           Data.Aeson (Value (Object, Array), (.=), object)
++#if MIN_VERSION_aeson(2,0,0)
++import qualified Data.Aeson.Key as Key
++import qualified Data.Aeson.KeyMap as KeyMap
++#else
+ import qualified Data.HashMap.Strict as HM
++#endif
+ import           Data.List ((\\), isPrefixOf)
+ import           Data.List.Extra (groupSort)
+ import qualified Data.List.NonEmpty as NE
+@@ -293,7 +299,11 @@ queryBuildInfo selectors0 =
+     select front (sel:sels) value =
+         case value of
+             Object o ->
++#if MIN_VERSION_aeson(2,0,0)
++                case KeyMap.lookup (Key.fromText sel) o of
++#else
+                 case HM.lookup sel o of
++#endif
+                     Nothing -> err "Selector not found"
+                     Just value' -> cont value'
+             Array v ->
+@@ -328,7 +338,11 @@ rawBuildInfo = do
+     wantedCompiler <- view $ wantedCompilerVersionL.to (utf8BuilderToText . display)
+     actualCompiler <- view $ actualCompilerVersionL.to compilerVersionText
+     return $ object
++#if MIN_VERSION_aeson(2,0,0)
++        [ "locals" .= Object (KeyMap.fromList $ map localToPair locals)
++#else
+         [ "locals" .= Object (HM.fromList $ map localToPair locals)
++#endif
+         , "compiler" .= object
+             [ "wanted" .= wantedCompiler
+             , "actual" .= actualCompiler
+@@ -336,7 +350,11 @@ rawBuildInfo = do
+         ]
+   where
+     localToPair lp =
++#if MIN_VERSION_aeson(2,0,0)
++        (Key.fromText $ T.pack $ packageNameString $ packageName p, value)
++#else
+         (T.pack $ packageNameString $ packageName p, value)
++#endif
+       where
+         p = lpPackage lp
+         value = object
+@@ -358,7 +376,11 @@ checkComponentsBuildable lps =
+ checkSubLibraryDependencies :: HasLogFunc env => [ProjectPackage] -> RIO env ()
+ checkSubLibraryDependencies proj = do
+   forM_ proj $ \p -> do
++#if MIN_VERSION_Cabal(3,4,0)
++    C.GenericPackageDescription _ _ _ lib subLibs foreignLibs exes tests benches <- liftIO $ cpGPD . ppCommon $ p
++#else
+     C.GenericPackageDescription _ _ lib subLibs foreignLibs exes tests benches <- liftIO $ cpGPD . ppCommon $ p
++#endif
+ 
+     let dependencies = concatMap getDeps subLibs <>
+                        concatMap getDeps foreignLibs <>
+@@ -372,7 +394,7 @@ checkSubLibraryDependencies proj = do
+       (logWarn "SubLibrary dependency is not supported, this will almost certainly fail")
+   where
+     getDeps (_, C.CondNode _ dep _) = dep
+-    subLibDepExist lib = 
++    subLibDepExist lib =
+       any (\x ->
+         case x of
+           C.LSubLibName _ -> True
+diff --git a/src/Stack/Build/Execute.hs b/src/Stack/Build/Execute.hs
+index 711eef6001..f6a8d2033e 100644
+--- a/src/Stack/Build/Execute.hs
++++ b/src/Stack/Build/Execute.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds       #-}
++{-# LANGUAGE CPP                   #-}
+ {-# LANGUAGE DataKinds             #-}
+ {-# LANGUAGE FlexibleContexts      #-}
+ {-# LANGUAGE MultiParamTypeClasses #-}
+@@ -1218,7 +1219,11 @@ withSingleContext ActionContext {..} ee@ExecuteEnv {..} task@Task {..} allDeps m
+                             let macroDeps = mapMaybe snd matchedDeps
+                                 cppMacrosFile = setupDir </> relFileSetupMacrosH
+                                 cppArgs = ["-optP-include", "-optP" ++ toFilePath cppMacrosFile]
++#if MIN_VERSION_Cabal(3,4,0)
++                            writeBinaryFileAtomic cppMacrosFile (encodeUtf8Builder (T.pack (C.generatePackageVersionMacros (packageVersion package) macroDeps)))
++#else
+                             writeBinaryFileAtomic cppMacrosFile (encodeUtf8Builder (T.pack (C.generatePackageVersionMacros macroDeps)))
++#endif
+                             return (packageDBArgs ++ depsArgs ++ cppArgs)
+ 
+                         -- This branch is usually taken for builds, and
+diff --git a/src/Stack/BuildPlan.hs b/src/Stack/BuildPlan.hs
+index 36f82236e0..6668e65701 100644
+--- a/src/Stack/BuildPlan.hs
++++ b/src/Stack/BuildPlan.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds    #-}
++{-# LANGUAGE CPP                #-}
+ {-# LANGUAGE DataKinds          #-}
+ {-# LANGUAGE DeriveDataTypeable #-}
+ {-# LANGUAGE FlexibleContexts   #-}
+@@ -224,7 +225,11 @@ selectPackageBuildPlan platform compiler pool gpd =
+     flagCombinations :: NonEmpty [(FlagName, Bool)]
+     flagCombinations = mapM getOptions (genPackageFlags gpd)
+       where
++#if MIN_VERSION_Cabal(3,4,0)
++        getOptions :: C.PackageFlag -> NonEmpty (FlagName, Bool)
++#else
+         getOptions :: C.Flag -> NonEmpty (FlagName, Bool)
++#endif
+         getOptions f
+             | flagManual f = (fname, flagDefault f) :| []
+             | flagDefault f = (fname, True) :| [(fname, False)]
+diff --git a/src/Stack/ConfigCmd.hs b/src/Stack/ConfigCmd.hs
+index 353f3480d2..10c2f6dba7 100644
+--- a/src/Stack/ConfigCmd.hs
++++ b/src/Stack/ConfigCmd.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds #-}
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE FlexibleContexts #-}
+ {-# LANGUAGE OverloadedStrings #-}
+ {-# LANGUAGE ScopedTypeVariables #-}
+@@ -17,9 +18,15 @@ module Stack.ConfigCmd
+        ,cfgCmdName) where
+ 
+ import           Stack.Prelude
++#if MIN_VERSION_aeson(2,0,0)
++import qualified Data.Aeson.Key as Key
++import qualified Data.Aeson.KeyMap as KeyMap
++#endif
+ import           Data.ByteString.Builder (byteString)
+ import qualified Data.Map.Merge.Strict as Map
++#if !MIN_VERSION_aeson(2,0,0)
+ import qualified Data.HashMap.Strict as HMap
++#endif
+ import qualified Data.Text as T
+ import qualified Data.Yaml as Yaml
+ import qualified Options.Applicative as OA
+@@ -74,7 +81,11 @@ cfgCmdSet cmd = do
+         liftIO (Yaml.decodeFileEither (toFilePath configFilePath)) >>= either throwM return
+     newValue <- cfgCmdSetValue (parent configFilePath) cmd
+     let cmdKey = cfgCmdSetOptionName cmd
++#if MIN_VERSION_aeson(2,0,0)
++        config' = KeyMap.insert (Key.fromText cmdKey) newValue config
++#else
+         config' = HMap.insert cmdKey newValue config
++#endif
+     if config' == config
+         then logInfo
+                  (fromString (toFilePath configFilePath) <>
+diff --git a/src/Stack/Init.hs b/src/Stack/Init.hs
+index e483fd04af..29c79fffdd 100644
+--- a/src/Stack/Init.hs
++++ b/src/Stack/Init.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds       #-}
++{-# LANGUAGE CPP                   #-}
+ {-# LANGUAGE FlexibleContexts      #-}
+ {-# LANGUAGE MultiParamTypeClasses #-}
+ {-# LANGUAGE OverloadedStrings     #-}
+@@ -11,10 +12,15 @@ module Stack.Init
+     ) where
+ 
+ import           Stack.Prelude
++#if MIN_VERSION_aeson(2,0,0)
++import qualified Data.Aeson.KeyMap               as KeyMap
++#endif
+ import qualified Data.ByteString.Builder         as B
+ import qualified Data.ByteString.Char8           as BC
+ import qualified Data.Foldable                   as F
++#if !MIN_VERSION_aeson(2,0,0)
+ import qualified Data.HashMap.Strict             as HM
++#endif
+ import qualified Data.IntMap                     as IntMap
+ import           Data.List.Extra                 (groupSortOn)
+ import qualified Data.List.NonEmpty              as NonEmpty
+@@ -83,29 +89,29 @@ initProject currDir initOpts mresolver = do
+     let ignored = Map.difference bundle rbundle
+         dupPkgMsg
+             | dupPkgs /= [] =
+-                "Warning (added by new or init): Some packages were found to \
+-                \have names conflicting with others and have been commented \
+-                \out in the packages section.\n"
++                "Warning (added by new or init): Some packages were found to " <>
++                "have names conflicting with others and have been commented " <>
++                "out in the packages section.\n"
+             | otherwise = ""
+ 
+         missingPkgMsg
+             | Map.size ignored > 0 =
+-                "Warning (added by new or init): Some packages were found to \
+-                \be incompatible with the resolver and have been left commented \
+-                \out in the packages section.\n"
++                "Warning (added by new or init): Some packages were found to " <>
++                "be incompatible with the resolver and have been left commented " <>
++                "out in the packages section.\n"
+             | otherwise = ""
+ 
+         extraDepMsg
+             | Map.size extraDeps > 0 =
+-                "Warning (added by new or init): Specified resolver could not \
+-                \satisfy all dependencies. Some external packages have been \
+-                \added as dependencies.\n"
++                "Warning (added by new or init): Specified resolver could not " <>
++                "satisfy all dependencies. Some external packages have been " <>
++                "added as dependencies.\n"
+             | otherwise = ""
+         makeUserMsg msgs =
+             let msg = concat msgs
+             in if msg /= "" then
+-                  msg <> "You can omit this message by removing it from \
+-                         \stack.yaml\n"
++                  msg <> "You can omit this message by removing it from " <>
++                         "stack.yaml\n"
+                  else ""
+ 
+         userMsg = makeUserMsg [dupPkgMsg, missingPkgMsg, extraDepMsg]
+@@ -177,12 +183,20 @@ renderStackYaml p ignoredPackages dupPackages =
+            B.byteString headerHelp
+         <> B.byteString "\n\n"
+         <> F.foldMap (goComment o) comments
++#if MIN_VERSION_aeson(2,0,0)
++        <> goOthers (o `KeyMap.difference` KeyMap.fromList comments)
++#else
+         <> goOthers (o `HM.difference` HM.fromList comments)
++#endif
+         <> B.byteString footerHelp
+         <> "\n"
+ 
+     goComment o (name, comment) =
++#if MIN_VERSION_aeson(2,0,0)
++        case (convert <$> KeyMap.lookup name o) <|> nonPresentValue name of
++#else
+         case (convert <$> HM.lookup name o) <|> nonPresentValue name of
++#endif
+             Nothing -> assert (name == "user-message") mempty
+             Just v ->
+                 B.byteString comment <>
+@@ -226,7 +240,11 @@ renderStackYaml p ignoredPackages dupPackages =
+         | otherwise = ""
+ 
+     goOthers o
++#if MIN_VERSION_aeson(2,0,0)
++        | KeyMap.null o = mempty
++#else
+         | HM.null o = mempty
++#endif
+         | otherwise = assert False $ B.byteString $ Yaml.encode o
+ 
+     -- Per Section Help
+@@ -394,9 +412,9 @@ getWorkingResolverPlan initOpts pkgDirs0 snapCandidate snapLoc = do
+                 Right (f, edeps)-> return (snapLoc, f, edeps, pkgDirs)
+                 Left ignored
+                     | Map.null available -> do
+-                        logWarn "*** Could not find a working plan for any of \
+-                                 \the user packages.\nProceeding to create a \
+-                                 \config anyway."
++                        logWarn $ "*** Could not find a working plan for any of " <>
++                                "the user packages.\nProceeding to create a " <>
++                                "config anyway."
+                         return (snapLoc, Map.empty, Map.empty, Map.empty)
+                     | otherwise -> do
+                         when (Map.size available == Map.size pkgDirs) $
+@@ -537,9 +555,9 @@ cabalPackagesCheck cabaldirs dupErrMsg = do
+ 
+     when (nameMismatchPkgs /= []) $ do
+         rels <- mapM prettyPath nameMismatchPkgs
+-        error $ "Package name as defined in the .cabal file must match the \
+-                \.cabal file name.\n\
+-                \Please fix the following packages and try again:\n"
++        error $ "Package name as defined in the .cabal file must match the " <>
++                ".cabal file name.\n" <>
++                "Please fix the following packages and try again:\n"
+                 <> T.unpack (utf8BuilderToText (formatGroup rels))
+ 
+     let dupGroups = filter ((> 1) . length)
+diff --git a/src/Stack/New.hs b/src/Stack/New.hs
+index 9867004b5c..5c9a165c5c 100644
+--- a/src/Stack/New.hs
++++ b/src/Stack/New.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds #-}
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE ScopedTypeVariables #-}
+ {-# LANGUAGE DeriveDataTypeable #-}
+ {-# LANGUAGE FlexibleContexts #-}
+@@ -18,6 +19,9 @@ module Stack.New
+ import           Stack.Prelude
+ import           Control.Monad.Trans.Writer.Strict
+ import           Data.Aeson as A
++#if MIN_VERSION_aeson(2,0,0)
++import qualified Data.Aeson.KeyMap as KeyMap
++#endif
+ import qualified Data.ByteString.Base64 as B64
+ import           Data.ByteString.Builder (lazyByteString)
+ import qualified Data.ByteString.Lazy as LB
+@@ -40,7 +44,9 @@ import           Stack.Constants
+ import           Stack.Constants.Config
+ import           Stack.Types.Config
+ import           Stack.Types.TemplateName
++#if !MIN_VERSION_aeson(2,0,0)
+ import qualified RIO.HashMap as HM
++#endif
+ import           RIO.Process
+ import qualified Text.Mustache as Mustache
+ import qualified Text.Mustache.Render as Mustache
+@@ -139,7 +145,7 @@ loadTemplate name logIt = do
+         RepoPath rtp -> do
+             let settings = settingsFromRepoTemplatePath rtp
+             downloadFromUrl settings templateDir
+-                            
++
+   where
+     loadLocalFile :: Path b File -> (ByteString -> Either String Text) -> RIO env Text
+     loadLocalFile path extract = do
+@@ -209,7 +215,11 @@ settingsFromRepoTemplatePath (RepoTemplatePath Github user name) =
+     , tplExtract = \bs -> do
+         decodedJson <- eitherDecode (LB.fromStrict bs)
+         case decodedJson of
++#if MIN_VERSION_aeson(2,0,0)
++          Object o | Just (String content) <- KeyMap.lookup "content" o -> do
++#else
+           Object o | Just (String content) <- HM.lookup "content" o -> do
++#endif
+                        let noNewlines = T.filter (/= '\n')
+                        bsContent <- B64.decode $ T.encodeUtf8 (noNewlines content)
+                        mapLeft show $ decodeUtf8' bsContent
+@@ -258,8 +268,8 @@ applyTemplate project template nonceParams dir templateText = do
+ 
+     let isPkgSpec f = ".cabal" `isSuffixOf` f || f == "package.yaml"
+     unless (any isPkgSpec . M.keys $ files) $
+-         throwM (InvalidTemplate template "Template does not contain a .cabal \
+-                                          \or package.yaml file")
++         throwM (InvalidTemplate template
++           "Template does not contain a .cabal or package.yaml file")
+ 
+     -- Apply Mustache templating to a single file within the project
+     -- template.
+diff --git a/src/Stack/Package.hs b/src/Stack/Package.hs
+index 4db50d2a4b..858684808b 100644
+--- a/src/Stack/Package.hs
++++ b/src/Stack/Package.hs
+@@ -32,6 +32,9 @@ import           Data.List (find, isPrefixOf, unzip)
+ import qualified Data.Map.Strict as M
+ import qualified Data.Set as S
+ import qualified Data.Text as T
++#if MIN_VERSION_Cabal(3,4,0)
++import           Distribution.CabalSpecVersion
++#endif
+ import           Distribution.Compiler
+ import           Distribution.ModuleName (ModuleName)
+ import qualified Distribution.ModuleName as Cabal
+@@ -128,7 +131,11 @@ resolvePackage packageConfig gpkg =
+         (resolvePackageDescription packageConfig gpkg)
+ 
+ packageFromPackageDescription :: PackageConfig
++#if MIN_VERSION_Cabal(3,4,0)
++                              -> [PackageFlag]
++#else
+                               -> [D.Flag]
++#endif
+                               -> PackageDescriptionPair
+                               -> Package
+ packageFromPackageDescription packageConfig pkgFlags (PackageDescriptionPair pkgNoMod pkg) =
+@@ -190,7 +197,11 @@ packageFromPackageDescription packageConfig pkgFlags (PackageDescriptionPair pkg
+           (library pkg)
+     , packageBuildType = buildType pkg
+     , packageSetupDeps = msetupDeps
++#if MIN_VERSION_Cabal(3,4,0)
++    , packageCabalSpec = specVersion pkg
++#else
+     , packageCabalSpec = either orLaterVersion id $ specVersionRaw pkg
++#endif
+     }
+   where
+     extraLibNames = S.union subLibNames foreignLibNames
+@@ -696,7 +707,11 @@ packageDescModulesAndFiles pkg = do
+ 
+ -- | Resolve globbing of files (e.g. data files) to absolute paths.
+ resolveGlobFiles
++#if MIN_VERSION_Cabal(3,4,0)
++  :: CabalSpecVersion -- ^ cabal file version
++#else
+   :: Version -- ^ cabal file version
++#endif
+   -> [String]
+   -> RIO Ctx (Set (Path Abs File))
+ resolveGlobFiles cabalFileVersion =
+@@ -862,7 +877,11 @@ data PackageDescriptionPair = PackageDescriptionPair
+ resolvePackageDescription :: PackageConfig
+                           -> GenericPackageDescription
+                           -> PackageDescriptionPair
++#if MIN_VERSION_Cabal(3,4,0)
++resolvePackageDescription packageConfig (GenericPackageDescription desc _ defaultFlags mlib subLibs foreignLibs' exes tests benches) =
++#else
+ resolvePackageDescription packageConfig (GenericPackageDescription desc defaultFlags mlib subLibs foreignLibs' exes tests benches) =
++#endif
+     PackageDescriptionPair
+       { pdpOrigBuildable = go False
+       , pdpModifiedBuildable = go True
+@@ -935,9 +954,17 @@ resolvePackageDescription packageConfig (GenericPackageDescription desc defaultF
+ -- | Make a map from a list of flag specifications.
+ --
+ -- What is @flagManual@ for?
++#if MIN_VERSION_Cabal(3,4,0)
++flagMap :: [PackageFlag] -> Map FlagName Bool
++#else
+ flagMap :: [Flag] -> Map FlagName Bool
++#endif
+ flagMap = M.fromList . map pair
++#if MIN_VERSION_Cabal(3,4,0)
++  where pair :: PackageFlag -> (FlagName, Bool)
++#else
+   where pair :: Flag -> (FlagName, Bool)
++#endif
+         pair = flagName &&& flagDefault
+ 
+ data ResolveConditions = ResolveConditions
+@@ -986,7 +1013,11 @@ resolveConditions rc addDeps (CondNode lib deps cs) = basic <> children
+                   case v of
+                     OS os -> os == rcOS rc
+                     Arch arch -> arch == rcArch rc
++#if MIN_VERSION_Cabal(3,4,0)
++                    PackageFlag flag ->
++#else
+                     Flag flag ->
++#endif
+                       fromMaybe False $ M.lookup flag (rcFlags rc)
+                       -- NOTE:  ^^^^^ This should never happen, as all flags
+                       -- which are used must be declared. Defaulting to
+@@ -1394,7 +1425,13 @@ applyForceCustomBuild cabalVersion package
+           }
+     | otherwise = package
+   where
++#if MIN_VERSION_Cabal(3,4,0)
++    cabalVersionRange =
++      orLaterVersion $ mkVersion $ cabalSpecToVersionDigits $
++        packageCabalSpec package
++#else
+     cabalVersionRange = packageCabalSpec package
++#endif
+     forceCustomBuild =
+       packageBuildType package == Simple &&
+       not (cabalVersion `withinRange` cabalVersionRange)
+diff --git a/src/Stack/Script.hs b/src/Stack/Script.hs
+index 6bb67c049f..e7fa9164cc 100644
+--- a/src/Stack/Script.hs
++++ b/src/Stack/Script.hs
+@@ -18,6 +18,9 @@ import           Distribution.Compiler      (CompilerFlavor (..))
+ import           Distribution.ModuleName    (ModuleName)
+ import qualified Distribution.PackageDescription as PD
+ import qualified Distribution.Types.CondTree as C
++#if MIN_VERSION_Cabal(3,4,0)
++import           Distribution.Types.ModuleReexport
++#endif
+ import           Distribution.Types.PackageName (mkPackageName)
+ import           Distribution.Types.VersionRange (withinRange)
+ import           Distribution.System        (Platform (..))
+@@ -280,7 +283,11 @@ allExposedModules gpd = do
+       mlibrary = snd . C.simplifyCondTree checkCond <$> PD.condLibrary gpd
+   pure $ case mlibrary  of
+     Just lib -> PD.exposedModules lib ++
++#if MIN_VERSION_Cabal(3,4,0)
++                map moduleReexportName (PD.reexportedModules lib)
++#else
+                 map PD.moduleReexportName (PD.reexportedModules lib)
++#endif
+     Nothing  -> mempty
+ 
+ -- | The Stackage project introduced the concept of hidden packages,
+diff --git a/src/Stack/Setup.hs b/src/Stack/Setup.hs
+index 316c6a951f..34f07ba888 100644
+--- a/src/Stack/Setup.hs
++++ b/src/Stack/Setup.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds #-}
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE DataKinds #-}
+ {-# LANGUAGE DeriveFunctor #-}
+ {-# LANGUAGE FlexibleContexts #-}
+@@ -33,6 +34,9 @@ import              Conduit
+ import              Control.Applicative (empty)
+ import "cryptonite" Crypto.Hash (SHA1(..), SHA256(..))
+ import              Pantry.Internal.AesonExtended
++#if MIN_VERSION_aeson(2,0,0)
++import qualified    Data.Aeson.KeyMap as KeyMap
++#endif
+ import qualified    Data.ByteString as S
+ import qualified    Data.ByteString.Lazy as LBS
+ import qualified    Data.Conduit.Binary as CB
+@@ -41,7 +45,9 @@ import qualified    Data.Conduit.List as CL
+ import              Data.Conduit.Process.Typed (createSource)
+ import              Data.Conduit.Zlib          (ungzip)
+ import              Data.Foldable (maximumBy)
++#if !MIN_VERSION_aeson(2,0,0)
+ import qualified    Data.HashMap.Strict as HashMap
++#endif
+ import              Data.List hiding (concat, elem, maximumBy, any)
+ import qualified    Data.Map as Map
+ import qualified    Data.Set as Set
+@@ -1988,16 +1994,28 @@ downloadStackExe platforms0 archiveInfo destDir checkPath testExe = do
+ 
+     findArchive (SRIGithub val) pattern = do
+         Object top <- return val
++#if MIN_VERSION_aeson(2,0,0)
++        Array assets <- KeyMap.lookup "assets" top
++#else
+         Array assets <- HashMap.lookup "assets" top
++#endif
+         getFirst $ fold $ fmap (First . findMatch pattern') assets
+       where
+         pattern' = mconcat ["-", pattern, "."]
+ 
+         findMatch pattern'' (Object o) = do
++#if MIN_VERSION_aeson(2,0,0)
++            String name <- KeyMap.lookup "name" o
++#else
+             String name <- HashMap.lookup "name" o
++#endif
+             guard $ not $ ".asc" `T.isSuffixOf` name
+             guard $ pattern'' `T.isInfixOf` name
++#if MIN_VERSION_aeson(2,0,0)
++            String url <- KeyMap.lookup "browser_download_url" o
++#else
+             String url <- HashMap.lookup "browser_download_url" o
++#endif
+             Just url
+         findMatch _ _ = Nothing
+     findArchive (SRIHaskellStackOrg hso) _ = pure $ hsoUrl hso
+@@ -2095,7 +2113,11 @@ performPathChecking newFile executablePath = do
+ getDownloadVersion :: StackReleaseInfo -> Maybe Version
+ getDownloadVersion (SRIGithub val) = do
+     Object o <- Just val
++#if MIN_VERSION_aeson(2,0,0)
++    String rawName <- KeyMap.lookup "name" o
++#else
+     String rawName <- HashMap.lookup "name" o
++#endif
+     -- drop the "v" at the beginning of the name
+     parseVersion $ T.unpack (T.drop 1 rawName)
+ getDownloadVersion (SRIHaskellStackOrg hso) = Just $ hsoVersion hso
+diff --git a/src/Stack/Types/Package.hs b/src/Stack/Types/Package.hs
+index afae34dfec..59f957baa2 100644
+--- a/src/Stack/Types/Package.hs
++++ b/src/Stack/Types/Package.hs
+@@ -1,4 +1,5 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE DeriveFunctor #-}
+ {-# LANGUAGE DeriveGeneric #-}
+ {-# LANGUAGE DeriveDataTypeable #-}
+@@ -15,6 +16,9 @@ import qualified RIO.Text as T
+ import           Data.Aeson (ToJSON (..), FromJSON (..), (.=), (.:), object, withObject)
+ import qualified Data.Map as M
+ import qualified Data.Set as Set
++#if MIN_VERSION_Cabal(3,4,0)
++import           Distribution.CabalSpecVersion
++#endif
+ import           Distribution.Parsec (PError (..), PWarning (..), showPos)
+ import qualified Distribution.SPDX.License as SPDX
+ import           Distribution.License (License)
+@@ -114,7 +118,11 @@ data Package =
+           ,packageBuildType :: !BuildType                 -- ^ Package build-type.
+           ,packageSetupDeps :: !(Maybe (Map PackageName VersionRange))
+                                                           -- ^ If present: custom-setup dependencies
++#if MIN_VERSION_Cabal(3,4,0)
++          ,packageCabalSpec :: !CabalSpecVersion          -- ^ Cabal spec range
++#else
+           ,packageCabalSpec :: !VersionRange              -- ^ Cabal spec range
++#endif
+           }
+  deriving (Show,Typeable)
+ 
+diff --git a/src/Stack/Types/Resolver.hs b/src/Stack/Types/Resolver.hs
+index 450a6f85cd..9721c9ed85 100644
+--- a/src/Stack/Types/Resolver.hs
++++ b/src/Stack/Types/Resolver.hs
+@@ -1,5 +1,6 @@
+ {-# LANGUAGE NoImplicitPrelude #-}
+ {-# LANGUAGE ConstraintKinds #-}
++{-# LANGUAGE CPP #-}
+ {-# LANGUAGE DeriveDataTypeable #-}
+ {-# LANGUAGE FlexibleContexts #-}
+ {-# LANGUAGE FlexibleInstances #-}
+@@ -19,7 +20,12 @@ module Stack.Types.Resolver
+ import           Pantry.Internal.AesonExtended
+                  (FromJSON, parseJSON,
+                   withObject, (.:), withText)
++#if MIN_VERSION_aeson(2,0,0)
++import qualified Data.Aeson.Key as Key
++import qualified Data.Aeson.KeyMap as KeyMap
++#else
+ import qualified Data.HashMap.Strict as HashMap
++#endif
+ import qualified Data.IntMap.Strict as IntMap
+ import qualified Data.Text as T
+ import           Data.Text.Read (decimal)
+@@ -86,8 +92,13 @@ instance FromJSON Snapshots where
+     parseJSON = withObject "Snapshots" $ \o -> Snapshots
+         <$> (o .: "nightly" >>= parseNightly)
+         <*> fmap IntMap.unions (mapM (parseLTS . snd)
++#if MIN_VERSION_aeson(2,0,0)
++                $ filter (isLTS . Key.toText . fst)
++                $ KeyMap.toList o)
++#else
+                 $ filter (isLTS . fst)
+                 $ HashMap.toList o)
++#endif
+       where
+         parseNightly t =
+             case parseSnapName t of
+diff --git a/stack.cabal b/stack.cabal
+index e1ffc41aef..0f730dd6a8 100644
+--- a/stack.cabal
++++ b/stack.cabal
+@@ -462,6 +462,8 @@ executable stack-integration-test
+   other-modules:
+       StackTest
+       Paths_stack
++  autogen-modules:
++      Paths_stack
+   hs-source-dirs:
+       test/integration
+       test/integration/lib
+@@ -590,6 +592,8 @@ test-suite stack-test
+       Stack.Types.TemplateNameSpec
+       Stack.UploadSpec
+       Paths_stack
++  autogen-modules:
++      Paths_stack
+   hs-source-dirs:
+       src/test
+   ghc-options: -Wall -fwarn-tabs -fwarn-incomplete-uni-patterns -fwarn-incomplete-record-updates -optP-Wno-nonportable-include-path -threaded
