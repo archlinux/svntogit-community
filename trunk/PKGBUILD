@@ -3,18 +3,24 @@
 _gemname='getoptlong'
 pkgname="ruby-${_gemname}"
 pkgver=0.1.1
-pkgrel=2
+pkgrel=3
 pkgdesc='GetoptLong for Ruby'
 arch=('any')
 url="https://github.com/ruby/${_gemname}"
 license=('BSD' 'RUBY')
 depends=('ruby')
-options=(!emptydirs)
-source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
-sha512sums=('33d724a8d09b79bcd582cdd88fda90a784f5aba83fc5982bd7b7e51551a35582eb09231b0fb621f83ed347238fb59a99c89182f1280defb0126bb1503177e7e2')
+options=('!emptydirs')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
+        "${pkgname}_tests.patch::${url}/commit/18cdb03fd4ac22bb58f7d9db2dcfdacfc32fb920.patch")
+sha512sums=('33d724a8d09b79bcd582cdd88fda90a784f5aba83fc5982bd7b7e51551a35582eb09231b0fb621f83ed347238fb59a99c89182f1280defb0126bb1503177e7e2'
+            'a6ae675bc025c26e90e7485ea7ff6e50e78bd2ca113d64123b784c0ed839feab64cf4da650c42b344b1bc182dfd24862f61e3e149cc7edf8ba5079abb062eaae')
+b2sums=('7bf9e725285eb44bee43add5a2cb25ba8f518bde3c7f3f4630e72665d1008e9f002d663369f6f680a2f386462ed141d030dfd276fc2845d60aa89c7864ae465a'
+        '8e0bcfa0d440fccf5f39fe6a0064223162f19ea58e83662cea155d91e3ee6bd2a25f1687088fd638940a86304691f7bbaaae829e761de515e08993c1f2874d4d')
 
 prepare() {
   cd "${_gemname}-${pkgver}"
+
+  patch --verbose --strip=1 --input="../${pkgname}_tests.patch"
 
   # update gemspec/Gemfile to allow newer version of the dependencies
   sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
@@ -26,40 +32,62 @@ prepare() {
 build() {
   cd "${_gemname}-${pkgver}"
 
-  gem build "${_gemname}.gemspec"
-}
-
-package() {
-  cd "${_gemname}-${pkgver}"
-
   local _gemdir="$(gem env gemdir)"
   local _platform="$(gem env platform | cut -d':' -f2)"
   local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
+
+  install --verbose --directory --mode=0755 \
+    "tmp_install_default/gemspec/specifications/gems/${_gemname}-${pkgver}" \
+    "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "tmp_install${_gemdir}/specifications/default"
+
+  gem build "${_gemname}.gemspec"
 
   gem install \
     --local \
     --verbose \
     --ignore-dependencies \
     --no-user-install \
-    --install-dir "${pkgdir}/${_gemdir}" \
-    --bindir "${pkgdir}/usr/bin" \
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
     "${_gemname}-${pkgver}.gem"
 
-  install --verbose --directory --mode=0755 \
-    "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}" \
-    "${pkgdir}${_gemdir}/specifications/default"
+  gem install \
+    --default \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install_default/gemspec" \
+    --bindir "tmp_install_default/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
 
-  mv --verbose "${pkgdir}${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" "${pkgdir}${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
-  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
+  mv --verbose "tmp_install_default/gemspec/specifications/default/${_gemname}-${pkgver}.gemspec" "tmp_install${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
 
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}${_gemdir}/cache/" \
-    "${pkgdir}${_gemdir}/build_info/" \
-    "${pkgdir}${_gemdir}/extensions/" \
-    "${pkgdir}${_gemdir}/gems/" \
-    "${pkgdir}${_gemdir}/plugins/" \
-    "${pkgdir}${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "tmp_install${_gemdir}/cache/" \
+    "tmp_install${_gemdir}/build_info/" \
+    "tmp_install${_gemdir}/extensions/" \
+    "tmp_install${_gemdir}/gems/" \
+    "tmp_install${_gemdir}/plugins/" \
+    "tmp_install${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" \
+    "tmp_install${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  GEM_HOME="tmp_install/${_gemdir}" rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
 
   install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
