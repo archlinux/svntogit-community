@@ -3,16 +3,17 @@
 _gemname='fiddle'
 pkgname="ruby-${_gemname}"
 pkgver=1.1.0
-pkgrel=3
+pkgrel=4
 pkgdesc='A libffi wrapper for Ruby'
 arch=('x86_64')
 url="https://github.com/ruby/${_gemname}"
 license=('BSD' 'RUBY')
 depends=('ruby')
 makedepends=('ruby-rake' 'ruby-rake-compiler')
-options=(!emptydirs)
+options=('!emptydirs')
 source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('5c19e868484a3504e8e80cbbba2c4c3da2d00482440adedfc33981b7b7d861c34e9762e129b5c5cbb353d93d8f29690bfeae45e729c7401529d6357805abe622')
+b2sums=('e1988a537eb2d33859c2a27b4b7193d3d31c849d6c611e8e7bd91ddae20a1e376dff2c6a7251fac7a4737912bf29cfa15eaab6adf2ba861d8d33210a5f39beeb')
 
 prepare() {
   cd "${_gemname}-${pkgver}"
@@ -24,50 +25,67 @@ prepare() {
 build() {
   cd "${_gemname}-${pkgver}"
 
-  rake compile
-  rake build
-}
-
-check() {
-  cd "${_gemname}-${pkgver}"
-
-  rake test
-}
-
-package() {
-  cd "${_gemname}-${pkgver}"
-
   local _gemdir="$(gem env gemdir)"
   local _platform="$(gem env platform | cut -d':' -f2)"
   local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
+
+  install --verbose --directory --mode=0755 \
+    "tmp_install_default/gemspec/specifications/gems/${_gemname}-${pkgver}" \
+    "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "tmp_install${_gemdir}/specifications/default"
+
+  gem build "${_gemname}.gemspec"
 
   gem install \
     --local \
     --verbose \
     --ignore-dependencies \
     --no-user-install \
-    --install-dir "${pkgdir}/${_gemdir}" \
-    --bindir "${pkgdir}/usr/bin" \
-    "pkg/${_gemname}-${pkgver}.gem"
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
 
-  install --verbose --directory --mode=0755 \
-    "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}" \
-    "${pkgdir}${_gemdir}/specifications/default"
+  gem install \
+    --default \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install_default/gemspec" \
+    --bindir "tmp_install_default/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
 
-  mv --verbose "${pkgdir}${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" "${pkgdir}${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
-  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
-  mv --verbose "${pkgdir}${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_gemname}"
-  mv --verbose "${pkgdir}${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}.so" "${pkgdir}/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}.so"
+  mv --verbose "tmp_install_default/gemspec/specifications/default/${_gemname}-${pkgver}.gemspec" "tmp_install${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
+  mv --verbose "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_gemname}"
+  mv --verbose "tmp_install${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}.so" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}.so"
 
   # remove unrepreducible files
   rm --force --recursive --verbose \
-    "${pkgdir}${_gemdir}/cache/" \
-    "${pkgdir}${_gemdir}/build_info/" \
-    "${pkgdir}${_gemdir}/extensions/" \
-    "${pkgdir}${_gemdir}/gems/" \
-    "${pkgdir}${_gemdir}/plugins/" \
-    "${pkgdir}${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+    "tmp_install${_gemdir}/cache/" \
+    "tmp_install${_gemdir}/build_info/" \
+    "tmp_install${_gemdir}/extensions/" \
+    "tmp_install${_gemdir}/gems/" \
+    "tmp_install${_gemdir}/plugins/" \
+    "tmp_install${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" \
+    "tmp_install${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  GEM_HOME="tmp_install/${_gemdir}" rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
 
   install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
 }
+
+# vim: tabstop=2 shiftwidth=2 expandtab:
