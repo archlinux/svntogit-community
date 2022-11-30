@@ -1,0 +1,68 @@
+# Maintainer: Justin Kromlinger <hashworks@archlinux.org>
+
+pkgname=prometheus-smokeping-prober
+_pkgname=smokeping_prober
+pkgver=0.6.1
+pkgrel=1
+pkgdesc="Prometheus exporter style smokeping"
+arch=('x86_64')
+url="https://github.com/SuperQ/smokeping_prober"
+license=('Apache')
+depends=('glibc')
+makedepends=('go')
+options=(!lto)
+backup=(etc/prometheus/smokeping_prober.yml)
+source=(
+  "$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz"
+  'systemd.service'
+)
+sha512sums=('80a05586799f54109878963e4b0ad0fcafaea3245cba1eba2eff0ceec52f19ee37873615d69d94fe633640c51bc9bc66600c78c1c60486b6106a72643db29bda'
+            '56c3743429489966b28c33402e450e558a3d42fd3fe7471ee572bdfc1e563c97851b3e2ac165e8fd1f0a04439b9b280c945af610bcd464140f5944f05c4b9ebf')
+
+prepare() {
+  cd "$_pkgname-$pkgver"
+
+  # create folder for build output
+  rm -Rf build
+  mkdir build
+
+  # download dependencies
+  go mod download
+}
+
+build() {
+  cd "$_pkgname-$pkgver"
+  go build -v \
+    -buildmode=pie \
+    -trimpath \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode external -extldflags ${LDFLAGS}" \
+    -o build .
+}
+
+check() {
+  cd "$_pkgname-$pkgver"
+  go test ./...
+}
+
+package() {
+  # systemd integration
+  install -Dm644 systemd.service "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+
+  # example config
+  install -Dm644 "$_pkgname-$pkgver/smokeping_prober.yml" "$pkgdir/etc/prometheus/smokeping_prober.yml"
+  install -Dm644 "$_pkgname-$pkgver/example-rules.yml" "$pkgdir/usr/share/doc/$pkgname/example-rules.yml"
+  install -Dm644 "$_pkgname-$pkgver/dashboard.json" "$pkgdir/usr/share/doc/$pkgname/dashboard.json"
+
+  # docs
+  install -Dm644 "$_pkgname-$pkgver/README.md" "$pkgdir/usr/share/doc/$pkgname/README.md"
+  install -Dm644 "$_pkgname-$pkgver/CHANGELOG.md" "$pkgdir/usr/share/doc/$pkgname/CHANGELOG.md"
+
+  # license
+  install -Dm644 "$_pkgname-$pkgver/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+
+  # binary
+  install -Dm755 "$_pkgname-$pkgver/build/$_pkgname" "$pkgdir/usr/bin/$pkgname"
+}
+
