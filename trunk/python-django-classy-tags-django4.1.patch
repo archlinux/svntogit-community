@@ -1,0 +1,95 @@
+diff --git a/classytags/core.py b/classytags/core.py
+index 9a991e1..8190e40 100644
+--- a/classytags/core.py
++++ b/classytags/core.py
+@@ -108,22 +108,13 @@ def parse(self, parser, tokens):
+ class TagMeta(type):
+     """
+     Metaclass for the Tag class that set's the name attribute onto the class
+-    and a _decorated_function pseudo-function which is used by Django's
+-    template system to get the tag name.
+     """
+     def __new__(cls, name, bases, attrs):
+-        parents = [base for base in bases if isinstance(base, TagMeta)]
+-        if not parents:
++        if not any(base for base in bases if isinstance(base, TagMeta)):
+             return super().__new__(cls, name, bases, attrs)
+         tag_name = str(attrs.get('name', get_default_name(name)))
+-
+-        def fake_func():
+-            pass  # pragma: no cover
+-
+-        fake_func.__name__ = tag_name
+-        attrs['_decorated_function'] = fake_func
+-        attrs['name'] = str(tag_name)
+-        return super().__new__(cls, name, bases, attrs)
++        attrs['name'] = tag_name
++        return super().__new__(cls, tag_name, bases, attrs)
+ 
+ 
+ class Tag(TagMeta('TagMeta', (Node,), {})):
+diff --git a/setup.py b/setup.py
+index 212157e..c8c7d43 100644
+--- a/setup.py
++++ b/setup.py
+@@ -5,7 +5,7 @@
+ 
+ 
+ REQUIREMENTS = [
+-    'django>=2.2',
++    'django>=3.2',
+ ]
+ 
+ 
+@@ -21,10 +21,9 @@
+     'Programming Language :: Python :: 3.9',
+     'Programming Language :: Python :: 3.10',
+     'Framework :: Django',
+-    'Framework :: Django :: 2.2',
+-    'Framework :: Django :: 3.1',
+     'Framework :: Django :: 3.2',
+     'Framework :: Django :: 4.0',
++    'Framework :: Django :: 4.1',
+     'Topic :: Internet :: WWW/HTTP',
+     'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+     'Topic :: Software Development',
+diff --git a/tests/test_core.py b/tests/test_core.py
+index e1cc8ae..13d6a2e 100644
+--- a/tests/test_core.py
++++ b/tests/test_core.py
+@@ -591,6 +591,22 @@ class MyTag2(core.Tag):
+         msg = "'my_tag2' in %s" % lib.tags.keys()
+         self.assertTrue('my_tag2' not in lib.tags, msg)
+ 
++        # test decorated naming
++        lib = template.Library()
++
++        @lib.tag(name="my_decorated_tag_5")
++        class MyTag5(core.Tag):
++            pass
++        msg = "'my_decorated_tag_5' not in %s" % lib.tags.keys()
++        self.assertTrue('my_decorated_tag_5' in lib.tags, msg)
++
++        # test decorated and explicit naming
++        # the tag registration takes precedence over the name attribute
++        lib = template.Library()
++        lib.tag('my_decorated_tag_6', MyTag2)
++        msg = "'my_decorated_tag_6' not in %s" % lib.tags.keys()
++        self.assertTrue('my_decorated_tag_6' in lib.tags, msg)
++
+     def test_hello_world(self):
+         class Hello(core.Tag):
+             options = core.Options(
+@@ -971,6 +987,12 @@ class MyTag(core.Tag):
+         tag = MyTag(dummy_parser, DummyTokens())
+         self.assertEqual('<Tag: mytag>', repr(tag))
+ 
++    def test_repr_without_explicit_name(self):
++        class MyTag(core.Tag):
++            pass
++        tag = MyTag(dummy_parser, DummyTokens())
++        self.assertEqual('<Tag: my_tag>', repr(tag))
++
+     def test_non_required_multikwarg(self):
+         options = core.Options(
+             arguments.MultiKeywordArgument('multi', required=False),
