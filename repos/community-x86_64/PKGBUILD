@@ -2,8 +2,8 @@
 # Contributor: Igor Dyatlov <dyatlov.igor@protonmail.com>
 
 pkgname=rnote
-pkgver=0.5.7
-_gitcommit=9d0eea31722257582dcedf809d3ec45ba41d0de6
+pkgver=0.5.8
+_gitcommit=fa9e77da36f01cb6df49d431b4ed4837bb97510b
 pkgrel=1
 pkgdesc="A simple drawing application to create handwritten notes"
 arch=('x86_64')
@@ -16,10 +16,8 @@ source=(
   "${pkgname}-${pkgver}::git+$url#commit=$_gitcommit"
   "${pkgname}-ink-stroke-modeler-rs::git+https://github.com/flxzt/ink-stroke-modeler-rs"
   "${pkgname}-piet::git+https://github.com/flxzt/piet"
-  "${pkgname}-piet-gpu::git+https://github.com/flxzt/piet-gpu"
 )
 b2sums=('SKIP'
-        'SKIP'
         'SKIP'
         'SKIP')
 options=('!lto')
@@ -28,7 +26,6 @@ prepare() {
   cd "$pkgname-$pkgver"
   git submodule init
   git config submodule."piet".url "${srcdir}/${pkgname}"-piet
-  git config submodule."piet-gpu".url "${srcdir}/${pkgname}"-piet-gpu
   git config submodule."ink-stroke-modeler-rs".url "${srcdir}/${pkgname}"-ink-stroke-modeler-rs
   git -c protocol.file.allow=always submodule update --init --recursive
 }
