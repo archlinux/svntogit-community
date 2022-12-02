@@ -2,7 +2,7 @@
 
 _pkgname=poetry-plugin-export
 pkgname=python-poetry-plugin-export
-pkgver=1.1.2
+pkgver=1.2.0
 pkgrel=1
 pkgdesc="Poetry plugin to export the dependencies to various formats "
 url="https://github.com/python-poetry/poetry-plugin-export"
@@ -10,16 +10,9 @@ license=('MIT')
 arch=('any')
 depends=('python-poetry')
 makedepends=('python-build' 'python-installer')
-checkdepends=('python-pytest-mock')
+checkdepends=('python-pytest-mock' 'python-pytest-xdist')
 source=("https://github.com/python-poetry/poetry-plugin-export/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('e3e90cc731d77bcc7fed9809b9796a949cc89b759994cc9e8a4f5f3d15faf23041372788b781de85fd62ffa13921f9ab2b8bfb10ea61b919344ae15470f0249e')
-
-prepare() {
-  cd poetry-plugin-export-$pkgver
-  # Patch out the dependency on poetry because `build` couldn't handle circular dependency:
-  # https://github.com/pypa/build/issues/511
-  sed -i '/^poetry =/d' pyproject.toml
-}
+sha512sums=('aeeacc711dc4852517894318e1e40c3ff77adc3651c87c1fbb9c78c6f802e6282084d99052517dda6aab99fc55ba157ce5cb5b51d2838158774e87d294543661')
 
 build() {
   cd poetry-plugin-export-$pkgver
