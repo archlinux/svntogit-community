@@ -12,8 +12,8 @@ depends=(python python-tomli)
 makedepends=(python-build python-installer python-flit-core python-wheel)
 checkdepends=(python-pytest python-setuptools python-testpath)
 source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
-sha512sums=('c34dbfc9c2de60b1a0e955a5162cb650bed7a432618095829e1527027d7b88cfa99355159f721e7b57fb6b79b25d4e78ff2827f10e1b61f88f1cf00df70e088c')
-b2sums=('4aa6a7c4f45f8fb7b23d6754f6de635d73bae7b1bede5d92939e7ae5823ab83221c73e4ba5f8dfec9eee8b444e327dec74c396152cd26030ebd5632fc195fd45')
+sha512sums=('53e286cfcf8b286560cfebafe44e2162360bc1b567df2ed9019376128e14fffaafa3964f77b18487f5023aa092ede628ba5115301de42e101595f41c091d90c9')
+b2sums=('0793b1328f3bf52212a51bbc0459443ff80950669564f13a4ff722af74593bfa48a906f9f46150a3fdc30f705136aefe79d0bc98d4315ede4eb8f678716c32bf')
 
 build() {
   cd $_name-$pkgver
