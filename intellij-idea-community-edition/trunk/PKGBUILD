@@ -4,11 +4,11 @@
 # Maintainer: Orhun Parmaksız <orhun@archlinux.org>
 
 pkgname=intellij-idea-community-edition
-pkgver=2022.2.4
-_build=222.4459.24
+pkgver=2022.3
+_build=223.7571.182
 _jrever=17
 _jdkver=17
-pkgrel=3
+pkgrel=1
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -24,6 +24,7 @@ source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_bui
         idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
         idea.desktop
         idea.sh
+        enable-no-jdr.patch
         # The class src/com/intellij/openapi/projectRoots/ex/JavaSdkUtil.java:56 (git commit 0ea5972cdad569407078fb27070c80e2b9235c53)
         # assumes the user's maven repo is at {$HOME}/.m2/repository and it contains junit-3.8.1.jar
         https://repo1.maven.org/maven2/junit/junit/3.8.1/junit-3.8.1.jar)
@@ -32,6 +33,7 @@ sha256sums=('SKIP'
             'SKIP'
             '049c4326b6b784da0c698cf62262b591b20abb52e0dcf869f869c0c655f3ce93'
             'd7e4a325fccd48b8c8b0a6234df337b58364e648bb9b849e85ca38a059468e71'
+            '5dcb0474c4e07b1b7d44844e8b2da40e4dda9eed55c904b745309b1de5df5d94'
             'b58e459509e190bed737f3592bc1950485322846cf10e78ded1d065153012d70')
 
 prepare() {
@@ -49,6 +51,7 @@ prepare() {
     -Dpackaging=jar \
     -DgeneratePom=true
 
+  patch -Np1 < "${srcdir}/enable-no-jdr.patch"
   echo ${_build} > build.txt
 }
 
