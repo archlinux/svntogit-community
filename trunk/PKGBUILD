@@ -4,7 +4,7 @@
 # Contributor: Ben Greiner <code-arch@bnavigator.de>
 
 pkgname=python-scikit-build
-pkgver=0.16.2
+pkgver=0.16.3
 pkgrel=1
 pkgdesc="Improved build system generator for CPython C, C++, Cython and Fortran extensions"
 arch=(any)
@@ -27,7 +27,7 @@ checkdepends=(
     python-six
     python-virtualenv
 )
-_tag=f15effa826c77c8be7b208d6681c87086ba461fb # git rev-parse ${pkgver}
+_tag=15b9b441f10672d05ba4bfeac1c17afc02c1c863 # git rev-parse ${pkgver}
 source=(git+https://github.com/scikit-build/scikit-build.git#tag=${_tag}?signed)
 sha256sums=('SKIP')
 validpgpkeys=(2FDEC9863E5E14C7BC429F27B9D0E45146A241E8) # Henry Schreiner <hschrein@cern.ch>
