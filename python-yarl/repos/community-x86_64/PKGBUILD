@@ -2,7 +2,7 @@
 
 _pkgname=yarl
 pkgname=python-yarl
-pkgver=1.8.1
+pkgver=1.8.2
 pkgrel=1
 pkgdesc='Yet another URL library'
 url='https://github.com/aio-libs/yarl/'
@@ -12,8 +12,8 @@ depends=('glibc' 'python' 'python-multidict' 'python-idna' 'python-typing_extens
 makedepends=('cython' 'python-setuptools' 'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest' 'python-pytest-runner' 'python-pytest-cov')
 source=(https://github.com/aio-libs/yarl/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('267523216832c2bc83d92a42e621ff519d427e20c1ee84ac657e13f696a2df2259c837486f192d87944f5ebb834beea60ace791eb4c9c632fd7e552eb5dadf1b')
-b2sums=('c7390b78abb5074dd29e96848a77fdb31f6224e99d2bcfd5a28a8bd08881f5ff82cf55b2f54c97324d005a0fb3823732a9ed6bd3f1d837e4ac2341b89e2adb30')
+sha512sums=('d5dcebcec06d520b48a1d879671a92371bd89eabb7be700c129fcc45e763ecc0370cbb5e88c7b9be05ecb3317370231293a8c076ed68d71a36fe953219dd27ea')
+b2sums=('1f2cec38bb681f6a59f10253c75e74912d482cdbe0e639e3ba0a43b9d6ab7b7edc1558c9fffaffd7aad9fa905d884e856ff7f7b69dd103800ef62f7f05de90b5')
 
 prepare() {
   cd ${_pkgname}-${pkgver}
