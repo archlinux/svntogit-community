@@ -5,8 +5,8 @@
 # Contributor: Jesus Alvarez
 
 pkgname=python-jedi
-_gitcommit=fae26fa7a427b94a21e11500503d8008647e6309
-pkgver=0.18.1
+_gitcommit=eaab7060388c8f438f1dbe6502e47c6639aa9bac
+pkgver=0.18.2
 pkgrel=1
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
@@ -32,7 +32,7 @@ prepare() {
   git submodule init
   git config submodule."jedi/third_party/typeshed".url "${srcdir}/typeshed"
   git config submodule."jedi/third_party/django-stubs".url "${srcdir}/django-stubs"
-  git submodule update --recursive
+  git -c protocol.file.allow=always submodule update --recursive
 }
 
 build() {
