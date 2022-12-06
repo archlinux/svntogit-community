@@ -2,7 +2,7 @@
 # Contributor: Chris Warrick <aur@chriswarrick.com>
 
 pkgname=twine
-pkgver=4.0.1
+pkgver=4.0.2
 pkgrel=1
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
@@ -18,7 +18,7 @@ provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
 source=("$url/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('0b5d24c56731239400b6713e0e52d1cfdb399a84e886b02ea4b59e7af69cc1578e03bf442cca4b2ea5f400995955d27c8d9d3cc17a6ea59013bdaaf6ac63a567')
+sha512sums=('94dec0b08ea8f4cc5900d743b750f02a668c738d402632a80faef24220f87b4b14824966d6d902e9ddaab741e4091d6a370a7660d02ca27fd6fd0d251a473ab5')
 
 
 prepare() {
@@ -38,8 +38,9 @@ build() {
 
 check() {
   cd $pkgname-$pkgver
-
-  SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver python -m pytest
+  # Ignored tests are copied from upstream tox.ini:
+  # https://github.com/pypa/twine/blob/4.0.2/tox.ini#L16
+  SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver python -m pytest --ignore-glob '*integration*.py'
 }
 
 package() {
