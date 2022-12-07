@@ -2,8 +2,7 @@
 # Contributor: Igor Dyatlov <dyatlov.igor@protonmail.com>
 
 pkgname=rnote
-pkgver=0.5.8
-_gitcommit=fa9e77da36f01cb6df49d431b4ed4837bb97510b
+pkgver=0.5.9
 pkgrel=1
 pkgdesc="A simple drawing application to create handwritten notes"
 arch=('x86_64')
@@ -12,23 +11,9 @@ license=('GPL3')
 depends=('gtk4' 'glib2' 'libadwaita' 'poppler-glib' 'gstreamer' 'alsa-lib')
 makedepends=('meson' 'cargo' 'cmake' 'clang' 'git')
 #checkdepends=('appstream-glib')
-source=(
-  "${pkgname}-${pkgver}::git+$url#commit=$_gitcommit"
-  "${pkgname}-ink-stroke-modeler-rs::git+https://github.com/flxzt/ink-stroke-modeler-rs"
-  "${pkgname}-piet::git+https://github.com/flxzt/piet"
-)
-b2sums=('SKIP'
-        'SKIP'
-        'SKIP')
+source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+b2sums=('fec45ab8eab16d0dfb7b37b4f8758ef84e28ef6b07366e3f58643d1d8c17a01a9d17423a1752d32529aceaf4347b2b202360a7bdd85e3eb5f9fb80bf2c9f2a82')
 options=('!lto')
-
-prepare() {
-  cd "$pkgname-$pkgver"
-  git submodule init
-  git config submodule."piet".url "${srcdir}/${pkgname}"-piet
-  git config submodule."ink-stroke-modeler-rs".url "${srcdir}/${pkgname}"-ink-stroke-modeler-rs
-  git -c protocol.file.allow=always submodule update --init --recursive
-}
 
 build() {
   arch-meson "$pkgname-$pkgver" build
