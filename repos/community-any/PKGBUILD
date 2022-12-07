@@ -3,17 +3,17 @@
 
 pkgname=twine
 pkgver=4.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Collection of utilities for interacting with PyPI'
 arch=('any')
 url='https://github.com/pypa/twine/'
 license=('Apache')
 depends=('python-pkginfo' 'python-readme-renderer' 'python-requests' 'python-requests-toolbelt'
-         'python-packaging' 'python-importlib-metadata' 'python-tqdm' 'python-keyring'
-         'python-rfc3986' 'python-colorama')
+         'python-urllib3' 'python-importlib-metadata' 'python-keyring' 'python-rfc3986'
+         'python-rich')
 makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
 checkdepends=('git' 'python-munch' 'python-jaraco.envs' 'python-portend' 'python-pretend' 'python-tox'
-              'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket' 'python-rich')
+              'python-pytest-cov' 'python-pytest-services' 'python-pytest-socket')
 provides=('python-twine')
 conflicts=('python-twine')
 replaces=('python-twine')
