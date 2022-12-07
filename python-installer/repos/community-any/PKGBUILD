@@ -3,8 +3,8 @@
 
 _pkgname=installer
 pkgname=python-$_pkgname
-pkgver=0.5.1
-pkgrel=2
+pkgver=0.6.0
+pkgrel=1
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
 url='https://github.com/pypa/installer'
@@ -15,7 +15,7 @@ makedepends=('git' 'python-flit-core' 'python-build'
              'python-sphinx-argparse')
 checkdepends=('python-pytest')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz")
-sha512sums=('0320c1795c98a593b5da46775465e26bdf8736f59835970517cb02f2756030a3744b9385a9342e8062362d0769d585ff6cce504fdf105e99d27d6ba40281842b')
+sha512sums=('0952bbf245359d6f660f98e59096ed3d57facb5bad0e9715fe525bd52f50cce198b481811d2ba4d204776f7ae9bec9c3431ae044d6ef9a8db8d873c170cf13fb')
 
 build() {
   cd $_pkgname-$pkgver
