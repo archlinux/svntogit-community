@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-hatch-vcs
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="Hatch plugin for versioning with your preferred VCS"
 url="https://github.com/ofek/hatch-vcs"
@@ -10,17 +10,10 @@ arch=('any')
 depends=('python-hatchling' 'python-setuptools-scm')
 makedepends=('python-build' 'python-installer')
 checkdepends=('python-pytest' 'git')
-source=("https://github.com/ofek/hatch-vcs/archive/v$pkgver/$pkgname-$pkgver.tar.gz"
-        $pkgname-setuptools-scm-7.patch::https://github.com/ofek/hatch-vcs/pull/9.patch)
-sha512sums=('1c3627240ef5b659b9d87a69c84dd71cac4c83758f5be676e808377400383e996209cf6eabb1222f5330c0a97f0d261ced1eb9dc40e1d5c2bb2fc708659360eb'
-            'd4d01c7ce2027f6fa698ab918f4ba6e399472622361fdfa818f10c196dd5cf6bf11ff8e4439f3dd866e7b3d5f2b2b00aea9f8405b3a93f1ac6c647375fe8de8c')
+source=("https://github.com/ofek/hatch-vcs/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('5e18cf15ffb75a96cdcfa0d19b15aa2c6f31f7066c78e64aef0a27d64eb69512e402027b5c45fc81c65fea1033bea404fc20ae6c0c465ba4b05229079b88be45')
 
 export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
-
-prepare() {
-  cd hatch-vcs-$pkgver
-  patch -p1 -i ../$pkgname-setuptools-scm-7.patch
-}
 
 build() {
   cd hatch-vcs-$pkgver
