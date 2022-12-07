@@ -22,7 +22,8 @@ build() {
 
 check() {
   cd "${_pyname}-${pkgver}"
-  python setup.py test
+  PYTHONPATH="$PWD" \
+  pytest -v
 }
 
 package() {
