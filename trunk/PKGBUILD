@@ -6,7 +6,7 @@ _pkgname=aiohttp
 pkgname=python-aiohttp
 _gitcommit=30b7a4e99677b4014dda2372504343bb05fc983e
 pkgver=3.8.3
-pkgrel=1
+pkgrel=2
 pkgdesc='HTTP client/server for asyncio'
 url='https://aiohttp.readthedocs.io'
 arch=('x86_64')
@@ -39,13 +39,15 @@ prepare() {
   cd ${pkgname}
   git submodule init
   git config submodule."vendor/llhttp".url "${srcdir}/llhttp"
-  git submodule update --recursive
+  git -c protocol.file.allow=always submodule update --recursive
   sed 's|.install-cython ||' -i Makefile
 
   # This test calls the Python interpreter, we need to make sure that the path
   # for the C extensions is correct there as well
   sed -i "s/import {import_path!s}/import sys; sys.path.insert(0, '{os.environ['PYTHONPATH']}'); &/" \
       tests/test_circular_imports.py
+
+  sed -e 's|charset-normalizer >=2.0, < 3.0|charset-normalizer >=2.0, < 4.0|' -i setup.cfg
 }
 
 build() {
