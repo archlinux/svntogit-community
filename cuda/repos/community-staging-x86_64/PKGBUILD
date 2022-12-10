@@ -4,12 +4,12 @@ pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=12.0.0
 _driverver=525.60.13
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
 license=('custom:NVIDIA')
-depends=('gcc11' 'opencl-nvidia' 'nvidia-utils' 'python')
+depends=('opencl-nvidia' 'nvidia-utils' 'python')
 options=(!strip staticlibs)
 install=cuda.install
 source=(https://developer.download.nvidia.com/compute/cuda/${pkgver}/local_installers/cuda_${pkgver}_${_driverver}_linux.run
@@ -102,8 +102,8 @@ build() {
 
   # Define compilers for CUDA to use.
   # This allows us to use older versions of GCC if we have to.
-  ln -s /usr/bin/gcc-11 "${_prepdir}/opt/cuda/bin/gcc"
-  ln -s /usr/bin/g++-11 "${_prepdir}/opt/cuda/bin/g++"
+  ln -s /usr/bin/gcc "${_prepdir}/opt/cuda/bin/gcc"
+  ln -s /usr/bin/g++ "${_prepdir}/opt/cuda/bin/g++"
 
   # Install profile and ld.so.config files
   install -Dm755 "${srcdir}/cuda.sh" "${_prepdir}/etc/profile.d/cuda.sh"
