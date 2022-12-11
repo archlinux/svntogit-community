@@ -3,8 +3,7 @@
 # Contributor: David Birks <david@birks.dev>
 
 pkgname=aws-cli-v2
-# UPDATE_BLOCKED: blocked as python-botocore is blocked
-pkgver=2.8.5
+pkgver=2.9.6
 pkgrel=1
 pkgdesc='Unified command line interface for Amazon Web Services (version 2)'
 arch=(any)
@@ -24,7 +23,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/aws/aws-cli/archive/$pkgver
         prompt-toolkit-3.0.29.diff
         build-ac.index-in-tmp.diff
         fix-env.diff)
-sha256sums=('0ca266c345099fd7edea4befddf1bc571e84a21870c5ba0fc5fd7612c04ccc0c'
+sha256sums=('c60d780af70ab9e640e0e54bad561dd1b8ff457e382326d8e8832c8be4acaa35'
             'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636'
             '3f5633c7f83b346f79a9af2baee476e6967ef8fa62636a535dee1e011ef978db'
             '893d61d7e958c3c02bfa1e03bf58f6f6abd98849d248cc661f1c56423df9f312')
