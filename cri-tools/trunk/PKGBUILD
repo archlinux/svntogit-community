@@ -2,8 +2,8 @@
 
 pkgbase=cri-tools
 pkgname=(crictl critest)
-pkgver=1.25.0
-_commit=a12c2d088df8bea138eaeb5a0217d98b6cf93a44  # v1.25.0
+pkgver=1.26.0
+_commit=cf1c8287fcef4444226e54482bf3827e8f804421  # v1.26.0
 pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
 arch=(x86_64)
@@ -12,6 +12,7 @@ license=(Apache)
 groups=(kubernetes-tools)
 depends=(glibc)
 makedepends=(git go)
+options=(debug)
 # can only build from git: https://github.com/kubernetes-sigs/cri-tools/issues/676
 source=(
   git+https://github.com/kubernetes-sigs/$pkgbase#commit=$_commit
