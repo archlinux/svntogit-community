@@ -4,7 +4,7 @@
 # Contributor: Andreas Radke <andyrtr@archlinux.org>
 
 pkgbase=lib32-mesa
-pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
+pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-vulkan-virtio' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
 pkgver=22.3.1
 pkgrel=2
@@ -63,7 +63,7 @@ END
     -D b_lto=false \
     -D platforms=x11,wayland \
     -D gallium-drivers=r300,r600,radeonsi,nouveau,virgl,svga,swrast,i915,iris,crocus,zink \
-    -D vulkan-drivers=amd,intel,intel_hasvk \
+    -D vulkan-drivers=amd,intel,intel_hasvk,virtio-experimental \
     -D vulkan-layers=device-select,intel-nullhw,overlay \
     -D dri3=enabled \
     -D egl=enabled \
@@ -111,7 +111,8 @@ _install() {
 
 package_lib32-vulkan-mesa-layers() {
   pkgdesc="Mesa's Vulkan layers (32-bit)"
-  depends=('lib32-libdrm' 'lib32-libxcb' 'lib32-wayland' 'vulkan-mesa-layers')
+  depends=('lib32-libdrm' 'lib32-libxcb' 'lib32-wayland')
+  depends+=('vulkan-mesa-layers')
   conflicts=('lib32-vulkan-mesa-layer')
   replaces=('lib32-vulkan-mesa-layer')
 
@@ -126,7 +127,8 @@ package_lib32-vulkan-mesa-layers() {
 
 package_lib32-opencl-mesa() {
   pkgdesc="OpenCL support for AMD/ATI Radeon mesa drivers (32-bit)"
-  depends=('lib32-expat' 'lib32-libdrm' 'lib32-libelf' 'lib32-clang' 'lib32-zstd' 'opencl-mesa')
+  depends=('lib32-expat' 'lib32-libdrm' 'lib32-libelf' 'lib32-clang' 'lib32-zstd')
+  depends+=('opencl-mesa')
   optdepends=('opencl-headers: headers necessary for OpenCL development')
   provides=('lib32-opencl-driver')
 
@@ -154,6 +156,7 @@ package_lib32-vulkan-radeon() {
   pkgdesc="Radeon's Vulkan mesa driver (32-bit)"
   depends=('lib32-wayland' 'lib32-libx11' 'lib32-libxshmfence' 'lib32-libelf' 'lib32-libdrm'
            'lib32-zstd' 'lib32-llvm-libs' 'lib32-systemd')
+  depends+=('vulkan-radeon')
   optdepends=('lib32-vulkan-mesa-layers: additional vulkan layers')
   provides=('lib32-vulkan-driver')
 
@@ -163,10 +166,24 @@ package_lib32-vulkan-radeon() {
   install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
 }
 
+package_lib32-vulkan-virtio() {
+  pkgdesc="Venus Vulkan mesa driver (32-bit)"
+  depends=('lib32-wayland' 'lib32-libx11' 'lib32-libxshmfence' 'lib32-libdrm' 'lib32-zstd'
+           'lib32-systemd')
+  optdepends=('lib32-vulkan-mesa-layers: additional vulkan layers')
+  provides=('lib32-vulkan-driver')
+
+  _install fakeinstall/usr/share/vulkan/icd.d/virtio_icd*.json
+  _install fakeinstall/usr/lib32/libvulkan_virtio.so
+
+  install -m644 -Dt "${pkgdir}/usr/share/licenses/${pkgname}" LICENSE
+}
+
 package_lib32-libva-mesa-driver() {
   pkgdesc="VA-API implementation for gallium (32-bit)"
   depends=('lib32-libdrm' 'lib32-libx11' 'lib32-llvm-libs' 'lib32-expat' 'lib32-libelf'
            'lib32-libxshmfence' 'lib32-zstd')
+  provides=('lib32-libva-driver')
 
   _install fakeinstall/usr/lib32/dri/*_drv_video.so
 
@@ -177,6 +194,7 @@ package_lib32-mesa-vdpau() {
   pkgdesc="Mesa VDPAU drivers (32-bit)"
   depends=('lib32-libdrm' 'lib32-libx11' 'lib32-llvm-libs' 'lib32-expat' 'lib32-libelf'
            'lib32-libxshmfence' 'lib32-zstd')
+  provides=('lib32-vdpau-driver')
 
   _install fakeinstall/usr/lib32/vdpau
 
@@ -186,8 +204,9 @@ package_lib32-mesa-vdpau() {
 package_lib32-mesa() {
   depends=('lib32-libdrm' 'lib32-wayland' 'lib32-libxxf86vm' 'lib32-libxdamage' 'lib32-libxshmfence'
            'lib32-libelf' 'lib32-libunwind' 'lib32-llvm-libs' 'lib32-lm_sensors' 'lib32-libglvnd'
-           'lib32-zstd' 'lib32-vulkan-icd-loader' 'mesa')
+           'lib32-zstd' 'lib32-vulkan-icd-loader')
   depends+=('libsensors.so')
+  depends+=('mesa')
   optdepends=('opengl-man-pages: for the OpenGL API man pages'
               'lib32-mesa-vdpau: for accelerated video playback'
               'lib32-libva-mesa-driver: for accelerated video playback')
