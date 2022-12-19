@@ -1,0 +1,102 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=redis
+_upstream=phpredis
+pkgbase=php-redis
+pkgname=(php-redis php-legacy-redis)
+pkgver=5.3.7
+pkgrel=2
+pkgdesc="An API for communicating with the Redis key-value store"
+arch=(x86_64)
+url="https://github.com/phpredis/phpredis/"
+license=(PHP)
+depends=(glibc)
+makedepends=(liblzf php-igbinary php-legacy-igbinary)
+checkdepends=(lsof redis)
+optdepends=('redis: use a local redis instance')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/${_upstream}/${_upstream}/archive/${pkgver}.tar.gz")
+sha512sums=('394ad0d5a45e2f985a1622ab9ceca55fb0b8e5ee0631a8dd763984611260e55de43bea308710569fa360ee88e02791e9b28ecaea26f2b770dc168a82a2afb4b3')
+b2sums=('32fbc8e716078ad8f08f3383042e7877aad50e7232425fb2fdae8e397e8750d2a06cc7311bd7962e6df39f3a5caf5748953dcf70de4f919ec58cd9d3ec4390a3')
+
+prepare() {
+  mv -v "${_upstream}-${pkgver}" "$pkgbase-$pkgver"
+  # tempfile is non-standard, Debian only
+  sed -e 's/tempfile/mktemp/g' -i  "$pkgname-$pkgver/tests/mkring.sh"
+  # the kill after shutdown of redis makes it exit with status code 1
+  sed -e '/kill -9/d' -i "$pkgname-$pkgver/tests/mkring.sh"
+  # disable the extension by default
+  echo -e "; this extension requires igbinary to be activated as well\n;extension=${_name}" > "$pkgname-$pkgver/${_name}.ini"
+
+  cp -av "$pkgbase-$pkgver" "${pkgname[1]}-$pkgver"
+
+  (
+    cd "$pkgbase-$pkgver"
+    phpize
+  )
+  (
+    cd "${pkgname[1]}-$pkgver"
+    phpize-legacy
+  )
+}
+
+build() {
+  (
+    cd "$pkgname-$pkgver"
+    ./configure --prefix=/usr \
+                --enable-redis-igbinary \
+                --enable-redis-lzf \
+                --with-liblzf=/usr/lib/
+    make
+  )
+  (
+    cd "${pkgname[1]}-$pkgver"
+    ./configure --prefix=/usr \
+                --enable-redis-igbinary \
+                --enable-redis-lzf \
+                --with-liblzf=/usr/lib/
+    make
+  )
+}
+
+check() {
+  # tests are partly broken:
+  # https://github.com/phpredis/phpredis/issues/1593
+  (
+    export TEST_PHP_EXECUTABLE=/usr/bin/php
+    export TEST_PHP_ARGS="-d extension=igbinary -d extension=${srcdir}/${pkgbase}-${pkgver}/modules/redis.so"
+    cd "$pkgname-$pkgver"
+    tests/mkring.sh start
+    $TEST_PHP_EXECUTABLE $TEST_PHP_ARGS tests/TestRedis.php --class Redis
+    $TEST_PHP_EXECUTABLE $TEST_PHP_ARGS tests/TestRedis.php --class RedisArray
+    tests/mkring.sh stop
+  )
+  (
+    export TEST_PHP_EXECUTABLE=/usr/bin/php-legacy
+    export TEST_PHP_ARGS="-d extension=igbinary -d extension=${srcdir}/${pkgname[1]}-${pkgver}/modules/redis.so"
+    cd "${pkgname[1]}-$pkgver"
+    tests/mkring.sh start
+    $TEST_PHP_EXECUTABLE $TEST_PHP_ARGS tests/TestRedis.php --class Redis
+    $TEST_PHP_EXECUTABLE $TEST_PHP_ARGS tests/TestRedis.php --class RedisArray
+    tests/mkring.sh stop
+  )
+}
+
+package_php-redis() {
+  depends+=(liblzf.so php-igbinary)
+  backup=("etc/php/conf.d/${_name}.ini")
+
+  cd "$pkgname-$pkgver"
+  make INSTALL_ROOT="$pkgdir/" install
+  install -vDm 644 "${_name}.ini" -t "${pkgdir}/etc/php/conf.d/"
+  install -vDm 644 {{README,arrays,cluster}.markdown,CREDITS} -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
+
+package_php-legacy-redis() {
+  depends+=(liblzf.so php-legacy-igbinary)
+  backup=("etc/php-legacy/conf.d/${_name}.ini")
+
+  cd "$pkgname-$pkgver"
+  make INSTALL_ROOT="$pkgdir/" install
+  install -vDm 644 "${_name}.ini" -t "${pkgdir}/etc/php-legacy/conf.d/"
+  install -vDm 644 {{README,arrays,cluster}.markdown,CREDITS} -t "${pkgdir}/usr/share/doc/${pkgname}/"
+}
