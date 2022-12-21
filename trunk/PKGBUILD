@@ -3,7 +3,7 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r17269.48c9c224cf
+pkgver=5.0.r17995.8bad821019
 pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
@@ -49,25 +49,35 @@ makedepends=(
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-_commit=48c9c224cf9f82f0f9f2690b7cc6283d7448480c
+_commit=8bad821019721b9b72701b495da95656ace5fea5
 source=(
   dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit}
+  git+https://github.com/mozilla/cubeb.git
   git+https://github.com/randy408/libspng.git
+  git+https://github.com/arsenm/sanitizers-cmake.git
   git+https://github.com/KhronosGroup/SPIRV-Cross.git
+  git+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
   git+https://github.com/zlib-ng/zlib-ng.git
 )
 b2sums=('SKIP'
+        'SKIP'
+        'SKIP'
+        'SKIP'
         'SKIP'
         'SKIP'
         'SKIP')
 
 prepare() {
   cd dolphin-emu
-  for submodule in Externals/{libspng/libspng,spirv_cross/SPIRV-Cross,zlib-ng/zlib-ng}; do
+  for submodule in Externals/{cubeb/cubeb,libspng/libspng,spirv_cross/SPIRV-Cross,VulkanMemoryAllocator,zlib-ng/zlib-ng}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../${submodule##*/}
-    git submodule update ${submodule}
+    git -c protocol.file.allow=always submodule update ${submodule}
   done
+  cd Externals/cubeb/cubeb
+  git submodule init cmake/sanitizers-cmake
+  git config submodule.cmake/sanitizers-cmake.url "${srcdir}"/sanitizers-cmake
+  git -c protocol.file.allow=always submodule update cmake/sanitizers-cmake
 }
 
 pkgver() {
