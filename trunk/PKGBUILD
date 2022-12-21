@@ -6,7 +6,7 @@ pkgname=(
   rapidyaml
   python-rapidyaml
 )
-pkgver=0.4.1
+pkgver=0.5.0
 pkgrel=1
 pkgdesc='A library to parse and emit YAML, and do it fast'
 arch=(x86_64)
@@ -22,7 +22,7 @@ makedepends=(
   python-cmake-build-extension
   swig
 )
-_tag=213b201d264139cd1b887790197e08850af628e3
+_tag=b35ccb150282760cf5c2d316895cb86bd161ac89
 source=(
   git+https://github.com/biojppm/rapidyaml.git#tag=${_tag}
   git+https://github.com/biojppm/c4core.git
@@ -41,11 +41,11 @@ prepare() {
   cd rapidyaml
   git submodule init
   git config submodule.extern/c4core.url "${srcdir}"/c4core
-  git submodule update
+  git -c protocol.file.allow=always submodule update
   cd ext/c4core
   git submodule init
   git config submodule.cmake.url "${srcdir}"/c4core-cmake
-  git submodule update
+  git -c protocol.file.allow=always  submodule update
 }
 
 build() {
