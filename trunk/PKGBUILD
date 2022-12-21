@@ -1,40 +1,50 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-pkgname=zam-plugins
-pkgver=3.14
+pkgbase=zam-plugins
+pkgname=(zam-plugins{,-{clap,ladspa,lv2,vst,vst3}})
+pkgver=4.1
+_commit=f04276002b91eb63c3fbf6348290ea905f462f85  # refs/tags/4.0
 pkgrel=1
-pkgdesc="Collection of LADSPA/LV2/VST/JACK audio plugins for high-quality processing"
-arch=('x86_64')
+pkgdesc="Collection of audio plugins for high-quality processing"
+arch=(x86_64)
 url="https://github.com/zamaudio/zam-plugins"
-license=('GPL2')
-groups=('ladspa-plugins' 'lv2-plugins' 'pro-audio' 'vst-plugins')
-depends=('gcc-libs' 'glibc' 'libglvnd' 'libx11')
-makedepends=('gendesk' 'git' 'ladspa' 'libsamplerate' 'jack' 'lv2' 'zita-convolver')
-optdepends=('jack: for standalone applications')
-source=("$pkgname::git+https://github.com/zamaudio/${pkgname}.git#tag=${pkgver}?signed"
-        "git+https://github.com/distrho/dpf.git"
-        "${pkgname}.directory"
-        "${pkgname}.menu")
+license=(GPL2)
+makedepends=(gcc-libs glibc gendesk git ladspa libglvnd libsamplerate libx11 jack lv2 zita-convolver)
+source=(
+  $pkgname::git+https://github.com/zamaudio/$pkgname.git#tag=$_commit?signed
+  git+https://github.com/distrho/dpf.git
+  distrho-pugl::git+https://github.com/distrho/pugl.git
+  $pkgname.directory
+  $pkgname.menu
+)
 sha512sums=('SKIP'
+            'SKIP'
             'SKIP'
             'b7aa3170c14e75e1ec9aa19827a353d126a70e729491a8947b86748eb6c97489c57cb697505f209129834b837beadbbd96e8306fbd7b78cc7cfb95cd7d8b964d'
             '0aa04bc5cc566ce616728e96fc528c4e7d43cc275cf3e58ad4005a195fbce72793497c2abc515a3926c8cc196e2e29a5534d4fb2ea3c1f348a6f1df3f8a24740')
 b2sums=('SKIP'
         'SKIP'
+        'SKIP'
         '7b00a157f982abee0abce18e6aaf88f3464f734653ad8efcaf16c8aa8daa4d81e5648381aa16e46461d134bba536fe8f81bee3f5f0456d22f47be5f4c2f2878e'
         '830efd881fe5f66ef51e13cf9a4026446aa185c8b161209e97212652771d1938c26eed4d9eb81849256f600ec01029f6a50dd98436856fa910aef11d22bc5715')
 validpgpkeys=('B86F8ABAEDB92DF68AE2BE40577C1739585FA920') # Damien Zammit <damien@zammit.org>
 
-_names=('zamaximx2' 'zamulticomp' 'zammulticompx2' 'zamautosat' 'zamcomp'
-'zamcompx2' 'zamdelay' 'zamdynamiceq' 'zameq2' 'zamgeq31' 'zamgate' 'zamgatex2'
-'zamgrains' 'zamheadx2' 'zamphono' 'zamtube' 'zamverb')
+_names=(zamaximx2 zamulticomp zammulticompx2 zamautosat zamcomp
+zamcompx2 zamdelay zamdynamiceq zameq2 zamgeq31 zamgate zamgatex2
+zamgrains zamheadx2 zamphono zamtube zamverb)
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 
 prepare() {
-  cd "$pkgname"
-  git submodule init
-  git config submodule.dpf.url "${srcdir}/dpf"
-  git submodule update
   declare -A exec_names=(
     ["zamaximx2"]="ZaMaximX2"
     ["zamulticomp"]="ZaMultiComp"
@@ -92,33 +102,161 @@ prepare() {
     ["zamtube"]="Tube Amplifier"
     ["zamverb"]="Reverb"
   )
+
   for name in "${_names[@]}"; do
     gendesk -n \
-            --pkgname "com.zamaudio.${name}" \
-            --name "${name}" \
+            --pkgname com.zamaudio.$name \
+            --name $name \
             --exec "${exec_names[$name]}" \
             --pkgdesc "${comments[$name]}" \
             --genericname "${generic[$name]}"
   done
+
+  cd $pkgname
+  git submodule init
+  git config submodule.dpf.url "$srcdir/dpf"
+  git -c protocol.file.allow=always submodule update
+  cd dpf
+  git submodule init
+  git config submodule.dgl/src/pugl-upstream.url "$srcdir/distrho-pugl"
+  git -c protocol.file.allow=always submodule update
 }
 
 build() {
-  cd "$pkgname"
+  cd $pkgname
   export HAVE_ZITA_CONVOLVER=true
   make
 }
 
-package() {
-  cd "$pkgname"
-  depends+=('libsamplerate.so' 'libzita-convolver.so')
-  make DESTDIR="$pkgdir/" PREFIX='/usr' install
-  # XDG desktop integration
-  install -vDm 644 *.desktop -t "${pkgdir}/usr/share/applications"
-  install -vDm 644 "../${pkgname}.menu" \
-    -t "${pkgdir}/etc/xdg/menus/applications-merged/"
-  install -vDm 644 "../${pkgname}.directory" \
-    -t "${pkgdir}/usr/share/desktop-directories/"
-  # docs
-  install -t "${pkgdir}/usr/share/doc/${pkgname}/" \
-    -vDm 644 {README.md,changelog}
+package_zam-plugins() {
+  depends=(zam-plugins-{clap,jack,ladspa,lv2,vst,vst3})
+
+  cd $pkgname
+  make DESTDIR="$pkgdir/" PREFIX=/usr install
+
+  (
+    cd "$pkgdir"
+    _pick zam-plugins-clap usr/lib/clap
+    _pick zam-plugins-jack usr/bin/
+    _pick zam-plugins-ladspa usr/lib/ladspa
+    _pick zam-plugins-lv2 usr/lib/lv2
+    _pick zam-plugins-vst usr/lib/vst/
+    _pick zam-plugins-vst3 usr/lib/vst3/
+  )
 }
+
+package_zam-plugins-clap() {
+  pkgdesc+=" - CLAP plugins"
+  depends=(
+    clap-host
+    dbus libdbus-1.so
+    gcc-libs
+    glibc
+    libglvnd libGL.so
+    libsamplerate libsamplerate.so
+    libx11
+    libxext
+    zita-convolver libzita-convolver.so
+  )
+  groups=(clap-plugins pro-audio)
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase/{README.md,changelog} -t "$pkgdir/usr/share/doc/$pkgname/"
+  find "$pkgdir" -type f -iname "*.clap" -exec chmod +x {} +
+}
+
+package_zam-plugins-jack() {
+  pkgdesc+=" - JACK standalones"
+  depends=(
+    alsa-lib libasound.so
+    dbus libdbus-1.so
+    gcc-libs
+    glibc
+    jack
+    libglvnd libGL.so
+    libsamplerate libsamplerate.so
+    libx11
+    libxext
+    zita-convolver libzita-convolver.so
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 *.desktop -t "$pkgdir/usr/share/applications"
+  install -vDm 644 $pkgname.menu -t "$pkgdir/etc/xdg/menus/applications-merged/"
+  install -vDm 644 $pkgname.directory -t "$pkgdir/usr/share/desktop-directories/"
+  install -vDm 644 $pkgbase/{README.md,changelog} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_zam-plugins-ladspa() {
+  pkgdesc+=" - ladspa plugins"
+  depends=(
+    gcc-libs
+    glibc
+    ladspa-host
+  )
+  groups=(ladspa-plugins pro-audio)
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase/{README.md,changelog} -t "$pkgdir/usr/share/doc/$pkgname/"
+  find "$pkgdir" -type f -iname "*.so" -exec chmod +x {} +
+}
+
+package_zam-plugins-lv2() {
+  pkgdesc+=" - LV2 plugins"
+  depends=(
+    dbus libdbus-1.so
+    gcc-libs
+    glibc
+    libglvnd libGL.so
+    libsamplerate libsamplerate.so
+    libx11
+    libxext
+    lv2-host
+    zita-convolver libzita-convolver.so
+  )
+  groups=(lv2-plugins pro-audio)
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase/{README.md,changelog} -t "$pkgdir/usr/share/doc/$pkgname/"
+  find "$pkgdir" -type f -iname "*.so" -exec chmod +x {} +
+}
+
+package_zam-plugins-vst() {
+  pkgdesc+=" - VST plugins"
+  depends=(
+    dbus libdbus-1.so
+    gcc-libs
+    glibc
+    libglvnd libGL.so
+    libsamplerate libsamplerate.so
+    libx11
+    libxext
+    vst-host
+    zita-convolver libzita-convolver.so
+  )
+  groups=(vst-plugins pro-audio)
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase/{README.md,changelog} -t "$pkgdir/usr/share/doc/$pkgname/"
+  find "$pkgdir" -type f -iname "*.so" -exec chmod +x {} +
+}
+
+package_zam-plugins-vst3() {
+  pkgdesc+=" - VST3 plugins"
+  depends=(
+    dbus libdbus-1.so
+    gcc-libs
+    glibc
+    libglvnd libGL.so
+    libsamplerate libsamplerate.so
+    libx11
+    libxext
+    vst3-host
+    zita-convolver libzita-convolver.so
+  )
+  groups=(vst3-plugins pro-audio)
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase/{README.md,changelog} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
