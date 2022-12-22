@@ -8,8 +8,8 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=15.6.1
-pkgrel=2
+pkgver=15.7.0
+pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
@@ -88,7 +88,7 @@ prepare() {
   # 'lock' adds 'BUNDLED WITH' back. Remove it again.
   sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
   # https://gitlab.com/gitlab-org/gitlab/-/issues/376417
-  sed -e "/gem 'openssl', '2.2.1'/d" -i Gemfile
+  sed -e "/gem 'openssl', '2.2.2'/d" -i Gemfile
   bundle-2.7 lock --update=webauthn
   sed -e '/BUNDLED WITH/,+1d' -i Gemfile.lock
 }
