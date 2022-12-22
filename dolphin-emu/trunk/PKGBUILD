@@ -4,7 +4,7 @@
 
 pkgname=dolphin-emu
 pkgver=5.0.r17995.8bad821019
-pkgrel=1
+pkgrel=2
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=(x86_64)
@@ -24,7 +24,7 @@ depends=(
   libevdev
   libfmt.so
   libgl
-  #libmgba
+  libmgba
   libminiupnpc.so
   libpulse
   libswscale.so
@@ -58,6 +58,7 @@ source=(
   git+https://github.com/KhronosGroup/SPIRV-Cross.git
   git+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
   git+https://github.com/zlib-ng/zlib-ng.git
+  dolphin-emu-system-libmgba.patch
 )
 b2sums=('SKIP'
         'SKIP'
@@ -65,10 +66,12 @@ b2sums=('SKIP'
         'SKIP'
         'SKIP'
         'SKIP'
-        'SKIP')
+        'SKIP'
+        '36ecc3a37832a219da20fda2310bdb45c206a1582639c21ec6c1225ddf2d929ad3fcc6f6cbba75eebf106237c33fb4ae20f3592444d33b68164b2239d63fb94d')
 
 prepare() {
   cd dolphin-emu
+  patch -Np1 -i "${srcdir}"/dolphin-emu-system-libmgba.patch
   for submodule in Externals/{cubeb/cubeb,libspng/libspng,spirv_cross/SPIRV-Cross,VulkanMemoryAllocator,zlib-ng/zlib-ng}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../${submodule##*/}
@@ -90,7 +93,7 @@ build() {
     -DCMAKE_BUILD_TYPE=None \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DDISTRIBUTOR=archlinux.org \
-    -DUSE_MGBA=OFF \
+    -DUSE_MGBA=ON \
     -DUSE_SHARED_ENET=ON \
     -Wno-dev
   cmake --build build
