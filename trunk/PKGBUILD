@@ -1,7 +1,7 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-sphinxcontrib-towncrier
-pkgver=0.3.1a3
+pkgver=0.3.2a0
 pkgrel=1
 pkgdesc="An RST directive for injecting a Towncrier-generated changelog draft containing fragments for the unreleased (next) project version"
 url="https://github.com/sphinx-contrib/sphinxcontrib-towncrier"
@@ -12,7 +12,7 @@ makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-setup
              'python-setuptools-scm-git-archive' 'python-wheel')
 checkdepends=('python-pytest-xdist')
 source=("https://github.com/sphinx-contrib/sphinxcontrib-towncrier/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('37276dfe7c662aa2cd1e69ec0008faec9b7126718cb3147b6f5a87d90b23be97272c327c16ce2a4829184fb1e7f58e6c5ed293d4b924a15d418f4e6275adf411')
+sha512sums=('3194136b8758b2881687af5a4fe56d1524fb6c0fe77745b25632895a6c7b6ed4a052d5cf000acabf9fb7c2ebce2e7e0a907d143d014d7be275f61547c0c76122')
 
 prepare() {
   cd sphinxcontrib-towncrier-$pkgver
