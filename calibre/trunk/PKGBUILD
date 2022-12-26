@@ -9,7 +9,7 @@
 
 pkgname=calibre
 pkgver=6.10.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Ebook management application'
 arch=(x86_64)
 url=https://calibre-ebook.com
@@ -109,17 +109,7 @@ build() {
 
 check() {
 	cd "$_archive"
-
-	_test_excludes=(
-		# merely testing if a runtime-optional feature optdepend is importable
-		'speech_dispatcher'
-		# tests if a completely unused module is bundled
-		'pycryptodome'
-		# only fails on local builds, and that intermittently
-		'test_searching'
-	)
-
-	LANG='en_US.UTF-8' python setup.py test "${_test_excludes[@]/#/--exclude-test-name=}"
+	LANG='en_US.UTF-8' python -m unittest discover
 }
 
 package() {
