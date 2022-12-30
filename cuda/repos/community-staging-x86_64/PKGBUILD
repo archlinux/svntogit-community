@@ -4,7 +4,7 @@ pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=12.0.0
 _driverver=525.60.13
-pkgrel=2
+pkgrel=3
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -117,6 +117,9 @@ build() {
   ln -s /opt/cuda/EULA.txt "${_prepdir}/usr/share/licenses/${pkgname}/EULA.txt"
   ln -s /opt/cuda/README "${_prepdir}/usr/share/licenses/${pkgname}/README"
 
+  # Add a symlink lib->lib64 as some libraries might expect that (FS#76951)
+  ln -s lib64 "${_prepdir}/opt/cuda/lib"
+
   # Allow newer compilers to work. This is not officially supported in the Arch package but
   # if users want to try, let them try.
   # See https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#system-requirements
@@ -140,6 +143,7 @@ package_cuda() {
 
   cd "${_prepdir}"
   cp -al * "${pkgdir}"
+
   # remove broken links
   rm "${pkgdir}"/opt/cuda/include/include
   rm "${pkgdir}"/opt/cuda/lib64/lib64
