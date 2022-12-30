@@ -5,7 +5,7 @@
 
 pkgname=bazel
 pkgver=6.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Correct, reproducible, and fast builds for everyone'
 arch=('x86_64')
 license=('Apache')
@@ -31,9 +31,9 @@ package() {
   install -Dm755 "${srcdir}/output/bazel" "${pkgdir}/usr/bin/bazel-real"
   install -Dm644 "${srcdir}/bazel-bin/scripts/bazel-complete.bash" "${pkgdir}/usr/share/bash-completion/completions/bazel"
   install -Dm644 "${srcdir}/scripts/zsh_completion/_bazel" "${pkgdir}/usr/share/zsh/site-functions/_bazel"
-  mkdir -p "${pkgdir}/opt/bazel"
+  mkdir -p "${pkgdir}/usr/share/bazel"
   for d in examples third_party tools; do
-    cp -r "${srcdir}/${d}" "${pkgdir}/opt/bazel/"
+    cp -r "${srcdir}/${d}" "${pkgdir}/usr/share/bazel/"
   done
 }
 # vim:set ts=2 sw=2 et:
