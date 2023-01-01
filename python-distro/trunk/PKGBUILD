@@ -3,13 +3,13 @@
 
 pkgname=python-distro
 pkgver=1.8.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Linux OS platform information API'
 url='https://github.com/python-distro/distro'
 arch=('any')
 license=('Apache')
-depends=('python' 'python-setuptools')
-makedepends=('python-sphinx' 'python-build' 'python-installer' 'python-wheel')
+depends=('python')
+makedepends=('python-sphinx' 'python-build' 'python-installer' 'python-wheel' 'python-setuptools')
 checkdepends=('python-pytest')
 options=('!makeflags')
 source=(${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz)
