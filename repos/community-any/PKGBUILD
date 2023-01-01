@@ -3,14 +3,12 @@
 # Contributor: David Birks <david@birks.dev>
 
 pkgname=aws-cli-v2
-pkgver=2.9.8
+pkgver=2.9.12
 pkgrel=1
 pkgdesc='Unified command line interface for Amazon Web Services (version 2)'
 arch=(any)
 url='https://github.com/aws/aws-cli/tree/v2'
 license=(Apache)
-# wcwidth is not used; upstream pinned it due to pyinstaller issues
-# https://github.com/aws/aws-cli/pull/5254
 depends=(python python-awscrt python-certifi python-colorama python-cryptography python-dateutil
          python-distro python-docutils python-jmespath python-prompt_toolkit python-ruamel-yaml
          python-urllib3)
@@ -23,7 +21,7 @@ source=("$pkgname-$pkgver.tar.gz::https://github.com/aws/aws-cli/archive/$pkgver
         prompt-toolkit-3.0.29.diff
         build-ac.index-in-tmp.diff
         fix-env.diff)
-sha256sums=('4a8aa1ec79a7c115a02213cb2e75160d24054106bb82b6e75ea0008df5810834'
+sha256sums=('abca81ffcbaa0fdd741aee4a9339874b31524ed9fbc2607277ce6e3b3cbc8773'
             'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636'
             '3f5633c7f83b346f79a9af2baee476e6967ef8fa62636a535dee1e011ef978db'
             '893d61d7e958c3c02bfa1e03bf58f6f6abd98849d248cc661f1c56423df9f312')
