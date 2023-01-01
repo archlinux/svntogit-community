@@ -2,42 +2,74 @@
 # Maintainer: Nick Black <dankamongmen@gmail.com>
 
 pkgname=notcurses
-pkgver=3.0.8
-pkgrel=2
+pkgver=3.0.9
+pkgrel=1
 pkgdesc="Blingful TUI/character graphics library"
 url="https://nick-black.com/dankwiki/index.php/Notcurses"
 license=('Apache')
 arch=('x86_64')
-# qrcodegen is currently shipped as a static archive on Arch, rather than a
-# dynamic library. Should the .so be shipped in the future, promote qrcodegen
-# from a makedepends to a true depends, and use that dynamic library.
-depends=('ncurses' 'ffmpeg' 'libunistring' 'gpm')
-makedepends=('libdeflate' 'cmake' 'pandoc' 'python-pip' 'python-pypandoc' 'python-cffi' 'python-setuptools' 'readline' 'ninja' 'zlib' 'gpm' 'doctest')
-source=("https://github.com/dankamongmen/notcurses/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz"
-        "$pkgname-doctest-2.4.9.patch::https://github.com/dankamongmen/notcurses/commit/7651cde99827.patch")
-sha256sums=('56c33ffe2a2bc4d0b6e3ac14bdf620cf41e3293789135f76825057d0166974fd'
-            '2443fa429b475d49340d3e6d141a95ef773a8b5507c466d54a1b8b712b016256')
-
-prepare() {
-  patch -Np1 -d ${pkgname}-${pkgver} <$pkgname-doctest-2.4.9.patch
-  mkdir -p "${pkgname}-${pkgver}/build"
-  cd "${pkgname}-${pkgver}/build"
-  cmake .. -GNinja -DCMAKE_INSTALL_PREFIX="/usr" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DUSE_QRCODEGEN=off -DUSE_GPM=on
-}
+# TODO: package qrcodegen
+depends=(
+  'gcc-libs'
+  'glibc'
+)
+makedepends=(
+  'cmake'
+  'doctest'
+  'ffmpeg'
+  'gpm'
+  'libdeflate'
+  'libunistring'
+  'ncurses'
+  'ninja'
+  'pandoc'
+  'python-build'
+  'python-cffi'
+  'python-installer'
+  'python-pypandoc'
+  'python-setuptools'
+  'python-wheel'
+  'readline'
+  'zlib'
+)
+provides=(libnotcurses++.so libnotcurses.so libnotcurses-core.so)
+options=(debug)
+source=("https://github.com/dankamongmen/notcurses/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha256sums=('e5cc02aea82814b843cdf34dedd716e6e1e9ca440cf0f899853ca95e241bd734')
+b2sums=('718a5a36ed17d9118690ffdce3b2233144de0b8421a37429f1a20ae735215a87be9c308876c97d8a5126238fee76e470429837c7f224e8f020c60ad6b88514bd')
 
 build() {
-  cd "${pkgname}-${pkgver}/build"
-  ninja
+  local cmake_options=(
+    -B build
+    -DCMAKE_INSTALL_PREFIX=/usr
+    -DCMAKE_BUILD_TYPE=None
+    -DUSE_GPM=on
+    -DUSE_QRCODEGEN=off
+    -GNinja
+    -S $pkgname-$pkgver
+    -Wno-dev
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build build
+  cd $pkgname-$pkgver/cffi
+  CFLAGS+=" -I$srcdir/$pkgname-$pkgver/include -L$srcdir/build" python -m build --wheel --no-isolation
 }
 
 check() {
-  cd "${pkgname}-${pkgver}/build"
-  ninja test 
+  ctest --test-dir build --output-on-failure
 }
 
 package() {
-  cd "${pkgname}-${pkgver}/build"
-  DESTDIR="$pkgdir" ninja install
-  cd ../cffi
-  env CFLAGS="-I$pkgdir/usr/include -L../build" python setup.py install --root="$pkgdir" --optimize=1
+  depends+=(
+    'ffmpeg' 'libavcodec.so' 'libavformat.so' 'libavutil.so' 'libswscale.so'
+    'gpm' 'libgpm.so'
+    'libdeflate' 'libdeflate.so'
+    'libunistring' 'libunistring.so'
+    'ncurses' 'libncursesw.so'
+    'python-cffi'
+  )
+
+  DESTDIR="$pkgdir" cmake --install build
+  python -m installer --destdir="$pkgdir" $pkgname-$pkgver/cffi/dist/*.whl
 }
