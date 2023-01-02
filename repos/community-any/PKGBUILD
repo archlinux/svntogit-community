@@ -4,17 +4,15 @@
 # SPDX-License-Identifier: CC0-1.0
 
 pkgname=reuse
-_pkgname=reuse-tool
-pkgver=1.0.0
-pkgrel=2
+pkgver=1.1.0
+pkgrel=1
 pkgdesc='Helper tool for providing and confirming copyright and licensing information'
 arch=('any')
-url='https://github.com/fsfe/reuse-tool'
-license=('GPL3' 'Apache' 'custom:CC-BY-SA-4.0' 'custom:CC0-1.0')
+url='https://reuse.software/'
+license=('GPL3' 'Apache' 'custom:CC0-1.0')
 depends=(
   'python'
   'python-debian'
-  'python-requests'
   'python-license-expression'
   'python-boolean.py'
   'python-jinja'
@@ -23,16 +21,23 @@ depends=(
 )
 makedepends=(
   'git'
-  'python-setuptools-scm'
+  'python-build'
+  'python-installer'
+  'python-wheel'
+  'python-poetry-core'
 )
 checkdepends=('python-pytest')
 optdepends=(
   'git: git repository support'
   'mercurial: mercurial repository support'
 )
-_commit='b0fd725328e42d98f6c8e60d2d3587dd728bbcc7'
-source=("$pkgname::git+$url#commit=$_commit")
-b2sums=('SKIP')
+_commit='1cd6ec56c825ba62e097a95b743edde76d4398ca'
+source=(
+  "$pkgname::git+https://github.com/fsfe/reuse-tool#commit=$_commit"
+  'ftbfs-build.py.patch'
+)
+b2sums=('SKIP'
+        '52794da4f1c871591a0be306388aff4973ca0a90ad43162b8762c8c8c283122943ed8e383e1424307dff8e8112267f02ea6f5c66b28d45f6afb6ec583bd27a0d')
 
 pkgver() {
   cd "$pkgname"
@@ -43,22 +48,37 @@ pkgver() {
 build() {
   cd "$pkgname"
 
-  python setup.py build
+  # https://github.com/fsfe/reuse-tool/issues/640
+  # why does this look horrible?
+  # let me count the ways:
+
+  # 1. this creates the locale files, but not the rest of the actual package!
+  python -m build --wheel --no-isolation
+
+  # 2. this removes the problem
+  patch -p1 -i "$srcdir/ftbfs-build.py.patch"
+
+  # 3. this builds the rest of the actual package
+  python -m build --wheel --no-isolation
 }
 
 check() {
   cd "$pkgname"
 
-  pytest
+  pytest -v
 }
 
 package() {
   cd "$pkgname"
 
-  python setup.py install \
-    --root="$pkgdir" \
-    --optimize=1 \
-    --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # NFI what poetry is doing, it's installing stuff to the wrong directory
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  pushd "$pkgdir/$site_packages"
+  install -vDm644 -t "$pkgdir/usr/share/doc/$pkgname" AUTHORS.rst CHANGELOG.md README.md
+  rm -rf AUTHORS.rst CHANGELOG.md README.md
+  popd
 
   # licenses
   install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSES/*
