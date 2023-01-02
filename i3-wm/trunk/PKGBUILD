@@ -6,7 +6,7 @@
 
 pkgname=i3-wm
 pkgver=4.22
-pkgrel=1
+pkgrel=2
 pkgdesc='Improved dynamic tiling window manager'
 arch=('x86_64')
 url=https://i3wm.org
@@ -24,7 +24,8 @@ optdepends=('dmenu: for the default program launcher'
             'perl: for i3-save-tree and i3-dmenu-desktop'
             'perl-anyevent-i3: for i3-save-tree'
             'perl-json-xs: for i3-save-tree')
-replaces=('i3' 'i3bar')
+replaces=('i3' 'i3bar' 'i3-gaps')
+provides=('i3-gaps')
 backup=('etc/i3/config')
 options=('debug')
 source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc})
