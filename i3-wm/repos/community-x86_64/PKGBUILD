@@ -5,7 +5,7 @@
 # Contributor: Jelle van der Waa <jelle@vdwaa.nl>
 
 pkgname=i3-wm
-pkgver=4.21.1
+pkgver=4.22
 pkgrel=1
 pkgdesc='Improved dynamic tiling window manager'
 arch=('x86_64')
@@ -27,18 +27,10 @@ optdepends=('dmenu: for the default program launcher'
 replaces=('i3' 'i3bar')
 backup=('etc/i3/config')
 options=('debug')
-source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc}
-        '0001-Use-OVER-operator-for-drawing-text.patch')
-b2sums=('44661bd9edf0bee384b8be88cbf2361bb2ad26fdbaee9a2e010ebdee662b31129057a1a183f46bef0839a545f63c70d00903b0ec4693c1bc9390c84d7a78ac44'
-        'SKIP'
-        '35be78fc8be805fa4b7f32c8a18c62a0436f433e9064ef5adf32baa9aa816276da3b53b977287640ab70f30eea14bbd4dc002d49d9149afa01e0706a45dba947')
+source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc})
+b2sums=('fa179f445ba4286bfeec98dc7a2e1dfad14bda6874e84878a48ee5890ed4cf3a90fc542e8e14aedaaba3abebc8d280284a3b00e838da70a783064a4bd271ca41'
+        'SKIP')
 validpgpkeys=('424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D') # Michael Stapelberg <michael@stapelberg.de>
-
-prepare() {
-  cd i3-$pkgver
-  # https://github.com/i3/i3/pull/2925
-  patch -Np1 -i ../0001-Use-OVER-operator-for-drawing-text.patch
-}
 
 build() {
   cd i3-$pkgver
