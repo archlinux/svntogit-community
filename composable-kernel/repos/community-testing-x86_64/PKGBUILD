@@ -1,0 +1,41 @@
+# Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
+
+pkgname=composable-kernel
+pkgver=5.4.1
+pkgrel=1
+pkgdesc="High Performance Composable Kernel for AMD GPUs"
+arch=('x86_64')
+url="https://github.com/ROCmSoftwarePlatform/composable_kernel"
+license=('MIT')
+depends=('hip')
+makedepends=('rocm-cmake' 'rocm-llvm' 'openmp')
+_commit='eef009d001b928db1bb377a105c93b75e0dccc7b' #Matching commit from requirements.txt in MIOpen repo
+source=("$pkgname-$pkgver.tar.gz::$url/archive/$_commit.tar.gz")
+sha256sums=('713ff6f60b37f4989eebc7bd3c66ac9e7682093f2ce7a939a564fee32aa6c032')
+_dirname="$(basename "$url")-$(basename "${source[0]}" .tar.gz)"
+
+build() {
+  export CC=/opt/rocm/llvm/bin/clang
+  export CXX=/opt/rocm/llvm/bin/clang++
+  # Assertions not supported on GPU
+  CXXFLAGS=${CXXFLAGS/-Wp,-D_GLIBCXX_ASSERTIONS/}
+  # -fcf-protection is not supported by HIP, see
+  # https://docs.amd.com/bundle/ROCm-Compiler-Reference-Guide-v5.4/page/Appendix_A.html
+  export CXXFLAGS="${CXXFLAGS} -fcf-protection=none"
+
+  cmake \
+    -Wno-dev \
+    -B build \
+    -S "$_dirname" \
+    -DCMAKE_BUILD_TYPE=None \
+    -DBUILD_DEV=OFF \
+    -DCMAKE_INSTALL_PREFIX=/opt/rocm \
+    -DGPU_TARGETS='gfx900;gfx906;gfx908;gfx90a;gfx1030'
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+
+  install -Dm644 "$_dirname/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
