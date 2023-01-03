@@ -3,7 +3,7 @@
 # Contributor: Michel Zou
 
 pkgname=python-nbsphinx
-pkgver=0.8.10
+pkgver=0.8.11
 pkgrel=1
 pkgdesc="Jupyter Notebook Tools for Sphinx"
 url="http://nbsphinx.rtfd.org/"
@@ -12,7 +12,7 @@ license=('MIT')
 depends=('python-docutils' 'python-jinja' 'jupyter-nbconvert' 'jupyter-nbformat' 'python-sphinx')
 makedepends=('python-build' 'python-installer' 'python-wheel' 'python-setuptools-scm')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/spatialaudio/nbsphinx/archive/${pkgver}.tar.gz")
-sha256sums=('568de199d1c42e74679f3a42feead828b43de48273079b6e05a228cc3a48b2f0')
+b2sums=('fc8ab4b6bab910ad47f262b937ce2d941ca4f43040e3b6f2678b29bd40bd82187c8dcdbb9e1918f5e02066b283b72cd1c8f67d961e6b7267b3d1581b91e96869')
 
 build() {
   cd "${srcdir}"/nbsphinx-$pkgver
