@@ -19,8 +19,8 @@
 
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
-pkgver=19.4
-pkgrel=8
+pkgver=19.5
+pkgrel=2
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -71,6 +71,7 @@ source=(
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
   "$pkgbase-libudfread-$_libudfread_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/libudfread-$_libudfread_version.tar.gz"
   'cheat-sse-build.patch'
+  "https://github.com/xbmc/xbmc/commit/5449652abf0bb9dddd0d796de4120e60f19f89a5.patch"
 )
 noextract=(
   "$pkgbase-libdvdcss-$_libdvdcss_version.tar.gz"
@@ -84,7 +85,7 @@ noextract=(
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz"
   "$pkgbase-libudfread-$_libudfread_version.tar.gz"
 )
-sha512sums=('2804c57d85877873dae8e62f083b86f51fceebb802819523654a231f50f9850022956e1a9b91702e7c8b3f7ab437ceea7b10319239a8289dbf877ce94bba07c9'
+sha512sums=('b560c068491a7f62894167da99be082f0e6a8a840cbfe1fb0cef5c844cda959bd3b5479a435b58616bb2a8454083ad393a4d49de05fbbdb0817a0fad9726e52f'
             '5185dbdbeb1bd13ea9d8723f1f4ab599d6f3102f5ba1096cd085aa1cda252c045f327c719227bba8e1b742352ade5e335106c8d0c1637a5a6b93ce661620dd7e'
             '11c93eaacd156f8fd7dec7c43d366438b201f31ad55b2870463a9e286912b6ada08882319a021fb7992190f87b909a49f2b83e0321cc17aedc29f7fe5898fa72'
             'b3419ba0a1a2dd70f1bb6236afdfe1c6e88c9ad4264198b289e3bba9375e077cecf7f89848c7b09debaa445327f3507101f3d157e692f7a7163b2bb52643e1e7'
@@ -95,7 +96,8 @@ sha512sums=('2804c57d85877873dae8e62f083b86f51fceebb802819523654a231f50f98500229
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
             '8a0b88d739fa4694a69d3630140fe89fdd70d50bba4dadd1758d9aa2920cda16700bcafb8d89fe2a09ac907d3f378240c3cb4abc7106318136799836aba4b063'
             '340a03fe90d26a8a5c78e1e4f558a0b448a14332a661494f44af7de3e6c98cd219125e19f69d2a611ecb4870648a5d5b55d794e665eb8ec4192c0b499a0701ed'
-            '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a')
+            '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a'
+            '1dd31fe326797f0faeaaa1c98cf6f078a887dd240ab84b029d61686a264e1e9239362eb0cdb2a79b0de7badbf468f5b24444714597f5f789044ba7657e5a33cd')
 
 prepare() {
   [[ -d kodi-build ]] && rm -rf kodi-build
@@ -104,6 +106,8 @@ prepare() {
   cd "xbmc-$pkgver-$_codename"
 
   [[ "$_sse_workaround" -eq 1 ]] && patch -p1 -i "$srcdir/cheat-sse-build.patch"
+  # fix for mesa eglchromium.h removal
+  patch -p1 -i "$srcdir/5449652abf0bb9dddd0d796de4120e60f19f89a5.patch"
 }
 
 build() {
