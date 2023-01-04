@@ -4,7 +4,7 @@
 # Contributor: Massimiliano Torromeo <massimiliano dot torromeo at gmail dot com>
 
 pkgname=mattermost
-pkgver=7.4.0
+pkgver=7.5.2
 pkgrel=1
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
@@ -25,8 +25,8 @@ source=(https://github.com/$pkgname/$pkgname-server/archive/v$pkgver/$_server_ar
         $pkgname.service
         $pkgname.sysusers
         $pkgname.tmpfiles)
-sha256sums=('34076873edf2b10c623c50ee2513e2165894e090c6ffde1416bd6dd673c5d2bd'
-            '2e8b983698ade74351ec0b793fafea659c63101320184d5d18fce5b88cc473b1'
+sha256sums=('49d3668f772b8995f9579bb121d95134737149b6a957f2902a236080995bfd2c'
+            '40cd1401ddedebd14d8dc6de7989a36e9dd0b543648d0595f6cc1351e8e4ff3f'
             'e5ba4a4f9c5f32816b997d5c02f6ddf3ef1e8259ae8dff5ef18865d076b70316'
             'f7bd36f6d7874f1345d205c6dcb79af1804362fc977a658db88951a172d1dfa0'
             '8dfeee28655b91dc75aca2317846284013ac3d5a837d360eba9641e9fbcf3aa2')
@@ -48,9 +48,10 @@ prepare() {
 
     cd "../$_webapp_archive"
 
-    # Modify npm commands to always use srcdir cache
+    # Modify npm commands to always use srcdir cache + temporary workaround for OpenSSL3 support
     sed -r -i Makefile \
-        -e "/^\tnpm /s!npm!npm --cache '$srcdir/npm-cache' --no-audit --no-fund!"
+        -e "/^\tnpm /s!npm!npm --cache '$srcdir/npm-cache' --no-audit --no-fund!" \
+        -e "s|--max-old-space-size=4096|--openssl-legacy-provider|"
     make node_modules -W package.json
 
     # Enforce build hash to Arch Linux for the field corresponding to the webapp.
