@@ -4,20 +4,20 @@
 # Contributor: William J Bowman <bluephoenix47@gmail.com>
 
 pkgname=python-certifi
-pkgver=2022.09.24
+pkgver=2022.12.07
 pkgrel=1
 pkgdesc="Python package for providing Mozilla's CA Bundle (using system CA store)"
 arch=(any)
 url="https://github.com/certifi/python-certifi"
 license=(MPL2)
-depends=('python' 'ca-certificates')
+depends=(ca-certificates python)
 makedepends=(python-build python-installer python-setuptools python-wheel)
-checkdepends=('python-pytest')
+checkdepends=(python-pytest)
 source=(https://github.com/certifi/python-certifi/archive/$pkgver/$pkgname-$pkgver.tar.gz)
-sha512sums=('a7b5ffa2cc3de39c8a204ed7da077c63971d4305565d6663292fc6b530fb6bbb9cfc6777b5998c54f8a06506f871063aae02692ec8508f903f716c73852487e4')
+sha512sums=('4e255c0d5998e98c999464ea27dff61831e97de2c812d7b06feb7ad1038c3070f2e48c58fc939485f5d806d419f0273716442c3c86165b861f0d81f0b3393f6b')
 
 prepare() {
-  cd python-certifi-$pkgver
+  cd $pkgname-$pkgver
   # Use system CA store. Replacing the copy in the source tree so the test suite is actually run against it.
   ln -sf /etc/ssl/certs/ca-certificates.crt certifi/cacert.pem
   # Our CA store has non-ASCII comments, but we are not packaging for JVM
@@ -26,19 +26,19 @@ prepare() {
 }
 
 build() {
-  cd python-certifi-$pkgver
+  cd $pkgname-$pkgver
   python -m build --wheel --no-isolation
 }
 
 check() {
-  cd python-certifi-$pkgver
+  cd $pkgname-$pkgver
   pytest
 }
 
 package() {
   local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
 
-  cd python-certifi-$pkgver
+  cd $pkgname-$pkgver
   python -m installer --destdir="$pkgdir" dist/*.whl
 
   # Replace CA store here again because the symlink was installed as a file
