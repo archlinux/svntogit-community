@@ -5,7 +5,7 @@
 
 pkgname=mattermost
 pkgver=7.5.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Open source Slack-alternative in Golang and React"
 arch=(x86_64)
 url="https://mattermost.com"
@@ -118,7 +118,9 @@ package() {
     jq '.FileSettings.Directory |= $mmVarLib + "/files/" | # \
         .ComplianceSettings.Directory |= $mmVarLib + "/compliance/" | # \
         .PluginSettings.Directory |= $mmVarLib + "/plugins/" | # \
-        .PluginSettings.ClientDirectory |= $mmVarLib + "/client/plugins/"' \
+        .PluginSettings.ClientDirectory |= $mmVarLib + "/client/plugins/" | # \
+        .LogSettings.FileLocation |= "/var/log/mattermost/" | # \
+        .NotificationLogSettings.FileLocation |= "/var/log/mattermost/"' \
        --arg mmVarLib '/var/lib/mattermost' \
        config/config.json > config/config-new.json
     mv config/config-new.json config/config.json
