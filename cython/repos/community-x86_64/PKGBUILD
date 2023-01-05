@@ -3,15 +3,15 @@
 # Contributor: Igor Scabini <furester @ gmail.com>
 
 pkgname=cython
-pkgver=0.29.32
-pkgrel=2
+pkgver=0.29.33
+pkgrel=1
 pkgdesc='C-Extensions for Python'
 arch=(x86_64)
 url='https://cython.org'
 license=(APACHE)
 makedepends=(python-setuptools)
 source=(https://github.com/cython/cython/archive/$pkgver/$pkgbase-$pkgver.tar.gz)
-sha256sums=('3f53fbe1398666e77fd4ce388f939309a11efd273d16f20f58f0df7b03d6b4cc')
+sha256sums=('f1c07848de6c1bbe995c2bdbe237e558fd08747568b9503b079aae661fb8d99f')
 
 build() {
   cd cython-$pkgver
