@@ -1,0 +1,115 @@
+# Maintainer: Laurent Carlier <lordheavym@gmail.com>
+# Contributor: Evangelos Foutras <foutrelis@gmail.com>
+# Contributor: Jan "heftig" Steffens <jan.steffens@gmail.com>
+
+pkgname=('lib32-llvm' 'lib32-llvm-libs')
+pkgver=15.0.6
+pkgrel=1
+arch=('x86_64')
+url="https://llvm.org/"
+license=('custom:Apache 2.0 with LLVM Exception')
+makedepends=('cmake' 'ninja' 'lib32-libffi' 'lib32-zlib' 'lib32-zstd' 'python'
+             'gcc-multilib' 'lib32-libxml2')
+options=('staticlibs' 'debug' '!lto') # extra/llvm has many test failures with LTO
+_source_base=https://github.com/llvm/llvm-project/releases/download/llvmorg-$pkgver
+source=($_source_base/llvm-$pkgver.src.tar.xz{,.sig}
+        $_source_base/cmake-$pkgver.src.tar.xz{,.sig})
+sha256sums=('0b32199401f27e2e0353846a8c5fbadd77beca2570654fb9ef7ac9b7f26967e3'
+            'SKIP'
+            '7613aeeaba9b8b12b35224044bc349b5fa45525919625057fa54dc882dcb4c86'
+            'SKIP')
+validpgpkeys=('474E22316ABF4785A88C6E8EA2C794A986419D8A'  # Tom Stellard <tstellar@redhat.com>
+              'D574BD5D1D0E98895E3BF90044F2485E45D59042') # Tobias Hieta <tobias@hieta.se>
+
+prepare() {
+  mv cmake{-$pkgver.src,}
+  cd llvm-$pkgver.src
+  mkdir build
+}
+
+build() {
+  cd llvm-$pkgver.src/build
+
+  export PKG_CONFIG="i686-pc-linux-gnu-pkg-config"
+
+  # Build only minimal debug info to reduce size
+  CFLAGS+=' -g1'
+  CXXFLAGS+=' -g1'
+
+  local cmake_args=(
+    -G Ninja
+    -DCMAKE_BUILD_TYPE=Release
+    -DCMAKE_CXX_FLAGS:STRING=-m32
+    -DCMAKE_C_FLAGS:STRING=-m32
+    -DCMAKE_INSTALL_PREFIX=/usr
+    -DCMAKE_SKIP_RPATH=ON
+    -DLLVM_BINUTILS_INCDIR=/usr/include
+    -DLLVM_BUILD_DOCS=OFF
+    -DLLVM_BUILD_LLVM_DYLIB=ON
+    -DLLVM_DEFAULT_TARGETS_TRIPLE="i686-pc-linux-gnu"
+    -DLLVM_ENABLE_BINDINGS=OFF
+    -DLLVM_ENABLE_FFI=ON
+    -DLLVM_ENABLE_RTTI=ON
+    -DLLVM_ENABLE_SPHINX=OFF
+    -DLLVM_HOST_TRIPLE=$CHOST
+    -DLLVM_INCLUDE_BENCHMARKS=OFF
+    -DLLVM_LIBDIR_SUFFIX=32
+    -DLLVM_LINK_LLVM_DYLIB=ON
+    -DLLVM_TARGET_ARCH:STRING=i686
+    -DLLVM_USE_PERF=ON
+  )
+  cmake .. "${cmake_args[@]}"
+  ninja
+}
+
+package_lib32-llvm() {
+  pkgdesc="Compiler infrastructure (32-bit)"
+  depends=('lib32-llvm-libs' 'llvm')
+
+  cd llvm-$pkgver.src/build
+
+  DESTDIR="$pkgdir" ninja install
+
+  # The runtime library goes into lib32-llvm-libs
+  mv "$pkgdir"/usr/lib32/lib{LLVM,LTO,Remarks}*.so* "$srcdir"
+  mv -f "$pkgdir"/usr/lib32/LLVMgold.so "$srcdir"
+
+  # Fix permissions of static libs
+  chmod -x "$pkgdir"/usr/lib32/*.a
+
+  mv "$pkgdir/usr/bin/llvm-config" "$pkgdir/usr/lib32/llvm-config"
+  mv "$pkgdir/usr/include/llvm/Config/llvm-config.h" \
+    "$pkgdir/usr/lib32/llvm-config-32.h"
+
+  rm -rf "$pkgdir"/usr/{bin,include,share/{doc,man,llvm,opt-viewer}}
+
+  # Needed for multilib (https://bugs.archlinux.org/task/29951)
+  # Header stub is taken from Fedora
+  install -d "$pkgdir/usr/include/llvm/Config"
+  mv "$pkgdir/usr/lib32/llvm-config-32.h" "$pkgdir/usr/include/llvm/Config/"
+
+  mkdir "$pkgdir"/usr/bin
+  mv "$pkgdir/usr/lib32/llvm-config" "$pkgdir/usr/bin/llvm-config32"
+
+  install -Dm644 ../LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
+
+package_lib32-llvm-libs() {
+  pkgdesc="LLVM runtime libraries (32-bit) "
+  depends=('lib32-libffi' 'lib32-zlib' 'lib32-zstd' 'lib32-ncurses'
+           'lib32-libxml2' 'lib32-gcc-libs')
+
+  install -d "$pkgdir/usr/lib32"
+
+  cp -P \
+    "$srcdir"/lib{LLVM,LTO,Remarks}*.so* \
+    "$srcdir"/LLVMgold.so \
+    "$pkgdir/usr/lib32/"
+
+  # Symlink LLVMgold.so from /usr/lib/bfd-plugins
+  # https://bugs.archlinux.org/task/28479
+  install -d "$pkgdir/usr/lib32/bfd-plugins"
+  ln -s ../LLVMgold.so "$pkgdir/usr/lib32/bfd-plugins/LLVMgold.so"
+
+  install -Dm644 llvm-$pkgver.src/LICENSE.TXT "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
