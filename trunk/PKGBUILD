@@ -2,116 +2,101 @@
 
 pkgbase=wasi-libc++
 pkgname=(wasi-libc++ wasi-libc++abi)
-pkgver=14.0.6
+pkgver=15.0.6
 pkgrel=1
 arch=('any')
 url='https://libcxx.llvm.org/'
 license=('custom:Apache 2.0 with LLVM Exception')
-makedepends=('cmake' 'ninja' 'python' 'llvm' 'clang' 'wasi-libc' 'wasi-compiler-rt')
-source=("https://github.com/llvm/llvm-project/releases/download/llvmorg-$pkgver/llvm-$pkgver.src.tar.xz"{,.sig}
-        "https://github.com/llvm/llvm-project/releases/download/llvmorg-${pkgver}/libcxx-${pkgver}.src.tar.xz"{,.sig}
-        "https://github.com/llvm/llvm-project/releases/download/llvmorg-${pkgver}/libcxxabi-${pkgver}.src.tar.xz"{,.sig}
+makedepends=('cmake' 'ninja' 'python' 'clang' 'llvm' 'wasi-libc' 'wasi-compiler-rt')
+source=(https://github.com/llvm/llvm-project/releases/download/llvmorg-${pkgver}/llvm-project-${pkgver}.src.tar.xz{,.sig}
         WASI.cmake
         wasi-toolchain.cmake)
-b2sums=('f8627a1a0d96b26a27904413a6bea7625ca67b0d3adbcc4bde1bb00d2b5b32087e7185c09dfce893eaa4a5aaafc168a346cd14940f1675871d6e2168ca1e6179'
-        'SKIP'
-        '3980674414fe426829e60d8f5ce40981453856dc7f45d57a0ae763437b8fce38a0608ec7bad0b28b1106394a43eca4bb0dc9455bbd3d2635f8e892c7a751871e'
-        'SKIP'
-        '40f9803e216c4407307d6b56ef456c7fd0f4e439143249b9efd431a9d7d4f90049f56f0ccedd5d8d7c19ee922005e60bc36ea9c5369af163329ba9d3b298886d'
+b2sums=('74b1aa967c95191fa492f06b3a21930842da0ccbd9995dd33b4c2cf07852bbedcae97041fd5966209b16c63b90c87cc02fb2e858eda13dd9cc0641edcede0f75'
         'SKIP'
         'c829d807c257921fddb8c4d3752ad2291a2beb116d414dd31e34b7f6b01599d8c4807db87ef9930456ed8c9f30e8648e77028fa0b903c3a5ea840514f6022cf4'
         '74c63bb838bc2e6d7980370fb3d47f8fd2f1dd8b6dc82302c7cc0b80e0fb1e8e21c1c62d6de0b78e478fc22611a5867e52b1ef7a566796fe831fffd98b17c940')
 options=('staticlibs')
-validpgpkeys=('474E22316ABF4785A88C6E8EA2C794A986419D8A') # Tom Stellard <tstellar@redhat.com>
+validpgpkeys=(
+  '474E22316ABF4785A88C6E8EA2C794A986419D8A' # Tom Stellard <tstellar@redhat.com>
+  'D574BD5D1D0E98895E3BF90044F2485E45D59042' # Tobias Hieta <tobias@hieta.se>
+)
 
 prepare() {
   # Platform files have been copied from here https://github.com/WebAssembly/wasi-sdk
-  mkdir -p cmake/Platform
-  cp WASI.cmake cmake/Platform
-
-  mv libcxx-${pkgver}.src libcxx
-  mv libcxxabi-${pkgver}.src libcxxabi
-  mv llvm-${pkgver}.src llvm
-
-  sed -i 's/CREDITS.TXT/CREDITS/' libcxx/LICENSE.TXT libcxxabi/LICENSE.TXT
+  mv llvm-project-${pkgver}.src llvm
+  mkdir -p llvm/cmake/Platform
+  cp WASI.cmake llvm/cmake/Platform
 }
 
 build() {
   # Build options are derived from here https://github.com/WebAssembly/wasi-sdk/blob/main/Makefile
+  # remove compiler options not supported by the wasm32-wasi target
+  export CFLAGS="$(echo $CFLAGS | sed "s/-mtune=generic//;
+  s/-fstack-clash-protection//; s/-fcf-protection//")"
+  export CXXFLAGS="$(echo $CXXFLAGS | sed "s/-mtune=generic//;
+  s/-fstack-clash-protection//; s/-fcf-protection//")"
 
-  # Currently, wasi-sdk requires C++ code be compiled with -fno-exceptions. libc++abi is compiled, however is is currently compiled with exception-handling support disabled.
-  # https://github.com/WebAssembly/wasi-sdk/issues/52#issuecomment-530619365
-  cmake -B build-libcxx -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
+  cmake -B build -G Ninja \
     -DCMAKE_C_COMPILER_WORKS=ON \
     -DCMAKE_CXX_COMPILER_WORKS=ON \
+    -DCMAKE_AR=/usr/bin/ar \
     -DCMAKE_MODULE_PATH="${srcdir}"/cmake \
     -DCMAKE_TOOLCHAIN_FILE="${srcdir}"/wasi-toolchain.cmake \
     -DCMAKE_STAGING_PREFIX=/usr/share/wasi-sysroot \
-    -DLIBCXX_ENABLE_EXCEPTIONS:BOOL=OFF \
-    -DLIBCXX_ENABLE_SHARED:BOOL=OFF \
+    -DLLVM_CONFIG_PATH="${srcdir}"/build/llvm/bin/llvm-config \
+    -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON \
+    -DCXX_SUPPORTS_CXX11=ON \
     -DLIBCXX_ENABLE_THREADS:BOOL=OFF \
     -DLIBCXX_HAS_PTHREAD_API:BOOL=OFF \
     -DLIBCXX_HAS_EXTERNAL_THREAD_API:BOOL=OFF \
     -DLIBCXX_BUILD_EXTERNAL_THREAD_LIBRARY:BOOL=OFF \
     -DLIBCXX_HAS_WIN32_THREAD_API:BOOL=OFF \
+    -DLLVM_COMPILER_CHECKED=ON \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DLIBCXX_ENABLE_SHARED:BOOL=OFF \
     -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY:BOOL=OFF \
+    -DLIBCXX_ENABLE_EXCEPTIONS:BOOL=OFF \
     -DLIBCXX_ENABLE_FILESYSTEM:BOOL=OFF \
     -DLIBCXX_CXX_ABI=libcxxabi \
-    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=libcxxabi/include \
+    -DLIBCXX_CXX_ABI_INCLUDE_PATHS=llvm/libcxxabi/include \
     -DLIBCXX_HAS_MUSL_LIBC:BOOL=ON \
     -DLIBCXX_ABI_VERSION=2 \
-    -DWASI_SDK_PREFIX=/usr \
-    -DCMAKE_C_FLAGS="-fno-exceptions --sysroot=/usr/share/wasi-sysroot" \
-    -DCMAKE_CXX_FLAGS="-fno-exceptions --sysroot=/usr/share/wasi-sysroot" \
-    -DLIBCXX_LIBDIR_SUFFIX=/wasm32-wasi \
-    libcxx
-  cmake --build build-libcxx -v
-
-  cmake -B build-libcxxabi -G Ninja \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_C_COMPILER_WORKS=ON \
-    -DCMAKE_CXX_COMPILER_WORKS=ON \
-    -DCMAKE_MODULE_PATH="${srcdir}"/cmake \
-    -DCMAKE_TOOLCHAIN_FILE="${srcdir}"/wasi-toolchain.cmake \
-    -DCMAKE_STAGING_PREFIX=/usr/share/wasi-sysroot \
     -DLIBCXXABI_ENABLE_EXCEPTIONS:BOOL=OFF \
     -DLIBCXXABI_ENABLE_SHARED:BOOL=OFF \
+    -DLIBCXXABI_SILENT_TERMINATE:BOOL=ON \
     -DLIBCXXABI_ENABLE_THREADS:BOOL=OFF \
     -DLIBCXXABI_HAS_PTHREAD_API:BOOL=OFF \
     -DLIBCXXABI_HAS_EXTERNAL_THREAD_API:BOOL=OFF \
     -DLIBCXXABI_BUILD_EXTERNAL_THREAD_LIBRARY:BOOL=OFF \
     -DLIBCXXABI_HAS_WIN32_THREAD_API:BOOL=OFF \
-    -DLIBCXXABI_SILENT_TERMINATE:BOOL=ON \
     -DLIBCXXABI_ENABLE_PIC:BOOL=OFF \
-    -DUNIX:BOOL=ON \
-    -DCXX_SUPPORTS_CXX11=ON \
-    -DLIBCXXABI_LIBCXX_PATH=libcxx \
-    -DLIBCXXABI_LIBCXX_INCLUDES="${srcdir}"/build-libcxx/include/c++/v1 \
     -DWASI_SDK_PREFIX=/usr \
-    -DCMAKE_C_FLAGS="-fno-exceptions --sysroot=/usr/share/wasi-sysroot" \
-    -DCMAKE_CXX_FLAGS="-fno-exceptions --sysroot=/usr/share/wasi-sysroot" \
+    -DUNIX:BOOL=ON \
+    -DCMAKE_SYSROOT=/usr/share/wasi-sysroot \
+    -DLIBCXX_LIBDIR_SUFFIX=/wasm32-wasi \
     -DLIBCXXABI_LIBDIR_SUFFIX=/wasm32-wasi \
-    libcxxabi
-  cmake --build build-libcxxabi -v
+    -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
+    llvm/runtimes
+
+    ninja -C build
 }
 
 # Do not remove the space before the () or commitpkg will
-# accidentally to run this function on the system (!!!) 
+# accidentally to run this function on the system (!!!)
 package_wasi-libc++ () {
   pkgdesc='WASI LLVM C++ standard library'
 
-  DESTDIR="${pkgdir}" cmake --install build-libcxx -v
+  DESTDIR="${pkgdir}" ninja -C build install-cxx
 
-  install -Dm0644 libcxx/CREDITS.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/CREDITS
-  install -Dm0644 libcxx/LICENSE.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+  install -Dm0644 llvm/libcxx/CREDITS.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/CREDITS
+  install -Dm0644 llvm/libcxx/LICENSE.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
 
 package_wasi-libc++abi() {
   pkgdesc='WASI Low level support for the LLVM C++ standard library.'
 
-  DESTDIR="${pkgdir}" cmake --install build-libcxxabi -v
+  DESTDIR="${pkgdir}" ninja -C build install-cxxabi
 
-  install -Dm0644 libcxxabi/CREDITS.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/CREDITS
-  install -Dm0644 libcxxabi/LICENSE.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
+  install -Dm0644 llvm/libcxxabi/CREDITS.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/CREDITS
+  install -Dm0644 llvm/libcxxabi/LICENSE.TXT "${pkgdir}"/usr/share/licenses/${pkgname}/LICENSE
 }
