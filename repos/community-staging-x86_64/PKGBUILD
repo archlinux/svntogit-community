@@ -1,0 +1,113 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Albert Graef <aggraef at gmail.com>
+# Contributor: Bernardo Barros <bernardobarros at gmail dot com>
+# Contributor: bjoern lindig (bjoern _dot_ lindig _at_ google.com)
+
+pkgname=faust
+pkgver=2.54.9
+pkgrel=2
+pkgdesc="A functional programming language for realtime audio signal processing."
+arch=(x86_64)
+url="https://faust.grame.fr/"
+license=(GPL2)
+groups=(pro-audio)
+depends=(gcc-libs glibc llvm-libs libmicrohttpd)
+makedepends=(cmake libsndfile llvm xxd)
+optdepends=(
+  'clang: for sound2reader'
+  'csound: for faust2csound'
+  'gradle: for faust2android'
+  'graphviz: for faust2sig{,viewer}'
+  'gtk2: for faust2{jack,rosgtk}'
+  'inkscape: for faust2{pdf,png}'
+  'jack: for faust2{api,jack{,console,internal,server,rust},jaqt,netjackqt,nodejs,ros,rosgtk,rpinetjackconsole}'
+  'swig: for faust2android'
+  'libsndfile: for faust2{dummy,sndfile}'
+  'octave: for faust2octave'
+  'pd: for faust2puredata'
+  'portaudio: for faust2paqt'
+  'python: for faust2atomsnippets, faust2md and faust2sc.py'
+  'qt5-tools: for faust2{faustvst,jaqt,lv2}'
+  'rtaudio: for faust2raqt'
+  'ruby-rexml: for faust2sc and scbuilder'
+  'rust: for faust2jackrust'
+  'supercollider: for faust2supercollider'
+  'texlive-core: for faust2pdf'
+)
+provides=(libfaustmachine.so libfaust.so libOSCFaust.so libHTTPDFaust.so)
+options=(debug staticlibs)
+source=(
+  https://github.com/grame-cncm/$pkgname/releases/download/$pkgver/$pkgname-$pkgver.tar.gz
+  $pkgname-2.54.9-sound2faust_makefile.patch
+)
+sha512sums=('cc3fef369cb9820c341185e1f8f9c0503cdd41fcc2b3bb4d7b0d51c7bbb65857caf089127ac489113ce8cbe7226bcfd35eac8b2d4d6eaeb2dfd0fb21df053660'
+            '7bc75d5d9ab826fcdecffc054e0aaa9e74a3abce3a1c89a306a5c3910b847878fd9946aa230067de31bd4a7ba377f08165d2969589fbaa28d9b9a07d1af144ea')
+b2sums=('6ba6bd36c7c2561fb520cad0e7f9fb8f1261c934defe7146d7bd773df9ec4eb14d1615fae40326b6e2c6b4bea6e75634e1eba687267f873383530af5fd291bb6'
+        'dabdc6839a9adc5a559ddb0645fafb5bd00abe225bd5ca8a9b41c57b03d63ae957e09d20244ea2c19770c74141a847c66de28d9cab6a7d0e5f4ce70ef6fe9f05')
+
+prepare() {
+  # do not link sound2faust against libsndfile.a: https://github.com/grame-cncm/faust/issues/840
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-2.54.9-sound2faust_makefile.patch
+}
+
+build() {
+  # prevent static libs from being mangled with LTO
+  CXXFLAGS+=' -ffat-lto-objects'
+
+  cd $pkgname-$pkgver
+  cmake -C build/backends/all.cmake \
+        -C build/targets/all.cmake \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DCMAKE_BUILD_TYPE=None \
+        -DINCLUDE_DYNAMIC=ON \
+        -DINCLUDE_STATIC=ON \
+        -DINCLUDE_ITP=ON \
+        -W no-dev \
+        -B $pkgname-build \
+        -S build
+  make VERBOSE=1 -C $pkgname-build
+  make VERBOSE=1 -C tools/sound2faust
+}
+
+package() {
+  depends+=(libsndfile.so)
+
+  cd $pkgname-$pkgver
+  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C $pkgname-build
+  make VERBOSE=1 PREFIX=/usr DESTDIR="$pkgdir" install -C tools/sound2faust
+
+  # docs
+  install -vDm 644 documentation/{,misc/}*.pdf -t "$pkgdir/usr/share/doc/$pkgname"
+
+  # examples
+  install -vd "$pkgdir/usr/share/$pkgname/examples"
+  cp -vR "examples/"* "$pkgdir/usr/share/$pkgname/examples/"
+
+  cd syntax-highlighting
+  # atom
+  install -vDm 644 atom/language-$pkgname/package.json -t "$pkgdir/usr/lib/atom/dot-atom/packages/language-$pkgname/"
+  install -vDm 644 atom/language-$pkgname/grammars/$pkgname.cson -t "$pkgdir/usr/lib/atom/dot-atom/packages/language-$pkgname/grammars/"
+  install -vDm 644 atom/language-$pkgname/settings/language-$pkgname.cson -t "$pkgdir/usr/lib/atom/dot-atom/packages/language-$pkgname/settings/"
+  install -vDm 644 atom/language-$pkgname/snippets/* -t "$pkgdir/usr/lib/atom/dot-atom/packages/language-$pkgname/snippets/"
+  install -vDm 644 atom/language-$pkgname/process-palette.json.linux "$pkgdir/usr/share/doc/$pkgname/process-palette.json"
+  # kate
+  install -vDm 644 $pkgname.xml -t "$pkgdir/usr/share/apps/katepart/syntax/"
+  # gedit
+  install -vDm 644 $pkgname.lang -t "$pkgdir/usr/share/gtksourceview-2.0/language-specs/"
+  install -vDm 644 $pkgname.lang -t "$pkgdir/usr/share/gtksourceview-3.0/language-specs/"
+  # highlight
+  install -vDm 644 dsp.lang -t "$pkgdir/usr/share/highlight/langDefs/"
+  # nano
+  install -vDm 644 $pkgname.nanorc -t "$pkgdir/usr/share/nano/"
+  # vim
+  install -vDm 644 $pkgname.vim -t "$pkgdir/usr/share/vim/vimfiles/syntax/"
+  # emacs
+  install -vDm 644 $pkgname-mode.el -t "$pkgdir/usr/share/emacs/site-lisp/"
+
+  # remove unusable scripts
+  rm -v "$pkgdir/usr/bin/faust2au"
+  # remove precompiled shared libraries for android:
+  # https://github.com/grame-cncm/faust/issues/370
+  rm -rvf "$pkgdir/usr/share/faust/android/app/"{lib,oboe} "$pkgdir/usr/share/faust/smartKeyboard/android/app/oboe"
+}
+
