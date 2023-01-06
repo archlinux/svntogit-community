@@ -7,7 +7,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.3.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -30,6 +30,7 @@ _deps=(cachecontrol
        requests
        requests-toolbelt
        shellingham
+       tomli
        tomlkit
        urllib3
        virtualenv)
