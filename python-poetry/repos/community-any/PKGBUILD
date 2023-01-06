@@ -1,4 +1,5 @@
 # Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: David Joaquín Shourabi Porcel <david@djsp.eu>
 # Contributor: Sven-Hendrik Haase <svenstaro@gmail.com>
 # Contributor: Eli Schwartz <eschwartz@archlinux.org>
 
@@ -7,7 +8,7 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.3.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
@@ -45,7 +46,7 @@ _archive="$_pkgname-$pkgver"
 source=("https://github.com/$pkgname/$_pkgname/archive/$pkgver/$_archive.tar.gz"
         poetry-completions-generator)
 sha256sums=('ea86fe2bac5d37f7c31d24acf758796b8e6cdbe1e391a77afe2acd4c491fa29d'
-            '970225289188ea8dc49fbec8a2bfe0c891aee80ff56ba6e69bdd8afef8bccab6')
+            'e44c71a3b804b5c2bf07573ed465aee275a5844f10e37ee63c7395c9213a2b6d')
 
 prepare() {
 	cd "$_archive"
@@ -73,6 +74,7 @@ package() {
 	# install completions, which for some crazy reason hardcode the filename
 	# used to invoke which is __main__.py if we use python -m poetry, and also
 	# adds the full directory path???
+	set -o pipefail
 	./poetry-completions-generator completions bash |
 		sed "#$srcdir#d" |
 		install -Dm644 /dev/stdin "$pkgdir/usr/share/bash-completion/completions/poetry"
