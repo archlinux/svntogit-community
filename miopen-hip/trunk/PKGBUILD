@@ -1,0 +1,72 @@
+# Maintainer: Torsten Keßler <tpkessler at archlinux dot org>
+# Contributor: acxz <akashpatel at yahoo dot com>
+# Contributor: JP-Ellis <josh@jpellis.me>
+
+pkgname=miopen-hip
+pkgver=5.4.1
+pkgrel=1
+pkgdesc="AMD's Machine Intelligence Library (HIP backend)"
+arch=('x86_64')
+url='https://rocmsoftwareplatform.github.io/MIOpen/doc/html/'
+license=('MIT')
+depends=('rocblas' 'rocm-clang-ocl' 'hip' 'composable-kernel' 'sqlite')
+makedepends=('rocm-cmake' 'miopengemm' 'boost' 'nlohmann-json' 'half' 'ninja')
+provides=('miopen')
+conflicts=('miopen')
+_git='https://github.com/ROCmSoftwarePlatform/MIOpen'
+_mlir='https://github.com/ROCmSoftwarePlatform/rocMLIR'
+_mlirver=5.4.0 #No changes between 5.4.0 and 5.4.1, so no upstream tag
+source=("$pkgname-$pkgver.tar.gz::$_git/archive/rocm-$pkgver.tar.gz"
+        "$pkgname-rocmlir-$pkgver.tar.gz::$_mlir/archive/rocm-$_mlirver.tar.gz")
+sha256sums=('073b50e4ef4f75626d51b6ca6337e50adee3a81b64620c22a230548e2ba59504'
+            '3823f455ee392118c3281e27d45fa0e5381f3c4070eb4e06ba13bc6b34a90a60')
+_dirname="$(basename "$_git")-$(basename "${source[0]}" .tar.gz)"
+_mlirname="$(basename "$_mlir")-$(basename "${source[1]}" .tar.gz)"
+
+prepare() {
+    # Disable tests as they require a AMD GPU at build time
+    sed -i '/add_subdirectory(test)/d' "$_dirname/CMakeLists.txt"
+}
+
+build() {
+  export CC=/opt/rocm/llvm/bin/clang
+  export CXX=/opt/rocm/llvm/bin/clang++
+  # -fcf-protection is not supported by HIP, see
+  # https://docs.amd.com/bundle/ROCm-Compiler-Reference-Guide-v5.4/page/Appendix_A.html
+  export CXXFLAGS="${CXXFLAGS} -fcf-protection=none"
+
+  # Set ROCm test chipset to Vega in order to pass the configuration step.
+  cmake \
+    -Wno-dev \
+    -G Ninja \
+    -B build-mlir \
+    -S "$_mlirname" \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DMLIR_MIOPEN_SQLITE_ENABLED=ON \
+    -DROCM_TEST_CHIPSET=gfx900 \
+    -DBUILD_FAT_LIBROCKCOMPILER=ON
+  cmake --build build-mlir --target librockCompiler
+  DESTDIR="$srcdir/deps" cmake --install build-mlir --component librockCompiler
+
+  cmake \
+    -Wno-dev \
+    -G Ninja \
+    -B build \
+    -S "$_dirname" \
+    -DMIOPEN_BACKEND=HIP \
+    -DCMAKE_BUILD_TYPE=None \
+    -DHALF_INCLUDE_DIR=/usr/include/half \
+    -DCMAKE_PREFIX_PATH="$srcdir/deps/usr/lib/cmake" \
+    -DCMAKE_INSTALL_PREFIX=/opt/rocm
+  cmake --build build
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+
+  echo '/opt/rocm/miopen/lib' > 'miopen.conf'
+  install -Dm644 "miopen.conf" "$pkgdir/etc/ld.so.conf.d/miopen.conf"
+
+  install -Dm644 "$_dirname/LICENSE.txt" "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}
