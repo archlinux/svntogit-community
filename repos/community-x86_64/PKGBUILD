@@ -1,0 +1,54 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+
+pkgname=python-numba
+pkgver=0.56.4
+pkgrel=2
+pkgdesc="JIT compiler that translates a subset of Python and NumPy code into fast machine code"
+url="https://numba.pydata.org/"
+arch=(x86_64)
+license=(BSD)
+depends=(python-llvmlite python-numpy python-setuptools)
+makedepends=(openmp tbb)
+optdepends=(
+  'openmp: OpenMP threading backend'
+  'tbb: TBB threading backend'
+  'python-scipy: cython bindings used in np.linalg.* support'
+  'python-jinja: “pretty” type annotation output (HTML) via the CLI'
+  'python-cffi: use of CFFI bindings in compiled functions'
+  'python-yaml: use of a .numba_config.yaml file for storing per project configuration options'
+  'python-colorama: error message highlighting'
+  'python-pygments: “pretty” type annotation'
+)
+checkdepends=(python-pytest python-cffi python-jinja python-pygments
+              python-scipy python-yaml python-ipykernel python-pip gdb ipython)
+source=(https://github.com/numba/numba/archive/$pkgver/$pkgname-$pkgver.tar.gz)
+sha256sums=('ab96b731fb9dee12b404b42b7c1fb82c119352648906a80526afa73658895b73')
+
+build() {
+  cd numba-$pkgver
+  python setup.py build
+}
+
+check() {
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  cd numba-$pkgver/build/lib.linux-$CARCH-cpython-${python_version/./}
+  # Disable NumPy dispatching to AVX512_SKX feature extensions if the chip is
+  # reported to support the feature and NumPy >= 1.22 as this results in the use
+  # of low accuracy SVML libm replacements in ufunc loops.
+  _NPY_CMD='from numba.misc import numba_sysinfo;\
+            sysinfo=numba_sysinfo.get_sysinfo();\
+            print(sysinfo["NumPy AVX512_SKX detected"] and
+                  sysinfo["NumPy Version"]>="1.22")'
+  NUMPY_DETECTS_AVX512_SKX_NP_GT_122=$(python -c "$_NPY_CMD")
+  echo "NumPy >= 1.22 with AVX512_SKX detected: $NUMPY_DETECTS_AVX512_SKX_NP_GT_122"
+  if [[ "$NUMPY_DETECTS_AVX512_SKX_NP_GT_122" == "True" ]]; then
+    export NPY_DISABLE_CPU_FEATURES="AVX512_SKX"
+  fi
+  PYTHONPATH="${PWD}" python -m numba.runtests -b -v -m 64 -- numba.tests
+}
+
+package() {
+  cd numba-$pkgver
+  python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
