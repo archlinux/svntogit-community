@@ -1,0 +1,96 @@
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+_gemname='erb'
+pkgname="ruby-${_gemname}"
+pkgver=4.0.2
+pkgrel=2
+pkgdesc='An easy to use but powerful templating system for Ruby'
+arch=('x86_64')
+url="https://github.com/ruby/${_gemname}"
+license=('BSD' 'RUBY')
+depends=('ruby' 'ruby-cgi')
+makedepends=('tree')
+checkdepends=('ruby-rake' 'ruby-rake-compiler')
+options=('!emptydirs')
+source=("${url}/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('cfd9dc2888d2a1c2fa1ec85106dbd2e586af91b4e9f37939b8b7b482817656283004eb13e28907f3365855e8283879bbba21a629586a16629ce01e962a29ecc1')
+b2sums=('642ae82ffb216ec400f142ba2af9a935774cf7e8d23377c13b011e2583c32d12fe16458a533ce1919dcd03054999d8483aa6206e625d11946add8c3e1f19de09')
+
+prepare() {
+  cd "${_gemname}-${pkgver}"
+
+  # update gemspec/Gemfile to allow newer version of the dependencies
+  sed --in-place --regexp-extended 's|~>|>=|g' "${_gemname}.gemspec"
+
+  # we build based on a tar archive, not a git repo
+  sed --in-place --regexp-extended 's|git ls-files -z|find . -type f -not -path "*/\.git*" -printf "%P\\\\0"|' "${_gemname}.gemspec"
+}
+
+build() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+  local _platform="$(gem env platform | cut -d':' -f2)"
+  local _extension_api_version="$(ruby -e 'puts Gem.extension_api_version')"
+
+  install --verbose --directory --mode=0755 \
+    "tmp_install_default/gemspec/specifications/gems/${_gemname}-${pkgver}" \
+    "tmp_install_default/usr/bin" \
+    "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}" \
+    "tmp_install${_gemdir}/specifications/default"
+
+  gem build "${_gemname}.gemspec"
+
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install/${_gemdir}" \
+    --bindir "tmp_install/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
+
+  gem install \
+    --default \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "tmp_install_default/gemspec" \
+    --bindir "tmp_install_default/usr/bin" \
+    "${_gemname}-${pkgver}.gem"
+
+  mv --verbose "tmp_install_default/gemspec/specifications/default/${_gemname}-${pkgver}.gemspec" "tmp_install${_gemdir}/specifications/default/${_gemname}-${pkgver}.gemspec"
+  mv --verbose "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}.rb" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_gemname}.rb"
+  mv --verbose "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/lib/${_gemname}" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_gemname}"
+  mv --verbose "tmp_install${_gemdir}/extensions/${_platform}/${_extension_api_version}/${_gemname}-${pkgver}/${_gemname}" "tmp_install/usr/lib/ruby/${_extension_api_version}/${_platform}/${_gemname}"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "tmp_install${_gemdir}/cache/" \
+    "tmp_install${_gemdir}/build_info/" \
+    "tmp_install${_gemdir}/extensions/" \
+    "tmp_install${_gemdir}/gems/${_gemname}-${pkgver}/"{bin,ext,Gemfile,LICENSE.txt,*.md,Rakefile,erb.gemspec} \
+    "tmp_install${_gemdir}/plugins/" \
+    "tmp_install${_gemdir}/specifications/${_gemname}-${pkgver}.gemspec" \
+    "tmp_install${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+}
+
+check() {
+  cd "${_gemname}-${pkgver}"
+
+  local _gemdir="$(gem env gemdir)"
+
+  GEM_HOME="tmp_install/${_gemdir}" rake test
+}
+
+package() {
+  cd "${_gemname}-${pkgver}"
+
+  cp --archive --verbose tmp_install/* "${pkgdir}"
+
+  install --verbose -D --mode=0644 LICENSE.txt "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+  install --verbose -D --mode=0644 *.md --target-directory "${pkgdir}/usr/share/doc/${pkgname}"
+}
+
+# vim: tabstop=2 shiftwidth=2 expandtab:
