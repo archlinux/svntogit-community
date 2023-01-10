@@ -1,19 +1,19 @@
 # Maintainer: Daniel M. Capella <polyzen@archlinux.org>
 
-_name=sphinxcontrib-applehelp
+_name=sphinxcontrib.applehelp
 pkgname=python-sphinxcontrib-applehelp
-pkgver=1.0.2
-pkgrel=9
+pkgver=1.0.3
+pkgrel=1
 pkgdesc='Sphinx extension which outputs Apple help books'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-applehelp
 license=('BSD')
-makedepends=('python-build' 'python-installer' 'python-setuptools'
+makedepends=('python-build' 'python-flit-core' 'python-installer'
              'python-wheel')
 checkdepends=('python-pytest' 'python-sphinx')
 source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('a072735ec80e7675e3f432fcae8610ecf509c5f1869d17e2eecff44389cdbc58')
-b2sums=('9532cb990ed97c6773388a66895a066958187e9100d226e2274c26ba07fc5832e42ba407864b69b002da926a79e71ac2d6315125906156214df3920b585d9f71')
+sha256sums=('83749f09f6ac843b8cb685277dbc818a8bf2d76cc19602699094fe9a74db529e')
+b2sums=('3fc12ede9a0cb713f5c68942a41fbb14e160a104fc2ce6425ee61f3f6a11448ab6ab0492a86d1637a596a27bf86fc2876eb96579e234f87b81e19e74b90335e3')
 
 build() {
   cd $_name-$pkgver
