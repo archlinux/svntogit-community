@@ -3,7 +3,7 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=6.1.0
+pkgver=6.2.0
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('AGPL3')
@@ -14,14 +14,11 @@ makedepends=('yarn' 'git' 'git-lfs' 'nodejs' 'npm' 'python' 'libxcrypt-compat')
 source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
   "${pkgname}.desktop"
-  "expire-from-source-date-epoch.patch"
 )
-sha512sums=('8f5234fa018e0590b3cad934ab46797bef16ff489a36a05364df7f43be80022143e8034665d2f24a171401bfac3315a16918d702a249c9ef8acd1de78e30f52e'
-            'aeb40d3716b65a62d27cd8055a1f1f4200655dfb5dc5342c8523922a1938043271a212ac442d2be456f023320a5ba74205a5ee4547057fac0d3f7b001ab1d095'
-            '1154859e87d8a2d649bc23210f2dd8aa473f268166559a51a2a64fe6ae094c101121535623b05b711bd87aab1f219627e9274fa542fdb0e5fe6f34b46fd7b7df')
-b2sums=('fa929163ee709c37926abb7e0990ff25f4a7981150271555a4410d98a80d40769fe992249e52f8837d842dfd84a47d4f97b082cfc5afc589f9112e3be8f2fa5d'
-        'e157cd0536b1b340c79385e99fcc27b9d48bef3c338562caaa78fe24bc7b8f00f6a757f6d4a47ee6c9e8c1138a1615dce7f1414dd1e6a9d1d06b682a7baa9130'
-        '5a6dba4bfa799403ace721b143c5b54d3bff97ab0c3d30e94d312cf58ede2498886720247b0efcbbeffc0c95611a493625cef1f8bc06d3647b53ef2e44de96be')
+sha256sums=('dcb6967c5a72eada96ddf1fc0fa5ac122b9280cc5c08bfc28d3b93ba1ce40e79'
+            '913de2dc32db1831c9319ce7b347f51894e6fff0bf196118093a675dac874b91')
+b2sums=('ee9740abfdc39218e3888d3b6a116cd1295b878fb6c6feb8763344da0f8f2baf85effce76ab65826622909f3f77666cb3335531bf7d8c461fd4a67e6ffb29c91'
+        'e157cd0536b1b340c79385e99fcc27b9d48bef3c338562caaa78fe24bc7b8f00f6a757f6d4a47ee6c9e8c1138a1615dce7f1414dd1e6a9d1d06b682a7baa9130')
 
 prepare() {
   cd "${_pkgname}-${pkgver}"
@@ -36,9 +33,6 @@ prepare() {
   sed 's#"node": "#&>=#' -i package.json
 
   yarn install --ignore-engines
-
-  # We can't read the release date from git so we use SOURCE_DATE_EPOCH instead
-  patch --forward --strip=1 --input="${srcdir}/expire-from-source-date-epoch.patch"
 }
 
 build() {
