@@ -3,7 +3,7 @@
 # Contributor: xduugu
 
 pkgname=patchelf
-pkgver=0.17.0
+pkgver=0.17.2
 pkgrel=1
 pkgdesc='Small utility to modify the dynamic linker and RPATH of ELF executables'
 url='https://nixos.org/patchelf.html'
@@ -11,8 +11,8 @@ arch=('x86_64')
 license=('GPL3')
 depends=('gcc-libs')
 source=(https://github.com/NixOS/patchelf/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha512sums=('0db2294cc16a919a84a1bb71194b3ed7a87bb669f684e4cc0943b33899d69690097c59d5c9f8e631bc1b4136db7f10f7cb0fbb1c96912aee567a0fd7dc9c9588')
-b2sums=('ef32baae1d1e07c77442878977693849e2dd3d5c1c1b8d53eb54ee7b1b78eb77ebcf87cbd7caa683f0043e6d7b90ca2593968e9c95b0902e45c4634823be196b')
+sha512sums=('e5545416d32248d023759457d0a5cd4841d69f39366eb0aa9cfd8a43d2ce372c6e05995bf60ba62bd85c6d98fdece2dbd1e20872e338ef5ac75f11b82ae091b3')
+b2sums=('7ed684c63955a0b9cfe293fb966f7f08a90c76e8efb2b493eaf3705c57767b31b31e48ab59f39ff1d91b7a4501e6d203e32a40040625a44a7d44113b1320530c')
 
 prepare() {
   cd ${pkgname}-${pkgver}
