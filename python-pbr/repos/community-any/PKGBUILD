@@ -3,8 +3,8 @@
 # Contributor: Limao Luo <luolimao+AUR@gmail.com>
 
 pkgname=python-pbr
-pkgver=5.11.0
-pkgrel=2
+pkgver=5.11.1
+pkgrel=1
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
@@ -13,7 +13,7 @@ depends=('python-importlib-metadata' 'python-setuptools')
 checkdepends=('python-stestr' 'python-testscenarios' 'python-testresources' 'python-testrepository'
               'python-virtualenv' 'python-wheel' 'python-sphinx' 'git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
-sha512sums=('dbce8a76c06b2c60c2f4c9bbe94333504506563c0366b5e1ec6da2c784e612c47048cc6391501f3103ba1cd3b246283b466c73ebf264702bfe6896ddd501bdb6')
+sha512sums=('59ff86c3cc43cc824dfa448ff87fa1fcdd2561c269c63115777811934fd616c893f5fe727d5624eb624d42a43de386cc311c5c029520a3131d5144db5a891da4')
 
 export PBR_VERSION=$pkgver
 
