@@ -6,7 +6,7 @@
 
 pkgname=i3-wm
 pkgver=4.22
-pkgrel=2
+pkgrel=3
 pkgdesc='Improved dynamic tiling window manager'
 arch=('x86_64')
 url=https://i3wm.org
@@ -28,10 +28,17 @@ replaces=('i3' 'i3bar' 'i3-gaps')
 provides=('i3-gaps')
 backup=('etc/i3/config')
 options=('debug')
-source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc})
+source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc}
+        https://github.com/orestisfl/i3/commit/c305798d42.patch)
 b2sums=('fa179f445ba4286bfeec98dc7a2e1dfad14bda6874e84878a48ee5890ed4cf3a90fc542e8e14aedaaba3abebc8d280284a3b00e838da70a783064a4bd271ca41'
-        'SKIP')
+        'SKIP'
+        'e8e9ef5d8ff25b010fe36ff395f7fb4368e4d8bcb843b42ce06758184cc7b6854ec7efc71c91bc18290de2d4aba3b878453f47f84abc5ab3a0877c523014d701')
 validpgpkeys=('424E14D703E7C6D43D9D6F364E7160ED4AC8EE1D') # Michael Stapelberg <michael@stapelberg.de>
+
+prepare() {
+  cd i3-$pkgver
+  patch -Np1 -i ../c305798d42.patch
+}
 
 build() {
   cd i3-$pkgver
