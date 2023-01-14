@@ -1,9 +1,11 @@
 # Maintainer: Johannes Löthberg <johannes@kyriasis.com>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
 # Contributor: xantares
 
+_name=alabaster
 pkgname=python-sphinx-alabaster-theme
-pkgver=0.7.12
-pkgrel=9
+pkgver=0.7.13
+pkgrel=1
 
 pkgdesc="Sphinx default theme"
 url='https://github.com/bitprophet/alabaster'
@@ -11,21 +13,26 @@ arch=('any')
 license=('custom:BSD')
 
 depends=('python')
-makedepends=('python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools'
+             'python-wheel')
 
-source=("https://pypi.org/packages/source/a/alabaster/alabaster-$pkgver.tar.gz")
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
 
-sha256sums=('a661d72d58e6ea8a57f7a86e37d86716863ee5e92788398526d58b26a4e4dc02')
-b2sums=('5690d9c0b8aabfc2c95c4279183d174d6a5768f89732028f7ec6eb790531499a2017b9f3b9896442e298f3189f79070178b3e281b6d0bcfad3741625caa99c48')
+sha256sums=('a27a4a084d5e690e16e01e03ad2b2e552c61a65469419b907243193de1a84ae2')
+b2sums=('b67ab19b3cb4d86bc0f2bc94cbac7de42b6ffc089844d49daa5db40de942dd87555f9ed8ac362ea01904a9e77f8fe995250bd878b39c9a4851041cec8ef6460e')
 
 build() {
-	cd alabaster-"$pkgver"
-	python setup.py build
+  cd $_name-$pkgver
+  python -m build --wheel --skip-dependency-check --no-isolation
 }
 
 package() {
-	cd alabaster-"$pkgver"
-	python setup.py install --root="$pkgdir" --optimize=1
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
-	install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/"$pkgname"/LICENSE
+  # Symlink license file
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  install -d "$pkgdir"/usr/share/licenses/$pkgname
+  ln -s "$site_packages"/$_name-$pkgver.dist-info/LICENSE \
+    "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
