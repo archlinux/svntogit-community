@@ -13,7 +13,7 @@ arch=(x86_64)
 url='https://www.ruby-lang.org/en/'
 license=(BSD custom)
 makedepends=(doxygen gdbm graphviz libffi libyaml openssl ttf-dejavu tk)
-options=(debug !emptydirs !lto) # Disable LTO until fixes for https://bugs.ruby-lang.org/issues/18062 released
+options=(!emptydirs !lto) # Disable LTO until fixes for https://bugs.ruby-lang.org/issues/18062 released
 _osslver=3.0.0
 source=(https://cache.ruby-lang.org/pub/ruby/${pkgver:0:3}/ruby-${pkgver}.tar.xz
         ruby-openssl-$_osslver.tar.xz::https://github.com/ruby/openssl/archive/refs/tags/v$_osslver.tar.gz)
