@@ -18,7 +18,6 @@ optdepends=('python-neovim: for Python 3 plugin support (see :help python)'
             'xclip: for clipboard support on X11 (or xsel) (see :help clipboard)'
             'xsel: for clipboard support on X11 (or xclip) (see :help clipboard)'
             'wl-clipboard: for clipboard support on wayland (see :help clipboard)')
-options=('debug')
 source=("https://github.com/neovim/neovim/archive/v${pkgver}/${pkgname}-${pkgver}.tar.gz")
 sha512sums=('f6c9ad09618c9f8ebb4fe522f55fd3381cc4b6d079d912a0d2ef6ca5f48ed6c4c66805c14695469e2b3d2be2266a9b60e5fc698116cd655fd92ef0f4705fdbb2')
 
