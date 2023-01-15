@@ -38,7 +38,7 @@ makedepends=(
   # gbm
   'libinput'
 )
-options=(!lto debug)
+options=(!lto)
 
 _codename=Matrix
 
