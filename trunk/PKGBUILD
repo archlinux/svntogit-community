@@ -23,7 +23,6 @@ optdepends=('dcraw: base curve script'
             'portmidi: game and midi controller input devices'
             'gnuplot: noise profile script')
 makedepends=(cmake intltool desktop-file-utils llvm clang portmidi python-jsonschema libwebp)
-options=(debug)
 source=("https://github.com/darktable-org/darktable/releases/download/release-${pkgver}/darktable-${pkgver}.tar.xz"{,.asc})
 sha256sums=(18b0917fdfe9b09f66c279a681cc3bd52894a566852bbf04b2e179ecfdb11af9 SKIP)
 validpgpkeys=(C4CBC150699956E2A3268EF5BB5CC8295B1779C9  # darktable releases <release@darktable.org>
