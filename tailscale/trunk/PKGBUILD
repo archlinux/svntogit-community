@@ -11,7 +11,6 @@ license=("MIT")
 makedepends=("git" "go")
 depends=("glibc")
 backup=("etc/default/tailscaled")
-options=(debug)
 # Important: Check if the version has been published before updating
 # curl -s "https://pkgs.tailscale.com/stable/?mode=json"
 _commit=c5ef9103d92b9b0a2932f869db56fbd7344ad417	#refs/tags/v1.34.2^{}

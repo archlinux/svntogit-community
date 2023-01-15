@@ -8,7 +8,6 @@ pkgdesc="a regular expressions library"
 arch=('x86_64')
 url="https://github.com/kkos/oniguruma"
 license=('BSD')
-options=('debug')
 source=("https://github.com/kkos/oniguruma/releases/download/v$pkgver/onig-${pkgver/_/-}.tar.gz")
 sha256sums=('28cd62c1464623c7910565fb1ccaaa0104b2fe8b12bcd646e81f73b47535213e')
 

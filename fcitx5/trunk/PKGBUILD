@@ -13,7 +13,6 @@ groups=('fcitx5-im')
 depends=('cairo' 'enchant' 'iso-codes' 'libgl' 'libxkbcommon-x11' 'pango' 'systemd' 'wayland'
          'wayland-protocols' 'xcb-imdkit' 'xcb-util-wm' 'libxkbfile' 'fmt' 'gdk-pixbuf2')
 makedepends=('extra-cmake-modules' 'ninja')
-options=('debug')
 source=("https://download.fcitx-im.org/fcitx5/fcitx5/fcitx5-${pkgver}_dict.tar.xz"{,.sig})
 sha512sums=('d5396295c11d9b518ac9ea88e680854114a9f84e0a8b82fe49ca91994434646c3f8ab4154d98c6efe0b83cb37f450d63ea49ea74ecc04ea391746340887c3c97'
             'SKIP')
