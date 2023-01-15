@@ -24,7 +24,6 @@ backup=(
   etc/$pkgname/cloaking-rules.txt
   etc/$pkgname/forwarding-rules.txt
 )
-options=(debug)
 source=(
   git+https://github.com/dnscrypt/$pkgname#tag=$_commit?signed
   $pkgname.service
