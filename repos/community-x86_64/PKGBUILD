@@ -1,39 +1,49 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgname=waylock
-pkgver=0.3.5
-_commit=20f1f5c5b0349eeb0a8d5d98bba81245b84cc16e  # refs/tags/v0.3.5^{}
+pkgver=0.6.1
+_commit=02d107e1f8a2c265da8063a72cb62beba82bb76d  # refs/tags/v0.6.1
 pkgrel=1
 pkgdesc="A simple screenlocker for wayland compositors"
 arch=(x86_64)
 url="https://github.com/ifreund/waylock"
 license=(MIT)
 depends=(gcc-libs glibc)
-makedepends=(git libxkbcommon pam rust)
-source=(git+https://github.com/ifreund/waylock#commit=$_commit?signed)
-sha256sums=('SKIP')
+makedepends=(chrpath git libxkbcommon pam scdoc wayland wayland-protocols zig)
+source=(
+  git+https://github.com/ifreund/waylock#tag=$_commit?signed
+  git+https://github.com/ifreund/zig-wayland
+  git+https://github.com/ifreund/zig-xkbcommon
+)
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP')
 validpgpkeys=('5FBDF84DD2278DB2B8AD8A5286DED400DDFD7A11') # Isaac Freund <ifreund@ifreund.xyz>
 
 prepare() {
   cd $pkgname
-  cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+  git submodule init
+  git config submodule."deps/zig-wayland".url "$srcdir/zig-wayland"
+  git config submodule."deps/zig-xkbcommon".url "$srcdir/zig-xkbcommon"
+  git -c protocol.file.allow=always submodule update
 }
 
 build() {
   cd $pkgname
-  cargo build --frozen --release --all-features --target-dir=target
-}
-
-check() {
-  cd $pkgname
-  cargo test --release --locked --target-dir=target
+  DESTDIR="build" zig build -Dpie --prefix /usr install
+  chrpath --delete build/usr/bin/waylock
 }
 
 package() {
-  depends+=(libpam.so libxkbcommon.so)
+  depends+=(
+    pam libpam.so
+    wayland libwayland-client.so
+    libxkbcommon libxkbcommon.so
+  )
 
   cd $pkgname
-  install -vDm 755 target/release/$pkgname -t "$pkgdir/usr/bin"
+  mv -v build/* "$pkgdir"
+
   install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
-  install -vDm 644 {README.md,waylock.toml} -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgname/"
 }
