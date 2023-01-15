@@ -3,6 +3,7 @@
 # Contributor: Dominik Heidler <dheidler@gmail.com>
 # Contributor:	Jonatan Sastre <jsastreh [ at ] hotmail.com>
 
+# NOTE: sonames change on each release, so *all* dependent packages have to be rebuilt!
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
 pkgver=3.10.5.0
