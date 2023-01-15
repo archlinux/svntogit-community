@@ -12,7 +12,6 @@ license=(Apache)
 groups=(kubernetes-tools)
 depends=(glibc)
 makedepends=(git go)
-options=(debug)
 # can only build from git: https://github.com/kubernetes-sigs/cri-tools/issues/676
 source=(
   git+https://github.com/kubernetes-sigs/$pkgbase#commit=$_commit
