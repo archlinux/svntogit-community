@@ -27,7 +27,6 @@ optdepends=('dmenu: for the default program launcher'
 replaces=('i3' 'i3bar' 'i3-gaps')
 provides=('i3-gaps')
 backup=('etc/i3/config')
-options=('debug')
 source=("$url/downloads/i3-$pkgver.tar.xz"{,.asc}
         https://github.com/orestisfl/i3/commit/c305798d42.patch)
 b2sums=('fa179f445ba4286bfeec98dc7a2e1dfad14bda6874e84878a48ee5890ed4cf3a90fc542e8e14aedaaba3abebc8d280284a3b00e838da70a783064a4bd271ca41'
