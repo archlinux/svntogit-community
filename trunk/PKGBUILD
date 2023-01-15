@@ -65,7 +65,6 @@ checkdepends=(
   python-setuptools  # gnuradio.modtool
   xorg-server-xvfb
 )
-options=(debug)
 source=(
   $pkgbase-$pkgver.tar.gz::https://github.com/$pkgbase/$pkgbase/archive/v$pkgver/$pkgbase-v$pkgver.tar.gz
   https://github.com/gnuradio/gnuradio/releases/download/v$pkgver/$pkgbase-$pkgver.tar.gz.asc
