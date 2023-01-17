@@ -4,7 +4,7 @@
 
 pkgname=words
 pkgver=2.1
-pkgrel=6
+pkgrel=7
 pkgdesc="A collection of International 'words' files for /usr/share/dict."
 arch=('any')
 url="https://ftp.gnu.org/gnu/aspell/dict/0index.html"
@@ -12,7 +12,7 @@ license=('GPL' 'GPL2' 'custom')
 depends=()
 makedepends=('glibc' 'aspell')
 install=words.install
-source=(https://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-2017.08.24-0.tar.bz2{,.sig}
+source=(https://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-2020.12.07-0.tar.bz2{,.sig}
         https://ftp.gnu.org/gnu/aspell/dict/ca/aspell6-ca-2.1.5-1.tar.bz2{,.sig}
         https://ftp.gnu.org/gnu/aspell/dict/fi/aspell6-fi-0.7-0.tar.bz2{,.sig}
         https://ftp.gnu.org/gnu/aspell/dict/fr/aspell-fr-0.50-3.tar.bz2
@@ -20,7 +20,7 @@ source=(https://ftp.gnu.org/gnu/aspell/dict/en/aspell6-en-2017.08.24-0.tar.bz2{,
         https://ftp.gnu.org/gnu/aspell/dict/it/aspell6-it-2.2_20050523-0.tar.bz2{,.sig}
         https://ftp.gnu.org/gnu/aspell/dict/de/aspell-de-0.50-2.tar.bz2
         https://ftp.gnu.org/gnu/aspell/dict/es/aspell6-es-1.11-2.tar.bz2{,.sig})
-md5sums=('e844f05fb11426a8620afb45c1b4d104'
+md5sums=('5968764e9c3691c30e656a6df751249f'
          'SKIP'
          '153d26f724866909c6faf49eecefe8b3'
          'SKIP'
@@ -34,7 +34,7 @@ md5sums=('e844f05fb11426a8620afb45c1b4d104'
          '204a9737ff0110fb8c7d284bd7200f7d'
          '8406336a89c64e47e96f4153d0af70c4'
          'SKIP')
-sha256sums=('09b562b02195e7facd31d65241050be7ac6f78654128ab41650511bf42dd5b7c'
+sha256sums=('4c8f734a28a088b88bb6481fcf972d0b2c3dc8da944f7673283ce487eac49fb3'
             'SKIP'
             'ebdae47edf87357a4df137dd754737e6417452540cb1ed34b545ccfd66f165b9'
             'SKIP'
@@ -48,7 +48,7 @@ sha256sums=('09b562b02195e7facd31d65241050be7ac6f78654128ab41650511bf42dd5b7c'
             'f1b6f23d694fc12da193de5d5d2232797e87aecf684d8aa5872d83176eeb84ba'
             'ad367fa1e7069c72eb7ae37e4d39c30a44d32a6aa73cedccbd0d06a69018afcc'
             'SKIP')
-b2sums=('6b4bde408413268837ea67c51f68fce22713d11a9f017f6e7ded71ced04027c706e08e20cbad2cdf1c9d177ce3160113bf7f75b63eb0ac5604822ba51d3cb23c'
+b2sums=('2e200dd1d6d4277a73fa73207119546638d548e40936b5d4744b0d0955b87862257a026e382d344cd4b396099b503367815adc697788362529d9170c3cca6e8b'
         'SKIP'
         'a7b26408eb583ca56967508f00d9c617e6e4bec364f6c807813d5f6485c549b9b62f02ea5464c32c3b3a84477d8fb6e768c11fda7d262b56ff0b24d57e19fde0'
         'SKIP'
