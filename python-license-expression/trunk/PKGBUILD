@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: CC0-1.0
 
 pkgname=python-license-expression
-pkgver=30.0.0
-pkgrel=2
+pkgver=30.1.0
+pkgrel=1
 pkgdesc='Utility to parse, normalize and compare license expressions'
 arch=('any')
 url='https://github.com/nexB/license-expression'
@@ -26,7 +26,7 @@ checkdepends=(
   'python-pytest'
   'python-pytest-xdist'
 )
-_commit='5f4febb6df2b644706839e42ba4310de9e2dccba'
+_commit='15481270d1080d18e94ad5c5e9618f07e07eb933'
 source=("$pkgname::git+$url#commit=$_commit")
 b2sums=('SKIP')
 
