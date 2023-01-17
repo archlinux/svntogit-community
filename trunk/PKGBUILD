@@ -1,32 +1,30 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: T.J. Townsend <blakkheim@archlinux.org>
 
 pkgname=minisign
-pkgver=0.10
+pkgver=0.11
 pkgrel=1
-pkgdesc="A dead simple tool to sign files and verify digital signatures."
+pkgdesc="A dead-simple tool to sign files and verify digital signatures"
 arch=('x86_64')
 url="https://github.com/jedisct1/minisign"
 license=('custom:ISC')
 depends=('libsodium')
-makedepends=('cmake')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/jedisct1/minisign/archive/$pkgver.tar.gz")
-sha512sums=('6a38500ed896c17b100bca47443f9806debe6e44d3ce09189f5f8913a41d4913434397175d1caa770fb0cc0918078dfc71c01b82b9bf919fdfba00434f4ce100')
-
-prepare() {
-  mkdir -p build
-}
+makedepends=('cmake' 'git')
+_commit=feefda7af87f64342bd07bf446ceb0467cbd0fb4 # git rev-parse $pkgver
+source=("git+https://github.com/jedisct1/minisign.git?signed#tag=$_commit")
+sha512sums=('SKIP')
+validpgpkeys=(54A2B8892CC3D6A597B92B6C210627AABA709FE1) # Frank Denis
 
 build() {
-  cd build
-
-  cmake ../minisign-$pkgver \
+  cmake -B build -S $pkgname \
     -DCMAKE_INSTALL_PREFIX=/usr \
-    -DCMAKE_BUILD_TYPE=Release
-  make
+    -DCMAKE_BUILD_TYPE=None \
+    -Wno-dev
+  cmake --build build
 }
 
 package() {
-  make -C build DESTDIR="$pkgdir" install
+  DESTDIR="$pkgdir" cmake --install build
 
-  install -Dm644 minisign-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 $pkgname/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
