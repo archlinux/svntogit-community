@@ -6,7 +6,7 @@ pkgname=mpv
 epoch=1
 _tag='33f10b1aee5fef45960728fe8595d1603c8a9a85' # git rev-parse v${pkgver}
 pkgver=0.35.0
-pkgrel=4
+pkgrel=5
 pkgdesc='a free, open source, and cross-platform media player'
 arch=('x86_64')
 # We link against libraries that are licensed GPLv3 explicitly, so our
@@ -23,8 +23,8 @@ depends=('alsa-lib' 'libasound.so' 'desktop-file-utils' 'ffmpeg' 'libavcodec.so'
          'libxext' 'libxinerama' 'libxkbcommon' 'libxkbcommon.so' 'libxpresent' 'libxrandr' 'libxss'
          'libxv' 'luajit' 'mesa' 'mujs' 'pipewire' 'rubberband' 'librubberband.so' 'shaderc'
          'libshaderc_shared.so' 'uchardet' 'vulkan-icd-loader' 'wayland' 'zlib')
-makedepends=('git' 'python-docutils' 'ladspa' 'wayland-protocols'
-             'ffnvcodec-headers' 'vulkan-headers' 'waf')
+makedepends=('git' 'meson' 'python-docutils' 'ladspa' 'wayland-protocols'
+             'ffnvcodec-headers' 'vulkan-headers')
 optdepends=('yt-dlp: for video-sharing websites playback'
             'youtube-dl: for video-sharing websites playback')
 provides=('libmpv.so')
@@ -34,29 +34,34 @@ source=("git+https://github.com/mpv-player/mpv.git#tag=${_tag}?signed")
 sha256sums=('SKIP')
 
 build() {
-  cd ${pkgname}
 
-  waf configure --prefix=/usr \
-    --confdir=/etc/mpv \
-    --enable-cdda \
-    --enable-dvb \
-    --enable-dvdnav \
-    --enable-libarchive \
-    --enable-libmpv-shared \
-    --disable-build-date \
-    --disable-caca
+  local _meson_options=(
+    --auto-features auto
 
-  waf build
+    -Dlibmpv=true
+
+    -Dcaca=disabled
+    -Dcdda=enabled
+    -Ddvbin=enabled
+    -Ddvdnav=enabled
+    -Dlibarchive=enabled
+  )
+
+  arch-meson "${pkgname}" build "${_meson_options[@]}"
+
+  meson compile -C build
+}
+
+check() {
+  meson test -C build
 }
 
 package() {
-  cd ${pkgname}
+  meson install -C build --destdir "${pkgdir}"
 
-  waf install --destdir="$pkgdir"
+  install -m0644 "${pkgname}"/DOCS/{encoding.rst,tech-overview.txt} \
+    "${pkgdir}"/usr/share/doc/mpv
 
-  install -m0644 DOCS/{encoding.rst,tech-overview.txt} \
-    "$pkgdir"/usr/share/doc/mpv
-
-  install -m0644 TOOLS/lua/* \
-    -D -t "$pkgdir"/usr/share/mpv/scripts
+  install -m0644 "${pkgname}"/TOOLS/lua/* \
+    -D -t "${pkgdir}"/usr/share/mpv/scripts
 }
