@@ -8,13 +8,13 @@
 # Contributor: Caleb Maclennan <caleb@alerque.com>
 
 pkgname=gitlab
-pkgver=15.7.2
+pkgver=15.7.5
 pkgrel=1
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
 license=('MIT')
-options=(!buildflags)
+options=(!buildflags !debug)
 depends=('ruby2.7' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl')
 makedepends=('cmake' 'postgresql' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
