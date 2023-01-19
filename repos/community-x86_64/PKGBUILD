@@ -2,8 +2,9 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
 
+_name=plugins
 pkgname=cni-plugins
-pkgver=1.1.1
+pkgver=1.2.0
 pkgrel=2
 pkgdesc='Some standard networking plugins, maintained by the CNI team'
 arch=(x86_64)
@@ -13,24 +14,46 @@ depends=(glibc)
 makedepends=(go)
 provides=(container-network-stack=1)
 # unable to build with LTO: https://github.com/containernetworking/plugins/issues/706
-options=(!lto)
-source=($pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz)
-sha512sums=('03da31caee5f9595abf65d4a551984b995bc18c5e97409549f08997c5a6a2b41a8950144f8a5b4f810cb401ddbe312232d2be76ec977acf8108eb490786b1817')
-b2sums=('2fd70260995e423d2b4ac3a8d2135074baffe5d36177d5e1e5a9ce146f6d2ecfeb3b843de62e43f863085ff965be4160cf5f4cae892d3c59070ef390409ef3c9')
+# NOTE: we need /etc/cni/net.d/ for configs
+options=(!lto emptydirs)
+source=($url/archive/v$pkgver/$_name-v$pkgver.tar.gz)
+sha512sums=('fb6fb4f46ac1610b3721f5f3a6ddfb096cbf2e5d5b792306edca5351a3944d2f802170d83e5adec01420395bf64fc8a174ede61ac9b93b5ac6b938a4b48651e6')
+b2sums=('6b487a9c9b240c73510f2bc6aaa4a6c79055e43cacca8204781dbc65d231164fed9f3f68a2a0cead7a41a67bfc9d9e4480b488be26415d368da007559a721b25')
 
-build() {
-  cd plugins-$pkgver
-  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
-  export CGO_LDFLAGS="${LDFLAGS}"
-  export CGO_CFLAGS="${CFLAGS}"
-  export CGO_CPPFLAGS="${CPPFLAGS}"
-  export CGO_CXXFLAGS="${CXXFLAGS}"
-  ./build_linux.sh
+prepare() {
+  mkdir -vp $_name-$pkgver/bin
 }
 
+build() {
+  cd $_name-$pkgver
+
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOPATH="${srcdir}"
+  export GOFLAGS="-buildmode=pie -mod=readonly -modcacherw"
+
+  # custom go build calls, since build_linux.sh is not flexible enough
+  for plugin in plugins/meta/* plugins/main/* plugins/ipam/*; do
+    if [[ -d "$plugin"  && "$plugin" != *windows ]]; then
+      printf "Building plugin: %s\n" "$(basename $plugin)"
+      go build -o bin/ -ldflags "-compressdwarf=false -linkmode external" "./$plugin"
+    fi
+  done
+}
+
+# tests are broken
+# check() {
+#   cd $_name-$pkgver
+#   go test ./...
+# }
+
 package() {
-  cd plugins-$pkgver
+  cd $_name-$pkgver
   install -vDm755 bin/* -t "$pkgdir/usr/lib/cni/"
+  # strip files manually because makepkg doesn't do it: https://gitlab.archlinux.org/pacman/pacman/-/merge_requests/38
+  strip "$pkgdir/usr/lib/cni/"*
   # some applications would build their own versions of CNI plugins in
   # /opt/cni/bin if they are not found (as non-symlink files), so we have to
   # install them twice... ;_;
