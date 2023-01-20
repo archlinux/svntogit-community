@@ -29,5 +29,6 @@ package() {
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 
-  mv "$pkgdir"/usr/lib/python3.10/site-packages/{,yarg/}tests
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  mv "$pkgdir"/usr/lib/python${python_version}/site-packages/{,yarg/}tests
 }
