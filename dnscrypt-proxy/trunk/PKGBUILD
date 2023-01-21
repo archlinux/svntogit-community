@@ -14,7 +14,6 @@ license=(ISC)
 depends=(glibc)
 makedepends=(git go)
 optdepends=('python-urllib3: for generate-domains-blocklist')
-install=$pkgname.install
 backup=(
   etc/$pkgname/$pkgname.toml
   etc/$pkgname/allowed-ips.txt
