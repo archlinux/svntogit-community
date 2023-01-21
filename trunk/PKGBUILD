@@ -22,8 +22,9 @@ build() {
 
 check() {
   cd hatch-vcs-$pkgver
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
   python -m installer --destdir=tmp_install dist/*.whl
-  SETUPTOOLS_SCM_PRETEND_VERSION= PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages" pytest
+  SETUPTOOLS_SCM_PRETEND_VERSION= PYTHONPATH="$PWD/tmp_install$site_packages" pytest
 }
 
 package() {
