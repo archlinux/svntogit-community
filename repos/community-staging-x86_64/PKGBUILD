@@ -1,0 +1,83 @@
+# Maintainer: Kyle Keen <keenerd@gmail.com>
+# Contributor: Chirantan Ekbote <chirantan.ekbote at gmail.com>
+# Contributor: Eric Anderson <ejona86 at gmail.com>
+# Contributor: Pierre DOUCET <pierre at equinoxefr.org>
+pkgname=openscad
+pkgver=2021.01
+pkgrel=7
+pkgdesc="The programmers solid 3D CAD modeller"
+url="http://openscad.org/"
+arch=('x86_64')
+license=('GPL2')
+changelog=CHANGELOG
+depends=('qt5-base' 'qscintilla-qt5' 'opencsg' 'boost-libs'
+         'shared-mime-info' 'libzip' 'qt5-multimedia' 'libspnav'
+         'lib3mf-1' 'nettle' 'mpfr')
+makedepends=('cgal' 'eigen' 'boost' 'imagemagick')
+# full tests need imagemagick and an X11 or framebuffer session
+# can't find lib3MF from libsavitar?
+checkdepends=('cmake' 'xorgproto' 'libx11' 'python')
+validpgpkeys=('E2EBDADD336FF516ADD51A78F3E12CCC22164A0F'
+              'B3C94B4250DC097E9FFF81778AF822A975097442')
+source=("https://files.openscad.org/openscad-$pkgver.src.tar.gz"{,.asc}
+        ${pkgname}-CVE-2022-0496.patch::https://github.com/openscad/openscad/commit/00a4692989c4e2f191525f73f24ad8727bacdf41.patch
+        ${pkgname}-CVE-2022-0497.patch::https://github.com/openscad/openscad/commit/84addf3c1efbd51d8ff424b7da276400bbfa1a4b.patch
+        ${pkgname}-undefine-boost-libintl.patch::https://github.com/openscad/openscad/commit/4c5d19c302d7d440d1c11c3d02b3ce5eb2e548da.patch
+        ${pkgname}-fix-cgal5.3.patch::https://github.com/openscad/openscad/commit/9aa0d7e9f2914fe5f547bdde69202161d1c6064d.patch
+        ${pkgname}-fix-boost-x32-x64.patch::https://github.com/openscad/openscad/commit/c50837d597a17b5d4cd8c7ed8e09cb07edb98a6f.patch
+        ${pkgname}-fix-cgal5.4.patch::https://github.com/openscad/openscad/commit/abfebc651343909b534ef337aacc7604c99cf0ea.patch
+        ${pkgname}-fix-boost-join.patch::https://github.com/openscad/openscad/commit/08bf69b4115c989fc5671254e0d05735d01bcca5.patch)
+sha256sums=('d938c297e7e5f65dbab1461cac472fc60dfeaa4999ea2c19b31a4184f2d70359'
+            'SKIP'
+            '0f5cc845bd1d5d9a5071790632e0c04443e88002226b83c293d3d7f8e4f5b41e'
+            '534090a54afbeaabd9ae3cce97104fc16533ef8aa5cf939a97a3825d7e01409a'
+            'f087ff823b617a7e50efea7bfe3e8136eed5b435bcc53d7898af5ceae1f0dbf6'
+            'ea38e409a8fff9582684e4ec4a5dab2cb5754a7ca4598155e1730620c9f6bafe'
+            '694464532310c16c7c29900ca369860a6e52ee81b1561fb83f745a5ef5f3486d'
+            '836626d08bd8dcce496bd2db0a73ae1911915388c412dc63d831d40ae1aa9206'
+            '583783a6ecb2fe7d23b37bc5e29c6c705065748a6993908ff28ad61b10190ce7')
+
+prepare() {
+    cd "$srcdir/$pkgname-$pkgver"
+    patch -p1 < ../${pkgname}-CVE-2022-0496.patch
+    patch -p1 < ../${pkgname}-CVE-2022-0497.patch
+    patch -p1 < ../${pkgname}-undefine-boost-libintl.patch
+    patch -p1 < ../${pkgname}-fix-cgal5.3.patch
+    patch -p1 < ../${pkgname}-fix-boost-x32-x64.patch
+    patch -p1 < ../${pkgname}-fix-cgal5.4.patch
+    patch -p1 < ../${pkgname}-fix-boost-join.patch
+    # CGAL 5.4 compatibility
+    sed -i "s|CGAL_VERSION_NR < 1050401000|CGAL_VERSION_NR < CGAL_VERSION_NUMBER(5, 4, 0)|" src/cgalutils-tess.cc
+}
+
+build() {
+    cd "$srcdir/$pkgname-$pkgver"
+    qmake-qt5 PREFIX="/usr"
+    make
+    convert +set date:create +set date:modify "icons/$pkgname.png" -resize 128x128\> "icons/$pkgname-128.png"
+}
+
+check() {
+    # see doc/testing.txt about enabling
+    # normally will display stuff, run image diffs
+    return 0
+    cd "$srcdir/$pkgname-$pkgver/tests"
+    sed -i 's/exit 1/exit 0/' virtualfb.sh
+    cmake .
+    # pkgconfig weirdness
+    #sed -i 's/-lmpfr/& -lX11/' CMakeFiles/openscad_nogui.dir/link.txt 
+    make
+    echo "Running headless tests..."
+    ctest -R 'dumptest|csgtexttest|csgtermtest|openscad-nonascii|openscad-override'
+    # echotest is buggy on i686, check again next release
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+    make INSTALL_ROOT="$pkgdir" install
+    # can't remove earlier, py files needed for tests
+    rm "$pkgdir/usr/share/openscad/libraries/MCAD/"*.py
+    install -Dm644 "icons/$pkgname.desktop" "$pkgdir/usr/share/applications/$pkgname.desktop"
+    install -Dm644 "icons/$pkgname-128.png" "$pkgdir/usr/share/pixmaps/$pkgname.png"
+    install -Dm644 "icons/$pkgname.xml" "$pkgdir/usr/share/mime/packages/$pkgname.xml"
+}
