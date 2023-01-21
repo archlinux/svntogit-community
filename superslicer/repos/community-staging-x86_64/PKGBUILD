@@ -1,0 +1,121 @@
+# Maintainer: Maxime Gauduin <alucryd@archlinux.org>
+# Contributor: Lukas1818 <aur@lukas1818.de>
+
+pkgname=superslicer
+pkgver=2.4.58.5
+pkgrel=5
+epoch=1
+pkgdesc='G-code generator for 3D printers'
+arch=(x86_64)
+url=https://github.com/supermerill/SuperSlicer
+license=(AGPL3)
+options=(!emptydirs)
+depends=(
+  boost-libs
+  cgal
+  glew
+  gtk3
+  imath
+  libjpeg-turbo
+  libspnav
+  nlopt
+  openvdb
+  qhull
+  slicer-udev
+)
+makedepends=(
+  boost
+  cereal
+  cmake
+  eigen
+  git
+  glu
+  gst-plugins-base
+  libigl
+  libnotify
+  ninja
+  systemd
+  webkit2gtk
+)
+_tag=76856c584987547eb37ceb1140a891991b491dc0
+_wxcommit=489f6118256853cf5b299d595868641938566cdb
+source=(
+  git+https://github.com/supermerill/SuperSlicer.git#tag=${_tag}
+  git+https://github.com/slic3r/slic3r-profiles.git
+  https://github.com/prusa3d/wxWidgets/archive/${_wxcommit}/wxWidgets-${_wxcommit}.tar.gz
+  superslicer-cereal.patch
+  superslicer-openexr3.patch
+  superslicer-boost1.79.patch
+  superslicer-wxgtk3-wayland.patch
+)
+b2sums=('SKIP'
+        'SKIP'
+        '05c1d81b8dd005b4a5db935e32facc4aefd27696458ff41caef50b93bf2ac12da441e534b1f9d99383bfba6db23c0e4a8b53cf567c245f11478379cf769a5a1b'
+        'a652af374ca4cdd2b1db87bac9a1a6263a3c0df954c8afa4fddea3041659b159412fe3ab850d804a27dcb4b3ca8d64de511ef11769d353d7d2a0f7021dc38e99'
+        'd351d05190977e55047504d13ab4172c7eaf7fb2077a61a448dd29a8a27084ee4b13284143102b7ea3dff0edc8b20675dff0014e9f26cd5f448e50c04a1d6779'
+        '45ff3ab349a92b072eed57a511aead233e4356fcc9ab9382902af9702aee22f73c9a9f07a58420ca20c7c2cd41e81637f1d0114033c2fdb7f597cbcb484fa8ff'
+        '6b8abda2bfee9294bd5cd97380403680d6b2c6187af178e5eb4be2665280d1ff0d66036525b485e64d38d1d464756388fd4b53c6277d691079f51e6ee0c12372')
+
+prepare() {
+  cd SuperSlicer
+
+  git config --global protocol.file.allow always
+  git submodule init resources/profiles
+  git config submodule.resources/profiles.url ../slic3r-profiles
+  git submodule update resources/profiles
+
+  patch -Np1 -i ../superslicer-cereal.patch
+  patch -Np1 -i ../superslicer-openexr3.patch
+  patch -Np1 -i ../superslicer-boost1.79.patch
+  patch -Np1 -i ../superslicer-wxgtk3-wayland.patch
+}
+
+pkgver() {
+  cd SuperSlicer
+  git describe --tags
+}
+
+build() {
+  cmake -B deps -S wxWidgets-${_wxcommit} \
+    -DCMAKE_INSTALL_PREFIX="${srcdir}"/deps/destdir/usr/local \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DwxBUILD_TOOLKIT=gtk3 \
+    -DwxUSE_MEDIACTRL=OFF \
+    -DwxUSE_DETECT_SM=OFF \
+    -DwxUSE_UNICODE=ON \
+    -DwxUSE_UNICODE_UTF8=ON \
+    -DwxUSE_OPENGL=ON \
+    -DwxUSE_LIBPNG=sys \
+    -DwxUSE_ZLIB=sys \
+    -DwxUSE_REGEX=builtin \
+    -DwxUSE_LIBJPEG=sys \
+    -DwxUSE_LIBTIFF=sys \
+    -DwxUSE_EXPAT=sys \
+    -DwxUSE_LIBLZMA=sys \
+    -DwxUSE_LIBSDL=OFF \
+    -DwxUSE_XTEST=OFF
+  cmake --build deps
+  cmake --install deps
+  cmake -S SuperSlicer -B build -G Ninja \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DCMAKE_CXX_FLAGS="$CXXFLAGS -ffat-lto-objects -DBOOST_FILESYSTEM_DEPRECATED" \
+    -DCMAKE_PREFIX_PATH="${srcdir}"/deps/destdir/usr/local \
+    -DOpenGL_GL_PREFERENCE=GLVND \
+    -DSLIC3R_ALPHA=OFF \
+    -DSLIC3R_BUILD_TESTS=OFF \
+    -DSLIC3R_FHS=ON \
+    -DSLIC3R_GTK=3 \
+    -DSLIC3R_STATIC=OFF \
+    -DwxWidgets_USE_STATIC=ON
+  cmake --build build
+}
+
+package() {
+  DESTDIR="${pkgdir}" cmake --install build
+  test ! -h "${pkgdir}/usr/share/SuperSlicer/resources" || rm "${pkgdir}/usr/share/SuperSlicer/resources"
+  rm -r "${pkgdir}"/usr/lib/udev # Provided by slicer-udev
+}
+
+# vim: ts=2 sw=2 et:
