@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.22
+pkgver=20.10.23
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -18,7 +18,7 @@ optdepends=('btrfs-progs: btrfs backend support'
             'docker-buildx: extended build capabilities')
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
-_LIBNETWORK_COMMIT=dcdf8f176d1e13ad719e913e796fb698d846de98
+_LIBNETWORK_COMMIT=05b93e0d3a95952f70c113b0bc5bdb538d7afdd7
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/moby/moby.git#tag=v$pkgver"
         "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
