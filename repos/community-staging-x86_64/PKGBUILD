@@ -1,0 +1,47 @@
+# Maintainer: Sven-Hendrik Haase <svenstaro@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+# Contributor: Tobias Powalowski <tpowa@archlinux.org>
+# Contributor: Jacobo Arvelo <unix4all@ya.com>
+# Contributor: Douglas Soares de Andrade <douglas@archlinux.org>
+
+pkgname=wesnoth
+# NOTE: Odd minor versions are unstable! Do not package those.
+pkgver=1.16.7
+epoch=1
+pkgrel=2
+pkgdesc="A turn-based strategy game on a fantasy world"
+arch=('x86_64')
+license=('GPL')
+url="https://www.wesnoth.org/"
+depends=('sdl2_mixer' 'sdl2_image' 'boost-libs' 'pango' 'dbus')
+makedepends=('boost' 'cmake' 'git' 'ninja')
+replaces=('wesnoth-data')
+options=(!emptydirs)
+source=("git+https://github.com/wesnoth/wesnoth.git#tag=${pkgver}")
+sha512sums=('SKIP')
+
+build() {
+  cd "$pkgname"
+
+  cmake \
+      -GNinja \
+      -Bbuild \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -DENABLE_TOOLS=ON \
+      -DFIFO_DIR=/run/wesnothd \
+      -DENABLE_DISPLAY_REVISION=OFF
+  ninja -C build
+}
+
+package() {
+  cd "$pkgname"
+
+  DESTDIR="$pkgdir" ninja -C build install
+
+  # See https://forums.wesnoth.org/viewtopic.php?t=51038
+  echo "Linux repository" > "$pkgdir"/usr/share/wesnoth/data/dist
+
+  mkdir -p "$pkgdir"/usr/lib/{tmpfiles.d,systemd/system}
+  sed "s|@FIFO_DIR@|/run/wesnothd|" packaging/systemd/wesnothd.tmpfiles.conf.in > "$pkgdir"/usr/lib/tmpfiles.d/wesnothd.conf
+  sed -e "s|@FIFO_DIR@|/run/wesnothd|" -e "s|@BINARY_SUFFIX@||" -e "s|@CMAKE_INSTALL_FULL_BINDIR@|/usr/bin|" packaging/systemd/wesnothd.service.in > "$pkgdir"/usr/lib/systemd/system/wesnothd.service
+}
