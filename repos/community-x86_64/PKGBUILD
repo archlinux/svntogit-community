@@ -7,7 +7,7 @@
 # Contributor: acxz <akashpatel2008 at yahoo dot com>
 
 pkgname=gtest
-pkgver=1.12.1
+pkgver=1.13.0
 pkgrel=1
 pkgdesc='Google Test - C++ testing utility'
 url='https://github.com/google/googletest'
@@ -19,10 +19,10 @@ optdepends=('python: gmock generator')
 conflicts=('gmock')
 replaces=('gmock')
 provides=('gmock')
-_srcname=googletest-release-${pkgver}
-source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/release-${pkgver}.tar.gz
+_srcname=googletest-${pkgver}
+source=(${_srcname}.tar.gz::https://github.com/google/googletest/archive/v${pkgver}.tar.gz
         gtest-version.patch)
-sha512sums=('a9104dc6c53747e36e7dd7bb93dfce51a558bd31b487a9ef08def095518e1296da140e0db263e0644d9055dbd903c0cb69380cb2322941dbfb04780ef247df9c'
+sha512sums=('70c0cfb1b4147bdecb467ecb22ae5b5529eec0abc085763213a796b7cdbd81d1761d12b342060539b936fa54f345d33f060601544874d6213fdde79111fa813e'
             'ebfd53ac33298e870c04a1f89609d8327152d3d73e7842219af3a11d5ee484033543064b557cc9c8f45057e608e0ee347318070a3ea5d17040bace02110ed8df')
 
 prepare() {
