@@ -40,7 +40,8 @@ package() {
   python -m installer -d "$pkgdir" dist/*.whl
   install -Dm 644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
-  rm -rf "$pkgdir"/usr/lib/python3.10/site-packages/keyring/tests
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  rm -rf "$pkgdir"/$site_packages/keyring/tests
 }
 
 # vim:set ts=2 sw=2 et:
