@@ -1,0 +1,70 @@
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Caleb Maclennan <caleb@alerque.com>
+
+pkgbase=gimagereader
+pkgname=(gimagereader-gtk gimagereader-qt gimagereader-common)
+pkgver=3.4.0
+pkgrel=5
+url='https://github.com/manisandro/gImageReader'
+pkgdesc='Gtk/Qt front-end to tesseract-ocr'
+arch=('x86_64')
+license=('GPL3')
+depends=('djvulibre' 'gtksourceviewmm' 'gtkspellmm' 'libtesseract.so' 'libxml++' 'libzip' 'podofo' 'poppler-glib'
+         'poppler-qt6' 'qt6-imageformats' 'qtspell' 'quazip-qt6' 'sane' 'tesseract')
+makedepends=('cmake' 'intltool' 'ninja' 'python-gobject')
+source=("$url/releases/download/v$pkgver/$pkgbase-$pkgver.tar.xz"
+        'openmp.patch')
+sha256sums=('b55cfe9212fa16bf2d5a7ca0fc549454812b265ac7d4aa34697947b20eecf425'
+            'ee84de7fee390ee54152b4e332e50d8f585b0c9a3aa8b40a04f865b5250607c2')
+
+prepare() {
+  cd $pkgbase-$pkgver
+
+  # Run OpenMP once before calling tesseract
+  # https://github.com/manisandro/gImageReader/issues/285
+  patch -Np1 -i ../openmp.patch
+
+}
+
+build() {
+  cmake -S $pkgbase-$pkgver -B build-gtk -G Ninja \
+    -DCMAKE_INSTALL_PREFIX='/usr' \
+    -DINTERFACE_TYPE=gtk
+  cmake --build build-gtk
+
+  cmake -S $pkgbase-$pkgver -B build-qt -G Ninja \
+    -DCMAKE_INSTALL_PREFIX='/usr' \
+    -DINTERFACE_TYPE=qt6
+  cmake --build build-qt
+}
+
+package_gimagereader-gtk() {
+  pkgdesc='Gtk front-end to tesseract-ocr'
+  depends=('gimagereader-common' 'djvulibre' 'gtksourceviewmm' 'gtkspellmm' 'libxml++' 'libzip'
+           'podofo' 'poppler-glib' 'sane' 'tesseract')
+
+  DESTDIR="$pkgdir" cmake --install build-gtk
+
+  # Split gimagereader-common
+  mkdir gimagereader-common
+  mv "$pkgdir"/usr/share/{doc,icons,locale} gimagereader-common
+}
+
+package_gimagereader-qt() {
+  pkgdesc='Qt front-end to tesseract-ocr'
+  depends=('gimagereader-common' 'djvulibre' 'podofo' 'poppler-qt6' 'qt6-imageformats' 'qtspell'
+           'quazip-qt6' 'sane' 'tesseract')
+
+  DESTDIR="$pkgdir" cmake --install build-qt
+
+  # Split gimagereader-common
+  rm -r "$pkgdir"/usr/share/{doc,icons,locale}
+}
+
+package_gimagereader-common() {
+  pkgdesc='Common files for gImageReader'
+  depends=('hicolor-icon-theme')
+
+  mkdir -p "$pkgdir"/usr/share
+  mv gimagereader-common/* "$pkgdir/usr/share"
+}
