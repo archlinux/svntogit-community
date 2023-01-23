@@ -1,0 +1,112 @@
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
+# Contributor: Tyler Dence <tyzoid@archlinux32.org>
+# Contributor: Konstantin Shalygin <k0ste@k0ste.ru>
+
+pkgbase=nextcloud-client
+# Put config files for libcloudproviders integration in a separate package as
+# there is no simple way yet to disable it.
+# See: https://gitlab.gnome.org/World/libcloudproviders/-/issues/17
+pkgname=(nextcloud-client nextcloud-client-cloudproviders)
+epoch=2
+# Upstream does not provide signed tarballs (yet)
+# https://github.com/nextcloud/desktop/issues/1510
+pkgver=3.6.6
+# _pkgver() { curl https://api.github.com/repos/nextcloud/desktop/git/ref/tags/v$pkgver | jq -r .object.sha ; }
+_tag=7e641c3db212dfeafa265d0e65e0a974a38b0a4b
+pkgrel=1
+arch=(x86_64)
+url='https://nextcloud.com/'
+license=(GPL)
+makedepends=(libcloudproviders openssl sqlite
+             qt5-websockets qt5-quickcontrols2 qt5-svg qt5-tools qtkeychain-qt5
+             extra-cmake-modules kio
+             cmocka doxygen git inkscape python-sphinx)
+source=("$pkgbase::git+https://github.com/nextcloud/desktop.git?signed#tag=$_tag")
+validpgpkeys=(
+  A26B951528EA1BA1678C7AE5D406C75CEE1A36D6  # one of keys controlled by github.com/camilasan
+  42E775EAA3E47F9E0D5CDB0E00819E3BF4177B28  # controlled by github.com/misch7
+  17166A5275C5FA6F1A48FD78074BBBCB8DECC9E2  # https://github.com/er-vin.gpg
+  01D736173523DFC7A7B55258C2FBEF0E1C7E72D0  # https://github.com/allexzander
+  0739B11EDA696A3616666F6AE04221E85C5BB816  # https://github.com/allexzander ; no custody demonstrated, see https://github.com/nextcloud/desktop/issues/5345#issuecomment-1398131630
+  267BF70F7905C2723B0243267D0F74F05C22F553  # https://github.com/mgallien
+  3A877D9A896A057948059DEDAD2C27357B2CB11D  # https://github.com/FlexW
+)
+sha256sums=('SKIP')
+
+pkgver() {
+  cd $pkgbase
+  git describe --tags | sed 's/^v//;s/-/+/g'
+}
+
+prepare() {
+  # tmpdir for check()
+  mkdir -p tmpdir
+  cd $pkgbase
+  # Monkey patch that disables bulk upload capability which causes infinite
+  # loops for many server/client combos. Feature is also disabled by default on
+  # server end in v23.0.3 because it was so problematic. This can abe re-enabled
+  # when underlying bug squashed:
+  # https://github.com/nextcloud/desktop/issues/4241
+  sed -i -e '/bulkupload/s/return _.*;$/return false;/' src/libsync/capabilities.cpp
+  # Disable tests that touch on disabled feature
+  sed -i -e '/SyncEngine/s/^/#/' -e '/Capabilities/s/^/#/' test/CMakeLists.txt
+}
+
+build() {
+  cd $pkgbase
+
+  # bundled breakpad in libcrashreporter-qt submodule is too old and does not build with glibc >= 2.26
+  # Upstream fix: https://github.com/google/breakpad/commit/bddcc58860f522a0d4cbaa7e9d04058caee0db9d
+  cmake -B build -S . \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DWITH_CRASHREPORTER=OFF \
+    -DBUILD_UPDATER=OFF \
+    -DUNIT_TESTING=ON \
+    -DPLUGINDIR=lib/qt/plugins # Fix vfs plugin install dir https://github.com/nextcloud/desktop/issues/3781#issuecomment-918918320
+
+  # TODO: fix installation of PDF and HTML documents
+  # WIP at https://github.com/yan12125/desktop/tree/doc-install-path
+  make -C build all doc-man
+}
+
+check() {
+  cd $pkgbase/build
+
+  # Tests fail if $TMPDIR is too small; specify an alternative for machines
+  # with a small /tmp partition.
+  # Use UTC as TestCookies is sensitive to the timezone
+  # https://github.com/nextcloud/desktop/blob/v3.2.2/test/testcookies.cpp#L24
+  QT_QPA_PLATFORM=offscreen TMPDIR="$srcdir/tmpdir" TZ=UTC ARGS="--rerun-failed --output-on-failure" make test
+}
+
+package_nextcloud-client() {
+  pkgdesc='Nextcloud desktop client'
+  depends=(hicolor-icon-theme openssl sqlite qtkeychain-qt5 qt5-svg qt5-websockets
+           xdg-utils libcloudproviders qt5-graphicaleffects qt5-quickcontrols2 qt5-quickcontrols)
+  optdepends=(
+    'kio: integration with Dolphin'
+    'nemo-python: integration with Nemo'
+    'python-nautilus: integration with Nautilus'
+    'python-caja: integration with Caja'
+    'nextcloud-client-cloudproviders: cloudproviders support'
+  )
+  backup=('etc/Nextcloud/sync-exclude.lst')
+
+  cd $pkgbase/build
+
+  make DESTDIR="$pkgdir" install
+
+  rm -v "$pkgdir"/usr/share/cloud-providers/com.nextcloudgmbh.Nextcloud.ini
+  rm -v "$pkgdir"/usr/share/dbus-1/services/com.nextcloudgmbh.Nextcloud.service
+  cd "$pkgdir"/usr/share && rmdir -p cloud-providers dbus-1/services
+}
+
+package_nextcloud-client-cloudproviders() {
+  pkgdesc='cloudproviders support for the Nextcloud desktop client'
+  depends=(nextcloud-client)
+
+  cd $pkgbase/build
+  make -C shell_integration/libcloudproviders DESTDIR="$pkgdir" install
+}
