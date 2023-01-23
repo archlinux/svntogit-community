@@ -1,0 +1,64 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=python-dunamai
+pkgver=1.15.0
+pkgrel=1
+pkgdesc='A library for producing dynamic version strings, derived from VCS tags'
+arch=('any')
+url='https://github.com/mtkennerly/dunamai'
+license=('MIT')
+depends=(
+  'python'
+  'python-packaging'
+)
+makedepends=(
+  'git'
+  'python-build'
+  'python-installer'
+  'python-poetry-core'
+)
+checkdepends=('python-pytest' 'python-setuptools')
+_commit='2f5230d7a5abfea7900b18dc6c4cc9bb4ba80b2a'
+source=("$pkgname::git+$url#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+build() {
+  cd "$pkgname"
+
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd "$pkgname"
+
+  # temporary install so that:
+  # * pkg_resources can pick up the package
+  # * the required binary can be added to $PATH
+  python -m installer --destdir="$(pwd)/tmp" dist/*.whl
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  export PATH="$(pwd)/tmp/usr/bin:$PATH"
+  export PYTHONPATH="$(pwd)/tmp/$site_packages"
+
+  # run tests, skipping annoying ones that require messing with global git config
+  pytest -v \
+    --deselect tests/integration/test_dunamai.py::test__version__from_git__with_annotated_tags \
+    --deselect tests/integration/test_dunamai.py::test__version__from_git__with_lightweight_tags \
+    --deselect tests/integration/test_dunamai.py::test__version__from_git__with_mixed_tags \
+    --deselect tests/integration/test_dunamai.py::test__version__from_git__with_nonchronological_commits \
+    --deselect tests/integration/test_dunamai.py::test__version__from_git__gitflow
+}
+
+package() {
+  cd "$pkgname"
+
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
