@@ -1,26 +1,26 @@
 # Maintainer: kpcyrd <kpcyrd[at]archlinux[dot]org>
 
 pkgname=psalm
-pkgver=5.4.0
+pkgver=5.5.0
 pkgrel=1
-_commit=62db5d4f6a7ae0a20f7cc5a4952d730272fc0863
+_commit=b63061a27f2683ec0f3509012bb22daab3b65b61
 pkgdesc='A static analysis tool for finding errors in PHP applications'
 url="https://psalm.dev/"
 arch=('any')
 license=('MIT')
 depends=('php')
-makedepends=('composer' 'php7' 'git')
+makedepends=('composer' 'git')
 #source=("${pkgname}-${pkgver}.tar.gz::https://github.com/vimeo/psalm/archive/refs/tags/${pkgver}.tar.gz"
 source=("git+https://github.com/vimeo/psalm.git#commit=${_commit}"
         "composer.lock")
 b2sums=('SKIP'
-        '9c1001233cc6a4ec404bb485686c6a235d2fd91a7ec6d55657194390bc4b81778b6e325a1d6db37ab8533bff60bb15f751c65c73dc43fd4e7722cc8602f4dce6')
+        '82d41128576fe89db2ecc08a0bb26ef771c8dedd1c77d326a545ee3eb871b67f02b5f089b25c2f916efeec8d7816d804db5d4207b9e6469331a9edac3aecdcb2')
 
 prepare() {
   cd ${pkgname}
   cp ../composer.lock .
   composer install
-  php7 /usr/bin/composer bin box install
+  composer bin box install
   php bin/improve_class_alias.php
   php -r 'require "vendor/autoload.php"; Psalm\Internal\VersionUtils::dump();'
 }
@@ -35,6 +35,30 @@ updlockfiles() {
 build() {
   cd ${pkgname}
   vendor/bin/box compile
+}
+
+check() {
+  rm -rf testing/
+  mkdir -p testing/src
+  cd testing/
+
+  composer init -n --name test/test
+  composer install
+  ../${pkgname}/build/psalm.phar --init
+  ../${pkgname}/build/psalm.phar
+
+  cat > src/index.php <<EOF
+<?php echo(phpversion());
+EOF
+  ../${pkgname}/build/psalm.phar
+
+  cat > src/index.php <<EOF
+<?php echo(this_is_invalid_to_provoke_an_error());
+EOF
+  if ../${pkgname}/build/psalm.phar; then
+    echo 'did not detect invalid php as invalid'
+    exit 1
+  fi
 }
 
 package() {
