@@ -5,7 +5,7 @@
 # Contributor: Matthias Lisin <ml@visu.li>
 
 pkgname=helm
-pkgver=3.10.3
+pkgver=3.11.0
 pkgrel=1
 pkgdesc="The Kubernetes Package Manager"
 arch=("x86_64")
@@ -30,7 +30,7 @@ pkgver() {
 
 prepare() {
   cd "${pkgname}"
-  go mod tidy
+  go mod tidy -compat=1.17
 }
 
 build() {
