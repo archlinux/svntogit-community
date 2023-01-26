@@ -2,9 +2,9 @@
 # Contributor: libertylocked <libertylocked@disroot.org>
 
 pkgname=bitwarden
-pkgver=2022.12.0
+pkgver=2023.1.1
 pkgrel=1
-_electronversion=19
+_electronversion=21
 pkgdesc='A secure and free password manager for all of your devices'
 arch=('x86_64')
 url='https://github.com/bitwarden/clients/tree/master/apps/desktop'
