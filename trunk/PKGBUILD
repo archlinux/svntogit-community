@@ -20,7 +20,7 @@ validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
               DA23579A74D4AD9AF9D3F945CEFAC8EAAF17519D)
 
 pkgdesc="A compatibility layer for running Windows programs"
-url="http://www.winehq.com"
+url="https://www.winehq.org"
 arch=(x86_64)
 options=(staticlibs !lto)
 license=(LGPL)
