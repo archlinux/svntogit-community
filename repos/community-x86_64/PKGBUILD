@@ -4,7 +4,7 @@
 # Contributor: Richard Bradfield <bradfier@fstab.me>
 
 pkgname=github-cli
-pkgver=2.21.2
+pkgver=2.22.0
 pkgrel=1
 pkgdesc="The GitHub CLI"
 arch=("x86_64")
@@ -15,12 +15,15 @@ makedepends=("go" "git")
 checkdepends=("openssh")
 optdepends=("git: To interact with repositories")
 source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-sha256sums=('225cdeeaf7cacd837abd58ec1b29a5351de02509d82a70921842214ebf2389be')
+sha256sums=('fc9aacccd6a07da6fb2cfa57e2a08d72bdc3a3476f6abec6250cda1e59ae6e16')
 
 prepare() {
     cd "cli-${pkgver}"
     # TODO: These tests invoke the TTY and our container *really* does not like that
     rm pkg/cmd/auth/login/login_test.go
+    # Drop tests that invoking 3rd party server processes
+    rm pkg/cmd/search/shared/shared_test.go \
+       internal/codespaces/rpc/invoker_test.go
 }
 
 build() {
