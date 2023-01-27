@@ -1,0 +1,80 @@
+# Maintainer: George Rawlinson <george@rawlinson.net.nz>
+
+_pkgname=timescaledb
+pkgname=timescaledb-old-upgrade
+_commit='3314810fd5f336f6b93847432eef293989975be2'
+_current_pg_version=15
+_old_pg_version=$(( _current_pg_version-1 ))
+# limit to last 5 releases
+_versions=(
+  2.7.2
+  2.8.0
+  2.8.1
+  2.9.0
+  2.9.1
+  2.9.2 # current ts version
+)
+pkgver="${_versions[-1]}"
+pkgrel=3
+pkgdesc='TimescaleDB build for migrating between major versions of PostgreSQL'
+arch=('x86_64')
+url='https://www.timescale.com/'
+license=('Apache' 'custom:Timescale')
+depends=("timescaledb=$pkgver" 'postgresql-old-upgrade')
+makedepends=('git' 'gcc' 'cmake' 'postgresql' 'postgresql-libs')
+source=("$_pkgname::git+https://github.com/timescale/timescaledb#commit=$_commit")
+b2sums=('SKIP')
+
+prepare() {
+  mkdir -p build
+}
+
+build() {
+  for version in "${_versions[@]}"; do
+    cd "$srcdir/$_pkgname"
+
+    git checkout "$version"
+
+    BUILD_DIR="$srcdir/build/$version" ./bootstrap \
+      -DWARNINGS_AS_ERRORS=OFF \
+      -DREGRESS_CHECKS=OFF \
+      -DPG_PATH="/opt/pgsql-${_old_pg_version}"
+
+    # build shared library for $version
+    cd "$srcdir/build/$version"
+
+    # ensure reproducible builds (value from `lsb_release -r`)
+    # TODO: resolve https://github.com/timescale/timescaledb/issues/3480
+    sed \
+      -e "s:BUILD_OS_VERSION \".*\"$:BUILD_OS_VERSION \"rolling\":" \
+      -i src/config.h
+
+    if [ "$version" == "${_versions[-1]}" ]; then
+      make
+    else
+      make timescaledb timescaledb-tsl sqlfile
+    fi
+  done
+}
+
+package() {
+  cd "$_pkgname"
+  # install licenses from latest version
+  git checkout "${_versions[-1]}"
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" \
+    LICENSE LICENSE-APACHE tsl/LICENSE-TIMESCALE
+
+  # install package or past shared library
+  for version in "${_versions[@]}"; do
+    cd "$srcdir/build/$version"
+    if [ "$version" == "${_versions[-1]}" ]; then
+      make DESTDIR="$pkgdir/" install
+    else
+      install -vDm755 -t "$pkgdir/opt/pgsql-${_old_pg_version}/lib" \
+        "src/$_pkgname-$version.so" \
+        "tsl/src/$_pkgname-tsl-$version.so"
+      install -Dm644 -t "$pkgdir/opt/pgsql-${_old_pg_version}/share/extension" \
+        "sql/timescaledb--$version.sql"
+    fi
+  done
+}
