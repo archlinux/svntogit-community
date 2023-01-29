@@ -1,0 +1,77 @@
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
+# Contributor: j605 on AUR
+# Contributor: Phil A. <flying-sheep@web.de>
+# Contributor: Dominik Stańczak <stanczakdominik at gmail dot com>
+
+pkgname=python-nbdime
+pkgver=3.1.1+28+g510364e
+_commit=510364e08ca41dd474ede7ca349506a6e949e50d
+pkgrel=1
+pkgdesc='Diff and merge of Jupyter Notebooks'
+url='https://github.com/jupyter/nbdime'
+makedepends=(python-build python-installer python-setuptools python-wheel python-tabulate
+             npm git)
+depends=(python python-gitpython python-six jupyter-nbformat python-tornado
+         python-colorama python-pygments python-requests python-jinja
+         python-ipython-genutils jupyter-server jupyter-server-mathjax)
+checkdepends=(mercurial
+              python-jsonpatch python-pytest python-pytest-timeout python-pytest-tornado)
+optdepends=(
+  'python-tabulate: for nbdime.profiling'
+)
+provides=(jupyterlab-extension-nbdime jupyter-nbdime)
+license=(BSD)
+arch=(any)
+source=("git+https://github.com/jupyter/nbdime#commit=$_commit")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd nbdime
+  git describe --tags | sed 's/-/+/g'
+}
+
+prepare() {
+  cd nbdime
+
+  # Many tests need a valid git config as well as assume `master` as the default branch
+  cat > gitconfig <<EOF
+[user]
+    name = builduser
+    email = builduser@archlinux
+[init]
+    defaultBranch = master
+EOF
+}
+
+build() {
+  cd nbdime
+
+  # nbdime uses old webpack
+  # Similar issue: https://github.com/archlinux/svntogit-community/commit/b6d534155399e99d19b3fe3db61cd3ffd6095dba
+  # Related: https://github.com/jupyter/nbdime/issues/614 (3.1.1: pep517 build fails),
+  #          https://github.com/jupyter/nbdime/pull/632 (chore: upgrade webpack to version - closed due to incompatibility with webpack plugins)
+  export NODE_OPTIONS="--openssl-legacy-provider"
+
+  # Many indirect dependencies are not declared in PKGBUILDs of dependent packages
+  # jupyterlab is included in pyproject.toml as the jupyter command is needed for builds
+  # https://github.com/jupyter/nbdime/pull/572#discussion_r611501164
+  python -m build --wheel --no-isolation --skip-dependency-check
+}
+
+check() {
+  cd nbdime
+
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  python -m installer --destdir="$PWD/tmp_install" dist/*.whl
+
+  PYTHONPATH="$PWD/tmp_install$site_packages" PATH="$PATH:$PWD/tmp_install/usr/bin" GIT_CONFIG_GLOBAL="$PWD/gitconfig" pytest nbdime
+}
+
+package() {
+  cd nbdime
+
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  mv "$pkgdir"/usr/etc "$pkgdir"/etc
+
+  install -Dm644 LICENSE.md "$pkgdir/usr/share/licenses/$pkgname/LICENSE.md"
+}
