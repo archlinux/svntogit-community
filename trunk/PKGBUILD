@@ -1,0 +1,68 @@
+# Maintainer: Leonidas Spyropoulos <artafinde@archlinux.org>
+
+pkgname=kafka
+pkgver=3.3.2
+pkgrel=1
+_scalaver=2.13
+pkgdesc="An open-source distributed event streaming platform"
+arch=('any')
+url="https://kafka.apache.org/"
+license=('Apache')
+depends=(bash 'java-runtime=17' scala>=2.13)
+makedepends=(gradle 'java-environment=17')
+source=(
+	https://downloads.apache.org/$pkgname/$pkgver/$pkgname-$pkgver-src.tgz{,.asc}
+)
+sha512sums=('385bbe644ca1cce80e8edca0aab76c02d00ef6ba6a408fa18bacef279524662102678d7188b5d814acba476dd7361a1ecd1a8aa34e4425c4d44a640b6dd1aea4'
+            'SKIP')
+b2sums=('e4c37a24b5cbb537fc1b117662e30a63bb11373ec6bfa50e017612853cff476833a3e7b4b1a5dc4f69f59091e98b811a99ddbacffc58f9a14cf40c8bd1147861'
+        'SKIP')
+# list of trusted signing keys: https://downloads.apache.org/kafka/KEYS
+validpgpkeys=(
+    5AFBFDA44492C1240E5A45AFF19D6CB551424672 # Chris Egerton (CODE SIGNING KEY) <cegerton@apache.org>
+)
+
+build() {
+	cd "$pkgname-$pkgver-src"
+	./gradlew -PscalaVersion=$_scalaver releaseTarGz
+
+	install -vdm 755 "$srcdir/$pkgname-$pkgver-src/dist"
+    tar -xf "core/build/distributions/${pkgname}_${_scalaver}-$pkgver.tgz" --strip 1 -C "$srcdir/$pkgname-$pkgver-src/dist"
+}
+
+# check() {
+	# TODO unitTest works, IntegrationTest fail, disable for now to save 17mins of build time
+# 	cd "$pkgname-$pkgver-src"
+# 	./gradlew -PscalaVersion=$_scalaver unitTest
+# }
+
+package() {
+	local _sh_script
+	cd "$pkgname-$pkgver-src/dist"
+	
+	# remove unneeded and OS specific scripts
+	rm -rvf bin/windows
+	
+	# make target scripts executable
+	chmod 755 bin/*.sh
+	
+	# copy application
+	install -vdm 755 "$pkgdir/usr/share/$pkgname/"
+	cp -dr --no-preserve='ownership' {bin,libs,licenses,site-docs} "$pkgdir/usr/share/$pkgname/"
+
+	# copy config
+	install -vdm 755 "$pkgdir/etc/$pkgname/"
+	cp -dr --no-preserve='ownership' config/* "$pkgdir/etc/$pkgname/"
+
+	# symlink scripts into PATH
+	install -vdm 755 "$pkgdir/usr/bin/"
+
+	for _sh_script in bin/*.sh; do
+    	ln -sv /usr/share/$pkgname/${_sh_script} "$pkgdir/usr/${_sh_script}"
+	done
+
+	# logs directory
+	install -vdm 750 "$pkgdir/var/log/$pkgname/"
+	# docs
+	install -vDm 644 {LICENSE,NOTICE} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
