@@ -54,7 +54,7 @@ int main(int argc, char* argv[])
   hipMemcpy(hrecv, recvbuff[0], size * sizeof *hrecv, hipMemcpyDeviceToHost);
   hipDeviceSynchronize();
   for (int i = 0; i < size; i++) {
-    if(fabsf(hsend[i] - hrecv[i]) > 0.001f){
+    if(fabsf(NDEV * hsend[i] - hrecv[i]) > 0.001f){
         printf("At entry %i\n", i);
         printf("Expected %f\n", hsend[i]);
         printf("Received %f\n", hrecv[i]);
