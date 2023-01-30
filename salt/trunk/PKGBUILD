@@ -7,7 +7,7 @@
 
 pkgname=salt
 pkgver=3005.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Central system and configuration manager'
 arch=('any')
 url='http://saltstack.org/'
@@ -25,6 +25,7 @@ depends=('python-jinja'
          'python-distro'
          'python-importlib-metadata'
          'python-pycryptodomex')
+makedepends=('python-setuptools')
 optdepends=('dmidecode: decode SMBIOS/DMI tables'
             'python-pygit2: gitfs support')
 #checkdepends=('python-pytest' 'python-psutil')
@@ -33,10 +34,10 @@ backup=('etc/logrotate.d/salt'
         'etc/salt/minion')
 install=salt.install
 source=("https://pypi.io/packages/source/s/salt/salt-$pkgver.tar.gz"
-        "fix-entrypoint.patch::https://github.com/saltstack/salt/commit/b676e6338a7c094cb3335d11f851ac0e12222017.patch"
+        "salt-importlib.patch"
         salt.logrotate)
 sha256sums=('fa14c5d873f863b50950121d7e23a2449502745490c7c48c0cf045406cfe57c1'
-            '219f23ddd44003c8572201495834cf8d84967b182d29157fa3ce73270785b7ab'
+            '10703afd392e2af87cd06bdb6bcc3322c44825ef57cdc6e67d47a53b72514623'
             'abecc3c1be124c4afffaaeb3ba32b60dfee8ba6dc32189edfa2ad154ecb7a215')
 
 prepare() {
@@ -48,7 +49,7 @@ prepare() {
   # so pyzmq<=20.0.0 ends up in the final requirements.txt
   echo -e '-r crypto.txt\n\npyzmq' > requirements/zeromq.txt
 
-  patch -Np1 < "$srcdir/fix-entrypoint.patch"
+  patch -Np1 < "$srcdir/salt-importlib.patch"
 }
 
 build() {
