@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=20.0
-pkgrel=1
+pkgrel=2
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -30,9 +30,10 @@ makedepends=(
   'libbluray' 'libcdio' 'libcec' 'libgl' 'mariadb-libs' 'libmicrohttpd'
   'libmodplug' 'libmpeg2' 'libnfs' 'libplist' 'libpulse' 'libva'
   'libva-vdpau-driver' 'libxrandr' 'libxslt' 'lirc' 'lzo' 'mesa' 'nasm'
-  'python-pycryptodomex' 'python-pillow' 'python-pybluez'
-  'python-simplejson' 'shairplay' 'smbclient' 'spdlog' 'taglib' 'tinyxml' 'swig'
-  'upower' 'giflib' 'rapidjson' 'ghostscript' 'meson' 'gtest' 'graphviz'
+  'pipewire' 'python-pycryptodomex' 'python-pillow' 'python-pybluez'
+  'python-simplejson' 'shairplay' 'smbclient' 'sndio' 'spdlog' 'taglib'
+  'tinyxml' 'swig' 'upower' 'giflib' 'rapidjson' 'ghostscript' 'meson' 'gtest'
+  'graphviz'
   # wayland
   'wayland-protocols' 'waylandpp' 'libxkbcommon'
   # gbm
@@ -105,7 +106,6 @@ build() {
     -DUSE_LTO=ON
     -DENABLE_LDGOLD=OFF
     -DENABLE_AIRTUNES=ON
-    -DENABLE_ALSA=ON
     -DENABLE_AVAHI=ON
     -DENABLE_BLURAY=ON
     -DENABLE_CEC=ON
@@ -117,7 +117,6 @@ build() {
     -DENABLE_MYSQLCLIENT=ON
     -DENABLE_NFS=ON
     -DENABLE_OPTICAL=ON
-    -DENABLE_PULSEAUDIO=ON
     -DENABLE_SMBCLIENT=ON
     -DENABLE_UDEV=ON
     -DENABLE_UPNP=ON
@@ -159,9 +158,9 @@ package_kodi() {
     'bluez-libs' 'curl' 'dav1d' 'desktop-file-utils' 'hicolor-icon-theme' 'fmt'
     'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec' 'libmicrohttpd' 'libnfs'
     'libplist' 'libpulse' 'libva' 'libvdpau' 'libxslt' 'lirc' 'mariadb-libs'
-    'mesa' 'python-pillow' 'python-pycryptodomex' 'python-simplejson'
-    'shairplay' 'smbclient' 'spdlog' 'sqlite' 'taglib' 'tinyxml'
-    'libxrandr' 'libxkbcommon' 'waylandpp' 'libinput'
+    'mesa' 'pipewire' 'python-pillow' 'python-pycryptodomex'
+    'python-simplejson' 'shairplay' 'smbclient' 'sndio' 'spdlog' 'sqlite'
+    'taglib' 'tinyxml' 'libxrandr' 'libxkbcommon' 'waylandpp' 'libinput'
     'pcre'
   )
   optdepends=(
