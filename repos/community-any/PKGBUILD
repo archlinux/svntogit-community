@@ -2,29 +2,30 @@
 
 pkgname=python-whatever
 pkgver=0.7
-pkgrel=1
+_commit=7f2cab8e8dfe50e0696b149c68b1c3fff7b70094
+pkgrel=2
 pkgdesc='Easy way to make anonymous functions by partial application of operators'
 arch=('any')
 license=('BSD')
 url='https://github.com/Suor/whatever'
 depends=('python')
-makedepends=('python-setuptools')
+makedepends=('git' 'python-setuptools')
 checkdepends=('python-pytest')
-source=("https://github.com/Suor/whatever/archive/$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('b3a5251cfb8e420cded4eb3fd480da66320ca47f7a4cd9c60c76c0bba7698646ab3f19d069397d660ffc67702702fed281adc113accda8ceeff65876d90916b5')
+source=("git+https://github.com/Suor/whatever.git#commit=$_commit")
+sha512sums=('SKIP')
 
 build() {
-  cd whatever-$pkgver
+  cd whatever
   python setup.py build
 }
 
 check() {
-  cd whatever-$pkgver
+  cd whatever
   pytest
 }
 
 package() {
-  cd whatever-$pkgver
+  cd whatever
   python setup.py install --root="$pkgdir" --optimize=1
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
