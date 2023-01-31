@@ -1,30 +1,31 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-funcy
-pkgver=1.17
+pkgver=1.18
+_commit=416c187374a86b27ebd7ea882bb38764390e46ae
 pkgrel=1
 pkgdesc='A fancy and practical functional tools'
 arch=('any')
 license=('BSD')
 url='https://github.com/Suor/funcy'
 depends=('python')
-makedepends=('python-setuptools')
-checkdepends=('python-pytest-runner' 'python-whatever')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/Suor/funcy/archive/$pkgver.tar.gz")
-sha512sums=('1205c4f9fb70f82e7ce90afdef892647284f69ece94a44991aca75ac640ad11ea8c11a6288330a01d8cac1f9587531a3ed5c2cf55af920456f93226bf31ba494')
+makedepends=('git' 'python-setuptools')
+checkdepends=('python-pytest' 'python-whatever')
+source=("git+https://github.com/Suor/funcy.git#commit=$_commit")
+sha512sums=('SKIP')
 
 build() {
-  cd funcy-$pkgver
+  cd funcy
   python setup.py build
 }
 
 check() {
-  cd funcy-$pkgver
-  python setup.py pytest
+  cd funcy
+  pytest
 }
 
 package() {
-  cd funcy-$pkgver
+  cd funcy
   python setup.py install --root="$pkgdir" --optimize=1
-  install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
