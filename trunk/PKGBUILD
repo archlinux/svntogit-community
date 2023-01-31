@@ -2,31 +2,30 @@
 
 pkgname=python-pytest-runner
 pkgver=6.0.0
-pkgrel=1
+_commit=a3dc9f4c6afea684ed48da998958470ea41f3c00
+pkgrel=2
 pkgdesc="Invoke py.test as distutils command with dependency resolution"
 arch=('any')
 license=('MIT')
 url="https://github.com/pytest-dev/pytest-runner"
 depends=('python-pytest' 'python-setuptools')
-makedepends=('python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools-scm' 'python-wheel')
 checkdepends=('python-pytest-virtualenv' 'python-pytest-enabler')
-source=("https://github.com/pytest-dev/pytest-runner/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
-sha512sums=('8628f4b2ef24a1bcd3294efcfad289cb96949b0b1176e64b2033b8767c5fd217acdf763a3cdb137af6043e0dacd64a76d0a104674dc88464fbb473df37d24c61')
-
-export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
+source=("git+https://github.com/pytest-dev/pytest-runner.git#commit=$_commit")
+sha512sums=('SKIP')
 
 build() {
-  cd pytest-runner-$pkgver
+  cd pytest-runner
   python -m build --wheel --no-isolation
 }
 
 check() {
-  cd pytest-runner-$pkgver
+  cd pytest-runner
   PYTHONPATH="$PWD" pytest
 }
 
 package() {
-  cd pytest-runner-$pkgver
+  cd pytest-runner
   python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
