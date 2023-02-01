@@ -5,7 +5,7 @@ pkgbase=openblas
 pkgname=(openblas openblas64)
 _pkgname=OpenBLAS
 pkgver=0.3.21
-pkgrel=2
+pkgrel=3
 _blasver=3.9.0
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD"
 arch=('x86_64')
@@ -16,6 +16,11 @@ makedepends=('cmake' 'perl' 'gcc-fortran')
 #checkdepends=('cblas')
 source=(${_pkgname}-v${pkgver}.tar.gz::https://github.com/xianyi/OpenBLAS/archive/v${pkgver}.tar.gz)
 sha512sums=('4625c8e6ccfa9120281fd714d3f6b7c3ba2265470c1be76121d6b25dc3dacb899d26e5d9a417ddc616d23909f1411495aa995ef8d8d6df8511cd5cefbabcb1c5')
+
+prepare() {
+# Fix libm linkage https://github.com/xianyi/OpenBLAS/issues/3892
+  sed -e 's|if(ANDROID)|if(TRUE)|' -i $_pkgname-$pkgver/CMakeLists.txt
+}
 
 build() {
   cmake -B build -S $_pkgname-$pkgver \
@@ -55,7 +60,6 @@ package_openblas() {
   conflicts=('blas')
 
   DESTDIR="$pkgdir" cmake --install build
-#  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapack*
   install -Dm644 $_pkgname-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
   cd "$pkgdir"/usr/lib/
@@ -70,7 +74,6 @@ package_openblas64() {
   conflicts=('blas64')
 
   DESTDIR="$pkgdir" cmake --install build64
-#  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapack*
   install -Dm644 $_pkgname-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
  
   cd "$pkgdir"/usr/lib/
