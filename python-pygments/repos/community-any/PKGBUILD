@@ -3,7 +3,7 @@
 
 pkgname=python-pygments
 pkgver=2.14.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Python syntax highlighter"
 arch=('any')
 url="https://pygments.org/"
