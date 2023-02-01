@@ -1,7 +1,7 @@
 # Maintainer: Daurnimator <daurnimator@archlinux.org>
 
 pkgname=('grafana-agent' 'grafana-agentctl' 'grafana-agent-crow')
-pkgver=0.30.2
+pkgver=0.31.0
 pkgrel=1
 pkgdesc='Grafana Agent is a telemetry collector for sending metrics, logs, and trace data to the opinionated Grafana observability stack'
 url='https://github.com/grafana/agent'
@@ -12,7 +12,7 @@ makedepends=('go' 'systemd')
 options=('!lto')
 source=($pkgname-$pkgver.tar.gz::https://github.com/grafana/agent/archive/v$pkgver.tar.gz
         grafana-agent.sysusers grafana-agent.service grafana-agent.tmpfiles)
-sha512sums=('0cc34b1826fa0be53427e87de39c9f5afe1a788bf32d87d95bc1c5a2445cb117bc5e8ecf218de2b45c842bd93147d7362ee90a4e3446cdc7d88b26bdee407ae1'
+sha512sums=('8f0d74c95ddbfc4603aa987505c66a1277681a9abcbc2ecca733fd93c0ad5a03b7f0af23dabc6a89a2fc5089cc13868d71bb14994a19d3607c7c24b90a464d05'
             '1e58f6273562fd6ddeae41bb6d223230ed301199af6bd2f85fa3d2c1e6352952c600cd4488ad769069519c42b6863be84aaa2c93c88f696e5a0bedbb93758d0e'
             '3f8debbc4732009f54c063d70c2dce4846b81b829f495d25a431fef857077c83949d777f763de8c106fb8d1cf0bd7e874680db8387b4811704b1a303932fa090'
             '3a4c4896b2454272b5a2d53ba5aa7009fa5b42a573fef521afb5d9712e53119539c4195d2b149d04d086c5fa197ccf7dc9bbdc407efb55514e3c92b994121fa8')
@@ -20,6 +20,7 @@ sha512sums=('0cc34b1826fa0be53427e87de39c9f5afe1a788bf32d87d95bc1c5a2445cb117bc5
 prepare() {
   cd "agent-$pkgver"
 
+  export GOPATH="${srcdir}"
   go mod download
 }
 
@@ -30,8 +31,9 @@ build() {
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
+  export GOPATH="${srcdir}"
   export GOPROXY=off
-  for path in cmd/agent cmd/agentctl tools/crow; do
+  for path in cmd/grafana-agent cmd/grafana-agentctl tools/crow; do
     go build \
       -trimpath \
       -buildmode=pie \
@@ -41,6 +43,7 @@ build() {
       -ldflags " \
          -X github.com/grafana/agent/pkg/build.Version=$pkgver
          -X github.com/grafana/agent/pkg/build.BuildDate=$(date -u +'%Y-%m-%dT%H:%M:%SZ' --date=@${SOURCE_DATE_EPOCH})
+         -compressdwarf=false
          -linkmode external
          -extldflags \"${LDFLAGS}\"" \
       "./$path"
@@ -50,7 +53,8 @@ build() {
 check() {
   cd "agent-$pkgver"
 
-  ./agent -version
+  ./grafana-agent -version
+  ./grafana-agentctl --version
 
   go test -v ./pkg/{agentctl,config,crow,logs,metrics,server,traces}/
 }
@@ -60,7 +64,7 @@ package_grafana-agent() {
 
   cd "agent-$pkgver"
 
-  install -Dm755 agent "$pkgdir/usr/bin/grafana-agent"
+  install -Dm755 -t "$pkgdir/usr/bin" grafana-agent
   install -Dm644 packaging/grafana-agent.yaml "$pkgdir/etc/grafana-agent.yaml"
 
   install -Dm644 "$srcdir/grafana-agent.sysusers" "$pkgdir/usr/lib/sysusers.d/grafana-agent.conf"
@@ -73,7 +77,7 @@ package_grafana-agentctl() {
 
   cd "agent-$pkgver"
 
-  install -Dm755 -t "$pkgdir"/usr/bin agentctl
+  install -Dm755 -t "$pkgdir"/usr/bin grafana-agentctl
 }
 
 package_grafana-agent-crow() {
