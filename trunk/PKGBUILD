@@ -1,28 +1,47 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 # Contributor: Giuseppe Borzi <gborzi _AT_ ieee _DOT_ org>
 
-pkgname=openblas
+pkgbase=openblas
+pkgname=(openblas openblas64)
 _pkgname=OpenBLAS
 pkgver=0.3.21
-pkgrel=1
+pkgrel=2
+_blasver=3.9.0
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD"
 arch=('x86_64')
 url="https://www.openblas.net/"
 license=('BSD')
 depends=('gcc-libs')
-makedepends=('perl' 'gcc-fortran')
-checkdepends=('cblas')
-provides=('blas=3.9.0')
-conflicts=('blas')
+makedepends=('cmake' 'perl' 'gcc-fortran')
+#checkdepends=('cblas')
 source=(${_pkgname}-v${pkgver}.tar.gz::https://github.com/xianyi/OpenBLAS/archive/v${pkgver}.tar.gz)
 sha512sums=('4625c8e6ccfa9120281fd714d3f6b7c3ba2265470c1be76121d6b25dc3dacb899d26e5d9a417ddc616d23909f1411495aa995ef8d8d6df8511cd5cefbabcb1c5')
 
 build() {
-  cd $_pkgname-$pkgver
+  cmake -B build -S $_pkgname-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SHARED_LIBS=ON \
+    -DBUILD_WITHOUT_LAPACK=ON \
+    -DBUILD_WITHOUT_CBLAS=ON \
+    -DBUILD_TESTING=OFF \
+    -DNO_AFFINITY=ON \
+    -DUSE_OPENMP=1 \
+    -DCORE=CORE2 \
+    -DDYNAMIC_ARCH=ON 
+  cmake --build build
 
-  make NO_STATIC=1 NO_LAPACK=1 NO_LAPACKE=1 NO_CBLAS=1 NO_AFFINITY=1 USE_OPENMP=1 \
-       CFLAGS="$CPPFLAGS $CFLAGS" TARGET=CORE2 DYNAMIC_ARCH=1 \
-       NUM_THREADS=64 MAJOR_VERSION=3 libs shared
+  cmake -B build64 -S $_pkgname-$pkgver \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -DBUILD_SHARED_LIBS=ON \
+    -DBUILD_WITHOUT_LAPACK=ON \
+    -DBUILD_WITHOUT_CBLAS=ON \
+    -DBUILD_TESTING=OFF \
+    -DNO_AFFINITY=ON \
+    -DUSE_OPENMP=1 \
+    -DCORE=CORE2 \
+    -DDYNAMIC_ARCH=ON \
+    -DINTERFACE64=1
+  cmake --build build64
 }
 
 check() {
@@ -31,21 +50,34 @@ check() {
   #make CFLAGS="$CPPFLAGS $CFLAGS -lcblas" TARGET=CORE2 tests
 }
 
-package() {
-  cd $_pkgname-$pkgver
+package_openblas() {
+  provides=("blas=$_blasver")
+  conflicts=('blas')
 
-  make PREFIX="$pkgdir"/usr NUM_THREADS=64 MAJOR_VERSION=3 install
-  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapack*
-  install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+  DESTDIR="$pkgdir" cmake --install build
+#  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapack*
+  install -Dm644 $_pkgname-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 
   cd "$pkgdir"/usr/lib/
-  ln -s libopenblasp-r$pkgver.so libblas.so
-  ln -s libopenblasp-r$pkgver.so libblas.so.3
-  sed -i -e "s%$pkgdir%%" "$pkgdir"/usr/lib/cmake/openblas/OpenBLASConfig.cmake
-  sed -i -e "s%$pkgdir%%" "$pkgdir"/usr/lib/pkgconfig/openblas.pc
+  ln -s libopenblas.so.${pkgver%.*} libblas.so
+  ln -s libopenblas.so.${pkgver%.*} libblas.so.3
   ln -s openblas.pc "$pkgdir"/usr/lib/pkgconfig/blas.pc
+}
 
-  rmdir "$pkgdir"/usr/bin
+package_openblas64() {
+  pkgdesc+=" (64-bit integers)"
+  provides=("blas64=$_blasver")
+  conflicts=('blas64')
+
+  DESTDIR="$pkgdir" cmake --install build64
+#  rm -f "$pkgdir"/usr/include/cblas.h "$pkgdir"/usr/include/lapack*
+  install -Dm644 $_pkgname-$pkgver/LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+ 
+  cd "$pkgdir"/usr/lib/
+  ln -s libopenblas_64.so.${pkgver%.*} libblas64.so
+  ln -s libopenblas_64.so.${pkgver%.*} libblas64.so.3
+  ln -s libopenblas_64.so.${pkgver%.*} libopenblas64_.so # Needed by julia
+  ln -s openblas64.pc "$pkgdir"/usr/lib/pkgconfig/blas64.pc
 }
 
 # vim:set ts=2 sw=2 et:
