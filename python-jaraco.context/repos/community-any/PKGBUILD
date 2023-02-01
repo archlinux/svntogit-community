@@ -1,9 +1,9 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-jaraco.context
-pkgver=4.2.0
-_commit=5bf0042ef434aa8924a771a405ae29e4c0110c1e
-pkgrel=2
+pkgver=4.2.1
+_commit=7e22446a66f13140c0cfc7df3f36c162f11f3b5a
+pkgrel=1
 pkgdesc="Context managers by jaraco"
 url="https://github.com/jaraco/jaraco.context"
 license=('MIT')
