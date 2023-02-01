@@ -2,8 +2,8 @@
 
 _name=sphinxcontrib-htmlhelp
 pkgname=python-sphinxcontrib-htmlhelp
-pkgver=2.0.0
-pkgrel=5
+pkgver=2.0.1
+pkgrel=1
 pkgdesc='Sphinx extension which renders HTML help files'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-htmlhelp
@@ -11,18 +11,9 @@ license=('BSD')
 makedepends=('python-build' 'python-installer' 'python-setuptools'
              'python-wheel')
 checkdepends=('python-html5lib' 'python-pytest' 'python-sphinx')
-source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz"
-        'htmlhelp-read_txt.patch::https://github.com/sphinx-doc/sphinxcontrib-htmlhelp/commit/248ff52b3c3d39c20cdaef3052ac7507a407733a.patch')
-sha256sums=('f5f8bb2d0d629f398bf47d0d69c07bc13b65f75a81ad9e2f71a63d4b7a2f6db2'
-            '064d99933b5b922181f7a6f89f745d32c7d7ae7f8cd864e9dca76c76b56e106a')
-b2sums=('09b0d9bcec57140278c4476fa0bbc40d359fc167d8ea891a1585fbdeafe6eb0b52442dbbc8d1d5b6edb3953b04fc29a71f6f74e58a281ebb0d79e5a30cb02749'
-        'a82d788549acacbcd3a5b056fea76c7f1dfe9a0ca3b367c0f456cbe32d394e21a07766e407311dd3b62b49fb7cec94a05fe26780ab2ec615e23bc9c255bba0ce')
-
-prepare() {
-  cd $_name-$pkgver
-  # https://github.com/sphinx-doc/sphinxcontrib-htmlhelp/pull/16
-  patch --forward --strip=1 --input=../htmlhelp-read_txt.patch
-}
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz")
+sha256sums=('0cbdd302815330058422b98a113195c9249825d681e18f11e8b1f78a2f11efff')
+b2sums=('922921a52c421bde9787df6fd5107a515bb0af4f4a6a6c8b84f474b9d7b0ce9251437b8780b3464190e494555bbe6d72604e155bce98794c36c03ddbcc5c4cc7')
 
 build() {
   cd $_name-$pkgver
