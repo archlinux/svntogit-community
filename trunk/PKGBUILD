@@ -14,12 +14,14 @@ license=('BSD')
 depends=('gcc-libs')
 makedepends=('cmake' 'perl' 'gcc-fortran')
 #checkdepends=('cblas')
-source=(${_pkgname}-v${pkgver}.tar.gz::https://github.com/xianyi/OpenBLAS/archive/v${pkgver}.tar.gz)
-sha512sums=('4625c8e6ccfa9120281fd714d3f6b7c3ba2265470c1be76121d6b25dc3dacb899d26e5d9a417ddc616d23909f1411495aa995ef8d8d6df8511cd5cefbabcb1c5')
+source=(${_pkgname}-v${pkgver}.tar.gz::https://github.com/xianyi/OpenBLAS/archive/v${pkgver}.tar.gz
+        https://github.com/xianyi/OpenBLAS/commit/7e97dddb.patch)
+sha512sums=('4625c8e6ccfa9120281fd714d3f6b7c3ba2265470c1be76121d6b25dc3dacb899d26e5d9a417ddc616d23909f1411495aa995ef8d8d6df8511cd5cefbabcb1c5'
+            'fd5b31176a073e9fad95b99d801be2350c6b957595b89f649f84cc7f938177a4d725f7c29f5e785c5441bcd89b5a2b6ddb9e77357dce1fe58fa9814cc8c1ea34')
 
 prepare() {
 # Fix libm linkage https://github.com/xianyi/OpenBLAS/issues/3892
-  sed -e 's|if(ANDROID)|if(TRUE)|' -i $_pkgname-$pkgver/CMakeLists.txt
+  patch -d $_pkgname-$pkgver -p1 < 7e97dddb.patch
 }
 
 build() {
