@@ -4,8 +4,8 @@
 # Contributor: peace4all <markspost at rocketmail dot com>
 
 pkgname=dnscrypt-proxy
-pkgver=2.1.2
-_commit=a769cdadf11753914b0448ba289f7fafa27ec7c9  # refs/tags/2.1.2
+pkgver=2.1.3
+_commit=edc73a4083587c311699b81e37fc796dc066eb10  # refs/tags/2.1.3
 pkgrel=1
 pkgdesc="A flexible DNS proxy, with support for encrypted DNS protocols"
 arch=(x86_64)
