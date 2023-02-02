@@ -1,22 +1,26 @@
-# Maintainer: David Runge <dave@sleepmap.de>
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
 pkgname=ssr
-pkgver=0.5.0
-pkgrel=4
+pkgver=0.6.0
+pkgrel=1
 pkgdesc="A tool for real-time spatial audio reproduction"
-arch=('x86_64')
+arch=(x86_64)
 url="http://spatialaudio.net/ssr/"
-license=('GPL3')
-groups=('pro-audio')
-depends=('fftw' 'glu' 'jack' 'qt5-base')
-makedepends=('asio' 'ecasound' 'gendesk' 'help2man' 'qt5-tools')
-source=("https://github.com/SoundScapeRenderer/${pkgname}/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.gz"
-        reproducible.patch)
-sha512sums=('89234be15d4607278a7e91935300bd60aec3a4b21f006a54059ccbdba2e3eac48e2869f58172dd4569d188aad45b04f14516c49b157f44c04482656abd103dfe'
+license=(GPL3)
+groups=(pro-audio)
+depends=(gcc-libs glibc glu qt5-base)
+makedepends=(asio ecasound fftw gendesk help2man jack libglvnd libsndfile qt5-tools websocketpp)
+source=(
+  https://github.com/SoundScapeRenderer/$pkgname/releases/download/$pkgver/$pkgname-$pkgver.tar.gz
+  reproducible.patch
+)
+sha512sums=('6fb82b619e4c6263072ff4ca6870713c0434174a6ff5e794d25851db1f55220bab1475b6ace082bd861d1c2c08a7053e58b7704c87b81c3d4f2ead1ab5714474'
             'bb86b74d09963e51dac59bacc0ec2bdac9442898e9ade99c51bce9c4c4e039263c107d53f17019b8c8538aca6fe6155f805afff194deb275b45c52a76401f05a')
 _name="SoundScape Renderer"
 
 prepare() {
-  declare -A descriptions=(
+  local name
+  declare -A _descriptions=(
     ["${pkgname}"]="${_name}: ${pkgdesc}"
     ["${pkgname}-aap"]="${_name} (Ambisonics Amplitude Panner): ${pkgdesc}"
     ["${pkgname}-binaural"]="${_name} (Binaural): ${pkgdesc}"
@@ -26,34 +30,44 @@ prepare() {
     ["${pkgname}-vbap"]="${_name} (Vector Based Amplitude Panning): ${pkgdesc}"
     ["${pkgname}-wfs"]="${_name} (Wave Field Synthesis): ${pkgdesc}"
   )
-  cd "$pkgname-$pkgver"
-  patch -Np1 -i "${srcdir}"/reproducible.patch
 
-  autoreconf -vfi
-  for name in "${!descriptions[@]}"; do
+  patch -Np1 -d $pkgname-$pkgver -i ../reproducible.patch
+
+  for name in "${!_descriptions[@]}"; do
     gendesk -n \
-            --pkgname ${name} \
-            --name ${name} \
-            --pkgdesc "${descriptions[$name]}" \
+            --pkgname $name \
+            --name $name \
+            --icon $pkgname \
+            --pkgdesc "${_descriptions[$name]}" \
             --genericname "Spatial Audio Renderer" \
             --categories "AudioVideo;Audio"
   done
+
+  cd $pkgname-$pkgver
+  autoreconf -fiv
 }
 
 build() {
-  cd "$pkgname-$pkgver"
-  ./configure --prefix=/usr \
-              --disable-vrpn
+  cd $pkgname-$pkgver
+  ./configure --prefix=/usr --disable-vrpn
   make
 }
 
 check() {
-  cd "$pkgname-$pkgver"
-  make -k check
+  make -k check -C $pkgname-$pkgver
 }
 
 package() {
-  cd "$pkgname-$pkgver"
-  make DESTDIR="$pkgdir/" install
-  install -vDm 644 *.desktop -t "${pkgdir}/usr/share/applications"
+  depends+=(
+    fftw libfftw3f.so
+    jack libjack.so
+    libglvnd libGL.so
+    libsndfile libsndfile.so
+  )
+
+  make DESTDIR="$pkgdir/" install -C $pkgname-$pkgver
+  install -vDm 644 *.desktop -t "$pkgdir/usr/share/applications/"
+
+  # add icon so that XDG desktop integration can pick it up
+  install -vDm 644 "$pkgdir/usr/share/$pkgname/images/${pkgname}_logo.png" "$pkgdir/usr/share/icons/hicolor/64x64/apps/$pkgname.png"
 }
