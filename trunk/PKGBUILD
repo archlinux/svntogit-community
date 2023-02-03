@@ -5,7 +5,7 @@ pkgbase=openblas
 pkgname=(openblas openblas64)
 _pkgname=OpenBLAS
 pkgver=0.3.21
-pkgrel=3
+pkgrel=4
 _blasver=3.9.0
 pkgdesc="An optimized BLAS library based on GotoBLAS2 1.13 BSD"
 arch=('x86_64')
@@ -33,7 +33,9 @@ build() {
     -DBUILD_TESTING=OFF \
     -DNO_AFFINITY=ON \
     -DUSE_OPENMP=1 \
+    -DNO_WARMUP=1 \
     -DCORE=CORE2 \
+    -DNUM_THREADS=64 \
     -DDYNAMIC_ARCH=ON 
   cmake --build build
 
@@ -45,7 +47,9 @@ build() {
     -DBUILD_TESTING=OFF \
     -DNO_AFFINITY=ON \
     -DUSE_OPENMP=1 \
+    -DNO_WARMUP=1 \
     -DCORE=CORE2 \
+    -DNUM_THREADS=64 \
     -DDYNAMIC_ARCH=ON \
     -DINTERFACE64=1
   cmake --build build64
