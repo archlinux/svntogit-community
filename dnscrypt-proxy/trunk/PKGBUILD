@@ -6,7 +6,7 @@
 pkgname=dnscrypt-proxy
 pkgver=2.1.3
 _commit=edc73a4083587c311699b81e37fc796dc066eb10  # refs/tags/2.1.3
-pkgrel=1
+pkgrel=2
 pkgdesc="A flexible DNS proxy, with support for encrypted DNS protocols"
 arch=(x86_64)
 url="https://github.com/DNSCrypt/dnscrypt-proxy"
@@ -30,7 +30,7 @@ source=(
   $pkgname-$pkgver-configuration.patch::https://github.com/dvzrv/dnscrypt-proxy/commit/4589ad77802b17bf781d6a625afb2e2775e1fb9a.patch
 )
 sha512sums=('SKIP'
-            '5589eddf9d5fda86778ebc91c9e20d8acfdcf86bc1f1a5d34279f33c402f32dc73539c0c0ba6bd74b80617e9abcc49c8c68cc06f171f74c66f2ffc92dfeecd75'
+            '6dd1ad7946c8903e0b91658a3680d5cd8d89e8c2177d23ad97b166312fbab649a22599542c94612dec46329e3bba3a55d1488b5228705a85c38565b7dfea54a5'
             '56a56e87032da9316b392b0613124b0743673041596c717005541ae9b3994c7fc16c02497ea773d321f45d8e0f9ea8fda00783062cef4d5c8277b5b6f7cb10d5'
             'f029f2b30db3d44c17350b736e558cdaaa2e8c7b5a36bf738f613a9a506047cd3f720881e2e957902d41cb4d20e6a252c97976f542bf552213039c54c9f731bb')
 validpgpkeys=('54A2B8892CC3D6A597B92B6C210627AABA709FE1') # Frank Denis (Jedi/Sector One) <pgp@pureftpd.org
