@@ -1,0 +1,85 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgbase=openpgp-ca
+pkgname=(openpgp-ca openpgp-ca-restd)
+pkgver=0.12.0
+pkgrel=1
+pkgdesc="Tool to handle OpenPGP keys in groups or organizations"
+arch=(x86_64)
+url="https://openpgp-ca.org/"
+license=(GPL3)
+depends=(gcc-libs glibc gmp)
+makedepends=(bzip2 capnproto clang nettle openssl pcsclite rust sqlite systemd)
+checkdepends=(python-cffi python-pytest)
+source=(
+  https://gitlab.com/openpgp-ca/openpgp-ca/-/archive/$pkgname/v$pkgver/$pkgname-$pkgname-v$pkgver.tar.gz
+  openpgp-ca-restd.env
+  openpgp-ca-restd.service
+  openpgp-ca-restd.sysusers
+  openpgp-ca-restd.tmpfiles
+)
+sha512sums=('1710321a72ab589d41ffa084e0b1f281b94c39fca0d82c8dd8059945523ba28fb93a0494c66a73d461eb6e3ef0668d247ca43ba48cc45bebfd982fa06e93665d'
+            'b32aaf7853565981b96b391972f930d1a910ef879a129643ac6b482292ea6dc30c374bf89ebab09b77ffd56b1f78bafd7d9069e6233e7ba8a21cfcfefe87e453'
+            'ae86d00c7128d4849ab52b7371f945c034297a79e849071c0ce3a34714e3f9e8eb174f3fb2d8e6781119dc5064712b8f6d1f064c041f72fdb102eff1393e0911'
+            'cc45e554f834f0e9ba2bc31bfb297b7ff52d291648b216b53b70af84a303877f21b74e4e4b1b6cd2464b98884afc072a62fe4aede4102b543ec79b60ebf21281'
+            'b5421457ab3a799643b6f7bd4851d093ed74b91070cc29a3730c3ce54b118867b2dcce6acf203acce050b5506da7ed7423ddf8c062d21c3ce76b19678230546e')
+b2sums=('58b93f368bd9c58e44649aaa730f3bf97cd9af08ad1db8fe26ceda861fae9f5b14f41be418065555379ab5d9cef0bdf5d9ac23a3b2daaeb2e89b9c8a54711e62'
+        '33a3961cb5ed248b75cc7bc744c38be385fd43ed0350d7137e0b11055ee2a76f8191d5d373235a9621c0083d6bf82e2c6eb6bf58bc82a2df88bdfb307f663cda'
+        'b63d28d69cca8a983d9c034ab7c7da9619dd71c36cf1e57bcfa8bc0ea2610a9693164e506b6cd359055b179550b64501fd18faf26065cebead6fe804c947295d'
+        'fd5b286b752f73ff7b5558f54397607bfcddd421cc3da45355ffd3f852e99dc887284e8401463779ec005609ae4e01c74200df90a0d206b47ad68785423e8b48'
+        '893dffa33c043f36201b2a8926871528c667a891f3dc4fd92dab1c6a0373d224dd7d5f6082f0425049364283525c9c57e979a95e26001ac02b62760a66aa3554')
+
+prepare() {
+  cd $pkgbase-$pkgbase-v$pkgver
+  # NOTE: add --locked as soon as upstream has split out the components
+  cargo fetch --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+  cd $pkgbase-$pkgbase-v$pkgver
+  export RUSTUP_TOOLCHAIN=stable
+  export CARGO_TARGET_DIR=target
+  cargo build --frozen --release --all-features
+}
+
+# tests are unfortunately broken in our packaging environment
+# check() {
+#   cd $pkgbase-$pkgbase-v$pkgver
+#   export RUSTUP_TOOLCHAIN=stable
+#   cargo test --frozen --all-features
+# }
+
+package_openpgp-ca() {
+  depends+=(
+    bzip2 libbz2.so
+    openssl libcrypto.so libssl.so
+    nettle libhogweed.so libnettle.so
+    pcsclite libpcsclite.so
+    sqlite libsqlite3.so
+  )
+
+  cd $pkgbase-$pkgbase-v$pkgver
+  install -vDm 755 target/release/oca -t "$pkgdir/usr/bin/"
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgbase/"
+}
+
+package_openpgp-ca-restd() {
+  pkgdesc+=" - REST service"
+  depends+=(
+    bzip2 libbz2.so
+    openssl libcrypto.so libssl.so
+    nettle libhogweed.so libnettle.so
+    pcsclite libpcsclite.so
+    sqlite libsqlite3.so
+  )
+  optdepends=('openpgp-ca: for creating and modifying databases')
+  install=$pkgname.install
+
+  install -vDm 644 $pkgname.env "$pkgdir/etc/$pkgname/env"
+  install -vDm 644 $pkgname.service -t "$pkgdir/usr/lib/systemd/system/"
+  install -vDm 644 $pkgname.sysusers "$pkgdir/usr/lib/sysusers.d/$pkgname.conf"
+  install -vDm 644 $pkgname.tmpfiles "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  cd $pkgbase-$pkgbase-v$pkgver
+  install -vDm 755 target/release/openpgp-ca-restd -t "$pkgdir/usr/bin/"
+}
