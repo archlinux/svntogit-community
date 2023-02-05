@@ -14,7 +14,7 @@ pkgname=(
  aspnet-targeting-pack
 )
 pkgver=7.0.2.sdk102
-pkgrel=1
+pkgrel=2
 _bootstrapver=7.0.100
 arch=(x86_64)
 url=https://www.microsoft.com/net/core
@@ -47,14 +47,14 @@ _tag=4bbdd14480a177e60fba52abf34829020449e46e
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
+  https://github.com/dotnet/runtime/commit/31e4f404c218eae7ba999c4df5346d30f971451c.patch
   dotnet.sh
-  dotnet-core-runtime-disable-package-validation.patch
 )
 noextract=(Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz)
 b2sums=('SKIP'
         '58b8b56ac1df54c1e1ba059b8dead4ff916c2cd57248e7fd8a5267a665b25e1bd5dad527383d86235c0a42b41908acc84839d8657f092a80d4b84a49240b52b0'
-        '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34'
-        'b9472b3967c9d7549ee2bbf0180d919748b40b1f9a65b1c3789be40f62ed17a9d37c2020409f7835570620108bd5ec43e728966d075d66bf0b7261cdd36a60c3')
+        '36e3dcba3be4d6c3a77cdb92287acaaae681078730d9e94dce3025e926b9691c4439a8b790ca4ece643b8162bdcd7d93d2a3860610841f0b282e8e21c0873446'
+        '4a64e3ee550e296bdde894f9202c6f372934cc29154f47d302599b4c368825a96a7b786faa6109a24a1101ff130fd9e4d0ccba094ec91e7f2ca645725bf71b34')
 
 prepare() {
   cd dotnet-installer
@@ -112,8 +112,12 @@ build() {
 
   cd ../sources
 
-  sed -i -E 's|( /p:BuildDebPackage=false)|\1 /p:EnablePackageValidation=false|' src/runtime/eng/SourceBuild.props
-  sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_LIBUNWIND=TRUE|' src/runtime/eng/SourceBuild.props
+  pushd src/runtime
+  sed -i -E 's|( /p:BuildDebPackage=false)|\1 /p:EnablePackageValidation=false|' eng/SourceBuild.props
+  sed -i -E 's|( /p:BuildDebPackage=false)|\1 --cmakeargs -DCLR_CMAKE_USE_SYSTEM_LIBUNWIND=TRUE|' eng/SourceBuild.props
+  # https://github.com/dotnet/runtime/issues/79196
+  patch -Np1 -i "${srcdir}"/31e4f404c218eae7ba999c4df5346d30f971451c.patch
+  popd
 
   ln -sf "${srcdir}"/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz packages/archive/
 
