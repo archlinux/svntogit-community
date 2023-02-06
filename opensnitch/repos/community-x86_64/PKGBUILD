@@ -1,0 +1,170 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=opensnitch
+pkgver=1.5.5
+pkgrel=1
+pkgdesc='A GNU/Linux application firewall'
+arch=('x86_64')
+url='https://github.com/evilsocket/opensnitch'
+license=('GPL3')
+depends=(
+  'hicolor-icon-theme'
+  'libnetfilter_queue'
+  'python-grpcio'
+  'python-protobuf'
+  'python-slugify'
+  'python-pyqt5'
+  'python-pyinotify'
+  'python-notify2'
+)
+makedepends=(
+  'git'
+  'go'
+  'python-grpcio-tools'
+  'python-build'
+  'python-installer'
+  'python-wheel'
+  'python-setuptools'
+  'python-nspektr'
+  'python-jaraco.text'
+  'qt5-tools'
+)
+optdepends=(
+  'logrotate: logfile rotation'
+  'python-qt-material: extra ui themes'
+  'python-pyasn: display network name of IP'
+)
+backup=(
+  'etc/opensnitchd/default-config.json'
+  'etc/opensnitchd/system-fw.json'
+)
+options=('!lto')
+_commit='400fbe83de2c2ccb710a3562e04446cb39cf74a8'
+source=(
+  "$pkgname::git+$url#commit=$_commit"
+  'fix-systemd-service.patch'
+  'remove-debian-path.patch'
+  'fix-go-modules.patch'
+  'fix-setup.py.patch'
+  'template-version-strings.patch'
+  'tmpfiles.conf'
+)
+b2sums=('SKIP'
+        'd0d0af5ad856fe6e3c3eee7bb09776c41d40434405de5fa064b8c2d995858d6dc1a27759565856f5b23847ec0ea82ea79d4a0caf094d4a7a0ac3c836d266bc92'
+        '5c0c0dab783def3a03259dfe6e2a104fae4ccd1ff4effb5a8c641935cf2b98ac0be7b57250f4cca12bc233280aea7e2c83e08e92d1f1c6cd73ed9bc27fc4a7d1'
+        'd2976fb6b3e17f9eab658d44f2bd3f5b0df680e220eca7c2fdff9ba828d0b7be364844ec604ef29a3de640b9a37f9376dc4d4d5794cf44242b76f6844e79a8ca'
+        '95d1a6c7640cb2bd720c920e5ccf5eedb463c1b40fedfc3c45aeeb36dd04ec462cf0797cac11bb4c48878c992f2ec7eea16b3bfad4a4065357953c41e5000087'
+        '9871eedf5bf561ba7c77cd91db5112a4d9ceda74cf18158e092d06c20313fa011413da94056667ce05d98960b10e2a969b78430827ce78930dceb3ec20da9ef0'
+        '81dbb6ba72d5bf5a0d9fa3dea33b87f03604c1a2537a4ca47b45923ab186e68d5c24b043691a857948ae404409dc3cc66a7ef004ee20dc2451aa5190fe6479bb')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # TODO file an upstream bug
+  # fix an issue with setup.py installing to python's site-packages instead
+  # of /usr
+  patch -p1 -i "$srcdir/fix-setup.py.patch"
+
+  # setup pre-generated go-modules
+  patch -p1 -i "$srcdir/fix-go-modules.patch"
+
+  # TODO file an upstream bug
+  # fix a couple of issues with the systemd service
+  patch -p1 -i "$srcdir/fix-systemd-service.patch"
+
+  # TODO file an upstream bug
+  # remove Debian-specific path from sys.path
+  patch -p1 -i "$srcdir/remove-debian-path.patch"
+
+  # version strings are currently out of date
+  # template-ify version strings for easier sed invocation (1/2)
+  patch -p1 -i "$srcdir/template-version-strings.patch"
+}
+
+build() {
+  cd "$pkgname"
+
+  # template-ify version strings for easier sed invocation (2/2)
+  sed -e "s/@VERSION@/$pkgver/" -i daemon/core/version.go
+  sed -e "s/@VERSION@/$pkgver/" -i ui/opensnitch/version.py
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export GOPATH="${srcdir}"
+
+  # download dependencies
+  # these are the latest versions of protoc-gen-go{,-grpc}
+  # pinning them to these versions ensures that the resultant
+  # binary is reproducible
+  go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.28.1
+  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.2.0
+
+  # ensure protoc-gen-go & protoc-gen-go-grpc appear in $PATH
+  export PATH="${GOPATH}/bin:${PATH}"
+
+  # generate proto files
+  pushd proto
+  make
+  popd
+
+  pushd daemon
+  # download dependencies
+  go mod download
+
+  # build daemon with debug info
+  go build -v \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-compressdwarf=false \
+    -linkmode external \
+    -extldflags ${LDFLAGS}" \
+    -o opensnitchd \
+    .
+  popd
+
+  pushd ui
+  # generate translations & resources
+  make translations
+  pyrcc5 -o opensnitch/resources_rc.py opensnitch/res/resources.qrc
+
+  # fix import path for generated proto files
+	sed -i 's/^import ui_pb2/from . import ui_pb2/' opensnitch/ui_pb2*
+
+  # build python package
+  python -m build --wheel --no-isolation
+  popd
+}
+
+package() {
+  cd "$pkgname"
+
+  # daemon
+  install -vDm755 -t "$pkgdir/usr/bin" daemon/opensnitchd
+
+  # systemd integration
+  install -vDm644 debian/opensnitch.service "$pkgdir/usr/lib/systemd/system/opensnitchd.service"
+  install -vDm644 "$srcdir/tmpfiles.conf" "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  # configuration
+  install -vDm644 -t "$pkgdir/etc/opensnitchd" daemon/{default-config,system-fw}.json
+
+  # logrotate
+  install -vDm644 debian/opensnitch.logrotate "$pkgdir/etc/logrotate.d/$pkgname"
+
+  # install python package
+  python -m installer --destdir="$pkgdir" ui/dist/*.whl
+
+  # TODO file an upstream bug
+  # tests are in site-packages, big no-no
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  rm -rf "$pkgdir/$site_packages/tests"
+}
