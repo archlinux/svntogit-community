@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=20.0
-pkgrel=2
+pkgrel=3
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -65,6 +65,7 @@ source=(
   "$pkgbase-flatbuffers-$_flatbuffers_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/flatbuffers-$_flatbuffers_version.tar.gz"
   "$pkgbase-libudfread-$_libudfread_version.tar.gz::https://mirrors.kodi.tv/build-deps/sources/libudfread-$_libudfread_version.tar.gz"
   'cheat-sse-build.patch'
+  "https://github.com/xbmc/xbmc/pull/22658.patch"  # FS#77390
 )
 noextract=(
   "$pkgbase-libdvdcss-$_libdvdcss_version.tar.gz"
@@ -85,7 +86,8 @@ sha512sums=('80ec541ff512de31ecec614735f285846c5cb0dda1e67f77e7b88b893b0a691be97
             'aaeb0227afd5ada5955cbe6a565254ff88d2028d677d199c00e03b7cb5de1f2c69b18e6e8b032e452350a8eda7081807b01765adbeb8476eaf803d9de6e5509c'
             '26a06b572c0e4c9685743bd2d2162ac7dcd74b9324624cc3f3ef5b154c0cee7c52a04b77cdc184245d2d6ae38dfdcc4fd66001c318aa8ca001d2bf1d85d66a89'
             '3069feb5db40288beb5b112b285186162a704f0fdd3cf67a17fd4eeea015f2cfcfbb455b7aa7c3d79d00fd095a3fd11cffc7b121dce94d99c3b06a509a8977d2'
-            '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a')
+            '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a'
+            '3bbbf908bcf833666f64da6c3b73566a617b7ca8474decea186fbdf5ea9fd4bbe6bd3843470be741f34948791978495d5776fd4f1c72a453609b6b24054afb69')
 
 prepare() {
   [[ -d kodi-build ]] && rm -rf kodi-build
@@ -94,6 +96,10 @@ prepare() {
   cd "xbmc-$pkgver-$_codename"
 
   [[ "$_sse_workaround" -eq 1 ]] && patch -p1 -i "$srcdir/cheat-sse-build.patch"
+
+  # Fix a crash when browsing unicode glyphs
+  # https://bugs.archlinux.org/task/77390
+  patch -p1 -i "$srcdir/22658.patch"
 }
 
 build() {
@@ -184,6 +190,10 @@ package_kodi() {
     -DCMAKE_INSTALL_COMPONENT="$_cmp" \
      -P cmake_install.cmake
   done
+
+  # make sure the addons directory for binary addons exists
+  # https://bugs.archlinux.org/task/77366
+  mkdir -p "$pkgdir"/usr/lib/kodi/addons
 }
 
 # kodi-eventclients
