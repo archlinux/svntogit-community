@@ -1,0 +1,200 @@
+From c80a378bb275e9ce9dc9a030c7b6ae74f6097f78 Mon Sep 17 00:00:00 2001
+Message-Id: <c80a378bb275e9ce9dc9a030c7b6ae74f6097f78.1675714290.git.steffen@sdaoden.eu>
+From: Helmut Grohne <helmut@subdivi.de>
+Date: Mon, 6 Feb 2023 21:10:56 +0100
+Subject: [PATCH] Add fixes (as of oss-security@)
+
+---
+ src/aiff.c      |  5 +++++
+ src/formats.c   |  1 +
+ src/formats_i.c | 20 ++++++++++++++++----
+ src/hcom.c      | 18 +++++++++++++++---
+ src/sphere.c    |  6 ++++--
+ src/voc.c       |  4 ++++
+ src/wav.c       |  6 ++++++
+ 7 files changed, 51 insertions(+), 9 deletions(-)
+
+diff --git a/src/aiff.c b/src/aiff.c
+index 3a152c588c..6de94f3276 100644
+--- a/src/aiff.c
++++ b/src/aiff.c
+@@ -619,6 +619,11 @@ int lsx_aiffstartwrite(sox_format_t * ft)
+            At 48 kHz, 16 bits stereo, this gives ~3 hours of audio.
+            Sorry, the AIFF format does not provide for an indefinite
+            number of samples. */
++        if (ft->signal.channels >= (0x7f000000 / (ft->encoding.bits_per_sample >> 3)))
++        {
++                lsx_fail_errno(ft, SOX_EOF, "too many channels for AIFF header");
++                return SOX_EOF;
++        }
+         return(aiffwriteheader(ft, (uint64_t) 0x7f000000 / ((ft->encoding.bits_per_sample>>3)*ft->signal.channels)));
+ }
+ 
+diff --git a/src/formats.c b/src/formats.c
+index 3fcf4382b6..5eda5e3612 100644
+--- a/src/formats.c
++++ b/src/formats.c
+@@ -627,6 +627,7 @@ error:
+   free(ft->priv);
+   free(ft->filename);
+   free(ft->filetype);
++  sox_delete_comments(&ft->oob.comments);
+   free(ft);
+   return NULL;
+ }
+diff --git a/src/formats_i.c b/src/formats_i.c
+index 7048040d1c..5f5ef979d4 100644
+--- a/src/formats_i.c
++++ b/src/formats_i.c
+@@ -19,6 +19,7 @@
+  */
+ 
+ #include "sox_i.h"
++#include <limits.h>
+ #include <string.h>
+ #include <sys/stat.h>
+ #include <stdarg.h>
+@@ -60,13 +61,24 @@ int lsx_check_read_params(sox_format_t * ft, unsigned channels,
+   if (ft->seekable)
+     ft->data_start = lsx_tell(ft);
+ 
+-  if (channels && ft->signal.channels && ft->signal.channels != channels)
++  if (channels && ft->signal.channels && ft->signal.channels != channels) {
+     lsx_warn("`%s': overriding number of channels", ft->filename);
+-  else ft->signal.channels = channels;
++  } else if (channels > SHRT_MAX) {
++    lsx_fail_errno(ft, EINVAL, "implausibly large number of channels");
++    return SOX_EOF;
++  } else {
++    ft->signal.channels = channels;
++  }
+ 
+-  if (rate && ft->signal.rate && ft->signal.rate != rate)
++  if (rate && ft->signal.rate && ft->signal.rate != rate) {
+     lsx_warn("`%s': overriding sample rate", ft->filename);
+-  else ft->signal.rate = rate;
++  /* Since NaN comparisons yield false, the negation rejects them. */
++  } else if (!(rate > 0)) {
++    lsx_fail_errno(ft, EINVAL, "invalid rate value");
++    return SOX_EOF;
++  } else {
++    ft->signal.rate = rate;
++  }
+ 
+   if (encoding && ft->encoding.encoding && ft->encoding.encoding != encoding)
+     lsx_warn("`%s': overriding encoding type", ft->filename);
+diff --git a/src/hcom.c b/src/hcom.c
+index 594c870606..94ed3dbdb0 100644
+--- a/src/hcom.c
++++ b/src/hcom.c
+@@ -141,6 +141,11 @@ static int startread(sox_format_t * ft)
+                 return (SOX_EOF);
+         }
+         lsx_readw(ft, &dictsize);
++        if (dictsize == 0 || dictsize > 511)
++        {
++                lsx_fail_errno(ft, SOX_EHDR, "Implausible dictionary size in HCOM header");
++                return SOX_EOF;
++        }
+ 
+         /* Translate to sox parameters */
+         ft->encoding.encoding = SOX_ENCODING_HCOM;
+@@ -161,13 +166,18 @@ static int startread(sox_format_t * ft)
+                        p->dictionary[i].dict_rightson);
+                 if (!dictvalid(i, dictsize, p->dictionary[i].dict_leftson,
+                                p->dictionary[i].dict_rightson)) {
++                        free(p->dictionary);
++                        p->dictionary = NULL;
+                         lsx_fail_errno(ft, SOX_EHDR, "Invalid dictionary");
+                         return SOX_EOF;
+                 }
+         }
+         rc = lsx_skipbytes(ft, (size_t) 1); /* skip pad byte */
+-        if (rc)
++        if (rc) {
++            free(p->dictionary);
++            p->dictionary = NULL;
+             return rc;
++        }
+ 
+         /* Initialized the decompression engine */
+         p->checksum = checksum;
+@@ -249,6 +259,9 @@ static int stopread(sox_format_t * ft)
+ {
+         register priv_t *p = (priv_t *) ft->priv;
+ 
++        free(p->dictionary);
++        p->dictionary = NULL;
++
+         if (p->huffcount != 0)
+         {
+                 lsx_fail_errno(ft,SOX_EFMT,"not all HCOM data read");
+@@ -259,8 +272,7 @@ static int stopread(sox_format_t * ft)
+                 lsx_fail_errno(ft,SOX_EFMT,"checksum error in HCOM data");
+                 return (SOX_EOF);
+         }
+-        free(p->dictionary);
+-        p->dictionary = NULL;
++
+         return (SOX_SUCCESS);
+ }
+ 
+diff --git a/src/sphere.c b/src/sphere.c
+index a3fd1c64c2..9544d16000 100644
+--- a/src/sphere.c
++++ b/src/sphere.c
+@@ -63,7 +63,8 @@ static int start_read(sox_format_t * ft)
+     return (SOX_EOF);
+   }
+ 
+-  header_size -= (strlen(buf) + 1);
++  bytes_read = strlen(buf);
++  header_size -= bytes_read >= header_size ? header_size : bytes_read + 1;
+ 
+   while (strncmp(buf, "end_head", (size_t)8) != 0) {
+     if (strncmp(buf, "sample_n_bytes", (size_t)14) == 0)
+@@ -105,7 +106,8 @@ static int start_read(sox_format_t * ft)
+       return (SOX_EOF);
+     }
+ 
+-    header_size -= (strlen(buf) + 1);
++    bytes_read = strlen(buf);
++    header_size -= bytes_read >= header_size ? header_size : bytes_read + 1;
+   }
+ 
+   if (!bytes_per_sample)
+diff --git a/src/voc.c b/src/voc.c
+index a75639e94e..0ca07f9450 100644
+--- a/src/voc.c
++++ b/src/voc.c
+@@ -625,6 +625,10 @@ static int getblock(sox_format_t * ft)
+         v->rate = new_rate_32;
+         ft->signal.rate = new_rate_32;
+         lsx_readb(ft, &uc);
++        if (uc <= 1) {
++          lsx_fail_errno(ft, SOX_EFMT, "2 bits per word required");
++          return (SOX_EOF);
++        }
+         v->size = uc;
+         lsx_readb(ft, &uc);
+         if (v->channels != -1 && uc != v->channels) {
+diff --git a/src/wav.c b/src/wav.c
+index 3f6beb4517..39e0c487e8 100644
+--- a/src/wav.c
++++ b/src/wav.c
+@@ -654,6 +654,12 @@ static int wav_read_fmt(sox_format_t *ft, uint32_t len)
+     if (err)
+         return SOX_EOF;
+ 
++    if (wav->bitsPerSample == 0)
++    {
++        lsx_fail_errno(ft, SOX_EHDR, "WAV file bits per sample is zero");
++        return SOX_EOF;
++    }
++
+     /* non-PCM formats except alaw and mulaw formats have extended fmt chunk.
+      * Check for those cases.
+      */
+-- 
+2.39.1
+
