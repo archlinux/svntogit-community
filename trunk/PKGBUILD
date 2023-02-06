@@ -1,0 +1,72 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Thibaut Pérami <thibaut.perami@cl.cam.ac.uk>
+
+pkgname=zydis
+pkgver=4.0.0
+pkgrel=2
+pkgdesc='Fast and lightweight x86/x86-64 disassembler and code generation library'
+arch=('x86_64')
+url='https://zydis.re'
+license=('MIT')
+depends=('gcc-libs' 'zycore-c')
+makedepends=('git' 'cmake' 'ruby-ronn-ng' 'doxygen')
+checkdepends=('python')
+_commit='1ba75aeefae37094c7be8eba07ff81d4fe0f1f20'
+source=("git+https://github.com/zyantific/zydis.git#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed -e 's/^v//' -e 's/-/./g'
+}
+
+build() {
+  # https://archlinux.org/todo/lto-fat-objects/
+  export CFLAGS+=" -ffat-lto-objects"
+
+  # https://github.com/zyantific/zydis#-fpic-for-shared-library-builds
+  cmake \
+    -S "$pkgname" \
+    -B build \
+    -W no-dev \
+    -D CMAKE_BUILD_TYPE='None' \
+    -D CMAKE_INSTALL_PREFIX=/usr \
+    -D CMAKE_POSITION_INDEPENDENT_CODE=ON \
+    -D ZYDIS_BUILD_SHARED_LIB=ON \
+    -D ZYAN_SYSTEM_ZYCORE=ON \
+    -D ZYDIS_BUILD_MAN=ON
+
+  cmake --build build
+}
+
+check() {
+  # test suite extracted from .github/workflows/main.yml
+  cd "$pkgname/tests"
+
+  # regression tests (decoder)
+  python regression.py test "$srcdir/build/ZydisInfo"
+
+  # regression tests (encoder)
+  python regression_encoder.py \
+    "$srcdir/build/ZydisFuzzReEncoding" \
+    "$srcdir/build/ZydisFuzzEncoder" \
+    "$srcdir/build/ZydisTestEncoderAbsolute"
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+
+  cd "$pkgname"
+
+  # documentation
+  install -vDm644 -t "$pkgdir/usr/share/doc/Zydis" README.md
+  cp -vr examples "$pkgdir/usr/share/doc/Zydis"
+
+  # move man pages to correct directory
+  install -vd "$pkgdir/usr/share/man/man1"
+  mv "$pkgdir/usr/share/man/"*.1 "$pkgdir/usr/share/man/man1"
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
