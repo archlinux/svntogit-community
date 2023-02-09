@@ -1,8 +1,8 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-zipp
-pkgver=3.12.1
-_commit=71368132608e9fb5cd83bda33b3e3460c8b02f95
+pkgver=3.13.0
+_commit=a730c30dd4c2c9fe0c5a5374481adcaf984bfd37
 pkgrel=1
 pkgdesc="Pathlib-compatible object wrapper for zip files"
 url="https://github.com/jaraco/zipp"
