@@ -2,7 +2,7 @@
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
 
 pkgname=docker
-pkgver=20.10.23
+pkgver=23.0.1
 pkgrel=1
 epoch=1
 pkgdesc='Pack, ship and run any application as a lightweight container'
@@ -16,16 +16,14 @@ optdepends=('btrfs-progs: btrfs backend support'
             'pigz: parallel gzip compressor support'
             'docker-scan: vulnerability scanner'
             'docker-buildx: extended build capabilities')
+options=(!lto)
 # https://github.com/moby/moby/tree/v20.10.0/hack/dockerfile/install
 _TINI_COMMIT=de40ad007797e0dcd8b7126f27bb87401d224240
-_LIBNETWORK_COMMIT=05b93e0d3a95952f70c113b0bc5bdb538d7afdd7
 source=("git+https://github.com/docker/cli.git#tag=v$pkgver"
         "git+https://github.com/moby/moby.git#tag=v$pkgver"
-        "git+https://github.com/docker/libnetwork.git#commit=$_LIBNETWORK_COMMIT"
         "git+https://github.com/krallin/tini.git#commit=$_TINI_COMMIT"
         "$pkgname.sysusers")
 sha256sums=('SKIP'
-            'SKIP'
             'SKIP'
             'SKIP'
             '541826011a9836d05a2f42293d5f1beadf2ca8d89fb604487d61a013505678eb')
@@ -49,20 +47,21 @@ build() {
   echo 'Checking commit mismatch'
   (
   local _cfile
-  for _cfile in tini proxy; do
+  for _cfile in tini; do
     . "moby/hack/dockerfile/install/$_cfile.installer"
   done
   local _commit _pkgbuild _dockerfile
   err=0
   # FIXME: Do not check TINI anymore, use tag instead of commit
-  for _commit in LIBNETWORK; do
-    _pkgbuild=_${_commit}_COMMIT
-    _dockerfile=${_commit}_COMMIT
-    if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
-      echo "Invalid $_commit commit, should be ${!_dockerfile}" >&2
-      err=$(($err + 1))
-    fi
-  done
+  # TODO: libnetwork is removed
+  # for _commit in LIBNETWORK; do
+  #   _pkgbuild=_${_commit}_COMMIT
+  #   _dockerfile=${_commit}_COMMIT
+  #   if [[ ${!_pkgbuild} != ${!_dockerfile} ]]; then
+  #     echo "Invalid $_commit commit, should be ${!_dockerfile}" >&2
+  #     err=$(($err + 1))
+  #   fi
+  # done
   return $err
   )
 
@@ -94,12 +93,6 @@ build() {
     hack/make.sh dynbinary
   _fake_gopath_popd
 
-  ### docker proxy
-  echo 'Building docker-proxy'
-  _fake_gopath_pushd libnetwork github.com/docker/libnetwork
-  go build github.com/docker/libnetwork/cmd/proxy
-  _fake_gopath_popd
-
   ### docker-init
   echo 'Building docker-init'
   _fake_gopath_pushd tini github.com/krallin/tini
@@ -110,12 +103,11 @@ build() {
 }
 
 package() {
-  ### proxy
-  install -Dm755 libnetwork/proxy "$pkgdir/usr/bin/docker-proxy"
   ### init
   install -Dm755 tini/tini-static "$pkgdir/usr/bin/docker-init"
   ### dockerd
   install -Dm755 moby/bundles/dynbinary-daemon/dockerd "$pkgdir"/usr/bin/dockerd
+  install -Dm755 moby/bundles/dynbinary-daemon/docker-proxy "$pkgdir/usr/bin/docker-proxy"
   ### systemd units
   cd "$srcdir"/moby/contrib
   install -Dm644 'init/systemd/docker.service' "$pkgdir/usr/lib/systemd/system/docker.service"
