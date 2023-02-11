@@ -3,8 +3,8 @@
 # Contributor: Omar Pakker
 
 pkgname=wlroots
-pkgver=0.16.1
-pkgrel=2
+pkgver=0.16.2
+pkgrel=1
 license=('MIT')
 pkgdesc='Modular Wayland compositor library'
 url='https://gitlab.freedesktop.org/wlroots/wlroots'
@@ -47,7 +47,7 @@ source=(
     "$pkgname-$pkgver.tar.gz::https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$pkgver/downloads/wlroots-$pkgver.tar.gz"
     "https://gitlab.freedesktop.org/wlroots/wlroots/-/releases/$pkgver/downloads/wlroots-$pkgver.tar.gz.sig"
 )
-sha256sums=('130a1a86f6f8c4fa162ba4db82aaa70850273c5d01313b242baa0144e3d6d253'
+sha256sums=('83e9a11605f23d4bf781ab1947089483d9ec3f7e9ba65398e0609593b77d44aa'
             'SKIP')
 validpgpkeys=(
     '34FF9526CFEF0E97A340E2E40FDE7BE0E88F5E48' # Simon Ser
