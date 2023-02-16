@@ -2,24 +2,52 @@
 
 pkgname=awxkit
 _pkgname=awx
+_commit=05af2972bf3799d3059363dd721d300435ccdbb4  # refs/tags/21.12.0
 pkgver=21.12.0
-pkgrel=1
-pkgdesc="cli client and python library for ansible awx (tower)"
+pkgrel=2
+pkgdesc="The official command line interface for Ansible AWX"
 arch=('any')
 url="https://github.com/ansible/awx"
 license=('Apache')
-depends=('python-six' 'python-yaml' 'python-requests' 'python-wheel')
-makedepends=('python-pip' 'python-setuptools' 'git')
+depends=(
+  'python'
+  'python-pytest'  # unreferenced, required in awxkit/yaml_file.py
+  'python-pyyaml'
+  'python-requests'
+  'python-setuptools'  # unreferenced, required in awxkit/cli/client.py
+)
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-setuptools-scm' 'python-wheel')
+checkdepends=(
+  'jq'
+  'python-pytest'
+  'python-cryptography'
+  # 'python-websocket-client'  # TODO: needs to be packaged
+)
+optdepends=(
+  'jq: for formatting'
+  # 'python-websocket-client: for websockets support'  # TODO: needs to be packaged
+  'python-cryptography: for cryptography support'
+)
 options=(!emptydirs)
-source=("${_pkgname}::git+https://github.com/ansible/${_pkgname}#tag=${pkgver}")
+source=("${_pkgname}::git+https://github.com/ansible/${_pkgname}#tag=$_commit")
 sha512sums=('SKIP')
 
 build() {
     cd "${_pkgname}/${pkgname}"
-    python setup.py build
+    python -m build --wheel --no-isolation
+}
+
+check() {
+    local deselected=(
+      # NOTE: deselect tests that require python-websocket-client
+      --deselect test/test_ws.py::test_explicit_hostname
+      --deselect test/test_ws.py::test_urlparsing
+    )
+    cd "${_pkgname}/${pkgname}"
+    pytest -vv "${deselected[@]}"
 }
 
 package() {
     cd "${_pkgname}/${pkgname}"
-    python setup.py install --root="$pkgdir/" --optimize=1
+    python -m installer --destdir="$pkgdir" dist/*.whl
 }
