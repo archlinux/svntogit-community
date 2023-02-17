@@ -1,0 +1,161 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Jan de Groot <jgc@archlinux.org>
+
+pkgbase=lib32-pipewire
+pkgname=(
+  lib32-pipewire
+  lib32-pipewire-jack
+  lib32-pipewire-v4l2
+)
+_commit=08b0ed65765a1033424a5c0d897a392a61f8a2a3  # tags/0.3.66
+pkgver=0.3.66
+pkgrel=1
+epoch=1
+pkgdesc="Low-latency audio/video router and processor - 32-bit client library"
+url="https://pipewire.org"
+arch=(x86_64)
+license=(MIT)
+makedepends=(
+  git
+  lib32-alsa-lib
+  lib32-dbus
+  lib32-glib2
+  lib32-systemd
+  meson
+)
+source=(git+https://gitlab.freedesktop.org/pipewire/pipewire.git#commit=$_commit)
+sha256sums=('SKIP')
+
+pkgver() {
+  cd pipewire
+  git describe --tags | sed 's/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+  cd pipewire
+}
+
+build() {
+  local meson_options=(
+    --libdir /usr/lib32
+    -D avahi=disabled
+    -D avb=disabled
+    -D bluez5-codec-lc3=disabled
+    -D bluez5-codec-lc3plus=disabled
+    -D bluez5-codec-opus=disabled
+    -D bluez5=disabled
+    -D compress-offload=disabled
+    -D docs=disabled
+    -D echo-cancel-webrtc=disabled
+    -D examples=disabled
+    -D gstreamer-device-provider=disabled
+    -D gstreamer=disabled
+    -D jack-devel=true
+    -D jack=disabled
+    -D libcamera=disabled
+    -D libcanberra=disabled
+    -D libjack-path=/usr/lib32
+    -D libmysofa=disabled
+    -D libpulse=disabled
+    -D libusb=disabled
+    -D lv2=disabled
+    -D man=disabled
+    -D pw-cat=disabled
+    -D raop=disabled
+    -D readline=disabled
+    -D rlimits-install=false
+    -D roc=disabled
+    -D sdl2=disabled
+    -D session-managers=[]
+    -D sndfile=disabled
+    -D systemd-user-service=disabled
+    -D tests=disabled
+    -D udevrulesdir=/usr/lib/udev/rules.d
+    -D v4l2=disabled
+    -D x11-xfixes=disabled
+    -D x11=disabled
+  )
+
+  export CC="gcc -m32"
+  export CXX="g++ -m32"
+  export PKG_CONFIG="i686-pc-linux-gnu-pkg-config"
+
+  arch-meson pipewire build "${meson_options[@]}"
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+_ver=${pkgver:0:3}
+
+package_lib32-pipewire() {
+  depends=(
+    libasound.so
+    libdbus-1.so
+    libglib-2.0.so
+    libsystemd.so
+    pipewire
+  )
+  optdepends=(
+    'lib32-pipewire-jack: JACK support'
+    'lib32-pipewire-v4l2: V4L2 interceptor'
+  )
+  provides=(libpipewire-$_ver.so)
+
+  meson install -C build --destdir "$pkgdir"
+
+  (
+    cd "$pkgdir"
+
+    _pick jack usr/lib32/libjack*
+    _pick jack usr/lib32/pkgconfig/jack.pc
+
+    _pick v4l2 usr/lib32/pipewire-$_ver/v4l2
+
+    rm -r usr/{bin,include,lib,share}
+  )
+
+  install -Dt "$pkgdir/usr/share/licenses/$pkgname" -m644 pipewire/COPYING
+}
+
+package_lib32-pipewire-jack() {
+  pkgdesc+=" - JACK support"
+  license+=(GPL2)  # libjackserver
+  depends=(
+    libpipewire-$_ver.so
+    pipewire-jack
+  )
+  conflicts=(lib32-jack lib32-jack2)
+  provides=(lib32-jack libjack.so libjackserver.so libjacknet.so)
+
+  mv jack/* "$pkgdir"
+
+  install -Dt "$pkgdir/usr/share/licenses/$pkgname" -m644 pipewire/COPYING
+}
+
+package_lib32-pipewire-v4l2() {
+  pkgdesc+=" - V4L2 interceptor"
+  depends=(
+    libpipewire-$_ver.so
+    pipewire-v4l2
+  )
+
+  mv v4l2/* "$pkgdir"
+
+  install -Dt "$pkgdir/usr/share/licenses/$pkgname" -m644 pipewire/COPYING
+}
+
+# vim:set sw=2 sts=-1 et:
