@@ -8,7 +8,7 @@ pkgver=2022.3.2
 _build=223.8617.56
 _jrever=17
 _jdkver=17
-pkgrel=1
+pkgrel=2
 epoch=4
 pkgdesc='IDE for Java, Groovy and other programming languages with advanced refactoring features'
 url='https://www.jetbrains.com/idea/'
@@ -21,7 +21,7 @@ optdepends=(
   'lldb: lldb frontend integration'
 )
 source=("git+https://github.com/JetBrains/intellij-community.git#tag=idea/${_build}"
-        idea-android::"git://git.jetbrains.org/idea/android.git#tag=idea/${_build}"
+        idea-android::"git+https://github.com/JetBrains/android.git#tag=idea/${_build}"
         idea.desktop
         idea.sh
         enable-no-jdr.patch
