@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=wai-app-file-cgi
+pkgname=haskell-wai-app-file-cgi
+pkgver=3.1.10
+pkgrel=63
+pkgdesc="File/CGI/Rev Proxy App of WAI"
+url="http://www.mew.org/~kazu/proj/mighttpd/"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-attoparsec' 'haskell-case-insensitive' 'haskell-conduit'
+         'haskell-conduit-extra' 'haskell-data-default-class'  'haskell-http-client'
+         'haskell-http-conduit' 'haskell-http-date' 'haskell-http-types' 'haskell-mime-types'
+         'haskell-network' 'haskell-sockaddr' 'haskell-static-hash' 'haskell-wai'
+         'haskell-wai-conduit' 'haskell-warp' 'haskell-word8')
+makedepends=('ghc' 'uusi' 'haskell-http' 'haskell-doctest' 'haskell-hspec')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha256sums=('d47d704a9f01bea2a211754fb1ed35d2b9a446eabf63719bde9b082a6f7957f3')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -d attoparsec-conduit $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' 
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
