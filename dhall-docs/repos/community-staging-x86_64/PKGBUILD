@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=dhall-docs
+pkgver=1.0.10
+pkgrel=77
+pkgdesc="Generate HTML docs from a dhall package"
+url="https://github.com/dhall-lang/dhall-haskell/tree/master/dhall-docs"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-base16-bytestring' 'haskell-cryptohash-sha256' 'dhall'
+         'haskell-file-embed' 'haskell-lens-family-core' 'haskell-lucid' 'haskell-megaparsec'
+         'haskell-mmark' 'haskell-optparse-applicative' 'haskell-path' 'haskell-path-io'
+         'haskell-prettyprinter')
+makedepends=('ghc' 'uusi' 'haskell-doctest' 'haskell-foldl' 'haskell-tasty' 'haskell-tasty-hunit'
+             'haskell-tasty-silver' 'haskell-turtle')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('62b3eeaf24b305f5136dcebedf670ffe9a899953b494412c7f3517c1d52a9c1b8f99cee4fb774328ce7c275a0804e550f97ae4fa9f82b5644dfd9ee72f9f84c4')
+
+prepare() {
+  cd $pkgname-$pkgver
+  uusi -u turtle $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
