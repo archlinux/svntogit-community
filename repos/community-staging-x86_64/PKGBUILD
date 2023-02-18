@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=fourmolu
+pkgname=haskell-fourmolu
+pkgver=0.4.0.0
+pkgrel=53
+pkgdesc="A formatter for Haskell source code"
+url="https://github.com/parsonsmatt/fourmolu"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-diff' 'haskell-hsyaml' 'haskell-hsyaml-aeson' 'haskell-aeson'
+         'haskell-ansi-terminal' 'haskell-dlist' 'haskell-ghc-lib-parser' 'haskell-gitrev'
+         'haskell-optparse-applicative' 'haskell-syb')
+makedepends=('ghc' 'uusi' 'haskell-hspec' 'haskell-hspec-discover' 'haskell-path' 'haskell-path-io'
+             'haskell-temporary')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha256sums=('8b7bfe613a42b11a398fa5d2aa2bb25b04c18f921ee26f20775a1faaad8100d7')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -rghc-lib-parser:ghc,ghc-boot,ghc-boot-th -u aeson -u optparse-applicative $_hkgname.cabal
+  sed -i 's/using ghc-lib-parser/using ghc/;s/VERSION_ghc_lib_parser/VERSION_ghc/' app/Main.hs
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE.md
+}
