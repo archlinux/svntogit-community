@@ -1,0 +1,52 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=implicit-hie-cradle
+pkgname=haskell-implicit-hie-cradle
+pkgver=0.3.0.5
+pkgrel=195
+pkgdesc="Auto generate hie-bios cradles"
+url="https://github.com/Avi-D-coder/implicit-hie-cradle#readme"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-base16-bytestring' 'haskell-extra' 'haskell-hie-bios'
+         'haskell-hslogger' 'haskell-implicit-hie' 'haskell-temporary' 'haskell-unix-compat'
+         'haskell-unordered-containers' 'haskell-vector' 'haskell-yaml')
+makedepends=('ghc' 'uusi')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('692534bce4513e039e8f7fe162f8ceb88ef42ced0f314ba01a4d07e2a2f5bb5be60f64a046744980000e45c0766fe801aba7102763704aa857695f770318dc3e')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  uusi -u unix-compat -u vector $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
