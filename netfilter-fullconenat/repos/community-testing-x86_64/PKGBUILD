@@ -1,0 +1,49 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Edward Pacman <edward@edward-p.xyz>
+
+pkgname=netfilter-fullconenat
+pkgver=r73.0cf3b48
+pkgrel=272
+pkgdesc="A kernel module that turns MASQUERADE into full cone SNAT"
+arch=('x86_64')
+url="https://github.com/Chion82/netfilter-full-cone-nat"
+license=('GPL2')
+depends=("linux")
+makedepends=('linux-headers' 'git')
+_commit=0cf3b48fd7d2fa81d0297d1fff12bbd0580fc435  # master
+source=("${pkgname}::git+https://github.com/Chion82/netfilter-full-cone-nat#commit=${_commit}"
+        0001-Linux-5.15.patch
+        0002-Linux-6.1.patch)
+sha256sums=('SKIP'
+            'a67c52bb58fac8113b4bc9640b626baa1d9e533c9bb8a2019153490d223b918a'
+            'b164406e56c84b4659f6b17be47dc5314fff74a92d1a3028c629dc91576abf94')
+
+pkgver() {
+  cd ${pkgname}
+  ( set -o pipefail
+    git describe --long 2>/dev/null | sed 's/\([^-]*-g\)/r\1/;s/-/./g' ||
+    printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+  )
+}
+
+prepare() {
+  cd ${pkgname}
+  echo "obj-m = xt_FULLCONENAT.o" > Kbuild
+  git apply -3 ../0001-Linux-5.15.patch
+  git apply -3 ../0002-Linux-6.1.patch
+}
+
+build() {
+  cd ${pkgname}
+  make -C /usr/src/linux M=$PWD modules
+}
+
+package() {
+  local extradir=/usr/lib/modules/$(</usr/src/linux/version)/extramodules
+  install -Dt "${pkgdir}${extradir}" -m644 ${pkgname}/*.ko
+  find "${pkgdir}" -name '*.ko' -exec strip --strip-debug {} +
+  find "${pkgdir}" -name '*.ko' -exec xz {} +
+
+  echo "xt_FULLCONENAT" | \
+    install -Dm644 /dev/stdin "${pkgdir}/usr/lib/modules-load.d/${pkgname}.conf"
+}
