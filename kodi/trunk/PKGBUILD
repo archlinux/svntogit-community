@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=20.0
-pkgrel=5
+pkgrel=6
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -170,7 +170,7 @@ package_kodi() {
     'bluez-libs' 'curl' 'dav1d' 'desktop-file-utils' 'hicolor-icon-theme' 'fmt'
     'lcms2' 'libass' 'libbluray' 'libcdio' 'libcec' 'libmicrohttpd' 'libnfs'
     'libplist' 'libpulse' 'libva' 'libvdpau' 'libxslt' 'lirc' 'mariadb-libs'
-    'mesa' 'pipewire' 'python-pillow' 'python-pycryptodomex'
+    'mesa' 'libpipewire' 'python-pillow' 'python-pycryptodomex'
     'python-simplejson' 'shairplay' 'smbclient' 'sndio' 'spdlog' 'sqlite'
     'taglib' 'tinyxml' 'libxrandr' 'libxkbcommon' 'waylandpp' 'libinput'
     'pcre'
@@ -180,6 +180,7 @@ package_kodi() {
     'bluez: Blutooth support'
     'python-pybluez: Bluetooth support'
     'pulseaudio: PulseAudio support'
+    'pipewire: PipeWire support'
     'upower: Display battery level'
   )
   provides=('kodi-common' 'kodi-x11' 'kodi-wayland' 'kodi-gbm')
