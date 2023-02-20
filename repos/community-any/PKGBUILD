@@ -3,7 +3,7 @@
 # Contributor: David Birks <david@birks.dev>
 
 pkgname=aws-cli-v2
-pkgver=2.9.18
+pkgver=2.10.1
 pkgrel=1
 pkgdesc='Unified command line interface for Amazon Web Services (version 2)'
 arch=(any)
@@ -17,17 +17,21 @@ makedepends=(python-build python-wheel python-flit-core python-installer)
 checkdepends=(python-pytest python-pytest-xdist python-jsonschema python-mock procps-ng)
 provides=(aws-cli)
 conflicts=(aws-cli)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/aws/aws-cli/archive/$pkgver.tar.gz"
+source=("https://awscli.amazonaws.com/awscli-$pkgver.tar.gz"{,.sig}
         prompt-toolkit-3.0.29.diff
         build-ac.index-in-tmp.diff
         fix-env.diff)
-sha256sums=('feecf0cfd8b3b35d68ca02ee3dd2e0ffa1133e9be12049d080c4491a57c52888'
+sha256sums=('75bbec828b86d3b424eda42d14381e9e0ad0309f33813f9143077d432ee98a9f'
+            'SKIP'
             'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636'
-            '3f5633c7f83b346f79a9af2baee476e6967ef8fa62636a535dee1e011ef978db'
+            '0267e41561ab2c46a97ebfb024f0b047aabc9e6b9866f204b2c1a84ee5810d63'
             '893d61d7e958c3c02bfa1e03bf58f6f6abd98849d248cc661f1c56423df9f312')
+validpgpkeys=(
+  'FB5DB77FD5C118B80511ADA8A6310ACC4672475C'  # the key mentioned on https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+)
 
 prepare() {
-  cd aws-cli-$pkgver
+  cd awscli-$pkgver
 
   # Don't treat warnings as errors
   sed -i '/"error::/d' pyproject.toml
@@ -43,7 +47,7 @@ prepare() {
 }
 
 build() {
-  cd aws-cli-$pkgver
+  cd awscli-$pkgver
 
   # flit-core adds runtime dependencies to reported build-time dependencies [1],
   # and upstream often lags behind the latest dependencies [2], thus --skip-dependency-check
@@ -55,7 +59,7 @@ build() {
 }
 
 check() {
-  cd aws-cli-$pkgver
+  cd awscli-$pkgver
 
   export AWS_SECRET_ACCESS_KEY=fake_key
   export AWS_ACCESS_KEY_ID=fake_id
@@ -68,7 +72,7 @@ check() {
 }
 
 package() {
-  cd aws-cli-$pkgver
+  cd awscli-$pkgver
   python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm 644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
   install -Dm 644 bin/aws_bash_completer "$pkgdir/usr/share/bash-completion/completions/aws"
