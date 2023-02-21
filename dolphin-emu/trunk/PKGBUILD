@@ -3,8 +3,8 @@
 # Contributor: Jeremy Newton (Mystro256) <alexjnewt@gmail.com>
 
 pkgname=dolphin-emu
-pkgver=5.0.r17995.8bad821019
-pkgrel=2
+pkgver=5.0.r18498.46b99671d9
+pkgrel=1
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=(x86_64)
@@ -49,16 +49,16 @@ makedepends=(
 )
 optdepends=('pulseaudio: PulseAudio backend')
 options=(!emptydirs)
-_commit=8bad821019721b9b72701b495da95656ace5fea5
+_commit=46b99671d9158e0ca840c1d8ef249db0f321ced7
 source=(
   dolphin-emu::git+https://github.com/dolphin-emu/dolphin.git#commit=${_commit}
   git+https://github.com/mozilla/cubeb.git
+  git+https://github.com/epezent/implot.git
   git+https://github.com/randy408/libspng.git
   git+https://github.com/arsenm/sanitizers-cmake.git
   git+https://github.com/KhronosGroup/SPIRV-Cross.git
   git+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
   git+https://github.com/zlib-ng/zlib-ng.git
-  dolphin-emu-system-libmgba.patch
 )
 b2sums=('SKIP'
         'SKIP'
@@ -67,12 +67,11 @@ b2sums=('SKIP'
         'SKIP'
         'SKIP'
         'SKIP'
-        '36ecc3a37832a219da20fda2310bdb45c206a1582639c21ec6c1225ddf2d929ad3fcc6f6cbba75eebf106237c33fb4ae20f3592444d33b68164b2239d63fb94d')
+        'SKIP')
 
 prepare() {
   cd dolphin-emu
-  patch -Np1 -i "${srcdir}"/dolphin-emu-system-libmgba.patch
-  for submodule in Externals/{cubeb/cubeb,libspng/libspng,spirv_cross/SPIRV-Cross,VulkanMemoryAllocator,zlib-ng/zlib-ng}; do
+  for submodule in Externals/{cubeb/cubeb,implot/implot,libspng/libspng,spirv_cross/SPIRV-Cross,VulkanMemoryAllocator,zlib-ng/zlib-ng}; do
     git submodule init ${submodule}
     git config submodule.${submodule}.url ../${submodule##*/}
     git -c protocol.file.allow=always submodule update ${submodule}
@@ -93,6 +92,7 @@ build() {
     -DCMAKE_BUILD_TYPE=None \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DDISTRIBUTOR=archlinux.org \
+    -DENABLE_TESTS=OFF \
     -DUSE_MGBA=ON \
     -DUSE_SHARED_ENET=ON \
     -Wno-dev
