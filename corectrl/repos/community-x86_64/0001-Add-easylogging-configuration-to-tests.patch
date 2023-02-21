@@ -1,0 +1,115 @@
+From 086e814b154d0a79a4dc56b405587d93a029c80e Mon Sep 17 00:00:00 2001
+From: Juan Palacios <jpalaciosdev@gmail.com>
+Date: Tue, 21 Feb 2023 19:13:25 +0100
+Subject: [PATCH] Add easylogging++ configuration to tests
+
+Also, group easylogging++ common configuration macros on
+3RDPARTY_DEFINITIONS and initialize it on corectrl_lib with
+SHARE_EASYLOGGINGPP.
+
+Fixes #351
+---
+ CHANGELOG.md           |  1 +
+ CMakeLists.txt         |  3 +++
+ src/CMakeLists.txt     |  3 ---
+ src/app/appfactory.cpp |  2 +-
+ tests/CMakeLists.txt   |  8 +-------
+ tests/src/main.cpp     | 21 ++++++++++++++++++++-
+ 6 files changed, 26 insertions(+), 12 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 12c4235..eaea750 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -70,6 +70,9 @@ list(APPEND 3RDPARTY_DEFINITIONS
+   ENABLE_PREDEFINED_TEMPERATURE_UNITS
+   ENABLE_PREDEFINED_CONVERT_UNITS
+   ENABLE_PREDEFINED_CONCENTRATION_UNITS
++  ELPP_NO_LOG_TO_FILE
++  ELPP_NO_DEFAULT_LOG_FILE
++  ELPP_FORCE_USE_STD_THREAD
+ )
+ 
+ find_package(easyloggingpp 9.96.7 QUIET)
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 67204ed..d626eef 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -3,9 +3,6 @@ configure_file(config.h.in config.h)
+ list(APPEND APP_COMPILE_DEFINITIONS
+   ${3RDPARTY_DEFINITIONS}
+   ELPP_THREAD_SAFE
+-  ELPP_FORCE_USE_STD_THREAD
+-  ELPP_NO_LOG_TO_FILE
+-  ELPP_NO_DEFAULT_LOG_FILE
+ )
+ 
+ list(APPEND COMMON_SRC
+diff --git a/src/app/appfactory.cpp b/src/app/appfactory.cpp
+index e98d67f..5d0b7ab 100644
+--- a/src/app/appfactory.cpp
++++ b/src/app/appfactory.cpp
+@@ -45,7 +45,7 @@
+ #include <system_error>
+ #include <utility>
+ 
+-INITIALIZE_EASYLOGGINGPP
++SHARE_EASYLOGGINGPP(el::Helpers::storage());
+ 
+ namespace fs = std::filesystem;
+ 
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 72c178a..870b2ea 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -12,15 +12,9 @@ endif()
+ 
+ # Compile definitions
+ list(APPEND TESTS_COMPILE_DEFINITIONS
+-  # https://github.com/catchorg/Catch2/blob/master/docs/configuration.md
++  ${3RDPARTY_DEFINITIONS}
+   CATCH_CONFIG_FAST_COMPILE
+-
+-  # https://github.com/zuhd-org/easyloggingpp/blob/master/README.md
+   ELPP_DISABLE_LOGS
+-  ELPP_NO_LOG_TO_FILE
+-  ELPP_NO_DEFAULT_LOG_FILE
+-
+-  ${3RDPARTY_DEFINITIONS}
+ )
+ 
+ # include directories for all tests
+diff --git a/tests/src/main.cpp b/tests/src/main.cpp
+index 147634b..7870121 100644
+--- a/tests/src/main.cpp
++++ b/tests/src/main.cpp
+@@ -1,6 +1,25 @@
+ // SPDX-License-Identifier: GPL-3.0-or-later
+ // Copyright 2019 Juan Palacios <jpalaciosdev@gmail.com>
+ 
+-#define CATCH_CONFIG_MAIN
++#define CATCH_CONFIG_RUNNER
+ #include <catch2/catch.hpp>
+ #include <catch2/trompeloeil.hpp>
++#include <easylogging++.h>
++
++INITIALIZE_EASYLOGGINGPP
++
++void setupLogger()
++{
++  el::Configurations c;
++  c.setToDefault();
++  c.setGlobally(el::ConfigurationType::Enabled, "false");
++  c.setGlobally(el::ConfigurationType::ToFile, "false");
++
++  el::Loggers::setDefaultConfigurations(c, true);
++}
++
++int main(int argc, char *argv[])
++{
++  setupLogger();
++  return Catch::Session().run(argc, argv);
++}
+-- 
+2.39.2
+
