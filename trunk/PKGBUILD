@@ -7,10 +7,11 @@
 pkgname=vault
 pkgdesc='A tool for managing secrets'
 pkgver=1.12.3
-pkgrel=1
+pkgrel=2
 url="https://vaultproject.io/"
 license=('MPL')
 arch=('x86_64')
+depends=('glibc')
 makedepends=('go' 'git' 'yarn' 'bower' 'nodejs-lts-fermium' 'npm' 'zip' 'gox' 'go-tools')
 install=vault.install
 backup=('etc/vault.hcl')
@@ -26,43 +27,43 @@ sha512sums=('SKIP'
             '073f0f400cba78521cd2709ce86d88fbb14125117f9f3beca657f625d04eab8e00f7a01b5d9a1cfc03e9038844f5732bdbb1a85dd65a803d3f0b90f8bf87880e'
             '46106cc76151eef2dd5e4b2caa6a96aae4d6ce1ecbf977dcc8667a3f6c829cbea95133622adafcb15cdfaa066ecc94c73c983e7613ee2f6573694981569729fe')
 
-prepare() {
-  export GOPATH="${srcdir}"
-  mkdir -p src/github.com/hashicorp/ "$GOPATH/bin"
-  mv "${pkgname}" "src/github.com/hashicorp/${pkgname}"
-  export PACKAGE_ROOT="${GOPATH}/src/github.com/hashicorp/${pkgname}"
-  cd $PACKAGE_ROOT
-
-  sed -i 's/gofumpt/gofmt/g' Makefile
-}
-
 pkgver() {
-  cd $PACKAGE_ROOT
+  cd vault
   git describe --tags --match 'v*' | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
 }
 
 build() {
-  cd $PACKAGE_ROOT
+  mkdir -p "${srcdir}/vault/http/web_ui"
+  cd "${srcdir}/vault/ui"
+  yarn install --ignore-optional
+  npm rebuild node-sass
+  yarn --verbose run build
+
+  cd "${srcdir}/vault"
   export CGO_CPPFLAGS="${CPPFLAGS}"
   export CGO_CFLAGS="${CFLAGS}"
   export CGO_CXXFLAGS="${CXXFLAGS}"
   export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
-  export XC_OSARCH='linux/amd64'
-  grep "^[a-z].*plugin[:]" Makefile | cut -f1 -d: | while IFS= read -r plugin; do
-    make "$plugin"
-  done
-  make static-dist bin
+  export GOPATH="${srcdir}"
+  mkdir -p bin
+  go build \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-linkmode=external -compressdwarf=false -X github.com/hashicorp/vault/sdk/version.Version=${pkgver} -X github.com/hashicorp/vault/sdk/version.GitCommit=${_vault_commit} -X github.com/hashicorp/vault/sdk/version.BuildDate=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+    -tags ui \
+    -o dist/ \
+    .
 }
 
 package() {
-  cd ${PACKAGE_ROOT}
-  install -Dm755 bin/vault "${pkgdir}/usr/bin/vault"
-  install -Dm644 LICENSE "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install -Dm644 "${srcdir}/vault.hcl" "${pkgdir}/etc/vault.hcl"
   install -Dm644 "${srcdir}/vault.service" "${pkgdir}/usr/lib/systemd/system/vault.service"
   install -Dm644 "${srcdir}/vault.sysusers" "${pkgdir}/usr/lib/sysusers.d/vault.conf"
   install -Dm644 "${srcdir}/vault.tmpfiles" "${pkgdir}/usr/lib/tmpfiles.d/vault.conf"
+  cd "${srcdir}/vault"
+  install -Dm755 "dist/vault" "${pkgdir}/usr/bin/vault"
+  install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   for file in README.md CHANGELOG.md CONTRIBUTING.md; do
     install -Dm644 "${file}" "${pkgdir}/usr/share/doc/${pkgname}/${file}"
   done
