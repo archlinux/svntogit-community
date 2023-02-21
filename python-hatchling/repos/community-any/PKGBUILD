@@ -2,8 +2,8 @@
 # Contributor: Kaizhao Zhang <zhangkaizhao@gmail.com>
 
 pkgname=python-hatchling
-pkgver=1.11.1
-pkgrel=2
+pkgver=1.13.0
+pkgrel=1
 pkgdesc="A modern project, package, and virtual env manager (backend)"
 arch=('any')
 url="https://github.com/pypa/hatch"
@@ -16,7 +16,7 @@ _name=${pkgname/python-/}
 source=(
   "${url}/archive/refs/tags/${_name}-v${pkgver}.tar.gz"
 )
-sha256sums=('614ae622aee0747e0d350e2eedab9bfddb624e03e3f8e5db655af724792eecc1')
+sha256sums=('41e17b56a28fd4e8f69e4cecbea4527491c761998aba8bd2fc71d0d9eadf66b8')
 
 build() {
   cd "${srcdir}/hatch-${_name}-v${pkgver}"
