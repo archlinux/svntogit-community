@@ -5,7 +5,7 @@ pkgname=toxic
 pkgdesc='CLI Tox client'
 license=('GPL3')
 pkgver=0.11.3
-pkgrel=2
+pkgrel=3
 depends=('curl'
          'freealut'
          'libnotify'
