@@ -6,7 +6,7 @@
 
 pkgname=godot
 pkgver=3.5.1
-pkgrel=3
+pkgrel=4
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
