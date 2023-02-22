@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-stylish-haskell-plugin
+pkgname=haskell-hls-stylish-haskell-plugin
+pkgver=1.0.1.1
+pkgrel=10
+pkgdesc="Integration with the Stylish Haskell code formatter"
+url="https://hackage.haskell.org/package/hls-stylish-haskell-plugin"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-ghc' 'haskell-ghcide' 'haskell-hls-plugin-api' 'haskell-lsp-types'
+         'stylish-haskell')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils')
+checkdepends=('git')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('be206362609b9e51289e0a451d322d17dfe8837a430e6e319591716e5490fcffbcd9905a7721e7ec0435be5efd27871dd9734db0ff37e8e6118ecf6a10938459')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -u ghcide -u hls-plugin-api -u hls-test-utils $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
