@@ -1,0 +1,57 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-hlint-plugin
+pkgname=haskell-hls-hlint-plugin
+pkgver=1.1.0.0
+pkgrel=3
+pkgdesc="Hlint integration plugin with Haskell Language Server"
+url="https://hackage.haskell.org/package/hls-hlint-plugin"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-diff' 'haskell-aeson' 'haskell-apply-refact' 'haskell-data-default'
+         'haskell-extra' 'haskell-ghc' 'haskell-ghc-exactprint' 'haskell-ghc-lib-parser-ex'
+         'haskell-ghcide' 'haskell-hashable' 'hlint' 'haskell-hls-plugin-api' 'haskell-hslogger'
+         'haskell-lens' 'haskell-lsp' 'haskell-refact' 'haskell-regex-tdfa' 'haskell-temporary'
+         'haskell-unordered-containers')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils' 'haskell-lsp-types')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('42983bf430fc66fef569ed8bb7a0bbb661c84ca47504654e2c502a8d8343bc642e75fcb7924e3d4743147005cdbaf801b14450a8bf469ee7a56dd29af13da0d1')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -r ghc-lib-parser:ghc $_hkgname.cabal
+  sed -i 's/"ghc-lib-parser" //' src/Ide/Plugin/Hlint.hs
+  sed -i '/HLINT_ON_GHC_LIB/d' $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  # TODO
+  runhaskell Setup test --show-details=direct || warning "Tests failed"
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
