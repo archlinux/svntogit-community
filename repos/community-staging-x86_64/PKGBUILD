@@ -1,0 +1,52 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-qualify-imported-names-plugin
+pkgname=haskell-hls-qualify-imported-names-plugin
+pkgver=1.0.1.0
+pkgrel=21
+pkgdesc="A Haskell Language Server plugin that qualifies imported names"
+url="https://github.com/haskell/haskell-language-server"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-dlist' 'haskell-ghc' 'haskell-ghcide'
+         'haskell-hls-graph' 'haskell-hls-plugin-api' 'haskell-lsp' 'haskell-unordered-containers')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha256sums=('562d174fc504f63458f7bc0af8c8bb7b50bd94c602dfeffecc7a6e3c30338540')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -u ghcide -u hls-plugin-api -u hls-test-utils $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --datasubdir=haskell-hls-qualify-imported-names-plugin --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' 
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
