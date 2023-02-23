@@ -1,0 +1,112 @@
+# Maintainer: Jan Alexander Steffens (heftig) <heftig@archlinux.org>
+# Contributor: Ionut Biru <ibiru@archlinux.org>
+# Contributor: Pierre Schmitz <pierre@archlinux.de>
+# Contributor: Mikko Seppälä <t-r-a-y@mbnet.fi>
+
+pkgbase=lib32-glib2
+pkgname=(lib32-glib2)
+pkgver=2.74.6
+pkgrel=1
+pkgdesc="Low level core library (32-bit)"
+url="https://wiki.gnome.org/Projects/GLib"
+license=(LGPL)
+arch=(x86_64)
+depends=(
+  glib2
+  lib32-libffi
+  lib32-pcre2
+  lib32-util-linux
+  lib32-zlib
+)
+makedepends=(
+  gettext
+  git
+  gtk-doc
+  lib32-dbus
+  lib32-libelf
+  meson
+  python
+  shared-mime-info
+  util-linux
+)
+checkdepends=(
+  desktop-file-utils
+  lib32-glib2
+)
+options=(
+  debug
+)
+_commit=a5dde6304670af590f25a2992104c0880003acf0  # tags/2.74.6^0
+source=(
+  "git+https://gitlab.gnome.org/GNOME/glib.git#commit=$_commit"
+  "git+https://gitlab.gnome.org/GNOME/gvdb.git"
+  multilib.diff
+  gio-querymodules-32.{hook,script}
+)
+b2sums=('SKIP'
+        'SKIP'
+        '39b757816b28bc4101cf59b651dd414e69372c19c88104addbd7f130c56f867b7ef23cc5161c655c022de446b1e0c9ef9055dba7e9709587602254faf77b604b'
+        '34276fb3952c1286835dbbec7e8f306cbc819fa8b49e22c8a75b248cf7dbda87fb896c4915e267cb150bad28161fc4025843c00c4b6bb57a22e41f22ecf19efd'
+        'f0372ba65b6203e569da5bc8b262e76f2b7f2682de3eca5006953e4de2e99785d9793044d2f5350cd2b863cb1760780deb36651a7ab20bc7ab317d1eeafcd07f')
+
+pkgver() {
+  cd glib
+  git describe --tags | sed 's/[^-]*-g/r&/;s/-/+/g'
+}
+
+prepare() {
+  cd glib
+
+  # Fix tests: GLibC 2.37's vasprintf segfaults when passed a NULL format
+  git cherry-pick -n c4203f740ced1f1fc576caf1550441b57107fd00
+
+  # Test suite workaround
+  git apply -3 ../multilib.diff
+
+  git submodule init
+  git submodule set-url subprojects/gvdb "$srcdir/gvdb"
+  git -c protocol.file.allow=always submodule update
+}
+
+build() {
+  export CC="gcc -m32 -mstackrealign"
+  export CXX="g++ -m32 -mstackrealign"
+  export PKG_CONFIG="i686-pc-linux-gnu-pkg-config"
+
+  # Produce more debug info: GLib has a lot of useful macros
+  CFLAGS+=' -g3'
+  CXXFLAGS+=' -g3'
+
+  CFLAGS+=" -DG_DISABLE_CAST_CHECKS"
+  arch-meson glib build \
+    --libdir=/usr/lib32 \
+    -D glib_debug=disabled \
+    -D selinux=disabled \
+    -D sysprof=disabled \
+    -D man=false \
+    -D gtk_doc=false
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --no-suite flaky --no-suite slow --print-errorlogs
+}
+
+package_lib32-glib2() {
+  depends+=(
+    libffi.so
+    libmount.so
+  )
+  provides+=(libg{lib,io,module,object,thread}-2.0.so)
+
+  meson install -C build --destdir "$pkgdir"
+
+  rm -r "$pkgdir"/usr/{lib,share,include}
+  find "$pkgdir/usr/bin" -type f -not -name gio-querymodules -printf 'Removing %P\n' -delete
+  mv "$pkgdir"/usr/bin/gio-querymodules{,-32}
+
+  install -Dt "$pkgdir/usr/share/libalpm/hooks" -m644 *.hook
+  install -D gio-querymodules-32.script "$pkgdir/usr/share/libalpm/scripts/gio-querymodules-32"
+}
+
+# vim:set sw=2 sts=-1 et:
