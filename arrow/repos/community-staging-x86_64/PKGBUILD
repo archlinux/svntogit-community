@@ -1,0 +1,76 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Contributor: Guillaume Horel <guillaume.horel@gmail.com>
+
+pkgname=arrow
+pkgver=10.0.1
+pkgrel=5
+pkgdesc="Columnar in-memory analytics layer for big data."
+arch=(x86_64)
+url="https://arrow.apache.org"
+license=(Apache)
+depends=(apache-orc boost-libs brotli bzip2 double-conversion c-ares gflags
+         grpc google-glog jemalloc libutf8proc lz4 openssl protobuf rapidjson re2
+         snappy thrift uriparser xsimd zlib zstd)
+provides=(parquet-cpp)
+conflicts=(parquet-cpp)
+makedepends=(boost cmake flatbuffers gmock python-numpy git clang)
+source=(https://archive.apache.org/dist/${pkgname}/${pkgname}-${pkgver}/apache-${pkgname}-${pkgver}.tar.gz{,.asc}
+        git+https://github.com/apache/parquet-testing.git
+        git+https://github.com/apache/arrow-testing.git)
+sha512sums=(c6198e5c9b8fe5ccd89e445c9252da44d8d7c9e0c8eb5a802fa0cabf89482fddf775ed383bac1acc9331bc3195d21df7ea02c4a73aa6ee163c2959f34175d650
+            SKIP
+            SKIP
+            SKIP)
+validpgpkeys=(265F80AB84FE03127E14F01125BCCA5220D84079  # Krisztian Szucs (apache) <szucs.krisztian@gmail.com>
+              08D3564B7C6A9CAFBFF6A66791D18FCF079F8007) # Kouhei Sutou <kou@cozmixng.org>
+
+build(){
+  CC=clang \
+  CXX=clang++ \
+  ARROW_BUILD_TOOLCHAIN=/usr \
+  ORC_HOME=/usr \
+  DOUBLE_CONVERSION_HOME=/usr \
+  cmake \
+    -B build -S apache-${pkgname}-${pkgver}/cpp \
+    -DCMAKE_INSTALL_PREFIX="/usr" \
+    -DCMAKE_INSTALL_LIBDIR="lib" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DARROW_BUILD_STATIC=OFF \
+    -DARROW_DEPENDENCY_SOURCE=SYSTEM \
+    -DARROW_BUILD_TESTS=ON \
+    -DARROW_COMPUTE=ON \
+    -DARROW_SUBSTRAIT=ON \
+    -DARROW_FLIGHT=ON \
+    -DARROW_FLIGHT_SQL=ON \
+    -DARROW_GANDIVA=OFF \
+    -DARROW_HDFS=ON \
+    -DARROW_IPC=ON \
+    -DARROW_JEMALLOC=ON \
+    -DARROW_ORC=ON \
+    -DARROW_PARQUET=ON \
+    -DARROW_PLASMA=ON \
+    -DARROW_PYTHON=ON \
+    -DARROW_TENSORFLOW=ON \
+    -DARROW_USE_GLOG=ON \
+    -DARROW_WITH_BROTLI=ON \
+    -DARROW_WITH_BZ2=ON \
+    -DARROW_WITH_LZ4=ON \
+    -DARROW_WITH_SNAPPY=ON \
+    -DARROW_WITH_ZLIB=ON \
+    -DARROW_WITH_ZSTD=ON \
+    -DPARQUET_REQUIRE_ENCRYPTION=ON
+  make -C build
+}
+
+check(){
+  # skip failing test with assertion on float values that are actually equal
+  ARGS="-E parquet-internals-test" \
+  PARQUET_TEST_DATA="${srcdir}"/parquet-testing/data \
+  ARROW_TEST_DATA="${srcdir}"/arrow-testing/data \
+  make -C build test
+}
+
+package(){
+  make -C build DESTDIR="${pkgdir}" install
+  find "${pkgdir}"/usr/lib/ -name '*testing*' -delete
+}
