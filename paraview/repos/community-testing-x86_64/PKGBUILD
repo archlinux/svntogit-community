@@ -1,0 +1,106 @@
+# Maintainer: Bruno Pagani <archange@archlinux.org>
+# Maintainer: Mathieu Westphal <mathieu.westphal@kitware.com>
+# Contributor: Stéphane Gaudreault <stephane@archlinux.org>
+# Contributor: <xantares09@hotmail.com>
+
+_pkg=paraview
+_mpi=openmpi
+pkgname=${_pkg}
+#-${_mpi}
+pkgver=5.11.0
+pkgrel=1
+pkgdesc="Parallel Visualization application using VTK (${_mpi} version)"
+arch=(x86_64)
+url="https://www.paraview.org"
+license=(BSD custom)
+depends=(boost-libs qt5-tools qt5-svg intel-tbb openmpi ffmpeg
+         adios2 liblas ospray pdal python-numpy protobuf
+         cgns double-conversion expat freetype2 gdal gl2ps glew hdf5 libjpeg
+         jsoncpp libjsoncpp.so libharu libxml2 lz4 xz python-mpi4py netcdf
+         libogg libpng pugixml libtheora libtiff zlib verdict)
+optdepends=(python-matplotlib python-pandas)
+makedepends=(cmake boost mesa gcc-fortran ninja qt5-xmlpatterns cli11 eigen utf8cpp)
+# pegtl: https://gitlab.kitware.com/vtk/vtk/-/issues/18151
+# rapidjson: https://gitlab.kitware.com/vtk/vtk/-/issues/18366
+# fmt: https://gitlab.kitware.com/paraview/paraview/-/issues/21315
+# catalyst, exprtk, ioss: not packaged
+conflicts=(paraview-opt)
+replaces=(paraview-opt)
+source=(${url}/files/v${pkgver%.*}/ParaView-v${pkgver/R/-R}.tar.xz
+        paraview-wrapper.sh
+        template.sh
+      )
+sha256sums=('9a0b8fe8b1a2cdfd0ace9a87fa87e0ec21ee0f6f0bcb1fdde050f4f585a25165'
+            'd1cdb4a81db280d6b21bee3d9e5f8fc3a87f00a909d33850a1964c72091ec138'
+            '844d44a14817c656ba8d6998298785125a98f03f7b5ece58d966c226db1e0d83'
+          )
+
+prepare() {
+  # Specify python version in wrapper
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  sed -i "s|@PYTHON@|${python_version}|" paraview-wrapper.sh
+  # Arch required changes
+  cd ParaView-v${pkgver/R/-R}
+  # We have a patched libharu
+  sed -i "s|2.4.0|2.3.0|" VTK/ThirdParty/libharu/CMakeLists.txt
+  # Fix licences install (upstreamed but not released)
+  sed -i 's|CACHE PATH "License|CACHE STRING "License|g' VTK/CMakeLists.txt
+}
+
+build() {
+  export CFLAGS+=" -ffat-lto-objects"
+  export CXXFLAGS+=" -ffat-lto-objects"
+  cmake -B build -S ParaView-v${pkgver/R/-R} -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/paraview \
+    -DCMAKE_INSTALL_LICENSEDIR=share/licenses/paraview \
+    -DCMAKE_SKIP_INSTALL_RPATH=OFF \
+    -DPARAVIEW_ENABLE_ADIOS2=ON \
+    -DPARAVIEW_ENABLE_FFMPEG=ON \
+    -DPARAVIEW_ENABLE_FIDES=ON \
+    -DPARAVIEW_ENABLE_GDAL=ON \
+    -DPARAVIEW_ENABLE_LAS=ON \
+    -DPARAVIEW_ENABLE_MOTIONFX=ON \
+    -DPARAVIEW_ENABLE_PDAL=ON \
+    -DPARAVIEW_ENABLE_RAYTRACING=ON \
+    -DPARAVIEW_ENABLE_VISITBRIDGE=ON \
+    -DPARAVIEW_ENABLE_XDMF3=ON \
+    -DPARAVIEW_USE_MPI=ON \
+    -DPARAVIEW_USE_PYTHON=ON \
+    -DPARAVIEW_VERSIONED_INSTALL=OFF \
+    -DPARAVIEW_BUILD_WITH_EXTERNAL=ON \
+    -DVTK_SMP_IMPLEMENTATION_TYPE=TBB \
+    -DVTKm_ENABLE_MPI=ON \
+    -DCATALYST_USE_MPI=ON \
+    -DFIDES_USE_EXTERNAL_RAPIDJSON=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_ParaView_vtkcatalyst=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_exprtk=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_fmt=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_ioss=OFF \
+    -DVTK_MODULE_USE_EXTERNAL_VTK_pegtl=OFF \
+    -Wno-dev
+  ninja -C build ${MAKEFLAGS}
+}
+
+package() {
+  DESTDIR="${pkgdir}" ninja -C build install
+
+  # Install wrappers
+  install -Dm755 paraview-wrapper.sh "${pkgdir}"/usr/bin/paraview-wrapper
+  for binary in paraview "${pkgdir}"/opt/paraview/bin/pv*
+  do
+      install -Dm755 template.sh "${pkgdir}"/usr/bin/${binary##*/}
+      sed -i "s|@BINARY@|${binary##*/}|" "${pkgdir}"/usr/bin/${binary##*/}
+  done
+
+  # Install licenses, shortcuts, icons
+  install -dm755 "${pkgdir}"/usr/share
+  mv "${pkgdir}"/{opt/paraview,usr}/share/applications
+  mv "${pkgdir}"/{opt/paraview,usr}/share/icons
+  mv "${pkgdir}"/{opt/paraview,usr}/share/licenses
+  mv "${pkgdir}"/{opt/paraview,usr}/share/metainfo
+
+  # byte-compile python modules since the CMake build does not do it.
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  python -m compileall -o 0 -o 1 -o 2 --hardlink-dupes -s "${pkgdir}" "${pkgdir}"${site_packages/usr/opt/paraview}
+}
