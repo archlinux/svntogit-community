@@ -1,0 +1,184 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgbase=lsp-plugins
+pkgname=(lsp-plugins{,-{clap,docs,ladspa,lv2,standalone,vst}} liblsp-r3d-glx-lib)
+pkgver=1.2.5
+pkgrel=1
+pkgdesc="Collection of open-source plugins"
+arch=(x86_64)
+url="https://lsp-plug.in"
+license=(LGPL3)
+makedepends=(cairo gcc-libs glibc hicolor-icon-theme libglvnd libx11 libxrandr jack ladspa libsndfile lv2 php)
+checkdepends=(jq lv2lint)
+source=(https://github.com/sadko4u/$pkgname/releases/download/$pkgver/$pkgname-src-$pkgver.tar.gz)
+sha512sums=('75e731fa6ef1ee6772dfa9681c5f46b6fb513559e1522a6b3dbf072508ed52248f479ca55fd7dab1d6b48db6a5e6f5857ef079a4bcb6ff52bc7968b5060ac074')
+b2sums=('8f8550fcc0a068a28c0753adba1169957c8b7c142e8a6d2e00948e17eddb439de3a4dc81c8c94b4d6b4d934dceab08dd4bb61764ec2df7bc59484cc17c134e12')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+build() {
+  make config VERBOSE=1 ARTIFACT_EXPORT_HEADERS=1 FEATURES='clap doc lv2 vst2 jack ladspa xdg' PREFIX=/usr -C $pkgbase
+  make VERBOSE=1 -C $pkgbase
+}
+
+check() {
+  local _plugin
+  local _lv2_uri="http://lsp-plug.in/plugins/lv2/"
+
+  # install to temporary location
+  make FEATURES=lv2 DESTDIR="$PWD/test" install -C $pkgbase
+
+  for _plugin in $(jq -r '.plugins[].id' $pkgbase/.build/target/lsp-plugin-fw/plugins.json); do
+    printf "Testing plugin %s\n" "$_plugin"
+    lv2lint -Mpack -I "$PWD/test/usr/lib/lv2/$pkgname.lv2/" $_lv2_uri$_plugin
+  done
+}
+
+package_lsp-plugins() {
+  depends=($pkgbase-{clap,ladspa,lv2,standalone,vst})
+  optdepends=(
+    'lsp-plugins-docs: for documentation'
+  )
+
+  make PREFIX=/usr DESTDIR="$pkgdir" install -C $pkgbase
+  printf "successfully installed to pkgdir\n"
+
+  (
+    cd "$pkgdir"
+    _pick liblsp-r3d-glx-lib usr/include/*
+    _pick liblsp-r3d-glx-lib usr/lib/liblsp*
+    _pick liblsp-r3d-glx-lib usr/lib/pkgconfig/*
+    _pick $pkgbase-clap usr/lib/clap/*
+    _pick $pkgbase-docs usr/share/doc/*
+    _pick $pkgbase-ladspa usr/lib/ladspa/*
+    _pick $pkgbase-lv2 usr/lib/lv2/*
+    _pick $pkgbase-standalone etc/*
+    _pick $pkgbase-standalone usr/bin/*
+    _pick $pkgbase-standalone usr/lib/$pkgbase/*
+    _pick $pkgbase-standalone usr/share/applications/*
+    _pick $pkgbase-standalone usr/share/desktop-directories/*
+    _pick $pkgbase-standalone usr/share/icons/*
+    _pick $pkgbase-vst usr/lib/vst/*
+  )
+}
+
+package_liblsp-r3d-glx-lib() {
+  pkgdesc="GLX-based 3D backend library for rendering scenes"
+  depends=(
+    gcc-libs
+    glibc
+    libglvnd libGL.so
+    libx11
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_lsp-plugins-clap() {
+  pkgdesc+=" - CLAP"
+  groups=(clap-plugins)
+  depends=(
+    cairo
+    clap-host
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    libglvnd
+    liblsp-r3d-glx-lib=$pkgver
+    libsndfile libsndfile.so
+    libx11
+    libxrandr
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_lsp-plugins-docs() {
+  pkgdesc+=" (documentation)"
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_lsp-plugins-ladspa() {
+  pkgdesc+=" - LADSPA"
+  groups=(ladspa-plugins)
+  depends=(
+    cairo
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    ladspa-host
+    libglvnd
+    liblsp-r3d-glx-lib=$pkgver
+    libsndfile libsndfile.so
+    libx11
+    libxrandr
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_lsp-plugins-lv2() {
+  pkgdesc+=" - LV2"
+  groups=(lv2-plugins)
+  depends=(
+    cairo
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    lv2-host
+    libglvnd
+    liblsp-r3d-glx-lib=$pkgver
+    libsndfile libsndfile.so
+    libx11
+    libxrandr
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_lsp-plugins-standalone() {
+  pkgdesc+=" - JACK standalone"
+  groups=(pro-audio)
+  depends=(
+    cairo
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    jack libjack.so
+    libglvnd
+    liblsp-r3d-glx-lib=$pkgver
+    libsndfile libsndfile.so
+    libx11
+    libxrandr
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_lsp-plugins-vst() {
+  pkgdesc+=" - VST2"
+  groups=(vst-plugins)
+  depends=(
+    cairo
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    libglvnd
+    liblsp-r3d-glx-lib=$pkgver
+    libsndfile libsndfile.so
+    libx11
+    libxrandr
+    vst-host
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
