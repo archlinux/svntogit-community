@@ -1,0 +1,82 @@
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
+# Contributor: TheEdgeOfRage on AUR
+
+_pkgname=aws-crt-python
+pkgname=python-awscrt
+# https://github.com/awslabs/aws-crt-python/releases
+pkgver=0.16.3
+# curl https://api.github.com/repos/awslabs/aws-crt-python/git/ref/tags/v$pkgver | jq -r .object.sha
+_tag=337b17a059ec1026c9f108e51cf2d2a793f77e64
+pkgrel=1
+pkgdesc='A common runtime for AWS Python projects'
+arch=(x86_64)
+url='https://github.com/awslabs/aws-crt-python'
+license=(Apache)
+depends=(glibc python)
+makedepends=(git cmake python-build python-installer python-setuptools python-wheel)
+checkdepends=(python-websockets)
+source=("git+https://github.com/awslabs/aws-crt-python.git#tag=$_tag"
+        "git+https://github.com/awslabs/aws-c-auth"
+        "git+https://github.com/awslabs/aws-c-cal"
+        "git+https://github.com/awslabs/aws-c-common"
+        "git+https://github.com/awslabs/aws-c-compression"
+        "git+https://github.com/awslabs/aws-c-event-stream"
+        "git+https://github.com/awslabs/aws-c-http"
+        "git+https://github.com/awslabs/aws-c-io"
+        "git+https://github.com/awslabs/aws-c-mqtt"
+        "git+https://github.com/awslabs/aws-c-s3"
+        "git+https://github.com/awslabs/aws-c-sdkutils"
+        "git+https://github.com/awslabs/aws-checksums"
+        "git+https://github.com/awslabs/aws-lc"
+        "git+https://github.com/awslabs/s2n")
+sha256sums=('SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP'
+            'SKIP')
+
+prepare() {
+  cd $_pkgname
+
+  # https://github.com/awslabs/aws-crt-python/blob/v$pkgver/.gitmodules
+  git submodule init
+  for crt in aws-c-auth aws-c-cal aws-c-common aws-c-compression aws-c-event-stream aws-c-http aws-c-io aws-c-mqtt aws-c-s3 aws-checksums s2n; do
+    git config submodule.aws-common-runtime/$crt.url "$srcdir"/$crt
+    git -c protocol.file.allow=always submodule update crt/$crt
+  done
+  for crt in aws-c-sdkutils aws-lc; do
+    git config submodule.crt/$crt.url "$srcdir"/$crt
+    git -c protocol.file.allow=always submodule update crt/$crt
+  done
+
+  # Use proper version in .dist-info
+  # See https://github.com/awslabs/aws-crt-python/blob/main/continuous-delivery/update-version.py
+  sed -i -r "s/__version__ = '[^']+'/__version__ = '$pkgver'/" awscrt/__init__.py
+}
+
+build() {
+  cd $_pkgname
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  cd $_pkgname
+
+  pyver=$(python -c "import sys; print('{}{}'.format(*sys.version_info[:2]))")
+  export PYTHONPATH="$PWD:$PWD/build/lib.linux-$CARCH-cpython-$pyver"
+  python -m unittest discover test
+}
+
+package() {
+  cd $_pkgname
+  python -m installer --destdir="$pkgdir" dist/*.whl
+}
