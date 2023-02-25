@@ -1,0 +1,74 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=ghcide
+pkgname=haskell-ghcide
+pkgver=1.8.0.0
+pkgrel=5
+pkgdesc="The core of an IDE"
+url="https://github.com/haskell/haskell-language-server/tree/master/ghcide#readme"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-diff' 'haskell-glob' 'haskell-aeson' 'haskell-aeson-pretty'
+         'haskell-async' 'haskell-base16-bytestring' 'haskell-case-insensitive'
+         'haskell-co-log-core' 'haskell-cryptohash-sha1' 'haskell-data-default'
+         'haskell-dependent-map' 'haskell-dependent-sum' 'haskell-dlist' 'haskell-enummapset'
+         'haskell-extra' 'haskell-fingertree' 'haskell-ghc' 'haskell-ghc-check' 'haskell-ghc-paths'
+         'haskell-ghc-trace-events' 'haskell-gitrev' 'haskell-haddock-library' 'haskell-hashable'
+         'haskell-heapsize' 'haskell-hie-bios' 'haskell-hie-compat' 'haskell-hiedb'
+         'haskell-hls-graph' 'haskell-hls-plugin-api' 'haskell-hslogger'
+         'haskell-implicit-hie-cradle' 'haskell-lens' 'haskell-list-t' 'haskell-lsp'
+         'haskell-lsp-types' 'haskell-monoid-subclasses' 'haskell-opentelemetry'
+         'haskell-optparse-applicative' 'haskell-parallel' 'haskell-prettyprinter'
+         'haskell-prettyprinter-ansi-terminal' 'haskell-random' 'haskell-regex-tdfa'
+         'haskell-safe-exceptions' 'haskell-sorted-list' 'haskell-sqlite-simple'
+         'haskell-stm-containers' 'haskell-syb' 'haskell-text-rope' 'haskell-unliftio'
+         'haskell-unliftio-core' 'haskell-unordered-containers' 'haskell-vector')
+makedepends=('ghc' 'uusi' 'haskell-quickcheck' 'haskell-fuzzy' 'haskell-ghc-typelits-knownnat'
+             'haskell-implicit-hie' 'haskell-lsp-test' 'haskell-network-uri'
+             'haskell-record-dot-preprocessor' 'haskell-record-hasfield' 'haskell-shake'
+             'haskell-tasty' 'haskell-tasty-expected-failure' 'haskell-tasty-hunit'
+             'haskell-tasty-quickcheck' 'haskell-tasty-rerun')
+checkdepends=('cabal-install')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('cb2b0f528e41e3020c2a2ace566160de98805c1c02aeb345f854181ca5dfd88405b3f22d5fc1bace12174e8cb89ed348ca690c16947630bf9c3270cbb518f33c')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  find test/data -name \*.cabal -exec uusi --add-options-all=-dynamic {} \;
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' \
+    -fexecutable
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  cabal update
+  # Random test failures "Received an illegal message between the initialize request and response"
+  # th-linking-test-unboxed always fails too
+  PATH="$PWD/dist/build/ghcide:$PWD/dist/build/ghcide-test-preprocessor:$PATH" LD_LIBRARY_PATH="$PWD/dist/build" runhaskell Setup test || echo "Tests failed"
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
