@@ -1,0 +1,107 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: RedTide <redtid3@gmail.com>
+
+pkgname=sfizz
+pkgver=1.2.0
+pkgrel=3
+pkgdesc="SFZ library and LV2 plugin"
+arch=(x86_64)
+url="https://github.com/sfztools/sfizz"
+license=(BSD)
+groups=(lv2-plugins pro-audio vst3-plugins)
+depends=(
+  abseil-cpp
+  cairo
+  gcc-libs
+  glibc
+  libx11
+  libxkbcommon
+  libxkbcommon-x11
+  pugixml
+  ttf-roboto
+  xcb-util
+  xcb-util-cursor
+  zenity
+)
+makedepends=(
+  cmake
+  cxxopts
+  jack
+  freetype2
+  lv2
+  simde
+  vst3sdk
+  xcb-util-keysyms
+)
+checkdepends=(lv2lint catch2)
+optdepends=(
+  'jack: for sfizz_jack'
+  'lv2-host: for the LV2 plugin'
+  'pd: for puredata external'
+  'vst3-host: for the VST3 plugin'
+)
+provides=(libsfizz.so)
+source=(
+  $url/releases/download/$pkgver/$pkgname-$pkgver.tar.gz
+  system-catch2.patch
+  $pkgname-1.2.0-lv2lint.patch::https://github.com/sfztools/sfizz/pull/1114/commits/dac20eac20cbbcb14c6d25d1575b85d6dce7ee93.patch
+)
+sha512sums=('fd8500a9e94acee4cd61053ce9d6fd85e6dcee56c198e986557bb40b35a7ac902a4e3544bce4a13349a00f9d3024509db1a805ef442abdf94cb63cfadf0df81d'
+            '48c1ab4d0af4fa4b7330edd9da919032604e23a227510802593f6b0120cd10c43de88b2d20731496052578a76437061c82af046795709dc759e0a250e93acd1b'
+            '9c58f1b48309d67a9a668534a59b405fb9b103ec8eaf523a6208f739e8fb07936f2d4b1f384704f6d6e824d4fe1ba8135930367c0f314d5f7982b55868f24292')
+b2sums=('cecedcd1a1f6268f84b1e878b264226566d43b091cfc8d522084ed3af24a030b0840833dc093300d3e8b933398401b6ea619f36fe1df6ff04544eabf2850665c'
+        '34e150d89b0fd1dc88390f6474b1568fcfad9ac27474146f437f876766e750fe85b64771a15eab091c55da62e4008964dd8a8315b9341dd68bf49459b602f732'
+        '64f6de8e39d5b31413f5090d6de81d6151693e229779bc9a32a57ecdeccd7a5cb4aa0c982503239ed242725f158596419bec00cea313039565eca402a3200fc2')
+
+prepare() {
+  # fix issues with LV2 validation: https://github.com/sfztools/sfizz/issues/1071
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-1.2.0-lv2lint.patch
+
+  # symlink tests data to top-level location so that tests can get to them (we build out of tree)
+  ln -sv $pkgname-$pkgver/tests .
+
+  # disable devendoring of vst3sdk as upstream is otherwise broken: https://github.com/sfztools/sfizz/issues/1143
+  # rm -rf plugins/vst/external/VST_SDK/*
+  # ln -sv /usr/share/vst3sdk/ plugins/vst/external/VST_SDK/VST3_SDK
+
+  cd $pkgname-$pkgver
+  # devendor lv2
+  rm -rfv lv2/lv2
+  sed -e 's|"lv2/core/lv2.h"|<lv2/core/lv2.h>|g' -i plugins/lv2/external/ardour/ardour/lv2_extensions.h
+
+  # use system catch2
+  rm -rf tests/catch2
+  patch -p1 -i ../system-catch2.patch
+}
+
+build() {
+  local cmake_options=(
+    -DCMAKE_INSTALL_PREFIX=/usr
+    -DCMAKE_BUILD_TYPE=None
+    -DSFIZZ_PUREDATA=ON
+    -DSFIZZ_TESTS=ON
+    -DSFIZZ_USE_SYSTEM_ABSEIL=ON
+    -DSFIZZ_USE_SYSTEM_CXXOPTS=ON
+    -DSFIZZ_USE_SYSTEM_PUGIXML=ON
+    -DSFIZZ_USE_SYSTEM_SIMDE=ON
+    -Wno-dev
+    -B build
+    -S $pkgname-$pkgver
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+  lv2lint -Mpack -I build/$pkgname.lv2 "http://sfztools.github.io/sfizz"
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+  install -vDm 644 $pkgname-$pkgver/LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 $pkgname-$pkgver/{AUTHORS,CONTRIBUTING,GOVERNANCE,README}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  # devendor ttf-roboto
+  ln -svf /usr/share/fonts/TTF/Roboto-Regular.ttf "$pkgdir/usr/lib/vst3/$pkgname.vst3/Contents/Resources/Fonts/"
+}
