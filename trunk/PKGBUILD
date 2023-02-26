@@ -5,8 +5,8 @@
 # Contributor: Tetsumi
 
 pkgname=python-pygame
-pkgver=2.1.2
-pkgrel=3
+pkgver=2.1.3
+pkgrel=1
 pkgdesc="Python game library"
 arch=('x86_64')
 url="http://www.pygame.org"
@@ -14,7 +14,7 @@ license=('LGPL')
 makedepends=('python-setuptools' 'sdl2')
 depends=('python' 'sdl2_mixer' 'sdl2_ttf' 'sdl2_image' 'portmidi')
 source=("https://pypi.io/packages/source/p/pygame/pygame-$pkgver.tar.gz")
-sha256sums=('d6d0eca28f886f0477cd0721ac688189155a587f2bb8eae740e52ca56c3ad23c')
+sha256sums=('df29c4369df9231eebffac801fa7af021279d7e9dc4c1cae698cc4077c98d069')
 
 build() {
     cd pygame-"$pkgver"
