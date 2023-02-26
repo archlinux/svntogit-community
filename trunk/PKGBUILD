@@ -2,8 +2,8 @@
 
 _name=fastjsonschema
 pkgname=python-fastjsonschema
-_commit=1aad747bab39d4b1201ab99917463f4079955ecd # refs/tags/v2.16.2
-pkgver=2.16.2
+_commit=4f11540d2e8f7c0aeae1230cdbc65a99f1b277c4 # refs/tags/v2.16.3
+pkgver=2.16.3
 pkgrel=1
 pkgdesc="Fast JSON schema validator for Python"
 arch=(any)
@@ -27,7 +27,7 @@ prepare() {
   cd $pkgname
   git submodule init
   git config submodule.JSON-Schema-Test-Suite.url ../JSON-Schema-Test-Suite
-  git submodule update
+  git -c protocol.file.allow=always submodule update
 }
 
 build() {
