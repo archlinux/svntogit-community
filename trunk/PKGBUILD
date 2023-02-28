@@ -13,7 +13,7 @@ pkgname=(
  dotnet-targeting-pack
  aspnet-targeting-pack
 )
-pkgver=7.0.3.sdk201
+pkgver=7.0.3.sdk103
 pkgrel=1
 _bootstrapver=7.0.102-4
 arch=(x86_64)
@@ -43,7 +43,7 @@ options=(
   !lto
   staticlibs
 )
-_tag=68f2d7e7a3c55365f4ee48f10495616f6c0651e7
+_tag=276c71d299f6f6dcc3abfd6b3f1fb90c667b4aaa
 source=(
   dotnet-installer::git+https://github.com/dotnet/installer.git#tag=${_tag}
   https://dotnetcli.azureedge.net/source-built-artifacts/assets/Private.SourceBuilt.Artifacts.${_bootstrapver}.tar.gz
