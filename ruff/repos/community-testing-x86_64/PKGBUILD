@@ -1,0 +1,56 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+
+pkgbase=ruff
+pkgname=($pkgbase python-$pkgbase)
+pkgver=0.0.253
+pkgrel=1
+pkgdesc='An extremely fast Python linter, written in Rust'
+arch=(x86_64)
+url="https://github.com/charliermarsh/$pkgname"
+license=(MIT)
+depends=(gcc-libs glibc)
+makedepends=(cargo maturin python-installer)
+options=(!lto)
+_archive="$pkgname-$pkgver"
+source=($url/archive/refs/tags/v$pkgver/$_archive.tar.gz)
+sha512sums=('af51c387c166dc97a26d51b8e716e16f07e610a9408177e3577a76deb549fe5d9c62c49280a76bf4b9337f4468d8f5f7999fb73b6efa87c0008184570763fc8d')
+b2sums=('54c82a3e4938698ad1eb29020b2402d60318ea99e3de4eaffb5001f8da1bec95f5a6d6de2ebcf7f09fdeb7c0eb19001b09fb5de56a2c14bd936c32220e915591')
+
+prepare() {
+  cd "$_archive"
+  cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+  cd "$_archive"
+  maturin build --locked --release --all-features --target "$CARCH-unknown-linux-gnu" --strip
+}
+
+check() {
+  cd "$_archive"
+  cargo test -p ruff_cli --frozen --all-features
+}
+
+_package_common() {
+  install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
+  install -Dm0644 -t "$pkgdir/usr/share/doc/$pkgname/" README.md
+}
+
+package_ruff() {
+  cd "$_archive"
+  _package_common
+  local _target="target/$CARCH-unknown-linux-gnu/release/ruff"
+  install -Dm0755 -t "$pkgdir/usr/bin/" "$_target"
+  $_target --generate-shell-completion bash | install -Dm0644 /dev/stdin "$pkgdir/usr/share/bash-completion/completions/$pkgname.bash"
+  $_target --generate-shell-completion fish | install -Dm0644 /dev/stdin "$pkgdir/usr/share/fish/vendor_completions.d/$pkgname.fish"
+  $_target --generate-shell-completion zsh  | install -Dm0644 /dev/stdin "$pkgdir/usr/share/zsh/site-functions/_$pkgname"
+}
+
+package_python-ruff() {
+  cd "$_archive"
+  _package_common
+  depends=(python "$pkgbase")
+  python -m installer -d "$pkgdir" target/wheels/*.whl
+  rm -rf "$pkgdir/usr/bin"
+}
