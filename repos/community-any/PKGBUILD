@@ -1,35 +1,56 @@
-# Maintainer: Kyle Keen <keenerd@gmail.com>
 # Maintainer: Morten Linderud <foxboron@archlinux.org>
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Kyle Keen <keenerd@gmail.com>
 # Contributor: Andy Weidenbaum <archbaum@gmail.com>
 
 pkgname=python-prompt_toolkit
 _name=prompt_toolkit
-pkgver=3.0.37
+pkgver=3.0.38
 pkgrel=1
-pkgdesc="Library for building powerful interactive command lines in Python"
+pkgdesc='Library for building powerful interactive command lines in Python'
 arch=('any')
-depends=('python-pygments'
-         'python-wcwidth')
-makedepends=('python-setuptools')
-checkdepends=('python-pytest')
-url="https://github.com/jonathanslenders/python-prompt-toolkit"
+url='https://github.com/jonathanslenders/python-prompt-toolkit'
 license=('BSD')
-options=(!emptydirs)
-source=("https://files.pythonhosted.org/packages/source/p/$_name/$_name-$pkgver.tar.gz")
-sha256sums=('d5d73d4b5eb1a92ba884a88962b157f49b71e06c4348b417dd622b25cdd3800b')
+depends=(
+  'python'
+  'python-pygments'
+  'python-wcwidth'
+)
+makedepends=(
+  'git'
+  'python-build'
+  'python-installer'
+  'python-wheel'
+  'python-setuptools'
+)
+checkdepends=('python-pytest')
+_commit='960df477c31adf53a3fff98a5c212c71fbfd7a3e'
+source=("$pkgname::git+$url#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
 
 build() {
-  cd "$_name-$pkgver"
-  python setup.py build
+  cd "$pkgname"
+
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  cd "$_name-$pkgver"
-  PYTHONPATH=src PYTHONDONTWRITEBYTECODE=1  python -m pytest
+  cd "$pkgname"
+
+  PYTHONPATH=build/lib pytest -v
 }
 
 package() {
-  cd "$_name-$pkgver"
-  python setup.py install --root="$pkgdir" --optimize=1
-  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  cd "$pkgname"
+
+  python -m installer --destdir="$pkgdir" dist/*.whl
+
+  # license
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
 }
