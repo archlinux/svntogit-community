@@ -8,17 +8,19 @@ BUILDENV+=(!check)
 _pkgname=poetry
 pkgname=python-poetry
 pkgver=1.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Python dependency management and packaging made easy'
 arch=(any)
 url=https://python-poetry.org
 license=(MIT)
-_deps=(cachecontrol
+_deps=(build
+       cachecontrol
        cachy
        cleo
        crashtest
        dulwich
        html5lib
+       installer
        jsonschema
        keyring
        lockfile
@@ -36,7 +38,7 @@ _deps=(cachecontrol
        urllib3
        virtualenv)
 depends=("${_deps[@]/#/python-}")
-makedepends=(python-{build,installer})
+makedepends=(python)
 checkdepends=(git
               python-httpretty
               python-pytest
