@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-pragmas-plugin
+pkgname=haskell-hls-pragmas-plugin
+pkgver=1.0.3.0
+pkgrel=10
+pkgdesc="Pragmas plugin for Haskell Language Server"
+url="https://hackage.haskell.org/package/hls-pragmas-plugin"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-extra' 'haskell-fuzzy' 'haskell-ghc' 'haskell-ghcide'
+         'haskell-hls-plugin-api' 'haskell-lens' 'haskell-lsp' 'haskell-unordered-containers')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils' 'haskell-lsp-types')
+checkdepends=('git')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('4784dd432105053992767982678247805ab50a0b4309823132834b75f2d9ee297636436ec4cff8e9b94e6ccb29bb03537ad88054c3e0b16e381f99c458879154')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  # TODO
+  runhaskell Setup test --show-details=direct || echo "Tests failed"
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
