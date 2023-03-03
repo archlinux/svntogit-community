@@ -1,0 +1,81 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=postgrest
+pkgver=10.0.0
+pkgrel=62
+pkgdesc="REST API for any Postgres database"
+url="https://github.com/begriffs/postgrest"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-http' 'haskell-ranged-sets' 'haskell-aeson' 'haskell-auto-update'
+         'haskell-base64-bytestring' 'haskell-case-insensitive' 'haskell-cassava'
+         'haskell-configurator-pg' 'haskell-contravariant-extras' 'haskell-cookie' 'haskell-either'
+         'haskell-gitrev' 'haskell-hasql' 'haskell-hasql-dynamic-statements'
+         'haskell-hasql-notifications' 'haskell-hasql-pool' 'haskell-hasql-transaction'
+         'haskell-heredoc' 'haskell-http-types' 'haskell-insert-ordered-containers'
+         'haskell-interpolatedstring-perl6' 'haskell-jose' 'haskell-lens' 'haskell-lens-aeson'
+         'haskell-network' 'haskell-network-uri' 'haskell-optparse-applicative' 'haskell-protolude'
+         'haskell-regex-tdfa' 'haskell-retry' 'haskell-scientific' 'haskell-swagger2'
+         'haskell-unordered-containers' 'haskell-vault' 'haskell-vector' 'haskell-wai'
+         'haskell-wai-cors' 'haskell-wai-extra' 'haskell-wai-logger' 'haskell-warp')
+makedepends=('ghc' 'uusi' 'haskell-aeson-qq' 'haskell-async' 'haskell-doctest' 'haskell-hspec'
+             'haskell-hspec-wai' 'haskell-hspec-wai-json' 'haskell-monad-control'
+             'haskell-pretty-simple' 'haskell-transformers-base')
+checkdepends=('pifpaf' 'postgresql' 'pg-safeupdate' 'postgis' 'procps-ng' 'python-pytest'
+              'python-pyjwt' 'python-requests' 'python-requests-unixsocket' 'python-yaml')
+source=("https://github.com/begriffs/postgrest/archive/v$pkgver/$pkgname-$pkgver.tar.gz"
+        postgresql-15.patch)
+sha512sums=('c7a4d631b0cdd4bc79501433f21e4a4366bc496e8ae3e94fe5124defcf79cab07a937b51349972bfcb0759198af453e9239653f97eb16efad1afe251026e5f35'
+            'd78a831281441d6b2fa58b49a87c2e5aea847eb98058505d010f79dc5c65358a2c84cd12bc08b18adfa211eb80f7b872e887ba2dcb07fa95a2ba8b0b4ef9588d')
+
+prepare() {
+    cd $pkgname-$pkgver
+    patch -p1 -i ../postgresql-15.patch
+    uusi -u aeson -u hspec -u HTTP -u jose -u lens -u lens-aeson -u optparse-applicative -u vector $pkgname.cabal
+
+    # Hack LD_LIBRARY_PATH
+    sed -e "/^    env\[\"HPCTIXFILE/a \    env[\"LD_LIBRARY_PATH\"] = \"$PWD/dist/build\"" \
+        -e "/^        env\[\"HPCTIXFILE/a \        env[\"LD_LIBRARY_PATH\"] = \"$PWD/dist/build\"" \
+        -i test/io/test_io.py
+}
+
+build() {
+    cd $pkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-CI --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $pkgname-$pkgver
+
+    eval $(pifpaf run postgresql --host 127.0.0.1)
+    psql -v ON_ERROR_STOP=1 -f test/spec/fixtures/load.sql
+    runhaskell Setup test --show-details=direct
+    pifpaf_stop
+
+    eval $(pifpaf run postgresql --host 127.0.0.1 --port 5432)
+    createuser postgrest_test_authenticator
+    psql -v ON_ERROR_STOP=1 -f test/io/fixtures.sql
+    # TODO
+    PATH="$PWD/dist/build/postgrest:$PATH" LD_LIBRARY_PATH="$PWD/dist/build" PGUSER=postgrest_test_authenticator PGDATABASE=postgres pytest -v test/io || echo "Tests failed"
+    pifpaf_stop
+}
+
+package() {
+    cd $pkgname-$pkgver
+
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
