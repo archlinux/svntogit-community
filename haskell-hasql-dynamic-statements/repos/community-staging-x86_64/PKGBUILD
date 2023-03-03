@@ -1,0 +1,55 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hasql-dynamic-statements
+pkgname=haskell-hasql-dynamic-statements
+pkgver=0.3.1.1
+pkgrel=4
+pkgdesc="Toolkit for constructing Hasql statements dynamically"
+url="https://github.com/nikita-volkov/hasql-dynamic-statements"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-hasql' 'haskell-hasql-implicits' 'haskell-ptr')
+makedepends=('ghc' 'uusi' 'haskell-quickcheck' 'haskell-quickcheck-instances' 'haskell-rerebase'
+             'haskell-tasty' 'haskell-tasty-hunit' 'haskell-tasty-quickcheck' 'pifpaf' 'postgresql')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha256sums=('8665819ea9e52672bf9c99284995029d838d809e1a2c0befcb2f696da8a187ad')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  sed -i 's/5432/9824/' test/Main.hs
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  eval $(pifpaf run postgresql --host 127.0.0.1)
+  createuser -s postgres
+  runhaskell Setup test --show-details=direct
+  pifpaf_stop
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
