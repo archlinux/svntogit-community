@@ -1,0 +1,60 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+_hkgname=hakyll
+pkgname=haskell-hakyll
+pkgver=4.15.1.1
+pkgrel=228
+pkgdesc="A static website compiler library"
+url="https://jaspervdj.be/hakyll"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-blaze-html' 'haskell-blaze-markup'
+         'haskell-data-default' 'haskell-file-embed' 'haskell-fsnotify' 'haskell-hashable'
+         'haskell-http-conduit' 'haskell-http-types' 'haskell-lifted-async' 'haskell-lrucache'
+         'haskell-network-uri' 'haskell-optparse-applicative' 'haskell-pandoc' 'haskell-random'
+         'haskell-regex-tdfa' 'haskell-resourcet' 'haskell-scientific' 'haskell-tagsoup'
+         'haskell-time-locale-compat' 'haskell-unordered-containers' 'haskell-vector' 'haskell-wai'
+         'haskell-wai-app-static' 'haskell-warp' 'haskell-yaml')
+makedepends=('ghc' 'uusi' 'haskell-quickcheck' 'haskell-tasty' 'haskell-tasty-golden' 'haskell-tasty-hunit'
+             'haskell-tasty-quickcheck')
+source=("https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz"
+        $pkgname-pandoc-3.0.patch::https://github.com/jaspervdj/hakyll/commit/2ea5d682cfb7631bc00c9452e5fdc1c1c15900f8.patch)
+sha512sums=('c0fee6bedfe19677484e41d2d0a098bf351c35a8b3adc7fe5de407a0686dd1d1108584b05525f70ce7cac94919b50c09be91706226bbc3f3e3d155cc9bc1eb34'
+            'eacfeb136de91a27b8b9d47449dbfe2af5ea688f4d3cf6e739a16cddcf89c5da4272ca58ed1dab079ad627e9440acf58dec3f1d84eacb7121041c3c31e1aa699')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    patch -p1 -i ../$pkgname-pandoc-3.0.patch || : # ignore patch failures on cabal file
+    uusi -u aeson -u fsnotify -u optparse-applicative -u pandoc -u vector $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -fcheckexternal -fwatchserver -fpreviewserver -fusepandoc
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    LC_CTYPE=en_US.UTF-8 runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
