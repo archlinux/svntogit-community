@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=clash-ghc
+pkgver=1.6.4
+pkgrel=47
+pkgdesc="CAES Language for Synchronous Hardware"
+url="https://clash-lang.org/"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-clash-lib' 'haskell-clash-prelude' 'haskell-concurrent-supply'
+         'haskell-data-binary-ieee754' 'haskell-extra' 'haskell-ghc' 'haskell-ghc-typelits-extra'
+         'haskell-ghc-typelits-knownnat' 'haskell-ghc-typelits-natnormalise' 'haskell-hashable'
+         'haskell-lens' 'haskell-primitive' 'haskell-reflection' 'haskell-split' 'haskell-uniplate'
+         'haskell-unordered-containers' 'haskell-utf8-string' 'haskell-vector')
+makedepends=('ghc' 'uusi')
+conflicts=('clash')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha512sums=('b469a23efafc62b2a9be52e56f9d3c7b22db4c7bcabb655454f78739c879bf3629aca804d966a5f665b09459a9e29608ff1d0666f5dcca59a43b18b1951be62b')
+
+prepare() {
+  cd $pkgname-$pkgver
+  uusi -u lens $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
