@@ -8,7 +8,7 @@
 
 pkgname=blender
 pkgver=3.4.1
-pkgrel=14
+pkgrel=15
 epoch=17
 pkgdesc="A fully integrated 3D graphics creation suite"
 arch=('x86_64')
@@ -19,11 +19,12 @@ depends=('libpng' 'libtiff' 'openexr' 'python' 'desktop-file-utils' 'python-requ
          'freetype2' 'openal' 'ffmpeg' 'fftw' 'boost-libs' 'opencollada' 'alembic' 'openxr'
          'openimageio' 'libsndfile' 'jack' 'opencolorio' 'openshadinglanguage' 'openimagedenoise'
          'jemalloc' 'libspnav' 'ptex' 'opensubdiv' 'openvdb' 'log4cplus' 'sdl2' 'embree' 'libharu'
-         'draco' 'openpgl')
-makedepends=('cmake' 'boost' 'mesa' 'git' 'llvm' 'cuda' 'hip-runtime-amd' 'ninja' 'wayland-protocols'
-             'libxkbcommon' 'libdecor')
+         'draco' 'openpgl' 'level-zero-loader' 'intel-oneapi-compiler-shared-runtime'
+         'level-zero-loader')
+# 'intel-compute-runtime'
+makedepends=('cmake' 'boost' 'mesa' 'git' 'llvm' 'cuda' 'ninja' 'wayland-protocols' 'libxkbcommon'
+             'libdecor' 'hip-runtime-amd' 'level-zero-headers' 'intel-oneapi-dpcpp-cpp')
 optdepends=('cuda: cycles renderer cuda support'
-            'hip-runtime-amd: cycles renderer HIP support'
             'libdecor: wayland support')
 source=("git+https://git.blender.org/blender.git#tag=v$pkgver"
         "git+https://git.blender.org/blender-addons.git"
@@ -31,6 +32,7 @@ source=("git+https://git.blender.org/blender.git#tag=v$pkgver"
         "git+https://git.blender.org/blender-translations.git"
         "git+https://git.blender.org/blender-dev-tools.git"
         https://developer.download.nvidia.com/redist/optix/v7.5/OptiX-7.5-Include.zip
+        blender-sycl-path.patch
         blender-numpy.patch
         force-draco1.patch
         force-draco2.patch)
@@ -40,6 +42,7 @@ sha512sums=('SKIP'
             'SKIP'
             'SKIP'
             '32a77c7a64c5d38f2af76b2c0d09c6b53b7adcc7d85a0b271ba09647858b21fb8f534da5dc4143079359cbedc8074a58715ff2cea0b85019596531a7dca8dbf7'
+            'bc9a80941a18aaddc3e8f2d9963e4f6b7eb1cf9f098418adb236771c3bedcab7b7a06121178f7498caba1af67116cd0ea549382e14a707163cdd5d8fbf3ee824'
             'a39d9a13515b71d3b686d8f011b3eb9ee45de04f716627d711c5119317cb130c587da1b806f276f97064f814cfce3790b201731f047e5ec01e7d6f65acd04b3b'
             'e239da4f3906f1b54265435181cf770bae3d269c8d915df9a73861e6ee71ec70bf2339426e7c81a91e5a567273b3b3742d7a99feefd3398d821b26e1ff3a56d0'
             '527ab66e5eace777de0043c1ca5787a488f6471450ce67fd6d08137ad0ef56177bc0c17696f30a5fca23fa55d8ca9c3f30cb7b17550dba2dbd8e89ca0b361990')
@@ -63,6 +66,9 @@ prepare() {
 
   # fix for FS#77376
   patch -p1 -d release/scripts/addons -i "$srcdir"/blender-numpy.patch
+
+  # fix SYCL include dir
+  patch -p1 -i "$srcdir"/blender-sycl-path.patch
 }
 
 get_pyver() {
@@ -78,12 +84,15 @@ build() {
   echo 'set(CYCLES_CUDA_BINARIES_ARCH sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86 sm_87 sm_89 compute_89 CACHE STRING "CUDA architectures to build binaries for" FORCE)' > precache
   echo 'mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)' >> precache
 
-  HIP_ROOT_DIR=/opt/rocm \
+
+    #-DSYCL_ROOT_DIR=/opt/intel/oneapi/compiler/latest/linux \
   cmake \
     -Bbuild \
     -GNinja \
     -Cbuild_files/cmake/config/blender_release.cmake \
     -C precache \
+    -DHIP_ROOT_DIR=/opt/rocm \
+    -DOCLOC_INSTALL_DIR=/usr/ \
     -DOPTIX_ROOT_DIR="$srcdir" \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=Release \
