@@ -1,0 +1,48 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hint
+pkgname=haskell-hint
+pkgver=0.9.0.6
+pkgrel=16
+pkgdesc="Runtime Haskell interpreter (GHC API wrapper)"
+url="https://github.com/haskell-hint/hint"
+license=('BSD')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-ghc' 'haskell-ghc-paths' 'haskell-random' 'haskell-temporary')
+makedepends=('ghc' 'haskell-hunit' 'haskell-typed-process')
+checkdepends=('cabal-install')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('bb8ae9e6440674202c1f5dc241f2f65c3d8a69cb03ec27a5010be4959cfae51915828dc508f84423aba6c30afd5eb491f269aa4957b9e5019b0877971ea3630e')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    sed -i 's/"cabal" \["build"\]/"cabal" ["build", "--disable-library-vanilla", "--enable-shared"]/' unit-tests/run-unit-tests.hs
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
