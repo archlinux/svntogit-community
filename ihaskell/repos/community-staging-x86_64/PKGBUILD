@@ -1,0 +1,61 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Martin Rodriguez Reboredo <yakoyoku@gmail.com>
+
+pkgname=ihaskell
+pkgver=0.10.3.0
+pkgrel=45
+pkgdesc="A Haskell backend kernel for the Jupyter project."
+url="https://github.com/gibiansky/IHaskell"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'ipython' 'python-jupyter_client' 'haskell-aeson' 'haskell-base64-bytestring'
+         'haskell-cmdargs' 'haskell-ghc' 'haskell-ghc-parser' 'haskell-ghc-paths' 'hlint'
+         'haskell-http-client' 'haskell-http-client-tls' 'haskell-ipython-kernel' 'haskell-random'
+         'haskell-shelly' 'haskell-split' 'haskell-strict' 'haskell-unordered-containers'
+         'haskell-utf8-string' 'haskell-vector')
+makedepends=('ghc' 'haskell-hunit' 'haskell-here' 'haskell-hspec' 'haskell-hspec-contrib'
+             'haskell-raw-strings-qq' 'haskell-setenv')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz")
+sha256sums=('749b416f8d47a32b75d7987969f344bc7191348b50fc8bbb839580192e864f31')
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' \
+    -fuse-hlint
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  GHC_PACKAGE_PATH="$PWD/dist/package.conf.inplace:$(ghc --print-global-package-db)" \
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+
+  PATH="$pkgdir/usr/bin:$PATH" \
+  LD_LIBRARY_PATH="$pkgdir"/usr/lib \
+  ihaskell_datadir="$pkgdir"/usr/share/ihaskell \
+    "$pkgdir"/usr/bin/ihaskell install --prefix="$pkgdir"/usr
+  sed -i "s|$pkgdir||" "$pkgdir"/usr/share/jupyter/kernels/haskell/kernel.json
+
+  install -dm755 "$pkgdir"/usr/share/jupyter/labextensions
+  ln -s /usr/share/ihaskell/jupyterlab-ihaskell/labextension "$pkgdir"/usr/share/jupyter/labextensions/jupyterlab-ihaskell
+}
