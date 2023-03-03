@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=hls-splice-plugin
+pkgname=haskell-hls-splice-plugin
+pkgver=1.0.2.0
+pkgrel=9
+pkgdesc="HLS Plugin to expand TemplateHaskell Splices and QuasiQuotes"
+url="https://hackage.haskell.org/package/hls-splice-plugin"
+license=("Apache")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-dlist' 'haskell-extra' 'haskell-foldl' 'haskell-ghc'
+         'haskell-ghc-exactprint' 'haskell-ghcide' 'haskell-hls-plugin-api'
+         'haskell-hls-refactor-plugin' 'haskell-lens' 'haskell-lsp' 'haskell-retrie' 'haskell-syb'
+         'haskell-unliftio-core' 'haskell-unordered-containers')
+makedepends=('ghc' 'uusi' 'haskell-hls-test-utils')
+checkdepends=('git')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha512sums=('6a4f7ad463c71fbf2030be4fb3f5db15b20951cf983557728fad56b119be4cce53903e6728a747b4baf79ad16d73bff57c703d00850859150e4eace6a268bfa0')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+  uusi -u ghcide -u hls-plugin-api -u hls-test-utils $_hkgname.cabal
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
