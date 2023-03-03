@@ -1,0 +1,52 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=pandoc-server
+pkgname=haskell-pandoc-server
+pkgver=0.1
+pkgrel=13
+pkgdesc="Pandoc document conversion as an HTTP servant-server"
+url="https://pandoc.org"
+license=("GPL")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-base64' 'haskell-data-default' 'haskell-doctemplates'
+         'haskell-pandoc' 'haskell-pandoc-types' 'haskell-servant-server' 'haskell-skylighting'
+         'haskell-unicode-collation' 'haskell-wai' 'haskell-wai-cors')
+makedepends=('ghc' 'uusi')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+sha256sums=('5884d86dfbf2a16ff785386aa4cfa6c5e1445f6b33cf8287d5d4804bf0df16d0')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  gen-setup
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' 
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 COPYING.md -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/COPYING.md
+}
