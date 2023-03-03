@@ -1,0 +1,59 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=mighttpd2
+pkgver=4.0.2
+pkgrel=84
+pkgdesc="High performance web server on WAI/warp"
+url="https://kazu-yamamoto.github.io/mighttpd2/"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-async' 'haskell-auto-update' 'haskell-base16-bytestring'
+         'haskell-byteorder' 'haskell-case-insensitive' 'haskell-conduit' 'haskell-conduit-extra'
+         'dhall' 'haskell-http-client' 'haskell-http-date' 'haskell-http-types' 'haskell-network'
+         'haskell-old-locale' 'haskell-quic' 'haskell-resourcet' 'haskell-split'
+         'haskell-streaming-commons' 'haskell-time-manager' 'haskell-tls'
+         'haskell-tls-session-manager' 'haskell-unix-time' 'haskell-unliftio'
+         'haskell-unordered-containers' 'haskell-wai' 'haskell-wai-app-file-cgi'
+         'haskell-wai-http2-extra' 'haskell-wai-logger' 'haskell-warp' 'haskell-warp-quic'
+         'haskell-warp-tls')
+makedepends=('ghc' 'haskell-hspec')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz"
+        https://raw.githubusercontent.com/kazu-yamamoto/mighttpd2/v4.0.1/conf/example.dhall)
+sha256sums=('1d4dc43b96a3064a8c0b752f71591cb04d769b76e3b922a5ea3529057d530960'
+            '454bac34f3096ca43fca573b4e927f2d13db86f794cc1280ea4129ccc7f800c3')
+
+prepare() {
+  mv example.dhall $pkgname-$pkgver/conf/
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' \
+    -fdhall -fquic -ftls
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
