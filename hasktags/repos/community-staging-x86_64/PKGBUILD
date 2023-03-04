@@ -1,0 +1,44 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Arch Haskell Team <arch-haskell@haskell.org>
+
+pkgname=hasktags
+pkgver=0.72.0
+pkgrel=54
+pkgdesc="Produces ctags \"tags\" and etags \"TAGS\" files for Haskell programs"
+url="https://github.com/MarcWeber/hasktags"
+license=("BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-json' 'haskell-microlens-platform' 'haskell-optparse-applicative'
+         'haskell-utf8-string')
+makedepends=('ghc' 'haskell-hunit')
+source=("https://hackage.haskell.org/packages/archive/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.gz")
+sha512sums=('dfbcf85174391db182525285474d8d8b4d78229d6f55d14868ba8d13beb9ad0dff74f4aedea23fdfaa41f59867cf96e801e2a7d9009df95874fdcb5a2fa89b38')
+
+build() {
+    cd $pkgname-$pkgver
+    
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+            -f-debug --ghc-option='-pie'
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $pkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $pkgname-$pkgver
+    
+    install -D -m744 register.sh   "${pkgdir}/usr/share/haskell/register/${pkgname}.sh"
+    install -D -m744 unregister.sh "${pkgdir}/usr/share/haskell/unregister/${pkgname}.sh"
+    runhaskell Setup copy --destdir="${pkgdir}"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
