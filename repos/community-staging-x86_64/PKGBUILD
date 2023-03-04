@@ -1,0 +1,53 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=cabal-fmt
+pkgver=0.1.5.1
+pkgrel=90
+pkgdesc="Format .cabal files"
+url="https://github.com/phadej/cabal-fmt.git"
+license=("GPL" "BSD")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-optparse-applicative')
+makedepends=('ghc' 'uusi' 'haskell-tasty' 'haskell-tasty-golden')
+source=("https://hackage.haskell.org/packages/archive/$pkgname/$pkgver/$pkgname-$pkgver.tar.gz"
+        cabal-fmt-cabal-3.4.patch)
+sha256sums=('a7fc6f0ff8b36ddd329b01237c0e9a6eda835be9439e434470d69a4511611f7d'
+            'fb74dd7cfc650ed09f763bd11e929a9bd192447df9b55f2b13fd5c3f2a5fa102')
+
+prepare() {
+  cd $pkgname-$pkgver
+  patch -p1 -i ../cabal-fmt-cabal-3.4.patch
+  gen-setup
+  uusi -u base -u optparse-applicative $pkgname.cabal
+}
+
+build() {
+  cd $pkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie'
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $pkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $pkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
