@@ -1,0 +1,56 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=doctest-discover
+pkgname=haskell-doctest-discover
+pkgver=0.2.0.0
+_commit=04b6b1f9fa93518e49d7a95052e6efc2d2d2dabe
+pkgrel=12
+pkgdesc="Easy way to run doctests via cabal"
+url="http://github.com/karun012/doctest-discover"
+license=("custom:PublicDomain")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-doctest')
+makedepends=('ghc' 'uusi')
+# Test files are missing in hackage tarball, and project is unmaintained.
+#source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz")
+source=("https://github.com/karun012/doctest-discover/archive/$_commit/$pkgname-$_commit.tar.gz")
+sha256sums=('a2f34692b3109dc488c0fbe6c53e3fa3e69de2dd270a2801c09a715f34ed2182')
+
+prepare() {
+  cd $_hkgname-$_commit
+  gen-setup
+}
+
+build() {
+  cd $_hkgname-$_commit
+
+  PATH="$PWD/dist/build/doctest-discover:$PATH" runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --datasubdir=haskell-doctest-discover --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' 
+
+  # Build the executable first because the build order is non-deterministic and the doctests will
+  # fail to build if the executable is not built first.
+  runhaskell Setup build exe:doctest-discover
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$_commit
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$_commit
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
