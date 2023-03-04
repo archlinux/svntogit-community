@@ -1,0 +1,57 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=tasty-discover
+pkgname=haskell-tasty-discover
+pkgver=5.0.0
+pkgrel=23
+pkgdesc="Test discovery for the tasty framework"
+url="https://github.com/haskell-works/tasty-discover"
+license=('MIT')
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-glob' 'haskell-tasty')
+makedepends=('ghc' 'uusi' 'haskell-hedgehog' 'haskell-hspec' 'haskell-hspec-core'
+             'haskell-tasty-golden' 'haskell-tasty-hedgehog' 'haskell-tasty-hspec'
+             'haskell-tasty-hunit' 'haskell-tasty-quickcheck' 'haskell-tasty-smallcheck')
+source=(https://hackage.haskell.org/packages/archive/${_hkgname}/${pkgver}/${_hkgname}-${pkgver}.tar.gz)
+sha512sums=('5178f5706eaf9c12ec266443f964a0fe16eb90ca0d6419382d68a0632dc348a1ba7c797860217d96f8f4f69a39e4aa1eb983960b9dd8ed493b4d456383891a3c')
+
+prepare() {
+    cd $_hkgname-$pkgver
+    uusi -u hspec $_hkgname.cabal
+}
+
+build() {
+    cd $_hkgname-$pkgver
+
+    # Hack to allow ghc execute tasty-discover when building tests
+    export PATH="$PWD/dist/build/$_hkgname:$PATH"
+    export LD_LIBRARY_PATH="$PWD/dist/build"
+
+    # Test could be built before executable, so build an executable first
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla
+    runhaskell Setup build $MAKEFLAGS
+
+    runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+        --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+        --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm
+    runhaskell Setup build $MAKEFLAGS
+    runhaskell Setup register --gen-script
+    runhaskell Setup unregister --gen-script
+    sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+    sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+    cd $_hkgname-$pkgver
+    runhaskell Setup test --show-details=direct
+}
+
+package() {
+    cd $_hkgname-$pkgver
+
+    install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+    install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+    runhaskell Setup copy --destdir="$pkgdir"
+    install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
+    rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
