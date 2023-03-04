@@ -1,0 +1,58 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+_hkgname=lsp
+pkgname=haskell-lsp1.4
+pkgver=1.4.0.0
+pkgrel=7
+pkgdesc="Haskell library for the Microsoft Language Server Protocol"
+url="https://github.com/haskell/lsp"
+license=("MIT")
+arch=('x86_64')
+depends=('ghc-libs' 'haskell-aeson' 'haskell-async' 'haskell-attoparsec' 'haskell-data-default'
+         'haskell-hashable' 'haskell-hslogger' 'haskell-lens' 'haskell-lsp-types1.4'
+         'haskell-network-uri' 'haskell-random' 'haskell-scientific' 'haskell-sorted-list'
+         'haskell-unliftio-core' 'haskell-unordered-containers' 'haskell-uuid' 'haskell-unliftio')
+makedepends=('ghc' 'uusi' 'haskell-quickcheck' 'haskell-hspec' 'haskell-hspec-discover'
+             'haskell-quickcheck-instances' 'haskell-rope-utf16-splay')
+source=("https://hackage.haskell.org/packages/archive/$_hkgname/$pkgver/$_hkgname-$pkgver.tar.gz"
+        lsp-aeson-2.patch)
+sha512sums=('f190ef30a676f56dc759ebce8b162e8f6bcbee95d19f4ffa501bc476c42f136a6ae2ed763a74c068280c5eaaf53f93d3c2f5d01c3275c1e4e7a085a9404858bd'
+            'c514fb46a9d20552fa7b63895e28bcec83c804087f3a84800a113aa579be4d18311e2d4fea43a800aa9c5fd403d808eae36bba54cc2c4be6c23ad060dcc7fbd8')
+
+prepare() {
+  cd $_hkgname-$pkgver
+  patch -p2 -i ../lsp-aeson-2.patch
+  gen-setup
+}
+
+build() {
+  cd $_hkgname-$pkgver
+
+  runhaskell Setup configure -O --enable-shared --enable-executable-dynamic --disable-library-vanilla \
+    --prefix=/usr --docdir=/usr/share/doc/$pkgname --datasubdir=$pkgname --enable-tests \
+    --dynlibdir=/usr/lib --libsubdir=\$compiler/site-local/\$pkgid --ghc-option=-fllvm \
+    --ghc-option=-optl-Wl\,-z\,relro\,-z\,now \
+    --ghc-option='-pie' \
+    -fdemo
+
+  runhaskell Setup build $MAKEFLAGS
+  runhaskell Setup register --gen-script
+  runhaskell Setup unregister --gen-script
+  sed -i -r -e "s|ghc-pkg.*update[^ ]* |&'--force' |" register.sh
+  sed -i -r -e "s|ghc-pkg.*unregister[^ ]* |&'--force' |" unregister.sh
+}
+
+check() {
+  cd $_hkgname-$pkgver
+  runhaskell Setup test --show-details=direct
+}
+
+package() {
+  cd $_hkgname-$pkgver
+
+  install -D -m744 register.sh "$pkgdir"/usr/share/haskell/register/$pkgname.sh
+  install -D -m744 unregister.sh "$pkgdir"/usr/share/haskell/unregister/$pkgname.sh
+  runhaskell Setup copy --destdir="$pkgdir"
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  rm -f "$pkgdir"/usr/share/doc/$pkgname/LICENSE
+}
