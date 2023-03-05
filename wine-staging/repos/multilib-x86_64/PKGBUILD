@@ -5,7 +5,7 @@
 # Contributor: Giovanni Scafora <giovanni@archlinux.org>
 
 pkgname=wine-staging
-pkgver=8.1
+pkgver=8.2
 pkgrel=1
 
 #_winever=${pkgver%.*}
@@ -17,9 +17,9 @@ source=(https://dl.winehq.org/wine/source/8.x/wine-$_winever.tar.xz{,.sign}
         "https://github.com/wine-staging/wine-staging/archive/v$_pkgbasever/wine-staging-v$_pkgbasever.tar.gz"
         30-win32-aliases.conf
         wine-binfmt.conf)
-sha512sums=('3f0477c26f293cf928acbdae2ffb98740ac227a605ec90f3ab3d35c0dbca2037529ff4e4de0b69cc975579ad14dc2fb8b52e050cfd99cffcc627418cf8cb4346'
+sha512sums=('d0b8bb8c6d75034519bdf48d52b89f9d44ba4f7306a0b8f860cbb2c4c39d8fae3c2d9c12be37427b9a9cbdb7dd8701844d0a74c245dd7a9e8a423cb56962b254'
             'SKIP'
-            'c5c3111b27de7d3bf1d7a3a53f33e8d78c5006f22ff0361f77392455fa69b0afd7c58406515ace04b2df7e1dfb20e3adf9d874e5e8be09c9032c1c1aa31fe696'
+            '24bbfb6d03ca8282de058019cbbee57b36f8fdcf3e485f2ca94dbcf50614cf6c80e31103196d11fe48c77953d59a741ae2baf6987e56a88bea038ed16b692ad9'
             '6e54ece7ec7022b3c9d94ad64bdf1017338da16c618966e8baf398e6f18f80f7b0576edf1d1da47ed77b96d577e4cbb2bb0156b0b11c183a0accf22654b0a2bb'
             'bdde7ae015d8a98ba55e84b86dc05aca1d4f8de85be7e4bd6187054bfe4ac83b5a20538945b63fb073caab78022141e9545685e4e3698c97ff173cf30859e285')
 validpgpkeys=(5AC1A08B03BD7A313E0A955AF5E6E9EEB9461DD7
@@ -100,18 +100,17 @@ prepare() {
   # Allow ccache to work
   mv wine-$_winever $pkgname
 
+  # Get rid of old build dirs
+  rm -rf $pkgname-{32,64}-build
+  mkdir $pkgname-{32,64}-build
+
   # apply wine-staging patchset
-  pushd wine-staging-$_pkgbasever/patches
-  ./patchinstall.sh DESTDIR="$srcdir/$pkgname" --all
-  popd
+  cd $pkgname
+  ../wine-staging-$_pkgbasever/staging/patchinstall.py --all
 
   # Doesn't compile without remove these flags as of 4.10
   export CFLAGS="${CFLAGS/-fno-plt/}"
   export LDFLAGS="${LDFLAGS/,-z,now/}"
-
-  # Get rid of old build dirs
-  rm -rf $pkgname-{32,64}-build
-  mkdir $pkgname-{32,64}-build
 }
 
 build() {
