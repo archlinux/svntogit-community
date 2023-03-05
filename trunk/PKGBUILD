@@ -21,9 +21,9 @@ depends=('libpng' 'libtiff' 'openexr' 'python' 'desktop-file-utils' 'python-requ
          'jemalloc' 'libspnav' 'ptex' 'opensubdiv' 'openvdb' 'log4cplus' 'sdl2' 'embree' 'libharu'
          'draco' 'openpgl' 'level-zero-loader' 'intel-oneapi-compiler-shared-runtime'
          'level-zero-loader')
-# 'intel-compute-runtime'
 makedepends=('cmake' 'boost' 'mesa' 'git' 'llvm' 'cuda' 'ninja' 'wayland-protocols' 'libxkbcommon'
-             'libdecor' 'hip-runtime-amd' 'level-zero-headers' 'intel-oneapi-dpcpp-cpp')
+             'libdecor' 'hip-runtime-amd' 'level-zero-headers' 'intel-oneapi-dpcpp-cpp'
+             'intel-compute-runtime')
 optdepends=('cuda: cycles renderer cuda support'
             'libdecor: wayland support')
 source=("git+https://git.blender.org/blender.git#tag=v$pkgver"
@@ -84,20 +84,25 @@ build() {
   echo 'set(CYCLES_CUDA_BINARIES_ARCH sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86 sm_87 sm_89 compute_89 CACHE STRING "CUDA architectures to build binaries for" FORCE)' > precache
   echo 'mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)' >> precache
 
-
-    #-DSYCL_ROOT_DIR=/opt/intel/oneapi/compiler/latest/linux \
+  # If we enable the following flag, Blender will try to build prebuilt Intel
+  # OneAPI binaries using ocloc during the build process. However, this
+  # currently fails as the flags for ocloc are weird and it will crash when
+  # trying to build it. I asked Intel and Blender about it and am waiting on a
+  # response.
+  # -DOCLOC_INSTALL_DIR=/usr/ \
   cmake \
     -Bbuild \
     -GNinja \
     -Cbuild_files/cmake/config/blender_release.cmake \
     -C precache \
     -DHIP_ROOT_DIR=/opt/rocm \
-    -DOCLOC_INSTALL_DIR=/usr/ \
     -DOPTIX_ROOT_DIR="$srcdir" \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=Release \
     -DWITH_INSTALL_PORTABLE=OFF \
-    -DWITH_PYTHON_INSTALL=OFF
+    -DWITH_PYTHON_INSTALL=OFF \
+    -DSYCL_CPP_FLAGS=--verbose \
+    -DCYCLES_ONEAPI_SYCL_OPTIONS_spir64="-options '-ze-opt-large-register-file\ -ze-intel-enable-auto-large-GRF-mode'"
   cmake --build build
 }
 
@@ -118,4 +123,7 @@ package() {
   mkdir -p "${pkgdir}/usr/lib/python$(get_pyver)"/
   mv "${pkgdir}"/usr/share/blender/3*/python/lib/* "${pkgdir}"/usr/lib/
   rm -r "${pkgdir}"/usr/share/blender/3*/python
+
+  # Move OneAPI JIT lib to proper place. No idea why it's not just statically linked into Blender.
+  mv "${pkgdir}"/usr/share/blender/lib/libcycles_kernel_oneapi_jit.so "${pkgdir}"/usr/lib/
 }
