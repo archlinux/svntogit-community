@@ -1,9 +1,9 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
 
 pkgname=python-tqdm
-pkgver=4.64.1
-_commit=6791e8c5b3d6c30bdd2060c346996bfb5a6f10d1
-pkgrel=2
+pkgver=4.65.0
+_commit=0bb91857eca0d4aea08f66cf1c8949abe0cd6b7a
+pkgrel=1
 pkgdesc='Fast, Extensible Progress Meter'
 arch=('any')
 license=('MIT' 'MPL')
@@ -25,7 +25,7 @@ check() {
   cd tqdm
   python -m venv --system-site-packages test-env
   test-env/bin/python setup.py install
-  test-env/bin/python -m pytest -k 'not test_dask'
+  test-env/bin/python -m pytest
 }
 
 package() {
