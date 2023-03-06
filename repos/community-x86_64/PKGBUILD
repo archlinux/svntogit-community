@@ -6,7 +6,7 @@
 
 pkgname=hdf5
 pkgver=1.12.2
-pkgrel=1
+pkgrel=2
 pkgdesc="General purpose library and file format for storing scientific data"
 arch=(x86_64)
 url="https://www.hdfgroup.org/hdf5"
@@ -69,6 +69,9 @@ package() {
     cd ${pkgname}-${pkgver/_/-}
     make DESTDIR="${pkgdir}" install
     install -Dm644 COPYING -t "${pkgdir}"/usr/share/licenses/${pkgname}
+
     # Install pkg-config files from CMake tree
     install -Dm644 ../build/CMakeFiles/hdf5{,_hl}{,_cpp,_fortran}.pc -t "${pkgdir}"/usr/lib/pkgconfig/
+    # Fix version numbers in pkg-config files
+    sed -i '/Requires/ s/-/ = /g' "${pkgdir}"/usr/lib/pkgconfig/*.pc
 }
