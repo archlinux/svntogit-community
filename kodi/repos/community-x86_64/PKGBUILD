@@ -20,7 +20,7 @@
 pkgbase=kodi
 pkgname=('kodi' 'kodi-eventclients' 'kodi-tools-texturepacker' 'kodi-dev')
 pkgver=20.0
-pkgrel=6
+pkgrel=7
 arch=('x86_64')
 url="https://kodi.tv"
 license=('GPL2')
@@ -67,6 +67,7 @@ source=(
   'cheat-sse-build.patch'
   "https://github.com/xbmc/xbmc/pull/22658.patch"  # FS#77390
   "https://github.com/xbmc/xbmc/pull/22714.patch"  # FS#77565
+  "https://github.com/xbmc/xbmc/pull/22897.patch"  # FS#77727
 )
 noextract=(
   "$pkgbase-libdvdcss-$_libdvdcss_version.tar.gz"
@@ -89,7 +90,8 @@ sha512sums=('80ec541ff512de31ecec614735f285846c5cb0dda1e67f77e7b88b893b0a691be97
             '3069feb5db40288beb5b112b285186162a704f0fdd3cf67a17fd4eeea015f2cfcfbb455b7aa7c3d79d00fd095a3fd11cffc7b121dce94d99c3b06a509a8977d2'
             '91409cc66959a30f2d0dbf8d28e47dd2acbac560efb8961550c5928ae8546a32d1f156f8e55f073f953b114230117ec96c224212d28c1c1d752540c836c9ae1a'
             '3bbbf908bcf833666f64da6c3b73566a617b7ca8474decea186fbdf5ea9fd4bbe6bd3843470be741f34948791978495d5776fd4f1c72a453609b6b24054afb69'
-            '054982a6d14ac583e334d0ae73ee49b1e08a614f47c285cf1ba2859abf9cf7c421bfd27faa8542cab9a33da0a3759726c20bcfc549b8b11c11d9cd59c542ac90')
+            '054982a6d14ac583e334d0ae73ee49b1e08a614f47c285cf1ba2859abf9cf7c421bfd27faa8542cab9a33da0a3759726c20bcfc549b8b11c11d9cd59c542ac90'
+            'e3ab2ce0665dfb4f205e599cd2cf78a83177b16e8c519f5ccbd500b137beb3d043d6982761a995ee39530b1b567aa19f305f029404b2ed00f0762a4ccc03247b')
 
 prepare() {
   [[ -d kodi-build ]] && rm -rf kodi-build
@@ -106,6 +108,10 @@ prepare() {
   # NFSv4 fix
   # https://bugs.archlinux.org/task/77565
   patch -p1 -i "$srcdir/22714.patch"
+
+  # Additional NFS fixes
+  # https://bugs.archlinux.org/task/77727
+  patch -p1 -i "$srcdir/22897.patch"
 }
 
 build() {
