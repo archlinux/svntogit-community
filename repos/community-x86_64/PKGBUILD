@@ -8,7 +8,7 @@
 
 pkgname=blender
 pkgver=3.4.1
-pkgrel=18
+pkgrel=20
 epoch=17
 pkgdesc="A fully integrated 3D graphics creation suite"
 arch=('x86_64')
@@ -33,6 +33,7 @@ source=("git+https://projects.blender.org/blender/blender.git#tag=v$pkgver"
         "git+https://projects.blender.org/blender/blender-dev-tools.git"
         https://developer.download.nvidia.com/redist/optix/v7.6/OptiX-7.6-Include.zip
         blender-sycl-path.patch
+        blender-oneapi-escape.patch
         blender-numpy.patch
         blender-ffmpeg6.patch
         force-draco1.patch
@@ -44,6 +45,7 @@ sha512sums=('SKIP'
             'SKIP'
             'dfe86de395dd298fb9feae73bff06a26742efa06a25bb5a4f78ffb1ba4c78f555d1af927efea98af281715cce01db219aa2adfd6bd323bf0d766c1c70ce03532'
             'bc9a80941a18aaddc3e8f2d9963e4f6b7eb1cf9f098418adb236771c3bedcab7b7a06121178f7498caba1af67116cd0ea549382e14a707163cdd5d8fbf3ee824'
+            '1898af42ac10e9fc61c6fb979c1a3c6c91981c0c9790bf954e9425b5e7db897399d0ba6757f006f4ee1d6125ae0619b2e2a7ea5cf77cc36b91f3192873b66d9f'
             'a39d9a13515b71d3b686d8f011b3eb9ee45de04f716627d711c5119317cb130c587da1b806f276f97064f814cfce3790b201731f047e5ec01e7d6f65acd04b3b'
             '34a2e2a344e851858fc8408ca9fd31d1d4a40083b2a1b2c01cabf48c2728c0b97226cf22c4224f93eda383b4690ff57e98291ad4fa81b960f0531067b40f78f7'
             'e239da4f3906f1b54265435181cf770bae3d269c8d915df9a73861e6ee71ec70bf2339426e7c81a91e5a567273b3b3742d7a99feefd3398d821b26e1ff3a56d0'
@@ -73,6 +75,9 @@ prepare() {
   # fix SYCL include dir
   patch -p1 -i "$srcdir"/blender-sycl-path.patch
 
+  # fix oneapi escapes
+  patch -p1 -i "$srcdir"/blender-oneapi-escape.patch
+
   # ffmpeg 6
   patch -p1 -i "$srcdir"/blender-ffmpeg6.patch
 }
@@ -90,12 +95,6 @@ build() {
   echo 'set(CYCLES_CUDA_BINARIES_ARCH sm_52 sm_53 sm_60 sm_61 sm_62 sm_70 sm_72 sm_75 sm_80 sm_86 sm_87 sm_89 compute_89 CACHE STRING "CUDA architectures to build binaries for" FORCE)' > precache
   echo 'mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)' >> precache
 
-  # If we enable the following flag, Blender will try to build prebuilt Intel
-  # OneAPI binaries using ocloc during the build process. However, this
-  # currently fails as the flags for ocloc are weird and it will crash when
-  # trying to build it. I asked Intel and Blender about it and am waiting on a
-  # response.
-  # -DOCLOC_INSTALL_DIR=/usr/ \
   cmake \
     -Bbuild \
     -GNinja \
@@ -107,9 +106,16 @@ build() {
     -DCMAKE_BUILD_TYPE=Release \
     -DWITH_INSTALL_PORTABLE=OFF \
     -DWITH_PYTHON_INSTALL=OFF \
+    -DOCLOC_INSTALL_DIR=/usr \
     -DSYCL_CPP_FLAGS=--verbose \
-    -DCYCLES_ONEAPI_SYCL_OPTIONS_spir64="-options '-ze-opt-large-register-file\ -ze-intel-enable-auto-large-GRF-mode'"
+    -DSYCL_OFFLINE_COMPILER_PARALLEL_JOBS=8
   cmake --build build
+
+    # -DPYTHON_VERSION="$PYTHON_VER" \
+    # -DPYTHON_LIBPATH=/usr/lib \
+    # -DPYTHON_LIBRARY="python$PYTHON_VER" \
+    # -DPYTHON_INCLUDE_DIRS="/usr/include/python$PYTHON_VER" \
+    # -DCMAKE_CXX_FLAGS="-I /usr/include/python$PYTHON_VER" \
 }
 
 package() {
@@ -130,6 +136,6 @@ package() {
   mv "${pkgdir}"/usr/share/blender/3*/python/lib/* "${pkgdir}"/usr/lib/
   rm -r "${pkgdir}"/usr/share/blender/3*/python
 
-  # Move OneAPI JIT lib to proper place. No idea why it's not just statically linked into Blender.
-  mv "${pkgdir}"/usr/share/blender/lib/libcycles_kernel_oneapi_jit.so "${pkgdir}"/usr/lib/
+  # Move OneAPI AOT lib to proper place
+  mv "${pkgdir}"/usr/share/blender/lib/libcycles_kernel_oneapi_aot.so "${pkgdir}"/usr/lib/
 }
