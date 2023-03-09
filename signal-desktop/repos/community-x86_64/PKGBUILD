@@ -3,7 +3,7 @@
 
 pkgname=signal-desktop
 _pkgname=Signal-Desktop
-pkgver=6.8.0
+pkgver=6.9.0
 pkgrel=1
 pkgdesc="Signal Private Messenger for Linux"
 license=('AGPL-3.0-only')
@@ -15,9 +15,9 @@ source=(
   "${pkgname}-${pkgver}.tar.gz::https://github.com/signalapp/${_pkgname}/archive/v${pkgver}.tar.gz"
   "${pkgname}.desktop"
 )
-sha256sums=('0f216192e73f5481682ac683ccc05e134c3f0a386e058944467008f3b24af53c'
+sha256sums=('5cf68e2e33c86d1dc53bf9f9c510c2d7871061eecb59d10d6968d46315560185'
             '913de2dc32db1831c9319ce7b347f51894e6fff0bf196118093a675dac874b91')
-b2sums=('65ef5e12064966f140c786fe1afea3a414d497d80dd0e68fb72934b301208e5216b02aa899a323e79d3593b36d349607f73ac8bf22e8858b394a4dc9115b73dc'
+b2sums=('12134ee12fdaec8fb2b8718aa77facd658b2e33a2f52ffd8d59f9cc4b91178bf0301c0ab67e072bb8cd11d9812e82bfde1227772647a7b727f209f91d836d5e8'
         'e157cd0536b1b340c79385e99fcc27b9d48bef3c338562caaa78fe24bc7b8f00f6a757f6d4a47ee6c9e8c1138a1615dce7f1414dd1e6a9d1d06b682a7baa9130')
 
 prepare() {
