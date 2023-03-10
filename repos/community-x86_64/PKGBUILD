@@ -5,49 +5,65 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=3.5.1
-pkgrel=4
+pkgver=4.0
+pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org'
 license=(MIT)
 arch=(x86_64)
 makedepends=(gcc scons yasm alsa-lib pulseaudio)
-depends=(embree freetype2 libglvnd libtheora libvorbis libvpx libwebp libwslay
-         libsquish libxcursor libxi libxinerama libxrandr mbedtls miniupnpc opusfile)
+depends=(embree freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
+         libsquish libtheora libvorbis libwebp libwslay libxcursor libxi
+         libxinerama libxrandr mbedtls miniupnpc pcre2)
 optdepends=(pipewire-alsa pipewire-pulse)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('e8a209972fc680ce9c024762715c64ea36f9d1ca223c6911a5179ff1cff3c2a143b703bb5b41f198b8b3ed5bd2c474316177bda094a3ef34d06e2dcf2adb2815')
-
-prepare() {
-  # Disable the check that adds -no-pie to LINKFLAGS, for gcc != 6
-  sed -i 's,0] >,0] =,g' $pkgname-$pkgver-stable/platform/x11/detect.py
-}
+source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz"
+        libsquish.pc)
+b2sums=('eea911f510d1b5fb55e7b8ed2e088fb549c550b6e951b850a4ca677ca1f52358a96ad8416f592042074338fd94becc4d85e37e7428c1094b1b9a4fd6580e32b8'
+        '39f9db4957e2a1e5875c3bfc438acabad8b76cd19e5b9a79f3101972165650577e7fd2a7c03df2ca629d4f332fccb6c84025e335fd8d0cf794f30d627e63937d')
 
 build() {
   # Not unbundled (yet):
-  #  bullet (FS#72924, https://github.com/godotengine/godot/issues/55599)
-  #  certs (FS#72762)
   #  enet (contains no upstreamed IPv6 support)
+  #  AUR: libwebm, rvo2
   #  recast, xatlas
-  #  AUR: libwebm
-  local to_unbundle="embree freetype libogg libpng libsquish libtheora libvorbis libvpx libwebp mbedtls miniupnpc opus pcre2 wslay zlib zstd"
-  local system_libs=""
-  for _lib in $to_unbundle; do
-    system_libs+="builtin_"$_lib"=no "
-    rm -rf thirdparty/$_lib
-  done
-
   cd $pkgname-$pkgver-stable
   export BUILD_NAME=arch_linux
+  # for scons to find squish through pkg-config
+  export PKG_CONFIG_PATH="$srcdir:$(pkg-config --variable pc_path pkg-config):$PKG_CONFIG_PATH"
   scons -j16 \
-    bits=64 \
+    arch=$CARCH \
+    builtin_embree=no \
+    builtin_enet=yes \
+    builtin_freetype=no \
+    builtin_msdfgen=yes \
+    builtin_glslang=yes \
+    builtin_graphite=no \
+    builtin_harfbuzz=no \
+    builtin_icu4c=yes \
+    builtin_libogg=no \
+    builtin_libpng=no \
+    builtin_libtheora=no \
+    builtin_libvorbis=no \
+    builtin_libwebp=no \
+    builtin_wslay=yes \
+    builtin_mbedtls=no \
+    builtin_miniupnpc=no \
+    builtin_pcre2=no \
+    builtin_pcre2_with_jit=no \
+    builtin_recastnavigation=yes \
+    builtin_rvo2=yes \
+    builtin_squish=no \
+    builtin_xatlas=yes \
+    builtin_zlib=no \
+    builtin_zstd=no \
     colored=yes \
-    platform=x11 \
+    platform=linuxbsd \
+    production=yes \
     pulseaudio=yes \
     system_certs_path=/etc/ssl/certs/ca-certificates.crt \
-    target=release_debug \
-    tools=yes \
+    target=editor \
     use_llvm=no \
+    werror=no \
     CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
     CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
     LINKFLAGS="$LDFLAGS" \
@@ -59,7 +75,7 @@ package() {
   install -Dm644 misc/dist/linux/org.godotengine.Godot.desktop \
     "$pkgdir/usr/share/applications/godot.desktop"
   install -Dm644 icon.svg "$pkgdir/usr/share/pixmaps/godot.svg"
-  install -Dm755 bin/godot.x11.opt.tools.64 "$pkgdir/usr/bin/$pkgname"
+  install -Dm755 bin/godot.linuxbsd.editor.$CARCH "$pkgdir/usr/bin/godot"
   install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/godot/LICENSE"
   install -Dm644 misc/dist/linux/godot.6 "$pkgdir/usr/share/man/man6/godot.6"
   install -Dm644 misc/dist/linux/org.godotengine.Godot.xml \
