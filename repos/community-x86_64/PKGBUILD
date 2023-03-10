@@ -8,7 +8,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=6.11.0
+pkgver=6.14.0
 pkgrel=1
 pkgdesc='Ebook management application'
 arch=(x86_64)
@@ -74,7 +74,7 @@ replaces=("${conflicts[@]}")
 _archive="$pkgname-$pkgver"
 source=("https://download.calibre-ebook.com/$pkgver/$_archive.tar.xz"
         "$url/signatures/$_archive.tar.xz.sig")
-sha256sums=('ca5399e658c0e6e05bd9b5ffa8586c98f416e9d255107f63c50691daef02e167'
+sha256sums=('6c66f245554d35b58aa84b6cf3e30f1e3506cd50427f1454a11017f1ae931a2b'
             'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
@@ -88,37 +88,37 @@ prepare(){
 		-e "s/^Name=calibre/Name=Calibre/g" \
 		-i  src/calibre/linux.py
 
-	cd resources
-
 	# Remove unneeded files
-	rm $pkgname-portable.* mozilla-ca-certs.pem
-
-	# use system mathjax
-	rm -r mathjax
+	rm -f resources/$pkgname-portable.*
 }
 
 build() {
 	cd "$_archive"
-
-	LANG='en_US.UTF-8' python setup.py build
-	LANG='en_US.UTF-8' python setup.py gui
-	python setup.py liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation --system-liberation_fonts
-	LANG='en_US.UTF-8' python setup.py mathjax --path-to-mathjax /usr/share/mathjax --system-mathjax
-	LANG='en_US.UTF-8' python setup.py rapydscript
+	export LANG='en_US.UTF-8'
+	python setup.py build
+	python setup.py gui
+	python setup.py liberation_fonts --system-liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation
+	python setup.py mathjax --system-mathjax --path-to-mathjax /usr/share/mathjax
+	python setup.py iso639
+	python setup.py iso3166
+	python setup.py translations
+	python setup.py resources
 }
 
 check() {
 	cd "$_archive"
-	LANG='en_US.UTF-8' python -m unittest discover
+	export LANG='en_US.UTF-8'
+	python -m unittest discover
 }
 
 package() {
 	cd "$_archive"
+        export LANG='en_US.UTF-8'
 
 	# If this directory doesn't exist, zsh completion won't install.
 	install -d "${pkgdir}/usr/share/zsh/site-functions"
 
-	LANG='en_US.UTF-8' python setup.py install \
+	python setup.py install \
 		--staging-root="${pkgdir}/usr" \
 		--prefix=/usr \
 		--system-plugins-location=/usr/share/calibre/system-plugins
