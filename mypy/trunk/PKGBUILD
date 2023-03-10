@@ -3,7 +3,7 @@
 # Contributor: hexchain <i@hexchain.org>
 
 pkgname=mypy
-pkgver=1.0.1
+pkgver=1.1.1
 pkgrel=1
 pkgdesc='Optional static typing for Python 2 and 3 (PEP484)'
 url="http://www.mypy-lang.org/"
@@ -18,7 +18,7 @@ optdepends=(
   'python-pip: for installing missing types'
 )
 source=("$pkgname-$pkgver.tar.gz::https://pypi.org/packages/source/m/$pkgname/$pkgname-$pkgver.tar.gz")
-sha256sums=('28cea5a6392bb43d266782983b5a4216c25544cd7d80be681a155ddcdafd152d')
+sha256sums=('ae9ceae0f5b9059f33dbc62dea087e942c0ccab4b7a003719cb70f9b8abfa32f')
 
 prepare() {
     cd "$pkgname-$pkgver"
