@@ -6,20 +6,18 @@
 
 pkgname=godot
 pkgver=4.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
-url='https://godotengine.org'
+url='https://godotengine.org/'
 license=(MIT)
 arch=(x86_64)
-makedepends=(gcc scons yasm alsa-lib pulseaudio)
+makedepends=(alsa-lib gcc pulseaudio scons yasm)
 depends=(embree freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
          libsquish libtheora libvorbis libwebp libwslay libxcursor libxi
          libxinerama libxrandr mbedtls miniupnpc pcre2)
 optdepends=(pipewire-alsa pipewire-pulse)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz"
-        libsquish.pc)
-b2sums=('eea911f510d1b5fb55e7b8ed2e088fb549c550b6e951b850a4ca677ca1f52358a96ad8416f592042074338fd94becc4d85e37e7428c1094b1b9a4fd6580e32b8'
-        '39f9db4957e2a1e5875c3bfc438acabad8b76cd19e5b9a79f3101972165650577e7fd2a7c03df2ca629d4f332fccb6c84025e335fd8d0cf794f30d627e63937d')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
+b2sums=('eea911f510d1b5fb55e7b8ed2e088fb549c550b6e951b850a4ca677ca1f52358a96ad8416f592042074338fd94becc4d85e37e7428c1094b1b9a4fd6580e32b8')
 
 build() {
   # Not unbundled (yet):
@@ -28,9 +26,10 @@ build() {
   #  recast, xatlas
   cd $pkgname-$pkgver-stable
   export BUILD_NAME=arch_linux
-  # for scons to find squish through pkg-config
-  export PKG_CONFIG_PATH="$srcdir:$(pkg-config --variable pc_path pkg-config):$PKG_CONFIG_PATH"
   scons -j16 \
+    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
+    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
+    LINKFLAGS="$LDFLAGS" \
     arch=$CARCH \
     builtin_embree=no \
     builtin_enet=yes \
@@ -63,11 +62,7 @@ build() {
     system_certs_path=/etc/ssl/certs/ca-certificates.crt \
     target=editor \
     use_llvm=no \
-    werror=no \
-    CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
-    CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
-    LINKFLAGS="$LDFLAGS" \
-    $system_libs
+    werror=no
 }
 
 package() {
