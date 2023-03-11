@@ -3,7 +3,7 @@
 # Contributor: David Birks <david@birks.dev>
 
 pkgname=aws-cli-v2
-pkgver=2.10.2
+pkgver=2.11.2
 pkgrel=1
 pkgdesc='Unified command line interface for Amazon Web Services (version 2)'
 arch=(any)
@@ -21,7 +21,7 @@ source=("https://awscli.amazonaws.com/awscli-$pkgver.tar.gz"{,.sig}
         prompt-toolkit-3.0.29.diff
         build-ac.index-in-tmp.diff
         fix-env.diff)
-sha256sums=('4447bd85822a11dfc6bc1c7af5c7cf208ac923612f1104719be85d4fa1130b32'
+sha256sums=('8e475b69476253241db287ad6c76e440b13b8a8dc5c401382b4def7862166421'
             'SKIP'
             'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636'
             '0267e41561ab2c46a97ebfb024f0b047aabc9e6b9866f204b2c1a84ee5810d63'
@@ -66,9 +66,13 @@ check() {
 
   export PYTHONPATH="$PWD"
 
-  # Use --dist=loadfile following upstream. The default --dist=load may cause test failures and is not faster
-  # Disable backend tests - those tests check if aws-cli can be installed or not, and are not compatible with all kinds of environments
-  pytest tests -n auto --dist loadfile --ignore=tests/backends --ignore=tests/integration
+  # * Use --dist=loadfile following upstream. The default --dist=load may cause test failures and is not faster
+  # * Disable backend tests - those tests check if aws-cli can be installed or not, and are not compatible with all kinds of environments
+  # * Some tests use prompt-toolkit functions without running a prompt-toolkit app, and such a usage is not compatible
+  #   with prompt-toolkit >= 3.0.37 [1]. In aws-cli program the prompter is always run inside an app.
+  # [1] https://github.com/prompt-toolkit/python-prompt-toolkit/issues/1726#issuecomment-1445196977
+  pytest tests -n auto --dist loadfile --ignore=tests/backends --ignore=tests/integration \
+         -k 'not test_input_buffer_initialization and not test_doc_panel_content and not test_history_mode_switching'
 }
 
 package() {
