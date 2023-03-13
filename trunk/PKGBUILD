@@ -13,7 +13,7 @@ url="https://github.com/davidhalter/jedi"
 arch=('any')
 license=('MIT')
 depends=('python' 'python-parso')
-makedepends=('git' 'python-setuptools' 'python-sphinx' 'python-sphinx_rtd_theme')
+makedepends=('git' 'python-setuptools' 'python-sphinx')
 checkdepends=('python-pytest' 'python-parso')
 source=("git+https://github.com/davidhalter/jedi#commit=${_gitcommit}"
         git+https://github.com/davidhalter/typeshed
