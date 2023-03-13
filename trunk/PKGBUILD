@@ -6,8 +6,8 @@
 # NOTE: sonames change on each release, so *all* dependent packages have to be rebuilt!
 pkgbase=gnuradio
 pkgname=(gnuradio gnuradio-companion)
-pkgver=3.10.5.0
-pkgrel=6
+pkgver=3.10.5.1
+pkgrel=1
 pkgdesc="General purpose DSP and SDR toolkit with drivers for usrp and fcd."
 arch=(x86_64)
 url="https://gnuradio.org"
@@ -76,10 +76,10 @@ validpgpkeys=(
   'D74F9F146E7F755783583158B343B2BA293E5174'  # Marcus Müller (GNU Radio Maintainer) <mmueller@gnuradio.org>
   '723EC3A2B90533C6B93DFBC8ED797743F7951435'  # GNU Radio (Software Signing Key) <info@gnuradio.org>
 )
-sha512sums=('82f3028cbcb0175f9f354b19613ee59b052881b894c6d668d04235acda2e3be0ca2713642141a917264e70039f23795c647c47364af9ffad63f108da517d77c5'
+sha512sums=('37b8101baa7e6adbb60b55aedf2c951e75b14ef97091d967ab717eae699e014bd91c18fe7bf32117bbc5c0a3e0e44015be1c8d83177f9a3751893b49fb860df6'
             'SKIP'
             '6f02dc8e20a7a1cd11099c851a7c8427fcd21e9652e6cddd0a72ca747b0e93cd4fd1b7b7b7e426b6231348bcc34fb2417716a2f03c92ec141889edc65031c3a0')
-b2sums=('c21e310d4cc50112e7d2085be5a82f4eb633305936004cc60cabbac340a0cbd0016bb5f24229380c36281c4e52e6763c5152ceb6ad0f2efc43bd28b2b55c4df8'
+b2sums=('f43a1e36e184adb1bb09b4c2e7ee0f40ec4395acec676861473cb9d1856819bf52098d5c3b9c11c025a992da33c6de032aefee2c11a0acb18f73df283a9c8b56'
         'SKIP'
         '83657a141a7a4fc52ae62e19b480fd7b7e651efffc2186d3eb96e8612beffbbe71b434a2323ae37c74465ff6a959a4ca1f9c9db5ed02ab641f1784e704ab5f4d')
 
