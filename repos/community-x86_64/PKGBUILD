@@ -9,7 +9,7 @@
 
 pkgname=calibre
 pkgver=6.14.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Ebook management application'
 arch=(x86_64)
 url=https://calibre-ebook.com
@@ -73,9 +73,11 @@ conflicts=(calibre-common
 replaces=("${conflicts[@]}")
 _archive="$pkgname-$pkgver"
 source=("https://download.calibre-ebook.com/$pkgver/$_archive.tar.xz"
-        "$url/signatures/$_archive.tar.xz.sig")
+        "$url/signatures/$_archive.tar.xz.sig"
+        user-agent-data.json) # Regenerate with `python setup.py recent_uas` when bumping
 sha256sums=('6c66f245554d35b58aa84b6cf3e30f1e3506cd50427f1454a11017f1ae931a2b'
-            'SKIP')
+            'SKIP'
+            'd54fff4bac9d232bbe1ff70784136dffb48c26712dcaa93b0aa58d514a26885f')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
@@ -90,18 +92,22 @@ prepare(){
 
 	# Remove unneeded files
 	rm -f resources/$pkgname-portable.*
+
+	# https://bugs.archlinux.org/task/77807
+	# https://bugs.launchpad.net/calibre/+bug/2011320
+	cp "$srcdir/user-agent-data.json" resources
 }
 
 build() {
 	cd "$_archive"
 	export LANG='en_US.UTF-8'
 	python setup.py build
-	python setup.py gui
-	python setup.py liberation_fonts --system-liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation
-	python setup.py mathjax --system-mathjax --path-to-mathjax /usr/share/mathjax
 	python setup.py iso639
 	python setup.py iso3166
 	python setup.py translations
+	python setup.py liberation_fonts --system-liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation
+	python setup.py mathjax --system-mathjax --path-to-mathjax /usr/share/mathjax
+	python setup.py gui
 	python setup.py resources
 }
 
