@@ -7,7 +7,7 @@ pkgname=(
   python-rapidyaml
 )
 pkgver=0.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc='A library to parse and emit YAML, and do it fast'
 arch=(x86_64)
 url='https://github.com/biojppm/rapidyaml'
