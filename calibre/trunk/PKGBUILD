@@ -8,8 +8,8 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=6.14.0
-pkgrel=2
+pkgver=6.14.1
+pkgrel=1
 pkgdesc='Ebook management application'
 arch=(x86_64)
 url=https://calibre-ebook.com
@@ -75,9 +75,10 @@ _archive="$pkgname-$pkgver"
 source=("https://download.calibre-ebook.com/$pkgver/$_archive.tar.xz"
         "$url/signatures/$_archive.tar.xz.sig"
         user-agent-data.json) # Regenerate with `python setup.py recent_uas` when bumping
-sha256sums=('6c66f245554d35b58aa84b6cf3e30f1e3506cd50427f1454a11017f1ae931a2b'
+# TODO download translations repo as source
+sha256sums=('bb6708ad8184f496b0ae1bc263ab9ecbd16d945044dd86f5c550fa3a27e4ebf0'
             'SKIP'
-            'd54fff4bac9d232bbe1ff70784136dffb48c26712dcaa93b0aa58d514a26885f')
+            'd49e407119f74714864b29988860ff277ada05dd73ce22ad538b33bdeaa157db')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
@@ -95,6 +96,8 @@ prepare(){
 
 	# https://bugs.archlinux.org/task/77807
 	# https://bugs.launchpad.net/calibre/+bug/2011320
+	# Upstream bug is fixed but this saves an offline call to fetch resources,
+	# We'll stick with not running recent_uas here for the sake of reproducible builds
 	cp "$srcdir/user-agent-data.json" resources
 }
 
