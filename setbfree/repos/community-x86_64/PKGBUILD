@@ -3,38 +3,53 @@
 # Contributor: Christopher Arndt <aur -at- chrisarndt -dot- de>
 
 _name=setBfree
-pkgname=setbfree
-pkgver=0.8.11
-pkgrel=3
+pkgbase=setbfree
+pkgname=(setbfree setbfree-common setbfree-lv2 setbfree-standalone)
+pkgver=0.8.12
+pkgrel=1
 pkgdesc="DSP tonewheel organ"
 arch=(x86_64)
-url="http://setbfree.org"
+url="https://setbfree.org"
 license=(GPL2)
-groups=(lv2-plugins pro-audio)
-depends=(cairo ftgl glibc libglvnd libx11)
-makedepends=(gendesk glib2 jack liblo lv2 pango ttf-dejavu)
+makedepends=(
+  cairo
+  ftgl
+  gendesk
+  glib2
+  jack
+  libglvnd
+  liblo
+  libx11
+  lv2
+  pango
+  ttf-dejavu
+)
 checkdepends=(lv2lint)
-optdepends=(
-  'jack: for standalone applications'
-  'liblo: for standalone applications'
-  'lv2-host: for LV2 plugin'
-)
-options=(debug)
 source=(
-  "$pkgname-$pkgver.tar.gz::https://github.com/pantherb/${_name}/archive/v${pkgver}.tar.gz"
-  "$pkgname-0.8.11-gl.patch"
+  https://github.com/pantherb/$_name/archive/v$pkgver/$_name-$pkgver.tar.gz
+  $pkgbase-0.8.11-gl.patch
 )
-sha512sums=('1db2ee90032efee3c24ee99071e11c064a2fbc82f1126346ec0667e1e91f09ffab781bcdb8fa766613711779cdfd85b486e0043f99073d8072ac92e214241c88'
+sha512sums=('46d9290d8cf6de636e292854933393605d4ea61f924d453b046ef6dcb3ca3a683bc2be4a1b81e95a9802c3ed0d9ffe318faa5eb7034926a52b3086d89ca3fc31'
             'a381781e1a2e9d71267f156ff0c4879ff7b3c73da1be7a7e437fda5208154330914911e46b16c1e0290ded9ccc339b402dbc0ad32766e13d777afc95ce5c9133')
-b2sums=('63b89fb4865ef449d3e291c547f2e115b5fcb0e5de280353e58b3b25e9b9c4d7291df09b2c486d8819295e367a1f3128c0fb5a6bf3b144a999e8ae634eda5f4c'
+b2sums=('4979081d95eb2e0d243e9fc1b836a200b3c8dd638c7c7ffcfa4a3d671a02509861f33d29e3c350802d3d2c63cb0e58fdc63c50100763f6ca1d9a960b956c0f4d'
         '796907c3ae4398cfed56c4109325eeeaf853dd467fbbb386f67c8f6e61cd04bb6d341bbe97c16c21ae5ea770f9c6574a35bb4f9ab460b93ba54bf86eab7a24c9')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 prepare() {
   # add missing library to link against: https://github.com/pantherb/setBfree/pull/84
-  patch -d $_name-$pkgver -p1 -i ../$pkgname-0.8.11-gl.patch
+  patch -d $_name-$pkgver -p1 -i ../$pkgbase-0.8.11-gl.patch
 
   gendesk -n \
-          --pkgname "${pkgname}" \
+          --pkgname "${pkgbase}" \
           --name "${_name}" \
           --exec "${_name}UI" \
           --icon "${_name}" \
@@ -60,16 +75,75 @@ check() {
   lv2lint -Mpack -I $_name-$pkgver/b_whirl "http://gareus.org/oss/lv2/b_whirl#extended"
 }
 
-package() {
-  depends+=(libgobject-2.0.so libpango-1.0.so libpangocairo-1.0.so)
+package_setbfree() {
+  depends=(
+    "setbfree-lv2=$pkgver"
+    "setbfree-standalone=$pkgver"
+  )
 
   make PREFIX=/usr DESTDIR="$pkgdir" install -C $_name-$pkgver
+  install -vDm 644 $_name-$pkgver/{AUTHORS,ChangeLog,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+
+  (
+    cd "$pkgdir"
+    _pick $pkgbase-common usr/share
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+
+    _pick $pkgbase-standalone usr/bin
+  )
+}
+
+package_setbfree-common() {
+  pkgdesc+=" common files"
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_setbfree-lv2() {
+  pkgdesc+=" LV2 plugin"
+  depends=(
+    cairo
+    ftgl
+    glibc
+    glib2 libgobject-2.0.so
+    libglvnd
+    libx11
+    lv2-host
+    pango libpango-1.0.so libpangocairo-1.0.so
+    setbfree-common
+  )
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_setbfree-standalone() {
+  pkgdesc+=" JACK standalone"
+  depends=(
+    cairo
+    ftgl
+    glib2 libgobject-2.0.so
+    glibc
+    jack
+    libglvnd
+    liblo
+    libx11
+    pango libpango-1.0.so libpangocairo-1.0.so
+    setbfree-common
+  )
+  groups=(
+    pro-audio
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+
   # xdg desktop files
   install -vDm 644 *.desktop -t "$pkgdir/usr/share/applications"
   # icons
   install -vDm 644 $_name-$pkgver/doc/{$_name,x42-whirl}.png -t "$pkgdir/usr/share/pixmaps/"
   # man
   install -vDm 644 $_name-$pkgver/doc/*.1 -t "$pkgdir/usr/share/man/man1/"
-  # docs
-  install -vDm 644 $_name-$pkgver/{AUTHORS,ChangeLog,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
