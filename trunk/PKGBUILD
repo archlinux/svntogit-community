@@ -3,11 +3,11 @@
 
 _pkgname='intel-oneapi-compiler-shared'
 pkgbase="${_pkgname}-runtime"
-pkgname=("${_pkgname}-runtime" "${_pkgname}-opencl-cpu")
+pkgname=("${_pkgname}-runtime" "${_pkgname}-runtime-lib" "${_pkgname}-opencl-cpu")
 pkgver=2023.0.0
 _debpkgrel=25370
-pkgrel=2
-pkgdesc="Intel oneAPI compiler runtime libraries"
+pkgrel=3
+_pkgdesc="Intel oneAPI compiler runtime libraries"
 arch=('x86_64')
 url='https://software.intel.com/content/www/us/en/develop/tools/oneapi.html'
 license=("custom")
@@ -31,10 +31,35 @@ prepare() {
     rm data.tar.xz
 }
 
-package_intel-oneapi-compiler-shared-runtime() {
+package_intel-oneapi-compiler-shared-runtime-lib() {
     depends=('intel-oneapi-openmp' 'intel-oneapi-common')
+    conflicts=('intel-oneapi-basekit')
+    pkgdesc="${_pkgdesc}: Minimal compiler libraries"
+
+    local _lib_path='/opt/intel/oneapi/compiler'
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/compiler/include" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
+
+    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/compiler/lib" \
+        "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
+
+    # add latest and common symlink
+    ln -s "${_lib_path}/${pkgver}" "${pkgdir}/${_lib_path}/latest"
+    ln -s "${_lib_path}/latest/linux/compiler/lib/intel64_lin" \
+          "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler/lib/intel64"
+
+    # allow libs to be found
+    local _ldso_conf="${pkgdir}"/etc/ld.so.conf.d
+    install -d "${_ldso_conf}"
+    echo "${_lib_path}/latest/linux/compiler/lib/intel64_lin" >> "${_ldso_conf}/${pkgname}.conf"
+}
+
+package_intel-oneapi-compiler-shared-runtime() {
+    depends=('intel-oneapi-openmp' 'intel-oneapi-common' 'intel-oneapi-compiler-shared-runtime-lib')
     provides=("${_pkgname}-common")
     conflicts=('intel-oneapi-basekit')
+    pkgdesc="${_pkgdesc}: Shared runtime without OpenCL"
 
     local _lib_path='/opt/intel/oneapi/compiler'
     install -d "${pkgdir}/${_lib_path}/${pkgver}/linux"
@@ -51,13 +76,6 @@ package_intel-oneapi-compiler-shared-runtime() {
             "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
     done
 
-    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
-    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/compiler/include" \
-        "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
-
-    cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/compiler/lib" \
-        "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler"
-
     local _lib
     install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/lib"
     cd "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/lib"
@@ -71,17 +89,11 @@ package_intel-oneapi-compiler-shared-runtime() {
         cp -a "${_lib}" "${pkgdir}/${_lib_path}/${pkgver}/linux/lib/x64"
     done
     
-    # add latest and common symlink
-    ln -s "${_lib_path}/${pkgver}" "${pkgdir}/${_lib_path}/latest"
-    ln -s "${_lib_path}/latest/linux/compiler/lib/intel64_lin" \
-          "${pkgdir}/${_lib_path}/${pkgver}/linux/compiler/lib/intel64"
-
     # allow libs to be found
     local _ldso_conf="${pkgdir}"/etc/ld.so.conf.d
     install -d "${_ldso_conf}"
     echo "${_lib_path}/latest/linux/lib" > "${_ldso_conf}/${pkgname}.conf"
     echo "${_lib_path}/latest/linux/lib/x64" >> "${_ldso_conf}/${pkgname}.conf"
-    echo "${_lib_path}/latest/linux/compiler/lib/intel64_lin" >> "${_ldso_conf}/${pkgname}.conf"
 
     install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
     ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
@@ -90,6 +102,7 @@ package_intel-oneapi-compiler-shared-runtime() {
 package_intel-oneapi-compiler-shared-opencl-cpu() {
     depends=('intel-oneapi-compiler-shared-runtime' 'opencl-headers' 'opencl-icd-loader') 
     conflicts=('intel-oneapi-basekit')
+    pkgdesc="${_pkgdesc}: OpenCL CPU runtime"
 
     local _lib_path='/opt/intel/oneapi/compiler'
     install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
