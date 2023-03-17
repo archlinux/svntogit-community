@@ -4,12 +4,13 @@
 
 pkgname=python-pbr
 pkgver=5.11.1
-pkgrel=2
+pkgrel=3
 pkgdesc="Python Build Reasonableness"
 arch=('any')
 url='https://pypi.python.org/pypi/pbr'
 license=('Apache')
 depends=('python-importlib-metadata' 'python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-stestr' 'python-testscenarios' 'python-testresources' 'python-testrepository'
               'python-virtualenv' 'python-wheel' 'python-sphinx' 'git')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/openstack-dev/pbr/archive/$pkgver.tar.gz")
@@ -19,7 +20,7 @@ export PBR_VERSION=$pkgver
 
 build() {
   cd pbr-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
@@ -30,6 +31,6 @@ check() {
 
 package() {
   cd pbr-$pkgver
-  python setup.py install -O1 --root="$pkgdir"
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
 }
