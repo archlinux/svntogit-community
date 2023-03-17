@@ -6,7 +6,7 @@ pkgbase="${_pkgname}-runtime"
 pkgname=("${_pkgname}-runtime" "${_pkgname}-runtime-libs" "${_pkgname}-opencl-cpu")
 pkgver=2023.0.0
 _debpkgrel=25370
-pkgrel=5
+pkgrel=6
 _pkgdesc="Intel oneAPI compiler runtime libraries"
 arch=('x86_64')
 url='https://software.intel.com/content/www/us/en/develop/tools/oneapi.html'
@@ -32,7 +32,7 @@ prepare() {
 }
 
 package_intel-oneapi-compiler-shared-runtime-libs() {
-    depends=('intel-oneapi-openmp' 'intel-oneapi-common')
+    depends=('intel-oneapi-common')
     conflicts=('intel-oneapi-basekit')
     pkgdesc="${_pkgdesc}: Minimal compiler libraries"
 
@@ -53,10 +53,54 @@ package_intel-oneapi-compiler-shared-runtime-libs() {
     local _ldso_conf="${pkgdir}"/etc/ld.so.conf.d
     install -d "${_ldso_conf}"
     echo "${_lib_path}/latest/linux/compiler/lib/intel64_lin" >> "${_ldso_conf}/${pkgname}.conf"
+
+    install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
+    ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
+}
+
+package_intel-oneapi-compiler-shared-opencl-cpu() {
+    depends=('intel-oneapi-openmp' 'intel-oneapi-compiler-shared-runtime-libs'
+        'opencl-headers' 'opencl-icd-loader') 
+    conflicts=('intel-oneapi-basekit')
+    pkgdesc="${_pkgdesc}: OpenCL CPU runtime"
+
+    local _lib_path='/opt/intel/oneapi/compiler'
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
+    local _bin
+    for _bin in sycl-ls sycl-post-link; do
+        cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/bin/${_bin}" \
+            "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
+    done
+
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/lib"
+    local _lib
+    cd "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/lib"
+    for _lib in libOpenCL.so* libpi_esimd_emulator.so libpi_opencl.so; do
+        cp -a "${_lib}" "${pkgdir}/${_lib_path}/${pkgver}/linux/lib"
+    done
+
+    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/lib/x64"
+    cd "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/lib/x64"
+    for _lib in __ocl_svml* cl*.rtl cllibrary*.o libOclCpuBackEnd* libcl_logger* libcpu_device* libintelocl*; do
+        cp -a "${_lib}" "${pkgdir}/${_lib_path}/${pkgver}/linux/lib/x64"
+    done
+
+    # allow libs to be found
+    local _ldso_conf="${pkgdir}"/etc/ld.so.conf.d
+    install -d "${_ldso_conf}"
+    echo "${_lib_path}/latest/linux/lib" > "${_ldso_conf}/${pkgname}.conf"
+    echo "${_lib_path}/latest/linux/lib/x64" >> "${_ldso_conf}/${pkgname}.conf"
+
+    echo "/opt/intel/oneapi/compiler/${pkgver}/linux/lib/libOpenCL.so" > "${pkgname}.icd"
+    install -Dm644 "${pkgname}.icd" "$pkgdir/etc/OpenCL/vendors/${pkgname}.icd"
+
+    install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
+    ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
 }
 
 package_intel-oneapi-compiler-shared-runtime() {
-    depends=('intel-oneapi-openmp' 'intel-oneapi-common' 'intel-oneapi-compiler-shared-runtime-libs')
+    depends=('intel-oneapi-openmp' 'intel-oneapi-common'
+        'intel-oneapi-compiler-shared-runtime-libs' 'intel-oneapi-compiler-shared-opencl-cpu')
     provides=("${_pkgname}-common")
     conflicts=('intel-oneapi-basekit')
     pkgdesc="${_pkgdesc}: Shared runtime without OpenCL"
@@ -99,35 +143,3 @@ package_intel-oneapi-compiler-shared-runtime() {
     ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
 }
 
-package_intel-oneapi-compiler-shared-opencl-cpu() {
-    depends=('intel-oneapi-compiler-shared-runtime' 'opencl-headers' 'opencl-icd-loader') 
-    conflicts=('intel-oneapi-basekit')
-    pkgdesc="${_pkgdesc}: OpenCL CPU runtime"
-
-    local _lib_path='/opt/intel/oneapi/compiler'
-    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
-    local _bin
-    for _bin in sycl-ls sycl-post-link; do
-        cp -a "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/bin/${_bin}" \
-            "${pkgdir}/${_lib_path}/${pkgver}/linux/bin"
-    done
-
-    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/lib"
-    local _lib
-    cd "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/lib"
-    for _lib in libOpenCL.so* libpi_esimd_emulator.so libpi_opencl.so; do
-        cp -a "${_lib}" "${pkgdir}/${_lib_path}/${pkgver}/linux/lib"
-    done
-
-    install -d "${pkgdir}/${_lib_path}/${pkgver}/linux/lib/x64"
-    cd "${srcdir}/${_pkgname}-${pkgver}/${_lib_path}/${pkgver}/linux/lib/x64"
-    for _lib in __ocl_svml* cl*.rtl cllibrary*.o libOclCpuBackEnd* libcl_logger* libcpu_device* libintelocl*; do
-        cp -a "${_lib}" "${pkgdir}/${_lib_path}/${pkgver}/linux/lib/x64"
-    done
-
-    echo "/opt/intel/oneapi/compiler/${pkgver}/linux/lib/libOpenCL.so" > "${pkgname}.icd"
-    install -Dm644 "${pkgname}.icd" "$pkgdir/etc/OpenCL/vendors/${pkgname}.icd"
-
-    install -d "${pkgdir}"/usr/share/licenses/"${pkgname}"
-    ln -s /usr/share/licenses/intel-oneapi "${pkgdir}"/usr/share/licenses/"${pkgname}"/oneapi
-}
