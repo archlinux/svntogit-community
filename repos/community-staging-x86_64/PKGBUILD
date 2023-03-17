@@ -1,0 +1,108 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Contributor: Gordian Edenhofer <gordian.edenhofer@gmail.com>
+# Contributor: Alan Orth <alan.orth[at]gmail[dot]com >
+# Contributor: Fredrik Tegenfeldt <fredrik.tegenfeldt@unige.ch>
+
+pkgname=slurm-llnl
+pkgver=22.05.7.1
+# Hyphens (-) are prohibited however they are used by the package author
+# therefore it is necessary to invoke ${pkgver} like ${pkgver//./-}
+# this will substitute any full stops (.) with hyphens
+pkgrel=2
+pkgdesc="Simple Linux Utility for Resource Management"
+arch=('x86_64')
+url="https://www.schedmd.com"
+license=('GPL')
+depends=('hwloc' 'lz4' 'munge' 'numactl')
+optdepends=("lua: the lua API will be available in various plugins"
+            "mariadb-libs: support for accounting"
+            "postgresql-libs: support for PostgreSQL"
+            "hdf5: support for acct_gather_profile/hdf5 job profiling"
+            "openssl: support for the crypto/openssl CryptoType plugin"
+            "pam: PAM support"
+            "readline: Readline support in scontrol and sacctmgr's interactive modes"
+            "rdma-core: support for the acct_gather_infiniband/ofed InfiniBand accounting plugin"
+            "rrdtool: support for the ext_sensors/rrd plugin"
+            "ncurses: adds the smap command "
+            "gtk2: enables the sview command, a simple graphical frontend"
+            "openpmix: support Open MPI applications using PMIx"
+            "json-c: JSON serializer support"
+            "libyaml: YAML serializer support"
+            "http-parser: for slurmrestd"
+            "freeipmi: for the acct_gather_energy_xcc plugin")
+makedepends=('python' 'gtk2' 'rrdtool' 'hdf5' 'lua' 'json-c' 'http-parser' 'freeipmi' 'openpmix'
+             'level-zero-headers' 'level-zero-loader' 'mariadb-libs' 'rdma-core' 'numactl' 'libyaml')
+backup=('etc/default/slurmd' 'etc/default/slurmctld' 'etc/default/slurmdbd')
+source=("https://github.com/SchedMD/slurm/archive/slurm-${pkgver//./-}.tar.gz"
+        "slurm-llnl.sysusers"
+        "slurm-llnl.tmpfiles")
+sha512sums=('6a43a0976e63b9e460f8131efaf9ff392a43f518fcdf421cd450d3515b3ce3621c5c60e5531b9602caa8b3136363103a39782821f558e68d24d01011b6bc5875'
+            '8373ef791d68a7e0b2114f5ce670da1936bd8d96fd51fa7319d4feb85f16a673f89abcb823a114455d32d8fd9eee3e121c313a0aa986542540f120e6d35686e6'
+            '4f7d1e36abc2ca5aa38b40403292b68f769238766ecdd44ea5d29f8106bd9b7c3e0d2236208f92e00818e37dd24c9520b6e9fe06e01b6e552ac485a1df682edd')
+
+
+build() {
+  cd slurm-slurm-${pkgver//./-}
+
+  # If required libraries or header files are in non-standard locations,
+  # set CFLAGS and LDFLAGS environment variables accordingly.
+  # Optional Slurm plugins will be built automatically when the configure script
+  # detects that the required build requirements are present.
+  #
+  # Read https://slurm.schedmd.com/quickstart_admin.html for more information
+
+  # Slurm requires a relaxed build environment, see https://bugs.schedmd.com/show_bug.cgi?id=2443
+  export CFLAGS="${CFLAGS//-z,now/-z,lazy}"
+  export CFLAGS="${CFLAGS//-fno-plt/}"
+  export LDFLAGS="${LDFLAGS//-z,now/-z,lazy}"
+
+  autoreconf
+  ./configure \
+    --disable-developer \
+    --disable-debug \
+    --without-rpath \
+    --enable-optimizations \
+    --prefix=/usr \
+    --sbindir=/usr/bin \
+    --sysconfdir=/etc/slurm-llnl \
+    --localstatedir=/var \
+    --enable-pam \
+    --with-hdf5 \
+    --with-hwloc \
+    --with-rrdtool \
+    --with-munge
+
+  make
+}
+
+package() {
+  cd slurm-slurm-${pkgver//./-}
+
+  make DESTDIR="$pkgdir" install
+
+  # Install slurm's configs and license
+  install -Dm644 etc/slurm.conf.example    -t "$pkgdir"/etc/slurm-llnl/
+  install -Dm644 etc/slurmdbd.conf.example -t "$pkgdir"/etc/slurm-llnl/
+  install -Dm644 etc/cgroup.conf.example   -t "$pkgdir"/etc/slurm-llnl/
+  install -Dm644 LICENSE.OpenSSL           -t "$pkgdir"/usr/share/licenses/$pkgname/
+  install -Dm644 COPYING                   -t "$pkgdir"/usr/share/licenses/$pkgname/
+
+  install -dm755 "$pkgdir"/etc/default
+  echo '#SLURMD_OPTIONS=""' > "$pkgdir"/etc/default/slurmd
+  echo '#SLURMCTLD_OPTIONS=""' > "$pkgdir"/etc/default/slurmctld
+  echo '#SLURMDBD_OPTIONS=""' > "$pkgdir"/etc/default/slurmdbd
+  chmod 644 "$pkgdir"/etc/default/{slurmd,slurmctld,slurmdbd}
+
+  # Install init related files
+  install -Dm644 etc/slurmctld.service -t "$pkgdir"/usr/lib/systemd/system/
+  install -Dm644 etc/slurmd.service    -t "$pkgdir"/usr/lib/systemd/system/
+  install -Dm644 etc/slurmdbd.service  -t "$pkgdir"/usr/lib/systemd/system/
+
+  # Install SystemD related files
+  install -Dm644 ../slurm-llnl.sysusers "$pkgdir"/usr/lib/sysusers.d/slurm-llnl.conf
+  install -Dm644 ../slurm-llnl.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/slurm-llnl.conf
+
+  # Create a log and a lib dir
+  install -dm755 "$pkgdir"/var/log/slurm-llnl
+  install -dm755 "$pkgdir"/var/lib/slurm-llnl
+}
