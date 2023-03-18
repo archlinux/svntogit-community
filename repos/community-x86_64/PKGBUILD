@@ -1,44 +1,93 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-pkgname=distrho-ports
+pkgbase=distrho-ports
+pkgname=(distrho-ports{,-{lv2,vst,vst3}})
 pkgver=2021.03.15
-pkgrel=2
+pkgrel=3
 pkgdesc="Linux audio plugins and LV2 ports"
 arch=(x86_64)
 url="https://github.com/distrho/distrho-ports"
 license=(GPL2 LGPL3)
-groups=(lv2-plugins pro-audio vst-plugins vst3-plugins)
-# NOTE: fftw is dlopend
-depends=(fftw gcc-libs glibc libglvnd libx11 libxext)
-makedepends=(alsa-lib freetype2 git libxcursor lv2 meson)
-checkdepends=(kxstudio-lv2-extensions lv2lint xorg-server-xvfb)
-optdepends=(
-  'lv2-host: for LV2 plugins'
-  'vst-host: for VST plugins'
-  'vst3-host: for VST3 plugins'
+makedepends=(
+  alsa-lib
+  fftw
+  freetype2
+  git
+  libglvnd
+  libx11
+  libxcursor
+  libxext
+  lv2
+  meson
 )
-source=("git+https://github.com/DISTRHO/${pkgname}#tag=${pkgver//./-}?signed")
-md5sums=('SKIP')
+checkdepends=(
+  kxstudio-lv2-extensions
+  lv2lint
+  xorg-server-xvfb
+)
+source=(git+$url#tag=${pkgver//./-}?signed)
+b2sums=('SKIP')
 validpgpkeys=('62B11043D2F6EB6672D93103CDBAA37ABC74FBA0') # falkTX <falktx@falktx.com>
 
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
 build() {
-  arch-meson build "$pkgname"
+  arch-meson build $pkgname
   ninja -C build
 }
 
 check() {
   local _legacy_plugin _legacy_plugins _legacy_urls _plugins _urls _plugin
-  _plugins=(SwankyAmp vitalium)
+  _plugins=(
+    SwankyAmp
+    vitalium
+  )
   declare -A _urls=(
     ["SwankyAmp"]="urn:distrho:SwankyAmp"
     ["vitalium"]="urn:distrho:vitalium"
   )
-  _legacy_plugins=(Dexed EasySSP HiReSam JuceOPL KlangFalter LUFSMeter
-  LUFSMeterMulti Luftikus Obxd PitchedDelay ReFine StereoSourceSeparation
-  TAL-Dub-3 TAL-Filter-2 TAL-Filter TAL-NoiseMaker TAL-Reverb-2 TAL-Reverb-3
-  TAL-Reverb TAL-Vocoder-2 Temper TheFunction ThePilgrim Wolpertinger
-  drowaudio-distortion drowaudio-distortionshaper drowaudio-flanger
-  drowaudio-reverb drowaudio-tremolo drumsynth eqinox vex)
+  _legacy_plugins=(
+    Dexed
+    EasySSP
+    HiReSam
+    JuceOPL
+    KlangFalter
+    LUFSMeter
+    LUFSMeterMulti
+    Luftikus
+    Obxd
+    PitchedDelay
+    ReFine
+    StereoSourceSeparation
+    TAL-Dub-3
+    TAL-Filter-2
+    TAL-Filter
+    TAL-NoiseMaker
+    TAL-Reverb-2
+    TAL-Reverb-3
+    TAL-Reverb
+    TAL-Vocoder-2
+    Temper
+    TheFunction
+    ThePilgrim
+    Wolpertinger
+    drowaudio-distortion
+    drowaudio-distortionshaper
+    drowaudio-flanger
+    drowaudio-reverb
+    drowaudio-tremolo
+    drumsynth
+    eqinox
+    vex
+  )
   declare -A _legacy_urls=(
     ["Dexed"]="https://github.com/asb2m10/dexed"
     ["EasySSP"]="http://au.tomatl.org/essp"
@@ -85,11 +134,11 @@ check() {
       fi
     done
     for _plugin in "${_plugins[@]}"; do
-      echo "Linting ${_plugin}: ${_urls[${_plugin}]}"
+      echo "Linting $_plugin: ${_urls[${_plugin}]}"
       if [ -n "${_urls[${_plugin}]}" ]; then
         # ignore lv2_generate_ttl symbol as it can not be removed easily:
         # https://github.com/DISTRHO/DISTRHO-Ports/issues/58
-        xvfb-run lv2lint -Mpack -s lv2_generate_ttl -I "build/ports/${_plugin}.lv2/" "${_urls[${_plugin}]}" || echo "xvfb-run is too dumb to kill itself"
+        xvfb-run lv2lint -Mpack -s lv2_generate_ttl -I "build/ports/$_plugin.lv2/" "${_urls[${_plugin}]}" || echo "xvfb-run is too dumb to kill itself"
       fi
     done
   )
@@ -97,9 +146,79 @@ check() {
   ninja test -C build
 }
 
-package() {
-  depends+=(libasound.so libfftw3f.so libfreetype.so)
+package_distrho-ports() {
+  depends=(
+    $pkgbase-{lv2,vst,vst3}
+  )
 
-  DESTDIR="${pkgdir}" meson install -C build
-  install -vDm 644 "$pkgname/"README.md -t "${pkgdir}/usr/share/doc/${pkgname}"
+  DESTDIR="$pkgdir" meson install -C build
+
+  (
+    cd "$pkgdir"
+    # have find-libdeps resolve dependencies properly:
+    # https://gitlab.archlinux.org/archlinux/devtools/-/issues/102
+    find usr/lib -type f -iname "*.so" -exec chmod +x {} \;
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+    _pick $pkgbase-vst usr/lib/vst
+    _pick $pkgbase-vst3 usr/lib/vst3
+  )
+}
+
+package_distrho-ports-lv2() {
+  pkgdesc+=" - LV2 plugins"
+  depends=(
+    alsa-lib
+    freetype2
+    gcc-libs
+    glibc
+    libglvnd
+    libx11
+    libxext
+    lv2-host
+  )
+
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_distrho-ports-vst() {
+  pkgdesc+=" - VST plugins"
+  depends=(
+    alsa-lib
+    freetype2
+    gcc-libs
+    glibc
+    libglvnd
+    libx11
+    libxext
+    vst-host
+  )
+  groups=(
+    pro-audio
+    vst-plugins
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_distrho-ports-vst3() {
+  pkgdesc+=" - VST3 plugins"
+  depends=(
+    freetype2
+    gcc-libs
+    glibc
+    libglvnd
+    vst3-host
+  )
+  groups=(
+    pro-audio
+    vst3-plugins
+  )
+
+  mv -v $pkgname/* "$pkgdir"
 }
