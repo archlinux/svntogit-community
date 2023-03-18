@@ -1,0 +1,117 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: ChaosKid42 <christoph.scholz@gmail.com>
+# Contributor: Andy Weidenbaum <archbaum@gmail.com>
+
+_name=rugged
+# ideally this should match $pkgver, as package() might fail otherwise. thanks, github
+_libgit2_pkgver=1.6.2
+pkgname=ruby-rugged
+pkgver=1.5.1
+pkgrel=2
+pkgdesc="A Ruby binding to the libgit2 linkable library"
+arch=(x86_64)
+url="https://github.com/libgit2/rugged"
+license=(MIT)
+depends=(
+  glibc
+  ruby
+)
+makedepends=(
+  libgit2
+  ruby-rdoc
+)
+checkdepends=(
+  git
+  ruby-minitest
+  ruby-rake
+  ruby-rake-compiler
+)
+options=(!emptydirs)
+source=(
+  $_name-$pkgver.tar.gz::https://github.com/libgit2/$_name/archive/v$pkgver.tar.gz
+  libgit2-$_libgit2_pkgver.tar.gz::https://github.com/libgit2/libgit2/archive/v$_libgit2_pkgver.tar.gz
+  $pkgname-1.5.0.1-remove_broken_libgit2_test.patch
+)
+sha512sums=('f32c70ab08f995218d7703f2ac34c9538e5dc1362737a83bb68cbf9669671ae43817271e2563b13ea2b09ebbd41b2d4b6decf8ee0489b98fcafc275194584e6b'
+            'ef9feef36c5876776f3aa608101115c9e7a0970e6dd752851d930cb85b4b1789ed68f42700ebea51095ff54600e37c18a4de0c0678d9a4d7d4aba83668890c09'
+            '7cf8c8f5ad361e8a88633d3ee75f15f5ece14c4d68471c7724b9b2752e2833efb4b01dbc50535b4a0b5a7c8cf36b4b610bc6c3f773cea8cea9a452d8f991bc40')
+b2sums=('936ddc26bd76d74d906ca6bd1ed8eddedeb5917cd96658f8b2313800ba2db924db855e37309008b53b611b685685dbe07b7f6a75664cac369063a60b69f1bf44'
+        '7a42d8440fbe0afa24057bf53d52bcb04b4e8654f71cfa55871a7e77a150297731879d8f5be51df61ad91556656b66b102536a508cf61d9c11e8658e841fc560'
+        '28e7d1d61402dbedf19343013ead01175d7353b9c0bf965530662f0182a4942717889552479c8f145512c5ebae93425a74c3fe4060b91bbe5d30917f0d9ac5c0')
+
+prepare() {
+  # remove broken and useless libgit2 "version check":
+  # https://github.com/libgit2/rugged/issues/698
+  patch -Np1 -d $_name-$pkgver -i ../$pkgname-1.5.0.1-remove_broken_libgit2_test.patch
+
+  cd $_name-$pkgver
+  # we don't do version pinning
+  sed -r 's|~>|>=|g' -i $_name.gemspec
+  # source tarball doesn't include vendored libgit2 version, which is only
+  # needed for test fixtures (resources): https://github.com/libgit2/rugged/issues/801
+  mv -v ../libgit2-$_libgit2_pkgver/* vendor/libgit2
+  # remove all tests requiring an internet connection
+  rm -rv test/online/*
+}
+
+build() {
+  cd $_name-$pkgver
+  export CI_BUILD=true
+  export RUGGED_USE_SYSTEM_LIBRARIES=true
+  export CMAKE_FLAGS=" --use-system-libraries"
+  rake compile
+  rake gem
+}
+
+check(){
+  cd $_name-$pkgver
+  # ConfigTest#test_read_global_config_file fails, if no gitconfig is set for
+  # user...
+  # https://github.com/libgit2/rugged/issues/432
+  git config --global user.name "Foo Bar"
+  rake test --trace --verbose TESTOPTS="--verbose"
+}
+
+package() {
+  local _gemdir="$(gem env gemdir)"
+  depends+=(libgit2.so)
+
+  cd $_name-$pkgver
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "$pkgdir/$_gemdir" \
+    --bindir "$pkgdir/usr/bin" \
+    "pkg/$_name-$pkgver.gem"
+
+  # remove unrepreducible files
+  rm -frv \
+    "$pkgdir/$_gemdir/cache/" \
+    "$pkgdir/$_gemdir/gems/$_name-$pkgver/vendor/" \
+    "$pkgdir/$_gemdir/doc/$_name-$pkgver/ri/ext/"
+
+  find "$pkgdir/$_gemdir/gems/" \
+    -type f \
+    \( \
+        -iname "*.o" -o \
+        -iname "*.c" -o \
+        -iname "*.so" -o \
+        -iname "*.time" -o \
+        -iname "gem.build_complete" -o \
+        -iname "Makefile" \
+    \) \
+    -delete
+
+  find "$pkgdir/$_gemdir/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+
+  install -vDm 644 "$pkgdir/$_gemdir/gems/$_name-$pkgver/LICENSE" -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 README.md CHANGELOG.md -t "$pkgdir/usr/share/doc/$pkgname"
+}
