@@ -3,7 +3,7 @@
 
 _pkgname=installer
 pkgname=python-$_pkgname
-pkgver=0.6.0
+pkgver=0.7.0
 pkgrel=1
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
@@ -15,7 +15,7 @@ makedepends=('git' 'python-flit-core' 'python-build'
              'python-sphinx-argparse')
 checkdepends=('python-pytest')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/$pkgver.tar.gz")
-sha512sums=('0952bbf245359d6f660f98e59096ed3d57facb5bad0e9715fe525bd52f50cce198b481811d2ba4d204776f7ae9bec9c3431ae044d6ef9a8db8d873c170cf13fb')
+sha512sums=('a509c6ea9d88b8527cce0428ca6109077820cb9aa352967a389012bac40f8ec04039ab73710f4fb32b32ed20affd520ce0ba16ba18d9d380ce0af1f51fe8e2c6')
 
 build() {
   cd $_pkgname-$pkgver
