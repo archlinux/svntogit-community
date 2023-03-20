@@ -3,7 +3,7 @@
 # Contributor: Germán Osella Massa <gosella@gmail.com>
 
 pkgname=python-more-itertools
-pkgver=9.0.0
+pkgver=9.1.1
 pkgrel=1
 pkgdesc='More routines for operating on iterables, beyond itertools'
 arch=('any')
@@ -17,7 +17,7 @@ makedepends=(
   'python-wheel'
   'python-flit-core'
 )
-_commit='ffcfe0b4e63c75fe1470b8b25a29b0e698a9a587'
+_commit='89d58c2ec089f3df54ed6cc9279949b8e2bbcd29'
 source=("$pkgname::git+$url#commit=$_commit")
 b2sums=('SKIP')
 
