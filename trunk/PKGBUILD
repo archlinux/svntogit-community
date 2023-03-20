@@ -4,13 +4,13 @@
 
 pkgname=octave
 pkgver=8.1.0
-pkgrel=2
+pkgrel=3
 pkgdesc="A high-level language, primarily intended for numerical computations"
 arch=('x86_64')
 url="https://www.gnu.org/software/octave/"
 license=('GPL')
 depends=('fftw' 'curl' 'graphicsmagick' 'glpk' 'hdf5' 'qhull' 'arpack' 'glu' 'ghostscript'
- 	   'sundials' 'gl2ps' 'qscintilla-qt5' 'libsndfile' 'qt5-tools' 'qrupdate' 'pcre')
+ 	   'sundials' 'gl2ps' 'qscintilla-qt5' 'libsndfile' 'qt5-tools' 'qrupdate' 'pcre2')
 makedepends=('gcc-fortran' 'texlive-core' 'suitesparse' 'texinfo' 'gnuplot' 'fltk' 'portaudio' 'jdk-openjdk' 'rapidjson')
 optdepends=('texinfo: for help-support in octave'
             'gnuplot: alternative plotting'
