@@ -3,7 +3,7 @@
 # Contributor: David Birks <david@birks.dev>
 
 pkgname=aws-cli-v2
-pkgver=2.11.2
+pkgver=2.11.4
 pkgrel=1
 pkgdesc='Unified command line interface for Amazon Web Services (version 2)'
 arch=(any)
@@ -20,12 +20,14 @@ conflicts=(aws-cli)
 source=("https://awscli.amazonaws.com/awscli-$pkgver.tar.gz"{,.sig}
         prompt-toolkit-3.0.29.diff
         build-ac.index-in-tmp.diff
-        fix-env.diff)
-sha256sums=('8e475b69476253241db287ad6c76e440b13b8a8dc5c401382b4def7862166421'
+        fix-env.diff
+        "$pkgname-tz-fix.patch::https://github.com/aws/aws-cli/pull/7762.patch")
+sha256sums=('c84c8fa7c28e781a9ebca18997b416231e1d867bfd2f329af6694286166e6230'
             'SKIP'
             'c4f0bfe21bef89934137c57ee4771db57e8dad0f995634ee4de0890dcf45a636'
             '0267e41561ab2c46a97ebfb024f0b047aabc9e6b9866f204b2c1a84ee5810d63'
-            '893d61d7e958c3c02bfa1e03bf58f6f6abd98849d248cc661f1c56423df9f312')
+            '893d61d7e958c3c02bfa1e03bf58f6f6abd98849d248cc661f1c56423df9f312'
+            '4fc614b8550d7363bb2d578c6b49326c9255203eb2f933fd0551f96ed5fb1f30')
 validpgpkeys=(
   'FB5DB77FD5C118B80511ADA8A6310ACC4672475C'  # the key mentioned on https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
 )
@@ -44,6 +46,9 @@ prepare() {
 
   # Fix conflicts between tests/functional/test_clidriver.py::TestSession and tests/functional/botocore/leak/test_resource_leaks.py
   patch -Np1 -i ../fix-env.diff
+
+  # Fix possible test failure with a non-UTC time zone (https://bugs.archlinux.org/task/77919)
+  patch -Np1 -i ../$pkgname-tz-fix.patch
 }
 
 build() {
