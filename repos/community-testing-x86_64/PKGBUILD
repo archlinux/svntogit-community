@@ -1,0 +1,65 @@
+# Maintainer: Balló György <ballogyor+arch at gmail dot com>
+# Contributor: Taijian <taijian@posteo.de>
+# Contributor: Sebastian Lau <lauseb644@gmail.com>
+# Contributor: Damian01w <damian01w@gmail.com>
+# Contributor: Padfoot <padfoot@exemail.com.au>
+
+pkgname=plymouth
+pkgver=22.02.122
+pkgrel=5
+pkgdesc='Graphical boot splash screen'
+arch=('x86_64')
+url='https://www.freedesktop.org/wiki/Software/Plymouth/'
+license=('GPL2')
+depends=('bash' 'cairo' 'cantarell-fonts' 'filesystem' 'glib2' 'glibc' 'libdrm' 'libpng' 'pango' 'systemd-libs')
+makedepends=('gtk3' 'docbook-xsl')
+optdepends=('gtk3: x11 renderer')
+backup=('etc/plymouth/plymouthd.conf')
+install='plymouth.install'
+source=("https://www.freedesktop.org/software/$pkgname/releases/$pkgname-$pkgver.tar.xz"
+        "plymouth-shutdown.patch::https://gitlab.freedesktop.org/plymouth/plymouth/-/commit/2f12aa4c5d27d1ee5a46f412559073f016d236ae.patch"
+        'plymouth.initcpio_hook'
+        'plymouth.initcpio_install')
+sha256sums=('100551442221033ce868c447ad6c74d831d209c18ae232b98ae0207e34eadaeb'
+            'c2567ed64d93169c40587933f701fcb4f16a40c428c6f36ca861ba6586499f93'
+            'de852646e615e06d4125eb2e646d0528d1e349bd9e9877c08c5d32c43d288b6f'
+            'b6d8c86815fe27370c7f62ba14120e0332b64cb930cab7d13b8eb8fef1384bfe')
+
+prepare() {
+  cd "$pkgname-$pkgver"
+
+  # Add mkinitcpio support to plymouth-switch-root-initramfs.service
+  # https://gitlab.freedesktop.org/plymouth/plymouth/-/merge_requests/202
+  patch -Np1 -i ../plymouth-shutdown.patch
+
+  # Use mkinitcpio to update initrd
+  sed -i 's/dracut -f/mkinitcpio -P/' scripts/plymouth-update-initrd
+
+  # Change default theme
+  sed -i 's/^Theme=spinner$/Theme=bgrt/' src/plymouthd.defaults
+}
+
+build() {
+  cd "$pkgname-$pkgver"
+  ./configure --prefix=/usr --sbindir=/usr/bin --libexecdir=/usr/lib --sysconfdir=/etc \
+              --localstatedir=/var --runstatedir=/run --with-runtimedir=/run \
+              --with-logo=/usr/share/pixmaps/archlinux-logo.png
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
+  make
+
+  # Convert logo for the spinner theme
+  rsvg-convert '/usr/share/pixmaps/archlinux-logo-text-dark.svg' -o ../archlinux-logo-text-dark.png
+}
+
+package() {
+  cd "$pkgname-$pkgver"
+  make DESTDIR="$pkgdir" install
+  rm -r "$pkgdir/var/run"
+
+  # Install mkinitcpio hook
+  install -Dm644 ../plymouth.initcpio_hook "$pkgdir/usr/lib/initcpio/hooks/$pkgname"
+  install -Dm644 ../plymouth.initcpio_install "$pkgdir/usr/lib/initcpio/install/$pkgname"
+  
+  # Install logo for the spinner theme
+  install -Dm644 ../archlinux-logo-text-dark.png "$pkgdir/usr/share/$pkgname/themes/spinner/watermark.png"
+}
