@@ -4,13 +4,14 @@
 _name=pydantic
 pkgname=python-$_name
 pkgver=1.10.6
-pkgrel=1
+pkgrel=2
 pkgdesc='Data parsing and validation using Python type hints'
 arch=(x86_64)
 url="https://github.com/pydantic/pydantic"
 license=(MIT)
 depends=(
   cython
+  glibc
   python
   python-typing-extensions
 )
@@ -40,12 +41,13 @@ build() {
 }
 
 check() {
-  local deselected=(
+  local pytest_options=(
     # we don't care about pytest warnings leading to errors
-    --deselect tests/test_edge_cases.py::test_cython_function_untouched
+    --pythonwarnings ignore::DeprecationWarning:pkg_resources
   )
+
   cd $_name-$pkgver
-  pytest -vv "${deselected[@]}"
+  pytest -vv "${pytest_options[@]}"
 }
 
 package() {
