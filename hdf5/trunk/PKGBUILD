@@ -6,7 +6,7 @@
 
 pkgname=hdf5
 pkgver=1.14.0
-pkgrel=1
+pkgrel=2
 pkgdesc="General purpose library and file format for storing scientific data"
 arch=(x86_64)
 url="https://www.hdfgroup.org/hdf5"
@@ -80,4 +80,6 @@ package() {
     install -Dm644 ../build/CMakeFiles/hdf5{,_hl}{,_cpp,_fortran}.pc -t "${pkgdir}"/usr/lib/pkgconfig/
     # Fix version numbers in pkg-config files
     sed -i '/Requires/ s/-/ = /g' "${pkgdir}"/usr/lib/pkgconfig/*.pc
+    # Fix bogus include path
+    sed -e 's|-I/build/hdf5/src/hdf5-1.14.0/src/H5FDsubfiling||g' -i "${pkgdir}"/usr/lib/libhdf5.settings -i "${pkgdir}"/usr/bin/*
 }
