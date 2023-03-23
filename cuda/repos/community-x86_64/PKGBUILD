@@ -4,7 +4,7 @@ pkgname=(cuda cuda-tools)
 pkgbase=cuda
 pkgver=12.1.0
 _driverver=530.30.02
-pkgrel=1
+pkgrel=2
 pkgdesc="NVIDIA's GPU programming toolkit"
 arch=('x86_64')
 url="https://developer.nvidia.com/cuda-zone"
@@ -119,6 +119,8 @@ build() {
 
   # Add a symlink lib->lib64 as some libraries might expect that (FS#76951)
   ln -s lib64 "${_prepdir}/opt/cuda/lib"
+
+  ln -s libcupti.so.12 "${_prepdir}"/opt/cuda/extras/CUPTI/lib64/libcupti.so.12.1
 
   # Allow newer compilers to work. This is not officially supported in the Arch package but
   # if users want to try, let them try.
