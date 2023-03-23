@@ -3,41 +3,69 @@
 _name=infamousPlugins
 pkgname=infamousplugins
 pkgver=0.3.0
-pkgrel=3
+pkgrel=4
 pkgdesc="A collection of open-source LV2 plugins"
-arch=('x86_64')
+arch=(x86_64)
 url="https://ssj71.github.io/infamousPlugins/"
-license=('GPL2')
-groups=('lv2-plugins' 'pro-audio')
-depends=('gcc-libs' 'glibc')
-makedepends=('cmake' 'fftw' 'lv2' 'ntk' 'zita-resampler')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/ssj71/${_name}/archive/v${pkgver}.tar.gz"
-        "${pkgname}-0.3.0-lv2-1.18.0.patch::https://github.com/ssj71/infamousPlugins/pull/39/commits/06dd967b4736ea886dc1dc07f882cb1563961582.patch")
+license=(GPL2)
+groups=(
+  lv2-plugins
+  pro-audio
+)
+depends=(
+  cairo
+  gcc-libs
+  glibc
+  lv2-host
+)
+makedepends=(
+  cmake
+  fftw
+  lv2
+  ntk
+  zita-resampler
+)
+source=(
+  https://github.com/ssj71/$_name/archive/v$pkgver/$_name-v$pkgver.tar.gz
+  $pkgname-0.3.0-lv2-1.18.0.patch::https://github.com/ssj71/$_name/pull/39/commits/06dd967b4736ea886dc1dc07f882cb1563961582.patch
+  $pkgname-0.3.0-glibc2.36.patch::https://github.com/ssj71/infamousPlugins/commit/eb4fd9af25362fdd006549c471f4cf0427816dd5.patch
+)
 sha512sums=('54a691bd5a1e0d5274c74d3de3c1dc77c6998bd588a315b6b39de67a78651c6fcb412c527b7a6083666b2ba8aad39e3b32b6efbd6bb12c96653ddbe76524dbbb'
-            'a61d53f51950b5c0e8ccc37734fee5cf96f6abb6c9bdbfa34e06bce3806aad94a896e152754ddc92d600691b1240f4ef5dcb5fec85552b9adf01de0c5eae1db1')
+            'a61d53f51950b5c0e8ccc37734fee5cf96f6abb6c9bdbfa34e06bce3806aad94a896e152754ddc92d600691b1240f4ef5dcb5fec85552b9adf01de0c5eae1db1'
+            '172011be30a28530b7164194d121dde451e2ea4b33e58ee79771b0f77e62f80dfe3e04a1e7d741620a8377f007ed703081c145720137f435f72b75f4f5c4699d')
+b2sums=('2fc1011b15e4180c6d17f12e83093294973d7cd8b7a5c13acdf59718dc3a4a55b77ead66d3f08d99ef487887360f6a5dbb3593e634869a36edb3fc224f1510f3'
+        '477e13db554a091c18dcc5cb52616d00feee465c45d5c7083840c0047241c9feba39c42cf95e5d85196fadee3e19c8a3647d8287cb49b808420e5aaeec62c4d5'
+        'be6d72900e6ef2c727155cce90e30acbddecdd7f24f0b225b5b1a43bfad55435b2bec4cedf88aaf8527c9e2b0fd888af456d3a4391906dad297939292d822a88')
 
 prepare() {
-  mv -v "${_name}-${pkgver}" "${pkgname}-${pkgver}"
-  cd "${pkgname}-${pkgver}"
-  patch -Np1 -i "../${pkgname}-0.3.0-lv2-1.18.0.patch"
+  patch -Np1 -d $_name-$pkgver -i ../$pkgname-0.3.0-lv2-1.18.0.patch
+  patch -Np1 -d $_name-$pkgver -i ../$pkgname-0.3.0-glibc2.36.patch
 }
 
 build() {
-  export CFLAGS+=" ${CPPFLAGS}"
-  export CXXFLAGS+=" ${CPPFLAGS}"
-  cd "$pkgname-$pkgver"
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=Release \
-        -Wno-dev \
-        -Bbuild \
-        -S .
-  make VERBOSE=1 -C build
+  local cmake_options=(
+    -B build
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -S $_name-$pkgver
+    -W no-dev
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
 }
 
 package() {
-  depends+=('libfftw3f.so' 'libntk.so' 'libzita-resampler.so')
-  cd "$pkgname-$pkgver"
-  make DESTDIR="$pkgdir/" install -C build
-  install -vDm 644 {CHANGELOG,README} \
-    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+  depends+=(
+    fftw libfftw3f.so
+    ntk libntk.so
+    zita-resampler libzita-resampler.so
+  )
+
+  DESTDIR="$pkgdir" cmake --install build
+  install -vDm 644 $_name-$pkgver/{CHANGELOG,README} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
