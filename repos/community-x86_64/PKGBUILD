@@ -1,33 +1,53 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-pkgname=geonkick
+pkgbase=geonkick
+pkgname=(geonkick geonkick-{common,lv2,standalone})
 pkgver=2.9.1
-pkgrel=1
+pkgrel=2
 pkgdesc="A free software percussion synthesizer"
 arch=(x86_64)
 url="https://github.com/free-sm/geonkick"
 license=(GPL3)
-groups=(pro-audio)
-depends=(cairo gcc-libs glibc hicolor-icon-theme libx11)
-makedepends=(cmake jack libsndfile lv2 rapidjson)
-checkdepends=(lv2lint)
-optdepends=(
-  'lv2-host: for LV2 plugin'
-  'jack: for standalone application'
+makedepends=(
+  cairo
+  cmake
+  gcc-libs
+  glibc
+  hicolor-icon-theme
+  jack
+  libsndfile
+  libx11
+  lv2
+  rapidjson
 )
+checkdepends=(lv2lint)
 # issues with visible symbols during check() if LTO is enabled: https://github.com/free-sm/geonkick/issues/164
-options=(debug !lto)
-source=($pkgname-v$pkgver.tar.gz::https://github.com/free-sm/$pkgname/archive/refs/tags/v$pkgver.tar.gz)
+options=(!lto)
+source=($url/archive/v$pkgver/$pkgname-v$pkgver.tar.gz)
 sha512sums=('9d72588405da30b8968ee5a23274593b08bdc21c4a7df73dcd75231d67e9e92706fbfd3f26d6ba7352ec7323ca01ec9cd40619fab8cf7a3d78263a45f75eb9ff')
 b2sums=('5864d24e273de85c6fb3fd85f5883f7ef2884d3520ff2c8412717a35066f72a3693ff74cd84e11dfb86cbb8c782d5232f8430c1f074a9de5c752e5b623305f92')
 
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
 build() {
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=None \
-        -Wno-dev \
-        -B build \
-        -S $pkgname-$pkgver
-  make VERBOSE=1 -C build
+  local cmake_options=(
+    -B build
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -S $pkgname-$pkgver
+    -W no-dev
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
 }
 
 check() {
@@ -36,10 +56,66 @@ check() {
   rm -v $pkgname-$pkgver/plugin/lv2/$pkgname.lv2/*.so
 }
 
-package() {
-  depends+=(libsndfile.so)
+package_geonkick() {
+  depends=(
+    $pkgbase-lv2=$pkgver
+    $pkgbase-standalone=$pkgver
+  )
 
-  make VERBOSE=1 DESTDIR="$pkgdir" install -C build
+  DESTDIR="$pkgdir" cmake --install build
   install -vDm 644 $pkgname-$pkgver/data/$pkgname.desktop -t "$pkgdir/usr/share/applications/"
   install -vDm 644 $pkgname-$pkgver/README.md -t "$pkgdir/usr/share/doc/$pkgname/"
+
+  (
+    cd "$pkgdir"
+    _pick $pkgbase-common usr/share/$pkgbase
+    _pick $pkgbase-common usr/share/doc
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+
+    _pick $pkgbase-standalone usr/bin
+    _pick $pkgbase-standalone usr/share/{applications,icons,man,mime}
+  )
+}
+
+package_geonkick-common() {
+  pkgdesc+=" - common files"
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_geonkick-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    cairo
+    gcc-libs
+    geonkick-common=$pkgver
+    glibc
+    libsndfile
+    libx11
+    lv2-host
+  )
+  
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_geonkick-standalone() {
+  pkgdesc+=" - JACK standalone"
+  groups=(pro-audio)
+  depends=(
+    cairo
+    gcc-libs
+    geonkick-common=$pkgver
+    glibc
+    hicolor-icon-theme
+    jack
+    libsndfile
+    libx11
+  )
+  
+  mv -v $pkgname/* "$pkgdir"
 }
