@@ -7,8 +7,8 @@
 # Contributor: Chaiwat Suttipongsakul <cwt at bashell dot com>
 
 pkgname=python-markdown
-_commit='6a85e4d4e28e105d4e772a6c2ab8188ddeba1644'
-pkgver=3.4.2
+_commit='be1c2839dd587a858f91c710e56667cba9f5329d'
+pkgver=3.4.3
 pkgrel=1
 pkgdesc="Python implementation of John Gruber's Markdown"
 arch=('any')
