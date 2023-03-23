@@ -1,29 +1,41 @@
 # Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Daniel M. Capella <polyzen@archlinux.org>
 # Contributor: Bruno Galeotti <bgaleotti at gmail dot com>
 
+_name=TypeScript
 pkgname=typescript
 pkgver=5.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc="TypeScript is a language for application scale JavaScript development"
 arch=('any')
 url="http://typescriptlang.org/"
 license=('Apache')
 depends=('nodejs')
-makedepends=('npm')
-source=(https://registry.npmjs.org/$pkgname/-/$pkgname-$pkgver.tgz)
-noextract=($pkgname-$pkgver.tgz)
-sha512sums=('c1539130118efc502cffef9b94635e01575b34ab48875adb04bd84c90d7e27d942949f772a288a7bc3e614855d5e11dccafe3848bf6882599f792b27768d2347')
+makedepends=('npm' 'rsync')
+source=("https://github.com/microsoft/TypeScript/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+b2sums=('85b4847dea5b976a5ab20b232039618e933475b93ec39aee7d9b932a2bc087f828ee239ff273ccce11177eed7bfec3463ec4baabec456782fae8870c179d250f')
 
-package() {
-  npm install -g --prefix "$pkgdir"/usr "$srcdir"/$pkgname-$pkgver.tgz
-
-  # Non-deterministic race in npm gives 777 permissions to random directories.
-  # See https://github.com/npm/npm/issues/9359 for details.
-  chmod -R u=rwX,go=rX "$pkgdir"
-
-  # npm installs package.json owned by build user
-  # https://bugs.archlinux.org/task/63396
-  chown -R root:root "$pkgdir"
+prepare() {
+  cd $_name-$pkgver
+  npm ci
 }
 
-# vim:set ts=2 sw=2 et:
+build() {
+  cd $_name-$pkgver
+  npx hereby LKG
+}
+
+check() {
+  cd $_name-$pkgver
+  npm run test
+}
+
+package() {
+  install -d "$pkgdir"/usr/{bin,lib/node_modules/$pkgname}
+  ln -s ../lib/node_modules/$pkgname/bin/{tsc,tsserver} "$pkgdir"/usr/bin
+
+  cd $_name-$pkgver
+  rsync -r --exclude .gitattributes README.md SECURITY.md bin lib package.json \
+    "$pkgdir"/usr/lib/node_modules/$pkgname
+  install -Dt "$pkgdir"/usr/share/licenses/$pkgname ThirdPartyNoticeText.txt
+}
