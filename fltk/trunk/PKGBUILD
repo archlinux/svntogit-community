@@ -3,14 +3,28 @@
 pkgbase=fltk
 pkgname=(fltk fltk-docs)
 pkgver=1.3.8
-pkgrel=1
+pkgrel=2
 pkgdesc="Graphical user interface toolkit for X"
 arch=(x86_64)
 license=(custom:FLTK)
 url="https://www.fltk.org/"
-makedepends=(alsa-lib cmake doxygen fontconfig libglvnd libjpeg-turbo libpng
-mesa libx11 libxcursor libxfixes libxft libxinerama libxrender)
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${pkgbase}/${pkgbase}/archive/release-${pkgver}.tar.gz")
+makedepends=(
+  alsa-lib
+  cmake
+  doxygen
+  fontconfig
+  libglvnd
+  libjpeg-turbo
+  libpng
+  libx11
+  libxcursor
+  libxfixes
+  libxft
+  libxinerama
+  libxrender
+  mesa
+)
+source=(https://github.com/$pkgbase/$pkgbase/archive/release-$pkgver/$pkgbase-release-$pkgver.tar.gz)
 sha512sums=('197848d3b80a65cca936daf4f0b74609f0fe8332a4cd11af53385fb2aa45ad698b1e239a48732b118cd3cb189bc531711b72fb2eeeb85be887dc6c5a558fa4b3')
 b2sums=('d0a963a38b62ea8cf1d5fe57fab6664fc64083ff41f17847d737f71bfff08578c682deefb9847a9ab5b93210fce2afbfc2020bdfcde714947beac9b3f7c84358')
 
@@ -25,43 +39,76 @@ _pick() {
 }
 
 build() {
+  local cmake_options=(
+    -B build
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D CMAKE_BUILD_TYPE=None
+    -D FLTK_LIBDIR=/usr/lib
+    -D OPTION_BUILD_SHARED_LIBS=ON
+    -D OPTION_BUILD_HTML_DOCUMENTATION=ON
+    -D OPTION_INSTALL_HTML_DOCUMENTATION=ON
+    -S $pkgbase-release-$pkgver
+    -W no-dev
+  )
+
   # fat-lto-objects is required for non-mangled .a files in fltk
   CFLAGS+=" -ffat-lto-objects"
   CXXFLAGS+=" -ffat-lto-objects"
 
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=None \
-        -DFLTK_LIBDIR=/usr/lib \
-        -DOPTION_BUILD_SHARED_LIBS=ON \
-        -DOPTION_BUILD_HTML_DOCUMENTATION=ON \
-        -DOPTION_INSTALL_HTML_DOCUMENTATION=ON \
-        -Wno-dev \
-        -B build \
-        -S "${pkgbase}-release-${pkgver}"
-  make VERBOSE=1 -C build
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+  # build documentation explicitly as it is otherwise not generated/ installed
   make VERBOSE=1 -C build/documentation html
 }
 
-package_fltk() {
-  depends=(gcc-libs glibc hicolor-icon-theme libfontconfig.so
-  libglvnd libjpeg-turbo libpng libx11 libxcursor libxext
-  libxfixes libxft libxinerama libxrender)
-  provides=(libfltk_images.so libfltk_gl.so libfltk_forms.so libfltk.so)
-  options=(!docs staticlibs)
+check() {
+  ctest --test-dir build --output-on-failure
+}
 
-  make VERBOSE=1 DESTDIR="${pkgdir}/" install -C build
-  install -vDm 644 "${pkgbase}-release-${pkgver}"/COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+package_fltk() {
+  depends=(
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    fontconfig libfontconfig.so
+    libglvnd
+    libjpeg-turbo
+    libpng
+    libx11
+    libxcursor
+    libxext
+    libxfixes
+    libxft
+    libxinerama
+    libxrender
+    sh
+  )
+  provides=(
+    libfltk_images.so
+    libfltk_gl.so
+    libfltk_forms.so
+    libfltk.so
+  )
+  options=(
+    !docs
+    staticlibs
+  )
+
+  DESTDIR="$pkgdir" cmake --install build
+  install -vDm 644 $pkgbase-release-$pkgver/COPYING -t "$pkgdir/usr/share/licenses/$pkgname/"
+
   # remove man pages of examples
-  rm -rvf "${pkgdir}/usr/share/man/man6"
+  rm -rvf "$pkgdir/usr/share/man/man6"
+
   (
-    cd "${pkgdir}"
-    _pick fltk-docs usr/share/doc/${pkgname}/html
+    cd "$pkgdir"
+    _pick $pkgbase-docs usr/share/doc/$pkgname/html
   )
 }
 
 package_fltk-docs() {
-  pkgdesc+=" (documentation)"
+  pkgdesc+=" - documentation"
 
-  mv -v fltk-docs/* "$pkgdir"
-  install -vDm 644 "${pkgbase}-release-${pkgver}"/COPYING -t "${pkgdir}/usr/share/licenses/${pkgname}/"
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-release-$pkgver/COPYING -t "$pkgdir/usr/share/licenses/$pkgname/"
 }
