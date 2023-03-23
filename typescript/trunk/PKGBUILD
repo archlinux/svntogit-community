@@ -6,13 +6,13 @@ _name=TypeScript
 pkgname=typescript
 pkgver=5.0.2
 pkgrel=2
-pkgdesc="TypeScript is a language for application scale JavaScript development"
+pkgdesc='JavaScript with syntax for types'
 arch=('any')
-url="http://typescriptlang.org/"
+url=http://www.typescriptlang.org
 license=('Apache')
 depends=('nodejs')
 makedepends=('npm' 'rsync')
-source=("https://github.com/microsoft/TypeScript/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
+source=("https://github.com/microsoft/$_name/archive/v$pkgver/$pkgname-$pkgver.tar.gz")
 b2sums=('85b4847dea5b976a5ab20b232039618e933475b93ec39aee7d9b932a2bc087f828ee239ff273ccce11177eed7bfec3463ec4baabec456782fae8870c179d250f')
 
 prepare() {
