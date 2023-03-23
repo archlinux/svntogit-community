@@ -5,8 +5,8 @@
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
 pkgname=godot
-pkgver=4.0
-pkgrel=2
+pkgver=4.0.1
+pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org/'
 license=(MIT)
@@ -17,13 +17,19 @@ depends=(embree freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
          libxinerama libxrandr mbedtls miniupnpc pcre2)
 optdepends=(pipewire-alsa pipewire-pulse)
 source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('eea911f510d1b5fb55e7b8ed2e088fb549c550b6e951b850a4ca677ca1f52358a96ad8416f592042074338fd94becc4d85e37e7428c1094b1b9a4fd6580e32b8')
+b2sums=('e489898395cd50e2c3706fc8ac7c95e27a9fea8cc6326aa02a99ff65afb7dd0a2c3ed50cc15a4d1cbf3d1ae204d57a00a1dcbbb3af7f55f0475ca475c23f3143')
+
+prepare() {
+  # Update the MIME info, ref FS#77810
+  sed -i 's,xmlns="https://specifications.freedesktop.org/shared-mime-info-spec",xmlns="http://www.freedesktop.org/standards/shared-mime-info",g' \
+    $pkgname-$pkgver-stable/misc/dist/linux/org.godotengine.Godot.xml
+}
 
 build() {
   # Not unbundled (yet):
   #  enet (contains no upstreamed IPv6 support)
   #  AUR: libwebm, rvo2
-  #  recast, xatlas
+  #  recastnavigation, xatlas
   cd $pkgname-$pkgver-stable
   export BUILD_NAME=arch_linux
   scons -j16 \
