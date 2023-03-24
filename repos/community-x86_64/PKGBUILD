@@ -3,8 +3,8 @@
 
 _name=pydantic
 pkgname=python-$_name
-pkgver=1.10.6
-pkgrel=2
+pkgver=1.10.7
+pkgrel=1
 pkgdesc='Data parsing and validation using Python type hints'
 arch=(x86_64)
 url="https://github.com/pydantic/pydantic"
@@ -32,8 +32,8 @@ optdepends=(
   'python-email-validator: for email validation'
 )
 source=($url/archive/v$pkgver/$_name-v$pkgver.tar.gz)
-sha512sums=('094fda0158faeb6021632f7ce3ea2570c19ddb288260d4e0f5a4361ab2684a68b0e6212264b37a4a75166746570098d1c4aa0311797d2cf1a22cef2c1e1f0137')
-b2sums=('ba3a3896cdcd2eecc7bd4e6ad979846de377c94d939519889752b36827eba7b3d245943ba192dd80925c2aa09ef02243aaae5e990a6f7b1ab9a8d0b5ba9830c4')
+sha512sums=('948a7935b374719773df50243aed708b3c6789243b9aa0ba239cf1502ddd0e0cec4d701e108f1cc78090c088f3cb1c78b840c39f5e7ad0e61739776f552f284d')
+b2sums=('b2dd75a640ca54024a2bf141117a1d738a30a4630bed8f4d0169fc5a6a55ded719727d88c7e78b9a2acc3aec68482e9be8c8bf4776fef668fe4acc3e1fd775df')
 
 build() {
   cd $_name-$pkgver
