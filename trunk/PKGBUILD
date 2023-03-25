@@ -1,26 +1,37 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: speps <speps at aur dot archlinux dot org>
 
-pkgname=synthv1
-pkgver=0.9.29
+pkgbase=synthv1
+pkgname=(synthv1 synthv1-lv2 synthv1-standalone)
+pkgver=0.9.30
 pkgrel=1
 pkgdesc="Old-school all-digital 4-oscillator subtractive polyphonic synthesizer with stereo fx"
 arch=(x86_64)
 url="https://synthv1.sourceforge.io/synthv1-index.html"
 license=(GPL2)
-groups=(lv2-plugins pro-audio)
-depends=(gcc-libs glibc hicolor-icon-theme lv2-host qt6-base qt6-svg)
-makedepends=(alsa-lib cmake jack liblo lv2 qt6-tools)
-optdepends=(
-  'alsa-lib: for standalone application'
-  'jack: for standalone application'
-  'liblo: for standalone application'
-  'new-session-manager: for session management using the standalone application'
-  'qt6-wayland: for native wayland support'
+makedepends=(
+  alsa-lib
+  cmake
+  jack
+  liblo
+  lv2
+  qt6-base
+  qt6-svg
+  qt6-tools
 )
 source=(https://download.sourceforge.net/$pkgname/$pkgname-$pkgver.tar.gz)
-sha512sums=('c6bad19a254517861228eaa8c13106c7c37af59d6b4749dace61bdd4928e1fb00a6ae89e2fab39feb1ff4f763e9693905d4020766ea45af2321f5e49fe3f2c20')
-b2sums=('cc33da6327190c3ca1c7dbb371c53e877eb383874a2311d9a0ed9fb0024617a015b4cdb14471bbb36081306641e4ca58001a914b0585dcda07168cf0acb82dc3')
+sha512sums=('cdb858e24feb3098c05831c4e975760c2d41482e8327080c64ce5693b1f3b3472011ba57e0296bfd3e654334090b97b8ececf9aca6e4fb33da2e5f42a372bc58')
+b2sums=('c9b20a34e80af76dcec602462b60eb66f9bdd05525a5e47b47bd7afe4d947320c0d0bf35ad97bbf25f2681305a193005d5da40c4fe8007b88021d05764b7be77')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 build() {
   local cmake_options=(
@@ -36,8 +47,67 @@ build() {
   cmake --build build --verbose
 }
 
-package() {
+package_synthv1() {
+  depends=(
+    $pkgbase-{lv2,standalone}=$pkgver
+  )
+
   DESTDIR="$pkgdir" cmake --install build
-  install -vDm 644 $pkgname-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
+
+  (
+    cd "$pkgdir"
+
+    # have find-libdeps resolve dependencies properly:
+    # https://gitlab.archlinux.org/archlinux/devtools/-/issues/102
+    find usr/lib -type f -iname "*.so" -exec chmod +x {} \;
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+    _pick $pkgbase-standalone usr/{bin,share}
+  )
+}
+
+package_synthv1-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    lv2-host
+    qt6-base
+    qt6-svg
+  )
+  optdepends=(
+    'qt6-wayland: for native wayland support'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_synthv1-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    alsa-lib
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    jack
+    liblo
+    qt6-base
+    qt6-svg
+  )
+  optdepends=(
+    'new-session-manager: for session management using the standalone application'
+    'qt6-wayland: for native wayland support'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
 # vim:set ts=2 sw=2 et:
