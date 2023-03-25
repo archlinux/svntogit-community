@@ -1,0 +1,102 @@
+# Maintainer: Dan McGee <dan@archlinux.org>
+# Contributor: Evan LeCompte <evanlec@gmail.com>
+
+pkgname=('munin' 'munin-node')
+pkgbase=munin
+pkgver=2.0.72
+pkgrel=1
+pkgdesc="A distributed monitoring/graphing tool"
+arch=('any')
+url="http://munin-monitoring.org/"
+license=("GPL")
+makedepends=('perl' 'rrdtool' 'perl-log-log4perl' 'perl-html-template'
+             'perl-date-manip' 'perl-io-socket-inet6' 'perl-net-snmp'
+             'perl-net-ssleay' 'perl-net-server' 'perl-file-copy-recursive'
+             'perl-fcgi' 'perl-uri' 'perl-module-build')
+source=(munin-$pkgver.tar.gz::https://github.com/munin-monitoring/munin/archive/$pkgver.tar.gz
+        Makefile.config
+        munin-cron-entry
+        logrotate.munin
+        logrotate.munin-node
+        munin.tmpfiles
+        munin-node.service
+        munin-async.service
+        munin-graph.{service,socket}
+        munin-html.{service,socket}
+        08-munin-font-dir.conf
+        munin.sysusers)
+
+
+sha256sums=('cda0bbd1af142c000e5c1177ffe5b03c4771062e32324fcaf6e94e466fcf2876'
+            'b607fa4c6be885e87de0bc475ea83491bfd79445d8c3af393bf929c300958f04'
+            '535097acbaf9876b11e3308f1cdd314e632a9275192dd1eb58414b7f77da49de'
+            '7029a87044bb2850c1f55aad42867dacc52d1491a777b36e6a2a2901cb63ff27'
+            'e72933e468a70ec5c14a48ececfbe19aa569732fc91c3f69d3d34b87474278a4'
+            '706009977d8a92584193360e2eca0cca8214d9f099b3ffe8540974a003d4b598'
+            '1b5789ce92bf2566fbbe30a01b7cfafed8dcab45e78bfa509aacc05ca777bd52'
+            'aae98da712ac9e0be8a7a37d2c36a5191a22179ad75e1c8da250f06db704b000'
+            '25016515d04555b774f565e52bc1a70a2fd4b7881f75a325b1f95467592b541b'
+            '6fc45060633d243212a9be6cedfd31cc8cbd4001398006650e6754af235ab373'
+            '5873a40f0510e53f8ad774884491991e9eef85f88e73dbb42b6f1a9afe533c05'
+            '42f6f59b449805aec47f151e47125298aee575dcaf2caf56008220d1c22c9ce1'
+            '939af8dd5ff7f0a70b17c9692c0512440f2748d7d9fed1d531eec8d922a078a6'
+            'd91198ceda04700d991c92f0b773112ef92d40f1037bf0cc56532477a79b9b10')
+
+build() { 
+	cd "$srcdir/munin-$pkgver"
+
+	sed -i -e 's#/sbin/ip6tables#/usr/sbin/ip6tables#' plugins/node.d.linux/ip_.in
+
+	cp ../Makefile.config .
+	# multithreading wrecks havoc on the build, should probably report this
+	PERL_USE_UNSAFE_INC=1 \
+	make -j1 PREFIX=''
+        make -j1 PREFIX='' common/blib/lib/Munin/Common/Defaults.pm
+}
+
+package_munin() {
+	depends=('perl' 'rrdtool' 'perl-html-template' 'perl-date-manip'
+             'perl-log-log4perl' 'perl-io-socket-inet6'
+             'perl-file-copy-recursive' 'perl-fcgi' 'perl-uri' 'munin-node')
+        optdepends=("perl-cgi-fast: Required by munin-cgi-html")
+	backup=(etc/munin/munin.conf etc/logrotate.d/munin)
+	install=munin.install
+
+
+	cd "$srcdir/munin-$pkgver"
+	PERL5LIB=. make DESTDIR="$pkgdir" install-master-prime
+	install -D -m644 ../munin-cron-entry "$pkgdir"/etc/munin/munin-cron-entry
+	install -D -m644 ../logrotate.munin "$pkgdir"/etc/logrotate.d/munin
+	install -D -m644 ../munin.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/munin.conf
+	install -D -m644 ../munin-graph.service "$pkgdir"/usr/lib/systemd/system/munin-graph.service
+	install -D -m644 ../munin-graph.socket "$pkgdir"/usr/lib/systemd/system/munin-graph.socket
+	install -D -m644 ../munin-html.service "$pkgdir"/usr/lib/systemd/system/munin-html.service
+	install -D -m644 ../munin-html.socket "$pkgdir"/usr/lib/systemd/system/munin-html.socket
+	install -D -m644 ../08-munin-font-dir.conf "$pkgdir"/usr/share/fontconfig/conf.avail/08-munin-font-dir.conf
+	install -D -m644 ../munin.sysusers "$pkgdir"/usr/lib/sysusers.d/munin.conf
+	rm -rf "$pkgdir/run"
+	install -d "$pkgdir"/usr/share/fontconfig/conf.default
+	ln -s ../conf.avail/08-munin-font-dir.conf "$pkgdir"/usr/share/fontconfig/conf.default/08-munin-font-dir.conf
+}
+
+package_munin-node() {
+	depends=('perl' 'perl-net-server' 'perl-io-socket-inet6')
+	optdepends=('perl-net-snmp: for SNMP plugins'
+	            'perl-net-ssleay: for SSL/TLS support'
+	            'perl-dbi: for database monitoring plugins'
+	            'python: for some plugins'
+	            'ruby: for some plugins')
+	backup=(etc/munin/munin-node.conf etc/logrotate.d/munin-node)
+	install=munin-node.install
+
+	cd "$srcdir/munin-$pkgver"
+	PERL5LIB=. make DESTDIR="$pkgdir" install-common-prime install-node-prime install-plugins-prime install-async-prime
+	install -D -m644 ../logrotate.munin-node "$pkgdir"/etc/logrotate.d/munin-node
+	install -D -m644 ../munin.tmpfiles "$pkgdir"/usr/lib/tmpfiles.d/munin-node.conf
+	install -D -m644 ../munin-node.service "$pkgdir"/usr/lib/systemd/system/munin-node.service
+	install -D -m644 ../munin-async.service "$pkgdir"/usr/lib/systemd/system/munin-async.service
+        install -D -m644 ../munin.sysusers "$pkgdir"/usr/lib/sysusers.d/munin-node.conf
+	rm -rf "$pkgdir/run/"
+	chmod 775 "$pkgdir/var/lib/munin/plugin-state"
+}
+
