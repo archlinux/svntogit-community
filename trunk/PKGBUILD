@@ -1,47 +1,121 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: speps <speps at aur dot archlinux dot org>
 
-pkgname=samplv1
-pkgver=0.9.29
+pkgbase=samplv1
+pkgname=(
+  samplv1
+  samplv1-lv2
+  samplv1-standalone
+)
+pkgver=0.9.30
 pkgrel=1
 pkgdesc="Polyphonic sampler synthesizer with stereo fx"
 arch=(x86_64)
 url="https://samplv1.sourceforge.io/"
 license=(GPL2)
-groups=(lv2-plugins pro-audio)
-depends=(gcc-libs glibc hicolor-icon-theme lv2-host qt6-base qt6-svg)
-makedepends=(alsa-lib cmake jack liblo libsndfile lv2 qt6-tools)
-optdepends=(
-  'alsa-lib: for standalone application'
-  'jack: for standalone application'
-  'liblo: for standalone application'
-  'new-session-manager: for session management using the standalone application'
-  'qt6-wayland: for native wayland support'
+makedepends=(
+  alsa-lib
+  cmake
+  hicolor-icon-theme
+  jack
+  liblo
+  libsndfile
+  lv2
+  qt6-base
+  qt6-svg
+  qt6-tools
 )
 source=(https://download.sourceforge.net/$pkgname/$pkgname-$pkgver.tar.gz)
-sha512sums=('f89a2873c85dad491457cc5f6f1e36bfb1a188d2a0e514d491ff75865b96a62600dc23072923186231e838b2c6e25b431cc257a8915f053d8e3cb82501ba282a')
-b2sums=('13c6d921f2437dd026e439911acf6bdf9a464ffecd61575b07f7e8dc0495ad1ebd204b679c5f4003a8b540003f5dbb3b878a58a58e74e88ac122d0eab781130b')
+sha512sums=('948f4c40811163afd3720e3544c7933430879da8b23806b813417129fc25b7a20ef0cbb0a177a111871b6ae270aa83c7fa8c5f240f22af8e45b23280e4271288')
+b2sums=('168ecdf2d665c16863b233804e336601529d2cb690cfb381587b3720fba097a76bae99b816c7d46c88055fdf8c696071d8d3b7e293d3e8064ec8773692cc7110')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 build() {
   local cmake_options=(
     -B build
-    -DCMAKE_BUILD_TYPE=None
-    -DCMAKE_INSTALL_PREFIX=/usr
-    -DCONFIG_QT6=ON
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D CONFIG_QT6=ON
     -S $pkgname-$pkgver
-    -Wno-dev
+    -W no-dev
   )
 
   cmake "${cmake_options[@]}"
   cmake --build build --verbose
 }
 
-package() {
-  depends+=(
-    libsndfile libsndfile.so
+package_samplv1() {
+  depends=(
+    $pkgbase-{lv2,standalone}=$pkgver
   )
 
   DESTDIR="$pkgdir" cmake --install build
-  install -vDm 644  $pkgname-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
+
+  (
+    cd "$pkgdir"
+
+    # have find-libdeps resolve dependencies properly:
+    # https://gitlab.archlinux.org/archlinux/devtools/-/issues/102
+    find usr/lib -type f -iname "*.so" -exec chmod +x {} \;
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+    _pick $pkgbase-standalone usr/{bin,share}
+  )
+}
+
+package_samplv1-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    libsndfile libsndfile.so
+    lv2-host
+    qt6-base
+    qt6-svg
+  )
+  optdepends=(
+    'qt6-wayland: for native wayland support'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_samplv1-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    alsa-lib
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    jack
+    liblo
+    libsndfile libsndfile.so
+    qt6-base
+    qt6-svg
+  )
+  optdepends=(
+    'new-session-manager: for session management using the standalone application'
+    'qt6-wayland: for native wayland support'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
 # vim:set ts=2 sw=2 et:
