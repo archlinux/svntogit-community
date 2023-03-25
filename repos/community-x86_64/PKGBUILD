@@ -1,26 +1,38 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 # Contributor: speps <speps at aur dot archlinux dot org>
 
-pkgname=drumkv1
-pkgver=0.9.29
+pkgbase=drumkv1
+pkgname=(drumkv1 drumkv1-lv2 drumkv1-standalone)
+pkgver=0.9.30
 pkgrel=1
 pkgdesc="An old-school drum-kit sampler"
 arch=(x86_64)
 url="https://drumkv1.sourceforge.io/"
 license=(GPL2)
-groups=(lv2-plugins pro-audio)
-depends=(gcc-libs glibc hicolor-icon-theme lv2-host qt6-base qt6-svg)
-makedepends=(alsa-lib cmake jack liblo libsndfile lv2 qt6-tools)
-optdepends=(
-  'alsa-lib: for standalone application'
-  'jack: for standalone application'
-  'liblo: for standalone application'
-  'new-session-manager: for session management using the standalone application'
-  'qt6-wayland: for native wayland support'
+makedepends=(
+  alsa-lib
+  cmake
+  jack
+  liblo
+  libsndfile
+  lv2
+  qt6-base
+  qt6-svg
+  qt6-tools
 )
 source=(https://download.sourceforge.net/$pkgname/$pkgname-$pkgver.tar.gz)
-sha512sums=('4b90014cc0a8b3303f66fcba4312a1bd4292c041c02df7f980ac36ce88e50482e0bbd656c94babe5973d519d8c26876f43e0785b97e2aa9898bd96863a5f6d80')
-b2sums=('5003ba32e7b35622dc4be5d4f8c26a0a0238156cd234bc621d4c43218615d773eaa5bc1c01f2ad41bf1e1600fc3d93f80f1a57a8cb334a33ec551788f5b1f294')
+sha512sums=('8ef7a89c8fefc36dd0f98842ad34f067ffaafb7429a813542f247d3b1097676007c9018b528fe2f7128d3800b822282d9322a0eb2b861b25ef215e50acc46e39')
+b2sums=('09944a1b3798383a675b501d42efb6d4a4f07ba4531f77f75f3a611975ebdeee4d4028d9ae501dea89440e0d8b925913349e1e482c5a2a7072b4996eafc6aa7b')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 build() {
   local cmake_options=(
@@ -36,12 +48,70 @@ build() {
   cmake --build build --verbose
 }
 
-package() {
-  depends+=(
-    libsndfile libsndfile.so
+package_drumkv1() {
+  depends=(
+    $pkgbase-{lv2,standalone}=$pkgver
   )
 
   DESTDIR="$pkgdir" cmake --install build
-  install -vDm 644 $pkgname-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname"
+
+  (
+    cd "$pkgdir"
+
+    # have find-libdeps resolve dependencies properly:
+    # https://gitlab.archlinux.org/archlinux/devtools/-/issues/102
+    find usr/lib -type f -iname "*.so" -exec chmod +x {} \;
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+    _pick $pkgbase-standalone usr/{bin,share}
+  )
 }
+
+package_drumkv1-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    libsndfile libsndfile.so
+    lv2-host
+    qt6-base
+    qt6-svg
+  )
+  optdepends=(
+    'qt6-wayland: for native wayland support'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname"
+}
+
+package_drumkv1-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    alsa-lib
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    jack
+    liblo
+    libsndfile libsndfile.so
+    qt6-base
+    qt6-svg
+  )
+  optdepends=(
+    'new-session-manager: for session management using the standalone application'
+    'qt6-wayland: for native wayland support'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname"
+}
+
 # vim:set ts=2 sw=2 et:
