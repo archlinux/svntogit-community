@@ -4,18 +4,18 @@
 _name=pydantic
 pkgname=python-$_name
 pkgver=1.10.7
-pkgrel=1
+pkgrel=2
 pkgdesc='Data parsing and validation using Python type hints'
 arch=(x86_64)
 url="https://github.com/pydantic/pydantic"
 license=(MIT)
 depends=(
-  cython
   glibc
   python
   python-typing-extensions
 )
 makedepends=(
+  cython
   python-build
   python-installer
   python-importlib-metadata
