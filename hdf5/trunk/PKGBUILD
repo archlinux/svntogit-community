@@ -81,5 +81,5 @@ package() {
     # Fix version numbers in pkg-config files
     sed -i '/Requires/ s/-/ = /g' "${pkgdir}"/usr/lib/pkgconfig/*.pc
     # Fix bogus include path
-    sed -e 's|-I/build/hdf5/src/hdf5-1.14.0/src/H5FDsubfiling||g' -i "${pkgdir}"/usr/lib/libhdf5.settings -i "${pkgdir}"/usr/bin/*
+    sed -e "s|-I/build/hdf5/src/hdf5-$pkgver/src/H5FDsubfiling||g" -i "${pkgdir}"/usr/lib/libhdf5.settings -i "${pkgdir}"/usr/bin/*
 }
