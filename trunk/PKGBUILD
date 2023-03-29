@@ -2,7 +2,7 @@
 
 _npmname=nopt
 pkgname=nodejs-$_npmname
-pkgver=7.0.0
+pkgver=7.1.0
 pkgrel=1
 pkgdesc="Node/npm Option Parsing library"
 arch=('any')
@@ -12,7 +12,7 @@ depends=('nodejs')
 makedepends=('npm')
 source=("https://registry.npmjs.org/$_npmname/-/$_npmname-$pkgver.tgz")
 noextract=($_npmname-$pkgver.tgz)
-sha256sums=('bd9f86f227ba4cb0c74deb81fb1d1ec399dfc0360b0fc247425784cd683db1bf')
+sha256sums=('1609b8c458c75ef3997ae6d143f9e6fcb6323a35769c40692e1f2be8fe488f90')
 options=("!strip")
 
 package() {
