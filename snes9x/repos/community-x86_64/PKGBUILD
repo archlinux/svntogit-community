@@ -6,8 +6,8 @@ pkgname=(
   snes9x
   snes9x-gtk
 )
-pkgver=1.61
-pkgrel=3
+pkgver=1.62.2
+pkgrel=1
 pkgdesc='Portable Super Nintendo Entertainment System (TM) emulator'
 arch=(x86_64)
 url=http://www.snes9x.com/
@@ -16,6 +16,7 @@ makedepends=(
   alsa-lib
   cairo
   clang
+  cmake
   gdk-pixbuf2
   git
   glib2
@@ -31,30 +32,36 @@ makedepends=(
   libxml2
   libxrandr
   libxv
-  meson
   minizip
   nasm
+  ninja
   portaudio
+  python
   sdl2
   zlib
 )
-_tag=7e97bb59a1a65a95ad47549f52d301cc09dd8db5
+_tag=691bc9fb49d3f6bdacd10caa5d66ce4838597500
 source=(
   git+https://github.com/snes9xgit/snes9x.git#tag=${_tag}
-  git+https://github.com/KhronosGroup/SPIRV-Cross.git
   git+https://github.com/KhronosGroup/glslang.git
+  git+https://github.com/KhronosGroup/SPIRV-Cross.git
+  git+https://github.com/KhronosGroup/Vulkan-Headers.git
 )
 b2sums=('SKIP'
+        'SKIP'
         'SKIP'
         'SKIP')
 
 prepare() {
   cd snes9x
-  for submodule in shaders/{SPIRV-Cross,glslang}; do
+  for submodule in external/{glslang,SPIRV-Cross}; do
     git submodule init ${submodule}
-    git config submodule.${submodule}.url ../${submodule#*/}
+    git config submodule.shaders/${submodule#*/}.url ../${submodule#*/}
     git -c protocol.file.allow=always submodule update ${submodule}
   done
+  git submodule init external/vulkan-headers
+  git config submodule.external/Vulkan-headers.url ../Vulkan-Headers
+  git -c protocol.file.allow=always submodule update external/vulkan-headers
   cd unix
   autoreconf -fiv
 }
@@ -73,8 +80,11 @@ build() {
     --enable-netplay
   make
   popd
-  arch-meson snes9x/gtk build
-  ninja -C build
+  cmake -S snes9x/gtk -B build build -G Ninja \
+    -DCMAKE_BUILD_TYPE=None \
+    -DCMAKE_INSTALL_PREFIX=/usr \
+    -Wno-dev
+  cmake --build build
 }
 
 package_snes9x() {
@@ -117,7 +127,8 @@ package_snes9x-gtk() {
     zlib
   )
 
-  DESTDIR="${pkgdir}" ninja install -C build
+  DESTDIR="${pkgdir}" cmake --install build
+  mv "${pkgdir}"/usr/{,share/}locale
   install -Dm 644 snes9x/docs/{control-inputs.txt,controls.txt,snapshots.txt} -t "${pkgdir}"/usr/share/doc/snes9x-gtk
   install -Dm 644 snes9x/LICENSE "${pkgdir}"/usr/share/licenses/snes9x-gtk/LICENSE
 }
