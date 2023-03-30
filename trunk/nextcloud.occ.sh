@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-readonly default_config="/etc/PHP_INTERPRETER/php.ini"
-readonly default_php_command="/usr/bin/PHP_INTERPRETER"
+readonly default_config="/etc/php-legacy/php.ini"
+readonly default_php_command="/usr/bin/php-legacy"
 readonly default_user="nextcloud"
 readonly preserved_environment_vars="NEXTCLOUD_CONFIG_DIR"
 
