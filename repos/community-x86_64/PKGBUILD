@@ -9,13 +9,13 @@
 
 pkgname=gitlab
 pkgver=15.10.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Project management and code hosting application"
 arch=('x86_64')
 url="https://gitlab.com/gitlab-org/gitlab-foss"
 license=('MIT')
 options=(!buildflags !debug)
-depends=('ruby2.7' 'git' 'gitlab-workhorse' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl')
+depends=('ruby2.7' 'git' 'perl-image-exiftool' 'gitlab-gitaly' 'openssh' 'redis' 'libxslt' 'icu' 're2' 'http-parser' 'nodejs' 'openssl')
 makedepends=('cmake' 'postgresql' 'yarn' 'go' 'nodejs')
 optdepends=('postgresql: database backend'
             'python-docutils: reStructuredText markup language support'
@@ -34,10 +34,14 @@ source=(git+https://gitlab.com/gitlab-org/gitlab-foss.git#tag=v$pkgver
         gitlab-sidekiq.service
         gitlab-backup.service
         gitlab-mailroom.service
+        gitlab-workhorse.service
         gitlab-backup.timer
         gitlab.target
         gitlab.tmpfiles.d
         gitlab.logrotate)
+provides=('gitlab-workhorse') # FS78036
+conflicts=('gitlab-workhorse')
+replaces=('gitlab-workhorse')
 install='gitlab.install'
 sha512sums=('SKIP'
             '504ab3130f8465521e0eeca8a9885ad04bec01933f71637cd439faaa5b0be783a3e8f48f0337d41e36f2de40d94b3771747684bb3eada63a073f5f9c1d38ad22'
@@ -47,6 +51,7 @@ sha512sums=('SKIP'
             '419848c668928276620b5229e457a39e0ed7e111f1da68a30c3e0ae1a644af1c869b004b35435ccec4ddcdf6cf7418b1ab71e6e2ee8a2c861c6625c8bfd908f6'
             'd86e16747ad79f514ce180646c68bec8b6fa61764b2b14b1621db998f48955c3fb81f4e19ecb0fbab9d603dd25d95929e6d72a473652608373e6551f26244738'
             'f8067d1ee444a50dc9b2ed871974225ad521c310eb191e075adb0e45e47168da7d16b92f2e40d7ce755041dd4426a05f0ad1385392b4db526aeaf8a638eb024f'
+            '893527f270179fc78ff60e33f0b44abd984d1e9859dd5bf59fea77245ddd4c1c252d2c7882719366944d0f9341a90b5e077470b15afcc3df419b0d0a9f2e6d56'
             'c76d634647336aaf157bc66ba094a363e971c0d275875a7df4521819147f54cd4c709eb8e024cdac9e900d99167e8a78a222587e7292e915573ef29060e6ec21'
             '879be339148123e32b58a5669fdd3d3bb8b5d711326cb618f95b1680a6ac3a83c85d8862f2691b352fa26c95e4764dbb827856e22a3e2b9e4a76c13fe42864b5'
             'abacbff0d7be918337a17b56481c84e6bf3eddd9551efe78ba9fb74337179e95c9b60f41c49f275e05074a4074a616be36fa208a48fc12d5b940f0554fbd89c3'
@@ -102,6 +107,13 @@ build() {
   bundle-2.7 config force_ruby_platform true # some native gems are not available for newer ruby
   bundle-2.7 install --jobs=$(nproc) --no-cache --deployment --without development test aws kerberos
 
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export CGO_LDFLAGS="${LDFLAGS}"
+  export GOFLAGS="-buildmode=pie -trimpath -mod=readonly -modcacherw"
+  make -C workhorse
+
   yarn install --production --pure-lockfile
   bundle-2.7 exec rake gettext:compile RAILS_ENV=production NODE_ENV=production USE_DB=false SKIP_STORAGE_VALIDATION=true NODE_OPTIONS="--max_old_space_size=3584"
   bundle-2.7 exec rake gitlab:assets:compile RAILS_ENV=production NODE_ENV=production USE_DB=false SKIP_STORAGE_VALIDATION=true NODE_OPTIONS="--max_old_space_size=3584"
@@ -124,6 +136,10 @@ package() {
 
   chown -R root:root "${pkgdir}${_appdir}"
   chmod 755 "${pkgdir}${_appdir}"
+
+  install -Dm755 "workhorse/gitlab-workhorse" "${pkgdir}/usr/bin/gitlab-workhorse"
+  install -Dm755 "workhorse/gitlab-zip-cat" "${pkgdir}/usr/bin/gitlab-zip-cat"
+  install -Dm755 "workhorse/gitlab-zip-metadata" "${pkgdir}/usr/bin/gitlab-zip-metadata"
 
   install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}"
   install -dm750 -o 105 -g 105 "${pkgdir}${_datadir}/satellites"
@@ -183,7 +199,7 @@ package() {
   chown 105:105 "${pkgdir}${_appdir}/db/structure.sql"
 
   # Install systemd service files
-  for service_file in gitlab-puma.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service; do
+  for service_file in gitlab-puma.service gitlab-sidekiq.service gitlab-backup.service gitlab-backup.timer gitlab.target gitlab-mailroom.service gitlab-workhorse.service; do
     install -Dm644 "${srcdir}/${service_file}" "${pkgdir}/usr/lib/systemd/system/${service_file}"
   done
 
