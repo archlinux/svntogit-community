@@ -1,73 +1,195 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
-pkgname=spectmorph
+pkgbase=spectmorph
+pkgname=(spectmorph libspectmorph spectmorph-{instruments,lv2,tools,vst})
 pkgver=0.5.2
-pkgrel=3
+pkgrel=4
 pkgdesc="Analyze samples of musical instruments and combine them (morphing)"
 arch=(x86_64)
-url="http://spectmorph.org/"
+url="https://spectmorph.org/"
 license=(LGPL3)
-groups=(lv2-plugins pro-audio vst-plugins)
-depends=(cairo gcc-libs glibc libx11 zlib)
-makedepends=(fftw freetype2 glib2 jack lv2 libao libglvnd libsndfile
-qt5-base)
-checkdepends=(lv2lint)
-optdepends=(
-  'jack: for smjack and smsampleedit'
-  'qt5-base: for sminspector and smsampleedit'
+makedepends=(
+  cairo
+  fftw
+  freetype2
+  gcc-libs
+  glib2
+  glibc
+  jack
+  lv2
+  libao
+  libglvnd
+  libsndfile
+  qt5-base
 )
-provides=(libspectmorphjack.so libspectmorphgui.so libspectmorphglui.so
-libspectmorph.so)
-options=(debug)
+checkdepends=(
+  lv2lint
+  python
+)
 source=(
-  http://www.spectmorph.org/files/releases/$pkgname-$pkgver.tar.bz2
-  http://spectmorph.org/files/instruments/$pkgname-instruments-$pkgver.tar.xz
+  https://www.spectmorph.org/files/releases/$pkgname-$pkgver.tar.bz2
+  https://spectmorph.org/files/instruments/$pkgname-instruments-$pkgver.tar.xz
 )
-sha512sums=('c98607ca3dc0f1a3063bf376431e2d43241a1ccbc864e03ed8726e366d9ab8d43a1f82547743bbb3111494ba819ece8b96deac34c151beccee479e2c4055013c'
+sha512sums=('cf2a6801624d9935b75ab393160e824e2bd4434fa58e7f068fbba463edec1f66438ea07abc4f86bac69fab453d34d0344dfe495349e28e4fd83e7c72b7a2a317'
             '7c1353be42b04e0b0107a994a0236b4be5ddf387e436786eeca7173751961f4dcf3b887de84c538d43119a3c9fb3b50cab3850afee4d1634e64803a83daef7da')
-b2sums=('0abba1ae9e7e37880ba0b7ae8c6e4de535e863d14bd8d579be1afa432d62d44ba0b04bd28b007513c6095e5d132b1a0ed51675841f3cc712a4a252aa40c9bd8c'
+b2sums=('f7c1215544b42367735a78c799e0b6e5c164ae8537296291b05f04d08aea7af51c66e74fc751fae5264fa352859c875bf990f18c838ff589d934ebed9cd06937'
         '213d844979c262af63d78f28cba301a2d255c9b31442c3c31b0ce900ffb56d1d0fd38829b3156c159e476b9321790b2af0279dd1dfbf88dd9c86ed2d0863a979')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 prepare() {
   cd $pkgname-$pkgver
-  autoreconf -vfi
+  autoreconf -fiv
 }
 
 build() {
+  local configure_options=(
+    --prefix=/usr
+    --with-lv2
+    --with-jack
+    --with-qt
+  )
+
   cd $pkgname-$pkgver
-  ./configure --prefix=/usr \
-              --with-lv2 \
-              --with-jack \
-              --with-qt
+  ./configure "${configure_options[@]}"
   # prevent excessive overlinking due to libtool
   sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
   make
 }
 
 check() {
+  make -k check -C $pkgname-$pkgver
+
   cd $pkgname-$pkgver
   cp -v lv2/.libs/*.so lv2/
-  LV2_PATH="${PWD}" lv2lint "http://spectmorph.org/plugins/spectmorph" || echo "Known failing tests: https://github.com/swesterfeld/spectmorph/issues/8"
+  lv2lint -I lv2/ -Mpack "http://spectmorph.org/plugins/spectmorph"
   rm -v lv2/*.so
 }
 
-package() {
-  depends+=(
-    libao libao.so
+package_spectmorph() {
+  depends=(
+    libspectmorph
+    spectmorph-{lv2,tools,vst}
+  )
+
+  make DESTDIR="$pkgdir/" install -C $pkgname-$pkgver
+
+  (
+    cd "$pkgdir"
+    _pick lib$pkgbase usr/include
+    _pick lib$pkgbase usr/lib/libspectmorph*
+    _pick lib$pkgbase usr/lib/pkgconfig
+    _pick lib$pkgbase usr/share/$pkgbase/templates
+
+    _pick $pkgbase-instruments usr/share/$pkgbase/instruments
+
+    _pick $pkgbase-lv2 usr/lib/lv2
+
+    _pick $pkgbase-tools usr/bin
+    _pick $pkgbase-tools usr/share
+
+    _pick $pkgbase-vst usr/lib/vst
+  )
+}
+
+package_spectmorph-instruments() {
+  pkgdesc+=" - standard instruments"
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_libspectmorph() {
+  pkgdesc+=" - libs"
+  depends=(
+    cairo
+    gcc-libs
+    glibc
     fftw libfftw3f.so libfftw3f_threads.so
     freetype2 libfreetype.so
     glib2 libglib-2.0.so
+    jack libjack.so
     libglvnd libGL.so
     libsndfile libsndfile.so
+    libx11
+    qt5-base
+    zlib
+  )
+  provides=(
+    libspectmorphjack.so
+    libspectmorphgui.so
+    libspectmorphglui.so
+    libspectmorph.so
   )
 
-  cd $pkgname-$pkgver
-  make DESTDIR="$pkgdir/" install
-  # standard instruments
-  install -vDm 644 ../instruments/standard/* -t "$pkgdir/usr/share/$pkgname/instruments/standard/"
-  # docs
-  install -vDm 644 {AUTHORS,DESIGN,NEWS,README.md,TODO} -t "$pkgdir/usr/share/doc/$pkgname/"
-  # sminstbuilder is not compatible with python3:
-  # https://github.com/swesterfeld/spectmorph/issues/6
-  rm -v "$pkgdir/usr/bin/sminstbuilder"
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,DESIGN,NEWS,README.md,TODO} -t "$pkgdir/usr/share/doc/$pkgbase/"
+}
+
+package_spectmorph-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    pro-audio
+    lv2-plugins
+  )
+  depends=(
+    gcc-libs
+    glibc
+    libspectmorph
+    lv2-host
+  )
+  optdepends=(
+    'spectmorph-instruments: for standard instruments'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_spectmorph-tools() {
+  pkgdesc+=" - tools"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    glib2 libglib-2.0.so
+    jack libjack.so
+    libao
+    libspectmorph
+    qt5-base
+    python
+    python-lxml
+  )
+  optdepends=(
+    'spectmorph-instruments: for standard instruments'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_spectmorph-vst() {
+  pkgdesc+=" - VST plugin"
+  groups=(
+    pro-audio
+    vst-plugins
+  )
+  depends=(
+    gcc-libs
+    glibc
+    libspectmorph
+    vst-host
+  )
+  optdepends=(
+    'spectmorph-instruments: for standard instruments'
+  )
+
+  mv -v $pkgname/* "$pkgdir"
 }
