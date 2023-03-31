@@ -4,7 +4,7 @@
 # Contributor: Mirco Tischler <mt-ml at gmx dot de>
 
 pkgname=fwupd
-pkgver=1.8.13
+pkgver=1.8.14
 pkgrel=1
 pkgdesc="Simple daemon to allow session software to update firmware"
 arch=(x86_64)
@@ -37,9 +37,9 @@ backup=('etc/fwupd/daemon.conf'
         'etc/fwupd/uefi_capsule.conf'
 )
 source=("https://github.com/fwupd/fwupd/releases/download/${pkgver}/${pkgname}-${pkgver}.tar.xz"{,.asc})
-sha512sums=('82616a3a239574020edbe6d026fb1652a0b0d1e173cb67f85d05829d4ab498852d5137019665de3c7102f16853aa4b195a9de7df039bc18857b226b04b5aec71'
+sha512sums=('80669f1c8ca60ac646f9a7aa4028edd23d1fc6853d999f60d292fabbfc81733f06b1f76a2987f0af62a739aa2cf5cc75fc40c9283fd37f4d8157f1a08df6fcd2'
             'SKIP')
-b2sums=('fb4d172e88dd15e13e4a682e87ce65f7b7ff25bd952fc2efed54bf5d8ad32874f91f143c17c90d4d63ec9138f214338f55d073a2c82bc86bf01b2531ef4a88cc'
+b2sums=('6d17ee9ce1fb46a9d0a8a97d54f1873888635805af00a05ad365b32d48d6e58b48b52d706400067ca8cf6f6b846f6b8799c44d66ec64ab2fca5812b199ac2ac5'
         'SKIP')
 validpgpkeys=(163EB50119225DB3DF8F49EA17ACBA8DFA970E17) # Richard Hughes <richard@hughsie.com>
 
