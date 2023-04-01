@@ -2,21 +2,26 @@
 # Contributor: sekret, mail=$(echo c2VrcmV0QHBvc3Rlby5zZQo= | base64 -d)
 
 pkgname=drumgizmo
+pkgname=(drumgizmo drumgizmo-{lv2,standalone})
 pkgver=0.9.20
-pkgrel=1
+pkgrel=2
 pkgdesc="Multichannel, multilayered, cross-platform drum plugin and stand-alone application"
 arch=(x86_64)
 url="https://www.drumgizmo.org"
 license=(GPL3)
-groups=(lv2-plugins pro-audio)
-depends=(gcc-libs glibc libxext libx11)
-makedepends=(alsa-lib jack libsmf libsndfile lv2 zita-resampler)
-optdepends=(
-  'alsa-lib: for drumgizmo standalone'
-  'jack: for drumgizmo standalone'
-  'lv2-host: for LV2 plugin'
+makedepends=(
+  alsa-lib
+  gcc-libs
+  glibc
+  jack
+  libsmf
+  libsndfile
+  libxext
+  libx11
+  libxml2
+  lv2
+  zita-resampler
 )
-options=(debug)
 source=($url/releases/$pkgname-$pkgver/$pkgname-$pkgver.tar.gz{,.asc})
 sha512sums=('3444201961d74e7787bebe4006df6c257f6c1a57dd81d272b203a4a56ad609d3fa4e88224dfe4ea6a67f4db94b340666d018cb79fc376dd264398f98d66433e8'
             'SKIP')
@@ -24,21 +29,83 @@ b2sums=('c92c41fd9cfd09a42d6500ec7d5f3bffd7dd646ef11b88212393f91a06d0af596c4f627
         'SKIP')
 validpgpkeys=('F39C94D556CCB995B1AE540E9EB89445BF071867') # DrumGizmo <info@drumgizmo.org>
 
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
 prepare() {
   cd $pkgname-$pkgver
   autoreconf -fiv
 }
 
 build() {
+  local configure_options=(
+    --prefix=/usr
+    --enable-lv2
+  )
+
   cd $pkgname-$pkgver
-  ./configure --prefix=/usr \
-              --enable-lv2
+  ./configure "${configure_options[@]}"
+  # prevent excessive overlinking due to libtool
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
   make
 }
 
-package() {
-  depends+=(libsmf.so libsndfile.so libzita-resampler.so)
+package_drumgizmo() {
+  depends=(
+    drumgizmo-lv2=$pkgver
+    drumgizmo-standalone=$pkgver
+  )
 
-  make DESTDIR="$pkgdir/" install -C $pkgname-$pkgver
-  install -vDm 644 $pkgname-$pkgver/{AUTHORS,ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgname/"
+  make DESTDIR="$pkgdir/" install -C $pkgbase-$pkgver
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,ChangeLog,README} -t "$pkgdir/usr/share/doc/$pkgbase/"
+
+  (
+    cd "$pkgdir"
+    _pick $pkgbase-lv2 usr/lib/lv2
+
+    _pick $pkgbase-standalone usr/bin
+    _pick $pkgbase-standalone usr/share
+  )
+}
+
+package_drumgizmo-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    libsndfile
+    libxext
+    libx11
+    lv2-host
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_drumgizmo-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    alsa-lib
+    gcc-libs
+    glibc
+    jack
+    libsmf
+    libsndfile
+  )
+
+  mv -v $pkgname/* "$pkgdir"
 }
