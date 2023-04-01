@@ -1,0 +1,73 @@
+# Maintainer:  Anatol Pomozov <anatol@archlinux.org>
+# Contributor: Bartłomiej Piotrowski <bpiotrowski@archlinux.org>
+# Contributor: Clément Démoulins <clement@archivel.fr>
+# Contributor: David Rosenstrauch <darose@darose.net>
+# Contributor: Erik Mank <erik@braindisorder.org>
+
+pkgname=tt-rss
+pkgver=r11482.269c0f53b
+pkgrel=1
+epoch=2
+pkgdesc='Web-based news feed (RSS/Atom) aggregator'
+arch=(any)
+url='https://tt-rss.org'
+license=(GPL)
+backup=(etc/webapps/tt-rss/config.php)
+depends=(php-interpreter)
+install=tt-rss.install
+optdepends=('mysql'
+            'postgresql'
+            'php-gd-interpreter: for coloured feed badges')
+makedepends=('git')
+_commit=269c0f53b890fc196775bb66e73db7c3a00bfd06
+# periodic releases are over https://tt-rss.org/forum/viewtopic.php?f=10&t=3262
+source=(git+https://git.tt-rss.org/fox/tt-rss.git#commit=$_commit
+       tt-rss.service)
+sha1sums=('SKIP'
+          'd764e22065f8e0104b4f1d5dcf41cce01cd7bec5')
+
+pkgver() {
+  cd tt-rss
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd tt-rss
+
+  # Generate version string following the logic of get_version_from_git()
+  # https://dev.tt-rss.org/tt-rss/tt-rss/src/commit/c30b24d09f4096e612965af658540595262f6848/classes/config.php#L346
+  commiter_timestamp=$(git --no-pager log --pretty=%ct -n1 HEAD)
+  abbrev_hash=$(git --no-pager log --pretty=%h -n1 HEAD)
+  echo $(date --date=@$commiter_timestamp --utc +%y.%m)-$abbrev_hash > version_static.txt
+
+  echo -n "Generated version: "
+  cat version_static.txt
+}
+
+check() {
+  cd tt-rss
+  # See https://dev.tt-rss.org/tt-rss/tt-rss/src/branch/master/Jenkinsfile
+  php ./vendor/bin/phpunit
+  php -d memory_limit=-1 ./vendor/bin/phpstan --memory-limit=2G
+}
+
+package() {
+  cd tt-rss
+  _instdir="$pkgdir"/usr/share/webapps/$pkgname
+
+  install -d "$_instdir"
+  cp -ra * "$_instdir/"
+
+  install -Dm640 -g 33 config.php-dist "$pkgdir"/etc/webapps/tt-rss/config.php
+  ln -s /etc/webapps/tt-rss/config.php "$_instdir"/config.php
+
+  install -d "$pkgdir"/var/lib/tt-rss
+  mv "$_instdir"/{lock,feed-icons,cache} "$pkgdir"/var/lib/tt-rss
+  ln -s /var/lib/tt-rss/lock "$_instdir"/lock
+  ln -s /var/lib/tt-rss/feed-icons "$_instdir"/feed-icons
+  ln -s /var/lib/tt-rss/cache "$_instdir"/cache
+  chown -R 33:33 "$pkgdir"/var/lib/tt-rss
+  chmod -R 777 "$pkgdir"/var/lib/tt-rss/*
+
+  install -Dm644 "$srcdir"/tt-rss.service "$pkgdir"/usr/lib/systemd/system/tt-rss.service
+}
