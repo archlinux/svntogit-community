@@ -4,7 +4,7 @@
 
 _pypiname=wheel
 pkgname=python-wheel
-pkgver=0.38.4
+pkgver=0.40.0
 pkgrel=1
 pkgdesc="A built-package format for Python"
 arch=(any)
@@ -13,38 +13,38 @@ license=('MIT')
 depends=('python-packaging')
 optdepends=('python-keyring: for wheel.signatures'
             'python-xdg: for wheel.signatures')
-makedepends=('python-setuptools')
+makedepends=('python-setuptools' 'python-build' 'python-flit-core' 'python-installer')
 checkdepends=('python-jsonschema' 'python-pytest' 'python-keyring' 'python-keyrings-alt'
               'python-xdg' 'python-pytest-cov')
 source=("$pkgname-$pkgver.tar.gz::https://github.com/pypa/wheel/archive/$pkgver.tar.gz")
-sha512sums=('2ff7c6175201f8145f2c1f9937c6955a1dd22eeedab1e456f65c4edae9186610d9e7702c35773b49026c56c9cc201672025e7d42fcc7f782153c65c28e6b90d0')
+sha512sums=('f23bddfb0c23c77d16b24d9c6b132b0272830c89ae63ac672f204af665863a38779c142a72a66a33c615c4b52450d433b4edcbd333de4e0d418b4fbe836de953')
 
 prepare() {
   cd wheel-$pkgver
-  # don't depend on python-coverage for tests
-  sed -i 's/--cov=wheel//' setup.cfg
-
   # https://github.com/pypa/wheel/pull/365 but why?
   rm -r src/wheel/vendored
+  sed -i 's/from .vendored.packaging.requirements import Requirement/from packaging.requirements import Requirement/' src/wheel/metadata.py
   sed -i 's/from .vendored.packaging import tags/from packaging import tags/' src/wheel/bdist_wheel.py
+  sed -i 's/from .vendored.packaging import version as _packaging_version/from packaging import version as _packaging_version/' src/wheel/bdist_wheel.py
   sed -i 's/from wheel.vendored.packaging import tags/from packaging import tags/' tests/test_bdist_wheel.py
 }
 
 build() {
   cd wheel-$pkgver
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
   # Hack entry points by installing it
 
   cd wheel-$pkgver
-  python setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages" pytest
+  python -m installer --destdir="$PWD/tmp_install" dist/*.whl
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  PYTHONPATH="$PWD/tmp_install/$site_packages" pytest
 }
 
 package() {
   cd wheel-$pkgver
-  python setup.py install --root="$pkgdir/" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE.txt -t "$pkgdir"/usr/share/licenses/$pkgname/
 }
