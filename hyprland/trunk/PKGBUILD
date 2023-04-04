@@ -9,6 +9,7 @@ arch=(x86_64 aarch64)
 url="https://github.com/hyprwm/${pkgname^}"
 license=(BSD)
 depends=(cairo
+         gcc-libs
          glibc
          glslang
          libdisplay-info
@@ -17,7 +18,6 @@ depends=(cairo
          libinput
          libliftoff
          libx11
-         libxcb
          libxcb
          libxcomposite
          libxfixes
@@ -29,6 +29,7 @@ depends=(cairo
          pixman
          polkit
          seatd
+         systemd-libs
          vulkan-icd-loader
          vulkan-validation-layers
          wayland
@@ -46,7 +47,6 @@ makedepends=(cmake
              meson
              ninja
              vulkan-headers
-             wayland-protocols
              xorgproto)
 _archive="${pkgname^}-$pkgver"
 source=("$_archive.tar.gz::$url/releases/download/v$pkgver/source-v$pkgver.tar.gz")
@@ -56,6 +56,7 @@ prepare() {
 	ln -sf hyprland-source "$_archive"
 	cd "$_archive"
 	make fixwlr
+	sed -i -e '/^release:/{n;s/-D/-DCMAKE_SKIP_RPATH=ON -D/}' Makefile
 }
 
 build() {
