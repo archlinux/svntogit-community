@@ -9,8 +9,11 @@ arch=(x86_64 aarch64)
 url="https://github.com/hyprwm/${pkgname^}"
 license=(BSD)
 depends=(cairo
+         glibc
          glslang
          libdisplay-info
+         libdrm
+         libglvnd
          libinput
          libliftoff
          libx11
@@ -50,13 +53,12 @@ source=("$_archive.tar.gz::$url/releases/download/v$pkgver/source-v$pkgver.tar.g
 sha256sums=('779c35b0256cffe681586e4c34d63cf46fe4f263eff5370d06ae77a96e5de01f')
 
 prepare() {
-	ln -s hyprland-source "$_archive"
+	ln -sf hyprland-source "$_archive"
 	cd "$_archive"
 	make fixwlr
 }
 
 build() {
-	set -x
 	cd "$_archive"
 	pushd subprojects/wlroots
 	meson build/ --prefix="$srcdir/tmpwlr" --buildtype=release
@@ -76,9 +78,11 @@ build() {
 
 package() {
 	cd "$_archive"
-	install -Dm0755 -t "$pkgdir/usr/bin" hyprland-source/build/{Hyprland,hyprctl}
-	install -Dm0644 -t "$pkgdir/usr/share/hyprland" hyprland-source/assets/*.png
-	install -Dm0644 -t "$pkgdir/usr/share/wayland-sessions" hyprland-source/example/hyprland.desktop
-	install -Dm0644 -t "$pkgdir/usr/share/hyprland" hyprland-source/example/hyprland.conf
+	install -Dm0755 -t "$pkgdir/usr/bin" build/Hyprland
+	install -Dm0755 -t "$pkgdir/usr/bin" hyprctl/hyprctl
+	install -Dm0644 -t "$pkgdir/usr/share/$pkgname" assets/*.png
+	install -Dm0644 -t "$pkgdir/usr/share/wayland-sessions" "example/$pkgname.desktop"
+	install -Dm0644 -t "$pkgdir/usr/share/$pkgname" "example/$pkgname.conf"
+	install -Dm0644 -t "$pkgdir/usr/share/licenses/$pkgname/" LICENSE
 	install -Dm0755 -t "$pkgdir/usr/lib" "$srcdir/tmpwlr/lib/libwlroots.so.12032"
 }
