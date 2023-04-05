@@ -3,7 +3,7 @@
 
 pkgname=hyprland
 pkgver=0.23.0beta
-pkgrel=3
+pkgrel=4
 pkgdesc='a highly customizable dynamic tiling Wayland compositor'
 arch=(x86_64 aarch64)
 url="https://github.com/hyprwm/${pkgname^}"
@@ -42,6 +42,7 @@ depends=(cairo
          xcb-util-wm
          xorg-xinput
          xorg-xwayland)
+depends+=(libdisplay-info.so)
 makedepends=(cmake
              gdb
              meson
