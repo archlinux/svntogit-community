@@ -4,7 +4,7 @@
 pkgname=python-editables
 _name=${pkgname#python-}
 pkgver=0.3
-pkgrel=2
+pkgrel=3
 pkgdesc='A Python library for creating editable wheels'
 arch=(any)
 url='https://github.com/pfmoore/editables'
