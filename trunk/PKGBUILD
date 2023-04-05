@@ -3,7 +3,7 @@
 
 pkgname=python-imagesize
 pkgver=1.4.1
-pkgrel=2
+pkgrel=3
 
 pkgdesc='Analyzes JPEG/JPEG 2000/PNG/GIF/TIFF/SVG/Netpbm/WebP image headers and returns image size or DPI'
 url='https://github.com/shibukawa/imagesize_py'
