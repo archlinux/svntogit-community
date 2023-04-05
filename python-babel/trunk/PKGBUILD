@@ -5,7 +5,7 @@
 pkgname=python-babel
 pkgver=2.11.0
 _core=41
-pkgrel=1
+pkgrel=2
 pkgdesc="A collection of tools for internationalizing Python applications"
 url="http://babel.pocoo.org/"
 license=("BSD")
