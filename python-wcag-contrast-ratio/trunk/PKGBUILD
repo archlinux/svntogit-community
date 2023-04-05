@@ -3,7 +3,7 @@
 _name=wcag-contrast-ratio
 pkgname=python-$_name
 pkgver=0.9
-pkgrel=1
+pkgrel=2
 pkgdesc="Library for computing contrast ratios, as required by WCAG 2.0"
 arch=('any')
 url="https://github.com/gsnedders/wcag-contrast-ratio"
