@@ -2,7 +2,7 @@
 
 pkgname=towncrier
 pkgver=22.12.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Utility to produce useful, summarised news files for your project"
 arch=('any')
 url="https://github.com/hawkowl/towncrier"
@@ -21,7 +21,7 @@ build() {
 check() {
   cd towncrier-$pkgver
   python setup.py install --root="$PWD/tmp_install" --optimize=1
-  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.10/site-packages" PATH="$PWD/tmp_install/usr/bin:$PATH" trial towncrier
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python3.11/site-packages" PATH="$PWD/tmp_install/usr/bin:$PATH" trial towncrier
 }
 
 package() {
