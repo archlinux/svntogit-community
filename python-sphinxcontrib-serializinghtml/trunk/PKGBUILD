@@ -3,7 +3,7 @@
 _name=sphinxcontrib-serializinghtml
 pkgname=python-sphinxcontrib-serializinghtml
 pkgver=1.1.5
-pkgrel=4
+pkgrel=5
 pkgdesc='Sphinx extension which outputs "serialized" HTML files (json and pickle)'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-serializinghtml
