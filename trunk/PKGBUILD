@@ -4,7 +4,7 @@
 pkgname=python-jaraco.text
 # https://github.com/jaraco/jaraco.text/blob/main/CHANGES.rst
 pkgver=3.11.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Module for text manipulation'
 arch=('any')
 url='https://github.com/jaraco/jaraco.text'
