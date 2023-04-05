@@ -4,7 +4,7 @@
 
 pkgname=python-typing_extensions
 pkgver=4.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Backported and Experimental Type Hints for Python 3.7+'
 arch=(any)
 url=https://github.com/python/typing_extensions
