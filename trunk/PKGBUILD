@@ -4,7 +4,7 @@
 
 pkgname=python-jinja
 pkgver=3.1.2
-pkgrel=2
+pkgrel=3
 epoch=1
 pkgdesc="A simple pythonic template language written in Python"
 arch=('any')
