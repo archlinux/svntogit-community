@@ -4,7 +4,7 @@
 _name=pydantic
 pkgname=python-$_name
 pkgver=1.10.7
-pkgrel=2
+pkgrel=3
 pkgdesc='Data parsing and validation using Python type hints'
 arch=(x86_64)
 url="https://github.com/pydantic/pydantic"
