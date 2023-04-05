@@ -5,7 +5,7 @@
 pkgname=python-click
 _realname=click
 pkgver=8.1.3
-pkgrel=1
+pkgrel=2
 pkgdesc="Simple wrapper around optparse for powerful command line utilities"
 arch=("any")
 url='https://click.palletsprojects.com/'
