@@ -3,7 +3,7 @@
 _pkgname=yarl
 pkgname=python-yarl
 pkgver=1.8.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Yet another URL library'
 url='https://github.com/aio-libs/yarl/'
 arch=('x86_64')
