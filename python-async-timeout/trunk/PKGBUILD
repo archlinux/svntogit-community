@@ -6,7 +6,7 @@
 _pkgname=async-timeout
 pkgname=python-async-timeout
 pkgver=4.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Asyncio-compatible timeout class'
 url='https://github.com/aio-libs/async-timeout'
 arch=('any')
