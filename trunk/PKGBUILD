@@ -3,7 +3,7 @@
 
 pkgname=iotop
 pkgver=0.6
-pkgrel=9
+pkgrel=10
 pkgdesc='View I/O usage of processes'
 arch=('any')
 url='http://guichaz.free.fr/iotop/'
