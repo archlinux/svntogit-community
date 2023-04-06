@@ -2,26 +2,38 @@
 # Contributor: Ray Rashif <schiv@archlinux.org>
 # Contributor: Felipe Machado aka arch_audio <machado.felipe@gmail.com>
 
-pkgname=rubberband
-pkgver=3.1.2
+pkgbase=rubberband
+pkgname=(rubberband rubberband-{ladspa,lv2,vamp})
+pkgver=3.2.1
 pkgrel=1
 pkgdesc="Time-stretching and pitch-shifting audio library and utility"
 arch=(x86_64)
 url="https://www.breakfastquay.com/rubberband/"
 license=(GPL2)
-depends=(gcc-libs glibc)
-makedepends=(boost fftw java-environment ladspa lv2 meson libsamplerate
-libsndfile vamp-plugin-sdk)
-optdepends=(
-  'ladspa-host: for LADSPA plugin'
-  'lv2-host: for LV2 plugin'
-  'vamp-host: for VAMP plugin'
-  'vamp-plugin-sdk: for VAMP plugin'
+makedepends=(
+  boost
+  fftw
+  java-environment
+  ladspa
+  lv2
+  meson
+  libsamplerate
+  libsndfile
+  vamp-plugin-sdk
 )
-provides=(librubberband.so librubberband-jni.so)
-source=($pkgname-$pkgver.tar.gz::https://github.com/breakfastquay/$pkgname/archive/v$pkgver.tar.gz)
-sha512sums=('c769415a0c25d76e2b789b28f3a8bd2a647efaadef75775932851fa3a78933546e08ce7097bfcdfe14a84021aca2764ddfc622c5d1829fa2f90edfc2a12021cb')
-b2sums=('4e819b4f2b012b04039f96496a00868b40683e60eb19ef6a5cc3cf9fac9607dbb96eeed3640499d68fc2928df7ae037f13a5dac5adbebdfe72e415a246453fe7')
+source=($pkgbase-$pkgver.tar.gz::https://github.com/breakfastquay/$pkgbase/archive/v$pkgver.tar.gz)
+sha512sums=('811a8dbf05fbee3e4631b49fee9fd0e23ea750ac24a9a16f20e6a7ea07e683783a9edf980c43e732b64c229db29ade3575938c4e6f9db8c4255b220eb30d9dcc')
+b2sums=('ea217e68715831059ad8de49231e93fb30c1442fc7fb124cb8a1aabbbabd1d647f79846012fd50d35a07f1ccf314a7bbe50b016b024f9565309cf62269227b6e')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
 
 build() {
   local java_major=$(java --version 2>/dev/null |grep 'openjdk'| cut -d ' ' -f2| cut -d '.' -f1)
@@ -32,17 +44,88 @@ build() {
   )
   export JAVA_HOME="/usr/lib/jvm/java-$java_major-openjdk"
 
-  arch-meson build $pkgname-$pkgver "${meson_options[@]}"
-  ninja -C build
+  arch-meson build $pkgbase-$pkgver "${meson_options[@]}"
+  meson compile -C build
 }
 
 check() {
   meson test -C build
 }
 
-package() {
-  depends+=(libfftw3.so libsamplerate.so libsndfile.so)
+package_rubberband() {
+  depends=(
+    fftw libfftw3.so
+    gcc-libs
+    glibc
+    libsamplerate libsamplerate.so
+    libsndfile libsndfile.so
+  )
+  provides=(
+    librubberband.so
+    librubberband-jni.so
+  )
 
-  DESTDIR="$pkgdir" meson install -C build
-  install -vDm 644 $pkgname-$pkgver/{CHANGELOG,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+  meson install -C build --destdir "$pkgdir"
+  # rubberband is unstripped: https://github.com/breakfastquay/rubberband/issues/72
+  strip "$pkgdir/usr/bin/$pkgbase"
+  install -vDm 644 $pkgbase-$pkgver/{CHANGELOG,README.md} -t "$pkgdir/usr/share/doc/$pkgbase/"
+
+  (
+    cd "$pkgdir"
+    _pick $pkgbase-ladspa usr/lib/ladspa
+    _pick $pkgbase-lv2 usr/lib/lv2
+    _pick $pkgbase-vamp usr/lib/vamp
+  )
+}
+
+package_rubberband-ladspa() {
+  pkgdesc+=" - LADSPA plugin"
+  groups=(
+    pro-audio
+    ladspa-plugins
+  )
+  depends=(
+    fftw libfftw3.so
+    gcc-libs
+    glibc
+    libsamplerate libsamplerate.so
+    ladspa-host
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_rubberband-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    pro-audio
+    lv2-plugins
+  )
+  depends=(
+    fftw libfftw3.so
+    gcc-libs
+    glibc
+    libsamplerate libsamplerate.so
+    lv2-host
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
+
+package_rubberband-vamp() {
+  pkgdesc+=" - VAMP plugin"
+  groups=(
+    pro-audio
+    vamp-plugins
+  )
+  depends=(
+    fftw libfftw3.so
+    gcc-libs
+    glibc
+    libsamplerate libsamplerate.so
+    vamp-host
+    vamp-plugin-sdk
+  )
+
+  mv -v $pkgname/* "$pkgdir"
 }
