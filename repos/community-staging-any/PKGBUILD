@@ -1,0 +1,65 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: XZS <d dot f dot fischer at web dot de>
+# Contributor: Alexander Rødseth <rodseth@gmail.com>
+# Contributor: Sebastien Binet <binet@cern.ch>
+
+pkgname=waf
+pkgver=2.0.25
+pkgrel=2
+pkgdesc='General-purpose build system modelled after Scons'
+arch=(any)
+url="http://waf.io/"
+license=(BSD)
+depends=(python)
+makedepends=(unzip)
+provides=(python-waf)
+source=(
+  https://waf.io/${pkgname}-${pkgver}.tar.bz2{,.asc}
+  building-waf.md
+)
+sha512sums=('c146f94ca4c342f6f45fbfc1c2a98474f116cb05f5abae03ee53d616ce8558093fcc013c1ff1e27396fd7583a21cdf9209b3ce333b13cad77778a69ad57e9973'
+            'SKIP'
+            'fce4e44c3eff4b87165ad4c6856c028f90437af26ed0d2e7cdef825987a60ebe16afda3238813bc2aa4f4f39df2a705a9df870f93c85e9d755d5d1636f07af70')
+b2sums=('e72429a4acbf28b51b5e8f820e5a9904edd0b3e2aa5e59ecb7c37e8415b2f9805645d0dd93b507b596b001ae77213d0e936f16b246c990aee27dd0859879dbc0'
+        'SKIP'
+        'a42039f8419417a312ccdb65a01b22c5e1133ebaa3e3a905387565bf2e3991ce3efb74f3b2fb0ec5e8408b665044946337c6ecfd4af1083ae2811aad9dc7d76e')
+validpgpkeys=('0B3972B2D9E32EAB423D2E0F22BE0C62FFBFA548') # Thomas Nagy <tnagy@waf.io>
+
+prepare() {
+  local py_ver=$(python3 -c "import sys; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor))")
+
+  cd $pkgname-$pkgver
+  # make waf find its waflib
+  sed -e "/test(i/ s|dirname|'python${py_ver}/site-packages/waf'|" -i waf-light
+  # license needs to be extracted:
+  # https://gitlab.com/ita1024/waf/issues/2251
+  head -n 30 waf | tail -n 28 | sed -e 's/# //g; s/"""//g' > LICENSE
+}
+
+build() {
+  cd $pkgname-$pkgver
+  ./waf-light \
+    configure --prefix=/usr \
+    build --make-waf
+
+  # removing compiled in vendored library from executable
+  sed -i '/^#==>$/,/^#<==$/d' waf
+}
+
+package() {
+  local py_ver=$(python3 -c "import sys; print(str(sys.version_info.major)+'.'+str(sys.version_info.minor))")
+
+  cd $pkgname-$pkgver
+  install -vDm 755 waf -t "$pkgdir/usr/bin"
+  install -vDm 644 wscript -t "$pkgdir/usr/share/$pkgname/"
+
+  # installing, byte-compiling waflib and stripping pkgdir from it
+  install -vDm 644 waflib/*.py -t "$pkgdir/usr/lib/python$py_ver/site-packages/waf/waflib/"
+  install -vDm 644 waflib/Tools/*.py -t "$pkgdir/usr/lib/python$py_ver/site-packages/waf/waflib/Tools/"
+  install -vDm 644 waflib/extras/*.py -t "$pkgdir/usr/lib/python$py_ver/site-packages/waf/waflib/extras/"
+  python -m compileall -d "/usr/lib/python$py_ver" "$pkgdir/usr/lib/python$py_ver/"
+  python -O -m compileall -d "/usr/lib/python$py_ver" "$pkgdir/usr/lib/python$py_ver/"
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 {README,../building-waf}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+# vim:set ts=2 sw=2 et:
