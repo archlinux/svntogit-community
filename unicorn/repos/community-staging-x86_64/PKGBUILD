@@ -1,0 +1,109 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Maintainer: Andreas 'Segaja' Schleifer <segaja at archlinux dot org>
+
+pkgbase=unicorn
+pkgname=('unicorn' 'python-unicorn' 'ruby-unicorn-engine')
+pkgver=2.0.1
+pkgrel=2
+pkgdesc='Lightweight, multi-platform, multi-architecture CPU emulator framework based on QEMU'
+url='https://www.unicorn-engine.org'
+arch=('x86_64')
+license=('GPL2')
+makedepends=('cmake' 'python' 'python-setuptools' 'ruby' 'ruby-rdoc')
+checkdepends=('cmocka')
+options=('!emptydirs')
+source=(https://github.com/unicorn-engine/unicorn/archive/${pkgver}/${pkgbase}-${pkgver}.tar.gz)
+sha512sums=('4249d33d38614ea1ca51e38c7838cb276306100aa44c65ad1b3e39304e4b856ac643a9c6f9d13678fc07bea58989a08b64653d17afe9e62bcef2936ba63e1b1f')
+b2sums=('4ab8f92367e7df5762d29ed58dfff524f59053e28548b170b982d16988eea16df46851d2ea559d8beabb4f1315e5ee627f9ded755a4f3b1cfd6d863a50c633b6')
+
+build() {
+  cd ${pkgbase}-${pkgver}
+  export UNICORN_CFLAGS="${CFLAGS} -ffat-lto-objects"
+  export UNICORN_QEMU_FLAGS="--extra-ldflags=\"$LDFLAGS\""
+  export QEMU_CXXFLAGS="${CXXFLAGS}"
+  export QEMU_LDFLAGS="${LDFLAGS}"
+  cmake -B build \
+      -DCMAKE_BUILD_TYPE=None \
+      -DCMAKE_INSTALL_PREFIX=/usr \
+      -Wno-dev
+  cmake --build build
+  (cd bindings
+    python const_generator.py python
+    python const_generator.py ruby
+  )
+  (cd bindings/python
+    python setup.py build
+  )
+  (cd bindings/ruby/unicorn_gem
+    gem build unicorn-engine.gemspec
+  )
+}
+
+check() {
+  cd ${pkgbase}-${pkgver}
+  ctest --test-dir build --output-on-failure
+}
+
+package_unicorn() {
+  depends=('glibc')
+  provides=('libunicorn.so')
+  cd ${pkgbase}-${pkgver}
+  DESTDIR="${pkgdir}" cmake --install build
+  install -Dm 644 samples/*.c -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_python-unicorn() {
+  depends=('python' 'unicorn' 'python-setuptools')
+  cd ${pkgbase}-${pkgver}/bindings/python
+  python setup.py install --root="${pkgdir}" -O1 --skip-build
+  rm -r "${pkgdir}"/usr/lib/python*/site-packages/unicorn/lib
+  install -Dm 644 sample* shellcode.py -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+}
+
+package_ruby-unicorn-engine() {
+  depends=('ruby' 'unicorn')
+  replaces=('ruby-unicorn')
+  cd ${pkgbase}-${pkgver}/bindings/ruby/unicorn_gem
+
+  local _gemdir="$(gem env gemdir)"
+  gem install \
+    --local \
+    --verbose \
+    --ignore-dependencies \
+    --no-user-install \
+    --install-dir "${pkgdir}${_gemdir}" \
+    --bindir "${pkgdir}/usr/bin" \
+    ${pkgbase}-*.gem -- \
+    --with-opt-include="${srcdir}/${pkgbase}-${pkgver}/include" \
+    --with-opt-lib="${srcdir}/${pkgbase}-${pkgver}/build"
+
+  install -Dm 644 ../sample* -t "${pkgdir}/usr/share/doc/${pkgname}/samples"
+
+  # remove unrepreducible files
+  rm --force --recursive --verbose \
+    "${pkgdir}/${_gemdir}/cache/" \
+    "${pkgdir}/${_gemdir}/gems/${_gemname}-${pkgver}/vendor/" \
+    "${pkgdir}/${_gemdir}/doc/${_gemname}-${pkgver}/ri/ext/"
+
+  find "${pkgdir}/${_gemdir}/gems/" \
+    -type f \
+    \( \
+      -iname "*.o" -o \
+      -iname "*.c" -o \
+      -iname "*.so" -o \
+      -iname "*.time" -o \
+      -iname "gem.build_complete" -o \
+      -iname "Makefile" \
+    \) \
+    -delete
+
+  find "${pkgdir}/${_gemdir}/extensions/" \
+    -type f \
+    \( \
+      -iname "mkmf.log" -o \
+      -iname "gem_make.out" \
+    \) \
+    -delete
+}
+
+# vim: ts=2 sw=2 et:
