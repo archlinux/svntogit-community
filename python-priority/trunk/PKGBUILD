@@ -2,7 +2,7 @@
 
 pkgname=python-priority
 pkgver=2.0.0
-pkgrel=3
+pkgrel=4
 pkgdesc='A pure-Python implementation of the HTTP/2 priority tree'
 arch=('any')
 license=('MIT')
