@@ -4,7 +4,7 @@
 _pkgname=installer
 pkgname=python-$_pkgname
 pkgver=0.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Low-level library for installing a Python package from a wheel distribution'
 arch=('any')
 url='https://github.com/pypa/installer'
