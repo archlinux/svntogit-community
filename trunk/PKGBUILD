@@ -2,7 +2,7 @@
 
 pkgname=python-hatch-fancy-pypi-readme
 pkgver=22.8.0
-pkgrel=1
+pkgrel=2
 pkgdesc='Fancy PyPI READMEs with Hatch'
 arch=(any)
 url='https://github.com/hynek/hatch-fancy-pypi-readme'
