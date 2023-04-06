@@ -4,7 +4,7 @@
 _name=decorator
 pkgname=python-decorator
 pkgver=5.1.1
-pkgrel=2
+pkgrel=3
 pkgdesc='Python Decorator module'
 arch=('any')
 url='https://pypi.python.org/pypi/decorator'
