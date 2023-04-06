@@ -3,7 +3,7 @@
 
 pkgname=python-magic
 pkgver=0.4.27
-pkgrel=2
+pkgrel=3
 epoch=1
 pkgdesc="A python wrapper for libmagic"
 arch=(any)
