@@ -2,7 +2,7 @@
 
 pkgname=pulseaudio-equalizer-ladspa
 pkgver=3.0.2
-pkgrel=5
+pkgrel=6
 pkgdesc='A 15-band equalizer for PulseAudio'
 arch=(any)
 url='https://github.com/pulseaudio-equalizer-ladspa/equalizer'
