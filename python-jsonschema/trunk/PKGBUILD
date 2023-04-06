@@ -6,7 +6,7 @@
 
 pkgname=python-jsonschema
 pkgver=4.17.3
-pkgrel=1
+pkgrel=2
 pkgdesc='An implementation of JSON Schema validation for Python'
 arch=('any')
 url='https://github.com/python-jsonschema/jsonschema'
