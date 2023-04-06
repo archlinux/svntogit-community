@@ -6,7 +6,7 @@
 
 pkgname=python-pygame
 pkgver=2.1.3
-pkgrel=2
+pkgrel=3
 pkgdesc="Python game library"
 arch=('x86_64')
 url="http://www.pygame.org"
