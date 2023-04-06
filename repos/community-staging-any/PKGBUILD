@@ -1,0 +1,47 @@
+# Maintainer: Jonas Witschel <diabonas@archlinux.org>
+pkgname=python-proxy.py
+_name=${pkgname#python-}
+pkgver=2.4.3
+pkgrel=3
+pkgdesc='Lightweight HTTP, HTTPS, HTTP2 and WebSockets proxy server'
+arch=('any')
+url='https://github.com/abhinavsingh/proxy.py'
+license=('BSD')
+depends=('python' 'python-setuptools')
+makedepends=('python-build' 'python-installer' 'python-setuptools-scm'
+             'python-wheel')
+checkdepends=('python-httpx' 'python-pytest' 'python-pytest-asyncio' 'python-pytest-cov' 'python-pytest-mock')
+optdepends=('python-httpx: Cloudflare DNS resolver plugin support'
+            'python-paramiko: proxy over SSH tunnel support')
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz"
+        "python-proxy.py-2.4.0_fix-asyncio-deprecationwarning.patch::$url/commit/e0cc90d057b44ef506b88362d71f2c707db11db9.patch")
+sha256sums=('6134e8f1282db1fd7fa1a4b7049e49307566851023b2ac312d9dd36e92f0c9b1'
+            'e7e511215189c95d96f279fde344c4d7473b846f9c96a3fc0077985856e97bcc')
+
+prepare() {
+	cd "$_name-$pkgver"
+	# remove the use of python-setuptools-scm-git
+	# TODO: add upstream ticket/ change upstream and bump use of python-setuptools-scm to >= 7.0.5
+	sed -e '/setuptools-scm-git-archive/d' -i pyproject.toml
+	# Fix pytest-asyncio 0.17.0 DeprecationWarning (https://github.com/abhinavsingh/proxy.py/pull/998)
+	patch --forward --strip=1 --input="$srcdir/python-proxy.py-2.4.0_fix-asyncio-deprecationwarning.patch"
+}
+
+build() {
+	cd "$_name-$pkgver"
+	python -m build --wheel --no-isolation
+}
+
+check() {
+	cd "$_name-$pkgver"
+	pytest
+}
+
+package() {
+	cd "$_name-$pkgver"
+	python -m installer --destdir="$pkgdir" dist/*.whl
+	install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+
+	# Remove entry point usr/bin/proxy to avoid conflict with libproxy (FS#73325)
+	rm -r "$pkgdir/usr/bin"
+}
