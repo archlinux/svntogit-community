@@ -1,0 +1,53 @@
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
+
+pkgname=python-anyio
+# https://github.com/agronholm/anyio/blob/master/docs/versionhistory.rst
+pkgver=3.6.2
+pkgrel=2
+pkgdesc='High level compatibility layer for multiple asynchronous event loop implementations'
+arch=(any)
+url='https://github.com/agronholm/anyio'
+license=(MIT)
+depends=(python python-idna python-sniffio)
+makedepends=(python-setuptools python-setuptools-scm
+             python-uvloop python-trio)
+checkdepends=(python-pytest python-trustme python-hypothesis python-pytest-mock)
+optdepends=(
+  'python-trio: trio backend'
+  'python-outcome: trio backend'
+  'python-uvloop: use uvloop for asyncio backend'
+  'python-pytest: pytest plugin'
+)
+source=(https://github.com/agronholm/anyio/archive/$pkgver/anyio-$pkgver.tar.gz)
+sha256sums=('befe8a0e100f6a92ad1b15a6e4adc86bb5f1e055f09b125090300ade5b33534d')
+
+export SETUPTOOLS_SCM_PRETEND_VERSION=$pkgver
+
+prepare() {
+  cd anyio-$pkgver
+  # Remove "error" from pytest filterwarnings
+  sed -i '/"error"/d' pyproject.toml
+  # XXX: Temporarily remove testing trio as a backend. anyio 3.x is known to be incompatible with trio >= 0.22
+  # https://github.com/agronholm/anyio/commit/787cb0c2e53c2a3307873d202fbd49dc5eac4e96
+  sed -i '/"trio"/d' tests/conftest.py
+}
+
+build() {
+  cd anyio-$pkgver
+  python setup.py build
+}
+
+check() {
+  cd anyio-$pkgver
+  # Install to a temporary root as the test suite requires the entry point for
+  # its pytest plugin
+  pyver=$(python -c "import sys; print('{}.{}'.format(*sys.version_info[:2]))")
+  python setup.py install --root="$PWD/tmp_install" --skip-build
+  PYTHONPATH="$PWD/tmp_install/usr/lib/python$pyver/site-packages" pytest
+}
+
+package() {
+  cd anyio-$pkgver
+  python setup.py install --root="${pkgdir}" --optimize=1 --skip-build
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
+}
