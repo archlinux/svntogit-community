@@ -4,7 +4,7 @@
 
 pkgname=python-jaraco.collections
 pkgver=3.5.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Models and classes to supplement the stdlib 'collections' module."
 arch=('any')
 url='https://github.com/jaraco/jaraco.collections'
