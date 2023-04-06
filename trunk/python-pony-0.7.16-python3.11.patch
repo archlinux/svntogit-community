@@ -1,0 +1,847 @@
+From 76b56ff67b20729ab14630ce0473e68bb3e5d267 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 07:50:33 -0400
+Subject: [PATCH 01/21] Declare support for Python 3.11
+
+---
+ setup.py | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/setup.py b/setup.py
+index 342e8e3d..fb2b4428 100644
+--- a/setup.py
++++ b/setup.py
+@@ -70,6 +70,7 @@ def test_suite():
+     'Programming Language :: Python :: 3.8',
+     'Programming Language :: Python :: 3.9',
+     'Programming Language :: Python :: 3.10',
++    'Programming Language :: Python :: 3.11',
+     'Programming Language :: Python :: Implementation :: PyPy',
+     'Topic :: Software Development :: Libraries',
+     'Topic :: Database'
+@@ -110,8 +111,8 @@ def test_suite():
+ 
+ if __name__ == "__main__":
+     pv = sys.version_info[:2]
+-    if pv not in ((3, 6), (3, 7), (3, 8), (3, 9), (3, 10)):
+-        s = "Sorry, but %s %s requires Python of one of the following versions: 3.6-3.10." \
++    if pv not in ((3, 6), (3, 7), (3, 8), (3, 9), (3, 10), (3, 11)):
++        s = "Sorry, but %s %s requires Python of one of the following versions: 3.6-3.11." \
+             " You have version %s"
+         print(s % (name, version, sys.version.split(' ', 1)[0]))
+         sys.exit(1)
+
+From df800959fd5ec367df438c686265675e386f3434 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 14:08:39 -0400
+Subject: [PATCH 02/21] Add some simpler tests to help find Decompiler mistakes
+
+---
+ pony/orm/tests/test_decompiler.py | 78 ++++++++++++++++++++++++++++++-
+ 1 file changed, 77 insertions(+), 1 deletion(-)
+
+diff --git a/pony/orm/tests/test_decompiler.py b/pony/orm/tests/test_decompiler.py
+index 2a181806..189f611a 100644
+--- a/pony/orm/tests/test_decompiler.py
++++ b/pony/orm/tests/test_decompiler.py
+@@ -1,4 +1,6 @@
++import textwrap
+ import unittest
++import ast
+ 
+ from pony.orm.decompiling import Decompiler
+ from pony.orm.asttranslation import ast2src
+@@ -93,7 +95,81 @@ def get_condition_values(cond):
+ 
+ 
+ class TestDecompiler(unittest.TestCase):
+-    pass
++    def assertDecompilesTo(self, src, expected):
++        code = compile(src, '<?>', 'eval').co_consts[0]
++        import dis
++        print(dis.dis(code))
++        dc = Decompiler(code)
++        expected = textwrap.dedent(expected).strip()
++        self.maxDiff = None
++        self.assertMultiLineEqual(expected, ast.dump(dc.ast, indent=2))
++
++    def test_ast1(self):
++        self.assertDecompilesTo(
++            '(a for a in [] if x and y and z and j)',
++            """
++            GeneratorExp(
++              elt=Name(id='a', ctx=Load()),
++              generators=[
++                comprehension(
++                  target=Name(id='a', ctx=Store()),
++                  iter=Name(id='.0', ctx=Load()),
++                  ifs=[
++                    BoolOp(
++                      op=And(),
++                      values=[
++                        Name(id='x', ctx=Load()),
++                        Name(id='y', ctx=Load()),
++                        Name(id='z', ctx=Load()),
++                        Name(id='j', ctx=Load())])],
++                  is_async=0)])
++            """)
++
++    def test_ast2(self):
++        self.assertDecompilesTo(
++            'lambda x, y, z, j: (x and y and z and j)',
++            """
++            BoolOp(
++              op=And(),
++              values=[
++                Name(id='x', ctx=Load()),
++                Name(id='y', ctx=Load()),
++                Name(id='z', ctx=Load()),
++                Name(id='j', ctx=Load())])
++            """)
++
++    def test_ast3(self):
++        self.assertDecompilesTo(
++            '(m for m in [] if x and y and z and j for n in [] if x and y and z and j)',
++            """
++            GeneratorExp(
++              elt=Name(id='m', ctx=Load()),
++              generators=[
++                comprehension(
++                  target=Name(id='m', ctx=Store()),
++                  iter=Name(id='.0', ctx=Load()),
++                  ifs=[
++                    BoolOp(
++                      op=And(),
++                      values=[
++                        Name(id='x', ctx=Load()),
++                        Name(id='y', ctx=Load()),
++                        Name(id='z', ctx=Load()),
++                        Name(id='j', ctx=Load())])],
++                  is_async=0),
++                comprehension(
++                  target=Name(id='n', ctx=Store()),
++                  iter=Constant(value=()),
++                  ifs=[
++                    BoolOp(
++                      op=And(),
++                      values=[
++                        Name(id='x', ctx=Load()),
++                        Name(id='y', ctx=Load()),
++                        Name(id='z', ctx=Load()),
++                        Name(id='j', ctx=Load())])],
++                  is_async=0)])
++            """)
+ 
+ 
+ for i, gen in enumerate(generate_gens()):
+
+From 7cb3fe95dd6f263d46ee852d34e3ca3f3f58d69f Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 07:58:15 -0400
+Subject: [PATCH 03/21] Add support for JUMP_NO_INTERRUPT (bpo-46409)
+
+---
+ pony/orm/decompiling.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 62e1ff9f..ad3c7e9b 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -209,7 +209,8 @@ def get_instructions(decompiler):
+             else: arg = []
+             if opname == 'FOR_ITER':
+                 decompiler.for_iter_pos = decompiler.pos
+-            if opname == 'JUMP_ABSOLUTE' and arg[0] == decompiler.for_iter_pos:
++            if (opname in ('JUMP_ABSOLUTE', 'JUMP_NO_INTERRUPT')
++                    and arg[0] == decompiler.for_iter_pos):
+                 decompiler.abs_jump_to_top = decompiler.pos
+ 
+             if before_yield:
+
+From 95a7a89769d8a43be34f77adcd6cf2a8a710db78 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 08:05:02 -0400
+Subject: [PATCH 04/21] Add support for RETURN_GENERATOR (bpo-46409)
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index ad3c7e9b..6c2c3a33 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -705,6 +705,9 @@ def RETURN_VALUE(decompiler):
+         expr = decompiler.stack.pop()
+         return simplify(expr)
+ 
++    def RETURN_GENERATOR(decompiler):
++        pass
++
+     def ROT_TWO(decompiler):
+         tos = decompiler.stack.pop()
+         tos1 = decompiler.stack.pop()
+
+From 0e1d55146535368a7ecfae1c7b305facb82445bf Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 09:45:06 -0400
+Subject: [PATCH 05/21] Add support for 3.11's POP_JUMP_* (bpo-47120)
+
+---
+ pony/orm/decompiling.py | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 6c2c3a33..7788e061 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -195,7 +195,8 @@ def get_instructions(decompiler):
+                 elif op in hasname:
+                     arg = [code.co_names[oparg]]
+                 elif op in hasjrel:
+-                    arg = [i + oparg * (2 if PY310 else 1)]
++                    arg = [i + oparg * (2 if PY310 else 1)
++                           * (-1 if 'BACKWARD' in opname else 1)]
+                 elif op in haslocal:
+                     arg = [code.co_varnames[oparg]]
+                 elif op in hascompare:
+@@ -693,6 +694,10 @@ def MAKE_FUNCTION(decompiler, argc):
+         )
+         return ast.Lambda(args, func_decompiler.ast)
+ 
++    POP_JUMP_BACKWARD_IF_FALSE = JUMP_IF_FALSE
++    POP_JUMP_BACKWARD_IF_TRUE = JUMP_IF_TRUE
++    POP_JUMP_FORWARD_IF_FALSE = JUMP_IF_FALSE
++    POP_JUMP_FORWARD_IF_TRUE = JUMP_IF_TRUE
+     POP_JUMP_IF_FALSE = JUMP_IF_FALSE
+     POP_JUMP_IF_TRUE = JUMP_IF_TRUE
+ 
+
+From 84120f593f1ccc81d5a32cec7e8aec17999577d3 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 09:45:45 -0400
+Subject: [PATCH 06/21] Add support for CACHE (GH-90997)
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 7788e061..630c88bc 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -396,6 +396,9 @@ def _call_function(decompiler, args, keywords=None):
+             return genexpr
+         return ast.Call(tos, args, keywords)
+ 
++    def CACHE(decompiler):
++        pass
++
+     def CALL_FUNCTION_VAR(decompiler, argc):
+         return decompiler.CALL_FUNCTION(argc, decompiler.stack.pop())
+ 
+
+From abcd8c9ae9a76d370a3f322257a177dabf8243b3 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 09:46:52 -0400
+Subject: [PATCH 07/21] Add support for PRECALL (bpo-44525)
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 630c88bc..125211bf 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -707,6 +707,9 @@ def MAKE_FUNCTION(decompiler, argc):
+     def POP_TOP(decompiler):
+         pass
+ 
++    def PRECALL(decompiler, argc):
++        pass
++
+     def RETURN_VALUE(decompiler):
+         if decompiler.next_pos != decompiler.end:
+             throw(DecompileError)
+
+From 536b6184e49a28e0f9ffbc17de49552fe21d68dc Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 09:47:00 -0400
+Subject: [PATCH 08/21] Add support for RESUME (bpo-45923)
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 125211bf..c3ebd403 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -719,6 +719,9 @@ def RETURN_VALUE(decompiler):
+     def RETURN_GENERATOR(decompiler):
+         pass
+ 
++    def RESUME(decompiler, where):
++        pass
++
+     def ROT_TWO(decompiler):
+         tos = decompiler.stack.pop()
+         tos1 = decompiler.stack.pop()
+
+From 740257657ae6bff2324b63a497b782e1ffa440b6 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 09:47:16 -0400
+Subject: [PATCH 09/21] Add support for CALL and KW_NAMES (bpo-46329)
+
+---
+ pony/orm/decompiling.py | 25 +++++++++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index c3ebd403..4ac1b48e 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -150,6 +150,7 @@ def __init__(decompiler, code, start=0, end=None):
+         decompiler.conditions_end = 0
+         decompiler.instructions = []
+         decompiler.instructions_map = {}
++        decompiler.kw_names = None
+         decompiler.or_jumps = set()
+         decompiler.get_instructions()
+         decompiler.analyze_jumps()
+@@ -399,6 +400,26 @@ def _call_function(decompiler, args, keywords=None):
+     def CACHE(decompiler):
+         pass
+ 
++    def CALL(decompiler, argc):
++        values = decompiler.pop_items(argc)
++
++        keys = decompiler.kw_names
++        decompiler.kw_names = None
++
++        args = values
++        keywords = None
++        if keys:
++            args = values[:-len(keys)]
++            keywords = [ast.keyword(k, v) for k, v in zip(keys, values[-len(keys):])]
++
++        self = decompiler.stack.pop()
++        callable_ = decompiler.stack.pop()
++        if callable_ is None:
++            callable_ = self
++        else:
++            args.insert(0, self)
++        return ast.Call(callable_, args, keywords)
++
+     def CALL_FUNCTION_VAR(decompiler, argc):
+         return decompiler.CALL_FUNCTION(argc, decompiler.stack.pop())
+ 
+@@ -601,6 +622,10 @@ def JUMP_FORWARD(decompiler, endpos):
+             decompiler.targets[endpos] = if_exp
+         return if_exp
+ 
++    def KW_NAMES(decompiler, kw_names):
++        # Stash for CALL
++        decompiler.kw_names = kw_names
++
+     def IS_OP(decompiler, invert):
+         return decompiler.COMPARE_OP('is not' if invert else 'is')
+ 
+
+From 0a26047efd0b083ce93eeaddf2cbd6de569617f6 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 11:39:11 -0400
+Subject: [PATCH 10/21] In Python 3.11, MAKE_FUNCTION gets the qualname from
+ the code object (bpo-44530)
+
+---
+ pony/orm/decompiling.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 4ac1b48e..91718e53 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -686,7 +686,8 @@ def MAKE_CLOSURE(decompiler, argc):
+     def MAKE_FUNCTION(decompiler, argc):
+         defaults = []
+         if sys.version_info >= (3, 6):
+-            qualname = decompiler.stack.pop()
++            if sys.version_info < (3, 11):
++                qualname = decompiler.stack.pop()
+             tos = decompiler.stack.pop()
+             if argc & 0x08:
+                 func_closure = decompiler.stack.pop()
+
+From a03eb4543f2b0bf2c5f3c1d073ddb8875784d75c Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 12:08:30 -0400
+Subject: [PATCH 11/21] In Python 3.11 LOAD_GLOBAL can push a NULL onto the
+ stack (GH-31933)
+
+---
+ pony/orm/decompiling.py | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index 91718e53..ce32d839 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -161,6 +161,7 @@ def __init__(decompiler, code, start=0, end=None):
+             throw(DecompileError, 'Compiled code should represent a single expression')
+     def get_instructions(decompiler):
+         PY36 = sys.version_info >= (3, 6)
++        PY311 = sys.version_info >= (3, 11)
+         before_yield = True
+         code = decompiler.code
+         co_code = code.co_code
+@@ -194,7 +195,14 @@ def get_instructions(decompiler):
+                 if op in hasconst:
+                     arg = [code.co_consts[oparg]]
+                 elif op in hasname:
+-                    arg = [code.co_names[oparg]]
++                    if opname == 'LOAD_GLOBAL':
++                        push_null = False
++                        if PY311:
++                            push_null = oparg & 1
++                            oparg >>= 1
++                        arg = [code.co_names[oparg], push_null]
++                    else:
++                        arg = [code.co_names[oparg]]
+                 elif op in hasjrel:
+                     arg = [i + oparg * (2 if PY310 else 1)
+                            * (-1 if 'BACKWARD' in opname else 1)]
+@@ -666,7 +674,9 @@ def LOAD_FAST(decompiler, varname):
+         decompiler.names.add(varname)
+         return ast.Name(varname, ast.Load())
+ 
+-    def LOAD_GLOBAL(decompiler, varname):
++    def LOAD_GLOBAL(decompiler, varname, push_null):
++        if push_null:
++            decompiler.stack.append(None)
+         decompiler.names.add(varname)
+         return ast.Name(varname, ast.Load())
+ 
+
+From 0eed3fdb7ab7b441bd8bd7cca7f0d28310ef0ff9 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 14:54:53 -0400
+Subject: [PATCH 12/21] Free variable offsets change in Python 3.11 (bpo-43693)
+
+---
+ pony/orm/decompiling.py | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index ce32d839..e2647af1 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -211,6 +211,8 @@ def get_instructions(decompiler):
+                 elif op in hascompare:
+                     arg = [cmp_op[oparg]]
+                 elif op in hasfree:
++                    if PY311:
++                        oparg -= len(code.co_varnames)
+                     arg = [free[oparg]]
+                 elif op in hasjabs:
+                     arg = [oparg * (2 if PY310 else 1)]
+
+From b117f2415a4ed5e850388f5a3cbaad06cdb40b88 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 14:56:28 -0400
+Subject: [PATCH 13/21] Add support for COPY_FREE_VARS (bpo-44525)
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index e2647af1..abcfeab2 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -491,6 +491,9 @@ def COMPARE_OP(decompiler, op):
+         op = operator_mapping[op]()
+         return ast.Compare(oper1, [op], [oper2])
+ 
++    def COPY_FREE_VARS(decompiler, n):
++        pass
++
+     def CONTAINS_OP(decompiler, invert):
+         return decompiler.COMPARE_OP('not in' if invert else 'in')
+ 
+
+From c0436ca293ce5ecdedc691cd63fdefe88e97c6a8 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 15:24:08 -0400
+Subject: [PATCH 14/21] Add support for BINARY_OP (bpo-45636)
+
+---
+ pony/orm/decompiling.py | 32 ++++++++++++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index abcfeab2..d278000b 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -5,6 +5,10 @@
+ from opcode import opname as opnames, HAVE_ARGUMENT, EXTENDED_ARG, cmp_op
+ from opcode import hasconst, hasname, hasjrel, haslocal, hascompare, hasfree, hasjabs
+ from collections import defaultdict
++try:
++    from opcode import _nb_ops as nb_ops
++except ImportError:
++    nb_ops = None
+ 
+ #from pony.thirdparty.compiler import ast, parse
+ import ast
+@@ -313,6 +317,34 @@ def store(decompiler, node):
+     BINARY_TRUE_DIVIDE  = BINARY_DIVIDE
+     BINARY_MODULO       = binop(ast.Mod)
+ 
++    def BINARY_OP(decompiler, opcode):
++        opname, symbol = nb_ops[opcode]
++        inplace = opname.startswith('NB_INPLACE_')
++        opname = opname.split('_', 2 if inplace else 1)[-1]
++
++        op = {
++            "ADD": ast.Add,
++            "AND": ast.BitAnd,
++            "FLOOR_DIVIDE": ast.FloorDiv,
++            "LSHIFT": ast.LShift,
++            "MATRIX_MULTIPLY": ast.MatMult,
++            "MULTIPLY": ast.Mult,
++            "REMAINDER": ast.Mod,
++            "OR": ast.BitOr,
++            "POWER": ast.Pow,
++            "RSHIFT": ast.RShift,
++            "SUBTRACT": ast.Sub,
++            "TRUE_DIVIDE": ast.Div,
++            "XOR": ast.BitXor,
++        }[opname]
++
++        oper2 = decompiler.stack.pop()
++        oper1 = decompiler.stack.pop()
++        r = ast.BinOp(left=oper1, op=op(), right=oper2)
++        if inplace:
++            r = ast.Name(oper1, r)
++        return r
++
+     def BINARY_SUBSCR(decompiler):
+         node2 = decompiler.stack.pop()
+         node1 = decompiler.stack.pop()
+
+From 7d3c17693f73f6fcad87a63d005f8319d6387fb5 Mon Sep 17 00:00:00 2001
+From: Stefano Rivera <stefano@rivera.za.net>
+Date: Tue, 6 Dec 2022 15:41:46 -0400
+Subject: [PATCH 15/21] Add support for PUSH_NULL (bpo-46329)
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index d278000b..da98d0f1 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -783,6 +783,9 @@ def POP_TOP(decompiler):
+     def PRECALL(decompiler, argc):
+         pass
+ 
++    def PUSH_NULL(decompiler):
++        decompiler.stack.append(None)
++
+     def RETURN_VALUE(decompiler):
+         if decompiler.next_pos != decompiler.end:
+             throw(DecompileError)
+
+From 9f2e9c273205194fcc770e7539586997684febf0 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timo=20R=C3=B6hling?= <timo.roehling@fkie.fraunhofer.de>
+Date: Wed, 14 Dec 2022 18:34:38 +0100
+Subject: [PATCH 16/21] Add PY311 compat constant
+
+---
+ pony/orm/decompiling.py | 5 ++---
+ pony/py23compat.py      | 1 +
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index da98d0f1..fbfb74a9 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -1,5 +1,5 @@
+ from __future__ import absolute_import, print_function, division
+-from pony.py23compat import PY37, PYPY, PY38, PY39, PY310
++from pony.py23compat import PY37, PYPY, PY38, PY39, PY310, PY311
+ 
+ import sys, types, inspect
+ from opcode import opname as opnames, HAVE_ARGUMENT, EXTENDED_ARG, cmp_op
+@@ -165,7 +165,6 @@ def __init__(decompiler, code, start=0, end=None):
+             throw(DecompileError, 'Compiled code should represent a single expression')
+     def get_instructions(decompiler):
+         PY36 = sys.version_info >= (3, 6)
+-        PY311 = sys.version_info >= (3, 11)
+         before_yield = True
+         code = decompiler.code
+         co_code = code.co_code
+@@ -733,7 +732,7 @@ def MAKE_CLOSURE(decompiler, argc):
+     def MAKE_FUNCTION(decompiler, argc):
+         defaults = []
+         if sys.version_info >= (3, 6):
+-            if sys.version_info < (3, 11):
++            if not PY311:
+                 qualname = decompiler.stack.pop()
+             tos = decompiler.stack.pop()
+             if argc & 0x08:
+diff --git a/pony/py23compat.py b/pony/py23compat.py
+index 6deac83f..17caf7e4 100644
+--- a/pony/py23compat.py
++++ b/pony/py23compat.py
+@@ -5,6 +5,7 @@
+ PY38 = sys.version_info[:2] >= (3, 8)
+ PY39 = sys.version_info[:2] >= (3, 9)
+ PY310 = sys.version_info[:2] >= (3, 10)
++PY311 = sys.version_info[:2] >= (3, 11)
+ 
+ unicode = str
+ buffer = bytes
+
+From b41ef5759949b2b88fc664106e70900bcf7f493f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timo=20R=C3=B6hling?= <timo.roehling@fkie.fraunhofer.de>
+Date: Wed, 14 Dec 2022 18:35:35 +0100
+Subject: [PATCH 17/21] Fix CALL opcode and handle NULL special cases
+
+---
+ pony/orm/decompiling.py | 14 +++++++++++---
+ 1 file changed, 11 insertions(+), 3 deletions(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index fbfb74a9..e3e2f5b5 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -448,7 +448,7 @@ def CALL(decompiler, argc):
+         decompiler.kw_names = None
+ 
+         args = values
+-        keywords = None
++        keywords = []
+         if keys:
+             args = values[:-len(keys)]
+             keywords = [ast.keyword(k, v) for k, v in zip(keys, values[-len(keys):])]
+@@ -459,7 +459,8 @@ def CALL(decompiler, argc):
+             callable_ = self
+         else:
+             args.insert(0, self)
+-        return ast.Call(callable_, args, keywords)
++        decompiler.stack.append(callable_)
++        return decompiler._call_function(args, keywords)
+ 
+     def CALL_FUNCTION_VAR(decompiler, argc):
+         return decompiler.CALL_FUNCTION(argc, decompiler.stack.pop())
+@@ -629,6 +630,10 @@ def process_target(decompiler, pos, partial=False):
+                 break
+             if not decompiler.stack:
+                 break
++            if decompiler.stack[-1] is None:
++                decompiler.stack.pop()
++                if not decompiler.stack:
++                    break
+             top2 = decompiler.stack[-1]
+             if isinstance(top2, ast.comprehension):
+                 break
+@@ -717,7 +722,10 @@ def LOAD_GLOBAL(decompiler, varname, push_null):
+         return ast.Name(varname, ast.Load())
+ 
+     def LOAD_METHOD(decompiler, methname):
+-        return decompiler.LOAD_ATTR(methname)
++        result = decompiler.LOAD_ATTR(methname)
++        if PY311:
++            decompiler.stack.append(None)
++        return result
+ 
+     LOOKUP_METHOD = LOAD_METHOD  # For PyPy
+ 
+
+From 21a01e7356d6d4234a92e78f31d23e4011238aa4 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timo=20R=C3=B6hling?= <timo.roehling@fkie.fraunhofer.de>
+Date: Wed, 14 Dec 2022 18:36:57 +0100
+Subject: [PATCH 18/21] Add MAKE_CELL opcode
+
+---
+ pony/orm/decompiling.py | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index e3e2f5b5..a14c2c54 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -733,6 +733,9 @@ def LOAD_NAME(decompiler, varname):
+         decompiler.names.add(varname)
+         return ast.Name(varname, ast.Load())
+ 
++    def MAKE_CELL(decompiler, freevar):
++        pass
++
+     def MAKE_CLOSURE(decompiler, argc):
+         decompiler.stack[-3:-2] = []  # ignore freevars
+         return decompiler.MAKE_FUNCTION(argc)
+
+From 592ed4ab682b448d4af8ad6b71d916262277b769 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timo=20R=C3=B6hling?= <timo.roehling@fkie.fraunhofer.de>
+Date: Wed, 14 Dec 2022 18:37:34 +0100
+Subject: [PATCH 19/21] Add JUMP_IF_NONE and JUMP_IF_NOT_NONE opcodes
+
+---
+ pony/orm/decompiling.py | 35 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 35 insertions(+)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index a14c2c54..d0397239 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -614,6 +614,37 @@ def conditional_jump_new(decompiler, endpos, if_true):
+         decompiler.targets.setdefault(endpos, clause)
+         return clause
+ 
++    def conditional_jump_none_impl(decompiler, endpos, negate):
++        expr = decompiler.stack.pop()
++        op = ast.Is
++        if decompiler.pos >= decompiler.conditions_end:
++            clausetype = ast.And if negate else ast.Or
++        elif decompiler.pos in decompiler.or_jumps:
++            clausetype = ast.Or
++            if negate:
++                op = ast.IsNot
++        else:
++            clausetype = ast.And
++            if negate:
++                op = ast.IsNot
++        expr = ast.Compare(expr, [op()], [ast.Constant(None)])
++        decompiler.stack.append(expr)
++
++        if decompiler.next_pos in decompiler.targets:
++            decompiler.process_target(decompiler.next_pos)
++
++        expr = decompiler.stack.pop()
++        clause = ast.BoolOp(op=clausetype(), values=[expr])
++        clause.endpos = endpos
++        decompiler.targets.setdefault(endpos, clause)
++        return clause
++
++    def jump_if_none(decompiler, endpos):
++        return decompiler.conditional_jump_none_impl(endpos, True)
++
++    def jump_if_not_none(decompiler, endpos):
++        return decompiler.conditional_jump_none_impl(endpos, False)
++
+     def process_target(decompiler, pos, partial=False):
+         if pos is None:
+             limit = None
+@@ -786,6 +817,10 @@ def MAKE_FUNCTION(decompiler, argc):
+     POP_JUMP_FORWARD_IF_TRUE = JUMP_IF_TRUE
+     POP_JUMP_IF_FALSE = JUMP_IF_FALSE
+     POP_JUMP_IF_TRUE = JUMP_IF_TRUE
++    POP_JUMP_BACKWARD_IF_NONE = jump_if_none
++    POP_JUMP_BACKWARD_IF_NOT_NONE = jump_if_not_none
++    POP_JUMP_FORWARD_IF_NONE = jump_if_none
++    POP_JUMP_FORWARD_IF_NOT_NONE = jump_if_not_none
+ 
+     def POP_TOP(decompiler):
+         pass
+
+From 01026c2b043a9d468d88bceff53062ac8f653ba1 Mon Sep 17 00:00:00 2001
+From: Jochen Sprickerhof <git@jochen.sprickerhof.de>
+Date: Mon, 19 Dec 2022 10:27:02 +0100
+Subject: [PATCH 20/21] fixup! Add some simpler tests to help find Decompiler
+ mistakes
+
+---
+ pony/orm/tests/test_decompiler.py | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/pony/orm/tests/test_decompiler.py b/pony/orm/tests/test_decompiler.py
+index 189f611a..72fdc654 100644
+--- a/pony/orm/tests/test_decompiler.py
++++ b/pony/orm/tests/test_decompiler.py
+@@ -1,6 +1,7 @@
+ import textwrap
+ import unittest
+ import ast
++import sys
+ 
+ from pony.orm.decompiling import Decompiler
+ from pony.orm.asttranslation import ast2src
+@@ -96,6 +97,10 @@ def get_condition_values(cond):
+ 
+ class TestDecompiler(unittest.TestCase):
+     def assertDecompilesTo(self, src, expected):
++        # skip test due to ast.dump has no indent parameter
++        if sys.version_info[:2] <= (3, 8):
++            return
++
+         code = compile(src, '<?>', 'eval').co_consts[0]
+         import dis
+         print(dis.dis(code))
+
+From 3ac71610c0c304c3200a2c583e94d3e93fe3889e Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Timo=20R=C3=B6hling?= <roehling@debian.org>
+Date: Wed, 5 Apr 2023 09:40:08 +0200
+Subject: [PATCH 21/21] Fix negation for JUMP_IF_NONE / JUMP_IF_NOT_NONE
+
+---
+ pony/orm/decompiling.py | 22 ++++++++++++----------
+ 1 file changed, 12 insertions(+), 10 deletions(-)
+
+diff --git a/pony/orm/decompiling.py b/pony/orm/decompiling.py
+index d0397239..71e67801 100644
+--- a/pony/orm/decompiling.py
++++ b/pony/orm/decompiling.py
+@@ -616,17 +616,13 @@ def conditional_jump_new(decompiler, endpos, if_true):
+ 
+     def conditional_jump_none_impl(decompiler, endpos, negate):
+         expr = decompiler.stack.pop()
+-        op = ast.Is
+-        if decompiler.pos >= decompiler.conditions_end:
+-            clausetype = ast.And if negate else ast.Or
+-        elif decompiler.pos in decompiler.or_jumps:
++        assert(decompiler.pos < decompiler.conditions_end)
++        if decompiler.pos in decompiler.or_jumps:
+             clausetype = ast.Or
+-            if negate:
+-                op = ast.IsNot
++            op = ast.IsNot if negate else ast.Is
+         else:
+             clausetype = ast.And
+-            if negate:
+-                op = ast.IsNot
++            op = ast.Is if negate else ast.IsNot
+         expr = ast.Compare(expr, [op()], [ast.Constant(None)])
+         decompiler.stack.append(expr)
+ 
+@@ -640,10 +636,10 @@ def conditional_jump_none_impl(decompiler, endpos, negate):
+         return clause
+ 
+     def jump_if_none(decompiler, endpos):
+-        return decompiler.conditional_jump_none_impl(endpos, True)
++        return decompiler.conditional_jump_none_impl(endpos, False)
+ 
+     def jump_if_not_none(decompiler, endpos):
+-        return decompiler.conditional_jump_none_impl(endpos, False)
++        return decompiler.conditional_jump_none_impl(endpos, True)
+ 
+     def process_target(decompiler, pos, partial=False):
+         if pos is None:
+@@ -998,6 +994,12 @@ def YIELD_VALUE(decompiler):
+     (a for a in T1 if a in select(b for b in T2))
+     (a for a in T1 if a in (b for b in T2 if b in (c for c in T3 if c == a)))
+     (a for a in T1 if a > x and a in (b for b in T1 if b < y) and a < z)
++    (a for a in T if a.b is None)
++    (a for a in T if a.b is not None)
++    (a for a in T if a.b is None or a.b == c)
++    (a for a in T if a.b is not None or a.b == c)
++    (a for a in T if a.b is None and a.c == d)
++    (a for a in T if a.b is not None and a.c == d)
+ """
+ ##   should throw InvalidQuery due to using [] inside of a query
+ ##   (a for a in T1 if a in [b for b in T2 if b in [(c, d) for c in T3]])
