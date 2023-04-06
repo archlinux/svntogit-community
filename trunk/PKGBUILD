@@ -3,7 +3,7 @@
 
 pkgname=python-jaraco.classes
 pkgver=3.2.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Module for classes manipulation'
 arch=('any')
 url='https://github.com/jaraco/jaraco.classes'
