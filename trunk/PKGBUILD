@@ -3,7 +3,7 @@
 _pkgname=sphinx-inline-tabs
 pkgname=python-$_pkgname
 pkgver=2022.01.02.beta11
-pkgrel=1
+pkgrel=2
 pkgdesc='Add inline tabbed content to your Sphinx documentation'
 arch=('any')
 url='https://github.com/pradyunsg/sphinx-inline-tabs'
