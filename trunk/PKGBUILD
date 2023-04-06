@@ -4,7 +4,7 @@
 pkgname=python-wcwidth
 _name=wcwidth
 pkgver=0.2.5
-pkgrel=6
+pkgrel=7
 pkgdesc="Measures number of Terminal column cells of wide-character codes"
 url="https://github.com/jquast/wcwidth"
 license=('MIT')
