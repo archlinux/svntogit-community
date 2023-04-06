@@ -4,7 +4,7 @@
 pkgname=python-distlib
 _pkgname="${pkgname#python-}"
 pkgver=0.3.6
-pkgrel=1
+pkgrel=2
 pkgdesc='Low-level functions that relate to packaging and distribution of Python software'
 arch=('any')
 url='https://distlib.readthedocs.io'
