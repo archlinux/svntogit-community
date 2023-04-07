@@ -1,0 +1,102 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Ray Rashif <schiv@archlinux.org>
+# Contributor: Eric Belanger <eric@archlinux.org>
+# Contributor: Tom Newsom <Jeepster@gmx.co.uk>
+
+pkgname=ecasound
+pkgver=2.9.3
+pkgrel=9
+pkgdesc="Command-line multitrack audio processor"
+arch=(x86_64)
+url="https://ecasound.seul.org/ecasound/"
+license=(
+  GPL2
+  LGPL2.1
+)
+groups=(pro-audio)
+depends=(
+  gcc-libs
+  glibc
+)
+makedepends=(
+  alsa-lib
+  audiofile
+  jack
+  liblo
+  libmikmod
+  libsamplerate
+  libsndfile
+  lilv
+  lv2
+  ncurses
+  python
+  readline
+  ruby
+)
+optdepends=(
+  'bash: for libecasoundc-config and libecasound-config'
+  'lame: MP3 encoding'
+  'libfaad2: for .aac/.m4a/.mp4 file support'
+  'libfaac: for .aac/.m4a/.mp4 file support'
+  'libmikmod: for tracker module'
+  'mpg123: MP3 decoding'
+  'python: for ecamonitor'
+  'ruby: ECI API'
+  'timidity++: for .mid file support'
+  'vorbis-tools: for .ogg file support'
+)
+provides=(lv2-host)
+source=(
+  https://ecasound.seul.org/download/$pkgname-$pkgver.tar.gz
+  $pkgname-2.9.3-ncurses_6.3_format_string.patch
+  python310.patch
+)
+sha512sums=('4f70e6f54cd05194a4ffe80905e7488d16d32d684c87736dfdac7b3aebf3d20cbf417964d75e00e781f6f0614b8b699061c69fcbf7e1761d66ce1abfcd5f1140'
+            '319761060a5ecf5a525c934d0e4d5662a25ea7f9b10e0d4044646cc080b54a30302f06e0790e0bc1f1c792dd58c6981d6ab6d3f55fe3ef9ae149d8cbc0e644ba'
+            '985e7351e163189d6a1c78953d6f09a7d5da36395b3ac91d555f33bb108588ccbf1a1a98ec33cbecd0c61bba236a06067e9e3337f4c1f58edf1531dad8638352')
+b2sums=('52aaa96abee9a911c613ac772fd3df3ff7bb4a8309283089d19e2f7265be26eb6e77304896cda2ed1c71742f36dfe1e38209afd42b921d56f12d43f08b4fe2d2'
+        '06ac697bfb92360945bb0e81a0aac15d0b1175a59fe895eebef0fc37b4a9ae6b26470bb0902d7b8a3f5d9973b8182c3e17f9f1845bcd21c4956bb9e40d40378b'
+        '1de4dd15257a2f666fbc6ba1ec4af1859b3158448e7e8928fe6c9feaeda2994c71fe0102bed2acd5ca81578a74a56df466812b9d6d26a98b3e47d519a37f23e3')
+
+prepare() {
+  cd $pkgname-$pkgver
+  patch -Np1 -i ../python310.patch
+  # fix format string error due to ncurses >= 6.3
+  # https://sourceforge.net/p/ecasound/bugs/54/
+  patch -Np1 -i ../$pkgname-2.9.3-ncurses_6.3_format_string.patch
+  # lv2core is deprecated in favor of lv2:
+  # https://sourceforge.net/p/ecasound/bugs/52/
+  sed -e 's/lv2core/lv2/g' -i configure.ac
+  # install ruby integration to vendor_ruby
+  sed -e 's/sitedir/vendordir/' -i configure.ac
+  # using c++98 lilv is not compatible
+  sed -e 's/c++98/c++11/' -i configure.ac
+  autoreconf -fiv
+}
+build() {
+  # prevent static lib mangling with LTO
+  CFLAGS+=' -ffat-lto-objects'
+  CXXFLAGS+=' -ffat-lto-objects'
+
+  cd $pkgname-$pkgver
+  ./configure --prefix=/usr
+  make
+}
+
+package() {
+  depends+=(
+    alsa-lib libasound.so
+    jack libjack.so
+    audiofile libaudiofile.so
+    liblo liblo.so
+    lilv liblilv-0.so
+    ncurses libncursesw.so
+    readline libreadline.so
+    libsamplerate libsamplerate.so
+    libsndfile libsndfile.so
+  )
+
+  make DESTDIR="$pkgdir/" install -C $pkgname-$pkgver
+  install -vDm 644 $pkgname-$pkgver/{AUTHORS,BUGS,NEWS,README,RELNOTES,TODO} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+# vim:set ts=2 sw=2 et:
