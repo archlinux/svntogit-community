@@ -1,0 +1,94 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+# NOTE: dependents need rebuild on minor release
+
+pkgbase=libiio
+pkgname=(libiio python-pylibiio)
+pkgver=0.24
+pkgrel=3
+pkgdesc="Interface to the Linux Industrial Input/Output (IIO) Subsystem"
+arch=(x86_64)
+url="https://github.com/analogdevicesinc/libiio"
+license=(LGPL2.1)
+makedepends=(
+  avahi
+  cmake
+  libaio
+  libserialport
+  libusb
+  libxml2
+  python-setuptools
+)
+source=($url/archive/v$pkgver/$pkgname-v$pkgver.tar.gz)
+sha512sums=('4e7b54870e986e6ba5860ccd8ad6ece4808c21e27a9d3975065f096bac0b035e65bbc68931023c19e69b72006294c3863bfb7272853b5fb1401b77eec88a89fd')
+b2sums=('cd8dce7af7bbafcb10c08722871d3d9abe089cb22fc3a0ada97905a1c5f96c55905980b8511178d662e9316b7ffdada6e84c29b5cbf1ca92b2d53b02d1ac8cfe')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+build() {
+  local cmake_options=(
+    -B build
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_INSTALL_LIBDIR=lib
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D CMAKE_INSTALL_SBINDIR=bin
+    -D PYTHON_BINDINGS=ON
+    -D SYSTEMD_UNIT_INSTALL_DIR=/usr/lib/systemd/system
+    -D UDEV_RULES_INSTALL_DIR=/usr/lib/udev/rules.d
+    -D WITH_MAN=ON
+    -D WITH_SYSTEMD=ON
+    -D WITH_SERIAL_BACKEND=ON
+    -S $pkgname-$pkgver
+    -W no-dev
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+}
+
+package_libiio() {
+  depends+=(
+    avahi libavahi-client.so libavahi-common.so
+    glibc
+    libaio
+    libserialport
+    libxml2
+    libusb libusb-1.0.so
+  )
+  optdepends=(
+    'python-pylibiio: for Python bindings'
+  )
+  provides=(
+    libiio.so
+  )
+
+  DESTDIR="$pkgdir" cmake --install build
+  install -vDm 644 $pkgname-$pkgver/{CONTRIBUTING,Contributors,README}.md -t "$pkgdir/usr/share/doc/$pkgname"
+
+  (
+    cd "$pkgdir"
+    _pick python-pylibiio usr/lib/python*
+  )
+}
+
+package_python-pylibiio() {
+  pkgdesc+=" - Python bindings"
+  depends=(
+    libiio=$pkgver
+    python
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+}
