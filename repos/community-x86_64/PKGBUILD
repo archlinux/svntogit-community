@@ -8,7 +8,7 @@
 # Contributor: Larry Hajali <larryhaja@gmail.com>
 
 pkgname=calibre
-pkgver=6.14.1
+pkgver=6.15.0
 pkgrel=1
 pkgdesc='Ebook management application'
 arch=(x86_64)
@@ -73,12 +73,9 @@ conflicts=(calibre-common
 replaces=("${conflicts[@]}")
 _archive="$pkgname-$pkgver"
 source=("https://download.calibre-ebook.com/$pkgver/$_archive.tar.xz"
-        "$url/signatures/$_archive.tar.xz.sig"
-        user-agent-data.json) # Regenerate with `python setup.py recent_uas` when bumping
-# TODO download translations repo as source
-sha256sums=('bb6708ad8184f496b0ae1bc263ab9ecbd16d945044dd86f5c550fa3a27e4ebf0'
-            'SKIP'
-            'd49e407119f74714864b29988860ff277ada05dd73ce22ad538b33bdeaa157db')
+        "$url/signatures/$_archive.tar.xz.sig")
+sha256sums=('9b1c0c8fa7ead7fd76fbeaaaba7f2ed5c24f8ab59c01ac31cd5f14645dc760f6'
+            'SKIP')
 validpgpkeys=('3CE1780F78DD88DF45194FD706BC317B515ACE7C') # Kovid Goyal (New longer key) <kovid@kovidgoyal.net>
 
 prepare(){
@@ -93,12 +90,6 @@ prepare(){
 
 	# Remove unneeded files
 	rm -f resources/$pkgname-portable.*
-
-	# https://bugs.archlinux.org/task/77807
-	# https://bugs.launchpad.net/calibre/+bug/2011320
-	# Upstream bug is fixed but this saves an offline call to fetch resources,
-	# We'll stick with not running recent_uas here for the sake of reproducible builds
-	cp "$srcdir/user-agent-data.json" resources
 }
 
 build() {
@@ -107,11 +98,9 @@ build() {
 	python setup.py build
 	python setup.py iso639
 	python setup.py iso3166
-	python setup.py translations
 	python setup.py liberation_fonts --system-liberation_fonts --path-to-liberation_fonts /usr/share/fonts/liberation
 	python setup.py mathjax --system-mathjax --path-to-mathjax /usr/share/mathjax
 	python setup.py gui
-	python setup.py resources
 }
 
 check() {
