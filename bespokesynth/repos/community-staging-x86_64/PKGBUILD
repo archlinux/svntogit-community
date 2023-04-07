@@ -1,0 +1,106 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=bespokesynth
+pkgver=1.1.0.r154.g0acb8ebf
+_commit=0acb8ebff6e59f8b000da240e11f31ccee9cca72  # current HEAD
+pkgrel=2
+pkgdesc="A software modular synth"
+arch=(x86_64)
+url="https://www.bespokesynth.com/"
+license=(GPL3)
+groups=(pro-audio)
+depends=(
+  gcc-libs
+  glibc
+  hicolor-icon-theme
+  libglvnd
+  libpng
+  python
+  zlib
+)
+makedepends=(
+  abletonlink
+  alsa-lib
+  cmake
+  freetype2
+  git
+  jack
+  jsoncpp
+  libusb
+  libx11
+  libxcursor
+  libxinerama
+  pybind11
+  tuning-library
+  xorg-xrandr
+)
+optdepends=(
+  'jack: to use with JACK'
+  'python-jedi: for code completion'
+)
+provides=(vst3-host)
+source=(
+  $pkgname::git+https://github.com/$pkgname/$pkgname#commit=$_commit
+  MTS-ESP::git+https://github.com/ODDSound/MTS-ESP
+  $pkgname-1.1.0-devendor_ableton_link.patch
+)
+sha512sums=('SKIP'
+            'SKIP'
+            '29f6ea325ae9ab974443bfc87ace59a89b18c8ec355224a4d15ad5bda6601c1901381259761f561b96426ab4688680f0409297eb8750b2d6516e6ca49da16f73')
+b2sums=('SKIP'
+        'SKIP'
+        'f1d45e9220ec4d33327fb96594b6b3b5db2b4d3fc8716946568fe695de8ad5a8558218f803a9906cb31f955fc3f44ce9fd5265db65a94ea4cd538cb7777c88f4')
+
+pkgver() {
+  cd $pkgname
+  git describe --exclude Nightly --long --tags | sed 's/v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+prepare() {
+  # devendor abletonlink
+  patch -Np1 -d $pkgname -i ../$pkgname-1.1.0-devendor_ableton_link.patch
+
+  cd $pkgname
+  git submodule init
+  git config submodule.libs/oddsound-mts/MTS-ESP.url "$srcdir/MTS-ESP"
+  # NOTE: use bundled juce as upstream is seemingly not interested in doing releases: https://github.com/BespokeSynth/BespokeSynth/issues/918
+  # git submodule deinit libs/JUCE
+  git submodule deinit libs/pybind11
+  git submodule deinit libs/tuning-library
+  git submodule deinit libs/json/jsoncpp
+  git -c protocol.file.allow=always submodule update
+}
+
+build() {
+  local cmake_options=(
+    -B build
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D BESPOKE_DEVENDORED_SYSTEM_JUCE=OFF
+    -D BESPOKE_SYSTEM_ABLETONLINK=ON
+    -D BESPOKE_SYSTEM_PYBIND11=ON
+    -D BESPOKE_SYSTEM_JSONCPP=ON
+    -D BESPOKE_SYSTEM_TUNING_LIBRARY=ON
+    -D BESPOKE_SYSTEM_JUCE=OFF
+    -S $pkgname
+    -W no-dev
+  )
+
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+}
+
+package() {
+  depends+=(
+    alsa-lib libasound.so
+    freetype2 libfreetype.so
+    jsoncpp libjsoncpp.so
+    libusb libusb-1.0.so
+  )
+
+  DESTDIR="$pkgdir" cmake --install build
+}
