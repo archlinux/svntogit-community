@@ -1,0 +1,46 @@
+# Maintainer: Levente Polyak <anthraxx[at]archlinux[dot]org>
+# Contributor: ELmoussaoui Bilal <bil.elmoussaoui@gmail.com>
+
+pkgname=python-pyotp
+_pkgname=pyotp
+_gitcommit=a50b2701e1ecaaafc62b90a7424f602ce8edfceb
+pkgver=2.6.0
+pkgrel=5
+pkgdesc='Python library for generating and verifying one-time passwords'
+url='https://pyotp.readthedocs.io/'
+arch=('any')
+license=('MIT')
+depends=('python')
+makedepends=('git' 'python-setuptools' 'python-sphinx' 'python-guzzle-sphinx-theme')
+options=('!makeflags')
+source=("git+https://github.com/pyotp/pyotp#commit=${_gitcommit}?signed")
+sha512sums=('SKIP')
+validpgpkeys=('29BCBADB4ECAAAC2382699388AFAFCD242818A52') # Andrey Kislyuk <kislyuk@gmail.com>
+
+pkgver() {
+  cd ${_pkgname}
+  git describe --tags | sed 's/^v//;s/\([^-]*-g\)/r\1/;s/-/./g'
+}
+
+build() {
+  cd ${_pkgname}
+  python setup.py build
+  sphinx-build -b text docs docs/_build/text
+  sphinx-build -b man docs docs/_build/man
+}
+
+check() {
+  cd ${_pkgname}
+  python setup.py test
+}
+
+package() {
+  cd ${_pkgname}
+  python setup.py install --root="${pkgdir}" -O1 --skip-build
+  install -Dm 644 README.rst ./docs/_build/text/*.txt -t "${pkgdir}/usr/share/doc/${pkgname}"
+  install -Dm 644 ./docs/_build/man/${_pkgname}.1 -t "${pkgdir}/usr/share/man/man1"
+  ln -s /usr/share/man/man1/${_pkgname}.1.gz "${pkgdir}/usr/share/man/man1/${pkgname}.1.gz"
+  install -Dm 644 LICENSE -t "${pkgdir}/usr/share/licenses/${pkgname}"
+}
+
+# vim: ts=2 sw=2 et:
