@@ -1,0 +1,49 @@
+# Maintainer: Jonas Witschel <diabonas@archlinux.org>
+pkgname=python-python-pkcs11
+_name=${pkgname#python-}
+pkgver=0.7.0
+pkgrel=6
+pkgdesc='PKCS#11/Cryptoki support for Python'
+arch=('x86_64')
+url='https://github.com/danni/python-pkcs11'
+license=('MIT')
+depends=('python' 'python-asn1crypto' 'python-cached-property')
+makedepends=('cython' 'python-build' 'python-installer' 'python-setuptools'
+             'python-setuptools-scm' 'python-wheel')
+checkdepends=('python-cryptography' 'python-oscrypto' 'python-pytest' 'softhsm')
+source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz"
+        'python-pkcs11_mark-tests-as-xfail.patch')
+sha256sums=('9737e0c24cabb8bc9d48bf8c57c3df2a70f8cdd96b70c50290803286f9e46bf7'
+            '28a5ce996fe6cb455b55c98e8a46fcd0539dc0b3a70677a390f4dddbe1b55d65')
+
+prepare() {
+	cd "$_name-$pkgver"
+
+	sed -n '/^Copyright/,$p' README.rst > LICENSE
+
+	# test_sign_eddsa and test_self_sign_certificate always fail in our build environment
+	# (https://github.com/danni/python-pkcs11/issues/63#issuecomment-526812900)
+	patch --forward --strip=1 --input="$srcdir/python-pkcs11_mark-tests-as-xfail.patch"
+}
+
+build() {
+	cd "$_name-$pkgver"
+	python -m build --wheel --no-isolation
+}
+
+check() {
+	cd "$_name-$pkgver"
+	softhsm2-util --init-token --free --label TEST --pin 1234 --so-pin 5678
+	export PKCS11_MODULE=/usr/lib/libsofthsm2.so
+	export PKCS11_TOKEN_LABEL=TEST
+	export PKCS11_TOKEN_PIN=1234
+	export PKCS11_TOKEN_SO_PIN=5678
+	local _python_version=$(python -c 'import sys; print("".join(map(str, sys.version_info[:2])))')
+	PYTHONPATH="$PWD/build/lib.linux-$CARCH-cpython-$_python_version" pytest --import-mode=append
+}
+
+package() {
+	cd "$_name-$pkgver"
+	python -m installer --destdir="$pkgdir" dist/*.whl
+	install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+}
