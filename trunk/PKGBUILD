@@ -2,7 +2,7 @@
 
 pkgname=python-deprecated
 pkgver=1.2.13
-pkgrel=3
+pkgrel=4
 pkgdesc="Python @deprecated decorator to deprecate old python classes, functions or methods"
 url="https://github.com/tantale/deprecated"
 license=('MIT')
