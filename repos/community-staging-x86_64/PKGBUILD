@@ -1,0 +1,51 @@
+# Maintainer: Morten Linderud <foxboron@archlinux.org>
+
+pkgname=python-adblock
+pkgver=0.6.0
+pkgrel=2
+pkgdesc="Brave's adblock library in Python"
+arch=("x86_64")
+url="https://github.com/ArniDagur/python-adblock"
+license=("MIT")
+depends=()
+makedepends=("python-setuptools" "rust" "maturin")
+checkdepends=("python-pytest" "python-pip" "python-toml")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/ArniDagur/${pkgname}/archive/refs/tags/${pkgver}.tar.gz" "pep-621-compatibility.patch")
+sha256sums=('cdde5db640f1d9205785641665b79e6edb7c51092a68536bc4907560c71136b2'
+            'd090f427cd1e078ca4084ab807c6bf213ad0529aecc0e3cb5483d7691f1d55ab')
+
+prepare() {
+    cd $pkgname-$pkgver
+    patch -Np1 -i ${srcdir}/pep-621-compatibility.patch
+}
+
+build() {
+    cd $pkgname-$pkgver
+    maturin build --release --strip
+    cargo build --release --locked --all-features --target-dir=target
+}
+
+check() {
+  local python_version=$(python -c 'import sys; print(".".join(map(str, sys.version_info[:2])))')
+  cd "$pkgname-$pkgver"
+  mkdir -vp testdir
+  export PIP_CONFIG_FILE=/dev/null
+  pip install --isolated \
+              --root="testdir" \
+              --ignore-installed \
+              --no-deps target/wheels/*.whl
+  export PYTHONPATH="testdir/usr/lib/python${python_version}/site-packages:${PYTHONPATH}"
+  pytest -v -k 'not test_version_numbers_all_same'
+}
+
+package() {
+    cd $pkgname-$pkgver
+    install -Dm755 target/release/libadblock.so -t "$pkgdir/usr/lib"
+    export PIP_CONFIG_FILE='/dev/null'
+    pip install --isolated \
+              --root="$pkgdir" \
+              --ignore-installed \
+              --no-deps target/wheels/*.whl
+    install -Dm0644 LICENSE-MIT "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE-MIT"
+}
+
