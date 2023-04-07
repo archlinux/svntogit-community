@@ -2,7 +2,7 @@
 
 pkgname=python-versioneer
 pkgver=0.28
-pkgrel=1
+pkgrel=2
 pkgdesc='A tool for managing a recorded version number in setuptools-based python projects'
 arch=('any')
 url='https://github.com/python-versioneer/python-versioneer'
