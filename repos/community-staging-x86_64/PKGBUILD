@@ -1,0 +1,80 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Contributor: Ray Rashif <schiv@archlinux.org>
+# Contributor: Tobias Kieslich tobias [funnychar] archlinux org
+
+pkgbase=aubio
+pkgname=(aubio python-aubio)
+pkgver=0.4.9
+pkgrel=16
+pkgdesc="A tool for extracting annotations from audio signals"
+arch=(x86_64)
+url="https://aubio.org/"
+license=(GPL3)
+makedepends=(doxygen ffmpeg fftw jack libsamplerate libsndfile python-build
+python-installer python-numpy python-setuptools python-wheel txt2man waf)
+checkdepends=(python-pytest)
+source=(
+  https://$pkgbase.org/pub/$pkgbase-$pkgver.tar.bz2
+  $pkgname-0.4.9-ffmpeg5.patch::https://github.com/aubio/aubio/commit/8a05420e5dd8c7b8b2447f82dc919765876511b3.patch
+)
+sha512sums=('0cb81bb4b15051db3f3f4d160d500af56fdfb237e0a74e3f366f53c2870030aa0a7cee8469a611a9694c36b8866d3d42ffb48241c999de08f3fee43e6d903130'
+            '8ce2a1fc35f73586d92e637d76354843c8cd1bdd5cda2b8e56db6b05ddcea4d2297500f9039f53d9482bff68fc1ee9e60c9459799a900e85f373745b3258b7ef')
+b2sums=('b849d92678ea8fb20e17921b1a61fdc85a84d4a528acfefa3278169ab5f7fe935217ec37dd9f931202f0f0a1fd3a9518372afbce34cc2dd3ca30c6b4e5d9a301'
+        'aa4c52f5d38d72e00691566fff80400acf0bb95bbdcd9f08da4083fe7d782c04e23bb65f6b547a65d3ec711fc33b9ac46bbe386b263b2d3c16265405f01db450')
+
+prepare() {
+  # make compatible with ffmpeg >= 5: https://github.com/aubio/aubio/issues/353
+  patch -Np1 -d $pkgbase-$pkgver -i ../$pkgname-0.4.9-ffmpeg5.patch
+  cd $pkgbase-$pkgver
+  rm -rv waflib
+}
+
+build() {
+  cd $pkgbase-$pkgver
+  export LINKFLAGS="$LDFLAGS"
+  waf configure --prefix=/usr \
+                --alltests \
+                --enable-fftw3 \
+                --libdir=/usr/lib
+  waf build
+
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $pkgbase-$pkgver
+  # install to temporary location
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  export LD_LIBRARY_PATH="$PWD/build/src"
+  export PYTHONDONTWRITEBYTECODE=1
+  pytest -vv python/tests
+}
+
+package_aubio() {
+  pkgdesc="A tool for extracting annotations from audio signals"
+  depends=(fftw glibc libavcodec.so libavformat.so libavutil.so libjack.so
+  libsamplerate.so libsndfile.so libswresample.so)
+  optdepends=('python-aubio: Python bindings')
+  provides=(libaubio.so)
+  groups=(pro-audio)
+
+  cd $pkgbase-$pkgver
+  waf --destdir="$pkgdir" install
+
+  # move doc, as waf configure doesn't honor the htmldir and docdir settings
+  mv -v "$pkgdir/usr/share/doc/lib$pkgname-doc" "$pkgdir/usr/share/doc/$pkgname"
+  install -vDm 644 {AUTHORS,ChangeLog,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_python-aubio() {
+  pkgdesc="Python bindings for aubio"
+  depends=(glibc libaubio.so python-numpy)
+
+  cd $pkgbase-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 {AUTHORS,ChangeLog,README.md} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+# vim:set ts=2 sw=2 et:
