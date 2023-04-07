@@ -1,0 +1,48 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+pkgname=trace-cmd
+pkgver=3.1.6
+pkgrel=2
+pkgdesc="Interact with Ftrace Linux kernel internal tracer"
+arch=(x86_64)
+url="https://git.kernel.org/pub/scm/utils/trace-cmd/trace-cmd.git"
+license=(GPL2 LGPL2.1)
+depends=(glibc)
+makedepends=(asciidoc audit bash-completion cunit libtraceevent libtracefs python swig xmlto zstd)
+optdepends=('python: for Python plugins')
+provides=(libtracecmd.so)
+# kernelshark crashes if trace-cmd is built with LTO: https://bugs.archlinux.org/task/76170
+options=(!lto)
+source=(
+  https://git.kernel.org/pub/scm/utils/trace-cmd/trace-cmd.git/snapshot/trace-cmd-v$pkgver.tar.gz
+  $pkgname-2.9-make_install.patch
+  $pkgname-2.9.3-python3.patch
+)
+sha512sums=('2504863556a86759173f7114f5ab9a1d5641cefdd2bc9af64d8e5232d175e9c946fbb9dcec00d91b903e74b0e1bc52332877ddc9b705d6cfe2af9cb39797a446'
+            'c9321b2b885d88557a057d7064690274799ab1d67a8babb78b1c54c4d81546fdea7313286cfd5fb9efbbcf87cf8394dcb17202ac88434a351aa652e7109e1db6'
+            'a1834b382cbee920697d08c7eb7292c4a5ea606e4f32459a60e0b236ad057536c987f3e162c9c99affa46396248e98c8f4ecd21031141f0221dbadf0bd33737d')
+b2sums=('0f5adace645f8598b11c2f4db4c0f6081fbb60bd6f27bf5b2d59d2ab5279a3f4ed065af924ea7204df206295408167e9a21924f09254d7d4daa8f07c53f77967'
+        '8a644be295417b1fd5fb807285a7176ef0ceb737352bbb4c7a88441f9b955a90befe974d890a58f2b8fb6de8a68a1b3c5d207f057c4b08db79caf6e97fa66f50'
+        'dac368fc62d99eba6d36f2c7d81475c28211dfe5d1d59ca5e468daff31d36710637943dc822fb266784feb5355ca0bfb525819bb96095c8e0c0fa91f32558877')
+
+prepare() {
+  cd $pkgname-v$pkgver
+  patch -Np1 -i ../$pkgname-2.9-make_install.patch
+  patch -Np1 -i ../$pkgname-2.9.3-python3.patch
+}
+
+build() {
+  export PYTHON_VERS=python3
+  make prefix=/usr libdir_relative=lib all libs -C $pkgname-v$pkgver
+  make prefix=/usr doc -C $pkgname-v$pkgver
+  make test -C $pkgname-v$pkgver
+}
+
+package() {
+  depends+=(libaudit.so libtraceevent.so libtracefs.so libzstd.so)
+
+  make prefix=/usr libdir_relative=lib DESTDIR="$pkgdir" BASH_COMPLETE_DIR="$(pkgconf --variable=completionsdir bash-completion)" install_cmd install_libs -C $pkgname-v$pkgver
+  # NOTE: for unknown reasons upstream does not use DESTDIR here...
+  make prefix="$pkgdir/usr" install_doc -C $pkgname-v$pkgver
+  install -vDm 644 $pkgname-v$pkgver/tracecmd/$pkgname.bash "$pkgdir/usr/share/bash/bash-completion/completions/$pkgname"
+}
