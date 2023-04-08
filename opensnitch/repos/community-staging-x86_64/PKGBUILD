@@ -1,0 +1,163 @@
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+
+pkgname=opensnitch
+pkgver=1.5.8
+pkgrel=2
+pkgdesc='A GNU/Linux application firewall'
+arch=('x86_64')
+url='https://github.com/evilsocket/opensnitch'
+license=('GPL3')
+depends=(
+  'hicolor-icon-theme'
+  'libnetfilter_queue'
+  'python-grpcio'
+  'python-protobuf'
+  'python-slugify'
+  'python-pyqt5'
+  'python-pyinotify'
+  'python-notify2'
+)
+makedepends=(
+  'git'
+  'go'
+  'python-grpcio-tools'
+  'python-build'
+  'python-installer'
+  'python-wheel'
+  'python-setuptools'
+  'python-nspektr'
+  'python-jaraco.text'
+  'qt5-tools'
+)
+optdepends=(
+  'logrotate: logfile rotation'
+  'python-qt-material: extra ui themes'
+  'python-pyasn: display network name of IP'
+)
+backup=(
+  'etc/opensnitchd/default-config.json'
+  'etc/opensnitchd/system-fw.json'
+)
+options=('!lto')
+_commit='844e9ebce6a0d8d56b7e4de43a38539cfaea3ccf'
+source=(
+  "$pkgname::git+$url#commit=$_commit"
+  'fix-systemd-service.patch'
+  'remove-debian-path.patch'
+  'fix-setup.py.patch'
+  'add-generated-protobuf-files.patch'
+  'add-translations.patch'
+  'add-go.sum-file.patch'
+  'template-version-strings.patch'
+  'tmpfiles.conf'
+)
+b2sums=('SKIP'
+        'd0d0af5ad856fe6e3c3eee7bb09776c41d40434405de5fa064b8c2d995858d6dc1a27759565856f5b23847ec0ea82ea79d4a0caf094d4a7a0ac3c836d266bc92'
+        '5c0c0dab783def3a03259dfe6e2a104fae4ccd1ff4effb5a8c641935cf2b98ac0be7b57250f4cca12bc233280aea7e2c83e08e92d1f1c6cd73ed9bc27fc4a7d1'
+        '0d36bd5aa6ffe769172107134c098aa996c9123e42e8de35391f02dc0ab08b4d43b1a0145ffb33ce40bdc44c55ab7f82396757ff9ba4bba4bc989a4207d4eadb'
+        '93ca9cf1fe2dac8f28df02d30de67e954d480804d6daef157dc4b98a48962273d7d69fcbaa45e41bba5f06e0b1345768b21b893791849fb0a004bd84539b9300'
+        'cd7d9e178fe4a651dbb104f333db8264da1149bc0e45fdb3857b22de7cdfa5a7e78244a572fdb994494f68d738955bb6c1ad7108c9b3fb343fb618d7fc320ea1'
+        'f573a0ccc7675fedd78ccc3d6fc0d5e4090533ba75187afe07d40958a9ccc30b558ddd8fac2e05faa75b03ecce6c708992d69b6a444d40acdb3127488856c6e6'
+        '093ecf4398ffcd9f4077b41174e93707ba90cef717fa7e35a44557a52969d356216b08f6a4ce38fc93a7ba4e8cb14c7c2a4368ba0b023527d1ee93879728b30d'
+        '81dbb6ba72d5bf5a0d9fa3dea33b87f03604c1a2537a4ca47b45923ab186e68d5c24b043691a857948ae404409dc3cc66a7ef004ee20dc2451aa5190fe6479bb')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # TODO file an upstream bug
+  # * fix an issue with setup.py installing to python's site-packages instead
+  # of /usr
+  # * prefer scaled SVG instead of pixellated 48x48 PNG
+  patch -p1 -i "$srcdir/fix-setup.py.patch"
+
+  # get go.sum file from 'go mod tidy'
+  patch -p1 -i "$srcdir/add-go.sum-file.patch"
+
+  # add generated protobuf files
+  # required for reproducible builds & to side-step
+  # requirement of protoc-gen-go{,-grpc} binaries
+  patch -p1 -i "$srcdir/add-generated-protobuf-files.patch"
+
+  # add generated translation files
+  # required for reproducible builds
+  git apply "$srcdir/add-translations.patch"
+
+  # TODO file an upstream bug
+  # fix a couple of issues with the systemd service
+  patch -p1 -i "$srcdir/fix-systemd-service.patch"
+
+  # TODO file an upstream bug
+  # remove Debian-specific path from sys.path
+  patch -p1 -i "$srcdir/remove-debian-path.patch"
+
+  # version strings are currently out of date
+  # template-ify version strings for easier sed invocation (1/2)
+  #patch -p1 -i "$srcdir/template-version-strings.patch"
+}
+
+build() {
+  cd "$pkgname"
+
+  # template-ify version strings for easier sed invocation (2/2)
+  #sed -e "s/@VERSION@/$pkgver/" -i daemon/core/version.go
+  #sed -e "s/@VERSION@/$pkgver/" -i ui/opensnitch/version.py
+
+  # set Go flags
+  export CGO_CPPFLAGS="${CPPFLAGS}"
+  export CGO_CFLAGS="${CFLAGS}"
+  export CGO_CXXFLAGS="${CXXFLAGS}"
+  export GOPATH="${srcdir}"
+
+  # build daemon with debug info
+  pushd daemon
+  go build -v \
+    -buildmode=pie \
+    -mod=readonly \
+    -modcacherw \
+    -ldflags "-compressdwarf=false \
+    -linkmode external \
+    -extldflags ${LDFLAGS}" \
+    -o opensnitchd \
+    .
+  popd
+
+  # build python package
+  pushd ui
+  python -m build --wheel --no-isolation
+  #python setup.py build
+  popd
+}
+
+package() {
+  cd "$pkgname"
+
+  # daemon
+  install -vDm755 -t "$pkgdir/usr/bin" daemon/opensnitchd
+
+  # systemd integration
+  install -vDm644 debian/opensnitch.service "$pkgdir/usr/lib/systemd/system/opensnitchd.service"
+  install -vDm644 "$srcdir/tmpfiles.conf" "$pkgdir/usr/lib/tmpfiles.d/$pkgname.conf"
+
+  # configuration
+  install -vDm644 -t "$pkgdir/etc/opensnitchd" daemon/{default-config,system-fw}.json
+
+  # logrotate
+  install -vDm644 debian/opensnitch.logrotate "$pkgdir/etc/logrotate.d/$pkgname"
+
+  # python ui
+  python -m installer --destdir="$pkgdir" ui/dist/*.whl
+  #pushd ui
+  #python setup.py install --root="$pkgdir" --optimize=1 --skip-build
+  #popd
+
+  # TODO file an upstream bug
+  # tests are in site-packages, big no-no
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  rm -rf "$pkgdir/$site_packages/tests"
+}
