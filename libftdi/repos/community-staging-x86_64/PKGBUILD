@@ -1,0 +1,53 @@
+# Maintainer: Kyle Keen <keenerd@gmail.com>
+
+pkgname=libftdi
+pkgver=1.5
+pkgrel=5
+pkgdesc="A library to talk to FTDI chips, optional python bindings."
+arch=('x86_64')
+url="https://www.intra2net.com/en/developer/libftdi/download.php"
+license=('GPL2' 'LGPL2.1')
+depends=('libusb' 'confuse')
+optdepends=('python: library bindings')
+makedepends=('boost' 'cmake' 'python' 'swig')
+# doxygen for docs, confuse for eeprom
+source=(https://www.intra2net.com/en/developer/libftdi/download/${pkgname}1-$pkgver.tar.bz2{,.sig}
+        fix_includes_path.patch)
+sha256sums=('7c7091e9c86196148bd41177b4590dccb1510bfe6cea5bf7407ff194482eb049'
+            'SKIP'
+            '065a157326f28c61d1ec470a3064b0cb2fd3c13497a9b496ca76a9dac573de07')
+validpgpkeys=('3CEA9B8868BC3852618EB5B4707F91A424F006F5')  # Intra2net open source
+
+prepare() {
+  cd "${pkgname}1-$pkgver"
+  sed -i 's|LIB_SUFFIX 64|LIB_SUFFIX ""|' CMakeLists.txt
+  sed -i "s|MODE=\"0664\", GROUP=\"plugdev\"|TAG+=\"uaccess\"|g" packages/99-libftdi.rules
+
+  patch -p1 < ../fix_includes_path.patch
+}
+
+build() {
+  cd "$srcdir/${pkgname}1-$pkgver"
+  mkdir -p build
+  cd build
+  cmake .. -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_SKIP_BUILD_RPATH=ON \
+    -DCMAKE_BUILD_TYPE=Release -DEXAMPLES=OFF -DFTDI_EEPROM=ON \
+    -DFTDIPP=ON -DPYTHON_BINDINGS=ON -DLINK_PYTHON_LIBRARY=ON
+  make
+}
+
+# needs yet unknown dependencies
+#check() {
+#  cd "$srcdir/${pkgname}1-$pkgver/build"
+#  make check
+#}
+
+package() {
+  cd "${pkgname}1-$pkgver/build"
+
+  make DESTDIR="$pkgdir" install
+  install -Dm644 "../packages/99-libftdi.rules" "$pkgdir/usr/lib/udev/rules.d/69-libftdi.rules"
+  # FS#45053
+  install -d "$pkgdir/usr/share/libftdi/examples" 
+  cp -r ../examples/* "$pkgdir/usr/share/libftdi/examples"
+}
