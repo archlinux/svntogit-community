@@ -1,0 +1,66 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=django_compressor
+pkgname=python-django-compressor
+pkgver=4.3.1
+pkgrel=2
+pkgdesc="Compresses linked and inline javascript or CSS into a single cached file"
+arch=(any)
+url="https://github.com/django-compressor/django-compressor"
+license=(Apache BSD MIT)
+depends=(python-django-appconf python-rcssmin python-rjsmin)
+makedepends=(python-build python-installer python-setuptools python-wheel)
+checkdepends=(
+  python-beautifulsoup4
+  python-brotli
+  python-calmjs
+  python-csscompressor
+  python-django-sekizai
+  python-html5lib
+  python-jinja
+  python-lxml
+)
+optdepends=(
+  'python-beautifulsoup4: for compressor.parser.BeautifulSoupParser and compressor.parser.LxmlParser'
+  'python-brotli: for compressor.storage.BrotliCompressorFileStorage'
+  'python-calmjs: for compressor.filters.jsmin.CalmjsFilter'
+  'python-csscompressor: for compressor.filters.cssmin.CSSCompressorFilter'
+  'python-django-sekizai: for including template code into main template'
+  'python-html5lib: for compressor.parser.Html5LibParser'
+  'python-jinja: for jinja2 templating support'
+  'python-lxml: for compressor.parser.LxmlParser'
+)
+source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
+sha512sums=('285dfd21f4b2e25788151f1ac652cbd1302958454872769c6a0d88f5b003de75e93471ec50efdea37388f3050e25a5b4063261d4f635dfcc8fd4edf27c57aa43')
+b2sums=('8048c55d3bc62e15c8093d8feb134ff87b05188c0ad755e30c76b090a9717dd3796f6b4efc32ec7bd502051b1bc0b3d68332dae728acd5b7a0b9c2158016af71')
+
+prepare() {
+  cd $_name-$pkgver
+  # version pinning is just bad...
+  sed -e 's/rcssmin ==/rcssmin >=/;s/rjsmin ==/rjsmin >=/' -i setup.py
+  # fix test using superseded jinja extension: https://github.com/django-compressor/django-compressor/issues/1139
+  sed '/jinja2.ext.with_/d' -i compressor/tests/test_offline.py
+}
+
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  cd test_dir/$_site_packages
+  django-admin test --settings=compressor.test_settings compressor
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 {AUTHORS,README.rst} -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
