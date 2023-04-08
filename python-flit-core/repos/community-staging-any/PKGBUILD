@@ -3,7 +3,7 @@
 _name=flit-core
 pkgname=python-flit-core
 pkgver=3.8.0
-pkgrel=4
+pkgrel=5
 pkgdesc="A PEP 517 build backend for packages using Flit"
 arch=(any)
 url="https://github.com/pypa/flit/tree/main/flit_core"
