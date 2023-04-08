@@ -2,7 +2,7 @@
 
 pkgname=python-pipreqs
 pkgver=0.4.11
-pkgrel=2
+pkgrel=3
 pkgdesc="Pip requirements.txt generator based on imports in project"
 url="https://github.com/bndr/pipreqs"
 license=('MIT')
