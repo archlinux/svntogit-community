@@ -1,0 +1,2553 @@
+diff -Naur zeitgeist-explorer-0.2.orig/setup.py zeitgeist-explorer-0.2/setup.py
+--- zeitgeist-explorer-0.2.orig/setup.py	2019-03-31 12:36:02.070003679 +0000
++++ zeitgeist-explorer-0.2/setup.py	2019-03-31 12:40:06.760645118 +0000
+@@ -9,7 +9,7 @@
+     results = []
+     for src_dir in dirs:
+         for root,dirs,files in os.walk(src_dir):
+-            results.append((root, map(lambda f:root + "/" + f, files)))
++            results.append((root, [root + "/" + f for f in files]))
+     return results
+ 
+ DistUtilsExtra.auto.setup(
+diff -Naur zeitgeist-explorer-0.2.orig/zeitgeist-explorer zeitgeist-explorer-0.2/zeitgeist-explorer
+--- zeitgeist-explorer-0.2.orig/zeitgeist-explorer	2019-03-31 12:36:02.070003679 +0000
++++ zeitgeist-explorer-0.2/zeitgeist-explorer	2019-03-31 13:37:32.529647820 +0000
+@@ -25,7 +25,7 @@
+ from zgexplorer.window import ExplorerMainWindow
+ 
+ def main():
+-	gettext.install('zeitgeist-explorer', unicode=True)
++	gettext.install('zeitgeist-explorer')
+ 	ExplorerMainWindow()
+ 	Gtk.main()	
+ 
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/applicationsviewer.py zeitgeist-explorer-0.2/zgexplorer/applicationsviewer.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/applicationsviewer.py	2019-03-31 12:36:02.066670337 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/applicationsviewer.py	2019-03-31 13:38:15.069764174 +0000
+@@ -27,7 +27,7 @@
+ from zgexplorer.eventwidgets import EventDetailsViewer, EventsTreeView, EventsViewer
+ from zgexplorer.remote import get_zeitgeist
+ 
+-from zeitgeist.datamodel import Event, Subject, Interpretation, \
++from zgexplorer.datamodel import Event, Subject, Interpretation, \
+     Manifestation, StorageState, ResultType, TimeRange
+ 
+ class ApplicationsViewer(Gtk.VBox):
+@@ -124,7 +124,7 @@
+             model, _iter = selection.get_selected()
+             if _iter is not None:
+                 sel_actor = model.get(_iter, 0)[0]
+-                question_name = self.actor_name[sel_actor] if self.actor_name.has_key(sel_actor) else sel_actor
++                question_name = self.actor_name[sel_actor] if sel_actor in self.actor_name else sel_actor
+                 question_text = "Do you want to remove all the events for Application '{0}'?".format(question_name)
+                 dialog = Gtk.MessageDialog(self.main_window, 0, Gtk.MessageType.QUESTION, Gtk.ButtonsType.YES_NO, question_text)
+                 response = dialog.run()
+@@ -293,8 +293,8 @@
+                 row = str(row)
+                 if ":" not in row:
+                     iters[str(row)] = self.apps.get_iter(row)
+-            if len(iters.keys()) > 0:
+-                for row, _iter in iters.items():
++            if len(list(iters.keys())) > 0:
++                for row, _iter in list(iters.items()):
+                     if _iter is not None:
+                         lis = model.get(_iter,0)[0]
+                         event = self.events[int(row)]
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/client.py zeitgeist-explorer-0.2/zgexplorer/client.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/client.py	1970-01-01 00:00:00.000000000 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/client.py	2019-03-31 13:36:23.009456693 +0000
+@@ -0,0 +1,1103 @@
++# -.- coding: utf-8 -.-
++
++# Zeitgeist
++#
++# Copyright © 2009-2011 Siegfried-Angel Gevatter Pujals <siegfried@gevatter.com>
++# Copyright © 2009 Mikkel Kamstrup Erlandsen <mikkel.kamstrup@gmail.com>
++# Copyright © 2009-2011 Markus Korn <thekorn@gmx.de>
++# Copyright © 2011 Collabora Ltd.
++#             By Siegfried-Angel Gevatter Pujals <siegfried@gevatter.com>
++#
++# This program is free software: you can redistribute it and/or modify
++# it under the terms of the GNU Lesser General Public License as published by
++# the Free Software Foundation, either version 2.1 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU Lesser General Public License for more details.
++#
++# You should have received a copy of the GNU Lesser General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++import dbus
++import dbus.service
++import dbus.mainloop.glib
++import logging
++import os.path
++import sys
++import inspect
++
++from xml.etree import ElementTree
++
++dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
++
++from zgexplorer.datamodel import (Event, Subject, TimeRange, StorageState,
++	ResultType)
++
++SIG_EVENT = "asaasay"
++
++log = logging.getLogger("zeitgeist.client")
++
++# This is here so testutils.py can override it with a private bus connection.
++# Init needs to be lazy so tests will use the private D-Bus instance.
++global session_bus
++session_bus = None
++def get_bus():
++	global session_bus
++	if session_bus is None:
++		session_bus = dbus.SessionBus()
++	return session_bus
++def _set_bus(bus):
++	global session_bus
++	session_bus = bus
++
++class _DBusInterface(object):
++	"""Wrapper around dbus.Interface adding convenience methods."""
++
++	# We initialize those as sets in the constructor. Remember that we can't do
++	# that here because otherwise all instances would share their state.
++	_disconnect_callbacks = None
++	_reconnect_callbacks = None
++
++	@staticmethod
++	def get_members(introspection_xml):
++		"""Parses the XML context returned by Introspect() and returns
++		a tuple, where the first item is a list of all methods and the
++		second one a list of all signals for the related interface
++		"""
++		xml = ElementTree.fromstring(introspection_xml)
++		nodes = xml.findall("interface/signal")
++		signals = [node.attrib["name"] for node in nodes]
++		nodes = xml.findall("interface/method")
++		methods = [node.attrib["name"] for node in nodes]
++		try:
++			methods.remove("Introspect") # Introspect is not part of the API
++		except ValueError:
++			pass
++		return methods, signals
++
++	def reconnect(self):
++		if not self._reconnect_when_needed:
++			return
++		self.__proxy = get_bus().get_object(
++			self.__iface.requested_bus_name, self.__object_path,
++			follow_name_owner_changes=True)
++		self.__iface = dbus.Interface(self.__proxy, self.__interface_name)
++		self._load_introspection_data()
++
++	def _disconnection_safe(self, method_getter, *args, **kwargs):
++		"""
++		Executes the method returned by method_getter. If it fails because
++		the D-Bus connection was lost, it attempts to recover it and executes
++		the method again.
++		"""
++		
++		custom_error_handler = None
++		original_kwargs = dict(kwargs)
++
++		def reconnecting_error_handler(e):
++			error = e.get_dbus_name()
++			if error == "org.freedesktop.DBus.Error.ServiceUnknown":
++				self.reconnect()
++				# We don't use the reconnecting_error_handler here since that'd
++				# get us into an endless loop if Zeitgeist really isn't there.
++				return method_getter()(*args, **original_kwargs)
++			else:
++				if custom_error_handler is not None:
++					custom_error_handler(e)
++				else:
++					raise
++
++		if 'error_handler' in kwargs:
++			# If the method is being called asynchronously it'll call the given
++			# handler on failure instead of directly raising an exception.
++			custom_error_handler = kwargs['error_handler']
++			kwargs['error_handler'] = reconnecting_error_handler
++
++		try:
++			return method_getter()(*args, **kwargs)
++		except dbus.exceptions.DBusException as e:
++			return reconnecting_error_handler(e)
++
++	def __getattr__(self, name):
++		if self.__methods is not None and name not in self.__methods:
++			raise TypeError("Unknown method name: %s" % name)
++		def _ProxyMethod(*args, **kwargs):
++			"""
++			Method wrapping around a D-Bus call, which attempts to recover
++			the connection to Zeitgeist if it got lost.
++			"""
++			return self._disconnection_safe(
++				lambda: getattr(self.__iface, name), *args, **kwargs)
++		return _ProxyMethod
++
++	def get_property(self, property_name):
++		return self._disconnection_safe(
++			lambda: self.__proxy.get_dbus_method("Get", dbus.PROPERTIES_IFACE),
++			self.__interface_name, property_name)
++
++	def connect(self, signal, callback, **kwargs):
++		"""Connect a callback to a signal of the current proxy instance."""
++		if self.__signals is None:
++			self.reconnect()
++		if signal not in self.__signals:
++			raise TypeError("Unknown signal name: %s" % signal)
++		return self.__proxy.connect_to_signal(
++			signal,
++			callback,
++			dbus_interface=self.__interface_name,
++			**kwargs)
++
++	def connect_exit(self, callback):
++		"""Executes callback when the remote interface disappears from the bus"""
++		self._disconnect_callbacks.add(callback)
++
++	def connect_join(self, callback):
++		"""
++		Executes callback when someone claims the Zeitgeist D-Bus name.
++		This may be used to perform some action if the daemon is restarted while
++		it was being used.
++		"""
++		self._reconnect_callbacks.add(callback)
++
++	@property
++	def proxy(self):
++		return self.__proxy
++
++	def _load_introspection_data(self):
++		self.__methods, self.__signals = self.get_members(
++			self.__proxy.Introspect(
++				dbus_interface='org.freedesktop.DBus.Introspectable'))
++
++	def __init__(self, proxy, interface_name, object_path, reconnect=True):
++		self.__proxy = proxy
++		self.__interface_name = interface_name
++		self.__object_path = object_path
++		self.__iface = dbus.Interface(proxy, interface_name)
++		self._reconnect_when_needed = reconnect
++		self._load_introspection_data()
++		
++		self._first_connection = True
++		self._disconnect_callbacks = set()
++		self._reconnect_callbacks = set()
++		
++		# Listen to (dis)connection notifications, for connect_exit and connect_join
++		def name_owner_changed(connection_name):
++			if connection_name == "":
++				self.__methods = self.__signals = None
++				for callback in self._disconnect_callbacks:
++					callback()
++			elif self._first_connection:
++				# python-dbus guarantees that it'll call NameOwnerChanged at startup
++				# (even if the service was already running). When that happens, we
++				# don't want to connect the signals a second time.
++				self._first_connection = False
++			else:
++				if not self._reconnect_when_needed:
++					return
++				self.reconnect()
++				for callback in self._reconnect_callbacks:
++					callback()
++		get_bus().watch_name_owner(self.__iface.requested_bus_name,
++			name_owner_changed)
++
++class ZeitgeistDBusInterface(object):
++	""" Central DBus interface to the Zeitgeist engine
++	
++	There does not necessarily have to be one single instance of this
++	interface class, but all instances should share the same state
++	(like use the same bus and be connected to the same proxy). This is
++	achieved by extending the `Borg Pattern` as described by Alex Martelli	
++	"""
++	__shared_state = {}
++	
++	BUS_NAME = "org.gnome.zeitgeist.Engine"
++	INTERFACE_NAME = "org.gnome.zeitgeist.Log"
++	OBJECT_PATH = "/org/gnome/zeitgeist/log/activity"
++	
++	def __getattr__(self, name):
++		return getattr(self.__shared_state["dbus_interface"], name)
++	
++	def version(self):
++		"""Returns the API version"""
++		dbus_interface = self.__shared_state["dbus_interface"]
++		return dbus_interface.get_property("version")
++	
++	def extensions(self):
++		"""Returns active extensions"""
++		dbus_interface = self.__shared_state["dbus_interface"]
++		return dbus_interface.get_property("extensions")
++	
++	def get_extension(cls, name, path, busname=None):
++		""" Returns an interface to the given extension.
++		
++		Example usage:
++			>> reg = get_extension("DataSourceRegistry", "data_source_registry")
++			>> reg.RegisterDataSource(...)
++		"""
++		if busname:
++			busname = "org.gnome.zeitgeist.%s" % busname
++		else:
++			busname = cls.BUS_NAME
++		if not name in cls.__shared_state["extension_interfaces"]:
++			interface_name = "org.gnome.zeitgeist.%s" % name
++			object_path = "/org/gnome/zeitgeist/%s" % path
++			proxy = get_bus().get_object(busname, object_path,
++				follow_name_owner_changes=True)
++			iface = _DBusInterface(proxy, interface_name, object_path)
++			iface.BUS_NAME = busname
++			iface.INTERFACE_NAME = interface_name
++			iface.OBJECT_PATH = object_path
++			cls.__shared_state["extension_interfaces"][name] = iface
++		return cls.__shared_state["extension_interfaces"][name]
++	
++	def __init__(self, reconnect=True):
++		if not "dbus_interface" in self.__shared_state:
++			try:
++				proxy = get_bus().get_object(self.BUS_NAME,
++					self.OBJECT_PATH, follow_name_owner_changes=True)
++			except dbus.exceptions.DBusException as e:
++				if e.get_dbus_name() == "org.freedesktop.DBus.Error.ServiceUnknown":
++					raise RuntimeError(
++						"Found no running zeitgeist-daemon instance: %s" % \
++						e.get_dbus_message())
++				else:
++					raise
++			self.__shared_state["extension_interfaces"] = {}
++			self.__shared_state["dbus_interface"] = _DBusInterface(proxy,
++				self.INTERFACE_NAME, self.OBJECT_PATH, reconnect)
++
++class Monitor(dbus.service.Object):
++	"""
++	DBus interface for monitoring the Zeitgeist log for certain types
++	of events.
++	
++	When using the Python bindings monitors are normally instantiated
++	indirectly by calling :meth:`ZeitgeistClient.install_monitor`.
++	
++	It is important to understand that the Monitor instance lives on the
++	client side, and expose a DBus service there, and the Zeitgeist engine
++	calls back to the monitor when matching events are registered.
++	"""
++	
++	# Used in Monitor._next_path() to generate unique path names
++	_last_path_id = 0
++	
++	_event_type = Event
++
++	def __init__ (self, time_range, event_templates, insert_callback,
++		delete_callback, monitor_path=None, event_type=None):
++		if not monitor_path:
++			monitor_path = Monitor._next_path()
++		elif isinstance(monitor_path, str):
++			monitor_path = dbus.ObjectPath(monitor_path)
++		
++		if event_type:
++			if not issubclass(event_type, Event):
++				raise TypeError("Event subclass expected.")
++			self._event_type = event_type
++		
++		self._time_range = time_range
++		self._templates = event_templates
++		self._path = monitor_path
++		self._insert_callback = insert_callback
++		self._delete_callback = delete_callback
++		dbus.service.Object.__init__(self, get_bus(), monitor_path)
++	
++	def get_path (self): return self._path
++	path = property(get_path,
++		doc="Read only property with the DBus path of the monitor object")
++	
++	def get_time_range(self): return self._time_range
++	time_range = property(get_time_range,
++		doc="Read only property with the :class:`TimeRange` matched by this monitor")
++	
++	def get_templates (self): return self._templates
++	templates = property(get_templates,
++		doc="Read only property with installed templates")
++	
++	@dbus.service.method("org.gnome.zeitgeist.Monitor",
++	                     in_signature="(xx)a("+SIG_EVENT+")")
++	def NotifyInsert(self, time_range, events):
++		"""
++		Receive notification that a set of events matching the monitor's
++		templates has been recorded in the log.
++		
++		This method is the raw DBus callback and should normally not be
++		overridden. Events are received via the *insert_callback*
++		argument given in the constructor to this class.
++		
++		:param time_range: A two-tuple of 64 bit integers with the minimum
++		    and maximum timestamps found in *events*. DBus signature (xx)
++		:param events: A list of DBus event structs, signature a(asaasay)
++		    with the events matching the monitor.
++		    See :meth:`ZeitgeistClient.install_monitor`
++		"""
++		self._insert_callback(TimeRange(time_range[0], time_range[1]),
++			list(map(self._event_type, events)))
++	
++	@dbus.service.method("org.gnome.zeitgeist.Monitor",
++	                     in_signature="(xx)au")
++	def NotifyDelete(self, time_range, event_ids):
++		"""
++		Receive notification that a set of events within the monitor's
++		matched time range has been deleted. Note that this notification
++		will also be emitted for deleted events that doesn't match the
++		event templates of the monitor. It's just the time range which
++		is considered here.
++		
++		This method is the raw DBus callback and should normally not be
++		overridden. Events are received via the *delete_callback*
++		argument given in the constructor to this class.
++		
++		:param time_range: A two-tuple of 64 bit integers with the minimum
++		    and maximum timestamps found in *events*. DBus signature (xx)
++		:param event_ids: A list of event ids. An event id is simply
++		    and unsigned 32 bit integer. DBus signature au.
++		"""
++		self._delete_callback(TimeRange(time_range[0], time_range[1]), event_ids)
++	
++	def __hash__ (self):
++		return hash(self._path)
++	
++	@classmethod
++	def _next_path(cls):
++		"""
++		Generate a new unique DBus object path for a monitor
++		"""
++		cls._last_path_id += 1
++		return dbus.ObjectPath("/org/gnome/zeitgeist/monitor/%s" % \
++			cls._last_path_id)
++
++class ZeitgeistClient:
++	"""
++	Convenience APIs to have a Pythonic way to call and monitor the running
++	Zeitgeist engine. For raw DBus access use the
++	:class:`ZeitgeistDBusInterface` class.
++	
++	Note that this class only does asynchronous DBus calls. This is almost
++	always the right thing to do. If you really want to do synchronous
++	DBus calls use the raw DBus API found in the ZeitgeistDBusInterface class.
++	"""
++	
++	_installed_monitors = []
++	_event_type = Event
++	
++	@staticmethod
++	def get_event_and_extra_arguments(arguments):
++		""" some methods of :class:`ZeitgeistClient` take a variable
++		number of arguments, where one part of the arguments are used
++		to build one :class:`Event` instance and the other part
++		is forwarded to another method. This function returns an event
++		and the remaining arguments."""
++		kwargs = {}
++		for arg in _FIND_EVENTS_FOR_TEMPLATES_ARGS:
++			if arg in arguments:
++				kwargs[arg] = arguments.pop(arg)
++		ev = Event.new_for_values(**arguments)
++		return ev, kwargs
++	
++	def __init__ (self):
++		self._iface = ZeitgeistDBusInterface()
++		self._registry = self._iface.get_extension("DataSourceRegistry",
++			"data_source_registry")
++		
++		# Reconnect all active monitors if the connection is reset.
++		def reconnect_monitors():
++			log.info("Reconnected to Zeitgeist engine...")
++			for monitor in self._installed_monitors:
++				self._iface.InstallMonitor(monitor.path,
++					monitor.time_range,
++					monitor.templates,
++					reply_handler=self._void_reply_handler,
++					error_handler=lambda err: log.warn(
++						"Error reinstalling monitor: %s" % err))
++		self._iface.connect_join(reconnect_monitors)
++	
++	def register_event_subclass(self, event_type):
++		"""
++		Register a subclass of Event with this ZeiteistClient instance. When
++		data received over D-Bus is instantiated into an Event object, the
++		provided subclass will be used.
++		"""
++		if not issubclass(event_type, Event):
++			raise TypeError("Event subclass expected.")
++		self._event_type = event_type
++	
++	def register_subject_subclass(self, subject_type):
++		"""
++		Register a subclass of Subject with this ZeiteistClient instance. When
++		data received over D-Bus is instantiated into a Subject object, the
++		provided subclass will be used.
++		
++		Note that this method works by changing the Event type associated with
++		this ZeitgeistClient instance, so it should always be called *after*
++		any register_event_subclass calls.
++		
++		Even better, if you also have a custom Event subclass, you may directly
++		override the Subject type by changing its _subject_type class variable.
++		"""
++		if not issubclass(subject_type, Subject):
++			raise TypeError("Subject subclass expected.")
++		class EventWithCustomSubject(self._event_type):
++			_subject_type = subject_type
++		self._event_type = EventWithCustomSubject
++	
++	def _safe_error_handler(self, error_handler, *args):
++		if error_handler is not None:
++			if callable(error_handler):
++				return error_handler
++			raise TypeError(
++				"Error handler not callable, found %s" % error_handler)
++		return lambda raw: self._stderr_error_handler(raw, *args)
++	
++	def _safe_reply_handler(self, reply_handler):
++		if reply_handler is not None:
++			if callable(reply_handler):
++				return reply_handler
++			raise TypeError(
++				"Reply handler not callable, found %s" % reply_handler)
++		return self._void_reply_handler
++	
++	# Properties
++	
++	def get_version(self):
++		return [int(i) for i in self._iface.version()]
++		
++	def get_extensions(self):
++		return [str(i) for i in self._iface.extensions()]
++	
++	# Methods
++	
++	def insert_event (self, event, ids_reply_handler=None, error_handler=None):
++		"""
++		Send an event to the Zeitgeist event log. The 'event' parameter
++		must be an instance of the Event class.
++		
++		The insertion will be done via an asynchronous DBus call and
++		this method will return immediately. This means that the
++		Zeitgeist engine will most likely not have inserted the event
++		when this method returns. There will be a short delay.
++		
++		If the ids_reply_handler argument is set to a callable it will
++		be invoked with a list containing the ids of the inserted events
++		when they have been registered in Zeitgeist.
++		
++		In case of errors a message will be printed on stderr, and
++		an empty result passed to ids_reply_handler (if set).
++		To override this default set the error_handler named argument
++		to a callable that takes a single exception as its sole
++		argument.
++		
++		In order to use this method there needs to be a mainloop
++		runnning. Both Qt and GLib mainloops are supported.
++		"""
++		self.insert_events([event],
++				ids_reply_handler=ids_reply_handler,
++				error_handler=error_handler)
++	
++	def insert_event_for_values (self, **values):
++		"""
++		Send an event to the Zeitgeist event log. The keyword arguments
++		must match those as provided to Event.new_for_values().
++		
++		The insertion will be done via an asynchronous DBus call and
++		this method will return immediately. This means that the
++		Zeitgeist engine will most likely not have inserted the event
++		when this method returns. There will be a short delay.
++		
++		If the ids_reply_handler argument is set to a callable it will
++		be invoked with a list containing the ids of the inserted events
++		when they have been registered in Zeitgeist.
++		
++		In case of errors a message will be printed on stderr, and
++		an empty result passed to ids_reply_handler (if set).
++		To override this default set the error_handler named argument
++		to a callable that takes a single exception as its sole
++		argument.
++		
++		In order to use this method there needs to be a mainloop
++		runnning. Both Qt and GLib mainloops are supported.
++		"""
++		ev = Event.new_for_values(**values)
++		self.insert_events([ev],
++				values.get("ids_reply_handler", None),
++				values.get("error_handler", None))
++	
++	def insert_events (self, events, ids_reply_handler=None, error_handler=None):
++		"""
++		Send a collection of events to the Zeitgeist event log. The
++		*events* parameter must be a list or tuple containing only
++		members of of type :class:`Event <zeitgeist.datamodel.Event>`.
++		
++		The insertion will be done via an asynchronous DBus call and
++		this method will return immediately. This means that the
++		Zeitgeist engine will most likely not have inserted the events
++		when this method returns. There will be a short delay.
++		
++		In case of errors a message will be printed on stderr, and
++		an empty result passed to *ids_reply_handler* (if set).
++		To override this default set the *error_handler* named argument
++		to a callable that takes a single exception as its sole
++		argument.
++		
++		In order to use this method there needs to be a mainloop
++		runnning. Both Qt and GLib mainloops are supported.
++		"""
++		
++		self._check_list_or_tuple(events)
++		self._check_members(events, Event)
++		self._iface.InsertEvents(events,
++					reply_handler=self._safe_reply_handler(ids_reply_handler),
++					error_handler=self._safe_error_handler(error_handler,
++						self._safe_reply_handler(ids_reply_handler), []))
++	
++	def find_event_ids_for_templates (self,
++					event_templates,
++					ids_reply_handler,
++					timerange = None,
++					storage_state = StorageState.Any,
++					num_events = 20,
++					result_type = ResultType.MostRecentEvents,
++					error_handler=None):
++		"""
++		Send a query matching a collection of
++		:class:`Event <zeitgeist.datamodel.Event>` templates to the
++		Zeitgeist event log. The query will match if an event matches
++		any of the templates. If an event template has more
++		than one subject the query will match if any one of the subject
++		templates match.
++		
++		The query will be done via an asynchronous DBus call and
++		this method will return immediately. The return value
++		will be passed to 'ids_reply_handler' as a list
++		of integer event ids. This list must be the sole argument for
++		the callback.
++		
++		The actual :class:`Events` can be looked up via the
++		:meth:`get_events()` method.
++		
++		This method is intended for queries potentially returning a
++		large result set. It is especially useful in cases where only
++		a portion of the results are to be displayed at the same time
++		(eg., by using paging or dynamic scrollbars), as by holding a
++		list of IDs you keep a stable ordering, and you can ask for
++		the details associated to them in batches, when you need them. For
++		queries with a small amount of results, or where you need the
++		information about all results at once no matter how many of them
++		there are, see :meth:`find_events_for_templates`.
++		 
++		In case of errors a message will be printed on stderr, and
++		an empty result passed to ids_reply_handler.
++		To override this default set the error_handler named argument
++		to a callable that takes a single exception as its sole
++		argument.
++		
++		In order to use this method there needs to be a mainloop
++		runnning. Both Qt and GLib mainloops are supported.
++		
++		:param event_templates: List or tuple of
++		    :class:`Event <zeitgeist.datamodel.Event>` instances
++		:param ids_reply_handler: Callable taking a list of integers
++		:param timerange: A
++		    :class:`TimeRange <zeitgeist.datamodel.TimeRange>` instance
++		    that the events must have occured within. Defaults to
++		    :meth:`TimeRange.until_now()`.
++		:param storage_state: A value from the
++		    :class:`StorageState <zeitgeist.datamodel.StorageState>`
++		    enumeration. Defaults to :const:`StorageState.Any`
++		:param num_events: The number of events to return; default is 20
++		:param result_type: A value from the
++		    :class:`ResultType <zeitgeist.datamodel.ResultType>`
++		    enumeration. Defaults to ResultType.MostRecentEvent
++		:param error_handler: Callback to catch error messages.
++		        Read about the default behaviour above
++		"""
++		self._check_list_or_tuple(event_templates)
++		self._check_members(event_templates, Event)
++		
++		if not callable(ids_reply_handler):
++			raise TypeError(
++				"Reply handler not callable, found %s" % ids_reply_handler)
++		
++		if timerange is None:
++			timerange = TimeRange.until_now()
++		
++		self._iface.FindEventIds(timerange,
++					event_templates,
++					storage_state,
++					num_events,
++					result_type,
++					reply_handler=self._safe_reply_handler(ids_reply_handler),
++					error_handler=self._safe_error_handler(error_handler,
++						ids_reply_handler, []))
++	
++	def find_event_ids_for_template (self, event_template, ids_reply_handler,
++		**kwargs):
++		"""
++		Alias for :meth:`find_event_ids_for_templates`, for use when only
++		one template is needed.
++		"""
++		self.find_event_ids_for_templates([event_template],
++						ids_reply_handler,
++						**kwargs)
++	
++	def find_event_ids_for_values(self, ids_reply_handler, **kwargs):
++		"""
++		Alias for :meth:`find_event_ids_for_templates`, for when only
++		one template is needed. Instead of taking an already created
++		template, like :meth:`find_event_ids_for_template`, this method
++		will construct the template from the parameters it gets. The
++		allowed keywords are the same as the ones allowed by
++		:meth:`Event.new_for_values() <zeitgeist.datamodel.Event.new_for_values>`.
++		"""
++		ev, arguments = self.get_event_and_extra_arguments(kwargs)
++		self.find_event_ids_for_templates([ev],
++						ids_reply_handler,
++						**arguments)
++	
++	def find_events_for_templates (self,
++					event_templates,
++					events_reply_handler,
++					timerange = None,
++					storage_state = StorageState.Any,
++					num_events = 20,
++					result_type = ResultType.MostRecentEvents,
++					error_handler=None):
++		"""
++		Send a query matching a collection of
++		:class:`Event <zeitgeist.datamodel.Event>` templates to the
++		Zeitgeist event log. The query will match if an event matches
++		any of the templates. If an event template has more
++		than one subject the query will match if any one of the subject
++		templates match.
++		
++		The query will be done via an asynchronous DBus call and
++		this method will return immediately. The return value
++		will be passed to 'events_reply_handler' as a list
++		of :class:`Event`s. This list must be the sole argument for
++		the callback.
++		
++		If you need to do a query yielding a large (or unpredictable)
++		result set and you only want to show some of the results at the
++		same time (eg., by paging them), consider using
++		:meth:`find_event_ids_for_templates`.
++		 
++		In case of errors a message will be printed on stderr, and
++		an empty result passed to events_reply_handler.
++		To override this default set the error_handler named argument
++		to a callable that takes a single exception as its sole
++		argument.
++		
++		In order to use this method there needs to be a mainloop
++		runnning. Both Qt and GLib mainloops are supported.
++		
++		:param event_templates: List or tuple of
++		    :class:`Event <zeitgeist.datamodel.Event>` instances
++		:param events_reply_handler: Callable taking a list of integers
++		:param timerange: A
++		    :class:`TimeRange <zeitgeist.datamodel.TimeRange>` instance
++		    that the events must have occured within. Defaults to
++		    :meth:`TimeRange.until_now()`.
++		:param storage_state: A value from the
++		    :class:`StorageState <zeitgeist.datamodel.StorageState>`
++		    enumeration. Defaults to :const:`StorageState.Any`
++		:param num_events: The number of events to return; default is 20
++		:param result_type: A value from the
++		    :class:`ResultType <zeitgeist.datamodel.ResultType>`
++		    enumeration. Defaults to ResultType.MostRecentEvent
++		:param error_handler: Callback to catch error messages.
++		        Read about the default behaviour above
++		"""
++		self._check_list_or_tuple(event_templates)
++		self._check_members(event_templates, Event)
++		
++		if not callable(events_reply_handler):
++			raise TypeError(
++				"Reply handler not callable, found %s" % events_reply_handler)
++		
++		if timerange is None:
++			timerange = TimeRange.until_now()
++		
++		self._iface.FindEvents(timerange,
++					event_templates,
++					storage_state,
++					num_events,
++					result_type,
++					reply_handler=lambda raw: events_reply_handler(
++						list(map(self._event_type.new_for_struct, raw))),
++					error_handler=self._safe_error_handler(error_handler,
++						events_reply_handler, []))
++	
++	def find_events_for_template (self, event_template, events_reply_handler,
++		**kwargs):
++		"""
++		Alias for :meth:`find_events_for_templates`, for use when only
++		one template is needed.
++		"""
++		self.find_events_for_templates([event_template],
++						events_reply_handler,
++						**kwargs)
++	
++	def find_events_for_values(self, events_reply_handler, **kwargs):
++		"""
++		Alias for :meth:`find_events_for_templates`, for when only
++		one template is needed. Instead of taking an already created
++		template, like :meth:`find_event_ids_for_template`, this method
++		will construct the template from the parameters it gets. The
++		allowed keywords are the same as the ones allowed by
++		:meth:`Event.new_for_values() <zeitgeist.datamodel.Event.new_for_values>`.
++		"""
++		ev, arguments = self.get_event_and_extra_arguments(kwargs)
++		self.find_events_for_templates([ev],
++						events_reply_handler,
++						**arguments)
++	
++	def get_events (self, event_ids, events_reply_handler, error_handler=None):
++		"""
++		Look up a collection of :class:`Events <zeitgeist.datamodel.Event>`
++		in the Zeitgeist event log given a collection of event ids.
++		This is useful for looking up the event data for events found
++		with the *find_event_ids_** family of functions.
++		
++		Each event which is not found in the event log is represented
++		by `None` in the resulting collection.
++		
++		The query will be done via an asynchronous DBus call and
++		this method will return immediately. The returned events
++		will be passed to *events_reply_handler* as a list
++		of Events, which must be the only argument of the function.
++		 
++		In case of errors a message will be printed on stderr, and
++		an empty result passed to *events_reply_handler*.
++		To override this default set the *error_handler* named argument
++		to a callable that takes a single exception as its sole
++		argument.
++		
++		In order to use this method there needs to be a mainloop
++		runnning. Both Qt and GLib mainloops are supported.
++		"""
++		
++		if not callable(events_reply_handler):
++			raise TypeError(
++				"Reply handler not callable, found %s" % events_reply_handler)
++		
++		# Generate a wrapper callback that does automagic conversion of
++		# the raw DBus reply into a list of Event instances
++		self._iface.GetEvents(event_ids,
++				reply_handler=lambda raw: events_reply_handler(
++					list(map(self._event_type.new_for_struct, raw))),
++				error_handler=self._safe_error_handler(error_handler,
++						events_reply_handler, []))
++	
++	def delete_events(self, event_ids, reply_handler=None, error_handler=None):
++		"""
++		Warning: This API is EXPERIMENTAL and is not fully supported yet.
++		
++		Delete a collection of events from the zeitgeist log given their
++		event ids.
++		
++		The deletion will be done asynchronously, and this method returns
++		immediately. To check whether the deletions went well supply
++		the *reply_handler* and/or *error_handler* funtions. The
++		reply handler should not take any argument. The error handler
++		must take a single argument - being the error.
++		
++		With custom handlers any errors will be printed to stderr.
++		
++		In order to use this method there needs to be a mainloop
++		runnning.
++		"""
++		self._check_list_or_tuple(event_ids)
++		# we need dbus.UInt32 here as long as dbus.UInt32 is not a subtype
++		# of int, this might change in the future, see docstring of dbus.UInt32
++		self._check_members(event_ids, (int, dbus.UInt32))
++		
++		self._iface.DeleteEvents(event_ids,
++					reply_handler=self._safe_reply_handler(reply_handler),
++					error_handler=self._safe_error_handler(error_handler))
++	
++	def find_related_uris_for_events(self, event_templates, uris_reply_handler,
++		error_handler=None, time_range = None, result_event_templates=[],
++		storage_state=StorageState.Any, num_events=10, result_type=0):
++		"""
++		Warning: This API is EXPERIMENTAL and is not fully supported yet.
++		
++		Get a list of URIs of subjects which frequently occur together
++		with events matching `event_templates`. Possibly restricting to
++		`time_range` or to URIs that occur as subject of events matching
++		`result_event_templates`.
++		
++		:param event_templates: Templates for events that you want to
++		    find URIs that relate to
++		:param uris_reply_handler: A callback that takes a list of strings
++		    with the URIs of the subjects related to the requested events
++		:param time_range: A :class:`TimeRange <zeitgeist.datamodel.TimeRange>`
++		    to restrict to
++		:param result_event_templates: The related URIs must occur
++		    as subjects of events matching these templates
++		:param storage_state: The returned URIs must have this
++		    :class:`storage state <zeitgeist.datamodel.StorageState>`
++		:param num_events: number of related uris you want to have returned
++		:param result_type: sorting of the results by 
++			0 for relevancy
++			1 for recency
++		:param error_handler: An optional callback in case of errors.
++		    Must take a single argument being the error raised by the
++		    server. The default behaviour in case of errors is to call
++		    `uris_reply_handler` with an empty list and print an error
++		    message on standard error.
++		"""
++		if not callable(uris_reply_handler):
++			raise TypeError(
++				"Reply handler not callable, found %s" % uris_reply_handler)
++		
++		if time_range is None:
++			time_range = TimeRange.until_now()
++			
++		self._iface.FindRelatedUris(time_range, event_templates,
++			result_event_templates, storage_state, num_events, result_type,
++			reply_handler=self._safe_reply_handler(uris_reply_handler),
++			error_handler=self._safe_error_handler(error_handler,
++			                                       uris_reply_handler,
++			                                       [])
++			)
++	
++	def find_related_uris_for_uris(self, subject_uris, uris_reply_handler,
++		time_range=None, result_event_templates=[],
++		storage_state=StorageState.Any,  num_events=10, result_type=0, error_handler=None):
++		"""
++		Warning: This API is EXPERIMENTAL and is not fully supported yet.
++		
++		Same as :meth:`find_related_uris_for_events`, but taking a list
++		of subject URIs instead of event templates.
++		"""
++		
++		event_template = Event.new_for_values(subjects=
++			[Subject.new_for_values(uri=uri) for uri in subject_uris])
++		
++		self.find_related_uris_for_events([event_template],
++		                                  uris_reply_handler,
++		                                  time_range=time_range,
++		                                  result_event_templates=result_event_templates,
++		                                  storage_state=storage_state,
++		                                  num_events = num_events,
++		                                  result_type = result_type,
++		                                  error_handler=error_handler)
++	
++	def install_monitor (self, time_range, event_templates,
++		notify_insert_handler, notify_delete_handler, monitor_path=None):
++		"""
++		Install a monitor in the Zeitgeist engine that calls back
++		when events matching *event_templates* are logged. The matching
++		is done exactly as in the *find_** family of methods and in
++		:meth:`Event.matches_template <zeitgeist.datamodel.Event.matches_template>`.
++		Furthermore matched events must also have timestamps lying in
++		*time_range*.
++		
++		To remove a monitor call :meth:`remove_monitor` on the returned
++		:class:`Monitor` instance.
++		
++		The *notify_insert_handler* will be called when events matching
++		the monitor are inserted into the log. The *notify_delete_handler*
++		function will be called when events lying within the monitored
++		time range are deleted.
++		
++		:param time_range: A :class:`TimeRange <zeitgeist.datamodel.TimeRange>`
++		    that matched events must lie within. To obtain a time range
++		    from now and indefinitely into the future use
++		    :meth:`TimeRange.from_now() <zeitgeist.datamodel.TimeRange.from_now>`
++		:param event_templates: The event templates to look for
++		:param notify_insert_handler: Callback for receiving notifications
++		    about insertions of matching events. The callback should take
++		    a :class:`TimeRange` as first parameter and a list of
++		    :class:`Events` as the second parameter.
++		    The time range will cover the minimum and maximum timestamps
++		    of the inserted events
++		:param notify_delete_handler: Callback for receiving notifications
++		    about deletions of events in the monitored time range.
++		    The callback should take a :class:`TimeRange` as first
++		    parameter and a list of event ids as the second parameter.
++		    Note that an event id is simply an unsigned integer.
++		:param monitor_path: Optional argument specifying the DBus path
++		    to install the client side monitor object on. If none is provided
++		    the client will provide one for you namespaced under
++		    /org/gnome/zeitgeist/monitor/*
++		:returns: a :class:`Monitor`
++		"""
++		self._check_list_or_tuple(event_templates)
++		self._check_members(event_templates, Event)
++		if not callable(notify_insert_handler):
++			raise TypeError("notify_insert_handler not callable, found %s" % \
++				notify_reply_handler)
++			
++		if not callable(notify_delete_handler):
++			raise TypeError("notify_delete_handler not callable, found %s" % \
++				notify_reply_handler)
++		
++		
++		mon = Monitor(time_range, event_templates, notify_insert_handler,
++			notify_delete_handler, monitor_path=monitor_path,
++			event_type=self._event_type)
++		self._iface.InstallMonitor(mon.path,
++		                           mon.time_range,
++		                           mon.templates,
++		                           reply_handler=self._void_reply_handler,
++		                           error_handler=lambda err: log.warn(
++									"Error installing monitor: %s" % err))
++		self._installed_monitors.append(mon)
++		return mon
++	
++	def remove_monitor (self, monitor, monitor_removed_handler=None):
++		"""
++		Remove a :class:`Monitor` installed with :meth:`install_monitor`
++		
++		:param monitor: Monitor to remove. Either as a :class:`Monitor`
++		    instance or a DBus object path to the monitor either as a
++		    string or :class:`dbus.ObjectPath`
++		:param monitor_removed_handler: A callback function taking
++		    one integer argument. 1 on success, 0 on failure.
++		"""
++		if isinstance(monitor, str):
++			path = dbus.ObjectPath(monitor)
++		elif isinstance(monitor, Monitor):
++			path = monitor.path
++		else:
++			raise TypeError(
++				"Monitor, str, or unicode expected. Found %s" % type(monitor))
++		
++		if callable(monitor_removed_handler):
++			
++			def dispatch_handler (error=None):
++				if error :
++					log.warn("Error removing monitor %s: %s" % (monitor, error))
++					monitor_removed_handler(0)
++				else: monitor_removed_handler(1)
++				
++			reply_handler = dispatch_handler
++			error_handler = dispatch_handler
++		else:
++			reply_handler = self._void_reply_handler
++			error_handler = lambda err: log.warn(
++				"Error removing monitor %s: %s" % (monitor, err))
++		
++		self._iface.RemoveMonitor(path,
++		                          reply_handler=reply_handler,
++		                          error_handler=error_handler)
++		self._installed_monitors.remove(monitor)
++	
++	# Data-source related class variables
++	_data_sources = {}
++	_data_sources_callback_installed = False
++	
++	def register_data_source(self, unique_id, name, description,
++		event_templates, enabled_callback=None):
++		"""
++		Register a data-source as currently running. If the data-source was
++		already in the database, its metadata (name, description and
++		event_templates) are updated.
++		
++		If the data-source registry isn't enabled, do nothing.
++		
++		The optional event_templates is purely informational and serves to
++		let data-source management applications and other data-sources know
++		what sort of information you log.
++		
++		:param unique_id: unique ASCII string identifying the data-source
++		:param name: data-source name (may be translated)
++		:param description: data-source description (may be translated)
++		:param event_templates: list of
++			:class:`Event <zeitgeist.datamodel.Event>` templates.
++		:param enabled_callback: method to call as response with the `enabled'
++			status of the data-source, and after that every time said status
++			is toggled. See set_data_source_enabled_callback() for more
++			information.
++		"""
++		
++		self._data_sources[unique_id] = {'enabled': None, 'callback': None}
++		
++		if enabled_callback is not None:
++			self.set_data_source_enabled_callback(unique_id, enabled_callback)
++
++		def _data_source_enabled_cb(unique_id, enabled):
++			if unique_id not in self._data_sources:
++				return
++			self._data_sources[unique_id]['enabled'] = enabled
++			callback = self._data_sources[unique_id]['callback']
++			if callback is not None:
++				callback(enabled)
++		
++		def _data_source_register_cb(enabled):
++			_data_source_enabled_cb(unique_id, enabled)
++
++		if not self._data_sources_callback_installed:
++			self._registry.connect('DataSourceEnabled', _data_source_enabled_cb)
++			self._data_sources_callback_installed = True
++
++		self._registry.RegisterDataSource(unique_id, name, description,
++			event_templates,
++			reply_handler=_data_source_register_cb,
++			error_handler=self._void_reply_handler) # Errors are ignored
++	
++	def set_data_source_enabled_callback(self, unique_id, enabled_callback):
++		"""
++		This method may only be used after having registered the given unique_id
++		with register_data_source before.
++		
++		It registers a method to be called whenever the `enabled' status of
++		the previously registered data-source changes.
++		
++		Remember that on some systems the DataSourceRegistry extension may be
++		disabled, in which case this method will have no effect.
++		"""
++		
++		if unique_id not in self._data_sources:
++			raise ValueError('set_data_source_enabled_callback() called before ' \
++			'register_data_source()')
++		
++		if not callable(enabled_callback):
++			raise TypeError('enabled_callback: expected a callable method')
++		
++		self._data_sources[unique_id]['callback'] = enabled_callback
++	
++	def _check_list_or_tuple(self, collection):
++		"""
++		Raise a ValueError unless 'collection' is a list or tuple
++		"""
++		if not (isinstance(collection, list) or isinstance(collection, tuple)):
++			raise TypeError("Expected list or tuple, found %s" % type(collection))
++	
++	def _check_members (self, collection, member_class):
++		"""
++		Raise a ValueError unless all of the members of 'collection'
++		are of class 'member_class'
++		"""
++		for m in collection:
++			if not isinstance(m, member_class):
++				raise TypeError(
++					"Collection contains member of invalid type %s. Expected %s" % \
++					(m.__class__, member_class))
++	
++	def _void_reply_handler(self, *args, **kwargs):
++		"""
++		Reply handler for async DBus calls that simply ignores the response
++		"""
++		pass
++		
++	def _stderr_error_handler(self, exception, normal_reply_handler=None,
++		normal_reply_data=None):
++		"""
++		Error handler for async DBus calls that prints the error
++		to sys.stderr
++		"""
++		print("Error from Zeitgeist engine:", exception, file=sys.stderr)
++		
++		if callable(normal_reply_handler):
++			normal_reply_handler(normal_reply_data)
++
++_FIND_EVENTS_FOR_TEMPLATES_ARGS = inspect.getargspec(
++	ZeitgeistClient.find_events_for_templates)[0]
++
++# vim:noexpandtab:ts=4:sw=4
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/datamodel.py zeitgeist-explorer-0.2/zgexplorer/datamodel.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/datamodel.py	1970-01-01 00:00:00.000000000 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/datamodel.py	2019-03-31 13:36:50.762866483 +0000
+@@ -0,0 +1,1210 @@
++# -.- coding: utf-8 -.-
++
++# Zeitgeist
++#
++# Copyright © 2009 Mikkel Kamstrup Erlandsen <mikkel.kamstrup@gmail.com>
++# Copyright © 2009 Markus Korn <thekorn@gmx.de>
++# Copyright © 2009-2010 Seif Lotfy <seif@lotfy.com>
++# Copyright © 2009-2010 Siegfried-Angel Gevatter Pujals <rainct@ubuntu.com>
++# Copyright © 2011 Collabora Ltd.
++#             By Siegfried-Angel Gevatter Pujals <rainct@ubuntu.com>
++#
++# This program is free software: you can redistribute it and/or modify
++# it under the terms of the GNU Lesser General Public License as published by
++# the Free Software Foundation, either version 2.1 of the License, or
++# (at your option) any later version.
++#
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY; without even the implied warranty of
++# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++# GNU Lesser General Public License for more details.
++#
++# You should have received a copy of the GNU Lesser General Public License
++# along with this program.  If not, see <http://www.gnu.org/licenses/>.
++
++import os.path
++import gettext
++import time
++import sys
++gettext.install("zeitgeist")
++
++__all__ = [
++	'Interpretation',
++	'Manifestation',
++	'ResultType',
++    'RelevantResultType',
++	'StorageState',
++	'TimeRange',
++	'DataSource',
++	'Event',
++	'Subject',
++	'NULL_EVENT',
++	'NEGATION_OPERATOR',
++]
++
++NEGATION_OPERATOR = "!"
++WILDCARD = "*"
++
++def EQUAL(x, y):
++	"""checks if both given arguments are equal"""
++	return x == y
++	
++def STARTSWITH(x, y):
++	"""checks if 'x' startswith 'y'"""
++	return x.startswith(y)
++
++NEEDS_CHILD_RESOLUTION = set()
++	
++def get_timestamp_for_now():
++	"""
++	Return the current time in milliseconds since the Unix Epoch.
++	"""
++	return int(time.time() * 1000)
++
++class EnumValue(int):
++	"""Class which behaves like an int, but has an additional docstring"""
++	
++	def __new__(cls, value, doc=""):
++		obj = super(EnumValue, cls).__new__(EnumValue, value)
++		obj.__doc__ = "%s. ``(Integer value: %i)``" %(doc, obj)
++		return obj
++
++def isCamelCase(text):
++	return text and text[0].isupper() and " " not in text
++
++def get_name_or_str(obj):
++	try:
++		return str(obj.name)
++	except AttributeError:
++		return str(obj)
++
++_SYMBOLS_BY_URI = {}
++
++class Symbol(str):
++
++	def __new__(cls, name, parent=None, uri=None, display_name=None, doc=None, auto_resolve=True):
++		if not isCamelCase(name):
++			raise ValueError("Naming convention requires symbol name to be CamelCase, got '%s'" %name)
++		return super(Symbol, cls).__new__(Symbol, uri or name)
++		
++	def __init__(self, name, parent=None, uri=None, display_name=None, doc=None, auto_resolve=True):
++		self._children = dict()
++		self._all_children = None
++		self._parents = parent or set() # will be bootstrapped to a dict at module load time
++		assert isinstance(self._parents, set), name
++		self._name = name
++		self._uri = uri
++		self._display_name = display_name
++		self._doc = doc
++		_SYMBOLS_BY_URI[uri] = self
++
++	def __repr__(self):
++		return "<%s '%s'>" %(get_name_or_str(self), self.uri)
++		
++	def __getattr__(self, name):
++		self._ensure_all_children()
++		try:
++			return self._all_children[name]
++		except KeyError:
++			for child in self.iter_all_children():
++				if child == self:
++					continue
++				try:
++					return getattr(child, name)
++				except AttributeError:
++					pass
++			raise AttributeError("'%s' object has no attribute '%s'" %(self.__class__.__name__, name))
++	
++	def __getitem__ (self, uri):
++		return _SYMBOLS_BY_URI[uri]
++
++	def _ensure_all_children (self):
++		if self._all_children is not None : return
++		self._all_children = dict()
++		for child in self._children.values():
++			child._visit(self._all_children)
++	
++	def _visit (self, dikt):
++		dikt[self.name] = self
++		for child in self._children.values():
++			child._visit(dikt) 
++	
++	@staticmethod
++	def find_child_uris_extended (uri):
++		"""
++		Creates a list of all known child Symbols of `uri`, including
++		`uri` itself in the list. Hence the "extended". If `uri`
++		is unknown a list containing only `uri` is returned.
++		"""
++		try:
++			symbol = _SYMBOLS_BY_URI[uri]
++			children = list(symbol.get_all_children())
++			children.append(uri)
++			return children
++		except KeyError as e:
++			return [uri]
++		
++
++	@property
++	def uri(self):
++		return self._uri or self.name
++
++	@property
++	def display_name(self):
++		return self._display_name or ""
++
++	@property
++	def name(self):
++		return self._name
++	__name__ = name
++	
++	def __dir__(self):
++		self._ensure_all_children()
++		return list(self._all_children.keys())
++
++	@property
++	def doc(self):
++		return self._doc or ""
++
++	@property
++	def __doc__(self):
++		return "%s\n\n	%s. ``(Display name: '%s')``" %(self.uri, self.doc.rstrip("."), self.display_name)
++		
++	def get_children(self):
++		"""
++		Returns a list of immediate child symbols
++		"""
++		return frozenset(iter(self._children.values()))
++		
++	def iter_all_children(self):
++		"""
++		Returns a generator that recursively iterates over all children
++		of this symbol
++		"""
++		self._ensure_all_children()
++		return iter(self._all_children.values())
++		
++	def get_all_children(self):
++		"""
++		Return a read-only set containing all children of this symbol
++		"""
++		return frozenset(self.iter_all_children())
++		
++	def get_parents(self):
++		"""
++		Returns a list of immediate parent symbols
++		"""
++		return frozenset(iter(self._parents.values()))
++	
++	def is_child_of (self, parent):
++		"""
++		Returns True if this symbol is a child of `parent`.
++		"""
++		if not isinstance (parent, Symbol):
++			try:
++				parent = _SYMBOLS_BY_URI[parent]
++			except KeyError as e:
++				# Parent is not a known URI
++				return self.uri == parent
++		
++		# Invariant: parent is a Symbol
++		if self.uri == parent.uri : return True
++		
++		parent._ensure_all_children()
++		
++		# FIXME: We should really check that child.uri is in there,
++		#        but that is not fast with the current code layout
++		return self.name in parent._all_children
++	
++	@staticmethod
++	def uri_is_child_of (child, parent):
++		"""
++		Returns True if `child` is a child of `parent`. Both `child`
++		and `parent` arguments must be any combination of
++		:class:`Symbol` and/or string.
++		"""
++		if isinstance (child, str):
++			try:
++				child = _SYMBOLS_BY_URI[child]
++			except KeyError as e:
++				# Child is not a know URI
++				if isinstance (parent, str):
++					return child == parent
++				elif isinstance (parent, Symbol):
++					return child == parent.uri
++				else:
++					return False
++		
++		if not isinstance (child, Symbol):
++			raise ValueError("Child argument must be a Symbol or string. Got %s" % type(child))
++		
++		return child.is_child_of(parent)
++		
++class TimeRange(list):
++	"""
++	A class that represents a time range with a beginning and an end.
++	The timestamps used are integers representing milliseconds since the
++	Epoch.
++	
++	By design this class will be automatically transformed to the DBus
++	type (xx).
++	"""
++	# Maximal value of our timestamps
++	_max_stamp = 2**63 - 1
++	
++	def __init__ (self, begin, end):
++		super(TimeRange, self).__init__((int(begin), int(end)))
++	
++	def __eq__ (self, other):
++		return self.begin == other.begin and self.end == other.end
++	
++	def __str__ (self):
++		return "(%s, %s)" % (self.begin, self.end)
++	
++	def get_begin(self):
++		return self[0]
++	
++	def set_begin(self, begin):
++		self[0] = begin
++	begin = property(get_begin, set_begin,
++	doc="The begining timestamp of this time range")
++	
++	def get_end(self):
++		return self[1]
++	
++	def set_end(self, end):
++		self[1] = end
++	end = property(get_end, set_end,
++	doc="The end timestamp of this time range")
++	
++	@classmethod
++	def until_now(cls):
++		"""
++		Return a :class:`TimeRange` from 0 to the instant of invocation
++		"""
++		return cls(0, int(time.time() * 1000))
++	
++	@classmethod
++	def from_now(cls):
++		"""
++		Return a :class:`TimeRange` from the instant of invocation to
++		the end of time
++		"""
++		return cls(int(time.time() * 1000), cls._max_stamp)
++	
++	@classmethod
++	def from_seconds_ago(cls, sec):
++		"""
++		Return a :class:`TimeRange` ranging from "sec" seconds before
++		the instant of invocation to the same.
++		"""
++		now = int(time.time() * 1000)
++		return cls(now - (sec * 1000), now)
++	
++	@classmethod
++	def from_timestamp(cls, timestamp):
++		"""
++		Return a :class:`TimeRange` ranging from the given timestamp until
++		the end of time.
++		
++		The given timestamp is expected to be expressed in miliseconds.
++		"""
++		return cls(int(timestamp), cls._max_stamp)
++	
++	@classmethod
++	def always(cls):
++		"""
++		Return a :class:`TimeRange` from 0 (January 1, 1970) to the most
++		distant future
++		"""
++		return cls(0, cls._max_stamp)
++	
++	def is_always(self):
++		"""
++		Returns True if this time range goes from timestamp 0 (January 1, 1970) 
++		-or lower- to the most distant future.
++		"""
++		return self.begin <= 0 and self.end >= TimeRange._max_stamp
++		
++	def intersect(self, time_range):
++		"""
++		Return a new :class:`TimeRange` that is the intersection of the
++		two time range intervals. If the intersection is empty this
++		method returns :const:`None`.
++		"""
++		# Behold the boolean madness!
++		result = TimeRange(0,0)
++		if self.begin < time_range.begin:
++			if self.end < time_range.begin:
++				return None
++			else:
++				result.begin = time_range.begin
++		else:
++			if self.begin > time_range.end:
++				return None
++			else:
++				result.begin = self.begin
++		
++		if self.end < time_range.end:
++			if self.end < time_range.begin:
++				return None
++			else:
++				 result.end = self.end
++		else:
++			if self.begin > time_range.end:
++				return None
++			else:
++				result.end = time_range.end
++		
++		return result
++
++
++class Subject(list):
++	"""
++	Represents a subject of an :class:`Event`. This class is both used to
++	represent actual subjects, but also create subject templates to match
++	other subjects against.
++	
++	Applications should normally use the method :meth:`new_for_values` to
++	create new subjects.
++	"""
++	Fields = (Uri,
++		Interpretation,
++		Manifestation,
++		Origin,
++		Mimetype,
++		Text,
++		Storage,
++		CurrentUri,
++		CurrentOrigin) = list(range(9))
++
++	SUPPORTS_NEGATION = (Uri, CurrentUri, Interpretation, Manifestation,
++		Origin, CurrentOrigin, Mimetype)
++	SUPPORTS_WILDCARDS = (Uri, CurrentUri, Origin, CurrentOrigin, Mimetype)
++	
++	def __init__(self, data=None):
++		if data:
++			if len(data) == len(Subject.Fields) - 2:
++				# current_uri has been added in Zeitgeist 0.8.0
++				data.append("")
++			if len(data) == len(Subject.Fields) - 1:
++				# current_origin has been added in Zeitgeist 1.0 Beta 1
++				data.append("")
++			if len(data) < len(Subject.Fields):
++				raise ValueError(
++					"Invalid subject data length %s, expected %s" \
++					%(len(data), len(Subject.Fields)))
++			super(Subject, self).__init__(data)
++		else:
++			super(Subject, self).__init__([""]*len(Subject.Fields))
++		
++	def __repr__(self):
++		return "%s(%s)" %(
++			self.__class__.__name__, super(Subject, self).__repr__()
++		)
++	
++	def __eq__(self, other):
++		for field in Subject.Fields:
++			if field in (Subject.CurrentUri, Subject.CurrentOrigin) and \
++			not self[field] or not other[field]:
++				continue
++			if self[field] != other[field]:
++				return False
++		return True
++	
++	@staticmethod
++	def new_for_values (**values):
++		"""
++		Create a new Subject instance and set its properties according
++		to the keyword arguments passed to this method.
++		
++		:param uri: The URI of the subject. Eg. *file:///tmp/ratpie.txt*
++		:param current_uri: The current known URI of the subject (if it was moved or deleted).
++		:param interpretation: The interpretation type of the subject, given either as a string URI or as a :class:`Interpretation` instance
++		:param manifestation: The manifestation type of the subject, given either as a string URI or as a :class:`Manifestation` instance
++		:param origin: The URI of the location where subject resides or can be found
++		:param current_origin: The URI of the location where subject resides or can be found (if it was moved or deleted).
++		:param mimetype: The mimetype of the subject encoded as a string, if applicable. Eg. *text/plain*.
++		:param text: Free form textual annotation of the subject.
++		:param storage: String identifier for the storage medium of the subject. This should be the UUID of the volume or the string "net" for resources requiring a network interface, and the string "deleted" for subjects that are deleted.
++		"""
++		self = Subject()
++		for key, value in values.items():
++			if not key in ("uri", "current_uri", "interpretation",
++						"manifestation", "origin", "current_origin",
++						"mimetype", "text", "storage"):
++				raise ValueError("Subject parameter '%s' is not supported" %key)
++			setattr(self, key, value)
++		return self
++		
++	def get_uri(self):
++		return self[Subject.Uri]
++		
++	def set_uri(self, value):
++		self[Subject.Uri] = value
++	uri = property(get_uri, set_uri,
++	doc="Read/write property with the URI of the subject encoded as a string")
++	
++	def get_current_uri(self):
++		return self[Subject.CurrentUri]
++	
++	def set_current_uri(self, value):
++		self[Subject.CurrentUri] = value
++	current_uri = property(get_current_uri, set_current_uri,
++	doc="Read/write property with the current URI of the subject encoded as a string")
++		
++	def get_interpretation(self):
++		return self[Subject.Interpretation]
++		
++	def set_interpretation(self, value):
++		self[Subject.Interpretation] = value
++	interpretation = property(get_interpretation, set_interpretation,
++	doc="Read/write property defining the :class:`interpretation type <Interpretation>` of the subject") 
++		
++	def get_manifestation(self):
++		return self[Subject.Manifestation]
++		
++	def set_manifestation(self, value):
++		self[Subject.Manifestation] = value
++	manifestation = property(get_manifestation, set_manifestation,
++	doc="Read/write property defining the :class:`manifestation type <Manifestation>` of the subject")
++		
++	def get_origin(self):
++		return self[Subject.Origin]
++		
++	def set_origin(self, value):
++		self[Subject.Origin] = value
++	origin = property(get_origin, set_origin,
++	doc="Read/write property with the URI of the location where the subject can be found. For files this is the parent directory, or for downloaded files it would be the URL of the page where you clicked the download link")
++
++	def get_current_origin(self):
++		return self[Subject.CurrentOrigin]
++
++	def set_current_origin(self, value):
++		self[Subject.CurrentOrigin] = value
++	current_origin = property(get_current_origin, set_current_origin,
++	doc="Read/write property with the URI of the location where the subject can be found. For files this is the parent directory, or for downloaded files it would be the URL of the page where you clicked the download link")
++
++	def get_mimetype(self):
++		return self[Subject.Mimetype]
++		
++	def set_mimetype(self, value):
++		self[Subject.Mimetype] = value
++	mimetype = property(get_mimetype, set_mimetype,
++	doc="Read/write property containing the mimetype of the subject (encoded as a string) if applicable")
++	
++	def get_text(self):
++		return self[Subject.Text]
++		
++	def set_text(self, value):
++		self[Subject.Text] = value
++	text = property(get_text, set_text,
++	doc="Read/write property with a free form textual annotation of the subject")
++		
++	def get_storage(self):
++		return self[Subject.Storage]
++		
++	def set_storage(self, value):
++		self[Subject.Storage] = value
++	storage = property(get_storage, set_storage,
++	doc="Read/write property with a string id of the storage medium where the subject is stored. Fx. the UUID of the disk partition or just the string 'net' for items requiring network interface to be available")
++	
++	def matches_template (self, subject_template):
++		"""
++		Return True if this Subject matches *subject_template*. Empty
++		fields in the template are treated as wildcards.
++		Interpretations and manifestations are also matched if they are
++		children of the types specified in `subject_template`. 
++		
++		See also :meth:`Event.matches_template`
++		"""
++		for m in Subject.Fields:
++			if not subject_template[m]:
++				# empty fields are handled as wildcards
++				continue
++			if m == Subject.Storage:
++				# we do not support searching by storage field for now
++				# see LP: #580364
++				raise ValueError("zeitgeist does not support searching by 'storage' field")
++			elif m in (Subject.Interpretation, Subject.Manifestation):
++				# symbols are treated differently
++				comp = Symbol.uri_is_child_of
++			else:
++				comp = EQUAL
++			if not self._check_field_match(m, subject_template[m], comp):
++				return False
++		return True
++		
++	def _check_field_match(self, field_id, expression, comp):
++		""" Checks if an expression matches a field given by its `field_id`
++		using a `comp` comparison function """
++		if field_id in self.SUPPORTS_NEGATION \
++				and expression.startswith(NEGATION_OPERATOR):
++			return not self._check_field_match(field_id, expression[len(NEGATION_OPERATOR):], comp)
++		elif field_id in self.SUPPORTS_WILDCARDS \
++				and expression.endswith(WILDCARD):
++			assert comp == EQUAL, "wildcards only work for pure text fields"
++			return self._check_field_match(field_id, expression[:-len(WILDCARD)], STARTSWITH)
++		else:
++			return comp(self[field_id], expression)
++
++class Event(list):
++	"""
++	Core data structure in the Zeitgeist framework. It is an optimized and
++	convenient representation of an event.
++	
++	This class is designed so that you can pass it directly over
++	DBus using the Python DBus bindings. It will automagically be
++	marshalled with the signature a(asaasay). See also the section
++	on the :ref:`event serialization format <event_serialization_format>`.
++	
++	This class does integer based lookups everywhere and can wrap any
++	conformant data structure without the need for marshalling back and
++	forth between DBus wire format. These two properties makes it highly
++	efficient and is recommended for use everywhere.
++	"""
++	Fields = (Id,
++		Timestamp,
++		Interpretation,
++		Manifestation,
++		Actor,
++		Origin) = list(range(6))
++	
++	SUPPORTS_NEGATION = (Interpretation, Manifestation, Actor, Origin)
++	SUPPORTS_WILDCARDS = (Actor, Origin)
++	
++	_subject_type = Subject
++	
++	def __init__(self, struct = None):
++		"""
++		If 'struct' is set it must be a list containing the event
++		metadata in the first position, and optionally the list of
++		subjects in the second position, and again optionally the event
++		payload in the third position.
++		
++		Unless the event metadata contains a timestamp the event will
++		have its timestamp set to "now". Ie. the instant of invocation.
++		
++		The event metadata (struct[0]) will be used as is, and must
++		contain the event data on the positions defined by the
++		Event.Fields enumeration.
++		
++		Likewise each member of the subjects (struct[1]) must be an
++		array with subject metadata defined in the positions as laid
++		out by the Subject.Fields enumeration.
++		
++		On the third position (struct[2]) the struct may contain the
++		event payload, which can be an arbitrary binary blob. The payload
++		will be transfered over DBus with the 'ay' signature (as an
++		array of bytes).
++		"""
++		super(Event, self).__init__()
++		if struct:
++			if len(struct) == 1:
++				self.append(self._check_event_struct(struct[0]))
++				self.append([])
++				self.append("")
++			elif len(struct) == 2:
++				self.append(self._check_event_struct(struct[0]))
++				self.append(list(map(self._subject_type, struct[1])))
++				self.append("")
++			elif len(struct) == 3:
++				self.append(self._check_event_struct(struct[0]))
++				self.append(list(map(self._subject_type, struct[1])))
++				self.append(struct[2])
++			else:
++				raise ValueError("Invalid struct length %s" % len(struct))
++			# If this event is being created from an existing Event instance,
++			# make a copy of the list holding the event information. This
++			# enables the idiom "event2 = Event(event1)" to copy an event.
++			if isinstance(struct, Event):
++				self[0] = list(self[0])
++		else:
++			self.extend(([""]* len(Event.Fields), [], ""))
++		
++		# If we have no timestamp just set it to now
++		if not self[0][Event.Timestamp]:
++			self[0][Event.Timestamp] = str(get_timestamp_for_now())
++		# If we have no origin for Event then we set None
++		if len(self[0]) == 5:
++			self[0].append(None)
++	
++	@classmethod
++	def _check_event_struct(cls, event_data):
++		if len(event_data) == len(cls.Fields) - 1:
++			# Old versions of Zeitgeist didn't have the event origin field.
++			event_data.append("")
++		if len(event_data) < len(cls.Fields):
++			raise ValueError("event_data must have %s members, found %s" % \
++				(len(cls.Fields), len(event_data)))
++		return event_data
++	
++	@classmethod
++	def new_for_data(cls, event_data):
++		"""
++		Create a new Event setting event_data as the backing array
++		behind the event metadata. The contents of the array must
++		contain the event metadata at the positions defined by the
++		Event.Fields enumeration.
++		"""
++		self = cls()
++		self[0] = self._check_event_struct(event_data)
++		return self
++		
++	@classmethod
++	def new_for_struct(cls, struct):
++		"""Returns a new Event instance or None if `struct` is a `NULL_EVENT`"""
++		if struct == NULL_EVENT:
++			return None
++		return cls(struct)
++	
++	@classmethod
++	def new_for_values(cls, **values):
++		"""
++		Create a new Event instance from a collection of keyword
++		arguments.
++		
++		 
++		:param timestamp: Event timestamp in milliseconds since the Unix Epoch 
++		:param interpretaion: The Interpretation type of the event
++		:param manifestation: Manifestation type of the event
++		:param actor: The actor (application) that triggered the event		
++		:param origin: The origin (domain) where the event was triggered
++		:param subjects: A list of :class:`Subject` instances
++		
++		Instead of setting the *subjects* argument one may use a more
++		convenient approach for events that have exactly one Subject.
++		Namely by using the *subject_** keys - mapping directly to their
++		counterparts in :meth:`Subject.new_for_values`:
++		
++		:param subject_uri:
++		:param subject_current_uri:
++		:param subject_interpretation:
++		:param subject_manifestation:
++		:param subject_origin:
++		:param subject_current_origin:
++		:param subject_mimetype:
++		:param subject_text:
++		:param subject_storage:
++		"""
++		self = cls()
++		for key in values:
++			if not key in ("timestamp", "interpretation", "manifestation",
++				"actor", "origin", "subjects", "subject_uri",
++				"subject_current_uri", "subject_interpretation",
++				"subject_manifestation", "subject_origin",
++				"subject_current_origin", "subject_mimetype", "subject_text",
++				"subject_storage"):
++				raise ValueError("Event parameter '%s' is not supported" % key)
++			
++		self.timestamp = values.get("timestamp", self.timestamp)
++		self.interpretation = values.get("interpretation", "")
++		self.manifestation = values.get("manifestation", "")
++		self.actor = values.get("actor", "")
++		self.origin = values.get("origin", "")
++		self.subjects = values.get("subjects", self.subjects)
++		
++		if self._dict_contains_subject_keys(values):
++			if "subjects" in values:
++				raise ValueError("Subject keys, subject_*, specified together with full subject list")
++			subj = self._subject_type()
++			subj.uri = values.get("subject_uri", "")
++			subj.current_uri = values.get("subject_current_uri", "")
++			subj.interpretation = values.get("subject_interpretation", "")
++			subj.manifestation = values.get("subject_manifestation", "")
++			subj.origin = values.get("subject_origin", "")
++			subj.current_origin = values.get("subject_current_origin", "")
++			subj.mimetype = values.get("subject_mimetype", "")
++			subj.text = values.get("subject_text", "")
++			subj.storage = values.get("subject_storage", "")
++			self.subjects = [subj]
++		
++		return self
++	
++	@staticmethod
++	def _dict_contains_subject_keys (dikt):
++		if "subject_uri" in dikt: return True
++		elif "subject_current_uri" in dikt: return True
++		elif "subject_current_origin" in dikt: return True
++		elif "subject_interpretation" in dikt: return True
++		elif "subject_manifestation" in dikt: return True
++		elif "subject_origin" in dikt: return True
++		elif "subject_mimetype" in dikt: return True
++		elif "subject_text" in dikt: return True
++		elif "subject_storage" in dikt: return True
++		return False
++	
++	def __repr__(self):
++		return "%s(%s)" %(
++			self.__class__.__name__, super(Event, self).__repr__()
++		)
++	
++	def append_subject(self, subject=None):
++		"""
++		Append a new empty Subject and return a reference to it
++		"""
++		if not subject:
++			subject = self._subject_type()
++		self.subjects.append(subject)
++		return subject
++	
++	def get_subjects(self):
++		return self[1]
++	
++	def set_subjects(self, subjects):
++		self[1] = subjects
++	subjects = property(get_subjects, set_subjects,
++	doc="Read/write property with a list of :class:`Subjects <Subject>`")
++		
++	def get_id(self):
++		val = self[0][Event.Id]
++		return int(val) if val else 0
++	id = property(get_id,
++	doc="Read only property containing the the event id if the event has one")
++	
++	def get_timestamp(self):
++		return self[0][Event.Timestamp]
++	
++	def set_timestamp(self, value):
++		self[0][Event.Timestamp] = str(value)
++	timestamp = property(get_timestamp, set_timestamp,
++	doc="Read/write property with the event timestamp defined as milliseconds since the Epoch. By default it is set to the moment of instance creation")
++	
++	def get_interpretation(self):
++		return self[0][Event.Interpretation]
++	
++	def set_interpretation(self, value):
++		self[0][Event.Interpretation] = value
++	interpretation = property(get_interpretation, set_interpretation,
++	doc="Read/write property defining the interpretation type of the event") 
++	
++	def get_manifestation(self):
++		return self[0][Event.Manifestation]
++	
++	def set_manifestation(self, value):
++		self[0][Event.Manifestation] = value
++	manifestation = property(get_manifestation, set_manifestation,
++	doc="Read/write property defining the manifestation type of the event")
++	
++	def get_actor(self):
++		return self[0][Event.Actor]
++	
++	def set_actor(self, value):
++		self[0][Event.Actor] = value
++	actor = property(get_actor, set_actor,
++	doc="Read/write property defining the application or entity responsible "
++		"for emitting the event. For applications, the format of this field is "
++		"the base filename of the corresponding .desktop file with an "
++		"`application://` URI scheme. For example, "
++		"`/usr/share/applications/firefox.desktop` is encoded as "
++		"`application://firefox.desktop`")
++	
++	def get_origin(self):
++		return self[0][Event.Origin]
++	
++	def set_origin(self, value):
++		self[0][Event.Origin] = value
++	origin = property(get_origin, set_origin,
++	doc="Read/write property defining the origin where the event was emitted.")
++	
++	def get_payload(self):
++		return self[2]
++	
++	def set_payload(self, value):
++		self[2] = value
++	payload = property(get_payload, set_payload,
++	doc="Free form attachment for the event. Transfered over DBus as an array of bytes")
++	
++	def matches_template(self, event_template):
++		"""
++		Return True if this event matches *event_template*. The
++		matching is done where unset fields in the template is
++		interpreted as wild cards. Interpretations and manifestations
++		are also matched if they are children of the types specified
++		in `event_template`. If the template has more than one
++		subject, this event matches if at least one of the subjects
++		on this event matches any single one of the subjects on the
++		template.
++		
++		Basically this method mimics the matching behaviour
++		found in the :meth:`FindEventIds` method on the Zeitgeist engine.
++		"""
++		# We use direct member access to speed things up a bit
++		# First match the raw event data
++		data = self[0]
++		tdata = event_template[0]
++		for m in Event.Fields:
++			if m == Event.Timestamp or not tdata[m]:
++				# matching be timestamp is not supported and
++				# empty template-fields are treated as wildcards
++				continue
++			if m in (Event.Manifestation, Event.Interpretation):
++				# special check for symbols
++				comp = Symbol.uri_is_child_of
++			else:
++				comp = EQUAL
++			if not self._check_field_match(m, tdata[m], comp):
++				return False
++		
++		# If template has no subjects we have a match
++		if len(event_template[1]) == 0 : return True
++		
++		# Now we check the subjects
++		for tsubj in event_template[1]:
++			for subj in self[1]:		
++				if not subj.matches_template(tsubj) : continue				
++				# We have a matching subject, all good!
++				return True
++		
++		# Template has subjects, but we never found a match
++		return False
++		
++	def _check_field_match(self, field_id, expression, comp):
++		""" Checks if an expression matches a field given by its `field_id`
++		using a `comp` comparison function """
++		if field_id in self.SUPPORTS_NEGATION \
++				and expression.startswith(NEGATION_OPERATOR):
++			return not self._check_field_match(field_id, expression[len(NEGATION_OPERATOR):], comp)
++		elif field_id in self.SUPPORTS_WILDCARDS \
++				and expression.endswith(WILDCARD):
++			assert comp == EQUAL, "wildcards only work for pure text fields"
++			return self._check_field_match(field_id, expression[:-len(WILDCARD)], STARTSWITH)
++		else:
++			return comp(self[0][field_id], expression)
++	
++	def matches_event (self, event):
++		"""
++		Interpret *self* as the template an match *event* against it.
++		This method is the dual method of :meth:`matches_template`.
++		"""
++		return event.matches_template(self)
++	
++	def in_time_range (self, time_range):
++		"""
++		Check if the event timestamp lies within a :class:`TimeRange`
++		"""
++		t = int(self.timestamp) # The timestamp may be stored as a string
++		return (t >= time_range.begin) and (t <= time_range.end)
++
++class DataSource(list):
++	""" Optimized and convenient data structure representing a datasource.
++	
++	This class is designed so that you can pass it directly over
++	DBus using the Python DBus bindings. It will automagically be
++	marshalled with the signature a(asaasay). See also the section
++	on the :ref:`event serialization format <event_serialization_format>`.
++	
++	This class does integer based lookups everywhere and can wrap any
++	conformant data structure without the need for marshalling back and
++	forth between DBus wire format. These two properties makes it highly
++	efficient and is recommended for use everywhere.
++
++	This is part of the :const:`org.gnome.zeitgeist.DataSourceRegistry`
++	extension.
++	"""
++	Fields = (UniqueId,
++		Name,
++		Description,
++		EventTemplates,
++		Running,
++		LastSeen,	# last time the data-source did something (connected,
++					# inserted events, disconnected).
++		Enabled) = list(range(7))
++		
++	def get_unique_id(self):
++		return self[self.UniqueId]
++	
++	def set_unique_id(self, value):
++		self[self.UniqueId] = value
++	
++	def get_name(self):
++		return self[self.Name]
++	
++	def set_name(self, value):
++		self[self.Name] = value
++	
++	def get_description(self):
++		return self[self.Description]
++	
++	def set_description(self, value):
++		self[self.Description] = value
++	
++	def get_running(self):
++		return self[self.Running]
++	
++	def set_running(self,value):
++		self[self.Running] = value
++	
++	def get_running(self):
++		return self[self.Running]
++	
++	def running(self, value):
++		self[self.Running] = value
++	
++	def get_last_seen(self):
++		return self[self.LastSeen]
++	
++	def set_last_seen(self, value):
++		self[self.LastSeen] = value
++	
++	def get_enabled(self):
++		return self[self.Enabled]
++	
++	def set_enabled(self, value):
++		self[self.Enabled] = value
++		
++	unique_id = property(get_unique_id, set_unique_id)
++	name = property(get_name, set_name)
++	description = property(get_description, set_description)
++	running = property(get_running, set_running)
++	last_seen = property(get_last_seen, set_last_seen)
++	enabled = property(get_enabled, set_enabled)
++	
++	def __init__(self, unique_id, name, description, templates, running=True,
++		last_seen=None, enabled=True):
++		"""
++		Create a new DataSource object using the given parameters.
++		
++		If you want to instantiate this class from a dbus.Struct, you can
++		use: DataSource(*data_source), where data_source is the dbus.Struct.
++		"""
++		super(DataSource, self).__init__()
++		self.append(unique_id)
++		self.append(name)
++		self.append(description)
++		self.append(templates)
++		self.append(bool(running))
++		self.append(last_seen if last_seen else get_timestamp_for_now())
++		self.append(enabled)
++	
++	def __eq__(self, source):
++		return self[self.UniqueId] == source[self.UniqueId]
++	
++	def __repr__(self):
++		return "%s: %s (%s)" % (self.__class__.__name__, self[self.UniqueId],
++			self[self.Name])
++
++
++NULL_EVENT = ([], [], [])
++"""Minimal Event representation, a tuple containing three empty lists.
++This `NULL_EVENT` is used by the API to indicate a queried but not
++available (not found or blocked) Event.
++"""
++
++class _Enumeration(object):
++
++	@classmethod
++	def iteritems(self):
++		"""
++		Return an iterator yielding (name, value) tuples for all items in
++		this enumeration.
++		"""
++		return iter([(x, getattr(self, x)) for x in [x for x in sorted(self.__dict__) if not x.startswith('__')]])
++
++class RelevantResultType(_Enumeration):
++	"""
++	An enumeration class used to define how query results should be returned
++	from the Zeitgeist engine.
++	"""
++	
++	Recent = EnumValue(0, "All uris with the most recent uri first")
++	Related = EnumValue(1, "All uris with the most related one first")
++
++class StorageState(_Enumeration):
++	"""
++	Enumeration class defining the possible values for the storage state
++	of an event subject.
++	
++	The StorageState enumeration can be used to control whether or not matched
++	events must have their subjects available to the user. Fx. not including
++	deleted files, files on unplugged USB drives, files available only when
++	a network is available etc.
++	"""
++	
++	NotAvailable = EnumValue(0, "The storage medium of the events "
++		"subjects must not be available to the user")
++	Available = EnumValue(1, "The storage medium of all event subjects "
++		"must be immediately available to the user")
++	Any = EnumValue(2, "The event subjects may or may not be available")
++
++class ResultType(_Enumeration):
++	"""
++	An enumeration class used to define how query results should be returned
++	from the Zeitgeist engine.
++	"""
++	
++	MostRecentEvents = EnumValue(0,
++		"All events with the most recent events first")
++	LeastRecentEvents = EnumValue(1, "All events with the oldest ones first")
++	MostRecentSubjects = EnumValue(2, "One event for each subject only, "
++		"ordered with the most recent events first")
++	LeastRecentSubjects = EnumValue(3, "One event for each subject only, "
++		"ordered with oldest events first")
++	MostPopularSubjects = EnumValue(4, "One event for each subject only, "
++		"ordered by the popularity of the subject")
++	LeastPopularSubjects = EnumValue(5, "One event for each subject only, "
++		"ordered ascendingly by popularity of the subject")
++	MostPopularActor = EnumValue(6, "The last event of each different actor,"
++		"ordered by the popularity of the actor")
++	LeastPopularActor = EnumValue(7, "The last event of each different actor,"
++		"ordered ascendingly by the popularity of the actor")
++	MostRecentActor = EnumValue(8,
++		"The Actor that has been used to most recently")
++	LeastRecentActor = EnumValue(9,
++		"The Actor that has been used to least recently")
++	MostRecentOrigin = EnumValue(10,
++		"The last event of each different subject origin")
++	LeastRecentOrigin = EnumValue(11, "The last event of each different "
++		"subject origin, ordered by least recently used first")
++	MostPopularOrigin = EnumValue(12, "The last event of each different "
++		"subject origin, ordered by the popularity of the origins")
++	LeastPopularOrigin = EnumValue(13, "The last event of each different "
++		"subject origin, ordered ascendingly by the popularity of the origin")
++	OldestActor = EnumValue(14, "The first event of each different actor")
++	MostRecentSubjectInterpretation = EnumValue(15, "One event for each "
++		"subject interpretation only, ordered with the most recent "
++		"events first")
++	LeastRecentSubjectInterpretation = EnumValue(16, "One event for each "
++		"subject interpretation only, ordered with the least recent "
++		"events first")
++	MostPopularSubjectInterpretation = EnumValue(17, "One event for each "
++		"subject interpretation only, ordered by the popularity of the "
++		"subject interpretation")
++	LeastPopularSubjectInterpretation = EnumValue(18, "One event for each "
++		"subject interpretation only, ordered ascendingly by popularity of "
++		"the subject interpretation")
++	MostRecentMimeType = EnumValue(19, "One event for each mimetype only, "
++		"ordered with the most recent events first")
++	LeastRecentMimeType = EnumValue(20, "One event for each mimetype only, "
++		"ordered with the least recent events first")
++	MostPopularMimeType = EnumValue(21, "One event for each mimetype only, "
++		"ordered by the popularity of the mimetype")
++	LeastPopularMimeType = EnumValue(22, "One event for each mimetype only, "
++		"ordered ascendingly by popularity of the mimetype")
++	MostRecentCurrentUri = EnumValue(23, "One event for each subject only "
++		"(by current_uri instead of uri), "
++		"ordered with the most recent events first")
++	LeastRecentCurrentUri = EnumValue(24, "One event for each subject only "
++		"(by current_uri instead of uri), "
++		"ordered with oldest events first")
++	MostPopularCurrentUri = EnumValue(25, "One event for each subject only "
++		"(by current_uri instead of uri), "
++		"ordered by the popularity of the subject")
++	LeastPopularCurrentUri = EnumValue(26, "One event for each subject only "
++		"(by current_uri instead of uri), "
++		"ordered ascendingly by popularity of the subject")
++	MostRecentEventOrigin = EnumValue(27,
++		"The last event of each different origin")
++	LeastRecentEventOrigin = EnumValue(28, "The last event of each "
++		" different origin, ordered by least recently used first")
++	MostPopularEventOrigin = EnumValue(29, "The last event of each "
++		"different origin, ordered by the popularity of the origins")
++	LeastPopularEventOrigin = EnumValue(30, "The last event of each "
++		"different origin, ordered ascendingly by the popularity of the origin")
++	MostRecentCurrentOrigin = EnumValue(31,
++		"The last event of each different subject origin")
++	LeastRecentCurrentOrigin = EnumValue(32, "The last event of each different "
++		"subject origin, ordered by least recently used first")
++	MostPopularCurrentOrigin = EnumValue(33, "The last event of each different "
++		"subject origin, ordered by the popularity of the origins")
++	LeastPopularCurrentOrigin = EnumValue(34, "The last event of each different "
++		"subject origin, ordered ascendingly by the popularity of the origin")
++
++	# We should eventually migrate over to those names to disambiguate
++	# subject origin and event origin:
++	MostRecentSubjectOrigin = MostRecentOrigin
++	LeastRecentSubjectOrigin = LeastRecentOrigin
++	MostPopularSubjectOrigin = MostPopularOrigin
++	LeastPopularSubjectOrigin = LeastPopularOrigin
++
++INTERPRETATION_DOC = \
++"""In general terms the *interpretation* of an event or subject is an abstract
++description of *"what happened"* or *"what is this"*.
++
++Each interpretation type is uniquely identified by a URI. This class provides
++a list of hard coded URI constants for programming convenience. In addition;
++each interpretation instance in this class has a *display_name* property, which
++is an internationalized string meant for end user display.
++
++The interpretation types listed here are all subclasses of *str* and may be
++used anywhere a string would be used.
++
++Interpretations form a hierarchical type tree. So that fx. Audio, Video, and
++Image all are sub types of Media. These types again have their own sub types,
++like fx. Image has children Icon, Photo, and VectorImage (among others).
++
++Templates match on all sub types, so that a query on subjects with
++interpretation Media also match subjects with interpretations
++Audio, Photo, and all other sub types of Media.
++"""
++
++MANIFESTATION_DOC = \
++"""The manifestation type of an event or subject is an abstract classification
++of *"how did this happen"* or *"how does this item exist"*.
++
++Each manifestation type is uniquely identified by a URI. This class provides
++a list of hard coded URI constants for programming convenience. In addition;
++each interpretation instance in this class has a *display_name* property, which
++is an internationalized string meant for end user display.
++
++The manifestation types listed here are all subclasses of *str* and may be
++used anywhere a string would be used.
++
++Manifestations form a hierarchical type tree. So that fx. ArchiveItem,
++Attachment, and RemoteDataObject all are sub types of FileDataObject.
++These types can again have their own sub types.
++
++Templates match on all sub types, so that a query on subjects with manifestation
++FileDataObject also match subjects of types Attachment or ArchiveItem and all
++other sub types of FileDataObject
++"""
++
++start_symbols = time.time()
++
++Interpretation = Symbol("Interpretation", doc=INTERPRETATION_DOC)
++Manifestation = Symbol("Manifestation", doc=MANIFESTATION_DOC)
++_SYMBOLS_BY_URI["Interpretation"] = Interpretation
++_SYMBOLS_BY_URI["Manifestation"] = Manifestation
++
++# Load the ontology definitions
++ontology_file = os.path.join(os.path.dirname(__file__), "_ontology.py")
++try:
++	exec(compile(open(ontology_file, "rb").read(), ontology_file, 'exec'))
++except IOError:
++	raise ImportError("Unable to load Zeitgeist ontology. Did you run `make`?")
++
++#
++# Bootstrap the symbol relations. We use a 2-pass strategy:
++#
++# 1) Make sure that all parents and children are registered on each symbol
++for symbol in _SYMBOLS_BY_URI.values():
++	for parent in symbol._parents:
++		try:
++			_SYMBOLS_BY_URI[parent]._children[symbol.uri] = None
++		except KeyError as e:
++			print("ERROR", e, parent, symbol.uri)
++			pass
++	for child in symbol._children:
++		try:
++			_SYMBOLS_BY_URI[child]._parents.add(symbol.uri)
++		except KeyError:
++			print("ERROR", e, child, symbol.uri)
++			pass
++
++# 2) Resolve all child and parent URIs to their actual Symbol instances
++for symbol in _SYMBOLS_BY_URI.values():
++	for child_uri in symbol._children.keys():
++		symbol._children[child_uri] = _SYMBOLS_BY_URI[child_uri]
++	
++	parents = {}
++	for parent_uri in symbol._parents:
++		parents[parent_uri] = _SYMBOLS_BY_URI[parent_uri]
++	symbol._parents = parents
++
++
++if __name__ == "__main__":
++	print("Success")
++	end_symbols = time.time()
++	print("Import time: %s" % (end_symbols - start_symbols), file=sys.stderr)
++
++# vim:noexpandtab:ts=4:sw=4
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/eventwidgets.py zeitgeist-explorer-0.2/zgexplorer/eventwidgets.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/eventwidgets.py	2019-03-31 12:36:02.066670337 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/eventwidgets.py	2019-03-31 13:38:49.036523440 +0000
+@@ -21,7 +21,7 @@
+ 
+ from datetime import datetime
+ from gi.repository import Gtk, Gdk, Gio
+-from zeitgeist.datamodel import Event, Subject, Manifestation, \
++from zgexplorer.datamodel import Event, Subject, Manifestation, \
+     Interpretation, StorageState, Symbol, ResultType
+ 
+ 
+@@ -57,7 +57,7 @@
+ 
+     def insert(self, events):
+         for event in events:
+-            if event.id not in self.events.keys():
++            if event.id not in list(self.events.keys()):
+                 self.events[event.id] = event
+         self.treeview.add_events(events)
+ 
+@@ -129,7 +129,7 @@
+ 
+     def add_event(self, event):
+         self._store.append([event.id, event.date_string,
+-            event.interp_string, event.manif_string, unicode(event.actor)])
++            event.interp_string, event.manif_string, str(event.actor)])
+         #event_iter = self._store.append(None, [event.id, event.date_string,
+         #    event.interp_string, event.manif_string, unicode(event.actor)])
+         #for subject in event.subjects:
+@@ -138,7 +138,7 @@
+         #self.expand_row(event_iter)
+ 
+     def add_events(self, events):
+-        map(self.add_event, events)
++        list(map(self.add_event, events))
+ 
+     def set_events(self, events):
+         self._store.clear()
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/monitorviewer.py zeitgeist-explorer-0.2/zgexplorer/monitorviewer.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/monitorviewer.py	2019-03-31 12:36:02.066670337 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/monitorviewer.py	2019-03-31 13:39:09.473245700 +0000
+@@ -27,7 +27,7 @@
+ from zgexplorer.eventwidgets import EventDetailsViewer, EventsTreeView, EventsViewer
+ from zgexplorer.remote import get_zeitgeist
+ 
+-from zeitgeist.datamodel import Event, Subject, Interpretation, \
++from zgexplorer.datamodel import Event, Subject, Interpretation, \
+     Manifestation, StorageState, ResultType, Symbol
+ 
+ class MonitorViewer(Gtk.VBox):
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/_ontology.py zeitgeist-explorer-0.2/zgexplorer/_ontology.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/_ontology.py	1970-01-01 00:00:00.000000000 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/_ontology.py	2019-01-14 10:45:25.000000000 +0000
+@@ -0,0 +1,95 @@
++#
++# Auto-generated from .trig files. Do not edit.
++#
++Symbol('ALARM', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Alarm', display_name='Alarm', doc='Provide a grouping of component properties that define an alarm.', auto_resolve=False)
++Symbol('ATTACHMENT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Attachment']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Attachment', display_name='Attachment', doc='An object attached to a calendar entity. This class has been introduced to serve as a structured value of the ncal:attach property. See the documentation of ncal:attach for details.', auto_resolve=False)
++Symbol('CALENDAR', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Calendar', display_name='Calendar', doc='A calendar. Inspirations for this class can be traced to the VCALENDAR component defined in RFC 2445 sec. 4.4, but it may just as well be used to represent any kind of Calendar.', auto_resolve=False)
++Symbol('CALENDAR_DATA_OBJECT', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#CalendarDataObject', display_name='CalendarDataObject', doc='A DataObject found in a calendar. It is usually interpreted as one of the calendar entity types (e.g. Event, Journal, Todo etc.)', auto_resolve=False)
++Symbol('EVENT', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Event', display_name='Event', doc='Provide a grouping of component properties that describe an event.', auto_resolve=False)
++Symbol('FREEBUSY', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Freebusy', display_name='Freebusy', doc='Provide a grouping of component properties that describe either a request for free/busy time, describe a response to a request for free/busy time or describe a published set of busy time.', auto_resolve=False)
++Symbol('JOURNAL', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Journal', display_name='Journal', doc='Provide a grouping of component properties that describe a journal entry.', auto_resolve=False)
++Symbol('TIMEZONE', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Timezone', display_name='Timezone', doc='Provide a grouping of component properties that defines a time zone.', auto_resolve=False)
++Symbol('TODO', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/04/02/ncal#Todo', display_name='Todo', doc='Provide a grouping of calendar properties that describe a to-do.', auto_resolve=False)
++Symbol('CONTACT', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nco#Contact', display_name='Contact', doc='A Contact. A piece of data that can provide means to identify or communicate with an entity.', auto_resolve=False)
++Symbol('CONTACT_GROUP', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nco#ContactGroup', display_name='ContactGroup', doc='A group of Contacts. Could be used to express a group in an addressbook or on a contact list of an IM application. One contact can belong to many groups.', auto_resolve=False)
++Symbol('CONTACT_LIST', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nco#ContactList', display_name='ContactList', doc='A contact list, this class represents an addressbook or a contact list of an IM application. Contacts inside a contact list can belong to contact groups.', auto_resolve=False)
++Symbol('CONTACT_LIST_DATA_OBJECT', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nco#ContactListDataObject', display_name='ContactListDataObject', doc='An entity occuring on a contact list (usually interpreted as an nco:Contact)', auto_resolve=False)
++Symbol('ORGANIZATION_CONTACT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nco#Contact']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nco#OrganizationContact', display_name='OrganizationContact', doc='A Contact that denotes on Organization.', auto_resolve=False)
++Symbol('PERSON_CONTACT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nco#Contact']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nco#PersonContact', display_name='PersonContact', doc='A Contact that denotes a Person. A person can have multiple Affiliations.', auto_resolve=False)
++Symbol('APPLICATION', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Software']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Application', display_name='Application', doc='An application', auto_resolve=False)
++Symbol('ARCHIVE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Archive', display_name='Archive', doc='A compressed file. May contain other files or folder inside.', auto_resolve=False)
++Symbol('ARCHIVE_ITEM', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#EmbeddedFileDataObject']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#ArchiveItem', display_name='ArchiveItem', doc='A file entity inside an archive.', auto_resolve=False)
++Symbol('ATTACHMENT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#EmbeddedFileDataObject']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Attachment', display_name='Attachment', doc='A file attached to another data object. Many data formats allow for attachments: emails, vcards, ical events, id3 and exif...', auto_resolve=False)
++Symbol('AUDIO', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Media']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Audio', display_name='Audio', doc='A file containing audio content', auto_resolve=False)
++Symbol('BOOKMARK', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Bookmark', display_name='Bookmark', doc='A bookmark of a webbrowser. Use nie:title for the name/label, nie:contentCreated to represent the date when the user added the bookmark, and nie:contentLastModified for modifications. nfo:bookmarks to store the link.', auto_resolve=False)
++Symbol('BOOKMARK_FOLDER', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#BookmarkFolder', display_name='Bookmark Folder', doc='A folder with bookmarks of a webbrowser. Use nfo:containsBookmark to relate Bookmarks. Folders can contain subfolders, use containsBookmarkFolder to relate them.', auto_resolve=False)
++Symbol('CURSOR', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#RasterImage']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Cursor', display_name='Cursor', doc='A Cursor.', auto_resolve=False)
++Symbol('DATA_CONTAINER', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer', display_name='DataContainer', doc='A superclass for all entities, whose primary purpose is to serve as containers for other data object. They usually don\'t have any "meaning" by themselves. Examples include folders, archives and optical disc images.', auto_resolve=False)
++Symbol('DELETED_RESOURCE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#FileDataObject']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DeletedResource', display_name='DeletedResource', doc='A file entity that has been deleted from the original source. Usually such entities are stored within various kinds of \'Trash\' or \'Recycle Bin\' folders.', auto_resolve=False)
++Symbol('DOCUMENT', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Document', display_name='Document', doc='A generic document. A common superclass for all documents on the desktop.', auto_resolve=False)
++Symbol('EMBEDDED_FILE_DATA_OBJECT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#FileDataObject']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#EmbeddedFileDataObject', display_name='EmbeddedFileDataObject', doc='A file embedded in another data object. There are many ways in which a file may be embedded in another one. Use this class directly only in cases if none of the subclasses gives a better description of your case.', auto_resolve=False)
++Symbol('EXECUTABLE', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Executable', display_name='Executable', doc='An executable file.', auto_resolve=False)
++Symbol('FILESYSTEM', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Filesystem', display_name='Filesystem', doc='A filesystem. Examples of filesystems include hard disk partitions, removable media, but also images thereof stored in files such as ISO.', auto_resolve=False)
++Symbol('FILESYSTEM_IMAGE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Filesystem']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#FilesystemImage', display_name='FilesystemImage', doc='An image of a filesystem. Instances of this class may include CD images, DVD images or hard disk partition images created by various pieces of software (e.g. Norton Ghost). Deprecated in favor of nfo:Filesystem.', auto_resolve=False)
++Symbol('FILE_DATA_OBJECT', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#FileDataObject', display_name='file', doc='A resource containing a finite sequence of bytes with arbitrary information, that is available to a computer program and is usually based on some kind of durable storage. A file is durable in the sense that it remains available for programs to use after the current program has finished.', auto_resolve=False)
++Symbol('FOLDER', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Folder', display_name='Folder', doc='A folder/directory. Examples of folders include folders on a filesystem and message folders in a mailbox.', auto_resolve=False)
++Symbol('FONT', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Font', display_name='Font', doc='A font.', auto_resolve=False)
++Symbol('HARD_DISK_PARTITION', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#HardDiskPartition', display_name='HardDiskPartition', doc='A partition on a hard disk', auto_resolve=False)
++Symbol('HTML_DOCUMENT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#PlainTextDocument']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#HtmlDocument', display_name='HtmlDocument', doc='A HTML document, may contain links to other files.', auto_resolve=False)
++Symbol('ICON', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Image']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Icon', display_name='Icon', doc='An Icon (regardless of whether it\'s a raster or a vector icon. A resource representing an icon could have two types (Icon and Raster, or Icon and Vector) if required.', auto_resolve=False)
++Symbol('IMAGE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Visual']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Image', display_name='Image', doc='A file containing an image.', auto_resolve=False)
++Symbol('MEDIA', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Media', display_name='Media', doc='A piece of media content. This class may be used to express complex media containers with many streams of various media content (both aural and visual).', auto_resolve=False)
++Symbol('MEDIA_LIST', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#MediaList', display_name='MediaList', doc='A file containing a list of media files.e.g. a playlist', auto_resolve=False)
++Symbol('MEDIA_STREAM', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#MediaStream', display_name='MediaStream', doc='A stream of multimedia content, usually contained within a media container such as a movie (containing both audio and video) or a DVD (possibly containing many streams of audio and video). Most common interpretations for such a DataObject include Audio and Video.', auto_resolve=False)
++Symbol('MIND_MAP', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Document']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#MindMap', display_name='MindMap', doc='A MindMap, created by a mind-mapping utility. Examples might include FreeMind or mind mapper.', auto_resolve=False)
++Symbol('OPERATING_SYSTEM', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Software']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#OperatingSystem', display_name='OperatingSystem', doc='An OperatingSystem', auto_resolve=False)
++Symbol('PAGINATED_TEXT_DOCUMENT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#TextDocument']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#PaginatedTextDocument', display_name='PaginatedTextDocument', doc='A file containing a text document, that is unambiguously divided into pages. Examples might include PDF, DOC, PS, DVI etc.', auto_resolve=False)
++Symbol('PLAIN_TEXT_DOCUMENT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#TextDocument']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#PlainTextDocument', display_name='PlainTextDocument', doc='A file containing plain text (ASCII, Unicode or other encodings). Examples may include TXT, HTML, XML, program source code etc.', auto_resolve=False)
++Symbol('PRESENTATION', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Document']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Presentation', display_name='Presentation', doc='A Presentation made by some presentation software (Corel Presentations, OpenOffice Impress, MS Powerpoint etc.)', auto_resolve=False)
++Symbol('RASTER_IMAGE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Image']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#RasterImage', display_name='RasterImage', doc='A raster image.', auto_resolve=False)
++Symbol('REMOTE_DATA_OBJECT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#FileDataObject']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#RemoteDataObject', display_name='RemoteDataObject', doc='A file data object stored at a remote location. Don\'t confuse this class with a RemotePortAddress. This one applies to a particular resource, RemotePortAddress applies to an address, that can have various interpretations.', auto_resolve=False)
++Symbol('REMOTE_PORT_ADDRESS', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#RemotePortAddress', display_name='RemotePortAddress', doc='An address specifying a remote host and port. Such an address can be interpreted in many ways (examples of such interpretations include mailboxes, websites, remote calendars or filesystems), depending on an interpretation, various kinds of data may be extracted from such an address.', auto_resolve=False)
++Symbol('SOFTWARE', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Software', display_name='Software', doc='A piece of software. Examples may include applications and the operating system. This interpretation most commonly applies to SoftwareItems.', auto_resolve=False)
++Symbol('SOFTWARE_ITEM', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#SoftwareItem', display_name='SoftwareItem', doc='A DataObject representing a piece of software. Examples of interpretations of a SoftwareItem include an Application and an OperatingSystem.', auto_resolve=False)
++Symbol('SOFTWARE_SERVICE', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#SoftwareService', display_name='SoftwareService', doc='A service published by a piece of software, either by an operating system or an application. Examples of such services may include calendar, addressbook and mailbox managed by a PIM application. This category is introduced to distinguish between data available directly from the applications (Via some Interprocess Communication Mechanisms) and data available from files on a disk. In either case both DataObjects would receive a similar interpretation (e.g. a Mailbox) and wouldn\'t differ on the content level.', auto_resolve=False)
++Symbol('SOURCE_CODE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#PlainTextDocument']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#SourceCode', display_name='SourceCode', doc='Code in a compilable or interpreted programming language.', auto_resolve=False)
++Symbol('SPREADSHEET', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Document']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Spreadsheet', display_name='Spreadsheet', doc='A spreadsheet, created by a spreadsheet application. Examples might include Gnumeric, OpenOffice Calc or MS Excel.', auto_resolve=False)
++Symbol('TEXT_DOCUMENT', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Document']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#TextDocument', display_name='TextDocument', doc='A text document', auto_resolve=False)
++Symbol('TRASH', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#DataContainer']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Trash', display_name='Trash', doc='Represents a container for deleted files, a feature common in modern operating systems.', auto_resolve=False)
++Symbol('VECTOR_IMAGE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Image']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#VectorImage', display_name='VectorImage', doc='', auto_resolve=False)
++Symbol('VIDEO', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Visual']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Video', display_name='Video', doc='A video file.', auto_resolve=False)
++Symbol('VISUAL', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Media']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Visual', display_name='Visual', doc='File containing visual content.', auto_resolve=False)
++Symbol('WEBSITE', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Website', display_name='Website', doc='A website, usually a container for remote resources, that may be interpreted as HTMLDocuments, images or other types of content.', auto_resolve=False)
++Symbol('WEB_DATA_OBJECT', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#WebDataObject', display_name='web data object', doc='An information resources of which representations (files, streams) can be retrieved through a web server. They may be generated at retrieval time. Typical examples are pages served by PHP or AJAX or mp3 streams.', auto_resolve=False)
++Symbol('DATA_OBJECT', parent=set([]), uri='http://www.semanticdesktop.org/ontologies/2007/01/19/nie#DataObject', display_name='DataObject', doc='A unit of data that is created, annotated and processed on the user desktop. It represents a native structure the user works with. The usage of the term \'native\' is important. It means that a DataObject can be directly mapped to a data structure maintained by a native application. This may be a file, a set of files or a part of a file. The granularity depends on the user. This class is not intended to be instantiated by itself. Use more specific subclasses.', auto_resolve=False)
++Symbol('INFORMATION_ELEMENT', parent=set([]), uri='http://www.semanticdesktop.org/ontologies/2007/01/19/nie#InformationElement', display_name='InformationElement', doc='A unit of content the user works with. This is a superclass for all interpretations of a DataObject.', auto_resolve=False)
++Symbol('MOVIE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Video']), uri='http://www.semanticdesktop.org/ontologies/2009/02/19/nmm#Movie', display_name='movie', doc='A Movie', auto_resolve=False)
++Symbol('MUSIC_ALBUM', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#MediaList']), uri='http://www.semanticdesktop.org/ontologies/2009/02/19/nmm#MusicAlbum', display_name='music album', doc='The music album as provided by the publisher. Not to be confused with media lists or collections.', auto_resolve=False)
++Symbol('MUSIC_PIECE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Audio']), uri='http://www.semanticdesktop.org/ontologies/2009/02/19/nmm#MusicPiece', display_name='music', doc='Used to assign music-specific properties such a BPM to video and audio', auto_resolve=False)
++Symbol('TVSERIES', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2009/02/19/nmm#TVSeries', display_name='tv series', doc='A TV Series has multiple seasons and episodes', auto_resolve=False)
++Symbol('TVSHOW', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#Video']), uri='http://www.semanticdesktop.org/ontologies/2009/02/19/nmm#TVShow', display_name='tv show', doc='A TV Show', auto_resolve=False)
++Symbol('EMAIL', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#Message']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#Email', display_name='Email', doc='An email.', auto_resolve=False)
++Symbol('IMMESSAGE', parent=set(['http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#Message']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#IMMessage', display_name='IMMessage', doc='A message sent with Instant Messaging software.', auto_resolve=False)
++Symbol('MAILBOX', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#Mailbox', display_name='Mailbox', doc='A mailbox - container for MailboxDataObjects.', auto_resolve=False)
++Symbol('MAILBOX_DATA_OBJECT', parent=set(['Manifestation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#MailboxDataObject', display_name='MailboxDataObject', doc='An entity encountered in a mailbox. Most common interpretations for such an entity include Message or Folder', auto_resolve=False)
++Symbol('MESSAGE', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#Message', display_name='Message', doc='A message. Could be an email, instant messanging message, SMS message etc.', auto_resolve=False)
++Symbol('MIME_ENTITY', parent=set(['Interpretation']), uri='http://www.semanticdesktop.org/ontologies/2007/03/22/nmo#MimeEntity', display_name='MimeEntity', doc='A MIME entity, as defined in RFC2045, Section 2.4.', auto_resolve=False)
++Symbol('ACCEPT_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#AcceptEvent', display_name='ACCEPT_EVENT', doc='Event triggered when the user accepts a request of some sort. Examples could be answering a phone call, accepting a file transfer, or accepting a friendship request over an IM protocol. See also DenyEvent for when the user denies a similar request', auto_resolve=False)
++Symbol('ACCESS_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#AccessEvent', display_name='ACCESS_EVENT', doc='Event triggered by opening, accessing, or starting a resource. Most zg:AccessEvents will have an accompanying zg:LeaveEvent, but this need not always be the case', auto_resolve=False)
++Symbol('APPLICATION_ACTION', parent=set(['Interpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#ApplicationAction', display_name='APPLICATION_ACTION', doc='Representation of a specific Action on an Application', auto_resolve=False)
++Symbol('CREATE_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#CreateEvent', display_name='CREATE_EVENT', doc='Event type triggered when an item is created', auto_resolve=False)
++Symbol('DELETE_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#DeleteEvent', display_name='DELETE_EVENT', doc='Event triggered because a resource has been deleted or otherwise made permanently unavailable. Fx. when deleting a file. FIXME: How about when moving to trash?', auto_resolve=False)
++Symbol('DENY_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#DenyEvent', display_name='DENY_EVENT', doc='Event triggered when the user denies a request of some sort. Examples could be rejecting a phone call, rejecting a file transfer, or denying a friendship request over an IM protocol. See also AcceptEvent for the converse event type', auto_resolve=False)
++Symbol('EVENT_INTERPRETATION', parent=set(['Interpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation', display_name='EVENT_INTERPRETATION', doc='Base class for event interpretations. Please do no instantiate directly, but use one of the sub classes. The interpretation of an event describes \'what happened\' - fx. \'something was created\' or \'something was accessed\'', auto_resolve=False)
++Symbol('EVENT_MANIFESTATION', parent=set(['Manifestation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventManifestation', display_name='EVENT_MANIFESTATION', doc='Base class for event manifestation types. Please do no instantiate directly, but use one of the sub classes. The manifestation of an event describes \'how it happened\'. Fx. \'the user did this\' or \'the system notified the user\'', auto_resolve=False)
++Symbol('EXPIRE_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#ExpireEvent', display_name='EXPIRE_EVENT', doc='Event triggered when something expires or times out. These types of events are normally not triggered by the user, but by the operating system or some external party. Examples are a recurring calendar item or task deadline that expires or a when the user fails to respond to an external request such as a phone call', auto_resolve=False)
++Symbol('HEURISTIC_ACTIVITY', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventManifestation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#HeuristicActivity', display_name='HEURISTIC_ACTIVITY', doc='An event that is caused indirectly from user activity or deducted via analysis of other events. Fx. if an algorithm divides a user workflow into disjoint \'projects\' based on temporal analysis it could insert heuristic events when the user changed project', auto_resolve=False)
++Symbol('LEAVE_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#LeaveEvent', display_name='LEAVE_EVENT', doc='Event triggered by closing, leaving, or stopping a resource. Most zg:LeaveEvents will be following a zg:Access event, but this need not always be the case', auto_resolve=False)
++Symbol('MODIFY_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#ModifyEvent', display_name='MODIFY_EVENT', doc='Event triggered by modifying an existing resources. Fx. when editing and saving a file on disk or correcting a typo in the name of a contact', auto_resolve=False)
++Symbol('MOVE_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#MoveEvent', display_name='MOVE_EVENT', doc='Event triggered when a resource has been moved from a location to another. Fx. moving a file from a folder to another.', auto_resolve=False)
++Symbol('RECEIVE_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#ReceiveEvent', display_name='RECEIVE_EVENT', doc='Event triggered when something is received from an external party. The event manifestation must be set according to the world view of the receiving party. Most often the item that is being received will be some sort of message - an email, instant message, or broadcasted media such as micro blogging', auto_resolve=False)
++Symbol('SCHEDULED_ACTIVITY', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventManifestation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#ScheduledActivity', display_name='SCHEDULED_ACTIVITY', doc='An event that was directly triggered by some user initiated sequence of actions. For example a music player automatically changing to the next song in a playlist', auto_resolve=False)
++Symbol('SEND_EVENT', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventInterpretation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#SendEvent', display_name='SEND_EVENT', doc='Event triggered when something is send to an external party. The event manifestation must be set according to the world view of the sending party. Most often the item that is being send will be some sort of message - an email, instant message, or broadcasted media such as micro blogging', auto_resolve=False)
++Symbol('SYSTEM_NOTIFICATION', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventManifestation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#SystemNotification', display_name='SYSTEM_NOTIFICATION', doc='An event send to the user by the operating system. Examples could include when the user inserts a USB stick or when the system warns that the hard disk is full', auto_resolve=False)
++Symbol('USER_ACTIVITY', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventManifestation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#UserActivity', display_name='USER_ACTIVITY', doc='An event that was actively performed by the user. For example saving or opening a file by clicking on it in the file manager', auto_resolve=False)
++Symbol('WORLD_ACTIVITY', parent=set(['http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#EventManifestation']), uri='http://www.zeitgeist-project.com/ontologies/2010/01/27/zg#WorldActivity', display_name='WORLD_ACTIVITY', doc='An event that was performed by an entity, usually human or organization, other than the user. An example could be logging the activities of other people in a team', auto_resolve=False)
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/remote.py zeitgeist-explorer-0.2/zgexplorer/remote.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/remote.py	2019-03-31 12:36:02.070003679 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/remote.py	2019-03-31 13:39:22.079946616 +0000
+@@ -20,8 +20,8 @@
+ 
+ from datetime import datetime
+ 
+-from zeitgeist.client import ZeitgeistClient
+-from zeitgeist.datamodel import *
++from zgexplorer.client import ZeitgeistClient
++from zgexplorer.datamodel import *
+ 
+ __all__ = ['get_zeitgeist']
+ 
+diff -Naur zeitgeist-explorer-0.2.orig/zgexplorer/templates.py zeitgeist-explorer-0.2/zgexplorer/templates.py
+--- zeitgeist-explorer-0.2.orig/zgexplorer/templates.py	2019-03-31 12:36:02.070003679 +0000
++++ zeitgeist-explorer-0.2/zgexplorer/templates.py	2019-03-31 13:39:45.300009618 +0000
+@@ -19,7 +19,7 @@
+ # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ #
+ 
+-from zeitgeist.datamodel import Event, Subject, Interpretation, \
++from zgexplorer.datamodel import Event, Subject, Interpretation, \
+         Manifestation, StorageState, ResultType, TimeRange
+ 
+ all_events = ["All Events", \
