@@ -3,7 +3,7 @@
 
 pkgname=python-webencodings
 pkgver=0.5.1
-pkgrel=9
+pkgrel=10
 arch=('any')
 url="https://github.com/gsnedders/python-webencodings"
 license=('BSD')
