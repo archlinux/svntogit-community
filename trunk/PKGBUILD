@@ -5,7 +5,7 @@
 
 pkgname=python-pytz
 pkgver=2022.7.1
-pkgrel=2
+pkgrel=3
 arch=('any')
 url="https://pypi.python.org/pypi/pytz"
 license=("MIT")
