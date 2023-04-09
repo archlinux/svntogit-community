@@ -5,7 +5,7 @@
 _pkgname=sphinxcontrib-bibtex
 pkgname="python-${_pkgname}"
 pkgver=2.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc="A Sphinx extension for BibTeX style citations"
 arch=('any')
 url="https://sphinxcontrib-bibtex.readthedocs.org"
