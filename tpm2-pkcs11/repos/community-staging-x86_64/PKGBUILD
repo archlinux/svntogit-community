@@ -1,0 +1,48 @@
+# Maintainer: Jonas Witschel <diabonas@archlinux.org>
+pkgname=tpm2-pkcs11
+pkgver=1.9.0
+pkgrel=1
+pkgdesc='PKCS#11 interface for Trusted Platform Module 2.0 hardware'
+arch=('x86_64')
+url='https://github.com/tpm2-software/tpm2-pkcs11'
+license=('BSD')
+depends=('glibc' 'libyaml' 'openssl' 'python' 'python-bcrypt' 'python-cryptography' 'python-pyasn1'
+         'python-pyasn1-modules' 'python-tpm2-pytss' 'python-yaml' 'sqlite' 'tpm2-tools' 'tpm2-tss'
+         'libtss2-esys.so' 'libtss2-fapi.so' 'libtss2-mu.so' 'libtss2-rc.so' 'libtss2-tctildr.so')
+makedepends=('cmocka' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel')
+checkdepends=('expect' 'iproute2' 'java-hamcrest' 'junit' 'libp11' 'opensc' 'openssh'
+              'python-python-pkcs11' 'swtpm' 'tpm2-abrmd' 'tpm2-openssl' 'wget' 'xxd')
+source=("$url/releases/download/$pkgver/$pkgname-$pkgver.tar.gz"{,.asc})
+sha512sums=('e88e78790a8d4d5a67713855106860e90dd18da00dc738ca7bfebf7979cdde54ce5089d0be015e7a208117bf393db700ca7739986c5e8138ee0e3b37344614b0'
+            'SKIP')
+validpgpkeys=('5B482B8E3E19DA7C978E1D016DE2E9078E1F50C1') # William Roberts (Bill Roberts) <william.c.roberts@intel.com>
+
+prepare() {
+	cd "$pkgname-$pkgver"
+	autoreconf -fiv
+
+	# disable broken test: https://github.com/tpm2-software/tpm2-pkcs11/issues/836
+	sed -e 's|test/integration/pkcs11-tool.sh||' -i Makefile*
+}
+
+build() {
+	cd "$pkgname-$pkgver"
+	export CLASSPATH="/usr/share/java/junit.jar:/usr/share/java/hamcrest-core.jar:$CLASSPATH"
+	./configure --prefix=/usr --enable-unit $( ((CHECKFUNC)) && echo --enable-integration)
+	make
+	cd tools
+	python -m build --wheel --no-isolation
+}
+
+check() {
+	cd "$pkgname-$pkgver"
+	make check
+}
+
+package() {
+	cd "$pkgname-$pkgver"
+	make DESTDIR="$pkgdir" install
+	install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
+	cd tools
+	python -m installer --destdir="$pkgdir" dist/*.whl
+}
