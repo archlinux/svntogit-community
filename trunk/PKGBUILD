@@ -2,47 +2,110 @@
 # Contributor: speps <speps at aur dot archlinux dot org>
 # Contributor: Shinlun Hsieh <yngwiexx@yahoo.com.tw>
 
-pkgname=qmidiarp
-pkgver=0.6.5
-pkgrel=5
+pkgbase=qmidiarp
+pkgname=(qmidiarp qmidiarp-{lv2,standalone})
+pkgver=0.6.6
+pkgrel=1
 pkgdesc="A MIDI arpeggiator, phrase generator and controller LFO for the ALSA sequencer."
 arch=(x86_64)
 url="https://sourceforge.net/projects/qmidiarp/"
-license=('GPL2')
-groups=('lv2-plugins' 'pro-audio')
-depends=('gcc-libs' 'glibc' 'hicolor-icon-theme' 'qt5-base')
-makedepends=('alsa-lib' 'jack' 'liblo' 'lv2' 'qt5-tools')
-checkdepends=('lv2lint')
-optdepends=('jack: for standalone application'
-            'liblo: for session management'
-            'lv2-host: for LV2 plugins'
-            'new-session-manager: for session management')
-source=("https://downloads.sourceforge.net/project/${pkgname}/${pkgname}/${pkgver}/${pkgname}-${pkgver}.tar.bz2")
-sha512sums=('171d74230a77b15453367fd38f9bcc94bbbd025a9665853180172bdfd812c2ee5ae0954124706d46c7e5cec0aafaebd5de68435f717789f052e7f86c48917379')
-b2sums=('eb2acb80c6fd442b197510eef2be000dc6a8e4cf7142cebbbbd156dad464f80062cc0a41881476aedc41c1b7cff27b1c56ae64354134b255b6cbd7672ef182f0')
+license=(GPL2)
+makedepends=(
+  alsa-lib
+  gcc-libs
+  glibc
+  jack
+  liblo
+  lv2
+  qt5-base
+  qt5-tools
+)
+checkdepends=(lv2lint)
+source=(https://downloads.sourceforge.net/project/$pkgbase/$pkgbase/$pkgver/$pkgbase-$pkgver.tar.bz2)
+sha512sums=('976f483d6d9446d5b2ad641ff68d881963be267cbbd809f0049ead9059f09987e01dfbf378869371d0564a5c2460319af94228c7321fb58c9b6faf0fd2cd3567')
+b2sums=('6a48fcf246cb18bd9b744f9927506c3e17f8c5cc8ecca9f8a05176d66cb41beec208df8e8c366b1785bd5e8262ea4c069bbcb20a606ca628e5bacc7e641dea97')
+
+_pick() {
+  local p="$1" f d; shift
+  for f; do
+    d="$srcdir/$p/${f#$pkgdir/}"
+    mkdir -p "$(dirname "$d")"
+    mv "$f" "$d"
+    rmdir -p --ignore-fail-on-non-empty "$(dirname "$f")"
+  done
+}
+
+prepare() {
+  cd $pkgbase-$pkgver
+  autoreconf -fiv
+}
 
 build() {
-  cd "${pkgname}-${pkgver}"
+  cd $pkgbase-$pkgver
   ./configure --prefix=/usr --enable-qt5
+  # prevent excessive overlinking due to libtool
+  sed -i -e 's/ -shared / -Wl,-O1,--as-needed\0/g' libtool
   make
 }
 
 check() {
   local _name
 
-  cd "${pkgname}-${pkgver}"
-  for _name in arp lfo seq; do
-    cp -v "src/.libs/${pkgname}_${_name}"{,_ui}.so \
-      "${pkgname}_${_name}.lv2/"
-    lv2lint -Mpack -I "${pkgname}_${_name}.lv2/" \
-      "https://git.code.sf.net/p/qmidiarp/${_name}" || echo "Known to fail: https://sourceforge.net/p/qmidiarp/bugs/33/"
+  cd $pkgbase-$pkgver
+  # NOTE: we are not running tests for lfo and seq variants because they make lv2lint segfault...
+  for _name in arp; do
+    cp -v "src/.libs/${pkgbase}_$_name"{,_ui}.so "${pkgbase}_$_name.lv2/"
+    # disable failing tests: https://sourceforge.net/p/qmidiarp/bugs/33/
+    lv2lint -t "UI Symbols" -t "Plugin Symbols" -Mpack -I "${pkgbase}_${_name}.lv2/" "https://git.code.sf.net/p/qmidiarp/$_name"
   done
 }
 
-package() {
-  depends+=('libasound.so')
-  cd "${pkgname}-${pkgver}"
-  make DESTDIR="${pkgdir}/" install
-  install -vDm 644 {AUTHORS,ChangeLog,NEWS,README} \
-    -t "${pkgdir}/usr/share/doc/${pkgname}/"
+package_qmidiarp() {
+  depends=($pkgbase-{lv2,standalone}=$pkgver)
+
+  make DESTDIR="$pkgdir/" install -C $pkgbase-$pkgver
+
+  (
+    cd "$pkgdir"
+    _pick $pkgbase-lv2 usr/lib
+    _pick $pkgbase-standalone usr/bin
+    _pick $pkgbase-standalone usr/share
+  )
+}
+
+package_qmidiarp-lv2() {
+  pkgdesc+=" - LV2 plugin"
+  groups=(
+    lv2-plugins
+    pro-audio
+  )
+  depends=(
+    gcc-libs
+    glibc
+    lv2-host
+    qt5-base
+  )
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,ChangeLog,NEWS,README} -t "$pkgdir/usr/share/doc/$pkgname/"
+}
+
+package_qmidiarp-standalone() {
+  pkgdesc+=" - standalone"
+  groups=(
+    pro-audio
+  )
+  depends=(
+    alsa-lib
+    gcc-libs
+    glibc
+    hicolor-icon-theme
+    jack
+    liblo
+    qt5-base
+  )
+  optdepends=('new-session-manager: for session management')
+
+  mv -v $pkgname/* "$pkgdir"
+  install -vDm 644 $pkgbase-$pkgver/{AUTHORS,ChangeLog,NEWS,README} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
