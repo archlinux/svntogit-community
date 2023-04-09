@@ -1,0 +1,89 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+# Maintainer: Filipe Laíns (FFY00) <lains@archlinux.org>
+
+_name=fastapi
+pkgname=python-$_name
+pkgver=0.95.0
+pkgrel=2
+pkgdesc='FastAPI framework, high performance, easy to learn, fast to code, ready for production'
+arch=(any)
+url="https://github.com/tiangolo/fastapi"
+license=(MIT)
+depends=(python-pydantic python-starlette)
+optdepends=(
+  'hypercorn: for Hypercorn as ASGI server'
+  'python-email-validator: for email validation'
+  'python-itsdangerous: for SessionMiddleware support'
+  'python-jinja: for default starlette template configuration'
+  'python-orjson: for ORJSONResponse'
+  'python-python-multipart: for form parsing support'
+  'python-pyyaml: for starlette SchemaGenerator support'
+  'python-httpx: for TestClient support'
+  'python-ujson: for faster JSON parsing and UJSONResponse'
+  'uvicorn: for Uvicorn as ASGI server'
+)
+makedepends=(python-build python-installer python-hatchling python-wheel)
+checkdepends=(
+  # test dependencies
+  python-aiosqlite
+  python-anyio
+  python-databases
+  python-flask
+  python-httpx
+  python-peewee
+  python-pytest
+  python-sqlalchemy
+  python-trio
+
+  # optdepends
+  python-email-validator
+  python-itsdangerous
+  python-jinja
+  python-orjson
+  python-python-multipart
+  python-pyyaml
+  python-ujson
+  uvicorn
+
+  # dev depends
+  python-bcrypt
+  python-cryptography
+  python-jose
+  python-passlib
+)
+source=($_name-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz)
+sha512sums=('e597e1db2647c67a94ca0f4202c6549dd9b2631a6ceca193a729902ffdc70b48a510c3bec7cd3e13db2b916faf1150d250b252e738870f80808e04b6a3ecb567')
+b2sums=('b4697c597cd4467b26d818ea58910931ed2e9b5332803e867737df57a97d22ee79303755b26bd1d5c21f9bea9b84be1447328740574a74bd6fdff1110ebb98d2')
+
+prepare() {
+  cd $_name-$pkgver
+  # do not pin starlette dependency
+  sed -i 's|starlette.*"|starlette"|' pyproject.toml
+}
+
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --skip-dependency-check --no-isolation
+}
+
+check() {
+  local _site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  local _deselected=(
+    --deselect docs_src/sql_databases/sql_app_py310/tests/test_sql_app.py::test_create_user
+    --deselect docs_src/sql_databases/sql_app_py39/tests/test_sql_app.py::test_create_user
+    --deselect tests/test_generate_unique_id_function.py::test_warn_duplicate_operation_id
+    --deselect tests/test_tutorial/test_async_sql_databases/test_tutorial001.py::test_create_read
+  )
+
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$_site_packages:$PYTHONPATH"
+  pytest -vv -p no:warnings "${_deselected[@]}"
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
