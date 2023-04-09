@@ -5,7 +5,7 @@
 
 pkgname=python-setuptools-rust
 pkgver=1.5.2
-pkgrel=2
+pkgrel=3
 pkgdesc="Compile and distribute Python extensions written in rust as easily as if they were written in C."
 arch=('any')
 license=('MIT')
@@ -26,7 +26,7 @@ check() {
   for _dir in examples/*; do
     pushd $_dir
     PYTHONPATH="$PWD/../.." python setup.py build
-    [[ -d tests || -d test ]] && PYTHONPATH="$PWD/build/lib:build/lib.linux-$CARCH-cpython-310" pytest
+    [[ -d tests || -d test ]] && PYTHONPATH="$PWD/build/lib:build/lib.linux-$CARCH-cpython-311" pytest
     popd
   done
   pytest --doctest-modules setuptools_rust
