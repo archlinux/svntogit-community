@@ -1,0 +1,87 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+# Maintainer: Chih-Hsuan Yen <yan12125@archlinux.org>
+
+pkgname=nvchecker
+pkgver=2.11
+# curl https://api.github.com/repos/lilydjwg/nvchecker/git/ref/tags/v$pkgver | jq -r .object.sha
+_tag=d619049d47a98630d7c73d276892fd9ff66ac633
+pkgrel=2
+pkgdesc="New version checker for software releases"
+arch=('any')
+url="https://github.com/lilydjwg/nvchecker"
+license=('MIT')
+depends=('python' 'python-tomli' 'python-structlog' 'python-platformdirs' 'python-tornado' 'python-pycurl')
+makedepends=('git' 'python-build' 'python-installer' 'python-setuptools' 'python-wheel'
+             # for building docs
+             'python-docutils' 'python-pygments'
+             # optional deps
+             'python-gobject' 'python-toml' 'python-aiohttp' 'python-httpx')
+checkdepends=('python-pytest' 'python-pytest-asyncio' 'python-pytest-httpbin' 'python-flaky'
+              'pyalpm' 'python-awesomeversion' 'python-lxml' 'git')
+optdepends=(
+  'pyalpm: for using "sort_version_key = vercmp" in configuration files and the alpm source'
+  'python-awesomeversion: for using "sort_version_key = awesomeversion" in configuration files'
+  'python-lxml: for the htmlparser source'
+  'python-packaging: for the pypi source'
+  'python-toml: for nvchecker-ini2toml script'
+  'python-aiohttp: alternative HTTP backend'
+  'python-httpx: alternative HTTP backend'
+  'git: support for git repositories'
+  'python-gobject: for nvchecker-notify'
+  'libnotify: for nvchecker-notify'
+)
+source=("git+https://github.com/lilydjwg/nvchecker.git?signed#tag=$_tag")
+sha512sums=('SKIP')
+validpgpkeys=(
+  # No direct trust chain. Some related stuffs:
+  # https://api.github.com/users/lilydjwg/gpg_keys
+  # https://zh.wikipedia.org/wiki/User:Lilydjwg
+  '356690A1E7404E30D0E902B2E64D049594A54F54'
+)
+
+_backports=(
+  # Fix test_alpm in Arch chroots
+  '166dfb11a4c44a7e8b8b4205350abef6bafcd667'
+)
+
+pkgver() {
+  cd nvchecker
+  git describe --tags | sed 's/^v//;s/-/+/g'
+}
+
+prepare() {
+  cd nvchecker
+
+  # this loop is stolen from core/systemd :)
+  local _c
+  for _c in "${_backports[@]}"; do
+    git log --oneline -1 "${_c}"
+    git cherry-pick -n "${_c}"
+  done
+}
+
+build() {
+  cd nvchecker
+  python -m build --wheel --no-isolation
+
+  make -C docs man
+}
+
+check() {
+  cd nvchecker
+  pytest
+}
+
+package() {
+  cd nvchecker
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
+
+  # bash completion scripts & docs
+  install -Dm644 scripts/nvtake.bash_completion "$pkgdir"/usr/share/bash-completion/completions/nvtake
+  install -Dm644 docs/usage.rst -t "$pkgdir"/usr/share/doc/$pkgname/
+  install -Dm644 sample_config.toml -t "$pkgdir"/usr/share/doc/$pkgname/
+  install -Dm644 docs/_build/man/nvchecker.1 -t "$pkgdir"/usr/share/man/man1/
+}
+
+# vim:set ts=2 sw=2 et:
