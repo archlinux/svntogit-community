@@ -3,7 +3,7 @@
 _name=sphinxcontrib-applehelp
 pkgname=python-sphinxcontrib-applehelp
 pkgver=1.0.4
-pkgrel=2
+pkgrel=3
 pkgdesc='Sphinx extension which outputs Apple help books'
 arch=('any')
 url=https://github.com/sphinx-doc/sphinxcontrib-applehelp
