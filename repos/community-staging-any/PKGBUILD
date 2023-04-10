@@ -5,10 +5,10 @@
 _name=alabaster
 pkgname=python-sphinx-alabaster-theme
 pkgver=0.7.13
-pkgrel=2
+pkgrel=3
 
 pkgdesc="Sphinx default theme"
-url='https://github.com/bitprophet/alabaster'
+url='https://github.com/sphinx-doc/alabaster'
 arch=('any')
 license=('custom:BSD')
 
@@ -20,6 +20,11 @@ source=("https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_nam
 
 sha256sums=('a27a4a084d5e690e16e01e03ad2b2e552c61a65469419b907243193de1a84ae2')
 b2sums=('b67ab19b3cb4d86bc0f2bc94cbac7de42b6ffc089844d49daa5db40de942dd87555f9ed8ac362ea01904a9e77f8fe995250bd878b39c9a4851041cec8ef6460e')
+
+prepare() {
+  cd $_name-$pkgver
+  sed -i '/app.require_sphinx("1.6")/d' alabaster/__init__.py
+}
 
 build() {
   cd $_name-$pkgver
