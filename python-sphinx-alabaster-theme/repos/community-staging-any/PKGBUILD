@@ -5,7 +5,7 @@
 _name=alabaster
 pkgname=python-sphinx-alabaster-theme
 pkgver=0.7.13
-pkgrel=3
+pkgrel=4
 
 pkgdesc="Sphinx default theme"
 url='https://github.com/sphinx-doc/alabaster'
