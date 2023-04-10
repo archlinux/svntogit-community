@@ -4,7 +4,7 @@
 _pkgname=multidict
 pkgname=python-${_pkgname}
 pkgver=6.0.3
-pkgrel=3
+pkgrel=4
 pkgdesc='Asyncio-based multidict implementation for Python'
 url='https://github.com/aio-libs/multidict'
 arch=('x86_64')
