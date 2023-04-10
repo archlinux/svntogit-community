@@ -2,7 +2,7 @@
 
 pkgname=python-nodeenv
 pkgver=1.7.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Node.js virtual environment builder"
 url="https://github.com/ekalinin/nodeenv"
 license=('BSD')
