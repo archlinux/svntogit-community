@@ -5,7 +5,7 @@
 
 pkgname=python-certifi
 pkgver=2022.12.07
-pkgrel=2
+pkgrel=3
 pkgdesc="Python package for providing Mozilla's CA Bundle (using system CA store)"
 arch=(any)
 url="https://github.com/certifi/python-certifi"
