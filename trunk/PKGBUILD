@@ -7,7 +7,7 @@
 pkgname=python-jedi
 _gitcommit=eaab7060388c8f438f1dbe6502e47c6639aa9bac
 pkgver=0.18.2
-pkgrel=1
+pkgrel=2
 pkgdesc="Awesome autocompletion for python"
 url="https://github.com/davidhalter/jedi"
 arch=('any')
@@ -33,6 +33,11 @@ prepare() {
   git config submodule."jedi/third_party/typeshed".url "${srcdir}/typeshed"
   git config submodule."jedi/third_party/django-stubs".url "${srcdir}/django-stubs"
   git -c protocol.file.allow=always submodule update --recursive
+
+  # Support Python 3.11 typing changes
+  git cherry-pick -n 00e23ddcee220110086621ff5922fb9cffddf60a
+  # Support Python 3.11
+  git cherry-pick -n 67e0bec597e7218944e00e5dd26ce4a34bd05e74
 }
 
 build() {
