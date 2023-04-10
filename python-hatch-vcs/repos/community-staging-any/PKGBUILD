@@ -3,7 +3,7 @@
 pkgname=python-hatch-vcs
 pkgver=0.3.0
 _commit=fbfc6b93c6cd195f8e0525a48637a349f765d131
-pkgrel=3
+pkgrel=4
 pkgdesc="Hatch plugin for versioning with your preferred VCS"
 url="https://github.com/ofek/hatch-vcs"
 license=('MIT')
