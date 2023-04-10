@@ -3,7 +3,7 @@
 _pkgname=mdurl
 pkgname=python-$_pkgname
 pkgver=0.1.2
-pkgrel=3
+pkgrel=4
 pkgdesc='URL utilities for markdown-it'
 arch=('any')
 url='https://github.com/executablebooks/mdurl'
