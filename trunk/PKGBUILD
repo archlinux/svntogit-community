@@ -3,7 +3,7 @@
 pkgname=python-pluggy
 pkgver=1.0.0
 _commit=4259fdd799d64f953631e47ddcb69c3074a15c13
-pkgrel=3
+pkgrel=4
 pkgdesc="Plugin and hook calling mechanisms for python"
 arch=('any')
 url="https://github.com/pytest-dev/pluggy"
