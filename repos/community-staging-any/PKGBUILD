@@ -2,7 +2,7 @@
 
 pkgname=python-click-default-group
 pkgver=1.2.2
-pkgrel=6
+pkgrel=7
 pkgdesc="Extends click.Group to invoke a command without explicit subcommand name"
 url="https://github.com/click-contrib/click-default-group"
 license=('BSD')
