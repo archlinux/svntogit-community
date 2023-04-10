@@ -2,7 +2,7 @@
 
 pkgname=towncrier
 pkgver=22.12.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Utility to produce useful, summarised news files for your project"
 arch=('any')
 url="https://github.com/hawkowl/towncrier"
