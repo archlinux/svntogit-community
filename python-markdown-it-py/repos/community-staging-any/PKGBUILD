@@ -3,7 +3,7 @@
 _pkgname=markdown-it-py
 pkgname=python-$_pkgname
 pkgver=2.2.0
-pkgrel=2
+pkgrel=3
 pkgdesc='Python port of markdown-it. Markdown parsing, done right!'
 arch=('any')
 url='https://github.com/executablebooks/markdown-it-py'
