@@ -1,0 +1,88 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+# set to 0 to use vendored sources
+_devendored=1
+_name=pdm_backend
+pkgname=python-pdm-backend
+pkgver=2.0.6
+pkgrel=1
+pkgdesc="The build backend used by PDM that supports latest packaging standards"
+arch=(any)
+url="https://github.com/pdm-project/pdm-backend"
+license=(MIT)
+depends=(
+  python
+)
+if (( _devendored == 1 )); then
+  # NOTE: devendored from sources
+  depends+=(
+    python-packaging
+    python-pyproject-metadata
+    python-tomli
+    python-tomli-w
+    python-validate-pyproject
+  )
+fi
+makedepends=(
+  python-build
+  python-installer
+  python-wheel
+)
+checkdepends=(
+  git
+  python-editables
+  python-pytest
+  python-pytest-cov
+  python-pytest-xdist
+  python-setuptools
+)
+optdepends=(
+  'python-setuptools: for setuptools support'
+)
+source=(
+  https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz
+  $pkgname-2.0.6-devendor.patch
+)
+sha256sums=('a118f1d8553d279b732a9180adc522bd8a973a258e3d4957a76a0cef0d417819'
+            'd443e8b43da2470b37d44838a68892206f898aee52fdcd11e98f8fc3e2a5ba34')
+b2sums=('1e4764d93c0949d7cd9874d3ef046023aa2433099742908266d19c1ce260135c0613dc032bb1f94e9aed10b3cc5f100fb16f8cf94a491eb3b0610090d4c7d88e'
+        'a1185da2ba54d95ac11ee5023c8891f700429b6c3d76b09e61abc938305ddd079b69fb3156b9eeec225b7bd1c6dcfd4dc187b01ca4d729e7dfb2275293ef46f9')
+
+prepare() {
+  if (( _devendored == 1 )); then
+    patch -Np1 -d $_name-$pkgver -i ../$pkgname-2.0.6-devendor.patch
+    rm -frv $_name-$pkgver/pdm/backend/_vendor
+  fi
+}
+
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --skip-dependency-check --no-isolation
+}
+
+check() {
+  local pytest_options=(
+    -vv
+    # https://github.com/pdm-project/pdm-backend/issues/164
+    --deselect tests/test_api.py::test_build_with_cextension
+    --deselect tests/test_api.py::test_build_with_cextension_in_src
+  )
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$site_packages:$PYTHONPATH"
+
+  # set default git config for test
+  git config --global user.email "you@example.com"
+  git config --global user.name "Your Name"
+  pytest "${pytest_options[@]}"
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgname/"
+}
