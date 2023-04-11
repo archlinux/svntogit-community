@@ -1,0 +1,81 @@
+# Maintainer: David Runge <dvzrv@archlinux.org>
+
+_name=pdm
+pkgname=python-pdm
+pkgver=2.5.2
+pkgrel=2
+pkgdesc="A modern Python package manager with PEP 582 support"
+arch=(any)
+url="https://github.com/pdm-project/pdm"
+license=(MIT)
+depends=(
+  python
+  python-blinker
+  python-cachecontrol
+  python-certifi
+  python-dotenv
+  python-findpython
+  python-installer
+  python-lockfile  # required optdepends of python-cachecontrol
+  python-packaging
+  python-pdm-backend
+  python-platformdirs
+  python-pyproject-hooks
+  python-requests  # required by python-requests-toolbelt
+  python-requests-toolbelt
+  python-resolvelib
+  python-rich
+  python-shellingham
+  python-tomlkit
+  python-unearth
+  python-virtualenv
+)
+makedepends=(
+  python-build
+  python-wheel
+)
+checkdepends=(
+  python-setuptools
+  python-pytest
+  python-pytest-mock
+)
+optdepends=(
+  'python-keyring: for storing credentials'
+  'python-pytest-mock: for pytest plugin'
+  'python-setuptools: for parsing setup.py files'
+)
+source=(https://files.pythonhosted.org/packages/source/${_name::1}/$_name/$_name-$pkgver.tar.gz)
+sha512sums=('29647bb44a1bb04898d830800ada756c1f59e004b977d8889b1d8341d6cf0bfb4d0f18506ff79c845c4f70cedca07e6f52e9a10aeb38c64ce15519a17ebc34a9')
+b2sums=('9f466a6fce804b5d436c6e9da23d1d3fd48f220b231c18779f5f2d21d729e4adda4237b36caaa8dd70ad93a1615565de3177400594e1dba2d11a0f6d620b89e1')
+
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  local pytest_options=(
+    -vv
+    # https://github.com/pdm-project/pdm/issues/1831
+    --deselect tests/cli/test_others.py::test_build_distributions
+  )
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$site_packages:$PYTHONPATH"
+  pytest "${pytest_options[@]}"
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+  install -vDm 644 README.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  # completions
+  install -vd "$pkgdir/usr/share/"{bash-completion/completions,fish/vendor_completions.d,zsh/site-functions}
+  "$pkgdir"/usr/bin/pdm completion bash > "$pkgdir/usr/share/bash-completion/completions/$_name"
+  "$pkgdir"/usr/bin/pdm completion fish > "$pkgdir/usr/share/fish/vendor_completions.d/$_name.fish"
+  "$pkgdir"/usr/bin/pdm completion zsh > "$pkgdir/usr/share/zsh/site-functions/_$_name"
+}
