@@ -2,23 +2,25 @@
 # Contributor: Timm Preetz <timm@preetz.us>
 
 pkgname=python-pygments
-pkgver=2.14.0
-pkgrel=4
+pkgver=2.15.0
+pkgrel=1
 pkgdesc="Python syntax highlighter"
 arch=('any')
 url="https://pygments.org/"
 license=('BSD')
 depends=('python')
-makedepends=('python-setuptools' 'python-sphinx' 'python-wcag-contrast-ratio')
+makedepends=('python-setuptools' 'python-sphinx' 'python-wcag-contrast-ratio'
+             'python-build' 'python-installer' 'python-wheel')
 checkdepends=('python-pytest' 'python-lxml')
 provides=('pygmentize')
 conflicts=('pygmentize')
 replaces=('pygmentize')
 source=(https://pypi.org/packages/source/P/Pygments/Pygments-$pkgver.tar.gz)
-sha256sums=('b3ed06a9e8ac9a9aae5a6f5dbe78a8a58655d17b43b93c078f094ddc476ae297')
+sha256sums=('f7e36cffc4c517fbc252861b9a6e4644ca0e5abadf9a113c72d1358ad09b9500')
 
 build() {
   cd Pygments-$pkgver
+  python -m build --wheel --no-isolation
   make -C doc html
 }
 
@@ -30,7 +32,7 @@ check() {
 package() {
   cd Pygments-$pkgver
 
-  python3 setup.py install --root="$pkgdir" -O1
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname"
 
   mkdir -p "$pkgdir/usr/share/doc"
