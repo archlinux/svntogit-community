@@ -1,0 +1,65 @@
+# Maintainer: Lukas Fleischer <lfleischer@archlinux.org>
+# Contributor: Andrey Mivrenik <gim at fastmail dot fm>
+# Contributor: Tim Diels <tim@timdiels.be>
+
+_name=dropbox-sdk-python
+pkgname=python-dropbox
+pkgver=11.36.0
+pkgrel=2
+pkgdesc="Python SDK for Dropbox Core APIs"
+url="https://github.com/dropbox/dropbox-sdk-python"
+arch=(any)
+license=(MIT)
+depends=(
+  python
+  python-requests
+  python-setuptools  # for dropbox.session
+  python-six
+  python-stone
+  python-urllib3
+)
+makedepends=(
+  python-build
+  python-installer
+  python-setuptools
+  python-pytest-runner
+  python-wheel
+)
+checkdepends=(
+  python-ply
+  python-pytest
+  python-pytest-mock
+)
+source=($url/archive/v$pkgver/$_name-v$pkgver.tar.gz)
+sha512sums=('5dc30fabd0abe52de68d152300a5dbfc9e5fb55ed5799a3ceba5e0782914944d1ed915761f4ca3993913250608e3152234495abefff6f2b548cd11b7f2fe0e23')
+b2sums=('46864c7d4143272a81a6e14c7430c153dc93dd0a82d8e78ef8bcf3c1a64919e2cccf725832fb794179f6eef953f172bc1dd579447ee2e8c36a141f9402807b3d')
+
+prepare() {
+  cd $_name-$pkgver
+  # remove strict version dependencies
+  # remove broken version specifiers
+  sed -e 's/==/>=/;s/2\.\*/2.0/' -i setup.py requirements.txt test/requirements.txt
+  # don't use mock
+  sed -e 's/import mock/from unittest import mock/' -i test/unit/test_dropbox_unit.py
+}
+
+build() {
+  cd $_name-$pkgver
+  python -m build --wheel --no-isolation
+}
+
+check() {
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $_name-$pkgver
+  # install to temporary location, as importlib is used
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="test_dir/$site_packages:$PYTHONPATH"
+  pytest -vv --ignore test/integration/
+}
+
+package() {
+  cd $_name-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
+  install -vDm 644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+}
