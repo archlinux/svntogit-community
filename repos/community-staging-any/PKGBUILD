@@ -1,0 +1,92 @@
+# Maintainer: Caleb Maclennan <caleb@alerque.com>
+# Maintainer: George Rawlinson <grawlinson@archlinux.org>
+# Contributor: Florijan Hamzic <florijanh at gmail dot com>
+
+# At the time of releasing WeasyPrint 58.1, the current pydyf library (released
+# by the same team) was 0.5.0. WeasyPrint only specifies it with a minimum
+# version dependency, but it has since updated to 0.6.0 with many changes to
+# the output encoding. These break WeasyPrint's test suite completely. Ignore
+# tests until at least the next release cycle when the expectations are in
+# sync again.
+BUILDENV+=(!check)
+
+pkgname=python-weasyprint
+pkgver=58.1
+_commit=11bc4e52e4ba262c472640c1249d8ca918ee90be
+pkgrel=3
+pkgdesc='Utility to render HTML and CSS to PDF'
+arch=('any')
+url='https://weasyprint.org/'
+license=('BSD')
+depends=(
+  'pango'
+  'python-brotli'
+  'python-cffi'
+  'python-cssselect2'
+  'python-fonttools'
+  'python-html5lib'
+  'python-pillow'
+  'python-pydyf'
+  'python-pyphen'
+  'python-tinycss2'
+  'python-zopfli'
+)
+makedepends=(
+  'git'
+  'python-build'
+  'python-installer'
+  'python-flit-core'
+)
+checkdepends=(
+  'python-pytest'
+  'ghostscript'
+  'ttf-dejavu'
+)
+source=("$pkgname::git+https://github.com/Kozea/WeasyPrint.git#commit=$_commit")
+b2sums=('SKIP')
+
+pkgver() {
+  cd "$pkgname"
+
+  git describe --tags | sed 's/^v//'
+}
+
+_pkgver() {
+  curl -fsS https://api.github.com/repos/Kozea/WeasyPrint/git/ref/tags/v$pkgver | jq -r .object.sha
+}
+
+prepare() {
+  cd "$pkgname"
+
+  # thou shalt not lint coding style in integration tests
+  sed -i '/^addopts/d' pyproject.toml
+}
+
+build(){
+  cd "$pkgname"
+
+  python \
+    -m build \
+    --wheel \
+    --no-isolation
+}
+
+check() {
+  cd "$pkgname"
+
+  # skip failing tests
+  python -m pytest \
+    --deselect tests/draw/test_gradient.py::test_linear_gradients_5 \
+    --deselect tests/draw/test_gradient.py::test_linear_gradients_12
+}
+
+package() {
+  cd "$pkgname"
+
+  python \
+    -m installer \
+    --destdir="$pkgdir" \
+    dist/*.whl
+
+  install -vDm644 -t "$pkgdir/usr/share/licenses/$pkgname" LICENSE
+}
