@@ -1,0 +1,75 @@
+# Maintainer: Jiachen Yang <farseerfc@gmail.com>
+# Contributor: Stefan Tatschner <rumpelsepp@sevenbyte.org>
+# Contributor: David Runge <dave@sleepmap.de>
+
+pkgname=pelican
+pkgver=4.8.0
+pkgrel=2
+pkgdesc="A tool to generate a static blog, with restructured text (or markdown) input files."
+arch=('any')
+url="https://blog.getpelican.com/"
+license=('AGPL3')
+makedepends=('python-sphinx')
+depends=('python-jinja' 'python-pygments' 'python-feedgenerator' 'python-pytz'
+         'python-docutils' 'python-blinker' 'python-unidecode' 'python-six'
+         'python-dateutil' 'python-rich')
+checkdepends=('python-setuptools' 'python-lxml' 'git' 'python-nose'
+              'python-feedparser' 'python-markdown' 'python-typogrify')
+optdepends=('python-markdown: Markdown support'
+            'asciidoc: AsciiDoc support'
+            'python-beautifulsoup4: importing from wordpress/dotclear/posterous'
+            'python-feedparser: importing from feeds'
+#            'python-rst2pdf: PDF generation' # FS#48890
+            'openssh: uploading through SSH'
+            'rsync: uploading through rsync+SSH'
+            'lftp: uploading through FTP'
+            's3cmd: uploading through S3'
+            'python-ghp-import: uploading through gh-pages'
+            'python-typogrify: typographical enhancements'
+            'pandoc: for pelican-import auto convert'
+            'python-mdx-video: easier embedding of youtube videos in markdown')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/getpelican/pelican/archive/$pkgver.tar.gz"
+         https://github.com/getpelican/pelican/commit/33aca76d.patch
+         https://github.com/getpelican/pelican/commit/3937028c.patch)
+sha512sums=('2e94eb88a836bcb430026463c0e7e906b7f065507e0d873b6e0fc980e271e6a8f2e62b22af4b61c963d90ef61d57787de20656fe7497b0ae14e93eff2d364f3b'
+            '5362679c506a517fc63b37a5e32a4e04659cf9ecb0642512ab9d57d08b336c280f059409561b5abb4134cb7b84b12b194e4124f620ca8289ca856f956950c40e'
+            '3dfc8ce541ee0547ed771cba2c48b08a8cd0b683b4a882f94dea725bb61c056a04b1f837ba622c18121f44bc11bd86ee14da68491e85109e73ba4520b176beaa')
+
+prepare() {
+  cd $pkgname-$pkgver
+  patch -p1 -i ../33aca76d.patch # Fix build with sphinx 6
+  patch -p1 -i ../3937028c.patch # Fix tests with python 3.11
+}
+
+build() {
+    # sphinx tried to import pelican, make it happy
+    cd "$srcdir/$pkgname-$pkgver/docs"
+    PYTHONPATH=".." make man
+    PYTHONPATH=".." make text
+}
+
+package() {
+    cd "$srcdir/$pkgname-$pkgver"
+
+    LANG=en_US.UTF-8 python setup.py install --prefix=/usr --root="$pkgdir" --optimize=1
+
+    cd "docs"
+
+    install -d "$pkgdir/usr/share/man/man1/"
+    install -Dm644 _build/man/*.1 "$pkgdir/usr/share/man/man1/"
+
+    install -d "$pkgdir/usr/share/doc/pelican/"
+    install -Dm644 _build/text/*.txt "$pkgdir/usr/share/doc/pelican/"
+}
+
+check() {
+    cd "$srcdir/$pkgname-$pkgver"
+    ## TODO: fix upstream tests
+    ##  --exclude="test_log_filter" # will only work with normal logger instead of nosetests logger
+    ##  --exclude="test_basic_generation_works" # will only work with python-pygments==2.6.1
+    ##  --exclude="test_custom_generation_works" # will only work with python-pygments==2.6.1
+    LANG=en_US.UTF-8 nosetests \
+      --exclude="test_log_filter"  \
+      --exclude="test_basic_generation_works" \
+      --exclude="test_custom_generation_works"
+}
