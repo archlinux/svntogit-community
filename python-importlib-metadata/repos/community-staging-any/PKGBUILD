@@ -3,7 +3,7 @@
 pkgname=python-importlib-metadata
 pkgver=5.0.0
 _commit=009ace37032742922d5fa04c62f04cea703ade2d
-pkgrel=4
+pkgrel=5
 pkgdesc="Read metadata from Python packages"
 url="https://importlib-metadata.readthedocs.io"
 license=('Apache')
