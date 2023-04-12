@@ -4,35 +4,37 @@
 # Contributor: Cristian Porras <porrascristian@gmail.com>
 # Contributor: Matthew Bentley <matthew@mtbentley.us>
 
-pkgname=godot
-pkgver=4.0.1
+pkgbase=godot
+pkgname=(godot)
+pkgver=4.0.2
 pkgrel=1
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org/'
 license=(MIT)
 arch=(x86_64)
-makedepends=(alsa-lib gcc pulseaudio scons yasm)
+makedepends=(alsa-lib pulseaudio scons yasm)
 depends=(embree freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
          libsquish libtheora libvorbis libwebp libwslay libxcursor libxi
          libxinerama libxrandr mbedtls miniupnpc pcre2)
 optdepends=(pipewire-alsa pipewire-pulse)
-source=("$pkgname-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
-b2sums=('e489898395cd50e2c3706fc8ac7c95e27a9fea8cc6326aa02a99ff65afb7dd0a2c3ed50cc15a4d1cbf3d1ae204d57a00a1dcbbb3af7f55f0475ca475c23f3143')
+source=("$pkgbase-$pkgver.tar.gz::https://github.com/godotengine/godot/archive/$pkgver-stable.tar.gz")
+b2sums=('56069525ee31d6750c6c0107a58e8cb90ad0d06d5a521c127dbe5ba102577a1a8a906ac2c2eeb250156ad3ffbd5c3c3d2c3a590cfd2240ddc2b004b8e8dff208')
+sha256sums=('d978282597c5e3a398ad3ade8b5a68d351178c82b197fa6a64045f4abc37e5a6')
 
 prepare() {
   # Update the MIME info, ref FS#77810
   sed -i 's,xmlns="https://specifications.freedesktop.org/shared-mime-info-spec",xmlns="http://www.freedesktop.org/standards/shared-mime-info",g' \
-    $pkgname-$pkgver-stable/misc/dist/linux/org.godotengine.Godot.xml
+    $pkgbase-$pkgver-stable/misc/dist/linux/org.godotengine.Godot.xml
 }
 
 build() {
+  cd $pkgbase-$pkgver-stable
+  export BUILD_NAME=arch_linux
   # Not unbundled (yet):
   #  enet (contains no upstreamed IPv6 support)
   #  AUR: libwebm, rvo2
   #  recastnavigation, xatlas
-  cd $pkgname-$pkgver-stable
-  export BUILD_NAME=arch_linux
-  scons -j16 \
+  scons -j$(nproc --all) \
     CFLAGS="$CFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
     CXXFLAGS="$CXXFLAGS -fPIC -Wl,-z,relro,-z,now -w" \
     LINKFLAGS="$LDFLAGS" \
@@ -71,14 +73,14 @@ build() {
     werror=no
 }
 
-package() {
-  cd $pkgname-$pkgver-stable
+package_godot() {
+  cd $pkgbase-$pkgver-stable
   install -Dm644 misc/dist/linux/org.godotengine.Godot.desktop \
     "$pkgdir/usr/share/applications/godot.desktop"
   install -Dm644 icon.svg "$pkgdir/usr/share/pixmaps/godot.svg"
-  install -Dm755 bin/godot.linuxbsd.editor.$CARCH "$pkgdir/usr/bin/godot"
   install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/godot/LICENSE"
   install -Dm644 misc/dist/linux/godot.6 "$pkgdir/usr/share/man/man6/godot.6"
   install -Dm644 misc/dist/linux/org.godotengine.Godot.xml \
     "$pkgdir/usr/share/mime/packages/org.godotengine.Godot.xml"
+  install -Dm755 bin/godot.linuxbsd.editor.$CARCH "$pkgdir/usr/bin/godot"
 }
