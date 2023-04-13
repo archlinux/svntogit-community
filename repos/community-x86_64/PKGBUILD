@@ -7,13 +7,13 @@
 pkgbase=godot
 pkgname=(godot)
 pkgver=4.0.2
-pkgrel=1
+pkgrel=2
 pkgdesc='Advanced cross-platform 2D and 3D game engine'
 url='https://godotengine.org/'
 license=(MIT)
 arch=(x86_64)
 makedepends=(alsa-lib pulseaudio scons yasm)
-depends=(embree freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
+depends=(embree3 freetype2 graphite harfbuzz harfbuzz-icu libglvnd libspeechd
          libsquish libtheora libvorbis libwebp libwslay libxcursor libxi
          libxinerama libxrandr mbedtls miniupnpc pcre2)
 optdepends=(pipewire-alsa pipewire-pulse)
