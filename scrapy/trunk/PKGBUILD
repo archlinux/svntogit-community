@@ -3,40 +3,102 @@
 # Contributor: Anibal Pacheco <apacheco.uy@gmail.com>
 
 pkgname=scrapy
-pkgver=2.7.1
+pkgver=2.8.0
 pkgrel=1
 pkgdesc="A fast high-level scraping and web crawling framework."
 arch=('any')
 license=('BSD')
 url="https://scrapy.org"
-depends=('python-twisted' 'python-cryptography' 'python-cssselect' 'python-itemloaders'
-         'python-lxml' 'libxml2' 'python-parsel' 'python-pydispatcher' 'python-pyopenssl'
-         'python-queuelib' 'python-service-identity' 'python-setuptools' 'python-w3lib'
-         'python-zope-interface' 'python-protego' 'python-itemadapter' 'python-h2'
-         'python-priority' 'python-tldextract' 'python-packaging')
-checkdepends=('python-pytest' 'python-botocore' 'bpython' 'python-brotli' 'python-jmespath'
-              'ipython' 'mitmproxy' 'python-pillow' 'python-sybil' 'python-testfixtures'
-              'python-pyftpdlib' 'python-uvloop')
-optdepends=('ipython: for enhanced support of the interactive scraping shell')
-source=("$pkgname-$pkgver.tar.gz::https://github.com/scrapy/scrapy/archive/$pkgver.tar.gz")
-sha512sums=('f38f3be2c7a05ac7b594cf23b025a771a653e35b59771e55d095292ccd07f0f4262c145e9522c457f6ba6e4976d332c7e6961f6ee6e0118fe00650e191d76032')
+depends=(
+  'python'
+  'python-cryptography'
+  'python-cssselect'
+  'python-itemadapter'
+  'python-itemloaders'
+  'python-lxml'
+  'python-packaging'
+  'python-parsel'
+  'python-protego'
+  'python-pydispatcher'
+  'python-pyopenssl'
+  'python-queuelib'
+  'python-service-identity'
+  'python-setuptools'
+  'python-tldextract'
+  'python-twisted'
+  'python-w3lib'
+  'python-zope-interface'
+)
+makedepends=(
+  'python-build'
+  'python-installer'
+  'python-wheel'
+)
+checkdepends=(
+  'bpython'
+  'ipython'
+  'mitmproxy'
+  'python-attrs'
+  'python-botocore'
+  'python-brotli'
+  'python-h2'
+  'python-markupsafe'
+  'python-pyftpdlib'
+  'python-pytest'
+  'python-sybil'
+  'python-testfixtures'
+  'python-uvloop'
+  'python-zstandard'
+)
+optdepends=(
+  'bpython: for ncurses support in cmdline'
+  'ipython: for enhanced support of the interactive scraping shell'
+  'python-botocore: for various utils'
+  'python-brotli: for HTTP compression using brotli'
+  'python-h2: for HTTP2 support'
+  'python-hpack: for HTTP2 streaming support'
+  'python-zstandard: for HTTP compression using zstandard'
+)
+source=(
+  "$pkgname-$pkgver.tar.gz::https://github.com/scrapy/scrapy/archive/$pkgver.tar.gz"
+  $pkgname-1.8.0-cryptography.patch::https://github.com/scrapy/scrapy/commit/ada917307844950a81226f020b596d5932187f6e.patch
+)
+sha512sums=('c758e8aad459aad5f447e6e721afd3c8e8f5743c8a0961d7562ecea9735444a2a2b7fd1b4c443fd3623fcb9bd3db5fdd108aa6fe7fa629a36229a3175eabac7d'
+            '2b617f6b9710f711c10d3ba2011656fcf2893a6b7e86d61ed3710de3790686b2ad521d2c6655b4535f92243aaaff7ecfef1f27a0644bd660c26cc2f8c38f4116')
+b2sums=('9a02d50cfde6c829e6c9064f29b75de4fb97139759b7822e20914ad3edfae104df3b4d65452f58bae6f4b7af4407ed87c6dc59000e5285e823637e54f1412102'
+        '436f2984552e2186c3dab8f920e7e71aa3cfa04835303610c452352b71b19342356dc624fa105173cc80762de1e6a2b277371da268bdc524bf4ceb2daf7de25b')
+
+prepare() {
+  # fix issues due to using pyopenssl internals: https://github.com/scrapy/scrapy/issues/5857
+  patch -Np1 -d $pkgname-$pkgver -i ../$pkgname-1.8.0-cryptography.patch
+}
 
 build() {
-  cd scrapy-$pkgver
-  python setup.py build
+  cd $pkgname-$pkgver
+  python -m build --wheel --no-isolation
 }
 
 check() {
-  cd scrapy-$pkgver
-# test_proxy_connect hangs with mitmproxy 8.0 https://github.com/scrapy/scrapy/issues/5454
-  PYTHONPATH="$PWD/build/lib" pytest tests -k 'not test_proxy_connect'
+  local pytest_options=(
+    -vv
+    # integration tests are blocking and unnecessary
+    --ignore tests/test_proxy_connect.py
+    # TODO: raise upstream
+    --deselect tests/test_crawl.py::CrawlTestCase::test_start_requests_laziness
+  )
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+
+  cd $pkgname-$pkgver
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="$PWD/test_dir/$site_packages:$PYTHONPATH"
+  pytest "${pytest_options[@]}" tests
 }
 
 package() {
-  cd scrapy-$pkgver
-  python setup.py install -O1 --root="$pkgdir"
+  cd $pkgname-$pkgver
+  python -m installer --destdir="$pkgdir" dist/*.whl
 
-  install -D -m644 LICENSE "$pkgdir"/usr/share/licenses/$pkgname/LICENSE
-  install -D -m644 README.rst "$pkgdir"/usr/share/doc/$pkgname/README.rst
-  install -D -m644 docs/intro/install.rst "$pkgdir"/usr/share/doc/$pkgname/INSTALL.rst
+  install -D -m644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+  install -D -m644 README.rst -t "$pkgdir"/usr/share/doc/$pkgname/
+  install -D -m644 docs/intro/install.rst -t "$pkgdir"/usr/share/doc/$pkgname/
 }
