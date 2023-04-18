@@ -1,9 +1,11 @@
 # Maintainer: David Runge <dvzrv@archlinux.org>
 
 pkgbase=cri-tools
-pkgname=(crictl critest)
-pkgver=1.26.1
-_commit=300f0781645f12437b43fba5dd232733e0f2f82f  # v1.26.1
+pkgname=(
+  crictl
+  critest
+)
+pkgver=1.27.0
 pkgrel=1
 pkgdesc="CLI and validation tools for Kubelet Container Runtime Interface (CRI)"
 arch=(x86_64)
@@ -11,62 +13,62 @@ url="https://github.com/kubernetes-sigs/cri-tools"
 license=(Apache)
 groups=(kubernetes-tools)
 depends=(glibc)
-makedepends=(git go)
-# can only build from git: https://github.com/kubernetes-sigs/cri-tools/issues/676
+makedepends=(go)
 source=(
-  git+$url#commit=$_commit
-  $pkgbase-1.24.1-makefile.patch
+  https://github.com/kubernetes-sigs/cri-tools/archive/v$pkgver/$pkgbase-v$pkgver.tar.gz
+  $pkgbase-1.27.0-makefile.patch
 )
-sha512sums=('SKIP'
-            'b3c47dfd7a624faecc94627dbcb6279af6927a5c4bd470b244619b2dc24b1afc2a3378491583686e0c763c98191d1f2122afa75cdf9c4f4a7a70e344f5c7e5a4')
-b2sums=('SKIP'
-        '51e53be22879437df77507c1157a80081cfd5db12ecd3f24e3ed7d4f421e79ad8c48347ba3e2888e896b2cbb658a13f61bbbe123e4ed34ef315864e5eef9ca85')
+sha512sums=('b94122e6401eb0c33b9c3d112274b7ab20cbbad05e76a54933e79d2e42ded2d684771cb9ed703a6c1afa381844142b6f1b4dc77d17e915f9a42c236fd8426b9b'
+            'd243325031c5abccfec7035575abeb4af87724a28f90e75b575dec01435deaf6ea157f75725b7bfe1f982b8353ebefb07e22103c9b2027b19d8c233651363f11')
+b2sums=('d6c0429271ebc4085e75b54d7f3b9f75ab796e63bc9ae7562105296b13bbad8b512293a7d25abf1ab946f4bf54e672016fdb72696c12c730d21ac74724da465c'
+        '428c8f35b61ecf9e7c261903fd5dc8b15b26a6b326a510f7b888f3d6989695e6345c98832886da5dfdc15b9087302a866c272a33cdb6f45d7698c70bcfdff1ca')
 
 prepare() {
-  # set CGO_ENABLED, honor GOFLAGS and allow adding to GO_LDFLAGS
-  patch -Np1 -d $pkgbase -i ../$pkgbase-1.24.1-makefile.patch
+  # fix various issues with Makefile: https://github.com/kubernetes-sigs/cri-tools/pull/1140
+  patch -Np1 -d $pkgbase-$pkgver -i ../$pkgbase-1.27.0-makefile.patch
 }
 
 build() {
-  export CGO_CPPFLAGS="${CPPFLAGS}"
-  export CGO_CFLAGS="${CFLAGS}"
-  export CGO_CXXFLAGS="${CXXFLAGS}"
-  export CGO_LDFLAGS="${LDFLAGS}"
-  export GOFLAGS="-buildmode=pie -trimpath -ldflags=-linkmode=external -mod=readonly -modcacherw"
-  # NOTE: this ensures the binaries have full RELRO
-  export GO_LDFLAGS="-linkmode=external"
+  local common_ldflags=(
+    -compressdwarf=false
+    -linkmode external
+  )
 
-  make -C $pkgbase
+  export CGO_CPPFLAGS="$CPPFLAGS"
+  export CGO_CFLAGS="$CFLAGS"
+  export CGO_CXXFLAGS="$CXXFLAGS"
+  export CGO_LDFLAGS="$LDFLAGS"
+  export CGO_ENABLED=1
+  export GOPATH="${srcdir}"
+  export GOFLAGS="-buildmode=pie -mod=readonly -modcacherw"
 
-  # crictl shell completion
+  make VERSION=$pkgver GO_LDFLAGS="${common_ldflags[*]}" -C $pkgbase-$pkgver
+
   mkdir -vp completions
-  local _binary
-  for _binary in crictl; do
-    $pkgbase/build/bin/linux/amd64/$_binary completion bash > completions/$_binary
-    $pkgbase/build/bin/linux/amd64/$_binary completion zsh > completions/_$_binary
-    $pkgbase/build/bin/linux/amd64/$_binary completion fish > completions/$_binary.fish
-  done
+  $pkgbase-$pkgver/build/bin/linux/amd64/crictl completion bash > completions/crictl
+  $pkgbase-$pkgver/build/bin/linux/amd64/crictl completion zsh > completions/_crictl
+  $pkgbase-$pkgver/build/bin/linux/amd64/crictl completion fish > completions/crictl.fish
 }
 
 package_crictl() {
   pkgdesc="A CLI for CRI-compatible container runtimes"
 
-  install -vDm 755 $pkgbase/build/bin/linux/amd64/$pkgname -t "$pkgdir/usr/bin/"
+  install -vDm 755 $pkgbase-$pkgver/build/bin/linux/amd64/$pkgname -t "$pkgdir/usr/bin/"
   # shell completion
   install -vDm 644 completions/$pkgname -t "$pkgdir/usr/share/bash-completion/completions/"
   install -vDm 644 completions/_$pkgname -t "$pkgdir/usr/share/zsh/site-functions/"
   install -vDm 644 completions/$pkgname.fish -t "$pkgdir/usr/share/fish/completions/"
   # docs
-  install -vDm 644 $pkgbase/docs/$pkgname.md -t "$pkgdir/usr/share/doc/$pkgname/"
-  install -vDm 644 $pkgbase/docs/examples/*.{json,yaml} -t "$pkgdir/usr/share/doc/$pkgname/examples/"
-  install -vDm 644 $pkgbase/{{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} -t "$pkgdir/usr/share/doc/$pkgname"
+  install -vDm 644 $pkgbase-$pkgver/docs/$pkgname.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/docs/examples/*.{json,yaml} -t "$pkgdir/usr/share/doc/$pkgname/examples/"
+  install -vDm 644 $pkgbase-$pkgver/{{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} -t "$pkgdir/usr/share/doc/$pkgname"
 }
 
 package_critest() {
   pkgdesc="A benchmarking CLI for CRI-compatible container runtimes"
 
-  install -vDm 755 $pkgbase/build/bin/linux/amd64/$pkgname -t "$pkgdir/usr/bin/"
+  install -vDm 755 $pkgbase-$pkgver/build/bin/linux/amd64/$pkgname -t "$pkgdir/usr/bin/"
   # docs
-  install -vDm 644 $pkgbase/docs/{benchmark,validation}.md -t "$pkgdir/usr/share/doc/$pkgname/"
-  install -vDm 644 $pkgbase/{{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/docs/{benchmark,validation}.md -t "$pkgdir/usr/share/doc/$pkgname/"
+  install -vDm 644 $pkgbase-$pkgver/{{CHANGELOG,CONTRIBUTING,README,code-of-conduct}.md,SECURITY_CONTACTS} -t "$pkgdir/usr/share/doc/$pkgname/"
 }
