@@ -3,7 +3,7 @@
 _pkgname=poetry-plugin-export
 pkgname=python-poetry-plugin-export
 pkgver=1.3.0
-pkgrel=2
+pkgrel=3
 pkgdesc="Poetry plugin to export the dependencies to various formats "
 url="https://github.com/python-poetry/poetry-plugin-export"
 license=('MIT')
