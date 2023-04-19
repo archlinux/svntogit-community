@@ -10,7 +10,7 @@ arch=(x86_64)
 url='https://cython.org'
 license=(APACHE)
 makedepends=(python-setuptools)
-source=(https://github.com/cython/cython/archive/$pkgver/$pkgbase-$pkgver.tar.gz)
+source=(https://github.com/cython/cython/archive/$pkgver/$pkgname-$pkgver.tar.gz)
 sha256sums=('6428ed43b8d0edd961e0b45502a0b1e64059d84a0ed2abb84d20e9a6d9047dc6')
 
 build() {
