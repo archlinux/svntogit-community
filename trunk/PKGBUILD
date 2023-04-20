@@ -2,8 +2,8 @@
 
 _pkgname=sphinx-theme-builder
 pkgname=python-$_pkgname
-pkgver=0.2.0b1
-pkgrel=3
+pkgver=0.2.0b2
+pkgrel=1
 pkgdesc='Python build backend for Sphinx themes'
 arch=('any')
 url='https://github.com/pradyunsg/sphinx-theme-builder'
@@ -15,7 +15,7 @@ optdepends=('python-build: CLI'
 makedepends=('python-build' 'python-installer' 'python-flit-core')
 checkdepends=('python-pytest' 'python-click' 'python-sphinx-autobuild')
 source=("$pkgname-$pkgver.tar.gz::$url/archive/$pkgver.tar.gz")
-sha512sums=('dd7a5ff4f0765abc0ed92d6588e9d46e40c521787340578016a2dc9acc6f0da1eb40ad7eb08ca76901ce724db47a126132d6d6a96041b36f9000d5299d36e246')
+sha512sums=('9900812cbb91a2fae666c010caef0fc2d250ff7ef8ae7b0105c72cee678e4be49784530c49c43d0260e22882ca7b89d4dd83da0c5a59cf3f944647f84e9fd6bf')
 
 build() {
   cd $_pkgname-$pkgver
