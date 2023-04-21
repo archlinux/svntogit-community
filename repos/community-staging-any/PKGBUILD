@@ -2,42 +2,53 @@
 
 pkgname=python-cfn-lint
 # https://github.com/aws-cloudformation/cfn-lint/blob/main/CHANGELOG.md
-pkgver=0.74.1
-pkgrel=3
+pkgver=0.77.2
+# curl https://api.github.com/repos/aws-cloudformation/cfn-lint/git/ref/tags/v$pkgver | jq -r .object.sha
+_tag=548ac3f86ba1fd0a65ba13268742c03e886997c0
+pkgrel=2
 pkgdesc='CloudFormation Linter'
 arch=(any)
 url='https://github.com/aws-cloudformation/cfn-lint'
 license=('custom:MIT No Attribution')
 depends=(python python-yaml python-aws-sam-translator
          python-jsonpatch python-jsonschema python-networkx
-         python-junit-xml python-jschema-to-python python-sarif-om)
-makedepends=(python-setuptools)
-checkdepends=(python-pytest python-pydot)
+         python-junit-xml python-jschema-to-python python-sarif-om
+         python-sympy python-regex)
+makedepends=(git python-setuptools)
+checkdepends=(python-pydot)
 optdepends=(
   'python-pydot: for building graphs from templates'
 )
-source=("https://github.com/aws-cloudformation/cfn-lint/archive/v$pkgver/cfn-lint-$pkgver.tar.gz")
-sha256sums=('8caa2808bd786f5416fd2078bc82af50d8c33dea10a9f6c1ef0ce6fc4ae57742')
+source=("git+https://github.com/aws-cloudformation/cfn-lint.git#tag=$_tag")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd cfn-lint
+  git describe --tags | sed 's/^v//'
+}
 
 build() {
-  cd cfn-lint-$pkgver
+  cd cfn-lint
   python setup.py build
 }
 
 check() {
-  cd cfn-lint-$pkgver
+  cd cfn-lint
 
   # Tests in test/integration need the cfn-lint binary
   python setup.py install_scripts --install-dir="$srcdir"/tmp_install
 
   export PYTHONPATH="$PWD/src"
   export PATH="$PATH:$srcdir/tmp_install"
-  # test_update_docs requires cfn-lint as a git repo
-  pytest test -k 'not test_update_docs'
+  # Using unittest following upstream. `test/unit/module/core/test_run_cli.py`
+  # fails if run after `test/unit/module/test_api.py`, which is the case for pytest.
+  # The conflict among tests exist after https://github.com/aws-cloudformation/cfn-lint/pull/2646,
+  # where the new runner.transform() pollutes environment variables via transform.transform_template()
+  python -m unittest discover test
 }
 
 package() {
-  cd cfn-lint-$pkgver
+  cd cfn-lint
   python setup.py install --root="$pkgdir" --optimize=1 --skip-build
 
   install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname
