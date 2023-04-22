@@ -4,7 +4,7 @@
 
 pkgname=dolphin-emu
 pkgver=5.0.r18498.46b99671d9
-pkgrel=2
+pkgrel=3
 epoch=1
 pkgdesc='A Gamecube / Wii / Triforce emulator'
 arch=(x86_64)
@@ -34,7 +34,7 @@ depends=(
   libxi
   libxrandr
   lzo
-  mbedtls
+  #mbedtls
   minizip-ng
   pugixml
   qt6-base
@@ -55,12 +55,14 @@ source=(
   git+https://github.com/mozilla/cubeb.git
   git+https://github.com/epezent/implot.git
   git+https://github.com/randy408/libspng.git
+  git+https://github.com/RetroAchievements/rcheevos.git
   git+https://github.com/arsenm/sanitizers-cmake.git
   git+https://github.com/KhronosGroup/SPIRV-Cross.git
   git+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
   git+https://github.com/zlib-ng/zlib-ng.git
 )
 b2sums=('SKIP'
+        'SKIP'
         'SKIP'
         'SKIP'
         'SKIP'
