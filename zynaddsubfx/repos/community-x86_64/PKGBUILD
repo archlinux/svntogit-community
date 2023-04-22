@@ -6,7 +6,7 @@
 
 pkgname=zynaddsubfx
 pkgver=3.0.6
-pkgrel=3
+pkgrel=4
 _mruby_zest_commit='dd3d45ba333011f2359e86f9a758d9836e53fe5f'  # refs/tags/3.0.6
 pkgdesc="Opensource software synthesizer capable of making a countless number of instruments."
 arch=(x86_64)
@@ -133,7 +133,7 @@ prepare() {
     git config submodule.deps/mruby-errno.url "$srcdir/$pkgname-mruby-errno"
     git config submodule.deps/mruby-file-stat.url "$srcdir/$pkgname-mruby-file-stat"
     git config submodule.deps/mruby-process.url "$srcdir/$pkgname-mruby-process"
-    git submodule update
+    git -c protocol.file.allow=always submodule update
     # use system provided rtosc
     patch -Np1 -i ../$pkgname-mruby-zest-build-3.0.6-devendor_rtosc.patch
     # load libzest.so from custom system location in /usr/lib/zynaddsubfx/
@@ -150,18 +150,21 @@ prepare() {
 }
 
 build() {
-  cmake -DCMAKE_INSTALL_PREFIX=/usr \
-        -DCMAKE_BUILD_TYPE=None \
-        -DDefaultOutput=jack \
-        -DDefaultInput=jack \
-        -DGuiModule=zest \
-        -DZYN_SYSTEM_RTOSC=ON \
-        -W no-dev \
-        -B build \
-        -S $pkgname-$pkgver
-  make VERBOSE=1 -C build
-  make man -C $pkgname-$pkgver/doc
+  local cmake_options=(
+    -B build
+    -D CMAKE_BUILD_TYPE=None
+    -D CMAKE_INSTALL_PREFIX=/usr
+    -D DefaultInput=jack
+    -D DefaultOutput=jack
+    -D GuiModule=zest
+    -D ZYN_SYSTEM_RTOSC=ON
+    -S $pkgname-$pkgver
+    -W no-dev
+  )
 
+  cmake "${cmake_options[@]}"
+  cmake --build build --verbose
+  make man -C $pkgname-$pkgver/doc
   # TODO: fix full RELRO
   make -C $pkgname-mruby-zest-build
 }
@@ -171,14 +174,20 @@ check() {
 }
 
 package() {
-  depends+=(libasound.so libjack.so liblo.so libmxml.so libportaudio.so
-  librtosc.so librtosc-cpp.so)
+  depends+=(
+    alsa-lib libasound.so
+    jack libjack.so
+    liblo liblo.so
+    mxml libmxml.so
+    portaudio libportaudio.so
+    rtosc librtosc.so librtosc-cpp.so
+  )
 
-  make DESTDIR="$pkgdir" install -C build
+  DESTDIR="$pkgdir" cmake --install build
   install -vDm 644 $pkgname-$pkgver/$pkgname.svg -t "$pkgdir/usr/share/icons/hicolor/scalable/apps/"
   install -vDm 644 $pkgname-$pkgver/doc/$pkgname.1 -t "$pkgdir/usr/share/man/man1/"
 
-  cd "$pkgname-mruby-zest-build"
+  cd $pkgname-mruby-zest-build
   install -vDm 755 zest "$pkgdir/usr/bin/zyn-fusion"
   install -vDm 755 libzest.so -t "$pkgdir/usr/lib/$pkgname/"
   install -vDm 644 src/mruby-zest/{example,qml}/*.qml -t "$pkgdir/usr/share/$pkgname/qml/"
