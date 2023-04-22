@@ -6,8 +6,8 @@
 pkgbase=lib32-mesa
 pkgname=('lib32-vulkan-mesa-layers' 'lib32-opencl-mesa' 'lib32-vulkan-intel' 'lib32-vulkan-radeon' 'lib32-vulkan-virtio' 'lib32-libva-mesa-driver' 'lib32-mesa-vdpau' 'lib32-mesa')
 pkgdesc="An open-source implementation of the OpenGL specification (32-bit)"
-pkgver=23.0.2
-pkgrel=2
+pkgver=23.0.3
+pkgrel=1
 arch=('x86_64')
 makedepends=('python-mako' 'lib32-libxml2' 'lib32-expat' 'lib32-libx11' 'xorgproto' 'lib32-libdrm'
              'lib32-libxshmfence' 'lib32-libxxf86vm' 'lib32-libxdamage' 'lib32-libvdpau'
@@ -22,13 +22,13 @@ source=(https://mesa.freedesktop.org/archive/mesa-${pkgver}.tar.xz{,.sig}
         0002-egl-wayland-Fix-destruction-of-event-queue-with-prox.patch
         0003-vulkan-wsi-wayland-Fix-destruction-of-event-queue-wi.patch
         LICENSE)
-sha256sums=('1b7d3399fc6f16f030361f925d33ebc7600cbf98094582f54775b6a1180529e7'
+sha256sums=('386362a5d80df3b096636b67f340e1ce67b705b44767d5bdd11d2ed1037192d5'
             'SKIP'
             'dc6790b5be0e80c23e74ae18ca1a2b40f57f4211cc7b645bf22b63af3b790e40'
             'c25493de3e5930702acf833d182aeca0895d6a9d9e830dca15c42d130e25c41c'
             'db2be7ae0540d65e77449eda1af66200e27af382183fdcd0c87f99db3520b80a'
             '7052ba73bb07ea78873a2431ee4e828f4e72bda7d176d07f770fa48373dec537')
-b2sums=('5a90fcd8b7096dde1e6c82b9bb5b00622cc1cf35e4308419441d3489d66ed322843db89f2f1162c8c30f6bcddbce867447f83425a29145bd42a742b773ec1258'
+b2sums=('e716d9ddce3da649239c1bc37ec208b9669f316f6b547ca0c69937043f371f0d59ead34fec427297171916045061ddb8783d126f6dec5ece90a0719003fe2c40'
         'SKIP'
         '37d1d070c45c85bce8abe3524a3f8d9ac9ed6326a3eec653cd89fffce3630b08eb9b96b11aeb495488230449c99f9b508f73a15e53265d2b159286b0e2dda7cc'
         'ae891637318fdbb8dd58285098af7bea709fb032969a5671eb225a4a471bf9422fac2a6cb0fd188aad96ea5a03eb043f646f5d371dd655a100046adb1c91bd7d'
