@@ -1,0 +1,56 @@
+# Maintainer:
+# Contributor: Geoffroy Carrier <geoffroy@archlinux.org>
+# Contributor: Thorsten Tasch <tht@thorstentasch.de>
+# Contributor: JJDaNiMoTh <jjdanimoth@gmail.com>
+# Contributor: Daniel J Griffiths <ghost1227@archlinux.us>
+
+pkgname=rsnapshot
+pkgver=1.4.5
+pkgrel=1
+pkgdesc="A remote filesystem snapshot utility"
+arch=('any')
+url="https://www.rsnapshot.org"
+license=('GPL')
+depends=('perl' 'rsync' 'openssh' 'perl-lchown')
+backup=('etc/rsnapshot.conf')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/rsnapshot/rsnapshot/archive/$pkgver.tar.gz"
+        'rsnapshot'
+		'0001-added-missing-back.patch'
+		"pod-fix.patch")
+sha256sums=('8ef500e2eaee85a37fb8000f73b3b1325569fcfe940a7e8ea66a8f243cb289a3'
+            'ab98a605b8c8fe3d99dcd6c5d74ec3bc3c19dcf95766290ae697594fa881122f'
+            '8b89cb048b5b52b2fe748ec14e9d092e79fc2bd24e9cd5c0877bac535466cc8e'
+            '9f89badd3c3dbea6c03883ae269f7759b869a3c981eff699353dce7d19becb47')
+
+prepare() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+
+	patch -p1 -i "$srcdir/0001-added-missing-back.patch"
+	patch -p1 -i "$srcdir/pod-fix.patch"
+
+	# SSH testing requires a local SSH daemon with a specific user and won't
+	# work reliably on different build hosts.
+	rm t/ssh_args/ssh_args.t.in
+}
+
+build() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	./autogen.sh
+	./configure --prefix=/usr --sysconfdir=/etc --mandir=/usr/share/man
+	sed -i 's:/usr/bin/pod2man:/usr/bin/core_perl/pod2man:' Makefile
+	make
+}
+
+check() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+	make test
+}
+
+package() {
+	cd "${srcdir}/${pkgname}-${pkgver}"
+
+	make DESTDIR=${pkgdir} install
+	install -Dm755 utils/rsnapreport.pl "$pkgdir/usr/bin/rsnapreport.pl"
+	mv "${pkgdir}/etc/rsnapshot.conf.default" "${pkgdir}/etc/rsnapshot.conf"
+	install -Dm644 "${srcdir}/rsnapshot" "${pkgdir}/etc/logrotate.d/rsnapshot"
+}
