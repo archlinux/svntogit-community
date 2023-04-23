@@ -2,14 +2,31 @@
 
 _pkg=dask
 pkgname=python-${_pkg}
-pkgver=2022.12.1
-pkgrel=2
+pkgver=2023.4.0
+pkgrel=1
 pkgdesc="Parallel computing with task scheduling"
 arch=(any)
 url="https://dask.org"
 license=(BSD)
-makedepends=(python-setuptools)
-depends=(python python-click python-cloudpickle python-fsspec python-packaging python-partd python-toolz python-yaml mpdecimal)
+depends=(
+    mpdecimal
+    python
+    python-click
+    python-cloudpickle
+    python-fsspec
+    python-importlib-metadata
+    python-packaging
+    python-partd
+    python-pyyaml
+    python-toolz
+)
+makedepends=(
+    python-build
+    python-installer
+    python-setuptools
+    python-versioneer
+    python-wheel
+)
 optdepends=(
 #    'python-bokeh: visualizing dask diagnostics'
 #    'python-cityhash: faster hashing of arrays'
@@ -67,20 +84,28 @@ checkdepends=(
 )
 #source=(https://files.pythonhosted.org/packages/source/${_pkg::1}/${_pkg}/${_pkg}-${pkgver}.tar.gz)
 source=(https://github.com/dask/dask/archive/${pkgver}/${pkgname}-${pkgver}.tar.gz)
-sha256sums=('2a03f234e8310d6f7a10c041cc69aeed3840e96c689ebe86fc9c212fcaee9734')
+sha256sums=('f3d4d4ab004f617f7f8f0dddac55a87c6ebae19fccdf2b68a400870bdbfbd4d3')
 
 build() {
   cd ${_pkg}-${pkgver}
-  python setup.py build
+  python -m build --wheel --no-isolation
 }
 
 check() {
+  local site_packages=$(python -c "import site; print(site.getsitepackages()[0])")
+  local pytest_options=(
+    -vv
+    --ignore test_dir/$site_packages/$_pkg/tests/test_distributed.py
+  )
+
   cd ${_pkg}-${pkgver}
-  pytest -vvrsfE --color=yes dask/tests dask/array/tests dask/bag/tests dask/bytes/tests dask/dataframe/tests -W 'ignore:There is no current event loop:DeprecationWarning'
+  python -m installer --destdir=test_dir dist/*.whl
+  export PYTHONPATH="$PWD/test_dir/$site_packages:$PYTHONPATH"
+  pytest "${pytest_options[@]}" "$PWD/test_dir/$site_packages/$_pkg/"
 }
 
 package() {
   cd ${_pkg}-${pkgver}
-  python setup.py install --prefix=/usr --root="${pkgdir}" --optimize=1 --skip-build
+  python -m installer --destdir="$pkgdir" dist/*.whl
   install -Dm644 LICENSE.txt -t "${pkgdir}"/usr/share/licenses/${pkgname}/
 }
