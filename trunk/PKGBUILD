@@ -6,7 +6,7 @@
 
 pkgname=python-sphinx
 pkgver=6.2.1
-pkgrel=1
+pkgrel=2
 pkgdesc='Python documentation generator'
 arch=('any')
 url=http://www.sphinx-doc.org/
