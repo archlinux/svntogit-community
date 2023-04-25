@@ -1,0 +1,54 @@
+# Maintainer: Felix Yan <felixonmars@archlinux.org>
+
+pkgname=python-hunter
+pkgver=3.6.0
+pkgrel=1
+arch=('x86_64')
+pkgdesc='Hunter is a flexible code tracing toolkit'
+license=('BSD')
+url='https://github.com/ionelmc/python-hunter'
+depends=('python-colorama' 'python-cymem' 'python-manhole')
+optdepends=('gdb: for remote support')
+makedepends=('python-setuptools-scm' 'python-wheel' 'cython')
+checkdepends=('python-pytest-benchmark' 'python-virtualenv' 'python-pytest' 'gdb'
+              'python-process-tests' 'python-aspectlib')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/ionelmc/python-hunter/archive/v$pkgver.tar.gz")
+sha512sums=('5b5a6e7e2f26f71ff151d40fe0b660141ff2d2637fa9a226e9a1a4ead5267cf1e851baa0a439a94aa4b537db3fbdc5cd660304f64ad08ee90a115516c3848547')
+
+prepare() {
+  cd python-hunter-$pkgver
+  rm src/hunter/*.c
+  rm -r src/hunter/vendor
+  rm tests/eviltracer.*
+
+  sed -i 's/from .vendor.colorama/from colorama/' src/hunter/{actions,util}.py
+  sed -i 's/from .vendor._cymem.cymem/from cymem.cymem/' src/hunter/_event.pyx
+}
+
+build() {
+  cd python-hunter-$pkgver
+  python setup.py build
+}
+
+check() {
+  # Hack to process .pth files properly
+  # ptrace needed to pass the remote tests
+
+  cd python-hunter-$pkgver
+  python tests/setup.py build_ext --inplace
+  virtualenv "$srcdir/pyvenv" --system-site-packages
+  (
+    . "$srcdir/pyvenv/bin/activate"
+    python setup.py install
+    PYTHONPATH="$PWD/build/lib.linux-$CARCH-cpython-311" PATH="$srcdir/pyvenv/bin:$PATH" pytest
+  ) || :
+
+  # Clean up to prevent it from being installed
+  rm build/lib.linux-$CARCH-cpython-311/*.so
+}
+
+package() {
+  cd python-hunter-$pkgver
+  python setup.py install --root "$pkgdir" --optimize=1
+  install -Dm644 LICENSE -t "$pkgdir"/usr/share/licenses/$pkgname/
+}
