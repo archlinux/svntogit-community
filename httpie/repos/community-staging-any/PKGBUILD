@@ -1,0 +1,67 @@
+# Maintainer: Jelle van der Waa <jelle@archlinux.org>
+# Maintainer: daurnimator <daurnimator@archlinux.org>
+# Contributor: Daniel Micay <danielmicay@gmail.com>
+# Contributor: Thomas Weißschuh <thomas_weissschuh lavabit com>
+
+pkgname=httpie
+pkgver=3.2.1
+pkgrel=4
+pkgdesc="human-friendly CLI HTTP client for the API era"
+url="https://github.com/httpie/httpie"
+depends=('python-charset-normalizer'
+         'python-defusedxml'
+         'python-multidict'
+         'python-pip'
+         'python-pygments'
+         'python-pysocks'
+         'python-requests'
+         'python-requests-toolbelt'
+         'python-rich')
+makedepends=('python-setuptools')
+checkdepends=('python-pytest'
+              'python-pytest-httpbin'
+              'python-pytest-lazy-fixture'
+              'python-pytest-mock'
+              'python-responses'
+              'python-werkzeug')
+conflicts=(python-httpie)
+replaces=(python-httpie python2-httpie)
+license=('BSD')
+arch=('any')
+source=($pkgname-$pkgver.tar.gz::"https://github.com/httpie/httpie/archive/$pkgver.tar.gz"
+  "$pkgname-$pkgver-py311.patch::https://github.com/httpie/httpie/commit/e73c3e6c249b89496b4f81fa20bb449911da79f1.patch"
+)
+sha256sums=('803e1624e005c2f7002802a77ebc687b05375aca76af42639f844405328633eb'
+            '564cc2627f01c1b1b242e6e538736e539e56ec2ffc278d73d43df6ff04a85f47')
+
+prepare() {
+    cd "${pkgname}-${pkgver}"
+    patch -Np1 < "$srcdir/httpie-3.2.1-py311.patch"
+    
+}
+
+build() {
+  cd $pkgname-$pkgver
+  python3 setup.py build
+}
+
+package() {
+  cd $pkgname-$pkgver
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/httpie/LICENSE"
+  python3 setup.py install --root="$pkgdir" --optimize=1
+
+  # Fix upstream, include them in MANIFEST.in and use data_files in setup.py to install them automatically
+  # TODO: add zsh support
+  install -Dm644 extras/httpie-completion.bash "$pkgdir"/usr/share/bash-completion/completions/http
+  install -Dm644 extras/httpie-completion.fish "$pkgdir"/usr/share/fish/vendor_completions.d/http.fish
+}
+
+check() {
+  cd $pkgname-$pkgver
+  # The exclude line is taken from Fedora
+  # https://src.fedoraproject.org/rpms/httpie/blob/rawhide/f/httpie.spec
+  PYTHONDONTWRITEBYTECODE=1 pytest \
+    -m 'not requires_installation' \
+    -k "not (url_colon_slash_slash_only or quiet_with_check_status_non_zero or (plugins and uninstall) or broken_plugins or existing_and_new_cookies_sent_in_request or stdin_read_warning)" \
+    tests
+}
